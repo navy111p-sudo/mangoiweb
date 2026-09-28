@@ -1,0 +1,276 @@
+{
+ "book": 30,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001-003"
+   ],
+   "titles": [
+    "Living Abroad"
+   ],
+   "goals": [
+    "I can talk about living abroad.",
+    "I can ask Yes/No and Wh- questions.",
+    "I can give pros and cons."
+   ],
+   "words": [
+    [
+     "abroad",
+     "해외에(서)"
+    ],
+    [
+     "culture",
+     "문화"
+    ],
+    [
+     "beliefs",
+     "믿음·신념"
+    ],
+    [
+     "values",
+     "가치관"
+    ],
+    [
+     "traditions",
+     "전통"
+    ],
+    [
+     "misunderstanding",
+     "오해"
+    ]
+   ],
+   "sentences": [
+    "Would you like to live in a foreign country?",
+    "What is your country most famous for?",
+    "Which questions can you answer with just \"Yes\" or \"No\"?",
+    "**Have** you ever traveled abroad?",
+    "**Would** you like to live abroad?",
+    "**Do** you think …?",
+    "**What** was it like?",
+    "**Why** do students study abroad?",
+    "**How** might you misunderstand a foreigner?",
+    "Where in the world is it?",
+    "Mark wants to live abroad right now.",
+    "Is it in the city or the country? What is the geography like?",
+    "What do you do in your free time?"
+   ],
+   "songs": [],
+   "imgs": [
+    "12746",
+    "12595",
+    "21377",
+    "21176",
+    "12526",
+    "14879"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004-006"
+   ],
+   "titles": [
+    "My Free Time"
+   ],
+   "goals": [
+    "I can talk about my free time.",
+    "I can give a reason with so and because.",
+    "I can compromise with my friends."
+   ],
+   "words": [
+    [
+     "compromise",
+     "(서로) 양보하다"
+    ],
+    [
+     "flexible",
+     "융통성 있는"
+    ],
+    [
+     "intellectual",
+     "지적인"
+    ],
+    [
+     "leisure",
+     "여가"
+    ],
+    [
+     "rigorous",
+     "격렬한·힘든"
+    ],
+    [
+     "lifting weights",
+     "역기 들기"
+    ]
+   ],
+   "sentences": [
+    "What do you do in your free time?",
+    "Name 3 things you do in your free time and explain why you like them.",
+    "Where does the reason go — after so or after because?",
+    "I'm a very social person, **so** I always want to socialize.",
+    "I'm tired, **so** I take a nap.",
+    "Working out is important **because** I can't exercise while studying.",
+    "I read a lot **because** I love new ideas.",
+    "What are they doing?",
+    "The intellectual student reads only her schoolbooks.",
+    "What job do you want to have?"
+   ],
+   "songs": [],
+   "imgs": [
+    "17234",
+    "gen:bts-30-flexible",
+    "18615",
+    "12461",
+    "21253",
+    "13078"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007-009"
+   ],
+   "titles": [
+    "My Career"
+   ],
+   "goals": [
+    "I can talk about my talents and skills.",
+    "I can say what a job involves.",
+    "I can give my opinion and a reason."
+   ],
+   "words": [
+    [
+     "involuntary functions",
+     "저절로 일어나는 기능"
+    ],
+    [
+     "logic",
+     "논리"
+    ],
+    [
+     "involve",
+     "(일을) 포함하다"
+    ],
+    [
+     "archaeologist",
+     "고고학자"
+    ],
+    [
+     "sculptor",
+     "조각가"
+    ],
+    [
+     "veterinarian",
+     "수의사"
+    ]
+   ],
+   "sentences": [
+    "What job do you want to have?",
+    "Name 3 jobs that you think are highly paid. Why?",
+    "Which one can you get by practicing?",
+    "I have a natural **talent** for math.",
+    "She **is talented** in music.",
+    "I **practice** to improve my drawing **skills**.",
+    "Engineers use math **skills** every day.",
+    "Joo Young thinks people can be successful without being creative.",
+    "What is her job?",
+    "Look! 5 seconds! 👀",
+    "What jobs did you see?",
+    "Would you like to travel to space?"
+   ],
+   "songs": [],
+   "imgs": [
+    "18039",
+    "21217",
+    "17332",
+    "gen:bts-30-archaeologist",
+    "15690",
+    "13369"
+   ]
+  },
+  {
+   "unit": "Unit 4",
+   "lessons": [
+    "010-012"
+   ],
+   "titles": [
+    "Exploring Space"
+   ],
+   "goals": [
+    "I can name things in space.",
+    "I can say \"I would rather …\"",
+    "I can talk about space tourism."
+   ],
+   "words": [
+    [
+     "artificial",
+     "인공의"
+    ],
+    [
+     "astronauts",
+     "우주비행사"
+    ],
+    [
+     "astronomers",
+     "천문학자"
+    ],
+    [
+     "planets",
+     "행성"
+    ],
+    [
+     "satellites",
+     "(인공)위성"
+    ],
+    [
+     "fulfill a dream",
+     "꿈을 이루다"
+    ],
+    [
+     "determined",
+     "굳게 결심한"
+    ],
+    [
+     "professional",
+     "전문적인·직업인"
+    ],
+    [
+     "industry",
+     "산업"
+    ],
+    [
+     "intergovernmental treaties",
+     "정부 간 조약"
+    ]
+   ],
+   "sentences": [
+    "Would you like to travel to space?",
+    "What can you see in space? Give 5 and describe each!",
+    "What comes after \"I would rather\"?",
+    "**Would you rather** be an astronaut **or** an astronomer?",
+    "**Would you rather** go to the Moon **or** to Mars?",
+    "**I would rather** be an astronomer **because** it's safer.",
+    "**I'd rather** go to Mars. It sounds exciting!",
+    "Would you rather be an astronaut or an astronomer? Why?",
+    "What is it?",
+    "Look at the object and say what you know about it. What does it do?",
+    "Dennis Tito was a professional astronaut chosen by his country.",
+    "Can you remember all four units?"
+   ],
+   "songs": [],
+   "imgs": [
+    "14029",
+    "16822",
+    "14764",
+    "18724",
+    "gen:bts-30-satellite",
+    "18181",
+    "17199",
+    "12492",
+    "13043",
+    "14451"
+   ]
+  }
+ ]
+}

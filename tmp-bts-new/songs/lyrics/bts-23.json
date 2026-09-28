@@ -1,0 +1,71 @@
+{
+ "book": 23,
+ "songs": [
+  {
+   "unit": "Unit 1",
+   "key": "bts-23-song-what-we-watch",
+   "title": "What We Watch 📺",
+   "tune": "Clap chant (4 beats)",
+   "lines": [
+    "Talk show, game show, drama, animation!",
+    "What do you like to watch on TV?",
+    "Have you watched a comedy show?",
+    "It's humorous! It makes you laugh out loud!",
+    "She is the girl who sings on the show.",
+    "He is the man who films the show.",
+    "This is the studio where we film.",
+    "This is the camera that we use."
+   ],
+   "nt": "TV 프로그램 챈트(새로 지음)",
+   "n": [
+    "곡조: Clap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+    "who에서 사람을, where에서 주변을, that에서 물건(카메라 흉내)을 손으로 가리키기"
+   ],
+   "imgPrompt": "Kids in a colorful TV studio with a girl singing on stage, a boy filming with a big camera, and bright studio lights."
+  },
+  {
+   "unit": "Unit 2",
+   "key": "bts-23-song-news-report",
+   "title": "Reporter Rap 📰",
+   "tune": "Rap chant (4 beats)",
+   "lines": [
+    "Newspaper, magazine, radio, TV!",
+    "Reporters write the headline news.",
+    "\"I am playing games,\" said Tom.",
+    "Tom said that he was playing games.",
+    "\"We are baking cupcakes,\" they said.",
+    "They said that they were baking cupcakes.",
+    "\"It will rain,\" said the weather report.",
+    "The weather report said it would rain!"
+   ],
+   "nt": "뉴스 전달 랩(새로 지음)",
+   "n": [
+    "곡조: Rap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+    "펜이나 숟가락을 마이크처럼 들고 리포터처럼 카메라를 보며 따라 말하기"
+   ],
+   "imgPrompt": "Child news reporters at a desk holding microphones, with a TV screen showing rain clouds and kids baking cupcakes."
+  },
+  {
+   "unit": "Unit 3",
+   "key": "bts-23-song-should-i-buy-it",
+   "title": "Should I Buy It? 🛒",
+   "tune": "Yankee Doodle",
+   "lines": [
+    "Commercials on the TV",
+    "Advertise a new product.",
+    "Is a haircut a product?",
+    "No, a haircut's a service!",
+    "Should I buy it? Let me see.",
+    "A coupon! A discount!",
+    "Should I buy it? Is it good?",
+    "Is the price reasonable?"
+   ],
+   "nt": "광고 노래(새로 지음)",
+   "n": [
+    "곡조: Yankee Doodle (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "Should I buy it?에서 턱에 손을 대고 고민하는 표정, coupon에서 종이를 흔들기"
+   ],
+   "imgPrompt": "Kids on a sofa watching a fun TV commercial while one child waves a discount coupon and another looks thoughtful."
+  }
+ ]
+}

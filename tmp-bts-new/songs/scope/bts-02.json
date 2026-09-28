@@ -1,0 +1,513 @@
+{
+ "book": 2,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Shapes and Colors"
+   ],
+   "goals": [
+    "I can name shapes.",
+    "I can say \"The circle is green.\"",
+    "I can say \"It's a green circle.\"",
+    "I can name colors.",
+    "I can ask \"What color is it?\"",
+    "I can say \"The rose is red.\"",
+    "I can say \"It's a blue square.\"",
+    "I can use a and an.",
+    "I can find a mistake."
+   ],
+   "words": [
+    [
+     "circle",
+     "원"
+    ],
+    [
+     "square",
+     "정사각형"
+    ],
+    [
+     "triangle",
+     "삼각형"
+    ],
+    [
+     "rectangle",
+     "직사각형"
+    ],
+    [
+     "heart",
+     "하트"
+    ],
+    [
+     "star",
+     "별"
+    ],
+    [
+     "ball",
+     "공"
+    ],
+    [
+     "pizza",
+     "피자"
+    ],
+    [
+     "present",
+     "선물"
+    ],
+    [
+     "balloon",
+     "풍선"
+    ],
+    [
+     "excited",
+     "신이 난"
+    ],
+    [
+     "red",
+     "빨간색"
+    ],
+    [
+     "orange",
+     "주황색"
+    ],
+    [
+     "yellow",
+     "노란색"
+    ],
+    [
+     "green",
+     "초록색"
+    ],
+    [
+     "blue",
+     "파란색"
+    ],
+    [
+     "purple",
+     "보라색"
+    ],
+    [
+     "black",
+     "검은색"
+    ],
+    [
+     "white",
+     "흰색"
+    ]
+   ],
+   "sentences": [
+    "What shapes can you see?",
+    "Where does the color go?",
+    "The circle is **green**.",
+    "The car is **blue**.",
+    "It is a **green** circle.",
+    "It is a **blue** car.",
+    "What shape is the ball?",
+    "What shape is the pizza?",
+    "What shape are they?",
+    "What is it? What color is it?",
+    "It is a red triangle.",
+    "Look! Say the shapes.",
+    "Then close your eyes!",
+    "How many colors are in a rainbow?",
+    "What is your favorite color?",
+    "Which word comes back in the answer?",
+    "What color is the **rose**?",
+    "What color is the **car**?",
+    "The **rose** is red.",
+    "The **car** is blue.",
+    "What are the colors of the rainbow?",
+    "They are red, orange, yellow, green, blue, indigo and violet.",
+    "What color is the telephone?",
+    "What color is the rose?",
+    "What color is the car?",
+    "What color is the snake?",
+    "What color is the T-shirt?",
+    "The toy car is green.",
+    "Look at the colors!",
+    "Is it a star? Is it yellow?",
+    "What shapes and colors can you draw?",
+    "Listen to the first sound. When do we say \"an\"?",
+    "a **b**lue circle",
+    "a **g**reen square",
+    "an **o**range triangle",
+    "an **a**pple",
+    "What color is the triangle?",
+    "It's a yellow circle.",
+    "It's a red square.",
+    "What shape are they? What color?"
+   ],
+   "songs": [
+    "Shape Chant"
+   ],
+   "imgs": [
+    "18728",
+    "18729",
+    "16105",
+    "15654",
+    "12630",
+    "17101",
+    "18728",
+    "18729",
+    "16105",
+    "15654",
+    "12630",
+    "17101",
+    "12553",
+    "12668",
+    "13192",
+    "16631",
+    "12614",
+    "12682",
+    "12364",
+    "12538",
+    "c7117",
+    "c7142",
+    "16134",
+    "12066",
+    "12037",
+    "12682",
+    "12364",
+    "12538",
+    "c7117",
+    "c7142",
+    "16134",
+    "12066",
+    "12037",
+    "c7128",
+    "c7366",
+    "c7086",
+    "c7096",
+    "c7190",
+    "17101"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Adjectives"
+   ],
+   "goals": [
+    "I can say big, small, long and short.",
+    "I can say \"The elephant is big.\"",
+    "I can say \"The snake is long and thin.\"",
+    "I can ask \"Is the snake long?\"",
+    "I can say \"Yes, it is.\"",
+    "I can say \"No, it isn't.\"",
+    "I can name zoo animals.",
+    "I can say \"The lion is yellow.\"",
+    "I can say \"The monkeys are small.\""
+   ],
+   "words": [
+    [
+     "big",
+     "큰"
+    ],
+    [
+     "small",
+     "작은"
+    ],
+    [
+     "long",
+     "긴"
+    ],
+    [
+     "short",
+     "짧은"
+    ],
+    [
+     "thin",
+     "가는·마른"
+    ],
+    [
+     "thick",
+     "두꺼운"
+    ],
+    [
+     "wings",
+     "날개"
+    ],
+    [
+     "heavy",
+     "무거운"
+    ],
+    [
+     "fly",
+     "날다"
+    ],
+    [
+     "adorable",
+     "사랑스러운"
+    ],
+    [
+     "lion",
+     "사자"
+    ],
+    [
+     "giraffe",
+     "기린"
+    ],
+    [
+     "elephant",
+     "코끼리"
+    ],
+    [
+     "zebra",
+     "얼룩말"
+    ],
+    [
+     "parrot",
+     "앵무새"
+    ],
+    [
+     "monkey",
+     "원숭이"
+    ],
+    [
+     "hippo",
+     "하마"
+    ],
+    [
+     "bear",
+     "곰"
+    ]
+   ],
+   "sentences": [
+    "Is it big or small?",
+    "Find the opposite pairs!",
+    "The elephant is **big**.",
+    "The bench is **long**.",
+    "The mouse is **small**.",
+    "The pencil is **short**.",
+    "Is the elephant big or small?",
+    "Is the hamster big or small?",
+    "The dog is big.",
+    "Is the snake long and thin?",
+    "Is the giraffe tall?",
+    "What is it? Is it tall?",
+    "Big or small? Look!",
+    "Then close your eyes!",
+    "Which animal is tall?",
+    "Is the tiger blue?",
+    "After \"No\", what do we say next?",
+    "Is the snake **long**?",
+    "→ **Yes, it is.**",
+    "Is the snake **blue**?",
+    "→ **No, it isn't.** It is green.",
+    "What do you see?",
+    "Is the apple green?",
+    "Is the panda small?",
+    "Is the rabbit white?",
+    "Is the ant small?",
+    "Is the dinosaur yellow?",
+    "The dinosaur is small.",
+    "Is the balloon pink? Is it big?",
+    "Is it a bird? Is it green?",
+    "What animals do you see at the zoo?",
+    "One animal or many? Is or are?",
+    "The monkey **is** small.",
+    "The hippo **is** big.",
+    "The monkeys **are** small.",
+    "The hippos **are** big.",
+    "What color is the lion?",
+    "Is the parrot big or small?",
+    "Is the giraffe short or tall?",
+    "What color is the zebra?"
+   ],
+   "songs": [],
+   "imgs": [
+    "c7185",
+    "16311",
+    "12004",
+    "12306",
+    "gen:bts-02-green-snake",
+    "12023",
+    "c7185",
+    "16311",
+    "12004",
+    "12306",
+    "gen:bts-02-green-snake",
+    "12023",
+    "15353",
+    "12466",
+    "16809",
+    "12885",
+    "15194",
+    "12227",
+    "18100",
+    "12306",
+    "gen:bts-02-thin-dog",
+    "13133",
+    "c7435",
+    "12520",
+    "c7185",
+    "gen:bts-02-zebra",
+    "c7380",
+    "c7344",
+    "gen:bts-02-hippos",
+    "c7385",
+    "c7435",
+    "12520",
+    "c7185",
+    "gen:bts-02-zebra",
+    "c7380",
+    "c7344",
+    "gen:bts-02-hippos",
+    "c7385"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "People and Adjectives"
+   ],
+   "goals": [
+    "I can say \"He is tall.\"",
+    "I can say \"She has red hair.\"",
+    "I can say \"I don't have blue eyes.\"",
+    "I can say who I see.",
+    "I can describe hair and eyes.",
+    "I can say \"She doesn't have red hair.\"",
+    "I can ask \"Is he tall?\"",
+    "I can ask \"Does she have black hair?\"",
+    "I can talk about myself."
+   ],
+   "words": [
+    [
+     "tall",
+     "키가 큰"
+    ],
+    [
+     "short",
+     "키가 작은"
+    ],
+    [
+     "fat",
+     "뚱뚱한"
+    ],
+    [
+     "thin",
+     "마른"
+    ],
+    [
+     "blonde",
+     "금발의"
+    ],
+    [
+     "gray",
+     "회색의"
+    ],
+    [
+     "hair",
+     "머리카락"
+    ],
+    [
+     "eyes",
+     "눈"
+    ],
+    [
+     "brown",
+     "갈색의"
+    ],
+    [
+     "black",
+     "검은색의"
+    ],
+    [
+     "blond",
+     "금발의 (남자)"
+    ]
+   ],
+   "sentences": [
+    "Who is the new teacher? What does she look like?",
+    "When do we say \"has\"?",
+    "I **have** brown eyes.",
+    "They **have** black hair.",
+    "She **has** red hair.",
+    "He **has** blue eyes.",
+    "Who is tall?",
+    "Is the cat fat or thin?",
+    "Is the dog fat or thin?",
+    "What is it?",
+    "What color is her hair?",
+    "What are they?",
+    "How many eyes does the kitten have?",
+    "What color are his eyes?",
+    "What color are the baby's eyes?",
+    "Who is he?",
+    "He has blonde hair.",
+    "Who has blonde hair?",
+    "Who has blonde hair? Who has black hair?",
+    "Listen! Do they sound the same?",
+    "He has **blond** hair.",
+    "Both boys have **blond** hair.",
+    "She has **blonde** hair.",
+    "Jane has **blonde** hair.",
+    "Who is she?",
+    "Who are they?",
+    "Does she have red hair?",
+    "Who has blond hair?",
+    "She has blonde hair.",
+    "Is it a boy or a girl?",
+    "Look at their hair!",
+    "Then close your eyes!",
+    "Who has gray hair?",
+    "Can you talk about yourself?",
+    "Can you describe yourself?",
+    "Tall, short → Is? Hair, eyes → ?",
+    "Is he **tall**?",
+    "→ Yes, he is. / No, he isn't.",
+    "Does she have **black hair**?",
+    "→ Yes, she has black hair."
+   ],
+   "songs": [],
+   "imgs": [
+    "gen:bts-02-dad-tall",
+    "21242",
+    "gen:bts-02-fat-cat",
+    "gen:bts-02-thin-dog",
+    "gen:bts-02-karen",
+    "13003",
+    "13008",
+    "12953",
+    "gen:bts-02-dad-tall",
+    "21242",
+    "gen:bts-02-fat-cat",
+    "gen:bts-02-thin-dog",
+    "gen:bts-02-karen",
+    "13003",
+    "13008",
+    "12953",
+    "c7319",
+    "gen:bts-02-blond-boy",
+    "gen:bts-02-new-teacher",
+    "12368",
+    "gen:bts-02-black-hair-girl",
+    "gen:bts-02-green-eyes",
+    "c7319",
+    "21242",
+    "gen:bts-02-fat-cat",
+    "gen:bts-02-thin-dog",
+    "gen:bts-02-blond-twins",
+    "gen:bts-02-new-teacher",
+    "15315",
+    "12953"
+   ]
+  }
+ ]
+}

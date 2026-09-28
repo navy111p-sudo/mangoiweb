@@ -1,6 +1,7 @@
 // BTS 6 새 교재 설계 데이터 — 집 안(침실·거실·부엌·욕실) + 위치 전치사
 // k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 import { open, close, HELLO } from '../common.mjs';
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Here We Go Round the Mulberry Bush", title: "Living Room Places 🛋️", img: "gen:bts-06-song-living-room", nt: "거실 위치 노래(새로 지음)", n: ["곡조: Here We Go Round the Mulberry Bush (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","next to·in front of·behind·between에 맞춰 손 하나를 다른 손의 옆·앞·뒤·사이로 옮겨요."], src: '새로 지음', lines: ["The lamp is next to the sofa,","Next to the sofa, next to the sofa,","The table's in front of the sofa","In the living room at home!","The dog is between the curtains,","Between the curtains, between the curtains,","The cat is behind the sofa","In the living room at home!"] };
 
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3';
 const G = k => 'gen:bts-06-' + k;
@@ -19,7 +20,8 @@ export const COURSE = {
 <li><b>001 이야기의 논리</b> — «고양이 3마리» 중 두 번째를 «The other cat» 이라고 해 셋째가 없게 됩니다 → «Another cat» 으로 고쳤습니다.</li>
 <li><b>003 잰말놀이</b> — 침실 과에 «Six socks sit in a sink…»(부엌·욕실 낱말). 008로 옮길지, 침실 잰말놀이를 새로 넣을지.</li>
 <li><b>뱀·도마뱀 사진</b> — 006·009 원본에 뱀(소파 뒤)·도마뱀(냉장고 위)이 나옵니다. 어린 학생이 무서워할 수 있어 시안은 <b>장난감 뱀</b>으로 바꿨고 도마뱀은 작은 도마뱀 그대로 두었습니다.</li>
-<li><b>새로 만들 사진 40장</b> — 힉스필드 크레딧 사용 승인.</li></ol></div>`,
+<li><b>새로 만들 사진 40장</b> — 힉스필드 크레딧 사용 승인.</li>
+<li><b>새 단원 노래 1곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 2 «Living Room Places»(Here We Go Round the Mulberry Bush). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '침실·in on under', unit: U1, title: 'Bedroom', orig: 27,
@@ -105,6 +107,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '15546', q: 'What do you do in the living room?', story: 'Emily has a new costume. Uncle Dan is here!', nt: '표지 + Big Question' },
       ...open([['I can name things in the living room.', '거실 물건 이름을 말할 수 있어요 — sofa, table, TV'], ['I can use next to and in front of.', 'next to·in front of 로 위치를 말할 수 있어요.'], ['I can ask "How many … do you have?"', '«How many …?» 로 집에 몇 개 있는지 물을 수 있어요.']], 'Lesson Goals (behind·between 은 005 로)'),
+      USONG_2,
       { t: 'song', k: 'fix', title: 'Tongue Twister', img: '16150', lines: ["She saw the sheriff's shoes on the sofa.", "She saw the sheriff's shoes on the sofa.", '(5x — faster and faster!)'], src: '4쪽 Warm Up', nt: '잰말놀이', n: ["<del>Sherriff's</del> → the sheriff's (철자·관사)", '점점 빠르게 — 틀리면 웃으며 다시'] },
       { t: 'vocab', k: 'fix', hide: true, cols: 4, words: [['sofa', '소파', '16150'], ['table', '탁자', '12721'], ['television', '텔레비전', '13358'], ['armchair', '안락의자', '16153'], ['window', '창문', '12738'], ['curtains', '커튼', '18737'], ['lamp', '램프, 스탠드', '13072'], ['in front of', '~ 앞에', G('cat-front-baby')]], src: 'Vocabulary 6·7쪽', nt: '낱말 — 뜻 가리고 먼저', n: ['lamp 는 001 과 같은 낱말 — 원본은 여기서만 «등» 이라 적어 뜻을 맞췄습니다'] },
       { t: 'vocab', k: 'fix', cols: 4, words: [['sofa', '소파', '16150'], ['table', '탁자', '12721'], ['television', '텔레비전', '13358'], ['armchair', '안락의자', '16153'], ['window', '창문', '12738'], ['curtains', '커튼', '18737'], ['next to', '~ 옆에', 'c7327'], ['in front of', '~ 앞에', G('cat-front-baby')]], title: 'Words', src: '6·7쪽', nt: '낱말 — 뜻 공개', n: ['<del>In front of</del> → in front of (소문자)'] },
@@ -133,6 +136,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('dog-behind-curtain'), q: 'Who is hiding in the living room?', story: 'Hide and seek! Can you find them all?', nt: '표지 + Big Question', n: ['지난 시간 예고 사진 — «The dog is behind the curtain.»'] },
       ...open([['I can use behind and between.', 'behind·between 으로 위치를 말할 수 있어요.'], ['I can name wall and light switch.', 'wall·light switch 를 말할 수 있어요.'], ['I can find hiding animals.', '숨은 동물이 어디 있는지 말할 수 있어요.']]),
+      USONG_2,
       { t: 'vocab', k: 'fix', hide: true, cols: 4, words: [['wall', '벽', '18736'], ['light switch', '전등 스위치', '19366'], ['behind', '~ 뒤에', G('man-behind-sofa')], ['between', '~ 사이에', G('hamster-cats')]], src: 'Vocabulary 6·7쪽', nt: '낱말 — 뜻 가리고 먼저' },
       { t: 'vocab', k: 'fix', cols: 4, words: [['wall', '벽', '18736'], ['light switch', '전등 스위치', '19366'], ['behind', '~ 뒤에', G('man-behind-sofa')], ['between', '~ 사이에', G('hamster-cats')]], title: 'Words', src: '6·7쪽', nt: '낱말 — 뜻 공개', n: ['<del>between 중에서</del> → ~ 사이에 · <del>Light switch</del> → light switch'] },
       { t: 'rule', k: 'new', title: 'behind or between?', left: { h: 'behind', ex: ['The windows are **behind** the sofa.', '(뒤에 하나)'] }, right: { h: 'between', ex: ['The sofa is **between** the lamp **and** the armchair.', '(둘 사이)'] }, q: 'How many things do we need for "between"?', nt: '규칙 찾기', n: ['between 은 늘 두 개(A and B)가 필요하다는 것을 학생이 찾게'] },
@@ -157,6 +161,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('toy-snake'), q: 'Is it a real snake?', story: "Emily's living room is full of surprises!", nt: '표지 + Big Question', n: ['지난 예고의 답 — «It is a toy snake! It is behind the sofa.»'] },
       ...open([['I can use four place words.', 'next to·in front of·behind·between 을 골라 쓸 수 있어요.'], ['I can make a sentence in the right order.', '낱말을 순서대로 놓아 문장을 만들 수 있어요.'], ['I can talk about a picture.', '그림을 보고 두 문장 이상 말할 수 있어요.']]),
+      USONG_2,
       { t: 'vocab', k: 'new', hide: true, cols: 4, title: 'Where? 🔒', words: [['next to', '~ 옆에', 'c7327'], ['in front of', '~ 앞에', G('cat-front-baby')], ['behind', '~ 뒤에', G('dog-behind-curtain')], ['between', '~ 사이에', G('bulldog-pillows')]], src: 'Vocabulary 6·7쪽', nt: '네 전치사 한 번에', n: ['원본 낱말 쪽의 가구 낱말은 004·005 와 같아 전치사만 모았습니다'] },
       { t: 'table', k: 'keep', small: 'Pattern', title: 'Four places', head: ['what', 'is', 'where'], rows: [['The lamp', 'is', 'next to the sofa.'], ['The table', 'is', 'in front of the sofa.'], ['The windows', 'are', 'behind the sofa.'], ['The sofa', 'is', 'between the lamp and the armchair.']], src: 'Grammar 8쪽', nt: '문장 틀 — 넷 한눈에' },
       { t: 'qa', k: 'keep', img: G('bird-flowers'), q: 'Where is the bird?', a: 'The bird is ___ the flowers.', chips: ['next to', 'in front of', 'behind', 'between'], src: '9쪽', nt: 'between' },

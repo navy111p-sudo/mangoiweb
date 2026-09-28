@@ -1,0 +1,27 @@
+{
+  "book": 7,
+  "songs": [
+    {
+      "unit": "Unit 2",
+      "key": "bts-07-song-ten-fingers",
+      "title": "I Have Ten Fingers ✋",
+      "tune": "This Old Man",
+      "lines": [
+        "I have ten, ten fingers,",
+        "You have ten toes on your feet,",
+        "Touch your neck, your knees, your elbows, too,",
+        "These are my feet. They are mine!",
+        "She has two knees, two knees,",
+        "It has four legs and four feet,",
+        "Shake your arms, your hips, your fingers, too,",
+        "This is my hand. It is mine!"
+      ],
+      "nt": "몸 부위 노래(새로 지음)",
+      "n": [
+        "곡조: This Old Man (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "노래에 나오는 목·무릎·팔꿈치를 짚고, mine!에서 손을 가슴에 대요."
+      ],
+      "imgPrompt": "Smiling children touching their knees and wiggling their fingers next to a happy puppy with four legs."
+    }
+  ]
+}

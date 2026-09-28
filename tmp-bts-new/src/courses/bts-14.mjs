@@ -1,6 +1,9 @@
 // BTS 14 새 교재 설계 데이터 — 앞으로의 일(will · be going to · Wh- 질문)
 // k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 import { open, close, HELLO } from '../common.mjs';
+const USONG_1 = { t: 'song', k: 'new', small: "Let's sing! ♪ Frère Jacques", title: "What Will You Do Tomorrow? 🗓️", img: "gen:bts-14-song-tomorrow", nt: "내일 계획 노래(새로 지음)", n: ["곡조: Frère Jacques (Are You Sleeping?) (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","'What will you do?'에서 손바닥을 위로 펴 묻고, 'movie'는 두 손으로 화면 모양, 'pizza'는 한 입 먹는 흉내를 카메라 앞에서 해요."], src: '새로 지음', lines: ["What will you do? What will you do?","Tomorrow? Tomorrow?","I will watch a movie, I will watch a movie,","Very soon! Very soon!","What will she eat? What will she eat?","Next Sunday? Next Sunday?","She will eat some pizza, she will eat some pizza","Yum, yum, yum! Yum, yum, yum!"] };
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ London Bridge", title: "Where Are You Going to Go? 🚇", img: "gen:bts-14-song-going-to", nt: "장소 가기 노래(새로 지음)", n: ["곡조: London Bridge Is Falling Down (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","'sick'에서 이마에 손을 얹고, 'hungry'에서 배를 문지르며, 'going to'에서 제자리 걷기를 해요."], src: '새로 지음', lines: ["Where are you going to go?","I am sick! I am sick!","Going to the pharmacy,","For medicine!","Where are you going to go?","I'm hungry! I'm hungry!","Going to the restaurant,","I'm starving now!"] };
+const USONG_3 = { t: 'song', k: 'new', small: "Let's sing! ♪ Twinkle Twinkle Little Star", title: "I Am Going to Be Rich 💎", img: "gen:bts-14-song-rich", nt: "부자 되기 노래(새로 지음)", n: ["곡조: Twinkle Twinkle Little Star (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","'rich'에서 두 팔을 활짝 벌리고, 'What will I buy?'에서 손가락으로 화면 여기저기를 가리키며, 'way up high'에서 비행기 팔을 해요."], src: '새로 지음', lines: ["I am going to be rich!","What will I buy? My, oh my!","I will buy some jewelry,","Treasure for my family!","Where will we go? When and why?","On a journey, way up high!","I am going to be rich!","What will I buy? My, oh my!"] };
 
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3';
 const G = k => 'gen:bts-14-' + k;
@@ -19,7 +22,8 @@ export const COURSE = {
 <li><b>뜻이 바뀐 대사</b> — 001 «I won't. I have another appointment.»(무엇을 안 한다는지 불분명) → «Not me. I have an appointment tomorrow.», «my parents and colleagues»(학생에게 동료) → «my parents and their colleagues», 007 «Exactly!» 를 Rico 가 연달아 두 번 말하는 화자 오류 → 한 대사로 합침. 승인해 주세요.</li>
 <li><b>문법 목표의 뜻</b> — 004 목표는 «예측(Prediction)에 will = be going to» 인데 본문은 «계획» 문장입니다. 시안은 «둘은 같은 뜻» 으로만 가르쳤습니다. 계획(be going to)과 즉석 결정(will)의 차이를 넣을지.</li>
 <li><b>원본 표기 오류</b> — 009 머리글 «Bubble Tea 13»(→14), 007 활동표 머리글 «MES», 한국어 뜻 오류 여럿(예약→약속, 굶주리는→몹시 배고픈, 의학→약, 비즈니스 사람→사업가, 풍부한→부자인, 따르게 하다→함께 가다). 원본 파일도 고칠지.</li>
-<li><b>돈 사진</b> — 009 «You have $1,000» 는 달러 지폐 사진을 세는 활동입니다. 원화로 바꿀지(시안은 달러 그대로).</li></ol></div>`,
+<li><b>돈 사진</b> — 009 «You have $1,000» 는 달러 지폐 사진을 세는 활동입니다. 원화로 바꿀지(시안은 달러 그대로).</li>
+<li><b>새 단원 노래 3곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 1 «What Will You Do Tomorrow?»(Frère Jacques (Are You Sleeping?)) · Unit 2 «Where Are You Going to Go?»(London Bridge Is Falling Down) · Unit 3 «I Am Going to Be Rich»(Twinkle Twinkle Little Star). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: 'will', unit: U1, title: 'What will you do tomorrow?', orig: 31,
@@ -28,6 +32,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover1'), q: 'What will you do tomorrow?', story: 'Belle is packing her bag tonight. Tomorrow will be a big day!', nt: '표지 + Big Question', n: ['내일 할 일을 묻는 질문으로 엽니다 — 이 권 전체의 질문이기도 합니다', '끝날 때 학생이 «Tomorrow, I will …» 으로 답하는 것이 목표입니다'] },
       ...open([['I can talk about tomorrow with "will".', '«will» 로 내일 할 일을 말할 수 있어요 — I will see you tomorrow.'], ["I can say what I won't do.", '«won\'t» 로 하지 않을 일을 말할 수 있어요.'], ['I can use time words.', 'tomorrow · later · soon · next Sunday 같은 때를 나타내는 말을 쓸 수 있어요.']]),
+      USONG_1,
       { t: 'vocab', k: 'fix', hide: true, title: 'When?', words: [['tomorrow', '내일', '18408'], ['a week from now', '(지금부터) 일주일 뒤', '18577'], ['later', '나중에', '19225'], ['soon', '곧', '19645'], ['next Sunday', '다음 주 일요일', '18449'], ['then', '그때 · 그다음에', '18574']], src: 'Lesson Goals · Vocabulary 6쪽', nt: '때를 나타내는 말 — 뜻 가리고 먼저', n: ['사진만 보고 무슨 때인지 먼저 말하게 합니다(인출 연습)', '원본 목표의 6낱말을 한 쪽에 모았습니다'] },
       { t: 'vocab', k: 'fix', title: 'When?', words: [['tomorrow', '내일', '18408'], ['a week from now', '(지금부터) 일주일 뒤', '18577'], ['later', '나중에', '19225'], ['soon', '곧', '19645'], ['next Sunday', '다음 주 일요일', '18449'], ['then', '그때 · 그다음에', '18574']], nt: '때를 나타내는 말 — 뜻 공개', n: ['<del>next sunday</del> → next Sunday · <del>후에</del> → 나중에', '강사가 «Tomorrow, I will …» 를 말하면 학생이 다른 때로 바꿔 말하기'] },
       { t: 'vocab', k: 'fix', hide: true, title: 'Story words', words: [['appointment', '약속', '18356'], ['concert', '공연', '12869'], ['thrilled', '몹시 신이 난', '12614'], ['delightful', '아주 즐거운', '15829'], ['relaxing', '쉬고 있는 · 편안한', '12684'], ['colleagues', '(직장) 동료들', '16367']], src: 'Vocabulary 6쪽 · 23쪽', nt: '이야기 낱말 — 뜻 가리고 먼저', n: ['뒤 역할극에 나오는 낱말입니다. 사진을 보고 뜻을 짐작하게 합니다'] },
@@ -61,6 +66,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover2'), q: 'What will they do this weekend?', story: 'Look at the pictures. Guess what they will do!', nt: '표지 + Big Question', n: ['이 과는 «짐작해 말하기» 과입니다 — 정답이 여러 개일 수 있다고 먼저 알려 줍니다'] },
       ...open([['I can guess what people will do.', '사진을 보고 앞으로 할 일을 짐작해 말할 수 있어요 — They will paint a picture.'], ['I can ask "What will …?"', '«What will he do?» 로 물을 수 있어요.'], ['I can use tonight, later and soon.', 'tonight · later · soon · this weekend 로 때를 말할 수 있어요.']], 'Lesson Goals (001과 같았음)'),
+      USONG_1,
       { t: 'rule', k: 'new', title: 'Ask and guess', left: { h: 'Ask', ex: ['What **will** she do?', 'What do you think she **will** paint?'] }, right: { h: 'Guess', ex: ['She **will** paint a picture.', 'I think she **will** paint a flower.'] }, q: 'Where does "will" go in a question?', nt: '규칙 찾기', n: ['질문에서는 will 이 앞으로(What will she …), 답에서는 주어 뒤로 — 학생이 먼저 찾아 말하게'] },
       { t: 'qa', k: 'fix', img: '17033', label: 'TOMORROW', q: 'What do you think she will paint?', a: 'She ___ ___ a picture tomorrow.', src: '10쪽', nt: 'Picture Talk', n: ['<del>They</del> → She (사진 속 아이는 한 명)', '무엇을 그릴지는 정답이 없습니다 — «I think she will paint a rainbow.»'] },
       { t: 'qa', k: 'fix', img: '12174', label: 'TONIGHT', q: 'What will he do tonight?', a: 'He ___ play video games tonight.', src: '11쪽', nt: 'Picture Talk', n: ['<del>videogames</del> → video games · <del>The man</del> → He (사진과 맞게)'] },
@@ -86,6 +92,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cristy-party'), q: 'What will your best tomorrow be?', story: "Cristy's big day is on Saturday!", nt: '표지 + Big Question' },
       ...open([['I can talk about my plans for tomorrow.', '내일 계획을 여러 문장으로 말할 수 있어요.'], ['I can read a story about plans.', '앞으로의 계획을 담은 글을 읽고 답할 수 있어요.'], ['I can choose and say why.', '둘 중 하나를 고르고 «It will be …» 로 까닭을 말할 수 있어요.']]),
+      USONG_1,
       { t: 'discuss', k: 'fix', title: 'Idea zone', img: '18775', qs: ['What will you do tomorrow?', 'What do you want to do?', 'What will you eat?', 'Will you play games?'], src: '10쪽', nt: '생각 모으기', n: ['<del>What will you want to do?</del> → What do you want to do?', '원본 안내 «Think of as many things as possible!» — 1분 동안 몇 개를 말하는지 세어 봅니다'] },
       { t: 'read', k: 'keep', title: "Cristy's Birthday", img: '12216', paras: ['On Saturday, Cristy will be sixteen years old. Her parents are going to give her a birthday party. The party will start at 5 o\'clock in the afternoon on Saturday.', "Cristy's friends will be there. Her father will buy ice cream and her mother will bake a cake for her. Everyone will eat ice cream and cake! They will have fun. Cristy is going to have a great birthday!"], src: '11쪽', nt: '읽기', n: ['낱말: sixteen years old 열여섯 살 · bake (케이크를) 굽다 · have fun 즐겁게 보내다', '한 번은 강사가, 한 번은 학생이 읽습니다', 'will 과 is going to 가 섞여 있는 것을 찾아 밑줄 — 004 예고'] },
       { t: 'fill', k: 'keep', title: 'Questions', lines: ['Who is going to be sixteen years old on Saturday? — ___ is.', 'When will the party start? — It will start at ___ o\'clock.', 'What will everyone eat? — They will eat ___ and ___.', 'Who will be there? — Cristy\'s ___ will be there.'], src: '12쪽', nt: '읽기 질문' },
@@ -109,6 +116,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover4'), q: 'Where are you going to go?', story: 'Hannah has a long list. Where is she going to go first?', nt: '표지 + Big Question' },
       ...open([['I can say "I am going to …".', '«be going to» 로 앞으로 할 일을 말할 수 있어요.'], ['I can name places in my town.', '약국·슈퍼마켓·지하철역 같은 장소를 말할 수 있어요.'], ['I can say why I am going there.', '왜 거기에 가는지 말할 수 있어요 — I am hungry! I am going to go to a restaurant.']]),
+      USONG_2,
       { t: 'vocab', k: 'fix', hide: true, title: 'Places', words: [['pharmacy', '약국', G('pharmacy')], ['supermarket', '슈퍼마켓', '15258'], ['subway station', '지하철역', '18019'], ['theme park', '테마파크', '15846'], ['office', '사무실', '12253'], ['fast food restaurant', '패스트푸드 식당', G('fast-food')]], src: 'Lesson Goals · Vocabulary 6쪽', nt: '장소 — 뜻 가리고 먼저' },
       { t: 'vocab', k: 'fix', title: 'Places', words: [['pharmacy', '약국', G('pharmacy')], ['supermarket', '슈퍼마켓', '15258'], ['subway station', '지하철역', '18019'], ['theme park', '테마파크', '15846'], ['office', '사무실', '12253'], ['fast food restaurant', '패스트푸드 식당', G('fast-food')]], nt: '장소 — 뜻 공개', n: ['<del>패스트 푸드 체인</del> → 패스트푸드 식당', '강사가 «I am sick.» 처럼 말하면 학생이 갈 곳을 말하기'] },
       { t: 'vocab', k: 'fix', hide: true, title: 'Story words', words: [['medicine', '약', '12404'], ['grocery list', '장보기 목록', G('grocery-list')], ['reserved', '예약된', G('reserved-table')], ['starving', '몹시 배고픈', '13031'], ['speedy recovery', '빠른 회복', G('recovery')], ['graduate', '졸업하다', '16391']], src: 'Vocabulary 6쪽 · 18쪽', nt: '이야기 낱말 — 뜻 가리고 먼저', n: ['graduate 는 006 읽기 글에 나옵니다'] },
@@ -141,6 +149,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '16296', q: 'Where are you going? How are you going to feel?', story: 'Every place gives us a feeling!', nt: '표지 + Big Question' },
       ...open([['I can say where people are going.', '«He is going to the subway station.» 처럼 어디에 가는지 말할 수 있어요.'], ['I can say how people are going to feel.', '«He is going to feel tired.» 처럼 어떤 기분일지 말할 수 있어요.'], ['I can guess from a picture.', '사진을 보고 장소와 기분을 짐작해 말할 수 있어요.']], 'Lesson Goals (004와 같았음)'),
+      USONG_2,
       { t: 'vocab', k: 'new', hide: true, title: 'Feelings', words: [['excited', '신이 난', '12614'], ['tired', '피곤한', '13341'], ['uncomfortable', '불편한', '18709'], ['happy', '행복한', '18512'], ['sick', '아픈', '12260'], ['hungry', '배고픈', '13031']], nt: '기분 — 뜻 가리고 먼저', n: ['원본 본문에 나오는 기분 낱말을 모았습니다(uncomfortable 은 원본 10쪽에 뜻이 있음)', '강사가 표정을 지으면 학생이 낱말을 맞히기'] },
       { t: 'vocab', k: 'new', title: 'Feelings', words: [['excited', '신이 난', '12614'], ['tired', '피곤한', '13341'], ['uncomfortable', '불편한', '18709'], ['happy', '행복한', '18512'], ['sick', '아픈', '12260'], ['hungry', '배고픈', '13031']], nt: '기분 — 뜻 공개' },
       { t: 'rule', k: 'new', title: 'Where? How?', left: { h: 'Where?', ex: ['He is going **to the** subway station.', 'They are going **to the** beach.'] }, right: { h: 'How?', ex: ['He is going to **feel** tired.', 'They are going to **feel** excited.'] }, q: 'What comes after "going to" — a place or a feeling?', nt: '규칙 찾기', n: ['going to + the 장소 / going to + feel 기분 — 두 모양을 학생이 먼저 구별하게'] },
@@ -168,6 +177,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('clara-airport'), q: 'Where are you going to go someday?', story: 'Clara is going to fly far away today!', nt: '표지 + Big Question' },
       ...open([['I can talk about my plans with "going to".', '«I am going to …» 로 내 계획을 말할 수 있어요.'], ['I can read a story about a trip.', '여행 이야기를 읽고 답할 수 있어요.'], ['I can make Who, What, Where and How questions.', '한 문장으로 여러 질문을 만들 수 있어요.']]),
+      USONG_2,
       { t: 'discuss', k: 'fix', title: 'Idea zone', img: '18693', qs: ['What places are you going to go to?', 'Who are you going with?', 'How are you going to feel there?'], src: '10쪽', nt: '생각 모으기', n: ['<del>going to go?</del> → going to go to?'] },
       { t: 'read', k: 'fix', title: "Clara's Trip", img: '18069', paras: ['Clara just graduated from high school. Today, she is going to travel to Paris to continue her studies at a university. At noon, her father is going to give her a ride to the airport.', "Clara's friends are going to be with her. She is going to stay in Paris for four years. She is going to study hard for her family's future. Clara's family is going to miss her a lot."], gloss: [['graduate from', '~을 졸업하다'], ['give her a ride', '차로 데려다주다']], src: '11쪽', nt: '읽기', n: ['<del>graduated high school</del> → graduated from high school · <del>in a university</del> → at a university', '사진: 자유의 여신상(뉴욕) → 파리'] },
       { t: 'fill', k: 'keep', title: 'Questions', lines: ['Where is Clara going to travel? — She is going to travel to ___.', 'Why is she going? — To continue her ___.', 'Who is going to give her a ride to the airport? — Her ___ is.', 'Who is going to be with her? — Her ___ are.', 'Is her family going to miss her? — Yes, ___ ___.'], src: '12쪽', nt: '읽기 질문' },
@@ -190,6 +200,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('treasure-kids'), q: "I'm going to be rich! What will I buy?", story: 'Rico has big dreams. Matt has a big appetite!', nt: '표지 + Big Question' },
       ...open([['I can ask Wh- questions with "will".', '«What will you buy?» 처럼 의문사로 물을 수 있어요.'], ['I can say what I will buy.', '무엇을 살지 will / be going to 로 말할 수 있어요.'], ['I can talk about treasure and money.', 'jewelry · treasure · spend 같은 말을 쓸 수 있어요.']]),
+      USONG_3,
       { t: 'vocab', k: 'fix', hide: true, title: 'Rich words', words: [['rich', '부자인', G('rich')], ['jewelry', '보석', '15507'], ['treasure', '보물', '16676'], ['exactly', '정확히', G('exactly')], ['business person', '사업가', '15243'], ['spend', '(돈을) 쓰다', '13289']], src: 'Lesson Goals · Vocabulary 6쪽', nt: '낱말 — 뜻 가리고 먼저' },
       { t: 'vocab', k: 'fix', title: 'Rich words', words: [['rich', '부자인', G('rich')], ['jewelry', '보석', '15507'], ['treasure', '보물', '16676'], ['exactly', '정확히', G('exactly')], ['business person', '사업가', '15243'], ['spend', '(돈을) 쓰다', '13289']], nt: '낱말 — 뜻 공개', n: ['<del>풍부한</del> → 부자인 · <del>비즈니스 사람</del> → 사업가 · <del>보내</del> → (돈을) 쓰다'] },
       { t: 'vocab', k: 'fix', hide: true, title: 'Food and travel words', words: [['delicacies', '별미 · 귀한 음식', '17015'], ['cuisine', '(나라별) 요리', '15313'], ['food enthusiast', '음식을 무척 좋아하는 사람', G('food-lover')], ['fantastic', '환상적인', '18403'], ['accompany', '함께 가다', G('journey-friends')], ['journey', '여행', '12478']], src: 'Vocabulary 6쪽', nt: '낱말 — 뜻 가리고 먼저', n: ['cuisine · accompany · journey 는 009 읽기 글에 다시 나옵니다'] },
@@ -217,6 +228,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '18427', q: 'Who? What? Where? When? Why? How?', story: 'Be a question detective today!', nt: '표지 + Big Question' },
       ...open([['I can ask Who and What questions.', '누가·무엇을 묻는 질문을 만들 수 있어요.'], ['I can ask Where and When questions.', '어디서·언제를 묻는 질문을 만들 수 있어요.'], ['I can ask Why and How questions.', '왜·어떻게를 묻는 질문을 만들 수 있어요.']]),
+      USONG_3,
       { t: 'table', k: 'fix', small: 'Question words (1)', title: 'What does it ask about?', head: ['word', 'asks about', 'example'], rows: [['Who', 'a person', 'Who is going to buy jewelry?'], ['What', 'a thing · an action', 'What is he going to buy?'], ['Where', 'a place', 'Where is she going to go?']], src: '8~11쪽', nt: '의문사 한눈에 1', n: ['원본 6쪽의 설명을 두 표로 — 아래에서 하나씩 연습합니다', "<del>according to it's title</del> → its title"] },
       { t: 'table', k: 'fix', small: 'Question words (2)', title: 'What does it ask about?', head: ['word', 'asks about', 'example'], rows: [['When', 'a time', 'When is he going to work?'], ['Why', 'a reason', 'Why is she going to go to New York?'], ['How', 'a way', 'How is he going to go to Australia?']], src: '12~14쪽', nt: '의문사 한눈에 2' },
       { t: 'qa', k: 'fix', img: '19050', title: 'Which question word?', q: '"I am going to buy jewelry."', a: '___ is going to buy jewelry? — She is.', src: '9쪽', nt: 'Who — 사람', n: ['사진 속 사람이 한 말을 듣고 알맞은 의문사로 질문을 완성합니다(정답: Who)', '원본은 질문과 답이 다 적혀 있었습니다 → 의문사 자리를 빈칸으로'] },
@@ -244,6 +256,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('jane-travel'), q: 'You are going to be rich. What will you buy?', story: "Jane's business is doing well. Her adventure starts now!", nt: '표지 + Big Question' },
       ...open([['I can read a story about a plan.', '계획을 담은 이야기를 읽고 답할 수 있어요.'], ['I can say what I will buy.', '무엇을 살지 will / be going to 로 말할 수 있어요.'], ['I can make a money plan.', '가진 돈으로 무엇을 살지 계획을 말할 수 있어요.']]),
+      USONG_3,
       { t: 'discuss', k: 'keep', title: 'Idea zone', img: '14773', qs: ['You are going to be rich. What will you buy?', 'What are you going to do?', 'Think of as many things as you can!'], src: '9쪽', nt: '생각 모으기' },
       { t: 'read', k: 'fix', title: "Jane's Adventure (1)", img: '17007', paras: ['Jane is a businessperson. She is going to have a lot of money because her business is doing well. She knows exactly how she will spend her money.', 'She will buy lots of jewelry. She is going to buy plane tickets for her friends to travel the world. She is going to visit many different countries.'], gloss: [['businessperson', '사업가'], ['exactly', '정확히']], src: '10쪽', nt: '읽기 1', n: ['<del>so much money</del> → a lot of money', '007 에서 배운 낱말(exactly · spend)이 다시 나옵니다 — 먼저 찾게'] },
       { t: 'read', k: 'keep', title: "Jane's Adventure (2)", img: '15313', paras: ['Since Jane is also a food enthusiast, she will try different cuisines from different parts of the world. Her friends are going to accompany her on her journey.'], gloss: [['cuisine', '(나라별) 요리'], ['accompany', '함께 가다']], src: '10쪽', nt: '읽기 2', n: ['긴 글 한 덩어리를 두 쪽으로 — 한 쪽씩 읽고 바로 짝에게 한 문장으로 말하기'] },

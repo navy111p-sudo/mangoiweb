@@ -1,6 +1,8 @@
 // BTS 11 새 교재 설계 데이터. k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 // 사진 번호 = cloudflare-deploy/public/img/scene-words/<번호>.webp · 'gen:' = 새로 만들 사진($T/gen/req-bts-11.json)
 import { open, close } from '../common.mjs';
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Muffin Man", title: "Where Can You Buy It? 🛍️", img: "gen:bts-11-song-stores", nt: "가게 노래(새로 지음)", n: ["곡조: The Muffin Man (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","질문 줄에서는 손을 이마에 대고 두리번거리고, 대답 줄에서는 가게 쪽을 손가락으로 가리켜요. 다른 물건·가게로 바꿔 불러도 좋아요."], src: '새로 지음', lines: ["Where can you buy a teddy bear,","a teddy bear, a teddy bear?","You can buy a teddy bear","at the toy store in town!","I need to buy some medicine,","some medicine, some medicine.","You can buy some medicine","at the pharmacy in town!"] };
+const USONG_3 = { t: 'song', k: 'new', small: "Let's sing! ♪ Yankee Doodle", title: "Cheap or Expensive? 🖊️", img: "gen:bts-11-song-stationery", nt: "문구점 노래(새로 지음)", n: ["곡조: Yankee Doodle (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","'cheap'에서는 엄지 척, 'expensive'에서는 두 손으로 볼을 감싸며 깜짝 놀라는 표정을 지어요."], src: '새로 지음', lines: ["I need school supplies today,","a pen and lots of crayons.","How much is the little pen?","It's cheap, so I can buy it!","How much is the fountain pen?","Oh no! It's so expensive!","I want it, but I can't buy it.","I'm happy with my cheap one!"] };
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3';
 
 export const COURSE = {
@@ -17,7 +19,8 @@ export const COURSE = {
 <li><b>BTS 10 에서 넘어온 내용</b> — 001·004·005 복습 쪽에 BTS 10 의 «feel» 문법이 섞여 있어 뺐습니다.</li>
 <li><b>006 쇼핑 목록 번호</b> — 원본은 6번이 빠져 있습니다(1~5, 7, 8). 1~7 로 다시 매겼습니다. 리코더를 «music store» 에서 산다고 정리했습니다.</li>
 <li><b>노래</b> — 원본 «Let's Go Shopping» 노래는 가사를 옮기지 않고 자체 챈트로 바꿨습니다. 원곡을 쓸지(저작권 확인), 새로 녹음할지.</li>
-<li><b>새로 만들 사진 39장</b> — 요청 목록은 gen/req-bts-11.json.</li></ol></div>`,
+<li><b>새로 만들 사진 39장</b> — 요청 목록은 gen/req-bts-11.json.</li>
+<li><b>새 단원 노래 2곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 2 «Where Can You Buy It?»(The Muffin Man) · Unit 3 «Cheap or Expensive?»(Yankee Doodle). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '옷가게', unit: U1, title: 'Clothing Store', orig: 36,
@@ -122,6 +125,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-11-c004', q: 'What stores are in your town?', story: 'Toys, flowers, bread, puppies… Where can you buy them?', nt: '표지 + Big Question', n: ['가게가 늘어선 거리 사진 — 창문마다 무엇을 파는지 먼저 짐작하게'] },
       ...open([['I can name 10 stores.', '가게 이름 10개를 말해요.'], ['I can say what a store sells.', '가게가 무엇을 파는지 말해요.'], ['I can say where I can buy things.', '어디서 살 수 있는지 말해요.']]),
+      USONG_2,
       { t: 'story', k: 'keep', img: '14301', title: 'Mini role-play', lines: [['Clerk', 'Hello! How can I help you?'], ['Jay', 'I want to buy a jacket.'], ['Clerk', "Here you are. It's 80 dollars."]], src: 'Warm Up 5쪽', nt: '몸풀기 역할 놀이', n: ['지난 과 복습 — 학생이 손님, 강사가 점원'] },
       { t: 'vocab', k: 'fix', hide: true, title: 'Stores ① 🔒', words: [['clothing store', '옷가게', '12856'], ['toy store', '장난감 가게', 'gen:bts-11-toystore'], ['flower shop', '꽃집', '16335'], ['supermarket', '슈퍼마켓', '15258'], ['pharmacy', '약국', '14701']], src: 'Vocabulary 6쪽', nt: '가게 ① — 가리고 먼저' },
       { t: 'vocab', k: 'fix', title: 'Stores ①', words: [['clothing store', '옷가게', '12856'], ['toy store', '장난감 가게', 'gen:bts-11-toystore'], ['flower shop', '꽃집', '16335'], ['supermarket', '슈퍼마켓', '15258'], ['pharmacy', '약국(= drugstore)', '14701']], src: 'Vocabulary 6쪽', nt: '가게 ① — 공개' },
@@ -160,6 +164,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-11-c005', q: 'Where can you buy a teddy bear?', story: 'So many stores! What can you buy there?', nt: '표지 + Big Question', n: ['장난감 가게 창문에 코를 붙인 아이들 — «What do they want?»'] },
       ...open([['I can say what I can buy.', '살 수 있는 것을 말해요.'], ['I can say where I can buy it.', '어디서 살 수 있는지 말해요.']]),
+      USONG_2,
       { t: 'story', k: 'new', img: '16436', title: 'Tommy at the gadget store', lines: [['Tommy', "I'm at the gadget store now!"], ['Clerk', 'Hello! How can I help you?'], ['Tommy', 'I want to buy a new laptop.'], ['Clerk', 'We have many laptops. Look!']], nt: '이야기 이어 가기', n: ['004 이야기 끝(토미가 gadget store 로 감)을 이어 받습니다', '학생이 Clerk 역할 — 이어서 «It\'s ___ dollars.» 로 가격까지 말하면 보너스'] },
       { t: 'vocab', k: 'new', hide: true, title: 'Stores 🔒', words: [['supermarket', '슈퍼마켓', 'c7303'], ['flower shop', '꽃집', '16336'], ['bakery', '빵집', '18047'], ['toy store', '장난감 가게', '16659'], ['pharmacy', '약국', '14113'], ['pet shop', '반려동물 가게', '16313']], nt: '가게 복습', n: ['지난 과와 다른 사진 — 가게 안의 물건을 보고 가게 이름을 떠올리기'] },
       { t: 'qa', k: 'fix', img: '15265', q: 'What store is it? What does it sell?', a: "It's a ___. It ___ food.", chips: ['supermarket', 'sells'], src: '5쪽', nt: '슈퍼마켓' },
@@ -187,6 +192,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-11-c006', q: 'What is on the shopping list?', story: 'John and Julie have a long list. Can they buy everything?', nt: '표지 + Big Question', n: ['공원에서 기다란 목록을 펼치고 놀란 남매 — «So long!»'] },
       ...open([['I can say what I need to buy.', '사야 하는 것을 말해요.'], ['I can say where I need to go.', '가야 하는 가게를 말해요.']]),
+      USONG_2,
       { t: 'story', k: 'keep', img: '19313', title: "Mom's list", lines: [['John', 'Our mom asked us to go shopping.'], ['John', 'Julie, do you have our shopping list?'], ['Julie', "Yes, I have it. Let's go shopping now!"]], src: '5·6쪽', nt: '존과 줄리', n: ['Julie 는 John 의 여동생 — 원본 인물 그대로'] },
       { t: 'table', k: 'fix', small: 'Shopping list', title: 'What do we need?', rows: [['1. rice', '2. beef'], ['3. flowers', '4. a recorder'], ['5. medicine', '6. a goldfish'], ['7. a teddy bear', '🛒']], tip: '물건마다 어느 가게에서 살지는 오늘 수업 끝에 말해요', src: '7쪽', nt: '쇼핑 목록', n: ['원본 번호 6이 빠져 있어 1~7 로 다시 매겼습니다'] },
       { t: 'fill', k: 'keep', img: 'gen:bts-11-list-cart', title: 'Today, we need to buy…', lines: ['Today, we need to buy ___, ___ and ___.', 'We need to buy ___ and ___, too.'], src: '8쪽', nt: '목록 말하기' },
@@ -211,6 +217,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-11-c007', q: 'What can you buy at a stationery store?', story: 'Tomorrow is the first day of school!', nt: '표지 + Big Question', n: ['연필을 한 아름 안은 아이 — «What does he need?»'] },
       ...open([['I can talk about school supplies.', '학용품에 대해 말해요.'], ['I can say "cheap" or "expensive".', '싸다·비싸다를 말해요.'], ['I can say what I need and what I want.', '필요한 것과 갖고 싶은 것을 말해요.']]),
+      USONG_3,
       { t: 'yourturn', k: 'keep', img: '16098', title: 'Give me 5!', lines: ['Name 5 things for school!', '1. ___ 2. ___ 3. ___ 4. ___ 5. ___'], src: 'Warm Up 5쪽', nt: '몸풀기', n: ['손가락 다섯 개를 펴며 하나씩 — 30초 안에'] },
       { t: 'vocab', k: 'fix', hide: true, title: 'New words 🔒', words: [['stationery store', '문구점', 'gen:bts-11-stationery'], ['school supplies', '학용품', '16723'], ['cheap', '싼', '21124'], ['expensive', '비싼', '12455'], ['need', '필요하다', '12123'], ['want', '갖고 싶다', '15820']], src: 'Vocabulary 6쪽', nt: '낱말 — 가리고 먼저' },
       { t: 'vocab', k: 'fix', title: 'New words', words: [['stationery store', '문구점', 'gen:bts-11-stationery'], ['school supplies', '학용품', '16723'], ['cheap', '싼', '21124'], ['expensive', '비싼', '12455'], ['need', '필요하다', '12123'], ['want', '갖고 싶다', '15820']], src: 'Vocabulary 6쪽', nt: '낱말 — 공개', n: ['머리글 «Stationary» → Stationery(stationary 는 «멈춰 있는»)'] },
@@ -242,6 +249,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-11-c008', q: 'How much is it? Wow!', story: 'Fred and Lea look at the price tags. Can they buy them?', nt: '표지 + Big Question', n: ['가격표를 보고 입을 떡 벌린 친구들 — «Is it cheap or expensive?»'] },
       ...open([["I can say 'I can buy it' or 'I can't buy it'.", '살 수 있는지 없는지 말해요.'], ['I can say how I feel about a price.', '가격을 보고 느낌을 말해요(Wow! Amazing!).']]),
+      USONG_3,
       { t: 'vocab', k: 'fix', hide: true, title: 'New words 🔒', words: [['believe', '믿다', '18403'], ['amazing', '놀라운', '15829'], ['worth', '~의 값어치가 있는', '19209']], src: 'Vocabulary 5쪽', nt: '낱말 — 가리고 먼저' },
       { t: 'vocab', k: 'fix', title: 'New words', words: [['believe', '믿다', '18403'], ['amazing', '놀라운', '15829'], ['worth', '~의 값어치가 있는', '19209']], src: 'Vocabulary 5쪽', nt: '낱말 — 공개', n: ['worth 뜻 «가치» → «~의 값어치가 있는»(The crayons are worth $100.)'] },
       { t: 'story', k: 'keep', img: 'gen:bts-11-fred-lea', title: 'Fred and Lea', lines: [['Fred', 'Wait! Are we at the stationery store?'], ['Lea', "Nope! We're not. Let's check other stores, too!"], ['Fred', "Great idea. Let's go!"]], src: '6쪽', nt: '프레드와 레아' },
@@ -269,6 +277,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-11-c009', q: 'Derek has $500. What will he buy?', story: "It's Derek's big shopping day!", nt: '표지 + Big Question', n: ['돼지저금통을 깨고 신난 아이 — «How much money does he have?»'] },
       ...open([['I can plan my shopping.', '쇼핑 계획을 세워요.'], ['I can say what I need and what I want.', '필요한 것과 갖고 싶은 것을 말해요.'], ['I can say where I need to go.', '가야 할 가게를 말해요.']]),
+      USONG_3,
       { t: 'story', k: 'fix', img: '18138', title: "Hi, I'm Derek!", lines: [['Derek', "Hi! I'm Derek!"], ['Derek', "I'm going to go shopping today!"], ['Derek', 'I have $500.']], src: '5쪽', nt: '데릭 등장', n: ['«Dereck» → Derek'] },
       { t: 'qa', k: 'fix', img: '12071', label: 'School starts tomorrow!', q: 'I need school supplies. Where do I need to go?', a: 'I need to go to the ___ ___.', src: '6쪽', nt: '학용품', n: ['«school so» 쉼표'] },
       { t: 'qa', k: 'keep', img: '16098', label: 'pencils $2 · notebooks $5 · backpack $20', q: 'Derek has $500. Can he buy them?', a: 'Yes! I can buy them ___!', chips: ['all'], src: '7쪽', nt: '학용품 가격' },

@@ -1,6 +1,8 @@
 // BTS 16 새 교재 설계 데이터. k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 // 사진 번호 = cloudflare-deploy/public/img/scene-words/<번호>.webp · gen:… = 새로 만들 사진(gen/req-bts-16.json)
 import { open, close, HELLO } from '../common.mjs';
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Pop Goes the Weasel", title: "What Will You Invent? 🚀", img: "gen:bts-16-song-invent", nt: "발명품 노래(새로 지음)", n: ["곡조: Pop Goes the Weasel (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","'Zoom!'에서 로켓처럼 두 손을 위로 쭉 뻗고, 'Splash!'에서 잠수하듯 손을 모아 아래로 내려가요."], src: '새로 지음', lines: ["Oh, what will you invent, my friend?","I will invent a jetpack!","I will use metal, glass, and wires,","Zoom! goes my jetpack!","If I go deep under the sea,","I will need a submarine,","If it gets dark, I'll need some lights,","Splash! Down I will go!"] };
+const USONG_3 = { t: 'song', k: 'new', small: "Let's sing! ♪ Here We Go Round the Mulberry Bush", title: "I Promise, I Predict, I Plan 🤞", img: "gen:bts-16-song-promise", nt: "약속·예측·계획 노래(새로 지음)", n: ["곡조: Here We Go Round the Mulberry Bush (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","'promise'에서 새끼손가락을 카메라에 내밀고, 'rain'에서 손가락으로 비 내리는 흉내, 'plan'에서 손바닥에 쓰는 흉내를 해요."], src: '새로 지음', lines: ["I promise that I will study hard,","I will study hard, I will study hard,","I promise that I will study hard,","That is my promise to you!","I predict it will rain on Sunday,","It will rain all day, it will rain all day,","So I plan to play games in my room,","That is my plan for Sunday!"] };
 
 const CH = 'Unit 1', INV = 'Unit 2', PPP = 'Unit 3';
 
@@ -17,7 +19,8 @@ export const COURSE = {
 <li><b>002 «거지(beggar)» 상황</b> — «a hungry man» 으로 바꿨습니다. 원본 낱말 beggar 를 가르칠지 결정해 주세요.</li>
 <li><b>고친 문장 승인</b> — 과마다 «이 과에서 고친 것» 목록(특히 001 FANBOYS 노래의 «nor we will eat» → «nor will we eat», 003 Heather 이야기의 «if she will not do it», 004 역할극 «I'm lazy of doing that», 007 «I didn't make a plan yet»).</li>
 <li><b>노래 저작권</b> — 001 FANBOYS 노래(영국 동요 녹음)와 모든 과의 Pinkfong 작별 노래 → 자체 챈트·공통 작별 노래로 바꿨습니다. 자체 녹음 필요.</li>
-<li><b>Did you know? (004)</b> — 전기밥솥 발명자(미나미 요시타다·도시바) 설명은 원본 그대로 두었습니다. 연도 등 사실 확인 뒤 싣기를 권합니다. · <b>새 사진 38장</b>(힉스필드 크레딧).</li></ol></div>`,
+<li><b>Did you know? (004)</b> — 전기밥솥 발명자(미나미 요시타다·도시바) 설명은 원본 그대로 두었습니다. 연도 등 사실 확인 뒤 싣기를 권합니다. · <b>새 사진 38장</b>(힉스필드 크레딧).</li>
+<li><b>새 단원 노래 2곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 2 «What Will You Invent?»(Pop Goes the Weasel) · Unit 3 «I Promise, I Predict, I Plan»(Here We Go Round the Mulberry Bush). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '고르기·FANBOYS', unit: CH, title: 'Choices', orig: 27,
@@ -108,6 +111,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-16-inventor-girl', q: 'What will you invent?', story: 'Wendy heard a strange noise last night. What is May making?', nt: '표지 + Big Question', n: ['사진 속 기계가 무엇일지 먼저 상상해 말하게 합니다'] },
       ...open([['I can name materials.', '재료 이름을 말할 수 있어요 — metal, wood, glass …'], ['I can say "If …, I will …".', '«If …, I will …» 로 말할 수 있어요.'], ['I can talk about an invention.', '발명품에 대해 말할 수 있어요.']]),
+      USONG_2,
       { t: 'qa', k: 'fix', img: '18071', title: 'Warm up', q: 'Would you rather live in a cave or a tree house?', a: 'I would rather live in a ___.', chips: ['cave', 'tree house'], src: 'Warm up 4쪽', nt: '몸풀기', n: ['자리표시 «is not yet done!» 말풍선은 뺐습니다', '003 에서 배운 would rather 로 시작 — 집을 «짓는» 이야기로 이어짐'] },
       { t: 'vocab', k: 'fix', hide: true, cols: 4, words: [['technology', '과학 기술', '12356'], ['ingredients', '재료(음식)', '16653'], ['build', '짓다', '17142'], ['building', '건물', '16843'], ['invent', '발명하다', '16303'], ['invention', '발명품', '19430'], ['vehicle', '탈것', '15812'], ['materials', '재료', '19450']], src: 'Vocabulary 5쪽', nt: '낱말 1 — 뜻 가리고', n: ['<del>성분 · 차량</del> → 재료(음식) · 탈것', 'ingredients(음식 재료)와 materials(만드는 재료)의 차이를 짚습니다'] },
       { t: 'vocab', k: 'fix', cols: 4, title: 'Words 1', words: [['technology', '과학 기술', '12356'], ['ingredients', '재료(음식)', '16653'], ['build', '짓다', '17142'], ['building', '건물', '16843'], ['invent', '발명하다', '16303'], ['invention', '발명품', '19430'], ['vehicle', '탈것', '15812'], ['materials', '재료', '19450']], nt: '낱말 1 — 뜻 공개', n: ['짝 찾기: build ↔ building · invent ↔ invention'] },
@@ -147,6 +151,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '18028', q: 'What will you make in your workshop?', story: 'Two young inventors are building something. What will it be?', nt: '표지 + Big Question', n: ['사진 속 두 아이가 무엇을 만드는지 먼저 추측 — «They will make a …»'] },
       ...open([['I can plan an invention.', '발명품을 계획할 수 있어요.'], ['I can say what materials I will use.', '어떤 재료를 쓸지 말할 수 있어요.'], ['I can ask and answer about inventions.', '발명품에 대해 묻고 답할 수 있어요.']]),
+      USONG_2,
       { t: 'table', k: 'fix', small: 'Picture talk', title: "Let's invent a car!", head: ['Question', 'Answer'], rows: [['What will you invent?', 'I am going to invent a car.'], ['What will the car have?', 'The car will have four wheels.'], ['What materials do you need?', 'If I invent a car, I will need metal, wires, and glass.']], src: '6쪽', nt: '묻고 답하기 틀', n: ['원본은 질문·답이 뒤섞인 짝짓기 → 먼저 표로 보고 다음 쪽에서 게임', '강사가 질문, 학생이 답 → 바꿔서'] },
       { t: 'order', k: 'new', img: '12135', words: ['If', 'I', 'invent', 'a car,', 'I', 'will', 'need', 'metal.'], nt: '순서 맞추기 게임', n: ['섞인 낱말 카드를 학생이 순서대로 부르기', '쉼표가 어디에 붙는지가 핵심'] },
       { t: 'fill', k: 'fix', title: "Let's invent a computer!", img: '12586', lines: ["What are you going to invent? — I'm going to ___ a ___.", 'What will you use it for? — For gaming and social media.', 'What materials will you use? — ___, ___, and wires.'], chips: ['invent', 'computer', 'metal', 'plastic'], src: '7쪽', nt: '컴퓨터 발명', n: ['use it for + 명사(gaming) — 무엇에 쓰는지 말하기'] },
@@ -171,6 +176,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-16-flying-car', q: 'Will cars fly in the future?', story: 'Nick will start a company. It will invent amazing vehicles!', nt: '표지 + Big Question', n: ['001 에서 Jessa 를 태워 준 Nick 이 회사를 차립니다'] },
       ...open([['I can read a short story about inventions.', '발명 이야기를 읽고 답할 수 있어요.'], ['I can explain what an invention is for.', '발명품이 어디에 쓰이는지 설명할 수 있어요.'], ['I can share my opinion.', '내 생각을 말할 수 있어요 — I think the best invention is …']]),
+      USONG_2,
       { t: 'vocab', k: 'fix', hide: true, cols: 3, words: [['businessman', '사업가', '15096'], ['company', '회사', '15370'], ['vehicle', '탈것', '15812'], ['submarine', '잠수함', 'gen:bts-16-submarine'], ['hoverboard', '호버보드', 'gen:bts-16-hoverboard'], ['jetpack', '제트팩', 'gen:bts-16-jetpack']], src: 'Vocabulary', nt: '낱말 — 뜻 가리고', n: ['<del>꾸미다 · 차량</del> 오류 뜻은 고치고, 이야기에 나오는 탈것 셋을 사진으로', 'special kind 는 읽기의 낱말 풀이로 옮겼습니다'] },
       { t: 'vocab', k: 'fix', cols: 3, title: 'Words', words: [['businessman', '사업가', '15096'], ['company', '회사', '15370'], ['vehicle', '탈것', '15812'], ['submarine', '잠수함', 'gen:bts-16-submarine'], ['hoverboard', '호버보드', 'gen:bts-16-hoverboard'], ['jetpack', '제트팩', 'gen:bts-16-jetpack']], nt: '낱말 — 뜻 공개', n: ['«Which one would you rather ride?» 로 003 복습'] },
       { t: 'read', k: 'fix', title: "Nick's Company (1)", img: '15370', paras: ['Nick is a businessman. He will start his new company. His company is going to invent special kinds of vehicles.', 'He plans to invent flying cars, submarines, hoverboards, and electric jetpacks.'], gloss: [['special kind', '특별한 종류']], src: 'Your turn 5쪽', nt: '읽기 — 닉의 회사 1', n: ['«electronic jetpacks» → electric', '문단마다 멈추고 «What will …?» 질문'] },
@@ -196,6 +202,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '21047', q: 'What do you promise? What do you predict? What do you plan?', story: 'Christian and Samantha make plans for the weekend.', nt: '표지 + Big Question', n: ['새끼손가락 약속 사진 — 강사와 화면으로 «Pinky promise!» 흉내'] },
       ...open([['I can make a promise.', '약속할 수 있어요 — I promise I will study hard.'], ['I can make a prediction.', '예측할 수 있어요 — I predict it will rain.'], ['I can talk about my plans.', '계획을 말할 수 있어요 — I plan to watch a movie.']]),
+      USONG_3,
       { t: 'vocab', k: 'fix', hide: true, cols: 4, words: [['promise', '약속하다', 'c5016'], ['predict', '예측하다', '20108'], ['plan', '계획하다', '14636'], ['prediction', '예측', '12195'], ['courtroom', '법정', '14772'], ['truth', '진실', '15004'], ['marry', '결혼하다', '17024'], ['in love', '사랑에 빠진', '16707']], src: 'New Words 4·6쪽', nt: '낱말 — 뜻 가리고', n: ['<del>약속 · 사랑에빠지다</del> → 약속하다(동사) · 사랑에 빠진', 'predict ↔ prediction 짝'] },
       { t: 'vocab', k: 'fix', cols: 4, title: 'Words', words: [['promise', '약속하다', 'c5016'], ['predict', '예측하다', '20108'], ['plan', '계획하다', '14636'], ['prediction', '예측', '12195'], ['courtroom', '법정', '14772'], ['truth', '진실', '15004'], ['marry', '결혼하다', '17024'], ['in love', '사랑에 빠진', '16707']], nt: '낱말 — 뜻 공개', n: ['몸짓: promise(새끼손가락) · predict(수정 구슬) · plan(달력 가리키기)'] },
       { t: 'rule', k: 'new', title: 'will or to?', left: { h: 'promise / predict + will', ex: ['I promise I **will** study hard.', 'I predict it **will** rain tomorrow.'] }, right: { h: 'promise / plan + to', ex: ['She promises **to** study hard.', 'I plan **to** play games.'] }, q: 'After "plan", what comes? After "predict", what comes?', src: 'Grammar 4·7쪽', nt: '규칙 찾기', n: ['predict 는 늘 «that + will», plan 은 «to + 동사», promise 는 둘 다 — 학생이 찾게'] },
@@ -227,6 +234,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-16-pirate', q: 'What is his plan? What will he find?', story: 'Look at the pictures. What do they plan, promise, and predict?', nt: '표지 + Big Question', n: ['보물지도를 든 꼬마 해적 — «He plans to find …» 로 먼저 예측'] },
       ...open([['I can talk about plans in pictures.', '사진 속 사람들의 계획을 말할 수 있어요.'], ['I can use promise, predict, and plan correctly.', 'promise·predict·plan 을 바르게 쓸 수 있어요.'], ['I can find and fix mistakes.', '틀린 문장을 찾아 고칠 수 있어요.']]),
+      USONG_3,
       { t: 'qa', k: 'keep', img: 'c7424', title: 'Picture talk', q: 'What is his plan?', a: 'He ___ to find the treasure chest. He will use a ___.', chips: ['plans', 'map'], src: '8쪽', nt: '해적의 계획', n: ['plans — 주어 he 에 s'] },
       { t: 'qa', k: 'keep', img: '17024', title: 'Picture talk', q: 'What do you predict will happen?', a: 'They ___ in love. I ___ they will get ___.', chips: ['are', 'predict', 'married'], src: '9쪽', nt: '결혼 예측', n: ['in love · get married 를 007 낱말과 연결'] },
       { t: 'qa', k: 'fix', img: '18465', title: 'Picture talk', q: 'What will he promise?', a: 'His scores are ___. He ___ that he will ___ hard.', chips: ['low', 'promises', 'study'], src: '10쪽', nt: '공부 약속', n: ['«Her scores in her exams» → 사진에 맞게 he · on his exams'] },
@@ -251,6 +259,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-16-luna-astronaut', q: 'What do you plan to be in the future?', story: 'Luna has a big dream. And a president has big promises!', nt: '표지 + Big Question', n: ['우주비행사 옷을 입은 루나 — 무엇이 되고 싶은지 먼저 말하기'] },
       ...open([["I can read about someone's plans.", '누군가의 계획을 읽고 답할 수 있어요.'], ['I can make promises like a president.', '대통령처럼 약속할 수 있어요.'], ['I can predict the future of my country.', '우리나라의 미래를 예측할 수 있어요.']]),
+      USONG_3,
       { t: 'read', k: 'fix', title: 'Luna the Future Astronaut', img: '12388', paras: ['I plan to be an astronaut in the future. For me to do that, I have to study hard. I promise to get really high grades, especially in science and math.', 'I also plan to build a mansion for my parents. It will have a swimming pool and a garden. I predict they will be really proud of me.'], gloss: [['astronaut', '우주비행사'], ['mansion', '저택'], ['proud of', '~을 자랑스러워하는']], src: 'Story Time 8쪽', nt: '읽기 — 루나', n: ['«Science and Math» → science and math · 쌍반점 → 두 문장', '읽으며 plan·promise·predict 에 손가락 표시'] },
       { t: 'fill', k: 'keep', title: 'Follow up', lines: ['What does Luna plan to be? — An ___.', 'In what subjects does she promise to get high grades? — ___ and ___.', 'What does she plan to build for her parents? — A ___.'], chips: ['astronaut', 'science', 'math', 'mansion'], src: 'Follow up 9쪽', nt: '읽기 질문', n: ['답을 한 문장으로 늘려 말하기: She plans to be an astronaut.'] },
       { t: 'ox', k: 'new', img: '15136', s: 'Luna plans to build a mansion for her friends.', nt: '⭕❌', n: ['정답 ❌ → «No! She plans to build it for her parents.»'] },

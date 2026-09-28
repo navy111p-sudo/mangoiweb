@@ -1,0 +1,91 @@
+{
+ "book": 30,
+ "songs": [
+  {
+   "unit": "Unit 1",
+   "key": "bts-30-song-abroad",
+   "title": "Living Abroad ✈️",
+   "tune": "Rap chant (4 beats)",
+   "lines": [
+    "Have you ever traveled abroad?",
+    "What was it like? Was it hard?",
+    "Would you like to live abroad?",
+    "Yes! A new culture, a new start!",
+    "New traditions, beliefs, and values,",
+    "But a misunderstanding can happen too.",
+    "Pros and cons — do you think it's cool?",
+    "Would you go? I would! How about you?"
+   ],
+   "nt": "해외 생활 랩(새로 지음)",
+   "n": [
+    "곡조: Rap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+    "Yes/No 질문에서는 엄지 위·아래, Wh- 질문에서는 어깨 으쓱으로 구분하며 말하기"
+   ],
+   "imgPrompt": "Kids with suitcases looking at a big world map, dreaming of different countries and cultures."
+  },
+  {
+   "unit": "Unit 2",
+   "key": "bts-30-song-free-time",
+   "title": "So or Because? 🎮",
+   "tune": "Clap chant (4 beats)",
+   "lines": [
+    "What do you do in your free time?",
+    "I read a lot because I love new ideas.",
+    "I'm tired, so I take a nap.",
+    "I'm social, so I socialize!",
+    "Lifting weights is rigorous work,",
+    "I lift weights because I want to be strong.",
+    "Let's be flexible and compromise:",
+    "Your game, then mine — that's leisure time!"
+   ],
+   "nt": "여가·이유 챈트(새로 지음)",
+   "n": [
+    "곡조: Clap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+    "so에서 손을 앞으로 밀고, because에서 손을 뒤로 당겨 결과·이유 위치 구분하기"
+   ],
+   "imgPrompt": "Children enjoying free time: one reading, one napping, one lifting light weights, two sharing a game."
+  },
+  {
+   "unit": "Unit 3",
+   "key": "bts-30-song-career",
+   "title": "Talents and Skills 🎨",
+   "tune": "Yankee Doodle",
+   "lines": [
+    "I have a talent for math,",
+    "She's talented in music,",
+    "I practice to improve my skills,",
+    "And engineers use math, too!",
+    "What job do you want to have?",
+    "A veterinarian!",
+    "An archaeologist digs,",
+    "A sculptor makes a statue!"
+   ],
+   "nt": "직업·재능 노래(새로 지음)",
+   "n": [
+    "곡조: Yankee Doodle (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "직업 이름이 나오면 그 직업 흉내(땅 파기·조각하기)를 화면에 보여주기"
+   ],
+   "imgPrompt": "Kids dressed as a veterinarian, an archaeologist digging, a sculptor carving and a young engineer with math."
+  },
+  {
+   "unit": "Unit 4",
+   "key": "bts-30-song-space",
+   "title": "Would You Rather? 🚀",
+   "tune": "Twinkle Twinkle Little Star",
+   "lines": [
+    "Would you rather go to Mars,",
+    "Or the Moon among the stars?",
+    "I would rather fly to Mars,",
+    "Past the planets, past the stars.",
+    "Astronomers stay on Earth,",
+    "Fulfill your dream for all it's worth!"
+   ],
+   "nt": "우주 선택 노래(새로 지음)",
+   "n": [
+    "곡조: Twinkle Twinkle Little Star (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "Mars와 Moon에서 양손을 번갈아 들어 고르고, I would rather에서 고른 쪽 손을 높이 들기"
+   ],
+   "imgPrompt": "Young astronauts in a rocket flying past colorful planets and satellites toward red Mars."
+  }
+ ]
+}

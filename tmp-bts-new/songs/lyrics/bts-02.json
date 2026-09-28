@@ -1,0 +1,49 @@
+{
+  "book": 2,
+  "songs": [
+    {
+      "unit": "Unit 2",
+      "key": "bts-02-song-big-small-zoo",
+      "title": "Big and Small Zoo 🦁",
+      "tune": "Mary Had a Little Lamb",
+      "lines": [
+        "The hippo is big, big, big,",
+        "Big, big, big! Big, big, big!",
+        "The hippo is big, big, big,",
+        "And the monkeys are small!",
+        "Is the snake long? Yes, it is!",
+        "Long and thin! Long and thin!",
+        "Is it blue? No, it isn't!",
+        "The snake is long and green!"
+      ],
+      "nt": "동물 크기 노래(새로 지음)",
+      "n": [
+        "곡조: Mary Had a Little Lamb (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "big에서 두 팔을 크게 벌리고, small에서 손가락을 모으고, long에서 양손을 옆으로 쭉 뻗어요."
+      ],
+      "imgPrompt": "Happy children at a sunny zoo pointing at a big hippo, small monkeys and a long thin green snake."
+    },
+    {
+      "unit": "Unit 3",
+      "key": "bts-02-song-is-and-has",
+      "title": "Is and Has Song 👦",
+      "tune": "The Farmer in the Dell",
+      "lines": [
+        "He is tall, he is tall,",
+        "He has brown eyes, too!",
+        "Is he tall? Yes, he is!",
+        "He is tall, he is tall!",
+        "She has red hair, red hair,",
+        "She has red hair, red hair,",
+        "Does she have black hair? No!",
+        "She has red hair, red hair!"
+      ],
+      "nt": "생김새 노래(새로 지음)",
+      "n": [
+        "곡조: The Farmer in the Dell (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "tall에서 손을 머리 위로 높이 올리고, hair에서 머리카락을, eyes에서 눈을 가리켜요."
+      ],
+      "imgPrompt": "A tall boy with brown eyes and a smiling girl with red hair waving together in a park."
+    }
+  ]
+}

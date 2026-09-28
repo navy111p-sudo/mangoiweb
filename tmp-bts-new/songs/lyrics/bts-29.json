@@ -1,0 +1,49 @@
+{
+ "book": 29,
+ "songs": [
+  {
+   "unit": "Unit 3",
+   "key": "bts-29-song-lend-borrow",
+   "title": "Lend and Borrow 🤝",
+   "tune": "Rap chant (4 beats)",
+   "lines": [
+    "I lend my pen to Jay, to Jay!",
+    "Jay borrows my pen today!",
+    "I get it back, so I trust my friend.",
+    "Good friends are important to me!",
+    "Can you keep a secret? Yes, I can!",
+    "An embarrassing secret? I would not tell!",
+    "You lend a book to me, I borrow it from you.",
+    "That's what friends do — I trust you!"
+   ],
+   "nt": "빌려주기·빌리기 랩(새로 지음)",
+   "n": [
+    "곡조: Rap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+    "lend에서 펜을 화면 밖으로 내밀고, borrow에서 끌어당기는 동작으로 방향 익히기"
+   ],
+   "imgPrompt": "Two kids at a school desk, one lending a pen to the other, both smiling with a friendly handshake."
+  },
+  {
+   "unit": "Unit 4",
+   "key": "bts-29-song-honest-friends",
+   "title": "Have You Ever Told a Lie? 🤥",
+   "tune": "Clap chant (4 beats)",
+   "lines": [
+    "Have you ever told a lie?",
+    "Have you ever cheated? Why?",
+    "Honest friends tell the truth,",
+    "We can trust them, me and you!",
+    "Dishonest people lie and cheat,",
+    "Their rumors spread from street to street.",
+    "In a hard spot, what would you do?",
+    "I would be honest! How about you?"
+   ],
+   "nt": "정직 챈트(새로 지음)",
+   "n": [
+    "곡조: Clap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+    "Have you ever?에서 상대를 가리키고, honest에서 손을 가슴에 얹는 동작"
+   ],
+   "imgPrompt": "A group of children in a classroom, one boy raising his hand honestly next to a broken cookie jar."
+  }
+ ]
+}

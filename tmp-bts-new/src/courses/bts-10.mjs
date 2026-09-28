@@ -1,5 +1,7 @@
 // BTS 10 새 교재 설계 데이터. k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 import { open, close, HELLO } from '../common.mjs';
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Here We Go Round the Mulberry Bush", title: "Hot and Cold Clothes 🧣", img: "gen:bts-10-song-hot-cold", nt: "날씨와 옷 노래(새로 지음)", n: ["곡조: Here We Go Round the Mulberry Bush (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","'cold'에서 몸을 떨며 코트 입는 동작, 'hot'에서 부채질하고 선글라스 쓰는 동작을 화면 앞에서 함께 해요."], src: '새로 지음', lines: ["When it is cold, I wear a coat,","I wear a coat, I wear a coat.","When it is cold, he wears a scarf,","and she is wearing mittens!","When it is hot, I wear my shorts,","I wear my shorts, I wear my shorts.","She wears sunglasses when it's hot,","and they are wearing sandals!"] };
+const USONG_3 = { t: 'song', k: 'new', small: "Let's sing! ♪ Oh My Darling, Clementine", title: "Weatherman, Goodbye! 🌦️", img: "gen:bts-10-song-weatherman", nt: "일기 예보 노래(새로 지음)", n: ["곡조: Oh My Darling, Clementine (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","학생이 손을 마이크처럼 들고 일기 예보관이 되어, 날씨 낱말마다 해·비·눈·바람 손동작을 보여 줘요."], src: '새로 지음', lines: ["It is sunny, it is sunny,","it is sunny here today.","But tonight it will be rainy,","I should bring my raincoat, too.","Oh, tomorrow will be snowy,","and it will be windy, too.","I must wear a warm, warm jacket.","Thank you, weatherman, goodbye!"] };
 const W = 'Unit 1', HC = 'Unit 2', WM = 'Unit 3';
 const TT = ['Whether the weather be fine', 'or whether the weather be not,', 'whether the weather be cold', 'or whether the weather be hot,', "we'll weather the weather", "whether we like it or not!"];
 
@@ -18,7 +20,8 @@ export const COURSE = {
 <li><b>작별 노래</b> — BTS 10 원본은 «See you later, alligator» 곡인데, 공통 쪽은 BTS 1 과 같은 Goodbye Song 입니다. 권마다 원래 곡을 쓸지 공통 곡으로 통일할지.</li>
 <li><b>지도 그림</b> — 007~009·TEST 의 미국·한국·중국 지도는 지명 글자가 들어가야 해서 사진 생성으로 만들 수 없습니다(«글자 없음» 규칙). 원본 지도를 다시 그려 쓸지 결정해 주세요 — 시안은 도시 사진 + 날씨 아이콘 표시로 대신했습니다.</li>
 <li><b>이름 «Frauline»</b> — 원본 철자 그대로 두었습니다(독일어 «Fräulein» 과 비슷해 이름으로는 드묾). 바꿀지.</li>
-<li><b>새로 만들 사진 38장</b> — 점선 상자 자리(힉스필드 크레딧).</li></ol></div>`,
+<li><b>새로 만들 사진 38장</b> — 점선 상자 자리(힉스필드 크레딧).</li>
+<li><b>새 단원 노래 2곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 2 «Hot and Cold Clothes»(Here We Go Round the Mulberry Bush) · Unit 3 «Weatherman, Goodbye!»(Oh My Darling, Clementine). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '날씨 낱말', unit: W, title: 'Weather', orig: 32,
@@ -108,6 +111,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '19667', q: 'What do you wear when it\'s hot? When it\'s cold?', story: "Nancy is in the Philippines. Jed is in Korea. It's summer for one and winter for the other!", nt: '표지 + Big Question' },
       ...open([['I can say hot, warm, cool and cold.', "It's hot in summer."], ['I can say what I wear.', 'I wear a coat in winter.'], ['I can say what people are wearing.', 'She is wearing a T-shirt.']], 'Lesson Goals (원본 «I wear coat» 관사 누락)'),
+      USONG_2,
       { t: 'vocab', k: 'fix', hide: true, title: 'Hot or cold? 🔒', words: [['hot', '더운', '19086'], ['warm', '따뜻한', '19650'], ['cool', '시원한', '16055'], ['cold', '추운', '15280']], cols: 4, src: 'Vocabulary 5쪽', nt: '온도 낱말 — 뜻 가리고 먼저', n: ['<del>cold 추운, 감기</del> → 추운 (이 과의 뜻만)'] },
       { t: 'table', k: 'new', small: 'Thermometer 🌡️', title: 'degrees Celsius', head: ['°C', 'say', 'It\'s…'], rows: [['30°C', 'thirty degrees Celsius', 'hot'], ['21°C', 'twenty-one degrees Celsius', 'warm'], ['16°C', 'sixteen degrees Celsius', 'cool'], ['0°C', 'zero degrees Celsius', 'cold']], src: '6~11쪽 온도계', nt: '온도 읽기', n: ['°C = degrees Celsius(섭씨 온도)', '원본 네 쪽에 흩어진 온도(30·21·16·0°C)를 한 표로 — 숫자 읽기 연습 겸'] },
       { t: 'qa', k: 'keep', img: '19248', title: 'Four seasons', q: 'Can you still remember the four seasons?', a: 'Spring, ___, fall and ___.', chips: ['summer', 'winter'], src: '7쪽', nt: '계절 떠올리기' },
@@ -144,6 +148,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-10-raincoat-group', q: 'What are they wearing? Why?', story: 'Rain, sun, wind and snow — every kind of weather has its own clothes!', nt: '표지 + Big Question' },
       ...open([['I can name more clothes.', 'sandals, sunglasses, a raincoat'], ['I can say what people are wearing.', 'She is wearing boots.'], ['I can talk about the weather and clothes.', "It's cold and windy. She is wearing a coat."]], 'Lesson Goals'),
+      USONG_2,
       { t: 'vocab', k: 'fix', hide: true, title: 'More clothes 🔒', words: [['sandals', '샌들', 'gen:bts-10-sandals'], ['sunglasses', '선글라스', '13315'], ['raincoat', '비옷', '15649'], ['swimsuit', '수영복', 'gen:bts-10-swimsuit'], ['boots', '부츠·장화', 'gen:bts-10-boots'], ['gloves', '장갑', '16357']], src: '5쪽 More words', nt: '새 옷 낱말 — 뜻 가리고 먼저' },
       { t: 'vocab', k: 'keep', title: 'More clothes', words: [['sandals', '샌들', 'gen:bts-10-sandals'], ['sunglasses', '선글라스', '13315'], ['raincoat', '비옷', '15649'], ['swimsuit', '수영복', 'gen:bts-10-swimsuit'], ['boots', '부츠·장화', 'gen:bts-10-boots'], ['gloves', '장갑', '16357']], nt: '뜻 공개' },
       { t: 'rule', k: 'new', title: 'gloves or mittens?', left: { h: 'gloves 🧤', ex: ['five fingers', 'I wear **gloves**.'] }, right: { h: 'mittens', ex: ['one thumb + one big pocket', 'I wear **mittens**.'] }, q: "What's the difference?", src: '8쪽 «(gloves/mittens)» 대신', nt: '규칙 찾기 — 장갑 두 가지', n: ['원본 «They are wearing (gloves/mittens)» 선택 문제의 답을 스스로 가르게 합니다', '원본 고무장갑 사진은 뺐습니다'] },
@@ -174,6 +179,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-10-pack-bag', q: 'What do you need for this weather?', story: 'Pack your bag! What will you need today?', nt: '표지 + Big Question' },
       ...open([['I can say what I need.', "I need an umbrella when it's rainy."], ['I can use wear and need.', 'She wears a scarf. He needs sunglasses.'], ['I can talk about clothes for the weather.', "I wear boots when it's snowy."]], 'Lesson Goals'),
+      USONG_2,
       { t: 'rule', k: 'new', title: 'wear or need?', left: { h: 'wear 👕 (on my body)', ex: ['She **wears** a scarf.', 'I **wear** boots.'] }, right: { h: 'need 🎒 (I must have it)', ex: ['He **needs** sunglasses.', 'I **need** an umbrella.'] }, q: 'Can you wear an umbrella? 😄', nt: '규칙 찾기', n: ['«우산을 입을 수 있나?» 로 웃으며 need 의 뜻을 찾게 합니다', 'sunglasses 는 wear 도 need 도 됩니다 — 학생이 발견하면 칭찬'] },
       { t: 'table', k: 'fix', title: "He needs sunglasses when it's sunny.", head: ['who', 'wear(s) / need(s)', 'what', 'when'], rows: [['I', 'wear', 'boots', "when it's snowy."], ['She', 'wears', 'a scarf', "when it's windy."], ['He', 'needs', 'sunglasses', "when it's sunny."]], tip: 'he·she 뒤에는 -s · when = ~할 때', src: 'Grammar 5쪽', nt: '문장 틀' },
       { t: 'order', k: 'fix', img: 'gen:bts-10-boy-sunglasses', words: ["it's sunny.", 'needs', 'He', 'when', 'sunglasses'], src: '6쪽 문장 배열', nt: '문장 순서 (1)', n: ['원본 사람 없는 사진 → 선글라스 낀 소년', '답: He needs sunglasses when it\'s sunny.'] },
@@ -198,6 +204,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-10-nina-josh-umbrella', q: "Who tells us about tomorrow's weather?", story: 'Josh forgot his raincoat. Nina saw the weatherman on TV last night…', nt: '표지 + Big Question' },
       ...open([['I can talk about the weatherman.', 'He is the weatherman. I can see him on TV.'], ['I can say north, south, east and west.', 'Texas is in the south.'], ['I can say what I should bring.', "It's rainy. I should bring an umbrella."]], 'Lesson Goals (Vocabulary · Grammar)'),
+      USONG_3,
       { t: 'qa', k: 'keep', img: 'gen:bts-10-weatherman-tv', title: 'Hello, I am the weatherman!', q: 'Who is he? Where can you see him?', a: 'He is the ___. I can see him on ___.', chips: ['weatherman', 'TV'], src: '11쪽', nt: '일기 예보관' },
       { t: 'vocab', k: 'new', hide: true, title: 'Remember? 🔒', words: [['sunny', '화창한', 'c7210'], ['rainy', '비 오는', '16230'], ['cloudy', '흐린', 'c7141'], ['windy', '바람 부는', '16227'], ['snowy', '눈 오는', '18744'], ['stormy', '폭풍우 치는', '15777']], src: '12~14쪽 Let\'s review', nt: '날씨 낱말 복습', n: ['원본 복습 세 쪽 → 한 쪽. «The weather is ___.» 로 말하기'] },
       { t: 'vocab', k: 'fix', title: 'New words', words: [['weatherman', '일기 예보관', '12320'], ['fog', '안개', 'c7143'], ['foggy', '안개 낀', '15412'], ['partly cloudy', '구름 조금', '18785']], cols: 4, src: 'Vocabulary 4쪽', nt: '새 날씨 낱말', n: ['<del>foggy 흐린</del> → 안개 낀 (cloudy 와 구별)', '<del>weatherman 기상대 직원</del> → 일기 예보관'] },
@@ -226,6 +233,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-10-kid-reporter', q: 'Can you be a weatherman?', story: "We're live now! Help the weatherman read the news.", nt: '표지 + Big Question' },
       ...open([['I can talk about the weather later.', 'It will be sunny tomorrow.'], ['I can use "going to".', "It's going to be rainy tonight."], ['I can read a weather report.', "It's sunny and hot in Seoul."]], 'Lesson Goals'),
+      USONG_3,
       { t: 'vocab', k: 'new', hide: true, title: 'Remember? 🔒', words: [['foggy', '안개 낀', 'c7143'], ['partly cloudy', '구름 조금', 'c7210'], ['weatherman', '일기 예보관', 'gen:bts-10-weatherman-tv'], ['forecast', '일기 예보', '12195']], cols: 4, nt: '지난 시간 낱말 떠올리기', n: ['forecast 는 원본 «THE WEATHER FORECAST» 카드의 낱말'] },
       { t: 'rule', k: 'new', title: 'now or later?', left: { h: 'Now ⏰', ex: ["It **is** sunny today.", "It**'s** cloudy now."] }, right: { h: 'Later 🔮', ex: ['It **will be** rainy tomorrow.', "It**'s going to be** rainy tonight."] }, q: 'Which words tell us about later?', src: 'Grammar 8쪽 Simple Future', nt: '규칙 찾기 — 미래', n: ['will be / going to be 를 학생이 찾게 합니다 — 두 말은 뜻이 같다고만 알려 줍니다'] },
       { t: 'table', k: 'fix', title: 'It will be sunny tomorrow.', head: ['when', 'say'], rows: [['today / now', "It's sunny."], ['tonight', "It's going to be rainy."], ['tomorrow', 'It will be cloudy.']], tip: 'will be = be going to be · 앞으로의 날씨', src: 'Grammar 4쪽', nt: '문장 틀' },
@@ -250,6 +258,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '12320', q: 'What should people wear today?', story: 'Imagine that you are the WEATHERMAN! Tell everyone about the weather.', nt: '표지 + Big Question' },
       ...open([['I can give a weather report.', "It's going to be snowy in North Dakota."], ['I can say what to wear.', 'You should wear a raincoat.'], ['I can say what to bring.', 'You have to bring an umbrella.']], 'Lesson Goals'),
+      USONG_3,
       { t: 'table', k: 'new', small: 'Remember?', title: 'should · have to · must', head: ['weather', 'advice'], rows: [["It's rainy.", 'You **should** wear a raincoat.'], ["It's sunny.", 'You **have to** bring sunglasses.'], ["It's snowy.", 'You **must** wear a jacket.']], tip: 'should = ~하는 게 좋아요 · have to / must = 꼭 ~해야 해요', nt: '문장 틀 복습' },
       { t: 'qa', k: 'keep', img: '13262', label: 'Seoul', title: 'Today in Seoul', q: "What's the weather like in Seoul?", a: "It's ___ and ___ in Seoul. You should wear a ___.", chips: ['cold', 'windy', 'coat'], src: '10쪽', nt: '서울 오늘' },
       { t: 'qa', k: 'fix', img: 'c7135', label: 'Seoul', title: 'Tomorrow in Seoul', q: 'What about tomorrow?', a: "It's going to be ___. You have to wear ___.", chips: ['snowy', 'boots'], src: '11쪽', nt: '서울 내일', n: ['원본 «It\'s ___ to ___ ___ and ___ tomorrow» 빈칸 네 개 → going to be 를 보이게 하고 날씨만 빈칸'] },

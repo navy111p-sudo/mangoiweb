@@ -1,0 +1,303 @@
+{
+ "book": 29,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001"
+   ],
+   "titles": [
+    "Heroes"
+   ],
+   "goals": [
+    "I can talk about people I admire.",
+    "I can describe a good role model.",
+    "I can ask and answer Wh- and Yes/No questions."
+   ],
+   "words": [
+    [
+     "hero",
+     "영웅"
+    ],
+    [
+     "role model",
+     "본받고 싶은 사람"
+    ],
+    [
+     "personal",
+     "개인적인, 나만의"
+    ],
+    [
+     "famous",
+     "유명한"
+    ],
+    [
+     "admire",
+     "존경하다"
+    ],
+    [
+     "respect",
+     "존경하다"
+    ],
+    [
+     "inspire",
+     "영감을 주다"
+    ],
+    [
+     "successful",
+     "성공한"
+    ],
+    [
+     "unselfish",
+     "이기적이지 않은"
+    ],
+    [
+     "generous",
+     "너그러운"
+    ],
+    [
+     "humble",
+     "겸손한"
+    ],
+    [
+     "trustworthy",
+     "믿을 수 있는"
+    ],
+    [
+     "easygoing",
+     "느긋한, 마음이 편한"
+    ],
+    [
+     "honest",
+     "정직한"
+    ],
+    [
+     "hardworking",
+     "열심히 일하는"
+    ]
+   ],
+   "sentences": [
+    "Who is your hero?",
+    "Which question needs a longer answer? Why?",
+    "**Do** you admire anyone?",
+    "→ Yes, I do. / No, I don't.",
+    "**Who** do you admire?",
+    "→ I admire my mom.",
+    "What did Edison develop?",
+    "Sunny's hero is a famous singer.",
+    "Do you want to be rich when you grow up?"
+   ],
+   "songs": [
+    "My Hero (chant)"
+   ],
+   "imgs": [
+    "15459",
+    "gen:bts-29-rolemodel",
+    "12080",
+    "18934",
+    "15187",
+    "12348",
+    "15490",
+    "15743",
+    "14245",
+    "15428",
+    "14725",
+    "18638",
+    "12684",
+    "18467",
+    "17178"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004"
+   ],
+   "titles": [
+    "Money"
+   ],
+   "goals": [
+    "I can talk about spending and saving money.",
+    "I can talk about bargains and being ripped off.",
+    "I can give my opinion about money and happiness."
+   ],
+   "words": [
+    [
+     "spend",
+     "(돈을) 쓰다"
+    ],
+    [
+     "allowance",
+     "용돈"
+    ],
+    [
+     "buy",
+     "사다"
+    ],
+    [
+     "expensive",
+     "비싼"
+    ],
+    [
+     "bargain",
+     "싸게 잘 산 것"
+    ],
+    [
+     "ripped off",
+     "바가지 쓴"
+    ]
+   ],
+   "sentences": [
+    "Can money buy happiness?",
+    "a nice thing",
+    "for a **very cheap** price",
+    "a **very expensive** thing",
+    "that **breaks** or is **not useful**",
+    "Shoes for half price are a bargain.",
+    "What is it?",
+    "How are your friends important to you?"
+   ],
+   "songs": [
+    "Spend or Save? (chant)"
+   ],
+   "imgs": [
+    "13289",
+    "gen:bts-29-allowance",
+    "12369",
+    "12455",
+    "18746",
+    "gen:bts-29-rippedoff"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007"
+   ],
+   "titles": [
+    "Friends"
+   ],
+   "goals": [
+    "I can talk about my friends.",
+    "I can talk about trust, lending, and secrets.",
+    "I can say what I would do."
+   ],
+   "words": [
+    [
+     "trust",
+     "믿다; 믿음"
+    ],
+    [
+     "lend",
+     "빌려주다"
+    ],
+    [
+     "borrow",
+     "빌리다"
+    ],
+    [
+     "secret",
+     "비밀"
+    ],
+    [
+     "secretive",
+     "비밀이 많은"
+    ],
+    [
+     "embarrassing",
+     "창피한"
+    ]
+   ],
+   "sentences": [
+    "How are your friends important to you?",
+    "Who has the pen at the end? Who gets it back?",
+    "I **lend** my pen **to** Jay.",
+    "(내가 빌려준다 ➡️)",
+    "Jay **borrows** my pen.",
+    "(Jay 가 빌린다 ⬅️)",
+    "Jim's new friend paid him back three days later.",
+    "Who are they?",
+    "Are you an honest person?"
+   ],
+   "songs": [],
+   "imgs": [
+    "18638",
+    "gen:bts-29-lend-phone",
+    "19310",
+    "19630",
+    "gen:bts-29-secretive",
+    "gen:bts-29-embarrassing"
+   ]
+  },
+  {
+   "unit": "Unit 4",
+   "lessons": [
+    "010"
+   ],
+   "titles": [
+    "Lying"
+   ],
+   "goals": [
+    "I can talk about honesty and lies.",
+    "I can ask «Have you ever …?»",
+    "I can say what I would do in a hard situation."
+   ],
+   "words": [
+    [
+     "lie",
+     "거짓말(하다)"
+    ],
+    [
+     "honest",
+     "정직한"
+    ],
+    [
+     "dishonest",
+     "정직하지 않은"
+    ],
+    [
+     "cheat",
+     "부정행위를 하다"
+    ],
+    [
+     "cross the street",
+     "길을 건너다"
+    ],
+    [
+     "spread",
+     "퍼뜨리다"
+    ],
+    [
+     "rumor",
+     "소문"
+    ],
+    [
+     "victim",
+     "피해자"
+    ]
+   ],
+   "sentences": [
+    "Is telling the truth always the easiest thing?",
+    "Who makes a better friend? Why?",
+    "always tell the truth.",
+    "You can **trust** them.",
+    "may **lie**, **cheat**,",
+    "and **break** promises.",
+    "Ryan told his grandma that the dinner was disgusting.",
+    "Who broke the cookie jar?",
+    "Who is your best friend? Why?"
+   ],
+   "songs": [],
+   "imgs": [
+    "15805",
+    "18467",
+    "gen:bts-29-cheat",
+    "gen:bts-29-cheat",
+    "17170",
+    "gen:bts-29-rumor",
+    "gen:bts-29-rumor",
+    "14326"
+   ]
+  }
+ ]
+}

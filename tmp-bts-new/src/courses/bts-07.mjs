@@ -1,6 +1,7 @@
 // BTS 7 새 교재 설계 데이터. k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 // 사진 번호 = photo-catalog.json · 'gen:bts-07-…' = 새로 만들 사진(gen/req-bts-07.json)
 import { open, close, HELLO } from '../common.mjs';
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ This Old Man", title: "I Have Ten Fingers ✋", img: "gen:bts-07-song-ten-fingers", nt: "몸 부위 노래(새로 지음)", n: ["곡조: This Old Man (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","노래에 나오는 목·무릎·팔꿈치를 짚고, mine!에서 손을 가슴에 대요."], src: '새로 지음', lines: ["I have ten, ten fingers,","You have ten toes on your feet,","Touch your neck, your knees, your elbows, too,","These are my feet. They are mine!","She has two knees, two knees,","It has four legs and four feet,","Shake your arms, your hips, your fingers, too,","This is my hand. It is mine!"] };
 const G = s => 'gen:bts-07-' + s;
 const HF = 'Unit 1', PB = 'Unit 2', MO = 'Unit 3';
 const HSKT = ['Head, shoulders, knees and toes, knees and toes!', 'Head, shoulders, knees and toes, knees and toes!', 'And eyes and ears and mouth and nose.', 'Head, shoulders, knees and toes, knees and toes!'];
@@ -21,7 +22,8 @@ export const COURSE = {
 <li><b>괴물 이름</b> — 009 «Purple Devil» 은 «Purple Spike» 로 바꿨습니다(종교적 낱말 회피). 008 «Poo-bat» 은 아이들이 좋아해 그대로 뒀습니다 — 바꿀지 결정해 주세요.</li>
 <li><b>노래 곡조</b> — Head, Shoulders, Knees and Toes(전래곡)·Go Away Song 곡조의 녹음 방식. 원본 QR·유튜브 주소는 화면판에서 뺐습니다.</li>
 <li><b>새 문법 쪽</b> — 목표에만 있고 연습이 없던 «John's ears(소유격 's)»·«mine» 을 001·004 에 한 쪽씩 넣었습니다(TEST 가 «Whose face is this?» 를 묻기 때문). 범위를 넘는다면 빼 주세요.</li>
-<li><b>새로 만들 사진 39장</b> — 괴물 그림 15장(원본 괴물 특징대로), 003 왕 이야기 5장, 판다·사자·쌍둥이 등. 원본 원고 OCR 에 007 30쪽이 비어 있어 원본 JPG 로 확인이 필요합니다.</li></ol></div>`,
+<li><b>새로 만들 사진 39장</b> — 괴물 그림 15장(원본 괴물 특징대로), 003 왕 이야기 5장, 판다·사자·쌍둥이 등. 원본 원고 OCR 에 007 30쪽이 비어 있어 원본 JPG 로 확인이 필요합니다.</li>
+<li><b>새 단원 노래 1곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 2 «I Have Ten Fingers»(This Old Man). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '얼굴·this/these', unit: HF, title: 'Head and Face', orig: 31,
@@ -109,6 +111,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('body-tag'), q: 'How many body parts can you name?', story: 'Simon says, "Touch your knees!"', nt: '표지 + Big Question', n: ['시작하자마자 «Simon says» 한 판 — 몸을 움직이며 수업을 엽니다'] },
       ...open([['I can name the parts of my body.', '몸 부분을 영어로 말할 수 있어요.'], ['I can say "He has two arms."', '몇 개 있는지 말할 수 있어요.'], ['I can say "It\'s mine."', '내 것이라고 말할 수 있어요.']], 'Lesson Goals (대명사·소유 대명사 용어)'),
+      USONG_2,
       { t: 'song', k: 'fix', title: 'Tongue Twister', lines: TWISTER, img: '17118', src: 'Warm Up', nt: '빨리 말하기', n: ['원본 «Hand, neck» → Hands, neck (다른 낱말이 모두 복수라 맞춤)', '천천히 → 보통 → 아주 빠르게 세 번'] },
       { t: 'vocab', k: 'fix', hide: true, words: [['neck', '목', '16167'], ['chest', '가슴', G('chest')], ['tummy', '배', G('tummy')], ['arms', '팔', '17118'], ['hands', '손', '16370'], ['fingers', '손가락', '16160']], src: 'Vocabulary', nt: '낱말 1 — 가리고', n: ['❗ arms 뜻 «무기» → «팔»'] },
       { t: 'vocab', k: 'keep', words: [['neck', '목', '16167'], ['chest', '가슴', G('chest')], ['tummy', '배', G('tummy')], ['arms', '팔', '17118'], ['hands', '손', '16370'], ['fingers', '손가락', '16160']], title: 'Words 1', nt: '낱말 1 — 공개' },
@@ -140,6 +143,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('poster'), q: 'How many parts can you draw?', story: 'Ariel has a school project. May helps her!', nt: '표지 + Big Question' },
       ...open([['I can ask "What are these?"', '몸 부분을 물을 수 있어요.'], ['I can say "I have …" and "You have …".', '몇 개 있는지 말해요.'], ['I can describe my body in 10 sentences.', '내 몸을 10문장으로 말할 수 있어요.']]),
+      USONG_2,
       { t: 'story', k: 'fix', small: 'Story', title: 'A school project', img: G('poster'), lines: [['May', 'Hi, Ariel. Are you okay?'], ['Ariel', 'Yes, but I have a school project.'], ['Ariel', 'I need to draw and name the parts of the body.'], ['May', 'Let me help you!']], src: 'Mini conversation', nt: '이야기 1 — 숙제', n: ['원본 앞부분 그대로'] },
       { t: 'story', k: 'fix', small: 'Story', title: 'What are these?', img: '13069', lines: [['Ariel', 'May, what are these?'], ['May', 'They are my ___. I have two ___.'], ['Ariel', 'And what is this?'], ['May', 'This is my chest.'], ['Ariel', 'Correct! You have one ___.']], src: 'Mini conversation', nt: '이야기 2 — 묻고 답하기', n: ['❗ 원본은 묻는 사람이 스스로 답하는 순서 오류 → 아리엘이 묻고 메이가 답하게', '원본 가슴 사진(속옷 차림)은 뺐습니다'] },
       { t: 'story', k: 'fix', small: 'Story', title: 'Ten fingers!', img: '16160', lines: [['Ariel', 'What are those?'], ['May', 'These are my fingers. I have ___ fingers.'], ['Ariel', 'I have ten fingers, too!'], ['May', 'Now you can draw them. Good luck!'], ['Ariel', 'Thanks, May!']], src: 'Mini conversation', nt: '이야기 3 — 손가락', n: ['원본 «I only have ___ fingers. / Wow! That\'s unique.» 는 뜻이 성립하지 않아 «나도 열 개» 로'] },
@@ -158,6 +162,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '15593', q: 'What do you see?', story: 'Look closely and count!', nt: '표지 + Big Question' },
       ...open([['I can say "I see a …".', '보이는 것을 말할 수 있어요.'], ['I can say "There are … legs."', '몸 부분을 세어 말할 수 있어요.'], ['I can say long and short.', '길고 짧은 것을 말할 수 있어요.']]),
+      USONG_2,
       { t: 'rule', k: 'new', title: 'See, have, count!', left: { h: '1. see · 2. have', ex: ['I see a **girl**.', 'She has two **arms**.'] }, right: { h: '3. count', ex: ['I see **three** children.', 'There are **six** arms.'] }, q: 'Say it in three steps!', nt: '세 걸음 말하기', n: ['사진마다 see → have → count 세 문장. 이 과 전체의 틀입니다'] },
       { t: 'qa', k: 'keep', img: '16185', q: 'What do you see?', a: 'I see a ___. He has two ___.', src: '손목 쪽', nt: 'see + have' },
       { t: 'qa', k: 'fix', img: 'c7124', q: 'Is her neck long or short?', a: 'I see a ___. She has a ___ neck.', src: '목 쪽', nt: 'long / short' },

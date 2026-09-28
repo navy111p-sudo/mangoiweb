@@ -1,0 +1,517 @@
+{
+ "book": 4,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Food"
+   ],
+   "goals": [
+    "I can name foods and drinks.",
+    "I can say \"It's an apple.\"",
+    "I can say \"She eats an apple. He drinks milk.\"",
+    "I can name drinks.",
+    "I can say \"She has a glass of juice.\"",
+    "I can find a wrong sentence.",
+    "I can say \"We eat …. We drink ….\"",
+    "I can use eat and eats.",
+    "I can fix a wrong sentence."
+   ],
+   "words": [
+    [
+     "apple",
+     "사과"
+    ],
+    [
+     "orange",
+     "오렌지"
+    ],
+    [
+     "rice",
+     "밥"
+    ],
+    [
+     "noodles",
+     "국수"
+    ],
+    [
+     "soup",
+     "수프"
+    ],
+    [
+     "pizza",
+     "피자"
+    ],
+    [
+     "sandwich",
+     "샌드위치"
+    ],
+    [
+     "hamburger",
+     "햄버거"
+    ],
+    [
+     "milk",
+     "우유"
+    ],
+    [
+     "water",
+     "물"
+    ],
+    [
+     "tea",
+     "차"
+    ],
+    [
+     "coffee",
+     "커피"
+    ],
+    [
+     "ice cream",
+     "아이스크림"
+    ],
+    [
+     "cookies",
+     "쿠키"
+    ],
+    [
+     "vegetables",
+     "채소"
+    ],
+    [
+     "juice",
+     "주스"
+    ],
+    [
+     "soda",
+     "탄산음료"
+    ]
+   ],
+   "sentences": [
+    "What do you like to eat?",
+    "Can you drink an apple? 😆",
+    "an **apple**, **rice**",
+    "**pizza**, **noodles**",
+    "**milk**, **water**",
+    "**juice**, **soda**",
+    "What is it?",
+    "Do you like it? What is it?",
+    "What do you like to eat with rice?",
+    "What are they? I like them!",
+    "Do you like ice cream?",
+    "What does he do?",
+    "What does she do?",
+    "What does Ben do?",
+    "What does Andy eat?",
+    "She drinks ice cream.",
+    "Look! 5 seconds! 👀",
+    "What food did you see?",
+    "What do you like to drink?",
+    "When do we say \"has\"?",
+    "He **has** tea.",
+    "She **has** a glass of juice.",
+    "I **have** milk.",
+    "They **have** pizza.",
+    "What do you see?",
+    "Do you drink milk in the morning? What do you see?",
+    "What does Jenny have?",
+    "Do you like coffee? What does Mr. Lee have?",
+    "It is coffee.",
+    "She eats cookies.",
+    "What do they have?",
+    "What does he drink?",
+    "Can you drink rice?",
+    "When do we add -s?",
+    "They **eat** rice.",
+    "We **drink** milk.",
+    "She **eats** rice.",
+    "He **drinks** milk.",
+    "What do they eat?",
+    "What do they drink?"
+   ],
+   "songs": [
+    "Eat and Drink Chant"
+   ],
+   "imgs": [
+    "12058",
+    "13147",
+    "12003",
+    "16704",
+    "12116",
+    "12668",
+    "13248",
+    "18045",
+    "12058",
+    "13147",
+    "12003",
+    "16704",
+    "12116",
+    "12668",
+    "13248",
+    "18045",
+    "16520",
+    "12123",
+    "12723",
+    "c7064",
+    "12593",
+    "16052",
+    "12268",
+    "16520",
+    "12123",
+    "12723",
+    "c7064",
+    "12593",
+    "16052",
+    "12268",
+    "12920",
+    "12047",
+    "16823",
+    "15723",
+    "c7365",
+    "16715",
+    "12920",
+    "12047",
+    "16823",
+    "15723",
+    "c7365",
+    "16715"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "I Like Food"
+   ],
+   "goals": [
+    "I can sort food: fruit, vegetables, meat.",
+    "I can say \"I like bananas.\"",
+    "I can say \"She doesn't like broccoli.\"",
+    "I can name more foods.",
+    "I can ask \"What food do you like?\"",
+    "I can say \"He doesn't like chili peppers.\"",
+    "I can ask \"Do you like …?\"",
+    "I can say \"Yes, she likes …\"",
+    "I can say my favorite food."
+   ],
+   "words": [
+    [
+     "orange",
+     "오렌지"
+    ],
+    [
+     "banana",
+     "바나나"
+    ],
+    [
+     "strawberry",
+     "딸기"
+    ],
+    [
+     "apple",
+     "사과"
+    ],
+    [
+     "mango",
+     "망고"
+    ],
+    [
+     "carrot",
+     "당근"
+    ],
+    [
+     "potato",
+     "감자"
+    ],
+    [
+     "tomato",
+     "토마토"
+    ],
+    [
+     "broccoli",
+     "브로콜리"
+    ],
+    [
+     "pumpkin",
+     "호박"
+    ],
+    [
+     "beef",
+     "소고기"
+    ],
+    [
+     "chicken",
+     "닭고기"
+    ],
+    [
+     "fish",
+     "생선"
+    ],
+    [
+     "pork",
+     "돼지고기"
+    ],
+    [
+     "salad",
+     "샐러드"
+    ],
+    [
+     "bread",
+     "빵"
+    ],
+    [
+     "spaghetti",
+     "스파게티"
+    ],
+    [
+     "cheese",
+     "치즈"
+    ],
+    [
+     "chili pepper",
+     "고추"
+    ],
+    [
+     "sausage",
+     "소시지"
+    ]
+   ],
+   "sentences": [
+    "Is a tomato a fruit or a vegetable?",
+    "When do we say doesn't?",
+    "I **like** bananas.",
+    "They **don't like** fish.",
+    "Jane **likes** apples.",
+    "Jane **doesn't like** bananas.",
+    "A banana is meat.",
+    "Chicken is fruit.",
+    "What is it?",
+    "What are they?",
+    "What does she have?",
+    "What does it eat?",
+    "What is it? 🌳",
+    "Look! 5 seconds! 👀",
+    "Is chicken meat?",
+    "What is on your pizza?",
+    "What is it? Do you like it?",
+    "What is it? What does it have?",
+    "What kind of bread do you like?",
+    "What does he have?",
+    "What does it have? It looks yummy!",
+    "Do they like sausage?",
+    "It is cheese.",
+    "What food did you see?",
+    "Do you like cheeseburgers?",
+    "What about you? Do you like cheeseburgers?",
+    "Do you like spaghetti with cheese?",
+    "Yes, I do. / No, I don't.",
+    "Do you like chicken salad?",
+    "Does she like chili peppers?",
+    "Do you like meat with chili peppers?",
+    "Do you like mango juice?",
+    "What vegetable doesn't she like?",
+    "What food does she like?",
+    "They are glasses of milk.",
+    "Does she like mangoes?",
+    "What do you eat for breakfast?"
+   ],
+   "songs": [
+    "I Like Food Chant"
+   ],
+   "imgs": [
+    "13147",
+    "17005",
+    "16135",
+    "c7097",
+    "18699",
+    "16129",
+    "16131",
+    "16273",
+    "16130",
+    "16680",
+    "13147",
+    "17005",
+    "16135",
+    "c7097",
+    "18699",
+    "16129",
+    "16131",
+    "16273",
+    "16130",
+    "16680",
+    "16128",
+    "12574",
+    "12974",
+    "15629",
+    "12199",
+    "12366",
+    "13286",
+    "16139",
+    "gen:bts-04-chili",
+    "18325",
+    "12199",
+    "12366",
+    "13286",
+    "16139",
+    "gen:bts-04-chili",
+    "18325",
+    "16133",
+    "12516",
+    "17027",
+    "12682",
+    "c7052",
+    "c7111",
+    "16139",
+    "gen:bts-04-chicken-salad"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Meals"
+   ],
+   "goals": [
+    "I can name meals.",
+    "I can say \"We eat lunch at noon.\"",
+    "I can say \"He eats eggs for breakfast.\"",
+    "I can ask \"When do you eat …?\"",
+    "I can say \"She drinks milk for breakfast.\"",
+    "I can say \"No, he doesn't.\"",
+    "I can say what I like to eat.",
+    "I can say what I don't like.",
+    "I can talk about my meals."
+   ],
+   "words": [
+    [
+     "breakfast",
+     "아침 식사"
+    ],
+    [
+     "lunch",
+     "점심"
+    ],
+    [
+     "dinner",
+     "저녁 식사"
+    ],
+    [
+     "meal",
+     "식사"
+    ],
+    [
+     "cereal",
+     "시리얼"
+    ],
+    [
+     "eggs",
+     "달걀"
+    ],
+    [
+     "biscuits",
+     "비스킷"
+    ],
+    [
+     "snacks",
+     "간식"
+    ],
+    [
+     "morning",
+     "아침"
+    ],
+    [
+     "noon",
+     "정오(낮 12시)"
+    ],
+    [
+     "afternoon",
+     "오후"
+    ],
+    [
+     "evening",
+     "저녁"
+    ]
+   ],
+   "sentences": [
+    "What do you eat for breakfast?",
+    "After doesn't, is it eat or eats?",
+    "The man **eats** rice for breakfast.",
+    "Jane **drinks** coffee every day.",
+    "The man **doesn't eat** rice for breakfast.",
+    "Gina **doesn't like** bananas.",
+    "What is it?",
+    "What does he eat?",
+    "It's lunch. When do we eat lunch?",
+    "We eat lunch at (noon / morning).",
+    "What does Anna eat for lunch?",
+    "What are they?",
+    "They are (chickens / snacks). We eat snacks in the afternoon.",
+    "What does Jimmy eat?",
+    "It's dinner. When do we eat dinner?",
+    "We eat dinner in the (morning / evening).",
+    "What does he eat for dinner?",
+    "What does the child eat for breakfast?",
+    "What is Mia's snack?",
+    "He drinks juice for breakfast.",
+    "What does Bobby drink for lunch?",
+    "Does he eat breakfast?",
+    "Look! 5 seconds! 👀",
+    "What meals did you see?",
+    "When do you drink milk?",
+    "What does she eat for breakfast?",
+    "Does she like her breakfast?",
+    "What does he eat for lunch?",
+    "Does he like his lunch?",
+    "What do they eat for dinner?",
+    "Do they like it?",
+    "When does Anna drink milk?",
+    "When does Sally eat apples? When do you eat apples?",
+    "When do they eat chicken? When do you eat chicken?",
+    "We eat dinner at noon.",
+    "When do they eat?",
+    "What food do you like best?",
+    "What food do you like?",
+    "What food don't you like?",
+    "What do you like to drink?"
+   ],
+   "songs": [
+    "Meal Time Chant"
+   ],
+   "imgs": [
+    "c5004",
+    "16649",
+    "c7176",
+    "12110",
+    "16884",
+    "16714",
+    "c7193",
+    "12228",
+    "c5004",
+    "16649",
+    "c7176",
+    "12110",
+    "16884",
+    "16714",
+    "c7193",
+    "12228",
+    "12245",
+    "12531",
+    "18904",
+    "12242"
+   ]
+  }
+ ]
+}

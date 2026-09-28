@@ -1,0 +1,469 @@
+{
+ "book": 7,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Head and Face"
+   ],
+   "goals": [
+    "I can name the parts of my face.",
+    "I can say \"This is my nose.\" and \"These are my eyes.\"",
+    "I can say \"John's ears\".",
+    "I can say \"his\", \"her\", \"its\" and \"their\".",
+    "I can ask \"What is that?\" and \"What are those?\"",
+    "I can answer about a face.",
+    "I can say \"I want to …\".",
+    "I can say \"I need my …\".",
+    "I can describe a face I draw."
+   ],
+   "words": [
+    [
+     "head",
+     "머리"
+    ],
+    [
+     "hair",
+     "머리카락"
+    ],
+    [
+     "face",
+     "얼굴"
+    ],
+    [
+     "eyes",
+     "눈"
+    ],
+    [
+     "nose",
+     "코"
+    ],
+    [
+     "mouth",
+     "입"
+    ],
+    [
+     "cheeks",
+     "볼"
+    ],
+    [
+     "chin",
+     "턱"
+    ],
+    [
+     "lips",
+     "입술"
+    ],
+    [
+     "teeth",
+     "이"
+    ],
+    [
+     "tongue",
+     "혀"
+    ],
+    [
+     "ears",
+     "귀"
+    ],
+    [
+     "forehead",
+     "이마"
+    ],
+    [
+     "eyebrows",
+     "눈썹"
+    ],
+    [
+     "watch",
+     "보다"
+    ],
+    [
+     "film",
+     "영화"
+    ],
+    [
+     "listen",
+     "듣다"
+    ],
+    [
+     "smell",
+     "냄새 맡다"
+    ],
+    [
+     "want",
+     "원하다"
+    ],
+    [
+     "need",
+     "필요하다"
+    ]
+   ],
+   "sentences": [
+    "What is on your face?",
+    "When do we say \"these\"?",
+    "**This** is my nose.",
+    "**This** is my chin.",
+    "**These** are my eyes.",
+    "**These** are my ears.",
+    "Is it near me or far from me?",
+    "**That** is his mouth.",
+    "**That** is her nose.",
+    "**Those** are his eyes.",
+    "**Those** are her ears.",
+    "When I listen to music, I use them.",
+    "I bite apples with these. What are they?",
+    "It opens when I talk. It opens when I yawn!",
+    "What is he doing? Which part is it?",
+    "These are his cheeks.",
+    "Look for 10 seconds. What is gone?",
+    "Whose eyes are those?",
+    "Whose mouth is this?",
+    "Who has it? Look at the picture first!",
+    "It's **his** nose. (boy)",
+    "It's **her** chin. (girl)",
+    "They are **its** eyes. (panda)",
+    "These are **their** cheeks.",
+    "Those are **their** teeth.",
+    "What is it?",
+    "Whose is it?",
+    "What are they?",
+    "How many eyes does a spider have?",
+    "What are these?",
+    "What is this?",
+    "What are those?",
+    "What is he catching the snow with?",
+    "What is it? What color is it?",
+    "What is this? Does it have a big mouth?",
+    "What are those? What color are they?",
+    "Whose smile is this?",
+    "These are her eyes.",
+    "What does the king need?",
+    "Can you help the king?"
+   ],
+   "songs": [
+    "Head, Shoulders, Knees and Toes"
+   ],
+   "imgs": [
+    "16509",
+    "13008",
+    "12618",
+    "12953",
+    "15173",
+    "16159",
+    "16509",
+    "13008",
+    "12618",
+    "12953",
+    "15173",
+    "16159",
+    "15336",
+    "18738",
+    "16814",
+    "16894",
+    "18744",
+    "12923",
+    "16161",
+    "19070",
+    "15336",
+    "18738",
+    "16814",
+    "16894",
+    "18744",
+    "12923",
+    "16161",
+    "19070",
+    "18156",
+    "13119",
+    "13082",
+    "gen:bts-07-king-smell",
+    "13031",
+    "gen:bts-07-king-crown",
+    "18156",
+    "13119",
+    "13082",
+    "gen:bts-07-king-smell",
+    "13031",
+    "gen:bts-07-king-crown"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Parts of the Body"
+   ],
+   "goals": [
+    "I can name the parts of my body.",
+    "I can say \"He has two arms.\"",
+    "I can say \"It's mine.\"",
+    "I can ask \"What are these?\"",
+    "I can say \"I have …\" and \"You have …\".",
+    "I can describe my body in 10 sentences.",
+    "I can say \"I see a …\".",
+    "I can say \"There are … legs.\"",
+    "I can say long and short."
+   ],
+   "words": [
+    [
+     "neck",
+     "목"
+    ],
+    [
+     "chest",
+     "가슴"
+    ],
+    [
+     "tummy",
+     "배"
+    ],
+    [
+     "arms",
+     "팔"
+    ],
+    [
+     "hands",
+     "손"
+    ],
+    [
+     "fingers",
+     "손가락"
+    ],
+    [
+     "legs",
+     "다리"
+    ],
+    [
+     "toes",
+     "발가락"
+    ],
+    [
+     "elbows",
+     "팔꿈치"
+    ],
+    [
+     "hips",
+     "엉덩이"
+    ],
+    [
+     "knees",
+     "무릎"
+    ],
+    [
+     "feet",
+     "발"
+    ]
+   ],
+   "sentences": [
+    "How many body parts can you name?",
+    "When do we say \"they are\"?",
+    "It is his **chest**.",
+    "It is her **neck**.",
+    "They are her **arms**.",
+    "They are his **knees**.",
+    "Which one stands alone?",
+    "This is **my** hand.",
+    "These are **my** feet.",
+    "This hand is **mine**.",
+    "Whose feet? **Mine!**",
+    "What is it? Is it long?",
+    "What are they? How many?",
+    "What are they? What about you?",
+    "How many legs does it have?",
+    "How many feet can you see?",
+    "What is it? How many?",
+    "What are they?",
+    "How many fingers are there?",
+    "What can you see?",
+    "He has two foots.",
+    "Can you help May with her project?",
+    "How many parts can you draw?",
+    "When do we say \"has\"?",
+    "I **have** two hands.",
+    "You **have** ten toes.",
+    "She **has** two knees.",
+    "It **has** four legs.",
+    "Which one is gone?",
+    "The kitten has two legs.",
+    "What is she touching?",
+    "Whose neck is so long?",
+    "What do you see?",
+    "Say it in three steps!",
+    "I see a **girl**.",
+    "She has two **arms**.",
+    "I see **three** children.",
+    "There are **six** arms.",
+    "Is her neck long or short?",
+    "How many arms and legs?"
+   ],
+   "songs": [],
+   "imgs": [
+    "16167",
+    "gen:bts-07-chest",
+    "gen:bts-07-tummy",
+    "17118",
+    "16370",
+    "16160",
+    "16167",
+    "gen:bts-07-chest",
+    "gen:bts-07-tummy",
+    "17118",
+    "16370",
+    "16160",
+    "16483",
+    "13342",
+    "16188",
+    "gen:bts-07-hips",
+    "13069",
+    "16641",
+    "16483",
+    "13342",
+    "16188",
+    "gen:bts-07-hips",
+    "13069",
+    "16641"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Monsters"
+   ],
+   "goals": [
+    "I can describe a monster.",
+    "I can say \"It has three eyes.\"",
+    "I can say \"It doesn't have …\".",
+    "I can ask \"Does it have …?\"",
+    "I can make sentences in order.",
+    "I can draw and present my monster."
+   ],
+   "words": [
+    [
+     "monster",
+     "괴물"
+    ],
+    [
+     "big",
+     "큰"
+    ],
+    [
+     "small",
+     "작은"
+    ],
+    [
+     "tall",
+     "키가 큰"
+    ],
+    [
+     "scary",
+     "무서운"
+    ],
+    [
+     "cute",
+     "귀여운"
+    ],
+    [
+     "silly",
+     "우스꽝스러운"
+    ],
+    [
+     "horn",
+     "뿔"
+    ],
+    [
+     "fat",
+     "뚱뚱한"
+    ],
+    [
+     "skinny",
+     "마른"
+    ],
+    [
+     "thick",
+     "두꺼운"
+    ],
+    [
+     "thin",
+     "가는"
+    ]
+   ],
+   "sentences": [
+    "What does your monster have?",
+    "Which monster is skinny? Which tail is thin?",
+    "a **fat** monster",
+    "a **thick** tail",
+    "a **skinny** monster",
+    "a **thin** tail",
+    "What is it? Is it scary or cute?",
+    "How many horns does it have?",
+    "How many eyes does it have?",
+    "Does it have arms and legs?",
+    "Does it have a horn?",
+    "How many eyes does it have? Are its ears big?",
+    "What about its tail? Does it have toes?",
+    "Which monster is it?",
+    "The monster have two horns.",
+    "Why does the dinosaur wear glasses?",
+    "How many heads can a monster have?",
+    "Is the blue elephant fat or skinny?",
+    "Does it have a big nose?",
+    "Is its tongue long or short? Do you have a tail?",
+    "Does it have a nose?",
+    "Does it have long legs?",
+    "Is it cute or scary?",
+    "Does it have arms and hands?",
+    "Does it have shoes? What color are they?",
+    "What does it have?",
+    "Where is Poo-bat?",
+    "Dino-clops has two eyes.",
+    "What will your monster look like?",
+    "Let's make some MONSTERS!",
+    "Do I have fingers and toes?",
+    "What color is my tongue?",
+    "Do I have ears? Am I skinny or fat?",
+    "Do I have a tail?",
+    "Green Horn has a big nose.",
+    "Review time! Are you ready?"
+   ],
+   "songs": [
+    "Go Away Song"
+   ],
+   "imgs": [
+    "15565",
+    "12103",
+    "12227",
+    "12520",
+    "19246",
+    "12885",
+    "19605",
+    "15803",
+    "15565",
+    "12103",
+    "12227",
+    "12520",
+    "19246",
+    "12885",
+    "19605",
+    "15803",
+    "gen:bts-07-fat-skinny",
+    "gen:bts-07-fat-skinny",
+    "gen:bts-07-thick-thin",
+    "gen:bts-07-thick-thin"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,512 @@
+{
+ "book": 21,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Asian Holidays"
+   ],
+   "goals": [
+    "I can say what I have done.",
+    "I can say what I haven't done yet.",
+    "I can talk about Asian holidays."
+   ],
+   "words": [
+    [
+     "tradition",
+     "전통"
+    ],
+    [
+     "ancestors",
+     "조상"
+    ],
+    [
+     "honor",
+     "기리다·공경하다"
+    ],
+    [
+     "holiday",
+     "명절·휴일"
+    ],
+    [
+     "relatives",
+     "친척"
+    ],
+    [
+     "time off",
+     "쉬는 날"
+    ],
+    [
+     "opportunity",
+     "기회"
+    ],
+    [
+     "catch up",
+     "밀린 이야기를 나누다"
+    ],
+    [
+     "decorations",
+     "장식"
+    ],
+    [
+     "prosperity",
+     "풍요·번영"
+    ],
+    [
+     "symbolize",
+     "상징하다"
+    ],
+    [
+     "special occasion",
+     "특별한 날"
+    ],
+    [
+     "calendar",
+     "달력"
+    ],
+    [
+     "solar",
+     "해의 · 양력의"
+    ],
+    [
+     "lunar",
+     "달의 · 음력의"
+    ],
+    [
+     "leap year",
+     "윤년"
+    ],
+    [
+     "orbit",
+     "궤도 · 돌다"
+    ],
+    [
+     "cycle",
+     "주기 · 돌고 도는 것"
+    ],
+    [
+     "appreciate",
+     "고맙게 여기다"
+    ],
+    [
+     "crowded",
+     "붐비는"
+    ],
+    [
+     "popular",
+     "인기 있는"
+    ],
+    [
+     "quality time",
+     "함께하는 소중한 시간"
+    ],
+    [
+     "amusement park",
+     "놀이공원"
+    ],
+    [
+     "relax",
+     "쉬다"
+    ]
+   ],
+   "sentences": [
+    "What have you done on holidays?",
+    "When do we say has instead of have?",
+    "I **have studied** for the exam.",
+    "She **has finished** her homework.",
+    "I **haven't studied** for the exam.",
+    "He **hasn't eaten** lunch yet.",
+    "Which verbs change their shape again?",
+    "study → studied → have **studied**",
+    "walk → walked → have **walked**",
+    "play → played → have **played**",
+    "eat → ate → have **eaten**",
+    "throw → threw → have **thrown**",
+    "go → went → have **gone**",
+    "What holidays do you celebrate?",
+    "What special New Year food is this?",
+    "The children have just eaten ddeokguk.",
+    "Have you ever eaten moon cakes?",
+    "Does your family follow the moon or the sun?",
+    "The western calendar follows the moon.",
+    "Have you already eaten moon cakes?",
+    "Does your family celebrate a holiday for old kings?",
+    "What have you done for your mom?",
+    "What sports have you played? What sport haven't you tried yet?",
+    "Have you ever seen carp streamers?",
+    "What have you done during Chuseok?",
+    "Have you ever played yutnori?",
+    "Have you ever been on a boat?",
+    "What holiday is it?",
+    "What is your favorite holiday?",
+    "Last year, Susie went to an amusement park.",
+    "Look! 5 seconds! 👀",
+    "Have you done these things?",
+    "Have you watched a fireworks display?",
+    "Have you ever celebrated Christmas?"
+   ],
+   "songs": [
+    "Holiday Chant 🎉"
+   ],
+   "imgs": [
+    "12526",
+    "17002",
+    "17238",
+    "18053",
+    "17036",
+    "12684",
+    "12526",
+    "17002",
+    "17238",
+    "18053",
+    "17036",
+    "12684",
+    "21031",
+    "gen:bts-21-josh-cheeny",
+    "18893",
+    "16454",
+    "gen:bts-21-magpie",
+    "17389",
+    "18035",
+    "12069",
+    "12484",
+    "gen:bts-21-leapyear",
+    "c7362",
+    "gen:bts-21-zodiac",
+    "18035",
+    "12069",
+    "12484",
+    "gen:bts-21-leapyear",
+    "c7362",
+    "gen:bts-21-zodiac",
+    "16125",
+    "12563",
+    "18514",
+    "17113",
+    "15846",
+    "12684",
+    "16125",
+    "12563",
+    "18514",
+    "17113",
+    "15846",
+    "12684"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Holidays Around the World"
+   ],
+   "goals": [
+    "I can use already, just and yet.",
+    "I can talk about holidays around the world.",
+    "I can say if a holiday is ancient or modern."
+   ],
+   "words": [
+    [
+     "ancient",
+     "아주 오래된"
+    ],
+    [
+     "modern",
+     "현대의·새로운"
+    ],
+    [
+     "religion",
+     "종교"
+    ],
+    [
+     "annual",
+     "해마다 하는"
+    ],
+    [
+     "festival",
+     "축제"
+    ],
+    [
+     "generous",
+     "너그러운"
+    ],
+    [
+     "menorah",
+     "메노라(촛대)"
+    ],
+    [
+     "dreidel",
+     "드레이델(팽이)"
+    ],
+    [
+     "costume",
+     "의상·분장"
+    ],
+    [
+     "turkey",
+     "칠면조"
+    ],
+    [
+     "oil lamp",
+     "기름 등잔"
+    ],
+    [
+     "parade",
+     "행진"
+    ],
+    [
+     "exchange presents",
+     "선물을 주고받다"
+    ],
+    [
+     "public holiday",
+     "공휴일"
+    ],
+    [
+     "Christian",
+     "기독교인"
+    ],
+    [
+     "church",
+     "교회"
+    ],
+    [
+     "Christmas Eve",
+     "크리스마스 이브"
+    ],
+    [
+     "difference",
+     "차이"
+    ]
+   ],
+   "sentences": [
+    "What holidays from around the world do you know?",
+    "Where do already and just go? Where does yet go?",
+    "My family **has already** decorated the house.",
+    "I **have just** bought a present for my mom.",
+    "I **haven't** spent holidays abroad **yet**.",
+    "Have you finished your homework **yet**?",
+    "Santa Claus comes from Saint Nicholas.",
+    "What does Julia want for Christmas?",
+    "Have you ever worn a costume like this?",
+    "Have you ever worn a costume for a festival?",
+    "Americans eat roast turkey on Thanksgiving.",
+    "What holiday is it?",
+    "What are the children looking for?",
+    "Do you like getting gifts or giving gifts?",
+    "Karen visits her relatives on Christmas.",
+    "Have you ever celebrated this holiday with your family?",
+    "Have you received a present from your grandparents?",
+    "Have you ever been to a Halloween party?",
+    "Have you celebrated this holiday in the past?",
+    "What holiday is this?",
+    "Have you ever been to a surprise party?"
+   ],
+   "songs": [
+    "Holiday Chant 🎉"
+   ],
+   "imgs": [
+    "12431",
+    "12483",
+    "15662",
+    "17363",
+    "12963",
+    "15428",
+    "12431",
+    "12483",
+    "15662",
+    "17363",
+    "12963",
+    "15428",
+    "15446",
+    "gen:bts-21-dreidel",
+    "16287",
+    "15794",
+    "15341",
+    "15484",
+    "15446",
+    "gen:bts-21-dreidel",
+    "16287",
+    "15794",
+    "15341",
+    "15484",
+    "12994",
+    "18053",
+    "15268",
+    "16821",
+    "19061",
+    "18666",
+    "12994",
+    "18053",
+    "15268",
+    "16821",
+    "19061",
+    "18666"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Planning for a Celebration"
+   ],
+   "goals": [
+    "I can ask \"Have you ever …?\"",
+    "I can answer with never.",
+    "I can plan a party."
+   ],
+   "words": [
+    [
+     "confetti",
+     "색종이 조각"
+    ],
+    [
+     "marvelous",
+     "아주 멋진"
+    ],
+    [
+     "responsibility",
+     "맡은 일·책임"
+    ],
+    [
+     "throw a party",
+     "파티를 열다"
+    ],
+    [
+     "venue",
+     "행사 장소"
+    ],
+    [
+     "invitation",
+     "초대장"
+    ],
+    [
+     "fireworks",
+     "불꽃놀이"
+    ],
+    [
+     "live music",
+     "라이브 음악"
+    ],
+    [
+     "clown",
+     "광대"
+    ],
+    [
+     "party games",
+     "파티 게임"
+    ],
+    [
+     "disco lights",
+     "파티 조명"
+    ],
+    [
+     "magic trick",
+     "마술"
+    ],
+    [
+     "dress up",
+     "차려입다·분장하다"
+    ],
+    [
+     "kiddy",
+     "유치한"
+    ],
+    [
+     "swimsuit",
+     "수영복"
+    ],
+    [
+     "towel",
+     "수건"
+    ],
+    [
+     "volleyball",
+     "배구"
+    ]
+   ],
+   "sentences": [
+    "Have you ever been to a surprise party?",
+    "Where do ever and never go?",
+    "**Have** you **ever** been to a costume party?",
+    "**Has** she **ever** seen a clown?",
+    "Yes, I **have**.",
+    "No, I have **never** been to a costume party.",
+    "Have you ever been to a costume party?",
+    "Have you ever decorated your house for a holiday?",
+    "Have you ever helped your mom prepare holiday food?",
+    "Nora wants to hire a clown for the party.",
+    "What kind of party is it?",
+    "What do you want at your party?",
+    "What is the best thing at a party?",
+    "Have you ever seen fireworks at a party?",
+    "Do you want live music at your party?",
+    "Have you ever seen a clown at a party?",
+    "Have you ever played this game at a party?",
+    "Do you want disco lights at your party?",
+    "The clown is pulling a rabbit out of a hat.",
+    "Look! 5 seconds! 👀",
+    "What have you seen at a party?",
+    "What party is it?",
+    "Where do you want to have your next birthday party?",
+    "How do you want to celebrate your next birthday?",
+    "Korina wants to have her party at home.",
+    "What will Korina and her friends play?",
+    "Which holiday was the most fun to learn?"
+   ],
+   "songs": [
+    "Holiday Chant 🎉"
+   ],
+   "imgs": [
+    "16469",
+    "15829",
+    "18626",
+    "12216",
+    "gen:bts-21-party-venue",
+    "gen:bts-21-invitations",
+    "16469",
+    "15829",
+    "18626",
+    "12216",
+    "gen:bts-21-party-venue",
+    "gen:bts-21-invitations",
+    "16812",
+    "12869",
+    "19055",
+    "gen:bts-21-party-games",
+    "gen:bts-21-disco",
+    "15538",
+    "16812",
+    "12869",
+    "19055",
+    "gen:bts-21-party-games",
+    "gen:bts-21-disco",
+    "15538",
+    "16287",
+    "12216",
+    "gen:bts-21-invitations",
+    "18119",
+    "18007",
+    "15818",
+    "16287",
+    "12216",
+    "gen:bts-21-invitations",
+    "18119",
+    "18007",
+    "15818"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,642 @@
+{
+ "book": 23,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "What's on the TV"
+   ],
+   "goals": [
+    "I can name kinds of TV shows.",
+    "I can ask \"Have you watched …?\"",
+    "I can read a TV interview.",
+    "I can use who for people.",
+    "I can use which or that for things.",
+    "I can use where for places.",
+    "I can read a story about TV.",
+    "I can say \"I would watch …\"",
+    "I can talk about my favorite show."
+   ],
+   "words": [
+    [
+     "variety show",
+     "버라이어티쇼"
+    ],
+    [
+     "comedy show",
+     "코미디 쇼"
+    ],
+    [
+     "talk show",
+     "토크쇼"
+    ],
+    [
+     "game show",
+     "게임 쇼"
+    ],
+    [
+     "fashion show",
+     "패션쇼"
+    ],
+    [
+     "drama",
+     "드라마"
+    ],
+    [
+     "sports program",
+     "스포츠 중계"
+    ],
+    [
+     "animation",
+     "애니메이션"
+    ],
+    [
+     "humorous",
+     "웃기는"
+    ],
+    [
+     "catwalk",
+     "패션쇼 무대"
+    ],
+    [
+     "designer",
+     "디자이너"
+    ],
+    [
+     "prizes",
+     "상품"
+    ],
+    [
+     "celebrities",
+     "유명인"
+    ],
+    [
+     "discuss",
+     "이야기를 나누다"
+    ],
+    [
+     "live coverage",
+     "생중계"
+    ],
+    [
+     "produced",
+     "만들어진"
+    ],
+    [
+     "interview",
+     "인터뷰(하다)"
+    ],
+    [
+     "film",
+     "영화"
+    ],
+    [
+     "announce",
+     "(뉴스를) 전하다"
+    ],
+    [
+     "studio",
+     "스튜디오"
+    ],
+    [
+     "camera",
+     "카메라"
+    ],
+    [
+     "animator",
+     "애니메이터"
+    ],
+    [
+     "runway",
+     "런웨이"
+    ],
+    [
+     "instead",
+     "대신에"
+    ],
+    [
+     "root for",
+     "응원하다"
+    ],
+    [
+     "compete",
+     "겨루다"
+    ],
+    [
+     "professional",
+     "프로의"
+    ],
+    [
+     "naturally",
+     "자연스럽게"
+    ],
+    [
+     "skilled",
+     "솜씨 좋은"
+    ]
+   ],
+   "sentences": [
+    "What do you like to watch on TV?",
+    "When do you watch TV? What do you like to watch?",
+    "Comedy shows are humorous. They make you laugh out loud.",
+    "Models walk the catwalk in the designer's clothes.",
+    "People play games to win prizes.",
+    "Sports programs show live coverage of sports games.",
+    "These programs are produced by animation. Have you watched one?",
+    "Guess! What kind of show is it?",
+    "This is a talk show. The host talks to celebrities.",
+    "Who works in a TV studio?",
+    "What about things? Which word do we use?",
+    "She is the girl **who** sings.",
+    "He is the man **who** films.",
+    "This is the studio **where** we film.",
+    "This is the park **where** I play.",
+    "Who is he? What is this?",
+    "What is this? Who are they?",
+    "What is this place?",
+    "Who are they? What is this?",
+    "Who is she? What is this?",
+    "Guess! Who is she?",
+    "This is the field who we play baseball.",
+    "Would you watch a drama or a sports game?",
+    "Who wins the remote in your family?",
+    "Would you watch a talk show or the news?",
+    "Would you watch an animation or a game show?",
+    "Would you watch a fashion show or a sports program?",
+    "Guess! What is he watching?",
+    "Jim thinks watching sports is boring.",
+    "Where do you get your news?"
+   ],
+   "songs": [],
+   "imgs": [
+    "15538",
+    "12863",
+    "18482",
+    "19033",
+    "16396",
+    "18902",
+    "16209",
+    "15204",
+    "15538",
+    "12863",
+    "18482",
+    "19033",
+    "16396",
+    "18902",
+    "16209",
+    "15204",
+    "15842",
+    "12960",
+    "12901",
+    "15845",
+    "15658",
+    "16893",
+    "12817",
+    "14195",
+    "15842",
+    "12960",
+    "12901",
+    "15845",
+    "15658",
+    "16893",
+    "12817",
+    "14195",
+    "13064",
+    "15143",
+    "12320",
+    "12817",
+    "14195",
+    "12830",
+    "gen:bts-23-animators",
+    "12960",
+    "12320",
+    "12817",
+    "14195",
+    "12830",
+    "gen:bts-23-animators",
+    "12960",
+    "19349",
+    "16209",
+    "16064",
+    "12492",
+    "16195",
+    "16215",
+    "19349",
+    "16209",
+    "16064",
+    "12492",
+    "16195",
+    "16215"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "The News"
+   ],
+   "goals": [
+    "I can name kinds of media.",
+    "I can name kinds of news.",
+    "I can say \"Would you like to watch …?\"",
+    "I can say what reporters do.",
+    "I can use reported speech.",
+    "I can report the news.",
+    "I can read Olivia's story.",
+    "I can say why news is important.",
+    "I can report news with reported speech."
+   ],
+   "words": [
+    [
+     "newspaper",
+     "신문"
+    ],
+    [
+     "magazine",
+     "잡지"
+    ],
+    [
+     "television",
+     "텔레비전"
+    ],
+    [
+     "radio",
+     "라디오"
+    ],
+    [
+     "internet",
+     "인터넷"
+    ],
+    [
+     "headlines",
+     "주요 기사 제목"
+    ],
+    [
+     "current events",
+     "시사(지금 일어나는 일)"
+    ],
+    [
+     "entertainment",
+     "연예"
+    ],
+    [
+     "weather report",
+     "일기 예보"
+    ],
+    [
+     "disaster",
+     "재난"
+    ],
+    [
+     "athletes",
+     "운동선수"
+    ],
+    [
+     "companies",
+     "회사"
+    ],
+    [
+     "products",
+     "제품"
+    ],
+    [
+     "affect",
+     "영향을 주다"
+    ],
+    [
+     "against",
+     "~을 상대로"
+    ],
+    [
+     "stunning",
+     "정말 멋진"
+    ],
+    [
+     "focus",
+     "집중하다"
+    ],
+    [
+     "gather",
+     "모으다"
+    ],
+    [
+     "script",
+     "대본"
+    ],
+    [
+     "garbage",
+     "쓰레기"
+    ],
+    [
+     "famous",
+     "유명한"
+    ],
+    [
+     "tournament",
+     "대회"
+    ],
+    [
+     "pollution",
+     "오염"
+    ],
+    [
+     "severe",
+     "심한"
+    ],
+    [
+     "at risk",
+     "위험에 처한"
+    ],
+    [
+     "headline news",
+     "주요 뉴스"
+    ],
+    [
+     "informed",
+     "(세상 일을) 잘 아는"
+    ],
+    [
+     "unfortunately",
+     "안타깝게도"
+    ]
+   ],
+   "sentences": [
+    "Where do you get your news?",
+    "It talks about new music and movies. It also talks about celebrities.",
+    "Hello and welcome to \"AMG News\". My name is Robert.",
+    "And now, the entertainment news!",
+    "Guess! What kind of news is it?",
+    "Local news is about things happening in your town.",
+    "What did he say?",
+    "Reporters write news for newspapers and news shows.",
+    "Reporters use the past tense. What happens to \"I\"?",
+    "am / is → **was**",
+    "are → **were**",
+    "will → **would**",
+    "won't → **wouldn't**",
+    "\"We are baking cupcakes.\"",
+    "\"I am playing games.\"",
+    "\"I won't throw my garbage anywhere.\"",
+    "\"I want to ride in a hot air balloon.\"",
+    "\"Fighting this fire is dangerous, but we aren't scared.\"",
+    "\"This world-famous resort island is facing a big garbage problem.\"",
+    "\"The Pirates will win this baseball tournament!\"",
+    "\"The rocket is flying into space!\"",
+    "Guess! What is she doing?",
+    "The firefighters said that they were scared.",
+    "What kind of news do you like?",
+    "Is the news always bad?",
+    "\"It will rain all day tomorrow.\"",
+    "\"Our new song comes out today!\"",
+    "\"We won the game!\"",
+    "Olivia thinks the news is always happy.",
+    "Why are there commercials on TV?"
+   ],
+   "songs": [],
+   "imgs": [
+    "14653",
+    "14872",
+    "12535",
+    "19431",
+    "17162",
+    "16715",
+    "14653",
+    "14872",
+    "12535",
+    "19431",
+    "17162",
+    "16715",
+    "12320",
+    "15658",
+    "12195",
+    "17347",
+    "12492",
+    "18300",
+    "16337",
+    "17197",
+    "12320",
+    "15658",
+    "12195",
+    "17347",
+    "12492",
+    "18300",
+    "16337",
+    "17197",
+    "16064",
+    "16215",
+    "12492",
+    "13064",
+    "14271",
+    "18998",
+    "20020",
+    "15785",
+    "13185",
+    "18946",
+    "15449",
+    "13064",
+    "14271",
+    "18998",
+    "20020",
+    "15785",
+    "13185",
+    "18946",
+    "15449",
+    "12320",
+    "16715",
+    "17197",
+    "15702",
+    "17347",
+    "12320",
+    "16715",
+    "17197",
+    "15702",
+    "17347"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Commercials"
+   ],
+   "goals": [
+    "I can talk about commercials and coupons.",
+    "I can tell products from services.",
+    "I can ask \"Should I buy this?\"",
+    "I can say what a sales pitch is.",
+    "I can use clever phrases.",
+    "I can make my own sales pitch.",
+    "I can read Angie's story.",
+    "I can say \"Would you like to make …?\"",
+    "I can design a commercial."
+   ],
+   "words": [
+    [
+     "commercial",
+     "TV 광고"
+    ],
+    [
+     "advertise",
+     "광고하다"
+    ],
+    [
+     "advertisement",
+     "광고"
+    ],
+    [
+     "coupon",
+     "쿠폰"
+    ],
+    [
+     "discount",
+     "할인"
+    ],
+    [
+     "product",
+     "상품"
+    ],
+    [
+     "service",
+     "서비스"
+    ],
+    [
+     "impressive",
+     "인상적인"
+    ],
+    [
+     "plum",
+     "자두"
+    ],
+    [
+     "website",
+     "웹사이트"
+    ],
+    [
+     "sales pitch",
+     "판매 멘트"
+    ],
+    [
+     "clever phrase",
+     "재치 있는 문구"
+    ],
+    [
+     "disturb",
+     "방해하다"
+    ],
+    [
+     "fees",
+     "요금"
+    ],
+    [
+     "reasonable",
+     "(값이) 적당한"
+    ],
+    [
+     "billboard",
+     "광고판"
+    ],
+    [
+     "annoying",
+     "짜증 나는"
+    ],
+    [
+     "commercial break",
+     "광고 시간"
+    ],
+    [
+     "clever",
+     "재치 있는"
+    ],
+    [
+     "beg",
+     "조르다"
+    ],
+    [
+     "piece of junk",
+     "엉터리 물건"
+    ]
+   ],
+   "sentences": [
+    "What makes a commercial fun?",
+    "Why are there commercials on TV?",
+    "Ads on TV are called commercials. What fun ads have you seen?",
+    "Have you ever used a coupon?",
+    "Is a dentist visit a product or a service?",
+    "ice cream",
+    "shampoo",
+    "a new car",
+    "a haircut",
+    "a car wash",
+    "cleaning",
+    "Is it a product or a service? Should you buy it?",
+    "Guess! What are they watching?",
+    "A coupon makes things more expensive.",
+    "Can you sell it in 30 seconds?",
+    "Guess! What is she selling?",
+    "The Krazyklean vacuum cleaner is very noisy.",
+    "Would you like to make a commercial?",
+    "Would you like to make a commercial for pizza? How will you do it?",
+    "Would you like to make a commercial for fried chicken?",
+    "Would you like to make a commercial for coffee?",
+    "Guess! Where is this ad?",
+    "Angie says advertising is everywhere now.",
+    "Are you ready for the Mango TV Awards?"
+   ],
+   "songs": [],
+   "imgs": [
+    "19002",
+    "18763",
+    "c7411",
+    "17136",
+    "18746",
+    "16337",
+    "c7067",
+    "19002",
+    "18763",
+    "c7411",
+    "17136",
+    "18746",
+    "16337",
+    "c7067",
+    "13319",
+    "gen:bts-23-kiwi-plum",
+    "15007",
+    "14301",
+    "18763",
+    "18086",
+    "18759",
+    "18746",
+    "14301",
+    "18763",
+    "18086",
+    "18759",
+    "18746",
+    "c7411",
+    "19003",
+    "18650",
+    "19002",
+    "20310",
+    "gen:bts-23-doll",
+    "c7411",
+    "19003",
+    "18650",
+    "19002",
+    "20310",
+    "gen:bts-23-doll"
+   ]
+  }
+ ]
+}

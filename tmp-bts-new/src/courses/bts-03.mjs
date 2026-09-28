@@ -1,6 +1,8 @@
 // BTS 3 새 교재 설계 데이터. k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 // 사진 번호 = public/img/scene-words/<번호>.webp · c로 시작 = scene-clips · gen: = 새로 만들 사진(gen/req-bts-03.json)
 import { open, close, HELLO } from '../common.mjs';
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Twinkle Twinkle Little Star", title: "How Old Are You? 🎂", img: "gen:bts-03-song-how-old", nt: "나이 노래(새로 지음)", n: ["곡조: Twinkle Twinkle Little Star (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","How old에서 손바닥을 펴 묻는 몸짓, 숫자가 나오면 손가락으로 나이를 보여 줘요."], src: '새로 지음', lines: ["How old are you? I am nine.","How old is he? He is five.","Grandmother and grandfather,","They are old, and they are nice.","The baby is one year old,","And the twins are two years old!"] };
+const USONG_3 = { t: 'song', k: 'new', small: "Let's sing! ♪ London Bridge", title: "Who Is She? 👩", img: "gen:bts-03-song-who-is-she", nt: "친척 노래(새로 지음)", n: ["곡조: London Bridge Is Falling Down (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","Who is she/he?에서 화면 속 가족 사진을 가리키고, My family!에서 두 팔로 큰 하트를 만들어요."], src: '새로 지음', lines: ["Who is she? She is my aunt.","She's my aunt, she's my aunt.","She is my mother's sister,","My family!","Who is he? He's my cousin.","My cousin, my cousin,","He is cute, with curly hair,","My family!"] };
 
 const FAM = 'Unit 1', AGE = 'Unit 2', WHO = 'Unit 3';
 const FINGER = ['Daddy finger, where are you?', 'Here I am! How do you do?', 'Mommy finger, where are you?', 'Here I am! How do you do?', 'Brother, sister, baby too!'];
@@ -22,7 +24,8 @@ export const COURSE = {
 <li><b>«I am 63. I am old.»</b> — 원본 문장 그대로 두었습니다. 어린 학생이 할머니·할아버지를 «old» 라고 부르는 것을 연습할 때 무례하게 들릴 수 있다는 강사 메모만 달았습니다.</li>
 <li><b>노래 곡조</b> — Family Finger Song 은 전래 동요 곡조입니다. 녹음 음원 저작권 확인.</li>
 <li><b>인물 이름</b> — 원본의 Miss Gray(001), Mister Lee(004·007), Mister Bill·Mister Wood(목표 쪽)를 한 권 안에서 Miss Gray·Mister Lee 둘로 줄였습니다.</li>
-<li><b>새로 만들 사진 37장</b> — 한나네 가족(아빠 검은 머리·엄마 갈색 머리·오빠·남동생), 이모 애나·삼촌 벤, 사촌 아기 첫 돌잔치는 같은 인물로 여러 장이 필요합니다(힉스필드 크레딧).</li></ol></div>`,
+<li><b>새로 만들 사진 37장</b> — 한나네 가족(아빠 검은 머리·엄마 갈색 머리·오빠·남동생), 이모 애나·삼촌 벤, 사촌 아기 첫 돌잔치는 같은 인물로 여러 장이 필요합니다(힉스필드 크레딧).</li>
+<li><b>새 단원 노래 2곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 2 «How Old Are You?»(Twinkle Twinkle Little Star) · Unit 3 «Who Is She?»(London Bridge Is Falling Down). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '가족', unit: FAM, title: 'My Family', orig: 27,
@@ -112,6 +115,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-03-grandpa-game', q: 'How old are you?', story: 'Grandpa is 69. And he loves video games!', nt: '표지 + Big Question', n: ['«할아버지도 게임을 해요!» — 웃음으로 시작'] },
       ...open([['I can say "I am 12 years old."', '내 나이를 말할 수 있어요.'], ['I can ask "How old is he?"', '다른 사람의 나이를 물을 수 있어요.'], ['I can name my grandparents.', 'grandfather, grandmother 를 말할 수 있어요.']]),
+      USONG_2,
       { t: 'vocab', k: 'fix', hide: true, words: [['grandmother', '할머니', '12048'], ['grandfather', '할아버지', '16020'], ['grandparents', '조부모님', '18429']], src: 'Vocabulary 6쪽', nt: '낱말 — 뜻 가리고 먼저', n: ['grand + mother / father / parents — 앞말만 붙이면 된다는 것을 보여 줍니다'] },
       { t: 'table', k: 'keep', small: 'Pattern', title: 'I am 12 years old.', head: ['who', 'am / is / are', 'age'], rows: [['I', 'am', '16 years old.'], ['He', 'is', '20 years old.'], ['They', 'are', '35 years old.']], tip: '나이는 has 가 아니라 am / is / are 로 말해요', src: 'Grammar 7·8쪽', nt: '문장 틀' },
       { t: 'rule', k: 'new', title: 'has or is?', left: { h: 'hair · eyes', ex: ['He **has** black hair.'] }, right: { h: 'age', ex: ['He **is** 20 years old.'] }, q: 'Can we say "He has 20 years"?', nt: '규칙 찾기 — 한국어와 다른 점', n: ['한국 학생이 자주 하는 실수 «I have 12 years» 를 미리 막습니다', '답: 안 돼요! 나이는 is'] },
@@ -136,6 +140,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-03-twins', q: 'Old or young?', story: 'Twins, babies and a dancing grandma!', nt: '표지 + Big Question' },
       ...open([['I can say old and young.', 'old(나이 많은)·young(어린)을 말할 수 있어요.'], ['I can say "one year old".', '1살은 year, 2살부터는 years 로 말해요.'], ['I can talk about twins and babies.', 'twins, baby, babies 를 말할 수 있어요.']]),
+      USONG_2,
       { t: 'vocab', k: 'fix', hide: true, words: [['old', '나이가 많은', '13003'], ['young', '어린', '12026'], ['twins', '쌍둥이', 'gen:bts-03-twins'], ['baby', '아기', '16127'], ['babies', '아기들', 'gen:bts-03-babies']], src: 'Vocabulary 6쪽', nt: '낱말 — 뜻 가리고 먼저' },
       { t: 'rule', k: 'new', title: 'year or years?', left: { h: '1', ex: ['The baby is **1 year** old.'] }, right: { h: '2, 3, 4 …', ex: ['She is **2 years** old.', 'He is **9 years** old.'] }, q: 'When do we add "s"?', nt: '규칙 찾기', n: ['baby → babies 도 같은 규칙(하나 / 여럿)이라는 것을 함께 짚습니다'] },
       { t: 'table', k: 'keep', small: 'Pattern', title: 'She is 9. She is young.', head: ['who', 'is', 'age + old / young'], rows: [['She', 'is', '9 years old. She is young.'], ['He', 'is', '68 years old. He is old.'], ['They', 'are', '8 years old. They are twins.']], tip: 'old = 나이 많은 · young = 어린', src: 'Grammar 7·8쪽', nt: '문장 틀' },
@@ -161,6 +166,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-03-family-album', q: 'How old is everyone?', story: 'Hannah opens the family album. Look!', nt: '표지 + Big Question' },
       ...open([['I can say age and hair together.', '나이와 머리 색을 함께 말할 수 있어요.'], ['I can ask "What color is his hair?"', '머리 색을 물을 수 있어요.'], ['I can talk about my family album.', '가족 앨범을 보며 말할 수 있어요.']]),
+      USONG_2,
       { t: 'vocab', k: 'new', hide: true, title: 'Remember? 🔒', words: [['old', '나이가 많은', '18451'], ['young', '어린', '12843'], ['grandmother', '할머니', '13003'], ['grandfather', '할아버지', '16020'], ['grandparents', '조부모님', '19411'], ['baby', '아기', '19011']], nt: '004·005 낱말 떠올리기', n: ['다른 사진으로 다시 — 간격 복습'] },
       { t: 'rule', k: 'new', title: 'is or has?', left: { h: 'is', ex: ['She **is** 70 years old.', 'She **is** old.'] }, right: { h: 'has', ex: ['She **has** white hair.', 'She **has** blue eyes.'] }, q: 'Age → is or has? Hair → is or has?', nt: '규칙 찾기', n: ['004 규칙의 복습 — 나이 is, 생김새 has'] },
       { t: 'table', k: 'fix', small: 'Pattern', title: 'What color is her hair?', head: ['question', 'answer'], rows: [['How old is she?', 'She is 70 years old.'], ['What color is her hair?', 'She has white hair.'], ['What color is their hair?', 'They have white hair.']], tip: 'hair 는 하나로 세요 → What color **is** their hair?', src: '6쪽', nt: '❗ 문장 틀', n: ['원본 «What color are their hair?» → is (hair 는 셀 수 없는 낱말)'] },
@@ -181,6 +187,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-03-first-birthday', q: 'Who is in your big family?', story: 'Hannah\'s baby cousin is one year old today! 🎂', nt: '표지 + Big Question' },
       ...open([['I can name aunts, uncles and cousins.', 'aunt, uncle, cousin 을 말할 수 있어요.'], ['I can say "She is my cousin."', '«He/She is my cousin.», «They are my cousins.»'], ["I can say \"my mother's sister\".", '’s 로 «엄마의 여자 형제» 처럼 말할 수 있어요.']], 'Lesson Goals (Mister Bill)'),
+      USONG_3,
       { t: 'song', k: 'fix', title: 'Tongue Twister', lines: TWISTER, img: 'gen:bts-03-hand-in-hand', src: 'Warm Up', nt: '잰말놀이', n: twisterNote },
       { t: 'vocab', k: 'fix', hide: true, words: [['aunt', '이모·고모', '17029'], ['uncle', '삼촌·외삼촌', '15799'], ['cousin', '사촌', '18005'], ['baby', '아기', '16127'], ['babies', '아기들', 'gen:bts-03-babies']], src: 'Vocabulary 6쪽', nt: '낱말 — 뜻 가리고 먼저', n: ['영어 aunt 는 이모·고모·숙모를 모두 가리킵니다 → 뜻을 넓혀 적었습니다'] },
       { t: 'rule', k: 'new', title: "Whose sister?", left: { h: 'aunt', ex: ["my mother's **sister**", "my father's **sister**"] }, right: { h: 'uncle', ex: ["my father's **brother**", "my mother's **brother**"] }, q: "What is my aunt's baby?", nt: "규칙 찾기 — 's", n: ["'s = ~의 · 답: my cousin!", '원본 설명(aunt = mother\'s sister, uncle = father\'s brother)을 넓혔습니다'] },
@@ -206,6 +213,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-03-cousins-slide', q: 'Tell me about your cousins!', story: 'Hannah has lots of cousins. Let\'s meet them!', nt: '표지 + Big Question' },
       ...open([['I can talk about my aunt and uncle.', '이모·삼촌을 나이와 생김새로 소개할 수 있어요.'], ['I can talk about my cousins.', '사촌의 나이·머리 색을 말할 수 있어요.'], ['I can use and.', '«black hair **and** blue eyes» 로 이어 말해요.']]),
+      USONG_3,
       { t: 'song', k: 'keep', title: 'Tongue Twister', lines: TWISTER, img: 'gen:bts-03-hand-in-hand', src: 'Warm Up', nt: '잰말놀이', n: twisterNote },
       { t: 'vocab', k: 'new', hide: true, title: 'Remember? 🔒', words: [['aunt', '이모·고모', '19296'], ['uncle', '삼촌', 'c7118'], ['cousin', '사촌', '18005'], ['cousins', '사촌들', '14178'], ['curly hair', '곱슬머리', '15315'], ['baby', '아기', '16127']], nt: '007 낱말 떠올리기' },
       { t: 'table', k: 'new', small: 'Pattern', title: 'She has black hair and blue eyes.', head: ['who', 'is + age', 'has + hair and eyes'], rows: [['My aunt', 'is 36.', 'She has black hair and blue eyes.'], ['My uncle', 'is 32.', 'He has brown curly hair.'], ['My cousins', 'are 9.', 'They have brown hair.']], tip: 'and 로 두 가지를 한 번에!', nt: '문장 틀' },
@@ -227,6 +235,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '12284', q: 'Who is at the family party?', story: 'Everyone is here! Say "cheese"! 📸', nt: '표지 + Big Question' },
       ...open([['I can introduce my relatives.', '친척을 관계·나이·생김새로 소개할 수 있어요.'], ['I can ask "Who is she?"', '«Who is she? How old is she?» 로 물을 수 있어요.'], ['I can talk about my whole family.', '가족 전체를 이어서 말할 수 있어요.']]),
+      USONG_3,
       { t: 'song', k: 'keep', title: 'Tongue Twister', lines: TWISTER, img: 'gen:bts-03-hand-in-hand', src: 'Warm Up', nt: '잰말놀이', n: twisterNote },
       { t: 'vocab', k: 'new', hide: true, title: 'Remember? 🔒', words: [['aunt', '이모·고모', '17029'], ['uncle', '삼촌', '15799'], ['cousin', '사촌', '18005'], ['grandparents', '조부모님', '18429'], ['twins', '쌍둥이', 'gen:bts-03-twins'], ['parents', '부모님', 'c7451']], nt: '권 전체 낱말 떠올리기' },
       { t: 'rule', k: 'new', title: 'Who? How old? What color?', left: { h: 'Question', ex: ['Who is she?', 'How old is she?', 'What color is her hair?'] }, right: { h: 'Answer', ex: ['She is my **aunt**.', 'She **is** 33.', 'She **has** brown hair.'] }, q: 'Which answers use "is"? Which use "has"?', nt: '규칙 찾기 — 세 질문', n: ['Unit 3 전체 질문을 한 쪽에 모았습니다'] },

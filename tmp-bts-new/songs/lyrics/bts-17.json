@@ -1,0 +1,71 @@
+{
+  "book": 17,
+  "songs": [
+    {
+      "unit": "Unit 1",
+      "key": "bts-17-song-try-a-hobby",
+      "title": "Would You Like to Try? 🎨",
+      "tune": "Here We Go Round the Mulberry Bush",
+      "lines": [
+        "Would you like to try painting today,",
+        "Painting today, painting today?",
+        "Yes, I would like to try it, try it,",
+        "Because it is fun, you see!",
+        "How would you feel if you went hiking,",
+        "Up in the hills, up in the hills?",
+        "I would feel happy and excited,",
+        "My family would feel proud!"
+      ],
+      "nt": "취미 노래(새로 지음)",
+      "n": [
+        "곡조: Here We Go Round the Mulberry Bush (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "‘painting’에서 붓질, ‘hiking’에서 제자리 걷기 동작을 하고, ‘happy/excited/proud’에서 표정과 두 팔 들기로 감정을 보여 줍니다."
+      ],
+      "imgPrompt": "Cheerful children painting at easels in a sunny park while a family hikes happily up a green hill in the background."
+    },
+    {
+      "unit": "Unit 2",
+      "key": "bts-17-song-what-i-need",
+      "title": "I Need a Guitar 🎸",
+      "tune": "The Farmer in the Dell",
+      "lines": [
+        "I need a new guitar.",
+        "I need paint and brushes.",
+        "I need soil and seedlings",
+        "To make a garden grow!",
+        "How does she do her hobby?",
+        "She needs some yarn to knit.",
+        "How does he do his hobby?",
+        "He feeds his fish each day."
+      ],
+      "nt": "취미 준비물 노래(새로 지음)",
+      "n": [
+        "곡조: The Farmer in the Dell (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "‘I need …’마다 물건을 화면에 들어 보이는 흉내를 내고, ‘How does she/he …?’에서 옆 친구 쪽을 가리키며 묻습니다."
+      ],
+      "imgPrompt": "Children enjoying hobbies: one strumming a guitar, one painting with brushes, one planting seedlings in soil, a girl knitting with yarn, and a boy feeding a goldfish."
+    },
+    {
+      "unit": "Unit 3",
+      "key": "bts-17-song-faster-taller",
+      "title": "Faster, Taller! 🐆",
+      "tune": "Clap chant (4 beats)",
+      "lines": [
+        "Rabbits are fast, but cheetahs are faster!",
+        "Giraffes are tall, but buildings are taller!",
+        "Is fishing more fun than kayaking?",
+        "Kayaking's more fun than fishing!",
+        "Climbing is more dangerous than running!",
+        "Nathan is better at dribbling than Ethan!",
+        "Who is better? Who is faster?",
+        "Say it louder, say it stronger!"
+      ],
+      "nt": "비교급 챈트(새로 지음)",
+      "n": [
+        "곡조: Clap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+        "한 줄에 박수 4번을 치며 읽고, ‘-er / more’가 나올 때마다 두 손을 위로 쭉 올려 ‘더’를 표현합니다."
+      ],
+      "imgPrompt": "A cheetah racing past a rabbit, a giraffe standing next to a tall building, and children kayaking and fishing on a sunny lake."
+    }
+  ]
+}

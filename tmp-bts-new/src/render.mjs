@@ -54,7 +54,9 @@ function slide(L, s, n) {
           `<div class="card" style="display:flex;flex-direction:column;overflow:hidden">${img(r[3], 'flex:1;min-height:0;border-radius:0')}<div style="padding:1cqw;text-align:center"><div style="font:700 3cqw/1.1 Andika">${r[0]} ${r[1]}</div><div class="kk" style="font-size:1.9cqw;color:#4b5565">${r[2]}</div></div></div>`).join('') + `</div>`;
       break;
     case 'song':
-      b = T(s.small || "Let's sing!", s.title) + `<div class="s-body" style="display:grid;grid-template-columns:1fr 1.25fr;gap:2.5cqw">${img(s.img, 'height:100%')}<div class="card song">${s.lines.map(l => `<div>${fmt(l)} ${say(l)}</div>`).join('')}</div></div>`;
+      { const long = s.lines.length > 5; // 6~8줄 새 단원 노래: 사진을 좁히고 글자를 줄여 한 화면에 / long lyrics fit on one slide
+      const fs = Math.min(2.7, 96 / Math.max(...s.lines.map(l => l.length))).toFixed(2); // 가장 긴 줄이 한 줄에 들어가는 만큼만 줄임
+      b = T(s.small || "Let's sing!", s.title) + `<div class="s-body" style="display:grid;grid-template-columns:${long ? '.8fr 1.7fr' : '1fr 1.25fr'};gap:${long ? '1.8cqw' : '2.5cqw'}">${img(s.img, 'height:100%')}<div class="card song${long ? ' long' : ''}"${long ? ` style="font-size:${fs}cqw"` : ''}>${s.lines.map(l => `<div>${fmt(l)} ${say(l)}</div>`).join('')}</div></div>`; }
       break;
     case 'vocab': {
       const cols = s.cols || (s.words.length > 8 ? 5 : s.words.length > 6 ? 4 : 3);
@@ -159,6 +161,7 @@ const extraCss = `
 .ge{font:700 3.1cqw/1.15 Andika}.gk{font-size:1.9cqw;color:#4b5565;margin-top:.4cqw}
 .stars{margin-left:auto;font-size:3.4cqw;color:#e0a100;letter-spacing:.3cqw}
 .song{padding:2cqw 2.6cqw;display:flex;flex-direction:column;justify-content:center;gap:.5cqw;font:700 2.7cqw/1.25 Andika}
+.song.long{padding:1.2cqw 1.8cqw;gap:.25cqw;line-height:1.2}
 .vw{padding:.7cqw;display:flex;flex-direction:column;align-items:center;min-height:0}
 .vwe{font:700 2.5cqw/1.1 Andika;margin-top:.5cqw}.vwk{font-size:1.75cqw;color:#4b5565;padding:.1cqw .6cqw;margin-top:.2cqw}
 .grp{padding:1.6cqw 2cqw}.gh{font:700 3.2cqw/1 Andika;margin-bottom:1.2cqw}.ge2{font:700 2.9cqw/1.5 Andika}

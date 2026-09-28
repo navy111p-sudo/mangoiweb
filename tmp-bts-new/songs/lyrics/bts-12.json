@@ -1,0 +1,27 @@
+{
+  "book": 12,
+  "songs": [
+    {
+      "unit": "Unit 2",
+      "key": "bts-12-song-go-to-work",
+      "title": "How Do You Go to Work? 🚲",
+      "tune": "The Farmer in the Dell",
+      "lines": [
+        "How do you go to work?",
+        "I ride my bike to work!",
+        "It takes me twenty minutes.",
+        "I ride my bike to work!",
+        "How does he go to work?",
+        "He takes the bus, beep-beep!",
+        "It takes him thirty minutes.",
+        "He takes the bus, beep-beep!"
+      ],
+      "nt": "출근 교통 노래(새로 지음)",
+      "n": [
+        "곡조: The Farmer in the Dell (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "'ride my bike'에서 자전거 페달 돌리기, 'takes the bus'에서 운전대 돌리며 'beep-beep' 경적 누르는 동작을 해요."
+      ],
+      "imgPrompt": "Grown-ups going to work in a sunny town, one riding a bicycle and another waving from a big city bus."
+    }
+  ]
+}

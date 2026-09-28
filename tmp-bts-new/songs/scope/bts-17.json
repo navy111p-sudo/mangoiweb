@@ -1,0 +1,475 @@
+{
+ "book": 17,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Hobbies and Activities"
+   ],
+   "goals": [
+    "I can name hobbies with -ing.",
+    "I can say what I think about a hobby.",
+    "I can compare two hobbies with «while».",
+    "I can ask «Would you like to try this hobby?»",
+    "I can answer with a reason.",
+    "I can say how I feel.",
+    "I can ask «How would you feel if you …?»",
+    "I can say «I would feel …».",
+    "I can talk about my family's hobbies."
+   ],
+   "words": [
+    [
+     "taking pictures",
+     "사진 찍기"
+    ],
+    [
+     "painting",
+     "그림 그리기"
+    ],
+    [
+     "playing piano",
+     "피아노 치기"
+    ],
+    [
+     "watching TV",
+     "TV 보기"
+    ],
+    [
+     "writing calligraphy",
+     "서예 하기"
+    ],
+    [
+     "growing plants",
+     "식물 기르기"
+    ],
+    [
+     "playing basketball",
+     "농구 하기"
+    ],
+    [
+     "going to an amusement park",
+     "놀이공원 가기"
+    ],
+    [
+     "bored",
+     "지루한"
+    ],
+    [
+     "happy",
+     "행복한"
+    ],
+    [
+     "interested",
+     "관심 있는"
+    ],
+    [
+     "excited",
+     "신이 난"
+    ],
+    [
+     "hiking",
+     "등산"
+    ],
+    [
+     "gardening",
+     "정원 가꾸기"
+    ],
+    [
+     "archery",
+     "활쏘기"
+    ],
+    [
+     "playing phone games",
+     "휴대폰 게임"
+    ],
+    [
+     "hanging out with friends",
+     "친구들과 놀기"
+    ],
+    [
+     "surfing the internet",
+     "인터넷 검색"
+    ],
+    [
+     "vlogging",
+     "브이로그 찍기"
+    ],
+    [
+     "doing gymnastics",
+     "체조 하기"
+    ],
+    [
+     "floating on cloud nine",
+     "아주아주 기쁜"
+    ],
+    [
+     "proud",
+     "자랑스러운"
+    ]
+   ],
+   "sentences": [
+    "What do you like to do for fun?",
+    "What do we add to the action to make a hobby name?",
+    "I **paint**.",
+    "I **play** piano.",
+    "**Painting** is fun.",
+    "**Playing** piano is easy.",
+    "What do you think about playing piano?",
+    "Say both with «while»: I think playing piano is difficult while…",
+    "difficult 😓",
+    "easy 😌",
+    "Which one is exciting?",
+    "Which one is interesting?",
+    "Which one is difficult?",
+    "This person is painting a flower.",
+    "Tyler feeds his fish once a day.",
+    "What is his hobby?",
+    "Would you like to try archery?",
+    "Would you like to try a new hobby?",
+    "Which word comes before the reason?",
+    "Yes, I would like to try it",
+    "**because** it is fun.",
+    "No, I wouldn't like to try it",
+    "**because** it is boring.",
+    "What is the name of this game?",
+    "Is it easy or difficult?",
+    "How do you feel when you play baduk?",
+    "Would you like to try hiking?",
+    "Would you like to try playing phone games?",
+    "Do you like hanging out with friends? Why?",
+    "Would you like to try vlogging?",
+    "Would you like to try doing gymnastics?",
+    "She is hiking.",
+    "Look for 10 seconds. What is missing?",
+    "hanging out with friends",
+    "What hobby is it?",
+    "How would you feel if you baked cupcakes?",
+    "Does «would feel» change with he or she?",
+    "I **would feel** happy.",
+    "They **would feel** proud.",
+    "She **would feel** bored."
+   ],
+   "songs": [],
+   "imgs": [
+    "12519",
+    "19410",
+    "17175",
+    "15204",
+    "14920",
+    "12067",
+    "16202",
+    "16296",
+    "12519",
+    "19410",
+    "17175",
+    "15204",
+    "14920",
+    "12067",
+    "16202",
+    "16296",
+    "c7212",
+    "12290",
+    "12164",
+    "12614",
+    "12200",
+    "17246",
+    "18264",
+    "gen:bts-17-phone-games",
+    "16508",
+    "12213",
+    "gen:bts-17-vlog",
+    "13006",
+    "12200",
+    "17246",
+    "18264",
+    "gen:bts-17-phone-games",
+    "16508",
+    "12213",
+    "gen:bts-17-vlog",
+    "13006",
+    "12614",
+    "12434"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Follow Directions"
+   ],
+   "goals": [
+    "I can say what I need.",
+    "I can follow directions.",
+    "I can give directions.",
+    "I can ask «How do you do your hobby?»",
+    "I can use «does» with he and she.",
+    "I can tell the steps in order.",
+    "I can say what someone needs for a hobby.",
+    "I can say how someone does a hobby.",
+    "I can talk about my family's hobbies."
+   ],
+   "words": [
+    [
+     "soil",
+     "흙"
+    ],
+    [
+     "seedlings",
+     "새싹, 묘목"
+    ],
+    [
+     "yarn",
+     "털실"
+    ],
+    [
+     "feed",
+     "먹이를 주다"
+    ],
+    [
+     "pieces",
+     "조각들"
+    ],
+    [
+     "fit together",
+     "딱 맞다"
+    ]
+   ],
+   "sentences": [
+    "How do you make a paper airplane?",
+    "When do we say «a»? When do we say «and»?",
+    "I need **a** racket.",
+    "I need **a** guitar.",
+    "I need paint **and** brushes.",
+    "I need bread, cheese **and** meat.",
+    "Would you like to try painting? What do you need?",
+    "Would you like to try cooking noodles? What do you need?",
+    "Would you like to try making sandwiches?",
+    "Would you like to try making clay figures?",
+    "Would you like to try origami?",
+    "He needs paper to make clay figures.",
+    "Remember the pictures. What is missing?",
+    "a guitar",
+    "What hobby is it? What do I need?",
+    "How do you play badminton?",
+    "What changes with he and she? (2 words!)",
+    "How **do** you do **your** hobby?",
+    "How **do** they do **their** hobby?",
+    "How **does** she do **her** hobby?",
+    "How **does** he do **his** hobby?",
+    "In badminton, you hit a ball over the net.",
+    "How does she learn to play the piano?",
+    "How do you study for a test?",
+    "Dig up the soil. Plant the seeds. What hobby is it?",
+    "Why do you need all the pieces?",
+    "Daisy is bad at puzzles.",
+    "I do this hobby when I'm alone. I need needles and yarn.",
+    "Who is the better soccer player?"
+   ],
+   "songs": [],
+   "imgs": [
+    "16495",
+    "16440",
+    "18888",
+    "12962",
+    "16462",
+    "15023"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Comparative Adjectives"
+   ],
+   "goals": [
+    "I can compare with -er than.",
+    "I can compare with more … than.",
+    "I can use better and worse.",
+    "I can compare people and animals.",
+    "I can compare activities.",
+    "I can say which one I think is better.",
+    "I can talk about indoor and outdoor activities.",
+    "I can say who is better at something.",
+    "I can give my opinion with «more … than»."
+   ],
+   "words": [
+    [
+     "shoot",
+     "슛하다"
+    ],
+    [
+     "score a goal",
+     "골을 넣다"
+    ],
+    [
+     "pass",
+     "패스하다"
+    ],
+    [
+     "dribble",
+     "드리블하다"
+    ],
+    [
+     "card games",
+     "카드 게임"
+    ],
+    [
+     "virtual reality games",
+     "가상 현실(VR) 게임"
+    ],
+    [
+     "running",
+     "달리기"
+    ],
+    [
+     "biking",
+     "자전거 타기"
+    ],
+    [
+     "horseback riding",
+     "승마"
+    ],
+    [
+     "rock climbing",
+     "암벽 등반"
+    ],
+    [
+     "stargazing",
+     "별 보기"
+    ],
+    [
+     "fishing",
+     "낚시"
+    ],
+    [
+     "water park",
+     "워터파크"
+    ],
+    [
+     "amusement park",
+     "놀이공원"
+    ],
+    [
+     "museum",
+     "박물관"
+    ],
+    [
+     "beach",
+     "바닷가"
+    ],
+    [
+     "kayaking",
+     "카약 타기"
+    ],
+    [
+     "surfing",
+     "서핑"
+    ],
+    [
+     "indoor activities",
+     "실내 활동"
+    ],
+    [
+     "outdoor activities",
+     "야외 활동"
+    ]
+   ],
+   "sentences": [
+    "Who is the better soccer player?",
+    "When do we say «more»?",
+    "fast → fast**er**",
+    "tall → tall**er**",
+    "small → small**er**",
+    "boring → **more** boring",
+    "interesting → **more** interesting",
+    "Koalas are slow. What about sloths?",
+    "Giraffes are tall. What about buildings?",
+    "Rabbits are fast. What about cheetahs?",
+    "Butterflies are small. What about ants?",
+    "Which animal is bigger?",
+    "Reading books or watching TV?",
+    "Doing math problems or learning English?",
+    "Nathan is better at dribbling than Ethan.",
+    "It is taller than an elephant. What animal is it?",
+    "Which is more fun: a water park or an amusement park?",
+    "Which is more fun?",
+    "Who is taller, Luke or Jake?",
+    "Who is older, Grandpa Bert or Steven?",
+    "Strawberry ice cream or chocolate ice cream?",
+    "A dog or a cat?",
+    "Basketball or soccer?",
+    "Card games or virtual reality games?",
+    "Running or biking?",
+    "Horseback riding or rock climbing?",
+    "Stargazing or fishing?",
+    "Sunflowers or tulips?",
+    "A water park or an amusement park?",
+    "The museum or the beach?",
+    "Kayaking or surfing?",
+    "Steven is older than Grandpa Bert.",
+    "What activity is it? Is it more dangerous than running?",
+    "Are you better at indoor or outdoor activities?",
+    "Is fishing indoor or outdoor? What about baking?",
+    "playing chess",
+    "doing puzzles",
+    "running",
+    "playing badminton",
+    "Carol is a faster runner than Dana."
+   ],
+   "songs": [],
+   "imgs": [
+    "15516",
+    "12463",
+    "gen:bts-17-pass",
+    "gen:bts-17-dribble",
+    "15516",
+    "12463",
+    "gen:bts-17-pass",
+    "gen:bts-17-dribble",
+    "gen:bts-17-card-game",
+    "18191",
+    "12691",
+    "12350",
+    "gen:bts-17-horse",
+    "12854",
+    "gen:bts-17-stargaze",
+    "gen:bts-17-fishing",
+    "gen:bts-17-card-game",
+    "18191",
+    "12691",
+    "12350",
+    "gen:bts-17-horse",
+    "12854",
+    "gen:bts-17-stargaze",
+    "gen:bts-17-fishing",
+    "14645",
+    "16296",
+    "14414",
+    "12176",
+    "gen:bts-17-kayak",
+    "15749",
+    "14645",
+    "16296",
+    "14414",
+    "12176",
+    "gen:bts-17-kayak",
+    "15749",
+    "12670",
+    "15783"
+   ]
+  }
+ ]
+}

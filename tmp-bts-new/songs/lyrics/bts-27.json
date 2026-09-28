@@ -1,0 +1,71 @@
+{
+ "book": 27,
+ "songs": [
+  {
+   "unit": "Unit 1",
+   "key": "bts-27-song-made-of",
+   "title": "What Is It Made Of? 👕",
+   "tune": "Clap chant (4 beats)",
+   "lines": [
+    "My jeans are made of denim.",
+    "My scarf is made of wool.",
+    "These shoes are made of leather.",
+    "The shirt that has stars is made of cotton.",
+    "What is your T-shirt made of?",
+    "Formal, casual, classy, hip!",
+    "What would you wear on a special day?",
+    "I would wear a classy outfit!"
+   ],
+   "nt": "옷감 챈트(새로 지음)",
+   "n": [
+    "곡조: Clap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+    "made of가 나올 때마다 자기 옷을 잡아 화면에 보여주며 따라 말하기"
+   ],
+   "imgPrompt": "Kids showing off denim jeans, a wool scarf, leather shoes and a cotton star shirt in a bright clothing shop."
+  },
+  {
+   "unit": "Unit 2",
+   "key": "bts-27-song-stripes-and-plaid",
+   "title": "Stripes and Plaid 🧣",
+   "tune": "Pop Goes the Weasel",
+   "lines": [
+    "Stripes and plaid and polka dots, too,",
+    "Which pattern looks good on you?",
+    "I like the stripes because they're fun,",
+    "but not polka dots!",
+    "Accessorize to level up,",
+    "Your scarf is the focal point!",
+    "I wear a scarf because it's cold,",
+    "and it looks so great!"
+   ],
+   "nt": "무늬·액세서리 노래(새로 지음)",
+   "n": [
+    "곡조: Pop Goes the Weasel (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "because에서 손가락을 들어 이유를 말하는 동작, 마지막 줄에서 목도리 두르는 흉내"
+   ],
+   "imgPrompt": "Children trying on striped, plaid and polka dot clothes with scarves and earrings in front of a mirror."
+  },
+  {
+   "unit": "Unit 3",
+   "key": "bts-27-song-if-i-were-you",
+   "title": "If I Were You 🕶️",
+   "tune": "Rap chant (4 beats)",
+   "lines": [
+    "Fads come fast, and fads go fast.",
+    "Trends are popular for a long time.",
+    "Is it a fad or is it a trend?",
+    "Sagging pants? A pet rock? That's a fad!",
+    "You wear a heavy coat in summer?",
+    "If I were you, I would wear a T-shirt!",
+    "A cowboy hat in the snow?",
+    "If I were you, I would wear a warm hat!"
+   ],
+   "nt": "패션 조언 랩(새로 지음)",
+   "n": [
+    "곡조: Rap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+    "If I were you에서 친구를 가리키고, I would에서 자기 가슴에 손을 얹기"
+   ],
+   "imgPrompt": "Kids giving friendly fashion advice to a friend in a heavy coat on a sunny summer day and another in a cowboy hat in snow."
+  }
+ ]
+}

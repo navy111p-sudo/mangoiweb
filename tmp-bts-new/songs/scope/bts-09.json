@@ -1,0 +1,614 @@
+{
+ "book": 9,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Night and Day"
+   ],
+   "goals": [
+    "I can name the parts of the day.",
+    "I can say when I see the sun and the moon.",
+    "I can say \"I would like to …\".",
+    "I can ask \"When is it?\"",
+    "I can say what people are doing.",
+    "I can talk about my day.",
+    "I can ask \"Would you like to …?\"",
+    "I can say \"Yes, I would.\" and \"No, I wouldn't.\""
+   ],
+   "words": [
+    [
+     "sun",
+     "해·태양"
+    ],
+    [
+     "moon",
+     "달"
+    ],
+    [
+     "stars",
+     "별"
+    ],
+    [
+     "sky",
+     "하늘"
+    ],
+    [
+     "day",
+     "낮"
+    ],
+    [
+     "night",
+     "밤"
+    ],
+    [
+     "sunrise",
+     "해돋이"
+    ],
+    [
+     "morning",
+     "아침"
+    ],
+    [
+     "noon",
+     "정오·한낮"
+    ],
+    [
+     "afternoon",
+     "오후"
+    ],
+    [
+     "sunset",
+     "해넘이"
+    ],
+    [
+     "evening",
+     "저녁"
+    ],
+    [
+     "midnight",
+     "자정·한밤중"
+    ],
+    [
+     "easy",
+     "쉬운"
+    ],
+    [
+     "rise",
+     "(해가) 뜨다"
+    ],
+    [
+     "set",
+     "(해가) 지다"
+    ],
+    [
+     "bright",
+     "밝은"
+    ],
+    [
+     "wake up",
+     "일어나다"
+    ],
+    [
+     "take a shower",
+     "샤워하다"
+    ],
+    [
+     "eat breakfast",
+     "아침 먹다"
+    ],
+    [
+     "go to school",
+     "학교에 가다"
+    ],
+    [
+     "eat lunch",
+     "점심 먹다"
+    ],
+    [
+     "go to the academy",
+     "학원에 가다"
+    ],
+    [
+     "eat dinner",
+     "저녁 먹다"
+    ],
+    [
+     "do homework",
+     "숙제하다"
+    ],
+    [
+     "read books",
+     "책을 읽다"
+    ],
+    [
+     "sleep",
+     "자다"
+    ]
+   ],
+   "sentences": [
+    "Why can't we see the stars during the day?",
+    "Which word goes with \"night\"?",
+    "**in** the morning",
+    "**in** the afternoon",
+    "**in** the evening",
+    "**at** night · **at** noon · **at** midnight",
+    "**during** the day",
+    "**during** the night",
+    "When can you see the sun?",
+    "When can you see the moon?",
+    "What is it? What color is it?",
+    "How many moons do we have?",
+    "What are they? Tell me about the stars.",
+    "The sun rises in the evening.",
+    "What time of day is it?",
+    "What are they doing at night? 😆",
+    "What are you doing right now?",
+    "What do we add when it is happening now?",
+    "She **is waking** up.",
+    "They **are eating** breakfast.",
+    "She **wakes** up at 7.",
+    "They **eat** breakfast at 8.",
+    "When is it? What is she doing?",
+    "What are they doing?",
+    "When is it? What is he doing?",
+    "When is it? What is the baby doing?",
+    "Look! 5 seconds! 👀",
+    "What is number 2 doing?",
+    "He is doing his homework.",
+    "What would he like to do in the afternoon?",
+    "What would they like to do in the morning?",
+    "Would you like to fly a kite at midnight? 🪁",
+    "Would you like to fly a kite at midnight?",
+    "What do we add after \"he\" or \"she\"?",
+    "I **wake** up.",
+    "They **eat** lunch.",
+    "He **wakes** up.",
+    "She **eats** dinner.",
+    "He **does** his homework.",
+    "What would he like to do in the morning?"
+   ],
+   "songs": [],
+   "imgs": [
+    "12513",
+    "12484",
+    "15557",
+    "18785",
+    "15319",
+    "c7397",
+    "12513",
+    "12484",
+    "15557",
+    "18785",
+    "15319",
+    "c7397",
+    "17127",
+    "15828",
+    "20288",
+    "17114",
+    "16038",
+    "12242",
+    "18875",
+    "18883",
+    "17127",
+    "15828",
+    "20288",
+    "17114",
+    "16038",
+    "12242",
+    "18875",
+    "18883",
+    "18903",
+    "c7360",
+    "c7338",
+    "12367",
+    "12245",
+    "12593",
+    "19279",
+    "16152",
+    "12524",
+    "c5021",
+    "12359",
+    "17126",
+    "c5004",
+    "16122",
+    "c7215",
+    "gen:bts-09-academy",
+    "12925",
+    "18538",
+    "12023",
+    "12417",
+    "12359",
+    "17126",
+    "c5004",
+    "16122",
+    "c7215",
+    "gen:bts-09-academy",
+    "12925",
+    "18538",
+    "12023",
+    "12417"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "What time is it?"
+   ],
+   "goals": [
+    "I can tell the time.",
+    "I can use a.m. and p.m.",
+    "I can say \"I should …\".",
+    "I can say early, late or on time.",
+    "I can ask \"What time is it?\"",
+    "I can say what time I should do things.",
+    "I can say what someone should do.",
+    "I can use \"and\" with two times.",
+    "I can answer \"Should you …?\""
+   ],
+   "words": [
+    [
+     "a.m.",
+     "오전"
+    ],
+    [
+     "p.m.",
+     "오후"
+    ],
+    [
+     "o'clock",
+     "~시 (정각)"
+    ],
+    [
+     "should",
+     "~해야 한다"
+    ],
+    [
+     "early",
+     "이른·일찍"
+    ],
+    [
+     "late",
+     "늦은·늦게"
+    ],
+    [
+     "sometimes",
+     "가끔"
+    ],
+    [
+     "routine",
+     "일과(매일 하는 일)"
+    ],
+    [
+     "on time",
+     "제시간에"
+    ],
+    [
+     "go to work",
+     "출근하다"
+    ],
+    [
+     "cook dinner",
+     "저녁을 만들다"
+    ],
+    [
+     "clean the house",
+     "집을 청소하다"
+    ],
+    [
+     "cook lunch",
+     "점심을 만들다"
+    ],
+    [
+     "finish work",
+     "일을 마치다"
+    ],
+    [
+     "go to a dinner meeting",
+     "저녁 모임에 가다"
+    ],
+    [
+     "feed the baby",
+     "아기 밥을 먹이다"
+    ],
+    [
+     "bathe the baby",
+     "아기를 씻기다"
+    ],
+    [
+     "wake up",
+     "일어나다"
+    ],
+    [
+     "eat breakfast",
+     "아침 먹다"
+    ]
+   ],
+   "sentences": [
+    "What time should you wake up?",
+    "When do we NOT say \"o'clock\"?",
+    "8:00 → eight **o'clock**",
+    "3:00 → three **o'clock**",
+    "6:30 → six **thirty**",
+    "4:10 → four **ten**",
+    "Is 9 p.m. in the morning or at night?",
+    "7:00 **a.m.** 🌅 morning",
+    "10:00 **a.m.** 🏫",
+    "3:00 **p.m.** ☀️ afternoon",
+    "7:00 **p.m.** 🌙 evening",
+    "What time should she wake up? ⏰ 6:30",
+    "When should they go to school? ⏰ 8:00",
+    "When should they go to swimming class? ⏰ 4:10",
+    "What time should he go home? ⏰ 3:30",
+    "Aaron wants to wake up at 6 a.m.",
+    "Is she early, late or on time? 🏃‍♀️",
+    "Are you early, late or on time?",
+    "I come at 8:00. What am I?",
+    "Class starts at 8:00.",
+    "I come at 7:50. I am **early**.",
+    "I come at 8:10. I am **late**.",
+    "Class starts at 7:40. Now it is 8:00.",
+    "Piano class starts at 4:00. Now it is 4:00.",
+    "The meeting starts at 10:00. Now it is 9:30.",
+    "Piano class starts at 4:00. She comes at 4:10. She is on time.",
+    "What time is it? What are they doing? ⏰ 7:30",
+    "What time is it? What is he doing? ⏰ 10:00",
+    "Where are they going? ⏰ 3:55 p.m.",
+    "What time is it? Where is she going? ⏰ 8:10",
+    "What should they do first? 🍼🍳",
+    "What should they do first?",
+    "At 7:30 or in 7:30?",
+    "**at** 6:00",
+    "**at** eight o'clock",
+    "**at** noon · **at** night",
+    "**in** the morning",
+    "**in** the afternoon",
+    "**in** the evening",
+    "They should feed the baby at 7:30."
+   ],
+   "songs": [],
+   "imgs": [
+    "17127",
+    "16930",
+    "18434",
+    "16234",
+    "17127",
+    "16930",
+    "18434",
+    "16234",
+    "17127",
+    "17167",
+    "18517",
+    "18574",
+    "17127",
+    "17167",
+    "17163",
+    "c5009",
+    "16930",
+    "18434",
+    "17127",
+    "17167",
+    "17163",
+    "c5009",
+    "16930",
+    "18434",
+    "12253",
+    "12874",
+    "18086",
+    "12237",
+    "gen:bts-09-finishwork",
+    "12145",
+    "gen:bts-09-feedbaby",
+    "gen:bts-09-bathbaby",
+    "16174",
+    "16714",
+    "12253",
+    "12874",
+    "18086",
+    "12237",
+    "gen:bts-09-finishwork",
+    "12145",
+    "gen:bts-09-feedbaby",
+    "gen:bts-09-bathbaby",
+    "16174",
+    "16714"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "How long does it take?"
+   ],
+   "goals": [
+    "I can ask \"How long does it take?\"",
+    "I can say \"It takes 25 minutes.\"",
+    "I can say how long something is.",
+    "I can say the time in words.",
+    "I can say how long it takes.",
+    "I can ask \"How long does it take you to …?\"",
+    "I can say \"I can … for 30 minutes.\"",
+    "I can add two times.",
+    "I can plan my free time."
+   ],
+   "words": [
+    [
+     "start",
+     "시작하다"
+    ],
+    [
+     "finish",
+     "끝나다 · 끝내다"
+    ],
+    [
+     "minute",
+     "분"
+    ],
+    [
+     "hour",
+     "시간"
+    ],
+    [
+     "early",
+     "일찍"
+    ],
+    [
+     "late",
+     "늦게"
+    ],
+    [
+     "son",
+     "아들"
+    ],
+    [
+     "buy",
+     "사다"
+    ],
+    [
+     "difficult",
+     "어려운"
+    ],
+    [
+     "believe",
+     "믿다"
+    ],
+    [
+     "eat ramen",
+     "라면을 먹다"
+    ],
+    [
+     "take a nap",
+     "낮잠을 자다"
+    ],
+    [
+     "do homework",
+     "숙제하다"
+    ],
+    [
+     "ride a scooter",
+     "킥보드를 타다"
+    ],
+    [
+     "clean the bedroom",
+     "침실을 청소하다"
+    ],
+    [
+     "eat breakfast",
+     "아침 먹다"
+    ],
+    [
+     "cook dinner",
+     "저녁을 만들다"
+    ],
+    [
+     "watch TV",
+     "TV를 보다"
+    ],
+    [
+     "play soccer",
+     "축구를 하다"
+    ],
+    [
+     "have math class",
+     "수학 수업을 듣다"
+    ]
+   ],
+   "sentences": [
+    "How long does it take you to brush your teeth?",
+    "From 7:30 to 8:15 — how long is it?",
+    "She takes a shower **from** 7:00 **to** 7:25.",
+    "**It takes** 25 minutes.",
+    "60 minutes = 1 **hour**",
+    "How long does she sleep? ⏰ 9:00 p.m. → 6:30 a.m.",
+    "How long does it take her to take a shower? ⏰ 7:00 → 7:25",
+    "How long does it take them to eat breakfast? ⏰ 7:30 → 8:15",
+    "How long does it take him to brush his teeth? ⏰ 8:00 → 8:04",
+    "Jack's math class is two hours long.",
+    "Can you eat a hamburger in 1 minute? 🍔⏱️",
+    "How long does it take you to eat a hamburger?",
+    "How long does it take her to go to school? ⏰ 8:00 → 8:10",
+    "How long does it take him? ⏰ 6:20 → 7:10",
+    "How long does it take them to do homework? ⏰ 7:25 → 8:00",
+    "How long does he sleep? ⏰ 9:30 p.m. → 7:00 a.m.",
+    "How long does it take him to eat a hamburger? ⏰ 1:30 → 1:55",
+    "Does it take you 5 minutes to eat breakfast?",
+    "How long does it take you to go to school?",
+    "→ It takes **10** minutes.",
+    "Does it take 5 minutes?",
+    "→ **Yes, it does.** / **No, it doesn't.**",
+    "What is it? How long does it take you to eat it?",
+    "It takes me 1 minute to drink this. 🥤",
+    "How long does it take you to eat ice cream? 🍨",
+    "You have 1 hour. What can you do? ⏳",
+    "You have 1 hour. What can you do?",
+    "30 minutes + 30 minutes = ?",
+    "eat ramen → **20** minutes",
+    "take a nap → **30** minutes",
+    "He can eat ramen for 20 minutes **and** take a nap for 30 minutes.",
+    "What is he doing? How long can he do it?",
+    "Can you eat ramen for 5 minutes? 🍜",
+    "I can play video games for 3 hours. 🎮",
+    "Review time! How much do you remember? ⭐"
+   ],
+   "songs": [],
+   "imgs": [
+    "12511",
+    "18609",
+    "17117",
+    "12395",
+    "17127",
+    "17167",
+    "12511",
+    "18609",
+    "17117",
+    "12395",
+    "17127",
+    "17167",
+    "15083",
+    "15265",
+    "18527",
+    "18403",
+    "12511",
+    "18609",
+    "17117",
+    "12395",
+    "17127",
+    "17167",
+    "12224",
+    "15576",
+    "16910",
+    "gen:bts-09-scooter",
+    "16484",
+    "16714",
+    "12874",
+    "15204",
+    "15516",
+    "12035",
+    "12224",
+    "15576",
+    "16910",
+    "gen:bts-09-scooter",
+    "16484",
+    "16714",
+    "12874",
+    "15204",
+    "15516",
+    "12035"
+   ]
+  }
+ ]
+}

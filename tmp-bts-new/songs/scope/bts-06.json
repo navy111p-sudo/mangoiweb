@@ -1,0 +1,539 @@
+{
+ "book": 6,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Bedroom"
+   ],
+   "goals": [
+    "I can name things in my bedroom.",
+    "I can use in, on and under.",
+    "I can ask \"Where is the cat?\"",
+    "I can say sit, stand and lie down.",
+    "I can say where people sit.",
+    "I can talk about the floor.",
+    "I can make sentences with sit, stand and lie down.",
+    "I can ask \"Where does she sit?\"",
+    "I can talk about a picture."
+   ],
+   "words": [
+    [
+     "bed",
+     "침대"
+    ],
+    [
+     "pillow",
+     "베개"
+    ],
+    [
+     "blanket",
+     "담요"
+    ],
+    [
+     "chair",
+     "의자"
+    ],
+    [
+     "armchair",
+     "안락의자"
+    ],
+    [
+     "closet",
+     "옷장"
+    ],
+    [
+     "dresser",
+     "서랍장"
+    ],
+    [
+     "lamp",
+     "램프, 스탠드"
+    ],
+    [
+     "desk",
+     "책상"
+    ],
+    [
+     "welcome",
+     "환영해요, 어서 와요"
+    ],
+    [
+     "third",
+     "세 번째(의)"
+    ],
+    [
+     "clean",
+     "깨끗한"
+    ],
+    [
+     "floor",
+     "바닥"
+    ],
+    [
+     "sit",
+     "앉다"
+    ],
+    [
+     "stand",
+     "서다, 서 있다"
+    ],
+    [
+     "lie down",
+     "눕다"
+    ]
+   ],
+   "sentences": [
+    "What is in your bedroom?",
+    "In the bed or on the bed? What is different?",
+    "The girl is **in** the bed. (이불 속)",
+    "The girl is **on** the bed. (이불 위)",
+    "The pillow is **under** the bed.",
+    "The cat is **under** the chair.",
+    "What color is your bedroom?",
+    "How many pillows do you have?",
+    "Where is the dog?",
+    "Where is the lamp?",
+    "Where is the bear?",
+    "Where is the grandmother?",
+    "Where are the women?",
+    "The cat is on the chair.",
+    "Who is under the bed?",
+    "Are they on the bed or in the bed?",
+    "Do you stand on your bed?",
+    "When do we say \"sits\"? When do we say \"sit\"?",
+    "The man **sits** on the chair.",
+    "The cat **lies down** on the bed.",
+    "They **sit** on the floor.",
+    "They **lie down** on the bed.",
+    "What color is the floor? What about your floor?",
+    "Where do they sit?",
+    "Where is the baby?",
+    "Where is the cat?",
+    "The cat sits on the bed.",
+    "Where are they?",
+    "Look! 5 seconds! 👀",
+    "Who sits? Who stands? Who lies down?",
+    "Why is there a pineapple on the bed?",
+    "Where does the pineapple lie down?",
+    "Which question has \"sit\" or \"lie down\" in it?",
+    "Where **is** the cat?",
+    "The cat **is** under the chair.",
+    "Where **does** she **sit**?",
+    "She **sits** on the floor.",
+    "Where do the girls sit?",
+    "Where does she lie down?",
+    "Where do they lie down?"
+   ],
+   "songs": [
+    "Where Is It? Song"
+   ],
+   "imgs": [
+    "16560",
+    "13178",
+    "16147",
+    "16149",
+    "16153",
+    "12855",
+    "gen:bts-06-dresser",
+    "16595",
+    "16560",
+    "13178",
+    "16147",
+    "16149",
+    "16153",
+    "12855",
+    "gen:bts-06-dresser",
+    "16369",
+    "12040",
+    "gen:bts-06-third-cat",
+    "12800",
+    "19389",
+    "16149",
+    "gen:bts-06-pillow-fight",
+    "13276",
+    "19389",
+    "16149",
+    "gen:bts-06-pillow-fight",
+    "13276",
+    "12245",
+    "18010",
+    "12855",
+    "gen:bts-06-dresser",
+    "12075",
+    "15030",
+    "16643",
+    "16659"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Living Room"
+   ],
+   "goals": [
+    "I can name things in the living room.",
+    "I can use next to and in front of.",
+    "I can ask \"How many … do you have?\"",
+    "I can use behind and between.",
+    "I can name wall and light switch.",
+    "I can find hiding animals.",
+    "I can use four place words.",
+    "I can make a sentence in the right order.",
+    "I can talk about a picture."
+   ],
+   "words": [
+    [
+     "sofa",
+     "소파"
+    ],
+    [
+     "table",
+     "탁자"
+    ],
+    [
+     "television",
+     "텔레비전"
+    ],
+    [
+     "armchair",
+     "안락의자"
+    ],
+    [
+     "window",
+     "창문"
+    ],
+    [
+     "curtains",
+     "커튼"
+    ],
+    [
+     "lamp",
+     "램프, 스탠드"
+    ],
+    [
+     "in front of",
+     "~ 앞에"
+    ],
+    [
+     "next to",
+     "~ 옆에"
+    ],
+    [
+     "costume",
+     "의상, 분장 옷"
+    ],
+    [
+     "amazing",
+     "멋진"
+    ],
+    [
+     "stay",
+     "머물다, 있다"
+    ],
+    [
+     "wall",
+     "벽"
+    ],
+    [
+     "light switch",
+     "전등 스위치"
+    ],
+    [
+     "behind",
+     "~ 뒤에"
+    ],
+    [
+     "between",
+     "~ 사이에"
+    ]
+   ],
+   "sentences": [
+    "What do you do in the living room?",
+    "Stand next to your chair. Now stand in front of it!",
+    "The lamp is **next to** the sofa.",
+    "(옆에 나란히)",
+    "The table is **in front of** the sofa.",
+    "(앞에 마주 보고)",
+    "Do you have a sofa at home? What color is it?",
+    "How many windows do you have in your living room?",
+    "What color are your curtains in the living room?",
+    "How many TVs do you have at home?",
+    "Where is the cat?",
+    "Where is the girl?",
+    "The lamp is next to the armchair.",
+    "Who is in front of the TV?",
+    "Who is behind the curtain?",
+    "Who is hiding in the living room?",
+    "How many things do we need for \"between\"?",
+    "The windows are **behind** the sofa.",
+    "(뒤에 하나)",
+    "The sofa is **between** the lamp **and** the armchair.",
+    "(둘 사이)",
+    "What color is your wall?",
+    "Where is the yellow pillow?",
+    "Where is the man?",
+    "Where is the dog?",
+    "Where is the hamster?",
+    "Where are the gray cats?",
+    "The dog is between the curtains.",
+    "Where is the cat? Where is the dog?",
+    "What is behind the sofa?!",
+    "Is it a real snake?",
+    "Where is the bird?",
+    "Where is the white rabbit?",
+    "Where is the snake?",
+    "Where is the lamp?",
+    "The brown rabbit is behind the white rabbit.",
+    "Talk about the picture!",
+    "Who is in the kitchen?"
+   ],
+   "songs": [],
+   "imgs": [
+    "16150",
+    "12721",
+    "13358",
+    "16153",
+    "12738",
+    "18737",
+    "13072",
+    "gen:bts-06-cat-front-baby",
+    "16150",
+    "12721",
+    "13358",
+    "16153",
+    "12738",
+    "18737",
+    "c7327",
+    "gen:bts-06-cat-front-baby",
+    "16287",
+    "15546",
+    "18881",
+    "18736",
+    "19366",
+    "gen:bts-06-man-behind-sofa",
+    "gen:bts-06-hamster-cats",
+    "18736",
+    "19366",
+    "gen:bts-06-man-behind-sofa",
+    "gen:bts-06-hamster-cats",
+    "c7327",
+    "gen:bts-06-cat-front-baby",
+    "gen:bts-06-dog-behind-curtain",
+    "gen:bts-06-bulldog-pillows"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Kitchen",
+    "Bathroom",
+    "Kitchen and Bathroom"
+   ],
+   "goals": [
+    "I can name things in the kitchen.",
+    "I can use above and below.",
+    "I can say what I use when I eat.",
+    "I can name things in the bathroom.",
+    "I can use above, below and next to.",
+    "I can say my bathroom rules.",
+    "I can name things in the kitchen and bathroom.",
+    "I can find hiding animals."
+   ],
+   "words": [
+    [
+     "stove",
+     "가스레인지"
+    ],
+    [
+     "microwave",
+     "전자레인지"
+    ],
+    [
+     "refrigerator",
+     "냉장고"
+    ],
+    [
+     "sink",
+     "싱크대"
+    ],
+    [
+     "cabinet",
+     "찬장"
+    ],
+    [
+     "faucet",
+     "수도꼭지"
+    ],
+    [
+     "dishes",
+     "그릇"
+    ],
+    [
+     "clock",
+     "시계"
+    ],
+    [
+     "spoon",
+     "숟가락"
+    ],
+    [
+     "fork",
+     "포크"
+    ],
+    [
+     "chopsticks",
+     "젓가락"
+    ],
+    [
+     "lollipop",
+     "막대사탕"
+    ],
+    [
+     "looks like",
+     "~처럼 보이다"
+    ],
+    [
+     "chef",
+     "요리사"
+    ],
+    [
+     "toilet",
+     "변기"
+    ],
+    [
+     "bathtub",
+     "욕조"
+    ],
+    [
+     "shower",
+     "샤워기"
+    ],
+    [
+     "mirror",
+     "거울"
+    ],
+    [
+     "soap",
+     "비누"
+    ],
+    [
+     "towel",
+     "수건"
+    ],
+    [
+     "shampoo",
+     "샴푸"
+    ]
+   ],
+   "sentences": [
+    "What is in your kitchen?",
+    "Point up! Point down! Which one is above?",
+    "The cabinet is **above** the refrigerator.",
+    "The stove is **below** the microwave.",
+    "What do you use when you eat?",
+    "What color are your dishes?",
+    "What do you have in your refrigerator?",
+    "Where are the lamps?",
+    "Where is the refrigerator?",
+    "Who is waiting in the kitchen?",
+    "The cabinet is below the refrigerator.",
+    "Do you sing in the bathroom?",
+    "What is in your bathroom?",
+    "Do you have a bathtub in your bathroom?",
+    "Yes, I do. / No, I don't.",
+    "How many toilets do you have at home?",
+    "Where is the shampoo?",
+    "Where is the mirror?",
+    "Where is the sink?",
+    "Where are the towels?",
+    "The babies are above the sink.",
+    "Who is above the bathtub?",
+    "What is above the baby?",
+    "Kitchen or bathroom? Where are they?",
+    "Sink, cabinet, mirror — kitchen, bathroom or both?",
+    "stove · microwave",
+    "refrigerator · dishes",
+    "toilet · bathtub",
+    "shower · towel",
+    "Who washes the dishes at your house?",
+    "Where is the balloon?",
+    "Where are the babies?",
+    "Where is the clock?",
+    "Where is the cat?",
+    "Where is the dog?",
+    "Who is below the sink?",
+    "The dog is above the toilet.",
+    "Look! 5 seconds! 👀",
+    "Where is the lizard? Where is the dog?",
+    "Can you show me your house?"
+   ],
+   "songs": [
+    "Bathroom Rules"
+   ],
+   "imgs": [
+    "12237",
+    "15552",
+    "16853",
+    "c7099",
+    "gen:bts-06-cabinet-fridge",
+    "c7296",
+    "12602",
+    "12580",
+    "12237",
+    "15552",
+    "16853",
+    "c7099",
+    "gen:bts-06-cabinet-fridge",
+    "c7296",
+    "12602",
+    "12580",
+    "12003",
+    "c7134",
+    "15097",
+    "gen:bts-06-zoey-story",
+    "gen:bts-06-zoey-story",
+    "16722",
+    "gen:bts-06-toilet",
+    "gen:bts-06-bathtub",
+    "12704",
+    "18015",
+    "13112",
+    "13195",
+    "16870",
+    "c7294",
+    "gen:bts-06-toilet",
+    "gen:bts-06-bathtub",
+    "12704",
+    "18015",
+    "13112",
+    "13195",
+    "16870",
+    "gen:bts-06-bath-cabinet",
+    "c7296",
+    "gen:bts-06-cabinet-fridge",
+    "c7099",
+    "12874",
+    "13118",
+    "17145",
+    "c5022",
+    "17126"
+   ]
+  }
+ ]
+}

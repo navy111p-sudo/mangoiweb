@@ -1,0 +1,71 @@
+{
+ "book": 34,
+ "songs": [
+  {
+   "unit": "Unit 1",
+   "key": "bts-34-song-risks",
+   "title": "Risky or Dangerous? 🛹",
+   "tune": "Rap chant (4 beats)",
+   "lines": [
+    "Why do some people do dangerous things?",
+    "For the thrill and the reward it brings!",
+    "A wild bear is dangerous — it can hurt you!",
+    "Jumping a ramp is risky — you choose to go!",
+    "You might lose something, but you choose it!",
+    "A daredevil's stunt — would you try it, too?",
+    "I'm not a wimp, I think it through,",
+    "It's risky, not dangerous — so I'll try!"
+   ],
+   "nt": "위험·모험 랩(새로 지음)",
+   "n": [
+    "곡조: Rap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+    "dangerous에서 두 손으로 X, risky에서 손바닥을 저울처럼 흔들어 구분하기"
+   ],
+   "imgPrompt": "A kid in a helmet jumping a small skateboard ramp while friends cheer from a safe distance."
+  },
+  {
+   "unit": "Unit 2",
+   "key": "bts-34-song-possible",
+   "title": "Fate or Free Will? 🔮",
+   "tune": "Clap chant (4 beats)",
+   "lines": [
+    "Could that really happen? Is it possible?",
+    "A dragon talks to a princess — made-up!",
+    "A biography of a scientist — true!",
+    "Going to the moon is a realistic dream.",
+    "Everything is already decided — fate?",
+    "Or my choices make my future — free will!",
+    "Which do you believe in more? Why?",
+    "I choose my future — I believe in free will!"
+   ],
+   "nt": "운명·자유의지 챈트(새로 지음)",
+   "n": [
+    "곡조: Clap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+    "fiction에서 마법 지팡이 흉내, non-fiction(true)에서 책을 펴는 동작으로 구분하기"
+   ],
+   "imgPrompt": "Children reading a storybook with a talking dragon and princess next to a real science biography."
+  },
+  {
+   "unit": "Unit 4",
+   "key": "bts-34-song-dreams",
+   "title": "Not Good at It... Yet! 🌱",
+   "tune": "The Farmer in the Dell",
+   "lines": [
+    "I'm good at drawing, yes!",
+    "I'm good at math, oh yes!",
+    "Not good at singing yet,",
+    "I need to practice more.",
+    "A strength, a weakness too,",
+    "Determination grows,",
+    "Fulfill your potential,",
+    "With practice, dreams come true!"
+   ],
+   "nt": "강점·약점 노래(새로 지음)",
+   "n": [
+    "곡조: The Farmer in the Dell (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "good at에서 엄지 척, yet에서 손가락으로 '아직' 표시, grows에서 새싹처럼 몸 펴기"
+   ],
+   "imgPrompt": "Kids drawing, doing math and practicing singing beside a small seed sprouting into a plant."
+  }
+ ]
+}

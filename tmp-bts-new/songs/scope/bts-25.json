@@ -1,0 +1,545 @@
+{
+ "book": 25,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Ways to Communicate",
+    "From Printing to Phones",
+    "Gina's Smartphone"
+   ],
+   "goals": [
+    "I can talk about ways to communicate.",
+    "I can change a sentence into the passive.",
+    "I can say how I hang out with my friends.",
+    "I can say who invented something and when.",
+    "I can use the passive voice in the past.",
+    "I can talk about my smartphone.",
+    "I can explain why an invention is important.",
+    "I can say what I would do without something.",
+    "I can tell useful and useless inventions apart."
+   ],
+   "words": [
+    [
+     "technology",
+     "과학기술"
+    ],
+    [
+     "social media",
+     "소셜 미디어"
+    ],
+    [
+     "the internet",
+     "인터넷"
+    ],
+    [
+     "communication satellite",
+     "통신위성"
+    ],
+    [
+     "communicate",
+     "소통하다"
+    ],
+    [
+     "face to face",
+     "얼굴을 마주 보고"
+    ],
+    [
+     "simplify",
+     "더 간단하게 하다"
+    ],
+    [
+     "obsolete",
+     "구식의"
+    ],
+    [
+     "take it with me",
+     "가지고 다니다"
+    ],
+    [
+     "hang out",
+     "같이 놀다"
+    ],
+    [
+     "find time",
+     "시간을 내다"
+    ],
+    [
+     "features",
+     "기능들"
+    ],
+    [
+     "outdated",
+     "구식의"
+    ],
+    [
+     "download",
+     "내려받다"
+    ],
+    [
+     "device",
+     "기기"
+    ],
+    [
+     "printing press",
+     "인쇄기"
+    ],
+    [
+     "telegraph",
+     "전신기"
+    ],
+    [
+     "telephone",
+     "전화기"
+    ],
+    [
+     "smartphone",
+     "스마트폰"
+    ],
+    [
+     "applications (apps)",
+     "앱"
+    ],
+    [
+     "various",
+     "여러 가지의"
+    ],
+    [
+     "purpose",
+     "목적"
+    ],
+    [
+     "feature",
+     "기능"
+    ],
+    [
+     "application",
+     "앱"
+    ],
+    [
+     "video conference",
+     "화상 회의"
+    ],
+    [
+     "online chat",
+     "온라인 채팅"
+    ],
+    [
+     "access",
+     "접속하다"
+    ],
+    [
+     "bulky",
+     "부피가 큰"
+    ]
+   ],
+   "sentences": [
+    "How do people talk to each other?",
+    "Think of one useful invention. How does it help you?",
+    "What two words make the passive? Where does \"Lisa\" go?",
+    "Lisa **mails** a letter.",
+    "Lisa **mailed** a letter.",
+    "A letter **is mailed** by Lisa.",
+    "A letter **was mailed** by Lisa.",
+    "What is it? Who uses it in the movies?",
+    "She is miming. What is she saying?",
+    "Zander thinks his telephone at home is outdated.",
+    "Who invented the first printing press?",
+    "Which invention changed the world?",
+    "What can you see? Which phone is newer?",
+    "Samuel Morse invented it in 1844. How did it send messages?",
+    "People never write letters to pen pals anymore.",
+    "What is it? What can it do?",
+    "Look for 10 seconds. Which invention is gone?",
+    "The telephone!",
+    "Umbrellas… for your shoes? Is it useful or useless?",
+    "What is the best invention ever?",
+    "Look! What is everyone doing? Is it good or bad?",
+    "I **have** a stapler, so I **can** staple my papers.",
+    "If I **didn't have** a stapler, I **would** use tape.",
+    "If I **had** a robot, it **would** do my homework.",
+    "A training kit for… what? What does it do?",
+    "A car desk is a safe way to work while you drive.",
+    "Who is cleaning the house? A robot?!"
+   ],
+   "songs": [
+    "Inventors Chant"
+   ],
+   "imgs": [
+    "12356",
+    "19453",
+    "19273",
+    "gen:bts-25-satellite",
+    "16862",
+    "12308",
+    "12261",
+    "15596",
+    "12261",
+    "19453",
+    "16862",
+    "14366",
+    "c7501",
+    "c7465",
+    "16087",
+    "16480",
+    "gen:bts-25-telegraph",
+    "15196",
+    "17162",
+    "12261",
+    "14366",
+    "16087",
+    "16910",
+    "14366",
+    "12261",
+    "12042",
+    "15768",
+    "19273",
+    "15596"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Automatic and Efficient",
+    "Simple Inventions",
+    "Inventions at School"
+   ],
+   "goals": [
+    "I can tell if a machine is automatic.",
+    "I can say why a machine is efficient.",
+    "I can compare two ways of doing a job.",
+    "I can explain how a simple invention works.",
+    "I can say when something was invented.",
+    "I can imagine life without an invention.",
+    "I can talk about inventions I use at school.",
+    "I can say \"If I didn't have …, I would …\".",
+    "I can give a short talk about three inventions."
+   ],
+   "words": [
+    [
+     "efficient",
+     "효율적인"
+    ],
+    [
+     "manual",
+     "손으로 하는"
+    ],
+    [
+     "automatic",
+     "자동의"
+    ],
+    [
+     "temperature",
+     "온도"
+    ],
+    [
+     "convenient",
+     "편리한"
+    ],
+    [
+     "advanced",
+     "첨단의"
+    ],
+    [
+     "effort",
+     "노력, 수고"
+    ],
+    [
+     "save time",
+     "시간을 아끼다"
+    ],
+    [
+     "exhausted",
+     "녹초가 된"
+    ],
+    [
+     "affordable",
+     "값이 적당한"
+    ],
+    [
+     "zipper",
+     "지퍼"
+    ],
+    [
+     "velcro",
+     "벨크로(찍찍이)"
+    ],
+    [
+     "sticky seeds",
+     "달라붙는 씨앗"
+    ],
+    [
+     "stapler",
+     "스테이플러"
+    ],
+    [
+     "rice cooker",
+     "전기밥솥"
+    ],
+    [
+     "remote control",
+     "리모컨"
+    ],
+    [
+     "staple",
+     "스테이플러로 찍다"
+    ],
+    [
+     "in addition",
+     "게다가"
+    ],
+    [
+     "tape",
+     "테이프"
+    ],
+    [
+     "hold together",
+     "한데 붙어 있다"
+    ],
+    [
+     "blade cutter",
+     "커터칼"
+    ],
+    [
+     "risky",
+     "위험한"
+    ],
+    [
+     "properly",
+     "올바르게"
+    ]
+   ],
+   "sentences": [
+    "Which machine saves you time?",
+    "Name as many inventions as you can in 10 seconds. Go!",
+    "What two words make the passive? Where does \"Lisa\" go?",
+    "Lisa **mails** a letter.",
+    "Lisa **mailed** a letter.",
+    "A letter **is mailed** by Lisa.",
+    "A letter **was mailed** by Lisa.",
+    "Which one is more efficient when you drive?",
+    "Scissors are useful, and they are automatic.",
+    "What is it? Is it automatic?",
+    "Zipper or buttons — which is faster?",
+    "What small invention do you use?",
+    "The first stapler was made for the King of France.",
+    "Why did people like the rice cooker?",
+    "Who invented it? What is it?",
+    "Look for 10 seconds. What is missing?",
+    "The correction tape!",
+    "What would school be like without scissors or staplers?",
+    "Which school tool do you need most?",
+    "I **have** a stapler, so I **can** staple my papers.",
+    "If I **didn't have** a stapler, I **would** use tape.",
+    "If I **had** a robot, it **would** do my homework.",
+    "The writer thinks all inventions are dangerous.",
+    "What school tool is it?",
+    "Who is the most creative person you know?"
+   ],
+   "songs": [],
+   "imgs": [
+    "14738",
+    "18074",
+    "14171",
+    "gen:bts-25-thermostat",
+    "15552",
+    "18191",
+    "15395",
+    "12999",
+    "13341",
+    "14738",
+    "12999",
+    "12338",
+    "15834",
+    "gen:bts-25-velcro",
+    "gen:bts-25-velcro",
+    "15731",
+    "gen:bts-25-rice-cooker",
+    "13232",
+    "15731",
+    "16910",
+    "12596",
+    "18508",
+    "c7171",
+    "gen:bts-25-cover-006",
+    "12697",
+    "15731"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Great Thinkers",
+    "Unique Minds",
+    "Ella's Speech"
+   ],
+   "goals": [
+    "I can describe people with -ive and -ful words.",
+    "I can change a word with a suffix.",
+    "I can give my opinion in a persuasive way.",
+    "I can explain what \"unique\" means.",
+    "I can talk about people with great minds.",
+    "I can say which great mind I would like to meet.",
+    "I can talk about my strengths.",
+    "I can talk about my dream job.",
+    "I can explain what makes something unique."
+   ],
+   "words": [
+    [
+     "imagine",
+     "상상하다"
+    ],
+    [
+     "intuitive",
+     "직관적인"
+    ],
+    [
+     "persuasive",
+     "설득력 있는"
+    ],
+    [
+     "argue",
+     "주장하다"
+    ],
+    [
+     "opinion",
+     "의견"
+    ],
+    [
+     "passionate",
+     "열정적인"
+    ],
+    [
+     "compose",
+     "작곡하다"
+    ],
+    [
+     "unique",
+     "독특한"
+    ],
+    [
+     "essay",
+     "글(과제)"
+    ],
+    [
+     "introduction",
+     "서론"
+    ],
+    [
+     "conclusion",
+     "결론"
+    ],
+    [
+     "deadline",
+     "마감 날"
+    ],
+    [
+     "prodigy",
+     "신동"
+    ],
+    [
+     "area",
+     "분야"
+    ],
+    [
+     "athlete",
+     "운동선수"
+    ],
+    [
+     "professional",
+     "프로의"
+    ],
+    [
+     "on my own",
+     "혼자 힘으로"
+    ],
+    [
+     "set of standards",
+     "정해진 기준"
+    ],
+    [
+     "design",
+     "설계하다"
+    ],
+    [
+     "outstanding",
+     "뛰어난"
+    ]
+   ],
+   "sentences": [
+    "Who is the smartest person in the world?",
+    "What happens to the word when we add -ful or -ion?",
+    "**forget** · **use**",
+    "**persuade** · **create**",
+    "forget**ful** · use**ful**",
+    "persua**sion** · crea**tion**",
+    "The essay is due next week.",
+    "\"Good artists copy; great artists steal.\" Who said it?",
+    "\"I composed more than 600 pieces of music.\" Who am I?",
+    "One red umbrella in a sea of black. What makes it special?",
+    "What makes you unique?",
+    "Which one is different? How is it different?",
+    "Are you unique? Why?",
+    "There are **many** like it.",
+    "Every pencil in the box is **the same**.",
+    "It is **one of a kind**.",
+    "**No other** thing is exactly like it.",
+    "What two words make the passive? Where does \"Lisa\" go?",
+    "Lisa **mails** a letter.",
+    "Lisa **mailed** a letter.",
+    "A letter **is mailed** by Lisa.",
+    "A letter **was mailed** by Lisa.",
+    "He tried three jobs before he studied this. What is his job?",
+    "He created Spider-Man and the Hulk. Who is he?",
+    "He started Microsoft. How much money does he make?",
+    "Look for 10 seconds. What is gone?",
+    "The computer! Microsoft was started by Bill Gates.",
+    "What will Ella be in the future?",
+    "What are you good at?",
+    "Ella thinks she will be a great athlete.",
+    "Which one is unique? Explain!",
+    "Can you remember all the inventions?"
+   ],
+   "songs": [
+    "Inventors Chant"
+   ],
+   "imgs": [
+    "12397",
+    "12265",
+    "21337",
+    "18339",
+    "18339",
+    "12783",
+    "13176",
+    "gen:bts-25-red-tulip",
+    "18508",
+    "c7018",
+    "20169",
+    "c7018",
+    "gen:bts-25-cellist-kid",
+    "16738",
+    "12785",
+    "12656",
+    "gen:bts-25-ella-models",
+    "18420",
+    "12902",
+    "12005"
+   ]
+  }
+ ]
+}

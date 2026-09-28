@@ -1,0 +1,313 @@
+{
+ "book": 34,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001"
+   ],
+   "titles": [
+    "Taking Risks"
+   ],
+   "goals": [
+    "I can talk about risks and rewards.",
+    "I can describe daredevils and their stunts.",
+    "I can decide whether to take a risk and explain why."
+   ],
+   "words": [
+    [
+     "talent",
+     "재능"
+    ],
+    [
+     "dangerous",
+     "위험한"
+    ],
+    [
+     "risky",
+     "위험을 무릅써야 하는"
+    ],
+    [
+     "reward",
+     "보상"
+    ],
+    [
+     "daredevil",
+     "겁 없이 위험한 일을 하는 사람"
+    ],
+    [
+     "thrill",
+     "짜릿함, 스릴"
+    ],
+    [
+     "wimp",
+     "겁쟁이"
+    ],
+    [
+     "stunt",
+     "묘기, 스턴트"
+    ]
+   ],
+   "sentences": [
+    "Why do some people do dangerous things?",
+    "Is riding a roller coaster dangerous, risky, or both? Why?",
+    "It **can hurt you**.",
+    "A wild bear is **dangerous**.",
+    "You **might lose** something, but you **choose** it.",
+    "Jumping a skateboard ramp is **risky**.",
+    "Playing video games all day is a waste of time.",
+    "What is this daredevil doing?",
+    "Steve Irwin began wrestling crocodiles when he was fifteen.",
+    "Can you lick your own elbow? Is it possible?"
+   ],
+   "songs": [],
+   "imgs": [
+    "19260",
+    "19343",
+    "18182",
+    "19244",
+    "gen:bts-34-motorbike-jump",
+    "15776",
+    "gen:bts-34-wimp",
+    "17272"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004"
+   ],
+   "titles": [
+    "Possibilities"
+   ],
+   "goals": [
+    "I can talk about realistic and unrealistic things.",
+    "I can give my opinion about fate and free will.",
+    "I can retell Mary Donaldson's story."
+   ],
+   "words": [
+    [
+     "realistic",
+     "현실적인"
+    ],
+    [
+     "expect",
+     "기대하다, 예상하다"
+    ],
+    [
+     "fate",
+     "운명"
+    ],
+    [
+     "free will",
+     "자유 의지"
+    ],
+    [
+     "fiction",
+     "지어낸 이야기"
+    ],
+    [
+     "non-fiction",
+     "실화, 사실을 쓴 글"
+    ],
+    [
+     "get real",
+     "정신 차려, 현실을 봐"
+    ]
+   ],
+   "sentences": [
+    "Could that thing really happen? Is it possible?",
+    "Going to the moon one day is a realistic dream.",
+    "Is Mary Donaldson's story fiction or non-fiction? Let's find out!",
+    "a **made-up** story",
+    "A dragon talks to a princess.",
+    "a **true** story",
+    "A biography of a scientist",
+    "Which do you believe in more? Why?",
+    "Everything is **already decided**.",
+    "It was **meant to be**.",
+    "**My choices** make my future.",
+    "I **decided** to study hard.",
+    "Who was \"Fred,\" really?",
+    "What styles of music do you like?"
+   ],
+   "songs": [],
+   "imgs": [
+    "gen:bts-34-piggy-bank",
+    "21088",
+    "gen:bts-34-fortune-cookie",
+    "12545",
+    "19384",
+    "19302",
+    "gen:bts-34-get-real"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007"
+   ],
+   "titles": [
+    "Music"
+   ],
+   "goals": [
+    "I can talk about the music I like.",
+    "I can describe music with music words.",
+    "I can talk about the blues and music from around the world."
+   ],
+   "words": [
+    [
+     "traditional music",
+     "전통 음악"
+    ],
+    [
+     "tempo",
+     "빠르기, 템포"
+    ],
+    [
+     "mood",
+     "분위기"
+    ],
+    [
+     "key",
+     "(음악의) 조"
+    ],
+    [
+     "melody",
+     "멜로디, 가락"
+    ],
+    [
+     "song",
+     "노래"
+    ],
+    [
+     "unison",
+     "모두 같은 음으로"
+    ],
+    [
+     "solo",
+     "혼자 하는 연주, 솔로"
+    ],
+    [
+     "harmony",
+     "화음"
+    ],
+    [
+     "band",
+     "밴드"
+    ],
+    [
+     "orchestra",
+     "오케스트라, 관현악단"
+    ],
+    [
+     "the blues",
+     "블루스(음악 장르)"
+    ],
+    [
+     "modern",
+     "현대의"
+    ],
+    [
+     "contemporary music",
+     "동시대 음악, 요즘 음악"
+    ]
+   ],
+   "sentences": [
+    "What styles of music do you like?",
+    "**old** music from a country's history",
+    "pansori, gayageum music",
+    "music that is popular **today**",
+    "K-pop, today's pop songs",
+    "The slaves played guitars to make the rhythm.",
+    "Where is this music from?",
+    "Look for 10 seconds! Which genres did you see?",
+    "Where do you see yourself in the future?"
+   ],
+   "songs": [
+    "Music Words (chant)"
+   ],
+   "imgs": [
+    "19494",
+    "gen:bts-34-metronome",
+    "gen:bts-34-mood-music",
+    "13176",
+    "17175",
+    "13279",
+    "16817",
+    "17009",
+    "14668",
+    "12869",
+    "14658",
+    "gen:bts-34-blues-porch",
+    "13082",
+    "gen:bts-34-kpop-dance"
+   ]
+  },
+  {
+   "unit": "Unit 4",
+   "lessons": [
+    "010"
+   ],
+   "titles": [
+    "Hopes and Dreams"
+   ],
+   "goals": [
+    "I can talk about my future life and my dreams.",
+    "I can talk about my strengths and weaknesses.",
+    "I can retell Choi Sung Bong's story."
+   ],
+   "words": [
+    [
+     "lifestyle",
+     "생활 방식"
+    ],
+    [
+     "potential",
+     "잠재력"
+    ],
+    [
+     "strength",
+     "강점"
+    ],
+    [
+     "weakness",
+     "약점"
+    ],
+    [
+     "determination",
+     "굳은 의지, 결단력"
+    ],
+    [
+     "lazy",
+     "게으른"
+    ],
+    [
+     "fulfill",
+     "(꿈을) 이루다, 발휘하다"
+    ]
+   ],
+   "sentences": [
+    "What does a seed need to fulfill its potential?",
+    "What are one strength and one weakness you have?",
+    "I'm **good at** drawing.",
+    "I'm **good at** math.",
+    "I'm **not good at** singing… **yet**!",
+    "I **need to practice** swimming.",
+    "Choi Sung Bong took expensive music lessons when he was a child.",
+    "Look for 10 seconds! Which dreams did you see?",
+    "Which lesson was your favorite in BTS 34?"
+   ],
+   "songs": [],
+   "imgs": [
+    "14870",
+    "21304",
+    "19836",
+    "18175",
+    "18926",
+    "gen:bts-34-lazy-cat",
+    "18918"
+   ]
+  }
+ ]
+}

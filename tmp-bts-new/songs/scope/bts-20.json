@@ -1,0 +1,553 @@
+{
+ "book": 20,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Food and Restaurants ①",
+    "Food and Restaurants ②",
+    "Food and Restaurants ③"
+   ],
+   "goals": [
+    "I can order food with \"I would like …\".",
+    "I can say \"I'll have …, please.\"",
+    "I can ask politely with \"May I have …?\"",
+    "I can answer \"Are you ready to order?\"",
+    "I can recommend food with \"I recommend …\".",
+    "I can say \"That sounds good!\"",
+    "I can say what I would like and why.",
+    "I can recommend food for someone.",
+    "I can read a menu."
+   ],
+   "words": [
+    [
+     "appetizer",
+     "전채 요리(먼저 먹는 요리)"
+    ],
+    [
+     "main course",
+     "주요리"
+    ],
+    [
+     "side dish",
+     "곁들임 요리"
+    ],
+    [
+     "drink",
+     "마실 것"
+    ],
+    [
+     "dessert",
+     "디저트(후식)"
+    ],
+    [
+     "menu",
+     "메뉴(차림표)"
+    ],
+    [
+     "lasagna",
+     "라자냐"
+    ],
+    [
+     "spring rolls",
+     "스프링롤"
+    ],
+    [
+     "choice",
+     "고르기 · 고른 것"
+    ],
+    [
+     "recommend",
+     "추천하다"
+    ],
+    [
+     "dumplings",
+     "만두"
+    ],
+    [
+     "celery",
+     "셀러리"
+    ],
+    [
+     "noodles",
+     "국수"
+    ],
+    [
+     "pasta",
+     "파스타"
+    ],
+    [
+     "pizza",
+     "피자"
+    ],
+    [
+     "combination",
+     "조합(함께 먹는 짝)"
+    ],
+    [
+     "greasy food",
+     "기름진 음식"
+    ],
+    [
+     "acidic drink",
+     "신 음료(탄산·산이 많은)"
+    ],
+    [
+     "taste",
+     "맛이 나다"
+    ]
+   ],
+   "sentences": [
+    "What would you like to eat?",
+    "Which one is more polite? Which one is shorter?",
+    "I **would like** spaghetti, please.",
+    "I **would like** some juice, please.",
+    "I**'ll have** a salad, please.",
+    "I**'ll have** a soft drink, please.",
+    "What would you like to eat for an appetizer?",
+    "What would you like to eat for the main course?",
+    "What would you like to eat for a side dish?",
+    "What would you like to drink?",
+    "What would you like to eat for dessert?",
+    "Miss Janice would like ice cream for dessert.",
+    "Look! 5 seconds! 👀",
+    "What did you see?",
+    "What food is it?",
+    "Are you ready to order?",
+    "What do you say when you are NOT ready?",
+    "Yes, **I would like** a pizza, please.",
+    "Yes, **I'll have** the noodles.",
+    "No, **I need more time**, please.",
+    "Not yet. Thank you for asking.",
+    "Are you ready to order, sir?",
+    "Are you ready to order, ma'am?",
+    "Which one do you recommend?",
+    "How about celery juice?",
+    "That sounds good! / That doesn't sound good!",
+    "How about broccoli pizza?",
+    "These are dumplings.",
+    "What does Logan recommend?",
+    "What do you recommend?",
+    "Logan recommends a hamburger for Bianca.",
+    "How do we say \"no\"?",
+    "I **recommend** the chicken salad.",
+    "They **taste** very good together.",
+    "I **don't recommend** a hamburger.",
+    "You **don't like** greasy food.",
+    "What would you like? What do you recommend?",
+    "How does it taste?"
+   ],
+   "songs": [],
+   "imgs": [
+    "16498",
+    "15734",
+    "12987",
+    "18046",
+    "12134",
+    "18533",
+    "16498",
+    "15734",
+    "12987",
+    "18046",
+    "12134",
+    "18533",
+    "gen:bts-20-lasagna",
+    "16498",
+    "12575",
+    "18564",
+    "15349",
+    "gen:bts-20-celery",
+    "12224",
+    "13164",
+    "12668",
+    "18564",
+    "15349",
+    "gen:bts-20-celery",
+    "12224",
+    "13164",
+    "12668",
+    "15513",
+    "15802",
+    "15723",
+    "16348",
+    "15513",
+    "15802",
+    "15723",
+    "16348"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Taste ①",
+    "Taste ②",
+    "Taste ③"
+   ],
+   "goals": [
+    "I can ask \"How does it taste?\"",
+    "I can say how food tastes.",
+    "I can say if I would like to try it and why.",
+    "I can read a menu.",
+    "I can say what food has.",
+    "I can talk about my favorite food.",
+    "I can say what food or drink is good with it.",
+    "I can ask \"How do they taste?\""
+   ],
+   "words": [
+    [
+     "sweet",
+     "단"
+    ],
+    [
+     "sour",
+     "신"
+    ],
+    [
+     "salty",
+     "짠"
+    ],
+    [
+     "bitter",
+     "쓴"
+    ],
+    [
+     "spicy",
+     "매운"
+    ],
+    [
+     "savory",
+     "감칠맛 나는"
+    ],
+    [
+     "bland",
+     "싱거운"
+    ],
+    [
+     "tasteless",
+     "아무 맛이 없는"
+    ],
+    [
+     "flavors",
+     "맛(여러 가지 맛)"
+    ],
+    [
+     "change",
+     "바꾸다"
+    ],
+    [
+     "order",
+     "주문하다"
+    ],
+    [
+     "sauce",
+     "소스"
+    ],
+    [
+     "popular",
+     "인기 있는"
+    ],
+    [
+     "patties",
+     "패티(다진 고기 덩어리)"
+    ],
+    [
+     "crunch",
+     "바삭함"
+    ],
+    [
+     "smoothie",
+     "스무디"
+    ],
+    [
+     "dressing",
+     "(샐러드) 드레싱"
+    ],
+    [
+     "sprinkles",
+     "스프링클(뿌리는 알갱이)"
+    ],
+    [
+     "frosting",
+     "프로스팅(케이크 위 크림)"
+    ],
+    [
+     "favorite",
+     "가장 좋아하는"
+    ]
+   ],
+   "sentences": [
+    "How does it taste?",
+    "When do we use \"does\" and \"tastes\"?",
+    "How **does** it taste?",
+    "A lemon **tastes** sour.",
+    "How **do** they taste?",
+    "Lemons **taste** sour.",
+    "How does it taste? Would you like to eat it?",
+    "How do they taste? Would you like to eat them?",
+    "How do they taste? Would you like to try them?",
+    "How does a lemon taste?",
+    "How does it taste? Would you like to drink it?",
+    "Strawberries taste bitter.",
+    "Would you like to try these noodles?",
+    "What would you like to try?",
+    "Which word tells us what is IN the food?",
+    "It **has** cheese and pickles.",
+    "It **comes with** mashed potatoes.",
+    "It **tastes** sweet and sour.",
+    "The chicken **is** spicy.",
+    "The chicken salad has cheese and noodles.",
+    "What food is it?",
+    "What is your favorite food?",
+    "Karen's favorite drink with cake is orange juice.",
+    "What does \"good with\" mean?",
+    "Cake is good **with** milk.",
+    "Pizza is good **with** a cola.",
+    "Milk **tastes** a little bland.",
+    "The frosting **tastes** salty.",
+    "Look at the menu. What would you like? How do they taste?",
+    "Look! 5 seconds! 👀",
+    "What did you see? How do they taste?",
+    "What would you like on your ice cream?"
+   ],
+   "songs": [],
+   "imgs": [
+    "12516",
+    "c7297",
+    "c7110",
+    "15231",
+    "14624",
+    "17037",
+    "12003",
+    "12123",
+    "12516",
+    "c7297",
+    "c7110",
+    "15231",
+    "14624",
+    "17037",
+    "12003",
+    "12123",
+    "15405",
+    "17158",
+    "13148",
+    "13252",
+    "18514",
+    "18045",
+    "12881",
+    "14447",
+    "12199",
+    "13252",
+    "18514",
+    "18045",
+    "12881",
+    "14447",
+    "12199",
+    "12234",
+    "18699",
+    "16349",
+    "c7252",
+    "15404",
+    "c7111",
+    "16520",
+    "12396",
+    "gen:bts-20-sprinkles",
+    "15100",
+    "17158"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Special Orders ①",
+    "Special Orders ②",
+    "Special Orders ③"
+   ],
+   "goals": [
+    "I can ask for more with \"Add more …, please.\"",
+    "I can say \"I don't want any …\"",
+    "I can answer \"Can I get you anything else?\"",
+    "I can say what is wrong with my food.",
+    "I can ask politely with \"Can you please …?\"",
+    "I can say \"Sorry to bother you.\"",
+    "I can make a special order.",
+    "I can complain politely.",
+    "I can read a short story about ordering."
+   ],
+   "words": [
+    [
+     "sprinkles",
+     "스프링클"
+    ],
+    [
+     "chocolate syrup",
+     "초콜릿 시럽"
+    ],
+    [
+     "nuts",
+     "견과류"
+    ],
+    [
+     "strawberries",
+     "딸기"
+    ],
+    [
+     "extra",
+     "추가(더)"
+    ],
+    [
+     "more",
+     "더"
+    ],
+    [
+     "waitress",
+     "(여자) 종업원"
+    ],
+    [
+     "lettuce",
+     "양상추"
+    ],
+    [
+     "dressing",
+     "드레싱"
+    ],
+    [
+     "croutons",
+     "크루통(빵 조각)"
+    ],
+    [
+     "onions",
+     "양파"
+    ],
+    [
+     "burnt",
+     "탄"
+    ],
+    [
+     "toasted",
+     "(노릇하게) 구운"
+    ],
+    [
+     "heat it up",
+     "데우다"
+    ],
+    [
+     "cold",
+     "식은 · 차가운"
+    ],
+    [
+     "bland",
+     "싱거운"
+    ],
+    [
+     "too big",
+     "너무 큰"
+    ],
+    [
+     "too salty",
+     "너무 짠"
+    ],
+    [
+     "too bitter",
+     "너무 쓴"
+    ],
+    [
+     "warm it up",
+     "데우다"
+    ],
+    [
+     "please",
+     "부탁해요"
+    ]
+   ],
+   "sentences": [
+    "What would you like on your ice cream?",
+    "Which words mean \"more\"? Which words mean \"no\"?",
+    "**Add more** nuts, please.",
+    "**Extra** sprinkles, please.",
+    "I would like **some** cherries, please.",
+    "I **don't want any** nuts, please.",
+    "The salad **without** onions, please.",
+    "**No** whipped cream, please.",
+    "What would you like on your ice cream sundae?",
+    "Nick wants onions in his salad.",
+    "Can I get you anything else?",
+    "What is it?",
+    "My soup is cold! What can I say?",
+    "What makes it polite?",
+    "Your soup is cold!",
+    "Heat it up!",
+    "**My** soup is cold.",
+    "**Can you please** heat it up?",
+    "**Sorry to bother you.**",
+    "Your spoon is too big. What can you say?",
+    "Your soup is cold. What can you say?",
+    "Your bread is burnt. What can you say?",
+    "Your salad is too bland. What can you say?",
+    "This bread is burnt.",
+    "What does George want on his ice cream?",
+    "What would you like to order?",
+    "George wants whipped cream on his ice cream.",
+    "Your steak is too salty. What can you say?",
+    "Your pizza is cold. What can you say?",
+    "Your pasta is too bland. What can you say?",
+    "You want water with ice. What can you say?",
+    "Your coffee is too bitter. What can you say?",
+    "Look! 5 seconds! 👀",
+    "Are you ready for the review?"
+   ],
+   "songs": [],
+   "imgs": [
+    "gen:bts-20-sprinkles",
+    "gen:bts-20-choc-syrup",
+    "13136",
+    "16135",
+    "19207",
+    "19235",
+    "gen:bts-20-sprinkles",
+    "gen:bts-20-choc-syrup",
+    "13136",
+    "16135",
+    "19207",
+    "19235",
+    "16351",
+    "13248",
+    "13252",
+    "gen:bts-20-croutons",
+    "16875",
+    "gen:bts-20-burnt-toast",
+    "16265",
+    "15552",
+    "12396",
+    "12003",
+    "gen:bts-20-giant-spoon",
+    "gen:bts-20-burnt-toast",
+    "16265",
+    "15552",
+    "12396",
+    "12003",
+    "gen:bts-20-giant-spoon",
+    "c7110",
+    "c7252",
+    "12396",
+    "15552",
+    "19207",
+    "19235"
+   ]
+  }
+ ]
+}

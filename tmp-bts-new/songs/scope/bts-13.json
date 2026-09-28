@@ -1,0 +1,493 @@
+{
+ "book": 13,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Yesterday and Today"
+   ],
+   "goals": [
+    "I can say what I am doing now.",
+    "I can say what I did yesterday.",
+    "I can say what I did not do.",
+    "I can say what I did.",
+    "I can say what someone is not doing now.",
+    "I can read a story about yesterday.",
+    "I can say what I usually do.",
+    "I can answer questions about my day."
+   ],
+   "words": [
+    [
+     "right now",
+     "바로 지금"
+    ],
+    [
+     "today",
+     "오늘"
+    ],
+    [
+     "yesterday",
+     "어제"
+    ],
+    [
+     "last night",
+     "어젯밤"
+    ],
+    [
+     "earlier",
+     "아까"
+    ],
+    [
+     "weeks ago",
+     "몇 주 전에"
+    ],
+    [
+     "homework",
+     "숙제"
+    ],
+    [
+     "video games",
+     "비디오 게임"
+    ],
+    [
+     "tag",
+     "술래잡기"
+    ],
+    [
+     "pillow fight",
+     "베개 싸움"
+    ],
+    [
+     "snowball fight",
+     "눈싸움"
+    ],
+    [
+     "dodge ball",
+     "피구"
+    ],
+    [
+     "snowball",
+     "눈뭉치"
+    ],
+    [
+     "usually",
+     "보통"
+    ],
+    [
+     "winter",
+     "겨울"
+    ],
+    [
+     "summer",
+     "여름"
+    ],
+    [
+     "boring",
+     "지루한"
+    ]
+   ],
+   "sentences": [
+    "What did you do yesterday?",
+    "What changes when we talk about yesterday?",
+    "He **is playing** tag now.",
+    "She **is doing** her homework.",
+    "He **played** tag yesterday.",
+    "She **did** her homework.",
+    "What is Tony doing now?",
+    "What did the man play earlier?",
+    "What is Nadia doing right now?",
+    "She is playing tennis right now.",
+    "What are they doing right now?",
+    "Look! 5 seconds! 👀",
+    "What did they do yesterday?",
+    "Did they play video games yesterday?",
+    "Did you play tag yesterday?",
+    "What comes after \"did not\"?",
+    "They **played** tag.",
+    "They **had** a pillow fight.",
+    "They **did not play** tag.",
+    "She **did not do** her homework.",
+    "They **did not have** a pillow fight.",
+    "Did they play tag earlier?",
+    "Are they playing tag now?",
+    "What did the boys do last night?",
+    "Are they having a pillow fight now?",
+    "Did she do her homework earlier?",
+    "He is playing video games right now.",
+    "What did they do earlier?",
+    "Who is this boy? What did he do yesterday?",
+    "Henry played computer games yesterday.",
+    "Which words tell us it is in the past?",
+    "We **play** soccer in summer.",
+    "I **have** snowball fights in winter.",
+    "We **played** soccer.",
+    "I **went** to my friend's house.",
+    "Henry's things — 5 seconds! 👀",
+    "What does Henry like? What doesn't he like?",
+    "What did he do yesterday?",
+    "Who did he visit?"
+   ],
+   "songs": [],
+   "imgs": [
+    "gen:bts-13-rightnow",
+    "18405",
+    "17112",
+    "19693",
+    "19361",
+    "gen:bts-13-weeksago",
+    "gen:bts-13-rightnow",
+    "18405",
+    "17112",
+    "19693",
+    "19361",
+    "gen:bts-13-weeksago",
+    "16910",
+    "17150",
+    "13322",
+    "gen:bts-13-pillowfight",
+    "12967",
+    "18479",
+    "16910",
+    "17150",
+    "13322",
+    "gen:bts-13-pillowfight",
+    "12967",
+    "18479",
+    "17112",
+    "19361",
+    "19693",
+    "12149",
+    "15717",
+    "12174",
+    "18574",
+    "18094",
+    "18093",
+    "c7212",
+    "18574",
+    "18094",
+    "18093",
+    "c7212"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "I Visited My Grandparents"
+   ],
+   "goals": [
+    "I can say who I visited.",
+    "I can say when and how I went.",
+    "I can use past words like rode, saw and met.",
+    "I can change verbs into the past.",
+    "I can say who did what and when.",
+    "I can talk about my last week.",
+    "I can read a story about a visit.",
+    "I can ask What, Who and When questions.",
+    "I can tell about my last visit."
+   ],
+   "words": [
+    [
+     "ride",
+     "타다"
+    ],
+    [
+     "make",
+     "만들다"
+    ],
+    [
+     "meet",
+     "만나다"
+    ],
+    [
+     "drive",
+     "운전하다"
+    ],
+    [
+     "see",
+     "보다"
+    ],
+    [
+     "visit",
+     "방문하다"
+    ],
+    [
+     "took the bus",
+     "버스를 탔다"
+    ],
+    [
+     "made soup",
+     "수프를 만들었다"
+    ],
+    [
+     "saw a movie",
+     "영화를 봤다"
+    ],
+    [
+     "met",
+     "만났다"
+    ],
+    [
+     "visited",
+     "방문했다"
+    ],
+    [
+     "drove",
+     "운전했다"
+    ],
+    [
+     "hugged",
+     "안아 주었다"
+    ],
+    [
+     "arrived",
+     "도착했다"
+    ],
+    [
+     "too bad",
+     "아쉽게도"
+    ]
+   ],
+   "sentences": [
+    "Who did you visit?",
+    "Which words change a lot?",
+    "visit → **visited**",
+    "walk → **walked**",
+    "play → **played**",
+    "ride → **rode**",
+    "see → **saw**",
+    "meet → **met**",
+    "When did you visit your grandparents?",
+    "How did you visit your grandparents?",
+    "How did they go there?",
+    "How did he go to his grandparents' house?",
+    "They rode their bikes.",
+    "What did you see there?",
+    "Who did you see there?",
+    "Did you meet anyone else?",
+    "Who did they visit?",
+    "How did they go? 5 seconds! 👀",
+    "How did they go?",
+    "What did Mom make last night?",
+    "What did your family do last night?",
+    "Which time words go with rode, saw and met?",
+    "one week **ago**",
+    "**last** night",
+    "**yesterday**",
+    "**right now**",
+    "**now**",
+    "**today**",
+    "The boy (ride) a bike one week ago.",
+    "My dad (drive) a car yesterday.",
+    "The man (take) the bus earlier.",
+    "The teachers (ride) a train one month ago.",
+    "My mother (make) soup last night.",
+    "Nina and Anna (see) a movie two weeks ago.",
+    "John (visit) a friend two months ago.",
+    "Lea (meet) her mother three days ago.",
+    "They took a bus.",
+    "What did she do?",
+    "Look! 5 seconds! 👀",
+    "Who did what?"
+   ],
+   "songs": [],
+   "imgs": [
+    "12350",
+    "12116",
+    "17036",
+    "12135",
+    "18165",
+    "12040",
+    "12350",
+    "12116",
+    "17036",
+    "12135",
+    "18165",
+    "12040",
+    "12354",
+    "16011",
+    "18165",
+    "17036",
+    "18640",
+    "12606",
+    "12354",
+    "gen:bts-13-grandpa-hug",
+    "14461",
+    "gen:bts-13-chocolates-gift",
+    "12354",
+    "gen:bts-13-grandpa-hug",
+    "14461",
+    "gen:bts-13-chocolates-gift"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "I Went There"
+   ],
+   "goals": [
+    "I can say where I went.",
+    "I can say how I got there.",
+    "I can say how long the trip was.",
+    "I can say from where to where I went.",
+    "I can answer \"Where did you come from?\"",
+    "I can talk about a trip in three sentences.",
+    "I can read a travel story.",
+    "I can ask Who, What and When questions.",
+    "I can talk about countries I visited."
+   ],
+   "words": [
+    [
+     "ride on a train",
+     "기차를 타다"
+    ],
+    [
+     "fly on a plane",
+     "비행기를 타다"
+    ],
+    [
+     "sail on a ship",
+     "배를 타고 가다"
+    ],
+    [
+     "Japan",
+     "일본"
+    ],
+    [
+     "the Philippines",
+     "필리핀"
+    ],
+    [
+     "China",
+     "중국"
+    ],
+    [
+     "Korea",
+     "한국"
+    ],
+    [
+     "the USA",
+     "미국"
+    ],
+    [
+     "Jeju Island",
+     "제주도"
+    ],
+    [
+     "Canada",
+     "캐나다"
+    ],
+    [
+     "Australia",
+     "호주"
+    ],
+    [
+     "South Africa",
+     "남아프리카 공화국"
+    ],
+    [
+     "traveled",
+     "여행했다"
+    ],
+    [
+     "far",
+     "멀리"
+    ],
+    [
+     "imagine",
+     "상상하다"
+    ],
+    [
+     "while",
+     "~하는 동안"
+    ]
+   ],
+   "sentences": [
+    "Where did you go?",
+    "What words come after \"The trip was\"?",
+    "The trip was **two hours** long.",
+    "The trip was **not** long.",
+    "The trip was **three days** long.",
+    "The trip was **long**!",
+    "How did you get there?",
+    "How did she get there?",
+    "How did they get there?",
+    "How long was the trip?",
+    "This is Japan.",
+    "Where did they go?",
+    "Look! 5 seconds! 👀",
+    "How did they travel?",
+    "Where did Santa come from?",
+    "Where did you come from?",
+    "Where did the trip start? Where did it end?",
+    "I flew **from** the USA …",
+    "I came **from** Jeju Island.",
+    "… **to** the Philippines.",
+    "I went **to** Canada.",
+    "fly on a plane",
+    "sail on a ship",
+    "ride on a train",
+    "Santa, where did you come from?",
+    "She came from the North Pole.",
+    "Where did Luna and Fin go?",
+    "Where did you travel?",
+    "Fin ate spaghetti.",
+    "She sailed on a ship yesterday.",
+    "The teacher went to America.",
+    "The trip to Canada was 12 hours long.",
+    "The green plane was empty.",
+    "Who flew the plane?",
+    "Can you remember everything?"
+   ],
+   "songs": [],
+   "imgs": [
+    "14856",
+    "12769",
+    "17045",
+    "15423",
+    "15612",
+    "12844",
+    "14856",
+    "12769",
+    "17045",
+    "15423",
+    "15612",
+    "12844",
+    "15170",
+    "15200",
+    "12293",
+    "gen:bts-13-canada-ship",
+    "gen:bts-13-sydney-kangaroo",
+    "16318",
+    "15170",
+    "15200",
+    "12293",
+    "gen:bts-13-canada-ship",
+    "gen:bts-13-sydney-kangaroo",
+    "16318",
+    "12730",
+    "12179",
+    "12397",
+    "gen:bts-13-luna-spaghetti",
+    "12730",
+    "12179",
+    "12397",
+    "gen:bts-13-luna-spaghetti"
+   ]
+  }
+ ]
+}

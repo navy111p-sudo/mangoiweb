@@ -1,6 +1,9 @@
 // BTS 23 새 교재 설계 데이터. k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 // 사진 번호 = photo-catalog.json · 'gen:…' = 새로 만들 사진(gen/req-bts-23.json)
 import { open, close } from '../common.mjs';
+const USONG_1 = { t: 'song', k: 'new', small: "Let's sing! ♪ Clap chant", title: "What We Watch 📺", img: "gen:bts-23-song-what-we-watch", nt: "TV 프로그램 챈트(새로 지음)", n: ["곡조: Clap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다","who에서 사람을, where에서 주변을, that에서 물건(카메라 흉내)을 손으로 가리키기"], src: '새로 지음', lines: ["Talk show, game show, drama, animation!","What do you like to watch on TV?","Have you watched a comedy show?","It's humorous! It makes you laugh out loud!","She is the girl who sings on the show.","He is the man who films the show.","This is the studio where we film.","This is the camera that we use."] };
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Rap chant", title: "Reporter Rap 📰", img: "gen:bts-23-song-news-report", nt: "뉴스 전달 랩(새로 지음)", n: ["곡조: Rap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다","펜이나 숟가락을 마이크처럼 들고 리포터처럼 카메라를 보며 따라 말하기"], src: '새로 지음', lines: ["Newspaper, magazine, radio, TV!","Reporters write the headline news.","\"I am playing games,\" said Tom.","Tom said that he was playing games.","\"We are baking cupcakes,\" they said.","They said that they were baking cupcakes.","\"It will rain,\" said the weather report.","The weather report said it would rain!"] };
+const USONG_3 = { t: 'song', k: 'new', small: "Let's sing! ♪ Yankee Doodle", title: "Should I Buy It? 🛒", img: "gen:bts-23-song-should-i-buy-it", nt: "광고 노래(새로 지음)", n: ["곡조: Yankee Doodle (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","Should I buy it?에서 턱에 손을 대고 고민하는 표정, coupon에서 종이를 흔들기"], src: '새로 지음', lines: ["Commercials on the TV","Advertise a new product.","Is a haircut a product?","No, a haircut's a service!","Should I buy it? Let me see.","A coupon! A discount!","Should I buy it? Is it good?","Is the price reasonable?"] };
 
 const G = (x) => 'gen:bts-23-' + x;
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3';
@@ -21,7 +24,8 @@ export const COURSE = {
 <li><b>005 «Two people are killed because of the missile test explosion»</b> — 어린이 교재에 맞지 않아 «The rocket is flying into space!»(로켓 발사 뉴스)로 바꿨습니다. 원본을 살릴지 결정해 주세요.</li>
 <li><b>008 광고 연습의 립스틱(Lyra's Lipstick)·네일 스파(Gold Spa)</b> — 초등 학생용으로 샴푸·미용실로 바꿨습니다. 원본대로 둘지 결정해 주세요.</li>
 <li><b>원본 낱말 뜻 오류</b>를 고쳤습니다(Affect «감정» → 영향을 주다, Studio «사진관» → 스튜디오, Produced «생산» → 만들어진, commercial break «상업적 휴식» → 광고 시간 등). 사전식 뜻 대신 아이 말투로 바꾼 것이 괜찮은지 확인해 주세요.</li>
-<li><b>TEST 는 시험</b>이라 ⭕❌·Guess who·이야기를 넣지 않았습니다(BTS 1 과 같은 방식). <b>새 사진 29장</b>(힉스필드 크레딧) — 점선 상자 자리.</li></ol></div>`,
+<li><b>TEST 는 시험</b>이라 ⭕❌·Guess who·이야기를 넣지 않았습니다(BTS 1 과 같은 방식). <b>새 사진 29장</b>(힉스필드 크레딧) — 점선 상자 자리.</li>
+<li><b>새 단원 노래 3곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 1 «What We Watch»(Clap chant (4 beats)) · Unit 2 «Reporter Rap»(Rap chant (4 beats)) · Unit 3 «Should I Buy It?»(Yankee Doodle). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: 'TV 프로그램', unit: U1, title: "What's on the TV", orig: 28,
@@ -30,6 +34,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-tv'), q: 'What do you like to watch on TV?', story: 'Yoona and Jay are starting a school TV channel — Mango TV!', nt: '표지 + Big Question', n: ['팝콘이 날아가는 장면으로 «무엇을 보다가 이렇게 웃었을까?» 부터 묻습니다', '끝에 «I watch talk shows. I don\'t watch the news.» 처럼 답하는 것이 목표'] },
       ...open([['I can name kinds of TV shows.', 'TV 프로그램 종류를 영어로 말할 수 있어요.'], ['I can ask "Have you watched …?"', '«…을 본 적 있어요?» 를 묻고 답해요.'], ['I can read a TV interview.', '토크쇼 인터뷰를 읽고 이해해요.']]),
+      USONG_1,
       { t: 'table', k: 'keep', small: 'Warm-up', title: 'Boggle! Find words', rows: [['H', 'D', 'E', 'I'], ['N', 'A', 'R', 'F'], ['S', 'O', 'P', 'U'], ['W', 'P', 'Y', 'L']], tip: 'Letters must touch each other. Try h-a-n-d!', src: 'Warm-up 5쪽', nt: '보글 낱말 찾기', n: ['원본에 답 목록이 없어 강사용 예시: hand · hard · read · soap · snap · fire · fur · pop (모두 이웃 칸으로 확인)', '찾은 낱말로 문장 하나씩 말하기'] },
       { t: 'vocab', k: 'fix', hide: true, title: 'TV shows 🔒', words: [['variety show', '버라이어티쇼', '15538'], ['comedy show', '코미디 쇼', '12863'], ['talk show', '토크쇼', '18482'], ['game show', '게임 쇼', '19033'], ['fashion show', '패션쇼', '16396'], ['drama', '드라마', '18902'], ['sports program', '스포츠 중계', '16209'], ['animation', '애니메이션', '15204']], src: 'Vocabulary 6쪽', nt: 'TV 프로그램 — 뜻 가리기', n: ['사진만 보고 영어로 먼저 말하게 합니다', '원본 낱말표의 프로그램 이름을 한 쪽에 모음'] },
       { t: 'vocab', k: 'keep', title: 'TV shows', words: [['variety show', '버라이어티쇼', '15538'], ['comedy show', '코미디 쇼', '12863'], ['talk show', '토크쇼', '18482'], ['game show', '게임 쇼', '19033'], ['fashion show', '패션쇼', '16396'], ['drama', '드라마', '18902'], ['sports program', '스포츠 중계', '16209'], ['animation', '애니메이션', '15204']], nt: 'TV 프로그램 — 공개' },
@@ -61,6 +66,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-studio'), q: 'Who works in a TV studio?', story: 'Jay is the cameraman. Yoona is the host. Action!', nt: '표지 + Big Question', n: ['카메라·조명·진행자가 보이는 학교 방송실 — «Who is he? What is this?» 로 시작'] },
       ...open([['I can use who for people.', '사람은 who 로 설명해요.'], ['I can use which or that for things.', '물건은 which / that 으로 설명해요.'], ['I can use where for places.', '장소는 where 로 설명해요.']]),
+      USONG_1,
       { t: 'vocab', k: 'fix', hide: true, title: 'TV studio words 🔒', words: [['announce', '(뉴스를) 전하다', '12320'], ['studio', '스튜디오', '12817'], ['film', '촬영하다', '14195'], ['camera', '카메라', '12830'], ['animator', '애니메이터', G('animators')], ['runway', '런웨이', '12960']], src: 'Vocabulary 6쪽', nt: '낱말 — 가림', n: ['<del>알리다</del> → (뉴스를) 전하다 · <del>사진관</del> → 스튜디오 · <del>통로</del> → 런웨이', 'camera 는 이 과 예문에 계속 나와 더했습니다'] },
       { t: 'vocab', k: 'keep', title: 'TV studio words', words: [['announce', '(뉴스를) 전하다', '12320'], ['studio', '스튜디오', '12817'], ['film', '촬영하다', '14195'], ['camera', '카메라', '12830'], ['animator', '애니메이터', G('animators')], ['runway', '런웨이', '12960']], nt: '낱말 — 공개' },
       { t: 'table', k: 'fix', small: 'Grammar', title: 'who · which · that · where', head: ['word', 'for', 'example'], rows: [['who', 'people', 'the man who cleans my teeth'], ['which', 'things, animals', 'the computer which you fixed'], ['that', 'people, things', 'a food that I like to eat'], ['where', 'places', 'a place where I watch movies']], src: 'Grammar 7쪽', nt: '관계대명사 표', n: ['원본 예문을 줄마다 하나씩 — 위에서 아래로 메아리 읽기', '«who/whom» 중 whom 은 강사 메모로만(이 과에서는 who)'] },
@@ -87,6 +93,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-remote'), q: 'Who wins the remote in your family?', story: 'Jay wants sports. His sister wants a drama!', nt: '표지 + Big Question', n: ['리모컨 줄다리기 — 우리 집에서는 누가 이기는지 먼저 묻기'] },
       ...open([['I can read a story about TV.', 'TV 이야기를 읽고 이해해요.'], ['I can say "I would watch …"', 'A 와 B 중 무엇을 볼지 말해요.'], ['I can talk about my favorite show.', '좋아하는 프로그램과 까닭을 말해요.']]),
+      USONG_1,
       { t: 'vocab', k: 'fix', hide: true, title: 'Story words 🔒', words: [['instead', '대신에', '19349'], ['root for', '응원하다', '16209'], ['compete', '겨루다', '16064'], ['professional', '프로의', '12492'], ['naturally', '자연스럽게', '16195'], ['skilled', '솜씨 좋은', '16215']], src: 'Vocabulary 6쪽', nt: '낱말 — 가림', n: ['<del>뿌리내리다</del> → root for 응원하다 · <del>전문가</del> → 프로의 · <del>숙련된</del> → 솜씨 좋은'] },
       { t: 'vocab', k: 'keep', title: 'Story words', words: [['instead', '대신에', '19349'], ['root for', '응원하다', '16209'], ['compete', '겨루다', '16064'], ['professional', '프로의', '12492'], ['naturally', '자연스럽게', '16195'], ['skilled', '솜씨 좋은', '16215']], nt: '낱말 — 공개' },
       { t: 'table', k: 'fix', small: 'Pattern', title: 'Would you watch A or B?', head: ['question', 'answer'], rows: [['Would you watch a talk show or the news?', 'I would watch a talk show.'], ['Would you watch a drama or a comedy show?', 'I would watch a comedy show because it is funny.']], src: 'Sentence Pattern 7쪽', nt: '문장 틀', n: ['because 로 까닭까지 붙이면 만점'] },
@@ -110,6 +117,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-news'), q: 'Where do you get your news?', story: 'Yoona is the news anchor on Mango TV today!', nt: '표지 + Big Question', n: ['어린이 앵커 사진 — «신문? TV? 휴대폰?» 으로 먼저 묻기'] },
       ...open([['I can name kinds of media.', '신문·잡지·TV·라디오·인터넷을 말해요.'], ['I can name kinds of news.', '시사·연예·날씨·스포츠 뉴스를 구별해요.'], ['I can say "Would you like to watch …?"', '보고 싶은지 묻고 답해요.']]),
+      USONG_2,
       { t: 'vocab', k: 'fix', hide: true, title: 'Media 🔒', words: [['newspaper', '신문', '14653'], ['magazine', '잡지', '14872'], ['television', '텔레비전', '12535'], ['radio', '라디오', '19431'], ['internet', '인터넷', '17162'], ['headlines', '주요 기사 제목', '16715']], src: 'Vocabulary 6쪽', nt: '매체 — 가림', n: ['<del>헤드라인</del> → 주요 기사 제목', 'radio 사진은 발명품 전시(맨 오른쪽 라디오)를 가리키며'] },
       { t: 'vocab', k: 'keep', title: 'Media', words: [['newspaper', '신문', '14653'], ['magazine', '잡지', '14872'], ['television', '텔레비전', '12535'], ['radio', '라디오', '19431'], ['internet', '인터넷', '17162'], ['headlines', '주요 기사 제목', '16715']], nt: '매체 — 공개' },
       { t: 'vocab', k: 'fix', hide: true, title: 'News words 🔒', words: [['current events', '시사(지금 일어나는 일)', '12320'], ['entertainment', '연예', '15658'], ['weather report', '일기 예보', '12195'], ['disaster', '재난', '17347'], ['athletes', '운동선수', '12492'], ['companies', '회사', '18300'], ['products', '제품', '16337'], ['affect', '영향을 주다', '17197']], src: 'Vocabulary 6·7쪽', nt: '뉴스 낱말 — 가림', n: ['<del>현재이벤트</del> → 시사 · <del>오락</del> → 연예 · <del>감정</del> → 영향을 주다', 'violent(사나운)·local news(지역 뉴스)는 뒤 쪽 문장으로 익힙니다'] },
@@ -139,6 +147,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-reporter'), q: 'What did he say?', story: 'Yoona is a reporter today. She asks questions and writes down the answers.', nt: '표지 + Big Question', n: ['«He said that …» 이 이 과의 목표 — 표지에서 먼저 짐작만'] },
       ...open([['I can say what reporters do.', '기자가 하는 일을 말해요.'], ['I can use reported speech.', '남이 한 말을 «He said that …» 으로 전해요.'], ['I can report the news.', '뉴스를 전달 화법으로 말해요.']]),
+      USONG_2,
       { t: 'vocab', k: 'fix', hide: true, title: 'News words 🔒', words: [['gather', '모으다', '13064'], ['script', '대본', '14271'], ['garbage', '쓰레기', '18998'], ['famous', '유명한', '20020'], ['tournament', '대회', '15785'], ['pollution', '오염', '13185'], ['severe', '심한', '18946'], ['at risk', '위험에 처한', '15449']], src: 'Vocabulary 6쪽', nt: '낱말 — 가림', n: ['<del>위험</del> → 위험에 처한', 'interview·presentation 은 앞 과·본문에서 익힙니다'] },
       { t: 'vocab', k: 'keep', title: 'News words', words: [['gather', '모으다', '13064'], ['script', '대본', '14271'], ['garbage', '쓰레기', '18998'], ['famous', '유명한', '20020'], ['tournament', '대회', '15785'], ['pollution', '오염', '13185'], ['severe', '심한', '18946'], ['at risk', '위험에 처한', '15449']], nt: '낱말 — 공개' },
       { t: 'qa', k: 'keep', img: '12147', title: 'What do reporters do?', q: 'Reporters write news for newspapers and news shows.', a: 'Reporters ___ the news. They interview people.', src: '8쪽', nt: '기자가 하는 일' },
@@ -165,6 +174,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'c7489', q: 'Is the news always bad?', story: 'Olivia reads the news every day. Here is what she thinks.', nt: '표지 + Big Question', n: ['놀라서 소파에서 뉴스를 보는 친구들 — «What news did they see?» 로 시작'] },
       ...open([["I can read Olivia's story.", 'Olivia 의 이야기를 읽고 이해해요.'], ['I can say why news is important.', '뉴스가 왜 중요한지 말해요.'], ['I can report news with reported speech.', '사진 속 뉴스를 전달 화법으로 전해요.']]),
+      USONG_2,
       { t: 'table', k: 'keep', small: 'Warm-up', title: 'Boggle! Find words', rows: [['T', 'B', 'S', 'I'], ['E', 'R', 'E', 'H'], ['T', 'P', 'A', 'D'], ['Y', 'S', 'N', 'L']], tip: 'Letters must touch each other. Can you find b-r-e-a-d?', src: 'Warm-up 5쪽', nt: '보글 낱말 찾기', n: ['강사용 답 예시: bread · read · head · pear · sand · land · trap · she (모두 이웃 칸으로 확인)'] },
       { t: 'vocab', k: 'fix', hide: true, title: 'Story words 🔒', words: [['current events', '시사', '12320'], ['headline news', '주요 뉴스', '16715'], ['informed', '(세상 일을) 잘 아는', '17197'], ['unfortunately', '안타깝게도', '15702'], ['disaster', '재난', '17347']], src: 'Vocabulary 6쪽', nt: '낱말 — 가림', n: ['<del>알려진</del> → 잘 아는 · <del>운수나쁘게</del> → 안타깝게도'] },
       { t: 'vocab', k: 'keep', title: 'Story words', words: [['current events', '시사', '12320'], ['headline news', '주요 뉴스', '16715'], ['informed', '(세상 일을) 잘 아는', '17197'], ['unfortunately', '안타깝게도', '15702'], ['disaster', '재난', '17347']], nt: '낱말 — 공개' },
@@ -188,6 +198,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-ad'), q: 'What makes a commercial fun?', story: 'Yoona and Jay are making their first commercial for Mango TV!', nt: '표지 + Big Question', n: ['주스가 튀는 광고 촬영장 — «What are they selling?» 로 시작'] },
       ...open([['I can talk about commercials and coupons.', '광고와 쿠폰에 대해 말해요.'], ['I can tell products from services.', '상품과 서비스를 구별해요.'], ['I can ask "Should I buy this?"', '살지 말지 묻고 답해요.']]),
+      USONG_3,
       { t: 'vocab', k: 'fix', hide: true, title: 'Ad words 🔒', words: [['commercial', 'TV 광고', '19002'], ['advertise', '광고하다', '18763'], ['advertisement', '광고', 'c7411'], ['coupon', '쿠폰', '17136'], ['discount', '할인', '18746'], ['product', '상품', '16337'], ['service', '서비스', 'c7067']], src: 'Vocabulary 6쪽', nt: '낱말 — 가림', n: ['<del>상업용</del> → TV 광고', 'product·service 는 Kinds of Ads 쪽 낱말을 앞으로 가져옴'] },
       { t: 'vocab', k: 'keep', title: 'Ad words', words: [['commercial', 'TV 광고', '19002'], ['advertise', '광고하다', '18763'], ['advertisement', '광고', 'c7411'], ['coupon', '쿠폰', '17136'], ['discount', '할인', '18746'], ['product', '상품', '16337'], ['service', '서비스', 'c7067']], nt: '낱말 — 공개' },
       { t: 'qa', k: 'fix', img: '19003', title: 'Commercials', q: 'Why are there commercials on TV?', a: 'Companies want to ___ things. They ___ them on TV.', src: '9쪽', nt: '왜 광고가?', n: ['<del>News Topics</del> 제목 → Commercials', '만화를 보다 광고에 짜증 내는 아이 — 학생 경험을 먼저 묻기'] },
@@ -216,6 +227,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-pitch'), q: 'Can you sell it in 30 seconds?', story: 'Jay is practicing his first sales pitch for Mango TV!', nt: '표지 + Big Question', n: ['물건을 번쩍 들고 외치는 소년 — «What is he selling?» 로 시작'] },
       ...open([['I can say what a sales pitch is.', '판매 멘트가 무엇인지 말해요.'], ['I can use clever phrases.', '광고 문구를 써요 — It can be yours for only …!'], ['I can make my own sales pitch.', '나만의 광고 멘트를 만들어요.']]),
+      USONG_3,
       { t: 'vocab', k: 'fix', hide: true, title: 'Pitch words 🔒', words: [['sales pitch', '판매 멘트', '14301'], ['clever phrase', '재치 있는 문구', '18763'], ['disturb', '방해하다', '18086'], ['fees', '요금', '18759'], ['reasonable', '(값이) 적당한', '18746']], src: 'Vocabulary 6쪽', nt: '낱말 — 가림', n: ['<del>영리한 문구</del> → 재치 있는 문구 · <del>수수료</del> → 요금 · <del>합리적인</del> → 적당한'] },
       { t: 'vocab', k: 'keep', title: 'Pitch words', words: [['sales pitch', '판매 멘트', '14301'], ['clever phrase', '재치 있는 문구', '18763'], ['disturb', '방해하다', '18086'], ['fees', '요금', '18759'], ['reasonable', '(값이) 적당한', '18746']], nt: '낱말 — 공개' },
       { t: 'qa', k: 'keep', img: '16009', title: 'What is a sales pitch?', q: 'In a commercial, a person tells you why you should buy a product or service.', a: 'A sales pitch uses lots of ___ phrases.', src: '7쪽', nt: '판매 멘트란?' },
@@ -239,6 +251,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-009'), q: 'Would you like to make a commercial?', story: 'Lights, camera, action! Mango TV is making a pizza commercial.', nt: '표지 + Big Question', n: ['치즈가 쭉 늘어나는 촬영 장면 — «What would you sell?» 로 시작'] },
       ...open([["I can read Angie's story.", 'Angie 의 광고 이야기를 읽고 이해해요.'], ['I can say "Would you like to make …?"', '만들고 싶은지 묻고 답해요.'], ['I can design a commercial.', '나만의 광고를 계획해요.']]),
+      USONG_3,
       { t: 'vocab', k: 'fix', hide: true, title: 'Story words 🔒', words: [['billboard', '광고판', 'c7411'], ['annoying', '짜증 나는', '19003'], ['commercial break', '광고 시간', '18650'], ['clever', '재치 있는', '19002'], ['beg', '조르다', '20310'], ['piece of junk', '엉터리 물건', G('doll')]], src: 'Vocabulary 6쪽', nt: '낱말 — 가림', n: ['<del>상업적 휴식</del> → 광고 시간 · <del>애걸하다</del> → 조르다 · <del>쓰레기</del> → 엉터리 물건', 'powerful·terrible 은 이야기 속에서 뜻을 짐작하게'] },
       { t: 'vocab', k: 'keep', title: 'Story words', words: [['billboard', '광고판', 'c7411'], ['annoying', '짜증 나는', '19003'], ['commercial break', '광고 시간', '18650'], ['clever', '재치 있는', '19002'], ['beg', '조르다', '20310'], ['piece of junk', '엉터리 물건', G('doll')]], nt: '낱말 — 공개' },
       { t: 'read', k: 'keep', img: 'c7411', title: "Angie's story ①", paras: ['It seems like advertising is everywhere now. When I walk around the city, I see billboards everywhere. I hear ads on the radio and see them on the internet, too.', 'Still, I think commercials are the most powerful kind of advertising. They use images and sound together. Good commercials really work. When people see a good commercial, they go out and buy the thing!'], src: 'Story 9쪽', nt: '읽기 ①', n: ['powerful = 효과가 큰 — 그림과 소리를 함께 쓰니까', '문단마다 🔊 듣고 따라 읽기'] },

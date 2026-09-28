@@ -1,0 +1,49 @@
+{
+ "book": 16,
+ "songs": [
+  {
+   "unit": "Unit 2",
+   "key": "bts-16-song-invent",
+   "title": "What Will You Invent? 🚀",
+   "tune": "Pop Goes the Weasel",
+   "lines": [
+    "Oh, what will you invent, my friend?",
+    "I will invent a jetpack!",
+    "I will use metal, glass, and wires,",
+    "Zoom! goes my jetpack!",
+    "If I go deep under the sea,",
+    "I will need a submarine,",
+    "If it gets dark, I'll need some lights,",
+    "Splash! Down I will go!"
+   ],
+   "nt": "발명품 노래(새로 지음)",
+   "n": [
+    "곡조: Pop Goes the Weasel (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "'Zoom!'에서 로켓처럼 두 손을 위로 쭉 뻗고, 'Splash!'에서 잠수하듯 손을 모아 아래로 내려가요."
+   ],
+   "imgPrompt": "Kid inventors in a workshop, one flying a shiny jetpack and another waving from a yellow submarine with bright lights."
+  },
+  {
+   "unit": "Unit 3",
+   "key": "bts-16-song-promise",
+   "title": "I Promise, I Predict, I Plan 🤞",
+   "tune": "Here We Go Round the Mulberry Bush",
+   "lines": [
+    "I promise that I will study hard,",
+    "I will study hard, I will study hard,",
+    "I promise that I will study hard,",
+    "That is my promise to you!",
+    "I predict it will rain on Sunday,",
+    "It will rain all day, it will rain all day,",
+    "So I plan to play games in my room,",
+    "That is my plan for Sunday!"
+   ],
+   "nt": "약속·예측·계획 노래(새로 지음)",
+   "n": [
+    "곡조: Here We Go Round the Mulberry Bush (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "'promise'에서 새끼손가락을 카메라에 내밀고, 'rain'에서 손가락으로 비 내리는 흉내, 'plan'에서 손바닥에 쓰는 흉내를 해요."
+   ],
+   "imgPrompt": "A girl making a pinky promise at her desk while rain falls outside and her brother plays board games in his room."
+  }
+ ]
+}

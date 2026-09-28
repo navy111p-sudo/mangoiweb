@@ -1,0 +1,71 @@
+{
+ "book": 14,
+ "songs": [
+  {
+   "unit": "Unit 1",
+   "key": "bts-14-song-tomorrow",
+   "title": "What Will You Do Tomorrow? 🗓️",
+   "tune": "Frère Jacques (Are You Sleeping?)",
+   "lines": [
+    "What will you do? What will you do?",
+    "Tomorrow? Tomorrow?",
+    "I will watch a movie, I will watch a movie,",
+    "Very soon! Very soon!",
+    "What will she eat? What will she eat?",
+    "Next Sunday? Next Sunday?",
+    "She will eat some pizza, she will eat some pizza",
+    "Yum, yum, yum! Yum, yum, yum!"
+   ],
+   "nt": "내일 계획 노래(새로 지음)",
+   "n": [
+    "곡조: Frère Jacques (Are You Sleeping?) (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "'What will you do?'에서 손바닥을 위로 펴 묻고, 'movie'는 두 손으로 화면 모양, 'pizza'는 한 입 먹는 흉내를 카메라 앞에서 해요."
+   ],
+   "imgPrompt": "Cheerful children sitting on a sofa planning tomorrow, one watching a movie on TV and a girl happily eating pizza."
+  },
+  {
+   "unit": "Unit 2",
+   "key": "bts-14-song-going-to",
+   "title": "Where Are You Going to Go? 🚇",
+   "tune": "London Bridge Is Falling Down",
+   "lines": [
+    "Where are you going to go?",
+    "I am sick! I am sick!",
+    "Going to the pharmacy,",
+    "For medicine!",
+    "Where are you going to go?",
+    "I'm hungry! I'm hungry!",
+    "Going to the restaurant,",
+    "I'm starving now!"
+   ],
+   "nt": "장소 가기 노래(새로 지음)",
+   "n": [
+    "곡조: London Bridge Is Falling Down (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "'sick'에서 이마에 손을 얹고, 'hungry'에서 배를 문지르며, 'going to'에서 제자리 걷기를 해요."
+   ],
+   "imgPrompt": "A cartoon town street where a sick boy walks to a pharmacy and a hungry girl runs toward a restaurant."
+  },
+  {
+   "unit": "Unit 3",
+   "key": "bts-14-song-rich",
+   "title": "I Am Going to Be Rich 💎",
+   "tune": "Twinkle Twinkle Little Star",
+   "lines": [
+    "I am going to be rich!",
+    "What will I buy? My, oh my!",
+    "I will buy some jewelry,",
+    "Treasure for my family!",
+    "Where will we go? When and why?",
+    "On a journey, way up high!",
+    "I am going to be rich!",
+    "What will I buy? My, oh my!"
+   ],
+   "nt": "부자 되기 노래(새로 지음)",
+   "n": [
+    "곡조: Twinkle Twinkle Little Star (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "'rich'에서 두 팔을 활짝 벌리고, 'What will I buy?'에서 손가락으로 화면 여기저기를 가리키며, 'way up high'에서 비행기 팔을 해요."
+   ],
+   "imgPrompt": "Happy children with a sparkling treasure chest full of jewelry, flying off on a journey in a small airplane."
+  }
+ ]
+}

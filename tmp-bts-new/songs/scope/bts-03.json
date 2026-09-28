@@ -1,0 +1,472 @@
+{
+ "book": 3,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "My Family"
+   ],
+   "goals": [
+    "I can name my family.",
+    "I can say \"He is my brother.\"",
+    "I can say \"I have a brother.\"",
+    "I can say \"I have a big family.\"",
+    "I can count my family.",
+    "I can ask \"Do you have any brothers?\"",
+    "I can say eye colors.",
+    "I can say hair colors.",
+    "I can say \"She has blue eyes.\""
+   ],
+   "words": [
+    [
+     "family",
+     "가족"
+    ],
+    [
+     "father",
+     "아버지"
+    ],
+    [
+     "mother",
+     "어머니"
+    ],
+    [
+     "sister",
+     "여자 형제(언니·누나·여동생)"
+    ],
+    [
+     "brother",
+     "남자 형제(오빠·형·남동생)"
+    ],
+    [
+     "parents",
+     "부모님"
+    ],
+    [
+     "sibling",
+     "형제자매"
+    ],
+    [
+     "family day",
+     "가족의 날"
+    ],
+    [
+     "excited",
+     "신이 난"
+    ],
+    [
+     "elder",
+     "나이가 더 많은"
+    ],
+    [
+     "younger",
+     "더 어린"
+    ],
+    [
+     "black",
+     "검은색"
+    ],
+    [
+     "brown",
+     "갈색"
+    ],
+    [
+     "small",
+     "작은"
+    ],
+    [
+     "big",
+     "큰"
+    ],
+    [
+     "child",
+     "아이(한 명)"
+    ],
+    [
+     "children",
+     "아이들(여럿)"
+    ],
+    [
+     "blue eyes",
+     "파란 눈"
+    ],
+    [
+     "brown eyes",
+     "갈색 눈"
+    ],
+    [
+     "black hair",
+     "검은 머리"
+    ],
+    [
+     "brown hair",
+     "갈색 머리"
+    ],
+    [
+     "blond hair",
+     "금발"
+    ],
+    [
+     "curly hair",
+     "곱슬머리"
+    ],
+    [
+     "eyes",
+     "눈"
+    ],
+    [
+     "hair",
+     "머리카락"
+    ],
+    [
+     "blue",
+     "파란색"
+    ],
+    [
+     "blond",
+     "금발의"
+    ]
+   ],
+   "sentences": [
+    "Who is in your family?",
+    "When do we say \"is\"? When do we say \"are\"?",
+    "He **is** my father.",
+    "She **is** my sister.",
+    "They **are** my parents.",
+    "They **are** my brothers.",
+    "Who is he?",
+    "Who is she?",
+    "Who are they?",
+    "Who says \"has\"? Who says \"have\"?",
+    "He **has** a brother.",
+    "She **doesn't have** a sister.",
+    "I **have** black hair.",
+    "They **don't have** white hair.",
+    "Do you have any sisters?",
+    "Hannah has a sister.",
+    "Who is in the picture?",
+    "Is this a big family or a small family?",
+    "Is your family big or small?",
+    "Five people — big or small?",
+    "**2–4** people",
+    "She **has** a small family.",
+    "**5 or more** people",
+    "They **have** a big family.",
+    "Is it a big family?",
+    "Is it a small family?",
+    "How many people are in Hannah's family?",
+    "How many people are in this family?",
+    "Why do we say \"sisters\", not \"sister\"?",
+    "→ **Yes, I do.**",
+    "Do you have any brothers?",
+    "→ **No, I don't.**",
+    "They have a big family.",
+    "How many children?",
+    "What color are her eyes?",
+    "What color is your hair?",
+    "What is different? Look at the last letter!",
+    "She has **blonde** hair.",
+    "He has **blond** hair.",
+    "What color is his hair?"
+   ],
+   "songs": [
+    "Family Finger Song"
+   ],
+   "imgs": [
+    "16380",
+    "c7228",
+    "c7237",
+    "c7229",
+    "c7263",
+    "c7451",
+    "16380",
+    "c7228",
+    "c7237",
+    "c7229",
+    "c7263",
+    "17038",
+    "gen:bts-03-family-day",
+    "12614",
+    "16754",
+    "17038",
+    "13008",
+    "12368",
+    "12080",
+    "12166",
+    "12151",
+    "12054",
+    "18493",
+    "17038",
+    "12227",
+    "12103",
+    "12843",
+    "12274",
+    "gen:bts-03-blue-eyes",
+    "gen:bts-03-brown-eyes",
+    "gen:bts-03-black-hair",
+    "15564",
+    "gen:bts-03-blond-boy",
+    "15315",
+    "12953",
+    "13008",
+    "gen:bts-03-blue-eyes",
+    "12368",
+    "gen:bts-03-black-hair",
+    "gen:bts-03-blonde-girl"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "How Old Are You?"
+   ],
+   "goals": [
+    "I can say \"I am 12 years old.\"",
+    "I can ask \"How old is he?\"",
+    "I can name my grandparents.",
+    "I can say old and young.",
+    "I can say \"one year old\".",
+    "I can talk about twins and babies.",
+    "I can say age and hair together.",
+    "I can ask \"What color is his hair?\"",
+    "I can talk about my family album."
+   ],
+   "words": [
+    [
+     "grandmother",
+     "할머니"
+    ],
+    [
+     "grandfather",
+     "할아버지"
+    ],
+    [
+     "grandparents",
+     "조부모님"
+    ],
+    [
+     "picture",
+     "사진"
+    ],
+    [
+     "nice",
+     "멋진, 좋은"
+    ],
+    [
+     "age",
+     "나이"
+    ],
+    [
+     "old",
+     "나이가 많은"
+    ],
+    [
+     "young",
+     "어린"
+    ],
+    [
+     "twins",
+     "쌍둥이"
+    ],
+    [
+     "baby",
+     "아기"
+    ],
+    [
+     "babies",
+     "아기들"
+    ]
+   ],
+   "sentences": [
+    "How old are you?",
+    "Can we say \"He has 20 years\"?",
+    "He **has** black hair.",
+    "He **is** 20 years old.",
+    "How old is she?",
+    "How old is he?",
+    "Who are they?",
+    "Her grandmother is 69 years old.",
+    "Who is in the picture?",
+    "Who is older? 🤔",
+    "Old or young?",
+    "When do we add \"s\"?",
+    "The baby is **1 year** old.",
+    "She is **2 years** old.",
+    "He is **9 years** old.",
+    "Is she old or young?",
+    "Is he old or young?",
+    "How old are they?",
+    "How old is the baby?",
+    "How old are the babies?",
+    "The baby is old.",
+    "Are they old or young?",
+    "Who is in the family album?",
+    "How old is everyone?",
+    "Age → is or has? Hair → is or has?",
+    "She **is** 70 years old.",
+    "She **is** old.",
+    "She **has** white hair.",
+    "She **has** blue eyes.",
+    "How old is my baby brother?",
+    "Her father has blonde hair.",
+    "Who is he? Is he a father?"
+   ],
+   "songs": [],
+   "imgs": [
+    "12048",
+    "16020",
+    "18429",
+    "16625",
+    "18557",
+    "18732",
+    "13003",
+    "12026",
+    "gen:bts-03-twins",
+    "16127",
+    "gen:bts-03-babies",
+    "18451",
+    "12843",
+    "13003",
+    "16020",
+    "19411",
+    "19011"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Who Is in Your Family?"
+   ],
+   "goals": [
+    "I can name aunts, uncles and cousins.",
+    "I can say \"She is my cousin.\"",
+    "I can say \"my mother's sister\".",
+    "I can talk about my aunt and uncle.",
+    "I can talk about my cousins.",
+    "I can use and.",
+    "I can introduce my relatives.",
+    "I can ask \"Who is she?\"",
+    "I can talk about my whole family."
+   ],
+   "words": [
+    [
+     "aunt",
+     "이모·고모"
+    ],
+    [
+     "uncle",
+     "삼촌·외삼촌"
+    ],
+    [
+     "cousin",
+     "사촌"
+    ],
+    [
+     "baby",
+     "아기"
+    ],
+    [
+     "babies",
+     "아기들"
+    ],
+    [
+     "birthday",
+     "생일"
+    ],
+    [
+     "cute",
+     "귀여운"
+    ],
+    [
+     "only child",
+     "외동"
+    ],
+    [
+     "cousins",
+     "사촌들"
+    ],
+    [
+     "curly hair",
+     "곱슬머리"
+    ],
+    [
+     "grandparents",
+     "조부모님"
+    ],
+    [
+     "twins",
+     "쌍둥이"
+    ],
+    [
+     "parents",
+     "부모님"
+    ]
+   ],
+   "sentences": [
+    "Who is in your big family?",
+    "What is my aunt's baby?",
+    "my mother's **sister**",
+    "my father's **sister**",
+    "my father's **brother**",
+    "my mother's **brother**",
+    "Who is she?",
+    "Who is he?",
+    "Who are they?",
+    "They are my cousin.",
+    "How old are the cousins?",
+    "Tell me about your cousins!",
+    "How old are my cousins?",
+    "My cousins are 10 years old.",
+    "Can you find everyone?",
+    "Who is at the family party?",
+    "Which answers use \"is\"? Which use \"has\"?",
+    "How old is she?",
+    "What color is her hair?",
+    "She is my **aunt**.",
+    "She **is** 33.",
+    "She **has** brown hair.",
+    "My cousin is old.",
+    "Who is it?",
+    "Are you ready for the review?"
+   ],
+   "songs": [],
+   "imgs": [
+    "17029",
+    "15799",
+    "18005",
+    "16127",
+    "gen:bts-03-babies",
+    "12234",
+    "12885",
+    "12843",
+    "19296",
+    "c7118",
+    "18005",
+    "14178",
+    "15315",
+    "16127",
+    "17029",
+    "15799",
+    "18005",
+    "18429",
+    "gen:bts-03-twins",
+    "c7451"
+   ]
+  }
+ ]
+}

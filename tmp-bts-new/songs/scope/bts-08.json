@@ -1,0 +1,562 @@
+{
+ "book": 8,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "I'm Kicking the Ball"
+   ],
+   "goals": [
+    "I can name sports and sports things.",
+    "I can say what someone is doing.",
+    "I can say how we play.",
+    "I can ask \"How does he …?\"",
+    "I can say \"with his hands\".",
+    "I can say \"I am playing … with my friend.\"",
+    "I can say how I play a sport.",
+    "I can ask \"How do you play it?\""
+   ],
+   "words": [
+    [
+     "soccer",
+     "축구"
+    ],
+    [
+     "basketball",
+     "농구"
+    ],
+    [
+     "baseball",
+     "야구"
+    ],
+    [
+     "tennis",
+     "테니스"
+    ],
+    [
+     "badminton",
+     "배드민턴"
+    ],
+    [
+     "bat",
+     "방망이"
+    ],
+    [
+     "racket",
+     "라켓"
+    ],
+    [
+     "shuttlecock",
+     "셔틀콕"
+    ],
+    [
+     "glove",
+     "글러브(야구 장갑)"
+    ],
+    [
+     "run",
+     "달리다"
+    ],
+    [
+     "walk",
+     "걷다"
+    ],
+    [
+     "kick",
+     "차다"
+    ],
+    [
+     "jump",
+     "뛰다·점프하다"
+    ],
+    [
+     "hit",
+     "치다"
+    ],
+    [
+     "throw",
+     "던지다"
+    ],
+    [
+     "catch",
+     "잡다"
+    ],
+    [
+     "hands",
+     "손"
+    ],
+    [
+     "feet",
+     "발"
+    ],
+    [
+     "legs",
+     "다리"
+    ],
+    [
+     "arms",
+     "팔"
+    ]
+   ],
+   "sentences": [
+    "What sports can you play?",
+    "Which side is happening right now?",
+    "I **am kicking** the ball.",
+    "He **is running**.",
+    "They **are playing** soccer.",
+    "I **kick** the ball.",
+    "He **runs** every day.",
+    "They **play** soccer.",
+    "What are they doing?",
+    "What is she doing?",
+    "What is he doing?",
+    "How does she run?",
+    "How does he kick?",
+    "How do they play soccer?",
+    "He is kicking the ball.",
+    "What do you catch with?",
+    "After \"with\", what can we say?",
+    "He kicks **with his foot**.",
+    "She throws **with her hand**.",
+    "He hits the ball **with a bat**.",
+    "She hits it **with a racket**.",
+    "What is he doing? How does he do it?",
+    "He is playing basketball. He plays with his hands.",
+    "How does she jump?",
+    "How does she throw?",
+    "How does he catch the ball?",
+    "Look! 5 seconds! 👀",
+    "What are they?",
+    "How does he hit the ball?",
+    "How does she hit the shuttlecock?",
+    "Is she hitting or throwing?",
+    "We hit the ball with a glove.",
+    "How do you play badminton?",
+    "How do you play your favorite sport?",
+    "When do we add -s?",
+    "I **hit** the shuttlecock.",
+    "We **play** badminton.",
+    "She **hits** the shuttlecock.",
+    "He **plays** badminton.",
+    "Claire plays badminton with a bat."
+   ],
+   "songs": [
+    "Sports Ball Song"
+   ],
+   "imgs": [
+    "12351",
+    "12364",
+    "16026",
+    "12510",
+    "15217",
+    "15221",
+    "13332",
+    "gen:bts-08-shuttlecock",
+    "12798",
+    "12351",
+    "12364",
+    "16026",
+    "12510",
+    "15217",
+    "15221",
+    "13332",
+    "gen:bts-08-shuttlecock",
+    "12798",
+    "16205",
+    "13374",
+    "15515",
+    "12290",
+    "16195",
+    "13338",
+    "12569",
+    "16205",
+    "13374",
+    "15515",
+    "12290",
+    "16195",
+    "13338",
+    "12569",
+    "12691",
+    "12072",
+    "15516",
+    "12614",
+    "15465",
+    "16194",
+    "17029",
+    "13010",
+    "16641",
+    "16483",
+    "17118",
+    "15221",
+    "13332",
+    "12798",
+    "gen:bts-08-shuttlecock",
+    "16064",
+    "16202",
+    "15465",
+    "16210",
+    "15217",
+    "13332"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "What Are You Doing Now?"
+   ],
+   "goals": [
+    "I can name fun activities.",
+    "I can ask \"What are you doing now?\"",
+    "I can answer \"I am … now.\"",
+    "I can ask \"Is she …-ing?\"",
+    "I can say \"Yes, she is.\" / \"No, she isn't.\"",
+    "I can say where and what.",
+    "I can say my favorite sport.",
+    "I can say how I play it.",
+    "I can answer \"Are you playing now?\""
+   ],
+   "words": [
+    [
+     "driving",
+     "운전하기"
+    ],
+    [
+     "riding",
+     "타기"
+    ],
+    [
+     "dancing",
+     "춤추기"
+    ],
+    [
+     "hiking",
+     "하이킹·등산"
+    ],
+    [
+     "skiing",
+     "스키 타기"
+    ],
+    [
+     "inline skating",
+     "인라인스케이트 타기"
+    ],
+    [
+     "sitting",
+     "앉아 있기"
+    ],
+    [
+     "inside",
+     "안에서"
+    ],
+    [
+     "outside",
+     "밖에서"
+    ],
+    [
+     "swimming",
+     "수영하기"
+    ],
+    [
+     "skating",
+     "스케이트 타기"
+    ],
+    [
+     "jumping",
+     "뛰기"
+    ],
+    [
+     "running",
+     "달리기"
+    ],
+    [
+     "park",
+     "공원"
+    ],
+    [
+     "pool",
+     "수영장"
+    ],
+    [
+     "field",
+     "경기장·운동장"
+    ],
+    [
+     "volleyball",
+     "배구"
+    ],
+    [
+     "soccer",
+     "축구"
+    ],
+    [
+     "tennis",
+     "테니스"
+    ],
+    [
+     "baseball",
+     "야구"
+    ],
+    [
+     "badminton",
+     "배드민턴"
+    ],
+    [
+     "basketball",
+     "농구"
+    ]
+   ],
+   "sentences": [
+    "What are you doing now?",
+    "Where do we do it — inside or outside?",
+    "She is **dancing** inside.",
+    "He is **sitting** inside.",
+    "She is **hiking** outside.",
+    "They are **skiing** outside.",
+    "Are you riding a bike now?",
+    "What is he doing?",
+    "What are they doing now?",
+    "What are they doing?",
+    "What are they doing? Where are they?",
+    "What is she doing?",
+    "The student is driving a car.",
+    "Look! 5 seconds! 👀",
+    "Is she riding a bike?",
+    "After \"No\", what do we say next?",
+    "Is she playing tennis?",
+    "→ **Yes, she is.**",
+    "Is she playing badminton?",
+    "→ **No, she isn't.** She is playing tennis.",
+    "No, she isn't. She is inline skating.",
+    "Are you playing basketball?",
+    "Are they running?",
+    "Is he playing basketball?",
+    "Where are they? What are they doing?",
+    "Where is she? What is she doing?",
+    "Are they walking?",
+    "Is he riding a bike?",
+    "The swimmer is running.",
+    "What is your favorite sport?",
+    "Which question is about right now?",
+    "**Do you** play volleyball?",
+    "Yes, I **do**.",
+    "**Are you** playing now?",
+    "No, I'm **not**.",
+    "He hits the ball with his hands.",
+    "How do you play your favorite sport?",
+    "Do you hit the ball? How do you hit it?",
+    "Do you jump? Do you kick the ball?",
+    "Do you play your favorite sport inside or outside?"
+   ],
+   "songs": [
+    "What Are You Doing?"
+   ],
+   "imgs": [
+    "12135",
+    "13240",
+    "12888",
+    "12200",
+    "14561",
+    "gen:bts-08-inline",
+    "12707",
+    "18455",
+    "12488",
+    "12135",
+    "13240",
+    "12888",
+    "12200",
+    "14561",
+    "gen:bts-08-inline",
+    "12707",
+    "18455",
+    "12488",
+    "c7125",
+    "15708",
+    "12614",
+    "12550",
+    "c7264",
+    "12488",
+    "16518",
+    "12351",
+    "c7140",
+    "16208",
+    "12719",
+    "14561",
+    "16014",
+    "16054",
+    "15217",
+    "c7130"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "When Do You Study English?"
+   ],
+   "goals": [
+    "I can say the days of the week.",
+    "I can say how often.",
+    "I can answer \"When do you …?\"",
+    "I can say how many times a week.",
+    "I can read a weekly calendar.",
+    "I can say \"on Mondays and Fridays\".",
+    "I can talk about my week.",
+    "I can say \"from Monday to Saturday\".",
+    "I can say how often I do things."
+   ],
+   "words": [
+    [
+     "institute",
+     "학원"
+    ],
+    [
+     "church",
+     "교회"
+    ],
+    [
+     "news",
+     "뉴스"
+    ],
+    [
+     "watching TV",
+     "TV 보기"
+    ],
+    [
+     "sleeping",
+     "자기"
+    ],
+    [
+     "always",
+     "항상"
+    ],
+    [
+     "go to school",
+     "학교에 가다"
+    ],
+    [
+     "study English",
+     "영어를 공부하다"
+    ],
+    [
+     "go to church",
+     "교회에 가다"
+    ],
+    [
+     "do homework",
+     "숙제하다"
+    ],
+    [
+     "cook dinner",
+     "저녁을 요리하다"
+    ],
+    [
+     "play baseball",
+     "야구하다"
+    ],
+    [
+     "ride a bike",
+     "자전거를 타다"
+    ],
+    [
+     "read",
+     "읽다"
+    ],
+    [
+     "play soccer",
+     "축구하다"
+    ],
+    [
+     "taekwondo class",
+     "태권도 수업"
+    ],
+    [
+     "play with friends",
+     "친구들과 놀다"
+    ]
+   ],
+   "sentences": [
+    "When do you study English?",
+    "When do we add -s or -es?",
+    "I **go** to school every day.",
+    "They **go** to church on Sundays.",
+    "He **goes** to school every day.",
+    "She **watches** TV on Saturdays.",
+    "What day is it? What are they doing?",
+    "What are Grandma and Grandpa doing?",
+    "It's Monday. What is he doing?",
+    "What day is it? What is the baby doing?",
+    "This happens once a week.",
+    "What is he doing?",
+    "How many times a week do you go to school?",
+    "What does the -s on \"Mondays\" mean?",
+    "It's **Monday** today.",
+    "I play soccer **on Mondays**.",
+    "We go to church **on Sundays**.",
+    "What is he doing? When does he do it?",
+    "What are they doing? How often?",
+    "What is he doing? How often?",
+    "When does Mom cook dinner?",
+    "When does Dad cook dinner?",
+    "Mom cooks dinner on Saturdays.",
+    "What day is it?",
+    "What does Mary do every week?",
+    "What do you do every week?",
+    "Which one is for days in a row?",
+    "I go to school **from Monday to Saturday**.",
+    "I play soccer **on Mondays, Wednesdays, and Fridays**.",
+    "When do you play soccer?",
+    "When do you have taekwondo class?",
+    "Mary plays with her friends once a week.",
+    "Look! 5 seconds! 👀",
+    "When does Mary do it?",
+    "What are they doing?",
+    "Are you ready for the BTS 8 Review?"
+   ],
+   "songs": [
+    "What Do You Like to Do?"
+   ],
+   "imgs": [
+    "14424",
+    "16821",
+    "12147",
+    "15204",
+    "13276",
+    "12015",
+    "14424",
+    "16821",
+    "12147",
+    "15204",
+    "13276",
+    "12015",
+    "12071",
+    "14424",
+    "15268",
+    "16910",
+    "12237",
+    "16054",
+    "12350",
+    "12495",
+    "17111",
+    "15516",
+    "gen:bts-08-mary-taekwondo",
+    "16821",
+    "c5003",
+    "13066"
+   ]
+  }
+ ]
+}

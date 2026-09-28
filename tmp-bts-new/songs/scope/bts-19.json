@@ -1,0 +1,554 @@
+{
+ "book": 19,
+ "units": [
+  {
+   "unit": "Unit 1 · Jobs",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Jobs"
+   ],
+   "goals": [
+    "I can name 8 jobs.",
+    "I can ask \"What job …?\" and \"Which job …?\"",
+    "I can say what people do.",
+    "I can guess a job from clues.",
+    "I can say \"a\" or \"an\".",
+    "I can say YAY or NAH and why.",
+    "I can read a story about a future job.",
+    "I can answer questions about the story.",
+    "I can describe a job in a game."
+   ],
+   "words": [
+    [
+     "dentist",
+     "치과 의사"
+    ],
+    [
+     "firefighter",
+     "소방관"
+    ],
+    [
+     "police officer",
+     "경찰관"
+    ],
+    [
+     "soldier",
+     "군인"
+    ],
+    [
+     "entrepreneur",
+     "기업가·창업가"
+    ],
+    [
+     "architect",
+     "건축가"
+    ],
+    [
+     "filmmaker",
+     "영화 제작자"
+    ],
+    [
+     "guidance counselor",
+     "상담 선생님"
+    ],
+    [
+     "job",
+     "직업"
+    ],
+    [
+     "skills",
+     "기술·능력"
+    ],
+    [
+     "education",
+     "교육"
+    ],
+    [
+     "run a business",
+     "사업을 운영하다"
+    ],
+    [
+     "nursing",
+     "간호학"
+    ],
+    [
+     "college",
+     "대학"
+    ],
+    [
+     "business partner",
+     "동업자"
+    ],
+    [
+     "interesting",
+     "흥미로운"
+    ],
+    [
+     "biology",
+     "생물학"
+    ],
+    [
+     "wise",
+     "현명한"
+    ],
+    [
+     "university",
+     "대학교"
+    ],
+    [
+     "major",
+     "전공"
+    ]
+   ],
+   "sentences": [
+    "What do you want to be?",
+    "When do we say \"what\"? When do we say \"which\"?",
+    "**What** job do you want to have?",
+    "**What** car do you drive?",
+    "**Which** job do you want to have? A doctor or a teacher?",
+    "**Which** one is your friend?",
+    "What does a dentist do?",
+    "What does a firefighter do?",
+    "What do police officers do?",
+    "What do soldiers do?",
+    "What does an entrepreneur do?",
+    "What does an architect do?",
+    "What do filmmakers do?",
+    "What does a guidance counselor do?",
+    "Who is it? What does this person do?",
+    "A dentist fights fires.",
+    "Patty's dad is a dentist.",
+    "Who slides down a pole?",
+    "Can you guess the job?",
+    "Why do we say \"an architect\"?",
+    "**a** dentist",
+    "**a** soldier",
+    "**a** filmmaker",
+    "**an** architect",
+    "**an** entrepreneur",
+    "**an** artist",
+    "You call them if a thief breaks into your house.",
+    "Sometimes we see them sliding down a pole! They use a giant hose!",
+    "One word: MOVIES! What's this person's job?",
+    "Firefighters make movies.",
+    "An architect designs buildings.",
+    "Look! Say the jobs.",
+    "Then close your eyes!",
+    "Can one person have two jobs?",
+    "Can you have two jobs?",
+    "James is really good at math.",
+    "Who is she? What did she start?",
+    "What skills do you need to drive this?"
+   ],
+   "songs": [],
+   "imgs": [
+    "12077",
+    "12972",
+    "13141",
+    "18878",
+    "15370",
+    "12779",
+    "15143",
+    "16681",
+    "12077",
+    "12972",
+    "13141",
+    "18878",
+    "15370",
+    "12779",
+    "15143",
+    "16681",
+    "12477",
+    "17179",
+    "14015",
+    "18504",
+    "13134",
+    "14254",
+    "16529",
+    "18416",
+    "12018",
+    "18020",
+    "c7436",
+    "19056",
+    "c7279",
+    "14271",
+    "10007",
+    "12164",
+    "18061",
+    "12233",
+    "14356",
+    "15002",
+    "14254",
+    "12164",
+    "18061",
+    "12233",
+    "14356",
+    "15002",
+    "14254"
+   ]
+  },
+  {
+   "unit": "Unit 2 · Skills and Training",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Skills and Training"
+   ],
+   "goals": [
+    "I can name job skills.",
+    "I can name good character traits.",
+    "I can say \"If …, I will …\".",
+    "I can say what skills a job needs.",
+    "I can say what traits a job needs.",
+    "I can say why with \"because\".",
+    "I can read a story about finding a job.",
+    "I can answer interview questions.",
+    "I can tell someone about myself."
+   ],
+   "words": [
+    [
+     "academic",
+     "학문의"
+    ],
+    [
+     "research",
+     "연구"
+    ],
+    [
+     "creative",
+     "창의적인"
+    ],
+    [
+     "artistic",
+     "예술적인"
+    ],
+    [
+     "communication skills",
+     "의사소통 능력"
+    ],
+    [
+     "intuition",
+     "직감"
+    ],
+    [
+     "intelligence",
+     "지능"
+    ],
+    [
+     "interpersonal",
+     "대인 관계의"
+    ],
+    [
+     "university degree",
+     "대학 학위"
+    ],
+    [
+     "motivation",
+     "동기·의욕"
+    ],
+    [
+     "determination",
+     "결단력"
+    ],
+    [
+     "perseverance",
+     "끈기"
+    ],
+    [
+     "patience",
+     "인내심"
+    ],
+    [
+     "discipline",
+     "규율·자기 관리"
+    ],
+    [
+     "respect",
+     "존중"
+    ],
+    [
+     "training",
+     "훈련"
+    ],
+    [
+     "attend",
+     "참석하다"
+    ],
+    [
+     "negotiate",
+     "협상하다"
+    ],
+    [
+     "hostage situation",
+     "인질 사건"
+    ],
+    [
+     "creative skills",
+     "창의력"
+    ],
+    [
+     "mechanical skills",
+     "기계 기술"
+    ],
+    [
+     "hire",
+     "고용하다"
+    ],
+    [
+     "interpersonal skills",
+     "대인 관계 능력"
+    ],
+    [
+     "communication",
+     "의사소통"
+    ],
+    [
+     "good relationship",
+     "좋은 관계"
+    ],
+    [
+     "blogger",
+     "블로거"
+    ],
+    [
+     "job interview",
+     "취업 면접"
+    ]
+   ],
+   "sentences": [
+    "What skills do you need for a job?",
+    "Look at the verbs! Which part has \"will\"?",
+    "**If** I **have** computer skills, …",
+    "**If** the weather **is** fine, …",
+    "… I **will be** a programmer.",
+    "… I **will go** to the training.",
+    "What can you make with a computer?",
+    "Backhoes and forklifts are heavy equipment. Want to drive one?",
+    "Are you good at taking pictures?",
+    "Are you good at giving speeches?",
+    "What skill does this person have?",
+    "Which one do you need more?",
+    "It is what gets you **started**.",
+    "It is what helps you **finish** what you started.",
+    "Patience helps you keep going when things are hard. Give an example!",
+    "Discipline means making yourself follow rules. Who needs it?",
+    "Do you show respect? What is respect for you?",
+    "Halsey wants to be a guidance counselor.",
+    "What skills does this photographer need?",
+    "What skills does this job need?",
+    "How do we give a reason?",
+    "An architect **needs** creative skills",
+    "A dentist **needs** patience",
+    "**because** he designs buildings.",
+    "**because** some patients are scared.",
+    "What do entrepreneurs need?",
+    "What do dentists need?",
+    "What does this person need?",
+    "What skills does a filmmaker need?",
+    "A photographer needs heavy equipment skills.",
+    "What do soldiers and police officers need?",
+    "What do architects need?",
+    "Name two skills a counselor needs. Tell us why.",
+    "Name three traits a firefighter needs.",
+    "Name the skills and traits that athletes need. Tell us why.",
+    "An architect needs creative skills.",
+    "What is it? Who uses it?",
+    "How can Flora find a job?",
+    "How can you find a job?",
+    "Flora has a university degree."
+   ],
+   "songs": [],
+   "imgs": [
+    "14015",
+    "12172",
+    "12076",
+    "12783",
+    "19330",
+    "18427",
+    "21189",
+    "18617",
+    "14274",
+    "14015",
+    "12172",
+    "12076",
+    "12783",
+    "19330",
+    "18427",
+    "21189",
+    "18617",
+    "14274",
+    "18926",
+    "19232",
+    "14886",
+    "gen:bts-19-patience-puzzle",
+    "15175",
+    "12348",
+    "12528",
+    "12053",
+    "14761",
+    "13184",
+    "12076",
+    "16638",
+    "gen:bts-19-patience-puzzle",
+    "15175",
+    "19330",
+    "14886",
+    "16529",
+    "18617",
+    "19330",
+    "21029",
+    "gen:bts-19-flora-vlog",
+    "16343",
+    "16529",
+    "18617",
+    "19330",
+    "21029",
+    "gen:bts-19-flora-vlog",
+    "16343"
+   ]
+  },
+  {
+   "unit": "Unit 3 · I Want to Be",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "I Want to Be"
+   ],
+   "goals": [
+    "I can join two ideas with so, but and or.",
+    "I can say what I need for my dream job.",
+    "I can use new words: strength, enhance, cuisine…",
+    "I can say why I want a job.",
+    "I can ask \"Does he need …?\"",
+    "I can say what I don't like with but.",
+    "I can talk about my future job.",
+    "I can read Dylan's story.",
+    "I can find jobs that fit me."
+   ],
+   "words": [
+    [
+     "physical",
+     "신체의"
+    ],
+    [
+     "strength",
+     "힘"
+    ],
+    [
+     "enhance",
+     "높이다·키우다"
+    ],
+    [
+     "experiment",
+     "실험"
+    ],
+    [
+     "cuisine",
+     "(나라별) 요리"
+    ],
+    [
+     "develop",
+     "발전시키다"
+    ],
+    [
+     "exercise",
+     "운동(하다)"
+    ],
+    [
+     "physical strength",
+     "체력"
+    ],
+    [
+     "wealthy",
+     "부유한"
+    ],
+    [
+     "poor",
+     "가난한"
+    ],
+    [
+     "creative",
+     "창의적인"
+    ],
+    [
+     "opportunity",
+     "기회"
+    ]
+   ],
+   "sentences": [
+    "I want to be a chef, so I need …?",
+    "Why do we use \"so\" here? Why \"but\"?",
+    "I will be a teacher, **so** I need communication skills.",
+    "I will be an architect, **but** I don't have creative skills.",
+    "He has great physical strength.",
+    "Who is it? What is this person doing?",
+    "Leon wants to be a firefighter.",
+    "Why do you want to be a scientist?",
+    "Same idea! What changed?",
+    "I want to be a scientist **because** I like experiments.",
+    "I like experiments, **so** I want to be a scientist.",
+    "Why do you want to be a police officer?",
+    "Why do you want to be a firefighter?",
+    "Why do you want to be an architect?",
+    "Why do you want to be a counselor?",
+    "A chef needs heavy equipment skills.",
+    "Why does this person want to be a photographer?",
+    "Why do they want to be dentists?",
+    "Does a chef need academic skills? What skills does a chef need?",
+    "Yes, she does. / No, she doesn't.",
+    "She is an entrepreneur. Does she need physical strength?",
+    "They want to be nurses. What skills do they need?",
+    "Nurses need patience.",
+    "Who is it? What is this person holding?",
+    "Which job is best for you?",
+    "Which job is good for you?",
+    "Dylan came from a wealthy family.",
+    "What is it? Who lives here?",
+    "Look! Say the jobs.",
+    "Then close your eyes!",
+    "How many jobs can you name?"
+   ],
+   "songs": [],
+   "imgs": [
+    "14954",
+    "12715",
+    "17179",
+    "19028",
+    "15313",
+    "14916",
+    "18446",
+    "14954",
+    "12715",
+    "17179",
+    "19028",
+    "15313",
+    "14916",
+    "18446",
+    "12715",
+    "17179",
+    "16725",
+    "15313",
+    "14916",
+    "18446",
+    "13381",
+    "19492",
+    "12076",
+    "21031",
+    "13381",
+    "19492",
+    "12076",
+    "21031"
+   ]
+  }
+ ]
+}

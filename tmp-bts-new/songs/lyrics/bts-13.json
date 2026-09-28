@@ -1,0 +1,71 @@
+{
+  "book": 13,
+  "songs": [
+    {
+      "unit": "Unit 1",
+      "key": "bts-13-song-now-yesterday",
+      "title": "Now and Yesterday ⏰",
+      "tune": "Mary Had a Little Lamb",
+      "lines": [
+        "Right now I am playing tag,",
+        "playing tag, playing tag.",
+        "Right now I am playing tag.",
+        "I played it yesterday!",
+        "We had a pillow fight last night,",
+        "pillow fight, pillow fight.",
+        "We had a pillow fight last night,",
+        "but we did not play tag!"
+      ],
+      "nt": "지금과 어제 노래(새로 지음)",
+      "n": [
+        "곡조: Mary Had a Little Lamb (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "'right now'에서는 손가락으로 아래(지금)를, 'yesterday'·'last night'에서는 엄지로 어깨 뒤(과거)를 가리켜요."
+      ],
+      "imgPrompt": "Two scenes side by side: kids playing tag in a sunny park, and the same kids laughing in a pillow fight in pajamas at night."
+    },
+    {
+      "unit": "Unit 2",
+      "key": "bts-13-song-grandma",
+      "title": "I Visited My Grandma 👵",
+      "tune": "Old MacDonald Had a Farm",
+      "lines": [
+        "I visited my grandma",
+        "just one week ago!",
+        "I rode a train, and she made soup,",
+        "yum, yum, yum, yum, yum!",
+        "We saw a movie, and I met my aunt,",
+        "I rode, I saw, I met, and I hugged them all!",
+        "I visited my grandma",
+        "just one week ago!"
+      ],
+      "nt": "할머니 댁 방문 노래(새로 지음)",
+      "n": [
+        "곡조: Old MacDonald Had a Farm (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "rode(기차 칙칙폭폭), saw(눈 위에 손 올리기), met(손 흔들기), hugged(자기 몸 꼭 안기) 동작을 과거형 낱말마다 해요."
+      ],
+      "imgPrompt": "A happy child hugging a smiling grandmother and an aunt in a cozy kitchen with a pot of soup, a toy train on the table."
+    },
+    {
+      "unit": "Unit 3",
+      "key": "bts-13-song-trip",
+      "title": "Where Did You Go? ✈️",
+      "tune": "Pop Goes the Weasel",
+      "lines": [
+        "I flew on a plane to Japan.",
+        "The trip was two hours long!",
+        "I sailed on a ship to Jeju.",
+        "Splash! It was not long!",
+        "Where did you go? Where did you go?",
+        "I went to the Philippines!",
+        "I flew there from Korea.",
+        "Wow! The trip was long!"
+      ],
+      "nt": "여행 노래(새로 지음)",
+      "n": [
+        "곡조: Pop Goes the Weasel (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "flew(두 팔 벌려 비행기), sailed(두 손으로 노 젓기) 동작을 하고, 'Splash!'·'Wow!'에서 두 손을 번쩍 들어요."
+      ],
+      "imgPrompt": "Children traveling on a world map adventure, one flying in a small plane over the sea and another waving from a ship sailing to a green island."
+    }
+  ]
+}

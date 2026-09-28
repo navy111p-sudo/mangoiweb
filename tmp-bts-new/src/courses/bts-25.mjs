@@ -1,6 +1,7 @@
 // BTS 25 새 교재 설계 데이터 — 발명과 기술 · 삶을 편하게 · 생각과 아이디어 (Level 7)
 // k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 import { open, close, HELLO } from '../common.mjs';
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Oh My Darling, Clementine", title: "If I Didn't Have It ⚙️", img: "gen:bts-25-song-if-i-didnt-have", nt: "발명품 가정 노래(새로 지음)", n: ["곡조: Oh My Darling, Clementine (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","stapler에서 손으로 찍는 흉내, remote에서 리모컨 누르는 흉내를 화면에 보여주기"], src: '새로 지음', lines: ["If I didn't have a stapler,","I would use some tape instead.","If I didn't have a remote,","I would walk to the TV.","Automatic and efficient,","Inventions help us save time.","Zippers, velcro, and a stapler,","They save time and effort too!"] };
 
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3';
 const G = k => 'gen:bts-25-' + k;
@@ -29,7 +30,8 @@ export const COURSE = {
 <li><b>마무리 노래</b> — 원본 «Inventors and Inventions»(라이트 형제·에디슨·벤츠·베어드·풀턴) 가사는 옮기지 않고 자체 챈트로 바꿨습니다. 원곡을 쓸지 저작권 확인이 필요합니다.</li>
 <li><b>007 역할놀이 «professor»</b> — 초등·중등 학생 대상이라 our teacher 로 바꿨습니다. 원본을 살릴지.</li>
 <li><b>REVIEW·TEST 쪽 수</b> — 원본 REVIEW 는 앞 과 쪽을 그대로 다시 실은 것이라, 시안은 같은 내용을 새 사진·게임으로 바꿔 복습합니다.</li>
-<li><b>새로 만들 사진 40장</b> — 점선 자리(힉스필드 크레딧). 특히 삐삐·전신기·벨크로·온도조절기·우물·교정테이프처럼 사이트 사진에 없는 옛 물건.</li></ol></div>`,
+<li><b>새로 만들 사진 40장</b> — 점선 자리(힉스필드 크레딧). 특히 삐삐·전신기·벨크로·온도조절기·우물·교정테이프처럼 사이트 사진에 없는 옛 물건.</li>
+<li><b>새 단원 노래 1곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 2 «If I Didn't Have It»(Oh My Darling, Clementine). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '소통 기술', unit: U1, title: 'Ways to Communicate', orig: 25,
@@ -111,6 +113,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '14171', q: 'Which machine saves you time?', story: 'Carmel looks so tired! Why?', nt: '표지 + Big Question', n: ['로봇청소기에 올라탄 고양이 — «이 기계는 무엇을 대신해 줄까?»'] },
       ...open([['I can tell if a machine is automatic.', '기계가 자동인지 아닌지 말할 수 있어요.'], ['I can say why a machine is efficient.', '기계가 왜 효율적인지 말할 수 있어요 — It saves time and effort.'], ['I can compare two ways of doing a job.', '같은 일을 하는 두 방법을 비교할 수 있어요.']], 'Lesson Goals (Inventions and Science · Active/Passive)'),
+      USONG_2,
       { t: 'qa', k: 'keep', img: '19431', small: 'Warm up', title: '10-second challenge!', q: 'Name as many inventions as you can in 10 seconds. Go!', a: 'phone, ___, ___, ___ …', src: '5쪽 Warm Up', nt: '10초 도전', n: ['강사가 초를 세고 학생이 말한 개수를 세어 줍니다 — 과 끝에 한 번 더 해서 늘었는지'] },
       { t: 'vocab', k: 'fix', hide: true, title: 'Easy-life words 🔒', cols: 4, words: [['efficient', '효율적인', '14738'], ['manual', '손으로 하는', '18074'], ['automatic', '자동의', '14171'], ['temperature', '온도', G('thermostat')], ['convenient', '편리한', '15552'], ['advanced', '첨단의', '18191'], ['effort', '노력, 수고', '15395'], ['save time', '시간을 아끼다', '12999']], src: '6쪽 Vocabulary', nt: '낱말 — 뜻 가리고', n: ['<del>advanced 향상된</del> → 첨단의', 'manual ↔ automatic 은 짝으로 기억'] },
       PASSIVE_RULE('7·8쪽 Grammar'),
@@ -138,6 +141,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-005'), q: 'What small invention do you use?', story: 'Zip! Rip! Click! Small things matter.', nt: '표지 + Big Question', n: ['지퍼로 빨리 입기 경주 — «아주 작은 발명도 삶을 바꿀까?»'] },
       ...open([['I can explain how a simple invention works.', '간단한 발명이 어떻게 작동하는지 설명할 수 있어요.'], ['I can say when something was invented.', '언제 발명되었는지 말할 수 있어요 — It was invented in 1941.'], ['I can imagine life without an invention.', '어떤 발명이 없는 삶을 상상해 말할 수 있어요.']], 'Lesson Goals (Inventions and Science · Active/Passive)'),
+      USONG_2,
       { t: 'qa', k: 'keep', img: '16585', small: 'Picture talk', title: 'Simple but great', q: "They're simple inventions, but they're worth recognizing. What are they?", a: 'They are ___ and ___.', src: '5쪽 Picture Talk', nt: '그림 이야기', n: ['원본 문장 그대로 — «worth recognizing = 알아줄 만한»'] },
       PASSIVE_TABLE('7~9쪽 Grammar'),
       { t: 'vocab', k: 'fix', hide: true, title: 'Simple inventions 🔒', cols: 3, words: [['zipper', '지퍼', '15834'], ['velcro', '벨크로(찍찍이)', G('velcro')], ['sticky seeds', '달라붙는 씨앗', G('velcro')], ['stapler', '스테이플러', '15731'], ['rice cooker', '전기밥솥', G('rice-cooker')], ['remote control', '리모컨', '13232']], src: '6쪽 Vocabulary', nt: '낱말 — 뜻 가리고', n: ['<del>velcro 찍찍이</del> → 벨크로(찍찍이) · <del>stapler 호치키스</del> → 스테이플러'] },
@@ -161,6 +165,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-006'), q: 'Which school tool do you need most?', story: 'Snip, snip! Click, click!', nt: '표지 + Big Question' },
       ...open([['I can talk about inventions I use at school.', '학교에서 쓰는 발명품을 말할 수 있어요.'], ["I can say \"If I didn't have …, I would …\".", '«…이 없다면 …할 거예요» 를 말할 수 있어요.'], ['I can give a short talk about three inventions.', '발명품 세 가지로 짧게 발표할 수 있어요.']], 'Lesson Goals (Inventions and Science · Subjunctive mood)'),
+      USONG_2,
       { t: 'table', k: 'fix', small: 'Pop-up!', title: 'Three inventions I often use', head: ['invention', 'How do you use it?'], rows: [['1. ___', 'I use it to ___.'], ['2. ___', 'I use it to ___.'], ['3. ___', 'I use it to ___.']], src: '5쪽 Pop-up', nt: '표 — 자주 쓰는 발명 세 가지', n: ['앞 과에서 배운 발명 중에서 고르게'] },
       { t: 'vocab', k: 'fix', hide: true, title: 'Story words 🔒', cols: 4, words: [['staple', '스테이플러로 찍다', '15731'], ['in addition', '게다가', '16910'], ['tape', '테이프', '12596'], ['hold together', '한데 붙어 있다', '18508'], ['blade cutter', '커터칼', 'c7171'], ['risky', '위험한', G('cover-006')], ['properly', '올바르게', '12697'], ['efficient', '효율적인', '15731']], src: '6쪽 Vocabulary', nt: '낱말 — 뜻 가리고', n: ['원본 뜻 네 개를 고쳤습니다(위 fixed)', 'risky 는 표지 사진(가위를 조심히)으로'] },
       { t: 'read', k: 'fix', small: 'Story ①', title: 'Simple Inventions', img: '15731', paras: ['Simple inventions make school life much easier. I think the stapler is very efficient. I staple my homework, and my teachers staple our tests. In addition, staples are cheap.', "If I didn't have a stapler, I would have to use paper clips or tape. That would take longer, and my papers wouldn't hold together as well."], gloss: [['hold together', '한데 붙어 있다']], src: '7쪽 Story', nt: '읽기 ① — 스테이플러', n: ['긴 한 문장을 두 문장으로 나눴습니다', '가정법 문장 «If I didn\'t have …, I would …» 에 밑줄'] },

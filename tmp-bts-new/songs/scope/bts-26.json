@@ -1,0 +1,656 @@
+{
+ "book": 26,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Animals in Their Habitats",
+    "Amazing Mammals",
+    "The Amazing Cuttlefish"
+   ],
+   "goals": [
+    "I can name habitats and climates.",
+    "I can join two ideas with so and because.",
+    "I can say where an animal can live.",
+    "I can talk about mammals.",
+    "I can ask \"Could it live in a different habitat?\"",
+    "I can say why an animal couldn't live somewhere.",
+    "I can read about an amazing animal.",
+    "I can say how an animal has adapted.",
+    "I can give an animal report."
+   ],
+   "words": [
+    [
+     "climate",
+     "기후"
+    ],
+    [
+     "tropical",
+     "열대의"
+    ],
+    [
+     "polar",
+     "극지의"
+    ],
+    [
+     "temperate",
+     "온대의"
+    ],
+    [
+     "habitat",
+     "서식지"
+    ],
+    [
+     "adapt",
+     "적응하다"
+    ],
+    [
+     "desert",
+     "사막"
+    ],
+    [
+     "polar regions",
+     "극지방"
+    ],
+    [
+     "grassland",
+     "초원"
+    ],
+    [
+     "tropical rainforest",
+     "열대우림"
+    ],
+    [
+     "ocean",
+     "대양·바다"
+    ],
+    [
+     "mammals",
+     "포유류"
+    ],
+    [
+     "hunt",
+     "사냥하다"
+    ],
+    [
+     "temperature",
+     "온도"
+    ],
+    [
+     "flexible",
+     "유연한"
+    ],
+    [
+     "creepy",
+     "소름 끼치는"
+    ],
+    [
+     "except",
+     "~을 빼고"
+    ],
+    [
+     "species",
+     "종(생물의 종류)"
+    ],
+    [
+     "brain",
+     "뇌"
+    ],
+    [
+     "blowhole",
+     "(고래·돌고래의) 숨구멍"
+    ],
+    [
+     "quills",
+     "(호저의) 가시"
+    ],
+    [
+     "tame",
+     "길들여진"
+    ],
+    [
+     "environment",
+     "환경"
+    ],
+    [
+     "cuttlefish",
+     "갑오징어"
+    ],
+    [
+     "squid",
+     "오징어"
+    ],
+    [
+     "related",
+     "친척 관계인"
+    ],
+    [
+     "tricks",
+     "재주"
+    ],
+    [
+     "match",
+     "(색을) 맞추다"
+    ],
+    [
+     "tentacles",
+     "촉수(다리)"
+    ]
+   ],
+   "sentences": [
+    "Where can this animal live?",
+    "What are your favorite animals? Where can they live?",
+    "Which word tells us WHY? Where does the comma go?",
+    "I am hungry, **so** I am eating pizza.",
+    "It is very cold, **so** few plants grow there.",
+    "I am hungry **because** I did not eat breakfast.",
+    "Polar bears have thick fur **because** it is cold.",
+    "Snakes can live in the polar regions.",
+    "What animal is it? Where can it live?",
+    "What animal has sharp quills?",
+    "Could this animal live in the ocean?",
+    "What habitat is it? What animals couldn't live here? Why not?",
+    "Which word do we use for a \"what if\" question?",
+    "Dolphins **can** live in the ocean.",
+    "Camels **can** live in the desert.",
+    "**Could** it live in a different habitat?",
+    "No, it **couldn't** live in the desert because it needs water.",
+    "Which mammal was missing?",
+    "What do you know about them? Could they live in a different habitat?",
+    "Leopards carry their food up into trees.",
+    "What mammal is it?",
+    "Which animal can change its color?",
+    "Why does this animal shoot ink?",
+    "What animal is it? Where can it live? What can it eat?",
+    "Can you make one sentence with so and one with because?",
+    "The fish is scared, **so** it swims away.",
+    "It is raining, **so** I have an umbrella.",
+    "He eats pizza **because** he is hungry.",
+    "It looks like a squid **because** they are related.",
+    "Cuttlefish have very small brains.",
+    "What animals are these?",
+    "What can we get from here?"
+   ],
+   "songs": [
+    "Habitat Chant 🐾"
+   ],
+   "imgs": [
+    "21126",
+    "13215",
+    "12780",
+    "18702",
+    "16442",
+    "18999",
+    "21126",
+    "13215",
+    "12780",
+    "18702",
+    "16442",
+    "18999",
+    "12899",
+    "14520",
+    "16808",
+    "16846",
+    "12663",
+    "16318",
+    "18099",
+    "18097",
+    "15714",
+    "gen:bts-26-john-lloyd",
+    "16496",
+    "19301",
+    "gen:bts-26-dolphin-jump",
+    "gen:bts-26-dolphin-jump",
+    "gen:bts-26-porcupine",
+    "15249",
+    "16442",
+    "19301",
+    "gen:bts-26-dolphin-jump",
+    "gen:bts-26-dolphin-jump",
+    "gen:bts-26-porcupine",
+    "15249",
+    "16442",
+    "gen:bts-26-cuttlefish-color",
+    "15691",
+    "14713",
+    "gen:bts-26-cuttlefish-color",
+    "19372",
+    "21034",
+    "gen:bts-26-cuttlefish-color",
+    "15691",
+    "14713",
+    "gen:bts-26-cuttlefish-color",
+    "19372",
+    "21034"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Natural Resources",
+    "How We Use Water",
+    "Where Does It Come From?"
+   ],
+   "goals": [
+    "I can name natural resources.",
+    "I can say \"If I were …, I would …\"",
+    "I can say what would happen without a resource.",
+    "I can talk about how we use water.",
+    "I can ask \"If …, what would happen?\"",
+    "I can think of ways to save water.",
+    "I can say where things come from.",
+    "I can use the present perfect.",
+    "I can ask \"What can you get from here?\""
+   ],
+   "words": [
+    [
+     "natural resources",
+     "천연자원"
+    ],
+    [
+     "survive",
+     "살아남다"
+    ],
+    [
+     "reservoir",
+     "저수지"
+    ],
+    [
+     "produce",
+     "생산하다"
+    ],
+    [
+     "mine",
+     "광산"
+    ],
+    [
+     "coal",
+     "석탄"
+    ],
+    [
+     "oil",
+     "석유"
+    ],
+    [
+     "gas",
+     "가스"
+    ],
+    [
+     "electricity",
+     "전기"
+    ],
+    [
+     "lightning",
+     "번개"
+    ],
+    [
+     "power plant",
+     "발전소"
+    ],
+    [
+     "essentials",
+     "꼭 필요한 것"
+    ],
+    [
+     "household",
+     "집안(일)"
+    ],
+    [
+     "transportation",
+     "교통"
+    ],
+    [
+     "generating",
+     "(전기를) 만들기"
+    ],
+    [
+     "function",
+     "기능·쓰임"
+    ],
+    [
+     "rinse",
+     "헹구다"
+    ],
+    [
+     "dishwasher",
+     "식기세척기"
+    ],
+    [
+     "kayaking",
+     "카약 타기"
+    ],
+    [
+     "white water rafting",
+     "급류 래프팅"
+    ],
+    [
+     "source",
+     "원천"
+    ],
+    [
+     "efficient",
+     "효율적인"
+    ],
+    [
+     "sturdy",
+     "튼튼한"
+    ],
+    [
+     "cushion",
+     "쿠션"
+    ],
+    [
+     "leather",
+     "가죽"
+    ],
+    [
+     "stylish",
+     "멋진·세련된"
+    ],
+    [
+     "ranch",
+     "목장"
+    ],
+    [
+     "cotton",
+     "목화·면"
+    ]
+   ],
+   "sentences": [
+    "What can you get from nature?",
+    "Is it real or just imagined? Why do we say \"I were\", not \"I was\"?",
+    "**If I were** there,",
+    "**If I were** a bird,",
+    "**If there were** no water,",
+    "I **would help** them.",
+    "I **would fly** to the mountains.",
+    "we **would die**.",
+    "Lightning is electricity in nature.",
+    "What is this? What do we get from it?",
+    "How many glasses of water do you drink a day?",
+    "Why is water so important?",
+    "How many glasses of water can you drink in a day?",
+    "What word is in both the question and the answer?",
+    "If there were no water, what **would** happen?",
+    "If we didn't have a dishwasher, what **would** happen?",
+    "If there were no water, we **would** be thirsty.",
+    "If we didn't have a dishwasher, we **would** wash the dishes by hand.",
+    "About 60% of our body is water.",
+    "If she used a cup to brush her teeth, how much water would she save?",
+    "What are they doing?",
+    "Where did this chair come from?",
+    "Where did my chair come from?",
+    "Which one tells us it is still true now?",
+    "I **got** it five years ago.",
+    "It **came** from a forest.",
+    "I **have had** it for five years.",
+    "I **have used** it every day.",
+    "Leather comes from trees.",
+    "What can you get from them?",
+    "What can you get from here?",
+    "What is wrong with this picture?"
+   ],
+   "songs": [
+    "Nature Gives Chant 🌳"
+   ],
+   "imgs": [
+    "13284",
+    "12920",
+    "gen:bts-26-reservoir",
+    "13217",
+    "gen:bts-26-gold-mine",
+    "gen:bts-26-gold-mine",
+    "gen:bts-26-oil-rig",
+    "12939",
+    "13284",
+    "12920",
+    "gen:bts-26-reservoir",
+    "13217",
+    "gen:bts-26-gold-mine",
+    "gen:bts-26-gold-mine",
+    "gen:bts-26-oil-rig",
+    "12939",
+    "12933",
+    "16233",
+    "16482",
+    "12123",
+    "16735",
+    "gen:bts-26-kaye-judy",
+    "15427",
+    "12123",
+    "16735",
+    "12909",
+    "gen:bts-26-kayak",
+    "gen:bts-26-rafting",
+    "gen:bts-26-reservoir",
+    "18505",
+    "12123",
+    "16735",
+    "12909",
+    "gen:bts-26-kayak",
+    "gen:bts-26-rafting",
+    "gen:bts-26-reservoir",
+    "18505",
+    "12721",
+    "gen:bts-26-daisy-chair",
+    "12646",
+    "12646",
+    "12432",
+    "16906",
+    "12721",
+    "gen:bts-26-daisy-chair",
+    "12646",
+    "12646",
+    "12432",
+    "16906"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Planet in Trouble",
+    "Helping the Earth",
+    "If I Saw This…"
+   ],
+   "goals": [
+    "I can name environmental problems.",
+    "I can say a cause and an effect.",
+    "I can say \"I think …\"",
+    "I can say how people help the earth.",
+    "I can ask politely: \"Would you please …?\"",
+    "I can say what I can do for the earth.",
+    "I can say \"If I saw this, I would …\"",
+    "I can talk about my own habits.",
+    "I can change my behavior to help the earth."
+   ],
+   "words": [
+    [
+     "pollution",
+     "오염"
+    ],
+    [
+     "overfishing",
+     "남획"
+    ],
+    [
+     "species",
+     "종(생물의 종류)"
+    ],
+    [
+     "extinct",
+     "멸종된"
+    ],
+    [
+     "endangered",
+     "멸종 위기의"
+    ],
+    [
+     "poaching",
+     "밀렵"
+    ],
+    [
+     "illegal",
+     "불법의"
+    ],
+    [
+     "tusk",
+     "(코끼리의) 상아"
+    ],
+    [
+     "litter",
+     "(길에 버린) 쓰레기"
+    ],
+    [
+     "shoreline",
+     "해안선"
+    ],
+    [
+     "necessary",
+     "꼭 필요한"
+    ],
+    [
+     "dumped",
+     "버려진"
+    ],
+    [
+     "raise",
+     "기르다"
+    ],
+    [
+     "careful",
+     "조심하는"
+    ],
+    [
+     "recycle",
+     "재활용하다"
+    ],
+    [
+     "waste",
+     "쓰레기"
+    ],
+    [
+     "sort",
+     "분류하다"
+    ],
+    [
+     "bins",
+     "쓰레기통"
+    ],
+    [
+     "vegetarian",
+     "채식주의자"
+    ],
+    [
+     "park ranger",
+     "공원 관리인"
+    ],
+    [
+     "plastic bag",
+     "비닐봉투"
+    ],
+    [
+     "energy",
+     "에너지"
+    ],
+    [
+     "behavior",
+     "행동"
+    ]
+   ],
+   "sentences": [
+    "Why is our planet in trouble?",
+    "What do you think about this?",
+    "Can you join them with so? \"Factories make smoke, so …\"",
+    "Factories and cars make smoke.",
+    "People catch too many fish.",
+    "The air gets dirty.",
+    "Some fish species disappear.",
+    "Overfishing means people catch too few fish.",
+    "What animal is it? Why is it in trouble?",
+    "How can we help the earth?",
+    "What can you do for the earth?",
+    "What can you do about this?",
+    "Which one would you say to a grown-up you don't know?",
+    "**Pick up** your trash.",
+    "**Stop** cutting the tree.",
+    "**Would you please** pick up your trash?",
+    "**Could you please** stop cutting the tree?",
+    "What are they doing? How are they helping the environment?",
+    "What does a park ranger do? Would you like this job?",
+    "We should put all our trash in one bin.",
+    "He is throwing trash on the ground. What would you say?",
+    "This man is cutting down a tree. What would you say?",
+    "This factory is making the air dirty. What would you say?",
+    "Who is it? What does this person do?",
+    "What would you do if you saw this?",
+    "saw is past, but are we talking about the past?",
+    "What **would** you do",
+    "if you **saw** this?",
+    "If I **saw** this,",
+    "I **would pick** it up.",
+    "Janice uses her cloth bag only once.",
+    "What is it? Why is it good for the earth?",
+    "Which lesson was your favorite?"
+   ],
+   "songs": [
+    "Help the Earth Chant 🌍"
+   ],
+   "imgs": [
+    "14650",
+    "14398",
+    "19301",
+    "gen:bts-26-gorillas",
+    "19334",
+    "17213",
+    "21007",
+    "16318",
+    "14650",
+    "14398",
+    "19301",
+    "gen:bts-26-gorillas",
+    "19334",
+    "17213",
+    "21007",
+    "16318",
+    "19278",
+    "c5028",
+    "18949",
+    "gen:bts-26-garbage-patch",
+    "gen:bts-26-fish-farm",
+    "18998",
+    "13224",
+    "18819",
+    "18623",
+    "16360",
+    "19687",
+    "15000",
+    "gen:bts-26-fish-farm",
+    "18998",
+    "13224",
+    "18819",
+    "18623",
+    "16360",
+    "19687",
+    "15000",
+    "12792",
+    "12939",
+    "17264"
+   ]
+  }
+ ]
+}

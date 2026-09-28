@@ -1,0 +1,71 @@
+{
+ "book": 20,
+ "songs": [
+  {
+   "unit": "Unit 1",
+   "key": "bts-20-song-ready-to-order",
+   "title": "Are You Ready to Order? 🍝",
+   "tune": "Clap chant (4 beats)",
+   "lines": [
+    "Are you ready to order? Yes, I am!",
+    "I would like the pasta, please.",
+    "I would like some juice, please.",
+    "I'll have a salad for a side dish.",
+    "What do you recommend for dessert?",
+    "I recommend the ice cream!",
+    "That sounds good! That sounds good!",
+    "Not ready yet? I need more time, please."
+   ],
+   "nt": "음식 주문 챈트(새로 지음)",
+   "n": [
+    "곡조: Clap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+    "한 명은 웨이터, 한 명은 손님이 되어 메뉴판을 들고 박수 4번에 맞춰 주고받기"
+   ],
+   "imgPrompt": "Kids at a cozy restaurant table holding menus while a friendly waiter takes their order of pasta, juice and salad."
+  },
+  {
+   "unit": "Unit 2",
+   "key": "bts-20-song-how-does-it-taste",
+   "title": "How Does It Taste? 🍋",
+   "tune": "The Farmer in the Dell",
+   "lines": [
+    "How does a lemon taste?",
+    "How does a lemon taste?",
+    "It tastes so very sour!",
+    "A lemon tastes so sour.",
+    "How do these noodles taste?",
+    "How do these noodles taste?",
+    "They taste so spicy, wow!",
+    "These noodles taste spicy."
+   ],
+   "nt": "맛 표현 노래(새로 지음)",
+   "n": [
+    "곡조: The Farmer in the Dell (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "sour에서는 입을 오므리는 표정, spicy에서는 손부채질하며 화면에 표정 보여주기"
+   ],
+   "imgPrompt": "Children tasting a lemon with puckered faces and fanning their mouths after eating spicy noodles, in a bright kitchen."
+  },
+  {
+   "unit": "Unit 3",
+   "key": "bts-20-song-sorry-to-bother-you",
+   "title": "Sorry to Bother You 🍲",
+   "tune": "Rap chant (4 beats)",
+   "lines": [
+    "Sorry to bother you. My soup is cold!",
+    "Can you please heat it up? Thank you!",
+    "Sorry to bother you. My bread is burnt!",
+    "Can you please bring new bread? Thank you!",
+    "Add more nuts and extra sprinkles, please!",
+    "I don't want any onions, please.",
+    "Can I get you anything else?",
+    "No, thank you! Everything is good!"
+   ],
+   "nt": "특별 주문 랩(새로 지음)",
+   "n": [
+    "곡조: Rap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+    "Sorry to bother you에서 손을 살짝 드는 동작, Thank you에서 엄지척 하기"
+   ],
+   "imgPrompt": "A polite child at a restaurant raising a hand to a smiling waitress about a bowl of cold soup and burnt bread."
+  }
+ ]
+}

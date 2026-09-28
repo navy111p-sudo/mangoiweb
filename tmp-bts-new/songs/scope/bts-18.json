@@ -1,0 +1,607 @@
+{
+ "book": 18,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Animals"
+   ],
+   "goals": [
+    "I can name animal homes.",
+    "I can ask \"Can camels live in the desert?\"",
+    "I can say where animals live.",
+    "I can say \"It is a pet.\" or \"It is a wild animal.\"",
+    "I can describe animals.",
+    "I can say where animals usually live.",
+    "I can talk about my favorite animal.",
+    "I can talk about my least favorite animal.",
+    "I can give my opinion."
+   ],
+   "words": [
+    [
+     "habitat",
+     "서식지"
+    ],
+    [
+     "forest",
+     "숲"
+    ],
+    [
+     "grassland",
+     "초원"
+    ],
+    [
+     "desert",
+     "사막"
+    ],
+    [
+     "ocean",
+     "바다"
+    ],
+    [
+     "polar region",
+     "극지방"
+    ],
+    [
+     "zookeeper",
+     "사육사"
+    ],
+    [
+     "cage",
+     "우리"
+    ],
+    [
+     "carnivores",
+     "육식 동물"
+    ],
+    [
+     "predators",
+     "포식자"
+    ],
+    [
+     "hunt",
+     "사냥하다"
+    ],
+    [
+     "prey",
+     "먹잇감"
+    ],
+    [
+     "harmless",
+     "해가 없는"
+    ],
+    [
+     "fascinating",
+     "매혹적인"
+    ],
+    [
+     "dog",
+     "개"
+    ],
+    [
+     "hamster",
+     "햄스터"
+    ],
+    [
+     "cat",
+     "고양이"
+    ],
+    [
+     "parrot",
+     "앵무새"
+    ],
+    [
+     "wolf",
+     "늑대"
+    ],
+    [
+     "tiger",
+     "호랑이"
+    ],
+    [
+     "squirrel",
+     "다람쥐"
+    ],
+    [
+     "eagle",
+     "독수리"
+    ],
+    [
+     "fur",
+     "털"
+    ],
+    [
+     "purrs",
+     "가르랑거리다"
+    ],
+    [
+     "adorable",
+     "사랑스러운"
+    ],
+    [
+     "on my lap",
+     "무릎 위에"
+    ],
+    [
+     "least favorite",
+     "가장 덜 좋아하는"
+    ],
+    [
+     "itch",
+     "가렵다"
+    ]
+   ],
+   "sentences": [
+    "Where do animals live?",
+    "Where does \"can\" go in a question?",
+    "**Can** camels live in the desert?",
+    "**Can** fish live on land?",
+    "Camels **can** live in the desert.",
+    "Fish **can't** live on land.",
+    "This is a grassland. What animals live here?",
+    "What is this place?",
+    "This is a forest. What animals live here?",
+    "This is a polar region. What animals can live in a very cold place?",
+    "This is an ocean. What animals live here?",
+    "Where does it live?",
+    "Giraffes are carnivores.",
+    "Is a monkey a pet or a wild animal?",
+    "Is it a pet or a wild animal?",
+    "Is a hamster a pet or a wild animal? What about a wolf?",
+    "They **stay** in our homes.",
+    "We **share** our home with them.",
+    "They **live on their own**.",
+    "They **don't need** help from people.",
+    "Where do monkeys usually live?",
+    "Can spiders live in the ocean?",
+    "Can sharks live in the river?",
+    "What is strange about these words?",
+    "a **deer**",
+    "a **fish**",
+    "a **squid**",
+    "two **deer**",
+    "many **fish**",
+    "three **squid**",
+    "Where do deer live?",
+    "Do you want to have a pet lizard?",
+    "Is it a pet?",
+    "Spiders can only live in the forest.",
+    "What is your favorite animal?",
+    "What is your favorite animal? Why?",
+    "The cat doesn't like special treats.",
+    "What word do we use to give a reason?",
+    "My **favorite** animal is the dolphin.",
+    "I like it **because** it is smart."
+   ],
+   "songs": [],
+   "imgs": [
+    "16442",
+    "16486",
+    "16808",
+    "12899",
+    "16530",
+    "12780",
+    "18148",
+    "16324",
+    "16442",
+    "16486",
+    "16808",
+    "12899",
+    "16530",
+    "12780",
+    "18148",
+    "16324",
+    "15253",
+    "15635",
+    "15156",
+    "18994",
+    "16317",
+    "14713",
+    "16643",
+    "15444",
+    "12885",
+    "c7380",
+    "13391",
+    "gen:bts-18-tiger-jungle",
+    "13291",
+    "15353",
+    "16643",
+    "15444",
+    "12885",
+    "c7380",
+    "13391",
+    "gen:bts-18-tiger-jungle",
+    "13291",
+    "15353",
+    "16836",
+    "gen:bts-18-purr",
+    "12885",
+    "14929",
+    "gen:bts-18-spider-scream",
+    "gen:bts-18-mosquito",
+    "16836",
+    "gen:bts-18-purr",
+    "12885",
+    "14929",
+    "gen:bts-18-spider-scream",
+    "gen:bts-18-mosquito"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "A World of Differences"
+   ],
+   "goals": [
+    "I can say how two things are similar.",
+    "I can say how two things are different.",
+    "I can compare with -er / more … than.",
+    "I can say \"Both … are …\".",
+    "I can use \"but\" and \"however\".",
+    "I can compare two animals.",
+    "I can ask yes/no questions to guess an animal.",
+    "I can answer \"Yes, I do.\" / \"No, I'm not.\"",
+    "I can say why some animals are endangered."
+   ],
+   "words": [
+    [
+     "similar",
+     "비슷한"
+    ],
+    [
+     "different",
+     "다른"
+    ],
+    [
+     "stripes",
+     "줄무늬"
+    ],
+    [
+     "mane",
+     "갈기"
+    ],
+    [
+     "roar",
+     "으르렁거리다"
+    ],
+    [
+     "majestic",
+     "위엄 있는"
+    ],
+    [
+     "jungle",
+     "정글"
+    ],
+    [
+     "strength",
+     "힘"
+    ],
+    [
+     "courage",
+     "용기"
+    ],
+    [
+     "pride",
+     "(사자) 무리"
+    ],
+    [
+     "carnivores",
+     "육식 동물"
+    ],
+    [
+     "zebra",
+     "얼룩말"
+    ],
+    [
+     "horse",
+     "말"
+    ],
+    [
+     "toucan",
+     "투칸"
+    ],
+    [
+     "seagull",
+     "갈매기"
+    ],
+    [
+     "rhino",
+     "코뿔소"
+    ],
+    [
+     "elephant",
+     "코끼리"
+    ],
+    [
+     "bullfrog",
+     "황소개구리"
+    ],
+    [
+     "tree frog",
+     "청개구리"
+    ],
+    [
+     "penguin",
+     "펭귄"
+    ],
+    [
+     "eagle",
+     "독수리"
+    ],
+    [
+     "squid",
+     "오징어"
+    ],
+    [
+     "octopus",
+     "문어"
+    ],
+    [
+     "endangered",
+     "멸종 위기의"
+    ],
+    [
+     "extinct",
+     "멸종된"
+    ],
+    [
+     "habitat loss",
+     "서식지 손실"
+    ],
+    [
+     "pollution",
+     "오염"
+    ],
+    [
+     "poaching",
+     "밀렵"
+    ],
+    [
+     "patterned fur",
+     "무늬 있는 털"
+    ]
+   ],
+   "sentences": [
+    "How are lions and tigers similar? How are they different?",
+    "The two triangles have the **same shape**.",
+    "They have the **same color**.",
+    "One is **small**.",
+    "One is **big**.",
+    "When do we say \"more\"?",
+    "small → small**er**",
+    "fast → fast**er**",
+    "big → big**ger**",
+    "playful → **more** playful",
+    "colorful → **more** colorful",
+    "interesting → **more** interesting",
+    "What animals have stripes?",
+    "Lionesses have manes, too.",
+    "A zebra and a horse — are they the same?",
+    "How are zebras and horses different?",
+    "Which words tell us \"different\"?",
+    "**Both** horses and zebras eat grass.",
+    "They are **the same** size.",
+    "Zebras have stripes, **but** horses don't.",
+    "**However**, they live in different places.",
+    "How are toucans and seagulls similar?",
+    "Penguins can fly like eagles.",
+    "Is it a horse?",
+    "Look! 5 seconds! 👀",
+    "Which animals did you see?",
+    "Can you guess what animal I am?",
+    "Can you guess the animal?",
+    "When do we ask \"Are you\"? When do we ask \"Do you\"?",
+    "**Are** you big or small?",
+    "→ I'm pretty big.",
+    "Are you a tiger? → No, I'm not.",
+    "**Do** you eat other animals?",
+    "→ Yes, I do.",
+    "Do you live in the grassland? → No, I don't.",
+    "Mr. Jackson is a tiger.",
+    "Do you live in the ocean?",
+    "There are more than 1,000 Amur leopards.",
+    "What is the strangest pet in the world?"
+   ],
+   "songs": [],
+   "imgs": [
+    "13270",
+    "12079",
+    "15833",
+    "c7435",
+    "gen:bts-18-lion-roar",
+    "15635",
+    "16315",
+    "18363",
+    "19284",
+    "15171",
+    "13270",
+    "12079",
+    "15833",
+    "c7435",
+    "gen:bts-18-lion-roar",
+    "15635",
+    "16315",
+    "18363",
+    "19284",
+    "15171",
+    "13270",
+    "15035",
+    "16492",
+    "15171",
+    "16703",
+    "15253",
+    "15833",
+    "gen:bts-18-horse-ride",
+    "gen:bts-18-toucan-gull",
+    "gen:bts-18-toucan-gull",
+    "19502",
+    "16318",
+    "gen:bts-18-frogs",
+    "16828",
+    "15605",
+    "15353",
+    "gen:bts-18-squid-octopus",
+    "14713",
+    "15833",
+    "gen:bts-18-horse-ride",
+    "gen:bts-18-toucan-gull",
+    "gen:bts-18-toucan-gull",
+    "19502",
+    "16318",
+    "gen:bts-18-frogs",
+    "16828",
+    "15605",
+    "15353",
+    "gen:bts-18-squid-octopus",
+    "14713",
+    "19205",
+    "14854",
+    "12894",
+    "13185",
+    "17213",
+    "15524",
+    "19205",
+    "14854",
+    "12894",
+    "13185",
+    "17213",
+    "15524"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "The Strangest Pet"
+   ],
+   "goals": [
+    "I can use -est and the most.",
+    "I can compare three things.",
+    "I can talk about exotic pets.",
+    "I can say \"the fastest / the biggest\".",
+    "I can say \"the most dangerous\".",
+    "I can talk about animals with -est words.",
+    "I can say what the strangest animal is.",
+    "I can use best and worst.",
+    "I can talk about my life with -est words."
+   ],
+   "words": [
+    [
+     "strangest",
+     "가장 이상한"
+    ],
+    [
+     "largest",
+     "가장 큰"
+    ],
+    [
+     "intelligent",
+     "똑똑한"
+    ],
+    [
+     "heaviest",
+     "가장 무거운"
+    ],
+    [
+     "ordinary",
+     "평범한"
+    ],
+    [
+     "exotic",
+     "이국적인"
+    ],
+    [
+     "iguana",
+     "이구아나"
+    ],
+    [
+     "sphynx cat",
+     "스핑크스 고양이"
+    ],
+    [
+     "python",
+     "비단뱀"
+    ]
+   ],
+   "sentences": [
+    "What is the strangest pet in the world?",
+    "large → larg**er** → the larg**est**",
+    "big → big**ger** → the big**gest**",
+    "strange → strang**er** → the strang**est**",
+    "intelligent → **more** intelligent",
+    "→ **the most** intelligent",
+    "exotic → more exotic → **the most** exotic",
+    "Are pigs smart?",
+    "Are dolphins smarter than pigs?",
+    "What is the smartest animal?",
+    "A python is an ordinary pet.",
+    "Is it an exotic pet?",
+    "What is the fastest animal in the world?",
+    "What happens to \"y\" at the end?",
+    "fast → the fast**est**",
+    "cute → the cut**est**",
+    "big → the big**gest**",
+    "heavy → the heav**iest**",
+    "pretty → the prett**iest**",
+    "funny → the funn**iest**",
+    "Are whales big?",
+    "How fast can cheetahs run?",
+    "Cheetahs are the fastest flying animals.",
+    "Is it the most colorful animal?",
+    "Look! 5 seconds! 👀",
+    "Which one is the fastest? The biggest?",
+    "Is a squid a fish?",
+    "What is the strangest animal in the world?",
+    "Which words change completely?",
+    "good → better → **the best**",
+    "the **best** day of my life",
+    "bad → worse → **the worst**",
+    "the **worst** weather",
+    "Squid are fish.",
+    "What is the strangest animal you have ever seen?",
+    "Review time! How much do you remember?"
+   ],
+   "songs": [],
+   "imgs": [
+    "gen:bts-18-platypus",
+    "gen:bts-18-dog-lineup",
+    "19426",
+    "19672",
+    "16786",
+    "15602",
+    "gen:bts-18-cover007",
+    "gen:bts-18-sphynx",
+    "gen:bts-18-python",
+    "gen:bts-18-platypus",
+    "gen:bts-18-dog-lineup",
+    "19426",
+    "19672",
+    "16786",
+    "15602",
+    "gen:bts-18-cover007",
+    "gen:bts-18-sphynx",
+    "gen:bts-18-python",
+    "gen:bts-18-platypus",
+    "15541",
+    "19826",
+    "19672",
+    "c7369",
+    "14705"
+   ]
+  }
+ ]
+}

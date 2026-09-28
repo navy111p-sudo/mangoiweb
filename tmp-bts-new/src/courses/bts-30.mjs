@@ -1,6 +1,10 @@
 // BTS 30 새 교재 설계 데이터. k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 // 사진 번호 = photo-catalog.json · gen:bts-30-* = 새로 만들 사진(gen/req-bts-30.json)
 import { open, close } from '../common.mjs';
+const USONG_1 = { t: 'song', k: 'new', small: "Let's sing! ♪ Rap chant", title: "Living Abroad ✈️", img: "gen:bts-30-song-abroad", nt: "해외 생활 랩(새로 지음)", n: ["곡조: Rap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다","Yes/No 질문에서는 엄지 위·아래, Wh- 질문에서는 어깨 으쓱으로 구분하며 말하기"], src: '새로 지음', lines: ["Have you ever traveled abroad?","What was it like? Was it hard?","Would you like to live abroad?","Yes! A new culture, a new start!","New traditions, beliefs, and values,","But a misunderstanding can happen too.","Pros and cons — do you think it's cool?","Would you go? I would! How about you?"] };
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Clap chant", title: "So or Because? 🎮", img: "gen:bts-30-song-free-time", nt: "여가·이유 챈트(새로 지음)", n: ["곡조: Clap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다","so에서 손을 앞으로 밀고, because에서 손을 뒤로 당겨 결과·이유 위치 구분하기"], src: '새로 지음', lines: ["What do you do in your free time?","I read a lot because I love new ideas.","I'm tired, so I take a nap.","I'm social, so I socialize!","Lifting weights is rigorous work,","I lift weights because I want to be strong.","Let's be flexible and compromise:","Your game, then mine — that's leisure time!"] };
+const USONG_3 = { t: 'song', k: 'new', small: "Let's sing! ♪ Yankee Doodle", title: "Talents and Skills 🎨", img: "gen:bts-30-song-career", nt: "직업·재능 노래(새로 지음)", n: ["곡조: Yankee Doodle (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","직업 이름이 나오면 그 직업 흉내(땅 파기·조각하기)를 화면에 보여주기"], src: '새로 지음', lines: ["I have a talent for math,","She's talented in music,","I practice to improve my skills,","And engineers use math, too!","What job do you want to have?","A veterinarian!","An archaeologist digs,","A sculptor makes a statue!"] };
+const USONG_4 = { t: 'song', k: 'new', small: "Let's sing! ♪ Twinkle Twinkle Little Star", title: "Would You Rather? 🚀", img: "gen:bts-30-song-space", nt: "우주 선택 노래(새로 지음)", n: ["곡조: Twinkle Twinkle Little Star (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","Mars와 Moon에서 양손을 번갈아 들어 고르고, I would rather에서 고른 쪽 손을 높이 들기"], src: '새로 지음', lines: ["Would you rather go to Mars,","Or the Moon among the stars?","I would rather fly to Mars,","Past the planets, past the stars.","Astronomers stay on Earth,","Fulfill your dream for all it's worth!"] };
 
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3', U4 = 'Unit 4';
 const G = (x) => 'gen:bts-30-' + x;
@@ -26,7 +30,8 @@ export const COURSE = {
 <li><b>Review 순서·머리글</b> — 원본 Review 는 Space → Abroad → Career → (머리글이 «My Career» 로 잘못 붙은) Free time 순입니다 → 단원 순서(Abroad · Free time · Career · Space)로 바꾸고 머리글을 고쳤습니다. «volunteer» 는 단원 본문에 한 번도 안 나오는 낱말이라 복습 목록에서 뺄지 결정 필요(새 교재는 남겨 두고 뜻을 적었습니다).</li>
 <li><b>틀린 뜻</b> — abroad «널리» → 해외에(서) · rigorous «엄밀한» → 격렬한·힘든 · involve «감다» → (일이) …을 포함하다 · heritage «세습 재산» → (문화) 유산 · accents «발음» → 억양·말투 · flexible 은 원본 뜻 «융통성 있는» 이 맞는데 Review 사진이 요가(몸이 유연한)라 뜻과 사진이 어긋났습니다 → 사진 교체.</li>
 <li><b>원본 중복 쪽</b> — 001-003 Try it 세 장 사진 쪽(뉴질랜드 루핀 꽃밭·베트남 계단식 논·노르웨이 베르겐)이 두 번(25·26쪽) 들어 있어 하나로 줄였습니다(짝 맞추기로).</li>
-<li><b>새로 만들 사진 25장</b>(힉스필드 크레딧) — 표지 4 · 이야기 인물(Lyka·Mark·Joo Young) · 오해·양보·여가 장면 · 직업(만화가·고생물학자·고고학자) · 우주(인공위성·탐사선·달 착륙·허블·보이저·우주 관광) · BTS 31 예고. Dennis Tito 쪽은 실존 인물을 닮게 만들지 않도록 로켓 발사·우주정거장 창문 장면으로만 요청했습니다.</li></ol></div>`,
+<li><b>새로 만들 사진 25장</b>(힉스필드 크레딧) — 표지 4 · 이야기 인물(Lyka·Mark·Joo Young) · 오해·양보·여가 장면 · 직업(만화가·고생물학자·고고학자) · 우주(인공위성·탐사선·달 착륙·허블·보이저·우주 관광) · BTS 31 예고. Dennis Tito 쪽은 실존 인물을 닮게 만들지 않도록 로켓 발사·우주정거장 창문 장면으로만 요청했습니다.</li>
+<li><b>새 단원 노래 4곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 1 «Living Abroad»(Rap chant (4 beats)) · Unit 2 «So or Because?»(Clap chant (4 beats)) · Unit 3 «Talents and Skills»(Yankee Doodle) · Unit 4 «Would You Rather?»(Twinkle Twinkle Little Star). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001-003
   { code: '001-003', tab: '해외 생활', unit: U1, title: 'Living Abroad', orig: 27,
@@ -35,6 +40,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-abroad'), q: 'Would you like to live in a foreign country?', story: 'Lyka wants to live abroad. Mark wants to stay in his own country. What about you?', nt: '표지 + Big Question', n: ['공항 창밖 비행기를 보는 아이 사진 — «Where is he going?» 로 시작', '원본 Big Question 을 그대로 표지 질문으로 — 끝에 «I would / wouldn\'t like to live abroad because ___» 로 답하는 것이 목표'] },
       ...open(G1),
+      USONG_1,
       { t: 'qa', k: 'keep', img: '12740', title: 'Warm up', q: 'What is your country most famous for?', a: 'Korea is famous for ___.', chips: ['K-pop', 'kimchi', 'Hangeul', 'taekwondo'], src: 'Warm Up', nt: '몸풀기 질문', n: ['원본 질문 그대로 — 세계 국기가 꽂힌 지구본 사진으로', '두 개 이상 말하게: «Korea is famous for K-pop and kimchi.»'] },
       { t: 'vocab', k: 'fix', title: 'New words 📖', cols: 3, words: [['abroad', '해외에(서)', '12746'], ['culture', '문화', '12595'], ['beliefs', '믿음·신념', '21377'], ['values', '가치관', '21176'], ['traditions', '전통', '12526'], ['misunderstanding', '오해', '14879']], src: 'Vocabulary', nt: '낱말 6개', n: ['<del>널리</del> → 해외에(서) — 원본 뜻이 틀렸습니다(abroad = 외국에서)', '사진을 가리고 영어만 보여 준 뒤 한 장씩 공개'] },
       { t: 'discuss', k: 'keep', img: '18649', title: 'Big Question 🌏', qs: ['Would you like to live in a foreign country? Why or why not?', 'Have you ever traveled abroad? What was it like?', 'What countries do you think are interesting? Would you like to travel there in the future?'], src: 'Big Question · Questions', nt: 'Big Question', n: ['원본 두 쪽(Big Question · 질문 넷)을 한 쪽으로', '첫 문장은 Yes/No 질문, 둘째는 Wh- 질문 — 다음 쪽 규칙 찾기의 예문으로 다시 씁니다'] },
@@ -71,6 +77,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-freetime'), q: 'What do you do in your free time?', story: 'Four students spend their free time in four very different ways. Which one are you like?', nt: '표지 + Big Question', n: ['트램펄린에서 뛰어오르는 친구들 — «Do you like this? Why?»', '끝에 «In my free time, I ___ because ___» 로 말하는 것이 목표'] },
       ...open(G2),
+      USONG_2,
       { t: 'qa', k: 'keep', img: '12461', title: 'Warm up', q: 'Name 3 things you do in your free time and explain why you like them.', a: 'In my free time, I ___ because ___.', src: 'Warm Up', nt: '몸풀기 질문', n: ['<del>explain why do you like it</del> → explain why you like them(셋이니 them · 간접의문문 어순)'] },
       { t: 'vocab', k: 'fix', title: 'New words 📖', cols: 3, words: [['compromise', '(서로) 양보하다', '17234'], ['flexible', '융통성 있는', G('flexible')], ['intellectual', '지적인', '18615'], ['leisure', '여가', '12461'], ['rigorous', '격렬한·힘든', '21253'], ['lifting weights', '역기 들기', '13078']], src: 'Vocabulary', nt: '낱말 6개', n: ['<del>엄밀한</del> → 격렬한·힘든(운동 이야기) · <del>융통성 있는·유연성 있는</del> → 융통성 있는 — 여기서는 몸이 아니라 마음이 유연한'] },
       { t: 'discuss', k: 'fix', img: '12055', title: 'Starter questions', qs: ['How much free time do you have? When do you usually have it? What\'s your favorite thing to do?', 'Where do you usually spend your free time? Who do you spend it with?', 'Do you wish you had more free time? Why or why not?'], src: 'Starter Questions', nt: '시작 질문', n: ['<del>Do you wish you have</del> → had(바람은 과거형) · Whom → Who(말할 때 자연스럽게)', '질문 다섯을 네 줄로 묶었습니다'] },
@@ -101,6 +108,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-career'), q: 'What job do you want to have?', story: 'Joe loves math. Joo Young loves art and music. What are you good at?', nt: '표지 + Big Question', n: ['여러 직업 옷을 입고 장난스럽게 서 있는 아이들 — «Who is who?»', '끝에 «I\'m good at ___, so I could be a ___» 로 말하는 것이 목표'] },
       ...open(G3),
+      USONG_3,
       { t: 'qa', k: 'fix', img: '12566', title: 'Warm up', q: 'Name 3 jobs that you think are highly paid. Why?', a: 'I think ___ are highly paid because ___.', src: 'Warm Up', nt: '몸풀기 질문', n: ['highly paid = 돈을 많이 받는 · 틀린 답이 없는 질문 — 이유를 꼭 붙이게'] },
       { t: 'vocab', k: 'fix', title: 'New words 📖', cols: 3, words: [['involuntary functions', '저절로 일어나는 기능', '18039'], ['logic', '논리', '21217'], ['involve', '(일을) 포함하다', '17332'], ['archaeologist', '고고학자', G('archaeologist')], ['sculptor', '조각가', '15690'], ['veterinarian', '수의사', '13369']], src: 'Vocabulary', nt: '낱말 6개', n: ['<del>비자발적 기능</del> → 저절로 일어나는 기능(심장 박동·숨쉬기) · <del>감다</del> → (일이) 포함하다 — What does the job involve? = 그 일은 무엇을 하나요?'] },
       { t: 'discuss', k: 'keep', img: '18672', title: 'Big Question 💭', qs: ['What do you like to do? What job do you want to have?', 'What skills do you have? How can you use them in your career?'], src: 'Big Question · Different People, different stories', nt: 'Big Question', n: ['원본 두 쪽의 질문을 한 쪽으로', '생각 풍선(로켓·기타·붓)이 뜬 아이 사진 — «What is she thinking about?»'] },
@@ -135,6 +143,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-space'), q: 'Would you like to travel to space?', story: 'In 2001, a man paid $20 million to fly into space. Would you do it?', nt: '표지 + Big Question', n: ['창밖으로 지구가 보이는 우주선 안에서 둥둥 떠다니며 웃는 관광객들', '끝에 «I would / wouldn\'t be a space tourist because ___» 로 말하는 것이 목표'] },
       ...open(G4),
+      USONG_4,
       { t: 'qa', k: 'keep', img: '13364', title: 'Warm up', q: 'What can you see in space? Give 5 and describe each!', a: 'I can see the ___. It is ___.', chips: ['the Moon', 'stars', 'planets'], src: 'Warm Up', nt: '몸풀기 질문', n: ['다섯 개를 모두 «It is …» 로 설명하게'] },
       { t: 'vocab', k: 'fix', title: 'New words ① 📖', cols: 5, words: [['artificial', '인공의', '14029'], ['astronauts', '우주비행사', '16822'], ['astronomers', '천문학자', '14764'], ['planets', '행성', '18724'], ['satellites', '(인공)위성', G('satellite')]], src: 'Vocabulary', nt: '낱말 ① 5개', n: ['astronaut(가는 사람) · astronomer(보는 사람) — 다음 쪽 규칙 찾기에서 다시'] },
       { t: 'vocab', k: 'fix', title: 'New words ② 📖', cols: 5, words: [['fulfill a dream', '꿈을 이루다', '18181'], ['determined', '굳게 결심한', '17199'], ['professional', '전문적인·직업인', '12492'], ['industry', '산업', '13043'], ['intergovernmental treaties', '정부 간 조약', '14451']], src: 'Vocabulary', nt: '낱말 ② 5개', n: ['<del>단호한</del> → 굳게 결심한(Determined to visit space = 우주에 꼭 가겠다고 마음먹고)', '원본 «fulfill his dream» → 낱말 카드는 fulfill a dream(글 속에서 his 로 다시 만납니다)'] },

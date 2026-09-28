@@ -5,7 +5,7 @@
 name: tmp-bts-deploy
 on:
   push:
-    branches: [claude/bold-lovelace-dy58q5]
+    branches: [claude/bold-lovelace-dy58q5, claude/new-bts-unit-songs]
     paths: ['tmp-bts-new/go.txt']
 permissions:
   contents: read

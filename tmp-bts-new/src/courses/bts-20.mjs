@@ -2,6 +2,9 @@
 // 사진 번호 = photo-catalog.json · gen:bts-20-* = 새로 만들 사진(gen/req-bts-20.json)
 // src 의 «N쪽» = 원본 묶음의 슬라이드 번호(파일명 SlideN)
 import { open, close } from '../common.mjs';
+const USONG_1 = { t: 'song', k: 'new', small: "Let's sing! ♪ Clap chant", title: "Are You Ready to Order? 🍝", img: "gen:bts-20-song-ready-to-order", nt: "음식 주문 챈트(새로 지음)", n: ["곡조: Clap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다","한 명은 웨이터, 한 명은 손님이 되어 메뉴판을 들고 박수 4번에 맞춰 주고받기"], src: '새로 지음', lines: ["Are you ready to order? Yes, I am!","I would like the pasta, please.","I would like some juice, please.","I'll have a salad for a side dish.","What do you recommend for dessert?","I recommend the ice cream!","That sounds good! That sounds good!","Not ready yet? I need more time, please."] };
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Farmer in the Dell", title: "How Does It Taste? 🍋", img: "gen:bts-20-song-how-does-it-taste", nt: "맛 표현 노래(새로 지음)", n: ["곡조: The Farmer in the Dell (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","sour에서는 입을 오므리는 표정, spicy에서는 손부채질하며 화면에 표정 보여주기"], src: '새로 지음', lines: ["How does a lemon taste?","How does a lemon taste?","It tastes so very sour!","A lemon tastes so sour.","How do these noodles taste?","How do these noodles taste?","They taste so spicy, wow!","These noodles taste spicy."] };
+const USONG_3 = { t: 'song', k: 'new', small: "Let's sing! ♪ Rap chant", title: "Sorry to Bother You 🍲", img: "gen:bts-20-song-sorry-to-bother-you", nt: "특별 주문 랩(새로 지음)", n: ["곡조: Rap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다","Sorry to bother you에서 손을 살짝 드는 동작, Thank you에서 엄지척 하기"], src: '새로 지음', lines: ["Sorry to bother you. My soup is cold!","Can you please heat it up? Thank you!","Sorry to bother you. My bread is burnt!","Can you please bring new bread? Thank you!","Add more nuts and extra sprinkles, please!","I don't want any onions, please.","Can I get you anything else?","No, thank you! Everything is good!"] };
 
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3';
 const GEN = (x) => 'gen:bts-20-' + x;
@@ -24,7 +27,8 @@ export const COURSE = {
 <li><b>006 «이상한 음식» 쪽</b> — 원본의 튀긴 전갈·닭발 사진. 새 교재는 전갈(꼬치)만 남겼습니다. 어린 학생 반에서 뺄지.</li>
 <li><b>혀 꼬기 문장</b> — 원본 한 줄에 줄을 더해 네 줄로 만들었습니다(004·007). 원본 한 줄만 쓸지.</li>
 <li><b>새로 만들 사진 34장</b>(힉스필드 크레딧) — 표지·이야기·예고·특이한 음식(두리안·전갈·브로콜리 피자·셀러리 주스) 위주.</li>
-<li><b>General Information 쪽</b>(원본 2쪽, 모든 묶음)과 TEST 안내쪽은 학생 화면에서 뺐습니다.</li></ol></div>`,
+<li><b>General Information 쪽</b>(원본 2쪽, 모든 묶음)과 TEST 안내쪽은 학생 화면에서 뺐습니다.</li>
+<li><b>새 단원 노래 3곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 1 «Are You Ready to Order?»(Clap chant (4 beats)) · Unit 2 «How Does It Taste?»(The Farmer in the Dell) · Unit 3 «Sorry to Bother You»(Rap chant (4 beats)). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '주문하기', unit: U1, title: 'Food and Restaurants ①', orig: 24,
@@ -33,6 +37,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: GEN('cover'), q: 'What would you like to eat?', story: 'Welcome to the Mango Restaurant! 🍽️', nt: '표지 + Big Question', n: ['식당에서 신나게 주문하는 아이들 사진 — «Where are they? What do they want?» 로 시작', '끝날 때 «I would like …, please.» 로 한 끼를 통째로 주문하는 것이 목표'] },
       ...open([['I can order food with "I would like …".', '«I would like …» 로 음식을 주문할 수 있어요.'], ['I can say "I\'ll have …, please."', '«I\'ll have …, please.» 로 주문할 수 있어요.'], ['I can ask politely with "May I have …?"', '«May I have …?» 로 공손하게 부탁할 수 있어요.']], 'Lesson Goals 4쪽'),
+      USONG_1,
       TT1,
       { t: 'vocab', k: 'fix', hide: true, title: 'A meal in five steps 🍽️', words: [['appetizer', '전채 요리(먼저 먹는 요리)', '16498'], ['main course', '주요리', '15734'], ['side dish', '곁들임 요리', '12987'], ['drink', '마실 것', '18046'], ['dessert', '디저트(후식)', '12134'], ['menu', '메뉴(차림표)', '18533']], src: 'Vocabulary 9~14쪽', nt: '코스 낱말 — 뜻 가리기', n: ['사진만 보고 먼저 영어로 말하게 합니다', '<del>전체요리</del> → 전채 요리 · <del>반찬</del> → 곁들임 요리(서양 식당의 side dish 는 반찬이 아닙니다)'] },
       { t: 'vocab', k: 'keep', title: 'A meal in five steps 🍽️', words: [['appetizer', '전채 요리(먼저 먹는 요리)', '16498'], ['main course', '주요리', '15734'], ['side dish', '곁들임 요리', '12987'], ['drink', '마실 것', '18046'], ['dessert', '디저트(후식)', '12134'], ['menu', '메뉴(차림표)', '18533']], nt: '뜻 공개', n: ['손가락으로 1→5 순서 세며 «First, an appetizer. Then, the main course …»'] },
@@ -64,6 +69,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: GEN('family-order'), q: 'Are you ready to order?', story: 'The waiter is here! What will you say? 😄', nt: '표지 + Big Question', n: ['가족이 메뉴를 들고 신나게 고르는 사진', '«Yes, …» 와 «No, I need more time.» 둘 다 해 보는 것이 목표'] },
       ...open([['I can answer "Are you ready to order?"', '«주문하시겠어요?» 에 답할 수 있어요.'], ['I can recommend food with "I recommend …".', '«I recommend …» 로 음식을 추천할 수 있어요.'], ['I can say "That sounds good!"', '«좋아요!» / «별로예요» 로 답할 수 있어요.']], 'Lesson Goals 4쪽'),
+      USONG_1,
       TT1,
       { t: 'vocab', k: 'fix', hide: true, title: 'Food words 🍜', words: [['recommend', '추천하다', '18564'], ['dumplings', '만두', '15349'], ['celery', '셀러리', GEN('celery')], ['noodles', '국수', '12224'], ['pasta', '파스타', '13164'], ['pizza', '피자', '12668']], src: 'Vocabulary 4쪽', nt: '낱말 — 뜻 가리기', n: ['<del>권하다</del> → 추천하다', '사진만 보고 먼저 영어로'] },
       { t: 'vocab', k: 'keep', title: 'Food words 🍜', words: [['recommend', '추천하다', '18564'], ['dumplings', '만두', '15349'], ['celery', '셀러리', GEN('celery')], ['noodles', '국수', '12224'], ['pasta', '파스타', '13164'], ['pizza', '피자', '12668']], nt: '뜻 공개', n: ['«Which one do you like?» 로 좋아하는 것 하나 고르기'] },
@@ -91,6 +97,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: GEN('logan-bianca'), q: 'What do you recommend?', story: 'Logan helps his friend Bianca order. 🍔🥗', nt: '표지 + Big Question', n: ['햄버거를 든 Logan 과 샐러드를 든 Bianca — «Who likes what?» 로 시작'] },
       ...open([['I can say what I would like and why.', '먹고 싶은 것과 이유를 말할 수 있어요.'], ['I can recommend food for someone.', '다른 사람에게 음식을 추천할 수 있어요.'], ['I can read a menu.', '메뉴판을 읽을 수 있어요.']], 'Lesson Goals 4쪽'),
+      USONG_1,
       TT1,
       { t: 'vocab', k: 'fix', hide: true, title: 'New words 🆕', words: [['combination', '조합(함께 먹는 짝)', '15513'], ['greasy food', '기름진 음식', '15802'], ['acidic drink', '신 음료(탄산·산이 많은)', '15723'], ['taste', '맛이 나다', '16348']], cols: 4, src: 'New words 10쪽', nt: '새 낱말 — 뜻 가리기', n: ['<del>콤비네이션</del> → 조합 · <del>산성 음료</del> → 신 음료(콜라처럼 산이 많은 음료)'] },
       { t: 'vocab', k: 'keep', title: 'New words 🆕', words: [['combination', '조합(함께 먹는 짝)', '15513'], ['greasy food', '기름진 음식', '15802'], ['acidic drink', '신 음료(탄산·산이 많은)', '15723'], ['taste', '맛이 나다', '16348']], cols: 4, nt: '뜻 공개', n: ['«A hamburger and a cola are a good combination?» 로 생각 묻기'] },
@@ -114,6 +121,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: GEN('sour-face'), q: 'How does it taste?', story: 'Sweet? Sour? Spicy? Let\'s taste! 😝', nt: '표지 + Big Question', n: ['레몬을 깨물고 얼굴을 찡그리는 아이 — «How does it taste?» 로 바로 웃음'] },
       ...open([['I can ask "How does it taste?"', '«맛이 어때?» 라고 물을 수 있어요.'], ['I can say how food tastes.', '음식 맛을 말할 수 있어요 — It tastes sweet.'], ['I can say if I would like to try it and why.', '먹어 보고 싶은지와 이유를 말할 수 있어요.']], 'Lesson Goals 4쪽'),
+      USONG_2,
       TT2,
       { t: 'vocab', k: 'fix', hide: true, title: 'Tastes ① 👅', words: [['sweet', '단', '12516'], ['sour', '신', 'c7297'], ['salty', '짠', 'c7110'], ['bitter', '쓴', '15231']], cols: 4, src: 'Vocabulary 4·10쪽', nt: '맛 낱말 ① — 뜻 가리기', n: ['사진의 표정을 보고 먼저 말하게 — 짠 음식에 움찔하는 사람, 쓴 커피에 찡그린 사람', '<del>신맛</del> → 신(맛을 꾸미는 말)'] },
       { t: 'vocab', k: 'fix', hide: true, title: 'Tastes ② 👅', words: [['spicy', '매운', '14624'], ['savory', '감칠맛 나는', '17037'], ['bland', '싱거운', '12003'], ['tasteless', '아무 맛이 없는', '12123']], cols: 4, src: 'Vocabulary 4·10쪽', nt: '맛 낱말 ② — 뜻 가리기', n: ['<del>짭짤한</del> → 감칠맛 나는(고기·치즈의 맛) · <del>양념없는</del> → 싱거운 · <del>맛없는</del> → 아무 맛이 없는(물처럼)'] },
@@ -145,6 +153,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '18894', q: 'What would you like to try?', story: 'Read the menu. Choose your food! 📜', nt: '표지 + Big Question', n: ['아이 메뉴판을 받고 웃는 남자아이 — «What\'s on the menu?»'] },
       ...open([['I can read a menu.', '메뉴 설명을 읽을 수 있어요.'], ['I can say what food has.', '음식에 무엇이 들어 있는지 말할 수 있어요 — It has cheese.'], ['I can say if I would like to try it and why.', '먹어 보고 싶은지 이유와 함께 말할 수 있어요.']], 'Lesson Goals 4쪽'),
+      USONG_2,
       TT2,
       { t: 'vocab', k: 'fix', hide: true, title: 'Menu words 📜', words: [['sauce', '소스', '13252'], ['popular', '인기 있는', '18514'], ['patties', '패티(다진 고기 덩어리)', '18045'], ['crunch', '바삭함', '12881'], ['smoothie', '스무디', '14447'], ['dressing', '(샐러드) 드레싱', '12199']], src: 'New words 9쪽', nt: '메뉴 낱말 — 뜻 가리기', n: ['<del>햄버거 고기</del> → 패티', '사진만 보고 먼저 영어로'] },
       { t: 'vocab', k: 'keep', title: 'Menu words 📜', words: [['sauce', '소스', '13252'], ['popular', '인기 있는', '18514'], ['patties', '패티(다진 고기 덩어리)', '18045'], ['crunch', '바삭함', '12881'], ['smoothie', '스무디', '14447'], ['dressing', '(샐러드) 드레싱', '12199']], nt: '뜻 공개', n: ['«Which one is popular in Korea?» 로 한 번 더'] },
@@ -172,6 +181,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: GEN('rainbow-cake'), q: 'What is your favorite food?', story: 'Karen loves rainbow cake! 🌈🍰', nt: '표지 + Big Question', n: ['무지개 케이크를 자르며 환호하는 아이 — «What color do you see?»'] },
       ...open([['I can talk about my favorite food.', '좋아하는 음식을 말할 수 있어요.'], ['I can say what food or drink is good with it.', '함께 먹으면 좋은 음식·음료를 말할 수 있어요.'], ['I can ask "How do they taste?"', '«그거 맛이 어때?» 라고 물을 수 있어요.']], 'Lesson Goals 4쪽'),
+      USONG_2,
       TT2,
       { t: 'vocab', k: 'new', hide: true, title: 'Taste review 👅', words: [['sweet', '단', '12234'], ['sour', '신', '18699'], ['salty', '짠', '16349'], ['bitter', '쓴', 'c7252'], ['spicy', '매운', '15404'], ['savory', '감칠맛 나는', 'c7111'], ['bland', '싱거운', '16520'], ['tasteless', '아무 맛이 없는', '12396']], cols: 4, nt: '맛 낱말 복습 — 뜻 가리기', n: ['004 와 다른 사진으로 복습 — 같은 낱말을 새 장면에서 떠올리게'] },
       { t: 'discuss', k: 'keep', img: 'c7131', title: 'Let\'s talk! 💬', qs: ['What is your favorite food?', 'How does it taste?', 'What food is good with it?', 'What drink is good with it?'], chips: ['My favorite food is …', 'It tastes …', '… is good with it.'], src: 'Discuss 10쪽', nt: '먼저 이야기하기', n: ['강사가 먼저 자기 이야기로 본보기'] },
@@ -197,6 +207,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: GEN('sundae'), q: 'What would you like on your ice cream?', story: 'Make your own special order! 🍨', nt: '표지 + Big Question', n: ['토핑을 산처럼 올린 아이스크림 선데이 — «What\'s on it?»'] },
       ...open([['I can ask for more with "Add more …, please."', '«…를 더 주세요» 라고 말할 수 있어요.'], ['I can say "I don\'t want any …"', '«…는 빼 주세요» 라고 말할 수 있어요.'], ['I can answer "Can I get you anything else?"', '«더 필요한 것 있으세요?» 에 답할 수 있어요.']], 'Lesson Goals 4쪽'),
+      USONG_3,
       TT3,
       { t: 'vocab', k: 'fix', hide: true, title: 'Toppings 🍨', words: [['sprinkles', '스프링클', GEN('sprinkles')], ['chocolate syrup', '초콜릿 시럽', GEN('choc-syrup')], ['nuts', '견과류', '13136'], ['strawberries', '딸기', '16135'], ['extra', '추가(더)', '19207'], ['more', '더', '19235']], src: 'Vocabulary 6·10쪽', nt: '낱말 — 뜻 가리기', n: ['<del>특별한</del> → 추가(더) — extra cheese 는 «치즈 추가»'] },
       { t: 'vocab', k: 'keep', title: 'Toppings 🍨', words: [['sprinkles', '스프링클', GEN('sprinkles')], ['chocolate syrup', '초콜릿 시럽', GEN('choc-syrup')], ['nuts', '견과류', '13136'], ['strawberries', '딸기', '16135'], ['extra', '추가(더)', '19207'], ['more', '더', '19235']], nt: '뜻 공개', n: ['손동작: more = 두 손 벌리기, no = 손 X'] },
@@ -223,6 +234,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: GEN('cassie'), q: 'My soup is cold! What can I say?', story: 'Cassie has a problem at the restaurant. 🥣', nt: '표지 + Big Question', n: ['식은 수프를 들여다보며 난처해하는 사람 — «What\'s wrong?»'] },
       ...open([['I can say what is wrong with my food.', '음식이 어떻게 잘못됐는지 말할 수 있어요 — My soup is cold.'], ['I can ask politely with "Can you please …?"', '«…해 주실 수 있나요?» 로 공손하게 부탁할 수 있어요.'], ['I can say "Sorry to bother you."', '«번거롭게 해서 죄송해요» 라고 말할 수 있어요.']], 'Lesson Goals 4쪽'),
+      USONG_3,
       TT3,
       { t: 'vocab', k: 'fix', hide: true, title: 'What\'s wrong? 😟', words: [['burnt', '탄', GEN('burnt-toast')], ['toasted', '(노릇하게) 구운', '16265'], ['heat it up', '데우다', '15552'], ['cold', '식은 · 차가운', '12396'], ['bland', '싱거운', '12003'], ['too big', '너무 큰', GEN('giant-spoon')]], src: 'New words 14쪽', nt: '낱말 — 뜻 가리기', n: ['<del>불태우다</del> → 탄 · <del>열을가한다</del> → 데우다', 'burnt(탄) 와 toasted(잘 구운) 를 사진으로 비교'] },
       { t: 'vocab', k: 'keep', title: 'What\'s wrong? 😟', words: [['burnt', '탄', GEN('burnt-toast')], ['toasted', '(노릇하게) 구운', '16265'], ['heat it up', '데우다', '15552'], ['cold', '식은 · 차가운', '12396'], ['bland', '싱거운', '12003'], ['too big', '너무 큰', GEN('giant-spoon')]], nt: '뜻 공개', n: ['표정 짓기: burnt 😖 · cold 🥶 · bland 😐'] },
@@ -249,6 +261,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '18793', q: 'What would you like to order?', story: 'George orders soup and ice cream. 🍦', nt: '표지 + Big Question', n: ['작은 식탁에 음식이 산더미처럼 나와 친구들이 웃는 사진 — «Did they order too much?»'] },
       ...open([['I can make a special order.', '내 입맛대로 특별 주문을 할 수 있어요.'], ['I can complain politely.', '음식 문제를 정중하게 말할 수 있어요.'], ['I can read a short story about ordering.', '주문 이야기를 읽을 수 있어요.']], 'Lesson Goals 4쪽'),
+      USONG_3,
       TT3,
       { t: 'vocab', k: 'new', hide: true, title: 'Review — what\'s wrong? 😟', words: [['too salty', '너무 짠', 'c7110'], ['too bitter', '너무 쓴', 'c7252'], ['cold', '식은', '12396'], ['warm it up', '데우다', '15552'], ['extra', '추가(더)', '19207'], ['please', '부탁해요', '19235']], nt: '복습 — 뜻 가리기', n: ['heat it up = warm it up — George 이야기에서는 warm'] },
       { t: 'table', k: 'fix', small: 'Grammar', title: 'Can you please …?', head: ['Problem', 'Polite words'], rows: [['My soup is cold.', 'Can you please warm it up?'], ['I don\'t want any nuts.', 'No nuts, please.'], ['I would like more cheese.', 'Add more cheese, please. / Extra cheese, please.']], src: 'Grammar 6·7쪽', nt: '문장 틀', n: ['원본 문법표 두 쪽(영어·한국어)을 예문 표로'] },

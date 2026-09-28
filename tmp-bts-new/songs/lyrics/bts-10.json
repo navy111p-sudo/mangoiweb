@@ -1,0 +1,49 @@
+{
+  "book": 10,
+  "songs": [
+    {
+      "unit": "Unit 2",
+      "key": "bts-10-song-hot-cold",
+      "title": "Hot and Cold Clothes 🧣",
+      "tune": "Here We Go Round the Mulberry Bush",
+      "lines": [
+        "When it is cold, I wear a coat,",
+        "I wear a coat, I wear a coat.",
+        "When it is cold, he wears a scarf,",
+        "and she is wearing mittens!",
+        "When it is hot, I wear my shorts,",
+        "I wear my shorts, I wear my shorts.",
+        "She wears sunglasses when it's hot,",
+        "and they are wearing sandals!"
+      ],
+      "nt": "날씨와 옷 노래(새로 지음)",
+      "n": [
+        "곡조: Here We Go Round the Mulberry Bush (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "'cold'에서 몸을 떨며 코트 입는 동작, 'hot'에서 부채질하고 선글라스 쓰는 동작을 화면 앞에서 함께 해요."
+      ],
+      "imgPrompt": "Children in two groups, one bundled in coats, scarves and mittens in the snow and the other in shorts, sunglasses and sandals on a sunny beach."
+    },
+    {
+      "unit": "Unit 3",
+      "key": "bts-10-song-weatherman",
+      "title": "Weatherman, Goodbye! 🌦️",
+      "tune": "Oh My Darling, Clementine",
+      "lines": [
+        "It is sunny, it is sunny,",
+        "it is sunny here today.",
+        "But tonight it will be rainy,",
+        "I should bring my raincoat, too.",
+        "Oh, tomorrow will be snowy,",
+        "and it will be windy, too.",
+        "I must wear a warm, warm jacket.",
+        "Thank you, weatherman, goodbye!"
+      ],
+      "nt": "일기 예보 노래(새로 지음)",
+      "n": [
+        "곡조: Oh My Darling, Clementine (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "학생이 손을 마이크처럼 들고 일기 예보관이 되어, 날씨 낱말마다 해·비·눈·바람 손동작을 보여 줘요."
+      ],
+      "imgPrompt": "A cheerful child weatherman pointing at a big weather map with sun, rain clouds and snowflakes while two kids watch holding a raincoat and a warm jacket."
+    }
+  ]
+}

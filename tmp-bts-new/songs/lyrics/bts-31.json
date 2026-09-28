@@ -1,0 +1,93 @@
+{
+ "book": 31,
+ "songs": [
+  {
+   "unit": "Unit 1",
+   "key": "bts-31-song-movies",
+   "title": "My Movie Review 🎬",
+   "tune": "Rap chant (4 beats)",
+   "lines": [
+    "At the cinema, the lights go low,",
+    "What's the plot? What's the setting? Let's go!",
+    "Stunning special effects and CGI,",
+    "The climax is thrilling — oh my, oh my!",
+    "I absolutely loved it! I would recommend it!",
+    "A positive review — thumbs up, that's it!",
+    "I thought it was horrible, a mediocre plot.",
+    "I don't think you should see it — stop!"
+   ],
+   "nt": "영화 평 랩(새로 지음)",
+   "n": [
+    "곡조: Rap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+    "긍정 평에서는 엄지 위, 부정 평에서는 엄지 아래를 화면에 보여주기"
+   ],
+   "imgPrompt": "Kids eating popcorn in a movie theater, some cheering and some frowning at the big screen."
+  },
+  {
+   "unit": "Unit 2",
+   "key": "bts-31-song-animals",
+   "title": "Wild or Tame? 🦁",
+   "tune": "Clap chant (4 beats)",
+   "lines": [
+    "Lions live in nature, wild and free,",
+    "Deer run away from humans — see?",
+    "Dogs are raised by humans, tame and sweet,",
+    "Cats live with people on your street.",
+    "Animal cruelty? That goes too far!",
+    "It must be painful — it should be illegal.",
+    "Be responsible when you raise a pet,",
+    "Wild or tame — be kind, don't forget!"
+   ],
+   "nt": "야생·길들인 동물 챈트(새로 지음)",
+   "n": [
+    "곡조: Clap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+    "wild에서 사자 발톱, tame에서 강아지 쓰다듬기 흉내로 구분하기"
+   ],
+   "imgPrompt": "A lion and deer in a forest on one side, children gently petting a dog and cat at home on the other."
+  },
+  {
+   "unit": "Unit 3",
+   "key": "bts-31-song-uniforms",
+   "title": "Uniforms? 👔",
+   "tune": "Frère Jacques (Are You Sleeping?)",
+   "lines": [
+    "Should we wear them? Should we wear them?",
+    "Uniforms? Uniforms?",
+    "They can help us focus, they can help us focus,",
+    "Fair trade, yes! Fair trade, yes!",
+    "I am unique, I am unique,",
+    "My own style! My own style!",
+    "I can't imagine it, I can't imagine it!",
+    "What's your view? What's your view?"
+   ],
+   "nt": "교복 찬반 노래(새로 지음)",
+   "n": [
+    "곡조: Frère Jacques (Are You Sleeping?) (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "찬성 줄에서는 고개 끄덕, 반대 줄에서는 고개 젓기로 support/oppose 표현하기"
+   ],
+   "imgPrompt": "Students in neat school uniforms next to students in colorful casual clothes, happily debating."
+  },
+  {
+   "unit": "Unit 4",
+   "key": "bts-31-song-president",
+   "title": "Vote for Me! 🗳️",
+   "tune": "Yankee Doodle",
+   "lines": [
+    "Vote for me, election day!",
+    "I'm honest and I'm ready,",
+    "I will listen to you all,",
+    "'Cause I'm a people person!",
+    "Candidates, come give a speech,",
+    "The campaign, the debate,",
+    "I'm the most qualified one,",
+    "So we should trust each other!"
+   ],
+   "nt": "반장 선거 노래(새로 지음)",
+   "n": [
+    "곡조: Yankee Doodle (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "Vote for me에서 손을 번쩍 들고, I will listen에서 손을 귀에 대는 동작"
+   ],
+   "imgPrompt": "Kids giving campaign speeches for class president with posters and a ballot box in a classroom."
+  }
+ ]
+}

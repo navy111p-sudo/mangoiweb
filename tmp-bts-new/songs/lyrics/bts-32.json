@@ -1,0 +1,27 @@
+{
+ "book": 32,
+ "songs": [
+  {
+   "unit": "Unit 4",
+   "key": "bts-32-song-stress",
+   "title": "You Should, You Shouldn’t 😌",
+   "tune": "London Bridge Is Falling Down",
+   "lines": [
+    "You should take a deep, deep breath,",
+    "Take a breath, take a breath,",
+    "You should start your work early,",
+    "Let's cope with stress!",
+    "You shouldn't wait till the end,",
+    "Listen to some music,",
+    "Talk to your family and friends,",
+    "Squeeze a stress ball!"
+   ],
+   "nt": "스트레스 대처 노래(새로 지음)",
+   "n": [
+    "곡조: London Bridge Is Falling Down (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "deep breath에서 함께 크게 숨쉬기, stress ball에서 주먹 꽉 쥐었다 펴기"
+   ],
+   "imgPrompt": "Calm children taking deep breaths, listening to music, squeezing stress balls and talking with family."
+  }
+ ]
+}

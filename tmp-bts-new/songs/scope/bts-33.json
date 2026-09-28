@@ -1,0 +1,340 @@
+{
+ "book": 33,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001-003"
+   ],
+   "titles": [
+    "Computer Games"
+   ],
+   "goals": [
+    "I can talk about kinds of computer games.",
+    "I can ask and answer Wh- and Yes/No questions.",
+    "I can give my opinion about games."
+   ],
+   "words": [
+    [
+     "platform",
+     "플랫폼(게임기·기계)"
+    ],
+    [
+     "strategy",
+     "전략"
+    ],
+    [
+     "frustrating",
+     "좌절감을 주는"
+    ],
+    [
+     "destroying",
+     "파괴하는"
+    ],
+    [
+     "armies",
+     "군대"
+    ],
+    [
+     "weapons",
+     "무기"
+    ],
+    [
+     "level",
+     "(게임의) 한 단계"
+    ],
+    [
+     "virtual world",
+     "가상 세계"
+    ],
+    [
+     "identity",
+     "정체성·다른 나"
+    ],
+    [
+     "first-person shooter",
+     "1인칭 슈팅 게임"
+    ],
+    [
+     "puzzle games",
+     "퍼즐 게임"
+    ]
+   ],
+   "sentences": [
+    "Why do thousands of people watch other people play games?",
+    "**What** is your favorite game?",
+    "**When** do you play games?",
+    "**Why** do you like it?",
+    "**Do** you play puzzle games?",
+    "**Is** chess a strategy game?",
+    "**Have** you ever played online?",
+    "Yoona and Jay played a puzzle game in the tournament.",
+    "Where are they? What are they doing?",
+    "What makes a song a hit?"
+   ],
+   "songs": [
+    "Game On Chant 🎮"
+   ],
+   "imgs": [
+    "15293",
+    "16272",
+    "19420",
+    "18850",
+    "gen:bts-33-toy-armies",
+    "20273",
+    "15293",
+    "16272",
+    "19420",
+    "18850",
+    "gen:bts-33-toy-armies",
+    "20273",
+    "12108",
+    "gen:bts-33-virtual-world",
+    "21013",
+    "gen:bts-33-gaming-headset",
+    "17260"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004-006"
+   ],
+   "titles": [
+    "Popular Music"
+   ],
+   "goals": [
+    "I can talk about songs and music videos.",
+    "I can ask \"Would you rather …?\"",
+    "I can tell how a song becomes a hit."
+   ],
+   "words": [
+    [
+     "melody",
+     "멜로디(가락)"
+    ],
+    [
+     "rhythm",
+     "리듬(박자)"
+    ],
+    [
+     "essential",
+     "꼭 필요한"
+    ],
+    [
+     "instrument",
+     "악기"
+    ],
+    [
+     "mediocre",
+     "그저 그런"
+    ],
+    [
+     "lyrics",
+     "가사"
+    ],
+    [
+     "promotional",
+     "홍보용의"
+    ],
+    [
+     "purpose",
+     "목적"
+    ],
+    [
+     "accompany",
+     "함께하다"
+    ],
+    [
+     "device",
+     "수단·도구"
+    ],
+    [
+     "piece of music",
+     "음악 한 곡"
+    ]
+   ],
+   "sentences": [
+    "What makes a song a hit?",
+    "Can you guess who? Clue: a famous singer with lots of catchy songs.",
+    "Which instrument was missing? Does it play the melody or the rhythm?",
+    "What comes after \"Would you rather\"? How do we answer?",
+    "**Would you rather** listen to a song with a nice melody **or** a song with meaningful lyrics?",
+    "**Would you rather** watch the music video **or** just listen?",
+    "**I'd rather** listen to a nice melody.",
+    "**I'd rather** just listen **because** I can study at the same time.",
+    "Jay sings the melody, and Yoona plays the drums.",
+    "Would you rather play sports or watch them?"
+   ],
+   "songs": [
+    "Make a Hit Chant 🎤"
+   ],
+   "imgs": [
+    "13176",
+    "gen:bts-33-drum-kids",
+    "13123",
+    "12470",
+    "gen:bts-33-mediocre-song",
+    "gen:bts-33-writing-lyrics",
+    "13176",
+    "gen:bts-33-drum-kids",
+    "13123",
+    "12470",
+    "gen:bts-33-mediocre-song",
+    "gen:bts-33-writing-lyrics",
+    "18763",
+    "gen:bts-33-music-video-shoot",
+    "12648",
+    "16624",
+    "17009"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007-009"
+   ],
+   "titles": [
+    "Professional Sports"
+   ],
+   "goals": [
+    "I can talk about teamwork and sportsmanship.",
+    "I can say what players should and shouldn't do.",
+    "I can say how I would feel in a game."
+   ],
+   "words": [
+    [
+     "teamwork",
+     "팀워크"
+    ],
+    [
+     "individual",
+     "개인"
+    ],
+    [
+     "achievements",
+     "업적·이룬 것"
+    ],
+    [
+     "demonstrate",
+     "보여 주다"
+    ],
+    [
+     "sportsmanship",
+     "스포츠맨십(정정당당함)"
+    ],
+    [
+     "semifinals",
+     "준결승"
+    ],
+    [
+     "foul",
+     "반칙"
+    ],
+    [
+     "penalty",
+     "벌칙·페널티킥"
+    ]
+   ],
+   "sentences": [
+    "What makes a great player — skill or sportsmanship?",
+    "What comes after should? How do we make it negative?",
+    "Players **should** follow the rules.",
+    "You **should** shake hands after the game.",
+    "Players **shouldn't** fight.",
+    "You **shouldn't** yell at the referee.",
+    "Yoona told Jay to yell at the referee.",
+    "What is happening? Is it good sportsmanship?",
+    "Would you rather ride a train that floats?"
+   ],
+   "songs": [
+    "Good Sport Chant ⚽"
+   ],
+   "imgs": [
+    "12122",
+    "17245",
+    "18282",
+    "16725",
+    "gen:bts-33-help-opponent",
+    "gen:bts-33-semifinal-win",
+    "20272",
+    "20235",
+    "12122",
+    "17245",
+    "18282",
+    "16725",
+    "gen:bts-33-help-opponent",
+    "gen:bts-33-semifinal-win",
+    "20272",
+    "20235"
+   ]
+  },
+  {
+   "unit": "Unit 4",
+   "lessons": [
+    "010-012"
+   ],
+   "titles": [
+    "Public Transportation"
+   ],
+   "goals": [
+    "I can compare kinds of transportation.",
+    "I can use more … than and as … as.",
+    "I can talk about traffic problems in a city."
+   ],
+   "words": [
+    [
+     "public transportation",
+     "대중교통"
+    ],
+    [
+     "cost",
+     "비용"
+    ],
+    [
+     "comfort",
+     "편안함"
+    ],
+    [
+     "convenience",
+     "편리함"
+    ],
+    [
+     "infrastructure",
+     "기반 시설"
+    ],
+    [
+     "improvements",
+     "개선된 것"
+    ]
+   ],
+   "sentences": [
+    "What is the best way to get around a big city?",
+    "Taxis are **more comfortable than** buses.",
+    "Buses **cost less than** taxis.",
+    "Is the bus **as convenient as** a taxi?",
+    "The subway is **not as comfortable as** a taxi.",
+    "Yoona and Jay went to the museum by taxi.",
+    "What kind of train is it?",
+    "Are you ready for the review game?"
+   ],
+   "songs": [
+    "Ride the City Chant 🚇"
+   ],
+   "imgs": [
+    "12729",
+    "18155",
+    "16915",
+    "18662",
+    "14055",
+    "21301",
+    "12729",
+    "18155",
+    "16915",
+    "18662",
+    "14055",
+    "21301"
+   ]
+  }
+ ]
+}

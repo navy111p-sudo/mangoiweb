@@ -1,0 +1,533 @@
+{
+ "book": 16,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Choices"
+   ],
+   "goals": [
+    "I can say what I will choose.",
+    "I can join two ideas with and, but, so.",
+    "I can say what I will do.",
+    "I can say what will happen.",
+    "I can give a result with so.",
+    "I can talk about a travel plan.",
+    "I can answer \"Would you rather …?\"",
+    "I can give my reason."
+   ],
+   "words": [
+    [
+     "choose",
+     "고르다"
+    ],
+    [
+     "fight",
+     "싸우다"
+    ],
+    [
+     "run away",
+     "도망가다"
+    ],
+    [
+     "talk",
+     "이야기하다"
+    ],
+    [
+     "stranger",
+     "낯선 사람"
+    ],
+    [
+     "broken",
+     "고장 난"
+    ],
+    [
+     "engine",
+     "엔진"
+    ],
+    [
+     "run an errand",
+     "심부름하다"
+    ],
+    [
+     "destination",
+     "목적지"
+    ],
+    [
+     "play dead",
+     "죽은 척하다"
+    ],
+    [
+     "stand still",
+     "가만히 서 있다"
+    ],
+    [
+     "attack",
+     "공격하다"
+    ],
+    [
+     "scream",
+     "비명을 지르다"
+    ],
+    [
+     "chase",
+     "쫓아가다"
+    ],
+    [
+     "hide",
+     "숨다"
+    ],
+    [
+     "disappear",
+     "사라지다"
+    ],
+    [
+     "mad",
+     "화가 난"
+    ],
+    [
+     "travel",
+     "여행하다"
+    ],
+    [
+     "alone",
+     "혼자"
+    ],
+    [
+     "disappointed",
+     "실망한"
+    ],
+    [
+     "tourist spots",
+     "관광 명소"
+    ]
+   ],
+   "sentences": [
+    "Which one will you choose?",
+    "What joins the two ideas? Where is the comma?",
+    "Joe waited for the bus.",
+    "Sylvia will go to the academy.",
+    "Joe waited for the train, **but** the train was late.",
+    "Sylvia will go to the academy, **so** she will take the bus.",
+    "Noodles or spaghetti? What will he choose?",
+    "What will she choose?",
+    "What will he do? Will he run away or fight?",
+    "Will they talk to the stranger?",
+    "He will play basketball, for he can jump high.",
+    "What will he choose?",
+    "What will they do? Watch TV or go outside?",
+    "There's a bear! What will you do?",
+    "What will you do?",
+    "Which word shows the future? Find it on both sides!",
+    "I **will** run away.",
+    "I **will** play dead.",
+    "The bear **will** chase me.",
+    "The bear **will** ignore me.",
+    "What will she do?",
+    "If she runs away very fast, the snake will not attack her.",
+    "What will he do?",
+    "There's a ghost in your bedroom! What will you do?",
+    "Which one is gone?",
+    "The cockroach! He will scream.",
+    "Would you rather travel alone or with a friend?",
+    "Heather will visit Germany, Italy, and France.",
+    "What comes after \"would rather\"? Does the word change?",
+    "Would you rather **dance** or **sing**?",
+    "Would you rather **be** funny or smart?",
+    "I would rather **sing**.",
+    "I would rather **be** smart.",
+    "Would you rather dance or sing?",
+    "Would you rather be funny or smart?",
+    "Would you rather do schoolwork as a group or by yourself?",
+    "Would you rather catch a cockroach or a spider?",
+    "Would you rather it be hot and sunny or cold and snowy?",
+    "Would you rather have a robot or a jet plane?",
+    "Would you rather eat ice cream or cookies?"
+   ],
+   "songs": [
+    "FANBOYS Chant"
+   ],
+   "imgs": [
+    "18656",
+    "12967",
+    "gen:bts-16-runaway",
+    "12308",
+    "18754",
+    "18656",
+    "12967",
+    "gen:bts-16-runaway",
+    "12308",
+    "18754",
+    "15223",
+    "gen:bts-16-broken-car",
+    "15258",
+    "19814",
+    "gen:bts-16-play-dead",
+    "gen:bts-16-snake-still",
+    "18100",
+    "gen:bts-16-cockroach-scream",
+    "18994",
+    "13020",
+    "20279",
+    "21038",
+    "gen:bts-16-play-dead",
+    "gen:bts-16-snake-still",
+    "18100",
+    "gen:bts-16-cockroach-scream",
+    "18994",
+    "13020",
+    "20279",
+    "21038",
+    "12309",
+    "12542",
+    "21209",
+    "14809",
+    "12309",
+    "12542",
+    "21209",
+    "14809"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Inventions"
+   ],
+   "goals": [
+    "I can name materials.",
+    "I can say \"If …, I will …\".",
+    "I can talk about an invention.",
+    "I can plan an invention.",
+    "I can say what materials I will use.",
+    "I can ask and answer about inventions.",
+    "I can read a short story about inventions.",
+    "I can explain what an invention is for.",
+    "I can share my opinion."
+   ],
+   "words": [
+    [
+     "technology",
+     "과학 기술"
+    ],
+    [
+     "ingredients",
+     "재료(음식)"
+    ],
+    [
+     "build",
+     "짓다"
+    ],
+    [
+     "building",
+     "건물"
+    ],
+    [
+     "invent",
+     "발명하다"
+    ],
+    [
+     "invention",
+     "발명품"
+    ],
+    [
+     "vehicle",
+     "탈것"
+    ],
+    [
+     "materials",
+     "재료"
+    ],
+    [
+     "metal",
+     "금속"
+    ],
+    [
+     "wood",
+     "나무"
+    ],
+    [
+     "glass",
+     "유리"
+    ],
+    [
+     "paper",
+     "종이"
+    ],
+    [
+     "plastic",
+     "플라스틱"
+    ],
+    [
+     "lights",
+     "조명·불빛"
+    ],
+    [
+     "wires",
+     "전선"
+    ],
+    [
+     "grinding noise",
+     "윙윙 가는 소리"
+    ],
+    [
+     "chopsticks",
+     "젓가락"
+    ],
+    [
+     "blow",
+     "(입으로) 불다"
+    ],
+    [
+     "lazy",
+     "게으른"
+    ],
+    [
+     "businessman",
+     "사업가"
+    ],
+    [
+     "company",
+     "회사"
+    ],
+    [
+     "submarine",
+     "잠수함"
+    ],
+    [
+     "hoverboard",
+     "호버보드"
+    ],
+    [
+     "jetpack",
+     "제트팩"
+    ]
+   ],
+   "sentences": [
+    "What will you invent?",
+    "Would you rather live in a cave or a tree house?",
+    "Which part talks about the future? Is there \"will\" after \"if\"?",
+    "If it **rains**,",
+    "If I **have** money,",
+    "I **won't** go to the park.",
+    "I'**ll** buy some new shoes.",
+    "Is this telephone new or old?",
+    "The smartphone is old.",
+    "What will she make?",
+    "What will he make?",
+    "What will I use?",
+    "The road is dark. I will turn off my headlights.",
+    "This cup is made of glass.",
+    "What will Wendy invent?",
+    "Dr. Straw wants to solve math problems. What will he invent?",
+    "What will you make in your workshop?",
+    "Will it need lights?",
+    "Who will live in this house?",
+    "I will invent a light bulb. What materials will I use?",
+    "Thomas Edison invented the smartphone.",
+    "I can't bring this telephone to work!",
+    "What materials will I use to invent one?",
+    "What did he invent?",
+    "Will cars fly in the future?",
+    "If Nick has problems, his father will help him.",
+    "What is a fidget spinner for?",
+    "What is a power bank for? Do you have one?",
+    "How does a CCTV camera help people?",
+    "How does a selfie stick help people take pictures?",
+    "Which invention is it?",
+    "What will you promise your friend?"
+   ],
+   "songs": [],
+   "imgs": [
+    "12356",
+    "16653",
+    "17142",
+    "16843",
+    "16303",
+    "19430",
+    "15812",
+    "19450",
+    "12356",
+    "16653",
+    "17142",
+    "16843",
+    "16303",
+    "19430",
+    "15812",
+    "19450",
+    "14335",
+    "12973",
+    "12123",
+    "16003",
+    "16360",
+    "12649",
+    "14806",
+    "14335",
+    "12973",
+    "12123",
+    "16003",
+    "16360",
+    "12649",
+    "14806",
+    "15497",
+    "15097",
+    "16923",
+    "c7484",
+    "15096",
+    "15370",
+    "15812",
+    "gen:bts-16-submarine",
+    "gen:bts-16-hoverboard",
+    "gen:bts-16-jetpack",
+    "15096",
+    "15370",
+    "15812",
+    "gen:bts-16-submarine",
+    "gen:bts-16-hoverboard",
+    "gen:bts-16-jetpack"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "I promise, I predict, I plan"
+   ],
+   "goals": [
+    "I can make a promise.",
+    "I can make a prediction.",
+    "I can talk about my plans.",
+    "I can talk about plans in pictures.",
+    "I can use promise, predict, and plan correctly.",
+    "I can find and fix mistakes.",
+    "I can read about someone's plans.",
+    "I can make promises like a president.",
+    "I can predict the future of my country."
+   ],
+   "words": [
+    [
+     "promise",
+     "약속하다"
+    ],
+    [
+     "predict",
+     "예측하다"
+    ],
+    [
+     "plan",
+     "계획하다"
+    ],
+    [
+     "prediction",
+     "예측"
+    ],
+    [
+     "courtroom",
+     "법정"
+    ],
+    [
+     "truth",
+     "진실"
+    ],
+    [
+     "marry",
+     "결혼하다"
+    ],
+    [
+     "in love",
+     "사랑에 빠진"
+    ],
+    [
+     "expensive",
+     "비싼"
+    ],
+    [
+     "present",
+     "선물"
+    ],
+    [
+     "wealthy",
+     "부유한"
+    ],
+    [
+     "brag",
+     "자랑하다"
+    ]
+   ],
+   "sentences": [
+    "What do you promise? What do you predict? What do you plan?",
+    "After \"plan\", what comes? After \"predict\", what comes?",
+    "I promise I **will** study hard.",
+    "I predict it **will** rain tomorrow.",
+    "She promises **to** study hard.",
+    "I plan **to** play games.",
+    "What will the weather be like tomorrow?",
+    "On Sunday, it will be sunny.",
+    "What will your parents cook tomorrow?",
+    "What is his plan?",
+    "What is his plan? What will he find?",
+    "What do you predict will happen?",
+    "What will he promise?",
+    "What's their plan?",
+    "What's his plan?",
+    "What changed? Why?",
+    "They **promises** to stop **fight**.",
+    "They **promise** to stop **fighting**.",
+    "They promises to stop fight.",
+    "She predict that the thief will gets catch.",
+    "They plans that bought clothes at the department store.",
+    "It promise to stopping stealing food from the kitchen.",
+    "He plans find the treasure.",
+    "Who are they? What do they plan to do?",
+    "Which picture is gone?",
+    "The cat! It promises to stop stealing food.",
+    "What do you plan to be in the future?",
+    "Luna plans to build a mansion for her friends.",
+    "Tell us about your plan for your country!",
+    "What will you build?",
+    "What else do you want to build?",
+    "Who will you catch?",
+    "What will you give?",
+    "I predict that …",
+    "Who is she? What does she promise?",
+    "How much do you remember?"
+   ],
+   "songs": [],
+   "imgs": [
+    "c5016",
+    "20108",
+    "14636",
+    "12195",
+    "14772",
+    "15004",
+    "17024",
+    "16707",
+    "c5016",
+    "20108",
+    "14636",
+    "12195",
+    "14772",
+    "15004",
+    "17024",
+    "16707",
+    "19229",
+    "13192",
+    "13381",
+    "18619"
+   ]
+  }
+ ]
+}

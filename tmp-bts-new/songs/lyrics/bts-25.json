@@ -1,0 +1,27 @@
+{
+ "book": 25,
+ "songs": [
+  {
+   "unit": "Unit 2",
+   "key": "bts-25-song-if-i-didnt-have",
+   "title": "If I Didn't Have It ⚙️",
+   "tune": "Oh My Darling, Clementine",
+   "lines": [
+    "If I didn't have a stapler,",
+    "I would use some tape instead.",
+    "If I didn't have a remote,",
+    "I would walk to the TV.",
+    "Automatic and efficient,",
+    "Inventions help us save time.",
+    "Zippers, velcro, and a stapler,",
+    "They save time and effort too!"
+   ],
+   "nt": "발명품 가정 노래(새로 지음)",
+   "n": [
+    "곡조: Oh My Darling, Clementine (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "stapler에서 손으로 찍는 흉내, remote에서 리모컨 누르는 흉내를 화면에 보여주기"
+   ],
+   "imgPrompt": "Kids at school desks using a stapler, tape and a zipper bag, with a rice cooker and remote control nearby."
+  }
+ ]
+}

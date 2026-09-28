@@ -1,6 +1,9 @@
 // BTS 27 새 교재 설계 데이터. k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 // 사진 번호 = photo-catalog.json · 'gen:bts-27-…' = 새로 만들 사진(gen/req-bts-27.json)
 import { open, close } from '../common.mjs';
+const USONG_1 = { t: 'song', k: 'new', small: "Let's sing! ♪ Clap chant", title: "What Is It Made Of? 👕", img: "gen:bts-27-song-made-of", nt: "옷감 챈트(새로 지음)", n: ["곡조: Clap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다","made of가 나올 때마다 자기 옷을 잡아 화면에 보여주며 따라 말하기"], src: '새로 지음', lines: ["My jeans are made of denim.","My scarf is made of wool.","These shoes are made of leather.","The shirt that has stars is made of cotton.","What is your T-shirt made of?","Formal, casual, classy, hip!","What would you wear on a special day?","I would wear a classy outfit!"] };
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Pop Goes the Weasel", title: "Stripes and Plaid 🧣", img: "gen:bts-27-song-stripes-and-plaid", nt: "무늬·액세서리 노래(새로 지음)", n: ["곡조: Pop Goes the Weasel (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","because에서 손가락을 들어 이유를 말하는 동작, 마지막 줄에서 목도리 두르는 흉내"], src: '새로 지음', lines: ["Stripes and plaid and polka dots, too,","Which pattern looks good on you?","I like the stripes because they're fun,","but not polka dots!","Accessorize to level up,","Your scarf is the focal point!","I wear a scarf because it's cold,","and it looks so great!"] };
+const USONG_3 = { t: 'song', k: 'new', small: "Let's sing! ♪ Rap chant", title: "If I Were You 🕶️", img: "gen:bts-27-song-if-i-were-you", nt: "패션 조언 랩(새로 지음)", n: ["곡조: Rap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다","If I were you에서 친구를 가리키고, I would에서 자기 가슴에 손을 얹기"], src: '새로 지음', lines: ["Fads come fast, and fads go fast.","Trends are popular for a long time.","Is it a fad or is it a trend?","Sagging pants? A pet rock? That's a fad!","You wear a heavy coat in summer?","If I were you, I would wear a T-shirt!","A cowboy hat in the snow?","If I were you, I would wear a warm hat!"] };
 
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3';
 // 원본 모든 과의 «셔츠 색깔 돌림판» 몸풀기 — 과마다 같은 표라 한 곳에 둡니다
@@ -21,7 +24,8 @@ export const COURSE = {
 <li><b>사실 확인</b> — 007 «Modern roller skates (inline skates) were invented in 1863»: 1863년은 네 바퀴 롤러스케이트, 인라인은 훨씬 뒤라 문장을 고쳤습니다. 005 «동물 무늬가 지금 유행», 008 «50년 넘게 인기»(2019 기준) 같은 시점 표현도 확인이 필요합니다.</li>
 <li><b>이름 표기</b> — 003 이야기 주인공 Kaye, 006 Kayla. 원본 JPG 그대로 두 사람으로 두었습니다(OCR 은 «Raye» 로 읽힘).</li>
 <li><b>고친 문장 승인</b> — 과마다 «이 과에서 고친 것». 특히 001 관계절 예문(쉼표 틀림), 004 «Complex Sentence» 이름표, 007·008·009 문법 쪽이 004 복사본이던 것.</li>
-<li><b>새로 만들 사진 40장</b> — 점선 자리(힉스필드 크레딧). 쓰는 곳이 없어도 원본 쪽 수를 맞추려면 필요합니다.</li></ol></div>`,
+<li><b>새로 만들 사진 40장</b> — 점선 자리(힉스필드 크레딧). 쓰는 곳이 없어도 원본 쪽 수를 맞추려면 필요합니다.</li>
+<li><b>새 단원 노래 3곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 1 «What Is It Made Of?»(Clap chant (4 beats)) · Unit 2 «Stripes and Plaid»(Pop Goes the Weasel) · Unit 3 «If I Were You»(Rap chant (4 beats)). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '패션 스타일', unit: U1, title: 'Fashions', orig: 30,
@@ -30,6 +34,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-27-fashion-cover', q: 'What makes clothes fashionable?', story: 'Leo has a big dinner tonight. He thinks his outfit is cool. Is it?', nt: '표지 + Big Question', n: ['학교 패션쇼 사진 — «Which outfit do you like?» 먼저 묻기', '«fashionable» 은 이 권 전체의 열쇠말입니다'] },
       ...open([['I can talk about different fashion styles.', '여러 가지 패션 스타일을 말할 수 있어요.'], ['I can use "that" and "which" to describe clothes.', 'that 과 which 로 옷을 꾸며 말할 수 있어요.'], ['I can say what people wear to special events.', '특별한 날에 무엇을 입는지 말할 수 있어요.']], 'Lesson Goals 4쪽'),
+      USONG_1,
       WARM('5쪽'),
       { t: 'vocab', k: 'fix', hide: true, words: [['fashionable', '유행하는·멋진', '15393'], ['style', '스타일(입는 방식)', '16019'], ['outfit', '옷차림(한 벌)', '16831'], ['fashion trend', '패션 유행', '15789'], ['oversized', '아주 큰(오버사이즈)', '19438'], ['impress', '좋은 인상을 주다', '18557'], ['classy', '세련된·고급스러운', '16046'], ['personality', '성격', '19120']], src: 'Vocabulary 6쪽', nt: '낱말 — 뜻 가리고 먼저 말하기', n: ['<del>인상을 주다</del> → 좋은 인상을 주다 · <del>고급</del> → 세련된 · <del>인격</del> → 성격 · <del>특대</del> → 아주 큰', '사진만 보고 뜻을 먼저 말하게 합니다'] },
       { t: 'vocab', k: 'keep', title: 'Words', words: [['fashionable', '유행하는·멋진', '15393'], ['style', '스타일(입는 방식)', '16019'], ['outfit', '옷차림(한 벌)', '16831'], ['fashion trend', '패션 유행', '15789'], ['oversized', '아주 큰(오버사이즈)', '19438'], ['impress', '좋은 인상을 주다', '18557'], ['classy', '세련된·고급스러운', '16046'], ['personality', '성격', '19120']], nt: '낱말 — 뜻 공개', n: ['따라 말하기 2번 → 강사가 사진을 가리키면 학생이 말하기'] },
@@ -61,6 +66,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-27-cotton-field', q: 'Where do our clothes come from?', story: 'Yoona reads the label on her T-shirt: 100% cotton. But what is cotton?', nt: '표지 + Big Question', n: ['지난 시간 예고 사진 — 목화 솜을 보여 주고 «What is it?»'] },
       ...open([['I can name different fabrics.', '옷감 이름을 말할 수 있어요.'], ['I can say where a material comes from.', '옷감이 어디서 오는지 말할 수 있어요.'], ['I can say "It is made of ___."', '무엇으로 만들었는지 말할 수 있어요.']], 'Lesson Goals (001 복사본이었음)'),
+      USONG_1,
       WARM('5쪽'),
       { t: 'vocab', k: 'fix', hide: true, words: [['materials', '재료', '19450'], ['fabrics', '천·옷감', '18118'], ['denim', '데님(청바지 천)', '15327'], ['cotton', '면·목화', '16906'], ['wool', '양털·울', '18888'], ['scratchy', '까끌까끌한', '18112'], ['leather', '가죽', '18117'], ['silk', '비단·실크', '16815']], src: 'Vocabulary 6쪽', nt: '낱말 — 가림', n: ['<del>가려운</del> → 까끌까끌한 · <del>두꺼운 천</del> → 데님', '만질 수 있는 옷이 있으면 직접 만져 보게 하세요'] },
       { t: 'vocab', k: 'keep', title: 'Words', words: [['materials', '재료', '19450'], ['fabrics', '천·옷감', '18118'], ['denim', '데님(청바지 천)', '15327'], ['cotton', '면·목화', '16906'], ['wool', '양털·울', '18888'], ['scratchy', '까끌까끌한', '18112'], ['leather', '가죽', '18117'], ['silk', '비단·실크', '16815']], nt: '낱말 — 공개' },
@@ -89,6 +95,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-27-kaye-uniform', q: 'Do clothes make you happy?', story: 'Kaye loves fashion. But her mom says something important…', nt: '표지 + Big Question', n: ['«What does Kaye wear to school?» 사진으로 먼저'] },
       ...open([['I can choose the right clothes for the right day.', '날에 맞는 옷을 고를 수 있어요.'], ["I can read and talk about Kaye's story.", 'Kaye 의 이야기를 읽고 말할 수 있어요.'], ['I can say "I would wear ___."', '내가 입을 옷을 말할 수 있어요.']], 'Lesson Goals (001 복사본이었음)'),
+      USONG_1,
       WARM('5쪽'),
       { t: 'qa', k: 'keep', img: '12855', title: "What's the right thing to wear?", q: 'You are going to the beach. What would you wear?', a: 'I would wear ___ and ___.', chips: ['shorts', 'sunglasses', 'a hat'], src: '7·8쪽 Your Turn', nt: '생각 열기', n: ['원본은 옷 입히기 만화 쪽 — 장소 하나를 골라 먼저 말하기'] },
       { t: 'vocab', k: 'fix', title: 'Story words', words: [['depending on', '~에 따라', '15649'], ['complicated', '복잡한', '18774'], ['show them off', '자랑하다·뽐내다', '18674'], ['uniform', '교복·제복', '16606']], src: '11쪽 풀이', nt: '이야기 낱말', n: ['원본 영영풀이(being conditioned by; contingent on)는 너무 어려워 한국어 뜻으로', 'uniform 은 이야기 첫 줄에 나와 새로 넣었습니다'] },
@@ -113,6 +120,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-27-dawn-miho', q: 'How can accessories change an outfit?', story: 'Miho wants to wear only a white shirt to a music festival. Dawn has a better idea!', nt: '표지 + Big Question', n: ['지난 시간 예고 사진 — 목걸이를 고르는 두 친구'] },
       ...open([['I can name accessories.', '액세서리 이름을 말할 수 있어요.'], ['I can say what someone is wearing.', '다른 사람이 무엇을 하고 있는지 말할 수 있어요.'], ['I can join sentences with "but" and "because".', 'but 과 because 로 문장을 이을 수 있어요.']], 'Lesson Goals 4쪽'),
+      USONG_2,
       WARM('5쪽'),
       { t: 'vocab', k: 'fix', hide: true, words: [['Coachella', '코첼라(미국의 큰 음악 축제)', 'gen:bts-27-music-festival'], ['level up', '한 단계 높이다', '19331'], ['accessorize', '액세서리로 꾸미다', '15179'], ['upgrade', '더 좋게 바꾸다', '18120'], ['dangling earrings', '달랑거리는 귀걸이', 'gen:bts-27-dangling-earrings'], ['focal point', '눈길이 가는 중심', 'gen:bts-27-statement-necklace'], ['pearl studs', '진주 귀걸이(작은 것)', 'gen:bts-27-pearl-studs'], ['fashion consultant', '패션 상담사', '18557']], src: 'Vocabulary 6쪽', nt: '낱말 — 가림', n: ['<del>매달려 귀걸이</del> → 달랑거리는 귀걸이 · <del>승급</del> → 한 단계 높이다 · <del>초점</del> → 눈길이 가는 중심', 'Coachella 는 상표·행사 이름 — «a music festival» 로 바꿀지 사람이 정할 것'] },
       { t: 'vocab', k: 'keep', title: 'Words', words: [['Coachella', '코첼라(미국의 큰 음악 축제)', 'gen:bts-27-music-festival'], ['level up', '한 단계 높이다', '19331'], ['accessorize', '액세서리로 꾸미다', '15179'], ['upgrade', '더 좋게 바꾸다', '18120'], ['dangling earrings', '달랑거리는 귀걸이', 'gen:bts-27-dangling-earrings'], ['focal point', '눈길이 가는 중심', 'gen:bts-27-statement-necklace'], ['pearl studs', '진주 귀걸이(작은 것)', 'gen:bts-27-pearl-studs'], ['fashion consultant', '패션 상담사', '18557']], nt: '낱말 — 공개' },
@@ -139,6 +147,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-27-patterns-cover', q: 'Which pattern looks good on you?', story: 'Stripes, dots, squares and spots — which one is your style?', nt: '표지 + Big Question' },
       ...open([['I can name clothing patterns.', '옷 무늬 이름을 말할 수 있어요.'], ['I can say where a pattern comes from.', '무늬가 어디서 왔는지 말할 수 있어요.'], ['I can say "I think ___ because ___."', '이유를 붙여 내 생각을 말할 수 있어요.']], 'Lesson Goals (004 복사본이었음)'),
+      USONG_2,
       WARM('5쪽'),
       { t: 'vocab', k: 'new', hide: true, words: [['stripes', '줄무늬', '18843'], ['polka dots', '물방울무늬', '18869'], ['plaid', '체크무늬(격자)', '15616'], ['animal pattern', '동물 무늬', 'gen:bts-27-leopard-coat'], ['kilt', '킬트(스코틀랜드 치마)', 'gen:bts-27-kilt-bagpipe']], nt: '낱말 — 가림', n: ['원본 낱말 쪽이 004 복사본이라 이 과 낱말을 새로 뽑았습니다'] },
       { t: 'vocab', k: 'new', title: 'Words', words: [['stripes', '줄무늬', '18843'], ['polka dots', '물방울무늬', '18869'], ['plaid', '체크무늬(격자)', '15616'], ['animal pattern', '동물 무늬', 'gen:bts-27-leopard-coat'], ['kilt', '킬트(스코틀랜드 치마)', 'gen:bts-27-kilt-bagpipe']], nt: '낱말 — 공개' },
@@ -164,6 +173,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-27-kayla-outfit', q: 'Is fashion important to you?', story: 'Kayla loves fashion. Harry just wants to be comfortable. Who are you like?', nt: '표지 + Big Question' },
       ...open([['I can describe my favorite outfit.', '좋아하는 옷차림을 설명할 수 있어요.'], ['I can compare two opinions.', '두 사람의 생각을 비교할 수 있어요.'], ['I can say what I think about fashion.', '패션에 대한 내 생각을 말할 수 있어요.']], 'Lesson Goals (004 복사본이었음)'),
+      USONG_2,
       WARM('5쪽'),
       { t: 'qa', k: 'keep', img: '16831', title: 'Your turn first!', q: 'Do you have a favorite outfit? When do you wear it?', a: 'My favorite outfit is ___. I wear it when ___.', src: '7쪽', nt: '생각 열기' },
       { t: 'read', k: 'fix', small: 'Kayla says ①', title: 'My Denim Skirt', img: 'gen:bts-27-kayla-outfit', paras: ["I love to dress in pretty outfits. I can't have all of the clothes I want, but I do have some nice clothes. My favorite piece of clothing is definitely my denim skirt. I think it looks cute and stylish.", 'With the skirt, I often wear black stockings, brown boots and a striped turtleneck. I think the stripes and the denim go well together.'], gloss: [['definitely', '틀림없이'], ['go well together', '잘 어울리다']], src: '8쪽', nt: '읽기 — Kayla ①', n: ['<del>turtle neck</del> → turtleneck', '002 데님·005 줄무늬가 한 벌에 — «What is it made of?» 로 복습'] },
@@ -185,6 +195,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-27-fads-cover', q: 'Why do styles come and go?', story: 'Dennis thinks his pants look cool. Marge does not agree…', nt: '표지 + Big Question', n: ['부모님 옛날 사진을 보며 웃는 가족 — «What was in style then?»'] },
       ...open([['I can say "in style" and "out of style".', '유행 중인지, 지났는지 말할 수 있어요.'], ['I can tell a fad from a trend.', '잠깐 유행(fad)과 오래가는 흐름(trend)을 구별할 수 있어요.'], ['I can talk about different fashion styles.', '여러 패션 스타일을 말할 수 있어요.']], 'Lesson Goals 4쪽'),
+      USONG_3,
       WARM('5쪽'),
       { t: 'vocab', k: 'fix', hide: true, words: [['sagging pants', '엉덩이까지 내려 입는 바지', 'gen:bts-27-sagging-pants'], ['famous', '유명한', '12869'], ['insecure', '자신 없는', '15207'], ['imitate', '따라 하다', '19605']], src: 'Vocabulary 6쪽', nt: '낱말 — 가림', n: ['<del>처짐 바지</del> → 내려 입는 바지 · <del>불안정한</del> → 자신 없는 · <del>본뜨다</del> → 따라 하다'] },
       { t: 'vocab', k: 'keep', title: 'Words', words: [['sagging pants', '엉덩이까지 내려 입는 바지', 'gen:bts-27-sagging-pants'], ['famous', '유명한', '12869'], ['insecure', '자신 없는', '15207'], ['imitate', '따라 하다', '19605']], nt: '낱말 — 공개' },
@@ -214,6 +225,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-27-pet-rock', q: 'Why do people buy silly things?', story: 'A rock as a pet? A blanket you can wear? People bought them all!', nt: '표지 + Big Question', n: ['지난 시간 예고 사진 그대로 — «Would you buy it?» 먼저'] },
       ...open([['I can read about famous fads and trends.', '유명한 유행 상품 이야기를 읽을 수 있어요.'], ['I can say when and why something became popular.', '언제, 왜 인기를 얻었는지 말할 수 있어요.'], ['I can say "I think it is a fad because ___."', '유행인지 흐름인지 이유를 들어 말할 수 있어요.']], 'Lesson Goals (004 복사본이었음)'),
+      USONG_3,
       WARM('5쪽'),
       { t: 'discuss', k: 'fix', img: '18981', title: 'Picture Talk', qs: ['When did the fad or trend start?', 'Why did it become popular?', 'What media are used in the fad or trend? (TV, games, books…)', 'Did it stop being popular, or is it still going?'], src: '8·9쪽', nt: '읽기 전 질문', n: ['<del>usedin</del> → used in · <del>stop Ei popular</del> → stop being popular'] },
       { t: 'vocab', k: 'new', hide: true, words: [['invented', '발명했다', '16303'], ['millionaire', '백만장자', '15558'], ['collecting', '모으기(수집)', 'gen:bts-27-bug-collecting'], ['wearable', '입을 수 있는', 'gen:bts-27-wearable-blanket'], ['grown-up', '어른(의)', '16908']], nt: '읽기 낱말 — 가림', n: ['원본 낱말 쪽이 007 복사본이라 이 과 글에서 뽑았습니다'] },
@@ -238,6 +250,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-27-fashion-police', q: 'How can we give advice politely?', story: 'Marge is the fashion police today! 🚨 But she must be polite.', nt: '표지 + Big Question' },
       ...open([['I can make polite suggestions.', '공손하게 제안할 수 있어요.'], ['I can say "If I were you, I would ___."', '«내가 너라면 ~할 거야» 를 말할 수 있어요.'], ['I can give fashion advice.', '옷차림에 대해 조언할 수 있어요.']], 'Lesson Goals (004 복사본이었음)'),
+      USONG_3,
       WARM('5쪽'),
       { t: 'rule', k: 'fix', title: 'How to make a suggestion', left: { h: '1. Start politely 🙏', ex: ['Excuse me, but I think you should ___.', "I'm sorry, but you are ___. I think you should ___ instead."] }, right: { h: '2. Give advice 💡', ex: ['If I were you, I would ___.', 'You should ___.'] }, q: 'Your friend is wearing a heavy coat in summer. What do you say?', src: 'Key Grammar 8쪽', nt: '규칙 찾기 — 두 단계', n: ['제안 = 무엇이 잘못됐는지 공손하게 말하고 → 더 나은 방법을 권하기', '원본 깨진 문장 «you are doing a think you should do instead» 를 고쳤습니다'] },
       { t: 'qa', k: 'keep', img: '12135', label: 'Key grammar', title: "What's wrong?", q: 'He is driving too fast. Make a suggestion!', a: 'Excuse me, but I think you are driving too fast. You should ___.', src: '9쪽', nt: '예문 ①', n: ['정답: slow down'] },

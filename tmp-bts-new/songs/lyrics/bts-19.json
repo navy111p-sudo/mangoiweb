@@ -1,0 +1,71 @@
+{
+  "book": 19,
+  "songs": [
+    {
+      "unit": "Unit 1 · Jobs",
+      "key": "bts-19-song-what-do-you-want-to-be",
+      "title": "What Do You Want to Be? 🚒",
+      "tune": "Rap chant (4 beats)",
+      "lines": [
+        "What do you want to be? Let's see!",
+        "A dentist, a soldier, a filmmaker — me!",
+        "An architect designs buildings, big and small!",
+        "Firefighters fight fires, they answer the call!",
+        "Which job do you want to have?",
+        "A police officer or a filmmaker?",
+        "What does a guidance counselor do?",
+        "She helps you find the right job!"
+      ],
+      "nt": "직업 랩(새로 지음)",
+      "n": [
+        "곡조: Rap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+        "직업 이름이 나올 때마다 그 직업 동작(카메라 찍기, 소방 호스 잡기, 경례 등)을 하고, 질문 줄에서는 화면을 가리킵니다."
+      ],
+      "imgPrompt": "Children dressed as a dentist, a soldier, a filmmaker with a camera, an architect with building plans, and a firefighter holding a hose."
+    },
+    {
+      "unit": "Unit 2 · Skills and Training",
+      "key": "bts-19-song-if-i-have-skills",
+      "title": "If I Have Skills 💻",
+      "tune": "Clap chant (4 beats)",
+      "lines": [
+        "If I have computer skills,",
+        "Then I will be a programmer!",
+        "If the weather is fine today,",
+        "I will go to the training — hooray!",
+        "An architect needs creative skills",
+        "Because he designs new buildings!",
+        "A dentist needs patience, too,",
+        "Because some patients are really scared!"
+      ],
+      "nt": "기술·조건문 챈트(새로 지음)",
+      "n": [
+        "곡조: Clap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+        "‘If …’ 줄에서는 손가락 하나를 들고, ‘I will …’ 줄에서는 주먹을 쥐고 앞으로 내밀며 4박 박수로 챈트합니다."
+      ],
+      "imgPrompt": "A child typing happily on a computer, children walking to training on a sunny day, an architect drawing a building, and a gentle dentist calming a nervous patient."
+    },
+    {
+      "unit": "Unit 3 · I Want to Be",
+      "key": "bts-19-song-so-i-want-to-be",
+      "title": "So I Want to Be… 🔬",
+      "tune": "The Muffin Man",
+      "lines": [
+        "I want to be a scientist",
+        "Because I like experiments.",
+        "I like experiments, so",
+        "I'll be a scientist!",
+        "I'll be a firefighter, so",
+        "I need great physical strength.",
+        "I'll be an architect, but I",
+        "Don't have creative skills yet!"
+      ],
+      "nt": "꿈의 직업 노래(새로 지음)",
+      "n": [
+        "곡조: The Muffin Man (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "‘so’에서 오른손을 앞으로 쭉 밀고, ‘but’에서 손바닥을 멈춤 표시로 들며, ‘scientist’에서는 비커 흔드는 흉내를 냅니다."
+      ],
+      "imgPrompt": "A child scientist doing a colorful experiment, a strong child firefighter lifting a hose, and a child architect sketching a building plan."
+    }
+  ]
+}

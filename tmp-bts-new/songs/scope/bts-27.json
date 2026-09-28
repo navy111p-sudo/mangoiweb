@@ -1,0 +1,445 @@
+{
+ "book": 27,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Fashions"
+   ],
+   "goals": [
+    "I can talk about different fashion styles.",
+    "I can use \"that\" and \"which\" to describe clothes.",
+    "I can say what people wear to special events.",
+    "I can name different fabrics.",
+    "I can say where a material comes from.",
+    "I can say \"It is made of ___.\"",
+    "I can choose the right clothes for the right day.",
+    "I can read and talk about Kaye's story.",
+    "I can say \"I would wear ___.\""
+   ],
+   "words": [
+    [
+     "fashionable",
+     "유행하는·멋진"
+    ],
+    [
+     "style",
+     "스타일(입는 방식)"
+    ],
+    [
+     "outfit",
+     "옷차림(한 벌)"
+    ],
+    [
+     "fashion trend",
+     "패션 유행"
+    ],
+    [
+     "oversized",
+     "아주 큰(오버사이즈)"
+    ],
+    [
+     "impress",
+     "좋은 인상을 주다"
+    ],
+    [
+     "classy",
+     "세련된·고급스러운"
+    ],
+    [
+     "personality",
+     "성격"
+    ],
+    [
+     "hip",
+     "멋진·세련된"
+    ],
+    [
+     "old-fashioned",
+     "구식인·옛날식의"
+    ],
+    [
+     "formal",
+     "격식 있는·정장의"
+    ],
+    [
+     "casual",
+     "평상시의·편한"
+    ],
+    [
+     "materials",
+     "재료"
+    ],
+    [
+     "fabrics",
+     "천·옷감"
+    ],
+    [
+     "denim",
+     "데님(청바지 천)"
+    ],
+    [
+     "cotton",
+     "면·목화"
+    ],
+    [
+     "wool",
+     "양털·울"
+    ],
+    [
+     "scratchy",
+     "까끌까끌한"
+    ],
+    [
+     "leather",
+     "가죽"
+    ],
+    [
+     "silk",
+     "비단·실크"
+    ],
+    [
+     "depending on",
+     "~에 따라"
+    ],
+    [
+     "complicated",
+     "복잡한"
+    ],
+    [
+     "show them off",
+     "자랑하다·뽐내다"
+    ],
+    [
+     "uniform",
+     "교복·제복"
+    ]
+   ],
+   "sentences": [
+    "What makes clothes fashionable?",
+    "What clothes do you think are fashionable?",
+    "What are they wearing? Where do they wear them?",
+    "When is this from? Guess the decade!",
+    "Describe their style.",
+    "What are they wearing?",
+    "The shirt **that** has stars is made of cotton.",
+    "Not the plain shirt. The one with stars!",
+    "The shirt**,** **which** I really like**,** is made of cotton.",
+    "There is only one shirt. We add more about it.",
+    "Marvin says Leo should wear a bow tie.",
+    "What is your T-shirt made of?",
+    "Where do our clothes come from?",
+    "The shirt **is** made of **cotton**.",
+    "My scarf **is** made of **wool**.",
+    "My jeans **are** made of **denim**.",
+    "These shoes **are** made of **leather**.",
+    "Silk comes from sheep.",
+    "Rain jackets are made of plastic because they dry fast.",
+    "What fabric is it? Guess!",
+    "What would you wear on a special day?",
+    "Do clothes make you happy?",
+    "You are going to the beach. What would you wear?",
+    "Kaye's friends said her new skirt was ugly.",
+    "What is it? Who wears it?",
+    "What would you wear to your uncle's wedding?",
+    "What would you wear on your graduation day?",
+    "What would you wear on New Year's Day?",
+    "What would you wear to watch a movie with your friends?",
+    "What would you wear camping for the weekend?",
+    "Can a necklace change your whole look?"
+   ],
+   "songs": [],
+   "imgs": [
+    "15393",
+    "16019",
+    "16831",
+    "15789",
+    "19438",
+    "18557",
+    "16046",
+    "19120",
+    "15393",
+    "16019",
+    "16831",
+    "15789",
+    "19438",
+    "18557",
+    "16046",
+    "19120",
+    "18770",
+    "19688",
+    "17183",
+    "12568",
+    "19450",
+    "18118",
+    "15327",
+    "16906",
+    "18888",
+    "18112",
+    "18117",
+    "16815",
+    "19450",
+    "18118",
+    "15327",
+    "16906",
+    "18888",
+    "18112",
+    "18117",
+    "16815",
+    "15649",
+    "18774",
+    "18674",
+    "16606"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "My Dream Outfit"
+   ],
+   "goals": [
+    "I can name accessories.",
+    "I can say what someone is wearing.",
+    "I can join sentences with \"but\" and \"because\".",
+    "I can name clothing patterns.",
+    "I can say where a pattern comes from.",
+    "I can say \"I think ___ because ___.\"",
+    "I can describe my favorite outfit.",
+    "I can compare two opinions.",
+    "I can say what I think about fashion."
+   ],
+   "words": [
+    [
+     "Coachella",
+     "코첼라(미국의 큰 음악 축제)"
+    ],
+    [
+     "level up",
+     "한 단계 높이다"
+    ],
+    [
+     "accessorize",
+     "액세서리로 꾸미다"
+    ],
+    [
+     "upgrade",
+     "더 좋게 바꾸다"
+    ],
+    [
+     "dangling earrings",
+     "달랑거리는 귀걸이"
+    ],
+    [
+     "focal point",
+     "눈길이 가는 중심"
+    ],
+    [
+     "pearl studs",
+     "진주 귀걸이(작은 것)"
+    ],
+    [
+     "fashion consultant",
+     "패션 상담사"
+    ],
+    [
+     "stripes",
+     "줄무늬"
+    ],
+    [
+     "polka dots",
+     "물방울무늬"
+    ],
+    [
+     "plaid",
+     "체크무늬(격자)"
+    ],
+    [
+     "animal pattern",
+     "동물 무늬"
+    ],
+    [
+     "kilt",
+     "킬트(스코틀랜드 치마)"
+    ]
+   ],
+   "sentences": [
+    "How can accessories change an outfit?",
+    "She wears dangling earrings, **but** they are not fashionable.",
+    "I like this hat, **but** it is too big.",
+    "They are not fashionable **because** they don't look good.",
+    "I wear a scarf **because** it is cold.",
+    "What accessories is she wearing? Is it a good choice?",
+    "What accessories is he wearing?",
+    "What accessories is she wearing? Do you like them?",
+    "Dawn tells Miho to wear her dangling earrings.",
+    "What accessory is it? Guess!",
+    "Stripes or polka dots?",
+    "Which pattern looks good on you?",
+    "Which animal pattern is it?",
+    "Only women wear striped clothes.",
+    "Polka dots are very common on fancy clothes.",
+    "What pattern is she wearing? Do you like her outfit?",
+    "Is her outfit fashionable? Would it look good on you?",
+    "Look! 5 seconds! 👀",
+    "What patterns did you see?",
+    "What is your favorite outfit?",
+    "Is fashion important to you?",
+    "Do you have a favorite outfit? When do you wear it?",
+    "Harry wears the same color T-shirt every day.",
+    "Whose is it? Kayla or Harry?",
+    "Are your clothes in style?"
+   ],
+   "songs": [],
+   "imgs": [
+    "gen:bts-27-music-festival",
+    "19331",
+    "15179",
+    "18120",
+    "gen:bts-27-dangling-earrings",
+    "gen:bts-27-statement-necklace",
+    "gen:bts-27-pearl-studs",
+    "18557",
+    "gen:bts-27-music-festival",
+    "19331",
+    "15179",
+    "18120",
+    "gen:bts-27-dangling-earrings",
+    "gen:bts-27-statement-necklace",
+    "gen:bts-27-pearl-studs",
+    "18557",
+    "18843",
+    "18869",
+    "15616",
+    "gen:bts-27-leopard-coat",
+    "gen:bts-27-kilt-bagpipe",
+    "18843",
+    "18869",
+    "15616",
+    "gen:bts-27-leopard-coat",
+    "gen:bts-27-kilt-bagpipe"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Fads Come and Go"
+   ],
+   "goals": [
+    "I can say \"in style\" and \"out of style\".",
+    "I can tell a fad from a trend.",
+    "I can talk about different fashion styles.",
+    "I can read about famous fads and trends.",
+    "I can say when and why something became popular.",
+    "I can say \"I think it is a fad because ___.\"",
+    "I can make polite suggestions.",
+    "I can say \"If I were you, I would ___.\"",
+    "I can give fashion advice."
+   ],
+   "words": [
+    [
+     "sagging pants",
+     "엉덩이까지 내려 입는 바지"
+    ],
+    [
+     "famous",
+     "유명한"
+    ],
+    [
+     "insecure",
+     "자신 없는"
+    ],
+    [
+     "imitate",
+     "따라 하다"
+    ],
+    [
+     "invented",
+     "발명했다"
+    ],
+    [
+     "millionaire",
+     "백만장자"
+    ],
+    [
+     "collecting",
+     "모으기(수집)"
+    ],
+    [
+     "wearable",
+     "입을 수 있는"
+    ],
+    [
+     "grown-up",
+     "어른(의)"
+    ]
+   ],
+   "sentences": [
+    "Why do styles come and go?",
+    "comes **fast**",
+    "popular for a **short** time",
+    "e.g. parachute pants",
+    "lasts **longer**",
+    "popular for a **long** time",
+    "e.g. skating",
+    "What is he wearing? Where is he going?",
+    "What is she wearing? Would you wear it?",
+    "What are they wearing? How did the trend start?",
+    "Are his jeans tight or baggy? In style or out of style?",
+    "Marge says Dennis looks like a famous rapper.",
+    "Would you buy a pet rock?",
+    "Why do people buy silly things?",
+    "Pokémon started as a TV show.",
+    "What toy is it? Is it a fad or a trend?",
+    "Scarves like this were very popular. Are they a fad or a trend?",
+    "Is this game a fad or a trend? Do you still play it?",
+    "How can you tell a friend \"That outfit is wrong\"?",
+    "How can we give advice politely?",
+    "Your friend is wearing a heavy coat in summer. What do you say?",
+    "He is driving too fast. Make a suggestion!",
+    "She has the flu. Give her advice!",
+    "A cowboy hat in the snow? Give her advice!",
+    "Denim, denim and more denim! What should he do?",
+    "Oh no! They are wearing the same shirt! What should one of them do?",
+    "What are they wearing? Is it okay for school?",
+    "\"If I were you, I would…\" is a polite way to give advice.",
+    "How much do you remember?"
+   ],
+   "songs": [],
+   "imgs": [
+    "gen:bts-27-sagging-pants",
+    "12869",
+    "15207",
+    "19605",
+    "gen:bts-27-sagging-pants",
+    "12869",
+    "15207",
+    "19605",
+    "16303",
+    "15558",
+    "gen:bts-27-bug-collecting",
+    "gen:bts-27-wearable-blanket",
+    "16908",
+    "16303",
+    "15558",
+    "gen:bts-27-bug-collecting",
+    "gen:bts-27-wearable-blanket",
+    "16908"
+   ]
+  }
+ ]
+}

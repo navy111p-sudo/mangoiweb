@@ -1,0 +1,532 @@
+{
+ "book": 22,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "The Human Body",
+    "The Human Body — Body Systems",
+    "The Human Body — Your Turn"
+   ],
+   "goals": [
+    "I can name the organs in my body.",
+    "I can say what an organ does.",
+    "I can join two ideas with «when» or «while».",
+    "I can name five body systems.",
+    "I can say what a system consists of.",
+    "I can say which system I use.",
+    "I can read a story about how my body moves.",
+    "I can say which systems work together.",
+    "I can describe what I do every day in detail."
+   ],
+   "words": [
+    [
+     "organs",
+     "장기"
+    ],
+    [
+     "cell",
+     "세포"
+    ],
+    [
+     "brain",
+     "뇌"
+    ],
+    [
+     "nerves",
+     "신경"
+    ],
+    [
+     "kidneys",
+     "신장, 콩팥"
+    ],
+    [
+     "skeleton",
+     "뼈대(골격)"
+    ],
+    [
+     "muscles",
+     "근육"
+    ],
+    [
+     "liver",
+     "간"
+    ],
+    [
+     "lungs",
+     "폐"
+    ],
+    [
+     "intestines",
+     "장(창자)"
+    ],
+    [
+     "circulatory",
+     "순환계"
+    ],
+    [
+     "digestive",
+     "소화계"
+    ],
+    [
+     "nervous",
+     "신경계"
+    ],
+    [
+     "skeletal",
+     "골격계"
+    ],
+    [
+     "muscular",
+     "근육계"
+    ]
+   ],
+   "sentences": [
+    "What is inside your body?",
+    "Which part can be a sentence by itself?",
+    "Our brains send messages.",
+    "Our muscles work.",
+    "**When** we think, …",
+    "… **while** we move.",
+    "What is it? What do you know about it?",
+    "What are they?",
+    "What would happen if they stopped working?",
+    "What are the two types of intestines?",
+    "What happens to it if we have an unhealthy lifestyle?",
+    "The brain controls the body.",
+    "Do you know how many bones we have in our body?",
+    "Are your biceps big? What kinds of exercise do you do?",
+    "What is she doing?",
+    "Where will the food go next?",
+    "Which organs do they use?",
+    "Thaddeus picked the brain for his essay.",
+    "Which organ is it?",
+    "Look for 10 seconds. Which one is missing?",
+    "What happens if one body system stops working?",
+    "Which one starts with the whole system?",
+    "The circulatory system",
+    "**consists of** the heart, blood and lungs.",
+    "The bones",
+    "**make up** the skeletal system.",
+    "What is the digestive system made up of?",
+    "Digestion starts in your stomach.",
+    "How does it work with the skeletal system?",
+    "They are taking a test. What do they use?",
+    "Which system do they use?",
+    "He is lifting weights. What is he using?",
+    "Which system is it?",
+    "Which systems work together when you punch?",
+    "The bones move the muscles.",
+    "Which word tells the reason?",
+    "My arms move",
+    "**because** my brain tells them to.",
+    "My blood brings oxygen",
+    "**so** my muscles can be strong."
+   ],
+   "songs": [
+    "Body Chant"
+   ],
+   "imgs": [
+    "gen:bts-22-organs",
+    "gen:bts-22-cell",
+    "12815",
+    "gen:bts-22-nerves",
+    "gen:bts-22-kidneys",
+    "18061",
+    "15570",
+    "gen:bts-22-liver",
+    "15536",
+    "20192",
+    "gen:bts-22-organs",
+    "gen:bts-22-cell",
+    "12815",
+    "gen:bts-22-nerves",
+    "gen:bts-22-kidneys",
+    "18061",
+    "15570",
+    "gen:bts-22-liver",
+    "15536",
+    "20192",
+    "18039",
+    "20192",
+    "18985",
+    "19308",
+    "13078",
+    "18039",
+    "20192",
+    "18985",
+    "19308",
+    "13078"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "I Am Sick",
+    "I Am Sick — Illness or Injury?",
+    "I Am Sick — Your Turn"
+   ],
+   "goals": [
+    "I can talk about illnesses and injuries.",
+    "I can say what helps me heal.",
+    "I can use «when» and «after» in one sentence.",
+    "I can tell an illness from an injury.",
+    "I can name causes and symptoms.",
+    "I can say how to treat it.",
+    "I can read Cassie's ski story.",
+    "I can tell what happened in order.",
+    "I can share my story of getting hurt or sick."
+   ],
+   "words": [
+    [
+     "a headache",
+     "두통"
+    ],
+    [
+     "the flu",
+     "독감"
+    ],
+    [
+     "a fever",
+     "열"
+    ],
+    [
+     "a stomachache",
+     "배탈, 복통"
+    ],
+    [
+     "germ",
+     "세균"
+    ],
+    [
+     "illness",
+     "병"
+    ],
+    [
+     "scrape",
+     "까진 상처, 까지다"
+    ],
+    [
+     "heal",
+     "낫다"
+    ],
+    [
+     "vitamins",
+     "비타민"
+    ],
+    [
+     "virus",
+     "바이러스"
+    ],
+    [
+     "fever",
+     "열"
+    ],
+    [
+     "cast",
+     "깁스"
+    ],
+    [
+     "crutches",
+     "목발"
+    ],
+    [
+     "ointment",
+     "연고"
+    ],
+    [
+     "painful",
+     "아픈, 고통스러운"
+    ],
+    [
+     "care",
+     "돌봄"
+    ],
+    [
+     "infect",
+     "감염시키다"
+    ],
+    [
+     "influenza",
+     "독감(인플루엔자)"
+    ],
+    [
+     "a bruise",
+     "멍"
+    ],
+    [
+     "an upset stomach",
+     "배탈"
+    ],
+    [
+     "a sprain",
+     "삠"
+    ],
+    [
+     "a cough",
+     "기침"
+    ],
+    [
+     "a sore throat",
+     "목 아픔"
+    ],
+    [
+     "fatigue",
+     "피로"
+    ]
+   ],
+   "sentences": [
+    "What do you do when you get sick or hurt?",
+    "When the partner part comes first, what comes after it?",
+    "**When** you are sick,",
+    "you have an illness.",
+    "You can get hurt",
+    "**after** you fall down.",
+    "Some people use these to help them walk. What are they?",
+    "You need crutches when you have a cold.",
+    "What's wrong with her?",
+    "What's wrong with him?",
+    "What's wrong with them?",
+    "Gerald was dizzy this morning.",
+    "Is it an illness or an injury?",
+    "Which one usually comes from an accident?",
+    "a cold · the flu",
+    "an upset stomach",
+    "a bruise · a sprain",
+    "a broken bone",
+    "Is a bruise an illness, or is it because of an injury?",
+    "How do we treat sprains?",
+    "Taking pills? Drinking water? Sleeping?",
+    "Drinking soda can cure a headache.",
+    "What is it? When do you need it?",
+    "When do you need ointment?",
+    "When do you need to drink lots of water?",
+    "When do you need lots of sleep?",
+    "When do you need to see a doctor?",
+    "Look for 10 seconds. What is missing?",
+    "What happened to Cassie on the ski slope?",
+    "Have you ever gotten hurt on a trip?",
+    "Cassie's best friend skied down with her.",
+    "Which word means «later»?",
+    "Her skis crossed",
+    "**when** she tried to steer.",
+    "She went to the hospital",
+    "**after** she broke her leg.",
+    "What is it?",
+    "How do you stay healthy?"
+   ],
+   "songs": [
+    "Get Well Chant"
+   ],
+   "imgs": [
+    "15450",
+    "15410",
+    "18991",
+    "15737",
+    "18202",
+    "12260",
+    "14086",
+    "15451",
+    "15817",
+    "20216",
+    "c7381",
+    "18202",
+    "12260",
+    "14086",
+    "15451",
+    "15817",
+    "20216",
+    "c7381",
+    "gen:bts-22-cast-sign",
+    "19920",
+    "20268",
+    "19415",
+    "15022",
+    "18835",
+    "16610",
+    "gen:bts-22-cast-sign",
+    "19920",
+    "20268",
+    "19415",
+    "15022",
+    "18835",
+    "16610",
+    "gen:bts-22-bruise",
+    "15624",
+    "15205",
+    "15450",
+    "15410",
+    "15305",
+    "13281",
+    "15395",
+    "gen:bts-22-bruise",
+    "15624",
+    "15205",
+    "15450",
+    "15410",
+    "15305",
+    "13281",
+    "15395"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Staying Healthy",
+    "Staying Healthy — The Food Pyramid",
+    "Staying Healthy — Your Turn"
+   ],
+   "goals": [
+    "I can talk about healthy and unhealthy habits.",
+    "I can name nutrients and the foods that have them.",
+    "I can join two ideas with «however» or «in addition».",
+    "I can name the five food groups.",
+    "I can say what nutrients each group has.",
+    "I can say if a food is healthy and why.",
+    "I can read Gino's story about a healthy lifestyle.",
+    "I can say how much of each food group I need.",
+    "I can say how I can be healthier."
+   ],
+   "words": [
+    [
+     "vitamins",
+     "비타민"
+    ],
+    [
+     "protein",
+     "단백질"
+    ],
+    [
+     "dairy products",
+     "유제품"
+    ],
+    [
+     "calcium",
+     "칼슘"
+    ],
+    [
+     "balanced diet",
+     "균형 잡힌 식단"
+    ],
+    [
+     "starch",
+     "녹말"
+    ],
+    [
+     "fried",
+     "튀긴"
+    ],
+    [
+     "diabetes",
+     "당뇨병"
+    ],
+    [
+     "vegetables and fruits",
+     "채소와 과일"
+    ],
+    [
+     "cereals and breads",
+     "곡물과 빵"
+    ],
+    [
+     "milk, yogurt and cheese",
+     "우유·요구르트·치즈"
+    ],
+    [
+     "meat, fish, eggs and beans",
+     "고기·생선·달걀·콩"
+    ],
+    [
+     "fats and oils",
+     "지방과 기름"
+    ],
+    [
+     "sugary, salty snacks",
+     "달고 짠 간식"
+    ]
+   ],
+   "sentences": [
+    "How do you stay healthy?",
+    "Which one adds one more idea?",
+    "I want to be healthy;",
+    "**however**, I love pizza.",
+    "I exercise every day;",
+    "**in addition**, I eat vegetables.",
+    "Skipping breakfast every day is a healthy habit.",
+    "Is it a healthy habit? Why?",
+    "Romina and Daniela will go to the gym on weekdays.",
+    "Is she healthy? Why?",
+    "Is he healthy? Why?",
+    "Is this dinner healthy? Why?",
+    "Is it a healthy habit?",
+    "What is a food pyramid?",
+    "Do you think foods which have a lot of fat are delicious?",
+    "Which one gives an example?",
+    "Sugar is bad for you;",
+    "**for instance**, it can cause diabetes.",
+    "Fried food has a lot of fat;",
+    "**furthermore**, it has cholesterol.",
+    "Yogurt is a dairy product.",
+    "Which food group? Is it healthy?",
+    "Is it healthy?",
+    "Is it healthy? Do you like it?",
+    "Is it healthy? Is it delicious or disgusting?",
+    "What is it?",
+    "Look for 10 seconds. What is missing?",
+    "How does Gino live a healthy lifestyle?",
+    "Can you stay healthy with a busy job?",
+    "Gino sleeps for eight hours every night.",
+    "What is he doing?",
+    "How much do you remember about your body?"
+   ],
+   "songs": [
+    "Healthy Habits Chant"
+   ],
+   "imgs": [
+    "15817",
+    "15646",
+    "13399",
+    "18552",
+    "12795",
+    "15252",
+    "12987",
+    "19981",
+    "15817",
+    "15646",
+    "13399",
+    "18552",
+    "12795",
+    "15252",
+    "12987",
+    "19981",
+    "12268",
+    "15252",
+    "16139",
+    "15646",
+    "gen:bts-22-oils",
+    "15250",
+    "12268",
+    "15252",
+    "16139",
+    "15646",
+    "gen:bts-22-oils",
+    "15250"
+   ]
+  }
+ ]
+}

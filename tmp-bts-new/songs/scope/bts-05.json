@@ -1,0 +1,464 @@
+{
+ "book": 5,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Days of the Week"
+   ],
+   "goals": [
+    "I can say the days of the week.",
+    "I can ask \"What day is it?\"",
+    "I can say \"I have … on Monday.\"",
+    "I can name activities.",
+    "I can say \"It's …\".",
+    "I can say what I have on a day.",
+    "I can talk about my week.",
+    "I can say \"on Mondays\" for every week.",
+    "I can answer \"When do you …?\""
+   ],
+   "words": [
+    [
+     "Monday",
+     "월요일"
+    ],
+    [
+     "Tuesday",
+     "화요일"
+    ],
+    [
+     "Wednesday",
+     "수요일"
+    ],
+    [
+     "Thursday",
+     "목요일"
+    ],
+    [
+     "Friday",
+     "금요일"
+    ],
+    [
+     "Saturday",
+     "토요일"
+    ],
+    [
+     "Sunday",
+     "일요일"
+    ],
+    [
+     "day",
+     "하루·요일"
+    ],
+    [
+     "week",
+     "주(일주일)"
+    ],
+    [
+     "month",
+     "달·월"
+    ],
+    [
+     "soccer",
+     "축구"
+    ],
+    [
+     "taekwondo",
+     "태권도"
+    ],
+    [
+     "activity",
+     "활동"
+    ],
+    [
+     "same",
+     "같은"
+    ],
+    [
+     "awesome",
+     "멋진"
+    ],
+    [
+     "baseball",
+     "야구"
+    ],
+    [
+     "swimming class",
+     "수영 수업"
+    ],
+    [
+     "piano class",
+     "피아노 수업"
+    ],
+    [
+     "homework",
+     "숙제"
+    ],
+    [
+     "school",
+     "학교"
+    ],
+    [
+     "English class",
+     "영어 수업"
+    ],
+    [
+     "friends",
+     "친구들"
+    ],
+    [
+     "piano",
+     "피아노"
+    ]
+   ],
+   "sentences": [
+    "What day is it today?",
+    "Which little word comes before Monday and Saturday?",
+    "I have taekwondo **on** Monday.",
+    "I have soccer **on** Saturday.",
+    "What day is it?",
+    "**It's** Wednesday.",
+    "What is it?",
+    "How many days are there in a week?",
+    "Wednesday comes after Monday.",
+    "What activity is it?",
+    "What activity is it? Splash!",
+    "What activity do you have on Monday?",
+    "What is the short way to say \"It is\"?",
+    "**It is** soccer.",
+    "**It is** piano class.",
+    "**It's** soccer.",
+    "**It's** piano class.",
+    "It is piano class. Say it short!",
+    "It's baseball.",
+    "Look for 10 seconds. Close your eyes! What activity is gone?",
+    "When do you do your homework?",
+    "What do you do on Sundays?",
+    "What do we add to the day for \"every week\"?",
+    "I have English class **on Monday**.",
+    "(this Monday)",
+    "I play baseball **on Sundays**.",
+    "(every Sunday)",
+    "What do you have on Thursdays?",
+    "What do you play with your friends on Sundays?",
+    "What activity do you have on Saturdays?",
+    "When do you go to school?",
+    "When do you have an English class?",
+    "He plays soccer with his friends.",
+    "What class is it?",
+    "What season is it? Brrr!"
+   ],
+   "songs": [
+    "Days of the Week Song"
+   ],
+   "imgs": [
+    "17111",
+    "18706",
+    "14820",
+    "19671",
+    "17114",
+    "17113",
+    "18449",
+    "18405",
+    "18475",
+    "15505",
+    "15516",
+    "14417",
+    "17111",
+    "18706",
+    "14820",
+    "19671",
+    "17114",
+    "17113",
+    "18449",
+    "18405",
+    "18475",
+    "15505",
+    "15516",
+    "14417",
+    "19279",
+    "gen:bts-05-same-shirts",
+    "16215",
+    "15515",
+    "15465",
+    "14417",
+    "16710",
+    "17175",
+    "15515",
+    "15465",
+    "14417",
+    "16710",
+    "17175",
+    "16910",
+    "16456",
+    "16931",
+    "12021",
+    "12798",
+    "13176"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Seasons"
+   ],
+   "goals": [
+    "I can name the four seasons.",
+    "I can say the twelve months.",
+    "I can say the months of a season.",
+    "I can ask \"When is your birthday?\"",
+    "I can say my birthday month and season.",
+    "I can use his, her and their.",
+    "I can talk about my family's birthdays.",
+    "I can say the season of a birthday.",
+    "I can sort the months into seasons."
+   ],
+   "words": [
+    [
+     "spring",
+     "봄"
+    ],
+    [
+     "summer",
+     "여름"
+    ],
+    [
+     "fall",
+     "가을"
+    ],
+    [
+     "winter",
+     "겨울"
+    ],
+    [
+     "birthday",
+     "생일"
+    ],
+    [
+     "father",
+     "아빠(아버지)"
+    ],
+    [
+     "mother",
+     "엄마(어머니)"
+    ],
+    [
+     "sister",
+     "언니·누나·여동생"
+    ],
+    [
+     "brother",
+     "형·오빠·남동생"
+    ]
+   ],
+   "sentences": [
+    "What is your favorite season?",
+    "Which little word comes before a month or a season?",
+    "His birthday is **in** December.",
+    "Her birthday is **in** winter.",
+    "He → his. She → her. They → ?",
+    "**His** birthday is in December.",
+    "**Her** birthday is in winter.",
+    "What season is it?",
+    "What month is it?",
+    "What are the fall months?",
+    "It's winter.",
+    "Surprise! When is your birthday?",
+    "When is your birthday?",
+    "In what season is your birthday?",
+    "In what season is his birthday?",
+    "In what season is your mother's birthday?",
+    "When are their birthdays?",
+    "In what season are their birthdays?",
+    "When I say \"my\", what do you say?",
+    "When is **my** birthday?",
+    "**Your** birthday is in July.",
+    "His birthday is in summer.",
+    "What is it?",
+    "When is your father's birthday?",
+    "What do we add to say whose birthday it is?",
+    "My **father's** birthday is in May.",
+    "My **sister's** birthday is in fall.",
+    "In what season is your father's birthday?",
+    "When is your sister's birthday?",
+    "When is your brother's birthday?",
+    "It's winter. It's cold!",
+    "Look for 10 seconds. Close your eyes! Who is gone?",
+    "Oh no! What time is it?"
+   ],
+   "songs": [
+    "Seasons Song ❄🌸",
+    "Seasons Song ☀🍂"
+   ],
+   "imgs": [
+    "19650",
+    "12176",
+    "16055",
+    "12537",
+    "12234",
+    "19650",
+    "12176",
+    "16055",
+    "12537",
+    "12234",
+    "18452",
+    "13356",
+    "12788",
+    "15720",
+    "15829",
+    "12080",
+    "12166",
+    "12054",
+    "12151"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Telling Time"
+   ],
+   "goals": [
+    "I can name the parts of a clock.",
+    "I can say \"What time is it?\"",
+    "I can use \"at\" for times.",
+    "I can read a clock.",
+    "I can say a.m. and p.m.",
+    "I can say times in words.",
+    "I can say a.m. and p.m. correctly.",
+    "I can ask \"When does he …?\"",
+    "I can answer with \"at\"."
+   ],
+   "words": [
+    [
+     "hour",
+     "시간"
+    ],
+    [
+     "minute",
+     "분"
+    ],
+    [
+     "second",
+     "초"
+    ],
+    [
+     "clock",
+     "시계"
+    ],
+    [
+     "watch",
+     "손목시계"
+    ],
+    [
+     "time",
+     "시각·시간"
+    ],
+    [
+     "hurry",
+     "서두르다"
+    ],
+    [
+     "calm down",
+     "진정해"
+    ],
+    [
+     "enough",
+     "충분한"
+    ],
+    [
+     "usually",
+     "보통·대개"
+    ],
+    [
+     "get up",
+     "일어나다"
+    ]
+   ],
+   "sentences": [
+    "What time is it?",
+    "Which word goes with a time? Which goes with \"the morning\"?",
+    "I have piano class **at** 10 o'clock.",
+    "I get up **at** 7 o'clock.",
+    "I have piano class **in the morning**.",
+    "I have soccer **in the afternoon**.",
+    "What is it?",
+    "What is it? Do you have one?",
+    "Point to the second hand! What does it tell?",
+    "It's a watch.",
+    "This thin hand is the hour hand.",
+    "It's three o'clock.",
+    "Is it morning or afternoon?",
+    "Is it ten o'clock in the morning or at night?",
+    "Is three o'clock in the afternoon a.m. or p.m.?",
+    "10:31 **a.m.**",
+    "in the morning",
+    "3:00 **p.m.**",
+    "in the afternoon",
+    "It's seven o'clock. Wake up! Is it a.m. or p.m.?",
+    "Which hand is long?",
+    "It's four thirty.",
+    "It's 9:00 a.m.",
+    "Look for 10 seconds. Close your eyes! Which one is gone?",
+    "Is it a.m. or p.m.?",
+    "Is 12:30 in the afternoon a.m. or p.m.?",
+    "7:00 **a.m.** — breakfast",
+    "8:30 **a.m.** — school",
+    "3:00 **p.m.** — play time",
+    "9:00 **p.m.** — bed time",
+    "Twelve o'clock — day or night?",
+    "After \"does he\", do we say \"has\" or \"have\" in the answer?",
+    "When **does** he have taekwondo class?",
+    "He **has** taekwondo at 6:00 p.m.",
+    "When **do** they play soccer?",
+    "They **play** soccer at 8:30 a.m.",
+    "When does he have taekwondo class?",
+    "When do they play soccer?",
+    "When does she have piano class?",
+    "When do they have swimming class?"
+   ],
+   "songs": [
+    "Tick Tock Song ⏰",
+    "Tick Tock Song 🌙"
+   ],
+   "imgs": [
+    "12395",
+    "17117",
+    "gen:bts-05-stopwatch",
+    "12580",
+    "gen:bts-05-wristwatch",
+    "12010",
+    "12395",
+    "17117",
+    "gen:bts-05-stopwatch",
+    "12580",
+    "gen:bts-05-wristwatch",
+    "12010",
+    "gen:bts-05-running-school",
+    "19317",
+    "19370",
+    "c5033",
+    "12245",
+    "16146",
+    "18490",
+    "c7298",
+    "12010",
+    "16185"
+   ]
+  }
+ ]
+}

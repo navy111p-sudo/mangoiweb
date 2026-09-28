@@ -1,0 +1,357 @@
+{
+ "book": 24,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Fantasy Worlds"
+   ],
+   "goals": [
+    "I can talk about fantasy and science fiction.",
+    "I can use «could» and «would».",
+    "I can imagine living in a fantasy place.",
+    "I can talk about magical powers.",
+    "I can say «If I had …, I could …».",
+    "I can make a wish with «I wish I could …».",
+    "I can read about a superpower.",
+    "I can say what I could do with a power.",
+    "I can talk about amazing machines."
+   ],
+   "words": [
+    [
+     "magic",
+     "마법"
+    ],
+    [
+     "exist",
+     "존재하다"
+    ],
+    [
+     "fantasy",
+     "판타지, 환상"
+    ],
+    [
+     "science fiction",
+     "공상 과학"
+    ],
+    [
+     "imagination",
+     "상상력"
+    ],
+    [
+     "wish",
+     "소원; 바라다"
+    ],
+    [
+     "superpowers",
+     "초능력"
+    ],
+    [
+     "mermaids",
+     "인어들"
+    ],
+    [
+     "wizards",
+     "마법사들"
+    ],
+    [
+     "magic spells",
+     "마법 주문"
+    ],
+    [
+     "fortune tellers",
+     "점쟁이들"
+    ]
+   ],
+   "sentences": [
+    "Could it really happen?",
+    "Do you think magic really exists?",
+    "What fantasy stories can you think of?",
+    "Can sci-fi stories happen in real life?",
+    "We use our imagination. What can you imagine?",
+    "What comes after «could» and «would»? «to» or no «to»?",
+    "If I could fly,",
+    "I **could** go to space.",
+    "If I lived on the moon,",
+    "I **would** jump very high.",
+    "If you lived here, what could you do?",
+    "What could you do in a haunted house?",
+    "What could you do in a game house?",
+    "What could you do on a space station?",
+    "Kellie wishes she could fly to space.",
+    "Where is it?",
+    "Which superpower would you like to have the most?",
+    "Which power would you like to have the most?",
+    "If you had superpowers, what could you do?",
+    "If you could talk to sea creatures, what could you be?",
+    "If you could predict people's future, what would you do?",
+    "If you could teleport, where would you go?",
+    "What happens to «can» and «am» after «I wish»?",
+    "I **can't** fly.",
+    "I **am** not rich.",
+    "I wish I **could** fly!",
+    "I wish I **were** rich!",
+    "The dog doesn't want dog food. What does he wish?",
+    "The dog wishes his owner would give him dog food.",
+    "Look for 10 seconds! Which powers did you see?",
+    "Who is it?",
+    "If you could fly, where would you go first?",
+    "If you could have one superpower, which one would you want?",
+    "Birds can fly anywhere. Would you like to fly?",
+    "Kiara wants to fly because she wants to race cars.",
+    "A crane can lift heavy things. What is it for?",
+    "How would you use a virtual assistant?",
+    "Would you like a self-driving car? Why or why not?",
+    "He is flying a hang glider. What is he using it for?",
+    "He is using a jetpack. What can it do?"
+   ],
+   "songs": [
+    "If I Could Fly (chant)"
+   ],
+   "imgs": [
+    "15538",
+    "c7488",
+    "12959",
+    "19384",
+    "13034",
+    "16923",
+    "16825",
+    "gen:bts-24-mermaid",
+    "15827",
+    "16840",
+    "gen:bts-24-fortune-teller"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "If I Were a Millionaire"
+   ],
+   "goals": [
+    "I can talk about money and luxury things.",
+    "I can say «If I were rich, I would …».",
+    "I can say «If I had my own …, I could …».",
+    "I can talk about V.I.P.s.",
+    "I can say what V.I.P.s have and do.",
+    "I can say «If I were a ___, I would …».",
+    "I can read about being a queen.",
+    "I can say who I would want to be.",
+    "I can talk about my life as a V.I.P."
+   ],
+   "words": [
+    [
+     "fortune",
+     "큰 재산"
+    ],
+    [
+     "lucky",
+     "운이 좋은"
+    ],
+    [
+     "afford",
+     "(돈이 있어서) 살 수 있다"
+    ],
+    [
+     "luxury",
+     "사치(품)"
+    ],
+    [
+     "mansions",
+     "저택들"
+    ],
+    [
+     "yachts",
+     "요트들"
+    ],
+    [
+     "private",
+     "개인 전용의"
+    ],
+    [
+     "escape",
+     "(조용한 곳으로) 떠나다"
+    ]
+   ],
+   "sentences": [
+    "If you had a lot of money, what would you buy?",
+    "Which verbs go back to the past? What comes after «would»?",
+    "If I **were** a famous singer,",
+    "If I **had** a billion won,",
+    "I **would** be so happy!",
+    "I **would** buy a sports car!",
+    "Do you think rich people are lucky?",
+    "Would you like to own luxury items one day?",
+    "Rich people live in mansions. What would you have?",
+    "If you had your own jet, where would you fly?",
+    "If you had a new bicycle, what could you do?",
+    "If you had your own TV show, what could you do?",
+    "If you had your own private island, what could you do?",
+    "If you lived in this mansion, what could you do?",
+    "Monette would change her lifestyle if she were rich.",
+    "What is it?",
+    "What does V.I.P. mean?",
+    "Who are V.I.P.s?",
+    "V.I.P. = very important person. What V.I.P.s do you know?",
+    "Does your country have these V.I.P.s?",
+    "What does a CEO do?",
+    "What kind of entertainers do you know?",
+    "Which professional athletes do you know?",
+    "What do politicians do?",
+    "What luxury item does he have?",
+    "What special things does a queen have?",
+    "What does a president do?",
+    "A CEO is the boss of a company.",
+    "Who is it?",
+    "If you could be anyone, who would you want to be?",
+    "If you could be any person, who would you want to be?",
+    "If you were a king or queen, where would you live?",
+    "If you were a celebrity, who would you meet?",
+    "What would you do to make your country better?",
+    "Cassie would make wise decisions, and her people would love her.",
+    "Rock, paper, or scissors? Which one is the strongest?"
+   ],
+   "songs": [
+    "If I Were Rich (chant)"
+   ],
+   "imgs": [
+    "15822",
+    "18068",
+    "14639",
+    "12455",
+    "13381",
+    "gen:bts-24-yacht",
+    "gen:bts-24-private-jet",
+    "12398"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Advantages and Disadvantages"
+   ],
+   "goals": [
+    "I can talk about advantages and disadvantages.",
+    "I can use «because» and «so».",
+    "I can explain my decision with «even though».",
+    "I can talk about important decisions.",
+    "I can say «If I were the ___, I would …».",
+    "I can talk about jobs that make decisions.",
+    "I can read about a decision.",
+    "I can talk about my choices.",
+    "I can say if it was the right decision."
+   ],
+   "words": [
+    [
+     "decision",
+     "결정"
+    ],
+    [
+     "situations",
+     "상황들"
+    ],
+    [
+     "advantages",
+     "장점들"
+    ],
+    [
+     "disadvantages",
+     "단점들"
+    ],
+    [
+     "result",
+     "결과"
+    ],
+    [
+     "smash",
+     "세게 부수다"
+    ],
+    [
+     "flexible",
+     "잘 휘는, 유연한"
+    ],
+    [
+     "sharp",
+     "날카로운"
+    ],
+    [
+     "breakable",
+     "깨지기 쉬운"
+    ],
+    [
+     "fattening",
+     "살찌게 하는"
+    ]
+   ],
+   "sentences": [
+    "Can you choose your future?",
+    "A decision is a choice. Doctor or engineer?",
+    "Is «strong» an advantage or a disadvantage?",
+    "good things that happen",
+    "Rock is **strong**.",
+    "bad results of a choice",
+    "Rock is **inflexible**.",
+    "👍 healthy, nutritious",
+    "👎 not delicious",
+    "👍 sweet, delicious",
+    "👎 fattening",
+    "Study or play a phone game?",
+    "Watch a movie or go swimming?",
+    "👍 many features, looks cool",
+    "👎 expensive",
+    "👍 cheap, can make me smart",
+    "👎 heavy to carry",
+    "A judge or a chef? What would you be?",
+    "Paper is strong, so it can smash the rock.",
+    "What is it?",
+    "If you were the king, what would you do?",
+    "Go to war or build a new palace?",
+    "Sell chocolates or sell computers?",
+    "Perform a concert or record an album?",
+    "What decisions does a principal make?",
+    "What do engineers make decisions about?",
+    "What do surgeons make decisions about?",
+    "What decisions does a soccer coach make?",
+    "Does a cleaner make important decisions?",
+    "Surgeons have to make decisions about school rules.",
+    "Look for 10 seconds! Which jobs did you see?",
+    "What is his job?",
+    "What was the most important decision in your life?",
+    "Talk about an important decision you had to make.",
+    "Jamie went to the amusement park in the rain.",
+    "If you were Jamie, which one would you choose?",
+    "Where are they?",
+    "Review time! How many «If I were…» wishes can you say?"
+   ],
+   "songs": [
+    "Pros and Cons (chant)"
+   ],
+   "imgs": [
+    "12576",
+    "16682",
+    "19353",
+    "19353",
+    "15389",
+    "gen:bts-24-rps",
+    "gen:bts-24-rps",
+    "gen:bts-24-rps",
+    "gen:bts-24-rps",
+    "12134"
+   ]
+  }
+ ]
+}

@@ -1,6 +1,8 @@
 // BTS 29 새 교재 설계 데이터 — 영웅·롤모델 · 돈 · 친구 · 거짓말 (Level 8 토론)
 // k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 import { open, close } from '../common.mjs';
+const USONG_3 = { t: 'song', k: 'new', small: "Let's sing! ♪ Rap chant", title: "Lend and Borrow 🤝", img: "gen:bts-29-song-lend-borrow", nt: "빌려주기·빌리기 랩(새로 지음)", n: ["곡조: Rap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다","lend에서 펜을 화면 밖으로 내밀고, borrow에서 끌어당기는 동작으로 방향 익히기"], src: '새로 지음', lines: ["I lend my pen to Jay, to Jay!","Jay borrows my pen today!","I get it back, so I trust my friend.","Good friends are important to me!","Can you keep a secret? Yes, I can!","An embarrassing secret? I would not tell!","You lend a book to me, I borrow it from you.","That's what friends do — I trust you!"] };
+const USONG_4 = { t: 'song', k: 'new', small: "Let's sing! ♪ Clap chant", title: "Have You Ever Told a Lie? 🤥", img: "gen:bts-29-song-honest-friends", nt: "정직 챈트(새로 지음)", n: ["곡조: Clap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다","Have you ever?에서 상대를 가리키고, honest에서 손을 가슴에 얹는 동작"], src: '새로 지음', lines: ["Have you ever told a lie?","Have you ever cheated? Why?","Honest friends tell the truth,","We can trust them, me and you!","Dishonest people lie and cheat,","Their rumors spread from street to street.","In a hard spot, what would you do?","I would be honest! How about you?"] };
 
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3', U4 = 'Unit 4', RV = 'Review';
 const G = k => 'gen:bts-29-' + k;
@@ -23,7 +25,8 @@ export const COURSE = {
 <li><b>010 민감한 질문</b> — «빨간불에 길을 건넌 적 있나요?», «소문의 피해자가 된 적 있나요?» 는 학생이 원하지 않으면 답하지 않아도 된다고 강사 메모를 달았습니다. 초등 반에서 둘지.</li>
 <li><b>마치는 노래</b> — 원본 «Everyday Heroes» · 돈 노래 · «Friends, friends 1 2 3» · «Who Took the Cookie (Tommy broke the cookie jar)». 저작권 확인 전까지 가사를 새로 쓴 챈트로 바꿨습니다(곡조는 자체 녹음 권장). 007 은 쪽 수가 넘쳐 챈트를 뺐습니다.</li>
 <li><b>새로 만들 사진 26장</b> — 점선 자리(힉스필드 크레딧).</li>
-</ol></div>`,
+
+<li><b>새 단원 노래 2곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 3 «Lend and Borrow»(Rap chant (4 beats)) · Unit 4 «Have You Ever Told a Lie?»(Clap chant (4 beats)). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '영웅', unit: U1, title: 'Heroes', orig: 25,
@@ -88,6 +91,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-friends'), q: 'How are your friends important to you?', story: 'Two friends share one umbrella in the rain. Who would you share your umbrella with?', nt: '표지 + Big Question', n: ['빗속에서 우산 하나를 나눠 쓰며 뛰어가는 두 친구'] },
       ...open([['I can talk about my friends.', '내 친구들에 대해 말할 수 있어요.'], ['I can talk about trust, lending, and secrets.', '믿음·빌려주기·비밀에 대해 말할 수 있어요.'], ['I can say what I would do.', '어떤 상황에서 내가 어떻게 할지 말할 수 있어요.']], 'Lesson Goals (trust · lend · secretive)'),
+      USONG_3,
       { t: 'discuss', k: 'keep', title: 'Warm up', img: '12021', qs: ['How are your friends important to you?', 'How many friends do you have?', 'Where did you meet them?'], chips: ['I have …', 'I met them at …'], src: '4·6쪽', nt: '생각 말하기' },
       { t: 'vocab', k: 'fix', hide: true, title: 'Friend words 🔒', cols: 3, words: [['trust', '믿다; 믿음', '18638'], ['lend', '빌려주다', G('lend-phone')], ['borrow', '빌리다', '19310'], ['secret', '비밀', '19630'], ['secretive', '비밀이 많은', G('secretive')], ['embarrassing', '창피한', G('embarrassing')]], src: '5쪽 Vocabulary', nt: '낱말 (가림→공개)', n: ['<del>secretive 비밀스런</del> → 비밀이 많은 · <del>부끄러운</del> → 창피한', 'borrow 는 원본 이야기 낱말 — lend 와 짝으로 앞당겼습니다'] },
       { t: 'rule', k: 'new', title: 'Lend or borrow?', left: { h: 'lend = give for a short time', ex: ['I **lend** my pen **to** Jay.', '(내가 빌려준다 ➡️)'] }, right: { h: 'borrow = take for a short time', ex: ['Jay **borrows** my pen.', '(Jay 가 빌린다 ⬅️)'] }, q: 'Who has the pen at the end? Who gets it back?', nt: '규칙 찾기 — lend / borrow', n: ['방향이 반대 — lend ➡️ 주는 쪽, borrow ⬅️ 받는 쪽', '이어서 «Can I borrow your eraser?» / «Sure, I can lend it to you.»'] },
@@ -110,6 +114,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-lying'), q: 'Is telling the truth always the easiest thing?', story: 'The cookie jar is broken. Crumbs are on the dog\'s nose. Who did it?', nt: '표지 + Big Question', n: ['깨진 쿠키 단지 옆에서 입가에 부스러기를 묻힌 강아지가 딴청 — «Who is lying?»'] },
       ...open([['I can talk about honesty and lies.', '정직과 거짓말에 대해 말할 수 있어요.'], ['I can ask «Have you ever …?»', '«~해 본 적 있어요?» 를 묻고 답할 수 있어요.'], ['I can say what I would do in a hard situation.', '곤란한 상황에서 내가 어떻게 할지 말할 수 있어요.']], 'Lesson Goals (Wh- · Yes/No · Would you …?)'),
+      USONG_4,
       { t: 'discuss', k: 'keep', title: 'Warm up', img: '14956', qs: ['Are you an honest person?', 'Is telling the truth always the easiest thing?', 'Why do you think people tell lies?'], chips: ['I think …', 'People lie because …'], src: '4쪽 Warm up', nt: '생각 말하기' },
       { t: 'vocab', k: 'fix', hide: true, title: 'Honesty words 🔒', cols: 4, words: [['lie', '거짓말(하다)', '15805'], ['honest', '정직한', '18467'], ['dishonest', '정직하지 않은', G('cheat')], ['cheat', '부정행위를 하다', G('cheat')], ['cross the street', '길을 건너다', '17170'], ['spread', '퍼뜨리다', G('rumor')], ['rumor', '소문', G('rumor')], ['victim', '피해자', '14326']], src: '5쪽 Vocabulary', nt: '낱말 (가림→공개)', n: ['<del>Lying 거짓말</del> → lie · <del>cheated 속이는</del> · <del>crossed 교차</del> · <del>spread 퍼지다</del> · <del>희생자</del> → 피해자', '같은 사진을 두 칸이 나눠 씁니다(dishonest·cheat / spread·rumor) — 짝 낱말'] },
       { t: 'discuss', k: 'keep', title: 'Keyword: Lie', img: '15805', qs: ['Can you remember a lie that you told? What was it?', 'Has someone ever called you a liar? What did you do?', 'Who have you lied to before? Did you feel bad after you lied?'], chips: ['I once told …', 'I felt …'], src: '6·7쪽 Keyword Lie', nt: '생각 말하기 — 거짓말', n: ['자기 이야기가 부담스러우면 «someone I know» 로 바꿔 말해도 됩니다'] },

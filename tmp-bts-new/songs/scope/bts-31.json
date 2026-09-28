@@ -1,0 +1,426 @@
+{
+ "book": 31,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001-003"
+   ],
+   "titles": [
+    "At the Movies"
+   ],
+   "goals": [
+    "I can talk about movies with film words.",
+    "I can tell a positive review from a negative one.",
+    "I can give my own review of a movie."
+   ],
+   "words": [
+    [
+     "cinema",
+     "영화관"
+    ],
+    [
+     "genre",
+     "장르"
+    ],
+    [
+     "plot",
+     "줄거리"
+    ],
+    [
+     "climax",
+     "절정"
+    ],
+    [
+     "setting",
+     "배경(장소·때)"
+    ],
+    [
+     "special effects",
+     "특수 효과"
+    ],
+    [
+     "film critic",
+     "영화 평론가"
+    ],
+    [
+     "film review",
+     "영화 평"
+    ],
+    [
+     "CGI",
+     "컴퓨터 그래픽 영상"
+    ],
+    [
+     "thrilling",
+     "아주 신나는"
+    ],
+    [
+     "common",
+     "흔한"
+    ],
+    [
+     "lure",
+     "꾀어내다"
+    ],
+    [
+     "stunning",
+     "굉장히 멋진"
+    ],
+    [
+     "prosthetic makeup",
+     "특수 분장"
+    ]
+   ],
+   "sentences": [
+    "What do you think is the best movie ever?",
+    "Does the sentence tell us WHAT happens, or WHERE and WHEN?",
+    "Some kids **wake up** the zombies.",
+    "The zombies **chase** the kids.",
+    "It takes place **in an old graveyard**.",
+    "It happens **one night**.",
+    "The climax is the most boring part of a movie.",
+    "Which words show the critic's opinion?",
+    "I **absolutely loved** it.",
+    "It is a **thrilling** movie.",
+    "I **would recommend** it.",
+    "I thought it was **horrible**.",
+    "It had a **mediocre** plot.",
+    "I **don't think you should** see it.",
+    "Ben and Sam both think the special effects were good.",
+    "Would you keep a pet like this?"
+   ],
+   "songs": [],
+   "imgs": [
+    "16800",
+    "15204",
+    "19489",
+    "15752",
+    "12959",
+    "19277",
+    "gen:bts-31-critic",
+    "18172",
+    "gen:bts-31-cgi",
+    "16800",
+    "15204",
+    "19489",
+    "15752",
+    "12959",
+    "19277",
+    "gen:bts-31-critic",
+    "18172",
+    "gen:bts-31-cgi",
+    "15776",
+    "14518",
+    "gen:bts-31-lure",
+    "18921",
+    "gen:bts-31-prosthetic"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004-006"
+   ],
+   "titles": [
+    "Animals"
+   ],
+   "goals": [
+    "I can say how wild and tame animals are different.",
+    "I can give my opinion about animal cruelty.",
+    "I can agree or disagree with a statement."
+   ],
+   "words": [
+    [
+     "responsible",
+     "책임감 있는"
+    ],
+    [
+     "wild",
+     "야생의"
+    ],
+    [
+     "tame",
+     "길들여진"
+    ],
+    [
+     "captivity",
+     "갇혀 지냄(사육)"
+    ],
+    [
+     "raise",
+     "기르다"
+    ],
+    [
+     "on purpose",
+     "일부러"
+    ],
+    [
+     "cruelty",
+     "학대·잔인함"
+    ],
+    [
+     "abuse",
+     "학대하다"
+    ],
+    [
+     "bullfighting",
+     "투우"
+    ],
+    [
+     "matador",
+     "투우사"
+    ],
+    [
+     "exotic",
+     "흔치 않은(이색)"
+    ],
+    [
+     "in the eyes of",
+     "…가 보기에"
+    ]
+   ],
+   "sentences": [
+    "Why do we need to know about animals? How are people treating them?",
+    "The heart of a shrimp is in its head.",
+    "Where was the animal born? Who takes care of it?",
+    "Lions live **in nature**.",
+    "Deer run away **from humans**.",
+    "Dogs are **raised by humans**.",
+    "Cats live **with people**.",
+    "Which words does each person use to show their opinion?",
+    "I think some things **go too far**.",
+    "It **must be** painful.",
+    "It **should be** illegal.",
+    "I'm **glad** it's still allowed.",
+    "I **admit** that it's sad.",
+    "**Still**, I'm happy.",
+    "Look! 10 seconds! Which ones are exotic?",
+    "Which animals did you see?",
+    "Is it common or exotic? Would you keep it at home?",
+    "A fox is a tame animal.",
+    "Should students wear school uniforms?"
+   ],
+   "songs": [],
+   "imgs": [
+    "13236",
+    "19343",
+    "12625",
+    "gen:bts-31-tiger-cub",
+    "18626",
+    "15155",
+    "17337",
+    "gen:bts-31-circus",
+    "gen:bts-31-bullfight",
+    "gen:bts-31-bullfight",
+    "gen:bts-31-iguana",
+    "gen:bts-31-dylan",
+    "13236",
+    "19343",
+    "12625",
+    "gen:bts-31-tiger-cub",
+    "18626",
+    "15155",
+    "17337",
+    "gen:bts-31-circus",
+    "gen:bts-31-bullfight",
+    "gen:bts-31-bullfight",
+    "gen:bts-31-iguana",
+    "gen:bts-31-dylan"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007-009"
+   ],
+   "titles": [
+    "School Uniforms"
+   ],
+   "goals": [
+    "I can say what makes each person unique.",
+    "I can explain society, rules and norms.",
+    "I can support or oppose school uniforms."
+   ],
+   "words": [
+    [
+     "require",
+     "요구하다"
+    ],
+    [
+     "distinguish",
+     "구별하다"
+    ],
+    [
+     "individual",
+     "개인"
+    ],
+    [
+     "unique",
+     "독특한"
+    ],
+    [
+     "physical appearance",
+     "겉모습"
+    ],
+    [
+     "society",
+     "사회"
+    ],
+    [
+     "norms",
+     "규범"
+    ],
+    [
+     "conform",
+     "따르다·맞추다"
+    ],
+    [
+     "expected",
+     "기대되는"
+    ],
+    [
+     "personality",
+     "성격"
+    ]
+   ],
+   "sentences": [
+    "Should students wear school uniforms? Why or why not?",
+    "Look at the school uniforms. Which one suits your style?",
+    "These twins look the same. How are they different?",
+    "Which ones are written down? Which ones are just expected?",
+    "**Stop** at a red light.",
+    "**Wear** your uniform to school.",
+    "**Say** \"thank you.\"",
+    "**Bow** to older people in Korea.",
+    "What words help you support or oppose an idea?",
+    "I **understand why** …",
+    "Uniforms **help** us focus.",
+    "I think that's **a fair trade**.",
+    "I **can't imagine** giving that up.",
+    "I **don't think this is true**.",
+    "Kids **don't want to** conform.",
+    "Jim's school has no rules about clothes.",
+    "If you ran for class president, what would you promise?"
+   ],
+   "songs": [],
+   "imgs": [
+    "16341",
+    "21347",
+    "17245",
+    "19264",
+    "19020",
+    "21283",
+    "18145",
+    "12012",
+    "15634",
+    "19120",
+    "16341",
+    "21347",
+    "17245",
+    "19264",
+    "19020",
+    "21283",
+    "18145",
+    "12012",
+    "15634",
+    "19120"
+   ]
+  },
+  {
+   "unit": "Unit 4",
+   "lessons": [
+    "010-012"
+   ],
+   "titles": [
+    "Class President"
+   ],
+   "goals": [
+    "I can use election words.",
+    "I can compare two campaign speeches.",
+    "I can plan my own campaign."
+   ],
+   "words": [
+    [
+     "leadership",
+     "지도력"
+    ],
+    [
+     "president",
+     "회장·대통령"
+    ],
+    [
+     "election day",
+     "선거일"
+    ],
+    [
+     "campaign",
+     "선거 운동"
+    ],
+    [
+     "vote",
+     "투표하다"
+    ],
+    [
+     "speech",
+     "연설"
+    ],
+    [
+     "candidate",
+     "후보"
+    ],
+    [
+     "debate",
+     "토론"
+    ],
+    [
+     "vice president",
+     "부회장"
+    ],
+    [
+     "run for office",
+     "선거에 나가다"
+    ]
+   ],
+   "sentences": [
+    "Who is she? What are the responsibilities of a class president?",
+    "How are their leadership styles different?",
+    "I'm **honest**.",
+    "I **do my best** in school.",
+    "I'm the **most qualified**.",
+    "I'm a **people person**.",
+    "I will **listen** to you.",
+    "We should **trust** each other.",
+    "Helena says she will lead by example.",
+    "Promising pizza for lunch every day",
+    "Talking about your achievements",
+    "What are they doing? Should a candidate do this?",
+    "It's okay to give candy to friends so they will vote for you.",
+    "Can you use every word from BTS 31?"
+   ],
+   "songs": [],
+   "imgs": [
+    "13076",
+    "18673",
+    "16687",
+    "15652",
+    "16425",
+    "16400",
+    "16886",
+    "16688",
+    "gen:bts-31-vice-president",
+    "18171",
+    "13076",
+    "18673",
+    "16687",
+    "15652",
+    "16425",
+    "16400",
+    "16886",
+    "16688",
+    "gen:bts-31-vice-president",
+    "18171"
+   ]
+  }
+ ]
+}

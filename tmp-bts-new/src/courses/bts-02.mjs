@@ -1,6 +1,8 @@
 // BTS 2 새 교재 설계 데이터. k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 // 사진 번호 = scene-words/<번호>.webp · c 로 시작하면 scene-clips · gen: 은 새로 만들 사진($T/gen/req-bts-02.json)
 import { open, close, HELLO } from '../common.mjs';
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Mary Had a Little Lamb", title: "Big and Small Zoo 🦁", img: "gen:bts-02-song-big-small-zoo", nt: "동물 크기 노래(새로 지음)", n: ["곡조: Mary Had a Little Lamb (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","big에서 두 팔을 크게 벌리고, small에서 손가락을 모으고, long에서 양손을 옆으로 쭉 뻗어요."], src: '새로 지음', lines: ["The hippo is big, big, big,","Big, big, big! Big, big, big!","The hippo is big, big, big,","And the monkeys are small!","Is the snake long? Yes, it is!","Long and thin! Long and thin!","Is it blue? No, it isn't!","The snake is long and green!"] };
+const USONG_3 = { t: 'song', k: 'new', small: "Let's sing! ♪ Farmer in the Dell", title: "Is and Has Song 👦", img: "gen:bts-02-song-is-and-has", nt: "생김새 노래(새로 지음)", n: ["곡조: The Farmer in the Dell (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","tall에서 손을 머리 위로 높이 올리고, hair에서 머리카락을, eyes에서 눈을 가리켜요."], src: '새로 지음', lines: ["He is tall, he is tall,","He has brown eyes, too!","Is he tall? Yes, he is!","He is tall, he is tall!","She has red hair, red hair,","She has red hair, red hair,","Does she have black hair? No!","She has red hair, red hair!"] };
 
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3';
 const SONG_NOTE = ['원본은 과마다 같은 유튜브 «Shapes Song»(QR 코드)을 틀었습니다 → 저작권·QR 문제로 화면판에서는 자체 챈트로 바꿨습니다', '손가락으로 도형을 허공에 그리며 부릅니다(원은 빙글, 세모는 꼭짓점 세 번)'];
@@ -21,7 +23,8 @@ export const COURSE = {
 <li><b>tall · black · white · brown · gray · pink</b> — 원본 본문에 계속 나오는데 낱말표에는 없었습니다. 해당 과 낱말표에 넣었습니다(범위가 조금 늘어남).</li>
 <li><b>Shapes Song</b> — 원본은 과마다 같은 유튜브 곡(QR). 자체 챈트로 바꿨습니다 — 녹음 필요.</li>
 <li><b>005 원본 18쪽 누락</b> — 사이트 묶음에 Slide18 파일이 없습니다(17 다음 19). 빠진 쪽 내용을 확인해 주세요.</li>
-<li><b>새로 만들 사진 39장</b> — 점선 상자 자리(힉스필드 크레딧).</li></ol></div>`,
+<li><b>새로 만들 사진 39장</b> — 점선 상자 자리(힉스필드 크레딧).</li>
+<li><b>새 단원 노래 2곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 2 «Big and Small Zoo»(Mary Had a Little Lamb) · Unit 3 «Is and Has Song»(The Farmer in the Dell). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '도형', unit: U1, title: 'Shapes and Colors', orig: 19,
@@ -103,6 +106,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-02-cover-big-small', q: 'Is it big or small?', story: 'Karen loves elephants. Can elephants fly?', nt: '표지 + Big Question' },
       ...open([['I can say big, small, long and short.', '크다·작다·길다·짧다를 말할 수 있어요.'], ['I can say "The elephant is big."', '동물·물건이 어떤지 말할 수 있어요.'], ['I can say "The snake is long and thin."', '두 가지를 and 로 이어 말할 수 있어요.']], 'Lesson Goals (용어 나열이었음)'),
+      USONG_2,
       { t: 'vocab', k: 'fix', hide: true, title: 'Adjectives 🔒', words: [['big', '큰', 'c7185'], ['small', '작은', '16311'], ['long', '긴', '12004'], ['short', '짧은', '12306'], ['thin', '가는·마른', 'gen:bts-02-green-snake'], ['thick', '두꺼운', '12023']], src: 'Vocabulary 5쪽', nt: '형용사 — 뜻 가리고 먼저 말하기', n: ['<del>얇은</del> → 가는·마른(thin 은 뱀·사람·동물에 씀)', '손동작 약속: big = 두 팔 크게, small = 손가락 조금, long = 두 손 벌리기'] },
       { t: 'vocab', k: 'keep', title: 'Adjectives', words: [['big', '큰', 'c7185'], ['small', '작은', '16311'], ['long', '긴', '12004'], ['short', '짧은', '12306'], ['thin', '가는·마른', 'gen:bts-02-green-snake'], ['thick', '두꺼운', '12023']], nt: '형용사 — 뜻 공개', n: ['강사가 손동작만 하면 학생이 낱말 말하기(반대로도)'] },
       { t: 'rule', k: 'new', title: 'Opposites!', left: { h: 'big · long · thick', ex: ['The elephant is **big**.', 'The bench is **long**.'] }, right: { h: 'small · short · thin', ex: ['The mouse is **small**.', 'The pencil is **short**.'] }, q: 'Find the opposite pairs!', nt: '규칙 찾기 — 반대말', n: ['세 쌍(big/small · long/short · thick/thin)을 학생이 짝지어 말하게'] },
@@ -134,6 +138,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '17171', q: 'Is the tiger blue?', story: 'Mango is thinking of an animal. Can you guess?', nt: '표지 + Big Question', n: ['학생이 «No!» 를 외치며 시작하는 질문 — 오늘은 Yes/No 로 답하는 과'] },
       ...open([['I can ask "Is the snake long?"', '«~은 ~하니?» 하고 물을 수 있어요.'], ['I can say "Yes, it is."', '맞으면 Yes, it is. 로 답해요.'], ['I can say "No, it isn\'t."', '아니면 No, it isn\'t. 하고 바르게 고쳐 말해요.']]),
+      USONG_2,
       { t: 'vocab', k: 'fix', hide: true, title: 'Remember? 🔒', words: [['big', '큰', '15194'], ['small', '작은', '12227'], ['long', '긴', '18100'], ['short', '짧은', '12306'], ['thin', '가는·마른', 'gen:bts-02-thin-dog'], ['thick', '두꺼운', '13133']], src: 'Vocabulary 5쪽 (004와 같았음)', nt: '지난 낱말 떠올리기', n: ['대부분 004 와 다른 사진 — 사진이 아니라 뜻을 떠올리게 합니다'] },
       { t: 'rule', k: 'new', title: 'Yes or no?', left: { h: 'Yes', ex: ['Is the snake **long**?', '→ **Yes, it is.**'] }, right: { h: 'No', ex: ['Is the snake **blue**?', "→ **No, it isn't.** It is green."] }, q: 'After "No", what do we say next?', src: '9쪽 Let\'s practice', nt: '규칙 찾기', n: ["«No» 다음에 바른 답을 한 번 더 말한다는 것을 학생이 찾게", "isn't = is not"] },
       { t: 'qa', k: 'fix', img: 'gen:bts-02-green-snake', title: 'Picture Talk!', q: 'What do you see?', a: 'I see a snake. It is long, thin and ___.', src: '7·8쪽', nt: '사진 보고 말하기', n: ['<del>long,thin</del> → long, thin'] },
@@ -158,6 +163,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-02-cover-zoo', q: 'What animals do you see at the zoo?', story: 'Yoona, Karen and Mango go to the zoo!', nt: '표지 + Big Question' },
       ...open([['I can name zoo animals.', '동물원 동물 이름을 말할 수 있어요.'], ['I can say "The lion is yellow."', '동물의 색과 크기를 말할 수 있어요.'], ['I can say "The monkeys are small."', '여러 마리는 are 로 말할 수 있어요.']]),
+      USONG_2,
       { t: 'vocab', k: 'fix', hide: true, title: 'Zoo animals 🔒', words: [['lion', '사자', 'c7435'], ['giraffe', '기린', '12520'], ['elephant', '코끼리', 'c7185'], ['zebra', '얼룩말', 'gen:bts-02-zebra'], ['parrot', '앵무새', 'c7380'], ['monkey', '원숭이', 'c7344'], ['hippo', '하마', 'gen:bts-02-hippos'], ['bear', '곰', 'c7385']], src: 'Vocabulary 5쪽', nt: '동물 — 뜻 가리고 먼저 말하기', n: ['원본 낱말표는 hippo·zebra·parrot 셋뿐 → 본문에 나오는 동물을 모두'] },
       { t: 'vocab', k: 'keep', title: 'Zoo animals', words: [['lion', '사자', 'c7435'], ['giraffe', '기린', '12520'], ['elephant', '코끼리', 'c7185'], ['zebra', '얼룩말', 'gen:bts-02-zebra'], ['parrot', '앵무새', 'c7380'], ['monkey', '원숭이', 'c7344'], ['hippo', '하마', 'gen:bts-02-hippos'], ['bear', '곰', 'c7385']], nt: '동물 — 뜻 공개', n: ['동물 흉내(소리·동작)를 하면 다른 사람이 이름 말하기'] },
       { t: 'rule', k: 'new', title: 'is or are?', left: { h: 'one', ex: ['The monkey **is** small.', 'The hippo **is** big.'] }, right: { h: 'two or more', ex: ['The monkeys **are** small.', 'The hippos **are** big.'] }, q: 'One animal or many? Is or are?', nt: '규칙 찾기 — is / are', n: ['원본 22·24쪽이 규칙 없이 are 를 씀 → 먼저 규칙을 찾게', '낱말 끝 -s 와 are 가 짝이라는 것까지'] },
@@ -187,6 +193,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-02-new-teacher', q: 'Who is the new teacher? What does she look like?', story: 'Sam has a new teacher. He tells his mom about her.', nt: '표지 + Big Question' },
       ...open([['I can say "He is tall."', '사람의 키를 말할 수 있어요 — tall, short.'], ['I can say "She has red hair."', '머리와 눈 색을 has 로 말할 수 있어요.'], ['I can say "I don\'t have blue eyes."', '«없어요» 를 don\'t have 로 말할 수 있어요.']], 'Lesson Goals (용어 나열이었음)'),
+      USONG_3,
       { t: 'vocab', k: 'fix', hide: true, title: 'People words 🔒', words: [['tall', '키가 큰', 'gen:bts-02-dad-tall'], ['short', '키가 작은', '21242'], ['fat', '뚱뚱한', 'gen:bts-02-fat-cat'], ['thin', '마른', 'gen:bts-02-thin-dog'], ['blonde', '금발의', 'gen:bts-02-karen'], ['gray', '회색의', '13003'], ['hair', '머리카락', '13008'], ['eyes', '눈', '12953']], src: 'Vocabulary 5쪽', nt: '낱말 — 뜻 가리고 먼저 말하기', n: ['<del>긴</del> → 키가 큰 · <del>지방</del> → 뚱뚱한', 'fat/thin 은 동물 사진으로 — 친구의 몸을 두고 말하지 않도록 강사가 함께 약속'] },
       { t: 'vocab', k: 'keep', title: 'People words', words: [['tall', '키가 큰', 'gen:bts-02-dad-tall'], ['short', '키가 작은', '21242'], ['fat', '뚱뚱한', 'gen:bts-02-fat-cat'], ['thin', '마른', 'gen:bts-02-thin-dog'], ['blonde', '금발의', 'gen:bts-02-karen'], ['gray', '회색의', '13003'], ['hair', '머리카락', '13008'], ['eyes', '눈', '12953']], nt: '낱말 — 뜻 공개', n: ['blonde 는 노란색(yellow)이 아니라 «금발» — 원본 목표의 주의점을 여기서 말로'] },
       { t: 'rule', k: 'new', title: 'has or have?', left: { h: 'I · you · they → have', ex: ['I **have** brown eyes.', 'They **have** black hair.'] }, right: { h: 'he · she → has', ex: ['She **has** red hair.', 'He **has** blue eyes.'] }, q: 'When do we say "has"?', nt: '규칙 찾기 — has / have', n: ['원본은 has 를 쓰면서 have 와 비교가 없었음 → 두 묶음을 보고 학생이 먼저'] },
@@ -217,6 +224,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-02-cover-friends', q: 'Who has blonde hair? Who has black hair?', story: 'Yoona describes her friends. Can you guess who?', nt: '표지 + Big Question' },
       ...open([['I can say who I see.', '본 사람을 말할 수 있어요 — I see a boy.'], ['I can describe hair and eyes.', '머리와 눈 색을 설명할 수 있어요.'], ['I can say "She doesn\'t have red hair."', '없는 것도 말할 수 있어요.']]),
+      USONG_3,
       { t: 'vocab', k: 'new', hide: true, title: 'Remember? 🔒', words: [['tall', '키가 큰', 'c7319'], ['short', '키가 작은', 'gen:bts-02-blond-boy'], ['blonde', '금발의', 'gen:bts-02-new-teacher'], ['brown', '갈색의', '12368'], ['black', '검은색의', 'gen:bts-02-black-hair-girl'], ['eyes', '눈', 'gen:bts-02-green-eyes']], nt: '지난 낱말 떠올리기' },
       { t: 'rule', k: 'fix', title: 'blond or blonde?', left: { h: 'boys · men', ex: ['He has **blond** hair.', 'Both boys have **blond** hair.'] }, right: { h: 'girls · women', ex: ['She has **blonde** hair.', 'Jane has **blonde** hair.'] }, q: 'Listen! Do they sound the same?', src: '009 6쪽 규칙을 앞당김', nt: '규칙 찾기 — blond / blonde', n: ['소리는 같고 글자만 다릅니다 — 말할 때는 신경 쓰지 않아도 된다고 안심시키기', '원본은 이 과에서 둘을 섞어 쓰고 규칙은 다음 과에 있었습니다'] },
       { t: 'qa', k: 'keep', img: 'gen:bts-02-mom-brown', title: 'Picture Talk!', q: 'Who is she?', a: 'She is a woman. She has ___ hair.', src: '8·9쪽', nt: '갈색 머리', n: ['007 이야기의 샘 엄마 — 인물이 이어집니다'] },
@@ -243,6 +251,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '12290', q: 'Can you describe yourself?', story: 'Karen tells us about herself. Then it\'s your turn!', nt: '표지 + Big Question' },
       ...open([['I can ask "Is he tall?"', '«키가 크니?» 하고 물을 수 있어요.'], ['I can ask "Does she have black hair?"', '«~이 있니?» 하고 물을 수 있어요.'], ['I can talk about myself.', '나를 4문장으로 소개할 수 있어요.']]),
+      USONG_3,
       { t: 'vocab', k: 'new', hide: true, title: 'Unit 3 words 🔒', words: [['tall', '키가 큰', 'c7319'], ['short', '키가 작은', '21242'], ['fat', '뚱뚱한', 'gen:bts-02-fat-cat'], ['thin', '마른', 'gen:bts-02-thin-dog'], ['blond', '금발의 (남자)', 'gen:bts-02-blond-twins'], ['blonde', '금발의 (여자)', 'gen:bts-02-new-teacher'], ['hair', '머리카락', '15315'], ['eyes', '눈', '12953']], nt: '단원 낱말 떠올리기' },
       { t: 'rule', k: 'new', title: 'Is … ? or Does … have … ?', left: { h: 'Is he / she …?', ex: ['Is he **tall**?', "→ Yes, he is. / No, he isn't."] }, right: { h: 'Does he / she have …?', ex: ['Does she have **black hair**?', '→ Yes, she has black hair.'] }, q: 'Tall, short → Is? Hair, eyes → ?', nt: '규칙 찾기 — 두 가지 질문', n: ['어떤지(tall·short)는 Is, 가진 것(hair·eyes)은 Does … have — 학생이 먼저 가르게'] },
       { t: 'qa', k: 'fix', img: 'gen:bts-02-fat-cat', q: 'Is the cat thin?', a: "No, it isn't. It is ___.", src: '10쪽', nt: '❗ 사진 교체', n: ['원본: 007 의 사람 몸 사진 «Is he thin? No, he isn\'t. He is ___.» → 고양이'] },

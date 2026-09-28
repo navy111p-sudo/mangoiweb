@@ -1,0 +1,71 @@
+{
+ "book": 15,
+ "songs": [
+  {
+   "unit": "Unit 1",
+   "key": "bts-15-song-true-false",
+   "title": "True or False? ✅",
+   "tune": "Mary Had a Little Lamb",
+   "lines": [
+    "Is it true or is it false?",
+    "True or false? True or false?",
+    "Is it true or is it false?",
+    "Is it fact or fiction?",
+    "The sun is a star, it's true,",
+    "It is true! It is true!",
+    "All the dogs went to the moon?",
+    "No, no, no, that is false!"
+   ],
+   "nt": "참·거짓 노래(새로 지음)",
+   "n": [
+    "곡조: Mary Had a Little Lamb (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "'true'에서 엄지를 위로, 'false'에서 두 팔로 X를 만들어 카메라에 보여 줘요."
+   ],
+   "imgPrompt": "Children in a classroom holding up green check and red X cards while a cartoon sun shines and a puppy looks at the moon."
+  },
+  {
+   "unit": "Unit 2",
+   "key": "bts-15-song-lie",
+   "title": "That's a Lie! 🐉",
+   "tune": "Skip to My Lou",
+   "lines": [
+    "Guess, guess, is it a lie?",
+    "Guess, guess, is it a lie?",
+    "Guess, guess, is it the truth?",
+    "Tell me, am I right or wrong?",
+    "I rode a dragon to school, you know,",
+    "I ran, I swam, and I caught a star,",
+    "And then I ate a hundred hot dogs!",
+    "That's a lie! Yes, you are right!"
+   ],
+   "nt": "거짓말 맞히기 노래(새로 지음)",
+   "n": [
+    "곡조: Skip to My Lou (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "'Guess'에서 턱에 손을 대고 생각하는 표정, 'That's a lie!'에서 코를 길게 늘이는 흉내를 해요."
+   ],
+   "imgPrompt": "A grinning boy telling a tall tale about riding a dragon while his friends laugh and hold a huge pile of hot dogs."
+  },
+  {
+   "unit": "Unit 3",
+   "key": "bts-15-song-genres",
+   "title": "What Genre Do You Like? 📚",
+   "tune": "Oh My Darling, Clementine",
+   "lines": [
+    "Do you like fantasy stories?",
+    "Magic, swords, and sorcerers?",
+    "Would you prefer a mystery",
+    "Or a comedy? Which one?",
+    "I think it's an adventure book",
+    "Because it has a journey!",
+    "I think this is a horror book",
+    "Because it has a zombie!"
+   ],
+   "nt": "책 장르 노래(새로 지음)",
+   "n": [
+    "곡조: Oh My Darling, Clementine (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+    "장르가 나올 때마다 동작을 해요: fantasy는 마법 지팡이, mystery는 돋보기, comedy는 크게 웃기, horror는 무서운 얼굴!"
+   ],
+   "imgPrompt": "Children in a cozy library holding books, one waving a toy magic wand, one with a magnifying glass, one laughing."
+  }
+ ]
+}

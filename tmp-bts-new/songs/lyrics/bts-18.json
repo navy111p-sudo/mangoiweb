@@ -1,0 +1,71 @@
+{
+  "book": 18,
+  "songs": [
+    {
+      "unit": "Unit 1",
+      "key": "bts-18-song-animal-homes",
+      "title": "Where Can Animals Live? 🐪",
+      "tune": "Oh My Darling, Clementine",
+      "lines": [
+        "In the desert, hot and sandy,",
+        "Camels can live, yes, they can!",
+        "In the ocean, deep and chilly,",
+        "Fish can't live up on the land!",
+        "Can a squirrel live in a forest?",
+        "Yes, it can! It climbs the trees!",
+        "My favorite is the dolphin.",
+        "I like it because it's smart!"
+      ],
+      "nt": "동물 서식지 노래(새로 지음)",
+      "n": [
+        "곡조: Oh My Darling, Clementine (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "‘desert’에서 부채질, ‘ocean’에서 헤엄치기, ‘forest’에서 나무 오르기 동작을 하고, 마지막 줄에서 좋아하는 동물 흉내를 냅니다."
+      ],
+      "imgPrompt": "A camel walking across a sandy desert, fish swimming in a blue ocean, a squirrel climbing a forest tree, and a smiling dolphin leaping from the waves."
+    },
+    {
+      "unit": "Unit 2",
+      "key": "bts-18-song-same-and-different",
+      "title": "Same or Different? 🦓",
+      "tune": "Rap chant (4 beats)",
+      "lines": [
+        "Zebras and horses — are they the same?",
+        "Both horses and zebras eat grass!",
+        "Zebras have stripes, but horses don't!",
+        "Similar? Different? Let's compare!",
+        "Both lions and tigers are majestic!",
+        "Lions have manes, but tigers have stripes!",
+        "However, they live in different places!",
+        "Hear them roar with strength and courage!"
+      ],
+      "nt": "같은 점·다른 점 챈트(새로 지음)",
+      "n": [
+        "곡조: Rap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다",
+        "‘Both’에서 두 손을 모으고, ‘but / however’에서 두 손을 양쪽으로 벌려 ‘다르다’를 표현하며 무릎 박자로 랩합니다."
+      ],
+      "imgPrompt": "A zebra and a horse grazing side by side on grass, with a lion on a grassland and a striped tiger in a jungle roaring proudly."
+    },
+    {
+      "unit": "Unit 3",
+      "key": "bts-18-song-the-best-day",
+      "title": "The Fastest, the Best! 🏆",
+      "tune": "Pop Goes the Weasel",
+      "lines": [
+        "The cheetah is the fastest cat,",
+        "The whale is the heaviest,",
+        "The strangest pet? An iguana!",
+        "The most exotic!",
+        "Today's the best day of my life,",
+        "My puppy is the cutest!",
+        "Good, better, best! Bad, worse, worst!",
+        "Yay! It's the best day!"
+      ],
+      "nt": "최상급 노래(새로 지음)",
+      "n": [
+        "곡조: Pop Goes the Weasel (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "각 절 마지막 줄(‘The most exotic!’, ‘Yay! It's the best day!’)에서 ‘Pop!’처럼 화면 앞으로 튀어 오르며 외칩니다."
+      ],
+      "imgPrompt": "A cheetah sprinting, a huge whale swimming, a child holding a friendly iguana, and a happy child hugging a cute puppy on a sunny day."
+    }
+  ]
+}

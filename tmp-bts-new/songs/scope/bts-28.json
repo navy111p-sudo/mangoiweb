@@ -1,0 +1,507 @@
+{
+ "book": 28,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Travel in Asia"
+   ],
+   "goals": [
+    "I can name kinds of tourist attractions.",
+    "I can use «would rather … than …».",
+    "I can explain my choice.",
+    "I can say where a place is located.",
+    "I can talk about famous places in Asia.",
+    "I can say which place I'd rather visit.",
+    "I can read a travel story and answer questions.",
+    "I can share my dream vacation in Asia.",
+    "I can say a place I don't want to visit and why."
+   ],
+   "words": [
+    [
+     "tourist attraction",
+     "관광 명소"
+    ],
+    [
+     "historical attraction",
+     "역사 명소"
+    ],
+    [
+     "adventure tourism",
+     "모험 관광"
+    ],
+    [
+     "shopping tourism",
+     "쇼핑 관광"
+    ],
+    [
+     "entertainment tourism",
+     "오락 관광"
+    ],
+    [
+     "ecotourism",
+     "생태 관광"
+    ],
+    [
+     "would rather",
+     "차라리 ~하겠다(더 좋다)"
+    ],
+    [
+     "location",
+     "위치"
+    ],
+    [
+     "cup of tea",
+     "(나의) 취향, 좋아하는 것"
+    ],
+    [
+     "tour",
+     "여행, 관광"
+    ],
+    [
+     "breathtaking",
+     "숨이 멎을 만큼 멋진"
+    ],
+    [
+     "views",
+     "경치"
+    ],
+    [
+     "stuff",
+     "것들, 일"
+    ],
+    [
+     "save up",
+     "(돈을) 모으다"
+    ],
+    [
+     "adventure",
+     "모험"
+    ],
+    [
+     "prefer",
+     "~을 더 좋아하다"
+    ],
+    [
+     "surfing",
+     "파도타기"
+    ],
+    [
+     "history",
+     "역사"
+    ],
+    [
+     "uncomfortable",
+     "불편한"
+    ],
+    [
+     "scenery",
+     "경치, 풍경"
+    ]
+   ],
+   "sentences": [
+    "Where would you rather go on vacation?",
+    "How many Asian countries can you name in 10 seconds?",
+    "Which word comes before the second thing?",
+    "I like tea. I like cola.",
+    "Hmm…",
+    "I **would rather** drink tea",
+    "**than** drink cola.",
+    "Name a popular tourist attraction in Korea.",
+    "Is history boring? What do you think?",
+    "Name a museum. What is inside it?",
+    "What is a good nature activity?",
+    "Ecotourism is also about learning from local people.",
+    "If you like exotic stuff, then ecotourism is your cup of tea!",
+    "Have you ever bought things from another country or city?",
+    "Do you still feel excited when you are in an amusement park?",
+    "Look for 10 seconds. Then say the kind of tourism for each one!",
+    "Number 1 is historical …",
+    "Would you rather go swimming or go skiing?",
+    "Would you rather go to an amusement park or a museum?",
+    "Would you rather eat exotic foods or eat vegetables?",
+    "Where is the Great Wall of China located?",
+    "Are you ready for a virtual tour of Asia?",
+    "Which one comes after «is»?",
+    "The **location** of the hotel is great.",
+    "The hotel **is located in** Seoul.",
+    "Ha Long Bay is located in Japan.",
+    "Name as many as you can!",
+    "Number 1 is …",
+    "Where is it located?",
+    "Why is this boy awake in the tent?",
+    "Would you rather sleep in a tent or in a hotel?",
+    "Leon loves sleeping in a tent.",
+    "Which one is followed by a verb?",
+    "His parents **prefer** history.",
+    "Leon **prefers** beaches.",
+    "Leon **would rather** stay in a hotel",
+    "than sleep in a tent.",
+    "Where would Leon rather go?",
+    "Why is she running with her passport?"
+   ],
+   "songs": [
+    "Asia Travel Chant"
+   ],
+   "imgs": [
+    "19006",
+    "12844",
+    "gen:bts-28-rafting",
+    "15084",
+    "15846",
+    "gen:bts-28-eco",
+    "19006",
+    "12844",
+    "gen:bts-28-rafting",
+    "15084",
+    "15846",
+    "gen:bts-28-eco",
+    "18436",
+    "12250",
+    "gen:bts-28-tea-idiom",
+    "18637",
+    "15687",
+    "13117",
+    "16911",
+    "12338",
+    "16926",
+    "12430",
+    "12506",
+    "c7324",
+    "18637",
+    "18436",
+    "12430",
+    "18436",
+    "15749",
+    "12017",
+    "18709",
+    "15687",
+    "12430",
+    "18436",
+    "15749",
+    "12017",
+    "18709",
+    "15687"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "World Tour"
+   ],
+   "goals": [
+    "I can use travel words like passport and currency.",
+    "I can use «If I could …, I would …».",
+    "I can talk about foreign places and things.",
+    "I can talk about famous world cities.",
+    "I can say what I would do in a city.",
+    "I can say if I'm interested in an activity.",
+    "I can match cities and attractions.",
+    "I can read Jonathan's story and answer questions.",
+    "I can say which countries I would like to visit."
+   ],
+   "words": [
+    [
+     "population",
+     "인구"
+    ],
+    [
+     "exotic",
+     "이국적인"
+    ],
+    [
+     "passport",
+     "여권"
+    ],
+    [
+     "abroad",
+     "해외로"
+    ],
+    [
+     "foreign",
+     "외국의"
+    ],
+    [
+     "foreigner",
+     "외국인"
+    ],
+    [
+     "currency",
+     "화폐, 통화"
+    ],
+    [
+     "exchange",
+     "환전하다, 바꾸다"
+    ],
+    [
+     "nightlife",
+     "밤 문화"
+    ],
+    [
+     "after dark",
+     "해가 진 뒤에"
+    ],
+    [
+     "interview",
+     "면접"
+    ],
+    [
+     "romantic",
+     "낭만적인"
+    ],
+    [
+     "in a hurry",
+     "서두르는"
+    ],
+    [
+     "minor",
+     "미성년자"
+    ],
+    [
+     "experience",
+     "경험하다"
+    ],
+    [
+     "musical",
+     "뮤지컬"
+    ],
+    [
+     "certain",
+     "확실한"
+    ]
+   ],
+   "sentences": [
+    "If you could go anywhere in the world, where would you go?",
+    "How many world countries can you name in 10 seconds?",
+    "Which one is only a dream?",
+    "I **can** go to Jeju.",
+    "I **will** go there in May.",
+    "If I **could** fly,",
+    "I **would** go to Paris.",
+    "If you could go anywhere, where would you go?",
+    "Which city has a big population?",
+    "Madagascar is exotic. Name another exotic place.",
+    "What do you need to travel abroad?",
+    "Do you have any foreign things?",
+    "What currencies do you know?",
+    "Where is it?",
+    "If Scott could travel anywhere, he would go to Paris.",
+    "Which city do millions of tourists visit every year?",
+    "Which city would you like to visit the most?",
+    "What can families do after dark?",
+    "Minors have not reached adult age. Are you a minor?",
+    "Can you name it?",
+    "What place do you want to visit in Rio?",
+    "What type of clothes would you bring if you traveled here?",
+    "London is a city in France.",
+    "Scuba diving in Australia — would you try it?",
+    "I'm (not) interested.",
+    "A wild animal safari in Kenya, Africa — would you want to go?",
+    "A hot air balloon or paragliding in Germany?",
+    "Heli-skiing in Switzerland — could you do this?",
+    "Which city is called \"the city that never sleeps\"?",
+    "Why is New York called \"the city that never sleeps\"?",
+    "Jonathan is certain that his family will visit the USA.",
+    "Is Jonathan sure he will go to New York?",
+    "We **will** go to Busan in May.",
+    "If we **could** go to New York,",
+    "we **would** stay in a nice hotel.",
+    "Which city is it?",
+    "What would your dream vacation look like?"
+   ],
+   "songs": [
+    "World Travel Chant"
+   ],
+   "imgs": [
+    "12563",
+    "gen:bts-28-exotic",
+    "13163",
+    "12746",
+    "19390",
+    "18435",
+    "12916",
+    "16245",
+    "gen:bts-28-night-market",
+    "17103",
+    "13163",
+    "16343",
+    "18435",
+    "gen:bts-28-santorini",
+    "gen:bts-28-jean-hurry",
+    "12848",
+    "15219",
+    "17022",
+    "12474",
+    "12338",
+    "19320",
+    "gen:bts-28-minors",
+    "c7376",
+    "gen:bts-28-night-market",
+    "12540",
+    "12005"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Dream Vacation"
+   ],
+   "goals": [
+    "I can use words for planning a trip.",
+    "I can say if something is worth it.",
+    "I can give travel advice with «If I were you, I'd …».",
+    "I can say if something is suitable.",
+    "I can talk about five famous attractions.",
+    "I can choose a trip for different people.",
+    "I can read Mina's travel itinerary.",
+    "I can say if a trip is rushed or relaxed.",
+    "I can make my own 2-day travel itinerary."
+   ],
+   "words": [
+    [
+     "travel itinerary",
+     "여행 일정표"
+    ],
+    [
+     "book",
+     "예약하다"
+    ],
+    [
+     "reservation",
+     "예약"
+    ],
+    [
+     "package tour",
+     "패키지 여행"
+    ],
+    [
+     "souvenirs",
+     "기념품"
+    ],
+    [
+     "tourist traps",
+     "바가지 관광지"
+    ],
+    [
+     "waste of time",
+     "시간 낭비"
+    ],
+    [
+     "worth it",
+     "그만한 가치가 있는"
+    ],
+    [
+     "have a word with",
+     "잠깐 이야기하다"
+    ],
+    [
+     "costly",
+     "비싼"
+    ],
+    [
+     "efficient",
+     "효율적인"
+    ],
+    [
+     "souvenir",
+     "기념품"
+    ],
+    [
+     "sightseeing",
+     "관광, 구경"
+    ],
+    [
+     "hiking",
+     "등산, 하이킹"
+    ],
+    [
+     "relax",
+     "쉬다"
+    ],
+    [
+     "spend",
+     "(시간을) 보내다"
+    ],
+    [
+     "rush",
+     "서두르다"
+    ]
+   ],
+   "sentences": [
+    "What would your dream vacation look like?",
+    "A travel itinerary is a trip plan. Have you seen one?",
+    "You want to stay at a nice hotel. What should you do first?",
+    "What souvenirs can foreigners buy from Korea?",
+    "A tourist trap wastes your time. Can you name one?",
+    "That's a nice painting, but it's expensive. Is it worth it?",
+    "What is happening?",
+    "Gab thinks a package tour is costly.",
+    "Is this attraction worth it or not worth it?",
+    "Is climbing Mount Halla suitable for your family?",
+    "Is this trip suitable for your family?",
+    "What does «suitable» mean?",
+    "Her outfit is **suitable**",
+    "for a beach party!",
+    "This horror film is **not suitable**",
+    "for children.",
+    "Is reading a book suitable for you?",
+    "Is cleaning the house suitable for you?",
+    "Is cliff diving suitable for you?",
+    "Where is it?",
+    "The tallest building in the world is in Dubai.",
+    "Are long trails okay for grandparents?",
+    "The Underwater Zoo or a museum — which suits families?",
+    "If you could plan your family trip, what would you do?",
+    "Mina wants her family to hike Hallasan this time.",
+    "Where could this be?",
+    "Can you pack everything into one suitcase?"
+   ],
+   "songs": [
+    "Dream Vacation Chant"
+   ],
+   "imgs": [
+    "17020",
+    "13029",
+    "18681",
+    "18637",
+    "15084",
+    "gen:bts-28-tourist-trap",
+    "17226",
+    "19701",
+    "17020",
+    "13029",
+    "18681",
+    "18637",
+    "15084",
+    "gen:bts-28-tourist-trap",
+    "17226",
+    "19701",
+    "gen:bts-28-sandy-gab",
+    "12455",
+    "19900",
+    "14608",
+    "17039",
+    "12200",
+    "12684",
+    "12055",
+    "17020",
+    "12563"
+   ]
+  }
+ ]
+}

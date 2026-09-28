@@ -1,6 +1,9 @@
 // BTS 15 새 교재 설계 데이터. k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 // 사진 번호 = photo-catalog.json · 'gen:bts-15-…' = 새로 만들 사진(gen/req-bts-15.json)
 import { open, close } from '../common.mjs';
+const USONG_1 = { t: 'song', k: 'new', small: "Let's sing! ♪ Mary Had a Little Lamb", title: "True or False? ✅", img: "gen:bts-15-song-true-false", nt: "참·거짓 노래(새로 지음)", n: ["곡조: Mary Had a Little Lamb (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","'true'에서 엄지를 위로, 'false'에서 두 팔로 X를 만들어 카메라에 보여 줘요."], src: '새로 지음', lines: ["Is it true or is it false?","True or false? True or false?","Is it true or is it false?","Is it fact or fiction?","The sun is a star, it's true,","It is true! It is true!","All the dogs went to the moon?","No, no, no, that is false!"] };
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Skip to My Lou", title: "That's a Lie! 🐉", img: "gen:bts-15-song-lie", nt: "거짓말 맞히기 노래(새로 지음)", n: ["곡조: Skip to My Lou (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","'Guess'에서 턱에 손을 대고 생각하는 표정, 'That's a lie!'에서 코를 길게 늘이는 흉내를 해요."], src: '새로 지음', lines: ["Guess, guess, is it a lie?","Guess, guess, is it a lie?","Guess, guess, is it the truth?","Tell me, am I right or wrong?","I rode a dragon to school, you know,","I ran, I swam, and I caught a star,","And then I ate a hundred hot dogs!","That's a lie! Yes, you are right!"] };
+const USONG_3 = { t: 'song', k: 'new', small: "Let's sing! ♪ Oh My Darling, Clementine", title: "What Genre Do You Like? 📚", img: "gen:bts-15-song-genres", nt: "책 장르 노래(새로 지음)", n: ["곡조: Oh My Darling, Clementine (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","장르가 나올 때마다 동작을 해요: fantasy는 마법 지팡이, mystery는 돋보기, comedy는 크게 웃기, horror는 무서운 얼굴!"], src: '새로 지음', lines: ["Do you like fantasy stories?","Magic, swords, and sorcerers?","Would you prefer a mystery","Or a comedy? Which one?","I think it's an adventure book","Because it has a journey!","I think this is a horror book","Because it has a zombie!"] };
 
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3';
 const WARM = (letters, src) => ({ t: 'fill', k: 'keep', small: 'Warm-up', title: 'How many words can you make?', lines: [letters, 'Use these letters. Make **5** words!', '1. ___   2. ___   3. ___   4. ___   5. ___'], src, nt: '낱말 만들기(몸풀기)' });
@@ -19,7 +22,8 @@ export const COURSE = {
 <li><b>핑크퐁 «See you again» 노래</b> — 원본 모든 과의 마지막 쪽이 다른 회사 캐릭터 노래였습니다. 시안은 공통 Goodbye Song 으로 바꿨습니다. 그대로 둘지 결정해 주세요.</li>
 <li><b>이야기 속 사실</b> — 001 개미 이야기의 «일개미는 1~3년 산다», «한 군체에 약 10만 마리» 는 원본 그대로입니다(종마다 다름). 강사 메모로 «개미 종류마다 다르다» 를 붙였습니다.</li>
 <li><b>고친 문장 승인</b> — 과마다 «이 과에서 고친 것». 특히 005 «chased 쫓겼다 / caught 잡혔다»(수동으로 잘못 번역), 007 장르 뜻(유형·공상·동작·신비 → 장르·판타지·액션·추리), 007 «You are weird!» 대사 순화.</li>
-<li><b>새로 만들 사진 37장</b> — 점선 자리(힉스필드 크레딧).</li></ol></div>`,
+<li><b>새로 만들 사진 37장</b> — 점선 자리(힉스필드 크레딧).</li>
+<li><b>새 단원 노래 3곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 1 «True or False?»(Mary Had a Little Lamb) · Unit 2 «That's a Lie!»(Skip to My Lou) · Unit 3 «What Genre Do You Like?»(Oh My Darling, Clementine). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '사실·지어낸 이야기', unit: U1, title: 'True Stories', orig: 27,
@@ -28,6 +32,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-15-ants-work', q: 'Is this story true or made up?', story: 'Dr. Smith studied ants for years. What did she find?', nt: '표지 + Big Question', n: ['«진짜일까, 지어낸 걸까?» 로 단원 전체의 질문을 엽니다', '개미가 무언가를 나르는 가까운 사진 — 학생에게 «What are they doing?» 먼저 물어보세요'] },
       ...open([['I can tell fact from fiction.', '사실인지 지어낸 이야기인지 구별할 수 있어요.'], ['I can say "It is true." or "It is false."', '맞는 말인지 틀린 말인지 영어로 말할 수 있어요.'], ['I can say "I would prefer ___."', '더 좋아하는 것을 말할 수 있어요.']], 'Lesson Goals (문법 용어 나열이었음)'),
+      USONG_1,
       WARM('B · U · T · I · L · I · K · E · I · T', '5쪽'),
       { t: 'vocab', k: 'fix', hide: true, words: [['fact', '사실', '21178'], ['fiction', '지어낸 이야기', '19384'], ['prefer', '더 좋아하다', '18436'], ['true', '사실인·맞는', '21114'], ['false', '틀린·거짓인', '18132']], src: 'Vocabulary 6쪽', nt: '낱말 — 뜻 가리고 먼저 말하기', n: ['<del>더 낫다</del> → 더 좋아하다 · <del>참된</del> → 사실인·맞는 · <del>소설</del> → 지어낸 이야기', 'fact 사진은 백과사전, fiction 사진은 외계인 책 — 사진만 보고 먼저 말하게 합니다'] },
       { t: 'vocab', k: 'keep', title: 'Words', words: [['fact', '사실', '21178'], ['fiction', '지어낸 이야기', '19384'], ['prefer', '더 좋아하다', '18436'], ['true', '사실인·맞는', '21114'], ['false', '틀린·거짓인', '18132']], nt: '낱말 — 뜻 공개', n: ['따라 말하기 2번 → 강사가 사진을 가리키면 학생이 말하기'] },
@@ -56,6 +61,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-15-boxer-winner', q: 'What do you want to be?', story: 'Mr. B was a champion boxer. Then he got older…', nt: '표지 + Big Question', n: ['지난 시간 예고 사진 그대로 — «Do you want to be a boxer?» 에 먼저 답하게'] },
       ...open([['I can ask "Do you want to be a ___?"', '무엇이 되고 싶은지 물을 수 있어요.'], ['I can answer with "because".', 'because 로 이유를 붙여 답할 수 있어요.'], ['I can tell a story in the past.', '이야기를 과거형으로 바꿔 말할 수 있어요.']], 'Lesson Goals (001 복사본이었음)'),
+      USONG_1,
       WARM('O · S · W · E · M · N · I', '5쪽'),
       { t: 'rule', k: 'fix', title: 'Now → past', left: { h: 'just add -ed', ex: ['like → **liked**', 'want → **wanted**', 'train → **trained**', 'continue → **continued**'] }, right: { h: 'a new word!', ex: ['fight → **fought**', 'lose → **lost**', 'find → **found**', 'tell → **told**'] }, q: 'Which words just add -ed? Which words change?', src: '6쪽 표', nt: '규칙 찾기 — 과거형 두 종류', n: ['원본 표 13줄을 «-ed 붙이기» 와 «모양이 바뀌는 말» 두 묶음으로 나눠 학생이 규칙을 먼저 말하게'] },
       { t: 'table', k: 'fix', small: 'More past words', title: 'They change, too!', rows: [['is', '→ **was**'], ['get', '→ **got**'], ['say', '→ **said**'], ['do / does', '→ **did**'], ["can't", "→ **couldn't**"]], src: '6쪽 표', nt: '과거형 나머지', n: ['원본 «does/do - did» 한 칸 → do / does 로 정리'] },
@@ -79,6 +85,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-15-boy-tripped', q: 'Did it really happen?', story: 'Luna tells a true story from when she was 12.', nt: '표지 + Big Question', n: ['지난 시간 예고 사진 — «What happened?» 에 과거형으로 답하게'] },
       ...open([['I can talk about my past.', '지난 일을 과거형으로 말할 수 있어요.'], ['I can tell a true story.', '내가 겪은 진짜 이야기를 말할 수 있어요.'], ['I can make true and false sentences.', '맞는 문장과 틀린 문장을 만들 수 있어요.']]),
+      USONG_1,
       WARM('M · O · R · B · C · E · I', '5쪽'),
       { t: 'yourturn', k: 'fix', img: '16193', title: 'One true, one false!', lines: ['Use: **told · lost · wanted · liked · found**', 'True: I ___ …', 'False: I ___ … (make it up!)'], chips: ['I lost my pencil.', 'I found a dragon egg!'], src: 'Idea Zone 6·7쪽', nt: '과거형으로 참/거짓 문장', n: ['원본 두 쪽(참 문장 / 거짓 문장)을 한 쪽에 — 학생이 둘을 섞어 말하고 강사가 맞힙니다'] },
       { t: 'vocab', k: 'fix', hide: true, title: 'Story words 🔒', words: [['tripped', '걸려 넘어졌다', 'gen:bts-15-boy-tripped'], ['fell', '넘어졌다', '15399'], ['felt', '느꼈다(feel)', '15155'], ['ambulance', '구급차', 'gen:bts-15-luna-ambulance']], src: 'New Words 8쪽', nt: '이야기 낱말 — 가림', n: ['<del>떨어졌다</del> → 넘어졌다', '뜻은 강사가 말로 공개합니다(쪽 수를 아끼려고 공개 쪽을 따로 두지 않음)'] },
@@ -97,6 +104,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-15-liar-100', q: 'Is it the truth or a lie?', story: 'Jay says he is 100 years old! Is he a liar?', nt: '표지 + Big Question', n: ['사진 속 가짜 흰 수염을 가리키며 «Is he 100 years old?» 부터'] },
       ...open([['I can say "That\'s a lie!"', '거짓말을 알아채고 말할 수 있어요.'], ['I can guess and say "You are right!"', '추측하고, 맞았는지 말할 수 있어요.'], ['I can retell a story in the past.', '이야기를 과거형으로 다시 말할 수 있어요.']]),
+      USONG_2,
       WARM('S · E · R · P · A · E · T · D · E', '5쪽'),
       { t: 'vocab', k: 'fix', hide: true, words: [['lie', '거짓말', 'gen:bts-15-long-nose'], ['liar', '거짓말쟁이', 'gen:bts-15-liar-100'], ['guess', '추측하다·짐작하다', '15440'], ['truth', '진실', '18467'], ['right', '맞는', '12005'], ['wrong', '틀린', '20182']], src: 'Vocabulary 6쪽', nt: '낱말 — 가림', n: ['<del>추측</del> → 추측하다 · <del>옳은</del> → 맞는 · <del>잘못된</del> → 틀린'] },
       { t: 'vocab', k: 'keep', title: 'Words', words: [['lie', '거짓말', 'gen:bts-15-long-nose'], ['liar', '거짓말쟁이', 'gen:bts-15-liar-100'], ['guess', '추측하다·짐작하다', '15440'], ['truth', '진실', '18467'], ['right', '맞는', '12005'], ['wrong', '틀린', '20182']], nt: '낱말 — 공개' },
@@ -126,6 +134,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-15-caveman-chase', q: 'Can you make up a story?', story: 'A hungry caveman sees a duck. What happens next?', nt: '표지 + Big Question', n: ['지난 시간 예고 그림 — «Why is he running?» 에 먼저 추측하게'] },
       ...open([['I can use past action words.', '동작을 과거형으로 말할 수 있어요 — chased, ran, swam.'], ['I can make up a story from pictures.', '그림을 보고 이야기를 지어낼 수 있어요.'], ['I can say "I like the story because …"', '이야기가 좋은지 이유와 함께 말할 수 있어요.']]),
+      USONG_2,
       WARM('O · N · O · E · A · P · D · B · R', '5쪽'),
       { t: 'vocab', k: 'fix', hide: true, words: [['chased', '쫓았다(chase)', 'gen:bts-15-caveman-chase'], ['ran', '달렸다(run)', '16205'], ['swam', '헤엄쳤다(swim)', '12719'], ['thought', '생각했다(think)', '12726'], ['caught', '잡았다(catch)', '12569'], ['took', '가져갔다(take)', 'gen:bts-15-caveman-home']], src: 'Vocabulary 6쪽', nt: '낱말 — 가림', n: ['❗ <del>쫓겼다</del> → 쫓았다 · <del>잡혔다</del> → 잡았다 — 원본 뜻은 «당했다»(수동)로 거꾸로였습니다'] },
       { t: 'vocab', k: 'keep', title: 'Words', words: [['chased', '쫓았다(chase)', 'gen:bts-15-caveman-chase'], ['ran', '달렸다(run)', '16205'], ['swam', '헤엄쳤다(swim)', '12719'], ['thought', '생각했다(think)', '12726'], ['caught', '잡았다(catch)', '12569'], ['took', '가져갔다(take)', 'gen:bts-15-caveman-home']], nt: '낱말 — 공개', n: ['강사가 몸동작(쫓기·뛰기·헤엄·생각·잡기)을 하면 학생이 과거형으로 말하기'] },
@@ -149,6 +158,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-15-grandma-dragon', q: 'What if today was a magic day?', story: 'Grandma Carmen had a very strange day. Or did she?', nt: '표지 + Big Question', n: ['지난 시간 예고 그림 — «Is it fact or fiction?» 부터 물어보세요'] },
       ...open([['I can talk about a made-up day.', '지어낸 하루를 과거형으로 말할 수 있어요.'], ['I can use ate, drank, went and saw.', 'ate, drank, went, saw 를 쓸 수 있어요.'], ['I can make one truth and one lie.', '진실 하나, 거짓말 하나를 만들 수 있어요.']]),
+      USONG_2,
       WARM('E · S · T · B · A · N · P · R · W', '5쪽'),
       { t: 'yourturn', k: 'fix', img: '12397', title: 'Imagine a fictional day!', lines: ['This day did **not** really happen!', 'I went to ___. I saw ___.', 'I ate ___. I drank ___. I played ___.'], chips: ['the moon', 'a dinosaur', '50 pizzas', 'with a lion'], src: 'Idea Zone 6쪽', nt: '지어낸 하루 말하기', n: ['<del>Talk about fictional day!</del> → a fictional day (관사)', '엉뚱할수록 좋습니다 — 강사가 먼저 한 번 보여 주세요'] },
       { t: 'vocab', k: 'fix', hide: true, title: 'Story words 🔒', words: [['stuffed', '배가 터질 만큼 부른', 'gen:bts-15-stuffed-boy'], ['full', '배부른', '16521'], ['movie theater', '영화관', '16800'], ['hot dog', '핫도그', '12468']], src: 'New Words 7쪽', nt: '이야기 낱말 — 가림', n: ['stuffed 와 full 을 짝으로 — 둘 다 «배부른», stuffed 가 더 셉니다', 'full 사진은 «사과가 가득 찬 바구니» — full 의 원래 뜻(가득 찬)을 보여 줍니다'] },
@@ -170,6 +180,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '18610', q: 'What kind of stories do you like?', story: 'Enosh read a new book. Will David like it?', nt: '표지 + Big Question', n: ['사진 속 책장 세 칸(용·탐정·우주)을 가리키며 «Which one do you want to read?»'] },
       ...open([['I can name 11 story genres.', '이야기 장르 11가지를 영어로 말할 수 있어요.'], ['I can ask "Do you like ___?"', '좋아하는 장르를 묻고 답할 수 있어요.'], ['I can say what a genre has.', '장르마다 무엇이 나오는지 말할 수 있어요.']]),
+      USONG_3,
       WARM('T · U · P · U · R · N · O · Y · A', '5쪽'),
       { t: 'vocab', k: 'fix', hide: true, title: 'Genres ① 🔒', words: [['genre', '장르', 'c7370'], ['fantasy', '판타지', '12959'], ['action', '액션', 'gen:bts-15-fight-book'], ['adventure', '모험', '12430'], ['comedy', '코미디', '12863'], ['horror', '공포', '13028']], src: 'Vocabulary 6쪽', nt: '장르 ① — 가림', n: ['<del>유형</del> → 장르 · <del>공상</del> → 판타지 · <del>동작</del> → 액션 · <del>코메디</del> → 코미디'] },
       { t: 'vocab', k: 'fix', hide: true, title: 'Genres ② 🔒', words: [['romance', '로맨스', '12360'], ['mystery', '추리', '13124'], ['sci-fi', '공상 과학(SF)', '19384'], ['history', '역사', '12017'], ['drama', '드라마', '16269']], src: 'Vocabulary 6쪽', nt: '장르 ② — 가림', n: ['<del>신비</del> → 추리 · sci-fi = science fiction'] },
@@ -199,6 +210,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-15-pirate-book', q: 'Which book would you pick?', story: 'Seven books. Can you guess each genre from the cover?', nt: '표지 + Big Question', n: ['지난 시간 예고 그림 — «Would you prefer pirates or zombies?» 에 먼저 답하게'] },
       ...open([['I can ask "Would you prefer ___ or ___?"', '둘 중 무엇이 더 좋은지 물을 수 있어요.'], ['I can say "I think it\'s a/an ___ book."', '책 표지를 보고 장르를 추측할 수 있어요.'], ['I can give a reason with "because".', 'because 로 이유를 말할 수 있어요.']], 'Lesson Goals (007 과 같았음)'),
+      USONG_3,
       WARM('F · S · H · I · A · V · E · W · R', '5쪽'),
       { t: 'vocab', k: 'new', hide: true, title: 'Remember? 🔒', words: [['fantasy', '판타지', '18829'], ['action', '액션', '16825'], ['adventure', '모험', '18753'], ['comedy', '코미디', '18022'], ['horror', '공포', 'c7293'], ['romance', '로맨스', '19462'], ['mystery', '추리', '18687'], ['sci-fi', '공상 과학(SF)', 'c7356']], nt: '지난 시간 장르 떠올리기', n: ['007 과 다른 사진으로 — 사진이 아니라 뜻을 떠올리게(간격 복습)'] },
       { t: 'rule', k: 'new', title: 'a or an?', left: { h: 'a', ex: ['a **fantasy** book', 'a **mystery** book', 'a **horror** book'] }, right: { h: 'an', ex: ['an **action** book', 'an **adventure** book'] }, q: 'When do we say "an"?', nt: '규칙 찾기', n: ['a·e·i·o·u 소리로 시작하면 an — 원본 «a/an» 빈칸의 규칙을 학생이 먼저 찾게', 'horror 는 h 소리가 나서 a 라는 것까지'] },
@@ -224,6 +236,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-15-reading-fort', q: 'What book did you read?', story: 'Alex tells us about a book he read. Can you guess the genre?', nt: '표지 + Big Question', n: ['지난 시간 예고 사진 — «What was the last book you read?» 에 먼저 답하게'] },
       ...open([['I can ask "What genre would you prefer?"', '어떤 장르를 더 좋아하는지 물을 수 있어요.'], ['I can talk about a book I read.', '읽은 책을 과거형으로 소개할 수 있어요.'], ['I can talk about a movie I saw.', '본 영화를 소개하고 느낌을 말할 수 있어요.']], 'Lesson Goals (008 과 거의 같았음)'),
+      USONG_3,
       WARM('T · C · O · E · M · N · T · I · A', '5쪽'),
       { t: 'table', k: 'keep', small: 'Pattern', title: 'What genre would you prefer?', head: ['question', 'answer'], rows: [['What genre would you prefer?', 'I would prefer ___.'], ['Why?', 'Because ___.'], ['What was the genre?', 'It was ___.']], tip: '지난 일을 말할 때: is → was · are → were', src: '6쪽', nt: '문장 틀' },
       { t: 'vocab', k: 'fix', hide: true, title: 'Story words 🔒', words: [['sorcerer', '마법사', '15827'], ['characters', '등장인물', '21134'], ['main', '주요한·중심의', '12329'], ['battle', '싸움·전투', '12967']], src: 'New Words 8쪽', nt: '이야기 낱말 — 가림', n: ['<del>캐릭터</del> → 등장인물', 'battle 사진은 눈싸움 — 무섭지 않게, 하지만 «싸움» 이 한눈에'] },

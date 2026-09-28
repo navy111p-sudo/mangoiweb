@@ -1,0 +1,49 @@
+{
+  "book": 11,
+  "songs": [
+    {
+      "unit": "Unit 2",
+      "key": "bts-11-song-stores",
+      "title": "Where Can You Buy It? 🛍️",
+      "tune": "The Muffin Man",
+      "lines": [
+        "Where can you buy a teddy bear,",
+        "a teddy bear, a teddy bear?",
+        "You can buy a teddy bear",
+        "at the toy store in town!",
+        "I need to buy some medicine,",
+        "some medicine, some medicine.",
+        "You can buy some medicine",
+        "at the pharmacy in town!"
+      ],
+      "nt": "가게 노래(새로 지음)",
+      "n": [
+        "곡조: The Muffin Man (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "질문 줄에서는 손을 이마에 대고 두리번거리고, 대답 줄에서는 가게 쪽을 손가락으로 가리켜요. 다른 물건·가게로 바꿔 불러도 좋아요."
+      ],
+      "imgPrompt": "Children walking down a colorful town street past a toy store with a teddy bear in the window and a pharmacy next door."
+    },
+    {
+      "unit": "Unit 3",
+      "key": "bts-11-song-stationery",
+      "title": "Cheap or Expensive? 🖊️",
+      "tune": "Yankee Doodle",
+      "lines": [
+        "I need school supplies today,",
+        "a pen and lots of crayons.",
+        "How much is the little pen?",
+        "It's cheap, so I can buy it!",
+        "How much is the fountain pen?",
+        "Oh no! It's so expensive!",
+        "I want it, but I can't buy it.",
+        "I'm happy with my cheap one!"
+      ],
+      "nt": "문구점 노래(새로 지음)",
+      "n": [
+        "곡조: Yankee Doodle (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "'cheap'에서는 엄지 척, 'expensive'에서는 두 손으로 볼을 감싸며 깜짝 놀라는 표정을 지어요."
+      ],
+      "imgPrompt": "A child at a stationery store counter holding a small pen happily while looking with wide eyes at a shiny fountain pen in a glass case."
+    }
+  ]
+}

@@ -1,0 +1,507 @@
+{
+ "book": 11,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Clothing Store",
+    "Money and Prices",
+    "Going Shopping"
+   ],
+   "goals": [
+    "I can talk about money and shopping.",
+    "I can say what I want to buy.",
+    "I can say what I can do.",
+    "I can read big numbers.",
+    "I can say how much it is.",
+    "I can ask 'How much is it?'",
+    "I can buy things in a store.",
+    "I can say how much money I have.",
+    "I can shop online."
+   ],
+   "words": [
+    [
+     "gloves",
+     "장갑"
+    ],
+    [
+     "jeans",
+     "청바지"
+    ],
+    [
+     "jacket",
+     "재킷"
+    ],
+    [
+     "swimsuit",
+     "수영복"
+    ],
+    [
+     "hoodie",
+     "후드티"
+    ],
+    [
+     "boots",
+     "부츠"
+    ],
+    [
+     "US dollars",
+     "미국 달러"
+    ],
+    [
+     "currency",
+     "통화(나라마다 다른 돈)"
+    ],
+    [
+     "shopping",
+     "쇼핑"
+    ],
+    [
+     "buy",
+     "사다"
+    ],
+    [
+     "sell",
+     "팔다"
+    ],
+    [
+     "online shopping",
+     "인터넷 쇼핑"
+    ],
+    [
+     "clothes",
+     "옷"
+    ],
+    [
+     "clothing store",
+     "옷가게"
+    ],
+    [
+     "clerk",
+     "점원"
+    ],
+    [
+     "brand",
+     "상표, 브랜드"
+    ],
+    [
+     "on my way",
+     "가는 길에"
+    ],
+    [
+     "rich",
+     "부자인"
+    ],
+    [
+     "winter",
+     "겨울"
+    ],
+    [
+     "customer",
+     "손님"
+    ],
+    [
+     "scarf",
+     "목도리"
+    ],
+    [
+     "sweater",
+     "스웨터"
+    ],
+    [
+     "pants",
+     "바지"
+    ],
+    [
+     "shoes",
+     "신발"
+    ],
+    [
+     "hat",
+     "모자"
+    ]
+   ],
+   "sentences": [
+    "What do you want to buy?",
+    "What comes after \"can\" and \"want to\"?",
+    "She **can** have a snowball fight.",
+    "I **can** buy a hat.",
+    "I **want to** buy that dress.",
+    "I **don't want to** buy that jacket.",
+    "Who is she? What does she do?",
+    "What are they doing?",
+    "What does he have?",
+    "Where is he? What does he have?",
+    "What are they?",
+    "What store is it?",
+    "What does it sell?",
+    "Look! 5 seconds! 👀",
+    "What does the store sell?",
+    "Who is it? What is it wearing?",
+    "A clothing store sells bread.",
+    "How much money is it?",
+    "When do we say \"is\"? When do we say \"are\"?",
+    "The scarf **is** $20.",
+    "It **is** twenty dollars.",
+    "The gloves **are** $50.",
+    "They **are** fifty dollars.",
+    "What is it?",
+    "How much is it?",
+    "Do you have $100?",
+    "How much money does he have?",
+    "What is it? When do you wear it?",
+    "What color are your socks?",
+    "How much is the jackets?",
+    "What is it? How much is it?",
+    "How many dresses are there?",
+    "Look at the price tags! 5 seconds! 👀",
+    "How much is the scarf?",
+    "Which scarf do you want?",
+    "Which one changes with \"she\": want or can?",
+    "I **want to** buy a scarf.",
+    "She **wants to** go shopping.",
+    "I **can** buy a scarf.",
+    "She **can** go shopping."
+   ],
+   "songs": [
+    "Let's Go Shopping!"
+   ],
+   "imgs": [
+    "16357",
+    "16076",
+    "16228",
+    "18119",
+    "c7263",
+    "gen:bts-11-boots",
+    "12916",
+    "12338",
+    "12506",
+    "19315",
+    "13260",
+    "12916",
+    "12338",
+    "12506",
+    "19315",
+    "13260",
+    "12213",
+    "12373",
+    "12856",
+    "14301",
+    "18748",
+    "12213",
+    "12373",
+    "12856",
+    "14301",
+    "18748",
+    "12081",
+    "15822",
+    "12537",
+    "12916",
+    "12338",
+    "19438",
+    "12883",
+    "14620",
+    "18748",
+    "12304",
+    "18112",
+    "16228",
+    "13160",
+    "12702",
+    "16227"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Stores and Items",
+    "What Can I Buy?",
+    "The Shopping List"
+   ],
+   "goals": [
+    "I can name 10 stores.",
+    "I can say what a store sells.",
+    "I can say where I can buy things.",
+    "I can say what I can buy.",
+    "I can say where I can buy it.",
+    "I can say what I need to buy.",
+    "I can say where I need to go."
+   ],
+   "words": [
+    [
+     "clothing store",
+     "옷가게"
+    ],
+    [
+     "toy store",
+     "장난감 가게"
+    ],
+    [
+     "flower shop",
+     "꽃집"
+    ],
+    [
+     "supermarket",
+     "슈퍼마켓"
+    ],
+    [
+     "pharmacy",
+     "약국"
+    ],
+    [
+     "bakery",
+     "빵집"
+    ],
+    [
+     "pet shop",
+     "반려동물 가게"
+    ],
+    [
+     "music store",
+     "악기 가게"
+    ],
+    [
+     "gadget store",
+     "전자기기 가게"
+    ],
+    [
+     "bookstore",
+     "서점"
+    ],
+    [
+     "available",
+     "살 수 있는, 파는"
+    ],
+    [
+     "kidding",
+     "농담하는"
+    ],
+    [
+     "forgot",
+     "잊어버렸다"
+    ]
+   ],
+   "sentences": [
+    "What stores are in your town?",
+    "Who sells? Who buys?",
+    "The bakery **sells** bread.",
+    "The bookstore **sells** books.",
+    "You **can buy** bread at the bakery.",
+    "I **can buy** books at the bookstore.",
+    "What does the clerk do?",
+    "What does she do?",
+    "What does the supermarket sell?",
+    "What does the bakery sell?",
+    "What store is it?",
+    "What does the toy store sell?",
+    "Where is she?",
+    "I am sick. I need to buy medicine. Where am I?",
+    "What can you buy at the music store?",
+    "What can you buy at the pet shop?",
+    "What does the gadget store sell?",
+    "What is it? Which store sells it?",
+    "You can buy bread at the pharmacy.",
+    "Where can you buy a teddy bear?",
+    "What store is it? What does it sell?",
+    "Where can you buy them?",
+    "What can you buy at the bakery?",
+    "What can you buy at the toy store?",
+    "What can you buy at the gadget store?",
+    "Where can you buy a guitar?",
+    "Where can you buy medicine?",
+    "Look! 5 seconds! 👀",
+    "What can you buy? Where?",
+    "You can buy a violin at the bakery.",
+    "Where is he? What can he buy?",
+    "What is on the shopping list?",
+    "When do we say \"needs to\"?",
+    "I **need to** buy rice.",
+    "We **need to** go to the pharmacy.",
+    "Julie **needs to** buy flowers.",
+    "John **needs to** buy a recorder.",
+    "Julie, what do you need to buy?",
+    "John, where do I need to go?",
+    "Where does John need to go?"
+   ],
+   "songs": [],
+   "imgs": [
+    "12856",
+    "gen:bts-11-toystore",
+    "16335",
+    "15258",
+    "14701",
+    "12856",
+    "gen:bts-11-toystore",
+    "16335",
+    "15258",
+    "14701",
+    "12794",
+    "gen:bts-11-petshop",
+    "gen:bts-11-musicstore",
+    "gen:bts-11-gadget",
+    "18018",
+    "12794",
+    "gen:bts-11-petshop",
+    "gen:bts-11-musicstore",
+    "gen:bts-11-gadget",
+    "18018",
+    "c7276",
+    "15842",
+    "18992",
+    "c7303",
+    "16336",
+    "18047",
+    "16659",
+    "14113",
+    "16313"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Stationery Store",
+    "Can I Buy It?",
+    "Derek's Shopping Day"
+   ],
+   "goals": [
+    "I can talk about school supplies.",
+    "I can say \"cheap\" or \"expensive\".",
+    "I can say what I need and what I want.",
+    "I can say 'I can buy it' or 'I can't buy it'.",
+    "I can say how I feel about a price.",
+    "I can plan my shopping.",
+    "I can say where I need to go."
+   ],
+   "words": [
+    [
+     "stationery store",
+     "문구점"
+    ],
+    [
+     "school supplies",
+     "학용품"
+    ],
+    [
+     "cheap",
+     "싼"
+    ],
+    [
+     "expensive",
+     "비싼"
+    ],
+    [
+     "need",
+     "필요하다"
+    ],
+    [
+     "want",
+     "갖고 싶다"
+    ],
+    [
+     "late",
+     "늦은"
+    ],
+    [
+     "first day of school",
+     "개학 날"
+    ],
+    [
+     "bring",
+     "가져오다"
+    ],
+    [
+     "believe",
+     "믿다"
+    ],
+    [
+     "amazing",
+     "놀라운"
+    ],
+    [
+     "worth",
+     "~의 값어치가 있는"
+    ]
+   ],
+   "sentences": [
+    "What can you buy at a stationery store?",
+    "Which ones do we need to live?",
+    "I **need** water.",
+    "I **need** food.",
+    "I **need** a house.",
+    "I **want** juice.",
+    "I **want** a cake.",
+    "I **want** a car.",
+    "What does the stationery store sell?",
+    "How much is the pen?",
+    "Is $1 cheap or expensive? What about $50?",
+    "The pen is **cheap**.",
+    "It is one dollar.",
+    "The fountain pen is **expensive**.",
+    "It is fifty dollars.",
+    "Wow! How much is the fountain pen?",
+    "Which one is cheap?",
+    "A car is cheap.",
+    "What is it? Is it cheap or expensive?",
+    "How much is it? Wow!",
+    "How much is this book?",
+    "How much is the trumpet?",
+    "How much is the cake?",
+    "How much are the crayons?",
+    "When can he buy it?",
+    "Fred has $50.",
+    "The bread is $50.",
+    "He **can** buy the bread.",
+    "The cake is $60.",
+    "He **can't** buy the cake.",
+    "Can Fred buy them?",
+    "Can Lea buy them?",
+    "Fred wants an instrument. What can he buy?",
+    "Lea has $100. She can buy a $150 book.",
+    "What does he want? Can he buy it?",
+    "Derek has $500. What will he buy?",
+    "I need school supplies. Where do I need to go?",
+    "Derek has $500. Can he buy them?",
+    "Mom told me to buy food.",
+    "Oh no! It's expensive! Should I buy it?"
+   ],
+   "songs": [],
+   "imgs": [
+    "gen:bts-11-stationery",
+    "16723",
+    "21124",
+    "12455",
+    "12123",
+    "15820",
+    "gen:bts-11-stationery",
+    "16723",
+    "21124",
+    "12455",
+    "12123",
+    "15820",
+    "gen:bts-11-tessa-late",
+    "18996",
+    "12071",
+    "18403",
+    "15829",
+    "19209",
+    "18403",
+    "15829",
+    "19209"
+   ]
+  }
+ ]
+}

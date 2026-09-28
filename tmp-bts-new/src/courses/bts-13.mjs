@@ -1,6 +1,9 @@
 // BTS 13 새 교재 설계 데이터. k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 // 사진 번호 = photo-catalog.json · gen:bts-13-* = 새로 만들 사진(gen/req-bts-13.json)
 import { open, close } from '../common.mjs';
+const USONG_1 = { t: 'song', k: 'new', small: "Let's sing! ♪ Mary Had a Little Lamb", title: "Now and Yesterday ⏰", img: "gen:bts-13-song-now-yesterday", nt: "지금과 어제 노래(새로 지음)", n: ["곡조: Mary Had a Little Lamb (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","'right now'에서는 손가락으로 아래(지금)를, 'yesterday'·'last night'에서는 엄지로 어깨 뒤(과거)를 가리켜요."], src: '새로 지음', lines: ["Right now I am playing tag,","playing tag, playing tag.","Right now I am playing tag.","I played it yesterday!","We had a pillow fight last night,","pillow fight, pillow fight.","We had a pillow fight last night,","but we did not play tag!"] };
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Old MacDonald Had a Farm", title: "I Visited My Grandma 👵", img: "gen:bts-13-song-grandma", nt: "할머니 댁 방문 노래(새로 지음)", n: ["곡조: Old MacDonald Had a Farm (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","rode(기차 칙칙폭폭), saw(눈 위에 손 올리기), met(손 흔들기), hugged(자기 몸 꼭 안기) 동작을 과거형 낱말마다 해요."], src: '새로 지음', lines: ["I visited my grandma","just one week ago!","I rode a train, and she made soup,","yum, yum, yum, yum, yum!","We saw a movie, and I met my aunt,","I rode, I saw, I met, and I hugged them all!","I visited my grandma","just one week ago!"] };
+const USONG_3 = { t: 'song', k: 'new', small: "Let's sing! ♪ Pop Goes the Weasel", title: "Where Did You Go? ✈️", img: "gen:bts-13-song-trip", nt: "여행 노래(새로 지음)", n: ["곡조: Pop Goes the Weasel (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","flew(두 팔 벌려 비행기), sailed(두 손으로 노 젓기) 동작을 하고, 'Splash!'·'Wow!'에서 두 손을 번쩍 들어요."], src: '새로 지음', lines: ["I flew on a plane to Japan.","The trip was two hours long!","I sailed on a ship to Jeju.","Splash! It was not long!","Where did you go? Where did you go?","I went to the Philippines!","I flew there from Korea.","Wow! The trip was long!"] };
 
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3';
 const TT = { t: 'song', k: 'fix', title: 'Tongue Twister 👅', img: '17112', lines: ["Tomorrow's yesterday is today,", "and yesterday's tomorrow is also today,", "but today's yesterday was yesterday's today,", "so tomorrow's today is today's tomorrow!"], src: 'Warm up (Tongue Twister)', nt: '혀 꼬기 준비 운동', n: ["원본 오타 <del>todays' tomorrow</del> → today's tomorrow · 한 줄로 이어진 문장을 네 줄로 끊어 숨 쉴 자리를 줬습니다", '처음엔 천천히 → 두 번째는 빠르게 → 세 번째는 강사와 누가 더 빨리', '뜻 풀이는 하지 않아도 됩니다 — yesterday·today·tomorrow 소리를 입에 붙이는 것이 목적'] };
@@ -20,7 +23,8 @@ export const COURSE = {
 <li><b>노래 저작권</b> — 원본 끝의 «See you again» 노래(핑크퐁 곡)는 저작권 확인 전이라 화면판에서 뺐고 공통 Goodbye Song 으로 대신했습니다.</li>
 <li><b>같은 사진을 «earlier» 와 «now» 에 함께 쓰던 쪽</b>(002 자전거·테니스·농구) — 새 교재는 한 장씩 따로 묻도록 바꿨습니다. 두 시점 사진을 새로 찍을지.</li>
 <li><b>새로 만들 사진 39장</b>(힉스필드 크레딧) — 표지·이야기·예고·Guess who 위주. 자유의 여신상·오페라하우스 같은 실제 명소가 들어갑니다.</li>
-<li><b>TEST 안내쪽의 중국어 글자</b>와 General Information 쪽은 시험지에서 뺐습니다(쪽 번호가 어긋나던 원인).</li></ol></div>`,
+<li><b>TEST 안내쪽의 중국어 글자</b>와 General Information 쪽은 시험지에서 뺐습니다(쪽 번호가 어긋나던 원인).</li>
+<li><b>새 단원 노래 3곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 1 «Now and Yesterday»(Mary Had a Little Lamb) · Unit 2 «I Visited My Grandma»(Old MacDonald Had a Farm) · Unit 3 «Where Did You Go?»(Pop Goes the Weasel). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '어제·지금', unit: U1, title: 'Yesterday and Today', orig: 30,
@@ -29,6 +33,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: GEN('pillowfight'), q: 'What did you do yesterday?', story: 'Ben and Claire talk about yesterday and today!', nt: '표지 + Big Question', n: ['베개 싸움 사진으로 시작 — «What are they doing?» 를 먼저 묻고 웃게 합니다', '끝날 때 «What did you do yesterday?» 에 영어로 답하는 것이 목표'] },
       ...open([['I can say what I am doing now.', '지금 하는 일을 말할 수 있어요 — I am doing my homework now.'], ['I can say what I did yesterday.', '어제 한 일을 말할 수 있어요 — I played tag yesterday.'], ['I can say what I did not do.', '하지 않은 일을 말할 수 있어요 — I did not play soccer.']]),
+      USONG_1,
       TT,
       { t: 'vocab', k: 'fix', hide: true, title: 'When? ⏰', words: [['right now', '바로 지금', GEN('rightnow')], ['today', '오늘', '18405'], ['yesterday', '어제', '17112'], ['last night', '어젯밤', '19693'], ['earlier', '아까', '19361'], ['weeks ago', '몇 주 전에', GEN('weeksago')]], src: 'Vocabulary 6쪽', nt: '때를 나타내는 말 — 뜻 가리기', n: ['사진만 보고 먼저 영어로 말하게 합니다', '<del>더일찍</del> → 아까 · now 와 right now 는 한 칸으로 묶었습니다'] },
       { t: 'vocab', k: 'keep', title: 'When? ⏰', words: [['right now', '바로 지금', GEN('rightnow')], ['today', '오늘', '18405'], ['yesterday', '어제', '17112'], ['last night', '어젯밤', '19693'], ['earlier', '아까', '19361'], ['weeks ago', '몇 주 전에', GEN('weeksago')]], nt: '뜻 공개', n: ['손으로 «지금 = 아래를 가리키기 · 어제 = 뒤로 넘기기» 몸짓을 붙이면 잘 남습니다'] },
@@ -60,6 +65,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: GEN('tag-cover'), q: 'Did you play tag yesterday?', story: 'Yes or no? Let\'s say it both ways!', nt: '표지', n: ['«Yes, I did. / No, I didn\'t.» 를 표지에서 바로 연습'] },
       ...open([['I can say what I did.', '한 일을 말할 수 있어요 — They played tag.'], ['I can say what I did not do.', '안 한 일을 말할 수 있어요 — They did not play tag.'], ['I can say what someone is not doing now.', '지금 안 하는 일도 말할 수 있어요 — They are not playing tag now.']]),
+      USONG_1,
       { t: 'vocab', k: 'new', hide: true, title: 'Remember? 🤔', words: [['yesterday', '어제', '17112'], ['earlier', '아까', '19361'], ['last night', '어젯밤', '19693'], ['homework', '숙제', '12149'], ['snowball', '눈뭉치', '15717'], ['video games', '비디오 게임', '12174']], src: 'Vocabulary', nt: '지난 시간 낱말 떠올리기', n: ['001 과 다른 사진으로 — 같은 낱말을 새 장면에서 떠올리게'] },
       { t: 'rule', k: 'new', title: 'Did or did not?', left: { h: 'Yes ✅', ex: ['They **played** tag.', 'She **did** her homework.', 'They **had** a pillow fight.'] }, right: { h: 'No ❌', ex: ['They **did not play** tag.', 'She **did not do** her homework.', 'They **did not have** a pillow fight.'] }, q: 'What comes after "did not"?', nt: '규칙 찾기', n: ['did not 뒤에 play·do·have(원래 모양)가 온다는 것을 학생이 먼저 찾게 합니다'] },
       { t: 'table', k: 'fix', small: "Let's make sentences", title: 'Four ways to say it', head: ['', 'Yes', 'No'], rows: [['Earlier', 'They played tag earlier.', 'They did not play tag earlier.'], ['Now', 'They are playing tag now.', 'They are not playing tag now.']], src: '9·10쪽', nt: '네 문장 틀', n: ['원본 4쪽에 걸친 예문을 한 표로 모았습니다'] },
@@ -83,6 +89,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: GEN('henry-soccer'), q: 'What did you do yesterday?', story: "Meet Henry! He didn't play computer games yesterday…", nt: '표지', n: ['«Why didn\'t he?» 궁금증을 남기고 이야기로'] },
       ...open([['I can read a story about yesterday.', '어제 이야기를 읽고 이해할 수 있어요.'], ['I can say what I usually do.', '보통 하는 일을 말할 수 있어요 — I usually play soccer in summer.'], ['I can answer questions about my day.', '내 하루에 대한 질문에 답할 수 있어요.']]),
+      USONG_1,
       { t: 'vocab', k: 'fix', hide: true, cols: 4, title: "Henry's words", words: [['usually', '보통', '18574'], ['winter', '겨울', '18094'], ['summer', '여름', '18093'], ['boring', '지루한', 'c7212']], src: 'Vocabulary', nt: '낱말 — 뜻 가리기', n: ['<del>대개</del> → 보통'] },
       { t: 'vocab', k: 'keep', cols: 4, title: "Henry's words", words: [['usually', '보통', '18574'], ['winter', '겨울', '18094'], ['summer', '여름', '18093'], ['boring', '지루한', 'c7212']], nt: '뜻 공개' },
       { t: 'read', k: 'keep', img: GEN('henry-soccer'), title: "Henry's Story ①", paras: ["Hello! I'm Henry! I like playing computer games, but I didn't play them yesterday.", "I went to my friend's house and we played soccer. My sister came with us because she likes soccer, too."], src: 'Story 9쪽', nt: '이야기 읽기 ①', n: ['문단마다 🔊 듣고 따라 읽기 → 두 번째는 학생 혼자', '«Why didn\'t he play computer games?» 로 궁금증 잇기'] },
@@ -107,6 +114,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '18640', q: 'Who did you visit?', story: 'Erin and Elsa both visited their grandparents last weekend!', nt: '표지', n: ['선물 가방 든 소년 사진 — «Who is she? Who did he visit?»'] },
       ...open([['I can say who I visited.', '누구를 방문했는지 말할 수 있어요 — I visited my grandparents.'], ['I can say when and how I went.', '언제·어떻게 갔는지 말할 수 있어요 — I rode the subway two weeks ago.'], ['I can use past words like rode, saw and met.', 'rode·saw·met 같은 과거 말을 쓸 수 있어요.']]),
+      USONG_2,
       TT,
       { t: 'vocab', k: 'fix', hide: true, title: 'Action words', words: [['ride', '타다', '12350'], ['make', '만들다', '12116'], ['meet', '만나다', '17036'], ['drive', '운전하다', '12135'], ['see', '보다', '18165'], ['visit', '방문하다', '12040']], src: 'Vocabulary 6쪽', nt: '낱말 — 뜻 가리기', n: ['<del>드라이브</del> → 운전하다 · <del>방문</del> → 방문하다(동사로)'] },
       { t: 'vocab', k: 'keep', title: 'Action words', words: [['ride', '타다', '12350'], ['make', '만들다', '12116'], ['meet', '만나다', '17036'], ['drive', '운전하다', '12135'], ['see', '보다', '18165'], ['visit', '방문하다', '12040']], nt: '뜻 공개' },
@@ -141,6 +149,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: GEN('soup-kitchen'), q: 'What did your family do last night?', story: 'Change it to the past — like magic! ✨', nt: '표지' },
       ...open([['I can change verbs into the past.', '동사를 과거형으로 바꿀 수 있어요 — ride → rode.'], ['I can say who did what and when.', '누가·무엇을·언제 했는지 말할 수 있어요.'], ['I can talk about my last week.', '지난주에 한 일을 말할 수 있어요.']]),
+      USONG_2,
       { t: 'vocab', k: 'new', hide: true, title: 'Past words 🕰️', words: [['took the bus', '버스를 탔다', '12354'], ['made soup', '수프를 만들었다', '16011'], ['saw a movie', '영화를 봤다', '18165'], ['met', '만났다', '17036'], ['visited', '방문했다', '18640'], ['drove', '운전했다', '12606']], nt: '과거형 떠올리기', n: ['원래 모양을 먼저 말하게 하고(take) 뜻을 공개하며 과거(took)로'] },
       { t: 'rule', k: 'new', title: 'Time words', left: { h: 'Past ⏪', ex: ['one week **ago**', '**last** night', '**yesterday**'] }, right: { h: 'Now 👇', ex: ['**right now**', '**now**', '**today**'] }, q: 'Which time words go with rode, saw and met?', nt: '규칙 찾기', n: ['때를 나타내는 말이 곧 «과거로 바꾸라» 는 신호라는 것을 발견하게'] },
       { t: 'qa', k: 'keep', img: '12350', title: 'Example', q: 'The boy (ride) a bike one week ago.', a: 'The boy ___ a bike one week ago.', chips: ['rode', 'rided', 'rides'], src: '9쪽 Example', nt: '예시', n: ['함정 rided — «ride 는 새 낱말로 바뀌는 친구!»'] },
@@ -167,6 +176,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: GEN('mia-bus-friend'), q: 'What was a fun visit for you?', story: 'Mia had a surprise on the bus!', nt: '표지', n: ['놀란 얼굴 사진 — «Why is she surprised?» 로 시작'] },
       ...open([['I can read a story about a visit.', '방문 이야기를 읽고 이해할 수 있어요.'], ['I can ask What, Who and When questions.', 'What·Who·When 질문을 만들 수 있어요.'], ['I can tell about my last visit.', '내가 마지막으로 누구를 방문했는지 말할 수 있어요.']]),
+      USONG_2,
       { t: 'vocab', k: 'fix', hide: true, cols: 4, title: "Mia's words", words: [['took the bus', '버스를 탔다', '12354'], ['hugged', '안아 주었다', GEN('grandpa-hug')], ['arrived', '도착했다', '14461'], ['too bad', '아쉽게도', GEN('chocolates-gift')]], src: 'Vocabulary', nt: '낱말 — 뜻 가리기' },
       { t: 'vocab', k: 'keep', cols: 4, title: "Mia's words", words: [['took the bus', '버스를 탔다', '12354'], ['hugged', '안아 주었다', GEN('grandpa-hug')], ['arrived', '도착했다', '14461'], ['too bad', '아쉽게도', GEN('chocolates-gift')]], nt: '뜻 공개' },
       { t: 'read', k: 'fix', img: GEN('chocolates-gift'), title: "Mia's Story ①", paras: ["Hi, everyone! I'm Mia. Three weeks ago, I visited my grandparents. I took the bus to their house.", 'I was surprised because I saw my friend on the bus. He gave me chocolates. Too bad I can\'t eat chocolates.'], src: 'Story 9쪽', nt: '이야기 읽기 ①', n: ['문단마다 🔊 듣고 따라 읽기', '«Why can\'t she eat chocolates?» 는 답이 없는 질문 — 학생 상상으로 말하게(알레르기? 이가 아파서?)'] },
@@ -192,6 +202,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: GEN('world-trip'), q: 'Where did you go?', story: 'Lani just came back from a long, long trip!', nt: '표지', n: ['지도 사진 — 학생이 가 본 나라를 가리키게'] },
       ...open([['I can say where I went.', '어디에 갔는지 말할 수 있어요 — I went to Japan.'], ['I can say how I got there.', '어떻게 갔는지 말할 수 있어요 — I flew on a plane.'], ['I can say how long the trip was.', '여행이 얼마나 걸렸는지 말할 수 있어요 — The trip was two hours long.']]),
+      USONG_3,
       TT,
       { t: 'vocab', k: 'fix', hide: true, title: 'Travel words ✈️', words: [['ride on a train', '기차를 타다', '14856'], ['fly on a plane', '비행기를 타다', '12769'], ['sail on a ship', '배를 타고 가다', '17045'], ['Japan', '일본', '15423'], ['the Philippines', '필리핀', '15612'], ['China', '중국', '12844']], src: 'Vocabulary 6쪽', nt: '낱말 — 뜻 가리기', n: ['<del>배를 항해했다</del> → 배를 타고 가다 · <del>필리핀 제도</del> → 필리핀'] },
       { t: 'vocab', k: 'keep', title: 'Travel words ✈️', words: [['ride on a train', '기차를 타다', '14856'], ['fly on a plane', '비행기를 타다', '12769'], ['sail on a ship', '배를 타고 가다', '17045'], ['Japan', '일본', '15423'], ['the Philippines', '필리핀', '15612'], ['China', '중국', '12844']], nt: '뜻 공개', n: ['the Philippines 앞의 the 를 꼭 붙여 말하게'] },
@@ -227,6 +238,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: GEN('santa-sleigh'), q: 'Where did you come from?', story: 'Even Santa took a long trip!', nt: '표지' },
       ...open([['I can say from where to where I went.', '어디서 어디로 갔는지 말할 수 있어요 — from Busan to Seoul.'], ['I can answer "Where did you come from?"', '어디에서 왔는지 답할 수 있어요 — I came from Jeju Island.'], ['I can talk about a trip in three sentences.', '여행을 세 문장으로 말할 수 있어요.']]),
+      USONG_3,
       { t: 'vocab', k: 'new', hide: true, title: 'Places 🌏', words: [['Korea', '한국', '15170'], ['the USA', '미국', '15200'], ['Jeju Island', '제주도', '12293'], ['Canada', '캐나다', GEN('canada-ship')], ['Australia', '호주', GEN('sydney-kangaroo')], ['South Africa', '남아프리카 공화국', '16318']], nt: '나라·곳 이름 — 뜻 가리기', n: ['the USA · the Philippines 처럼 the 가 붙는 이름을 따로 짚습니다'] },
       { t: 'vocab', k: 'keep', title: 'Places 🌏', words: [['Korea', '한국', '15170'], ['the USA', '미국', '15200'], ['Jeju Island', '제주도', '12293'], ['Canada', '캐나다', GEN('canada-ship')], ['Australia', '호주', GEN('sydney-kangaroo')], ['South Africa', '남아프리카 공화국', '16318']], nt: '뜻 공개' },
       { t: 'rule', k: 'new', title: 'From … to …', left: { h: 'from 🛫', ex: ['I flew **from** the USA …', 'I came **from** Jeju Island.'] }, right: { h: 'to 🛬', ex: ['… **to** the Philippines.', 'I went **to** Canada.'] }, q: 'Where did the trip start? Where did it end?', nt: '규칙 찾기', n: ['출발 = from, 도착 = to — 손가락으로 지도 위를 따라가며'] },
@@ -253,6 +265,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: GEN('luna-fin-plane'), q: 'Where did you travel?', story: 'Luna and her brother Fin flew far, far away!', nt: '표지' },
       ...open([['I can read a travel story.', '여행 이야기를 읽고 이해할 수 있어요.'], ['I can ask Who, What and When questions.', 'Who·What·When 질문을 만들 수 있어요.'], ['I can talk about countries I visited.', '가 본 나라를 말할 수 있어요.']]),
+      USONG_3,
       { t: 'vocab', k: 'fix', hide: true, cols: 4, title: "Luna's words", words: [['traveled', '여행했다', '12730'], ['far', '멀리', '12179'], ['imagine', '상상하다', '12397'], ['while', '~하는 동안', GEN('luna-spaghetti')]], src: 'Vocabulary', nt: '낱말 — 뜻 가리기', n: ['<del>여행 한</del> → 여행했다 · <del>동안</del> → ~하는 동안'] },
       { t: 'vocab', k: 'keep', cols: 4, title: "Luna's words", words: [['traveled', '여행했다', '12730'], ['far', '멀리', '12179'], ['imagine', '상상하다', '12397'], ['while', '~하는 동안', GEN('luna-spaghetti')]], nt: '뜻 공개' },
       { t: 'read', k: 'keep', img: GEN('luna-spaghetti'), title: "Luna's Story", paras: ["Hi, I'm Luna! I'm with my brother, Fin. We traveled to New York City three weeks ago.", "We are from Korea, so we're far from New York. The trip was 14 hours long. Can you imagine that?", 'We flew on a plane to get there. Fin ate a sandwich while I ate spaghetti.', 'We saw the Statue of Liberty.'], src: 'Story 9쪽', nt: '이야기 읽기', n: ['«Can you imagine that?» 에서 학생이 14시간 동안 뭘 할지 상상해 말하게'] },

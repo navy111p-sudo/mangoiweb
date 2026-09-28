@@ -1,0 +1,529 @@
+{
+ "book": 15,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "True Stories"
+   ],
+   "goals": [
+    "I can tell fact from fiction.",
+    "I can say \"It is true.\" or \"It is false.\"",
+    "I can say \"I would prefer ___.\"",
+    "I can ask \"Do you want to be a ___?\"",
+    "I can answer with \"because\".",
+    "I can tell a story in the past.",
+    "I can talk about my past.",
+    "I can tell a true story.",
+    "I can make true and false sentences."
+   ],
+   "words": [
+    [
+     "fact",
+     "사실"
+    ],
+    [
+     "fiction",
+     "지어낸 이야기"
+    ],
+    [
+     "prefer",
+     "더 좋아하다"
+    ],
+    [
+     "true",
+     "사실인·맞는"
+    ],
+    [
+     "false",
+     "틀린·거짓인"
+    ],
+    [
+     "colony",
+     "(개미) 군체·무리"
+    ],
+    [
+     "soldier",
+     "병정개미·군인"
+    ],
+    [
+     "brought",
+     "가져왔다(bring)"
+    ],
+    [
+     "defended",
+     "지켰다(defend)"
+    ],
+    [
+     "drones",
+     "수개미"
+    ],
+    [
+     "fought",
+     "싸웠다(fight)"
+    ],
+    [
+     "tripped",
+     "걸려 넘어졌다"
+    ],
+    [
+     "fell",
+     "넘어졌다"
+    ],
+    [
+     "felt",
+     "느꼈다(feel)"
+    ],
+    [
+     "ambulance",
+     "구급차"
+    ]
+   ],
+   "sentences": [
+    "Is this story true or made up?",
+    "A dragon talks to a girl. Is it fact or fiction?",
+    "It is **real** and **true**.",
+    "We read it to **learn**.",
+    "It is **make-believe**.",
+    "We read it to **enjoy**.",
+    "All the buildings are built underwater.",
+    "The sun is a star!",
+    "The seawater was sweet.",
+    "All the dogs went to the moon!",
+    "Who are they? Workers, soldiers or the queen?",
+    "Do you want to be a boxer?",
+    "What do you want to be?",
+    "Which words just add -ed? Which words change?",
+    "like → **liked**",
+    "want → **wanted**",
+    "train → **trained**",
+    "continue → **continued**",
+    "fight → **fought**",
+    "lose → **lost**",
+    "find → **found**",
+    "tell → **told**",
+    "What is she doing?",
+    "Who is he? What does he do?",
+    "Mr. B's family wanted him to be a boxer.",
+    "Oh no! What happened to him?",
+    "Did it really happen?",
+    "Luna called a taxi.",
+    "What did they eat? Guess!",
+    "Is he really 100 years old?"
+   ],
+   "songs": [],
+   "imgs": [
+    "21178",
+    "19384",
+    "18436",
+    "21114",
+    "18132",
+    "21178",
+    "19384",
+    "18436",
+    "21114",
+    "18132",
+    "gen:bts-15-ants-work",
+    "gen:bts-15-soldier-ants",
+    "12109",
+    "12036",
+    "gen:bts-15-queen-ant",
+    "12967",
+    "gen:bts-15-boy-tripped",
+    "15399",
+    "15155",
+    "gen:bts-15-luna-ambulance"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Fiction Stories"
+   ],
+   "goals": [
+    "I can say \"That's a lie!\"",
+    "I can guess and say \"You are right!\"",
+    "I can retell a story in the past.",
+    "I can use past action words.",
+    "I can make up a story from pictures.",
+    "I can say \"I like the story because …\"",
+    "I can talk about a made-up day.",
+    "I can use ate, drank, went and saw.",
+    "I can make one truth and one lie."
+   ],
+   "words": [
+    [
+     "lie",
+     "거짓말"
+    ],
+    [
+     "liar",
+     "거짓말쟁이"
+    ],
+    [
+     "guess",
+     "추측하다·짐작하다"
+    ],
+    [
+     "truth",
+     "진실"
+    ],
+    [
+     "right",
+     "맞는"
+    ],
+    [
+     "wrong",
+     "틀린"
+    ],
+    [
+     "spoke",
+     "말했다(speak)"
+    ],
+    [
+     "taught",
+     "가르쳤다(teach)"
+    ],
+    [
+     "amazed",
+     "(깜짝) 놀란"
+    ],
+    [
+     "chased",
+     "쫓았다(chase)"
+    ],
+    [
+     "ran",
+     "달렸다(run)"
+    ],
+    [
+     "swam",
+     "헤엄쳤다(swim)"
+    ],
+    [
+     "thought",
+     "생각했다(think)"
+    ],
+    [
+     "caught",
+     "잡았다(catch)"
+    ],
+    [
+     "took",
+     "가져갔다(take)"
+    ],
+    [
+     "stuffed",
+     "배가 터질 만큼 부른"
+    ],
+    [
+     "full",
+     "배부른"
+    ],
+    [
+     "movie theater",
+     "영화관"
+    ],
+    [
+     "hot dog",
+     "핫도그"
+    ]
+   ],
+   "sentences": [
+    "Is it the truth or a lie?",
+    "When do we say \"You are wrong\"?",
+    "Guess: \"It's a kitten.\"",
+    "It **is** a kitten.",
+    "Guess: \"It's a cat.\"",
+    "It's **not** a cat. It's a dog.",
+    "What is behind the star? Guess!",
+    "What is behind the crown? Guess!",
+    "It's not a cat. It's a dog.",
+    "I love to play soccer.",
+    "I am a boxer.",
+    "I can't ride a skateboard.",
+    "Why is the caveman running?",
+    "Can you make up a story?",
+    "Which one just adds -d? Which ones change?",
+    "chase",
+    "run",
+    "swim",
+    "think",
+    "catch",
+    "take",
+    "chase**d**",
+    "**ran**",
+    "**swam**",
+    "**thought**",
+    "**caught**",
+    "**took**",
+    "The duck chased the caveman.",
+    "What did the caveman think about?",
+    "Can a grandma ride a dragon?",
+    "What if today was a magic day?",
+    "This story really happened.",
+    "What did they eat at the movies? Guess!",
+    "How can you tell a lie from the truth?",
+    "I **went** to school yesterday.",
+    "I **ate** rice for dinner.",
+    "I **rode** a dragon to school.",
+    "I **ate** 100 cheeseburgers!",
+    "Make one true sentence and one lie!",
+    "Dragons, detectives or space? What kind of book is it?"
+   ],
+   "songs": [],
+   "imgs": [
+    "gen:bts-15-long-nose",
+    "gen:bts-15-liar-100",
+    "15440",
+    "18467",
+    "12005",
+    "20182",
+    "gen:bts-15-long-nose",
+    "gen:bts-15-liar-100",
+    "15440",
+    "18467",
+    "12005",
+    "20182",
+    "17277",
+    "12355",
+    "18568",
+    "gen:bts-15-caveman-chase",
+    "16205",
+    "12719",
+    "12726",
+    "12569",
+    "gen:bts-15-caveman-home",
+    "gen:bts-15-caveman-chase",
+    "16205",
+    "12719",
+    "12726",
+    "12569",
+    "gen:bts-15-caveman-home",
+    "gen:bts-15-stuffed-boy",
+    "16521",
+    "16800",
+    "12468"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "Story Genres"
+   ],
+   "goals": [
+    "I can name 11 story genres.",
+    "I can ask \"Do you like ___?\"",
+    "I can say what a genre has.",
+    "I can ask \"Would you prefer ___ or ___?\"",
+    "I can say \"I think it's a/an ___ book.\"",
+    "I can give a reason with \"because\".",
+    "I can ask \"What genre would you prefer?\"",
+    "I can talk about a book I read.",
+    "I can talk about a movie I saw."
+   ],
+   "words": [
+    [
+     "genre",
+     "장르"
+    ],
+    [
+     "fantasy",
+     "판타지"
+    ],
+    [
+     "action",
+     "액션"
+    ],
+    [
+     "adventure",
+     "모험"
+    ],
+    [
+     "comedy",
+     "코미디"
+    ],
+    [
+     "horror",
+     "공포"
+    ],
+    [
+     "romance",
+     "로맨스"
+    ],
+    [
+     "mystery",
+     "추리"
+    ],
+    [
+     "sci-fi",
+     "공상 과학(SF)"
+    ],
+    [
+     "history",
+     "역사"
+    ],
+    [
+     "drama",
+     "드라마"
+    ],
+    [
+     "magic",
+     "마법"
+    ],
+    [
+     "strange",
+     "이상한"
+    ],
+    [
+     "relationship",
+     "관계"
+    ],
+    [
+     "detective",
+     "탐정"
+    ],
+    [
+     "puzzle",
+     "수수께끼·퍼즐"
+    ],
+    [
+     "journey",
+     "(긴) 여행"
+    ],
+    [
+     "travel",
+     "여행"
+    ],
+    [
+     "event",
+     "사건·일"
+    ],
+    [
+     "serious",
+     "진지한"
+    ],
+    [
+     "issue",
+     "문제"
+    ],
+    [
+     "sword",
+     "검·칼"
+    ],
+    [
+     "prefer",
+     "더 좋아하다"
+    ],
+    [
+     "mind-blowing",
+     "엄청 놀라운"
+    ],
+    [
+     "weird",
+     "이상한·특이한"
+    ],
+    [
+     "sorcerer",
+     "마법사"
+    ],
+    [
+     "characters",
+     "등장인물"
+    ],
+    [
+     "main",
+     "주요한·중심의"
+    ],
+    [
+     "battle",
+     "싸움·전투"
+    ]
+   ],
+   "sentences": [
+    "What kind of stories do you like?",
+    "What genre is it? Guess!",
+    "David likes fantasy books.",
+    "Would you prefer pirates or zombies?",
+    "Which book would you pick?",
+    "When do we say \"an\"?",
+    "a **fantasy** book",
+    "a **mystery** book",
+    "a **horror** book",
+    "an **action** book",
+    "an **adventure** book",
+    "Look at the cover. What genre is it?",
+    "Look at the picture. What genre is it?",
+    "The Zombie — what genre is it?",
+    "It's a comedy book.",
+    "What was the last book you read?",
+    "What book did you read?",
+    "Alex's book was a horror book.",
+    "How much do you remember?"
+   ],
+   "songs": [],
+   "imgs": [
+    "c7370",
+    "12959",
+    "gen:bts-15-fight-book",
+    "12430",
+    "12863",
+    "13028",
+    "12360",
+    "13124",
+    "19384",
+    "12017",
+    "16269",
+    "12959",
+    "gen:bts-15-fight-book",
+    "12430",
+    "12863",
+    "13028",
+    "12360",
+    "13124",
+    "19384",
+    "15538",
+    "c7372",
+    "19720",
+    "16295",
+    "12108",
+    "12478",
+    "12309",
+    "12156",
+    "21309",
+    "12399",
+    "15517",
+    "18436",
+    "18710",
+    "18631",
+    "18829",
+    "16825",
+    "18753",
+    "18022",
+    "c7293",
+    "19462",
+    "18687",
+    "c7356",
+    "15827",
+    "21134",
+    "12329",
+    "12967"
+   ]
+  }
+ ]
+}

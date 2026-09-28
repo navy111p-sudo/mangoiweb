@@ -1,0 +1,608 @@
+{
+ "book": 12,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Jobs"
+   ],
+   "goals": [
+    "I can name jobs and places.",
+    "I can ask \"Where does he work?\"",
+    "I can say \"She works at a bank.\"",
+    "I can say what people need for work.",
+    "I can say \"They use computers.\"",
+    "I can say whose it is.",
+    "I can talk about a person's job.",
+    "I can say what they need and drive.",
+    "I can talk about my family's jobs."
+   ],
+   "words": [
+    [
+     "police officer",
+     "경찰관"
+    ],
+    [
+     "teacher",
+     "선생님"
+    ],
+    [
+     "firefighter",
+     "소방관"
+    ],
+    [
+     "baker",
+     "제빵사"
+    ],
+    [
+     "banker",
+     "은행원"
+    ],
+    [
+     "mail carrier",
+     "우체부"
+    ],
+    [
+     "hairdresser",
+     "미용사"
+    ],
+    [
+     "office worker",
+     "회사원"
+    ],
+    [
+     "police station",
+     "경찰서"
+    ],
+    [
+     "school",
+     "학교"
+    ],
+    [
+     "fire station",
+     "소방서"
+    ],
+    [
+     "bakery",
+     "빵집"
+    ],
+    [
+     "bank",
+     "은행"
+    ],
+    [
+     "post office",
+     "우체국"
+    ],
+    [
+     "hair salon",
+     "미용실"
+    ],
+    [
+     "office",
+     "사무실"
+    ],
+    [
+     "future",
+     "미래"
+    ],
+    [
+     "catch",
+     "잡다"
+    ],
+    [
+     "thieves",
+     "도둑들"
+    ],
+    [
+     "hose",
+     "호스"
+    ],
+    [
+     "axe",
+     "도끼"
+    ],
+    [
+     "helmet",
+     "헬멧"
+    ],
+    [
+     "hair dryer",
+     "헤어드라이어"
+    ],
+    [
+     "comb",
+     "빗"
+    ],
+    [
+     "collect",
+     "모으다"
+    ],
+    [
+     "deliver",
+     "배달하다"
+    ],
+    [
+     "taxi driver",
+     "택시 기사"
+    ],
+    [
+     "bus driver",
+     "버스 기사"
+    ],
+    [
+     "badge",
+     "배지"
+    ],
+    [
+     "rolling pin",
+     "밀대"
+    ],
+    [
+     "laptop",
+     "노트북"
+    ],
+    [
+     "phone",
+     "전화기"
+    ]
+   ],
+   "sentences": [
+    "Who works in your city?",
+    "When do we add \"-s\"?",
+    "I **work** at a school.",
+    "They **work** at a bank.",
+    "He **works** at a bakery.",
+    "She **works** in an office.",
+    "What buildings can you see in a city?",
+    "Where does he work?",
+    "Where do they work?",
+    "Where does the banker work?",
+    "Where does the hairdresser work?",
+    "Guess! What job is it?",
+    "He is a banker. He works at a bank.",
+    "What does a firefighter need?",
+    "Remember \"work / works\"? What is the same?",
+    "I **need** a hose.",
+    "They **use** computers.",
+    "He **needs** an axe.",
+    "She **uses** a comb.",
+    "What do you do?",
+    "What do firefighters need?",
+    "What does she do?",
+    "What does a hairdresser need?",
+    "What do office workers use?",
+    "What does she need?",
+    "What does he do? What does he use?",
+    "\"This is my police car.\"",
+    "They are mail carriers.",
+    "They are firefighters.",
+    "He is a bus driver.",
+    "He is a taxi driver.",
+    "It's his fire truck.",
+    "Who are they? What do they drive?",
+    "Who is James? What does he drive?",
+    "Who drives what in the city?",
+    "Who are they? Say their jobs!",
+    "Who is hiding? 🙈",
+    "Talk about him!",
+    "John is a taxi driver.",
+    "Who is it? He needs a hose."
+   ],
+   "songs": [
+    "ABC Job Song (A–M)",
+    "ABC Job Song (N–Z)"
+   ],
+   "imgs": [
+    "13184",
+    "12229",
+    "12972",
+    "12793",
+    "17229",
+    "14753",
+    "15168",
+    "12282",
+    "13184",
+    "12229",
+    "12972",
+    "12793",
+    "17229",
+    "14753",
+    "15168",
+    "12282",
+    "gen:bts-12-police-station",
+    "16456",
+    "gen:bts-12-fire-station",
+    "12794",
+    "gen:bts-12-bank",
+    "19491",
+    "gen:bts-12-salon",
+    "12253",
+    "12388",
+    "12569",
+    "15311",
+    "16503",
+    "gen:bts-12-axe",
+    "12018",
+    "gen:bts-12-hairdryer",
+    "15168",
+    "gen:bts-12-collect",
+    "18364",
+    "16503",
+    "gen:bts-12-axe",
+    "12018",
+    "gen:bts-12-hairdryer",
+    "15168",
+    "gen:bts-12-collect",
+    "18364",
+    "gen:bts-12-taxi-driver",
+    "16097",
+    "gen:bts-12-donna",
+    "12292",
+    "12042",
+    "12066"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Going to Work"
+   ],
+   "goals": [
+    "I can name places and jobs in town.",
+    "I can say how people go to work.",
+    "I can say \"may\" and \"might\".",
+    "I can say \"It takes me 20 minutes.\"",
+    "I can guess with \"might\".",
+    "I can talk about my parents' jobs.",
+    "I can say what time they go.",
+    "I can say how long it takes."
+   ],
+   "words": [
+    [
+     "restaurant",
+     "식당"
+    ],
+    [
+     "waiter",
+     "종업원"
+    ],
+    [
+     "chef",
+     "요리사"
+    ],
+    [
+     "clerk",
+     "점원"
+    ],
+    [
+     "cashier",
+     "계산원"
+    ],
+    [
+     "grocery store",
+     "식료품 가게"
+    ],
+    [
+     "clothing store",
+     "옷 가게"
+    ],
+    [
+     "library",
+     "도서관"
+    ],
+    [
+     "librarian",
+     "사서"
+    ],
+    [
+     "train",
+     "기차"
+    ],
+    [
+     "motorcycle",
+     "오토바이"
+    ],
+    [
+     "taxi",
+     "택시"
+    ],
+    [
+     "car",
+     "자동차"
+    ],
+    [
+     "bus",
+     "버스"
+    ],
+    [
+     "bicycle",
+     "자전거"
+    ],
+    [
+     "subway",
+     "지하철"
+    ],
+    [
+     "banker",
+     "은행원"
+    ],
+    [
+     "hairdresser",
+     "미용사"
+    ],
+    [
+     "police officer",
+     "경찰관"
+    ]
+   ],
+   "sentences": [
+    "How do people go to work?",
+    "Which one do you \"ride\"?",
+    "drive a **car**",
+    "drive a **bus**",
+    "ride a **bike** / a **motorcycle**",
+    "take the **bus** / the **subway**",
+    "How does he go to work?",
+    "Where are they?",
+    "What do you do?",
+    "Where is the girl?",
+    "Where does she work?",
+    "Where do you work?",
+    "How does she go to work?",
+    "Rose's father is a banker.",
+    "How long does it take?",
+    "I → me. She → ? He → ? They → ?",
+    "It takes **me** 20 minutes.",
+    "It takes **her** 5 minutes.",
+    "It might take **them** 8 minutes.",
+    "How do they go to work?",
+    "\"I don't drive my police car to work.\"",
+    "How do you go to work?",
+    "I walk to work at 8:15 a.m. It takes me 20 minutes.",
+    "How does she go to work? How long does it take?",
+    "She drives a car to work.",
+    "How does your father go to work?",
+    "How does your family go to work?",
+    "What time does Jane's father go to work?",
+    "Jane takes the bus to school.",
+    "Who is he? How does he go to work?",
+    "What do you want to be in the future?"
+   ],
+   "songs": [],
+   "imgs": [
+    "16805",
+    "16556",
+    "16722",
+    "17137",
+    "16004",
+    "gen:bts-12-grocery",
+    "12856",
+    "12401",
+    "12063",
+    "16805",
+    "16556",
+    "16722",
+    "17137",
+    "16004",
+    "gen:bts-12-grocery",
+    "12856",
+    "12401",
+    "12063",
+    "12583",
+    "gen:bts-12-motorcycle",
+    "15763",
+    "12135",
+    "12354",
+    "12016",
+    "19259",
+    "12422",
+    "19423",
+    "18139",
+    "16072",
+    "18020",
+    "16556"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "I want to be"
+   ],
+   "goals": [
+    "I can say \"I want to be a doctor.\"",
+    "I can ask \"Why?\"",
+    "I can name more jobs.",
+    "I can say \"I like to draw.\"",
+    "I can say \"I want to be an artist.\"",
+    "I can say what I don't want to be.",
+    "I can ask \"Do you want to be …?\"",
+    "I can answer \"No, she doesn't.\"",
+    "I can say why with \"because\"."
+   ],
+   "words": [
+    [
+     "hospital",
+     "병원"
+    ],
+    [
+     "doctor",
+     "의사"
+    ],
+    [
+     "nurse",
+     "간호사"
+    ],
+    [
+     "scientist",
+     "과학자"
+    ],
+    [
+     "singer",
+     "가수"
+    ],
+    [
+     "actor",
+     "배우"
+    ],
+    [
+     "actress",
+     "(여자) 배우"
+    ],
+    [
+     "sports star",
+     "스포츠 스타"
+    ],
+    [
+     "sick",
+     "아픈"
+    ],
+    [
+     "librarian",
+     "사서"
+    ],
+    [
+     "difficult",
+     "어려운"
+    ],
+    [
+     "artist",
+     "화가·예술가"
+    ],
+    [
+     "musician",
+     "음악가"
+    ],
+    [
+     "writer",
+     "작가"
+    ],
+    [
+     "character",
+     "등장인물"
+    ],
+    [
+     "play (a role)",
+     "연기하다"
+    ],
+    [
+     "police officer",
+     "경찰관"
+    ],
+    [
+     "dancer",
+     "무용수"
+    ]
+   ],
+   "sentences": [
+    "What do you want to be in the future?",
+    "Do you see the \"-s\" again?",
+    "I **want** to be a nurse.",
+    "They **want** to be singers.",
+    "He **wants** to be a doctor.",
+    "She **wants** to be an actress.",
+    "Where are they?",
+    "What do you do?",
+    "What do I do?",
+    "Do you like to sing?",
+    "Where can you see them?",
+    "What do I play?",
+    "Lily wants to be a baker now.",
+    "What is the job?",
+    "What does she like to do?",
+    "What do you like to do?",
+    "When do we say \"an\"?",
+    "a **s**inger",
+    "a **ch**ef",
+    "a **w**riter",
+    "an **a**rtist",
+    "an **a**ctor",
+    "an **a**ctress",
+    "What do they play?",
+    "What does she do?",
+    "What does he like to do?",
+    "What does he say?",
+    "What do they like to do?",
+    "He likes to write stories.",
+    "What does this child like to do?",
+    "What can they do?",
+    "What can you do? What do you want to be?",
+    "After \"No\", what do we say next?",
+    "Does she want to be a doctor?",
+    "→ **Yes, she does.**",
+    "Does he want to be a chef?",
+    "→ **No, he doesn't.**",
+    "He wants to be a firefighter.",
+    "What do you want to be?",
+    "What do they want to be?"
+   ],
+   "songs": [
+    "Jobs Song"
+   ],
+   "imgs": [
+    "17106",
+    "12381",
+    "13134",
+    "12502",
+    "16261",
+    "12540",
+    "gen:bts-12-actress",
+    "16215",
+    "17106",
+    "12381",
+    "13134",
+    "12502",
+    "16261",
+    "12540",
+    "gen:bts-12-actress",
+    "16215",
+    "12260",
+    "12063",
+    "18527",
+    "12783",
+    "12656",
+    "12741",
+    "gen:bts-12-actress",
+    "18655",
+    "c7183",
+    "c5034",
+    "15516",
+    "12783",
+    "12656",
+    "12741",
+    "gen:bts-12-actress",
+    "18655",
+    "c7183",
+    "c5034",
+    "15516",
+    "16041",
+    "18020",
+    "12486",
+    "c7211",
+    "16073",
+    "10010",
+    "16041",
+    "18020",
+    "12486",
+    "c7211",
+    "16073",
+    "10010"
+   ]
+  }
+ ]
+}

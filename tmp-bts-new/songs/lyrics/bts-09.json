@@ -1,0 +1,71 @@
+{
+  "book": 9,
+  "songs": [
+    {
+      "unit": "Unit 1",
+      "key": "bts-09-song-morning-night",
+      "title": "Morning and Night 🌙",
+      "tune": "Oh My Darling, Clementine",
+      "lines": [
+        "In the morning, I eat breakfast,",
+        "And the sun is in the sky.",
+        "In the evening, I eat dinner,",
+        "And the moon is big and bright.",
+        "Would you like to eat lunch at night?",
+        "No, I wouldn't! Not at night!",
+        "Would you like to sleep at midnight?",
+        "Yes, I would! Good night, stars!"
+      ],
+      "nt": "하루 시간 노래(새로 지음)",
+      "n": [
+        "곡조: Oh My Darling, Clementine (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "morning에서 두 팔로 해가 뜨는 원을 그리고, night·sleep에서 두 손을 모아 뺨에 대고 자는 흉내를 내요."
+      ],
+      "imgPrompt": "Children eating breakfast under a bright morning sun, then sleeping in bed under the moon and stars."
+    },
+    {
+      "unit": "Unit 2",
+      "key": "bts-09-song-what-time",
+      "title": "What Time Is It? ⏰",
+      "tune": "The Muffin Man",
+      "lines": [
+        "What time is it? Seven a.m.!",
+        "Seven a.m., seven a.m.,",
+        "I should wake up at seven",
+        "And eat breakfast on time.",
+        "What time is it? Eight a.m.!",
+        "It's eight o'clock, it's eight o'clock,",
+        "I should go to school at eight,",
+        "So I should not be late!"
+      ],
+      "nt": "시각 노래(새로 지음)",
+      "n": [
+        "곡조: The Muffin Man (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "두 팔을 시계 바늘처럼 움직여 7시·8시를 만들고, late에서 손목시계를 톡톡 두드려요."
+      ],
+      "imgPrompt": "A child waking up to an alarm clock, eating breakfast and walking to school on time in the morning."
+    },
+    {
+      "unit": "Unit 3",
+      "key": "bts-09-song-how-long",
+      "title": "How Long Does It Take? ⏱️",
+      "tune": "Pop Goes the Weasel",
+      "lines": [
+        "How long does it take you to eat?",
+        "It takes me twenty minutes.",
+        "How long does it take to cook dinner?",
+        "Forty minutes!",
+        "I start at two and finish at three.",
+        "How long? It takes one hour!",
+        "Does it take you five minutes?",
+        "No, it doesn't!"
+      ],
+      "nt": "걸리는 시간 노래(새로 지음)",
+      "n": [
+        "곡조: Pop Goes the Weasel (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "How long?에서 두 손을 양옆으로 벌리고, 마지막 No, it doesn't!에서 고개를 저으며 손을 흔들어요."
+      ],
+      "imgPrompt": "A family cooking dinner together in a kitchen with a big clock on the wall while a child eats a meal."
+    }
+  ]
+}

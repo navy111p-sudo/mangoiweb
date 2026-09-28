@@ -1,6 +1,9 @@
 // BTS 17 새 교재 설계 데이터 — 취미와 활동 · 순서대로 하기(지시문) · 비교급
 // k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 import { open, close, HELLO } from '../common.mjs';
+const USONG_1 = { t: 'song', k: 'new', small: "Let's sing! ♪ Here We Go Round the Mulberry Bush", title: "Would You Like to Try? 🎨", img: "gen:bts-17-song-try-a-hobby", nt: "취미 노래(새로 지음)", n: ["곡조: Here We Go Round the Mulberry Bush (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","‘painting’에서 붓질, ‘hiking’에서 제자리 걷기 동작을 하고, ‘happy/excited/proud’에서 표정과 두 팔 들기로 감정을 보여 줍니다."], src: '새로 지음', lines: ["Would you like to try painting today,","Painting today, painting today?","Yes, I would like to try it, try it,","Because it is fun, you see!","How would you feel if you went hiking,","Up in the hills, up in the hills?","I would feel happy and excited,","My family would feel proud!"] };
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Farmer in the Dell", title: "I Need a Guitar 🎸", img: "gen:bts-17-song-what-i-need", nt: "취미 준비물 노래(새로 지음)", n: ["곡조: The Farmer in the Dell (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","‘I need …’마다 물건을 화면에 들어 보이는 흉내를 내고, ‘How does she/he …?’에서 옆 친구 쪽을 가리키며 묻습니다."], src: '새로 지음', lines: ["I need a new guitar.","I need paint and brushes.","I need soil and seedlings","To make a garden grow!","How does she do her hobby?","She needs some yarn to knit.","How does he do his hobby?","He feeds his fish each day."] };
+const USONG_3 = { t: 'song', k: 'new', small: "Let's sing! ♪ Clap chant", title: "Faster, Taller! 🐆", img: "gen:bts-17-song-faster-taller", nt: "비교급 챈트(새로 지음)", n: ["곡조: Clap chant (4 beats) — 멜로디 없이 4박으로 읊는 챈트, 가사는 이 단원 낱말로 새로 지었습니다","한 줄에 박수 4번을 치며 읽고, ‘-er / more’가 나올 때마다 두 손을 위로 쭉 올려 ‘더’를 표현합니다."], src: '새로 지음', lines: ["Rabbits are fast, but cheetahs are faster!","Giraffes are tall, but buildings are taller!","Is fishing more fun than kayaking?","Kayaking's more fun than fishing!","Climbing is more dangerous than running!","Nathan is better at dribbling than Ethan!","Who is better? Who is faster?","Say it louder, say it stronger!"] };
 
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3';
 const G = k => 'gen:bts-17-' + k;
@@ -20,7 +23,8 @@ export const COURSE = {
 <li><b>Tongue Twister 고침</b> — 006 «short socks with <u>sports</u>» → 원래 문장 «with <u>spots</u>»(점무늬)로 고쳤습니다.</li>
 <li><b>작별 노래</b> — 이 권은 «So Long Now Song» 입니다(See you later, alligator…). 공통 작별 쪽 모양은 그대로 두고, 곡 이름·가사 저작권 확인이 필요합니다.</li>
 <li><b>새로 만들 사진 38장</b> — 점선 자리(힉스필드 크레딧). 특히 나무늘보·개미·승마·카약·낚시처럼 사이트 사진에 없는 비교 대상.</li>
-<li><b>REVIEW 머리글</b> — 원본 25쪽부터 머리글이 «Unit 3 007» 로 잘못 붙어 있었습니다(시안은 단원 머리글을 빼고 «Stage» 로 나눔).</li></ol></div>`,
+<li><b>REVIEW 머리글</b> — 원본 25쪽부터 머리글이 «Unit 3 007» 로 잘못 붙어 있었습니다(시안은 단원 머리글을 빼고 «Stage» 로 나눔).</li>
+<li><b>새 단원 노래 3곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 1 «Would You Like to Try?»(Here We Go Round the Mulberry Bush) · Unit 2 «I Need a Guitar»(The Farmer in the Dell) · Unit 3 «Faster, Taller!»(Clap chant (4 beats)). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '취미·내 생각', unit: U1, title: 'Hobbies and Activities', orig: 25,
@@ -29,6 +33,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-001'), q: 'What do you like to do for fun?', story: 'Tyler has a brand-new hobby. Can you guess what it is?', nt: '표지 + Big Question', n: ['«재미로 뭘 해요?» 로 엽니다 — 끝날 때 학생이 «I think … is …» 로 답하는 것이 목표', '표지 사진 속 취미를 하나씩 짚어 이름을 떠올리게 합니다(한국어 괜찮음)'] },
       ...open([['I can name hobbies with -ing.', '취미 이름을 -ing 로 말할 수 있어요 — painting, playing piano.'], ['I can say what I think about a hobby.', '취미에 대한 내 생각을 말할 수 있어요 — I think painting is fun.'], ['I can compare two hobbies with «while».', 'while 로 두 취미를 견줄 수 있어요.']], 'Lesson Goals (Adjectives · Gerund)'),
+      USONG_1,
       { t: 'song', k: 'keep', title: 'Tongue Twister', lines: ['Darla drew daring dragons.', 'Darla drew daring dragons.', 'Darla drew daring dragons!'], img: '16057', src: '5쪽 Warm Up', nt: '입 풀기', n: TW },
       { t: 'vocab', k: 'fix', hide: true, title: 'Hobbies 🔒', cols: 4, words: [['taking pictures', '사진 찍기', '12519'], ['painting', '그림 그리기', '19410'], ['playing piano', '피아노 치기', '17175'], ['watching TV', 'TV 보기', '15204'], ['writing calligraphy', '서예 하기', '14920'], ['growing plants', '식물 기르기', '12067'], ['playing basketball', '농구 하기', '16202'], ['going to an amusement park', '놀이공원 가기', '16296']], src: 'Vocabulary 6·7쪽', nt: '취미 — 뜻 가리고 먼저', n: ['사진만 보고 영어로 먼저 말하게 합니다(인출 연습)', '원본의 흐린 작은 사진 → 사람이 그 취미를 «하고 있는» 사진으로'] },
       { t: 'vocab', k: 'keep', title: 'Hobbies', cols: 4, words: [['taking pictures', '사진 찍기', '12519'], ['painting', '그림 그리기', '19410'], ['playing piano', '피아노 치기', '17175'], ['watching TV', 'TV 보기', '15204'], ['writing calligraphy', '서예 하기', '14920'], ['growing plants', '식물 기르기', '12067'], ['playing basketball', '농구 하기', '16202'], ['going to an amusement park', '놀이공원 가기', '16296']], nt: '취미 — 뜻 공개', n: ['따라 2번 → 강사가 사진을 가리키면 학생이 이름 말하기'] },
@@ -60,6 +65,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-002'), q: 'Would you like to try a new hobby?', story: 'Tyler and Felix want to try new hobbies after school!', nt: '표지 + Big Question' },
       ...open([['I can ask «Would you like to try this hobby?»', '«이 취미 해 보고 싶어?» 하고 물을 수 있어요.'], ['I can answer with a reason.', '이유를 붙여 답할 수 있어요 — because it is fun.'], ['I can say how I feel.', '할 때 기분을 말할 수 있어요 — I feel excited.']]),
+      USONG_1,
       { t: 'song', k: 'keep', title: 'Tongue Twister', lines: ['Cool collector collected colorful coins.', 'Cool collector collected colorful coins.', 'Cool collector collected colorful coins!'], img: '16308', src: '5쪽 Warm Up', nt: '입 풀기', n: TW },
       { t: 'rule', k: 'new', title: 'Yes or no — and why?', left: { h: 'Yes 👍', ex: ['Yes, I would like to try it', '**because** it is fun.'] }, right: { h: 'No 👎', ex: ["No, I wouldn't like to try it", '**because** it is boring.'] }, q: 'Which word comes before the reason?', nt: '규칙 찾기 — because', n: ['두 칸의 같은 자리에 because 가 있다는 것을 찾게 합니다'] },
       { t: 'table', k: 'fix', small: 'Pattern', title: 'Would you like to try this hobby?', head: ['', 'answer', 'reason'], rows: [['👍', 'Yes, I would like to try it', 'because it is exciting.'], ['👎', "No, I wouldn't like to try it", 'because it is difficult.']], tip: "wouldn't = would not", src: 'Grammar 6·7쪽', nt: '문장 틀', n: ['원본 «try because» → «try **it** because» (try 뒤에 목적어가 필요)', '문법 용어(modal verb 등)는 강사 메모로'] },
@@ -90,6 +96,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-003'), q: 'How would you feel if you baked cupcakes?', story: "Alice loves baking. Let's read about her sweet hobby!", nt: '표지 + Big Question' },
       ...open([['I can ask «How would you feel if you …?»', '«~하면 기분이 어떨까?» 하고 물을 수 있어요.'], ['I can say «I would feel …».', '«~할 것 같아요» 로 답할 수 있어요.'], ['I can talk about my family\'s hobbies.', '가족의 취미를 말할 수 있어요.']]),
+      USONG_1,
       { t: 'song', k: 'keep', title: 'Tongue Twister', lines: ['Caleb colored clocks.', 'Caleb colored clocks.', 'Caleb colored clocks!'], img: '12580', src: '5쪽 Warm Up', nt: '입 풀기', n: TW },
       { t: 'rule', k: 'new', title: 'Does it change?', left: { h: 'I · you · they', ex: ['I **would feel** happy.', 'They **would feel** proud.'] }, right: { h: 'he · she', ex: ['She **would feel** bored.', 'He **would feel** excited.'] }, q: 'Does «would feel» change with he or she?', nt: '규칙 찾기', n: ['정답: 안 바뀐다! (feels 가 아님) — 학생이 먼저 말하게'] },
       { t: 'table', k: 'fix', small: 'Pattern', title: 'How would you feel?', head: ['question', 'answer'], rows: [['How would you feel if you did this hobby?', 'I would feel happy.'], ['How would she feel if she did it?', 'She would feel proud.']], tip: 'if … did = «(혹시) ~한다면»', src: 'Grammar 6·7쪽', nt: '문장 틀' },
@@ -114,6 +121,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-004'), q: 'How do you make a paper airplane?', story: 'Ben loves origami. Pam wants to learn — follow the directions!', nt: '표지 + Big Question' },
       ...open([['I can say what I need.', '준비물을 말할 수 있어요 — I need paper.'], ['I can follow directions.', '순서대로 따라 할 수 있어요 — First, … Then, …'], ['I can give directions.', '하는 방법을 순서대로 알려 줄 수 있어요.']], 'Lesson Goals (I need …)'),
+      USONG_2,
       { t: 'song', k: 'keep', title: 'Tongue Twister', lines: ['Rita read remarkable writing.', 'Rita read remarkable writing.', 'Rita read remarkable writing!'], img: '12495', src: '5쪽 Warm Up', nt: '입 풀기', n: TW },
       { t: 'rule', k: 'new', title: 'I need …', left: { h: 'one thing', ex: ['I need **a** racket.', 'I need **a** guitar.'] }, right: { h: 'two or more', ex: ['I need paint **and** brushes.', 'I need bread, cheese **and** meat.'] }, q: 'When do we say «a»? When do we say «and»?', nt: '규칙 찾기', n: ['하나면 a, 여러 개면 and 로 잇기 — 쉼표도 함께 보여 줍니다'] },
       { t: 'table', k: 'fix', small: 'Pattern', title: 'What do you need?', head: ['question', 'answer'], rows: [['Would you like to try this hobby?', "Yes, I would like to try it because it's fun."], ['What do you need?', 'I need paper.']], tip: 'To do something, follow the directions!', src: 'Grammar 6·7쪽 + 8쪽', nt: '문장 틀', n: ['«HOW DO I DO IT? To learn how to do something, follow the directions!» 쪽을 이 틀의 한 줄로'] },
@@ -143,6 +151,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-005'), q: 'How do you play badminton?', story: 'Follow the steps and do your hobby like a pro!', nt: '표지 + Big Question' },
       ...open([['I can ask «How do you do your hobby?»', '«취미를 어떻게 해?» 하고 물을 수 있어요.'], ['I can use «does» with he and she.', 'he·she 에는 does·his·her 를 써요.'], ['I can tell the steps in order.', '방법을 순서대로 말할 수 있어요.']], 'Lesson Goals (auxiliary do/does)'),
+      USONG_2,
       { t: 'song', k: 'keep', title: 'Tongue Twister', lines: ["Mick's men met Mike's team.", "Mick's men met Mike's team.", "Mick's men met Mike's team!"], img: '16064', src: '5쪽 Warm Up', nt: '입 풀기', n: TW },
       { t: 'rule', k: 'new', title: 'do or does?', left: { h: 'I · you · they', ex: ['How **do** you do **your** hobby?', 'How **do** they do **their** hobby?'] }, right: { h: 'he · she', ex: ['How **does** she do **her** hobby?', 'How **does** he do **his** hobby?'] }, q: 'What changes with he and she? (2 words!)', nt: '규칙 찾기', n: ['두 군데가 바뀐다: do→does, your→his/her'] },
       { t: 'vocab', k: 'fix', title: 'New words', words: [['soil', '흙', '16495'], ['seedlings', '새싹, 묘목', '16440'], ['yarn', '털실', '18888'], ['feed', '먹이를 주다', '12962']], src: '6쪽 Vocabulary', nt: '새 낱말 (사진)', n: ['사진이 뜻을 바로 보여 주는 넷을 먼저'] },
@@ -170,6 +179,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-006'), q: 'Why do you need all the pieces?', story: "Daisy loves puzzles. Let's see how she does them!", nt: '표지 + Big Question', n: ['마지막 조각을 강아지가 깔고 앉은 장면 — «왜 다 필요할까?» 로 엽니다'] },
       ...open([['I can say what someone needs for a hobby.', '취미에 필요한 것을 말할 수 있어요 — She needs a puzzle.'], ['I can say how someone does a hobby.', '누가 취미를 어떻게 하는지 말할 수 있어요.'], ["I can talk about my family's hobbies.", '가족의 취미와 준비물을 말할 수 있어요.']]),
+      USONG_2,
       { t: 'song', k: 'fix', title: 'Tongue Twister', lines: ['Does your sport shop stock short socks with spots?', 'Does your sport shop stock short socks with spots?'], img: '15722', src: '5쪽 Warm Up', nt: '입 풀기', n: ['<del>with sports</del> → with spots (점무늬) — 원래 문장으로', '뜻은 «운동용품 가게에 점무늬 짧은 양말 있어요?»'] },
       { t: 'table', k: 'fix', small: 'Pattern', title: 'What does she need?', head: ['question', 'answer'], rows: [['How does she do her hobby?', 'She practices every day.'], ['What does she need?', 'She needs a puzzle.'], ['What do you need?', 'I need a puzzle.']], tip: 'she → does … need? / She needs …', src: 'Grammar 6·7쪽', nt: '문장 틀', n: ['<del>How do you do our hobby?</del> → your hobby (한국어판 오타)'] },
       { t: 'vocab', k: 'fix', title: 'New words', words: [['pieces', '조각들', '16462'], ['fit together', '딱 맞다', '15023']], src: '8쪽', nt: '새 낱말', n: ['<del>어울리다</del> → 딱 맞다 — 퍼즐 조각이 «들어맞는» 뜻'] },
@@ -192,6 +202,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-007'), q: 'Who is the better soccer player?', story: 'Ethan and Nathan are brothers. They both love soccer!', nt: '표지 + Big Question' },
       ...open([['I can compare with -er than.', '-er than 으로 견줄 수 있어요 — Cheetahs are faster than rabbits.'], ['I can compare with more … than.', '긴 낱말은 more … than — more interesting than'], ['I can use better and worse.', 'good → better, bad → worse']], 'Lesson Goals (Comparative Adjectives)'),
+      USONG_3,
       { t: 'song', k: 'keep', title: 'Tongue Twister', lines: ['Give Papa a cup of proper coffee', 'in a copper coffee cup.', 'Give Papa a cup of proper coffee in a copper coffee cup!'], img: 'c7252', src: '5쪽 Warm Up', nt: '입 풀기', n: TW },
       { t: 'rule', k: 'new', title: '-er or more?', left: { h: 'short words', ex: ['fast → fast**er**', 'tall → tall**er**', 'small → small**er**'] }, right: { h: 'long words', ex: ['boring → **more** boring', 'interesting → **more** interesting'] }, q: 'When do we say «more»?', nt: '규칙 찾기', n: ['길이가 긴 낱말(소리 마디가 많은 낱말)은 more — 학생이 먼저 찾게'] },
       { t: 'table', k: 'fix', small: 'Words', title: 'Watch the spelling!', head: ['word', 'compare'], rows: [['easy', 'easier (y → i)'], ['big', 'bigger (g 한 번 더)'], ['good / bad', 'better / worse ⭐']], tip: '⭐ 모양이 완전히 바뀌는 낱말 — 따로 외워요', src: '6쪽 Vocabulary', nt: '철자 주의', n: ['원본 11개 목록을 «규칙대로»(앞 쪽)와 «주의할 것»(이 쪽)으로 나눴습니다'] },
@@ -223,6 +234,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: '14645', q: 'Which is more fun?', story: "Water park or amusement park? Let's compare everything!", nt: '표지 + Big Question' },
       ...open([['I can compare people and animals.', '사람·동물을 견줄 수 있어요 — Luke is taller than Jake.'], ['I can compare activities.', '활동을 견줄 수 있어요 — Rock climbing is more dangerous.'], ['I can say which one I think is better.', '내 생각에 어느 쪽이 더 나은지 말할 수 있어요.']]),
+      USONG_3,
       { t: 'song', k: 'fix', title: 'Tongue Twister', lines: ['Each Easter, Eddie eats eighty Easter eggs.', 'Each Easter, Eddie eats eighty Easter eggs.'], img: '15356', src: '5쪽 Warm Up', nt: '입 풀기', n: ['<del>80</del> → eighty (소리 내어 읽는 글이라 글자로)'] },
       { t: 'vocab', k: 'fix', hide: true, title: 'Activities 🔒', cols: 4, words: [['card games', '카드 게임', G('card-game')], ['virtual reality games', '가상 현실(VR) 게임', '18191'], ['running', '달리기', '12691'], ['biking', '자전거 타기', '12350'], ['horseback riding', '승마', G('horse')], ['rock climbing', '암벽 등반', '12854'], ['stargazing', '별 보기', G('stargaze')], ['fishing', '낚시', G('fishing')]], src: '6쪽 Vocabulary', nt: '활동 ① — 뜻 가리고', n: ['<del>별을 바라보는 것</del> → 별 보기 · <del>달리는</del> → 달리기'] },
       { t: 'vocab', k: 'keep', title: 'Activities', cols: 4, words: [['card games', '카드 게임', G('card-game')], ['virtual reality games', '가상 현실(VR) 게임', '18191'], ['running', '달리기', '12691'], ['biking', '자전거 타기', '12350'], ['horseback riding', '승마', G('horse')], ['rock climbing', '암벽 등반', '12854'], ['stargazing', '별 보기', G('stargaze')], ['fishing', '낚시', G('fishing')]], nt: '활동 ① — 뜻 공개' },
@@ -255,6 +267,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-009'), q: 'Are you better at indoor or outdoor activities?', story: 'Dana and her best friend Carol are good at different things.', nt: '표지 + Big Question' },
       ...open([['I can talk about indoor and outdoor activities.', '실내·야외 활동을 말할 수 있어요.'], ['I can say who is better at something.', '누가 무엇을 더 잘하는지 말할 수 있어요.'], ['I can give my opinion with «more … than».', '«more … than» 으로 내 생각을 말할 수 있어요.']]),
+      USONG_3,
       { t: 'song', k: 'keep', title: 'Tongue Twister', lines: ['These things finish sooner than you think.', 'These things finish sooner than you think.'], img: '12580', src: '5쪽 Warm Up', nt: '입 풀기', n: ['sooner = soon 의 비교급 — 오늘 주제와 이어 줍니다'] },
       { t: 'rule', k: 'new', title: 'Indoor or outdoor?', left: { h: 'Indoor 🏠', ex: ['playing chess', 'doing puzzles'] }, right: { h: 'Outdoor 🌳', ex: ['running', 'playing badminton'] }, q: 'Is fishing indoor or outdoor? What about baking?', nt: '나눠 보기', n: ['앞에서 배운 취미를 두 칸에 나눠 넣어 보게 합니다'] },
       { t: 'vocab', k: 'keep', title: 'New words', words: [['indoor activities', '실내 활동', '12670'], ['outdoor activities', '야외 활동', '15783']], src: '8쪽', nt: '새 낱말' },

@@ -1,6 +1,7 @@
 // BTS 12 새 교재 설계 데이터. k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 // 사진 번호 = photo-catalog.json · 'gen:…' = 새로 만들 사진(gen/req-bts-12.json)
 import { open, close, HELLO } from '../common.mjs';
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Farmer in the Dell", title: "How Do You Go to Work? 🚲", img: "gen:bts-12-song-go-to-work", nt: "출근 교통 노래(새로 지음)", n: ["곡조: The Farmer in the Dell (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","'ride my bike'에서 자전거 페달 돌리기, 'takes the bus'에서 운전대 돌리며 'beep-beep' 경적 누르는 동작을 해요."], src: '새로 지음', lines: ["How do you go to work?","I ride my bike to work!","It takes me twenty minutes.","I ride my bike to work!","How does he go to work?","He takes the bus, beep-beep!","It takes him thirty minutes.","He takes the bus, beep-beep!"] };
 
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3';
 
@@ -24,7 +25,8 @@ export const COURSE = {
 <li><b>003 에는 원본 낱말표가 없었습니다</b>(6쪽 빠짐) — 본문 낱말로 새로 만들었습니다. 004·005·007·009 도 22쪽이 빠져 있습니다(마지막 쪽 번호 확인 필요).</li>
 <li><b>이야기 이어 붙이기</b> — 008 의 Sam 이 «이제 화가가 되고 싶다» 는 새 대사(원본에 없음). 원하지 않으면 원본처럼 이야기 없이 둡니다.</li>
 <li><b>TEST 는 시험</b>이라 ⭕❌·Guess who·이야기를 넣지 않았습니다(BTS 1 과 같은 방식).</li>
-<li><b>새 사진 39장</b>(힉스필드 크레딧) — 점선 상자 자리.</li></ol></div>`,
+<li><b>새 사진 39장</b>(힉스필드 크레딧) — 점선 상자 자리.</li>
+<li><b>새 단원 노래 1곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 2 «How Do You Go to Work?»(The Farmer in the Dell). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '직업·일하는 곳', unit: U1, title: 'Jobs', orig: 27,
@@ -123,6 +125,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-12-rush-hour', q: 'How do people go to work?', story: "It's 8 a.m. The city is so busy!", nt: '표지 + Big Question' },
       ...open([['I can name places and jobs in town.', '식당·가게·도서관과 거기서 일하는 사람을 말해요.'], ['I can say how people go to work.', 'by bus, drive a car 처럼 출근 방법을 말해요.'], ['I can say "may" and "might".', '«~할지도 몰라요» 를 말해요.']]),
+      USONG_2,
       { t: 'vocab', k: 'fix', hide: true, title: 'Places & jobs 🔒', words: [['restaurant', '식당', '16805'], ['waiter', '종업원', '16556'], ['chef', '요리사', '16722'], ['clerk', '점원', '17137'], ['cashier', '계산원', '16004'], ['grocery store', '식료품 가게', 'gen:bts-12-grocery'], ['clothing store', '옷 가게', '12856'], ['library', '도서관', '12401'], ['librarian', '사서', '12063']], src: 'Vocabulary 6쪽', nt: '낱말 — 가림', n: ['<del>레스토랑</del> → 식당 · <del>웨이터</del> → 종업원 · <del>서기</del> → 점원 · <del>출납원</del> → 계산원'] },
       { t: 'vocab', k: 'keep', title: 'Places & jobs', words: [['restaurant', '식당', '16805'], ['waiter', '종업원', '16556'], ['chef', '요리사', '16722'], ['clerk', '점원', '17137'], ['cashier', '계산원', '16004'], ['grocery store', '식료품 가게', 'gen:bts-12-grocery'], ['clothing store', '옷 가게', '12856'], ['library', '도서관', '12401'], ['librarian', '사서', '12063']], nt: '낱말 — 공개' },
       { t: 'vocab', k: 'fix', hide: true, title: 'How do they go? 🔒', words: [['train', '기차', '12583'], ['motorcycle', '오토바이', 'gen:bts-12-motorcycle'], ['taxi', '택시', '15763'], ['car', '자동차', '12135'], ['bus', '버스', '12354'], ['bicycle', '자전거', '12016'], ['subway', '지하철', '19259']], src: '16쪽 What is it?', nt: '탈것 — 가림', n: ['원본 16쪽 «What is it?» 사진 7장을 낱말 쪽으로'] },
@@ -154,6 +157,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-12-megaphone-host', q: 'How long does it take?', story: "It's Picture Talk time! Look and talk!", nt: '표지 + Big Question', n: ['메가폰을 든 진행자 — 원본 Picture Talk 의 머리띠 진행자를 밝은 사진으로'] },
       ...open([['I can say how people go to work.', 'He goes to work by train.'], ['I can say "It takes me 20 minutes."', '걸리는 시간을 말해요.'], ['I can guess with "might".', 'It might take her 5 minutes.']]),
+      USONG_2,
       { t: 'vocab', k: 'new', hide: true, title: 'Remember? 🔒', words: [['chef', '요리사', '12422'], ['librarian', '사서', '19423'], ['banker', '은행원', '18139'], ['hairdresser', '미용사', '16072'], ['police officer', '경찰관', '18020'], ['waiter', '종업원', '16556']], nt: '지난 낱말 떠올리기', n: ['004 낱말을 다른 사진으로 — 오늘 Picture Talk 에 나올 사람들입니다'] },
       { t: 'rule', k: 'new', title: 'me · her · him · them', left: { h: 'I', ex: ['It takes **me** 20 minutes.'] }, right: { h: 'she / he / they', ex: ['It takes **her** 5 minutes.', 'It might take **them** 8 minutes.'] }, q: 'I → me. She → ? He → ? They → ?', nt: '규칙 찾기', n: ['I→me, she→her, he→him, they→them 짝을 학생이 채우게 합니다'] },
       { t: 'table', k: 'fix', small: 'Pattern', title: 'It takes me 20 minutes.', head: ['it', 'takes', 'who', 'how long'], rows: [['It', 'takes', 'me / you', '20 minutes.'], ['It', 'takes', 'him / her', '1 hour.'], ['It', 'may / might take', 'them', '5 to 8 minutes.']], src: 'Grammar 7·8쪽', nt: '문장 틀' },
@@ -182,6 +186,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-12-father-car', q: 'How does your family go to work?', story: "Good morning! Let's meet Jane's family.", nt: '표지 + Big Question' },
       ...open([["I can talk about my parents' jobs.", '부모님 직업을 말해요.'], ['I can say what time they go.', '몇 시에 가는지 말해요 — at 8:00 a.m.'], ['I can say how long it takes.', 'It takes him 15 minutes.']]),
+      USONG_2,
       { t: 'story', k: 'fix', img: 'gen:bts-12-father-car', title: "Jane's father", lines: [['Teacher', "What is your father's job?"], ['Jane', 'My father is an office worker.'], ['Jane', 'He always drives his car to work at 8:00 a.m. It takes him 15 minutes.']], src: '9쪽', nt: '이야기 ① 아빠', n: ['원본은 «I» 가 말하는 쪽 → 인물 Jane 으로 이야기처럼'] },
       { t: 'story', k: 'fix', img: 'gen:bts-12-mother-bus', title: "Jane's mother", lines: [['Teacher', 'What about your mother?'], ['Jane', 'My mother is a teacher. She takes the bus to work at 8:10 a.m.'], ['Jane', 'I think it may take her 5 to 10 minutes.']], src: '10쪽', nt: '이야기 ② 엄마', n: ['<del>I think, it may</del> → I think it may'] },
       { t: 'story', k: 'fix', img: '12071', title: 'And Jane?', lines: [['Teacher', 'What about you?'], ['Jane', "Well, I'm a student. I walk to school at 8:40 a.m."], ['Jane', 'It takes me 5 to 8 minutes.']], src: '11쪽', nt: '이야기 ③ 나' },

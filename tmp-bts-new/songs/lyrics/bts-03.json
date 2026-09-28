@@ -1,0 +1,47 @@
+{
+  "book": 3,
+  "songs": [
+    {
+      "unit": "Unit 2",
+      "key": "bts-03-song-how-old",
+      "title": "How Old Are You? 🎂",
+      "tune": "Twinkle Twinkle Little Star",
+      "lines": [
+        "How old are you? I am nine.",
+        "How old is he? He is five.",
+        "Grandmother and grandfather,",
+        "They are old, and they are nice.",
+        "The baby is one year old,",
+        "And the twins are two years old!"
+      ],
+      "nt": "나이 노래(새로 지음)",
+      "n": [
+        "곡조: Twinkle Twinkle Little Star (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "How old에서 손바닥을 펴 묻는 몸짓, 숫자가 나오면 손가락으로 나이를 보여 줘요."
+      ],
+      "imgPrompt": "A happy family looking at a photo album together with grandparents, a baby and little twins."
+    },
+    {
+      "unit": "Unit 3",
+      "key": "bts-03-song-who-is-she",
+      "title": "Who Is She? 👩",
+      "tune": "London Bridge Is Falling Down",
+      "lines": [
+        "Who is she? She is my aunt.",
+        "She's my aunt, she's my aunt.",
+        "She is my mother's sister,",
+        "My family!",
+        "Who is he? He's my cousin.",
+        "My cousin, my cousin,",
+        "He is cute, with curly hair,",
+        "My family!"
+      ],
+      "nt": "친척 노래(새로 지음)",
+      "n": [
+        "곡조: London Bridge Is Falling Down (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "Who is she/he?에서 화면 속 가족 사진을 가리키고, My family!에서 두 팔로 큰 하트를 만들어요."
+      ],
+      "imgPrompt": "A cheerful family party with an aunt, an uncle and a cute little cousin with curly hair."
+    }
+  ]
+}

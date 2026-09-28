@@ -1,0 +1,27 @@
+{
+  "book": 6,
+  "songs": [
+    {
+      "unit": "Unit 2",
+      "key": "bts-06-song-living-room",
+      "title": "Living Room Places 🛋️",
+      "tune": "Here We Go Round the Mulberry Bush",
+      "lines": [
+        "The lamp is next to the sofa,",
+        "Next to the sofa, next to the sofa,",
+        "The table's in front of the sofa",
+        "In the living room at home!",
+        "The dog is between the curtains,",
+        "Between the curtains, between the curtains,",
+        "The cat is behind the sofa",
+        "In the living room at home!"
+      ],
+      "nt": "거실 위치 노래(새로 지음)",
+      "n": [
+        "곡조: Here We Go Round the Mulberry Bush (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다",
+        "next to·in front of·behind·between에 맞춰 손 하나를 다른 손의 옆·앞·뒤·사이로 옮겨요."
+      ],
+      "imgPrompt": "A cozy living room with a lamp next to a sofa, a dog peeking between curtains and a cat hiding behind the sofa."
+    }
+  ]
+}

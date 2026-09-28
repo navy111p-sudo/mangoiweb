@@ -2,6 +2,7 @@
 // k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 // 사진 번호 = photo-catalog.json · gen:bts-32-* = 새로 만들 사진(gen/req-bts-32.json)
 import { open, close } from '../common.mjs';
+const USONG_4 = { t: 'song', k: 'new', small: "Let's sing! ♪ London Bridge", title: "You Should, You Shouldn’t 😌", img: "gen:bts-32-song-stress", nt: "스트레스 대처 노래(새로 지음)", n: ["곡조: London Bridge Is Falling Down (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","deep breath에서 함께 크게 숨쉬기, stress ball에서 주먹 꽉 쥐었다 펴기"], src: '새로 지음', lines: ["You should take a deep, deep breath,","Take a breath, take a breath,","You should start your work early,","Let's cope with stress!","You shouldn't wait till the end,","Listen to some music,","Talk to your family and friends,","Squeeze a stress ball!"] };
 
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3', U4 = 'Unit 4', RV = 'Review';
 const G = k => 'gen:bts-32-' + k;
@@ -30,7 +31,8 @@ export const COURSE = {
 <li><b>원본 쪽 순서</b> — 004 하인스 워드 이야기는 원본 15쪽(고등학교·NFL)이 16쪽(탄생·어린 시절)보다 앞에 있어 이야기 순서로 바꿨습니다. 004 «Hines Ward Helping Hands Foundation» 이 지금도 활동하는지 확인이 필요합니다.</li>
 <li><b>마치는 노래</b> — 원본 «Bad Habits»(가사 오류: Eat lot of chocolates · Be sad always) · «Everyone Is Different» · «Jingle Bells». 가사를 옮기지 않고 새 챈트로 바꿨습니다(곡조는 자체 녹음 권장). 010 은 원본에 노래가 없어 챈트를 넣지 않았습니다.</li>
 <li><b>새로 만들 사진 35장</b> — 점선 자리(힉스필드 크레딧).</li>
-</ol></div>`,
+
+<li><b>새 단원 노래 1곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 4 «You Should, You Shouldn’t»(London Bridge Is Falling Down). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001 Bad Habits
   { code: '001', tab: '나쁜 습관', unit: U1, title: 'Bad Habits', orig: 28,
@@ -133,6 +135,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: G('cover-stress'), q: 'What do you do when you are stressed?', story: 'Three tests, two projects, and one very messy desk… AAAH!', nt: '표지 + Big Question', n: ['원본 «책 더미 속 머리가 치솟은 학생» 장면을 더 신나게 — 지난 시간 예고 사진 그대로', '끝날 때 «When I am stressed, I …» 로 답하는 것이 목표'] },
       ...open(G4, 'Lesson Goals (Wh- Questions · Yes/No Questions · Should)'),
+      USONG_4,
       { t: 'discuss', k: 'keep', title: 'Warm up', img: '16866', qs: ['When do you feel stressed?', 'What do you do when you are stressed?'], chips: ['I feel stressed when …', 'I usually …'], src: '4쪽 Warm up', nt: '생각 말하기', n: ['두 질문에 짧게 — 과 끝에서 같은 질문에 더 길게 답하는지 비교'] },
       { t: 'vocab', k: 'fix', hide: true, title: 'Stress words 🔒', cols: 4, words: [['stressed', '스트레스를 받은', '13306'], ['crowded', '붐비는', '16818'], ['heavy workload', '많은 일(업무량)', '15738'], ['traffic jam', '교통 체증', '16708'], ['bullying', '괴롭힘', G('bullying')], ['cope', '대처하다·이겨 내다', '21148'], ['strategy', '방법·전략', '14026']], src: '5쪽 Vocabulary', nt: '낱말 — 뜻 가리기', n: ['<del>stressed 스트레스</del> → 스트레스를 받은 · <del>crowded 가득 차서</del> → 붐비는', 'situation·circumstances 는 다음 읽기에서, assign·fairly 는 활동 상황에서'] },
       { t: 'vocab', k: 'keep', title: 'Stress words', cols: 4, words: [['stressed', '스트레스를 받은', '13306'], ['crowded', '붐비는', '16818'], ['heavy workload', '많은 일(업무량)', '15738'], ['traffic jam', '교통 체증', '16708'], ['bullying', '괴롭힘', G('bullying')], ['cope', '대처하다·이겨 내다', '21148'], ['strategy', '방법·전략', '14026']], nt: '뜻 공개', n: ['cope: 바람개비로 천천히 숨 쉬는 법을 배우는 아이들 — «How are they coping?»'] },

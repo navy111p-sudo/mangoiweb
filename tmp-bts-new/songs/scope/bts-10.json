@@ -1,0 +1,498 @@
+{
+ "book": 10,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "Weather"
+   ],
+   "goals": [
+    "I can say what the weather is like.",
+    "I can ask about the weather.",
+    "I can talk about the weather on the phone.",
+    "I can say what I can do in the weather.",
+    "I can say what I can't do.",
+    "I can say how people feel.",
+    "I can say what weather I like.",
+    "I can say why.",
+    "I can say what weather I don't like."
+   ],
+   "words": [
+    [
+     "sunny",
+     "화창한"
+    ],
+    [
+     "rainy",
+     "비 오는"
+    ],
+    [
+     "windy",
+     "바람 부는"
+    ],
+    [
+     "cloudy",
+     "흐린"
+    ],
+    [
+     "snowy",
+     "눈 오는"
+    ],
+    [
+     "stormy",
+     "폭풍우 치는"
+    ],
+    [
+     "sun",
+     "해"
+    ],
+    [
+     "rain",
+     "비"
+    ],
+    [
+     "wind",
+     "바람"
+    ],
+    [
+     "cloud",
+     "구름"
+    ],
+    [
+     "snow",
+     "눈"
+    ],
+    [
+     "storm",
+     "폭풍"
+    ],
+    [
+     "thunderstorm",
+     "뇌우(천둥 번개)"
+    ],
+    [
+     "lightning",
+     "번개"
+    ],
+    [
+     "ride a bike",
+     "자전거 타기"
+    ],
+    [
+     "go swimming",
+     "수영하러 가기"
+    ],
+    [
+     "play soccer",
+     "축구하기"
+    ],
+    [
+     "go skiing",
+     "스키 타러 가기"
+    ],
+    [
+     "build a snowman",
+     "눈사람 만들기"
+    ],
+    [
+     "have a snowball fight",
+     "눈싸움하기"
+    ],
+    [
+     "happy",
+     "행복한"
+    ],
+    [
+     "sad",
+     "슬픈"
+    ],
+    [
+     "excited",
+     "신이 난"
+    ],
+    [
+     "scared",
+     "무서운"
+    ]
+   ],
+   "sentences": [
+    "What's the weather like today?",
+    "What do we add to make a weather word?",
+    "the **sun**",
+    "the **rain**",
+    "the **wind**",
+    "the **cloud**",
+    "It's **sunny**.",
+    "It's **rainy**.",
+    "It's **windy**.",
+    "It's **cloudy**.",
+    "What's the weather like?",
+    "Can you name them?",
+    "Oh no! I'm wet. Do you have an umbrella?",
+    "How's the weather?",
+    "Do you like to build a snowman?",
+    "Are you scared of lightning?",
+    "It's sunny.",
+    "Look up! Is it a bird? Is it a plane?",
+    "What can you do on a sunny day?",
+    "What is it? Who is in the sky?",
+    "After can and can't, does the verb change?",
+    "It's sunny. I **can** ride a bike.",
+    "It's snowy. She **can** go skiing.",
+    "It's rainy. I **can't** play outside.",
+    "It's cold. She **can't** swim.",
+    "What can you do outside?",
+    "Can you play soccer outside?",
+    "It's sunny and hot. I can go skiing.",
+    "How's the weather? What can they do?",
+    "It's rainy. What can we do?",
+    "How's the weather today? How does she feel?",
+    "How does he feel?",
+    "How does she feel?",
+    "Oh no! Why doesn't he like rainy days?",
+    "What weather do you like? Why?",
+    "When do we say \"doesn't\"?",
+    "I **like** sunny weather.",
+    "She **likes** snowy weather.",
+    "I **don't like** rainy weather.",
+    "He **doesn't like** rainy weather."
+   ],
+   "songs": [
+    "Whether the Weather"
+   ],
+   "imgs": [
+    "19661",
+    "16545",
+    "16227",
+    "15278",
+    "16229",
+    "15778",
+    "12513",
+    "19241",
+    "18816",
+    "18743",
+    "16510",
+    "15777",
+    "15778",
+    "16233",
+    "12350",
+    "16710",
+    "12351",
+    "18742",
+    "15720",
+    "gen:bts-10-snowball-fight",
+    "12290",
+    "16270",
+    "12614",
+    "15685",
+    "18452",
+    "12036",
+    "15824",
+    "c7141",
+    "16060",
+    "c7275"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Hot and Cold"
+   ],
+   "goals": [
+    "I can say hot, warm, cool and cold.",
+    "I can say what I wear.",
+    "I can say what people are wearing.",
+    "I can name more clothes.",
+    "I can talk about the weather and clothes.",
+    "I can say what I need.",
+    "I can use wear and need.",
+    "I can talk about clothes for the weather."
+   ],
+   "words": [
+    [
+     "hot",
+     "더운"
+    ],
+    [
+     "warm",
+     "따뜻한"
+    ],
+    [
+     "cool",
+     "시원한"
+    ],
+    [
+     "cold",
+     "추운"
+    ],
+    [
+     "clothes",
+     "옷"
+    ],
+    [
+     "jacket",
+     "재킷"
+    ],
+    [
+     "shorts",
+     "반바지"
+    ],
+    [
+     "pants",
+     "바지"
+    ],
+    [
+     "sweater",
+     "스웨터"
+    ],
+    [
+     "mittens",
+     "벙어리장갑"
+    ],
+    [
+     "scarf",
+     "목도리"
+    ],
+    [
+     "coat",
+     "코트"
+    ],
+    [
+     "sandals",
+     "샌들"
+    ],
+    [
+     "sunglasses",
+     "선글라스"
+    ],
+    [
+     "raincoat",
+     "비옷"
+    ],
+    [
+     "swimsuit",
+     "수영복"
+    ],
+    [
+     "boots",
+     "부츠·장화"
+    ],
+    [
+     "gloves",
+     "장갑"
+    ]
+   ],
+   "sentences": [
+    "What do you wear when it's hot? When it's cold?",
+    "Can you still remember the four seasons?",
+    "What's the weather like in summer?",
+    "What's the weather like in spring?",
+    "How's the weather in fall? What do you like to do?",
+    "What do you like to do outside?",
+    "When do we add -s to \"wear\"?",
+    "I **wear** a coat in winter.",
+    "They **wear** sandals at the beach.",
+    "She **wears** sunglasses when it's hot.",
+    "He **wears** a scarf when it's cold.",
+    "Which side is about right now?",
+    "She **wears** a T-shirt in summer.",
+    "I **am wearing** a coat.",
+    "She **is wearing** a T-shirt.",
+    "They **are wearing** caps.",
+    "What are you wearing?",
+    "What is he wearing?",
+    "What is she wearing?",
+    "What are they wearing at the beach?",
+    "What does she wear?",
+    "What is he doing early in the morning?",
+    "What are they wearing?",
+    "They are wearing shorts.",
+    "What are they wearing in the rain?",
+    "What are they wearing? Why?",
+    "What's the difference?",
+    "five fingers",
+    "I wear **gloves**.",
+    "one thumb + one big pocket",
+    "I wear **mittens**.",
+    "What is the child wearing? When do you wear it?",
+    "What are they wearing? Do you like wearing them?",
+    "They are wearing (gloves / mittens).",
+    "Do you have a pair of boots?",
+    "She is wearing (boots / shoes).",
+    "What are they? Is she wearing them?",
+    "She is wearing a swimsuit at the ski resort.",
+    "How's the weather?",
+    "Look for 10 seconds! What do you wear when it's cold?"
+   ],
+   "songs": [],
+   "imgs": [
+    "19086",
+    "19650",
+    "16055",
+    "15280",
+    "12373",
+    "16228",
+    "gen:bts-10-boy-tshirt-hot",
+    "13160",
+    "18112",
+    "gen:bts-10-mittens",
+    "12304",
+    "16232",
+    "12373",
+    "16228",
+    "gen:bts-10-boy-tshirt-hot",
+    "13160",
+    "18112",
+    "gen:bts-10-mittens",
+    "12304",
+    "16232",
+    "gen:bts-10-sandals",
+    "13315",
+    "15649",
+    "gen:bts-10-swimsuit",
+    "gen:bts-10-boots",
+    "16357",
+    "gen:bts-10-sandals",
+    "13315",
+    "15649",
+    "gen:bts-10-swimsuit",
+    "gen:bts-10-boots",
+    "16357"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "The Weatherman"
+   ],
+   "goals": [
+    "I can talk about the weatherman.",
+    "I can say north, south, east and west.",
+    "I can say what I should bring.",
+    "I can talk about the weather later.",
+    "I can use \"going to\".",
+    "I can read a weather report.",
+    "I can give a weather report.",
+    "I can say what to wear.",
+    "I can say what to bring."
+   ],
+   "words": [
+    [
+     "sunny",
+     "화창한"
+    ],
+    [
+     "rainy",
+     "비 오는"
+    ],
+    [
+     "cloudy",
+     "흐린"
+    ],
+    [
+     "windy",
+     "바람 부는"
+    ],
+    [
+     "snowy",
+     "눈 오는"
+    ],
+    [
+     "stormy",
+     "폭풍우 치는"
+    ],
+    [
+     "weatherman",
+     "일기 예보관"
+    ],
+    [
+     "fog",
+     "안개"
+    ],
+    [
+     "foggy",
+     "안개 낀"
+    ],
+    [
+     "partly cloudy",
+     "구름 조금"
+    ],
+    [
+     "forecast",
+     "일기 예보"
+    ]
+   ],
+   "sentences": [
+    "Who tells us about tomorrow's weather?",
+    "Who is he? Where can you see him?",
+    "Is it sunny or cloudy? It is a little of both!",
+    "It's sunny.",
+    "It's cloudy.",
+    "It's **partly cloudy**.",
+    "(a little sunny, a little cloudy)",
+    "Which one is stronger — should or must?",
+    "It's rainy. I **should** bring an umbrella.",
+    "It's sunny outside. I **have to** bring sunglasses.",
+    "It's snowy. I **must** wear a jacket.",
+    "We will take a trip! Where are we going?",
+    "Who is he? What is the weather like?",
+    "Josh brought his raincoat.",
+    "We're live! Can you help the weatherman?",
+    "Can you be a weatherman?",
+    "Which words tell us about later?",
+    "It **is** sunny today.",
+    "It**'s** cloudy now.",
+    "It **will be** rainy tomorrow.",
+    "It**'s going to be** rainy tonight.",
+    "How is it going to be tonight?",
+    "What will the weather be like tomorrow?",
+    "What is it going to be like this afternoon?",
+    "It's sunny and hot today.",
+    "Who is it? What is he doing?",
+    "Imagine that you are the weatherman!",
+    "What should people wear today?",
+    "What's the weather like in Seoul?",
+    "What about tomorrow?",
+    "What about Shanghai tonight?",
+    "What's the weather like in North Dakota?",
+    "What will it be like in Virginia?",
+    "It's stormy. You should go to the beach.",
+    "Look for 10 seconds! What do you need for a rainy day?",
+    "What's the weather like?",
+    "Can you remember all the weather words?"
+   ],
+   "songs": [],
+   "imgs": [
+    "c7210",
+    "16230",
+    "c7141",
+    "16227",
+    "18744",
+    "15777",
+    "12320",
+    "c7143",
+    "15412",
+    "18785",
+    "c7143",
+    "c7210",
+    "gen:bts-10-weatherman-tv",
+    "12195"
+   ]
+  }
+ ]
+}

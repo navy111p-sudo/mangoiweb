@@ -1,0 +1,526 @@
+{
+ "book": 14,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001",
+    "002",
+    "003"
+   ],
+   "titles": [
+    "What will you do tomorrow?"
+   ],
+   "goals": [
+    "I can talk about tomorrow with \"will\".",
+    "I can say what I won't do.",
+    "I can use time words.",
+    "I can guess what people will do.",
+    "I can ask \"What will …?\"",
+    "I can use tonight, later and soon.",
+    "I can talk about my plans for tomorrow.",
+    "I can read a story about plans.",
+    "I can choose and say why."
+   ],
+   "words": [
+    [
+     "tomorrow",
+     "내일"
+    ],
+    [
+     "a week from now",
+     "(지금부터) 일주일 뒤"
+    ],
+    [
+     "later",
+     "나중에"
+    ],
+    [
+     "soon",
+     "곧"
+    ],
+    [
+     "next Sunday",
+     "다음 주 일요일"
+    ],
+    [
+     "then",
+     "그때 · 그다음에"
+    ],
+    [
+     "appointment",
+     "약속"
+    ],
+    [
+     "concert",
+     "공연"
+    ],
+    [
+     "thrilled",
+     "몹시 신이 난"
+    ],
+    [
+     "delightful",
+     "아주 즐거운"
+    ],
+    [
+     "relaxing",
+     "쉬고 있는 · 편안한"
+    ],
+    [
+     "colleagues",
+     "(직장) 동료들"
+    ],
+    [
+     "a hamburger",
+     "햄버거"
+    ],
+    [
+     "pizza",
+     "피자"
+    ],
+    [
+     "cupcakes",
+     "컵케이크"
+    ],
+    [
+     "cookies",
+     "쿠키"
+    ],
+    [
+     "play baseball",
+     "야구하기"
+    ],
+    [
+     "play golf",
+     "골프 치기"
+    ],
+    [
+     "inline skate",
+     "인라인스케이트 타기"
+    ],
+    [
+     "ride a bike",
+     "자전거 타기"
+    ],
+    [
+     "watch a movie",
+     "영화 보기"
+    ],
+    [
+     "watch a soccer game",
+     "축구 경기 보기"
+    ],
+    [
+     "go swimming",
+     "수영하러 가기"
+    ],
+    [
+     "go shopping",
+     "쇼핑하러 가기"
+    ],
+    [
+     "ice cream",
+     "아이스크림"
+    ],
+    [
+     "a chocolate shake",
+     "초콜릿 셰이크"
+    ],
+    [
+     "an amusement park",
+     "놀이공원"
+    ],
+    [
+     "a water park",
+     "워터파크"
+    ]
+   ],
+   "sentences": [
+    "What will you do tomorrow?",
+    "Which word do we use for tomorrow?",
+    "Today **is** Friday.",
+    "I **am relaxing** now.",
+    "Tomorrow **will be** Saturday.",
+    "I **will do** my work tomorrow.",
+    "What will he eat tomorrow?",
+    "Will he eat pizza tomorrow?",
+    "What will he play tomorrow?",
+    "What will he not play tomorrow?",
+    "What will she do tomorrow?",
+    "What will she not do tomorrow?",
+    "What will they do this weekend?",
+    "Belle will go to the concert.",
+    "Which one is gone? What will she do?",
+    "What will she paint tomorrow?",
+    "Where does \"will\" go in a question?",
+    "What **will** she do?",
+    "What do you think she **will** paint?",
+    "She **will** paint a picture.",
+    "I think she **will** paint a flower.",
+    "What do you think she will paint?",
+    "What will he do tonight?",
+    "Do you think he will win?",
+    "Will it be fun?",
+    "What do you think she will cook?",
+    "What flavor will she eat?",
+    "Will they have fun?",
+    "Where do you think she will travel?",
+    "Where will he drive?",
+    "What do you think they will watch?",
+    "They will go shopping soon.",
+    "Whose birthday will it be on Saturday?",
+    "What will your best tomorrow be?",
+    "Cristy's father will bake a cake.",
+    "What will they do at the party?",
+    "Where are you going to go tomorrow?"
+   ],
+   "songs": [],
+   "imgs": [
+    "18408",
+    "18577",
+    "19225",
+    "19645",
+    "18449",
+    "18574",
+    "18408",
+    "18577",
+    "19225",
+    "19645",
+    "18449",
+    "18574",
+    "18356",
+    "12869",
+    "12614",
+    "15829",
+    "12684",
+    "16367",
+    "18356",
+    "12869",
+    "12614",
+    "15829",
+    "12684",
+    "16367",
+    "18045",
+    "12668",
+    "15100",
+    "16052",
+    "16195",
+    "15431",
+    "gen:bts-14-inline-skate",
+    "13240",
+    "12485",
+    "16209",
+    "12719",
+    "12506",
+    "12593",
+    "gen:bts-14-choc-shake",
+    "15846",
+    "gen:bts-14-water-park"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004",
+    "005",
+    "006"
+   ],
+   "titles": [
+    "Where are you going to go?"
+   ],
+   "goals": [
+    "I can say \"I am going to …\".",
+    "I can name places in my town.",
+    "I can say why I am going there.",
+    "I can say where people are going.",
+    "I can say how people are going to feel.",
+    "I can guess from a picture.",
+    "I can talk about my plans with \"going to\".",
+    "I can read a story about a trip.",
+    "I can make Who, What, Where and How questions."
+   ],
+   "words": [
+    [
+     "pharmacy",
+     "약국"
+    ],
+    [
+     "supermarket",
+     "슈퍼마켓"
+    ],
+    [
+     "subway station",
+     "지하철역"
+    ],
+    [
+     "theme park",
+     "테마파크"
+    ],
+    [
+     "office",
+     "사무실"
+    ],
+    [
+     "fast food restaurant",
+     "패스트푸드 식당"
+    ],
+    [
+     "medicine",
+     "약"
+    ],
+    [
+     "grocery list",
+     "장보기 목록"
+    ],
+    [
+     "reserved",
+     "예약된"
+    ],
+    [
+     "starving",
+     "몹시 배고픈"
+    ],
+    [
+     "speedy recovery",
+     "빠른 회복"
+    ],
+    [
+     "graduate",
+     "졸업하다"
+    ],
+    [
+     "excited",
+     "신이 난"
+    ],
+    [
+     "tired",
+     "피곤한"
+    ],
+    [
+     "uncomfortable",
+     "불편한"
+    ],
+    [
+     "happy",
+     "행복한"
+    ],
+    [
+     "sick",
+     "아픈"
+    ],
+    [
+     "hungry",
+     "배고픈"
+    ]
+   ],
+   "sentences": [
+    "Where are you going to go?",
+    "Do they mean the same thing?",
+    "I **will** play soccer.",
+    "It **will** be cloudy tomorrow.",
+    "I **am going to** play soccer.",
+    "It **is going to** be cloudy tomorrow.",
+    "Where are we going to go?",
+    "I am hungry! Where am I going to go?",
+    "You are hungry. Where are you going to go?",
+    "You need food. Where are you going to go?",
+    "You are sick. You need medicine. Where are you going to go?",
+    "You are going to work. Where are you going to go?",
+    "It's your birthday! Where are you going to go?",
+    "Where is she going to go?",
+    "Hannah is going to have lunch at the restaurant.",
+    "How are they going to feel?",
+    "Where are you going? How are you going to feel?",
+    "What comes after \"going to\" — a place or a feeling?",
+    "He is going **to the** subway station.",
+    "They are going **to the** beach.",
+    "He is going to **feel** tired.",
+    "They are going to **feel** excited.",
+    "Where is he going? How is he going to feel?",
+    "Where is it going? How is it going to feel?",
+    "Where is she going? How is she going to feel?",
+    "Where are they going? How are they going to feel?",
+    "YOUR TURN — Where is Dad going? How is he going to feel?",
+    "Where are they going to go?",
+    "Where are they going?",
+    "He is going to feel excited.",
+    "Which place is gone?",
+    "Where is Clara going to travel?",
+    "Where are you going to go someday?",
+    "Clara is going to stay in Paris for one year.",
+    "Which word asks about a person? Which word asks about a place?",
+    "**The woman** is going to go to **the pharmacy**.",
+    "**Who** is going to go to the pharmacy?",
+    "**Where** is the woman going to go?",
+    "What will you buy if you are rich?"
+   ],
+   "songs": [],
+   "imgs": [
+    "gen:bts-14-pharmacy",
+    "15258",
+    "18019",
+    "15846",
+    "12253",
+    "gen:bts-14-fast-food",
+    "gen:bts-14-pharmacy",
+    "15258",
+    "18019",
+    "15846",
+    "12253",
+    "gen:bts-14-fast-food",
+    "12404",
+    "gen:bts-14-grocery-list",
+    "gen:bts-14-reserved-table",
+    "13031",
+    "gen:bts-14-recovery",
+    "16391",
+    "12404",
+    "gen:bts-14-grocery-list",
+    "gen:bts-14-reserved-table",
+    "13031",
+    "gen:bts-14-recovery",
+    "16391",
+    "12614",
+    "13341",
+    "18709",
+    "18512",
+    "12260",
+    "13031",
+    "12614",
+    "13341",
+    "18709",
+    "18512",
+    "12260",
+    "13031"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007",
+    "008",
+    "009"
+   ],
+   "titles": [
+    "I'm going to be rich"
+   ],
+   "goals": [
+    "I can ask Wh- questions with \"will\".",
+    "I can say what I will buy.",
+    "I can talk about treasure and money.",
+    "I can ask Who and What questions.",
+    "I can ask Where and When questions.",
+    "I can ask Why and How questions.",
+    "I can read a story about a plan.",
+    "I can make a money plan."
+   ],
+   "words": [
+    [
+     "rich",
+     "부자인"
+    ],
+    [
+     "jewelry",
+     "보석"
+    ],
+    [
+     "treasure",
+     "보물"
+    ],
+    [
+     "exactly",
+     "정확히"
+    ],
+    [
+     "business person",
+     "사업가"
+    ],
+    [
+     "spend",
+     "(돈을) 쓰다"
+    ],
+    [
+     "delicacies",
+     "별미 · 귀한 음식"
+    ],
+    [
+     "cuisine",
+     "(나라별) 요리"
+    ],
+    [
+     "food enthusiast",
+     "음식을 무척 좋아하는 사람"
+    ],
+    [
+     "fantastic",
+     "환상적인"
+    ],
+    [
+     "accompany",
+     "함께 가다"
+    ],
+    [
+     "journey",
+     "여행"
+    ]
+   ],
+   "sentences": [
+    "I'm going to be rich! What will I buy?",
+    "How are you going to be rich?",
+    "What will you buy?",
+    "Matt will buy lots of jewelry.",
+    "What will he buy?",
+    "Who? What? Where? Can you ask about it?",
+    "Who? What? Where? When? Why? How?",
+    "\"I am going to buy jewelry.\"",
+    "\"I am going to buy a car.\"",
+    "\"I am going to go to Korea.\"",
+    "\"I will go to work at 9 a.m.\"",
+    "\"I want to see the Statue of Liberty.\"",
+    "\"I am going to fly in a plane to Australia.\"",
+    "Who is she going to meet?",
+    "What will they play?",
+    "Where will she go?",
+    "When will they have a birthday party?",
+    "Why is she going to feel tired?",
+    "How will she go to China?",
+    "We use \"When\" to ask about a place.",
+    "Ask me questions!",
+    "What will Jane buy with her money?",
+    "You are going to be rich. What will you buy?",
+    "Jane is a food enthusiast.",
+    "What are you going to buy?",
+    "Where is he going to go? What will he eat?",
+    "Are you ready for the BTS 14 review game?"
+   ],
+   "songs": [],
+   "imgs": [
+    "gen:bts-14-rich",
+    "15507",
+    "16676",
+    "gen:bts-14-exactly",
+    "15243",
+    "13289",
+    "gen:bts-14-rich",
+    "15507",
+    "16676",
+    "gen:bts-14-exactly",
+    "15243",
+    "13289",
+    "17015",
+    "15313",
+    "gen:bts-14-food-lover",
+    "18403",
+    "gen:bts-14-journey-friends",
+    "12478",
+    "17015",
+    "15313",
+    "gen:bts-14-food-lover",
+    "18403",
+    "gen:bts-14-journey-friends",
+    "12478"
+   ]
+  }
+ ]
+}

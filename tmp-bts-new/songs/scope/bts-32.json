@@ -1,0 +1,349 @@
+{
+ "book": 32,
+ "units": [
+  {
+   "unit": "Unit 1",
+   "lessons": [
+    "001"
+   ],
+   "titles": [
+    "Bad Habits"
+   ],
+   "goals": [
+    "I can name bad habits.",
+    "I can say how serious a habit is.",
+    "I can politely help a friend break a bad habit."
+   ],
+   "words": [
+    [
+     "stress eating",
+     "스트레스성 폭식"
+    ],
+    [
+     "gambling",
+     "도박"
+    ],
+    [
+     "addiction",
+     "중독"
+    ],
+    [
+     "nail biting",
+     "손톱 물어뜯기"
+    ],
+    [
+     "heavy drinking",
+     "지나친 음주"
+    ],
+    [
+     "being late",
+     "지각하기"
+    ],
+    [
+     "smoking",
+     "흡연"
+    ],
+    [
+     "too much gadget use",
+     "기기 과다 사용"
+    ]
+   ],
+   "sentences": [
+    "Why is it so hard to stop a bad habit?",
+    "Why do we say \"milder\" but \"more severe\"?",
+    "mild → **milder** → **the mildest**",
+    "Nail biting is **milder** than smoking.",
+    "severe → **more severe** → **the most severe**",
+    "Gambling is **more severe** than being late.",
+    "Everyone agreed with the new law.",
+    "Which one would you like to hear from a friend? Why?",
+    "Stop biting your nails!",
+    "You are always late!",
+    "If you stopped biting your nails, they **would** look nicer.",
+    "Why don't you try setting an alarm?",
+    "What bad habit does this person have?",
+    "Why does she look so different?"
+   ],
+   "songs": [
+    "Bad Habits Chant 🎵"
+   ],
+   "imgs": [
+    "gen:bts-32-stress-eating",
+    "gen:bts-32-gambling",
+    "14642",
+    "16813",
+    "gen:bts-32-drinking",
+    "gen:bts-32-being-late",
+    "17195",
+    "gen:bts-32-gadgets",
+    "gen:bts-32-stress-eating",
+    "gen:bts-32-gambling",
+    "14642",
+    "16813",
+    "gen:bts-32-drinking",
+    "gen:bts-32-being-late",
+    "17195",
+    "gen:bts-32-gadgets"
+   ]
+  },
+  {
+   "unit": "Unit 2",
+   "lessons": [
+    "004"
+   ],
+   "titles": [
+    "Being Different"
+   ],
+   "goals": [
+    "I can describe how people look.",
+    "I can describe personality traits.",
+    "I can say how I am different from my friends."
+   ],
+   "words": [
+    [
+     "helpful",
+     "도움이 되는"
+    ],
+    [
+     "humble",
+     "겸손한"
+    ],
+    [
+     "confident",
+     "자신감 있는"
+    ],
+    [
+     "encouraging",
+     "힘을 북돋아 주는"
+    ],
+    [
+     "optimistic",
+     "낙관적인"
+    ],
+    [
+     "sociable",
+     "사교적인"
+    ],
+    [
+     "persistent",
+     "끈기 있는"
+    ]
+   ],
+   "sentences": [
+    "How are you different from your friends?",
+    "When do we say \"is\"? When do we say \"has\"?",
+    "She **is** tall and slim.",
+    "He **is** tan.",
+    "She **has** curly hair.",
+    "He **has** freckles.",
+    "Describe the twins!",
+    "A humble person always talks about how great they are.",
+    "Why is this family eating grapes at midnight?"
+   ],
+   "songs": [
+    "Everyone Is Different 🎵"
+   ],
+   "imgs": [
+    "12393",
+    "gen:bts-32-humble",
+    "16908",
+    "12937",
+    "gen:bts-32-optimistic",
+    "15597",
+    "21210",
+    "12393",
+    "gen:bts-32-humble",
+    "16908",
+    "12937",
+    "gen:bts-32-optimistic",
+    "15597",
+    "21210"
+   ]
+  },
+  {
+   "unit": "Unit 3",
+   "lessons": [
+    "007"
+   ],
+   "titles": [
+    "Holidays"
+   ],
+   "goals": [
+    "I can talk about the holidays I celebrate.",
+    "I can describe holiday traditions and customs.",
+    "I can give my opinion about Christmas."
+   ],
+   "words": [
+    [
+     "celebrate",
+     "축하하다·(명절을) 지내다"
+    ],
+    [
+     "tradition",
+     "전통"
+    ],
+    [
+     "custom",
+     "풍습"
+    ],
+    [
+     "symbol",
+     "상징"
+    ],
+    [
+     "lantern",
+     "등, 초롱"
+    ],
+    [
+     "host",
+     "(파티를) 열다"
+    ],
+    [
+     "preparations",
+     "준비"
+    ],
+    [
+     "competition",
+     "대회"
+    ]
+   ],
+   "sentences": [
+    "What holiday traditions does your family have?",
+    "In Norway, people put their brooms outside on Christmas Eve.",
+    "What holiday is it? What custom is it?",
+    "What holiday is it? What custom is it? Is it too commercial?",
+    "Why is she so stressed?"
+   ],
+   "songs": [
+    "Holiday Chant ❄️"
+   ],
+   "imgs": [
+    "12837",
+    "12526",
+    "12377",
+    "15603",
+    "18054",
+    "12216",
+    "16826",
+    "19033",
+    "12837",
+    "12526",
+    "12377",
+    "15603",
+    "18054",
+    "12216",
+    "16826",
+    "19033"
+   ]
+  },
+  {
+   "unit": "Unit 4",
+   "lessons": [
+    "010"
+   ],
+   "titles": [
+    "Stress"
+   ],
+   "goals": [
+    "I can talk about situations that cause stress.",
+    "I can say how I cope with stress.",
+    "I can give advice with should and shouldn't."
+   ],
+   "words": [
+    [
+     "stressed",
+     "스트레스를 받은"
+    ],
+    [
+     "crowded",
+     "붐비는"
+    ],
+    [
+     "heavy workload",
+     "많은 일(업무량)"
+    ],
+    [
+     "traffic jam",
+     "교통 체증"
+    ],
+    [
+     "bullying",
+     "괴롭힘"
+    ],
+    [
+     "cope",
+     "대처하다·이겨 내다"
+    ],
+    [
+     "strategy",
+     "방법·전략"
+    ],
+    [
+     "take a deep breath",
+     "숨을 깊게 들이쉬다"
+    ],
+    [
+     "talk to your family and friends",
+     "가족·친구와 이야기하다"
+    ],
+    [
+     "set goals",
+     "목표를 세우다"
+    ],
+    [
+     "listen to music",
+     "음악을 듣다"
+    ],
+    [
+     "squeeze a stress ball",
+     "스트레스 볼을 꽉 쥐다"
+    ],
+    [
+     "meditate",
+     "명상하다"
+    ]
+   ],
+   "sentences": [
+    "What do you do when you are stressed?",
+    "Look for 10 seconds! Which situations did you see?",
+    "We can control the weather.",
+    "How is he coping with stress?",
+    "Look at the word after should. Is it \"start\" or \"starts\"?",
+    "You **should** start the project early.",
+    "You **should** ask your boss for more time.",
+    "You **shouldn't** wait until the last minute.",
+    "You **shouldn't** drive too fast in traffic.",
+    "Can you remember all four topics?"
+   ],
+   "songs": [],
+   "imgs": [
+    "13306",
+    "16818",
+    "15738",
+    "16708",
+    "gen:bts-32-bullying",
+    "21148",
+    "14026",
+    "13306",
+    "16818",
+    "15738",
+    "16708",
+    "gen:bts-32-bullying",
+    "21148",
+    "14026",
+    "12774",
+    "16862",
+    "15815",
+    "15661",
+    "gen:bts-32-stress-ball",
+    "16702",
+    "12774",
+    "16862",
+    "15815",
+    "15661",
+    "gen:bts-32-stress-ball",
+    "16702"
+   ]
+  }
+ ]
+}

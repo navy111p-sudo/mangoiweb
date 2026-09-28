@@ -1,5 +1,8 @@
 // BTS 9 새 교재 설계 데이터. k: 'keep'(원본 내용) | 'fix'(원본을 고침) | 'new'(새 활동)
 import { open, close, HELLO } from '../common.mjs';
+const USONG_1 = { t: 'song', k: 'new', small: "Let's sing! ♪ Oh My Darling, Clementine", title: "Morning and Night 🌙", img: "gen:bts-09-song-morning-night", nt: "하루 시간 노래(새로 지음)", n: ["곡조: Oh My Darling, Clementine (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","morning에서 두 팔로 해가 뜨는 원을 그리고, night·sleep에서 두 손을 모아 뺨에 대고 자는 흉내를 내요."], src: '새로 지음', lines: ["In the morning, I eat breakfast,","And the sun is in the sky.","In the evening, I eat dinner,","And the moon is big and bright.","Would you like to eat lunch at night?","No, I wouldn't! Not at night!","Would you like to sleep at midnight?","Yes, I would! Good night, stars!"] };
+const USONG_2 = { t: 'song', k: 'new', small: "Let's sing! ♪ Muffin Man", title: "What Time Is It? ⏰", img: "gen:bts-09-song-what-time", nt: "시각 노래(새로 지음)", n: ["곡조: The Muffin Man (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","두 팔을 시계 바늘처럼 움직여 7시·8시를 만들고, late에서 손목시계를 톡톡 두드려요."], src: '새로 지음', lines: ["What time is it? Seven a.m.!","Seven a.m., seven a.m.,","I should wake up at seven","And eat breakfast on time.","What time is it? Eight a.m.!","It's eight o'clock, it's eight o'clock,","I should go to school at eight,","So I should not be late!"] };
+const USONG_3 = { t: 'song', k: 'new', small: "Let's sing! ♪ Pop Goes the Weasel", title: "How Long Does It Take? ⏱️", img: "gen:bts-09-song-how-long", nt: "걸리는 시간 노래(새로 지음)", n: ["곡조: Pop Goes the Weasel (저작권 만료 곡) — 가사는 이 단원 낱말로 새로 지었습니다","How long?에서 두 손을 양옆으로 벌리고, 마지막 No, it doesn't!에서 고개를 저으며 손을 흔들어요."], src: '새로 지음', lines: ["How long does it take you to eat?","It takes me twenty minutes.","How long does it take to cook dinner?","Forty minutes!","I start at two and finish at three.","How long? It takes one hour!","Does it take you five minutes?","No, it doesn't!"] };
 const U1 = 'Unit 1', U2 = 'Unit 2', U3 = 'Unit 3';
 const TT1 = { t: 'song', k: 'keep', small: 'Warm up 👅', title: 'Tongue Twister', lines: ['We surely shall see the sunshine soon.', 'We surely shall see the sunshine soon.', '(Say it 5 times — faster and faster!)'], img: 'c7360', src: 'Warm Up', nt: '혀 풀기(잰말놀이)', n: ['원본 워밍업 문장 그대로 — 처음엔 천천히, 5번째엔 최대한 빠르게', 's/sh 소리를 구별하는 연습입니다(see / shall / sunshine)'] };
 const TT2 = { t: 'song', k: 'keep', small: 'Warm up 👅', title: 'Tongue Twister', lines: ['Seth sat in the sun singing silly songs.', 'Seth sat in the sun singing silly songs.', '(Say it 5 times — faster and faster!)'], img: '12094', src: 'Warm Up', nt: '혀 풀기(잰말놀이)', n: ['원본 워밍업 문장 그대로 — th / s 소리 구별', '틀려도 웃으며 넘어가는 쪽입니다 — 수업 첫 분위기를 여는 용도'] };
@@ -19,7 +22,8 @@ export const COURSE = {
 <li><b>낱말 뜻 정정</b> — 001 «noon 저녁»(→ 정오) · «sets 세트»(→ 지다) · «rises 일어나다»(→ 뜨다) · «bright 선명한»(→ 밝은) · 007~009 «start 스타트 · finish 끝»(→ 시작하다·끝나다) · 004 «routine 루틴»(→ 일과). 원본 사이트 교재에도 같은 오류가 있어 함께 고칠지.</li>
 <li><b>«kickboard»</b> — 009 «ride a kickboard» 는 한국식 표현(영어로는 scooter)입니다. 새 교재는 <b>ride a scooter</b> 로 바꿨습니다. 학생이 아는 말(킥보드)은 한국어 뜻에 남겼습니다.</li>
 <li><b>새로 만들 사진 40장</b> — 표지·이야기·예고 자리(점선 상자). 힉스필드 크레딧.</li>
-<li><b>REVIEW 26쪽·TEST 22쪽 빈 쪽</b> — 원본 REVIEW 21쪽(Page 21)은 빈 쪽이라 뺐습니다. TEST 는 점수표가 없어 새로 넣었습니다(12문항).</li></ol></div>`,
+<li><b>REVIEW 26쪽·TEST 22쪽 빈 쪽</b> — 원본 REVIEW 21쪽(Page 21)은 빈 쪽이라 뺐습니다. TEST 는 점수표가 없어 새로 넣었습니다(12문항).</li>
+<li><b>새 단원 노래 3곡</b> — 노래가 없던 단원에 새로 지은 노래를 Hello Song 바로 뒤에 넣었습니다: Unit 1 «Morning and Night»(Oh My Darling, Clementine) · Unit 2 «What Time Is It?»(The Muffin Man) · Unit 3 «How Long Does It Take?»(Pop Goes the Weasel). 곡조는 모두 저작권이 끝난 동요(또는 손뼉·랩 챈트)이고 가사는 그 단원 낱말로 새로 썼습니다. <b>가사 승인</b>과 <b>녹음(반주·노래)</b>이 필요합니다 — 지금은 줄마다 🔊(기계 음성)로만 들을 수 있습니다.</li></ol></div>`,
   lessons: [
   // ───────────────────────── 001
   { code: '001', tab: '낮과 밤', unit: U1, title: 'Night and Day', orig: 24,
@@ -28,6 +32,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-09-c001', q: 'Why can\'t we see the stars during the day?', story: 'Kelly has a big question for Mister John today!', nt: '표지 + Big Question', n: ['원본 이야기에서 켈리가 묻는 질문을 그대로 Big Question 으로 — 끝에서 학생이 영어로 답합니다(The sun is too bright.)'] },
       ...open([['I can name the parts of the day.', '아침·오후·저녁·밤을 영어로 말할 수 있어요.'], ['I can say when I see the sun and the moon.', 'I can see the moon at night.'], ['I can say "I would like to …".', '하고 싶은 것을 공손하게 말할 수 있어요.']], 'Lesson Goals (문법 용어 나열이었음)'),
+      USONG_1,
       TT1,
       { t: 'vocab', k: 'fix', hide: true, words: [['sun', '해·태양', '12513'], ['moon', '달', '12484'], ['stars', '별', '15557'], ['sky', '하늘', '18785'], ['day', '낮', '15319'], ['night', '밤', 'c7397']], src: 'Vocabulary 5쪽', nt: '낱말 ① — 가림', n: ['사진만 보고 영어로 먼저 말하기 → 다음 쪽에서 뜻 공개', '원본 18개 낱말을 «하늘에 있는 것» 과 «하루의 때» 둘로 나눴습니다(한 화면 18개는 너무 많음)'] },
       { t: 'vocab', k: 'keep', words: [['sun', '해·태양', '12513'], ['moon', '달', '12484'], ['stars', '별', '15557'], ['sky', '하늘', '18785'], ['day', '낮', '15319'], ['night', '밤', 'c7397']], title: 'In the sky', nt: '낱말 ① — 공개' },
@@ -58,6 +63,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-09-c002', q: 'What are you doing right now?', story: "It's late at night. What are the kids doing?", nt: '표지 + Big Question' },
       ...open([['I can ask "When is it?"', '«It\'s morning. / It\'s night.» 로 때를 말해요.'], ['I can say what people are doing.', 'She is waking up. They are eating breakfast.'], ['I can talk about my day.', 'In the morning, I eat breakfast.']], 'Lesson Goals (001 복사본이었음)'),
+      USONG_1,
       TT1,
       { t: 'vocab', k: 'new', hide: true, title: 'Remember? 🔒', words: [['morning', '아침', '12245'], ['noon', '정오·한낮', '12593'], ['afternoon', '오후', '19279'], ['evening', '저녁', '16152'], ['night', '밤', '12524'], ['midnight', '자정', 'c5021']], src: 'Vocabulary 5쪽', nt: '지난 시간 낱말 떠올리기', n: ['001 과 다른 사진으로 — 같은 사진이면 사진을 외우고, 다른 사진이면 뜻을 떠올립니다'] },
       { t: 'rule', k: 'new', title: 'Now or every day?', left: { h: 'right now 👀', ex: ['She **is waking** up.', 'They **are eating** breakfast.'] }, right: { h: 'every day 📅', ex: ['She **wakes** up at 7.', 'They **eat** breakfast at 8.'] }, q: 'What do we add when it is happening now?', nt: '규칙 찾기 — -ing', n: ['«지금 하는 중» 이면 is/are + -ing 를 학생이 찾게 합니다', '오른쪽(매일 하는 일)은 다음 과(003)의 문법 — 미리 한 번 보여 두는 것'] },
@@ -86,6 +92,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-09-c003', q: 'Would you like to fly a kite at midnight?', story: 'Kelly, Jack and Aaron make a plan for the weekend.', nt: '표지 + Big Question' },
       ...open([['I can talk about my day.', 'He wakes up, takes a shower and eats breakfast.'], ['I can ask "Would you like to …?"', 'Would you like to read books at night?'], ["I can say \"Yes, I would.\" and \"No, I wouldn't.\"", '하고 싶은지 아닌지 답할 수 있어요.']], 'Lesson Goals (001 복사본이었음)'),
+      USONG_1,
       TT1,
       { t: 'vocab', k: 'new', hide: true, cols: 5, title: 'My day 🔒', words: [['wake up', '일어나다', '12359'], ['take a shower', '샤워하다', '17126'], ['eat breakfast', '아침 먹다', 'c5004'], ['go to school', '학교에 가다', '16122'], ['eat lunch', '점심 먹다', 'c7215'], ['go to the academy', '학원에 가다', 'gen:bts-09-academy'], ['eat dinner', '저녁 먹다', '12925'], ['do homework', '숙제하다', '18538'], ['read books', '책을 읽다', '12023'], ['sleep', '자다', '12417']], nt: '하루 일과 낱말 — 가림', n: ['원본은 쪽마다 작은 그림 보기로만 나옴 → 한 쪽에 모아 먼저 익힙니다'] },
       { t: 'vocab', k: 'new', cols: 5, title: 'My day', words: [['wake up', '일어나다', '12359'], ['take a shower', '샤워하다', '17126'], ['eat breakfast', '아침 먹다', 'c5004'], ['go to school', '학교에 가다', '16122'], ['eat lunch', '점심 먹다', 'c7215'], ['go to the academy', '학원에 가다', 'gen:bts-09-academy'], ['eat dinner', '저녁 먹다', '12925'], ['do homework', '숙제하다', '18538'], ['read books', '책을 읽다', '12023'], ['sleep', '자다', '12417']], nt: '하루 일과 낱말 — 공개' },
@@ -113,6 +120,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-09-c004', q: 'What time should you wake up?', story: 'Aaron is always early for school. Does he like it?', nt: '표지 + Big Question' },
       ...open([["I can tell the time.", "It's eight o'clock. It's six thirty."], ['I can use a.m. and p.m.', '7 a.m. = 아침 7시 · 7 p.m. = 저녁 7시'], ['I can say "I should …".', 'I should go to school at 8 a.m.']]),
+      USONG_2,
       TT2,
       { t: 'vocab', k: 'fix', hide: true, words: [['a.m.', '오전', '17127'], ['p.m.', '오후', '16930'], ["o'clock", '~시 (정각)', '18434'], ['should', '~해야 한다', '16234']], src: 'Vocabulary 5쪽', nt: '낱말 — 가림', n: ['a.m./p.m. 은 사진(아침 해·하교)으로 뜻을 떠올리게 합니다'] },
       { t: 'vocab', k: 'keep', words: [['a.m.', '오전', '17127'], ['p.m.', '오후', '16930'], ["o'clock", '~시 (정각)', '18434'], ['should', '~해야 한다', '16234']], nt: '낱말 — 공개' },
@@ -140,6 +148,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-09-c005', q: 'Are you early, late or on time?', story: 'Aaron looks at the clock. Oh no! Is he late?', nt: '표지 + Big Question' },
       ...open([['I can say early, late or on time.', 'Class starts at 8:00. I come at 8:10. I am late.'], ['I can ask "What time is it?"', "It's 7:30 in the morning."], ['I can say what time I should do things.', 'I should sleep at 10 p.m.']]),
+      USONG_2,
       TT2,
       { t: 'vocab', k: 'fix', hide: true, words: [['early', '일찍 · 이른', '17127'], ['late', '늦게 · 늦은', '17167'], ['on time', '제시간에', '17163'], ['a.m.', '오전', 'c5009'], ['p.m.', '오후', '16930'], ["o'clock", '~시 (정각)', '18434']], src: 'Vocabulary 5쪽', nt: '낱말 — 가림', n: ['<del>on time 정시에</del> → 제시간에 (아이에게 더 쉬운 말)'] },
       { t: 'vocab', k: 'keep', words: [['early', '일찍 · 이른', '17127'], ['late', '늦게 · 늦은', '17167'], ['on time', '제시간에', '17163'], ['a.m.', '오전', 'c5009'], ['p.m.', '오후', '16930'], ["o'clock", '~시 (정각)', '18434']], nt: '낱말 — 공개' },
@@ -167,6 +176,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-09-c006', q: 'What should they do first?', story: "It's a busy morning. The baby is hungry!", nt: '표지 + Big Question' },
       ...open([['I can say what someone should do.', 'He should wake up at 6:00.'], ['I can use "and" with two times.', '… at 6:00 and should … at 6:30.'], ["I can answer \"Should you …?\"", "Yes, I should. / No, I shouldn't."]]),
+      USONG_2,
       TT2,
       { t: 'vocab', k: 'new', hide: true, cols: 5, title: 'Things to do 🔒', words: [['go to work', '출근하다', '12253'], ['cook dinner', '저녁을 만들다', '12874'], ['clean the house', '집을 청소하다', '18086'], ['cook lunch', '점심을 만들다', '12237'], ['finish work', '일을 마치다', 'gen:bts-09-finishwork'], ['go to a dinner meeting', '저녁 모임에 가다', '12145'], ['feed the baby', '아기 밥을 먹이다', 'gen:bts-09-feedbaby'], ['bathe the baby', '아기를 씻기다', 'gen:bts-09-bathbaby'], ['wake up', '일어나다', '16174'], ['eat breakfast', '아침 먹다', '16714']], nt: '할 일 낱말 — 가림', n: ['원본은 쪽마다 작은 그림 → 한 쪽에 모아 먼저 익힙니다'] },
       { t: 'vocab', k: 'new', cols: 5, title: 'Things to do', words: [['go to work', '출근하다', '12253'], ['cook dinner', '저녁을 만들다', '12874'], ['clean the house', '집을 청소하다', '18086'], ['cook lunch', '점심을 만들다', '12237'], ['finish work', '일을 마치다', 'gen:bts-09-finishwork'], ['go to a dinner meeting', '저녁 모임에 가다', '12145'], ['feed the baby', '아기 밥을 먹이다', 'gen:bts-09-feedbaby'], ['bathe the baby', '아기를 씻기다', 'gen:bts-09-bathbaby'], ['wake up', '일어나다', '16174'], ['eat breakfast', '아침 먹다', '16714']], nt: '할 일 낱말 — 공개' },
@@ -193,6 +203,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-09-c007', q: 'How long does it take you to brush your teeth?', story: "Jack has math homework. Can he finish it in 30 minutes?", nt: '표지 + Big Question' },
       ...open([['I can ask "How long does it take?"', 'How long does it take her to take a shower?'], ['I can say "It takes 25 minutes."', 'from 7:00 to 7:25 = 25 minutes'], ['I can say how long something is.', 'My class is one hour and twenty minutes long.']], 'Lesson Goals (문법 용어 나열이었음)'),
+      USONG_3,
       TT3,
       { t: 'vocab', k: 'fix', hide: true, words: [['start', '시작하다', '12511'], ['finish', '끝나다 · 끝내다', '18609'], ['minute', '분', '17117'], ['hour', '시간', '12395'], ['early', '일찍', '17127'], ['late', '늦게', '17167']], src: 'Vocabulary 5쪽', nt: '낱말 — 가림', n: ['<del>start 스타트</del> → 시작하다 · <del>finish 끝</del> → 끝나다 (동사로)', 'minute·hour 는 원본 표에 없지만 모든 쪽에 나와 함께 넣었습니다'] },
       { t: 'vocab', k: 'keep', words: [['start', '시작하다', '12511'], ['finish', '끝나다 · 끝내다', '18609'], ['minute', '분', '17117'], ['hour', '시간', '12395'], ['early', '일찍', '17127'], ['late', '늦게', '17167']], nt: '낱말 — 공개' },
@@ -218,6 +229,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-09-c008', q: 'How long does it take you to eat a hamburger?', story: 'Kelly and Jack have a funny race today!', nt: '표지 + Big Question' },
       ...open([['I can say the time in words.', "It's six twenty. It's seven twenty-five."], ['I can say how long it takes.', 'It takes 35 minutes.'], ['I can ask "How long does it take you to …?"', 'How long does it take you to do your homework?']]),
+      USONG_3,
       TT3,
       { t: 'numbers', k: 'new', title: 'Say the time! ⏰', nums: [['8:00', "eight o'clock"], ['8:10', 'eight ten'], ['6:20', 'six twenty'], ['7:25', 'seven twenty-five'], ['9:30', 'nine thirty'], ['1:30', 'one thirty'], ['1:55', 'one fifty-five'], ['7:00', "seven o'clock"], ['4:45', 'four forty-five'], ['?', 'What time is it now?']], nt: '시각을 말로', n: ['원본 «It\'s eight ___ in the morning.» 처럼 시각을 말로 읽는 쪽이 많아 먼저 한 쪽에서 연습', '-teen / -ty 발음(fifteen / fifty) 한 번 더 짚기'] },
       { t: 'vocab', k: 'fix', hide: true, words: [['start', '시작하다', '12511'], ['finish', '끝나다 · 끝내다', '18609'], ['minute', '분', '17117'], ['hour', '시간', '12395'], ['early', '일찍', '17127'], ['late', '늦게', '17167']], src: 'Vocabulary 5쪽', nt: '지난 시간 낱말 떠올리기', n: ['<del>start 스타트 · finish 끝</del> → 시작하다 · 끝나다'] },
@@ -242,6 +254,7 @@ export const COURSE = {
     slides: [
       { t: 'cover', k: 'new', img: 'gen:bts-09-c009', q: 'You have 1 hour. What can you do?', story: 'Jack and Dad have one free hour. What can they do?', nt: '표지 + Big Question' },
       ...open([['I can say "I can … for 30 minutes."', 'I can do homework for 30 minutes.'], ['I can add two times.', '20 minutes + 30 minutes = 50 minutes'], ['I can plan my free time.', 'I can play soccer for 1 hour and watch TV for 30 minutes.']]),
+      USONG_3,
       TT2,
       { t: 'vocab', k: 'fix', hide: true, cols: 5, title: 'Things I can do 🔒', words: [['eat ramen', '라면을 먹다', '12224'], ['take a nap', '낮잠을 자다', '15576'], ['do homework', '숙제하다', '16910'], ['ride a scooter', '킥보드를 타다', 'gen:bts-09-scooter'], ['clean the bedroom', '침실을 청소하다', '16484'], ['eat breakfast', '아침 먹다', '16714'], ['cook dinner', '저녁을 만들다', '12874'], ['watch TV', 'TV를 보다', '15204'], ['play soccer', '축구를 하다', '15516'], ['have math class', '수학 수업을 듣다', '12035']], nt: '낱말 — 가림', n: ['<del>ride a kickboard</del> → ride a scooter · <del>do math class</del> → have math class'] },
       { t: 'vocab', k: 'fix', cols: 5, title: 'Things I can do', words: [['eat ramen', '라면을 먹다', '12224'], ['take a nap', '낮잠을 자다', '15576'], ['do homework', '숙제하다', '16910'], ['ride a scooter', '킥보드를 타다', 'gen:bts-09-scooter'], ['clean the bedroom', '침실을 청소하다', '16484'], ['eat breakfast', '아침 먹다', '16714'], ['cook dinner', '저녁을 만들다', '12874'], ['watch TV', 'TV를 보다', '15204'], ['play soccer', '축구를 하다', '15516'], ['have math class', '수학 수업을 듣다', '12035']], nt: '낱말 — 공개' },
