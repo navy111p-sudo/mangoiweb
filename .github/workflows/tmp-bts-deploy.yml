@@ -1,6 +1,6 @@
 # ⛔ 임시 워크플로 — main 에 올리지 않습니다. 작업 브랜치에서만 돌고 지웁니다.
 # 목적: 새 BTS 교재(2~34)를 슬라이드 JPG 로 렌더해 R2+D1 에 올리고, 옛 교재를 «(구본)» 으로 바꿔 숨김.
-# tmp-bts-new/go.txt 첫 줄이 모드: pack(HTML 묶음만) | dry(조회만) | real(실제 반영)
+# tmp-bts-new/go.txt 첫 줄이 모드: pack(HTML 묶음만) | dry(조회만) | real(실제 반영) | swapdry·swap(이미 올라간 책에서 바뀐 과만 새 행으로 교체)
 # D1 은 CF_D1_TOKEN(D1 편집 전용 토큰)으로만 부릅니다 — 배포 토큰에 D1 권한을 더하면 배포 보류 게이트의 실접속 판정이 깨어나므로 따로 둡니다.
 name: tmp-bts-deploy
 on:
@@ -37,7 +37,7 @@ jobs:
         with: { name: 'New-BTS-HTML', path: '${{ runner.temp }}/New BTS', retention-days: 30 }
   deploy:
     needs: pack
-    if: needs.pack.outputs.mode == 'dry' || needs.pack.outputs.mode == 'real'
+    if: contains(fromJSON('["dry","real","swapdry","swap"]'), needs.pack.outputs.mode)
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
@@ -69,7 +69,9 @@ jobs:
           CF_D1_TOK: ${{ secrets.CF_D1_TOKEN }}
           CHROME: /usr/bin/google-chrome
           HTML_DIR: ${{ github.workspace }}/tmp-bts-new/html
-        run: node tmp-bts-new/deploy.mjs ${{ matrix.n }} "${{ needs.pack.outputs.mode }}"
+        run: |
+          M="${{ needs.pack.outputs.mode }}"
+          case "$M" in swap|swapdry) node tmp-bts-new/deploy-swap.mjs ${{ matrix.n }} "$M" ;; *) node tmp-bts-new/deploy.mjs ${{ matrix.n }} "$M" ;; esac
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: 'rep-${{ matrix.n }}', path: /tmp/rep, retention-days: 7, if-no-files-found: ignore }

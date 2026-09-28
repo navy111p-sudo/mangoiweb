@@ -4,8 +4,10 @@ import { spawn } from 'node:child_process'; import fs from 'node:fs';
 const NN = process.argv[2], OUT = (process.argv[3] || 'exp') + '/bts-' + NN;
 const port = 9300 + Math.floor(Math.random() * 600);
 const ch = spawn(process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', ['--headless=new','--no-sandbox','--disable-gpu',`--remote-debugging-port=${port}`,'--window-size=1000,800','about:blank'],{stdio:'ignore'});
-await new Promise(r=>setTimeout(r,2000));
-const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+// 크롬이 디버그 포트를 열 때까지 기다림(고정 2초는 러너가 바쁠 때 ECONNREFUSED 로 죽었음)
+let list;
+for (let t=0;t<60&&!list;t++){ await new Promise(r=>setTimeout(r,500)); try{ const l=await (await fetch(`http://127.0.0.1:${port}/json/list`)).json(); if(l.some(x=>x.type==='page')) list=l; }catch{} }
+if(!list) throw new Error('chrome devtools 포트가 30초 안에 안 열림');
 const ws = new WebSocket(list.find(t=>t.type==='page').webSocketDebuggerUrl); await new Promise(r=>ws.onopen=r);
 let id=0; const pend={}; ws.onmessage=e=>{const m=JSON.parse(e.data); if(m.id&&pend[m.id]){pend[m.id](m);delete pend[m.id];}};
 const send=(method,params={})=>new Promise(r=>{const i=++id;pend[i]=r;ws.send(JSON.stringify({id:i,method,params}));});
