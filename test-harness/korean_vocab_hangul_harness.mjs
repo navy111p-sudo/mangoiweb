@@ -5,7 +5,24 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { hasForeignGloss, isKoreanGloss, normalizeKoreanGloss, repairKoreanGlosses } from '../cloudflare-deploy/src/korean-vocab.ts';
+import { hasForeignGloss, isKoreanGloss, normalizeKoreanGloss, repairKoreanGlosses, readableKoreanVocabulary } from '../cloudflare-deploy/src/korean-vocab.ts';
+
+const readable = await readableKoreanVocabulary([
+  {id:1,word:'savory',korean:'풍부한風味의'},
+  {id:2,word:'taste',korean:'味覺'},
+  {id:3,word:'school',korean:'學校'},
+  {id:4,word:'你好',korean:'인사 (你好)'},
+]);
+assert.deepEqual(readable.map(r=>r.korean), ['풍미가 풍부한','미각','','인사 (你好)']);
+assert.equal(readable[2].meaning_pending, true);
+let readCalls = 0;
+const bounded = await readableKoreanVocabulary(Array.from({length:45},(_,id)=>({id,word:'school',korean:'學校'})), {
+  run:async(_,input)=>{readCalls++;return {response:JSON.stringify(JSON.parse(input.messages[1].content).map(r=>({...r,korean:'학교'})))};},
+});
+assert.equal(readCalls,1);
+assert.equal(bounded.filter(r=>r.korean==='학교').length,20);
+assert.equal(bounded.filter(r=>r.meaning_pending).length,25);
+assert.ok(bounded.every(r=>!hasForeignGloss(r.korean)));
 
 assert.equal(normalizeKoreanGloss('풍부한风味의'), '풍미가 풍부한');
 assert.equal(normalizeKoreanGloss('풍부한風味의'), '풍미가 풍부한');

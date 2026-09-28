@@ -5,7 +5,9 @@ export const hasForeignGloss = (value: unknown): boolean => /[\p{Script=Han}\p{S
 /** Only the observed, unambiguous whole gloss is corrected deterministically. */
 export function normalizeKoreanGloss(value: unknown): string {
   const text = String(value ?? '').trim();
-  return /^풍부한\s*(?:风味|風味)의$/.test(text) ? '풍미가 풍부한' : text;
+  if (/^풍부한\s*(?:风味|風味)의$/.test(text)) return '풍미가 풍부한';
+  if (/^(?:味覺|味覚|味觉)$/.test(text)) return '미각';
+  return text;
 }
 
 export function isKoreanGloss(value: unknown): boolean {
@@ -46,4 +48,17 @@ export async function repairKoreanGlosses<T extends GlossRow>(rows: T[], ai?: Gl
     } catch { /* No destructive fallback: keep original and let the caller reject it. */ }
   }
   return result;
+}
+
+
+/** Bounded read repair for English vocabulary; Chinese learning content stays intact. */
+export async function readableKoreanVocabulary<T extends GlossRow>(rows: T[], ai?: GlossAI): Promise<(T & { meaning_pending?: boolean })[]> {
+  const english = (row: T) => /[A-Za-z]/.test(row.word) && !/[\p{Script=Han}]/u.test(row.word);
+  const normalized = rows.map(row => english(row) ? { ...row, korean: normalizeKoreanGloss(row.korean) } : { ...row });
+  const pending = normalized.map((row, index) => ({ row, index }))
+    .filter(({ row }) => english(row) && hasForeignGloss(row.korean)).slice(0, 20);
+  const repaired = await repairKoreanGlosses(pending.map(item => item.row), ai);
+  pending.forEach((item, index) => { normalized[item.index] = repaired[index]; });
+  return normalized.map(row => english(row) && hasForeignGloss(row.korean)
+    ? { ...row, korean: '', meaning_pending: true } : row);
 }

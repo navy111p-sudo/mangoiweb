@@ -9,7 +9,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
-import { KOREAN_GLOSS_RULE, hasForeignGloss, normalizeKoreanGloss, isKoreanGloss, repairKoreanGlosses } from './korean-vocab';
+import { KOREAN_GLOSS_RULE, hasForeignGloss, normalizeKoreanGloss, isKoreanGloss, repairKoreanGlosses, readableKoreanVocabulary } from './korean-vocab';
 import { applyPointTransaction } from './api-points';   // 🧾 포인트는 원장(point_transactions)을 거친다
 import { dailyAllowance } from './point-policy';        // 🧢 하루 총량 상한(100점)을 이 경로도 지난다
 import { authUidFromRequest as authUidGlobal } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)
@@ -356,6 +356,26 @@ export async function handleGamesApi(
       return { allow: false as const, error: 'auth_required', message: '로그인 후 본인 단어장만 조회할 수 있습니다.' };
     };
 
+    // Owner-gated legacy repair. Preserve original values and concurrent teacher edits.
+    const readableVocab = async (rows: any[], uid: string) => {
+      const clean = await readableKoreanVocabulary(rows, env.AI);
+      const changed = clean.map((row, i) => ({ row, before: rows[i].korean }))
+        .filter(({ row, before }) => row.id && isKoreanGloss(row.korean) && row.korean !== before);
+      if (changed.length) {
+        try {
+          await env.DB.prepare(`CREATE TABLE IF NOT EXISTS vocab_korean_repair_backup (vocab_id INTEGER NOT NULL, user_id TEXT NOT NULL, original_korean TEXT NOT NULL, repaired_korean TEXT NOT NULL, repaired_at INTEGER NOT NULL, UNIQUE(vocab_id, original_korean))`).run();
+          for (let offset = 0; offset < changed.length; offset += 20) {
+            const statements = changed.slice(offset, offset + 20).flatMap(({ row, before }) => [
+              env.DB.prepare(`INSERT OR IGNORE INTO vocab_korean_repair_backup (vocab_id,user_id,original_korean,repaired_korean,repaired_at) SELECT id,user_id,korean,?,? FROM vocabulary WHERE id=? AND user_id=? AND korean=?`).bind(row.korean, Date.now(), row.id, uid, before),
+              env.DB.prepare(`UPDATE vocabulary SET korean=? WHERE id=? AND user_id=? AND korean=?`).bind(row.korean, row.id, uid, before),
+            ]);
+            await env.DB.batch(statements);
+          }
+        } catch (error) { console.error('[vocab] Korean meaning repair persistence failed'); }
+      }
+      return clean;
+    };
+
     // ── POST /api/vocab/add — 단어 추가 (AI 가 자동으로 한국어/예문 생성) ──
     if (method === 'POST' && path === '/api/vocab/add') {
       await ensureVocab();
@@ -540,7 +560,7 @@ export async function handleGamesApi(
       const gate = await gateVocabOwner(uid);
       if (!gate.allow) return json({ ok: false, error: gate.error, message: gate.message }, 401);
       const rs = await env.DB.prepare(`SELECT id, word, korean, example, level, next_review_at, correct_count, wrong_count, created_at FROM vocabulary WHERE user_id = ? ORDER BY created_at DESC LIMIT 500`).bind(uid).all();
-      return json({ ok: true, count: rs.results?.length || 0, words: rs.results || [], trial: gate.trial });
+      return json({ ok: true, count: rs.results?.length || 0, words: await readableVocab((rs.results || []) as any[], uid), trial: gate.trial });
     }
 
     // ── GET /api/vocab/due?uid=X — 오늘 복습할 단어 (게스트=하루10분·총3일 체험) ──
@@ -552,7 +572,7 @@ export async function handleGamesApi(
       if (!gate.allow) return json({ ok: false, error: gate.error, message: gate.message }, 401);
       const now = Date.now();
       const rs = await env.DB.prepare(`SELECT id, word, korean, example, level FROM vocabulary WHERE user_id = ? AND next_review_at <= ? ORDER BY next_review_at ASC LIMIT 20`).bind(uid, now).all();
-      return json({ ok: true, due_count: rs.results?.length || 0, words: rs.results || [], trial: gate.trial });
+      return json({ ok: true, due_count: rs.results?.length || 0, words: await readableVocab((rs.results || []) as any[], uid), trial: gate.trial });
     }
 
     // ── POST /api/vocab/review — 단어 복습 결과 (correct/wrong → 다음 복습 일정 자동 조정) ──
@@ -3078,3 +3098,4 @@ Respond in JSON ONLY:
 
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
 }
+
