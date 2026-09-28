@@ -423,6 +423,66 @@
   };
 
   var _rows = [];
+  /* ↕ (2026-09-28 사장님 «이것도 오름·내림 필터») 머리글을 누르면 정렬 — manager.html AIU_SORT 와 같은 규칙.
+     첫 번째 누름 ▲ 오름 · 두 번째 ▼ 내림 · 세 번째는 원래 순서(지금 입장가능 → 시작 시각).
+     빈 값(—)은 방향과 무관하게 맨 아래. 거른 «뒤» 에 정렬한다(화면에 보이는 줄끼리).
+     ⛔ 날짜·시간은 글자가 아니라 start_ts 로 — «오후 9:00» 과 «오전 10:00» 을 글자로 비교하면 뒤집힌다.
+     ⛔ 수업 캘린더 칸은 정렬하지 않는다(값이 7칸 달력이라 순서의 뜻이 없다). */
+  var TC_SORT = { key: '', dir: 0 };
+  function tcPlain(html) {
+    var t = String(html == null ? '' : html).replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
+    return (t === '—' || t === '-') ? '' : t;
+  }
+  function tcSortVal(s, key) {
+    var ts = Number(s.start_ts);
+    switch (key) {
+      case 'date': return isFinite(ts) && ts > 0 ? ts : null;
+      case 'time': {
+        if (!(isFinite(ts) && ts > 0)) return null;
+        var k = new Date(ts + 9 * 3600 * 1000);   /* KST 시·분 — 날짜와 무관하게 시각만 */
+        return k.getUTCHours() * 60 + k.getUTCMinutes();
+      }
+      case 'status': return tcPlain(badge(s.status));
+      case 'student': return String(s.student_name || s.student_uid || '').trim();
+      case 'contact': return String(s.contact_phone || '').trim();
+      case 'academy': return String(s.academy || '').trim();
+      case 'pay': return tcPlain(xPay(s.pay_type));
+      case 'sched': return tcPlain(xSched(s));
+      case 'tentry': return tcPlain(xTeacherEntry(s.teacher_entry));
+      case 'att': return tcPlain(xAttendance(s.attendance));
+      case 'lastEval': return tcPlain(xEval(s.last_eval, s.eval_hidden));
+      case 'todayEval': return tcPlain(xEval(s.today_eval, s.eval_hidden));
+      case 'level': return String((s.level || '') + ' ' + (s.textbook_assigned ? (s.textbook || '') : '')).trim();
+      case 'teacher': return String(s.teacher_name || '').trim();
+      case 'room': return String(s.room_id || '').trim();
+    }
+    return null;
+  }
+  function tcSorted(rows) {
+    var key = TC_SORT.key, dir = TC_SORT.dir;
+    if (!key || !dir) return rows;
+    var blank = function (v) { return v == null || v === '' || (typeof v === 'number' && isNaN(v)); };
+    return rows.map(function (s, i) { return { s: s, i: i, v: tcSortVal(s, key) }; }).sort(function (a, b) {
+      var ab = blank(a.v), bb = blank(b.v);
+      if (ab || bb) return ab === bb ? a.i - b.i : (ab ? 1 : -1);
+      var c = (typeof a.v === 'number' && typeof b.v === 'number') ? (a.v - b.v)
+        : String(a.v).localeCompare(String(b.v), 'ko', { numeric: true });
+      return c ? c * dir : a.i - b.i;
+    }).map(function (x) { return x.s; });
+  }
+  function tcTh(key, ko, en) {
+    var label = T(ko, en);
+    if (!key) return '<th>' + label + '</th>';
+    var on = TC_SORT.key === key && TC_SORT.dir;
+    var ar = on ? (TC_SORT.dir > 0 ? '▲' : '▼') : '↕';
+    return '<th class="tc-sort-th" data-sk="' + key + '" role="button" tabindex="0" aria-sort="'
+      + (on ? (TC_SORT.dir > 0 ? 'ascending' : 'descending') : 'none') + '" '
+      + 'title="' + T('눌러서 정렬 (▲ 오름 → ▼ 내림 → 원래 순서)', 'Click to sort (▲ asc → ▼ desc → original)') + '" '
+      + 'style="cursor:pointer;user-select:none;white-space:nowrap' + (on ? ';color:#1d4ed8' : '') + '">'
+      + label + '<span aria-hidden="true" style="margin-left:3px;font-size:10px;opacity:' + (on ? '1' : '.4') + '">' + ar + '</span></th>';
+  }
   var _contactSrc = '';   // 서버가 준 연락처 근거('retention' | 'restricted')
 
   /* 🔎 (2026-09-01 사장님 요청) 「카페24 수업」과 「우리가 새로 넣은 수업」 가르기 + 검색.
@@ -763,24 +823,24 @@
       + bookLine
       + '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse">'
       + '<thead><tr>'
-      +   '<th>' + T('날짜', 'Date') + '</th>'
-      +   '<th>' + T('시간', 'Time') + '</th>'
-      +   '<th>' + T('상태', 'Status') + '</th>'
-      +   '<th>' + T('학생 / 액션', 'Student / Action') + '</th>'
-      +   '<th>' + T('연락처', 'Contact') + '</th>'
-      +   '<th>' + T('학원', 'Academy') + '</th>'
-      +   '<th>' + T('수업 캘린더', 'Class calendar') + '</th>'
-      +   '<th>' + T('결제 유형', 'Payment type') + '</th>'
-      +   '<th>' + T('일정', 'Schedule') + '</th>'
-      +   '<th>' + T('강사 입장', 'Instructor entrance') + '</th>'
-      +   '<th>' + T('학생 출결', 'Attendance') + '</th>'
-      +   '<th>' + T('지난 수업 평가', 'Last class feedback') + '</th>'
-      +   '<th>' + T('오늘 평가', "Today's feedback") + '</th>'
-      +   '<th>' + T('레벨 · 교재', 'Level · Textbook') + '</th>'
-      +   '<th>' + T('강사', 'Teacher') + '</th>'
-      +   '<th>' + T('강의실', 'Room') + '</th>'
+      +   tcTh('date', '날짜', 'Date')
+      +   tcTh('time', '시간', 'Time')
+      +   tcTh('status', '상태', 'Status')
+      +   tcTh('student', '학생 / 액션', 'Student / Action')
+      +   tcTh('contact', '연락처', 'Contact')
+      +   tcTh('academy', '학원', 'Academy')
+      +   tcTh('', '수업 캘린더', 'Class calendar')
+      +   tcTh('pay', '결제 유형', 'Payment type')
+      +   tcTh('sched', '일정', 'Schedule')
+      +   tcTh('tentry', '강사 입장', 'Instructor entrance')
+      +   tcTh('att', '학생 출결', 'Attendance')
+      +   tcTh('lastEval', '지난 수업 평가', 'Last class feedback')
+      +   tcTh('todayEval', '오늘 평가', "Today's feedback")
+      +   tcTh('level', '레벨 · 교재', 'Level · Textbook')
+      +   tcTh('teacher', '강사', 'Teacher')
+      +   tcTh('room', '강의실', 'Room')
       + '</tr></thead><tbody>'
-      + rows.map(function (s) {
+      + tcSorted(rows).map(function (s) {
           var rid = encodeURIComponent(s.room_id);
           var who = encodeURIComponent(s.student_name || s.student_uid || '');
           /* 강사 미배정은 매니저가 가장 먼저 봐야 하는 줄 → 눈에 띄게 */
@@ -960,6 +1020,25 @@
       })(pins[pi]);
     }
     /* 📅 수업 캘린더 칩 → 학생 상세 스케줄 탭 창. render() 가 통째로 다시 그리므로 리스너는 안 쌓인다. */
+    /* ↕ 머리글 정렬 — render() 가 통째로 다시 그리므로 리스너는 안 쌓인다. 키보드(Enter·Space)도 받는다. */
+    var sths = box.querySelectorAll('th.tc-sort-th');
+    for (var si = 0; si < sths.length; si++) {
+      (function (el) {
+        var go = function (ev) {
+          if (ev) ev.preventDefault();
+          var key = el.getAttribute('data-sk') || '';
+          if (!key) return;
+          if (TC_SORT.key !== key) TC_SORT = { key: key, dir: 1 };
+          else if (TC_SORT.dir === 1) TC_SORT.dir = -1;
+          else TC_SORT = { key: '', dir: 0 };
+          render();
+        };
+        el.addEventListener('click', go);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') go(ev);
+        });
+      })(sths[si]);
+    }
     var cals = box.querySelectorAll('.tc-cal-pin');
     for (var ci = 0; ci < cals.length; ci++) {
       (function (el) {

@@ -163,7 +163,7 @@ const SESSIONS = [
 ];
 
 const html = await renderOnce(SESSIONS);
-const thN = (html.match(/<th>/g) || []).length;
+const thN = (html.match(/<th[ >]/g) || []).length;   // 정렬 머리글은 <th class=… 모양이라 속성까지 받는다
 const trs = html.split('<tr>').slice(2);                       // thead 한 줄 제외
 const tdN = trs.map(r => (r.match(/<td[ >]/g) || []).length);
 check(`④-1 표의 머리칸 수(${thN}) = 각 줄의 칸 수(${tdN.join(',')})`,
