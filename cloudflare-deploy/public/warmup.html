@@ -526,6 +526,8 @@
       <div id="wusMain">
         <div class="wus-title"><img src="/img/mango-char.png" class="mango-inline" alt="망고"> 말하기 연습 설정</div>
         <div class="wus-lead">먼저 <b>누가</b> · <b>어느 수준으로</b> 이야기할지 정해요.<br>대화 중에도 오른쪽 위 <b>⋮</b> 에서 언제든 바꿀 수 있어요.</div>
+        <!-- 💡 「A.i말하기와 A.i친구하기 차이」 (2026-09-26 사장님) — 안내창 본체는 js/ai-diff.js 한 곳 -->
+        <div style="text-align:center"><button type="button" class="aidiff-chip" onclick="window.mgOpenAiDiff&&mgOpenAiDiff()" data-ko="💡 A.i말하기와 A.i친구하기 차이" data-en="💡 Speaking vs. Friend: what's different?">💡 A.i말하기와 A.i친구하기 차이</button></div>
 
         <!-- 🀄 대화 언어 (2026-09-13) — «무슨 말로 이야기하는가». 수준·나이대와 «독립» 인 축이다.
              ⚠️ 이 줄을 맨 위에 두는 이유: 아래 두 축(수준 설명·수준 찾기)의 «뜻» 이 언어에 따라
@@ -3924,6 +3926,7 @@ async function sendMsg(){
 }
 </style>
 <script defer src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
+<script defer src="/js/ai-diff.js?v=1"></script><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=22"></script>
 <!-- BUILD:20260813015745 -->
