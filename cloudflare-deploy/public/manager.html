@@ -124,9 +124,10 @@ details.card[open] > summary::after{content:'\2212'}
 details.card > summary + *{margin-top:12px}
 
 /* KPI 타일 — 이모지 없음(관리자 KPI 타일 이모지는 과거에 일부러 뺐다) */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+/* 🔢 (2026-09-28) 금액을 «27,170,000» 처럼 다 쓰므로 칸을 150px 로 넓히고, 그래도 좁으면 글자를 줄인다(넘치지 않게). */
 .kpi{background:#f7f9fb;border:1px solid #e6ecf2;border-radius:8px;padding:10px 12px}
-.kpi b{display:block;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;color:#16202c;line-height:1.25}
+.kpi b{display:block;font-size:clamp(17px,5vw,22px);overflow-wrap:anywhere;font-weight:800;font-variant-numeric:tabular-nums;color:#16202c;line-height:1.25}
 .kpi span{display:block;font-size:12.5px;color:#5d6b7a;margin-top:2px}
 /* 👆 (2026-08-17) 누를 수 있게 된 타일. <button> 이라 브라우저 기본값이 붙으므로
    «원래 <div> 와 똑같이» 보이도록 되돌린다 — 모양을 바꾸면 이번 변경의 뜻이 흐려진다.
@@ -961,11 +962,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   // ── 숫자 표기 ─────────────────────────────────────────────────────────────
   function n0(v){ return (Number(v) || 0).toLocaleString(); }
   function won(v){
-    var x = Number(v) || 0;
-    // 매니저 화면은 폰에서 본다. 억/만 단위로 접어야 한 줄에 들어간다.
-    if (Math.abs(x) >= 100000000) return (x / 100000000).toFixed(1) + T('00M', '억');
-    if (Math.abs(x) >= 10000)     return Math.round(x / 10000).toLocaleString() + T('0k', '만');
-    return n0(x);
+    // 🔢 (2026-09-28 사장님 「모든 단위를 27,170,000 이런 형태로」 — branch.html 과 같게) 억·만·k·M 으로
+    //    접지 않고 원 단위를 쉼표로 그대로 쓴다(한국어·영어 같음). ⛔ 접는 표기로 되돌리지 말 것.
+    //    옛 영어 판은 «만» 단위 숫자에 '0k' 를 붙여 25,520,000 을 «2,552,0k» 처럼 찍었다.
+    return n0(Math.round(Number(v) || 0));
   }
   function esc(s){
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
