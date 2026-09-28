@@ -827,7 +827,6 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   </div>
   <div class="sgrp-h" data-en="Classes" data-ko="수업 관리">Classes</div>
   <div class="sgrp">
-    <button type="button" onclick="sideGo('c-req')"><span class="ic">🗓</span><span data-en="Reschedule requests" data-ko="수업 연기 · 변경 요청">Reschedule requests</span></button>
     <button type="button" onclick="sideGo('c-today')"><span class="ic">🏫</span><span data-en="All classes today" data-ko="오늘 전체 수업">All classes today</span></button>
     <button type="button" onclick="sideGo('c-util')"><span class="ic">📈</span><span data-en="Teacher utilisation" data-ko="강사 가동률">Teacher utilisation</span></button>
   </div>
@@ -1075,10 +1074,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        ⚠️ 화면만 옮긴 게 아니다 — 서버(api-admin.ts)가 자기 학생 요청만 돌려주도록 먼저 고쳤고,
           승인·거절도 같은 조건으로 다시 확인한다. 그 격리를 빼면 남의 대리점 학생이 보인다.
        ⚠️ 본사(hq)는 예전처럼 전부 본다 — 달라진 것은 «지사·대리점에게도 보인다» 뿐이다. -->
-<details class="card" id="c-req" ontoggle="if(this.open)loadReqs()">
-      <summary><span data-en="Class change requests" data-ko="수업 연기 · 변경 요청">Class change requests</span></summary>
-      <div id="reqBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
-    </details>
+<!-- ⛔ (2026-09-28 사장님) 이 카드를 지사 화면에서 뺐다 — 「지사장은 연기·변경 요청을 받을
+       필요가 없다. 학생이 신청한 직후 자동으로 진행되어야 한다」. 사이드바 줄 · 「오늘 봐야 할 것」
+       줄 · 미리 받기 요청까지 함께 뺐다(카드만 빼면 숫자는 남아 «누를 곳 없는 알림» 이 된다).
+       ⚠️ 서버·다른 화면(manager.html · admin.html)의 요청 처리는 그대로다 — 이 화면에서만 안 보인다.
+       ⚠️ loadReqs/paintReqs 는 남겨 두었다(요소가 없으면 조용히 돌아간다). 되살리려면 이 자리에
+          카드를 · 사이드바에 줄을 · loadTodo 에 요청을 되돌리면 된다. -->
 
   <!-- 📅 (2026-09-21) «본사 매니저 전용» 칸 밖으로 옮김 — /api/admin/classes/today 는
        index.ts 6203-6206 에서 scopeStudentCond() 로 지사·대리점 몫만 잘라서 준다고
@@ -2257,12 +2258,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 
   // ③ 수업 연기·변경 요청 — 대기 중인 것이 위로
   window.loadReqs = function(){
+    var el = document.getElementById('reqBody');
+    if (!el) return;   // 카드를 뺀 화면(2026-09-28) — 아무것도 안 부른다
     if (D.reqs) { paintReqs(); return; }
-    var el = document.getElementById('reqBody'); el.textContent = T('Loading...', '불러오는 중...');
+    el.textContent = T('Loading...', '불러오는 중...');
     once('reqs', function(){ return get('/api/admin/schedule-requests?limit=60', 'reqs'); })
       .then(function(j){ D.reqs = j; paintReqs(); }).catch(function(e){ failBox(el, e); });
   };
   function paintReqs(){
+    if (!document.getElementById('reqBody')) return;
     var j = D.reqs || {};
     var rows = j.items || j.rows || j.requests || [];
     hqRows('reqBody', rows, function(r){
@@ -3047,21 +3051,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         '', '/work');
     }
 
-    // ① 연기 · 변경 요청 — 학원장이 승인·거절해야 하는 것 (지사·대리점은 자기 학생 것만)
-    if (D.reqs) {
-      // 필드 읽는 순서를 paintReqs 와 똑같이 맞춘다 — 한쪽만 고치면 숫자가 서로 어긋난다
-      var rq = (D.reqs.items || D.reqs.rows || D.reqs.requests || []).filter(function(r){ return (r.status || '') === 'pending'; });
-      var rqN = Number(D.reqs.pending_count != null ? D.reqs.pending_count : rq.length) || 0;
-      if (rqN > 0) {
-        var who = rq.length ? (rq[0].student_name || rq[0].teacher_name || '') : '';
-        html += todoRow('#b45309',
-          T('Reschedule requests: ' + rqN, '연기 · 변경 요청 ' + rqN + '건'),
-          rqN > 1 && who ? T(who + ' and ' + (rqN - 1) + ' more — waiting for you', who + ' 외 ' + (rqN - 1) + '건 — 승인 대기')
-                         : T('Waiting for your decision', '승인 · 거절을 기다리고 있어요'),
-          'c-req');
-        total += rqN;
-      }
-    }
+    // ① (2026-09-28) 연기 · 변경 요청 줄은 뺐다 — 지사장은 요청을 받지 않는다(사장님). 카드 자리 주석 참고.
 
     // ② 대기자 — 상담·배정을 기다리는 학생
     if (D.wait) {
@@ -3078,11 +3068,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     }
 
     // 받은 게 하나도 없으면 «괜찮다» 고 말하지 않는다 — 모르는 것과 없는 것은 다르다
-    if (!D.reqs && !D.wait) { box.hidden = true; return; }
+    if (!D.wait) { box.hidden = true; return; }
 
     if (!html) {
       body.innerHTML = '<div class="todo-clear">' + esc(T('Nothing to check right now', '지금은 볼 것이 없습니다'))
-        + '<span>' + esc(T('No requests or waiting students', '대기 중인 요청도 대기자도 없어요')) + '</span></div>';
+        + '<span>' + esc(T('No students waiting', '대기 중인 학생이 없어요')) + '</span></div>';
       nEl.textContent = ''; nEl.hidden = true;
     } else {
       body.innerHTML = html;
@@ -3105,7 +3095,6 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 
   function loadTodo(){
     Promise.all([
-      quietGet('/api/admin/schedule-requests?limit=60', 'reqs').then(function(j){ if (j) D.reqs = j; }),
       quietGet('/api/admin/stats/waitlist', 'wait').then(function(j){ if (j) D.wait = j; })
     ]).then(paintTodo);
   }
