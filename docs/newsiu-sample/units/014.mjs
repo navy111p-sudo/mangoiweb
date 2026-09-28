@@ -17,7 +17,7 @@ export default {
   ["describe", "verb", "묘사하다", "to say what someone or something is like"],
   ["childhood", "noun", "어린 시절", "the time when you are a child"],
   ["Internet", "noun", "인터넷", "the world network that connects computers"],
-  ["misunder\u00ADstanding", "noun", "오해", "a mistake about what someone meant"],
+  ["misunderstanding", "noun", "오해", "a mistake about what someone meant"],
   ["believe", "verb", "믿다", "to feel sure that something is true"],
   ["borrow", "verb", "빌리다", "to take something and give it back later"],
   ["risk", "verb", "위험을 무릅쓰다", "to do something even if it may be dangerous"],

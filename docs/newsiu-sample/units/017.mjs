@@ -206,7 +206,7 @@ export default {
    check: ["Loud voice", "Look at teacher", "Use plurals (-s)"]
   },
   pron: {
-   cols: [["● first", ["Internet", "password", "dangerous"]], ["● second", ["computer", "security", "connection"]], ["● third", ["education", "information", "engineer"]]],
+   cols: [["●○○", ["Internet", "password", "dangerous"]], ["○●○", ["computer", "security", "connection"]], ["○○●", ["education", "information", "engineer"]]],
    up: "Do you often use the Internet?",
    down: "How many hours do you use it?"
   },
@@ -318,7 +318,7 @@ export default {
    check: ["Clear voice", "Eye contact", "Correct plurals", "Answer 1 question"]
   },
   pron: {
-   cols: [["● first", ["Internet", "password", "criminal"]], ["● second", ["computer", "important", "connection"]], ["● third", ["education", "information", "entertainment"]]],
+   cols: [["●○○", ["Internet", "password", "criminal"]], ["○●○", ["computer", "important", "connection"]], ["○○●", ["education", "information", "entertainment"]]],
    up: "Is it safe for children?",
    down: "How can you protect your computer?"
   },

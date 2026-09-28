@@ -189,7 +189,7 @@ export default {
    check: ["Loud voice", "Say I think …", "Say 5 things"]
   },
   pron: {
-   cols: [["-teen  • ●", ["thirteen", "fifteen", "nineteen"]], ["-ty  ● •", ["thirty", "fifty", "ninety"]], ["teen", ["teenager", "teens", "teenage"]]],
+   cols: [["-TEEN", ["thirteen", "fifteen", "nineteen"]], ["-ty", ["thirty", "fifty", "ninety"]], ["teen-", ["teenager", "teens", "teenage"]]],
    up: "Do you like rock music?",
    down: "What do teenagers like to do?"
   },
@@ -299,7 +299,7 @@ export default {
    check: ["Clear voice", "Opinion language", "Reasons and examples", "Answer 1 question"]
   },
   pron: {
-   cols: [["-teen  • ●", ["thirteen", "sixteen", "eighteen"]], ["-ty  ● •", ["thirty", "sixty", "eighty"]], ["teen", ["teenager", "teenage", "in my teens"]]],
+   cols: [["-TEEN", ["thirteen", "sixteen", "eighteen"]], ["-ty", ["thirty", "sixty", "eighty"]], ["teen-", ["teenager", "teenage", "in my teens"]]],
    up: "Should teens have a curfew?",
    down: "How much freedom did you have?"
   },
