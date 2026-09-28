@@ -42,7 +42,7 @@
   function populate(d){$('work').value=d.work||'';$('noissue').checked=d.no_issue===true;$('issue').value=d.issue||'';$('noopen').checked=d.no_open===true;$('open').value=d.open||'';$('owner').value=d.owner||'';$('deadline').value=d.deadline||'';$('student').value=d.student||'';$('class').value=d.class_info||'';$('priority').value=d.priority||'normal';attachments=(d.attachments||[]).slice();paintAttachments();sync();}
   function resetReview(){reviewed=false;$('confirm').checked=false;$('confirm').disabled=true;$('send').disabled=true;}
   async function review(useAI){
-    if(!me||busy||uploading)return;begin();busy=true;$('review').disabled=true;$('manual').disabled=true;
+    if(!me||busy||uploading||(recognition&&recognition.busy()))return;begin();busy=true;$('review').disabled=true;$('manual').disabled=true;
     var rev=revision;resetReview();$('review-status').textContent=useAI?'AI가 문장을 정리하고 있습니다… / AI is reviewing…':'필수 항목 점검 중 / Checking…';
     try{
       var j=await call('/review',{report_date:$('date').value,payload:payload(),use_ai:useAI},16000);
@@ -61,7 +61,7 @@
   $('apply').onclick=function(){if(!suggestion)return;var s=suggestion;$('work').value=s.work;$('issue').value=s.issue;$('open').value=s.open;invalidate();review(false);};
   $('confirm').onchange=function(){$('send').disabled=!(reviewed&&$('confirm').checked&&!sent&&!busy);};
   async function save(submit){
-    if(!me||busy||uploading)return;if(submit&&(!reviewed||!$('confirm').checked||sent))return;
+    if(!me||busy||uploading||(recognition&&recognition.busy()))return;if(submit&&(!reviewed||!$('confirm').checked||sent))return;
     if(submit&&recognition)recognition.stop();
     busy=true;$('save').disabled=true;$('send').disabled=true;var rev=revision;
     var body={report_date:$('date').value,payload:payload(),recipient:$('recipient').value,version:version,submit:submit,confirmed:submit&&$('confirm').checked};
@@ -94,7 +94,7 @@
   }
   function paintAttachments(){var list=$('file-list');list.replaceChildren();attachments.forEach(function(id){list.append(attachmentLinks(id,true));});}
   $('files').onchange=async function(){
-    if(!me||busy||uploading)return;var chosen=Array.from(this.files||[]);
+    if(!me||busy||uploading||(recognition&&recognition.busy()))return;var chosen=Array.from(this.files||[]);
     if(attachments.length+chosen.length>5||chosen.some(function(f){return f.size>20*1024*1024;})){say('최대 5개, 파일당 20MB 이하로 선택해 주세요. / Up to 5 files, 20MB each.',true);this.value='';return;}
     uploading=true;invalidate();$('files').disabled=true;$('review').disabled=true;$('manual').disabled=true;$('save').disabled=true;
     var failed=[];
@@ -148,18 +148,13 @@
   var weeknames=['일 / Sun','월 / Mon','화 / Tue','수 / Wed','목 / Thu','금 / Fri','토 / Sat'];
   weeknames.forEach(function(name,i){var label=node('label',null,'check'),c=document.createElement('input');c.type='checkbox';c.value=String(i);c.checked=i>0&&i<6;label.append(c,document.createTextNode(name));$('weekdays').append(label);});
   $('schedule-save').onclick=async function(){var button=$('schedule-save');button.disabled=true;try{await call('/schedule',{enabled:$('schedule-enabled').checked,weekdays:Array.from($('weekdays').querySelectorAll('input:checked')).map(function(c){return Number(c.value);}),due_time:$('due-time').value,exempt_date:$('exempt-date').value});$('schedule-status').textContent='설정 저장 완료 · 마감 30분 전/마감/30분 후 알림. / Saved: reminders at −30 / 0 / +30 min (15-min checks).';}catch(e){networkError(e);}finally{button.disabled=false;}};
-  var Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
-  $('voice').onclick=function(){
-    if(recognition){recognition.stop();return;}
-    if(!Speech){say('이 브라우저에서는 말로 입력을 지원하지 않습니다. 직접 입력해 주세요. / Dictation is unavailable; please type.',true);return;}
-    var rec=new Speech();recognition=rec;rec.lang=$('voice-lang').value;rec.continuous=true;rec.interimResults=false;
-    rec.onstart=function(){$('voice').textContent='● 듣는 중 · 정지 / Listening · Stop';};
-    rec.onresult=function(event){var additions=[];for(var i=event.resultIndex;i<event.results.length;i++)if(event.results[i].isFinal)additions.push(event.results[i][0].transcript);if(additions.length){$('work').value=($('work').value+' '+additions.join(' ')).trim().slice(0,1500);invalidate();}};
-    rec.onerror=function(){say('마이크 권한이나 연결을 확인해 주세요. 직접 입력도 가능합니다. / Check microphone permission or type instead.',true);};
-    rec.onend=function(){recognition=null;$('voice').textContent='말로 입력 / Dictate';};
-    try{rec.start();}catch(e){recognition=null;networkError(e);}
-  };
-  document.addEventListener('visibilitychange',function(){if(document.hidden&&recognition)recognition.stop();});
+  recognition=window.HandoverDictation.create({button:$('voice'),fallback:$('voice-record'),language:$('voice-lang'),status:$('voice-status'),interim:$('voice-interim'),
+    canStart:function(){return !!me&&!busy&&!uploading;},
+    onText:function(t){var old=$('work').value,combined=(old+' '+t).trim();$('work').value=combined.slice(0,1500);invalidate();if(combined.length>1500)say('오늘 한 일은 1,500자까지 입력됩니다. / Work completed is limited to 1,500 characters.',true);},
+    onBusy:function(active){if(active){begin();resetReview();}$('files').disabled=active||uploading;$('review').disabled=active||busy;$('manual').disabled=active||busy;$('save').disabled=active||busy||originalSubmitted;}
+  });
+  document.addEventListener('visibilitychange',function(){if(document.hidden&&recognition)recognition.cancel();});
+  window.addEventListener('pagehide',function(){if(recognition)recognition.cancel();});
   async function init(){
     fields.forEach(function(k){$(k).disabled=true;});$('review').disabled=true;$('save').disabled=true;$('manual').disabled=true;
     try{
@@ -173,7 +168,7 @@
       if(j.schedule){$('schedule-enabled').checked=!!j.schedule.enabled;$('due-time').value=j.schedule.due_time;$('exempt-date').value=j.schedule.exempt_date;Array.from($('weekdays').querySelectorAll('input')).forEach(function(c){c.checked=j.schedule.weekdays.split(',').includes(c.value);});}
       if(j.read_schedule){$('read-start').value=j.read_schedule.start_time;$('read-end').value=j.read_schedule.end_time;Array.from($('read-weekdays').querySelectorAll('input')).forEach(function(c){c.checked=j.read_schedule.weekdays.split(',').includes(c.value);});}
       sync();preview();reports=j.reports;paintList();await loadList();
-      fields.forEach(function(k){$(k).disabled=false;});$('review').disabled=false;$('manual').disabled=false;$('save').disabled=originalSubmitted;
+      fields.forEach(function(k){$(k).disabled=false;});$('review').disabled=false;$('manual').disabled=false;$('save').disabled=originalSubmitted;$('voice').disabled=false;$('voice-record').disabled=false;
     }catch(e){networkError(e);}
   }
   weeknames.forEach(function(name,i){var label=node('label',null,'check'),c=document.createElement('input');c.type='checkbox';c.value=String(i);c.checked=i>0&&i<6;label.append(c,document.createTextNode(name));$('read-weekdays').append(label);});
