@@ -39,6 +39,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import { getAdminActor, PH_MANAGERS } from './auth-admin';
+import { handleDailyHandover, runDailyHandoverSweep } from './daily-handover';
 import { teacherWhoLabel } from './forbidden-teacher';  // 🪪 거절할 때 «지금 누구로 들어와 있는가»
 import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
 import { selectInChunks } from './d1-chunk';           // 🔢 IN 목록은 손으로 자르지 않는다(D1 바인드 100 한도)
@@ -1170,6 +1171,9 @@ export async function handleApprovalApi(
 
   const actor: any = await getAdminActor(request, env as any);
   if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+
+  const handover = await handleDailyHandover(request, url, env, actor);
+  if (handover) return handover;
 
   // 강사도 긴급·고객불만은 올릴 수 있어야 하므로, 여기서 통째로 막지 않는다.
   //   대신 아래 각 엔드포인트가 분류별로 판정한다(canSubmit · canView).
@@ -3066,6 +3070,7 @@ export async function handleApprovalApi(
  * ═════════════════════════════════════════════════════════════════════════ */
 
 export async function runApprovalSlaSweep(env: ApprovalEnv): Promise<{ ok: boolean; warned: number; escalated: number }> {
+  try { await runDailyHandoverSweep(env); } catch { console.warn('[daily-handover] reminder sweep failed'); }
   let warned = 0, escalated = 0;
   try {
     await ensureTable(env);
