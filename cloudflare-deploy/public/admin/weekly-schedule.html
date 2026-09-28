@@ -364,6 +364,20 @@ html[data-admin-theme="ivory"] .tl-seg.s-temp{background:var(--cell-temp)}
       ⟹ 어두운 면에 같은 수법을 쓰면 조용히 안 먹는다. (tr 배경 쪽은 별개로 안전하다 — 그 판정은
          알파 0.35 초과만 보므로 0.045 는 원래 건너뛴다) */
 .dgv tbody tr:nth-child(even) .tl-td-name{box-shadow:inset 0 0 0 100vh var(--stripe)}
+/* 🦓 (2026-09-28) 사장님 «하나는 하얀색 하나는 약간 짙은 회색으로 — 교사와 수업이 일치하는지 확인이 어렵다»
+   [왜] 위 반투명 줄무늬(.045)가 화면에 «전혀» 안 나왔다 — ivory 블록의 .slot-empty{background:#FCFDFE}
+        (불투명)가 모든 빈 칸을 흰색으로 칠해 tr 줄무늬를 덮었다. 이름 칸만 희미하게 번갈았다.
+   [무엇] 일간 뷰의 빈 칸은 투명으로 두어 행 색이 비치게 하고, 행은 흰색 / 회색 두 벌 «불투명» 으로 칠한다.
+        (이 페이지는 테마와 무관하게 늘 밝다 — :root 주석 참고. 그래서 한 벌이면 된다)
+   ⚠️ td 가 아니라 tr 에 칠한다 — .col-today(반투명 앰버)·드래그 표시가 그 위에 그대로 겹친다.
+   ⚠️ 이름 칸(sticky)도 같은 두 색으로 맞춰 한 줄이 끝까지 한 색으로 읽히게 한다. */
+.dgv tbody tr{background:#ffffff}
+.dgv tbody tr:nth-child(even){background:#e3e8ef}
+.dgv td.slot.slot-empty:not(.col-today),.dgv td.slot.slot-weekend:not(.col-today){background:transparent}
+/* ⚠️ 오늘(.col-today) 칸은 위 반투명 앰버를 그대로 둔다 — 투명으로 덮으면 오늘 강조가 사라진다(앰버가 반투명이라 행 색이 비친다) */
+.dgv tbody tr .tl-td-name{background:#ffffff;box-shadow:none}
+.dgv tbody tr:nth-child(even) .tl-td-name{background:#e3e8ef;box-shadow:none}
+.dgv tbody tr:hover .tl-td-name{background:#d6dde8}
 .tl-scroll td.slot.slot-empty,.tl-scroll td.slot.slot-weekend{font-size:0}   /* 빈 10분 칸엔 글자를 넣지 않는다 */
 .tl-scroll td.slot.slot-empty,.tl-scroll td.slot.slot-weekend{color:var(--tx3)}
 .tl-scroll td.slot:hover{outline:2px solid var(--ac);outline-offset:-2px;z-index:4}
