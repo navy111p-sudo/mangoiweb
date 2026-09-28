@@ -369,9 +369,9 @@
   </div>
 
   <!-- 💡 왜 판단력 훈련을 하나요? -->
-  <div class="explain open" id="explain">
-    <button class="explain-head" id="explainHead"><span>💡</span><span id="expTitle"></span><span class="chev">▶</span></button>
-    <div class="explain-body">
+  <div class="explain" id="explain">
+    <button class="explain-head" id="explainHead" type="button" aria-expanded="false" aria-controls="explainBody"><span>💡</span><span id="expTitle"></span><span class="chev">▶</span></button>
+    <div class="explain-body" id="explainBody" aria-hidden="true">
       <p id="expDesc"></p>
       <div class="exp-chips" id="expChips"></div>
     </div>
@@ -640,8 +640,13 @@
     updateAgeBtn();
   }
 
+  function setExplainOpen(open){
+    document.getElementById('explain').classList.toggle('open', open);
+    document.getElementById('explainHead').setAttribute('aria-expanded', String(open));
+    document.getElementById('explainBody').setAttribute('aria-hidden', String(!open));
+  }
   document.getElementById('explainHead').addEventListener('click', function(){
-    document.getElementById('explain').classList.toggle('open');
+    setExplainOpen(!document.getElementById('explain').classList.contains('open'));
   });
 
   function streakText(){ return T('오늘 <b>'+solved+'</b>문제 풀었어요! 계속 도전해봐요 🔥','You solved <b>'+solved+'</b> today! Keep going 🔥','今天已经做了 <b>'+solved+'</b> 道题！继续挑战吧 🔥'); }
@@ -964,11 +969,8 @@
   function renderFirstRunSetup(){
     /* 배너를 «한 줄» 로 줄이려면 view 가 정해진 뒤 다시 그려야 한다 — 아래 view='setup' 뒤에 부른다 */
     view = 'setup';
-    // 📜 «왜 판단력 훈련을 하나요?» 설명 상자는 기본이 펼침(class="explain open")이라 폰에서 두 화면쯤 됩니다.
-    //    그 아래로 밀리면 정작 «정하라»고 띄운 카드가 스크롤 밖에 있어 첫 진입의 뜻이 사라집니다
-    //    (390px 실측 2026-08-26: 카드 top 966px — 화면 844px 밖).
-    //    ⛔ 상자를 없애지는 않습니다 — 제목 줄이 그대로 토글이라 한 번 누르면 다시 펼쳐집니다.
-    try{ document.getElementById('explain').classList.remove('open'); }catch(e){}
+    // 안내는 첫 진입과 설정 화면 모두 제목만 표시하고, 누르면 펼칩니다.
+    setExplainOpen(false);
     renderSampleBar();   // 🍯 view='setup' 이 정해진 뒤라야 «한 줄» 로 줄어든다
     // ⚡ 카드가 떠 있는 동안 첫 문제를 뒤에서 만들어 둡니다 — 이 카드의 진짜 이득이 이 한 줄입니다.
     //    (이미 만들고 있으면 prefetchNext 가 그냥 돌아가므로, 다시 그릴 때마다 불러도 안전합니다)

@@ -158,7 +158,10 @@ check('㉓ setInterval 로 이 카드를 돌리지 않는다',
 check('㉔ [Refresh] 를 누르면 다시 받는다', /c-today:loadTodayAll/.test(mgrCode));
 /* 이 화면의 설계는 «외부 요청 최소화» — 외부 리소스가 늘면 필리핀 회선에서 RTT 가 붙는다 */
 const ext = (MGR.match(/<(?:script|link)[^>]*(?:src|href)="/g) || []).length;
-check(`㉕ 외부 리소스가 1개 그대로다  [현재 ${ext}개]`, ext === 1);
+// Owner requested the daily manual on both dashboards. One shared, versioned script
+// is the only added resource; retain a strict count and 16 KB payload budget.
+const manualRef = (MGR.match(/<script src="\/js\/admin-daily-manual\.js\?v=\d+" defer><\/script>/g) || []).length;
+check(`㉕ 기존 리소스 1개 + 매일 매뉴얼 1개만 [현재 ${ext}개]`, ext === 2 && manualRef === 1);
 /* 카톡·문자앱 인앱 브라우저는 window.open 이 예외 없이 null 만 돌려준다 (CLAUDE.md 2장).
    🔴 (2026-09-02) 이 검사를 «식 모양» 으로 못 박아 두었더니, 보장은 그대로인데 검사만 깨졌다
       (`if (!w) location.href` → `if (w) {…} else location.href`). 뜻으로 묻는다 —

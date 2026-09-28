@@ -78,3 +78,14 @@
     }, { passive: true });
   } catch (e) {}
 })();
+
+/* 2026-09-27: Photographic clouds in both bright modes, without blur.
+ * User requested realistic clouds instead of the lite-mode vector drawing.
+ * One existing 32KB WebP is allowed in bright lite mode; all other lite protections remain. */
+(function () {
+  if (document.getElementById("mg-home-cloud-clarity")) return;
+  var style = document.createElement("style");
+  style.id = "mg-home-cloud-clarity";
+  style.textContent = "body.home-bright #view-home::before{filter:brightness(1) saturate(1.03);transform:none;}body.home-bright #view-home::after{background:radial-gradient(ellipse 48% 40% at 50% 44%,rgba(8,16,38,.28),rgba(8,16,38,.12) 45%,transparent 75%);}html.mg-lite body.home-bright #view-home::before{background-image:url('/img/home-bg-bright.webp?v=20260922') !important;}";
+  (document.body || document.documentElement).appendChild(style);
+})();

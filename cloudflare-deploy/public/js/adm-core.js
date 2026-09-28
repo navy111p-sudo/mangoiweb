@@ -11974,6 +11974,42 @@ let _smStudents = [];                                       // 원본 데이터 
    달랐으므로 실제 표에 있는 열(가입일 = created_at)로 명시한다. */
 let _smSort = [{ key: 'created_at', dir: 'desc' }];          // 정렬 배열 (우선순위 순)
 let _smSearch = '';                                         // 🔍 검색어 (학생명·아이디)
+// Display-only grouping of the server's billing-aligned roster track; never infer from AI usage.
+let _smLearningType = 'all';
+function smLearningType(s) {
+  if (s && s.track === 'live_ai') return 'live_ai';
+  if (s && s.track === 'ai_only') return 'ai_only';
+  if (s && (s.track === 'none' || s.track === 'idle')) return 'none';
+  return 'unknown';
+}
+function smLearningLabel(type, en) {
+  const labels = {all:['전체','All'], live_ai:['화상수업','Video classes'], ai_only:['AI 전용','AI only'], none:['미수강','Not enrolled'], unknown:['확인 필요','Needs checking']};
+  return (labels[type] || labels.unknown)[en ? 1 : 0];
+}
+function smLearningBadge(s, en) {
+  const type = smLearningType(s);
+  const note = type === 'live_ai' ? (en ? 'AI learning included free' : 'AI 학습 무료 포함')
+    : type === 'ai_only' ? (en ? 'AI-only enrollment' : 'AI 학습 단독 신청')
+    : type === 'none' ? (en ? 'No video class or AI enrollment found in roster records' : '명부 기준 화상수업·AI 단독 신청 기록 없음')
+    : (en ? 'Could not check learning type; try reloading' : '학습 유형을 확인하지 못했습니다. 다시 불러와 주세요');
+  return '<br><span class="sm-learning-badge sm-learning-' + type + '" tabindex="0" title="' + _esc(note) + '" aria-label="' + _esc(smLearningLabel(type, en) + ' · ' + note) + '">' + _esc(smLearningLabel(type, en)) + '</span>';
+}
+function smLearningRows() {
+  const q = String(_smSearch || '').trim().toLowerCase();
+  const ag = String(_smAgency || '').trim();
+  return _smStudents.filter(s => (!q || [s.username, s.user_id, s.shop_name, s.franchise].some(v => String(v || '').toLowerCase().includes(q)))
+    && (!ag || String(s.shop_name || '').trim() === ag));
+}
+function smPaintLearningFilters(rows) {
+  const el = document.getElementById('sm-learning-filters');
+  if (!el) return;
+  const en = adminLang === 'en';
+  const counts = {all:rows.length, live_ai:0, ai_only:0, none:0, unknown:0};
+  rows.forEach(s => counts[smLearningType(s)]++);
+  el.innerHTML = Object.keys(counts).filter(k => k !== 'unknown' || counts[k] || _smLearningType === k).map(k =>
+    '<a role="button" tabindex="0" data-learning-type="' + k + '" aria-pressed="' + (k === _smLearningType) + '">' + _esc(smLearningLabel(k, en)) + ' (' + counts[k] + ')</a>').join('')
+    + '<small>' + (en ? 'Loaded list · AI is free with video classes' : '불러온 목록 기준 · 화상수업은 AI 학습 무료 포함') + '</small>';
+}
 let _smAgency = '';                                         // 🏫 대리점·학원 필터 (빈값 = 전체)
 let _smCountBase = '';                                      // 전체 인원수 라벨 (검색 시 "N명 / 전체" 표시용)
 /* ⚡ (2026-08-05 사장님 지적: "버벅거리고 자꾸 왔다갔다 움직인다") 안정화용 상태 4개.
@@ -12137,7 +12173,8 @@ async function loadStudentList(q, opts) {
       const _scope = (typeof mangoiGetDataScope==='function') ? mangoiGetDataScope() : null;
       const _su = '/api/admin/students/unified' + (_scope ? ('?scope_field='+encodeURIComponent(_scope.field)+'&scope_value='+encodeURIComponent(_scope.value)+_qs) : (_qSrv ? ('?q='+encodeURIComponent(_qSrv)) : ''));
       /* 🙈 (2026-09-24) 「숨긴 학생 보기」 — 서버가 숨긴 학생«만» 돌려준다(api-admin.ts unified `?hidden=only`). */
-      const _suH = window._smShowHidden ? (_su + (_su.indexOf('?') >= 0 ? '&' : '?') + 'hidden=only') : _su;
+      let _suH = window._smShowHidden ? (_su + (_su.indexOf('?') >= 0 ? '&' : '?') + 'hidden=only') : _su;
+      _suH += (_suH.includes('?') ? '&' : '?') + 'track=1';
       const r = await fetch(_suH, { cache: 'no-store', credentials: 'include', signal: _ac ? _ac.signal : undefined });
       d = await r.json();
     }
@@ -12146,6 +12183,7 @@ async function loadStudentList(q, opts) {
     const rows = (d && d.ok && Array.isArray(d.students)) ? d.students : (Array.isArray(d && d.items) ? d.items : []);
     apiItems = rows.map(s => ({
       user_id: s.user_id,
+      track: s.track || 'unknown',
       username: s.name || s.username || s.user_id,
       role: '',
       payment_type: s.payment_type || '',
@@ -12395,20 +12433,20 @@ function renderStudentTable() {
   const _q = String(_smSearch || '').trim().toLowerCase();
   // 🏫 대리점·학원 필터 (2026-07-23) — 검색어와 함께 걸린다(AND)
   const _ag = String(_smAgency || '').trim();
-  let _filtered = _smStudents;
-  if (_q) _filtered = _filtered.filter(s => s._username_lc.indexOf(_q) >= 0 || String(s.user_id || '').toLowerCase().indexOf(_q) >= 0
-    || String(s.shop_name || '').toLowerCase().indexOf(_q) >= 0 || String(s.franchise || '').toLowerCase().indexOf(_q) >= 0);
-  if (_ag) _filtered = _filtered.filter(s => String(s.shop_name || '').trim() === _ag);
+  let _filtered = smLearningRows();
+  smPaintLearningFilters(_filtered);
+  if (_smLearningType !== 'all') _filtered = _filtered.filter(s => smLearningType(s) === _smLearningType);
 
   // 인원수 라벨 — 검색·필터 중이면 "N명 / 전체" 로 표시
   const _cntEl = document.getElementById('sm-students-count');
   if (_cntEl && _smCountBase) {
-    _cntEl.textContent = (_q || _ag)
+    _cntEl.textContent = (_q || _ag || _smLearningType !== 'all')
       ? (_L ? ('🔍 ' + _filtered.length + ' found / ' + _smCountBase) : ('🔍 ' + _filtered.length + '명 / 전체 ' + _smCountBase))
       : _smCountBase;
   }
 
   if (!_filtered.length) {
+    _smRows = []; _smShown = 0;
     const _why = _ag && !_q ? (_L ? 'No students in “' + _esc(_ag) + '”' : '“' + _esc(_ag) + '” 소속 학생이 없습니다')
                             : (_L ? 'No matching students' : '검색 결과가 없습니다 — “' + _esc(_q) + '”');
     tb.innerHTML = '<tr><td colspan="20" class="empty">' + _why + '</td></tr>';
@@ -12510,7 +12548,7 @@ function renderStudentTable() {
     const safeName = _esc(s.username || uid);
     return `<tr>
       <td title="${safeUid}"><code>${safeUid}</code></td>
-      <td title="${safeName}"><b>${safeName}</b></td>
+      <td title="${safeName}"><b>${safeName}</b>${smLearningBadge(s, _L)}</td>
       <td style="text-align:center;line-height:1.7"><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세'}</a><br><a href="${smContactUrl(uid)}" target="_blank" style="color:#0369a1" title="${_L?'Edit contact & info':'연락처·정보 수정'}">✏️ ${_L?'Edit':'수정'}</a></td>
       <td>${_c(s.payment_type)}</td>
       <td>${_d(s.signup_date)}</td>
@@ -12616,11 +12654,8 @@ window.smAppendRows = smAppendRows;
 function smExportStudentsCsv() {
   const _L = adminLang === 'en';
   if (!_smStudents || !_smStudents.length) { alert(_L ? 'Load the student list first.' : '먼저 “불러오기”로 학생 목록을 불러오세요.'); return; }
-  const _q = String(_smSearch || '').trim().toLowerCase();
-  const _ag = String(_smAgency || '').trim();   // 🏫 화면과 같은 대리점 필터 적용 (2026-07-23)
-  let _pre = _smStudents;
-  if (_q) _pre = _pre.filter(s => s._username_lc.indexOf(_q) >= 0 || String(s.user_id || '').toLowerCase().indexOf(_q) >= 0);
-  if (_ag) _pre = _pre.filter(s => String(s.shop_name || '').trim() === _ag);
+  let _pre = smLearningRows();
+  if (_smLearningType !== 'all') _pre = _pre.filter(s => smLearningType(s) === _smLearningType);
   const rows = _pre.slice().sort((a, b) => {
       for (const so of _smSort) {
         const k = so.key === 'username' ? '_username_lc' : so.key;
@@ -12635,6 +12670,8 @@ function smExportStudentsCsv() {
   const cols = [
     ['아이디',        s => s.user_id],
     ['학생명',        s => s.username || s.user_id],
+    ['학습 유형',     s => smLearningLabel(smLearningType(s), false)],
+    ['AI 무료 포함',  s => smLearningType(s) === 'live_ai' ? '포함' : ''],
     ['결제타입',      s => s.payment_type],
     ['수강시작일',    s => _date(s.signup_date)],
     ['수강종료일',    s => _date(s.end_date)],
@@ -12711,6 +12748,21 @@ document.addEventListener('click', (ev) => {
 // 학생 목록 로드 버튼 + 첫 펼침 시 자동 로드
 (function bindStudentList(){
   const btn = document.getElementById('sm-load-students');
+  const lf = document.getElementById('sm-learning-filters');
+  function selectLearningType(ev) {
+    const target = ev.target.closest('[data-learning-type]');
+    if (!target || !lf.contains(target)) return;
+    if (ev.type === 'keydown' && ev.key !== 'Enter' && ev.key !== ' ') return;
+    ev.preventDefault();
+    _smLearningType = target.dataset.learningType;
+    renderStudentTable();
+    const active = lf.querySelector('[aria-pressed="true"]');
+    if (active) active.focus();
+  }
+  if (lf) { lf.addEventListener('click', selectLearningType); lf.addEventListener('keydown', selectLearningType); }
+  document.addEventListener('mangoi:lang-changed', () => renderStudentTable());
+
+
   // 🔴 (2026-08-05) 예전엔 loadStudentList 를 그대로 넘겨 **클릭 이벤트가 검색어로 들어갔다**
   //   → q="[object PointerEvent]" 로 서버 조회 → 0건 → 버튼을 누르면 목록이 사라지던 버그.
   if (btn) btn.addEventListener('click', () => loadStudentList(String(
