@@ -1,0 +1,56 @@
+<title>New SIU 001 Sample</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&family=Noto+Sans+KR:wght@400;700&display=swap">
+<style>
+:root{--bg:#EEF2F3;--ink:#13303A;--sub:#51666E;--card:#fff;--line:#D4DEE1;--mango:#EF9A12;--mangoD:#A86200}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0F1D22;--ink:#E7EFF1;--sub:#9DB0B6;--card:#17292F;--line:#2A4148;--mangoD:#F4B24A;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0F1D22;--ink:#E7EFF1;--sub:#9DB0B6;--card:#17292F;--line:#2A4148;--mangoD:#F4B24A;color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:Lexend,'Noto Sans KR',system-ui,sans-serif;padding-inline:16px;padding-block:20px 40px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{font-size:clamp(22px,4vw,32px);margin:0;text-wrap:balance}
+.meta{color:var(--sub);font-size:14px;line-height:1.6;margin:0}
+.stage{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:16/9;max-width:100%}
+.stage img{width:100%;height:100%;object-fit:contain;display:block}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 14px;cursor:pointer}
+button:focus-visible{outline:3px solid var(--mango);outline-offset:2px}
+button.say{background:var(--mango);border-color:var(--mango);color:#1b1100;font-weight:600}
+.pg{font-variant-numeric:tabular-nums;color:var(--sub);margin-left:auto}
+.lines{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.lines li{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:15px}
+.lines li span{flex:1}.lines li button{padding:4px 10px;font-size:13px}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.thumbs button{padding:0;border-radius:8px;overflow:hidden;border:2px solid transparent;background:none}
+.thumbs button[aria-current="true"]{border-color:var(--mango)}
+.thumbs img{display:block;width:100%}
+h2{font-size:16px;margin:8px 0 0}
+</style>
+<div class="wrap">
+  <h1>New SIU 샘플 — SIU BASIC 001 · A Talk with You</h1>
+  <p class="meta">16쪽 · 사진은 전부 저장소에 이미 있는 힉스필드 실사 사진(새로 산 크레딧 0) · 🔊 는 이 미리보기에서는 브라우저 목소리로 읽습니다(실제 수업 화면은 사이트 영어 목소리).</p>
+  <div class="stage"><img id="big" alt="교재 쪽"></div>
+  <div class="bar">
+    <button id="prev" type="button">← 이전</button>
+    <button id="next" type="button">다음 →</button>
+    <button id="all" class="say" type="button">🔊 이 쪽 전체 듣기</button>
+    <span class="pg" id="pg"></span>
+  </div>
+  <ul class="lines" id="lines"></ul>
+  <h2>전체 쪽</h2>
+  <div class="thumbs" id="thumbs"></div>
+</div>
+<script>
+var D=[{"img":"jpg/Slide1.JPG","lines":["A Talk with You"]},{"img":"jpg/Slide2.JPG","lines":["Hi! I'm Jisu. Nice to meet you.","Nice to meet you, too. I'm Ben.","Where are you from, Ben?","I'm from Canada. How about you?"]},{"img":"jpg/Slide3.JPG","lines":["Do you like meeting new people? Why or why not?","What do you usually talk about with someone new?","Is it easy for you to start a conversation?"]},{"img":"jpg/Slide4.JPG","lines":["introduce","outgoing","hobby","hometown"]},{"img":"jpg/Slide5.JPG","lines":["chat","personality","interest","weekend"]},{"img":"jpg/Slide6.JPG","lines":["introduce. To tell someone another person's name when they meet for the first time.","Let me introduce my friend, Mina.","outgoing. Friendly and happy to talk to new people.","My sister is very outgoing.","hobby. Something you enjoy doing in your free time.","My hobby is playing the guitar.","hometown. The town or city where you grew up.","My hometown is a small village."]},{"img":"jpg/Slide7.JPG","lines":["Tell me about yourself.","I'm a student. I love music.","Where are you from?","I'm from Busan.","What do you do for fun?","I usually play soccer.","What are you interested in?","I'm interested in cooking."]},{"img":"jpg/Slide8.JPG","lines":["Is this seat taken?","No, go ahead. Are you new here?","Yes, I just moved from Sydney.","Welcome! What do you do for fun?","I like surfing. How about you?","I play the guitar. I'm in a band.","Cool! Maybe I can see you play.","Sure. We play every Friday."]},{"img":"jpg/Slide9.JPG","lines":["Small talk is a short, easy conversation about simple topics. People make small talk with neighbors, classmates, and even strangers at a bus stop.","Good topics are the weather, the weekend, food, and hobbies. It is better not to ask about money or age at first."]},{"img":"jpg/Slide10.JPG","lines":["A good conversation is like a game of catch. You throw a question, and the other person throws one back.","Listen carefully, nod, and ask a follow-up question. For example, if someone says, \"I like hiking,\" you can ask, \"Where do you usually go?\""]},{"img":"jpg/Slide11.JPG","lines":["Small talk is about simple topics.","Asking about money is a good first question.","A good conversation is like a game of catch.","Good listeners never ask questions."]},{"img":"jpg/Slide12.JPG","lines":["Are you outgoing or quiet? Give an example.","What is the best way to make a new friend?","Tell your partner about your hometown."]},{"img":"jpg/Slide13.JPG","lines":["It's your first day in a new class. Introduce yourself and ask one question to the person next to you.","You meet someone at a friend's party. Start a conversation and find one thing you both like."]},{"img":"jpg/Slide14.JPG","lines":["Would you rather talk to a famous person or a person from the future?","Would you rather have many friends or one best friend?","Would you rather chat on the phone or meet in person?"]},{"img":"jpg/Slide15.JPG","lines":["Nice to meet you.","Where are you from?","What do you do for fun?","What are you interested in?","Tell me about yourself."]},{"img":"jpg/Slide16.JPG","lines":["Great talking with you!","See you next time!"]}], cur=0;
+function speak(list){try{speechSynthesis.cancel();list.forEach(function(t){var u=new SpeechSynthesisUtterance(t);u.lang='en-US';u.rate=.9;speechSynthesis.speak(u);});}catch(e){}}
+function show(i){cur=(i+D.length)%D.length;var d=D[cur];
+ document.getElementById('big').src=d.img;document.getElementById('pg').textContent=(cur+1)+' / '+D.length;
+ var ul=document.getElementById('lines');ul.innerHTML='';
+ d.lines.forEach(function(t){var li=document.createElement('li');var s=document.createElement('span');s.textContent=t;var b=document.createElement('button');b.type='button';b.textContent='🔊 듣기';b.onclick=function(){speak([t]);};li.append(s,b);ul.append(li);});
+ [].forEach.call(document.querySelectorAll('.thumbs button'),function(b,k){b.setAttribute('aria-current',k===cur?'true':'false');});}
+var th=document.getElementById('thumbs');
+D.forEach(function(d,k){var b=document.createElement('button');b.type='button';b.setAttribute('aria-label',(k+1)+'쪽');var im=document.createElement('img');im.src=d.img;im.alt='';im.loading='lazy';b.append(im);b.onclick=function(){show(k);scrollTo({top:0,behavior:'smooth'});};th.append(b);});
+document.getElementById('prev').onclick=function(){show(cur-1);};
+document.getElementById('next').onclick=function(){show(cur+1);};
+document.getElementById('all').onclick=function(){speak(D[cur].lines);};
+addEventListener('keydown',function(e){if(e.key==='ArrowRight')show(cur+1);if(e.key==='ArrowLeft')show(cur-1);});
+show(0);
+</script>
