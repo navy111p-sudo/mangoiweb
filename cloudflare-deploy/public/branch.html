@@ -827,7 +827,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="sgrp-h" data-en="Classes" data-ko="수업 관리">Classes</div>
   <div class="sgrp">
     <button type="button" onclick="sideGo('c-today')"><span class="ic">🏫</span><span data-en="All classes today" data-ko="오늘 전체 수업">All classes today</span></button>
-    <button type="button" onclick="sideGo('c-util')"><span class="ic">📈</span><span data-en="Teacher utilisation" data-ko="강사 가동률">Teacher utilisation</span></button>
+    <button type="button" id="sideUtil" onclick="sideGo('c-util')"><span class="ic">📈</span><span data-en="Teacher utilisation" data-ko="강사 가동률">Teacher utilisation</span></button>
   </div>
   <div class="sgrp-h" data-en="Settlement &amp; stats" data-ko="정산통계관리">Settlement &amp; stats</div>
   <div class="sgrp">
@@ -855,7 +855,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <button type="button" class="side-m" onclick="closeSide();reloadAll()"><span class="ic">🔄</span><span data-en="Refresh" data-ko="새로고침">Refresh</span></button>
     <button type="button" class="side-m" onclick="toggleMode()"><span class="ic">🌗</span><span data-en="Dark / light" data-ko="어둡게 · 밝게">Dark / light</span></button>
     <a class="side-m" href="/"><span class="ic">🌐</span><span data-en="Mangoi home" data-ko="사이트 홈">Mangoi home</span></a>
-    <a href="/admin.html?full=1"><span class="ic">🖥</span><span data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</span></a>
+    <a id="sideFull" href="/admin.html?full=1"><span class="ic">🖥</span><span data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</span></a>
   </div>
 </nav>
 
@@ -933,7 +933,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="qbar">
     <button type="button" onclick="openCard('c-search')"><span data-en="Search" data-ko="통합 검색">Search</span></button>
     <button type="button" onclick="openCard('c-students')"><span data-en="My students" data-ko="학생 명부">My students</span></button>
-    <button type="button" onclick="openCard('c-util')"><span data-en="Teacher use" data-ko="강사 가동률">Teacher use</span></button>
+    <button type="button" id="qUtil" onclick="openCard('c-util')"><span data-en="Teacher use" data-ko="강사 가동률">Teacher use</span></button>
     <!-- 👩‍🏫 (2026-08-19 Melca 8/19 제보 ④) 강사 명부·검색·재직/퇴사 필터는 관리자 화면에
          **이미 있다**(#card-teacher-mgmt). 이 화면에 옮겨오지 않는다 — 설계 계약 1·4번을 깬다.
          한 번 눌러 그 카드로 바로 가는 링크만 둔다. 본사(hq)일 때만 보인다(#toTeacher 와 같은 판정). -->
@@ -1210,7 +1210,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   </div>
 
   <div class="muted" style="text-align:center;padding:6px 0 0">
-    <a href="/admin.html?full=1" class="footlink" data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</a>
+    <a id="footFull" href="/admin.html?full=1" class="footlink" data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</a>
   </div>
 
 </div>
@@ -1525,6 +1525,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        범위를 모를 때(sc.type 없음)는 감추지 않는다 — 눌러도 결재 화면이 «본사 전용» 이라고 말한다. */
     var _orgAcct = (sc.type === 'branch' || sc.type === 'agency' || sc.type === 'franchise');
     ['toWork', 'tbWork'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = _orgAcct; });
+    /* 🧹 (2026-09-28 사장님 「지사 페이지에서 전체 경영 대시보드·강사 가동률은 불필요」) 지사·대리점에게만 감춘다.
+       본사 매니저는 그대로 쓴다. 범위를 모르면 감추지 않는다(위 결재함과 같은 판정). */
+    ['sideUtil', 'qUtil', 'c-util', 'sideFull', 'footFull'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = _orgAcct; });
     var _sHq = document.getElementById('sideHq');
     if (_sHq) _sHq.hidden = !IS_HQ;
     if (sc.type === 'hq') {
