@@ -160,6 +160,25 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
 .empty h2{font-size:18px;color:#fff;margin-bottom:8px;font-weight:800}
 .empty p{font-size:13px;line-height:1.7}
 .empty a{color:var(--accent-2);text-decoration:none;font-weight:700}
+/* 공용 자료실 목록 (교재를 못 찾았을 때) — 스타일은 여기 한 곳. PC 에서는 크게·여러 칸으로(2026-09-28 사장님 «PC 화면에서 아주 잘 보이게 크게»). */
+.tv-srv-head{font-size:12px;color:#94A3B8;margin:14px 0 8px}
+#tv-srv-q{width:100%;box-sizing:border-box;padding:8px 11px;margin-bottom:8px;border-radius:8px;border:1px solid rgba(96,165,250,0.35);background:#0B1224;color:#E2E8F0;font-size:13px;font-family:inherit}
+#tv-srv-list .tv-srv-row{display:block;background:#131C36;border:1px solid rgba(96,165,250,0.18);border-radius:8px;padding:8px 11px;margin-bottom:5px;font-size:12.5px;text-align:left}
+#tv-srv-list .tv-srv-row:hover{border-color:var(--accent-2);background:#1A2548}
+.tv-srv-n{color:#94A3B8;font-weight:600}
+@media (min-width:1025px){
+  .empty{width:min(1180px,92vw);padding:28px 32px}
+  .empty .ico{font-size:72px}
+  .empty h2{font-size:28px;margin-bottom:10px}
+  .empty p{font-size:17px}
+  #other-books > div:not(.tv-srv-head):not(#tv-srv-list){font-size:15px !important}
+  #other-books > a{font-size:16px !important;padding:12px 15px !important}
+  .tv-srv-head{font-size:18px;margin:22px 0 12px}
+  #tv-srv-q{font-size:18px;padding:13px 16px;border-radius:12px;margin-bottom:14px}
+  #tv-srv-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
+  #tv-srv-list .tv-srv-row{font-size:17px;padding:14px 16px;margin-bottom:0;border-radius:12px;line-height:1.35}
+  .tv-srv-n{font-size:14px}
+}
 
 /* 모바일 */
 @media (max-width:700px){
@@ -734,13 +753,13 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
       gs.sort(function(a, b){ return String(a.book).localeCompare(String(b.book), 'en', { numeric:true, sensitivity:'base' }); });
       if (gs.length) {
         var rowHtml = function(g){
-          return '<a class="tv-srv-row" data-q="' + esc(String(g.book).toLowerCase()) + '" href="?book=' + encodeURIComponent(g.book) + '" style="display:block;background:#131C36;border:1px solid rgba(96,165,250,0.18);border-radius:8px;padding:8px 11px;margin-bottom:5px;font-size:12.5px;text-align:left">' +
-                 '📚 ' + esc(g.book) + '<span style="color:#94A3B8;font-weight:600"> · ' + (g.files || 0) + (tvEn() ? ' files' : '개 파일') + '</span></a>';
+          return '<a class="tv-srv-row" data-q="' + esc(String(g.book).toLowerCase()) + '" href="?book=' + encodeURIComponent(g.book) + '">' +
+                 '📚 ' + esc(g.book) + '<span class="tv-srv-n"> · ' + (g.files || 0) + (tvEn() ? ' files' : '개 파일') + '</span></a>';
         };
         host.insertAdjacentHTML('beforeend',
-          '<div style="font-size:12px;color:#94A3B8;margin:14px 0 8px">' + (tvEn() ? '📚 Shared library (visible on every device)' : '📚 공용 자료실 (모든 기기에서 보임)') +
+          '<div class="tv-srv-head">' + (tvEn() ? '📚 Shared library (visible on every device)' : '📚 공용 자료실 (모든 기기에서 보임)') +
             ' · <b id="tv-srv-count" style="color:#E2E8F0">' + gs.length + '</b>' + (tvEn() ? ' books' : '개') + '</div>' +
-          '<input id="tv-srv-q" type="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + (tvEn() ? 'Search (e.g. BTS 15, SIU BASIC)' : '교재 검색 (예: BTS 15, SIU BASIC)') + '" style="width:100%;box-sizing:border-box;padding:8px 11px;margin-bottom:8px;border-radius:8px;border:1px solid rgba(96,165,250,0.35);background:#0B1224;color:#E2E8F0;font-size:13px;font-family:inherit">' +
+          '<input id="tv-srv-q" type="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + (tvEn() ? 'Search (e.g. BTS 15, SIU BASIC)' : '교재 검색 (예: BTS 15, SIU BASIC)') + '">' +
           '<div id="tv-srv-list">' + gs.map(rowHtml).join('') + '</div>' +
           '<p style="margin:8px 0 0;font-size:12px"><a href="/textbook-index.html" style="color:#60A5FA;font-weight:700;text-decoration:none">' + (tvEn() ? '📚 Open the textbook index (grouped by volume) →' : '📚 권별로 묶인 교재 목차 보기 →') + '</a></p>');
         var qEl = $('tv-srv-q');
@@ -748,7 +767,7 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
           var q = (qEl.value || '').trim().toLowerCase(), n = 0;
           Array.prototype.forEach.call(document.querySelectorAll('#tv-srv-list .tv-srv-row'), function(el){
             var hit = !q || el.getAttribute('data-q').indexOf(q) >= 0;
-            el.style.display = hit ? 'block' : 'none';
+            el.style.display = hit ? '' : 'none';
             if (hit) n++;
           });
           $('tv-srv-count').textContent = n;
