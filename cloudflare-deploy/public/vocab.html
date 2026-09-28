@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <title>나의 단어장 — 망고아이</title>
 <link rel="icon" type="image/png" href="/img/icon-192.png">
-<script src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 녹음+Whisper 전사(말 끝날 때까지 듣기) -->
+<script src="/js/mangoi-voice-input.js?v=5"></script><!-- 🎤 녹음+Whisper 전사(말 끝날 때까지 듣기) -->
 <script src="/js/mango-i18n.js" defer></script>
 <script src="/js/session-guard.js" defer></script>
 <script src="/js/game-vocab.js" defer></script><!-- 🔮 예습: 교재/레벨 맞춤 문장(학생게임과 공용 로더) -->
@@ -182,7 +182,8 @@
   .tool-row{display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap}
   .tool-btn{padding:12px 22px;border-radius:99px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#e6ecff;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit}
   .tool-btn:disabled{opacity:0.45;cursor:default}
-  .speak-fb{text-align:center;margin-top:10px;font-size:15px;color:#a3b3d1;min-height:22px}
+  .speak-fb{text-align:center;margin-top:14px;padding:16px;font-size:clamp(18px,2.5vw,22px);line-height:1.6;color:#f1f5ff;min-height:60px;overflow-wrap:anywhere;background:#132549;border-radius:14px}
+  .speak-fb:empty{display:none}.speak-fb mark{background:#ffe6a3;color:#382600;border-radius:4px;padding:0 3px}.speak-fb b{color:#6ee7b7}.speak-help{font-size:16px;line-height:1.6;text-align:center;color:#d8e4ff;margin:12px 0}.speak-replay{display:block;margin:12px auto;max-width:100%;width:320px}
 
   /* 정답/오답 플로팅 포인트 */
   .float-pt{position:fixed;font-size:30px;font-weight:900;color:#fbbf24;pointer-events:none;z-index:9999;animation:floatUp 1.1s forwards;text-shadow:0 2px 8px rgba(0,0,0,0.5)}
@@ -772,6 +773,7 @@ async function addPreviewWord(btn){
 
 /* ═══════════ 탭 ═══════════ */
 function switchTab(t){
+  cancelVocabSpeak();
   document.querySelectorAll('.tab button').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+t).classList.add('active');
   ['preview','add','flash','quiz','rank','list'].forEach(p => {
@@ -1000,6 +1002,7 @@ let S = null;             // 현재 세션
 let _timerRaf = null, _timerDeadline = 0, _answered = false;
 
 function renderPlayHome(){
+  cancelVocabSpeak();
   const el = document.getElementById('flash-content');
   el.innerHTML = '<div class="empty">불러오는 중…</div>';
   Promise.all([
@@ -1148,6 +1151,7 @@ function hudHtml(){
 }
 
 function nextQuestion(){
+  cancelVocabSpeak();
   stopTimer();
   if (!S || S.idx >= S.list.length) return endSession();
   _answered = false;
@@ -1172,7 +1176,9 @@ function renderFlashQ(w){
       <button class="tool-btn" data-word="${esc(w.word)}" onclick="event.stopPropagation();speakWord(this.dataset.word)">🔊 발음 듣기</button>
       <button class="tool-btn" id="mic-btn">🎤 따라 말하기 (+20P)</button>
     </div>
-    <div class="speak-fb" id="speak-fb"></div>
+    <div class="speak-fb" id="speak-fb" role="status" aria-live="polite"></div>
+    <audio id="speak-replay" class="speak-replay" controls hidden aria-label="내 목소리 듣기"></audio>
+    <p class="speak-help">말하기는 선택 연습이에요. 아래 버튼으로 언제든 다음 카드로 갈 수 있어요.<br>발음 코칭은 <a href="/speech-coach.html" style="color:#ffe08a;text-decoration:underline">A.i 말하기</a>에서 연습해 보세요.</p>
     <div style="text-align:center;font-size:14px;color:#8b9bbd;margin-top:8px">카드를 클릭하면 뜻이 보여요</div>
     <div class="flash-actions">
       <button class="flash-wrong" onclick="answerFlash(${w.id}, false)">❌ 몰랐어요</button>
@@ -1182,6 +1188,7 @@ function renderFlashQ(w){
   document.getElementById('mic-btn').onclick = (e) => { e.stopPropagation(); trySpeak(w); };
 }
 function answerFlash(id, correct){
+  cancelVocabSpeak();
   if (_answered) return; _answered = true;
   applyAnswer(id, correct);
   setTimeout(nextQuestion, correct ? 650 : 900);
@@ -1318,48 +1325,94 @@ function applyAnswer(id, correct){
   S.idx++;
 }
 
-/* 🎤 따라 말하기 (Whisper) — 성공 시 +20P 보너스 */
+/* Follow-along checks words, not a pronunciation score. */
+let _speakAttempt = 0, _speakActive = false, _speakAudioUrl = null;
+function cancelVocabSpeak(){
+  _speakAttempt++;
+  if (_speakActive && window.MangoiVoice) MangoiVoice.cancel();
+  _speakActive = false;
+  const audio = document.getElementById('speak-replay');
+  if (audio) { audio.pause(); audio.removeAttribute('src'); audio.hidden = true; }
+  if (_speakAudioUrl) URL.revokeObjectURL(_speakAudioUrl);
+  _speakAudioUrl = null;
+  const btn = document.getElementById('mic-btn');
+  if (btn) btn.disabled = false;
+}
+window.addEventListener('pagehide', cancelVocabSpeak);
+function normalizeVocabSpeech(text){
+  return String(text || '').normalize('NFKC').toLowerCase()
+    .replace(/[’‘]/g, "'").replace(/[^a-z0-9'\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function vocabSpeechMatches(target, heard){
+  const expected = normalizeVocabSpeech(target);
+  return !!expected && expected === normalizeVocabSpeech(heard);
+}
+function vocabSpeechDifference(target, heard){
+  const expected = normalizeVocabSpeech(target).split(' ');
+  return normalizeVocabSpeech(heard).split(' ').map((word, i) =>
+    word === expected[i] ? esc(word) : '<mark>' + esc(word) + '</mark>').join(' ');
+}
 async function trySpeak(w){
   const btn = document.getElementById('mic-btn');
   const fb = document.getElementById('speak-fb');
-  if (!btn || btn.disabled) return;
-  if (S.spoke.has(w.id)) { fb.textContent = '이 단어는 이미 도전했어요!'; return; }
-  if (!window.MangoiVoice || !MangoiVoice.supported()) { fb.textContent = '이 기기에서는 마이크를 쓸 수 없어요 😢'; return; }
+  if (!btn || btn.disabled || !S || _answered) return;
+  if (!window.MangoiVoice || !MangoiVoice.supported()) {
+    fb.textContent = '이 기기에서는 마이크를 쓸 수 없어요. 발음을 듣고 다음 카드로 넘어가도 괜찮아요.'; return;
+  }
+  cancelVocabSpeak();
+  const attempt = _speakAttempt, session = S, index = S.idx;
+  const current = () => attempt === _speakAttempt && S === session && S.idx === index &&
+    !_answered && document.getElementById('mic-btn') === btn;
+  _speakActive = true;
+  let errorReason = '';
   try {
     btn.disabled = true;
-    fb.textContent = '🔴 지금 말해요: "' + w.word + '"';
-    /* (2026-07-23) 예전에는 **3초 고정 녹음**이라 아이가 조금만 뜸들이면 말이 통째로 잘렸다.
-       → 말을 시작할 때까지 기다렸다가, 말이 끝나고 조용해지면 멈춘다. */
+    fb.textContent = '🎤 마이크를 준비하고 있어요…';
     const said = await MangoiVoice.record({
-      firstMs: 8000, silenceMs: 1500, maxMs: 12000,
-      onState: (s) => {
-        if (s === 'speaking') fb.textContent = '🎤 듣고 있어요…';
-        else if (s === 'thinking') fb.textContent = '🤖 AI 가 듣는 중…';
+      lang: 'en', firstMs: 10000, silenceMs: 2200, maxMs: 20000,
+      onAudio: blob => {
+        if (!current()) return;
+        const audio = document.getElementById('speak-replay');
+        if (audio) { _speakAudioUrl = URL.createObjectURL(blob); audio.src = _speakAudioUrl; audio.hidden = false; }
+      },
+      onState: (state, info) => {
+        if (!current()) return;
+        if (state === 'waiting') fb.textContent = '🔴 지금 말해 주세요: ' + w.word;
+        else if (state === 'speaking') fb.textContent = '🎤 듣고 있어요. 편하게 끝까지 말해 주세요.';
+        else if (state === 'thinking') fb.textContent = '말씀하신 내용을 확인하고 있어요…';
+        else if (state === 'error') errorReason = info && info.reason || 'server';
       }
     });
-    const heard = String(said||'').toLowerCase().replace(/[^a-z\s]/g,' ');
-    const target = String(w.word).toLowerCase().trim();
-    if (said && heard.split(/\s+/).some(t => t === target || (target.length>3 && t.includes(target)))) {
-      S.spoke.add(w.id);
-      fb.innerHTML = '🌟 <b style="color:#34d399">발음 성공! +20P</b>';
-      floatPt('+20P'); sndFanfare(); confetti();
-      fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: UID, token: __mgTok(), student_name: getName(), kind: 'speak', session_id: S.id + ':' + w.id }) })
-        .then(()=>loadStats()).catch(()=>{});
+    if (!current()) return;
+    if (vocabSpeechMatches(w.word, said)) {
+      const rewarded = session.spoke.has(w.id);
+      session.spoke.add(w.id);
+      fb.innerHTML = '<b>🌟 잘했어요! 문장을 잘 따라 말했어요.</b><br>들은 말: ' + esc(said) +
+        (rewarded ? '<br>다시 연습해도 좋아요. 보너스는 카드당 한 번 지급돼요.' : '<br>말하기 성공! +20P');
+      if (!rewarded) {
+        floatPt('+20P'); sndFanfare(); confetti();
+        fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ user_id: UID, token: __mgTok(), student_name: getName(), kind: 'speak', session_id: session.id + ':' + w.id }) })
+          .then(()=>loadStats()).catch(()=>{});
+      }
+    } else if (said) {
+      fb.innerHTML = '조금만 다듬어 볼까요? AI가 다르게 들었을 수도 있어요.<br>들은 말: ' +
+        vocabSpeechDifference(w.word, said) + '<br>발음과 내 목소리를 들어 보고 다시 말해 주세요.';
     } else {
-      fb.textContent = said ? ('아깝다! AI 가 들은 말: "' + said + '" — 다시 눌러 도전!') : '잘 안 들렸어요. 다시 도전!';
-      sndWrong();
+      fb.textContent = errorReason === 'denied' ? '마이크 권한을 허용한 뒤 다시 눌러 주세요.' :
+        errorReason === 'server' ? '음성 확인 연결이 원활하지 않아요. 잠시 후 다시 해 주세요.' :
+        '잘 못 들었어요. 다시 말해 주세요. 다음 카드로 넘어가도 괜찮아요.';
     }
   } catch(e) {
-    fb.textContent = '마이크를 열 수 없어요 (권한 확인)';
+    if (current()) fb.textContent = '음성을 확인하지 못했어요. 마이크와 연결 상태를 확인하고 다시 해 주세요.';
   } finally {
-    const b2 = document.getElementById('mic-btn');
-    if (b2 && !S.spoke.has(w.id)) b2.disabled = false;
+    if (current()) { _speakActive = false; btn.disabled = false; }
   }
 }
 
 /* ── 세션 종료: 축하 + 보상 지급 + 미션 + 배지 ── */
 async function endSession(){
+  cancelVocabSpeak();
   stopTimer();
   const el = document.getElementById('flash-content');
   const total = S.list.length;
@@ -1498,3 +1551,4 @@ async function delWord(id){
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 </body>
 </html>
+
