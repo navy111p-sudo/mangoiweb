@@ -20,12 +20,37 @@
 #mangoi-handover .preview{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}#mangoi-handover .preview .item{margin:0 0 15px}#mangoi-handover .preview b{display:block;font-size:12px;color:var(--mh-sub);margin-bottom:3px}#mangoi-handover .status{font-size:14px;margin-top:14px;color:var(--mh-good)}#mangoi-handover .error{color:var(--mh-warn);background:var(--mh-warnbg);padding:12px;border-radius:8px;margin-top:12px;font-size:14px}#mangoi-handover .small{font-size:12px;color:var(--mh-sub)}#mangoi-handover .side-note{margin-top:18px;font-size:13px;color:var(--mh-sub)}#mangoi-handover .success{border:1px solid var(--mh-line);padding:16px;border-radius:9px;margin-top:16px;color:var(--mh-good);background:var(--mh-panel)}
 @media(max-width:720px){#mangoi-handover main{padding:15px}#mangoi-handover .layout{grid-template-columns:1fr}#mangoi-handover .panel{padding:16px}#mangoi-handover header{padding:14px 16px}#mangoi-handover h2{font-size:23px}}
 @media(max-width:390px){#mangoi-handover .meta{grid-template-columns:1fr}#mangoi-handover .buttons button{flex-basis:100%}}
+/* Reading comes first; avoid the previous 12–14px report text. */
+#mangoi-handover{font-size:18px;border-radius:0;min-height:100vh;overflow:visible}
+#mangoi-handover main{max-width:1560px;margin:auto}
+#mangoi-handover button,#mangoi-handover summary,#mangoi-handover .check{font-size:17px}
+#mangoi-handover .small,#mangoi-handover label small,#mangoi-handover .crumb,#mangoi-handover .badge{font-size:15px}
+#mangoi-handover .preview{font-size:20px;line-height:1.8}
+#mangoi-handover .preview b{font-size:17px;margin-bottom:6px}
+#mangoi-handover .preview .item{margin-bottom:22px}
+#mangoi-handover .mh-reader-grid{display:grid;grid-template-columns:minmax(250px,30%) minmax(0,1fr);gap:26px;margin-top:20px}
+#mangoi-handover #mh-reports{min-width:0}
+#mangoi-handover .mh-report-button{display:block;text-align:left;width:100%;margin-bottom:12px;padding:18px;overflow-wrap:anywhere}
+#mangoi-handover .mh-report-button[aria-pressed=true]{border:2px solid var(--mh-brand);background:var(--mh-soft)}
+#mangoi-handover .mh-report-button span{display:block;font-size:16px;margin-top:6px;font-weight:400}
+#mangoi-handover #mh-report-detail{min-width:0;overflow-wrap:anywhere}
+#mangoi-handover #mh-report-detail h3{font-size:26px;line-height:1.5}
+#mangoi-handover #mh-report-detail .preview{font-size:22px}
+#mangoi-handover .mh-attachment{padding:14px;margin:12px 0;background:var(--mh-soft);border-radius:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;overflow-wrap:anywhere}
+#mangoi-handover a{color:var(--mh-brand)}
+#mangoi-handover .mh-upload{padding:16px;background:var(--mh-bg);border:1px dashed var(--mh-line);border-radius:10px;margin-top:20px}
+#mangoi-handover #mh-editor>.notice{grid-column:1/-1}
+#mangoi-handover #mh-inbox-message{padding:12px 0;font-weight:600}
+#mangoi-handover .mh-mobile-nav,#mangoi-handover .mh-narrow{display:none}
+#mangoi-handover .mh-pdf{width:100%;height:600px;border:1px solid var(--mh-line);border-radius:8px}
+@media(max-width:720px){#mangoi-handover .mh-wide{display:none}#mangoi-handover .mh-narrow{display:inline}#mangoi-handover #mh-reading>.row h3{font-size:19px;margin:0}#mangoi-handover .mh-reader-grid{grid-template-columns:1fr}#mangoi-handover #mh-reports{display:none}#mangoi-handover .mh-mobile-nav{display:flex;gap:8px;margin:12px 0;align-items:center;flex-wrap:wrap}#mangoi-handover #mh-report-detail .preview{font-size:20px}#mangoi-handover #mh-report-detail h3{font-size:24px}#mangoi-handover .mh-pdf{display:none}}
 </style>
-<header><div><div class="brand">MANGO<span>I</span> <span class="crumb">관리자</span></div><div class="crumb">결제함 / 매일보고</div></div><span class="badge"><a href="/work">← 결재함 / Approvals</a></span></header>
+<header><div><div class="brand">MANGO<span>I</span> <span class="crumb">관리자</span></div><div class="crumb">결재함 / 매일보고</div></div><span class="badge"><a href="/work">← 결재함 / Approvals</a></span></header>
 <main>
-<div class="top"><div><h2>매일보고 / Daily handover</h2><p class="sub">Daily handover · 입력은 짧게, 남은 일은 정확하게</p></div><div class="clock"><span id="mh-time">00:00</span><small>작성 목표 3분 · 최대 5분 이내</small></div></div>
+<div class="top"><div><h2>매일보고 / Daily handover</h2><p class="sub">Daily handover · 입력은 짧게, 남은 일은 정확하게</p></div><div class="row"><button id="mh-write-toggle" type="button">내 보고 작성 / Write</button><div id="mh-clock-box" class="clock"><span id="mh-time">00:00</span><small>작성 목표 3분 · 최대 5분 이내</small></div></div></div>
 <div id="mh-alert" class="notice" role="status" hidden></div>
-<div class="layout"><section class="panel" aria-label="매일보고 작성">
+<section id="mh-reading" class="panel" style="margin-bottom:20px"><div class="row"><h3>받은 보고 확인 / Read handovers</h3><button id="mh-refresh" type="button" aria-label="새로고침 / Refresh"><span class="mh-wide">새로고침 / Refresh</span><span class="mh-narrow" aria-hidden="true">↻</span></button></div><details id="mh-list-options"><summary>조회 옵션 / Filters</summary><div class="meta"><label>날짜 / Date<input id="mh-list-date" type="date"></label><label>필터 / Filter<select id="mh-filter"><option value="unread">나의 미확인 · 모든 날짜 / My unread · all dates</option><option value="all">전체 / All visible</option><option value="submitted">확인 대기 / Awaiting review</option><option value="changes_requested">보완 요청 / Changes requested</option><option value="open">남은 일 / Open items</option><option value="urgent">긴급 / Urgent</option></select></label></div></details><div id="mh-required" class="side-note"></div><div id="mh-inbox-message" role="status"></div><a href="/work#pushBtn">기기 알림 설정 / Notifications</a><div class="mh-reader-grid"><div id="mh-reports" aria-label="보고 목록 / Report list"></div><article id="mh-report-detail" aria-live="polite"></article></div></section>
+<div id="mh-editor" class="layout"><section class="panel" aria-label="매일보고 작성">
 <div class="steps"><span id="mh-step1" class="active">① 짧게 작성</span><span id="mh-step2">② 점검·확인</span><span id="mh-step3">③ 전달</span></div>
 <div class="meta"><div><label for="mh-date">날짜 <small>Date</small></label><input id="mh-date" type="date" readonly></div><div><label for="mh-staff">담당자 <small>Staff · 자동 입력</small></label><input id="mh-staff" readonly></div></div>
 <div class="buttons"><button id="mh-voice" type="button">말로 입력 / Dictate</button><select id="mh-voice-lang" aria-label="음성 언어 / Dictation language"><option value="ko-KR">한국어</option><option value="en-US">English</option></select></div>
@@ -34,20 +59,19 @@
 <label for="mh-open">3. 남은 일 <small>Open items</small></label><label class="check"><input id="mh-noopen" type="checkbox" checked>남은 일 없음 / No open items</label>
 <div id="mh-follow" hidden><input id="mh-open" maxlength="500" placeholder="예: 다음 수업 전 음성 재확인"><div class="meta" style="margin-top:12px"><div><label for="mh-owner">후속 담당자 <small>Owner</small></label><select id="mh-owner"><option value="">선택 / Select</option></select></div><div><label for="mh-deadline">기한 <small>한국 시간 / KST</small></label><input id="mh-deadline" type="datetime-local"></div></div></div>
 <details id="mh-related"><summary class="cursor-interaction">학생·수업 정보 추가 / Student & class — 해당할 때만</summary><label for="mh-student">학생 이름·ID <small>Student name & ID</small></label><input id="mh-student" maxlength="150" placeholder="학생 이름 / 학생ID"><label for="mh-class">교사·수업 시간 <small>Teacher & class time</small></label><input id="mh-class" maxlength="150" placeholder="Teacher A / 9월 28일 19:00 KST"></details>
-<label for="mh-priority">중요도 / Priority</label><select id="mh-priority"><option value="normal">보통 / Normal</option><option value="urgent">긴급 / Urgent</option></select><div id="mh-errors" class="error" role="alert" hidden></div>
+<section class="mh-upload"><label for="mh-files">첨부파일 / Attachments · 선택 사항</label><input id="mh-files" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx,.pptx"><p class="small">PDF·이미지·문서 · 최대 5개, 각각 20MB / Up to 5 files, 20MB each</p><div id="mh-file-list"></div><p id="mh-upload-status" role="status"></p></section><label for="mh-priority">중요도 / Priority</label><select id="mh-priority"><option value="normal">보통 / Normal</option><option value="urgent">긴급 / Urgent</option></select><div id="mh-errors" class="error" role="alert" hidden></div>
 <div class="buttons"><button id="mh-save" class="cursor-interaction" type="button">임시 저장 / Save draft</button><button id="mh-review" class="primary cursor-interaction" type="button">AI 정리·점검 / Review →</button></div>
 <button id="mh-manual" type="button" style="margin-top:10px">AI 없이 점검 / Check without AI</button><p id="mh-save-status" class="small" aria-live="polite" style="margin-top:10px">불러오는 중 / Loading…</p>
 </section>
 <aside class="panel" aria-label="보고 미리보기"><div class="row"><h3>보고 미리보기 / Preview</h3><span id="mh-badge" class="badge">작성 전</span></div><div id="mh-preview" class="preview"><p class="sub">오늘 한 일을 짧게 입력해 주세요. / Briefly describe today’s work.</p></div><div id="mh-review-status" class="status" aria-live="polite"></div>
 <div id="mh-ai" hidden><h3>AI 제안 / Suggestions</h3><div id="mh-ai-text" class="preview"></div><button id="mh-apply" type="button">제안 적용 / Apply wording</button></div><div class="hint">AI 문장은 제안입니다. 적용 전 사실과 이름을 확인해 주세요. / Check AI suggestions before applying.</div>
 <hr class="divider"><label for="mh-recipient">전달 대상 <small>Recipient</small></label><select id="mh-recipient"><option value="">선택 / Select</option></select>
-<label class="check" style="margin-top:14px"><input id="mh-confirm" type="checkbox" disabled>내용·전달 대상 확인 / I checked the content and recipient.</label><div class="buttons"><button id="mh-send" class="primary cursor-interaction" disabled type="button">확인 후 전달 / Confirm & send</button></div>
+<label class="check" style="margin-top:14px"><input id="mh-confirm" type="checkbox" disabled>내용·첨부·전달 대상 확인 / I checked the content, attachments and recipient.</label><div class="buttons"><button id="mh-send" class="primary cursor-interaction" disabled type="button">확인 후 전달 / Confirm & send</button></div>
 <div id="mh-success" class="success" role="status" hidden></div>
 <p class="side-note">수신 확인은 업무 완료와 별개입니다.<br>Acknowledgement does not mark tasks complete.</p>
 </aside></div>
-<section class="panel" style="margin-top:20px"><div class="row"><h3>매일보고 목록 / Reports</h3><button id="mh-refresh" type="button">새로고침 / Refresh</button></div><div class="meta"><label>날짜 / Date<input id="mh-list-date" type="date"></label><label>필터 / Filter<select id="mh-filter"><option value="all">전체 / All visible</option><option value="submitted">확인 대기 / Awaiting review</option><option value="changes_requested">보완 요청 / Changes requested</option><option value="open">남은 일 / Open items</option><option value="urgent">긴급 / Urgent</option></select></label></div><div id="mh-required" class="side-note"></div><div id="mh-reports" aria-live="polite"></div></section>
 <details class="panel" style="margin-top:18px"><summary>내 미작성 알림 설정 / My reminder schedule</summary><p class="small">근무일과 마감 시각을 확인하고 켜 주세요. 휴가일은 제외합니다. / Confirm your shift before enabling. Push requires notification permission in Approvals.</p><label class="check"><input id="mh-schedule-enabled" type="checkbox">미작성 알림 켜기 / Enable reminders</label><div id="mh-weekdays" class="row"></div><div class="meta"><label>마감 / Deadline (KST)<input id="mh-due-time" type="time" value="19:00"></label><label>휴무·휴가일 / Exempt date<input id="mh-exempt-date" type="date"></label></div><div class="buttons"><button id="mh-schedule-save" type="button">알림 설정 저장 / Save schedule</button><a href="/work">기기 푸시 설정 / Enable device notifications</a></div><p id="mh-schedule-status" class="small" aria-live="polite"></p></details>
-</main>
+<details class="panel" style="margin-top:18px"><summary>받은 보고 읽기 알림 / Read-reminder hours</summary><p>일반 보고: 1시간마다 · 긴급 보고: 15분마다, 근무시간 밖에도 알림<br>Normal: hourly during your shift. Urgent: every 15 minutes, including off-hours.<br>확인 완료 또는 보완 요청 시 종료 / Stops after acknowledgement or a request for changes.</p><div id="mh-read-weekdays" class="row"></div><div class="meta"><label>시작 / Start (KST)<input id="mh-read-start" type="time" value="09:00"></label><label>종료 / End (KST)<input id="mh-read-end" type="time" value="19:00"></label></div><button id="mh-read-save" type="button">읽기 알림 시간 저장 / Save hours</button><p id="mh-read-status" role="status"></p><p class="small">새 보고는 화면에 즉시 표시됩니다. 푸시 재알림은 15분 주기로 확인합니다. / In-app alerts remain visible; push reminders are checked every 15 minutes.</p><a href="/work#pushBtn">기기 알림 켜기 / Enable device notifications</a></details></main>
 </div>
-<script src="/js/daily-handover.js?v=1" defer></script>
+<script src="/js/daily-handover.js?v=2" defer></script>
 </body></html>
