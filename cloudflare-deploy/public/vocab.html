@@ -1341,7 +1341,7 @@ function cancelVocabSpeak(){
 window.addEventListener('pagehide', cancelVocabSpeak);
 function normalizeVocabSpeech(text){
   return String(text || '').normalize('NFKC').toLowerCase()
-    .replace(/[’‘']/g, '').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    .replace(/[’‘]/g, "'").replace(/[^a-z0-9'\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 function vocabSpeechMatches(target, heard){
   const expected = normalizeVocabSpeech(target);

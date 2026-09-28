@@ -12,7 +12,7 @@ esc:s=>String(s).replaceAll('<','&lt;').replaceAll('>','&gt;'),fetch:()=>{calls+
 S:{id:'test',idx:0,spoke:new Set()},_answered:false});
 vm.runInContext(block,context);
 const run=code=>vm.runInContext(code,context);
-for(const [a,b,ok] of [['A boy was blowing','A boy was blowing.',true],['A boy was blowing',' A BOY  was blowing! ',true],["Don't stop","Don’t stop.",true],['blowing','flowing',false],['cat','catch',false],['A boy was blowing','blowing',false],['cat','',false]]) assert.equal(run(`vocabSpeechMatches(${JSON.stringify(a)},${JSON.stringify(b)})`),ok);
+for(const [a,b,ok] of [['A boy was blowing','A boy was blowing.',true],['A boy was blowing',' A BOY  was blowing! ',true],["Don't stop","Don’t stop.",true],['blowing','flowing',false],['cat','catch',false],['A boy was blowing','blowing',false],['cat','',false],['well',"we’ll",false],['ill',"I'll",false],['shell',"she'll",false]]) assert.equal(run(`vocabSpeechMatches(${JSON.stringify(a)},${JSON.stringify(b)})`),ok);
 let task=run("trySpeak({id:1,word:'A boy was blowing'})");pending('A boy was flowing');await task;assert.equal(calls,0);assert.match(elements['speak-fb'].innerHTML,/<mark>flowing/);assert.equal(elements['mic-btn'].disabled,false);
 task=run("trySpeak({id:1,word:'A boy was blowing'})");pending('A boy was blowing.');await task;assert.equal(calls,1);assert.equal(elements['mic-btn'].disabled,false);
 task=run("trySpeak({id:1,word:'A boy was blowing'})");pending('A boy was blowing');await task;assert.equal(calls,1);
