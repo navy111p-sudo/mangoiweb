@@ -114,6 +114,8 @@
           if (session.canceled) return finish('');
           var blob = new Blob(chunks, { type: (chunks[0] && chunks[0].type) || 'audio/webm' });
           if (!blob.size || blob.size < 1200) { onState('error', { reason: 'no_audio' }); return finish(''); }
+          // Optional local replay; existing callers still receive Promise<string>.
+          if (typeof opts.onAudio === 'function') { try { opts.onAudio(blob); } catch (e) {} }
           onState('thinking', {});
           // 실제 녹음 형식에 맞는 파일 이름으로 보낸다 (iOS = mp4/m4a, 그 외 = webm)
           var bt = String(blob.type || pickedMime || '');
