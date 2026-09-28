@@ -182,12 +182,12 @@ export default {
    ['I think the greatest leader of the past is King Sejong.', 'He cared about ordinary people, not just the rich.', 'He created Hangeul so everyone could read and write.', 'Which leader do you admire?'],
    ['The greatest karate master is probably Mas Oyama.', 'He trained for years alone in the mountains.', 'He even fought bulls to show his power!', 'Have you ever learned a martial art?'],
    ['The best restaurant I\'ve ever been to is a tiny sushi bar in Busan.', 'The fish was the freshest I\'ve ever tasted.', 'The chef made each piece by hand right in front of us.', 'What\'s the most delicious meal you\'ve had?'],
-   ['I\'d say the greatest boxer is Muhammad Ali.', 'He was the fastest heavyweight of his time.', 'He also stood up for his beliefs outside the ring.', 'Do you enjoy watching boxing?'],
-   ['The most visited place in Korea is probably Myeongdong in Seoul.', 'It\'s the best place for shopping and street food.', 'On weekends, it\'s so crowded that you can hardly walk.', 'What\'s the most popular place in your city?'],
-   ['For many foreigners, the most disgusting food is beondegi.', 'They are silkworm pupae, and the smell is very strong.', 'My friend from Canada tried one and made a terrible face.', 'What\'s the strangest food you\'ve tried?'],
-   ['The best way to learn a language is to use it every day.', 'You remember words better when you actually need them.', 'I watch dramas with English subtitles and repeat the lines.', 'How do you practice English?'],
-   ['I think the best workout to lose weight is interval running.', 'It burns the most calories in the shortest time.', 'I run fast for 30 seconds, then walk for a minute, for 20 minutes.', 'What\'s your favorite workout?'],
-   ['The best way to fall asleep fast is to put your phone away.', 'The light from the screen keeps your brain awake.', 'I stop using my phone an hour before bed, and I sleep much better.', 'What do you do when you can\'t sleep?']
+   ['I\'d say the greatest boxer is Muhammad Ali.', 'He was the fastest heavyweight of his time.', 'He also stood up for his beliefs.', 'Do you enjoy watching boxing?'],
+   ['The most visited place in Korea is Myeongdong.', 'It\'s the best place for shopping and street food.', 'On weekends, you can hardly walk.', 'What\'s the most popular place in your city?'],
+   ['For foreigners, the most disgusting food is beondegi.', 'They are silkworm pupae with a strong smell.', 'My Canadian friend tried one and made a face.', 'What\'s the strangest food you\'ve tried?'],
+   ['The best way is to use the language every day.', 'You remember words when you need them.', 'I watch dramas and repeat the lines.', 'How do you practice English?'],
+   ['I think the best workout is interval running.', 'It burns the most calories in the shortest time.', 'I run fast for 30 seconds, then walk for a minute.', 'What\'s your favorite workout?'],
+   ['The best way is to put your phone away.', 'The light from the screen keeps your brain awake.', 'I stop using my phone an hour before bed.', 'What do you do when you can\'t sleep?']
   ],
   frame: [
    'For me, the greatest … is … because …',
@@ -208,10 +208,10 @@ export default {
    ['What makes a restaurant the best — food, service or price?', 'Do you trust online restaurant reviews?', 'What is the most expensive meal you\'ve had?'],
    ['Is boxing too dangerous to be a sport?', 'What makes an athlete great?', 'Which sport needs the most courage?'],
    ['Is tourism good or bad for a city?', 'What place in Korea is underrated?', 'Where would you take a foreign friend first?'],
-   ['Why is "disgusting" food different in each culture?', 'Would you try a food that looks strange?', 'What Korean food is hardest for foreigners?'],
+   ['Why do cultures find different foods strange?', 'Would you try a food that looks strange?', 'What Korean food is hardest for foreigners?'],
    ['Is it better to study grammar or just speak?', 'Can AI replace language learning?', 'What is the hardest language to learn?'],
-   ['Is diet or exercise more important for losing weight?', 'Why do people give up on workouts?', 'Do you prefer the gym or working out outside?'],
-   ['How many hours of sleep do you really need?', 'Why do so many people sleep badly today?', 'Are naps good or bad?']
+   ['Is diet or exercise more important?', 'Why do people give up on workouts?', 'Do you prefer the gym or working out outside?'],
+   ['How much sleep do you really need?', 'Why do so many people sleep badly today?', 'Are naps good or bad?']
   ],
   gram1: { chain: ['Before a big test, I always ___.', 'I try to finish my work by ___.'], ex: 'T: After work, I usually go to the gym.<br>S: After school, I usually …<br>T: Before bed, I …' },
   gram2: {

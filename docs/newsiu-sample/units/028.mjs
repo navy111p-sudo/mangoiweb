@@ -182,8 +182,8 @@ export default {
    ['I first went on a date when I was seventeen.', 'I was nervous, so I planned everything carefully.', 'We watched a movie and ate tteokbokki after.', 'Do you remember your first date?'],
    ['I first had my heart broken in high school.', 'My first love moved to another country.', 'I listened to sad songs for weeks, but my friends cheered me up.', 'How do you get over a sad time?'],
    ['I got my first part-time job at a café in 2020.', 'I wanted to earn my own money for a trip.', 'I worked on weekends and learned to make latte art.', 'What was your first job?'],
-   ['I first gave a speech in middle school, in front of 300 students.', 'I was running for class president.', 'My hands were shaking, but people clapped at the end.', 'Do you get nervous before a speech?'],
-   ['I first traveled outside Korea on New Year\'s Day in 2015.', 'My parents wanted to show me a different culture.', 'We went to Paris and saw the Eiffel Tower at night.', 'What was your first trip abroad?'],
+   ['I first gave a speech in middle school.', 'I was running for class president.', 'My hands were shaking, but people clapped at the end.', 'Do you get nervous before a speech?'],
+   ['I first traveled abroad in 2015.', 'My parents wanted to show me a different culture.', 'We saw the Eiffel Tower in Paris at night.', 'What was your first trip abroad?'],
    ['I first rode a bicycle when I was about seven.', 'My dad believed everyone should learn it young.', 'He held the seat and let go without telling me.', 'Who taught you to ride a bike?'],
    ['I got my first scar on my chin when I was four.', 'I was running too fast at the playground.', 'I hit the slide, and I needed three stitches.', 'Do you have a scar with a story?']
   ],
@@ -207,7 +207,7 @@ export default {
    ['What helps people heal after a breakup?', 'Can a sad time make you stronger?', 'Should friends give advice or just listen?'],
    ['Should students have part-time jobs?', 'What can you learn from a part-time job?', 'What is a good first job for a teenager?'],
    ['Why are people afraid of public speaking?', 'How can you prepare for a good speech?', 'Who is a great speaker you know?'],
-   ['At what age should children travel abroad?', 'What surprised you on your first trip?', 'Is it better to travel alone or with others?'],
+   ['When should kids first travel abroad?', 'What surprised you on your first trip?', 'Is it better to travel alone or with others?'],
    ['Is cycling a good way to get to work?', 'Should cities build more bike lanes?', 'What are the dangers of riding a bike?'],
    ['Are scars something to hide or to be proud of?', 'Would you remove a scar if you could?', 'What other things remind us of the past?']
   ],

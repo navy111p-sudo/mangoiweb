@@ -15,10 +15,10 @@ await send('Emulation.setDeviceMetricsOverride',{width:W,height:H,deviceScaleFac
 for (const no of process.argv.slice(2)) for (const m of ['easy','hard']) {
   const dir = `${HERE}u/${no}/jpg-${m}`; if (!fs.existsSync(dir)) { console.log('skip', no, m); continue; }
   const n = fs.readdirSync(dir).filter(f=>/^Slide\d+\.JPG$/.test(f)).length;
-  const page = `${HERE}sp/_tmp.html`;
+  const page = `${HERE}sp/_tmp${PORT}.html`;
   fs.writeFileSync(page, `<style>html,body{margin:0}img{display:block;width:${W}px;height:${H}px}</style>` + Array.from({length:n},(_, i)=>`<img src="file://${dir}/Slide${i+1}.JPG">`).join(''));
   await send('Page.navigate',{url:'file://'+page}); await new Promise(r=>setTimeout(r,1200));
   const r = await send('Page.captureScreenshot',{format:'jpeg',quality:78,clip:{x:0,y:0,width:W,height:H*n,scale:1},captureBeyondViewport:true});
   fs.writeFileSync(`${HERE}sp/${no}-${m}.jpg`, Buffer.from(r.data,'base64')); console.log(no, m, n);
 }
-fs.rmSync(`${HERE}sp/_tmp.html`, {force:true}); ws.close(); ch.kill();
+fs.rmSync(`${HERE}sp/_tmp${PORT}.html`, {force:true}); ws.close(); ch.kill();

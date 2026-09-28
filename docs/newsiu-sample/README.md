@@ -1,3 +1,14 @@
+# NewSIU BASIC 30권 (8판, 2026-09-28)
+
+- 미리보기(30권): https://claude.ai/artifact/3AHU6SANvdFNGAjaSHeidQ — 단원 고르기 · 판 자동 선택 · 쪽 넘기기 · 문장 듣기(001 녹음, 나머지 브라우저 목소리)
+- 구조는 7판 그대로(20쪽 · 쉬운 판 말하기 168번 / 어려운 판 211번). 단원 내용만 `units/NNN.mjs` 로 분리(쓰는 법 `units/GUIDE.md`).
+- 원본: 구글 드라이브 `SUI - Basic(PDF)/NNN - …(Korean).pdf` 의 질문 10개 · Keyword 10개 · 문법. 원본 영어 오류 수정 목록은 각 `units/NNN.mjs` 머리 주석 «원본과 다른 점».
+- 만들기: `node build8.mjs NNN easy|hard` → `u/NNN/` · 글꼴 `node fonts6.mjs`(전 단원 한글 모아 굽기) 뒤 다시 build8 ·
+  찍기 `PORT=9501 node shot.mjs $PWD/u/NNN/slides-easy.html u/NNN/jpg-easy`(overflow·**clipped** 둘 다 none 이어야 함) ·
+  미리보기 `node sprite.mjs 001 … 030 && node hub.mjs`.
+- 쪽 JPG(`u/*/jpg-*`, 약 150MB)와 미리보기 띠(`sp/`)는 다시 만들 수 있어 깃에 넣지 않았습니다. 사이트에 올릴 폴더(제안): `[SIU BASIC NNN - 이름] New Easy / SlideN.JPG` · `… New Hard / …`.
+- 사진은 저장소 기존 사진만(`node findimg.mjs 낱말`). 맞는 사진이 없던 낱말(beggar·vomit·liquor·kiss·hitchhiker·slap·blood donation 등)은 가장 가까운 사진으로 대신함.
+
 # New SIU 샘플 — SIU BASIC 001 «A Talk with You» (2026-09-28)
 
 - 미리보기: https://claude.ai/artifact/3AHU6SANvdFNGAjaSHeidQ (**7판** · 쉬운/어려운 판 각 20쪽 · 판 자동 선택 · 문장별 소리)
