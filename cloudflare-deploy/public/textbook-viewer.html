@@ -155,7 +155,7 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
 .page-nav .pg{font-size:12.5px;font-weight:700;color:var(--accent-2);min-width:70px;text-align:center}
 
 /* 빈 상태 */
-.empty{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text-dim);max-width:400px;padding:40px 20px}
+.empty{position:fixed;top:calc(50% + 28px);left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text-dim);width:min(480px,92vw);box-sizing:border-box;max-height:calc(100vh - 72px);overflow-y:auto;scrollbar-color:#334155 transparent;padding:24px 20px}
 .empty .ico{font-size:64px;margin-bottom:14px;opacity:0.5}
 .empty h2{font-size:18px;color:#fff;margin-bottom:8px;font-weight:800}
 .empty p{font-size:13px;line-height:1.7}
@@ -723,18 +723,36 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
     }
     host.innerHTML = html;
 
-    /* 공용 자료실(서버)에 올라간 묶음이 있으면 그쪽도 안내한다. */
+    /* 공용 자료실(서버)에 올라간 묶음을 «전부» 보여 준다.
+       (2026-09-28 사장님 「여기서도 다 보게」) 예전엔 앞 12개만 잘라(slice) BTS 1 몇 권만 보였다.
+       정렬은 숫자를 숫자로(BTS 2 < BTS 10) · 검색칸으로 좁힌다 · 목록은 안내 상자(.empty)째 스크롤 — 상자를 겹쳐 두 겹 스크롤바가 되지 않게. */
     try {
       var r = await fetch('/api/textbook-files?group=1', { credentials: 'same-origin' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
       var j = await r.json();
       var gs = (j && j.ok && j.groups) ? j.groups.filter(function(g){ return g.book && g.book !== '(기타)'; }) : [];
+      gs.sort(function(a, b){ return String(a.book).localeCompare(String(b.book), 'en', { numeric:true, sensitivity:'base' }); });
       if (gs.length) {
+        var rowHtml = function(g){
+          return '<a class="tv-srv-row" data-q="' + esc(String(g.book).toLowerCase()) + '" href="?book=' + encodeURIComponent(g.book) + '" style="display:block;background:#131C36;border:1px solid rgba(96,165,250,0.18);border-radius:8px;padding:8px 11px;margin-bottom:5px;font-size:12.5px;text-align:left">' +
+                 '📚 ' + esc(g.book) + '<span style="color:#94A3B8;font-weight:600"> · ' + (g.files || 0) + (tvEn() ? ' files' : '개 파일') + '</span></a>';
+        };
         host.insertAdjacentHTML('beforeend',
-          '<div style="font-size:12px;color:#94A3B8;margin:14px 0 8px">' + (tvEn() ? '📚 Shared library (visible on every device)' : '📚 공용 자료실 (모든 기기에서 보임)') + '</div>' +
-          gs.slice(0, 12).map(function(g){
-            return '<a href="?book=' + encodeURIComponent(g.book) + '" style="display:block;background:#131C36;border:1px solid rgba(96,165,250,0.18);border-radius:8px;padding:8px 11px;margin-bottom:5px;font-size:12.5px;text-align:left">' +
-                   '📚 ' + esc(g.book) + '<span style="color:#94A3B8;font-weight:600"> · ' + (g.files || 0) + '개 파일</span></a>';
-          }).join(''));
+          '<div style="font-size:12px;color:#94A3B8;margin:14px 0 8px">' + (tvEn() ? '📚 Shared library (visible on every device)' : '📚 공용 자료실 (모든 기기에서 보임)') +
+            ' · <b id="tv-srv-count" style="color:#E2E8F0">' + gs.length + '</b>' + (tvEn() ? ' books' : '개') + '</div>' +
+          '<input id="tv-srv-q" type="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + (tvEn() ? 'Search (e.g. BTS 15, SIU BASIC)' : '교재 검색 (예: BTS 15, SIU BASIC)') + '" style="width:100%;box-sizing:border-box;padding:8px 11px;margin-bottom:8px;border-radius:8px;border:1px solid rgba(96,165,250,0.35);background:#0B1224;color:#E2E8F0;font-size:13px;font-family:inherit">' +
+          '<div id="tv-srv-list">' + gs.map(rowHtml).join('') + '</div>' +
+          '<p style="margin:8px 0 0;font-size:12px"><a href="/textbook-index.html" style="color:#60A5FA;font-weight:700;text-decoration:none">' + (tvEn() ? '📚 Open the textbook index (grouped by volume) →' : '📚 권별로 묶인 교재 목차 보기 →') + '</a></p>');
+        var qEl = $('tv-srv-q');
+        qEl.addEventListener('input', function(){
+          var q = (qEl.value || '').trim().toLowerCase(), n = 0;
+          Array.prototype.forEach.call(document.querySelectorAll('#tv-srv-list .tv-srv-row'), function(el){
+            var hit = !q || el.getAttribute('data-q').indexOf(q) >= 0;
+            el.style.display = hit ? 'block' : 'none';
+            if (hit) n++;
+          });
+          $('tv-srv-count').textContent = n;
+        });
       }
     } catch(_){}
   }
