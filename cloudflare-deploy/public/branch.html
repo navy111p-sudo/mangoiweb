@@ -821,7 +821,6 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="sgrp">
     <button type="button" onclick="sideGo('c-students')"><span class="ic">👤</span><span data-en="Student roster" data-ko="학생 명부">Student roster</span></button>
     <button type="button" onclick="sideGo('c-flow')"><span class="ic">🔀</span><span data-en="Student flow" data-ko="학생 흐름">Student flow</span></button>
-    <button type="button" onclick="sideGo('c-wait')"><span class="ic">⏳</span><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
     <button type="button" onclick="sideGo('c-attn')"><span class="ic">📋</span><span data-en="Attendance by academy" data-ko="학원별 출석 현황">Attendance by academy</span></button>
     <button type="button" onclick="sideGo('c-aiusage')"><span class="ic">🤖</span><span data-en="AI tool usage" data-ko="AI 학습도구 활용 학생">AI tool usage</span></button>
   </div>
@@ -933,7 +932,6 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="qlbl" data-en="Quick access" data-ko="자주 쓰는 기능">Quick access</div>
   <div class="qbar">
     <button type="button" onclick="openCard('c-search')"><span data-en="Search" data-ko="통합 검색">Search</span></button>
-    <button type="button" onclick="openCard('c-wait')"><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
     <button type="button" onclick="openCard('c-students')"><span data-en="My students" data-ko="학생 명부">My students</span></button>
     <button type="button" onclick="openCard('c-util')"><span data-en="Teacher use" data-ko="강사 가동률">Teacher use</span></button>
     <!-- 👩‍🏫 (2026-08-19 Melca 8/19 제보 ④) 강사 명부·검색·재직/퇴사 필터는 관리자 화면에
@@ -1022,11 +1020,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <div id="flowBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
-  <!-- ⑦ 대기자 -->
-  <details class="card" id="c-wait" ontoggle="if(this.open)loadWait()">
-    <summary><span data-en="Waiting list" data-ko="대기자 명단">Waiting list</span></summary>
-    <div id="waitBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
-  </details>
+  <!-- ⛔ ⑦ 대기자 카드는 뺐다 (2026-09-28 사장님) — 「망고아이는 대기라는 개념이 없다. 시간이 꽉 차면
+       그 즉시 고객에게 연락해 다른 수업으로 배정하고, 고객도 꽉 찬 시간을 피해 신청한다」.
+       사이드바 줄 · 「자주 쓰는 기능」 버튼 · 「오늘 봐야 할 것」 줄 · 미리 받기 요청을 함께 뺐다.
+       ⚠️ 서버(/api/admin/stats/waitlist)와 다른 화면은 그대로다. loadWait/paintWait 는 요소가 없으면 조용히 돌아간다. -->
 
   <!-- 📋 (2026-09-21) 학원별 출석 현황 — attendance/school-stats 는 index.ts 6196-6198 에서
        scopeStudentCond() 로 이미 자기 범위만 잘라 준다고 확인된 주소. -->
@@ -1810,8 +1807,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 
   // ── ⑦ 대기자 ──────────────────────────────────────────────────────────────
   window.loadWait = function(){
-    if (D.wait) { paintWait(); return; }
     var el = document.getElementById('waitBody');
+    if (!el) return;   // 카드를 뺀 화면(2026-09-28)
+    if (D.wait) { paintWait(); return; }
     el.textContent = T('Loading...', '불러오는 중...');
     once('wait', function(){ return get('/api/admin/stats/waitlist', 'wait'); })
       .then(function(j){ D.wait = j; paintWait(); }).catch(function(e){ failBox(el, e); });
@@ -1819,6 +1817,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   function paintWait(){
     var j = D.wait; if (!j) return;
     var el = document.getElementById('waitBody');
+    if (!el) return;
     var rows = j.items || j.rows || j.waitlist || [];
     if (!rows.length) { el.className = 'empty'; el.textContent = T('Nobody is waiting.', '대기자가 없습니다.'); return; }
     el.className = '';
@@ -2948,7 +2947,6 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (document.getElementById('c-flow').open) window.loadFlow();
     if (document.getElementById('c-students').open) window.loadStudents();
     if (document.getElementById('c-util').open) window.loadUtil();
-    if (document.getElementById('c-wait').open) window.loadWait();
     if (document.getElementById('c-me').open) window.loadMe();
     ['c-payroll:loadPayroll','c-leave:loadLeave','c-req:loadReqs','c-today:loadTodayAll','c-live:loadLive','c-outage:loadOutage','c-bugs:loadBugs',
      'c-org:loadOrg','c-attn:loadAttn','c-settle:loadSettle','c-aiusage:loadAiUsage']
@@ -3053,31 +3051,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 
     // ① (2026-09-28) 연기 · 변경 요청 줄은 뺐다 — 지사장은 요청을 받지 않는다(사장님). 카드 자리 주석 참고.
 
-    // ② 대기자 — 상담·배정을 기다리는 학생
-    if (D.wait) {
-      var wr = D.wait.items || D.wait.rows || D.wait.waitlist || [];
-      if (wr.length > 0) {
-        var w0 = wr[0].student_name || wr[0].name || '';
-        html += todoRow('#0369a1',
-          T('Waiting list: ' + wr.length, '대기자 ' + wr.length + '명'),
-          wr.length > 1 && w0 ? T(w0 + ' and ' + (wr.length - 1) + ' more', w0 + ' 외 ' + (wr.length - 1) + '명')
-                              : T('Waiting to be placed', '배정을 기다리고 있어요'),
-          'c-wait');
-        total += wr.length;
-      }
-    }
+    // ② (2026-09-28) 대기자 줄도 뺐다 — 망고아이에는 대기 개념이 없다(사장님).
+    //    그래서 지금 이 칸에 남은 것은 결재 대기뿐이다. 볼 것이 없으면 칸을 통째로 감춘다
+    //    («지금은 볼 것이 없습니다» 라고 단정하지 않는다 — 결재 수를 아직 못 받았을 수도 있다).
+    if (!html) { box.hidden = true; return; }
 
-    // 받은 게 하나도 없으면 «괜찮다» 고 말하지 않는다 — 모르는 것과 없는 것은 다르다
-    if (!D.wait) { box.hidden = true; return; }
-
-    if (!html) {
-      body.innerHTML = '<div class="todo-clear">' + esc(T('Nothing to check right now', '지금은 볼 것이 없습니다'))
-        + '<span>' + esc(T('No students waiting', '대기 중인 학생이 없어요')) + '</span></div>';
-      nEl.textContent = ''; nEl.hidden = true;
-    } else {
-      body.innerHTML = html;
-      nEl.textContent = String(total); nEl.hidden = false;
-    }
+    body.innerHTML = html;
+    nEl.textContent = String(total); nEl.hidden = false;
     box.hidden = false;
   }
 
@@ -3094,9 +3074,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   });
 
   function loadTodo(){
-    Promise.all([
-      quietGet('/api/admin/stats/waitlist', 'wait').then(function(j){ if (j) D.wait = j; })
-    ]).then(paintTodo);
+    // (2026-09-28) 미리 받던 두 요청(연기·변경 요청 · 대기자)을 모두 뺐다 — 남은 결재 대기는
+    // loadApprovalBadge() 가 받아 paintTodo() 를 다시 부른다.
+    paintTodo();
   }
 
   function loadApprovalBadge(){
