@@ -39,7 +39,7 @@ export default {
   "Do you celebrate Easter in your country?"
  ],
  IMG_E: ["scene-words/18883", "scene-words/12216", "scene-words/18654", "scene-words/15484", "scene-words/15031", "scene-words/18051", "scene-words/12274", "scene-words/16627", "scene-words/19102", "scene-words/15356"],
- IMG_H: ["scene-words/16783", "scene-words/16614", "scene-words/15269", "scene-words/16844", "scene-words/18878", "scene-words/19009", "scene-words/16287", "scene-words/18054", "scene-words/12133", "scene-words/18430"],
+ IMG_H: ["scene-words/16783", "scene-words/16614", "scene-words/15269", "scene-words/16844", "scene-words/15031", "scene-words/18051", "scene-words/16287", "scene-words/18054", "scene-words/12133", "scene-words/18430"],
  PICS: {
   opener: "scene-words/18053",
   talk: "scene-words/19411",

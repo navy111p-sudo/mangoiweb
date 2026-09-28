@@ -565,7 +565,7 @@ export default {
    ],
    "check": [
     "Loud voice",
-    "Look at friends",
+    "Look at your teacher",
     "Say 5 things"
    ]
   },
