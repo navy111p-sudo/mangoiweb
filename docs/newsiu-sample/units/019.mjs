@@ -125,7 +125,7 @@ export default {
    ex: "T: I like dogs and cats.<br>S: I like pizza, but I don't like carrots.<br>T: I …"
   },
   gram2: {
-   a: { title: "This or that?", items: ["A chef or a pilot?", "Money or fun?", "Inside or outside?", "Alone or with a team?"], ans: "I want ___ <b>because</b> ___." },
+   a: { title: "This or that?", items: ["A chef or a pilot?", "Money or fun?", "Inside or outside?", "Alone or with a team?"], ans: "I want to be a chef <b>because</b> I love food." },
    b: { title: "My dream job", big: "I want to be a ___ because ___.", ans: "Then ask: <b>What do you want to be?</b>" }
   },
   opener: { think: ["Look at the photo. What jobs can you see?", "What job does your mom or dad have?", "What do you want to be?"] },
@@ -224,7 +224,7 @@ export default {
    ex: "T: I'd like to be a chef because I love food.<br>S: I'd take a job abroad if it paid well.<br>T: I …"
   },
   gram2: {
-   a: { title: "This or that?", items: ["Money or passion?", "An office or working from home?", "A big company or a startup?", "A team or working alone?", "Stable or exciting?"], ans: "I'd choose ___ <b>because</b> ___, <b>but</b> ___." },
+   a: { title: "This or that?", items: ["Money or passion?", "An office or working from home?", "A big company or a startup?", "A team or working alone?", "Stable or exciting?"], ans: "I'd choose passion <b>because</b> …, <b>but</b> …" },
    b: { title: "Job deal-breakers", big: "I would take a job if ___, but not if ___. Would you work at night if ___?", ans: "Then ask: <b>What would you do if …?</b>" }
   },
   opener: { think: ["What makes a job a \"good job\"?", "Would you rather be your own boss or work for a company?", "Which jobs will disappear in 20 years? Why?"] },

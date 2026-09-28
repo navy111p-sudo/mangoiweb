@@ -143,8 +143,8 @@ export default {
   },
   gram2: {
    a: {
-    title: "Ask 5 times",
-    items: ["How long have you been learning English?", "How long have you been living here?", "How long have you been going to your school?", "How long have you been sitting here?", "How long have you been awake today?"],
+    title: "How long have you been…",
+    items: ["…learning English?", "…living in your home?", "…going to your school?", "…sitting here?", "…awake today?"],
     ans: "I have been … <b>for</b> … / <b>since</b> …"
    },
    b: {
@@ -299,10 +299,10 @@ export default {
   },
   gap: {
    who: "Yuna",
-   q: ["What is Yuna's favorite holiday? Why?", "How does she celebrate her birthday?", "What has she been preparing lately?", "How long has she been doing it?", "Who is her favorite holiday character?"],
+   q: ["What is her favorite holiday? Why?", "How does she celebrate her birthday?", "What has she been preparing?", "How long has she been doing it?", "Who is her favorite character?"],
    A: [["favorite + why", "Chuseok — family time"], ["birthday", "?"], ["preparing", "?"], ["how long", "since last week"], ["favorite character", "?"]],
    B: [["favorite + why", "?"], ["birthday", "dinner with her grandma"], ["preparing", "a Christmas play"], ["how long", "?"], ["favorite character", "Santa — he's kind"]],
-   tip: "She → <b>has been</b> prepar<b>ing</b> · <b>since</b> last week"
+   tip: "She → <b>has been</b> prepar<b>ing</b>"
   },
   role: {
    A: ["You host a travel show.", "Ask 5 questions + 2 follow-ups.", "Compare it with a Korean holiday."],

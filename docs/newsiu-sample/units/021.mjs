@@ -127,7 +127,7 @@ export default {
    ex: "T: I like cats better than dogs.<br>S: I like summer better than winter.<br>T: I like …"
   },
   gram2: {
-   a: { title: "Which do you like better?", items: ["Cats or dogs?", "Pizza or chicken?", "Math or art?", "Summer or winter?", "Movies or books?"], ans: "I like ___ <b>better</b>. <b>+ one more sentence</b>" },
+   a: { title: "Which do you like better?", items: ["Cats or dogs?", "Pizza or chicken?", "Math or art?", "Summer or winter?", "Movies or books?"], ans: "I like dogs <b>better</b>. <b>+ one more sentence</b>" },
    b: { title: "My top 3", big: "I like ___ the best. I like ___ the least.", ans: "Then ask: <b>What do you like the best?</b>" }
   },
   opener: { think: ["Look at the photo. Who likes the movie?", "What do you love?", "What don't you like?"] },
@@ -226,7 +226,7 @@ export default {
    ex: "T: I like tea much more than coffee.<br>S: Spinning cups is the worst ride I know.<br>T: …"
   },
   gram2: {
-   a: { title: "Which do you like better?", items: ["Morning or night?", "Books or movies?", "The sea or the mountains?", "Texting or calling?", "Cooking or eating out?"], ans: "I like ___ <b>better</b> because ___. <b>What about you?</b>" },
+   a: { title: "Which do you like better?", items: ["Morning or night?", "Books or movies?", "The sea or the mountains?", "Texting or calling?", "Cooking or eating out?"], ans: "I like night <b>better</b> because … <b>What about you?</b>" },
    b: { title: "Best & worst", big: "The best ___ I've ever had was ___, and the worst was ___.", ans: "Then ask: <b>What's the best … you've ever …?</b>" }
   },
   opener: { think: ["Can two people with different tastes be close friends?", "Do your likes come from your family or your friends?", "Is it rude to say you dislike something?"] },

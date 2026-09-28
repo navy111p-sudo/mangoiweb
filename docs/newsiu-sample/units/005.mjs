@@ -132,7 +132,7 @@ export default {
   gram2: {
    a: {
     title: "Ask 5 times",
-    items: ["How many pets do you have?", "How much milk do you drink?", "How many books do you have?", "How much TV do you watch?", "How many friends do you have?"],
+    items: ["How many pets do you have?", "How much milk?", "How many books?", "How much TV do you watch?", "How many friends?"],
     ans: "I have … <b>+ one more</b>"
    },
    b: {
@@ -198,20 +198,20 @@ export default {
  H: {
   steps: ["Answer", "Reason", "Example", "Ask back"],
   model: [
-   ["What parents don't understand is that teens need privacy.", "We need space to figure out who we are.", "My mom used to read my messages, and it hurt our trust.", "Did your parents give you privacy?"],
-   ["What teens don't understand is that parents worry a lot.", "They know how dangerous the world can be.", "When I came home late once, my dad was really scared.", "Do you think parents worry too much?"],
+   ["Parents don't understand that teens need privacy.", "We need space to grow.", "My mom once read my messages, and it hurt.", "Did you have privacy as a teen?"],
+   ["Teens don't understand how much parents worry.", "Parents know the world can be dangerous.", "Once I came home late, and my dad was scared.", "Do parents worry too much?"],
    ["Yes, I think uniforms are good for students.", "Nobody is judged by expensive clothes.", "At my school, rich and poor kids look the same.", "Did you wear a uniform?"],
    ["Yes, it matters.", "Words show respect for other people.", "Some of my classmates swear all the time, and it sounds rude.", "Do you think swearing is a big deal?"],
    ["It's a good idea, but only step by step.", "Teens learn responsibility from freedom.", "I got a later curfew after I proved I was careful.", "How much freedom did you have as a teen?"],
    ["Teenagers like to hang out and be online.", "Friends are the center of their world.", "My friends and I play games and chat until late.", "What did you like to do as a teen?"],
-   ["I think I'm somewhere in between.", "I make my own choices, but I still need help.", "I can cook, but my parents still pay for everything.", "When did you feel like an adult?"],
-   ["Teens face a lot of pressure from school and social media.", "They compare themselves to others all the time.", "Many of my friends feel stressed about grades and likes.", "What was the biggest problem when you were a teen?"],
+   ["I think I'm somewhere in between.", "I make choices, but I still need help.", "I can cook, but my parents pay for everything.", "When did you feel like an adult?"],
+   ["Teens face pressure from school and social media.", "They compare themselves to others.", "My friends stress about grades and likes.", "What was your biggest teen problem?"],
    ["No, it isn't.", "A young brain and body can be damaged by alcohol.", "In Korea, it's even illegal until you're nineteen.", "What do you think the drinking age should be?"],
    ["I think rock music today is less popular.", "Most teens listen to K-pop and hip-hop now.", "But rock festivals still draw big crowds.", "What kind of music did you grow up with?"]
   ],
   frame: [
-   "What parents don't understand is that teens … For example, …",
-   "What teens don't understand is that parents … because …",
+   "Parents don't understand that teens …",
+   "Teens don't understand that parents …",
    "Yes/No, uniforms are … because …",
    "Yes/No, it matters because …",
    "I think it's a good/bad idea because …",

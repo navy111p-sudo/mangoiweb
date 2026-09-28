@@ -236,7 +236,7 @@ export default {
    outline: ['Hook — "Let me tell you…"', 'Your style as a child', 'How it changed', 'A special item + story', 'How it made you feel', 'Your opinion now'],
    check: ['Clear voice', 'Past tense story', 'Time words (then, later)', 'Answer 1 question'],
   },
-  pron: { cols: [['● •', ['MIRror', 'FASHion', 'STRANGer']], ['• ●', ['tatTOO', 'deSIGN', 'apPEAR']], ['• ● •', ['atTRACtive', 'exPENsive', 'imPORtant']]], up: 'Did you sew it yourself?', down: 'What do you think of tattoos?' },
+  pron: { cols: [['● •', ['MIRror', 'FASHion', 'STRANger']], ['• ●', ['tatTOO', 'deSIGN', 'apPEAR']], ['• ● •', ['atTRACtive', 'exPENsive', 'imPORtant']]], up: 'Did you sew it yourself?', down: 'What do you think of tattoos?' },
   review: ['I can answer in 4 parts.', 'I can tell a story in the past.', 'I can give my opinion on looks.', 'I can give a short presentation.'],
  },
 };
