@@ -8,9 +8,11 @@ const DB = '80a12a77-4d79-4abd-aa9e-f5e39a7b5cf5', BUCKET = 'webrtc-class-record
 const MARK = 'NEW BTS 2026-09';
 const plan = JSON.parse(fs.readFileSync('tmp-bts-new/plan.json', 'utf8'))[String(+NN)];
 const H = { Authorization: 'Bearer ' + TOK };
+const HD = { Authorization: 'Bearer ' + (process.env.CF_D1_TOK || TOK) };
+if (!process.env.CF_D1_TOK) { console.log('⛔ CF_D1_TOKEN 시크릿이 없습니다 — D1 편집 전용 토큰을 먼저 등록해야 합니다.'); process.exit(1); }
 async function q(sql, params = []) {
   for (let t = 0; t < 5; t++) {
-    const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACC}/d1/database/${DB}/query`, { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ sql, params }) });
+    const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACC}/d1/database/${DB}/query`, { method: 'POST', headers: { ...HD, 'Content-Type': 'application/json' }, body: JSON.stringify({ sql, params }) });
     const j = await r.json().catch(() => ({}));
     if (j.success) return j.result[0].results;
     console.log('D1 retry', t, r.status, JSON.stringify(j.errors || j).slice(0, 300));

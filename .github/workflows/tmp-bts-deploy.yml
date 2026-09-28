@@ -1,17 +1,45 @@
 # ⛔ 임시 워크플로 — main 에 올리지 않습니다. 작업 브랜치에서만 돌고 지웁니다.
 # 목적: 새 BTS 교재(2~34)를 슬라이드 JPG 로 렌더해 R2+D1 에 올리고, 옛 교재를 «(구본)» 으로 바꿔 숨김.
-# tmp-bts-new/go.txt 첫 줄이 모드: dry(조회만) | real(실제 반영)
+# tmp-bts-new/go.txt 첫 줄이 모드: pack(HTML 묶음만) | dry(조회만) | real(실제 반영)
+# D1 은 CF_D1_TOKEN(D1 편집 전용 토큰)으로만 부릅니다 — 배포 토큰에 D1 권한을 더하면 배포 보류 게이트의 실접속 판정이 깨어나므로 따로 둡니다.
 name: tmp-bts-deploy
 on:
   push:
     branches: [claude/bold-lovelace-dy58q5]
     paths: ['tmp-bts-new/go.txt']
 permissions:
-  contents: write
+  contents: read
 jobs:
-  deploy:
+  pack:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    outputs:
+      mode: ${{ steps.m.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            tmp-bts-new
+            tmp-bts-gen/img
+            cloudflare-deploy/public/img
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - id: m
+        run: echo "mode=$(head -1 tmp-bts-new/go.txt | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+      - name: render all
+        run: |
+          mkdir -p "$RUNNER_TEMP/New BTS"
+          cd tmp-bts-new/src
+          for n in $(seq -w 2 34); do
+            TB_DIR=$PWD/ GEN_DIR=$GITHUB_WORKSPACE/tmp-bts-gen/img/ IMG_DIR=$GITHUB_WORKSPACE/cloudflare-deploy/public/img/ \
+              node render.mjs courses/bts-$n.mjs "$RUNNER_TEMP/New BTS/BTS $((10#$n)) (새 교재).html" "BTS $((10#$n))"
+          done
+      - uses: actions/upload-artifact@v4
+        with: { name: 'New-BTS-HTML', path: '${{ runner.temp }}/New BTS', retention-days: 30 }
+  deploy:
+    needs: pack
+    if: needs.pack.outputs.mode == 'dry' || needs.pack.outputs.mode == 'real'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       max-parallel: 11
@@ -38,12 +66,13 @@ jobs:
         env:
           CF_ACC: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CF_TOK: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_D1_TOK: ${{ secrets.CF_D1_TOKEN }}
           CHROME: /usr/bin/google-chrome
           HTML_DIR: ${{ github.workspace }}/tmp-bts-new/html
-        run: node tmp-bts-new/deploy.mjs ${{ matrix.n }} "$(head -1 tmp-bts-new/go.txt)"
+        run: node tmp-bts-new/deploy.mjs ${{ matrix.n }} "${{ needs.pack.outputs.mode }}"
       - uses: actions/upload-artifact@v4
         if: always()
-        with: { name: 'rep-${{ matrix.n }}', path: /tmp/rep, retention-days: 3, if-no-files-found: ignore }
+        with: { name: 'rep-${{ matrix.n }}', path: /tmp/rep, retention-days: 7, if-no-files-found: ignore }
       - uses: actions/upload-artifact@v4
         if: matrix.n == '20'
-        with: { name: 'sample-20', path: /tmp/exp/bts-20/0, retention-days: 3 }
+        with: { name: 'sample-20', path: /tmp/exp/bts-20/0, retention-days: 7 }
