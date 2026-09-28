@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<title>교재 목차 — 망고아이</title>
+<!--
+  📚 교재 목차 (2026-09-28 사장님 요청)
+  ─────────────────────────────────────────────────────────────────────
+  공용 자료실(서버)에 올라간 교재를 «권별로 묶어» 한 화면에 보여 주고,
+  누르면 교재 뷰어(/textbook-viewer.html?book=<교재이름>)로 바로 엽니다.
+
+  ⛔ 교재 이름을 이 파일에 손으로 적지 않습니다 — 목록은 언제나
+     /api/textbook-files?group=1 에서 «그때» 받아 옵니다(교재가 늘면 저절로 따라옵니다).
+  ⛔ 뷰어는 교재 이름의 «앞부분 정확일치»로 찾습니다 — 서버가 준 이름을
+     한 글자도 바꾸지 않고 그대로 넘깁니다(겹공백 포함).
+  ℹ️ 관리자가 숨긴 묶음은 서버가 이미 빼고 줍니다(hidden_count).
+-->
+<style>
+:root{--bg:#f6f8fb;--card:#ffffff;--text:#101828;--sub:#475467;--mute:#667085;--line:#e4e7ec;--accent:#b45309;--link:#1d4ed8;--chip:#f1f5f9}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:MangoiHanSC,-apple-system,"Noto Sans KR","Pretendard",sans-serif;font-size:15px}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.top img{width:44px;height:44px;object-fit:contain}
+.top h1{font-size:22px;margin:0;flex:1 1 auto}
+.btn{display:inline-flex;align-items:center;gap:4px;padding:8px 12px;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:9px;font-size:13px;font-weight:700;text-decoration:none;cursor:pointer;font-family:inherit}
+.lead{color:var(--sub);font-size:13.5px;line-height:1.6;margin:8px 0 14px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.bar input{flex:1 1 240px;min-width:0;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:15px;font-family:inherit;background:#fff;color:var(--text)}
+.stat{color:var(--mute);font-size:12.5px}
+.series{margin:18px 0 8px;font-size:17px;font-weight:900}
+.vol{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:8px;overflow:hidden}
+.vol>summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;align-items:center;gap:8px;font-weight:800}
+.vol>summary::-webkit-details-marker{display:none}
+.vol>summary .cnt{color:var(--mute);font-weight:600;font-size:12.5px;margin-left:auto}
+.vol>summary .arr{color:var(--mute);font-size:18px;line-height:1;display:inline-block;transition:transform .15s}
+.vol[open]>summary .arr{transform:rotate(90deg)}
+.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:6px;padding:0 12px 12px}
+.list a{display:block;background:var(--chip);border:1px solid var(--line);border-radius:9px;padding:9px 11px;color:var(--link);text-decoration:none;font-size:13.5px;line-height:1.35;min-width:0;overflow-wrap:anywhere}
+.list a:hover{background:#e0e7ff}
+.list a .pg{display:block;color:var(--mute);font-size:11.5px;margin-top:2px}
+.msg{background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.6}
+.empty{color:var(--mute);padding:20px 4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <img src="/img/mango-char.png" alt="Mr.mango">
+    <h1 id="t-title">교재 목차</h1>
+    <button type="button" class="btn" id="btn-all">모두 펼치기</button>
+    <button type="button" class="btn" id="btn-lang">🌐 EN</button>
+    <a class="btn" href="/" id="btn-home">🏠 홈</a>
+  </div>
+  <p class="lead" id="t-lead">공용 자료실에 올라간 교재를 권별로 묶었습니다. 과 이름을 누르면 교재 뷰어가 새 탭으로 열립니다.</p>
+  <div class="bar">
+    <input id="q" type="search" placeholder="교재 검색 (예: BTS 12, Jobs, SIU BASIC 015)" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <span class="stat" id="stat"></span>
+  </div>
+  <div id="out"><div class="empty" id="t-loading">불러오는 중…</div></div>
+</div>
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var LANG = 'ko';
+  try { LANG = (localStorage.getItem('mangoi_lang') === 'en') ? 'en' : 'ko'; } catch(_){}
+  var T = {
+    ko:{title:'교재 목차', lead:'공용 자료실에 올라간 교재를 권별로 묶었습니다. 과 이름을 누르면 교재 뷰어가 새 탭으로 열립니다.',
+        ph:'교재 검색 (예: BTS 12, Jobs, SIU BASIC 015)', all:'모두 펼치기', fold:'모두 접기', lang:'🌐 EN', home:'🏠 홈',
+        loading:'불러오는 중…', none:'찾는 교재가 없습니다.', pages:'장', items:'과',
+        stat:function(b,f){ return '묶음 ' + b + '개 · ' + f.toLocaleString() + '장'; },
+        fail:'교재 목록을 불러오지 못했습니다. 로그인 상태를 확인하고 새로고침해 주세요.', other:'기타 교재'},
+    en:{title:'Textbook Index', lead:'Shared-library textbooks grouped by volume. Click a lesson to open it in the viewer (new tab).',
+        ph:'Search (e.g. BTS 12, Jobs, SIU BASIC 015)', all:'Expand all', fold:'Collapse all', lang:'🌐 KO', home:'🏠 Home',
+        loading:'Loading…', none:'No matching textbooks.', pages:'pages', items:'lessons',
+        stat:function(b,f){ return b + ' bundles · ' + f.toLocaleString() + ' pages'; },
+        fail:'Could not load the textbook list. Please check you are logged in and refresh.', other:'Other textbooks'}
+  };
+  function t(k){ return T[LANG][k]; }
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  /* 교재 이름 → (시리즈, 권). 모르는 모양은 «기타» 로 두고 지어내지 않는다. */
+  function classify(name){
+    var m;
+    if ((m = /^SIU\s+(BASIC|ADVANCE)\b/i.exec(name))) return { series:'SIU ' + m[1].toUpperCase(), vol:'SIU ' + m[1].toUpperCase(), sKey:m[1].toUpperCase() === 'BASIC' ? 1 : 2, vKey:0 };
+    if ((m = /^BTS\s*0*(\d+)(?!\d)/i.exec(name))) return { series:'BTS', vol:'BTS ' + Number(m[1]), sKey:0, vKey:Number(m[1]) };
+    return { series:null, vol:null, sKey:9, vKey:0 };
+  }
+  var cmp = function(a, b){ return a.localeCompare(b, 'en', { numeric:true, sensitivity:'base' }); };
+
+  var GROUPS = [];
+  var VOLS = [];   // [{series, vol, sKey, vKey, books:[{book, files}]}]
+
+  function build(){
+    var byVol = {};
+    GROUPS.forEach(function(g){
+      var c = classify(g.book);
+      var key = c.vol || '__other';
+      if (!byVol[key]) byVol[key] = { series:c.series, vol:c.vol, sKey:c.sKey, vKey:c.vKey, books:[] };
+      byVol[key].books.push(g);
+    });
+    VOLS = Object.keys(byVol).map(function(k){ return byVol[k]; });
+    VOLS.forEach(function(v){ v.books.sort(function(a, b){ return cmp(a.book, b.book); }); });
+    VOLS.sort(function(a, b){ return (a.sKey - b.sKey) || (a.vKey - b.vKey) || cmp(a.vol || '', b.vol || ''); });
+  }
+
+  function render(){
+    var q = ($('q').value || '').trim().toLowerCase();
+    var html = '', lastSeries = '__none', shownVols = 0;
+    VOLS.forEach(function(v){
+      var books = q ? v.books.filter(function(g){ return g.book.toLowerCase().indexOf(q) >= 0; }) : v.books;
+      if (!books.length) return;
+      shownVols++;
+      var series = v.series || t('other');
+      if (series !== lastSeries) { html += '<div class="series">📚 ' + esc(series) + '</div>'; lastSeries = series; }
+      var pages = books.reduce(function(a, g){ return a + (Number(g.files) || 0); }, 0);
+      html += '<details class="vol"' + (q ? ' open' : '') + '><summary><span class="arr">›</span>' + esc(v.vol || t('other')) +
+              '<span class="cnt">' + books.length + ' ' + t('items') + ' · ' + pages + ' ' + t('pages') + '</span></summary><div class="list">' +
+              books.map(function(g){
+                return '<a href="/textbook-viewer.html?book=' + encodeURIComponent(g.book) + '" target="_blank" rel="noopener">' +
+                       esc(g.book) + '<span class="pg">' + (Number(g.files) || 0) + ' ' + t('pages') + '</span></a>';
+              }).join('') + '</div></details>';
+    });
+    $('out').innerHTML = html || '<div class="empty">' + esc(t('none')) + '</div>';
+    return shownVols;
+  }
+
+  function applyLang(){
+    document.documentElement.lang = LANG;
+    document.title = t('title') + ' — ' + (LANG === 'en' ? 'Mangoi' : '망고아이');
+    $('t-title').textContent = t('title');
+    $('t-lead').textContent = t('lead');
+    $('q').placeholder = t('ph');
+    $('btn-lang').textContent = t('lang');
+    $('btn-home').textContent = t('home');
+    $('btn-all').textContent = allOpen ? t('fold') : t('all');
+    if (GROUPS.length) { render(); updStat(); }
+    else if ($('t-loading')) $('t-loading').textContent = t('loading');
+  }
+  function updStat(){
+    var f = GROUPS.reduce(function(a, g){ return a + (Number(g.files) || 0); }, 0);
+    $('stat').textContent = T[LANG].stat(GROUPS.length, f);
+  }
+
+  var allOpen = false;
+  $('btn-all').onclick = function(){
+    allOpen = !allOpen;
+    Array.prototype.forEach.call(document.querySelectorAll('details.vol'), function(d){ d.open = allOpen; });
+    this.textContent = allOpen ? t('fold') : t('all');
+  };
+  $('btn-lang').onclick = function(){
+    LANG = LANG === 'en' ? 'ko' : 'en';
+    try { localStorage.setItem('mangoi_lang', LANG); } catch(_){}
+    applyLang();
+  };
+  $('q').addEventListener('input', render);
+
+  applyLang();
+  fetch('/api/textbook-files?group=1', { credentials:'same-origin' })
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(j){
+      if (!j || j.ok !== true || !Array.isArray(j.groups)) throw new Error('bad response');
+      GROUPS = j.groups.filter(function(g){ return g && g.book && g.book !== '(기타)'; });
+      build(); render(); updStat();
+    })
+    .catch(function(e){
+      $('out').innerHTML = '<div class="msg">' + esc(t('fail')) + ' <small>(' + esc(e && e.message || e) + ')</small></div>';
+    });
+})();
+</script>
+</body>
+</html>

@@ -3263,7 +3263,7 @@ export async function handleAdminApi(
       let rows: any = { results: [] };
       try {
         rows = await env.DB.prepare(
-          `SELECT cs.*, t.name AS t_name, se.level AS se_level, se.textbook AS se_textbook, se.shop_name AS se_shop
+          `SELECT cs.*, t.name AS t_name, se.level AS se_level, se.textbook AS se_textbook, se.shop_name AS se_shop, se.korean_name AS se_name
              FROM class_schedules cs
              LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
              LEFT JOIN students_erp se ON se.user_id = cs.user_id
@@ -3373,7 +3373,8 @@ export async function handleAdminApi(
           observable: true,
           room_id: `class-${s.id}-${ymd}`,
           student_uid: s.user_id || null,
-          student_name: s.student_name || null,
+          // 🏷 (2026-09-28) 이름 칸이 빈 행(학생 상세 화면 등록분)은 명부 이름으로 보충 — 주간 스케줄과 같은 규칙
+          student_name: s.student_name || s.se_name || null,
           /* 🏫☎️ (2026-09-07 매니저 요청) 학원(Academy)·연락처 — 수업에 안 들어오는 학생을
              그 자리에서 찾기 위해. 학원은 students_erp.shop_name(실측 29,079/29,484 = 98.6%),
              연락처는 위 phoneMap. 모르면 null — 화면이 «—» 와 이유를 그린다. */
@@ -6020,6 +6021,26 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         return json({ ok: true, week: weekStartISO, count: 0, items: [], schedules: [], _err: String(e?.message || e) });
       }
 
+      /* 🏷 (2026-09-28) 이름 칸이 빈 수업은 명부(students_erp)에서 이름을 찾아 붙인다 — DB 는 안 고친다.
+         [왜] 학생 상세 화면에서 등록한 수업이 student_name=NULL 로 저장돼(STUDENT_NAME 미정의)
+              이 캘린더에 «20m» 만 있는 빈 카드로 보였다. 명부에도 이름이 없으면 아이디를 쓴다
+              (관리자 전용 화면 — 빈 카드는 «누구 수업인지 모르는 칸» 으로 읽힌다).
+         ⚠️ JOIN 으로 풀지 말 것 — 위 WHERE 의 status 가 students_erp 에도 있어 ambiguous 로
+            조회가 통째로 죽는다(CLAUDE.md 2장). 별도 조회라 실패해도 캘린더는 그대로 뜬다. */
+      const nameByUid = new Map<string, string>();
+      try {
+        const nr: any = await env.DB.prepare(
+          `SELECT user_id, korean_name FROM students_erp
+            WHERE user_id IN (SELECT user_id FROM class_schedules
+                               WHERE (status IS NULL OR status='active')
+                                 AND (student_name IS NULL OR TRIM(student_name)=''))`
+        ).all();
+        for (const x of (nr.results || [])) {
+          const nm = String(x.korean_name || '').trim();
+          if (x.user_id && nm) nameByUid.set(String(x.user_id), nm);
+        }
+      } catch { /* 이름 보충 실패가 캘린더 전체를 막지 않게 */ }
+
       /* 🗓️ (2026-08-24) 「코스 기간」이 시작일=종료일(그 날 하루)로 뜨는 문제.
          [왜] enroll-activate.ts 가 수강신청을 확정하면 6개월치 화·목 수업을
               **회당 한 행**(schedule_kind='dated', scheduled_date=그날짜)으로 심는다
@@ -6053,7 +6074,10 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         if (r.teacher_id == null || r.teacher_id === '') continue;
         const tnum = Number(r.teacher_id);
         const teacher_id = Number.isFinite(tnum) ? tnum : r.teacher_id;
-        const students = r.student_name ? [{ name: r.student_name, uid: r.user_id || '' }] : [];
+        const _uidRaw = String(r.user_id || '').trim();
+        const _isPh = ['lms', 'type_seed'].includes(_uidRaw.toLowerCase());
+        const _nm = String(r.student_name || '').trim() || (_isPh ? '' : (nameByUid.get(_uidRaw) || _uidRaw));
+        const students = _nm ? [{ name: _nm, uid: _uidRaw }] : [];
         /* 🏷 (2026-08-11) 「이 칸이 진짜 망고아이 수업이냐」 를 캘린더가 알 수 있게 내려준다.
            실측(2026-08-11) 활성 667행 중 진짜 수업은 9행뿐이고, 나머지는 학생이 안 붙은 자리표시다:
              · user_id='lms'       518행 (source=lms_import_w26, notes='LMS 수업중')
@@ -6914,7 +6938,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         json({ ok: false, error, message: ko, message_en: en, ...extra }, code);
 
       // ── 학생 신원 (uid 우선, 없으면 이름으로 조회) ──
-      const studentName = String(body.student_name || '').trim();
+      let studentName = String(body.student_name || '').trim();
       let userId = String(body.user_id || '').trim();
       if (!userId && studentName) {
         try {
@@ -6932,6 +6956,18 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         } catch {}
       }
       if (!userId) return bad('student_not_found', '학생을 찾지 못했습니다. 이름을 확인하거나 user_id 를 함께 보내주세요.', 'Student not found. Check the name or send user_id as well.');
+      /* 🏷 (2026-09-28) 아이디만 오고 이름이 비었으면 명부에서 이름을 채운다.
+         [왜] 학생 상세 화면(admin/student.html)이 읽던 STUDENT_NAME 변수가 어디에도 정의돼 있지
+              않아 그 화면에서 등록한 수업은 전부 student_name=NULL 로 저장됐고, 이름 칸만 보는
+              주간 전체 스케줄에 «20m» 만 남는 빈 카드가 됐다(정예희 yahee · Zee·Krystel 실제로 밟음).
+         ✅ user_id **정확일치** 한 행에서만 읽는다(이름 짐작 없음). 못 읽으면 예전처럼 NULL. */
+      if (!studentName) {
+        try {
+          const nr = await env.DB.prepare(`SELECT korean_name FROM students_erp WHERE user_id = ? LIMIT 1`)
+            .bind(userId).first<any>();
+          if (nr && String(nr.korean_name || '').trim()) studentName = String(nr.korean_name).trim();
+        } catch {}
+      }
 
       // ── 강사 매칭 (teachers 테이블 기준. '선생님/쌤' 접미사 제거 후 부분일치) ──
       //   ⚠️ teacher_profiles 에만 있고 teachers 에 없는 강사는 여기서 안 잡힌다 →
