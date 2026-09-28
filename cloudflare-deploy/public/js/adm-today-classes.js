@@ -530,11 +530,19 @@
      · 값이 빈 줄은 PICK_NONE(«(학원 미지정)»·«(강사 미배정)») 으로 모은다 — 목록에서 조용히 사라지면 안 된다.
      · 공백만 다른 이름(«BNJ  어학원» 대 «BNJ 어학원»)은 한 항목으로 본다. 대소문자는 가리지 않는다(다른 학원일 수 있다). */
   var PICK_NONE = '__none__';
-  function pickKey(v) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim() || PICK_NONE; }
-  function pickMatch(s, field, sel) { return !sel || pickKey(s[field]) === sel; }
+  function pickKey(v, field) {
+    var k = String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+    /* 강사는 «Teacher Zee»(카페24)와 «ZEE»(원부)가 같은 사람 — 접두사를 떼고 대소문자를 맞춰 한 항목으로 (2026-09-28) */
+    if (field === 'teacher_name' && k) {
+      var core = k.replace(/^(?:(?:teacher|교사|선생님)(?![a-z])\s*[-:.·]?\s*)+/i, '').trim();
+      if (core) k = 'Teacher ' + core.toLowerCase().replace(/(^|[\s-])(\S)/g, function (_, a, c) { return a + c.toUpperCase(); });
+    }
+    return k || PICK_NONE;
+  }
+  function pickMatch(s, field, sel) { return !sel || pickKey(s[field], field) === sel; }
   function pickOptions(rows, field) {
     var m = {};
-    rows.forEach(function (s) { var k = pickKey(s[field]); m[k] = (m[k] || 0) + 1; });
+    rows.forEach(function (s) { var k = pickKey(s[field], field); m[k] = (m[k] || 0) + 1; });
     return Object.keys(m).sort(function (a, b) {
       if (a === PICK_NONE) return 1;
       if (b === PICK_NONE) return -1;
@@ -674,7 +682,7 @@
   function academySummary(rows, acSel) {
     var c24 = rows.filter(function (s) { return s.source === 'cafe24'; }).length;
     var tset = {};
-    rows.forEach(function (s) { tset[pickKey(s.teacher_name)] = 1; });
+    rows.forEach(function (s) { tset[pickKey(s.teacher_name, 'teacher_name')] = 1; });
     var nt = Object.keys(tset).filter(function (k) { return k !== PICK_NONE; }).length;
     var name = acSel === PICK_NONE ? T('(학원 미지정)', '(no academy)') : acSel;
     return '<div class="tc-ac-sum" style="padding:7px 10px;margin:2px 0 8px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:6px;color:#1e3a8a;font-size:12px;line-height:1.6">'

@@ -184,8 +184,30 @@ for (const [label, w, api, head, base] of [
   };
   ok(`[${label}] 아무것도 안 고르면 전부 보인다`, runF('', '') === FIX.length, runF('', ''));
   ok(`[${label}] 학원을 고르면 그 학원 줄만`, runF('BNJ어학원', '') === 2, runF('BNJ어학원', ''));
-  ok(`[${label}] 강사를 고르면 그 강사 줄만`, runF('', 'Kaye') === 2, runF('', 'Kaye'));
-  ok(`[${label}] 둘 다 고르면 교집합`, runF('BNJ 어학원', 'Kaye') === 1, runF('BNJ 어학원', 'Kaye'));
+  ok(`[${label}] 강사를 고르면 그 강사 줄만`, runF('', 'Teacher Kaye') === 2, runF('', 'Teacher Kaye'));
+  ok(`[${label}] 둘 다 고르면 교집합`, runF('BNJ 어학원', 'Teacher Kaye') === 1, runF('BNJ 어학원', 'Teacher Kaye'));
+}
+
+console.log('\n── ⑤ 강사 이름 «Teacher Zee» 와 «ZEE» 는 한 사람 (2026-09-28 사장님 제보) ──');
+const TFIX = [
+  { academy: 'A', teacher_name: 'Teacher Zee' }, { academy: 'A', teacher_name: 'ZEE' },
+  { academy: 'A', teacher_name: 'WIN' }, { academy: 'B', teacher_name: 'Teacher Win' },
+  { academy: 'B', teacher_name: '교사 Teacher - Farrah' }, { academy: 'B', teacher_name: 'Teacher Farrah' },
+  { academy: 'B', teacher_name: 'FAR' },           // 다른 이름(FAR ≠ FARRAH) — 합치지 않는다
+  { academy: 'B', teacher_name: '' },
+];
+for (const [label, r] of [['admin', ra], ['manager', rm]]) {
+  const api = r && r.api; if (!api) { ok(`[${label}] 실행된다 (전제)`, false); continue; }
+  const opts = api.pickOptions(TFIX, 'teacher_name'), by = Object.fromEntries(opts.map(o => [o.value, o.n]));
+  console.log(`     [${label}] 강사 목록: ` + opts.map(o => o.value + '(' + o.n + ')').join(' · '));
+  ok(`[${label}] «Teacher Zee»·«ZEE» 가 한 항목(2건)`, by['Teacher Zee'] === 2 && !('ZEE' in by));
+  ok(`[${label}] «WIN»·«Teacher Win» 가 한 항목(2건)`, by['Teacher Win'] === 2 && !('WIN' in by));
+  ok(`[${label}] «교사 Teacher - Farrah» 도 접두사를 떼고 합친다`, by['Teacher Farrah'] === 2);
+  ok(`[${label}]   짝: 이름이 다르면 합치지 않는다(FAR ≠ FARRAH)`, by['Teacher Far'] === 1);
+  ok(`[${label}]   짝: 미배정은 그대로 «미지정» 한 항목`, by[api.NONE] === 1);
+  ok(`[${label}] 건수 합 = 줄 수`, opts.reduce((a, o) => a + o.n, 0) === TFIX.length);
+  ok(`[${label}] 고르면 두 표기 줄을 모두 잡는다`, TFIX.filter(x => api.pickMatch(x, 'teacher_name', 'Teacher Zee')).length === 2);
+  ok(`[${label}]   짝: 학원은 대소문자를 여전히 가린다`, api.pickKey('bnj', 'academy') !== api.pickKey('BNJ', 'academy'));
 }
 
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);
