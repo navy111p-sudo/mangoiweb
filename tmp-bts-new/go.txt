@@ -1,2 +1,2 @@
-swap
-# 2026-09-29 04시 KST 단원 노래 146장 실제 교체 (swapdry: would-swap 146, 이상 0)
+swapdry
+# 2026-09-29 교체 뒤 확인 — 전부 same 이어야 정상
