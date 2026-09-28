@@ -130,7 +130,7 @@ async function main() {
     acO === '=전체|BNJ 어학원=BNJ 어학원 (1)|BNJ어학원=BNJ어학원 (2)|CAG영수학원=CAG영수학원 (2)|__none__=(학원 미지정) (1)', acO);
   const teO = await opts('tc-teacher');
   check('강사 목록 = 그날 강사(건수) + «(강사 미배정)» 맨 끝',
-    teO === '=전체|FAR=FAR (2)|HANNAH=HANNAH (2)|Kaye=Kaye (1)|__none__=(강사 미배정) (1)', teO);
+    teO === '=전체|Teacher Far=Teacher Far (2)|Teacher Hannah=Teacher Hannah (2)|Teacher Kaye=Teacher Kaye (1)|__none__=(강사 미배정) (1)', teO);
   check('처음에는 6건 다 보인다', (await names()).split(',').length === 6, await names());
 
   console.log('\n── A② 관리자: 고르면 그 학원만 · 강사 목록이 따라 좁혀지는가 ──');
@@ -138,10 +138,10 @@ async function main() {
   await pick('tc-academy', 'BNJ어학원'); await sleep(150);
   check('BNJ어학원 → 가학생·나학생 2건', (await names()) === '가학생,나학생', await names());
   check('   강사 목록이 그 학원 강사(FAR·HANNAH)로 좁혀진다',
-    (await opts('tc-teacher')) === '=전체|FAR=FAR (1)|HANNAH=HANNAH (1)', await opts('tc-teacher'));
+    (await opts('tc-teacher')) === '=전체|Teacher Far=Teacher Far (1)|Teacher Hannah=Teacher Hannah (1)', await opts('tc-teacher'));
   const sum = await ev('(document.querySelector("#tc-body .tc-ac-sum")||{}).textContent||""');
   check('   「그 학원 오늘 한눈에」 요약 줄을 그린다(건수·강사 수)', /BNJ어학원/.test(sum) && /2건/.test(sum) && /강사 2명/.test(sum), sum);
-  await pick('tc-teacher', 'HANNAH'); await sleep(150);
+  await pick('tc-teacher', 'Teacher Hannah'); await sleep(150);
   check('학원 + 강사 → 나학생 1건', (await names()) === '나학생', await names());
   check('   학원 목록도 그 강사 학원(BNJ·CAG)으로 좁혀지고 고른 값이 남는다',
     (await opts('tc-academy')) === '=전체|BNJ어학원=BNJ어학원 (1)|CAG영수학원=CAG영수학원 (1)'
@@ -226,11 +226,11 @@ async function main() {
   const head = await ev('document.getElementById("todayAllBody").textContent');
   check('   머리줄이 «전체 6건 중 2건 · 강사 2명» 을 말한다', /전체 6건 중 2건/.test(head) && /강사 2명/.test(head), head.slice(0, 160));
   check('   서버 합계(카페24 1건)를 그대로 쓰지 않는다 — 눈앞 2건에는 카페24가 없다', !/카페24 1건/.test(head), head.slice(0, 200));
-  check('   강사 목록이 따라 좁혀진다', (await opts('taTeacher')).split('|').map(x => x.split('=')[0]).join('|') === '|FAR|HANNAH', await opts('taTeacher'));
-  await pick('taTeacher', 'Kaye'); await sleep(150);
+  check('   강사 목록이 따라 좁혀진다', (await opts('taTeacher')).split('|').map(x => x.split('=')[0]).join('|') === '|Teacher Far|Teacher Hannah', await opts('taTeacher'));
+  await pick('taTeacher', 'Teacher Kaye'); await sleep(150);
   check('그 학원에 없는 강사를 고를 수 없다(목록에 없다 → 값이 남지 않는다)',
     (await ev('document.getElementById("taTeacher").value')) === '', await ev('document.getElementById("taTeacher").value'));
-  await pick('taAcademy', 'CAG영수학원'); await pick('taTeacher', 'HANNAH'); await sleep(150);
+  await pick('taAcademy', 'CAG영수학원'); await pick('taTeacher', 'Teacher Hannah'); await sleep(150);
   check('CAG + HANNAH → 라학생', (await mnames()) === '라학생', await mnames());
   await pick('taTeacher', ''); await pick('taAcademy', ''); await sleep(150);
   check('전체로 되돌리면 6건', (await mnames()).split(',').length === 6, await mnames());

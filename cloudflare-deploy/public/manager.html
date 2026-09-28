@@ -1913,11 +1913,19 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 
   /* 🏫 (2026-09-23) 학원·강사 고르기 — admin.html(js/adm-today-classes.js)과 **같은 판정**. 한쪽만 고치지 말 것. */
   var PICK_NONE = '__none__';
-  function pickKey(v) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim() || PICK_NONE; }
-  function pickMatch(s, field, sel) { return !sel || pickKey(s[field]) === sel; }
+  function pickKey(v, field) {
+    var k = String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+    /* 강사는 «Teacher Zee»(카페24)와 «ZEE»(원부)가 같은 사람 — 접두사를 떼고 대소문자를 맞춰 한 항목으로 (2026-09-28) */
+    if (field === 'teacher_name' && k) {
+      var core = k.replace(/^(?:(?:teacher|교사|선생님)(?![a-z])\s*[-:.·]?\s*)+/i, '').trim();
+      if (core) k = 'Teacher ' + core.toLowerCase().replace(/(^|[\s-])(\S)/g, function (_, a, c) { return a + c.toUpperCase(); });
+    }
+    return k || PICK_NONE;
+  }
+  function pickMatch(s, field, sel) { return !sel || pickKey(s[field], field) === sel; }
   function pickOptions(rows, field) {
     var m = {};
-    rows.forEach(function (s) { var k = pickKey(s[field]); m[k] = (m[k] || 0) + 1; });
+    rows.forEach(function (s) { var k = pickKey(s[field], field); m[k] = (m[k] || 0) + 1; });
     return Object.keys(m).sort(function (a, b) {
       if (a === PICK_NONE) return 1;
       if (b === PICK_NONE) return -1;
@@ -1979,7 +1987,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
             joinable: rows.filter(function (r) { return r.join_open; }).length };
     }
     var nTeach = {};
-    rows.forEach(function (r) { var k = pickKey(r.teacher_name); if (k !== PICK_NONE) nTeach[k] = 1; });
+    rows.forEach(function (r) { var k = pickKey(r.teacher_name, 'teacher_name'); if (k !== PICK_NONE) nTeach[k] = 1; });
     var pickLine = picking
       ? '<b>🏫 ' + esc(acSel ? (acSel === PICK_NONE ? noAc : acSel) : T('All academies', '전체 학원'))
         + (teSel ? ' · ' + esc(teSel === PICK_NONE ? noTe : teSel) : '') + '</b> · '
