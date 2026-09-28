@@ -222,10 +222,15 @@ ok('classes/today 는 평가를 연락처와 같은 판정(본사·내부직원�
    && /const _ctSeeContact = _ctScope\.type === 'hq' \|\| _ctScope\.type === 'none';/.test(api));
 ok('그 호출은 조건 없이 try 로 감싸여 있다(목록이 통째로 안 사라짐)', /\n[ \t]*try \{ await enrichClassesToday\(/.test(api));
 const adm = readFileSync(join(PUB, 'js', 'adm-today-classes.js'), 'utf8');
-const th = (adm.match(/'<th>'/g) || []).length;
+// 머리칸은 '<th>' 글자 또는 tcTh(...) 호출(2026-09-28 정렬 머리글) — 둘 다 «thead 안» 에서 센다.
+const thead = adm.slice(adm.indexOf("'<thead><tr>'"), adm.indexOf("'</tr></thead>"));
+const th = (thead.match(/'<th>'/g) || []).length + (thead.match(/\btcTh\(/g) || []).length;
 const tb = adm.slice(adm.indexOf("return '<tr>'"), adm.indexOf("'</tr>';", adm.indexOf("return '<tr>'")));
 const td = (tb.match(/'<td[ >]/g) || []).length;
 ok('관리자 표: th 수 = 한 줄의 td 수', th === td && th >= 15, { th, td });
+// ↕ (2026-09-28) 머리글 정렬 — 거른 «뒤» 의 줄을 정렬해 그리는가 · 날짜는 start_ts 숫자로 비교하는가
+ok('관리자 표: 그리는 줄이 tcSorted(rows) 를 지난다', /\+ tcSorted\(rows\)\.map\(/.test(adm));
+ok('관리자 표: 날짜 정렬은 글자가 아니라 start_ts', /case 'date': return isFinite\(ts\)/.test(adm));
 for (const k of ['s.class_date', 'xPay(s.pay_type)', 'xSched(s)', 'xTeacherEntry(s.teacher_entry)', 'xAttendance(s.attendance)', 'xEval(s.last_eval', 'xEval(s.today_eval']) {
   ok('관리자 표가 ' + k + ' 를 그린다', tb.includes(k));
 }
