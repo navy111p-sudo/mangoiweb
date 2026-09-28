@@ -1169,7 +1169,7 @@ function renderFlashQ(w){
   el.innerHTML = hudHtml() + `
     <div class="flash" id="card">
       <div class="flash-front">${esc(w.word)}</div>
-      <div class="flash-back">🇰🇷 ${esc(w.korean||'-')}</div>
+      <div class="flash-back">🇰🇷 ${esc(w.korean||(w.meaning_pending?'뜻을 확인하고 있어요. 잠시 후 다시 열어 주세요.':'-'))}</div>
       <div class="flash-example">💬 ${esc(w.example||'')}</div>
     </div>
     <div class="tool-row">
@@ -1512,7 +1512,7 @@ async function loadCollection(){
         return `<div class="dexc ${rr.cls}">
           <span class="rar">${rr.tag}</span>
           <div class="w">${esc(w.word)}</div>
-          <div class="k">${esc(w.korean||'-')}</div>
+          <div class="k">${esc(w.korean||(w.meaning_pending?'뜻 확인 중':'-'))}</div>
           <div class="stars">${rr.stars.repeat(Math.max(1, Math.ceil((lv+1)/2)))} <span style="color:#8b9bbd;font-size:11px">Lv${lv}</span></div>
           <div class="dx-tools">
             <button data-word="${esc(w.word)}" onclick="speakWord(this.dataset.word)">🔊</button>

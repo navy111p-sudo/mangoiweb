@@ -1,3 +1,4 @@
+import { readableKoreanVocabulary, hasForeignGloss } from './korean-vocab';
 /**
  * index.ts - Main Worker entry point
  * Handles routing, API endpoints, and WebSocket upgrades
@@ -3421,7 +3422,7 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
       const key = s.toLowerCase();
       if (seenEn.has(key)) return;
       seenEn.add(key);
-      sentences.push({ en: s, ko });
+      sentences.push({ en: s, ko: hasForeignGloss(ko) ? '' : ko });
     };
     const koFromPrompt = (q: any): string => {
       // "다음 뜻의 영어 문장을 쓰세요: 나는 망고를 좋아해요." → 콜론 뒤 한국어만 채택
@@ -3466,7 +3467,7 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
       if (userId) {
         const rs = await env.DB.prepare(`SELECT word, korean FROM vocabulary WHERE user_id = ? ORDER BY id DESC LIMIT 30`).bind(userId).all();
         const seenW = new Set<string>();
-        for (const row of (((rs.results as any[]) || []))) {
+        for (const row of await readableKoreanVocabulary(((rs.results as any[]) || []), env.AI)) {
           const en = String((row as any).word || '').trim();
           const ko = String((row as any).korean || '').trim();
           // 단어장에 병음·한자를 적어 둔 학생이 있어도 «영어» 게임에는 내보내지 않는다

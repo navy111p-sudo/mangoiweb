@@ -9,6 +9,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
+import { KOREAN_GLOSS_RULE, hasForeignGloss, normalizeKoreanGloss, isKoreanGloss, repairKoreanGlosses, readableKoreanVocabulary } from './korean-vocab';
 import { applyPointTransaction } from './api-points';   // 🧾 포인트는 원장(point_transactions)을 거친다
 import { dailyAllowance } from './point-policy';        // 🧢 하루 총량 상한(100점)을 이 경로도 지난다
 import { authUidFromRequest as authUidGlobal } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)
@@ -37,7 +38,7 @@ import { BAND_SPECS, bandFromTextbookLevel } from './judgment-level';       // �
 //   checkAndAwardBadges 는 api-mango(영작 첨삭)도 import 해서 사용한다.
 // ═══════════════════════════════════════════════════════════════════════
 /**
- * 🔤 학생에게 글자를 보여줘도 되는지 — 인코딩이 깨진 문자열을 걸러냅니다.
+ * 🔤 한국어 퀴즈 뜻 검사 — 깨진 글자와 한자·가나 혼입을 걸러냅니다.
  *   U+FFFD(replacement character)는 "여기 바이트를 못 읽었다"는 표시라, 한 글자라도 있으면
  *   그 문자열은 이미 원본을 잃은 것입니다(되살릴 수 없음). 화면에 내보내지 않습니다.
  *
@@ -52,7 +53,7 @@ export function isCleanText(s: any): boolean {
   if (s == null) return false;
   const t = String(s).trim();
   if (!t) return false;
-  return t.indexOf(String.fromCharCode(0xFFFD)) === -1;
+  return t.indexOf(String.fromCharCode(0xFFFD)) === -1 && isKoreanGloss(t);
 }
 
 // ── 🔥 연속 출석(Streak) 그래프 DFS — 출결의 단일 권위(source of truth) ──────
@@ -355,6 +356,26 @@ export async function handleGamesApi(
       return { allow: false as const, error: 'auth_required', message: '로그인 후 본인 단어장만 조회할 수 있습니다.' };
     };
 
+    // Owner-gated legacy repair. Preserve original values and concurrent teacher edits.
+    const readableVocab = async (rows: any[], uid: string) => {
+      const clean = await readableKoreanVocabulary(rows, env.AI);
+      const changed = clean.map((row, i) => ({ row, before: rows[i].korean }))
+        .filter(({ row, before }) => row.id && isKoreanGloss(row.korean) && row.korean !== before);
+      if (changed.length) {
+        try {
+          await env.DB.prepare(`CREATE TABLE IF NOT EXISTS vocab_korean_repair_backup (vocab_id INTEGER NOT NULL, user_id TEXT NOT NULL, original_korean TEXT NOT NULL, repaired_korean TEXT NOT NULL, repaired_at INTEGER NOT NULL, UNIQUE(vocab_id, original_korean))`).run();
+          for (let offset = 0; offset < changed.length; offset += 20) {
+            const statements = changed.slice(offset, offset + 20).flatMap(({ row, before }) => [
+              env.DB.prepare(`INSERT OR IGNORE INTO vocab_korean_repair_backup (vocab_id,user_id,original_korean,repaired_korean,repaired_at) SELECT id,user_id,korean,?,? FROM vocabulary WHERE id=? AND user_id=? AND korean=?`).bind(row.korean, Date.now(), row.id, uid, before),
+              env.DB.prepare(`UPDATE vocabulary SET korean=? WHERE id=? AND user_id=? AND korean=?`).bind(row.korean, row.id, uid, before),
+            ]);
+            await env.DB.batch(statements);
+          }
+        } catch (error) { console.error('[vocab] Korean meaning repair persistence failed'); }
+      }
+      return clean;
+    };
+
     // ── POST /api/vocab/add — 단어 추가 (AI 가 자동으로 한국어/예문 생성) ──
     if (method === 'POST' && path === '/api/vocab/add') {
       await ensureVocab();
@@ -369,7 +390,7 @@ export async function handleGamesApi(
         try {
           const resp: any = await (env as any).AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
             messages: [
-              { role: 'system', content: 'You output Korean meaning and short English example. JSON only.' },
+              { role: 'system', content: 'You output Korean meaning and short English example. JSON only. ' + KOREAN_GLOSS_RULE },
               { role: 'user', content: `Word: "${word}"\n\nReturn JSON: { "korean": "<한국어 뜻 한줄>", "example": "<짧은 영어 예문 1개>" }` }
             ],
             max_tokens: 200,
@@ -383,6 +404,8 @@ export async function handleGamesApi(
           if (m) { const j = JSON.parse(m[0]); korean = korean || j.korean || ''; example = example || j.example || ''; }
         } catch {}
       }
+      korean = (await repairKoreanGlosses([{ word, korean, example }], env.AI))[0].korean;
+      if (hasForeignGloss(korean)) return json({ ok: false, error: 'invalid_korean_meaning', message: '뜻을 한글로 바꾼 뒤 다시 저장해주세요.' }, 422);
       const now = Date.now();
       await env.DB.prepare(`INSERT INTO vocabulary (user_id, word, korean, example, level, next_review_at, created_at) VALUES (?,?,?,?,?,?,?)`)
         .bind(userId, word, korean, example, 0, now, now).run();
@@ -403,7 +426,7 @@ export async function handleGamesApi(
         try {
           const resp: any = await (env as any).AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
             messages: [
-              { role: 'system', content: 'You extract an English vocabulary list from messy text. Output ONLY a JSON array, no prose.' },
+              { role: 'system', content: 'You extract an English vocabulary list from messy text. Output ONLY a JSON array, no prose. ' + KOREAN_GLOSS_RULE },
               { role: 'user', content: `Extract English vocabulary words (and their Korean meaning if present) from the text below.\nRules: word = single English word or short phrase (max 4 words). korean = Korean meaning if given in the text, else "".\nSkip sentences, headers, page numbers. Max 150 entries.\nReturn JSON array: [{"word":"...","korean":"..."}]\n\nTEXT:\n${text}` }
             ],
             max_tokens: 3000,
@@ -418,7 +441,9 @@ export async function handleGamesApi(
             word: String(x?.word || '').trim().slice(0, 60),
             korean: String(x?.korean || '').trim().slice(0, 80),
           })).filter((x: any) => /[A-Za-z]/.test(x.word) && x.word.length >= 2).slice(0, 200);
-          return json({ ok: true, items });
+          const repaired = await repairKoreanGlosses(items, env.AI);
+          if (repaired.some(it => hasForeignGloss(it.korean))) return json({ ok: false, error: 'invalid_korean_meaning', message: '일부 뜻을 한글로 바꾸지 못했어요. 원본 뜻을 확인해주세요.' }, 422);
+          return json({ ok: true, items: repaired });
         } catch (e: any) {
           return json({ ok: false, error: 'ai_extract_failed' }, 500);
         }
@@ -494,7 +519,7 @@ export async function handleGamesApi(
           try {
             const resp: any = await (env as any).AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
               messages: [
-                { role: 'system', content: 'You output Korean meanings and short English examples for vocabulary words. JSON array only, no prose.' },
+                { role: 'system', content: 'You output Korean meanings and short English examples for vocabulary words. JSON array only, no prose. ' + KOREAN_GLOSS_RULE },
                 { role: 'user', content: `For each word, give its Korean meaning (one short line) and one short simple English example sentence.\nWords: ${chunk.map(c => c.word).join(', ')}\nReturn JSON array in the same order: [{"word":"...","korean":"...","example":"..."}]` }
               ],
               max_tokens: 2500,
@@ -516,6 +541,9 @@ export async function handleGamesApi(
           } catch {}
         }
       }
+      const repaired = await repairKoreanGlosses(fresh, env.AI);
+      if (repaired.some(it => hasForeignGloss(it.korean))) return json({ ok: false, error: 'invalid_korean_meaning', message: '일부 뜻을 한글로 바꾸지 못했어요. 확인 후 다시 저장해주세요.' }, 422);
+      repaired.forEach((it, i) => { fresh[i].korean = it.korean; });
       const now = Date.now();
       if (fresh.length) {
         const stmt = env.DB.prepare(`INSERT INTO vocabulary (user_id, word, korean, example, level, next_review_at, created_at) VALUES (?,?,?,?,?,?,?)`);
@@ -532,7 +560,7 @@ export async function handleGamesApi(
       const gate = await gateVocabOwner(uid);
       if (!gate.allow) return json({ ok: false, error: gate.error, message: gate.message }, 401);
       const rs = await env.DB.prepare(`SELECT id, word, korean, example, level, next_review_at, correct_count, wrong_count, created_at FROM vocabulary WHERE user_id = ? ORDER BY created_at DESC LIMIT 500`).bind(uid).all();
-      return json({ ok: true, count: rs.results?.length || 0, words: rs.results || [], trial: gate.trial });
+      return json({ ok: true, count: rs.results?.length || 0, words: await readableVocab((rs.results || []) as any[], uid), trial: gate.trial });
     }
 
     // ── GET /api/vocab/due?uid=X — 오늘 복습할 단어 (게스트=하루10분·총3일 체험) ──
@@ -544,7 +572,7 @@ export async function handleGamesApi(
       if (!gate.allow) return json({ ok: false, error: gate.error, message: gate.message }, 401);
       const now = Date.now();
       const rs = await env.DB.prepare(`SELECT id, word, korean, example, level FROM vocabulary WHERE user_id = ? AND next_review_at <= ? ORDER BY next_review_at ASC LIMIT 20`).bind(uid, now).all();
-      return json({ ok: true, due_count: rs.results?.length || 0, words: rs.results || [], trial: gate.trial });
+      return json({ ok: true, due_count: rs.results?.length || 0, words: await readableVocab((rs.results || []) as any[], uid), trial: gate.trial });
     }
 
     // ── POST /api/vocab/review — 단어 복습 결과 (correct/wrong → 다음 복습 일정 자동 조정) ──
@@ -796,7 +824,7 @@ export async function handleGamesApi(
 
       let korean = '', example = '', synonyms: any[] = [];
       if (env.AI) {
-        const prompt = `For English word "${word}", provide JSON only:
+        const prompt = `For English word "${word}", provide JSON only. ${KOREAN_GLOSS_RULE}
 {"korean":"<Korean meaning>","example":"<short English example sentence>","synonyms":[{"word":"<syn1>","meaning_ko":"<Korean>","example":"<sentence>"},{"word":"<syn2>","meaning_ko":"<Korean>","example":"<sentence>"},{"word":"<syn3>","meaning_ko":"<Korean>","example":"<sentence>"}]}`;
         try {
           const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast','@cf/meta/llama-3.1-8b-instruct','@cf/meta/llama-3-8b-instruct'];
@@ -820,6 +848,10 @@ export async function handleGamesApi(
           }
         } catch (e: any) { console.error('[vocab-ai] failed:', e?.message); }
       }
+      korean = (await repairKoreanGlosses([{ word, korean, example }], env.AI))[0].korean;
+      if (hasForeignGloss(korean)) return json({ ok: false, error: 'invalid_korean_meaning', message: '한국어 뜻을 만들지 못했어요. 다시 시도해주세요.' }, 422);
+      synonyms = await repairKoreanGlosses(synonyms.filter((sy: any) => sy && typeof sy === 'object').map((sy: any) => ({ ...sy, korean: sy.meaning_ko })), env.AI);
+      synonyms = synonyms.filter((sy: any) => isKoreanGloss(sy.korean)).map((sy: any) => ({ ...sy, meaning_ko: sy.korean }));
       // 기본 폴백
       if (!korean) korean = '(AI 미생성)';
       if (!example) example = `I learned the word "${word}" today.`;
@@ -856,7 +888,7 @@ export async function handleGamesApi(
       const existing = new Set((existRs.results || []).map((r: any) => String(r.word).toLowerCase()));
 
       const topicStr = topic ? ` related to "${topic}"` : '';
-      const prompt = `Generate ${count + 5} useful English vocabulary words for a Korean student at CEFR level ${level}${topicStr}. For each word provide: English word, Korean meaning, short English example sentence.
+      const prompt = `Generate ${count + 5} useful English vocabulary words for a Korean student at CEFR level ${level}${topicStr}. For each word provide: English word, Korean meaning, short English example sentence. ${KOREAN_GLOSS_RULE}
 
 Respond in strict JSON only:
 {"words":[{"word":"...","korean":"...","example":"..."},...]}
@@ -883,8 +915,10 @@ Variety: mix of nouns, verbs, adjectives.`;
       //    빈 뜻으로 저장되면 gen-quiz 의 출제 대상에서 영영 제외돼(뜻이 정답 보기라서),
       //    학생 입장에서는 "단어를 담았는데 퀴즈에 안 나오는" 상태가 된다. 그래서 저장 전에 거른다.
       //    (2026-08-03 조사: 운영 D1 에 이렇게 생긴 빈 뜻 90행 확인 — 시도 14회 중 9회)
+      words = await repairKoreanGlosses(words.filter((w: any) => w && typeof w === 'object'), env.AI);
       const aiTotal = words.length;
       words = words.filter((w: any) => String(w?.word || '').trim() && String(w?.korean || '').trim());
+      words = words.filter((w: any) => !hasForeignGloss(w.korean));
       if (aiTotal && words.length < aiTotal) {
         console.error(`[auto-gen] dropped ${aiTotal - words.length}/${aiTotal} AI words with no Korean meaning (level=${level}, topic=${topic || '-'})`);
       }
@@ -1051,8 +1085,9 @@ Variety: mix of nouns, verbs, adjectives.`;
       const distRs: any = source === 'textbook'
         ? await env.DB.prepare(`SELECT ko AS korean FROM en_vocab WHERE active=1 AND type='word' AND ko IS NOT NULL AND ko != '' AND ko NOT LIKE '%'||char(65533)||'%' ORDER BY RANDOM() LIMIT 60`).all()
         : await env.DB.prepare(`SELECT korean FROM vocabulary WHERE user_id != ? AND korean IS NOT NULL AND korean != '' AND korean NOT LIKE '%'||char(65533)||'%' AND user_id NOT LIKE '\\_\\_%' ESCAPE '\\' ORDER BY RANDOM() LIMIT 60`).bind(userId).all();
+      words = words.map(w => ({ ...w, korean: normalizeKoreanGloss(w.korean) }));
       // 마지막 방어선 — DB 필터를 빠져나온 깨진 문자열은 여기서 버립니다(어느 경로로 들어왔든).
-      const distractors = (distRs.results || []).map((x: any) => x.korean).filter((s: any) => isCleanText(s));
+      const distractors = (distRs.results || []).map((x: any) => normalizeKoreanGloss(x.korean)).filter((s: any) => isCleanText(s));
       const myDistractors = words.map(w => w.korean).filter((s: any) => isCleanText(s));
 
       const now = Date.now();
@@ -1066,6 +1101,7 @@ Variety: mix of nouns, verbs, adjectives.`;
         const uniq = [...new Set(pool)];
         for (let i = uniq.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [uniq[i],uniq[j]] = [uniq[j],uniq[i]]; }
         const wrong = uniq.slice(0, 3);
+        if (!wrong.length) continue; // Never issue a question with only the answer.
         const opts = [w.korean, ...wrong];
         for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [opts[i],opts[j]] = [opts[j],opts[i]]; }
         const correctIndex = opts.indexOf(w.korean);
@@ -3062,3 +3098,4 @@ Respond in JSON ONLY:
 
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
 }
+

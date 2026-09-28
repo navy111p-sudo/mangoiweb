@@ -1,3 +1,4 @@
+import { hasForeignGloss, KOREAN_GLOSS_RULE } from './korean-vocab';
 /**
  * api-mango.ts - v3 명세서 신규 API
  *  - 출석 자동 감지 / 발화시간(VAD) 기록
@@ -2958,12 +2959,12 @@ ${numbered}`;
         // 이미 목표 언어면 번역 불필요
         //   zh 판정은 '한글이 없고 한자가 있으면 중국어'. 한자를 섞어 쓴 한국어는 한글이 있으니 걸러진다.
         const already = (target === 'en') ? !isKo && !hasHan(t)
-                      : (target === 'ko') ? isKo
+                      : (target === 'ko') ? (isKo && !hasForeignGloss(t))
                       : (!isKo && hasHan(t));
         if (already) { map[t] = t; continue; }
         let cached: string | null = null;
         if (kv) { try { cached = await kv.get(cacheKey(t)); } catch {} }
-        if (cached != null) map[t] = cached; else need.push(t);
+        if (cached != null && !(target === 'ko' && hasForeignGloss(cached))) map[t] = cached; else need.push(t);
       }
       const dbg: any = { ai: !!ai, need: need.length, raw: null, err: null };
       // 번역 전용 모델 m2m100 (LLM 프롬프트보다 안정적). 텍스트별 번역.
@@ -3007,7 +3008,7 @@ ${numbered}`;
           + 'When the target language is Chinese, use polite 您 rather than 你 when addressing a person.';
         const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
           messages: [
-            { role: 'system', content: learnMode ? learnSys : chatSys },
+            { role: 'system', content: (learnMode ? learnSys : chatSys) + (target === 'ko' ? ' ' + KOREAN_GLOSS_RULE : '') },
             { role: 'user', content: learnMode
                 ? `Translate this ${from} message into natural ${to} (free translation of the meaning):\n${t}`
                 : `Translate this ${from} chat message into ${to}:\n${t}` },
@@ -3032,7 +3033,7 @@ ${numbered}`;
         }
         // 목표 언어가 아니면(그대로 되뇌었거나 엉뚱한 언어) 실패로 본다 → m2m100 으로 넘긴다
         if (!out || out === t) return '';
-        if (target === 'ko' && !hasHangul(out)) return '';
+        if (target === 'ko' && (!hasHangul(out) || hasForeignGloss(out))) return '';
         if (target === 'zh' && !hasHan(out)) return '';
         if (target === 'en' && (hasHangul(out) || hasHan(out))) return '';
         return out;
@@ -3094,6 +3095,7 @@ ${numbered}`;
                 if (dbg.raw == null) dbg.raw = JSON.stringify(resp).slice(0, 300);
                 mt = (resp && typeof resp.translated_text === 'string' && resp.translated_text.trim()) ? String(resp.translated_text) : '';
               }
+              if (target === 'ko' && hasForeignGloss(mt)) mt = '';
               mtOk = !!mt;
               // 번역이 없으면 원문(src)을 그대로 붙여 둔다 — 뗀 말머리만이라도 보여 주는 편이 낫다.
               // 다만 «다음에 다시 시도» 할 수 있게 캐시는 하지 않는다(mtOk=false).
@@ -3109,6 +3111,10 @@ ${numbered}`;
           }),
         );
       } else if (need.length) { for (const c of need) map[c] = c; }
+      // Failed translations must not expose mixed-script source text as a Korean meaning.
+      if (target === 'ko') for (const t of texts) {
+        if (hasForeignGloss(map[t])) map[t] = '뜻을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
+      }
       if (url.searchParams.get('debug') === '1') return json({ ok: true, map, _debug: dbg });
       return json({ ok: true, map });
     }
