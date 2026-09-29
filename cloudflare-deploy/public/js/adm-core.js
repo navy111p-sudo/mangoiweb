@@ -1201,6 +1201,58 @@ setInterval(function () {
   loadRecordings().finally(() => { _recRefreshBusy = false; });
 }, 60000);
 
+/* 🩺 녹화 진단 펼치기 (2026-09-29 사장님) — 서버가 만든 문장을 그대로 그린다.
+   ⚠️ 표가 다시 그려지면 펼친 줄은 사라진다(정상 — 다시 누르면 된다).
+   ⚠️ 이 카드 안 글자색은 페인터가 #101828 로 덮으므로 «색» 에 뜻을 싣지 않고 ✅⚠️❌ 글자로 말한다. */
+function recDiagnose(id, btn) {
+  var tr = btn && btn.closest ? btn.closest('tr') : null;
+  if (!tr) return;
+  var next = tr.nextElementSibling;
+  if (next && next.classList && next.classList.contains('rec-diag-row') && next.getAttribute('data-rid') === String(id)) {
+    next.remove(); return;                                   // 한 번 더 누르면 접힌다
+  }
+  var L = (adminLang === 'en');
+  var cols = tr.children.length || 1;
+  var row = document.createElement('tr');
+  row.className = 'rec-diag-row';
+  row.setAttribute('data-rid', String(id));
+  var td = document.createElement('td');
+  td.colSpan = cols;
+  td.style.cssText = 'background-color:#f0fdfa;padding:10px 14px;text-align:left;border-top:1px dashed #5eead4;';
+  td.textContent = L ? 'Checking…' : '확인하는 중…';
+  row.appendChild(td);
+  tr.parentNode.insertBefore(row, tr.nextSibling);
+  fetch('/api/recordings?diagnose=' + encodeURIComponent(id), { credentials: 'include' })
+    .then(function (r) { return r.json().then(function (d) { return { http: r.ok, d: d }; }); })
+    .then(function (x) {
+      var d = x.d || {};
+      /* «성공이라고 말했는가» 로 판정한다 — 404 본문에는 ok 칸이 없다(CLAUDE.md 「새 API 추가」). */
+      if (!x.http || d.ok !== true) {
+        td.textContent = (L ? 'Could not diagnose: ' : '진단하지 못했습니다: ') + (d.error || 'HTTP error');
+        return;
+      }
+      var h = '<div style="font-weight:700;font-size:13px;margin-bottom:6px">' + _esc(L ? d.headline_en : d.headline_ko) + '</div>';
+      var ev = Array.isArray(d.events) ? d.events : [];
+      if (ev.length) {
+        h += '<ul style="margin:0 0 6px 0;padding-left:18px;font-size:12px;line-height:1.7">'
+          + ev.map(function (e) {
+              var lb = (L && e.label === '녹화 전') ? 'before rec' : (L ? String(e.label || '').replace('분대', ' min') : e.label);
+              return '<li><b>' + _esc(lb) + '</b> ' + _esc(L ? e.text_en : e.text_ko) + '</li>';
+            }).join('') + '</ul>';
+      }
+      var notes = (L ? d.notes_en : d.notes_ko) || [];
+      if (notes.length) h += '<div style="font-size:12px;line-height:1.7">' + notes.map(_esc).join('<br>') + '</div>';
+      h += '<div style="font-size:11px;color:#475467;margin-top:6px">'
+        + (L ? 'Times are from the start of this recording. Joins/drops: to the second · freezes/audio: per minute. Rule-based on connection logs — the cause (network, closed tab, deploy) is not determined.'
+             : '시각은 이 녹화 시작부터입니다. 입장·끊김은 초 단위, 멈춤·소리는 1분 단위입니다. 회선 기록을 규칙으로 판정했으며 원인(회선·탭 닫기·배포)까지는 가리지 못합니다.')
+        + '</div>';
+      td.innerHTML = h;
+    })
+    .catch(function (e) {
+      td.textContent = (L ? 'Could not diagnose: ' : '진단하지 못했습니다: ') + (e && e.message || e);
+    });
+}
+
 function renderRecordingsTable() {
   const tb = document.getElementById('recordings-table');
   const rows = _unifiedRecRows || [];
@@ -1396,7 +1448,16 @@ function renderRecordingsTable() {
         actionBtn = '<button onclick="setRecordingStatus(' + r.id + ', \'deleted\')" title="' + (adminLang==='en'?'Soft-delete this recording (reversible)':'녹화를 삭제 처리합니다 (복원 가능)') + '" style="background:#fff;color:#dc2626;padding:5px 11px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #f5a3a3;margin-left:6px;">🗑 ' + (adminLang==='en'?'Delete':'삭제') + '</button>';
       }
     }
-    playBtn = playBtn + actionBtn;
+    /* 🩺 진단 (2026-09-29) — 누르면 이 줄 밑에 «녹화 몇 분째에 무엇이» 가 펼쳐진다.
+       판정은 서버(src/recording-diagnosis.ts)가 하고 여기는 그리기만 한다 — ⛔ 규칙을 복제하지 말 것. */
+    let diagBtn = '';
+    if (r.id) {
+      diagBtn = '<button onclick="recDiagnose(' + r.id + ', this)" title="'
+        + (adminLang === 'en' ? 'Check how this lesson went (drops, freezes, audio) — rule-based, from logs' : '이 수업이 잘 진행됐는지 확인합니다 (끊김·화면 멈춤·소리 끊김 — 기록 기반)')
+        + '" style="background:#fff;color:#0f766e;padding:5px 11px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #5eead4;margin-left:6px;">🩺 '
+        + (adminLang === 'en' ? 'Diagnose' : '진단') + '</button>';
+    }
+    playBtn = playBtn + diagBtn + actionBtn;
 
     const roomCell   = r.room_id || '-';
     /* 🧑‍🏫 교사 이름·아이디 두 칸 (2026-09-04 사장님 «교사 이름에 아이디가 나와»)

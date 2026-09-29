@@ -55,6 +55,7 @@ import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } f
 const ERP_BY_UID = `(user_id = ? OR student_id = ? OR login_id = ? OR username = ?)`;
 const erpUidBinds = (uid: string): string[] => [uid, uid, uid, uid];
 import { hiddenExcludeCond, ensureStudentOverrideTable, getOverridePhones, setOverridePhones, getOverrideOrg, setOverrideOrgField, getStudentHiddenInfo, setStudentHidden } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지) + 📞 전화번호 보관(GET 표시·notify-contacts.ts 도 씀) + 🏢 가맹점·소속 보관(카페24 야간 동기화가 못 건드리는 자리)
+import { diagnoseRecording } from './recording-diagnosis';   // 🩺 녹화 진단 정본(규칙 판정 — AI 아님)
 import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
 import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
@@ -4694,6 +4695,46 @@ ${numbered}`;
     }
 
     if (path === '/api/recordings' && method === 'GET') {
+      /* 🩺 녹화 진단 (2026-09-29 사장님 «녹화된 것을 AI 가 스스로 확인해 잘 진행됐는지·문제점을»)
+         `?diagnose=<녹화 id>` — 이 경로는 이미 로그인 게이트(isAdminPath)를 지나므로
+         src/index.ts(공동 금지구역)를 한 줄도 안 건드린다. 판정 정본은 src/recording-diagnosis.ts.
+         ⚠️ 두 조회는 각각 실패할 수 있다 — 실패하면 «없음» 이 아니라 «못 읽음» 으로 넘긴다(null).
+            빈 배열로 떨어뜨리면 «기록 없음» 과 «못 물어봄» 이 같은 글자가 된다. */
+      const _diagId = url.searchParams.get('diagnose');
+      if (_diagId !== null) {
+        const rid = parseInt(_diagId, 10);
+        if (!Number.isFinite(rid) || rid <= 0) return json({ ok: false, error: 'bad_id' }, 400);
+        const rec: any = await env.DB.prepare(
+          `SELECT id, room_id, started_at, ended_at, duration_ms, status, storage, participant_names
+             FROM recordings WHERE id = ?`).bind(rid).first();
+        if (!rec) return json({ ok: false, error: 'not_found' }, 404);
+        const st = Number(rec.started_at) || 0;
+        const endMs = Number(rec.ended_at) || (Number(rec.duration_ms) ? st + Number(rec.duration_ms) : st + 3 * 3600000);
+        const wFrom = st - 60000, wTo = endMs + 60000;
+        let joins: any[] | null = null, quality: any[] | null = null;
+        const lookupFailed: string[] = [];
+        try {
+          const r1 = await env.DB.prepare(
+            `SELECT username, account_uid, user_id, role, joined_at, left_at, total_active_ms, total_session_ms
+               FROM attendance WHERE room_id = ? AND joined_at BETWEEN ? AND ?
+              ORDER BY joined_at LIMIT 500`).bind(rec.room_id, wFrom, wTo).all();
+          joins = (r1.results || []) as any[];
+        } catch (e: any) { lookupFailed.push('attendance'); console.warn('[rec-diagnose] attendance', e?.message); }
+        try {
+          const r2 = await env.DB.prepare(
+            `SELECT * FROM vc_quality WHERE room = ? AND ts BETWEEN ? AND ? ORDER BY ts LIMIT 2000`
+          ).bind(rec.room_id, wFrom, wTo + 60000).all();
+          quality = (r2.results || []) as any[];
+        } catch (e: any) { lookupFailed.push('vc_quality'); console.warn('[rec-diagnose] vc_quality', e?.message); }
+        const d = diagnoseRecording(rec, joins, quality);
+        /* 못 읽은 것이 있으면 «정상» 이라 말하지 않는다 */
+        if (lookupFailed.length && d.verdict === 'ok') {
+          d.verdict = 'unknown';
+          d.headline_ko = '❔ 일부 기록을 읽지 못해 판정을 보류합니다.';
+          d.headline_en = '❔ Some logs could not be read — verdict withheld.';
+        }
+        return json({ ok: true, id: rid, lookup_failed: lookupFailed, ...d });
+      }
       // 녹화 목록 조회 — D1 의 recordings 메타데이터 + (참여도 점수) 함께 반환.
       // 참여도 점수는 attendance 테이블의 talk-time 비율로 도출한다.
       //   speaking_score : (총 활성 발화시간 / 총 세션시간) × 100
