@@ -243,6 +243,7 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
   <p style="margin-top:18px"><a href="/textbook-uploader.html" style="background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff;padding:9px 18px;border-radius:99px;font-weight:800;text-decoration:none;font-size:13px" data-ko="📚 교재 업로더로 돌아가기" data-en="📚 Back to Textbook Uploader">📚 교재 업로더로 돌아가기</a></p>
 </div>
 
+<script src="/js/new-bts-goodbye.js?v=1"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════════════════
    📖 교재 뷰어 — 실제 구현 (2026-08-21)
@@ -566,6 +567,7 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
     if (i >= FLAT.length) i = FLAT.length - 1;
     cur = i;
     var f = FLAT[i];
+    if (window.MangoiBtsGoodbye) window.MangoiBtsGoodbye.update(BOOK.textbook, BOOK.lessons[f._l].name, tvEn());
     var stage = $('stage');
 
     markActive();

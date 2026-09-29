@@ -40,6 +40,7 @@ async function run(book, items, width) {
   const ctx = await browser.newContext({ viewport: { width, height: 800 } });
   const page = await ctx.newPage();
   const tts = [];
+  const audio = [];
   const errs = [];
   page.on('pageerror', e => errs.push(String(e)));
   await page.route('http://t.local/**', async (route) => {
@@ -47,6 +48,7 @@ async function run(book, items, width) {
     if (u.pathname === '/textbook-viewer.html') return route.fulfill({ contentType: 'text/html', body: readFileSync(VIEWER, 'utf8') });
     if (u.pathname === '/api/textbook-files') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, items }) });
     if (u.pathname === '/api/voice/tts') { tts.push(JSON.parse(route.request().postData() || '{}')); return route.fulfill({ contentType: 'audio/wav', headers: { 'X-TTS-Speaker': 'asteria' }, body: wav() }); }
+    if (u.pathname.startsWith('/audio/')) { audio.push(u.pathname); const f = join(PUB, u.pathname); return existsSync(f) ? route.fulfill({ contentType: 'audio/mpeg', body: readFileSync(f) }) : route.fulfill({ status: 404, body: '' }); }
     if (/^\/img-\d+\.png$/.test(u.pathname)) return route.fulfill({ contentType: 'image/png', body: PNG });
     if (u.pathname.startsWith('/api/')) return route.fulfill({ contentType: 'application/json', body: '{"ok":false}' });
     const f = join(PUB, u.pathname);
@@ -55,13 +57,13 @@ async function run(book, items, width) {
   });
   await page.goto('http://t.local/textbook-viewer.html?book=' + encodeURIComponent(book));
   await page.waitForTimeout(1200);
-  return { ctx, page, tts, errs };
+  return { ctx, page, tts, audio, errs };
 }
 const vis = (page) => page.evaluate(() => { const b = document.getElementById('tbs-btn'); if (!b) return 'none'; return getComputedStyle(b).display === 'none' ? 'hidden' : 'shown'; });
 
 for (const width of [1280, 390]) {
   console.log(`▶ 새 BTS 교재 (${width}px)`);
-  const { ctx, page, tts, errs } = await run(BOOK, ITEMS, width);
+  const { ctx, page, tts, audio, errs } = await run(BOOK, ITEMS, width);
   ok('표지(첫 쪽)에서는 버튼이 없다', (await vis(page)) !== 'shown', await vis(page));
   await page.click('#btn-next'); await page.waitForTimeout(700);
   ok('문장 있는 쪽으로 넘기면 버튼이 보인다', (await vis(page)) === 'shown', await vis(page));
@@ -77,6 +79,25 @@ for (const width of [1280, 390]) {
   ok('문장을 누르면 그 문장을 영어로 묻는다', tts.length >= 1 && tts[0].text === d1[WITH][0][0] && tts[0].lang === 'en', JSON.stringify(tts[0]));
   await page.click('#btn-prev'); await page.waitForTimeout(500);
   ok('표지로 돌아가면 목록이 닫히고 버튼도 사라진다', await page.evaluate(() => getComputedStyle(document.getElementById('tbs-box')).display === 'none') && (await vis(page)) !== 'shown');
+  // ♪ 마무리 노래 (js/new-bts-goodbye.js) — 새 BTS «New» 과에서만, 누르기 전엔 소리를 안 받는다
+  const gb = () => page.evaluate(() => { const b = document.getElementById('bts-goodbye-open'); return b && getComputedStyle(b).display !== 'none' ? b.getBoundingClientRect().toJSON() : null; });
+  const g = await gb();
+  ok('♪ 마무리 노래 버튼이 보인다', !!g);
+  const gHit = await page.evaluate(() => { const b = document.getElementById('bts-goodbye-open').getBoundingClientRect(); const el = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2); return el && el.id; });
+  ok('♪ 버튼이 맨 위에 있어 눌린다', gHit === 'bts-goodbye-open', gHit);
+  const over = await page.evaluate(() => { const a = document.getElementById('bts-goodbye-open').getBoundingClientRect(); const hit = []; for (const id of ['tbs-btn', 'page-nav', 'btn-next']) { const e = document.getElementById(id); if (!e || getComputedStyle(e).display === 'none') continue; const r = e.getBoundingClientRect(); if (r.width && a.left < r.right && a.right > r.left && a.top < r.bottom && a.bottom > r.top) hit.push(id); } return hit; });
+  ok('♪ 버튼이 🔊·쪽 넘김과 안 겹친다', over.length === 0, over.join(','));
+  ok('누르기 전에는 음원을 한 번도 안 받는다', audio.length === 0, audio.join(','));
+  await page.click('#bts-goodbye-open'); await page.waitForTimeout(400);
+  const dlg = await page.evaluate(() => { const d = document.getElementById('bts-goodbye'); const a = d && d.querySelector('audio'); return { open: !!(d && d.open), src: a && a.getAttribute('src'), paused: a ? a.paused : null }; });
+  ok('누르면 창이 열리고 보컬 곡이 걸린다', dlg.open && /goodbye_vocal\.mp3$/.test(dlg.src || ''), JSON.stringify(dlg));
+  ok('창을 열어도 저절로 재생되지 않는다', dlg.paused === true);
+  await page.selectOption('#bts-goodbye-mode', 'inst'); await page.waitForTimeout(200);
+  ok('반주를 고르면 반주 곡으로 바뀐다', /goodbye_inst\.mp3$/.test(await page.evaluate(() => document.querySelector('#bts-goodbye audio').getAttribute('src')) || ''));
+  const played = await page.evaluate(async () => { const a = document.querySelector('#bts-goodbye audio'); try { await a.play(); } catch (e) { return 'ERR ' + e.name; } await new Promise(r => setTimeout(r, 400)); return a.paused ? 'paused' : 'playing'; });
+  ok('재생하면 실제로 소리가 난다(음원 파일이 열린다)', played === 'playing', played);
+  await page.click('#bts-goodbye-close'); await page.waitForTimeout(200);
+  ok('닫으면 창이 닫히고 소리가 멈춘다', await page.evaluate(() => { const d = document.getElementById('bts-goodbye'); return !d.open && d.querySelector('audio').paused; }));
   ok('페이지 오류 없음', errs.length === 0, errs.join(' | '));
   await ctx.close();
 }
@@ -86,6 +107,7 @@ console.log('▶ 옛 교재');
   const { ctx, page, tts } = await run(OLDBOOK, OLD_ITEMS, 1280);
   ok('옛 교재 쪽에서는 버튼이 없다', (await vis(page)) !== 'shown');
   ok('옛 교재에서는 소리를 안 묻는다', tts.length === 0);
+  ok('옛 교재에서는 ♪ 마무리 노래가 없다', await page.evaluate(() => { const b = document.getElementById('bts-goodbye-open'); return !b || getComputedStyle(b).display === 'none'; }));
   await ctx.close();
 }
 await browser.close();
