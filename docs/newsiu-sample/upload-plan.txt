@@ -1,7 +1,8 @@
 # 이 파일을 고쳐 push 하면 tmp-newsiu-upload 가 돕니다.
 # ONLY = 올릴 권(빈칸이면 전부) · HIDE_OLD = yes 면 옛 SIU BASIC/ADVANCE 묶음을 숨김
-ONLY=001
+ONLY=
 HIDE_OLD=no
 # 2026-09-29 재시도 — CLOUDFLARE_UPLOAD_TOKEN 등록 뒤 001 한 권
 # 2026-09-29 키 등록 확인 뒤 실행
 # 2026-09-29 D1 권한 추가 뒤 재실행
+# 2026-09-29 전부(BASIC 30 + ADVANCE 20) — wrangler 진행줄 뒤 JSON 만 읽기
