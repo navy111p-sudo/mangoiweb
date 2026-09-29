@@ -36,7 +36,7 @@ console.log('② 서버 확인');
   const i0 = A.indexOf('if (body.require_known_uid) {');
   let depth = 0, i1 = -1;
   for (let i = A.indexOf('{', i0); i < A.length; i++) { if (A[i] === '{') depth++; else if (A[i] === '}') { depth--; if (!depth) { i1 = i; break; } } }
-  const src = i0 > 0 && i1 > 0 ? A.slice(i0, i1 + 1).replace(/<any>/g, '').replace(/: string \| null/g, '') : '';
+  const src = i0 > 0 && i1 > 0 ? A.slice(i0, i1 + 1).replace(/<any>/g, '').replace(/: string \| null/g, '').replace(/\(x: any\)/g, '(x)') : '';
   ok(src.length > 0, '전제: 서버 블록을 오려 냈다');
   const mkEnv = (boom) => {
     const db = new DatabaseSync(':memory:');
