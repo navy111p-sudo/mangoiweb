@@ -60,6 +60,7 @@ import { sendPlainSms } from './solapi-client';
 import { kstToday, enrollRefundCalc, ENROLL_BASE_WEEKLY1 } from './enroll-ops';
 // 수업 길이 → 요금 배수는 class-policy 가 정본이다 (enroll-ops 도 여기서 가져다 쓴다 — 복사 금지)
 import { classLengthMultiplier } from './class-policy';
+import { AI_PASS_PLAN, AI_PASS_PKG_NAME, currentAiPassEnd, aiPassNextBilling } from './ai-pass';   // 🤖 A.i 이용권 환불 → 자동결제 청구일 재조정
 
 const TOSS_CANCEL_URL = (paymentKey: string) =>
   `https://api.tosspayments.com/v1/payments/${encodeURIComponent(paymentKey)}/cancel`;
@@ -507,6 +508,22 @@ async function finishRefund(env: any, a: {
     // enrollments 표가 없거나 이 주문과 연결된 행이 없는 경우가 정상적으로 있다.
     // 그래도 «조용히» 넘기지는 않는다 — 수강이 살아 있는 채로 남으면 나중에 헷갈린다.
     console.warn('[refund] enrollments 갱신 건너뜀:', (e as any)?.message);
+  }
+
+  /* 🤖 (2026-09-29) A.i 이용권 주문을 환불했으면 그 학생의 A.i 자동결제 청구일을 «남은 이용권» 기준으로 다시 맞춘다.
+     남은 이용권이 없으면 자동결제를 멈춘다(next_billing_at=NULL) — 환불한 뒤 옛 청구일에 또 긁지 않게.
+     ⛔ 해지(cancelled)까지 하지는 않는다 — 카드 등록은 그대로 두고, 다시 켜는 것은 사람이 정한다. */
+  try {
+    const po: any = await env.DB.prepare(`SELECT program, uid FROM payment_orders WHERE order_id = ?`).bind(a.orderId).first();
+    if (po && String(po.program) === AI_PASS_PLAN && po.uid) {
+      const endAt = await currentAiPassEnd(env, String(po.uid), AI_PASS_PKG_NAME);
+      const r: any = await env.DB.prepare(
+        `UPDATE subscriptions SET next_billing_at = ?, updated_at = ? WHERE user_id = ? AND plan = ? AND status = 'active'`
+      ).bind(endAt && endAt > a.now ? aiPassNextBilling(endAt, a.now) : null, a.now, String(po.uid), AI_PASS_PLAN).run();
+      if (Number(r?.meta?.changes || 0) && !(endAt && endAt > a.now)) warnings.push('남은 A.i 이용권이 없어 A.i 자동결제를 멈췄습니다(카드 등록은 그대로).');
+    }
+  } catch (e) {
+    warnings.push('A.i 자동결제 청구일을 다시 맞추지 못했습니다: ' + String((e as any)?.message || e));
   }
 
   try {
