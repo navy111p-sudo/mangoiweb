@@ -329,7 +329,7 @@ writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; reg
 
 function runChild(srcDir) {
   const r = spawnSync(process.execPath,
-    ['--experimental-strip-types', '--experimental-sqlite', '--no-warnings', '--import', join(tmp, 'reg.mjs'), SELF],
+    ['--experimental-strip-types', '--no-warnings', '--import', join(tmp, 'reg.mjs'), SELF],
     { encoding: 'utf8', env: { ...process.env, SMRS_CHILD: '1', SMRS_SRC: srcDir }, maxBuffer: 64 * 1024 * 1024, timeout: 180000 });
   const out = r.stdout || '';
   const i = out.lastIndexOf('@@RESULTS@@');

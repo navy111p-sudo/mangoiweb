@@ -1924,14 +1924,14 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var b = box.querySelectorAll('[data-join]');
     for (var j=0;j<b.length;j++) b[j].onclick = function(){ joinClass(list[+this.getAttribute('data-join')]); };
     var rs = box.querySelectorAll('[data-roomset]');
-    for (var q=0;q<rs.length;q++) rs[q].onclick = function(){ openRoomOverride(list[+this.getAttribute('data-roomset')]); };
+    for (var q=0;q<rs.length;q++) rs[q].onclick = function(){ openRoomOverride(freshClass(list[+this.getAttribute('data-roomset')])); };
     var e = box.querySelectorAll('[data-eval]');
-    for (var k=0;k<e.length;k++) e[k].onclick = function(){ openEval(list[+this.getAttribute('data-eval')]); };
+    for (var k=0;k<e.length;k++) e[k].onclick = function(){ openEval(freshClass(list[+this.getAttribute('data-eval')])); };
     // ✍ 이미 쓴 일지 열기 — 학부모가 받는 eval.html 그대로.
     var ev2 = box.querySelectorAll('[data-evview]');
-    for (var v=0;v<ev2.length;v++) ev2[v].onclick = function(){ openEvalView(list[+this.getAttribute('data-evview')]); };
+    for (var v=0;v<ev2.length;v++) ev2[v].onclick = function(){ openEvalView(freshClass(list[+this.getAttribute('data-evview')])); };
     var rq = box.querySelectorAll('[data-rep]');
-    for (var q=0;q<rq.length;q++) rq[q].onclick = function(){ askReport(list[+this.getAttribute('data-rep')], this); };
+    for (var q=0;q<rq.length;q++) rq[q].onclick = function(){ askReport(freshClass(list[+this.getAttribute('data-rep')]), this); };
     // (연기 버튼 제거 2026-08-08 — 위 주석 참고. 버튼을 되살리면 이 2줄도 함께 되살릴 것)
     var pp = box.querySelectorAll('[data-post]');
     for (var m=0;m<pp.length;m++) pp[m].onclick = function(){ openPostpone(list[+this.getAttribute('data-post')]); };
