@@ -3,9 +3,12 @@ const a2 = process.argv[2]||''; const HTML = a2.endsWith('.html') ? a2 : 'slides
 fs.mkdirSync(out,{recursive:true});
 // CHROME 이 있으면 그 브라우저(깃허브 러너 등), 없으면 이 컨테이너의 크로미움.
 const CHROME = process.env.CHROME || `/opt/pw-browsers/${fs.readdirSync('/opt/pw-browsers').find(d=>d.startsWith('chromium-'))}/chrome-linux/chrome`;
-const ch = spawn(CHROME,['--headless','--no-sandbox','--remote-debugging-port='+(process.env.PORT||9333),'--allow-file-access-from-files','--hide-scrollbars','about:blank'],{stdio:'ignore'});
-await new Promise(r=>setTimeout(r,1500));
-const tabs = await (await fetch('http://127.0.0.1:'+(process.env.PORT||9333)+'/json/list')).json();
+const ch = spawn(CHROME,['--headless','--no-sandbox','--remote-debugging-port='+(process.env.PORT||9333),'--allow-file-access-from-files','--hide-scrollbars','--user-data-dir=/tmp/shot-'+(process.env.PORT||9333),'about:blank'],{stdio:'ignore'});
+// 브라우저가 뜰 때까지 기다린다(러너는 1.5초보다 늦게 뜰 때가 있다 — 고정 대기만 두면 ECONNREFUSED).
+let tabs = null;
+for (let i = 0; i < 40 && !tabs; i++) { await new Promise(r=>setTimeout(r,500));
+  try { tabs = await (await fetch('http://127.0.0.1:'+(process.env.PORT||9333)+'/json/list')).json(); } catch (e) {} }
+if (!tabs) throw new Error('chrome did not start');
 const ws = new WebSocket(tabs.find(t=>t.type==='page').webSocketDebuggerUrl);
 await new Promise(r=>ws.onopen=r);
 let id=0; const pend={};

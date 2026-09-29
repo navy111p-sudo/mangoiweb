@@ -10,7 +10,10 @@ for (const no of fs.readdirSync('u').filter(d=>/^a?\d{3}$/.test(d)).sort()) {
     const src = `u/${no}/jpg-${m}`, dst = `${OUT}/${U.book}/${folder}`;
     if (!fs.existsSync(src)) throw new Error('missing '+src);
     fs.mkdirSync(dst, {recursive:true});
-    for (const f of fs.readdirSync(src).filter(f=>/^Slide\d+\.JPG$/.test(f))) { fs.copyFileSync(`${src}/${f}`, `${dst}/${f}`); n++; }
+    const fl = fs.readdirSync(src).filter(f=>/^Slide\d+\.JPG$/.test(f));
+    if (fl.length !== 20) throw new Error(`${src}: ${fl.length}쪽 (20쪽이어야 함)`);
+    for (const f of fl) { fs.copyFileSync(`${src}/${f}`, `${dst}/${f}`); n++; }
   }
 }
+if (n !== 2000) throw new Error('pack files '+n+' (2000 이어야 함)');
 console.log('pack files', n);
