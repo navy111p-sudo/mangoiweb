@@ -55,6 +55,7 @@ import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } f
 const ERP_BY_UID = `(user_id = ? OR student_id = ? OR login_id = ? OR username = ?)`;
 const erpUidBinds = (uid: string): string[] => [uid, uid, uid, uid];
 import { hiddenExcludeCond, ensureStudentOverrideTable, getOverridePhones, setOverridePhones, getOverrideOrg, setOverrideOrgField, getStudentHiddenInfo, setStudentHidden } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지) + 📞 전화번호 보관(GET 표시·notify-contacts.ts 도 씀) + 🏢 가맹점·소속 보관(카페24 야간 동기화가 못 건드리는 자리)
+import { diagnoseRecording } from './recording-diagnosis';   // 🩺 녹화 진단 정본(규칙 판정 — AI 아님)
 import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
 import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
@@ -4694,6 +4695,49 @@ ${numbered}`;
     }
 
     if (path === '/api/recordings' && method === 'GET') {
+      /* 🩺 녹화 진단 (2026-09-29 사장님 «녹화된 것을 AI 가 스스로 확인해 잘 진행됐는지·문제점을»)
+         `?diagnose=<녹화 id>` — 이 경로는 이미 로그인 게이트(isAdminPath)를 지나므로
+         src/index.ts(공동 금지구역)를 한 줄도 안 건드린다. 판정 정본은 src/recording-diagnosis.ts.
+         ⚠️ 두 조회는 각각 실패할 수 있다 — 실패하면 «없음» 이 아니라 «못 읽음» 으로 넘긴다(null).
+            빈 배열로 떨어뜨리면 «기록 없음» 과 «못 물어봄» 이 같은 글자가 된다. */
+      const _diagId = url.searchParams.get('diagnose');
+      if (_diagId !== null) {
+        const rid = parseInt(_diagId, 10);
+        if (!Number.isFinite(rid) || rid <= 0) return json({ ok: false, error: 'bad_id' }, 400);
+        const rec: any = await env.DB.prepare(
+          `SELECT id, room_id, started_at, ended_at, duration_ms, status, storage, participant_names
+             FROM recordings WHERE id = ?`).bind(rid).first();
+        if (!rec) return json({ ok: false, error: 'not_found' }, 404);
+        const st = Number(rec.started_at) || 0;
+        const endMs = Number(rec.ended_at) || (Number(rec.duration_ms) ? st + Number(rec.duration_ms) : st + 3 * 3600000);
+        const wFrom = st - 60000, wTo = endMs + 60000;
+        let joins: any[] | null = null, quality: any[] | null = null;
+        const lookupFailed: string[] = [];
+        try {
+          const r1 = await env.DB.prepare(
+            /* 겹침 조건 — 녹화 «전» 에 먼저 들어와 있던 사람(보통 강사)도 넣어야 그 사람의
+               재입장이 «늦은 입장» 으로 뒤바뀌지 않는다. 6시간 전까지만(풀스캔 방지).
+               ⚠️ left_at 이 NULL 인 행은 «아직 있다» 가 아니다 — 끊겨서 leave 를 못 보낸 옛 세션이
+                  흔하다(mangoi-class 처럼 재사용되는 방이면 남의 수업 행). 그래서 NULL 이면
+                  «창 안에 들어왔거나 창 안에서 하트비트(last_seen_at, 서버 시각)가 찍힌» 것만 받는다. */
+            `SELECT username, account_uid, user_id, role, joined_at, left_at, total_active_ms, total_session_ms
+               FROM attendance WHERE room_id = ? AND joined_at BETWEEN ? AND ?
+                AND (left_at >= ? OR (left_at IS NULL AND (joined_at >= ? OR last_seen_at >= ?)))
+              ORDER BY joined_at LIMIT 500`).bind(rec.room_id, wFrom - 6 * 3600000, wTo, wFrom, wFrom, wFrom).all();
+          joins = (r1.results || []) as any[];
+        } catch (e: any) { lookupFailed.push('attendance'); console.warn('[rec-diagnose] attendance', e?.message); }
+        try {
+          const r2 = await env.DB.prepare(
+            /* 보고 한 줄은 «앞 1분» 요약이라 wTo(=끝+1분)까지면 겹치는 것은 다 들어온다.
+               그 뒤는 녹화가 끝난 뒤를 잰 것이라 넣지 않는다. */
+            `SELECT * FROM vc_quality WHERE room = ? AND ts BETWEEN ? AND ? ORDER BY ts LIMIT 2000`
+          ).bind(rec.room_id, wFrom, wTo).all();
+          quality = (r2.results || []) as any[];
+        } catch (e: any) { lookupFailed.push('vc_quality'); console.warn('[rec-diagnose] vc_quality', e?.message); }
+        /* 못 읽은 것은 null 로 넘긴다 — 정본이 «없음» 과 «못 읽음» 을 갈라 말한다. */
+        const d = diagnoseRecording(rec, joins, quality);
+        return json({ ok: true, id: rid, lookup_failed: lookupFailed, ...d });
+      }
       // 녹화 목록 조회 — D1 의 recordings 메타데이터 + (참여도 점수) 함께 반환.
       // 참여도 점수는 attendance 테이블의 talk-time 비율로 도출한다.
       //   speaking_score : (총 활성 발화시간 / 총 세션시간) × 100
