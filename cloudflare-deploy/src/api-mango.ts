@@ -4716,17 +4716,22 @@ ${numbered}`;
         try {
           const r1 = await env.DB.prepare(
             /* 겹침 조건 — 녹화 «전» 에 먼저 들어와 있던 사람(보통 강사)도 넣어야 그 사람의
-               재입장이 «늦은 입장» 으로 뒤바뀌지 않는다. 6시간 전까지만(풀스캔 방지). */
+               재입장이 «늦은 입장» 으로 뒤바뀌지 않는다. 6시간 전까지만(풀스캔 방지).
+               ⚠️ left_at 이 NULL 인 행은 «아직 있다» 가 아니다 — 끊겨서 leave 를 못 보낸 옛 세션이
+                  흔하다(mangoi-class 처럼 재사용되는 방이면 남의 수업 행). 그래서 NULL 이면
+                  «창 안에 들어왔거나 창 안에서 하트비트(last_seen_at, 서버 시각)가 찍힌» 것만 받는다. */
             `SELECT username, account_uid, user_id, role, joined_at, left_at, total_active_ms, total_session_ms
                FROM attendance WHERE room_id = ? AND joined_at BETWEEN ? AND ?
-                AND (left_at IS NULL OR left_at >= ?)
-              ORDER BY joined_at LIMIT 500`).bind(rec.room_id, wFrom - 6 * 3600000, wTo, wFrom).all();
+                AND (left_at >= ? OR (left_at IS NULL AND (joined_at >= ? OR last_seen_at >= ?)))
+              ORDER BY joined_at LIMIT 500`).bind(rec.room_id, wFrom - 6 * 3600000, wTo, wFrom, wFrom, wFrom).all();
           joins = (r1.results || []) as any[];
         } catch (e: any) { lookupFailed.push('attendance'); console.warn('[rec-diagnose] attendance', e?.message); }
         try {
           const r2 = await env.DB.prepare(
+            /* 보고 한 줄은 «앞 1분» 요약이라 wTo(=끝+1분)까지면 겹치는 것은 다 들어온다.
+               그 뒤는 녹화가 끝난 뒤를 잰 것이라 넣지 않는다. */
             `SELECT * FROM vc_quality WHERE room = ? AND ts BETWEEN ? AND ? ORDER BY ts LIMIT 2000`
-          ).bind(rec.room_id, wFrom, wTo + 60000).all();
+          ).bind(rec.room_id, wFrom, wTo).all();
           quality = (r2.results || []) as any[];
         } catch (e: any) { lookupFailed.push('vc_quality'); console.warn('[rec-diagnose] vc_quality', e?.message); }
         /* 못 읽은 것은 null 로 넘긴다 — 정본이 «없음» 과 «못 읽음» 을 갈라 말한다. */

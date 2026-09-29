@@ -138,7 +138,50 @@ const ai = api.indexOf("if (path === '/api/recordings' && method === 'GET') {");
 const di = api.indexOf("url.searchParams.get('diagnose')", ai);
 ok('진단 갈래가 로그인 게이트를 지나는 목록 경로 «안» 에 있다', ai > 0 && di > ai && di - ai < 1500);
 ok('서버가 정본을 부른다', /diagnoseRecording\(rec, joins, quality\)/.test(api));
-ok('입장 조회가 «겹침» 조건(녹화 전 입장자 포함)', /left_at IS NULL OR left_at >= \?/.test(api));
+
+// ⑤-2 조회 SQL 을 오려 내 «진짜 SQLite» 에 돌린다(2026-09-29 Codex 리뷰 P1·P2).
+//   묻는 것: 녹화 전 입장자는 들어오나 · leave 못 보낸 «옛» 행은 빠지나 · 녹화 뒤 품질 보고는 빠지나.
+{
+  const body = api.slice(di, api.indexOf('diagnoseRecording(rec, joins, quality)', di));
+  const cut = (anchor) => {
+    const i = body.indexOf(anchor); if (i < 0) return null;
+    const a = body.lastIndexOf('`', i), b = body.indexOf('`', i);
+    const bi = body.indexOf('.bind(', b); if (bi < 0) return null;
+    let d = 0, j = bi + 5;
+    for (; j < body.length; j++) { const c = body[j]; if (c === '(') d++; else if (c === ')') { d--; if (!d) break; } }
+    return { sql: body.slice(a + 1, b), args: body.slice(bi + 6, j) };
+  };
+  const qa = cut('FROM attendance'), qq = cut('FROM vc_quality');
+  ok('전제: 두 조회를 오려 냈다', !!(qa && qq));
+  let DB = null;
+  try { const { DatabaseSync } = await import('node:sqlite'); DB = new DatabaseSync(':memory:'); } catch (e) { console.log('  ⏭ node:sqlite 없음 —', e.message); }
+  if (DB && qa && qq) {
+    DB.exec(`CREATE TABLE attendance (id INTEGER PRIMARY KEY, room_id TEXT, user_id TEXT, account_uid TEXT, username TEXT, role TEXT, joined_at INTEGER, left_at INTEGER, total_active_ms INTEGER, total_session_ms INTEGER, last_seen_at INTEGER);
+             CREATE TABLE vc_quality (id INTEGER PRIMARY KEY, room TEXT, ts INTEGER, uid TEXT);`);
+    const R = 'mangoi-class', st = T0, endMs = min(20), wFrom = st - 60000, wTo = endMs + 60000;
+    const ins = DB.prepare('INSERT INTO attendance (room_id,username,joined_at,left_at,last_seen_at) VALUES (?,?,?,?,?)');
+    ins.run(R, 'teacher-before', T0 - 5 * 60000, min(21), min(20));        // 녹화 전 입장 · 정상 퇴장
+    ins.run(R, 'open-live', T0 - 2 * 60000, null, min(15));                  // 녹화 전 입장 · leave 못 보냄 · 하트비트 있음
+    ins.run(R, 'stale-open', T0 - 3 * 3600000, null, T0 - 3 * 3600000 + 600000); // 3시간 전 남의 수업 · 끊김
+    ins.run(R, 'stale-null-seen', T0 - 2 * 3600000, null, null);             // 옛 행 · 하트비트 없음
+    ins.run(R, 'join-in-window', min(5), null, null);                        // 창 안 입장(하트비트 전)
+    ins.run(R, 'left-before', T0 - 30 * 60000, T0 - 20 * 60000, T0 - 20 * 60000); // 녹화 전에 나감
+    const qi = DB.prepare('INSERT INTO vc_quality (room,ts) VALUES (?,?)');
+    for (const t of [T0 + 30000, min(10), endMs + 30000, endMs + 60000, endMs + 90000, endMs + 119000]) qi.run(R, t);
+    const argsOf = (a) => new Function('rec', 'wFrom', 'wTo', 'return [' + a + ']')({ room_id: R }, wFrom, wTo);
+    let names = [], ts = [];
+    try { names = DB.prepare(qa.sql).all(...argsOf(qa.args)).map(r => r.username); } catch (e) { console.log('  ❌ FAIL attendance SQL 실행', e.message); fail++; }
+    try { ts = DB.prepare(qq.sql).all(...argsOf(qq.args)).map(r => r.ts); } catch (e) { console.log('  ❌ FAIL vc_quality SQL 실행', e.message); fail++; }
+    ok('녹화 전 입장자(정상 퇴장)는 들어온다', names.includes('teacher-before'), names.join(','));
+    ok('leave 를 못 보냈어도 창 안 하트비트가 있으면 들어온다', names.includes('open-live'));
+    ok('창 안에서 들어온 사람은 하트비트 전이어도 들어온다', names.includes('join-in-window'));
+    ok('«옛» 열린 행(하트비트가 창 밖)은 빠진다', !names.includes('stale-open'));
+    ok('«옛» 열린 행(하트비트 없음)은 빠진다', !names.includes('stale-null-seen'));
+    ok('녹화 전에 나간 사람은 빠진다', !names.includes('left-before'));
+    ok('녹화와 겹치는 품질 보고는 들어온다(끝+1분까지)', ts.includes(min(10)) && ts.includes(endMs + 60000));
+    ok('녹화가 끝나고 1분을 넘긴 품질 보고는 빠진다', !ts.includes(endMs + 90000) && !ts.includes(endMs + 119000), ts.join(','));
+  }
+}
 ok('못 읽으면 null 로 넘긴다(빈 배열로 안 떨어뜨림)', /let joins: any\[\] \| null = null, quality: any\[\] \| null = null/.test(api));
 const core = strip(readFileSync(resolve(CF, 'public/js/adm-core.js'), 'utf8'));
 ok('목록 줄에 진단 버튼', /recDiagnose\(' \+ r\.id/.test(core));
