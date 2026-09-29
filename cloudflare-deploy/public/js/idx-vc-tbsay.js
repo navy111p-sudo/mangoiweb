@@ -39,10 +39,12 @@
       return String(window._vcShownPdfName || '');
     } catch (e) { return ''; }
   }
-  /* 새 SIU(2026-09-29): 「[SIU BASIC 001 - …] New Easy / Slide3.JPG」 — 파일은 권마다 하나
+  /* 새 SIU(2026-09-29): 「[NEW SIU BASIC 001 - …] Easy / Slide3.JPG」 — 파일은 권마다 하나
      (/data/tb-say/siu-basic-001.json · siu-adv-001.json, 쉬운·어려운 판 키가 함께 들어 있다).
+     묶음 이름 앞의 «NEW » 는 옛 SIU 와 이름을 갈라 옛것만 숨기려고 붙였다(숨김은 묶음 이름 단위).
+     ⛔ 떼지 말 것 — 떼면 옛 SIU 를 숨길 때 새것까지 숨는다. 키도 이 이름 그대로다.
      BTS 는 예전 그대로 'NN' 을 돌려준다(bts-NN.json). */
-  var SIU_RE = /^\[SIU (BASIC|ADVANCE) (\d{3}) [^\]]*\] New (?:Easy|Hard) \/ Slide\d+\.JPG$/;
+  var SIU_RE = /^\[NEW SIU (BASIC|ADVANCE) (\d{3}) [^\]]*\] (?:Easy|Hard) \/ Slide\d+\.JPG$/;
   function volOf(name) {
     var n = String(name || ''), m = NAME_RE.exec(n);
     if (m) return ('0' + m[1]).slice(-2);
