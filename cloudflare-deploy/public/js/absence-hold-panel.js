@@ -10,6 +10,11 @@
  * ⚠️ 필리핀 매니저가 읽도록 영어·한국어를 함께 적는다(언어 설정을 따라가지 않아도 읽힌다).
  */
 (function () {
+  /* 🙈 (2026-09-29 사장님 지시) 기본은 «숨김» — 지금 보류 목록은 카페24에서 나중에 가져올 학생들이라
+     화면에 117명이 떠서 관리자 화면만 무겁게 했다. 조회·그리기·배지·탭 제목을 전부 하지 않는다.
+     ⚠️ 끈 것은 «화면» 뿐 — 서버의 보류 판정(src/absence-hold.ts)·강사비 0%·아침 요약은 그대로 돈다.
+     ✅ 되살리기: 이 줄을 지우고(manager.html 로더의 같은 조건도) 두 화면의 ?v= 를 올린다. */
+  if (window.__absenceHoldPanelOn !== true) return;
   if (window.__absenceHoldPanel) return;
   window.__absenceHoldPanel = true;
 
