@@ -246,6 +246,8 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       return reply({ok:true,day,me:{username:me,name:actor.name||me},members,own:rowData(own),
         reports:(rows.results||[]).filter(r=>visible(r,actor)).map(rowData),
         files:[...await attachmentsFor(env,(rows.results||[]).filter(r=>visible(r,actor))),...(staged.results||[]).map(fileMeta)],
+        // Uploaded today but not in the saved payload (e.g. page reloaded before Save). The editor offers them back.
+        staged_ids:(staged.results||[]).map((f:any)=>f.id),
         reader_mode:['admin','mgr_jjw'].includes(me),read_schedule,schedule,required:required.results,
         default_recipient: members.find(m=>m.username==='mgr_jjw'&&m.username!==me)?.username || members.find(m=>m.username==='admin'&&m.username!==me)?.username || '',
         ai_available:!!env.AI, can_review_all:all});
