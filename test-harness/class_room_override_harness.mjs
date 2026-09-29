@@ -271,7 +271,7 @@ console.log('\n⑥ 화면 — 지정 버튼과 학생 안내가 실제로 붙어
   // 선생님 화면
   check('⑥-1 강사 화면에 지정 버튼이 있다', /data-roomset=/.test(tBare));
   check('⑥-2 그 버튼이 openRoomOverride 를 실제로 부른다',
-    /\[data-roomset\]/.test(tBare) && /openRoomOverride\s*\(\s*list\[/.test(tBare),
+    /\[data-roomset\]/.test(tBare) && /openRoomOverride\s*\(\s*(?:freshClass\s*\(\s*)?list\[/.test(tBare),
     '버튼만 있고 배선이 없으면 눌러도 아무 일도 안 일어난다');
   check('⑥-3 지정 API 를 PUT 으로 부른다', /method:\s*'PUT'/.test(tBare) && /'\/api\/admin\/class-schedules'/.test(tBare));
   check('⑥-4 🔴 «성공이라고 말했는가»(d.ok !== true)로 가른다',
