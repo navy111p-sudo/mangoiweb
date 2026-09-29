@@ -386,7 +386,9 @@ async function runActivate(env: any, id: number, body: any, actor: string) {
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, student_name TEXT, plan TEXT, amount INTEGER, status TEXT DEFAULT 'active', next_billing_at INTEGER, last_billed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`);
         const nextAt = Date.parse(nextBillingDay(plan.start_date) + 'T00:00:00+09:00');
-        const ex: any = await env.DB.prepare(`SELECT id FROM subscriptions WHERE user_id = ? AND status = 'active' LIMIT 1`).bind(uid).first();
+        /* ⚠️ A.i 이용권 구독(plan='ai_content')은 건드리지 않는다 — 여기서 덮으면 그 구독의 plan 이 수업 패키지로 바뀌어
+           A.i 청구 갈래를 잃고 수업 견적을 타다 스스로 해지된다(2026-09-29). */
+        const ex: any = await env.DB.prepare(`SELECT id FROM subscriptions WHERE user_id = ? AND status = 'active' AND COALESCE(plan,'') <> 'ai_content' LIMIT 1`).bind(uid).first();
         if (ex) {
           await env.DB.prepare(`UPDATE subscriptions SET plan = ?, amount = ?, next_billing_at = ?, updated_at = ? WHERE id = ?`)
             .bind(String(e.package || ''), amount, nextAt, now, ex.id).run();

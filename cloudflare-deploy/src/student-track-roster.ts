@@ -28,7 +28,8 @@ export type RosterTrack = 'live_ai' | 'ai_only' | 'idle' | 'none' | 'unknown';
 
 /** 개인이 결제한 A.i 콘텐츠 상품(enrollments.package 'AI 콘텐츠 전용 …', active) — 명부 판정용 SQL 조각. */
 export const PAID_AI_UIDS_SQL = `SELECT student_user_id FROM enrollments
-   WHERE status = 'active' AND package LIKE 'AI 콘텐츠 전용%' AND student_user_id IS NOT NULL AND TRIM(student_user_id) <> ''`;
+   WHERE status = 'active' AND package LIKE 'AI 콘텐츠 전용%' AND student_user_id IS NOT NULL AND TRIM(student_user_id) <> ''
+     AND (ended_at IS NULL OR ended_at > CAST(strftime('%s','now') AS INTEGER) * 1000)`;
 
 /** «A.i 단독» 명단 = 학원 신청(ai_billing_optin) ∪ 개인 결제. 신청 명단을 못 읽으면 null.
  *  개인 결제 쪽은 표가 없을 수 있어 실패해도 신청 명단만으로 간다(모르면 'idle' — 청구와 무관한 표시다). */
