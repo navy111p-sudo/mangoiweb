@@ -1,0 +1,41 @@
+# 임시(2026-09-29) — 새 SIU 쪽 그림을 공용 자료실(R2 + D1)에 올립니다. main 에 올리지 않습니다.
+# 그림은 run 36533479848 이 만든 것(newsiu-pack)을 그대로 씁니다.
+name: tmp-newsiu-upload
+on:
+  push:
+    branches: [tmp/newsiu-upload]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_UPLOAD_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: key check
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "::error::CLOUDFLARE_UPLOAD_TOKEN 시크릿이 없습니다 — 아무것도 올리지 않습니다"; exit 1; fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - uses: actions/download-artifact@v4
+        with:
+          name: newsiu-pack
+          run-id: 36533479848
+          github-token: ${{ github.token }}
+          path: .
+      - name: upload
+        run: |
+          set -a; . docs/newsiu-sample/upload-plan.txt; set +a
+          ls docs/newsiu-sample/pack | head -3
+          cd docs/newsiu-sample && node upload-new.mjs
+      - name: hide old SIU
+        run: |
+          set -a; . docs/newsiu-sample/upload-plan.txt; set +a
+          [ "$HIDE_OLD" = "yes" ] || { echo "HIDE_OLD=no — 옛 SIU 는 그대로 둡니다"; exit 0; }
+          cd cloudflare-deploy
+          npx -y wrangler@4 d1 execute mango-db --remote --json --command "INSERT OR IGNORE INTO textbook_hidden_books (book, hidden_by, created_at) SELECT DISTINCT substr(name,2,instr(name,']')-2), 'newsiu-ci-2026-09-29', CAST(strftime('%s','now') AS INTEGER)*1000 FROM textbook_files WHERE active=1 AND (name LIKE '[SIU BASIC %' OR name LIKE '[SIU ADVANCE %')"
+          npx -y wrangler@4 d1 execute mango-db --remote --json --command "SELECT book, hidden_by FROM textbook_hidden_books WHERE book LIKE 'SIU %' OR book LIKE 'NEW SIU %' ORDER BY book"
