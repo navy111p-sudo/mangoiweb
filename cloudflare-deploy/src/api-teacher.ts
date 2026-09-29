@@ -77,6 +77,21 @@ const studentUidOf = (s: any): string | null => {
   return u;
 };
 
+/* 🪪 강사 화면에 그릴 «학생 이름» — 2026-09-28 사장님 「왜 이름이 안 나오고 아이디만 나오지?」
+   class_schedules.student_name 은 예약을 넣을 때 적힌 글자라 비어 있거나 «아이디 그대로»
+   (예: yahee) 인 행이 있다. 그러면 화면(stuParts)은 이름==아이디로 보고 아이디 하나만 그린다.
+   → 그때만 명부(students_erp)의 korean_name → student_name 순으로 채운다.
+   ⛔ 명부 값도 아이디와 같으면 쓰지 않는다(이름을 지어내지 않는다 — 아이디 하나만 보이는 게 사실).
+   ⚠️ 조인이 실패해 erp_ko/erp_name 이 없으면 원래 값 그대로다(예전 동작). */
+const resolveStudentName = (s: any): string | null => {
+  const uid = String(s.user_id || '').trim().toLowerCase();
+  for (const v of [s.student_name, s.erp_ko, s.erp_name]) {
+    const t = String(v == null ? '' : v).trim();
+    if (t && t.toLowerCase() !== uid) return t;
+  }
+  return s.student_name || null;
+};
+
 export async function handleTeacherApi(
   request: Request,
   url: URL,
@@ -375,7 +390,8 @@ export async function handleTeacherApi(
       `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
               cs.duration_min, cs.notes, cs.class_type, cs.source, cs.status AS sched_status${_soSel},
               se.level AS level, se.textbook AS textbook,
-              se.english_name AS student_en, se.eval_band AS eval_band
+              se.english_name AS student_en, se.eval_band AS eval_band,
+              se.korean_name AS erp_ko, se.student_name AS erp_name
          FROM class_schedules cs
          LEFT JOIN students_erp se ON se.user_id = cs.user_id
         WHERE ${whereSql}`;
@@ -388,6 +404,8 @@ export async function handleTeacherApi(
     const bindsAll = [todayStr, ...binds];
     try { rows = await env.DB.prepare(sqlJoin).bind(...bindsAll).all<any>(); }
     catch { try { rows = await env.DB.prepare(sqlPlain).bind(...bindsAll).all<any>(); } catch { rows = { results: [] }; } }
+    // 🪪 이름 칸이 비었거나 «아이디 그대로» 면 명부(students_erp)의 이름으로 채운다 — resolveStudentName 참고.
+    for (const r of (rows.results || [])) r.student_name = resolveStudentName(r);
 
     /* ⏰ 입장 시간창 — 강사는 학생보다 **먼저(또는 같이)** 열려야 한다.
        (2026-08-02) 예전엔 값이 셋으로 갈라져 있었다: 학생 10분 / 마이페이지 30분 / 이 화면 5분.

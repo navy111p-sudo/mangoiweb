@@ -1,0 +1,33 @@
+{
+  "schema_version": 2,
+  "purpose": "Non-production MANGOI WebRTC reliability test matrix. rtt_ms is target round-trip latency; one_way_jitter_ms is the per-direction netem jitter magnitude. A runner converts target RTT to one-way shaping delay and must refuse production rooms and production credentials.",
+  "latency_semantics": {
+    "rtt_ms": "Target round-trip latency for the scenario. The impairment runner must convert this to its one-way delay representation rather than applying the full RTT to each direction.",
+    "one_way_jitter_ms": "Per-direction jitter magnitude passed to the network shaper; it is not round-trip jitter."
+  },
+  "teacher_profiles": ["HOME", "OFFICE"],
+  "scenarios": [
+    {"id":"baseline","rtt_ms":0,"one_way_jitter_ms":0,"packet_loss_pct":0,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"latency-100","rtt_ms":100,"one_way_jitter_ms":0,"packet_loss_pct":0,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"latency-200","rtt_ms":200,"one_way_jitter_ms":0,"packet_loss_pct":0,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"latency-300","rtt_ms":300,"one_way_jitter_ms":0,"packet_loss_pct":0,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"loss-1","rtt_ms":0,"one_way_jitter_ms":0,"packet_loss_pct":1,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"loss-3","rtt_ms":0,"one_way_jitter_ms":0,"packet_loss_pct":3,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"loss-5","rtt_ms":0,"one_way_jitter_ms":0,"packet_loss_pct":5,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"loss-10","rtt_ms":0,"one_way_jitter_ms":0,"packet_loss_pct":10,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"jitter-80","rtt_ms":80,"one_way_jitter_ms":40,"packet_loss_pct":0,"bandwidth_kbps":null,"disconnect_ms":0},
+    {"id":"bandwidth-500","rtt_ms":0,"one_way_jitter_ms":0,"packet_loss_pct":0,"bandwidth_kbps":500,"disconnect_ms":0},
+    {"id":"disconnect-3000","rtt_ms":0,"one_way_jitter_ms":0,"packet_loss_pct":0,"bandwidth_kbps":null,"disconnect_ms":3000}
+  ],
+  "required_metrics": [
+    "connect_success","rtt_ms","jitter_ms","packet_loss_pct","audio_conceal_pct",
+    "video_freeze_count","video_freeze_duration_ms","recovery_success","recovery_duration_ms",
+    "restart_ice_count","renegotiation_count","peer_rebuild_count","path","turn"
+  ],
+  "hard_guards": {
+    "require_explicit_sandbox_flag": true,
+    "forbid_production_room": true,
+    "forbid_production_credentials": true,
+    "forbid_impairment_in_live_class": true
+  }
+}
