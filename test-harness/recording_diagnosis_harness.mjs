@@ -145,7 +145,7 @@ ok('목록 줄에 진단 버튼', /recDiagnose\(' \+ r\.id/.test(core));
 ok('화면은 «성공이라고 말했는가» 로 판정', /d\.ok !== true/.test(core));
 ok('화면이 판정 문턱을 복제하지 않는다', !/CONCEAL_PCT|rx_conceal\s*>=/.test(core));
 const html = readFileSync(resolve(CF, 'public/admin.html'), 'utf8');
-ok('admin.html 이 새 adm-core 번호를 부른다', /adm-core\.js\?v=260929-rec-diagnose-1/.test(html));
+ok('admin.html 이 새 adm-core 번호를 부른다', /adm-core\.js\?v=260929-rec-diagnose-2/.test(html));
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
