@@ -1,0 +1,53 @@
+# 임시(2026-09-29) — 새 SIU 쪽 그림 2,000장 만들기 + 권한 점검(읽기만). main 에 올리지 않는다.
+name: tmp-newsiu-pack
+on:
+  push:
+    branches: [tmp/newsiu-upload]
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - name: path link (build8 가 /home/user/mangoiweb 를 씁니다)
+        run: sudo mkdir -p /home/user && sudo ln -sfn "$GITHUB_WORKSPACE" /home/user/mangoiweb
+      - name: permission probe (read only)
+        continue-on-error: true
+        run: |
+          cd cloudflare-deploy
+          npx -y wrangler@4 d1 execute mango-db --remote --json --command "SELECT substr(name,2,instr(name,']')-2) AS book, COUNT(*) AS n FROM textbook_files WHERE active=1 AND (name LIKE '[SIU BASIC%' OR name LIKE '[SIU ADVANCE%' OR name LIKE '[NEW SIU%') GROUP BY book ORDER BY book" > ../d1-siu.json 2>&1; echo "d1 exit=$?"; head -c 3000 ../d1-siu.json
+          npx -y wrangler@4 d1 execute mango-db --remote --json --command "SELECT book FROM textbook_hidden_books ORDER BY book" > ../d1-hidden.json 2>&1; echo "d1 hidden exit=$?"; head -c 3000 ../d1-hidden.json
+          npx -y wrangler@4 r2 bucket list > ../r2-list.txt 2>&1; echo "r2 exit=$?"; cat ../r2-list.txt | head -20
+      - name: fonts
+        run: cd docs/newsiu-sample && node fonts6.mjs
+      - name: build + shot (100 decks)
+        run: |
+          cd docs/newsiu-sample
+          export CHROME=$(which google-chrome || which chromium)
+          bad=0
+          for no in $(ls units | sed -n 's/^\(a\?[0-9]\{3\}\)\.mjs$/\1/p'); do
+            for m in easy hard; do
+              node build8.mjs $no $m > /dev/null
+              out=$(PORT=9501 node shot.mjs $PWD/u/$no/slides-$m.html u/$no/jpg-$m)
+              echo "$no $m $(echo "$out" | tr '\n' ' ')"
+              echo "$out" | grep -q 'overflow: none' || bad=1
+              echo "$out" | grep -q 'clipped: none' || bad=1
+            done
+          done
+          echo "bad=$bad"
+      - name: pack
+        run: cd docs/newsiu-sample && node pack-new.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: newsiu-pack
+          path: |
+            docs/newsiu-sample/pack
+            d1-siu.json
+            d1-hidden.json
+            r2-list.txt
+          retention-days: 7
