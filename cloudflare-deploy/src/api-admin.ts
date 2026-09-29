@@ -6956,6 +6956,25 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         } catch {}
       }
       if (!userId) return bad('student_not_found', '학생을 찾지 못했습니다. 이름을 확인하거나 user_id 를 함께 보내주세요.', 'Student not found. Check the name or send user_id as well.');
+      /* 🆔 (2026-09-29) 주간 스케줄에서 «아이디만» 적은 줄은 명부에 그 아이디가 있는지 확인한다 —
+         이 API 는 user_id 를 검사 없이 받으므로 오타 하나가 «아무도 안 오는 수업» 이 된다.
+         정확일치 먼저, 없으면 대소문자만 다른 후보가 «정확히 하나» 일 때 명부 표기로 바꾼다.
+         ⚠️ 그 플래그를 보낸 요청에만 건다(다른 화면 동작은 그대로). 조회 자체가 실패하면 막지 않는다. */
+      if (body.require_known_uid) {
+        let found: string | null = null, looked = false;
+        try {
+          const ex = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE user_id = ? LIMIT 1`).bind(userId).first<any>();
+          if (ex?.user_id) found = String(ex.user_id);
+          else {
+            const nc = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE user_id = ? COLLATE NOCASE LIMIT 2`).bind(userId).all<any>();
+            const rows = nc.results || [];
+            if (rows.length === 1 && rows[0].user_id) found = String(rows[0].user_id);
+          }
+          looked = true;
+        } catch {}
+        if (looked && !found) return bad('student_not_found', `아이디 «${userId}» 를 학생 명부에서 찾지 못했습니다. 철자를 확인해 주세요.`, `Student ID «${userId}» not found. Check the spelling.`);
+        if (found) userId = found;
+      }
       /* 🏷 (2026-09-28) 아이디만 오고 이름이 비었으면 명부에서 이름을 채운다.
          [왜] 학생 상세 화면(admin/student.html)이 읽던 STUDENT_NAME 변수가 어디에도 정의돼 있지
               않아 그 화면에서 등록한 수업은 전부 student_name=NULL 로 저장됐고, 이름 칸만 보는
