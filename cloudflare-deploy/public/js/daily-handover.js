@@ -7,7 +7,7 @@
   var api = '/api/approval/handover', me, members = [], version = 0, revision = 0;
   var reviewed = false, sent = false, busy = false, suggestion = null, requestAttempt = null;
   var started = null, stopped = null, reports = [], originalSubmitted = false, recognition = null;
-  var attachments=[], fileMap={}, inbox=[], readHistory=[], inboxTotal=0, selected=null, uploading=false, lastListState=null, largeReading=false;
+  var attachments=[], stagedIds=[], fileMap={}, inbox=[], readHistory=[], inboxTotal=0, selected=null, uploading=false, lastListState=null, largeReading=false;
   var wanted=new URLSearchParams(location.search), wantedReport=Number(wanted.get('report'))||null;
   var fields = ['work', 'noissue', 'issue', 'noopen', 'open', 'owner', 'deadline', 'student', 'class', 'priority', 'recipient'];
   var labels = { work:'오늘 한 일 / Work completed', issue:'문제·조치 / Issue & action', open:'남은 일 / Open items', owner:'담당자 / Owner', deadline:'기한 / Deadline' };
@@ -92,7 +92,12 @@
     if(editable){var remove=node('button','첨부 제외 / Remove');remove.type='button';remove.onclick=function(){if(uploading||busy)return;attachments=attachments.filter(function(x){return x!==id;});invalidate();paintAttachments();};box.append(remove);}
     return box;
   }
-  function paintAttachments(){var list=$('file-list');list.replaceChildren();attachments.forEach(function(id){list.append(attachmentLinks(id,true));});}
+  // Files uploaded for this date that are not attached (reload before Save drops them from the draft). Never auto-attach: a removed file must stay removed.
+  function paintAttachments(){var list=$('file-list');list.replaceChildren();attachments.forEach(function(id){list.append(attachmentLinks(id,true));});
+    var loose=stagedIds.filter(function(id){return attachments.indexOf(id)<0&&fileMap[id];});if(!loose.length)return;
+    list.append(node('p','업로드했지만 보고에 붙지 않은 파일 '+loose.length+'개 · 필요하면 붙여 주세요. / Uploaded but not attached: '+loose.length,'small'));
+    loose.forEach(function(id){var box=node('div',null,'mh-attachment');box.append(node('strong',fileMap[id].name),node('span','미첨부 / Not attached','small'));
+      var add=node('button','보고에 붙이기 / Attach');add.type='button';add.onclick=function(){if(uploading||busy)return;if(attachments.length>=5){say('최대 5개까지 첨부할 수 있습니다. / Up to 5 files.',true);return;}attachments.push(id);invalidate();paintAttachments();};box.append(add);list.append(box);});}
   $('files').onchange=async function(){
     if(!me||busy||uploading||(recognition&&recognition.busy()))return;var chosen=Array.from(this.files||[]);
     if(attachments.length+chosen.length>5||chosen.some(function(f){return f.size>20*1024*1024;})){say('최대 5개, 파일당 20MB 이하로 선택해 주세요. / Up to 5 files, 20MB each.',true);this.value='';return;}
@@ -101,7 +106,7 @@
     for(var f of chosen){
       $('upload-status').textContent='업로드 중 / Uploading: '+f.name;
       var controller=new AbortController(),timer=setTimeout(function(){controller.abort();},120000);
-      try{var res=await fetch(api+'/attachment?date='+encodeURIComponent($('date').value),{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/octet-stream','X-File-Name':encodeURIComponent(f.name)},body:f,signal:controller.signal});var j=await res.json();if(!res.ok||!j.ok)throw new Error(j.error||res.status);fileMap[j.file.id]=j.file;attachments.push(j.file.id);cacheDraft();paintAttachments();}
+      try{var res=await fetch(api+'/attachment?date='+encodeURIComponent($('date').value),{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/octet-stream','X-File-Name':encodeURIComponent(f.name)},body:f,signal:controller.signal});var j=await res.json();if(!res.ok||!j.ok)throw new Error(j.error||res.status);fileMap[j.file.id]=j.file;attachments.push(j.file.id);if(stagedIds.indexOf(j.file.id)<0)stagedIds.push(j.file.id);cacheDraft();paintAttachments();}
       catch(e){failed.push(f.name);say('첨부 업로드 실패 / Upload failed: '+f.name+' · '+e.message,true);}
       finally{clearTimeout(timer);}
     }
@@ -160,7 +165,7 @@
   async function init(){
     fields.forEach(function(k){$(k).disabled=true;});$('review').disabled=true;$('save').disabled=true;$('manual').disabled=true;
     try{
-      var j=await call('/home');me=j.me;members=j.members;mergeFiles(j.files);$('editor').hidden=!!j.reader_mode;$('clock-box').hidden=!!j.reader_mode;if(j.reader_mode)$('editor').prepend($('alert'));
+      var j=await call('/home');me=j.me;members=j.members;mergeFiles(j.files);stagedIds=(j.staged_ids||[]).slice();$('editor').hidden=!!j.reader_mode;$('clock-box').hidden=!!j.reader_mode;if(j.reader_mode)$('editor').prepend($('alert'));
       $('filter').value=j.reader_mode?'unread':'all';selected=wantedReport;if(wantedReport)$('filter').value='all';root.dataset.exec=String(j.can_review_all);
       $('date').value=j.day;$('list-date').value=/^\d{4}-\d{2}-\d{2}$/.test(wanted.get('date')||'')?wanted.get('date'):j.day;$('staff').value=me.name;
       ['owner','recipient'].forEach(function(k){members.forEach(function(m){var option=node('option',m.name?m.name+' ('+m.username+')':m.username);option.value=m.username;$(k).append(option);});});
