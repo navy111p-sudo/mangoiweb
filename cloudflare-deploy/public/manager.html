@@ -698,7 +698,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     </div>
     <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;padding-bottom:8px">
       <span data-en="Date" data-ko="날짜">Date</span>
-      <input type="date" id="taDate" onchange="loadTodayAll()" style="box-sizing:border-box;width:150px;padding:3px 6px;font-size:12px">
+      <!-- 📆 (2026-09-29 매니저 요청) 날짜는 치지 않고 드롭다운으로 — 연·월·일 + ◀ ▶ 오늘 (taDatePick).
+           아래 입력칸은 값 보관소로 감춰 둔다(loadTodayAll·연기창이 이 칸의 value 를 읽는다). -->
+      <span id="taDatePick" style="display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap"></span>
+      <input type="date" id="taDate" onchange="loadTodayAll()" hidden style="display:none;box-sizing:border-box;width:150px;padding:3px 6px;font-size:12px">
     </label>
     <!-- 🏫 (2026-09-23 매니저 Karl 요청) 학원·강사를 치지 않고 골라서 거르기 — 「오늘 ○○학원 수업만」.
          목록은 그날 불러온 줄에서만 만든다(건수 포함). admin.html 「오늘 수업」과 같은 판정(아래 pickKey·pickOptions).
@@ -881,6 +884,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     // 약자 표기(2026-08-14 사장님 요청): KO = 누르면 한국어, EN = 누르면 영어.
     document.getElementById('lang').textContent = EN() ? 'KO' : 'EN';
     repaintAll();   // 숫자·목록은 data-en 으로 못 다룬다 — 다시 그린다
+    try { taDatePick(); } catch (e) {}   // 📆 요일 글자(월/Mon)도 따라오게
   }
   window.toggleLang = function(){
     LANG = EN() ? 'ko' : 'en';
@@ -1888,6 +1892,68 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     });
   });
 
+
+  /* 📆 (2026-09-29 매니저 요청 «make date selection into drop-down list than typing the date»)
+     admin.html 「오늘 수업」(js/adm-today-classes.js tcDatePick)과 같은 모양. 이 화면은 외부 스크립트 0개 계약이라 두 벌이다.
+     ⚠️ #taDate 는 지우지 않고 값 보관소로 쓴다 — 드롭다운은 그 값을 쓰고 loadTodayAll() 을 부를 뿐이다. */
+  function taKstToday(){
+    var k = new Date(Date.now() + 9 * 3600 * 1000);
+    return k.getUTCFullYear() + '-' + String(k.getUTCMonth() + 1).padStart(2, '0') + '-' + String(k.getUTCDate()).padStart(2, '0');
+  }
+  function taYmd(y, m, d){ return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
+  function taDaysIn(y, m){ return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
+  function taDatePick(){
+    var box = document.getElementById('taDatePick'), inp = document.getElementById('taDate');
+    if (!box || !inp) return;
+    var cur = /^\d{4}-\d{2}-\d{2}$/.test(inp.value || '') ? inp.value : taKstToday();
+    var y = +cur.slice(0, 4), m = +cur.slice(5, 7), d = +cur.slice(8, 10), ty = +taKstToday().slice(0, 4);
+    var WK = EN() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
+    var sel = 'box-sizing:border-box;padding:3px 4px;font-size:12px';
+    var ys = '', ms = '', ds = '';
+    for (var yy = Math.min(y, ty - 1); yy <= Math.max(y, ty + 1); yy++) ys += '<option value="' + yy + '"' + (yy === y ? ' selected' : '') + '>' + yy + '</option>';
+    for (var mm = 1; mm <= 12; mm++) ms += '<option value="' + mm + '"' + (mm === m ? ' selected' : '') + '>' + String(mm).padStart(2, '0') + T('', '월') + '</option>';
+    for (var dd = 1; dd <= taDaysIn(y, m); dd++) {
+      var w = new Date(Date.UTC(y, m - 1, dd)).getUTCDay();
+      ds += '<option value="' + dd + '"' + (dd === d ? ' selected' : '') + '>' + String(dd).padStart(2, '0') + ' (' + WK[w] + ')</option>';
+    }
+    box.innerHTML = '<span class="tag" role="button" tabindex="0" data-dp="-1" style="cursor:pointer" title="' + esc(T('Previous day', '전날')) + '">◀</span>'
+      + '<select id="taDpY" style="' + sel + '" aria-label="' + esc(T('Year', '연도')) + '">' + ys + '</select>'
+      + '<select id="taDpM" style="' + sel + '" aria-label="' + esc(T('Month', '월')) + '">' + ms + '</select>'
+      + '<select id="taDpD" style="' + sel + '" aria-label="' + esc(T('Day', '일')) + '">' + ds + '</select>'
+      + '<span class="tag" role="button" tabindex="0" data-dp="1" style="cursor:pointer" title="' + esc(T('Next day', '다음날')) + '">▶</span>'
+      + '<span class="tag" role="button" tabindex="0" data-dp="0" style="cursor:pointer">' + esc(T('Today', '오늘')) + '</span>';
+  }
+  function taSetDate(ymd){
+    var inp = document.getElementById('taDate');
+    if (!inp) return;
+    inp.value = ymd;
+    taDatePick();
+    loadTodayAll();
+  }
+  function taStepDate(step){
+    if (step === '0') { taSetDate(taKstToday()); return; }
+    var inp = document.getElementById('taDate');
+    var cur = inp && /^\d{4}-\d{2}-\d{2}$/.test(inp.value || '') ? inp.value : taKstToday();
+    var k = new Date(Date.UTC(+cur.slice(0, 4), +cur.slice(5, 7) - 1, +cur.slice(8, 10)) + Number(step) * 86400000);
+    taSetDate(taYmd(k.getUTCFullYear(), k.getUTCMonth() + 1, k.getUTCDate()));
+  }
+  (function(){
+    var box = document.getElementById('taDatePick');
+    if (!box) return;
+    box.addEventListener('change', function(){
+      var y = +document.getElementById('taDpY').value, m = +document.getElementById('taDpM').value, d = +document.getElementById('taDpD').value;
+      taSetDate(taYmd(y, m, Math.min(d, taDaysIn(y, m))));
+    });
+    box.addEventListener('click', function(e){
+      var t = e.target.closest && e.target.closest('[data-dp]');
+      if (t) taStepDate(t.getAttribute('data-dp'));
+    });
+    box.addEventListener('keydown', function(e){
+      var t = e.target.closest && e.target.closest('[data-dp]');
+      if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); taStepDate(t.getAttribute('data-dp')); }
+    });
+    taDatePick();
+  })();
 
   /* ③-2 오늘 전체 수업 — 서버가 망고아이 예약과 카페24 예약을 합쳐 준다.
      카페24 줄은 join_open:false (우리 방이 없어 들어갈 데가 없다).

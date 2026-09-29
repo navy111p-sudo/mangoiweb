@@ -827,6 +827,9 @@
       +   tcTh('time', '시간', 'Time')
       +   tcTh('status', '상태', 'Status')
       +   tcTh('student', '학생 / 액션', 'Student / Action')
+      /* (2026-09-29 매니저 요청 «move teacher's names near the student's name») 강사 칸을 학생 바로 옆으로.
+         맨 끝에 있어 50% 로 줄여야 누가 강사인지 보였다. ⚠️ th 와 td 순서는 짝 — 한쪽만 옮기지 말 것. */
+      +   tcTh('teacher', '강사', 'Teacher')
       +   tcTh('contact', '연락처', 'Contact')
       +   tcTh('academy', '학원', 'Academy')
       +   tcTh('', '수업 캘린더', 'Class calendar')
@@ -837,7 +840,6 @@
       +   tcTh('lastEval', '지난 수업 평가', 'Last class feedback')
       +   tcTh('todayEval', '오늘 평가', "Today's feedback")
       +   tcTh('level', '레벨 · 교재', 'Level · Textbook')
-      +   tcTh('teacher', '강사', 'Teacher')
       +   tcTh('room', '강의실', 'Room')
       + '</tr></thead><tbody>'
       + tcSorted(rows).map(function (s) {
@@ -978,6 +980,7 @@
                   ? '<div style="font-size:10.5px;color:#6b7280;letter-spacing:0.2px">' + esc(s.student_uid) + '</div>'
                   : '')
             + '</td>'
+            + '<td>' + teacher + '</td>'
             + '<td>' + contact + '</td>'
             + '<td>' + academy + '</td>'
             + '<td>' + xCal(s, isC24) + '</td>'
@@ -988,7 +991,6 @@
             + '<td>' + xEval(s.last_eval, s.eval_hidden) + '</td>'
             + '<td>' + xEval(s.today_eval, s.eval_hidden) + '</td>'
             + '<td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + levelTag + bookTag + '</div></td>'
-            + '<td>' + teacher + '</td>'
             + '<td><code style="font-size:11px;color:#6b7280">' + esc(s.room_id) + '</code>'
             +   (isC24 ? ' <span style="font-size:10px;color:#92400e;font-weight:800">LMS</span>' : '') + '</td>'
             + '</tr>';
@@ -1150,6 +1152,76 @@
     if (h) h.style.display = subAllowed() ? '' : 'none';
   }
 
+  /* 📆 (2026-09-29 매니저 요청 «make date selection into drop-down list than typing the date»)
+     날짜를 «치는» 칸 대신 연·월·일 드롭다운 + ◀ ▶ + 「오늘」.
+     ⚠️ 원래 입력칸(#tc-date)은 **지우지 않고 감춰서 값 보관소로** 쓴다 — 로더·연기창·대체강사 창이
+        전부 그 칸의 value 를 읽는다(여섯 곳). 드롭다운은 그 값을 쓰고 change 를 쏠 뿐이다.
+     ⛔ <button> 금지 — `details.menu-card button{…!important}` 가 파란 알약으로 덮는다(CLAUDE.md 2장).
+        ◀ ▶ 오늘 은 span[role=button]. */
+  function tcYmd(y, m, d) { return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
+  function tcDaysIn(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
+  function tcDatePick() {
+    var inp = $('tc-date');
+    if (!inp) return;
+    var box = $('tc-date-pick');
+    if (!box) {
+      box = document.createElement('span');
+      box.id = 'tc-date-pick';
+      box.style.cssText = 'display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap';
+      inp.parentNode.insertBefore(box, inp);
+      inp.style.setProperty('display', 'none', 'important');
+      box.addEventListener('change', function () {
+        var y = +$('tc-dp-y').value, m = +$('tc-dp-m').value, d = +$('tc-dp-d').value;
+        d = Math.min(d, tcDaysIn(y, m));
+        tcSetDate(tcYmd(y, m, d));
+      });
+      box.addEventListener('click', function (e) {
+        var t = e.target.closest && e.target.closest('[data-dp]');
+        if (t) tcStepDate(t.getAttribute('data-dp'));
+      });
+      box.addEventListener('keydown', function (e) {
+        var t = e.target.closest && e.target.closest('[data-dp]');
+        if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); tcStepDate(t.getAttribute('data-dp')); }
+      });
+    }
+    var cur = /^\d{4}-\d{2}-\d{2}$/.test(inp.value || '') ? inp.value : kstTodayStr();
+    var y = +cur.slice(0, 4), m = +cur.slice(5, 7), d = +cur.slice(8, 10);
+    var ty = +kstTodayStr().slice(0, 4);
+    var WK = isEn() ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['일', '월', '화', '수', '목', '금', '토'];
+    var sel = 'box-sizing:border-box;font-size:12px;padding:3px 4px';
+    var btn = 'cursor:pointer;display:inline-block;white-space:nowrap;padding:3px 9px;border-radius:99px;font-size:12px;font-weight:800;'
+      + 'background:#eaf0fb;color:#1d4ed8;border:1px solid #bfd3f5;user-select:none';
+    var ys = '', ms = '', ds = '';
+    for (var yy = Math.min(y, ty - 1); yy <= Math.max(y, ty + 1); yy++) ys += '<option value="' + yy + '"' + (yy === y ? ' selected' : '') + '>' + yy + '</option>';
+    for (var mm = 1; mm <= 12; mm++) ms += '<option value="' + mm + '"' + (mm === m ? ' selected' : '') + '>' + String(mm).padStart(2, '0') + T('월', '') + '</option>';
+    for (var dd = 1; dd <= tcDaysIn(y, m); dd++) {
+      var w = new Date(Date.UTC(y, m - 1, dd)).getUTCDay();
+      ds += '<option value="' + dd + '"' + (dd === d ? ' selected' : '') + '>' + String(dd).padStart(2, '0') + ' (' + WK[w] + ')</option>';
+    }
+    box.innerHTML = '<span role="button" tabindex="0" data-dp="-1" style="' + btn + '" title="' + T('전날', 'Previous day') + '">◀</span>'
+      + '<select id="tc-dp-y" style="' + sel + '" aria-label="' + T('연도', 'Year') + '">' + ys + '</select>'
+      + '<select id="tc-dp-m" style="' + sel + '" aria-label="' + T('월', 'Month') + '">' + ms + '</select>'
+      + '<select id="tc-dp-d" style="' + sel + '" aria-label="' + T('일', 'Day') + '">' + ds + '</select>'
+      + '<span role="button" tabindex="0" data-dp="1" style="' + btn + '" title="' + T('다음날', 'Next day') + '">▶</span>'
+      + '<span role="button" tabindex="0" data-dp="0" style="' + btn + '">' + T('오늘', 'Today') + '</span>';
+  }
+  function tcSetDate(ymd) {
+    var inp = $('tc-date');
+    if (!inp) return;
+    inp.value = ymd;
+    tcDatePick();
+    /* 로더는 #tc-date 의 change 에 묶여 있다(아래 bind) — 같은 길로 다시 불러온다 */
+    try { inp.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+  }
+  function tcStepDate(step) {
+    if (step === '0') { tcSetDate(kstTodayStr()); return; }
+    var inp = $('tc-date');
+    var cur = inp && /^\d{4}-\d{2}-\d{2}$/.test(inp.value || '') ? inp.value : kstTodayStr();
+    var t = Date.UTC(+cur.slice(0, 4), +cur.slice(5, 7) - 1, +cur.slice(8, 10)) + Number(step) * 86400000;
+    var k = new Date(t);
+    tcSetDate(tcYmd(k.getUTCFullYear(), k.getUTCMonth() + 1, k.getUTCDate()));
+  }
+
   function bind() {
     var b = $('tc-load');
     if (b && !b._tcBound) { b._tcBound = true; b.addEventListener('click', window.tcLoadToday); }
@@ -1179,6 +1251,7 @@
        ⚠️ render() 가 아니라 로더를 부른다. 날짜가 바뀌면 «서버에서 다시» 받아야 한다. */
     var dt = $('tc-date');
     if (dt && !dt._tcBound) { dt._tcBound = true; dt.addEventListener('change', function () { window.tcLoadToday(); }); }
+    tcDatePick();
     /* 카드를 처음 펼칠 때 1회 자동 로드 — 매니저가 버튼을 또 누르지 않아도 되게 */
     var d = $('sm-today-classes');
     if (d && !d._tcBound) {
@@ -1206,6 +1279,6 @@
      ⛔ data-ko/data-en 으로 풀지 말 것 — 그 줄에는 버튼이 들어 있어 두 i18n 엔진이
         textContent 를 통째로 갈아끼우면 **버튼이 사라진다**(CLAUDE.md 2장).
      ⛔ 서버를 다시 부르지 않는다(render() 만) — 이미 받아 둔 _rows 로 다시 그린다. */
-  document.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); if (_rows.length) render(); });
-  window.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); if (_rows.length) render(); });
+  document.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); tcDatePick(); if (_rows.length) render(); });
+  window.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); tcDatePick(); if (_rows.length) render(); });
 })();
