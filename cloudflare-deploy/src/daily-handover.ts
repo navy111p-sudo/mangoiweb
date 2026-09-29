@@ -230,6 +230,16 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       const count:any=await env.DB.prepare(`SELECT COUNT(*) n FROM daily_handovers WHERE recipient=? AND username<>? AND status='submitted'`).bind(me,me).first();
       return reply({ok:true,me:{username:me,name:actor.name||me},reader_mode:['admin','mgr_jjw'].includes(me),total:count.n,reports:(result.results||[]).map(rowData),files:await attachmentsFor(env,result.results||[])});
     }
+    // 📖 다시 읽기(2026-09-29) — 확인·보완요청한 보고는 «미확인» 목록에서 빠지므로 되돌아볼 길이 없었다.
+    // 내가 받았거나 내가 확인한 것만(최근 30일). ⛔ 경영진 «전체 보기» 로 넓히지 않는다 — 그건 날짜별 «전체» 필터가 한다.
+    if(request.method==='GET'&&route==='/read-history'){
+      const since=new Date(Date.parse(day+'T00:00:00Z')-29*86400000).toISOString().slice(0,10);
+      const result=await env.DB.prepare(`SELECT * FROM daily_handovers WHERE status IN ('acknowledged','changes_requested')
+        AND username<>? AND report_date>=? AND (recipient=? OR acknowledged_by=?)
+        ORDER BY COALESCE(acknowledged_at,updated_at) DESC LIMIT 100`).bind(me,since,me,me).all();
+      const rows=(result.results||[]).filter(r=>visible(r,actor)||r.acknowledged_by===me);
+      return reply({ok:true,since,reports:rows.map(rowData),files:await attachmentsFor(env,rows)});
+    }
     if (request.method === 'GET' && route === '/home') {
       const members = await accounts(env);
       const own = await env.DB.prepare(`SELECT * FROM daily_handovers WHERE username=? AND report_date=?`).bind(me,day).first();
