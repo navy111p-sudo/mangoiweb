@@ -57,12 +57,29 @@ export interface DiagEvent {
 }
 export interface DiagResult {
   verdict: 'ok' | 'warn' | 'bad' | 'unknown';
+  /* 한눈 등급(2026-09-29 사장님 «좋음·보통·나쁨 으로 처음에 미리») — verdict 에서만 나온다(GRADE 표). */
+  grade: 'good' | 'fair' | 'poor' | 'unknown';
+  grade_ko: string;
+  grade_en: string;
   headline_ko: string;
   headline_en: string;
   events: DiagEvent[];
   notes_ko: string[];
   notes_en: string[];
   coverage: { quality_rows: number; join_rows: number };
+}
+
+/* 한눈 등급 — verdict 를 사람이 읽는 세 칸으로. ⛔ 새 판정을 만들지 않는다(verdict 가 정본).
+   ⛔ «확인 불가» 를 «좋음» 으로 떨어뜨리지 않는다 — 기록이 없는 것은 잘 된 것이 아니다. */
+export const GRADE = {
+  ok:      { grade: 'good',    ko: '🟢 좋음',      en: '🟢 Good' },
+  warn:    { grade: 'fair',    ko: '🟡 보통',      en: '🟡 Fair' },
+  bad:     { grade: 'poor',    ko: '🔴 나쁨',      en: '🔴 Poor' },
+  unknown: { grade: 'unknown', ko: '❔ 판정 불가', en: '❔ Unknown' },
+} as const;
+function withGrade(r: Omit<DiagResult, 'grade' | 'grade_ko' | 'grade_en'>): DiagResult {
+  const g = GRADE[r.verdict] || GRADE.unknown;
+  return { ...r, grade: g.grade, grade_ko: g.ko, grade_en: g.en };
 }
 
 /* 문턱 — 숫자를 바꾸면 하니스의 기대값도 함께 본다(하니스는 이 상수를 «읽어» 쓴다). */
@@ -135,8 +152,8 @@ export function diagnoseRecording(rec: DiagRec, joins: DiagJoin[] | null, qualit
   const notes_en: string[] = [];
   const startRaw = num(rec.started_at);
   if (!startRaw) {
-    return { verdict: 'unknown', headline_ko: '❔ 확인 불가 — 녹화 시작 시각이 없습니다.', headline_en: '❔ Unknown — the recording has no start time.',
-             events, notes_ko, notes_en, coverage: { quality_rows: 0, join_rows: 0 } };
+    return withGrade({ verdict: 'unknown', headline_ko: '❔ 확인 불가 — 녹화 시작 시각이 없습니다.', headline_en: '❔ Unknown — the recording has no start time.',
+             events, notes_ko, notes_en, coverage: { quality_rows: 0, join_rows: 0 } });
   }
   const start = startRaw;
   const durMs = num(rec.duration_ms);
@@ -328,6 +345,6 @@ export function diagnoseRecording(rec: DiagRec, joins: DiagJoin[] | null, qualit
     : [(verdict === 'bad' ? '❌ 문제' : '⚠️ 주의') + (parts_ko.length ? ' — ' + parts_ko.join(' · ') : ''),
        (verdict === 'bad' ? '❌ Problem' : '⚠️ Check') + (parts_en.length ? ' — ' + parts_en.join(' · ') : '')];
 
-  return { verdict, headline_ko: head[0], headline_en: head[1], events, notes_ko, notes_en,
-           coverage: { quality_rows: Q.length, join_rows: J.length } };
+  return withGrade({ verdict, headline_ko: head[0], headline_en: head[1], events, notes_ko, notes_en,
+           coverage: { quality_rows: Q.length, join_rows: J.length } });
 }

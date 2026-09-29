@@ -1231,7 +1231,17 @@ function recDiagnose(id, btn) {
         td.textContent = (L ? 'Could not diagnose: ' : '진단하지 못했습니다: ') + (d.error || 'HTTP error');
         return;
       }
-      var h = '<div style="font-weight:700;font-size:13px;margin-bottom:6px">' + _esc(L ? d.headline_en : d.headline_ko) + '</div>';
+      /* 한눈 등급을 «맨 먼저» — 글자는 서버가 준 것을 그대로(⛔ 여기서 등급을 다시 계산하지 않는다).
+         색은 background-color 로만 준다(이 카드 글자색은 페인터가 덮으므로 뜻은 🟢🟡🔴 글자가 진다). */
+      var GBG = { good: '#dcfce7', fair: '#fef3c7', poor: '#fee2e2', unknown: '#f1f5f9' };
+      var gTxt = L ? d.grade_en : d.grade_ko;
+      var h = '';
+      if (gTxt) {
+        h += '<div class="rec-diag-grade" style="display:inline-block;background-color:' + (GBG[d.grade] || GBG.unknown)
+          + ';border:1px solid #cbd5e1;border-radius:8px;padding:4px 12px;font-size:15px;font-weight:800;margin-bottom:6px">'
+          + (L ? 'Lesson: ' : '수업 결과: ') + _esc(gTxt) + '</div>';
+      }
+      h += '<div style="font-weight:700;font-size:13px;margin-bottom:6px">' + _esc(L ? d.headline_en : d.headline_ko) + '</div>';
       var ev = Array.isArray(d.events) ? d.events : [];
       if (ev.length) {
         h += '<ul style="margin:0 0 6px 0;padding-left:18px;font-size:12px;line-height:1.7">'

@@ -131,6 +131,25 @@ console.log('\n④-2 함정 대조 수리(2026-09-29)');
   ok('시작 시각이 없으면 unknown', ns.verdict === 'unknown');
 }
 
+console.log('\n④-2 한눈 등급 (좋음·보통·나쁨)');
+{
+  const G = M.GRADE || {};
+  ok('전제: GRADE 표가 있다', !!(G.ok && G.warn && G.bad && G.unknown));
+  const cases = [
+    ['ok', run(rec(), [tj(), sj()], cleanQ)],
+    ['bad', run(rec({ participant_names: '["cys01"]' }), [sj({ username: 'cys01', account_uid: 'cys01' })], cleanQ)],
+    ['unknown', run(rec(), [], [])],
+    ['unknown', run(rec({ started_at: null }), [tj()], cleanQ)],
+  ];
+  for (const [want, d] of cases) {
+    ok(`verdict ${d.verdict} → 등급이 그 표와 같다 (${d.grade_ko})`, d.verdict === want && G[want] && d.grade === G[want].grade && d.grade_ko === G[want].ko && d.grade_en === G[want].en, JSON.stringify([d.verdict, d.grade]));
+  }
+  const w = run(rec({ storage: 'r2_snapshot', duration_ms: 3 * 60000, ended_at: min(3) }), [tj(), sj({ left_at: min(3) })], cleanQ);
+  ok('주의(warn)는 «보통»', w.verdict === 'warn' && w.grade === 'fair', w.verdict + '/' + w.grade);
+  ok('(짝) 좋음·보통·나쁨·판정불가 넷이 서로 다른 글자', new Set(['ok','warn','bad','unknown'].map(k => G[k] && G[k].ko)).size === 4);
+  ok('기록이 없으면 «좋음» 이 아니다', run(rec(), [], []).grade !== 'good');
+}
+
 console.log('\n⑤ 배선');
 const strip = t => t.replace(/^[ \t]*\/\/.*$/gm, '');
 const api = readFileSync(resolve(CF, 'src/api-mango.ts'), 'utf8');
@@ -187,6 +206,13 @@ const core = strip(readFileSync(resolve(CF, 'public/js/adm-core.js'), 'utf8'));
 ok('목록 줄에 진단 버튼', /recDiagnose\(' \+ r\.id/.test(core));
 ok('화면은 «성공이라고 말했는가» 로 판정', /d\.ok !== true/.test(core));
 ok('화면이 판정 문턱을 복제하지 않는다', !/CONCEAL_PCT|rx_conceal\s*>=/.test(core));
+{
+  const fb = core.slice(core.indexOf('function recDiagnose('), core.indexOf('function renderRecordingsTable('));
+  const gi = fb.indexOf('rec-diag-grade'), hi = fb.indexOf('d.headline_en : d.headline_ko');
+  ok('화면이 등급을 제목보다 «먼저» 그린다', gi > 0 && hi > gi);
+  ok('화면은 서버 등급 글자를 쓴다(d.grade_ko/en)', /d\.grade_en\s*:\s*d\.grade_ko/.test(fb));
+  ok('화면이 verdict 로 등급을 다시 계산하지 않는다', !/verdict\s*===?\s*'(ok|warn|bad)'/.test(fb));
+}
 const html = readFileSync(resolve(CF, 'public/admin.html'), 'utf8');
 // 번호를 글자로 못 박지 않는다 — 다른 작업이 adm-core 를 또 올리면 거짓 FAIL 이 된다(2026-09-29 «보기» 칸에서 실제로 밟음).
 // 물을 것은 «번호가 있고, 그 번호가 원장에 기록돼 있는가»(내용 변경 없이 번호만 남은 사고는 asset_version 이 잡는다).
