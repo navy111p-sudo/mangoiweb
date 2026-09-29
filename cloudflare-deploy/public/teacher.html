@@ -1646,7 +1646,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
            + ':' + (sc.teacher_entry ? sc.teacher_entry.state + (sc.teacher_entry.at || '') : '')
            + ':' + (sc.today_eval ? sc.today_eval.id : '') + ':' + (sc.last_eval ? sc.last_eval.id : '')
            + ':' + (sc.pay_type || '') + ':' + (sc.sched_label_en || '')
-           + ':' + (Array.isArray(sc.week_days) ? sc.week_days.map(function (x) { return x ? 1 : 0; }).join('') : '') + ',';
+           + ':' + (Array.isArray(sc.week_days) ? sc.week_days.map(function (x) { return x ? 1 : 0; }).join('') : '')
+           // 🚪 (2026-09-29) 방 번호·길이도 넣는다 — 안 넣으면 「오늘은 다른 방으로」·일정 이동으로
+           //    room_id 가 바뀌어도 «바뀐 게 없다» 로 보고 다시 안 그려, [수업 입장] 이 옛 방으로 간다.
+           + ':' + (sc.room_id || '') + ':' + (sc.duration_min || '') + ':' + (sc.close_at_ts || '') + ',';
     }
     if (sig === lastSig) return;
     lastSig = sig;
@@ -1921,14 +1924,14 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var b = box.querySelectorAll('[data-join]');
     for (var j=0;j<b.length;j++) b[j].onclick = function(){ joinClass(list[+this.getAttribute('data-join')]); };
     var rs = box.querySelectorAll('[data-roomset]');
-    for (var q=0;q<rs.length;q++) rs[q].onclick = function(){ openRoomOverride(list[+this.getAttribute('data-roomset')]); };
+    for (var q=0;q<rs.length;q++) rs[q].onclick = function(){ openRoomOverride(freshClass(list[+this.getAttribute('data-roomset')])); };
     var e = box.querySelectorAll('[data-eval]');
-    for (var k=0;k<e.length;k++) e[k].onclick = function(){ openEval(list[+this.getAttribute('data-eval')]); };
+    for (var k=0;k<e.length;k++) e[k].onclick = function(){ openEval(freshClass(list[+this.getAttribute('data-eval')])); };
     // ✍ 이미 쓴 일지 열기 — 학부모가 받는 eval.html 그대로.
     var ev2 = box.querySelectorAll('[data-evview]');
-    for (var v=0;v<ev2.length;v++) ev2[v].onclick = function(){ openEvalView(list[+this.getAttribute('data-evview')]); };
+    for (var v=0;v<ev2.length;v++) ev2[v].onclick = function(){ openEvalView(freshClass(list[+this.getAttribute('data-evview')])); };
     var rq = box.querySelectorAll('[data-rep]');
-    for (var q=0;q<rq.length;q++) rq[q].onclick = function(){ askReport(list[+this.getAttribute('data-rep')], this); };
+    for (var q=0;q<rq.length;q++) rq[q].onclick = function(){ askReport(freshClass(list[+this.getAttribute('data-rep')]), this); };
     // (연기 버튼 제거 2026-08-08 — 위 주석 참고. 버튼을 되살리면 이 2줄도 함께 되살릴 것)
     var pp = box.querySelectorAll('[data-post]');
     for (var m=0;m<pp.length;m++) pp[m].onclick = function(){ openPostpone(list[+this.getAttribute('data-post')]); };
@@ -2438,6 +2441,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
           alert(T('Could not set the room. ', '방을 지정하지 못했습니다. ') + (d.message || d.error || ''));
           return;
         }
+        /* 🚪 (2026-09-29) 곧바로 다시 받는다 — 안 받으면 45초 동안 [수업 입장] 이 옛 방을 가리킨다. */
+        scheduleAutoRefresh(300);
         if (d.cleared) { alert(T('Assignment cleared. The class goes back to its usual room.',
                                  '지정을 취소했어요. 원래 수업방으로 돌아갑니다.')); return; }
         var link = d.link || '';
@@ -2472,7 +2477,20 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       .catch(function () { alert(T('Network error. Please try again.', '통신이 불안정합니다. 다시 시도해 주세요.')); });
   }
 
+  /* 🚪 (2026-09-29) 버튼이 쥔 줄은 «그린 순간» 의 사본이다. 누르는 순간 최신 DATA 에서
+     같은 수업(schedule_id)을 다시 찾아 그 room_id 를 쓴다 — 그리지 않은 사이 방이 바뀌어도
+     옛 방으로 가지 않게. 못 찾으면(옛 캐시·안내 줄) 받은 줄 그대로 = 고치기 전과 같다. */
+  function freshClass(c){
+    if (!c || !c.schedule_id || !DATA || !Array.isArray(DATA.classes)) return c;
+    for (var i = 0; i < DATA.classes.length; i++){
+      var x = DATA.classes[i];
+      if (x && String(x.schedule_id) === String(c.schedule_id) && (x.kind || 'class') === (c.kind || 'class')) return x;
+    }
+    return c;
+  }
+
   function joinClass(c){
+    c = freshClass(c);
     // 방 번호는 서버가 준 결정론적 room_id 를 그대로 쓴다(학생과 반드시 같은 방).
     // vc_name 의 '교사 ' 접두사는 기존 규약 — /api/class/verify-room 이 이 형태를 전제로 판정한다.
     var nm = '교사 ' + ((DATA && DATA.me && DATA.me.name) || 'Teacher');
