@@ -4715,9 +4715,12 @@ ${numbered}`;
         const lookupFailed: string[] = [];
         try {
           const r1 = await env.DB.prepare(
+            /* 겹침 조건 — 녹화 «전» 에 먼저 들어와 있던 사람(보통 강사)도 넣어야 그 사람의
+               재입장이 «늦은 입장» 으로 뒤바뀌지 않는다. 6시간 전까지만(풀스캔 방지). */
             `SELECT username, account_uid, user_id, role, joined_at, left_at, total_active_ms, total_session_ms
                FROM attendance WHERE room_id = ? AND joined_at BETWEEN ? AND ?
-              ORDER BY joined_at LIMIT 500`).bind(rec.room_id, wFrom, wTo).all();
+                AND (left_at IS NULL OR left_at >= ?)
+              ORDER BY joined_at LIMIT 500`).bind(rec.room_id, wFrom - 6 * 3600000, wTo, wFrom).all();
           joins = (r1.results || []) as any[];
         } catch (e: any) { lookupFailed.push('attendance'); console.warn('[rec-diagnose] attendance', e?.message); }
         try {
@@ -4726,13 +4729,8 @@ ${numbered}`;
           ).bind(rec.room_id, wFrom, wTo + 60000).all();
           quality = (r2.results || []) as any[];
         } catch (e: any) { lookupFailed.push('vc_quality'); console.warn('[rec-diagnose] vc_quality', e?.message); }
+        /* 못 읽은 것은 null 로 넘긴다 — 정본이 «없음» 과 «못 읽음» 을 갈라 말한다. */
         const d = diagnoseRecording(rec, joins, quality);
-        /* 못 읽은 것이 있으면 «정상» 이라 말하지 않는다 */
-        if (lookupFailed.length && d.verdict === 'ok') {
-          d.verdict = 'unknown';
-          d.headline_ko = '❔ 일부 기록을 읽지 못해 판정을 보류합니다.';
-          d.headline_en = '❔ Some logs could not be read — verdict withheld.';
-        }
         return json({ ok: true, id: rid, lookup_failed: lookupFailed, ...d });
       }
       // 녹화 목록 조회 — D1 의 recordings 메타데이터 + (참여도 점수) 함께 반환.

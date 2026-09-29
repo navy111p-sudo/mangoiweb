@@ -18,6 +18,7 @@
  */
 
 export interface DiagRec {
+  room_id?: string | null;
   started_at?: number | null;
   ended_at?: number | null;
   duration_ms?: number | null;
@@ -49,7 +50,7 @@ export interface DiagQuality {
 export interface DiagEvent {
   at_ms: number;          // 녹화 시작부터 몇 ms (음수 = 녹화 전)
   label: string;          // 「08:11」 또는 「08분대」·「09~11분대」
-  kind: 'join_late' | 'rejoin' | 'freeze' | 'conceal' | 'aao' | 'lag' | 'left_early';
+  kind: 'join_late' | 'rejoin' | 'freeze' | 'conceal' | 'aao' | 'lag';
   sev: 'warn' | 'bad';
   text_ko: string;
   text_en: string;
@@ -89,17 +90,32 @@ export function clockLabel(atMs: number): string {
 }
 /* 1분 요약 창의 «시작» 분 → 「08분대」 / 구간이면 「09~11분대」 */
 function minuteLabel(fromMs: number, toMs: number): string {
+  if (toMs < 0) return '녹화 전';                 // 녹화 «전» 1분을 「00분대」로 보이게 하지 않는다
   const a = Math.max(0, Math.floor(fromMs / 60000));
   const b = Math.max(0, Math.floor(toMs / 60000));
   return a === b ? pad2(a) + '분대' : pad2(a) + '~' + pad2(b) + '분대';
 }
 
-/* 사람 한 명을 가리키는 열쇠 — 계정이 있으면 계정, 없으면 이름, 그래도 없으면 기기번호.
-   ⚠️ user_id 는 기기 식별자라 계정이 아니다(CLAUDE.md 「출결이 통째로 0」). */
-function personKey(j: DiagJoin): string {
-  const k = String(j.account_uid || j.username || j.user_id || '').trim().toLowerCase();
-  return k;
+/* 사람 한 명을 가리키는 열쇠 — 계정, 없으면 이름. **대소문자 그대로**(Kim/kim 은 다른 계정).
+   ⛔ 기기번호(user_id)만 있는 행은 쓰지 않는다 — 접속마다 새 번호라 매번 «새 사람» 이 되어
+      재입장을 영영 못 잡고 인원만 부풀린다(/api/gaze-score 폴백이 그런 빈 행을 만든다).
+   이름과 계정이 한 행에 같이 있으면 그 둘을 한 사람으로 잇는다(aliasOf). */
+function buildPersonKey(J: DiagJoin[]): (j: DiagJoin) => string {
+  const nameToAcct = new Map<string, string>();
+  for (const j of J) {
+    const a = String(j.account_uid || '').trim(), n = String(j.username || '').trim();
+    if (a && n && !nameToAcct.has(n)) nameToAcct.set(n, a);
+  }
+  return (j: DiagJoin) => {
+    const a = String(j.account_uid || '').trim();
+    if (a) return 'a:' + a;
+    const n = String(j.username || '').trim();
+    if (!n) return '';
+    return nameToAcct.has(n) ? 'a:' + nameToAcct.get(n) : 'n:' + n;
+  };
 }
+/* 회의방·공용방은 «수업» 이 아니다 — 혼자 켜 둔 녹화가 흔하다(CLAUDE.md 「회의방은 수업 아님」). */
+function isClassRoom(room: any): boolean { return /^class-/.test(String(room || '')); }
 function roleOf(r: any): 'teacher' | 'student' | 'other' {
   const s = String(r || '').toLowerCase();
   if (s === 'teacher' || s === 'admin' || s === 'staff') return 'teacher';
@@ -114,13 +130,23 @@ function who(role: string, name: string, en: boolean): string {
 }
 
 export function diagnoseRecording(rec: DiagRec, joins: DiagJoin[] | null, quality: DiagQuality[] | null): DiagResult {
-  const start = num(rec.started_at) || 0;
-  const durMs = num(rec.duration_ms);
-  const J = (Array.isArray(joins) ? joins : []).filter(j => num(j.joined_at) !== null);
-  const Q = (Array.isArray(quality) ? quality : []).filter(q => num(q.ts) !== null);
   const events: DiagEvent[] = [];
   const notes_ko: string[] = [];
   const notes_en: string[] = [];
+  const startRaw = num(rec.started_at);
+  if (!startRaw) {
+    return { verdict: 'unknown', headline_ko: '❔ 확인 불가 — 녹화 시작 시각이 없습니다.', headline_en: '❔ Unknown — the recording has no start time.',
+             events, notes_ko, notes_en, coverage: { quality_rows: 0, join_rows: 0 } };
+  }
+  const start = startRaw;
+  const durMs = num(rec.duration_ms);
+  /* ⚠️ null = «못 읽음», [] = «읽었는데 없음». 둘을 같은 글자로 만들지 않는다. */
+  const joinsKnown = Array.isArray(joins), qualityKnown = Array.isArray(quality);
+  const J0 = (joinsKnown ? joins as DiagJoin[] : []).filter(j => num(j.joined_at) !== null);
+  const Q = (qualityKnown ? quality as DiagQuality[] : []).filter(q => num(q.ts) !== null);
+  const personKey = buildPersonKey(J0);
+  const J = J0.filter(j => personKey(j));
+  const anonRows = J0.length - J.length;
   let bad = false;
   let warn = false;
 
@@ -132,13 +158,11 @@ export function diagnoseRecording(rec: DiagRec, joins: DiagJoin[] | null, qualit
     if (!byPerson.has(k)) byPerson.set(k, []);
     byPerson.get(k)!.push(j);
   }
-  const rolesSeen = new Set<string>();
   for (const list of byPerson.values()) {
     list.sort((a, b) => (num(a.joined_at) || 0) - (num(b.joined_at) || 0));
     const first = list[0];
     const role = String(first.role || '');
     const nm = String(first.username || first.account_uid || '').trim();
-    rolesSeen.add(roleOf(role));
     const firstAt = (num(first.joined_at) as number) - start;
     if (firstAt > DIAG.LATE_MS) {
       warn = true;
@@ -215,11 +239,17 @@ export function diagnoseRecording(rec: DiagRec, joins: DiagJoin[] | null, qualit
   let names: any[] = [];
   try { names = JSON.parse(String(rec.participant_names || '[]')); } catch { names = []; }
   const distinctPeople = byPerson.size;
-  const alone = (Array.isArray(names) ? names.length : 0) <= 1 && distinctPeople <= 1;
+  /* 혼자 판정은 «입장 기록을 실제로 읽었고 누군가는 있었다» 일 때만 — 못 읽었거나 0건이면
+     «혼자» 가 아니라 «모름» 이다. 수업방(class-)이 아니면 ❌ 로 몰지 않는다. */
+  const soloByLog = joinsKnown && distinctPeople === 1 && (Array.isArray(names) ? names.length : 0) <= 1;
+  const alone = soloByLog && isClassRoom(rec.room_id);
   if (alone) {
     bad = true;
     notes_ko.push('❌ 참가자가 1명뿐입니다 — 상대가 들어오지 않은 것으로 보입니다.');
     notes_en.push('❌ Only one participant — the other side does not seem to have joined.');
+  } else if (soloByLog) {
+    notes_ko.push('ℹ️ 혼자 있던 녹화입니다(회의방·공용방이라 수업으로 판정하지 않습니다).');
+    notes_en.push('ℹ️ Only one person (meeting/open room — not judged as a lesson).');
   }
   if (String(rec.status || '') === 'upload_failed') {
     bad = true;
@@ -252,13 +282,23 @@ export function diagnoseRecording(rec: DiagRec, joins: DiagJoin[] | null, qualit
       notes_en.push('⚠️ The student spoke little (' + pct.toFixed(0) + '%).');
     }
   }
-  if (!Q.length) {
+  if (!qualityKnown) {
+    notes_ko.push('❔ 회선 기록을 읽지 못했습니다 — 화면 멈춤·소리 끊김은 판정하지 못했습니다.');
+    notes_en.push('❔ Could not read the connection log — freezes and audio drops not checked.');
+  } else if (!Q.length) {
     notes_ko.push('ℹ️ 회선 기록이 없습니다 — 화면 멈춤·소리 끊김은 판정하지 못했습니다(기록은 30일만 보관).');
     notes_en.push('ℹ️ No connection log — freezes and audio drops could not be checked (kept 30 days).');
   }
-  if (!J.length) {
+  if (!joinsKnown) {
+    notes_ko.push('❔ 입장 기록을 읽지 못했습니다 — 끊김·재입장은 판정하지 못했습니다.');
+    notes_en.push('❔ Could not read the join log — drops and rejoins not checked.');
+  } else if (!J.length) {
     notes_ko.push('ℹ️ 입장 기록이 없습니다 — 끊김·재입장은 판정하지 못했습니다.');
     notes_en.push('ℹ️ No join log — drops and rejoins could not be checked.');
+  }
+  if (anonRows > 0) {
+    notes_ko.push('ℹ️ 이름·계정 없이 남은 입장 기록 ' + anonRows + '건은 누구인지 몰라 판정에서 뺐습니다.');
+    notes_en.push('ℹ️ ' + anonRows + ' join row(s) had no name or account and were left out.');
   }
 
   /* ── ④ 한 줄 판정 ─────────────────────────────────── */
@@ -267,6 +307,8 @@ export function diagnoseRecording(rec: DiagRec, joins: DiagJoin[] | null, qualit
   else if (warn) verdict = 'warn';
   else if (!Q.length && !J.length) verdict = 'unknown';   // ⛔ 아무 기록도 없으면 «정상» 이라 하지 않는다
   else verdict = 'ok';
+  /* 한쪽 기록만 있으면 «정상» 이 아니라 «확인된 범위에서는 문제 없음» 이다 — 재지 않은 것을 단정하지 않는다. */
+  const partial = verdict === 'ok' && (!Q.length || !J.length);
 
   const cnt = (k: DiagEvent['kind']) => events.filter(e => e.kind === k).length;
   const parts_ko: string[] = [], parts_en: string[] = [];
@@ -278,7 +320,10 @@ export function diagnoseRecording(rec: DiagRec, joins: DiagJoin[] | null, qualit
   if (cnt('lag')) { parts_ko.push('지연'); parts_en.push('latency'); }
   if (cnt('join_late')) { parts_ko.push('늦은 입장'); parts_en.push('late join'); }
 
-  const head = verdict === 'ok' ? ['✅ 정상 — 기록상 끊김·멈춤이 없었습니다.', '✅ OK — no drops or freezes on record.']
+  const head = (verdict === 'ok' && partial)
+      ? (!Q.length ? ['✅ 입장 기록상 끊김은 없었습니다 — 화면 멈춤·소리는 기록이 없어 확인 못 함.', '✅ No drops in the join log — freezes/audio not checked (no connection log).']
+                   : ['✅ 회선 기록상 멈춤·소리 끊김은 없었습니다 — 재입장은 기록이 없어 확인 못 함.', '✅ No freezes/audio drops in the connection log — rejoins not checked (no join log).'])
+    : verdict === 'ok' ? ['✅ 정상 — 기록상 끊김·멈춤이 없었습니다.', '✅ OK — no drops or freezes on record.']
     : verdict === 'unknown' ? ['❔ 확인 불가 — 판정할 기록이 없습니다.', '❔ Unknown — no logs to judge from.']
     : [(verdict === 'bad' ? '❌ 문제' : '⚠️ 주의') + (parts_ko.length ? ' — ' + parts_ko.join(' · ') : ''),
        (verdict === 'bad' ? '❌ Problem' : '⚠️ Check') + (parts_en.length ? ' — ' + parts_en.join(' · ') : '')];

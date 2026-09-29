@@ -1432,7 +1432,7 @@ function renderRecordingsTable() {
         /* 🔴 «완료» 라는데 파일이 없다 = 2026-08-26 에 고친 바로 그 사고의 잔여분이다.
            「처리 중」이라 말하면 그 거짓말을 되살린다 — 모르면 모른다고 말한다. */
         pend = { t: _pL ? 'Marked done, no file' : '완료 표시인데 영상 없음', c: '#b42318',
-                 h: _pL ? 'The record says completed but no file was found in the recording storage listing. Press 진단 to re-check.' : '기록은 「완료」인데 녹화 저장소 목록에서 파일을 찾지 못했습니다. 위 「진단」으로 다시 확인해 보세요.' };
+                 h: _pL ? 'The record says completed but no file was found in the recording storage listing. Press 🔧 Diagnose (storage) above to re-check.' : '기록은 「완료」인데 녹화 저장소 목록에서 파일을 찾지 못했습니다. 위쪽 저장소 「🔧 진단」으로 다시 확인해 보세요.' };
       else
         pend = { t: _pL ? 'Processing' : '처리 중', c: '#667085',
                  h: _pL ? 'The server is still finishing this recording.' : '서버가 마무리하고 있습니다.' };

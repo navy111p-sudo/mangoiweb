@@ -23,7 +23,7 @@ const run = (...a) => { try { return diagnoseRecording(...a); } catch (e) { retu
 
 const T0 = Date.UTC(2026, 8, 28, 5, 0, 0);
 const min = m => T0 + m * 60000;
-const rec = (o = {}) => ({ started_at: T0, ended_at: min(20), duration_ms: 20 * 60000, status: 'completed', storage: 'r2', participant_names: '["교사 FAR","lby01"]', ...o });
+const rec = (o = {}) => ({ room_id: 'class-3140-20260928', started_at: T0, ended_at: min(20), duration_ms: 20 * 60000, status: 'completed', storage: 'r2', participant_names: '["교사 FAR","lby01"]', ...o });
 const tj = (o = {}) => ({ username: '교사 FAR', role: 'teacher', joined_at: T0 - 20000, left_at: min(20), ...o });
 const sj = (o = {}) => ({ username: 'lby01', account_uid: 'lby01', role: 'student', joined_at: T0 + 5000, left_at: min(20), total_active_ms: 8 * 60000, total_session_ms: 19 * 60000, ...o });
 const q = (m, o = {}) => ({ ts: min(m + 1), uid: 'lby01', name: 'lby01', role: 'student', avg_rtt: 120, aao: 0, rx_conceal: 0, rx_freeze: 0, ...o });
@@ -100,6 +100,37 @@ console.log('\n④ 녹화 전체');
   ok('clockLabel 음수는 «녹화 전»', clockLabel(-5000) === '녹화 전');
 }
 
+console.log('\n④-2 함정 대조 수리(2026-09-29)');
+{
+  const one = rec({ participant_names: '["cys01"]' });
+  const dn = run(one, null, cleanQ);
+  ok('입장 기록을 못 읽으면(null) «상대 미입장» 으로 몰지 않는다', dn.verdict !== 'bad' && !/미입장/.test(dn.headline_ko), dn.headline_ko);
+  ok('못 읽음은 «읽지 못했습니다» 로 말한다', dn.notes_ko.some(n => /읽지 못했/.test(n)));
+  const de = run(one, [], cleanQ);
+  ok('입장 기록 0건도 «혼자» 가 아니다', !/미입장/.test(de.headline_ko), de.headline_ko);
+  ok('0건은 «없습니다» 로 말한다(못 읽음과 다른 글자)', de.notes_ko.some(n => /입장 기록이 없습니다/.test(n)) && !de.notes_ko.some(n => /읽지 못했/.test(n)));
+  const dq = run(rec(), [tj(), sj()], null);
+  ok('회선 기록 못 읽음 ≠ «30일 보관» 사유', dq.notes_ko.some(n => /회선 기록을 읽지 못했/.test(n)) && !dq.notes_ko.some(n => /30일/.test(n)));
+  const meet = run(rec({ room_id: 'meet-1234', participant_names: '["jeong"]' }), [sj({ username: 'jeong', account_uid: 'jeong' })], cleanQ);
+  ok('회의방에 혼자면 ❌ 가 아니다', meet.verdict !== 'bad', meet.verdict);
+  const cls = run(rec({ participant_names: '["cys01"]' }), [sj({ username: 'cys01', account_uid: 'cys01' })], cleanQ);
+  ok('(짝) 수업방에 혼자면 ❌', cls.verdict === 'bad');
+  const anon = run(rec(), [tj(), sj(), { user_id: 'u_a1', joined_at: min(3) }, { user_id: 'u_b2', joined_at: min(9) }], cleanQ);
+  ok('기기번호만 있는 행은 사람으로 세지 않는다(늦은 입장·재입장 없음)', !anon.events.some(e => e.kind === 'join_late' || e.kind === 'rejoin'), JSON.stringify(anon.events));
+  ok('뺀 사실을 말한다', anon.notes_ko.some(n => /2건/.test(n)));
+  const mix = run(rec(), [tj(), sj({ account_uid: null, username: 'lby01', joined_at: T0 + 5000, left_at: min(7) }), sj({ joined_at: min(7) + 10000 })], cleanQ);
+  ok('이름만 있는 행과 계정 행을 한 사람으로 잇는다(재입장 1건)', mix.events.filter(e => e.kind === 'rejoin').length === 1 && !mix.events.some(e => e.kind === 'join_late'), JSON.stringify(mix.events));
+  const kk = run(rec(), [tj(), sj({ account_uid: 'Kim', username: 'Kim' }), sj({ account_uid: 'kim', username: 'kim', joined_at: min(2) })], cleanQ);
+  ok('대소문자만 다른 계정은 다른 사람(재입장 아님)', !kk.events.some(e => e.kind === 'rejoin'));
+  const pq = run(rec(), [tj(), sj()], []);
+  ok('회선 기록 없이 «정상» 이면 «확인 못 함» 을 함께 말한다', pq.verdict === 'ok' && /확인 못 함/.test(pq.headline_ko), pq.headline_ko);
+  ok('(짝) 둘 다 있으면 그냥 정상', /^✅ 정상/.test(run(rec(), [tj(), sj()], cleanQ).headline_ko));
+  const pre = run(rec(), [tj(), sj()], [q(-1, { rx_freeze: 2 })]);
+  ok('녹화 전 1분은 «00분대» 가 아니라 «녹화 전»', pre.events.some(e => e.kind === 'freeze' && e.label === '녹화 전'), JSON.stringify(pre.events.map(e => e.label)));
+  const ns = run(rec({ started_at: null }), [tj()], cleanQ);
+  ok('시작 시각이 없으면 unknown', ns.verdict === 'unknown');
+}
+
 console.log('\n⑤ 배선');
 const strip = t => t.replace(/^[ \t]*\/\/.*$/gm, '');
 const api = readFileSync(resolve(CF, 'src/api-mango.ts'), 'utf8');
@@ -107,7 +138,8 @@ const ai = api.indexOf("if (path === '/api/recordings' && method === 'GET') {");
 const di = api.indexOf("url.searchParams.get('diagnose')", ai);
 ok('진단 갈래가 로그인 게이트를 지나는 목록 경로 «안» 에 있다', ai > 0 && di > ai && di - ai < 1500);
 ok('서버가 정본을 부른다', /diagnoseRecording\(rec, joins, quality\)/.test(api));
-ok('못 읽으면 «정상» 이라 하지 않는다', /lookupFailed\.length && d\.verdict === 'ok'/.test(api));
+ok('입장 조회가 «겹침» 조건(녹화 전 입장자 포함)', /left_at IS NULL OR left_at >= \?/.test(api));
+ok('못 읽으면 null 로 넘긴다(빈 배열로 안 떨어뜨림)', /let joins: any\[\] \| null = null, quality: any\[\] \| null = null/.test(api));
 const core = strip(readFileSync(resolve(CF, 'public/js/adm-core.js'), 'utf8'));
 ok('목록 줄에 진단 버튼', /recDiagnose\(' \+ r\.id/.test(core));
 ok('화면은 «성공이라고 말했는가» 로 판정', /d\.ok !== true/.test(core));
