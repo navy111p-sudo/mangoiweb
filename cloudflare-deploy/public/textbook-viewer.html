@@ -53,6 +53,8 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
 .viewer-stage.dragging > .pan-wrap{transition:none}
 .viewer img{max-width:90vw;max-height:calc(100vh - 80px);width:auto;height:auto;object-fit:contain;background:#fff;border-radius:8px;box-shadow:0 12px 40px -10px rgba(0,0,0,0.7);display:block;pointer-events:none;-webkit-user-drag:none}
 .viewer canvas{max-width:90vw;max-height:calc(100vh - 80px);background:#fff;border-radius:8px;box-shadow:0 12px 40px -10px rgba(0,0,0,0.7);display:block}
+.viewer .tbs-host{position:absolute;inset:0;pointer-events:none;z-index:55}
+.viewer .tbs-host > *{pointer-events:auto}
 .viewer iframe,.viewer video{max-width:100%;background:#fff;border-radius:8px;box-shadow:0 12px 40px -10px rgba(0,0,0,0.7);display:block}
 /* 줌/리셋 컨트롤 */
 .zoom-ctrl{display:none}
@@ -192,6 +194,9 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
   .topbar .btn{padding:6px 10px;font-size:11px}
   .topbar .back,.topbar .home{padding:6px 10px;font-size:11px}
   .viewer iframe{height:calc(100vh - 100px)}
+  /* 🔊 폰에서는 레슨 목록(서랍)이 왼쪽 240px 를 덮으니 오른쪽으로 비켜선다 */
+  .viewer #tbs-btn{left:auto;right:10px}
+  .viewer #tbs-box{left:auto;right:10px}
 }
 </style>
 </head>
@@ -219,6 +224,9 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
 
 <main class="viewer" id="viewer">
   <div class="viewer-stage" id="stage"></div>
+  <!-- 🔊 (2026-09-29) 수업 교재 칸의 «이 쪽 문장 듣기» 를 여기서도 그대로 씁니다(/js/idx-vc-tbsay.js — 복제하지 않음).
+       그 파일은 #tab-pdf 에 버튼을 붙이고 window._vcShownPdfName 으로 «지금 쪽» 을 읽는다 → 이 화면이 그 둘을 채운다. -->
+  <div id="tab-pdf" class="tbs-host"></div>
 </main>
 
 <div class="page-nav" id="page-nav" style="display:none">
@@ -463,7 +471,7 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
       if (cut > 0) { lsn = nm.slice(0, cut); fn = nm.slice(cut + 3); }
       if (!lsn) lsn = '전체';
       if (!byLesson.has(lsn)) byLesson.set(lsn, []);
-      byLesson.get(lsn).push({ id: it.id, name: fn, kind: it.kind || fileKind(fn), size: it.size_bytes, url: it.url });
+      byLesson.get(lsn).push({ id: it.id, name: fn, full: String(it.name || ''), kind: it.kind || fileKind(fn), size: it.size_bytes, url: it.url });
     });
     var lessons = [];
     Array.from(byLesson.keys()).sort(natCmp).forEach(function(k){
@@ -541,6 +549,17 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
     if (curURL) { try { URL.revokeObjectURL(curURL); } catch(_){} curURL = null; }
   }
 
+  /* 🔊 새 BTS 쪽이면 «이 쪽 문장 듣기» — 판정·소리는 /js/idx-vc-tbsay.js 정본이 한다.
+     그 파일이 아직 안 왔으면(defer) 아무것도 안 하고, 도착하면 DOMContentLoaded 에서 한 번 더 부른다. */
+  function tbSayRefresh(f){
+    try {
+      window._vcShownPdfName = (f && f.kind === 'image' && f.full) ? f.full : '';
+      if (window.__mgTbSay) window.__mgTbSay.refresh();
+    } catch(_){}
+  }
+  window.miIsEn = window.miIsEn || function(){ return tvEn(); };
+  document.addEventListener('DOMContentLoaded', function(){ tbSayRefresh(FLAT[cur]); });
+
   async function show(i){
     if (!FLAT.length) return;
     if (i < 0) i = 0;
@@ -555,6 +574,7 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
     resetZoom();
     stage.innerHTML = '<div style="color:#94A3B8;font-size:13px">' + (tvEn() ? 'Loading…' : '불러오는 중…') + '</div>';
     revoke();
+    tbSayRefresh(f);
 
     var url = f.url || '';
     if (!url) {
@@ -789,6 +809,15 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
       this.textContent = sb.classList.contains('hidden') ? '▶' : '◀';
     };
 
+    /* 🔊 폰에서는 레슨 목록(서랍)이 열려 있으면 문장 목록이 그 밑에 깔린다(서랍이 뷰어 층 위) —
+       🔊 를 누르면 서랍부터 닫는다. 캡처 단계라 버튼 쪽 stopPropagation 보다 먼저 온다. */
+    $('tab-pdf').addEventListener('click', function(e){
+      var t = e.target;
+      if (!t || t.id !== 'tbs-btn' || !window.matchMedia('(max-width:700px)').matches) return;
+      var sb = $('sidebar');
+      if (!sb.classList.contains('hidden')) { sb.classList.add('hidden'); $('sb-toggle').textContent = '▶'; }
+    }, true);
+
     $('btn-fs').onclick = function(){
       try {
         if (document.fullscreenElement) document.exitFullscreen();
@@ -854,6 +883,7 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
 })();
 </script>
 <script defer src="/js/back-nav.js"></script>
+<script defer src="/js/idx-vc-tbsay.js?v=1"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
 </html>
