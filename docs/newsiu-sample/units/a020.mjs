@@ -12,7 +12,7 @@
 export default {
  no: "a020",
  title: "Relationship and Love",
- book: "SIU ADVANCE 020 - Relationship and Love",
+ book: "SIU ADVANCE 020 - Relationship  and Love",
  next: "",
  cover: { h1: "Relationships", em: "and Love", goals: ["Talk about friends, family and love", "Ask and answer 10 questions", "Use subject pronouns: I, he, she, they"] },
  KW: [
