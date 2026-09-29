@@ -3677,8 +3677,8 @@ function renderNewSlotFields(type){
       '<div class="modal-section">'+durCards+'</div>';
   } else {
     box.innerHTML='<div class="modal-section">'+
-      '<label>'+(L?'학생 이름:아이디 (한 줄에 한 명)':'Student name:ID (one per line)')+'</label>'+
-      '<textarea id="ns-students" rows="3" placeholder="'+(L?'홍길동:test_st_0\n김민수:test_st_1':'John Doe:test_st_0')+'"></textarea>'+
+      '<label>'+(L?'학생 아이디 (한 줄에 한 명 · 이름:아이디 도 됩니다)':'Student ID (one per line · name:ID also OK)')+'</label>'+
+      '<textarea id="ns-students" rows="3" placeholder="'+(L?'test_st_0\n김민수:test_st_1':'test_st_0\nJohn Doe:test_st_1')+'"></textarea>'+
       durCards+
       '<label>'+(L?'코스 시작일':'Start Date')+'</label>'+
       '<input type="date" id="ns-start">'+
@@ -3748,6 +3748,12 @@ async function saveNewSlot(){
     raw.split('\n').forEach(function(line){
       line=line.trim();if(!line)return;
       var parts=line.split(':');
+      /* 🆔 (2026-09-29 사장님) 아이디만 적어도 된다 — 아이디는 중복이 없어 이름이 필요 없다.
+         콜론이 없는 줄: 한글이 있으면 «이름»(예전처럼 서버가 이름으로 찾음), 없으면 «아이디».
+         이름은 서버가 명부에서 채우고, 명부에 없는 아이디면 서버가 거절한다(byUid). */
+      if(parts.length===1&&!/[\uAC00-\uD7A3\u3131-\u318E]/.test(line)){
+        students.push({name:'',uid:line,byUid:true});return;
+      }
       /* 아이디를 안 적었으면 «없음» 으로 둔다. 예전엔 'unknown' 을 박아서 그 글자가
          그대로 학생 아이디로 저장될 뻔했다 — 서버는 이름으로도 학생을 찾아 준다. */
       students.push({name:(parts[0]||'').trim(),uid:(parts[1]||'').trim()});
@@ -3807,7 +3813,7 @@ async function saveNewSlot(){
   }
   /* 💾 여기부터가 «서버에 저장» 이다. 위 헬퍼 주석 참고 — 예전엔 이 자리가 addSlot 뿐이었다. */
   if(!students.length){
-    alert(L?'학생을 한 명 이상 적어 주세요 (이름:아이디)':'Enter at least one student (name:id)');
+    alert(L?'학생 아이디를 한 명 이상 적어 주세요':'Enter at least one student ID');
     return;
   }
   var saveBtn2=document.getElementById('new-slot-save');
@@ -3831,12 +3837,13 @@ async function saveNewSlot(){
           notes:noteFull
         };
         if(stu.uid)payload.user_id=stu.uid;           // 아이디가 있으면 그것이 우선(동명이인 방지)
+        if(stu.byUid)payload.require_known_uid=1;     // 아이디만 적은 줄 — 명부에 없으면 서버가 거절(오타 방지)
         var res=await postClassScheduleAsk(payload,state);
         if(res.ok){
           okCnt++;
           if(res.j&&res.j.warning)failMsgs.push('⚠️ '+res.j.warning);
         }else{
-          failMsgs.push((stu.name||'?')+' '+payload.scheduled_date+' '+payload.start_time+' — '+
+          failMsgs.push((stu.name||stu.uid||'?')+' '+payload.scheduled_date+' '+payload.start_time+' — '+
             ((res.j&&(res.j.message||res.j.error))||('HTTP '+res.status)));
         }
       }
