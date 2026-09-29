@@ -774,7 +774,11 @@ body.dragging{cursor:crosshair}
 <link rel="stylesheet" href="/css/admin-readability.css?v=4"><!-- 가독성 보강 -->
 <style id="pc-scale">
   /* PC 가독성 확대 — admin.html(body{zoom:1.3})과 동일 배율. 모바일 영향 없음 */
-  @media (min-width: 1024px) { body { zoom: 1.3; } }
+  @media (min-width: 1024px) { body { zoom: 1.3; }
+    /* 📐 (2026-09-29) zoom 안에서는 vh 에도 1.3 이 곱해진다 — 88vh 모달이 화면의 114% 가 되어
+       아래 붙은 «저장» 버튼이 화면 밖으로 밀렸다(사장님 «화면 비율을 줄여야 저장이 보인다»).
+       zoom 을 나눠 «실제 화면의 88%» 로 되돌린다. 감시: manual/weekly-schedule-modal-fit-browser.mjs */
+    .modal { max-height: calc(88vh / 1.3); } }
 </style>
 <link rel="stylesheet" href="/css/adm-light-theme.css?v=2"><!-- ☀️ 관리자 밝은 테마 통일 (2026-07-23) -->
 </head>
