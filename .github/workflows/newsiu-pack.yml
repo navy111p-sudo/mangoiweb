@@ -1,0 +1,47 @@
+# 🧺 임시(2026-09-29): NewSIU 50권 쪽 그림(2,000장)을 러너에서 다시 찍어 업로더용 zip 으로 묶는다.
+# 컨테이너에서 사이트·드라이브로 265MB 를 직접 올릴 길이 없어서 만든 것 — 받아 간 뒤 main 병합 «전에» 지운다.
+name: newsiu-pack
+on:
+  push:
+    branches: [claude/charming-turing-yduxqg]
+    paths: ['.github/workflows/newsiu-pack.yml']
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: 글꼴·경로 준비
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-color-emoji fonts-noto-cjk >/dev/null
+          sudo mkdir -p /home/user && sudo ln -s "$GITHUB_WORKSPACE" /home/user/mangoiweb
+          which google-chrome
+      - name: 만들기(글꼴 굽기 포함)
+        working-directory: docs/newsiu-sample
+        run: |
+          U=$(ls units | grep -E '^a?[0-9]{3}\.mjs$' | sed 's/\.mjs//')
+          for n in $U; do node build8.mjs $n easy >/dev/null; node build8.mjs $n hard >/dev/null; done
+          node fonts6.mjs | tail -1
+          for n in $U; do node build8.mjs $n easy | tail -1; node build8.mjs $n hard | tail -1; done
+      - name: 찍기(4갈래)
+        working-directory: docs/newsiu-sample
+        env: { CHROME: /usr/bin/google-chrome }
+        run: |
+          U=$(ls units | grep -E '^a?[0-9]{3}\.mjs$' | sed 's/\.mjs//')
+          lane() { P=$1; shift; for n in "$@"; do for m in easy hard; do
+            r=$(PORT=$P node shot.mjs $PWD/u/$n/slides-$m.html u/$n/jpg-$m 2>&1 | tr '\n' ' '); echo "$n $m $r"; sleep 1; done; done; }
+          set -- $U
+          lane 9510 ${@:1:13} > l1.txt & lane 9520 ${@:14:13} > l2.txt & lane 9530 ${@:27:12} > l3.txt & lane 9540 ${@:39:12} > l4.txt & wait
+          cat l1.txt l2.txt l3.txt l4.txt
+          echo "=== 문제 있는 판 ==="; cat l?.txt | grep -vE 'overflow: (none|s13:1) +clipped: none' || echo "없음"
+      - name: 묶기
+        working-directory: docs/newsiu-sample
+        run: node pack.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NewSIU교재
+          path: docs/newsiu-sample/pack/
+          retention-days: 30
+          compression-level: 0

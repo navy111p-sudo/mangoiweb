@@ -1,8 +1,9 @@
 import fs from 'fs'; import {spawn} from 'child_process';
 const a2 = process.argv[2]||''; const HTML = a2.endsWith('.html') ? a2 : 'slides.html'; const out = (a2.endsWith('.html') ? process.argv[3] : a2) || 'jpg';
 fs.mkdirSync(out,{recursive:true});
-const C = fs.readdirSync('/opt/pw-browsers').find(d=>d.startsWith('chromium-'));
-const ch = spawn(`/opt/pw-browsers/${C}/chrome-linux/chrome`,['--headless','--no-sandbox','--remote-debugging-port='+(process.env.PORT||9333),'--allow-file-access-from-files','--hide-scrollbars','about:blank'],{stdio:'ignore'});
+// CHROME 이 있으면 그 브라우저(깃허브 러너 등), 없으면 이 컨테이너의 크로미움.
+const CHROME = process.env.CHROME || `/opt/pw-browsers/${fs.readdirSync('/opt/pw-browsers').find(d=>d.startsWith('chromium-'))}/chrome-linux/chrome`;
+const ch = spawn(CHROME,['--headless','--no-sandbox','--remote-debugging-port='+(process.env.PORT||9333),'--allow-file-access-from-files','--hide-scrollbars','about:blank'],{stdio:'ignore'});
 await new Promise(r=>setTimeout(r,1500));
 const tabs = await (await fetch('http://127.0.0.1:'+(process.env.PORT||9333)+'/json/list')).json();
 const ws = new WebSocket(tabs.find(t=>t.type==='page').webSocketDebuggerUrl);
