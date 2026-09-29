@@ -55,6 +55,7 @@ import { teacherIdsWithPush } from './teacher-push';              // 🔔 강사
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole } from './auth-admin';
+import { groupDirectClasses } from './enroll-direct';   // 📅 수강신청 목록의 «직접 배정» 줄 (2026-09-29)
 import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
 import { teacherMoveDenyReason, moveFieldConflict } from './class-teacher-move';  // 수업 담당 강사 변경 게이트(정본)  // 승인자 기록(SR·FD)·강사 스코프 비교 · 대리점 로그인 계정 생성
 import { ensureRoomOverrideTable, validateOverrideInput, teacherOwnsSchedule, kstYmd } from './class-room-override';  // 🚪 「오늘은 이 방으로」 정본
@@ -185,6 +186,7 @@ function hrGradeLabel(total: number | null): string | null {
 }
 
 let _payrollSchemaReady = false;
+let _enrSchemaReady = false;   // ⚡ /api/admin/enrollments 스키마 보강 — 인스턴스당 한 번
 async function ensurePayrollSchema(env: { DB: D1Database }): Promise<void> {
   if (_payrollSchemaReady) return;
   // teachers — 기존 호환 + 신규 컬럼
@@ -12102,42 +12104,48 @@ LIMIT $limit`;
       if (_act) return _act;
     }
     if ((method === 'GET' || method === 'POST') && path === '/api/admin/enrollments') {
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY AUTOINCREMENT, student_user_id TEXT, student_name TEXT NOT NULL, package TEXT, started_at INTEGER, ended_at INTEGER, monthly_fee_krw INTEGER, status TEXT DEFAULT 'pending', notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
-      // 🥭 Phase 37b — 누락 컬럼 자동 보강 (Phase 36 seed 가 사용하는 컬럼들)
-      const _addEnrCol2 = async (col: string, type: string) => {
-        try { await env.DB.exec(`ALTER TABLE enrollments ADD COLUMN ${col} ${type}`); } catch {}
-      };
-      await _addEnrCol2('days_of_week', 'TEXT');
-      await _addEnrCol2('time', 'TEXT');
-      await _addEnrCol2('class_size', 'TEXT');
-      await _addEnrCol2('type', 'TEXT');
-      await _addEnrCol2('teacher_name', 'TEXT');
-      await _addEnrCol2('end_date', 'TEXT');
-      // 🧑‍🏫 (2026-08-12) 등록 화면에서 «강사 이름 지정» 칸을 없애는 대신 남기는 값.
-      //   'schedule' = 요일·시간 우선 / 'teacher' = 강사 적합도 우선. 「▸ 처리」 단계가 읽는다.
-      await _addEnrCol2('assign_priority', 'TEXT');
-      // 🗓️ (2026-08-14) ⑥ 수업 기간(회차) — '1' | '3' | '6' | '12' | 'unlimited'.
-      //   숫자 개월이면 클라이언트가 시작일 + N개월을 end_date/ended_at 으로 같이 보내 온다.
-      //   TEXT 인 이유: 'unlimited' 를 0·NULL 로 눌러 두면 «안 고른 것» 과 구분이 안 된다.
-      await _addEnrCol2('duration_months', 'TEXT');
-      // ⏱ (2026-08-26 사장님 지시) 수업 시간(분) — 20/30/40 중 선택, 안 고르면 기본 20분.
-      //   enroll-activate.ts 의 buildEnrollPlan() 이 이 컬럼을 읽어 class_schedules.duration_min 을 정한다.
-      await _addEnrCol2('duration_min', 'INTEGER');
-      // 💰 (2026-08-26 사장님 지시) 곱하기 «전» 20분 기준가. `monthly_fee_krw` 는 «이미 곱해진 최종값» 이라
-      //   되돌아볼 근거가 사라진다 — 그래서 기준가를 따로 남긴다(감사·재계산용).
-      await _addEnrCol2('base_fee_krw', 'INTEGER');
-      // 그 기준가를 «사람이 적었는지 · 대리점 단가로 자동으로 세웠는지». 후자는 아무도 치지 않은
-      //   금액이라 확정 화면이 그렇게 말해 줘야 한다 — 추측하지 않도록 저장해 둔다.
-      await _addEnrCol2('fee_source', 'TEXT');
-      /* 📞 (2026-09-10 사장님 지시) 학부모 연락처 — 수업 전 안내문자가 «받는 사람» 이다.
-         [왜 이 칸이 생겼나] 리마인더 cron 은 살아 있는데(7일간 671건 감지) 발송이 0건이었다.
-           `students_erp` 의 번호 칸 네 개가 29,485행 전부 비어 있고, 카페24 원본에 번호가 없다
-           (2026-09-16 재실측: 29,512행 중 번호가 든 행 4행 — 전부 우리 화면이 넣은 것이다).
-         ⚠️ 여기 저장하는 것은 «이 신청서가 무슨 번호로 등록됐나» 라는 기록이다.
-            **실제로 문자가 읽는 곳은 `student_erp_override`** 다 — 아래 INSERT 뒤에서 함께 적는다.
-            그 표에 두는 이유: 카페24가 정본이라 그쪽이 번호를 주기 시작하면 `students_erp` 값은 덮인다.
-            (2026-09-15 수리로 «빈 값으로 매일 밤 덮는» 것은 멈췄지만, «카페24 값이 이긴다» 는 그대로다.) */
-      await _addEnrCol2('parent_phone', 'TEXT');
+      /* ⚡ (2026-09-29 사장님 «수강신청 목록 로딩이 느리다») 스키마 보강(CREATE + ALTER 13번)은
+         워커 인스턴스당 «한 번만». 예전엔 목록을 열 때마다 DB 왕복 14번을 먼저 했다(ALTER 는
+         이미 있는 칸이라 매번 실패하는 왕복). 실패는 삼키는 멱등 호출이라 플래그를 세워도 안전하다. */
+      if (!_enrSchemaReady) {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY AUTOINCREMENT, student_user_id TEXT, student_name TEXT NOT NULL, package TEXT, started_at INTEGER, ended_at INTEGER, monthly_fee_krw INTEGER, status TEXT DEFAULT 'pending', notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+        // 🥭 Phase 37b — 누락 컬럼 자동 보강 (Phase 36 seed 가 사용하는 컬럼들)
+        const _addEnrCol2 = async (col: string, type: string) => {
+          try { await env.DB.exec(`ALTER TABLE enrollments ADD COLUMN ${col} ${type}`); } catch {}
+        };
+        await _addEnrCol2('days_of_week', 'TEXT');
+        await _addEnrCol2('time', 'TEXT');
+        await _addEnrCol2('class_size', 'TEXT');
+        await _addEnrCol2('type', 'TEXT');
+        await _addEnrCol2('teacher_name', 'TEXT');
+        await _addEnrCol2('end_date', 'TEXT');
+        // 🧑‍🏫 (2026-08-12) 등록 화면에서 «강사 이름 지정» 칸을 없애는 대신 남기는 값.
+        //   'schedule' = 요일·시간 우선 / 'teacher' = 강사 적합도 우선. 「▸ 처리」 단계가 읽는다.
+        await _addEnrCol2('assign_priority', 'TEXT');
+        // 🗓️ (2026-08-14) ⑥ 수업 기간(회차) — '1' | '3' | '6' | '12' | 'unlimited'.
+        //   숫자 개월이면 클라이언트가 시작일 + N개월을 end_date/ended_at 으로 같이 보내 온다.
+        //   TEXT 인 이유: 'unlimited' 를 0·NULL 로 눌러 두면 «안 고른 것» 과 구분이 안 된다.
+        await _addEnrCol2('duration_months', 'TEXT');
+        // ⏱ (2026-08-26 사장님 지시) 수업 시간(분) — 20/30/40 중 선택, 안 고르면 기본 20분.
+        //   enroll-activate.ts 의 buildEnrollPlan() 이 이 컬럼을 읽어 class_schedules.duration_min 을 정한다.
+        await _addEnrCol2('duration_min', 'INTEGER');
+        // 💰 (2026-08-26 사장님 지시) 곱하기 «전» 20분 기준가. `monthly_fee_krw` 는 «이미 곱해진 최종값» 이라
+        //   되돌아볼 근거가 사라진다 — 그래서 기준가를 따로 남긴다(감사·재계산용).
+        await _addEnrCol2('base_fee_krw', 'INTEGER');
+        // 그 기준가를 «사람이 적었는지 · 대리점 단가로 자동으로 세웠는지». 후자는 아무도 치지 않은
+        //   금액이라 확정 화면이 그렇게 말해 줘야 한다 — 추측하지 않도록 저장해 둔다.
+        await _addEnrCol2('fee_source', 'TEXT');
+        /* 📞 (2026-09-10 사장님 지시) 학부모 연락처 — 수업 전 안내문자가 «받는 사람» 이다.
+           [왜 이 칸이 생겼나] 리마인더 cron 은 살아 있는데(7일간 671건 감지) 발송이 0건이었다.
+             `students_erp` 의 번호 칸 네 개가 29,485행 전부 비어 있고, 카페24 원본에 번호가 없다
+             (2026-09-16 재실측: 29,512행 중 번호가 든 행 4행 — 전부 우리 화면이 넣은 것이다).
+           ⚠️ 여기 저장하는 것은 «이 신청서가 무슨 번호로 등록됐나» 라는 기록이다.
+              **실제로 문자가 읽는 곳은 `student_erp_override`** 다 — 아래 INSERT 뒤에서 함께 적는다.
+              그 표에 두는 이유: 카페24가 정본이라 그쪽이 번호를 주기 시작하면 `students_erp` 값은 덮인다.
+              (2026-09-15 수리로 «빈 값으로 매일 밤 덮는» 것은 멈췄지만, «카페24 값이 이긴다» 는 그대로다.) */
+        await _addEnrCol2('parent_phone', 'TEXT');
+        _enrSchemaReady = true;
+      }
       if (method === 'GET') {
         // 🥭 Phase 37b — user_id 필터 추가 (학생별 스케줄 fetch)
         const statusF = url.searchParams.get('status');
@@ -12157,6 +12165,10 @@ LIMIT $limit`;
                 두 값이 갈렸을 때 화면이 옛 값을 보여 주면 「넣었는데 왜 안 가지」가 된다.
              ⚠️ IN 목록은 손으로 자르지 않는다(D1 바인드 100개 한도 — 공용 헬퍼가 센다).
              ⚠️ 실패해도 목록은 그대로 내려간다(번호 칸만 «모름» 이 된다). */
+          /* 👤 역할은 한 번만 묻는다(번호 칸·직접 배정 줄이 같이 쓴다). 못 물어보면 둘 다 «안 싣는» 쪽. */
+          let _enActor: any = null;
+          try { _enActor = await getAdminActor(request, env as any); }
+          catch (e: any) { console.warn('[enrollments] 역할 확인 실패 — 번호·직접배정 안 실음:', e?.message); }
           try {
             /* ⛔ **강사에게는 번호를 안 내려준다.** 이 경로는 `TEACHER_BLOCKED_PREFIXES` 에 없어
                강사도 통과하는데, 번호를 실으면 «남의 집 학부모 연락처가 한 화면에 모입니다»
@@ -12164,11 +12176,9 @@ LIMIT $limit`;
                ⚠️ 못 물어보면(조회 실패) **안 내려주는 쪽**으로 실패한다 — 번호 칸이 비는 것보다
                   모르는 사람에게 새는 쪽이 나쁘다. 화면은 그때 「문자 안 감」으로 보이는데,
                   그건 목록에서 고칠 수 없다는 뜻이라 본사 계정으로 다시 열면 제대로 보인다. */
-            let maySeePhones = false;
-            try {
-              const a = await getAdminActor(request, env as any);
-              maySeePhones = !!a && a.ok !== false && !a.isTeacher;
-            } catch (e: any) { console.warn('[enrollments] 역할 확인 실패 — 번호 안 실음:', e?.message); }
+            const a = _enActor;
+            let maySeePhones = false;   // 모르면(역할 조회 실패 = a 가 null) 안 싣는 쪽
+            if (a && a.ok !== false && !a.isTeacher) maySeePhones = true;
             const uids = maySeePhones ? items.map((r: any) => String(r.student_user_id || '')).filter(Boolean) : [];
             if (uids.length) {
               const pm = await loadOverridePhones(env as any, uids);
@@ -12180,7 +12190,29 @@ LIMIT $limit`;
               }
             }
           } catch (e: any) { console.warn('[enrollments] 번호 조회 실패:', e?.message); }
-          return json({ ok: true, items });
+          /* 📅 (2026-09-29 사장님 «주간 스케줄에서 배정한 수업이 수강신청 목록에 안 나온다»)
+             주간 스케줄·학생 상세의 «수업 등록» 은 class_schedules(source='admin_ui') 에만 쓰고
+             enrollments 에는 한 줄도 안 남긴다 — 그래서 이 목록에 원리상 안 떴다.
+             그 수업을 «직접 배정» 묶음으로 따로 실어 보낸다(화면이 신청서와 섞지 않고 그린다).
+             ⛔ enrollments 에 행을 만들어 «맞추지» 않는다 — 결제·확정 파이프라인이 그 행을 신청서로 읽는다.
+             ⛔ 본사만: 지사·대리점·강사에게는 안 싣는다(이 조회는 스코프로 자르지 않는다).
+             ⚠️ 상태 필터·학생 필터가 걸린 요청에는 안 싣는다(그 필터는 신청서의 상태다).
+             ⚠️ 지난 날짜(30일 전보다 이전)의 일회성 수업은 뺀다 — 목록이 끝없이 길어진다. 실패하면 목록은 그대로. */
+          let direct: any[] | undefined;
+          if (!statusF && !userIdF && _enActor && _enActor.ok !== false && !_enActor.isTeacher && !isOrgScopedRole(_enActor.role)) {
+            try {
+              const ds = await env.DB.prepare(
+                `SELECT cs.id, cs.user_id, cs.student_name, cs.teacher_id, t.name AS teacher_name, cs.start_time, cs.duration_min,
+                        cs.schedule_kind, cs.day_of_week, cs.scheduled_date, cs.class_type, cs.created_at
+                   FROM class_schedules cs LEFT JOIN teachers t ON t.id = cs.teacher_id
+                  WHERE cs.source = 'admin_ui' AND COALESCE(cs.status, 'active') <> 'cancelled'
+                    AND (cs.scheduled_date IS NULL OR cs.scheduled_date = '' OR cs.scheduled_date >= date('now', '+9 hours', '-30 days'))
+                  ORDER BY cs.created_at DESC LIMIT 1000`
+              ).all<any>();
+              direct = groupDirectClasses(ds.results || []);
+            } catch (e: any) { console.warn('[enrollments] 직접 배정 조회 실패:', e?.message); }
+          }
+          return json({ ok: true, items, ...(direct ? { direct } : {}) });
         } catch (e: any) {
           return json({ ok: true, items: [], warning: String(e?.message || e) });
         }
