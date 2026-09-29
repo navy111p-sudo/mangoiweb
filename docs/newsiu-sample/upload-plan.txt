@@ -3,3 +3,4 @@
 ONLY=001
 HIDE_OLD=no
 # 2026-09-29 재시도 — CLOUDFLARE_UPLOAD_TOKEN 등록 뒤 001 한 권
+# 2026-09-29 키 등록 확인 뒤 실행
