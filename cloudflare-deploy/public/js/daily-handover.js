@@ -7,7 +7,7 @@
   var api = '/api/approval/handover', me, members = [], version = 0, revision = 0;
   var reviewed = false, sent = false, busy = false, suggestion = null, requestAttempt = null;
   var started = null, stopped = null, reports = [], originalSubmitted = false, recognition = null;
-  var attachments=[], stagedIds=[], fileMap={}, inbox=[], inboxTotal=0, selected=null, uploading=false, lastListState=null, largeReading=false;
+  var attachments=[], stagedIds=[], fileMap={}, inbox=[], readHistory=[], inboxTotal=0, selected=null, uploading=false, lastListState=null, largeReading=false;
   var wanted=new URLSearchParams(location.search), wantedReport=Number(wanted.get('report'))||null;
   var fields = ['work', 'noissue', 'issue', 'noopen', 'open', 'owner', 'deadline', 'student', 'class', 'priority', 'recipient'];
   var labels = { work:'오늘 한 일 / Work completed', issue:'문제·조치 / Issue & action', open:'남은 일 / Open items', owner:'담당자 / Owner', deadline:'기한 / Deadline' };
@@ -115,14 +115,15 @@
   };
   function visibleList(){
     var filter=$('filter').value;
+    if(filter==='read')return readHistory.slice();
     var list=filter==='unread'?inbox:reports.filter(function(r){return filter==='all'||filter===r.status||(filter==='open'&&!r.payload.no_open)||(filter==='urgent'&&r.payload.priority==='urgent');});
     return list.slice().sort(function(a,b){var rank=function(r){return (r.payload.priority==='urgent'&&r.status==='submitted'?-10:0)+({submitted:0,changes_requested:1,draft:2,acknowledged:3}[r.status]||0);};return rank(a)-rank(b)||b.updated_at-a.updated_at;});
   }
   function paintList(){
     var host=$('reports'), detail=$('report-detail'),list=visibleList();host.replaceChildren();detail.replaceChildren();
-    $('list-date').disabled=$('filter').value==='unread';
+    var mode=$('filter').value;$('list-date').disabled=mode==='unread'||mode==='read';$('reread').textContent=mode==='read'?'← 미확인 보고로 / Back to unread':'📖 확인한 보고 다시 읽기 / Re-read';
     $('inbox-message').textContent=(['admin','mgr_jjw'].includes(me.username)?'미확인 '+inboxTotal+'건 · 읽고 확인해 주세요':'My unread: '+inboxTotal+' · Please read and acknowledge');
-    if(!list.length){detail.append(node('p','해당 보고가 없습니다. / No reports.','sub'));return;}
+    if(!list.length){detail.append(node('p',mode==='read'?'최근 30일에 확인한 보고가 없습니다. / No acknowledged reports in the last 30 days.':'해당 보고가 없습니다. / No reports.','sub'));if(mode==='unread')detail.append(node('p','확인한 보고는 «📖 다시 읽기»에서 볼 수 있어요. / Acknowledged reports are under Re-read.','small'));return;}
     var r=list.find(function(x){return x.id===selected;})||list[0];selected=r.id;
     list.forEach(function(x){var button=node('button',x.staff_name,'mh-report-button');button.type='button';button.setAttribute('aria-pressed',String(x.id===r.id));button.append(node('span',x.report_date+' · '+statusLabel(x.status)),node('span',x.payload.work.slice(0,100)));if(x.payload.priority==='urgent')button.append(node('span','긴급 / Urgent','badge'));if((x.payload.attachments||[]).length)button.append(node('span','첨부 / Files: '+x.payload.attachments.length));button.onclick=function(){selected=x.id;paintList();};host.append(button);});
     var nav=node('div',null,'mh-mobile-nav'),idx=list.indexOf(r),prev=node('button','←'),next=node('button','→');prev.setAttribute('aria-label','이전 보고 / Previous');next.setAttribute('aria-label','다음 보고 / Next');prev.disabled=idx===0;next.disabled=idx===list.length-1;
@@ -142,14 +143,15 @@
   }
   async function act(r,kind,button){var feedback='';if(kind==='return'){feedback=prompt('보완할 내용을 적어 주세요. / What needs clarification?')||'';if(!feedback.trim())return;}button.disabled=true;try{await call('/'+kind,{id:r.id,version:r.version,feedback:feedback});await loadList();}catch(e){networkError(e);button.disabled=false;}}
   async function loadList(){
-    var date=$('list-date').value, data=await Promise.all([call('/home?date='+encodeURIComponent(date)),call('/inbox')]);
-    if(date!==$('list-date').value)return;var j=data[0];reports=j.reports;inbox=data[1].reports;inboxTotal=data[1].total;mergeFiles(j.files);mergeFiles(data[1].files);var listState=JSON.stringify([date,$('filter').value,reports,inbox]);if(listState!==lastListState){paintList();lastListState=listState;}
+    var date=$('list-date').value, wantRead=$('filter').value==='read', data=await Promise.all([call('/home?date='+encodeURIComponent(date)),call('/inbox'),wantRead?call('/read-history'):null]);
+    if(date!==$('list-date').value)return;var j=data[0];reports=j.reports;inbox=data[1].reports;inboxTotal=data[1].total;mergeFiles(j.files);mergeFiles(data[1].files);if(data[2]){readHistory=data[2].reports||[];mergeFiles(data[2].files);}var listState=JSON.stringify([date,$('filter').value,reports,inbox,readHistory]);if(listState!==lastListState){paintList();lastListState=listState;}
     var weekday=new Date(date+'T00:00:00Z').getUTCDay();var required=(j.required||[]).filter(function(r){return r.exempt_date!==date&&r.weekdays.split(',').includes(String(weekday));});
     var missing=required.filter(function(r){return !r.submitted_at;});
     $('required').textContent=required.length?'보고 대상 '+required.length+'명 · 미제출 / Not submitted: '+(missing.map(function(r){return r.name||r.username;}).join(', ')||'없음 / None'):'';
   }
   $('write-toggle').onclick=function(){var editor=$('editor');editor.hidden=!editor.hidden;$('clock-box').hidden=editor.hidden;if(!editor.hidden){begin();editor.scrollIntoView({behavior:'smooth',block:'start'});}};
-  $('filter').onchange=paintList;$('list-date').onchange=function(){loadList().catch(networkError);};$('refresh').onclick=function(){loadList().catch(networkError);};
+  $('filter').onchange=function(){if($('filter').value==='read')loadList().catch(networkError);else paintList();};
+  $('reread').onclick=function(){$('filter').value=$('filter').value==='read'?'unread':'read';$('filter').onchange();};$('list-date').onchange=function(){loadList().catch(networkError);};$('refresh').onclick=function(){loadList().catch(networkError);};
   var weeknames=['일 / Sun','월 / Mon','화 / Tue','수 / Wed','목 / Thu','금 / Fri','토 / Sat'];
   weeknames.forEach(function(name,i){var label=node('label',null,'check'),c=document.createElement('input');c.type='checkbox';c.value=String(i);c.checked=i>0&&i<6;label.append(c,document.createTextNode(name));$('weekdays').append(label);});
   $('schedule-save').onclick=async function(){var button=$('schedule-save');button.disabled=true;try{await call('/schedule',{enabled:$('schedule-enabled').checked,weekdays:Array.from($('weekdays').querySelectorAll('input:checked')).map(function(c){return Number(c.value);}),due_time:$('due-time').value,exempt_date:$('exempt-date').value});$('schedule-status').textContent='설정 저장 완료 · 마감 30분 전/마감/30분 후 알림. / Saved: reminders at −30 / 0 / +30 min (15-min checks).';}catch(e){networkError(e);}finally{button.disabled=false;}};
