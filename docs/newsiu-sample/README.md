@@ -1,3 +1,12 @@
+# 사이트 올리기 (2026-09-29 — 사장님 「새 이름으로 따로, 옛것 숨김」)
+
+- 사이트 이름은 **`[NEW SIU BASIC 001 - A talk with you] Easy / SlideN.JPG`** · `… Hard / …` 입니다(ADVANCE 도 같음).
+  ⚠️ 앞의 «NEW » 는 옛 SIU 와 묶음 이름을 가르려고 붙였습니다 — 숨김(`textbook_hidden_books`)이 **묶음 이름 단위**라
+  같은 이름이면 옛것을 숨길 때 새것까지 숨습니다. ⛔ 떼지 마세요.
+- 수업 화면 🔊(`js/idx-vc-tbsay.js` `SIU_RE`)와 문장 파일(`/data/tb-say/siu-*.json`)의 키도 이 이름입니다.
+  ⚠️ `build8.mjs` 가 만드는 `say-*.json` 은 아직 옛 모양(`[SIU …] New Easy`)이라, 다시 만들면 키를 바꿔 넣어야 합니다.
+- 폴더 만들기 `node pack-new.mjs`(pack/manifest.json) · 올리기 `upload-new.mjs`(깃허브 러너에서 — 올린 행은 `uploaded_by='newsiu-ci-2026-09-29'`).
+
 # NewSIU ADVANCE 20권 (8판, 2026-09-28)
 
 - 미리보기는 BASIC 과 같은 주소(단원 목록 아래 «SIU ADVANCE» 묶음): https://claude.ai/artifact/3AHU6SANvdFNGAjaSHeidQ
