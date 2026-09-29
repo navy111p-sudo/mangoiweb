@@ -188,7 +188,13 @@ ok('목록 줄에 진단 버튼', /recDiagnose\(' \+ r\.id/.test(core));
 ok('화면은 «성공이라고 말했는가» 로 판정', /d\.ok !== true/.test(core));
 ok('화면이 판정 문턱을 복제하지 않는다', !/CONCEAL_PCT|rx_conceal\s*>=/.test(core));
 const html = readFileSync(resolve(CF, 'public/admin.html'), 'utf8');
-ok('admin.html 이 새 adm-core 번호를 부른다', /adm-core\.js\?v=260929-rec-diagnose-2/.test(html));
+// 번호를 글자로 못 박지 않는다 — 다른 작업이 adm-core 를 또 올리면 거짓 FAIL 이 된다(2026-09-29 «보기» 칸에서 실제로 밟음).
+// 물을 것은 «번호가 있고, 그 번호가 원장에 기록돼 있는가»(내용 변경 없이 번호만 남은 사고는 asset_version 이 잡는다).
+{
+  const m = html.match(/\/js\/adm-core\.js\?v=([^"'&\s]+)/);
+  const ledger = readFileSync(resolve(CF, '..', 'test-harness/asset-versions.json'), 'utf8');
+  ok('admin.html 이 adm-core 를 ?v= 번호와 함께 부르고 그 번호가 원장에 있다', !!m && ledger.includes('/js/adm-core.js?v=' + m[1]));
+}
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
