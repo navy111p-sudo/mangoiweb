@@ -2,3 +2,4 @@
 # ONLY = 올릴 권(빈칸이면 전부) · HIDE_OLD = yes 면 옛 SIU BASIC/ADVANCE 묶음을 숨김
 ONLY=001
 HIDE_OLD=no
+# 2026-09-29 재시도 — CLOUDFLARE_UPLOAD_TOKEN 등록 뒤 001 한 권
