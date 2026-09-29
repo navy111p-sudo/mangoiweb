@@ -24,6 +24,7 @@ const PAY = readFileSync(process.env.AI_PASS_PAY_SRC || SRC('api-pay.ts'), 'utf8
 const AIP = readFileSync(process.env.AI_PASS_SRC || SRC('ai-pass.ts'), 'utf8');
 const ACT = readFileSync(SRC('enroll-activate.ts'), 'utf8');
 const ROS = readFileSync(SRC('student-track-roster.ts'), 'utf8');
+const REF = readFileSync(process.env.AI_PASS_REF_SRC || SRC('api-pay-refund.ts'), 'utf8');
 
 let pass = 0, fail = 0;
 function ok(name, cond, extra) {
@@ -80,6 +81,7 @@ const pm = PAY.match(/const PRICES[^=]*=\s*(\{[\s\S]*?\n\});/);
 const PRICES = pm ? new Function('return ' + pm[1])() : null;
 ok('전제: 가격표(PRICES)를 소스에서 읽었다 — ai_content 가 있다', !!(PRICES && PRICES.ai_content && PRICES.ai_content.amount > 0));
 const AI_NAME = PRICES ? PRICES.ai_content.name : '';
+ok('ai-pass.ts 의 AI_PASS_PKG_NAME 이 가격표 이름과 같다(환불 모듈이 그것으로 찾는다)', M.AI_PASS_PKG_NAME === AI_NAME, M.AI_PASS_PKG_NAME);
 
 const DAY = 86400000, KST = 9 * 3600000;
 const kst = (y, m, d, h = 0) => Date.UTC(y, m - 1, d, h) - KST;
@@ -181,12 +183,13 @@ try {
 } catch (e) { ok('④ 실행', false, e && e.message); }
 
 console.log('\n⑤ A.i 청구 (chargeAiPassOnce) — 진짜 SQLite + 가짜 토스');
-async function runCharge(tossReply, preEnd) {
+async function runCharge(tossReply, preEnd, opt = {}) {
   const db = freshDb(); const env = { DB: d1(db), TOSS_SECRET_KEY: 'test_sk' }; const calls = { bump: [] , fetch: [] };
+  if (opt.throwOn) { const base = env.DB; env.DB = { exec: base.exec, prepare: (sql) => { if (sql.includes(opt.throwOn)) throw new Error('db down'); return base.prepare(sql); } }; }
   if (preEnd) db.prepare(`INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, status, created_at, updated_at) VALUES ('kim','김',?,1,?,'active',1,1)`).run(AI_NAME, preEnd);
   db.prepare(`INSERT INTO subscriptions (user_id, student_name, plan, amount, status, next_billing_at, created_at, updated_at, billing_key, customer_key) VALUES ('kim','김','ai_content',1,'active',1,1,1,'bk','mgi_kim_x')`).run();
   const sub = db.prepare(`SELECT * FROM subscriptions WHERE id=1`).get();
-  const activateEnrollment = mkActivate({});
+  const activateEnrollment = opt.noActivate ? (async () => {}) : mkActivate({});
   const fakeFetch = async (u, init) => {
     calls.fetch.push({ u, body: JSON.parse(init.body) });
     if (tossReply === 'network') throw new Error('down');
@@ -196,10 +199,12 @@ async function runCharge(tossReply, preEnd) {
     PRICES, AI_PASS_PLAN: M.AI_PASS_PLAN, currentAiPassEnd: M.currentAiPassEnd, aiPassNextBilling: M.aiPassNextBilling,
     bytesHex: (u) => Array.from(u).map((x) => x.toString(16).padStart(2, '0')).join(''),
     bumpSubscriptionFailure: async (_e, _s, reason) => { calls.bump.push(reason); },
+    sendPlainSms: async () => ({ ok: true }),
     activateEnrollment, fetch: fakeFetch,
   });
-  const r = await charge(env, sub);
-  return { r, db, calls };
+  let r, threw = null;
+  try { r = await charge(env, sub); } catch (e) { threw = e; }
+  return { r, db, calls, threw };
 }
 try {
   const t0 = Date.now();
@@ -226,7 +231,78 @@ try {
   const s4 = await runCharge('network', null);
   ok('짝: 네트워크 오류 → 실패 처리, 이용권 안 생김', !s4.r.ok && s4.r.error === 'network_error' && s4.calls.bump.length === 1
     && s4.db.prepare(`SELECT COUNT(*) n FROM enrollments`).get().n === 0);
+
+  const s5 = await runCharge({ ok: true, json: { status: 'DONE', paymentKey: 'pk5' } }, null, { noActivate: true });
+  const sb5 = s5.db.prepare(`SELECT next_billing_at FROM subscriptions WHERE id=1`).get();
+  ok('결제는 됐는데 이용권이 안 생기면 자동결제를 멈춘다(다음 청구일 NULL · activation_failed)', s5.r && s5.r.error === 'activation_failed' && sb5.next_billing_at === null, JSON.stringify({ r: s5.r, sb5 }));
+  const s6 = await runCharge({ ok: true, json: { status: 'DONE', paymentKey: 'pk6' } }, null, { throwOn: "UPDATE payment_orders SET status='paid'" });
+  const sb6 = s6.db.prepare(`SELECT next_billing_at FROM subscriptions WHERE id=1`).get();
+  ok('돈이 나간 뒤 장부 쓰기가 던져도 다음 청구일이 «지금» 으로 남지 않는다(NULL = 재청구 안 함)', !!s6.threw && sb6.next_billing_at === null, JSON.stringify({ threw: !!s6.threw, sb6 }));
 } catch (e) { ok('⑤ 실행', false, e && e.message); }
+
+console.log('\n⑤-2 카드 등록 확정 (confirmAiPassBilling) — 첫 즉시결제·겹친 확정');
+try {
+  const T_CONF = fnText(PAY, 'confirmAiPassBilling');
+  ok('전제: confirmAiPassBilling 을 오려 냈다', !!T_CONF);
+  const mkConf = (rec) => compile(T_CONF, {
+    PRICES, AI_PASS_PLAN: M.AI_PASS_PLAN, currentAiPassEnd: M.currentAiPassEnd, aiPassNextBilling: M.aiPassNextBilling,
+    json: (d, st = 200) => ({ status: st, d }),
+    fetch: async () => ({ ok: true, json: async () => ({ billingKey: 'bk_' + (rec.n = (rec.n || 0) + 1) }) }),
+    chargeSubscriptionOnce: async (env, sub) => { rec.charges = (rec.charges || []); rec.charges.push({ id: sub.id, next: sub.next_billing_at }); return { ok: true, amount: 1 }; },
+  });
+  const db = freshDb(); const env = { DB: d1(db), TOSS_SECRET_KEY: 'sk' };
+  db.exec(`CREATE TABLE students_erp (user_id TEXT PRIMARY KEY, korean_name TEXT, english_name TEXT)`);
+  db.prepare(`INSERT INTO students_erp VALUES ('kim','김하나',NULL)`).run();
+  db.prepare(`INSERT INTO subscriptions (user_id, plan, status, created_at, updated_at, billing_key, next_billing_at) VALUES ('kim','auto_renew','active',1,1,'bkL',5)`).run();
+  const rec = {};
+  const a = await mkConf(rec)(env, 'kim', 'ak1', 'mgi_kim_1');
+  const aiRows = db.prepare(`SELECT * FROM subscriptions WHERE plan='ai_content'`).all();
+  ok('이용권이 없으면 첫 달을 바로 결제한다(1회)', a.status === 200 && a.d.ok && rec.charges && rec.charges.length === 1, JSON.stringify(a.d));
+  ok('첫 결제 대상 구독은 다음 청구일 NULL 로 들어간다(결제 끝나기 전에 스윕이 못 잡음)', rec.charges && rec.charges[0].next === null);
+  ok('이름 칸에 로그인 아이디가 아니라 학생 이름', aiRows[0] && aiRows[0].student_name === '김하나', aiRows[0] && aiRows[0].student_name);
+  ok('수업 구독은 그대로 살아 있다', db.prepare(`SELECT status FROM subscriptions WHERE plan='auto_renew'`).get().status === 'active');
+  const b = await mkConf(rec)(env, 'kim', 'ak2', 'mgi_kim_2');
+  ok('60초 안에 또 확정이 오면 아무것도 안 만들고 안 긁는다(두 탭·연타)', b.status === 409 && rec.charges.length === 1
+    && db.prepare(`SELECT COUNT(*) n FROM subscriptions WHERE plan='ai_content'`).get().n === 1, JSON.stringify(b.d));
+  // 이용권이 남아 있는 학생 — 60초가 지난 뒤
+  db.prepare(`UPDATE subscriptions SET created_at = 1 WHERE plan='ai_content'`).run();
+  const endFut = Date.now() + 20 * DAY;
+  db.prepare(`INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, status, created_at, updated_at) VALUES ('kim','김',?,1,?,'active',1,1)`).run(AI_NAME, endFut);
+  const c = await mkConf(rec)(env, 'kim', 'ak3', 'mgi_kim_3');
+  const act = db.prepare(`SELECT * FROM subscriptions WHERE plan='ai_content' AND status='active'`).all();
+  ok('짝: 이용권이 남아 있으면 지금은 안 긁는다', c.d.ok && c.d.charged === false && rec.charges.length === 1);
+  ok('그때 다음 청구 = 끝 3일 전, 옛 A.i 구독은 replaced(활성 1개)', act.length === 1 && act[0].next_billing_at === endFut - 3 * DAY, JSON.stringify(act.map((x) => x.next_billing_at)));
+} catch (e) { ok('⑤-2 실행', false, e && e.message); }
+
+console.log('\n⑤-3 A.i 이용권 환불 → 자동결제 청구일 재조정 (finishRefund)');
+try {
+  const T_FIN = fnText(REF, 'finishRefund');
+  ok('전제: finishRefund 를 오려 냈다', !!T_FIN);
+  const fin = compile(T_FIN, { kstToday: () => '2026-09-29', AI_PASS_PLAN: M.AI_PASS_PLAN, AI_PASS_PKG_NAME: M.AI_PASS_PKG_NAME,
+    currentAiPassEnd: M.currentAiPassEnd, aiPassNextBilling: M.aiPassNextBilling });
+  const mk = () => {
+    const db = freshDb();
+    db.exec(`ALTER TABLE payment_orders ADD COLUMN refunded_amount INTEGER; ALTER TABLE payment_orders ADD COLUMN refunded_at INTEGER;
+             CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, source TEXT, status TEXT, scheduled_date TEXT, notes TEXT, updated_at INTEGER);
+             CREATE TABLE payment_refunds (id INTEGER PRIMARY KEY, cancelled_classes INTEGER);`);
+    db.prepare(`INSERT INTO subscriptions (user_id, plan, status, created_at, updated_at, billing_key, next_billing_at) VALUES ('kim','ai_content','active',1,1,'bk',?)`).run(Date.now() + 5 * DAY);
+    db.prepare(`INSERT INTO subscriptions (user_id, plan, status, created_at, updated_at, billing_key, next_billing_at) VALUES ('kim','auto_renew','active',1,1,'bk',777)`).run();
+    return db;
+  };
+  const now = Date.now();
+  const db1 = mk();
+  db1.prepare(`INSERT INTO payment_orders (order_id, uid, program, amount, status) VALUES ('MGI-R1','kim','ai_content',10000,'paid')`).run();
+  db1.prepare(`INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, status, notes, created_at, updated_at) VALUES ('kim','김',?,1,?,'active','토스 결제 자동활성화 · MGI-R1',1,1)`).run(AI_NAME, now + 20 * DAY);
+  const r1 = await fin({ DB: d1(db1) }, { orderId: 'MGI-R1', refundId: 1, amount: 10000, isFull: true, cancelClasses: false, preview: { already_refunded: 0, paid_amount: 10000 }, now });
+  const ai1 = db1.prepare(`SELECT next_billing_at FROM subscriptions WHERE plan='ai_content'`).get();
+  ok('남은 이용권이 없으면 A.i 자동결제를 멈춘다(NULL) + 경고', ai1.next_billing_at === null && r1.warnings.some((w) => /A\.i 자동결제를 멈췄/.test(w)), JSON.stringify(r1.warnings));
+  ok('짝: 수업 구독 청구일은 그대로', db1.prepare(`SELECT next_billing_at FROM subscriptions WHERE plan='auto_renew'`).get().next_billing_at === 777);
+  const db2 = mk();
+  db2.prepare(`INSERT INTO payment_orders (order_id, uid, program, amount, status) VALUES ('MGI-R2','kim','1on1-8',120000,'paid')`).run();
+  const before = db2.prepare(`SELECT next_billing_at FROM subscriptions WHERE plan='ai_content'`).get().next_billing_at;
+  await fin({ DB: d1(db2) }, { orderId: 'MGI-R2', refundId: 1, amount: 1, isFull: false, cancelClasses: false, preview: { already_refunded: 0, paid_amount: 120000 }, now });
+  ok('짝: 수업 주문 환불은 A.i 구독을 건드리지 않는다', db2.prepare(`SELECT next_billing_at FROM subscriptions WHERE plan='ai_content'`).get().next_billing_at === before);
+} catch (e) { ok('⑤-3 실행', false, e && e.message); }
 
 console.log('\n⑥ 수업 자동결제와 A.i 자동결제는 서로를 건드리지 않는다');
 function tplBetween(src, startMark, endMark) {
@@ -266,12 +342,14 @@ try {
     PAY.includes("UPDATE subscriptions SET status='replaced', updated_at=? WHERE user_id=? AND status='active' AND ${NOT_AI_PASS_PLAN_SQL}"));
 
   const actSql = (ACT.match(/SELECT id FROM subscriptions WHERE user_id = \? AND status = 'active'[^`]*/) || [])[0];
+  const actSqlR = actSql ? actSql.replace('${NOT_AI_PASS_PLAN_SQL}', M.NOT_AI_PASS_PLAN_SQL) : '';
+  ok('관리자 활성화는 정본 조각(NOT_AI_PASS_PLAN_SQL)을 import 해 쓴다', !!actSql && actSql.includes('${NOT_AI_PASS_PLAN_SQL}') && /import \{ NOT_AI_PASS_PLAN_SQL \} from '\.\/ai-pass'/.test(ACT));
   ok('전제: 관리자 활성화(enroll-activate)의 구독 조회를 오려 냈다', !!actSql);
   if (actSql) {
     db.exec(`DELETE FROM subscriptions`); addSub.run('kim', 'ai_content');
-    ok('관리자 수강 활성화가 A.i 구독을 수업 패키지로 덮지 않는다(A.i 구독만 있으면 못 찾음)', !db.prepare(actSql).get('kim'));
+    ok('관리자 수강 활성화가 A.i 구독을 수업 패키지로 덮지 않는다(A.i 구독만 있으면 못 찾음)', !db.prepare(actSqlR).get('kim'));
     addSub.run('kim', 'auto_renew');
-    const hit = db.prepare(actSql).get('kim');
+    const hit = db.prepare(actSqlR).get('kim');
     ok('짝: 수업 구독은 그대로 찾는다', !!hit && db.prepare(`SELECT plan FROM subscriptions WHERE id=?`).get(hit.id).plan === 'auto_renew');
   }
 } catch (e) { ok('⑥ 실행', false, e && e.message); }
@@ -296,7 +374,9 @@ console.log('\n⑧ 화면(ai-pass.html) 배선');
   ok('상태를 plan=ai_content 로 묻는다(수업 구독을 A.i 로 오인하지 않게)', /billing\/status\?plan=ai_content/.test(H));
   ok('등록·확정·해지 모두 plan: ai_content 를 싣는다', /plan:\s*'ai_content'/.test(H) && (H.match(/body\(/g) || []).length >= 3);
   ok('카드 등록에서 이 화면으로 돌아온다', /successUrl:\s*location\.origin \+ '\/ai-pass\.html\?billing_return=1'/.test(H));
-  ok('끝나는 날을 화면에서 다시 계산하지 않는다(서버 값 ai_pass_ends_at 을 그린다)', /ai_pass_ends_at/.test(H) && !/addMonths|setMonth/.test(H));
+  ok('끝나는 날·첫 청구일을 화면에서 다시 계산하지 않는다(서버 값을 그린다)', /ai_pass_ends_at/.test(H) && /first_billing_at/.test(H) && !/addMonths|setMonth|3 \* 86400/.test(H));
+  ok('자동청구 스위치가 꺼져 있으면 화면이 그 사실을 말한다(auto_live)', /if \(!d\.auto_live\)[^;]*운영 시작 전/.test(H));
+  ok('상태 응답이 auto_live·first_billing_at 을 싣는다', /auto_live: autoLive, first_billing_at:/.test(PAY));
   ok('사전고지 문자의 해지 링크가 A.i 구독이면 이 화면', /siteUrl\(isAi \? '\/ai-pass\.html' : '\/enroll\.html'\)/.test(PAY));
 }
 

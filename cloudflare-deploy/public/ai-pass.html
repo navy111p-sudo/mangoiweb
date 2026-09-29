@@ -39,7 +39,7 @@
   <div id="app"><div class="card"><span class="muted">불러오는 중…</span></div></div>
   <div class="card note">
     · 이용권은 결제한 때부터 <b>1개월</b>이에요. 남은 기간이 있을 때 결제하면 <b>그 끝에 이어서</b> 1개월이 붙어요.<br>
-    · 자동결제는 이용권이 끝나기 <b>3일 전</b>에 등록한 카드로 결제되고, 결제 전에 문자로 먼저 알려드려요.<br>
+    · 자동결제는 이용권이 끝나기 <b>3일 전</b>에 등록한 카드로 결제돼요. 연락처가 등록돼 있으면 결제 전에 문자로 먼저 알려드려요.<br>
     · 수업 자동결제(수강신청 화면)와는 따로예요. 여기서 끄고 켜도 수업 쪽은 바뀌지 않아요.
   </div>
 </div>
@@ -89,6 +89,8 @@
         else if (end) h += '<div class="big">' + kday(end) + '에 끝났어요</div><div class="muted">다시 쓰려면 아래에서 자동결제를 켜거나 한 번 결제해 주세요.</div>';
         else h += '<div class="big">아직 이용권이 없어요</div>';
         h += '</div><div class="card"><h2>♾️ 매달 자동결제</h2>';
+        /* 매달 자동청구는 서버 스위치(auto_live)가 켜져 있을 때만 실제로 돈다 — 꺼져 있으면 그 사실을 먼저 말한다 */
+        if (!d.auto_live) h += '<div class="muted" style="color:#fcd34d">⚠️ 매달 자동결제는 아직 운영 시작 전이에요. 카드 등록과 첫 달 결제는 지금 되지만, 다음 달부터의 자동 결제는 운영이 시작된 뒤에 이뤄져요. 그 전에 이용권이 끝나면 다시 결제해 주세요.</div>';
         if (sub) {
           h += '<div class="big on">자동결제 켜짐 · 매월 ' + won(sub.amount) + '</div>'
             + '<div class="muted">다음 결제 ' + kday(sub.next_billing_at) + ' (이용권이 끝나기 3일 전)</div>'
@@ -96,7 +98,7 @@
         } else {
           h += '<div class="muted">카드를 한 번 등록하면 매달 이용권이 끝나기 3일 전에 자동으로 ' + won(price) + '이 결제되고 1개월이 이어져요.</div>'
             + '<div class="muted"><b>' + (active
-                ? '지금은 결제되지 않아요. 첫 자동결제는 ' + kday(end - 3 * 86400 * 1000 > now ? end - 3 * 86400 * 1000 : now + 3 * 86400 * 1000) + '이에요.'
+                ? '지금은 결제되지 않아요.' + (d.first_billing_at ? ' 첫 자동결제는 ' + kday(d.first_billing_at) + '이에요.' : '')
                 : '카드를 등록하면 지금 첫 달 ' + won(price) + '이 바로 결제돼요.') + '</b></div>'
             + '<button class="btn btn-go" id="btnOn">♾️ 카드 등록하고 자동결제 켜기</button>';
         }
@@ -146,8 +148,8 @@
         .then(function(r){ return r.json(); }).then(function(d){
           if (!d || !d.ok) alert('카드 등록에 실패했어요: ' + ((d && (d.message || d.error)) || '오류'));
           else if (d.charged) alert('✅ 자동결제가 켜졌고 첫 달 ' + won(d.amount) + '이 결제됐어요.\n' + kday(d.ai_pass_ends_at) + '까지 사용할 수 있어요.');
-          else if (d.charge_error) alert('카드는 등록됐지만 첫 결제에 실패했어요: ' + d.charge_error + '\n(카드 한도·잔액을 확인해 주세요. 자동결제는 켜진 채로 남아 있어요)');
-          else alert('♾️ 자동결제가 켜졌어요. 첫 자동결제는 ' + kday(d.next_billing_at) + '이에요.');
+          else if (d.charge_error) alert(d.message || ('카드는 등록됐지만 첫 결제에 실패했어요: ' + d.charge_error + '\n(카드 한도·잔액을 확인해 주세요)'));
+          else alert('♾️ 자동결제가 켜졌어요.' + (d.next_billing_at ? ' 첫 자동결제는 ' + kday(d.next_billing_at) + '이에요.' : ''));
           render();
         }).catch(function(){ alert('네트워크 오류 — 잠시 후 이 화면을 다시 열어 확인해 주세요.'); render(); });
       return;

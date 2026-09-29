@@ -17,6 +17,9 @@
 
 /** subscriptions.plan 값이자 PRICES 의 상품 키. */
 export const AI_PASS_PLAN = 'ai_content';
+/** enrollments.package 에 적히는 이름 — 정본은 api-pay.ts PRICES.ai_content.name 이고 둘이 같은지 하니스가 대조한다
+ *  (api-pay-refund.ts 는 api-pay.ts 를 import 할 수 없어 여기서 받는다 — 순환). */
+export const AI_PASS_PKG_NAME = 'AI 콘텐츠 전용 (1개월)';
 /** 한 번 결제로 늘어나는 달 수. */
 export const AI_PASS_MONTHS = 1;
 /** subscriptions 조회에서 «수업 자동연장» 만 고를 때 쓰는 조건 조각(plan 이 비어 있는 옛 행은 수업 쪽). */

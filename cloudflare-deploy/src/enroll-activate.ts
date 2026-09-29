@@ -29,6 +29,7 @@ import {
   holidaySet, ensureEnrollTables, kstToday
 } from './enroll-ops';
 import { sendPlainSms } from './solapi-client';
+import { NOT_AI_PASS_PLAN_SQL } from './ai-pass';   // 🤖 A.i 이용권 구독은 수업 구독 조회에서 뺀다(정본)
 
 const SRC_PREFIX = 'adm-enroll:';
 
@@ -388,7 +389,7 @@ async function runActivate(env: any, id: number, body: any, actor: string) {
         const nextAt = Date.parse(nextBillingDay(plan.start_date) + 'T00:00:00+09:00');
         /* ⚠️ A.i 이용권 구독(plan='ai_content')은 건드리지 않는다 — 여기서 덮으면 그 구독의 plan 이 수업 패키지로 바뀌어
            A.i 청구 갈래를 잃고 수업 견적을 타다 스스로 해지된다(2026-09-29). */
-        const ex: any = await env.DB.prepare(`SELECT id FROM subscriptions WHERE user_id = ? AND status = 'active' AND COALESCE(plan,'') <> 'ai_content' LIMIT 1`).bind(uid).first();
+        const ex: any = await env.DB.prepare(`SELECT id FROM subscriptions WHERE user_id = ? AND status = 'active' AND ${NOT_AI_PASS_PLAN_SQL} LIMIT 1`).bind(uid).first();
         if (ex) {
           await env.DB.prepare(`UPDATE subscriptions SET plan = ?, amount = ?, next_billing_at = ?, updated_at = ? WHERE id = ?`)
             .bind(String(e.package || ''), amount, nextAt, now, ex.id).run();

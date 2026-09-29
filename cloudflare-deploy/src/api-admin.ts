@@ -14194,7 +14194,7 @@ LIMIT $limit`;
       if (method === 'GET' && path === '/api/admin/billing/auto-renew-due') {
         const now = Date.now();
         const rs: any = await env.DB.prepare(
-          `SELECT id, user_id, student_name, amount, next_billing_at, fail_count
+          `SELECT id, user_id, student_name, plan, amount, next_billing_at, fail_count
            FROM subscriptions WHERE status='active' AND billing_key IS NOT NULL
            ORDER BY next_billing_at ASC LIMIT 200`
         ).all().catch(() => ({ results: [] }));
