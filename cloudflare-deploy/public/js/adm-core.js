@@ -10857,7 +10857,7 @@ async function _adminLoadIdbTextbooks() {
 async function loadTextbooks() {
   var tb = document.getElementById('textbooks-table');
   if (!tb) return;
-  tb.innerHTML = '<tr><td colspan="7" class="empty">📥 불러오는 중…</td></tr>';
+  tb.innerHTML = '<tr><td colspan="8" class="empty">📥 불러오는 중…</td></tr>';
 
   var items = [];
   var srvCount = 0, idbCount = 0;
@@ -10916,7 +10916,7 @@ async function loadTextbooks() {
 
   if (items.length === 0) {
     var fb0 = document.getElementById('tb-filter-bar'); if (fb0) fb0.innerHTML = '';
-    tb.innerHTML = '<tr><td colspan="7" class="empty">📭 교재 없음 — 위 [교재 폴더 업로더] 로 추가하거나 [+ 교재 등록] 으로 수동 등록</td></tr>';
+    tb.innerHTML = '<tr><td colspan="8" class="empty">📭 교재 없음 — 위 [교재 폴더 업로더] 로 추가하거나 [+ 교재 등록] 으로 수동 등록</td></tr>';
     return;
   }
 
@@ -10999,7 +10999,7 @@ function _tbRenderRows(key) {
   _tbHideNote();   // 🙈 개수 줄은 목록이 접혀 있어도 사실대로 — 행 렌더 결과와 무관하다
   // fix (2026-06-02) — '전체교재' 접힘 상태면 목록 숨김 (전체교재 다시 누르면 펼쳐짐)
   if (window._tbCollapsed) {
-    tb.innerHTML = '<tr><td colspan="7" class="empty" style="cursor:pointer;color:#93c5fd" onclick="(function(){window._tbCollapsed=false;_tbRenderChips(window._tbItems||[]);_tbRenderRows(window._tbActiveFilter);})()">📁 목록이 접혀 있습니다 — \'전체교재\'를 다시 누르거나 여기를 클릭하면 펼쳐집니다</td></tr>';
+    tb.innerHTML = '<tr><td colspan="8" class="empty" style="cursor:pointer;color:#93c5fd" onclick="(function(){window._tbCollapsed=false;_tbRenderChips(window._tbItems||[]);_tbRenderRows(window._tbActiveFilter);})()">📁 목록이 접혀 있습니다 — \'전체교재\'를 다시 누르거나 여기를 클릭하면 펼쳐집니다</td></tr>';
     return;
   }
   var items = (window._tbItems || []).filter(function(t){ return _tbItemMatches(t, key); });
@@ -11008,7 +11008,7 @@ function _tbRenderRows(key) {
     return '<span style="display:inline-block;padding:2px 7px;background:rgba(59,130,246,0.22);color:#93c5fd;border-radius:99px;font-size:10.5px;font-weight:800;margin-left:6px" title="서버 — 모든 기기에서 보임">☁ 서버</span>';
   }
   if (items.length === 0) {
-    tb.innerHTML = '<tr><td colspan="7" class="empty">📭 "' + _esc(key) + '" 교재 없음</td></tr>';
+    tb.innerHTML = '<tr><td colspan="8" class="empty">📭 "' + _esc(key) + '" 교재 없음</td></tr>';
     return;
   }
   tb.innerHTML = items.map(function(t, i) {
@@ -11022,6 +11022,7 @@ function _tbRenderRows(key) {
       '<td style="text-align:right">' + (t.units || '—') + '</td>' +
       '<td>' + (_esc(t.publisher) || '—') + '</td>' +
       '<td><code style="font-size:11px">' + (_esc(t.isbn) || '—') + '</code></td>' +
+      '<td style="text-align:center;white-space:nowrap">' + _tbViewLink(t) + '</td>' +
       _tbHideCell(t) +
     '</tr>';
   }).join('');
@@ -11048,6 +11049,27 @@ function _tbRenderRows(key) {
       src/index.ts 가 강사를 막는다). 403 이면 «모름» 으로 두고 칸을 «—» 로 그린다 —
       조용히 «보임» 이라고 말하면 그것이 거짓말이 된다.
    ════════════════════════════════════════════════════════════════════ */
+/* 👁 (2026-09-29 사장님 지시 「여기 칸을 만들어서 버튼 클릭하면 교재가 보이게」) 교재 표의 «보기» 칸
+   ──────────────────────────────────────────────────────────────────
+   교재 뷰어(/textbook-viewer.html)가 이미 두 주소를 받는다 — 서버 교재 `?book=<묶음 이름>` ·
+   이 PC 교재 `?id=<IndexedDB id>`. 새 뷰어를 만들지 않고 그 주소로 새 탭을 연다.
+   ⛔ 열 수 없는 행(서버에 그 이름의 파일이 없는 D1 명부 행)에는 버튼을 만들지 않는다 —
+      눌러도 빈 뷰어가 뜨면 «고장» 으로 읽힌다. «—» 와 이유를 툴팁으로 적는다.
+   ⚠️ <a target="_blank"> 로 연다 — window.open 반환값 판정(noopener → null) 함정이 없다.
+   ⚠️ D1 명부 행은 «숨김» 칸과 같은 판정(_tbHideBookOf — 정확일치, 대소문자만 다르면 유일할 때만)으로
+      서버 묶음을 찾는다. 숨김 목록을 못 받았으면(권한·실패) 그 행은 «—» 다(지어내지 않는다). */
+function _tbViewLink(t) {
+  var en = (window.adminLang === 'en');
+  var href = '';
+  if (t._src === 'idb' && t.id) href = '/textbook-viewer.html?id=' + encodeURIComponent(t.id);
+  else if (t._src === 'srvfile' && t.title) href = '/textbook-viewer.html?book=' + encodeURIComponent(String(t.title).trim());
+  else { var bk = _tbHideBookOf(t.title); if (bk) href = '/textbook-viewer.html?book=' + encodeURIComponent(bk); }
+  if (!href) {
+    var why = en ? 'No pages uploaded to the server under this name — nothing to view' : '이 이름으로 서버에 올라간 쪽이 없어 볼 것이 없습니다';
+    return '<span style="color:#94a3b8" title="' + _esc(why) + '">—</span>';
+  }
+  return '<a class="tb-view-link" href="' + _esc(href) + '" target="_blank" rel="noopener" style="display:inline-block;padding:4px 10px;border-radius:8px;border:1px solid #93c5fd;background-color:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap" title="' + _esc(en ? 'Open this textbook in a new tab' : '새 탭에서 이 교재 보기') + '">👁 ' + (en ? 'View' : '보기') + '</a>';
+}
 window._tbHideMap = null;    // { '묶음이름': { files, hidden } } · null = «모름»(권한 없음·조회 실패)
 window._tbHideLower = null;  // 소문자 → 정본 이름 (후보가 둘이면 null)
 window._tbHideErr = '';

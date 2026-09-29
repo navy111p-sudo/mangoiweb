@@ -199,10 +199,39 @@ function contrastOf(el) {
           rows: tb.querySelectorAll('tr').length,
         };
       });
-      check('① thead 칸 수와 한 줄 td 수가 같다 (' + shape.th + ' = ' + shape.td + ')', shape.th === shape.td && shape.th === 7,
+      check('① thead 칸 수와 한 줄 td 수가 같다 (' + shape.th + ' = ' + shape.td + ')', shape.th === shape.td && shape.th >= 7,
         JSON.stringify(shape));
       check('① 마지막 칸 이름이 「숨김」이다', shape.lastTh === '숨김', shape.lastTh);
       check('① 씨앗 4묶음이 모두 그려졌다', shape.rows === 4, '행 ' + shape.rows);
+      await ctx.close();
+    }
+
+    // ── ①-b «보기» 칸 (2026-09-29) — 누르면 그 묶음이 뷰어로 열리는가 ──
+    {
+      const { ctx, page } = await open(browser);
+      const v = await page.evaluate(`(() => {
+        const tb = document.getElementById('textbooks-table');
+        const ths = [...tb.closest('table').querySelectorAll('thead th')].map(t => (t.textContent||'').trim());
+        const links = [...tb.querySelectorAll('a.tb-view-link')];
+        const a = links[0];
+        let hit = false, ratio = 0;
+        if (a) {
+          a.scrollIntoView({ block: 'center' });
+          const r = a.getBoundingClientRect();
+          const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          hit = !!top && (top === a || a.contains(top));
+          ratio = (${contrastOf.toString()})(a);
+        }
+        return { ths, hrefs: links.map(x => x.getAttribute('href')), targets: links.map(x => x.getAttribute('target')),
+          dashes: tb.querySelectorAll('td span[title]').length, hit, ratio };
+      })()`);
+      check('①-b 머리글에 «보기» 칸이 «숨김» 바로 앞에 있다', v.ths.indexOf('보기') === v.ths.length - 2, JSON.stringify(v.ths));
+      check('①-b 파일이 있는 묶음마다 보기 링크가 있다 (' + v.hrefs.length + ')', v.hrefs.length >= 1, JSON.stringify(v.hrefs));
+      check('①-b 링크가 /textbook-viewer.html?book= 로 간다', v.hrefs.length > 0 && v.hrefs.every(h => /^\/textbook-viewer\.html\?book=/.test(h)), JSON.stringify(v.hrefs));
+      check('①-b «BTS 1 001» 묶음 이름이 인코딩되어 실린다', v.hrefs.some(h => h.indexOf(encodeURIComponent('BTS 1 001')) >= 0), JSON.stringify(v.hrefs));
+      check('①-b 새 탭으로 연다', v.targets.every(t => t === '_blank'), JSON.stringify(v.targets));
+      check('①-b 링크가 맨 위라 눌린다', v.hit === true, String(v.hit));
+      check('①-b 링크 글자 대비 4.5 이상 (' + (v.ratio || 0).toFixed(2) + ')', v.ratio >= 4.5, String(v.ratio));
       await ctx.close();
     }
 
