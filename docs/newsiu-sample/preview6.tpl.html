@@ -1,0 +1,109 @@
+<meta charset="utf-8">
+<title>New SIU 001 Talk</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Lexend:wght@400;600;800&family=Noto+Sans+KR:wght@400;700&display=swap">
+<style>
+:root{--bg:#F4F1F8;--ink:#16131F;--sub:#5B5566;--card:#fff;--line:#DCD5E6;--pink:#E0206F;--mint:#008C7C;--violet:#6A3DF0;--sun:#FFD23F}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15121C;--ink:#EEEAF4;--sub:#A9A1B8;--card:#211C2B;--line:#3A3346;--pink:#FF5C9D;--mint:#2FD1BD;--violet:#A58BFF;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#15121C;--ink:#EEEAF4;--sub:#A9A1B8;--card:#211C2B;--line:#3A3346;--pink:#FF5C9D;--mint:#2FD1BD;--violet:#A58BFF;color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:Lexend,'Noto Sans KR',system-ui,sans-serif;padding-inline:16px;padding-block:20px 40px}
+.wrap{max-width:1060px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{margin:0;font-family:Bungee,Lexend,sans-serif;font-weight:400;font-size:clamp(22px,4vw,34px);letter-spacing:.01em;text-wrap:balance}
+h1 span{color:var(--pink)}
+.meta{color:var(--sub);font-size:14px;line-height:1.6;margin:0;max-width:75ch}
+.pick{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;gap:10px}
+.pick .row{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+label{font-size:14px;color:var(--sub);display:flex;gap:8px;align-items:center}
+select,button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px 12px}
+button{cursor:pointer}
+button:focus-visible,select:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
+.why{font-size:15px;margin:0}.why b{color:var(--pink)}
+.tabs{display:flex;gap:6px}
+.tabs button{font-family:Bungee,Lexend;font-size:15px;padding:8px 16px}
+.tabs button[aria-pressed="true"].easy{background:var(--mint);border-color:var(--mint);color:#fff}
+.tabs button[aria-pressed="true"].hard{background:var(--violet);border-color:var(--violet);color:#fff}
+.stage{background:#000;border-radius:14px;overflow:hidden;aspect-ratio:16/9;max-width:100%}
+.stage img{width:100%;height:100%;object-fit:contain;display:block}
+.bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+button.say{background:var(--pink);border-color:var(--pink);color:#fff;font-weight:600}
+.pg{font-variant-numeric:tabular-nums;color:var(--sub);margin-left:auto}
+.lines{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.lines li{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:15px}
+.lines li span{flex:1;min-width:0}.lines li button{padding:4px 10px;font-size:13px;flex:none}
+.lines li.on{border-color:var(--pink);box-shadow:0 0 0 2px var(--pink) inset}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}
+.thumbs button{padding:0;border-radius:8px;overflow:hidden;border:2px solid transparent;background:none}
+.thumbs button[aria-current="true"]{border-color:var(--pink)}
+.thumbs img{display:block;width:100%}
+h2{font-size:16px;margin:6px 0 0}
+</style>
+<div class="wrap">
+  <h1>%%H1%%</h1>
+  <p class="meta">%%META%%</p>
+
+  <div class="pick" aria-label="판 자동 선택">
+    <div class="row">
+      <label>학생 나이 <select id="age"><option value="">모름</option></select></label>
+      <label>사이트 수준(8단계) <select id="lv"><option value="">모름</option></select></label>
+      <div class="tabs" role="group" aria-label="판 직접 고르기">
+        <button type="button" class="easy" data-m="easy">EASY</button>
+        <button type="button" class="hard" data-m="hard">HARD</button>
+      </div>
+    </div>
+    <p class="why" id="why"></p>
+  </div>
+
+  <div class="stage"><img id="big" alt="교재 쪽"></div>
+  <div class="bar">
+    <button id="prev" type="button">← 이전</button>
+    <button id="next" type="button">다음 →</button>
+    <button id="all" class="say" type="button">🔊 이 쪽 전체 듣기</button>
+    <button id="stop" type="button">■ 멈춤</button>
+    <label><input type="checkbox" id="auto"> 쪽을 넘기면 자동으로 읽기</label>
+    <span class="pg" id="pg"></span>
+  </div>
+  <ul class="lines" id="lines"></ul>
+  <h2>전체 쪽</h2>
+  <div class="thumbs" id="thumbs"></div>
+</div>
+<script>
+/*DATA*/
+var mode='easy', cur=0, manual=false, seq=0, audio=new Audio();
+var $=function(i){return document.getElementById(i);};
+// 자동 선택 규칙(제안) — 수준이 있으면 수준이 먼저, 없으면 나이. 둘 다 모르면 쉬운 판(더 안전한 쪽).
+function decide(){
+  var a=+$('age').value||0, l=+$('lv').value||0;
+  if(l) return [l<=4?'easy':'hard','수준 '+l+'단계 → '+(l<=4?'1~4단계는 <b>EASY</b>':'5~8단계는 <b>HARD</b>')];
+  if(a) return [a<=12?'easy':'hard','나이 '+a+'세 → '+(a<=12?'12세 이하는 <b>EASY</b>':'13세 이상은 <b>HARD</b>')+' (수준 기록이 없을 때만 나이로 정합니다)'];
+  return ['easy','나이·수준을 모르면 <b>EASY</b> 로 시작합니다(어려워서 막히는 쪽이 더 나쁩니다).'];
+}
+function applyAuto(){ if(manual) return; var d=decide(); setMode(d[0]); $('why').innerHTML='🤖 자동 선택: '+d[1]; }
+function setMode(m){ mode=m; [].forEach.call(document.querySelectorAll('.tabs button'),function(b){b.setAttribute('aria-pressed',b.dataset.m===m?'true':'false');}); buildThumbs(); show(cur,true); }
+function stopAll(){ seq++; try{audio.pause();}catch(e){} mark(-1); }
+function mark(k){ [].forEach.call(document.querySelectorAll('.lines li'),function(li,i){li.classList.toggle('on',i===k);}); }
+function playList(list,start){ stopAll(); var my=seq, i=0;
+  (function nx(){ if(my!==seq||i>=list.length){ if(my===seq) mark(-1); return; }
+    var k=(start||0)+i, src=list[i][1]; i++; mark(k);
+    if(!src){ nx(); return; }
+    audio.src=src; audio.onended=function(){ if(my===seq) setTimeout(nx,350); };
+    audio.play().catch(function(){ mark(-1); });
+  })(); }
+function show(i,quiet){ var P=D[mode]; cur=(i+P.length)%P.length; var d=P[cur];
+  $('big').src=d.img; $('pg').textContent=(cur+1)+' / '+P.length+' · '+mode.toUpperCase();
+  var ul=$('lines'); ul.innerHTML='';
+  d.lines.forEach(function(t,k){ var li=document.createElement('li'), s=document.createElement('span'), b=document.createElement('button');
+    s.textContent=t[0]; b.type='button'; b.textContent='🔊 듣기'; b.onclick=function(){ playList([t],k); }; li.append(s,b); ul.append(li); });
+  [].forEach.call(document.querySelectorAll('.thumbs button'),function(b,k){b.setAttribute('aria-current',k===cur?'true':'false');});
+  stopAll(); if(!quiet && $('auto').checked) playList(d.lines,0); }
+function buildThumbs(){ var th=$('thumbs'); th.innerHTML='';
+  D[mode].forEach(function(d,k){ var b=document.createElement('button'); b.type='button'; b.setAttribute('aria-label',(k+1)+'쪽');
+    var im=document.createElement('img'); im.src=d.img; im.alt=''; im.loading='lazy'; b.append(im);
+    b.onclick=function(){ show(k); scrollTo({top:0,behavior:'smooth'}); }; th.append(b); }); }
+for(var a=6;a<=20;a++) $('age').add(new Option(a+'세',a)); $('age').add(new Option('성인',30));
+for(var l=1;l<=8;l++) $('lv').add(new Option(l+'단계',l));
+$('age').onchange=$('lv').onchange=function(){ manual=false; applyAuto(); };
+[].forEach.call(document.querySelectorAll('.tabs button'),function(b){ b.onclick=function(){ manual=true; setMode(b.dataset.m); $('why').innerHTML='✋ 직접 골랐습니다: <b>'+b.dataset.m.toUpperCase()+'</b> (나이·수준을 바꾸면 다시 자동으로)'; }; });
+$('prev').onclick=function(){show(cur-1);}; $('next').onclick=function(){show(cur+1);};
+$('all').onclick=function(){ playList(D[mode][cur].lines,0); }; $('stop').onclick=stopAll;
+addEventListener('keydown',function(e){ if(e.target.tagName==='SELECT') return; if(e.key==='ArrowRight')show(cur+1); if(e.key==='ArrowLeft')show(cur-1); });
+applyAuto();
+</script>

@@ -39,11 +39,20 @@
       return String(window._vcShownPdfName || '');
     } catch (e) { return ''; }
   }
-  function volOf(name) { var m = NAME_RE.exec(String(name || '')); return m ? ('0' + m[1]).slice(-2) : ''; }
+  /* 새 SIU(2026-09-29): 「[SIU BASIC 001 - …] New Easy / Slide3.JPG」 — 파일은 권마다 하나
+     (/data/tb-say/siu-basic-001.json · siu-adv-001.json, 쉬운·어려운 판 키가 함께 들어 있다).
+     BTS 는 예전 그대로 'NN' 을 돌려준다(bts-NN.json). */
+  var SIU_RE = /^\[SIU (BASIC|ADVANCE) (\d{3}) [^\]]*\] New (?:Easy|Hard) \/ Slide\d+\.JPG$/;
+  function volOf(name) {
+    var n = String(name || ''), m = NAME_RE.exec(n);
+    if (m) return ('0' + m[1]).slice(-2);
+    m = SIU_RE.exec(n);
+    return m ? (m[1] === 'BASIC' ? 'siu-basic-' : 'siu-adv-') + m[2] : '';
+  }
 
   function load(vol) {
     if (Object.prototype.hasOwnProperty.call(data, vol)) return Promise.resolve(data[vol]);
-    var p = fetch('/data/tb-say/bts-' + vol + '.json').then(function (r) { return r.ok ? r.json() : null; })
+    var p = fetch('/data/tb-say/' + (/^\d+$/.test(vol) ? 'bts-' + vol : vol) + '.json').then(function (r) { return r.ok ? r.json() : null; })
       .catch(function () { return null; })
       .then(function (d) { data[vol] = d; return d; });
     data[vol] = p;
