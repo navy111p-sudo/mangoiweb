@@ -96,7 +96,7 @@ if (!DatabaseSync) {
            CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, user_id TEXT, status TEXT);
            CREATE TABLE attendance (id INTEGER PRIMARY KEY, user_id TEXT, account_uid TEXT, room_id TEXT, joined_at INTEGER);
            CREATE TABLE ai_billing_optin (uid_lc TEXT PRIMARY KEY, user_id TEXT NOT NULL, shop_name TEXT, created_at INTEGER NOT NULL, created_by TEXT);
-           CREATE TABLE enrollments (id INTEGER PRIMARY KEY, student_user_id TEXT, package TEXT, status TEXT);`);
+           CREATE TABLE enrollments (id INTEGER PRIMARY KEY, student_user_id TEXT, package TEXT, status TEXT, ended_at INTEGER);  -- ended_at: 실제 표에 있는 칸(2026-09-29 PAID_AI_UIDS_SQL 이 끝난 이용권을 뺀다)`);
   const insS = db.prepare('INSERT INTO students_erp VALUES (?,?,?,?,?)');
   // [아이디, 지사, 대리점, 상태, 종료일]
   [

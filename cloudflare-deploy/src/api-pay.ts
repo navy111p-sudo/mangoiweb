@@ -371,7 +371,7 @@ async function chargeAiPassOnce(env: any, sub: any): Promise<{ ok: boolean; erro
   /* ⚠️ 끝나는 날을 «다시 읽어» 다음 청구일을 정한다 — 활성화가 실패했으면 null 이라 지금+3일로
      떨어진다(그 사이 사람이 보고 고칠 수 있게. 곧바로 또 긁지 않는다). */
   let endAt: number | null = null;
-  try { endAt = await currentAiPassEnd(env, uid, priced.name); } catch (_) {}
+  try { endAt = await currentAiPassEnd(env, uid, priced.name); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
   await env.DB.prepare(`UPDATE subscriptions SET amount=?, last_billed_at=?, next_billing_at=?, fail_count=0, updated_at=? WHERE id=?`)
     .bind(amount, now, aiPassNextBilling(endAt, now), now, sub.id).run();
   return { ok: true, amount };
@@ -680,7 +680,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       await sendBuyerPaidSms(env, order, amount, orderId);
       let aiPassEndsAt: number | null = null;   // 🤖 A.i 이용권이면 «언제까지» 를 결제 완료 화면이 말하게
       if (String(order.program) === AI_PASS_PLAN && order.uid) {
-        try { aiPassEndsAt = await currentAiPassEnd(env, String(order.uid), PRICES[AI_PASS_PLAN].name); } catch (_) {}
+        try { aiPassEndsAt = await currentAiPassEnd(env, String(order.uid), PRICES[AI_PASS_PLAN].name); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
       }
 
       return json({
@@ -974,7 +974,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     if (String(body.plan || '') === AI_PASS_PLAN) {
       const priced = PRICES[AI_PASS_PLAN];
       let endAt: number | null = null;
-      try { endAt = await currentAiPassEnd(env, authUid, priced.name); } catch (_) {}
+      try { endAt = await currentAiPassEnd(env, authUid, priced.name); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
       const rndA = Array.from(crypto.getRandomValues(new Uint8Array(4))).map((b) => b.toString(16).padStart(2, '0')).join('');
       return json({
         ok: true, plan: AI_PASS_PLAN, customerKey: `mgi_${authUid}_${Date.now().toString(36)}${rndA}`,
@@ -1098,7 +1098,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     ).bind(authUid).first();
     if (wantAi) {
       let endAt: number | null = null;
-      try { endAt = await currentAiPassEnd(env, authUid, PRICES[AI_PASS_PLAN].name); } catch (_) {}
+      try { endAt = await currentAiPassEnd(env, authUid, PRICES[AI_PASS_PLAN].name); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
       return json({ ok: true, subscription: sub || null, ai_pass_ends_at: endAt, price: PRICES[AI_PASS_PLAN].amount });
     }
     return json({ ok: true, subscription: sub || null });
@@ -1131,7 +1131,7 @@ async function confirmAiPassBilling(env: any, authUid: string, authKey: string, 
   }
   const now = Date.now();
   let endAt: number | null = null;
-  try { endAt = await currentAiPassEnd(env, authUid, priced.name); } catch (_) {}
+  try { endAt = await currentAiPassEnd(env, authUid, priced.name); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
   const hasActive = !!(endAt && endAt > now);
   // 같은 plan 의 옛 구독만 정리(수업 구독은 그대로)
   await env.DB.prepare(`UPDATE subscriptions SET status='replaced', updated_at=? WHERE user_id=? AND status='active' AND plan=?`).bind(now, authUid, AI_PASS_PLAN).run();
@@ -1147,7 +1147,7 @@ async function confirmAiPassBilling(env: any, authUid: string, authKey: string, 
   const sub: any = await env.DB.prepare(`SELECT * FROM subscriptions WHERE id = ?`).bind(subId).first();
   const r = sub ? await chargeSubscriptionOnce(env, sub) : { ok: false, error: 'subscription_not_saved' };
   let after: number | null = null;
-  try { after = await currentAiPassEnd(env, authUid, priced.name); } catch (_) {}
+  try { after = await currentAiPassEnd(env, authUid, priced.name); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
   const s2: any = await env.DB.prepare(`SELECT next_billing_at FROM subscriptions WHERE id = ?`).bind(subId).first().catch(() => null);
   return json({ ok: true, plan: AI_PASS_PLAN, id: subId, amount: priced.amount, charged: !!r.ok, charge_error: r.ok ? null : (r.error || 'charge_failed'),
     next_billing_at: s2 ? Number(s2.next_billing_at) : null, ai_pass_ends_at: after });
@@ -1175,7 +1175,7 @@ async function activateEnrollment(env: any, order: any, amount: number, when: nu
     let startAt = when, endAt: number | null = null;
     if (String(order.program) === AI_PASS_PLAN && order.uid) {
       let curEnd: number | null = null;
-      try { curEnd = await currentAiPassEnd(env, String(order.uid), pkg); } catch (_) {}
+      try { curEnd = await currentAiPassEnd(env, String(order.uid), pkg); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
       const per = aiPassPeriod(when, curEnd);
       startAt = per.start; endAt = per.end;
     }
