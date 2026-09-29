@@ -26,7 +26,7 @@ import { json, parseJsonBody } from './api-util';
 import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES, classLengthMultiplier } from './class-policy';
 import {
   enrollTimeToMin, enrollDates, enrollConflicts, teachersFreeAt,
-  holidaySet, ensureEnrollTables, kstToday
+  holidaySet, ensureEnrollTables, kstToday, enrollAdminHqOnly
 } from './enroll-ops';
 import { sendPlainSms } from './solapi-client';
 import { NOT_AI_PASS_PLAN_SQL } from './ai-pass';   // 🤖 A.i 이용권 구독은 수업 구독 조회에서 뺀다(정본)
@@ -101,6 +101,103 @@ export function parseSessions(pkg: string, weekly: number): number {
   return Math.max(1, Math.min(400, Math.max(1, weekly) * 4));
 }
 
+/* ═══════════════ 📅 회차 수 = 수강 기간 안의 수업일 수 (2026-09-29 실사고) ═══════════════
+   발단: 학생 delaware(김연숙)·Hannah 화·목 21:10 수업이 9/29 학생 화면에서 사라졌다. 운영 D1 실측으로
+   원인 확정 — 이 파일이 회차 수를 parseSessions(package) **하나로만** 정해서, package 가 '정규수업' 처럼
+   «개월»·«회권» 글자가 없으면 «주 N회 × 4주» 만 만들었다. 등록 화면에서 고른 ⑥ 수업 기간
+   (`duration_months`)과 종료일(`end_date`)은 한 번도 안 읽혔다.
+     · 확정 수강 18건 중 6개월 등록 전원이 활성 회차 4(주1회) 또는 8(주2회)개뿐
+     · enrollments 120(delaware, 6개월, end_date 2027-03-29) → 9/29~10/20 4회만
+   ⟹ 4주가 지나면 학생 화면에서 수업이 **에러 없이** 사라진다.
+
+   ✅ 규칙(우선순위)
+     ① package 에 «N회권»·«총 N회» 가 **명시**돼 있으면 그것 — 옛 동작 그대로(사람이 적은 숫자가 이긴다)
+     ② end_date(YYYY-MM-DD) 가 있으면 시작일 ~ end_date(포함) 사이에 그 요일이 오는 날짜 수
+     ③ 없으면 duration_months(1~24 의 정수 글자) 개월 — 시작일 + N개월 «전날» 까지
+     ④ 둘 다 없거나 'unlimited'·모르는 값이면 옛 폴백 parseSessions(«주 N회 × 4주» 등)
+   ⚠️ duration_months 는 TEXT('6','1','unlimited'…). 'unlimited' 는 «끝이 없다» 라 날짜로 셀 수 없다 → ④.
+   ⚠️ 상한 400 은 그대로다. 그리고 ②③이면 **실제 날짜도 그 종료일을 넘지 않게** 자른다(buildEnrollPlan) —
+      enrollDates 는 충돌·공휴일을 «뒤로 밀어» 회차를 보존하므로, 자르지 않으면 종료일 뒤로 새어 나간다.
+   ⚠️ 종료일이 이미 지났으면(②③의 끝 < 오늘) ④로 떨어뜨리고 경고한다(옛 동작 보존 — 막지 않는다).
+   감시: test-harness/enroll_sessions_duration_harness.mjs */
+
+/** 'YYYY-MM-DD' + N개월 (말일 보정 — 1/31 + 1개월 = 2/28) */
+export function addMonthsDay(iso: string, n: number): string {
+  const [y, m, d] = String(iso).split('-').map(Number);
+  if (!y || !m || !d || !Number.isFinite(n)) return iso;
+  const total = (m - 1) + Math.trunc(n);
+  const ny = y + Math.floor(total / 12);
+  const nm = ((total % 12) + 12) % 12 + 1;
+  const last = new Date(Date.UTC(ny, nm, 0)).getUTCDate();
+  return ny + '-' + String(nm).padStart(2, '0') + '-' + String(Math.min(d, last)).padStart(2, '0');
+}
+
+/** 'YYYY-MM-DD' 인가(실재하는 날짜인가). 아니면 null. */
+export function validDay(v: any): string | null {
+  const t = String(v ?? '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
+  const d = new Date(t + 'T00:00:00Z');
+  return (!isNaN(d.getTime()) && d.toISOString().slice(0, 10) === t) ? t : null;
+}
+
+/** startDay ~ untilDay(포함) 사이에서 요일(0=일~6=토)이 맞는 날짜들. 상한 cap. */
+export function datesInRange(startDay: string, untilDay: string, days: number[], cap = 400): string[] {
+  const out: string[] = [];
+  const d = new Date(startDay + 'T00:00:00Z');
+  if (isNaN(d.getTime()) || !untilDay || untilDay < startDay) return out;
+  const want = new Set(days);
+  for (let i = 0; i < 4000 && out.length < cap; i++) {
+    const iso = d.toISOString().slice(0, 10);
+    if (iso > untilDay) break;
+    if (want.has(d.getUTCDay())) out.push(iso);
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
+/** 수강 기간의 끝(포함). end_date 가 먼저, 없으면 duration_months. 둘 다 못 쓰면 null. */
+export function enrollmentUntil(e: { end_date?: any; duration_months?: any }, enrollStartDay: string):
+  { until: string | null; basis: 'end_date' | 'duration_months' | null } {
+  const ed = validDay(e?.end_date);
+  if (ed) return { until: ed, basis: 'end_date' };
+  const dm = String(e?.duration_months ?? '').trim();
+  if (/^\d{1,2}$/.test(dm)) {
+    const n = Number(dm);
+    if (n >= 1 && n <= 24 && validDay(enrollStartDay)) {
+      const end = addMonthsDay(enrollStartDay, n);
+      const d = new Date(end + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 1);   // N개월 «전날» 까지
+      return { until: d.toISOString().slice(0, 10), basis: 'duration_months' };
+    }
+  }
+  return { until: null, basis: null };   // 'unlimited'·빈 값·모르는 값
+}
+
+export type SessionsBasis = 'package' | 'end_date' | 'duration_months' | 'fallback';
+
+/**
+ * 🧮 회차 수 정본 — **순수 함수**(하니스가 그대로 돌린다).
+ * @param startDay       실제로 잡기 시작하는 날(오늘로 당겨졌을 수 있음)
+ * @param enrollStartDay 신청서의 원래 시작일(개월 수를 셀 기준)
+ */
+export function planSessionCount(input: {
+  pkg: string; days: number[]; startDay: string; enrollStartDay: string;
+  endDate?: any; durationMonths?: any;
+}): { sessions: number; until: string | null; basis: SessionsBasis; expired: boolean } {
+  const pkg = String(input.pkg || '');
+  const weekly = Math.max(1, (input.days || []).length);
+  const byCount = /(\d+)\s*회권/.exec(pkg) || /총\s*(\d+)\s*회/.exec(pkg);
+  if (byCount) return { sessions: parseSessions(pkg, weekly), until: null, basis: 'package', expired: false };
+  const span = enrollmentUntil({ end_date: input.endDate, duration_months: input.durationMonths }, input.enrollStartDay);
+  if (span.until && span.basis) {
+    if (span.until >= input.startDay) {
+      const n = datesInRange(input.startDay, span.until, input.days || []).length;
+      return { sessions: Math.max(1, Math.min(400, n)), until: span.until, basis: span.basis, expired: false };
+    }
+    return { sessions: parseSessions(pkg, weekly), until: null, basis: 'fallback', expired: true };
+  }
+  return { sessions: parseSessions(pkg, weekly), until: null, basis: 'fallback', expired: false };
+}
+
 /** '1:1' → 1, '1:3' → 3, '그룹' → 0(모름). 수업 길이 판단에만 쓴다 */
 export function parseClassSize(s: string): number {
   const m = /1\s*[:：대]\s*(\d+)/.exec(String(s || ''));
@@ -127,6 +224,10 @@ export interface EnrollPlan {
   times: Record<string, string>;
   minutes: number;
   sessions: number;
+  /** 회차 수를 무엇으로 정했나 — package(회권 명시) · end_date · duration_months · fallback(×4주) */
+  sessions_basis: SessionsBasis;
+  /** 수강 기간의 끝(포함). 이 날을 넘는 날짜는 만들지 않는다. 모르면 null. */
+  until: string | null;
   start_date: string;
   dates: string[];
   skipped_holidays: string[];
@@ -167,11 +268,19 @@ export async function buildEnrollPlan(env: any, id: number, teacherOverride?: st
     ? Number(e.duration_min) : DEFAULT_CLASS_MINUTES;
   if (size > 3) warnings.push('인원 ' + size + '명 — 그룹 수업은 같은 시간에 여러 학생이 들어갑니다');
 
-  const sessions = parseSessions(e.package || '', Math.max(1, days.length));
   const startMs = e.started_at ? Number(e.started_at) : Date.now();
   const today = kstToday();
-  let start_date = kstDay(startMs);
+  const enrollStartDay = kstDay(startMs);
+  let start_date = enrollStartDay;
   if (start_date < today) { start_date = today; warnings.push('시작일이 지났습니다 — 오늘(' + today + ')부터 잡습니다'); }
+  /* 📅 (2026-09-29) 회차 수는 «수강 기간» 으로 — planSessionCount 머리말 참고.
+     ⛔ parseSessions 하나로 되돌리지 말 것: 6개월 등록이 4주 만에 학생 화면에서 사라진다. */
+  const sc = planSessionCount({
+    pkg: e.package || '', days, startDay: start_date, enrollStartDay,
+    endDate: e.end_date, durationMonths: e.duration_months,
+  });
+  const sessions = sc.sessions;
+  if (sc.expired) warnings.push('수강 종료일이 이미 지났습니다 — 기간 대신 옛 방식(주 횟수 × 4주)으로 잡습니다. 종료일을 확인해 주세요');
 
   // ── 학생 계정 연결
   let linkedUid: string | null = e.student_user_id ? String(e.student_user_id) : null;
@@ -274,6 +383,8 @@ export async function buildEnrollPlan(env: any, id: number, teacherOverride?: st
     skipped = probe.filter(d => hol.has(d) || blocked.has(d));
     hol.forEach(d => blocked.add(d));
     dates = enrollDates(start_date, days, sessions, blocked);
+    /* ⛔ 수강 기간이 정해졌으면 그 끝을 넘지 않는다 — enrollDates 는 막힌 날을 «뒤로 밀어» 회차를 보존한다. */
+    if (sc.until) dates = dates.filter(d => d <= (sc.until as string));
     if (dates.length < sessions) {
       warnings.push('요청 ' + sessions + '회 중 ' + dates.length + '회만 잡힙니다 — 충돌·공휴일이 많습니다');
     }
@@ -287,7 +398,7 @@ export async function buildEnrollPlan(env: any, id: number, teacherOverride?: st
   if (already > 0) warnings.push('이 신청 건으로 이미 수업 ' + already + '회가 만들어져 있습니다 — 다시 눌러도 새로 생기지 않습니다');
 
   return {
-    enrollment: e, days, times, minutes, sessions, start_date, dates,
+    enrollment: e, days, times, minutes, sessions, sessions_basis: sc.basis, until: sc.until, start_date, dates,
     skipped_holidays: skipped,
     student: {
       linked: !!linkedUid, user_id: linkedUid, candidates,
@@ -452,6 +563,141 @@ async function runActivate(env: any, id: number, body: any, actor: string) {
   return json({ ok: true, id, dry, status: finalStatus, all_ok: !hardFail, steps: results, plan_warnings: plan.warnings, teacher_name: assignedTeacher });
 }
 
+/* ═══════════════ 🧩 모자란 회차 채우기 (백필) — 2026-09-29 ═══════════════
+   위 «×4주» 결함으로 이미 확정된 수강은 4주(또는 8회)치만 만들어져 있다. 그 수강의 «남은 기간» 을
+   같은 요일·시각·강사로 채운다.
+   ⛔ 기본은 dry(계획만). 실제 쓰기는 body.dry === false 를 «명시» 했을 때만.
+   ⛔ 본사 전용 — enrollAdminHqOnly(강사·지사·대리점 차단 + 스코프 재조회, 모르면 막음).
+   ⛔ 멱등 — 같은 source 로 «이미 있는 날짜» 는 상태와 무관하게 건너뛴다.
+      특히 **cancelled 날짜는 되살리지 않는다**(사람이 취소한 회차다).
+   ⛔ 채우는 구간은 «활성 회차의 마지막 날짜 다음날» ~ 수강 기간의 끝. 그 사이 빈 날(취소·공휴일)을
+      거꾸로 메우지 않는다.
+   ⛔ 기간을 모르면(end_date·duration_months 없음 / 'unlimited') 아무것도 안 만든다 — 지어내지 않는다.
+   ✅ 공휴일·강사 충돌 날짜는 건너뛴다(확정 흐름과 같은 enrollConflicts·holidaySet 재사용).
+   ✅ DB 유니크 인덱스(uq_sched_teacher_slot) + INSERT OR IGNORE 가 동시 실행을 한 번 더 막는다. */
+
+export interface BackfillPlan {
+  ok: boolean;
+  id: number;
+  reason?: string;              // ok=false 일 때 — not_found · not_confirmed · no_active_rows · no_period · nothing_to_add …
+  until: string | null;
+  basis: 'end_date' | 'duration_months' | null;
+  from: string | null;          // 채우기 시작일(마지막 활성 회차 다음날, 오늘보다 앞이면 오늘)
+  last_active: string | null;
+  active_count: number;
+  add: Array<{ date: string; start_time: string; teacher_id: string; duration_min: number }>;
+  skipped: { existing: string[]; holiday: string[]; conflict: string[] };
+  total_after: number;
+}
+
+/** 백필 계획 — **아무것도 쓰지 않는다.** */
+export async function planEnrollBackfill(env: any, id: number): Promise<BackfillPlan> {
+  const out: BackfillPlan = { ok: false, id, until: null, basis: null, from: null, last_active: null,
+    active_count: 0, add: [], skipped: { existing: [], holiday: [], conflict: [] }, total_after: 0 };
+  const e: any = await env.DB.prepare(`SELECT * FROM enrollments WHERE id = ? LIMIT 1`).bind(id).first();
+  if (!e) { out.reason = 'not_found'; return out; }
+  if (!['confirmed', 'active'].includes(String(e.status || ''))) { out.reason = 'not_confirmed'; return out; }
+  const days = parseDowList(e.days_of_week || '');
+  if (!days.length) { out.reason = 'no_days'; return out; }
+  const enrollStartDay = kstDay(e.started_at ? Number(e.started_at) : Date.now());
+  const span = enrollmentUntil(e, enrollStartDay);
+  out.until = span.until; out.basis = span.basis;
+  if (!span.until) { out.reason = 'no_period'; return out; }
+
+  const src = SRC_PREFIX + id;
+  const rs: any = await env.DB.prepare(
+    `SELECT scheduled_date, start_time, teacher_id, duration_min, status, created_at, id
+       FROM class_schedules WHERE source = ? AND scheduled_date IS NOT NULL`
+  ).bind(src).all();
+  const rows: any[] = (rs?.results as any[]) || [];
+  const taken = new Set<string>(rows.map(r => String(r.scheduled_date)));   // 상태 무관 — cancelled 도 «있음»
+  const active = rows.filter(r => String(r.status || 'active') === 'active' && r.teacher_id != null && String(r.start_time || ''));
+  out.active_count = active.length;
+  if (!active.length) { out.reason = 'no_active_rows'; return out; }
+
+  /* 요일별 «가장 최근» 활성 회차의 시각·강사·길이 — 같은 요일은 같은 자리로 잇는다 */
+  active.sort((a, b) => String(a.scheduled_date).localeCompare(String(b.scheduled_date)) || (Number(a.id) - Number(b.id)));
+  const byDow = new Map<number, any>();
+  for (const r of active) byDow.set(new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay(), r);
+  const latest = active[active.length - 1];
+  out.last_active = String(latest.scheduled_date);
+
+  const d0 = new Date(out.last_active + 'T00:00:00Z'); d0.setUTCDate(d0.getUTCDate() + 1);
+  let from = d0.toISOString().slice(0, 10);
+  const today = kstToday();
+  if (from < today) from = today;
+  out.from = from;
+
+  const room = Math.max(0, 400 - rows.length);   // 상한 400 — 이 신청 건 전체 행 수 기준
+  const cand = datesInRange(from, span.until, days, 400).filter(d => {
+    if (taken.has(d)) { out.skipped.existing.push(d); return false; }
+    return true;
+  });
+
+  const hol = await holidaySet(env, from);
+  /* 강사별로 묶어 충돌 검사 — 요일마다 강사가 다를 수 있다 */
+  const pickFor = (d: string) => byDow.get(new Date(d + 'T00:00:00Z').getUTCDay()) || latest;
+  const byTeacher = new Map<string, string[]>();
+  for (const d of cand) {
+    if (hol.has(d)) { out.skipped.holiday.push(d); continue; }
+    const t = String(pickFor(d).teacher_id);
+    const arr = byTeacher.get(t) || []; arr.push(d); byTeacher.set(t, arr);
+  }
+  const blocked = new Set<string>();
+  for (const [tid, ds] of byTeacher) {
+    const tm: Record<number, number> = {};
+    let mins = DEFAULT_CLASS_MINUTES;
+    for (const d of ds) {
+      const r = pickFor(d);
+      const dw = new Date(d + 'T00:00:00Z').getUTCDay();
+      const m = enrollTimeToMin(String(r.start_time || ''));
+      if (m >= 0) tm[dw] = m;
+      if (Number(r.duration_min) > 0) mins = Number(r.duration_min);
+    }
+    const c = await enrollConflicts(env, tid, ds, tm, mins, days);
+    c.forEach(x => blocked.add(tid + '|' + x));
+  }
+  for (const d of cand) {
+    if (hol.has(d)) continue;
+    const r = pickFor(d);
+    const tid = String(r.teacher_id);
+    if (blocked.has(tid + '|' + d)) { out.skipped.conflict.push(d); continue; }
+    if (out.add.length >= room) break;
+    out.add.push({ date: d, start_time: String(r.start_time).slice(0, 5), teacher_id: tid,
+      duration_min: Number(r.duration_min) > 0 ? Number(r.duration_min) : DEFAULT_CLASS_MINUTES });
+  }
+  out.total_after = active.length + out.add.length;
+  out.ok = true;
+  if (!out.add.length) out.reason = 'nothing_to_add';
+  return out;
+}
+
+/** 백필 실행. dry 가 아니면 INSERT OR IGNORE — 확정 단계와 같은 모양·같은 source. */
+export async function runEnrollBackfill(env: any, id: number, dry: boolean, actor: string):
+  Promise<BackfillPlan & { dry: boolean; created: number; error?: string }> {
+  const plan = await planEnrollBackfill(env, id);
+  const res: BackfillPlan & { dry: boolean; created: number; error?: string } = { ...plan, dry, created: 0 };
+  if (dry || !plan.ok || !plan.add.length) return res;
+  const e: any = await env.DB.prepare(`SELECT student_user_id, student_name, package, days_of_week FROM enrollments WHERE id = ? LIMIT 1`).bind(id).first();
+  const uid = e?.student_user_id ? String(e.student_user_id) : '';
+  if (!uid) { res.ok = false; res.reason = 'no_student'; return res; }
+  const now = Date.now();
+  const note = '수강기간 채우기(백필) · ' + dowLabel(parseDowList(e?.days_of_week || '')) + ' · ' + (e?.package || '') + ' · ~' + plan.until;
+  const stmt = env.DB.prepare(
+    `INSERT OR IGNORE INTO class_schedules (user_id, student_name, schedule_kind, class_type, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes)
+     VALUES (?, ?, 'dated', 'regular', ?, ?, ?, ?, 'active', ?, ?, ?, ?)`
+  );
+  const batch = plan.add.map(a => stmt.bind(uid, String(e?.student_name || ''), a.date, a.start_time, a.duration_min,
+    a.teacher_id, SRC_PREFIX + id, actor || 'admin', now, note));
+  try {
+    for (let i = 0; i < batch.length; i += 80) {
+      const r = await env.DB.batch(batch.slice(i, i + 80));
+      for (const x of (r as any[])) res.created += Number(x?.meta?.changes || 0);
+    }
+  } catch (err: any) { res.ok = false; res.error = String(err?.message || err); }
+  return res;
+}
+
 /** 시작일 + 1개월 (말일 보정 — 1/31 + 1개월 = 2/28) */
 export function nextBillingDay(startDay: string): string {
   const [y, m, d] = String(startDay).split('-').map(Number);
@@ -490,6 +736,7 @@ export async function handleEnrollActivateApi(request: Request, url: URL, env: a
       fee_source: (plan.enrollment as any).fee_source ?? null,
       days: plan.days, days_label: dowLabel(plan.days), times: plan.times,
       minutes: plan.minutes, sessions: plan.sessions, start_date: plan.start_date,
+      sessions_basis: plan.sessions_basis, until: plan.until,
       dates: plan.dates, dates_count: plan.dates.length,
       skipped: plan.skipped_holidays.slice(0, 20),
       student: plan.student, teacher: plan.teacher,
@@ -503,6 +750,17 @@ export async function handleEnrollActivateApi(request: Request, url: URL, env: a
   const mAct = /^\/api\/admin\/enrollments\/(\d+)\/activate$/.exec(path);
   if (mAct && method === 'POST') {
     const body = await parseJsonBody(request);
+    /* 🧩 (2026-09-29) 같은 경로에 «action» 으로 백필을 얹는다 — src/index.ts(공동 금지구역)를 안 건드리려고.
+       ⛔ 모르는 action 은 거절한다(나중에 다른 뜻을 넣을 때 «모르는 요청» 이 조용히 흘러들지 않게).
+       action 이 없으면 예전 그대로 확정이다. */
+    const action = body && body.action != null ? String(body.action) : '';
+    if (action === 'backfill') {
+      const denied = await enrollAdminHqOnly(request, env);
+      if (denied) return denied;
+      const dry = body.dry !== false;            // ⛔ 기본은 계획만. false 를 «명시» 해야 쓴다.
+      return json(await runEnrollBackfill(env, Number(mAct[1]), dry, actor));
+    }
+    if (action) return json({ ok: false, error: 'unknown_action', action }, 400);
     return await runActivate(env, Number(mAct[1]), body || {}, actor);
   }
 
