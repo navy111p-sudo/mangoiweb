@@ -15,7 +15,7 @@ import { runCypher } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 
 import { studentScopeWhere, getScope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { checkAdminSession, resolveOwnerScope, getAdminActor, isOrgScopedRole } from './auth-admin';  // 🔐 공용 소유자 판정
-import { enrollAdminHqOnly, moveCandidatesFor } from './enroll-ops';   // 🙈 학생 숨김은 본사 전용 — 강사·지사·대리점 차단 + 스코프 재조회(모르면 막음)
+import { enrollAdminHqOnly, moveCandidatesFor, daySlotsFor } from './enroll-ops';   // 🙈 학생 숨김은 본사 전용 — 강사·지사·대리점 차단 + 스코프 재조회(모르면 막음)
 import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
 import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
 import { siteUrl } from './site-url';  // 사람에게 보내는 링크의 정본 주소(mangoi.ai)
@@ -2370,14 +2370,17 @@ export async function handleMangoApi(
           findScheduleConflicts 그대로다. 승인(/decide)도 고른 강사(new_teacher_id) 기준으로 같은 검사를 다시 한다.
        🔒 학생 토큰으로만, «내 수업» 일 때만. 읽기 전용 — 강사를 바꾸지 않는다(요청은 /request, 승인은 관리자).
        ⛔ 다른 학생 정보는 싣지 않는다 — 강사 이름·사진·«몇 명이 안 되는지» 까지만. */
-    if (method === 'GET' && path === '/api/class/schedule/free-teachers') {
+    /* 👨‍🏫 free-teachers = 그 시각에 수업 가능한 강사 · 📅 day-slots = 그 날짜의 시간칸(나·지금 선생님 되나)
+       (2026-09-30) — 두 경로가 «내 수업인가» 검사를 한 벌로 쓴다(검사가 갈리지 않게). */
+    if (method === 'GET' && (path === '/api/class/schedule/free-teachers' || path === '/api/class/schedule/day-slots')) {
+      const isSlots = path === '/api/class/schedule/day-slots';
       let tokUid: string | null = null;
       try { tokUid = await authUidGlobal(request, url, env); } catch { tokUid = null; }
       if (!tokUid) return json({ ok: false, error: 'login_required' }, 401);
       const scheduleId = parseInt(url.searchParams.get('schedule_id') || '', 10) || 0;
       const date = String(url.searchParams.get('date') || '').trim().slice(0, 10);
       const time = String(url.searchParams.get('time') || '').trim().slice(0, 5);
-      if (!scheduleId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return json({ ok: false, error: 'bad_params' }, 400);
+      if (!scheduleId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || (!isSlots && !/^\d{2}:\d{2}$/.test(time))) return json({ ok: false, error: 'bad_params' }, 400);
       const todayKst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
       if (date < todayKst) return json({ ok: false, error: 'past_date' }, 400);
       /* 요청 경로(/request)와 같은 90일 창 — 먼 날짜로 무거운 조회를 부르지 못하게. */
@@ -2393,6 +2396,12 @@ export async function handleMangoApi(
       if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
       /* 정확일치 — 대소문자만 다른 계정이 실재한다(Kim/kim). studentRequestGate 와 같은 규칙. */
       if (String(row.user_id || '') !== tokUid) return json({ ok: false, error: 'not_your_class' }, 403);
+      if (isSlots) {
+        let d: any;
+        try { d = await daySlotsFor(env, row, date); }
+        catch (e: any) { console.warn('[class/schedule/day-slots]', e?.message || e); return json({ ok: false, error: 'lookup_failed' }, 500); }
+        return json({ ok: true, date, duration_min: d.duration_min, slots: d.slots });
+      }
       let r: any;
       try { r = await moveCandidatesFor(env, row, date, time); }
       catch (e: any) { console.warn('[class/schedule/free-teachers]', e?.message || e); return json({ ok: false, error: 'lookup_failed' }, 500); }

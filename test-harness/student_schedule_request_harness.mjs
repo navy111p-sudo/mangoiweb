@@ -156,7 +156,7 @@ const plus = n => new Date(Date.parse(today + 'T00:00:00Z') + n * 864e5).toISOSt
 
 /* ── ②-2 «교사로 연기» 가능 강사 조회 — GET /api/class/schedule/free-teachers ── */
 console.log('\n②-2 가능 강사 조회 라우트');
-const ftAt = mango.indexOf("if (method === 'GET' && path === '/api/class/schedule/free-teachers') {");
+const ftAt = mango.indexOf("if (method === 'GET' && (path === '/api/class/schedule/free-teachers' || path === '/api/class/schedule/day-slots')) {");
 ok('라우트를 찾았다', ftAt > 0);
 let ftBody = blockAt(mango, ftAt);
 ok('라우트 몸통을 오려 냈다', ftBody.length > 400);
@@ -164,20 +164,22 @@ ok('판정은 정본 moveCandidatesFor 를 부른다(복제 금지)', /moveCandi
 ok('정본이 enroll-ops.ts 에 «export» 로 있다', /export async function moveCandidatesFor\(/.test(SRC('src/enroll-ops.ts')));
 ok('관리자 move-candidates 도 같은 정본을 부른다(두 판정이 갈리지 않게)', /return json\(await moveCandidatesFor\(env, row, date, time\)\)/.test(SRC('src/enroll-ops.ts')));
 ftBody = ftBody.replace(/ as any/g, '').replace(/\b(let|const) (\w+): [^=;]+=/g, '$1 $2 =').replace(/\((\w+): any\)/g, '($1)').replace(/\(e: any\)/g, '(e)').replace(/\b(let|const) (\w+): any;/g, '$1 $2;');
-async function callFt({ tok, qs, mc }) {
+async function callFt({ tok, qs, mc, path = '/api/class/schedule/free-teachers', ds }) {
   const { db, D1 } = makeDb();
   db.exec(`ALTER TABLE class_schedules ADD COLUMN duration_min INTEGER`);
   db.exec(`ALTER TABLE class_schedules ADD COLUMN source TEXT`);
   const env = { DB: D1 };
-  const url = new URL('http://x/api/class/schedule/free-teachers?' + qs);
+  const url = new URL('http://x' + path + '?' + qs);
   const seen = [];
   const moveCandidatesFor = async (_e, row, date, time) => { seen.push({ row, date, time }); if (mc === 'throw') throw new Error('boom');
     return { ok: true, duration_min: 20, current: { id: '16', name: 'KRYSTEL', display_name: 'Krystel', photo: '', why: '', free: true, current: true },
       candidates: [{ id: '21', name: 'KARL', display_name: 'Karl', photo: '', free: true, why: '', current: false }], busy_count: 3, teacher_change_ok: true }; };
+  const daySlotsFor = async (_e, row, date) => { seen.push({ slots: true, row, date }); if (ds === 'throw') throw new Error('boom');
+    return { ok: true, date, duration_min: 20, slots: [{ t: '09:00', past: false, student_busy: false, teacher_free: true }] }; };
   let res;
   try {
-    const fn = new Function('env', 'request', 'url', 'json', 'authUidGlobal', 'moveCandidatesFor', 'return (async () => {' + ftBody + '\n})();');
-    res = await fn(env, {}, url, json, async () => tok, moveCandidatesFor);
+    const fn = new Function('env', 'request', 'url', 'json', 'authUidGlobal', 'moveCandidatesFor', 'daySlotsFor', 'path', 'return (async () => {' + ftBody + '\n})();');
+    res = await fn(env, {}, url, json, async () => tok, moveCandidatesFor, daySlotsFor, path);
   } catch (e) { res = { status: 0, body: { error: 'THREW ' + e.message } }; }
   return { res, seen };
 }
@@ -228,7 +230,8 @@ ok('decide 몸통을 오려 냈다', dBody.length > 2000);
 /* 타입 표기는 전역 typescript 로 걷어 낸다(손으로 짠 정규식은 decide 의 타입을 다 못 벗긴다).
    없으면 이 절은 «못 돌렸다» 로 FAIL — 조용히 건너뛰지 않는다. */
 let tsMod = null;
-for (const cand of ['typescript', '/opt/node22/lib/node_modules/typescript/lib/typescript.js']) { try { tsMod = createRequire(import.meta.url)(cand); break; } catch {} }
+/* CI 러너는 cloudflare-deploy/node_modules 에만 typescript 가 있다(test-harness 에서 'typescript' 로는 못 찾음 — 2026-09-30 CI 에서 밟음). */
+for (const cand of ['typescript', join(ROOT, 'cloudflare-deploy', 'node_modules', 'typescript'), '/opt/node22/lib/node_modules/typescript/lib/typescript.js']) { try { tsMod = createRequire(import.meta.url)(cand); break; } catch {} }
 ok('typescript 를 찾았다(decide 를 실제로 돌리려면 필요)', !!tsMod);
 if (tsMod) dBody = tsMod.transpileModule('async function __d(){' + dBody + '\n}', { compilerOptions: { target: 99 } }).outputText
   .replace(/^[\s\S]*?async function __d\(\)\s*\{/, '').replace(/\}\s*$/, '');
@@ -323,6 +326,98 @@ ok('게이트 정본을 불러왔다', typeof gateMod.teacherMoveDenyReason === 
 {
   const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21' }, isTeacher: true });
   ok('강사 계정은 승인 자체가 막힌다(403)', res.status === 403 && cs.teacher_id === '16', res);
+}
+
+/* ── ②-4 📅 «날짜로 연기» 시간칸 — GET /api/class/schedule/day-slots + 정본 daySlotsFor ── */
+console.log('\n②-4 날짜로 연기 시간칸');
+{
+  const { res, seen } = await callFt({ tok: 'jeong', qs: 'schedule_id=4385&date=' + plus(1), path: '/api/class/schedule/day-slots' });
+  ok('day-slots 는 시각 없이 200 + 칸 목록', res.status === 200 && res.body.ok === true && Array.isArray(res.body.slots) && res.body.slots.length === 1, res);
+  ok('day-slots 는 daySlotsFor 만 부른다(moveCandidatesFor 는 안 부름)', seen.length === 1 && seen[0].slots === true && Number(seen[0].row.id) === 4385, seen);
+}
+{
+  const { res } = await callFt({ tok: 'jeong', qs: 'schedule_id=4385&date=' + plus(1) });
+  ok('free-teachers 는 여전히 시각이 없으면 400(짝)', res.status === 400 && res.body.error === 'bad_params', res);
+}
+{
+  const { res, seen } = await callFt({ tok: 'jeong', qs: 'schedule_id=9000&date=' + plus(1), path: '/api/class/schedule/day-slots' });
+  ok('day-slots 도 남의 수업은 403 · 정본 안 부름', res.status === 403 && seen.length === 0, res);
+}
+{
+  const { res, seen } = await callFt({ tok: null, qs: 'schedule_id=4385&date=' + plus(1), path: '/api/class/schedule/day-slots' });
+  ok('day-slots 도 토큰 없으면 401', res.status === 401 && seen.length === 0, res);
+}
+{
+  const { res } = await callFt({ tok: 'jeong', qs: 'schedule_id=4385&date=' + plus(1), path: '/api/class/schedule/day-slots', ds: 'throw' });
+  ok('day-slots 정본이 실패하면 «빈 칸» 이 아니라 500', res.status === 500 && res.body.ok === false, res);
+}
+
+/* 정본 daySlotsFor 를 진짜 SQLite 에서 돌린다 — 겹침 판정은 schedule-conflict.ts 를 그대로 트랜스파일해 쓴다. */
+function fnText(src, name) {
+  const re = new RegExp('(export\\s+)?(async\\s+)?function\\s+' + name + '\\s*\\(');
+  const m = re.exec(src); if (!m) return '';
+  /* ⚠️ TS 반환 타입(Promise<Map<string, { … }[]>>) 안의 «{» 를 몸통으로 잡지 않게 — 괄호·꺾쇠 깊이 0 인 첫 «{» 부터(CLAUDE.md 2장). */
+  const start = m.index; let o = -1;
+  for (let k = m.index + m[0].length - 1, pd = 0, ad = 0; k < src.length; k++) {
+    const c = src[k];
+    if (c === '(') pd++; else if (c === ')') pd--; else if (c === '<') ad++; else if (c === '>' && src[k - 1] !== '=') ad--;
+    else if (c === '{' && pd === 0 && ad === 0) { o = k; break; }
+  }
+  if (o < 0) return '';
+  let d = 0; for (let k = o; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}') { d--; if (!d) return src.slice(start, k + 1); } }
+  return '';
+}
+let daySlotsForReal = null;
+try {
+  if (!tsMod) throw new Error('typescript 없음');
+  const cjs = (code) => tsMod.transpileModule(code, { compilerOptions: { target: 99, module: 1 } }).outputText;
+  const load = (code, req) => { const exports = {}; new Function('exports', 'require', cjs(code))(exports, req); return exports; };
+  const cp = load(SRC('src/class-policy.ts'), () => ({}));
+  const sc = load(SRC('src/schedule-conflict.ts'), () => cp);
+  const eo = SRC('src/enroll-ops.ts');
+  const dst = eo.slice(eo.indexOf('export const DAY_SLOT_TIMES'), eo.indexOf('})();', eo.indexOf('export const DAY_SLOT_TIMES')) + 5);
+  const parts = ['enrollTimeToMin', 'enrollOverlap', 'subOverlayBusyIds', 'subOverlayHasOverlap', 'unavailabilityRows', 'teachersOffAt', 'daySlotsFor'].map((n) => fnText(eo, n));
+  ok('정본 조각을 전부 오려 냈다', parts.every(Boolean) && dst.length > 50, parts.map((x) => x.length));
+  const code = "const { findScheduleConflicts, activeRowsFor } = require('./schedule-conflict');\nconst DEFAULT_CLASS_MINUTES = " + cp.DEFAULT_CLASS_MINUTES + ';\n' + dst + '\n' + parts.join('\n') + '\nexports.daySlotsFor = daySlotsFor;';
+  /* activeRowsFor·findScheduleConflicts 는 schedule-conflict 정본 그대로 */
+  daySlotsForReal = load(code.replace(/export /g, ''), () => sc).daySlotsFor;
+} catch (e) { ok('정본 조각 불러오기', false, e.message); }
+ok('정본 daySlotsFor 를 불러왔다', typeof daySlotsForReal === 'function');
+if (daySlotsForReal) {
+  const D = '2099-10-05';   // 월요일
+  const db = new DatabaseSync(':memory:');
+  db.exec(`CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, user_id TEXT, day_of_week TEXT, scheduled_date TEXT, start_time TEXT, duration_min INTEGER, teacher_id TEXT, status TEXT, schedule_kind TEXT)`);
+  db.exec(`CREATE TABLE class_substitutions (schedule_id INTEGER, substitute_teacher_id TEXT, status TEXT, sub_date TEXT)`);
+  db.exec(`CREATE TABLE teacher_unavailability (teacher_id TEXT, kind TEXT, start_date TEXT, end_date TEXT, day_of_week INTEGER, start_time TEXT, end_time TEXT)`);
+  db.exec(`INSERT INTO class_schedules VALUES
+    (100,'jeong',NULL,'${D}','11:00',20,'16','active','one_off'),
+    (101,'jeong',NULL,'${D}','10:00',20,'21','active','one_off'),
+    (102,'kim',NULL,'${D}','14:10',20,'16','active','one_off'),   -- 같은 시각·같은 길이는 «합반» 으로 보는 정본 규칙이라 어긋나게 둔다
+    (103,'lee',NULL,'${D}','20:00',20,'29','active','one_off'),
+    (104,'lms',NULL,'${D}','21:00',20,'16','active','one_off'),
+    (105,'park',NULL,'${D}','15:00',20,'16','cancelled','one_off')`);
+  db.exec(`INSERT INTO class_substitutions VALUES (103,'16','active','${D}')`);
+  db.exec(`INSERT INTO teacher_unavailability VALUES ('16','weekly',NULL,NULL,1,'18:00','19:00')`);
+  const wrapQ = (sql) => { const st = db.prepare(sql); const ex = (a) => ({ first: async () => st.get(...a) || null, all: async () => ({ results: st.all(...a) }) }); return Object.assign(ex([]), { bind: (...a) => ex(a) }); };
+  const env = { DB: { prepare: wrapQ } };
+  const row = { id: 100, user_id: 'jeong', teacher_id: '16', dm: 20, scheduled_date: D };
+  let out = null; try { out = await daySlotsForReal(env, row, D, Date.parse('2099-10-01T00:00:00Z')); } catch (e) { ok('정본 실행', false, e.message); }
+  const at = (t) => out && out.slots.find((x) => x.t === t);
+  ok('칸은 09:00~22:40 20분 칸(42개)', !!out && out.slots.length === 42 && out.slots[0].t === '09:00' && out.slots[41].t === '22:40', out && out.slots.length);
+  ok('내 다른 수업(10:00)과 겹치는 칸은 student_busy', at('10:00')?.student_busy === true);
+  ok('겹치지 않는 옆 칸(10:20·09:40)은 student_busy 아님(짝)', at('10:20')?.student_busy === false && at('09:40')?.student_busy === false);
+  ok('옮기는 그 수업 자신(11:00)은 겹침으로 안 센다', at('11:00')?.student_busy === false && at('11:00')?.teacher_free === true);
+  ok('지금 선생님이 다른 학생 수업 중(14:10~14:30)이면 걸치는 칸(14:00·14:20)은 teacher_free 아님', at('14:00')?.teacher_free === false && at('14:20')?.teacher_free === false);
+  ok('그 옆 칸(13:40·14:40)은 teacher_free(짝)', at('13:40')?.teacher_free === true && at('14:40')?.teacher_free === true);
+  ok('내 다른 수업의 강사(21번) 시간은 지금 선생님과 무관', at('10:00')?.teacher_free === true);
+  ok('근무 불가(월 18:00~19:00) 칸은 teacher_free 아님', ['18:00', '18:20', '18:40'].every((t) => at(t)?.teacher_free === false) && at('19:00')?.teacher_free === true);
+  ok('대체 수업 중(20:00)이면 teacher_free 아님', at('20:00')?.teacher_free === false && at('20:20')?.teacher_free === true);
+  ok('LMS 자리표시(21:00)·취소된 수업(15:00)은 막지 않는다', at('21:00')?.teacher_free === true && at('15:00')?.teacher_free === true);
+  ok('다른 날이면 past 없음', !!out && out.slots.every((x) => x.past === false));
+  let out2 = null; try { out2 = await daySlotsForReal(env, row, D, Date.parse(D + 'T12:10:00+09:00')); } catch (e) { ok('정본 실행(오늘)', false, e.message); }
+  const at2 = (t) => out2 && out2.slots.find((x) => x.t === t);
+  ok('오늘이면 지났거나 30분 안에 시작하는 칸은 past(12:20)', at2('12:20')?.past === true && at2('09:00')?.past === true);
+  ok('30분 뒤 칸(12:40)은 past 아님(짝)', at2('12:40')?.past === false);
 }
 
 /* ── ③ 학생 화면 배선 ── */

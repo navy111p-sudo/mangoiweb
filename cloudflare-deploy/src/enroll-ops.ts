@@ -58,7 +58,7 @@ import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 �
       ⛔ 로그인이 아니다. authUidGlobal 은 이 토큰을 모른다(개인정보 API 에 안 통한다). */
 import { resolveRenewToken, markRenewLinkUsed, type RenewTokenScope } from './renew-link';
 import { writeClassAudit } from './class-audit';
-import { findScheduleConflicts } from './schedule-conflict';
+import { findScheduleConflicts, activeRowsFor } from './schedule-conflict';
 import { planSeries, realConflict, normTime } from './class-series-move';   // 🔄 «변경(계속)» 시리즈 판정 정본
 import { teacherMoveDenyReason } from './class-teacher-move';   // 🔒 담당 강사 변경 게이트 정본(PATCH 와 같음)   // 📅 옮기기 승인(/decide)이 쓰는 그 겹침 검사 — 복제 금지   // 📜 수업 변경 이력(공휴일 자동연기·강사 휴가대체)
 
@@ -1948,21 +1948,7 @@ export async function moveCandidatesFor(env: any, row: any, date: string, time: 
   const subBusy = await subOverlayBusyIds(env, date, scheduleId);
 
   /* 근무 불가 등록 — 표가 없을 수 있다(없으면 «없음» 으로). */
-  const offIds = new Set<string>();
-  try {
-    const dow = new Date(date + 'T00:00:00Z').getUTCDay();
-    const rs: any = await env.DB.prepare(
-      `SELECT teacher_id, kind, start_date, end_date, day_of_week, start_time, end_time FROM teacher_unavailability`
-    ).all();
-    for (const b of ((rs?.results as any[]) || [])) {
-      const bs = b.start_time ? enrollTimeToMin(String(b.start_time)) : 0;
-      const be = b.end_time ? enrollTimeToMin(String(b.end_time)) : 24 * 60;
-      const hitTime = startMin < be && bs < startMin + minutes;
-      const hitDay = (b.kind === 'date_range' && b.start_date && b.end_date && date >= String(b.start_date) && date <= String(b.end_date))
-        || (b.kind === 'weekly' && b.day_of_week != null && Number(b.day_of_week) === dow);
-      if (hitDay && hitTime) offIds.add(String(b.teacher_id));
-    }
-  } catch { /* 표 없음 — 알릴 것 없음 */ }
+  const offIds = teachersOffAt(await unavailabilityRows(env), date, startMin, minutes);
 
   const tRows: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE active = 1 ORDER BY name`).all();
   const teachers = ((tRows?.results as any[]) || []);
@@ -2023,3 +2009,64 @@ export async function moveCandidatesFor(env: any, row: any, date: string, time: 
   };
 }
 
+/* ── 근무 불가(teacher_unavailability) — moveCandidatesFor·daySlotsFor 가 함께 쓴다(판정 한 곳) ── */
+async function unavailabilityRows(env: any): Promise<any[]> {
+  try {
+    const rs: any = await env.DB.prepare(
+      `SELECT teacher_id, kind, start_date, end_date, day_of_week, start_time, end_time FROM teacher_unavailability`
+    ).all();
+    return (rs?.results as any[]) || [];
+  } catch { return []; /* 표 없음 — 알릴 것 없음 */ }
+}
+function teachersOffAt(rows: any[], date: string, startMin: number, minutes: number): Set<string> {
+  const offIds = new Set<string>();
+  const dow = new Date(date + 'T00:00:00Z').getUTCDay();
+  for (const b of rows) {
+    const bs = b.start_time ? enrollTimeToMin(String(b.start_time)) : 0;
+    const be = b.end_time ? enrollTimeToMin(String(b.end_time)) : 24 * 60;
+    const hitTime = startMin < be && bs < startMin + minutes;
+    const hitDay = (b.kind === 'date_range' && b.start_date && b.end_date && date >= String(b.start_date) && date <= String(b.end_date))
+      || (b.kind === 'weekly' && b.day_of_week != null && Number(b.day_of_week) === dow);
+    if (hitDay && hitTime) offIds.add(String(b.teacher_id));
+  }
+  return offIds;
+}
+
+/** 📅 «날짜로 연기» 시간칸 (2026-09-30 사장님 「날짜로 연기 탭도 실제 시간표로 바꿔줘」)
+ *  그 날짜 09:00~22:40(20분 칸)마다 ① 학생 본인에게 겹치는 수업이 있나 ② 지금 담당 강사가 되나.
+ *  ⛔ 판정은 findScheduleConflicts 그대로 — 행만 한 번 읽어 세 번째 인자로 넘긴다(칸마다 조회하지 않음).
+ *  ℹ️ «다른 선생님이면 되나» 는 여기서 보지 않는다(강사×칸 수가 너무 많다) — 칸을 누르면
+ *     moveCandidatesFor(= /api/class/schedule/free-teachers)가 그 시각을 정확히 본다.
+ *  past = 오늘이고 이미 지난(또는 30분 안에 시작하는) 칸 — 고를 수 없다. */
+export const DAY_SLOT_TIMES: string[] = (() => {
+  const out: string[] = [];
+  for (let h = 9; h <= 22; h++) for (let m = 0; m < 60; m += 20) out.push(String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'));
+  return out;
+})();
+export async function daySlotsFor(env: any, row: any, date: string, nowMs: number = Date.now()): Promise<any> {
+  const scheduleId = Number(row.id) || 0;
+  const minutes = Number(row.dm) || DEFAULT_CLASS_MINUTES;
+  const base = { kind: 'one_off' as const, schedDate: date, startTime: '00:00', durationMin: minutes, excludeId: scheduleId };
+  const curId = row.teacher_id != null ? String(row.teacher_id) : '';
+  const stuRows = await activeRowsFor(env, 'user_id', String(row.user_id || ''), base);
+  const curRows = curId ? await activeRowsFor(env, 'teacher_id', curId, base) : [];
+  const subBusy = await subOverlayBusyIds(env, date, scheduleId);
+  const offRows = await unavailabilityRows(env);
+  const nowKst = new Date(nowMs + 9 * 3600 * 1000);
+  const todayKst = nowKst.toISOString().slice(0, 10);
+  const nowMin = nowKst.getUTCHours() * 60 + nowKst.getUTCMinutes();
+  const slots: any[] = [];
+  for (const t of DAY_SLOT_TIMES) {
+    const startMin = enrollTimeToMin(t);
+    const q = { ...base, startTime: t };
+    const stu = await findScheduleConflicts(env, { ...q, userId: row.user_id, teacherId: null }, { student: stuRows, teacher: [] });
+    let teacherFree = false;
+    if (curId) {
+      const c = await findScheduleConflicts(env, { ...q, userId: null, teacherId: curId }, { student: [], teacher: curRows });
+      teacherFree = !c.has && !subOverlayHasOverlap(subBusy, curId, startMin, minutes)
+        && !teachersOffAt(offRows, date, startMin, minutes).has(curId);
+    }
+    slots.push({ t, past: date === todayKst && startMin < nowMin + 30, student_busy: stu.has && stu.student.length > 0, teacher_free: teacherFree });
+  }
+  return { ok: true, date, duration_min: minutes, slots };
+}

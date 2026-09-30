@@ -167,6 +167,11 @@ export async function findLongClassCapBlock(
 
 const DOW_KO = ['일', '월', '화', '수', '목', '금', '토'];
 
+/** 미리 읽기용 — findScheduleConflicts 의 세 번째 인자로 넘긴다(같은 SQL·같은 fail-open). */
+export async function activeRowsFor(env: any, col: 'user_id' | 'teacher_id', val: string, q: ScheduleSlotQuery): Promise<any[]> {
+  return activeRowsBy(env, col, val, q);
+}
+
 async function activeRowsBy(env: any, col: 'user_id' | 'teacher_id', val: string, q: ScheduleSlotQuery): Promise<any[]> {
   if (!val) return [];
   try {
@@ -191,7 +196,12 @@ async function activeRowsBy(env: any, col: 'user_id' | 'teacher_id', val: string
  * 한 건을 만들거나 옮길 때 겹치는 수업을 찾는다.
  * 실패해도 예외를 던지지 않는다 — 조회가 안 되면 «겹침 없음» 으로 보고 원래 흐름을 막지 않는다.
  */
-export async function findScheduleConflicts(env: any, q: ScheduleSlotQuery): Promise<ScheduleConflictResult> {
+export async function findScheduleConflicts(
+  env: any, q: ScheduleSlotQuery,
+  /* 📅 (2026-09-30) 한 날짜의 여러 시각을 볼 때 행을 한 번만 읽도록 — 넘기면 그 행으로 판정한다.
+     ⛔ 판정은 여기 한 곳이다. 미리 읽은 행을 들고 가서 겹침을 따로 계산하지 말 것. */
+  pre?: { student?: any[]; teacher?: any[] },
+): Promise<ScheduleConflictResult> {
   const empty: ScheduleConflictResult = { has: false, student: [], teacher: [], ko: '', en: '', cap: null };
   if (!q || !q.startTime) return empty;
 
@@ -216,11 +226,11 @@ export async function findScheduleConflicts(env: any, q: ScheduleSlotQuery): Pro
   const student: any[] = [];
   const teacher: any[] = [];
 
-  for (const row of await activeRowsBy(env, 'user_id', String(q.userId || ''), q)) {
+  for (const row of (pre && pre.student) || await activeRowsBy(env, 'user_id', String(q.userId || ''), q)) {
     if (!usable(row)) continue;
     student.push(row);
   }
-  for (const row of await activeRowsBy(env, 'teacher_id', String(q.teacherId || ''), q)) {
+  for (const row of (pre && pre.teacher) || await activeRowsBy(env, 'teacher_id', String(q.teacherId || ''), q)) {
     if (!usable(row)) continue;
     if (q.userId && String(row.user_id ?? '') === String(q.userId)) continue;   // 학생 쪽에서 이미 셌다
     // 같은 시각·같은 길이 = 합반(그룹) 수업 → 정상이므로 제외
