@@ -2,8 +2,8 @@
  *  ① groupDirectClasses 를 타입 제거로 실제로 돌린다(묶기·요일·기간)
  *  ② 서버 SQL 을 오려 내 진짜 SQLite 에 돌린다 — admin_ui 만 · 취소 제외 · 30일 전 일회성 제외 · 매주 수업은 남김
  *  ③ 게이트: 본사만·필터 요청엔 안 실음 / 스키마 보강은 인스턴스당 한 번
- *  ④ 화면: _enDirectRows 를 오려 내 돌린다 — 그린다 · 검색이 걸린다 · (짝) 비면 아무것도 안 그린다 ·
- *     일괄삭제·내보내기 목록(__enShown)에 섞이지 않는다
+ *  ④ 화면(2026-09-30 한 목록으로 합침): _renderEnrollments 를 가짜 DOM 으로 실제로 돌린다 — 날짜순으로 섞인다 ·
+ *     구역 머리줄 없음 · 검색 · (짝) 비면 신청서만 · 일괄삭제·내보내기 목록(__enShown)에 섞이지 않는다
  */
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
@@ -78,28 +78,55 @@ console.log('③ 게이트·속도');
   ok(gCnt === 1, `역할 조회는 GET 안에서 한 번(${gCnt})`);
 }
 
-console.log('④ 화면');
+console.log('④ 화면 — 한 목록으로 합침 (2026-09-30)');
 {
-  const i0 = C.indexOf('function _enDirectRows(q) {');
-  let d = 0, i1 = -1;
-  for (let i = C.indexOf('{', i0); i0 > 0 && i < C.length; i++) { if (C[i] === '{') d++; else if (C[i] === '}') { d--; if (!d) { i1 = i; break; } } }
-  ok(i1 > 0, '전제: _enDirectRows 를 오려 냈다');
+  const cut = (name) => {
+    const i0 = C.indexOf('function ' + name + '(');
+    let d = 0, i1 = -1;
+    for (let i = C.indexOf('{', i0); i0 > 0 && i < C.length; i++) { if (C[i] === '{') d++; else if (C[i] === '}') { d--; if (!d) { i1 = i; break; } } }
+    return i1 > 0 ? C.slice(i0, i1 + 1) : '';
+  };
+  const L = cut('_enDirectList'), R = cut('_enDirectRow'), RE = cut('_renderEnrollments');
+  ok(!!L && !!R && !!RE, '전제: _enDirectList·_enDirectRow·_renderEnrollments 를 오려 냈다');
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  let f = null;
-  try { f = new Function('adminLang', '_enDirect', '_esc', '_fmtDate', C.slice(i0, i1 + 1) + '\nreturn _enDirectRows;'); } catch (e) { console.log('  ' + e.message); }
-  const G = [{ user_id: 'jjy2323', student_name: '장지웅', teacher_name: 'KARL', start_time: '16:40', duration_min: 20, kind: 'dated', dows: [2], first_date: '2026-09-29', last_date: '2026-09-29', count: 1, created_at: 1 }];
-  const run = (L, list, q) => { try { return f(L, list, esc, () => '2026. 9. 29.')(q); } catch (e) { return 'ERR ' + e.message; } };
-  const h = run('ko', G, '');
+  const G = [{ user_id: 'jjy2323', student_name: '장지웅', teacher_name: 'KARL', start_time: '16:40', duration_min: 20, kind: 'dated', dows: [2], first_date: '2026-09-29', last_date: '2026-09-29', count: 1, created_at: 200 }];
+  const E = [
+    { id: 11, created_at: 300, student_name: '새신청', student_user_id: 'new1', package: '정규수업', status: 'confirmed' },
+    { id: 12, created_at: 100, student_name: '옛신청', student_user_id: 'old1', package: '정규수업', status: 'confirmed' },
+  ];
+  const run = (lang, items, direct, q, dup) => {
+    const tb = { innerHTML: '' };
+    const doc = { getElementById: (id) => (id === 'enrollments-table' ? tb : null), querySelectorAll: () => [] };
+    const st = { shown: null };
+    try {
+      const f = new Function('adminLang', '_enItems', '_enDirect', '_enQuery', '_enDupOnly', '_esc', '_fmtDate', 'document', 'window',
+        'EN_STATUS_META', 'EN_LIVE', '__enSel', 'st',
+        'let __enShown = [];\n' +
+        'function _enStatusMeta(s){return EN_STATUS_META[s]||{ko:s,en:s,bg:"",fg:""};}\n' +
+        'function _enDupKey(it){return String(it.student_user_id||"")+"|"+String(it.package||"");}\n' +
+        'function _enSyncSelUI(){st.shown=__enShown;}\n' +
+        'function _enPhoneCell(){return "";}\nfunction _enDurLabel(){return "";}\nfunction _enBtn(){return "";}\n' +
+        L + '\n' + R + '\n' + RE + '\nreturn _renderEnrollments;');
+      f(lang, items, direct, q, dup, esc, (t) => 'D' + t, doc, {},
+        { confirmed: { ko: '확정', en: 'Confirmed', bg: '', fg: '' } }, ['pending', 'confirmed', 'active'], new Set(), st)();
+    } catch (e) { return { html: 'ERR ' + e.message, shown: null }; }
+    return { html: tb.innerHTML, shown: st.shown };
+  };
+  const r = run('ko', E, G, '', false);
+  const h = r.html;
   ok(/장지웅/.test(h) && /jjy2323/.test(h) && /KARL/.test(h) && /16:40/.test(h) && /직접 배정/.test(h), '직접 배정 줄을 그린다(이름·아이디·강사·시각)');
-  ok(/weekly-schedule\.html/.test(h), '관리는 주간 스케줄로 보낸다');
-  ok(!/onclick=/.test(h) && !/en-sel/.test(h), '신청서 버튼(취소·삭제·체크박스)이 없다 — 신청서 id 로 엉뚱한 행을 건드리지 않게');
-  ok(run('ko', G, 'jjy') !== '' && run('ko', G, 'nomatch') === '', '검색이 걸린다(짝: 안 맞으면 안 그림)');
-  ok(run('ko', [], '') === '', '(짝) 직접 배정이 없으면 아무것도 안 그린다');
-  ok(/Direct assignment/.test(run('en', G, '')), 'EN 화면');
-  const r0 = C.indexOf('function _renderEnrollments()');
-  const body = C.slice(r0, C.indexOf('\nfunction ', r0 + 10));
-  ok(/__enShown = rows;/.test(body) && !/__enShown = [^;]*_enDirect/.test(body), '일괄 삭제·내보내기 목록(__enShown)에 섞이지 않는다');
-  ok(/\}\)\.join\(''\) \+ directHtml;/.test(body) && /if \(directHtml\) \{ tb\.innerHTML = directHtml; return; \}/.test(body), '신청서 뒤에 붙이고, 신청서가 0건이어도 그린다');
+  ok(!/신청서 없음\) · /.test(h) && !/colspan="7" style="background:#eff6ff/.test(h), '따로 떼는 구역 머리줄이 없다(한 목록)');
+  const iNew = h.indexOf('새신청'), iDir = h.indexOf('장지웅'), iOld = h.indexOf('옛신청');
+  ok(iNew >= 0 && iNew < iDir && iDir < iOld, '만든 날 최신순으로 신청서 사이에 섞인다(맨 아래 몰아두지 않음)');
+  const dirRow = h.slice(h.lastIndexOf('<tr>', iDir), h.indexOf('</tr>', iDir));
+  ok(/weekly-schedule\.html/.test(dirRow), '관리는 주간 스케줄로 보낸다');
+  ok(!/onclick=/.test(dirRow) && !/en-sel/.test(dirRow), '그 줄엔 신청서 버튼(취소·삭제·체크박스)이 없다');
+  ok(Array.isArray(r.shown) && r.shown.length === 2 && r.shown.every(x => x.id), '일괄 삭제·내보내기 목록(__enShown)에 섞이지 않는다');
+  ok(/장지웅/.test(run('ko', [], G, '', false).html), '신청서가 0건이어도 직접 배정은 그린다');
+  ok(/장지웅/.test(run('ko', E, G, 'jjy', false).html) && !/장지웅/.test(run('ko', E, G, 'nomatch', false).html), '검색이 걸린다(짝)');
+  ok(!/장지웅/.test(run('ko', E, [], '', false).html) && /새신청/.test(run('ko', E, [], '', false).html), '(짝) 직접 배정이 없으면 신청서만');
+  ok(!/장지웅/.test(run('ko', E, G, '', true).html), '중복만 보기에서는 빠진다');
+  ok(/Direct assignment/.test(run('en', E, G, '', false).html), 'EN 화면');
   ok(/_enDirect = \(d && Array\.isArray\(d\.direct\)\) \? d\.direct : \[\];/.test(C), '응답의 direct 를 받는다(없으면 빈 목록)');
 }
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);

@@ -7495,43 +7495,46 @@ async function loadEnrollments() {
 }
 
 /* 📅 (2026-09-29 사장님 «주간 스케줄에서 배정하면 수강신청 목록에 안 나온다»)
-   그 수업은 class_schedules 에만 있고 신청서(enrollments)가 없다 — 그래서 «직접 배정» 줄로 따로 그린다.
+   그 수업은 class_schedules 에만 있고 신청서(enrollments)가 없다 — 서버가 «직접 배정» 묶음으로 따로 싣는다.
+   🔀 (2026-09-30 사장님 «나눠서 관리할 필요가 없어. 하나의 관리페이지로 합쳐줘»)
+      따로 떼어 맨 아래 구역(머리줄)으로 그리던 것을 **한 목록에 날짜순으로 섞어** 그린다.
+      줄마다 「직접 배정」 표시·「배정됨」 상태로 구별만 한다.
    ⛔ __enShown 에 넣지 않는다 — 일괄 삭제·내보내기·상태 버튼은 «신청서» 에만 걸린다.
       (그 줄에서 취소·삭제를 누르면 신청서 id 로 나가 엉뚱한 행을 건드린다.)
-   관리는 주간 스케줄에서 한다 — 그 화면으로 가는 링크를 둔다. */
-function _enDirectRows(q) {
-  const en = (adminLang === 'en');
+      그래서 그 줄에는 체크박스·취소·삭제가 없고, 고치는 곳(주간 스케줄)으로 가는 링크를 둔다. */
+function _enDirectList(q) {
   let list = _enDirect;
   if (q) list = list.filter(g => (
     String(g.student_name || '').toLowerCase().includes(q) ||
     String(g.user_id || '').toLowerCase().includes(q) ||
     String(g.teacher_name || '').toLowerCase().includes(q)));
-  if (!list.length) return '';
+  return list;
+}
+function _enDirectRow(g) {
+  const en = (adminLang === 'en');
   const DOW = en ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
-  const head = '<tr><td colspan="7" style="background:#eff6ff;color:#1e3a8a;font-weight:800;font-size:12.5px;padding:8px 12px">📅 ' +
-    (en ? 'Assigned directly in the schedule (no enrollment form) · ' + list.length
-        : '스케줄에서 직접 배정한 수업 (신청서 없음) · ' + list.length + '건') +
-    ' <a href="/admin/weekly-schedule.html" target="_blank" rel="noopener" style="font-weight:700;color:#1d4ed8;margin-left:8px">' +
-    (en ? 'Manage in weekly schedule →' : '주간 스케줄에서 관리 →') + '</a></td></tr>';
-  return head + list.map(g => {
-    const days = (g.dows || []).map(x => DOW[x] || '').filter(Boolean).join(',');
-    const when = g.kind === 'dated'
-      ? (g.first_date === g.last_date ? _esc(g.first_date || '') : _esc(g.first_date || '') + ' ~ ' + _esc(g.last_date || '')) +
-        ' · ' + (en ? g.count + ' class(es)' : g.count + '회')
-      : (en ? 'weekly' : '매주');
-    const sub = [days, _esc(g.start_time || ''), g.duration_min ? g.duration_min + (en ? 'min' : '분') : '',
-      g.teacher_name ? '👤 ' + _esc(g.teacher_name) : '', when].filter(Boolean).join(' · ');
-    return '<tr>' +
-      '<td></td>' +
-      '<td style="white-space:nowrap">' + (g.created_at ? _fmtDate(g.created_at) : '—') + '</td>' +
-      '<td><b>' + _esc(g.student_name || g.user_id || '—') + '</b>' +
-        (g.user_id ? '<br><span style="font-size:11px;color:#6b7280">' + _esc(g.user_id) + '</span>' : '') + '</td>' +
-      '<td>' + (en ? 'Direct assignment' : '직접 배정') + '<br><span style="font-size:11px;color:#6b7280">' + sub + '</span></td>' +
-      '<td style="text-align:right;color:#6b7280">—</td>' +
-      '<td><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;background:#dbeafe;color:#1e40af">' +
-        (en ? 'Scheduled' : '배정됨') + '</span></td>' +
-      '<td style="font-size:11.5px;color:#475467">' + (en ? 'Edit in schedule' : '스케줄에서 관리') + '</td></tr>';
-  }).join('');
+  const days = (g.dows || []).map(x => DOW[x] || '').filter(Boolean).join(',');
+  const when = g.kind === 'dated'
+    ? (g.first_date === g.last_date ? _esc(g.first_date || '') : _esc(g.first_date || '') + ' ~ ' + _esc(g.last_date || '')) +
+      ' · ' + (en ? g.count + ' class(es)' : g.count + '회')
+    : (en ? 'weekly' : '매주');
+  const sub = [days, _esc(g.start_time || ''), g.duration_min ? g.duration_min + (en ? 'min' : '분') : '',
+    g.teacher_name ? '👤 ' + _esc(g.teacher_name) : '', when].filter(Boolean).join(' · ');
+  return '<tr>' +
+    '<td></td>' +
+    '<td style="white-space:nowrap">' + (g.created_at ? _fmtDate(g.created_at) : '—') + '</td>' +
+    '<td><b>' + _esc(g.student_name || g.user_id || '—') + '</b>' +
+      (g.user_id ? '<br><span style="font-size:11px;color:#6b7280">' + _esc(g.user_id) + '</span>' : '') + '</td>' +
+    '<td>' + (en ? 'Direct assignment' : '직접 배정') +
+      ' <span style="font-size:10px;font-weight:800;padding:1px 7px;border-radius:999px;background:#eff6ff;color:#1e3a8a" title="' +
+      (en ? 'Assigned in the weekly schedule — no enrollment form' : '주간 스케줄에서 배정한 수업 — 신청서 없음') + '">📅 ' +
+      (en ? 'schedule' : '스케줄') + '</span>' +
+      '<br><span style="font-size:11px;color:#6b7280">' + sub + '</span></td>' +
+    '<td style="text-align:right;color:#6b7280">—</td>' +
+    '<td><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;background:#dbeafe;color:#1e40af">' +
+      (en ? 'Scheduled' : '배정됨') + '</span></td>' +
+    '<td style="font-size:11.5px"><a href="/admin/weekly-schedule.html" target="_blank" rel="noopener" style="font-weight:700;color:#1d4ed8">' +
+      (en ? 'Edit in schedule →' : '스케줄에서 관리 →') + '</a></td></tr>';
 }
 
 /* 📞 (2026-09-10 사장님 지시) 수업 30분 전 안내문자가 «갈 번호» 를 목록에서 바로 보고 고친다.
@@ -7618,6 +7621,11 @@ function _renderEnrollments() {
         'style="padding:4px 12px;border:0;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;' +
         'background:' + m.bg + ';color:' + m.fg + '">' + (en ? m.en : m.ko) + ' ' + by[s] + '</button>';
     });
+    if (_enDirect.length) {
+      chips.push('<span style="padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700;background:#eff6ff;color:#1e3a8a" title="' +
+        (en ? 'Classes assigned directly in the weekly schedule (no enrollment form)' : '주간 스케줄에서 직접 배정한 수업 (신청서 없음)') + '">📅 ' +
+        (en ? 'Scheduled ' : '배정됨 ') + _enDirect.length + '</span>');
+    }
     if (dupTotal) {
       chips.push('<button type="button" onclick="enToggleDupOnly()" ' +
         'style="padding:4px 12px;border:' + (_enDupOnly ? '2px solid #991b1b' : '0') + ';border-radius:999px;' +
@@ -7640,9 +7648,12 @@ function _renderEnrollments() {
   __enShown = rows;   // 일괄 삭제(enDeleteAllVisible)가 보는 «화면에 실제로 그린» 목록
   _enSyncSelUI();
 
-  const directHtml = _enDupOnly ? '' : _enDirectRows(q);
-  if (!rows.length) {
-    if (directHtml) { tb.innerHTML = directHtml; return; }
+  // 🔀 신청서와 직접 배정을 «한 목록» 으로 — 만든 날 최신순으로 섞는다(같은 날이면 신청서 먼저).
+  const directList = _enDupOnly ? [] : _enDirectList(q);
+  const merged = rows.map(it => ({ t: Number(it.created_at) || 0, it: it }))
+    .concat(directList.map(g => ({ t: Number(g.created_at) || 0, g: g })));
+  merged.sort((x, y) => (y.t - x.t) || ((x.g ? 1 : 0) - (y.g ? 1 : 0)));
+  if (!merged.length) {
     tb.innerHTML = '<tr><td colspan="7" class="empty">' +
       (_enItems.length
         ? (en ? 'Nothing matches this filter' : '이 조건에 맞는 신청이 없습니다')
@@ -7651,7 +7662,9 @@ function _renderEnrollments() {
     return;
   }
 
-  tb.innerHTML = rows.map(it => {
+  tb.innerHTML = merged.map(x => {
+    if (x.g) return _enDirectRow(x.g);
+    const it = x.it;
     const m = _enStatusMeta(it.status);
     const cur = String(it.status || '');
     const fee = it.monthly_fee_krw ? '₩' + Number(it.monthly_fee_krw).toLocaleString() : '—';
@@ -7722,7 +7735,7 @@ function _renderEnrollments() {
           : '') +
       '</td></tr>' +
       '<tr id="en-panel-' + it.id + '" style="display:none"><td colspan="7" style="padding:0;background:#faf5ff"></td></tr>';
-  }).join('') + directHtml;
+  }).join('');
 }
 
 /* 📥 (2026-09-24 사장님 지시) 신청 목록 → 엑셀·PDF 내보내기 + 「이 중에 골라서」.
