@@ -50,8 +50,11 @@ for (const p of NEW_PATHS) {
 }
 
 console.log('\n[ 📊 강사 가동률 — 정의가 흔들리지 않게 ]');
-check('일회성(one_off) 수업은 제외하고 정기수업만 센다',
-  /teacher-utilization[\s\S]{0,4000}?schedule_kind = 'recurring'/.test(src));
+// 2026-09-30 사장님 결정으로 정의가 바뀜 — 옛 «정기수업(recurring)만» 은 카페24 미러(one_off)·수강신청(dated)
+// 수업을 전부 빼 명부가 전원 0% 였다. 이제 «지난 7일에 날짜가 잡힌 활성 수업» 을 센다.
+// 실제 동작은 teacher_util_window_harness.mjs 가 진짜 SQLite 로 돌려 본다.
+check('지난 7일 날짜 창(winFrom~winTo)으로 센다 — recurring 만 세던 옛 정의가 아니다',
+  /teacher-utilization[\s\S]{0,6000}?scheduled_date >= \? AND scheduled_date <= \?[\s\S]{0,400}?winFrom, winTo/.test(src));
 check('강사 주간 근무불가(teacher_unavailability weekly)를 가능시간에서 뺀다',
   /teacher-utilization[\s\S]{0,4000}?teacher_unavailability WHERE kind = 'weekly'/.test(src));
 check('운영시간대를 실제 수업에서 관측한다 (임의 상수 고정 아님)',
