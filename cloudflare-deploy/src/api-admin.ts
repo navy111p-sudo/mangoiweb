@@ -805,9 +805,10 @@ export async function handleAdminApi(
     //     · 운영시간대 = 지금 잡혀 있는 정기수업들의 «가장 이른 시작 ~ 가장 늦은 종료»
     //       (수업이 하나도 없으면 06:00~23:00 으로만 대체)
     //     · 가능시간  = 7일 × 운영시간대 − 그 강사가 등록한 주간 근무불가(teacher_unavailability.kind='weekly')
-    //     · 배정시간  = 그 강사의 활성 정기수업 duration 합계
+    //     · 배정시간  = 지난 7일(KST, 오늘 제외)에 날짜가 잡힌 활성 수업 + 날짜 없는 옛 매주 반복 행의 duration 합계
     //     · 가동률    = 배정시간 ÷ 가능시간
-    //   ※ 일회성(one_off) 수업은 주간 반복 지표를 왜곡하므로 제외한다.
+    //   ※ 2026-09-30 변경 — 예전엔 «매주 반복(recurring)» 만 세서 카페24 미러(one_off)·수강신청(dated)
+    //     수업이 전부 빠져 명부가 전원 0% 였다. 지금은 날짜 기준으로 센다(아래 SELECT 주석).
     // ═══════════════════════════════════════════════════════════════════
     // ═══════════════════════════════════════════════════════════════════
     // 🎚️ GET /api/admin/stats/judgment-bands — 판단력 훈련 읽기 난이도 분포·적중도
@@ -878,13 +879,24 @@ export async function handleAdminApi(
           catch { return []; }
         };
 
+        // 지난 7일 = KST 오늘 -7일 ~ 어제 (오늘은 아직 안 끝난 수업이 섞여 제외)
+        const kstDay = (offset: number) => new Date(Date.now() + 9 * 3600e3 + offset * 86400e3).toISOString().slice(0, 10);
+        const winFrom = kstDay(-7), winTo = kstDay(-1);
+
         const [scheds, teachers, blocks] = await Promise.all([
           /* 🧹 (2026-08-30) LMS·시드 «자리표시» 행 제외 — 학생이 안 붙은 점유 행이라 진짜 수업이 아니다.
              같은 제외식이 schedule-conflict.ts·api-teacher.ts·churn-graph.ts·enroll-ops.ts 에도 있다
              (CLAUDE.md 2장 「주간 스케줄에서 어떤 요일만 수업이 안 들어감」). 다섯 곳의 문자열을 맞춰 둔다. */
-          safeAll(`SELECT teacher_id, day_of_week, start_time, duration_min FROM class_schedules
-                    WHERE status = 'active' AND schedule_kind = 'recurring' AND teacher_id IS NOT NULL AND teacher_id <> ''
-                      AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')`),
+          /* 📅 (2026-09-30 사장님 「지난 7일 기준으로」) 옛 판은 schedule_kind = 'recurring' «만» 셌는데,
+             지금 수업은 카페24 미러(one_off)·수강신청 확정(dated)이 «날짜마다 한 줄» 로 만든다
+             (운영 D1 실측 활성: one_off 2,832 · dated 406 · recurring 6) → 명부가 전원 0% 였다.
+             ⟹ «지난 7일(오늘 제외, KST)에 날짜가 잡힌 활성 수업» + «날짜 없는 옛 매주 반복 행» 을 센다.
+             ⛔ 날짜가 있으면 날짜가 이긴다(sessions/today 와 같은 규칙) — 요일로 한 번 더 세지 않는다. */
+          safeAll(`SELECT teacher_id, day_of_week, start_time, duration_min, scheduled_date FROM class_schedules
+                    WHERE status = 'active' AND teacher_id IS NOT NULL AND teacher_id <> ''
+                      AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')
+                      AND ( (scheduled_date >= ? AND scheduled_date <= ?)
+                         OR ((scheduled_date IS NULL OR scheduled_date = '') AND schedule_kind = 'recurring') )`, winFrom, winTo),
           safeAll(`SELECT id, name, COALESCE(active, 1) AS active FROM teachers`),
           safeAll(`SELECT teacher_id, day_of_week, start_time, end_time FROM teacher_unavailability WHERE kind = 'weekly'`),
         ]);
@@ -922,16 +934,31 @@ export async function handleAdminApi(
           ensure(String(t.id));
         }
 
+        /* 그룹 수업은 «학생마다 한 행» 이라 같은 강사·같은 날·같은 시각이 여러 줄이다 — 강사 시간은
+           한 번만 쓰이므로 그 칸 하나로 묶는다(가장 긴 길이). 안 묶으면 3명 그룹이 3배로 잡힌다. */
+        const slot = new Map<string, { id: string; dur: number; dows: number[] }>();
         for (const s of scheds) {
           const id = String(s.teacher_id);
           const dur = Number(s.duration_min) > 0 ? Number(s.duration_min) : DEFAULT_CLASS_MINUTES;
-          const a = ensure(id);
-          const dows = dowsOf(s.day_of_week);
-          // 반복 수업은 «요일당 1행» 이 원칙이지만, 한 행에 여러 요일이 담긴 과거 데이터도 있어 요일 수만큼 센다
-          const n = dows.length || 1;
-          a.assigned += dur * n;
+          const date = String(s.scheduled_date || '').trim();
+          let dows: number[]; let key: string;
+          if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            dows = [new Date(date + 'T00:00:00Z').getUTCDay()];
+            key = id + '|' + date + '|' + String(s.start_time || '');
+          } else {
+            // 날짜 없는 옛 매주 반복 행 — 한 행에 여러 요일이 담긴 과거 데이터도 있어 요일 수만큼 센다
+            dows = dowsOf(s.day_of_week);
+            key = id + '|w:' + dows.join(',') + '|' + String(s.start_time || '');
+          }
+          const prev = slot.get(key);
+          if (!prev || dur > prev.dur) slot.set(key, { id, dur, dows });
+        }
+        for (const v of slot.values()) {
+          const a = ensure(v.id);
+          const n = v.dows.length || 1;
+          a.assigned += v.dur * n;
           a.classes += n;
-          for (const d of dows) a.byDow[d] += dur;
+          for (const d of v.dows) a.byDow[d] += v.dur;
         }
 
         for (const b of blocks) {
@@ -973,7 +1000,7 @@ export async function handleAdminApi(
         const hhmm = (m: number) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
         return json({
           ok: true,
-          window: { open: hhmm(openMin), close: hhmm(closeMin), per_day_min: windowPerDay, days_per_week: 7 },
+          window: { open: hhmm(openMin), close: hhmm(closeMin), per_day_min: windowPerDay, days_per_week: 7, from: winFrom, to: winTo },
           summary: {
             teacher_count: rows.length,
             avg_utilization_pct: withUtil.length
@@ -985,8 +1012,8 @@ export async function handleAdminApi(
             observed_from_schedules: scheds.length > 0,
           },
           teachers: rows,
-          note: '가동률 = 주간 배정 수업시간 ÷ (운영시간대 7일 − 강사가 등록한 주간 근무불가). 일회성 수업과 LMS·시드 자리표시는 제외하고, 활성 강사는 수업이 없어도 0%로 함께 표시합니다.',
-          note_en: 'Utilization = weekly assigned class minutes ÷ (operating window × 7 days − the teacher\'s weekly unavailability). One-off classes and LMS/seed placeholders are excluded; active teachers with no class are listed at 0%.',
+          note: '가동률 = 지난 7일(' + winFrom + ' ~ ' + winTo + ', 오늘 제외) 잡혀 있던 수업시간 ÷ (운영시간대 7일 − 강사가 등록한 주간 근무불가). 취소된 수업과 LMS·시드 자리표시는 빼고, 같은 시각 그룹 수업은 한 번만 셉니다. 활성 강사는 수업이 없어도 0%로 함께 표시합니다.',
+          note_en: 'Utilization = class minutes scheduled in the last 7 days (' + winFrom + ' ~ ' + winTo + ', today excluded) ÷ (operating window × 7 days − the teacher\'s weekly unavailability). Cancelled classes and LMS/seed placeholders are excluded; a group class at the same time counts once; active teachers with no class are listed at 0%.',
         });
       } catch (e: any) {
         return json({ ok: false, error: 'utilization_failed', message: String(e?.message || e).slice(0, 300) }, 500);
