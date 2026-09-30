@@ -42,6 +42,7 @@ export interface DirectGroup {
   count: number;
   created_at: number;
   class_type: string;
+  ids: number[];   // 묶인 class_schedules.id — 신청서로 합칠 때 이 행들만 잇는다(enroll-direct-merge.ts)
 }
 
 export function groupDirectClasses(rows: any[]): DirectGroup[] {
@@ -54,15 +55,16 @@ export function groupDirectClasses(rows: any[]): DirectGroup[] {
     const tid = String(r.teacher_id ?? '').trim();
     const st = String(r.start_time || '').trim();
     const dur = Number(r.duration_min) || 0;
-    const key = [uid.toLowerCase(), tid, st, dur, kind].join('|');
+    const key = [uid, tid, st, dur, kind].join('|');   // ⛔ 대소문자 무시 금지 — Kim/kim 은 별개 계정(합치면 한 신청서로 섞임)
     let g = map.get(key);
     if (!g) {
       g = { key, user_id: uid, student_name: String(r.student_name || '').trim(), teacher_id: tid,
         teacher_name: String(r.teacher_name || '').trim(), start_time: st, duration_min: dur, kind,
-        dows: [], first_date: null, last_date: null, count: 0, created_at: 0, class_type: String(r.class_type || '') };
+        dows: [], first_date: null, last_date: null, count: 0, created_at: 0, class_type: String(r.class_type || ''), ids: [] };
       map.set(key, g);
     }
     g.count++;
+    if (Number(r.id) > 0) g.ids.push(Number(r.id));
     if (!g.student_name && r.student_name) g.student_name = String(r.student_name).trim();
     g.created_at = Math.max(g.created_at, Number(r.created_at) || 0);
     const ds = dated ? [new Date(date + 'T00:00:00Z').getUTCDay()] : directDows(r.day_of_week);

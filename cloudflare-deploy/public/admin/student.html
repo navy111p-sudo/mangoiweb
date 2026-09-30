@@ -3239,6 +3239,8 @@ function renderDSchedWeek() {
      ⚠️ 같은 신청이 한 주에 여러 요일에 걸려도 «1건» 이라야 한다 → 신청 id 로 센다. */
   const _ghostIds = new Set();
   for (const enr of (_dSchedState.enrollments || [])) {
+    /* 🔀 «직접 배정» 을 합친 신청서(type=schedule_direct)는 그 수업이 아래 예약 레이어에 이미 그려진다 — 두 번 그리지 않는다. */
+    if (enr.type === 'schedule_direct') continue;
     const sd = enr.started_at ? new Date(typeof enr.started_at === 'number' ? enr.started_at : enr.started_at) : null;
     if (sd && we < sd) continue;
     if (enr.end_date) { const ed = new Date(enr.end_date); if (ed < ws) continue; }
@@ -3338,6 +3340,7 @@ function renderDSchedMonth() {
       const ko = dayKoMap[c.date.getDay()];
       const cd = dayCodes[c.date.getDay()];
       for (const enr of (_dSchedState.enrollments || [])) {
+        if (enr.type === 'schedule_direct') continue;   // 🔀 주간과 같은 이유 — 예약 레이어가 그린다
         const sd = enr.started_at ? new Date(typeof enr.started_at === 'number' ? enr.started_at : enr.started_at) : null;
         if (sd && c.date < sd) continue;
         if (enr.end_date) { const ed = new Date(enr.end_date); if (c.date > ed) continue; }

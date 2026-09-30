@@ -43,8 +43,11 @@ if (M) {
 
 console.log('② 서버 SQL (진짜 SQLite)');
 {
-  const m = A.match(/const ds = await env\.DB\.prepare\(\s*`([\s\S]*?)`\s*\)\.all/);
-  ok(!!m, '전제: 직접 배정 SQL 을 오려 냈다');
+  /* (2026-09-30) 조건 정본이 enroll-direct-merge.ts 의 UNMERGED_DIRECT_SQL 로 옮겨 갔다 — 목록과 «합치기» 가 같은 행을 본다 */
+  const MS = readFileSync('cloudflare-deploy/src/enroll-direct-merge.ts', 'utf8');
+  const r1 = MS.match(/const ROW_SQL =\s*`([\s\S]*?)`;/), r2 = MS.match(/UNMERGED_DIRECT_SQL = ROW_SQL \+\s*`([\s\S]*?)`;/);
+  const m = (r1 && r2) ? [null, r1[1] + r2[1]] : null;
+  ok(!!m && /env\.DB\.prepare\(UNMERGED_DIRECT_SQL\)/.test(A), '전제: 직접 배정 SQL 을 오려 냈다(목록이 정본 UNMERGED_DIRECT_SQL 을 쓴다)');
   const db = new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, user_id TEXT, student_name TEXT, teacher_id TEXT, start_time TEXT, duration_min INTEGER, schedule_kind TEXT, day_of_week TEXT, scheduled_date TEXT, class_type TEXT, created_at INTEGER, status TEXT, source TEXT);
            CREATE TABLE teachers (id INTEGER PRIMARY KEY, name TEXT, status TEXT, user_id TEXT);`);
@@ -70,11 +73,13 @@ console.log('③ 게이트·속도');
   const seg = A.slice(i, i + 400);
   ok(/!statusF && !userIdF/.test(seg) && /!_enActor\.isTeacher/.test(seg) && /!isOrgScopedRole\(_enActor\.role\)/.test(seg), '본사만 · 상태/학생 필터 요청엔 안 싣는다');
   ok(/\.\.\.\(direct \? \{ direct \} : \{\}\)/.test(A), '응답에 direct 를 싣는다(못 구하면 칸 자체를 안 실음)');
-  const j = A.indexOf("path === '/api/admin/enrollments') {");
+  const j = A.indexOf("if ((method === 'GET' || method === 'POST') && path === '/api/admin/enrollments') {");   // (2026-09-30) 앞에 PUT 블록이 생겨 조건 줄 전체로 찾는다
   const head = A.slice(j, j + 900);
   ok(/if \(!_enrSchemaReady\) \{/.test(head) && head.indexOf('if (!_enrSchemaReady)') < head.indexOf('CREATE TABLE IF NOT EXISTS enrollments'), '스키마 보강(CREATE+ALTER)은 플래그 안 — 매 요청마다 안 돈다');
   ok(/_enrSchemaReady = true;/.test(A) && /^let _enrSchemaReady = false;/m.test(A), '(짝) 한 번 돈 뒤 플래그를 세운다');
-  const gCnt = (A.slice(j, j + 12000).match(/await getAdminActor\(request, env as any\)/g) || []).length;
+  const gStart = A.indexOf("if (method === 'GET') {", j);
+  const gEnd = A.indexOf('return json({ ok: true, items, ...(direct', gStart);
+  const gCnt = (A.slice(gStart, gEnd).match(/await getAdminActor\(request, env as any\)/g) || []).length;
   ok(gCnt === 1, `역할 조회는 GET 안에서 한 번(${gCnt})`);
 }
 
