@@ -211,6 +211,8 @@ console.log('\n[ B. 판정 모듈을 컴파일해 가짜 D1 로 실행 ]');
           : (data.links || []) };
       if (/FROM students_erp/.test(q))
         return { results: (data.students || []).filter(r => binds.includes(r.user_id)) };
+      if (/FROM teacher_profiles/.test(q))
+        return { results: (data.profiles || []).filter(r => binds.includes(String(r.linked_teacher_id))) };
       return { results: [] };
     };
     const layer = (q, binds) => ({
@@ -236,6 +238,14 @@ console.log('\n[ B. 판정 모듈을 컴파일해 가짜 D1 로 실행 ]');
             { username: 'Mangoi_168', teacher_id: '18', teacher_name: 'LEN',     linked_at: 2 },
             { username: 'mangoi_114', teacher_id: '6',  teacher_name: 'JANE',    linked_at: 2 },
             { username: 'mangoi_042', teacher_id: '10', teacher_name: 'HT NESS', linked_at: 2 }],
+    /* 🏠/🏢 근무지 — 2026-09-30 운영 D1 실측 group_name 그대로 (linked_teacher_id = 원부 번호) */
+    profiles: [{ linked_teacher_id: 16, group_name: 'Home-based' },      // KRYSTEL
+               { linked_teacher_id: 8,  group_name: 'Office Teacher' },  // KAYE
+               { linked_teacher_id: 27, group_name: 'Head Teacher' },    // MAIMAI
+               { linked_teacher_id: 29, group_name: '중국어 강사' },      // 강선생님 — 재택/오피스를 말 안 함
+               { linked_teacher_id: 18, group_name: 'Office Teacher' },  // LEN
+               { linked_teacher_id: 6,  group_name: 'Home-based' },      // JANE 프로필 1
+               { linked_teacher_id: 6,  group_name: 'Office Teacher' }], // JANE 프로필 2 (서로 다름 → 모름)
     students: [{ user_id: 'jye46712' }, { user_id: 'heyst' }, { user_id: 'jeong' },
                { user_id: 'delaware' }, { user_id: 'Kim' }],
   };
@@ -252,6 +262,39 @@ console.log('\n[ B. 판정 모듈을 컴파일해 가짜 D1 로 실행 ]');
   const r2 = await run([{ room_id: 'class-849-20260902', teacher_name: '교사 강선생님' }]);
   check('예약방: 한글 이름 강사도 이름·아이디가 함께 나온다',
     r2[0].name === '중국어 강선생님' && r2[0].uid === 'hq_t_kang', JSON.stringify(r2[0]));
+
+  /* ── 🏠/🏢 근무지 (2026-09-30) — 「재택」·「오피스」 옆에 «모르면 비운다» 를 짝으로 */
+  check('근무지 판정: Home-based → home', M.workplaceOf('Home-based') === 'home');
+  check('근무지 판정: Office Teacher → office', M.workplaceOf('Office Teacher') === 'office');
+  check('근무지 판정: Head Teacher → office (명부 배지와 같은 규칙)', M.workplaceOf('Head Teacher') === 'office');
+  check('근무지 판정: 재택/오피스를 말 안 하는 값·NULL 은 «모름»(지어내지 않음)',
+    M.workplaceOf('중국어 강사') === '' && M.workplaceOf('미국 오후반') === '' && M.workplaceOf(null) === '');
+  const w1 = await run([
+    { room_id: 'class-1079-20260903', teacher_name: 'jye46712' },   // KRYSTEL (예약) → home
+    { room_id: 'class-997-20260903',  teacher_name: 'heyst' },      // KAYE (예약) → office
+    { room_id: 'class-849-20260902',  teacher_name: '교사 강선생님' }, // 강선생님 → ''
+    { room_id: 'mangoi-class',        teacher_name: '교사 Mangoi_168' }, // LEN (계정) → office
+    { room_id: 'mangoi-class',        teacher_name: '교사 MAIMAI' }, // MAIMAI (원부 이름) → office
+    { room_id: 'mangoi-class',        teacher_name: '교사 mangoi_114' }, // JANE (프로필 둘이 서로 다름) → ''
+    { room_id: 'mangoi-class',        teacher_name: 'heyst' },       // 교사 없음 → ''
+    { room_id: 'mangoi-class',        teacher_name: '교사 Nobody' }, // 표시이름만 → ''
+  ]);
+  const wp = w1.map(t => t.workplace);
+  check('근무지: 예약 강사 — 재택/오피스를 각각 붙인다', wp[0] === 'home' && wp[1] === 'office', JSON.stringify(wp));
+  check('근무지: 계정·원부 이름으로 찾은 강사도 붙인다', wp[3] === 'office' && wp[4] === 'office', JSON.stringify(wp));
+  check('근무지: 명부가 재택/오피스를 말 안 하면 비운다', wp[2] === '', JSON.stringify(wp));
+  check('근무지: 한 강사의 프로필 둘이 서로 다르면 아무거나 고르지 않는다', wp[5] === '', JSON.stringify(wp));
+  check('근무지: 교사를 모르면(없음·표시이름뿐) 근무지도 없다', wp[6] === '' && wp[7] === '', JSON.stringify(wp));
+  check('근무지: 이름·아이디는 그대로다(짝)', w1[0].name === 'KRYSTEL' && w1[1].uid === 'mangoi_162', JSON.stringify(w1[0]));
+  {
+    const failDB = { DB: { prepare: (q) => {
+      if (/teacher_profiles/.test(q)) throw new Error('boom');
+      return mkEnv(DATA).DB.prepare(q);
+    } } };
+    const wf = await M.resolveRecordingTeachers(failDB, [{ room_id: 'class-1079-20260903', teacher_name: '' }]);
+    check('근무지 조회만 실패하면 이름·아이디는 살고 근무지만 비운다',
+      wf[0].name === 'KRYSTEL' && wf[0].uid === 'mangoi_169' && wf[0].workplace === '', JSON.stringify(wf[0]));
+  }
 
   const r3 = await run([{ room_id: 'class-555-20260903', teacher_name: 'heyst' }]);
   check('예약의 강사 번호가 원부에 없으면 지어내지 않는다',
@@ -375,6 +418,17 @@ console.log('\n[ C. 화면 셀 — 소스를 오려 내 실행 ]');
 
     const f = draw({ teacher: 'KAYE', teacher_uid: 'mangoi_162', teacher_src: 'schedule' }, 'en');
     check('영어 화면에서는 영어로 말한다', /Assigned teacher/.test(f.name), f.name);
+
+    const h = draw({ teacher: 'KRYSTEL', teacher_uid: 'mangoi_169', teacher_src: 'schedule', teacher_wp: 'home' });
+    const o = draw({ teacher: 'KAYE',    teacher_uid: 'mangoi_162', teacher_src: 'schedule', teacher_wp: 'office' });
+    const u = draw({ teacher: 'LEN',     teacher_uid: 'Mangoi_168', teacher_src: 'schedule', teacher_wp: '' });
+    check('교사 이름 옆에 🏠 Home 을 그린다', /KRYSTEL<\/span> <span class="rec-wp"[^>]*>🏠 Home</.test(h.name), h.name);
+    check('교사 이름 옆에 🏢 Office 를 그린다', /KAYE<\/span> <span class="rec-wp"[^>]*>🏢 Office</.test(o.name), o.name);
+    check('근무지를 모르면 아무것도 안 그린다(짝)', !/rec-wp/.test(u.name) && !/rec-wp/.test(a.name), u.name);
+    check('교사가 없으면 근무지도 안 그린다',
+      !/rec-wp/.test(draw({ teacher: '', teacher_wp: 'home', teacher_src: 'none' }).name));
+    check('근무지는 아이디 칸이 아니라 이름 칸에만 붙는다', !/rec-wp/.test(h.uid), h.uid);
+    check('화면 행이 서버 teacher.workplace 를 옮긴다', /teacher_wp: \(r\.teacher && r\.teacher\.workplace\) \|\| ''/.test(CORE));
 
     const g = draw({});
     check('teacher 가 아예 없어도(옛 응답) 죽지 않는다', g.name.includes('—') && g.uid.includes('—'));

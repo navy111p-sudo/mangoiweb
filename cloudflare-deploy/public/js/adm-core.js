@@ -1057,6 +1057,10 @@ async function loadRecordings() {
       teacher:    (r.teacher && r.teacher.name) || '',
       teacher_uid:(r.teacher && r.teacher.uid)  || '',
       teacher_src:(r.teacher && r.teacher.source) || 'none',
+      /* 🏠/🏢 근무지 (2026-09-30 사장님 「교사이름 옆에 home 인지 office 인지」) — 서버가 강사 명부
+         group_name 으로 판정해 'home'|'office'|'' 로 준다(정본 src/recording-teacher.ts workplaceOf).
+         ⛔ 화면에서 다시 판정하지 말 것. 모르면 '' 이고 아무것도 안 그린다. */
+      teacher_wp: (r.teacher && r.teacher.workplace) || '',
       /* 원본 표시이름 — 「그럼 이 녹화는 누가 켰나」를 툴팁으로만 말한다(칸으로 그리지 않는다). */
       started_by: r.teacher_name || '',
       /* 🎓 학생 칸 (2026-09-01) — 서버(/api/recordings)가 예약·학생명부에서 «계정 완전일치» 로
@@ -1491,8 +1495,14 @@ function renderRecordingsTable() {
              + (r.started_by ? '. Started by: ' + r.started_by : '.'))
           : ('이 녹화에 강사가 적혀 있지 않습니다 (예약이 아닌 공용방이거나, 학생이 켠 녹화)'
              + (r.started_by ? '. 녹화를 켠 사람: ' + r.started_by : '.')));
+    /* 🏠/🏢 근무지 표시 — 색이 아니라 «글자» 가 뜻을 진다(이 카드의 span 글자색은 페인터가 덮는다). */
+    const _tWp = r.teacher_wp === 'home'
+      ? ' <span class="rec-wp" title="' + _esc(adminLang === 'en' ? 'Home-based teacher (teacher roster).' : '재택 강사입니다(강사 명부 근무지).') + '" style="font-size:11px;white-space:nowrap">🏠 Home</span>'
+      : r.teacher_wp === 'office'
+        ? ' <span class="rec-wp" title="' + _esc(adminLang === 'en' ? 'Office teacher (teacher roster).' : '오피스 강사입니다(강사 명부 근무지).') + '" style="font-size:11px;white-space:nowrap">🏢 Office</span>'
+        : '';
     const teacherCell = r.teacher
-      ? '<span title="' + _esc(_tSrcTip[r.teacher_src] || '') + '">' + _esc(r.teacher) + '</span>'
+      ? '<span title="' + _esc(_tSrcTip[r.teacher_src] || '') + '">' + _esc(r.teacher) + '</span>' + _tWp
       : '<span class="score-na" title="' + _esc(_tNoneTip) + '">—</span>';
     /* 아이디 칸 — 이름은 찾았는데 계정 연결이 없는 강사가 실재한다(원부에만 있는 경우).
        그때 이름을 아이디 자리에 옮겨 적지 않는다. «—» 와 이유를 적는다. */
