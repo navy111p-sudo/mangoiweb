@@ -11,6 +11,7 @@ import { hasForeignGloss, KOREAN_GLOSS_RULE } from './korean-vocab';
 // ※ ai-command / cafe24-sync 라우트는 다른 모듈로 옮겨졌다. 여기 남아 있던 import 는
 //   실제로 한 번도 쓰이지 않는 껍데기라 제거했다(런타임 동작 변화 없음).
 import { forbiddenTeacherBody } from './forbidden-teacher';
+import { pickCurrentSession } from './class-current-pick';
 import { runCypher } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
 import { studentScopeWhere, getScope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
@@ -1975,7 +1976,8 @@ export async function handleMangoApi(
       // 자동 입장 대상(current): 지금 입장 가능한 것 우선(진행중/열림), 없으면 가장 가까운 예정 수업
       let current: any = null;
       const joinable = sessions.filter(x => x.join_open);
-      if (joinable.length) current = joinable.sort((a, b) => Math.abs(a.start_ts - now) - Math.abs(b.start_ts - now))[0];
+      // 🚪 (2026-09-30) 겹친 수업에서 답이 뒤집히지 않게 «이미 시작한 수업 먼저» — 정본 src/class-current-pick.ts
+      if (joinable.length) current = pickCurrentSession(joinable, now);
       else { const up = sessions.filter(x => x.status === 'early'); if (up.length) current = up[0]; }
 
       /* 🚪 student_gate — 학생을 공용방으로 흘려보내지 않는 기능의 on/off 를 «서버가» 알려 준다.
