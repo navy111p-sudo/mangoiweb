@@ -176,6 +176,8 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 /* 📋 (2026-09-23) 관리자·매니저 「오늘 수업」과 같은 칸 — 짧은 글이라 flex 로 감싸지 않는다(낱글자 쪼개짐) */
 .cls-extra{margin-top:3px;font-size:12px;line-height:1.55;color:#475467}
 .cls-extra b{font-weight:700;color:#344054}
+.cls-extra .evq-open{color:#1d4ed8;font-weight:700;white-space:nowrap}
+html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
 .cls-extra .cal7{display:inline-flex;gap:2px;vertical-align:middle}
 .cls-extra .cal7 i{display:inline-block;width:17px;height:17px;line-height:17px;text-align:center;font-size:9.5px;font-weight:800;font-style:normal;border-radius:4px;background:#e4e7ec;color:#475467}
 .cls-extra .cal7 i.on{background:#3b82f6;color:#fff}
@@ -1522,6 +1524,11 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var atTxt = AT ? ((AT[0] ? AT[0] + ' ' : '') + T(AT[1], AT[2]) + (at.at ? ' ' + hhmm(at.at) : '')
                  + (at.state === 'late' && at.late_min != null ? ' (+' + at.late_min + T('m', '분') + ')' : '')) : D;
     var ev = function (e) { return e ? ((e.date || '') + (e.score != null ? ' ⭐' + e.score + '/' + (e.max || '') : '') + (e.text ? ' · ' + e.text : '')) : D; };
+    /* 📝 (2026-09-30 매니저 제보) 눌러서 전문 보기 — 공용 창 js/eval-quick-view.js 를 «누를 때만» 불러온다. */
+    var evOpen = function (e) {
+      return (e && e.id) ? ' <a class="evq-open" href="/eval.html?id=' + encodeURIComponent(e.id) + '" data-evq="' + esc(e.id)
+        + '" target="_blank" rel="noopener">' + esc(T('📄 Open', '📄 전문 보기')) + '</a>' : '';
+    };
     var sl = T(c.sched_label_en, c.sched_label_ko);
     var row1 = [esc(c.class_date || ''),
       '<b>' + esc(T('Pay', '결제')) + '</b> ' + esc(c.pay_type === 'B2B' || c.pay_type === 'B2C' ? c.pay_type : D),
@@ -1544,8 +1551,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       wkLine = '<br><b>' + esc(T('This week', '이번 주')) + '</b> <span class="cal7" role="img" aria-label="' + esc(T(nOn + ' class day(s) this week', '이번 주 수업 ' + nOn + '일')) + '">' + strip + '</span>';
     }
     return '<div class="cls-extra">' + row1.join(' &middot; ') + wkLine
-      + (c.prev_lesson ? '' : '<br><b>' + esc(T('Last feedback', '지난 평가')) + '</b> ' + esc(ev(c.last_eval)))
-      + '<br><b>' + esc(T("Today's feedback", '오늘 평가')) + '</b> ' + esc(ev(c.today_eval)) + '</div>';
+      + (c.prev_lesson ? '' : '<br><b>' + esc(T('Last feedback', '지난 평가')) + '</b> ' + esc(ev(c.last_eval)) + evOpen(c.last_eval))
+      + '<br><b>' + esc(T("Today's feedback", '오늘 평가')) + '</b> ' + esc(ev(c.today_eval)) + evOpen(c.today_eval) + '</div>';
   }
   function renderClasses(list){
     var box = document.getElementById('classes');
@@ -3868,6 +3875,29 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       else if (tries >= 15) clearInterval(t);      /* 30초 안에 수업이 없으면 포기 */
     }, 2000);
   }catch(e){}
+})();
+</script>
+<script>
+/* 📝 (2026-09-30 매니저 제보) 평가 전문 보기 — 수업 카드의 지난/오늘 평가 옆 «📄 전문 보기».
+   공용 창 js/eval-quick-view.js 를 «처음 누를 때» 만 불러온다 — 첫 화면 외부 리소스 0개 계약은 그대로.
+   admin.html(js/adm-today-classes.js)·manager.html 과 같은 창을 쓴다. 판정을 여기 복제하지 말 것. */
+(function(){
+  function en(){ return document.documentElement.lang !== 'ko'; }   /* applyLang() 이 정하는 값 — 이 화면 언어 정본 */
+  function open(id){
+    var go = function(){ if (window.mgEvalQuick) window.mgEvalQuick(id, { en: en() }); };
+    if (window.mgEvalQuick) return go();
+    var sc = document.createElement('script');
+    sc.src = '/js/eval-quick-view.js?v=1';
+    sc.onload = go;
+    sc.onerror = function(){ alert(en() ? 'Could not load the viewer — please tap again.' : '전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.'); };
+    document.head.appendChild(sc);
+  }
+  document.addEventListener('click', function(ev){
+    var a = ev.target && ev.target.closest ? ev.target.closest('[data-evq]') : null;
+    if (!a) return;
+    ev.preventDefault();
+    open(a.getAttribute('data-evq'));
+  });
 })();
 </script>
 </body>

@@ -159,11 +159,38 @@
     if (hidden) return xSmall(T('본사 전용', 'HQ only'), ';color:#6b7280');
     if (!e) return xDash();
     var head = esc(e.date || '') + (e.score != null ? ' · ⭐ ' + esc(e.score) + '/' + esc(e.max || '') : '');
-    return '<div style="font-size:11px;color:#475569;min-width:130px;max-width:220px;line-height:1.45">'
-      + '<div style="white-space:nowrap;font-weight:700">' + head + '</div>'
-      + (e.text ? '<div title="' + esc(e.text) + '">' + esc(e.text) + '</div>' : '')
-      + '</div>';
+    var inner = '<div style="white-space:nowrap;font-weight:700">' + head + '</div>'
+      + (e.text ? '<div title="' + esc(e.text) + '">' + esc(e.text) + '</div>' : '');
+    /* 📝 (2026-09-30 매니저 제보) 누르면 전문을 바로 연다 — 대체강사가 «지난 수업에서 무엇을 했나» 를 읽게.
+       칸 전체(data-evq)와 아래 «📄 전문 보기» 링크 둘 다 누를 수 있다(클릭 위임은 아래 evqOpen).
+       ⚠️ <button> 이 아니라 <a> — 이 표는 details.menu-card 안이라 전역 button 규칙이 큰 파란 알약으로 덮는다.
+       ⚠️ 링크 색은 인라인이 아니라 클래스(tc-evq-link) — details.menu-card a 의 !important 가 인라인을 이긴다.
+          색 정본은 css/admin-inline-c.css 맨 끝 #sm-today-classes a.tc-evq-link (CLAUDE.md 2장). */
+    if (e.id) {
+      return '<div data-evq="' + esc(e.id) + '" title="' + esc(T('눌러서 전문 보기', 'Tap to read the full log')) + '"'
+        + ' style="font-size:11px;color:#475569;min-width:130px;max-width:220px;line-height:1.45;cursor:pointer">' + inner
+        + '<a class="tc-evq-link" href="/eval.html?id=' + encodeURIComponent(e.id) + '" target="_blank" rel="noopener">'
+        + esc(T('📄 전문 보기', '📄 Open full log')) + '</a></div>';
+    }
+    return '<div style="font-size:11px;color:#475569;min-width:130px;max-width:220px;line-height:1.45">' + inner + '</div>';
   }
+
+  /* 📝 평가 전문 보기 — 공용 창(js/eval-quick-view.js)을 «처음 누를 때» 만 불러온다. */
+  function evqOpen(id) {
+    var go = function () { if (window.mgEvalQuick) window.mgEvalQuick(id, { en: isEn() }); };
+    if (window.mgEvalQuick) return go();
+    var sc = document.createElement('script');
+    sc.src = '/js/eval-quick-view.js?v=1';
+    sc.onload = go;
+    sc.onerror = function () { alert(T('전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.', 'Could not load the viewer — please tap again.')); };
+    document.head.appendChild(sc);
+  }
+  document.addEventListener('click', function (ev) {
+    var a = ev.target && ev.target.closest ? ev.target.closest('[data-evq]') : null;
+    if (!a) return;
+    ev.preventDefault();
+    evqOpen(a.getAttribute('data-evq'));
+  });
 
   function badge(status) {
     var b = BADGE[status] || BADGE.early;
