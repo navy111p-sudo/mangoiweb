@@ -131,6 +131,30 @@
      높이가 고정 안 되면 자기 자신을 다시 키우는 피드백 루프가 돈다. */
   .chart-box{position:relative;height:280px;width:100%}
   .chart-box.short{height:220px}
+  /* 📊 (2026-09-30 사장님 선택 «A+D») 개요 그래프 — PC 는 A(세션 막대·집중도 선을 두 칸으로), 휴대폰은 D(숫자 카드 + 작은 추이선).
+     옛 그래프는 눈금 두 개를 한 그림에 겹쳐(세션 0~14 · 집중도 0~100) 선이 엉켰고, 어두운 테마 색(#334155)이 밝은 화면에서 흐렸다.
+     ⛔ 두 눈금을 한 그림에 다시 겹치지 말 것. 판정 폭은 옆 출석 캘린더(.ac-pc/.ac-mob)와 같은 720px. 밝은 테마라 처음부터 밝은 값. */
+  .sv-mob{display:none}
+  @media (max-width:720px){ .sv-pc{display:none} .sv-mob{display:block} #overviewKpis{display:none} }
+  .sv-blk{margin-bottom:16px}.sv-blk:last-child{margin-bottom:0}
+  .sv-t{font-size:13px;font-weight:700;color:#101828;margin:0}
+  .sv-s{font-size:11.5px;color:#475467;margin:1px 0 6px}
+  .sv-chart svg{display:block;width:100%;height:auto;overflow:visible}
+  .sv-chart svg text{font-size:11px;fill:#475467;font-family:inherit}
+  .sv-chart svg text.sv-strong{fill:#101828;font-weight:700}
+  .sv-hit{fill:transparent}
+  .sv-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .sv-tile{border:1px solid #e4e7ec;background:#fff;border-radius:10px;padding:9px 11px;min-width:0}
+  .sv-tile .k{font-size:11.5px;color:#475467}
+  .sv-tile .v{font-size:21px;font-weight:700;color:#101828;font-variant-numeric:tabular-nums;line-height:1.25}
+  .sv-tile .d{font-size:11px;color:#667085}
+  .sv-tile .d.up{color:#067647}.sv-tile .d.down{color:#b42318}
+  .sv-tile svg{display:block;width:100%;height:30px;margin-top:5px}
+  .sv-det summary{cursor:pointer;font-size:13px;font-weight:700;color:#101828;padding:6px 0}
+  .sv-det table{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+  .sv-det th,.sv-det td{padding:4px 6px;border-bottom:1px solid #eef1f4;text-align:right;color:#101828}
+  .sv-det th:first-child,.sv-det td:first-child{text-align:left}
+  .sv-det th{color:#475467;font-weight:600}
 
   /* ── 테이블 ── */
   table.list{width:100%;border-collapse:collapse;font-size:13px}
@@ -352,15 +376,16 @@
       <div class="panel active" data-panel="overview">
         <div class="kpi-grid" id="overviewKpis"></div>
         <div class="chart-wrap">
-          <h3>일자별 활동 (출석·세션·집중도)</h3>
-          <div class="chart-box"><canvas id="dayChart"></canvas></div>
+          <h3 data-ko="일자별 활동 (세션·집중도)" data-en="Daily activity (sessions · focus)">일자별 활동 (세션·집중도)</h3>
+          <div class="sv-pc" id="svActPc"></div>
+          <div class="sv-mob" id="svActMob"></div>
         </div>
         <div class="chart-wrap" style="margin-top:12px">
           <h3 data-ko="🧠 판단력 성장 (Decision-making)" data-en="🧠 Decision-making Growth">🧠 판단력 성장 (Decision-making)</h3>
           <div id="ovJudgeIndex" style="font-size:15px;color:#cbd5e1;margin:0 0 10px">—</div>
           <div class="grid-2">
-            <div class="chart-box"><canvas id="ovJudgeRadar"></canvas></div>
-            <div class="chart-box"><canvas id="ovJudgeTrend"></canvas></div>
+            <div class="sv-chart" id="ovJudgeBars"></div>
+            <div class="sv-chart" id="ovJudgeTrend"></div>
           </div>
           <div id="ovJudgeTerms"></div>
         </div>
@@ -1238,6 +1263,112 @@ function renderCard(){
   ).join('');
 }
 
+// ═══════════════════════ 📊 개요 그래프 (2026-09-30 사장님 선택 «A+D») ═══════════════════════
+/* 한 그림 = 한 눈금. 막대(세션)와 선(집중도)을 나눠 그린다. 곡선 보간 없음 — 없는 값을 지어내지 않는다.
+   날짜는 기간 전체를 채운다(by_day 에 없는 날 = 세션 0 · 집중도 «모름»). 집중도가 없는 날은 선을 끊는다. */
+var SV_BLUE = '#2a78d6', SV_ORANGE = '#eb6834', SV_GRID = '#e4e7ec', SV_AXIS = '#98a2b3';
+function svMd(ymd){ var p = String(ymd||'').split('-'); return p.length===3 ? (Number(p[1])+'/'+Number(p[2])) : String(ymd||''); }
+/** by_day → 기간 전체 날짜(오늘 포함, KST 문자열 기준)로 채운 배열. 순수 함수. */
+function svFillDays(byDay, days, todayYmd){
+  var map = {}; (byDay||[]).forEach(function(d){ if (d && d.date) map[String(d.date).slice(0,10)] = d; });
+  var out = [], n = Math.max(1, Math.min(400, Number(days)||30));
+  var base = new Date(String(todayYmd) + 'T00:00:00Z');
+  for (var i = n-1; i >= 0; i--) {
+    var d = new Date(base.getTime() - i*86400000), ymd = d.toISOString().slice(0,10), r = map[ymd];
+    out.push({ date: ymd, s: r ? (Number(r.session_count)||0) : 0,
+               f: (r && r.avg_gaze_score != null && isFinite(Number(r.avg_gaze_score))) ? Math.round(Number(r.avg_gaze_score)) : null });
+  }
+  return out;
+}
+function svNice(max){ if (max <= 4) return 4; if (max <= 8) return 8; if (max <= 12) return 12; return Math.ceil(max/10)*10; }
+function svBars(w, h, vals, labels, opt){
+  opt = opt||{}; var pl=30, pr=8, pt=14, pb=24, iw=w-pl-pr, ih=h-pt-pb, n=vals.length||1;
+  var max = svNice(Math.max.apply(null, vals.concat([1]))), bw = iw/n, gap = Math.max(1, bw*0.25), out = '';
+  [0, max/2, max].forEach(function(t){ var y = pt+ih-ih*t/max;
+    out += '<line x1="'+pl+'" x2="'+(w-pr)+'" y1="'+y+'" y2="'+y+'" stroke="'+SV_GRID+'"/><text x="'+(pl-6)+'" y="'+(y+4)+'" text-anchor="end">'+t+'</text>'; });
+  var every = Math.ceil(n/(opt.xLabels||8)), top = vals.indexOf(Math.max.apply(null, vals));
+  vals.forEach(function(v,i){
+    var ww = Math.max(1.5, bw-gap), x = pl+i*bw+gap/2, bh = v>0 ? Math.max(2, ih*v/max) : 0, y = pt+ih-bh, r = Math.min(3, ww/2, bh);
+    if (bh > 0) out += '<path d="M'+x+','+(pt+ih)+'V'+(y+r)+'q0,-'+r+' '+r+',-'+r+'H'+(x+ww-r)+'q'+r+',0 '+r+','+r+'V'+(pt+ih)+'Z" fill="'+(opt.color||SV_BLUE)+'"/>';
+    if (i === top && v > 0) out += '<text x="'+(x+ww/2)+'" y="'+(y-4)+'" text-anchor="middle" class="sv-strong">'+v+'</text>';
+    if (i % every === 0) out += '<text x="'+(x+ww/2)+'" y="'+(h-6)+'" text-anchor="middle">'+esc(labels[i])+'</text>';
+    out += '<rect class="sv-hit" x="'+(pl+i*bw)+'" y="'+pt+'" width="'+bw+'" height="'+ih+'"><title>'+esc(opt.tip ? opt.tip(i) : v)+'</title></rect>';
+  });
+  out += '<line x1="'+pl+'" x2="'+(w-pr)+'" y1="'+(pt+ih)+'" y2="'+(pt+ih)+'" stroke="'+SV_AXIS+'"/>';
+  return '<div class="sv-chart"><svg viewBox="0 0 '+w+' '+h+'" role="img">'+out+'</svg></div>';
+}
+function svLine(w, h, vals, labels, opt){
+  opt = opt||{}; var pl=30, pr=12, pt=14, pb=24, iw=w-pl-pr, ih=h-pt-pb, n=vals.length, max=opt.max||100, col=opt.color||SV_ORANGE, out='';
+  var X = function(i){ return pl + (n<=1 ? iw/2 : iw*i/(n-1)); }, Y = function(v){ return pt+ih-ih*v/max; };
+  (opt.ticks||[0,50,100]).forEach(function(t){ out += '<line x1="'+pl+'" x2="'+(w-pr)+'" y1="'+Y(t)+'" y2="'+Y(t)+'" stroke="'+SV_GRID+'"/><text x="'+(pl-6)+'" y="'+(Y(t)+4)+'" text-anchor="end">'+t+'</text>'; });
+  var d = '', pen = false, last = -1;
+  vals.forEach(function(v,i){ if (v == null) { pen = false; return; } d += (pen?'L':'M')+X(i)+','+Y(v); pen = true; last = i; });
+  if (d) out += '<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linejoin="round"/>';
+  if (opt.ref != null) out += '<line x1="'+pl+'" x2="'+(w-pr)+'" y1="'+Y(opt.ref)+'" y2="'+Y(opt.ref)+'" stroke="#475467" stroke-dasharray="4 4"/><text x="'+(w-pr)+'" y="'+(Y(opt.ref)-5)+'" text-anchor="end">'+esc(opt.refLabel||'')+'</text>';
+  var every = Math.ceil(Math.max(1,n)/(opt.xLabels||8));
+  vals.forEach(function(v,i){
+    var lone = v != null && (i===0 || vals[i-1]==null) && (i===n-1 || vals[i+1]==null);
+    if (v != null && (opt.dots || lone)) out += '<circle cx="'+X(i)+'" cy="'+Y(v)+'" r="3.5" fill="'+col+'" stroke="#fff" stroke-width="1.5"/>';
+    if (i % every === 0) out += '<text x="'+X(i)+'" y="'+(h-6)+'" text-anchor="middle">'+esc(labels[i])+'</text>';
+    out += '<rect class="sv-hit" x="'+(X(i)-iw/Math.max(1,n)/2)+'" y="'+pt+'" width="'+(iw/Math.max(1,n))+'" height="'+ih+'"><title>'+esc(opt.tip ? opt.tip(i) : (v==null?'—':v))+'</title></rect>';
+  });
+  if (last >= 0) out += '<circle cx="'+X(last)+'" cy="'+Y(vals[last])+'" r="4.5" fill="'+col+'" stroke="#fff" stroke-width="2"/><text x="'+(X(last)-7)+'" y="'+(Y(vals[last])-8)+'" text-anchor="end" class="sv-strong">'+vals[last]+'</text>';
+  return '<div class="sv-chart"><svg viewBox="0 0 '+w+' '+h+'" role="img">'+out+'</svg></div>';
+}
+function svHBars(items){
+  var w = 340, lw = 92, rh = 28, h = items.length*rh + 22, iw = w-lw-40, out = '';
+  [0,50,100].forEach(function(t){ var x = lw+iw*t/100; out += '<line x1="'+x+'" x2="'+x+'" y1="4" y2="'+(h-18)+'" stroke="'+SV_GRID+'"/><text x="'+x+'" y="'+(h-4)+'" text-anchor="middle">'+t+'</text>'; });
+  items.forEach(function(it,i){
+    var y = 6+i*rh, v = Math.max(0, Math.min(100, Number(it.v)||0)), bw = iw*v/100;
+    out += '<text x="'+(lw-8)+'" y="'+(y+15)+'" text-anchor="end" class="sv-strong">'+esc(it.k)+'</text>';
+    if (bw > 0) out += '<rect x="'+lw+'" y="'+(y+4)+'" width="'+bw+'" height="14" rx="3" fill="'+SV_BLUE+'"/>';
+    out += '<text x="'+(lw+bw+6)+'" y="'+(y+15)+'" class="sv-strong">'+Math.round(v)+'</text>';
+  });
+  return '<svg viewBox="0 0 '+w+' '+h+'" role="img">'+out+'</svg>';
+}
+function svSpark(vals, col){
+  var pts = vals.map(function(v,i){ return v==null ? null : [i, v]; }).filter(Boolean);
+  if (pts.length < 2) return '';
+  var max = Math.max.apply(null, pts.map(function(p){ return p[1]; })) || 1, n = vals.length-1 || 1, d = '', pen = false;
+  vals.forEach(function(v,i){ if (v==null) { pen=false; return; } d += (pen?'L':'M')+(200*i/n).toFixed(1)+','+(28-24*v/max).toFixed(1); pen = true; });
+  return '<svg viewBox="0 0 200 30" preserveAspectRatio="none"><path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>';
+}
+/** PC(A) + 휴대폰(D) 를 함께 그린다 — 어느 쪽이 보일지는 CSS(720px)가 정한다(resize 리스너 없음). */
+function renderActivityViz(){
+  var en = (_lang === 'en'), sm = _state.full.summary || {}, days = _state.days || 30;
+  var today = new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
+  var rows = svFillDays(_state.full.by_day || [], days, today);
+  var S = rows.map(function(r){ return r.s; }), F = rows.map(function(r){ return r.f; }), L = rows.map(function(r){ return svMd(r.date); });
+  var fv = F.filter(function(v){ return v!=null; });
+  var avgF = sm.avg_gaze_score != null ? Math.round(sm.avg_gaze_score) : (fv.length ? Math.round(fv.reduce(function(a,b){return a+b;},0)/fv.length) : null);
+  var tip = function(i){ return L[i] + ' · ' + (en?'Sessions ':'세션 ') + S[i] + ' · ' + (en?'Focus ':'집중도 ') + (F[i]==null?'—':F[i]); };
+  var pc = document.getElementById('svActPc'), mob = document.getElementById('svActMob');
+  if (pc) pc.innerHTML =
+    '<div class="sv-blk"><p class="sv-t">'+(en?'Sessions per day':'일별 세션 수')+'</p><p class="sv-s">'+(en?'One bar = one day · busiest day labeled':'막대 1개 = 하루 · 가장 많은 날에 숫자')+'</p>'
+    + svBars(760, 170, S, L, { xLabels:10, tip:tip }) + '</div>'
+    + '<div class="sv-blk"><p class="sv-t">'+(en?'Focus per day':'일별 집중도')+'</p><p class="sv-s">'+(en?'0–100 · dashed = average':'0~100 · 점선 = 평균')+(avgF!=null?' '+avgF:'')+(en?' · gaps = no data':' · 끊긴 곳 = 기록 없는 날')+'</p>'
+    + (fv.length ? svLine(760, 160, F, L, { ref:avgF, refLabel:(en?'avg ':'평균 ')+avgF, xLabels:10, tip:tip }) : '<div class="ac-nochart">'+(en?'No focus records in this period.':'이 기간에 집중도 기록이 없습니다.')+'</div>')
+    + '</div>';
+  if (mob) {
+    var half = Math.floor(S.length/2), sum = function(a){ return a.reduce(function(x,y){ return x+y; },0); };
+    var dS = sum(S.slice(half)) - sum(S.slice(0,half));
+    var ff = F.slice(0,half).filter(function(v){return v!=null;}), fl = F.slice(half).filter(function(v){return v!=null;});
+    var dF = (ff.length && fl.length) ? Math.round(sum(fl)/fl.length - sum(ff)/ff.length) : null;
+    var arrow = function(d){ return d==null ? '' : (d>=0?'▲':'▼')+Math.abs(d)+' '+(en?'2nd half':'후반부'); };
+    var tile = function(k,v,d,cls,sp){ return '<div class="sv-tile"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="d '+(cls||'')+'">'+d+'</div>'+(sp||'')+'</div>'; };
+    mob.innerHTML = '<div class="sv-tiles sv-blk">'
+      + tile(en?'Sessions':'출석 세션', sm.session_count||0, arrow(dS) || (days+(en?' days':'일')), dS==null?'':(dS>=0?'up':'down'), svSpark(S, SV_BLUE))
+      + tile(en?'Avg focus':'평균 집중도', avgF==null?'—':avgF, arrow(dF) || '/100', dF==null?'':(dF>=0?'up':'down'), svSpark(F, SV_ORANGE))
+      + tile(en?'Active days':'활동한 날', (sm.active_days||0)+'<span style="font-size:13px;color:#667085">/'+days+'</span>', Math.round((sm.active_days||0)/days*100)+'%', '', '')
+      + tile(en?'Active time':'활동 시간', fmtMs(sm.total_active_ms), (en?'Total ':'전체 ')+fmtMs(sm.total_session_ms), '', '')
+      + '</div>'
+      + '<details class="sv-det"><summary>'+(en?'Day-by-day detail':'날짜별 자세히 보기')+' ('+days+(en?' days':'일')+')</summary>'
+      + '<div style="overflow-x:auto"><table><tr><th>'+(en?'Date':'날짜')+'</th><th>'+(en?'Sessions':'세션')+'</th><th>'+(en?'Focus':'집중도')+'</th></tr>'
+      + rows.slice().reverse().map(function(r){ return '<tr><td>'+esc(r.date)+'</td><td>'+r.s+'</td><td>'+(r.f==null?'—':r.f)+'</td></tr>'; }).join('')
+      + '</table></div></details>';
+  }
+}
+
 // ═══════════════════════ 1. 개요 ═══════════════════════
 function renderOverview(){
   const sm = _state.full.summary || {};
@@ -1251,31 +1382,8 @@ function renderOverview(){
     <div class="kpi"><div class="lab">${t('kpiOverdue')}</div><div class="val">${(_state.full.payments||[]).filter(p=>p.status==='overdue').length}</div><div class="sub">${(_state.full.payments||[]).length}${t('kpiPaymentCount')}</div></div>
   `;
 
-  // 일자별 차트
-  const byDay = _state.full.by_day || [];
-  const labels = byDay.map(d => d.date);
-  const sessions = byDay.map(d => d.session_count);
-  const gaze = byDay.map(d => d.avg_gaze_score);
-  if (_charts.day) _charts.day.destroy();
-  _charts.day = new Chart($('dayChart').getContext('2d'), {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label:t('chartLegendSess'), data:sessions, borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.18)', yAxisID:'y', tension:.3 },
-        { label:t('chartLegendFocus'), data:gaze, borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.18)', yAxisID:'y1', tension:.3 },
-      ]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      scales: {
-        y:{ position:'left', beginAtZero:true, ticks:{color:'#94a3b8'}, grid:{color:'#334155'}, title:{display:true,text:t('chartLegendSess'),color:'#94a3b8'}},
-        y1:{ position:'right', beginAtZero:true, max:100, ticks:{color:'#94a3b8'}, grid:{drawOnChartArea:false}, title:{display:true,text:t('chartLegendFocus'),color:'#94a3b8'}},
-        x: { ticks:{color:'#94a3b8'}, grid:{color:'#334155'}}
-      },
-      plugins: { legend:{labels:{color:'#e2e8f0'}}}
-    }
-  });
+  // 📊 일자별 활동 — PC(A) + 휴대폰(D). 정본 renderActivityViz()
+  try { renderActivityViz(); } catch (e) { console.error('[activity-viz]', e); }
 
   // 🧠 판단력 성장 (개요 탭 — 평가서 유무와 무관하게 표시)
   renderOverviewJudgment(typeof uid !== 'undefined' ? uid : (erp.user_id || (_state.full.profile||{}).user_id));
@@ -1384,8 +1492,7 @@ async function renderOverviewJudgment(sid){
   const idxEl = $('ovJudgeIndex');
   if (!idxEl) return;
   renderJudgeTerms('ovJudgeTerms');   // 용어 툴팁(데이터 유무와 무관하게 항상 표시)
-  if (_charts.ovjradar) { _charts.ovjradar.destroy(); _charts.ovjradar = null; }
-  if (_charts.ovjtrend) { _charts.ovjtrend.destroy(); _charts.ovjtrend = null; }
+  ['ovJudgeBars','ovJudgeTrend'].forEach(function(id){ var e = document.getElementById(id); if (e) e.innerHTML = ''; });
   if (!sid) { idxEl.innerHTML = '<span style="color:#64748b">'+(_lang==='en'?'No student id.':'학생 ID 없음')+'</span>'; return; }
   try {
     const r = await fetch('/api/judgment/growth?uid=' + encodeURIComponent(sid), { credentials:'include' });
@@ -1402,28 +1509,22 @@ async function renderOverviewJudgment(sid){
         + ' <span style="color:#94a3b8">· ' + d.events_count + (_lang==='en'?' decisions':'회 판단') + '</span>'
         + ((Array.isArray(d.top_misconceptions)&&d.top_misconceptions.length) ? ' · ' + (_lang==='en'?'top gaps':'주요 오답') + ': ' + d.top_misconceptions.slice(0,3).map(m=>esc(m.code)).join(', ') : '')
       : '<span style="color:#64748b">' + (_lang==='en'?'No decision data yet — appears after class-end judgment analysis accrues.':'아직 판단 데이터가 없습니다 — 수업 종료 분석이 쌓이면 표시됩니다.') + '</span>';
-    _charts.ovjradar = new Chart($('ovJudgeRadar').getContext('2d'), {
-      type: 'radar',
-      data: { labels: axes, datasets: [{ label:_lang==='en'?'Decision-making':'판단력', data: vals,
-        backgroundColor:'rgba(167,139,250,0.22)', borderColor:'#a78bfa', borderWidth:2, pointBackgroundColor:'#a78bfa', pointRadius:4 }] },
-      options: { responsive:true, maintainAspectRatio:false,
-        scales: { r: { beginAtZero:true, max:100, pointLabels:{font:{size:15,weight:'700'},color:'#cbd5e1'},
-          ticks:{backdropColor:'transparent',color:'#64748b',stepSize:20,font:{size:13}}, grid:{color:'#334155'}, angleLines:{color:'#334155'} } },
-        plugins: { legend:{labels:{color:'#e2e8f0',font:{size:13}}},
-          title:{display:true,text:_lang==='en'?'Decision-making (5 axes)':'판단력 5축',color:'#94a3b8',font:{size:14,weight:'700'}} } }
-    });
+    /* 📊 (2026-09-30) 거미줄(레이더) → 가로 막대. 칸 크기 비교가 어렵고 휴대폰에서 글자가 작아졌다.
+       ⚠️ 축별 «지난달» 값은 API 에 없다(trend 는 종합 지수만) — 지어내지 않는다. */
+    const jb = document.getElementById('ovJudgeBars');
+    if (jb) jb.innerHTML = '<p class="sv-t">' + (_lang==='en'?'Decision-making — 5 axes':'판단력 5축') + '</p>'
+      + '<p class="sv-s">' + (_lang==='en'?'0–100 · longer is better':'0~100 · 길수록 좋음') + '</p>'
+      + (hasData ? svHBars(axes.map(function(k,i){ return { k:k, v:vals[i] }; }))
+                 : '<div class="ac-nochart">' + (_lang==='en'?'No data yet.':'아직 데이터가 없습니다.') + '</div>');
     const tr = Array.isArray(d.trend) ? d.trend : [];
-    _charts.ovjtrend = new Chart($('ovJudgeTrend').getContext('2d'), {
-      type: 'line',
-      data: { labels: tr.map(x=>x.period), datasets: [{ label:_lang==='en'?'Judgment Index':'판단력 지수',
-        data: tr.map(x=> x.judgment_index==null?null:x.judgment_index),
-        borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,0.15)', borderWidth:2, tension:.3, fill:true, pointRadius:4, spanGaps:true }] },
-      options: { responsive:true, maintainAspectRatio:false,
-        scales: { y:{ beginAtZero:true, max:100, ticks:{color:'#94a3b8',font:{size:12}}, grid:{color:'#334155'} },
-          x:{ ticks:{color:'#94a3b8',font:{size:12}}, grid:{color:'#334155'} } },
-        plugins: { legend:{display:false},
-          title:{display:true,text:_lang==='en'?'Growth Trend (monthly)':'성장 추이 (월별)',color:'#94a3b8',font:{size:14,weight:'700'}} } }
-    });
+    const jt = document.getElementById('ovJudgeTrend');
+    const tv = tr.map(x => x.judgment_index==null ? null : Number(x.judgment_index));
+    if (jt) jt.innerHTML = '<p class="sv-t">' + (_lang==='en'?'Growth trend (monthly)':'성장 추이 (월별)') + '</p>'
+      + '<p class="sv-s">' + (_lang==='en'?'Judgment index by month':'월별 판단력 지수') + '</p>'
+      + (tv.some(v => v!=null)
+          ? svLine(360, 180, tv, tr.map(x => String(x.period||'')), { max:100, ticks:[0,50,100], color:'#7c3aed', dots:true, xLabels:6,
+              tip:function(i){ return (tr[i].period||'') + ' · ' + (_lang==='en'?'Index ':'지수 ') + (tv[i]==null?'—':tv[i]); } })
+          : '<div class="ac-nochart">' + (_lang==='en'?'No monthly records yet.':'아직 월별 기록이 없습니다.') + '</div>');
   } catch(e){
     idxEl.innerHTML = '<span style="color:#64748b">' + (_lang==='en'?'Decision-making data unavailable yet.':'판단력 데이터가 아직 없습니다.') + '</span>';
   }
