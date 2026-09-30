@@ -1268,30 +1268,33 @@ function __mobFee(origIso, origHour){
 /* 🆕 확정 시 서버에 연기/변경 기록 + 유료/무료 태깅 + 관리자 알림. 실 수업일 때만. */
 function __mobPersist(){
   /* 🔧 (2026-09-30) «보냈는가» 를 돌려준다 — 예전엔 결과를 버리고 화면이 늘 «완료» 라고 했다.
-     반환: null(보낼 대상 아님) · Promise<{ok, sent, total}> */
+     🔧 (2026-09-30 2차) 저장 경로를 학생용 /api/class/schedule/request 로 — 옛 /api/admin/schedule-requests 는
+        관리자 전용이라 학생은 늘 401 이었다. 신원은 학생 토큰(mango_token)으로만 보낸다.
+        원래 일시·학생 이름·담당 강사는 서버가 수업표에서 읽는다(본문 값은 믿지 않음).
+     반환: null(보낼 대상 아님) · Promise<{ok, sent, total, error}> */
   if (!__MOB_REAL) return null;
-  var u = __mobMe() || {};
+  var tok = ''; try { tok = localStorage.getItem('mango_token') || ''; } catch(e){}
   var sorted = state.cart.slice().sort(function(a,b){ return (a.date+a.hour)<(b.date+b.hour)?-1:1; });
   var origs = CURRENT_SCHEDULE.slice();
   var jobs = origs.map(function(o, i){
     var nw = sorted[i] || null;
-    var f = __mobFee(o.date, o.hour);
     var body = {
       request_type: state.mode==='change'?'change':'postpone',
-      requester_role:'student', requester_name:u.name||'', student_name:u.name||'', student_uid:u.uid||'',
-      teacher_name: (nw&&nw.teacherName)||o.teacherName||'강사',
       schedule_id: o.schedule_id||null,
-      orig_date:o.date, orig_time:o.hour,
+      orig_date: o.date,
       new_date: nw?nw.date:null, new_time: nw?nw.hour:null,
-      fee_type: state.mode==='change'?null:f.fee, minutes_before: f.mins
+      teacher_name: (nw&&nw.teacherName)||''
     };
-    return fetch('/api/admin/schedule-requests',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
-      .then(function(r){ return r.json().then(function(j){ return !!(r.ok && j && j.ok === true); }, function(){ return false; }); })
-      .catch(function(){ return false; });
+    var headers = {'Content-Type':'application/json'};
+    if (tok) headers['Authorization'] = 'Bearer ' + tok;
+    return fetch('/api/class/schedule/request',{method:'POST',credentials:'include',headers:headers,body:JSON.stringify(body)})
+      .then(function(r){ return r.json().then(function(j){ return { ok: !!(r.ok && j && j.ok === true), error: (j && j.error) || ('http_' + r.status) }; }, function(){ return { ok:false, error:'http_' + r.status }; }); })
+      .catch(function(){ return { ok:false, error:'network' }; });
   });
   return Promise.all(jobs).then(function(res){
-    var sent = res.filter(Boolean).length;
-    return { ok: sent === res.length && res.length > 0, sent: sent, total: res.length };
+    var sent = res.filter(function(x){ return x.ok; }).length;
+    var firstErr = (res.find(function(x){ return !x.ok; }) || {}).error || null;
+    return { ok: sent === res.length && res.length > 0, sent: sent, total: res.length, error: firstErr };
   });
 }
 window.__mobLastFee = null;
@@ -1421,9 +1424,15 @@ function showCompletion(saved){
       + '</span>';
   }
   var saveNote = '';
-  if (saved && !saved.ok) saveNote = '<br><span style="color:#d97706;font-weight:700">' + __mobT(
-      '서버에 저장되지 않았습니다 (' + saved.sent + '/' + saved.total + '). 수업은 아직 그대로이니 카카오 상담으로 알려 주세요.',
-      'Not saved (' + saved.sent + '/' + saved.total + '). Your classes are unchanged — please contact us on KakaoTalk.') + '</span>';
+  if (saved && !saved.ok) {
+    /* 사유를 사람 말로 — 「로그인」 은 사람이 스스로 고칠 수 있는 유일한 경우다. */
+    var why = saved.error === 'login_required'
+      ? __mobT('로그인이 만료됐어요. 홈에서 다시 로그인한 뒤 해 주세요.', 'Your login expired. Please sign in again from Home.')
+      : saved.error === 'too_many_requests'
+      ? __mobT('오늘 요청이 너무 많아요. 카카오 상담으로 알려 주세요.', 'Too many requests today. Please contact us on KakaoTalk.')
+      : __mobT('수업은 아직 그대로이니 카카오 상담으로 알려 주세요.', 'Your classes are unchanged — please contact us on KakaoTalk.');
+    saveNote = '<br><span style="color:#d97706;font-weight:700">' + __mobT('서버에 저장되지 않았습니다', 'Not saved') + ' (' + saved.sent + '/' + saved.total + '). ' + why + '</span>';
+  }
   else if (saved && saved.ok) saveNote = '<br><span style="font-size:12px">' + __mobT('관리자가 확인한 뒤 반영됩니다.', 'It will be applied after staff review.') + '</span>';
   $('#done-sub').innerHTML = '기존: ' + beforeList + '<br>↓ 아래 일정으로 ' + v + (saved && saved.ok ? ' 요청' : '') + feeNote + saveNote;
   $('#done-list').innerHTML = list;
