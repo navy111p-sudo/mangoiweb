@@ -462,6 +462,22 @@ body.compact .mini-cal td.slot.row10 .slot-text10{font-size:8px}
 .rsc-tab{flex:1;padding:12px 8px;background:transparent;border:none;color:var(--tx2);font-size:13px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;transition:all .15s}
 .rsc-tab.active{color:var(--ac);border-bottom-color:var(--ac);background:rgba(251,191,36,.06)}
 .rsc-tab:hover:not(.active){color:var(--tx);background:rgba(255,255,255,.03)}
+.rsc-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin-bottom:10px}
+.rsc-day{border:1px solid var(--bd);background:transparent;color:var(--tx);border-radius:8px;padding:5px 2px;white-space:nowrap;font-size:12.5px;font-weight:700;cursor:pointer;text-align:center}
+.rsc-day small{display:block;font-size:10.5px;font-weight:500;color:var(--tx2)}
+.rsc-dd{display:block;font-size:11px;font-weight:600}
+@media (max-width:480px){.rsc-day{font-size:12px;padding:4px 0}.rsc-dd{font-size:10px}.rsc-day small{font-size:9.5px}}
+.rsc-day.on{background:var(--ac);border-color:var(--ac);color:#1a1a1a}
+.rsc-day.on small{color:#1a1a1a}
+.rsc-hrs{display:grid;gap:5px;max-height:320px;overflow-y:auto;padding-right:4px}
+.rsc-hrow{display:grid;grid-template-columns:36px 1fr;gap:6px;align-items:center}
+.rsc-hl{font-size:11.5px;color:var(--tx2);font-weight:700}
+.rsc-chips{display:flex;flex-wrap:wrap;gap:4px}
+.rsc-chip{min-width:52px;border:1px solid rgba(16,185,129,.45);background:rgba(16,185,129,.12);color:var(--tx);border-radius:6px;padding:4px 6px;font-size:12px;font-variant-numeric:tabular-nums;cursor:pointer}
+.rsc-chip:hover:not(:disabled){border-color:var(--ac)}
+.rsc-chip:disabled{border-color:transparent;background:rgba(100,116,139,.12);color:var(--tx3);text-decoration:line-through;cursor:not-allowed}
+.rsc-chip.orig:disabled{text-decoration:none;background:transparent;border:1px dashed var(--tx3)}
+.rsc-chip.on{background:linear-gradient(135deg,var(--ac),#f59e0b);border-color:var(--ac);color:#1a1a1a;font-weight:800}
 .rsc-info-banner{padding:10px 14px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:10px;font-size:12.5px;color:#fde68a;margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .rsc-info-banner .rsc-ico{font-size:18px;flex-shrink:0}
 .rsc-info-banner b{color:#fff}
@@ -976,6 +992,20 @@ function hourHasSlot(tid,d,h){
     var st=parseInt(k.slice((tid+'__'+d+'__').length),10);
     if(isNaN(st))continue;
     if(isGhostSlot(SLOTS[k]))continue;          // 🟡 LMS·시드는 «빈 시간» 으로 본다(위 주석)
+    var en=st+((SLOTS[k]&&SLOTS[k].duration_min)||SLOT_STEP);
+    if(st<to&&from<en)return true;
+  }
+  return false;
+}
+/** [from,to) 분 구간에 겹치는 슬롯이 있나. skipStart 에서 시작하는 슬롯(= 옮기려는 그 수업)은 뺀다.
+    수업 연기/변경 B안(10분 칩)이 «20분이 통째로 들어가는가» 를 물을 때 쓴다. */
+function rangeHasSlot(tid,d,from,to,skipStart){
+  var pre=tid+'__'+d+'__';
+  for(var k in SLOTS){
+    if(k.indexOf(pre)!==0)continue;
+    var st=parseInt(k.slice(pre.length),10);
+    if(isNaN(st)||st===skipStart)continue;
+    if(isGhostSlot(SLOTS[k]))continue;          // hourHasSlot 과 같은 규칙
     var en=st+((SLOTS[k]&&SLOTS[k].duration_min)||SLOT_STEP);
     if(st<to&&from<en)return true;
   }
@@ -2989,7 +3019,8 @@ function openRescheduleModal(teacherName, dateISO, hour, mode, minute){
     slot: slot,
     activeTab: 'time',
     pickedDate: null,
-    pickedHour: null,
+    pickedMin: null,
+    bDay: null,
     pickedTeacher: null
   };
   renderRescheduleModal();
@@ -3038,49 +3069,56 @@ function renderRescheduleModal(){
         '</div>';
     }
   } else {
-    // 시간 선택 그리드 (같은 교사 카드, 빈 칸 클릭)
+    /* ⏱ (2026-09-30 사장님 「10분 단위로」 → 시안 B 채택)
+       요일을 고르면 «그 수업 길이가 통째로 들어가는» 시작 시각만 10분 버튼으로 보인다.
+       옛 판은 1시간 칸이라 19:40 수업이 있는 19시 줄 전체가 막히고, 20:40 처럼
+       칸 «중간» 으로는 옮길 방법이 없었다. 겹침 판정은 rangeHasSlot 한 곳(원래 수업 자신은 뺀다). */
     var dn = currentLang==='ko'?['월','화','수','목','금','토','일']:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    var gridHtml = '<div class="time-pref"><div class="tp-th"></div>';
-    for (var i=0;i<7;i++) gridHtml+='<div class="tp-th">'+dn[i]+'</div>';
-    for (var h=9;h<=22;h++){
-      gridHtml += '<div class="tp-cell tp-hour">'+String(h).padStart(2,'0')+'</div>';
-      for (var di=0;di<7;di++){
-        var d=new Date(currentWeekStart);d.setDate(d.getDate()+di);
-        var dateISO=fmtISO(d);
-        var existing=hourHasSlot(ctx.teacher.id,dateISO,h);
-        var isOrig = (dateISO===ctx.origDate && h===ctx.origHour);
-        var isPicked = (ctx.pickedDate===dateISO && ctx.pickedHour===h);
-        var canPick = !existing || isOrig;
-        // 시간 제한 체크: 연기/변경 가능한지
-        var cellTime = getClassStartTime(dateISO, h);
-        var diffMin = (cellTime - new Date()) / 60000;
-        // 🔓 매니저는 이 컷오프를 통과한다 (위 canPostpone/canChange 와 같은 규칙)
-        var tooSoon = !mgrOverride && ((ctx.mode==='postpone' && diffMin<30) || (ctx.mode==='change' && diffMin<1440));
-        var style='';
-        var click='';
-        if (existing && !isOrig){
-          style='background:rgba(239,68,68,.18);cursor:not-allowed;color:#fca5a5;font-size:9px;';
-        } else if (tooSoon) {
-          style='background:rgba(100,116,139,.18);cursor:not-allowed;opacity:.45';
-        } else if (isPicked) {
-          style='background:linear-gradient(135deg,var(--ac),#f59e0b);color:#1a1a1a;font-weight:800';
-        } else {
-          style='background:rgba(16,185,129,.10);cursor:pointer';
-          click='onclick="rscPickTime(\''+dateISO+'\','+h+')"';
-        }
-        gridHtml += '<div class="tp-cell" style="'+style+'" '+click+'>'+(isPicked?'✓':'')+'</div>';
-      }
+    var durMin = Number(ctx.slot && ctx.slot.duration_min) > 0 ? Number(ctx.slot.duration_min) : SLOT_STEP;
+    var origStart = ctx.origHour*60 + (ctx.origMinute||0);
+    var weekDays = [];
+    for (var i=0;i<7;i++){ var dd=new Date(currentWeekStart); dd.setDate(dd.getDate()+i); weekDays.push(fmtISO(dd)); }
+    if (!ctx.bDay || weekDays.indexOf(ctx.bDay) < 0) ctx.bDay = weekDays.indexOf(ctx.origDate) >= 0 ? ctx.origDate : weekDays[0];
+    function rscState(dateISO, m){
+      if (dateISO===ctx.origDate && m===origStart) return 'orig';
+      if (m + durMin > 23*60) return 'nofit';
+      if (rangeHasSlot(ctx.teacher.id, dateISO, m, m+durMin, dateISO===ctx.origDate ? origStart : null)) return 'busy';
+      var diffMin = (getClassStartTime(dateISO, Math.floor(m/60), m%60) - new Date()) / 60000;
+      // 🔓 매니저는 컷오프를 통과한다 (canPostpone/canChange 와 같은 규칙)
+      var tooSoon = !mgrOverride && ((ctx.mode==='postpone' && diffMin<30) || (ctx.mode==='change' && diffMin<1440));
+      if (tooSoon) return 'soon';
+      return 'ok';
     }
-    gridHtml += '</div>';
-    bodyHtml = '<div class="modal-section"><label style="font-size:11.5px;color:var(--tx2);font-weight:700;margin-bottom:8px;display:block;text-transform:uppercase;letter-spacing:.4px">'+(L?'새 시간 선택 (초록=가능, 회색=시간 부족, 빨강=점유)':'Pick new time (green=ok, gray=too soon, red=taken)')+'</label>'+gridHtml+'</div>';
-    if (ctx.pickedDate && ctx.pickedHour) {
+    var dayHtml = '<div class="rsc-days">';
+    weekDays.forEach(function(dISO, di){
+      var n=0; for (var m=9*60; m<23*60; m+=SLOT_STEP) if (rscState(dISO,m)==='ok') n++;
+      dayHtml += '<button type="button" class="rsc-day'+(dISO===ctx.bDay?' on':'')+'" onclick="rscPickDay(\''+dISO+'\')">'+
+        dn[di]+'<span class="rsc-dd">'+dISO.slice(5).replace('-','/')+'</span><small>'+n+(L?'자리':' open')+'</small></button>';
+    });
+    dayHtml += '</div>';
+    var chipHtml = '<div class="rsc-hrs">';
+    for (var h=9; h<=22; h++){
+      var row='';
+      for (var m=h*60; m<h*60+60; m+=SLOT_STEP){
+        var st = rscState(ctx.bDay, m);
+        var on = (ctx.pickedDate===ctx.bDay && ctx.pickedMin===m);
+        var cls = 'rsc-chip'+(on?' on':'')+(st==='orig'?' orig':'');
+        var tip = st==='busy'?(L?'다른 수업과 겹침':'Overlaps'):st==='soon'?(L?'시간 부족':'Too soon'):st==='nofit'?(L?'23시를 넘김':'Past 23:00'):st==='orig'?(L?'지금 수업 시각':'Current time'):'';
+        row += '<button type="button" class="'+cls+'"'+(st==='ok'?' onclick="rscPickTime(\''+ctx.bDay+'\','+m+')"':' disabled')+(tip?' title="'+tip+'"':'')+'>'+minLabel(m)+'</button>';
+      }
+      chipHtml += '<div class="rsc-hrow"><span class="rsc-hl">'+String(h).padStart(2,'0')+(L?'시':'h')+'</span><div class="rsc-chips">'+row+'</div></div>';
+    }
+    chipHtml += '</div>';
+    bodyHtml = '<div class="modal-section"><label style="font-size:11.5px;color:var(--tx2);font-weight:700;margin-bottom:8px;display:block;letter-spacing:.4px">'+
+      (L?'요일 → 시작 시각 (10분 단위 · '+durMin+'분 수업이 들어가는 시각만 누를 수 있어요)':'Day → start time (10-min steps · only times that fit '+durMin+' min)')+'</label>'+dayHtml+chipHtml+'</div>';
+    if (ctx.pickedDate && ctx.pickedMin != null) {
       bodyHtml += '<div class="modal-section" style="text-align:center;font-size:13px;color:var(--tx)">'+
-        (L?'선택된 새 시간: ':'New time: ')+'<b style="color:#fff">'+ctx.pickedDate+' '+String(ctx.pickedHour).padStart(2,'0')+':00</b>'+
+        (L?'선택된 새 시간: ':'New time: ')+'<b>'+ctx.pickedDate+' '+minLabel(ctx.pickedMin)+' ~ '+minLabel(ctx.pickedMin+durMin)+'</b>'+
         '</div>';
     }
   }
 
-  var canConfirm = (ctx.activeTab==='time' && ctx.pickedDate && ctx.pickedHour) || (ctx.activeTab==='teacher' && ctx.pickedTeacher);
+  var canConfirm = (ctx.activeTab==='time' && ctx.pickedDate && ctx.pickedMin != null) || (ctx.activeTab==='teacher' && ctx.pickedTeacher);
 
   var html = '<div class="modal" style="max-width:680px;width:calc(100% - 32px)">'+
     '<div class="modal-head"><div class="modal-title">'+modeTitle+'</div><button class="modal-close" onclick="closeModal();window.__rescheduleCtx=null">✕</button></div>'+
@@ -3093,16 +3131,32 @@ function renderRescheduleModal(){
       '<button class="modal-btn ghost" onclick="closeModal();window.__rescheduleCtx=null">'+(L?'취소':'Cancel')+'</button>'+
       '<button class="modal-btn primary" '+(canConfirm?'':'disabled style="opacity:.4;cursor:not-allowed"')+' onclick="rscConfirm()">✅ '+(L?'확인':'Confirm')+'</button>'+
     '</div></div>';
+  // ⚠️ 닫힌 옛 모달의 칩 목록이 DOM 에 남아 있을 수 있어, «이 창을 이미 그렸을 때» 만 이어받는다
+  var keepTop = (function(){ var el=ctx._drawn && document.querySelector('.rsc-hrs'); return el ? el.scrollTop : null; })();
   openModal(html);
+  // 칩 목록은 14줄이라 스크롤된다 — 고를 때마다 맨 위로 튀지 않게 제자리, 처음 열 땐 원래 시각 줄로
+  ctx._drawn = true;
+  var hrs = document.querySelector('.rsc-hrs');
+  if (hrs){
+    if (keepTop != null) hrs.scrollTop = keepTop;
+    else { var tgt = hrs.querySelector('.rsc-chip.on, .rsc-chip.orig'); if (tgt) hrs.scrollTop = Math.max(0, tgt.parentNode.parentNode.offsetTop - hrs.offsetTop - 40); }
+  }
 }
 
 window.rscSwitchTab = function(tab){
   window.__rescheduleCtx.activeTab = tab;
   renderRescheduleModal();
 };
-window.rscPickTime = function(dateISO, hour){
+// ⏱ 두 번째 인자는 «자정부터의 분» (10분 단위). 옛 «시» 인자는 받지 않는다.
+window.rscPickTime = function(dateISO, startMin){
   window.__rescheduleCtx.pickedDate = dateISO;
-  window.__rescheduleCtx.pickedHour = hour;
+  window.__rescheduleCtx.pickedMin = startMin;
+  renderRescheduleModal();
+};
+window.rscPickDay = function(dateISO){
+  var c = window.__rescheduleCtx; if (!c) return;
+  c.bDay = dateISO;
+  if (c.pickedDate !== dateISO){ c.pickedDate = null; c.pickedMin = null; }
   renderRescheduleModal();
 };
 window.rscPickTeacher = function(tid){
@@ -3123,10 +3177,12 @@ window.rscConfirm = async function(){
   if (!slot) { closeModal(); return; }
 
   var dstDate, dstHour, dstMin, newTid = null, actionLabel;
-  if (ctx.activeTab === 'time' && ctx.pickedDate && ctx.pickedHour){
-    dstDate = ctx.pickedDate; dstHour = ctx.pickedHour; dstMin = 0;
+  // ⏱ pickedMin(분) 이 정본. pickedHour 는 옛 호출부 호환용(정각으로 본다).
+  var pickedMin = ctx.pickedMin != null ? ctx.pickedMin : (ctx.pickedHour != null ? ctx.pickedHour*60 : null);
+  if (ctx.activeTab === 'time' && ctx.pickedDate && pickedMin != null){
+    dstDate = ctx.pickedDate; dstHour = Math.floor(pickedMin/60); dstMin = pickedMin%60;
     actionLabel = (ctx.mode==='postpone'?(L?'📅 연기':'📅 Postponed'):(L?'🔄 시간 변경':'🔄 Time changed'))+
-      ': '+ctx.pickedDate+' '+String(ctx.pickedHour).padStart(2,'0')+':00';
+      ': '+ctx.pickedDate+' '+minLabel(pickedMin);
   } else if (ctx.activeTab === 'teacher' && ctx.pickedTeacher){
     dstDate = ctx.origDate; dstHour = ctx.origHour; dstMin = ctx.origMinute||0;   // 시간은 분까지 그대로
     newTid = ctx.pickedTeacher.id;
