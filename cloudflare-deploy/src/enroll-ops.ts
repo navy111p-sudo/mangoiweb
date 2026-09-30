@@ -58,7 +58,7 @@ import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 �
       ⛔ 로그인이 아니다. authUidGlobal 은 이 토큰을 모른다(개인정보 API 에 안 통한다). */
 import { resolveRenewToken, markRenewLinkUsed, type RenewTokenScope } from './renew-link';
 import { writeClassAudit } from './class-audit';
-import { findScheduleConflicts, activeRowsFor } from './schedule-conflict';
+import { findScheduleConflicts, activeRowsFor, findLongClassCapBlock } from './schedule-conflict';
 import { planSeries, realConflict, normTime } from './class-series-move';   // 🔄 «변경(계속)» 시리즈 판정 정본
 import { teacherMoveDenyReason } from './class-teacher-move';   // 🔒 담당 강사 변경 게이트 정본(PATCH 와 같음)   // 📅 옮기기 승인(/decide)이 쓰는 그 겹침 검사 — 복제 금지   // 📜 수업 변경 이력(공휴일 자동연기·강사 휴가대체)
 
@@ -2050,6 +2050,8 @@ export async function daySlotsFor(env: any, row: any, date: string, nowMs: numbe
   const curId = row.teacher_id != null ? String(row.teacher_id) : '';
   const stuRows = await activeRowsFor(env, 'user_id', String(row.user_id || ''), base);
   const curRows = curId ? await activeRowsFor(env, 'teacher_id', curId, base) : [];
+  /* 🪑 긴 수업 하루 정원 — 강사·날짜로만 정해진다(시각 무관). 한 번만 구해 칸마다 넘긴다(칸마다 D1 조회 금지). */
+  const curCap = curId ? await findLongClassCapBlock(env, { ...base, teacherId: curId }) : null;
   const subBusy = await subOverlayBusyIds(env, date, scheduleId);
   const offRows = await unavailabilityRows(env);
   const nowKst = new Date(nowMs + 9 * 3600 * 1000);
@@ -2059,10 +2061,10 @@ export async function daySlotsFor(env: any, row: any, date: string, nowMs: numbe
   for (const t of DAY_SLOT_TIMES) {
     const startMin = enrollTimeToMin(t);
     const q = { ...base, startTime: t };
-    const stu = await findScheduleConflicts(env, { ...q, userId: row.user_id, teacherId: null }, { student: stuRows, teacher: [] });
+    const stu = await findScheduleConflicts(env, { ...q, userId: row.user_id, teacherId: null }, { student: stuRows, teacher: [], cap: null });
     let teacherFree = false;
     if (curId) {
-      const c = await findScheduleConflicts(env, { ...q, userId: null, teacherId: curId }, { student: [], teacher: curRows });
+      const c = await findScheduleConflicts(env, { ...q, userId: null, teacherId: curId }, { student: [], teacher: curRows, cap: curCap });
       teacherFree = !c.has && !subOverlayHasOverlap(subBusy, curId, startMin, minutes)
         && !teachersOffAt(offRows, date, startMin, minutes).has(curId);
     }

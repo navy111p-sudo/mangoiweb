@@ -378,7 +378,7 @@ try {
   const dst = eo.slice(eo.indexOf('export const DAY_SLOT_TIMES'), eo.indexOf('})();', eo.indexOf('export const DAY_SLOT_TIMES')) + 5);
   const parts = ['enrollTimeToMin', 'enrollOverlap', 'subOverlayBusyIds', 'subOverlayHasOverlap', 'unavailabilityRows', 'teachersOffAt', 'daySlotsFor'].map((n) => fnText(eo, n));
   ok('정본 조각을 전부 오려 냈다', parts.every(Boolean) && dst.length > 50, parts.map((x) => x.length));
-  const code = "const { findScheduleConflicts, activeRowsFor } = require('./schedule-conflict');\nconst DEFAULT_CLASS_MINUTES = " + cp.DEFAULT_CLASS_MINUTES + ';\n' + dst + '\n' + parts.join('\n') + '\nexports.daySlotsFor = daySlotsFor;';
+  const code = "const { findScheduleConflicts, activeRowsFor, findLongClassCapBlock } = require('./schedule-conflict');\nconst DEFAULT_CLASS_MINUTES = " + cp.DEFAULT_CLASS_MINUTES + ';\n' + dst + '\n' + parts.join('\n') + '\nexports.daySlotsFor = daySlotsFor;';
   /* activeRowsFor·findScheduleConflicts 는 schedule-conflict 정본 그대로 */
   daySlotsForReal = load(code.replace(/export /g, ''), () => sc).daySlotsFor;
 } catch (e) { ok('정본 조각 불러오기', false, e.message); }
@@ -418,6 +418,22 @@ if (daySlotsForReal) {
   const at2 = (t) => out2 && out2.slots.find((x) => x.t === t);
   ok('오늘이면 지났거나 30분 안에 시작하는 칸은 past(12:20)', at2('12:20')?.past === true && at2('09:00')?.past === true);
   ok('30분 뒤 칸(12:40)은 past 아님(짝)', at2('12:40')?.past === false);
+
+  /* 🪑 긴 수업(40분): 하루 정원은 «강사·날짜» 로만 정해진다 — 칸마다 D1 을 다시 묻지 않는다(2026-09-30 함정 대조). */
+  db.exec(`CREATE TABLE teacher_pricing (teacher_id TEXT, long_class_daily_cap INTEGER)`);
+  db.exec(`INSERT INTO class_schedules VALUES (106,'choi',NULL,'${D}','07:00',40,'16','active','one_off')`);
+  let q = 0;
+  const envC = { DB: { prepare: (sql) => { q++; return wrapQ(sql); } } };
+  const long = { ...row, dm: 40 };
+  let o3 = null; try { o3 = await daySlotsForReal(envC, long, D, Date.parse('2099-10-01T00:00:00Z')); } catch (e) { ok('정본 실행(긴 수업·정원 없음)', false, e.message); }
+  ok('긴 수업이어도 D1 조회 수가 칸 수와 무관(≤ 8번)', q <= 8, q);
+  ok('정원 없음(0)이면 막지 않는다 — 13:00 은 teacher_free', o3?.slots.find((x) => x.t === '13:00')?.teacher_free === true);
+  db.exec(`INSERT INTO teacher_pricing VALUES ('16', 1)`);
+  q = 0;
+  let o4 = null; try { o4 = await daySlotsForReal(envC, long, D, Date.parse('2099-10-01T00:00:00Z')); } catch (e) { ok('정본 실행(긴 수업·정원 1)', false, e.message); }
+  ok('정원(1)을 이미 채웠으면 지금 선생님은 어느 칸도 teacher_free 아님', !!o4 && o4.slots.every((x) => x.teacher_free === false), o4 && o4.slots.filter((x) => x.teacher_free).map((x) => x.t));
+  ok('정원 검사도 한 번만(≤ 10번)', q <= 10, q);
+  ok('정원은 학생 쪽 판정과 무관(13:00 student_busy 아님)', o4?.slots.find((x) => x.t === '13:00')?.student_busy === false);
 }
 
 /* ── ③ 학생 화면 배선 ── */

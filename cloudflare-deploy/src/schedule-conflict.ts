@@ -200,7 +200,7 @@ export async function findScheduleConflicts(
   env: any, q: ScheduleSlotQuery,
   /* 📅 (2026-09-30) 한 날짜의 여러 시각을 볼 때 행을 한 번만 읽도록 — 넘기면 그 행으로 판정한다.
      ⛔ 판정은 여기 한 곳이다. 미리 읽은 행을 들고 가서 겹침을 따로 계산하지 말 것. */
-  pre?: { student?: any[]; teacher?: any[] },
+  pre?: { student?: any[]; teacher?: any[]; cap?: { day: string; count: number; cap: number } | null },
 ): Promise<ScheduleConflictResult> {
   const empty: ScheduleConflictResult = { has: false, student: [], teacher: [], ko: '', en: '', cap: null };
   if (!q || !q.startTime) return empty;
@@ -243,7 +243,8 @@ export async function findScheduleConflicts(
   // 🪑 겹치지 않아도 «긴 수업 하루 정원» 에 걸릴 수 있다. 겹침이 없을 때만 본다 —
   //   겹침이 이미 있으면 그쪽이 더 근본적인 사유라 문구가 섞이면 헷갈린다.
   if (!student.length && !teacher.length) {
-    const capBlock = await findLongClassCapBlock(env, q);
+    /* 정원은 «강사·날짜» 로만 정해져 시각과 무관 — 미리 구해 넘기면(pre.cap) 칸마다 다시 묻지 않는다. */
+    const capBlock = pre && pre.cap !== undefined ? pre.cap : await findLongClassCapBlock(env, q);
     if (!capBlock) return empty;
     const dayKo = q.kind === 'recurring'
       ? `${DOW_KO[Number(capBlock.day)] ?? capBlock.day}요일`
