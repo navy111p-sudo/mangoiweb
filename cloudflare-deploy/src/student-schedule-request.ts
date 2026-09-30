@@ -65,7 +65,8 @@ export async function ensureScheduleChangeRequestTable(env: any): Promise<void> 
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS schedule_change_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, schedule_id INTEGER, request_type TEXT DEFAULT 'postpone', requester_role TEXT DEFAULT 'teacher', requester_name TEXT, requester_uid TEXT, teacher_name TEXT, student_name TEXT, orig_date TEXT, orig_time TEXT, new_date TEXT, new_time TEXT, fee_type TEXT, minutes_before INTEGER, reason TEXT, status TEXT DEFAULT 'pending', decided_by TEXT, decided_at INTEGER, decide_memo TEXT, created_at INTEGER NOT NULL)`);
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_scr_status ON schedule_change_requests(status, created_at)`); } catch {}
   // 🆕 유료/무료 태깅(2026-07-14) — 기존 배포 DB 호환 컬럼 추가(멱등, 이미 있으면 무시)
-  for (const col of ['fee_type TEXT', 'minutes_before INTEGER', 'requester_uid TEXT']) {
+  /* 👨‍🏫 (2026-09-30) new_teacher_id = «교사로 연기» 에서 학생이 고른 강사(원부 번호). teacher_name 은 «담당 강사» 그대로 둔다. */
+  for (const col of ['fee_type TEXT', 'minutes_before INTEGER', 'requester_uid TEXT', 'new_teacher_id TEXT']) {
     try { await env.DB.exec(`ALTER TABLE schedule_change_requests ADD COLUMN ${col}`); } catch {}
   }
 }

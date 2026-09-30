@@ -108,7 +108,13 @@
       const d = await r.json();
       if (d.ok){
         alert(approving
-          ? (d.applied === 'moved'
+          ? (d.applied === 'moved' && d.teacher_changed
+              ? (isEn?('✅ Approved — the class teacher is now ' + (d.teacher_changed.name||'') + '.'):('✅ 승인 완료 — 담당 선생님이 ' + (d.teacher_changed.name||'') + '(으)로 바뀌었어요.'))
+              : d.applied === 'teacher_not_changed'
+              ? ('⚠️ ' + (isEn?'Approved, but nothing was changed: ':'승인은 기록됐지만 수업은 바꾸지 않았어요: ') + (isEn ? (d.message_en||'') : (d.message||'')))
+              : d.applied === 'conflict'
+              ? ('⚠️ ' + (isEn?'Approved, but not moved (overlap): ':'승인은 기록됐지만 겹쳐서 옮기지 않았어요: ') + (isEn ? (d.message_en||'') : (d.message||'')))
+              : d.applied === 'moved'
               ? (isEn?'✅ Approved — the class was moved to the new date/time.':'✅ 승인 완료 — 수업이 새 일시로 이동됐어요.')
               : d.applied === 'postponed'
               ? (isEn?'✅ Approved — the class is now on hold (postponed).':'✅ 승인 완료 — 수업이 연기(보류) 처리됐어요.')
