@@ -139,6 +139,73 @@ const plus = n => new Date(Date.parse(today + 'T00:00:00Z') + n * 864e5).toISOSt
   ok('원부에 없는 강사는 지어내지 않고 사유에 «희망 강사»', rows[0] && rows[0].teacher_name === 'KRYSTEL' && /희망 강사: Teacher Ana/.test(rows[0].reason || ''), rows[0]);
 }
 
+{
+  const { rows } = await call({ tok: 'jeong', payload: { schedule_id: 4385, request_type: 'postpone', new_date: plus(4), new_time: '14:00', teacher_id: 21, teacher_name: 'Teacher Karl(표시이름)' } });
+  ok('«교사로» 에서 고른 강사는 원부 번호(teacher_id)로 — 표시이름이 달라도 그 강사로 적는다', rows[0] && rows[0].teacher_name === 'KARL' && !/희망 강사/.test(rows[0].reason || ''), rows[0]);
+}
+{
+  const { rows } = await call({ tok: 'jeong', payload: { schedule_id: 4385, request_type: 'postpone', new_date: plus(4), new_time: '14:00', teacher_id: 99999, teacher_name: '' } });
+  ok('없는 강사 번호는 지어내지 않는다(담당 강사 그대로)', rows[0] && rows[0].teacher_name === 'KRYSTEL', rows[0]);
+}
+
+/* ── ②-2 «교사로 연기» 가능 강사 조회 — GET /api/class/schedule/free-teachers ── */
+console.log('\n②-2 가능 강사 조회 라우트');
+const ftAt = mango.indexOf("if (method === 'GET' && path === '/api/class/schedule/free-teachers') {");
+ok('라우트를 찾았다', ftAt > 0);
+let ftBody = blockAt(mango, ftAt);
+ok('라우트 몸통을 오려 냈다', ftBody.length > 400);
+ok('판정은 정본 moveCandidatesFor 를 부른다(복제 금지)', /moveCandidatesFor\(env, row, date, time\)/.test(ftBody));
+ok('정본이 enroll-ops.ts 에 «export» 로 있다', /export async function moveCandidatesFor\(/.test(SRC('src/enroll-ops.ts')));
+ok('관리자 move-candidates 도 같은 정본을 부른다(두 판정이 갈리지 않게)', /return json\(await moveCandidatesFor\(env, row, date, time\)\)/.test(SRC('src/enroll-ops.ts')));
+ftBody = ftBody.replace(/ as any/g, '').replace(/\b(let|const) (\w+): [^=;]+=/g, '$1 $2 =').replace(/\((\w+): any\)/g, '($1)').replace(/\(e: any\)/g, '(e)').replace(/\b(let|const) (\w+): any;/g, '$1 $2;');
+async function callFt({ tok, qs, mc }) {
+  const { db, D1 } = makeDb();
+  db.exec(`ALTER TABLE class_schedules ADD COLUMN duration_min INTEGER`);
+  db.exec(`ALTER TABLE class_schedules ADD COLUMN source TEXT`);
+  const env = { DB: D1 };
+  const url = new URL('http://x/api/class/schedule/free-teachers?' + qs);
+  const seen = [];
+  const moveCandidatesFor = async (_e, row, date, time) => { seen.push({ row, date, time }); if (mc === 'throw') throw new Error('boom');
+    return { ok: true, duration_min: 20, current: { id: '16', name: 'KRYSTEL', display_name: 'Krystel', photo: '', why: '', free: true, current: true },
+      candidates: [{ id: '21', name: 'KARL', display_name: 'Karl', photo: '', free: true, why: '', current: false }], busy_count: 3, teacher_change_ok: true }; };
+  let res;
+  try {
+    const fn = new Function('env', 'request', 'url', 'json', 'authUidGlobal', 'moveCandidatesFor', 'return (async () => {' + ftBody + '\n})();');
+    res = await fn(env, {}, url, json, async () => tok, moveCandidatesFor);
+  } catch (e) { res = { status: 0, body: { error: 'THREW ' + e.message } }; }
+  return { res, seen };
+}
+{
+  const { res, seen } = await callFt({ tok: 'jeong', qs: 'schedule_id=4385&date=' + plus(1) + '&time=16:00' });
+  ok('내 수업이면 200 + 가능 강사', res.status === 200 && res.body.ok === true && Array.isArray(res.body.candidates) && res.body.candidates.length === 1 && res.body.candidates[0].id === '21', res);
+  ok('정본에 그 수업 줄·날짜·시각을 넘긴다', seen.length === 1 && Number(seen[0].row.id) === 4385 && seen[0].date === plus(1) && seen[0].time === '16:00', seen);
+  ok('다른 학생 정보·사유(why·free)는 싣지 않는다', !!(res.body.candidates && res.body.candidates[0]) && !('why' in res.body.candidates[0]) && !('free' in res.body.candidates[0]) && !('student_conflict' in res.body), res.body);
+}
+{
+  const { res, seen } = await callFt({ tok: 'jeong', qs: 'schedule_id=9000&date=' + plus(1) + '&time=15:00' });
+  ok('남의 수업은 403 · 정본도 안 부름', res.status === 403 && res.body.error === 'not_your_class' && seen.length === 0, res);
+}
+{
+  const { res } = await callFt({ tok: 'Jeong', qs: 'schedule_id=4385&date=' + plus(1) + '&time=16:00' });
+  ok('대소문자만 다른 계정도 남의 것(Jeong ≠ jeong)', res.status === 403, res);
+}
+{
+  const { res, seen } = await callFt({ tok: null, qs: 'schedule_id=4385&date=' + plus(1) + '&time=16:00' });
+  ok('토큰 없으면 401 · 정본 안 부름', res.status === 401 && seen.length === 0, res);
+}
+{
+  const { res } = await callFt({ tok: 'jeong', qs: 'schedule_id=4385&date=' + plus(-2) + '&time=16:00' });
+  ok('지난 날짜는 거절', res.status === 400 && res.body.error === 'past_date', res);
+}
+{
+  const { res } = await callFt({ tok: 'jeong', qs: 'schedule_id=4385&date=2026-1-1&time=16:00' });
+  ok('형식이 깨진 날짜는 거절', res.status === 400 && res.body.error === 'bad_params', res);
+}
+{
+  const { res } = await callFt({ tok: 'jeong', qs: 'schedule_id=4385&date=' + plus(1) + '&time=16:00', mc: 'throw' });
+  ok('정본이 실패하면 «0명» 이 아니라 오류로 말한다', res.status === 500 && res.body.ok === false, res);
+}
+
 /* ── ③ 학생 화면 배선 ── */
 console.log('\n③ 학생 화면');
 const page = SRC('public/lesson-postpone-demo.html');

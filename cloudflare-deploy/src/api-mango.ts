@@ -15,7 +15,7 @@ import { runCypher } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 
 import { studentScopeWhere, getScope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { checkAdminSession, resolveOwnerScope, getAdminActor, isOrgScopedRole } from './auth-admin';  // 🔐 공용 소유자 판정
-import { enrollAdminHqOnly } from './enroll-ops';   // 🙈 학생 숨김은 본사 전용 — 강사·지사·대리점 차단 + 스코프 재조회(모르면 막음)
+import { enrollAdminHqOnly, moveCandidatesFor } from './enroll-ops';   // 🙈 학생 숨김은 본사 전용 — 강사·지사·대리점 차단 + 스코프 재조회(모르면 막음)
 import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
 import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
 import { siteUrl } from './site-url';  // 사람에게 보내는 링크의 정본 주소(mangoi.ai)
@@ -2364,6 +2364,43 @@ export async function handleMangoApi(
        판정 정본은 src/student-schedule-request.ts 의 studentRequestGate — 여기선 «부르기만» 한다.
        ⛔ 본문의 uid·학생 이름·원래 일시를 믿지 않는다 — 토큰과 class_schedules 가 정본.
        ⛔ 여기서 수업을 옮기지 않는다 — 접수만. 승인은 관리자 /decide 가 한다. */
+    /* 👨‍🏫 (2026-09-30 사장님) «교사로 연기» — 그 수업의 날짜·시각에 «실제로» 수업 가능한 강사만.
+       전에는 화면이 해시로 지어낸 가짜 시간표로 «가능한 교사» 를 그렸다(누가 되는지 아무도 몰랐다).
+       ✅ 판정은 관리자 move-candidates 와 같은 정본 moveCandidatesFor(enroll-ops.ts) — 승인(/decide)이 쓰는
+          findScheduleConflicts 그대로라, 여기서 «가능» 이라 한 강사가 승인에서 «겹침» 으로 거절되지 않는다.
+       🔒 학생 토큰으로만, «내 수업» 일 때만. 읽기 전용 — 강사를 바꾸지 않는다(요청은 /request, 승인은 관리자).
+       ⛔ 다른 학생 정보는 싣지 않는다 — 강사 이름·사진·«몇 명이 안 되는지» 까지만. */
+    if (method === 'GET' && path === '/api/class/schedule/free-teachers') {
+      let tokUid: string | null = null;
+      try { tokUid = await authUidGlobal(request, url, env); } catch { tokUid = null; }
+      if (!tokUid) return json({ ok: false, error: 'login_required' }, 401);
+      const scheduleId = parseInt(url.searchParams.get('schedule_id') || '', 10) || 0;
+      const date = String(url.searchParams.get('date') || '').trim().slice(0, 10);
+      const time = String(url.searchParams.get('time') || '').trim().slice(0, 5);
+      if (!scheduleId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return json({ ok: false, error: 'bad_params' }, 400);
+      const todayKst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+      if (date < todayKst) return json({ ok: false, error: 'past_date' }, 400);
+      const row: any = await env.DB.prepare(
+        `SELECT cs.id, cs.user_id, cs.scheduled_date, COALESCE(cs.duration_min,20) AS dm, cs.teacher_id, cs.status, cs.source,
+                t.name AS teacher_name
+           FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
+          WHERE cs.id = ? LIMIT 1`
+      ).bind(scheduleId).first().catch(() => null);
+      if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
+      /* 정확일치 — 대소문자만 다른 계정이 실재한다(Kim/kim). studentRequestGate 와 같은 규칙. */
+      if (String(row.user_id || '') !== tokUid) return json({ ok: false, error: 'not_your_class' }, 403);
+      let r: any;
+      try { r = await moveCandidatesFor(env, row, date, time); }
+      catch (e: any) { console.warn('[class/schedule/free-teachers]', e?.message || e); return json({ ok: false, error: 'lookup_failed' }, 500); }
+      const pick = (t: any) => ({ id: t.id, name: t.name, display_name: t.display_name, photo: t.photo });
+      return json({
+        ok: true, date, time, duration_min: r.duration_min,
+        current: r.current ? pick(r.current) : null,
+        candidates: (r.candidates || []).map(pick),
+        busy_count: r.busy_count, teacher_change_ok: r.teacher_change_ok,
+      });
+    }
+
     if (method === 'POST' && path === '/api/class/schedule/request') {
       const body: any = await request.json().catch(() => ({}));
       let tokUid: string | null = null;
@@ -2403,7 +2440,15 @@ export async function handleMangoApi(
       let teacherName = schedTeacher;
       let wishNote = '';
       const wish = String(body.teacher_name || '').trim().slice(0, 60);
-      if (wish && wish !== schedTeacher) {
+      /* 👨‍🏫 (2026-09-30) «교사로 연기» 목록에서 고른 강사는 원부 번호로 온다 — 이름 짐작 없이 그 강사로 적는다.
+         재직(active) 강사일 때만. 못 찾으면 아래 이름 경로로(예전 그대로). */
+      const wishId = parseInt(body.teacher_id, 10) || 0;
+      let byId = false;
+      if (wishId) {
+        const tr: any = await env.DB.prepare(`SELECT name FROM teachers WHERE id = ? AND COALESCE(active,1) = 1 LIMIT 1`).bind(wishId).first().catch(() => null);
+        if (tr && tr.name) { teacherName = String(tr.name); byId = true; }
+      }
+      if (!byId && wish && wish !== schedTeacher) {
         const hit: any = await env.DB.prepare(`SELECT name FROM teachers WHERE name = ? COLLATE NOCASE AND COALESCE(active,1) = 1 LIMIT 2`)
           .bind(wish).all().catch(() => null);
         const rows = (hit && hit.results) || [];

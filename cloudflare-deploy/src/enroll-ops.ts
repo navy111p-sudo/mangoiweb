@@ -1625,87 +1625,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     ).bind(scheduleId).first();
     if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
     { const d = await subScopeDenied(env, request, actor.role, row.user_id); if (d) return d; }
-    const minutes = Number(row.dm) || DEFAULT_CLASS_MINUTES;
-    const startMin = enrollTimeToMin(time);
-    const q = { kind: 'one_off' as const, schedDate: date, startTime: time, durationMin: minutes, excludeId: scheduleId };
-
-    const stu = await findScheduleConflicts(env, { ...q, userId: row.user_id, teacherId: null });
-    const subBusy = await subOverlayBusyIds(env, date, scheduleId);
-
-    /* 근무 불가 등록 — 표가 없을 수 있다(없으면 «없음» 으로). */
-    const offIds = new Set<string>();
-    try {
-      const dow = new Date(date + 'T00:00:00Z').getUTCDay();
-      const rs: any = await env.DB.prepare(
-        `SELECT teacher_id, kind, start_date, end_date, day_of_week, start_time, end_time FROM teacher_unavailability`
-      ).all();
-      for (const b of ((rs?.results as any[]) || [])) {
-        const bs = b.start_time ? enrollTimeToMin(String(b.start_time)) : 0;
-        const be = b.end_time ? enrollTimeToMin(String(b.end_time)) : 24 * 60;
-        const hitTime = startMin < be && bs < startMin + minutes;
-        const hitDay = (b.kind === 'date_range' && b.start_date && b.end_date && date >= String(b.start_date) && date <= String(b.end_date))
-          || (b.kind === 'weekly' && b.day_of_week != null && Number(b.day_of_week) === dow);
-        if (hitDay && hitTime) offIds.add(String(b.teacher_id));
-      }
-    } catch { /* 표 없음 — 알릴 것 없음 */ }
-
-    const tRows: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE active = 1 ORDER BY name`).all();
-    const teachers = ((tRows?.results as any[]) || []);
-    const curId = row.teacher_id != null ? String(row.teacher_id) : '';
-    /* 담당 강사가 퇴사(active=0)여도 «그 강사» 로 한 줄은 보여 준다. */
-    if (curId && !teachers.some((t: any) => String(t.id) === curId)) {
-      teachers.unshift({ id: curId, name: row.teacher_name || ('#' + curId) });
-    }
-    const judge = async (t: any) => {
-      const id = String(t.id);
-      const c = await findScheduleConflicts(env, { ...q, userId: null, teacherId: id });
-      let why = '';
-      if (c.has) why = c.cap ? 'long_class_cap' : 'busy';
-      else if (subOverlayHasOverlap(subBusy, id, startMin, minutes)) why = 'substituting';
-      else if (offIds.has(id)) why = 'time_off';
-      return { id, name: t.name, free: !why, why, current: id === curId };
-    };
-    const out: any[] = [];
-    for (let i = 0; i < teachers.length; i += 8) {
-      out.push(...(await Promise.all(teachers.slice(i, i + 8).map(judge))));
-    }
-    /* 🖼 사진·영문 이름 — 홈 「강사 소개」 카드와 같은 곳(teacher_profiles.image_url).
-       원부 번호로 잇는다(linked_teacher_id). 못 읽으면 사진 없이 이름만(막지 않는다). */
-    const photo = new Map<string, { img: string; en: string }>();
-    try {
-      const pr: any = await env.DB.prepare(
-        `SELECT CAST(linked_teacher_id AS TEXT) AS tid, image_url, english_name FROM teacher_profiles
-          WHERE linked_teacher_id IS NOT NULL ORDER BY COALESCE(updated_at, created_at, 0) DESC`
-      ).all();
-      for (const r of ((pr?.results as any[]) || [])) {
-        const k = String(r.tid || '');
-        if (!k || photo.has(k)) continue;           // 최신 한 줄만
-        photo.set(k, { img: String(r.image_url || ''), en: String(r.english_name || '') });
-      }
-    } catch { /* 칸·표 없음 — 이름만 */ }
-    for (const t of out) {
-      const ph = photo.get(t.id);
-      /* ⛔ http(s)·/ 로 시작하는 주소만 — 화면이 <img src> 에 그대로 넣는다. */
-      t.photo = ph && /^(https?:\/\/|\/)/i.test(ph.img) ? ph.img : '';
-      t.display_name = (ph && ph.en) || t.name;
-    }
-    const current = out.find((t) => t.current) || null;
-    /* «그 시간대 가능한 강사만» (2026-09-23 사장님) — 안 되는 강사는 수만 센다. */
-    const free = out.filter((t) => !t.current && t.free)
-      .sort((a, b) => String(a.display_name).localeCompare(String(b.display_name)));
-    const busyCount = out.filter((t) => !t.current && !t.free).length;
-    /* 🪞 카페24 미러 수업은 «날짜를 바꾸면서» 담당 강사까지 바꾸면 안 된다 — 강사를 바꾸는 PATCH 가
-       「사람 손」 도장(c24-mirror:manual)을 찍어 미러의 유일 인덱스 밖으로 나가고, 그 밤 미러가
-       옛 날짜에 같은 수업을 다시 만든다(CLAUDE.md 2장 «날짜가 바뀌는 이동에 도장» 과 같은 뿌리).
-       같은 날짜 안에서 시각만 옮기면 도장이 오히려 맞는 동작이라 허용한다. */
-    const isMirror = String(row.source || '') === 'c24-mirror';
-    const sameDay = String(row.scheduled_date || '').slice(0, 10) === date;
-    return json({
-      ok: true, date, time, duration_min: minutes,
-      student_conflict: stu.has && stu.student.length > 0,
-      current, candidates: free, busy_count: busyCount,
-      teacher_change_ok: !(isMirror && !sameDay),
-    });
+    return json(await moveCandidatesFor(env, row, date, time));
   }
 
   /* ── 🔄 (2026-09-23 사장님) 수업 «변경» = 앞으로 계속 ──
@@ -2013,3 +1933,93 @@ export async function createEnrollOrder(env: any, uid: string, p: any, kind: 'ne
     },
   });
 }
+
+/** 📅 옮길 «그 날짜·시각» 에 되는 강사 — 판정 정본(2026-09-30 공용으로 뺌).
+ *  관리자 move-candidates 와 학생 «교사로 연기»(/api/class/schedule/free-teachers)가 함께 부른다.
+ *  ⛔ 판정을 복제하지 말 것 — 화면이 «가능» 이라 한 강사가 승인(/decide)에서 «겹침» 으로 거절되면 안 된다.
+ *  row: class_schedules 한 줄(id·user_id·scheduled_date·dm·teacher_id·teacher_name·source). 읽기 전용. */
+export async function moveCandidatesFor(env: any, row: any, date: string, time: string): Promise<any> {
+  const scheduleId = Number(row.id) || 0;
+  const minutes = Number(row.dm) || DEFAULT_CLASS_MINUTES;
+  const startMin = enrollTimeToMin(time);
+  const q = { kind: 'one_off' as const, schedDate: date, startTime: time, durationMin: minutes, excludeId: scheduleId };
+
+  const stu = await findScheduleConflicts(env, { ...q, userId: row.user_id, teacherId: null });
+  const subBusy = await subOverlayBusyIds(env, date, scheduleId);
+
+  /* 근무 불가 등록 — 표가 없을 수 있다(없으면 «없음» 으로). */
+  const offIds = new Set<string>();
+  try {
+    const dow = new Date(date + 'T00:00:00Z').getUTCDay();
+    const rs: any = await env.DB.prepare(
+      `SELECT teacher_id, kind, start_date, end_date, day_of_week, start_time, end_time FROM teacher_unavailability`
+    ).all();
+    for (const b of ((rs?.results as any[]) || [])) {
+      const bs = b.start_time ? enrollTimeToMin(String(b.start_time)) : 0;
+      const be = b.end_time ? enrollTimeToMin(String(b.end_time)) : 24 * 60;
+      const hitTime = startMin < be && bs < startMin + minutes;
+      const hitDay = (b.kind === 'date_range' && b.start_date && b.end_date && date >= String(b.start_date) && date <= String(b.end_date))
+        || (b.kind === 'weekly' && b.day_of_week != null && Number(b.day_of_week) === dow);
+      if (hitDay && hitTime) offIds.add(String(b.teacher_id));
+    }
+  } catch { /* 표 없음 — 알릴 것 없음 */ }
+
+  const tRows: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE active = 1 ORDER BY name`).all();
+  const teachers = ((tRows?.results as any[]) || []);
+  const curId = row.teacher_id != null ? String(row.teacher_id) : '';
+  /* 담당 강사가 퇴사(active=0)여도 «그 강사» 로 한 줄은 보여 준다. */
+  if (curId && !teachers.some((t: any) => String(t.id) === curId)) {
+    teachers.unshift({ id: curId, name: row.teacher_name || ('#' + curId) });
+  }
+  const judge = async (t: any) => {
+    const id = String(t.id);
+    const c = await findScheduleConflicts(env, { ...q, userId: null, teacherId: id });
+    let why = '';
+    if (c.has) why = c.cap ? 'long_class_cap' : 'busy';
+    else if (subOverlayHasOverlap(subBusy, id, startMin, minutes)) why = 'substituting';
+    else if (offIds.has(id)) why = 'time_off';
+    return { id, name: t.name, free: !why, why, current: id === curId };
+  };
+  const out: any[] = [];
+  for (let i = 0; i < teachers.length; i += 8) {
+    out.push(...(await Promise.all(teachers.slice(i, i + 8).map(judge))));
+  }
+  /* 🖼 사진·영문 이름 — 홈 「강사 소개」 카드와 같은 곳(teacher_profiles.image_url).
+     원부 번호로 잇는다(linked_teacher_id). 못 읽으면 사진 없이 이름만(막지 않는다). */
+  const photo = new Map<string, { img: string; en: string }>();
+  try {
+    const pr: any = await env.DB.prepare(
+      `SELECT CAST(linked_teacher_id AS TEXT) AS tid, image_url, english_name FROM teacher_profiles
+        WHERE linked_teacher_id IS NOT NULL ORDER BY COALESCE(updated_at, created_at, 0) DESC`
+    ).all();
+    for (const r of ((pr?.results as any[]) || [])) {
+      const k = String(r.tid || '');
+      if (!k || photo.has(k)) continue;           // 최신 한 줄만
+      photo.set(k, { img: String(r.image_url || ''), en: String(r.english_name || '') });
+    }
+  } catch { /* 칸·표 없음 — 이름만 */ }
+  for (const t of out) {
+    const ph = photo.get(t.id);
+    /* ⛔ http(s)·/ 로 시작하는 주소만 — 화면이 <img src> 에 그대로 넣는다. */
+    t.photo = ph && /^(https?:\/\/|\/)/i.test(ph.img) ? ph.img : '';
+    t.display_name = (ph && ph.en) || t.name;
+  }
+  const current = out.find((t) => t.current) || null;
+  /* «그 시간대 가능한 강사만» (2026-09-23 사장님) — 안 되는 강사는 수만 센다. */
+  const free = out.filter((t) => !t.current && t.free)
+    .sort((a, b) => String(a.display_name).localeCompare(String(b.display_name)));
+  const busyCount = out.filter((t) => !t.current && !t.free).length;
+  /* 🪞 카페24 미러 수업은 «날짜를 바꾸면서» 담당 강사까지 바꾸면 안 된다 — 강사를 바꾸는 PATCH 가
+     「사람 손」 도장(c24-mirror:manual)을 찍어 미러의 유일 인덱스 밖으로 나가고, 그 밤 미러가
+     옛 날짜에 같은 수업을 다시 만든다(CLAUDE.md 2장 «날짜가 바뀌는 이동에 도장» 과 같은 뿌리).
+     같은 날짜 안에서 시각만 옮기면 도장이 오히려 맞는 동작이라 허용한다. */
+  const isMirror = String(row.source || '') === 'c24-mirror';
+  const sameDay = String(row.scheduled_date || '').slice(0, 10) === date;
+  return {
+    ok: true, date, time, duration_min: minutes,
+    student_conflict: stu.has && stu.student.length > 0,
+    current, candidates: free, busy_count: busyCount,
+    teacher_change_ok: !(isMirror && !sameDay),
+  };
+}
+
