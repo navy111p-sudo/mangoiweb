@@ -420,6 +420,8 @@ html.dark .sgrp a:active,html.dark .sgrp button:active{background:#242d37}
 }
 .grouphead:first-of-type{padding-top:2px}
 html.dark .grouphead{color:#fbbf24}
+.evq-open{color:#1d4ed8;font-weight:700;white-space:nowrap}
+html.dark .evq-open{color:#93c5fd}
 </style>
 <script src="/js/admin-daily-manual.js?v=2" defer></script>
 </head>
@@ -2168,7 +2170,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
                    + (at.state === 'late' && at.late_min != null ? ' (+' + at.late_min + T('m', '분') + ')' : '')) : '—';
       ex.push(esc(T('Student: ', '학생 출결: ')) + esc(atTxt));
       /* 🔒 (2026-09-23) 지사·대리점에는 서버가 평가를 안 싣는다 — «없음» 이 아니라 «본사 전용» */
-      var ev = function (e) { if (r.eval_hidden) return esc(T('HQ only', '본사 전용')); return e ? esc((e.date || '') + (e.score != null ? ' ⭐' + e.score + '/' + (e.max || '') : '') + (e.text ? ' · ' + e.text : '')) : '—'; };
+      var ev = function (e) { if (r.eval_hidden) return esc(T('HQ only', '본사 전용')); return e ? esc((e.date || '') + (e.score != null ? ' ⭐' + e.score + '/' + (e.max || '') : '') + (e.text ? ' · ' + e.text : ''))
+        /* 📝 (2026-09-30) 눌러서 전문 보기 — 공용 창(js/eval-quick-view.js)은 «누를 때만» 불러온다(외부 리소스 0개 계약 유지). */
+        + (e.id ? ' <a href="/eval.html?id=' + encodeURIComponent(e.id) + '" data-evq="' + esc(e.id) + '" target="_blank" rel="noopener" class="evq-open">' + esc(T('📄 Open', '📄 전문 보기')) + '</a>' : '') : '—'; };
       var exLine = '<span class="muted" style="display:block;font-size:11px;line-height:1.55">' + ex.join(' · ')
         + '<br>' + esc(T('Last feedback: ', '지난 평가: ')) + ev(r.last_eval)
         + '<br>' + esc(T("Today's feedback: ", '오늘 평가: ')) + ev(r.today_eval) + '</span>';
@@ -3149,6 +3153,29 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 (function(){try{if(window.__absenceHoldPanelOn!==true)return;/* 2026-09-29 기본 숨김 */fetch('/api/admin/reports/absence-holds?state=open',{credentials:'include',cache:'no-store'})
 .then(function(r){return r.ok?r.json():null}).then(function(d){if(!d||d.ok!==true||!d.items||!d.items.length)return;
 var s=document.createElement('script');s.defer=true;s.src='/js/absence-hold-panel.js?v=4';document.body.appendChild(s);}).catch(function(){});}catch(e){}})();
+</script>
+<script>
+/* 📝 (2026-09-30 매니저 제보) 평가 전문 보기 — 「오늘 수업」의 지난/오늘 평가 옆 «📄 전문 보기».
+   공용 창 js/eval-quick-view.js 를 «처음 누를 때» 만 불러온다 — 첫 화면 외부 리소스 0개 계약은 그대로.
+   admin.html(js/adm-today-classes.js)·teacher.html 과 같은 창을 쓴다. 판정을 여기 복제하지 말 것. */
+(function(){
+  function en(){ return document.documentElement.lang !== 'ko'; }   /* applyLang() 이 정하는 값 — 이 화면 언어 정본 */
+  function open(id){
+    var go = function(){ if (window.mgEvalQuick) window.mgEvalQuick(id, { en: en() }); };
+    if (window.mgEvalQuick) return go();
+    var sc = document.createElement('script');
+    sc.src = '/js/eval-quick-view.js?v=1';
+    sc.onload = go;
+    sc.onerror = function(){ alert(en() ? 'Could not load the viewer — please tap again.' : '전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.'); };
+    document.head.appendChild(sc);
+  }
+  document.addEventListener('click', function(ev){
+    var a = ev.target && ev.target.closest ? ev.target.closest('[data-evq]') : null;
+    if (!a) return;
+    ev.preventDefault();
+    open(a.getAttribute('data-evq'));
+  });
+})();
 </script>
 </body>
 </html>

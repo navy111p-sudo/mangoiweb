@@ -10368,3 +10368,8 @@ html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span.lib-lvl:no
 #card-recording-storage .rs-kpi button.rs-act span { color:#b91c1c !important; }
 #card-recording-storage .rs-kpi button.rs-act:hover { background-color:#fecaca !important; transform:none !important; box-shadow:none !important; }
 #card-recording-storage .rs-kpi button.rs-act[hidden] { display:none !important; }
+
+/* 📝 (2026-09-30) 「오늘 수업」 지난/오늘 평가 칸의 «📄 전문 보기» 링크 — js/adm-today-classes.js xEval.
+   details.menu-card a{color:#60A5FA!important;underline} 는 흰 카드 위 대비가 약해(≈2.5) ID 접두로 이긴다. */
+#sm-today-classes a.tc-evq-link{display:inline-block;margin-top:2px;color:#1d4ed8 !important;font-weight:700;text-decoration:none !important;white-space:nowrap}
+#sm-today-classes a.tc-evq-link:hover{text-decoration:underline !important}

@@ -77,7 +77,11 @@ else no(`⑥ 테마 저장 키가 한 곳에만 있다 (${keyHits}곳) — 사�
 
 /* ── ⑦ 🔴 teacher.html 이 미리 받는 파일의 ?v= 가 index.html 과 같은가 ── */
 //   다르면 «아무도 안 쓰는 파일» 을 받는다. 화면에는 아무 표시도 안 난다.
-const warmList = [...teacherBare.matchAll(/['"](\/js\/[a-z0-9._-]+\.js\?v=\d+)['"]/gi)].map(m => m[1]);
+// ⚠️ (2026-09-30) 파일 전체가 아니라 «미리 받기 목록»(var FILES = [ … ]) 안에서만 찾는다 —
+//    teacher.html 에는 «누를 때만» 불러오는 다른 스크립트 주소(js/eval-quick-view.js)도 있어
+//    파일 전체로 세면 그것을 «미리 받는 파일» 로 오인해 거짓 FAIL 이 난다.
+const warmBlock = (teacherBare.match(/var FILES\s*=\s*\[([\s\S]*?)\]/) || [])[1] || '';
+const warmList = [...warmBlock.matchAll(/['"](\/js\/[a-z0-9._-]+\.js\?v=\d+)['"]/gi)].map(m => m[1]);
 if (warmList.length === 0) {
   no('⑦ teacher.html 이 수업 자산을 미리 받지 않는다 — 필리핀 강사가 매번 처음부터 받는다');
 } else {
