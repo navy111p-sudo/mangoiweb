@@ -55,7 +55,7 @@ export function groupDirectClasses(rows: any[]): DirectGroup[] {
     const tid = String(r.teacher_id ?? '').trim();
     const st = String(r.start_time || '').trim();
     const dur = Number(r.duration_min) || 0;
-    const key = [uid.toLowerCase(), tid, st, dur, kind].join('|');
+    const key = [uid, tid, st, dur, kind].join('|');   // ⛔ 대소문자 무시 금지 — Kim/kim 은 별개 계정(합치면 한 신청서로 섞임)
     let g = map.get(key);
     if (!g) {
       g = { key, user_id: uid, student_name: String(r.student_name || '').trim(), teacher_id: tid,

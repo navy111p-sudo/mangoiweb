@@ -103,6 +103,10 @@ const run = async () => {
   ins(db, 8, { d: day(22) });
   const r4 = await M.mergeDirectByIds(env, [8]);
   ok(r4 && r4.created_enrollments === 1 && r4.attached_to_existing === 0, '(짝) 취소된 신청서에는 안 붙인다');
+  // (짝) 대소문자만 다른 계정(Kim/kim)은 별개 — 한 신청서로 섞지 않는다
+  ins(db, 11, { u: 'Kim', n: '김', t: '9', st: '10:00', k: 'recurring', dow: '5' });
+  const r5 = await M.mergeDirectByIds(env, [11]);
+  ok(r5 && r5.created_enrollments === 1 && r5.attached_to_existing === 0, '(짝) Kim 과 kim 은 다른 신청서');
   // 망가진 DB 에서도 던지지 않는다(수업 등록이 막히면 안 된다)
   let threw = false, rv;
   try { rv = await M.mergeDirectByIds({ DB: { prepare: () => { throw new Error('boom'); } } }, [1]); } catch { threw = true; }
@@ -121,34 +125,44 @@ await run();
 
 console.log('③ 배선');
 {
-  const post = A.indexOf("const enrollmentMerge = await mergeDirectByIds(env, created.map(");
+  const AU = readFileSync('cloudflare-deploy/src/auth-admin.ts', 'utf8');
+  const orgFn = (() => { const m = AU.match(/export function isOrgScopedRole[\s\S]*?\n\}/); return m ? new Function(stripTypeScriptTypes(m[0].replace(/^export /, '')) + '\nreturn isOrgScopedRole;')() : null; })();
+  ok(!!orgFn && orgFn('agency') && !orgFn('hq'), '전제: 정본 isOrgScopedRole 을 소스에서 읽어 돌린다');
+  /* POST 자동 연결 — «본사만» 판정식을 오려 내 실제로 돌린다(강사·조직·모름이면 안 잇는다) */
+  const me = A.match(/mergeOk = (!!\(a && a\.ok[^;]*\));/);
+  ok(!!me, '전제: POST 의 자동 연결 판정식을 오려 냈다');
+  if (me && orgFn) {
+    const f = new Function('a', 'isOrgScopedRole', 'return ' + me[1] + ';');
+    ok(f({ ok: true, isTeacher: false, role: 'hq' }, orgFn) === true && f({ ok: true, isTeacher: false, role: 'staff' }, orgFn) === true, '(실행) 본사·직원이면 잇는다');
+    ok(!f({ ok: true, isTeacher: true, role: 'teacher' }, orgFn) && !f({ ok: true, isTeacher: false, role: 'agency' }, orgFn) && !f({ ok: false }, orgFn) && !f(null, orgFn), '(짝·실행) 강사·대리점·로그인 모름이면 안 잇는다');
+  }
+  const post = A.indexOf("const enrollmentMerge = mergeOk ? await mergeDirectByIds(env, created.map(");
   const ret = A.indexOf('ok: true, created, failed, enrollment_merge: enrollmentMerge');
-  ok(post > 0 && ret > post, '수업 등록 POST 가 방금 만든 수업을 자동으로 잇는다(응답 전에)');
+  const mo = A.lastIndexOf('let mergeOk = false;', post);
+  ok(post > 0 && ret > post && mo > 0 && post - mo < 4000, '수업 등록 POST 가 (본사일 때) 방금 만든 수업을 응답 전에 잇는다');
+  ok(/import \{[^}]*\benrollAdminHqOnly\b[^}]*\} from '\.\/enroll-ops'/.test(A), 'PUT 게이트는 정본 enrollAdminHqOnly 를 쓴다(import)');
   const p0 = A.indexOf("if (method === 'PUT' && path === '/api/admin/enrollments') {");
   const p1 = A.indexOf("if ((method === 'GET' || method === 'POST') && path === '/api/admin/enrollments')", p0);
   const put = A.slice(A.indexOf('{', p0) + 1, A.lastIndexOf('}', p1));
-  ok(p0 > 0 && /actor\.isTeacher/.test(put) && /actor\.role === 'hq' \|\| actor\.role === 'staff'/.test(put) && /403/.test(put), 'PUT 합치기: 본사만(강사·지사 403)');
   ok(/b\.action !== 'merge_direct'/.test(put) && /unknown_action/.test(put), 'PUT: 모르는 action 은 거절');
   ok(/const dry = b\.dry !== false;/.test(put), 'PUT: dry 가 기본(명시적으로 false 일 때만 쓴다)');
-  ok(put.indexOf('403') < put.indexOf('mergeDirectRows'), '게이트가 쓰기보다 앞');
-  /* 게이트를 «실제로» 돌린다 — 글자만 보면 `if (false && (…))` 한 글자에 뚫린다 */
+  /* 게이트를 «실제로» 돌린다 — 글자만 보면 `if (false && …)` 한 글자에 뚫린다 */
   let gate = null;
   try {
-    gate = new Function('getAdminActor', 'parseJsonBody', 'json', 'mergeDirectRows', 'UNMERGED_DIRECT_SQL',
+    gate = new Function('enrollAdminHqOnly', 'parseJsonBody', 'json', 'mergeDirectRows', 'UNMERGED_DIRECT_SQL',
       stripTypeScriptTypes('async function __gate(method, request, env) {' + put + '\nreturn "fallthrough"; }') + '\nreturn __gate;')(
-      async (req) => req.actor, async (req) => req.body, (b, st) => ({ body: b, status: st || 200 }),
+      async (req) => { gate.gated++; return req.deny ? { body: { ok: false }, status: 403 } : null; },
+      async (req) => req.body, (b, st) => ({ body: b, status: st || 200 }),
       async () => { gate.called++; return { groups: 1, rows: 1, created_enrollments: 1, attached_to_existing: 0, linked_rows: 1, failed: [] }; }, 'SQL');
-    gate.called = 0;
   } catch (e) { console.log('  ' + e.message); }
-  const call = async (actor, body) => { gate.called = 0; const r = await gate('PUT', { actor, body }, { DB: { prepare: () => ({ all: async () => ({ results: [] }) }) } }); return { r, called: gate.called }; };
+  const call = async (deny, body) => { gate.called = 0; gate.gated = 0; const r = await gate('PUT', { deny, body }, { DB: { prepare: () => ({ all: async () => ({ results: [] }) }) } }); return { r, called: gate.called, gated: gate.gated }; };
   if (gate) {
-    const t = await call({ ok: true, isTeacher: true, role: 'teacher' }, { action: 'merge_direct', dry: false });
-    const g = await call({ ok: true, isTeacher: false, role: 'agency' }, { action: 'merge_direct', dry: false });
-    const h = await call({ ok: true, isTeacher: false, role: 'hq' }, { action: 'merge_direct', dry: false });
-    const u = await call({ ok: true, isTeacher: false, role: 'hq' }, { action: 'wipe' });
-    const z = await call({ ok: true, isTeacher: false, role: 'hq' }, { action: 'merge_direct' });
-    ok(t.r.status === 403 && !t.called && g.r.status === 403 && !g.called, '(실행) 강사·대리점은 403 이고 합치기를 부르지 않는다');
-    ok(h.r.status === 200 && h.called === 1 && h.r.body.dry === false, '(짝·실행) 본사는 합치기를 부른다');
+    const t = await call(true, { action: 'merge_direct', dry: false });
+    const h = await call(false, { action: 'merge_direct', dry: false });
+    const u = await call(false, { action: 'wipe' });
+    const z = await call(false, { action: 'merge_direct' });
+    ok(t.gated === 1 && t.r.status === 403 && !t.called, '(실행) 게이트가 막으면 그 응답을 돌려주고 합치기를 부르지 않는다');
+    ok(h.gated === 1 && h.r.status === 200 && h.called === 1 && h.r.body.dry === false, '(짝·실행) 게이트가 통과시키면 합치기를 부른다');
     ok(u.r.status === 400 && !u.called, '(실행) 모르는 action 은 400 · 안 부른다');
     ok(z.r.body.dry === true, '(실행) dry 를 안 보내면 dry');
     ok(gate.length === 3 && p1 > p0, '전제: PUT 블록이 GET/POST 블록 «앞» 에 따로 있다(그 조건 줄을 다른 하니스가 앵커로 쓴다)');
@@ -178,6 +192,13 @@ console.log('④ 화면');
   ok(/onclick="enMergeDirect\(\)"/.test(summary(true)), '본사에게는 「신청서로 합치기」 버튼');
   ok(!/enMergeDirect/.test(summary(false)) && /1/.test(summary(false)), '(짝) 본사가 아니면 버튼 없이 건수만');
   ok(/method: 'PUT'/.test(cut('enMergeDirect')) && /call\(true\)/.test(cut('enMergeDirect')) && cut('enMergeDirect').indexOf('confirm(') < cut('enMergeDirect').indexOf('call(false)'), '먼저 건수를 묻고(dry) 확인한 뒤에만 실행');
+}
+console.log('⑤ 학생 상세 캘린더');
+{
+  const S = readFileSync(process.env.STUDENT_SRC || 'cloudflare-deploy/public/admin/student.html', 'utf8');
+  const loops = [...S.matchAll(/for \(const enr of \(_dSchedState\.enrollments \|\| \[\]\)\) \{\s*(?:\/\*[\s\S]*?\*\/\s*)?if \(enr\.type === 'schedule_direct'\) continue;/g)];
+  ok(loops.length === 2, '합친 신청서는 주간·월간 신청서 레이어에서 건너뛴다(예약 레이어가 그 수업을 그림 — 두 번 안 그림) (' + loops.length + '/2)');
+  ok((S.match(/for \(const enr of \(_dSchedState\.enrollments \|\| \[\]\)\)/g) || []).length === 2, '전제: 신청서 레이어는 두 곳뿐');
 }
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);
 process.exit(FAIL ? 1 : 0);

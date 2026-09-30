@@ -22,7 +22,7 @@ import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES, classTenMinUnits } from '
 /* 💰 (2026-08-26 사장님 지시) 「수업 시간 배수대로 수강료도 자동 계산」 — 곱하는 곳은 저장하는 순간 딱 한 번이다.
    규칙 정본은 src/enroll-fee.ts 하나뿐(두 곳에 두면 «두 번 곱하기» 로 40분이 4배가 된다). */
 import { computeMonthlyFee, weeklyCountFromDays } from './enroll-fee';
-import { priceForUid } from './enroll-ops';   // 🏪 대리점 주1회 단가 — 기준가가 없을 때만 쓴다
+import { priceForUid, enrollAdminHqOnly } from './enroll-ops';   // 🏪 대리점 주1회 단가 — 기준가가 없을 때만 쓴다
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { loadSchedSummaryMap, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약」 칸 정본 — erp-list 와 «같은» 값을 쓴다(복제 금지)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buildClassRenewalText, CLASS_RENEWAL_FROM_PHONE } from './solapi-client';
@@ -7150,7 +7150,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       // ── 등록 (반복 수업은 요일당 1행 — sessions/today 가 요일 1개를 전제로 계산) ──
       const now = Date.now();
       let actorName = 'admin';
-      try { const a = await getAdminActor(request, env as any); if (a?.name) actorName = a.name; } catch {}
+      let mergeOk = false;   // 🔀 신청서 자동 연결은 본사만 — 강사·조직 계정·모름이면 admin_ui 로 남긴다(목록의 «합치기» 로 본사가 잇는다)
+      try { const a = await getAdminActor(request, env as any); if (a?.name) actorName = a.name; mergeOk = !!(a && a.ok && !a.isTeacher && !isOrgScopedRole(a.role)); } catch {}
       const created: any[] = [];
       const failed: any[] = [];
       const targets = kind === 'recurring'
@@ -7187,7 +7188,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       /* 🔀 (2026-09-30 사장님 «배정 경로가 어떠하든 수강신청 목록에 같은 조건과 버튼») 방금 만든 수업을
          신청서로 잇는다 — 같은 묶음(학생·강사·시각·길이)의 살아 있는 신청서가 있으면 거기에 붙인다.
          ⚠️ 실패해도 수업 등록은 그대로다(목록의 «합치기» 로 다시 잇는다) — 던지지 않는 함수다. */
-      const enrollmentMerge = await mergeDirectByIds(env, created.map((c: any) => Number(c.id)));
+      const enrollmentMerge = mergeOk ? await mergeDirectByIds(env, created.map((c: any) => Number(c.id))) : null;
 
       return json({
         ok: true, created, failed, enrollment_merge: enrollmentMerge,
@@ -12137,10 +12138,9 @@ LIMIT $limit`;
        ⛔ 본사만(삭제와 같은 게이트 — canEditOrg 는 강사를 못 막는다). 모르는 action 은 거절한다.
        ⚠️ dry 가 기본이다 — 화면이 건수를 보여 주고 사람이 확인한 뒤 dry:false 로 다시 부른다. */
     if (method === 'PUT' && path === '/api/admin/enrollments') {
-      const actor = await getAdminActor(request, env as any).catch(() => null as any);
-      if (!actor || !actor.ok || actor.isTeacher || !(actor.role === 'hq' || actor.role === 'staff')) {
-        return json({ ok: false, error: 'forbidden_scope', message: '직접 배정 합치기는 본사만 할 수 있습니다.', message_en: 'Only HQ accounts can merge directly assigned classes.' }, 403);
-      }
+      /* 정본 게이트 — 강사 거절 + admin_scope 재조회 + 모르면 막기(getAdminActor 는 조회 실패를 staff 로 삼킨다) */
+      const denyMerge = await enrollAdminHqOnly(request, env);
+      if (denyMerge) return denyMerge;
       const b: any = await parseJsonBody(request).catch(() => null);
       if (!b || b.action !== 'merge_direct') return json({ ok: false, error: 'unknown_action', allowed: ['merge_direct'] }, 400);
       const dry = b.dry !== false;
