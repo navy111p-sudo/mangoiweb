@@ -523,6 +523,29 @@
     pendingGo = "refund";                 // '네' 하면 환불규정 메뉴로 연결
     speak(intro + " " + question);        // 표는 읽지 않고 안내문 + 질문만 음성으로
   }
+  // 🧑‍🏫 (2026-09-30) 「선생님이 안 들어와요」 — ① 카카오 채널 문의를 «먼저», ② 인터넷·기기 점검을 «함께».
+  //   카카오는 스크립트가 아니라 진짜 <a> 링크로 연다(인앱 브라우저에서 window.open 이 조용히 null 을 돌려주는 함정).
+  function deliverTeacherAbsent(d){
+    var lang = (d && d.lang) || uiLang;
+    var en = (lang==="en");
+    var kakao = (d && d.kakao) || "https://pf.kakao.com/_xlqnSxd";
+    var lines = String((d && d.answer) || "").split("\n");
+    var btn='display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:11px 12px;border-radius:12px;'
+      +'font-size:14px;font-weight:800;text-align:center;text-decoration:none;cursor:pointer;font-family:inherit;';
+    subtitle.innerHTML =
+      lines.map(function(l){ return '<div>'+escHtml(l)+'</div>'; }).join("")
+      + '<a id="ta-kakao" href="'+escHtml(kakao)+'" target="_blank" rel="noopener" style="'+btn
+      +   'background:#fee500;color:#191919;border:1px solid #e6cf00;">'
+      +   (en ? "① \u{1F4AC} Ask on KakaoTalk now" : "① \u{1F4AC} 카카오 채널로 바로 문의") + '</a>'
+      + '<button id="ta-diag" type="button" style="'+btn
+      +   'background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.28);">'
+      +   (en ? "② \u{1F310} Check internet & devices" : "② \u{1F310} 인터넷·기기 점검하기") + '</button>';
+    var diag=document.getElementById("ta-diag");
+    if(diag) diag.addEventListener("click", function(){ openParentPage("diagnosis"); });
+    pendingGo = null;   // '네'가 어느 쪽인지 모호하니 버튼으로 고르게 한다
+    speak(en ? "Is your teacher not showing up yet? Please message our KakaoTalk channel first. Meanwhile, check your internet."
+             : "선생님이 아직 안 보이시나요? 카카오 채널로 먼저 문의해 주세요. 기다리는 동안 인터넷 연결도 확인해 보세요.");
+  }
   function hasHangul(s){ return /[가-힣]/.test(s||""); }
 
   function send(){
@@ -551,7 +574,7 @@
     fetch("/api/chat",{ method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({message:msg, lang:uiLang, mode:"student"}) })
       .then(function(r){ return r.json(); })
-      .then(function(d){ if(d && d.refund){ deliverRefund(d); } else { deliver(d.answer||"음, 다시 한 번 말씀해 주시겠어요?", d && d.go); } })
+      .then(function(d){ if(d && d.teacherAbsent){ deliverTeacherAbsent(d); } else if(d && d.refund){ deliverRefund(d); } else { deliver(d.answer||"음, 다시 한 번 말씀해 주시겠어요?", d && d.go); } })
       .catch(function(){ deliver("연결이 잠깐 끊겼어요. 다시 시도해 주세요."); })
       .then(function(){ sendBtn.disabled=false; input.focus(); });
   }

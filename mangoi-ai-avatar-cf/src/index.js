@@ -121,6 +121,27 @@ function isPointsQuestion(msg) {
   return false;
 }
 __name(isPointsQuestion, "isPointsQuestion");
+// 🧑‍🏫 (2026-09-30 직원 예희 제안) 「선생님이 안 들어와요」 — LLM 이 «인터넷 점검» 부터 시키던 자리.
+//   원인은 대개 학생 쪽이 아니다(강사 지각·노쇼·다른 주소로 입장해 방이 갈림 — CLAUDE.md 2장).
+//   학생이 공유기를 만지는 사이 20분 수업이 줄어드니, 사람에게 닿는 길(카카오 채널)을 «먼저»,
+//   인터넷·주소 점검을 «함께» 결정론으로 보여 준다. 선생님 «소개·변경» 질문은 걸리지 않게 한다.
+var TEACHER_ABSENT_KAKAO = "https://pf.kakao.com/_xlqnSxd";   // ⛔ 뒤에 /chat 금지(비로그인 PC 가 로그인창으로 튕김)
+function isTeacherAbsentQuestion(msg) {
+  if (!msg) return false;
+  const t = String(msg).toLowerCase().replace(/\s+/g, "");
+  if (/(선생님|쌤|샘(?!플)|강사|교사|teacher)/.test(t)) {
+    if (/(소개|변경|바꾸|바꿔|교체|추천|어느나라|국적)/.test(t)) return false;
+    if (/(안들어|안들와|안와|안오|안오셔|안보여|안보이|안계|없어|없네|없는데|안나타|입장안|입장을안|안접속|접속안|늦|기다리|기다려|안나와|노쇼)/.test(t)) return true;
+  }
+  if (/teacher/i.test(msg) && /(not\s+(here|in|joined|coming|showing|there)|hasn'?t\s+(joined|come|arrived)|didn'?t\s+(come|join|show)|isn'?t\s+(here|coming|there)|no[\s-]?show|late|waiting|absent)/i.test(msg)) return true;
+  return false;
+}
+__name(isTeacherAbsentQuestion, "isTeacherAbsentQuestion");
+function teacherAbsentAnswer(lang) {
+  if (lang === "en") return "Is your teacher not showing up yet? 😢 Please don't just wait —\n① \u{1F4AC} Message our KakaoTalk channel first. Our staff will check right away.\n② Meanwhile: refresh the page, make sure the address is mangoi.ai, and check your internet connection.";
+  return "선생님이 아직 안 보이시나요? 😢 그냥 기다리지 마시고 바로 알려주세요!\n① \u{1F4AC} 카카오 채널로 먼저 문의해 주세요. 상담원이 바로 확인해 드려요.\n② 기다리는 동안: 새로고침, 주소가 mangoi.ai 인지 확인, 인터넷 연결 확인을 해 보세요.";
+}
+__name(teacherAbsentAnswer, "teacherAbsentAnswer");
 function isHangulCode(c) {
   return c >= 44032 && c <= 55203;
 }
@@ -1171,6 +1192,10 @@ async function handleChat(request, env) {
       return json({ answer: answer + where, go: menu.go, goLabel: isEn ? menu.en : menu.ko });
     }
     return json({ answer, go: null });
+  }
+  if (isTeacherAbsentQuestion(message)) {
+    // ⛔ LLM 보다 «앞» 이어야 한다 — 뒤에 두면 모델이 «인터넷 점검» 부터 시킨다.
+    return json({ answer: teacherAbsentAnswer(lang), teacherAbsent: true, kakao: TEACHER_ABSENT_KAKAO, go: "diagnosis", lang });
   }
   if (isRefundQuestion(message)) {
     const intro = lang === "en" ? "Mangoi's refund follows the Office of Education's policy, calculated by how much of the course has been completed \u2014 please see the table below." : "\uB9DD\uACE0\uC544\uC774 \uD658\uBD88\uC740 \uAD50\uC721\uCCAD \uD658\uBD88\uADDC\uC815\uC5D0 \uB530\uB77C \uC218\uC5C5 \uC9C4\uD589 \uC815\uB3C4\uC5D0 \uB9DE\uCDB0 \uC544\uB798 \uD45C \uAE30\uC900\uC73C\uB85C \uCC98\uB9AC\uB3FC\uC694. \uC544\uB798 \uD45C\uB97C \uCC38\uACE0\uD574 \uC8FC\uC138\uC694!";
