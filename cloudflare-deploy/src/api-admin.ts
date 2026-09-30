@@ -9757,7 +9757,7 @@ LIMIT $limit`;
         { key: 'friend',   ko: 'AI 영어친구',   table: 'ai_friend_chats',        col: 'student_uid', ts: 'created_at', extra: `role='user'` },
         { key: 'write',    ko: 'AI 글쓰기',     table: 'ai_writing_corrections', col: 'student_uid', ts: 'created_at' },
         { key: 'speech',   ko: '발음코칭',      table: 'voice_coaching',         col: 'student_uid', ts: 'created_at' },
-        { key: 'review',   ko: 'BTS/SIU 퀴즈',  table: 'review_quiz_results',    col: 'user_id',     ts: 'created_at' },
+        { key: 'review',   ko: 'BTS/SIU·중국어퀴즈', table: 'review_quiz_results',    col: 'user_id',     ts: 'created_at' },
         { key: 'vocab',    ko: '단어장',        table: 'vocab_review_log',       col: 'user_id',     ts: 'reviewed_at' },
         { key: 'micro',    ko: 'AI 단어 퀴즈',  table: 'vocab_quizzes',          col: 'user_id',     ts: 'completed_at', extra: `completed=1` },
       ];

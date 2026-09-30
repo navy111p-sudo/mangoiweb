@@ -51,7 +51,7 @@
     { key: 'friend',   ko: 'AI 영어친구',  en: 'AI friend chat' },
     { key: 'write',    ko: 'AI 글쓰기',    en: 'AI writing' },
     { key: 'speech',   ko: '발음코칭',     en: 'Speech coaching' },
-    { key: 'review',   ko: 'BTS/SIU 퀴즈', en: 'BTS/SIU quiz' },
+    { key: 'review',   ko: 'BTS/SIU·중국어퀴즈', en: 'BTS/SIU & Chinese quiz' },
     { key: 'vocab',    ko: '단어장',       en: 'Vocabulary' },
     { key: 'micro',    ko: 'AI 단어 퀴즈', en: 'AI word quiz' }
   ];
