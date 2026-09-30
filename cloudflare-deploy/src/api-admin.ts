@@ -56,7 +56,8 @@ import { teacherIdsWithPush } from './teacher-push';              // 🔔 강사
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole } from './auth-admin';
-import { groupDirectClasses } from './enroll-direct';   // 📅 수강신청 목록의 «직접 배정» 줄 (2026-09-29)
+import { groupDirectClasses } from './enroll-direct';
+import { mergeDirectByIds, mergeDirectRows, UNMERGED_DIRECT_SQL } from './enroll-direct-merge';   // 🔀 직접 배정 → 신청서 (2026-09-30)   // 📅 수강신청 목록의 «직접 배정» 줄 (2026-09-29)
 import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
 import { teacherMoveDenyReason, moveFieldConflict } from './class-teacher-move';  // 수업 담당 강사 변경 게이트(정본)  // 승인자 기록(SR·FD)·강사 스코프 비교 · 대리점 로그인 계정 생성
 import { ensureRoomOverrideTable, validateOverrideInput, teacherOwnsSchedule, kstYmd } from './class-room-override';  // 🚪 「오늘은 이 방으로」 정본
@@ -7183,8 +7184,13 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         } catch {}
       }
 
+      /* 🔀 (2026-09-30 사장님 «배정 경로가 어떠하든 수강신청 목록에 같은 조건과 버튼») 방금 만든 수업을
+         신청서로 잇는다 — 같은 묶음(학생·강사·시각·길이)의 살아 있는 신청서가 있으면 거기에 붙인다.
+         ⚠️ 실패해도 수업 등록은 그대로다(목록의 «합치기» 로 다시 잇는다) — 던지지 않는 함수다. */
+      const enrollmentMerge = await mergeDirectByIds(env, created.map((c: any) => Number(c.id)));
+
       return json({
-        ok: true, created, failed,
+        ok: true, created, failed, enrollment_merge: enrollmentMerge,
         // force:true 로 겹침을 무릅쓰고 등록한 경우, 무엇과 겹쳤는지 그대로 돌려준다
         conflicts: conf.student, teacher_conflicts: conf.teacher,
         user_id: userId, student_name: studentName || null,
@@ -12125,6 +12131,27 @@ LIMIT $limit`;
       const _act = await handleEnrollActivateApi(request, url, env, (_actor && _actor.username) || 'admin');
       if (_act) return _act;
     }
+    /* 🔀 PUT {action:'merge_direct', dry} — 아직 신청서가 없는 «직접 배정» 수업을 신청서로 합친다
+       (2026-09-30 사장님 — 배정 경로가 어떠하든 같은 조건과 버튼). 새 수업은 등록할 때 자동으로 이어지고,
+       이것은 그 전에 만든 수업을 한 번 잇는 버튼이다.
+       ⛔ 본사만(삭제와 같은 게이트 — canEditOrg 는 강사를 못 막는다). 모르는 action 은 거절한다.
+       ⚠️ dry 가 기본이다 — 화면이 건수를 보여 주고 사람이 확인한 뒤 dry:false 로 다시 부른다. */
+    if (method === 'PUT' && path === '/api/admin/enrollments') {
+      const actor = await getAdminActor(request, env as any).catch(() => null as any);
+      if (!actor || !actor.ok || actor.isTeacher || !(actor.role === 'hq' || actor.role === 'staff')) {
+        return json({ ok: false, error: 'forbidden_scope', message: '직접 배정 합치기는 본사만 할 수 있습니다.', message_en: 'Only HQ accounts can merge directly assigned classes.' }, 403);
+      }
+      const b: any = await parseJsonBody(request).catch(() => null);
+      if (!b || b.action !== 'merge_direct') return json({ ok: false, error: 'unknown_action', allowed: ['merge_direct'] }, 400);
+      const dry = b.dry !== false;
+      /* 목록 GET 이 스키마를 보강하지만, 이 경로가 먼저 불려도 쓰는 칸이 있게(멱등 — 이미 있으면 실패를 삼킨다) */
+      if (!dry) for (const [c, t] of [['days_of_week', 'TEXT'], ['time', 'TEXT'], ['type', 'TEXT'], ['teacher_name', 'TEXT'], ['end_date', 'TEXT'], ['duration_min', 'INTEGER']]) {
+        try { await env.DB.exec(`ALTER TABLE enrollments ADD COLUMN ${c} ${t}`); } catch {}
+      }
+      const rs: any = await env.DB.prepare(UNMERGED_DIRECT_SQL).all();
+      const res = await mergeDirectRows(env, rs?.results || [], dry);
+      return json({ ok: res.failed.length === 0, dry, ...res });
+    }
     if ((method === 'GET' || method === 'POST') && path === '/api/admin/enrollments') {
       /* ⚡ (2026-09-29 사장님 «수강신청 목록 로딩이 느리다») 스키마 보강(CREATE + ALTER 13번)은
          워커 인스턴스당 «한 번만». 예전엔 목록을 열 때마다 DB 왕복 14번을 먼저 했다(ALTER 는
@@ -12223,14 +12250,9 @@ LIMIT $limit`;
           let direct: any[] | undefined;
           if (!statusF && !userIdF && _enActor && _enActor.ok !== false && !_enActor.isTeacher && !isOrgScopedRole(_enActor.role)) {
             try {
-              const ds = await env.DB.prepare(
-                `SELECT cs.id, cs.user_id, cs.student_name, cs.teacher_id, t.name AS teacher_name, cs.start_time, cs.duration_min,
-                        cs.schedule_kind, cs.day_of_week, cs.scheduled_date, cs.class_type, cs.created_at
-                   FROM class_schedules cs LEFT JOIN teachers t ON t.id = cs.teacher_id
-                  WHERE cs.source = 'admin_ui' AND COALESCE(cs.status, 'active') <> 'cancelled'
-                    AND (cs.scheduled_date IS NULL OR cs.scheduled_date = '' OR cs.scheduled_date >= date('now', '+9 hours', '-30 days'))
-                  ORDER BY cs.created_at DESC LIMIT 1000`
-              ).all<any>();
+              /* 조건 정본은 enroll-direct-merge.ts 의 UNMERGED_DIRECT_SQL — «합치기» 가 잇는 것과 같은 행이어야
+                 버튼이 말한 건수와 실제로 합친 건수가 같다. */
+              const ds = await env.DB.prepare(UNMERGED_DIRECT_SQL).all<any>();
               direct = groupDirectClasses(ds.results || []);
             } catch (e: any) { console.warn('[enrollments] 직접 배정 조회 실패:', e?.message); }
           }

@@ -7499,6 +7499,9 @@ async function loadEnrollments() {
    🔀 (2026-09-30 사장님 «나눠서 관리할 필요가 없어. 하나의 관리페이지로 합쳐줘»)
       따로 떼어 맨 아래 구역(머리줄)으로 그리던 것을 **한 목록에 날짜순으로 섞어** 그린다.
       줄마다 「직접 배정」 표시·「배정됨」 상태로 구별만 한다.
+   🔀 (2026-09-30 2차) «목록에만 섞기» 가 아니라 **신청서로 합친다** — 새 배정은 등록할 때 자동으로,
+      그 전에 만든 것은 요약 줄의 「신청서로 합치기」 한 번으로(src/enroll-direct-merge.ts).
+      그래서 이 줄은 «아직 안 합친 것» 만 남는 임시 표시다.
    ⛔ __enShown 에 넣지 않는다 — 일괄 삭제·내보내기·상태 버튼은 «신청서» 에만 걸린다.
       (그 줄에서 취소·삭제를 누르면 신청서 id 로 나가 엉뚱한 행을 건드린다.)
       그래서 그 줄에는 체크박스·취소·삭제가 없고, 고치는 곳(주간 스케줄)으로 가는 링크를 둔다. */
@@ -7535,6 +7538,33 @@ function _enDirectRow(g) {
       (en ? 'Scheduled' : '배정됨') + '</span></td>' +
     '<td style="font-size:11.5px"><a href="/admin/weekly-schedule.html" target="_blank" rel="noopener" style="font-weight:700;color:#1d4ed8">' +
       (en ? 'Edit in schedule →' : '스케줄에서 관리 →') + '</a></td></tr>';
+}
+
+/* 🔀 (2026-09-30) 아직 신청서가 없는 «직접 배정» 을 신청서로 합친다 — 먼저 건수를 묻고(dry) 확인 뒤 실행.
+   ⛔ 성공을 지어내지 않는다 — 서버가 준 건수를 그대로 말하고, 실패가 있으면 그것도 말한다. */
+async function enMergeDirect() {
+  const en = (adminLang === 'en');
+  const call = async (dry) => {
+    const r = await fetch('/api/admin/enrollments', { method: 'PUT', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'merge_direct', dry: dry }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok && !(d && Array.isArray(d.failed))) throw new Error((d && (en ? d.message_en : d.message)) || (d && d.error) || ('HTTP ' + r.status));
+    return d;
+  };
+  let p;
+  try { p = await call(true); } catch (e) { alert((en ? 'Failed: ' : '실패: ') + (e.message || e)); return; }
+  if (!p.groups) { alert(en ? 'Nothing to merge.' : '합칠 직접 배정 수업이 없습니다.'); loadEnrollments(); return; }
+  if (!confirm(en
+      ? ('Turn ' + p.groups + ' schedule-assigned group(s) (' + p.rows + ' classes) into enrollments?\nThe classes stay exactly as they are. Monthly fee stays empty.')
+      : ('스케줄에서 배정한 ' + p.groups + '묶음(수업 ' + p.rows + '건)을 신청서로 합칠까요?\n수업 날짜·시간·강사는 그대로이고, 월 수강료는 비어 있는 채로 만들어집니다.'))) return;
+  let d;
+  try { d = await call(false); } catch (e) { alert((en ? 'Failed: ' : '실패: ') + (e.message || e)); return; }
+  const fails = (d.failed || []).length;
+  _enToast(en
+    ? ('Merged: ' + (d.created_enrollments || 0) + ' new enrollment(s), ' + (d.linked_rows || 0) + ' classes linked' + (fails ? ' · ' + fails + ' failed' : ''))
+    : ('합침: 신청서 ' + (d.created_enrollments || 0) + '건 생성 · 수업 ' + (d.linked_rows || 0) + '건 연결' + (fails ? ' · 실패 ' + fails + '묶음' : '')));
+  if (fails) alert((en ? 'Some groups failed:\n' : '일부 묶음이 실패했습니다:\n') + d.failed.map(f => f.detail).join('\n'));
+  loadEnrollments();
 }
 
 /* 📞 (2026-09-10 사장님 지시) 수업 30분 전 안내문자가 «갈 번호» 를 목록에서 바로 보고 고친다.
@@ -7621,10 +7651,17 @@ function _renderEnrollments() {
         'style="padding:4px 12px;border:0;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;' +
         'background:' + m.bg + ';color:' + m.fg + '">' + (en ? m.en : m.ko) + ' ' + by[s] + '</button>';
     });
+    /* 🔀 (2026-09-30) 아직 신청서로 안 합쳐진 «직접 배정» 이 있으면 합치는 버튼을 둔다(본사만 —
+       서버가 같은 조건으로 403). 합치면 그 수업이 보통 신청서가 되어 후속·취소·삭제·선택·내보내기가
+       전부 같이 걸린다. 새로 배정하는 수업은 등록할 때 자동으로 합쳐진다. */
     if (_enDirect.length) {
-      chips.push('<span style="padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700;background:#eff6ff;color:#1e3a8a" title="' +
-        (en ? 'Classes assigned directly in the weekly schedule (no enrollment form)' : '주간 스케줄에서 직접 배정한 수업 (신청서 없음)') + '">📅 ' +
-        (en ? 'Scheduled ' : '배정됨 ') + _enDirect.length + '</span>');
+      const hq = (typeof window !== 'undefined' && window._isHqMgrOrUp);
+      chips.push(hq
+        ? '<button type="button" onclick="enMergeDirect()" style="padding:4px 12px;border:1px solid #1d4ed8;border-radius:999px;font-size:12px;font-weight:800;cursor:pointer;background:#eff6ff;color:#1e3a8a" title="' +
+            (en ? 'Turn schedule-assigned classes into regular enrollments so they get the same buttons' : '스케줄에서 배정한 수업을 신청서로 만들어 같은 버튼(후속·취소·삭제)이 뜨게 합니다') + '">🔀 ' +
+            (en ? 'Merge ' + _enDirect.length + ' schedule-assigned into enrollments' : '스케줄 배정 ' + _enDirect.length + '건 신청서로 합치기') + '</button>'
+        : '<span style="padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700;background:#eff6ff;color:#1e3a8a">📅 ' +
+            (en ? 'Not merged yet ' : '아직 안 합친 배정 ') + _enDirect.length + '</span>');
     }
     if (dupTotal) {
       chips.push('<button type="button" onclick="enToggleDupOnly()" ' +
