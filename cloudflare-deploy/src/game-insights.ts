@@ -70,7 +70,7 @@ export const GAME_LABELS: Record<string, { ko: string; en: string }> = {
   'wordfighter':     { ko: '워드파이터',     en: 'Word Fighter' },
   'vocab':           { ko: '단어장',         en: 'Vocabulary' },
   'micro-quiz':      { ko: '마이크로 퀴즈',  en: 'Micro Quiz' },
-  'review-quiz':     { ko: '복습 퀴즈',      en: 'Review Quiz' },
+  'review-quiz':     { ko: 'BTS/SIU 퀴즈',   en: 'BTS/SIU Quiz' },
   'speech-coach':    { ko: '발음 코치',      en: 'Speech Coach' },
   'ai-write':        { ko: 'AI 영작',        en: 'AI Writing' },
   'warmup':          { ko: '워밍업',         en: 'Warm-up' },

@@ -46,7 +46,7 @@ export interface ToolSpec {
 /** 도구 8종 + 단어장. ⚠️ url 은 실재하는 화면이어야 한다(하니스가 파일 존재를 대조한다). */
 export const TOOLS: Record<ToolKey, ToolSpec> = {
   warmup:   { key: 'warmup',   url: '/warmup.html',       icon: '🗣️', ko: 'A.i 말하기 연습', en: 'A.i Speaking Practice', minutes: 10 },
-  review:   { key: 'review',   url: '/review-quiz.html',  urlZh: '/review-quiz-cn.html', icon: '🧠', ko: '복습퀴즈', en: 'Review quiz', minutes: 10 },
+  review:   { key: 'review',   url: '/review-quiz.html',  urlZh: '/review-quiz-cn.html', icon: '🧠', ko: 'BTS/SIU 퀴즈', en: 'BTS/SIU quiz', minutes: 10 },
   friend:   { key: 'friend',   url: '/ai-friend.html',    icon: '🤖', ko: 'AI 친구 대화', en: 'Chat with AI friend', minutes: 7 },
   speech:   { key: 'speech',   url: '/speech-coach.html', urlZh: '/speech-coach-cn.html', icon: '🎤', ko: 'AI 음성코치', en: 'AI speech coach', minutes: 7 },
   micro:    { key: 'micro',    url: '/micro-quiz.html',   icon: '⚡', ko: 'AI 단어 퀴즈', en: 'AI word quiz', minutes: 5 },
