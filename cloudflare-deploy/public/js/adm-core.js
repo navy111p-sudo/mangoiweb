@@ -7877,6 +7877,7 @@ function _enDurLabel(v, en) {
   const s = String(v == null ? '' : v);
   if (!s) return '';
   if (s === 'unlimited') return en ? 'Unlimited' : '무기한';
+  if (s === 'once') return en ? 'One session' : '1회';
   const n = parseInt(s, 10);
   if (!n || isNaN(n)) return '';
   return en ? (n + (n === 1 ? ' month' : ' months')) : (n + '개월');
@@ -8825,7 +8826,7 @@ function _addEnrollmentRow(prefill) {
       tr.classList.remove('en-row-multi-active');
       const mtSum = tr.querySelector('.en-row-multi-teacher-summary'); if (mtSum) mtSum.textContent = '';
       _enPrioNote(tr);
-      _enDurNote(tr);
+      _enSyncDurForTypes(tr);
     } else {
       tr.remove();
       _renumberEnrollmentRows();
@@ -8854,6 +8855,8 @@ function _addEnrollmentRow(prefill) {
   // 🗓️ (2026-08-14) ⑥ 기간 — 고른 기간이 언제 끝나는지 시작일과 묶어 한 줄로 보여 준다
   tr.querySelector('.en-row-duration').addEventListener('change', () => _enDurNote(tr));
   tr.querySelector('.en-row-start').addEventListener('change', () => _enDurNote(tr));
+  // 🎯 (2026-09-30 사장님 지시) 체험·레벨테스트만 고르면 기간이 무의미하다(1회로 끝남) → 「1회」로 잠근다
+  tr.querySelectorAll('.en-row-type').forEach(cb => cb.addEventListener('change', () => _enSyncDurForTypes(tr)));
   /* 🗓️ (2026-08-21) 시작일 — 「누르면 달력」 + 자주 쓰는 날짜 버튼.
      ⚠️ 직접 만든 년·월·일 드럼을 뺐다. 팝오버가 표(`overflow:hidden`) 밖으로 못 나가
         «눌리는데 안 보이는» 상태였고(2026-08-21 실측: 팝오버 bottom 16945 > 표 bottom 16783),
@@ -8882,7 +8885,7 @@ function _addEnrollmentRow(prefill) {
       _startInp.dispatchEvent(new Event('change', { bubbles: true }));
     });
   });
-  _enDurNote(tr);
+  _enSyncDurForTypes(tr);
   // 🧑‍🏫 (2026-08-14) ③ 이 «강사 우선» 일 때만 강사 목록을 편다. 목록은 한 번만 받아 캐시한다.
   _enLoadTeachers();
   // 👤 학생 아이디 → 이름 자동 조회. 이름 칸을 없앤 대신, 아이디가 «누구»인지 눈으로 확인시킨다.
@@ -8914,6 +8917,36 @@ function _enPrioNote(tr) {
     : (en ? 'This day·time first' : '적어 준 요일·시간 먼저');
 }
 
+/* 🎯 (2026-09-30 사장님 지시) 레벨 구분이 «체험·레벨테스트뿐»(정규 없음)이면 수업 기간을 「1회」로 잠근다.
+   그 둘은 한 번으로 끝나서 «몇 개월» 을 고르는 것이 무의미했고, 고른 개월 수대로 확정 단계가
+   회차를 매주 만들어 버리는 길이기도 했다(아래 _readEnrollmentRows 가 «총 N회» 를 함께 보낸다).
+   ⚠️ 정규를 다시 체크하면 원래 목록으로 되돌리고 값은 비운다 — 잠금용 'once' 가 남으면 안 된다.
+   ⚠️ 아무것도 안 고른 행은 잠그지 않는다(예전 그대로). */
+function _enIsOnceTypes(tr) {
+  const t = Array.from(tr.querySelectorAll('.en-row-type:checked')).map(c => c.value);
+  return t.length > 0 && t.indexOf('regular') < 0;
+}
+function _enSyncDurForTypes(tr) {
+  const sel = tr.querySelector('.en-row-duration');
+  if (!sel) return;
+  const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
+  if (_enIsOnceTypes(tr)) {
+    if (sel.dataset.enOnce !== '1') {
+      sel.dataset.enFullOpts = sel.innerHTML;
+      sel.dataset.enOnce = '1';
+    }
+    sel.innerHTML = '<option value="once">' + (en ? 'One session' : '1회') + '</option>';
+    sel.value = 'once';
+    sel.disabled = true;
+  } else if (sel.dataset.enOnce === '1') {
+    sel.innerHTML = sel.dataset.enFullOpts || '';
+    sel.value = '';
+    sel.disabled = false;
+    sel.dataset.enOnce = '';
+  }
+  _enDurNote(tr);
+}
+
 /* ⑥ 수업 기간 안내문 — 고른 기간이 시작일 기준으로 «언제 끝나는지» 를 그 자리에서 보여 준다.
    (2026-08-14 피드백 ④) 몇 개월인지만 고르고 끝나는 날을 모르면 결제·연장 안내가 어긋난다. */
 function _enDurNote(tr) {
@@ -8933,6 +8966,7 @@ function _enDurNote(tr) {
   if (!dur) { box.textContent = en ? 'Required' : '필수 선택'; box.style.color = '#b45309'; return; }
   box.style.color = '#9ca3af';
   if (dur === 'unlimited') { box.textContent = en ? 'No end date' : '종료일 없음'; return; }
+  if (dur === 'once') { box.textContent = en ? 'Trial / level test — one session only' : '체험·레벨테스트는 1회로 끝납니다'; return; }
   if (!start) { box.textContent = en ? 'Pick a start date to see the end' : '시작일을 넣으면 종료일이 보입니다'; return; }
   const end = _enAddMonths(start, parseInt(dur, 10));
   box.textContent = end ? ('~ ' + end) : '';
@@ -9673,8 +9707,16 @@ function _readEnrollmentRows() {
        「화면엔 넣었는데 저장이 안 된」 것처럼 보인다). 빈 값이면 안 보낸다 = 예전 그대로. */
     const phoneRaw = (tr.querySelector('.en-row-phone')?.value || '').replace(/[^0-9]/g, '');
     const parentPhone = phoneRaw.length >= 9 ? phoneRaw : '';
-    const endDateFor = (duration, start) => (duration && duration !== 'unlimited' && start) ? _enAddMonths(start, parseInt(duration, 10)) : null;
-    const endedAtFor = (duration, start) => (duration && duration !== 'unlimited' && start)
+    /* 🎯 (2026-09-30) 「1회」(체험·레벨테스트뿐) — 개월 수는 보내지 않고(서버 허용목록에도 없다),
+       종료일은 시작일, 패키지에 «총 N회» 를 붙여 확정 단계(planSessionCount ①)가 회차를 N개만 만들게 한다.
+       ⚠️ «총 N회» 가 없으면 종료일=시작일 이어도 첫 수업 요일이 시작일 뒤면 옛 «주 N회 × 4주» 로 떨어진다. */
+    const isOnce = (duration === 'once');
+    const pkgOut = isOnce
+      ? ((/(\d+)\s*회권|총\s*\d+\s*회/.test(pkg)) ? pkg : ((pkg || typesKo.join('+') || '미정') + ' · 총 ' + Math.max(1, types.length) + '회'))
+      : (pkg || (typesKo.join('+') || '미정'));
+    const durMonthsOut = isOnce ? null : (duration || null);
+    const endDateFor = (duration, start) => (duration === 'once') ? (start || null) : (duration && duration !== 'unlimited' && start) ? _enAddMonths(start, parseInt(duration, 10)) : null;
+    const endedAtFor = (duration, start) => (duration && duration !== 'unlimited' && duration !== 'once' && start)
       ? (new Date(_enAddMonths(start, parseInt(duration, 10))).getTime() || null) : null;
     /* 🔀 (2026-09-15 사장님 지시) 「여러 강사로 나눠 배정」 계획이 있으면 이 행을 «조합 수만큼»
        독립된 레코드로 쪼갠다 — 강사·요일·시간만 조합마다 다르고, 나머지(학생·레벨구분·인원·
@@ -9691,7 +9733,7 @@ function _readEnrollmentRows() {
           student_name: name,
           student_user_id: uid || null,
           parent_phone: parentPhone || null,
-          package: pkg || (typesKo.join('+') || '미정'),
+          package: pkgOut,
           monthly_fee_krw: fee ? parseInt(fee, 10) : null,
           started_at: start ? new Date(start).getTime() : null,
           days_of_week: comboDaysKo.join('') || null,
@@ -9702,7 +9744,7 @@ function _readEnrollmentRows() {
           // 🔀 계획에서 고른 조합은 강사가 이미 정해져 있으므로 「강사 우선」으로 보낸다
           assign_priority: 'teacher',
           teacher_name: combo.teacher || null,
-          duration_months: duration || null,
+          duration_months: durMonthsOut,
           end_date: endDateFor(duration, start),
           ended_at: endedAtFor(duration, start),
           _types: types,
@@ -9724,7 +9766,7 @@ function _readEnrollmentRows() {
       student_name: name,
       student_user_id: uid || null,
       parent_phone: parentPhone || null,
-      package: pkg || (typesKo.join('+') || '미정'), // 패키지 비어있으면 유형으로 자동 채움
+      package: pkgOut, // 패키지 비어있으면 유형으로 자동 채움 (1회면 «총 N회» 를 붙인다)
       monthly_fee_krw: fee ? parseInt(fee, 10) : null,
       started_at: start ? new Date(start).getTime() : null,
       // 🥭 2026-08-08 — DB 컬럼 이름 그대로. 아래 `_` 붙은 것들은 export 용 메타라
@@ -9741,7 +9783,7 @@ function _readEnrollmentRows() {
       // 🧑‍🏫 (2026-08-14) ③ 「강사 우선」에서 고른 «희망» 강사. 서버가 이미 받던 컬럼이라 새 칸이 아니다.
       teacher_name: wantTeacher || null,
       // 🗓️ (2026-08-14) ⑥ 수업 기간. 'unlimited' 면 종료일 없음, 숫자면 시작일 + N개월을 끝으로 잡는다.
-      duration_months: duration || null,
+      duration_months: durMonthsOut,
       end_date: endDateFor(duration, start),
       ended_at: endedAtFor(duration, start),
       // 추가 메타 (자동 export·import 시 사용)
