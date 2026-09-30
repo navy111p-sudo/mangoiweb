@@ -8,6 +8,8 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
+import { writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const SRC = (f) => readFileSync(resolve(__dir, '../cloudflare-deploy/src/' + f), 'utf8');
@@ -17,7 +19,13 @@ let PASS = 0, FAIL = 0;
 const ok = (name, cond, extra) => { if (cond) PASS++; else FAIL++; console.log(`  ${cond ? '✅' : '❌'} ${name}${cond ? '' : (extra ? ' — ' + extra : '')}`); };
 
 let M;
-try { M = await import(pathToFileURL(P).href); } catch (e) { ok('teacher-clash.ts 를 불러온다', false, String(e.message || e)); }
+/* 상대 import(./class-start-date)는 node ESM 이 확장자 없이 못 푼다 — 그 한 줄만 절대경로로 바꾼 사본을 돌린다(로직 불변) */
+const _csd = resolve(tmpdir(), `class-start-date.clash.${process.pid}.ts`);
+const _tc = resolve(tmpdir(), `teacher-clash.clash.${process.pid}.ts`);
+writeFileSync(_csd, SRC('class-start-date.ts'));
+writeFileSync(_tc, readFileSync(P, 'utf8').replace("from './class-start-date'", `from '${pathToFileURL(_csd).href}'`));
+process.on('exit', () => { for (const f of [_csd, _tc]) { try { rmSync(f); } catch {} } });
+try { M = await import(pathToFileURL(_tc).href); } catch (e) { ok('teacher-clash.ts 를 불러온다', false, String(e.message || e)); }
 
 /* 요일 정본(enrollDowList)을 enroll-ops.ts 에서 오려 낸다 — ⛔ 하니스에 다시 적지 않는다 */
 const EO = SRC('enroll-ops.ts');
@@ -35,7 +43,8 @@ if (M) {
   const mg = (o) => ({ id: o.id || 3498, user_id: o.uid || 'yahee', student_name: null,
     teacher_id: o.tid === undefined ? '9' : o.tid, schedule_kind: o.kind || 'recurring',
     day_of_week: o.dow === undefined ? '3' : o.dow, scheduled_date: o.date ?? null,
-    start_time: o.time || '20:00', duration_min: o.dur ?? 20, source: o.source || 'admin_ui', status: o.status || 'active' });
+    start_time: o.time || '20:00', duration_min: o.dur ?? 20, source: o.source || 'admin_ui', status: o.status || 'active',
+    starts_on: o.starts ?? null });
   const run = (a, b) => { try { return M.findTeacherClashes(a, b, dowList); } catch (e) { return { clashes: [], unchecked_no_teacher: -1, err: e }; } };
 
   console.log('\n[ A. 실사고 — Zee 수(9/30) 20:00 ]');
@@ -58,6 +67,11 @@ if (M) {
   ok('퇴사 잔재(no_teacher_left)는 안 잡는다', run([c24({ verdict: 'no_teacher_left' })], [mg({})]).clashes.length === 0);
   ok('날짜 있는 행은 날짜가 이긴다(다른 날이면 안 잡음)', run([c24({})], [mg({ date: '2026-10-07', dow: '3' })]).clashes.length === 0);
   ok('날짜 있는 행 — 같은 날이면 잡는다', run([c24({})], [mg({ date: '2026-09-30', dow: null, kind: 'dated' })]).clashes.length === 1);
+  ok('반복 수업이 «다음 달부터» 면(시작일 전) 안 잡는다', run([c24({})], [mg({ starts: '2026-10-07' })]).clashes.length === 0);
+  ok('짝: 시작일 당일·이후면 잡는다', run([c24({})], [mg({ starts: '2026-09-30' })]).clashes.length === 1
+    && run([c24({ date: '2026-10-07' })], [mg({ starts: '2026-10-07' })]).clashes.length === 1);
+  const acc = run([c24({})], [mg({ tid: 'mangoi_018' })]);
+  ok('망고아이 teacher_id 가 계정명이면 조용히 빼지 않고 «못 봄» 으로 센다', acc.clashes.length === 0 && acc.unchecked_mangoi_teacher === 1);
   const u = run([c24({ tid: null })], [mg({})]);
   ok('강사를 못 이은 LMS 수업은 짐작하지 않고 «못 봄» 으로 센다', u.clashes.length === 0 && u.unchecked_no_teacher === 1);
   ok('같은 학생이면 «이중 등록» 으로 가른다', run([c24({ uid: 'yahee' })], [mg({})]).clashes[0]?.same_student === true);
@@ -66,19 +80,25 @@ if (M) {
   const db = new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, user_id TEXT, student_name TEXT, teacher_id TEXT,
     schedule_kind TEXT, day_of_week TEXT, scheduled_date TEXT, start_time TEXT, duration_min INTEGER, source TEXT, status TEXT)`);
-  const ins = db.prepare('INSERT INTO class_schedules VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+  const ins = db.prepare('INSERT INTO class_schedules (id,user_id,student_name,teacher_id,schedule_kind,day_of_week,scheduled_date,start_time,duration_min,source,status) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
   ins.run(1, 'yahee', null, '9', 'recurring', '3', null, '20:00', 20, 'admin_ui', 'active');
   ins.run(2, 'a', null, '9', 'dated', null, '2026-09-30', '20:00', 20, 'adm-enroll:1', 'active');
   ins.run(3, 'b', null, '9', 'dated', null, '2026-12-30', '20:00', 20, 'adm-enroll:1', 'active');       // 창 밖
   ins.run(4, 'c', null, '9', 'one_off', null, '2026-09-30', '20:00', 20, 'c24-mirror', 'active');       // 미러
   ins.run(5, 'd', null, '9', 'dated', null, '2026-09-30', '20:00', 20, 'adm-enroll:1', 'cancelled');   // 취소
   ins.run(6, 'lms', null, '9', 'recurring', '3', null, '20:00', 20, 'lms_import_w26', 'active');       // 자리표시
-  const env = { DB: { prepare: (sql) => ({ bind: (...a) => ({ all: async () => ({ results: db.prepare(sql).all(...a) }) }) }) } };
+  const env = { DB: {
+    exec: async (sql) => db.exec(sql),
+    prepare: (sql) => ({ all: async () => ({ results: db.prepare(sql).all() }),
+                         bind: (...a) => ({ all: async () => ({ results: db.prepare(sql).all(...a) }) }) }) } };
   let got = [];
   try { got = (await M.loadMangoiForClash(env, '2026-09-30', '2026-10-14')).map(r => r.id).sort(); } catch (e) { ok('조회가 돈다', false, String(e.message)); }
   ok('반복 수업(날짜 없음)을 읽는다 — 미러 loadExisting 이 빠뜨리던 것', got.includes(1));
   ok('창 안의 날짜 수업을 읽는다', got.includes(2));
   ok('창 밖·미러·취소·자리표시는 안 읽는다', JSON.stringify(got) === '[1,2]', JSON.stringify(got));
+  let so = null;
+  try { so = (await M.loadMangoiForClash(env, '2026-09-30', '2026-10-14')).find(r => r.id === 1); } catch {}
+  ok('시작일(starts_on) 칸을 함께 읽는다', !!so && Object.prototype.hasOwnProperty.call(so, 'starts_on'));
 
   console.log('\n[ D. 배선 — 성적표가 전원을 대조해 싣는다 ]');
   const MIR = SRC('c24-mirror.ts');

@@ -731,7 +731,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        ⚠️ 본사 전용 — 그 API 는 지사·대리점에 안 열려 있다. IS_HQ 일 때만 hidden 을 푼다. -->
   <details class="card" id="c-clash" ontoggle="if(this.open)loadClash()" hidden>
     <summary><span data-en="LMS ↔ Mangoi teacher conflicts" data-ko="LMS ↔ 망고아이 강사 겹침">LMS ↔ Mangoi teacher conflicts</span></summary>
-    <div id="clashBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    <div id="clashBody" class="empty"><span data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</span></div><!-- ⚠️ data-en 은 안쪽 span 에만 — 그릇에 달면 🌐 가 불러오는 중·오류 문구를 지웁니다 -->
   </details>
 
   <div class="grouphead" data-en="Settlement &amp; stats" data-ko="정산통계관리">Settlement &amp; stats</div>
@@ -1318,9 +1318,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       return;
     }
     var win = esc(j.since) + ' ~ ' + esc(j.until);
-    var unc = Number(j.clash_unchecked_no_teacher) || 0;
-    var uncLine = unc ? '<div class="muted" style="margin-top:6px">' + esc(T(unc + ' LMS class(es) could not be checked (teacher not linked).',
-                         '강사를 못 이은 LMS 수업 ' + unc + '건은 대조하지 못했습니다.')) + '</div>' : '';
+    var unc = Number(j.clash_unchecked_no_teacher) || 0, uncM = Number(j.clash_unchecked_mangoi_teacher) || 0;
+    var uncLine = (unc ? '<div class="muted" style="margin-top:6px">' + esc(T(unc + ' LMS class(es) could not be checked (teacher not linked).',
+                         '강사를 못 이은 LMS 수업 ' + unc + '건은 대조하지 못했습니다.')) + '</div>' : '')
+                + (uncM ? '<div class="muted" style="margin-top:6px">' + esc(T(uncM + ' Mangoi class(es) could not be checked (teacher saved as an account name).',
+                         '강사가 계정명으로 저장된 망고아이 수업 ' + uncM + '건은 대조하지 못했습니다.')) + '</div>' : '');
     if (!list.length) {
       el.className = '';
       el.innerHTML = '<div class="muted">' + esc(T('No conflicts in ', '겹침 없음 · ')) + win + '</div>' + uncLine;

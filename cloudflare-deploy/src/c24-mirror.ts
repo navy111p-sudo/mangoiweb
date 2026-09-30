@@ -737,6 +737,8 @@ export async function c24MirrorReport(
      null = 망고아이 쪽을 못 읽었다(«0건=깨끗» 과 구분한다). 강사를 켰든 안 켰든 «전원» 을 본다. */
   clashes: TeacherClash[] | null;
   clash_unchecked_no_teacher: number;
+  /** 망고아이 쪽 teacher_id 가 원부 번호가 아니라 대조 못 한 행 수 */
+  clash_unchecked_mangoi_teacher: number;
 }> {
   await ensureMirrorTables(env);
   const kstToday = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
@@ -761,10 +763,11 @@ export async function c24MirrorReport(
   /* ⚔️ 강사 겹침 — 실패해도 성적표는 그대로 낸다(대신 clashes=null 로 «못 봤다» 고 말한다). */
   let clashes: TeacherClash[] | null = null;
   let clashUnchecked = 0;
+  let clashUncheckedMg = 0;
   try {
     const mg = await loadMangoiForClash(env, since, until);
     const r = findTeacherClashes(rows, mg, enrollDowList);
-    clashes = r.clashes; clashUnchecked = r.unchecked_no_teacher;
+    clashes = r.clashes; clashUnchecked = r.unchecked_no_teacher; clashUncheckedMg = r.unchecked_mangoi_teacher;
   } catch (e) { console.warn('[c24-mirror] teacher clash check failed', e); }
 
   const byDate = new Map<string, { date: string; total: number; ok: number; blocked: number }>();
@@ -794,6 +797,7 @@ export async function c24MirrorReport(
     blocked_teachers: Array.from(blocked).sort(),
     clashes,
     clash_unchecked_no_teacher: clashUnchecked,
+    clash_unchecked_mangoi_teacher: clashUncheckedMg,
   };
 }
 

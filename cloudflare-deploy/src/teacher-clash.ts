@@ -19,6 +19,7 @@
  * ⚠️ 강사 대조는 «원부 번호(teachers.id)» 로만 한다 — 카페24 번호는 미러의 links 가 이미
  *    원부 번호로 풀어 준 값(teacher_id)만 쓴다. 이름·카페24 번호로 잇지 않는다(남의 강사가 붙는다).
  */
+import { recurStartedOn, ensureStartsOnColumn, startsOnSel } from './class-start-date';   // 🗓 반복 수업 «시작일» 정본
 
 /** 카페24 수업 한 건 — c24-mirror 의 PlanRow 에서 필요한 칸만 */
 export interface ClashC24Row {
@@ -46,6 +47,8 @@ export interface ClashMangoiRow {
   duration_min: number | null;
   source: string | null;
   status: string | null;
+  /** 반복 수업의 시작일(2026-09-24~). 없으면 «예전처럼» 제한 없음 */
+  starts_on?: string | null;
 }
 
 export interface TeacherClash {
@@ -72,6 +75,8 @@ function toMin(hm: any): number | null {
 export function mangoiRowOnDate(r: ClashMangoiRow, date: string, dowList: (raw: any) => number[]): boolean {
   const sd = String(r.scheduled_date ?? '').slice(0, 10);
   if (sd) return sd === date;
+  /* ⚠️ «다음 달부터» 로 등록한 반복 수업이 지금 날짜에 거짓 겹침으로 뜨지 않게 — 정본 recurStartedOn(모르면 true) */
+  if (!recurStartedOn(r, date)) return false;
   if (r.day_of_week == null || String(r.day_of_week).trim() === '') return false;
   const dow = new Date(date + 'T00:00:00Z').getUTCDay();
   return dowList(r.day_of_week).includes(dow);
@@ -85,10 +90,11 @@ export function findTeacherClashes(
   c24: ClashC24Row[],
   mangoi: ClashMangoiRow[],
   dowList: (raw: any) => number[],
-): { clashes: TeacherClash[]; unchecked_no_teacher: number } {
+): { clashes: TeacherClash[]; unchecked_no_teacher: number; unchecked_mangoi_teacher: number } {
   const out: TeacherClash[] = [];
   const seen = new Set<string>();
   let unchecked = 0;
+  let uncheckedMg = 0;
 
   // 강사별로 미리 묶는다 (카페24 수백 건 × 망고아이 수백 건)
   const byTeacher = new Map<string, ClashMangoiRow[]>();
@@ -98,6 +104,9 @@ export function findTeacherClashes(
     if (['lms', 'type_seed'].includes(String(m.user_id || '').toLowerCase())) continue;   // 옛 자리표시
     const tid = m.teacher_id == null ? '' : String(m.teacher_id).trim();
     if (!tid) continue;
+    /* ⚠️ 원부 번호가 아닌 값(계정명 mangoi_0XX 등)은 카페24 쪽과 원리상 안 맞는다 —
+       조용히 빠지면 «0건=깨끗» 으로 읽히므로 따로 센다(2026-09-30 실측 0건). */
+    if (!/^\d+$/.test(tid)) { uncheckedMg++; continue; }
     const arr = byTeacher.get(tid) || [];
     arr.push(m);
     byTeacher.set(tid, arr);
@@ -136,14 +145,15 @@ export function findTeacherClashes(
     }
   }
   out.sort((a, b) => (a.date + a.lms.start_time + a.teacher_id).localeCompare(b.date + b.lms.start_time + b.teacher_id));
-  return { clashes: out, unchecked_no_teacher: unchecked };
+  return { clashes: out, unchecked_no_teacher: unchecked, unchecked_mangoi_teacher: uncheckedMg };
 }
 
 /** 망고아이 쪽 후보 — 창 안의 날짜 수업 + 날짜 없는 반복 수업. ⚠️ 실패하면 던진다(«0건=깨끗» 으로 위장하지 않기) */
 export async function loadMangoiForClash(env: { DB: any }, since: string, until: string): Promise<ClashMangoiRow[]> {
+  const has = await ensureStartsOnColumn(env);
   const rs: any = await env.DB.prepare(
     `SELECT id, user_id, student_name, teacher_id, schedule_kind, day_of_week, scheduled_date,
-            start_time, duration_min, source, status
+            start_time, duration_min, source, status${startsOnSel(has)}
        FROM class_schedules
       WHERE status != 'cancelled'
         AND COALESCE(source, '') NOT LIKE 'c24-mirror%'

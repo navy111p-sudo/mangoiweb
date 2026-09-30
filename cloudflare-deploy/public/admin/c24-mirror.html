@@ -253,7 +253,8 @@ tbody tr.ghost-row td{ background:var(--warn-bg); }
       return;
     }
     $('clash-count').textContent = '(' + list.length + '건)';
-    var extra = r.clash_unchecked_no_teacher ? ' · 강사를 못 이은 LMS 수업 ' + r.clash_unchecked_no_teacher + '건은 대조하지 못했습니다' : '';
+    var extra = (r.clash_unchecked_no_teacher ? ' · 강사를 못 이은 LMS 수업 ' + r.clash_unchecked_no_teacher + '건은 대조하지 못했습니다' : '')
+              + (r.clash_unchecked_mangoi_teacher ? ' · 강사가 계정명으로 저장된 망고아이 수업 ' + r.clash_unchecked_mangoi_teacher + '건은 대조하지 못했습니다' : '');
     if (!list.length) {
       tb.innerHTML = '<tr><td colspan="5" class="small">이 창에서 겹치는 자리가 없습니다' + escapeHtml(extra) + '</td></tr>';
       return;
