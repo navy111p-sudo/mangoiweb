@@ -5129,7 +5129,7 @@ ${numbered}`;
               화면에 보내는 것은 다르다. */
         const { participant_ids: _pidForResolverOnly, ...row } = _raw;
         const students = _recStudents[_si] || [];
-        const teacher  = _recTeachers[_si] || { uid: '', name: '', source: 'none' };
+        const teacher  = _recTeachers[_si] || { uid: '', name: '', source: 'none', workplace: '' };
         // /api/recording/play 와 **같은** 판정 — 여기서 통과 못 하면 그 엔드포인트도 404 다.
         let key = String(row.file_url || '');
         if (!key && row.filename) {
