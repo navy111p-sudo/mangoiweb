@@ -62,6 +62,7 @@ import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu
 import { recordingDupGate, REC_DUP_LIVE_WINDOW_MS } from './recording-dup-guard';  // 🎥 같은 방 «동시 녹화» 방지 정본 (실패하면 «찍는 쪽» 으로)
 import { ensureStartsOnColumn, startsOnSel, recurStartedOn, normStartsOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { applyRoomOverrides } from './class-room-override';       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
+import { studentRequestGate, ensureScheduleChangeRequestTable } from './student-schedule-request';  // 📅 학생 연기·변경 요청 판정 정본
 import { loadSchedSummaryMap, loadSchedSummaryOne, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약 수업」 칸 정본 (students_erp 의 수강 칸은 카페24가 정본이라 늘 «—» 였다)       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
@@ -2356,6 +2357,83 @@ export async function handleMangoApi(
         .sort((a: any, b: any) => (a.next_start_ts == null ? Infinity : a.next_start_ts) - (b.next_start_ts == null ? Infinity : b.next_start_ts));
 
       return json({ ok: true, matched_by: msMatchedBy, schedules });
+    }
+
+    /* 📅 (2026-09-30) POST /api/class/schedule/request — 학생이 직접 내는 연기·변경 요청.
+       [왜] 학생 화면이 관리자 전용 /api/admin/schedule-requests 로 보내 늘 401 이었다.
+       판정 정본은 src/student-schedule-request.ts 의 studentRequestGate — 여기선 «부르기만» 한다.
+       ⛔ 본문의 uid·학생 이름·원래 일시를 믿지 않는다 — 토큰과 class_schedules 가 정본.
+       ⛔ 여기서 수업을 옮기지 않는다 — 접수만. 승인은 관리자 /decide 가 한다. */
+    if (method === 'POST' && path === '/api/class/schedule/request') {
+      const body: any = await request.json().catch(() => ({}));
+      let tokUid: string | null = null;
+      try { tokUid = await authUidGlobal(request, url, env, body); } catch { tokUid = null; }
+      if (!tokUid) return json({ ok: false, error: 'login_required' }, 401);
+      await ensureScheduleChangeRequestTable(env);
+      const scheduleId = parseInt(body.schedule_id, 10) || null;
+      const cs: any = scheduleId
+        ? await env.DB.prepare(`SELECT cs.id, cs.user_id, cs.student_name, cs.scheduled_date, cs.start_time, cs.status, t.name AS teacher_name
+                                  FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
+                                 WHERE cs.id = ? LIMIT 1`).bind(scheduleId).first().catch(() => null)
+        : null;
+      const reqType = String(body.request_type || 'postpone');
+      const s10 = (v: any) => { const x = String(v || '').trim(); return x ? x : null; };
+      const newDate = s10(body.new_date) ? String(body.new_date).trim().replace(/\//g, '-').slice(0, 10) : null;
+      const newTime = s10(body.new_time) ? String(body.new_time).trim().slice(0, 5) : null;
+      const bodyOrigDate = s10(body.orig_date) ? String(body.orig_date).trim().replace(/\//g, '-').slice(0, 10) : null;
+      const nowMs = Date.now();
+      const todayKst = new Date(nowMs + 9 * 3600 * 1000).toISOString().slice(0, 10);
+      let recent: number | null = null;
+      try {
+        const rc: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM schedule_change_requests WHERE requester_uid = ? AND requester_role = 'student' AND created_at > ?`)
+          .bind(tokUid, nowMs - 86400000).first();
+        recent = rc && rc.n != null ? Number(rc.n) : null;
+      } catch { recent = null; }
+      const gate = studentRequestGate({
+        tokUid, schedule: cs, requestType: reqType, origDate: bodyOrigDate,
+        newDate, newTime, todayKst, recentCount: recent,
+      });
+      if (!gate.ok) return json({ ok: false, error: gate.error }, gate.status);
+
+      const origDate = cs.scheduled_date ? String(cs.scheduled_date).replace(/\//g, '-').slice(0, 10) : bodyOrigDate;
+      const origTime = String(cs.start_time || '').slice(0, 5) || null;
+      const schedTeacher = String(cs.teacher_name || '').trim() || '강사';
+      /* «교사로 연기» 에서 고른 강사 — 원부 이름과 정확히(대소문자 무시) 같을 때만 담당 강사로 적고,
+         아니면 «희망 강사» 로 사유에만 남긴다(모르는 이름을 담당 강사로 지어내지 않는다). */
+      let teacherName = schedTeacher;
+      let wishNote = '';
+      const wish = String(body.teacher_name || '').trim().slice(0, 60);
+      if (wish && wish !== schedTeacher) {
+        const hit: any = await env.DB.prepare(`SELECT name FROM teachers WHERE name = ? COLLATE NOCASE AND COALESCE(active,1) = 1 LIMIT 2`)
+          .bind(wish).all().catch(() => null);
+        const rows = (hit && hit.results) || [];
+        if (rows.length === 1) teacherName = String(rows[0].name);
+        else wishNote = `희망 강사: ${wish}`;
+      }
+      let minutesBefore: number | null = null;
+      let feeType: string | null = null;
+      if (reqType !== 'change' && origDate && origTime) {
+        const startKst = Date.parse(`${origDate}T${origTime}:00+09:00`);
+        if (!isNaN(startKst)) { minutesBefore = Math.round((startKst - nowMs) / 60000); feeType = minutesBefore > 30 ? 'free' : 'paid'; }
+      }
+      const studentName = String(cs.student_name || '').trim() || tokUid;
+      const reason = [String(body.reason || '').trim().slice(0, 300), wishNote].filter(Boolean).join(' · ') || null;
+      const ins: any = await env.DB.prepare(
+        `INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_name, requester_uid, teacher_name, student_name, orig_date, orig_time, new_date, new_time, fee_type, minutes_before, reason, status, created_at)
+         VALUES (?,?,'student',?,?,?,?,?,?,?,?,?,?,?,'pending',?)`
+      ).bind(cs.id, reqType, studentName, tokUid, teacherName, studentName, origDate, origTime, newDate, newTime, feeType, minutesBefore, reason, nowMs).run();
+      try {
+        const typeKo = reqType === 'change' ? '변경' : '연기';
+        const feeKo = feeType === 'paid' ? '💰유료' : feeType === 'free' ? '🆓무료' : '';
+        await enqueueNotification(env, {
+          type: 'schedule_request',
+          title: `📅 수업 ${typeKo} 요청 ${feeKo}`.trim(),
+          body: `${studentName} 님(학생 직접) · 강사 ${teacherName} · 원수업 ${origDate || ''} ${origTime || ''}${newDate ? ` → ${newDate} ${newTime || ''}` : ''}. 관리자 페이지에서 승인/거절하세요.`,
+          meta: { request_id: ins?.meta?.last_row_id || null, request_type: reqType, requester_role: 'student', fee_type: feeType, minutes_before: minutesBefore, student_name: studentName, teacher_name: teacherName },
+          channel: 'kakao_memo',
+        });
+      } catch (e: any) { console.warn('[class/schedule/request] notify skipped:', e?.message || e); }
+      return json({ ok: true, id: ins?.meta?.last_row_id || null, status: 'pending', fee_type: feeType, minutes_before: minutesBefore });
     }
 
     /* ═══ 📡 /api/class/sfu/* — Realtime SFU 자격증명 경계 (2026-09-02, C안 1단계) ═══

@@ -51,12 +51,14 @@ async function run(label, { user, mine, reqStatus }) {
   await ctx.route('**/api/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"items":[]}' }));
   await ctx.route('**/api/admin/class-schedules**', r => { seen.admin++; r.fulfill({ status: 401, contentType: 'application/json', body: '{"error":"unauthorized"}' }); });
   await ctx.route('**/api/class/schedule/mine**', r => { seen.mine++; r.fulfill({ status: mine.status, contentType: 'application/json', body: JSON.stringify(mine.body) }); });
-  await ctx.route('**/api/admin/schedule-requests', r => {
+  await ctx.route('**/api/admin/schedule-requests', r => { seen.oldPosts = (seen.oldPosts || 0) + 1; r.fulfill({ status: 401, contentType: 'application/json', body: '{"error":"unauthorized"}' }); });
+  await ctx.route('**/api/class/schedule/request', r => {
     seen.posts++;
-    r.fulfill({ status: reqStatus, contentType: 'application/json', body: reqStatus === 200 ? '{"ok":true,"id":1}' : '{"error":"unauthorized"}' });
+    seen.auth = r.request().headers()['authorization'] || '';
+    r.fulfill({ status: reqStatus, contentType: 'application/json', body: reqStatus === 200 ? '{"ok":true,"id":1}' : '{"ok":false,"error":"login_required"}' });
   });
   await ctx.addInitScript(u => {
-    try { localStorage.clear(); if (u) localStorage.setItem('mangoi_logged_user', JSON.stringify(u)); } catch (e) {}
+    try { localStorage.clear(); if (u) { localStorage.setItem('mangoi_logged_user', JSON.stringify(u)); localStorage.setItem('mango_token', 'tok-' + (u.uid || u.user_id)); } } catch (e) {}
   }, user);
   const page = await ctx.newPage();
   const errs = []; page.on('pageerror', e => errs.push(e.message));
@@ -88,7 +90,10 @@ async function run(label, { user, mine, reqStatus }) {
   await page.evaluate(() => { state.mode = 'postpone'; state.cart = CURRENT_SCHEDULE.map(c => Object.assign({}, c)); state.weeklyTarget = CURRENT_SCHEDULE.length; onConfirm(); });
   await page.waitForFunction(() => document.getElementById('screen-done').classList.contains('active'), null, { timeout: 5000 }).catch(() => {});
   const t = await page.evaluate(() => [document.getElementById('done-title').textContent, document.getElementById('done-sub').textContent]);
-  ok('서버로 요청을 5건 보냈다', seen.posts === 5, seen.posts);
+  ok('학생 경로로 요청을 5건 보냈다', seen.posts === 5, seen.posts);
+  ok('옛 관리자 경로로는 안 보낸다', !seen.oldPosts, seen.oldPosts);
+  ok('학생 토큰(Bearer)을 싣는다', seen.auth === 'Bearer tok-jeong', seen.auth);
+  ok('로그인 만료라고 말한다', /다시 로그인/.test(t[1]), t[1]);
   ok('401 이면 «저장되지 않았어요»', /저장되지 않았어요/.test(t[0]) && !/완료/.test(t[0]), t[0]);
   ok('0/5 를 말한다', /0\/5/.test(t[1]), t[1]);
   await browser.close();

@@ -35,6 +35,7 @@ import { probeImage, ocrGate } from './textbook-ocr';
 import { textbookPurgeGate } from './textbook-purge-gate';   // 🗑️ 교재 묶음 영구삭제 허용 판정 정본(라우트는 부르기만 한다)   // 🔬 교재 이미지에서 영어 본문을 뽑을 수 있는가 (시험 · 판정 정본)
 import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase, OPEN_BEFORE_MS } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
+import { ensureScheduleChangeRequestTable } from './student-schedule-request';
 import { enqueueNotification, sendPushToUser } from './api-notify';
 import { scopeFragments, studentScopeWhere, getScope, franchiseList, scopeStudentCond, scopeFranchiseCond, scopeCenterCond, canEditOrg } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(학부모봇과 공유)
@@ -2931,14 +2932,8 @@ export async function handleAdminApi(
     //   요청 row 자체가 변경 이력(기존 일시 → 새 일시, 누가, 언제)을 보존한다.
     // ═══════════════════════════════════════════════════════════════
 
-    const ensureScheduleRequestTable = async () => {
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS schedule_change_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, schedule_id INTEGER, request_type TEXT DEFAULT 'postpone', requester_role TEXT DEFAULT 'teacher', requester_name TEXT, requester_uid TEXT, teacher_name TEXT, student_name TEXT, orig_date TEXT, orig_time TEXT, new_date TEXT, new_time TEXT, fee_type TEXT, minutes_before INTEGER, reason TEXT, status TEXT DEFAULT 'pending', decided_by TEXT, decided_at INTEGER, decide_memo TEXT, created_at INTEGER NOT NULL)`);
-      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_scr_status ON schedule_change_requests(status, created_at)`); } catch {}
-      // 🆕 유료/무료 태깅(2026-07-14) — 기존 배포 DB 호환 컬럼 추가(멱등, 이미 있으면 무시)
-      for (const col of ["fee_type TEXT", "minutes_before INTEGER", "requester_uid TEXT"]) {
-        try { await env.DB.exec(`ALTER TABLE schedule_change_requests ADD COLUMN ${col}`); } catch {}
-      }
-    };
+    /* 표 정의 정본은 src/student-schedule-request.ts 한 곳(학생 경로도 같은 표를 쓴다). */
+    const ensureScheduleRequestTable = () => ensureScheduleChangeRequestTable(env);
 
     // ── POST /api/admin/schedule-requests — 연기/변경 요청 제출 (강사 마이페이지) ──
     //   body: { schedule_id?, request_type:'postpone'|'change', requester_name, teacher_name,
