@@ -86,6 +86,43 @@
   /* ── 차트 ── */
   .chart-wrap{background:var(--panel2);border:1px solid var(--bd);border-radius:8px;padding:14px;margin-bottom:14px}
   .chart-wrap h3{margin:0 0 10px;font-size:13px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+  /* 📅 출석 캘린더 (2026-09-30) — PC 월별 달력 / 휴대폰 5주 ✓ + 집중도. 밝은 테마라 처음부터 밝은 값(CLAUDE.md 2장). */
+  .ac-range{font-size:12px;color:#475467;margin:-4px 0 12px}
+  .ac-mob{display:none}
+  @media (max-width:720px){ .ac-pc{display:none} .ac-mob{display:block} }
+  .ac-months{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px}
+  .ac-mtitle{font-size:13px;font-weight:700;color:#101828;margin-bottom:6px}
+  .ac-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+  .ac-dow{font-size:11px;color:#475467;text-align:center;padding-bottom:2px}
+  .ac-dow.we{color:#b42318}
+  .ac-day{position:relative;aspect-ratio:1;max-width:100%;border-radius:6px;border:1px solid transparent;padding:2px 4px;font-size:11px;line-height:1.2;font-variant-numeric:tabular-nums;box-sizing:border-box}
+  .ac-day em{position:absolute;right:3px;bottom:2px;font-style:normal;font-size:10px;font-weight:700}
+  .ac-day.ac-blank{background:transparent}
+  .ac-day.ac-out{background:transparent;color:#c0c6d0}
+  .ac-good{background:#c9f2de;color:#065f46}
+  .ac-mid{background:#fde9b8;color:#7a4a04}
+  .ac-low{background:#fdd3d3;color:#8f1d1d}
+  .ac-noscore{background:#d6e4fb;color:#1e3a8a}
+  .ac-none{background:#f2f4f7;color:#667085;border-color:#e4e7ec}
+  .ac-today{outline:2px solid #101828;outline-offset:-2px}
+  .ac-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11.5px;color:#475467;margin-top:12px;align-items:center}
+  .ac-legend b{color:#101828;font-weight:600}
+  .ac-sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px;border:1px solid transparent;box-sizing:border-box}
+  .ac-sub{font-size:12px;font-weight:600;color:#101828;margin-bottom:6px}
+  .ac-weeks{display:grid;gap:5px}
+  .ac-wrow{display:grid;grid-template-columns:64px repeat(7,minmax(0,1fr));gap:4px;align-items:center}
+  .ac-wlab{font-size:10.5px;color:#475467;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .ac-wc{height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;box-sizing:border-box}
+  .ac-won{background:#0f7a55;color:#fff;font-weight:700;border:1px solid #0f7a55}
+  .ac-wgap{background:#ffffff;color:#667085;border:1px dashed #b8c0cc}
+  .ac-wout{background:transparent}
+  .ac-mob svg{display:block;width:100%;height:auto}
+  .ac-gl{stroke:#d0d5dd;stroke-dasharray:4 4}
+  .ac-tx{font-size:12px;fill:#667085}
+  .ac-line{fill:none;stroke:#3d7be0;stroke-width:2}
+  .ac-pt.ac-good{fill:#0f9f6e}.ac-pt.ac-mid{fill:#e0960b}.ac-pt.ac-low{fill:#dc3b3b}
+  .ac-sw.ac-none{border-color:#c0c6d0}.ac-sw.ac-wgap{border:1px dashed #b8c0cc}
+  .ac-nochart{font-size:12px;color:#667085;padding:12px 0}
   /* 🩹 Chart.js 무한 확대 방지 — canvas 부모에 명시적 높이 + position:relative 필수.
      responsive:true + maintainAspectRatio:false 사용 시 부모 박스 크기를 매 프레임 측정하기 때문에
      높이가 고정 안 되면 자기 자신을 다시 키우는 피드백 루프가 돈다. */
@@ -485,7 +522,7 @@
       <div class="panel" data-panel="attend">
         <div class="kpi-grid" id="attendKpis"></div>
         <div class="chart-wrap">
-          <h3 data-ko="📅 월별 출석 캘린더 (최근 90일)" data-en="📅 Monthly Attendance Calendar (90d)">📅 월별 출석 캘린더 (최근 90일)</h3>
+          <h3 data-ko="📅 출석 캘린더" data-en="📅 Attendance Calendar">📅 출석 캘린더</h3>
           <div id="attendCalendar" style="font-size:13px"></div>
         </div>
         <div class="chart-wrap">
@@ -2133,38 +2170,100 @@ function renderAttendance(){
     <div class="kpi yellow"><div class="lab">${_lang==='en'?'Period':'기간'}</div><div class="val" style="font-size:18px">${_state.days}${_lang==='en'?'d':'일'}</div></div>
   `;
 
-  // 90일 캘린더 (일자별 그리드, 7열)
-  const days = 90;
-  const todayKst = new Date();
-  const cells = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(todayKst.getTime() - i * 86400000);
-    const ds = d.toISOString().slice(0,10);
-    const data = dateMap.get(ds);
-    const c = !data ? '#1e293b'
-      : data.gazeN === 0 ? '#3b82f6'   // 출석은 했지만 시선 점수 없음 (파랑)
-      : (data.gaze/data.gazeN) >= 70 ? '#10b981'
-      : (data.gaze/data.gazeN) >= 40 ? '#f59e0b'
-      : '#ef4444';
-    const tip = `${ds}: ${data ? (data.count + (_lang==='en'?' classes, focus ':'회 수업, 집중 ') + (data.gazeN ? Math.round(data.gaze/data.gazeN) : '—')) : (_lang==='en'?'absent':'결석')}`;
-    cells.push(`<div title="${tip}" style="aspect-ratio:1;background:${c};border-radius:3px"></div>`);
+  /* 📅 출석 캘린더 — 2026-09-30 사장님 결정: PC = 월별 달력, 휴대폰 = 최근 5주 ✓ + 집중도 그래프.
+     두 모양을 모두 그리고 CSS(@media max-width:720px)로 하나만 보입니다(resize 리스너·상주 타이머 없음).
+     ⛔ 그리는 날 수는 «받아 온 기간»(_state.days)과 같아야 합니다 — 예전엔 90칸을 그리는데 데이터는
+        30일치라 앞 60칸이 늘 «기록 없음» 이었습니다(화면 위쪽 큰 빈 공간).
+     ⛔ 색 = 그날 «집중도», ✓ = «출석». 한 칸에 두 뜻을 섞어 «빨강=결석» 으로 읽히게 하지 마세요.
+     날짜는 KST 기준(attendance.date 가 KST 날짜). */
+  const DAY = 86400000;
+  const nowK = Date.now() + 9*3600000;
+  const todayMs = nowK - (nowK % DAY);              // KST 오늘 00:00 (UTC 좌표로 표기)
+  const isoOf = ms => new Date(ms).toISOString().slice(0,10);
+  const todayIso = isoOf(todayMs);
+  const span = Math.max(1, _state.days || 30);
+  const firstMs = todayMs - (span-1)*DAY;
+  const en = _lang === 'en';
+  const WDM = en ? ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] : ['월','화','수','목','금','토','일'];
+  const mon0 = ms => (new Date(ms).getUTCDay() + 6) % 7;
+  const md = ms => { const d = new Date(ms); return (d.getUTCMonth()+1)+'/'+d.getUTCDate(); };
+  const focusOf = d => d && d.gazeN ? Math.round(d.gaze/d.gazeN) : null;
+  const band = d => !d ? 'none' : d.gazeN === 0 ? 'noscore' : focusOf(d) >= 70 ? 'good' : focusOf(d) >= 40 ? 'mid' : 'low';
+  const tipOf = (ds, d) => ds + ' · ' + (d ? d.count + (en?' class(es), focus ':'회 수업, 집중도 ') + (focusOf(d) == null ? '—' : focusOf(d)) : (en?'no class record':'수업 기록 없음'));
+  const dowHead = WDM.map((w,i)=>`<div class="ac-dow${i>=5?' we':''}">${w}</div>`).join('');
+
+  // ── PC: 월별 달력 ──
+  let pcHtml = '';
+  { let y = new Date(firstMs).getUTCFullYear(), m = new Date(firstMs).getUTCMonth();
+    const ty = new Date(todayMs).getUTCFullYear(), tm = new Date(todayMs).getUTCMonth();
+    while (y < ty || (y === ty && m <= tm)) {
+      const mStart = Date.UTC(y, m, 1), len = new Date(Date.UTC(y, m+1, 0)).getUTCDate();
+      let cells = dowHead;
+      for (let k=0; k<mon0(mStart); k++) cells += '<div class="ac-day ac-blank"></div>';
+      for (let dd=1; dd<=len; dd++) {
+        const ms = Date.UTC(y, m, dd), ds = isoOf(ms);
+        if (ms < firstMs || ms > todayMs) { cells += `<div class="ac-day ac-out" title="${ds} · ${en?'outside period':'조회 기간 밖'}"><span>${dd}</span></div>`; continue; }
+        const d = dateMap.get(ds);
+        cells += `<div class="ac-day ac-${band(d)}${ds===todayIso?' ac-today':''}" title="${tipOf(ds,d)}"><span>${dd}</span>${d?`<em>${d.count}${en?'':'회'}</em>`:''}</div>`;
+      }
+      pcHtml += `<div class="ac-month"><div class="ac-mtitle">${en ? y+'-'+String(m+1).padStart(2,'0') : y+'년 '+(m+1)+'월'}</div><div class="ac-grid">${cells}</div></div>`;
+      m++; if (m > 11) { m = 0; y++; }
+    }
   }
+  const sw = (b, t) => `<span><i class="ac-sw ac-${b}"></i>${t}</span>`;
+  const pcLegend = `<div class="ac-legend"><b>${en?'Cell color = focus that day':'칸 색 = 그날 집중도'}</b>`+
+    sw('good', en?'Good 70+':'좋음 70+') + sw('mid', en?'OK 40–69':'보통 40~69') + sw('low', en?'Low under 40':'낮음 40 미만') +
+    sw('noscore', en?'Attended (no score)':'출석 (점수 없음)') + sw('none', en?'No class record':'수업 기록 없음') +
+    `<span>${en?'«3» in a cell = 3 classes that day':'칸 안 «3회» = 그날 수업 수'}</span></div>`;
+
+  // ── 휴대폰: 최근 5주 ✓ + 집중도 그래프 ──
+  const mStartMs = Math.max(firstMs, todayMs - 34*DAY);
+  const mDays = Math.round((todayMs - mStartMs)/DAY) + 1;
+  let wk = `<div class="ac-wrow">${'<div></div>'+dowHead}</div>`;
+  for (let ws = mStartMs - mon0(mStartMs)*DAY; ws <= todayMs; ws += 7*DAY) {
+    let row = `<div class="ac-wlab">${md(ws)}~${md(ws+6*DAY)}</div>`;
+    for (let k=0; k<7; k++) {
+      const ms = ws + k*DAY, ds = isoOf(ms);
+      if (ms < mStartMs || ms > todayMs) { row += '<div class="ac-wc ac-wout"></div>'; continue; }
+      const d = dateMap.get(ds);
+      row += d ? `<div class="ac-wc ac-won${ds===todayIso?' ac-today':''}" title="${tipOf(ds,d)}">✓</div>`
+               : `<div class="ac-wc ac-wgap${ds===todayIso?' ac-today':''}" title="${tipOf(ds,d)}">${new Date(ms).getUTCDate()}</div>`;
+    }
+    wk += `<div class="ac-wrow">${row}</div>`;
+  }
+  const pts = [];
+  for (let ms = mStartMs; ms <= todayMs; ms += DAY) {
+    const d = dateMap.get(isoOf(ms)), f = focusOf(d);
+    if (f != null) pts.push({ ms, ds: isoOf(ms), f, b: band(d) });
+  }
+  let chart;
+  if (!pts.length) chart = `<div class="ac-nochart">${en?'No focus scores in this range.':'이 기간에는 집중도 점수가 없습니다.'}</div>`;
+  else {
+    const W=360, H=150, L=28, R=8, T=10, B=22;
+    const xs = ms => L + (todayMs === mStartMs ? 0 : (ms-mStartMs)/(todayMs-mStartMs)) * (W-L-R);
+    const ys = v => T + (100-v)/100*(H-T-B);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${en?'Focus score by day':'날짜별 집중도 점수'}">`;
+    [40,70,100].forEach(v => { s += `<line x1="${L}" x2="${W-R}" y1="${ys(v)}" y2="${ys(v)}" class="ac-gl"/><text x="${L-4}" y="${ys(v)+4}" text-anchor="end" class="ac-tx">${v}</text>`; });
+    if (pts.length > 1) s += `<polyline class="ac-line" points="${pts.map(p=>xs(p.ms).toFixed(1)+','+ys(p.f).toFixed(1)).join(' ')}"/>`;
+    pts.forEach(p => { s += `<circle cx="${xs(p.ms).toFixed(1)}" cy="${ys(p.f).toFixed(1)}" r="4" class="ac-pt ac-${p.b}"><title>${p.ds} · ${p.f}</title></circle>`; });
+    s += `<text x="${L}" y="${H-5}" class="ac-tx">${md(mStartMs)}</text><text x="${W-R}" y="${H-5}" text-anchor="end" class="ac-tx">${md(todayMs)}</text></svg>`;
+    chart = s;
+  }
+
   $('attendCalendar').innerHTML =
-    '<div style="display:grid;grid-template-columns:repeat(15,1fr);gap:3px;margin:8px 0">' + cells.join('') + '</div>' +
-    `<div style="margin-top:8px;font-size:11px;color:var(--mut)">
-      <span style="display:inline-block;width:10px;height:10px;background:#10b981;border-radius:2px;vertical-align:middle"></span> ${_lang==='en'?'Excellent (70+)':'우수(70+)'}
-      <span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:2px;margin-left:8px;vertical-align:middle"></span> ${_lang==='en'?'OK (40~70)':'보통(40~70)'}
-      <span style="display:inline-block;width:10px;height:10px;background:#ef4444;border-radius:2px;margin-left:8px;vertical-align:middle"></span> ${_lang==='en'?'Low (40-)':'저조(40-)'}
-      <span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:2px;margin-left:8px;vertical-align:middle"></span> ${_lang==='en'?'Attended':'출석'}
-      <span style="display:inline-block;width:10px;height:10px;background:#1e293b;border-radius:2px;margin-left:8px;vertical-align:middle;border:1px solid var(--bd)"></span> ${_lang==='en'?'No class':'미수업'}
-    </div>`;
+    `<div class="ac-range">${en?'Last '+span+' days':'최근 '+span+'일'} (${isoOf(firstMs)} ~ ${todayIso})</div>` +
+    `<div class="ac-pc"><div class="ac-months">${pcHtml}</div>${pcLegend}</div>` +
+    `<div class="ac-mob"><div class="ac-sub">${en?'Attendance · last '+mDays+' days':'출석 · 최근 '+mDays+'일'}</div>` +
+      `<div class="ac-weeks">${wk}</div>` +
+      `<div class="ac-legend"><span><i class="ac-sw ac-won"></i>${en?'Had class (✓)':'수업함 (✓)'}</span><span><i class="ac-sw ac-wgap"></i>${en?'No class record (date only)':'수업 기록 없음 (날짜만)'}</span></div>` +
+      `<div class="ac-sub" style="margin-top:14px">${en?'Focus score (class days only · dotted lines = 40 / 70)':'집중도 (수업한 날만 · 점선 = 40·70점)'}</div>${chart}</div>`;
 
   // 결석 일자 list — 기간 내 평일 중 출석 안 한 날
   const absentDates = [];
-  for (let i = (_state.days||30) - 1; i >= 0; i--) {
-    const d = new Date(todayKst.getTime() - i*86400000);
-    const ds = d.toISOString().slice(0,10);
-    const wkd = d.getDay();
+  for (let i = span - 1; i >= 0; i--) {
+    const ms = todayMs - i*DAY;               // 달력과 같은 KST 날짜 기준
+    const ds = isoOf(ms);
+    const wkd = new Date(ms).getUTCDay();
     if (wkd === 0 || wkd === 6) continue;   // 주말 제외
     if (!dateMap.has(ds)) absentDates.push(ds);
   }
