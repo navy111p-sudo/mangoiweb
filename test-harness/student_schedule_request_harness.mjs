@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
+import { createRequire } from 'node:module';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = p => readFileSync(join(ROOT, 'cloudflare-deploy', p), 'utf8');
@@ -131,7 +132,7 @@ const plus = n => new Date(Date.parse(today + 'T00:00:00Z') + n * 864e5).toISOSt
 }
 {
   const { rows } = await call({ tok: 'jeong', payload: { schedule_id: 4385, request_type: 'postpone', new_date: plus(4), new_time: '14:00', teacher_name: 'karl' } });
-  ok('고른 강사가 원부와 같으면(대소문자 무시) 담당 강사로', rows[0] && rows[0].teacher_name === 'KARL', rows[0]);
+  ok('이름으로 고른 강사가 원부와 같으면(대소문자 무시) «희망 강사 번호» 로 — 담당 강사 칸은 그대로', rows[0] && rows[0].teacher_name === 'KRYSTEL' && rows[0].new_teacher_id === '21' && /희망 강사: KARL/.test(rows[0].reason || ''), rows[0]);
   ok('날짜 지정 수업은 수업표 날짜', rows[0] && rows[0].orig_date === '2026-10-01');
 }
 {
@@ -141,11 +142,16 @@ const plus = n => new Date(Date.parse(today + 'T00:00:00Z') + n * 864e5).toISOSt
 
 {
   const { rows } = await call({ tok: 'jeong', payload: { schedule_id: 4385, request_type: 'postpone', new_date: plus(4), new_time: '14:00', teacher_id: 21, teacher_name: 'Teacher Karl(표시이름)' } });
-  ok('«교사로» 에서 고른 강사는 원부 번호(teacher_id)로 — 표시이름이 달라도 그 강사로 적는다', rows[0] && rows[0].teacher_name === 'KARL' && !/희망 강사/.test(rows[0].reason || ''), rows[0]);
+  ok('«교사로» 에서 고른 강사는 원부 번호(teacher_id)로 new_teacher_id 에 — 표시이름이 달라도 그 강사', rows[0] && rows[0].new_teacher_id === '21' && /희망 강사: KARL/.test(rows[0].reason || ''), rows[0]);
+  ok('⛔ teacher_name 은 «담당 강사» 그대로(알림·변경 이력이 남의 이름을 적지 않게)', rows[0] && rows[0].teacher_name === 'KRYSTEL', rows[0]);
 }
 {
   const { rows } = await call({ tok: 'jeong', payload: { schedule_id: 4385, request_type: 'postpone', new_date: plus(4), new_time: '14:00', teacher_id: 99999, teacher_name: '' } });
-  ok('없는 강사 번호는 지어내지 않는다(담당 강사 그대로)', rows[0] && rows[0].teacher_name === 'KRYSTEL', rows[0]);
+  ok('없는 강사 번호는 지어내지 않는다(희망 번호 없음)', rows[0] && rows[0].teacher_name === 'KRYSTEL' && rows[0].new_teacher_id == null, rows[0]);
+}
+{
+  const { rows } = await call({ tok: 'jeong', payload: { schedule_id: 4385, request_type: 'postpone', new_date: plus(4), new_time: '14:00', teacher_id: 16 } });
+  ok('담당 강사와 같은 사람을 고르면 바꿀 것이 없다(희망 번호 없음)', rows[0] && rows[0].new_teacher_id == null, rows[0]);
 }
 
 /* ── ②-2 «교사로 연기» 가능 강사 조회 — GET /api/class/schedule/free-teachers ── */
@@ -198,12 +204,123 @@ async function callFt({ tok, qs, mc }) {
   ok('지난 날짜는 거절', res.status === 400 && res.body.error === 'past_date', res);
 }
 {
+  const { res, seen } = await callFt({ tok: 'jeong', qs: 'schedule_id=4385&date=' + plus(120) + '&time=16:00' });
+  ok('90일보다 먼 날짜는 거절(무거운 조회를 막음)', res.status === 400 && res.body.error === 'date_out_of_range' && seen.length === 0, res);
+}
+{
   const { res } = await callFt({ tok: 'jeong', qs: 'schedule_id=4385&date=2026-1-1&time=16:00' });
   ok('형식이 깨진 날짜는 거절', res.status === 400 && res.body.error === 'bad_params', res);
 }
 {
   const { res } = await callFt({ tok: 'jeong', qs: 'schedule_id=4385&date=' + plus(1) + '&time=16:00', mc: 'throw' });
   ok('정본이 실패하면 «0명» 이 아니라 오류로 말한다', res.status === 500 && res.body.ok === false, res);
+}
+
+/* ── ②-3 관리자 승인(/decide)이 고른 강사를 «실제로» 바꾸는가 ──
+   함정 대조(2026-09-30): 예전 decide 에는 teacher_id 를 바꾸는 코드가 한 줄도 없어서
+   학생은 «선택됨», 관리자는 «승인·이동됨» 인데 수업은 원래 강사 그대로였다. */
+console.log('\n②-3 승인이 강사를 바꾸는가');
+const admin = SRC('src/api-admin.ts');
+const dAt = admin.indexOf("if (method === 'POST' && path === '/api/admin/schedule-requests/decide') {");
+ok('decide 라우트를 찾았다', dAt > 0);
+let dBody = blockAt(admin, dAt);
+ok('decide 몸통을 오려 냈다', dBody.length > 2000);
+/* 타입 표기는 전역 typescript 로 걷어 낸다(손으로 짠 정규식은 decide 의 타입을 다 못 벗긴다).
+   없으면 이 절은 «못 돌렸다» 로 FAIL — 조용히 건너뛰지 않는다. */
+let tsMod = null;
+for (const cand of ['typescript', '/opt/node22/lib/node_modules/typescript/lib/typescript.js']) { try { tsMod = createRequire(import.meta.url)(cand); break; } catch {} }
+ok('typescript 를 찾았다(decide 를 실제로 돌리려면 필요)', !!tsMod);
+if (tsMod) dBody = tsMod.transpileModule('async function __d(){' + dBody + '\n}', { compilerOptions: { target: 99 } }).outputText
+  .replace(/^[\s\S]*?async function __d\(\)\s*\{/, '').replace(/\}\s*$/, '');
+async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = false, schedSource = null, schedDate = '2026-10-01' }) {
+  const db = new DatabaseSync(':memory:');
+  db.exec(`CREATE TABLE teachers (id INTEGER PRIMARY KEY, name TEXT, active INTEGER DEFAULT 1)`);
+  db.exec(`INSERT INTO teachers VALUES (16,'KRYSTEL',1),(21,'KARL',1),(30,'LEFT',0)`);
+  db.exec(`CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, user_id TEXT, scheduled_date TEXT, start_time TEXT, duration_min INTEGER, teacher_id TEXT, source TEXT, status TEXT, updated_at INTEGER)`);
+  db.exec(`INSERT INTO class_schedules VALUES (4385,'jeong',${schedDate === null ? 'NULL' : `'${schedDate}'`},'16:00',20,'16',${schedSource ? `'${schedSource}'` : 'NULL'},'active',0)`);
+  db.exec(`CREATE TABLE admin_scope (username TEXT, scope_type TEXT)`);
+  if (scope) db.prepare(`INSERT INTO admin_scope VALUES ('boss', ?)`).run(scope);
+  const wrap = sql => { const st = db.prepare(sql); const ex = a => ({ first: async () => st.get(...a) || null, all: async () => ({ results: st.all(...a) }), run: async () => { st.run(...a); return {}; } }); return Object.assign(ex([]), { bind: (...a) => ex(a) }); };
+  const env = { DB: { prepare: wrap, exec: async q => db.exec(q) } };
+  await ensureScheduleChangeRequestTable(env);
+  const r = Object.assign({ schedule_id: 4385, request_type: 'postpone', teacher_name: 'KRYSTEL', student_name: '정우영', orig_date: '2026-10-01', orig_time: '16:00', new_date: '2026-10-01', new_time: '16:00', status: 'pending', created_at: 1 }, reqRow);
+  const cols = Object.keys(r);
+  db.prepare(`INSERT INTO schedule_change_requests (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...cols.map(k => r[k]));
+  const audits = []; const confCalls = [];
+  const deps = {
+    getAdminActor: async () => ({ ok: true, isTeacher, username: 'boss', name: '사장', role: scope }),
+    forbiddenTeacherBody: (_a, m) => ({ ok: false, error: 'forbidden_teacher', message: m }),
+    ensureScheduleRequestTable: async () => {},
+    getScope: async () => ({ type: scope }),
+    scopeStudentCond: () => ({ cond: '', binds: [] }),
+    findScheduleConflicts: async (_e, q) => { confCalls.push(q); return conflict ? { has: true, ko: '겹침', en: 'overlap', student: [], teacher: [1] } : { has: false, student: [], teacher: [] }; },
+    MIRROR_SOURCE: 'c24-mirror', MIRROR_SOURCE_MANUAL: 'c24-mirror:manual', DEFAULT_CLASS_MINUTES: 20,
+    teacherMoveDenyReason: gateMod.teacherMoveDenyReason,
+    writeClassAudit: async (_e, a) => { audits.push(a); },
+  };
+  const names = Object.keys(deps);
+  let res;
+  try {
+    const fn = new Function('env', 'request', 'json', ...names, 'return (async () => {' + dBody + '\n})();');
+    res = await fn(env, { json: async () => ({ id: 1, action: 'approve' }) }, json, ...names.map(k => deps[k]));
+  } catch (e) { res = { status: 0, body: { error: 'THREW ' + e.message } }; }
+  const cs = db.prepare('SELECT * FROM class_schedules WHERE id = 4385').get();
+  return { res, cs, audits, confCalls };
+}
+/* 게이트 정본을 그대로 쓴다(복제 금지) — isOrgScopedRole 만 주입. */
+const gateSrc = SRC('src/class-teacher-move.ts');
+let gateMod = {};
+try {
+  const g = gateSrc.replace(/^import[^\n]*\n/gm, '').replace(/export type [^\n]*\n/g, '').replace(/export function/g, 'function')
+    .replace(/\(a: \{[^)]*\}\): MoveDeny \{/, '(a) {').replace(/:\s*MoveDeny\s*\{/g, ' {');
+  const cut = g.slice(0, g.indexOf('/** 이 행에 «그 칸»'));
+  gateMod = new Function('isOrgScopedRole', cut + '\nreturn { teacherMoveDenyReason };')(r => ['franchise', 'branch', 'agency'].includes(String(r)));
+} catch (e) { ok('게이트 정본을 불러왔다', false, e.message); }
+ok('게이트 정본을 불러왔다', typeof gateMod.teacherMoveDenyReason === 'function');
+{
+  const { res, cs, audits, confCalls } = await callDecide({ reqRow: { new_teacher_id: '21' } });
+  ok('본사 승인 → 담당 강사가 실제로 바뀐다(16 → 21)', res.body && res.body.applied === 'moved' && cs.teacher_id === '21', { res, cs });
+  ok('응답이 바뀐 강사를 말한다', res.body && res.body.teacher_changed && res.body.teacher_changed.id === '21' && res.body.teacher_changed.name === 'KARL', res.body);
+  ok('겹침 검사는 «새 강사» 기준', confCalls.length === 1 && String(confCalls[0].teacherId) === '21', confCalls);
+  ok('변경 이력에 강사 변경이 남는다', audits.length === 1 && /담당 강사 → KARL/.test(audits[0].detail || ''), audits);
+}
+{
+  const { res, cs } = await callDecide({ reqRow: {} });
+  ok('희망 강사 없는 요청은 예전 그대로(강사 안 바뀜)', res.body && res.body.applied === 'moved' && cs.teacher_id === '16' && !res.body.teacher_changed, { res, cs });
+}
+{
+  const { res, cs, audits } = await callDecide({ reqRow: { new_teacher_id: '21' }, scope: 'branch' });
+  ok('지사 계정 승인은 강사를 못 바꾸고 «옮기지도 않는다»', res.body && res.body.applied === 'teacher_not_changed' && cs.teacher_id === '16', { res, cs });
+  ok('그때는 변경 이력을 안 남긴다', audits.length === 0, audits);
+  ok('그 사유를 말한다', res.body && typeof res.body.message === 'string' && res.body.message.length > 0, res.body);
+}
+{
+  const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21' }, scope: null });
+  ok('권한을 모르면(스코프 없음) 막는다', res.body && res.body.applied === 'teacher_not_changed' && cs.teacher_id === '16', { res, cs });
+}
+{
+  const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '30' } });
+  ok('퇴사 강사로는 안 바꾼다', res.body && res.body.applied === 'teacher_not_changed' && cs.teacher_id === '16', { res, cs });
+}
+{
+  const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21' }, conflict: true });
+  ok('새 강사가 그 시간에 겹치면 안 바꾼다(conflict)', res.body && res.body.applied === 'conflict' && cs.teacher_id === '16', { res, cs });
+}
+{
+  const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21', new_date: '2026-10-03' }, schedSource: 'c24-mirror' });
+  ok('카페24 미러 수업은 날짜를 바꾸면서 강사까지 바꾸지 않는다', res.body && res.body.applied === 'teacher_not_changed' && cs.teacher_id === '16' && cs.scheduled_date === '2026-10-01' && cs.source === 'c24-mirror', { res, cs });
+}
+{
+  const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21' }, schedSource: 'c24-mirror' });
+  ok('미러 수업도 같은 날짜면 강사를 바꾸고 «사람 손» 도장', res.body && res.body.applied === 'moved' && cs.teacher_id === '21' && cs.source === 'c24-mirror:manual', { res, cs });
+}
+{
+  const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21' }, schedDate: null });
+  ok('반복 수업은 여전히 기록만(recorded) — 강사 안 바뀜', res.body && res.body.applied === 'recorded' && cs.teacher_id === '16', { res, cs });
+}
+{
+  const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21' }, isTeacher: true });
+  ok('강사 계정은 승인 자체가 막힌다(403)', res.status === 403 && cs.teacher_id === '16', res);
 }
 
 /* ── ③ 학생 화면 배선 ── */

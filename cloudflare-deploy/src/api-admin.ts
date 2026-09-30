@@ -3108,6 +3108,7 @@ export async function handleAdminApi(
       const now = Date.now();
       let applied: string | null = null;
       let conflictInfo: any = null;   // 겹쳐서 자동 이동을 못 한 경우 사유(한/영)
+      let teacherChanged: { id: string; name: string | null } | null = null;   // 👨‍🏫 승인으로 담당 강사를 바꿨으면
       if (action === 'approved' && row.schedule_id) {
         try {
           // ⚠️ 운영 스케줄은 대부분 반복(매주, scheduled_date=NULL) — 반복 row 를 덮어쓰면
@@ -3143,14 +3144,48 @@ export async function handleAdminApi(
                 **notes(c24:<수업번호>)** 로 맞추면 날짜를 옮겨도 도장이 일한다. 미러의 심장을
                 고치는 일이라 여기서는 안 건드렸다. */
           const _isMirror = String((cs as any)?.source || '') === MIRROR_SOURCE;
-          if (isDated && row.new_date && row.new_time) {
+          /* 👨‍🏫 (2026-09-30) 학생이 «교사로 연기» 에서 고른 강사(new_teacher_id) — 승인이 «실제로» 바꾼다.
+             예전엔 이 경로에 teacher_id 를 바꾸는 코드가 한 줄도 없어서, 학생은 «선택됨» 을 보고 관리자는
+             «승인·이동됨» 을 보는데 수업은 원래 강사 그대로였다(함정 대조가 잡음 — 에러 없음).
+             🔒 게이트는 PATCH 담당 강사 변경과 같은 정본 teacherMoveDenyReason(본사만 · 강사 차단 · 모르면 막음).
+             ⛔ 막히거나 못 바꾸면 «옮기지도 않는다» — 강사를 바꾸려던 요청인데 시각만 바꾸고 «완료» 라 하면 거짓이다.
+             ⛔ 카페24 미러 수업을 «날짜를 바꾸면서» 강사까지 바꾸지 않는다(도장 → 옛 날짜에 유령. 위 🔴).
+             ℹ️ 반복 수업은 여전히 'recorded' — 한 줄이 «매주 전부» 라 그 주만 바꿀 방법이 없다. */
+          const _wantTid = String((row as any).new_teacher_id ?? '').trim();
+          let _swap = isDated && !!(row.new_date && row.new_time) && /^\d+$/.test(_wantTid) && _wantTid !== String((cs as any)?.teacher_id ?? '');
+          let _swapBlock: { ko: string; en: string } | null = null;
+          let _swapName: string | null = null;
+          if (_swap) {
+            if (_isMirror && String(row.new_date || '') !== String((cs as any)?.scheduled_date || '')) {
+              _swapBlock = { ko: '카페24에서 온 수업은 날짜를 옮기면서 담당 강사까지 바꿀 수 없어요. 시간표에서 직접 조정해 주세요.', en: 'For Cafe24 classes the teacher cannot be changed together with a date change. Please adjust it in the timetable.' };
+            } else {
+              let _stScope: string | null = null;
+              try {
+                const _sr: any = await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`).bind(_srdActor.username).first();
+                const _st = _sr ? String(_sr.scope_type ?? '').trim() : '';
+                _stScope = _st || null;              // 모르면 정본 게이트가 막는다
+              } catch { _stScope = null; }
+              const _deny = teacherMoveDenyReason({ ok: _srdActor.ok, isTeacher: _srdActor.isTeacher, scopeType: _stScope });
+              if (_deny) _swapBlock = { ko: _deny.message, en: 'Only head office can change the class teacher.' };
+              else {
+                const _tr: any = await env.DB.prepare(`SELECT name FROM teachers WHERE CAST(id AS TEXT) = ? AND COALESCE(active,1) = 1 LIMIT 1`).bind(_wantTid).first().catch(() => null);
+                if (!_tr) _swapBlock = { ko: '고른 강사를 찾지 못했어요(퇴사했거나 번호가 바뀜). 시간표에서 직접 조정해 주세요.', en: 'The chosen teacher was not found (left or changed). Please adjust it in the timetable.' };
+                else _swapName = String(_tr.name || '');
+              }
+            }
+            if (_swapBlock) _swap = false;
+          }
+          if (_swapBlock) {
+            applied = 'teacher_not_changed';
+            conflictInfo = { ko: _swapBlock.ko, en: _swapBlock.en, student: 0, teacher: 0 };
+          } else if (isDated && row.new_date && row.new_time) {
             // ⛔ (2026-08-04) 옮기기 전에 «그 자리가 비어 있는지» 확인한다.
             //   여기엔 겹침 검사가 없어서, 강사 요청을 승인하면 다른 수업과 겹쳐도 그대로 옮겨졌다.
             //   겹치면 옮기지 않고 'conflict' 로 남긴다 — 승인 자체는 그대로 기록되므로
             //   관리자가 시간표에서 자리를 보고 손으로 옮기면 된다. (조용히 겹치게 두는 것보다 낫다)
             const conf = await findScheduleConflicts(env, {
               kind: 'one_off',
-              userId: cs.user_id, teacherId: cs.teacher_id,
+              userId: cs.user_id, teacherId: _swap ? _wantTid : cs.teacher_id,   // 👨‍🏫 바꿀 강사면 «그 강사» 가 비었는지
               schedDate: String(row.new_date), startTime: String(row.new_time),
               durationMin: Number(cs.duration_min) > 0 ? Number(cs.duration_min) : DEFAULT_CLASS_MINUTES,
               excludeId: row.schedule_id,
@@ -3161,12 +3196,16 @@ export async function handleAdminApi(
             } else {
               /* ⛔ 날짜가 바뀌면 도장을 찍지 않는다 — 찍으면 옛 날짜에 유령이 되살아난다(위 🔴). */
               const _stampMove = _isMirror && String(row.new_date || '') === String((cs as any)?.scheduled_date || '');
+              /* 👨‍🏫 강사를 바꿀 때는 «같은 UPDATE 안에서» teacher_id 까지 — 둘로 나누면 한쪽만 남을 수 있다. */
+              const _tSet = _swap ? ', teacher_id = ?' : '';
+              const _binds: any[] = _swap ? [row.new_date, row.new_time, _wantTid, now, row.schedule_id] : [row.new_date, row.new_time, now, row.schedule_id];
               await env.DB.prepare(
                 _stampMove
-                  ? `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, source = '${MIRROR_SOURCE_MANUAL}', updated_at = ? WHERE id = ?`
-                  : `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ? WHERE id = ?`
-              ).bind(row.new_date, row.new_time, now, row.schedule_id).run();
+                  ? `UPDATE class_schedules SET scheduled_date = ?, start_time = ?${_tSet}, source = '${MIRROR_SOURCE_MANUAL}', updated_at = ? WHERE id = ?`
+                  : `UPDATE class_schedules SET scheduled_date = ?, start_time = ?${_tSet}, updated_at = ? WHERE id = ?`
+              ).bind(..._binds).run();
               applied = 'moved';
+              if (_swap) teacherChanged = { id: _wantTid, name: _swapName };
             }
           } else if (isDated) {
             await env.DB.prepare(
@@ -3184,7 +3223,7 @@ export async function handleAdminApi(
         .bind(action, (body.decided_by || '관리자').trim(), now, (body.memo || '').trim() || null, id).run();
       // 📜 승인으로 수업이 실제 이동/연기된 경우 변경 이력에 기록(거절은 미기록)
       //   'conflict' = 승인은 했으나 그 자리가 겹쳐 «자동 이동을 하지 않은» 상태 → 이력에도 남기지 않는다
-      if (action === 'approved' && applied && applied !== 'conflict') {
+      if (action === 'approved' && applied && applied !== 'conflict' && applied !== 'teacher_not_changed') {
         await writeClassAudit(env, {
           action: applied === 'moved' ? 'reschedule' : 'postpone',
           schedule_id: row.schedule_id,
@@ -3196,11 +3235,13 @@ export async function handleAdminApi(
           actor_role: 'admin',
           source: 'schedule-request',
           reason: row.reason || null,
-          detail: (row.new_date || row.new_time) ? `→ ${row.new_date || ''} ${row.new_time || ''}`.trim() : (applied === 'recorded' ? '반복수업 기록보존(수동조정 필요)' : null),
+          detail: [((row.new_date || row.new_time) ? `→ ${row.new_date || ''} ${row.new_time || ''}`.trim() : (applied === 'recorded' ? '반복수업 기록보존(수동조정 필요)' : null)),
+                   (teacherChanged ? `담당 강사 → ${teacherChanged.name || ('#' + teacherChanged.id)}` : null)].filter(Boolean).join(' · ') || null,
         });
       }
       return json({
         ok: true, id, status: action, applied, decided_at: now,
+        ...(teacherChanged ? { teacher_changed: teacherChanged } : {}),
         // 겹쳐서 자동 이동을 못 했으면 화면이 그 사유를 그대로 보여줄 수 있게 함께 내려준다
         ...(conflictInfo ? { conflict: conflictInfo, message: conflictInfo.ko, message_en: conflictInfo.en } : {}),
       });

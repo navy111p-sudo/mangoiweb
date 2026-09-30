@@ -1244,7 +1244,7 @@ async function __loadRealCurrentSchedule(){
       /* 이름이 «정확히» 같은 강사만 이어 붙인다 — 없으면 지어내지 않는다(국기도 비움). */
       var tobj = TEACHERS.find(function(x){ return x.name === tn; }) || null;
       return { teacherId: tobj ? tobj.id : ('real:' + tn), teacherName: tn, ico: tobj ? tobj.ico : '',
-               date: date, hour: hh, schedule_id: it.schedule_id || null };
+               date: date, hour: hh, schedule_id: it.schedule_id || null, recurring: !it.scheduled_date };
     }).filter(Boolean);
     CURRENT_SCHEDULE = mapped;
     __MOB_REAL = mapped.length > 0;
@@ -1721,6 +1721,9 @@ function renderTeacherTab(){
     var picked = state.cart.find(function(c){ return c.origIdx === i; }) || null;
     var head = '<div class="section-label">📌 ' + fmtMD(o.date) + ' (' + fmtDOW(o.date) + ') ' + __ftEsc(o.hour)
       + ' · ' + __mobT('지금 ', 'Now ') + '<b>' + __ftEsc(o.teacherName) + '</b></div>';
+    /* ℹ️ 매주 반복 수업은 승인해도 시간표가 자동으로 안 바뀐다(관리자가 그 주만 손으로 조정) — 미리 말한다. */
+    if (o.recurring) head += '<div style="font-size:13px;color:var(--text-dim);margin:-4px 0 8px">'
+      + __mobT('🔁 매주 반복 수업이라, 승인되면 관리자가 이 날만 시간표에서 선생님을 바꿔요.', '🔁 Weekly class — once approved, staff will change the teacher for this date in the timetable.') + '</div>';
     var body = '';
     if (f.st === 'loading') {
       body = '<div class="teacher-result"><div class="tr-title">⏳ ' + __mobT('이 시간에 수업 가능한 선생님을 찾는 중…', 'Finding teachers free at this time…') + '</div>'
@@ -1728,8 +1731,10 @@ function renderTeacherTab(){
     } else if (f.st === 'error') {
       var why = f.err === 'login_required'
         ? __mobT('로그인이 만료됐어요. 홈에서 다시 로그인해 주세요.', 'Your login expired. Please sign in again from Home.')
-        : __mobT('가능한 선생님을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.', 'Could not load available teachers. Please try again shortly.');
-      body = '<div class="teacher-result"><div class="tr-title" style="color:#d97706;justify-content:center">⚠️ ' + why + '</div></div>';
+        : __mobT('가능한 선생님을 불러오지 못했어요.', 'Could not load available teachers.');
+      body = '<div class="teacher-result"><div class="tr-title" style="color:#d97706;justify-content:center">⚠️ ' + why + '</div>'
+        + (f.err === 'login_required' ? '' : '<div style="text-align:center;margin-top:8px"><button type="button" class="hour-chip" data-ftretry="' + i + '">🔄 ' + __mobT('다시 불러오기', 'Try again') + '</button></div>')
+        + '</div>';
     } else {
       var d = f.data;
       if (d.teacher_change_ok === false) {
@@ -1864,6 +1869,10 @@ function attachHandlers(){
 
   // ── 교사로 탭 ──
   // 👨‍🏫 실제 가능 강사 고르기(2026-09-30)
+  $$('#detail-body [data-ftretry]').forEach(el => el.addEventListener('click', () => {
+    var o = CURRENT_SCHEDULE[Number(el.getAttribute('data-ftretry'))]; if (!o) return;
+    delete __FT[__ftKey(o)]; renderBody(); updateSticky();
+  }));
   $$('#detail-body .teacher-card[data-ftorig]').forEach(el => el.addEventListener('click', () => {
     __ftPick(Number(el.getAttribute('data-ftorig')), el.getAttribute('data-ftid'));
   }));

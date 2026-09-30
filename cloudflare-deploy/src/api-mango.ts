@@ -2367,7 +2367,7 @@ export async function handleMangoApi(
     /* 👨‍🏫 (2026-09-30 사장님) «교사로 연기» — 그 수업의 날짜·시각에 «실제로» 수업 가능한 강사만.
        전에는 화면이 해시로 지어낸 가짜 시간표로 «가능한 교사» 를 그렸다(누가 되는지 아무도 몰랐다).
        ✅ 판정은 관리자 move-candidates 와 같은 정본 moveCandidatesFor(enroll-ops.ts) — 승인(/decide)이 쓰는
-          findScheduleConflicts 그대로라, 여기서 «가능» 이라 한 강사가 승인에서 «겹침» 으로 거절되지 않는다.
+          findScheduleConflicts 그대로다. 승인(/decide)도 고른 강사(new_teacher_id) 기준으로 같은 검사를 다시 한다.
        🔒 학생 토큰으로만, «내 수업» 일 때만. 읽기 전용 — 강사를 바꾸지 않는다(요청은 /request, 승인은 관리자).
        ⛔ 다른 학생 정보는 싣지 않는다 — 강사 이름·사진·«몇 명이 안 되는지» 까지만. */
     if (method === 'GET' && path === '/api/class/schedule/free-teachers') {
@@ -2380,12 +2380,16 @@ export async function handleMangoApi(
       if (!scheduleId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return json({ ok: false, error: 'bad_params' }, 400);
       const todayKst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
       if (date < todayKst) return json({ ok: false, error: 'past_date' }, 400);
+      /* 요청 경로(/request)와 같은 90일 창 — 먼 날짜로 무거운 조회를 부르지 못하게. */
+      if (date > new Date(Date.parse(todayKst + 'T00:00:00Z') + 90 * 864e5).toISOString().slice(0, 10)) return json({ ok: false, error: 'date_out_of_range' }, 400);
       const row: any = await env.DB.prepare(
         `SELECT cs.id, cs.user_id, cs.scheduled_date, COALESCE(cs.duration_min,20) AS dm, cs.teacher_id, cs.status, cs.source,
                 t.name AS teacher_name
            FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
           WHERE cs.id = ? LIMIT 1`
-      ).bind(scheduleId).first().catch(() => null);
+      ).bind(scheduleId).first().catch(() => undefined);
+      /* 조회 실패(undefined)는 «없음» 이 아니라 «모름» — 404 로 말하지 않는다. */
+      if (row === undefined) return json({ ok: false, error: 'lookup_failed' }, 500);
       if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
       /* 정확일치 — 대소문자만 다른 계정이 실재한다(Kim/kim). studentRequestGate 와 같은 규칙. */
       if (String(row.user_id || '') !== tokUid) return json({ ok: false, error: 'not_your_class' }, 403);
@@ -2409,7 +2413,7 @@ export async function handleMangoApi(
       await ensureScheduleChangeRequestTable(env);
       const scheduleId = parseInt(body.schedule_id, 10) || null;
       const cs: any = scheduleId
-        ? await env.DB.prepare(`SELECT cs.id, cs.user_id, cs.student_name, cs.scheduled_date, cs.start_time, cs.status, t.name AS teacher_name
+        ? await env.DB.prepare(`SELECT cs.id, cs.user_id, cs.student_name, cs.scheduled_date, cs.start_time, cs.status, cs.teacher_id, t.name AS teacher_name
                                   FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
                                  WHERE cs.id = ? LIMIT 1`).bind(scheduleId).first().catch(() => null)
         : null;
@@ -2435,26 +2439,30 @@ export async function handleMangoApi(
       const origDate = cs.scheduled_date ? String(cs.scheduled_date).replace(/\//g, '-').slice(0, 10) : bodyOrigDate;
       const origTime = String(cs.start_time || '').slice(0, 5) || null;
       const schedTeacher = String(cs.teacher_name || '').trim() || '강사';
-      /* «교사로 연기» 에서 고른 강사 — 원부 이름과 정확히(대소문자 무시) 같을 때만 담당 강사로 적고,
-         아니면 «희망 강사» 로 사유에만 남긴다(모르는 이름을 담당 강사로 지어내지 않는다). */
-      let teacherName = schedTeacher;
+      /* 👨‍🏫 고른 강사(«교사로 연기») — ⛔ teacher_name 은 «담당 강사» 그대로 둔다.
+         그 칸은 관리자 알림·변경 이력(decide 의 writeClassAudit)이 «누가 그 수업 담당인가» 로 읽는다 —
+         희망 강사로 덮으면 수업을 하지도 않은 강사 이름이 이력에 남는다(2026-09-30 함정 대조).
+         희망 강사는 new_teacher_id(원부 번호)와 사유 «희망 강사: …» 로 따로 남기고,
+         실제로 바꾸는 것은 관리자 승인(/decide)이다.
+         원부 번호가 오면 그것으로, 아니면 이름 완전일치(대소문자 무시)·유일할 때만 번호를 잇는다. */
+      const teacherName = schedTeacher;
       let wishNote = '';
+      let newTeacherId: string | null = null;
       const wish = String(body.teacher_name || '').trim().slice(0, 60);
-      /* 👨‍🏫 (2026-09-30) «교사로 연기» 목록에서 고른 강사는 원부 번호로 온다 — 이름 짐작 없이 그 강사로 적는다.
-         재직(active) 강사일 때만. 못 찾으면 아래 이름 경로로(예전 그대로). */
       const wishId = parseInt(body.teacher_id, 10) || 0;
-      let byId = false;
       if (wishId) {
-        const tr: any = await env.DB.prepare(`SELECT name FROM teachers WHERE id = ? AND COALESCE(active,1) = 1 LIMIT 1`).bind(wishId).first().catch(() => null);
-        if (tr && tr.name) { teacherName = String(tr.name); byId = true; }
+        const tr: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE id = ? AND COALESCE(active,1) = 1 LIMIT 1`).bind(wishId).first().catch(() => null);
+        if (tr && tr.name) { newTeacherId = String(tr.id); wishNote = `희망 강사: ${tr.name}`; }
       }
-      if (!byId && wish && wish !== schedTeacher) {
-        const hit: any = await env.DB.prepare(`SELECT name FROM teachers WHERE name = ? COLLATE NOCASE AND COALESCE(active,1) = 1 LIMIT 2`)
+      if (!newTeacherId && wish && wish !== schedTeacher) {
+        const hit: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE name = ? COLLATE NOCASE AND COALESCE(active,1) = 1 LIMIT 2`)
           .bind(wish).all().catch(() => null);
         const rows = (hit && hit.results) || [];
-        if (rows.length === 1) teacherName = String(rows[0].name);
+        if (rows.length === 1) { newTeacherId = String(rows[0].id); wishNote = `희망 강사: ${rows[0].name}`; }
         else wishNote = `희망 강사: ${wish}`;
       }
+      /* 담당 강사와 같은 사람을 «골랐다» 면 바꿀 것이 없다. */
+      if (newTeacherId && cs.teacher_id != null && String(cs.teacher_id) === newTeacherId) { newTeacherId = null; wishNote = ''; }
       let minutesBefore: number | null = null;
       let feeType: string | null = null;
       if (reqType !== 'change' && origDate && origTime) {
@@ -2464,17 +2472,17 @@ export async function handleMangoApi(
       const studentName = String(cs.student_name || '').trim() || tokUid;
       const reason = [String(body.reason || '').trim().slice(0, 300), wishNote].filter(Boolean).join(' · ') || null;
       const ins: any = await env.DB.prepare(
-        `INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_name, requester_uid, teacher_name, student_name, orig_date, orig_time, new_date, new_time, fee_type, minutes_before, reason, status, created_at)
-         VALUES (?,?,'student',?,?,?,?,?,?,?,?,?,?,?,'pending',?)`
-      ).bind(cs.id, reqType, studentName, tokUid, teacherName, studentName, origDate, origTime, newDate, newTime, feeType, minutesBefore, reason, nowMs).run();
+        `INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_name, requester_uid, teacher_name, student_name, orig_date, orig_time, new_date, new_time, fee_type, minutes_before, reason, status, created_at, new_teacher_id)
+         VALUES (?,?,'student',?,?,?,?,?,?,?,?,?,?,?,'pending',?,?)`
+      ).bind(cs.id, reqType, studentName, tokUid, teacherName, studentName, origDate, origTime, newDate, newTime, feeType, minutesBefore, reason, nowMs, newTeacherId).run();
       try {
         const typeKo = reqType === 'change' ? '변경' : '연기';
         const feeKo = feeType === 'paid' ? '💰유료' : feeType === 'free' ? '🆓무료' : '';
         await enqueueNotification(env, {
           type: 'schedule_request',
           title: `📅 수업 ${typeKo} 요청 ${feeKo}`.trim(),
-          body: `${studentName} 님(학생 직접) · 강사 ${teacherName} · 원수업 ${origDate || ''} ${origTime || ''}${newDate ? ` → ${newDate} ${newTime || ''}` : ''}. 관리자 페이지에서 승인/거절하세요.`,
-          meta: { request_id: ins?.meta?.last_row_id || null, request_type: reqType, requester_role: 'student', fee_type: feeType, minutes_before: minutesBefore, student_name: studentName, teacher_name: teacherName },
+          body: `${studentName} 님(학생 직접) · 강사 ${teacherName}${wishNote ? ` · ${wishNote}` : ''} · 원수업 ${origDate || ''} ${origTime || ''}${newDate ? ` → ${newDate} ${newTime || ''}` : ''}. 관리자 페이지에서 승인/거절하세요.`,
+          meta: { request_id: ins?.meta?.last_row_id || null, request_type: reqType, requester_role: 'student', new_teacher_id: newTeacherId, fee_type: feeType, minutes_before: minutesBefore, student_name: studentName, teacher_name: teacherName },
           channel: 'kakao_memo',
         });
       } catch (e: any) { console.warn('[class/schedule/request] notify skipped:', e?.message || e); }
