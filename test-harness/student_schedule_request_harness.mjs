@@ -241,7 +241,9 @@ async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = 
   db.exec(`CREATE TABLE admin_scope (username TEXT, scope_type TEXT)`);
   if (scope) db.prepare(`INSERT INTO admin_scope VALUES ('boss', ?)`).run(scope);
   const wrap = sql => { const st = db.prepare(sql); const ex = a => ({ first: async () => st.get(...a) || null, all: async () => ({ results: st.all(...a) }), run: async () => { st.run(...a); return {}; } }); return Object.assign(ex([]), { bind: (...a) => ex(a) }); };
-  const env = { DB: { prepare: wrap, exec: async q => db.exec(q) } };
+  /* D1 batch = 한 트랜잭션 — 하나라도 실패하면 전부 되돌린다(그 성질까지 흉내낸다). */
+  const batch = async stmts => { db.exec('BEGIN'); try { for (const x of stmts) await x.run(); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; } };
+  const env = { DB: { prepare: wrap, exec: async q => db.exec(q), batch } };
   await ensureScheduleChangeRequestTable(env);
   const r = Object.assign({ schedule_id: 4385, request_type: 'postpone', teacher_name: 'KRYSTEL', student_name: '정우영', orig_date: '2026-10-01', orig_time: '16:00', new_date: '2026-10-01', new_time: '16:00', status: 'pending', created_at: 1 }, reqRow);
   const cols = Object.keys(r);

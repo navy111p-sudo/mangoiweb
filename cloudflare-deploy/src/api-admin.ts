@@ -3196,14 +3196,16 @@ export async function handleAdminApi(
             } else {
               /* ⛔ 날짜가 바뀌면 도장을 찍지 않는다 — 찍으면 옛 날짜에 유령이 되살아난다(위 🔴). */
               const _stampMove = _isMirror && String(row.new_date || '') === String((cs as any)?.scheduled_date || '');
-              /* 👨‍🏫 강사를 바꿀 때는 «같은 UPDATE 안에서» teacher_id 까지 — 둘로 나누면 한쪽만 남을 수 있다. */
-              const _tSet = _swap ? ', teacher_id = ?' : '';
-              const _binds: any[] = _swap ? [row.new_date, row.new_time, _wantTid, now, row.schedule_id] : [row.new_date, row.new_time, now, row.schedule_id];
-              await env.DB.prepare(
+              const _mv = env.DB.prepare(
                 _stampMove
-                  ? `UPDATE class_schedules SET scheduled_date = ?, start_time = ?${_tSet}, source = '${MIRROR_SOURCE_MANUAL}', updated_at = ? WHERE id = ?`
-                  : `UPDATE class_schedules SET scheduled_date = ?, start_time = ?${_tSet}, updated_at = ? WHERE id = ?`
-              ).bind(..._binds).run();
+                  ? `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, source = '${MIRROR_SOURCE_MANUAL}', updated_at = ? WHERE id = ?`
+                  : `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ? WHERE id = ?`
+              ).bind(row.new_date, row.new_time, now, row.schedule_id);
+              /* 👨‍🏫 강사를 바꿀 때는 D1 batch(한 트랜잭션)로 «함께» — 둘로 따로 돌리면 한쪽만 남을 수 있다.
+                 ⚠️ 위 UPDATE 문장은 손대지 않는다 — 하니스 둘(manager_today_reschedule·schedule_move_room_sync)이
+                    그 글자를 오려 내 진짜 SQLite 로 돌린다. 강사를 안 바꾸는 승인은 예전과 같은 경로다. */
+              if (_swap) await env.DB.batch([_mv, env.DB.prepare(`UPDATE class_schedules SET teacher_id = ? WHERE id = ?`).bind(_wantTid, row.schedule_id)]);
+              else await _mv.run();
               applied = 'moved';
               if (_swap) teacherChanged = { id: _wantTid, name: _swapName };
             }
