@@ -725,6 +725,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <div id="utilBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
+  <!-- ⚔️ (2026-09-30 필리핀 매니저 요청 · 사장님 A안) 같은 강사·같은 시간에 LMS(카페24) 수업과
+       망고아이 수업이 둘 다 있는 자리. 카페24 LMS 에는 망고아이 수업을 써 넣을 수 없어서 여기서 대조한다.
+       서버: GET /api/admin/reports/c24-mirror 의 clashes (판정 정본 src/teacher-clash.ts).
+       ⚠️ 본사 전용 — 그 API 는 지사·대리점에 안 열려 있다. IS_HQ 일 때만 hidden 을 푼다. -->
+  <details class="card" id="c-clash" ontoggle="if(this.open)loadClash()" hidden>
+    <summary><span data-en="LMS ↔ Mangoi teacher conflicts" data-ko="LMS ↔ 망고아이 강사 겹침">LMS ↔ Mangoi teacher conflicts</span></summary>
+    <div id="clashBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
   <div class="grouphead" data-en="Settlement &amp; stats" data-ko="정산통계관리">Settlement &amp; stats</div>
 
   <!-- ③ 30일 추이 (펼칠 때만 받는다) -->
@@ -1132,6 +1141,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     // 🏢 본사 매니저면 전용 카드를 켠다. 판정은 이미 받은 exec/summary 의 scope 로 한다(추가 요청 0).
     //    ⚠️ 화면을 켜는 것뿐이고 권한은 서버가 정한다 — 여기 값을 고쳐도 API 는 안 열린다.
     IS_HQ = (sc.type === 'hq');
+    var _clash = document.getElementById('c-clash'); if (_clash) _clash.hidden = !IS_HQ;   // ⚔️ 본사 전용(API 가 지사·대리점에 403)
     /* 🔐 (2026-09-24) 결재함은 본사·강사 전용이다(서버 api-approval.ts 가 지사·대리점을 403).
        지사·대리점에게 결재함 버튼이 보이면 «누를 수는 있는데 들어갈 수 없는» 버튼이 된다.
        범위를 모를 때(sc.type 없음)는 감추지 않는다 — 눌러도 결재 화면이 «본사 전용» 이라고 말한다. */
@@ -1285,6 +1295,50 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       return '<div class="row"><b>' + esc(t.teacher_name || t.name || t.teacher || '-') + '</b>'
            + '<span class="num">' + pct.toFixed(0) + '%</span></div>';
     }).join('');
+  }
+
+  // ── ⚔️ LMS ↔ 망고아이 강사 겹침 (2026-09-30) ───────────────────────────────
+  //    ⛔ 판정은 서버(teacher-clash.ts)가 한다 — 여기서는 그리기만. clashes 가 null 이면 «못 봤다» 고 말한다.
+  //    ⛔ localStorage 캐시 키를 주지 않는다 — 응답이 커서(카페24 수업 전부) 저장 한도를 넘긴다.
+  window.loadClash = function(){
+    var el = document.getElementById('clashBody');
+    el.className = 'empty';
+    el.textContent = T('Loading... (checking Cafe24 LMS, may take a few seconds)', '불러오는 중... (카페24 LMS 조회라 몇 초 걸립니다)');
+    get('/api/admin/reports/c24-mirror', null).then(function(j){ D.clash = j; paintClash(); })
+      .catch(function(e){ failBox(el, e); });
+  };
+  function paintClash(){
+    var j = D.clash; if (!j) return;
+    var el = document.getElementById('clashBody');
+    var list = j.clashes;
+    if (!Array.isArray(list)) {
+      el.className = 'empty';
+      el.textContent = T('Could not read Mangoi classes, so nothing was compared. This is NOT "no conflicts". Please try again.',
+                         '망고아이 수업을 못 읽어 대조하지 못했습니다. «겹침 없음» 이 아닙니다. 다시 시도해 주세요.');
+      return;
+    }
+    var win = esc(j.since) + ' ~ ' + esc(j.until);
+    var unc = Number(j.clash_unchecked_no_teacher) || 0;
+    var uncLine = unc ? '<div class="muted" style="margin-top:6px">' + esc(T(unc + ' LMS class(es) could not be checked (teacher not linked).',
+                         '강사를 못 이은 LMS 수업 ' + unc + '건은 대조하지 못했습니다.')) + '</div>' : '';
+    if (!list.length) {
+      el.className = '';
+      el.innerHTML = '<div class="muted">' + esc(T('No conflicts in ', '겹침 없음 · ')) + win + '</div>' + uncLine;
+      return;
+    }
+    el.className = '';
+    el.innerHTML = '<div class="muted" style="margin-bottom:6px">' + win + ' · ' + list.length + T(' conflict(s)', '건') + '</div>'
+      + list.map(function(c){
+        var L = c.lms || {}, M = c.mangoi || {};
+        var kind = c.same_student ? T('same student booked twice', '같은 학생 이중 등록') : T('teacher double-booked', '강사 이중 배정');
+        return '<div class="row" style="display:block;padding:6px 0;border-bottom:1px solid #e5e7eb">'
+          + '<b>' + esc(c.date) + ' · ' + esc(c.teacher_name || ('#' + c.teacher_id)) + '</b> — <span style="color:#b91c1c;font-weight:700">' + esc(kind) + '</span><br>'
+          + 'LMS ' + esc(L.start_time) + ' (' + esc(L.duration_min) + T('min', '분') + ') · ' + esc(L.student_name || L.student_uid || '-')
+          + (L.suspect ? ' <span class="muted">' + esc(T('(possible leftover in Cafe24)', '(카페24 잔재 의심)')) + '</span>' : '') + '<br>'
+          + 'Mangoi ' + esc(M.start_time) + ' (' + esc(M.duration_min) + T('min', '분') + ') · ' + esc(M.student_name || M.student_uid || '-')
+          + ' <span class="muted">#' + esc(M.id) + (M.recurring ? T(' · weekly', ' · 매주 반복') : '') + '</span>'
+          + '</div>';
+      }).join('') + uncLine;
   }
 
   // ── ⑦ 대기자 ──────────────────────────────────────────────────────────────
@@ -2615,6 +2669,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (D.flow) paintFlow();
     if (D.students) window.paintStudents();
     if (D.util) paintUtil();
+    if (D.clash) paintClash();
     if (D.wait) paintWait();
     if (D.me) paintMe();
     if (D.payroll) paintPayroll();
@@ -2653,6 +2708,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (document.getElementById('c-flow').open) window.loadFlow();
     if (document.getElementById('c-students').open) window.loadStudents();
     if (document.getElementById('c-util').open) window.loadUtil();
+    if (document.getElementById('c-clash').open) window.loadClash();
     if (document.getElementById('c-wait').open) window.loadWait();
     if (document.getElementById('c-me').open) window.loadMe();
     ['c-payroll:loadPayroll','c-leave:loadLeave','c-req:loadReqs','c-today:loadTodayAll','c-live:loadLive','c-outage:loadOutage','c-bugs:loadBugs',
