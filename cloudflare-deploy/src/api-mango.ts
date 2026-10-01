@@ -67,6 +67,7 @@ import { ensureStartsOnColumn, startsOnSel, recurStartedOn, normStartsOn } from 
 import { applyRoomOverrides } from './class-room-override';       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 import { studentRequestGate, ensureScheduleChangeRequestTable } from './student-schedule-request';  // 📅 학생 연기·변경 요청 판정 정본
 import { loadSchedSummaryMap, loadSchedSummaryOne, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약 수업」 칸 정본 (students_erp 의 수강 칸은 카페24가 정본이라 늘 «—» 였다)       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
+import { isPostponedOccurrence } from './class-postponed';  // ⏸ 연기된 회차 판정 정본(2026-10-01)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -1906,6 +1907,9 @@ export async function handleMangoApi(
           else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow) && recurStartedOn(s, todayStr);
           if (!occurs) continue;
           seen.add(s.id);
+          /* ⏸ (2026-10-01) 연기된 회차는 오늘 열리지 않는다 — 학생을 그 방으로 보내지 않는다.
+             예전엔 status != 'cancelled' 만 봐서 연기한 수업에도 입장이 열렸다. 정본 src/class-postponed.ts. */
+          if (isPostponedOccurrence(s)) continue;
           const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
           const start_ts = Date.UTC(kY, kMo, kD, hh, mm, 0) - KST; // KST 벽시계 → UTC ms
           const dur = Number(s.duration_min) || 30;
@@ -2266,12 +2270,16 @@ export async function handleMangoApi(
 
       const runMsPass = async (cond: string, bind: string): Promise<any[]> => {
         const _soSelM = startsOnSel(await ensureStartsOnColumn(env), 'cs');
-        const sqlJoin = `SELECT cs.id, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.class_type${_soSelM}, t.name AS teacher_name
+        const sqlJoin = `SELECT cs.id, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.class_type, cs.status${_soSelM}, t.name AS teacher_name
                           FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
                           WHERE cs.status != 'cancelled' AND ${cond}`;
-        const sqlNoJoin = `SELECT id, day_of_week, scheduled_date, start_time, duration_min, class_type${startsOnSel(await ensureStartsOnColumn(env))} FROM class_schedules WHERE status != 'cancelled' AND ${cond}`;
-        try { return (await env.DB.prepare(sqlJoin).bind(bind).all<any>()).results || []; }
-        catch { return (await env.DB.prepare(sqlNoJoin).bind(bind).all<any>()).results || []; }
+        const sqlNoJoin = `SELECT id, day_of_week, scheduled_date, start_time, duration_min, class_type, status${startsOnSel(await ensureStartsOnColumn(env))} FROM class_schedules WHERE status != 'cancelled' AND ${cond}`;
+        /* ⏸ (2026-10-01) 연기된 회차는 «내 수업» 카드에도 안 올린다 — 입장(sessions/today)이 그 수업을 빼므로,
+           카드에만 남으면 눌렀을 때 공용방으로 흘러간다(두 화면이 다른 답). 정본 class-postponed.ts */
+        let _ms: any[];
+        try { _ms = (await env.DB.prepare(sqlJoin).bind(bind).all<any>()).results || []; }
+        catch { _ms = (await env.DB.prepare(sqlNoJoin).bind(bind).all<any>()).results || []; }
+        return _ms.filter((r: any) => !isPostponedOccurrence(r));
       };
 
       let msRows: any[] = [];

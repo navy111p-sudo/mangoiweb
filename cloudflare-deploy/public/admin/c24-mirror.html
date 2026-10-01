@@ -126,6 +126,20 @@ tbody tr.ghost-row td{ background:var(--warn-bg); }
 
   <div class="chips" id="summary-chips"></div>
 
+  <!-- ⚔️ (2026-09-30) 같은 강사·같은 시간에 LMS 수업과 망고아이 수업이 둘 다 있는 자리.
+       미러를 켰든 안 켰든 «강사 전원» 을 본다. 서버 teacher-clash.ts 가 판정하고 여기서는 그리기만 한다. -->
+  <div class="card" id="clash-card">
+    <h2 style="margin-top:0">⚔️ 강사 이중 배정 — LMS(카페24) ↔ 망고아이 <span id="clash-count"></span></h2>
+    <div class="small" id="clash-note" style="margin-bottom:8px">
+      같은 강사가 같은 시간에 카페24 수업과 망고아이 수업(AI·수강신청·수동 등록)을 함께 갖고 있는 자리입니다.
+      카페24 LMS 에는 망고아이 수업을 써 넣을 수 없어서, 대조는 이 화면에서 합니다. 겹친 수업을 옮기거나 취소하세요.
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>날짜</th><th>강사</th><th>LMS 수업</th><th>망고아이 수업</th><th>종류</th></tr></thead>
+      <tbody id="clash-tbody"></tbody>
+    </table></div>
+  </div>
+
   <details class="card">
     <summary style="cursor:pointer;font-weight:800;font-size:13px">카페24 원본 상태값 분포 (class_state) — 유령 수업 판별용</summary>
     <div class="small" style="margin:8px 0">
@@ -227,6 +241,37 @@ tbody tr.ghost-row td{ background:var(--warn-bg); }
       g.ghost = ghost;
     });
     return { byTeacher: byTeacher, noTeacherRows: noTeacherRows };
+  }
+
+  /* ⚔️ 강사 이중 배정 표 — clashes 가 null 이면 «못 봤다» 고 말한다(0건=깨끗 으로 위장하지 않기). */
+  function renderClashes(r){
+    var list = r.clashes;
+    var tb = $('clash-tbody');
+    if (!Array.isArray(list)) {
+      $('clash-count').textContent = '';
+      tb.innerHTML = '<tr><td colspan="5" class="small">망고아이 수업을 못 읽어 대조하지 못했습니다 — «겹침 없음» 이 아닙니다. 새로고침해 주세요.</td></tr>';
+      return;
+    }
+    $('clash-count').textContent = '(' + list.length + '건)';
+    var extra = (r.clash_unchecked_no_teacher ? ' · 강사를 못 이은 LMS 수업 ' + r.clash_unchecked_no_teacher + '건은 대조하지 못했습니다' : '')
+              + (r.clash_unchecked_mangoi_teacher ? ' · 강사가 계정명으로 저장된 망고아이 수업 ' + r.clash_unchecked_mangoi_teacher + '건은 대조하지 못했습니다' : '');
+    if (!list.length) {
+      tb.innerHTML = '<tr><td colspan="5" class="small">이 창에서 겹치는 자리가 없습니다' + escapeHtml(extra) + '</td></tr>';
+      return;
+    }
+    tb.innerHTML = list.map(function(c){
+      var L = c.lms || {}, M = c.mangoi || {};
+      var who = function(name, uid){ return escapeHtml(name || uid || '—') + (name && uid && name !== uid ? ' <span class="small mono">' + escapeHtml(uid) + '</span>' : ''); };
+      return '<tr>' +
+        '<td class="mono">' + escapeHtml(c.date) + '</td>' +
+        '<td><b>' + escapeHtml(c.teacher_name || ('원부 ' + c.teacher_id)) + '</b></td>' +
+        '<td>' + escapeHtml(L.start_time) + ' · ' + (L.duration_min || '') + '분 · ' + who(L.student_name, L.student_uid) +
+          (L.suspect ? ' <span class="small">(카페24 잔재 의심)</span>' : '') + '</td>' +
+        '<td>' + escapeHtml(M.start_time) + ' · ' + (M.duration_min || '') + '분 · ' + who(M.student_name, M.student_uid) +
+          ' <span class="small mono">#' + escapeHtml(M.id) + ' ' + escapeHtml(M.source || '') + (M.recurring ? ' · 매주 반복' : '') + '</span></td>' +
+        '<td>' + (c.same_student ? '같은 학생 이중 등록' : '<b style="color:var(--crit)">강사 이중 배정</b>') + '</td>' +
+      '</tr>';
+    }).join('') + (extra ? '<tr><td colspan="5" class="small">' + escapeHtml(extra.replace(/^ · /,'')) + '</td></tr>' : '');
   }
 
   function renderSummary(r){
@@ -514,6 +559,7 @@ tbody tr.ghost-row td{ background:var(--warn-bg); }
       state.report = res.body;
       setModeButtons(res.body.mode);
       renderSummary(res.body);
+      renderClashes(res.body);
       renderStateDist(res.body);
       renderLastRuns(res.body);
       renderTeachers(buildTeacherStats(res.body.rows || []));

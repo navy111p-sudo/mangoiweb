@@ -28,6 +28,7 @@ import { enrichClassesToday } from './class-today-extras';   // 📋 오늘 수�
 import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { applyRoomOverrides } from './class-room-override';   // 🚪 「오늘은 이 방으로」 — 학생 쪽과 같은 답을 받는다
 import { loadHoldRanges, heldOnFor } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25) — 강사에게 «기다리지 말라» 를 알린다
+import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 
 interface TeacherEnv {
   DB: D1Database;
@@ -474,7 +475,10 @@ export async function handleTeacherApi(
          (앞의 upcoming 목록에는 일부러 안 넣었다 — 거기는 «특별한 한 건» 을 띄우는 자리다) */
       // 🗓 취소된 수업은 «오늘 목록» 에만 회색으로 남긴다 — 시간표·앞으로 7일에는 넣지 않는다.
       const _cancelled = String(s.sched_status || '') === 'cancelled';
-      if (_cancelled) { /* 주간표 채우기 건너뜀 */ } else
+      /* ⏸ (2026-10-01) 연기된 회차 — 취소처럼 시간표·앞으로 7일에는 안 넣고, 오늘 목록에만
+         «연기됨» 으로 남기며 입장을 닫는다(학생 쪽 sessions/today 는 아예 안 보낸다). 정본 class-postponed.ts */
+      const _postponed = isPostponedOccurrence(s);
+      if (_cancelled || _postponed) { /* 주간표 채우기 건너뜀 */ } else
       for (let wi = 0; wi < 7; wi++) {
         const hit = s.scheduled_date
           ? (String(s.scheduled_date).slice(0, 10) === weekDays[wi].date)
@@ -507,7 +511,7 @@ export async function handleTeacherApi(
         /* 오늘이 아니면 «앞으로 7일» 안에 열리는지 본다.
            ⚠️ 반복 수업(day_of_week)은 매주 도니 여기 넣으면 목록이 그 강사의 시간표로
               가득 찬다 → **일회성(one_off)만**. 레벨테스트는 전부 일회성이라 정확히 걸린다. */
-        if (_cancelled) continue;                     // 취소된 것은 «앞으로» 에 넣지 않는다
+        if (_cancelled || _postponed) continue;       // 취소·연기된 것은 «앞으로» 에 넣지 않는다
         if (!s.scheduled_date) continue;
         const d = String(s.scheduled_date).slice(0, 10);
         if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d <= todayStr) continue;
@@ -609,12 +613,12 @@ export async function handleTeacherApi(
            들어가 기다렸다(class-1931 Farrah). teacher.html 은 이 줄에 입장 버튼 대신
            «기다리지 않아도 됩니다» 를 그린다. */
         class_state: _cancelled ? 'cancelled'
-                   : String(s.sched_status || '') === 'postponed' ? 'postponed'
+                   : _postponed ? 'postponed'
                    : (status === 'live' ? 'ongoing'
                    : (status === 'done' ? 'done' : 'scheduled')),
-        join_open: now >= open_at_ts && now <= close_at_ts,
+        join_open: !_postponed && now >= open_at_ts && now <= close_at_ts,
         // ⚠️ join_open 은 «수업 시간인가» 다. «들어갈 수 있나» 는 이 값 — 둘을 섞지 말 것.
-        can_enter: now >= enterFromTs && now <= enterUntilTs,
+        can_enter: !_postponed && now >= enterFromTs && now <= enterUntilTs,
       });
     }
 
@@ -989,7 +993,7 @@ export async function handleTeacherApi(
   if (onlyNext) {
     const GRACE_AFTER_END = 30 * 60 * 1000;   // 끝나고도 30분은 «진행 중» 으로 본다(연장·마무리)
     const cand = classes
-      .filter((c: any) => c.kind === 'class' && now <= c.end_ts + GRACE_AFTER_END)
+      .filter((c: any) => c.kind === 'class' && c.class_state !== 'postponed' && c.class_state !== 'cancelled' && now <= c.end_ts + GRACE_AFTER_END)   // ⏸ 연기·취소된 수업은 «다음 수업» 이 아니다(2026-10-01)
       .sort((a: any, b: any) => a.start_ts - b.start_ts)[0] || null;
     let next: any = null;
     if (cand) {
@@ -1027,7 +1031,7 @@ export async function handleTeacherApi(
     const [allRs, nsRs] = await Promise.all([
       env.DB.prepare(
         `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date,
-                cs.start_time, cs.duration_min, cs.teacher_id${_soSelM}, t.name AS teacher_name
+                cs.start_time, cs.duration_min, cs.status, cs.teacher_id${_soSelM}, t.name AS teacher_name
            FROM class_schedules cs
            LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
           WHERE cs.status != 'cancelled' AND cs.user_id NOT IN ('lms','type_seed')`
@@ -1045,6 +1049,7 @@ export async function handleTeacherApi(
         ? (s.scheduled_date === todayStr)
         : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, kDow) && recurStartedOn(s, todayStr));
       if (!occurs) continue;
+      if (isPostponedOccurrence(s)) continue;   // ⏸ 연기된 회차는 매니저 «오늘·다음» 목록에 안 올린다(2026-10-01)
       const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
       const start_ts = Date.UTC(kY, kMo, kD, hh || 0, mm || 0, 0) - KST;
       const end_ts = start_ts + (Number(s.duration_min) || 30) * 60000;
