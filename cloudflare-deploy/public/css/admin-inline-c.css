@@ -10373,3 +10373,8 @@ html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span.lib-lvl:no
    details.menu-card a{color:#60A5FA!important;underline} 는 흰 카드 위 대비가 약해(≈2.5) ID 접두로 이긴다. */
 #sm-today-classes a.tc-evq-link{display:inline-block;margin-top:2px;color:#1d4ed8 !important;font-weight:700;text-decoration:none !important;white-space:nowrap}
 #sm-today-classes a.tc-evq-link:hover{text-decoration:underline !important}
+
+/* 🎨 (2026-10-01) 오늘 수업 표 «⏸ 연기됨/Postponed» — 회색에 묻혀 안 보였다 → 보라 배지.
+   인라인 색은 [id^="card-"] :is(span…) 규칙에 검정으로 눌리므로 조상 id 로 이긴다. 대비 #6d28d9/#ede9fe ≈ 6.4 */
+#sm-today-classes span.tc-st-postponed{display:inline-block;padding:2px 9px;border-radius:99px;
+  background-color:#ede9fe !important;color:#6d28d9 !important;border:1px solid #a78bfa !important;font-weight:800 !important;box-sizing:border-box}

@@ -46,8 +46,10 @@
      ⛔ 모르면 «—» — 지어내지 않는다. ⚠️ 색만으로 뜻을 전하지 않는다(카드 안 글자색은
         admin-inline-c.css 가 검정으로 덮을 수 있다) → 이모지 + 글자로 뜻을 지고 간다. */
   function xDash() { return '<span style="color:#9ca3af;font-size:11px">—</span>'; }
-  function xSmall(txt, extra) {
-    return '<span style="font-size:11px;white-space:nowrap' + (extra || '') + '">' + txt + '</span>';
+  /* 🎨 (2026-10-01 사장님 «Postponed 가 잘 안 보인다 · 눈에 띄는 색») 인라인 색은 카드 안에서 검정으로
+     눌리므로 클래스로 준다 — 색 정본은 css/admin-inline-c.css 맨 끝 #sm-today-classes span.tc-st-postponed. */
+  function xSmall(txt, extra, cls) {
+    return '<span' + (cls ? ' class="' + cls + '"' : '') + ' style="font-size:11px;white-space:nowrap' + (extra || '') + '">' + txt + '</span>';
   }
   function xTeacherEntry(e) {
     if (!e) return xDash();
@@ -67,7 +69,7 @@
       absent:   ['❌', '결석(입장 기록 없음)', 'Absent (no entry)', ';color:#b91c1c;font-weight:800'],
       waiting:  ['⏳', '아직 입장 안 함', 'Not in yet', ';color:#b45309'],
       not_yet:  ['', '시작 전', 'Not started', ';color:#6b7280'],
-      postponed: ['⏸', '연기됨', 'Postponed', ';color:#b45309'],
+      postponed: ['⏸', '연기됨', 'Postponed', '', 'tc-st-postponed'],
       unknown:  ['❔', '확인 불가', 'Unknown', ';color:#6b7280'],
       cafe24:   ['', '카페24 · 기록 없음', 'cafe24 · n/a', ';color:#92400e']
     }[a.state];
@@ -75,7 +77,7 @@
     var t = (m[0] ? m[0] + ' ' : '') + T(m[1], m[2]);
     if (a.at) t += ' · ' + esc(hhmm(a.at));
     if (a.state === 'late' && a.late_min != null) t += T(' (+' + a.late_min + '분)', ' (+' + a.late_min + 'm)');
-    return xSmall(t, m[3]);
+    return xSmall(t, m[3], m[4]);
   }
   function xPay(v) {
     if (v !== 'B2B' && v !== 'B2C') return xDash();
