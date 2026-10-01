@@ -18,6 +18,7 @@
  */
 
 import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
+import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 import { sendPlainSms, getSolapiMode } from './solapi-client';
 import { deliverLessonReminder, ensureLessonReminderDeliveryTable, LESSON_REMINDER_FROM_PHONE } from './lesson-reminder-delivery';
 import { phonesForStudent } from './notify-contacts';  // 📞 학생·학부모 번호 판정 정본(복제 금지)
@@ -107,7 +108,7 @@ export async function runFeedbackReminderSweep(env: any, opts: { dry?: boolean }
   let rows: any[] = [];
   try {
     const rs = await env.DB.prepare(
-      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, teacher_id, teacher_name${startsOnSel(await ensureStartsOnColumn(env))}
+      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, status, teacher_id, teacher_name${startsOnSel(await ensureStartsOnColumn(env))}
        FROM class_schedules WHERE status != 'cancelled'`
     ).all();
     rows = rs.results || [];
@@ -123,6 +124,7 @@ export async function runFeedbackReminderSweep(env: any, opts: { dry?: boolean }
     else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow) && recurStartedOn(s, todayStr);
     if (!occurs) continue;
     seen.add(s.id);
+    if (isPostponedOccurrence(s)) continue;   // ⏸ 연기된 회차는 오늘 열리지 않는다(2026-10-01, class-postponed.ts)
     const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
     if (!Number.isFinite(hh)) continue;
     const start_ts = Date.UTC(kY, kMo, kD, hh, mm || 0, 0) - KST;
@@ -262,7 +264,7 @@ export async function runLessonReminderSweep(env: any, opts: { dry?: boolean } =
   let rows: any[] = [];
   try {
     const rs = await env.DB.prepare(
-      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, teacher_id${startsOnSel(await ensureStartsOnColumn(env))}
+      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, status, teacher_id${startsOnSel(await ensureStartsOnColumn(env))}
        FROM class_schedules WHERE status != 'cancelled'`
     ).all();
     rows = rs.results || [];
@@ -279,6 +281,7 @@ export async function runLessonReminderSweep(env: any, opts: { dry?: boolean } =
     else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow) && recurStartedOn(s, todayStr);
     if (!occurs) continue;
     seen.add(s.id);
+    if (isPostponedOccurrence(s)) continue;   // ⏸ 연기된 회차는 오늘 열리지 않는다(2026-10-01, class-postponed.ts)
     const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
     if (!Number.isFinite(hh)) continue;
     const start_ts = Date.UTC(kY, kMo, kD, hh, mm || 0, 0) - KST;

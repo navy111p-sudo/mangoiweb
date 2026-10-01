@@ -283,8 +283,14 @@ if (process.env.SMRS_CHILD === '1') {
     const p = await portal('tok_alpha'); const s = await studentToday('stu_c');
     const tc = (p.classes || []).find((c) => Number(c.schedule_id) === C);
     const sc = (s.sessions || []).find((c) => Number(c.schedule_id) === C);
-    ok('2c 연기 뒤 두 쪽의 «보이는가» 가 서로 같다', !!tc === !!sc, `teacher=${!!tc} student=${!!sc}`);
-    if (tc && sc) ok('2c 연기 뒤에도 보인다면 같은 방', tc.room_id === sc.room_id, `${tc.room_id} vs ${sc.room_id}`);
+    /* 🔁 (2026-10-01) 옛 경계 「연기 뒤 두 쪽의 «보이는가» 가 같다」를 옮겨 적었다.
+       그때 둘 다 «보였던» 것은 연기 상태를 아무도 안 읽어서였다(Farrah 10/1 14:00 실사고 —
+       연기했는데 학생 입장·오늘 수업이 그대로 열림). 이제 규칙은 src/class-postponed.ts:
+         학생 = 오늘 목록에서 빠진다(그 방으로 안 보낸다) · 강사 = «연기됨» 으로 남되 입장이 닫힌다.
+       ⛔ «둘 다 보인다» 로 되돌리지 말 것 — 학생이 빈 방에 들어가고 강사는 기다리게 된다. */
+    ok('2c 연기 뒤 학생 오늘 목록에서 빠진다', !sc, `student=${!!sc}`);
+    ok('2c 연기 뒤 강사에게는 «연기됨» 으로 남는다', !!tc && tc.class_state === 'postponed', tc && tc.class_state);
+    ok('2c 연기 뒤 강사 입장이 닫힌다', !!tc && tc.can_enter === false && tc.join_open === false, tc && JSON.stringify({ can_enter: tc.can_enter, join_open: tc.join_open }));
     results.push({ name: '📝 관찰: 연기(postponed) 수업이 오늘 목록에 남는가 — 강사=' + !!tc + ' / 학생=' + !!sc, pass: true, info: true });
   }
 
