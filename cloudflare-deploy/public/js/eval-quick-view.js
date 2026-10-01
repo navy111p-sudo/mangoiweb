@@ -17,7 +17,11 @@
  * ⚠️ 이 파일을 고치면 부르는 세 곳의 «?v=» 를 «함께» 올릴 것 — 주소를 JS 가 만들어서
  *    asset_version_harness(HTML 의 <script src> 만 셈)가 못 잡는다. 셋이 같은지는
  *    test-harness/eval_quick_view_harness.mjs D-9 가 본다.
- * ⚠️ 이 창은 «보기» 만 한다 — 수정 API(PATCH /api/eval/:id)는 아직 없다(사람 결정 대기).
+ * ✏️ (2026-10-01 매니저 요청 «open and edit … today's feedback») 고치기 추가.
+ *    서버가 GET 응답에 can_edit 를 실어 줄 때만 「✏️ 고치기」를 그린다(판정 정본 = src/api-lessons.ts
+ *    evalEditAllowed — 강사는 자기가 쓴 것만, 본사 매니저는 전부, 지사·대리점은 못 고침).
+ *    ⛔ 화면이 그 판정을 복제하지 않는다. 고치는 칸은 글 둘(강사 메모·학부모 안내)뿐 — 점수는 안 고친다.
+ *    ⛔ 학부모 문자는 다시 안 간다 — 이미 보낸 경우 그 사실을 저장 뒤 글자로 말한다.
  */
 (function () {
   'use strict';
@@ -61,7 +65,12 @@
       + '#mg-evq .evq-ft{padding:10px 16px 14px;border-top:1px solid #e5e7eb;display:flex;gap:10px;'
       + 'justify-content:space-between;align-items:center;flex-wrap:wrap}'
       + '#mg-evq .evq-ft a{color:#1d4ed8;font-size:13px}'
-      + '#mg-evq .evq-msg{padding:22px 16px;color:#475467}';
+      + '#mg-evq .evq-msg{padding:22px 16px;color:#475467}'
+      + '#mg-evq .evq-ta{width:100%;box-sizing:border-box;min-height:90px;font:inherit;font-size:13.5px;background:#ffffff;'
+      + 'color:#101828;border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px}'
+      + '#mg-evq .evq-btn{background:#1d4ed8;color:#ffffff;border:0;border-radius:8px;padding:7px 14px;font-weight:800;cursor:pointer;font-size:13px}'
+      + '#mg-evq .evq-btn2{background:#f1f5f9;color:#101828;border:1px solid #cbd5e1;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px}'
+      + '#mg-evq .evq-note{font-size:12.5px;font-weight:700;margin:4px 16px 0}';
     document.head.appendChild(st);
   }
 
@@ -104,7 +113,42 @@
       + '<div class="evq-bd">' + body + '</div>'
       + '<div class="evq-ft"><a href="/eval.html?id=' + encodeURIComponent(e.id) + '" target="_blank" rel="noopener">'
       + esc(T('Open the parent view ↗', '학부모 화면으로 보기 ↗')) + '</a>'
-      + '<span class="evq-sub">' + esc(T('View only — editing is not available yet.', '보기 전용 — 수정은 아직 안 됩니다.')) + '</span></div>';
+      + (e.__canEdit
+          ? '<button type="button" class="evq-btn" data-evq-edit>' + esc(T('✏️ Edit', '✏️ 고치기')) + '</button>'
+          : '<span class="evq-sub">' + esc(T('View only — only the teacher who wrote it (or an HQ manager) can edit.',
+              '보기 전용 — 쓴 강사(또는 본사 매니저)만 고칠 수 있습니다.')) + '</span>')
+      + '</div>';
+  }
+
+  /** ✏️ 고치기 화면 — 글 두 칸. 하니스가 오려 내 돌린다. */
+  function renderEdit(e, en) {
+    var T = function (enS, koS) { return en ? enS : koS; };
+    var ta = function (key, label, val) {
+      return '<div class="evq-sec"><div class="evq-lb">' + esc(label) + '</div>'
+        + '<textarea class="evq-ta" data-evq-f="' + key + '" maxlength="2000">' + esc(val == null ? '' : String(val)) + '</textarea></div>';
+    };
+    return '<div class="evq-hd"><div class="evq-ti"><b>✏️ ' + esc(e.student_name || T('Class log', '수업일지')) + '</b>'
+      + '<span class="evq-sub">' + esc(String(e.lesson_date || '').slice(0, 10) || ymd(e.created_at)) + '</span></div>'
+      + '<button type="button" class="evq-x" data-evq-close aria-label="' + esc(T('Close', '닫기')) + '">✕</button></div>'
+      + '<div class="evq-bd">'
+      + ta('note_en', T('Teacher note (English)', '강사 메모 (영어)'), e.note_en)
+      + ta('note_ko', T('Shown to parents (Korean)', '학부모 안내 (한국어)'), e.note_ko)
+      + (Number(e.parent_notified) === 1
+          ? '<div class="evq-sub">' + esc(T('⚠ Parents already got the earlier text by SMS. Saving updates the parent page only — no new SMS is sent.',
+              '⚠ 학부모는 이미 고치기 전 글을 문자로 받았습니다. 저장하면 학부모 화면만 바뀌고 문자는 다시 안 갑니다.')) + '</div>' : '')
+      + '</div><div class="evq-note" data-evq-msg></div>'
+      + '<div class="evq-ft"><button type="button" class="evq-btn2" data-evq-cancel>' + esc(T('Cancel', '취소')) + '</button>'
+      + '<button type="button" class="evq-btn" data-evq-save>' + esc(T('Save', '저장')) + '</button></div>';
+  }
+  function saveErr(st, d, en) {
+    var T = function (enS, koS) { return en ? enS : koS; };
+    var e = (d && d.error) || '';
+    if (e === 'not_your_eval') return T('You can edit only the logs you wrote.', '내가 쓴 일지만 고칠 수 있습니다.');
+    if (e === 'note_not_korean') return T('The parent text must be in Korean.', '학부모 안내 칸은 한국어여야 합니다.');
+    if (st === 401) return T('Your login has expired — please log in again.', '로그인이 끊겼습니다 — 다시 로그인해 주세요.');
+    if (st === 403) return T('You cannot edit this log.', '이 일지를 고칠 권한이 없습니다.');
+    if (e === 'nothing_to_update') return T('Nothing changed.', '바뀐 내용이 없습니다.');
+    return T('Could not save (HTTP ' + st + ') — try again.', '저장하지 못했습니다 (HTTP ' + st + ') — 다시 눌러 주세요.');
   }
 
   function show(html) {
@@ -124,6 +168,51 @@
     wrap.innerHTML = '<div class="evq-box">' + html + '</div>';
   }
 
+  /* 보기 화면 + (허락되면) 고치기 배선. done 은 저장 직후 한 줄 안내. */
+  function showView(ev, en, opts, done) {
+    var T = function (enS, koS) { return en ? enS : koS; };
+    show(renderEval(ev, en) + (done ? '<div class="evq-note" style="color:#047857;padding-bottom:12px">' + esc(done) + '</div>' : ''));
+    if (!ev.__canEdit) return;   /* 고칠 수 없으면 배선할 것이 없다 */
+    var box = document.getElementById('mg-evq');
+    var eb = box && box.querySelector ? box.querySelector('[data-evq-edit]') : null;
+    if (!eb) return;
+    eb.addEventListener('click', function () {
+      show(renderEdit(ev, en));
+      var b2 = document.getElementById('mg-evq');
+      var msg = b2.querySelector('[data-evq-msg]');
+      b2.querySelector('[data-evq-cancel]').addEventListener('click', function () { showView(ev, en, opts, ''); });
+      var sv = b2.querySelector('[data-evq-save]');
+      sv.addEventListener('click', function () {
+        var body = {};
+        var fs = b2.querySelectorAll('[data-evq-f]');
+        for (var i = 0; i < fs.length; i++) {
+          var k = fs[i].getAttribute('data-evq-f');
+          var v = String(fs[i].value || '').trim();
+          if (v !== String(ev[k] == null ? '' : ev[k]).trim()) body[k] = v;
+        }
+        if (!Object.keys(body).length) { msg.style.color = '#b45309'; msg.textContent = T('Nothing changed.', '바뀐 내용이 없습니다.'); return; }
+        sv.disabled = true; msg.style.color = '#475467'; msg.textContent = T('Saving…', '저장 중…');
+        fetch('/api/eval/' + encodeURIComponent(ev.id), {
+          method: 'PATCH', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+        }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (d) { return { st: r.status, d: d }; });
+        }).then(function (x) {
+          if (!(x.st === 200 && x.d && x.d.ok === true)) {   /* «성공이라고 말했는가» 로 가른다 */
+            sv.disabled = false; msg.style.color = '#b42318'; msg.textContent = saveErr(x.st, x.d, en); return;
+          }
+          for (var k2 in body) ev[k2] = body[k2] || null;
+          showView(ev, en, opts, x.d.parent_notified
+            ? T('✅ Saved. The parent page shows the new text (no new SMS was sent).', '✅ 저장했습니다. 학부모 화면에 새 글이 보입니다(문자는 다시 안 갔습니다).')
+            : T('✅ Saved.', '✅ 저장했습니다.'));
+          if (typeof opts.onSaved === 'function') { try { opts.onSaved(ev); } catch (e2) {} }
+        }).catch(function () {
+          sv.disabled = false; msg.style.color = '#b42318'; msg.textContent = T('Network problem — please try again.', '연결 문제 — 다시 눌러 주세요.');
+        });
+      });
+    });
+  }
+
   var seq = 0;
   window.mgEvalQuick = function (id, opts) {
     var en = !!(opts && opts.en);
@@ -140,7 +229,11 @@
       })
       .then(function (x) {
         if (my !== seq || !document.getElementById('mg-evq')) return;   // 그 사이 닫았거나 다른 것을 열었다
-        if (x.st === 200 && x.d && x.d.ok === true && x.d.eval) { show(renderEval(x.d.eval, en)); return; }
+        if (x.st === 200 && x.d && x.d.ok === true && x.d.eval) {
+          var ev = x.d.eval; ev.__canEdit = x.d.can_edit === true;   /* ⛔ 모르면(옛 서버) 고치기 안 줌 */
+          showView(ev, en, opts || {}, '');
+          return;
+        }
         var why = x.st === 401 ? T('Your login has expired — please log in again.', '로그인이 끊겼습니다 — 다시 로그인해 주세요.')
           : x.st === 404 ? T('This log was not found (it may have been deleted).', '이 일지를 찾지 못했습니다(지워졌을 수 있습니다).')
           : T('Could not load (HTTP ' + x.st + ').', '불러오지 못했습니다 (HTTP ' + x.st + ').');
@@ -154,4 +247,5 @@
       });
   };
   window.mgEvalQuick._render = renderEval;   // 하니스용
+  window.mgEvalQuick._renderEdit = renderEdit;
 })();

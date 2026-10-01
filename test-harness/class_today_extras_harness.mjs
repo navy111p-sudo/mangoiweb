@@ -350,12 +350,13 @@ ok('강사 포털: 조건 없이 try 로 감싼다', /\n[ \t]*try \{ await enric
 }
 ok('강사 포털: 배너(?only=next)는 건너뛴다', /if \(!onlyNext\) \{[\s\S]{0,700}enrichClassesToday/.test(tea));
 const th2 = readFileSync(join(PUB, 'teacher.html'), 'utf8');
-const fi = th2.indexOf('function extrasHtml(c){');
+/* (2026-10-01) 두 번째 인자 wi(「✍ 지금 쓰기」 줄 번호)가 붙어도 찾는다 — 시그니처 «모양» 을 못 박지 않는다 */
+const fi = th2.search(/function extrasHtml\(c(?:,\s*\w+)?\)\{/);
 let body = '';
 if (fi > 0) { let d = 0, i = th2.indexOf('{', fi); const st = i; for (; i < th2.length; i++) { if (th2[i] === '{') d++; else if (th2[i] === '}') { d--; if (!d) break; } } body = th2.slice(st + 1, i); }
 ok('teacher.html extrasHtml 을 오려 냈다', body.length > 200);
 let run = null;
-try { run = new Function('T', 'esc', 'hhmm', 'c', body); } catch (e) { ok('extrasHtml 컴파일', false, e.message); }
+try { run = new Function('T', 'esc', 'hhmm', 'c', 'wi', body); } catch (e) { ok('extrasHtml 컴파일', false, e.message); }
 if (run) {
   const T = (en) => en, esc = (x) => String(x), hhmm = () => '14:07';
   const call = (c) => { try { return run(T, esc, hhmm, c); } catch (e) { return 'THROW ' + e.message; } };
@@ -383,7 +384,7 @@ if (run) {
 }
 ok('관리자 표: 숨김이면 «본사 전용»', /xEval\(s\.last_eval, s\.eval_hidden\)/.test(tb) && /xEval\(s\.today_eval, s\.eval_hidden\)/.test(tb) && /if \(hidden\) return xSmall\(T\('본사 전용'/.test(adm));
 ok('매니저 화면: 숨김이면 «본사 전용»', /if \(r\.eval_hidden\) return esc\(T\('HQ only', '본사 전용'\)\)/.test(mgr));
-ok('teacher.html 카드가 extrasHtml(c) 를 부른다', /\+\s+extrasHtml\(c\)\n/.test(th2));
+ok('teacher.html 카드가 extrasHtml(c) 를 부른다', /\+\s+extrasHtml\(c\b[^\n]*\)\n/.test(th2));
 ok('teacher.html 다시그리기 지문에 이번 주 7칸이 들어 있다', /sc\.week_days\.map\(/.test(th2));
 ok('teacher.html 다시그리기 지문에 출결·강사입장이 들어 있다', /sc\.attendance \? sc\.attendance\.state/.test(th2) && /sc\.teacher_entry \? sc\.teacher_entry\.state/.test(th2));
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
