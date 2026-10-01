@@ -61,6 +61,9 @@ ok('모르는 요청 종류(cancel)는 거절', g({ requestType: 'cancel' }).err
 ok('상한 직전은 받는다', g({ recentCount: CAP - 1 }).ok === true);
 ok('상한이면 429', g({ recentCount: CAP }).error === 'too_many_requests' && g({ recentCount: CAP }).status === 429);
 ok('못 세었으면(null) 막지 않는다', g({ recentCount: null }).ok === true);
+ok('같은 수업·회차에 대기 요청이 있으면 409 already_pending', g({ pendingDup: true }).error === 'already_pending' && g({ pendingDup: true }).status === 409);
+ok('대기 요청이 없으면 받는다(짝)', g({ pendingDup: false }).ok === true);
+ok('중복을 못 봤으면(null) 막지 않는다', g({ pendingDup: null }).ok === true);
 
 /* ── ② 라우트를 오려 내 진짜 SQLite 로 ── */
 console.log('\n② 라우트 실제 실행');
@@ -91,9 +94,10 @@ function makeDb() {
   return { db, D1: { prepare: wrap, exec: async sql => db.exec(sql) } };
 }
 const json = (o, status = 200) => ({ status, body: o });
-async function call({ tok, payload }) {
+async function call({ tok, payload, pre }) {
   const { db, D1 } = makeDb();
   const env = { DB: D1 };
+  if (pre) await pre(env, db);
   const request = { json: async () => payload };
   const url = new URL('http://x/api/class/schedule/request');
   const authUidGlobal = async () => tok;
@@ -436,6 +440,24 @@ if (daySlotsForReal) {
   ok('정원은 학생 쪽 판정과 무관(13:00 student_busy 아님)', o4?.slots.find((x) => x.t === '13:00')?.student_busy === false);
 }
 
+/* ── ②-dup 중복 요청 (2026-10-01 jeong 대기 8건) ── */
+console.log('\n②-dup 같은 수업·회차 중복');
+{
+  const pay = { schedule_id: 849, request_type: 'postpone', orig_date: plus(1), new_date: plus(8), new_time: '19:20' };
+  const seed = async (env, db) => { await ensureScheduleChangeRequestTable(env);
+    db.prepare(`INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_uid, orig_date, status, created_at) VALUES (849,'postpone','student','jeong',?, 'pending', 1)`).run(plus(1)); };
+  const a = await call({ tok: 'jeong', payload: pay, pre: seed });
+  ok('대기 중 요청이 있으면 409 · 새 행 없음', a.res.status === 409 && a.res.body.error === 'already_pending' && a.rows.length === 1, a.res);
+  const seedOther = async (env, db) => { await ensureScheduleChangeRequestTable(env);
+    db.prepare(`INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_uid, orig_date, status, created_at) VALUES (849,'postpone','student','jeong',?, 'pending', 1)`).run(plus(2)); };
+  const b = await call({ tok: 'jeong', payload: pay, pre: seedOther });
+  ok('다른 회차(날짜)의 대기 요청은 막지 않는다(짝)', b.res.status === 200 && b.rows.length === 2, b.res);
+  const seedDone = async (env, db) => { await ensureScheduleChangeRequestTable(env);
+    db.prepare(`INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_uid, orig_date, status, created_at) VALUES (849,'postpone','student','jeong',?, 'rejected', 1)`).run(plus(1)); };
+  const c = await call({ tok: 'jeong', payload: pay, pre: seedDone });
+  ok('반려된 요청이 있으면 다시 보낼 수 있다(짝)', c.res.status === 200 && c.rows.length === 2, c.res);
+}
+
 /* ── ③ 학생 화면 배선 ── */
 console.log('\n③ 학생 화면');
 const page = SRC('public/lesson-postpone-demo.html');
@@ -445,6 +467,33 @@ ok('새 학생 경로로 보낸다', /\/api\/class\/schedule\/request/.test(code
 ok('옛 관리자 경로로 안 보낸다', !/\/api\/admin\/schedule-requests/.test(code));
 ok('학생 토큰(Bearer)을 싣는다', /mango_token/.test(code) && /'Bearer '/.test(code));
 ok('로그인 만료를 사람 말로 말한다', /login_required/.test(page) && /다시 로그인/.test(page));
+ok('중복 요청(already_pending)을 사람 말로 말한다', /already_pending/.test(page) && /기다리는 중/.test(page));
+
+/* ③-2 «고른 수업만» 보낸다 (2026-10-01 jeong — 하루만 미루려 했는데 4건 전부 요청됨) */
+console.log('\n③-2 고른 수업만 요청');
+const pairsSrc = page.slice(page.indexOf('function __mobPairs('), page.indexOf('function __mobPickedOrigs('));
+ok('__mobPairs 를 오려 냈다', pairsSrc.length > 100);
+let pairs = null; try { pairs = new Function(pairsSrc + '\nreturn __mobPairs;')(); } catch (e) { ok('__mobPairs 실행', false, e.message); }
+const origs = [{ date: '2026-10-01' }, { date: '2026-10-02' }, { date: '2026-10-06' }, { date: '2026-10-07' }];
+const run = (cart) => { try { const s = cart.slice().sort((a, b) => (a.date + a.hour) < (b.date + b.hour) ? -1 : 1); return pairs(s, origs, s.filter(c => c.origIdx == null)); } catch (e) { return 'THREW ' + e.message; } };
+const one = run([{ date: '2026-10-08', hour: '19:20', origIdx: 0 }]);
+ok('하나만 담으면 요청도 하나(그 수업만)', Array.isArray(one) && one.length === 1 && one[0].o.date === '2026-10-01', one);
+const mid = run([{ date: '2026-10-09', hour: '19:20', origIdx: 1 }]);
+ok('둘째 수업만 담으면 둘째만', Array.isArray(mid) && mid.length === 1 && mid[0].o.date === '2026-10-02', mid);
+const all = run(origs.map((o, i) => ({ date: '2026-10-1' + i, hour: '19:20', origIdx: i })));
+ok('넷을 다 담으면 넷 다(짝)', Array.isArray(all) && all.length === 4, all);
+ok('아무것도 안 담으면 0', Array.isArray(run([])) && run([]).length === 0);
+const persistCode = code;
+ok('저장이 __mobPairs 결과만 보낸다(현재 수업 전부를 돌지 않는다)', /__mobPairs\(/.test(persistCode) && /pairs\.map\(/.test(persistCode) && !/origs\.map\(/.test(persistCode));
+const sticky = blockAt(page, page.indexOf('function updateSticky(){')).replace(/\/\*[\s\S]*?\*\//g, '');
+ok('실제 수업은 1개부터 완료 가능', /__MOB_REAL \? state\.cart\.length >= 1/.test(sticky));
+const confirmB = blockAt(page, page.indexOf('function onConfirm(){'));
+ok('확정도 실제 수업은 담은 수를 강요하지 않는다', /!__MOB_REAL && state\.cart\.length < state\.weeklyTarget/.test(confirmB));
+const push = blockAt(page, page.indexOf('function pushBackAll(){'));
+const pushReal = blockAt(push, push.indexOf('if (__MOB_REAL)'));
+ok('«한 주 뒤로» 는 실제 수업에서 고른 하나만 담는다(전부 map 하지 않음)', /state\.cart\.push\(/.test(pushReal) && !/CURRENT_SCHEDULE\.map\(/.test(pushReal), pushReal.slice(0, 200));
+const done = blockAt(page, page.indexOf('function showCompletion('));
+ok('완료 화면의 «기존» 도 고른 수업만', /__mobPickedOrigs\(\)/.test(done) && /beforeSrc\.forEach/.test(done));
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
