@@ -15,7 +15,9 @@ import { pickCurrentSession } from './class-current-pick';
 import { runCypher } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
 import { studentScopeWhere, getScope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
-import { checkAdminSession, resolveOwnerScope, getAdminActor, isOrgScopedRole } from './auth-admin';  // 🔐 공용 소유자 판정
+import { checkAdminSession, resolveOwnerScope, getAdminActor, isOrgScopedRole } from './auth-admin';
+import { buildStudentLedger, loadLeaves, ensureStudentLeaveTable } from './session-ledger-load';   // 📒 회차 원장
+import { validateLeave, LEAVE_ERROR_TEXT } from './session-ledger';   // 📒 휴원 규칙(정본)
 import { enrollAdminHqOnly, moveCandidatesFor, daySlotsFor } from './enroll-ops';   // 🙈 학생 숨김은 본사 전용 — 강사·지사·대리점 차단 + 스코프 재조회(모르면 막음)
 import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
 import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
@@ -3819,6 +3821,61 @@ ${numbered}`;
       // password_hash — api-students.ts 의 ensureLoginTable() 과 동일한 안전망(이미 있으면 무시)
       try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN password_hash TEXT;`); } catch {}
     };
+
+    /* 📒 (2026-10-01) 회차 원장 · 학생 휴원 — 정본 src/session-ledger.ts
+         GET  /api/admin/student/:uid/session-ledger?month=YYYY-MM
+         GET  /api/admin/student/:uid/leaves
+         POST /api/admin/student/:uid/leaves               { start_date, end_date, reason }
+         POST /api/admin/student/:uid/leaves/:id/cancel
+       ⚠️ 쓰기는 강사·조직 계정을 막는다(조직 계정은 /api/admin/student/ 자체가 isAgencyAllowedApi 밖이라
+          index.ts 에서 이미 403 이지만, 그 목록이 넓어지는 날을 위해 여기서도 한 번 더). */
+    {
+      const ml = path.match(/^\/api\/admin\/student\/([^\/]+)\/session-ledger$/);
+      if (ml && method === 'GET') {
+        const uidL = decodeURIComponent(ml[1]);
+        let ym = String(url.searchParams.get('month') || '');
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) ym = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+        await ensureAttendanceAccountUid(env as any);   // 출석을 «계정» 으로도 찾기 위한 칸·인덱스 보장(멱등)
+        const out: any = await buildStudentLedger(env as any, uidL, ym);
+        return json(out, out.ok ? 200 : 500);
+      }
+      const mv = path.match(/^\/api\/admin\/student\/([^\/]+)\/leaves$/);
+      const mc = path.match(/^\/api\/admin\/student\/([^\/]+)\/leaves\/(\d+)\/cancel$/);
+      if ((mv && (method === 'GET' || method === 'POST')) || (mc && method === 'POST')) {
+        const uidV = decodeURIComponent((mv || mc)![1]);
+        if (method === 'GET') {
+          const rows = await loadLeaves(env as any, uidV);
+          if (rows === null) return json({ ok: false, error: 'leaves_read_failed' }, 500);
+          return json({ ok: true, items: rows });
+        }
+        // 🔐 본사만 — getAdminActor().role 은 스코프 조회 실패를 삼켜 조직 계정을 staff 로 줄 수 있어
+        //    (fail-open), admin_scope 를 다시 읽어 «모르면 막는» 정본 게이트를 쓴다.
+        const deny = await enrollAdminHqOnly(request, env as any);
+        if (deny) return deny;
+        const actor = await getAdminActor(request, env as any);
+        await ensureStudentLeaveTable(env as any);
+        const by = String(actor.username || actor.name || 'admin');
+        if (mc) {
+          const r: any = await env.DB.prepare(
+            `UPDATE student_leaves SET status='cancelled', cancelled_by=?, cancelled_at=? WHERE id=? AND student_uid=? AND status='active'`
+          ).bind(by, Date.now(), parseInt(mc[2], 10), uidV).run();
+          if (!(r?.meta?.changes > 0)) return json({ ok: false, error: 'not_found_or_already_cancelled' }, 404);
+          return json({ ok: true });
+        }
+        const body: any = await request.json().catch(() => ({}));
+        const req = { start_date: String(body.start_date || '').slice(0, 10), end_date: String(body.end_date || '').slice(0, 10) };
+        const existing = await loadLeaves(env as any, uidV);
+        // 기존 휴원을 못 읽었으면 «1년 3번»·«겹침» 을 확인할 수 없다 → 막는 쪽으로(규칙을 모르고 통과시키지 않는다).
+        if (existing === null) return json({ ok: false, error: 'leaves_read_failed' }, 500);
+        const bad = validateLeave(req, existing, Date.now());
+        if (bad) return json({ ok: false, error: bad, message_ko: LEAVE_ERROR_TEXT[bad].ko, message_en: LEAVE_ERROR_TEXT[bad].en }, 400);
+        const reason = String(body.reason || '').slice(0, 200) || null;
+        const ins: any = await env.DB.prepare(
+          `INSERT INTO student_leaves (student_uid, start_date, end_date, reason, status, created_by, created_at) VALUES (?, ?, ?, ?, 'active', ?, ?)`
+        ).bind(uidV, req.start_date, req.end_date, reason, by, Date.now()).run();
+        return json({ ok: true, id: ins?.meta?.last_row_id ?? null });
+      }
+    }
 
     // /api/admin/student/:uid/full — 한 번에 모든 탭 데이터 적재 (Promise.allSettled)
     {
