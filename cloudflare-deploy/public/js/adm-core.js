@@ -6443,11 +6443,26 @@ async function loadCenters(opts) {
   const qs = '?limit=' + _ctState.limit + '&offset=' + _ctState.offset
            + (_ctState.q ? '&q=' + encodeURIComponent(_ctState.q) : '')
            + (_ctState.pt ? '&payment_type=' + encodeURIComponent(_ctState.pt) : '');
-  let d = {};
+  let d = {}, _ctHttp = 0;
   try {
     const r = await fetch('/api/admin/centers' + qs, { cache:'no-store', credentials:'include' });
+    _ctHttp = r.status;
     d = await r.json().catch(()=>({}));
   } catch (e) { d = {}; }
+  /* 🔴 (2026-10-01 장지웅 부장 제보 「대리점 목록에 하나도 안 나온다」) 요청이 실패해도(403·500·끊김)
+     예전엔 «—» 와 «전체 0» 만 그려서 «대리점이 0개» 와 «못 물어봤다» 가 같은 화면이었다.
+     실패면 서버가 준 사유를 그 자리에 적는다 — 성공 판정은 «ok === true + items 가 배열» 로만. */
+  if (!(d && d.ok === true && Array.isArray(d.items))) {
+    _ctRows = [];
+    const en = adminLang === 'en';
+    const why = (d && (d.message || d.error)) || (_ctHttp ? ('HTTP ' + _ctHttp) : (en ? 'network error' : '연결 실패'));
+    tb.innerHTML = '<tr><td colspan="10" class="empty" style="color:#b91c1c">⚠ '
+      + (en ? 'Could not load the agency list: ' : '대리점 목록을 불러오지 못했습니다: ') + _esc(String(why))
+      + (_ctHttp ? ' (HTTP ' + _ctHttp + ')' : '') + '</td></tr>';
+    const pg = document.getElementById('ct-pager'); if (pg) pg.innerHTML = '';
+    const pf = document.getElementById('ct-ptfilter'); if (pf) pf.innerHTML = '';
+    return;
+  }
   _ctState.total = Number(d.total || 0);
   if (d && d.counts) _ctState.counts = d.counts;
   if (d && typeof d.can_edit === 'boolean') _ctCanEdit = d.can_edit;
