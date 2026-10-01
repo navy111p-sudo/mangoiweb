@@ -169,7 +169,10 @@ async function main() {
 
   console.log('\n── ① 입력칸이 읽히는가 (제보의 그 칸들) ─────────────');
   // 일정변경 편집기를 연다
-  await ev('(function(){var b=[...document.querySelectorAll("#aiSchedulesList button")].find(x=>/일정변경/.test(x.textContent)); if(b) b.click();})()');
+  /* 2026-10-01 — 요일별 줄은 접힌 «요일별 보기» 안으로 들어갔고 버튼 이름도 「✏️ 변경 / 매주 변경」이 됐다.
+     이름 대신 그 버튼이 부르는 함수(openReschedule(9001))로 찾는다. */
+  await ev('(function(){var f=document.getElementById("mgsuFold"); if(f) f.open=true;'
+         + ' var b=[...document.querySelectorAll("#aiSchedulesList button")].find(x=>/openReschedule\\(9001\\)/.test(x.getAttribute("onclick")||"")); if(b) b.click();})()');
   await sleep(1800);   // ⚠️ adm-light-surfaces.js 페인터가 돌 시간을 준다
   for (const sel of ['#rs-date-9001', '#rs-time-9001', '#rs-dur-9001', '#ns-kind', '#ns-time', '#ns-dur', '#ns-teacher-sel', '#ns-teacher']) {
     const m = await ev(`JSON.stringify(__contrast(${JSON.stringify(sel)}))`);
@@ -192,9 +195,13 @@ async function main() {
   check('저장이 PATCH 를 실제로 보낸다',
     await ev('(async()=>{ await submitReschedule(9001); await new Promise(r=>setTimeout(r,500));'
            + ' return (window.__calls||[]).some(c=>/^PATCH .*class-schedules\\/9001/.test(c)); })()'));
-  check('🗑 취소가 확인창을 띄우고 DELETE 를 보낸다',
-    await ev('(async()=>{ var b=[...document.querySelectorAll("#aiSchedulesList button")].find(x=>/취소/.test(x.textContent));'
-           + ' if(!b) return false; b.click(); await new Promise(r=>setTimeout(r,700));'
+  /* 2026-10-01 사장님 「취소는 빼고 연기, 변경」 — 카드의 🗑 취소 버튼은 없앴다(함수는 남김).
+     그래서 «버튼이 없다» 와 «함수 배선(확인창 → DELETE)은 그대로다» 를 짝으로 본다. */
+  check('카드에 «취소» 버튼이 없다',
+    await ev('![...document.querySelectorAll("#aiSchedulesList button")].some(x=>/취소|Cancel/.test(x.textContent))'));
+  check('cancelAiSchedule 은 여전히 확인창을 띄우고 DELETE 를 보낸다',
+    await ev('(async()=>{ if(typeof cancelAiSchedule!=="function") return false; cancelAiSchedule(9001);'
+           + ' await new Promise(r=>setTimeout(r,700));'
            + ' return (window.__confirmed||0)>0 && (window.__calls||[]).some(c=>/^DELETE .*class-schedules\\//.test(c)); })()'));
 
   console.log('\n── ③ 주간 캘린더가 예약을 그리는가 ─────────────────');
