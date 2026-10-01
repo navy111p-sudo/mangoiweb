@@ -48,7 +48,9 @@ import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
 import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
-import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수업 변경 이력(연기/삭제/종료)
+import { writeClassAudit, listClassAudit } from './class-audit';
+import { runScheduleSplit } from './schedule-split';
+import { planEndMakeup, END_MAKEUP_MARK_SQL } from './end-makeup';   // ⏸ 연기보강(2026-10-02)   // 📅 매주 수업 → 날짜별 수업 나누기(2026-10-02)   // 📜 수업 변경 이력(연기/삭제/종료)
 import { TEACHER_STATUSES, canonTeacherStatus, isTeacherStatus, toTeacherListHidden, teacherVisibleSql } from './teacher-status';   // 🧑‍🏫 강사 상태(활동중·비활동·퇴사) + 명부 숨김 — 판정 정본
 import { resolveTeacherRegion, teacherRegionMatches } from './teacher-region';   // 🌏 강사 구분(필리핀·북미·중국) — 판정 정본
 import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결석 위험 자동 알림
@@ -2945,6 +2947,22 @@ export async function handleAdminApi(
     if (method === 'POST' && path === '/api/admin/schedule-requests') {
       await ensureScheduleRequestTable();
       const body: any = await request.json().catch(() => ({}));
+      /* ⏸ (2026-10-02 사장님 제안) «연기보강» — 이 회차를 수업 끝 다음 수업일로 옮긴다.
+         날짜는 «서버가» 정한다(화면 값은 안 믿는다). preview:true 면 날짜만 돌려주고 아무것도 안 쓴다.
+         그 밖에는 «지정한 날짜로 연기»(change) 와 같은 길 — 아래 INSERT·/decide 를 그대로 탄다.
+         정본은 src/end-makeup.ts. */
+      let _endMk: string | null = null;
+      if (body && body.end_makeup === true) {
+        const _emId = parseInt(body.schedule_id, 10) || 0;
+        if (!_emId) return json({ ok: false, error: 'schedule_id_required' }, 400);
+        const _emPlan = await planEndMakeup(env, _emId).catch((e: any) => ({ ok: false, reason: 'lookup_failed:' + String(e?.message || e) } as any));
+        if (!_emPlan.ok) return json({ ok: false, error: 'end_makeup_' + _emPlan.reason }, 409);
+        if (body.preview === true) return json({ ok: true, preview: true, ..._emPlan });
+        body.request_type = 'change';
+        body.new_date = _emPlan.new_date;
+        body.new_time = _emPlan.new_time;
+        _endMk = _emPlan.label || '연기보강';
+      }
       const reqType = (body.request_type === 'change' || body.request_type === 'cancel') ? body.request_type : 'postpone';
       const teacherName = (body.teacher_name || body.requester_name || '').trim();
       if (!teacherName) return json({ ok: false, error: 'teacher_name_required' }, 400);
@@ -3010,6 +3028,9 @@ export async function handleAdminApi(
         requesterName2, requesterUid, teacherName, studentName,
         origDate, origTime, newDate, newTime, feeType, minutesBefore, (body.reason || '').trim() || null, now
       ).run();
+      if (_endMk && r?.meta?.last_row_id) {
+        await env.DB.prepare(`UPDATE schedule_change_requests SET end_makeup = ? WHERE id = ?`).bind(_endMk, r.meta.last_row_id).run();
+      }
       // 🔔 실시간 알림 — 관리자 카톡(나에게 보내기=kakao_memo 큐). 대시보드 배지는 GET pending_count 로 별도 표시.
       try {
         const typeKo = reqType === 'cancel' ? '취소' : reqType === 'change' ? '변경' : '연기';
@@ -3023,7 +3044,7 @@ export async function handleAdminApi(
           channel: 'kakao_memo'
         });
       } catch (e: any) { console.warn('[schedule-requests] notify skipped:', e?.message || e); }
-      return json({ ok: true, id: r?.meta?.last_row_id || null, status: 'pending', fee_type: feeType, minutes_before: minutesBefore, created_at: now });
+      return json({ ok: true, id: r?.meta?.last_row_id || null, status: 'pending', fee_type: feeType, minutes_before: minutesBefore, created_at: now, ...(_endMk ? { end_makeup: _endMk, new_date: newDate, new_time: newTime } : {}) });
     }
 
     // ── GET /api/admin/schedule-requests?status=&teacher_name=&limit= — 요청 목록 ──
@@ -3213,6 +3234,8 @@ export async function handleAdminApi(
               const _mvAll: any[] = [_mv];
               if (_swap) _mvAll.push(env.DB.prepare(`UPDATE class_schedules SET teacher_id = ? WHERE id = ?`).bind(_wantTid, row.schedule_id));
               if (String((cs as any)?.status || '') === 'postponed') _mvAll.push(env.DB.prepare(REACTIVATE_POSTPONED_SQL).bind(row.schedule_id));
+              /* ⏸ (2026-10-02) 연기보강이면 옮긴 줄에 이름을 붙인다 — 같은 batch(한 트랜잭션). */
+              if ((row as any).end_makeup) _mvAll.push(env.DB.prepare(END_MAKEUP_MARK_SQL).bind(String((row as any).end_makeup), row.schedule_id));
               if (_mvAll.length > 1) await env.DB.batch(_mvAll);
               else await _mv.run();
               applied = 'moved';
@@ -3246,7 +3269,8 @@ export async function handleAdminApi(
           actor_role: 'admin',
           source: 'schedule-request',
           reason: row.reason || null,
-          detail: [((row.new_date || row.new_time) ? `→ ${row.new_date || ''} ${row.new_time || ''}`.trim() : (applied === 'recorded' ? '반복수업 기록보존(수동조정 필요)' : null)),
+          detail: [((row as any).end_makeup && applied === 'moved' ? String((row as any).end_makeup) : null),
+                   ((row.new_date || row.new_time) ? `→ ${row.new_date || ''} ${row.new_time || ''}`.trim() : (applied === 'recorded' ? '반복수업 기록보존(수동조정 필요)' : null)),
                    (teacherChanged ? `담당 강사 → ${teacherChanged.name || ('#' + teacherChanged.id)}` : null)].filter(Boolean).join(' · ') || null,
         });
       }
@@ -6440,9 +6464,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       binds.push(limit);
       // 1차: teachers JOIN 시도 (강사명 함께)
       const _soSel = startsOnSel(await ensureStartsOnColumn(env), 'cs');
-      const sqlWithJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at${_soSel}, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
+      const sqlWithJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.notes, cs.created_at${_soSel}, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
       // 2차: JOIN 없이 (teachers 테이블 미존재 등에 대비)
-      const sqlNoJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at${_soSel} FROM class_schedules cs WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
+      const sqlNoJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.notes, cs.created_at${_soSel} FROM class_schedules cs WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
       try {
         let rows;
         try {
@@ -7292,6 +7316,34 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         return json({ ok: true, id, status: 'cancelled' });
       } catch (e: any) {
         return json({ ok: false, error: 'delete_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
+    /* 📅 POST /api/admin/class-schedules/:id  { action:'split', dry_run? } — 2026-10-02 사장님 지시
+       매주 수업 한 줄을 날짜별 수업으로 나눈다(수강 종료일까지, 없으면 12주). 그래야 «그날 하루만»
+       연기·변경이 된다. 정본은 src/schedule-split.ts. ⛔ dry_run 이 기본이다.
+       🔒 본사 전용(enrollAdminHqOnly) — 이 경로는 강사 차단 접두사에 없어 핸들러가 직접 막는다. */
+    if (method === 'POST' && /^\/api\/admin\/class-schedules\/\d+$/.test(path)) {
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      if (!id) return json({ ok: false, error: 'invalid_id' }, 400);
+      const deny = await enrollAdminHqOnly(request, env);
+      if (deny) return deny;
+      const body: any = await request.json().catch(() => ({}));
+      if (!body || body.action !== 'split') return json({ ok: false, error: 'unknown_action' }, 400);
+      const dry = body.dry_run !== false;
+      const actor = await getAdminActor(request, env as any);
+      try {
+        const r = await runScheduleSplit(env, id, { dry, actor: actor.username || actor.name || 'admin' });
+        if (!dry && r.cancelled) {
+          await writeClassAudit(env, {
+            action: 'split', schedule_id: id,
+            actor: actor.name || actor.username || '관리자', actor_role: 'admin', source: 'ui',
+            detail: JSON.stringify({ from: r.plan.from, until: r.plan.until, made: r.made, existing: r.existing.length, skipped: r.skipped }),
+          });
+        }
+        return json({ ...r, dry_run: dry }, r.ok ? 200 : 409);
+      } catch (e: any) {
+        return json({ ok: false, error: 'split_failed', detail: String(e?.message || e) }, 500);
       }
     }
 
