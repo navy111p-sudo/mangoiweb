@@ -3429,6 +3429,13 @@ export async function handleAdminApi(
         else if (nowMs < start_ts) status = 'open';
         else if (nowMs <= close_at_ts) status = 'live';
         else status = 'ended';
+        /* ⏸ (2026-10-01 Mai 제보 «how to know if the postponement was successful?»)
+           연기된 행(status='postponed')도 이 목록에 남는데(취소만 거른다), 배지가 시각만 보고
+           «Open» 을 그려 연기가 됐는지 알 수 없었고 강사는 연기된 방에 들어가 기다렸다(class-1931).
+           ✅ 시각 판정을 덮어 'postponed' 로 내려보내고 입장 창을 닫는다.
+           ⛔ 목록에서 빼지 말 것 — 빼면 «연기가 됐는가» 를 확인할 길이 다시 사라진다. */
+        const isPostponed = String(s.status || '') === 'postponed';
+        if (isPostponed) status = 'postponed';
 
         /* 🔄 대체강사가 배정된 회차면 화면에는 대체강사만 보인다 — 원래 강사 이름은
            substituted_from 에 남겨 「오늘 왜 다른 선생님이냐」 물었을 때 바로 답할 수 있게. */
@@ -3461,7 +3468,8 @@ export async function handleAdminApi(
           start_time: s.start_time || null,
           duration_min: dur,
           start_ts, end_ts, status,
-          join_open: nowMs >= open_at_ts && nowMs <= close_at_ts,
+          postponed: isPostponed,
+          join_open: !isPostponed && nowMs >= open_at_ts && nowMs <= close_at_ts,
           /* 🧪 (2026-08-06 마이마이 요청) "레벨테스트와 일반수업을 한 화면에서 보고 싶다".
              레벨테스트도 예약을 잡는 순간 class_schedules 의 일회성(one_off) 행이 되므로
              목록은 이미 하나다. 다만 **구분이 안 돼서** 따로 있는 것처럼 보였다.

@@ -221,6 +221,9 @@ html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
 .p-plan{background:#f1f4f7;color:#7b8896;font-weight:600}
 .p-cancel{background:#e7ebef;color:#8a929b;text-decoration:line-through}
 .p-noshow{background:#b45309;color:#fff}
+/* ⏸ 연기된 수업(2026-10-01) — 흐리게 하지 않는다: «기다리지 마세요» 가 꼭 읽혀야 한다 */
+.cls.cls-postponed{background:#fff4e0;box-shadow:inset 3px 0 0 #b45309;padding-left:12px;padding-right:8px}
+.p-postponed{background:#b45309;color:#fff}
 /* 취소된 줄은 통째로 흐리게 — 「없어진 것」이 아니라 「취소된 것」임이 보여야 한다 */
 .cls.cls-cancel{opacity:.55}
 /* ⏸ 연속 결석 보류(2026-09-25) — 흐리게 하지 않는다: «기다리지 말라» 는 꼭 읽혀야 한다 */
@@ -396,6 +399,7 @@ html[data-t="dark"] .p-plan{background:#212b35;color:#8a96a3}
 html[data-t="dark"] .cls.cls-hold{background:#3a1a15}
 html[data-t="dark"] .p-hold{background:#5a241b;color:#ffd2c8}
 html[data-t="dark"] .p-cancel{background:#252f3a;color:#7b8896;text-decoration:line-through}
+html[data-t="dark"] .cls.cls-postponed{background:#3a2a10}
 html[data-t="dark"] .p-soon{background:#4a3a06;color:#ffd97a}
 html[data-t="dark"] .p-info{background:#252f3a;color:#9dabb9}
 html[data-t="dark"] .err{background:#3a1e1b;border-color:#6b3b36;color:#f7c2bd}
@@ -1673,6 +1677,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     function stPill(c, live, done, open){
       var st = c.class_state;
       if (st === 'cancelled') return ' <span class="pill p-cancel">' + esc(T('Cancelled','취소됨')) + '</span>';
+      if (st === 'postponed') return ' <span class="pill p-postponed">' + esc(T('Postponed','연기됨')) + '</span>';
       if (st === 'no_show'){
         var who = c.no_show_role === 'teacher' ? T('teacher','강사')
                 : c.no_show_role === 'student' ? T('student','학생')
@@ -1783,6 +1788,24 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
           +       stPill(c, live, done, open)
           +     '</div>'
           +     '<div class="cls-meta">' + esc(T('This class was cancelled.','취소된 수업입니다.'))
+          +       ' &middot; ' + c.duration_min + T(' min', '분') + '</div>'
+          +   '</div>'
+          + '</div>';
+        continue;
+      }
+
+      /* ⏸ (2026-10-01 Mai 제보) 연기된 수업 — 매니저가 연기했는데 강사 화면은 «입장가능» 이라
+         강사가 그 방에 들어가 기다렸다(class-1931). 입장 버튼은 주지 않는다 — 연기를 되돌리면
+         서버가 다시 'scheduled' 로 내려줘 버튼이 저절로 돌아온다(다음 갱신 때). */
+      if (c.class_state === 'postponed'){
+        h += '<div class="cls cls-postponed">'
+          +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
+          +   '<div class="cls-main">'
+          +     '<div class="cls-name">' + stuLabelHtml(c, T('(name not set)','(이름 미등록)'))
+          +       stPill(c, live, done, open)
+          +     '</div>'
+          +     '<div class="cls-meta"><b>' + esc(T('This class was postponed — no need to wait in the room. A new date will be set later.',
+                                                    '연기된 수업입니다 — 방에서 기다리지 않아도 됩니다. 새 날짜는 나중에 잡힙니다.')) + '</b>'
           +       ' &middot; ' + c.duration_min + T(' min', '분') + '</div>'
           +   '</div>'
           + '</div>';
