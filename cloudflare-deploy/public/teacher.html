@@ -224,6 +224,21 @@ html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
 /* ⏸ 연기된 수업(2026-10-01) — 흐리게 하지 않는다: «기다리지 마세요» 가 꼭 읽혀야 한다 */
 .cls.cls-postponed{background:#fff4e0;box-shadow:inset 3px 0 0 #b45309;padding-left:12px;padding-right:8px}
 .p-postponed{background:#b45309;color:#fff}
+/* 📊 B (2026-10-01 사장님 «PC·폰 모두 B»): 「오늘의 수업」 제목 아래 상태별 개수 칩 — 누르면 그 줄로 */
+.cls-chips{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 8px}
+.cls-chip{font:inherit;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;border:1px solid #d7dee6;background:#fff;color:#2c3a48;cursor:pointer}
+.cls-chip.c-plan{border-color:#0b7a3d;color:#0b7a3d}
+.cls-chip.c-post{border-color:#b45309;color:#b45309}
+.cls-chip.c-cancel{color:#6b7783}
+.cls-chip.c-noshow{border-color:#b42318;color:#b42318}
+.cls-chip.c-done{color:#6b7783}
+.cls-chip:focus-visible{outline:2px solid #1355a8;outline-offset:2px}
+/* 🖥 D (PC 만): 입장 버튼 자리에 상태 상자 — 폰(700px 미만)에서는 숨기고 이름 아래 한 줄(A)을 쓴다 */
+.cls-sact{display:none}
+.cls-sbox{border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;line-height:1.45;max-width:260px}
+.cls-sbox small{display:block;font-weight:500;font-size:12px}
+.sb-post{background:#fff;color:#b45309;border:1px solid #f5c98a}
+.sb-cancel{background:#eef1f5;color:#6b7783}
 /* 취소된 줄은 통째로 흐리게 — 「없어진 것」이 아니라 「취소된 것」임이 보여야 한다 */
 .cls.cls-cancel{opacity:.55}
 /* ⏸ 연속 결석 보류(2026-09-25) — 흐리게 하지 않는다: «기다리지 말라» 는 꼭 읽혀야 한다 */
@@ -321,6 +336,8 @@ html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
 }
 @media (min-width:700px){
   .cls-act{width:auto;flex:0 0 auto}
+  .cls-sact{display:flex}
+  .cls-postponed .cls-pnote{display:none}
   .btn{padding:13px 22px}
 }
 
@@ -400,6 +417,13 @@ html[data-t="dark"] .cls.cls-hold{background:#3a1a15}
 html[data-t="dark"] .p-hold{background:#5a241b;color:#ffd2c8}
 html[data-t="dark"] .p-cancel{background:#252f3a;color:#7b8896;text-decoration:line-through}
 html[data-t="dark"] .cls.cls-postponed{background:#3a2a10}
+html[data-t="dark"] .cls-chip{background:#1b2330;border-color:#2c3949;color:#c9d4e0}
+html[data-t="dark"] .cls-chip.c-plan{border-color:#4fc583;color:#4fc583}
+html[data-t="dark"] .cls-chip.c-post{border-color:#f0b45a;color:#f0b45a}
+html[data-t="dark"] .cls-chip.c-noshow{border-color:#f28b82;color:#f28b82}
+html[data-t="dark"] .cls-chip.c-cancel,html[data-t="dark"] .cls-chip.c-done{color:#9dabb9}
+html[data-t="dark"] .sb-post{background:#1b2330;color:#f0b45a;border-color:#7a5520}
+html[data-t="dark"] .sb-cancel{background:#252f3a;color:#9dabb9}
 html[data-t="dark"] .p-soon{background:#4a3a06;color:#ffd97a}
 html[data-t="dark"] .p-info{background:#252f3a;color:#9dabb9}
 html[data-t="dark"] .err{background:#3a1e1b;border-color:#6b3b36;color:#f7c2bd}
@@ -1558,6 +1582,52 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       + (c.prev_lesson ? '' : '<br><b>' + esc(T('Last feedback', '지난 평가')) + '</b> ' + esc(ev(c.last_eval)) + evOpen(c.last_eval))
       + '<br><b>' + esc(T("Today's feedback", '오늘 평가')) + '</b> ' + esc(ev(c.today_eval)) + evOpen(c.today_eval) + '</div>';
   }
+  /* 📊 B — 상태별 개수 칩. 판정은 서버의 class_state 를 «그리기만» 하고, 옛 캐시(값 없음)는 시각으로만.
+     안내용 줄(kind!=='class')은 세지 않는다. 0 인 칸은 그리지 않는다. */
+  function clsStateOf(c, t){
+    var st = c.class_state;
+    if (st === 'postponed' || st === 'cancelled' || st === 'no_show' || st === 'done') return st;
+    if (!st && t > c.close_at_ts) return 'done';
+    return 'plan';
+  }
+  function clsChipsHtml(list, t){
+    var n = { plan: 0, postponed: 0, cancelled: 0, no_show: 0, done: 0 }, real = 0;
+    for (var i = 0; i < list.length; i++){
+      var c = list[i];
+      if (c.kind && c.kind !== 'class') continue;
+      real++; n[clsStateOf(c, t)]++;
+    }
+    if (!real) return '';
+    var defs = [
+      ['plan',      'c-plan',   '● ' + T('Upcoming', '예정')],
+      ['postponed', 'c-post',   '⏸ ' + T('Postponed', '연기')],
+      ['cancelled', 'c-cancel', '✕ ' + T('Cancelled', '취소')],
+      ['no_show',   'c-noshow', '⚠ ' + T('No-show', '노쇼')],
+      ['done',      'c-done',   '✔ ' + T('Done', '완료')]
+    ];
+    var out = '';
+    for (var d = 0; d < defs.length; d++){
+      var k = defs[d][0];
+      if (!n[k]) continue;
+      out += '<button type="button" class="cls-chip ' + defs[d][1] + '" data-chip="' + k + '">'
+           + esc(defs[d][2] + ' ' + n[k]) + '</button>';
+    }
+    return '<div class="cls-chips" role="group" aria-label="' + esc(T("Today's classes by status", '오늘 수업 상태별')) + '">' + out + '</div>';
+  }
+  /* 🖥 D — PC 폭에서만 보이는 상태 상자(입장 버튼 자리). 폰은 CSS 가 숨기고 이름 아래 한 줄(A)이 대신한다.
+     «누가·언제» 는 서버가 찾았을 때만(postponed_info) — 없으면 지어내지 않는다. */
+  function sboxHtml(c, kind){
+    if (kind === 'cancel') return '<div class="cls-act cls-sact"><div class="cls-sbox sb-cancel">✕ ' + esc(T('Cancelled', '취소됨')) + '</div></div>';
+    var pi = c.postponed_info || null, sub = [];
+    if (pi && pi.at){
+      try { sub.push(new Date(pi.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' })); } catch (e) {}
+    }
+    if (pi && pi.by) sub.push(String(pi.by));
+    sub.push(T('no need to wait', '기다리지 않아도 됩니다'));
+    return '<div class="cls-act cls-sact"><div class="cls-sbox sb-post">⏸ ' + esc(T('Postponed', '연기됨'))
+         + '<small>' + esc(sub.join(' · ')) + '</small></div></div>';
+  }
+
   function renderClasses(list){
     var box = document.getElementById('classes');
     document.getElementById('c-classes').hidden = false;
@@ -1630,6 +1700,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         esc(T('No Mangoi classes today. The rows below are for information only.',
               '오늘 망고아이 수업은 없습니다. 아래는 참고용 표시입니다.')) + '</div>';
     }
+    h += clsChipsHtml(list, t);
 
     // ⚡ 60초마다 도는 tick 이 매번 innerHTML 을 통째로 갈아엎으면, 바뀐 게 없어도
     //   저사양 폰에서 DOM 재생성 + 리플로우가 일어나 화면이 한 번씩 '움찔'한다.
@@ -1652,6 +1723,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
            //    서버 응답이 와도 «바뀐 게 없다» 로 보고 배지가 영영 안 뜬다.
            + ':' + (sc.eval_written ? 'E' : '') + (sc.prev_lesson ? 'P' : '')
            + ':' + (sc.absence_hold ? 'H' : '')
+           + ':' + (sc.postponed_info ? (sc.postponed_info.at || '') + (sc.postponed_info.by || '') : '')
            // 📋 출결·강사 입장·평가도 넣는다 — 안 넣으면 학생이 들어와도 «바뀐 게 없다» 로 보고 옛 칸이 남는다.
            + ':' + (sc.attendance ? sc.attendance.state + (sc.attendance.at || '') : '')
            + ':' + (sc.teacher_entry ? sc.teacher_entry.state + (sc.teacher_entry.at || '') : '')
@@ -1790,6 +1862,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
           +     '<div class="cls-meta">' + esc(T('This class was cancelled.','취소된 수업입니다.'))
           +       ' &middot; ' + c.duration_min + T(' min', '분') + '</div>'
           +   '</div>'
+          +   sboxHtml(c, 'cancel')
           + '</div>';
         continue;
       }
@@ -1804,10 +1877,11 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
           +     '<div class="cls-name">' + stuLabelHtml(c, T('(name not set)','(이름 미등록)'))
           +       stPill(c, live, done, open)
           +     '</div>'
-          +     '<div class="cls-meta"><b>' + esc(T('This class was postponed — no need to wait in the room. A new date will be set later.',
-                                                    '연기된 수업입니다 — 방에서 기다리지 않아도 됩니다. 새 날짜는 나중에 잡힙니다.')) + '</b>'
-          +       ' &middot; ' + c.duration_min + T(' min', '분') + '</div>'
+          +     '<div class="cls-meta"><b class="cls-pnote">' + esc(T('This class was postponed — no need to wait in the room. A new date will be set later.',
+                                                    '연기된 수업입니다 — 방에서 기다리지 않아도 됩니다. 새 날짜는 나중에 잡힙니다.')) + ' &middot; </b>'
+          +       c.duration_min + T(' min', '분') + '</div>'
           +   '</div>'
+          +   sboxHtml(c, 'post')
           + '</div>';
         continue;
       }
@@ -1950,6 +2024,27 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       h += '</div></div>';
     }
     box.innerHTML = h;
+    /* 📊 칩 누르면 그 상태의 첫 줄로 — 위임 리스너는 한 번만 단다(이 함수는 60초마다 다시 돈다). */
+    if (!box.__chipBound){
+      box.__chipBound = true;
+      box.addEventListener('click', function (ev){
+        var ch = ev.target && ev.target.closest ? ev.target.closest('[data-chip]') : null;
+        if (!ch) return;
+        var k = ch.getAttribute('data-chip');
+        var sel = k === 'postponed' ? '.cls-postponed' : k === 'cancelled' ? '.cls-cancel'
+                : k === 'no_show' ? '.p-noshow' : null;
+        var el = sel ? box.querySelector(sel) : null;
+        if (el && el.closest) el = el.closest('.cls') || el;
+        if (!el){
+          var rows = box.querySelectorAll('.cls');
+          for (var r = 0; r < rows.length; r++){
+            var hasDone = !!rows[r].querySelector('.p-done');
+            if (k === 'done' ? hasDone : (k === 'plan' && !hasDone && !rows[r].querySelector('.p-postponed,.p-cancel,.p-noshow'))){ el = rows[r]; break; }
+          }
+        }
+        if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }
 
     var b = box.querySelectorAll('[data-join]');
     for (var j=0;j<b.length;j++) b[j].onclick = function(){ joinClass(list[+this.getAttribute('data-join')]); };
