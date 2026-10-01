@@ -20,6 +20,7 @@ import { authUidFromRequest } from './auth-token';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서 (사전고지 문자)
 import { handleRefundApi } from './api-pay-refund';   // 💸 환불 실행·기록 (2026-08-25 신설)
 import { activateB2bAiInvoicePayment } from './ai-billing';   // 🏢 대리점 AI 사용료 일괄결제 활성화 (MGB- 주문 전용, 2026-09-10)
+import { activateB2bTuitionPayment, handleB2bTuitionPublic } from './b2b-tuition-load';   // 🏫 B2B 화상수업 수업료 (MGT- 주문 · /api/pay/b2b/*, 2026-10-01)
 import { AI_PASS_PLAN, NOT_AI_PASS_PLAN_SQL, aiPassPeriod, aiPassNextBilling, currentAiPassEnd } from './ai-pass';
 import { phonesForStudent } from './notify-contacts';   // 📞 A.i 사전고지 번호 — 우리가 받아 둔 번호를 먼저 보는 정본   // 🤖 A.i 이용권 끝나는 날·매달 자동결제 (2026-09-29)
 
@@ -505,6 +506,13 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
   if (!path.startsWith('/api/pay/')) return null;
 
   await ensurePayTable(env);
+
+  /* 🏫 (2026-10-01) 학원 결제 링크(로그인 없음) — /api/pay/b2b/* 는 b2b-tuition-load.ts 가 받는다.
+     링크 토큰(무작위·본사가 언제든 새로 만듦)이 곧 권한이다. 결제 확정은 아래 confirm·webhook 이 그대로 한다. */
+  if (path.startsWith('/api/pay/b2b/')) {
+    const r = await handleB2bTuitionPublic(request, url, env);
+    if (r) return r;
+  }
 
   /* ═══ 💸 환불 «실행·기록» — 전용 모듈(api-pay-refund.ts)로 위임 (2026-08-25) ═══
      ⚠️ enroll 위임보다 **먼저** 와야 한다 — 경로가 /api/pay/admin/refund* 라 겹치지는 않지만,
@@ -1214,6 +1222,11 @@ async function activateEnrollment(env: any, order: any, amount: number, when: nu
      학생 전원을 한 번에 활성화해야 한다. 구분은 주문번호 접두사(MGB-)뿐이다 —
      ai-billing.ts 쪽에서 그렇게 정했다(스키마를 안 늘려서 이 파일의 SELECT 세 곳을
      하나도 안 건드리기 위해서). 여기서 갈라 보내고 그 아래 개인용 로직은 그대로 둔다. */
+  /* 🏫 (2026-10-01) B2B 화상수업 수업료 청구서(충전금) — 주문번호 접두사 MGT- */
+  if (String(orderId || '').startsWith('MGT-')) {
+    await activateB2bTuitionPayment(env, orderId, amount, when).catch((e: any) => console.warn('[pay] b2b tuition activate:', e?.message));
+    return;
+  }
   if (String(orderId || '').startsWith('MGB-')) {
     await activateB2bAiInvoicePayment(env, orderId, amount, when).catch((e: any) => console.warn('[pay] b2b activate:', e?.message));
     return;
@@ -1320,12 +1333,14 @@ export async function runPaymentAudit(env: any, opts?: { sms?: boolean }): Promi
   } catch (e) { out.newDupError = String((e as any)?.message || e); }
 
   // C) paid 인데 수강 연결 누락 (48시간)
+  //    🏫 대리점 청구서(MGT- 수업료 · MGB- AI 사용료)는 수강을 만들지 않는 결제라 뺀다 — 안 빼면 «누락» 으로 잘못 센다(2026-10-01).
   try {
     const since = Date.now() - 48 * 3600 * 1000;
     const r = await env.DB.prepare(
       `SELECT o.order_id, o.student_name, o.payer_name, o.amount
        FROM payment_orders o
        WHERE o.status='paid' AND o.paid_at >= ?
+         AND o.order_id NOT LIKE 'MGT-%' AND o.order_id NOT LIKE 'MGB-%'
          AND NOT EXISTS (SELECT 1 FROM enrollments e WHERE e.notes LIKE '%'||o.order_id||'%')`
     ).bind(since).all();
     out.missingEnroll = r?.results || [];

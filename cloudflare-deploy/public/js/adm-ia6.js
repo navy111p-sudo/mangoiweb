@@ -329,6 +329,12 @@
             { ko: '① 환불할 결제 고르기', en: '① Pick a payment', id: 'rf-pick' },
             { ko: '📒 환불 내역',          en: '📒 Refund history', id: 'rf-history' }
           ] },
+        /* 🏫 (2026-10-01 신설) 대리점 수업료 — 충전금 자동 차감·청구서·독촉 문자·자동결제.
+           별도 페이지(href). 서버가 본사 전용(enrollAdminHqOnly)이라 화면도 짝으로 감춘다. */
+        { ko: '🏫 대리점 수업료', en: '🏫 Agency Tuition', href: '/admin/b2b-tuition.html',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🏫 대리점 충전금 · 자동 차감 · 청구서 · 독촉 문자 (본사 전용)',
+          tipEn: '🏫 Agency prepaid balance · auto deduction · invoices · reminders (HQ only)' },
         // 🏬 (2026-08-12 수정요청 #04) 「지사 정산」이 역할 무관하게 캐피타운 전용 페이지로
         //    직행하던 것을 고친다 — 캐피타운이 아닌 지사 관리자는 그 페이지의 게이트에서
         //    무조건 「접근 권한이 없습니다」를 봤다. 이제 기본은 권한 스코프가 이미 걸려 있는
