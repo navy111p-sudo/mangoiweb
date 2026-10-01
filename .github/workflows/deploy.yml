@@ -309,6 +309,29 @@ jobs:
           wranglerVersion: '4'
           command: deploy --env production
 
+      # ─── 2-b) A.i 상담사 워커 배포 (mangoi-ai-avatar-cf) — 2026-10-01 사장님 지시 ───
+      # 홈 화면 «A.i 상담사» 는 별도 워커라 예전엔 사람이 PC 에서 wrangler deploy 를 해야 했다.
+      # 같은 Cloudflare 계정·같은 토큰으로 함께 내보낸다. 수업 보호 창(class_window)도 똑같이 따른다.
+      # ⚠️ continue-on-error: 상담사 배포가 실패해도 메인 사이트 배포 결과를 «실패» 로 바꾸지 않는다.
+      #    대신 바로 아래 단계가 실패 사실을 경고로 크게 남긴다(조용히 넘어가지 않게).
+      - name: Deploy A.i counselor Worker (mangoi-ai-avatar-cf)
+        id: deploy_avatar
+        if: steps.check_secrets.outputs.secrets_present == 'true' && steps.class_window.outputs.hold != 'true'
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: 'mangoi-ai-avatar-cf'
+          wranglerVersion: '4'
+          command: deploy
+
+      - name: A.i counselor deploy result
+        if: steps.deploy_avatar.outcome == 'failure'
+        run: |
+          echo "::warning::A.i 상담사 워커(mangoi-ai-avatar-cf) 배포 실패 — 메인 사이트는 정상 배포됨. 위 단계 로그를 확인하세요(토큰 권한 등)."
+          echo "### ⚠️ A.i 상담사 워커 배포 실패 — 메인 사이트는 영향 없음" >> "$GITHUB_STEP_SUMMARY"
+
       # ─── 3) 배포 후 헬스체크 ───
       - name: Health check — base
         if: steps.check_secrets.outputs.secrets_present == 'true' && steps.class_window.outputs.hold != 'true' && github.event.inputs.skip_base != 'true'

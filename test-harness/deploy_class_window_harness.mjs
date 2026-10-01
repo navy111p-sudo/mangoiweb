@@ -173,7 +173,8 @@ ok('deploy.yml 의 step 을 읽어 냈다', blocks.length >= 10, `${blocks.lengt
 const outward = blocks.filter(b =>
     /uses:\s*cloudflare\/wrangler-action/.test(b.body) ||
     (/\bcurl\b/.test(b.body) && /workers\.dev/.test(b.body)));
-ok('배포·검증 step 을 찾았다 (wrangler 2 + 헬스체크 2 + TURN 1)', outward.length === 5,
+// 2026-10-01: A.i 상담사 워커(mangoi-ai-avatar-cf) 배포 step 이 더해져 wrangler 가 3개다 — 그것도 아래 루프가 보류 판정을 확인한다.
+ok('배포·검증 step 을 찾았다 (wrangler 3 + 헬스체크 2 + TURN 1)', outward.length === 6,
    outward.map(b => b.name).join(' / '));
 for (const b of outward) {
     ok(`「${b.name}」 이 보류 판정에 걸려 있다`, b.body.includes(HOLD_GATE));
