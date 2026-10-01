@@ -3653,6 +3653,8 @@ var MGSU_TYPE = {
 var MGSU_DOW_KO = ['일','월','화','수','목','금','토'], MGSU_DOW_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 var _mgsuItems = [], _mgsuSel = '';
 function mgsuEn() { return (typeof _lang !== 'undefined' && _lang === 'en'); }
+/** ⏸ (2026-10-02) 연기보강 이름 — 서버가 메모에 붙인 «연기보강 (10월 2일 연기)». 없으면 ''. */
+function mgsuMkLabel(sch) { var m = /연기보강 \([^)]*\)/.exec(String((sch && sch.notes) || '')); return m ? m[0] : ''; }
 function mgsuType(t) { return MGSU_TYPE[t] || { ko: String(t || ''), en: String(t || ''), full: String(t || ''), fullEn: String(t || ''), bg: '#f1f5f9', fg: '#344054' }; }
 function mgsuHm(sch) { var t = mgsSchedTime(sch); return t ? String(t.hh).padStart(2,'0') + ':' + String(t.mm).padStart(2,'0') : String((sch && sch.start_time) || ''); }
 /** 'YYYY-MM-DD' + 'HH:MM' → KST 시각(ms). 모르면 NaN. */
@@ -3769,7 +3771,8 @@ function mgsuRender() {
       + '<div class="g"><div class="t">' + esc((en ? (g.dows.length + 'x a week · ') : ('주 ' + g.dows.length + '회 · ')) + days + ' ' + mgsuHm(s0)) + '</div>'
       + '<div class="m">' + esc((Number(s0.duration_min) || 20) + (en ? ' min · ' : '분 · ')) + teacherLabel(s0) + '</div>'
       + (so ? '<div class="s">' + esc((en ? 'started ' : '시작 ') + so) + '</div>' : '') + '</div>'
-      + '<div class="btns"><button type="button" class="mgsu-btn" data-mgsu-series="' + esc(g.rows.map(function (r) { return r.id; }).join(',')) + '">✏️ ' + (en ? 'Change weekly' : '매주 변경') + '</button></div></div>';
+      + '<div class="btns"><button type="button" class="mgsu-btn" data-mgsu-split="' + esc(g.rows.map(function (r) { return r.id; }).join(',')) + '">📅 ' + (en ? 'Split by date' : '날짜별로 나누기') + '</button>'
+      + '<button type="button" class="mgsu-btn" data-mgsu-series="' + esc(g.rows.map(function (r) { return r.id; }).join(',')) + '">✏️ ' + (en ? 'Change weekly' : '매주 변경') + '</button></div></div>';
   });
   if (occ.length) {
     h += '<div class="mgsu-chips" role="list">' + occ.map(function (o) {
@@ -3805,6 +3808,7 @@ function mgsuOpenAct(key) {
   var dated = !!String(sch.scheduled_date || '').slice(0, 10);
   var ended = mgsuEnded(o, Date.now());
   var head = '<span class="w">' + esc(mgsuMd(o) + ' ' + o.hm) + '</span> <span class="mgsu-ty" style="background:' + ty.bg + ';color:' + ty.fg + '">' + esc(en ? ty.fullEn : ty.full) + '</span>';
+  if (mgsuMkLabel(sch)) head += ' <span class="mgsu-ty" style="background:#fff4e0;color:#92400e">' + esc(en ? 'Postponement make-up' : mgsuMkLabel(sch)) + '</span>';
   if (ended) {
     act.innerHTML = '<div class="mgsu-act">' + head + '<div class="n">' + (en ? 'This class has already ended.' : '이미 끝난 수업입니다.') + '</div></div>';
   } else if (dated && sch.status === 'postponed') {
@@ -3820,9 +3824,10 @@ function mgsuOpenAct(key) {
                                : '창에서 고릅니다 — 연기 = 이 회차만(새 날짜는 지금 고르거나 나중에). 변경(앞으로 계속) = 이 회차부터 같은 요일·시각 수업 «전부».') + '</div></div>';
   } else {
     act.innerHTML = '<div class="mgsu-act">' + head
-      + '<div class="btns"><button type="button" class="mgsu-btn" data-mgsu-series="' + esc(String(sch.id)) + '">✏️ ' + (en ? 'Change weekly' : '매주 변경') + '</button></div>'
-      + '<div class="n">' + (en ? 'This is a weekly class — right now the system cannot postpone or move just this one date. You can change the weekday/time for every week.'
-                               : '매주 반복 수업이라 지금은 «이 날 하나만» 연기·변경할 수 없습니다(바꾸면 매주 전부 바뀝니다). 요일·시각을 앞으로 모두 바꾸려면 «매주 변경» 을 누르세요.') + '</div></div>';
+      + '<div class="btns"><button type="button" class="mgsu-btn" data-mgsu-split="' + esc(String(sch.id)) + '">📅 ' + (en ? 'Split into dated classes' : '날짜별로 나누기') + '</button>'
+      + '<button type="button" class="mgsu-btn" data-mgsu-series="' + esc(String(sch.id)) + '">✏️ ' + (en ? 'Change weekly' : '매주 변경') + '</button></div>'
+      + '<div class="n">' + (en ? 'This is a weekly class, so one date cannot be postponed yet. «Split into dated classes» makes one class per date (until the enrollment end, or 12 weeks) — then each date can be postponed or changed on its own.'
+                               : '매주 반복 수업이라 지금은 «이 날 하나만» 연기할 수 없습니다. «날짜별로 나누기» 를 누르면 날짜마다 수업이 한 줄씩 생겨(수강 종료일까지, 없으면 12주) 그날만 연기·변경할 수 있습니다.') + '</div></div>';
   }
 }
 
@@ -3830,7 +3835,7 @@ function mgsuOpenAct(key) {
 function mgsuLoadMoveModal(cb) {
   if (window.mangoiMoveModal) { cb(); return; }
   var sc = document.createElement('script');
-  sc.src = '/js/class-move-modal.js?v=3';
+  sc.src = '/js/class-move-modal.js?v=4';
   sc.onload = function () { if (window.mangoiMoveModal) cb(); else alert(mgsuEn() ? 'Could not open the window. Reload and try again.' : '연기·변경 창을 열지 못했습니다. 새로고침 후 다시 눌러 주세요.'); };
   sc.onerror = function () { alert(mgsuEn() ? 'Could not open the window. Reload and try again.' : '연기·변경 창을 열지 못했습니다. 새로고침 후 다시 눌러 주세요.'); };
   document.head.appendChild(sc);
@@ -3880,7 +3885,62 @@ document.addEventListener('click', function (e) {
   if (mv) { mgsuOpenMove(mv.getAttribute('data-mgsu-move')); return; }
   var se = t.closest('[data-mgsu-series]');
   if (se) { mgsuOpenSeries(se.getAttribute('data-mgsu-series')); return; }
+  var sp = t.closest('[data-mgsu-split]');
+  if (sp) { mgsuSplit(sp.getAttribute('data-mgsu-split'), sp); return; }
 });
+
+/* 📅 (2026-10-02 사장님 지시) 매주 수업 → 날짜별 수업. 정본은 서버 src/schedule-split.ts.
+   먼저 미리보기(dry_run)로 «몇 회·언제까지» 를 보여 주고, 확인해야 실제로 나눈다. */
+async function mgsuSplit(ids, btn) {
+  var en = mgsuEn();
+  var list = String(ids || '').split(',').map(Number).filter(function (x) { return x > 0; });
+  if (!list.length) return;
+  var fail = function (d) { alert((en ? 'Could not split: ' : '나누지 못했습니다: ') + ((d && (d.message || d.error)) || 'unknown')); };
+  var call = function (id, dry) {
+    return fetch('/api/admin/class-schedules/' + id, {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'split', dry_run: dry })
+    }).then(function (r) { return r.json().catch(function () { return { ok: false, error: 'http_' + r.status }; }); });
+  };
+  if (btn) btn.disabled = true;
+  try {
+    /* ① 미리보기 — 한 줄이라도 못 나누면 아무것도 안 한다(반쪽만 나뉘면 더 헷갈린다). */
+    var n = 0, from = '', until = '', byEnroll = false, byDefault = false;
+    for (var i = 0; i < list.length; i++) {
+      var pv = await call(list[i], true);
+      if (!pv || pv.ok !== true) { fail(pv); return; }
+      var p = pv.plan || {};
+      n += (p.dates || []).length - (pv.existing || []).length;
+      if (!from || p.from < from) from = p.from;
+      if (!until || p.until > until) until = p.until;
+      if (p.until_source === 'enrollment') byEnroll = true; else byDefault = true;
+    }
+    var why = byEnroll && !byDefault ? (en ? 'until enrollment end' : '수강 종료일까지')
+            : !byEnroll ? (en ? 'no enrollment end — 12 weeks' : '수강 종료일이 없어 12주')
+            : (en ? 'enrollment end, else 12 weeks' : '수강 종료일까지, 없는 요일은 12주');
+    var msg = en
+      ? 'Split into ' + n + ' dated classes, ' + from + ' ~ ' + until + ' (' + why + ')?\nThe weekly row(s) are set to cancelled, not deleted.'
+      : '날짜별 수업 ' + n + '회로 나눕니다.\n' + from + ' ~ ' + until + ' (' + why + ')\n원래 «매주» 줄은 지우지 않고 «취소» 로 내립니다. 진행할까요?';
+    if (!confirm(msg)) return;
+    /* ② 실행 */
+    var made = 0, skipped = [], bad = null;
+    for (var j = 0; j < list.length; j++) {
+      var r = await call(list[j], false);
+      if (!r || r.ok !== true) { bad = r; break; }
+      made += Number(r.made || 0);
+      skipped = skipped.concat(r.skipped || []);
+    }
+    if (bad) fail(bad);
+    alert(en ? ('Created ' + made + ' dated classes.' + (skipped.length ? ' Not created (teacher already busy): ' + skipped.join(', ') : ''))
+             : ('날짜별 수업 ' + made + '회를 만들었습니다.' + (skipped.length ? '\n강사가 그 시각에 다른 수업이 있어 못 만든 날: ' + skipped.join(', ') : '')));
+    _mgsuSel = '';
+    loadAiSchedules();
+    try { if (typeof loadDStudentSchedule === 'function') loadDStudentSchedule(); } catch (_) {}
+  } catch (e) {
+    fail({ message: e && e.message || String(e) });
+  } finally { if (btn) btn.disabled = false; }
+}
+
 
 // 🥭 Phase 22 — AI 등록 수업 스케줄 로드 + 렌더링
 async function loadAiSchedules() {
@@ -3947,6 +4007,7 @@ async function loadAiSchedules() {
       return '<div style="background:rgba(30,41,59,0.6);border:1px solid #334155;border-left:4px solid ' + tColor + ';border-radius:8px;padding:10px 14px">'
         + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
         + '<span style="background:' + tColor + ';color:#fff;font-size:10px;padding:3px 9px;border-radius:8px;font-weight:700">' + (typeName[it.class_type] || it.class_type) + '</span>'
+        + (mgsuMkLabel(it) ? '<span style="background:#fff4e0;color:#92400e;border:1px solid #f5c77a;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">' + esc(mgsuMkLabel(it)) + '</span>' : '')
         + '<span style="color:#475467;font-size:11px">' + mgsSrcLabel(it) + '</span>'
         + '<span style="font-weight:600;color:#f1f5f9">' + (dateLabel || '') + '</span>'
         + _onceChip + _pastChip
