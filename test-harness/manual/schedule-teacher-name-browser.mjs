@@ -111,7 +111,9 @@ async function openPage(browser) {
   await ctx.route('**/*', r => r.continue());
   await page.goto(BASE + '/admin/student.html?uid=jeong&_nc=' + Date.now(), { waitUntil: 'domcontentloaded' });
   await page.click('.tab[data-tab="schedule"]').catch(() => {});
-  await page.waitForSelector('#aiSchedulesList .mgt-chip', { timeout: 8000 }).catch(() => {});
+  await page.waitForSelector('#aiSchedulesList .mgt-chip', { state: 'attached', timeout: 8000 }).catch(() => {});
+  /* 2026-10-01 — 요일별 줄은 접힌 «요일별 보기»(#mgsuFold) 안으로 들어갔다. 펼쳐야 보이고 잴 수 있다. */
+  await page.evaluate(() => { const f = document.getElementById('mgsuFold'); if (f) f.open = true; });
   // 글자색 페인터(defer)가 한 번 돌 틈을 준다 — 이 검사가 재려는 것이 그 «뒤» 의 색이다.
   await page.waitForTimeout(1200);
   return { ctx, page };
@@ -149,7 +151,7 @@ async function measure(page) {
     const chips = [...document.querySelectorAll('#aiSchedulesList .mgt-chip')];
     return {
       xss: !!window.__xss,
-      cards: document.querySelectorAll('#aiSchedulesList > div').length,
+      cards: document.querySelectorAll('#aiSchedulesList .mgsu-rows > div').length || document.querySelectorAll('#aiSchedulesList > div').length,
       chips: chips.map(el => {
         /* ⚠️ elementFromPoint 는 «뷰포트» 좌표를 받는다 — 화면 밖에 있는 칩은 null 이 돌아와
            «남이 덮었다» 로 잘못 읽힌다(화면 버그가 아니라 검사 문제). 재기 «전» 에 올린다. */
