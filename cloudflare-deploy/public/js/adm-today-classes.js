@@ -55,6 +55,7 @@
     if (e.state === 'pending') return xSmall(T('아직 전', 'not yet'), ';color:#6b7280');
     if (e.state === 'none') return xSmall('⚠ ' + T('입장 기록 없음', 'no entry record'), ';color:#b45309;font-weight:700');
     if (e.state === 'cafe24') return xSmall(T('카페24 · 기록 없음', 'cafe24 · n/a'), ';color:#92400e');
+    if (e.state === 'postponed') return xSmall('⏸ ' + T('연기됨', 'postponed'), ';color:#b45309');
     return xSmall(T('확인 불가', 'unknown'), ';color:#6b7280');
   }
   function xAttendance(a) {
@@ -66,7 +67,8 @@
       waiting:  ['⏳', '아직 입장 안 함', 'Not in yet', ';color:#b45309'],
       not_yet:  ['', '시작 전', 'Not started', ';color:#6b7280'],
       unknown:  ['❔', '확인 불가', 'Unknown', ';color:#6b7280'],
-      cafe24:   ['', '카페24 · 기록 없음', 'cafe24 · n/a', ';color:#92400e']
+      cafe24:   ['', '카페24 · 기록 없음', 'cafe24 · n/a', ';color:#92400e'],
+      postponed: ['⏸', '연기됨', 'Postponed', ';color:#b45309']
     }[a.state];
     if (!m) return xDash();
     var t = (m[0] ? m[0] + ' ' : '') + T(m[1], m[2]);

@@ -2268,12 +2268,16 @@ export async function handleMangoApi(
 
       const runMsPass = async (cond: string, bind: string): Promise<any[]> => {
         const _soSelM = startsOnSel(await ensureStartsOnColumn(env), 'cs');
-        const sqlJoin = `SELECT cs.id, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.class_type${_soSelM}, t.name AS teacher_name
+        const sqlJoin = `SELECT cs.id, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.class_type, cs.status${_soSelM}, t.name AS teacher_name
                           FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
                           WHERE cs.status != 'cancelled' AND ${cond}`;
-        const sqlNoJoin = `SELECT id, day_of_week, scheduled_date, start_time, duration_min, class_type${startsOnSel(await ensureStartsOnColumn(env))} FROM class_schedules WHERE status != 'cancelled' AND ${cond}`;
-        try { return (await env.DB.prepare(sqlJoin).bind(bind).all<any>()).results || []; }
-        catch { return (await env.DB.prepare(sqlNoJoin).bind(bind).all<any>()).results || []; }
+        const sqlNoJoin = `SELECT id, day_of_week, scheduled_date, start_time, duration_min, class_type, status${startsOnSel(await ensureStartsOnColumn(env))} FROM class_schedules WHERE status != 'cancelled' AND ${cond}`;
+        /* ⏸ (2026-10-01) 연기된 회차는 «내 수업» 카드에도 안 올린다 — 입장(sessions/today)이 그 수업을 빼므로,
+           카드에만 남으면 눌렀을 때 공용방으로 흘러간다(두 화면이 다른 답). 정본 class-postponed.ts */
+        let _ms: any[];
+        try { _ms = (await env.DB.prepare(sqlJoin).bind(bind).all<any>()).results || []; }
+        catch { _ms = (await env.DB.prepare(sqlNoJoin).bind(bind).all<any>()).results || []; }
+        return _ms.filter((r: any) => !isPostponedOccurrence(r));
       };
 
       let msRows: any[] = [];

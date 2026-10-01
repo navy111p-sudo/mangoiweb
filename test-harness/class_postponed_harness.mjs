@@ -120,6 +120,59 @@ for (const [file, nLoops] of [['src/absent-sweep.ts', 1], ['src/lesson-reminder.
 }
 // (실제 응답은 schedule_move_room_sync_harness 2c 가 번들로 끝에서 끝까지 돌린다)
 
+// ── F. 오늘 수업 «출결·강사 입장» 칸 — 연기를 «결석·미입장» 으로 말하지 않는가(정본을 실제로 돌림) ──
+console.log('\nF. class-today-extras 판정');
+{
+  const { stripTypeScriptTypes } = await import('node:module');
+  const X = R('src/class-today-extras.ts');
+  const take = (name) => {
+    const i = X.indexOf('export function ' + name + '(');
+    if (i < 0) return '';
+    const b = X.indexOf('{', X.indexOf(')', X.indexOf(':', i)));
+    let d = 0, k = b;
+    for (; k < X.length; k++) { if (X[k] === '{') d++; else if (X[k] === '}') { d--; if (!d) break; } }
+    return X.slice(i, k + 1).replace('export function', 'function');
+  };
+  let jt = null, js = null;
+  try {
+    const src = stripTypeScriptTypes('const STUDENT_LATE_GRACE_MS = 300000; const TEACHER_LATE_GRACE_MS = 60000;\n'
+      + take('judgeTeacherEntry') + '\n' + take('judgeStudentAttendance'));
+    [jt, js] = new Function(src + '\nreturn [judgeTeacherEntry, judgeStudentAttendance];')();
+  } catch (e) { console.log('   (' + e.message + ')'); }
+  ok('전제: 두 판정을 오려 냈다', typeof jt === 'function' && typeof js === 'function');
+  if (jt && js) {
+    const safe = (f) => { try { return f(); } catch (e) { return { state: 'THREW' }; } };
+    ok('강사 입장: 연기면 «postponed»(미입장 아님)', safe(() => jt('mangoi', 1000, 'postponed', { present: false, from: null })).state === 'postponed');
+    ok('학생 출결: 연기면 «postponed»(결석 아님)', safe(() => js('mangoi', 1000, 'postponed', null, 0)).state === 'postponed');
+    ok('짝: 끝난 수업에 기록이 없으면 여전히 결석', safe(() => js('mangoi', 1000, 'ended', null, 0)).state === 'absent');
+    ok('짝: 끝난 수업에 강사 기록이 없으면 여전히 «none»', safe(() => jt('mangoi', 1000, 'ended', { present: false, from: null })).state === 'none');
+  }
+  const T = strip(R('public/js/adm-today-classes.js'));
+  ok('admin: 강사 입장 칸이 postponed 를 그린다', /e\.state === 'postponed'/.test(T));
+  ok('admin: 출결 칸이 postponed 를 그린다', /postponed:\s*\['⏸', '연기됨', 'Postponed'/.test(T));
+  for (const f of ['public/manager.html', 'public/branch.html']) {
+    const H = strip(R(f));
+    ok(`${f}: 강사 입장·출결 칸이 postponed 를 그린다`, /te\.state === 'postponed'/.test(H) && /postponed: \['⏸', 'Postponed', '연기됨'\]/.test(H));
+  }
+}
+// ── G. «다음 수업»·관찰·학생 «내 수업» 카드 ──
+console.log('\nG. 다음 수업 · 수업 관찰 · 내 수업 카드');
+{
+  const TS = strip(R('src/api-teacher.ts'));
+  ok('강사 배너(?only=next): 연기·취소를 다음 수업으로 고르지 않는다', /c\.kind === 'class' && c\.class_state !== 'postponed' && c\.class_state !== 'cancelled'/.test(TS));
+  ok('강사 포털 매니저 블록: status 를 싣고 연기 회차를 건너뛴다', /cs\.duration_min, cs\.status, cs\.teacher_id/.test(TS) && /if \(!occurs\) continue;\s*if \(isPostponedOccurrence\(s\)\) continue;/.test(TS));
+  const TH = strip(R('public/teacher.html'));
+  const n = TH.indexOf('if (c.absence_hold) continue;');
+  ok('teacher.html «다음 수업» 띠: 연기·취소를 건너뛴다', n > 0 && /if \(c\.class_state === 'postponed' \|\| c\.class_state === 'cancelled'\) continue;/.test(TH.slice(n, n + 400)));
+  const AS = strip(R('src/api-admin.ts'));
+  ok('classes-now: status 를 싣고 연기 회차를 거른다', /cs\.duration_min, cs\.status, cs\.teacher_id\$\{_soSelCn\}/.test(AS) && /schedRows = \(\(rs2\.results \|\| \[\]\) as any\[\]\)\.filter\(\(r: any\) => !isPostponedOccurrence\(r\)\);/.test(AS));
+  const MS = strip(R('src/api-mango.ts'));
+  const i = MS.indexOf('const runMsPass = async');
+  const blk = i > 0 ? MS.slice(i, MS.indexOf('let msRows', i)) : '';
+  ok('schedule/mine: 두 SELECT 가 status 를 싣는다', (blk.match(/class_type, (cs\.)?status/g) || []).length === 2);
+  ok('schedule/mine: 결과에서 연기 회차를 거른다', /return _ms\.filter\(\(r: any\) => !isPostponedOccurrence\(r\)\);/.test(blk));
+}
+
 // ── C. 오늘 수업 목록: 식을 실제로 평가 ──
 console.log('\nC. /api/admin/classes/today');
 const ADM = R('src/api-admin.ts');

@@ -43,7 +43,7 @@ export function kstYmd(ms: number): string {
 
 export type TeacherEntry = {
   /** on_time · late · none(입장 기록 없음) · pending(아직 시작 전·기록 없음) · unknown(이름으로 못 가림) · cafe24 */
-  state: 'on_time' | 'late' | 'none' | 'pending' | 'unknown' | 'cafe24';
+  state: 'on_time' | 'late' | 'none' | 'pending' | 'unknown' | 'cafe24' | 'postponed';
   at: number | null;
   late_min: number | null;
 };
@@ -53,6 +53,8 @@ export function judgeTeacherEntry(
   presence: { present: boolean | null; from: number | null } | null | undefined,
 ): TeacherEntry {
   if (source === 'cafe24') return { state: 'cafe24', at: null, late_min: null };
+  /* ⏸ (2026-10-01) 연기된 회차 — «입장 기록 없음» 으로 그리면 연기를 «강사 미입장» 으로 말하게 된다. */
+  if (status === 'postponed') return { state: 'postponed', at: null, late_min: null };
   if (!presence || presence.present === null) return { state: 'unknown', at: null, late_min: null };
   if (presence.present === false || !presence.from) {
     // 시작 전이면 «아직» — 기록이 없는 것이 정상이다.
@@ -65,7 +67,7 @@ export function judgeTeacherEntry(
 
 export type StudentAttendance = {
   /** attended · late · absent · waiting(수업 중·아직 안 옴) · not_yet(시작 전) · unknown(누군지 못 가린 접속) · cafe24 */
-  state: 'attended' | 'late' | 'absent' | 'waiting' | 'not_yet' | 'unknown' | 'cafe24';
+  state: 'attended' | 'late' | 'absent' | 'waiting' | 'not_yet' | 'unknown' | 'cafe24' | 'postponed';
   at: number | null;
   late_min: number | null;
 };
@@ -75,6 +77,8 @@ export function judgeStudentAttendance(
   studentFirstJoin: number | null, unidentifiedJoins: number,
 ): StudentAttendance {
   if (source === 'cafe24') return { state: 'cafe24', at: null, late_min: null };
+  /* ⏸ (2026-10-01) 연기된 회차 — «결석» 이 아니다(오늘은 수업이 없다). */
+  if (status === 'postponed') return { state: 'postponed', at: null, late_min: null };
   if (studentFirstJoin && studentFirstJoin > 0) {
     const diff = studentFirstJoin - startTs;
     if (diff > STUDENT_LATE_GRACE_MS) return { state: 'late', at: studentFirstJoin, late_min: Math.floor(diff / 60000) };

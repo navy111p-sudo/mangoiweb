@@ -969,7 +969,7 @@ export async function handleTeacherApi(
   if (onlyNext) {
     const GRACE_AFTER_END = 30 * 60 * 1000;   // 끝나고도 30분은 «진행 중» 으로 본다(연장·마무리)
     const cand = classes
-      .filter((c: any) => c.kind === 'class' && now <= c.end_ts + GRACE_AFTER_END)
+      .filter((c: any) => c.kind === 'class' && c.class_state !== 'postponed' && c.class_state !== 'cancelled' && now <= c.end_ts + GRACE_AFTER_END)   // ⏸ 연기·취소된 수업은 «다음 수업» 이 아니다(2026-10-01)
       .sort((a: any, b: any) => a.start_ts - b.start_ts)[0] || null;
     let next: any = null;
     if (cand) {
@@ -1007,7 +1007,7 @@ export async function handleTeacherApi(
     const [allRs, nsRs] = await Promise.all([
       env.DB.prepare(
         `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date,
-                cs.start_time, cs.duration_min, cs.teacher_id${_soSelM}, t.name AS teacher_name
+                cs.start_time, cs.duration_min, cs.status, cs.teacher_id${_soSelM}, t.name AS teacher_name
            FROM class_schedules cs
            LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
           WHERE cs.status != 'cancelled' AND cs.user_id NOT IN ('lms','type_seed')`
@@ -1025,6 +1025,7 @@ export async function handleTeacherApi(
         ? (s.scheduled_date === todayStr)
         : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, kDow) && recurStartedOn(s, todayStr));
       if (!occurs) continue;
+      if (isPostponedOccurrence(s)) continue;   // ⏸ 연기된 회차는 매니저 «오늘·다음» 목록에 안 올린다(2026-10-01)
       const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
       const start_ts = Date.UTC(kY, kMo, kD, hh || 0, mm || 0, 0) - KST;
       const end_ts = start_ts + (Number(s.duration_min) || 30) * 60000;

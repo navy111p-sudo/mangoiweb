@@ -14867,7 +14867,7 @@ LIMIT $limit`;
           const _soSelCn = startsOnSel(await ensureStartsOnColumn(env), 'cs');
           const rs2: any = await env.DB.prepare(
             `SELECT cs.id, cs.user_id, cs.student_name, cs.class_type, cs.source, cs.notes,
-                    cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id${_soSelCn},
+                    cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.status, cs.teacher_id${_soSelCn},
                     t.name AS t_name, se.korean_name AS stu_ko, se.english_name AS stu_en
                FROM class_schedules cs
                LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
@@ -14875,7 +14875,8 @@ LIMIT $limit`;
               WHERE COALESCE(cs.status,'active') != 'cancelled'
                 ${stu.cond ? `AND (${stu.cond})` : ''}`
           ).bind(...stu.binds).all();
-          schedRows = (rs2.results || []) as any[];
+          // ⏸ (2026-10-01) 연기된 회차는 «지금 수업» 이 아니다 — 참관할 방에 아무도 안 온다(class-postponed.ts)
+          schedRows = ((rs2.results || []) as any[]).filter((r: any) => !isPostponedOccurrence(r));
         } catch (e: any) { console.warn('[classes-now] mangoi rows:', e?.message); }
 
         /* 🔄 그 날짜의 1회성 대체강사 — recurring 행의 teacher_id 는 원래 강사 그대로라
