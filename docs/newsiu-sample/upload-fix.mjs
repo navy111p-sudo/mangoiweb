@@ -8,11 +8,18 @@ const ACC = process.env.CLOUDFLARE_ACCOUNT_ID, TOK = process.env.CLOUDFLARE_API_
 const BUCKET = 'webrtc-class-recordings', BY = 'newsiu-fix-2026-10-01';
 const M = JSON.parse(fs.readFileSync('pack/manifest.json','utf8'));
 const jsonOf = (out) => { const i = out.search(/^\s*[\[{]/m); if (i < 0) throw new Error('wrangler JSON 없음: ' + out.slice(0,300)); return JSON.parse(out.slice(i)); };
-const d1 = (args) => jsonOf(execFileSync('npx', ['-y','wrangler@4','d1','execute','mango-db','--remote','--json',...args], {cwd:'../../cloudflare-deploy', encoding:'utf8', maxBuffer:64<<20}));
+// 2026-10-01: --file(가져오기 API)가 「Not currently importing anything.」 으로 죽어 --command + 재시도로 바꿈.
+const d1 = (args) => { let e;
+  for (let t = 0; t < 4; t++) { try { return jsonOf(execFileSync('npx', ['-y','wrangler@4','d1','execute','mango-db','--remote','--json',...args], {cwd:'../../cloudflare-deploy', encoding:'utf8', maxBuffer:64<<20})); }
+    catch (x) { e = x; console.log('d1 재시도', t + 1, String(x.stdout || x.message).slice(-200)); execFileSync('sleep', [String(3 * (t + 1))]); } }
+  throw e; };
 const q = s => "'" + String(s).replace(/'/g,"''") + "'";
 const cur = d1(['--command',"SELECT name, size_bytes, uploaded_by FROM textbook_files WHERE active=1 AND name LIKE '[NEW SIU%'"])[0].results;
 console.log('active rows now', cur.length);
-if (cur.length !== 2000) throw new Error('지금 활성 행이 2000 이 아님 — 손대지 않음: ' + cur.length);
+// 이어 하기: 지난 실행이 일부만 넣었으면 활성 행은 2000 + (그 이름의 옛 행을 아직 못 내린 수) 이다.
+//   옛 행 = 2000 − 이미 갈아 끼운 수, 새 행 = 이미 갈아 끼운 수 → 이름은 언제나 2000 개여야 한다.
+if (new Set(cur.map(r => r.name)).size !== 2000) throw new Error('활성 이름이 2000 개가 아님 — 손대지 않음');
+if (cur.some(r => r.uploaded_by !== BY && r.uploaded_by !== 'newsiu-ci-2026-09-29')) throw new Error('모르는 uploaded_by 가 섞임 — 손대지 않음');
 const have = new Set(cur.map(r => r.name + '|' + r.size_bytes));
 const known = new Set(cur.map(r => r.name));
 const unknown = M.files.filter(f => !known.has(f.name));
@@ -42,14 +49,14 @@ async function worker() {
 await Promise.all(Array.from({length:6}, worker));
 const done = rows.filter(Boolean);
 if (done.length !== todo.length) throw new Error('R2 올리기 개수 불일치 ' + done.length + '/' + todo.length);
-for (let s = 0; s < done.length; s += 50) {
-  fs.writeFileSync('/tmp/ins.sql', `INSERT INTO textbook_files (name,kind,mime,ext,size_bytes,r2_key,textbook_id,level,unit_no,description,uploaded_by,created_at,updated_at) VALUES\n${done.slice(s,s+50).join(',\n')};\n`);
-  d1(['--file','/tmp/ins.sql']);
+for (let s = 0; s < done.length; s += 25) {
+  d1(['--command', `INSERT INTO textbook_files (name,kind,mime,ext,size_bytes,r2_key,textbook_id,level,unit_no,description,uploaded_by,created_at,updated_at) VALUES ${done.slice(s,s+25).join(',')}`]);
 }
 console.log('inserted', done.length);
 // 새 행이 생긴 이름의 옛 행만 내린다
 const now = Date.now();
-d1(['--command', `UPDATE textbook_files SET active=0, updated_at=${now} WHERE active=1 AND name LIKE '[NEW SIU%' AND uploaded_by <> '${BY}' AND name IN (SELECT name FROM textbook_files WHERE active=1 AND uploaded_by='${BY}')`]);
+// 같은 이름에 활성 행이 둘 이상이면 «가장 최근(id 가 큰) 것» 만 남긴다 — 이어 하기·재시도로 생긴 겹침도 함께 정리.
+d1(['--command', `UPDATE textbook_files SET active=0, updated_at=${now} WHERE active=1 AND name LIKE '[NEW SIU%' AND EXISTS (SELECT 1 FROM textbook_files t2 WHERE t2.active=1 AND t2.name=textbook_files.name AND t2.id>textbook_files.id)`]);
 const after = d1(['--command',"SELECT substr(name,2,instr(name,']')-2) AS book, COUNT(*) AS n, COUNT(DISTINCT name) AS d, SUM(uploaded_by='"+BY+"') AS fixed FROM textbook_files WHERE active=1 AND name LIKE '[NEW SIU%' GROUP BY book ORDER BY book"])[0].results;
 console.log(JSON.stringify(after));
 const bad = after.filter(r => r.n !== 40 || r.d !== 40);
