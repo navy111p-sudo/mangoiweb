@@ -147,6 +147,40 @@
      옛 그래프는 눈금 두 개를 한 그림에 겹쳐(세션 0~14 · 집중도 0~100) 선이 엉켰고, 어두운 테마 색(#334155)이 밝은 화면에서 흐렸다.
      ⛔ 두 눈금을 한 그림에 다시 겹치지 말 것. 판정 폭은 옆 출석 캘린더(.ac-pc/.ac-mob)와 같은 720px. 밝은 테마라 처음부터 밝은 값. */
   .sv-mob{display:none}
+  /* 📒 회차 원장 — 밝은 테마 값을 직접(어두운 값을 주면 페인터가 배경만 밝혀 흰 바탕 흰 글자가 된다) */
+  #slPanel{color:#101828}
+  #slPanel .sl-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  #slPanel .sl-head b{font-size:17px}
+  #slPanel .sl-nav{min-width:36px;min-height:36px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:8px;font-size:18px;cursor:pointer}
+  #slPanel .sl-mute{color:#475467;font-size:13px}
+  #slPanel .sl-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px}
+  #slPanel .sl-kpi{background:#ffffff;border:1px solid #d0d5dd;border-radius:10px;padding:8px 12px}
+  #slPanel .sl-kpi small{display:block;color:#475467;font-size:12px}
+  #slPanel .sl-kpi b{font-size:20px;font-variant-numeric:tabular-nums}
+  #slPanel .sl-scroll{overflow-x:auto}
+  #slPanel .sl-tbl{width:100%;border-collapse:collapse;font-size:13px;background:#ffffff}
+  #slPanel .sl-tbl th,#slPanel .sl-tbl td{padding:7px 10px;border-bottom:1px solid #e4e7ec;text-align:left;white-space:nowrap}
+  #slPanel .sl-tbl th{color:#475467;font-size:12px;background:#f8fafc}
+  #slPanel .sl-pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;border:1px solid}
+  #slPanel .sl-done{background:#ecfdf3;color:#067647;border-color:#abefc6}
+  #slPanel .sl-absent{background:#fef3f2;color:#b42318;border-color:#fecdca}
+  #slPanel .sl-carry{background:#eff8ff;color:#175cd3;border-color:#b2ddff}
+  #slPanel .sl-pause{background:#f4f3ff;color:#5925dc;border-color:#d9d6fe}
+  #slPanel .sl-wait{background:#f2f4f7;color:#344054;border-color:#d0d5dd}
+  #slPanel .sl-unknown{background:#fffaeb;color:#b54708;border-color:#fedf89}
+  #slPanel .sl-card{background:#ffffff;border:1px solid #d0d5dd;border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  #slPanel .sl-rules{margin:12px 0;font-size:13px;color:#344054}
+  #slPanel .sl-rules summary{cursor:pointer;color:#175cd3}
+  #slPanel .sl-h3{margin:18px 0 4px;font-size:15px}
+  #slPanel .sl-form{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:10px 0}
+  #slPanel .sl-form label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:#475467}
+  #slPanel .sl-form .sl-grow{flex:1 1 180px}
+  #slPanel .sl-form input{padding:7px 9px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:7px;font-size:14px;min-height:38px}
+  #slPanel .sl-btn{min-height:38px;padding:0 16px;border:0;border-radius:8px;background:#0f766e;color:#ffffff;font-weight:600;cursor:pointer}
+  #slPanel .sl-btn.ghost{background:#ffffff;color:#b42318;border:1px solid #fecdca;min-height:32px;padding:0 10px}
+  #slPanel .sl-msg{font-size:13px;min-height:18px}
+  #slPanel .sl-msg.err{color:#b42318}
+  #slPanel .sl-msg.ok{color:#067647}
   @media (max-width:720px){ .sv-pc{display:none} .sv-mob{display:block} #overviewKpis{display:none} }
   .sv-blk{margin-bottom:16px}.sv-blk:last-child{margin-bottom:0}
   .sv-t{font-size:13px;font-weight:700;color:#101828;margin:0}
@@ -372,6 +406,7 @@
       <button class="tab" data-tab="payment"         data-ko="💰 수업료"           data-en="💰 Tuition">💰 수업료</button>
       <button class="tab" data-tab="classes"         data-ko="📅 수업 현황"        data-en="📅 Classes">📅 수업 현황</button>
       <button class="tab" data-tab="attend"          data-ko="🗂️ 출결 현황"        data-en="🗂️ Attendance">🗂️ 출결 현황</button>
+      <button class="tab" data-tab="ledger"          data-ko="📒 회차 원장"        data-en="📒 Session Ledger">📒 회차 원장</button>
       <button class="tab" data-tab="streak"          data-ko="⚡ 연속 출석"         data-en="⚡ Streak">⚡ 연속 출석</button>
       <button class="tab" data-tab="daily"           data-ko="📰 일별 보고서"      data-en="📰 Daily Report">📰 일별 보고서</button>
       <button class="tab" data-tab="engagement"      data-ko="🎯 참여도·점수"      data-en="🎯 Engagement">🎯 참여도·점수</button>
@@ -570,6 +605,35 @@
           <h3 data-ko="수업 기록이 없는 평일" data-en="Weekdays with no class record">수업 기록이 없는 평일</h3>
           <div id="absentList"></div>
         </div>
+      </div>
+
+      <!-- 4b-2. 📒 회차 원장 (2026-10-01) — 정본 src/session-ledger.ts -->
+      <div class="panel" data-panel="ledger" id="slPanel">
+        <div class="sl-head">
+          <button type="button" class="sl-nav" id="slPrev" aria-label="이전 달">‹</button>
+          <b id="slMonth">—</b>
+          <button type="button" class="sl-nav" id="slNext" aria-label="다음 달">›</button>
+          <span class="sl-mute" id="slNote"></span>
+        </div>
+        <div class="sl-kpis" id="slKpis"></div>
+        <div class="sv-pc"><div class="sl-scroll"><table class="sl-tbl"><thead><tr>
+          <th data-ko="날짜" data-en="Date">날짜</th><th data-ko="시각" data-en="Time">시각</th>
+          <th data-ko="상태" data-en="Status">상태</th><th data-ko="회차 차감" data-en="Counted">회차 차감</th>
+          <th data-ko="방 번호" data-en="Room">방 번호</th></tr></thead><tbody id="slRows"></tbody></table></div></div>
+        <div class="sv-mob" id="slCards"></div>
+        <details class="sl-rules"><summary data-ko="기준 보기 (2026-10-01 결정)" data-en="Rules (decided 2026-10-01)">기준 보기 (2026-10-01 결정)</summary>
+          <div id="slRuleText"></div></details>
+
+        <h3 class="sl-h3" data-ko="🏖 휴원" data-en="🏖 Leave">🏖 휴원</h3>
+        <p class="sl-mute" data-ko="한 번에 최대 4주 · 최근 1년에 3번까지. 휴원 기간 수업은 회차를 차감하지 않습니다." data-en="Up to 4 weeks at a time, 3 times in the past year. Classes during a leave are not counted.">한 번에 최대 4주 · 최근 1년에 3번까지. 휴원 기간 수업은 회차를 차감하지 않습니다.</p>
+        <form id="slLeaveForm" class="sl-form">
+          <label><span data-ko="시작" data-en="Start">시작</span><input type="date" id="slLvStart" required></label>
+          <label><span data-ko="끝" data-en="End">끝</span><input type="date" id="slLvEnd" required></label>
+          <label class="sl-grow"><span data-ko="사유" data-en="Reason">사유</span><input type="text" id="slLvReason" maxlength="200"></label>
+          <button type="submit" class="sl-btn" data-ko="휴원 등록" data-en="Add leave">휴원 등록</button>
+        </form>
+        <div id="slLvMsg" class="sl-msg" role="status"></div>
+        <div id="slLeaves"></div>
       </div>
 
       <!-- 4c. 연속 출석 (Streak) -->
@@ -1033,6 +1097,7 @@ function toggleLang(){
         localStorage.setItem('mangoi_lang_uid', String(_s.uid || '')); } catch {}
   applyLangAttrs();
   if (_state.full) renderAll();   // 동적 텍스트 다시 렌더
+  if (window.slRerender) window.slRerender();   // 📒 회차 원장
   /* 🌐 (2026-09-30) 스케줄 탭은 renderAll 밖이라 따로 다시 그린다 — 안 하면 🌐 를 눌러도 그 탭만 옛 언어로 남는다.
      ⛔ 서버를 다시 부르지 않는 쪽(renderDSchedule)은 이미 받은 값으로만 그린다. 목록은 원래 조회 함수라 한 번 더 부른다. */
   try { if (_dSchedState && _dSchedState.weekStart) renderDSchedule(); } catch (e) {}
@@ -3910,6 +3975,110 @@ loadFull();
   🏠 <span>홈페이지</span>
 </a>
 
+<script>
+/* 📒 회차 원장 탭 (2026-10-01) — API: /api/admin/student/:uid/session-ledger · /leaves
+   판정은 서버 정본(src/session-ledger.ts)이 하고, 이 화면은 «그리기만» 한다(라벨도 서버가 보낸 것). */
+(function(){
+  var q = new URLSearchParams(location.search);
+  var UID = q.get('uid') || '';
+  var st = { ym: null, data: null, leaves: [], loaded: false };
+  function L(){ try { return (typeof _lang !== 'undefined' && _lang === 'en') ? 'en' : 'ko'; } catch(e){ return 'ko'; } }
+  function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function ymNow(){ return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,7); }
+  function shift(ym, d){ var y=+ym.slice(0,4), m=+ym.slice(5,7)-1+d; y+=Math.floor(m/12); m=((m%12)+12)%12; return y+'-'+String(m+1).padStart(2,'0'); }
+  var CLS = { done:'sl-done', student_absent:'sl-absent', late_postpone:'sl-absent', postponed:'sl-carry', teacher_absent:'sl-carry',
+              holiday:'sl-carry', leave:'sl-pause', absence_hold:'sl-pause', upcoming:'sl-wait', unknown:'sl-unknown' };
+  var RULES = {
+    ko: '<ul><li><b>완료</b> · 학생이 들어옴 → 차감</li><li><b>학생 결석</b> · 30분 전까지 연락 없이 안 들어옴 → 차감</li>'
+      + '<li><b>늦은 연기</b> · 30분 안쪽에 연기 요청 → 결석 처리(차감)</li><li><b>연기</b> · 30분보다 일찍 연기 승인 → 차감 안 함, 뒤로 이월</li>'
+      + '<li><b>강사 결석</b> → 차감 안 함, 보강</li><li><b>휴원</b> · 결석 보류 · 공휴일 → 차감 안 함</li>'
+      + '<li><b>미정</b> · 출석·결석 기록이 둘 다 없음 → 차감 안 함, 사람이 확인</li></ul>',
+    en: '<ul><li><b>Done</b> · student joined → counted</li><li><b>Student absent</b> · no notice 30+ min before → counted</li>'
+      + '<li><b>Late postpone</b> · requested within 30 min → counted as absent</li><li><b>Postponed</b> · approved earlier than 30 min → not counted, carried over</li>'
+      + '<li><b>Teacher absent</b> → not counted, make-up</li><li><b>Leave</b> · paused · holiday → not counted</li>'
+      + '<li><b>Unknown</b> · no attendance or absence record → not counted, check by hand</li></ul>'
+  };
+  function render(){
+    var en = L() === 'en';
+    var $ = function(id){ return document.getElementById(id); };
+    $('slMonth').textContent = st.ym || '—';
+    $('slRuleText').innerHTML = RULES[L()];
+    var d = st.data;
+    if (!d) { $('slRows').innerHTML=''; $('slCards').innerHTML=''; $('slKpis').innerHTML=''; return; }
+    if (!d.ok) { $('slNote').textContent = (en ? 'Could not load: ' : '불러오지 못했습니다: ') + (d.error || ''); return; }
+    var s = d.summary || { total:0, deducted:0, carried:0, byState:{} };
+    var by = s.byState || {};
+    var k = [[en?'Classes':'이번 달 회차', s.total], [en?'Counted':'차감', s.deducted], [en?'Carried over':'이월', s.carried],
+             [en?'Absent':'결석', (by.student_absent||0)+(by.late_postpone||0)], [en?'Unknown':'미정', by.unknown||0]];
+    $('slKpis').innerHTML = k.map(function(x){ return '<div class="sl-kpi"><small>'+esc(x[0])+'</small><b>'+esc(x[1])+'</b></div>'; }).join('');
+    var warn = (d.warnings && d.warnings.length) ? (en ? 'Some records could not be read: ' : '일부 기록을 못 읽었습니다: ') + d.warnings.join(', ') : '';
+    $('slNote').textContent = warn;
+    var items = d.items || [];
+    if (!items.length) {
+      var none = '<tr><td colspan="5" class="sl-mute">'+(en?'No classes this month.':'이 달에는 수업이 없습니다.')+'</td></tr>';
+      $('slRows').innerHTML = none; $('slCards').innerHTML = '<p class="sl-mute">'+(en?'No classes this month.':'이 달에는 수업이 없습니다.')+'</p>';
+    } else {
+      var lab = function(i){ return esc(en ? i.label_en : i.label_ko); };
+      var pill = function(i){ return '<span class="sl-pill '+(CLS[i.state]||'sl-wait')+'">'+lab(i)+'</span>'; };
+      var ded = function(i){ return i.deduct ? (en?'Yes':'차감') : (i.carry ? (en?'No · carried':'안 함 · 이월') : (en?'No':'안 함')); };
+      $('slRows').innerHTML = items.map(function(i){
+        return '<tr><td>'+esc(i.date)+'</td><td>'+esc(i.start)+'</td><td>'+pill(i)+'</td><td>'+ded(i)+'</td><td class="sl-mute">'+esc(i.room_id)+'</td></tr>';
+      }).join('');
+      $('slCards').innerHTML = items.slice().reverse().map(function(i){
+        return '<div class="sl-card"><div><b>'+esc(i.date.slice(5))+'</b> <span class="sl-mute">'+esc(i.start)+'</span><div class="sl-mute">'+ded(i)+'</div></div>'+pill(i)+'</div>';
+      }).join('');
+    }
+    var lv = st.leaves || [];
+    $('slLeaves').innerHTML = lv.length ? lv.map(function(l){
+      var on = l.status === 'active';
+      return '<div class="sl-card"><div><b>'+esc(l.start_date)+' ~ '+esc(l.end_date)+'</b>'
+        + '<div class="sl-mute">'+esc(l.reason || '')+(on ? '' : ' · '+(en?'cancelled':'취소됨'))+'</div></div>'
+        + (on ? '<button type="button" class="sl-btn ghost" data-lv-cancel="'+esc(l.id)+'">'+(en?'Cancel':'취소')+'</button>' : '')
+        + '</div>';
+    }).join('') : '<p class="sl-mute">'+(en?'No leaves yet.':'등록된 휴원이 없습니다.')+'</p>';
+  }
+  async function load(){
+    if (!UID) return;
+    st.data = null; render();
+    try {
+      var r = await fetch('/api/admin/student/'+encodeURIComponent(UID)+'/session-ledger?month='+st.ym, { credentials:'include' });
+      st.data = await r.json().catch(function(){ return { ok:false, error:'HTTP '+r.status }; });
+      if (st.data && st.data.ok === true && Array.isArray(st.data.leaves)) st.leaves = st.data.leaves;
+    } catch(e) { st.data = { ok:false, error: String(e && e.message || e) }; }
+    render();
+  }
+  function msg(text, ok){ var m=document.getElementById('slLvMsg'); m.textContent=text; m.className='sl-msg '+(ok?'ok':'err'); }
+  window.slRerender = render;
+  document.addEventListener('click', function(ev){
+    var tab = ev.target.closest && ev.target.closest('.tab[data-tab="ledger"]');
+    if (tab && !st.loaded) { st.loaded = true; st.ym = st.ym || ymNow(); load(); return; }
+    var c = ev.target.closest && ev.target.closest('[data-lv-cancel]');
+    if (c) {
+      var id = c.getAttribute('data-lv-cancel');
+      if (c.dataset.armed !== '1') { c.dataset.armed='1'; c.textContent = L()==='en' ? 'Tap again to cancel' : '한 번 더 누르면 취소'; return; }
+      fetch('/api/admin/student/'+encodeURIComponent(UID)+'/leaves/'+encodeURIComponent(id)+'/cancel', { method:'POST', credentials:'include' })
+        .then(function(r){ return r.json().catch(function(){ return { ok:false }; }); })
+        .then(function(d){ if (d && d.ok === true) { msg(L()==='en'?'Leave cancelled.':'휴원을 취소했습니다.', true); load(); } else msg((L()==='en'?'Could not cancel: ':'취소하지 못했습니다: ')+((d&&d.error)||''), false); });
+    }
+  });
+  document.getElementById('slPrev').addEventListener('click', function(){ st.ym = shift(st.ym || ymNow(), -1); load(); });
+  document.getElementById('slNext').addEventListener('click', function(){ st.ym = shift(st.ym || ymNow(), 1); load(); });
+  document.getElementById('slLeaveForm').addEventListener('submit', function(ev){
+    ev.preventDefault();
+    var body = { start_date: document.getElementById('slLvStart').value, end_date: document.getElementById('slLvEnd').value,
+                 reason: document.getElementById('slLvReason').value };
+    fetch('/api/admin/student/'+encodeURIComponent(UID)+'/leaves', { method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+      .then(function(r){ return r.json().catch(function(){ return { ok:false, error:'HTTP '+r.status }; }); })
+      .then(function(d){
+        if (d && d.ok === true) { msg(L()==='en'?'Leave saved.':'휴원을 등록했습니다.', true); document.getElementById('slLeaveForm').reset(); load(); }
+        else msg((L()==='en' ? (d && d.message_en) : (d && d.message_ko)) || ((L()==='en'?'Could not save: ':'저장하지 못했습니다: ') + ((d && d.error) || '')), false);
+      })
+      .catch(function(e){ msg((L()==='en'?'Could not save: ':'저장하지 못했습니다: ') + (e && e.message || e), false); });
+  });
+  st.ym = ymNow(); render();
+})();
+</script>
 <script defer src="/js/back-nav.js"></script>
 <script src="/js/adm-light-surfaces.js?v=19" defer></script><!-- 🌤 남은 다크 잔재 자동 완화 + 글자 대비 교정 -->
 </body>
