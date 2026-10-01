@@ -184,7 +184,28 @@ try {
     const c3 = await page.evaluate('(' + CONTRAST + ')("#mgsuTop .mgsu-chip:not(.today):not(.hol)")');
     console.log(`     대비: 다음수업 ${c1} · 묶음 설명 ${c2} · 날짜 칩 ${c3}`);
     check('⑧ 글자가 읽힌다(대비 4.5 이상 — 다음수업·묶음·칩)', c1 >= 4.5 && c2 >= 4.5 && c3 >= 4.5);
+    /* ⑨ (2026-10-01 사장님) 요일별 줄 — 시작일 대신 «다음 수업일», 시작일은 줄 끝에 작게. */
+    const row = await page.evaluate(() => {
+      document.getElementById('mgsuFold').open = true;
+      const rows = [...document.querySelectorAll('#mgsuFold .mgsu-rows > div')];
+      const tue = rows.find(r => /매주 화요일/.test(r.textContent));
+      const fut = rows.find(r => /매주 월요일/.test(r.textContent));   // 시작일이 아직 안 온 반복(10/22~)
+      const small = tue ? [...tue.querySelectorAll('span')].find(x => /^시작 \d{4}-\d{2}-\d{2}$/.test(x.textContent.trim())) : null;
+      return { t: tue ? tue.textContent : '', f: fut ? fut.textContent : '',
+               small: small ? parseFloat(getComputedStyle(small).fontSize) : 0,
+               want: tue ? mgsuNextLabel(window.__items.find(x => x.id === 1)) : '',
+               /* 시작일 전 반복(id 7)이 고르는 «다음 수업» 날짜 — 시작일보다 앞이면 안 된다 */
+               futYmd: (function () { var t = _mgsKstToday(); var b = new Date(+t.slice(0,4), +t.slice(5,7) - 1, +t.slice(8,10));
+                 var n = mgsuNext(mgsuUpcoming([window.__items.find(x => x.id === 7)], b, 28), Date.now()); return n ? n.ymd : ''; })(),
+               futStart: window.__D.future };
+    });
+    check('⑨ 매주 줄에 «다음 수업 날짜» 가 나온다(정본 mgsuNext 와 같은 날)', !!row.want && row.t.includes('다음 수업 ' + row.want), row.want + ' / ' + row.t.slice(0, 90));
+    check('⑨ [짝] 줄의 큰 글자에 «… 시작» 이 더는 없다', !/\d{4}-\d{2}-\d{2} 시작/.test(row.t), row.t.slice(0, 90));
+    check('⑨ 시작일은 남아 있되 작은 글자다(≤ 11px)', row.small > 0 && row.small <= 11, String(row.small));
+    check('⑨ [짝] 아직 시작 안 한 반복의 다음 수업일은 시작일 «이후» 다', !!row.futYmd && row.futYmd >= row.futStart, row.futYmd + ' vs ' + row.futStart);
     if (SHOT) {
+      await page.locator('#mgsuFold').screenshot({ path: join(SHOT, `upcoming-${vp.w}-rows.png`) });
+      await page.evaluate(() => { document.getElementById('mgsuFold').open = false; });
       await page.evaluate(() => { _mgsuSel = ''; mgsuRender(); document.getElementById('aiSchedulesSection').scrollIntoView(); });
       await page.locator('#aiSchedulesSection').screenshot({ path: join(SHOT, `upcoming-${vp.w}.png`) });
     }
