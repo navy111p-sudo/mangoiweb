@@ -1706,7 +1706,10 @@
           // Do not arm between streamed sentences or before a delayed final sentence.
           _stmChain.then(() => FriendAutoTalk.settled(autoReplyOK, autoTurn));
         }
-        if (!window.FriendAutoTalk || !FriendAutoTalk.on()) input.focus();
+        /* 📱 2026-10-01 — 폰(터치)에서는 자동 포커스 안 함: 답마다 키보드가 올라와 화면을 덮었다.
+           PC(마우스)는 예전처럼 바로 이어 치기. 학생이 입력칸을 누르면 그때 키보드가 뜬다. */
+        const _coarse = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+        if (!_coarse && (!window.FriendAutoTalk || !FriendAutoTalk.on())) input.focus();
       }
     }
     /* ⏹ B — 글로 말을 걸 때도 멈춥니다(마이크가 없거나 조용한 곳에서 쓰는 학생).

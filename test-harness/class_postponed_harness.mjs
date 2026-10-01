@@ -218,14 +218,15 @@ console.log('\nE. 화면 셋');
 {
   const T = strip(R('public/js/adm-today-classes.js'));
   ok('admin: BADGE 에 postponed 가 있다', /postponed:\s*\{\s*ko:\s*'⏸ 연기됨'/.test(T));
-  const a = T.indexOf("} else if (s.status === 'postponed') {"), b = T.indexOf('act = s.join_open');
+  const a = T.indexOf("} else if (s.postponed) {"), b = T.indexOf('act = s.join_open');
   ok('admin: 연기 줄은 입장 버튼 분기보다 먼저 갈린다', a > 0 && b > 0 && a < b);
   const pblk = a > 0 ? T.slice(a, b) : '';
   ok('admin: 연기 줄에 입장·참관 버튼을 안 준다', pblk && !/tcEnterClass|tcObserveClass/.test(pblk));
   ok('admin: 연기 줄에 «다시 잡기» 를 준다', /tc-move-pin/.test(pblk));
   for (const f of ['public/manager.html', 'public/branch.html']) {
     const H = strip(R(f));
-    ok(`${f}: 연기 줄에 글자 표시를 붙인다`, /if \(r\.status === 'postponed'\) tags \+= '<span class="tag hot">' \+ esc\(T\('⏸ postponed · no class', '⏸ 연기됨 · 수업 없음'\)\)/.test(H));
+    // 화면 문구는 #1322(같은 날 다른 세션)가 정한 것을 쓴다 — 서버 칸 postponed 를 보고 입장 대신 «연기됨» 을 그린다
+    ok(`${f}: 연기 줄에 글자 표시를 붙인다`, /if \(r\.postponed\) act = '<span class="tag hot">' \+ esc\(T\('⏸ Postponed', '⏸ 연기됨'\)\)/.test(H));
   }
   const M = strip(R('public/js/class-move-modal.js'));
   ok('일괄 연기: 이미 연기된 줄은 빼고 이유를 말한다', /else if \(r\.status === 'postponed'\) why = 'postponed';/.test(M) && /w === 'postponed'/.test(M));

@@ -609,6 +609,9 @@ export async function handleTeacherApi(
               class_state 는 «사람에게 보여줄 라벨» 이고 status 는 «문이 열렸나» 다.
            ⚠️ 노쇼는 여기서 판정하지 않는다 — 아래에서 class_no_show 기록을 그대로 읽는다.
               판정을 두 벌 두면 화면마다 다른 답이 나온다(src/no-show-truth.ts 의 원칙). */
+        /* ⏸ (2026-10-01) 연기된 수업 — 그전에는 «예정/입장가능» 으로 보여 강사가 연기된 방에
+           들어가 기다렸다(class-1931 Farrah). teacher.html 은 이 줄에 입장 버튼 대신
+           «기다리지 않아도 됩니다» 를 그린다. */
         class_state: _cancelled ? 'cancelled'
                    : _postponed ? 'postponed'
                    : (status === 'live' ? 'ongoing'
@@ -661,6 +664,27 @@ export async function handleTeacherApi(
         substitute: true,
         covering_for: sr.orig_name || null,
       });
+    }
+    /* ⏸ (2026-10-01 사장님 «PC 는 B + D») 연기된 수업에 «누가·언제 연기했는지» 를 붙인다.
+       화면(teacher.html)이 PC 폭에서 입장 버튼 자리에 «⏸ 연기됨 · 13:55 · Maimai» 상자를 그린다.
+       ⚠️ 오늘 날짜(orig_date) 승인분만 읽는다 — IN 목록을 만들지 않으므로 D1 바인드 한도와 무관.
+       ⚠️ 실패해도 던지지 않는다 — 상자에서 «누가·언제» 만 빠지고 «연기됨» 은 그대로 뜬다.
+       ⛔ 못 찾으면 지어내지 않는다(postponed_info 를 싣지 않는다). */
+    if (classes.some((c: any) => c.class_state === 'postponed')) {
+      try {
+        const pr: any = await env.DB.prepare(
+          `SELECT schedule_id, decided_at, decided_by, requester_name FROM schedule_change_requests
+            WHERE status = 'approved' AND request_type = 'postpone' AND orig_date = ?
+            ORDER BY decided_at DESC`
+        ).bind(todayStr).all<any>();
+        const pmap = new Map<string, any>();
+        for (const r of (pr?.results || [])) { const k = String(r.schedule_id); if (!pmap.has(k)) pmap.set(k, r); }
+        for (const c of classes as any[]) {
+          if (c.class_state !== 'postponed') continue;
+          const r = pmap.get(String(c.schedule_id));
+          if (r) c.postponed_info = { at: Number(r.decided_at) || null, by: r.decided_by || r.requester_name || null };
+        }
+      } catch (e: any) { console.warn('[teacher-portal] postponed info:', e?.message); }
     }
     classes.sort((a, b) => a.start_ts - b.start_ts);
 

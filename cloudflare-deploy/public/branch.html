@@ -2500,9 +2500,6 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         : '<span style="color:#b45309;font-weight:800">' + esc(T('unassigned', '미배정')) + '</span>';
       var tags = '';
       if (r.source === 'cafe24') tags += '<span class="tag">LMS</span>';
-      /* ⏸ (2026-10-01) 연기된 회차 — 서버가 status='postponed'·join_open:false 로 준다(입장 버튼은 저절로 빠짐).
-         이유를 글자로 남긴다 — 버튼만 사라지면 «고장» 으로 읽힌다. ⚠️ 이 화면의 T 는 (영, 한) 순서다. */
-      if (r.status === 'postponed') tags += '<span class="tag hot">' + esc(T('⏸ postponed · no class', '⏸ 연기됨 · 수업 없음')) + '</span>';
       /* 📚 (2026-09-08 사장님 지시) 미배정 배지를 누르면 «그 학생만» 배정 창이 열린다.
          admin.html 「오늘 수업」과 같은 동작이다 — 매니저가 온종일 보는 화면은 이쪽이라
          한쪽만 눌리면 「눌러도 아무 일 없다」 제보가 여기서 다시 올라온다.
@@ -2559,6 +2556,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
          「지사장은 연기·변경을 다루지 않는다. 학생이 신청하면 처리된다」. 연기·변경·취소는
          본사 화면(admin.html 「오늘 수업」·manager.html)에 그대로 있다. 되살리지 말 것. */
       var resch = '';
+      /* ⏸ (2026-10-01) 연기된 수업은 «연기됨» 을 글자로 — manager.html 과 같은 서버 칸(postponed). */
+      if (r.postponed) act = '<span class="tag hot">' + esc(T('⏸ Postponed', '⏸ 연기됨')) + '</span>';
       /* 📋 (2026-09-23 매니저 요청) 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결 — admin.html 「오늘 수업」 표와
          **같은 API·같은 칸**(서버 정본 src/class-today-extras.ts). 모르면 «—». 색이 아니라 글자·이모지로 뜻을 전한다. */
       var hm = function (ts) { try { return new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' }); } catch (e) { return ''; } };
@@ -2571,14 +2570,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         : te.state === 'on_time' ? '✅ ' + hm(te.at) + ' ' + T('on time', '정시')
         : te.state === 'late' ? '⏰ ' + hm(te.at) + ' ' + T(te.late_min + ' min late', te.late_min + '분 지각')
         : te.state === 'pending' ? T('not yet', '아직 전')
+        : te.state === 'postponed' ? '⏸ ' + T('postponed', '연기됨')
         : te.state === 'none' ? '⚠ ' + T('no entry record', '입장 기록 없음')
-        : te.state === 'cafe24' ? T('cafe24 · n/a', '카페24 · 기록 없음')
-        : te.state === 'postponed' ? '⏸ ' + T('postponed', '연기됨') : T('unknown', '확인 불가');
+        : te.state === 'cafe24' ? T('cafe24 · n/a', '카페24 · 기록 없음') : T('unknown', '확인 불가');
       ex.push(esc(T('Instructor in: ', '강사 입장: ')) + esc(teTxt));
       var AT = { attended: ['✅', 'Attended', '출석'], late: ['⏰', 'Late', '지각'], absent: ['❌', 'Absent (no entry)', '결석(입장 기록 없음)'],
-                 waiting: ['⏳', 'Not in yet', '아직 입장 안 함'], not_yet: ['', 'Not started', '시작 전'],
-                 unknown: ['❔', 'Unknown', '확인 불가'], cafe24: ['', 'cafe24 · n/a', '카페24 · 기록 없음'],
-                 postponed: ['⏸', 'Postponed', '연기됨'] }[at && at.state];
+                 waiting: ['⏳', 'Not in yet', '아직 입장 안 함'], not_yet: ['', 'Not started', '시작 전'], postponed: ['⏸', 'Postponed', '연기됨'],
+                 unknown: ['❔', 'Unknown', '확인 불가'], cafe24: ['', 'cafe24 · n/a', '카페24 · 기록 없음'] }[at && at.state];
       var atTxt = AT ? ((AT[0] ? AT[0] + ' ' : '') + T(AT[1], AT[2]) + (at.at ? ' ' + hm(at.at) : '')
                    + (at.state === 'late' && at.late_min != null ? ' (+' + at.late_min + T('m', '분') + ')' : '')) : '—';
       ex.push(esc(T('Student: ', '학생 출결: ')) + esc(atTxt));

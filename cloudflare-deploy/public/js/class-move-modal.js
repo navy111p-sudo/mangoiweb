@@ -653,7 +653,7 @@
       else if (r.can_move !== true) why = 'weekly';
       else if (r.status === 'ended') why = 'ended';
       else if (r.status === 'live') why = 'live';
-      else if (r.status === 'postponed') why = 'postponed';   // ⏸ (2026-10-01) 이미 연기됨 — 또 연기하지 않는다
+      else if (r.status === 'postponed') why = 'postponed';   /* ⏸ 이미 연기됨 — 두 번 연기하지 않는다 */
       if (why) skip.push({ r: r, why: why }); else go.push(r);
     });
     return { go: go, skip: skip };
@@ -663,7 +663,7 @@
     if (w === 'weekly') return T('매주 반복 — 시간표에서 직접', 'weekly class — use the timetable');
     if (w === 'ended')  return T('이미 끝난 수업', 'already ended');
     if (w === 'live')   return T('지금 진행 중', 'in progress now');
-    if (w === 'postponed') return T('이미 연기된 수업', 'already postponed');
+    if (w === 'postponed') return T('이미 연기됨', 'already postponed');
     return T('수업 번호 없음', 'no schedule id');
   }
   /* 시작 30분보다 이르게 연기하면 서버가 «사전 연기» 로 매긴다 — 단건 창과 같은 판정. */
