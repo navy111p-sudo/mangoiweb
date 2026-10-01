@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="mangoi-no-global-bar" content="1">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<title>망고아이 · 학원 수업료</title>
+<!--
+  🏫 B2B 학원 수업료 · 충전금 (2026-10-01)
+  문자로 받은 링크 하나로 — 로그인 없이 — 잔액·청구서·계산 근거·결제·연기 신청·차이 진단을 한 화면에서.
+  ⛔ 학생 «아이디» 는 이 화면에 오지 않는다(서버가 싣지 않음). 링크 토큰이 곧 권한이라 본사가 언제든 새로 만들어 끊는다.
+  ⛔ 이 화면은 금액을 «계산하지 않는다» — 서버(b2b-tuition.ts 정본)가 준 숫자와 문장만 그린다.
+-->
+<style>
+  :root { color-scheme: light; --bg:#faf7f0; --card:#fff; --ink:#1f2430; --sub:#5b6170; --mut:#8a8f9c; --line:#efe5cf; --amber:#b45309; --amberBg:#fff4dc; --mango:#f59e0b; --ok:#15803d; --okBg:#e8f7ee; --bad:#b91c1c; --badBg:#fdecec; --blue:#1d4ed8; --blueBg:#e8efff; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; }
+  body { font-family: MangoiHanSC, 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--ink); line-height: 1.55; -webkit-text-size-adjust: 100%; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 14px 16px 60px; }
+  header.top { display: flex; align-items: center; gap: 10px; padding: 6px 0 12px; }
+  header.top img { width: 44px; height: 44px; object-fit: contain; flex: none; }
+  header.top .ttl { flex: 1; min-width: 0; }
+  header.top h1 { font-size: 19px; margin: 0; line-height: 1.25; }
+  header.top .shop { font-size: 13px; color: var(--sub); }
+  .lang { flex: none; border: 1.5px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700; cursor: pointer; color: var(--ink); }
+  .card { background: var(--card); border: 1.5px solid var(--line); border-radius: 16px; padding: 16px; margin: 12px 0; }
+  .card h2 { font-size: 15.5px; margin: 0 0 10px; display: flex; align-items: center; gap: 6px; }
+  .hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 10px; }
+  .kpi { background: #fffdf8; border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 14px; min-width: 0; }
+  .kpi .l { font-size: 12.5px; color: var(--sub); }
+  .kpi .v { font-size: 24px; font-weight: 900; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .kpi .s { font-size: 12px; color: var(--mut); }
+  .badge { display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 800; border: 1px solid transparent; white-space: nowrap; }
+  .b-ok { background: var(--okBg); color: var(--ok); border-color: #b9e4c8; }
+  .b-low { background: var(--amberBg); color: var(--amber); border-color: #f5d79a; }
+  .b-bad { background: var(--badBg); color: var(--bad); border-color: #f2c1c1; }
+  .b-blue { background: var(--blueBg); color: var(--blue); border-color: #c4d4fb; }
+  .b-gray { background: #f1f3f6; color: #475467; border-color: #dde1e8; }
+  .notice { border-radius: 12px; padding: 10px 12px; font-size: 13.5px; margin-top: 10px; }
+  .notice.low { background: var(--amberBg); color: #7c3d06; border: 1px solid #f5d79a; }
+  .notice.empty { background: var(--badBg); color: #7f1d1d; border: 1px solid #f2c1c1; }
+  .inv { border: 1.5px solid var(--line); border-radius: 14px; padding: 14px; margin: 10px 0; }
+  .inv .row1 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+  .inv .amt { font-size: 26px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .inv .meta { font-size: 13px; color: var(--sub); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 46px; padding: 10px 16px; border-radius: 12px; border: 1.5px solid var(--line); background: #fff; color: var(--ink); font-size: 15px; font-weight: 800; cursor: pointer; font-family: inherit; }
+  .btn.pay { background: var(--mango); border-color: var(--mango); color: #1f1300; width: 100%; margin-top: 10px; font-size: 17px; }
+  .btn.small { min-height: 34px; padding: 5px 11px; font-size: 13px; border-radius: 9px; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  details.why { margin-top: 10px; background: #fffaf0; border-radius: 12px; border: 1px solid #f3e3bf; }
+  details.why > summary { cursor: pointer; padding: 10px 12px; font-weight: 800; font-size: 14px; color: var(--amber); list-style: none; }
+  details.why > summary::-webkit-details-marker { display: none; }
+  details.why ol, details.why ul { margin: 0; padding: 0 12px 12px 12px; list-style: none; }
+  details.why li { font-size: 13.5px; padding: 3px 0; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .tbl th, .tbl td { border-bottom: 1px solid #f3ead8; padding: 7px 6px; text-align: left; vertical-align: top; }
+  .tbl th { font-size: 12px; color: var(--amber); font-weight: 800; background: #fffaf0; }
+  .tbl td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .stu { border-top: 1px solid #f3ead8; padding: 10px 0; }
+  .stu:first-child { border-top: 0; }
+  .stu .nm { font-weight: 800; font-size: 14.5px; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+  .stu .nm small { font-weight: 600; color: var(--sub); font-size: 12.5px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; border-radius: 9px; padding: 4px 8px; border: 1px solid #e6e2d8; background: #fff; }
+  .chip .d { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .s-done { background: var(--okBg); border-color: #b9e4c8; color: #14532d; }
+  .s-student_absent, .s-late_postpone { background: var(--badBg); border-color: #f2c1c1; color: #7f1d1d; }
+  .s-postponed { background: var(--blueBg); border-color: #c4d4fb; color: #1e3a8a; }
+  .s-teacher_absent { background: #f3e8ff; border-color: #dcc6fb; color: #5b21b6; }
+  .s-leave { background: #e6f6f6; border-color: #b7e3e3; color: #115e59; }
+  .s-holiday, .s-cancelled, .s-absence_hold { background: #f1f3f6; border-color: #dde1e8; color: #344054; }
+  .s-upcoming { background: #fff; border-style: dashed; color: #344054; }
+  .s-unknown { background: #fffbe6; border-color: #f2dc8a; border-style: dashed; color: #6b4e00; }
+  .chip button { font: inherit; font-size: 11.5px; font-weight: 800; border: 1px solid #c4d4fb; color: var(--blue); background: #fff; border-radius: 7px; padding: 1px 6px; cursor: pointer; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--sub); margin-top: 6px; }
+  textarea, input[type=text], select { font: inherit; font-size: 14px; width: 100%; border: 1.5px solid var(--line); border-radius: 10px; padding: 9px 10px; background: #fff; color: var(--ink); }
+  textarea { min-height: 110px; }
+  .diag { margin-top: 10px; }
+  .diag .r { border-left: 4px solid #e5e7eb; padding: 6px 10px; margin: 6px 0; font-size: 13.5px; background: #fff; }
+  .diag .r.bad { border-left-color: #ef4444; background: #fffafa; }
+  .diag .r.good { border-left-color: #22c55e; }
+  .muted { color: var(--mut); font-size: 12.5px; }
+  .toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); max-width: calc(100% - 32px); background: #1f2430; color: #fff; padding: 10px 14px; border-radius: 12px; font-size: 14px; z-index: 2147483001; box-shadow: 0 6px 24px rgba(0,0,0,.2); }
+  .center { text-align: center; padding: 40px 10px; color: var(--sub); }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .tabs button { font: inherit; font-size: 13px; font-weight: 800; border: 1.5px solid var(--line); background: #fff; border-radius: 999px; padding: 5px 12px; cursor: pointer; color: var(--ink); }
+  .tabs button.on { background: var(--amberBg); border-color: #f5d79a; color: var(--amber); }
+  footer.f { text-align: center; color: var(--mut); font-size: 12px; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <img src="/img/mango-char.png" alt="">
+    <div class="ttl">
+      <h1 id="h1">학원 수업료 · 충전금</h1>
+      <div class="shop" id="shop">불러오는 중…</div>
+    </div>
+    <button type="button" class="lang" id="langBtn">EN</button>
+  </header>
+  <main id="app"><div class="center" id="loading">불러오는 중…</div></main>
+  <footer class="f" id="foot"></footer>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var qs = new URLSearchParams(location.search);
+  var TOKEN = qs.get('t') || '';
+  var LANG = 'ko';
+  try { LANG = (localStorage.getItem('mangoi_lang') === 'en') ? 'en' : 'ko'; } catch (e) {}
+  var DATA = null, TAB = 'cur', DIAG = null;
+  function T(ko, en) { return LANG === 'en' ? en : ko; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+  function won(n) { return '₩' + Math.round(Number(n) || 0).toLocaleString('ko-KR'); }
+  function md(d) { return Number(String(d).slice(5,7)) + '/' + Number(String(d).slice(8,10)); }
+  function toast(msg) {
+    var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t);
+    setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 4200);
+  }
+  function api(path, body) {
+    var opt = body ? { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({ t: TOKEN }, body)) } : {};
+    var url = '/api/pay/b2b/' + path + (body ? '' : ('?t=' + encodeURIComponent(TOKEN)));
+    return fetch(url, opt).then(function(r){
+      return r.json().catch(function(){ return { ok:false, error:'http_' + r.status }; }).then(function(d){ if (!r.ok && d && d.ok !== false) d.ok = false; return d; });
+    });
+  }
+
+  var HOLD = {
+    pending_postpone: ['연기 신청 확인 중 — 차감 보류', 'Postpone request pending — not charged'],
+    no_price: ['단가 미정 — 차감 안 함', 'No price — not charged'],
+    unknown_state: ['기록 확인 중 — 차감 안 함', 'Checking record — not charged'],
+    excluded: ['청구 제외 학생', 'Excluded']
+  };
+  var OVERDUE = {
+    none: null,
+    due_soon: ['마감 임박', 'Due soon', 'b-low'],
+    overdue: ['마감 지남', 'Overdue', 'b-bad'],
+    warn: ['14일 넘게 미납', 'Unpaid 14+ days', 'b-bad'],
+    lock_candidate: ['다음 달 등록 보류 대상', 'Next-month hold', 'b-bad']
+  };
+
+  function render() {
+    document.documentElement.lang = LANG;
+    document.getElementById('langBtn').textContent = LANG === 'en' ? '한국어' : 'EN';
+    document.getElementById('h1').textContent = T('학원 수업료 · 충전금', 'Academy tuition · Credit');
+    document.getElementById('foot').textContent = T('계산은 망고아이 «회차 원장» 기준입니다 · 문의는 이 화면 아래 «이의 보내기»', 'Figures come from the Mangoi class ledger · Use «Send a question» below');
+    var app = document.getElementById('app');
+    if (!DATA) return;
+    if (!DATA.ok) {
+      document.getElementById('shop').textContent = '';
+      app.innerHTML = '<div class="card center">' + esc(DATA.message || T('링크를 확인하지 못했습니다.', 'This link could not be verified.')) + '</div>';
+      return;
+    }
+    var d = DATA;
+    document.getElementById('shop').textContent = d.shop_name;
+    var h = '';
+    // ── 잔액 ──
+    var w = d.wallet;
+    var al = d.alert;
+    var alBadge = al === 'empty' ? '<span class="badge b-bad">' + T('충전금 없음', 'No credit') + '</span>'
+      : al === 'low' ? '<span class="badge b-low">' + T('충전금 부족', 'Low credit') + '</span>'
+      : '<span class="badge b-ok">' + T('충분', 'OK') + '</span>';
+    h += '<section class="card"><h2>💰 ' + T('충전금', 'Credit balance') + ' ' + alBadge + '</h2><div class="hero">';
+    h += '<div class="kpi"><div class="l">' + T('지금 잔액', 'Balance now') + '</div><div class="v" id="kpiBal">' + (w ? won(w.balance) : '—') + '</div><div class="s">' + T('수업한 만큼 자동으로 빠집니다', 'Deducted automatically per class') + '</div></div>';
+    h += '<div class="kpi"><div class="l">' + T('이번 달 남은 수업', 'Rest of this month') + '</div><div class="v">' + won(d.committed_krw) + '</div><div class="s">' + T('아직 안 한 수업 금액', 'Classes not yet held') + '</div></div>';
+    h += '<div class="kpi"><div class="l">' + T('회당 단가(20분)', 'Per class (20 min)') + '</div><div class="v">' + won(Math.floor((d.unit.price / 4) / 10) * 10) + '</div><div class="s">' + T('30분 1.5배 · 40분 2배', '30 min ×1.5 · 40 min ×2') + (d.unit.is_default ? ' · ' + T('기본 단가', 'default rate') : '') + '</div></div>';
+    h += '</div>';
+    if (al === 'low') h += '<div class="notice low">⚠️ ' + T('앞으로 2주 수업(' + won(d.upcoming14_krw) + ')보다 잔액이 적습니다. 아래 청구서로 채워 주세요.', 'Credit is below the next 2 weeks of classes (' + won(d.upcoming14_krw) + ').') + '</div>';
+    if (al === 'empty') h += '<div class="notice empty">⛔ ' + T('충전금이 없습니다. 아래 청구서를 결제해 주세요.', 'No credit left. Please pay the invoice below.') + '</div>';
+    h += '</section>';
+
+    // ── 청구서 ──
+    var open = (d.invoices || []).filter(function(i){ return i.status === 'issued' || i.status === 'partial'; });
+    h += '<section class="card"><h2>🧾 ' + T('낼 금액', 'Amount due') + '</h2>';
+    if (!open.length) h += '<div class="muted">' + T('지금 낼 청구서가 없습니다.', 'Nothing to pay right now.') + '</div>';
+    open.forEach(function(inv){ h += invHtml(inv, true); });
+    if (d.next_preview && !open.some(function(i){ return i.kind === 'monthly' && i.month === d.next_month; })) {
+      h += '<details class="why"><summary>🔮 ' + T(Number(d.next_month.slice(5,7)) + '월 예상 청구액(20일에 확정): ', d.next_month + ' estimate (fixed on the 20th): ') + won(d.next_preview.due_krw) + '</summary>' + explainHtml(d.next_preview) + linesHtml(d.next_preview) + '</details>';
+    }
+    var past = (d.invoices || []).filter(function(i){ return i.status === 'paid'; }).slice(0, 4);
+    if (past.length) {
+      h += '<div class="muted" style="margin-top:10px">' + T('지난 결제', 'Paid') + ': ' + past.map(function(i){ return esc(i.month) + ' ' + (i.kind === 'topup' ? T('보충', 'top-up') : T('정기', 'monthly')) + ' ' + won(i.paid_krw); }).join(' · ') + '</div>';
+    }
+    // 자동결제
+    var ap = d.autopay;
+    h += '<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">';
+    if (ap && ap.active) h += '<span class="badge b-ok">💳 ' + T('자동결제 사용 중', 'Auto-pay on') + (ap.card_label ? ' · ' + esc(ap.card_label) : '') + '</span><button type="button" class="btn small" data-act="ap-off">' + T('자동결제 해지', 'Turn off') + '</button>';
+    else h += '<button type="button" class="btn small" data-act="ap-on">💳 ' + T('카드 등록하고 마감일에 자동결제', 'Register a card for auto-pay') + '</button><span class="muted">' + T('매달 손으로 결제하지 않아도 됩니다', 'No more monthly manual payments') + '</span>';
+    h += '</div></section>';
+
+    // ── 회차 원장 ──
+    h += '<section class="card"><h2>📒 ' + T('학생별 수업 기록', 'Class record by student') + '</h2>';
+    h += '<div class="tabs"><button type="button" data-tab="cur" class="' + (TAB === 'cur' ? 'on' : '') + '">' + T(Number(d.month.slice(5,7)) + '월', d.month) + '</button><button type="button" data-tab="next" class="' + (TAB === 'next' ? 'on' : '') + '">' + T(Number(d.next_month.slice(5,7)) + '월(예정)', d.next_month + ' (planned)') + '</button></div>';
+    h += '<div class="legend"><span class="chip s-done">' + T('완료·차감', 'Done') + '</span><span class="chip s-student_absent">' + T('결석·차감', 'No-show') + '</span><span class="chip s-postponed">' + T('연기·차감 없음', 'Postponed') + '</span><span class="chip s-teacher_absent">' + T('강사 결석·보강', 'Teacher absent') + '</span><span class="chip s-upcoming">' + T('예정', 'Upcoming') + '</span><span class="chip s-unknown">' + T('확인 중', 'Checking') + '</span></div>';
+    var list = TAB === 'next' ? d.next : d.current;
+    if (!list.length) h += '<div class="muted" style="margin-top:8px">' + T('수업이 있는 학생이 없습니다.', 'No students with classes.') + '</div>';
+    list.forEach(function(s){
+      h += '<div class="stu"><div class="nm">' + esc(s.name) + (s.excluded ? ' <span class="badge b-gray">' + T('청구 제외', 'Excluded') + '</span>' : '') + ' <small>' + T('수업 ' + s.items.length + '회 · 차감 ' + s.deducted + '회 · ' + won(s.charged_krw), s.items.length + ' classes · ' + s.deducted + ' charged · ' + won(s.charged_krw)) + '</small></div><div class="chips">';
+      s.items.forEach(function(i){
+        var lab = LANG === 'en' ? i.label_en : i.label_ko;
+        var hold = i.hold && HOLD[i.hold] ? ' · ' + T(HOLD[i.hold][0], HOLD[i.hold][1]) : '';
+        var extra = i.holiday ? ' · ' + T('공휴일', 'holiday') : (i.on_leave ? ' · ' + T('휴원', 'leave') : '');
+        var btn = (i.state === 'upcoming' && !i.pending_postpone) ? ' <button type="button" data-act="pp" data-sid="' + i.schedule_id + '" data-date="' + esc(i.date) + '" data-start="' + esc(i.start || '') + '" data-ms="' + Number(i.start_ms || 0) + '">' + T('연기 신청', 'Postpone') + '</button>' : (i.pending_postpone ? ' · ' + T('연기 신청함', 'requested') : '');
+        h += '<span class="chip s-' + esc(i.state) + '" title="' + esc(lab + hold) + '"><span class="d">' + md(i.date) + '</span>' + esc(i.start || '') + ' ' + esc(lab) + extra + (i.charge_krw > 0 ? ' · −' + won(i.charge_krw) : '') + hold + btn + '</span>';
+      });
+      h += '</div></div>';
+    });
+    h += '<div class="muted" style="margin-top:8px">' + T('연기는 수업 시작 30분 전까지 신청하면 차감되지 않습니다. 30분 안쪽이면 결석으로 처리됩니다.', 'Postpone 30+ minutes before class to avoid a charge.') + '</div>';
+    h += '</section>';
+
+    // ── 차이 진단 ──
+    h += '<section class="card"><h2>🤖 ' + T('학원 계산과 비교하기 (A.i 차이 진단)', 'Compare with your count (A.i check)') + '</h2>';
+    h += '<div class="muted">' + T('학원에서 센 «차감 회차» 를 한 줄에 «이름 횟수» 로 붙여 넣으면, 다른 학생과 그 날짜·이유를 바로 알려 드립니다.', 'Paste «name count» per line and we will point out which dates differ and why.') + '</div>';
+    h += '<div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px"><textarea id="diagText" placeholder="' + T('김민수 4\n이서연 5', 'Kim Minsu 4\nLee Seoyeon 5') + '"></textarea>';
+    h += '<div style="display:flex;flex-direction:column;gap:6px"><select id="diagMonth"><option value="' + esc(d.month) + '">' + esc(d.month) + '</option><option value="' + esc(prevMonth(d.month)) + '">' + esc(prevMonth(d.month)) + '</option></select><button type="button" class="btn small" data-act="diag">' + T('비교', 'Compare') + '</button></div></div>';
+    h += '<div class="diag" id="diagOut">' + diagHtml() + '</div>';
+    h += '<details class="why" style="margin-top:10px"><summary>✉️ ' + T('그래도 다르면 — 본사에 이의 보내기', 'Still different? Send a question') + '</summary><div style="padding:0 12px 12px"><textarea id="dispMsg" placeholder="' + T('어떤 학생의 어느 날이 다른지 적어 주세요', 'Which student and which date differs?') + '"></textarea><button type="button" class="btn small" style="margin-top:8px" data-act="disp">' + T('보내기', 'Send') + '</button></div></details>';
+    h += '</section>';
+    app.innerHTML = h;
+  }
+  function prevMonth(ym) { var y = Number(ym.slice(0,4)), m = Number(ym.slice(5,7)) - 1; if (m < 1) { m = 12; y--; } return y + '-' + (m < 10 ? '0' : '') + m; }
+  function explainHtml(calc) {
+    var lines = (LANG === 'en' ? calc.explain_en : calc.explain_ko) || [];
+    return '<ul>' + lines.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+  }
+  function linesHtml(calc) {
+    var ls = (calc.lines || []);
+    if (!ls.length) return '';
+    var h = '<div class="scroll" style="padding:0 12px 12px"><table class="tbl"><thead><tr><th>' + T('학생', 'Student') + '</th><th>' + T('요일 · 날짜', 'Days · dates') + '</th><th class="n">' + T('회', 'Cls') + '</th><th class="n">' + T('금액', 'Amount') + '</th></tr></thead><tbody>';
+    ls.forEach(function(l){
+      h += '<tr><td>' + esc(l.name) + (l.excluded ? ' <span class="badge b-gray">' + T('제외', 'excl.') + '</span>' : '') + '</td><td>' + esc(LANG === 'en' ? l.pattern_en : l.pattern_ko) + '</td><td class="n">' + l.count + '</td><td class="n">' + won(l.amount) + '</td></tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+  function invHtml(inv, payable) {
+    var kind = inv.kind === 'topup' ? T(Number(inv.month.slice(5,7)) + '월 충전금 보충', inv.month + ' top-up') : T(Number(inv.month.slice(5,7)) + '월 수업료', inv.month + ' tuition');
+    var ov = OVERDUE[inv.overdue];
+    var h = '<div class="inv"><div class="row1"><b>' + esc(kind) + '</b>' + (inv.first_month ? '<span class="badge b-blue">' + T('첫 달 · 남은 회차만', 'First month · remaining only') + '</span>' : '') + (ov ? '<span class="badge ' + ov[2] + '">' + T(ov[0], ov[1]) + '</span>' : '') + '</div>';
+    h += '<div class="amt">' + won(inv.owed_krw) + '</div>';
+    h += '<div class="meta">' + T('마감 ', 'Due ') + md(inv.due_date) + (inv.paid_krw > 0 ? ' · ' + T('이미 낸 금액 ', 'paid ') + won(inv.paid_krw) : '') + '</div>';
+    if (inv.calc) h += '<details class="why"' + (payable ? ' open' : '') + '><summary>❓ ' + T('왜 이 금액인가요?', 'Why this amount?') + '</summary>' + explainHtml(inv.calc) + linesHtml(inv.calc) + '</details>';
+    if (payable) h += '<button type="button" class="btn pay" data-act="pay" data-id="' + inv.id + '">💳 ' + T(won(inv.owed_krw) + ' 결제하기', 'Pay ' + won(inv.owed_krw)) + '</button>';
+    return h + '</div>';
+  }
+  function diagHtml() {
+    if (!DIAG) return '';
+    if (!DIAG.ok) return '<div class="r bad">' + esc(DIAG.error || T('비교하지 못했습니다', 'Could not compare')) + '</div>';
+    var h = '';
+    var rows = DIAG.rows.filter(function(r){ return r.theirs != null; });
+    if (!rows.length) h += '<div class="r">' + T('맞춰 볼 학생 이름을 찾지 못했습니다. «이름 횟수» 형식인지 확인해 주세요.', 'No matching student names.') + '</div>';
+    rows.forEach(function(r){
+      var same = r.diff === 0;
+      h += '<div class="r ' + (same ? 'good' : 'bad') + '"><b>' + esc(r.name) + '</b> — ' + T('망고아이 ' + r.ours + '회 · 학원 ' + r.theirs + '회', 'Mangoi ' + r.ours + ' · yours ' + r.theirs) + (same ? ' ✅' : '') +
+        ((LANG === 'en' ? r.reasons_en : r.reasons_ko) || []).map(function(x){ return '<div>· ' + esc(x) + '</div>'; }).join('') + '</div>';
+    });
+    if (DIAG.unmatched && DIAG.unmatched.length) h += '<div class="r">' + T('이름을 못 맞춘 줄: ', 'Unmatched lines: ') + esc(DIAG.unmatched.slice(0, 8).join(' / ')) + '</div>';
+    return h;
+  }
+
+  function load() {
+    api('view').then(function(d){ DATA = d; render(); }).catch(function(){ DATA = { ok:false, message: T('네트워크 오류로 불러오지 못했습니다.', 'Network error.') }; render(); });
+  }
+
+  function tossReady(cb) {
+    fetch('/api/pay/config').then(function(r){ return r.json(); }).then(function(cfg){
+      if (!cfg || !cfg.clientKey) { toast(T('결제가 아직 준비되지 않았습니다(본사 문의).', 'Payments are not configured yet.')); return; }
+      function go(){ cb(window.TossPayments(cfg.clientKey)); }
+      if (window.TossPayments) return go();
+      var s = document.createElement('script'); s.src = 'https://js.tosspayments.com/v1/payment';
+      s.onload = go; s.onerror = function(){ toast(T('결제창을 불러오지 못했습니다.', 'Could not load the payment window.')); };
+      document.head.appendChild(s);
+    }).catch(function(){ toast(T('결제 설정을 불러오지 못했습니다.', 'Could not load payment settings.')); });
+  }
+  var base = location.origin + '/b2b-pay.html?t=' + encodeURIComponent(TOKEN);
+
+  document.addEventListener('click', function(ev){
+    var b = ev.target.closest ? ev.target.closest('[data-act],[data-tab]') : null;
+    if (!b) return;
+    if (b.id === 'langBtn') return;
+    var tab = b.getAttribute('data-tab');
+    if (tab) { TAB = tab; render(); return; }
+    var act = b.getAttribute('data-act');
+    if (act === 'pay') {
+      b.disabled = true;
+      api('checkout', { invoice_id: Number(b.getAttribute('data-id')) }).then(function(o){
+        if (!o || !o.ok) { b.disabled = false; toast(T('결제를 시작하지 못했습니다: ', 'Could not start payment: ') + ((o && o.error) || '')); return; }
+        tossReady(function(tp){
+          tp.requestPayment('카드', { amount: o.amount, orderId: o.order_id, orderName: o.order_name, customerName: o.customer_name, successUrl: base + '&paid=1', failUrl: base + '&payfail=1' })
+            .catch(function(e){ b.disabled = false; if (e && e.code !== 'USER_CANCEL') toast(String(e.message || e)); });
+        });
+      });
+    } else if (act === 'ap-on') {
+      api('autopay/register', {}).then(function(o){
+        if (!o || !o.ok) { toast(T('카드 등록을 시작하지 못했습니다.', 'Could not start card registration.')); return; }
+        tossReady(function(tp){ tp.requestBillingAuth('카드', { customerKey: o.customerKey, successUrl: base + '&billing=1', failUrl: base + '&billfail=1' }).catch(function(e){ if (e && e.code !== 'USER_CANCEL') toast(String(e.message || e)); }); });
+      });
+    } else if (act === 'ap-off') {
+      if (!confirm(T('자동결제를 해지할까요? 다음부터는 링크에서 직접 결제합니다.', 'Turn off auto-pay?'))) return;
+      api('autopay/cancel', {}).then(function(){ toast(T('자동결제를 해지했습니다.', 'Auto-pay turned off.')); load(); });
+    } else if (act === 'pp') {
+      var sid = Number(b.getAttribute('data-sid')), date = b.getAttribute('data-date'), ms = Number(b.getAttribute('data-ms')) || 0;
+      var free = ms - Date.now() > 30 * 60000;
+      var msg = free ? T(md(date) + ' 수업을 연기 신청합니다. 지금은 30분 전이라 차감되지 않습니다. 계속할까요?', 'Postpone ' + md(date) + '? It is 30+ min before class, so no charge.')
+                     : T(md(date) + ' 수업은 30분 안쪽이라 연기해도 결석(차감)으로 처리됩니다. 그래도 신청할까요?', 'Less than 30 min before class — it will still be charged. Continue?');
+      if (!confirm(msg)) return;
+      var reason = prompt(T('사유(선택)', 'Reason (optional)'), '') || '';
+      b.disabled = true;
+      api('postpone', { schedule_id: sid, date: date, reason: reason }).then(function(r){
+        if (!r || !r.ok) { b.disabled = false; toast((r && r.message) || T('신청하지 못했습니다.', 'Request failed.')); return; }
+        toast(r.free ? T('연기 신청을 받았습니다 — 차감하지 않습니다.', 'Postpone received — no charge.') : T('신청을 받았지만 30분 안쪽이라 차감됩니다.', 'Received, but it is within 30 minutes and will be charged.'));
+        load();
+      });
+    } else if (act === 'diag') {
+      var text = (document.getElementById('diagText') || {}).value || '';
+      var month = (document.getElementById('diagMonth') || {}).value;
+      if (!text.trim()) { toast(T('«이름 횟수» 를 한 줄씩 적어 주세요.', 'Enter «name count» per line.')); return; }
+      b.disabled = true;
+      api('diagnose', { month: month, text: text }).then(function(r){ DIAG = r; var o = document.getElementById('diagOut'); if (o) o.innerHTML = diagHtml(); b.disabled = false; });
+    } else if (act === 'disp') {
+      var m2 = (document.getElementById('dispMsg') || {}).value || '';
+      if (!m2.trim()) { toast(T('내용을 적어 주세요.', 'Please write a message.')); return; }
+      b.disabled = true;
+      api('dispute', { message: m2, month: (document.getElementById('diagMonth') || {}).value, text: (document.getElementById('diagText') || {}).value || '' }).then(function(r){
+        b.disabled = false;
+        if (!r || !r.ok) { toast(T('보내지 못했습니다.', 'Could not send.')); return; }
+        toast(T('보냈습니다 — 담당: ', 'Sent — handled by: ') + (r.assignee || T('본사', 'HQ')));
+        var el = document.getElementById('dispMsg'); if (el) el.value = '';
+      });
+    }
+  });
+  document.getElementById('langBtn').addEventListener('click', function(){
+    LANG = LANG === 'en' ? 'ko' : 'en';
+    try { localStorage.setItem('mangoi_lang', LANG); } catch (e) {}
+    render();
+  });
+
+  // 토스에서 돌아왔을 때 — 결제 확정은 서버(/api/pay/confirm)가 한다. 이 화면은 결과만 말한다.
+  function cleanUrl() { try { history.replaceState(null, '', '/b2b-pay.html?t=' + encodeURIComponent(TOKEN)); } catch (e) {} }
+  if (qs.get('paid') === '1' && qs.get('paymentKey')) {
+    fetch('/api/pay/confirm', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ paymentKey: qs.get('paymentKey'), orderId: qs.get('orderId'), amount: Number(qs.get('amount')) }) })
+      .then(function(r){ return r.json().catch(function(){ return {}; }); })
+      .then(function(d){ toast(d && d.ok === true ? T('✅ 결제가 완료되어 충전금에 들어갔습니다.', '✅ Paid — added to your credit.') : T('결제 확인에 실패했습니다: ', 'Payment confirmation failed: ') + ((d && (d.message || d.error)) || '')); cleanUrl(); load(); });
+  } else if (qs.get('billing') === '1' && qs.get('authKey')) {
+    api('autopay/confirm', { authKey: qs.get('authKey'), customerKey: qs.get('customerKey') }).then(function(r){
+      toast(r && r.ok ? T('💳 카드가 등록되어 마감일에 자동결제됩니다.', '💳 Card registered for auto-pay.') : T('카드 등록에 실패했습니다: ', 'Card registration failed: ') + ((r && r.error) || ''));
+      cleanUrl(); load();
+    });
+  } else {
+    if (qs.get('payfail') === '1' || qs.get('billfail') === '1') { toast(T('결제(등록)가 완료되지 않았습니다.', 'Not completed.')); cleanUrl(); }
+    load();
+  }
+  render();
+})();
+</script>
+</body>
+</html>

@@ -79,7 +79,7 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
       const startMs = Date.parse(`${d}T${start.length === 5 ? start : '00:00'}:00+09:00`);
       occ.push({ schedule_id: Number(r.id), date: d, start, dur, teacher_id: r.teacher_id ?? null,
         status: String(r.status || 'active').toLowerCase(), room: `class-${r.id}-${d.replace(/-/g, '')}`,
-        dated: !!dated,
+        dated: !!dated, source: String(r.source || ''), start_ms: startMs,
         upcoming: !(startMs <= now) });
     }
   }
@@ -190,6 +190,10 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
       date: o.date, start: o.start, duration_min: o.dur, schedule_id: o.schedule_id, room_id: o.room,
       teacher_id: o.teacher_id, state, label_ko: def.ko, label_en: def.en, deduct: def.deduct, carry: def.carry,
       postpone_minutes_before: pr && pr.minutes_before != null ? Number(pr.minutes_before) : null,
+      // 🏫 B2B 수업료(b2b-tuition-load.ts)가 쓰는 칸 — 상태 판정에는 영향 없음(더하기만)
+      //   «예정» 이 휴원·공휴일보다 먼저 판정되므로, 다음 달 청구에서 그 날을 빼려면 따로 알아야 한다.
+      source: o.source, start_ms: o.start_ms,
+      on_leave: !!isOnLeave(leaves || [], o.date), holiday: holidays.has(o.date),
     };
   });
 
