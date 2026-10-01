@@ -3793,6 +3793,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       var c = list[i];
       if (c.kind && c.kind !== 'class') continue;
       if (c.absence_hold) continue;   // ⏸ 보류 수업은 «기다리지 말라» 는 수업 — 다음 수업으로 올리지 않는다
+      if (c.class_state === 'postponed' || c.class_state === 'cancelled') continue;   // ⏸ 연기·취소 — 기다릴 수업이 아니다(2026-10-01)
       if (t > c.close_at_ts) continue;
       if (!pick || c.start_ts < pick.start_ts) pick = c;
     }

@@ -80,6 +80,7 @@ import type { MangoEnv } from './api-mango';
 import { cleanAnalysis, cleanScore, foreignFields, parseAnalysisJson, recoverNextAction, KOREAN_ONLY_RETRY_NOTE, SUMMARY_UNAVAILABLE } from './ai-analysis-clean';   // 🧹 AI 학습 분석 — 한국어 아닌 글자 거르기·다음 액션 되살리기
 import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid } from './attendance-uid';   // 📌 attendance 를 학생 계정으로 찾는 정본
 import { ensureStartsOnColumn, startsOnSel, normStartsOn, kstYmdOfMs } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
+import { isPostponedOccurrence, REACTIVATE_POSTPONED_SQL } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
    컴파일을 안 돌리면 모르고 지나간다. 여기서 지운다. */
@@ -3116,7 +3117,7 @@ export async function handleAdminApi(
           //   그 주만이 아니라 모든 주가 바뀌므로, 날짜 지정 수업일 때만 자동 반영한다.
           //   반복 수업은 요청 기록만 영구 보존(applied='recorded') → 시간표에서 수동 조정.
           const cs: any = await env.DB.prepare(
-            `SELECT id, scheduled_date, start_time, duration_min, user_id, teacher_id, source FROM class_schedules WHERE id = ? LIMIT 1`
+            `SELECT id, scheduled_date, start_time, duration_min, user_id, teacher_id, source, status FROM class_schedules WHERE id = ? LIMIT 1`
           ).bind(row.schedule_id).first().catch(() => null);
           const isDated = !!(cs && cs.scheduled_date);
           /* 🔒 (2026-09-22) 「사람 손이 이긴다」 도장 — 미러가 우리 수정을 덮지 않게 한다.
@@ -3205,7 +3206,13 @@ export async function handleAdminApi(
               /* 👨‍🏫 강사를 바꿀 때는 D1 batch(한 트랜잭션)로 «함께» — 둘로 따로 돌리면 한쪽만 남을 수 있다.
                  ⚠️ 위 UPDATE 문장은 손대지 않는다 — 하니스 둘(manager_today_reschedule·schedule_move_room_sync)이
                     그 글자를 오려 내 진짜 SQLite 로 돌린다. 강사를 안 바꾸는 승인은 예전과 같은 경로다. */
-              if (_swap) await env.DB.batch([_mv, env.DB.prepare(`UPDATE class_schedules SET teacher_id = ? WHERE id = ?`).bind(_wantTid, row.schedule_id)]);
+              /* ⏸ (2026-10-01) 연기했던 회차를 새 날짜로 «다시 잡는» 것이면 열린 수업으로 되돌린다 —
+                 안 되돌리면 새 날짜에서도 'postponed' 라 오늘 수업·학생 입장에서 숨는다(class-postponed.ts).
+                 연기 상태가 아니면 그 문장은 0행이라 아무것도 안 바뀐다. 같은 batch(한 트랜잭션)로 묶는다. */
+              const _mvAll: any[] = [_mv];
+              if (_swap) _mvAll.push(env.DB.prepare(`UPDATE class_schedules SET teacher_id = ? WHERE id = ?`).bind(_wantTid, row.schedule_id));
+              if (String((cs as any)?.status || '') === 'postponed') _mvAll.push(env.DB.prepare(REACTIVATE_POSTPONED_SQL).bind(row.schedule_id));
+              if (_mvAll.length > 1) await env.DB.batch(_mvAll);
               else await _mv.run();
               applied = 'moved';
               if (_swap) teacherChanged = { id: _wantTid, name: _swapName };
@@ -3429,13 +3436,10 @@ export async function handleAdminApi(
         else if (nowMs < start_ts) status = 'open';
         else if (nowMs <= close_at_ts) status = 'live';
         else status = 'ended';
-        /* ⏸ (2026-10-01 Mai 제보 «how to know if the postponement was successful?»)
-           연기된 행(status='postponed')도 이 목록에 남는데(취소만 거른다), 배지가 시각만 보고
-           «Open» 을 그려 연기가 됐는지 알 수 없었고 강사는 연기된 방에 들어가 기다렸다(class-1931).
-           ✅ 시각 판정을 덮어 'postponed' 로 내려보내고 입장 창을 닫는다.
-           ⛔ 목록에서 빼지 말 것 — 빼면 «연기가 됐는가» 를 확인할 길이 다시 사라진다. */
-        const isPostponed = String(s.status || '') === 'postponed';
-        if (isPostponed) status = 'postponed';
+        /* ⏸ (2026-10-01) 연기된 회차 — 줄은 지우지 않고(지우면 «수업이 없어졌다» 로 읽힌다)
+           상태를 'postponed' 로, 입장은 닫는다. 정본 src/class-postponed.ts. */
+        const _postponed = isPostponedOccurrence(s);
+        if (_postponed) status = 'postponed';
 
         /* 🔄 대체강사가 배정된 회차면 화면에는 대체강사만 보인다 — 원래 강사 이름은
            substituted_from 에 남겨 「오늘 왜 다른 선생님이냐」 물었을 때 바로 답할 수 있게. */
@@ -3468,8 +3472,8 @@ export async function handleAdminApi(
           start_time: s.start_time || null,
           duration_min: dur,
           start_ts, end_ts, status,
-          postponed: isPostponed,
-          join_open: !isPostponed && nowMs >= open_at_ts && nowMs <= close_at_ts,
+          join_open: !_postponed && nowMs >= open_at_ts && nowMs <= close_at_ts,
+          postponed: _postponed,
           /* 🧪 (2026-08-06 마이마이 요청) "레벨테스트와 일반수업을 한 화면에서 보고 싶다".
              레벨테스트도 예약을 잡는 순간 class_schedules 의 일회성(one_off) 행이 되므로
              목록은 이미 하나다. 다만 **구분이 안 돼서** 따로 있는 것처럼 보였다.
@@ -7576,6 +7580,12 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
             사람이 고친 값이 카페24 값으로 되돌아간다. 같은 UPDATE 안에서 찍어야 한다. */
       if (_pchRow && String(_pchRow.source || '') === MIRROR_SOURCE) {
         sets.push('source = ?'); binds.push(MIRROR_SOURCE_MANUAL);
+      }
+      /* ⏸ (2026-10-01) 연기했던 회차를 새 날짜·시각으로 «다시 잡으면» 열린 수업으로 되돌린다 —
+         안 되돌리면 옮긴 자리에서도 'postponed' 라 오늘 수업·학생 입장에서 숨는다(class-postponed.ts).
+         ⛔ 강사만 바꾸는 요청에는 손대지 않는다(다시 잡은 것이 아니다). */
+      if (isPostponedOccurrence(_pchRow) && sets.some((x) => x.startsWith('scheduled_date') || x.startsWith('start_time'))) {
+        sets.push(`status = 'active'`);
       }
       sets.push('updated_at = ?'); binds.push(Date.now());
       binds.push(id);
@@ -14857,7 +14867,7 @@ LIMIT $limit`;
           const _soSelCn = startsOnSel(await ensureStartsOnColumn(env), 'cs');
           const rs2: any = await env.DB.prepare(
             `SELECT cs.id, cs.user_id, cs.student_name, cs.class_type, cs.source, cs.notes,
-                    cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id${_soSelCn},
+                    cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.status, cs.teacher_id${_soSelCn},
                     t.name AS t_name, se.korean_name AS stu_ko, se.english_name AS stu_en
                FROM class_schedules cs
                LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
@@ -14865,7 +14875,8 @@ LIMIT $limit`;
               WHERE COALESCE(cs.status,'active') != 'cancelled'
                 ${stu.cond ? `AND (${stu.cond})` : ''}`
           ).bind(...stu.binds).all();
-          schedRows = (rs2.results || []) as any[];
+          // ⏸ (2026-10-01) 연기된 회차는 «지금 수업» 이 아니다 — 참관할 방에 아무도 안 온다(class-postponed.ts)
+          schedRows = ((rs2.results || []) as any[]).filter((r: any) => !isPostponedOccurrence(r));
         } catch (e: any) { console.warn('[classes-now] mangoi rows:', e?.message); }
 
         /* 🔄 그 날짜의 1회성 대체강사 — recurring 행의 teacher_id 는 원래 강사 그대로라

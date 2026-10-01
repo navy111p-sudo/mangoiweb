@@ -457,6 +457,46 @@
   };
 
   var _rows = [];
+  /* 📊 (2026-10-01 사장님 「여기에도 보이게」) 상태별 개수 칩 — 강사 «오늘의 수업» 의 요약 칩(B)과 같은 생각.
+     누르면 그 상태만 보이고, 한 번 더 누르면 풀린다. ⏸ 연기는 0건이어도 늘 보인다(«연기가 됐나» 가 묻는 질문이라). */
+  var _stSel = '';
+  var ST_ORDER = ['live', 'open', 'early', 'postponed', 'ended'];
+  function stChipsHtml(base) {
+    var n = {}; for (var i = 0; i < base.length; i++) { var k = String(base[i].status || 'early'); n[k] = (n[k] || 0) + 1; }
+    var h = '<div class="tc-st-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 2px 8px">';
+    for (var j = 0; j < ST_ORDER.length; j++) {
+      var st = ST_ORDER[j], c = n[st] || 0, b = BADGE[st];
+      if (!c && st !== 'postponed') continue;
+      var on = (_stSel === st);
+      h += '<span class="tc-st-chip" role="button" tabindex="0" data-st="' + st + '" aria-pressed="' + on + '" '
+        + 'style="cursor:pointer;white-space:nowrap;padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:800;'
+        + 'background:' + b.bg + ';color:' + b.fg + ';border:' + (on ? '2px solid ' + b.fg : '1px solid ' + b.bd) + '">'
+        + (isEn() ? b.en : b.ko) + ' ' + c + '</span>';
+    }
+    if (_stSel) {
+      h += '<span class="tc-st-chip" role="button" tabindex="0" data-st="" '
+        + 'style="cursor:pointer;white-space:nowrap;padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:700;'
+        + 'background:#f1f5f9;color:#475467;border:1px solid #cbd5e1">' + T('✕ 상태 거르기 풀기', '✕ Show all states') + '</span>';
+    }
+    return h + '</div>';
+  }
+  function bindStChips(box) {
+    var cs = box.querySelectorAll('.tc-st-chip');
+    for (var i = 0; i < cs.length; i++) {
+      (function (el) {
+        var go = function (ev) {
+          if (ev) ev.preventDefault();
+          var st = el.getAttribute('data-st') || '';
+          _stSel = (_stSel === st) ? '' : st;
+          render();
+        };
+        el.addEventListener('click', go);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') go(ev);
+        });
+      })(cs[i]);
+    }
+  }
   /* ↕ (2026-09-28 사장님 «이것도 오름·내림 필터») 머리글을 누르면 정렬 — manager.html AIU_SORT 와 같은 규칙.
      첫 번째 누름 ▲ 오름 · 두 번째 ▼ 내림 · 세 번째는 원래 순서(지금 입장가능 → 시작 시각).
      빈 값(—)은 방향과 무관하게 맨 아래. 거른 «뒤» 에 정렬한다(화면에 보이는 줄끼리).
@@ -781,9 +821,12 @@
       if (q && rowText(s).indexOf(q) < 0) return false;
       return true;
     });
+    /* 📊 상태 칩은 «다른 거르기를 마친 줄» 로 센다 — 상태 거르기 자신은 셈에서 뺀다(누르면 나머지 칩이 0 이 되지 않게) */
+    var stChips = stChipsHtml(rows);
+    if (_stSel) rows = rows.filter(function (s) { return String(s.status || 'early') === _stSel; });
     /* 🌙 시간대 고르기도 거르기다 — 여기 안 넣으면 0건일 때 «원래 없다» 고 말해
        버려서(아래 else 갈래) 「필터가 켜져 있다」는 사실이 화면에서 사라진다. */
-    var filtering = !!(src || q || night || acSel || teSel);
+    var filtering = !!(src || q || night || acSel || teSel || _stSel);
 
     if (!rows.length) {
       /* 비어 있는 이유를 그 자리에서 말한다 — 「거르는 중이라 없는 것」과 「원래 없는 것」은 다르다 */
@@ -796,13 +839,15 @@
           + (q ? ' · "' + esc(q) + '"' : '')
           + (onlyLive ? ' · ' + T('지금 입장가능만', 'joinable only') : '')
           + (night ? ' · ' + nightLabel(night) : '')
+          + (_stSel && BADGE[_stSel] ? ' · ' + (isEn() ? BADGE[_stSel].en : BADGE[_stSel].ko) : '')
           + ') · ' + T('전체 ', 'total ') + _rows.length + T('건', '');
       } else {
         why = onlyLive
           ? T('지금 들어갈 수 있는 수업이 없습니다.', 'No classes are joinable right now.')
           : T('오늘 예정된 수업이 없습니다.', 'No classes scheduled today.');
       }
-      box.innerHTML = '<div class="empty">' + why + '</div>';
+      box.innerHTML = stChips + '<div class="empty">' + why + '</div>';
+      bindStChips(box);
       if (cntEl) cntEl.textContent = filtering ? T('0건 표시', '0 shown') : '';
       announceCounts(0);
       return;
@@ -848,7 +893,7 @@
     /* 🏫 학원을 골랐으면 «그 학원 오늘 한눈에» 한 줄 — 연기할 대상(몇 건·어디서·강사 몇 명)을 먼저 읽게.
        ⚠️ 카페24 줄은 여기서 옮길 수 없다는 사실도 함께(버튼이 없는 이유). */
     var acLine = acSel ? academySummary(rows, acSel) : '';
-    box.innerHTML = acLine + (nNote
+    box.innerHTML = stChips + acLine + (nNote
         ? '<div style="padding:6px 2px 4px;color:#4338ca;font-size:11.5px;line-height:1.6">' + esc(nNote) + '</div>'
         : '')
       + (note
@@ -1109,6 +1154,7 @@
         if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') bkOpen(ev);
       });
     }
+    bindStChips(box);
     var mvs = box.querySelectorAll('.tc-move-pin');
     for (var mi = 0; mi < mvs.length; mi++) {
       (function (el) {
