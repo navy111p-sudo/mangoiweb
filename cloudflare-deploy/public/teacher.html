@@ -1795,8 +1795,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       }
 
       /* ⏸ (2026-10-01 Mai 제보) 연기된 수업 — 매니저가 연기했는데 강사 화면은 «입장가능» 이라
-         강사가 그 방에 들어가 기다렸다(class-1931). 안내가 «주», 입장은 회색 보조 버튼으로만 남긴다
-         (연기를 되돌린 직후 못 들어가는 쪽이 더 나쁘다 — 위 연속결석 보류와 같은 판단). */
+         강사가 그 방에 들어가 기다렸다(class-1931). 입장 버튼은 주지 않는다 — 연기를 되돌리면
+         서버가 다시 'scheduled' 로 내려줘 버튼이 저절로 돌아온다(다음 갱신 때). */
       if (c.class_state === 'postponed'){
         h += '<div class="cls cls-postponed">'
           +   '<div class="cls-time">' + esc(c.start_time) + '</div>'

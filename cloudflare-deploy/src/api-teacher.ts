@@ -606,8 +606,8 @@ export async function handleTeacherApi(
            ⚠️ 노쇼는 여기서 판정하지 않는다 — 아래에서 class_no_show 기록을 그대로 읽는다.
               판정을 두 벌 두면 화면마다 다른 답이 나온다(src/no-show-truth.ts 의 원칙). */
         /* ⏸ (2026-10-01) 연기된 수업 — 그전에는 «예정/입장가능» 으로 보여 강사가 연기된 방에
-           들어가 기다렸다(class-1931 Farrah). 문(can_enter)은 그대로 둔다: 연기를 되돌린 직후
-           강사가 못 들어가는 쪽이 더 나쁘고, 화면이 «기다리지 마세요» 를 먼저 말한다. */
+           들어가 기다렸다(class-1931 Farrah). teacher.html 은 이 줄에 입장 버튼 대신
+           «기다리지 않아도 됩니다» 를 그린다. */
         class_state: _cancelled ? 'cancelled'
                    : String(s.sched_status || '') === 'postponed' ? 'postponed'
                    : (status === 'live' ? 'ongoing'
