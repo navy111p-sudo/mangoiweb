@@ -220,6 +220,7 @@ html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
    (hover 확대 금지와 같은 이유 — 줄이 들썩이면 읽기가 나빠진다). */
 .p-plan{background:#f1f4f7;color:#7b8896;font-weight:600}
 .p-cancel{background:#e7ebef;color:#8a929b;text-decoration:line-through}
+.p-post{background:#fff4e0;color:#b45309}
 .p-noshow{background:#b45309;color:#fff}
 /* 취소된 줄은 통째로 흐리게 — 「없어진 것」이 아니라 「취소된 것」임이 보여야 한다 */
 .cls.cls-cancel{opacity:.55}
@@ -1673,6 +1674,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     function stPill(c, live, done, open){
       var st = c.class_state;
       if (st === 'cancelled') return ' <span class="pill p-cancel">' + esc(T('Cancelled','취소됨')) + '</span>';
+      if (st === 'postponed') return ' <span class="pill p-post">' + esc(T('Postponed','연기됨')) + '</span>';
       if (st === 'no_show'){
         var who = c.no_show_role === 'teacher' ? T('teacher','강사')
                 : c.no_show_role === 'student' ? T('student','학생')
@@ -1775,6 +1777,21 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       /* 🚫 (2026-08-19) 취소된 수업 — 오늘 것만 회색으로 남긴다(서버가 오늘 것만 내려준다).
          예전엔 목록에서 통째로 빠져서 강사에게는 «내 수업이 그냥 없어진» 것으로 보였다.
          ⛔ 입장·일지 버튼은 주지 않는다 — 취소된 수업에 들어갈 방은 없다. */
+      /* ⏸ (2026-10-01) 연기된 수업 — 취소와 같은 모양으로 남기되 «연기» 라고 말한다.
+         ⛔ 입장·일지 버튼은 주지 않는다 — 학생도 그 방으로 안 간다(빈 방에서 기다리게 된다). */
+      if (c.class_state === 'postponed'){
+        h += '<div class="cls cls-cancel">'
+          +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
+          +   '<div class="cls-main">'
+          +     '<div class="cls-name">' + stuLabelHtml(c, T('(name not set)','(이름 미등록)'))
+          +       stPill(c, live, done, open)
+          +     '</div>'
+          +     '<div class="cls-meta">' + esc(T('This class was postponed — no class today.','연기된 수업입니다 — 오늘은 수업이 없습니다.'))
+          +       ' &middot; ' + c.duration_min + T(' min', '분') + '</div>'
+          +   '</div>'
+          + '</div>';
+        continue;
+      }
       if (c.class_state === 'cancelled'){
         h += '<div class="cls cls-cancel">'
           +   '<div class="cls-time">' + esc(c.start_time) + '</div>'

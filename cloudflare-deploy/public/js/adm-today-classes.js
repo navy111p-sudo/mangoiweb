@@ -35,7 +35,9 @@
     live:  { ko: '🔴 진행중',   en: '🔴 Live',     bg: 'rgba(239,68,68,0.16)',  fg: '#b91c1c', bd: 'rgba(239,68,68,0.45)' },
     open:  { ko: '🟢 입장가능', en: '🟢 Open',     bg: 'rgba(16,185,129,0.16)', fg: '#047857', bd: 'rgba(16,185,129,0.45)' },
     early: { ko: '⏳ 예정',     en: '⏳ Upcoming', bg: 'rgba(148,163,184,0.18)', fg: '#475569', bd: 'rgba(148,163,184,0.45)' },
-    ended: { ko: '✔ 종료',      en: '✔ Ended',    bg: 'rgba(148,163,184,0.12)', fg: '#94a3b8', bd: 'rgba(148,163,184,0.3)' }
+    ended: { ko: '✔ 종료',      en: '✔ Ended',    bg: 'rgba(148,163,184,0.12)', fg: '#94a3b8', bd: 'rgba(148,163,184,0.3)' },
+    /* ⏸ (2026-10-01) 연기된 회차 — 서버가 status='postponed'·join_open:false 로 내려준다(src/class-postponed.ts) */
+    postponed: { ko: '⏸ 연기됨', en: '⏸ Postponed', bg: 'rgba(245,158,11,0.14)', fg: '#b45309', bd: 'rgba(245,158,11,0.45)' }
   };
 
   /* 📋 (2026-09-23 매니저 요청) 일곱 칸 — 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결.
@@ -892,6 +894,18 @@
               + T('카페24에서 진행되는 수업입니다. 망고아이 화상방이 없어 입장·참관할 수 없습니다.',
                   'This class runs on cafe24. There is no Mangoi room, so join/observe is not possible.') + '">'
               + T('카페24 수업 · 입장 불가', 'on cafe24 · cannot join') + '</span>';
+          } else if (s.status === 'postponed') {
+            /* ⏸ (2026-10-01) 연기된 회차 — 입장·참관·초대 링크를 주지 않는다(학생도 그 방으로 안 간다).
+               「📅 연기·변경」은 남긴다 — «날짜를 정해 다시 잡기» 가 바로 이 자리에서 이어진다. */
+            act = '<span style="color:#b45309;font-size:11.5px;font-weight:700;margin-right:4px">'
+              + T('연기된 수업 · 입장 없음', 'postponed · no class') + '</span>';
+            if (s.schedule_id && s.can_move !== false) {
+              act += '<span class="tc-move-pin" role="button" tabindex="0" data-sid="' + esc(s.schedule_id) + '" '
+                + 'title="' + T('날짜를 정해 다시 잡습니다', 'Rebook this class to a date') + '" '
+                + 'style="cursor:pointer;display:inline-block;white-space:nowrap;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+                + 'background:#eaf0fb;color:#1d4ed8;border:1px solid #bfd3f5">'
+                + T('📅 다시 잡기', '📅 Rebook') + '</span>';
+            }
           } else {
             act = s.join_open
               /* 🚪 학생에게 «보이는» 입장이라 참관(보라)과 색을 갈라 둔다 — 주황 + (보임) 표시 */

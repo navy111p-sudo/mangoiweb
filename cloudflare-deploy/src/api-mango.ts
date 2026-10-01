@@ -65,6 +65,7 @@ import { ensureStartsOnColumn, startsOnSel, recurStartedOn, normStartsOn } from 
 import { applyRoomOverrides } from './class-room-override';       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 import { studentRequestGate, ensureScheduleChangeRequestTable } from './student-schedule-request';  // 📅 학생 연기·변경 요청 판정 정본
 import { loadSchedSummaryMap, loadSchedSummaryOne, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약 수업」 칸 정본 (students_erp 의 수강 칸은 카페24가 정본이라 늘 «—» 였다)       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
+import { isPostponedOccurrence } from './class-postponed';  // ⏸ 연기된 회차 판정 정본(2026-10-01)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -1904,6 +1905,9 @@ export async function handleMangoApi(
           else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow) && recurStartedOn(s, todayStr);
           if (!occurs) continue;
           seen.add(s.id);
+          /* ⏸ (2026-10-01) 연기된 회차는 오늘 열리지 않는다 — 학생을 그 방으로 보내지 않는다.
+             예전엔 status != 'cancelled' 만 봐서 연기한 수업에도 입장이 열렸다. 정본 src/class-postponed.ts. */
+          if (isPostponedOccurrence(s)) continue;
           const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
           const start_ts = Date.UTC(kY, kMo, kD, hh, mm, 0) - KST; // KST 벽시계 → UTC ms
           const dur = Number(s.duration_min) || 30;

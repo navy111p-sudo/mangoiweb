@@ -2089,6 +2089,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         : '<span style="color:#b45309;font-weight:800">' + esc(T('unassigned', '미배정')) + '</span>';
       var tags = '';
       if (r.source === 'cafe24') tags += '<span class="tag">LMS</span>';
+      /* ⏸ (2026-10-01) 연기된 회차 — 서버가 status='postponed'·join_open:false 로 준다(입장 버튼은 저절로 빠짐).
+         이유를 글자로 남긴다 — 버튼만 사라지면 «고장» 으로 읽힌다. ⚠️ 이 화면의 T 는 (영, 한) 순서다. */
+      if (r.status === 'postponed') tags += '<span class="tag hot">' + esc(T('⏸ postponed · no class', '⏸ 연기됨 · 수업 없음')) + '</span>';
       /* 📚 (2026-09-08 사장님 지시) 미배정 배지를 누르면 «그 학생만» 배정 창이 열린다.
          admin.html 「오늘 수업」과 같은 동작이다 — 매니저가 온종일 보는 화면은 이쪽이라
          한쪽만 눌리면 「눌러도 아무 일 없다」 제보가 여기서 다시 올라온다.
@@ -2296,7 +2299,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       for (var i = 0; i < qs.length; i++) qs[i](got);
     };
     var sc = document.createElement('script');
-    sc.src = '/js/class-move-modal.js?v=2';
+    sc.src = '/js/class-move-modal.js?v=3';
     sc.onload = function(){ done(true); };
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);

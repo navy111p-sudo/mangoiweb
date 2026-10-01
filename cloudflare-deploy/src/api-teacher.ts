@@ -28,6 +28,7 @@ import { enrichClassesToday } from './class-today-extras';   // 📋 오늘 수�
 import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { applyRoomOverrides } from './class-room-override';   // 🚪 「오늘은 이 방으로」 — 학생 쪽과 같은 답을 받는다
 import { loadHoldRanges, heldOnFor } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25) — 강사에게 «기다리지 말라» 를 알린다
+import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 
 interface TeacherEnv {
   DB: D1Database;
@@ -474,7 +475,10 @@ export async function handleTeacherApi(
          (앞의 upcoming 목록에는 일부러 안 넣었다 — 거기는 «특별한 한 건» 을 띄우는 자리다) */
       // 🗓 취소된 수업은 «오늘 목록» 에만 회색으로 남긴다 — 시간표·앞으로 7일에는 넣지 않는다.
       const _cancelled = String(s.sched_status || '') === 'cancelled';
-      if (_cancelled) { /* 주간표 채우기 건너뜀 */ } else
+      /* ⏸ (2026-10-01) 연기된 회차 — 취소처럼 시간표·앞으로 7일에는 안 넣고, 오늘 목록에만
+         «연기됨» 으로 남기며 입장을 닫는다(학생 쪽 sessions/today 는 아예 안 보낸다). 정본 class-postponed.ts */
+      const _postponed = isPostponedOccurrence(s);
+      if (_cancelled || _postponed) { /* 주간표 채우기 건너뜀 */ } else
       for (let wi = 0; wi < 7; wi++) {
         const hit = s.scheduled_date
           ? (String(s.scheduled_date).slice(0, 10) === weekDays[wi].date)
@@ -507,7 +511,7 @@ export async function handleTeacherApi(
         /* 오늘이 아니면 «앞으로 7일» 안에 열리는지 본다.
            ⚠️ 반복 수업(day_of_week)은 매주 도니 여기 넣으면 목록이 그 강사의 시간표로
               가득 찬다 → **일회성(one_off)만**. 레벨테스트는 전부 일회성이라 정확히 걸린다. */
-        if (_cancelled) continue;                     // 취소된 것은 «앞으로» 에 넣지 않는다
+        if (_cancelled || _postponed) continue;       // 취소·연기된 것은 «앞으로» 에 넣지 않는다
         if (!s.scheduled_date) continue;
         const d = String(s.scheduled_date).slice(0, 10);
         if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d <= todayStr) continue;
@@ -606,11 +610,12 @@ export async function handleTeacherApi(
            ⚠️ 노쇼는 여기서 판정하지 않는다 — 아래에서 class_no_show 기록을 그대로 읽는다.
               판정을 두 벌 두면 화면마다 다른 답이 나온다(src/no-show-truth.ts 의 원칙). */
         class_state: _cancelled ? 'cancelled'
+                   : _postponed ? 'postponed'
                    : (status === 'live' ? 'ongoing'
                    : (status === 'done' ? 'done' : 'scheduled')),
-        join_open: now >= open_at_ts && now <= close_at_ts,
+        join_open: !_postponed && now >= open_at_ts && now <= close_at_ts,
         // ⚠️ join_open 은 «수업 시간인가» 다. «들어갈 수 있나» 는 이 값 — 둘을 섞지 말 것.
-        can_enter: now >= enterFromTs && now <= enterUntilTs,
+        can_enter: !_postponed && now >= enterFromTs && now <= enterUntilTs,
       });
     }
 
