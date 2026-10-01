@@ -2451,9 +2451,19 @@ export async function handleMangoApi(
           .bind(tokUid, nowMs - 86400000).first();
         recent = rc && rc.n != null ? Number(rc.n) : null;
       } catch { recent = null; }
+      /* 같은 수업·같은 회차에 이미 대기 중인 요청이 있으면 또 받지 않는다(2026-10-01 대기 8건 중복). */
+      let pendingDup: boolean | null = null;
+      try {
+        const dupOrig = cs && cs.scheduled_date ? String(cs.scheduled_date).replace(/\//g, '-').slice(0, 10) : bodyOrigDate;
+        if (cs && dupOrig) {
+          const dr: any = await env.DB.prepare(`SELECT id FROM schedule_change_requests WHERE schedule_id = ? AND orig_date = ? AND requester_uid = ? AND status = 'pending' LIMIT 1`)
+            .bind(cs.id, dupOrig, tokUid).first();
+          pendingDup = !!dr;
+        }
+      } catch { pendingDup = null; }
       const gate = studentRequestGate({
         tokUid, schedule: cs, requestType: reqType, origDate: bodyOrigDate,
-        newDate, newTime, todayKst, recentCount: recent,
+        newDate, newTime, todayKst, recentCount: recent, pendingDup,
       });
       if (!gate.ok) return json({ ok: false, error: gate.error }, gate.status);
 
