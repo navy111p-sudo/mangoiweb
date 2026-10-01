@@ -60,12 +60,12 @@
     /* 🎯 (2026-09-23) liveOnly — AI 학습만 하는 학생(활성 예약 0건)에게는 감춘다(아래 mangoiTrackHide).
      *   복습퀴즈는 «수업에서 배운 내용» 을 묻는데 그 학생에게는 수업이 없어 목록이 빈다.
      *   감추면 바로 뒤의 단어장·AI 단어 퀴즈가 한 칸씩 앞으로 온다. 주소로는 그대로 열린다. */
-    {emoji:'🧠', img:'', name:'복습퀴즈', url:'/review-quiz.html', liveOnly:true},
+    {emoji:'🧠', img:'', name:'BTS/SIU 퀴즈', url:'/review-quiz.html', liveOnly:true},
     /* zh:true — 중국어 수강생에게만 보이는 타일(아래 mangoiZhLearner 참고).
      *   2026-08-24 학원장 검수 «영어 앱인데 중국어 퀴즈가 왜 있나» — 기능을 없애는 게 아니라
      *   볼 사람에게만 보여주는 것. 페이지 자체(/review-quiz-cn.html)와 AI 명령 검색은 그대로 열린다. */
     /* 🎯 liveOnly — 중국어 복습퀴즈도 «수업(다락원) 진도» 를 묻는 것이라 같은 규칙(2026-09-23). */
-    {emoji:'🇨🇳', img:'', name:'중국어 복습퀴즈', url:'/review-quiz-cn.html', zh:true, liveOnly:true},
+    {emoji:'🇨🇳', img:'', name:'중국어퀴즈', url:'/review-quiz-cn.html', zh:true, liveOnly:true},
     /* ⛔ 「레벨 테스트」 타일을 여기 되살리지 마세요 (2026-08-26 사장님 지시로 뺐습니다).
      *   2026-08-24 검수 «처음엔 있었는데 다시 못 찾겠다» 대응으로 넣었던 타일인데,
      *   판단력 훈련이 **첫 진입에 설정 카드**를 띄우게 되면서(PR #512) 그 카드의

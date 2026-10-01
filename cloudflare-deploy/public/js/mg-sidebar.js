@@ -88,7 +88,7 @@
     { go:'faq',         cls:'mg-hl mg-s2', ko:'❓ 자주 묻는 질문',    en:'❓ FAQ' },
     { go:'warmup',      cls:'mg-hl mg-s3', ko:'🗣️ A.i 말하기 연습',   en:'🗣️ A.i Speaking Practice' },
     { go:'student-game',cls:'mg-hl mg-s2', ko:'🎮 학생게임',         en:'🎮 Student Game' },
-    { go:'review-quiz', cls:'',            ko:'🧠 복습퀴즈',         en:'🧠 Review Quiz' },
+    { go:'review-quiz', cls:'',            ko:'🧠 BTS/SIU 퀴즈',      en:'🧠 BTS/SIU Quiz' },
     /* 🤖 2026-09-12 추가 — 라벨·별점(cls)은 홈 드로어(index.html #mg-drawer)와 «같은 값»이어야 한다.
        한쪽만 고치면 화면마다 다른 이름이 뜬다. */
     { go:'today',       cls:'mg-hl mg-s3', ko:'📅 오늘의 A.i 학습',   en:'📅 Today\'s AI Plan' },
@@ -96,7 +96,7 @@
     { go:'ai-friend',   cls:'',            ko:'🤖 AI 친구 대화',      en:'🤖 AI Friend Chat' },
     { go:'ai-write',    cls:'',            ko:'✍️ AI 글쓰기',         en:'✍️ AI Writing' },
     { go:'micro-quiz',  cls:'',            ko:'⚡ AI 단어 퀴즈',      en:'⚡ AI Vocab Quiz' },
-    { go:'review-quiz-cn', cls:'',         ko:'🇨🇳 중국어 복습퀴즈',   en:'🇨🇳 Chinese Review Quiz' },
+    { go:'review-quiz-cn', cls:'',         ko:'🇨🇳 중국어퀴즈',   en:'🇨🇳 Chinese Quiz' },
     { go:'vocab',       cls:'',            ko:'📖 단어장',            en:'📖 Vocabulary' },
     { go:'all-menu',    cls:'mg-s3',       ko:'🏠 전체메뉴',         en:'🏠 All Menu' }
   ];
