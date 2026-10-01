@@ -80,7 +80,8 @@ import type { MangoEnv } from './api-mango';
 import { cleanAnalysis, cleanScore, foreignFields, parseAnalysisJson, recoverNextAction, KOREAN_ONLY_RETRY_NOTE, SUMMARY_UNAVAILABLE } from './ai-analysis-clean';   // 🧹 AI 학습 분석 — 한국어 아닌 글자 거르기·다음 액션 되살리기
 import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid } from './attendance-uid';   // 📌 attendance 를 학생 계정으로 찾는 정본
 import { ensureStartsOnColumn, startsOnSel, normStartsOn, kstYmdOfMs } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
-import { isPostponedOccurrence, REACTIVATE_POSTPONED_SQL } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { isPostponedOccurrence, REACTIVATE_POSTPONED_SQL } from './class-postponed';
+import { diagnoseStudentDay } from './class-diagnose';   // 🔎 학생 하루 수업 진단(읽기 전용, 2026-10-01)   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
    컴파일을 안 돌리면 모르고 지나간다. 여기서 지운다. */
@@ -13087,6 +13088,14 @@ LIMIT $limit`;
 
     // ── ⑭ GET /api/admin/room-attendance?room_id=... — 강의실 출석/참가자 조회 ──
     if (method === 'GET' && path === '/api/admin/room-attendance') {
+      /* 🔎 (2026-10-01) ?uid=<학생>&date=YYYY-MM-DD — 그날 그 학생의 예약방·실제 접속·화상방 명단·회선/소리 기록을
+         한 번에(읽기 전용). 정본 src/class-diagnose.ts. 강사·지사·대리점은 막는다(학생 접속 기록 전체가 실린다). */
+      const diagUid = String(url.searchParams.get('uid') || '').trim();
+      if (diagUid) {
+        const _dgA = await getAdminActor(request, env as any);
+        if (!_dgA.ok || _dgA.isTeacher || isOrgScopedRole(_dgA.role)) return json(forbiddenTeacherBody(_dgA as any), 403);
+        return json(await diagnoseStudentDay(env, diagUid, url.searchParams.get('date')));
+      }
       const roomId = String(url.searchParams.get('room_id') || '').trim();
       if (!roomId) return json({ ok: false, error: 'room_id_required' }, 400);
       try {
