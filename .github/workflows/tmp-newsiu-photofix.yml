@@ -1,0 +1,57 @@
+# 임시(2026-10-01) — New SIU 질문 카드 사진 잘림 수정본을 다시 만들어 사이트에 갈아 끼웁니다. main 에 올리지 않습니다.
+# 사장님 「사진들이 위에가 모두 짤려서 보여」 → 사진 칸 118→160px · 위쪽 25% 남김 + 꼬리말 한글 글꼴(빌드 «뒤» fonts6).
+name: tmp-newsiu-photofix
+on:
+  push:
+    branches: [tmp/newsiu-photofix]
+permissions:
+  contents: read
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_UPLOAD_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: key check
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "::error::CLOUDFLARE_UPLOAD_TOKEN 없음"; exit 1; fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - name: path link (build8 가 /home/user/mangoiweb 를 씁니다)
+        run: sudo mkdir -p /home/user && sudo ln -sfn "$GITHUB_WORKSPACE" /home/user/mangoiweb
+      - name: chromium
+        run: |
+          npx -y playwright@1.55.0 install chromium > /dev/null
+          C=$(ls -d ~/.cache/ms-playwright/chromium-*/chrome-linux/chrome | head -1)
+          printf '#!/bin/sh\nexec "%s" "$@" 2>>/tmp/chrome.err\n' "$C" > /tmp/chrome.sh && chmod +x /tmp/chrome.sh
+          echo "CHROME=/tmp/chrome.sh" >> $GITHUB_ENV
+      - name: build (한글 글자 모으기) → fonts
+        run: |
+          cd docs/newsiu-sample
+          for no in $(ls units | sed -n 's/^\(a\?[0-9]\{3\}\)\.mjs$/\1/p'); do for m in easy hard; do node build8.mjs $no $m > /dev/null; done; done
+          node fonts6.mjs
+          ls -la fonts6.css
+      - name: build + shot (100 decks)
+        run: |
+          cd docs/newsiu-sample
+          for no in $(ls units | sed -n 's/^\(a\?[0-9]\{3\}\)\.mjs$/\1/p'); do
+            for m in easy hard; do
+              node build8.mjs $no $m > /dev/null
+              out=$(PORT=9501 node shot.mjs $PWD/u/$no/slides-$m.html u/$no/jpg-$m)
+              echo "$no $m $(echo "$out" | tr '\n' ' ')"
+            done
+          done
+      - name: pack
+        run: cd docs/newsiu-sample && node pack-new.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: newsiu-pack-2026-10-01
+          path: docs/newsiu-sample/pack
+          retention-days: 30
+      - name: dry
+        run: cd docs/newsiu-sample && DRY=1 node upload-fix.mjs
+      - name: replace on site
+        run: cd docs/newsiu-sample && node upload-fix.mjs
