@@ -177,6 +177,8 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 .cls-extra{margin-top:3px;font-size:12px;line-height:1.55;color:#475467}
 .cls-extra b{font-weight:700;color:#344054}
 .cls-extra .evq-open{color:#1d4ed8;font-weight:700;white-space:nowrap}
+.cls-extra .evq-write{background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;padding:1px 7px;font:inherit;font-weight:700;cursor:pointer}
+html[data-t="dark"] .cls-extra .evq-write{background:#1e293b;border-color:#3b82f6}
 html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
 .cls-extra .cal7{display:inline-flex;gap:2px;vertical-align:middle}
 .cls-extra .cal7 i{display:inline-block;width:17px;height:17px;line-height:17px;text-align:center;font-size:9.5px;font-weight:800;font-style:normal;border-radius:4px;background:#e4e7ec;color:#475467}
@@ -1536,7 +1538,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
      값은 서버 정본(src/class-today-extras.ts)이 판정해 내려준다 — 화면은 «고르기만» 한다.
      ⛔ 모르면 «—» · 지어내지 않는다. 옛 캐시 응답엔 칸이 없으니 그때는 아무것도 안 그린다.
      ⚠️ 「지난 평가」는 위의 ↩ 지난 수업(prev_lesson)이 있으면 겹치므로 그때는 생략한다. */
-  function extrasHtml(c){
+  /* ✍ (2026-10-01 매니저 요청 «make the today's feedback next to attendance») wi = 그 줄의 목록 번호.
+     수업이 시작됐거나 끝났고 아직 일지가 없을 때만 「오늘 평가」 옆에 「✍ 지금 쓰기」 — 누르면 기존 일지 창(openEval).
+     ⛔ 시작 전에는 주지 않는다 — 일지는 학부모에게 문자로 나가므로 수업 전 문자가 된다. 새 창을 만들지 않는다. */
+  function extrasHtml(c, wi){
     if (!c || !('attendance' in c || 'teacher_entry' in c || 'class_date' in c)) return '';
     var D = '—';
     var te = c.teacher_entry, at = c.attendance;
@@ -1580,7 +1585,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     }
     return '<div class="cls-extra">' + row1.join(' &middot; ') + wkLine
       + (c.prev_lesson ? '' : '<br><b>' + esc(T('Last feedback', '지난 평가')) + '</b> ' + esc(ev(c.last_eval)) + evOpen(c.last_eval))
-      + '<br><b>' + esc(T("Today's feedback", '오늘 평가')) + '</b> ' + esc(ev(c.today_eval)) + evOpen(c.today_eval) + '</div>';
+      + '<br><b>' + esc(T("Today's feedback", '오늘 평가')) + '</b> ' + esc(ev(c.today_eval)) + evOpen(c.today_eval)
+      + ((!c.today_eval && !c.eval_written && c.class_state !== 'postponed' && c.class_state !== 'cancelled' && typeof wi === 'number' && wi >= 0)
+          ? ' <button type="button" class="evq-open evq-write" data-eval="' + wi + '">' + esc(T('✍ Write now', '✍ 지금 쓰기')) + '</button>' : '')
+      + '</div>';
   }
   /* 📊 B — 상태별 개수 칩. 판정은 서버의 class_state 를 «그리기만» 하고, 옛 캐시(값 없음)는 시각으로만.
      안내용 줄(kind!=='class')은 세지 않는다. 0 인 칸은 그리지 않는다. */
@@ -1939,7 +1947,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         +       stPill(c, live, done, open)
         +     '</div>'
         +     '<div class="cls-meta">' + meta.join(' &middot; ') + '</div>'
-        +     extrasHtml(c)
+        +     extrasHtml(c, (live || done) ? i : -1)
         +     prevHtml
         +   '</div>'
         +   '<div class="cls-act">';
@@ -4006,7 +4014,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var go = function(){ if (window.mgEvalQuick) window.mgEvalQuick(id, { en: en() }); };
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
-    sc.src = '/js/eval-quick-view.js?v=1';
+    sc.src = '/js/eval-quick-view.js?v=2';
     sc.onload = go;
     sc.onerror = function(){ alert(en() ? 'Could not load the viewer — please tap again.' : '전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.'); };
     document.head.appendChild(sc);
