@@ -356,6 +356,7 @@
 .mgsu-grp{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#ffffff;border:1px solid #e3e8ef;border-radius:10px;padding:9px 12px;color:#101828}
 .mgsu-grp .t{font-size:15px;font-weight:800;color:#101828}
 .mgsu-grp .m{font-size:12px;color:#475467}
+.mgsu-grp .s{font-size:10.5px;color:#667085;margin-top:1px}
 .mgsu-grp .g{flex:1;min-width:200px}
 .mgsu-ty{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap}
 .mgsu-chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -3720,6 +3721,14 @@ function mgsuDayWord(ymd, todayYmd) {
   if (n === 1) return en ? 'Tomorrow' : '내일';
   return en ? ('in ' + n + ' days') : (n + '일 뒤');
 }
+/* 📅 (2026-10-01 사장님 「수업시작일 대신 수업일을」) — 그 «한 줄» 의 다음 수업일.
+   정본 mgsuUpcoming·mgsuNext 를 그대로 쓴다(날짜를 다시 재지 않는다). 4주 안에 없으면 ''. */
+function mgsuNextLabel(sch) {
+  var t = _mgsKstToday();
+  var base = new Date(Number(t.slice(0, 4)), Number(t.slice(5, 7)) - 1, Number(t.slice(8, 10)));
+  var nx = mgsuNext(mgsuUpcoming([sch], base, 28), Date.now());
+  return nx ? mgsuMd(nx) : '';
+}
 function mgsuMd(o) {
   var en = mgsuEn();
   return Number(o.ymd.slice(5, 7)) + '/' + Number(o.ymd.slice(8, 10)) + '(' + (en ? MGSU_DOW_EN : MGSU_DOW_KO)[o.dow] + ')';
@@ -3758,7 +3767,8 @@ function mgsuRender() {
     var so = mgsSchedStartYmd(s0);
     h += '<div class="mgsu-grp"><span class="mgsu-ty" style="background:' + ty.bg + ';color:' + ty.fg + '">' + esc(en ? ty.fullEn : ty.full) + '</span>'
       + '<div class="g"><div class="t">' + esc((en ? (g.dows.length + 'x a week · ') : ('주 ' + g.dows.length + '회 · ')) + days + ' ' + mgsuHm(s0)) + '</div>'
-      + '<div class="m">' + esc((Number(s0.duration_min) || 20) + (en ? ' min · ' : '분 · ')) + teacherLabel(s0) + esc(so ? (en ? ' · from ' : ' · 시작 ') + so : '') + '</div></div>'
+      + '<div class="m">' + esc((Number(s0.duration_min) || 20) + (en ? ' min · ' : '분 · ')) + teacherLabel(s0) + '</div>'
+      + (so ? '<div class="s">' + esc((en ? 'started ' : '시작 ') + so) + '</div>' : '') + '</div>'
       + '<div class="btns"><button type="button" class="mgsu-btn" data-mgsu-series="' + esc(g.rows.map(function (r) { return r.id; }).join(',')) + '">✏️ ' + (en ? 'Change weekly' : '매주 변경') + '</button></div></div>';
   });
   if (occ.length) {
@@ -3902,14 +3912,17 @@ async function loadAiSchedules() {
                        '0':'일', '1':'월', '2':'화', '3':'수', '4':'목', '5':'금', '6':'토' };
     const typeColor = { regular:'#3b82f6', level_test:'#f59e0b', trial:'#10b981' };
     const _en = (_lang === 'en');
-    const typeName = _en ? { regular:'Regular', level_test:'Level test', trial:'Trial' } : { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
+    const typeName = _en ? { regular:'Regular', makeup:'Makeup', level_test:'Level test', trial:'Trial' } : { regular:'정규수업', makeup:'보충수업', level_test:'레벨테스트', trial:'체험수업' };
     const statusName = _en ? { active:'Active', postponed:'Postponed', cancelled:'Cancelled' } : { active:'활성', postponed:'연기', cancelled:'취소' };
     const _dayEn = { '일':'Sun','월':'Mon','화':'Tue','수':'Wed','목':'Thu','금':'Fri','토':'Sat' };
     listEl.innerHTML = items.map(it => {
       const days = (it.day_of_week || '').split(',').filter(Boolean).map(d => { const k = dayNames[d] || d; return _en ? (_dayEn[k] || k) : k; }).join('·');
       const tColor = typeColor[it.class_type] || '#6b7280';
       const _so = it.scheduled_date ? '' : mgsSchedStartYmd(it);
-      const dateLabel = it.scheduled_date ? '📅 ' + it.scheduled_date : (days ? (_en ? '🔁 Every ' + days : '🔁 매주 ' + days + '요일') + (_so ? ' · ' + _so + (_lang === 'en' ? '~' : ' 시작') : '') : '');
+      /* 📅 (2026-10-01 사장님) 시작일 대신 «다음 수업일» — 시작일은 줄 끝에 작게(_startSmall). */
+      const _nxt = it.scheduled_date ? '' : mgsuNextLabel(it);
+      const dateLabel = it.scheduled_date ? '📅 ' + it.scheduled_date : (days ? (_en ? '🔁 Every ' + days : '🔁 매주 ' + days + '요일') + (_nxt ? (_en ? ' · next ' : ' · 다음 수업 ') + _nxt : '') : '');
+      const _startSmall = _so ? '<span style="color:#667085;font-size:10.5px">' + (_en ? 'started ' : '시작 ') + esc(_so) + '</span>' : '';
       /* 📅 (2026-09-21) 위 mgsOnceInfo() 가 정본 — 여기서 날짜를 다시 재지 말 것. */
       const _oi = mgsOnceInfo(it.scheduled_date, _mgsKstToday());
       const _onceChip = _oi.once
@@ -3940,6 +3953,7 @@ async function loadAiSchedules() {
         + '<span style="color:#fbbf24;font-weight:700">' + (it.start_time || '') + '</span>'
         + '<span style="color:#94a3b8;font-size:11px">' + (it.duration_min ? it.duration_min + (_en ? ' min · ' : '분 · ') : '') + (statusName[it.status] || it.status) + '</span>'
         + '<span class="mgt-chip" style="color:#475467;font-size:11px">👩‍🏫 ' + teacherLabel(it) + '</span>'
+        + _startSmall
         + '<span class="mgs-src-chip" style="color:#475467;font-size:10.5px;border:1px solid #cbd5e1;border-radius:6px;padding:1px 7px" title="' + (_en ? 'The enrollment list and this actual class table are different tables — a class here may not appear in the enrollment list.' : '수강신청(enrollments) 표와 이 실제 수업표(class_schedules)는 서로 다른 표입니다 — 여기 있어도 수강신청 신청 목록에는 없을 수 있습니다.') + '">🔖 ' + sourceLabel(it) + '</span>'
         /* 📅 (2026-10-01 사장님 「취소는 빼고 그냥 연기, 변경」) — 이 카드에서는 연기·변경만 준다.
            ⏸ 연기는 «날짜가 정해진» 줄에만(공용 연기·변경 창 · 위 mgsuOpenMove). 매주 반복 줄은
