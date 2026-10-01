@@ -29,6 +29,7 @@ export type LedgerState =
   | 'late_postpone'   // 30분 안쪽 연기 → 결석 처리
   | 'postponed'       // 연기 (30분 전 연락) · 이월
   | 'teacher_absent'  // 강사 결석 → 보강
+  | 'cancelled'       // 수업 취소 승인 (차감·이월 없음)
   | 'leave'           // 휴원
   | 'absence_hold'    // 연속 결석 보류 (수업을 멈춰 둔 기간)
   | 'holiday'         // 공휴일
@@ -43,6 +44,7 @@ export const LEDGER_STATES: Record<LedgerState, LedgerStateDef> = {
   late_postpone:  { ko: '늦은 연기(결석 처리)', en: 'Late postpone',      deduct: true,  carry: false },
   postponed:      { ko: '연기',                 en: 'Postponed',          deduct: false, carry: true  },
   teacher_absent: { ko: '강사 결석',            en: 'Teacher absent',     deduct: false, carry: true  },
+  cancelled:      { ko: '취소',                 en: 'Cancelled',          deduct: false, carry: false },
   leave:          { ko: '휴원',                 en: 'On leave',           deduct: false, carry: false },
   absence_hold:   { ko: '결석 보류',            en: 'Paused (absences)',  deduct: false, carry: false },
   holiday:        { ko: '공휴일',               en: 'Holiday',            deduct: false, carry: true  },
@@ -62,7 +64,7 @@ export interface OccurrenceFacts {
   /** 강사 미입장 기록 — 오판(출석 대조로 강사가 실제로 있었음)이면 false 로 넘길 것 */
   teacherNoShow: boolean;
   /** 승인된 연기 요청(그 날짜). minutes_before / fee_type 중 아는 것 */
-  postponeReq?: { minutes_before?: number | null; fee_type?: string | null } | null;
+  postponeReq?: { minutes_before?: number | null; fee_type?: string | null; request_type?: string | null } | null;
   /** 그날이 휴원 기간 안인가 */
   onLeave: boolean;
   /** 그날이 연속 결석 보류 기간 안인가 */
@@ -71,30 +73,41 @@ export interface OccurrenceFacts {
   holiday: boolean;
 }
 
-/** 연기 요청이 «30분 전» 이었나. 모르면 null. */
+/**
+ * 연기 요청이 «30분 전» 이었나. 모르면 null.
+ * ⚠️ fee_type 이 먼저다 — 급여(api-admin.ts)가 그 칸을 «다시 계산하지 않고» 읽으므로,
+ *    둘이 다르면 학생 원장도 fee_type 을 따라야 두 장부가 같은 답을 한다.
+ *    minutes_before 는 fee_type 이 비었을 때만 본다.
+ */
 export function postponeWasEarly(req: OccurrenceFacts['postponeReq']): boolean | null {
   if (!req) return null;
+  if (req.fee_type === 'free') return true;
+  if (req.fee_type === 'paid') return false;
   const mb = req.minutes_before;
   if (mb !== null && mb !== undefined && mb !== ('' as any) && Number.isFinite(Number(mb))) {
     return Number(mb) > POSTPONE_FREE_MINUTES_GT;
   }
-  if (req.fee_type === 'free') return true;
-  if (req.fee_type === 'paid') return false;
   return null;
 }
 
 /**
  * 한 회차의 상태. 우선순위가 곧 규칙이다 — 순서를 바꾸면 숫자가 바뀐다.
- *   1 실제로 들어왔으면 무엇이 적혀 있든 «완료» (수업은 했다)
- *   2 연기 행 → 30분 기준으로 연기 / 늦은 연기
- *   3 아직 안 왔으면 예정
- *   4 휴원 · 보류 · 공휴일 (학생 사정으로 멈춘 기간)
- *   5 강사 결석 → 학생 결석 → 기록 없음
+ *   1 강사 결석(오판 아님) → 학생이 들어와 기다렸어도 «강사 결석» (학생 회차에서 차감하지 않는다)
+ *   2 실제로 들어왔으면 «완료»
+ *   3 취소 승인 → 취소 / 연기 → 30분 기준으로 연기·늦은 연기
+ *   4 아직 안 왔으면 예정
+ *   5 휴원 · 보류 · 공휴일
+ *   6 학생 결석 → 기록 없음
+ * ⚠️ 1 을 2 뒤로 옮기지 마세요 — 강사가 안 온 수업이 학생 «완료» 로 차감됩니다.
+ *    teacherNoShow 는 오판(출석 대조로 강사가 실제로 있었음)을 이미 걸러 낸 값이어야 한다.
  */
 export function classifyOccurrence(f: OccurrenceFacts): LedgerState {
   const st = String(f.schedStatus || 'active').toLowerCase();
+  if (f.teacherNoShow) return 'teacher_absent';
   if (f.attended === true) return 'done';
-  if (st === 'postponed') {
+  const reqType = String(f.postponeReq?.request_type || '').toLowerCase();
+  if (f.postponeReq && reqType === 'cancel') return 'cancelled';
+  if (st === 'postponed' || f.postponeReq) {
     const early = postponeWasEarly(f.postponeReq);
     // 요청 기록이 없는 연기(관리자가 상태만 바꾼 경우)는 «언제» 를 모른다 → 결석으로 단정하지 않는다.
     return early === false ? 'late_postpone' : 'postponed';
@@ -103,7 +116,6 @@ export function classifyOccurrence(f: OccurrenceFacts): LedgerState {
   if (f.onLeave) return 'leave';
   if (f.onHold) return 'absence_hold';
   if (f.holiday) return 'holiday';
-  if (f.teacherNoShow) return 'teacher_absent';
   if (f.studentNoShow) return 'student_absent';
   return 'unknown';
 }
@@ -129,6 +141,12 @@ export function summarize(states: LedgerState[]): LedgerSummary {
 // ───────────────────────── 휴원 규칙 ─────────────────────────
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 function dayNum(ymd: string): number { return Math.round(Date.parse(ymd + 'T00:00:00Z') / 86400000); }
+/** 형식만이 아니라 «실재하는 날» 인가 (2026-02-30 은 거절 — Date 가 3월로 넘겨 버린다) */
+function realYmd(ymd: string): boolean {
+  if (!YMD.test(ymd)) return false;
+  const t = Date.parse(ymd + 'T00:00:00Z');
+  return !isNaN(t) && new Date(t).toISOString().slice(0, 10) === ymd;
+}
 
 export interface LeaveRow { id?: number; start_date: string; end_date: string; status?: string | null; created_at?: number | null; }
 
@@ -155,7 +173,7 @@ export function validateLeave(
   nowMs: number,
 ): null | 'bad_date' | 'end_before_start' | 'too_long' | 'yearly_limit' | 'overlap' {
   const s = String(req.start_date || ''), e = String(req.end_date || '');
-  if (!YMD.test(s) || !YMD.test(e) || isNaN(Date.parse(s)) || isNaN(Date.parse(e))) return 'bad_date';
+  if (!realYmd(s) || !realYmd(e)) return 'bad_date';
   if (e < s) return 'end_before_start';
   if (leaveDays(s, e) > LEAVE_MAX_DAYS) return 'too_long';
   const active = (existing || []).filter(l => String(l.status || 'active') === 'active');

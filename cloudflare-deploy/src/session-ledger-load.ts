@@ -79,6 +79,7 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
       const startMs = Date.parse(`${d}T${start.length === 5 ? start : '00:00'}:00+09:00`);
       occ.push({ schedule_id: Number(r.id), date: d, start, dur, teacher_id: r.teacher_id ?? null,
         status: String(r.status || 'active').toLowerCase(), room: `class-${r.id}-${d.replace(/-/g, '')}`,
+        dated: !!dated,
         upcoming: !(startMs <= now) });
     }
   }
@@ -121,7 +122,9 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
       let presence = new Map<string, any>();
       try { presence = await teacherPresenceByRoom(env.DB, list); } catch { /* 대조 생략 — 강사 결석 그대로 */ }
       for (const n of list) {
-        const k = `${n.schedule_id}|${kstYmd(Number(n.created_at))}`;
+        // 날짜는 방 번호(class-{id}-{YYYYMMDD})가 정본 — 알림은 수업 «뒤» 에 찍힐 수 있어 created_at 이 다음 날일 수 있다
+        const rm = /^class-(\d+)-(\d{4})(\d{2})(\d{2})$/.exec(String(n.room_id || ''));
+        const k = rm ? `${rm[1]}|${rm[2]}-${rm[3]}-${rm[4]}` : `${n.schedule_id}|${kstYmd(Number(n.created_at))}`;
         if (n.missing_role === 'student') nsStudent.add(k);
         else if (n.missing_role === 'teacher') {
           const p = n.room_id ? presence.get(String(n.room_id)) : null;
@@ -136,7 +139,7 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
   if (ids.length) {
     try {
       const q = await env.DB.prepare(
-        `SELECT schedule_id, orig_date, fee_type, minutes_before, created_at FROM schedule_change_requests
+        `SELECT schedule_id, orig_date, fee_type, minutes_before, request_type, created_at FROM schedule_change_requests
           WHERE status = 'approved' AND request_type != 'change' AND instr(?, ',' || CAST(schedule_id AS TEXT) || ',') > 0`
       ).bind(idList).all();
       for (const r of (q?.results || []) as any[]) {
@@ -156,22 +159,33 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
     for (const r of (q?.results || [])) holidays.add(String((r as any).day));
   } catch { /* 표 없음 — 공휴일 없음 */ }
 
+  // 그날 이 학생 회차 수 — «그날 접속했다» 는 회차가 하나뿐일 때만 그 회차의 출석으로 본다
+  //   (하루 두 번 수업이면 한 번 들어온 것으로 둘 다 «완료» 가 되면 안 된다 → 방 번호로만 판정)
+  const perDay: Record<string, number> = {};
+  for (const o of occ) perDay[o.date] = (perDay[o.date] || 0) + 1;
+
   const items = occ.map(o => {
     const key = `${o.schedule_id}|${o.date}`;
-    const att = attended === null ? null : (attended.has('room:' + o.room) || attended.has('day:' + o.date));
+    const att = attended === null ? null
+      : (attended.has('room:' + o.room) || (perDay[o.date] === 1 && attended.has('day:' + o.date)));
+    // 승인된 연기·취소 요청을 이 회차에 붙이는 조건:
+    //   · 반복 행 → 요청이 «기록만» 되고 행은 안 바뀌므로(decide 의 'recorded') 요청이 유일한 근거
+    //   · 날짜 행 → 실제로 status='postponed' 로 바뀐 경우만. 새 날짜로 «옮겨진» 행은 옮겨진 날짜의
+    //     회차가 따로 세어지므로(급여도 같음) 여기서 연기로 또 세지 않는다.
+    const pr0 = postponeReq[key] || null;
+    const pr = pr0 && (!o.dated || o.status === 'postponed') ? pr0 : null;
     const state: LedgerState = classifyOccurrence({
       schedStatus: o.status,
       upcoming: o.upcoming,
       attended: att,
       studentNoShow: nsStudent.has(key),
       teacherNoShow: nsTeacher.has(key),
-      postponeReq: postponeReq[key] || null,
+      postponeReq: pr,
       onLeave: !!isOnLeave(leaves || [], o.date),
       onHold: !!heldOnFor(holds, uid, o.date),
       holiday: holidays.has(o.date),
     });
     const def = LEDGER_STATES[state];
-    const pr = postponeReq[key];
     return {
       date: o.date, start: o.start, duration_min: o.dur, schedule_id: o.schedule_id, room_id: o.room,
       teacher_id: o.teacher_id, state, label_ko: def.ko, label_en: def.en, deduct: def.deduct, carry: def.carry,

@@ -176,7 +176,7 @@
   #slPanel .sl-form label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:#475467}
   #slPanel .sl-form .sl-grow{flex:1 1 180px}
   #slPanel .sl-form input{padding:7px 9px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:7px;font-size:14px;min-height:38px}
-  #slPanel .sl-btn{min-height:38px;padding:0 16px;border:0;border-radius:8px;background:#0f766e;color:#ffffff;font-weight:600;cursor:pointer}
+  #slPanel .sl-btn{min-height:38px;padding:0 16px;border:0;border-radius:8px;background:#ffffff;color:#0f766e;border:1px solid #0f766e;font-weight:600;cursor:pointer}
   #slPanel .sl-btn.ghost{background:#ffffff;color:#b42318;border:1px solid #fecdca;min-height:32px;padding:0 10px}
   #slPanel .sl-msg{font-size:13px;min-height:18px}
   #slPanel .sl-msg.err{color:#b42318}
@@ -610,9 +610,9 @@
       <!-- 4b-2. 📒 회차 원장 (2026-10-01) — 정본 src/session-ledger.ts -->
       <div class="panel" data-panel="ledger" id="slPanel">
         <div class="sl-head">
-          <button type="button" class="sl-nav" id="slPrev" aria-label="이전 달">‹</button>
+          <button type="button" class="sl-nav" id="slPrev" aria-label="이전 달 / Previous month">‹</button>
           <b id="slMonth">—</b>
-          <button type="button" class="sl-nav" id="slNext" aria-label="다음 달">›</button>
+          <button type="button" class="sl-nav" id="slNext" aria-label="다음 달 / Next month">›</button>
           <span class="sl-mute" id="slNote"></span>
         </div>
         <div class="sl-kpis" id="slKpis"></div>
@@ -3987,15 +3987,15 @@ loadFull();
   function ymNow(){ return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,7); }
   function shift(ym, d){ var y=+ym.slice(0,4), m=+ym.slice(5,7)-1+d; y+=Math.floor(m/12); m=((m%12)+12)%12; return y+'-'+String(m+1).padStart(2,'0'); }
   var CLS = { done:'sl-done', student_absent:'sl-absent', late_postpone:'sl-absent', postponed:'sl-carry', teacher_absent:'sl-carry',
-              holiday:'sl-carry', leave:'sl-pause', absence_hold:'sl-pause', upcoming:'sl-wait', unknown:'sl-unknown' };
+              holiday:'sl-carry', cancelled:'sl-pause', leave:'sl-pause', absence_hold:'sl-pause', upcoming:'sl-wait', unknown:'sl-unknown' };
   var RULES = {
     ko: '<ul><li><b>완료</b> · 학생이 들어옴 → 차감</li><li><b>학생 결석</b> · 30분 전까지 연락 없이 안 들어옴 → 차감</li>'
       + '<li><b>늦은 연기</b> · 30분 안쪽에 연기 요청 → 결석 처리(차감)</li><li><b>연기</b> · 30분보다 일찍 연기 승인 → 차감 안 함, 뒤로 이월</li>'
-      + '<li><b>강사 결석</b> → 차감 안 함, 보강</li><li><b>휴원</b> · 결석 보류 · 공휴일 → 차감 안 함</li>'
+      + '<li><b>강사 결석</b> · 학생이 들어와 기다렸어도 → 차감 안 함, 보강</li><li><b>취소</b> · 수업 취소 승인 → 차감 안 함</li><li><b>휴원</b> · 결석 보류 · 공휴일 → 차감 안 함</li>'
       + '<li><b>미정</b> · 출석·결석 기록이 둘 다 없음 → 차감 안 함, 사람이 확인</li></ul>',
     en: '<ul><li><b>Done</b> · student joined → counted</li><li><b>Student absent</b> · no notice 30+ min before → counted</li>'
       + '<li><b>Late postpone</b> · requested within 30 min → counted as absent</li><li><b>Postponed</b> · approved earlier than 30 min → not counted, carried over</li>'
-      + '<li><b>Teacher absent</b> → not counted, make-up</li><li><b>Leave</b> · paused · holiday → not counted</li>'
+      + '<li><b>Teacher absent</b> · even if the student waited → not counted, make-up</li><li><b>Cancelled</b> · cancellation approved → not counted</li><li><b>Leave</b> · paused · holiday → not counted</li>'
       + '<li><b>Unknown</b> · no attendance or absence record → not counted, check by hand</li></ul>'
   };
   function render(){
@@ -4005,7 +4005,9 @@ loadFull();
     $('slRuleText').innerHTML = RULES[L()];
     var d = st.data;
     if (!d) { $('slRows').innerHTML=''; $('slCards').innerHTML=''; $('slKpis').innerHTML=''; return; }
-    if (!d.ok) { $('slNote').textContent = (en ? 'Could not load: ' : '불러오지 못했습니다: ') + (d.error || ''); return; }
+    if (!d.ok) { $('slNote').textContent = (en ? 'Could not load: ' : '불러오지 못했습니다: ') + (d.error || '') + (d.who_line ? ' — ' + d.who_line : ''); }
+    var bad = !d.ok;
+    if (!bad) {
     var s = d.summary || { total:0, deducted:0, carried:0, byState:{} };
     var by = s.byState || {};
     var k = [[en?'Classes':'이번 달 회차', s.total], [en?'Counted':'차감', s.deducted], [en?'Carried over':'이월', s.carried],
@@ -4028,6 +4030,7 @@ loadFull();
         return '<div class="sl-card"><div><b>'+esc(i.date.slice(5))+'</b> <span class="sl-mute">'+esc(i.start)+'</span><div class="sl-mute">'+ded(i)+'</div></div>'+pill(i)+'</div>';
       }).join('');
     }
+    } else { $('slRows').innerHTML=''; $('slCards').innerHTML=''; $('slKpis').innerHTML=''; }
     var lv = st.leaves || [];
     $('slLeaves').innerHTML = lv.length ? lv.map(function(l){
       var on = l.status === 'active';
@@ -4045,6 +4048,14 @@ loadFull();
       st.data = await r.json().catch(function(){ return { ok:false, error:'HTTP '+r.status }; });
       if (st.data && st.data.ok === true && Array.isArray(st.data.leaves)) st.leaves = st.data.leaves;
     } catch(e) { st.data = { ok:false, error: String(e && e.message || e) }; }
+    // 원장을 못 읽어도 휴원 목록은 따로 받아 «취소할 길» 을 남긴다
+    if (!(st.data && st.data.ok === true)) {
+      try {
+        var r2 = await fetch('/api/admin/student/'+encodeURIComponent(UID)+'/leaves', { credentials:'include' });
+        var d2 = await r2.json().catch(function(){ return null; });
+        if (d2 && d2.ok === true && Array.isArray(d2.items)) st.leaves = d2.items;
+      } catch(e) { /* 휴원 목록도 못 받음 — 옛 값 유지 */ }
+    }
     render();
   }
   function msg(text, ok){ var m=document.getElementById('slLvMsg'); m.textContent=text; m.className='sl-msg '+(ok?'ok':'err'); }
@@ -4058,7 +4069,7 @@ loadFull();
       if (c.dataset.armed !== '1') { c.dataset.armed='1'; c.textContent = L()==='en' ? 'Tap again to cancel' : '한 번 더 누르면 취소'; return; }
       fetch('/api/admin/student/'+encodeURIComponent(UID)+'/leaves/'+encodeURIComponent(id)+'/cancel', { method:'POST', credentials:'include' })
         .then(function(r){ return r.json().catch(function(){ return { ok:false }; }); })
-        .then(function(d){ if (d && d.ok === true) { msg(L()==='en'?'Leave cancelled.':'휴원을 취소했습니다.', true); load(); } else msg((L()==='en'?'Could not cancel: ':'취소하지 못했습니다: ')+((d&&d.error)||''), false); });
+        .then(function(d){ if (d && d.ok === true) { msg(L()==='en'?'Leave cancelled.':'휴원을 취소했습니다.', true); load(); } else msg((L()==='en'?'Could not cancel: ':'취소하지 못했습니다: ')+((d&&(d.message||d.error))||'')+((d&&d.who_line)?' — '+d.who_line:''), false); });
     }
   });
   document.getElementById('slPrev').addEventListener('click', function(){ st.ym = shift(st.ym || ymNow(), -1); load(); });
@@ -4072,7 +4083,7 @@ loadFull();
       .then(function(r){ return r.json().catch(function(){ return { ok:false, error:'HTTP '+r.status }; }); })
       .then(function(d){
         if (d && d.ok === true) { msg(L()==='en'?'Leave saved.':'휴원을 등록했습니다.', true); document.getElementById('slLeaveForm').reset(); load(); }
-        else msg((L()==='en' ? (d && d.message_en) : (d && d.message_ko)) || ((L()==='en'?'Could not save: ':'저장하지 못했습니다: ') + ((d && d.error) || '')), false);
+        else msg(((L()==='en' ? (d && d.message_en) : (d && d.message_ko)) || ((L()==='en'?'Could not save: ':'저장하지 못했습니다: ') + ((d && (d.message || d.error)) || ''))) + ((d && d.who_line) ? ' — ' + d.who_line : ''), false);
       })
       .catch(function(e){ msg((L()==='en'?'Could not save: ':'저장하지 못했습니다: ') + (e && e.message || e), false); });
   });

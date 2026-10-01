@@ -17,7 +17,7 @@ import { studentScopeWhere, getScope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { checkAdminSession, resolveOwnerScope, getAdminActor, isOrgScopedRole } from './auth-admin';
 import { buildStudentLedger, loadLeaves, ensureStudentLeaveTable } from './session-ledger-load';   // 📒 회차 원장
-import { validateLeave, LEAVE_ERROR_TEXT } from './session-ledger';  // 🔐 공용 소유자 판정
+import { validateLeave, LEAVE_ERROR_TEXT } from './session-ledger';   // 📒 휴원 규칙(정본)
 import { enrollAdminHqOnly, moveCandidatesFor, daySlotsFor } from './enroll-ops';   // 🙈 학생 숨김은 본사 전용 — 강사·지사·대리점 차단 + 스코프 재조회(모르면 막음)
 import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
 import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
@@ -3826,7 +3826,8 @@ ${numbered}`;
       if (ml && method === 'GET') {
         const uidL = decodeURIComponent(ml[1]);
         let ym = String(url.searchParams.get('month') || '');
-        if (!/^\d{4}-\d{2}$/.test(ym)) ym = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) ym = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+        await ensureAttendanceAccountUid(env as any);   // 출석을 «계정» 으로도 찾기 위한 칸·인덱스 보장(멱등)
         const out: any = await buildStudentLedger(env as any, uidL, ym);
         return json(out, out.ok ? 200 : 500);
       }
@@ -3839,10 +3840,11 @@ ${numbered}`;
           if (rows === null) return json({ ok: false, error: 'leaves_read_failed' }, 500);
           return json({ ok: true, items: rows });
         }
+        // 🔐 본사만 — getAdminActor().role 은 스코프 조회 실패를 삼켜 조직 계정을 staff 로 줄 수 있어
+        //    (fail-open), admin_scope 를 다시 읽어 «모르면 막는» 정본 게이트를 쓴다.
+        const deny = await enrollAdminHqOnly(request, env as any);
+        if (deny) return deny;
         const actor = await getAdminActor(request, env as any);
-        if (!actor.ok) return json({ ok: false, error: 'unauthorized' }, 401);
-        if (actor.isTeacher) return json(forbiddenTeacherBody(actor, '강사는 휴원을 등록·취소할 수 없습니다.'), 403);
-        if (isOrgScopedRole(actor.role)) return json({ ok: false, error: 'forbidden_scope' }, 403);
         await ensureStudentLeaveTable(env as any);
         const by = String(actor.username || actor.name || 'admin');
         if (mc) {
