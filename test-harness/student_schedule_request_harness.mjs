@@ -239,15 +239,25 @@ for (const cand of ['typescript', join(ROOT, 'cloudflare-deploy', 'node_modules'
 ok('typescript 를 찾았다(decide 를 실제로 돌리려면 필요)', !!tsMod);
 if (tsMod) dBody = tsMod.transpileModule('async function __d(){' + dBody + '\n}', { compilerOptions: { target: 99 } }).outputText
   .replace(/^[\s\S]*?async function __d\(\)\s*\{/, '').replace(/\}\s*$/, '');
-async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = false, schedSource = null, schedDate = '2026-10-01' }) {
+/* ⏭ (2026-10-01) 반복 수업 «그 회차만» — decide 가 쓰는 정본(class-postponed.ts)을 그대로 불러 주입한다(복제 금지). */
+let cpMod = {};
+try {
+  const cpJs = tsMod.transpileModule(SRC('src/class-postponed.ts'), { compilerOptions: { target: 99, module: 1 } }).outputText;
+  const m = { exports: {} }; new Function('module', 'exports', cpJs)(m, m.exports); cpMod = m.exports;
+} catch (e) { ok('class-postponed 정본을 불러왔다', false, e.message); }
+ok('class-postponed 정본을 불러왔다', typeof cpMod.recurringClash === 'function' && typeof cpMod.loadOccurrenceSkips === 'function');
+async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = false, schedSource = null, schedDate = '2026-10-01', dow = 'thu', extraRows = [] }) {
   const db = new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE teachers (id INTEGER PRIMARY KEY, name TEXT, active INTEGER DEFAULT 1)`);
   db.exec(`INSERT INTO teachers VALUES (16,'KRYSTEL',1),(21,'KARL',1),(30,'LEFT',0)`);
-  db.exec(`CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, user_id TEXT, scheduled_date TEXT, start_time TEXT, duration_min INTEGER, teacher_id TEXT, source TEXT, status TEXT, updated_at INTEGER)`);
-  db.exec(`INSERT INTO class_schedules VALUES (4385,'jeong',${schedDate === null ? 'NULL' : `'${schedDate}'`},'16:00',20,'16',${schedSource ? `'${schedSource}'` : 'NULL'},'active',0)`);
+  db.exec(`CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, user_id TEXT, scheduled_date TEXT, start_time TEXT, duration_min INTEGER, teacher_id TEXT, source TEXT, status TEXT, updated_at INTEGER, student_name TEXT, class_type TEXT, day_of_week TEXT, schedule_kind TEXT, created_by TEXT, created_at INTEGER, notes TEXT)`);
+  db.prepare(`INSERT INTO class_schedules (id,user_id,scheduled_date,start_time,duration_min,teacher_id,source,status,updated_at,student_name,class_type,day_of_week,schedule_kind) VALUES (4385,'jeong',?,'16:00',20,'16',?,'active',0,'정우영','regular',?,?)`)
+    .run(schedDate, schedSource, schedDate === null ? dow : null, schedDate === null ? 'recurring' : 'one_off');
+  for (const x of extraRows) db.prepare(`INSERT INTO class_schedules (id,user_id,scheduled_date,start_time,duration_min,teacher_id,status,day_of_week,schedule_kind) VALUES (?,?,?,?,?,?,'active',?,?)`)
+    .run(x.id, x.user_id, x.scheduled_date ?? null, x.start_time, x.duration_min ?? 20, x.teacher_id, x.day_of_week ?? null, x.scheduled_date ? 'one_off' : 'recurring');
   db.exec(`CREATE TABLE admin_scope (username TEXT, scope_type TEXT)`);
   if (scope) db.prepare(`INSERT INTO admin_scope VALUES ('boss', ?)`).run(scope);
-  const wrap = sql => { const st = db.prepare(sql); const ex = a => ({ first: async () => st.get(...a) || null, all: async () => ({ results: st.all(...a) }), run: async () => { st.run(...a); return {}; } }); return Object.assign(ex([]), { bind: (...a) => ex(a) }); };
+  const wrap = sql => { const st = db.prepare(sql); const ex = a => ({ first: async () => st.get(...a) || null, all: async () => ({ results: st.all(...a) }), run: async () => { const r = st.run(...a); return { meta: { last_row_id: Number(r.lastInsertRowid) } }; } }); return Object.assign(ex([]), { bind: (...a) => ex(a) }); };
   /* D1 batch = 한 트랜잭션 — 하나라도 실패하면 전부 되돌린다(그 성질까지 흉내낸다). */
   const batch = async stmts => { db.exec('BEGIN'); try { for (const x of stmts) await x.run(); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; } };
   const env = { DB: { prepare: wrap, exec: async q => db.exec(q), batch } };
@@ -266,6 +276,9 @@ async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = 
     MIRROR_SOURCE: 'c24-mirror', MIRROR_SOURCE_MANUAL: 'c24-mirror:manual', DEFAULT_CLASS_MINUTES: 20,
     teacherMoveDenyReason: gateMod.teacherMoveDenyReason,
     writeClassAudit: async (_e, a) => { audits.push(a); },
+    REACTIVATE_POSTPONED_SQL: cpMod.REACTIVATE_POSTPONED_SQL,
+    loadOccurrenceSkips: cpMod.loadOccurrenceSkips, recurringClash: cpMod.recurringClash,
+    startsOnSel: () => '', ensureStartsOnColumn: async () => false,
   };
   const names = Object.keys(deps);
   let res;
@@ -274,7 +287,9 @@ async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = 
     res = await fn(env, { json: async () => ({ id: 1, action: 'approve' }) }, json, ...names.map(k => deps[k]));
   } catch (e) { res = { status: 0, body: { error: 'THREW ' + e.message } }; }
   const cs = db.prepare('SELECT * FROM class_schedules WHERE id = 4385').get();
-  return { res, cs, audits, confCalls };
+  const makeups = db.prepare("SELECT * FROM class_schedules WHERE source LIKE 'postpone:%'").all();
+  const reqAfter = db.prepare('SELECT status FROM schedule_change_requests WHERE id = 1').get();
+  return { res, cs, audits, confCalls, makeups, reqAfter };
 }
 /* 게이트 정본을 그대로 쓴다(복제 금지) — isOrgScopedRole 만 주입. */
 const gateSrc = SRC('src/class-teacher-move.ts');
@@ -323,9 +338,60 @@ ok('게이트 정본을 불러왔다', typeof gateMod.teacherMoveDenyReason === 
   const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21' }, schedSource: 'c24-mirror' });
   ok('미러 수업도 같은 날짜면 강사를 바꾸고 «사람 손» 도장', res.body && res.body.applied === 'moved' && cs.teacher_id === '21' && cs.source === 'c24-mirror:manual', { res, cs });
 }
+/* ⏭ (2026-10-01 사장님 「그렇게 해줘」) 반복 수업 «그 회차만» — 옛 'recorded' 를 대신한다.
+   예전 단정(「반복 수업은 여전히 기록만」)은 승인한 그날도 수업이 열리게 했다(jeong 10/2) — 그래서 버렸다. */
 {
-  const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21' }, schedDate: null });
-  ok('반복 수업은 여전히 기록만(recorded) — 강사 안 바뀜', res.body && res.body.applied === 'recorded' && cs.teacher_id === '16', { res, cs });
+  const { res, cs, makeups, audits, reqAfter } = await callDecide({ reqRow: { new_teacher_id: '21', new_date: '2026-10-08', new_time: '17:00' }, schedDate: null });
+  ok('반복: 그 회차만 빼고 보강을 만든다(skipped_makeup)', res.body && res.body.applied === 'skipped_makeup', res.body);
+  ok('반복: 반복 행 자체는 한 글자도 안 바뀐다(강사·상태·요일)', cs.teacher_id === '16' && cs.status === 'active' && cs.day_of_week === 'thu' && cs.scheduled_date === null, cs);
+  ok('반복: 보강 행 1개 — 새 일시·고른 강사·일회성·makeup', makeups.length === 1 && makeups[0].scheduled_date === '2026-10-08' && makeups[0].start_time === '17:00'
+     && makeups[0].teacher_id === '21' && makeups[0].schedule_kind === 'one_off' && makeups[0].class_type === 'makeup' && makeups[0].user_id === 'jeong' && makeups[0].status === 'active', makeups);
+  ok('반복: 응답이 보강 번호를 말한다', res.body && res.body.makeup_id === makeups[0]?.id, res.body);
+  ok('반복: 요청은 approved(= 그 회차가 빠지는 근거)', reqAfter && reqAfter.status === 'approved', reqAfter);
+  ok('반복: 변경 이력에 «그 회차만» 이 남는다', audits.length === 1 && /회차만 뺌/.test(audits[0].detail || ''), audits);
+}
+{
+  const { res, makeups } = await callDecide({ reqRow: { new_date: null, new_time: null }, schedDate: null });
+  ok('반복: 새 일시 없는 연기 → 그 회차만 빼고 보강은 안 만든다(skipped)', res.body && res.body.applied === 'skipped' && makeups.length === 0, { res, makeups });
+}
+{
+  /* 공용 겹침 검사(일회성 갈래)는 반복 행을 안 본다 — 다음 주 같은 요일·같은 시각(= 학생 자신의 정규 수업)로 미는 보강은 막아야 한다. */
+  const { res, makeups } = await callDecide({ reqRow: { orig_date: '2026-10-01', new_date: '2026-10-08', new_time: '16:00' }, schedDate: null });
+  ok('반복: 보강이 «그 학생의 다음 주 같은 정규 수업» 과 겹치면 안 만든다', res.body && res.body.applied === 'skipped' && makeups.length === 0 && /보강/.test(res.body.message || ''), { res, makeups });
+}
+{
+  const { res, makeups } = await callDecide({ reqRow: { orig_date: '2026-10-01', new_date: '2026-10-01', new_time: '16:10' }, schedDate: null });
+  ok('반복: 같은 날 시각만 옮김 — 원래 회차는 빈자리로 보고 보강을 만든다', res.body && res.body.applied === 'skipped_makeup' && makeups.length === 1, { res, makeups });
+}
+{
+  const { res, makeups } = await callDecide({ reqRow: { new_date: '2026-10-08', new_time: '17:00' }, schedDate: null,
+    extraRows: [{ id: 9001, user_id: 'kim', start_time: '17:10', teacher_id: '16', day_of_week: 'thu' }] });
+  ok('반복: 강사의 다른 매주 수업과 어긋나게 겹치면 안 만든다', res.body && res.body.applied === 'skipped' && makeups.length === 0, { res, makeups });
+}
+{
+  const { res, makeups } = await callDecide({ reqRow: { new_date: '2026-10-08', new_time: '17:00' }, schedDate: null,
+    extraRows: [{ id: 9002, user_id: 'kim', start_time: '17:00', teacher_id: '16', day_of_week: 'thu' }] });
+  ok('짝: 같은 시각·같은 길이(합반)는 겹침이 아니다 → 보강을 만든다', res.body && res.body.applied === 'skipped_makeup' && makeups.length === 1, { res, makeups });
+}
+{
+  const { res, makeups } = await callDecide({ reqRow: { new_date: '2026-10-08', new_time: '17:00' }, schedDate: null, conflict: true });
+  ok('반복: 공용 겹침 검사가 겹친다고 하면 보강을 안 만든다', res.body && res.body.applied === 'skipped' && makeups.length === 0, { res, makeups });
+}
+{
+  const { res, makeups } = await callDecide({ reqRow: { new_teacher_id: '21', new_date: '2026-10-08', new_time: '17:00' }, schedDate: null, scope: 'branch' });
+  ok('반복: 지사가 고른 강사로는 보강을 안 만들지만 그 회차는 뺀다(skipped + 사유)', res.body && res.body.applied === 'skipped' && makeups.length === 0 && /회차는 뺐습니다/.test(res.body.message || ''), { res, makeups });
+}
+{
+  const { res, makeups } = await callDecide({ reqRow: { request_type: 'cancel' }, schedDate: null });
+  ok('짝: 반복 + «cancel» 은 빠지는 회차가 아니다 → 예전대로 recorded', res.body && res.body.applied === 'recorded' && makeups.length === 0, { res, makeups });
+}
+{
+  const { res, makeups } = await callDecide({ reqRow: { orig_date: null }, schedDate: null });
+  ok('짝: 어느 회차인지 모르면(orig_date 없음) 예전대로 recorded', res.body && res.body.applied === 'recorded' && makeups.length === 0, { res, makeups });
+}
+{
+  const { res, makeups } = await callDecide({ reqRow: {} });
+  ok('짝: 날짜 지정 수업은 예전 그대로 moved(보강 행을 만들지 않는다)', res.body && res.body.applied === 'moved' && makeups.length === 0, { res, makeups });
 }
 {
   const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21' }, isTeacher: true });

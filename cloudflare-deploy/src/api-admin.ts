@@ -80,7 +80,7 @@ import type { MangoEnv } from './api-mango';
 import { cleanAnalysis, cleanScore, foreignFields, parseAnalysisJson, recoverNextAction, KOREAN_ONLY_RETRY_NOTE, SUMMARY_UNAVAILABLE } from './ai-analysis-clean';   // 🧹 AI 학습 분석 — 한국어 아닌 글자 거르기·다음 액션 되살리기
 import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid } from './attendance-uid';   // 📌 attendance 를 학생 계정으로 찾는 정본
 import { ensureStartsOnColumn, startsOnSel, normStartsOn, kstYmdOfMs } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
-import { isPostponedOccurrence, REACTIVATE_POSTPONED_SQL } from './class-postponed';
+import { isPostponedOccurrence, REACTIVATE_POSTPONED_SQL, isSkippedOccurrence, loadOccurrenceSkips, skippedInfo, recurringClash } from './class-postponed';
 import { diagnoseStudentDay } from './class-diagnose';   // 🔎 학생 하루 수업 진단(읽기 전용, 2026-10-01)   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
@@ -2359,10 +2359,17 @@ export async function handleAdminApi(
       const todayKey = nowKstIso.slice(0, 10);
       const nowHm = nowKstIso.slice(11, 16);
 
+      /* ⏭ (2026-10-01) 반복 수업의 «그 회차만» 승인된 연기·변경 — 정본 class-postponed.ts.
+         · 새 일시로 옮겼거나(보강 행이 따로 세어짐) 변경 요청이면 원래 회차는 세지 않는다(날짜 행 'moved' 와 같은 셈).
+         · 날짜 없이 연기만 했으면 'postponed' 로 — 날짜 행 연기와 같은 지급률(postponed_pay_percent).
+         못 읽으면 빈 Map = 예전 그대로(전부 «수업함» 쪽). */
+      const _skipsPay = await loadOccurrenceSkips(env, `${ymPrefix}-01`, `${ymPrefix}-31`);
       const lessons: any[] = [];
       const perTeacher: any = {};
       for (const l of instances) {
         const dateStr = l._date;
+        const _skp = skippedInfo(l, dateStr, _skipsPay);
+        if (_skp && (_skp.moved || _skp.type === 'change')) continue;
         const roomId = `class-${l.id}-${dateStr.replace(/-/g, '')}`;
         // teacher_id(원부 teachers.id) → 연결된 프로필. 번호 직조회(tMap[l.teacher_id])는
         // 다른 번호 체계라 남의 프로필이 나온다 — 위 profByTeacherId 다리로만 건넌다.
@@ -2396,7 +2403,7 @@ export async function handleAdminApi(
               ①의 «얼마를 줄지» 는 정책이라 postponed_pay_percent 로 뺐다(기본 100 = 현행 유지). */
         const schedStatus = String(l.status || 'active').toLowerCase();
         let st = 'finish';
-        if (schedStatus === 'postponed') st = 'postponed';
+        if (schedStatus === 'postponed' || _skp) st = 'postponed';
         else if (upcoming) st = 'upcoming';
         /* ⏸ 연속 결석 보류 기간 — 강사는 기다리지 않고 매니저에게 확인한다(사장님 결정: 0%).
            보류를 건 날(두 번째 결석) 수업은 기존 «학생 결석» 규칙 그대로다(구간이 그 «다음» 부터). */
@@ -3112,13 +3119,14 @@ export async function handleAdminApi(
       let applied: string | null = null;
       let conflictInfo: any = null;   // 겹쳐서 자동 이동을 못 한 경우 사유(한/영)
       let teacherChanged: { id: string; name: string | null } | null = null;   // 👨‍🏫 승인으로 담당 강사를 바꿨으면
+      let makeupId: number | null = null;   // ⏭ 반복 수업 «그 회차만» 연기로 만든 보강 행(2026-10-01)
       if (action === 'approved' && row.schedule_id) {
         try {
           // ⚠️ 운영 스케줄은 대부분 반복(매주, scheduled_date=NULL) — 반복 row 를 덮어쓰면
           //   그 주만이 아니라 모든 주가 바뀌므로, 날짜 지정 수업일 때만 자동 반영한다.
           //   반복 수업은 요청 기록만 영구 보존(applied='recorded') → 시간표에서 수동 조정.
           const cs: any = await env.DB.prepare(
-            `SELECT id, scheduled_date, start_time, duration_min, user_id, teacher_id, source, status FROM class_schedules WHERE id = ? LIMIT 1`
+            `SELECT id, scheduled_date, start_time, duration_min, user_id, teacher_id, source, status, student_name, class_type FROM class_schedules WHERE id = ? LIMIT 1`
           ).bind(row.schedule_id).first().catch(() => null);
           const isDated = !!(cs && cs.scheduled_date);
           /* 🔒 (2026-09-22) 「사람 손이 이긴다」 도장 — 미러가 우리 수정을 덮지 않게 한다.
@@ -3155,7 +3163,11 @@ export async function handleAdminApi(
              ⛔ 카페24 미러 수업을 «날짜를 바꾸면서» 강사까지 바꾸지 않는다(도장 → 옛 날짜에 유령. 위 🔴).
              ℹ️ 반복 수업은 여전히 'recorded' — 한 줄이 «매주 전부» 라 그 주만 바꿀 방법이 없다. */
           const _wantTid = String((row as any).new_teacher_id ?? '').trim();
-          let _swap = isDated && !!(row.new_date && row.new_time) && /^\d+$/.test(_wantTid) && _wantTid !== String((cs as any)?.teacher_id ?? '');
+          /* ⏭ (2026-10-01) 반복 수업의 «그 회차만» 연기에서도 고른 강사로 보강을 만든다 — 같은 게이트를 탄다. */
+          /* ⛔ 'postpone'·'change' 만 — 빠진 회차를 읽는 쪽(loadOccurrenceSkips)이 그 둘만 본다. 다른 종류에 'skipped' 라 답하면 거짓이다. */
+          const _recOd = !isDated && /^\d{4}-\d{2}-\d{2}$/.test(String(row.orig_date || '').slice(0, 10))
+            && (String(row.request_type || 'postpone') === 'postpone' || String(row.request_type || '') === 'change');
+          let _swap = (isDated || _recOd) && !!(row.new_date && row.new_time) && /^\d+$/.test(_wantTid) && _wantTid !== String((cs as any)?.teacher_id ?? '');
           let _swapBlock: { ko: string; en: string } | null = null;
           let _swapName: string | null = null;
           if (_swap) {
@@ -3179,8 +3191,11 @@ export async function handleAdminApi(
             if (_swapBlock) _swap = false;
           }
           if (_swapBlock) {
-            applied = 'teacher_not_changed';
-            conflictInfo = { ko: _swapBlock.ko, en: _swapBlock.en, student: 0, teacher: 0 };
+            /* ⏭ 반복 수업은 승인 자체가 «그 회차를 뺀다» 이므로(class-postponed.ts) «아무것도 안 바꿨다» 는 거짓이다. */
+            applied = _recOd ? 'skipped' : 'teacher_not_changed';
+            conflictInfo = _recOd
+              ? { ko: `${String(row.orig_date).slice(0, 10)} 회차는 뺐습니다. 다만 보강은 만들지 않았어요: ${_swapBlock.ko}`, en: `The ${String(row.orig_date).slice(0, 10)} class was removed, but no makeup was created: ${_swapBlock.en}`, student: 0, teacher: 0 }
+              : { ko: _swapBlock.ko, en: _swapBlock.en, student: 0, teacher: 0 };
           } else if (isDated && row.new_date && row.new_time) {
             // ⛔ (2026-08-04) 옮기기 전에 «그 자리가 비어 있는지» 확인한다.
             //   여기엔 겹침 검사가 없어서, 강사 요청을 승인하면 다른 수업과 겹쳐도 그대로 옮겨졌다.
@@ -3225,6 +3240,68 @@ export async function handleAdminApi(
                 : `UPDATE class_schedules SET status = 'postponed', updated_at = ? WHERE id = ?`
             ).bind(now, row.schedule_id).run();
             applied = 'postponed';
+          } else if (_recOd) {
+            /* ⏭ (2026-10-01 사장님 「그렇게 해줘」) 반복 수업의 «그 회차만» 연기·변경.
+               [왜] 예전엔 'recorded' 로 기록만 하고 아무것도 안 바꿔서, 승인한 그날도 수업이 그대로 열렸다
+                    (jeong 10/2 금 19:20 — 승인했는데 입장·알림·결석 감지가 그대로였다).
+               [어떻게] 반복 행은 한 글자도 안 바꾼다(한 줄이 «매주 전부»). 이 요청이 'approved' 가 되는 것
+                    자체가 «그 회차를 뺀다» 는 기록이고, 읽는 곳들이 isSkippedOccurrence 로 본다(class-postponed.ts).
+                    새 일시가 있으면 그 자리에 일회성 «보강» 행을 하나 만든다(겹치면 안 만들고 알린다).
+               ⛔ 보강을 만들지 못해도 그 회차는 빠진다 — 학생이 «그날은 못 한다» 고 한 것이 먼저다.
+                  보강 자리는 관리자가 시간표에서 손으로 잡는다(화면이 그렇게 말한다). */
+            applied = 'skipped';
+            if (row.new_date && row.new_time) {
+              const _od = String(row.orig_date).slice(0, 10);
+              const _mkTid = _swap ? _wantTid : String(cs.teacher_id ?? '');
+              const _mkDur = Number(cs.duration_min) > 0 ? Number(cs.duration_min) : DEFAULT_CLASS_MINUTES;
+              const conf = await findScheduleConflicts(env, {
+                kind: 'one_off',
+                userId: cs.user_id, teacherId: _mkTid,
+                schedDate: String(row.new_date), startTime: String(row.new_time),
+                durationMin: _mkDur,
+              });
+              /* 공용 검사의 일회성 갈래는 반복 행을 안 본다 — 반복 행과의 겹침은 여기서 따로(class-postponed.ts recurringClash).
+                 같은 날 시각만 옮기는 경우 원래 회차는 이번 요청으로 빠지므로 빈자리로 본다. */
+              let _recClash: any = null;
+              try {
+                const _rr: any = await env.DB.prepare(
+                  `SELECT id, user_id, teacher_id, day_of_week, scheduled_date, start_time, duration_min, status${startsOnSel(await ensureStartsOnColumn(env))}
+                     FROM class_schedules
+                    WHERE status = 'active' AND (scheduled_date IS NULL OR scheduled_date = '')
+                      AND (user_id = ? OR teacher_id = ?)
+                      AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')`
+                ).bind(String(cs.user_id ?? ''), _mkTid).all();
+                const _skR = await loadOccurrenceSkips(env, String(row.new_date), String(row.new_date));
+                if (String(row.new_date) === _od) _skR.set(`${row.schedule_id}|${_od}`, { type: String(row.request_type || 'postpone'), moved: true });
+                _recClash = recurringClash((_rr?.results || []) as any[], {
+                  date: String(row.new_date), start: String(row.new_time), dur: _mkDur,
+                  userId: String(cs.user_id ?? ''), teacherId: _mkTid,
+                }, _skR);
+              } catch (e: any) { console.warn('[schedule-requests] recurring clash check:', e?.message); }
+              if (conf.has || _recClash) {
+                const _ko = conf.has ? conf.ko : (String(_recClash.user_id ?? '') === String(cs.user_id ?? '')
+                  ? '그 시각에 이 학생의 매주 수업이 이미 있습니다.' : '그 시각에 이 강사의 다른 매주 수업이 있습니다.');
+                const _en = conf.has ? conf.en : (String(_recClash.user_id ?? '') === String(cs.user_id ?? '')
+                  ? 'The student already has a weekly class at that time.' : 'The teacher has another weekly class at that time.');
+                conflictInfo = {
+                  ko: `${_od} 회차는 뺐습니다. 다만 보강 자리가 겹쳐 보강 수업은 만들지 않았어요 — 시간표에서 직접 잡아 주세요. (${_ko})`,
+                  en: `The ${_od} class was removed, but the makeup slot overlaps so no makeup was created — please add it in the timetable. (${_en})`,
+                  student: conf.has ? conf.student.length : 0, teacher: conf.has ? conf.teacher.length : 0,
+                };
+              } else {
+                const _ny = String(row.new_date);
+                const _ndw = new Date(Date.parse(_ny + 'T00:00:00Z')).getUTCDay();
+                const _ins: any = await env.DB.prepare(
+                  `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes)
+                   VALUES (?, ?, 'one_off', 'makeup', ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)`
+                ).bind(cs.user_id, cs.student_name || row.student_name || null, String(_ndw), _ny, String(row.new_time), _mkDur, _mkTid || null,
+                  `postpone:${row.id}`, (body.decided_by || _srdActor.name || '관리자').trim(), now,
+                  `보강 — ${_od} ${row.orig_time || ''} 연기분(요청 #${row.id})`.trim()).run();
+                makeupId = Number(_ins?.meta?.last_row_id) || null;
+                applied = 'skipped_makeup';
+                if (_swap) teacherChanged = { id: _wantTid, name: _swapName };
+              }
+            }
           } else {
             applied = 'recorded';
           }
@@ -3236,7 +3313,7 @@ export async function handleAdminApi(
       //   'conflict' = 승인은 했으나 그 자리가 겹쳐 «자동 이동을 하지 않은» 상태 → 이력에도 남기지 않는다
       if (action === 'approved' && applied && applied !== 'conflict' && applied !== 'teacher_not_changed') {
         await writeClassAudit(env, {
-          action: applied === 'moved' ? 'reschedule' : 'postpone',
+          action: (applied === 'moved' || applied === 'skipped_makeup') ? 'reschedule' : 'postpone',
           schedule_id: row.schedule_id,
           teacher_name: row.teacher_name || null,
           student_name: row.student_name || null,
@@ -3246,13 +3323,16 @@ export async function handleAdminApi(
           actor_role: 'admin',
           source: 'schedule-request',
           reason: row.reason || null,
-          detail: [((row.new_date || row.new_time) ? `→ ${row.new_date || ''} ${row.new_time || ''}`.trim() : (applied === 'recorded' ? '반복수업 기록보존(수동조정 필요)' : null)),
+          detail: [(applied === 'skipped' || applied === 'skipped_makeup') ? `반복수업 ${row.orig_date || ''} 회차만 뺌` : null,
+                   (applied === 'skipped_makeup' && makeupId ? `보강 #${makeupId}` : null),
+                   ((row.new_date || row.new_time) ? `→ ${row.new_date || ''} ${row.new_time || ''}`.trim() : (applied === 'recorded' ? '반복수업 기록보존(수동조정 필요)' : null)),
                    (teacherChanged ? `담당 강사 → ${teacherChanged.name || ('#' + teacherChanged.id)}` : null)].filter(Boolean).join(' · ') || null,
         });
       }
       return json({
         ok: true, id, status: action, applied, decided_at: now,
         ...(teacherChanged ? { teacher_changed: teacherChanged } : {}),
+        ...(makeupId ? { makeup_id: makeupId } : {}),
         // 겹쳐서 자동 이동을 못 했으면 화면이 그 사유를 그대로 보여줄 수 있게 함께 내려준다
         ...(conflictInfo ? { conflict: conflictInfo, message: conflictInfo.ko, message_en: conflictInfo.en } : {}),
       });
@@ -3417,6 +3497,7 @@ export async function handleAdminApi(
         } catch (e: any) { console.warn('[classes/today] contact map:', e?.message); }
       }
 
+      const _skipsTd = await loadOccurrenceSkips(env, dateStr, dateStr);   // ⏭ 반복 수업의 빠진 회차(2026-10-01, class-postponed.ts)
       const sessions: any[] = [];
       for (const s of (rows.results || [])) {
         // 오늘 열리는 수업인가? (일회성=날짜 일치 / 반복=요일 일치)
@@ -3439,7 +3520,7 @@ export async function handleAdminApi(
         else status = 'ended';
         /* ⏸ (2026-10-01) 연기된 회차 — 줄은 지우지 않고(지우면 «수업이 없어졌다» 로 읽힌다)
            상태를 'postponed' 로, 입장은 닫는다. 정본 src/class-postponed.ts. */
-        const _postponed = isPostponedOccurrence(s);
+        const _postponed = isPostponedOccurrence(s) || isSkippedOccurrence(s, dateStr, _skipsTd);
         if (_postponed) status = 'postponed';
 
         /* 🔄 대체강사가 배정된 회차면 화면에는 대체강사만 보인다 — 원래 강사 이름은
@@ -14903,10 +14984,17 @@ LIMIT $limit`;
           for (const r of ((sr?.results as any[]) || [])) subBy.set(`${r.sub_date}|${r.schedule_id}`, r.sub_name || null);
         } catch (e: any) { console.warn('[classes-now] substitution overlay:', e?.message); }
 
+        /* ⏭ (2026-10-01) 반복 수업의 빠진 회차는 «지금 수업» 이 아니다(class-postponed.ts). 방 번호에서 (id, 날짜)를 읽는다. */
+        const _scanSorted = [...scanDates].sort();
+        const _skipsN = await loadOccurrenceSkips(env, _scanSorted[0], _scanSorted[_scanSorted.length - 1]);
+        const _rowByIdN = new Map<number, any>(schedRows.map((r: any) => [Number(r.id), r]));
         const mgClasses = buildMangoiClassesNow(schedRows, { now, graceMs: GRACE_MS, aheadMs: AHEAD_MS }, {
           dowMatches: admDowMatches,
           subName: (d, id) => subBy.has(`${d}|${id}`) ? (subBy.get(`${d}|${id}`) ?? null) : undefined,
           liveRows,
+        }).filter((c: any) => {
+          const m = /^class-(\d+)-(\d{4})(\d{2})(\d{2})$/.exec(String(c.room_id || ''));
+          return !m || !isSkippedOccurrence(_rowByIdN.get(Number(m[1])), `${m[2]}-${m[3]}-${m[4]}`, _skipsN);
         });
 
         const classes = mergeClassesNow(c24Classes as any, mgClasses);

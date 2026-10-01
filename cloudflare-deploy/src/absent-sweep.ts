@@ -19,7 +19,7 @@
  */
 
 import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
-import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { isPostponedOccurrence, isSkippedOccurrence, loadOccurrenceSkips } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 import { sendPlainSms } from './solapi-client';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 /* 📧 강사 대부분이 필리핀에 있어 «한국 문자» 로는 못 닿는다 — 이메일이 유일한 국제 자동 수단이다. */
@@ -135,6 +135,7 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
     return { ok: false, checked: 0, alerted: 0, parent_mode: false, details: [{ error: 'class_schedules_unavailable' }] };
   }
 
+  const _skips = await loadOccurrenceSkips(env, todayStr, todayStr);   // ⏭ 반복 수업의 빠진 회차(2026-10-01, class-postponed.ts)
   const candidates: any[] = [];
   const seen = new Set<number>();
   for (const s of rows) {
@@ -144,7 +145,7 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
     else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow) && recurStartedOn(s, todayStr);
     if (!occurs) continue;
     seen.add(s.id);
-    if (isPostponedOccurrence(s)) continue;   // ⏸ 연기된 회차는 오늘 열리지 않는다(2026-10-01, class-postponed.ts)
+    if (isPostponedOccurrence(s) || isSkippedOccurrence(s, todayStr, _skips)) continue;   // ⏸ 연기된 회차는 오늘 열리지 않는다(2026-10-01, class-postponed.ts)
     const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
     if (!Number.isFinite(hh)) continue;
     const start_ts = Date.UTC(kY, kMo, kD, hh, mm || 0, 0) - KST;

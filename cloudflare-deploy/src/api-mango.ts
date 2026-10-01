@@ -67,7 +67,7 @@ import { ensureStartsOnColumn, startsOnSel, recurStartedOn, normStartsOn } from 
 import { applyRoomOverrides } from './class-room-override';       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 import { studentRequestGate, ensureScheduleChangeRequestTable } from './student-schedule-request';  // 📅 학생 연기·변경 요청 판정 정본
 import { loadSchedSummaryMap, loadSchedSummaryOne, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약 수업」 칸 정본 (students_erp 의 수강 칸은 카페24가 정본이라 늘 «—» 였다)       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
-import { isPostponedOccurrence } from './class-postponed';  // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { isPostponedOccurrence, isSkippedOccurrence, loadOccurrenceSkips } from './class-postponed';  // ⏸ 연기된 회차 판정 정본(2026-10-01)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -1886,6 +1886,8 @@ export async function handleMangoApi(
       const OPEN_BEFORE_LEVELTEST = 30 * 60 * 1000;  // 레벨테스트: 시작 30분 전부터
       const LATE_AFTER = 15 * 60 * 1000;  // 종료 15분 후까지 지각 입장 허용
 
+      /* ⏭ (2026-10-01) 반복 수업의 «그 회차만» 승인된 연기·변경 — 정본 class-postponed.ts. 못 읽으면 빈 Map(예전 그대로). */
+      const _skipsT = await loadOccurrenceSkips(env, todayStr, todayStr);
       /** 조건 한 벌로 «오늘 발생하는» 수업 목록을 만든다. 2단계 조회(ID → 이름)에서 두 번 쓰인다. */
       const runPass = async (conds: string[], binds: any[]): Promise<any[]> => {
         if (!conds.length) return [];
@@ -1909,7 +1911,7 @@ export async function handleMangoApi(
           seen.add(s.id);
           /* ⏸ (2026-10-01) 연기된 회차는 오늘 열리지 않는다 — 학생을 그 방으로 보내지 않는다.
              예전엔 status != 'cancelled' 만 봐서 연기한 수업에도 입장이 열렸다. 정본 src/class-postponed.ts. */
-          if (isPostponedOccurrence(s)) continue;
+          if (isPostponedOccurrence(s) || isSkippedOccurrence(s, todayStr, _skipsT)) continue;
           const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
           const start_ts = Date.UTC(kY, kMo, kD, hh, mm, 0) - KST; // KST 벽시계 → UTC ms
           const dur = Number(s.duration_min) || 30;
@@ -2293,6 +2295,10 @@ export async function handleMangoApi(
       const msKY = msK.getUTCFullYear(), msKMo = msK.getUTCMonth(), msKD = msK.getUTCDate(), msKDow = msK.getUTCDay();
       const msPad = (n: number) => String(n).padStart(2, '0');
 
+      /* ⏭ (2026-10-01) 반복 수업의 «다음 회차» 가 승인된 연기로 빠졌으면 그다음 회차를 보인다.
+         입장(sessions/today)이 그날을 빼므로 카드만 그날을 가리키면 두 화면이 다른 답을 한다. */
+      const msTodayStr = `${msKY}-${msPad(msKMo + 1)}-${msPad(msKD)}`;
+      const msSkips = await loadOccurrenceSkips(env, msTodayStr, new Date(Date.UTC(msKY, msKMo, msKD + 70)).toISOString().slice(0, 10));
       const schedules = msRows.map((r: any) => {
         const dows = r.scheduled_date ? [] : dowList(r.day_of_week);
         const [hh, mm] = String(r.start_time || '00:00').split(':').map((x: string) => Number(x));
@@ -2336,6 +2342,21 @@ export async function handleMangoApi(
                 nextStartTs = Date.UTC(cd.getUTCFullYear(), cd.getUTCMonth(), cd.getUTCDate(), hh, mm, 0) - MS_KST;
                 break;
               }
+            }
+          }
+          /* ⏭ 빠진 회차면 같은 요일 목록에서 그다음 날짜로(최대 10주). */
+          if (nextDate && isSkippedOccurrence(r, nextDate, msSkips)) {
+            const [ny0, nm0, nd0] = nextDate.split('-').map(Number);
+            let found: string | null = null;
+            for (let k = 1; k <= 70 && !found; k++) {
+              const cd = new Date(Date.UTC(ny0, nm0 - 1, nd0 + k));
+              const cs = `${cd.getUTCFullYear()}-${msPad(cd.getUTCMonth() + 1)}-${msPad(cd.getUTCDate())}`;
+              if (dows.includes(cd.getUTCDay()) && !isSkippedOccurrence(r, cs, msSkips)) found = cs;
+            }
+            if (found) {
+              const [fy, fm, fd] = found.split('-').map(Number);
+              nextDate = found;
+              nextStartTs = Date.UTC(fy, fm - 1, fd, hh, mm, 0) - MS_KST;
             }
           }
         }

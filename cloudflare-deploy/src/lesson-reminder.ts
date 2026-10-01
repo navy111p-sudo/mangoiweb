@@ -18,7 +18,7 @@
  */
 
 import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
-import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { isPostponedOccurrence, isSkippedOccurrence, loadOccurrenceSkips } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 import { sendPlainSms, getSolapiMode } from './solapi-client';
 import { deliverLessonReminder, ensureLessonReminderDeliveryTable, LESSON_REMINDER_FROM_PHONE } from './lesson-reminder-delivery';
 import { phonesForStudent } from './notify-contacts';  // 📞 학생·학부모 번호 판정 정본(복제 금지)
@@ -115,6 +115,7 @@ export async function runFeedbackReminderSweep(env: any, opts: { dry?: boolean }
   } catch { return { ...out, ok: false, error: 'class_schedules_unavailable' }; }
 
   // 오늘 발생 + 이미 끝난 수업만
+  const _skips = await loadOccurrenceSkips(env, todayStr, todayStr);   // ⏭ 반복 수업의 빠진 회차(2026-10-01, class-postponed.ts)
   const ended: any[] = [];
   const seen = new Set<number>();
   for (const s of rows) {
@@ -124,7 +125,7 @@ export async function runFeedbackReminderSweep(env: any, opts: { dry?: boolean }
     else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow) && recurStartedOn(s, todayStr);
     if (!occurs) continue;
     seen.add(s.id);
-    if (isPostponedOccurrence(s)) continue;   // ⏸ 연기된 회차는 오늘 열리지 않는다(2026-10-01, class-postponed.ts)
+    if (isPostponedOccurrence(s) || isSkippedOccurrence(s, todayStr, _skips)) continue;   // ⏸ 연기된 회차는 오늘 열리지 않는다(2026-10-01, class-postponed.ts)
     const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
     if (!Number.isFinite(hh)) continue;
     const start_ts = Date.UTC(kY, kMo, kD, hh, mm || 0, 0) - KST;
@@ -272,6 +273,7 @@ export async function runLessonReminderSweep(env: any, opts: { dry?: boolean } =
     return { ...result, ok: false, details: [{ error: 'class_schedules_unavailable' }] };
   }
 
+  const _skips = await loadOccurrenceSkips(env, todayStr, todayStr);   // ⏭ 반복 수업의 빠진 회차(2026-10-01, class-postponed.ts)
   const candidates: any[] = [];
   const seen = new Set<number>();
   for (const s of rows) {
@@ -281,7 +283,7 @@ export async function runLessonReminderSweep(env: any, opts: { dry?: boolean } =
     else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow) && recurStartedOn(s, todayStr);
     if (!occurs) continue;
     seen.add(s.id);
-    if (isPostponedOccurrence(s)) continue;   // ⏸ 연기된 회차는 오늘 열리지 않는다(2026-10-01, class-postponed.ts)
+    if (isPostponedOccurrence(s) || isSkippedOccurrence(s, todayStr, _skips)) continue;   // ⏸ 연기된 회차는 오늘 열리지 않는다(2026-10-01, class-postponed.ts)
     const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
     if (!Number.isFinite(hh)) continue;
     const start_ts = Date.UTC(kY, kMo, kD, hh, mm || 0, 0) - KST;

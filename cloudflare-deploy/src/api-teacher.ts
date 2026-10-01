@@ -28,7 +28,7 @@ import { enrichClassesToday } from './class-today-extras';   // 📋 오늘 수�
 import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { applyRoomOverrides } from './class-room-override';   // 🚪 「오늘은 이 방으로」 — 학생 쪽과 같은 답을 받는다
 import { loadHoldRanges, heldOnFor } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25) — 강사에게 «기다리지 말라» 를 알린다
-import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { isPostponedOccurrence, isSkippedOccurrence, loadOccurrenceSkips } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 
 interface TeacherEnv {
   DB: D1Database;
@@ -468,6 +468,9 @@ export async function handleTeacherApi(
     };
 
 
+    /* ⏭ (2026-10-01) 반복 수업의 «그 회차만» 승인된 연기·변경 — 정본 class-postponed.ts. 못 읽으면 빈 Map. */
+    const _skW = [todayStr, ...weekDates].sort();
+    const _skipsW = await loadOccurrenceSkips(env, _skW[0], _skW[_skW.length - 1]);
     const seen = new Set<number>();
     for (const s of (rows.results || [])) {
       /* 🗓 주간 스케줄 — 오늘/앞으로 판정과 «별개» 로 먼저 채운다.
@@ -483,7 +486,7 @@ export async function handleTeacherApi(
         const hit = s.scheduled_date
           ? (String(s.scheduled_date).slice(0, 10) === weekDays[wi].date)
           : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, weekDays[wi].dow) && recurStartedOn(s, weekDays[wi].date));
-        if (!hit) continue;
+        if (!hit || isSkippedOccurrence(s, weekDays[wi].date, _skipsW)) continue;
         const [wh, wm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
         weekDays[wi].items.push({
           id: s.id,
@@ -613,12 +616,12 @@ export async function handleTeacherApi(
            들어가 기다렸다(class-1931 Farrah). teacher.html 은 이 줄에 입장 버튼 대신
            «기다리지 않아도 됩니다» 를 그린다. */
         class_state: _cancelled ? 'cancelled'
-                   : _postponed ? 'postponed'
+                   : (_postponed || isSkippedOccurrence(s, todayStr, _skipsW)) ? 'postponed'
                    : (status === 'live' ? 'ongoing'
                    : (status === 'done' ? 'done' : 'scheduled')),
-        join_open: !_postponed && now >= open_at_ts && now <= close_at_ts,
+        join_open: !_postponed && !isSkippedOccurrence(s, todayStr, _skipsW) && now >= open_at_ts && now <= close_at_ts,
         // ⚠️ join_open 은 «수업 시간인가» 다. «들어갈 수 있나» 는 이 값 — 둘을 섞지 말 것.
-        can_enter: !_postponed && now >= enterFromTs && now <= enterUntilTs,
+        can_enter: !_postponed && !isSkippedOccurrence(s, todayStr, _skipsW) && now >= enterFromTs && now <= enterUntilTs,
       });
     }
 
@@ -1043,13 +1046,14 @@ export async function handleTeacherApi(
        .catch((e) => { console.warn('[teacher-portal] mgr no-show:', e?.message); return empty; }),
     ]);
 
+    const _skipsM = await loadOccurrenceSkips(env, todayStr, todayStr);   // ⏭ 반복 수업의 빠진 회차(2026-10-01)
     const today: any[] = [];
     for (const s of (allRs.results || [])) {
       const occurs = s.scheduled_date
         ? (s.scheduled_date === todayStr)
         : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, kDow) && recurStartedOn(s, todayStr));
       if (!occurs) continue;
-      if (isPostponedOccurrence(s)) continue;   // ⏸ 연기된 회차는 매니저 «오늘·다음» 목록에 안 올린다(2026-10-01)
+      if (isPostponedOccurrence(s) || isSkippedOccurrence(s, todayStr, _skipsM)) continue;   // ⏸ 연기된 회차는 매니저 «오늘·다음» 목록에 안 올린다(2026-10-01)
       const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
       const start_ts = Date.UTC(kY, kMo, kD, hh || 0, mm || 0, 0) - KST;
       const end_ts = start_ts + (Number(s.duration_min) || 30) * 60000;

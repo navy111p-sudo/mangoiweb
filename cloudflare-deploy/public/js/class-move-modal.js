@@ -62,6 +62,8 @@
     var a = j && j.applied;
     if (a === 'moved')     return { ok: true,  s: T('이번 한 번 옮겼습니다.', 'Moved (this class only).') };
     if (a === 'postponed') return { ok: true,  s: T('연기 처리했습니다.', 'Postponed.') };
+    if (a === 'skipped_makeup') return { ok: true, s: T('그 날짜만 빼고 보강을 만들었습니다.', 'That day removed; makeup added.') };
+    if (a === 'skipped')   return { ok: true, s: (j.message ? T(j.message, j.message_en || j.message) : T('그 날짜만 뺐습니다.', 'That day removed.')) };
     if (a === 'recorded')  return { ok: false, s: T('반복 수업이라 자동으로 못 옮깁니다 — 시간표에서 직접 옮겨 주세요.', 'Weekly class — move it by hand in the timetable.') };
     if (a === 'conflict')  return { ok: false, s: T('그 시간에 다른 수업이 있어 못 옮겼습니다 — 직접 옮겨 주세요.', 'That slot is taken — move it by hand.') };
     return { ok: true, s: T('처리했습니다.', 'Done.') };
@@ -762,7 +764,8 @@
           _bkChanged = true;
           if (!res.j || res.j.ok !== true) return { ok: false, text: mvErrOf(res.st, res.j) + ' ' + T('(요청은 저장됨)', '(request saved)') };
           var m = mvMsgOf(res.j);
-          return { ok: m.ok && res.j.applied === 'postponed', text: res.j.applied === 'postponed' ? T('✓ 연기됨', '✓ postponed') : m.s };
+          var _pp = res.j.applied === 'postponed' || res.j.applied === 'skipped' || res.j.applied === 'skipped_makeup';
+          return { ok: m.ok && _pp, text: res.j.applied === 'postponed' ? T('✓ 연기됨', '✓ postponed') : m.s };
         });
     }).catch(function () { return { ok: false, text: T('연결 끊김 — 목록에서 확인', 'network error — check the list') }; });
   }

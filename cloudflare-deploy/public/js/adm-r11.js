@@ -118,6 +118,10 @@
               ? (isEn?'✅ Approved — the class was moved to the new date/time.':'✅ 승인 완료 — 수업이 새 일시로 이동됐어요.')
               : d.applied === 'postponed'
               ? (isEn?'✅ Approved — the class is now on hold (postponed).':'✅ 승인 완료 — 수업이 연기(보류) 처리됐어요.')
+              : d.applied === 'skipped_makeup'
+              ? (isEn?'✅ Approved — only that day of the weekly class was removed, and a makeup class was added at the new date/time.':'✅ 승인 완료 — 매주 수업 중 그 날짜만 빠지고, 새 일시에 보강 수업이 만들어졌어요.')
+              : d.applied === 'skipped'
+              ? (d.message ? ('⚠️ ' + (isEn ? (d.message_en||'') : d.message)) : (isEn?'✅ Approved — only that day of the weekly class was removed.':'✅ 승인 완료 — 매주 수업 중 그 날짜만 빠졌어요.'))
               : d.applied === 'recorded'
               ? (isEn?'✅ Approved & recorded. This is a weekly recurring class, so the timetable was not auto-changed — please adjust that week manually in the schedule.':'✅ 승인·기록 완료. 매주 반복 수업이라 시간표는 자동 변경하지 않았어요 — 해당 주만 시간표에서 직접 조정해 주세요.')
               : (isEn?'✅ Approved.':'✅ 승인 완료.'))

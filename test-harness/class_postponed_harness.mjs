@@ -94,7 +94,7 @@ for (const [file, nLoops] of [['src/absent-sweep.ts', 1], ['src/lesson-reminder.
   const sels = selectsBeforeCancelled(S);
   ok(`${file}: 예약 SELECT 가 ${nLoops}개 있다(전제)`, sels.length === nLoops, sels.length);
   ok(`${file}: 그 SELECT 가 전부 status 칸을 싣는다`, sels.length > 0 && sels.every((c) => /\bstatus\b/.test(c)));
-  const loopRe = /if \(!occurs\) continue;\s*seen\.add\(s\.id\);\s*if \(isPostponedOccurrence\(s\)\) continue;/g;
+  const loopRe = /if \(!occurs\) continue;\s*seen\.add\(s\.id\);\s*if \(isPostponedOccurrence\(s\)(?: \|\| isSkippedOccurrence\(s, \w+, \w+\))?\) continue;/g;
   ok(`${file}: 루프마다 연기 회차를 건너뛴다`, (S.match(loopRe) || []).length === nLoops, (S.match(loopRe) || []).length);
   ok(`${file}: 정본을 import 한다`, /import \{[^}]*\bisPostponedOccurrence\b[^}]*\} from '\.\/class-postponed'/.test(S));
 }
@@ -104,15 +104,15 @@ for (const [file, nLoops] of [['src/absent-sweep.ts', 1], ['src/lesson-reminder.
   const blk = i >= 0 ? S.slice(i, S.indexOf('let matchedBy', i)) : '';
   ok('sessions/today: runPass 를 오려 냈다(전제)', blk.length > 200);
   ok('sessions/today: SELECT 가 status 를 싣는다', /cs\.status/.test(blk) && /scheduled_date, start_time, duration_min, teacher_id, status/.test(blk));
-  ok('sessions/today: 연기 회차를 건너뛴다', /if \(isPostponedOccurrence\(s\)\) continue;/.test(blk));
+  ok('sessions/today: 연기 회차를 건너뛴다', /if \(isPostponedOccurrence\(s\)(?: \|\| isSkippedOccurrence\(s, \w+, \w+\))?\) continue;/.test(blk));
   ok('sessions/today: 건너뛰기가 out.push 보다 앞이다', blk.indexOf('isPostponedOccurrence(s)') > 0 && blk.indexOf('isPostponedOccurrence(s)') < blk.indexOf('out.push'));
 }
 
 {
   const S = strip(R('src/api-teacher.ts'));
   ok('강사 포털: 정본으로 판정한다', /const _postponed = isPostponedOccurrence\(s\);/.test(S));
-  ok('강사 포털: 상태를 «postponed» 로 내려준다', /: _postponed \? 'postponed'/.test(S));
-  ok('강사 포털: 입장을 닫는다', /can_enter: !_postponed && now >= enterFromTs/.test(S) && /join_open: !_postponed && now >= open_at_ts/.test(S));
+  ok('강사 포털: 상태를 «postponed» 로 내려준다', /: \(?_postponed(?: \|\| isSkippedOccurrence\(s, todayStr, _skipsW\)\))? \? 'postponed'/.test(S));
+  ok('강사 포털: 입장을 닫는다', /can_enter: !_postponed (?:&& !isSkippedOccurrence\(s, todayStr, _skipsW\) )?&& now >= enterFromTs/.test(S) && /join_open: !_postponed (?:&& !isSkippedOccurrence\(s, todayStr, _skipsW\) )?&& now >= open_at_ts/.test(S));
   const H = strip(R('public/teacher.html'));
   const a = H.indexOf("if (c.class_state === 'postponed'){");
   const blk = a > 0 ? H.slice(a, H.indexOf('continue;', a)) : '';
@@ -160,7 +160,7 @@ console.log('\nG. 다음 수업 · 수업 관찰 · 내 수업 카드');
 {
   const TS = strip(R('src/api-teacher.ts'));
   ok('강사 배너(?only=next): 연기·취소를 다음 수업으로 고르지 않는다', /c\.kind === 'class' && c\.class_state !== 'postponed' && c\.class_state !== 'cancelled'/.test(TS));
-  ok('강사 포털 매니저 블록: status 를 싣고 연기 회차를 건너뛴다', /cs\.duration_min, cs\.status, cs\.teacher_id/.test(TS) && /if \(!occurs\) continue;\s*if \(isPostponedOccurrence\(s\)\) continue;/.test(TS));
+  ok('강사 포털 매니저 블록: status 를 싣고 연기 회차를 건너뛴다', /cs\.duration_min, cs\.status, cs\.teacher_id/.test(TS) && /if \(!occurs\) continue;\s*if \(isPostponedOccurrence\(s\)(?: \|\| isSkippedOccurrence\(s, \w+, \w+\))?\) continue;/.test(TS));
   const TH = strip(R('public/teacher.html'));
   const n = TH.indexOf('if (c.absence_hold) continue;');
   ok('teacher.html «다음 수업» 띠: 연기·취소를 건너뛴다', n > 0 && /if \(c\.class_state === 'postponed' \|\| c\.class_state === 'cancelled'\) continue;/.test(TH.slice(n, n + 400)));
@@ -181,7 +181,7 @@ const ADM_S = strip(ADM);
   const i = ADM_S.indexOf("path === '/api/admin/classes/today'");
   const blk = i >= 0 ? ADM_S.slice(i, i + 20000) : '';
   ok('전제: 핸들러를 찾았다', blk.length > 0);
-  const setM = /const _postponed = isPostponedOccurrence\(s\);\s*if \(_postponed\) status = 'postponed';/.exec(blk);
+  const setM = /const _postponed = isPostponedOccurrence\(s\)(?: \|\| isSkippedOccurrence\(s, \w+, \w+\))?;\s*if \(_postponed\) status = 'postponed';/.exec(blk);
   ok('상태를 postponed 로 바꾼다', !!setM);
   const jm = /join_open:\s*([^,\n]+),/.exec(blk);
   let jf = null;
@@ -200,7 +200,7 @@ console.log('\nD-2. 다시 잡기 — PATCH · decide');
 {
   const i = ADM_S.indexOf("path === '/api/admin/schedule-requests/decide'");
   const blk = i >= 0 ? ADM_S.slice(i, ADM_S.indexOf("path === '/api/admin/classes/today'", i)) : '';
-  ok('decide: 예약 SELECT 가 status 를 싣는다', /SELECT id, scheduled_date, start_time, duration_min, user_id, teacher_id, source, status FROM class_schedules/.test(blk));
+  ok('decide: 예약 SELECT 가 status 를 싣는다', /SELECT id, scheduled_date, start_time, duration_min, user_id, teacher_id, source, status(?:, [a-z_, ]+)? FROM class_schedules/.test(blk));
   ok('decide: 연기 상태면 되살리기 문장을 함께 돌린다',
     /if \(String\(\(cs as any\)\?\.status \|\| ''\) === 'postponed'\) _mvAll\.push\(env\.DB\.prepare\(REACTIVATE_POSTPONED_SQL\)\.bind\(row\.schedule_id\)\);/.test(blk));
   ok('decide: 여러 문장이면 batch 로 묶는다', /if \(_mvAll\.length > 1\) await env\.DB\.batch\(_mvAll\);\s*else await _mv\.run\(\);/.test(blk));
