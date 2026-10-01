@@ -35,7 +35,10 @@
     live:  { ko: '🔴 진행중',   en: '🔴 Live',     bg: 'rgba(239,68,68,0.16)',  fg: '#b91c1c', bd: 'rgba(239,68,68,0.45)' },
     open:  { ko: '🟢 입장가능', en: '🟢 Open',     bg: 'rgba(16,185,129,0.16)', fg: '#047857', bd: 'rgba(16,185,129,0.45)' },
     early: { ko: '⏳ 예정',     en: '⏳ Upcoming', bg: 'rgba(148,163,184,0.18)', fg: '#475569', bd: 'rgba(148,163,184,0.45)' },
-    ended: { ko: '✔ 종료',      en: '✔ Ended',    bg: 'rgba(148,163,184,0.12)', fg: '#94a3b8', bd: 'rgba(148,163,184,0.3)' }
+    ended: { ko: '✔ 종료',      en: '✔ Ended',    bg: 'rgba(148,163,184,0.12)', fg: '#94a3b8', bd: 'rgba(148,163,184,0.3)' },
+    /* ⏸ (2026-10-01) 연기된 수업 — 서버가 시각 판정을 덮어 'postponed' 로 보낸다(api-admin.ts classes/today).
+       그전에는 «🟢 Open» 으로 보여 연기가 됐는지 알 수 없었다. */
+    postponed: { ko: '⏸ 연기됨', en: '⏸ Postponed', bg: '#fff4e0', fg: '#b45309', bd: '#f5c98a' }
   };
 
   /* 📋 (2026-09-23 매니저 요청) 일곱 칸 — 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결.
@@ -51,6 +54,7 @@
     if (e.state === 'on_time') return xSmall('✅ ' + esc(hhmm(e.at)) + ' · ' + T('정시', 'on time'), ';color:#047857;font-weight:700');
     if (e.state === 'late') return xSmall('⏰ ' + esc(hhmm(e.at)) + ' · ' + T(e.late_min + '분 지각', e.late_min + ' min late'), ';color:#b91c1c;font-weight:800');
     if (e.state === 'pending') return xSmall(T('아직 전', 'not yet'), ';color:#6b7280');
+    if (e.state === 'postponed') return xSmall(T('⏸ 연기됨', '⏸ postponed'), ';color:#b45309');
     if (e.state === 'none') return xSmall('⚠ ' + T('입장 기록 없음', 'no entry record'), ';color:#b45309;font-weight:700');
     if (e.state === 'cafe24') return xSmall(T('카페24 · 기록 없음', 'cafe24 · n/a'), ';color:#92400e');
     return xSmall(T('확인 불가', 'unknown'), ';color:#6b7280');
@@ -63,6 +67,7 @@
       absent:   ['❌', '결석(입장 기록 없음)', 'Absent (no entry)', ';color:#b91c1c;font-weight:800'],
       waiting:  ['⏳', '아직 입장 안 함', 'Not in yet', ';color:#b45309'],
       not_yet:  ['', '시작 전', 'Not started', ';color:#6b7280'],
+      postponed: ['⏸', '연기됨', 'Postponed', ';color:#b45309'],
       unknown:  ['❔', '확인 불가', 'Unknown', ';color:#6b7280'],
       cafe24:   ['', '카페24 · 기록 없음', 'cafe24 · n/a', ';color:#92400e']
     }[a.state];
@@ -892,6 +897,17 @@
               + T('카페24에서 진행되는 수업입니다. 망고아이 화상방이 없어 입장·참관할 수 없습니다.',
                   'This class runs on cafe24. There is no Mangoi room, so join/observe is not possible.') + '">'
               + T('카페24 수업 · 입장 불가', 'on cafe24 · cannot join') + '</span>';
+          } else if (s.postponed) {
+            /* ⏸ 연기된 수업 — 입장·참관·초대 링크를 주지 않는다(강사가 연기된 방에 들어가 기다린 사고, class-1931).
+               「📅 연기·변경」은 남긴다: «새 날짜로 옮기기» 를 여기서 마저 할 수 있어야 한다. */
+            act = '<span style="color:#b45309;font-size:11.5px;font-weight:700;margin-right:4px">'
+              + T('⏸ 연기됨 — 새 날짜 미정', '⏸ Postponed — no new date yet') + '</span>';
+            if (s.schedule_id && s.can_move !== false) {
+              act += '<span class="tc-move-pin" role="button" tabindex="0" data-sid="' + esc(s.schedule_id) + '" '
+                + 'style="cursor:pointer;display:inline-block;white-space:nowrap;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+                + 'background:#eaf0fb;color:#1d4ed8;border:1px solid #bfd3f5">'
+                + T('📅 새 날짜로', '📅 Rebook') + '</span>';
+            }
           } else {
             act = s.join_open
               /* 🚪 학생에게 «보이는» 입장이라 참관(보라)과 색을 갈라 둔다 — 주황 + (보임) 표시 */
