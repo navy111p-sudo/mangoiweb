@@ -656,10 +656,15 @@
           «남자를 골랐는데 얼굴은 여자» 가 되고 에러도 안 났습니다. */
     const PEOPLE = {
       emma: { speaker:'asteria', char:'emma' },
-      jake: { speaker:'apollo',  char:'jake' },
+      jake: { speaker:'odysseus', char:'jake', male:true },   // 2026-10-02 apollo → odysseus (웜업과 같은 목소리)
       lily: { speaker:'thalia',  char:'lily' },
-      noah: { speaker:'aries',   char:'noah' },
+      noah: { speaker:'aries',   char:'noah', male:true },
     };
+    /* 🎚️ (2026-10-02 사장님 「Jake·Noah 는 보통을 0.9배로」) — 남자 목소리는 0.9배보다 늘이지 않는다.
+       낮은 목소리를 늘여 재생하면 갈라져 들린다(웜업 warmup.html 의 EN_MALE_MIN_RATE 와 같은 규칙).
+       ⛔ 여자 목소리·빠르게(1배 이상) 고른 학생은 그대로다. */
+    const MALE_MIN_RATE_AF = 0.9;
+    function rateFor(person, r) { return ((PEOPLE[person] || {}).male && r < MALE_MIN_RATE_AF) ? MALE_MIN_RATE_AF : r; }
     const PEOPLE_ORDER = ['emma','jake','lily','noah'];   // 「번갈아」가 도는 순서
     let currentVoice = (function(){
       try {
@@ -1363,7 +1368,7 @@
         const _speaker = speakerFor();
         try { if (MangoiTTS.setSpeaker) MangoiTTS.setSpeaker(_speaker); } catch(e){}
         try { window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(charForPerson(_personNow)); } catch(e){}
-        MangoiTTS.speak(clean, currentRate, done);
+        MangoiTTS.speak(clean, rateFor(_personNow, currentRate), done);
       } catch(e){ done(); }
     }
 
