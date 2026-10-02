@@ -305,6 +305,22 @@
     .fstep.on .fs-no, .fstep.on .fs-t { color: var(--gold); }
     .fstep.done { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.42); }
     .fstep.done .fs-no, .fstep.done .fs-t { color: #6ee7b7; }
+    /* ═══ 🧭 첫 화면 3단계 안내 줄 (2026-10-02, P7) ═══
+       파일럿 보고서: 가장 덜 쓰는 AI 도구라 «어떻게 시작하는지» 를 맨 위에서 한 줄로 알려 준다.
+       단계를 누르면 그 칸으로 간다(1 오늘의 그림 · 2 브레인스토밍 · 3 글쓰기 칸).
+       ⚠️ 상자는 flex 를 쓰지 않는다 — 글자가 흐르는 줄에 flex 를 걸면 낱글자로 쪼개진다.
+          버튼은 inline-block + nowrap 이라 좁은 폰에서는 «버튼 단위» 로만 줄이 바뀐다.
+       ⚠️ 360x640 폰은 이 줄을 넣기 전에도 난이도 버튼이 첫 화면 밖이었다(697px) —
+          그래서 이 줄이 그 폰의 첫 «누를 것» 이 된다. 높이를 작게(한두 줄) 유지할 것. */
+    .aw-guide { margin: 0 0 14px; padding: 8px 10px; border-radius: 13px;
+      background: rgba(15,23,42,0.55); border: 1px solid rgba(251,191,36,0.35); line-height: 1.9; }
+    .aw-guide .awg-step { display: inline-block; white-space: nowrap; margin: 2px 0; padding: 5px 11px;
+      border-radius: 99px; border: 1px solid rgba(251,191,36,0.45); background: rgba(251,191,36,0.12);
+      color: #fde68a; font: inherit; font-size: 14px; font-weight: 800; line-height: 1.4; cursor: pointer; }
+    .aw-guide .awg-step:hover { background: rgba(251,191,36,0.22); }
+    .aw-guide .awg-step:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .aw-guide .awg-arrow { color: var(--text2); font-weight: 800; padding: 0 3px; }
+    @media (max-width: 640px) { .aw-guide { padding: 6px 8px; line-height: 1.7; } .aw-guide .awg-step { font-size: 12.5px; padding: 4px 8px; } .aw-guide .awg-arrow { padding: 0 1px; } }
     /* ═══ 🧠 그래픽 오가나이저 (브레인스토밍) ═══ */
     .go-card { background: rgba(56,189,248,0.08); border: 1px solid rgba(125,211,252,0.35);
       border-radius: 18px; padding: 18px 20px; margin-bottom: 16px; }
@@ -419,6 +435,33 @@
     <h1 data-ko="✍️ AI 영작 첨삭" data-en="✍️ AI Writing Coach">✍️ AI 영작 첨삭</h1>
   </div>
   <div class="wrap">
+    <!-- 🧭 3단계 안내 줄(P7) — 누르면 그 칸으로 간다. 갈 곳(id)이 바뀌면 data-aw-go 도 함께.
+         감시: test-harness/ai_write_guide_harness.mjs · manual/ai-write-guide-browser.mjs -->
+    <nav class="aw-guide" id="awGuide" aria-label="AI 영작 첨삭 3단계 / 3 steps">
+      <button type="button" class="awg-step" data-aw-go="picCard"><span data-ko="① 그림이나 주제 고르기" data-en="① Pick a picture or topic">① 그림이나 주제 고르기</span></button><span class="awg-arrow" aria-hidden="true">→</span>
+      <button type="button" class="awg-step" data-aw-go="goCard"><span data-ko="② 질문에 답하기" data-en="② Answer the questions">② 질문에 답하기</span></button><span class="awg-arrow" aria-hidden="true">→</span>
+      <button type="button" class="awg-step" data-aw-go="text"><span data-ko="③ AI 첨삭 받기" data-en="③ Get AI feedback">③ AI 첨삭 받기</span></button>
+    </nav>
+    <script>
+    /* 🧭 안내 줄 — 누른 단계의 칸으로 스크롤(위쪽 고정 머리줄 높이만큼 비켜서). ③ 은 글쓰기 칸에 포커스.
+       ⛔ 상주 타이머·관찰자 없음. 갈 곳이 없으면 아무 일도 안 하고 조용히 돌아간다(던지지 않음). */
+    (function () {
+      var nav = document.getElementById('awGuide');
+      if (!nav) return;
+      nav.addEventListener('click', function (e) {
+        var b = e.target && e.target.closest ? e.target.closest('[data-aw-go]') : null;
+        if (!b) return;
+        var id = b.getAttribute('data-aw-go');
+        var t = document.getElementById(id);
+        if (!t) return;
+        var head = document.querySelector('.top');
+        var off = (head ? head.getBoundingClientRect().height : 0) + 12;
+        var y = t.getBoundingClientRect().top + (window.pageYOffset || 0) - off;
+        try { window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' }); } catch (_) { window.scrollTo(0, Math.max(0, y)); }
+        if (id === 'text') { try { t.focus({ preventScroll: true }); } catch (_) { try { t.focus(); } catch (__) {} } }
+      });
+    })();
+    </script>
     <div class="hero">
       <span class="fx" style="top:10px;right:26px;--rr:12deg">✨</span>
       <span class="fx" style="bottom:14px;right:90px;--rr:-8deg;animation-delay:.7s">📝</span>
