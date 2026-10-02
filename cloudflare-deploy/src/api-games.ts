@@ -2721,6 +2721,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
             cora: 'athena', phoebe: 'hera', andromeda: 'stella',
             // 남자
             aries: 'orion', atlas: 'zeus', hermes: 'orpheus', apollo: 'perseus',
+            odysseus: 'perseus',   // 2026-10-02 Jake 목소리 — 기본(orion)으로 떨어지면 Noah(aries→orion)와 같은 목소리가 된다
           };
           const spk1 = AURA1.has(requested)
             ? requested

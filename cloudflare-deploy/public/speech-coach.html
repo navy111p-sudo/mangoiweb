@@ -899,7 +899,7 @@ window.scPlayNativeOnce = function(){
       감시(avatar_image_frames_harness)가 세 화면을 대조한다. */
 const SC_PEOPLE = {
   emma: { speaker:'asteria', char:'emma', g:'female' },
-  jake: { speaker:'apollo',  char:'jake', g:'male'   },
+  jake: { speaker:'odysseus', char:'jake', g:'male'   },   // 2026-10-02 apollo → odysseus
   lily: { speaker:'thalia',  char:'lily', g:'female' },
   noah: { speaker:'aries',   char:'noah', g:'male'   },
 };
@@ -1142,10 +1142,15 @@ function scTtsKey(t, lang) { return lang + '|' + (lang === 'en' ? scSpeaker() : 
    예전에는 서버 음성을 원음(1.0) 그대로, 브라우저 음성은 0.9 로 읽어 두 경로의 속도가 달랐다.
    ⚠️ 미리 만든 립싱크 영상(SAY_CLIPS)은 입모양과 짝이라 건드리지 않는다. */
 var SC_RATE_NORMAL = 0.8;
-function scApplyNormalRate(a) {
+/* 🎚️ 2026-10-02 사장님 «Jake·Noah 는 보통을 0.9배로» — 낮은 남자 목소리는 늘이면 갈라진다.
+   웜업(EN_MALE_MIN_RATE)·A.i 친구(MALE_MIN_RATE_AF)와 같은 값. 서버 영어 음성에만 건다(⛔ 중국어·한국어는 그대로). */
+var SC_MALE_MIN_RATE = 0.9;
+function scRateFor(lang) { return (lang === 'en' && scGender() === 'male') ? SC_MALE_MIN_RATE : SC_RATE_NORMAL; }
+function scApplyNormalRate(a, lang) {
+  var r = scRateFor(lang);
   try {
     a.preservesPitch = true; a.mozPreservesPitch = true; a.webkitPreservesPitch = true;   // 느려져도 목소리 높이는 그대로
-    a.defaultPlaybackRate = SC_RATE_NORMAL; a.playbackRate = SC_RATE_NORMAL;
+    a.defaultPlaybackRate = r; a.playbackRate = r;
   } catch (e) {}
 }
 async function scFetchTtsUrl(t, lang, tryNo) {
@@ -1189,7 +1194,7 @@ async function speakWord(w) {
     if (mine !== scTtsSeq) return;   // 그 사이 다음 문장이 시작됐다 — 물러난다
     if (!ttsAudio) { ttsAudio = new Audio(); ttsAudio.preload = 'auto'; if (window.MangoAvatar) MangoAvatar.attach(ttsAudio); }
     ttsAudio.src = url;
-    scApplyNormalRate(ttsAudio);   // src 를 바꾸면 배속이 1로 돌아가므로 매번 다시 건다
+    scApplyNormalRate(ttsAudio, lang);   // src 를 바꾸면 배속이 1로 돌아가므로 매번 다시 건다
     await ttsAudio.play();
   } catch (e) { if (mine === scTtsSeq) speakFallback(t, lang); }   // 두 번 다 안 되면 브라우저 음성으로
 }
@@ -1216,7 +1221,7 @@ async function speakTarget() {
     // 👩‍🏫 아바타 립싱크: 매번 새 Audio 대신 영속 요소 재사용(MediaElementSource는 요소당 1회)
     if (!ttsAudio) { ttsAudio = new Audio(); ttsAudio.preload = 'auto'; if (window.MangoAvatar) MangoAvatar.attach(ttsAudio); }
     ttsAudio.src = url;
-    scApplyNormalRate(ttsAudio);   // src 를 바꾸면 배속이 1로 돌아가므로 매번 다시 건다
+    scApplyNormalRate(ttsAudio, lang);   // src 를 바꾸면 배속이 1로 돌아가므로 매번 다시 건다
     await ttsAudio.play();
   } catch (e) { if (mine === scTtsSeq) speakFallback(t, lang); } // 두 번 다 안 되면 브라우저 TTS 폴백
 }

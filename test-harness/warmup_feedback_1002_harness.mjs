@@ -192,5 +192,36 @@ if (Sqlite) {
   console.log('  ⏭  node:sqlite 없음 — 1-11~1-14 건너뜀');
 }
 
+// ── [2-b] 2026-10-02 사장님 「Jake 는 apollo → odysseus · Jake·Noah 는 보통을 0.9배로」 ──
+console.log('\n[2-b] Jake 목소리 odysseus · 남자 «보통» 0.9배 — 세 화면');
+const AF = fs.readFileSync(process.env.AF_SRC || path.join(ROOT, 'cloudflare-deploy/public/ai-friend.html'), 'utf8');
+const SC = fs.readFileSync(process.env.SC_SRC || path.join(ROOT, 'cloudflare-deploy/public/speech-coach.html'), 'utf8');
+const GAMES = fs.readFileSync(process.env.GAMES_SRC || path.join(ROOT, 'cloudflare-deploy/src/api-games.ts'), 'utf8');
+const jakeSpk = (src) => ((src.match(/jake:\s*\{[^}]*?speaker:\s*'([a-z]+)'/) || [])[1] || '');
+ok('2-b1 웜업 Jake = odysseus', jakeSpk(HTML) === 'odysseus', jakeSpk(HTML));
+ok('2-b2 A.i 친구 Jake = odysseus', jakeSpk(AF) === 'odysseus', jakeSpk(AF));
+ok('2-b3 발음 연습 Jake = odysseus', jakeSpk(SC) === 'odysseus', jakeSpk(SC));
+const sub = (GAMES.match(/odysseus:\s*'([a-z]+)'/) || [])[1] || '';
+ok('2-b4 Aura-1 대체가 Noah(orion)와 겹치지 않는다', sub && sub !== 'orion', sub);
+// A.i 친구 — rateFor 를 오려 내 실제로 돌린다
+const afMin = AF.match(/const MALE_MIN_RATE_AF = ([\d.]+);/);
+const afRateSrc = bodyAt(AF, 'function rateFor(person, r) {');
+const afPeople = bodyAt(AF, 'const PEOPLE = {');
+function afRate(person, r) { try { return new Function('p', 'r', `const PEOPLE = ${afPeople.replace(/^const PEOPLE = /, '')}; const MALE_MIN_RATE_AF = ${afMin && afMin[1]}; ${afRateSrc} return rateFor(p, r);`)(person, r); } catch (e) { return 'ERR:' + e.message; } }
+ok('2-b5 A.i 친구 Jake «보통»(0.8) → 0.9', afRate('jake', 0.8) === 0.9, afRate('jake', 0.8));
+ok('2-b6 A.i 친구 Noah «보통»(0.8) → 0.9', afRate('noah', 0.8) === 0.9, afRate('noah', 0.8));
+ok('2-b7 (짝) A.i 친구 Lily «보통» 은 0.8 그대로', afRate('lily', 0.8) === 0.8, afRate('lily', 0.8));
+ok('2-b8 (짝) A.i 친구 Jake 빠름(1.25) 은 그대로', afRate('jake', 1.25) === 1.25, afRate('jake', 1.25));
+ok('2-b9 A.i 친구 재생이 rateFor 를 지난다', /MangoiTTS\.speak\(\s*clean\s*,\s*rateFor\(/.test(stripC(AF)));
+// 발음 연습 — scRateFor 를 오려 내 실제로 돌린다
+const scRateSrc = bodyAt(SC, 'function scRateFor(lang) {');
+const scMin = SC.match(/var SC_MALE_MIN_RATE = ([\d.]+);/), scNorm = SC.match(/var SC_RATE_NORMAL = ([\d.]+);/);
+function scRate(g, lang) { try { return new Function('g', 'l', `var SC_RATE_NORMAL=${scNorm && scNorm[1]}, SC_MALE_MIN_RATE=${scMin && scMin[1]}; function scGender(){ return g; } ${scRateSrc} return scRateFor(l);`)(g, lang); } catch (e) { return 'ERR:' + e.message; } }
+ok('2-b10 발음 연습 남자 영어 → 0.9', scRate('male', 'en') === 0.9, scRate('male', 'en'));
+ok('2-b11 (짝) 발음 연습 여자 영어 → 0.8', scRate('female', 'en') === 0.8, scRate('female', 'en'));
+ok('2-b12 (짝) 발음 연습 남자라도 중국어는 0.8', scRate('male', 'zh') === 0.8, scRate('male', 'zh'));
+ok('2-b13 발음 연습 두 재생 자리가 lang 을 넘긴다', (stripC(SC).match(/scApplyNormalRate\(ttsAudio,\s*lang\)/g) || []).length === 2);
+ok('2-b14 세 화면 남자 최소 배속이 같다', minM && afMin && scMin && minM[1] === afMin[1] && afMin[1] === scMin[1], [minM && minM[1], afMin && afMin[1], scMin && scMin[1]]);
+
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) process.exit(1);
