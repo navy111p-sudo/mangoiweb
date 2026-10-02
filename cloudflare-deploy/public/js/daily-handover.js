@@ -170,7 +170,7 @@
   var weeknames=['일 / Sun','월 / Mon','화 / Tue','수 / Wed','목 / Thu','금 / Fri','토 / Sat'];
   weeknames.forEach(function(name,i){var label=node('label',null,'check'),c=document.createElement('input');c.type='checkbox';c.value=String(i);c.checked=i>0&&i<6;label.append(c,document.createTextNode(name));$('weekdays').append(label);});
   $('schedule-save').onclick=async function(){var button=$('schedule-save');button.disabled=true;try{await call('/schedule',{enabled:$('schedule-enabled').checked,weekdays:Array.from($('weekdays').querySelectorAll('input:checked')).map(function(c){return Number(c.value);}),due_time:$('due-time').value,exempt_date:$('exempt-date').value});$('schedule-status').textContent='설정 저장 완료 · 마감 30분 전/마감/30분 후 알림. / Saved: reminders at −30 / 0 / +30 min (15-min checks).';}catch(e){networkError(e);}finally{button.disabled=false;}};
-  recognition=window.HandoverDictation.create({button:$('voice'),fallback:$('voice-record'),language:$('voice-lang'),status:$('voice-status'),interim:$('voice-interim'),
+  recognition=window.HandoverDictation.create({button:$('voice-record'),language:$('voice-lang'),status:$('voice-status'),
     canStart:function(){return !!me&&!busy&&!uploading;},
     onText:function(t){var old=$('work').value,combined=(old+' '+t).trim();$('work').value=combined.slice(0,1500);invalidate();if(combined.length>1500)say('오늘 한 일은 1,500자까지 입력됩니다. / Work completed is limited to 1,500 characters.',true);},
     onBusy:function(active){if(active){begin();resetReview();}$('files').disabled=active||uploading;$('review').disabled=active||busy;$('manual').disabled=active||busy;$('save').disabled=active||busy||originalSubmitted;}
@@ -190,7 +190,7 @@
       if(j.schedule){$('schedule-enabled').checked=!!j.schedule.enabled;$('due-time').value=j.schedule.due_time;$('exempt-date').value=j.schedule.exempt_date;Array.from($('weekdays').querySelectorAll('input')).forEach(function(c){c.checked=j.schedule.weekdays.split(',').includes(c.value);});}
       if(j.read_schedule){$('read-start').value=j.read_schedule.start_time;$('read-end').value=j.read_schedule.end_time;Array.from($('read-weekdays').querySelectorAll('input')).forEach(function(c){c.checked=j.read_schedule.weekdays.split(',').includes(c.value);});}
       sync();preview();reports=j.reports;paintList();await loadList();
-      fields.forEach(function(k){$(k).disabled=false;});$('review').disabled=false;$('manual').disabled=false;$('save').disabled=originalSubmitted;$('voice').disabled=false;$('voice-record').disabled=false;
+      fields.forEach(function(k){$(k).disabled=false;});$('review').disabled=false;$('manual').disabled=false;$('save').disabled=originalSubmitted;$('voice-record').disabled=false;
     }catch(e){networkError(e);}
   }
   weeknames.forEach(function(name,i){var label=node('label',null,'check'),c=document.createElement('input');c.type='checkbox';c.value=String(i);c.checked=i>0&&i<6;label.append(c,document.createTextNode(name));$('read-weekdays').append(label);});
