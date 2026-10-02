@@ -820,9 +820,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="sgrp">
     <button type="button" onclick="sideGo('top')"><span class="ic">🏠</span><span data-en="Home" data-ko="홈">Home</span></button>
   </div>
-  <div class="sgrp-h" data-en="Franchise" data-ko="가맹점 관리">Franchise</div>
+  <div class="sgrp-h" data-en="Franchise" data-ko="가맹점 관리" data-agency-en="Academy" data-agency-ko="대리점 관리">Franchise</div>
   <div class="sgrp">
-    <button type="button" onclick="sideGo('c-org')"><span class="ic">🏢</span><span data-en="Franchise &amp; academy roster" data-ko="가맹점 · 대리점 명부">Franchise &amp; academy roster</span></button>
+    <button type="button" onclick="sideGo('c-org')"><span class="ic">🏢</span><span data-en="Franchise &amp; academy roster" data-ko="가맹점 · 대리점 명부" data-agency-en="My academy" data-agency-ko="내 대리점 정보">Franchise &amp; academy roster</span></button>
   </div>
   <div class="sgrp-h" data-en="Students" data-ko="학생관리">Students</div>
   <div class="sgrp">
@@ -839,7 +839,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="sgrp-h" data-en="Settlement &amp; stats" data-ko="정산통계관리">Settlement &amp; stats</div>
   <div class="sgrp">
     <button type="button" onclick="sideGo('c-trend')"><span class="ic">📊</span><span data-en="30-day trend" data-ko="30일 추이">30-day trend</span></button>
-    <button type="button" onclick="sideGo('c-settle')"><span class="ic">💰</span><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></button>
+    <button type="button" onclick="sideGo('c-settle')"><span class="ic">💰</span><span data-en="Settlement" data-ko="지사 · 대리점별 정산" data-agency-en="Our settlement" data-agency-ko="우리 대리점 정산">Settlement</span></button>
     <button type="button" id="sideAibill" onclick="sideGo('c-aibill')" hidden><span class="ic">🧾</span><span data-en="AI usage invoice" data-ko="AI 사용료 청구서">AI usage invoice</span></button>
   </div>
   <div class="sgrp-h" data-en="Operations" data-ko="운영관리">Operations</div>
@@ -903,7 +903,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <!-- 📱 휴대폰 보기 탭(B안) — 한 번에 한 묶음만 보여 준다. PC 에서는 CSS 가 감추고 왼쪽 메뉴가 같은 일을 한다. -->
   <nav id="vtabs" aria-label="보기">
     <button type="button" data-v="dash"><span data-en="Overview" data-ko="한눈에">Overview</span></button>
-    <button type="button" data-v="org"><span data-en="Franchise" data-ko="가맹점">Franchise</span></button>
+    <button type="button" data-v="org"><span data-en="Franchise" data-ko="가맹점" data-agency-en="Academy" data-agency-ko="대리점">Franchise</span></button>
     <button type="button" data-v="stu"><span data-en="Students" data-ko="학생">Students</span></button>
     <button type="button" data-v="cls"><span data-en="Classes" data-ko="수업">Classes</span></button>
     <button type="button" data-v="set"><span data-en="Settle" data-ko="정산">Settle</span></button>
@@ -998,13 +998,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        ⚠️ c-today(오늘 전체 수업)·c-util(강사 가동률)·c-search·c-me 는 «본사 매니저 전용»
           칸 밖으로 옮겨진 것일 뿐 — API·판정 로직은 한 글자도 안 바뀌었다. -->
 
-  <div class="grouphead" data-en="Franchise" data-ko="가맹점 관리">Franchise</div>
+  <div class="grouphead" data-en="Franchise" data-ko="가맹점 관리" data-agency-en="Academy" data-agency-ko="대리점 관리">Franchise</div>
 
   <!-- 🏢 (2026-09-21) 가맹점 · 대리점 명부 — franchises/centers 는 index.ts 6194-6195 에서
        지사·대리점에게 이미 열려 있다. 핸들러가 scopeFranchiseCond()/scopeCenterCond() 로
        지사=자기 지사, 대리점=자기 한 칸까지 잘라서 내려준다(등록·수정은 여전히 본사만 — canEditOrg). -->
   <details class="card" id="c-org" ontoggle="if(this.open)loadOrg()">
-    <summary><span data-en="Franchise &amp; academy roster" data-ko="가맹점 · 대리점 명부">Franchise &amp; academy roster</span></summary>
+    <summary><span data-en="Franchise &amp; academy roster" data-ko="가맹점 · 대리점 명부" data-agency-en="My academy" data-agency-ko="내 대리점 정보">Franchise &amp; academy roster</span></summary>
     <div id="orgBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
@@ -1130,7 +1130,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        root 를 null 로 막아 버려서 빈 화면이 된다. branch-summary 는 세 스코프 전부 된다).
        ⚠️ 수수료율을 «바꾸는» /rate-config POST 는 이 카드에 없다 — 본사만 쓰는 설정이다. -->
   <details class="card" id="c-settle" ontoggle="if(this.open)loadSettle()">
-    <summary><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></summary>
+    <summary><span data-en="Settlement" data-ko="지사 · 대리점별 정산" data-agency-en="Our settlement" data-agency-ko="우리 대리점 정산">Settlement</span></summary>
     <div id="settleBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
@@ -1513,6 +1513,18 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     document.getElementById('scopeLbl').textContent =
       sc.type === 'agency' ? T('Agency', '대리점') : sc.type === 'branch' ? T('Branch', '지사') : T('Manager', '매니저');
     document.getElementById('scopeName').textContent = sc.label || sc.value || '';
+    /* 🏫 (2026-10-02 사장님) 대리점 계정은 /agency 로 이 화면을 함께 쓴다 — «지사» 말을 «대리점» 말로 바꾼다.
+       바꿀 글자는 각 요소의 data-agency-ko/en 에 있다(여기에 문구를 베끼지 않는다). 권한은 서버가 정한다. */
+    if (sc.type === 'agency') {
+      var _ag = document.querySelectorAll('[data-agency-ko]');
+      for (var _gi = 0; _gi < _ag.length; _gi++) {
+        var _g = _ag[_gi];
+        _g.setAttribute('data-ko', _g.getAttribute('data-agency-ko'));
+        _g.setAttribute('data-en', _g.getAttribute('data-agency-en'));
+        _g.textContent = EN() ? _g.getAttribute('data-en') : _g.getAttribute('data-ko');
+      }
+      document.title = T('Academy', '대리점') + ' · Mangoi';
+    }
     document.getElementById('monthLbl').textContent = m.period || '';
     // 🏢 (2026-09-10) AI 사용료 청구서 — 대리점 계정에만. 본사·지사는 admin.html 「AI 사용료 관리」에서 본다.
     var _aib = document.getElementById('c-aibill');
