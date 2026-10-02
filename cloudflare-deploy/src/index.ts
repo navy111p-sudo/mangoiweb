@@ -71,6 +71,8 @@ import { runGrowthSnapshot } from './api-judgment';                            /
 import { churnContagionRouter, runContagionGraphSync } from './churn-contagion';
 import { nightlyCafe24Refresh } from './cafe24-sync';  // 🔄 카페24→D1 야간 자동 새로고침
 import { handleSpaceMonsterApi } from './api-space-monster';  // 🛸 Space Monster Hunter 게임 API
+import { logWarmupFix } from './warmup-parent';            // 📝 학부모 화면용 «고쳐 준 표현» 기록 (2026-10-02 P4)
+import { authUidFromRequest } from './auth-token';          //    ↑ 본인 확인용(토큰 uid == 요청 user_id 일 때만 기록)
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
@@ -4533,6 +4535,22 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         } catch {}
         const decided = decideWarmupFixShow(verified, memoIn, turnCount);
         showFix = decided.show;
+        /* 📝 학부모 화면 «AI가 고쳐 준 표현» 기록 (2026-10-02 파일럿 후속 P4 — 정본 src/warmup-parent.ts)
+           ⛔ ctxUserId 는 화면이 보내는 값이라 그대로 믿으면 남의 아이 학부모 화면에 글자를 심을 수 있다 —
+              서명 토큰 uid(또는 같은 이름의 관리자 세션)가 그 아이디와 «정확히» 같을 때만 기록한다.
+           ⚠️ 기록 실패는 대화를 멈추지 않는다(logWarmupFix 자체도 던지지 않는다). */
+        if (showFix && ctxUserId) {
+          try {
+            let mine = false;
+            const tokUid = await authUidFromRequest(request, new URL(request.url), env, body);
+            if (tokUid && tokUid === ctxUserId) mine = true;
+            else {
+              const ses: any = await checkAdminSession(request, env as any);
+              if (ses && ses.ok && ses.username === ctxUserId) mine = true;
+            }
+            if (mine) await logWarmupFix(env, { sessionId, userId: ctxUserId, fix: showFix, lang: ctxLang });
+          } catch (e: any) { console.warn('[warmup-fix-log]', e?.message || e); }
+        }
         offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnCount);
         // 히스토리와 같은 6시간 — 세션이 끝나면 함께 사라진다(발화를 저장하는 것이 아니다)
         try {

@@ -842,6 +842,10 @@ function warmupFetch(url, options){
   if(_warmPaused) return Promise.reject(new Error('warmup paused'));
   var c=new AbortController(); _warmControllers.push(c);
   var timer=setTimeout(function(){c.abort();},20000);
+  /* 📝 2026-10-02 P4 — 같은 오리진 웜업 대화에만 로그인 토큰을 싣는다(서버가 «본인일 때만» 고쳐 준 표현을
+     학부모 화면용으로 기록). 다른 서버(API_BASE)로는 안 보낸다 — 토큰이 남의 서버로 새지 않게. */
+  try{ if(!API_BASE && /\/api\/warmup\/chat$/.test(String(url))){ var tk=localStorage.getItem('mango_token');
+    if(tk){ options=Object.assign({},options||{}); options.headers=Object.assign({},options.headers||{},{'Authorization':'Bearer '+tk}); } } }catch(e){}
   return fetch(url,Object.assign({},options||{},{signal:c.signal})).finally(function(){
     clearTimeout(timer);var i=_warmControllers.indexOf(c);if(i>=0)_warmControllers.splice(i,1);
   });
