@@ -9337,7 +9337,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <!-- 26-08-12(4차): 18 → 19. 역할 판정에 관리자 콘솔 세션 추가 — IT 담당자가 재입장해도 스태프 유지. -->
 <!-- 26-08-13: 20 → 22. 절전 오판(카메라 꺼짐)·복구칩·프리페치·대기토스트 분리. ⚠ 21 은 병행 브랜치(화면공유 보드)가 사용 중 — 건너뛴다. -->
 <!-- 26-09-23: 61 → 62. 참관(ghost-observe) WebSocket 인증 — vcJoinAsObserver 가 tok(서명, ghost/start 발급)을 join-observe 에 실어 보낸다(video-call-room.ts 가 검증, 그전엔 방 번호만 알면 무인증 참관 가능했다). observe-denied 수신 시 room-full/force_end 와 같은 종료 경로(무한 재연결 방지). -->
-<script src="/js/idx-main.js?v=63"></script>
+<script src="/js/idx-main.js?v=64"></script>
 <!-- 📢 (2026-08-19) 관리자·참관자 귓속말 표시 — 강사만 쓰는 기능이라 defer.
      되돌리기: 이 줄만 지우면 된다(idx-main.js 의 위임 5줄은 무해하게 큐에만 쌓는다). -->
 <script src="/js/idx-whisper.js?v=3" defer></script>
@@ -16554,7 +16554,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 <!-- 📱 (2026-08-25) 휴대폰 수업 화면 수리 묶음 — 교재 선명도(화면 배율)·핀치 확대 유지·확대 버튼·
      배경화면 탭 접힘·중국어 안내. defer 필수: index.html 첫 화면 예산 여유가 104바이트뿐이라
      idx-main.js 에는 한 줄도 못 넣는다(first_paint_budget_harness). -->
-<script defer src="/js/idx-vc-mobilefix.js?v=29"></script>
+<script defer src="/js/idx-vc-mobilefix.js?v=30"></script>
 <!-- ↔ (2026-09-24) PC 수업: 교재|얼굴·얼굴|채팅 경계 드래그 폭 조절 — 사연은 그 파일 머리말 -->
 <script defer src="/js/idx-vc-splitter.js?v=1"></script>
 <!-- 🔊 (2026-09-28) 새 BTS 교재 «이 쪽 문장 듣기» — 내 화면에서만. 사연은 그 파일 머리말 -->
