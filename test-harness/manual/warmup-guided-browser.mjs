@@ -68,12 +68,15 @@ try{
     await page.waitForFunction(()=>!sending&&document.querySelector('#wgScene:not([hidden])'));
     ck(w+' selecting picture is not a student answer',await page.locator('#log .msg.me').count()===0);
     ck(w+' scene selection reaches history API',requests.some(r=>r.pick&&r.scene_id==='cooking'));
-    await page.locator('#wgHelpOpen').click();await page.locator('#wgHelpNext').click();
-    ck(w+' first help is words only',!(await page.locator('#wgHelpOutput').innerText()).includes('I want'));
-    await page.locator('#wgHelpNext').click();
-    ck(w+' second help is incomplete frame',(await page.locator('#wgHelpOutput').innerText()).includes('____'));
-    await page.locator('#wgHelpNext').click();
-    await page.locator('#wgHelpActions button').click();
+    /* 🪜 (2026-10-02) 도움 흐름이 «1 혼자 → 2 뜻 → 3 대답 예시» 로 바뀌었다(옛 3단 사다리 «단어 힌트» 버튼은 없다).
+       첫 «도움» 은 예시가 아니라 «뜻» 이고, 예시는 그 뒤 한 번 더 눌러야 나온다. */
+    await page.locator('#wgHelpOpen').click();
+    ck(w+' first help is meaning, not an example',await page.locator('#wgHelp').isVisible()&&!(await page.locator('#wgHelp').innerText()).includes('I want'));
+    ck(w+' answer ideas wait behind one more button',await page.locator('#wgHelpMore').isVisible()&&await page.locator('#wgHelpActions .wg-say').count()===0);
+    await page.locator('#wgHelpMore').click();
+    ck(w+' answer ideas show a starter with a blank',(await page.locator('#wgHelpOutput').innerText()).includes('____'));
+    ck(w+' the example sentence itself is the button (no extra edit buttons)',await page.locator('#wgHelpActions .wg-say').count()===1&&!(await page.locator('#wgHelp').innerText()).includes('입력칸에 넣고 고치기'));
+    await page.locator('#wgHelpActions .wg-say').click();
     ck(w+' example fills draft without submitting',await page.locator('#log .msg.me').count()===0);
     await page.locator('#inp').fill('I want to cook pasta.');await page.locator('#sendBtn').click();
     await page.waitForFunction(()=>!sending);
@@ -88,7 +91,7 @@ try{
     await page.locator('#wgFinish').click();
     ck(w+' finish stops microphone',await page.evaluate(()=>__mic.abort===1&&!_recognizing&&_warmPaused));
     ck(w+' summary contains actual reply',(await page.locator('#wgSummaryText').innerText()).includes('I want to cook pasta.'));
-    ck(w+' summary distinguishes example assistance',(await page.locator('#wgSummaryText').innerText()).includes('example-assisted: 1'));
+    ck(w+' summary distinguishes example assistance',(await page.locator('#wgSummaryText').innerText()).includes('With example / 예시 사용: 1'));
     await page.locator('#wgSummaryBack').click();
     ck(w+' returning does not restart mic',await page.evaluate(()=>__mic.start===1&&!_warmPaused));
     ck(w+' no runtime errors',errors.length===0);
@@ -101,8 +104,8 @@ try{
   }
   {
     const {page,errors}=await setup(390,844,'&lang=zh');
-    await page.locator('#wgHelpOpen').click();await page.locator('#wgHelpNext').click();
-    ck('Chinese hints remain Chinese',(await page.locator('#wgHelpOutput').innerText()).includes('学'));
+    await page.locator('#wgHelpOpen').click();await page.locator('#wgHelpMore').click();
+    ck('Chinese hints remain Chinese',(await page.locator('#wgHelp').innerText()).includes('学'));
     ck('Chinese scene labels',await page.locator('[data-scene=cooking]').innerText()==='做饭');
     ck('Chinese has no runtime errors',errors.length===0);await page.close();
   }
@@ -145,9 +148,8 @@ try{
     await page.evaluate(()=>{_warmLevel=3;});
     await page.locator('#wgScenes').evaluate(e=>e.open=true);
     await page.locator('[data-scene=music]').click();await page.waitForFunction(()=>!sending);
-    await page.locator('#wgHelpOpen').click();
-    for(let i=0;i<3;i++)await page.locator('#wgHelpNext').click();
-    ck(lang+' goal example matches music scene',(await page.locator('#wgHelpOutput').innerText()).includes(lang==='zh'?'我想学弹钢琴。':'I want to learn to play the piano.'));
+    await page.locator('#wgHelpOpen').click();await page.locator('#wgHelpMore').click();
+    ck(lang+' goal example matches music scene',(await page.locator('#wgHelpActions').innerText()).includes(lang==='zh'?'我想学弹钢琴。':'I want to learn to play the piano.'));
     ck(lang+' all ten scenes have no runtime errors',errors.length===0);
     await page.close();
   }
