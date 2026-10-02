@@ -173,7 +173,7 @@ if (Sqlite) {
   const json = (x, s) => ({ x, s: s || 200 });
   const runSrv = async (body) => {
     try {
-      const code = srv.replace(/: any/g, '');
+      const code = srv.replace(/: any/g, '').replace(/ as any/g, '');
       return await new Function('b', 'env', 'json', 'console', `return (async () => { ${code} return null; })();`)(body, env, json, { warn() {} });
     } catch (e) { return { err: String(e) }; }
   };

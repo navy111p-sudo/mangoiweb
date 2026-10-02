@@ -2013,7 +2013,7 @@ var _adultLowHinted = false;
 function _adultLowLevelHint(){
   if(_adultLowHinted || _warmAge !== 'adult' || _warmLevel > 2 || isZh()) return;
   _adultLowHinted = true;
-  addMsg('🧑‍💼 성인이시면 대화 레벨을 3단계 이상으로 올려 보세요 — 더 어른스러운 질문이 나와요. (🎚️ 에서 바꿀 수 있어요) / '
+  addMsg('💼 성인이시면 대화 레벨을 3단계 이상으로 올려 보세요 — 더 어른스러운 질문이 나와요. (🎚️ 에서 바꿀 수 있어요) / '
     + 'For adults, try level 3 or higher in 🎚️ for more grown-up questions.', 'sys');
 }
 function startWarmup(){
@@ -2991,8 +2991,8 @@ async function micViaWhisper(){
   var heard=false, errored=false; // 🔇 말소리가 한 번도 안 들렸나 — Whisper 는 무음에서 "Thank you." 를 지어낸다
   var said = await MangoiVoice.record({
     lang: _warmLang,              // 🀄 서버 Whisper 언어 힌트 — 안 주면 자동감지로 떨어져 오인식이 는다
-    silenceMs: manual ? MIC_MANUAL_IDLE : 1600,   // ✋ 수동은 침묵으로 끝내지 않는다(30초는 안전장치)
-    maxMs: manual ? MIC_MANUAL_MAX : 20000,              // ⚡ 말이 끝난 뒤 기다림 2.5초(기본) → 1.8초(2026-09-25) → 1.6초(2026-10-02 「답하면 빠르게 다시 질문」). 녹음 경로는 «문장이 끝났나» 를 모르므로 1.5초까지는 안 줄인다
+    silenceMs: manual ? MIC_MANUAL_IDLE : 1600,   // ✋ 수동은 침묵으로 끝내지 않는다(30초는 안전장치). ⚡ 자동: 2.5초(기본) → 1.8초(2026-09-25) → 1.6초(2026-10-02). 녹음 경로는 «문장이 끝났나» 를 모르므로 1.5초까지는 안 줄인다
+    maxMs: manual ? MIC_MANUAL_MAX : 20000,       // ⚠️ 수동은 한 번에 최대 3분을 받아 전사로 보낸다(예전 20초) — 길게 말하는 학생을 자르지 않으려고 고른 값
     onState: function(s, info){
       if(_warmPaused || epoch!==_warmEpoch || voiceEpoch!==_warmVoiceEpoch)return;
       if(s==='ready')         _setListenLabel('🎙️ 마이크 준비 중…');
@@ -3161,7 +3161,7 @@ function _startSttSession(){
        '삐' 소리가 나서, 학생이 말을 안 하는데 8번씩 재시작하면 그게 더 성가시다. */
     var heardAnything = !!(_micBase || _micSess);
     var wantMore = !_micBySilence && !_micStopWanted
-                && _micRestarts < (_micManual() ? 40 : (heardAnything ? 8 : 3))
+                && _micRestarts < (heardAnything ? (_micManual() ? 40 : 8) : 3)   /* 아무 말도 안 들렸으면 수동이어도 3번까지 — 안드로이드 '삐' */
                 && (Date.now()-_micT0) < (_micManual() ? MIC_MANUAL_MAX : 60000);
     _micBase=_mergeSpeech(_micBase, _micSess); _micSess='';
     if(wantMore){
