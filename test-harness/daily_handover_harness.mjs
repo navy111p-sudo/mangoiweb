@@ -63,10 +63,22 @@ assert.equal((await api('/read-history',null,'carol')).reports.length,0,'unrelat
 assert.equal((await api('/read-history',null,'alice')).reports.length,0,'author does not see own report as re-read');
 assert.equal((await api('/read-history?date=2026-11-30',null,'bob')).reports.length,0,'window is 30 days');
 assert.equal((await api('/read-history',null,{ok:true,username:'teacher',isTeacher:true,role:'hq'})).status,403);
+// 📤 내가 보낸 보고 — 작성자만, 확인 상태·보완 요청 내용이 실려야 한다(짝: 남은 못 본다)
+const mineA=await api('/mine',null,'alice');
+assert.equal(mineA.ok,true);assert.equal(mineA.reports.length,1,'author sees own sent report');
+assert.equal(mineA.reports[0].status,'changes_requested','author sees review outcome');
+assert.equal(mineA.reports[0].feedback,'Confirm the result','author sees feedback');
+assert.equal(mineA.reports[0].acknowledged_by,'bob','author sees who reviewed');
+assert.equal((await api('/mine',null,'bob')).reports.length,0,'recipient does not see it as own');
+assert.equal((await api('/mine',null,'carol')).reports.length,0,'unrelated staff sees nothing');
+assert.equal((await api('/mine?date=2026-11-30',null,'alice')).reports.length,0,'mine window is 30 days');
+assert.equal((await api('/mine',null,{ok:true,username:'teacher',isTeacher:true,role:'hq'})).status,403);
 const hjs=readFileSync('cloudflare-deploy/public/js/daily-handover.js','utf8');
 assert.ok(/filter==='read'\)return readHistory/.test(hjs),'re-read filter draws history');
 assert.ok(hjs.includes("call('/read-history')")&&hjs.includes("$('reread').onclick"),'re-read button is wired');
 assert.ok(readFileSync('cloudflare-deploy/public/daily-handover.html','utf8').includes('id="mh-reread"'),'re-read button is visible');
+assert.ok(/filter==='mine'\)return mine/.test(hjs)&&hjs.includes("call('/mine')")&&hjs.includes("$('mine').onclick"),'my-reports filter is wired');
+assert.ok(readFileSync('cloudflare-deploy/public/daily-handover.html','utf8').includes('id="mh-mine"')&&readFileSync('cloudflare-deploy/public/daily-handover.html','utf8').includes('id="mh-own-status"'),'my-reports button and own status are visible');
 assert.equal(db.prepare('SELECT count(*) AS n FROM daily_handover_history').get().n,3);
 const open=normalizeHandover({work:'Checked',no_issue:true,no_open:false,open:'Follow up',owner:'bob',deadline:'2026-09-29T10:00'});
 assert.equal(checkHandover(open,'2026-09-28').ready,true);
