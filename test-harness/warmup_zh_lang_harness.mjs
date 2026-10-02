@@ -786,8 +786,10 @@ console.log('\n[ ⑯ 중국어 선생님 — 그 언어의 사람만 말한다 ]
       const P = Number(pitchDecl[1]);
       const rate = (lv, deep) => {
         try {
-          return new Function('AUDIO_RATE', '_rateLevel', 'ZH_MALE_PITCH', 'deep',
-            'return ' + rateExpr[1])({ 2: 0.65, 4: 1.0 }, lv, P, deep);
+          /* 📌 2026-10-02 — 굵게 안 만든 판은 _enMaleRate 를 지난다(영어 남자만 0.9배 하한).
+             여기서 묻는 것은 «메이·영어 여자» 라 그대로 돌려주는 것으로 물린다(남자 쪽은 warmup_feedback_1002_harness). */
+          return new Function('AUDIO_RATE', '_rateLevel', 'ZH_MALE_PITCH', 'deep', '_enMaleRate',
+            'return ' + rateExpr[1])({ 2: 0.65, 4: 1.0 }, lv, P, deep, (r) => r);
         } catch (e) { return 'ERR:' + e.message; }
       };
       /* ⓒ 굵게 만든 판은 길이가 1/P 로 늘어나 있다 — 배속을 P 로 나눠야 «원래 길이» 가 된다.

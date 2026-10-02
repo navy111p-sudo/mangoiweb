@@ -65,6 +65,9 @@ function runFinish({ said, stopWanted, retried, whisperOk = true }) {
   const src = `
     var _micBase = ${JSON.stringify(said || '')}, _micSess = '';
     var _micStopWanted = ${!!stopWanted}, _micWhisperRetried = ${!!retried};
+    /* 📌 2026-10-02 — _finishMic 이 «버튼 모드면 ⏹ 전엔 안 보낸다» 를 묻는다. 이 하니스는 «보내는 길» 을 보므로
+       자동 말하기로 둔다(버튼 모드 짝은 warmup_reply_speed_harness 가 본다). */
+    function _micManual(){ return false; } function _micManualHold(){ calls.held = (calls.held||0) + 1; }
     ${body}
     _finishMic();
     return { calls, retried: _micWhisperRetried };

@@ -210,7 +210,10 @@ function testWarmupMic() {
   let fakeZh = false;
   const sandbox = {
     document: doc,
-    window: { SpeechRecognition: FakeSR },
+    /* 📌 2026-10-02 — 침묵으로 보내는 것은 «자동 말하기» 만이다(버튼 모드는 ⏹ 를 눌러야 보낸다 —
+       warmup_reply_speed_harness 가 그 짝을 본다). 아래 시나리오는 침묵 전송을 보므로 자동 말하기로 둔다. */
+    window: { SpeechRecognition: FakeSR, WarmupAutoTalk: { isOn: () => true } },
+    WarmupAutoTalk: { isOn: () => true },   // 브라우저에선 window 가 곧 전역이라 둘 다 둔다
     setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
     unlockAudio: () => {}, _stopSpeak: () => {}, addMsg: () => {},
     isZh: () => fakeZh,
