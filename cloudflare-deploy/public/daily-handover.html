@@ -53,8 +53,8 @@
 <div id="mh-editor" class="layout"><section class="panel" aria-label="매일보고 작성">
 <div class="steps"><span id="mh-step1" class="active">① 짧게 작성</span><span id="mh-step2">② 점검·확인</span><span id="mh-step3">③ 전달</span></div>
 <div class="meta"><div><label for="mh-date">날짜 <small>Date</small></label><input id="mh-date" type="date" readonly></div><div><label for="mh-staff">담당자 <small>Staff · 자동 입력</small></label><input id="mh-staff" readonly></div></div>
-<div class="buttons"><button id="mh-voice" type="button" disabled>말로 입력 / Dictate</button><button id="mh-voice-record" type="button" disabled>녹음해서 입력 / Record instead</button><select id="mh-voice-lang" aria-label="음성 언어 / Dictation language"><option value="ko-KR">한국어</option><option value="en-US">English</option></select></div>
-<p id="mh-voice-status" class="hint" role="status">오늘 한 일에 입력됩니다. / Dictation goes into Work completed.</p><p id="mh-voice-interim" class="preview" aria-live="polite"></p><label for="mh-work">1. 오늘 한 일 <small>Work completed · 필수</small></label><textarea id="mh-work" maxlength="1500" placeholder="예: 카카오 문의 3건 답변, 내일 수업 일정 확인"></textarea>
+<div class="buttons"><button id="mh-voice-record" type="button" disabled>녹음해서 입력 / Record</button><select id="mh-voice-lang" aria-label="음성 언어 / Dictation language"><option value="ko-KR">한국어</option><option value="en-US">English</option></select></div>
+<p id="mh-voice-status" class="hint" role="status">녹음한 말은 오늘 한 일에 입력됩니다. / Recorded speech goes into Work completed.</p><label for="mh-work">1. 오늘 한 일 <small>Work completed · 필수</small></label><textarea id="mh-work" maxlength="1500" placeholder="예: 카카오 문의 3건 답변, 내일 수업 일정 확인"></textarea>
 <label for="mh-issue">2. 문제와 조치 <small>Issue & action</small></label><label class="check"><input id="mh-noissue" type="checkbox" checked>문제 없음 / No issues</label><textarea id="mh-issue" maxlength="1000" placeholder="예: 학생 음성이 안 들려 재접속 안내. 정상 수신 확인." hidden></textarea>
 <label for="mh-open">3. 남은 일 <small>Open items</small></label><label class="check"><input id="mh-noopen" type="checkbox" checked>남은 일 없음 / No open items</label>
 <div id="mh-follow" hidden><input id="mh-open" maxlength="500" placeholder="예: 다음 수업 전 음성 재확인"><div class="meta" style="margin-top:12px"><div><label for="mh-owner">후속 담당자 <small>Owner</small></label><select id="mh-owner"><option value="">선택 / Select</option></select></div><div><label for="mh-deadline">기한 <small>한국 시간 / KST</small></label><input id="mh-deadline" type="datetime-local"></div></div></div>
@@ -74,6 +74,6 @@
 <details class="panel" style="margin-top:18px"><summary>받은 보고 읽기 알림 / Read-reminder hours</summary><p>일반 보고: 1시간마다 · 긴급 보고: 15분마다, 근무시간 밖에도 알림<br>Normal: hourly during your shift. Urgent: every 15 minutes, including off-hours.<br>확인 완료 또는 보완 요청 시 종료 / Stops after acknowledgement or a request for changes.</p><div id="mh-read-weekdays" class="row"></div><div class="meta"><label>시작 / Start (KST)<input id="mh-read-start" type="time" value="09:00"></label><label>종료 / End (KST)<input id="mh-read-end" type="time" value="19:00"></label></div><button id="mh-read-save" type="button">읽기 알림 시간 저장 / Save hours</button><p id="mh-read-status" role="status"></p><p class="small">새 보고는 화면에 즉시 표시됩니다. 푸시 재알림은 15분 주기로 확인합니다. / In-app alerts remain visible; push reminders are checked every 15 minutes.</p><a href="/work#pushBtn">기기 알림 켜기 / Enable device notifications</a></details></main>
 </div>
 <script src="/js/mangoi-voice-input.js?v=5" defer></script>
-<script src="/js/handover-dictation.js?v=1" defer></script>
-<script src="/js/daily-handover.js?v=5" defer></script>
+<script src="/js/handover-dictation.js?v=2" defer></script>
+<script src="/js/daily-handover.js?v=6" defer></script>
 </body></html>
