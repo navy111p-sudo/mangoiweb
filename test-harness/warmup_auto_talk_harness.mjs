@@ -275,6 +275,7 @@ function runSpeak({ speechOn = true, btn = null, interrupt = false, synth = fals
     _speechEverStarted: false, AUDIO_RATE: { 3: 1 }, _rateLevel: 3, ZH_MALE_PITCH: 0.78,
     _ttsCache: { 'emma|hi there': 'blob:x' }, _ttsEng: { 'emma|hi there': 'azure' },
     window: {}, Audio: function () { return audio; },
+    _enMaleRate: (r) => r,   // 2026-10-02 남자 목소리 배속 하한 — 여기선 여자 목소리라 그대로(짝은 warmup_feedback_1002_harness)
     _speechText: (t) => t, isZh: () => synth, _voiceGender: () => (synth ? 'male' : 'female'), _zhMaleVoiceReady: () => synth,
     nextSpeaker: () => 'emma', _zhMaleWanted: () => false, _synthSpeak(t, b, d) { synthDone = d; }, _ttsSpeak() {},
     _autoHook: (e, a) => hooks.push(e),

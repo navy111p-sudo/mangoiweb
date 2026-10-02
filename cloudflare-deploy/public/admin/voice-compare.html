@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>남자 목소리 비교 듣기 — 망고아이</title>
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2"><!-- 한자 글꼴 통일 (hanzi_font_harness) — /css 루트 자산이라 admin/ 자산 금지 규칙에 안 걸림 -->
+<!--
+  🎙️ 남자 목소리 비교 듣기 (voice-compare) — 2026-10-02
+
+  [왜] 피드백 「제이크랑 노아는 보이스가 어색함」 → 사장님 「2번을 없애지는 말고 목소리를 개선」.
+       어느 목소리가 더 나은지는 귀로만 정할 수 있다(작업 환경에는 오디오 디코더가 없어 들을 수 없다).
+       그래서 후보 목소리 × 속도를 같은 문장으로 나란히 들어 보고 사람이 고르는 화면이다.
+
+  [무엇을 비교하나]
+   · 목소리: Deepgram Aura-2 영어 남자 목소리 중 8개 (apollo=지금 Jake, aries=지금 Noah)
+   · 속도: 원음 1.0배 / 0.9배(새 방식 — 웜업이 남자 목소리를 이 이상 안 늘인다) /
+           0.8배(예전 «보통» — 브라우저가 늘여 재생해 낮은 목소리에서 끊김이 커지던 방식)
+
+  ⚠️ 저장하지 않는다 — 고른 결과는 사람이 알려 주면 warmup.html·ai-friend.html 의 speaker 를 바꾼다.
+  ⚠️ 각 칸에 서버가 실제로 쓴 목소리(X-TTS-Speaker)를 함께 적는다 — 서버가 잠깐 흔들리면
+     예비 목소리(Aura-1)로 바뀌는데, 그 소리로 판단하면 엉뚱한 목소리를 고르게 된다.
+  ⚠️ /admin/ 아래라 CSS·JS 는 인라인(로그인 게이트가 /admin/ 자산을 막는다).
+-->
+<style>
+:root{
+  --bg:#f5f7fb; --card:#ffffff; --tx:#101828; --tx2:#475467; --line:#d0d5dd;
+  --ac:#1d4ed8; --ac-soft:#e0e7ff; --ok:#047857; --warn:#b45309;
+  --mono:ui-monospace,Consolas,"SF Mono",monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);
+  font-family:MangoiHanSC,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;font-size:15px;line-height:1.6}
+.wrap{max-width:980px;margin:0 auto;padding:24px 16px 60px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--tx2);margin:0 0 18px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:16px}
+.box h2{font-size:15px;margin:0 0 8px}
+.sent{display:flex;flex-wrap:wrap;gap:8px}
+.sent button{border:1px solid var(--line);background:#fff;color:var(--tx);border-radius:999px;padding:6px 12px;cursor:pointer;font:inherit;font-size:13.5px}
+.sent button.on{background:var(--ac-soft);border-color:var(--ac);color:var(--ac);font-weight:700}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:620px}
+th,td{border-top:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:middle}
+th{font-size:12.5px;color:var(--tx2);font-weight:600;border-top:0}
+td.name b{font-family:var(--mono);font-size:14px}
+td.name small{display:block;color:var(--tx2);font-size:12px}
+.now{display:inline-block;font-size:11.5px;background:#fef3c7;color:var(--warn);border-radius:999px;padding:0 8px;margin-left:6px}
+.play{border:1px solid var(--ac);background:#fff;color:var(--ac);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit;font-size:13.5px;min-width:76px}
+.play:hover{background:var(--ac-soft)}
+.play.busy{opacity:.6}
+.got{display:block;font-size:11.5px;color:var(--tx2);margin-top:3px;font-family:var(--mono)}
+.got.bad{color:var(--warn)}
+.note{font-size:13px;color:var(--tx2)}
+.note b{color:var(--tx)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎙️ 남자 목소리 비교 듣기</h1>
+  <p class="sub">A.i 말하기 연습·A.i 친구하기의 <b>Jake</b>·<b>Noah</b> 목소리를 고르는 화면입니다. 같은 문장을 목소리·속도별로 들어 보세요.</p>
+
+  <div class="box">
+    <h2>1. 들을 문장</h2>
+    <div class="sent" id="sents"></div>
+  </div>
+
+  <div class="box">
+    <h2>2. 목소리 × 속도</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>목소리</th><th>원음 1.0배</th><th>0.9배 (새 방식)</th><th>0.8배 (예전 «보통»)</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+    <p class="note">버튼 아래 작은 글씨는 <b>서버가 실제로 쓴 목소리</b>입니다. 고른 이름과 다르게 나오면(주황색) 서버가 잠깐 예비 목소리로 바꾼 것이라, 그 소리로는 판단하지 마시고 다시 눌러 주세요.</p>
+  </div>
+
+  <div class="box">
+    <h2>3. 고르셨으면</h2>
+    <p class="note">Jake·Noah에게 줄 목소리 이름(예: <b>orion</b>)을 알려 주세요. 두 화면(말하기 연습·친구하기)에서 함께 바꿉니다. 얼굴은 그대로입니다.<br>
+    웜업에서는 이미 «남자 목소리는 0.9배보다 늘이지 않고 문장 사이를 쉬는» 방식으로 바뀌었습니다(0.9배 칸이 지금 실제로 들리는 소리에 가깝습니다).</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  /* 후보 — Aura-2 남자 목소리(서버 src/api-games.ts 의 AURA2_MALE 안에서만 고른다).
+     ⛔ 목록 밖 이름을 넣지 마세요 — 서버가 모르는 이름이면 기본 여자 목소리로 떨어집니다. */
+  var VOICES = [
+    { id:'apollo',   note:'지금 Jake' },
+    { id:'aries',    note:'지금 Noah' },
+    { id:'arcas',    note:'' },
+    { id:'orion',    note:'' },
+    { id:'orpheus',  note:'' },
+    { id:'odysseus', note:'' },
+    { id:'hermes',   note:'' },
+    { id:'zeus',     note:'' }
+  ];
+  var RATES = [1.0, 0.9, 0.8];
+  var SENTS = [
+    "Hi! I'm Jake. What did you do this weekend?",
+    "Nice job! Do you like pizza or chicken?",
+    "Let's talk about your favorite sport. Why do you like it?"
+  ];
+  var cur = 0, audio = null, cache = {};
+
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  function drawSents(){
+    var h = '';
+    SENTS.forEach(function(t, i){ h += '<button type="button" data-i="'+i+'" class="'+(i===cur?'on':'')+'">'+esc(t)+'</button>'; });
+    document.getElementById('sents').innerHTML = h;
+  }
+  function drawRows(){
+    var h = '';
+    VOICES.forEach(function(v){
+      h += '<tr><td class="name"><b>'+esc(v.id)+'</b>'+(v.note?'<span class="now">'+esc(v.note)+'</span>':'')+'</td>';
+      RATES.forEach(function(r){
+        h += '<td><button type="button" class="play" data-v="'+v.id+'" data-r="'+r+'">▶ '+r.toFixed(1)+'배</button>'
+          +  '<span class="got" data-got="'+v.id+'"></span></td>';
+      });
+      h += '</tr>';
+    });
+    document.getElementById('rows').innerHTML = h;
+  }
+
+  function fetchVoice(spk, text){
+    var k = spk + '|' + text;
+    if(cache[k]) return Promise.resolve(cache[k]);
+    return fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text:text, lang:'en', speaker:spk }) })
+      .then(function(r){
+        var ct = r.headers.get('content-type') || '';
+        if(!r.ok || ct.indexOf('audio') < 0) throw new Error('HTTP ' + r.status);
+        var got = String(r.headers.get('X-TTS-Speaker') || '').toLowerCase();
+        var eng = String(r.headers.get('X-TTS-Engine') || '');
+        return r.blob().then(function(b){
+          var o = { u: URL.createObjectURL(b), got: got, eng: eng };
+          if(!got || got === spk) cache[k] = o;   // 예비 목소리로 바뀐 것은 저장하지 않는다
+          return o;
+        });
+      });
+  }
+
+  function play(btn){
+    var spk = btn.getAttribute('data-v'), rate = Number(btn.getAttribute('data-r'));
+    var gotEls = document.querySelectorAll('[data-got="'+spk+'"]');
+    btn.classList.add('busy');
+    fetchVoice(spk, SENTS[cur]).then(function(o){
+      btn.classList.remove('busy');
+      var same = !o.got || o.got === spk;
+      gotEls.forEach(function(el){
+        el.textContent = (o.got || spk) + (o.eng ? ' · ' + o.eng : '');
+        el.classList.toggle('bad', !same);
+      });
+      if(audio){ try{ audio.pause(); }catch(e){} }
+      audio = new Audio(o.u);
+      audio.playbackRate = rate;
+      try{ audio.preservesPitch = true; audio.webkitPreservesPitch = true; }catch(e){}
+      audio.play().catch(function(){});
+    }).catch(function(e){
+      btn.classList.remove('busy');
+      gotEls.forEach(function(el){ el.textContent = '못 받음 (' + e.message + ')'; el.classList.add('bad'); });
+    });
+  }
+
+  document.getElementById('sents').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-i]'); if(!b) return;
+    cur = Number(b.getAttribute('data-i')); drawSents();
+  });
+  document.getElementById('rows').addEventListener('click', function(e){
+    var b = e.target.closest('button.play'); if(b) play(b);
+  });
+  drawSents(); drawRows();
+})();
+</script>
+</body>
+</html>

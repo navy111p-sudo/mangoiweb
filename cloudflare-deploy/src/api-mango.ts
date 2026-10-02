@@ -3115,6 +3115,37 @@ ${numbered}`;
         return json({ ok: true, en: outEn, ko: outKo, ...(noteDebug ? { _debug: dbgNote } : {}) });
       }
 
+      /* 🚩 mode='learn_report' — 학생이 «뜻이 이상해요» 를 눌렀을 때 그 문장·뜻을 적어 둔다(2026-10-02 피드백 1번).
+         ⚠️ 새 경로를 안 만든 이유는 위 chat 모드와 같다(index.ts 허용목록이 정확일치).
+         ⚠️ 무인증 공개 경로라 «적기만» 한다 — 캐시를 지우거나 번역을 바꾸지 않는다(사람이 보고 고친다).
+         ⚠️ 길이 300자 · 같은 (문장, 뜻) 은 한 줄 · 하루 500줄 상한(전체 공유 — IP 별 상한은 없다) — 넘으면 stored:false.
+         ⛔ 이 표를 화면에 그릴 때는 반드시 이스케이프 — text·meaning 은 아무나 넣을 수 있는 값이다(저장형 XSS).
+         지금은 읽는 화면이 없다 — SELECT text, meaning, count FROM learn_meaning_reports ORDER BY count DESC. */
+      if (b.mode === 'learn_report') {
+        const rText = String(b.text || '').trim().slice(0, 300);
+        const rMean = String(b.meaning || '').trim().slice(0, 300);
+        const rPage = String(b.page || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 30);
+        if (!rText || !rMean) return json({ ok: false, error: 'missing' }, 400);
+        let stored = false;
+        try {
+          if (!(globalThis as any).__learnReportTable) await env.DB.prepare(`CREATE TABLE IF NOT EXISTS learn_meaning_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL, meaning TEXT NOT NULL,
+            page TEXT, count INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, last_at INTEGER NOT NULL,
+            UNIQUE(text, meaning))`).run();
+          (globalThis as any).__learnReportTable = true;   // 같은 워커 인스턴스에선 표 만들기를 한 번만
+          const now = Date.now();
+          const day: any = await env.DB.prepare('SELECT COUNT(*) AS n FROM learn_meaning_reports WHERE last_at > ?')
+            .bind(now - 86400000).first();
+          if (Number(day && day.n) < 500) {
+            await env.DB.prepare(`INSERT INTO learn_meaning_reports (text, meaning, page, count, created_at, last_at)
+              VALUES (?, ?, ?, 1, ?, ?) ON CONFLICT(text, meaning) DO UPDATE SET count = count + 1, last_at = excluded.last_at`)
+              .bind(rText, rMean, rPage, now, now).run();
+            stored = true;
+          }
+        } catch (e) { console.warn('[learn_report] store failed', String(e)); }
+        return json({ ok: true, stored });
+      }
+
       //   ⚠️ 채팅 캐시 접두사에 번호를 붙인다. 프롬프트를 고치면 반드시 올릴 것 —
       //      안 올리면 옛 프롬프트로 만든 번역이 180일 동안 그대로 나온다.
       //      trc2: 존댓말 고정 / trc3: 어미 중첩 금지(프롬프트) / trc4: 어미 중첩 코드 교정(2026-07-29).

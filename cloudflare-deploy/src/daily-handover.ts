@@ -240,6 +240,15 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       const rows=(result.results||[]).filter(r=>visible(r,actor)||r.acknowledged_by===me);
       return reply({ok:true,since,reports:rows.map(rowData),files:await attachmentsFor(env,rows)});
     }
+    // 📤 내가 보낸 보고(2026-10-02) — 제출한 보고는 «받은 보고» 쪽에 안 나와 작성자가 «확인됐나» 를 볼 곳이 없었다.
+    // 작성자 본인 것만(최근 30일). 초안도 포함해 «아직 안 보냈다» 를 사실대로 보인다.
+    if(request.method==='GET'&&route==='/mine'){
+      const since=new Date(Date.parse(day+'T00:00:00Z')-29*86400000).toISOString().slice(0,10);
+      const result=await env.DB.prepare(`SELECT * FROM daily_handovers WHERE username=? AND report_date>=? AND report_date<=?
+        ORDER BY report_date DESC, updated_at DESC LIMIT 60`).bind(me,since,day).all();
+      const rows=result.results||[];
+      return reply({ok:true,since,reports:rows.map(rowData),files:await attachmentsFor(env,rows)});
+    }
     if (request.method === 'GET' && route === '/home') {
       const members = await accounts(env);
       const own = await env.DB.prepare(`SELECT * FROM daily_handovers WHERE username=? AND report_date=?`).bind(me,day).first();
