@@ -61,6 +61,8 @@ import { replyRejectReason } from './reply-sanity';                    // 🧯 �
 import { normalizeWarmupLang, warmupZhSystem, WARMUP_ZH_LEVELS, zhWarmupSentences, zhStudentByTeacher,
          warmupZhAnswerChips, WARMUP_ZH_FALLBACK_QUESTIONS, WARMUP_ZH_QUESTION_LANG } from './warmup-zh';  // 🀄 중국어 대화 정본(2026-09-13) — 영어 규칙은 한 글자도 안 건드린다
 import { applyEmpathyGuard, WARMUP_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
+import { warmupChatEntry, createWarmupLive, readWarmupAiStream } from './warmup-stream';  // 📡 P2 웜업 문장 단위 스트리밍(옵트인 — 2026-10-02)
+import { recordAiLatency } from './ai-latency-log';                     // ⏱ «학생이 얼마나 기다리는가» — 웜업도 같은 표에(feature='warmup')
 // «영어만» 게이트 — review_quizzes 는 영어 전용 표가 아니다(중국어 교재 「다락원」이 함께 들어 있다).
 // 라틴 글자 유무로 판정하면 병음이 그대로 통과한다. 정본은 english-only.ts 한 곳뿐.
 import { isEnglishText, isEnglishQuestion } from './english-only';
@@ -585,7 +587,10 @@ const worker = {
     //   - POST /api/warmup/chat     {session_id, student_input, lesson_topic?, user_id?, textbook?, level?, lesson_no?}
     //   - GET  /api/warmup/context  ?user_id=&textbook=&level=&lesson=  → 오늘 배울 교재/문장 (students_erp + review_quizzes)
     if (path === '/api/warmup/chat' && request.method === 'POST') {
-      return handleWarmupChat(request, env);
+      /* 📡 P2 (2026-10-02 사장님 승인) — 본문에 stream:1 이 있을 때만 SSE 로 문장을 먼저 흘린다.
+         없으면 warmupChatEntry 가 아래 핸들러 응답을 «그대로» 돌려준다(옛 화면은 한 바이트도 안 바뀜).
+         정본·안전문(gate)·done 계약은 src/warmup-stream.ts 머리말. */
+      return warmupChatEntry(request, (req, send) => handleWarmupChat(req, env, send));
     }
     if (path === '/api/warmup/context' && request.method === 'GET') {
       return handleWarmupContext(request, env);
@@ -4150,7 +4155,11 @@ async function handleGamesRecommend(request: Request, env: Env): Promise<Respons
   }
 }
 
-async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
+async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) => void) | null = null): Promise<Response> {
+  /* ⏱ 지연 기록(feature='warmup') — 정본 ai-latency-log.ts. 학생 발화·답변은 싣지 않는다(길이만).
+     📡 sseSend 가 있으면(P2) 첫 모델 호출의 문장을 먼저 흘린다 — 없으면 예전과 똑같다. */
+  const latT0 = Date.now();
+  let latModelMs = 0, latTries = 0;
   try {
     let body: any = {};
     try { body = await request.json(); } catch {}
@@ -4322,14 +4331,32 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     };
     /* ⚠️ 모델을 부르는 곳은 «여기 하나» 다 — 폴백을 첫 호출에만 두면 나머지 네 경로가
        그 보호를 못 받고, 「AI 호출 수 == 추출 수」 짝도 어긋난다(하니스가 잡았다). */
-    const runWarmup = async (msgs: any[], temperature: number): Promise<any> => {
+    /* 📡 live(P2) 는 «첫 호출» 에만 넘긴다 — 재시도까지 흘리면 이미 보낸 문장과 새 답이 뒤섞인다
+       (그때는 done 의 replaced:1 로 화면이 정본을 다시 읽는다). 스트림이 안 되면(모델·계정이
+       지원 안 함·중간에 끊김) 같은 호출을 «예전 방식» 으로 다시 해 이득만 잃는다. */
+    const runWarmup = async (msgs: any[], temperature: number, live: any = null): Promise<any> => {
+      const mT0 = Date.now();   // ⏱ 실패한 호출도 센다(그 시간도 학생은 기다린다) — finally 인 이유
+      latTries++;
       try {
+        if (live) {
+          try {
+            const st: any = await env.AI.run(WARMUP_MODEL, { ...warmupAIOpts(msgs, temperature), stream: true });
+            if (!st || typeof st.getReader !== 'function') return st;
+            return { response: await readWarmupAiStream(st, ctxLang, (sen: string) => { live.push(sen); }) };
+          } catch (se: any) {
+            console.warn('[warmup] stream call failed, falling back:', se?.message || se);
+            latTries++;
+          }
+        }
         return await env.AI.run(WARMUP_MODEL, warmupAIOpts(msgs, temperature));
       } catch (rfErr: any) {
         if (!warmupRF || !isRfRejection(rfErr)) throw rfErr;   // 제약 탓이 아니면 그대로 위로 올린다
         console.warn('[warmup] response_format rejected, retrying without:', rfErr?.message || rfErr);
         warmupRF = false;
+        latTries++;
         return await env.AI.run(WARMUP_MODEL, warmupAIOpts(msgs, temperature));
+      } finally {
+        latModelMs += Date.now() - mT0;
       }
     };
     const takeWarmupReply = (r: any): string => {
@@ -4350,8 +4377,33 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
        재시도 답장은 거절될 수 있는데(이름·반복 검사), 파싱하자마자 rawFix 를 덮으면
        화면의 답장은 옛것인데 교정 카드만 새 답장의 것이 되어 서로 어긋난다. */
     const commitFix = () => { rawFix = stagedFix; rawHelp = stagedHelp; };
+    /* ⏱ 지연 기록 — ⛔ 학생 발화·답변은 한 글자도 싣지 않는다(길이만). ⛔ 기록이 대화를 막으면 안 된다
+       (통째로 try/catch). level 은 AI 친구와 같은 눈금(1단계 = S1 — CLAUDE.md «레벨은 한 눈금»). */
+    const logWarmupLatency = async (replyText: string, ok: number): Promise<void> => {
+      try {
+        await recordAiLatency(env, {
+          feature: 'warmup',
+          model: WARMUP_MODEL,
+          ms: Date.now() - latT0,
+          model_ms: latModelMs,
+          tries: latTries,
+          chars: String(replyText || '').length,
+          level: ctxDifficulty ? 'S' + ctxDifficulty : undefined,
+          rf: warmupRF ? 1 : 0,
+          ok,
+        });
+      } catch (e: any) {
+        console.error('[warmup] recordAiLatency failed:', e?.message || e);
+      }
+    };
+    /* ⚠️ 중국어는 0(끔) — 아래 «무너진 출력 차단» 주석 참고. 📡 P2 의 «먼저 막는 문» 도 같은 값을 써야
+       해서 첫 호출 «앞» 으로 끌어올렸다(값·식은 그대로다). */
+    const sanityCap = ctxLang === 'zh' ? 0 : (WARMUP_WORD_CAP[ctxDifficulty] || 0);
+    /* 📡 P2 — 흘려보낼 문장을 «내보내기 직전» 에 같은 정본 판정(replyRejectReason·wrongSelfName)에 건다.
+       걸리면 그 자리에서 미리보기를 멈춘다. 정본·이유는 src/warmup-stream.ts 머리말. */
+    const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput }) : null;
     try {
-      const result: any = await runWarmup(messages, 0.7);
+      const result: any = await runWarmup(messages, 0.7, live);
       aiText = takeWarmupReply(result); commitFix();
       // 🔁 (2026-07-27) Workers AI 가 드물게 빈 응답을 준다 — 이걸 그대로 두면 아래
       //    "Let's try again" 문구가 나가서, 학생은 자기가 잘 말했는데도 AI가 못 알아들은
@@ -4373,8 +4425,8 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       /* ⚠️ 중국어는 0(끔) — replyRejectReason 의 길이 판정이 «낱말 수» 인데 중국어 문장은
             공백이 없어 늘 1~2낱말로 세어져 상한에 원리상 안 걸린다. 잘못된 단위로 재느니
             안 재는 편이 낫다(길이 외 판정은 그대로 돈다). 글자 기준 상한은
-            src/warmup-zh.ts 의 WARMUP_ZH_CHAR_CAP 에 적어 두었다 — 쓰려면 별건. */
-      const sanityCap = ctxLang === 'zh' ? 0 : (WARMUP_WORD_CAP[ctxDifficulty] || 0);
+            src/warmup-zh.ts 의 WARMUP_ZH_CHAR_CAP 에 적어 두었다 — 쓰려면 별건.
+         (sanityCap 선언은 📡 P2 로 첫 호출 «앞» 으로 옮겼다 — 값은 그대로) */
       let broke = aiText ? replyRejectReason(aiText, sanityCap) : '';
       if (broke) {
         /* ⚠️ 본문을 로그에 남기지 않는다 — 학생 이름·대화 내용이 섞입니다.
@@ -4420,6 +4472,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
         if (retryText && !warmupIsRepeat(retryText, history)) { aiText = retryText; commitFix(); }
       }
     } catch (e: any) {
+      await logWarmupLatency('', 0);   // ⏱ 실패한 턴의 지연도 «사실» 이라 남긴다(ok=0)
       return new Response(JSON.stringify({ detail: 'AI 응답 생성 실패: ' + String(e?.message || e) }), { status: 502, headers: _MS_JSON });
     }
     // (2026-07-27) 문구 변경: "Let's try again"은 "네가 잘못 말했다"로 읽혀서 학생이
@@ -4431,6 +4484,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       console.warn('[warmup] model returned plain text (no JSON) x' + warmupPlain + ' rf=' + warmupRF);
     }
     if (warmupEmpty) console.warn('[warmup] model returned empty x' + warmupEmpty);
+    const modelOk = !!aiText;   // ⏱ 모델이 답을 만들었나 — 아래 안전 문구로 떨어지면 0
     if (!aiText) {
       aiText = "Oops, I got a little confused there! Can you tell me one more time? 😊";
       /* ⚠️ 답장을 버렸으면 그 출력에서 뽑은 교정도 함께 버린다 — 안 그러면 AI 가
@@ -4493,6 +4547,8 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       console.warn('[warmup] fix gate skipped:', e?.message || e);
     }
 
+    await logWarmupLatency(aiText, modelOk ? 1 : 0);
+
     // 💬 「어떻게 대답하면 되나」 보기 칩 — AI 질문에서 «결정론적으로» 유도한다(src/warmup-answers.ts).
     //    LLM 을 한 번 더 부르지 않으므로 응답이 느려지지 않고, 못 만들면 빈 배열이라 화면이 아무것도 안 그린다.
     return new Response(JSON.stringify({
@@ -4502,6 +4558,9 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
             중국어를 고른 학생에게 영어 보기가 그대로 뜬다(src/warmup-zh.ts 의 주석 참고). */
       answer_chips: ctxLang === 'zh' ? warmupZhAnswerChips(aiText, ctxDifficulty) : warmupAnswerChips(aiText, ctxDifficulty),
       fix: showFix, repeat: offerRepeat, speaking_help: rawHelp,
+      /* 📡 P2 — 스트리밍 요청일 때만 싣는다(옛 응답 모양은 그대로). 흘려보낸 것과 최종본이 다르면
+         replaced:1 → 화면이 읽던 것을 멈추고 정본을 처음부터 읽는다. halted 는 «이유 코드» 뿐이다. */
+      ...(live ? { replaced: live.replacedBy(aiText), streamed: live.sent(), ...(live.halted() ? { halted: live.halted() } : {}) } : {}),
     }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ detail: 'warmup_failed: ' + String(e?.message || e) }), { status: 500, headers: _MS_JSON });
