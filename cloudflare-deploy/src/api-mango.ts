@@ -68,6 +68,7 @@ import { applyRoomOverrides } from './class-room-override';       // 🚪 「오
 import { studentRequestGate, ensureScheduleChangeRequestTable } from './student-schedule-request';  // 📅 학생 연기·변경 요청 판정 정본
 import { loadSchedSummaryMap, loadSchedSummaryOne, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약 수업」 칸 정본 (students_erp 의 수강 칸은 카페24가 정본이라 늘 «—» 였다)       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 import { isPostponedOccurrence } from './class-postponed';  // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { isUsableKoMeaning, stripJamoRuns } from './learn-meaning-check';  // 🧹 «뜻» 카드에 'ㅋㅋㅋㅋ' 가 나가지 않게(2026-10-02)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -3127,7 +3128,9 @@ ${numbered}`;
         if (already) { map[t] = t; continue; }
         let cached: string | null = null;
         if (kv) { try { cached = await kv.get(cacheKey(t)); } catch {} }
-        if (cached != null && !(target === 'ko' && hasForeignGloss(cached))) map[t] = cached; else need.push(t);
+        // 🧹 learn 모드는 저장된 뜻도 다시 본다 — 'ㅋㅋㅋㅋ' 처럼 이미 굳은 값은 버리고 새로 번역한다(learn-meaning-check.ts).
+        if (cached != null && !(target === 'ko' && hasForeignGloss(cached))
+            && !(learnMode && target === 'ko' && !isUsableKoMeaning(cached, t))) map[t] = cached; else need.push(t);
       }
       const dbg: any = { ai: !!ai, need: need.length, raw: null, err: null };
       // 번역 전용 모델 m2m100 (LLM 프롬프트보다 안정적). 텍스트별 번역.
@@ -3259,6 +3262,8 @@ ${numbered}`;
                 mt = (resp && typeof resp.translated_text === 'string' && resp.translated_text.trim()) ? String(resp.translated_text) : '';
               }
               if (target === 'ko' && hasForeignGloss(mt)) mt = '';
+              // 🧹 learn 모드: 자모 반복을 걷어내고, 완성 음절이 없으면 «번역 실패» 로 본다(저장도 안 함).
+              if (learnMode && target === 'ko' && mt) { mt = stripJamoRuns(mt); if (!isUsableKoMeaning(mt, src)) mt = ''; }
               mtOk = !!mt;
               // 번역이 없으면 원문(src)을 그대로 붙여 둔다 — 뗀 말머리만이라도 보여 주는 편이 낫다.
               // 다만 «다음에 다시 시도» 할 수 있게 캐시는 하지 않는다(mtOk=false).

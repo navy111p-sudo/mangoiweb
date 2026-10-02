@@ -84,6 +84,54 @@ const OPTION_BLOCK = new Set([
 
 const ARTICLES = new Set(['a', 'an', 'the']);
 
+/**
+ * 🎨 «바꿔 말하기» 낱말 묶음 (2026-10-02 사장님 제보 — 예시가 늘 「Yes, I do / No, I don't」).
+ * 「Do you like the red ball?」 처럼 질문에 이 묶음의 낱말이 들어 있으면, 같은 묶음의 «다른» 낱말로
+ * 바꾼 두 번째 대답을 만든다 → 「I like the red ball. / I like the blue ball.」
+ * 같은 품사·같은 자리끼리만 바꾸므로 문법이 깨지지 않는다(손으로 만든 목록 = 지어내지 않음).
+ * ⚠️ 화면(js/warmup-guide.js)은 두 대답에서 «서로 다른 낱말» 을 찾아 노랗게 칠하고 그 둘을 오간다.
+ *    그래서 이 목록을 화면에 복제하지 않는다.
+ */
+const SWAP_SETS: string[][] = [
+  ['red', 'blue', 'green', 'yellow', 'pink', 'purple', 'orange', 'black', 'white', 'brown'],
+  ['dogs', 'cats', 'rabbits', 'birds', 'fish'],
+  ['dog', 'cat', 'rabbit', 'bird', 'hamster'],
+  ['pizza', 'chicken', 'apples', 'bananas', 'ice cream', 'cake', 'noodles', 'rice'],
+  ['soccer', 'baseball', 'basketball', 'tennis', 'swimming'],
+  ['summer', 'winter', 'spring', 'fall'],
+];
+
+/** 낱말 하나를 같은 묶음의 다음 낱말로. 묶음에 없으면 ''. */
+function swapWord(w: string): string {
+  for (const set of SWAP_SETS) {
+    const i = set.indexOf(w);
+    if (i >= 0) return set[(i + 1) % set.length];
+  }
+  return '';
+}
+
+/**
+ * 「Do you like the red ball?」 → ['I like the red ball.', 'I like the blue ball.']
+ * 질문의 목적어 안에 바꿀 낱말이 «정확히 하나» 있을 때만 만든다. 확신이 없으면 [].
+ */
+function swapAnswers(low: string): string[] {
+  const carrier = CARRIERS.find((c) => c.re.test(low) && c.lead !== 'I am');
+  if (!carrier || /\bor\b/.test(low)) return [];
+  const m = low.match(/\bdo you (?:like|want|prefer|have)\s+([^?.!,]+)\?/);
+  if (!m) return [];
+  const w = m[1].replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean);
+  if (!w.length || w.length > 4) return [];
+  for (let i = 0; i < w.length; i++) {
+    if (OPTION_BLOCK.has(w[i])) return [];
+    if (ARTICLES.has(w[i]) && i !== 0) return [];
+  }
+  const idx: number[] = [];
+  w.forEach((x, i) => { if (swapWord(x)) idx.push(i); });
+  if (idx.length !== 1) return [];
+  const alt = w.slice(); alt[idx[0]] = swapWord(w[idx[0]]);
+  return [`${carrier.lead} ${w.join(' ')}.`, `${carrier.lead} ${alt.join(' ')}.`];
+}
+
 /** 보기 한 개가 문장으로 쓸 만한 «이름» 인가 — 아니면 빈 문자열(= 만들지 않음). */
 function cleanOption(words: string[], lead: string): string {
   const w = words.slice();
@@ -160,6 +208,9 @@ export function warmupAnswerChips(aiText: unknown, level: unknown): string[] {
         for (const o of opts) out.push(`${carrier.lead} ${o}.`);
       }
     }
+    // ①-b 바꿔 말하기 — 「Do you like the red ball?」 → 「I like the red ball. / I like the blue ball.」
+    //      늘 같은 「Yes, I do. / No, I don't.」 대신 «그 질문의 낱말» 로 대답하게 한다(2026-10-02).
+    if (!out.length) for (const a of swapAnswers(low)) out.push(a);
     // ② Yes/No — 조동사가 맞는 교과서 짧은 대답
     if (!out.length) {
       const m = YESNO.find((y) => y.re.test(low));

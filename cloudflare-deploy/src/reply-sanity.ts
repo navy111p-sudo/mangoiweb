@@ -88,8 +88,19 @@ export function replyBreakReason(text: string): string {
   if (/\\/.test(t)) return 'backslash';
   if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(t)) return 'control';
 
+  /* ⑥ 🚸 아이에게 내보내면 안 되는 표현 (2026-10-02 사장님 화면 실사고).
+        웜업 AI 가 「Do you like blue balls? / red balls?」 를 물었다 — 영어권에서 성적인 속어로 들린다.
+        프롬프트에 «쓰지 마» 를 적는 것만으로는 안 지켜진다(이 저장소의 반복 실측). 그래서 여기서
+        «버릴 이유» 로 돌려주고, 부르는 쪽(웜업 handleWarmupChat)이 이미 하는 대로 한 번 다시 뽑게 한다.
+        ⚠️ 목록은 «아이 수업에 나올 이유가 없는» 낱말만 둔다 — 「the red ball」(단수)은 괜찮다.
+        ⛔ 문장을 고쳐 쓰지 않는다(이 파일 머리말) — 버리고 다시 뽑을 뿐이다. */
+  if (UNSAFE_FOR_KIDS.test(t)) return 'unsafe';
+
   return '';
 }
+
+/** 아이 영어 수업 AI 가 쓰면 안 되는 표현. 낱말 경계로만 잡는다(«ball» 단수·«baseball» 은 통과). */
+const UNSAFE_FOR_KIDS = /\b(?:balls|boobs?|sexy|sex|horny|penis|vagina|nude|porn)\b/i;
 
 /** 그 레벨에서 «너무 긴가» — 프롬프트가 안 지켜졌을 때의 안전망.
  *  ⚠️ 상한은 목표의 두 배 + 6낱말로 넉넉히 둔다. 문법을 지키다 조금 넘는 것을 버리면 안 된다

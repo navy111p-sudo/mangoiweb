@@ -196,6 +196,14 @@
     border-radius:999px;padding:6px 14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
   .mean-btn:hover{background:rgba(167,139,250,.28)}
   .mean-btn.on{background:#a78bfa;color:#1e1b4b}
+  /* 👀 뜻 가리개 (2026-10-02 사장님 «뜻을 모를 때만 보게») — 뜻이 «있다는 것» 만 보이고 읽히지는 않는다.
+     누르면 그 자리에 뜻(.ko-chip)이 열린다. 한동안 아무것도 안 하면 .nudge 로 살짝 알려 준다(js/warmup-guide.js). */
+  .mean-btn.mean-veil{display:flex;width:100%;box-sizing:border-box;margin-left:0;justify-content:flex-start;flex-wrap:wrap;
+    border-style:dashed;background:transparent;min-height:44px;border-radius:12px;font-weight:700;text-align:left}
+  .mean-veil .mv-blur{filter:blur(5px);color:#c4b5fd;font-weight:500;user-select:none;pointer-events:none}
+  .mean-veil.nudge{border-color:#fcd34d;color:#fcd34d;animation:mvNudge 1.1s ease-in-out 2}
+  @keyframes mvNudge{50%{transform:translateY(-2px)}}
+  @media (prefers-reduced-motion:reduce){.mean-veil.nudge{animation:none}}
   .ko-chip{margin-top:10px;padding:9px 13px;border-radius:12px;font-size:16px;line-height:1.5;
     background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.35);color:#ddd6fe;white-space:normal}
   .ko-chip.err{background:rgba(148,163,184,.12);border-color:rgba(148,163,184,.35);color:#cbd5e1}
@@ -753,10 +761,11 @@
     </div>
     <div id="log" aria-label="말하기 연습 대화"></div>
     <div id="wgHelp" class="wg-help" hidden>
-      <p data-ko="필요한 만큼만 도움을 열어 보세요." data-en="Open just the help you need.">필요한 만큼만 도움을 열어 보세요.</p>
-      <div id="wgHelpOutput" class="wg-help-output" aria-live="polite"></div>
-      <button id="wgHelpNext" type="button" class="wg-btn">단어 힌트</button>
-      <div id="wgHelpActions"></div>
+      <ol id="wgHelpSteps" class="wg-steps" aria-label="도움 단계"></ol>
+      <p id="wgHelpNote" class="wg-help-note" aria-live="polite"></p>
+      <div id="wgHelpOutput" class="wg-help-output"></div>
+      <div id="wgHelpActions" class="wg-help-actions"></div>
+      <button id="wgHelpMore" type="button" class="wg-btn" hidden data-ko="그래도 어려우면 대답 예시 보기" data-en="Still stuck? See answer ideas">그래도 어려우면 대답 예시 보기</button>
     </div>
     </div><!-- /.wg-conversation -->
     </div><!-- /.wg-workspace -->
@@ -805,7 +814,7 @@
     </div>
   </div>
 </dialog>
-<script src="/js/warmup-guide.js?v=7"></script>
+<script src="/js/warmup-guide.js?v=8"></script>
 <script>
 /* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
 var Q = new URLSearchParams(location.search);
@@ -978,12 +987,21 @@ function addMsg(text, who){
     rb.onclick = function(){ speak(text, rb); };
     d.appendChild(document.createElement('br'));
     d.appendChild(rb);
-    // 📖 뜻 보기 — 누른 문장만 그때 번역한다
+    /* 👀 뜻 보기 — 2026-10-02 사장님 «뜻을 처음부터 보여주면 교육 효과가 떨어지니 모를 때만».
+       예전: 「뜻」 작은 버튼 + 1~2단계는 탭하지 않아도 자동으로 열었다.
+       지금: 말풍선 아래 «흐리게 가려진 줄» 하나. 뜻이 있다는 것은 보이지만 읽히지 않고, 누르면 열린다.
+       ⚠️ 1~2단계 자동 열기는 «가리개 + 빠른 알림(5초)» 으로 바꿨다 — 초보가 뜻 버튼을 못 찾던 문제
+          (자동 열기를 만든 이유)는 «버튼» 이 아니라 «폭 전체 줄» 이라 찾기 쉬운 것으로 푼다.
+       ⚠️ 클래스 mean-btn 은 남긴다 — 말풍선 탭(sub-shown) 예외와 하니스가 그 이름을 본다. */
     var mb = document.createElement('button');
-    mb.className = 'mean-btn'; mb.type = 'button';
-    mb.textContent = '뜻';
-    mb.title = '한국어 뜻 보기';
-    mb.onclick = function(){ toggleMeaning(text, mb, d); };
+    mb.className = 'mean-btn mean-veil'; mb.type = 'button';
+    mb.title = '모를 때만 눌러 한국어 뜻 보기';
+    var mvL = document.createElement('span'); mvL.className = 'mv-lbl';
+    var mvB = document.createElement('span'); mvB.className = 'mv-blur'; mvB.setAttribute('aria-hidden','true');
+    mvB.textContent = '이 문장의 한국어 뜻이 여기 있어요';
+    mb.appendChild(document.createTextNode('👀 ')); mb.appendChild(mvL); mb.appendChild(mvB);
+    _fixLabel(mvL, '뜻을 모르겠으면 눌러요', 'Tap if you don’t know the meaning');
+    mb.onclick = function(e){ if(e) e.stopPropagation(); openMeaningVeil(text, mb, d); };
     d.appendChild(mb);
     // 가려진 말풍선을 탭하면 그 하나만 열린다
     d.addEventListener('click', function(e){
@@ -991,13 +1009,6 @@ function addMsg(text, who){
       if(e.target.closest && (e.target.closest('.replay-btn') || e.target.closest('.mean-btn') || e.target.closest('.ko-chip'))) return;
       d.classList.toggle('sub-shown');
     });
-    /* 🇰🇷 (3단계) 낮은 단계는 «탭하지 않아도» 한국어 뜻을 바로 보여 준다.
-       「뜻」 버튼은 초보가 있는 줄도 모른다 — Duolingo 가 초보에게만 자막을 기본으로 켜는 것과 같은 이유.
-       ⚠️ 자막이 「가리기·완전 끄기」(듣기 훈련)면 열지 않는다 — 열면 그 훈련이 통째로 무의미해진다.
-       ⚠️ 레벨 3 이상은 켜지 않는다(스스로 읽는 것이 훈련이고, 번역 호출도 그만큼 준다). */
-    if(_warmLevel <= 2 && _subMode === 'on'){
-      try{ toggleMeaning(text, mb, d); }catch(e){}
-    }
   }
   log.appendChild(d); log.scrollTop = log.scrollHeight;
   if(window.MangoWarmupGuide) MangoWarmupGuide.onMessage(text,who);
@@ -1255,13 +1266,37 @@ function toggleMeaning(text, btn, bubble){
   bubble.appendChild(chip);
   // 뜻을 보려는 순간엔 그 말풍선을 열어 준다 — 가려진 채면 뜻 카드도 안 보인다
   bubble.classList.add('sub-shown');
-  fetchMeaning(text).then(function(ko){
+  return fetchMeaning(text).then(function(ko){
     if(ko){ chip.textContent = ko; }
     else { chip.className = 'ko-chip err'; chip.textContent = '뜻을 가져오지 못했어요. 잠시 후 다시 눌러 주세요.'; }
     var lg = document.getElementById('log'); if(lg) lg.scrollTop = lg.scrollHeight;
+    return !!ko;
   }).catch(function(){
     chip.className = 'ko-chip err'; chip.textContent = '뜻을 가져오지 못했어요. 잠시 후 다시 눌러 주세요.';
+    return false;
   });
+}
+/* 👀 가리개를 눌렀을 때 — 가리개는 숨기고 그 자리에 뜻을 연다.
+   못 가져오면 가리개를 되살려 «다시 누를 길» 을 남긴다(숨긴 채 두면 영영 못 연다).
+   열린 사실은 도움 패널(js/warmup-guide.js)에 알려 «그다음 대답 예시» 로 넘어가게 한다. */
+function openMeaningVeil(text, btn, bubble){
+  if(bubble.querySelector('.ko-chip')) return;
+  btn.hidden = true;
+  if(window.MangoWarmupGuide && MangoWarmupGuide.meaningOpened) MangoWarmupGuide.meaningOpened(bubble);
+  var p;
+  try{ p = toggleMeaning(text, btn, bubble); }catch(e){ p = null; }
+  if(p && p.then) p.then(function(ok){
+    if(ok) return;
+    setTimeout(function(){ var c = bubble.querySelector('.ko-chip.err'); if(c) c.remove(); btn.hidden = false; btn.classList.remove('on'); }, 2500);
+  });
+}
+/* 도움 버튼이 «아직 뜻을 안 연» 학생에게 오면 — 마지막 AI 말풍선의 가리개를 대신 눌러 준다. */
+function openLatestMeaning(){
+  var all = document.querySelectorAll('#log .msg.ai');
+  var last = all.length ? all[all.length - 1] : null;
+  var v = last && last.querySelector('.mean-veil');
+  if(v && !v.hidden){ v.click(); return true; }
+  return false;
 }
 
 /* 🐢🐇 듣기 속도 — 다섯 칸이 «귀로 구별되게» (2026-08-31 사장님 「지금은 속도 구별이 잘 안돼」)
@@ -2867,7 +2902,7 @@ async function micViaWhisper(){
   var heard=false;                // 🔇 말소리가 한 번도 안 들렸나 — Whisper 는 무음에서 "Thank you." 를 지어낸다
   var said = await MangoiVoice.record({
     lang: _warmLang,              // 🀄 서버 Whisper 언어 힌트 — 안 주면 자동감지로 떨어져 오인식이 는다
-    silenceMs: 1800,              // ⚡ 말이 끝난 뒤 기다림 2.5초(기본) → 1.8초(2026-09-25). 녹음 경로는 «문장이 끝났나» 를 모르므로 1.5초까지는 안 줄인다
+    silenceMs: 1600,              // ⚡ 말이 끝난 뒤 기다림 2.5초(기본) → 1.8초(2026-09-25) → 1.6초(2026-10-02 「답하면 빠르게 다시 질문」). 녹음 경로는 «문장이 끝났나» 를 모르므로 1.5초까지는 안 줄인다
     onState: function(s, info){
       if(_warmPaused || epoch!==_warmEpoch || voiceEpoch!==_warmVoiceEpoch)return;
       if(s==='ready')         _setListenLabel('🎙️ 마이크 준비 중…');
@@ -2932,7 +2967,8 @@ function _startSttSession(){
      ⛔ SIL_SHORT(덜 끝난 문장)·SIL_FIRST(아직 아무 말 없음)는 줄이지 않는다 — 아이가 중간에
         「음…」 하고 쉬는 동안 끊겨 보내지는 2026-07-23 사고가 그 둘로 막혀 있다.
      감시는 test-harness/warmup_reply_speed_harness.mjs (판정을 오려 내 실제로 돌림). */
-  var SIL_FIRST=9000, SIL_SHORT=5000, SIL_DONE=1500;
+  /* ⚡ (2026-10-02 사장님 「학생이 답하면 빠르게 다시 질문」) SIL_DONE 1.5초 → 1.3초. 1.2초 아래로는 안 내린다(숨 한 번). */
+  var SIL_FIRST=9000, SIL_SHORT=5000, SIL_DONE=1300;
   function _micHeard(){ return _tidySpeech(_mergeSpeech(_micBase, _micSess)); }
   function _armSilence(){
     if(_silence) clearTimeout(_silence);
@@ -3477,11 +3513,9 @@ function ansCardClear(){
 function showAnswerChips(list, speakingHelp){
   ansCardClear();
   if(window.MangoWarmupGuide){
+    /* 👀 (2026-10-02) 대답 예시는 «뜻을 연 뒤에만» 보여 준다 — 그래서 8초 뒤 자동으로 도움을
+       펼치던 타이머를 뺐다. «기다렸다 알려 주기» 는 가리개의 노란 알림(warmup-guide.js nudge)이 맡는다. */
     MangoWarmupGuide.receiveHelp(speakingHelp,list);
-    _ansTimer=setTimeout(function(){
-      _ansTimer=0;
-      if(!_warmPaused && !sending && !_recognizing && !document.getElementById('inp').value.trim())MangoWarmupGuide.offerHelp();
-    },ANS_DELAY_MS);
     return;
   }
   if(!list || !list.length) return;
@@ -3881,7 +3915,7 @@ async function sendMsg(){
   .meta{ padding:4px 12px 0; }
 }
 </style>
-<link rel="stylesheet" href="/css/warmup-guide.css?v=6" />
+<link rel="stylesheet" href="/css/warmup-guide.css?v=7" />
 <!-- ══════════════════════════════════════════════════════════════
      📱 휴대폰·태블릿(터치) 전용 — 입력 묶음이 대화창을 가리지 않게 (2026-09-25 · 시안 A+C 중간안)
      사장님 「1번(입력 묶음)이 너무 커서 2번(선생님이 방금 한 말)이 안 보여」 → 시안 5종 중 A+C,
