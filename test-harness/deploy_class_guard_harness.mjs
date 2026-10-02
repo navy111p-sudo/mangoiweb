@@ -151,8 +151,8 @@ const runCli = (nowIso) => spawnSync(process.execPath,
         CLOUDFLARE_API_TOKEN: 'dummy-token-for-probe-test',
         CLOUDFLARE_ACCOUNT_ID: '', FORCE_NOW: '', COMMIT_MESSAGE: '',
         GITHUB_OUTPUT: '', GITHUB_STEP_SUMMARY: '' } });
-/* 2026-09-01 은 화요일 — 06:00 UTC = 15:00 KST = 창 «안» */
-const inWin = runCli('2026-09-01T06:00:00Z');
+/* 2026-09-01 은 화요일 — 05:00 UTC = 14:00 KST = 창 «안» (2026-10-02 창 끝이 15:00 으로 당겨져 06:00 UTC 는 창 밖) */
+const inWin = runCli('2026-09-01T05:00:00Z');
 ok('창 안이면 보류로 끝난다', /hold=true/.test(inWin.stdout));
 ok('창 안에서는 실접속을 물어보지 않는다 (조회 실패 문구가 없다)',
    !/실접속 확인 실패/.test(inWin.stdout));
