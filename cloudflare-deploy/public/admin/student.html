@@ -344,6 +344,51 @@
   .mgs-in .src{font-weight:600;overflow:hidden;text-overflow:ellipsis;min-width:0}
   @container (max-width:130px){ .mgs-in .f,.mgs-in .src{display:none} .mgs-in .s{display:inline} }
   @container (max-width:66px){ .mgs-in{flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;padding:0 1px;font-size:8.5px;letter-spacing:-.3px;line-height:1.05} }
+
+/* 📅 (2026-10-01 사장님 «B안») 등록된 수업 스케줄 — 다음 수업 · 묶음 · 앞으로 날짜 칩.
+   ⚠️ 이 화면은 adm-light-theme.css 로 «밝은» 테마다 — 글자·배경을 밝은 값으로 준다
+      (어두운 값을 주면 adm-light-surfaces.js 가 배경만 밝히고 글자는 그대로 남아 안 읽힌다). */
+.mgsu{display:flex;flex-direction:column;gap:10px}
+.mgsu-hero{border:1px solid #f5c77a;background:#fff7e8;border-radius:10px;padding:10px 12px;color:#101828}
+.mgsu-hero .k{font-size:11.5px;font-weight:700;color:#b45309;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.mgsu-hero .v{font-size:19px;font-weight:800;color:#101828;font-variant-numeric:tabular-nums}
+.mgsu-hero .m{font-size:12px;color:#475467}
+.mgsu-grp{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#ffffff;border:1px solid #e3e8ef;border-radius:10px;padding:9px 12px;color:#101828}
+.mgsu-grp .t{font-size:15px;font-weight:800;color:#101828}
+.mgsu-grp .m{font-size:12px;color:#475467}
+.mgsu-grp .s{font-size:10.5px;color:#667085;margin-top:1px}
+.mgsu-grp .g{flex:1;min-width:200px}
+.mgsu-ty{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.mgsu-chips{display:flex;flex-wrap:wrap;gap:6px}
+.mgsu-chip{display:inline-flex;gap:4px;align-items:center;font-size:12.5px;padding:4px 10px;border-radius:999px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums}
+.mgsu-chip:hover{border-color:#2563eb;color:#1d4ed8}
+.mgsu-chip:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+.mgsu-chip.today{background:#fff4e5;border-color:#b45309;color:#92400e;font-weight:800}
+.mgsu-chip.hol{background:#fdecea;border-color:#b42318;color:#b42318}
+.mgsu-chip.post{border-style:dashed;color:#475467}
+.mgsu-chip.sel{outline:2px solid #2563eb;outline-offset:1px}
+.mgsu-chip .ty{font-size:10.5px;font-weight:800;padding:0 6px;border-radius:999px}
+.mgsu-chip.past{opacity:.55;text-decoration:line-through}
+.mgsu-act{border:1px solid #93c5fd;background:#eff6ff;border-radius:10px;padding:10px 12px;color:#101828;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mgsu-act .w{font-weight:800}
+.mgsu-act .n{flex-basis:100%;font-size:12px;color:#475467;line-height:1.5}
+.mgsu-btn{padding:6px 12px;border:1px solid #2563eb;background:#ffffff;color:#1d4ed8;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:700;white-space:nowrap}
+.mgsu-btn:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+.mgsu-btn[disabled]{opacity:.55;cursor:not-allowed}
+.mgsu-note{font-size:11.5px;color:#475467}
+.mgsu-fold{border-top:1px dashed #cbd5e1;padding-top:8px}
+.mgsu-fold > summary{cursor:pointer;font-size:12.5px;font-weight:700;color:#1d4ed8;list-style:none;padding:6px 2px}
+.mgsu-fold > summary::-webkit-details-marker{display:none}
+.mgsu-fold[open] > summary{margin-bottom:6px}
+.mgsu-fold .mgsu-rows{display:flex;flex-direction:column;gap:6px}
+@media (max-width:640px){
+  /* ⚠️ width:0 + min-width:100% — 스크롤 상자여도 «안쪽 칩 줄 전체 폭» 이 조상 그리드 칸을 밀어
+        페이지가 1245px 로 넓어졌다(390px 실측). 폭 기여를 0 으로 두고 칸 폭만큼만 채운다. */
+  .mgsu-chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;width:0;min-width:100%}
+  .mgsu-grp .btns,.mgsu-act .btns{flex-basis:100%;display:flex;gap:8px}
+  .mgsu-grp .btns .mgsu-btn,.mgsu-act .btns .mgsu-btn{flex:1;padding:10px 12px}
+  .mgsu-fold > summary{text-align:center;border:1px solid #cbd5e1;border-radius:8px;padding:10px}
+}
 </style>
 <link rel="stylesheet" href="/css/admin-readability.css?v=4"><!-- 가독성 보강 -->
 <style id="pc-scale">
@@ -3233,7 +3278,7 @@ function mgsEnsureHolidays(years) {
       ((j && j.rows) || []).forEach(h => mgsHolAdd(String(h.date || ''), String(h.name || ''), h.country));
     } catch (e) {}
     _mgsHol.years[y] = 'done';
-  })).then(() => { try { renderDSchedule(); } catch (e) {} });
+  })).then(() => { try { renderDSchedule(); } catch (e) {} try { mgsuRender(); } catch (e) {} });
 }
 /* 공휴일 이름표. KR=빨강 바탕·흰 글자, PH=옅은 파랑 바탕·진한 파랑 글자.
    ⚠️ PH 를 진한 파랑(#2563eb) 바탕으로 두면 js/adm-light-surfaces.js 가 «어두운 면» 으로 보고
@@ -3582,6 +3627,321 @@ function mgsOnceInfo(scheduledDate, todayYmd) {
   return { once: once, past: once && valid && ymd < String(todayYmd || '') };
 }
 
+/* 📅 (2026-10-01 사장님 «B안» — 「시작 날짜보다 앞으로 수업할 일시가 더 중요해」)
+   등록된 수업 스케줄 맨 위에 ① 다음 수업 ② 같은 수업 묶음 ③ 앞으로 2주 날짜 칩 을 그리고,
+   날짜 칩을 누르면 «그 날» 의 수업 연기·변경을 연다. 요일별 줄은 아래 «요일별 보기» 로 접는다.
+   [정본]
+     · «그 날 열리는가» = mgsSchedHitsDate()(캘린더와 같은 판정 — 날짜가 이기고, 반복은 시작일 전엔 안 연다).
+       ⛔ 여기서 요일·날짜를 다시 재지 말 것(캘린더와 화면이 어긋난다).
+     · 연기·변경 창 = js/class-move-modal.js(관리자 「오늘 수업」·매니저 화면과 «같은» 창).
+       ⛔ 새 판정·새 API 를 만들지 않는다 — 겹침 검사·강사 차단·변경 이력은 그 창이 부르는 서버가 한다.
+   [반복 수업] 매주 반복 줄(scheduled_date 없음)은 한 줄이 «매주 전부» 라 서버가 «그 날 하나만»
+     옮기지 못한다(/schedule-requests/decide 가 'recorded' 로 기록만 남긴다).
+     ⛔ 그런데도 창을 열어 «연기했습니다» 를 보게 하지 말 것 — 그 날 수업이 그대로 열린다.
+     ✅ 그 날짜 칩에서는 사실대로 말하고 «매주 변경»(요일·시각을 앞으로 모두) 만 준다.
+   [수업 종류] class_type 이 정규가 아니면 칩에 글자를 붙인다(보충·체험·레벨테스트). 정규는 묶음 줄이 말한다.
+   [취소] 이 카드에서는 연기·변경만 준다(2026-10-01 사장님 「취소는 빼고」). */
+var MGSU_DAYS = 14;
+/* ⚠️ 종류 색은 «옅은 바탕 + 진한 글자» 로 둔다 — 진한 바탕(#2563eb 등)을 주면 js/adm-light-surfaces.js 가
+      «어두운 면» 으로 보고 바탕을 밝게 덮어 색이 사라진다(2026-10-01 PC 화면 실측: 보충·정규가 같은 색이 됐다). */
+var MGSU_TYPE = {
+  regular:    { ko: '정규', en: 'Regular',    full: '정규수업', fullEn: 'Regular class', bg: '#dbeafe', fg: '#1e40af' },
+  makeup:     { ko: '보충', en: 'Make-up',    full: '보충수업', fullEn: 'Make-up class', bg: '#ede9fe', fg: '#5b21b6' },
+  trial:      { ko: '체험', en: 'Trial',      full: '체험수업', fullEn: 'Trial class',   bg: '#d1fae5', fg: '#065f46' },
+  level_test: { ko: '레벨', en: 'Level',      full: '레벨테스트', fullEn: 'Level test',  bg: '#fef3c7', fg: '#92400e' }
+};
+var MGSU_DOW_KO = ['일','월','화','수','목','금','토'], MGSU_DOW_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+var _mgsuItems = [], _mgsuSel = '';
+function mgsuEn() { return (typeof _lang !== 'undefined' && _lang === 'en'); }
+/** ⏸ (2026-10-02) 연기보강 이름 — 서버가 메모에 붙인 «연기보강 (10월 2일 연기)». 없으면 ''. */
+function mgsuMkLabel(sch) { var m = /연기보강 \([^)]*\)/.exec(String((sch && sch.notes) || '')); return m ? m[0] : ''; }
+function mgsuType(t) { return MGSU_TYPE[t] || { ko: String(t || ''), en: String(t || ''), full: String(t || ''), fullEn: String(t || ''), bg: '#f1f5f9', fg: '#344054' }; }
+function mgsuHm(sch) { var t = mgsSchedTime(sch); return t ? String(t.hh).padStart(2,'0') + ':' + String(t.mm).padStart(2,'0') : String((sch && sch.start_time) || ''); }
+/** 'YYYY-MM-DD' + 'HH:MM' → KST 시각(ms). 모르면 NaN. */
+function mgsuKstMs(ymd, hm) { return Date.parse(String(ymd) + 'T' + String(hm || '00:00').slice(0, 5) + ':00+09:00'); }
+
+/** 앞으로 days 일 동안의 수업 회차 — 순수 함수(하니스가 그대로 돌린다).
+    반환: [{ ymd, dow, sch, hm }] 날짜·시각 순. «열리는가» 는 mgsSchedHitsDate 한 곳이 정한다. */
+function mgsuUpcoming(items, from, days) {
+  var out = [];
+  if (!Array.isArray(items) || !from) return out;
+  var base = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  for (var k = 0; k < days; k++) {
+    var d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + k);
+    for (var i = 0; i < items.length; i++) {
+      var sch = items[i];
+      if (!mgsSchedHitsDate(sch, d)) continue;
+      out.push({ ymd: mgsYmd(d), dow: d.getDay(), sch: sch, hm: mgsuHm(sch) });
+    }
+  }
+  out.sort(function (a, b) { return a.ymd < b.ymd ? -1 : a.ymd > b.ymd ? 1 : (a.hm < b.hm ? -1 : a.hm > b.hm ? 1 : 0); });
+  return out;
+}
+/** 매주 반복 줄을 «같은 수업» 끼리 묶는다 — 종류·강사·시각·길이·시작일이 모두 같을 때만.
+    날짜가 정해진 줄(scheduled_date)은 묶지 않는다(칩으로만 나온다). 순수 함수. */
+function mgsuGroups(items) {
+  var map = {}, order = [];
+  (items || []).forEach(function (sch) {
+    if (!sch || String(sch.scheduled_date || '').slice(0, 10)) return;
+    if (String(sch.status || '') === 'cancelled') return;
+    var key = [sch.class_type || 'regular', sch.teacher_id == null ? '' : String(sch.teacher_id), mgsuHm(sch), Number(sch.duration_min) || 0, mgsSchedStartYmd(sch)].join('|');
+    if (!map[key]) { map[key] = { key: key, rows: [], dows: [] }; order.push(key); }
+    var g = map[key];
+    g.rows.push(sch);
+    String(sch.day_of_week || '').split(/[,\s/·]+/).forEach(function (p) {
+      var x = mgsDowIdx(p);
+      if (x != null && g.dows.indexOf(x) < 0) g.dows.push(x);
+    });
+  });
+  return order.map(function (k) {
+    var g = map[k];
+    g.dows.sort(function (a, b) { return ((a + 6) % 7) - ((b + 6) % 7); });   // 월요일부터
+    return g;
+  });
+}
+/** 그 회차가 이미 끝났는가(시작 + 길이). 모르면 false — 안 끝난 쪽으로 둔다. */
+function mgsuEnded(o, nowMs) {
+  var st = mgsuKstMs(o.ymd, o.hm);
+  return isFinite(st) && st + (Number(o.sch.duration_min) || 20) * 60000 <= nowMs;
+}
+/** 지금(ms) 기준 «아직 안 끝난» 첫 회차. 연기 상태는 건너뛴다. */
+function mgsuNext(occ, nowMs) {
+  for (var i = 0; i < occ.length; i++) {
+    var o = occ[i];
+    if (String(o.sch.status || '') === 'postponed') continue;
+    var st = mgsuKstMs(o.ymd, o.hm);
+    var end = st + (Number(o.sch.duration_min) || 20) * 60000;
+    if (!isFinite(st) || end > nowMs) return o;
+  }
+  return null;
+}
+function mgsuDayWord(ymd, todayYmd) {
+  var en = mgsuEn();
+  var a = Date.parse(String(ymd) + 'T00:00:00Z'), b = Date.parse(String(todayYmd) + 'T00:00:00Z');
+  var n = Math.round((a - b) / 86400000);
+  if (n === 0) return en ? 'Today' : '오늘';
+  if (n === 1) return en ? 'Tomorrow' : '내일';
+  return en ? ('in ' + n + ' days') : (n + '일 뒤');
+}
+/* 📅 (2026-10-01 사장님 「수업시작일 대신 수업일을」) — 그 «한 줄» 의 다음 수업일.
+   정본 mgsuUpcoming·mgsuNext 를 그대로 쓴다(날짜를 다시 재지 않는다). 4주 안에 없으면 ''. */
+function mgsuNextLabel(sch) {
+  var t = _mgsKstToday();
+  var base = new Date(Number(t.slice(0, 4)), Number(t.slice(5, 7)) - 1, Number(t.slice(8, 10)));
+  var nx = mgsuNext(mgsuUpcoming([sch], base, 28), Date.now());
+  return nx ? mgsuMd(nx) : '';
+}
+function mgsuMd(o) {
+  var en = mgsuEn();
+  return Number(o.ymd.slice(5, 7)) + '/' + Number(o.ymd.slice(8, 10)) + '(' + (en ? MGSU_DOW_EN : MGSU_DOW_KO)[o.dow] + ')';
+}
+function mgsuHolName(o) {
+  try {
+    var hs = mgsHolOf(new Date(Number(o.ymd.slice(0, 4)), Number(o.ymd.slice(5, 7)) - 1, Number(o.ymd.slice(8, 10))));
+    var kr = hs.filter(function (h) { return h.country !== 'PH'; })[0];
+    return kr ? kr.name : '';
+  } catch (e) { return ''; }
+}
+
+function mgsuRender() {
+  var box = document.getElementById('mgsuTop');
+  if (!box) return;
+  var en = mgsuEn();
+  var todayYmd = _mgsKstToday();
+  /* 창의 첫날은 «KST 오늘» — 브라우저 로컬 날짜로 잡으면 필리핀(UTC+8) 매니저가 KST 0~1시에 볼 때 하루 어긋난다. */
+  var now = new Date(Number(todayYmd.slice(0, 4)), Number(todayYmd.slice(5, 7)) - 1, Number(todayYmd.slice(8, 10)));
+  var occ = mgsuUpcoming(_mgsuItems, now, MGSU_DAYS);
+  var groups = mgsuGroups(_mgsuItems);
+  var nx = mgsuNext(occ, Date.now());
+  var h = '';
+  if (nx) {
+    var nt = mgsuType(nx.sch.class_type);
+    h += '<div class="mgsu-hero"><div class="k">' + (en ? 'Next class' : '다음 수업')
+      + ' <span class="mgsu-ty" style="background:' + nt.bg + ';color:' + nt.fg + '">' + esc(en ? nt.fullEn : nt.full) + '</span></div>'
+      + '<div class="v">' + esc(mgsuDayWord(nx.ymd, todayYmd) + ' ' + mgsuMd(nx) + ' ' + nx.hm) + '</div>'
+      + '<div class="m">' + esc((Number(nx.sch.duration_min) || 20) + (en ? ' min · ' : '분 · ')) + teacherLabel(nx.sch) + '</div></div>'   /* teacherLabel 은 이미 이스케이프된 값 */;
+  } else {
+    h += '<div class="mgsu-note">' + (en ? 'No class in the next ' + MGSU_DAYS + ' days.' : '앞으로 ' + MGSU_DAYS + '일 안에 잡힌 수업이 없습니다.') + '</div>';
+  }
+  groups.forEach(function (g) {
+    var s0 = g.rows[0], ty = mgsuType(s0.class_type);
+    var days = g.dows.map(function (x) { return (en ? MGSU_DOW_EN : MGSU_DOW_KO)[x]; }).join('·');
+    var so = mgsSchedStartYmd(s0);
+    h += '<div class="mgsu-grp"><span class="mgsu-ty" style="background:' + ty.bg + ';color:' + ty.fg + '">' + esc(en ? ty.fullEn : ty.full) + '</span>'
+      + '<div class="g"><div class="t">' + esc((en ? (g.dows.length + 'x a week · ') : ('주 ' + g.dows.length + '회 · ')) + days + ' ' + mgsuHm(s0)) + '</div>'
+      + '<div class="m">' + esc((Number(s0.duration_min) || 20) + (en ? ' min · ' : '분 · ')) + teacherLabel(s0) + '</div>'
+      + (so ? '<div class="s">' + esc((en ? 'started ' : '시작 ') + so) + '</div>' : '') + '</div>'
+      + '<div class="btns"><button type="button" class="mgsu-btn" data-mgsu-split="' + esc(g.rows.map(function (r) { return r.id; }).join(',')) + '">📅 ' + (en ? 'Split by date' : '날짜별로 나누기') + '</button>'
+      + '<button type="button" class="mgsu-btn" data-mgsu-series="' + esc(g.rows.map(function (r) { return r.id; }).join(',')) + '">✏️ ' + (en ? 'Change weekly' : '매주 변경') + '</button></div></div>';
+  });
+  if (occ.length) {
+    h += '<div class="mgsu-chips" role="list">' + occ.map(function (o) {
+      var ty = mgsuType(o.sch.class_type), hol = mgsuHolName(o);
+      var post = String(o.sch.status || '') === 'postponed';
+      var past = mgsuEnded(o, Date.now());
+      var key = o.ymd + '|' + o.sch.id;
+      var cls = 'mgsu-chip' + (o.ymd === todayYmd ? ' today' : '') + (hol ? ' hol' : '') + (post ? ' post' : '') + (past ? ' past' : '') + (_mgsuSel === key ? ' sel' : '');
+      var tag = (o.sch.class_type && o.sch.class_type !== 'regular') ? '<span class="ty" style="background:' + ty.bg + ';color:' + ty.fg + '">' + esc(en ? ty.en : ty.ko) + '</span>' : '';
+      return '<button type="button" role="listitem" class="' + cls + '" data-mgsu-occ="' + esc(key) + '">' + tag
+        + (o.ymd === todayYmd ? (en ? 'Today ' : '오늘 ') : '') + esc(mgsuMd(o) + ' ' + o.hm)
+        + (hol ? ' · ' + esc(hol) : '') + (post ? (en ? ' · postponed' : ' · 연기됨') : '') + '</button>';
+    }).join('') + '</div>'
+      + '<div class="mgsu-note">' + (en ? 'Tap a date to postpone or change that class. Next ' + MGSU_DAYS + ' days.' : '날짜를 누르면 그 날 수업을 연기·변경할 수 있습니다. 앞으로 ' + MGSU_DAYS + '일.') + '</div>';
+  }
+  h += '<div id="mgsuAct"></div>';
+  box.innerHTML = h;
+  if (_mgsuSel) mgsuOpenAct(_mgsuSel);
+  try { mgsEnsureHolidays([now.getFullYear(), new Date(now.getTime() + MGSU_DAYS * 86400000).getFullYear()]); } catch (e) {}
+}
+
+/* 날짜 칩을 눌렀을 때 — «그 날» 의 연기·변경. */
+function mgsuOpenAct(key) {
+  var act = document.getElementById('mgsuAct');
+  if (!act) return;
+  var en = mgsuEn();
+  var p = String(key || '').split('|'), ymd = p[0], id = Number(p[1]);
+  var sch = _mgsuItems.filter(function (x) { return Number(x.id) === id; })[0];
+  if (!sch) { act.innerHTML = ''; return; }
+  var d = new Date(Number(ymd.slice(0, 4)), Number(ymd.slice(5, 7)) - 1, Number(ymd.slice(8, 10)));
+  var o = { ymd: ymd, dow: d.getDay(), sch: sch, hm: mgsuHm(sch) };
+  var ty = mgsuType(sch.class_type);
+  var dated = !!String(sch.scheduled_date || '').slice(0, 10);
+  var ended = mgsuEnded(o, Date.now());
+  var head = '<span class="w">' + esc(mgsuMd(o) + ' ' + o.hm) + '</span> <span class="mgsu-ty" style="background:' + ty.bg + ';color:' + ty.fg + '">' + esc(en ? ty.fullEn : ty.full) + '</span>';
+  if (mgsuMkLabel(sch)) head += ' <span class="mgsu-ty" style="background:#fff4e0;color:#92400e">' + esc(en ? 'Postponement make-up' : mgsuMkLabel(sch)) + '</span>';
+  if (ended) {
+    act.innerHTML = '<div class="mgsu-act">' + head + '<div class="n">' + (en ? 'This class has already ended.' : '이미 끝난 수업입니다.') + '</div></div>';
+  } else if (dated && sch.status === 'postponed') {
+    /* 요일별 줄의 ⏸ 버튼과 같은 판정 — 이미 연기된 회차에는 버튼을 주지 않는다. */
+    act.innerHTML = '<div class="mgsu-act">' + head + '<div class="n">' + (en ? 'This class is already postponed. Set its new date in “By weekday” below.'
+                                                                              : '이미 연기된 수업입니다. 새 날짜는 아래 «요일별 보기» 에서 정하세요.') + '</div></div>';
+  } else if (dated) {
+    /* 공용 창은 모드를 미리 골라 받지 않는다 — 버튼을 둘로 나눠도 같은 창이 열리므로 하나로 둔다.
+       ⚠️ 그 창의 «변경(앞으로 계속)» 은 같은 요일·시각의 뒤 회차도 함께 옮긴다 — «다른 날은 그대로» 라고 말하지 않는다. */
+    act.innerHTML = '<div class="mgsu-act">' + head
+      + '<div class="btns"><button type="button" class="mgsu-btn" data-mgsu-move="' + esc(key) + '">⏸ ' + (en ? 'Postpone' : '연기') + ' · ✏️ ' + (en ? 'Change' : '변경') + '</button></div>'
+      + '<div class="n">' + (en ? 'Choose in the window — Postpone = this class only (pick a new date now or later). Change (from now on) = this class and every later class at the same weekday/time.'
+                               : '창에서 고릅니다 — 연기 = 이 회차만(새 날짜는 지금 고르거나 나중에). 변경(앞으로 계속) = 이 회차부터 같은 요일·시각 수업 «전부».') + '</div></div>';
+  } else {
+    act.innerHTML = '<div class="mgsu-act">' + head
+      + '<div class="btns"><button type="button" class="mgsu-btn" data-mgsu-split="' + esc(String(sch.id)) + '">📅 ' + (en ? 'Split into dated classes' : '날짜별로 나누기') + '</button>'
+      + '<button type="button" class="mgsu-btn" data-mgsu-series="' + esc(String(sch.id)) + '">✏️ ' + (en ? 'Change weekly' : '매주 변경') + '</button></div>'
+      + '<div class="n">' + (en ? 'This is a weekly class, so one date cannot be postponed yet. «Split into dated classes» makes one class per date (until the enrollment end, or 12 weeks) — then each date can be postponed or changed on its own.'
+                               : '매주 반복 수업이라 지금은 «이 날 하나만» 연기할 수 없습니다. «날짜별로 나누기» 를 누르면 날짜마다 수업이 한 줄씩 생겨(수강 종료일까지, 없으면 12주) 그날만 연기·변경할 수 있습니다.') + '</div></div>';
+  }
+}
+
+/* 공용 연기·변경 창을 «누를 때만» 받는다(관리자·매니저와 같은 파일·같은 번호). */
+function mgsuLoadMoveModal(cb) {
+  if (window.mangoiMoveModal) { cb(); return; }
+  var sc = document.createElement('script');
+  sc.src = '/js/class-move-modal.js?v=4';
+  sc.onload = function () { if (window.mangoiMoveModal) cb(); else alert(mgsuEn() ? 'Could not open the window. Reload and try again.' : '연기·변경 창을 열지 못했습니다. 새로고침 후 다시 눌러 주세요.'); };
+  sc.onerror = function () { alert(mgsuEn() ? 'Could not open the window. Reload and try again.' : '연기·변경 창을 열지 못했습니다. 새로고침 후 다시 눌러 주세요.'); };
+  document.head.appendChild(sc);
+}
+function mgsuOpenMove(key) {
+  var p = String(key || '').split('|'), ymd = p[0], id = Number(p[1]);
+  var sch = _mgsuItems.filter(function (x) { return Number(x.id) === id; })[0];
+  if (!sch || !String(sch.scheduled_date || '').slice(0, 10)) return;   // ⛔ 반복 줄은 여기로 안 온다(위 설명)
+  var hm = mgsuHm(sch);
+  var row = {
+    schedule_id: sch.id, start_ts: mgsuKstMs(ymd, hm), start_time: hm,
+    student_name: sch.student_name || '', student_uid: sch.user_id || '',
+    teacher_name: (sch.teacher_name || ''), can_move: true
+  };
+  mgsuLoadMoveModal(function () {
+    window.mangoiMoveModal.open(row, {
+      day: ymd, isEn: mgsuEn, canCancel: false,
+      me: { name: (window.__ADM_ME && (window.__ADM_ME.name || window.__ADM_ME.username)) || '' },
+      onClose: function (changed) {
+        if (!changed) return;
+        _mgsuSel = '';
+        loadAiSchedules();
+        try { if (typeof loadDStudentSchedule === 'function') loadDStudentSchedule(); } catch (_) {}
+      }
+    });
+  });
+}
+/* «매주 변경» — 요일별 보기를 펼치고 그 줄의 변경 편집기를 연다(이미 있는 openReschedule 그대로). */
+function mgsuOpenSeries(ids) {
+  var list = String(ids || '').split(',').filter(Boolean);
+  var fold = document.getElementById('mgsuFold');
+  if (fold) fold.open = true;
+  if (list.length === 1) {
+    var b = document.getElementById('resch-' + list[0]);
+    if (b && b.style.display === 'none') openReschedule(Number(list[0]));
+    if (b) try { b.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+  } else if (fold) {
+    try { fold.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+  }
+}
+document.addEventListener('click', function (e) {
+  var t = e.target && e.target.closest ? e.target : null;
+  if (!t) return;
+  var occ = t.closest('[data-mgsu-occ]');
+  if (occ) { var k = occ.getAttribute('data-mgsu-occ'); _mgsuSel = (_mgsuSel === k) ? '' : k; mgsuRender(); return; }
+  var mv = t.closest('[data-mgsu-move]');
+  if (mv) { mgsuOpenMove(mv.getAttribute('data-mgsu-move')); return; }
+  var se = t.closest('[data-mgsu-series]');
+  if (se) { mgsuOpenSeries(se.getAttribute('data-mgsu-series')); return; }
+  var sp = t.closest('[data-mgsu-split]');
+  if (sp) { mgsuSplit(sp.getAttribute('data-mgsu-split'), sp); return; }
+});
+
+/* 📅 (2026-10-02 사장님 지시) 매주 수업 → 날짜별 수업. 정본은 서버 src/schedule-split.ts.
+   먼저 미리보기(dry_run)로 «몇 회·언제까지» 를 보여 주고, 확인해야 실제로 나눈다. */
+async function mgsuSplit(ids, btn) {
+  var en = mgsuEn();
+  var list = String(ids || '').split(',').map(Number).filter(function (x) { return x > 0; });
+  if (!list.length) return;
+  var fail = function (d) { alert((en ? 'Could not split: ' : '나누지 못했습니다: ') + ((d && (d.message || d.error)) || 'unknown')); };
+  var call = function (id, dry) {
+    return fetch('/api/admin/class-schedules/' + id, {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'split', dry_run: dry })
+    }).then(function (r) { return r.json().catch(function () { return { ok: false, error: 'http_' + r.status }; }); });
+  };
+  if (btn) btn.disabled = true;
+  try {
+    /* ① 미리보기 — 한 줄이라도 못 나누면 아무것도 안 한다(반쪽만 나뉘면 더 헷갈린다). */
+    var n = 0, from = '', until = '', byEnroll = false, byDefault = false;
+    for (var i = 0; i < list.length; i++) {
+      var pv = await call(list[i], true);
+      if (!pv || pv.ok !== true) { fail(pv); return; }
+      var p = pv.plan || {};
+      n += (p.dates || []).length - (pv.existing || []).length;
+      if (!from || p.from < from) from = p.from;
+      if (!until || p.until > until) until = p.until;
+      if (p.until_source === 'enrollment') byEnroll = true; else byDefault = true;
+    }
+    var why = byEnroll && !byDefault ? (en ? 'until enrollment end' : '수강 종료일까지')
+            : !byEnroll ? (en ? 'no enrollment end — 12 weeks' : '수강 종료일이 없어 12주')
+            : (en ? 'enrollment end, else 12 weeks' : '수강 종료일까지, 없는 요일은 12주');
+    var msg = en
+      ? 'Split into ' + n + ' dated classes, ' + from + ' ~ ' + until + ' (' + why + ')?\nThe weekly row(s) are set to cancelled, not deleted.'
+      : '날짜별 수업 ' + n + '회로 나눕니다.\n' + from + ' ~ ' + until + ' (' + why + ')\n원래 «매주» 줄은 지우지 않고 «취소» 로 내립니다. 진행할까요?';
+    if (!confirm(msg)) return;
+    /* ② 실행 */
+    var made = 0, skipped = [], bad = null;
+    for (var j = 0; j < list.length; j++) {
+      var r = await call(list[j], false);
+      if (!r || r.ok !== true) { bad = r; break; }
+      made += Number(r.made || 0);
+      skipped = skipped.concat(r.skipped || []);
+    }
+    if (bad) fail(bad);
+    alert(en ? ('Created ' + made + ' dated classes.' + (skipped.length ? ' Not created (teacher already busy): ' + skipped.join(', ') : ''))
+             : ('날짜별 수업 ' + made + '회를 만들었습니다.' + (skipped.length ? '\n강사가 그 시각에 다른 수업이 있어 못 만든 날: ' + skipped.join(', ') : '')));
+    _mgsuSel = '';
+    loadAiSchedules();
+    try { if (typeof loadDStudentSchedule === 'function') loadDStudentSchedule(); } catch (_) {}
+  } catch (e) {
+    fail({ message: e && e.message || String(e) });
+  } finally { if (btn) btn.disabled = false; }
+}
+
+
 // 🥭 Phase 22 — AI 등록 수업 스케줄 로드 + 렌더링
 async function loadAiSchedules() {
   const uid = (typeof STUDENT_UID !== 'undefined' ? STUDENT_UID : null)
@@ -3599,6 +3959,7 @@ async function loadAiSchedules() {
     // 일정변경 편집기가 원본 값(요일·날짜·길이)을 그대로 써야 해서 캐시해 둔다
     _reschCache = {};
     items.forEach(function (x) { _reschCache[x.id] = x; });
+    _mgsuItems = items;   // 📅 B안 — 다음 수업·묶음·날짜 칩이 같은 목록을 쓴다
     if (items.length === 0) {
       listEl.innerHTML = '<div style="text-align:center;padding:14px;color:#64748b;font-size:12px">' + (_lang === 'en' ? 'No class schedules yet.<br>Add one with «Add class» below or from the admin search box.' : '아직 등록된 수업 스케줄이 없습니다.<br>아래 «수업 예약 등록» 이나 관리자 검색창에서 등록할 수 있습니다.') + '</div>';
       return;
@@ -3611,14 +3972,17 @@ async function loadAiSchedules() {
                        '0':'일', '1':'월', '2':'화', '3':'수', '4':'목', '5':'금', '6':'토' };
     const typeColor = { regular:'#3b82f6', level_test:'#f59e0b', trial:'#10b981' };
     const _en = (_lang === 'en');
-    const typeName = _en ? { regular:'Regular', level_test:'Level test', trial:'Trial' } : { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
+    const typeName = _en ? { regular:'Regular', makeup:'Makeup', level_test:'Level test', trial:'Trial' } : { regular:'정규수업', makeup:'보충수업', level_test:'레벨테스트', trial:'체험수업' };
     const statusName = _en ? { active:'Active', postponed:'Postponed', cancelled:'Cancelled' } : { active:'활성', postponed:'연기', cancelled:'취소' };
     const _dayEn = { '일':'Sun','월':'Mon','화':'Tue','수':'Wed','목':'Thu','금':'Fri','토':'Sat' };
     listEl.innerHTML = items.map(it => {
       const days = (it.day_of_week || '').split(',').filter(Boolean).map(d => { const k = dayNames[d] || d; return _en ? (_dayEn[k] || k) : k; }).join('·');
       const tColor = typeColor[it.class_type] || '#6b7280';
       const _so = it.scheduled_date ? '' : mgsSchedStartYmd(it);
-      const dateLabel = it.scheduled_date ? '📅 ' + it.scheduled_date : (days ? (_en ? '🔁 Every ' + days : '🔁 매주 ' + days + '요일') + (_so ? ' · ' + _so + (_lang === 'en' ? '~' : ' 시작') : '') : '');
+      /* 📅 (2026-10-01 사장님) 시작일 대신 «다음 수업일» — 시작일은 줄 끝에 작게(_startSmall). */
+      const _nxt = it.scheduled_date ? '' : mgsuNextLabel(it);
+      const dateLabel = it.scheduled_date ? '📅 ' + it.scheduled_date : (days ? (_en ? '🔁 Every ' + days : '🔁 매주 ' + days + '요일') + (_nxt ? (_en ? ' · next ' : ' · 다음 수업 ') + _nxt : '') : '');
+      const _startSmall = _so ? '<span style="color:#667085;font-size:10.5px">' + (_en ? 'started ' : '시작 ') + esc(_so) + '</span>' : '';
       /* 📅 (2026-09-21) 위 mgsOnceInfo() 가 정본 — 여기서 날짜를 다시 재지 말 것. */
       const _oi = mgsOnceInfo(it.scheduled_date, _mgsKstToday());
       const _onceChip = _oi.once
@@ -3643,19 +4007,34 @@ async function loadAiSchedules() {
       return '<div style="background:rgba(30,41,59,0.6);border:1px solid #334155;border-left:4px solid ' + tColor + ';border-radius:8px;padding:10px 14px">'
         + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
         + '<span style="background:' + tColor + ';color:#fff;font-size:10px;padding:3px 9px;border-radius:8px;font-weight:700">' + (typeName[it.class_type] || it.class_type) + '</span>'
+        + (mgsuMkLabel(it) ? '<span style="background:#fff4e0;color:#92400e;border:1px solid #f5c77a;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">' + esc(mgsuMkLabel(it)) + '</span>' : '')
         + '<span style="color:#475467;font-size:11px">' + mgsSrcLabel(it) + '</span>'
         + '<span style="font-weight:600;color:#f1f5f9">' + (dateLabel || '') + '</span>'
         + _onceChip + _pastChip
         + '<span style="color:#fbbf24;font-weight:700">' + (it.start_time || '') + '</span>'
         + '<span style="color:#94a3b8;font-size:11px">' + (it.duration_min ? it.duration_min + (_en ? ' min · ' : '분 · ') : '') + (statusName[it.status] || it.status) + '</span>'
         + '<span class="mgt-chip" style="color:#475467;font-size:11px">👩‍🏫 ' + teacherLabel(it) + '</span>'
+        + _startSmall
         + '<span class="mgs-src-chip" style="color:#475467;font-size:10.5px;border:1px solid #cbd5e1;border-radius:6px;padding:1px 7px" title="' + (_en ? 'The enrollment list and this actual class table are different tables — a class here may not appear in the enrollment list.' : '수강신청(enrollments) 표와 이 실제 수업표(class_schedules)는 서로 다른 표입니다 — 여기 있어도 수강신청 신청 목록에는 없을 수 있습니다.') + '">🔖 ' + sourceLabel(it) + '</span>'
-        + '<button onclick="openReschedule(' + it.id + ')" style="margin-left:auto;padding:3px 10px;border:1px solid #38bdf8;background:transparent;color:#38bdf8;border-radius:6px;cursor:pointer;font-size:11px">📅 ' + (_en ? 'Reschedule' : '일정변경') + '</button>'
-        + '<button onclick="cancelAiSchedule(' + it.id + ')" style="padding:3px 10px;border:1px solid #ef4444;background:transparent;color:#ef4444;border-radius:6px;cursor:pointer;font-size:11px">🗑 ' + (_en ? 'Cancel' : '취소') + '</button>'
+        /* 📅 (2026-10-01 사장님 「취소는 빼고 그냥 연기, 변경」) — 이 카드에서는 연기·변경만 준다.
+           ⏸ 연기는 «날짜가 정해진» 줄에만(공용 연기·변경 창 · 위 mgsuOpenMove). 매주 반복 줄은
+           «그 날 하나만» 옮길 수 없어서(서버가 기록만 남김) 연기 버튼을 안 준다 — 주면 «눌렀는데 안 됨».
+           ⚠️ cancelAiSchedule() 함수는 남겨 둔다(다른 경로·하니스가 그 «새로고침 배선» 을 본다). */
+        + ((it.scheduled_date && !_oi.past && it.status !== 'postponed') ? '<button type="button" data-mgsu-move="' + esc(String(it.scheduled_date).slice(0, 10) + '|' + it.id) + '" style="margin-left:auto;padding:3px 10px;border:1px solid #b45309;background:#ffffff;color:#b45309;border-radius:6px;cursor:pointer;font-size:11px">⏸ ' + (_en ? 'Postpone' : '연기') + '</button>' : '')
+        + '<button onclick="openReschedule(' + it.id + ')" style="' + ((it.scheduled_date && !_oi.past && it.status !== 'postponed') ? '' : 'margin-left:auto;') + 'padding:3px 10px;border:1px solid #2563eb;background:#ffffff;color:#1d4ed8;border-radius:6px;cursor:pointer;font-size:11px">✏️ ' + (_en ? (it.scheduled_date ? 'Change' : 'Change weekly') : (it.scheduled_date ? '변경' : '매주 변경')) + '</button>'
         + '</div>'
         + '<div id="resch-' + it.id + '" style="display:none;margin-top:10px;border-top:1px dashed rgba(148,163,184,0.35);padding-top:10px"></div>'
         + '</div>';
     }).join('');
+    /* 📅 (2026-10-01 B안) 위에 «다음 수업 · 묶음 · 날짜 칩», 요일별 줄은 접는다.
+       ⚠️ 위 줄 렌더(items.map …)는 손대지 않고 감싸기만 한다 — 하니스가 그 블록을 오려 낸다.
+       ⚠️ 접힘 상태는 다시 그려도 지킨다(변경 편집기를 열어 둔 채 목록이 새로 오면 접혀 버린다). */
+    var _foldWas = !!(document.getElementById('mgsuFold') && document.getElementById('mgsuFold').open);
+    listEl.innerHTML = '<div class="mgsu"><div id="mgsuTop"></div>'
+      + '<details id="mgsuFold" class="mgsu-fold"' + (_foldWas ? ' open' : '') + '><summary>'
+      + (_en ? ('Show by weekday · postpone / change ▾ (' + items.length + ')') : ('요일별 보기 · 연기/변경 ▾ (' + items.length + '건)'))
+      + '</summary><div class="mgsu-rows">' + listEl.innerHTML + '</div></details></div>';
+    try { mgsuRender(); } catch (e) { console.warn('[mgsu] render', e); }
   } catch (e) {
     listEl.innerHTML = '<div style="text-align:center;padding:14px;color:#ef4444;font-size:12px">' + (_lang === 'en' ? 'Load failed: ' : '조회 실패: ') + (e.message || e) + '</div>';
     if (countEl) countEl.textContent = (_lang === 'en') ? 'Error' : '오류';

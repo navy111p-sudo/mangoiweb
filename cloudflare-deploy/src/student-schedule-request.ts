@@ -24,6 +24,9 @@ export type StudentReqInput = {
   newTime: string | null;
   todayKst: string;             // YYYY-MM-DD
   recentCount: number | null;   // 최근 24시간 이 학생 요청 수(null = 못 셈)
+  /* 같은 수업·같은 회차에 이미 «대기 중» 요청이 있는가(true/false, null = 못 봄).
+     2026-10-01 jeong 이 같은 4건을 2분 사이 두 번 보내 대기 요청이 8건 쌓였다. */
+  pendingDup?: boolean | null;
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -57,6 +60,8 @@ export function studentRequestGate(i: StudentReqInput): StudentReqGate {
   if (hasNew && (i.newDate! < i.todayKst || i.newDate! > addDays(i.todayKst, 90))) return { ok: false, error: 'new_date_out_of_range', status: 400 };
   /* 못 세었으면 막지 않는다(학생 요청이 조용히 사라지는 쪽이 더 나쁘다). */
   if (i.recentCount != null && i.recentCount >= STUDENT_REQ_DAILY_CAP) return { ok: false, error: 'too_many_requests', status: 429 };
+  /* 중복은 되돌릴 수 없는 일이 아니라 «못 봤으면(null) 막지 않는다». */
+  if (i.pendingDup === true) return { ok: false, error: 'already_pending', status: 409 };
   return { ok: true, error: null, status: 200 };
 }
 
@@ -66,7 +71,8 @@ export async function ensureScheduleChangeRequestTable(env: any): Promise<void> 
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_scr_status ON schedule_change_requests(status, created_at)`); } catch {}
   // 🆕 유료/무료 태깅(2026-07-14) — 기존 배포 DB 호환 컬럼 추가(멱등, 이미 있으면 무시)
   /* 👨‍🏫 (2026-09-30) new_teacher_id = «교사로 연기» 에서 학생이 고른 강사(원부 번호). teacher_name 은 «담당 강사» 그대로 둔다. */
-  for (const col of ['fee_type TEXT', 'minutes_before INTEGER', 'requester_uid TEXT', 'new_teacher_id TEXT']) {
+  /* ⏸ (2026-10-02) end_makeup = «연기보강» 이름(예: 연기보강 (10월 2일 연기)). 있으면 승인 때 class_type='makeup' + 메모. */
+  for (const col of ['fee_type TEXT', 'minutes_before INTEGER', 'requester_uid TEXT', 'new_teacher_id TEXT', 'end_makeup TEXT']) {
     try { await env.DB.exec(`ALTER TABLE schedule_change_requests ADD COLUMN ${col}`); } catch {}
   }
 }

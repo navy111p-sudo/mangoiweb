@@ -2201,7 +2201,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       /* ⏸ (2026-10-01 Mai 제보) 연기된 수업은 «연기됨» 을 글자로 — 그전에는 표시가 없어 연기가 됐는지 몰랐다.
          서버가 status='postponed'·join_open=false 로 보낸다(입장 버튼은 저절로 빠진다). */
       if (r.postponed) act = '<span class="tag hot">' + esc(T('⏸ Postponed', '⏸ 연기됨')) + '</span>';
-      if (r.schedule_id && r.can_move === false) {
+      if (r.source === 'cafe24' && !r.schedule_id) {
+        /* ❔ (2026-10-01 매니저 질문 «why other classes don't have move button?») 카페24(LMS) 줄은 망고아이 예약표에
+           행이 없어 여기서 옮길 수 없다 — 버튼이 «없다» 대신 그 이유를 글자로 적는다(폰엔 hover 가 없다). */
+        resch = '<span class="tag">' + esc(T('LMS class — change in cafe24', '카페24 수업 — 카페24에서 변경')) + '</span>';
+      } else if (r.schedule_id && r.can_move === false) {
         resch = '<span class="tag">' + esc(T('weekly — use timetable', '매주 반복 — 시간표에서')) + '</span>';
       } else if (r.schedule_id) {
         resch = '<span class="tag ta-open" role="button" tabindex="0" data-ta="' + esc(r.schedule_id) + '">'
@@ -2356,7 +2360,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       for (var i = 0; i < qs.length; i++) qs[i](got);
     };
     var sc = document.createElement('script');
-    sc.src = '/js/class-move-modal.js?v=3';
+    sc.src = '/js/class-move-modal.js?v=4';
     sc.onload = function(){ done(true); };
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);
@@ -3226,7 +3230,7 @@ var s=document.createElement('script');s.defer=true;s.src='/js/absence-hold-pane
     var go = function(){ if (window.mgEvalQuick) window.mgEvalQuick(id, { en: en() }); };
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
-    sc.src = '/js/eval-quick-view.js?v=1';
+    sc.src = '/js/eval-quick-view.js?v=2';
     sc.onload = go;
     sc.onerror = function(){ alert(en() ? 'Could not load the viewer — please tap again.' : '전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.'); };
     document.head.appendChild(sc);

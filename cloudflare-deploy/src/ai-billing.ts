@@ -57,6 +57,7 @@ import { getScope, scopeStudentCond, type Scope } from './scope';
 import { enrolledCond } from './exec-summary';
 import { hiddenExcludeCond } from './student-override';   // 🙈 명부에서 숨긴 계정은 «청구 인원» 에서도 뺀다
 import { sendPlainSms } from './solapi-client';
+import { tuitionAdminRouter } from './b2b-tuition-load';   // 🏫 B2B 화상수업 수업료(충전금·월 청구) — 같은 접두사 아래 tuition/* 로 위임 (2026-10-01)
 import { aiPrice, aiPriceNote, currentAiPriceRule, parseAiPriceRule, type AiPrice, type AiPriceRule } from './ai-billing-price';   // 💰 학원 공급가 정본(인원 구간·최소 20명분·지사 40%) — 2026-09-24
 
 interface Env { DB: D1Database; [k: string]: any }
@@ -568,6 +569,10 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
   const url = new URL(request.url);
   const p = url.pathname.replace(/^\/api\/admin\/ai-billing\/?/, '');
   const method = request.method.toUpperCase();
+  /* 🏫 (2026-10-01) B2B 화상수업 수업료 — /api/admin/ai-billing/tuition/*
+     이 접두사는 src/index.ts 의 인증 게이트·라우팅·강사 차단·대리점 허용목록에 이미 전부 등록돼 있어
+     공동 금지구역을 고치지 않고 새 기능을 붙인다. 스코프 판정·본사 게이트는 위임 받은 쪽(b2b-tuition-load.ts)이 한다. */
+  if (p === 'tuition' || p.startsWith('tuition/')) return tuitionAdminRouter(request, env, p.replace(/^tuition\/?/, ''));
   await ensureSchema(env);
   const scope = await safe(async () => await getScope(env, request), { type: 'none', value: null, label: '권한 없음' } as Scope);
 

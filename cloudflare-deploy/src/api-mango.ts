@@ -68,6 +68,8 @@ import { applyRoomOverrides } from './class-room-override';       // 🚪 「오
 import { studentRequestGate, ensureScheduleChangeRequestTable } from './student-schedule-request';  // 📅 학생 연기·변경 요청 판정 정본
 import { loadSchedSummaryMap, loadSchedSummaryOne, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약 수업」 칸 정본 (students_erp 의 수강 칸은 카페24가 정본이라 늘 «—» 였다)       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 import { isPostponedOccurrence } from './class-postponed';  // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { resolveStudentTwins } from './student-alias';  // 👥 카페24 쌍둥이 계정(X ↔ mangoai_X) — 학생 «내 수업» 찾기(2026-10-02 lby01)
+import { isUsableKoMeaning, stripJamoRuns } from './learn-meaning-check';  // 🧹 «뜻» 카드에 'ㅋㅋㅋㅋ' 가 나가지 않게(2026-10-02)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -1811,6 +1813,10 @@ export async function handleMangoApi(
              확장이다. ⚠️ 전제: 대소문자만 다른 두 계정이 «다른 사람»인 사례는 실측상 아직 없다
              (Kim/kim·Lee/lee 전부 동일인 — CLAUDE.md 2장). 그런 사례가 생기면 이 줄부터 다시 보라. */
           condsUid.push('LOWER(cs.user_id) = LOWER(?)'); bindsUid.push(userId);
+          /* 👥 (2026-10-02 lby01) 카페24 미러가 예약을 쌍둥이 계정(mangoai_X)으로 만들면 여기서 빠지고,
+             다른 수업이 하나라도 잡히면 아래 이름 폴백도 안 돌아 그 수업만 조용히 사라졌다.
+             이름까지 같은 쌍둥이만 함께 찾는다 — 정본 src/student-alias.ts(실패하면 예전 동작). */
+          for (const tw of await resolveStudentTwins(env.DB, userId)) { condsUid.push('cs.user_id = ?'); bindsUid.push(tw); }
         }
         if (nameParam) {
           condsName.push('cs.student_name = ?'); bindsName.push(nameParam);
@@ -2284,7 +2290,12 @@ export async function handleMangoApi(
 
       let msRows: any[] = [];
       let msMatchedBy: 'uid' | 'name' | 'none' = 'none';
-      if (msUserId) { msRows = await runMsPass('cs.user_id = ?', msUserId); if (msRows.length) msMatchedBy = 'uid'; }
+      if (msUserId) {
+        /* 👥 (2026-10-02 lby01) 쌍둥이 계정(mangoai_X)의 예약도 «내 수업» — sessions/today 와 같은 정본 */
+        const msTwins = await resolveStudentTwins(env.DB, msUserId);
+        for (const id of [msUserId, ...msTwins]) msRows = msRows.concat(await runMsPass('cs.user_id = ?', id));
+        if (msRows.length) msMatchedBy = 'uid';
+      }
       if (!msRows.length && msName) { msRows = await runMsPass('cs.student_name = ?', msName); if (msRows.length) msMatchedBy = 'name'; }
 
       const msNow = Date.now();
@@ -2451,9 +2462,19 @@ export async function handleMangoApi(
           .bind(tokUid, nowMs - 86400000).first();
         recent = rc && rc.n != null ? Number(rc.n) : null;
       } catch { recent = null; }
+      /* 같은 수업·같은 회차에 이미 대기 중인 요청이 있으면 또 받지 않는다(2026-10-01 대기 8건 중복). */
+      let pendingDup: boolean | null = null;
+      try {
+        const dupOrig = cs && cs.scheduled_date ? String(cs.scheduled_date).replace(/\//g, '-').slice(0, 10) : bodyOrigDate;
+        if (cs && dupOrig) {
+          const dr: any = await env.DB.prepare(`SELECT id FROM schedule_change_requests WHERE schedule_id = ? AND orig_date = ? AND requester_uid = ? AND status = 'pending' LIMIT 1`)
+            .bind(cs.id, dupOrig, tokUid).first();
+          pendingDup = !!dr;
+        }
+      } catch { pendingDup = null; }
       const gate = studentRequestGate({
         tokUid, schedule: cs, requestType: reqType, origDate: bodyOrigDate,
-        newDate, newTime, todayKst, recentCount: recent,
+        newDate, newTime, todayKst, recentCount: recent, pendingDup,
       });
       if (!gate.ok) return json({ ok: false, error: gate.error }, gate.status);
 
@@ -2719,6 +2740,8 @@ export async function handleMangoApi(
       if (userId) {
         if (String(row.user_id) === userId) { ok = true; resolvedRole = 'student'; }       // 학생 uid 일치
         if (!ok && String(row.teacher_id || '') === userId) { ok = true; resolvedRole = 'teacher'; }  // 교사 uid == teacher_id
+        /* 👥 (2026-10-02) 예약이 쌍둥이 계정(mangoai_X)에 붙어 있으면 «이 예약의 학생» 이다 — 정본 student-alias.ts */
+        if (!ok && row.user_id && (await resolveStudentTwins(env.DB, userId)).includes(String(row.user_id))) { ok = true; resolvedRole = 'student'; }
         if (!ok) {
           // 이름 기반 학생 uid 병합(동명/키 다양성 대비)
           try {
@@ -3117,7 +3140,9 @@ ${numbered}`;
         if (already) { map[t] = t; continue; }
         let cached: string | null = null;
         if (kv) { try { cached = await kv.get(cacheKey(t)); } catch {} }
-        if (cached != null && !(target === 'ko' && hasForeignGloss(cached))) map[t] = cached; else need.push(t);
+        // 🧹 learn 모드는 저장된 뜻도 다시 본다 — 'ㅋㅋㅋㅋ' 처럼 이미 굳은 값은 버리고 새로 번역한다(learn-meaning-check.ts).
+        if (cached != null && !(target === 'ko' && hasForeignGloss(cached))
+            && !(learnMode && target === 'ko' && !isUsableKoMeaning(cached, t))) map[t] = cached; else need.push(t);
       }
       const dbg: any = { ai: !!ai, need: need.length, raw: null, err: null };
       // 번역 전용 모델 m2m100 (LLM 프롬프트보다 안정적). 텍스트별 번역.
@@ -3249,6 +3274,8 @@ ${numbered}`;
                 mt = (resp && typeof resp.translated_text === 'string' && resp.translated_text.trim()) ? String(resp.translated_text) : '';
               }
               if (target === 'ko' && hasForeignGloss(mt)) mt = '';
+              // 🧹 learn 모드: 자모 반복을 걷어내고, 완성 음절이 없으면 «번역 실패» 로 본다(저장도 안 함).
+              if (learnMode && target === 'ko' && mt) { mt = stripJamoRuns(mt); if (!isUsableKoMeaning(mt, src)) mt = ''; }
               mtOk = !!mt;
               // 번역이 없으면 원문(src)을 그대로 붙여 둔다 — 뗀 말머리만이라도 보여 주는 편이 낫다.
               // 다만 «다음에 다시 시도» 할 수 있게 캐시는 하지 않는다(mtOk=false).
