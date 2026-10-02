@@ -357,13 +357,19 @@ console.log('\n[ I. 💬 대답 보기 칩 — 결정론으로 «맞는 영어»
   // ② 실제 질문을 넣어 «나온 문장» 을 본다
   const words = (s) => s.trim().split(/\s+/).filter(Boolean).length;
   const cases = [
-    { q: "Hi! I'm Mango. 🥭 Are you happy today?", lv: 1, want: ['Yes, I am.', "No, I'm not."] },
+    { q: "Hi! I'm Mango. 🥭 Are you happy today?", lv: 1, want: ['I am happy today.', 'I am not happy today.'] },
     { q: 'Hi! I\'m Mango. 🥭 How are you today, happy or tired?', lv: 2, want: ['I am happy.', 'I am tired.'] },
     { q: 'Nice! Do you like pizza or chicken?', lv: 1, want: ['I like pizza.', 'I like chicken.'] },
     { q: 'Do you like ice cream or cake?', lv: 2, want: ['I like ice cream.', 'I like cake.'] },
     { q: 'Are you a student or a teacher?', lv: 2, want: ['I am a student.', 'I am a teacher.'] },
-    { q: 'Wow! Do you have a pet?', lv: 1, want: ['Yes, I do.', "No, I don't."] },
-    { q: 'Can you swim?', lv: 2, want: ['Yes, I can.', "No, I can't."] },
+    { q: 'Wow! Do you have a pet?', lv: 1, want: ['I have a pet.', "I don't have a pet."] },
+    { q: 'Can you swim?', lv: 2, want: ['I can swim.', "I can't swim."] },
+    // 📜 2026-10-02 사장님 지시 — Yes/No 질문은 «그 질문의 낱말» 로 길게 대답한다(I like coffee / I don't like coffee)
+    { q: 'Do you like coffee?', lv: 1, want: ['I like coffee.', "I don't like coffee."] },
+    // ⛔ 대명사·부정사가 섞이면 비문이 되므로 긴 대답을 만들지 않고 짧은 대답으로 떨어진다 (짝)
+    { q: 'Do you like your school?', lv: 2, want: ['Yes, I do.', "No, I don't."] },
+    { q: 'Can you help me?', lv: 2, want: ['Yes, I can.', "No, I can't."] },
+    { q: 'Are you going to school?', lv: 2, want: ['Yes, I am.', "No, I'm not."] },
     { q: 'Would you like some water?', lv: 2, want: ['Yes, please.', 'No, thank you.'] },
     { q: 'Is it hot today?', lv: 3, want: ['Yes, it is.', "No, it isn't."] },
   ];

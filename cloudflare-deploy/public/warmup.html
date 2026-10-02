@@ -2899,7 +2899,7 @@ async function micViaWhisper(){
   }
   if(_whisperOn){ MangoiVoice.stop(); return; }      // ⏹ — 지금까지 녹음분으로 전사
   _whisperOn=true; setMicState(true);
-  var heard=false;                // 🔇 말소리가 한 번도 안 들렸나 — Whisper 는 무음에서 "Thank you." 를 지어낸다
+  var heard=false, errored=false; // 🔇 말소리가 한 번도 안 들렸나 — Whisper 는 무음에서 "Thank you." 를 지어낸다
   var said = await MangoiVoice.record({
     lang: _warmLang,              // 🀄 서버 Whisper 언어 힌트 — 안 주면 자동감지로 떨어져 오인식이 는다
     silenceMs: 1600,              // ⚡ 말이 끝난 뒤 기다림 2.5초(기본) → 1.8초(2026-09-25) → 1.6초(2026-10-02 「답하면 빠르게 다시 질문」). 녹음 경로는 «문장이 끝났나» 를 모르므로 1.5초까지는 안 줄인다
@@ -2910,7 +2910,7 @@ async function micViaWhisper(){
       else if(s==='speaking'){ heard=true; _setListenLabel('🎙️ 듣는 중…'); _autoHook('phase','speak'); }
       else if(s==='thinking'){ _setListenLabel('🎧 말한 내용을 받아적는 중…'); _autoHook('phase','check'); }
       else if(s==='error'){
-        var r = info && info.reason;
+        errored=true; var r = info && info.reason;
         addMsg(r==='denied' ? '🎤 마이크 권한이 꺼져 있어요. 주소창의 자물쇠(🔒) → 마이크 "허용" 후 다시 눌러 주세요. (텍스트 입력은 계속 가능)'
              : r==='no_audio' ? '🎤 소리가 잘 안 들렸어요. 조금 더 크게 다시 말해 주세요.'
              : '🎤 음성 입력에 실패했어요. 아래에 글로 입력해 주세요.', 'sys');
@@ -2922,6 +2922,9 @@ async function micViaWhisper(){
   /* 🔇 (2026-09-26) 말소리가 한 번도 안 들린 녹음의 전사는 버린다 — 학생이 하지도 않은 말로 대화가 이어진다.
      자동 말하기·얼굴 대화는 조용한 순간에도 마이크를 열어서 이 일이 잦다(A.i 친구하기 얼굴 대화와 같은 규칙). */
   if(said && !heard){ said=''; addMsg('🎤 소리가 잘 안 들렸어요. 조금 더 크게 다시 말해 주세요.', 'sys'); }
+  /* 🔁 (2026-10-02) 말소리는 들렸는데 받아쓴 글자가 비었다 = 서버가 «oah, oah…» 같은 반복 환각을 걸러냈거나
+     알아듣지 못했다(src/stt-loop.ts). 아무 말 없이 넘어가면 학생은 기다리기만 한다 — 사실대로 말한다. */
+  if(!said && heard && !errored) addMsg('🎤 잘 못 알아들었어요. 조금 더 또박또박 다시 말해 주세요.', 'sys');
   if(said){ document.getElementById('inp').value=said; sendMsg(); }
 }
 /* ✨ 자동 말하기(베타, 2026-09-24) — 켜는 «시점» 만 js/warmup-auto-talk.js 가 정한다.
@@ -3130,7 +3133,7 @@ var BEGINNER_GREETINGS = {
   // 1단계(첫걸음·A1) — 3~5단어. Yes/No 만(wh-·or 금지).
   1: { en: "Hi! I'm {name}. 🥭 Are you happy today?",
        ko: '안녕하세요! 저는 {name} 예요. 오늘 기분이 좋아요?',
-       chips: ['Yes, I am.', "No, I'm not.", 'One more time, please.'] },
+       chips: ['I am happy today.', 'I am not happy today.', 'One more time, please.'] },
   // 2단계(기초·A2) — 5~7단어. 양자택일(고를 말이 문장 안에 있다).
   2: { en: "Hi! I'm {name}. 🥭 How are you today, happy or tired?",
        ko: '안녕하세요! 저는 {name} 예요. 오늘 기분이 어때요? 좋아요, 아니면 피곤해요?',
