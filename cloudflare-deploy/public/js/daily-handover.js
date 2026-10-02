@@ -7,7 +7,7 @@
   var api = '/api/approval/handover', me, members = [], version = 0, revision = 0;
   var reviewed = false, sent = false, busy = false, suggestion = null, requestAttempt = null;
   var started = null, stopped = null, reports = [], originalSubmitted = false, recognition = null;
-  var attachments=[], stagedIds=[], fileMap={}, inbox=[], readHistory=[], inboxTotal=0, selected=null, uploading=false, lastListState=null, largeReading=false;
+  var attachments=[], stagedIds=[], fileMap={}, inbox=[], readHistory=[], mine=[], inboxTotal=0, selected=null, uploading=false, lastListState=null, largeReading=false;
   var wanted=new URLSearchParams(location.search), wantedReport=Number(wanted.get('report'))||null;
   var fields = ['work', 'noissue', 'issue', 'noopen', 'open', 'owner', 'deadline', 'student', 'class', 'priority', 'recipient'];
   var labels = { work:'오늘 한 일 / Work completed', issue:'문제·조치 / Issue & action', open:'남은 일 / Open items', owner:'담당자 / Owner', deadline:'기한 / Deadline' };
@@ -116,16 +116,17 @@
   function visibleList(){
     var filter=$('filter').value;
     if(filter==='read')return readHistory.slice();
+    if(filter==='mine')return mine.slice();
     var list=filter==='unread'?inbox:reports.filter(function(r){return filter==='all'||filter===r.status||(filter==='open'&&!r.payload.no_open)||(filter==='urgent'&&r.payload.priority==='urgent');});
     return list.slice().sort(function(a,b){var rank=function(r){return (r.payload.priority==='urgent'&&r.status==='submitted'?-10:0)+({submitted:0,changes_requested:1,draft:2,acknowledged:3}[r.status]||0);};return rank(a)-rank(b)||b.updated_at-a.updated_at;});
   }
   function paintList(){
     var host=$('reports'), detail=$('report-detail'),list=visibleList();host.replaceChildren();detail.replaceChildren();
-    var mode=$('filter').value;$('list-date').disabled=mode==='unread'||mode==='read';$('reread').textContent=mode==='read'?'← 미확인 보고로 / Back to unread':'📖 확인한 보고 다시 읽기 / Re-read';
-    $('inbox-message').textContent=(['admin','mgr_jjw'].includes(me.username)?'미확인 '+inboxTotal+'건 · 읽고 확인해 주세요':'My unread: '+inboxTotal+' · Please read and acknowledge');
-    if(!list.length){detail.append(node('p',mode==='read'?'최근 30일에 확인한 보고가 없습니다. / No acknowledged reports in the last 30 days.':'해당 보고가 없습니다. / No reports.','sub'));if(mode==='unread')detail.append(node('p','확인한 보고는 «📖 다시 읽기»에서 볼 수 있어요. / Acknowledged reports are under Re-read.','small'));return;}
+    var mode=$('filter').value;$('list-date').disabled=mode==='unread'||mode==='read'||mode==='mine';$('reread').textContent=mode==='read'?'← 미확인 보고로 / Back to unread':'📖 확인한 보고 다시 읽기 / Re-read';$('mine').textContent=mode==='mine'?'← 미확인 보고로 / Back to unread':'📤 내가 보낸 보고 · 확인 여부 / My sent reports';
+    $('inbox-message').textContent=mode==='mine'?mineSummary():(['admin','mgr_jjw'].includes(me.username)?'미확인 '+inboxTotal+'건 · 읽고 확인해 주세요':'My unread: '+inboxTotal+' · Please read and acknowledge');
+    if(!list.length){detail.append(node('p',mode==='read'?'최근 30일에 확인한 보고가 없습니다. / No acknowledged reports in the last 30 days.':mode==='mine'?'최근 30일에 작성한 보고가 없습니다. / No reports written in the last 30 days.':'해당 보고가 없습니다. / No reports.','sub'));if(mode==='unread')detail.append(node('p','확인한 보고는 «📖 다시 읽기»에서 볼 수 있어요. / Acknowledged reports are under Re-read.','small'));return;}
     var r=list.find(function(x){return x.id===selected;})||list[0];selected=r.id;
-    list.forEach(function(x){var button=node('button',x.staff_name,'mh-report-button');button.type='button';button.setAttribute('aria-pressed',String(x.id===r.id));button.append(node('span',x.report_date+' · '+statusLabel(x.status)),node('span',x.payload.work.slice(0,100)));if(x.payload.priority==='urgent')button.append(node('span','긴급 / Urgent','badge'));if((x.payload.attachments||[]).length)button.append(node('span','첨부 / Files: '+x.payload.attachments.length));button.onclick=function(){selected=x.id;paintList();};host.append(button);});
+    list.forEach(function(x){var button=node('button',mode==='mine'?'→ '+staffName(x.recipient):x.staff_name,'mh-report-button');button.type='button';button.setAttribute('aria-pressed',String(x.id===r.id));button.append(node('span',x.report_date+' · '+statusLabel(x.status)),node('span',x.payload.work.slice(0,100)));if(x.payload.priority==='urgent')button.append(node('span','긴급 / Urgent','badge'));if((x.payload.attachments||[]).length)button.append(node('span','첨부 / Files: '+x.payload.attachments.length));button.onclick=function(){selected=x.id;paintList();};host.append(button);});
     var nav=node('div',null,'mh-mobile-nav'),idx=list.indexOf(r),prev=node('button','←'),next=node('button','→');prev.setAttribute('aria-label','이전 보고 / Previous');next.setAttribute('aria-label','다음 보고 / Next');prev.disabled=idx===0;next.disabled=idx===list.length-1;
     prev.onclick=function(){selected=list[idx-1].id;paintList();};next.onclick=function(){selected=list[idx+1].id;paintList();};nav.append(prev,node('span',(idx+1)+' / '+list.length),next);detail.append(nav);
     detail.append(node('p',r.staff_name+' · '+r.report_date+' · '+statusLabel(r.status),'badge'),node('h3',r.payload.work.slice(0,150)));
@@ -133,7 +134,9 @@
     var content=node('div',null,'preview');showPayload(content,r.payload,r.report_date,r.staff_name);if(largeReading){content.style.fontSize='26px';size.textContent='기본 크기 / Default text';}detail.append(content);
     (r.payload.attachments||[]).forEach(function(id){detail.append(attachmentLinks(id,false));});
     detail.append(node('p','전달 / To: '+staffName(r.recipient),'small'));
-    if(r.acknowledged_by)detail.append(node('p','확인 / Reviewed by: '+staffName(r.acknowledged_by),'small'));
+    if(r.acknowledged_by)detail.append(node('p','확인 / Reviewed by: '+staffName(r.acknowledged_by)+(r.acknowledged_at?' · '+kst(r.acknowledged_at)+' KST':''),'small'));
+    if(r.username===me.username)detail.append(node('p',ownStatusText(r),r.status==='changes_requested'?'notice':'small'));
+    if(r.username===me.username&&r.status==='changes_requested'&&r.report_date===$('date').value){var fix=node('button','✏️ 보완해서 다시 보내기 / Revise & resend','primary');fix.type='button';fix.onclick=openEditor;detail.append(fix);}
     if(r.feedback)detail.append(node('p','보완 요청 / Feedback: '+r.feedback,'notice'));
     if(r.username!==me.username&&r.status==='submitted'&&(r.recipient===me.username||root.dataset.exec==='true')){
       var buttons=node('div',null,'buttons'),ack=node('button','내용 확인 완료 / Acknowledge','primary'),ret=node('button','보완 요청 / Request changes');
@@ -141,17 +144,29 @@
     }
     detail.append(node('p','수신 확인은 남은 업무를 완료 처리하지 않습니다. / Acknowledgement does not close open tasks.','small'));
   }
+  function kst(ms){return new Date(Number(ms)+9*3600000).toISOString().slice(5,16).replace('T',' ');}
+  // 작성자 시점의 «확인 여부» — 매일보고의 «확인» 은 돈 결재의 «승인» 이 아니다(받은 사람이 읽었다는 표시).
+  function ownStatusText(r){
+    if(r.status==='acknowledged')return '✅ 확인 완료 · '+staffName(r.acknowledged_by||r.recipient)+(r.acknowledged_at?' · '+kst(r.acknowledged_at)+' KST':'')+' / Acknowledged';
+    if(r.status==='changes_requested')return '↩️ 보완 요청 · '+staffName(r.acknowledged_by||r.recipient)+(r.feedback?' — '+r.feedback:'')+' / Changes requested';
+    if(r.status==='submitted')return '⏳ 확인 대기 · '+staffName(r.recipient)+'님이 아직 읽고 확인하지 않았습니다. / Awaiting review';
+    return '📝 초안 · 아직 보내지 않았습니다. / Draft — not sent yet';
+  }
+  function mineSummary(){var c={submitted:0,acknowledged:0,changes_requested:0,draft:0};mine.forEach(function(r){if(c[r.status]!=null)c[r.status]++;});
+    return '내가 보낸 보고 '+mine.length+'건 · 확인 완료 '+c.acknowledged+' · 확인 대기 '+c.submitted+' · 보완 요청 '+c.changes_requested+(c.draft?' · 초안 '+c.draft:'')+' / Mine: '+c.acknowledged+' acknowledged · '+c.submitted+' awaiting · '+c.changes_requested+' changes';}
+  function paintOwn(own){var el=$('own-status');if(!own){el.hidden=true;return;}el.hidden=false;el.textContent='오늘 내 보고 / Today: '+ownStatusText(own);}
+  function openEditor(){var editor=$('editor');editor.hidden=false;$('clock-box').hidden=false;begin();editor.scrollIntoView({behavior:'smooth',block:'start'});}
   async function act(r,kind,button){var feedback='';if(kind==='return'){feedback=prompt('보완할 내용을 적어 주세요. / What needs clarification?')||'';if(!feedback.trim())return;}button.disabled=true;try{await call('/'+kind,{id:r.id,version:r.version,feedback:feedback});await loadList();}catch(e){networkError(e);button.disabled=false;}}
   async function loadList(){
-    var date=$('list-date').value, wantRead=$('filter').value==='read', data=await Promise.all([call('/home?date='+encodeURIComponent(date)),call('/inbox'),wantRead?call('/read-history'):null]);
-    if(date!==$('list-date').value)return;var j=data[0];reports=j.reports;inbox=data[1].reports;inboxTotal=data[1].total;mergeFiles(j.files);mergeFiles(data[1].files);if(data[2]){readHistory=data[2].reports||[];mergeFiles(data[2].files);}var listState=JSON.stringify([date,$('filter').value,reports,inbox,readHistory]);if(listState!==lastListState){paintList();lastListState=listState;}
+    var date=$('list-date').value, wantRead=$('filter').value==='read', wantMine=$('filter').value==='mine', data=await Promise.all([call('/home?date='+encodeURIComponent(date)),call('/inbox'),wantRead?call('/read-history'):null,wantMine?call('/mine'):null]);
+    if(date!==$('list-date').value)return;var j=data[0];reports=j.reports;inbox=data[1].reports;inboxTotal=data[1].total;mergeFiles(j.files);mergeFiles(data[1].files);if(data[2]){readHistory=data[2].reports||[];mergeFiles(data[2].files);}if(data[3]){mine=data[3].reports||[];mergeFiles(data[3].files);}if(date===$('date').value)paintOwn(j.own);var listState=JSON.stringify([date,$('filter').value,reports,inbox,readHistory,mine]);if(listState!==lastListState){paintList();lastListState=listState;}
     var weekday=new Date(date+'T00:00:00Z').getUTCDay();var required=(j.required||[]).filter(function(r){return r.exempt_date!==date&&r.weekdays.split(',').includes(String(weekday));});
     var missing=required.filter(function(r){return !r.submitted_at;});
     $('required').textContent=required.length?'보고 대상 '+required.length+'명 · 미제출 / Not submitted: '+(missing.map(function(r){return r.name||r.username;}).join(', ')||'없음 / None'):'';
   }
   $('write-toggle').onclick=function(){var editor=$('editor');editor.hidden=!editor.hidden;$('clock-box').hidden=editor.hidden;if(!editor.hidden){begin();editor.scrollIntoView({behavior:'smooth',block:'start'});}};
-  $('filter').onchange=function(){if($('filter').value==='read')loadList().catch(networkError);else paintList();};
-  $('reread').onclick=function(){$('filter').value=$('filter').value==='read'?'unread':'read';$('filter').onchange();};$('list-date').onchange=function(){loadList().catch(networkError);};$('refresh').onclick=function(){loadList().catch(networkError);};
+  $('filter').onchange=function(){if($('filter').value==='read'||$('filter').value==='mine')loadList().catch(networkError);else paintList();};
+  $('reread').onclick=function(){$('filter').value=$('filter').value==='read'?'unread':'read';$('filter').onchange();};$('mine').onclick=function(){$('filter').value=$('filter').value==='mine'?'unread':'mine';$('filter').onchange();};$('own-status').onclick=function(){$('filter').value='mine';$('filter').onchange();};$('list-date').onchange=function(){loadList().catch(networkError);};$('refresh').onclick=function(){loadList().catch(networkError);};
   var weeknames=['일 / Sun','월 / Mon','화 / Tue','수 / Wed','목 / Thu','금 / Fri','토 / Sat'];
   weeknames.forEach(function(name,i){var label=node('label',null,'check'),c=document.createElement('input');c.type='checkbox';c.value=String(i);c.checked=i>0&&i<6;label.append(c,document.createTextNode(name));$('weekdays').append(label);});
   $('schedule-save').onclick=async function(){var button=$('schedule-save');button.disabled=true;try{await call('/schedule',{enabled:$('schedule-enabled').checked,weekdays:Array.from($('weekdays').querySelectorAll('input:checked')).map(function(c){return Number(c.value);}),due_time:$('due-time').value,exempt_date:$('exempt-date').value});$('schedule-status').textContent='설정 저장 완료 · 마감 30분 전/마감/30분 후 알림. / Saved: reminders at −30 / 0 / +30 min (15-min checks).';}catch(e){networkError(e);}finally{button.disabled=false;}};
@@ -169,7 +184,7 @@
       $('filter').value=j.reader_mode?'unread':'all';selected=wantedReport;if(wantedReport)$('filter').value='all';root.dataset.exec=String(j.can_review_all);
       $('date').value=j.day;$('list-date').value=/^\d{4}-\d{2}-\d{2}$/.test(wanted.get('date')||'')?wanted.get('date'):j.day;$('staff').value=me.name;
       ['owner','recipient'].forEach(function(k){members.forEach(function(m){var option=node('option',m.name?m.name+' ('+m.username+')':m.username);option.value=m.username;$(k).append(option);});});
-      if(j.own){version=j.own.version;populate(j.own.payload);$('recipient').value=j.own.recipient;originalSubmitted=!!j.own.submitted_at;$('badge').textContent=statusLabel(j.own.status);if(j.own.feedback){$('alert').hidden=false;$('alert').textContent='보완 요청 / Changes requested: '+j.own.feedback;}}
+      paintOwn(j.own);if(j.own){version=j.own.version;populate(j.own.payload);$('recipient').value=j.own.recipient;originalSubmitted=!!j.own.submitted_at;$('badge').textContent=statusLabel(j.own.status);if(j.own.feedback){$('alert').hidden=false;$('alert').textContent='보완 요청 / Changes requested: '+j.own.feedback;}}
       else{$('recipient').value=j.default_recipient;$('noissue').checked=true;$('noopen').checked=true;$('alert').hidden=false;$('alert').textContent='오늘 보고를 아직 제출하지 않았습니다. / Today’s handover has not been submitted.';}
       try{var saved=JSON.parse(localStorage.getItem(storageKey())||'null');if(saved&&saved.version===version){populate(saved.payload);$('recipient').value=saved.recipient;$('save-status').textContent='이 기기의 임시 작성 내용을 복원했습니다. / Device draft restored.';}else{$('save-status').textContent=j.own?'저장된 보고를 불러왔습니다. / Saved report loaded.':'날짜·담당자가 자동 입력되었습니다. / Date and staff filled automatically.';}}catch(e){}
       if(j.schedule){$('schedule-enabled').checked=!!j.schedule.enabled;$('due-time').value=j.schedule.due_time;$('exempt-date').value=j.schedule.exempt_date;Array.from($('weekdays').querySelectorAll('input')).forEach(function(c){c.checked=j.schedule.weekdays.split(',').includes(c.value);});}
