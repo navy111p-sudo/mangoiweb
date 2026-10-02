@@ -440,16 +440,18 @@ console.log('\n[ I. 💬 대답 보기 칩 — 결정론으로 «맞는 영어»
     && !/💡 이 중에서 골라 대답해 보세요/.test(HTML));
 }
 
-console.log('\n[ J. 🇰🇷 낮은 단계 자동 뜻 — 탭하지 않아도 보이는가 ]');
+console.log('\n[ J. 🇰🇷 낮은 단계 뜻 — «모를 때만» 보이는가 (2026-10-02 경계 변경) ]');
 {
-  // 「뜻」 버튼은 초보가 있는 줄도 모른다. 다만 «듣기 훈련» 을 깨면 안 된다.
-  check('레벨 1~2 에서만 자동으로 연다', /if\(_warmLevel <= 2 && _subMode === 'on'\)\{/.test(HTML));
-  check('그 자리가 AI 말풍선 분기 안이다',
-    /mb\.onclick[\s\S]{0,700}_warmLevel <= 2 && _subMode === 'on'/.test(HTML));
-  check('자막이 「가리기·완전 끄기」면 열지 않는다(듣기 훈련 보호)',
-    /_subMode === 'on'\)\{\s*try\{ toggleMeaning/.test(HTML.replace(/\n\s*/g, ' ').replace(/ \{/g, '{')));
-  check('실패해도 대화가 멈추지 않는다(try/catch)',
-    /try\{ toggleMeaning\(text, mb, d\); \}catch\(e\)\{\}/.test(HTML));
+  /* 📜 2026-08 에는 «1~2단계는 탭하지 않아도 뜻을 자동으로 연다» 를 여기서 못 박았다(초보가 「뜻」 버튼을
+     못 찾아서). 2026-10-02 사장님 「뜻을 처음부터 보여주면 교육 효과가 떨어지니 뜻을 모를 때만」으로
+     전제가 바뀌었다. 찾기 어려움은 «작은 버튼» 대신 «말풍선 폭 전체의 가려진 줄» + 1~2단계 5초 반짝임으로 푼다.
+     ⛔ 느슨하게 지우지 않고 새 경계로 옮겨 적었다 — 자세한 실행 검사는 warmup_meaning_veil_harness. */
+  const H = HTML.replace(/\/\*[\s\S]*?\*\//g, '');
+  check('AI 말풍선 분기 안에 «가려진 뜻» 줄이 있다', /if\(who==='ai'\)\{[\s\S]{0,2600}mb\.className = 'mean-btn mean-veil'/.test(H));
+  check('1~2단계 자동 열기는 없다(교육 효과 — 2026-10-02 사장님)', !/_warmLevel <= 2 && _subMode === 'on'/.test(H));
+  check('누르면 그 말풍선의 뜻을 연다', /mb\.onclick = function\(e\)\{[^}]*openMeaningVeil\(text, mb, d\)/.test(H));
+  check('뜻을 못 받으면 가리개를 되돌린다(눌러도 아무것도 없는 상태로 굳지 않게)',
+    /function openMeaningVeil\([\s\S]{0,700}btn\.hidden = false/.test(H));
 }
 
 console.log('\n[ K. 다시 고르기에 손이 닿는가 — 되돌리기 방지 (2026-09-15) ]');

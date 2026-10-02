@@ -3,6 +3,12 @@
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
   var help = null, examples = [], step = 0, scene = '', answers = [], fixes = [], assisted = false;
+  /* 🪜 (2026-10-02) 이번 질문에 받은 도움 — 'own'(혼자) · 'meaning'(뜻을 열었음) · 'example'(대답 예시를 썼음).
+     선생님 요약을 세 갈래로 나누는 근거다. 학생이 답하면 그 답에 붙여 두고 다음 질문에서 'own' 으로 돌아간다. */
+  var helpLevel = 'own', meaningOpen = false, nudgeTimer = 0;
+  /* 막혔을 때 보기 — 서버 정본(src/warmup-answers.ts WARMUP_STUCK_CHIPS · src/warmup-zh.ts WARMUP_ZH_STUCK_CHIPS)과
+     «같은 글자» 여야 «문장 예시» 와 갈라 작은 «바로 보내기» 줄로 그린다(하니스가 두 곳을 대조한다). */
+  var STUCK = ['One more time, please.', "I don't know.", '再说一遍。', '我不知道。'];
   var contextKey = '', videoEpoch = 0;
   var startedAt = 0, firstReplyMs = null, historyOpen = false, lastQuestion = '';
   var scenes = [
@@ -54,9 +60,9 @@
     $('wgVideoNotice').textContent=tr('영상을 불러오지 못했어요. 그림을 보고 이야기해요.','The video is unavailable. Talk about the picture instead.');
   }
   function resetHelp() {
-    help=null; examples=[]; step=0;
-    $('wgHelpOutput').textContent=''; $('wgHelpActions').replaceChildren(); $('wgHelp').hidden=true;
-    label($('wgHelpNext'),'단어 힌트','Word hint'); $('wgHelpNext').disabled=false;
+    help=null; examples=[]; step=0; meaningOpen=false; helpLevel='own'; clearTimeout(nudgeTimer);
+    $('wgHelpOutput').replaceChildren(); $('wgHelpActions').replaceChildren(); $('wgHelp').hidden=true;
+    renderSteps();
   }
   function updateHistory() {
     var msgs=Array.from($('log').querySelectorAll('.msg'));
@@ -101,42 +107,138 @@
     help=h && Array.isArray(h.words) && typeof h.frame==='string' && typeof h.example==='string' ? h : null;
     examples=Array.isArray(list)?list.filter(function(s){return typeof s==='string';}).slice(0,3):[];
   }
-  function offerHelp() {
-    if (_warmPaused || sending || _recognizing) return;
-    $('wgHelp').hidden=false;
-    requestAnimationFrame(function(){$('wgHelp').scrollIntoView({block:'nearest'});});
-    if(!step) $('wgHelpOutput').textContent=tr('천천히 생각해도 괜찮아요. 단어나 짧은 대답부터 시작해요.','Take your time. Start with a word or a short answer.');
+  /* 🪜 단계 표시 — 1 혼자 해 보기 · 2 뜻 보기 · 3 대답 예시. 지금 어디까지 왔는지만 보여 준다(버튼이 아니다). */
+  function renderSteps() {
+    var box=$('wgHelpSteps'); if(!box)return;
+    var at=step>=3?3:(meaningOpen?2:1);
+    var items=[['혼자 해 보기','Try alone'],['뜻 보기','Meaning'],['대답 예시','Answer ideas']];
+    box.replaceChildren();
+    items.forEach(function(it,i){
+      var li=document.createElement('li'); if(i+1===at)li.className='on'; else if(i+1<at)li.className='done';
+      var n=document.createElement('b'); n.textContent=String(i+1);
+      var t=document.createElement('span'); label(t,it[0],it[1]);
+      li.append(n,t); box.appendChild(li);
+    });
   }
-  function nextHelp() {
-    offerHelp(); if (_warmPaused || sending || _recognizing) return;
-    step=Math.min(step+1,3); $('wgHelpActions').replaceChildren();
-    var out=$('wgHelpOutput');
-    if(step===1){
-      out.textContent=help?help.words.join(' · '):tr('질문에서 아는 단어를 찾아보세요. 필요하면 질문의 ‘뜻’을 눌러 보세요.','Look for a word you know. You can check the question’s meaning.');
-      label($('wgHelpNext'),'문장 시작 도움','Sentence starter');
-    } else if(step===2){
-      out.textContent=help?help.frame:tr('생각나는 단어 하나로 답해도 괜찮아요. 예시가 있으면 다음 단계에서 볼 수 있어요.','One word is a good start. Check the next step for an available example.');
-      label($('wgHelpNext'),'예시 보기','Show example');
-    } else {
-      var list=help?[help.example]:examples;
-      out.textContent=list.length?tr('예시예요. 내 생각에 맞게 바꾸어 말해 보세요.','These are examples. Change one to match your own idea.'):tr('이 질문의 예시는 아직 없어요. ‘뜻’을 확인하거나 다른 질문을 골라도 괜찮아요.','No example is available for this question. Check its meaning or choose another question.');
-      list.forEach(function(txt){
-        var line=document.createElement('p'); line.textContent=txt; out.appendChild(line);
-        $('wgHelpActions').appendChild(button('입력칸에 넣고 고치기','Edit this example',function(){
-          if($('inp').value.trim()) { out.textContent=tr('작성 중인 답변이 있어요. 예시를 참고해 직접 고쳐 주세요.','Your draft is still here. Use the example to edit it yourself.'); return; }
-          $('inp').value=txt; assisted=true; $('inp').focus();
-        }));
-      });
-      $('wgHelpNext').disabled=true;
+  function showPanel() {
+    $('wgHelp').hidden=false; renderSteps();
+    requestAnimationFrame(function(){$('wgHelp').scrollIntoView({block:'nearest'});});
+  }
+  /* 두 대답에서 «서로 다른 낱말» 하나를 찾는다 — 그 낱말만 노랗게 칠해 «바꿔 말할 자리» 를 보여 준다.
+     ⛔ 바꿀 낱말 목록을 화면에 두지 않는다 — 서버(src/warmup-answers.ts SWAP_SETS)가 이미 바꿔서 보냈다. */
+  function swapIndex(a, b) {
+    var x=String(a).replace(/[.!?]$/,'').split(' '), y=String(b).replace(/[.!?]$/,'').split(' ');
+    if(x.length!==y.length)return -1;
+    var at=-1;
+    for(var i=0;i<x.length;i++) if(x[i]!==y[i]){ if(at>=0)return -1; at=i; }
+    return at;
+  }
+  function sentenceNode(txt, swapAt) {
+    var frag=document.createDocumentFragment();
+    var words=String(txt).split(' ');
+    words.forEach(function(w,i){
+      if(i)frag.appendChild(document.createTextNode(' '));
+      if(i===swapAt){
+        var m=document.createElement('mark'); m.className='wg-swap';
+        var core=w.replace(/[.!?]$/,''); m.textContent=core; frag.appendChild(m);
+        if(core!==w)frag.appendChild(document.createTextNode(w.slice(core.length)));
+      } else frag.appendChild(document.createTextNode(w));
+    });
+    return frag;
+  }
+  function useSentence(txt) {
+    if($('inp').value.trim()){
+      label($('wgHelpNote'),'작성 중인 답변이 있어요. 예시를 보고 직접 고쳐 주세요.','Your draft is still here. Use the idea to edit it yourself.');
+      return;
     }
+    $('inp').value=txt; assisted=true; helpLevel='example'; $('inp').focus();
+    label($('wgHelpNote'),'입력칸에 넣었어요. 노란 낱말을 내 생각으로 바꿔도 좋아요.','Added to the box. Change the yellow word to your own idea.');
+  }
+  /* 3단계 — 대답 예시. 문장 자체가 버튼이다(누르면 입력칸으로). «막혔을 때» 말은 작은 바로 보내기 줄. */
+  function showAnswers() {
+    step=3; helpLevel='example'; showPanel();
+    var out=$('wgHelpOutput'), act=$('wgHelpActions'); out.replaceChildren(); act.replaceChildren();
+    var sentences=examples.filter(function(t){return STUCK.indexOf(t)<0;});
+    var stuck=examples.filter(function(t){return STUCK.indexOf(t)>=0;});
+    if(!sentences.length && help)sentences=[help.example];
+    var swapAt=sentences.length>=2?swapIndex(sentences[0],sentences[1]):-1;
+    if(help && help.frame && sentences.length<2){
+      var f=document.createElement('p'); f.className='wg-frame';
+      var fl=document.createElement('span'); label(fl,'문장 시작: ','Starter: ');
+      var ft=document.createElement('span'); ft.textContent=help.frame;
+      f.append(fl,ft); out.appendChild(f);
+    }
+    sentences.forEach(function(txt){
+      var b=document.createElement('button'); b.type='button'; b.className='wg-say';
+      b.appendChild(sentenceNode(txt,swapAt));
+      b.setAttribute('aria-label',tr('입력칸에 넣기: ','Put in the box: ')+txt);
+      b.onclick=function(){useSentence(txt);};
+      act.appendChild(b);
+    });
+    stuck.forEach(function(txt){
+      var a=document.createElement('button'); a.type='button'; a.className='wg-stuck';
+      var l=document.createElement('span'); label(l,'막혔으면 바로 보내기: ','Stuck? Send: ');
+      var t=document.createElement('span'); t.textContent='“'+txt+'”';
+      a.append(l,t);
+      a.onclick=function(){
+        if(_warmPaused || sending)return;
+        $('inp').value=txt; assisted=true; helpLevel='example';
+        if(typeof sendMsg==='function')sendMsg();
+      };
+      act.appendChild(a);
+    });
+    var note=$('wgHelpNote');
+    if(sentences.length) label(note,'문장을 누르면 입력칸에 들어가요. 노란 낱말은 바꿔 말해도 돼요.','Tap a sentence to put it in the box. You can change the yellow word.');
+    else label(note,'이 질문은 예시가 없어요. 아는 낱말 하나로 답해도 좋아요.','No example for this question. One word you know is a fine answer.');
+    $('wgHelpMore').hidden=true; renderSteps();
+  }
+  /* 2단계 — 뜻을 연 뒤. 대답 예시는 «더 필요할 때» 한 번 더 눌러야 나온다(버튼 하나). */
+  function meaningOpened() {
+    clearTimeout(nudgeTimer); clearNudge();
+    if(meaningOpen)return;
+    meaningOpen=true; if(helpLevel==='own')helpLevel='meaning'; step=Math.max(step,2);
+    if(_warmPaused || sending){renderSteps();return;}   // 듣는 중(자동 마이크)에도 패널은 띄운다 — 마이크는 건드리지 않는다
+    showPanel(); $('wgHelpOutput').replaceChildren(); $('wgHelpActions').replaceChildren();
+    label($('wgHelpNote'),'뜻을 알았으면 먼저 혼자 말해 보세요.','Now that you know the meaning, try answering on your own.');
+    $('wgHelpMore').hidden=false;
+  }
+  /* «대답할 때 도움» — 뜻을 아직 안 열었으면 뜻부터(가장 가벼운 도움), 열었으면 대답 예시. */
+  function offerHelp(byUser) {
+    if (_warmPaused || sending || _recognizing) return;
+    if(!meaningOpen){
+      if(byUser!==true){ nudge(); return; }        // 혼자 멈춘 지 오래 — 열지 않고 알리기만
+      if(typeof openLatestMeaning==='function' && openLatestMeaning()) return;   // → meaningOpened()
+      meaningOpened();
+      return;
+    }
+    showAnswers();
+  }
+  function clearNudge() {
+    var v=document.querySelectorAll('#log .mean-veil.nudge');
+    for(var i=0;i<v.length;i++){ v[i].classList.remove('nudge'); var l=v[i].querySelector('.mv-lbl'); if(l)label(l,'뜻을 모르겠으면 눌러요','Tap if you don’t know the meaning'); }
+  }
+  /* 👀 막힌 것 같으면 뜻 줄을 한 번 반짝여 알린다 — 열어 주지는 않는다(뜻은 «모를 때만»). */
+  function nudge() {
+    if(meaningOpen || _warmPaused || sending)return;   // 자동 마이크가 듣는 중이어도 «반짝» 은 보인다(마이크는 그대로)
+    if($('inp').value.trim())return;
+    var all=document.querySelectorAll('#log .msg.ai'), last=all.length?all[all.length-1]:null;
+    var v=last && last.querySelector('.mean-veil'); if(!v || v.hidden)return;
+    v.classList.remove('nudge'); void v.offsetWidth; v.classList.add('nudge');
+    var l=v.querySelector('.mv-lbl'); if(l)label(l,'막혔나요? 눌러서 뜻 보기','Stuck? Tap to see the meaning');
+  }
+  function scheduleNudge() {
+    clearTimeout(nudgeTimer);
+    var ms=(typeof _warmLevel==='number' && _warmLevel<=2)?5000:8000;   // 1~2단계는 더 빨리
+    nudgeTimer=setTimeout(nudge,ms);
   }
   function onMessage(text, who) {
     if(who==='ai' || who==='me')pauseScene();
-    if(who==='ai'){lastQuestion=String(text);resetHelp();}
+    if(who==='ai'){lastQuestion=String(text);resetHelp();scheduleNudge();}
     if(who==='me'){
       if(firstReplyMs===null) firstReplyMs=Math.max(0,Date.now()-startedAt);
-      answers.push({text:String(text).slice(0,500),assisted:assisted,lang:zh()?'zh':'en'});
-      if(answers.length>40) answers.shift(); assisted=false; $('wgHelp').hidden=true;
+      clearTimeout(nudgeTimer); clearNudge();
+      answers.push({text:String(text).slice(0,500),assisted:assisted,help:helpLevel,lang:zh()?'zh':'en'});
+      if(answers.length>40) answers.shift(); assisted=false; helpLevel='own'; $('wgHelp').hidden=true;
       label($('wgProgress'), '내 답변 '+answers.length+'개 · 내 생각을 이어가요','My replies: '+answers.length+' · Keep sharing your ideas');
     }
     updateHistory();
@@ -159,11 +261,12 @@
   }
   function summary() {
     var title=WCTX.textbook || LESSON_TOPIC || (zh()?'中文对话':'Free conversation');
-    var own=answers.filter(function(a){return !a.assisted;}).length;
+    var cnt=function(k){return answers.filter(function(a){return (a.help||(a.assisted?'example':'own'))===k;}).length;};
     return ['Speaking practice summary / 말하기 연습 요약',
       'Topic: '+title+(WCTX.lesson_no?' · Lesson '+WCTX.lesson_no:''),
       'Language / Level: '+(zh()?'Chinese':'English')+' / '+_warmLevel,
-      'Submitted replies: '+answers.length+' (example-assisted: '+(answers.length-own)+')',
+      'Submitted replies / 답변: '+answers.length,
+      answers.length?'On own / 혼자: '+cnt('own')+' · After meaning / 뜻 본 뒤: '+cnt('meaning')+' · With example / 예시 사용: '+cnt('example'):'',
       answers.length?'Student’s last reply: '+answers[answers.length-1].text:'No student reply yet.',
       fixes.length?'Practice expression: '+fixes[fixes.length-1]:'',
       answers.length?'Teacher: ask one follow-up about the student’s last reply.':'Teacher: help the student begin with an easy choice.',
@@ -179,10 +282,10 @@
     }
     $('wgSummary').showModal();
   }
-  var guide=window.MangoWarmupGuide={start:start,onMessage:onMessage,receiveHelp:receiveHelp,offerHelp:offerHelp,fix:fix,finish:finish,pauseScene:pauseScene,reset:reset,
+  var guide=window.MangoWarmupGuide={start:start,onMessage:onMessage,receiveHelp:receiveHelp,offerHelp:offerHelp,meaningOpened:meaningOpened,fix:fix,finish:finish,pauseScene:pauseScene,reset:reset,
     scene:function(){return scene;}, metrics:function(){return {firstReplyMs:firstReplyMs,replies:answers.length};}};
   $('wgHistory').onclick=function(){historyOpen=!historyOpen;updateHistory();};
-  $('wgHelpOpen').onclick=offerHelp; $('wgHelpNext').onclick=nextHelp;
+  $('wgHelpOpen').onclick=function(){offerHelp(true);}; $('wgHelpMore').onclick=showAnswers;
   $('wgSceneClose').onclick=function(){scene='';resetSceneMedia();$('wgScene').hidden=true;renderChoices();};
   $('wgScenePlay').onclick=playScene;
   $('wgSceneVideo').addEventListener('play',function(){if(_warmPaused || _recognizing)pauseScene();videoButton();});
