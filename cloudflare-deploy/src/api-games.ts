@@ -31,6 +31,7 @@ import { resolveZhTextbook, zhDisplayTextbook, zhDisplayDesc } from './zh-textbo
 import { filterQuizQuestions, summarizeRejects } from './quiz-quality';
 import { ATTENDANCE_BY_UID, attUidBinds } from './attendance-uid';
 import { BAND_SPECS, bandFromTextbookLevel } from './judgment-level';       // 📏 레벨별 문장 길이 정본  // 🧪 AI 문항 검사(2026-09-02)
+import { isSttRepeatLoop } from './stt-loop';
 
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2866,7 +2867,13 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
             };
             if (hintPrompt) turboParams.initial_prompt = hintPrompt;
             const turbo: any = await ai.run('@cf/openai/whisper-large-v3-turbo', turboParams);
-            const tt = String(turbo?.text || '').trim();
+            const ttRaw = String(turbo?.text || '').trim();
+            // 🔁 (2026-10-02) 「oah, oah, oah …」 같은 반복 환각은 «들은 것 없음» 으로 돌려준다(src/stt-loop.ts)
+            if (ttRaw && isSttRepeatLoop(ttRaw)) {
+              console.warn('[voice/transcribe] repeat-loop dropped len=' + ttRaw.length);
+              return json({ ok: true, text: '', dropped: 'repeat_loop', lang, segments: null, transcription_info: null, azure: null, azure_diag: 'dropped' });
+            }
+            const tt = ttRaw;
             // 🎧 (2026-07-30) segments/transcription_info 를 함께 돌려준다 — 발음 채점(또렷함·흐름)이
             //   avg_logprob·no_speech_prob·단어 타이밍을 쓴다. 텍스트만으로는 또렷함을 잴 수 없다.
             //   구 whisper 폴백 경로에는 이 정보가 없다 → 그때는 채점이 옛 텍스트 방식으로 자동 복귀.
@@ -2885,6 +2892,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         // 폴백: 구 whisper (언어 힌트 미지원, 자동감지)
         const arr = [...new Uint8Array(audio)];
         const result = await ai.run('@cf/openai/whisper', { audio: arr });
+        const baseText = String(result?.text || '');
+        if (isSttRepeatLoop(baseText)) return json({ ok: true, text: '', dropped: 'repeat_loop', lang: lang || null, azure: null, azure_diag: 'dropped' });
         return json({ ok: true, text: result?.text || '', vtt: result?.vtt || null, word_count: result?.word_count || 0, lang: lang || null, ...(await azureOut()) });
       } catch (e: any) {
         console.warn('[voice/transcribe] error:', e?.message);
