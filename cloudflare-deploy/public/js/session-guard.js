@@ -247,6 +247,7 @@
  *     올릴 필요가 없다(no-cache 재검증). teacher.html 은 이 파일을 싣지 않는다(학생 화면 전용).
  *
  *   ⛔ 상주 setInterval·body class MutationObserver 없음(홈 정지 전력). 타이머는 소켓마다 한 번뿐.
+ *   ⚠️ top 80px — 폰의 재연결 배너가 14~70px 라(브라우저 실측) 그 아래에 둔다.
  *   ⛔ 카드 z-index 2147483001 — A.i 상담사 위젯(2147483000) 바로 위, ➕ FAB(2147483200)·
  *      재연결 배너(2147483646) 아래. 더 올리지 말 것.
  *   ⛔ 버튼에 data-ko/data-en 을 달지 않는다(두 i18n 엔진이 textContent 를 갈아끼운다).
@@ -300,7 +301,7 @@
       var st = document.createElement('style');
       st.id = 'mg-entry-help-style';
       st.textContent =
-        '#mg-entry-help{position:fixed;left:50%;top:62px;transform:translateX(-50%);z-index:2147483001;' +
+        '#mg-entry-help{position:fixed;left:50%;top:80px;transform:translateX(-50%);z-index:2147483001;' +
         'width:min(360px,calc(100vw - 32px));box-sizing:border-box;background:#ffffff;color:#101828;' +
         'border:1px solid #f59e0b;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.28);' +
         'padding:14px 14px 12px;font:14px/1.45 system-ui,-apple-system,sans-serif;text-align:left}' +
