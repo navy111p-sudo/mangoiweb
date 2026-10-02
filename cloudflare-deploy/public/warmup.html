@@ -2943,6 +2943,10 @@ function micUnfinished(s){
 function sttSupported(){ return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
 /* 🎤 C — 브라우저 인식이 빈손일 때 서버 Whisper 로 «한 번만» 다시 듣기 위한 표시. */
 var _micWhisperRetried=false;
+/* 🎤 (2026-10-02 「녹음하고 보냈는데 안 돼요」) 수동 모드에서는 끝내는 길이 ⏹ 하나뿐이라(#1343)
+   위 «빈손이면 Whisper 로 한 번 더» 가 _micStopWanted 때문에 한 번도 안 돌고, 아무 말도 없이 끝났다.
+   _micUserStop = 사람이 ⏹ 를 눌렀다 · _micPreferWhisper = 이 화면에서는 다음부터 녹음+Whisper 로 듣는다. */
+var _micUserStop=false, _micPreferWhisper=false;
 function setMicState(on){
   _recognizing=on;
   _autoHook('mic', on);   // ✨ 자동 말하기(베타) — 듣기 열림/닫힘을 알린다(js/warmup-auto-talk.js)
@@ -3026,7 +3030,7 @@ function _autoHook(ev, a){ try{ window.WarmupAutoTalk && WarmupAutoTalk.on(ev, a
    (그대로 두면 AI 목소리를 학생 말로 받아 적는다). sendMsg 의 «먼저 보냄» 정리와 같은 방식. */
 function _micAbortQuiet(){
   if(_whisperOn){ _warmVoiceEpoch++; try{ MangoiVoice.cancel(); }catch(e){} _whisperOn=false; setMicState(false); }
-  if(_recognizing){ _micStopWanted=true; _micBase=''; _micSess=''; try{ _recog && _recog.stop(); }catch(e){} }
+  if(_recognizing){ _micStopWanted=true; _micUserStop=false; _micBase=''; _micSess=''; try{ _recog && _recog.stop(); }catch(e){} }
 }
 function toggleMic(){
   if(_warmPaused || sending)return;
@@ -3034,9 +3038,9 @@ function toggleMic(){
   unlockAudio();                       // 마이크 탭 = 사용자 제스처 → 이후 음성 재생 허용
   _stopSpeak();                        // AI 낭독(서버 TTS/브라우저 음성) 중이면 멈추고 듣기
   if(_whisperOn){ _whisperUserStop=true; MangoiVoice.stop(); return; }
-  if(_recognizing){ _micStopWanted=true; try{ _recog && _recog.stop(); }catch(e){} return; }
-  if(!sttSupported()){ micViaWhisper(); return; }   // 음성인식 미지원 → 녹음+Whisper 로
-  _micBase=''; _micSess=''; _micBySilence=false; _micStopWanted=false;
+  if(_recognizing){ _micStopWanted=true; _micUserStop=true; try{ _recog && _recog.stop(); }catch(e){} return; }
+  if(!sttSupported() || _micPreferWhisper){ micViaWhisper(); return; }   // 음성인식 미지원(또는 이 화면에서 빈손이었음) → 녹음+Whisper 로
+  _micBase=''; _micSess=''; _micBySilence=false; _micUserStop=false; _micStopWanted=false;
   _micWhisperRetried=false;   // 🎤 C — 새 세션이니 «한 번 더 듣기» 를 다시 쓸 수 있게
   _micRestarts=0; _micT0=Date.now();
   try{ document.getElementById('inp').value=''; }catch(e){}
@@ -3096,6 +3100,13 @@ function _startSttSession(){
       try{ micViaWhisper(); }catch(e){ addMsg('🎤 소리가 잘 안 들렸어요. 🎤 를 다시 누르고 또박또박 말해 주세요.', 'sys'); }
     }
     else if(!_micStopWanted){ _micWhisperRetried=false; addMsg('🎤 소리가 잘 안 들렸어요. 🎤 를 다시 누르고 또박또박 말해 주세요.', 'sys'); }
+    /* ⏹ 를 눌렀는데 브라우저 인식이 한 글자도 못 받았다 — 조용히 끝내지 않고, 다음부터 녹음 방식으로 듣는다.
+       ⛔ 여기서 곧바로 녹음을 켜지 않는다(사람이 방금 «멈추기» 를 눌렀다). 오류로 멈춘 것은 onerror 가 이미 말했다. */
+    else if(_micUserStop && window.MangoiVoice && MangoiVoice.supported && MangoiVoice.supported()){
+      _micUserStop=false; _micPreferWhisper=true;
+      addMsg('🎤 이 브라우저가 말소리를 받아 적지 못했어요. 🎤 를 다시 누르면 녹음 방식으로 들을게요. / The browser couldn\'t catch your voice. Tap 🎤 again — I\'ll record instead.', 'sys');
+    }
+    else if(_micUserStop){ _micUserStop=false; addMsg('🎤 말소리를 받아 적지 못했어요. 아래에 글로 입력해 주세요. / I couldn\'t catch your voice. Please type below.', 'sys'); }
   }
   /* 🎤 인식 조각 합치기 — 안드로이드 크롬은 continuous 모드에서 "지금까지 말한 문장 전체"를
      확정 결과로 여러 번 다시 보낸다(누적형). 그래서 finalText+=t 로 이어붙이면

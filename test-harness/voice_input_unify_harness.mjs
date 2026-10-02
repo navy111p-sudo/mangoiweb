@@ -49,7 +49,7 @@ const body = fnBody(WUP, 'function _finishMic()');
 ok('_finishMic 을 오려 냈다 (전제)', body.length > 300, String(body.length));
 
 /** 가짜 환경으로 _finishMic 을 돌려 «무엇이 불렸는가» 를 봅니다. */
-function runFinish({ said, stopWanted, retried, whisperOk = true }) {
+function runFinish({ said, stopWanted, retried, whisperOk = true, userStop }) {
   const calls = { send: 0, whisper: 0, msgs: [] };
   const inp = { value: '' };
   const env = {
@@ -65,12 +65,13 @@ function runFinish({ said, stopWanted, retried, whisperOk = true }) {
   const src = `
     var _micBase = ${JSON.stringify(said || '')}, _micSess = '';
     var _micStopWanted = ${!!stopWanted}, _micWhisperRetried = ${!!retried};
+    var _micUserStop = ${!!userStop}, _micPreferWhisper = false;
     /* 📌 2026-10-02 — _finishMic 이 «버튼 모드면 ⏹ 전엔 안 보낸다» 를 묻는다. 이 하니스는 «보내는 길» 을 보므로
        자동 말하기로 둔다(버튼 모드 짝은 warmup_reply_speed_harness 가 본다). */
     function _micManual(){ return false; } function _micManualHold(){ calls.held = (calls.held||0) + 1; }
     ${body}
     _finishMic();
-    return { calls, retried: _micWhisperRetried };
+    return { calls, retried: _micWhisperRetried, prefer: _micPreferWhisper };
   `;
   const f = new Function('setMicState', '_tidySpeech', '_mergeSpeech', 'document', 'sendMsg',
                          'addMsg', 'micViaWhisper', 'window', 'MangoiVoice', 'calls', src);
@@ -100,6 +101,15 @@ if (body) {
   ok('학생이 스스로 멈추면 다시 듣지 않는다', r4.calls.whisper === 0 && r4.calls.msgs.length === 0,
      JSON.stringify(r4.calls));
 
+  /* 🎤 2026-10-02 — 버튼 모드는 ⏹ 가 유일한 끝이다. ⏹ 뒤 빈손이면 조용히 끝내지 말고 다음부터 녹음으로. */
+  const r6 = runFinish({ said: '', stopWanted: true, userStop: true });
+  ok('⏹ 를 눌렀는데 빈손이면 말해 준다', r6.calls.msgs.length === 1, JSON.stringify(r6.calls.msgs));
+  ok('그리고 다음부터 녹음 방식으로 듣는다', r6.prefer === true);
+  ok('그 자리에서 곧바로 녹음을 켜지는 않는다', r6.calls.whisper === 0);
+  const r7 = runFinish({ said: 'I like dogs', stopWanted: true, userStop: true });
+  ok('⏹ 뒤 들은 말이 있으면 그대로 보내고 녹음 방식으로 바꾸지 않는다', r7.calls.send === 1 && r7.prefer === false, JSON.stringify(r7.calls));
+  ok('오류로 멈춘 빈손(⏹ 아님)은 여전히 조용하다', r4.calls.msgs.length === 0 && r4.prefer === false);
+
   /* Whisper 가 못 켜져도 학생은 무엇을 할지 알아야 합니다. */
   const r5 = runFinish({ said: '', whisperOk: false });
   ok('Whisper 가 실패하면 옛 안내로 떨어진다', /다시 누르/.test(r5.calls.msgs.join('')), JSON.stringify(r5.calls.msgs));
@@ -109,6 +119,9 @@ console.log('\n② 새 세션에서는 다시 쓸 수 있는가');
 const W = strip(WUP);
 ok('마이크를 새로 켜면 표시를 푼다', /_micStopWanted=false;\s*\n\s*_micWhisperRetried=false/.test(W));
 
+ok('빈손이던 화면은 다음 🎤 에서 녹음 방식으로 간다', /if\(!sttSupported\(\)\s*\|\|\s*_micPreferWhisper\)\{\s*micViaWhisper\(\)/.test(W));
+ok('⏹ 는 «사람이 눌렀다» 를 남긴다', /_micStopWanted=true;\s*_micUserStop=true;/.test(W));
+
 console.log('\n③ ⛔ 되돌리면 안 되는 것 — 2026-07-26 사장님 승인 결정');
 const A = strip(AIF);
 /* A.i 친구하기는 «항상» 서버 Whisper 입니다. 브라우저 인식을 되살리면 그 결정이 뒤집힙니다. */
@@ -117,7 +130,7 @@ ok('A.i 친구하기에 브라우저 음성인식을 되살리지 않았다',
 ok('A.i 친구하기는 서버 Whisper 경로를 그대로 쓴다', /MangoiVoice\.record\(/.test(A));
 /* 웜업의 실시간 자막(브라우저 인식)은 그대로 둡니다 — 대체가 아니라 «폴백» 입니다. */
 ok('웜업의 브라우저 인식을 대체하지 않았다', /_recog\.onresult\s*=/.test(W));
-ok('웜업은 미지원 기기에서 여전히 Whisper 로 간다', /if\(!sttSupported\(\)\)\{\s*micViaWhisper\(\)/.test(W));
+ok('웜업은 미지원 기기에서 여전히 Whisper 로 간다', /if\(!sttSupported\(\)(?:\s*\|\|\s*_micPreferWhisper)?\)\{\s*micViaWhisper\(\)/.test(W));
 
 console.log('\n④ 두 화면이 같은 정본을 쓴다');
 for (const [label, src] of [['웜업', WUP], ['A.i 친구하기', AIF]])
