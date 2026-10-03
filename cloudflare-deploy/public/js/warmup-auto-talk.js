@@ -193,22 +193,24 @@
     window.closeMenu = wrapped;
   }
   function btnsHtml(cls) {
-    var auto = readMode() === 'auto';
+    var auto = readMode() === 'auto', en = uiEn();
+    var now = '<span class="wus-now">' + (en ? 'Now' : '지금') + '</span>';
     return '<button type="button" class="' + cls + (auto ? '' : ' on') + '" data-talk="button">'
-      + '<span class="wus-name">🎤 버튼으로 말하기' + (auto ? '' : '<span class="wus-now">지금</span>') + '</span>'
-      + '<span class="wus-desc">마이크를 눌러서 말해요 (기본)</span></button>'
+      + '<span class="wus-name">' + (en ? '🎤 Talk with the mic button' : '🎤 버튼으로 말하기') + (auto ? '' : now) + '</span>'
+      + '<span class="wus-desc">' + (en ? 'Tap the mic to talk (default)' : '마이크를 눌러서 말해요 (기본)') + '</span></button>'
       + '<button type="button" class="' + cls + (auto ? ' on' : '') + '" data-talk="auto">'
-      + '<span class="wus-name">✨ 자동으로 말하기 <span class="at-beta">베타</span>' + (auto ? '<span class="wus-now">지금</span>' : '') + '</span>'
-      + '<span class="wus-desc">AI 말이 끝나면 마이크가 저절로 켜져요 · 이어폰을 쓰면 더 정확해요</span></button>';
+      + '<span class="wus-name">' + (en ? '✨ Talk automatically' : '✨ 자동으로 말하기') + ' <span class="at-beta">' + (en ? 'beta' : '베타') + '</span>' + (auto ? now : '') + '</span>'
+      + '<span class="wus-desc">' + (en ? 'The mic turns on by itself after the AI speaks · works better with earphones' : 'AI 말이 끝나면 마이크가 저절로 켜져요 · 이어폰을 쓰면 더 정확해요') + '</span></button>';
   }
   function paint() {
     var a = document.getElementById('wusTalkBtns'); if (a) a.innerHTML = btnsHtml('wus-card');
     var b = document.getElementById('menuTalkBtns');
     if (b) {
       var auto = readMode() === 'auto';
-      b.innerHTML = '<button type="button" data-talk="button"' + (auto ? '' : ' class="on"') + '>🎤 버튼</button>'
-                  + '<button type="button" data-talk="auto"' + (auto ? ' class="on"' : '') + '>✨ 자동 (베타)</button>';
-      var v = document.getElementById('talkVal'); if (v) v.textContent = auto ? '자동 (베타)' : '버튼';
+      var en2 = uiEn();
+      b.innerHTML = '<button type="button" data-talk="button"' + (auto ? '' : ' class="on"') + '>' + (en2 ? '🎤 Button' : '🎤 버튼') + '</button>'
+                  + '<button type="button" data-talk="auto"' + (auto ? ' class="on"' : '') + '>' + (en2 ? '✨ Auto (beta)' : '✨ 자동 (베타)') + '</button>';
+      var v = document.getElementById('talkVal'); if (v) v.textContent = auto ? (en2 ? 'Auto (beta)' : '자동 (베타)') : (en2 ? 'Button' : '버튼');
     }
     // 입력칸 바로 위 «말하는 방법» 스위치(2026-09-24 사장님 「햄버거 안 뿐만 아니라 잘 보이는 곳에」).
     // 학생이 🎤 를 누르는 바로 그 자리라 «지금 어느 방법인지» 를 늘 보고, 한 번에 바꾼다.
@@ -265,8 +267,10 @@
     if (cta && !document.getElementById('wusTalkSec')) {
       var sec = document.createElement('div');
       sec.id = 'wusTalkSec';
-      sec.innerHTML = '<div class="wus-sub">🎤 어떻게 말할까요?</div>'
-        + '<div class="wus-hint">자동으로 고르면 <b>AI 말이 끝난 뒤</b> 마이크가 저절로 켜지고, 말을 멈추면 저절로 보내져요.</div>'
+      /* 🌐 2026-10-03 — 제목·안내는 data-ko/data-en 으로(warmup.html 의 wuApplyStatic 이 따라 바꾼다) */
+      sec.innerHTML = '<div class="wus-sub" data-ko="🎤 어떻게 말할까요?" data-en="🎤 How will you talk?">' + (uiEn() ? '🎤 How will you talk?' : '🎤 어떻게 말할까요?') + '</div>'
+        + '<div class="wus-hint" data-ko="자동으로 고르면 AI 말이 끝난 뒤 마이크가 저절로 켜지고, 말을 멈추면 저절로 보내져요." data-en="With Auto, the mic turns on after the AI finishes and sends when you stop talking.">'
+        + (uiEn() ? 'With Auto, the mic turns on after the AI finishes and sends when you stop talking.' : '자동으로 고르면 AI 말이 끝난 뒤 마이크가 저절로 켜지고, 말을 멈추면 저절로 보내져요.') + '</div>'
         + '<div class="wus-grid" id="wusTalkBtns"></div>';
       cta.parentNode.insertBefore(sec, cta);
       bindPick(document.getElementById('wusTalkBtns'));
@@ -275,7 +279,7 @@
     if (scroll && !document.getElementById('menuTalkGroup')) {
       var grp = document.createElement('div');
       grp.id = 'menuTalkGroup'; grp.className = 'menu-group';
-      grp.innerHTML = '<div class="menu-label"><span>🎤 말하는 방법</span><span class="ls-now" id="talkVal"></span></div>'
+      grp.innerHTML = '<div class="menu-label"><span data-ko="🎤 말하는 방법" data-en="🎤 How to talk">' + (uiEn() ? '🎤 How to talk' : '🎤 말하는 방법') + '</span><span class="ls-now" id="talkVal"></span></div>'
         + '<div class="voice-btns" id="menuTalkBtns" role="radiogroup" aria-label="말하는 방법"></div>';
       scroll.insertBefore(grp, scroll.firstChild);
       bindPick(document.getElementById('menuTalkBtns'), true);
