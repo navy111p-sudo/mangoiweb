@@ -566,7 +566,9 @@
         <div class="wus-title"><img src="/img/mango-char.png" class="mango-inline" alt="망고"> <span data-ko="말하기 연습 설정" data-en="Speaking practice setup">말하기 연습 설정</span></div>
         <div class="wus-lead"><span data-ko="먼저 누가 · 어느 수준으로 이야기할지 정해요." data-en="First, choose who is practicing and at what level.">먼저 누가 · 어느 수준으로 이야기할지 정해요.</span><br><span data-ko="대화 중에도 오른쪽 위 ⋮ 에서 언제든 바꿀 수 있어요." data-en="You can change this anytime from ⋮ at the top right.">대화 중에도 오른쪽 위 ⋮ 에서 언제든 바꿀 수 있어요.</span></div>
         <!-- 💡 「A.i말하기와 A.i친구하기 차이」 (2026-09-26 사장님) — 안내창 본체는 js/ai-diff.js 한 곳 -->
-        <div style="text-align:center"><button type="button" class="aidiff-chip" onclick="window.mgOpenAiDiff&&mgOpenAiDiff()" data-ko="💡 A.i말하기와 A.i친구하기 차이" data-en="💡 Speaking vs. Friend: what's different?">💡 A.i말하기와 A.i친구하기 차이</button></div>
+        <div style="text-align:center"><button type="button" class="aidiff-chip" onclick="window.mgOpenAiDiff&&mgOpenAiDiff()" data-ko="💡 A.i말하기와 A.i친구하기 차이" data-en="💡 Speaking vs. Friend: what's different?">💡 A.i말하기와 A.i친구하기 차이</button>
+          <!-- 📘 사용방법 안내 (2026-10-03 사장님) — 안내창 본체는 js/warmup-howto.js 한 곳 -->
+          <button type="button" class="howto-chip" onclick="window.mgOpenWarmupHowto&&mgOpenWarmupHowto()" data-ko="📘 A.i말하기 사용방법 쉽게 알기" data-en="📘 How to use A.i Speaking">📘 A.i말하기 사용방법 쉽게 알기</button></div>
 
         <!-- 🀄 대화 언어 (2026-09-13) — «무슨 말로 이야기하는가». 수준·나이대와 «독립» 인 축이다.
              ⚠️ 이 줄을 맨 위에 두는 이유: 아래 두 축(수준 설명·수준 찾기)의 «뜻» 이 언어에 따라
@@ -722,6 +724,11 @@
              ⓐ 한 번 잘못 누르면 대화가 통째로 사라지므로 상단바에 드러내지 않는다
              ⓑ 굴러가는 칸 «안» 이라 카드 높이가 안 늘어난다(노트북에서 «다시 고르기» 가 화면 밖으로 밀리던 2026-09-15 사고).
              수업방·지정 세션(?room=·?session=)으로 연 웜업에서는 감춘다(newWarmupChat 주석). -->
+        <!-- 📘 사용방법 안내 (2026-10-03) — 대화 중에도 열 수 있게. 본체는 js/warmup-howto.js -->
+        <div class="menu-group">
+          <button type="button" class="menu-howto" onclick="window.mgOpenWarmupHowto&&mgOpenWarmupHowto()"><span data-ko="📘 A.i말하기 사용방법 쉽게 알기" data-en="📘 How to use A.i Speaking">📘 A.i말하기 사용방법 쉽게 알기</span></button>
+        </div>
+
         <div class="menu-group" id="newChatGroup">
           <button type="button" class="menu-newchat" onclick="newWarmupChat()"><span data-ko="🗑 대화 지우고 새로 시작" data-en="🗑 Clear chat &amp; start over">🗑 대화 지우고 새로 시작</span></button>
           <div class="menu-newchat-note" data-ko="지금까지 대화를 지우고 첫 인사부터 다시 시작해요. 고른 수준·교재는 그대로예요." data-en="Clears this conversation and starts again from the greeting. Your level and book stay the same.">지금까지 대화를 지우고 첫 인사부터 다시 시작해요. 고른 수준·교재는 그대로예요.</div>
@@ -4149,7 +4156,8 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 }
 </style>
 <script defer src="/js/mangoi-voice-input.js?v=5"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
-<script defer src="/js/ai-diff.js?v=1"></script><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
+<script defer src="/js/ai-diff.js?v=1"></script>
+<script defer src="/js/warmup-howto.js?v=1"></script><!-- 📘 A.i말하기 사용방법 쉽게 알기 안내창 (2026-10-03) --><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=23"></script>
 <!-- BUILD:20260813015745 -->
