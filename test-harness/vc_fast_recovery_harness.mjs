@@ -234,6 +234,46 @@ for (const recovers of [true, false]) {
   }
   check(h.state().bad===1,'missing sample sequence resets consecutive stall count');
 }
+// A deferred/rejected L2 attempt must not permanently consume its recovery stage.
+for (const reason of ['socket', 'cooldown', 'offer-error']) {
+  const h=setup(); await h.boot(); await h.tick(); await h.tick();
+  const createOffer=h.pc.createOffer;
+  if(reason==='socket') h.ctx.vcConn.ws.readyState=3;
+  if(reason==='cooldown') h.pc.__vcRecoveryNegoAt=h.ctx.Date.now();
+  if(reason==='offer-error') h.pc.createOffer=async()=>{throw new Error('temporary encoder failure');};
+  await h.tick();
+  check(!h.state().done[2], reason+': unsuccessful L2 must remain retryable');
+  h.ctx.vcConn.ws.readyState=1; h.pc.createOffer=createOffer;
+  for(let i=0;i<4;i++) await h.tick();
+  check(h.sent.filter(m=>m.type==='offer').length===1, reason+': L2 eventually sends after transient failure');
+  for(let i=0;i<5;i++) await h.tick();
+  check(h.sent.filter(m=>m.type==='offer').length===1 && h.counts().restarts===0,
+    reason+': successful L2 is not repeated and healthy audio is preserved');
+}
+// Camera-off guard must return cleanly, even if called directly during a state transition.
+{
+  const h=setup();await h.boot();await h.tick();await h.tick();
+  let resolveOffer, calls=0;
+  h.pc.createOffer=()=>{calls++;return new Promise(resolve=>{resolveOffer=resolve;});};
+  await h.tick();for(let i=0;i<5;i++)await h.tick();
+  check(calls===1 && !h.state().done[2], 'pending L2 cannot start concurrent offers or count as sent');
+  await h.tick({f:2,v:8});
+  resolveOffer({type:'offer',sdp:'late'});await flush();
+  check(!h.state().done[2] && !h.state().negoPending, 'late offer result cannot mark recovered episode as stalled');
+}
+{
+  const h=setup();await h.boot();await h.tick();await h.tick();
+  let resolveOffer;
+  h.pc.createOffer=()=>new Promise(resolve=>{resolveOffer=resolve;});
+  await h.tick();h.ctx.vcPeerConnections.z={...h.pc};
+  resolveOffer({type:'offer',sdp:'old-peer'});await flush();
+  check(h.sent.every(m=>m.type!=='offer') && !h.state().done[2], 'replaced peer cannot send or complete old recovery');
+}
+for(const reason of ['user','aao']) {
+  const h=setup();await h.boot();h.ctx.vcRemoteCamOff.z=reason;
+  check(h.ctx.vcRecoveryElement('z',h.pc,h.state())===false && h.counts().plays===0,
+    reason+': element recovery neither throws nor plays an intentionally stopped video');
+}
 check(!/setInterval\(|MutationObserver/.test(helpers), 'no new interval or MutationObserver');
 check(server.includes("case 'video-recovery':") && server.includes('!this.isJoined(target)')
   && server.includes('recovery: data?.recovery === true'), 'server routes only joined in-room peers and preserves recovery offer flag');
