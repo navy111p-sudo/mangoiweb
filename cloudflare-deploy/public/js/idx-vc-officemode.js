@@ -60,6 +60,11 @@
   var HYST_DB  = 8;      // 한 번 열리면 이만큼 낮아질 때까지 유지 (6 → 8)
   var ABS_DB   = -55;    // 문턱 절대 하한 — 너무 조용한 방에서 게이트가 예민해지지 않게
   var TICK_MS  = 25;
+  /* 🔇 (2026-10-01) 오디오 엔진(AudioContext)이 수업 중 멈추면(suspended·interrupted·closed) 가공 트랙은
+     «live» 인 채 무음이 된다 — 마이크 자가치유도 안 돌고 안내도 없다. 깨워 보고 ≈1초(40틱) 안에 안 살아나면
+     표준 마이크로 되돌린다(저장값은 그대로 · 이 페이지에서는 자동으로 다시 걸지 않음). */
+  var STALL_TICKS = 40;
+  var stallTicks = 0;
 
   var on = false, busy = false;
   /* 이 «페이지» 에서 켜기가 한 번 실패했는가 — 자동 적용만 그만둔다(사람이 스위치를 누르면 다시 시도).
@@ -188,6 +193,17 @@
   /* 게이트 한 틱 — 지금 소리가 «바닥보다 충분히 큰가» 만 본다. */
   function tick() {
     if (!on || !ctx || !anaNode || !gainNode) return;
+    if (ctx.state !== 'running') {
+      try { if (ctx.state !== 'closed') ctx.resume(); } catch (e) {}
+      if (++stallTicks >= STALL_TICKS) {
+        stallTicks = 0;
+        console.warn('[office] 오디오 엔진이 멈춰(' + ctx.state + ') 사무실 모드를 해제합니다');
+        autoFailed = true;   // 이 페이지에서는 자동으로 다시 걸지 않는다(사람이 스위치를 누르면 다시 시도)
+        try { disable(true).catch(function () {}); } catch (e) {}
+      }
+      return;
+    }
+    stallTicks = 0;
     /* ⛔ 탭이 숨으면 판정을 멈추고 활짝 연다 — 타이머가 느려진 사이 닫힌 채 굳으면 목소리가 안 나간다. */
     if (document.hidden) {
       try { gainNode.gain.setTargetAtTime(1, ctx.currentTime, ATTACK); } catch (e) {}
