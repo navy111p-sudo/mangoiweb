@@ -40,6 +40,14 @@ export function checkHandover(d: ReturnType<typeof normalizeHandover>, day: stri
 }
 const ensure = oncePerIsolate(async (env: Env) => {
   await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS daily_handover_followup (
+      report_id INTEGER NOT NULL, version INTEGER NOT NULL, opened_at INTEGER,
+      due_at INTEGER, escalation_to TEXT, warning_level INTEGER NOT NULL DEFAULT 0,
+      last_request_at INTEGER, hold_until INTEGER, hold_reason TEXT,
+      PRIMARY KEY(report_id,version))`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS daily_handover_followup_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, report_id INTEGER NOT NULL, version INTEGER NOT NULL,
+      actor TEXT NOT NULL, kind TEXT NOT NULL, detail TEXT NOT NULL, created_at INTEGER NOT NULL)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS daily_handovers (
       id INTEGER PRIMARY KEY AUTOINCREMENT, report_date TEXT NOT NULL, username TEXT NOT NULL,
       staff_name TEXT NOT NULL, recipient TEXT NOT NULL, payload TEXT NOT NULL,
@@ -112,6 +120,7 @@ export function reminderStage(s: any, day: string, now = Date.now()): string | n
 }
 export async function runDailyHandoverSweep(env: Env) {
   await ensure(env);
+  await runFollowups(env);
   await runReadAlerts(env);
   const day = kstDay();
   const rows = await env.DB.prepare(`SELECT s.* FROM daily_handover_schedule s
@@ -147,6 +156,8 @@ async function sendReadAlert(env:Env, row:any) {
   const now=Date.now(), data=JSON.parse(row.payload), urgent=data.priority==='urgent';
   const schedule=await env.DB.prepare('SELECT * FROM daily_handover_read_schedule WHERE username=?').bind(row.recipient).first();
   if (!urgent && !isReadTime(schedule,now)) return 'deferred';
+  const follow:any=await env.DB.prepare('SELECT * FROM daily_handover_followup WHERE report_id=? AND version=?').bind(row.id,row.version).first();
+  if(follow?.hold_until>now)return 'deferred';
   const interval=(urgent?15:60)*60000;
   // Claim before wakeup. A crashed request recovers at the next interval, never double-sends concurrently.
   const claim=await env.DB.prepare(`UPDATE daily_handover_read_alerts SET next_at=?,attempts=attempts+1
@@ -169,6 +180,41 @@ async function runReadAlerts(env:Env) {
     JOIN admin_scope s ON s.username=h.recipient AND s.scope_type='hq'
     WHERE h.status='submitted' AND a.next_at<=? ORDER BY a.next_at LIMIT 100`).bind(Date.now()).all();
   for(const row of rows.results||[])try{await sendReadAlert(env,row);}catch{console.warn('[handover] read reminder retry pending');}
+}
+// Follow-up metadata belongs to a submitted revision, never to a later resubmission.
+async function withFollowups(env:Env, rows:any[]) {
+  if(!rows.length)return [];
+  const meta=await selectInChunks(env.DB,rows.map(r=>r.id),ph=>`SELECT * FROM daily_handover_followup WHERE report_id IN (${ph})`);
+  return rows.map(r=>({...rowData(r),followup:meta.find(f=>f.report_id===r.id&&f.version===r.version)||null}));
+}
+async function followEvent(env:Env,r:any,actor:string,kind:string,detail='') {
+  await env.DB.prepare('INSERT INTO daily_handover_followup_events(report_id,version,actor,kind,detail,created_at) VALUES(?,?,?,?,?,?)')
+    .bind(r.id,r.version,actor,kind,detail,Date.now()).run();
+}
+async function runFollowups(env:Env) {
+  const now=Date.now();
+  const rows=await env.DB.prepare(`SELECT h.*,f.due_at,f.warning_level,f.escalation_to,f.hold_until FROM daily_handovers h
+    JOIN daily_handover_followup f ON f.report_id=h.id AND f.version=h.version
+    WHERE h.status='submitted' AND f.due_at<=? AND f.warning_level<4 ORDER BY f.due_at LIMIT 100`).bind(now).all<any>();
+  for(const r of rows.results||[]){
+    const schedule=await env.DB.prepare('SELECT * FROM daily_handover_read_schedule WHERE username=?').bind(r.recipient).first();
+    if(!isReadTime(schedule,now)||r.hold_until>now)continue;
+    const level=now>=r.due_at+3*3600000?4:now>=r.due_at+3600000?3:2;
+    if(level<=r.warning_level)continue;
+    const claim=await env.DB.prepare(`UPDATE daily_handover_followup SET warning_level=? WHERE report_id=? AND version=? AND warning_level=?
+      AND EXISTS(SELECT 1 FROM daily_handovers WHERE id=? AND version=? AND status='submitted')`)
+      .bind(level,r.id,r.version,r.warning_level,r.id,r.version).run();
+    if(!claim.meta.changes)continue;
+    await followEvent(env,r,'system',level===4?'escalated':'overdue',String(level));
+    const link=`/daily-handover.html?date=${r.report_date}&report=${r.id}`;
+    await notify(env,r.recipient,`handover-followup:${r.id}:${r.version}`,
+      level>=3?'최종 경고: 보고에 응답하고 지연 사유를 남겨 주세요. / Final warning: respond and explain the delay.':'처리 기한이 지났습니다. 보고에 응답해 주세요. / Report response deadline exceeded.',link);
+    // Only an explicitly chosen executive can receive escalations. Author is always already authorized.
+    if(level===4){
+      const users=[r.username];if(r.escalation_to&&r.escalation_to!==r.username)users.push(r.escalation_to);
+      for(const u of users)await notify(env,u,`handover-escalation:${r.id}:${r.version}`,'보고 응답 기한이 초과되었습니다. 지연 이력을 확인해 주세요. / A report remains unanswered. Review its follow-up history.',link);
+    }
+  }
 }
 export function attachmentMime(name:string, bytes:Uint8Array):string|null {
   const ext=name.split('.').pop()?.toLowerCase(), start=Array.from(bytes.slice(0,8));
@@ -228,7 +274,7 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       const result=await env.DB.prepare(`SELECT * FROM daily_handovers WHERE recipient=? AND username<>? AND status='submitted'
         ORDER BY CASE WHEN json_extract(payload,'$.priority')='urgent' THEN 0 ELSE 1 END, submitted_at ASC LIMIT 200`).bind(me,me).all();
       const count:any=await env.DB.prepare(`SELECT COUNT(*) n FROM daily_handovers WHERE recipient=? AND username<>? AND status='submitted'`).bind(me,me).first();
-      return reply({ok:true,me:{username:me,name:actor.name||me},reader_mode:['admin','mgr_jjw'].includes(me),total:count.n,reports:(result.results||[]).map(rowData),files:await attachmentsFor(env,result.results||[])});
+      return reply({ok:true,me:{username:me,name:actor.name||me},reader_mode:['admin','mgr_jjw'].includes(me),total:count.n,reports:await withFollowups(env,result.results||[]),files:await attachmentsFor(env,result.results||[])});
     }
     // 📖 다시 읽기(2026-09-29) — 확인·보완요청한 보고는 «미확인» 목록에서 빠지므로 되돌아볼 길이 없었다.
     // 내가 받았거나 내가 확인한 것만(최근 30일). ⛔ 경영진 «전체 보기» 로 넓히지 않는다 — 그건 날짜별 «전체» 필터가 한다.
@@ -238,7 +284,7 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
         AND username<>? AND report_date>=? AND (recipient=? OR acknowledged_by=?)
         ORDER BY COALESCE(acknowledged_at,updated_at) DESC LIMIT 100`).bind(me,since,me,me).all();
       const rows=(result.results||[]).filter(r=>visible(r,actor)||r.acknowledged_by===me);
-      return reply({ok:true,since,reports:rows.map(rowData),files:await attachmentsFor(env,rows)});
+      return reply({ok:true,since,reports:await withFollowups(env,rows),files:await attachmentsFor(env,rows)});
     }
     // 📤 내가 보낸 보고(2026-10-02) — 제출한 보고는 «받은 보고» 쪽에 안 나와 작성자가 «확인됐나» 를 볼 곳이 없었다.
     // 작성자 본인 것만(최근 30일). 초안도 포함해 «아직 안 보냈다» 를 사실대로 보인다.
@@ -247,7 +293,13 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       const result=await env.DB.prepare(`SELECT * FROM daily_handovers WHERE username=? AND report_date>=? AND report_date<=?
         ORDER BY report_date DESC, updated_at DESC LIMIT 60`).bind(me,since,day).all();
       const rows=result.results||[];
-      return reply({ok:true,since,reports:rows.map(rowData),files:await attachmentsFor(env,rows)});
+      return reply({ok:true,since,reports:await withFollowups(env,rows),files:await attachmentsFor(env,rows)});
+    }
+    if(request.method==='GET'&&route==='/followup-history'){
+      const r:any=await env.DB.prepare('SELECT * FROM daily_handovers WHERE id=?').bind(Number(url.searchParams.get('id'))||0).first();
+      if(!r||!visible(r,actor))return reply({ok:false,error:'not_found'},404);
+      const events=await env.DB.prepare('SELECT actor,kind,detail,created_at,version FROM daily_handover_followup_events WHERE report_id=? ORDER BY id DESC LIMIT 50').bind(r.id).all();
+      return reply({ok:true,events:events.results||[]});
     }
     if (request.method === 'GET' && route === '/home') {
       const members = await accounts(env);
@@ -262,8 +314,8 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
         h.status,h.submitted_at FROM daily_handover_schedule s JOIN admin_account a ON a.username=s.username
         JOIN admin_scope sc ON sc.username=s.username AND sc.scope_type='hq'
         LEFT JOIN daily_handovers h ON h.username=s.username AND h.report_date=? WHERE s.enabled=1 LIMIT 200`).bind(day).all() : {results:[]};
-      return reply({ok:true,day,me:{username:me,name:actor.name||me},members,own:rowData(own),
-        reports:(rows.results||[]).filter(r=>visible(r,actor)).map(rowData),
+      return reply({ok:true,day,me:{username:me,name:actor.name||me},members,own:own?(await withFollowups(env,[own]))[0]:null,
+        reports:await withFollowups(env,(rows.results||[]).filter(r=>visible(r,actor))),
         files:[...await attachmentsFor(env,(rows.results||[]).filter(r=>visible(r,actor))),...(staged.results||[]).map(fileMeta)],
         // Uploaded today but not in the saved payload (e.g. page reloaded before Save). The editor offers them back.
         staged_ids:(staged.results||[]).map((f:any)=>f.id),
@@ -277,6 +329,45 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
     if (raw.length > 20000) return reply({ok:false,error:'too_large'},413);
     let b: any; try { b=JSON.parse(raw); } catch { return reply({ok:false,error:'invalid_json'},400); }
     if (!b || typeof b !== 'object' || Array.isArray(b)) return reply({ok:false,error:'invalid_json'},400);
+    if(['/opened','/followup','/hold'].includes(route)){
+      const r:any=await env.DB.prepare('SELECT * FROM daily_handovers WHERE id=?').bind(Number(b.id)||0).first();
+      if(!r||!visible(r,actor))return reply({ok:false,error:'not_found'},404);
+      if(r.status!=='submitted'||r.version!==b.version)return reply({ok:false,error:'conflict'},409);
+      const author=r.username===me, recipient=r.recipient===me&&r.username!==me;
+      if(route==='/followup'?!author:!recipient)return reply({ok:false,error:'forbidden'},403);
+      const now=Date.now();
+      if(route==='/followup'&&!['deadline','remind','final'].includes(b.action))return reply({ok:false,error:'action'},400);
+      const due=Number(b.due_at),reason=text(b.reason,500),until=Number(b.hold_until);
+      if(route==='/followup'&&b.action==='deadline'&&(!Number.isSafeInteger(due)||due<=now||due>now+30*86400000))return reply({ok:false,error:'deadline'},400);
+      if(route==='/hold'&&(!reason||!Number.isSafeInteger(until)||until<=now||until>now+7*86400000))return reply({ok:false,error:'hold_reason_and_time'},400);
+      const escalation=text(b.escalation_to,100);
+      if(escalation){const list=await accounts(env);if(!list.some(a=>a.username===escalation)||!isExec({ok:true,role:'hq',username:escalation}))return reply({ok:false,error:'escalation_recipient'},400);}
+      await env.DB.prepare('INSERT OR IGNORE INTO daily_handover_followup(report_id,version) VALUES(?,?)').bind(r.id,r.version).run();
+      if(route==='/opened'){
+        const changed=await env.DB.prepare('UPDATE daily_handover_followup SET opened_at=? WHERE report_id=? AND version=? AND opened_at IS NULL').bind(now,r.id,r.version).run();
+        if(changed.meta.changes)await followEvent(env,r,me,'opened');
+      }else if(route==='/hold'){
+        await env.DB.prepare('UPDATE daily_handover_followup SET hold_until=?,hold_reason=? WHERE report_id=? AND version=?').bind(until,reason,r.id,r.version).run();
+        await followEvent(env,r,me,'hold',reason+' / '+new Date(until).toISOString());
+      }else if(b.action==='deadline'){
+        await env.DB.prepare('UPDATE daily_handover_followup SET due_at=?,escalation_to=?,warning_level=0 WHERE report_id=? AND version=?').bind(due,escalation,r.id,r.version).run();
+        await followEvent(env,r,me,'deadline',new Date(due).toISOString());
+      }else{
+        const f:any=await env.DB.prepare('SELECT * FROM daily_handover_followup WHERE report_id=? AND version=?').bind(r.id,r.version).first();
+        if(b.action==='final'&&!f.due_at)return reply({ok:false,error:'set_deadline_first'},400);
+        const changed=await env.DB.prepare(`UPDATE daily_handover_followup SET last_request_at=?,warning_level=MAX(warning_level,?)
+          WHERE report_id=? AND version=? AND (last_request_at IS NULL OR last_request_at<=?)
+          AND EXISTS(SELECT 1 FROM daily_handovers WHERE id=? AND version=? AND status='submitted')`)
+          .bind(now,b.action==='final'?3:1,r.id,r.version,now-5*60000,r.id,r.version).run();
+        if(!changed.meta.changes)return reply({ok:false,error:'retry_after_5_minutes'},429);
+        await followEvent(env,r,me,b.action);
+        const push=await notify(env,r.recipient,`handover-followup:${r.id}:${r.version}`,
+          b.action==='final'?'최종 경고: 보고에 응답해 주세요. 지연 이력이 기록됩니다. / Final warning: respond to the report. Delays are recorded.':'긴급 재요청: 보고를 읽고 확인 또는 보완 요청해 주세요. / Urgent reminder: read and respond to your report.',
+          `/daily-handover.html?date=${r.report_date}&report=${r.id}`);
+        return reply({ok:true,push});
+      }
+      return reply({ok:true});
+    }
     if(route==='/read-schedule'){
       const days=Array.isArray(b.weekdays)?[...new Set(b.weekdays.filter((x:any)=>Number.isInteger(x)&&x>=0&&x<=6))].sort().join(','):'';
       if(!days||!/^([01]\d|2[0-3]):[0-5]\d$/.test(b.start_time||'')||!/^([01]\d|2[0-3]):[0-5]\d$/.test(b.end_time||'')||b.start_time>=b.end_time)return reply({ok:false,error:'schedule'},400);
@@ -305,6 +396,8 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
         .bind(route==='/ack'?'acknowledged':'changes_requested',me,Date.now(),feedback,Date.now(),r.id,Number(b.version)).run();
       if(!result.meta.changes)return reply({ok:false,error:'conflict'},409);
       try{await env.DB.prepare('DELETE FROM push_queue WHERE tag=?').bind(`handover-read:${r.id}:${r.version}`).run();}catch{console.warn('[handover] acknowledged queue cleanup pending');}
+      try{for(const tag of ['handover-followup','handover-escalation'])await env.DB.prepare('DELETE FROM push_queue WHERE tag=?').bind(`${tag}:${r.id}:${r.version}`).run();}catch{console.warn('[handover] follow-up queue cleanup pending');}
+      await followEvent(env,r,me,route==='/ack'?'acknowledged':'changes_requested',feedback);
       return reply({ok:true});
     }
     if (!['/review','/save'].includes(route)) return reply({ok:false,error:'not_found'},404);
@@ -353,7 +446,7 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       .bind(reportDay,me,String(actor.name||me),recipient,JSON.stringify(data),submit?'submitted':'draft',now,submit?now:null,key,b.version).first();
     if(!row)return reply({ok:false,error:'conflict'},409);
     // Submission is durably saved regardless of push availability.
-    if(existing){try{await env.DB.prepare('DELETE FROM push_queue WHERE tag=?').bind(`handover-read:${existing.id}:${existing.version}`).run();}catch{console.warn('[handover] superseded queue cleanup pending');}}
+    if(existing){try{for(const tag of ['handover-read','handover-followup','handover-escalation'])await env.DB.prepare('DELETE FROM push_queue WHERE tag=?').bind(`${tag}:${existing.id}:${existing.version}`).run();}catch{console.warn('[handover] superseded queue cleanup pending');}}
     let push='not_requested';
     if(submit&&recipient!==me){
       try{await env.DB.prepare('INSERT OR IGNORE INTO daily_handover_read_alerts(report_id,version,next_at) VALUES(?,?,?)').bind(row.id,row.version,now).run();push=await sendReadAlert(env,row);}
@@ -362,3 +455,4 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
     return reply({ok:true,row:rowData(row),push});
   } catch(e) { console.error('[daily-handover]', e); return reply({ok:false,error:'unavailable'},503); }
 }
+

@@ -137,6 +137,7 @@
     if(r.acknowledged_by)detail.append(node('p','확인 / Reviewed by: '+staffName(r.acknowledged_by)+(r.acknowledged_at?' · '+kst(r.acknowledged_at)+' KST':''),'small'));
     if(r.username===me.username)detail.append(node('p',ownStatusText(r),r.status==='changes_requested'?'notice':'small'));
     if(r.username===me.username&&r.status==='changes_requested'&&r.report_date===$('date').value){var fix=node('button','✏️ 보완해서 다시 보내기 / Revise & resend','primary');fix.type='button';fix.onclick=openEditor;detail.append(fix);}
+    paintFollowup(detail,r);
     if(r.feedback)detail.append(node('p','보완 요청 / Feedback: '+r.feedback,'notice'));
     if(r.username!==me.username&&r.status==='submitted'&&(r.recipient===me.username||root.dataset.exec==='true')){
       var buttons=node('div',null,'buttons'),ack=node('button','내용 확인 완료 / Acknowledge','primary'),ret=node('button','보완 요청 / Request changes');
@@ -144,12 +145,35 @@
     }
     detail.append(node('p','수신 확인은 남은 업무를 완료 처리하지 않습니다. / Acknowledgement does not close open tasks.','small'));
   }
+  var openedRequests={};
+  function paintFollowup(detail,r){
+    if(r.status==='draft')return;
+    var f=r.followup||{},panel=node('section',null,'notice');
+    panel.append(node('strong','응답·독촉 관리 / Response & reminders'));
+    if(f.opened_at)panel.append(node('p','열람 / Opened: '+kst(f.opened_at)+' KST','small'));
+    if(f.due_at)panel.append(node('p','응답 기한 / Respond by: '+kst(f.due_at)+' KST'+(r.status==='submitted'&&Date.now()>f.due_at?' · 🔴 기한 초과 / Overdue':'')));
+    if(f.warning_level)panel.append(node('p',f.warning_level>=3?'🔴 최종 경고 / Final warning':'⚠️ 응답 재요청 / Response requested'));
+    if(f.hold_reason)panel.append(node('p','보류 사유 / Hold reason: '+f.hold_reason+' · '+kst(f.hold_until)+' KST'));
+    var history=node('button','독촉·응답 이력 / Follow-up history');history.type='button';history.onclick=async function(){history.disabled=true;try{var j=await call('/followup-history?id='+r.id);var list=node('div');j.events.forEach(function(e){list.append(node('p',kst(e.created_at)+' KST · '+staffName(e.actor)+' · '+({opened:'열람 / Opened',deadline:'기한 설정 / Deadline',remind:'재요청 / Reminder',final:'최종 경고 / Final warning',overdue:'기한 초과 / Overdue',escalated:'지연 전달 / Escalated',hold:'보류 / On hold',acknowledged:'확인 완료 / Acknowledged',changes_requested:'보완 요청 / Changes requested'}[e.kind]||e.kind)+' · '+e.detail,'small'));});if(!j.events.length)list.append(node('p','이력 없음 / No history'));panel.append(list);}catch(e){networkError(e);history.disabled=false;}};panel.append(history);
+    if(r.status==='submitted'&&r.username===me.username&&r.recipient!==me.username){
+      var label=node('label','응답 기한 (한국 시간) / Deadline (KST)'),due=node('input');due.type='datetime-local';due.value=new Date((f.due_at||Date.now()+4*3600000)+9*3600000).toISOString().slice(0,16);label.append(due);panel.append(label);
+      var escalation=node('label','기한 3시간 초과 시 대표에게도 전달 / Also notify CEO after 3h overdue'),check=node('input');check.type='checkbox';check.checked=f.escalation_to==='admin';escalation.prepend(check);if(me.username!=='admin'&&members.some(function(m){return m.username==='admin';}))panel.append(escalation);
+      panel.append(node('p','기한 초과 알림은 수신자 근무시간에 발송됩니다. 3시간 초과 시 작성자에게도 알립니다. / Overdue alerts run during recipient working hours; the author is notified after 3h overdue.','small'));
+      [['deadline','기한 저장 / Save deadline'],['remind','🔔 긴급 재요청 / Urgent reminder'],['final','🔴 최종 경고 / Final warning']].forEach(function(a){var b=node('button',a[1]);b.type='button';b.onclick=async function(){var dueAt=Date.parse(due.value+':00+09:00');if(a[0]==='deadline'&&(!Number.isFinite(dueAt)||dueAt<=Date.now())){say('미래 기한을 선택해 주세요. / Choose a future deadline.',true);return;}if(a[0]!=='deadline'&&!confirm(a[1]+' — '+staffName(r.recipient)+'?'))return;b.disabled=true;try{var j=await call('/followup',{id:r.id,version:r.version,action:a[0],due_at:dueAt,escalation_to:check.checked?'admin':''});say(j.push&&j.push!=='sent'?'요청 저장 완료 · 기기 푸시 미전달, 로그인 화면에서 확인 가능합니다. / Saved; device push not delivered, visible on login.':'저장 완료 / Saved',false);await loadList();}catch(e){networkError(e);b.disabled=false;}};panel.append(b);});
+    }
+    if(r.status==='submitted'&&r.recipient===me.username&&r.username!==me.username){
+      var key=r.id+':'+r.version;
+      if(!f.opened_at&&!openedRequests[key]&&!document.hidden){openedRequests[key]=true;call('/opened',{id:r.id,version:r.version}).catch(function(){delete openedRequests[key];});}
+      var hold=node('button','사유를 남기고 보류 / Hold with reason');hold.type='button';hold.onclick=async function(){var reason=prompt('보류 사유 (필수) / Reason (required)');if(!reason||!reason.trim())return;var time=prompt('처리 예정 한국 시간 / Expected response in KST (YYYY-MM-DDTHH:mm)',new Date(Date.now()+10*3600000).toISOString().slice(0,16));if(!time)return;var until=Date.parse(time+':00+09:00');if(!Number.isFinite(until)||until<=Date.now()){say('미래 시각을 입력해 주세요. / Enter a future time.',true);return;}hold.disabled=true;try{await call('/hold',{id:r.id,version:r.version,reason:reason,hold_until:until});await loadList();}catch(e){networkError(e);hold.disabled=false;}};panel.append(hold);
+    }
+    detail.append(panel);
+  }
   function kst(ms){return new Date(Number(ms)+9*3600000).toISOString().slice(5,16).replace('T',' ');}
   // 작성자 시점의 «확인 여부» — 매일보고의 «확인» 은 돈 결재의 «승인» 이 아니다(받은 사람이 읽었다는 표시).
   function ownStatusText(r){
     if(r.status==='acknowledged')return '✅ 확인 완료 · '+staffName(r.acknowledged_by||r.recipient)+(r.acknowledged_at?' · '+kst(r.acknowledged_at)+' KST':'')+' / Acknowledged';
     if(r.status==='changes_requested')return '↩️ 보완 요청 · '+staffName(r.acknowledged_by||r.recipient)+(r.feedback?' — '+r.feedback:'')+' / Changes requested';
-    if(r.status==='submitted')return '⏳ 확인 대기 · '+staffName(r.recipient)+'님이 아직 읽고 확인하지 않았습니다. / Awaiting review';
+    if(r.status==='submitted')return r.followup&&r.followup.opened_at?'👁 열람 · 미응답 / Opened, awaiting response · '+kst(r.followup.opened_at)+' KST':'⏳ 미열람 · 확인 대기 / Not opened, awaiting review';
     return '📝 초안 · 아직 보내지 않았습니다. / Draft — not sent yet';
   }
   function mineSummary(){var c={submitted:0,acknowledged:0,changes_requested:0,draft:0};mine.forEach(function(r){if(c[r.status]!=null)c[r.status]++;});
@@ -181,7 +205,7 @@
     fields.forEach(function(k){$(k).disabled=true;});$('review').disabled=true;$('save').disabled=true;$('manual').disabled=true;
     try{
       var j=await call('/home');me=j.me;members=j.members;mergeFiles(j.files);stagedIds=(j.staged_ids||[]).slice();$('editor').hidden=!!j.reader_mode;$('clock-box').hidden=!!j.reader_mode;if(j.reader_mode)$('editor').prepend($('alert'));
-      $('filter').value=j.reader_mode?'unread':'all';selected=wantedReport;if(wantedReport)$('filter').value='all';root.dataset.exec=String(j.can_review_all);
+      $('filter').value=j.reader_mode?'unread':'all';selected=wantedReport;if(wantedReport)$('filter').value='all';if(wanted.get('view')==='mine')$('filter').value='mine';root.dataset.exec=String(j.can_review_all);
       $('date').value=j.day;$('list-date').value=/^\d{4}-\d{2}-\d{2}$/.test(wanted.get('date')||'')?wanted.get('date'):j.day;$('staff').value=me.name;
       ['owner','recipient'].forEach(function(k){members.forEach(function(m){var option=node('option',m.name?m.name+' ('+m.username+')':m.username);option.value=m.username;$(k).append(option);});});
       paintOwn(j.own);if(j.own){version=j.own.version;populate(j.own.payload);$('recipient').value=j.own.recipient;originalSubmitted=!!j.own.submitted_at;$('badge').textContent=statusLabel(j.own.status);if(j.own.feedback){$('alert').hidden=false;$('alert').textContent='보완 요청 / Changes requested: '+j.own.feedback;}}
@@ -198,3 +222,4 @@
   setInterval(function(){if(me&&!document.hidden&&!busy&&!uploading)loadList().catch(function(){$('inbox-message').textContent='새 보고 확인 실패 · 새로고침해 주세요. / Refresh to check new reports.';});},60000);
   init();
 })();
+
