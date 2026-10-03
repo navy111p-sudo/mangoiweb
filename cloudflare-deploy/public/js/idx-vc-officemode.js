@@ -60,6 +60,11 @@
   var HYST_DB  = 8;      // 한 번 열리면 이만큼 낮아질 때까지 유지 (6 → 8)
   var ABS_DB   = -55;    // 문턱 절대 하한 — 너무 조용한 방에서 게이트가 예민해지지 않게
   var TICK_MS  = 25;
+  /* AudioContext 가 멈춰도 가공 트랙은 live 인 채 무음일 수 있다. 한 번 깨워 보고
+     1초 동안 안 돌아오면 표준 마이크로 복구한다. 숨은 탭에서는 타이머가 느려지므로
+     틱 수가 아니라 경과 시간을 잰다(다음 실행 기회에 복구). 저장된 선택은 바꾸지 않는다. */
+  var STALL_MS = 1000;
+  var stalledAt = null, resumeTried = false;
 
   var on = false, busy = false;
   /* 이 «페이지» 에서 켜기가 한 번 실패했는가 — 자동 적용만 그만둔다(사람이 스위치를 누르면 다시 시도).
@@ -188,6 +193,22 @@
   /* 게이트 한 틱 — 지금 소리가 «바닥보다 충분히 큰가» 만 본다. */
   function tick() {
     if (!on || !ctx || !anaNode || !gainNode) return;
+    if (ctx.state !== 'running') {
+      if (stalledAt === null) stalledAt = Date.now();
+      if (!resumeTried && ctx.state !== 'closed') {
+        resumeTried = true;
+        /* 자동재생 정책 때문에 reject 되거나 끝나지 않을 수 있다. 기다리지 않아야
+           복구가 막히지 않고, catch 가 있어야 unhandledrejection 도 남지 않는다. */
+        try { Promise.resolve(ctx.resume()).catch(function () {}); } catch (e) {}
+      }
+      if (ctx.state !== 'running' && Date.now() - stalledAt >= STALL_MS) {
+        console.warn('[office] 오디오 엔진이 멈춰(' + ctx.state + ') 사무실 모드를 해제합니다');
+        autoFailed = true;  // 이 페이지에서 자동 재적용 금지. 사람이 스위치로 다시 켤 수는 있다.
+        try { disable(true).catch(function () {}); } catch (e) {}
+      }
+      return;
+    }
+    stalledAt = null; resumeTried = false;
     /* ⛔ 탭이 숨으면 판정을 멈추고 활짝 연다 — 타이머가 느려진 사이 닫힌 채 굳으면 목소리가 안 나간다. */
     if (document.hidden) {
       try { gainNode.gain.setTargetAtTime(1, ctx.currentTime, ATTACK); } catch (e) {}
@@ -234,6 +255,8 @@
         안 그러면 stream 에서 빠진 옛 트랙이 stop 되지 않고 남아 마이크가 켜진 채 유령이 된다. */
   function teardown(keepBorrowed) {
     if (timer) { clearInterval(timer); timer = null; }
+    stalledAt = null; resumeTried = false;
+    try { if (ctx) ctx.removeEventListener('statechange', tick); } catch (e) {}
     try { if (srcNode) srcNode.disconnect(); } catch (e) {}
     try { if (hpNode) hpNode.disconnect(); } catch (e) {}
     try { if (gainNode) gainNode.disconnect(); } catch (e) {}
@@ -407,6 +430,9 @@
       /* 한 번이라도 성공했으면 «이 기기에서는 된다» 는 뜻 — 자동 적용 차단을 푼다.
          (사람이 스위치로 켜서 성공한 경우도 여기로 온다.) */
       on = true; if (byUser) remember(true); autoFailed = false;
+      /* 숨은 탭에서도 엔진 상태가 바뀐 순간부터 시간을 잰다. teardown 은 listener 를
+         먼저 떼므로 우리가 close 한 옛 엔진이 다음 세션을 건드리지 않는다. */
+      ctx.addEventListener('statechange', tick);
       timer = setInterval(tick, TICK_MS);
       console.log('[office] 사무실 모드 켜짐 — AGC off + 하이패스 120Hz + 노이즈 게이트');
       busy = false;
