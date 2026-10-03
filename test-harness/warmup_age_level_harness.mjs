@@ -506,7 +506,7 @@ console.log('\n[ K. 다시 고르기에 손이 닿는가 — 되돌리기 방지
      「이 이름이 교재를 암시하지 않아 아무도 못 찾는다」를 고쳤는데(#987), 새로 낸 상단바
      지름길이 옛 말을 그대로 쓰면 그 수리가 새 입구에서 되살아납니다.
      ⛔ 기대 글자를 여기 손으로 적지 마세요 — 둘을 «서로» 대조해야 한쪽만 바꿔도 잡힙니다. */
-  const reopenLabel = ((HTML.match(/class="menu-reopen"[^>]*>([^<]+)</) || [, ''])[1] || '')
+  const reopenLabel = ((HTML.match(/class="menu-reopen"[^>]*>(?:<span[^>]*>)?([^<]+)</) || [, ''])[1] || '')
     .replace(/[^가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9·]/g, '');
   const tuneLabel = ((tune.match(/title="([^"]+)"/) || [, ''])[1] || '')
     .replace(/[^가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9·]/g, '');
@@ -536,7 +536,7 @@ console.log('\n[ K. 다시 고르기에 손이 닿는가 — 되돌리기 방지
       const LEV = [{ n: 3, ko: '기초' }, { n: 4, ko: '중급' }];
       const AGE = [{ id: 'kid', ko: '유아' }, { id: 'adult', ko: '어른' }];
       try {
-        new Function('document', 'LEVEL_CATALOG', 'AGE_CATALOG', '_warmLevel', '_warmAge', pickSrc)(doc, LEV, AGE, lv, ag);
+        new Function('document', 'LEVEL_CATALOG', 'AGE_CATALOG', '_warmLevel', '_warmAge', "/* 🌐 2026-10-03 — 화면 언어 헬퍼(wuT·wuEn·ageName)는 KO 로 돌린다. */ function wuEn(){return false} function wuT(k,e){return k} function ageName(a){return a?a.ko:''} " + pickSrc)(doc, LEV, AGE, lv, ag);
       } catch (e) { return { err: String((e && e.message) || e) }; }
       return el;
     };
