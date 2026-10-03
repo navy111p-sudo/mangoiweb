@@ -40,7 +40,7 @@ function makeEl(id) {
   return el;
 }
 let reg = {};
-function makeWorld({ embedded = false, android = false, mode = null, unlocked = true, menuUi = false } = {}) {
+function makeWorld({ embedded = false, android = false, mode = null, unlocked = true, menuUi = false, voiceUi = false } = {}) {
   reg = {};
   let now = 0; const timers = [];
   const store = {}; if (mode) store.mangoi_warmup_talk_mode = mode;
@@ -49,6 +49,7 @@ function makeWorld({ embedded = false, android = false, mode = null, unlocked = 
   const inp = makeEl('inp'); const setup = makeEl('wuSetup'); setup.hidden = true;
   const menu = makeEl('menuPanel');
   ['wgState', 'inp', 'wuSetup', 'menuPanel'].forEach((k, i) => { reg[k] = [wgState, inp, setup, menu][i]; });
+  if (voiceUi) { reg.voiceBtns = makeEl('voiceBtns'); reg.voiceBtnsZh = makeEl('voiceBtnsZh'); }
   const doc = {
     readyState: 'complete', hidden: false, activeElement: null, head: { appendChild() {} },
     getElementById: (id) => reg[id] || (menuUi && reg.menuTalkGroup && (id === 'menuTalkBtns' || id === 'talkVal') ? (reg[id] = makeEl(id)) : null),
@@ -66,6 +67,9 @@ function makeWorld({ embedded = false, android = false, mode = null, unlocked = 
     toggleMic() { calls.toggleMic++; win.WarmupAutoTalk.on('press'); win._recognizing = true; win.WarmupAutoTalk.on('mic', true); },
     micViaWhisper() { calls.micViaWhisper++; win._whisperOn = true; win.WarmupAutoTalk.on('mic', true); },
     closeMenu() { calls.closeMenu = (calls.closeMenu || 0) + 1; menu.classList.remove('open'); },
+    _warmStarted: true,
+    openSetup() { setup.hidden = false; },
+    closeSetup() { setup.hidden = true; },
     _micAbortQuiet() { calls.abort++; win._recognizing = false; win._whisperOn = false; win.WarmupAutoTalk.on('mic', false); },
   };
   win.window = win; win.parent = embedded ? {} : win;
@@ -253,6 +257,81 @@ function clickSw(which) {
 {
   const T = makeWorld({ embedded: true });
   ok('J-6 수업 안(iframe)에서는 스위치를 안 그린다', !reg.talkSwitch);
+}
+
+
+// 2026-10-03 제보 「제이크·노아는 자동으로 안 돼」 — 실측: ⋮ 메뉴에서 친구를 고르고 메뉴를 열어 둔 채 대화하면
+// 그 뒤로 마이크가 한 번도 안 켜졌다(친구와 무관). 그리고 AI 말이 끝난 «그 한 순간» 에 막히면 영영 안 열렸다.
+console.log('\n[K] 막혔을 때 — 말하고, 곧 풀리는 것은 다시 해 본다');
+{
+  const T = makeWorld({ mode: 'auto' }); T.menu.classList.add('open');
+  T.on('aiDone'); T.tick(DELAY);
+  ok('K-1 메뉴가 열려 있으면 안 연다', T.calls.toggleMic === 0, T.calls);
+  ok('K-2 그 사실을 화면이 말한다(조용히 넘어가지 않는다)', /설정 창을 닫으면/.test(reg.wgState.textContent), reg.wgState.textContent);
+}
+{
+  const T = makeWorld({ mode: 'auto' }); T.on('aiDone'); T.tick(DELAY);
+  ok('K-3 (짝) 메뉴가 닫혀 있으면 그 안내 없이 연다', T.calls.toggleMic === 1 && !/설정 창을 닫으면/.test(reg.wgState.textContent), T.calls);
+}
+{
+  const T = makeWorld({ mode: 'auto' }); T.win._ttsAudio = { paused: false, ended: false };
+  T.on('aiDone'); T.tick(DELAY);
+  ok('K-4 소리가 아직 나는 순간에는 안 연다', T.calls.toggleMic === 0);
+  T.win._ttsAudio.ended = true; T.tick(500);
+  ok('K-5 곧 끝나면 다시 해 보고 연다(그 한 순간에 걸려 영영 안 열리지 않게)', T.calls.toggleMic === 1, T.calls);
+}
+{
+  const T = makeWorld({ mode: 'auto' }); T.win.sending = true;
+  T.on('aiDone'); T.tick(DELAY + 500 * 3);
+  T.win.sending = false; T.tick(500);
+  ok('K-6 답을 받는 중(sending)이 풀려도 다시 해 보고 연다', T.calls.toggleMic === 1, T.calls);
+}
+{
+  const T = makeWorld({ mode: 'auto' }); T.win._ttsAudio = { paused: false, ended: false };
+  T.on('aiDone'); T.tick(60000);
+  ok('K-7 (짝) 끝없이 다시 해 보지 않는다 — 계속 막히면 그만둔다', T.calls.toggleMic === 0 && T.win.WarmupAutoTalk._state.armTimer === null, T.win.WarmupAutoTalk._state);
+  T.win._ttsAudio.ended = true; T.tick(60000);
+  ok('K-8 (짝) 그만둔 뒤 저절로 열리지 않는다(상주 타이머 없음)', T.calls.toggleMic === 0);
+}
+{
+  const T = makeWorld({ mode: 'auto' }); T.win._ttsAudio = { paused: false, ended: false };
+  T.on('aiDone'); T.tick(DELAY); T.on('aiStart'); T.win._ttsAudio.ended = true; T.tick(5000);
+  ok('K-9 (짝) 다시 해 보는 중에 AI 가 또 말하면 취소', T.calls.toggleMic === 0, T.calls);
+}
+function clickVoice(v) {
+  const box = reg.voiceBtns; const fn = box && box._ls.click && box._ls.click[0];
+  if (!fn) return false;
+  fn({ target: { closest: () => ({ getAttribute: () => v }) } }); return true;
+}
+{
+  const T = makeWorld({ mode: 'auto', voiceUi: true }); T.menu.classList.add('open');
+  ok('K-10 (전제) 친구 고르기 칸에 리스너가 붙었다', !!(reg.voiceBtns && reg.voiceBtns._ls.click));
+  clickVoice('jake');
+  ok('K-11 자동 모드에서 ⋮ 메뉴로 친구를 고르면 메뉴를 닫는다', !T.menu.classList.contains('open') && T.calls.closeMenu === 1, T.calls);
+  T.tick(DELAY);
+  ok('K-12 그리고 마이크가 켜진다', T.calls.toggleMic === 1, T.calls);
+}
+{
+  const T = makeWorld({ voiceUi: true }); T.menu.classList.add('open');
+  clickVoice('jake'); T.tick(5000);
+  ok('K-13 (짝) 버튼 모드에서는 메뉴가 그대로(여러 칸을 이어서 고를 수 있게)', T.menu.classList.contains('open') && !T.calls.closeMenu && T.calls.toggleMic === 0, T.calls);
+}
+
+{
+  const T = makeWorld({ mode: 'auto' }); T.on('aiDone'); T.tick(DELAY);
+  ok('K-14 (전제) 자동으로 듣는 중', T.calls.toggleMic === 1 && T.win._recognizing === true, T.calls);
+  T.win.openSetup(true);
+  ok('K-15 «다시 고르기» 화면을 열면 자동으로 연 듣기를 보내지 않고 닫는다', T.calls.abort === 1 && T.setup.hidden === false, T.calls);
+  T.win.closeSetup(); T.tick(DELAY);
+  ok('K-16 그 화면을 닫으면(계속하기) 다시 듣는다', T.calls.toggleMic === 2, T.calls);
+}
+{
+  const T = makeWorld({ mode: 'auto' }); T.win._warmStarted = false; T.win.openSetup(); T.win.closeSetup(); T.tick(5000);
+  ok('K-17 (짝) 첫 시작에는 닫기만으로 안 연다(첫 인사가 끝난 뒤에 연다)', T.calls.toggleMic === 0, T.calls);
+}
+{
+  const T = makeWorld(); T.win.openSetup(); T.win.closeSetup(); T.tick(5000);
+  ok('K-18 (짝) 버튼 모드에서는 닫아도 안 연다', T.calls.toggleMic === 0, T.calls);
 }
 
 /* ── ⑥ warmup.html 의 배선 — speak() 를 오려 내 실제로 돌린다 ─────────── */
