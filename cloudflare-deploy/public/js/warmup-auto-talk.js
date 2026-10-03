@@ -84,33 +84,56 @@
   function note(msg) { try { var st = document.getElementById('wgState'); if (st) st.textContent = msg; } catch (e) {} }
 
   /* ── 열 수 있는 때인가 ─────────────────────────────────────── */
-  function canOpen() {
-    if (!isOn() || S.resting) return false;
-    if (document.hidden) return false;
-    if (g('_warmPaused') || g('sending') || g('_recognizing') || g('_whisperOn')) return false;
-    if (!g('_audioUnlocked')) return false;          // 한 번도 안 눌렀으면 브라우저가 마이크를 막는다
-    var su = document.getElementById('wuSetup'); if (su && !su.hidden) return false;
-    var mp = document.getElementById('menuPanel'); if (mp && mp.classList.contains('open')) return false;   // ⋮ 설정을 고르는 중
+  /* 🔧 (2026-10-03 「제이크·노아는 자동으로 안 돼」) 예전에는 true/false 만 돌려줘서, AI 말이 끝난 «그 한 순간»
+     에 막히면 아무 말 없이 영영 안 열렸다. 실측(헤드리스): ⋮ 메뉴에서 친구를 바꾸고 메뉴를 열어 둔 채 대화하면
+     그 뒤로 마이크가 «한 번도» 안 켜진다 — 친구 이름과 무관하다(사장님이 메뉴에서 고른 친구가 Jake·Noah 였다).
+     이제 «왜 못 여는지» 를 돌려주고, 잠깐 기다리면 풀리는 이유는 다시 해 보고, 메뉴는 화면이 말한다. */
+  function blockReason() {
+    if (!isOn()) return 'off';
+    if (S.resting) return 'resting';
+    if (document.hidden) return 'hidden';
+    if (g('_warmPaused')) return 'paused';
+    if (g('sending')) return 'busy';
+    if (g('_recognizing') || g('_whisperOn')) return 'listening';
+    if (!g('_audioUnlocked')) return 'locked';          // 한 번도 안 눌렀으면 브라우저가 마이크를 막는다
+    var su = document.getElementById('wuSetup'); if (su && !su.hidden) return 'setup';
+    var mp = document.getElementById('menuPanel'); if (mp && mp.classList.contains('open')) return 'menu';   // ⋮ 설정을 고르는 중
     var inp = document.getElementById('inp');
-    if (inp && (document.activeElement === inp || String(inp.value || '').trim())) return false;   // 글로 쓰는 중
-    var au = g('_ttsAudio'); if (au && !au.paused && !au.ended) return false;                       // 아직 말하는 중
-    try { if (window.speechSynthesis && window.speechSynthesis.speaking) return false; } catch (e) {}
-    return true;
+    if (inp && (document.activeElement === inp || String(inp.value || '').trim())) return 'typing';   // 글로 쓰는 중
+    var au = g('_ttsAudio'); if (au && !au.paused && !au.ended) return 'busy';                       // 아직 말하는 중
+    try { if (window.speechSynthesis && window.speechSynthesis.speaking) return 'busy'; } catch (e) {}
+    return '';
   }
+  function canOpen() { return !blockReason(); }
   function clearArm() { if (S.armTimer) { clearTimeout(S.armTimer); S.armTimer = null; } }
-  function arm() {
+  /* busy = 곧 풀리는 이유(답 받는 중·소리가 막 끝나는 중) — 그 «한 순간» 에 걸려 영영 안 열리지 않게 몇 번 더 본다.
+     ⛔ 끝없이 돌지 않는다(RETRY_MAX) — 상주 타이머 금지. 그 사이 aiStart·press·글 입력이 오면 clearArm 이 끊는다. */
+  var RETRY_MS = 500, RETRY_MAX = 12;
+  function arm(tries) {
     clearArm();
     if (!isOn() || S.resting) return;
+    tries = tries || 0;
     S.armTimer = setTimeout(function () {
       S.armTimer = null;
-      if (!canOpen()) { if (S.phase === 'done') setPhase(''); return; }
+      var why = blockReason();
+      if (why) {
+        if (why === 'busy' && tries < RETRY_MAX) { arm(tries + 1); return; }
+        if (why === 'menu') menuNote();
+        if (S.phase === 'done') setPhase('');
+        return;
+      }
       S.opening = true; S.session = true; S.gotSend = false;
       try {
         if (ANDROID && typeof window.micViaWhisper === 'function') window.micViaWhisper();
         else if (typeof window.toggleMic === 'function') window.toggleMic();
       } catch (e) { S.session = false; }
       S.opening = false;
-    }, ARM_DELAY_MS);
+    }, tries ? RETRY_MS : ARM_DELAY_MS);
+  }
+  /* ⋮ 메뉴가 열려 있어 못 열었다 — 조용히 넘어가면 «자동이 고장났다» 로 읽힌다. 닫으면 hookMenuClose 가 연다. */
+  function menuNote() {
+    note(uiEn() ? 'Auto talk: close the ⋮ menu and the mic will turn on.'
+                : '자동 말하기: ⋮ 설정 창을 닫으면 마이크가 저절로 켜져요.');
   }
 
   function rest() {
@@ -191,6 +214,38 @@
     };
     wrapped.__autoTalk = true;
     window.closeMenu = wrapped;
+  }
+  /* 🔧 (2026-10-03 「아바타를 바꾸면 자동이 안 되는 경우」) ⋮ «연령·수준·교재 다시 고르기» 화면 —
+     실측: 그 화면을 열면 자동으로 열려 있던 듣기가 «화면 뒤에서» 계속 돌고, «계속하기» 로 닫아도
+     AI 가 새로 말하지 않으므로(aiDone 없음) 그 뒤로 마이크가 영영 안 켜졌다.
+     ✅ 열 때: 자동으로 연 듣기만 «보내지 않고» 닫는다(사람이 연 듣기는 건드리지 않는다).
+     ✅ 닫을 때: 열려 있다 닫혔으면 다시 건다. ⛔ 닫혀 있던 것을 또 닫는 호출로는 안 건다. */
+  function hookSetup() {
+    var oo = window.openSetup;
+    if (typeof oo === 'function' && !oo.__autoTalk) {
+      var wo = function () {
+        clearArm();
+        if (isOn() && S.session && (g('_recognizing') || g('_whisperOn'))) {
+          S.session = false; setPhase('');
+          try { if (typeof window._micAbortQuiet === 'function') window._micAbortQuiet(); } catch (e) {}
+        }
+        return oo.apply(this, arguments);
+      };
+      wo.__autoTalk = true; window.openSetup = wo;
+    }
+    var oc = window.closeSetup;
+    if (typeof oc === 'function' && !oc.__autoTalk) {
+      var wc = function () {
+        var su = document.getElementById('wuSetup');
+        var wasOpen = !!(su && !su.hidden);
+        var r = oc.apply(this, arguments);
+        /* ⚠️ 첫 시작(_warmStarted 가 아직 거짓)에는 걸지 않는다 — 곧 첫 인사가 나오고 그 끝(aiDone)에서 연다.
+           여기서 걸면 인사 «전에» 마이크가 잠깐 열렸다 닫힌다(안드로이드는 삐 소리). */
+        if (wasOpen && isOn() && g('_warmStarted')) arm();
+        return r;
+      };
+      wc.__autoTalk = true; window.closeSetup = wc;
+    }
   }
   function btnsHtml(cls) {
     var auto = readMode() === 'auto', en = uiEn();
@@ -300,6 +355,20 @@
       inp.addEventListener('input', clearArm);
     }
     hookMenuClose();
+    hookSetup();
+    /* 🔧 (2026-10-03) 자동 모드에서 ⋮ 메뉴로 친구(목소리)를 바꾸면 메뉴를 닫는다 — 바꾸자마자 그 친구가 인사하고,
+       메뉴가 열린 채면 그 인사가 끝나도 마이크가 안 켜졌다(사장님 제보: Jake·Noah 를 고른 뒤 자동이 멈춤).
+       ⛔ 버튼 모드에서는 예전 그대로(여러 칸을 이어서 고를 수 있게) 둔다. */
+    ['voiceBtns', 'voiceBtnsZh'].forEach(function (id) {
+      var vb = document.getElementById(id);
+      if (!vb) return;
+      vb.addEventListener('click', function (e) {
+        var t = e.target && e.target.closest ? e.target.closest('[data-v]') : null;
+        if (!t || !isOn()) return;
+        var mp = document.getElementById('menuPanel');
+        if (mp && mp.classList.contains('open')) { try { if (typeof window.closeMenu === 'function') window.closeMenu(); } catch (e2) {} }
+      });
+    });
     paint();
   }
 
