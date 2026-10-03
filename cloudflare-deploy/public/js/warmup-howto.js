@@ -16,7 +16,7 @@
   var TXT = {
     ko: {
       title: '📘 A.i말하기 사용방법 쉽게 알기',
-      lead: '수업 전에 AI 와 영어(또는 중국어)로 3분쯤 이야기하며 입을 푸는 곳이에요. 아래 순서대로 고르고 <b>시작하기</b>만 누르면 돼요. <b>✨ 자동으로 말하기</b>를 고르면 마이크를 누르지 않아도 대화가 이어져요.',
+      lead: 'AI 와 영어(또는 중국어)로 이야기하며 입을 푸는 곳이에요. 아래 순서대로 고르고 <b>시작하기</b>만 누르면 돼요. <b>✨ 자동으로 말하기</b>를 고르면 마이크를 누르지 않아도 대화가 이어져요.',
       quickT: '1분 요약',
       quick: ['무슨 말로 할지 고르기 (영어 / 중국어)', '교재로 할지, 자유 대화로 할지 고르기', '누가 하는지(나이) 고르기',
         '대화 수준 고르기 — 모르면 <b>🔍 내 수준 찾아줄까요?</b>', '<b>말하는 방법 고르기 — 🎤 버튼으로 / ✨ 자동으로</b>',
@@ -61,7 +61,7 @@
     },
     en: {
       title: '📘 How to use A.i Speaking',
-      lead: 'Warm up by talking with an AI for about 3 minutes before class, in English or Chinese. Pick in order below, then press <b>Start</b>. With <b>✨ Auto talk</b>, the chat keeps going without tapping the mic.',
+      lead: 'Warm up by talking with an AI in English or Chinese. Pick in order below, then press <b>Start</b>. With <b>✨ Auto talk</b>, the chat keeps going without tapping the mic.',
       quickT: 'In one minute',
       quick: ['Pick a language (English / Chinese)', 'Pick textbook or free talk', 'Pick who is practicing (age)',
         'Pick a level — not sure? tap <b>🔍 Find my level</b>', '<b>Pick how to talk — 🎤 Tap mic / ✨ Auto</b>',
@@ -188,7 +188,7 @@
      ⚠️ 음성은 한국어 한 벌이라 영어 화면에서는 «꺼진 채» 시작하고 누르면 들려준다.
      ⚠️ <audio> 는 안내창 «상자 밖» 에 둔다 — 언어를 바꿔 상자를 다시 그려도 재생이 안 끊긴다.
      ⛔ ?v= 를 올리지 않고 파일만 바꾸지 말 것 — 1년 immutable 캐시에 옛 음성이 남는다. */
-  var AUDIO_SRC = '/audio/warmup-howto-ko.mp3?v=1';
+  var AUDIO_SRC = '/audio/warmup-howto-ko.mp3?v=2';
   var MUTE_KEY = 'mangoi_howto_voice_off';
   var playing = false;
   function voiceOff() { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch (e) { return false; } }
