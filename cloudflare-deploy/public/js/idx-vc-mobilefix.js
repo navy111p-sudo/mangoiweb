@@ -1979,5 +1979,178 @@
     } catch (e) {}
   })();
 
-  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 · 화면공유 15fps · 칭찬 실패 안내 · 이름표 재시도 · 인앱안내 준비됨'); } catch (e) {}
+  /* ═══════════════════════════════════════════════════════════════════
+     ⑰ 🖍 판서 선 보정 — «판서 선이 울퉁불퉁하다» (2026-10-02 P3)
+
+     [왜] 칠판 펜은 마우스가 움직일 때마다 «앞 점 → 지금 점» 직선 한 토막(seg)을
+       그리고 보낸다. 빠르게 쓰면 토막이 길어져 곡선이 꺾은선으로 보였다.
+     [무엇을 하나]
+       ⓐ 칠판 펜 토막을 «중점 2차곡선» 으로 잇는다. 토막 k 를 받으면
+          «앞 토막의 중점 → (조절점 = 이음점) → 이 토막의 중점» 을 그린다.
+          마지막 반 토막(중점 → 끝점)은 다음 토막을 기다렸다가, 220ms 안에 안 오면
+          (또는 손을 떼면) 직선으로 마저 그린다 — 받는 쪽은 «획 끝» 신호가 없어서다.
+       ⓑ 펜일 때만 PointerEvent.getCoalescedEvents() 로 사이 점을 «최대 1개» 더
+          넣는다(빠를 때만 · 6px 이상 떨어진 점). 보내는 양은 많아야 2배이고 천천히
+          쓰면 그대로다. getCoalescedEvents 가 없으면 아무것도 안 한다(예전과 같다).
+       ⓒ 점 배열 획(교재 필기·AI 원본 잉크)은 idx-main.js 의 wbInkPath 가 곡선으로 그린다.
+     ⛔ 주고받는 데이터 모양은 한 글자도 안 바꾼다 — 옛 화면과 그대로 섞여 그린다.
+     ⛔ 지우개·직선·사각형·원은 예전 그대로(wbPaintSeg 원본) 그린다.
+     ⚠️ 이음 판정은 «앞 토막의 끝 == 이 토막의 시작» 정확일치다(보내는 쪽이 같은 식으로
+        계산해 같은 실수값이 나온다). 어긋나면 새 획으로 보고 그대로 그린다(= 예전 모양).
+     ⚠️ 기다리던 반 토막은 «다른 것을 칠하기 직전» 에 먼저 마저 그린다 — 순서가 뒤집히면
+        지우개 위에 펜 꼬리가 올라앉는다. 다시 그리기·전체 지우기 때는 버린다(이미 기록에 있다).
+     감시: test-harness/pen_smoothing_harness.mjs
+  ═══════════════════════════════════════════════════════════════════ */
+  (function () {
+    var TAIL_MS = 220, MAX_CHAINS = 8, GAP_PX = 6;
+    var origSeg = window.wbPaintSeg;
+    if (typeof origSeg !== 'function' || origSeg.__mgInk) return;
+
+    function st(ctx) { return ctx && (ctx.__mgInk || (ctx.__mgInk = { chains: [] })); }
+    function style(ctx, c) { ctx.beginPath(); ctx.strokeStyle = c.color; ctx.lineWidth = c.size; ctx.lineCap = 'round'; }
+    function tail(ctx, c) {
+      if (c.timer) { try { clearTimeout(c.timer); } catch (e) {} c.timer = null; }
+      style(ctx, c); ctx.moveTo(c.mx, c.my); ctx.lineTo(c.tx, c.ty); ctx.stroke();
+    }
+    function flushAll(ctx) {
+      var s = ctx && ctx.__mgInk; if (!s || !s.chains.length) return;
+      var list = s.chains; s.chains = [];
+      for (var i = 0; i < list.length; i++) { try { tail(ctx, list[i]); } catch (e) {} }
+    }
+    function dropAll(ctx) {
+      var s = ctx && ctx.__mgInk; if (!s) return;
+      for (var i = 0; i < s.chains.length; i++) { try { if (s.chains[i].timer) clearTimeout(s.chains[i].timer); } catch (e) {} }
+      s.chains = [];
+    }
+    function arm(ctx, c) {
+      if (c.timer) { try { clearTimeout(c.timer); } catch (e) {} }
+      c.timer = setTimeout(function () {
+        c.timer = null;
+        var s = ctx.__mgInk, k = s ? s.chains.indexOf(c) : -1;
+        if (k < 0) return;
+        s.chains.splice(k, 1);
+        try { tail(ctx, c); } catch (e) {}
+      }, TAIL_MS);
+    }
+
+    window.wbPaintSeg = function (ctx, W, H, d) {
+      if (!d || d.tool !== 'pen' || !(W > 0 && H > 0)) {
+        flushAll(ctx);
+        return origSeg.apply(this, arguments);
+      }
+      var s = st(ctx), c = null, i;
+      var fx = d.fromX * W, fy = d.fromY * H, tx = d.toX * W, ty = d.toY * H;
+      var mx = (fx + tx) / 2, my = (fy + ty) / 2;
+      for (i = 0; i < s.chains.length; i++) {
+        var q = s.chains[i];
+        if (q.ex === d.fromX && q.ey === d.fromY && q.color === d.color && q.size === d.size && q.W === W && q.H === H) { c = q; break; }
+      }
+      if (c) {
+        style(ctx, c);
+        ctx.moveTo(c.mx, c.my);
+        ctx.quadraticCurveTo(fx, fy, mx, my);
+        ctx.stroke();
+      } else {
+        c = { color: d.color, size: d.size, W: W, H: H, timer: null };
+        style(ctx, c);
+        ctx.moveTo(fx, fy);
+        ctx.lineTo(mx, my);
+        ctx.stroke();
+        s.chains.push(c);
+        if (s.chains.length > MAX_CHAINS) { var old = s.chains.shift(); try { tail(ctx, old); } catch (e) {} }
+      }
+      c.mx = mx; c.my = my; c.tx = tx; c.ty = ty; c.ex = d.toX; c.ey = d.toY;
+      arm(ctx, c);
+    };
+    window.wbPaintSeg.__mgInk = 1;
+
+    function wbCtx() { var cv = document.getElementById('wb-canvas'); try { return cv ? cv.getContext('2d') : null; } catch (e) { return null; } }
+
+    /* 다른 것을 칠하기 «직전» 에 기다리던 꼬리를 먼저 마저 그린다 */
+    ['wbPaintStroke', 'wbPaintText', 'wbRenderShape'].forEach(function (name) {
+      var f = window[name];
+      if (typeof f !== 'function' || f.__mgInk) return;
+      window[name] = function (ctx) { flushAll(ctx); return f.apply(this, arguments); };
+      window[name].__mgInk = 1;
+    });
+    /* 다시 그리기·전체 지우기 — 캔버스가 지워지므로 기다리던 꼬리는 버린다(기록에 이미 있다).
+       다시 그리기는 끝난 뒤 남은 꼬리를 바로 마저 그려 «완성된 그림» 으로 둔다. */
+    var origRedraw = window.wbRedrawAll;
+    if (typeof origRedraw === 'function' && !origRedraw.__mgInk) {
+      window.wbRedrawAll = function () {
+        var c = wbCtx(); dropAll(c);
+        var r = origRedraw.apply(this, arguments);
+        flushAll(c);
+        return r;
+      };
+      window.wbRedrawAll.__mgInk = 1;
+    }
+    var origClear = window.wbReceiveClear;
+    if (typeof origClear === 'function' && !origClear.__mgInk) {
+      window.wbReceiveClear = function () { dropAll(wbCtx()); return origClear.apply(this, arguments); };
+      window.wbReceiveClear.__mgInk = 1;
+    }
+
+    /* 칠판을 새로 누르거나 손을 떼면 꼬리를 바로 그린다
+       (도형 미리보기는 누르는 순간의 스냅샷을 쓰므로 그 안에 꼬리가 들어 있어야 한다) */
+    function onEdge(e) {
+      var t = e && e.target;
+      if (e.type === 'mouseup' || (t && t.id === 'wb-canvas')) flushAll(wbCtx());
+    }
+    document.addEventListener('mousedown', onEdge, true);
+    document.addEventListener('mouseup', onEdge, true);
+
+    /* ⓑ 사이 점 하나 더 — 펜일 때만 */
+    function pickExtra(list, last, fin, gap) {
+      if (!list || list.length < 2 || !last || !fin) return null;
+      var best = null, bestD = -1;
+      for (var i = 0; i < list.length - 1; i++) {
+        var p = list[i]; if (!p) continue;
+        var m = Math.min(Math.hypot(p.clientX - last.x, p.clientY - last.y),
+                         Math.hypot(p.clientX - fin.x, p.clientY - fin.y));
+        if (m > bestD) { bestD = m; best = p; }
+      }
+      return (best && bestD >= gap) ? { x: best.clientX, y: best.clientY } : null;
+    }
+
+    var lastPt = null;
+    function kindOf(t) {
+      if (!t) return '';
+      if (t.id === 'wb-canvas') return 'wb';
+      if (t.classList && t.classList.contains('pdf-anno')) return 'pdf';
+      return '';
+    }
+    function penOn(kind) {
+      try {
+        if (kind === 'wb') return wbDrawing === true && wbTool === 'pen';
+        if (kind === 'pdf') return pdfDrawTool === 'pen';
+      } catch (e) {}
+      return false;
+    }
+    document.addEventListener('pointerdown', function (e) {
+      if (!e.isTrusted || !kindOf(e.target)) return;
+      lastPt = { x: e.clientX, y: e.clientY };
+    }, true);
+    document.addEventListener('pointermove', function (e) {
+      if (!e.isTrusted) return;                    // 우리가(또는 칠판 터치 다리가) 만든 가짜 이벤트는 건너뛴다
+      var kind = kindOf(e.target);
+      if (!kind || !penOn(kind)) return;
+      if (kind === 'pdf' && !e.buttons) return;     // 눌린 채로 움직일 때만
+      var fin = { x: e.clientX, y: e.clientY };
+      var p = null;
+      if (typeof e.getCoalescedEvents === 'function') {
+        try { p = pickExtra(e.getCoalescedEvents(), lastPt, fin, GAP_PX); } catch (err) { p = null; }
+      }
+      lastPt = fin;
+      if (!p) return;
+      try {
+        e.target.dispatchEvent(kind === 'wb'
+          ? new MouseEvent('mousemove', { clientX: p.x, clientY: p.y })
+          : new PointerEvent('pointermove', { clientX: p.x, clientY: p.y, pointerId: e.pointerId, pointerType: e.pointerType, buttons: e.buttons, isPrimary: e.isPrimary }));
+      } catch (err) {}
+    }, true);
+  })();
+  /* ⑰ 끝 */
+
+  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 · 화면공유 15fps · 칭찬 실패 안내 · 이름표 재시도 · 인앱안내 · 판서 곡선 준비됨'); } catch (e) {}
 })();

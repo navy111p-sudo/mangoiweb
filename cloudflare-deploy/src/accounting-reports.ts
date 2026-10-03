@@ -35,6 +35,7 @@ import { sceneHomeworkRouter } from './scene-homework';   // ✍️ 쓰기 숙�
 import { absenceHoldRouter } from './absence-hold';   // ⏸ 연속 결석 보류 목록·매니저 결정(회계 아님 — 라우터만 빌려 씀)
 import { bankacctStatus } from './bankacct-sync';   // 🏦 계좌 연동 상태 한 줄 — «왜 비어 있는지» 를 화면에 그대로 말해 준다   // 🔒 마감·해제는 본사(hq)만 — 권한 판정은 scope.ts 한 곳에서
 import { c24MirrorReport, applyMirror, setMirrorMode, setMirrorTeacher, clearMirrorTeacher } from './c24-mirror';  // 🪞 카페24 → 망고아이 시간표 미러
+import { textbookResolutionReport } from './textbook-resolution';   // 📐 교재 원본 해상도 점검(회계 아님 — 라우터만 빌려 씀, 읽기 전용)
 import { getAdminActor, isOrgScopedRole } from './auth-admin';   // 🔐 쓰기 API 는 강사·조직계정을 각각 따로 막는다
 import { runCypher } from './teacher-match';        //    ↑ 가 쓰는 Neo4j 조회기 — 주입해서 넘긴다(테스트에서 갈아끼우려고)
 
@@ -662,6 +663,15 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
     if (p === 'absence-holds' || p === 'absence-holds/decide') {
       const r = await absenceHoldRouter(env as any, request, url, p, { getAdminActor: getAdminActor as any, isOrgScopedRole });
       if (r) return r;
+    }
+    /* 📐 교재 원본 해상도 점검 — 정본은 src/textbook-resolution.ts (2026-10-02, 파일럿 후속 P6).
+       읽기 전용이지만 교재 파일 목록을 훑으므로 본사만: 강사는 이 prefix 에서 이미 막히고,
+       지사·대리점은 여기서 막는다. */
+    if (p === 'textbook-resolution') {
+      const actor = await getAdminActor(request, env as any);
+      if ((actor as any).isTeacher) return new Response(JSON.stringify(forbiddenTeacherBody(actor as any)), { status: 403, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+      if (isOrgScopedRole((actor as any).role)) return new Response(JSON.stringify({ ok: false, error: 'forbidden_scope' }), { status: 403, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+      return await textbookResolutionReport(env, url);
     }
     if (p === 'monthly')   return await monthlyReport(env, url, fmt);
     if (p === 'quarterly') return await quarterlyReport(env, url, fmt);

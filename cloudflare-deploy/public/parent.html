@@ -399,6 +399,13 @@ function showKakaoShareDialog(url) {
 
     </div>
 
+    <!-- 🗣️ 수업 전 A.i 웜업 (2026-10-02 P4 — 사장님 결정: 횟수 + 고쳐 준 표현 1~2개).
+         서버가 warmup 칸을 안 보낸 응답(옛 서버·배포 중)에는 카드를 통째로 감춘다(pdWarmupHtml 이 null). -->
+    <div class="card" id="pd-warmup-card" style="margin-top:16px;display:none">
+      <h3>🗣️ <span data-ko="수업 전 A.i 웜업" data-en="A.i Warm-up Before Class">수업 전 A.i 웜업</span></h3>
+      <div id="pd-warmup"></div>
+    </div>
+
     <!-- 평가서 섹션 -->
     <!-- 🎯 레벨테스트 신청 현황 — 신청건이 있을 때만 표시.
          (그동안 이 화면에 신청 내역이 아예 없어서 «신청했는데 안 보인다» 문의가 났다) -->
@@ -465,6 +472,46 @@ function showKakaoShareDialog(url) {
 const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
 const fmtDate = (ms) => ms ? new Date(ms).toLocaleDateString('ko-KR', { month:'short', day:'numeric' }) : '-';
+
+/* 🗣️ 웜업 카드 (2026-10-02 P4) — 서버(readParentWarmup, src/warmup-parent.ts)가 준 값을 «그리기만» 한다.
+   ⛔ 숫자를 지어내지 않는다: null = «모름» 은 «—», fixes_recorded=false 는 «아직 기록되지 않음».
+   ⛔ data-ko/data-en 은 «글자만 담은» span 에만 단다(두 i18n 엔진이 textContent 를 통째로 갈아끼운다).
+   반환값 null = 카드를 감춘다(서버가 warmup 칸을 안 보낸 경우 — 0건을 «안 했다» 로 읽히게 두지 않는다). */
+function pdWarmupHtml(w, en) {
+  if (!w || typeof w !== 'object') return null;
+  const T = (ko, enS) => `<span data-ko="${esc(ko)}" data-en="${esc(enS)}">${esc(en ? enS : ko)}</span>`;
+  const known = (w.spoke_sessions_this_month != null && w.days_this_month != null);
+  const spoke = Number(w.spoke_sessions_this_month) || 0;
+  const all = Number(w.sessions_this_month) || 0;
+  const days = Number(w.days_this_month) || 0;
+  let h = '<div class="stat">' + T('이번 달 A.i 웜업', 'A.i warm-ups this month') + '<span class="v gold">'
+    + (known
+        ? `<span id="pd-wu-sessions">${fmt(spoke)}</span>${T('회', ' times')} · <span id="pd-wu-days">${fmt(days)}</span>${T('일', ' days')}`
+        : '—')
+    + '</span></div>';
+  if (!known) {
+    h += '<div style="font-size:13px;color:var(--pd-muted);margin-top:6px">' + T('웜업 기록을 확인하지 못했어요. 잠시 뒤 새로고침해 주세요.', 'Could not load warm-up records. Please refresh in a moment.') + '</div>';
+  } else if (spoke === 0) {
+    h += '<div style="font-size:13px;color:var(--pd-muted);margin-top:6px">' + T('이번 달에는 아직 웜업에서 말을 시작한 기록이 없어요.', 'No warm-up conversation started yet this month.') + '</div>';
+  }
+  if (known && all > spoke) {
+    h += '<div style="font-size:12.5px;color:var(--pd-muted);margin-top:4px">' + T(`열었지만 말하기 전에 나간 ${all - spoke}회는 빼고 셌어요.`, `${all - spoke} session(s) opened but left before speaking are not counted.`) + '</div>';
+  }
+  h += '<div style="font-weight:800;color:var(--pd-accent);margin:14px 0 8px;font-size:15px">' + T('✏️ A.i 가 고쳐 준 표현', '✏️ Expressions the A.i corrected') + '</div>';
+  const fixes = Array.isArray(w.recent_fixes) ? w.recent_fixes.slice(0, 2) : [];
+  if (!w.fixes_recorded) {
+    h += '<div class="empty" style="padding:14px 12px">' + T('고쳐 준 표현은 아직 기록하고 있지 않아요. 기록이 시작되면 이곳에 보여 드려요.', 'Corrected expressions are not being recorded yet. They will appear here once recording starts.') + '</div>';
+  } else if (!fixes.length) {
+    h += '<div class="empty" style="padding:14px 12px">' + T('최근 30일 동안 고쳐 준 표현이 없어요.', 'No corrections in the last 30 days.') + '</div>';
+  } else {
+    h += fixes.map(f => `<div class="eval-item pd-wu-fix">
+        <div class="eval-text"><s style="color:var(--pd-red)">${esc(f.from)}</s> → <b style="color:var(--pd-green)">${esc(f.to)}</b></div>
+        ${f.why_ko ? `<div class="eval-text" style="color:var(--pd-ink2)">${esc(f.why_ko)}</div>` : ''}
+        <div class="eval-date" style="margin-left:0">${esc(fmtDate(f.at))}</div>
+      </div>`).join('');
+  }
+  return h;
+}
 
 let _currentUid = null;
 let _token = null;        // 🔐 로그인 토큰(비밀번호 인증 후 발급)
@@ -953,6 +1000,16 @@ function pdRender(d){
    *   ⛔ 「/5」로 바꾸는 것도 안 된다 — 그 순간 0~100 행이 「88 / 5」가 되어 새 거짓말이 된다.
    *   ⚠️ eval.html·report.html 의 evalMax() 와 «같은 말» 을 해야 한다(하니스 ⑤절이 대조한다). */
   const pdEvalMax = (v) => (Number(v) || 0) > 5 ? 100 : 5;
+
+  // 🗣️ 수업 전 A.i 웜업 (2026-10-02 P4)
+  {
+    const wuCard = document.getElementById('pd-warmup-card');
+    const wuHtml = pdWarmupHtml(d.warmup, !!(window.getLang && getLang() === 'en'));
+    if (wuCard) {
+      if (wuHtml == null) { wuCard.style.display = 'none'; }
+      else { document.getElementById('pd-warmup').innerHTML = wuHtml; wuCard.style.display = ''; }
+    }
+  }
 
   // 평가서
   const evals = d.evaluations || [];

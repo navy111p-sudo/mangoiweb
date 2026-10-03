@@ -10676,9 +10676,17 @@ function wbPaintStroke(ctx, W, H, data) {
     ctx.strokeStyle = data.color || '#000'; ctx.lineWidth = data.size || 3;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.beginPath();
-    data.points.forEach((p, i) => { const x = p[0] * W, y = p[1] * H; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+    wbInkPath(ctx, data.points, W, H);
     ctx.stroke();
     ctx.restore();
+}
+/* 🖍 획 경로 정본 — 중점 2차곡선(첫·끝 점은 그대로). pen_smoothing_harness */
+function wbInkPath(c, P, W, H) {
+    var n = P.length, i, x, y;
+    if (!n) return;
+    c.moveTo(P[0][0] * W, P[0][1] * H);
+    for (i = 1; i < n - 1; i++) { x = P[i][0] * W; y = P[i][1] * H; c.quadraticCurveTo(x, y, (x + P[i + 1][0] * W) / 2, (y + P[i + 1][1] * H) / 2); }
+    if (n > 1) c.lineTo(P[n - 1][0] * W, P[n - 1][1] * H);
 }
 function wbPaintText(ctx, W, H, data) {
     if (!data || !data.text) return;
@@ -10869,14 +10877,6 @@ function wbInit() {
         }
 
         if (wbTool === 'pen' || wbTool === 'eraser') {
-            ctx.beginPath();
-            ctx.moveTo(wbLastX, wbLastY);
-            ctx.lineTo(x, y);
-            ctx.strokeStyle = wbTool === 'eraser' ? '#ffffff' : color;
-            ctx.lineWidth = wbTool === 'eraser' ? size * 3 : size;
-            ctx.lineCap = 'round';
-            ctx.stroke();
-
             // 정규화된 좌표를 서버로 전송 (다른 참가자에게 공유) + 내 기록에도 남긴다
             const _seg = {
                 tool: wbTool,
@@ -10886,6 +10886,7 @@ function wbInit() {
                 toY: y / canvas.height,
                 color, size
             };
+            wbPaintSeg(ctx, canvas.width, canvas.height, _seg);   // 🖍 칠하기 정본 하나(받는 쪽과 같은 코드)
             wbRecord({ k: 'seg', d: _seg });   // 🖍 내 획도 기록해야 리사이즈 후 남는다
             if (vcConn) vcConn.send({ type: 'whiteboard-draw', data: _seg });
             wbLastX = x; wbLastY = y;
@@ -11032,7 +11033,7 @@ function wbDrawPending(){
   for (const s of wbOcrPending){
     c.strokeStyle = s.color; c.lineWidth = s.size;
     c.beginPath();
-    s.points.forEach((p, i) => { if (i === 0) c.moveTo(p[0], p[1]); else c.lineTo(p[0], p[1]); });
+    wbInkPath(c, s.points, 1, 1);
     c.stroke();
   }
   c.restore();
@@ -11048,7 +11049,7 @@ function wbAiPreview(color, size){
   c.strokeStyle = color; c.globalAlpha = 0.45;
   c.lineWidth = size; c.lineCap = 'round'; c.lineJoin = 'round';
   c.beginPath();
-  wbAiPoints.forEach((p, i) => { if (i === 0) c.moveTo(p[0], p[1]); else c.lineTo(p[0], p[1]); });
+  wbInkPath(c, wbAiPoints, 1, 1);
   c.stroke();
   c.restore();
 }
@@ -11062,12 +11063,7 @@ function wbCommitRawStroke(){
   if (!wbAiPoints || wbAiPoints.length === 0) return;
   const color = document.getElementById('wb-color').value;
   const size = parseInt(document.getElementById('wb-size').value) || 3;
-  ctx.save();
-  ctx.strokeStyle = color; ctx.lineWidth = size; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.beginPath();
-  wbAiPoints.forEach((p, i) => { if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); });
-  ctx.stroke();
-  ctx.restore();
+  wbPaintStroke(ctx, 1, 1, { points: wbAiPoints, color, size });
   const pn = wbAiPoints.map(p => [p[0] / canvas.width, p[1] / canvas.height]);
   wbRecord({ k: 'stroke', d: { points: pn, color, size } });   // 🖍 리사이즈 후에도 남게
   if (vcConn) { try { vcConn.send({ type: 'whiteboard-stroke', data: { points: pn, color, size } }); } catch(_){} }
@@ -11127,7 +11123,7 @@ function wbCommitPendingAsInk(pending){
   for (const s of pending){
     ctx.strokeStyle = s.color; ctx.lineWidth = s.size;
     ctx.beginPath();
-    s.points.forEach((p, i) => { if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); });
+    wbInkPath(ctx, s.points, 1, 1);
     ctx.stroke();
     const pn = s.points.map(p => [p[0] / canvas.width, p[1] / canvas.height]);
     wbRecord({ k: 'stroke', d: { points: pn, color: s.color, size: s.size } });   // 🖍 리사이즈 후에도 남게
@@ -12132,10 +12128,7 @@ function pdfDrawStroke(ctx, w, h, s) {
     }
     ctx.strokeStyle = s.color;
     ctx.beginPath();
-    s.points.forEach((p, i) => {
-        const x = p[0] * w, y = p[1] * h;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    });
+    wbInkPath(ctx, s.points, w, h);
     ctx.stroke();
     ctx.restore();
 }

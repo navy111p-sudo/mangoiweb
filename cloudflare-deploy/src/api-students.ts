@@ -17,6 +17,7 @@ import { isStudentHidden } from './student-override';   // 🧹 숨김 지정된
 import type { MangoEnv } from './api-mango';
 import { summarizeAttendance } from './attendance-truth';
 import { ATTENDANCE_BY_UID, ATTENDANCE_BY_UID_NOCASE, attUidBinds } from './attendance-uid';
+import { readParentWarmup } from './warmup-parent';   // 👪 웜업 횟수·고쳐 준 표현(2026-10-02 P4)
 import { resolveStudentTrack } from './student-track';   // 🎯 화상수업 학생 / AI 전용 학생 판정 정본
 import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, sceneBookId, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
 
@@ -99,6 +100,12 @@ export async function handleStudentsApi(
       // 결제내역 (최근 6개)
       const pays = await env.DB.prepare(`SELECT id, paid_at, period_start, period_end, amount_krw, method, memo, status FROM student_payments WHERE user_id = ? ORDER BY paid_at DESC LIMIT 6`).bind(childUid).all();
 
+      /* 👪 수업 전 A.i 웜업 (2026-10-02 P4) — 이번 달 횟수·일수 + 최근 고쳐 준 표현 최대 2개.
+         ⚠️ 위 게이트(자녀 계정 토큰 + 비밀번호)를 통과한 «뒤» 에만 읽는다 — 학생 본인 문장이 실리는 자리다.
+         ⚠️ childUid(DB 표기)로 정확일치. 실패해도 대시보드는 그대로 뜬다(readParentWarmup 은 던지지 않는다). */
+      let warmup: any = null;
+      try { warmup = await readParentWarmup(env.DB, childUid, Date.now()); } catch { warmup = null; }
+
       return json({
         ok: true,
         child: student || null,
@@ -111,6 +118,7 @@ export async function handleStudentsApi(
         evaluations: evals.results || [],
         attendance: attSummary,
         payments: pays.results || [],
+        warmup,
         generated_at: Date.now(),
       });
     }
