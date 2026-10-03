@@ -81,6 +81,13 @@ try {
       await waitFor(() => receive.iceGatheringState === 'complete', 'receiver ICE gathering incomplete');
       await send.setRemoteDescription(receive.localDescription);
       await waitFor(() => send.connectionState === 'connected' && remote.getAudioTracks().length, 'local WebRTC peers did not connect');
+      // The application renders remote streams through media elements. Explicit
+      // playout is needed here too: CI received RTP but emitted zero decoded samples
+      // with only a MediaStreamSource graph. Volume zero affects local output only;
+      // the analyser still reads the unmodified remote stream and must prove PCM.
+      const remoteAudio = document.createElement('audio');
+      remoteAudio.autoplay = true; remoteAudio.volume = 0;
+      remoteAudio.srcObject = remote; document.body.append(remoteAudio);
       const monitor = new NativeContext(); await monitor.resume();
       // Keep both measurement graphs connected to an active rendering destination.
       // The zero-gain sink prevents the fixture from playing its microphone aloud.
@@ -106,6 +113,10 @@ try {
         officeContexts: window.__officeContexts.map(c => ({ state: c.state, currentTime: c.currentTime })),
         localTrack: trackInfo(media.getAudioTracks()[0]), senderTrack: trackInfo(sender.track),
         receiverTracks: remote.getAudioTracks().map(trackInfo),
+        remoteAudio: { readyState: remoteAudio.readyState, paused: remoteAudio.paused,
+          currentTime: remoteAudio.currentTime, muted: remoteAudio.muted, volume: remoteAudio.volume,
+          ended: remoteAudio.ended, networkState: remoteAudio.networkState,
+          error: remoteAudio.error && { code: remoteAudio.error.code, message: remoteAudio.error.message } },
         sendState: send.connectionState, receiveState: receive.connectionState,
         rawRms: await measure(rawAnalyser), remoteRms: await measure(analyser),
         senderStats: await stats(send), receiverStats: await stats(receive) });
@@ -124,8 +135,12 @@ try {
         }
         throw new Error(message + ' ' + JSON.stringify({ lastRms: last, consecutive, diagnostics: await diagnostics() }));
       };
+      try { await remoteAudio.play(); }
+      catch (error) { throw new Error(state + ': remote media element play failed ' + String(error) + ' ' + JSON.stringify(await diagnostics())); }
       const raw = await waitAudio(rawAnalyser, true, state + ': fake microphone produces real PCM');
       const rawRemote = await waitAudio(analyser, true, state + ': remote peer decodes raw microphone before office mode');
+      check(!remoteAudio.paused && remoteAudio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && remoteAudio.currentTime > 0,
+        state + ': remote media element is playing', await diagnostics());
       check(await window.vcSetOfficeMode(true), state + ': office mode enables');
       const processed = media.getAudioTracks()[0], context = window.__officeContexts.at(-1);
       await waitFor(() => sender.track === processed, 'sender did not receive processed audio');
@@ -153,6 +168,7 @@ try {
       window.showView('view-videocall-call'); await sleep(600);
       check(!window.vcOfficeModeOn() && window.__officeContexts.length === count, state + ': showView cannot automatically re-enable failed mode');
       measurements.push({ state, muted, raw, rawRemote, before, during, after, recoveryMs: Math.round(elapsed) });
+      remoteAudio.pause(); remoteAudio.srcObject = null; remoteAudio.remove();
       send.close(); receive.close(); await monitor.close(); media.getTracks().forEach(t => t.stop());
     }
     check(window.__errors.length === 0, 'no unhandled resume rejection or peer errors', window.__errors);
