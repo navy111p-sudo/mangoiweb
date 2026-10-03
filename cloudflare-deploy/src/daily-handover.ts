@@ -396,7 +396,7 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
         .bind(route==='/ack'?'acknowledged':'changes_requested',me,Date.now(),feedback,Date.now(),r.id,Number(b.version)).run();
       if(!result.meta.changes)return reply({ok:false,error:'conflict'},409);
       try{await env.DB.prepare('DELETE FROM push_queue WHERE tag=?').bind(`handover-read:${r.id}:${r.version}`).run();}catch{console.warn('[handover] acknowledged queue cleanup pending');}
-      try{for(const tag of ['handover-followup','handover-escalation'])await env.DB.prepare('DELETE FROM push_queue WHERE tag=?').bind(`${tag}:${r.id}:${r.version}`).run();}catch{}
+      try{for(const tag of ['handover-followup','handover-escalation'])await env.DB.prepare('DELETE FROM push_queue WHERE tag=?').bind(`${tag}:${r.id}:${r.version}`).run();}catch{console.warn('[handover] follow-up queue cleanup pending');}
       await followEvent(env,r,me,route==='/ack'?'acknowledged':'changes_requested',feedback);
       return reply({ok:true});
     }
