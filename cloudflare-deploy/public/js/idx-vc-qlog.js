@@ -173,9 +173,9 @@ async function vcRecoveryMessage(data) {
     var seen = pc.__vcRecoveryCommands || (pc.__vcRecoveryCommands = {});
     var last = seen[data.action];
     if (last && (last.token === data.token || Date.now() - last.at < 12000)) return;
-    seen[data.action] = { token: data.token, at: Date.now() };
     pc.__vcRecoveryCapable = true;
     if (data.action === 'sender-reapply') {
+        seen[data.action] = { token: data.token, at: Date.now() };
         try {
             if (!sender) throw new Error('No live video sender');
             var p = sender.getParameters();
@@ -189,7 +189,10 @@ async function vcRecoveryMessage(data) {
     } else {
         // Only the smaller ID offers. The other endpoint requests that owner to negotiate.
         if (typeof vcUserId !== 'undefined' && String(vcUserId) < String(id)) {
-            await vcRecoveryNegotiate(id, pc, data.action === 'ice-restart', R, true);
+            // Busy/cooldown/rejected offers must leave this token retryable.
+            if (await vcRecoveryNegotiate(id, pc, data.action === 'ice-restart', R, true)) {
+                seen[data.action] = { token: data.token, at: Date.now() };
+            }
         }
     }
 }
@@ -202,23 +205,42 @@ async function vcRecoveryNegotiate(id, pc, ice, R, requested) {
     if (ice && !(pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected' || pc.connectionState === 'failed')) return false;
     if (ice && R && R.audio && R.audio.dr > 0) return false;
     if (!ice && !requested && typeof vcUserId !== 'undefined' && String(vcUserId) > String(id)) {
-        return vcRecoverySend(id, ice ? 'ice-restart' : 'renegotiate', R.token);
+        vcRecoverySend(id, 'renegotiate', R.token);
+        // Queuing a request is not a sent offer. Retry until frames return; the
+        // smaller peer deduplicates only successful offers for this incident.
+        return false;
     }
     pc.__vcRecoveryOffering = true;
     pc.__vcRecoveryNegoAt = Date.now();
+    var sent = false, localOffer = null, token = R && R.token;
     try {
         if (ice) pc.restartIce();
         var offer = await pc.createOffer(ice ? { iceRestart: true } : undefined);
         // An incoming offer may have won while createOffer was pending. Do not overwrite it.
         if (pc.signalingState !== 'stable' || (window.vcPeerConnections || {})[id] !== pc || ((window.vcRemoteCamOff || {})[id] && !(ice && (window.vcRemoteCamOff || {})[id] === 'aao'))) return false;
+        if (!requested && R && (!R.started || R.token !== token || (window.__vcRxRecovery || {})[id] !== R)) return false;
+        if (!vcConn || !vcConn.ws || vcConn.ws.readyState !== 1) return false;
         if (typeof vcTuneAudioSdp === 'function') offer.sdp = vcTuneAudioSdp(offer.sdp);
         await pc.setLocalDescription(offer);
-        if ((window.vcPeerConnections || {})[id] !== pc) return false;
+        localOffer = pc.localDescription;
+        // send() silently drops messages on a closed socket. Recheck after both awaits.
+        if (pc.signalingState !== 'have-local-offer' || !localOffer || localOffer.type !== 'offer'
+            || (window.vcPeerConnections || {})[id] !== pc || !vcConn || !vcConn.ws || vcConn.ws.readyState !== 1) return false;
+        if (!requested && R && (!R.started || R.token !== token || (window.__vcRxRecovery || {})[id] !== R)) return false;
         vcConn.send({ type: 'offer', data: { targetUserId: id, sdp: pc.localDescription, recovery: true } });
+        sent = true;
         vcRecoveryLog(ice ? 'ice-restart' : 'renegotiate', id, pc, R, ice ? 3 : 2);
         return true;
     } catch (_) { return false; }
-    finally { pc.__vcRecoveryOffering = false; }
+    finally {
+        // An unsent offer must not strand the peer in have-local-offer forever.
+        // Never roll back a newer transaction (including an incoming glare winner).
+        if (!sent && localOffer && pc.signalingState === 'have-local-offer'
+            && pc.localDescription && pc.localDescription.sdp === localOffer.sdp) {
+            try { await pc.setLocalDescription({ type: 'rollback' }); } catch (_) {}
+        }
+        pc.__vcRecoveryOffering = false;
+    }
 }
 function vcRecoveryCancel(R) {
     if (R && R.frameVideo && R.frameCallback != null && R.frameVideo.cancelVideoFrameCallback) {
@@ -250,11 +272,12 @@ function vcRecoveryRecovered(id, pc, R) {
     }
     vcRecoveryCancel(R);
     R.bad = 0; R.dead = 0; R.started = 0; R.level = -1; R.done = {}; R.rebuilding = false;
+    R.negoPending = null; R.negoRetryAt = 0;
 }
 function vcRecoveryElement(id, pc, R) {
     var tr = R.video && R.video.track;
     var box = document.getElementById('vc-video-' + id), v = box && box.querySelector && box.querySelector('video');
-    if (!tr || tr.readyState !== 'live' || !v || ((window.vcRemoteCamOff || {})[id] && !(ice && (window.vcRemoteCamOff || {})[id] === 'aao'))) return false;
+    if (!tr || tr.readyState !== 'live' || !v || (window.vcRemoteCamOff || {})[id]) return false;
     var s = v.srcObject;
     if (!s || !s.getVideoTracks || !s.getVideoTracks().some(function (t) { return t === tr; })) {
         if (typeof MediaStream === 'undefined') return false;
@@ -346,9 +369,20 @@ function vcqRxRecoverySample(id, kind, sample, pc, receiver, seq) {
             vcRecoveryLog('video-stalled', id, pc, R);
             vcRecoveryElement(id, pc, R);
             vcRecoveryWatchFrame(id, pc, R);
-        } else if (R.bad >= 3 && R.done[1] && !R.done[2] && pc.__vcRecoveryCapable && pc.signalingState === 'stable') {
-            R.level = 2; R.done[2] = Date.now();
-            vcRecoveryNegotiate(id, pc, false, R);
+        } else if (R.bad >= 3 && R.done[1] && !R.done[2] && !R.negoPending
+            && (!R.negoRetryAt || Date.now() >= R.negoRetryAt)
+            && pc.__vcRecoveryCapable && pc.signalingState === 'stable') {
+            // A closed signaling socket, cooldown or rejected offer is not a sent offer.
+            // Retry on the existing tick, bounded to 12s; successful stages still run once.
+            var attempt = { token: R.token };
+            R.level = 2; R.negoPending = attempt; R.negoRetryAt = Date.now() + 12000;
+            vcRecoveryNegotiate(id, pc, false, R).then(function (sent) {
+                if (R.negoPending !== attempt) return;
+                R.negoPending = null;
+                if (sent && R.started && R.token === attempt.token
+                    && (window.__vcRxRecovery || {})[id] === R
+                    && (window.vcPeerConnections || {})[id] === pc) R.done[2] = Date.now();
+            });
         }
         if (R.dead >= 2 && !R.done[3] && !R.icePending && pc.__vcRecoveryCapable && pc.signalingState === 'stable') {
             R.path = 'media-path-dead'; R.level = 3; R.icePending = true;

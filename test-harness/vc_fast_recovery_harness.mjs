@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
-const qlog = fs.readFileSync(new URL('../cloudflare-deploy/public/js/idx-vc-qlog.js', import.meta.url), 'utf8');
+const qlog = fs.readFileSync(process.env.QLOG_SRC || new URL('../cloudflare-deploy/public/js/idx-vc-qlog.js', import.meta.url), 'utf8');
 const main = fs.readFileSync(new URL('../cloudflare-deploy/public/js/idx-main.js', import.meta.url), 'utf8');
 const server = fs.readFileSync(new URL('../cloudflare-deploy/src/video-call-room.ts', import.meta.url), 'utf8');
 const helpers = qlog.slice(qlog.indexOf('function vcRecoveryLog('), qlog.indexOf('function vcqTurnHost('));
@@ -16,7 +16,7 @@ class Stream {
   addTrack(t) { if (!this.t.includes(t)) this.t.push(t); }
   removeTrack(t) { this.t = this.t.filter(x => x !== t); }
 }
-function setup() {
+function setup({self = 'a', peer = 'z'} = {}) {
   let now = 100000, plays = 0, rebuilds = 0, offers = 0, restarts = 0, stats = 0, writes = 0;
   const logs = [], sent = [], overlays = new Map();
   const vt = { id: 'v', kind: 'video', readyState: 'live', enabled: true, muted: false };
@@ -33,14 +33,18 @@ function setup() {
   const pc = { connectionState: 'connected', iceConnectionState: 'connected', signalingState: 'stable', __vcRecoveryCapable: true,
     getReceivers: () => [vr, ar], getSenders: () => [sender],
     restartIce() { restarts++; }, async createOffer(options) { offers++; return { type: 'offer', sdp: options?.iceRestart ? 'ice' : 'video' }; },
-    async setLocalDescription(sdp) { this.localDescription = sdp; },
-    async setRemoteDescription(sdp) { this.remoteDescription = sdp; }, async createAnswer() { return { type: 'answer', sdp: 'answer' }; }
+    async setLocalDescription(sdp) {
+      this.localDescription = sdp.type === 'rollback' ? null : sdp;
+      this.signalingState = sdp.type === 'offer' ? 'have-local-offer' : 'stable';
+    },
+    async setRemoteDescription(sdp) { this.remoteDescription = sdp; this.signalingState = sdp.type === 'offer' ? 'have-remote-offer' : 'stable'; },
+    async createAnswer() { return { type: 'answer', sdp: 'answer' }; }
   };
   const ctx = {
     Date: class extends Date { static now() { return now; } }, MediaStream: Stream,
     console: { log: (...v) => logs.push(v), warn: (...v) => logs.push(v), error: (...v) => logs.push(v) },
-    document: { body: { classList: { contains: () => true } }, getElementById: id => id === 'vc-video-z' ? box : null },
-    vcPeerConnections: { z: pc }, vcRemoteCamOff: {}, vcUserId: 'a', vcRoomId: 'test-room', vcMyRole: 'student',
+    document: { body: { classList: { contains: () => true } }, getElementById: id => id === 'vc-video-' + peer ? box : null },
+    vcPeerConnections: { [peer]: pc }, vcRemoteCamOff: {}, vcUserId: self, vcRoomId: 'test-room', vcMyRole: 'student',
     vcCamOn: true, vcqWho: () => ({ role: 'student' }), vcAaoSfuCut: () => false,
     vcConn: { ws: { readyState: 1 }, send: m => sent.push(m) }, vcTuneAudioSdp: s => s,
     vcqLowQSelf() {}, vcqDupTabWatch() {}, vcqWrapCreatePeer() {}, vcqWrapAAONotify() {}, vcqPathProbe() {}, vcLowQRemote() {}, vcNetPeerMark() {},
@@ -58,7 +62,7 @@ function setup() {
   const overlay = sel => overlays.set(sel, { remove() { overlays.delete(sel); writes++; } });
   return { ctx, pc, vt, ar, vr, sender, vs, as, video, box, overlays, overlay, sent, logs, tick, boot,
     counts: () => ({ plays, rebuilds, offers, restarts, stats, writes }),
-    state: () => ctx.__vcRxRecovery.z,
+    state: () => ctx.__vcRxRecovery[peer],
     events: e => logs.filter(x => x[0] === '[vc-recovery] ' + e) };
 }
 // A/C/E/L: decode freeze is different from packet loss, even with a muted remote track.
@@ -69,6 +73,8 @@ function setup() {
   await h.tick({v: 10}); check(h.events('video-stalled').length === 1, 'A: second paired sample confirms VIDEO_STALLED');
   check(h.counts().plays === 1, 'C: L1 plays once');
   await h.tick({v: 10}); check(h.counts().offers === 1, 'L2: next tick negotiates on same PC');
+  check(!!h.state().done[2], 'L2: only a sent offer completes the local stage');
+  await h.pc.setRemoteDescription({type:'answer',sdp:'answered'});
   for (let i = 0; i < 15; i++) await h.tick({v: 10});
   check(h.counts().restarts === 0 && h.counts().rebuilds === 0, 'E: healthy audio never restarts ICE or rebuilds');
   check(h.counts().offers === 1 && h.counts().plays === 1, 'L: no repeated levels every 4 seconds');
@@ -178,6 +184,7 @@ for (const recovers of [true, false]) {
   await h.ctx.vcHandleOffer({fromUserId:'z',recovery:true,sdp:{type:'offer',sdp:'glare'}});
   check(made===0 && h.pc.remoteDescription.sdp==='glare', 'smaller ID preserves existing polite glare behavior');
   h.ctx.vcUserId='zz';
+  h.pc.signalingState='have-local-offer';
   await h.ctx.vcHandleOffer({fromUserId:'z',recovery:true,sdp:{type:'offer',sdp:'ignored'}});
   check(h.pc.remoteDescription.sdp==='glare', 'larger ID preserves existing impolite glare behavior');
   h.pc.signalingState='have-remote-offer';
@@ -233,6 +240,157 @@ for (const recovers of [true, false]) {
     h.ctx.vcqRxRecoverySample('z','audio',{dr:8,known:true},h.pc,h.ar,n);
   }
   check(h.state().bad===1,'missing sample sequence resets consecutive stall count');
+}
+// A deferred/rejected L2 attempt must not permanently consume its recovery stage.
+for (const reason of ['socket', 'cooldown', 'offer-error']) {
+  const h=setup(); await h.boot(); await h.tick(); await h.tick();
+  const createOffer=h.pc.createOffer;
+  if(reason==='socket') h.ctx.vcConn.ws.readyState=3;
+  if(reason==='cooldown') h.pc.__vcRecoveryNegoAt=h.ctx.Date.now();
+  if(reason==='offer-error') h.pc.createOffer=async()=>{throw new Error('temporary encoder failure');};
+  await h.tick();
+  check(!h.state().done[2], reason+': unsuccessful L2 must remain retryable');
+  h.ctx.vcConn.ws.readyState=1; h.pc.createOffer=createOffer;
+  for(let i=0;i<4;i++) await h.tick();
+  check(h.sent.filter(m=>m.type==='offer').length===1, reason+': L2 eventually sends after transient failure');
+  check(!!h.state().done[2], reason+': sent offer records completion before returning to stable');
+  await h.pc.setRemoteDescription({type:'answer',sdp:'answered'});
+  for(let i=0;i<5;i++) await h.tick();
+  check(h.sent.filter(m=>m.type==='offer').length===1 && h.counts().restarts===0,
+    reason+': successful L2 is not repeated and healthy audio is preserved');
+}
+// Camera-off guard must return cleanly, even if called directly during a state transition.
+{
+  const h=setup();await h.boot();await h.tick();await h.tick();
+  let resolveOffer, calls=0;
+  h.pc.createOffer=()=>{calls++;return new Promise(resolve=>{resolveOffer=resolve;});};
+  await h.tick();for(let i=0;i<5;i++)await h.tick();
+  check(calls===1 && !h.state().done[2], 'pending L2 cannot start concurrent offers or count as sent');
+  await h.tick({f:2,v:8});
+  resolveOffer({type:'offer',sdp:'late'});await flush();
+  check(!h.state().done[2] && !h.state().negoPending, 'late offer result cannot mark recovered episode as stalled');
+  check(h.sent.every(m=>m.type!=='offer'), 'frame recovery while createOffer waits cancels the obsolete offer');
+}
+{
+  const h=setup();await h.boot();await h.tick();await h.tick();
+  let resolveOffer;
+  h.pc.createOffer=()=>new Promise(resolve=>{resolveOffer=resolve;});
+  await h.tick();h.ctx.vcPeerConnections.z={...h.pc};
+  resolveOffer({type:'offer',sdp:'old-peer'});await flush();
+  check(h.sent.every(m=>m.type!=='offer') && !h.state().done[2], 'replaced peer cannot send or complete old recovery');
+}
+// Two actual endpoint contexts, including queued signaling and the production
+// offer handler. The receiver has the higher ID, so only its peer may offer.
+for (const reason of ['busy', 'cooldown', 'offer-error']) {
+  const lower = setup(), higher = setup({self:'z', peer:'a'}), queue = [];
+  for (const [from, to, id] of [[lower,higher,'a'], [higher,lower,'z']]) {
+    const send = from.ctx.vcConn.send;
+    from.ctx.vcConn.send = m => { send(m); queue.push({to, message:{...m, data:{...m.data, fromUserId:id}}}); };
+    from.ctx.RTCSessionDescription = function(d) { return d; };
+    from.ctx.vcFlushPendingIce = () => {};
+    from.ctx.vcEnsureIceServers = async () => {};
+    from.ctx.vcCreatePeer = () => { throw new Error('recovery must retain the peer'); };
+    vm.runInContext(main.slice(main.indexOf('async function vcHandleOffer('), main.indexOf('/** Answer 수신 처리 */')), from.ctx);
+  }
+  const drain = async () => {
+    while (queue.length) {
+      const {to, message} = queue.shift();
+      if (message.type === 'video-recovery') await to.ctx.vcRecoveryMessage(message.data);
+      if (message.type === 'offer') await to.ctx.vcHandleOffer(message.data);
+      if (message.type === 'answer') await to.pc.setRemoteDescription(message.data.sdp);
+    }
+    await flush();
+  };
+  const tick = async (sample) => { await lower.tick({f:2,v:8}); await higher.tick(sample); await drain(); };
+  await lower.boot(); await higher.boot(); await tick(); await tick();
+  const createOffer = lower.pc.createOffer;
+  let attempts = 0;
+  lower.pc.createOffer = async function(options) {
+    attempts++;
+    if (reason === 'offer-error' && attempts === 1) throw new Error('fail once');
+    return createOffer.call(this, options);
+  };
+  if (reason === 'busy') lower.pc.signalingState = 'have-local-offer';
+  if (reason === 'cooldown') lower.pc.__vcRecoveryNegoAt = lower.ctx.Date.now();
+  await tick();
+  const token = higher.state().token;
+  check(!higher.state().done[2], reason+': higher-ID request does not consume L2 before a remote offer');
+  check(!lower.pc.__vcRecoveryCommands.renegotiate, reason+': failed owner attempt does not cache the token');
+  check(lower.sent.every(m=>m.type!=='offer') && higher.counts().offers===0, reason+': first two-endpoint attempt sends no offer');
+  lower.pc.signalingState = 'stable';
+  for(let i=0;i<3;i++) await tick();
+  check(lower.sent.filter(m=>m.type==='offer').length===1 && higher.pc.remoteDescription?.type==='offer',
+    reason+': retried request reaches the smaller-ID owner and actual offer handler');
+  check(lower.pc.__vcRecoveryCommands.renegotiate.token===token, reason+': successful offer consumes the incident token');
+  for(let i=0;i<9;i++) await tick();
+  check(lower.sent.filter(m=>m.type==='offer').length===1 && higher.counts().offers===0,
+    reason+': delayed frames and duplicate requests cannot repeat a successful offer');
+  check(lower.counts().restarts===0 && higher.counts().restarts===0, reason+': flowing audio never restarts ICE');
+  await tick({f:2,v:8});
+  const requests = higher.sent.filter(m=>m.data.action==='renegotiate').length;
+  for(let i=0;i<10;i++) await tick({f:2,v:8});
+  check(!higher.state().started && higher.sent.filter(m=>m.data.action==='renegotiate').length===requests,
+    reason+': real frame evidence ends the request retry loop');
+}
+// Production send silently drops when the socket closes. The close can happen
+// during either SDP await, after the original readyState check already passed.
+for (const reason of ['create-offer', 'local-description', 'send-throws']) {
+  const h=setup(); await h.boot();
+  const create=h.pc.createOffer, local=h.pc.setLocalDescription;
+  let finish, rollbacks=0, fail=true;
+  if(reason==='create-offer') h.pc.createOffer=()=>new Promise(resolve=>{finish=resolve;});
+  h.pc.setLocalDescription=async function(sdp) {
+    await local.call(this,sdp);
+    if(sdp.type==='rollback') rollbacks++;
+    else if(reason==='local-description' && fail) await new Promise(resolve=>{finish=resolve;});
+  };
+  h.ctx.vcConn.send=m=>{
+    if(fail && reason==='send-throws' && m.type==='offer') throw new Error('send failed');
+    if(h.ctx.vcConn.ws.readyState===1) h.sent.push(m);
+  };
+  const data={fromUserId:'z',action:'renegotiate',token:'close-'+reason};
+  const first=h.ctx.vcRecoveryMessage(data); await flush();
+  if(reason!=='send-throws') { h.ctx.vcConn.ws.readyState=3; finish({type:'offer',sdp:'deferred'}); }
+  await first;
+  check(h.sent.every(m=>m.type!=='offer') && !h.pc.__vcRecoveryCommands.renegotiate,
+    reason+': dropped offer does not consume requested token');
+  check(h.pc.signalingState==='stable' && rollbacks===(reason==='create-offer'?0:1),
+    reason+': unsent local offer cannot wedge signaling');
+  fail=false; h.ctx.vcConn.ws.readyState=1; h.pc.createOffer=create;
+  await h.tick({f:2,v:8,dt:12000});
+  await h.ctx.vcRecoveryMessage(data);
+  check(h.sent.filter(m=>m.type==='offer').length===1 && h.pc.__vcRecoveryCommands.renegotiate.token===data.token,
+    reason+': reopening the socket permits one same-token retry');
+  check(h.counts().restarts===0, reason+': signaling retry does not restart healthy ICE');
+}
+// A remote/glare winner must not be rolled back or sent as our recovery offer.
+{
+  const h=setup(); await h.boot(); const local=h.pc.setLocalDescription; let rollbacks=0;
+  h.pc.setLocalDescription=async function(sdp) {
+    if(sdp.type==='rollback') { rollbacks++; return local.call(this,sdp); }
+    await local.call(this,sdp);
+    await this.setRemoteDescription({type:'offer',sdp:'remote-winner'});
+  };
+  await h.ctx.vcRecoveryMessage({fromUserId:'z',action:'renegotiate',token:'glare-winner'});
+  check(rollbacks===0 && h.pc.signalingState==='have-remote-offer' && h.sent.every(m=>m.type!=='offer'),
+    'remote signaling winner is neither rolled back nor overwritten after local SDP await');
+}
+// A request deferred behind another offer must not create concurrent work.
+{
+  const h=setup(); await h.boot(); let finish, calls=0;
+  h.pc.createOffer=()=>{calls++;return new Promise(resolve=>{finish=resolve;});};
+  const data={fromUserId:'z',action:'renegotiate',token:'pending-request'};
+  const first=h.ctx.vcRecoveryMessage(data); await flush();
+  await h.ctx.vcRecoveryMessage(data);
+  check(calls===1 && !h.pc.__vcRecoveryCommands.renegotiate, 'duplicate in-flight request neither overlaps nor consumes token');
+  finish({type:'offer',sdp:'sent'}); await first;
+  await h.ctx.vcRecoveryMessage(data);
+  check(calls===1 && h.sent.filter(m=>m.type==='offer').length===1, 'completed request token suppresses another successful offer');
+}
+for(const reason of ['user','aao']) {
+  const h=setup();await h.boot();h.ctx.vcRemoteCamOff.z=reason;
+  check(h.ctx.vcRecoveryElement('z',h.pc,h.state())===false && h.counts().plays===0,
+    reason+': element recovery neither throws nor plays an intentionally stopped video');
 }
 check(!/setInterval\(|MutationObserver/.test(helpers), 'no new interval or MutationObserver');
 check(server.includes("case 'video-recovery':") && server.includes('!this.isJoined(target)')
