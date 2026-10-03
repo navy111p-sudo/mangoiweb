@@ -57,7 +57,7 @@
         ['내 말을 못 알아들어요', '마이크 권한을 «허용» 했는지 보고, 조용한 곳에서 또박또박 말해 보세요. 카톡 안에서 열었다면 크롬으로 다시 열면 잘 돼요.'],
         ['너무 어렵거나 너무 쉬워요', '오른쪽 위 <b>⋮</b> 에서 수준을 바꾸거나, «연령·수준·교재 다시 고르기» 를 누르세요.']
       ],
-      close: '닫기', ok: '알겠어요'
+      close: '닫기', ok: '알겠어요', mute: '음성 끄기', unmute: '음성 듣기'
     },
     en: {
       title: '📘 How to use A.i Speaking',
@@ -102,7 +102,7 @@
         ['It doesn’t hear me', 'Allow the microphone and speak clearly in a quiet place. If you opened it inside KakaoTalk, reopen it in Chrome.'],
         ['Too hard or too easy', 'Change the level with <b>⋮</b> at the top right, or tap “Change age · level · book”.']
       ],
-      close: 'Close', ok: 'Got it'
+      close: 'Close', ok: 'Got it', mute: 'Turn voice off', unmute: 'Play voice guide (Korean)'
     }
   };
   window.mgWarmupHowtoText = TXT;
@@ -120,7 +120,10 @@
       + P + '[hidden]{display:none!important}'
       + P + ' .hw-box{position:relative;width:100%;max-width:720px;max-height:90vh;overflow-y:auto;background:#131c33;border:1px solid rgba(56,189,248,.45);border-radius:22px;padding:26px 22px 20px;color:#f1f5f9;font-size:15px;line-height:1.6}'
       + P + ' .hw-x{position:absolute;top:12px;right:12px;width:38px;height:38px;border:0;border-radius:50%;background:rgba(255,255,255,.12);color:#bae6fd;font-size:17px;cursor:pointer}'
-      + P + ' h3{margin:0 44px 6px 0;font-size:21px;font-weight:900;color:#f8fafc}'
+      + P + ' .hw-snd{position:absolute;top:12px;right:58px;height:38px;min-width:38px;padding:0 12px;border:1px solid rgba(56,189,248,.5);border-radius:99px;background:rgba(56,189,248,.14);color:#bae6fd;font:inherit;font-size:14px;font-weight:800;cursor:pointer;white-space:nowrap}'
+      + P + ' .hw-snd:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}'
+      + P + ' .hw-snd.off{border-color:rgba(148,163,184,.45);background:rgba(255,255,255,.08);color:#cbd5e1}'
+      + P + ' h3{margin:0 150px 6px 0;font-size:21px;font-weight:900;color:#f8fafc}'
       + P + ' h4{margin:18px 0 8px;font-size:16px;font-weight:900;color:#7dd3fc}'
       + P + ' p{margin:0 0 8px;color:#e2e8f0}'
       + P + ' b{color:#fde68a}'
@@ -146,13 +149,25 @@
       + P + ' details p{margin:6px 0 2px;font-size:14.5px;color:#cbd5e1}'
       + P + ' .hw-ok{display:block;width:100%;margin-top:16px;padding:12px;border:0;border-radius:14px;background:linear-gradient(90deg,#38bdf8,#2563eb);color:#fff;font:inherit;font-weight:900;cursor:pointer}'
       + P + ' button:focus-visible,' + P + ' summary:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}'
-      + '@media(max-width:560px){' + P + ' .hw-tools{grid-template-columns:1fr}' + P + ' h3{font-size:18px}' + P + ' .hw-box{padding-bottom:28px}}';
+      /* 🖥 PC 에서는 크게 (2026-10-03 사장님 «PC에서 잘 보이게 키워줘») — 창 폭·글자 모두 */
+      + '@media(min-width:1024px){' + P + ' .hw-box{max-width:1040px;max-height:92vh;padding:34px 38px 28px;font-size:19px;line-height:1.65}'
+      + P + ' h3{font-size:30px;margin-right:240px}' + P + ' h4{font-size:22px;margin-top:24px}'
+      + P + ' .hw-x{width:48px;height:48px;font-size:21px;top:16px;right:16px}'
+      + P + ' .hw-snd{height:48px;top:16px;right:76px;font-size:17px;padding:0 18px}'
+      + P + ' .hw-quick li{margin:5px 0}' + P + ' .hw-step{grid-template-columns:44px 1fr;gap:14px;margin:14px 0}'
+      + P + ' .hw-n{width:44px;height:44px;font-size:20px}' + P + ' .hw-step strong{font-size:20px}' + P + ' .hw-step span{font-size:18px}'
+      + P + ' .hw-tool{font-size:17px;padding:12px 14px}' + P + ' .hw-tool strong{font-size:18px}'
+      + P + ' .hw-flow{font-size:17px}' + P + ' .hw-auto li,' + P + ' details p{font-size:18px}' + P + ' summary{font-size:18px}'
+      + P + ' .hw-ok{font-size:19px;padding:15px}}'
+      + '@media(max-width:560px){' + P + ' .hw-tools{grid-template-columns:1fr}' + P + ' h3{font-size:18px;margin-top:40px;margin-right:0}' + P + ' .hw-snd{left:16px;right:auto}' + P + ' .hw-box{padding-bottom:28px}}';
     document.head.appendChild(st);
   }
   function html() {
     var t = T(), i, o = [];
     o.push('<div class="hw-box" role="dialog" aria-modal="true" aria-labelledby="wuhowto-title">');
     o.push('<button type="button" class="hw-x" aria-label="' + t.close + '">✕</button>');
+    var on = sndOn();
+    o.push('<button type="button" class="hw-snd' + (on ? '' : ' off') + '" aria-pressed="' + (on ? 'true' : 'false') + '" aria-label="' + (on ? t.mute : t.unmute) + '" title="' + (on ? t.mute : t.unmute) + '">' + (on ? '🔊 ' + t.mute : '🔇 ' + t.unmute) + '</button>');
     o.push('<h3 id="wuhowto-title">' + t.title + '</h3><p>' + t.lead + '</p>');
     o.push('<h4>' + t.quickT + '</h4><ol class="hw-quick">');
     for (i = 0; i < t.quick.length; i++) o.push('<li>' + t.quick[i] + '</li>');
@@ -169,7 +184,50 @@
     o.push('<button type="button" class="hw-ok">' + t.ok + '</button></div>');
     return o.join('');
   }
-  function close() { var o = document.getElementById(ID); if (o) o.hidden = true; }
+  /* 🔊 성우 음성 (2026-10-03 사장님) — 열면 바로 말한다. 옆 버튼으로 끄고 켠다(기기에 기억).
+     ⚠️ 음성은 한국어 한 벌이라 영어 화면에서는 «꺼진 채» 시작하고 누르면 들려준다.
+     ⚠️ <audio> 는 안내창 «상자 밖» 에 둔다 — 언어를 바꿔 상자를 다시 그려도 재생이 안 끊긴다.
+     ⛔ ?v= 를 올리지 않고 파일만 바꾸지 말 것 — 1년 immutable 캐시에 옛 음성이 남는다. */
+  var AUDIO_SRC = '/audio/warmup-howto-ko.mp3?v=1';
+  var MUTE_KEY = 'mangoi_howto_voice_off';
+  var playing = false;
+  function voiceOff() { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch (e) { return false; } }
+  function sndOn() { return playing; }
+  function audioEl() {
+    var o = document.getElementById(ID); if (!o) return null;
+    var a = o.querySelector('audio.hw-audio');
+    if (!a) {
+      a = document.createElement('audio'); a.className = 'hw-audio'; a.preload = 'none'; a.src = AUDIO_SRC;
+      a.addEventListener('ended', function () { playing = false; paintSnd(); });
+      o.appendChild(a);
+    }
+    return a;
+  }
+  function paintSnd() {
+    var o = document.getElementById(ID); var b = o && o.querySelector('.hw-snd'); if (!b) return;
+    var t = T(), on = sndOn(), label = on ? t.mute : t.unmute;
+    b.classList.toggle('off', !on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.setAttribute('aria-label', label); b.title = label;
+    b.textContent = (on ? '🔊 ' : '🔇 ') + label;
+  }
+  function play() {
+    var a = audioEl(); if (!a) return;
+    playing = true; paintSnd();
+    try {
+      var pr = a.play();
+      if (pr && pr.catch) pr.catch(function () { playing = false; paintSnd(); });   /* 자동재생이 막히면 «꺼짐» 으로 정직하게 */
+    } catch (e) { playing = false; paintSnd(); }
+  }
+  function stop(reset) {
+    var a = audioEl(); playing = false;
+    if (a) { try { a.pause(); if (reset) a.currentTime = 0; } catch (e) {} }
+    paintSnd();
+  }
+  function toggleSnd() {
+    if (sndOn()) { stop(false); try { localStorage.setItem(MUTE_KEY, '1'); } catch (e) {} }
+    else { try { localStorage.removeItem(MUTE_KEY); } catch (e) {} play(); }
+  }
+  function close() { var o = document.getElementById(ID); if (o) { stop(true); o.hidden = true; } }
   function open() {
     style();
     /* ⛔ ⋮ 메뉴를 닫지 않는다 — closeMenu 는 자동 말하기가 감싸 «닫히면 마이크를 켠다». 안내창이 그 위에 뜬다(z 100002). */
@@ -177,12 +235,16 @@
     if (!o) {
       o = document.createElement('div'); o.id = ID;
       o.addEventListener('click', function (e) {
+        if (e.target.closest && e.target.closest('.hw-snd')) { toggleSnd(); return; }
         if (e.target === o || (e.target.closest && e.target.closest('.hw-x,.hw-ok'))) close();
       });
       document.body.appendChild(o);
     }
+    var keep = o.querySelector('audio.hw-audio');
     o.innerHTML = html();   /* 여는 순간의 언어로 그린다 */
+    if (keep) o.appendChild(keep);
     o.hidden = false;
+    if (!isEn() && !voiceOff()) play(); else paintSnd();   /* 연 클릭이 사용자 동작이라 바로 재생된다 */
     try { o.querySelector('.hw-x').focus(); } catch (e) {}
   }
   window.mgOpenWarmupHowto = open;
@@ -190,7 +252,11 @@
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') { var o = document.getElementById(ID); if (o && !o.hidden) close(); }
   });
-  function relang() { var o = document.getElementById(ID); if (o && !o.hidden) o.innerHTML = html(); }
+  function relang() {
+    var o = document.getElementById(ID); if (!o || o.hidden) return;
+    var keep = o.querySelector('audio.hw-audio');
+    o.innerHTML = html(); if (keep) o.appendChild(keep);
+  }
   window.addEventListener('mangoi:lang-changed', relang);
   document.addEventListener('mangoi:lang-changed', relang);
 })();
