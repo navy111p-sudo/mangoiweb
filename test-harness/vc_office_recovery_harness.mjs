@@ -166,4 +166,4 @@ await check('disable and explicit re-enable do not carry an unfinished stall int
 });
 // Give Node an event-loop turn: a missing catch on a rejected resume must fail this process.
 await new Promise(resolve => setImmediate(resolve));
-console.log(`\nPASS ${passed}  FAIL 0`);
+console.log(`\nPASS ${passed} / FAIL 0`);

@@ -20,7 +20,7 @@ jobs:
         working-directory: cloudflare-deploy
         run: |
           npm ci --legacy-peer-deps
-          npx tsc --noEmit
+          node node_modules/typescript/bin/tsc --noEmit
       - name: Required recovery regressions
         run: |
           node test-harness/aao_freeze_harness.mjs
@@ -53,7 +53,7 @@ jobs:
         run: |
           set -o pipefail
           node test-harness/manual/vc-office-recovery-browser.mjs | tee "$RUNNER_TEMP/vc-office-audio.log"
-          grep -Eq 'PASS [1-9][0-9]*  FAIL 0' "$RUNNER_TEMP/vc-office-audio.log"
+          grep -Eq 'PASS [1-9][0-9]* / FAIL 0' "$RUNNER_TEMP/vc-office-audio.log"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

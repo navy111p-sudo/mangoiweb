@@ -82,19 +82,55 @@ try {
       await send.setRemoteDescription(receive.localDescription);
       await waitFor(() => send.connectionState === 'connected' && remote.getAudioTracks().length, 'local WebRTC peers did not connect');
       const monitor = new NativeContext(); await monitor.resume();
-      const analyser = monitor.createAnalyser(); analyser.fftSize = 2048;
-      monitor.createMediaStreamSource(remote).connect(analyser);
-      const measure = async () => {
-        const data = new Float32Array(analyser.fftSize); let max = 0;
-        for (let i = 0; i < 12; i++) { analyser.getFloatTimeDomainData(data); max = Math.max(max, Math.sqrt(data.reduce((s, x) => s + x * x, 0) / data.length)); await sleep(25); }
+      // Keep both measurement graphs connected to an active rendering destination.
+      // The zero-gain sink prevents the fixture from playing its microphone aloud.
+      const sink = monitor.createGain(); sink.gain.value = 0; sink.connect(monitor.destination);
+      const attachMeter = stream => {
+        const analyser = monitor.createAnalyser(); analyser.fftSize = 2048;
+        monitor.createMediaStreamSource(stream).connect(analyser); analyser.connect(sink);
+        return analyser;
+      };
+      const rawAnalyser = attachMeter(new MediaStream([media.getAudioTracks()[0]]));
+      const analyser = attachMeter(remote);
+      const measure = async meter => {
+        const data = new Float32Array(meter.fftSize); let max = 0;
+        for (let i = 0; i < 4; i++) { meter.getFloatTimeDomainData(data); max = Math.max(max, Math.sqrt(data.reduce((s, x) => s + x * x, 0) / data.length)); await sleep(25); }
         return max;
       };
+      const trackInfo = track => track && ({ id: track.id, label: track.label, kind: track.kind,
+        enabled: track.enabled, muted: track.muted, readyState: track.readyState, settings: track.getSettings() });
+      const stats = async pc => Array.from((await pc.getStats()).values()).filter(s =>
+        ['media-source', 'outbound-rtp', 'inbound-rtp', 'remote-inbound-rtp', 'transport', 'codec'].includes(s.type));
+      const diagnostics = async () => ({ state, muted, monitorState: monitor.state,
+        monitorTime: monitor.currentTime, officeOn: window.vcOfficeModeOn(),
+        officeContexts: window.__officeContexts.map(c => ({ state: c.state, currentTime: c.currentTime })),
+        localTrack: trackInfo(media.getAudioTracks()[0]), senderTrack: trackInfo(sender.track),
+        receiverTracks: remote.getAudioTracks().map(trackInfo),
+        sendState: send.connectionState, receiveState: receive.connectionState,
+        rawRms: await measure(rawAnalyser), remoteRms: await measure(analyser),
+        senderStats: await stats(send), receiverStats: await stats(receive) });
+      // Wait for PCM readiness, not a fixed delay after connection/replaceTrack.
+      // Require three consecutive windows, keeping the original audible/silent thresholds.
+      const waitAudio = async (meter, audible, message, faultStarted) => {
+        const deadline = faultStarted === undefined ? performance.now() + 5000 : faultStarted + 900;
+        let consecutive = 0, stablePeak = 0, last = null;
+        while (performance.now() < deadline) {
+          last = await measure(meter);
+          if (faultStarted !== undefined && !window.vcOfficeModeOn()) break;
+          if (audible ? last > 0.005 : last < 0.0001) {
+            consecutive++; stablePeak = Math.max(stablePeak, last);
+            if (consecutive >= 3) { checks.push(message); return stablePeak; }
+          } else { consecutive = 0; stablePeak = 0; }
+        }
+        throw new Error(message + ' ' + JSON.stringify({ lastRms: last, consecutive, diagnostics: await diagnostics() }));
+      };
+      const raw = await waitAudio(rawAnalyser, true, state + ': fake microphone produces real PCM');
+      const rawRemote = await waitAudio(analyser, true, state + ': remote peer decodes raw microphone before office mode');
       check(await window.vcSetOfficeMode(true), state + ': office mode enables');
       const processed = media.getAudioTracks()[0], context = window.__officeContexts.at(-1);
       await waitFor(() => sender.track === processed, 'sender did not receive processed audio');
-      await sleep(250); const before = await measure();
-      check(before > 0.005, state + ': remote peer actually decodes office audio', before);
-      if (muted) { processed.enabled = false; await sleep(250); check((await measure()) < 0.0001, state + ': remote peer is silent after user mute'); }
+      const before = await waitAudio(analyser, true, state + ': remote peer actually decodes office audio');
+      if (muted) { processed.enabled = false; await waitAudio(analyser, false, state + ': remote peer is silent after user mute'); }
       // Block only resume, so native suspension/closure really interrupts the PCM chain.
       context.resume = () => Promise.reject(new Error('test: resume unavailable'));
       const started = performance.now();
@@ -103,8 +139,7 @@ try {
         await context.suspend();
         if (state === 'interrupted') { Object.defineProperty(context, 'state', { configurable: true, get: () => 'interrupted' }); context.dispatchEvent(new Event('statechange')); }
       }
-      await sleep(200); const during = await measure();
-      check(during < 0.0001, state + ': suspended engine really stops decoded audio', during);
+      const during = await waitAudio(analyser, false, state + ': suspended engine really stops decoded audio before fallback', started);
       await waitFor(() => !window.vcOfficeModeOn(), state + ': office mode did not fall back');
       await waitFor(() => media.getAudioTracks()[0] !== processed && sender.track === media.getAudioTracks()[0], state + ': sender not restored');
       const restored = media.getAudioTracks()[0];
@@ -113,12 +148,11 @@ try {
       check(restored.getSettings().autoGainControl !== false, state + ': microphone AGC restored');
       check(localStorage.getItem('mangoi_vc_office') === '1' && localStorage.getItem('mangoi_vc_mic_id') === 'saved-device-preference', state + ': saved preferences unchanged');
       const elapsed = performance.now() - started;
-      await sleep(250); const after = await measure();
-      check(muted ? after < 0.0001 : after > 0.005, state + ': remote decoded audio recovers only when unmuted', { muted, before, during, after });
+      const after = await waitAudio(analyser, !muted, state + ': remote decoded audio recovers only when unmuted');
       const count = window.__officeContexts.length;
       window.showView('view-videocall-call'); await sleep(600);
       check(!window.vcOfficeModeOn() && window.__officeContexts.length === count, state + ': showView cannot automatically re-enable failed mode');
-      measurements.push({ state, muted, before, during, after, recoveryMs: Math.round(elapsed) });
+      measurements.push({ state, muted, raw, rawRemote, before, during, after, recoveryMs: Math.round(elapsed) });
       send.close(); receive.close(); await monitor.close(); media.getTracks().forEach(t => t.stop());
     }
     check(window.__errors.length === 0, 'no unhandled resume rejection or peer errors', window.__errors);
@@ -127,7 +161,7 @@ try {
   for (const message of result.checks) { pass++; console.log(`  ✅ ${message}`); }
   console.log(JSON.stringify({ browser: result.browser, measurements: result.measurements }, null, 2));
   assert.equal(result.measurements.length, 6);
-  console.log(`\nPASS ${pass}  FAIL 0`);
+  console.log(`\nPASS ${pass} / FAIL 0`);
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));
