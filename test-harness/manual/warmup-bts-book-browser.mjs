@@ -483,14 +483,18 @@ await cmd('Emulation.clearDeviceMetricsOverride');
     await sleep(150);
     const after = JSON.parse(await evaluate(`JSON.stringify({
       now: (document.getElementById('wusBookNow')||{}).textContent || '',
+      siuPhoto: Array.from(document.querySelectorAll('#wusBookNow img.wu-photo-icon')).some(img =>
+        img.getAttribute('data-wu-emoji') === '📗' &&
+        img.getAttribute('src') === '/img/warmup-photos/book.webp' && img.complete && img.naturalWidth > 0),
       on: !!document.querySelector('#wusBooks [data-bts="${firstSiu}"].on'),
       saved: localStorage.getItem('mangoi_warmup_bts') || ''
     })`));
     t('⑪ SIU 를 누르면 그 버튼이 «지금» 으로 표시된다', after.on === true, after);
     /* ⚠️ 이름만 보면 약합니다 — bookTitleOf 는 갈래와 무관하게 «SIU BASIC …» 을 돌려주므로
-       siu 판정을 죽여도 통과합니다(2026-09-15 변이 B3 실측 93/0). 📗 표시까지 짝으로 묻습니다. */
+       siu 판정을 죽여도 통과합니다(2026-09-15 변이 B3 실측 93/0).
+       2026-10-04: 이모지 대신 실사 사진을 사용합니다. 원본 📗 갈래 표지와 실제 로드된 사진을 함께 검사합니다. */
     t('⑪ SIU 를 누르면 «지금 교재» 줄이 SIU 라고 말한다', /SIU BASIC/.test(after.now), after.now);
-    t('⑪ 그 줄이 SIU 갈래로 그려진다(📗 · 짝)', after.now.indexOf('📗') >= 0, after.now);
+    t('⑪ 그 줄이 SIU 갈래의 실사 책 사진으로 그려진다(짝)', after.siuPhoto === true, after);
     t('⑪ SIU 선택이 저장된다(새로고침해도 남게)', after.saved === firstSiu, after.saved);
     /* ⛔ 짝 — BTS 로 되돌리는 길이 살아 있어야 합니다. */
     /* 🔄 2026-09-16 «두 갈래로 시작»(시안 3안) — 목록 안 «교재 없이 자유 대화» 줄은

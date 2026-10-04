@@ -33,6 +33,7 @@
       var key = icons[match[0]], img = document.createElement('img');
       img.className = 'wu-photo-icon' + (faces[key] ? ' wu-photo-face' : '') + (match[0]==='🔇' ? ' wu-photo-muted' : '');
       img.src = faces[key] || base + key + '.webp';
+      img.setAttribute('data-wu-emoji', match[0]);
       img.alt = ''; img.setAttribute('aria-hidden','true');
       img.width = 24; img.height = 24; img.decoding = 'async';
       img.draggable = false;
