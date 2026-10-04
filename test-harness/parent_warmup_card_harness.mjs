@@ -232,7 +232,7 @@ check('교정 기록이 연결 전이면 «아직 기록하고 있지 않아요�
 const hE = R({ month: '2026-10', sessions_this_month: 2, spoke_sessions_this_month: 2, days_this_month: 1, fixes_recorded: true, recent_fixes: [] });
 check('짝: 기록은 되는데 0건이면 «없어요» (연결 전 문구와 다르다)', /고쳐 준 표현이 없어요/.test(text(hE)) && !/아직 기록하고 있지 않/.test(text(hE)));
 const h0 = R({ month: '2026-10', sessions_this_month: 0, spoke_sessions_this_month: 0, days_this_month: 0, fixes_recorded: true, recent_fixes: [] });
-check('0회면 «0회» + «아직 말을 시작한 기록이 없어요»', /0\s*회/.test(text(h0)) && /아직 웜업에서 말을 시작한 기록이 없어요/.test(text(h0)));
+check('0회면 «0회» + «아직 말을 시작한 기록이 없어요»', /0\s*회/.test(text(h0)) && /아직 A\.i 말하기에서 대화를 시작한 기록이 없어요/.test(text(h0)));
 
 // 카드·배선
 check('카드 마크업이 있고 처음엔 감춰져 있다', /id="pd-warmup-card"[^>]*display:none/.test(HTML));
