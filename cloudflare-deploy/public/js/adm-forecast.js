@@ -77,6 +77,81 @@
   }
   window.fcLoad = function () { return load(true); };
   function student(uid) { return cache && cache.care && cache.care.rows.find(function (r) { return r.user_id === uid; }); }
+  // Reviewed bilingual templates: no generated text or send request on preview.
+  var careTemplates = [
+    {ko: '따뜻한 안부 확인', en: 'A friendly check-in',
+      bodyKo: '학생 이름 학생이 최근 수업에 참여하지 못해 안부를 여쭙습니다. 잘 지내고 계신가요? 수업 참여에 어려움이 있거나 도움이 필요한 부분이 있다면 편하게 말씀해 주세요. 다시 즐겁게 수업할 수 있도록 함께 방법을 찾아보겠습니다.',
+      bodyEn: 'We noticed that 학생 이름 has not been able to attend lessons recently and wanted to check in. How have you been? If attending lessons has been difficult or you need any support, please let us know. We would be happy to help make returning to lessons enjoyable.'},
+    {ko: '결석 사유와 불편 확인', en: 'Attendance and difficulties',
+      bodyKo: '학생 이름 학생의 최근 결석과 관련해 확인차 연락드립니다. 일정 때문인지, 수업이나 접속에 불편이 있었는지 여쭤봐도 될까요? 말씀해 주시면 내용을 확인하고 필요한 도움을 안내해 드리겠습니다.',
+      bodyEn: 'We are reaching out about 학생 이름’s recent absences. Could you let us know whether there has been a scheduling difficulty, an issue with lessons, or a connection problem? We will review your feedback and help with the next steps.'},
+    {ko: '수업 시간 조정 상담', en: 'Adjusting lesson times',
+      bodyKo: '학생 이름 학생이 현재 수업 시간에 꾸준히 참여하기 어려우신가요? 희망하시는 요일과 시간대를 알려주시면 변경 가능한 일정을 확인해 드리겠습니다. 편하게 참여할 수 있는 시간으로 학습을 이어가실 수 있도록 돕겠습니다.',
+      bodyEn: 'Is it difficult for 학생 이름 to attend regularly at the current lesson time? Please share your preferred days and times so we can check available alternatives. We would be happy to help find a schedule that makes it easier to continue learning.'},
+    {ko: '수업 만족도와 개선 상담', en: 'Lesson feedback and improvements',
+      bodyKo: '학생 이름 학생이 수업을 어떻게 느끼고 있는지 궁금해 연락드립니다. 수업 난이도나 교재, 선생님의 설명과 진행 방식에서 바라는 점이 있으신가요? 좋았던 점과 아쉬웠던 점을 편하게 알려주시면 학생에게 더 잘 맞는 수업이 되도록 살펴보겠습니다.',
+      bodyEn: 'We would love to hear how 학생 이름 feels about the lessons. Is there anything you would like to change about the difficulty, materials, or the teacher’s explanations and approach? Please share what has worked well and what could improve so we can better support the student.'},
+    {ko: '수업 재개와 재등록 상담', en: 'Resuming or renewing lessons',
+      bodyKo: '학생 이름 학생의 수업을 다시 시작하거나 이어가실 계획이 있으신지 여쭙습니다. 희망하시는 시작 시기와 수업 일정을 알려주시면 현재 수강 상태를 확인해 재개 또는 재등록 방법을 안내해 드리겠습니다. 궁금한 점은 편하게 말씀해 주세요.',
+      bodyEn: 'Are you considering resuming or continuing lessons for 학생 이름? Please share your preferred start date and schedule. We will check the current enrollment status and explain how to resume or renew. Please feel free to ask us any questions.'}
+  ];
+  function openCareDialog(row, trigger) {
+    var lang = en() ? 'en' : 'ko', selected = '', drafts = Object.create(null);
+    var dialog = document.createElement('dialog');
+    dialog.className = 'af-dialog';
+    dialog.setAttribute('aria-labelledby', 'af-draft-title');
+    dialog.innerHTML = '<h3 id="af-draft-title"></h3><p data-intro></p><label for="af-draft-language" data-language-label></label><select id="af-draft-language"><option value="ko">한국어</option><option value="en">English</option></select><label for="af-draft-template" data-template-label></label><select id="af-draft-template"></select><label for="af-draft-message" data-message-label></label><textarea id="af-draft-message" rows="9"></textarea><p class="af-draft-note" data-edit-note></p><div class="af-draft-actions"><button type="button" data-copy></button><button type="button" data-close></button></div><p role="status" aria-live="polite" data-copy-status></p>';
+    var language = dialog.querySelector('#af-draft-language');
+    var choices = dialog.querySelector('#af-draft-template');
+    var message = dialog.querySelector('textarea');
+    var copy = dialog.querySelector('[data-copy]');
+    var status = dialog.querySelector('[data-copy-status]');
+    function t(ko, english) { return lang === 'en' ? english : ko; }
+    function key() { return lang + ':' + selected; }
+    function remember() { if (selected !== '') drafts[key()] = message.value; }
+    function render() {
+      dialog.lang = lang;
+      language.value = lang;
+      dialog.querySelector('h3').textContent = t('상담 문구 선택', 'Choose a consultation message');
+      dialog.querySelector('[data-intro]').textContent = t('상담할 때마다 상황에 맞는 문구를 선택해 주세요. 자동으로 발송되지 않습니다.', 'Choose a message for each consultation. Nothing is sent automatically.');
+      dialog.querySelector('[data-language-label]').textContent = t('문구 언어', 'Message language');
+      dialog.querySelector('[data-template-label]').textContent = t('다섯 가지 상담 문구', 'Five consultation options');
+      choices.innerHTML = '<option value="">' + t('상담 문구를 선택해 주세요', 'Select a consultation message') + '</option>' + careTemplates.map(function (item, i) { return '<option value="' + i + '">' + esc(item[lang]) + '</option>'; }).join('');
+      choices.value = selected;
+      dialog.querySelector('[data-message-label]').textContent = t('내용 확인과 수정', 'Review and edit');
+      dialog.querySelector('[data-edit-note]').textContent = t('수정한 내용은 이 창이 열려 있는 동안 문구별·언어별로 유지됩니다. 수정 내용은 자동 번역되지 않습니다.', 'Edits are kept separately for each option and language while this window is open. Edits are not automatically translated.');
+      copy.textContent = t('문구 복사', 'Copy message');
+      dialog.querySelector('[data-close]').textContent = t('닫기', 'Close');
+      message.disabled = copy.disabled = selected === '';
+      message.placeholder = t('위에서 문구를 선택하면 내용이 표시됩니다.', 'Select an option above to see the message.');
+      if (selected === '') message.value = '';
+      else {
+        if (!Object.prototype.hasOwnProperty.call(drafts, key())) {
+          var name = String(row.name || '').trim();
+          // Do not insert foreign-script names into a Korean-only message.
+          if (lang === 'ko' && !/^[가-힣ㄱ-ㅎㅏ-ㅣ\s]+$/.test(name)) name = '우리';
+          if (!name) name = lang === 'en' ? 'the student' : '우리';
+          drafts[key()] = t('안녕하세요. 망고아이입니다.\n', 'Hello, this is MangoAI.\n') + careTemplates[Number(selected)][lang === 'ko' ? 'bodyKo' : 'bodyEn'].replace('학생 이름', name);
+        }
+        message.value = drafts[key()];
+      }
+      status.textContent = '';
+    }
+    choices.onchange = function () { remember(); selected = choices.value; render(); };
+    language.onchange = function () { remember(); lang = language.value; render(); };
+    copy.onclick = async function () {
+      try {
+        await navigator.clipboard.writeText(message.value);
+        if (dialog.isConnected) status.textContent = t('문구를 복사했습니다.', 'Message copied.');
+      } catch (err) {
+        message.focus(); message.select();
+        status.textContent = t('자동 복사가 되지 않았습니다. 선택된 문구를 직접 복사해 주세요.', 'Automatic copy was unavailable. Please copy the selected text manually.');
+      }
+    };
+    dialog.querySelector('[data-close]').onclick = function () { dialog.close(); };
+    dialog.addEventListener('close', function () { dialog.remove(); if (trigger.isConnected) trigger.focus(); });
+    render(); document.body.appendChild(dialog); dialog.showModal(); choices.focus();
+  }
   async function save(uid, status, contacted) {
     var row = student(uid); if (!row) return;
     var controls = root.querySelectorAll('button,select'); controls.forEach(function (el) { el.disabled = true; });
@@ -97,15 +172,7 @@
     var uid = b.getAttribute('data-contact');
     if (uid) { var r = student(uid); if (r) await save(uid, r.status === 'unreviewed' ? 'in_progress' : r.status, true); return; }
     uid = b.getAttribute('data-preview'); if (!uid) return;
-    b.disabled = true;
-    try {
-      var draft = await get('/api/admin/retention/preview?uid=' + encodeURIComponent(uid));
-      var dialog = document.createElement('dialog'); dialog.className = 'af-dialog';
-      dialog.innerHTML = '<h3>' + tr('상담 문구 초안','Message draft') + '</h3><p>' + tr('내용을 확인·수정한 뒤 사용하세요. 자동 발송되지 않습니다.','Review and edit before use. This does not send a message.') + '</p><textarea rows="8" aria-label="' + tr('상담 문구','Message draft') + '">' + esc(draft.message) + '</textarea><button type="button">' + tr('닫기','Close') + '</button>';
-      document.body.appendChild(dialog); dialog.querySelector('button').onclick = function () { dialog.close(); };
-      dialog.addEventListener('close', function () { dialog.remove(); }); dialog.showModal();
-    } catch (err) { document.getElementById('af-status').textContent = err.message; }
-    finally { b.disabled = false; }
+    var target = student(uid); if (target) openCareDialog(target, b);
   });
   document.getElementById('card-ai-forecast').addEventListener('toggle', function () { if (this.open) load(false); });
   new MutationObserver(function () { if (cache) draw(); }).observe(document.documentElement, {attributes:true,attributeFilter:['lang']});
