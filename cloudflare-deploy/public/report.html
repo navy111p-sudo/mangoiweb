@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" data-report-theme="light">
 <head>
 
 
@@ -8,6 +8,12 @@
 
 
 <meta charset="UTF-8">
+<script>
+// Restore before first paint; blocked storage still leaves a usable light report.
+try {
+  document.documentElement.dataset.reportTheme = localStorage.getItem('mangoi_report_theme') === 'dark' ? 'dark' : 'light';
+} catch (e) {}
+</script>
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -103,6 +109,44 @@
     .score-max{font-size:13px}
     .report-footer{font-size:11.5px}
   }
+
+  .report-theme{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+  .report-theme button{min-height:48px;padding:10px 18px;border:1px solid #64748b;border-radius:12px;background:#172033;color:#e2e8f0;font-weight:700;line-height:1.5;font-family:inherit;font-size:16px;cursor:pointer}
+  .report-theme button[aria-pressed="true"]{background:#fbbf24;color:#1a1a1a;border-color:#fbbf24}
+  .report-theme button:focus-visible{outline:3px solid #2563eb;outline-offset:3px}
+  @media screen {
+    html[data-report-theme="light"]{color-scheme:light}
+    html[data-report-theme="dark"]{color-scheme:dark}
+    html[data-report-theme="light"] body{background:#f4f6fa;color:#172033}
+    html[data-report-theme="light"] body::before,html[data-report-theme="light"] body::after{display:none}
+    html[data-report-theme="light"] .card,html[data-report-theme="light"] .stat{background:#fff;border-color:#cbd5e1;backdrop-filter:none;box-shadow:0 3px 12px rgba(15,23,42,.04)}
+    html[data-report-theme="light"] h1{color:#172033}
+    html[data-report-theme="light"] .brand-logo,html[data-report-theme="light"] .brand-sub,html[data-report-theme="light"] .stat-num{background:none;color:#854d0e;-webkit-text-fill-color:currentColor}
+    html[data-report-theme="light"] .meta,html[data-report-theme="light"] .stat-label,html[data-report-theme="light"] .voice-label,html[data-report-theme="light"] .eval-date,html[data-report-theme="light"] .eval-body,html[data-report-theme="light"] .empty,html[data-report-theme="light"] .report-footer{color:#475569}
+    html[data-report-theme="light"] .meta b,html[data-report-theme="light"] .eval-body b,html[data-report-theme="light"] .report-footer b{color:#854d0e !important}
+    html[data-report-theme="light"] .card h3{color:#5b21b6}
+    html[data-report-theme="light"] .eval-item{background:#f5f3ff;border-left-color:#7c3aed}
+    html[data-report-theme="light"] .voice-num{color:#155e75 !important}
+    html[data-report-theme="light"] .score-max{color:#475569 !important;-webkit-text-fill-color:#475569 !important}
+    html[data-report-theme="light"] .login-card h3,html[data-report-theme="light"] .login-card label,html[data-report-theme="light"] .login-card p{color:#334155 !important}
+    html[data-report-theme="light"] .login-card #lg-err{color:#b91c1c !important}
+    html[data-report-theme="light"] .login-card input{background:#fff !important;color:#172033 !important;border-color:#94a3b8 !important}
+    html[data-report-theme="light"] .login-card input::placeholder{color:#64748b}
+    html[data-report-theme="light"] .home-btn{background:#6d28d9}
+    html[data-report-theme="light"] .report-theme button{background:#fff;color:#334155;border-color:#94a3b8}
+    html[data-report-theme="light"] .report-theme button[aria-pressed="true"]{background:#fef3c7;color:#713f12;border-color:#a16207}
+  }
+  /* Printing and PDF always use white paper and dark ink, including gradients. */
+  @media print {
+    html,body{color-scheme:light;background:#fff !important;color:#1a1a1a !important}
+    body{padding-bottom:0}
+    .wrap{overflow-wrap:anywhere}
+    .stat-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .stat{min-width:0}
+    .wrap,.wrap *{background:transparent !important;color:#1a1a1a !important;-webkit-text-fill-color:#1a1a1a !important;text-shadow:none !important;box-shadow:none !important;backdrop-filter:none !important}
+    .card,.stat,.eval-item{background:#fff !important;border-color:#bbb !important;break-inside:avoid}
+    .no-print{display:none !important}
+  }
 </style>
 <script src="/js/session-guard.js" defer></script>
 </head>
@@ -114,6 +158,10 @@
 </div>
 
 <div class="wrap">
+  <div class="report-theme no-print" role="group" aria-label="성적표 화면 밝기">
+    <button type="button" data-theme-choice="light" aria-pressed="true">☀️ 밝게</button>
+    <button type="button" data-theme-choice="dark" aria-pressed="false">🌙 어둡게</button>
+  </div>
   <div class="brand">
     <span class="brand-logo">Mangoi</span>
     <div class="brand-sub" id="report-title">월간 성적표</div>
@@ -122,6 +170,19 @@
 </div>
 
 <script>
+function applyReportTheme(theme, save) {
+  var chosen = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.reportTheme = chosen;
+  document.querySelectorAll('[data-theme-choice]').forEach(function(button) {
+    button.setAttribute('aria-pressed', String(button.dataset.themeChoice === chosen));
+  });
+  if (save) { try { localStorage.setItem('mangoi_report_theme', chosen); } catch (e) {} }
+}
+document.querySelectorAll('[data-theme-choice]').forEach(function(button) {
+  button.addEventListener('click', function() { applyReportTheme(button.dataset.themeChoice, true); });
+});
+applyReportTheme(document.documentElement.dataset.reportTheme, false);
+
 function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
 function getQuery(k){ try { return new URLSearchParams(location.search).get(k); } catch(e){ return null; } }
 
