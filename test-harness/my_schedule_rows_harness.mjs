@@ -106,5 +106,23 @@ console.log('▶ my_schedule_rows_harness — 홈 «내 수업» 카드 세로 �
   const side = firstOf(r.html, 'nms-side');
   ok(!!side && /강사 2명/.test(side.textContent) && !/\bncc-sub\b/.test(side.className), '⑦ 머리글 「강사 2명」은 .ncc-sub 가 아니다');
 }
+{
+  // Screenshot regression: six weeks of dated lessons must not stretch the home card.
+  const dates = ['2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-12', '2026-10-13', '2026-11-03'];
+  const schedules = dates.map((date, i) => S(i, D.화, '19:20', '강선생님', date, Date.parse(date + 'T10:20:00Z'), { scheduled_date: date }));
+  for (const lang of ['ko', 'en']) {
+    const r = await render(schedules.slice().reverse(), lang);
+    const rows = rowsOf(r.html);
+    ok(rows.length === 5, '⑧ ' + lang + ': 다음 수업일부터 7일만 표시', rows.length);
+    ok(/10\/12/.test(r.html) && !/10\/13|11\/3/.test(r.html), '⑧ 7일째 포함, 8일째와 다음 달 제외');
+    ok(/10\/6/.test(rows[0]) && /nms-next/.test(rows[0]), '⑧ 역순 입력에도 다음 수업 강조 유지');
+  }
+  const yearEnd = await render([
+    S(1, D.화, '19:20', 'A', '2026-12-29', 1, { scheduled_date: '2026-12-29' }),
+    S(2, D.화, '19:20', 'B', '2027-01-04', 2, { scheduled_date: '2027-01-04' }),
+    S(3, D.화, '19:20', 'C', '2027-01-05', 3, { scheduled_date: '2027-01-05' })
+  ]);
+  ok(rowsOf(yearEnd.html).length === 2 && !/1\/5/.test(yearEnd.html), '⑧ 연말·연초에도 7일 경계 유지');
+}
 console.log(`결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) process.exit(1);
