@@ -9,7 +9,7 @@
   <title>❓ 자주 묻는 질문 (FAQ) — Mangoi</title>
   <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0a1530" />
-  <meta name="description" content="망고아이(Mangoi) 화상영어 자주 묻는 질문(FAQ) — 레벨테스트, 수강절차, 수업진행, 연기/결석, 환불규정, 강사, 포인트, 이벤트 안내" data-ko-content="망고아이(Mangoi) 화상영어 자주 묻는 질문(FAQ) — 레벨테스트, 수강절차, 수업진행, 연기/결석, 환불규정, 강사, 포인트, 이벤트 안내" data-en-content="Mangoi Video English FAQ — level test, enrollment, classes, postpone/absence, refund policy, teachers, points, events" />
+  <meta name="description" content="망고아이(Mangoi) 화상영어 자주 묻는 질문(FAQ) — 레벨테스트, 수강절차, 수업진행, 연기/결석, 환불규정, 강사, 포인트, 이벤트 안내" data-ko-content="망고아이(Mangoi) 화상영어 자주 묻는 질문(FAQ) — 레벨테스트, 수강절차, 수업진행, 연기/결석, 환불규정, 강사, 포인트, 이벤트 안내" data-en-content="Mangoi Video English & A.i Learning FAQ — level test, enrollment, classes, postpone/absence, refund policy, teachers, points, events" />
   <script src="/js/mango-i18n.js" defer></script>
   <style>
     :root{ --bg:#0a1530; --card:#14213b; --text:#e6ecff; --text2:#a3b3d1;
@@ -53,6 +53,19 @@
     .foot b{ color:var(--gold-soft); }
     .foot .row{ margin:3px 0; }
     @media (max-width:560px){ .wrap{ padding:16px 13px 70px; } .q{ font-size:13.5px; } }
+    @media (min-width:701px){
+      .wrap{max-width:1040px;padding:28px 24px 80px}
+      .top h1,.intro h2{font-size:26px}
+      .top a,.intro p{font-size:16px}
+      .search{font-size:18px;padding:14px 18px}
+      .cat{font-size:16px;padding:9px 16px}
+      .q{font-size:20px;padding:18px 20px;line-height:1.6}
+      .q .qcat{font-size:14px}
+      .q .arr{font-size:16px}
+      .a{font-size:18px;line-height:1.85;color:#e2e8f0;padding:0 20px 20px;overflow-wrap:anywhere}
+      .a table,.a th,.a td,.a div,.a a{font-size:inherit!important}
+      .foot{font-size:16px;color:#cbd5e1}
+    }
   </style>
 </head>
 <body>
@@ -63,7 +76,7 @@
   <div class="wrap">
     <div class="intro">
       <h2 id="fq-title">❓ 자주 묻는 질문</h2>
-      <p id="fq-sub">망고아이 화상영어 FAQ — 궁금한 점을 빠르게 확인하세요</p>
+      <p id="fq-sub">망고아이 화상영어·A.i학습 FAQ — 궁금한 점을 빠르게 확인하세요</p>
     </div>
     <input id="fq-search" class="search" type="search" placeholder="🔍 검색" />
     <div id="fq-cats" class="cats"></div>
@@ -158,12 +171,15 @@
     qe:'How do I take review quizzes?',
     a:'매 수업이 끝나면 A.I가 수업 내용을 바탕으로 맞춤 복습 퀴즈를 자동 생성합니다. 로그인 후 [마이페이지]에서 퀴즈를 풀고 결과표도 확인하실 수 있습니다.',
     ae:'After every class, our A.I automatically creates a personalized review quiz based on the lesson. Log in and take it in [My Page], where you can also check your results.'},
-   {c:'AI·학습',ce:'AI Learning',
-    q:'A.I 학습 기능은 어떤 것들이 있나요?',
-    qe:'What A.I learning features are there?',
-    a:'망고아이는 원어민 선생님의 수업과 A.I 학습관리가 함께 갑니다. 매 수업이 끝나면 A.I가 평가서와 맞춤 복습 퀴즈를 자동 생성하고, [AI 음성코치]에서 A.I 발음 교정 연습을 할 수 있습니다.\n홈 화면의 [AI에게 물어보기]에 궁금한 것을 입력하면 원하는 메뉴로 바로 안내해 드립니다.',
-    ae:'At Mangoi, native teachers teach and A.I manages your learning. After every class, A.I generates an evaluation report and a personalized review quiz, and you can practice pronunciation with A.I in [AI Voice Coach].\nType anything into [Ask AI] on the home screen to jump straight to the right menu.'},
-   {c:'AI·학습',ce:'AI Learning',
+   {"c": "AI학습", "ce": "AI Learning", "q": "A.i학습만 할 수 있나요?", "qe": "Can I use A.i learning without video lessons?", "a": "네, 가능합니다. 선생님과 하는 화상수업을 신청하지 않아도 A.i 콘텐츠 전용 이용권으로 A.i학습만 이용할 수 있습니다. 혼자 말하기·단어·영작 등을 연습하고 싶은 분께 적합합니다.", "ae": "Yes. You can use A.i learning with an A.i content-only pass without enrolling in teacher-led video lessons. It is suitable for independent speaking, vocabulary and writing practice."},
+   {"c": "AI학습", "ce": "AI Learning", "q": "A.i학습은 어떤 것들이 있나요?", "qe": "What A.i learning activities are available?", "a": "말하기 연습을 하는 [A.i 말하기], 대화를 나누는 [A.i 친구], 발음 연습을 돕는 [A.i 음성코치], 문장 쓰기를 연습하는 [A.i 영작], 단어장·단어퀴즈와 게임형 학습 콘텐츠가 있습니다. 홈 화면에서 원하는 학습 메뉴를 선택해 주세요.\n화상수업 내용을 바탕으로 만드는 평가서·복습퀴즈는 실제 화상수업을 수강한 경우에 제공됩니다.", "ae": "Activities include A.i Speaking, A.i Friend for conversation, A.i Voice Coach for pronunciation, A.i Writing, vocabulary practice, word quizzes and learning games. Choose an activity from the home screen.\nReports and review quizzes based on teacher-led video lessons require participation in those lessons."},
+   {"c": "AI학습", "ce": "AI Learning", "q": "A.i학습만 이용하려면 어떻게 시작하나요?", "qe": "How do I start A.i-only learning?", "a": "회원가입 후 로그인하고 전체 메뉴의 [결제하기]에서 [AI 콘텐츠 전용]을 선택해 금액과 이용 기간을 확인한 뒤 결제해 주세요. 결제 후 홈 화면에서 원하는 A.i학습 메뉴를 선택하면 됩니다. 신청이 어렵거나 학원을 통해 이용하시는 경우에는 카카오상담으로 문의해 주세요.", "ae": "Sign up and log in, open [Payment] in the full menu, and choose [AI 콘텐츠 전용] (AI content only). Check the price and access period before paying, then choose an A.i activity on the home screen. If you need help or study through an academy, contact KakaoTalk support."},
+   {"c": "AI학습", "ce": "AI Learning", "q": "A.i학습 이용료와 이용 기간은 어떻게 되나요?", "qe": "How much does A.i learning cost and how long does access last?", "a": "A.i학습만 이용하는 분은 별도의 A.i 콘텐츠 전용 이용권을 신청하시면 됩니다. 개인 이용권은 1개월 단위이며, 현재 금액과 이용 종료일은 [A.i 이용권] 화면에서 확인해 주세요. 학원을 통한 이용 조건은 소속 학원이나 카카오상담으로 확인하실 수 있습니다.", "ae": "A.i-only learners can purchase a separate A.i content pass. Individual passes run for one month. Check [A.i Pass] for the current price and your access end date. For academy access, ask your academy or KakaoTalk support.", "html": "<a href=\"/ai-pass.html\" style=\"display:inline-block;margin-top:10px;color:#fde68a;text-decoration:underline\">A.i 이용권 확인하기 →</a>", "htmle": "<a href=\"/ai-pass.html\" style=\"display:inline-block;margin-top:10px;color:#fde68a;text-decoration:underline\">View A.i pass →</a>"},
+   {"c": "AI학습", "ce": "AI Learning", "q": "A.i학습도 정해진 시간에 예약해야 하나요?", "qe": "Do I need to book a time for A.i learning?", "a": "A.i학습은 선생님과 시간을 맞춰 예약하는 화상수업과 달리, 이용 가능한 학습 메뉴를 원하는 시간에 열어 스스로 연습하는 방식입니다. 이용권 기간과 각 메뉴의 이용 안내를 확인해 주세요.", "ae": "A.i learning is self-directed: open an available activity when you want to practice, without booking a teacher. Check your pass validity and the usage information for each activity."},
+   {"c": "AI학습", "ce": "AI Learning", "q": "휴대폰이나 태블릿으로도 A.i학습을 할 수 있나요?", "qe": "Can I use A.i learning on a phone or tablet?", "a": "네, 인터넷이 연결된 컴퓨터·태블릿·스마트폰에서 이용할 수 있습니다. 말하기·발음 연습을 할 때는 브라우저의 마이크 사용을 허용해 주세요. 기기와 브라우저에 따라 음성 기능의 지원 범위가 다를 수 있으며, 조용한 곳에서 이어폰이나 헤드셋을 사용하면 더 편리합니다.", "ae": "Yes. You can use an internet-connected computer, tablet or smartphone. Allow microphone access for speaking and pronunciation practice. Voice support may vary by device and browser; earphones or a headset in a quiet place can help."},
+   {"c": "AI학습", "ce": "AI Learning", "q": "영어 초보자도 A.i학습을 할 수 있나요?", "qe": "Can beginners use A.i learning?", "a": "네, 처음에는 쉬운 단어와 짧은 문장부터 연습해 보세요. 수준이나 교재를 선택할 수 있는 메뉴에서는 자신에게 맞는 단계로 시작하고, 익숙해지면 말하기·대화·영작으로 넓혀 가시면 됩니다. 선택이 어려우시면 카카오상담으로 안내받으실 수 있습니다.", "ae": "Yes. Start with simple words and short sentences. Where an activity offers level or textbook choices, choose a suitable starting point, then move on to speaking, conversation and writing. KakaoTalk support can help you choose."},
+   {"c": "AI학습", "ce": "AI Learning", "q": "A.i학습만 하는 것과 화상수업은 무엇이 다른가요?", "qe": "How does A.i-only learning differ from video lessons?", "a": "A.i학습은 인공지능과 스스로 반복 연습하는 방식이고, 화상수업은 예약한 시간에 실제 선생님과 대화하며 배우는 방식입니다. A.i 전용 이용권에는 선생님과의 화상수업이 포함되지 않습니다. 선생님의 설명과 대화 연습도 원하시면 화상수업을 별도로 신청해 주세요.", "ae": "A.i learning provides independent, repeatable practice with artificial intelligence. Video lessons are scheduled sessions with a real teacher. An A.i-only pass does not include teacher-led video lessons; enroll separately if you want them."},
+   {c:'AI학습',ce:'AI Learning',
     q:'수업 진단(PreCheck)은 무엇인가요?',
     qe:'What is PreCheck (class diagnosis)?',
     a:'수업 전에 카메라·마이크·인터넷 상태와 수업 환경을 미리 점검하는 무료 서비스입니다. 홈 화면의 [수업 진단]에서 이용하실 수 있으며, 무료 레벨테스트 신청도 함께 하실 수 있습니다.',
@@ -203,13 +219,13 @@
   ];
 
   var L={
-    ko:{ title:'❓ 자주 묻는 질문', sub:'망고아이 화상영어 FAQ — 궁금한 점을 빠르게 확인하세요',
-         ph:'🔍 궁금한 내용을 검색해 보세요 (예: 환불, 연기, 레벨테스트)', all:'전체',
+    ko:{ title:'❓ 자주 묻는 질문', sub:'망고아이 화상영어·A.i학습 FAQ — 궁금한 점을 빠르게 확인하세요',
+         ph:'🔍 궁금한 내용을 검색해 보세요 (예: A.i학습, 이용권, 환불)', all:'전체',
          empty:'검색 결과가 없습니다. 다른 키워드로 검색해 보세요. 🥭',
          foot1:'💬 <b>카카오상담</b> — 화면 오른쪽 아래 상담 버튼', foot2:'상담 운영 10:00~23:00 (주말·공휴일 휴무)', foot3:'수업 14:00~23:00',
          close:'닫기', dialog:'자주 묻는 질문', search:'FAQ 검색' },
-    en:{ title:'❓ FAQ', sub:'Mangoi Video English FAQ — find answers fast',
-         ph:'🔍 Search the FAQ (e.g., refund, postpone, level test)', all:'All',
+    en:{ title:'❓ FAQ', sub:'Mangoi Video English & A.i Learning FAQ — find answers fast',
+         ph:'🔍 Search the FAQ (e.g., A.i learning, pass, refund)', all:'All',
          empty:'No results found. Try a different keyword. 🥭',
          foot1:'💬 <b>KakaoTalk chat</b> — button at bottom right', foot2:'Support 10:00–20:00 (closed weekends/holidays)', foot3:'Classes 14:00–23:00',
          close:'Close', dialog:'Frequently Asked Questions', search:'Search FAQ' }

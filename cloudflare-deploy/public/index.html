@@ -17139,8 +17139,31 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
   @media (min-width:641px){
     .mg-faq-cats{flex-wrap:wrap;overflow-x:visible}
   }
+
+  /* PC: readable FAQ at normal browser zoom, with room for longer answers. */
+  @media (min-width:701px){
+    .mg-faq-panel{width:min(1040px,calc(100vw - 48px));max-height:90vh}
+    .mg-faq-head{padding:22px 28px 18px}
+    .mg-faq-head h2{font-size:26px}
+    .mg-faq-head .mg-faq-sub{font-size:16px;color:#cbd5e1}
+    .mg-faq-x{width:44px;height:44px;font-size:20px}
+    .mg-faq-tools{padding:16px 28px 6px}
+    .mg-faq-search{padding:13px 16px;font-size:18px}
+    .mg-faq-search::placeholder{color:#b8c5d6}
+    .mg-faq-cats{gap:8px;padding:12px 28px 10px;flex-wrap:wrap;overflow-x:visible}
+    .mg-faq-cat{padding:9px 16px;font-size:16px}
+    .mg-faq-list{min-height:0;padding:10px 28px 20px}
+    .mg-faq-q{padding:18px;font-size:20px;line-height:1.6;gap:12px}
+    .mg-faq-q .qb{width:30px;height:30px;font-size:16px}
+    .mg-faq-q .qc{font-size:14px;color:#cbd5e1}
+    .mg-faq-q .arr{font-size:16px}
+    .mg-faq-a{padding:0 22px 22px 60px;font-size:18px;line-height:1.85;color:#e2e8f0;overflow-wrap:anywhere}
+    .mg-faq-a table,.mg-faq-a th,.mg-faq-a td,.mg-faq-a div,.mg-faq-a a{font-size:inherit!important}
+    .mg-faq-empty{font-size:18px}
+    .mg-faq-foot{padding:14px 28px;font-size:14px;color:#cbd5e1}
+  }
 </style>
-<script src="/js/idx-x7.js?v=9"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x7.js?v=10"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
 
 <!-- 🧠 복습퀴즈 탭 (화상수업) — 학생 사이드바와 동일 API + AI 자동 출제(듣기/쓰기/말하기) -->
 <script src="/js/idx-x8.js?v=8"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
