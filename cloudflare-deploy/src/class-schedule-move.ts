@@ -48,8 +48,10 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
     return fail(400, 'invalid_expected', '수업 정보를 새로고침한 뒤 다시 시도해 주세요.');
   try {
     // This table is empty outside a batch. Failed guards/updates roll back together.
-    await env.DB.exec(`CREATE TABLE IF NOT EXISTS schedule_move_guard (
-      token TEXT PRIMARY KEY, valid INTEGER NOT NULL CONSTRAINT schedule_move_snapshot CHECK(valid=1))`);
+    // ⛔ D1 의 exec() 는 «줄마다» 따로 실행해 여러 줄 CREATE 가 실패한다(2026-10-04 실사고:
+    //    이 표가 운영 DB 에 한 번도 안 생겨 모든 저장이 503). 한 문장은 prepare().run() 으로.
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS schedule_move_guard (
+      token TEXT PRIMARY KEY, valid INTEGER NOT NULL CONSTRAINT schedule_move_snapshot CHECK(valid=1))`).run();
     await ensureClassAuditTable(env);
     const schema = await snapshot(env, `SELECT name, sql FROM sqlite_master WHERE type='table'
       AND name IN ('class_schedules','teacher_unavailability','calendar_events','teachers','admin_scope') ORDER BY name`, ['name','sql']);
