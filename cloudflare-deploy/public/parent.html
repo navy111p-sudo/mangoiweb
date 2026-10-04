@@ -399,10 +399,10 @@ function showKakaoShareDialog(url) {
 
     </div>
 
-    <!-- 🗣️ 수업 전 A.i 웜업 (2026-10-02 P4 — 사장님 결정: 횟수 + 고쳐 준 표현 1~2개).
+    <!-- 🗣️ A.i 말하기 (2026-10-02 P4 — 사장님 결정: 횟수 + 고쳐 준 표현 1~2개).
          서버가 warmup 칸을 안 보낸 응답(옛 서버·배포 중)에는 카드를 통째로 감춘다(pdWarmupHtml 이 null). -->
     <div class="card" id="pd-warmup-card" style="margin-top:16px;display:none">
-      <h3>🗣️ <span data-ko="수업 전 A.i 웜업" data-en="A.i Warm-up Before Class">수업 전 A.i 웜업</span></h3>
+      <h3>🗣️ <span data-ko="A.i 말하기" data-en="A.i Speaking">A.i 말하기</span></h3>
       <div id="pd-warmup"></div>
     </div>
 
@@ -484,15 +484,15 @@ function pdWarmupHtml(w, en) {
   const spoke = Number(w.spoke_sessions_this_month) || 0;
   const all = Number(w.sessions_this_month) || 0;
   const days = Number(w.days_this_month) || 0;
-  let h = '<div class="stat">' + T('이번 달 A.i 웜업', 'A.i warm-ups this month') + '<span class="v gold">'
+  let h = '<div class="stat">' + T('이번 달 A.i 말하기', 'A.i speaking sessions this month') + '<span class="v gold">'
     + (known
         ? `<span id="pd-wu-sessions">${fmt(spoke)}</span>${T('회', ' times')} · <span id="pd-wu-days">${fmt(days)}</span>${T('일', ' days')}`
         : '—')
     + '</span></div>';
   if (!known) {
-    h += '<div style="font-size:13px;color:var(--pd-muted);margin-top:6px">' + T('웜업 기록을 확인하지 못했어요. 잠시 뒤 새로고침해 주세요.', 'Could not load warm-up records. Please refresh in a moment.') + '</div>';
+    h += '<div style="font-size:13px;color:var(--pd-muted);margin-top:6px">' + T('A.i 말하기 기록을 확인하지 못했어요. 잠시 뒤 새로고침해 주세요.', 'Could not load A.i speaking records. Please refresh in a moment.') + '</div>';
   } else if (spoke === 0) {
-    h += '<div style="font-size:13px;color:var(--pd-muted);margin-top:6px">' + T('이번 달에는 아직 웜업에서 말을 시작한 기록이 없어요.', 'No warm-up conversation started yet this month.') + '</div>';
+    h += '<div style="font-size:13px;color:var(--pd-muted);margin-top:6px">' + T('이번 달에는 아직 A.i 말하기에서 대화를 시작한 기록이 없어요.', 'No A.i speaking conversation started yet this month.') + '</div>';
   }
   if (known && all > spoke) {
     h += '<div style="font-size:12.5px;color:var(--pd-muted);margin-top:4px">' + T(`열었지만 말하기 전에 나간 ${all - spoke}회는 빼고 셌어요.`, `${all - spoke} session(s) opened but left before speaking are not counted.`) + '</div>';
@@ -1001,7 +1001,7 @@ function pdRender(d){
    *   ⚠️ eval.html·report.html 의 evalMax() 와 «같은 말» 을 해야 한다(하니스 ⑤절이 대조한다). */
   const pdEvalMax = (v) => (Number(v) || 0) > 5 ? 100 : 5;
 
-  // 🗣️ 수업 전 A.i 웜업 (2026-10-02 P4)
+  // 🗣️ A.i 말하기 (2026-10-02 P4)
   {
     const wuCard = document.getElementById('pd-warmup-card');
     const wuHtml = pdWarmupHtml(d.warmup, !!(window.getLang && getLang() === 'en'));
