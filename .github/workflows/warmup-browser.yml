@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'cloudflare-deploy/public/warmup.html'
+      - 'cloudflare-deploy/public/ai-friend.html'
+      - 'cloudflare-deploy/public/js/speech-preferences.js'
+      - 'test-harness/manual/speech-preferences-browser.mjs'
+      - 'test-harness/helpers/speech-sandbox.mjs'
       - 'cloudflare-deploy/public/js/warmup-guide.js'
       - 'cloudflare-deploy/public/css/warmup-guide.css'
       - 'cloudflare-deploy/public/video/warmup-scenes/**'
@@ -47,3 +51,10 @@ jobs:
           node test-harness/manual/warmup-bts-book-browser.mjs | tee "$RUNNER_TEMP/warmup-bts.log"
           grep -Eq 'warmup-bts-book-browser — PASS [1-9][0-9]* / FAIL 0' "$RUNNER_TEMP/warmup-bts.log"
           node test-harness/manual/warmup-two-way-mutation.mjs
+
+      - name: Account speech preferences sandbox (50 full-page cases)
+        env:
+          PW_DIR: ${{ runner.temp }}/warmup-pw
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/warmup-browser
+        run: node test-harness/manual/speech-preferences-browser.mjs
+

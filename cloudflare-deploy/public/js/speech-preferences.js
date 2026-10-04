@@ -28,20 +28,25 @@
       function remember() { try { storage.setItem(key, JSON.stringify({ level: pref.level, dirty: dirty })); } catch (_) {} }
       function sameAccount() { return identity().uid === account.uid; }
       async function call(method, level) {
-        if (prepareAuth) await prepareAuth();
-        var token = identity().token;
-        if (!account.uid || !token || !sameAccount()) throw new Error('signed_out');
         var controller = new AbortController();
-        var timer = setTimeout(function () { controller.abort(); }, 4000);
+        var timer;
+        var timeout = new Promise(function (_, reject) {
+          timer = setTimeout(function () { controller.abort(); reject(new Error('preference_timeout')); }, 4000);
+        });
         try {
-          var response = await fetch('/api/student/speech-preferences?app=' + app, {
-            method: method, headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-            body: method === 'PUT' ? JSON.stringify({ level: level }) : undefined,
-            cache: 'no-store', keepalive: method === 'PUT', signal: controller.signal
-          });
-          var data = await response.json();
-          if (!response.ok || !data.ok) throw new Error('save_failed');
-          return data;
+          return await Promise.race([timeout, (async function () {
+            if (prepareAuth) await prepareAuth();
+            var token = identity().token;
+            if (controller.signal.aborted || !account.uid || !token || !sameAccount()) throw new Error('signed_out');
+            var response = await fetch('/api/student/speech-preferences?app=' + app, {
+              method: method, headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+              body: method === 'PUT' ? JSON.stringify({ level: level }) : undefined,
+              cache: 'no-store', keepalive: method === 'PUT', signal: controller.signal
+            });
+            var data = await response.json();
+            if (!response.ok || !data.ok) throw new Error('save_failed');
+            return data;
+          })()]);
         } finally { clearTimeout(timer); }
       }
       function save() {
@@ -55,7 +60,7 @@
         if (!valid(level) || !sameAccount()) return;
         revision++; pref.level = level; dirty = true; remember(); save();
       };
-      pref.ready = (async function () {
+      async function restore() {
         try {
           if (dirty) { await save(); return; }
           var version = revision;
@@ -64,8 +69,9 @@
           if (valid(data.level)) { pref.level = data.level; dirty = false; remember(); onChange(pref.level); }
         } catch (_) { /* Use only this account's cached preference on network failure. */ }
         finally { pref.loaded = true; }
-      })();
-      window.addEventListener('online', function () { if (dirty && sameAccount()) save(); });
+      }
+      pref.ready = restore();
+      window.addEventListener('online', function () { if (sameAccount()) { if (dirty) save(); else restore(); } });
       return pref;
     }
   };
