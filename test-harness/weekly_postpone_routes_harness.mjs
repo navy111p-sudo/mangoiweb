@@ -259,11 +259,14 @@ if (process.env.SMRS_CHILD === '1') {
     ok(trial+' same count and other weekday untouched',count===4&&sq.prepare('SELECT scheduled_date FROM class_schedules WHERE id=?').get(untouched).scheduled_date===addDays(TODAY,1));
     const days=kind==='postpone'?[7,14,21]:[7,7,14];
     ok(trial+' all expected dates',ids.every((id,i)=>sq.prepare('SELECT scheduled_date FROM class_schedules WHERE id=?').get(id).scheduled_date===addDays(TODAY,days[i])));
-    setNow(addDays(TODAY,7),hour);
-    await both(trial+' '+kind+' matching room',ids[0],uid,'tok_alpha','tok_beta',{present:true,time:body.new_time,ymd:addDays(TODAY,7).replaceAll('-','')});
-    const calendar=await callAdmin('GET','/api/admin/schedules?week='+addDays(TODAY,6),{cookie:'tok_admin'});
-    const shown=Array.isArray(calendar.body)?calendar.body:(calendar.body.items||calendar.body.schedules||[]);
-    ok(trial+' admin calendar contains moved lesson',shown.some(r=>r.id===ids[0]&&r.date===body.new_date&&r.start_time===body.new_time),JSON.stringify(shown.filter(r=>r.id===ids[0])));
+    for (const [index,sid] of (kind === 'postpone' ? ids : [ids[0]]).entries()) {
+      const date = addDays(TODAY,7*(index+1));
+      setNow(date,hour);
+      await both(trial+' '+kind+' matching room '+index,sid,uid,'tok_alpha','tok_beta',{present:true,time:body.new_time,ymd:date.replaceAll('-','')});
+      const calendar=await callAdmin('GET','/api/admin/schedules?week='+addDays(date,-1),{cookie:'tok_admin'});
+      const shown=Array.isArray(calendar.body)?calendar.body:(calendar.body.items||calendar.body.schedules||[]);
+      ok(trial+' admin calendar contains moved lesson '+index,shown.some(r=>r.id===sid&&r.date===date&&r.start_time===body.new_time),JSON.stringify(shown.filter(r=>r.id===sid)));
+    }
   }
 
   writeFileSync(process.env.WEEKLY_RESULT, JSON.stringify({ results, warns: warns.slice(0, 5) }));

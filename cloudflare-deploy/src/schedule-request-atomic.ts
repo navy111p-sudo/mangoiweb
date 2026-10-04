@@ -19,23 +19,22 @@ async function unchangedQuery(env: any, select: string, fields: string[], args: 
 }
 
 export async function prepareScheduleRequestGuards(env: any, requestRow: any, schedule?: any, scope?: Guard): Promise<Guard[]> {
-  // ⛔ D1 의 exec() 는 «줄마다» 따로 실행해 여러 줄 CREATE 가 실패한다(2026-10-04 실사고:
-  //    이 표가 운영 DB 에 한 번도 안 생겨 모든 저장이 503). 한 문장은 prepare().run() 으로.
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS schedule_request_guard (
-    token TEXT PRIMARY KEY, valid INTEGER NOT NULL CONSTRAINT schedule_request_snapshot CHECK(valid=1))`).run();
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS schedule_request_guard (
+    token TEXT PRIMARY KEY, valid INTEGER NOT NULL CONSTRAINT schedule_request_snapshot CHECK(valid=1))`);
   const guards = [unchangedRow('schedule_change_requests', requestRow)];
   if (scope) guards.push(scope);
   if (!schedule) return guards;
   guards.push(unchangedRow('class_schedules', schedule));
   // The schema guard also detects an optional availability table created after the read.
   guards.push(await unchangedQuery(env, `SELECT name, sql FROM sqlite_master WHERE type='table'
-    AND name IN ('class_schedules','teacher_unavailability','calendar_events','teachers','admin_scope') ORDER BY name`, ['name','sql']));
+    AND name IN ('class_schedules','teacher_unavailability','calendar_events','teachers','admin_scope','teacher_pricing') ORDER BY name`, ['name','sql']));
   const teacherIds = JSON.stringify([...new Set([String(schedule.teacher_id || ''), String(requestRow.new_teacher_id || '')])]);
   for (const [table, where, args] of [
     ['class_schedules', 'WHERE CAST(teacher_id AS TEXT) IN (SELECT value FROM json_each(?)) OR user_id = ? OR id = ?', [teacherIds, schedule.user_id ?? null, schedule.id]],
     ['teacher_unavailability', 'WHERE CAST(teacher_id AS TEXT) IN (SELECT value FROM json_each(?))', [teacherIds]],
     ['calendar_events', "WHERE event_type='vacation'", []],
     ['teachers', 'WHERE CAST(id AS TEXT) IN (SELECT value FROM json_each(?))', [teacherIds]],
+    ['teacher_pricing', 'WHERE CAST(teacher_id AS TEXT) IN (SELECT value FROM json_each(?))', [teacherIds]],
     ['admin_scope', '', []],
   ] as Array<[string, string, any[]]>) {
     const exists = await env.DB.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).bind(table).first();
@@ -57,3 +56,4 @@ export async function commitScheduleRequestDecision(env: any, guards: Guard[], m
   const results = await env.DB.batch(statements);
   if (!Array.isArray(results) || results.some((r: any) => !r || r.success === false)) throw new Error('request_batch_failed');
 }
+

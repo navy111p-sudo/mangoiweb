@@ -21,7 +21,7 @@ Validation executed locally:
   helpers and isolated SQLite; includes leave, conflict, stale state, concurrent edit,
   injected write failure, transaction rollback and duplicate approval protection.
 - weekly_postpone_routes_harness.mjs: 200 postponement + 200 change workflows,
-  6,604 assertions, zero failures. Actual request/approval/teacher/student/calendar
+  10,204 assertions, zero failures. Actual request/approval/teacher/student/calendar
   handlers with SQLite. Router middleware, production D1 and real WebRTC excluded.
 - Existing schedule_move_room_sync_harness.mjs: 174 checks, zero failures,
   including six deliberately broken-source mutations detected by the harness.
@@ -33,3 +33,5 @@ dedicated PR workflow runs the shipped UI at 390px and 1360px with synthetic API
 responses, double-submit checks, success/failure responses and screenshots.
 Full repository CI, browser CI and production deployment remain required gates;
 the local results above do not claim they have passed.
+
+The first browser run caught a completed-screen overlay remaining active during repeated mode navigation. enterDetail now clears that overlay; browser CI is rerun.

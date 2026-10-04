@@ -3,7 +3,7 @@
  * Mirror/undated series cannot be safely inferred, so they fail before saving a request.
  */
 import { planSeries, addDays, normDate, normTime } from './class-series-move';
-import { findScheduleMoveConflicts, loadScheduleMoveFacts } from './schedule-conflict';
+import { findScheduleMoveConflicts, loadScheduleMoveFacts, longClassCapFor } from './schedule-conflict';
 
 export const WEEKLY_POSTPONE = 'weekly_postpone';
 const version = (r: any) => JSON.stringify(['id','user_id','teacher_id','scheduled_date','start_time',
@@ -49,6 +49,13 @@ export async function prepareWeeklyPostpone(env: any, request: any, anchor: any,
     if (!names.has(String(target.teacher_id))) return { ok: false, error: 'teacher_not_found', mutations: [] };
     const conflict = await findScheduleMoveConflicts(env, target, String(names.get(String(target.teacher_id))), ids, facts);
     if (conflict) return { ...conflict, ok: false, mutations: [] };
+    if (Number(target.duration_min) > 20) {
+      const cap = await longClassCapFor(env, String(target.teacher_id));
+      const after = facts.rows.filter(r => !ids.includes(Number(r.id))).concat(targets);
+      const longCount = after.filter(r => String(r.teacher_id) === String(target.teacher_id)
+        && r.scheduled_date === target.scheduled_date && Number(r.duration_min) > 20).length;
+      if (cap > 0 && longCount > cap) return { ok: false, error: 'long_class_capacity', mutations: [] };
+    }
     const internal = await findScheduleMoveConflicts(env, target, String(names.get(String(target.teacher_id))), [target.id],
       { ...facts, rows: targets.filter(t => t.id !== target.id) });
     if (internal) return { ...internal, ok: false, mutations: [] };

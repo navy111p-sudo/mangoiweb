@@ -30,7 +30,18 @@ for(let n=0;n<600;n++){
  db.prepare("INSERT INTO schedule_change_requests(id,schedule_id,request_type,status,created_at,new_date,new_time,series_snapshot,request_scope) VALUES(1,1,'postpone','pending',1,?,?,?,'weekly_postpone')").run(addDays(start,7),hour,plan.snapshot);
  const request=db.prepare('SELECT * FROM schedule_change_requests WHERE id=1').get();
  const before=JSON.stringify(db.prepare('SELECT * FROM class_schedules ORDER BY id').all());
- const mode=n%6;
+ const mode=n%8;
+ if(mode>=6){
+  db.exec('CREATE TABLE teacher_pricing(teacher_id TEXT, long_class_daily_cap INTEGER)');
+  db.prepare('INSERT INTO teacher_pricing VALUES(?,?)').run('1',mode===6?1:0);
+  db.exec('UPDATE class_schedules SET duration_min=30 WHERE id<1000');
+  insert.run(2001,'sandbox_long','1',addDays(start,count*7),'06:00');
+  db.exec('UPDATE class_schedules SET duration_min=30 WHERE id=2001');
+  Object.assign(anchor,db.prepare('SELECT * FROM class_schedules WHERE id=1').get());
+  const fresh=await readWeeklyPostponePlan(env,anchor);
+  db.prepare('UPDATE schedule_change_requests SET series_snapshot=? WHERE id=1').run(fresh.snapshot);
+  Object.assign(request,db.prepare('SELECT * FROM schedule_change_requests WHERE id=1').get());
+ }
  if(mode===1){ // Another teacher booking conflicts at final extension.
   insert.run(2001,'sandbox_busy','1',addDays(start,count*7),hour.slice(0,3)+'10');
  }
@@ -38,7 +49,7 @@ for(let n=0;n<600;n++){
  if(mode===3){db.exec('UPDATE class_schedules SET updated_at=2 WHERE id=1');}
  const guards=await prepareScheduleRequestGuards(env,request,anchor);
  const prepared=await prepareWeeklyPostpone(env,request,anchor,10);
- if(mode===1||mode===2||mode===3){assert.equal(prepared.ok,false);assert.equal(db.prepare('SELECT status FROM schedule_change_requests').get().status,'pending');}
+ if(mode===1||mode===2||mode===3||mode===6){assert.equal(prepared.ok,false);assert.equal(db.prepare('SELECT status FROM schedule_change_requests').get().status,'pending');}
  else{
   assert.equal(prepared.ok,true);
   if(mode===4)db.exec('UPDATE class_schedules SET updated_at=3 WHERE id=1001');
@@ -52,9 +63,9 @@ for(let n=0;n<600;n++){
   }else{
    await commitScheduleRequestDecision(env,guards,prepared.mutations,decision);
    const after=db.prepare('SELECT * FROM class_schedules ORDER BY id').all();
-   assert.equal(after.length,count+3);
+   assert.equal(after.length,count+3+(mode===7?1:0));
    for(let i=0;i<count;i++){assert.equal(after[i].scheduled_date,addDays(start,(i+1)*7));assert.equal(after[i].start_time,hour);assert.equal(after[i].teacher_id,'1');}
-   assert.equal(JSON.stringify(after.slice(count)),JSON.stringify(JSON.parse(before).slice(count)));
+   assert.equal(JSON.stringify(after.filter(r=>r.id>=1001&&r.id<=1003)),JSON.stringify(JSON.parse(before).slice(count)));
    assert.equal(db.prepare('SELECT status FROM schedule_change_requests').get().status,'approved');
    await assert.rejects(commitScheduleRequestDecision(env,guards,prepared.mutations,decision));
   }

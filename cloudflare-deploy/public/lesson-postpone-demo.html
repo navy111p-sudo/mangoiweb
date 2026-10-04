@@ -1508,6 +1508,7 @@ function resetToMain(){
 }
 
 function enterDetail(){
+  $('#screen-done').classList.remove('active');
   const v = VERB[state.mode];
   $('#detail-title').textContent = `수업 ${v}하기`;
   $('#seg-time-label').textContent    = `🕐 날짜로 ${v}`;

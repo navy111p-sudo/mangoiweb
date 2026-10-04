@@ -3294,7 +3294,7 @@ export async function handleAdminApi(
       //   충돌·저장 실패는 위에서 돌아가므로 성공한 결정만 이력에 남는다.
       if (action === 'approved' && applied && applied !== 'conflict' && applied !== 'teacher_not_changed') {
         await writeClassAudit(env, {
-          action: applied === 'moved' ? 'reschedule' : 'postpone',
+          action: row.request_type === 'change' ? 'reschedule' : 'postpone',
           schedule_id: row.schedule_id,
           teacher_name: row.teacher_name || null,
           student_name: row.student_name || null,
