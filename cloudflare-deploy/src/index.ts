@@ -1481,6 +1481,7 @@ const worker = {
         // 📈 Phase RCF — AI 매출/이탈 예측
         path === '/api/admin/forecast/revenue' ||
         path === '/api/admin/forecast/churn' ||
+        path === '/api/admin/forecast/message' ||
         // 📚 Phase VOC 단어장
         path === '/api/vocab/add' ||
         path === '/api/vocab/extract' ||

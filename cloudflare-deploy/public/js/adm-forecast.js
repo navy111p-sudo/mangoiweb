@@ -96,16 +96,27 @@
       bodyEn: 'Are you considering resuming or continuing lessons for 학생 이름? Please share your preferred start date and schedule. We will check the current enrollment status and explain how to resume or renew. Please feel free to ask us any questions.'}
   ];
   function openCareDialog(row, trigger) {
-    var lang = en() ? 'en' : 'ko', selected = '', drafts = Object.create(null);
+    var lang = en() ? 'en' : 'ko', selected = '', drafts = Object.create(null), recipient = null, sending = false;
     var dialog = document.createElement('dialog');
     dialog.className = 'af-dialog';
     dialog.setAttribute('aria-labelledby', 'af-draft-title');
-    dialog.innerHTML = '<h3 id="af-draft-title"></h3><p data-intro></p><label for="af-draft-language" data-language-label></label><select id="af-draft-language"><option value="ko">한국어</option><option value="en">English</option></select><label for="af-draft-template" data-template-label></label><select id="af-draft-template"></select><label for="af-draft-message" data-message-label></label><textarea id="af-draft-message" rows="9"></textarea><p class="af-draft-note" data-edit-note></p><div class="af-draft-actions"><button type="button" data-copy></button><button type="button" data-close></button></div><p role="status" aria-live="polite" data-copy-status></p>';
+    dialog.innerHTML = '<h3 id="af-draft-title"></h3><p data-intro></p><label for="af-draft-language" data-language-label></label><select id="af-draft-language"><option value="ko">한국어</option><option value="en">English</option></select><label for="af-draft-template" data-template-label></label><select id="af-draft-template"></select><label for="af-draft-message" data-message-label></label><textarea id="af-draft-message" rows="9"></textarea><p class="af-draft-note" data-edit-note></p><p data-recipient></p><div class="af-draft-actions"><button type="button" data-copy></button><button type="button" data-sms></button><button type="button" data-kakao></button><button type="button" data-close></button></div><p role="status" aria-live="polite" data-copy-status></p>';
     var language = dialog.querySelector('#af-draft-language');
     var choices = dialog.querySelector('#af-draft-template');
     var message = dialog.querySelector('textarea');
     var copy = dialog.querySelector('[data-copy]');
     var status = dialog.querySelector('[data-copy-status]');
+    var sms = dialog.querySelector('[data-sms]');
+    var kakao = dialog.querySelector('[data-kakao]');
+    function deliveryControls() {
+      sms.textContent = t('휴대폰 문자 보내기', 'Send text message');
+      kakao.textContent = t('카카오톡에서 보내기', 'Send in KakaoTalk');
+      sms.disabled = sending || selected === '' || !recipient || !recipient.ready || !/^01[016789][0-9]{7,8}$/.test(recipient.phone);
+      kakao.disabled = sending || selected === '';
+      dialog.querySelector('[data-recipient]').textContent = recipient
+        ? t('문자 수신: ', 'Text recipient: ') + row.name + ' · ' + row.user_id + ' · ' + (recipient.role === 'parent' ? t('학부모', 'Parent') : t('학생', 'Student')) + ' · ' + (recipient.phone || t('등록된 번호 없음', 'No registered number')) + t(' / 발신번호: ', ' / Sender: ') + '1644-0561' + (recipient.ready ? '' : t(' · 문자 발송 설정을 확인해 주세요.', ' · Check SMS service configuration.'))
+        : t('수신번호 확인 중입니다. 조회되지 않으면 학생 연락처를 확인해 주세요.', 'Checking the recipient. If unavailable, check the student contact details.');
+    }
     function t(ko, english) { return lang === 'en' ? english : ko; }
     function key() { return lang + ':' + selected; }
     function remember() { if (selected !== '') drafts[key()] = message.value; }
@@ -136,6 +147,7 @@
         message.value = drafts[key()];
       }
       status.textContent = '';
+      deliveryControls();
     }
     choices.onchange = function () { remember(); selected = choices.value; render(); };
     language.onchange = function () { remember(); lang = language.value; render(); };
@@ -148,9 +160,46 @@
         status.textContent = t('자동 복사가 되지 않았습니다. 선택된 문구를 직접 복사해 주세요.', 'Automatic copy was unavailable. Please copy the selected text manually.');
       }
     };
-    dialog.querySelector('[data-close]').onclick = function () { dialog.close(); };
+    sms.onclick = async function () {
+      var text = message.value.trim();
+      if (!text || text.length > 1000) { status.textContent = t('문구는 한 글자 이상 천 글자 이하로 입력해 주세요.', 'Enter between 1 and 1,000 characters.'); return; }
+      if (sms.disabled || sending) return;
+      if (!window.confirm(t('다음 수신자에게 유료 문자를 발송할까요?', 'Send a paid text message to this recipient?') + '\n' + row.name + ' · ' + row.user_id + '\n' + (recipient.role === 'parent' ? t('학부모', 'Parent') : t('학생', 'Student')) + ' ' + recipient.phone + '\n\n' + text)) return;
+      sending = true; deliveryControls(); language.disabled = choices.disabled = message.disabled = true;
+      try {
+        var response = await fetch('/api/admin/forecast/message', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id:row.user_id, message:text, expected_phone:recipient.phone, confirmed:true, request_id:crypto.randomUUID()})});
+        var result = await response.json();
+        if (response.ok && result.ok && result.status === 'accepted') status.textContent = t('문자 발송 요청이 접수되었습니다. 실제 도착 여부는 발송 내역에서 확인해 주세요.', 'Text delivery request accepted. Check delivery records for the final result.');
+        else {
+          var errors = {
+            missing_phone: t('등록된 휴대폰 번호를 확인해 주세요.', 'Check the registered mobile number.'),
+            recipient_changed: t('수신번호가 변경되었습니다. 창을 다시 열고 확인해 주세요.', 'The recipient number changed. Reopen this window and check it.'),
+            duplicate_request: t('중복 발송을 막았습니다. 이전 발송 내역을 확인해 주세요.', 'Duplicate sending blocked. Check the previous delivery record.'),
+            delivery_not_ready: t('문자 발송 설정이 완료되지 않았습니다.', 'SMS delivery is not configured.')
+          };
+          status.textContent = errors[result.error] || t('발송을 확인하지 못했습니다. 중복 발송하지 않도록 발송 내역을 먼저 확인해 주세요.', 'Delivery could not be confirmed. Check the delivery record before retrying.');
+        }
+      } catch (err) { status.textContent = t('발송 결과를 확인하지 못했습니다. 다시 보내기 전에 발송 내역을 확인해 주세요.', 'The delivery result is unknown. Check delivery records before retrying.'); }
+      finally { sending = false; language.disabled = choices.disabled = message.disabled = false; deliveryControls(); }
+    };
+    kakao.onclick = async function () {
+      if (!message.value.trim()) return;
+      // Copy first: a separate explicit link opens Kakao after clipboard completion.
+      try {
+        await navigator.clipboard.writeText(message.value);
+        status.textContent = t('문구를 복사했습니다. 카카오 채널 관리자에서 학생과 수신자를 확인한 뒤 붙여 넣고 전송해 주세요. 아직 발송되지 않았습니다. ', 'Message copied. In Kakao Channel Manager, verify the student and recipient, paste the message, and send it. Nothing has been sent yet. ');
+        var link = document.createElement('a'); link.href = 'https://center-pf.kakao.com/'; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = t('카카오 채널 관리자 열기', 'Open Kakao Channel Manager'); status.appendChild(link);
+      } catch (err) { message.focus(); message.select(); status.textContent = t('문구를 직접 복사한 뒤 카카오 채널 관리자에서 수신자를 확인하고 보내 주세요.', 'Copy the selected message manually, then verify the recipient and send it in Kakao Channel Manager.'); }
+    };
+    dialog.addEventListener('cancel', function (e) { if (sending) e.preventDefault(); });
+    dialog.querySelector('[data-close]').onclick = function () { if (!sending) dialog.close(); };
     dialog.addEventListener('close', function () { dialog.remove(); if (trigger.isConnected) trigger.focus(); });
     render(); document.body.appendChild(dialog); dialog.showModal(); choices.focus();
+    get('/api/admin/forecast/message?uid=' + encodeURIComponent(row.user_id)).then(function (data) {
+      recipient = data.recipient; if (dialog.isConnected) deliveryControls();
+    }).catch(function () {
+      if (dialog.isConnected) dialog.querySelector('[data-recipient]').textContent = t('수신번호를 불러오지 못했습니다. 창을 다시 열어 주세요.', 'Could not load the recipient. Reopen this window.');
+    });
   }
   async function save(uid, status, contacted) {
     var row = student(uid); if (!row) return;

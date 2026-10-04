@@ -1,3 +1,4 @@
+import { counselingRecipient, sendCounselingSms } from './counseling-send';
 // ═══════════════════════════════════════════════════════════════════════
 // 🛡️ api-admin.ts — 관리자 도메인 API (api-mango.ts 에서 분리)
 //   docs/REFACTOR_PLAN.md 1단계 · admin 1회차(2026-07-14) · 로직 무변경
@@ -13675,7 +13676,7 @@ LIMIT $limit`;
     // ═══════════════════════════════════════════════════════════════
     // 📈 Phase RCF — AI 매출/이탈 예측 (Revenue & Churn Forecast)
     // ═══════════════════════════════════════════════════════════════
-    if (path === '/api/admin/forecast/revenue' || path === '/api/admin/forecast/churn') {
+    if (path === '/api/admin/forecast/revenue' || path === '/api/admin/forecast/churn' || path === '/api/admin/forecast/message') {
       const actor = await getAdminActor(request, env as any);
       if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
       if (actor.isTeacher) return json({ ok: false, error: 'forbidden' }, 403);
@@ -13685,6 +13686,17 @@ LIMIT $limit`;
         status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
       });
       try {
+        if (path.endsWith('/message')) {
+          if (method === 'GET') {
+            const recipient = await counselingRecipient(env, String(url.searchParams.get('uid') || ''));
+            return reply(recipient ? { ok: true, recipient } : { ok: false, error: 'student_not_found' }, recipient ? 200 : 404);
+          }
+          if (method === 'POST') {
+            if (request.headers.get('Origin') !== url.origin) return reply({ ok: false, error: 'invalid_origin' }, 403);
+            return reply(await sendCounselingSms(env, await parseJsonBody(request), actor.username));
+          }
+          return reply({ ok: false, error: 'method_not_allowed' }, 405);
+        }
         if (method === 'GET') return reply(path.endsWith('/revenue')
           ? await loadRevenue(env.DB, notSeedSql()) : await loadCare(env.DB, notSeedSql()));
         // Churn care is saved explicitly; no message delivery or AI generation on page load.
