@@ -363,9 +363,16 @@ async function weekly(width) {
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
     await page.mouse.up();
   }
-  await drag(); await delay(150);
-  check(width + ': locked mouse drag sends no request', moves.length === 0 && !(await page.locator('#modal-overlay').evaluate(el => el.classList.contains('show'))));
-  check(width + ': locked drag leaves entire group unchanged', await group(14) === source && !(await group(15)));
+  /* 2026-10-04: a locked drag is no longer silently dropped. It opens the move
+     confirm with a lock notice; nothing is saved until a person presses a button
+     there, and cancelling keeps the page locked. */
+  await drag();
+  await page.locator('#modal-overlay.show').waitFor();
+  check(width + ': locked mouse drag sends no request but asks in the confirm', moves.length === 0
+    && await page.locator('#modal-overlay.show .ws-move-locked').count() === 1);
+  await page.locator('button[onclick="cancelMove()"]').click();
+  check(width + ': cancelled locked drag stays locked and leaves entire group unchanged',
+    moves.length === 0 && !(await page.evaluate(() => wsEditing())) && await group(14) === source && !(await group(15)));
   await page.locator('#ws-lock-btn').click();
   await drag();
   await page.locator('#modal-overlay.show').waitFor();
