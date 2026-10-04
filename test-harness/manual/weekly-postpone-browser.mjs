@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-import {readFileSync, mkdirSync} from 'node:fs';
+import {readFileSync, mkdirSync, readdirSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {tmpdir} from 'node:os';
 const require=createRequire(import.meta.url);
@@ -28,7 +28,7 @@ for(const width of [390,1360]){
  await context.addInitScript(()=>{localStorage.setItem('mangoi_logged_user',JSON.stringify({uid:'sandbox_ui',name:'Sandbox Student'}));localStorage.setItem('mango_token','sandbox-token');});
  await page.goto('http://127.0.0.1/lesson-postpone-demo.html');
  await page.waitForFunction(()=>typeof __MOB_REAL!=='undefined'&&__MOB_REAL===true);
- await page.screenshot({path:out+'/main-'+width+'.png'});
+ await page.screenshot({path:out+'/main-'+width+'.jpg',type:'jpeg',quality:70});
  for(let round=0;round<20;round++){
   fail=round%2===1;posts=[];
   await page.evaluate(()=>_goMode('postpone'));
@@ -37,7 +37,7 @@ for(const width of [390,1360]){
   assert.match(await page.locator('#detail-body').innerText(),/연기 전 → 연기 후 · 3회/);checks++;
   assert.equal(await page.locator('#segment').isVisible(),false);checks++;
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);assert.equal(overflow,false);checks++;
-  if(round===0)await page.screenshot({path:out+'/postpone-'+width+'.png'});
+  if(round===0)await page.screenshot({path:out+'/postpone-'+width+'.jpg',type:'jpeg',quality:70});
   await page.evaluate(()=>{onConfirm();onConfirm();});
   await page.waitForFunction(()=>!state.saving);
   assert.equal(posts.length,1);assert.equal(posts[0].request_scope,'weekly_postpone');assert.equal(posts[0].request_type,'postpone');checks+=3;
@@ -48,4 +48,7 @@ for(const width of [390,1360]){
  assert.deepEqual(errors,[]);checks++;await context.close();
 }
 console.log(JSON.stringify({checks,failures:0,viewports:[390,1360],scope:'shipped browser UI with synthetic API responses; backend covered separately'}));
-}finally{await browser.close()}
+}finally{
+ for(const name of readdirSync(out).filter(n=>n.endsWith('.jpg'))) console.log('BROWSER_IMAGE '+name+' '+readFileSync(resolve(out,name)).toString('base64'));
+ await browser.close();
+}

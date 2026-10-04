@@ -39,7 +39,7 @@ export async function prepareWeeklyPostpone(env: any, request: any, anchor: any,
   if (!anchorItem || request.new_date !== anchorItem.to_date || request.new_time !== anchorItem.to_time)
     return { ok: false, error: 'invalid_weekly_postpone', mutations: [] };
   const ids = plan.items.map(it => it.id);
-  const facts = await loadScheduleMoveFacts(env);
+  const facts = await loadScheduleMoveFacts(env, anchor);
   const teachers = await env.DB.prepare('SELECT id, name FROM teachers').all();
   if (teachers?.success === false || !Array.isArray(teachers?.results)) throw new Error('teacher_lookup_failed');
   const names = new Map(teachers.results.map((t: any) => [String(t.id), String(t.name || '')]));
