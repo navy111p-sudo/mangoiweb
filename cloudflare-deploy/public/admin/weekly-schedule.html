@@ -1754,7 +1754,8 @@ var dnd = {
   startX: 0, startY: 0,
   moved: false,
   ghost: null,
-  lastTarget: null
+  lastTarget: null,
+  locked: false   // 🔒 잠긴 채로 끌기 시작했는가 — 놓을 때 확인 창이 «편집 켜고 변경» 을 묻는다
 };
 
 // ⚠️ 셀 해석기 (2026-07-28 개편)
@@ -1970,6 +1971,7 @@ document.addEventListener('mousedown', function(e){
   dnd.startX=e.clientX; dnd.startY=e.clientY;
   dnd.moved=false;
   dnd.active=false;
+  dnd.locked=false;
   // 이벤트는 막지 않음 (click 이벤트도 동작해야 함)
 }, true);
 
@@ -1977,16 +1979,13 @@ document.addEventListener('mousemove', function(e){
   if(!dnd.sourceEl)return;
   var dx=e.clientX-dnd.startX, dy=e.clientY-dnd.startY;
   if(!dnd.active && (dx*dx+dy*dy) > 64){ // > 8px
-    /* 🔒 잠겨 있으면 아예 끌리지 않는다.
-       ⚠️ 판정을 mousedown 에 두면 «카드를 눌러 상세를 여는» 평범한 클릭마다 경고가 뜬다 —
-          실제로 끌기 시작한 이 자리에서만 막는다.
-       ⚠️ moved=true 로 두어 뒤따르는 click 이 삼켜지게 한다(바로 아래 근무불가 분기와 같은 방식) —
-          안 그러면 잠금 경고와 상세 모달이 함께 뜬다. */
-    if(!wsEditing()){
-      dnd.sourceEl=null; dnd.sourceData=null; dnd.moved=true;
-      wsLockHint();
-      return;
-    }
+    /* 🔒 (2026-10-04 사장님 「드레그 해서도 문제없이 수업 연기 또는 변경 되게」) 잠겨 있어도
+       끌기는 막지 않는다 — 대신 놓을 때 뜨는 확인 창이 «편집이 잠겨 있다» 고 말하고
+       「예, 편집 켜고 변경」을 눌러야만 저장된다(실수 방지는 그 «한 번 더 누르기» 가 맡는다).
+       예전에는 여기서 끌기를 통째로 끊고 토스트만 띄워, 눌러도 «아무 일도 안 일어난» 것으로 보였다.
+       ⛔ 저장 최종 방어선(persistSlotMove 의 잠금 검사)은 그대로다 — 편집을 켜는 것은
+          confirmMoveDo 가 사람이 «예» 를 누른 «뒤» 에만 한다. */
+    dnd.locked=!wsEditing();
     /* 🚫 근무불가 차단(teacher_unavailability)은 드래그 이동 금지 — 서버가 id 를 일부러
        안 내려주므로(수업 id 와 겹침) 옮겨도 저장할 곳이 없고, 메모리만 옮기면 새로고침 때 되돌아온다.
        지우고 다시 등록하는 것이 정본 경로다. */
@@ -2010,7 +2009,7 @@ document.addEventListener('mousemove', function(e){
     var L=currentLang==='ko';
     var title=L?({blocked:'수업 불가','1on1':'1대1 수업',group:'그룹 수업',temp:'임시 수업'}[slot.type]):({blocked:'Blocked','1on1':'1-on-1',group:'Group',temp:'Temporary'}[slot.type]);
     var sub=(slot.students&&slot.students.length>0)?(slot.students.length===1?slot.students[0].name:(L?'그룹 ':'G ')+slot.students.length):(slot.note||'');
-    dnd.ghost.innerHTML='<div class="gh-ico">'+icon+'</div><div class="gh-info"><div class="gh-title">'+title+'</div><div class="gh-sub">'+escapeHtml(sub)+' • '+(L?'끌어서 놓기':'Drop to move')+'</div></div>';
+    dnd.ghost.innerHTML='<div class="gh-ico">'+icon+'</div><div class="gh-info"><div class="gh-title">'+title+'</div><div class="gh-sub">'+escapeHtml(sub)+' • '+(dnd.locked?(L?'🔒 놓으면 편집 켜기를 물어봐요':'🔒 Drop to unlock & move'):(L?'끌어서 놓기':'Drop to move'))+'</div></div>';
     document.body.appendChild(dnd.ghost);
     // [기능2] 비어있는 '수업 가능' 셀들을 녹색 점선으로 강조
     // ⚠️ 선택자를 .mini-cal 에 묶지 말 것 — 레이아웃이 바뀌면 표시가 조용히 사라진다
@@ -2086,12 +2085,16 @@ document.addEventListener('mouseup', function(e){
     srcData:srcData
   });
   dnd.sourceEl=null;dnd.sourceData=null;dnd.lastTarget=null;
-  dnd.active=false;
+  dnd.active=false; dnd.locked=false;
 }, true);
 
 // ═══ 드래그 이동 확인 모달 ═══
 function showMoveConfirm(ctx){
   var L=currentLang==='ko';
+  /* 🔒 «지금 잠겨 있다» 를 모달을 «그릴 때» 붙잡아 둔다 — 「예」가 편집을 켜도 되는 것은
+     사람이 그 문구(«편집 켜고 변경»)를 보고 눌렀을 때뿐이다. 모달을 연 뒤 자동 잠금이
+     걸린 경우까지 조용히 켜면 «잠금» 이 아무것도 안 막게 된다. */
+  ctx.unlockOnYes=!wsEditing();
   var typeLabel={
     'blocked':L?'🚫 수업 불가':'🚫 Blocked',
     '1on1':L?'🟣 1대1 수업':'🟣 1-on-1',
@@ -2131,6 +2134,7 @@ function showMoveConfirm(ctx){
       /* 🔁 (2026-09-11) 반복 수업은 «이 주» 가 아니라 요일 자체가 바뀐다 — 저장이 실제로
          일어나기 시작했으므로 그 사실을 누르기 «전» 에 말해야 한다. 예전에는 아무것도
          저장되지 않아 무해했지만 이제는 매주가 함께 움직인다. */
+      (ctx.unlockOnYes?'<div class="ws-move-locked" style="margin-top:8px;padding:8px 12px;background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;color:#92400e;font-size:12.5px;text-align:center">🔒 '+(L?'편집이 잠겨 있습니다 — 아래 「연기」·「변경」을 누르면 편집을 켜고 저장합니다':'Editing is locked — “Postpone”/“Modify” turns editing on and saves')+'</div>':'')+
       (ctx.srcData.slot.moveField==='day_of_week'?'<div style="margin-top:8px;padding:8px 12px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);border-radius:8px;color:#bfdbfe;font-size:12.5px;text-align:center">🔁 '+(L?'매주 반복 수업입니다 — 모든 주가 함께 바뀝니다':'Weekly class — every week moves together')+'</div>':'')+
       /* 📅/🔄 (2026-10-04 사장님 「연기할지 변경할지 선택하게」) 드래그도 우클릭 모달처럼 두 갈래.
          연기 = 시간만(같은 강사) · 변경 = 시간 또는 강사. 저장은 둘 다 persistSlotMove 한 곳.
@@ -2139,8 +2143,8 @@ function showMoveConfirm(ctx){
     '</div>'+
     '<div class="modal-actions" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'+
       '<button class="modal-btn ghost" onclick="cancelMove()" style="font-size:15px;padding:14px">❌ '+(L?'아니요':'No')+'</button>'+
-      '<button class="modal-btn primary" data-move-mode="postpone" onclick="confirmMoveAs(\'postpone\')"'+(ctx.movedTeacher?' disabled title="'+(L?'연기는 시간만 바꿉니다':'Postpone is time-only')+'"':'')+' style="font-size:15px;padding:14px;background:#3b82f6;border-color:#3b82f6;color:#fff'+(ctx.movedTeacher?';opacity:.4;cursor:not-allowed':'')+'">📅 '+(L?'연기':'Postpone')+'</button>'+
-      '<button class="modal-btn primary" data-move-mode="change" onclick="confirmMoveDo()" style="font-size:15px;padding:14px;background:#10b981;border-color:#10b981;color:#fff">🔄 '+(L?'변경':'Modify')+'</button>'+
+      '<button class="modal-btn primary" data-move-mode="postpone" onclick="confirmMoveAs(\'postpone\')"'+(ctx.movedTeacher?' disabled title="'+(L?'연기는 시간만 바꿉니다':'Postpone is time-only')+'"':'')+' style="font-size:15px;padding:14px;background:#3b82f6;border-color:#3b82f6;color:#fff'+(ctx.movedTeacher?';opacity:.4;cursor:not-allowed':'')+'">'+(ctx.unlockOnYes?'🔒 ':'')+'📅 '+(L?'연기':'Postpone')+'</button>'+
+      '<button class="modal-btn primary" data-move-mode="change" onclick="confirmMoveDo()" style="font-size:15px;padding:14px;background:#10b981;border-color:#10b981;color:#fff">'+(ctx.unlockOnYes?'🔒 ':'')+'🔄 '+(L?'변경':'Modify')+'</button>'+
     '</div></div>';
   window.__moveCtx=ctx;
   openModal(html);
@@ -2288,6 +2292,9 @@ window.confirmMoveDo=async function(){
   var slot=(ctx.srcData&&ctx.srcData.slot)||{};
   closeModal();
   window.__moveCtx=null;
+  /* 🔒 잠긴 채로 끌어 온 경우 — 확인 창이 «예를 누르면 편집을 켠다» 고 말했고 사람이 눌렀다.
+     ⛔ ctx.unlockOnYes 없이 켜지 말 것(그 문구를 안 본 «예» 다 — 저장은 persistSlotMove 가 막는다). */
+  if(ctx.unlockOnYes && !wsEditing()) wsSetEditing(true, {quiet:true});
   showDndToast((L?'💾 저장 중…':'💾 Saving…'),'');
 
   var res=await persistSlotMove(slot, ctx.dstCoords.dateISO, ctx.dstCoords.startMin,
