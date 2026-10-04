@@ -174,6 +174,19 @@ async function stress({ N, rand, pick, MON, DAYS, ORIGIN, plan }) {
   const ctx = await browser.newContext({ viewport: { width: 2600, height: 1200 }, timezoneId: 'Asia/Seoul', locale: 'ko-KR' });
   await ctx.addCookies([{ name: 'mango_admin_session', value: 'tok_admin', url: ORIGIN }]);
   await ctx.addInitScript(() => { try { localStorage.setItem('admin_session', JSON.stringify({ uid: 'admin' })); } catch (e) {} });
+  /* 🔎 진단 기록 — 확인창·저장 경로가 실제로 불렸는지(회차가 실패할 때만 출력) */
+  await ctx.addInitScript(() => {
+    window.__trace = [];
+    const T = (k, x) => { window.__trace.push(Math.round(performance.now()) + ' ' + k + (x ? ' ' + x : '')); if (window.__trace.length > 60) window.__trace.shift(); };
+    window.__T = T;
+    for (const ev of ['mousedown', 'mouseup', 'click']) document.addEventListener(ev, e => T(ev, (e.target && (e.target.id || e.target.className || e.target.tagName) + '').slice(0, 60) + ' @' + e.clientX + ',' + e.clientY), true);
+    const wrapLater = () => {
+      for (const n of ['openModal', 'closeModal', 'showMoveConfirm', 'confirmMoveDo', 'confirmMoveAs', 'cancelMove', 'reloadAndRender']) {
+        const f = window[n]; if (typeof f === 'function' && !f.__w) { const w = function () { T(n); return f.apply(this, arguments); }; w.__w = 1; try { window[n] = w; } catch (e) {} }
+      }
+    };
+    document.addEventListener('DOMContentLoaded', wrapLater); setTimeout(wrapLater, 1500); setTimeout(wrapLater, 4000);
+  });
   const page = await ctx.newPage(); page.setDefaultTimeout(8000);
   const pageErrors = []; page.on('pageerror', e => pageErrors.push(String(e && e.message || e)));
   const patches = []; page.on('request', r => { if (r.url().includes('/api/admin/class-schedules/move')) patches.push(JSON.parse(r.postData() || '{}')); });
@@ -341,7 +354,8 @@ async function stress({ N, rand, pick, MON, DAYS, ORIGIN, plan }) {
       const resp = page.waitForResponse(r => r.url().includes('/api/admin/class-schedules/move'), { timeout: 8000 }).catch(() => null);
       await page.locator('#modal-overlay.show button[data-move-mode="' + act + '"]').click();
       const r = await resp;
-      ok(L + ' 요청 1건', patches.length === before + 1, patches.length - before);
+      const diag = async () => JSON.stringify(await page.evaluate(() => ({ dnd: [...document.querySelectorAll('.dnd-toast')].map(e => e.textContent.slice(0, 160)), modal: (document.querySelector('#modal-overlay.show') || {}).textContent?.slice(0, 300) || null, editing: wsEditing() }))) + ' act=' + act + ' src=' + srcSel + ' dst=' + dstSel + ' locked=' + locked;
+      ok(L + ' 요청 1건', patches.length === before + 1, (patches.length - before) + ' ' + (patches.length === before + 1 ? '' : await diag() + ' TRACE ' + JSON.stringify(await page.evaluate(() => window.__trace.slice(-25)))));
       const body = patches[patches.length - 1] || {};
       ok(L + ' 요청 내용', body.start_time === lab(m) && body.destination_date === day && body.source_date === day
         && (act === 'postpone' ? !('teacher_id' in body) : (tid !== c.tid ? body.teacher_id === tid : !('teacher_id' in body))), JSON.stringify(body));
@@ -371,7 +385,11 @@ async function stress({ N, rand, pick, MON, DAYS, ORIGIN, plan }) {
       }
     }
     await verifyAll(L);
-    } catch (e) { ok(L + ' 회차가 예외 없이 끝남', false, String(e && e.message || e).split('\n')[0]); await recover().catch(() => {}); }
+    } catch (e) {
+      const why = await page.evaluate(() => ({ modal: (document.querySelector('#modal-overlay.show') || {}).innerText?.slice(0, 400) || null, dnd: [...document.querySelectorAll('.dnd-toast')].map(e => e.textContent.slice(0, 160)) })).catch(() => null);
+      ok(L + ' 회차가 예외 없이 끝남', false, String(e && e.message || e).split('\n')[0] + ' ' + JSON.stringify(why));
+      await recover().catch(() => {});
+    }
     if (it % 25 === 0) console.log(`… ${it}/${N}  PASS ${pass} FAIL ${fail}  (${Math.round((Date.now() - t0) / 1000)}s)`);
     if (fail > 40) break;
   }
