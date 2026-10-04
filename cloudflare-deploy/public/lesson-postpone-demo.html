@@ -1030,9 +1030,11 @@ header {
 :root[data-theme]{--text:#16332e;--text-dim:#526761;--text-mute:#526761;--border:#d8e5df;--bg-card:#fff;--bg-soft:#edf4ef;--bg:#f4f8f5;--indigo:#176a53;--indigo-deep:#176a53;--green:#14815c;--amber:#986000;--shadow-card:0 4px 16px #153d2410}
 body,#app,.screen{background:#f4f8f5!important;color:#16332e}
 header{background:#fff!important;border-bottom:1px solid #d8e5df}
-.main-card,.cur-lesson,.cart-box,.teacher-result,.tr-card{background:#fff!important;color:#16332e!important;border:1px solid #cbded3!important;box-shadow:0 4px 16px #153d2410}
+.main-card,.cur-lesson,.cart-box,.teacher-result,.tr-card{background:#fff!important;color:#16332e!important;border:1px solid #cbded3!important;box-shadow:0 4px 16px #153d2410!important}
 .main-card .mc-desc,.main-intro .sub{color:#526761!important;font-size:18px;line-height:1.65}
-.main-card .mc-label{color:#16332e!important;font-size:26px}
+.main-card .mc-label{color:#16332e!important;font-size:26px;text-shadow:none}
+.main-card .mc-cta{color:#176a53;font-size:18px;align-self:flex-start}
+.main-card{text-align:left;backdrop-filter:none;-webkit-backdrop-filter:none}
 .main-card.postpone{border-top:5px solid #14815c!important}
 .main-card.change{border-top:5px solid #3978cf!important}
 .section-label,.header-title{color:#16332e!important;font-size:21px}
@@ -1045,7 +1047,7 @@ header{background:#fff!important;border-bottom:1px solid #d8e5df}
 #confirm-btn{min-height:52px;font-size:18px}
 #detail-body{padding-bottom:130px}
 button:focus-visible{outline:3px solid #236ccd;outline-offset:3px}
-@media(min-width:1024px){#app{max-width:1360px}.detail-body{gap:30px!important}.lp-col-left{padding:24px}.lp-col-right{padding:24px}.main-card{min-height:240px}.dt-orig{max-height:420px}}
+@media(min-width:1024px){.main-stage{display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:24px;padding:40px}.main-intro{grid-column:1/-1;margin-bottom:16px}.main-card{height:330px}#app{max-width:1360px}.detail-body{gap:30px!important}.lp-col-left{padding:24px}.lp-col-right{padding:24px}.main-card{min-height:240px}.dt-orig{max-height:420px}}
 @media(max-width:600px){.lp-col-left,.lp-col-right{width:100%!important;padding:12px}.dt-orig{max-height:240px}.main-card .mc-label{font-size:23px}.main-card .mc-desc{font-size:17px}.cart-box ol{max-height:260px}}
 
 </style>

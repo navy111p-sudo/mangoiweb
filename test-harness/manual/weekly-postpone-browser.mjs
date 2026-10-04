@@ -37,8 +37,9 @@ for(const width of [390,1360]){
   assert.match(await page.locator('#detail-body').innerText(),/연기 전 → 연기 후 · 3회/);checks++;
   assert.equal(await page.locator('#segment').isVisible(),false);checks++;
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);assert.equal(overflow,false);checks++;
+  await page.locator('#confirm-btn').click({trial:true});
   if(round===0)await page.screenshot({path:out+'/postpone-'+width+'.jpg',type:'jpeg',quality:70});
-  await page.evaluate(()=>{onConfirm();onConfirm();});
+  await page.locator('#confirm-btn').dblclick();
   await page.waitForFunction(()=>!state.saving);
   assert.equal(posts.length,1);assert.equal(posts[0].request_scope,'weekly_postpone');assert.equal(posts[0].request_type,'postpone');checks+=3;
   assert.match(await page.locator('#done-title').innerText(),fail?/저장되지/:/요청을 보냈/);checks++;
