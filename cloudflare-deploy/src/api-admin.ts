@@ -1,3 +1,4 @@
+import { WEEKLY_POSTPONE, prepareWeeklyPostpone } from './weekly-postpone';
 import { counselingRecipient, sendCounselingSms } from './counseling-send';
 // ═══════════════════════════════════════════════════════════════════════
 // 🛡️ api-admin.ts — 관리자 도메인 API (api-mango.ts 에서 분리)
@@ -3221,6 +3222,11 @@ export async function handleAdminApi(
           }
           if (_swapBlock) {
             return json({ ok: false, error: 'teacher_not_changed', applied: 'teacher_not_changed', message: _swapBlock.ko, message_en: _swapBlock.en }, 409);
+          } else if (row.request_scope === WEEKLY_POSTPONE) {
+            const weekly = await prepareWeeklyPostpone(env, row, cs, now);
+            if (!weekly.ok) return json({ ok: false, error: weekly.error, message: '연기할 전체 일정이 달라졌거나 가능한 시간이 아닙니다. 최신 시간표를 확인해 주세요.' }, 409);
+            mutations.push(...weekly.mutations);
+            applied = 'moved';
           } else if (isDated && row.new_date && row.new_time) {
             // ⛔ (2026-08-04) 옮기기 전에 «그 자리가 비어 있는지» 확인한다.
             //   여기엔 겹침 검사가 없어서, 강사 요청을 승인하면 다른 수업과 겹쳐도 그대로 옮겨졌다.
@@ -3288,7 +3294,7 @@ export async function handleAdminApi(
       //   충돌·저장 실패는 위에서 돌아가므로 성공한 결정만 이력에 남는다.
       if (action === 'approved' && applied && applied !== 'conflict' && applied !== 'teacher_not_changed') {
         await writeClassAudit(env, {
-          action: applied === 'moved' ? 'reschedule' : 'postpone',
+          action: row.request_type === 'change' ? 'reschedule' : 'postpone',
           schedule_id: row.schedule_id,
           teacher_name: row.teacher_name || null,
           student_name: row.student_name || null,
@@ -16619,4 +16625,5 @@ LIMIT $limit`;
 
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
 }
+
 
