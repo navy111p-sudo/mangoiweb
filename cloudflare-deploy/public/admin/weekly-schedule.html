@@ -2112,7 +2112,7 @@ function showMoveConfirm(ctx){
 
   var html='<div class="modal" style="max-width:480px;width:calc(100% - 32px)">'+
     '<div class="modal-head"><div class="modal-title">'+
-    '<span style="font-size:24px">⚠️</span> <span>'+(L?'정말 수업을 변경하실건가요?':'Really move this class?')+'</span>'+
+    '<span style="font-size:24px">⚠️</span> <span>'+(L?'연기할까요, 변경할까요?':'Postpone or modify this class?')+'</span>'+
     '</div></div>'+
     '<div class="modal-body">'+
       '<div style="text-align:center;font-size:13.5px;color:var(--tx2);margin-bottom:16px">'+
@@ -2134,16 +2134,38 @@ function showMoveConfirm(ctx){
       /* 🔁 (2026-09-11) 반복 수업은 «이 주» 가 아니라 요일 자체가 바뀐다 — 저장이 실제로
          일어나기 시작했으므로 그 사실을 누르기 «전» 에 말해야 한다. 예전에는 아무것도
          저장되지 않아 무해했지만 이제는 매주가 함께 움직인다. */
-      (ctx.unlockOnYes?'<div class="ws-move-locked" style="margin-top:8px;padding:8px 12px;background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;color:#92400e;font-size:12.5px;text-align:center">🔒 '+(L?'편집이 잠겨 있습니다 — 「예」를 누르면 편집을 켜고 저장합니다':'Editing is locked — “Yes” turns editing on and saves')+'</div>':'')+
+      (ctx.unlockOnYes?'<div class="ws-move-locked" style="margin-top:8px;padding:8px 12px;background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;color:#92400e;font-size:12.5px;text-align:center">🔒 '+(L?'편집이 잠겨 있습니다 — 아래 「연기」·「변경」을 누르면 편집을 켜고 저장합니다':'Editing is locked — “Postpone”/“Modify” turns editing on and saves')+'</div>':'')+
       (ctx.srcData.slot.moveField==='day_of_week'?'<div style="margin-top:8px;padding:8px 12px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);border-radius:8px;color:#bfdbfe;font-size:12.5px;text-align:center">🔁 '+(L?'매주 반복 수업입니다 — 모든 주가 함께 바뀝니다':'Weekly class — every week moves together')+'</div>':'')+
+      /* 📅/🔄 (2026-10-04 사장님 「연기할지 변경할지 선택하게」) 드래그도 우클릭 모달처럼 두 갈래.
+         연기 = 시간만(같은 강사) · 변경 = 시간 또는 강사. 저장은 둘 다 persistSlotMove 한 곳.
+         ⛔ 「변경」 버튼의 onclick="confirmMoveDo()" 는 그대로 둔다 — 브라우저 하니스가 그 모양으로 누른다. */
+      (ctx.movedTeacher?'<div style="margin-top:8px;padding:8px 12px;background:rgba(148,163,184,.12);border:1px solid rgba(148,163,184,.3);border-radius:8px;color:var(--tx2);font-size:12px;text-align:center">📅 '+(L?'다른 강사 줄로 옮겼으므로 «연기» 는 쓸 수 없습니다 (연기는 시간만 바꿉니다)':'Moved to another teacher — «Postpone» is time-only, so use «Modify»')+'</div>':'')+
     '</div>'+
-    '<div class="modal-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+    '<div class="modal-actions" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'+
       '<button class="modal-btn ghost" onclick="cancelMove()" style="font-size:15px;padding:14px">❌ '+(L?'아니요':'No')+'</button>'+
-      '<button class="modal-btn primary" onclick="confirmMoveDo()" style="font-size:15px;padding:14px;background:#10b981;border-color:#10b981;color:#fff">✅ '+(ctx.unlockOnYes?(L?'예, 편집 켜고 변경':'Yes, unlock & move'):(L?'예, 변경':'Yes, Move'))+'</button>'+
+      '<button class="modal-btn primary" data-move-mode="postpone" onclick="confirmMoveAs(\'postpone\')"'+(ctx.movedTeacher?' disabled title="'+(L?'연기는 시간만 바꿉니다':'Postpone is time-only')+'"':'')+' style="font-size:15px;padding:14px;background:#3b82f6;border-color:#3b82f6;color:#fff'+(ctx.movedTeacher?';opacity:.4;cursor:not-allowed':'')+'">'+(ctx.unlockOnYes?'🔒 ':'')+'📅 '+(L?'연기':'Postpone')+'</button>'+
+      '<button class="modal-btn primary" data-move-mode="change" onclick="confirmMoveDo()" style="font-size:15px;padding:14px;background:#10b981;border-color:#10b981;color:#fff">'+(ctx.unlockOnYes?'🔒 ':'')+'🔄 '+(L?'변경':'Modify')+'</button>'+
     '</div></div>';
   window.__moveCtx=ctx;
   openModal(html);
 }
+/* 📅 드래그 «연기» — 같은 강사 줄 안에서 시간만. 30분 전 컷오프(매니저는 무시)는
+   우클릭 「수업 연기」와 같은 canPostpone 을 그대로 쓴다(판정 복제 금지). */
+window.confirmMoveAs=function(mode){
+  var ctx=window.__moveCtx;
+  if(!ctx){closeModal();return;}
+  if(mode==='postpone'){
+    if(ctx.movedTeacher)return;   // 버튼이 막혀 있지만 한 겹 더
+    var sc=ctx.srcCoords;
+    if(!canPostpone(sc.dateISO, sc.hour, sc.minute||0)){
+      closeModal(); window.__moveCtx=null;
+      setTimeout(function(){ showRejectModal('postpone', sc.dateISO, sc.hour, sc.minute||0); }, 150);
+      return;
+    }
+  }
+  ctx.mode=(mode==='postpone')?'postpone':'change';
+  return window.confirmMoveDo();
+};
 window.cancelMove=function(){
   closeModal();
   var L=currentLang==='ko';
@@ -2280,7 +2302,7 @@ window.confirmMoveDo=async function(){
                                 { dateISO: ctx.srcCoords.dateISO,
                                   startMin: ctx.srcCoords.hour*60+(ctx.srcCoords.minute||0),
                                   teacherId: ctx.movedTeacher ? ctx.srcTeacher.id : null },
-                                { what: ctx.dstCoords.dateISO+' '+minLabel(ctx.dstCoords.startMin) });
+                                { what: (ctx.mode==='postpone'?(L?'📅 연기: ':'📅 Postponed: '):'')+ctx.dstCoords.dateISO+' '+minLabel(ctx.dstCoords.startMin) });
   if(!res.ok){
     showDndToast(slotMoveFailMsg(res,L),'bad');
     /* ❌ 응답을 잃었을 수도 있으므로 화면을 손으로 옮기지 않고 서버에서 다시 읽는다 —
@@ -2294,7 +2316,9 @@ window.confirmMoveDo=async function(){
   delete SLOTS[slotKey(ctx.srcTeacher.id,ctx.srcCoords.dateISO,ctx.srcCoords.hour*60+(ctx.srcCoords.minute||0))];
   addSlot(ctx.dstTeacher.id,ctx.dstCoords.dateISO,ctx.dstCoords.hour,slot,ctx.dstCoords.minute||0);
   try{await reloadAndRender();}catch(e){showDndToast(L?'저장했지만 화면을 다시 읽지 못했습니다. 새로고침해 주세요.':'Saved, but refresh failed. Please reload.','bad');return;}
-  var msg=L
+  var msg=(ctx.mode==='postpone')
+    ? ('✅ 📅 '+(L?('연기됨: '+ctx.dstCoords.dateISO+' '+minLabel(ctx.dstCoords.startMin)):('Postponed to '+ctx.dstCoords.dateISO+' '+minLabel(ctx.dstCoords.startMin))))
+    : L
     ? ('✅ '+(ctx.movedTeacher?'<b>'+escapeHtml(ctx.srcNm)+'</b> → <b>'+escapeHtml(ctx.dstNm)+'</b><br>':'')+'시간이 '+ctx.dstCoords.dateISO+' '+minLabel(ctx.dstCoords.startMin)+' 으로 이동됨')
     : ('✅ '+(ctx.movedTeacher?'<b>'+escapeHtml(ctx.srcNm)+'</b> → <b>'+escapeHtml(ctx.dstNm)+'</b><br>':'')+'Moved to '+ctx.dstCoords.dateISO+' '+minLabel(ctx.dstCoords.startMin));
   showDndToast(msg,'ok');

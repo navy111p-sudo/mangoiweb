@@ -837,9 +837,9 @@ sec('⑫ 드래그 자체가 안 끌리는가 — 잠금 판정을 «실제로 �
       };
       const a = mk(true), b = mk(false);
       ok(!a.err && a.ctx.unlockOnYes === true, '잠긴 채 열었는데 ctx.unlockOnYes 가 없다 ' + (a.err || ''));
-      ok(!a.err && /편집 켜고 변경/.test(a.opened) && /🔒/.test(a.opened), '잠긴 채 열었는데 «편집 켜고 변경» 을 말하지 않는다');
+      ok(!a.err && /편집을 켜고 저장/.test(a.opened) && /🔒/.test(a.opened), '잠긴 채 열었는데 «편집을 켜고 저장» 을 말하지 않는다');
       ok(!b.err && b.ctx.unlockOnYes === false, '편집 중인데 unlockOnYes 를 붙였다 ' + (b.err || ''));
-      ok(!b.err && !/편집 켜고 변경/.test(b.opened), '편집 중인데 잠금 문구를 띄웠다');
+      ok(!b.err && !/편집을 켜고 저장/.test(b.opened) && !/🔒/.test(b.opened), '편집 중인데 잠금 문구를 띄웠다');
     }
   }
 
