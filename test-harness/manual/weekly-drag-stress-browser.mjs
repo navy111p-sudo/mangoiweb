@@ -181,18 +181,30 @@ async function stress({ N, rand, pick, MON, DAYS, ORIGIN, plan }) {
     window.__T = T;
     for (const ev of ['mousedown', 'mouseup', 'click']) document.addEventListener(ev, e => T(ev, (e.target && (e.target.id || e.target.className || e.target.tagName) + '').slice(0, 60) + ' @' + e.clientX + ',' + e.clientY), true);
     const wrapLater = () => {
-      for (const n of ['openModal', 'closeModal', 'showMoveConfirm', 'confirmMoveDo', 'confirmMoveAs', 'cancelMove', 'reloadAndRender']) {
+      for (const n of ['openModal', 'closeModal', 'showMoveConfirm', 'confirmMoveDo', 'confirmMoveAs', 'cancelMove']) {
         const f = window[n]; if (typeof f === 'function' && !f.__w) { const w = function () { T(n); return f.apply(this, arguments); }; w.__w = 1; try { window[n] = w; } catch (e) {} }
+      }
+      const rr = window.reloadAndRender;
+      if (typeof rr === 'function' && !rr.__w) {
+        const w = async function () { window.__rrStart = (window.__rrStart || 0) + 1; T('reload+'); try { return await rr.apply(this, arguments); } finally { window.__rrEnd = (window.__rrEnd || 0) + 1; T('reload-'); } };
+        w.__w = 1; try { window.reloadAndRender = w; } catch (e) {}
       }
     };
     document.addEventListener('DOMContentLoaded', wrapLater); setTimeout(wrapLater, 1500); setTimeout(wrapLater, 4000);
   });
   const page = await ctx.newPage(); page.setDefaultTimeout(8000);
   const pageErrors = []; page.on('pageerror', e => pageErrors.push(String(e && e.message || e)));
+  /* ⏳ «끝났다» 의 기준 — 진행 중인 /api 요청이 0 이고 화면의 reloadAndRender 가 다 끝났을 때.
+     ⛔ waitForLoadState('networkidle') 는 쓰지 말 것 — 페이지가 한 번 idle 에 닿은 뒤에는 «즉시»
+        돌아와서(새 idle 을 기다리지 않음) 저장 뒤 재읽기 «도중» 에 화면을 재게 된다(실측: 화면 칸만 옛 자리). */
+  let inflight = 0;
+  page.on('request', r => { if (r.url().includes('/api/')) inflight++; });
+  const done = r => { if (r.url().includes('/api/')) inflight = Math.max(0, inflight - 1); };
+  page.on('requestfinished', done); page.on('requestfailed', done);
   const patches = []; page.on('request', r => { if (r.url().includes('/api/admin/class-schedules/move')) patches.push(JSON.parse(r.postData() || '{}')); });
 
   let pass = 0, fail = 0; const fails = []; const tally = {};
-  const ok = (name, cond, detail) => { if (cond) pass++; else { fail++; if (fails.length < 60) fails.push(name + (detail ? ' :: ' + String(detail).slice(0, 500) : '')); } };
+  const ok = (name, cond, detail) => { if (cond) pass++; else { fail++; if (fails.length < 60) fails.push(name + (detail ? ' :: ' + String(detail).slice(0, 6000) : '')); } };
   const bump = k => { tally[k] = (tally[k] || 0) + 1; };
   const getJ = async (path, headers = {}) => { const r = await fetch(ORIGIN + path, { headers }); return { status: r.status, body: await r.json().catch(() => ({})) }; };
   const tokens = {};
@@ -230,9 +242,17 @@ async function stress({ N, rand, pick, MON, DAYS, ORIGIN, plan }) {
     await page.waitForFunction(d => !!document.querySelector('td.slot[data-date="' + d + '"]'), date, { timeout: 8000 });
   }
   const cellSel = (tid, date, m) => `td.slot[data-tid="${tid}"][data-date="${date}"][data-hour="${Math.floor(m / 60)}"][data-min="${m % 60}"]`;
+  /* 화면이 재읽기로 칸을 «갈아 끼우는» 도중이면 그 칸을 다시 찾는다 — 사람은 보이는 칸을 끈다. */
+  async function boxOf(sel) {
+    for (let i = 0; i < 20; i++) {
+      try { await page.locator(sel).scrollIntoViewIfNeeded({ timeout: 1500 }); const b = await page.locator(sel).boundingBox({ timeout: 1500 }); if (b) return b; }
+      catch (e) { if (!/not attached|Timeout/.test(String(e && e.message))) throw e; }
+      await page.waitForTimeout(50);
+    }
+    return null;
+  }
   async function drag(srcSel, dstSel) {
-    await page.locator(srcSel).scrollIntoViewIfNeeded();
-    const a = await page.locator(srcSel).boundingBox(), b = await page.locator(dstSel).boundingBox();
+    const a = await boxOf(srcSel), b = await boxOf(dstSel);
     if (!a || !b) return false;
     await page.mouse.move(a.x + Math.min(8, a.width / 2), a.y + a.height / 2);
     await page.mouse.down();
@@ -240,10 +260,15 @@ async function stress({ N, rand, pick, MON, DAYS, ORIGIN, plan }) {
     await page.mouse.up();
     return true;
   }
-  async function settle(prevPatches) {
-    // 응답·재읽기가 끝날 때까지 — 저장 중 토스트가 사라지고 성공/실패 토스트가 뜰 때까지
-    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
-    await page.waitForTimeout(150);
+  async function settle() {
+    const end = Date.now() + 15000; let quietSince = 0;
+    while (Date.now() < end) {
+      const busy = inflight > 0 || await page.evaluate(() => (window.__rrStart || 0) !== (window.__rrEnd || 0)).catch(() => true);
+      if (busy) quietSince = 0; else if (!quietSince) quietSince = Date.now(); else if (Date.now() - quietSince > 250) return true;
+      await page.waitForTimeout(40);
+    }
+    ok('저장 뒤 화면 재읽기가 15초 안에 끝남', false);
+    return false;
   }
 
   async function verifyAll(label) {
@@ -321,6 +346,9 @@ async function stress({ N, rand, pick, MON, DAYS, ORIGIN, plan }) {
     const busyCell = await page.locator(dstSel).evaluate(td => !!td.dataset.slot);
     const locked = rand() < 0.25;
     await page.evaluate(l => { wsSetEditing(!l, { quiet: true }); }, locked);
+    /* ⚡ 15% 는 «빠른 사람» — 앞 저장의 재읽기가 끝나기 «전» 에 바로 끈다(재읽기 중 드래그가 안전한가). */
+    const fast = rand() < 0.15;
+    if (fast) bump('fast'); else await settle();
     const action = pick(['postpone', 'change', 'change', 'cancel']);
     const before = patches.length;
     const okDrag = await drag(srcSel, dstSel);
@@ -392,6 +420,46 @@ async function stress({ N, rand, pick, MON, DAYS, ORIGIN, plan }) {
     }
     if (it % 25 === 0) console.log(`… ${it}/${N}  PASS ${pass} FAIL ${fail}  (${Math.round((Date.now() - t0) / 1000)}s)`);
     if (fail > 40) break;
+  }
+  /* ⚡⚡ 빠른 연속 드래그 — 저장 응답이 오자마자(화면 재읽기 «도중») 다음 수업을 끈다.
+     사람이 연달아 옮길 때 «확인창이 먹통» 이 되거나 엉뚱한 자리에 저장되면 안 된다. */
+  const RAPID = Number(process.env.WDS_RAPID || 40);
+  for (let k = 1; k <= RAPID && fail <= 40; k++) {
+    const L = '⚡' + k;
+    try {
+      await settle();
+      const day = pick(DAYS.filter(d => model.filter(c => onDate(c, d)).length >= 2));
+      await showDay(day); await settle();
+      const pair = []; const here = model.filter(c => onDate(c, day));
+      while (pair.length < 2) { const c = pick(here); if (!pair.includes(c) && !pair.some(p => groupOf(p).includes(c))) pair.push(c); }
+      for (const c of pair) {
+        // 겹치지 않는 빈 자리를 고른다(이 단계는 «거절» 이 아니라 «먹통·오저장» 을 본다)
+        let tid, m, tries = 0;
+        do { tid = pick(['1', '2', '3']); m = 9 * 60 + 10 * Math.floor(rand() * 72); tries++; }
+        while (tries < 200 && ((tid === c.tid && m === toMin(c.time)) || expectConflict(c, day, m, tid) || model.some(o => o.tid === tid && onDate(o, day) && overlaps(m, m + 20, toMin(o.time), toMin(o.time) + 20))));
+        const srcSel = cellSel(c.tid, day, toMin(c.time)), dstSel = cellSel(tid, day, m);
+        await page.locator(srcSel).waitFor({ timeout: 4000 });
+        const before = patches.length;
+        await drag(srcSel, dstSel);
+        await page.locator('#modal-overlay.show').waitFor({ timeout: 4000 });
+        const resp = page.waitForResponse(r => r.url().includes('/api/admin/class-schedules/move'), { timeout: 6000 }).catch(() => null);
+        await page.locator('#modal-overlay.show button[data-move-mode="change"]').click();
+        const r = await resp;
+        const sent = patches.length === before + 1;
+        ok(L + ' 빠른 연속: 「변경」이 요청을 보냄(먹통 아님)', sent, sent ? '' : JSON.stringify(await page.evaluate(() => ({ modal: !!document.querySelector('#modal-overlay.show'), trace: window.__trace.slice(-30) }))));
+        const st = r ? r.status() : 0;
+        if (st === 200) { for (const g of groupOf(c)) { g.time = lab(m); g.tid = tid; } }
+        else ok(L + ' 빠른 연속: 빈 자리라 저장 성공', false, st);
+        bump('rapid');
+        // ⛔ 여기서 settle 하지 않는다 — 다음 끌기가 재읽기 «도중» 에 일어나게
+      }
+      await settle();
+      await verifyAll(L);
+    } catch (e) {
+      const why = await page.evaluate(() => ({ modal: !!document.querySelector('#modal-overlay.show'), trace: (window.__trace || []).slice(-30) })).catch(() => null);
+      ok(L + ' 회차가 예외 없이 끝남', false, String(e && e.message || e).split('\n')[0] + ' ' + JSON.stringify(why));
+      await recover().catch(() => {});
+    }
   }
   console.log('\n분포:', JSON.stringify(tally));
   for (const f of fails) console.log('❌ ' + f);
