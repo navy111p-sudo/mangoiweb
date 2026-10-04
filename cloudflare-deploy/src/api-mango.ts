@@ -1,3 +1,4 @@
+import { WEEKLY_POSTPONE, readWeeklyPostponePlan } from './weekly-postpone';
 import { requireRoomJwtSecret } from './room-jwt-secret';
 import { ensureStudentEvaluationDetailSchema, readStudentAdminEvaluations } from './evaluation-records';
 import { ensureEvaluationScoreSchema, validEvaluationScores } from './evaluation-scores';
@@ -2442,6 +2443,18 @@ export async function handleMangoApi(
       });
     }
 
+    if (method === 'GET' && path === '/api/class/schedule/weekly-postpone') {
+      const uid = await authUidGlobal(request, url, env);
+      if (!uid) return json({ ok: false, error: 'login_required' }, 401);
+      const sid = Number(url.searchParams.get('schedule_id'));
+      if (!Number.isInteger(sid) || sid <= 0) return json({ ok: false, error: 'bad_params' }, 400);
+      const anchor: any = await env.DB.prepare('SELECT * FROM class_schedules WHERE id = ?').bind(sid).first();
+      if (!anchor || String(anchor.user_id) !== uid) return json({ ok: false, error: 'schedule_not_found' }, 404);
+      const plan = await readWeeklyPostponePlan(env, anchor);
+      if (!plan.ok) return json({ ok: false, error: plan.error }, 409);
+      return json({ ok: true, items: plan.items, snapshot: plan.snapshot, count: plan.items.length });
+    }
+
     if (method === 'POST' && path === '/api/class/schedule/request') {
       const body: any = await request.json().catch(() => ({}));
       let tokUid: string | null = null;
@@ -2516,13 +2529,25 @@ export async function handleMangoApi(
         const startKst = Date.parse(`${origDate}T${origTime}:00+09:00`);
         if (!isNaN(startKst)) { minutesBefore = Math.round((startKst - nowMs) / 60000); feeType = minutesBefore > 30 ? 'free' : 'paid'; }
       }
+      let seriesSnapshot: string | null = null;
+      const requestScope = body.request_scope == null ? null : String(body.request_scope);
+      if (requestScope && requestScope !== WEEKLY_POSTPONE) return json({ ok: false, error: 'invalid_request_scope' }, 400);
+      if (requestScope === WEEKLY_POSTPONE) {
+        if (reqType !== 'postpone' || newTeacherId) return json({ ok: false, error: 'invalid_weekly_postpone' }, 400);
+        const series = await readWeeklyPostponePlan(env, cs);
+        if (!series.ok) return json({ ok: false, error: series.error }, 409);
+        const target = series.items.find(it => String(it.id) === String(cs.id));
+        if (!target || target.to_date !== newDate || target.to_time !== newTime) return json({ ok: false, error: 'invalid_weekly_postpone' }, 400);
+        if (body.expected_series_snapshot !== series.snapshot) return json({ ok: false, error: 'series_changed' }, 409);
+        seriesSnapshot = series.snapshot;
+      }
       const studentName = String(cs.student_name || '').trim() || tokUid;
       const reason = [String(body.reason || '').trim().slice(0, 300), wishNote].filter(Boolean).join(' · ') || null;
       const ins: any = await env.DB.prepare(
-        `INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_name, requester_uid, teacher_name, student_name, orig_date, orig_time, new_date, new_time, fee_type, minutes_before, reason, status, created_at, new_teacher_id, schedule_snapshot)
-         SELECT ?,?,'student',?,?,?,?,?,?,?,?,?,?,?,'pending',?,?,?
+        `INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_name, requester_uid, teacher_name, student_name, orig_date, orig_time, new_date, new_time, fee_type, minutes_before, reason, status, created_at, new_teacher_id, schedule_snapshot, request_scope, series_snapshot)
+         SELECT ?,?,'student',?,?,?,?,?,?,?,?,?,?,?,'pending',?,?,?,?,?
           WHERE NOT EXISTS (SELECT 1 FROM schedule_change_requests WHERE schedule_id = ? AND orig_date = ? AND requester_uid = ? AND status = 'pending')`
-      ).bind(cs.id, reqType, studentName, tokUid, teacherName, studentName, origDate, origTime, newDate, newTime, feeType, minutesBefore, reason, nowMs, newTeacherId, scheduleMoveVersion(cs), cs.id, origDate, tokUid).run();
+      ).bind(cs.id, reqType, studentName, tokUid, teacherName, studentName, origDate, origTime, newDate, newTime, feeType, minutesBefore, reason, nowMs, newTeacherId, scheduleMoveVersion(cs), requestScope, seriesSnapshot, cs.id, origDate, tokUid).run();
       // One SQLite statement arbitrates concurrent submissions, including legacy duplicates.
       if (!ins?.success || ins?.meta?.changes !== 1) {
         if (ins?.success && ins?.meta?.changes === 0) return json({ ok: false, error: 'already_pending' }, 409);
@@ -5735,4 +5760,5 @@ ${numbered}`;
     return json({ ok: false, error: e?.message || 'mango_api_unhandled' }, 500);
   }
 }
+
 

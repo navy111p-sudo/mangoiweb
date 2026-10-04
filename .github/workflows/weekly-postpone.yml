@@ -1,0 +1,38 @@
+name: Lesson schedule regression
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-deploy/src/**'
+      - 'cloudflare-deploy/public/lesson-postpone-demo.html'
+      - 'test-harness/weekly_postpone_*'
+      - 'test-harness/manual/weekly-postpone-browser.mjs'
+      - '.github/workflows/weekly-postpone.yml'
+permissions:
+  contents: read
+jobs:
+  schedule-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 600 transaction scenarios
+        run: node test-harness/weekly_postpone_atomic_harness.mjs
+      - name: 200 postponement and 200 change request workflows
+        run: node test-harness/weekly_postpone_routes_harness.mjs
+      - name: Install browser tools outside checkout
+        run: |
+          npm install --prefix "$RUNNER_TEMP/lesson-browser" --ignore-scripts --package-lock=false --no-audit --no-fund playwright@1.56.1
+          node "$RUNNER_TEMP/lesson-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: PC and mobile browser checks
+        env:
+          PW_DIR: ${{ runner.temp }}/lesson-browser
+          BROWSER_OUTPUT: ${{ runner.temp }}/lesson-browser-results
+        run: node test-harness/manual/weekly-postpone-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lesson-browser-results
+          path: ${{ runner.temp }}/lesson-browser-results

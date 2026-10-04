@@ -38,8 +38,8 @@
       }
       const H = isEn
         ? { at:'Requested at', teacher:'Teacher', type:'Type', student:'Student', orig:'Original class', want:'Requested change', reason:'Reason', status:'Status', act:'Actions', approve:'✅ Approve', reject:'❌ Reject', postpone:'⏸ Postpone', change:'🔀 Move', pending:'⏳ Pending', approved:'✅ Approved', rejected:'❌ Rejected', hold:'(hold — pick later)' }
-        : { at:'요청 시각', teacher:'강사', type:'유형', student:'학생', orig:'원래 수업 일시', want:'희망 변경 일시', reason:'사유', status:'상태', act:'처리', approve:'✅ 승인', reject:'❌ 거절', postpone:'⏸ 연기', change:'🔀 변경', pending:'⏳ 대기', approved:'✅ 승인됨', rejected:'❌ 거절됨', hold:'(보류 — 추후 협의)' };
-      box.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
+        : { at:'요청 시각', teacher:'강사', type:'유형', student:'학생', orig:'원래 수업 일시', want:'희망 일시', reason:'사유', status:'상태', act:'처리', approve:'✅ 승인', reject:'❌ 거절', postpone:'⏸ 연기', change:'🔀 변경', pending:'⏳ 대기', approved:'✅ 승인됨', rejected:'❌ 거절됨', hold:'(보류 — 추후 협의)' };
+      const renderTable = (rows) => `<table style="width:100%;border-collapse:collapse;font-size:16px;background:#fff;border-radius:8px;overflow:hidden">
         <thead style="background:linear-gradient(135deg,#fef3c7,#fde68a)"><tr>
           <th style="text-align:left;padding:10px 12px;color:#78350f">${H.at}</th>
           <th style="text-align:left;padding:10px 12px;color:#78350f">${H.teacher}</th>
@@ -69,6 +69,7 @@
             : r.status === 'rejected'
             ? `<span style="color:#ef4444;font-weight:700">${H.rejected}</span><br><span style="font-size:10px;color:#9ca3af">${fmtTs(r.decided_at)}<br>${esc(r.decided_by||'')}</span>`
             : `<span style="color:#d97706;font-weight:800">${H.pending}</span>`;
+          let weekly = []; try { weekly = r.request_scope === 'weekly_postpone' ? JSON.parse(r.series_snapshot || '[]') : []; } catch(e) {}
           const want = r.new_date
             ? `<b style="color:#1e40af">${esc(r.new_date)} ${esc(r.new_time||'')}</b>`
             : `<span style="color:#9ca3af">${H.hold}</span>`;
@@ -82,12 +83,18 @@
             <td style="padding:9px 12px;text-align:center">${typ}</td>
             <td style="padding:9px 12px">${esc(r.student_name||'-')}</td>
             <td style="padding:9px 12px;white-space:nowrap"><b>${esc(r.orig_date||'-')}</b> ${esc(r.orig_time||'')}</td>
-            <td style="padding:9px 12px;white-space:nowrap">${want}</td>
+            <td style="padding:9px 12px;white-space:nowrap">${want}${weekly.length ? '<details><summary>'+ (isEn?'Weekly postponement':'매주 연기')+' · '+weekly.length+'</summary>'+weekly.map(it => esc(it.from_date)+' → '+esc(it.to_date)+' '+esc(it.to_time)).join('<br>')+'</details>' : ''}</td>
             <td style="padding:9px 12px;max-width:200px;color:#4b5563">${esc(r.reason||'-')}</td>
             <td style="padding:9px 12px;text-align:center">${st}</td>
             <td style="padding:8px 10px;text-align:center;white-space:nowrap">${act}</td>
           </tr>`;}).join('')}</tbody>
       </table>`;
+      box.innerHTML = ['postpone','change','cancel'].map(type => {
+        const selected = rows.filter(r => r.request_type === type);
+        if (type === 'cancel' && !selected.length) return '';
+        const title = type === 'postpone' ? (isEn?'Postponement requests':'수업 연기 요청') : type === 'change' ? (isEn?'Change requests':'수업 변경 요청') : (isEn?'Cancellation requests':'취소 요청');
+        return '<section style="border:1px solid #d1ded7;border-radius:14px;margin:16px 0;padding:16px;background:#fff"><h3 style="font-size:22px">'+title+' · '+selected.length+'</h3><div style="overflow-x:auto">'+(selected.length ? renderTable(selected) : (isEn?'No requests.':'요청이 없습니다.'))+'</div></section>';
+      }).join('');
     } catch(e) {
       box.innerHTML = `<div style="padding:20px;color:#ef4444">${isEn?'Failed: ':'로드 실패: '}${esc(e.message)}</div>`;
     }
@@ -147,3 +154,4 @@
     if (card && card.open) srqLoad();
   });
 })();
+
