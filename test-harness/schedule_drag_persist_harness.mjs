@@ -234,6 +234,7 @@ async function run(opts) {
     srcNm: '중국어 강선생님', dstNm: 'MAIMAI',
     movedTeacher: o.movedTeacher,
     srcData: { slot: o.slot },
+    unlockOnYes: !!o.unlockOnYes,
   };
   await sandbox.window.confirmMoveDo();
   /* ⚠️ 숫자를 «그때 값» 으로 담으면 되돌리기를 누른 뒤를 못 잰다 — 살아 있는 게터로 준다. */
@@ -535,6 +536,12 @@ sec('⑩ 편집 잠금 — 잠기면 저장하지 않는가 / 켜면 저장하�
   const open = await run({});   // 기본은 편집 켬
   ok(open.calls.length === 1, '편집을 켰는데 저장이 안 나간다 — 잠금이 «전부 막기» 가 됐다');
 
+  /* 🔓 (2026-10-04) 잠긴 채로 끌어 와 모달이 «예, 편집 켜고 변경» 을 보였고 사람이 눌렀다 —
+     그때만 편집을 켜고 저장한다. 짝: 위 locked(문구를 안 본 «예»)는 여전히 막힌다. */
+  const unl = await run({ locked: true, unlockOnYes: true });
+  ok(unl.calls.length === 1, '«편집 켜고 변경» 을 눌렀는데 저장이 안 나간다 — 잠긴 채 끌면 영영 못 옮긴다');
+  ok(unl.sandbox.wsEditing() === true, '«편집 켜고 변경» 을 눌렀는데 편집이 안 켜졌다');
+
   /* 세 입구 모두 같은 저장 함수를 쓰므로 잠금도 한 곳에서 걸린다 — 실제로 돌려 확인한다. */
   for (const [name, src] of [['rscConfirm', RSC_SRC], ['confirmMove', CMOVE_SRC]]) {
     const bare = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
@@ -791,14 +798,49 @@ sec('⑫ 드래그 자체가 안 끌리는가 — 잠금 판정을 «실제로 �
   }
 
   if (MM_SRC) {
+    /* 🔓 (2026-10-04 사장님 「드레그 해서도 문제없이」) 잠겨 있어도 끌기는 된다 — 대신
+       «잠긴 채 끌었다» 를 표시해 두어 놓을 때 확인 창이 «편집 켜고 변경» 을 묻게 한다.
+       ⚠️ 짝: 편집을 켠 채 끌면 그 표시가 «안» 붙는다(붙으면 매번 잠금 문구가 뜬다). */
     const L = await drag(true);
-    ok(L.dnd.active === false, '잠겨 있는데 드래그가 시작됐다');
-    ok(L.dnd.sourceEl === null && L.dnd.moved === true,
-      '잠금으로 막은 뒤 뒷정리를 안 했다 — moved 를 안 세우면 잠금 경고와 상세 모달이 함께 뜬다');
-    ok(L.toasts.some(t => /🔒/.test(t.msg)), '왜 안 끌리는지 말하지 않는다');
+    ok(L.dnd.active === true, '잠긴 채 끌었는데 드래그가 안 된다 — 「눌러도 아무 일도 안 일어난다」 그 상태다');
+    ok(L.dnd.locked === true, '잠긴 채 끌었는데 표시가 없다 — 확인 창이 «편집 켜고 변경» 을 못 묻는다');
+    ok(L.sb.wsEditing() === false, '끌기만 했는데 편집이 켜졌다 — «예» 를 누르기 전에 켜면 잠금이 아무것도 안 막는다');
 
     const O = await drag(false);
     ok(O.dnd.active === true, '편집을 켰는데도 드래그가 안 된다 — 잠금이 «전부 막기» 가 됐다');
+    ok(O.dnd.locked === false, '편집 중인데 «잠긴 채 끌었다» 로 표시했다');
+  }
+
+  /* 확인 창이 «잠긴 채» 열리면 그 사실을 말하고 ctx 에 붙잡아 두는가 (짝: 편집 중이면 안 붙인다) */
+  {
+    const SMC = sliceStmt(html, 'function showMoveConfirm(ctx){');
+    ok(SMC.length > 400, 'showMoveConfirm 을 오려 내지 못했다 (길이 ' + SMC.length + ')');
+    if (SMC) {
+      const mk = (locked) => {
+        const dom = mkDom(), clock = mkClock(), timers = mkTimers();
+        let opened = '';
+        const sb = { window: {}, console, currentLang: 'ko', document: dom.document, Date: clock.Date,
+          setInterval: timers.setInterval, clearInterval: timers.clearInterval,
+          setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
+          requestAnimationFrame: (f) => { f(); return 0; },
+          escapeHtml: (x) => String(x == null ? '' : x), showDndToast: () => {},
+          minLabel: (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'),
+          openModal: (h) => { opened = h; } };
+        vm.createContext(sb);
+        new vm.Script(LOCK_SRC + '\n' + SMC).runInContext(sb);
+        if (!locked) sb.wsSetEditing(true, { quiet: true });
+        const ctx = { srcData: { slot: { type: '1on1', students: [{ uid: 'jeong', name: '정우영' }] } },
+          srcCoords: { dateISO: '2026-10-06', startMin: 1160 }, dstCoords: { dateISO: '2026-10-06', startMin: 1140 },
+          movedTeacher: false, srcNm: 'A', dstNm: 'A' };
+        try { sb.showMoveConfirm(ctx); } catch (e) { return { err: String(e) }; }
+        return { ctx, opened };
+      };
+      const a = mk(true), b = mk(false);
+      ok(!a.err && a.ctx.unlockOnYes === true, '잠긴 채 열었는데 ctx.unlockOnYes 가 없다 ' + (a.err || ''));
+      ok(!a.err && /편집 켜고 변경/.test(a.opened) && /🔒/.test(a.opened), '잠긴 채 열었는데 «편집 켜고 변경» 을 말하지 않는다');
+      ok(!b.err && b.ctx.unlockOnYes === false, '편집 중인데 unlockOnYes 를 붙였다 ' + (b.err || ''));
+      ok(!b.err && !/편집 켜고 변경/.test(b.opened), '편집 중인데 잠금 문구를 띄웠다');
+    }
   }
 
   /* 대기 풀 배정(«수업을 새로 잡는» 길)도 같은 잠금을 받는가 */
