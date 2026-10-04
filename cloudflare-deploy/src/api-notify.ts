@@ -712,19 +712,52 @@ export async function handleNotifyApi(
       await ensurePushTables();
       const ep = (url.searchParams.get('endpoint') || '').trim();
       if (!ep) return json({ ok: false, error: 'no_endpoint' }, 400);
+      // Handover wakeups carry no text. Recheck the queued report at the final
+      // payload claim, even if acknowledgement's best-effort cleanup failed.
+      // Scan a bounded extra page so obsolete rows do not hide valid messages.
       const rs = await env.DB.prepare(
-        `SELECT id, title, body, url, icon, badge, tag, queued_at FROM push_queue WHERE endpoint = ? AND fetched_at IS NULL ORDER BY queued_at DESC LIMIT 5`
+        `SELECT id, title, body, url, icon, badge, tag, queued_at FROM push_queue WHERE endpoint = ? AND fetched_at IS NULL ORDER BY queued_at DESC, id DESC LIMIT 50`
       ).bind(ep).all();
-      const rows = rs.results || [];
-      if (rows.length) {
-        const ids = rows.map((r: any) => r.id);
-        // 가져간 메시지는 fetched_at 마킹
-        const now = Date.now();
-        for (const id of ids) {
-          await env.DB.prepare(`UPDATE push_queue SET fetched_at = ? WHERE id = ?`).bind(now, id).run();
+      const messages:any[]=[],now=Date.now();let suppressed_handover=0,deferred_handover=0;
+      for(const row of rs.results||[]){
+        if(messages.length>=5)break;
+        let guard='1',args:any[]=[],handover=false;
+        const tag=String(row.tag||''),report=/^handover-(?:read|followup|escalation):([1-9]\d*):([1-9]\d*)$/.exec(tag);
+        const missing=/^(\d{4}-\d{2}-\d{2}):(.+):(soon|due|late)$/.exec(tag);
+        try {
+          if(report){
+            handover=true;
+            guard="EXISTS(SELECT 1 FROM daily_handovers WHERE id=? AND version=? AND status='submitted')";
+            args=[report[1],report[2]];
+          }else if(missing){
+            // Legacy missing-report tags have no namespace. Only interpret one
+            // as handover data when its exact stored notice confirms ownership.
+            const known=await env.DB.prepare(`SELECT 1 FROM daily_handover_notices
+              WHERE notice_key=? AND username=? AND report_date=? AND kind=?`).bind(tag,missing[2],missing[1],missing[3]).first();
+            if(known){
+              handover=true;
+              guard=`NOT EXISTS(SELECT 1 FROM daily_handovers WHERE username=? AND report_date=? AND submitted_at IS NOT NULL)
+                AND EXISTS(SELECT 1 FROM daily_handover_schedule WHERE username=? AND enabled=1 AND exempt_date<>?)`;
+              args=[missing[2],missing[1],missing[2],missing[1]];
+            }
+          }
+          // SQLite evaluates the eligibility and consumes this queue row in one
+          // statement. A read/DB error rolls it back and leaves it retryable.
+          const claimed:any=await env.DB.prepare(`UPDATE push_queue SET fetched_at=?
+            WHERE id=? AND endpoint=? AND fetched_at IS NULL
+            RETURNING id,title,body,url,icon,badge,tag,queued_at,(${guard}) AS handover_eligible`)
+            .bind(now,row.id,ep,...args).first();
+          if(!claimed)continue; // Another pending request already claimed it.
+          if(!claimed.handover_eligible){suppressed_handover++;continue;}
+          const {handover_eligible,...message}=claimed;messages.push(message);
+        } catch {
+          // Never turn an unknown report lookup into a stale verdict or consume
+          // the payload. Unrelated messages later in this bounded page still work.
+          if(handover||missing)deferred_handover++;
+          console.warn('[push] pending payload claim deferred');
         }
       }
-      return json({ ok: true, count: rows.length, messages: rows });
+      return json({ ok: true, count: messages.length, messages, suppressed_handover, deferred_handover });
     }
 
     // ── POST /api/admin/push/send — 특정 사용자(들)에게 푸시 ──

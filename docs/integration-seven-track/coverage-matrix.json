@@ -1,0 +1,155 @@
+{
+  "baseline": "4e559303e56ee3a894fe51403f9de613c4cbc48d",
+  "source_pin": "3280843917a75464e6b0604528be2a9d2905c3ba",
+  "acceptance_rule": "No whole track is complete: offline code success does not substitute actual user-flow validation.",
+  "tracks": [
+    {
+      "track": 1,
+      "title": "학생·선생님 화상 접속 안정성",
+      "status": "partial",
+      "local_scope": "피어/트랙/stats 세대와 카운터 초기화 가드, Direct/TURN 판정 및 loopback Sandbox 대상 제한",
+      "acceptance_coverage": {
+        "entry_and_actual_av": "not_run",
+        "network_metrics": "synthetic stats only",
+        "home_office_separate_field_trials": "not_run; production identity metadata unresolved",
+        "impairments": "synthetic faults only; no real UDP shaping",
+        "long_session_and_reconnect_media": "not_run",
+        "existing_recovery": "offline regression preserved"
+      },
+      "remaining": [
+        "HOME/OFFICE 수집 identity 및 과거 소속 계약 결정",
+        "승인된 격리 브라우저/UDP shaping 환경",
+        "한국·필리핀 실기기 장시간 실제 영상·음성 검증",
+        "초기 공통방 입장 기록만으로 특정 연결 결함이나 책임을 확정하지 않음"
+      ]
+    },
+    {
+      "track": 2,
+      "title": "AI 말하기 자연스러움·응답속도",
+      "status": "partial",
+      "local_scope": "취소/재시작/오래된 STT·TTS 응답 배제, 타이밍 계측, 웜업 첫 문장 처리, 최신 개인별 속도 설정 보존 및 복원 경쟁 수정",
+      "acceptance_coverage": {
+        "speech_timing_stages": "numeric instrumentation + deterministic fixture timings",
+        "short_long_fast_slow_incomplete_speech": "synthetic lifecycle/input fixtures only",
+        "accent_accuracy": "not_measured",
+        "long_context_naturalness": "not_measured",
+        "real_e2e_before_after": "not_measured",
+        "personal_rate_preferences": "current upstream behavior preserved and targeted races repaired"
+      },
+      "remaining": [
+        "실제 마이크·발음 데이터·모델 제공자 기반 정확도/지연 평가",
+        "장기 대화 의미·학생 말 끊김·침묵 관찰",
+        "실제 브라우저 재검증"
+      ]
+    },
+    {
+      "track": 3,
+      "title": "AI 말하기 ↔ AI 게임 학습 연동",
+      "status": "blocked",
+      "local_scope": "game-vocab의 학생별 진행 중 요청 분리와 계정 전환/로그아웃 후 오래된 결과 폐기",
+      "acceptance_coverage": {
+        "nine_learning_signal_types": "durable shared contract missing",
+        "speaking_to_game_to_speaking": "not_implemented_or_verified",
+        "student_A_B_client_race": "repeated VM regression",
+        "server_owner_isolation": "prior findings unresolved; paused audit not rerun",
+        "duplicate_learning_events": "unresolved",
+        "cache_delivery_contract": "version and ledger integrated"
+      },
+      "remaining": [
+        "서버 소유자 검사 변경 승인 및 허용된 검증 경로",
+        "기존 저장소 제한 연동 vs 새 이벤트 원장 설계 결정",
+        "테넌트/직원 열람·보존/삭제·수준 및 발음 근거 정책"
+      ]
+    },
+    {
+      "track": 4,
+      "title": "매일 보고 미작성·미확인 알림",
+      "status": "partial",
+      "local_scope": "기존 보고별 큐/응답 모델 보존, 실패 재시도·자정 경계·지연 표시·확인 후 오래된 본문 차단",
+      "acceptance_coverage": {
+        "normal_missing_late_duplicate_admin_ack": "real modules + isolated SQLite",
+        "multiple_staff_recipient_isolation": "synthetic fixtures",
+        "failure_retry_repeated_warning": "injected database and mocked push failures",
+        "stop_after_ack": "queued body and pre-wakeup checks; final external race remains",
+        "actual_device_delivery": "not_run",
+        "mandatory_employee_due_policy": "requires operational confirmation"
+      },
+      "remaining": [
+        "의무 작성 대상·마감·휴가·수신자·경고 간격 운영 기준",
+        "실기기 수신·읽음 검증",
+        "최종 조회 뒤 발송 경합·이미 표시된 알림 회수 불가"
+      ]
+    },
+    {
+      "track": 5,
+      "title": "수업 신청·결제·스케줄·잔여횟수",
+      "status": "blocked",
+      "local_scope": "결제 금액/상태 검증, 생성 복구 표식과 전량 batch, 선택 회차 환불 대사·최종 쓰기 CAS, 미확정 정기청구 보호",
+      "acceptance_coverage": {
+        "application_payment_schedule": "actual modules + synthetic SQLite + mocked provider",
+        "paid_count_vs_generated_count": "48 product combinations incl 24 lesson example",
+        "new_failed_duplicate_partial_cancel_refund_renewal": "offline cases; no live payment",
+        "student_teacher_room_completion_remaining": "server projections and synthetic attendance; no actual media lesson",
+        "admin_manual_change": "preservation checks incl deliberate deletion",
+        "refund_authorization": "deferred known fail-open; unchanged",
+        "final_read_write_race": "two new regression cases in supplemental repair"
+      },
+      "remaining": [
+        "환불 권한 fail-open 별도 승인·허용된 검증",
+        "실제 PG/브라우저/수업 전체 흐름",
+        "PG 처리 중 상태변경 후 관리자의 미배분 대사",
+        "enrollment와 수업 생성 전체 트랜잭션 아님; 과거 불명확 누락 자동 복원 안 함"
+      ]
+    },
+    {
+      "track": 6,
+      "title": "학생·관리자 연기 및 일정 완전 동기화",
+      "status": "partial",
+      "local_scope": "Cafe24 원본 ID+소유권 보호, 이동 후 재동기화 중복/취소 방지, 기존 학생/관리자 일정·방 투영 보존",
+      "acceptance_coverage": {
+        "student_change": "handler/UI-function + SQLite lifecycle",
+        "admin_change_and_group_move": "canonical handler + SQLite; real drag UI not run",
+        "student_teacher_admin_views": "source projections checked",
+        "same_id_and_room_routing": "checked in offline modules, not actual meeting",
+        "timezone": "UTC/Los_Angeles/Seoul repeated owner tests",
+        "real_time_cache_and_full_browser": "not_fully_verified",
+        "actual_student_teacher_av": "not_run",
+        "identity_alias_boundary": "Existing same-origin-ID/UID mismatch fixtures retain the old display name yet require zero durable changes and visible conflict. Insertion-time duplicate-origin guards cover same/different UIDs. Different upstream origin IDs are not inferred to be aliases."
+      },
+      "remaining": [
+        "기존 중복·손상 데이터 별도 읽기 전용 현황과 승인",
+        "실제 D1 규모·Cafe24 연동·드래그 브라우저 회귀",
+        "변경 후 학생/교사 실제 영상·음성 입장",
+        "서로 다른 원본 ID를 이름이나 별칭 추정으로 합치지 않음; 실제 누락 만남의 원인은 별도 검증 필요"
+      ]
+    },
+    {
+      "track": 7,
+      "title": "AI 전용 / 화상수업+무료 AI 구분",
+      "status": "blocked",
+      "local_scope": "운영 라우트와 분리된 이용권 계약·로컬 SQLite 제안 스키마·원장·기간/환불/전환 모형",
+      "acceptance_coverage": {
+        "new_renew_convert_expire_cancel_refund": "independent offline contract only",
+        "free_AI_no_duplicate_charge": "contract decision function; runtime billing not wired",
+        "account_product_payment_access_duration": "proposal only for runtime integration",
+        "learning_evaluation_revenue_stats_admin": "contract snapshots and accounting assertions; UI/routes not integrated",
+        "concurrency_rollback_idempotency": "real local SQLite connections and fault injection",
+        "production_schema_or_gate_change": "none"
+      },
+      "remaining": [
+        "이용권 schema·auth/접근 gate·청구 연동 최종 설계 승인",
+        "Cafe24/B2B 안정적 출처 매핑·과거 데이터 처리",
+        "학습/평가/매출/통계/관리자 UI 실제 연결 및 E2E"
+      ]
+    }
+  ],
+  "not_performed": [
+    "remote push or PR publication",
+    "merge or deployment",
+    "production writes or migration",
+    "real payment/refund/provider/model/media calls",
+    "paused server ownership/security audit",
+    "actual browser or KR/PH field test"
+  ],
+  "known_tooling_block": "Independent integration review stopped after preliminary findings by a cybersecurity-risk tooling block; not retried or completed."
+}

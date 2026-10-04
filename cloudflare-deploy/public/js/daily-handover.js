@@ -133,6 +133,7 @@
     var size=node('button','글자 더 크게 / Larger text');size.type='button';size.onclick=function(){var content=detail.querySelector('.preview');var enlarged=largeReading;largeReading=!enlarged;content.style.fontSize=enlarged?'':'26px';size.textContent=enlarged?'글자 더 크게 / Larger text':'기본 크기 / Default text';};detail.append(size);
     var content=node('div',null,'preview');showPayload(content,r.payload,r.report_date,r.staff_name);if(largeReading){content.style.fontSize='26px';size.textContent='기본 크기 / Default text';}detail.append(content);
     (r.payload.attachments||[]).forEach(function(id){detail.append(attachmentLinks(id,false));});
+    paintReportStatus(detail,r);
     detail.append(node('p','전달 / To: '+staffName(r.recipient),'small'));
     if(r.acknowledged_by)detail.append(node('p','확인 / Reviewed by: '+staffName(r.acknowledged_by)+(r.acknowledged_at?' · '+kst(r.acknowledged_at)+' KST':''),'small'));
     if(r.username===me.username)detail.append(node('p',ownStatusText(r),r.status==='changes_requested'?'notice':'small'));
@@ -144,6 +145,33 @@
       ack.onclick=function(){act(r,'ack',ack);};ret.onclick=function(){act(r,'return',ret);};buttons.append(ack,ret);detail.append(buttons);
     }
     detail.append(node('p','수신 확인은 남은 업무를 완료 처리하지 않습니다. / Acknowledgement does not close open tasks.','small'));
+  }
+  function notificationLabel(state){return {pending:'대기 / Pending',queued:'대기열 저장 / Queued',sent:'알림 서비스 접수 / Wakeup accepted',no_subscription:'기기 미등록 / No device subscription',failed:'등록 실패 · 재시도 대기 / Queue failed; retry pending',deferred:'근무시간·보류 대기 / Deferred',not_requested:'요청 없음 / Not requested'}[state]||state;}
+  function paintReportStatus(detail,r){
+    if(r.submitted_at)detail.append(node('p','제출 / Submitted: '+kst(r.submitted_at)+' KST','small'));
+    else if(r.updated_at)detail.append(node('p','초안 저장 / Draft saved: '+kst(r.updated_at)+' KST','small'));
+    var timing=r.response_timing;
+    if(timing)detail.append(node('p',timing.late?'지연 확인·응답 / Late response · '+Math.ceil(timing.delay_ms/60000)+'분 / min':'기한 내 확인·응답 / Response within deadline',timing.late?'notice':'small'));
+    var notices=r.notifications;
+    if(notices&&(notices.read||(notices.followup||[]).length)){
+      detail.append(node('p','자동 알림 기록 · 기기 수신은 미확인 / Automatic notification record; device receipt unverified','small'));
+      if(notices.read)detail.append(node('p','미확인 알림 / Read reminder: '+notificationLabel(notices.read.state),'small'));
+      (notices.followup||[]).forEach(function(n){detail.append(node('p','경고 단계 / Warning stage '+n.level+' · '+staffName(n.username)+' · '+notificationLabel(n.state),'small'));});
+    }
+  }
+  function paintRequired(rows,date){
+    var host=$('required');host.replaceChildren();
+    var weekday=new Date(date+'T00:00:00Z').getUTCDay();
+    var required=(rows||[]).filter(function(r){return r.exempt_date!==date&&r.weekdays.split(',').includes(String(weekday));});
+    if(!required.length)return;
+    var missing=required.filter(function(r){return !r.submitted_at;});
+    host.append(node('p','보고 대상 '+required.length+'명 · 미제출 / Not submitted: '+(missing.map(function(r){return r.name||r.username;}).join(', ')||'없음 / None')));
+    required.forEach(function(r){
+      var item=node('p',(r.name||r.username)+' · '+(r.submitted_at?'제출 / Submitted: '+kst(r.submitted_at)+' KST':'미제출 / Not submitted')+' · 마감 / Deadline: '+r.due_time+' KST','small');
+      (r.notices||[]).forEach(function(n){item.append(node('span',' · '+({soon:'마감 전 / Before deadline',due:'마감 / Due',late:'마감 후 / Late'}[n.stage]||n.stage)+': '+notificationLabel(n.state)));});
+      host.append(item);
+    });
+    if(required.some(function(r){return (r.notices||[]).length;}))host.append(node('p','알림 서비스 접수는 실제 기기 표시·수신 확인과 다릅니다. / Wakeup acceptance does not confirm device display or receipt.','small'));
   }
   function paintFollowupHistory(panel,r){
     var button=node('button','독촉·응답 이력 / Follow-up history'),box=node('div'),label=node('label','이력 범위 / History scope'),scope=node('select');
@@ -192,7 +220,7 @@
     panel.append(node('strong','응답·독촉 관리 / Response & reminders'));
     if(f.opened_at)panel.append(node('p','열람 / Opened: '+kst(f.opened_at)+' KST','small'));
     if(f.due_at)panel.append(node('p','응답 기한 / Respond by: '+kst(f.due_at)+' KST'+(r.status==='submitted'&&Date.now()>f.due_at?' · 🔴 기한 초과 / Overdue':'')));
-    if(f.warning_level)panel.append(node('p',f.warning_level>=3?'🔴 최종 경고 / Final warning':'⚠️ 응답 재요청 / Response requested'));
+    if(f.warning_level)panel.append(node('p',r.status==='submitted'?(f.warning_level>=3?'🔴 최종 경고 / Final warning':'⚠️ 응답 재요청 / Response requested')+' · 단계 / Stage '+f.warning_level:'처리 전 경고 단계 / Recorded warning stage: '+f.warning_level));
     if(f.delivery_pending&&f.delivery_pending.length)panel.append(node('p','기기 알림 대기 / Device notification pending: '+f.delivery_pending.map(staffName).join(', ')+' · 구독이 연결되면 재시도합니다. / Will retry when a device is subscribed.','small'));
     if(f.hold_reason)panel.append(node('p','보류 사유 / Hold reason: '+f.hold_reason+' · '+kst(f.hold_until)+' KST'));
     paintFollowupHistory(panel,r);
@@ -225,9 +253,7 @@
   async function loadList(){
     var date=$('list-date').value, wantRead=$('filter').value==='read', wantMine=$('filter').value==='mine', data=await Promise.all([call('/home?date='+encodeURIComponent(date)),call('/inbox'),wantRead?call('/read-history'):null,wantMine?call('/mine'):null]);
     if(date!==$('list-date').value)return;var j=data[0];reports=j.reports;inbox=data[1].reports;inboxTotal=data[1].total;mergeFiles(j.files);mergeFiles(data[1].files);if(data[2]){readHistory=data[2].reports||[];mergeFiles(data[2].files);}if(data[3]){mine=data[3].reports||[];mergeFiles(data[3].files);}if(date===$('date').value)paintOwn(j.own);var listState=JSON.stringify([date,$('filter').value,reports,inbox,readHistory,mine]);if(listState!==lastListState){paintList();lastListState=listState;}
-    var weekday=new Date(date+'T00:00:00Z').getUTCDay();var required=(j.required||[]).filter(function(r){return r.exempt_date!==date&&r.weekdays.split(',').includes(String(weekday));});
-    var missing=required.filter(function(r){return !r.submitted_at;});
-    $('required').textContent=required.length?'보고 대상 '+required.length+'명 · 미제출 / Not submitted: '+(missing.map(function(r){return r.name||r.username;}).join(', ')||'없음 / None'):'';
+    paintRequired(j.required,date);
   }
   $('write-toggle').onclick=function(){var editor=$('editor');editor.hidden=!editor.hidden;$('clock-box').hidden=editor.hidden;if(!editor.hidden){begin();editor.scrollIntoView({behavior:'smooth',block:'start'});}};
   $('filter').onchange=function(){if($('filter').value==='read'||$('filter').value==='mine')loadList().catch(networkError);else paintList();};

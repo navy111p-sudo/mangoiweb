@@ -93,23 +93,58 @@ function visible(row: any, actor: any) {
 function rowData(row: any) {
   return row ? { ...row, payload: JSON.parse(row.payload), request_key: undefined } : null;
 }
-// Queue only generic text: student details never appear on lock screens.
-async function notify(env: Env, username: string, tag: string, body: string, link = '/daily-handover.html') {
+// Payloads are committed before the best-effort wakeup. Generic text only: no
+// report/student details on lock screens. A concurrent response can remove the
+// queue before this read. Recheck eligibility too: failed best-effort cleanup
+// must not start a new wakeup for an already resolved report.
+async function wakeQueued(env: Env, username: string, tag: string, eligibility:string, args:any[]) {
   try {
-    const rs = await env.DB.prepare(`SELECT endpoint FROM push_subscriptions WHERE user_id=? AND enabled=1 LIMIT 10`).bind(username).all<any>();
-    const endpoints: string[] = [];
-    for (const s of rs.results || []) {
-      await env.DB.prepare('DELETE FROM push_queue WHERE endpoint=? AND tag=?').bind(s.endpoint,tag).run();
-      await env.DB.prepare(`INSERT INTO push_queue(endpoint,title,body,url,icon,badge,tag,queued_at)
-        VALUES(?,?,?,?,?,?,?,?)`).bind(s.endpoint, '매일보고 / Daily handover', body,
-        link, null, null, tag, Date.now()).run();
-      endpoints.push(s.endpoint);
-    }
-    if (!endpoints.length) return 'no_subscription';
-    const result = await broadcastWebPush(endpoints, env as any);
-    for (const endpoint of result.expired || []) await env.DB.prepare('UPDATE push_subscriptions SET enabled=0 WHERE endpoint=?').bind(endpoint).run();
-    return result.sent > 0 ? 'sent' : 'queued';
-  } catch (e) { console.warn('[daily-handover] notification unavailable'); return 'failed'; }
+    const rows = await env.DB.prepare(`SELECT DISTINCT q.endpoint FROM push_queue q
+      JOIN push_subscriptions s ON s.endpoint=q.endpoint
+      WHERE q.tag=? AND s.user_id=? AND s.enabled=1 AND q.fetched_at IS NULL
+      AND ${eligibility} LIMIT 10`).bind(tag,username,...args).all<{endpoint:string}>();
+    const endpoints=(rows.results||[]).map(r=>r.endpoint);
+    if(!endpoints.length)return 'queued';
+    const result=await broadcastWebPush(endpoints,env as any);
+    for(const endpoint of result.expired||[])await env.DB.prepare('UPDATE push_subscriptions SET enabled=0 WHERE endpoint=?').bind(endpoint).run();
+    return result.sent===endpoints.length?'sent':'queued';
+  } catch { console.warn('[daily-handover] wakeup unavailable; payload remains queued'); return 'queued'; }
+}
+async function sendMissingAlert(env:Env,s:any,day:string,stage:string,now:number) {
+  const key=`${day}:${s.username}:${stage}`;
+  const active=`EXISTS(SELECT 1 FROM daily_handover_schedule s JOIN admin_scope a
+    ON a.username=s.username AND a.scope_type='hq' WHERE s.username=? AND s.enabled=1
+    AND s.weekdays=? AND s.due_time=? AND s.exempt_date=?)
+    AND NOT EXISTS(SELECT 1 FROM daily_handovers WHERE username=? AND report_date=? AND submitted_at IS NOT NULL)`;
+  const args=[s.username,s.weekdays,s.due_time,s.exempt_date,s.username,day];
+  const guard=active+` AND EXISTS(SELECT 1 FROM daily_handover_notices WHERE notice_key=? AND push_state NOT IN ('queued','sent'))`;
+  const bind=[...args,key];
+  try {
+    const result=await env.DB.batch([
+      env.DB.prepare(`INSERT OR IGNORE INTO daily_handover_notices(notice_key,username,report_date,kind,created_at)
+        SELECT ?,?,?,?,? WHERE ${active}`).bind(key,s.username,day,stage,now,...args),
+      env.DB.prepare(`DELETE FROM push_queue WHERE tag=? AND endpoint IN
+        (SELECT DISTINCT endpoint FROM push_subscriptions WHERE user_id=? AND enabled=1 LIMIT 10) AND ${guard}`).bind(key,s.username,...bind),
+      env.DB.prepare(`INSERT INTO push_queue(endpoint,title,body,url,icon,badge,tag,queued_at)
+        SELECT endpoint,?,?,?,?,?,?,? FROM (SELECT DISTINCT endpoint FROM push_subscriptions WHERE user_id=? AND enabled=1 LIMIT 10)
+        WHERE ${guard}`).bind('매일보고 / Daily handover','오늘 보고를 확인해 주세요. / Please review and submit your daily handover.',
+          `/daily-handover.html?date=${day}`,null,null,key,now,s.username,...bind),
+      env.DB.prepare(`UPDATE daily_handover_notices SET push_state=CASE WHEN EXISTS
+        (SELECT 1 FROM push_subscriptions WHERE user_id=? AND enabled=1) THEN 'queued' ELSE 'no_subscription' END
+        WHERE notice_key=? AND ${guard}`).bind(s.username,key,...bind),
+    ]);
+    if(!result[2].meta.changes)return;
+    const state=await wakeQueued(env,s.username,key,active,args);
+    if(state==='sent')await env.DB.prepare("UPDATE daily_handover_notices SET push_state='sent' WHERE notice_key=? AND push_state='queued'").bind(key).run();
+  } catch {
+    // The batch rolled back; keep a visible retryable failure without consuming
+    // a stage or replacing a successfully committed concurrent delivery.
+    try { await env.DB.prepare(`INSERT INTO daily_handover_notices(notice_key,username,report_date,kind,created_at,push_state)
+      SELECT ?,?,?,?,?,'failed' WHERE ${active} ON CONFLICT(notice_key) DO UPDATE SET push_state='failed'
+      WHERE daily_handover_notices.push_state NOT IN ('queued','sent')`).bind(key,s.username,day,stage,now,...args).run(); }
+    catch { /* A database outage is retried by the next sweep. */ }
+    console.warn('[daily-handover] missing-submission delivery retry pending');
+  }
 }
 export function reminderStage(s: any, day: string, now = Date.now()): string | null {
   if (!s.enabled || s.exempt_date === day) return null;
@@ -123,21 +158,15 @@ export async function runDailyHandoverSweep(env: Env) {
   await ensure(env);
   await runFollowups(env);
   await runReadAlerts(env);
-  const day = kstDay();
+  const now=Date.now();
+  // Only dates touched by the existing [-30m,+120m] reminder window. This
+  // includes yesterday's late deadline and tomorrow's early pre-deadline alert.
+  const days=[...new Set([kstDay(now-120*60000),kstDay(now),kstDay(now+30*60000)])];
   const rows = await env.DB.prepare(`SELECT s.* FROM daily_handover_schedule s
     JOIN admin_scope a ON a.username=s.username AND a.scope_type='hq' WHERE s.enabled=1 LIMIT 200`).all<any>();
-  for (const s of rows.results || []) {
-    const stage = reminderStage(s, day);
-    if (!stage) continue;
-    const submitted = await env.DB.prepare(`SELECT id FROM daily_handovers WHERE username=? AND report_date=? AND submitted_at IS NOT NULL`).bind(s.username, day).first();
-    if (submitted) continue;
-    const key = `${day}:${s.username}:${stage}`;
-    // Unique key is the concurrent-cron claim. In-app notice remains even if push fails.
-    const claim = await env.DB.prepare(`INSERT OR IGNORE INTO daily_handover_notices
-      (notice_key,username,report_date,kind,created_at) VALUES(?,?,?,?,?)`).bind(key,s.username,day,stage,Date.now()).run();
-    if (!claim.meta.changes) continue;
-    const state = await notify(env, s.username, key, '오늘 보고를 확인해 주세요. / Please review and submit your daily handover.');
-    await env.DB.prepare(`UPDATE daily_handover_notices SET push_state=? WHERE notice_key=?`).bind(state,key).run();
+  for (const s of rows.results || []) for(const day of days) {
+    const stage = reminderStage(s, day, now);
+    if(stage)await sendMissingAlert(env,s,day,stage,now);
   }
 }
 
@@ -160,16 +189,41 @@ async function sendReadAlert(env:Env, row:any) {
   const follow:any=await env.DB.prepare('SELECT * FROM daily_handover_followup WHERE report_id=? AND version=?').bind(row.id,row.version).first();
   if(follow?.hold_until>now)return 'deferred';
   const interval=(urgent?15:60)*60000;
-  // Claim before wakeup. A crashed request recovers at the next interval, never double-sends concurrently.
-  const claim=await env.DB.prepare(`UPDATE daily_handover_read_alerts SET next_at=?,attempts=attempts+1
-    WHERE report_id=? AND version=? AND next_at<=? AND EXISTS
-    (SELECT 1 FROM daily_handovers WHERE id=? AND version=? AND status='submitted' AND recipient<>username)`)
-    .bind(now+interval,row.id,row.version,now,row.id,row.version).run();
-  if(!claim.meta.changes)return 'not_due';
-  const state=await notify(env,row.recipient,`handover-read:${row.id}:${row.version}`,
-    urgent?'긴급 매일보고를 읽고 확인해 주세요. / Please read and acknowledge an urgent handover.':'읽지 않은 매일보고가 있습니다. 확인해 주세요. / Please read and acknowledge your handover.',
-    `/daily-handover.html?date=${row.report_date}&report=${row.id}`);
-  await env.DB.prepare('UPDATE daily_handover_read_alerts SET push_state=? WHERE report_id=? AND version=?').bind(state,row.id,row.version).run();
+  const alert:any=await env.DB.prepare('SELECT * FROM daily_handover_read_alerts WHERE report_id=? AND version=?').bind(row.id,row.version).first();
+  if(!alert||alert.next_at>now)return 'not_due';
+  const tag=`handover-read:${row.id}:${row.version}`;
+  // Eligibility, every endpoint payload and the interval claim share a single
+  // transaction. An acknowledgement/resubmission that wins first cannot be
+  // followed by a stale queue write, and failed writes do not consume the retry.
+  let active=`EXISTS(SELECT 1 FROM daily_handovers h WHERE h.id=? AND h.version=?
+    AND h.status='submitted' AND h.username=? AND h.recipient=? AND h.recipient<>h.username)
+    AND COALESCE((SELECT hold_until FROM daily_handover_followup WHERE report_id=? AND version=?),0)<=?`;
+  const activeArgs:any[]=[row.id,row.version,row.username,row.recipient,row.id,row.version,now];
+  if(!urgent){
+    const s=schedule||readDefaults;
+    for(const field of ['weekdays','start_time','end_time'] as const){
+      active+=` AND COALESCE((SELECT ${field} FROM daily_handover_read_schedule WHERE username=?),?)=?`;
+      activeArgs.push(row.recipient,readDefaults[field],s[field]);
+    }
+  }
+  const guard=active+` AND EXISTS(SELECT 1 FROM daily_handover_read_alerts
+    WHERE report_id=? AND version=? AND next_at=? AND attempts=?)`;
+  const args=[...activeArgs,row.id,row.version,alert.next_at,alert.attempts];
+  const body=urgent?'긴급 매일보고를 읽고 확인해 주세요. / Please read and acknowledge an urgent handover.':'읽지 않은 매일보고가 있습니다. 확인해 주세요. / Please read and acknowledge your handover.';
+  const result=await env.DB.batch([
+    env.DB.prepare(`DELETE FROM push_queue WHERE tag=? AND endpoint IN
+      (SELECT DISTINCT endpoint FROM push_subscriptions WHERE user_id=? AND enabled=1 LIMIT 10) AND ${guard}`).bind(tag,row.recipient,...args),
+    env.DB.prepare(`INSERT INTO push_queue(endpoint,title,body,url,icon,badge,tag,queued_at)
+      SELECT endpoint,?,?,?,?,?,?,? FROM (SELECT DISTINCT endpoint FROM push_subscriptions WHERE user_id=? AND enabled=1 LIMIT 10)
+      WHERE ${guard}`).bind('매일보고 / Daily handover',body,`/daily-handover.html?date=${row.report_date}&report=${row.id}`,null,null,tag,now,row.recipient,...args),
+    env.DB.prepare(`UPDATE daily_handover_read_alerts SET next_at=?,attempts=attempts+1,push_state=CASE WHEN EXISTS
+      (SELECT 1 FROM push_subscriptions WHERE user_id=? AND enabled=1) THEN 'queued' ELSE 'no_subscription' END
+      WHERE report_id=? AND version=? AND ${guard}`).bind(now+interval,row.recipient,row.id,row.version,...args),
+  ]);
+  if(!result[2].meta.changes)return 'not_due';
+  const state=result[1].meta.changes?await wakeQueued(env,row.recipient,tag,active,activeArgs):'no_subscription';
+  await env.DB.prepare(`UPDATE daily_handover_read_alerts SET push_state=? WHERE report_id=? AND version=? AND next_at=? AND attempts=?`)
+    .bind(state,row.id,row.version,now+interval,alert.attempts+1).run();
   return state;
 }
 async function runReadAlerts(env:Env) {
@@ -185,15 +239,34 @@ async function runReadAlerts(env:Env) {
 // Follow-up metadata belongs to a submitted revision, never to a later resubmission.
 async function withFollowups(env:Env, rows:any[]) {
   if(!rows.length)return [];
-  const meta=await selectInChunks(env.DB,rows.map(r=>r.id),ph=>`SELECT * FROM daily_handover_followup WHERE report_id IN (${ph})`);
-  const mapped=rows.map(r=>({row:r,followup:meta.find(f=>f.report_id===r.id&&f.version===r.version)||null}));
+  const ids=rows.map(r=>r.id);
+  const meta=await selectInChunks(env.DB,ids,ph=>`SELECT * FROM daily_handover_followup WHERE report_id IN (${ph})`);
+  const completed=rows.filter(r=>['acknowledged','changes_requested'].includes(r.status));
+  const submittedVersions=await selectInChunks(env.DB,completed.map(r=>r.id),
+    ph=>`SELECT report_id,version FROM daily_handover_history WHERE report_id IN (${ph}) AND status='submitted'`);
+  const alerts=await selectInChunks(env.DB,ids,ph=>`SELECT * FROM daily_handover_read_alerts WHERE report_id IN (${ph})`);
+  const mapped=rows.map(r=>{
+    // Responses increment stored versions too. Find the actual submitted version
+    // in immutable history instead of guessing current_version-1 or changing it.
+    const version=['acknowledged','changes_requested'].includes(r.status)
+      ?Math.max(0,...submittedVersions.filter(h=>h.report_id===r.id&&h.version<r.version).map(h=>Number(h.version)))||r.version:r.version;
+    return {row:r,version,followup:meta.find(f=>f.report_id===r.id&&f.version===version)||null};
+  });
   const now=Date.now();
   const deliveryKind=({row,followup:f}:typeof mapped[number])=>row.status==='submitted'&&f?.due_at&&f.due_at<=now&&f.warning_level<4
     ?followupDeliveryKind(row,f,followupLevel(f.due_at,now)):null;
-  const pending=await selectInChunks<{kind:string;username:string}>(env.DB,mapped.map(deliveryKind).filter(Boolean),
-    ph=>`SELECT kind,username FROM daily_handover_notices WHERE kind IN (${ph}) AND push_state='no_subscription'`);
-  return mapped.map(item=>({...rowData(item.row),followup:item.followup?{...item.followup,
-    delivery_pending:[...new Set(pending.filter(p=>p.kind===deliveryKind(item)).map(p=>p.username))]}:null}));
+  const noticeKinds=mapped.flatMap(({row,version,followup:f})=>f?.due_at?[2,3,4].map(level=>followupDeliveryKind({...row,version},f,level)):[]);
+  const notices=await selectInChunks<{kind:string;username:string;push_state:string;created_at:number}>(env.DB,noticeKinds,
+    ph=>`SELECT kind,username,push_state,created_at FROM daily_handover_notices WHERE kind IN (${ph})`);
+  return mapped.map(item=>{
+    const f=item.followup,r=item.row,alert=alerts.find(a=>a.report_id===r.id&&a.version===item.version);
+    const kinds=f?.due_at?[2,3,4].map(level=>followupDeliveryKind({...r,version:item.version},f,level)):[];
+    return {...rowData(r),followup:f?{...f,delivery_pending:[...new Set(notices.filter(p=>p.kind===deliveryKind(item)&&p.push_state==='no_subscription').map(p=>p.username))]}:null,
+      response_timing:f?.due_at&&r.acknowledged_at?{version:item.version,due_at:f.due_at,responded_at:r.acknowledged_at,
+        late:r.acknowledged_at>f.due_at,delay_ms:Math.max(0,r.acknowledged_at-f.due_at)}:null,
+      notifications:{read:alert?{state:alert.push_state,attempts:alert.attempts,next_at:alert.next_at}:null,
+        followup:notices.filter(n=>kinds.includes(n.kind)).map(n=>({username:n.username,state:n.push_state,created_at:n.created_at,level:kinds.indexOf(n.kind)+2}))}};
+  });
 }
 async function followEvent(env:Env,r:any,actor:string,kind:string,detail='') {
   await env.DB.prepare('INSERT INTO daily_handover_followup_events(report_id,version,actor,kind,detail,created_at) VALUES(?,?,?,?,?,?)')
@@ -271,12 +344,16 @@ async function queueFollowup(env:Env,r:any,f:any,actor:string,kind:string,level:
     const queuedEndpoints=new Set<string>();
     for(const n of newlyQueued){
       const queued=await env.DB.prepare(`SELECT DISTINCT q.endpoint FROM push_queue q
-        JOIN push_subscriptions s ON s.endpoint=q.endpoint WHERE q.tag=? AND s.user_id=? AND s.enabled=1 LIMIT 10`)
-        .bind(n.tag,n.username).all<{endpoint:string}>();
+        JOIN push_subscriptions s ON s.endpoint=q.endpoint WHERE q.tag=? AND s.user_id=? AND s.enabled=1
+        AND q.fetched_at IS NULL AND EXISTS(SELECT 1 FROM daily_handovers WHERE id=? AND version=? AND status='submitted') LIMIT 10`)
+        .bind(n.tag,n.username,r.id,r.version).all<{endpoint:string}>();
       for(const q of queued.results||[])queuedEndpoints.add(q.endpoint);
     }
     const endpoints=[...queuedEndpoints];
     if(!endpoints.length)return state; // A concurrent acknowledgement may already have cleared it.
+    // Recipients were read separately; do not wake an earlier recipient after a
+    // response committed during a later recipient's lookup.
+    if(!await env.DB.prepare("SELECT 1 FROM daily_handovers WHERE id=? AND version=? AND status='submitted'").bind(r.id,r.version).first())return state;
     const result=await broadcastWebPush(endpoints,env as any);
     for(const endpoint of result.expired||[])await env.DB.prepare('UPDATE push_subscriptions SET enabled=0 WHERE endpoint=?').bind(endpoint).run();
     return completed&&result.sent===endpoints.length?'sent':state;
@@ -424,12 +501,16 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
         h.status,h.submitted_at FROM daily_handover_schedule s JOIN admin_account a ON a.username=s.username
         JOIN admin_scope sc ON sc.username=s.username AND sc.scope_type='hq'
         LEFT JOIN daily_handovers h ON h.username=s.username AND h.report_date=? WHERE s.enabled=1 LIMIT 200`).bind(day).all() : {results:[]};
+      const missingNotices=all?await env.DB.prepare(`SELECT username,kind,push_state,created_at FROM daily_handover_notices
+        WHERE report_date=? AND kind IN ('soon','due','late')`).bind(day).all<any>():{results:[]};
+      const requiredRows=(required.results||[]).map((r:any)=>({...r,notices:(missingNotices.results||[]).filter(n=>n.username===r.username)
+        .map(n=>({stage:n.kind,state:n.push_state,created_at:n.created_at}))}));
       return reply({ok:true,day,me:{username:me,name:actor.name||me},members,own:own?(await withFollowups(env,[own]))[0]:null,
         reports:await withFollowups(env,(rows.results||[]).filter(r=>visible(r,actor))),
         files:[...await attachmentsFor(env,(rows.results||[]).filter(r=>visible(r,actor))),...(staged.results||[]).map(fileMeta)],
         // Uploaded today but not in the saved payload (e.g. page reloaded before Save). The editor offers them back.
         staged_ids:(staged.results||[]).map((f:any)=>f.id),
-        reader_mode:['admin','mgr_jjw'].includes(me),read_schedule,schedule,required:required.results,
+        reader_mode:['admin','mgr_jjw'].includes(me),read_schedule,schedule,required:requiredRows,
         default_recipient: members.find(m=>m.username==='mgr_jjw'&&m.username!==me)?.username || members.find(m=>m.username==='admin'&&m.username!==me)?.username || '',
         ai_available:!!env.AI, can_review_all:all});
     }

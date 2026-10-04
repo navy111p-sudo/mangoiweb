@@ -1,0 +1,40 @@
+{
+  "scope": "offline synthetic integration; no browser/media/provider validation",
+  "mode": "fast",
+  "rounds": 2,
+  "suites": 1,
+  "passedRuns": 0,
+  "failedRuns": 2,
+  "rows": [
+    {
+      "suite": "repository_fast",
+      "round": 1,
+      "gateCounts": {
+        "passed": 485,
+        "excluded": 20,
+        "failed": 1,
+        "total": 506
+      },
+      "exit": 1,
+      "signal": null,
+      "elapsedMs": 153816,
+      "blockedTransportAttempts": 0,
+      "pass": false
+    },
+    {
+      "suite": "repository_fast",
+      "round": 2,
+      "gateCounts": {
+        "passed": 485,
+        "excluded": 20,
+        "failed": 1,
+        "total": 506
+      },
+      "exit": 1,
+      "signal": null,
+      "elapsedMs": 157560,
+      "blockedTransportAttempts": 0,
+      "pass": false
+    }
+  ]
+}

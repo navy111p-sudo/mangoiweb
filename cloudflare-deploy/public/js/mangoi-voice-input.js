@@ -46,6 +46,8 @@
   function record(opts) {
     opts = opts || {};
     var onState = typeof opts.onState === 'function' ? opts.onState : function () {};
+    // Local diagnostic hook only: no audio/text/identity leaves this callback.
+    function timing(stage, reason) { try { if (typeof opts.onTiming === 'function') opts.onTiming(stage, reason); } catch (e) {} }
     var MAX_MS      = opts.maxMs      || 20000;   // 안전 상한
     var SILENCE_MS  = opts.silenceMs  || 2500;    // 말이 끝난 뒤 이만큼 조용하면 종료
     var FIRST_MS    = opts.firstMs    || 9000;    // 첫 마디를 기다리는 시간 (아이들은 오래 뜸들인다)
@@ -58,17 +60,19 @@
          (2026-07-23) 예전에는 stop/cancel 을 getUserMedia 가 끝난 뒤에야 붙여서,
          마이크 권한 대기 중에 ⏹ 를 누르면 아무 반응이 없고 버튼이 '듣는 중'에 굳었다.
          → 지금 바로 정의해 두고, 녹음기가 준비되면 밀린 요청을 반영한다. */
-      var session = { canceled: false, wantStop: false, _stopRec: null };
+      var session = { canceled: false, wantStop: false, _stopRec: null, abort: null };
       session.stop = function () { session.wantStop = true; if (session._stopRec) session._stopRec(); };
-      session.cancel = function () { session.canceled = true; session.wantStop = true; if (session._stopRec) session._stopRec(); };
+      session.cancel = function () { session.canceled = true; session.wantStop = true; if (session.abort) session.abort.abort(); if (session._stopRec) session._stopRec('canceled'); timing('canceled'); finish(''); };
       cur = session;
-      var finished = false;
+      var finished = false, transcriptionTimer = null;
       function finish(text) {
         if (finished) return; finished = true;
+        if (transcriptionTimer) clearTimeout(transcriptionTimer);
         if (cur === session) cur = null;
         resolve(text || '');
       }
 
+      timing('input_requested');
       onState('ready', {});
       navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
@@ -100,8 +104,9 @@
           if (raf) cancelAnimationFrame(raf);
           silenceTimer = maxTimer = firstTimer = raf = null;
         }
-        function stopRec() {
+        function stopRec(reason) {
           if (stopped) return; stopped = true;
+          timing('recording_stopped', typeof reason === 'string' ? reason : 'manual');
           clearTimers();
           try { mr.stop(); } catch (e) {}
           try { if (ac) ac.close(); } catch (e) {}
@@ -123,22 +128,31 @@
           var fd = new FormData();
           fd.append('audio', blob, 'speech.' + ext);
           if (opts.lang) fd.append('lang', opts.lang);
-          fetch('/api/voice/transcribe', { method: 'POST', body: fd })
+          timing('stt_started');
+          try { session.abort = new AbortController(); } catch (e) {}
+          transcriptionTimer = setTimeout(function () {
+            if (session.canceled || finished) return;
+            if (session.abort) session.abort.abort();
+            timing('stt_failed'); onState('error', { reason: 'server' }); finish('');
+          }, 30000);
+          fetch('/api/voice/transcribe', { method: 'POST', body: fd, signal: session.abort ? session.abort.signal : undefined })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (d) {
-              if (session.canceled) return finish('');
+              if (session.canceled || finished) return finish('');
+              timing('stt_finished');
               if (!d || !d.ok) { onState('error', { reason: 'server' }); return finish(''); }
               finish(String(d.text || '').trim());
             })
-            .catch(function () { onState('error', { reason: 'server' }); finish(''); });
+            .catch(function () { if (!session.canceled && !finished) { timing('stt_failed'); onState('error', { reason: 'server' }); } finish(''); });
         };
 
         try { mr.start(); } catch (e) { stopTracks(stream); onState('error', { reason: 'unsupported' }); return finish(''); }
+        timing('recording_started');
         // 준비되는 동안 ⏹(또는 취소)를 눌렀으면 지금 반영한다
         if (session.wantStop) { stopRec(); return; }
         onState('waiting', {});
-        maxTimer = setTimeout(stopRec, MAX_MS);
-        firstTimer = setTimeout(function () { if (!heardSpeech) stopRec(); }, FIRST_MS);
+        maxTimer = setTimeout(function () { stopRec('max_duration'); }, MAX_MS);
+        firstTimer = setTimeout(function () { if (!heardSpeech) stopRec('no_speech'); }, FIRST_MS);
 
         /* 말이 끝났는지 판정 — 소리 크기를 보고 조용해지면 종료.
            AudioContext 를 못 쓰는 환경이면 상한(MAX_MS)까지 녹음하고 끝낸다. */
@@ -156,16 +170,19 @@
             var peak = 0;
             for (var i = 0; i < buf.length; i++) { var v = Math.abs(buf[i] - 128); if (v > peak) peak = v; }
             if (peak > 8) {                       // 사람 목소리로 볼 만한 크기
-              if (!heardSpeech) { heardSpeech = true; onState('speaking', {}); }
+              if (!heardSpeech) { heardSpeech = true; timing('speech_started'); onState('speaking', {}); }
+              timing('speech_last');
               if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
             } else if (heardSpeech && !silenceTimer) {
-              silenceTimer = setTimeout(stopRec, SILENCE_MS);
+              silenceTimer = setTimeout(function () { stopRec('silence'); }, SILENCE_MS);
             }
             raf = requestAnimationFrame(tick);
           };
           raf = requestAnimationFrame(tick);
         } catch (e) { /* 소리 분석 불가 — 상한까지 녹음 */ }
       }).catch(function (err) {
+        if (session.canceled) return finish('');
+        timing('input_failed');
         var denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
         onState('error', { reason: denied ? 'denied' : 'unsupported' });
         finish('');

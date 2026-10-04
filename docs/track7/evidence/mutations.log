@@ -1,0 +1,7 @@
+DETECTED consume_while_free
+DETECTED accept_partial_payment
+DETECTED skip_subject_origin_check
+DETECTED double_decrement_paid_queue
+DETECTED ignore_selected_refund
+DETECTED duplicate_charge_free
+{"mutants":6,"detected":6,"missed":0}

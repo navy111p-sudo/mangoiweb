@@ -1,0 +1,60 @@
+{
+  "track": 7,
+  "baseline": "27ec8ce91c624a80559ee82311fc425664b07319",
+  "scope": "local_schema_and_pure_lifecycle_contract_only",
+  "contract": {
+    "runs": 3,
+    "scenario_groups_each": 34,
+    "pass_each": 34,
+    "fail_each": 0,
+    "real_sqlite_races_total": 60,
+    "idempotency_retries_total": 300,
+    "generated_histories_total": 180
+  },
+  "mutation_testing": {
+    "mutants": 6,
+    "detected": 6,
+    "missed": 0
+  },
+  "regression": {
+    "ai_pass_billing": 72,
+    "student_track_roster": 67,
+    "leveltest_track_split": 86,
+    "failures": 0
+  },
+  "project_typecheck": {
+    "exit_code": 0,
+    "diagnostics": 0
+  },
+  "existing_routes": {
+    "preservation_pass": 9,
+    "unmet_contracts": 4,
+    "unexpected_failures": 0,
+    "intercepted_billing_provider_calls": 1,
+    "live_transactions": 0
+  },
+  "existing_source_files_changed": 0,
+  "production_route_changes": 0,
+  "production_db_changes": 0,
+  "pushed": false,
+  "merged": false,
+  "deployed": false,
+  "full_repository_aggregate": "not_run_sparse_checkout_and_live_access_tests",
+  "status": "approved_design_and_local_sandbox_complete_overall_additional_verification_required",
+  "storage_review": {
+    "original_regressions_failed": 3,
+    "postfix_regressions_passed": 3,
+    "concurrent_read_snapshot_group_passed": 1,
+    "reviewer_implemented_narrow_fixes": true,
+    "independent_postfix_signoff": false
+  },
+  "independent_duration_oracle": {
+    "histories": 200,
+    "ticks_each": 50,
+    "balance_checks": 10000,
+    "commands": 2589,
+    "pass": true,
+    "scope": "stacked_purchases_overlap_expiry_cancellation",
+    "production_route_coverage": false
+  }
+}

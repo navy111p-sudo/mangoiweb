@@ -1,0 +1,102 @@
+name: Seven-track offline validation
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'cloudflare-deploy/**'
+      - 'sandbox/student-entitlements/**'
+      - 'test-harness/**'
+      - '.github/workflows/seven-track-offline-validation.yml'
+permissions:
+  contents: read
+jobs:
+  offline-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: cloudflare-deploy/package-lock.json
+      - name: Install pinned test dependencies without lifecycle scripts
+        run: |
+          npm ci --prefix cloudflare-deploy --legacy-peer-deps --ignore-scripts
+          ln -s cloudflare-deploy/node_modules node_modules
+      - name: TypeScript and three offline focused rounds
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: |
+          node cloudflare-deploy/node_modules/typescript/bin/tsc --noEmit -p cloudflare-deploy/tsconfig.json
+          node test-harness/run-seven-track-offline.mjs --rounds=3 --output=offline-evidence/focused
+      - name: Two complete fast regression rounds with outbound transport blocked
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: node test-harness/run-seven-track-offline.mjs --mode=fast --rounds=2 --output=offline-evidence/fast
+      - name: Retain exact results, including failures and skipped browser tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seven-track-offline-evidence
+          path: offline-evidence
+  isolated-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install pinned test and official browser dependencies before isolation
+        env:
+          PW_DIR: ${{ runner.temp }}/seven-track-pw
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/seven-track-browsers
+        run: |
+          set -euo pipefail
+          npm ci --prefix cloudflare-deploy --legacy-peer-deps --ignore-scripts
+          ln -s cloudflare-deploy/node_modules node_modules
+          npm install --prefix "$PW_DIR" --ignore-scripts --package-lock=false --no-audit --no-fund --registry=https://registry.npmjs.org playwright@1.63.0
+          node "$PW_DIR/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Run two fixture rounds in a loopback-only network namespace
+        env:
+          PW_DIR: ${{ runner.temp }}/seven-track-pw
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/seven-track-browsers
+        run: |
+          set -euo pipefail
+          OUTPUT="$RUNNER_TEMP/seven-track-browser-results"
+          HOME_DIR="$RUNNER_TEMP/seven-track-browser-home"
+          TEMP_DIR="$RUNNER_TEMP/seven-track-browser-tmp"
+          mkdir -p "$OUTPUT" "$HOME_DIR" "$TEMP_DIR"
+          NODE="$(command -v node)"
+          sudo unshare --net -- /bin/bash -euo pipefail -c '
+            uid="$1"; gid="$2"; node="$3"; root="$4"; home="$5"; temp="$6"; pw="$7"; browsers="$8"; output="$9"
+            ip link set lo up
+            test "$(ip -o link show | wc -l)" -eq 1
+            ip link show dev lo >/dev/null
+            test -z "$(ip -4 route show default)"
+            test -z "$(ip -6 route show default)"
+            echo "Isolation verified: only lo; no IPv4/IPv6 default routes"
+            cd "$root"
+            exec setpriv --reuid="$uid" --regid="$gid" --clear-groups --bounding-set=-all --no-new-privs \
+              env -i PATH="$(dirname "$node"):/usr/bin:/bin" HOME="$home" TMPDIR="$temp" \
+              LANG=C.UTF-8 TZ=UTC PW_DIR="$pw" PLAYWRIGHT_BROWSERS_PATH="$browsers" \
+              SEVEN_TRACK_BROWSER_OUTPUT="$output" \
+              /bin/bash test-harness/manual/run-seven-track-browser.sh
+          ' seven-track-browser "$(id -u)" "$(id -g)" "$NODE" "$GITHUB_WORKSPACE" "$HOME_DIR" "$TEMP_DIR" "$PW_DIR" "$PLAYWRIGHT_BROWSERS_PATH" "$OUTPUT" \
+            2>&1 | tee "$OUTPUT/browser.log"
+          grep -Fq 'seven-track-browser: PASS 6 suites / FAIL 0 / SKIP 0' "$OUTPUT/browser.log"
+      - name: Preserve synthetic browser results and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seven-track-browser-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/seven-track-browser-results
+          retention-days: 7
+          if-no-files-found: warn

@@ -18,43 +18,91 @@ permissions:
   contents: read
 jobs:
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - name: Install isolated browser test dependencies
         run: |
-          npm install --prefix "$RUNNER_TEMP/warmup-pw" playwright@1.58.2
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/warmup-pw" --ignore-scripts --package-lock=false --no-audit --no-fund --registry=https://registry.npmjs.org playwright@1.58.2
           "$RUNNER_TEMP/warmup-pw/node_modules/.bin/playwright" install --with-deps chromium
           mkdir -p "$RUNNER_TEMP/warmup-browser/installed/chrome-linux"
           PW_ROOT="$RUNNER_TEMP/warmup-pw" node -e 'const {chromium}=require(process.env.PW_ROOT+"/node_modules/playwright");require("fs").symlinkSync(chromium.executablePath(),process.env.RUNNER_TEMP+"/warmup-browser/installed/chrome-linux/chrome");'
-      - name: Browser baseline and broken-wiring regression
+      - name: Browser gates and 50 account speech cases (loopback-only)
         env:
           PW_DIR: ${{ runner.temp }}/warmup-pw
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/warmup-browser
         run: |
-          node test-harness/manual/warmup-two-way-browser.mjs
-          node test-harness/manual/warmup-guided-browser.mjs
-          python3 -m http.server 8931 --bind 127.0.0.1 --directory cloudflare-deploy/public > "$RUNNER_TEMP/warmup-http.log" 2>&1 &
+          set -euo pipefail
+          OUTPUT="$RUNNER_TEMP/warmup-offline-results"
+          HOME_DIR="$RUNNER_TEMP/warmup-offline-home"
+          TEMP_DIR="$RUNNER_TEMP/warmup-offline-tmp"
+          mkdir -p "$OUTPUT" "$HOME_DIR" "$TEMP_DIR"
+          NODE="$(command -v node)"
+          cat > "$TEMP_DIR/run-browser-gates.sh" <<'BROWSER_GATES'
+          set -euo pipefail
+          # Direct file descriptors retain legacy process.exit() output in full.
+          run_logged() {
+            local log="$1"; shift
+            local status=0
+            "$@" > "$log" 2>&1 || status=$?
+            cat "$log"
+            return "$status"
+          }
+          # Missing/mismatched tooling must fail before legacy skip-capable tests.
+          test -x "$PLAYWRIGHT_BROWSERS_PATH/installed/chrome-linux/chrome"
+          node -e 'const a=require("node:assert/strict"); for(const p of ["playwright","playwright-core"]) a.equal(require(process.env.PW_DIR+"/node_modules/"+p+"/package.json").version,"1.58.2");'
+          run_logged "$OUTPUT/warmup-two-way.log" node test-harness/manual/warmup-two-way-browser.mjs
+          grep -Eq '^warmup-two-way-browser — PASS [1-9][0-9]* / FAIL 0$' "$OUTPUT/warmup-two-way.log"
+          run_logged "$OUTPUT/warmup-guided.log" node test-harness/manual/warmup-guided-browser.mjs
+          grep -Eq '^warmup-guided-browser — PASS [1-9][0-9]* / FAIL 0$' "$OUTPUT/warmup-guided.log"
+          python3 -m http.server 8931 --bind 127.0.0.1 --directory cloudflare-deploy/public > "$OUTPUT/warmup-http.log" 2>&1 &
           SERVER_PID=$!
-          "$RUNNER_TEMP/warmup-browser/installed/chrome-linux/chrome" --headless=new --remote-debugging-address=127.0.0.1 --remote-debugging-port=9931 --no-sandbox --disable-dev-shm-usage --user-data-dir="$RUNNER_TEMP/warmup-cdp" about:blank > "$RUNNER_TEMP/warmup-chrome.log" 2>&1 &
+          "$PLAYWRIGHT_BROWSERS_PATH/installed/chrome-linux/chrome" --headless=new --remote-debugging-address=127.0.0.1 --remote-debugging-port=9931 --no-sandbox --disable-dev-shm-usage --disable-background-networking --user-data-dir="$TMPDIR/warmup-cdp" about:blank > "$OUTPUT/warmup-chrome.log" 2>&1 &
           BROWSER_PID=$!
           trap 'kill "$SERVER_PID" "$BROWSER_PID" 2>/dev/null || true' EXIT
+          ready=0
           for attempt in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8931/warmup.html -o /dev/null && curl -fsS http://127.0.0.1:9931/json/list -o /dev/null; then break; fi
+            if curl -fsS http://127.0.0.1:8931/warmup.html -o /dev/null && curl -fsS http://127.0.0.1:9931/json/list -o /dev/null; then ready=1; break; fi
             sleep 1
           done
-          set -o pipefail
-          node test-harness/manual/warmup-bts-book-browser.mjs | tee "$RUNNER_TEMP/warmup-bts.log"
-          grep -Eq 'warmup-bts-book-browser — PASS [1-9][0-9]* / FAIL 0' "$RUNNER_TEMP/warmup-bts.log"
-          node test-harness/manual/warmup-two-way-mutation.mjs
-
-      - name: Account speech preferences sandbox (50 full-page cases)
-        env:
-          PW_DIR: ${{ runner.temp }}/warmup-pw
-          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/warmup-browser
-        run: node test-harness/manual/speech-preferences-browser.mjs
-
+          test "$ready" -eq 1
+          run_logged "$OUTPUT/warmup-bts.log" node test-harness/manual/warmup-bts-book-browser.mjs
+          grep -Eq '^warmup-bts-book-browser — PASS [1-9][0-9]* / FAIL 0$' "$OUTPUT/warmup-bts.log"
+          run_logged "$OUTPUT/warmup-mutation.log" node test-harness/manual/warmup-two-way-mutation.mjs
+          grep -Fxq 'PASS: restored baseline 63/0' "$OUTPUT/warmup-mutation.log"
+          run_logged "$OUTPUT/speech-preferences.log" node test-harness/manual/speech-preferences-browser.mjs
+          node -e 'const a=require("node:assert/strict"),fs=require("node:fs");const rows=fs.readFileSync(process.argv[1],"utf8").split("\n").filter(x=>x.startsWith("{")).map(x=>JSON.parse(x));a.ok(rows.some(x=>x.suite==="Chromium full pages + real signed auth + isolated SQLite"&&x.cases===50&&x.assertions>0&&x.failed===0),"50 browser cases must finish without skips");' "$OUTPUT/speech-preferences.log"
+          BROWSER_GATES
+          # Loopback HTTP/CDP are required, so do not use the Node no-TCP preload.
+          # The OS namespace denies all external traffic, including browser media.
+          sudo unshare --net -- /bin/bash -euo pipefail -c '
+            uid="$1"; gid="$2"; node="$3"; root="$4"; home="$5"; temp="$6"; pw="$7"; browsers="$8"; output="$9"
+            ip link set lo up
+            test "$(ip -o link show | wc -l)" -eq 1
+            ip link show dev lo >/dev/null
+            test -z "$(ip -4 route show default)"
+            test -z "$(ip -6 route show default)"
+            echo "Isolation verified: only lo; no IPv4/IPv6 default routes"
+            cd "$root"
+            exec setpriv --reuid="$uid" --regid="$gid" --clear-groups --bounding-set=-all --no-new-privs \
+              env -i PATH="$(dirname "$node"):/usr/bin:/bin" HOME="$home" TMPDIR="$temp" \
+              LANG=C.UTF-8 TZ=UTC PW_DIR="$pw" PLAYWRIGHT_BROWSERS_PATH="$browsers" OUTPUT="$output" \
+              /bin/bash "$temp/run-browser-gates.sh"
+          ' offline-browser "$(id -u)" "$(id -g)" "$NODE" "$GITHUB_WORKSPACE" "$HOME_DIR" "$TEMP_DIR" "$PW_DIR" "$PLAYWRIGHT_BROWSERS_PATH" "$OUTPUT" \
+            2>&1 | tee "$OUTPUT/browser.log"
+      - name: Retain exact-head browser results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: warmup-offline-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/warmup-offline-results
+          retention-days: 7
+          if-no-files-found: warn

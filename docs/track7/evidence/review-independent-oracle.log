@@ -1,0 +1,1 @@
+{"suite":"independent_paid_duration_oracle","histories":200,"ticksEach":50,"balanceChecks":10000,"commands":2589,"scope":"stacked_purchases_overlap_expiry_cancellation","pass":true,"productionRouteCoverage":false,"liveProviderCalls":0}

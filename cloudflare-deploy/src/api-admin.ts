@@ -1,3 +1,4 @@
+import { c24NoteIds, trustworthyC24Identity } from './c24-identity';
 import { counselingRecipient, sendCounselingSms } from './counseling-send';
 // ═══════════════════════════════════════════════════════════════════════
 // 🛡️ api-admin.ts — 관리자 도메인 API (api-mango.ts 에서 분리)
@@ -3162,45 +3163,30 @@ export async function handleAdminApi(
             message: '요청 후 수업이 변경되었습니다. 반려 후 최신 시간표에서 다시 요청해 주세요.', message_en: 'The class changed after this request. Reject it, then submit a fresh request from the current timetable.' }, 409);
           if (isDated && ['cancelled','ended','completed'].includes(String(cs.status || ''))) return json({ ok: false, error: 'schedule_not_movable' }, 409);
           guards = await prepareScheduleRequestGuards(env, row, cs, decisionScope);
-          /* 🔒 (2026-09-22) 「사람 손이 이긴다」 도장 — 미러가 우리 수정을 덮지 않게 한다.
-             [잰 것 — 2026-09-22, c24-mirror.ts 의 planMirror 를 있는 그대로 돌림]
-               · 시각만 옮김(같은 날) — 도장 없으면 'ok'(새로 만들기 시도) / 있으면 'diverged'(손 안 대고 알림) ✅
-               · 연기(status=postponed) — 없으면 'already' / 있으면 'manual_locked' ✅
-               · 연기 뒤 카페24가 강사를 바꿈 — 없으면 **'update'(start_time·duration·teacher 를 덮어씀)** / 있으면 'manual_locked' ✅
-             ⟹ 도장이 실제로 막는 것은 **«같은 날짜에 머무는» 수정**이다.
-             ⛔ 「옮긴 수업이 밤사이 되돌아간다」로 적지 말 것 — 그 'update' 는 행이 카페24와
-                **같은 (날짜,시각) 자리에 그대로 있을 때만** 닿는다(planMirror 의 sameSlot).
-                한 번 옮기면 그 자리를 벗어나 'ok' 로 가므로 되돌림이 일어나지 않는다.
-
-             🔴 **날짜가 바뀌는 이동에는 도장을 찍으면 «안 된다»** — 찍으면 오히려 유령이 생긴다.
-                [잰 것 — 2026-09-22, 진짜 SQLite] 미러의 부분 유니크 인덱스는
-                `ON class_schedules(notes) WHERE source='c24-mirror'` 라 도장을 찍은 행은 **그 밖**이다.
-                  · 도장 없음 → 새 INSERT 가 UNIQUE 위반으로 **거절**(중복 없음)
-                  · 도장 있음 → INSERT **성공** ⟹ **옛 날짜에 그 수업이 다시 생긴다**
-                그것이 2026-09-01 「미러가 «실제로 없는 수업» 을 만듦 — 강사가 20분 헛기다리고
-                학생 노쇼까지 찍힘」과 같은 모양이다.
-             ✅ 그래서 **날짜가 그대로일 때만** 찍는다(연기는 날짜가 안 바뀌므로 언제나 찍는다).
-                날짜가 바뀌는 이동은 도장 없이 — 예전 동작 그대로라 새로 잃는 것이 없다.
-             ⛔ 도장을 나중에 «따로» 찍지 말 것 — 그 사이에 야간 미러가 돌 수 있고, 한 줄이
-                실패하면 반쪽만 남는다. **같은 UPDATE 안에서** 찍는다(DELETE·PATCH 가 이미 쓰는 방식).
-             ℹ️ 미러 행이 아니면 손대지 않는다 — 예전 동작 그대로다.
-             🟡 더 나은 길(별건·사람이 정할 일): planMirror 의 `manual` 찾기를 «날짜» 가 아니라
-                **notes(c24:<수업번호>)** 로 맞추면 날짜를 옮겨도 도장이 일한다. 미러의 심장을
-                고치는 일이라 여기서는 안 건드렸다. */
+          /* Manual ownership stays atomic with approval/movement. The old date-only
+             stamp left moved rows vulnerable to a later destination-window cancel.
+             Cafe24 now resolves manual overrides by stable origin ID across dates,
+             and the INSERT rechecks that identity after planning. No historic rows
+             are rewritten here; missing/ambiguous identity is rejected below. */
           const _isMirror = String((cs as any)?.source || '') === MIRROR_SOURCE;
+          const _isManualMirror = String((cs as any)?.source || '') === MIRROR_SOURCE_MANUAL;
+          if (isDated && (_isMirror || _isManualMirror)
+            && ((row.new_date && String(row.new_date) !== String(cs.scheduled_date)) || c24NoteIds(cs.notes).length > 0)
+            && !trustworthyC24Identity(cs))
+            return json({ ok: false, error: 'mirror_identity_missing', message: '카페24 원본 수업 번호를 확인할 수 없어 승인하지 않았습니다. 원본 정보를 확인해 주세요.' }, 409);
           /* 👨‍🏫 (2026-09-30) 학생이 «교사로 연기» 에서 고른 강사(new_teacher_id) — 승인이 «실제로» 바꾼다.
              예전엔 이 경로에 teacher_id 를 바꾸는 코드가 한 줄도 없어서, 학생은 «선택됨» 을 보고 관리자는
              «승인·이동됨» 을 보는데 수업은 원래 강사 그대로였다(함정 대조가 잡음 — 에러 없음).
              🔒 게이트는 PATCH 담당 강사 변경과 같은 정본 teacherMoveDenyReason(본사만 · 강사 차단 · 모르면 막음).
              ⛔ 막히거나 못 바꾸면 «옮기지도 않는다» — 강사를 바꾸려던 요청인데 시각만 바꾸고 «완료» 라 하면 거짓이다.
-             ⛔ 카페24 미러 수업을 «날짜를 바꾸면서» 강사까지 바꾸지 않는다(도장 → 옛 날짜에 유령. 위 🔴).
+             ⛔ 카페24 날짜+강사 동시 변경 제한은 기존 운영 계약이므로 이번 원본 ID 보호 수정에서 넓히지 않는다.
              ℹ️ 반복 수업은 여전히 'recorded' — 한 줄이 «매주 전부» 라 그 주만 바꿀 방법이 없다. */
           const _wantTid = String((row as any).new_teacher_id ?? '').trim();
           let _swap = isDated && !!(row.new_date && row.new_time) && /^\d+$/.test(_wantTid) && _wantTid !== String((cs as any)?.teacher_id ?? '');
           let _swapBlock: { ko: string; en: string } | null = null;
           let _swapName: string | null = null;
           if (_swap) {
-            if (_isMirror && String(row.new_date || '') !== String((cs as any)?.scheduled_date || '')) {
+            if ((_isMirror || _isManualMirror) && String(row.new_date || '') !== String((cs as any)?.scheduled_date || '')) {
               _swapBlock = { ko: '카페24에서 온 수업은 날짜를 옮기면서 담당 강사까지 바꿀 수 없어요. 시간표에서 직접 조정해 주세요.', en: 'For Cafe24 classes the teacher cannot be changed together with a date change. Please adjust it in the timetable.' };
             } else {
               let _stScope: string | null = null;
@@ -3241,8 +3227,8 @@ export async function handleAdminApi(
             if (conf.has) {
               return json({ ok: false, error: 'conflict', applied: 'conflict', conflict: { ko: conf.ko, en: conf.en, student: conf.student.length, teacher: conf.teacher.length }, message: conf.ko, message_en: conf.en }, 409);
             } else {
-              /* ⛔ 날짜가 바뀌면 도장을 찍지 않는다 — 찍으면 옛 날짜에 유령이 되살아난다(위 🔴). */
-              const _stampMove = _isMirror && String(row.new_date || '') === String((cs as any)?.scheduled_date || '');
+              /* Stamp in this same guarded transaction; sync protects the stable ID. */
+              const _stampMove = _isMirror; // Stable origin-ID matching now protects moves across dates too.
               const _mv = env.DB.prepare(
                 _stampMove
                   ? `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, source = '${MIRROR_SOURCE_MANUAL}', updated_at = ? WHERE id = ?`

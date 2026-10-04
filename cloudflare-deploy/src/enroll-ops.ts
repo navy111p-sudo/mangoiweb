@@ -524,13 +524,15 @@ export function enrollParse(body: any): any {
   const startDate = String(body?.start_date || '').trim();
   const teacherId = String(body?.teacher_id || '').trim().slice(0, 40);
   const days: number[] = Array.isArray(body?.days)
-    ? ([...new Set(body.days.map((x: any) => Number(x)))] as number[]).filter((n) => n >= 0 && n <= 6).sort()
+    ? ([...new Set(body.days.map((x: any) => Number(x)))] as number[]).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6).sort()
     : [];
   if (!ENROLL_WEEKLY.includes(weekly)) return { error: 'bad_weekly' };
   if (!ENROLL_MONTHS.includes(months)) return { error: 'bad_months' };
   if (!ALLOWED_CLASS_MINUTES.includes(minutes)) return { error: 'bad_minutes' };
   if (days.length !== weekly) return { error: 'days_count_mismatch' };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return { error: 'bad_start_date' };
+  const parsedStart = new Date(startDate + 'T00:00:00Z');
+  if (!Number.isFinite(parsedStart.getTime()) || parsedStart.toISOString().slice(0, 10) !== startDate) return { error: 'bad_start_date' };
   if (startDate < kstToday()) return { error: 'start_date_past' };
   if (!teacherId) return { error: 'teacher_required' };
 
@@ -592,17 +594,29 @@ export async function enrollCreateSchedules(env: any, order: any, orderId: strin
 
   const now = Date.now();
   const sName = String(order.student_name || order.payer_name || '');
-  const stmt = env.DB.prepare(
-    `INSERT OR IGNORE INTO class_schedules (user_id, student_name, schedule_kind, class_type, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes)
-     VALUES (?, ?, 'dated', 'regular', ?, ?, ?, ?, 'active', ?, 'enroll-auto', ?, ?)`
-  );
   const note = `수강신청 자동생성 · ${ej.teacher_name || ''} · 주${ej.weekly}회×${ej.months}개월`;
-  const batch: any[] = dates.map((d) => {
+  const rows = dates.map((d) => {
     const dow = new Date(d + 'T00:00:00Z').getUTCDay();
     const t = String(timesMap[String(dow)] ?? timesMap[dow] ?? fallbackTime);
-    return stmt.bind(String(ej.uid), sName || null, d, t, Number(ej.minutes) || 20, String(ej.teacher_id), src, now, note);
+    return [String(ej.uid), sName || null, d, t, Number(ej.minutes) || 20, String(ej.teacher_id), src, now, note];
   });
-  for (let i = 0; i < batch.length; i += 80) await env.DB.batch(batch.slice(i, i + 80));
+  // One atomic INSERT admits this order and all of its dates together. A delayed
+  // duplicate's earlier source lookup can be stale; checking only before planning
+  // lets its own first schedule set look like conflicts and shifts an extra set later.
+  // JSON keeps the statement under D1's 100-bound-parameter limit (one data payload).
+  // https://developers.cloudflare.com/d1/worker-api/d1-database/#batch
+  if (rows.length) await env.DB.batch([env.DB.prepare(
+    `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes)
+     SELECT json_extract(value,'$[0]'), json_extract(value,'$[1]'), 'dated', 'regular',
+            json_extract(value,'$[2]'), json_extract(value,'$[3]'), json_extract(value,'$[4]'), json_extract(value,'$[5]'),
+            'active', json_extract(value,'$[6]'), 'enroll-auto', json_extract(value,'$[7]'), json_extract(value,'$[8]')
+       FROM json_each(?) WHERE NOT EXISTS (SELECT 1 FROM class_schedules WHERE source = ?)
+         AND EXISTS (SELECT 1 FROM payment_orders WHERE order_id = ? AND status = 'paid' AND fail_reason = 'schedule_generation_pending:v1')`
+  ).bind(JSON.stringify(rows), src, orderId), env.DB.prepare(
+    `UPDATE payment_orders SET fail_reason=NULL WHERE order_id=? AND status='paid'
+       AND fail_reason='schedule_generation_pending:v1'
+       AND EXISTS (SELECT 1 FROM class_schedules WHERE source=?)`
+  ).bind(orderId, src)]);
 }
 
 /* ═══════════════ 2단계: 현재 수강 현황 · 연장 ═══════════════ */

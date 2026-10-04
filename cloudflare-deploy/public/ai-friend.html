@@ -510,7 +510,7 @@
       data-ko="🚀 다음 활동 고르기" data-en="🚀 Choose next activity">🚀 다음 활동 고르기</button>
   </div>
 
-  <script src="/js/speech-preferences.js?v=3"></script>
+  <script src="/js/speech-preferences.js?v=4"></script>
   <script>
     // 전체 사이트 로그인된 사용자(mango_user) + 서명 토큰 자동 사용
     // 서버가 uid 를 그대로 믿지 않으므로(타인 대화 열람/삭제 방지 = IDOR 차단)
@@ -1232,13 +1232,16 @@
     /* ⏹ B (2026-09-11) — «AI 가 말하는 중에 학생이 말을 걸면 멈춘다».
        ⛔ MangoiTTS.stop() «만» 부르면 안 됩니다 — A-1 의 문장 큐가 다음 문장을 이어서
           재생해, 멈춘 것처럼 보였다가 곧 다시 말합니다. 정지는 반드시 이 한 곳으로. */
+    var _speechGeneration = 0, _friendRequestAbort = null;
     function stopSpeakingNow() {
+      _speechGeneration++;
+      try { if (_friendRequestAbort) { _friendRequestAbort.abort(); _friendRequestAbort = null; } } catch(e){}
       if (window.FriendAutoTalk) FriendAutoTalk.stop();
       stmReset();                                   // 큐·미리보기·세대 번호
       try { window.MangoiTTS && MangoiTTS.stop && MangoiTTS.stop(); } catch(e){}
       try { window.MangoAvatar && MangoAvatar.plainStop(); } catch(e){}   // 👩‍🏫 아바타 입 멈춤
     }
-    function stmSpeak(sen) {
+    function stmSpeak(sen, trace) {
       if (!isSoundOn()) return;
       var my = _stmGen;
       _stmSpoke = true;
@@ -1247,9 +1250,13 @@
           if (my !== _stmGen) return res();          // 새 턴이 시작됐으면 버립니다
           var fired = false;
           var fin = function(){ if (!fired) { fired = true; res(); } };
-          try { speakText(sen, null, null, fin); } catch(e){ return fin(); }
+          try { speakText(sen, null, null, fin, trace); } catch(e){ return fin(); }
           /* ⚠️ 안전망 — 끝 신호가 영영 안 오면 큐가 멈춰 남은 문장이 통째로 사라집니다. */
-          setTimeout(fin, 20000);
+          function watchSpeech() {
+            if (my === _stmGen && window.MangoiTTS && MangoiTTS.busy && MangoiTTS.busy()) { setTimeout(watchSpeech, 20000); return; }
+            fin();
+          }
+          setTimeout(watchSpeech, 20000);
         });
       });
     }
@@ -1268,12 +1275,17 @@
       if (chat2) chat2.scrollTop = chat2.scrollHeight;
     }
     /** SSE 를 읽어 문장을 흘리고, done 이벤트의 객체를 돌려줍니다. */
-    async function stmRead(r) {
+    async function stmRead(r, trace, turnGeneration, onProgress) {
       var rd = r.body && r.body.getReader ? r.body.getReader() : null;
       if (!rd) return { ok: false, error: 'stream_unsupported' };
       var dec = new TextDecoder(), buf = '', out = null;
       for (;;) {
         var step = await rd.read();
+        if (turnGeneration !== _stmGen) {
+          try { await rd.cancel(); } catch (e) {}
+          return { ok: false, canceled: true };
+        }
+        if (onProgress) onProgress();
         if (step.done) break;
         buf += dec.decode(step.value, { stream: true });
         var nl;
@@ -1284,24 +1296,27 @@
           try { ev = JSON.parse(line.slice(5)); } catch(e){ continue; }
           if (!ev) continue;
           if (ev.done) { out = ev; continue; }
-          if (ev.t) { stmShow(ev.t); stmSpeak(ev.t); }
+          if (ev.t) { if (trace) trace.mark('llm_first_sentence'); stmShow(ev.t); stmSpeak(ev.t, trace); }
         }
       }
       return out || { ok: false, error: 'stream_incomplete' };
     }
 
-    function speakText(text, btn, row, onDone) {
+    function speakText(text, btn, row, onDone, trace) {
       if (!friendRatePreference.loaded) {
         const waitingGen = _stmGen;
         return friendRatePreference.ready.then(function(){
           if (waitingGen !== _stmGen) { if (onDone) onDone(); return; }
-          speakText(text, btn, row, onDone);
+          continueSpeech();
         });
       }
+      return continueSpeech();
+      function continueSpeech(){
       if (!window.MangoiTTS) { if (onDone) onDone(); return; }
       if (!_ttsLangSet) { try { MangoiTTS.setLang('en'); } catch(e){} _ttsLangSet = true; }
       const clean = String(text || '').replace(/^[⚠️❗️\s]+/, '').trim();
       if (!clean || /^⚠️/.test(text)) { if (onDone) onDone(); return; }   // 시스템/오류 메시지는 읽지 않음
+      const speechGeneration = ++_speechGeneration;
       const autoSpeech = window.FriendAutoTalk ? FriendAutoTalk.aiStart() : 0;
       document.querySelectorAll('.replay-btn.playing').forEach(x => x.classList.remove('playing'));
       document.querySelectorAll('.ai-row.speaking').forEach(x => x.classList.remove('speaking'));
@@ -1327,6 +1342,7 @@
         }
       } catch(e){}
       const done = function(){
+        if (speechGeneration !== _speechGeneration) return;
         if (window.FriendAutoTalk) FriendAutoTalk.aiDone(autoSpeech);
         if (btn) btn.classList.remove('playing');
         if (row) row.classList.remove('speaking');
@@ -1342,8 +1358,9 @@
         const _speaker = speakerFor();
         try { if (MangoiTTS.setSpeaker) MangoiTTS.setSpeaker(_speaker); } catch(e){}
         try { window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(charForPerson(_personNow)); } catch(e){}
-        MangoiTTS.speak(clean, rateFor(_personNow, currentRate), done);
+        MangoiTTS.speak(clean, rateFor(_personNow, currentRate), done, trace ? { onTiming: trace.mark } : null);
       } catch(e){ done(); }
+      }
     }
 
     /* ══ 🎤 말하기 (녹음 → 서버 Whisper 전사 → 자동 전송 + 🎤보너스) ══
@@ -1354,6 +1371,7 @@
        문제도 없다(MediaRecorder는 멈추기 전까지 안 끊김). 실시간 자막은 사라지고 "녹음→전사"
        로 UX가 바뀌지만(사장님 승인), 그만큼 정답률이 오른다. */
     let _recognizing = false, _pendingVoice = false;
+    var _pendingVoiceTrace = null;
     function updateMicUI() {
       const b = document.getElementById('micBtn'); if (!b) return;
       b.classList.toggle('recording', _recognizing);
@@ -1399,7 +1417,9 @@
       _whisperOn = true; _recognizing = true; updateMicUI();
       stopSpeakingNow();   // ⏹ 말을 걸었으니 AI 낭독을 멈춥니다(큐까지 함께 — B)
       let said = '';
+      const trace = window.MangoiVoiceTiming ? MangoiVoiceTiming.begin(auto ? 'auto' : 'manual') : null;
       try { said = await MangoiVoice.record({
+        onTiming: trace ? trace.mark : null,
         lang: 'en',
         onState: (s, info) => {
           if (micSeq !== _friendMicSeq) return;
@@ -1429,7 +1449,7 @@
         micHint(null);
         const input = document.getElementById('msgInput');
         if (input) input.value = said;
-        _pendingVoice = true; sendMsg();
+        _pendingVoice = true; _pendingVoiceTrace = trace; sendMsg();
       } else if (auto && window.FriendAutoTalk) { micHint(null); FriendAutoTalk.empty(voiceError); }
     }
 
@@ -1585,9 +1605,15 @@
       document.getElementById('sendBtn').disabled = true;
       const autoTurn = window.FriendAutoTalk ? FriendAutoTalk.begin() : 0;
       let autoReplyOK = false;
+      let requestAbort = null, requestTimer = null, requestTimedOut = false;
+      const requestProgress = function () {
+        clearTimeout(requestTimer);
+        requestTimer = setTimeout(function () { requestTimedOut = true; if (requestAbort) requestAbort.abort(); }, 30000);
+      };
       try {
       maybeAdjustRate(msg);                 // 🐢 "천천히 말해줘" → 실제로 음성 속도를 낮춤
       const wasVoice = _pendingVoice; _pendingVoice = false;
+      const trace = wasVoice ? _pendingVoiceTrace : null; _pendingVoiceTrace = null;
       const auth = await getAuth();
       if (!auth) { appendMsg('ai', '⚠️ 인증에 실패했어요. 새로고침 후 다시 시도해주세요.'); return; }
 
@@ -1609,13 +1635,16 @@
       /* 📡 새 턴 — 앞 턴의 문장 큐·미리보기를 끊습니다.
          ⛔ 안 끊으면 학생이 다음 말을 보냈는데 «앞 답» 이 계속 읽힙니다. */
       stmReset();
+      const responseGeneration = _stmGen;
       try { input.dispatchEvent(new Event('mangoi:turn-sent')); } catch(e){}   // ⏹ 다음 답변에도 끼어들 수 있게
       appendMsg('user', msg);
       sndPop();
       appendTyping();
       try {
+        requestAbort = new AbortController(); _friendRequestAbort = requestAbort; requestProgress();
+        if (trace) trace.mark('llm_started');
         const r = await fetch('/api/ai/chat-friend', {
-          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+          method: 'POST', signal: requestAbort.signal, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
           // 🧑 friend — 서버가 「너는 Lily 야」로 프롬프트를 만든다. 안 보내면 AI 가 자기를
           //    'Mango' 로 알고, 「Hi! I'm Lily」로 인사해 놓고 이름을 물으면 다른 이름을 댄다
           //    (2026-08-31 사장님 제보). 「번갈아」면 personNow() 가 그 턴의 사람을 준다.
@@ -1625,16 +1654,19 @@
                                  sub: currentSub,     // 🎧 자막을 끄고 대화하면 서버가 덤 1P (하루 5회)
                                  stream: 1 })         // 📡 A-1 — 문장이 끝날 때마다 먼저 읽습니다
         });
+        requestProgress();
         let d;
         /* 📡 서버가 스트리밍으로 답하면 문장을 흘려 받습니다. 옛 서버(JSON)면 ct 가 달라
            저절로 아래 옛 경로로 갑니다 — 화면을 안 고쳐도 되는 방향입니다. */
         const _ct = r.headers.get('Content-Type') || '';
         if (_ct.indexOf('text/event-stream') >= 0) {
-          try { d = await stmRead(r); }
-          catch(se){ console.error('[AI Friend] stream read failed:', se); d = { ok:false, error:'stream_failed' }; }
+          try { d = await stmRead(r, trace, responseGeneration, requestProgress); }
+          catch(se){ if (responseGeneration !== _stmGen) { removeTyping(); return; } console.error('[AI Friend] stream read failed:', se); d = { ok:false, error:'stream_failed' }; }
         } else {
           try { d = await r.json(); } catch(je){ d = { ok:false, error: 'invalid_json_response', status: r.status }; }
         }
+        if (responseGeneration !== _stmGen || (d && d.canceled)) { removeTyping(); return; }
+        if (trace) { trace.mark('llm_finished'); if (d && d.timing) trace.server(d.timing); }
         removeTyping();
         /* 미리보기 말풍선을 치웁니다 — 아래에서 정본(appendMsg)이 다시 그립니다. */
         if (_stmRow && _stmRow.parentNode) { _stmRow.parentNode.removeChild(_stmRow); }
@@ -1666,7 +1698,7 @@
             const rows = document.querySelectorAll('.ai-row');
             const lastRow = rows.length ? rows[rows.length - 1] : null;
             const btns = document.querySelectorAll('.replay-btn');
-            speakText(lastRow && lastRow._speakBody ? lastRow._speakBody : d.reply, btns.length ? btns[btns.length - 1] : null, lastRow);
+            speakText(lastRow && lastRow._speakBody ? lastRow._speakBody : d.reply, btns.length ? btns[btns.length - 1] : null, lastRow, null, trace);
           }
         } else {
           console.error('[AI Friend] server error:', d, 'status:', r.status);
@@ -1675,11 +1707,15 @@
           appendMsg('ai', '⚠️ 잠시 응답이 지연되고 있어요. 다시 시도해주세요.\n(' + errMsg + detail + ')');
         }
       } catch(e){
+        if (responseGeneration !== _stmGen) { removeTyping(); return; }
         console.error('[AI Friend] fetch failed:', e);
         removeTyping();
-        appendMsg('ai', '⚠️ 네트워크가 불안정합니다. Wi-Fi 를 확인해주세요. (' + (e && e.message ? e.message : 'unknown') + ')');
+        appendMsg('ai', requestTimedOut ? '⚠️ 답변을 기다리는 시간이 길어졌어요. 잠시 뒤 다시 보내 주세요.'
+          : '⚠️ 네트워크가 불안정합니다. Wi-Fi 를 확인해주세요. (' + (e && e.message ? e.message : 'unknown') + ')');
       }
       } finally {
+        clearTimeout(requestTimer);
+        if (_friendRequestAbort === requestAbort) _friendRequestAbort = null;
         document.getElementById('sendBtn').disabled = false;
         if (window.FriendAutoTalk) {
           // Do not arm between streamed sentences or before a delayed final sentence.
@@ -1958,10 +1994,11 @@
   .cele-banner .cb-sub{font-size:16px}
 }
 </style>
-<script defer src="/js/game-tts.js?v=6"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크). v6: 서버 실패 시 400ms 뒤 한 번 더 물어본 뒤에만 기기 목소리로 — 「목소리가 계속 변해」 -->
-<script defer src="/js/mangoi-voice-input.js?v=5"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
+<script defer src="/js/ai-voice-timing.js?v=1"></script>
+<script defer src="/js/game-tts.js?v=7"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크). v6: 서버 실패 시 400ms 뒤 한 번 더 물어본 뒤에만 기기 목소리로 — 「목소리가 계속 변해」 -->
+<script defer src="/js/mangoi-voice-input.js?v=6"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/aifriend-auto-talk.js?v=1"></script>
-<script defer src="/js/aifriend-facetalk.js?v=3"></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 얼굴 가득 + 유리판 자막, 막히면 저절로 열림) -->
+<script defer src="/js/aifriend-facetalk.js?v=4"></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 얼굴 가득 + 유리판 자막, 막히면 저절로 열림) -->
 <script defer src="/js/ai-diff.js?v=2"></script><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>

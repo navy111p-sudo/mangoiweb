@@ -1,0 +1,821 @@
+{
+  "status": "local integration and permitted offline validation complete; whole-track acceptance incomplete",
+  "baseline": "4e559303e56ee3a894fe51403f9de613c4cbc48d",
+  "baseline_url": "https://github.com/navy111p-sudo/mangoiweb/commit/4e559303e56ee3a894fe51403f9de613c4cbc48d",
+  "branch": "integration/seven-track-20261004",
+  "source_pin": "3280843917a75464e6b0604528be2a9d2905c3ba",
+  "application_code_pin": "e4842f18fe64de3f93b3d75e95d332bad724ac66",
+  "inputs": [
+    {
+      "tracks": [
+        1
+      ],
+      "kind": "commit",
+      "source": "de7a512a5cb83026693d9d8e49674c5824f5db30",
+      "base": "27ec8ce91c624a80559ee82311fc425664b07319"
+    },
+    {
+      "tracks": [
+        4,
+        6
+      ],
+      "kind": "bundle",
+      "file": "mangoi-track46-review-20261004.bundle",
+      "sha256": "a04b7fa6691e1066292a0927c03fbe305aad36d0cdece084a8334c772776178e",
+      "head": "bca40956a06f8f1bd7ffa6ec4e063f6137e9e06d"
+    },
+    {
+      "tracks": [
+        3
+      ],
+      "kind": "client-only patch",
+      "file": "client-race.patch",
+      "sha256": "bd8357f3eea9f53efe5780bb092d9a5260abbf1a862c190f1105e01787b920b9"
+    },
+    {
+      "tracks": [
+        5
+      ],
+      "kind": "patch",
+      "file": "track5-payment-consistency.patch",
+      "sha256": "fc1fe551f621917a8346a5259bb2b5612ff391efefa84bbfcde0273bc25d51dc"
+    },
+    {
+      "tracks": [
+        5
+      ],
+      "kind": "supplement",
+      "file": "track5-final-write-cas.patch",
+      "sha256": "16b2997cb76f54eec37eaa456116c5036083861ba3bf3269481e4be4a2ce84d8"
+    },
+    {
+      "tracks": [
+        7
+      ],
+      "kind": "standalone local contract patch",
+      "file": "track7-entitlement-contract.patch",
+      "sha256": "f1066c15fe53ebff8b730bd87c49f4ee6baeeb6d11b85f1c49b6143588704c03"
+    },
+    {
+      "tracks": [
+        2
+      ],
+      "kind": "latest-main patch",
+      "file": "track2-latest.patch",
+      "sha256": "d7e169993bacb105b9a41d39d851c4b2b0211ccb3a2976cd51bff0100a712406",
+      "base": "4e559303e56ee3a894fe51403f9de613c4cbc48d"
+    },
+    {
+      "tracks": [
+        2
+      ],
+      "kind": "comment-only payload supplement",
+      "file": "track2-first-paint-supplement.patch",
+      "sha256": "4843f00ecbb8a7696c6dd0ce7a0760b765dcc4058f902c19c307888888c03809"
+    }
+  ],
+  "integration_source_changes": [
+    ".github/workflows/seven-track-offline-validation.yml",
+    "CLAUDE.md",
+    "cloudflare-deploy/public/admin/refunds.html",
+    "cloudflare-deploy/public/admin/send-pay-link.html",
+    "cloudflare-deploy/public/ai-friend.html",
+    "cloudflare-deploy/public/battle-3d.html",
+    "cloudflare-deploy/public/daily-handover.html",
+    "cloudflare-deploy/public/index.html",
+    "cloudflare-deploy/public/js/ai-voice-timing.js",
+    "cloudflare-deploy/public/js/aifriend-facetalk.js",
+    "cloudflare-deploy/public/js/daily-handover.js",
+    "cloudflare-deploy/public/js/game-tts.js",
+    "cloudflare-deploy/public/js/game-vocab.js",
+    "cloudflare-deploy/public/js/idx-vc-qlog.js",
+    "cloudflare-deploy/public/js/mangoi-voice-input.js",
+    "cloudflare-deploy/public/js/speech-preferences.js",
+    "cloudflare-deploy/public/judgment.html",
+    "cloudflare-deploy/public/micro-quiz.html",
+    "cloudflare-deploy/public/student-game-grammar-pizza.html",
+    "cloudflare-deploy/public/student-game-language-ace.html",
+    "cloudflare-deploy/public/student-game-p38-3d.html",
+    "cloudflare-deploy/public/student-game-rescue-voyage.html",
+    "cloudflare-deploy/public/student-game-space-monster.html",
+    "cloudflare-deploy/public/student-game-tank-battle.html",
+    "cloudflare-deploy/public/student-game-tetris.html",
+    "cloudflare-deploy/public/student-games.html",
+    "cloudflare-deploy/public/vocab.html",
+    "cloudflare-deploy/public/warmup.html",
+    "cloudflare-deploy/src/api-admin.ts",
+    "cloudflare-deploy/src/api-ai.ts",
+    "cloudflare-deploy/src/api-notify.ts",
+    "cloudflare-deploy/src/api-pay-refund.ts",
+    "cloudflare-deploy/src/api-pay.ts",
+    "cloudflare-deploy/src/c24-identity.ts",
+    "cloudflare-deploy/src/c24-mirror.ts",
+    "cloudflare-deploy/src/class-schedule-move.ts",
+    "cloudflare-deploy/src/daily-handover.ts",
+    "cloudflare-deploy/src/enroll-ops.ts",
+    "cloudflare-deploy/src/payment-schedule-audit.ts",
+    "cloudflare-deploy/src/student-entitlement-contract.ts",
+    "docs/INDEX.md",
+    "docs/game-tts-history.md",
+    "docs/track7/ENTITLEMENT_DESIGN.md",
+    "docs/track7/VALIDATION_REPORT.md",
+    "docs/track7/evidence/ai_pass_billing.log",
+    "docs/track7/evidence/contract-round-1.log",
+    "docs/track7/evidence/contract-round-2.log",
+    "docs/track7/evidence/contract-round-3.log",
+    "docs/track7/evidence/current-routes.log",
+    "docs/track7/evidence/leveltest_track_split.log",
+    "docs/track7/evidence/mutations.log",
+    "docs/track7/evidence/review-after-fix.log",
+    "docs/track7/evidence/review-before-fix.log",
+    "docs/track7/evidence/review-independent-oracle.log",
+    "docs/track7/evidence/student_track_roster.log",
+    "docs/track7/evidence/summary.json",
+    "docs/track7/evidence/typecheck.log",
+    "docs/작업기록/2026-10-04-c24-manual-origin-sync.md",
+    "docs/작업기록/2026-10-04-daily-handover-reminder-contracts.md",
+    "docs/작업기록/261004_track1_network_epoch_review.md",
+    "sandbox/student-entitlements/001_entitlements.sql",
+    "sandbox/student-entitlements/create-sandbox.mjs",
+    "sandbox/student-entitlements/current-routes-probe.mjs",
+    "sandbox/student-entitlements/legacy-readonly-audit.sql",
+    "sandbox/student-entitlements/race-worker.mjs",
+    "sandbox/student-entitlements/store.mjs",
+    "test-harness/ai_friend_stream_harness.mjs",
+    "test-harness/ai_pass_billing_harness.mjs",
+    "test-harness/ai_voice_latency_harness.mjs",
+    "test-harness/asset-versions.json",
+    "test-harness/billing_idempotency_harness.mjs",
+    "test-harness/c24_mirror_harness.mjs",
+    "test-harness/c24_mirror_identity_harness.mjs",
+    "test-harness/c24_mirror_move_sync_harness.mjs",
+    "test-harness/daily_handover_harness.mjs",
+    "test-harness/daily_handover_reminder_delivery_harness.mjs",
+    "test-harness/deploy_class_guard_harness.mjs",
+    "test-harness/game_vocab_account_race_harness.mjs",
+    "test-harness/handover_pending_delivery_harness.mjs",
+    "test-harness/helpers/offline-network-guard.cjs",
+    "test-harness/manager_today_reschedule_harness.mjs",
+    "test-harness/manual/ai-friend-turn-latency-browser.mjs",
+    "test-harness/manual/ai-friend-turn-latency-page-server.mjs",
+    "test-harness/manual/payment-integrity-browser.mjs",
+    "test-harness/offline_network_guard_harness.mjs",
+    "test-harness/payment_refund_harness.mjs",
+    "test-harness/payment_schedule_integrity_harness.mjs",
+    "test-harness/run-seven-track-offline.mjs",
+    "test-harness/speech_preferences_fault_harness.mjs",
+    "test-harness/speech_preferences_lifecycle_harness.mjs",
+    "test-harness/student_entitlement_contract_harness.mjs",
+    "test-harness/student_entitlement_contract_mutations.mjs",
+    "test-harness/student_entitlement_review_oracle.mjs",
+    "test-harness/student_schedule_lifecycle_sync_harness.mjs",
+    "test-harness/student_schedule_request_harness.mjs",
+    "test-harness/vc_netem_multiclient_harness.mjs",
+    "test-harness/vc_network_epoch_harness.mjs",
+    "test-harness/vc_network_epoch_mutations.mjs",
+    "test-harness/voice_fallback_harness.mjs",
+    "test-harness/warmup_auto_talk_harness.mjs",
+    "test-harness/warmup_first_sentence_tts_harness.mjs",
+    "test-harness/warmup_voice_latency_harness.mjs",
+    "test-harness/webrtc-sandbox-guard.mjs",
+    "test-harness/webrtc_ice_queue_harness.mjs",
+    "test-harness/webrtc_sandbox_guard_harness.mjs"
+  ],
+  "resolved_patch_overlaps": [
+    "daily-handover.html: preserve handover v11 and merge voice-input v6 only",
+    "asset-versions.json: preserve historical entries; add current hashes; update only unpublished TTS v7 hash for comment-only supplement"
+  ],
+  "integration_test_infrastructure": [
+    "explicit outbound transport denial with tests",
+    "minimal child environment without inherited service credentials",
+    "npm offline and update notification disabled",
+    "existing SKIP_LIVE_PROBE test option; probe harness uses explicit synthetic failure and still verifies probe invocation",
+    "ICE queue harness explicitly mocks its prefetch without changing production WebRTC",
+    "direct file descriptors preserve complete logs despite legacy process.exit",
+    "local-only read-permission CI workflow; not published or run remotely"
+  ],
+  "focused": {
+    "scope": "offline synthetic integration; no browser/media/provider validation",
+    "mode": "focused",
+    "rounds": 3,
+    "suites": 18,
+    "passedRuns": 54,
+    "failedRuns": 0,
+    "rows": [
+      {
+        "suite": "vc_network_epoch",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 96,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "webrtc_sandbox_guard",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 92,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "vc_office_recovery",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 65,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "ai_voice_latency",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 1706,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "warmup_voice_latency",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 379,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "speech_preferences_lifecycle",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 270,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "speech_preferences_fault",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 93,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "speech_preferences_sqlite",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 134,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "game_vocab_account_race",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 48,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "daily_handover",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 775,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "daily_handover_reminder_delivery",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 623,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "handover_pending_delivery",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 395,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "payment_schedule_integrity",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 874,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "c24_mirror_identity",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 208,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "c24_mirror_move_sync",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 1954,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "student_schedule_lifecycle_sync",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 5103,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "student_entitlement_contract",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 2039,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "offline_network_guard",
+        "round": 1,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 534,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "vc_network_epoch",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 121,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "webrtc_sandbox_guard",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 104,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "vc_office_recovery",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 80,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "ai_voice_latency",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 2007,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "warmup_voice_latency",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 475,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "speech_preferences_lifecycle",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 351,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "speech_preferences_fault",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 108,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "speech_preferences_sqlite",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 158,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "game_vocab_account_race",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 52,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "daily_handover",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 873,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "daily_handover_reminder_delivery",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 663,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "handover_pending_delivery",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 437,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "payment_schedule_integrity",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 926,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "c24_mirror_identity",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 188,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "c24_mirror_move_sync",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 1812,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "student_schedule_lifecycle_sync",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 4839,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "student_entitlement_contract",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 1811,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "offline_network_guard",
+        "round": 2,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 442,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "vc_network_epoch",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 98,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "webrtc_sandbox_guard",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 98,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "vc_office_recovery",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 61,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "ai_voice_latency",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 1658,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "warmup_voice_latency",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 352,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "speech_preferences_lifecycle",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 301,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "speech_preferences_fault",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 88,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "speech_preferences_sqlite",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 116,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "game_vocab_account_race",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 46,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "daily_handover",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 647,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "daily_handover_reminder_delivery",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 513,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "handover_pending_delivery",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 389,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "payment_schedule_integrity",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 806,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "c24_mirror_identity",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 135,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "c24_mirror_move_sync",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 1857,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "student_schedule_lifecycle_sync",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 6182,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "student_entitlement_contract",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 2366,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      },
+      {
+        "suite": "offline_network_guard",
+        "round": 3,
+        "exit": 0,
+        "signal": null,
+        "elapsedMs": 494,
+        "blockedTransportAttempts": 0,
+        "pass": true
+      }
+    ]
+  },
+  "full_gates": [
+    {
+      "scope": "offline synthetic integration; no browser/media/provider validation",
+      "mode": "fast",
+      "rounds": 1,
+      "suites": 1,
+      "passedRuns": 1,
+      "failedRuns": 0,
+      "rows": [
+        {
+          "suite": "repository_fast",
+          "round": 1,
+          "gateCounts": {
+            "passed": 486,
+            "excluded": 20,
+            "failed": 0,
+            "total": 506
+          },
+          "exit": 0,
+          "signal": null,
+          "elapsedMs": 157033,
+          "blockedTransportAttempts": 0,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "scope": "offline synthetic integration; no browser/media/provider validation",
+      "mode": "fast",
+      "rounds": 1,
+      "suites": 1,
+      "passedRuns": 1,
+      "failedRuns": 0,
+      "rows": [
+        {
+          "suite": "repository_fast",
+          "round": 1,
+          "gateCounts": {
+            "passed": 486,
+            "excluded": 20,
+            "failed": 0,
+            "total": 506
+          },
+          "exit": 0,
+          "signal": null,
+          "elapsedMs": 156717,
+          "blockedTransportAttempts": 0,
+          "pass": true
+        }
+      ]
+    }
+  ],
+  "other_results": {
+    "typecheck": {
+      "typecheck_exit": 0
+    },
+    "inline_javascript": {
+      "chunks": 583,
+      "htmlFiles": 124,
+      "jsFiles": 257,
+      "syntaxErrors": 0
+    },
+    "assetReferences": {
+      "passed": 268,
+      "failed": 0,
+      "missing": 0
+    },
+    "budget": {
+      "beforeBytes": 15687,
+      "afterBytes": 11446,
+      "savedBytes": 4241,
+      "commentFreeASTPrinterSHA256": "fe2e3501a829b56d44bb01493ee0dedad983c9039134b6f64196c940224efa67",
+      "identicalExecutableRepresentation": true,
+      "htmlOrScriptOrderChanged": false
+    },
+    "qlogMutations": {
+      "detected": 13,
+      "missed": 0
+    },
+    "entitlementMutations": {
+      "detected": 6,
+      "missed": 0
+    },
+    "entitlementIndependentOracle": {
+      "histories": 200,
+      "balanceChecks": 10000,
+      "commands": 2589,
+      "productionRouteCoverage": false
+    }
+  },
+  "independent_integration_review": "preliminary findings only; tooling block stopped review; no retry/bypass; not complete",
+  "coverage_matrix": "coverage-matrix.json",
+  "component_reports": "track-reports/track1.md through track7.md; 16 fields each; historical component counts remain distinct from integrated runs",
+  "approval_boundaries": [
+    "No remote publication, PR, merge or deployment",
+    "No production data changes, provider transactions, media calls or production migrations",
+    "Track3 owner enforcement and data-contract decisions pending",
+    "Track5 refund scope fail-open unchanged pending separate approval",
+    "Track7 local contract permission does not authorize production schema/gates/billing integration",
+    "Real browser/device/provider/KR-PH acceptance still unverified"
+  ],
+  "known_aggregate_limits": [
+    "20 declared E2E/git-state exclusions in fast mode",
+    "Some legacy suites have internal skips; payment_refund has47 static checks with runtime import section skipped",
+    "Suite PASS counts are not real user sessions, media calls or production end-to-end acceptance"
+  ],
+  "source_manifest": {
+    "path": "evidence/source-pin-verified-before.json",
+    "files": 1511,
+    "sha256": "ff3fba82f78d63abc6409f107a33d43231c106b910c980cbcc6e3ca2298f6ea0",
+    "after_path": "evidence/source-pin-verified-after.json",
+    "after_sha256": "ff3fba82f78d63abc6409f107a33d43231c106b910c980cbcc6e3ca2298f6ea0",
+    "unchanged": true
+  },
+  "verified_at_utc": "2026-10-04T16:22:15.700475+00:00",
+  "prior_runs_not_counted": [
+    "Sparse setup run: missing immutable source assets; restored exact Git blobs before final verification",
+    "Intermediate 485/1/20 runs: first-paint budget failure repaired by comment-only payload reduction",
+    "Interrupted final-fast run: executor transport disconnected; no terminal summary; not counted",
+    "Offline probe fixture runs: assertion conflict corrected with explicit synthetic fetch; production rules untouched",
+    "Earlier piped focused run had one truncated stdout report; final direct-file logs replaced its evidentiary role"
+  ],
+  "test_fixture_safety": {
+    "ice_queue_assertions": 16,
+    "deployment_guard_assertions": 43,
+    "production_connection_or_deploy_rule_changes": 0,
+    "final_service_credentials_inherited": false
+  }
+}

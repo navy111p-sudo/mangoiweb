@@ -80,14 +80,15 @@ for(const app of ['warmup','friend']){
 // Exercise the exact production hydration wait at the beginning of both speech functions.
 for(const [page,marker,pref,stopCounter] of [
   ['warmup','function speak(text, btn){','warmupRatePreference','_speakSeq'],
-  ['ai-friend','function speakText(text, btn, row, onDone) {','friendRatePreference','_stmGen']
+  ['ai-friend','function speakText(text, btn, row, onDone, trace) {','friendRatePreference','_stmGen']
 ]) await check(page+' stop during restore cancels queued speech',async()=>{
   const html=fs.readFileSync('cloudflare-deploy/public/'+page+'.html','utf8');
   let start=html.indexOf(marker),end=html.indexOf(page==='warmup'?'  /* 📡 P2':'      if (!window.MangoiTTS)',start);
   let release,spoken=0,finished=0;
   const p={loaded:false,ready:new Promise(r=>release=r)};
   const ctx=vm.createContext({[pref]:p,[stopCounter]:0,_warmEpoch:0,_warmPaused:false,played:()=>spoken++});
-  vm.runInContext(html.slice(start,end)+'played();}',ctx);
+  const prefix=html.slice(start,end);
+  vm.runInContext(prefix+'played();'+(prefix.includes('function continueSpeech(){')?'}}':'}'),ctx);
   const fn=page==='warmup'?ctx.speak:ctx.speakText;
   fn('hello',null,null,()=>finished++);ctx[stopCounter]++;p.loaded=true;release();await tick();
   assert.equal(spoken,0);

@@ -697,3 +697,5 @@
 | [작업기록/261004_admin_evaluation_score_scales.md](작업기록/261004_admin_evaluation_score_scales.md) | 평가 척도 5·10·100 구분, 정규화 평균과 불명확한 과거 점수의 명시적 제외 (과거 점수 덮어쓰기 없음) |
 | [작업기록/261004_admin_evaluation_records.md](작업기록/261004_admin_evaluation_records.md) | 관리자 평가 목록의 구형 UID·평가일·평가자와 명부 표시 호환 (원본·권한 유지) |
 | [작업기록/261004_teacher_week_navigation.md](작업기록/261004_teacher_week_navigation.md) | 강사 주간 달력: 늦은 응답·자동 새로고침·언어 전환의 선택 유지, KST 경계와 잘못된 단말 시계, 실행·변이 검사 |
+| [작업기록/2026-10-04-c24-manual-origin-sync.md](작업기록/2026-10-04-c24-manual-origin-sync.md) | 트랙 6: Cafe24 원본 ID 기반 수동 이동 보호와 반복 동기화·역할별 일정 검증, 기존 데이터 소급 변경 없음 (로컬, 미배포) |
+| [작업기록/2026-10-04-daily-handover-reminder-contracts.md](작업기록/2026-10-04-daily-handover-reminder-contracts.md) | 트랙 4: 미작성/미확인 독촉 재시도·확인 후 구 본문 억제·기한 표시, 실제 푸시 수신 미검증 (로컬, 미배포) |

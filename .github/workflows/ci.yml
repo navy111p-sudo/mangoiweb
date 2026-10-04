@@ -40,11 +40,14 @@ concurrency:
 jobs:
   gates:
     name: 배포 게이트 (tsc · 회귀 하니스 · 인라인 JS · ?v=)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -58,8 +61,49 @@ jobs:
 
       - name: Install dependencies
         working-directory: cloudflare-deploy
-        run: npm ci
+        run: |
+          set -euo pipefail
+          npm ci --legacy-peer-deps --ignore-scripts
+          # Root harnesses use the same lockfile-installed tools while offline.
+          if [ ! -e ../node_modules ] && [ ! -L ../node_modules ]; then
+            ln -s cloudflare-deploy/node_modules ../node_modules
+          fi
 
       # 게이트 목록의 정본은 이 스크립트 하나뿐이다 (deploy.yml 도 같은 것을 부른다).
-      - name: 배포 게이트
-        run: bash test-harness/ci-gates.sh
+      - name: 배포 게이트 (loopback-only, no service credentials)
+        run: |
+          set -euo pipefail
+          OUTPUT="$RUNNER_TEMP/ci-offline-results"
+          HOME_DIR="$RUNNER_TEMP/ci-offline-home"
+          TEMP_DIR="$RUNNER_TEMP/ci-offline-tmp"
+          mkdir -p "$OUTPUT" "$HOME_DIR" "$TEMP_DIR"
+          : > "$OUTPUT/blocked-network.log"
+          NODE="$(command -v node)"
+          # Dependencies are installed first. No network-enabled test fallback.
+          sudo unshare --net -- /bin/bash -euo pipefail -c '
+            uid="$1"; gid="$2"; node="$3"; root="$4"; home="$5"; temp="$6"; output="$7"
+            ip link set lo up
+            test "$(ip -o link show | wc -l)" -eq 1
+            ip link show dev lo >/dev/null
+            test -z "$(ip -4 route show default)"
+            test -z "$(ip -6 route show default)"
+            echo "Isolation verified: only lo; no IPv4/IPv6 default routes"
+            cd "$root"
+            exec setpriv --reuid="$uid" --regid="$gid" --clear-groups --bounding-set=-all --no-new-privs \
+              env -i PATH="$(dirname "$node"):/usr/bin:/bin" HOME="$home" TMPDIR="$temp" \
+              LANG=C.UTF-8 TZ=UTC SKIP_LIVE_PROBE=1 npm_config_offline=true npm_config_update_notifier=false \
+              NODE_OPTIONS="--require=$root/test-harness/helpers/offline-network-guard.cjs" \
+              MANGOI_OFFLINE_NETWORK_LOG="$output/blocked-network.log" \
+              /bin/bash test-harness/ci-gates.sh
+          ' offline-gates "$(id -u)" "$(id -g)" "$NODE" "$GITHUB_WORKSPACE" "$HOME_DIR" "$TEMP_DIR" "$OUTPUT" \
+            2>&1 | tee "$OUTPUT/gates.log"
+          # An attempted transport is a failure even if a legacy test catches it.
+          test ! -s "$OUTPUT/blocked-network.log"
+      - name: Retain exact-head gate results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-offline-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/ci-offline-results
+          retention-days: 7
+          if-no-files-found: warn

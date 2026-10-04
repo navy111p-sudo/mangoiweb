@@ -1,0 +1,44 @@
+PASS unpaid learner has no paid AI or video and no revenue
+PASS AI-only purchase → owned learning context → evaluation → stacked renewal → expiry
+PASS stacked paid grants consume sequentially rather than in parallel
+PASS pause/resume keeps sub-day milliseconds exactly
+PASS full-payment-only: failed, pending, partial, overpaid and zero payments roll back
+PASS cross-student, evidence-free, unverified, timestamp mismatch origins are rejected
+PASS video purchase grants included AI through exact final class end and zero AI revenue
+PASS AI → video pauses exact remaining milliseconds; expiry resumes even after late reconciliation
+PASS overlapping video renewals pause once and resume after the union ends
+PASS approved makeup extends free AI, preserves stable lesson identity and blocks stale move
+PASS late makeup approvals and backdated events demand reconciliation instead of losing paid time
+PASS partial refund removes exactly selected unused lessons and preserves unrelated entitlement
+PASS completion preserved; refund of completed, started, unknown or duplicate lessons rolls back
+PASS unused-class refunds require current attendance check and reservation evidence
+PASS full video refund resumes paid AI and never destroys original payment evidence
+PASS video cancellation ends included access without inventing a financial refund
+PASS paid AI refund revokes only that source and retains the other paid period
+PASS refund overpayment, partial AI, incomplete full refund are rejected atomically
+PASS included AI forbids advisory automatic charge; resumed billing requires notice floor
+PASS already-settled AI purchase during free period preserves value and flags duplicate-billing review
+PASS repeated webhook uses one command key; conflicting replay and duplicate source are rejected
+PASS source provenance uniqueness also holds across learners at database boundary
+PASS append-only ledger and immutable origins reject SQL update and delete
+PASS failure after event or before commit rolls back origins, ledger, balance and subject
+PASS stale revision, class count mismatch and duplicate class schedule cannot commit
+PASS current projection integrity fails closed and replay cannot silently trust corrupted state
+FAIL valid optional undefined fields normalize to JSON and replay identically: Error: CHECK constraint failed: json_valid(command_json)
+    at Object.apply (file:///workspace/shared/mangoi-track7/sandbox/student-entitlements/store.mjs:47:10)
+    at file:///workspace/shared/mangoi-track7/test-harness/student_entitlement_contract_harness.mjs:209:22
+    at test (file:///workspace/shared/mangoi-track7/test-harness/student_entitlement_contract_harness.mjs:25:15)
+    at file:///workspace/shared/mangoi-track7/test-harness/student_entitlement_contract_harness.mjs:206:7
+FAIL paid duration SQL constraints reject either or both nullable balances: AssertionError [ERR_ASSERTION]: Missing expected exception.
+    at file:///workspace/shared/mangoi-track7/test-harness/student_entitlement_contract_harness.mjs:218:12
+    at test (file:///workspace/shared/mangoi-track7/test-harness/student_entitlement_contract_harness.mjs:25:15)
+    at file:///workspace/shared/mangoi-track7/test-harness/student_entitlement_contract_harness.mjs:215:7
+FAIL reads and replay detect missing or inconsistent paid and video projection rows: AssertionError [ERR_ASSERTION]: Missing expected exception.
+    at file:///workspace/shared/mangoi-track7/test-harness/student_entitlement_contract_harness.mjs:231:12
+    at test (file:///workspace/shared/mangoi-track7/test-harness/student_entitlement_contract_harness.mjs:25:15)
+    at file:///workspace/shared/mangoi-track7/test-harness/student_entitlement_contract_harness.mjs:221:7
+PASS migration is repeatable and does not change synthetic legacy data or schemas
+PASS learning attribution snapshots remain immutable across later video conversion
+PASS 60 deterministic pause/expiry/reconcile histories conserve paid duration and replay
+PASS 20 real two-connection races: one CAS winner, retry preserves both origins
+{"suite":"proposed_entitlement_contract","scenarioGroups":33,"pass":30,"fail":3,"idempotencyRetries":100,"generatedHistories":60,"realSqliteRaces":20,"actualProductionRouteChanges":0,"liveProviderCalls":0}

@@ -1,0 +1,496 @@
+{
+  "scope": "offline synthetic integration; no browser/media/provider validation",
+  "mode": "focused",
+  "rounds": 3,
+  "suites": 18,
+  "passedRuns": 54,
+  "failedRuns": 0,
+  "rows": [
+    {
+      "suite": "vc_network_epoch",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 96,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "webrtc_sandbox_guard",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 92,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "vc_office_recovery",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 65,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "ai_voice_latency",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 1706,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "warmup_voice_latency",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 379,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "speech_preferences_lifecycle",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 270,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "speech_preferences_fault",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 93,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "speech_preferences_sqlite",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 134,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "game_vocab_account_race",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 48,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "daily_handover",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 775,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "daily_handover_reminder_delivery",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 623,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "handover_pending_delivery",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 395,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "payment_schedule_integrity",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 874,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "c24_mirror_identity",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 208,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "c24_mirror_move_sync",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 1954,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "student_schedule_lifecycle_sync",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 5103,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "student_entitlement_contract",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 2039,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "offline_network_guard",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 534,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "vc_network_epoch",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 121,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "webrtc_sandbox_guard",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 104,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "vc_office_recovery",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 80,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "ai_voice_latency",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 2007,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "warmup_voice_latency",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 475,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "speech_preferences_lifecycle",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 351,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "speech_preferences_fault",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 108,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "speech_preferences_sqlite",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 158,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "game_vocab_account_race",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 52,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "daily_handover",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 873,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "daily_handover_reminder_delivery",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 663,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "handover_pending_delivery",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 437,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "payment_schedule_integrity",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 926,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "c24_mirror_identity",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 188,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "c24_mirror_move_sync",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 1812,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "student_schedule_lifecycle_sync",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 4839,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "student_entitlement_contract",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 1811,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "offline_network_guard",
+      "round": 2,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 442,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "vc_network_epoch",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 98,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "webrtc_sandbox_guard",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 98,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "vc_office_recovery",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 61,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "ai_voice_latency",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 1658,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "warmup_voice_latency",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 352,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "speech_preferences_lifecycle",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 301,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "speech_preferences_fault",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 88,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "speech_preferences_sqlite",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 116,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "game_vocab_account_race",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 46,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "daily_handover",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 647,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "daily_handover_reminder_delivery",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 513,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "handover_pending_delivery",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 389,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "payment_schedule_integrity",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 806,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "c24_mirror_identity",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 135,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "c24_mirror_move_sync",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 1857,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "student_schedule_lifecycle_sync",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 6182,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "student_entitlement_contract",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 2366,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "offline_network_guard",
+      "round": 3,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 494,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    }
+  ]
+}

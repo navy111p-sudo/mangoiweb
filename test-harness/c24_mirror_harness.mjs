@@ -230,7 +230,7 @@ console.log('\n[ G. 창(window)은 양쪽 경계가 있다 ]');
   check('🔴 모든 UPDATE 가 source = ? 로 «내 행» 만 손댄다',
     upd.length >= 2 && upd.every(u => /source\s*=\s*\?/.test(u)), upd);
   check('INSERT 가 source 를 미러 표식으로 넣는다',
-    /INSERT INTO class_schedules[\s\S]{0,400}?MIRROR_SOURCE/.test(MIRROR_TS));
+    /INSERT INTO class_schedules[\s\S]*?\.bind\(r\.student_uid[\s\S]{0,300}?MIRROR_SOURCE/.test(MIRROR_TS));
   check('INSERT 가 notes 에 카페24 수업번호를 남긴다(사라진 수업 되짚기용)',
     /MIRROR_NOTE_PREFIX \+ r\.class_id/.test(MIRROR_TS));
 }
@@ -346,7 +346,7 @@ console.log('\n[ J. 2단계 — 실제로 만든다 (함수를 돌려서 확인)
           bind: (...b) => { stmt._b = b; return stmt; },
           all: async () => ({ results: r.all || [] }),
           first: async () => r.first ?? null,
-          run: async () => { sqls.push({ sql: sql.replace(/\s+/g, ' ').trim(), binds: stmt._b || [] }); return {}; },
+          run: async () => { sqls.push({ sql: sql.replace(/\s+/g, ' ').trim(), binds: stmt._b || [] }); return { success: true, meta: { changes: 1 } }; },
         };
         return stmt;
       },
@@ -585,7 +585,7 @@ console.log('\n[ K. 자동 실행 (cron) ]');
           bind: (...b) => { st._b = b; return st; },
           all: async () => ({ results: r.all || [] }),
           first: async () => r.first ?? null,
-          run: async () => { sqls.push(sql.replace(/\s+/g, ' ').trim()); return {}; },
+          run: async () => { sqls.push(sql.replace(/\s+/g, ' ').trim()); return { success: true, meta: { changes: 1 } }; },
         };
         return st;
       },

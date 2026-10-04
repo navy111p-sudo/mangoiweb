@@ -1189,6 +1189,8 @@ ${AI_FRIEND_CORRECTION_RULE}`;
       }
 
       return { ok: true, reply, level, persona, model: usedModel || 'fallback', gam,
+                    // Existing counters only; no transcript, identity or schema change.
+                    timing: { server_ms: Date.now() - latT0, model_ms: latModelMs, tries: latTries },
                     // 🚨 «AI 가 답을 못 만들었다» 를 화면이 알 수 있게. 옛 화면은 이 칸을 모르고
                     //    그냥 reply 를 그리므로 «고치기 전» 과 같습니다(안전한 방향).
                     ...(usedFallback ? { ai_unavailable: true } : {}),

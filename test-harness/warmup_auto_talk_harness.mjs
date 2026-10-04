@@ -400,7 +400,7 @@ console.log('\n[I] warmup.html 배선 (나머지 연결 지점)');
   const ab = bodyOf(HTML, 'function _micAbortQuiet(){');
   ok('I-5 _micAbortQuiet 이 있다', !!ab);
   if (ab) {
-    const c = { _whisperOn: true, _recognizing: true, _warmVoiceEpoch: 0, _micStopWanted: false, _micBase: 'x', _micSess: 'y', canceled: 0, stopped: 0, sent: 0, states: [] };
+    const c = { _whisperOn: true, _recognizing: true, _warmVoiceEpoch: 0, _warmMicCancel: null, _micStopWanted: false, _micBase: 'x', _micSess: 'y', canceled: 0, stopped: 0, sent: 0, states: [] };
     c.MangoiVoice = { cancel() { c.canceled++; } }; c._recog = { stop() { c.stopped++; } };
     c.setMicState = (on) => c.states.push(on); c.sendMsg = () => c.sent++;
     vm.createContext(c); vm.runInContext(ab + '\n_micAbortQuiet();', c);

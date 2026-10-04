@@ -37,6 +37,7 @@
  *      (`test-harness/c24_mirror_harness.mjs`). enroll-ops.ts 가 쓰는 방식과 같다.
  */
 
+import { c24NoteIds, c24IdentityGlob, c24AnyIdentityGlob, trustworthyC24Identity, validC24ClassId } from './c24-identity';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN 목록은 공용 헬퍼로 — D1 바인드 100개 한도
 import { loadHiddenStudents } from './student-override';   // 🙈 명부에서 숨긴 학생은 안 만든다
 import { findTeacherClashes, loadMangoiForClash, type TeacherClash } from './teacher-clash';   // ⚔️ LMS↔망고아이 강사 겹침
@@ -250,8 +251,25 @@ export function planMirror(
         (같은 방어가 이 파일의 «취소 단계 건너뛰기» 에도 있다).
      ⚠️ 기본값은 빈 Map 이다 — 옛 호출부·하니스가 그대로 돈다. */
   slotSeen: Map<string, number> = new Map(),
+  manualIdentities: ExistingRow[] = existing.filter(e => e.source === MIRROR_SOURCE_MANUAL),
 ): PlanRow[] {
   const out: PlanRow[] = [];
+  // A manual override follows its origin ID, including outside this report window.
+  // Keep this collection separate: it must never widen cancellation candidates.
+  const byIdentity = new Map<string, ExistingRow[]>();
+  for (const row of manualIdentities) {
+    if (row.source !== MIRROR_SOURCE_MANUAL) continue;
+    for (const id of c24NoteIds(row.notes)) {
+      const group = byIdentity.get(id) || [];
+      group.push(row); // Duplicate identity rows are a conflict, never an arbitrary winner.
+      byIdentity.set(id, group);
+    }
+  }
+  const incomingIds = new Map<string, number>();
+  for (const row of classes) {
+    const id = String(row.class_id || '');
+    incomingIds.set(id, (incomingIds.get(id) || 0) + 1);
+  }
 
   /* 같은 학생·같은 날에 카페24가 몇 건을 들고 있나. 잔재 판정의 «입구» 조건이다. */
   const perDay = new Map<string, number>();
@@ -354,15 +372,30 @@ export function planMirror(
 
     // ── 2) 이미 있는 행과 맞춰 본다 ──
     const mine = existing.filter(e => String(e.status || '') !== 'cancelled' && sameSlot({ user_id: uid, date, time }, e));
-    const manual = existing.find(e =>
-      String(e.source || '') === MIRROR_SOURCE_MANUAL
-      && String(e.user_id || '') === uid
+    const identity = String(c.class_id || '');
+    if (!validC24ClassId(identity) || (incomingIds.get(identity) || 0) !== 1) {
+      push('conflict', '카페24 수업 번호가 없거나 중복되어 자동 반영하지 않았습니다');
+      continue;
+    }
+    const protectedRows = byIdentity.get(identity) || [];
+    if (protectedRows.length > 1 || protectedRows.some(e =>
+      !trustworthyC24Identity(e) || String(e.user_id || '') !== uid)) {
+      push('conflict', '수동 변경한 원본 수업 번호 또는 학생 정보가 모호하여 확인이 필요합니다');
+      continue;
+    }
+    // Old note-less rows retain their conservative same-day protection. A valid
+    // different origin ID no longer suppresses another genuine class that day.
+    const legacy = existing.filter(e => e.source === MIRROR_SOURCE_MANUAL
+      && c24NoteIds(e.notes).length === 0 && String(e.user_id || '') === uid
       && String(e.scheduled_date || '') === date);
+    const manual = protectedRows[0] || legacy[0];
     if (manual) {
-      // 🔒 사람이 손댄 수업. 미러는 손대지 않는다. 값이 다르면 «어긋남» 으로 알린다.
+      const sameDate = String(manual.scheduled_date || '') === date;
       const sameTime = String(manual.start_time || '').slice(0, 5) === time;
-      if (sameTime) push('manual_locked', '사람이 고친 수업 — 미러가 건드리지 않습니다', manual.id);
-      else push('diverged', `카페24 ${time} ↔ 망고아이 ${String(manual.start_time || '').slice(0, 5)} (사람이 고침)`, manual.id);
+      if (sameDate && sameTime) push('manual_locked', '사람이 고친 수업 — 미러가 건드리지 않습니다', manual.id);
+      else push('diverged', sameDate
+        ? `카페24 ${time} ↔ 망고아이 ${String(manual.start_time || '').slice(0, 5)} (사람이 고침)`
+        : `카페24 ${date} ${time} ↔ 망고아이 ${manual.scheduled_date} ${String(manual.start_time || '').slice(0, 5)} (사람이 옮김)`, manual.id);
       continue;
     }
     const mirrored = mine.find(e => String(e.source || '') === MIRROR_SOURCE);
@@ -589,15 +622,40 @@ export async function loadStudents(env: MirrorEnv, uids: string[]): Promise<Map<
 }
 
 /** 창 안의 기존 시간표. ⚠️ 양쪽 경계 필수 */
+function checkedExistingRows(result: any): ExistingRow[] {
+  if (!result || result.success === false || !Array.isArray(result.results)
+    || result.truncated === true || result.has_more === true || result.hasMore === true
+    || result.results.some((row: any) => !row || typeof row !== 'object'
+      || ['id','user_id','teacher_id','scheduled_date','start_time','duration_min','source','status','notes']
+        .some(key => !Object.prototype.hasOwnProperty.call(row, key)))) {
+    throw new Error('mirror_identity_lookup_failed');
+  }
+  // SQLite GLOB stops at NUL while JavaScript token parsing does not. Never
+  // interpret corrupted mirror notes as absent identity. No cleanup/backfill.
+  if (result.results.some((row: any) => [MIRROR_SOURCE, MIRROR_SOURCE_MANUAL].includes(row.source)
+    && String(row.notes ?? '').includes('\0'))) throw new Error('mirror_identity_lookup_failed');
+  const ids = result.results.map((row: any) => Number(row.id));
+  if (ids.some((id: number) => !Number.isInteger(id) || id <= 0) || new Set(ids).size !== ids.length)
+    throw new Error('mirror_identity_lookup_failed');
+  return result.results;
+}
+
 export async function loadExisting(env: MirrorEnv, since: string, until: string): Promise<ExistingRow[]> {
-  try {
-    const rs: any = await env.DB.prepare(
-      `SELECT id, user_id, teacher_id, scheduled_date, start_time, duration_min, source, status, notes
-         FROM class_schedules
-        WHERE scheduled_date IS NOT NULL AND scheduled_date >= ? AND scheduled_date <= ?`
-    ).bind(since, until).all();
-    return (rs.results || []) as ExistingRow[];
-  } catch { return []; }
+  const rs: any = await env.DB.prepare(
+    `SELECT id, user_id, teacher_id, scheduled_date, start_time, duration_min, source, status, notes
+       FROM class_schedules
+      WHERE scheduled_date IS NOT NULL AND scheduled_date >= ? AND scheduled_date <= ?`
+  ).bind(since, until).all();
+  return checkedExistingRows(rs); // Unreadable must never mean "no existing class".
+}
+
+/** Global manual identities only. These rows are never cancellation candidates. */
+export async function loadManualIdentities(env: MirrorEnv): Promise<ExistingRow[]> {
+  const rs: any = await env.DB.prepare(
+    `SELECT id, user_id, teacher_id, scheduled_date, start_time, duration_min, source, status, notes
+       FROM class_schedules WHERE source = ? ORDER BY id`
+  ).bind(MIRROR_SOURCE_MANUAL).all();
+  return checkedExistingRows(rs);
 }
 
 /**
@@ -749,15 +807,16 @@ export async function c24MirrorReport(
     getMirrorMode(env), getMirrorTeachers(env), getMirrorBlocked(env), getMirrorLastRuns(env), getDupGuard(env),
   ]);
   const classes = await fetchC24Classes(env, runCypher, since, until);
-  const [links, students, existing] = await Promise.all([
+  const [links, students, existing, manualIdentities] = await Promise.all([
     loadTeacherLinks(env, classes.map(c => c.teacher_id)),
     loadStudents(env, classes.map(c => c.user_id)),
     loadExisting(env, since, until),
+    loadManualIdentities(env),
   ]);
 
   const hidden = await loadHiddenStudents(env as any, Array.from(students.keys()));
   const slotSeen = dupGuard ? await loadSlotHistory(env, classes.map(c => c.user_id)) : new Map<string, number>();
-  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden, slotSeen);
+  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden, slotSeen, manualIdentities);
   const summary = summarize(rows);
 
   /* ⚔️ 강사 겹침 — 실패해도 성적표는 그대로 낸다(대신 clashes=null 로 «못 봤다» 고 말한다). */
@@ -858,16 +917,17 @@ export async function applyMirror(
     getMirrorMode(env), getMirrorTeachers(env), getMirrorBlocked(env), getDupGuard(env),
   ]);
   const classes = await fetchC24Classes(env, runCypher, since, until);
-  const [links, students, existing] = await Promise.all([
+  const [links, students, existing, manualIdentities] = await Promise.all([
     loadTeacherLinks(env, classes.map(c => c.teacher_id)),
     loadStudents(env, classes.map(c => c.user_id)),
     loadExisting(env, since, until),
+    loadManualIdentities(env),
   ]);
 
   const hidden = await loadHiddenStudents(env as any, Array.from(students.keys()));
   /* 🕰️ 「강사 변경 잔재」 판정의 근거. 못 읽으면 빈 Map 이고, 빈 Map 은 «그 판정을 건너뛴다» 다. */
   const slotSeen = dupGuard ? await loadSlotHistory(env, classes.map(c => c.user_id)) : new Map<string, number>();
-  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden, slotSeen);
+  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden, slotSeen, manualIdentities);
   const summary = summarize(rows);
   const byState: Record<string, number> = {};
   for (const r of rows) byState[String(r.class_state)] = (byState[String(r.class_state)] || 0) + 1;
@@ -929,13 +989,26 @@ export async function applyMirror(
   const now = Date.now();
   for (const r of creates) {
     try {
-      await env.DB.prepare(
+      // Planning and insertion are separate awaits. Recheck the stable identity
+      // in the INSERT itself, including a manual move committed since planning.
+      const write: any = await env.DB.prepare(
         `INSERT INTO class_schedules
            (user_id, student_name, schedule_kind, class_type, scheduled_date, start_time,
             duration_min, teacher_id, status, source, created_by, created_at, notes)
-         VALUES (?, ?, 'one_off', 'regular', ?, ?, ?, ?, 'active', ?, ?, ?, ?)`
+         SELECT ?, ?, 'one_off', 'regular', ?, ?, ?, ?, 'active', ?, ?, ?, ?
+         WHERE NOT EXISTS (SELECT 1 FROM class_schedules
+           WHERE (source IN (?, ?) AND ((' ' || COALESCE(notes, '') || ' ') GLOB ?
+              OR instr(COALESCE(notes, ''), char(0)) > 0))
+              OR (source = ? AND user_id = ? AND scheduled_date = ?
+                AND NOT ((' ' || COALESCE(notes, '') || ' ') GLOB ?)))`
       ).bind(r.student_uid, r.student_name, r.date, r.start_time, r.duration_min,
-             r.teacher_id, MIRROR_SOURCE, actor, now, MIRROR_NOTE_PREFIX + r.class_id).run();
+             r.teacher_id, MIRROR_SOURCE, actor, now, MIRROR_NOTE_PREFIX + r.class_id,
+             MIRROR_SOURCE, MIRROR_SOURCE_MANUAL, c24IdentityGlob(r.class_id),
+             MIRROR_SOURCE_MANUAL, r.student_uid, r.date, c24AnyIdentityGlob()).run();
+      if (Number(write?.meta?.changes) !== 1) {
+        result.errors.push(`create ${r.class_id}: identity changed or already protected; no creation confirmed`);
+        continue;
+      }
       result.applied.created++;
       result.changes.push(brief('create', r));
     } catch (e: any) { result.errors.push(`create ${r.class_id}: ${String(e?.message || e)}`); }
@@ -944,19 +1017,21 @@ export async function applyMirror(
     try {
       /* ⛔ WHERE 에 source 를 반드시 건다 — 그 사이 사람이 손댔으면(도장이 찍혔으면)
          이 UPDATE 는 0행이 되어 «사람 손이 이긴다» 가 경합 상황에서도 지켜진다. */
-      await env.DB.prepare(
+      const write: any = await env.DB.prepare(
         `UPDATE class_schedules SET start_time = ?, duration_min = ?, teacher_id = ?, updated_at = ?
           WHERE id = ? AND source = ?`
       ).bind(r.start_time, r.duration_min, r.teacher_id, now, r.existing_id, MIRROR_SOURCE).run();
+      if (Number(write?.meta?.changes) !== 1) { result.errors.push(`update ${r.class_id}: no update confirmed (manual ownership may have changed)`); continue; }
       result.applied.updated++;
       result.changes.push({ ...brief('update', r), id: r.existing_id ?? undefined });
     } catch (e: any) { result.errors.push(`update ${r.class_id}: ${String(e?.message || e)}`); }
   }
   for (const e of cancels) {
     try {
-      await env.DB.prepare(
+      const write: any = await env.DB.prepare(
         `UPDATE class_schedules SET status='cancelled', updated_at = ? WHERE id = ? AND source = ?`
       ).bind(now, e.id, MIRROR_SOURCE).run();
+      if (Number(write?.meta?.changes) !== 1) { result.errors.push(`cancel ${e.id}: no cancellation confirmed (manual ownership may have changed)`); continue; }
       result.applied.cancelled++;
       result.changes.push({ action: 'cancel', class_id: mirrorNoteClassId(e.notes), date: e.scheduled_date,
         start_time: e.start_time, student: e.user_id, teacher_id: e.teacher_id, id: e.id });
