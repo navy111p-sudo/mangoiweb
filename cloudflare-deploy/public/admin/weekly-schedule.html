@@ -1956,7 +1956,7 @@ function showDndToast(msg,kind){
     t.classList.remove('show');
     t.classList.add('hide-anim');
     setTimeout(function(){ if(t.parentNode)t.remove(); wsPositionUndo(); },350);
-  },2200);
+  },kind==='bad'?8000:2200);   // ❌ 실패 안내는 길게 — 2.2초면 못 보고 «저장된 줄» 안다(2026-10-04)
 }
 
 // Capture phase에서 mousedown 가로채기 (다른 핸들러보다 먼저)
@@ -3023,6 +3023,17 @@ function openRescheduleModal(teacherName, dateISO, hour, mode, minute){
     setTimeout(function(){ showRejectModal('change', dateISO, hour, minute); }, 150);
     return;
   }
+  /* 🔒 (2026-10-04 실사고 — 정우영 10/6 19:20→19:10 연기가 저장 안 됨) 잠긴 채로 이 창을 열면
+     시각을 다 고른 «뒤» 확인에서야 persistSlotMove 가 거절했고, 그 안내 토스트는 2.2초 만에
+     사라져 «연기했는데 캘린더가 그대로» 로만 보였다(서버 요청 0건 — D1 실측).
+     「연기/변경」을 누른 것 자체가 명시적인 편집 의사이므로 «먼저» 묻고 켠다.
+     ⛔ 최종 방어선(persistSlotMove 의 잠금 검사)은 그대로 둔다 — 여기는 «미리 알리기» 다. */
+  if (!wsEditing()){
+    var Lk = currentLang==='ko';
+    if (!window.confirm(Lk ? '🔒 편집이 잠겨 있어 이대로는 저장되지 않습니다.\n편집을 켜고 계속할까요?'
+                           : '🔒 Editing is locked — changes would not be saved.\nTurn editing on and continue?')) return;
+    wsSetEditing(true, {quiet:true});
+  }
   var t = TEACHERS.find(function(t){
     var nm=(currentLang==='en'&&t.name_en)?t.name_en:t.name;
     return nm===teacherName;
@@ -3196,22 +3207,26 @@ function renderRescheduleModal(){
 }
 
 window.rscSwitchTab = function(tab){
+  if (typeof wsBumpEdit==='function') wsBumpEdit();   // 🔒 고르는 동안 자동 잠금(3분)이 와서 확인이 거절되지 않게
   window.__rescheduleCtx.activeTab = tab;
   renderRescheduleModal();
 };
 // ⏱ 두 번째 인자는 «자정부터의 분» (10분 단위). 옛 «시» 인자는 받지 않는다.
 window.rscPickTime = function(dateISO, startMin){
+  if (typeof wsBumpEdit==='function') wsBumpEdit();   // 🔒 고르는 동안 자동 잠금(3분)이 와서 확인이 거절되지 않게
   window.__rescheduleCtx.pickedDate = dateISO;
   window.__rescheduleCtx.pickedMin = startMin;
   renderRescheduleModal();
 };
 window.rscPickDay = function(dateISO){
+  if (typeof wsBumpEdit==='function') wsBumpEdit();   // 🔒 고르는 동안 자동 잠금(3분)이 와서 확인이 거절되지 않게
   var c = window.__rescheduleCtx; if (!c) return;
   c.bDay = dateISO;
   if (c.pickedDate !== dateISO){ c.pickedDate = null; c.pickedMin = null; }
   renderRescheduleModal();
 };
 window.rscPickTeacher = function(tid){
+  if (typeof wsBumpEdit==='function') wsBumpEdit();   // 🔒 고르는 동안 자동 잠금(3분)이 와서 확인이 거절되지 않게
   var t = TEACHERS.find(function(tt){return String(tt.id)===String(tid);});
   var ctx=window.__rescheduleCtx;
   if(!ctx||!t||replacementTeacherBlock(t,ctx))return;
