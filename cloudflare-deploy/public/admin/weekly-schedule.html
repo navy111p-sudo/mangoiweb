@@ -561,8 +561,8 @@ html, body { overscroll-behavior: contain; }
    그래서 누를 수 있는 전용 토스트를 따로 둔다(CLAUDE.md «보이는데 안 눌림»). */
 /* ⚠️ 밝은 화면이라 어두운 알약(#0f172a)으로 두면 페인터가 «배경만» 밝게 눌러
    흰 글자가 그대로 남는다 — 실측 대비 1.08. 처음부터 밝은 톤으로 고른다. */
-/* ⛔ bottom 을 .dnd-toast(24px) 와 같은 값으로 두지 말 것 — 저장 성공 토스트
-   «✅ 담당 강사 변경: MAIMAI» 를 «무엇을 바꿨는지» 가 안 보이게 덮는다(실측 65%). */
+/* 저장 메시지는 이름·시간·화면 폭에 따라 여러 줄이 된다. 78px 고정 간격만으로는
+   겹치므로 wsPositionUndo 가 실제 메시지 위에 12px 여유를 두고 배치한다. */
 .undo-toast{position:fixed;bottom:78px;left:50%;transform:translateX(-50%) translateY(10px);
   background:#ffffff;border:2px solid #10b981;border-radius:99px;padding:9px 12px 9px 20px;
   color:#111827;font-weight:700;font-size:13.5px;box-shadow:var(--shL);z-index:9901;
@@ -1887,6 +1887,16 @@ function wsLockHint(){
 /* ↩️ 되돌리기 토스트 — .dnd-toast 는 pointer-events:none 이라 «버튼을 넣어도 못 눌린다».
    그래서 누를 수 있는 전용 토스트를 따로 쓴다. */
 var wsUndoTimer = null, wsUndoEl = null;
+function wsPositionUndo(){
+  if(!wsUndoEl) return;
+  var bottom = 78;
+  document.querySelectorAll('.dnd-toast').forEach(function(toast){
+    var rect = toast.getBoundingClientRect();
+    if(rect.height > 0) bottom = Math.max(bottom, Math.ceil(window.innerHeight - rect.top + 12));
+  });
+  wsUndoEl.style.bottom = bottom + 'px';
+}
+if(window.addEventListener) window.addEventListener('resize', wsPositionUndo);
 function wsUndoDismiss(){
   if(wsUndoTimer){ clearInterval(wsUndoTimer); wsUndoTimer = null; }
   var el = wsUndoEl; wsUndoEl = null;
@@ -1903,6 +1913,7 @@ function wsOfferUndo(info){
                  '<button type="button">↩️ '+(L?'되돌리기':'Undo')+'</button>';
   document.body.appendChild(el);
   wsUndoEl = el;
+  wsPositionUndo();
   requestAnimationFrame(function(){ el.classList.add('show'); });
   var cd = el.querySelector('.cd');
   function tick(){
@@ -1939,11 +1950,12 @@ function showDndToast(msg,kind){
   t.className='dnd-toast '+(kind||'');
   t.innerHTML=msg;
   document.body.appendChild(t);
+  wsPositionUndo();
   requestAnimationFrame(function(){ t.classList.add('show'); });
   setTimeout(function(){
     t.classList.remove('show');
     t.classList.add('hide-anim');
-    setTimeout(function(){ if(t.parentNode)t.remove(); },350);
+    setTimeout(function(){ if(t.parentNode)t.remove(); wsPositionUndo(); },350);
   },2200);
 }
 

@@ -604,6 +604,26 @@ sec('⑪ 되돌리기 — 원래 «값» 을 서버에 다시 보내는가');
   ok(r.undos.length === 1, '되돌리기가 또 되돌리기를 내놓는다 — 무한 왕복이 된다');
 }
 
+sec('⑪-1 저장 안내와 되돌리기 — 실제 높이에 맞춰 겹침 방지');
+{
+  const r = await run({});
+  const S = r.sandbox, undo = r.undos[0];
+  ok(undo.style.bottom === '78px', '일반 되돌리기 기본 위치가 바뀌었다');
+  S.window.innerHeight = 1000;
+  let boxes = [{ top: 840, height: 136 }, { top: 920, height: 56 }];
+  S.document.querySelectorAll = () => boxes.map(box => ({ getBoundingClientRect: () => box }));
+  S.wsPositionUndo();
+  ok(undo.style.bottom === '172px', '여러 줄 저장 안내 위 12px 여유가 없다');
+  boxes = [{ top: 720, height: 256 }];
+  S.wsPositionUndo();
+  ok(undo.style.bottom === '292px', '폭 변경으로 길어진 안내 높이를 다시 재지 않는다');
+  boxes = [];
+  S.wsPositionUndo();
+  ok(undo.style.bottom === '78px', '안내가 사라져도 기본 위치로 돌아오지 않는다');
+  S.wsUndoDismiss(); S.wsPositionUndo();
+  ok(r.calls.length === 1, '표시 위치 계산이 수업 저장 요청을 추가했다');
+}
+
 sec('⑪-2 되돌리기 — 자동 잠금 뒤에도 되는가 / 강사를 모르면 안 내놓는가');
 {
   /* 🔴 15초 사이에 자동 잠금이 오면 되돌릴 길이 사라진다 — 그건 이 기능의 이유와 정반대다. */

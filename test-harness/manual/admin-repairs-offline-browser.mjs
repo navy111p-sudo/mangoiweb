@@ -281,6 +281,31 @@ async function topmost(page, selector) {
       width: r.width, height: r.height, right: r.right, viewport: innerWidth };
   });
 }
+async function savedFeedbackLayout(page) {
+  return page.evaluate(() => {
+    const undo = document.querySelector('.undo-toast.show');
+    const message = Array.from(document.querySelectorAll('.dnd-toast.ok.show'))
+      .find(el => /이동됨|Moved to/.test(el.textContent || ''));
+    if (!undo || !message) return { found: false };
+    const a = undo.getBoundingClientRect(), b = message.getBoundingClientRect();
+    const w = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+    const h = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+    const rect = r => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height });
+    return { found: true, overlapArea: w * h, gap: b.top - a.bottom,
+      undo: rect(a), savedMessage: rect(b), viewport: { width: innerWidth, height: innerHeight } };
+  });
+}
+async function checkSavedFeedback(page, label) {
+  let layout;
+  // Allow the measured-layout observer one rendering turn, but require both
+  // toasts to be present. A toast disappearing cannot turn an overlap into PASS.
+  await eventually(label + ': saved feedback layout settles', async () => {
+    layout = await savedFeedbackLayout(page);
+    return layout.found && layout.overlapArea === 0 && layout.gap >= 0;
+  }, 1000);
+  check(label + ': undo and saved feedback do not overlap', layout.found && layout.overlapArea === 0 && layout.gap >= 0, layout);
+  check(label + ': separated undo button remains unobstructed', (await topmost(page, '.undo-toast.show button')).hittable);
+}
 
 async function weekly(width) {
   const ids = [71001, 71002, 71003], day = '2026-10-06';
@@ -361,7 +386,13 @@ async function weekly(width) {
   await page.locator('.undo-toast.show button').waitFor();
   check(width + ': saved group stays intact', JSON.parse(decodeURIComponent(await group(15))).slot.ids.length === 3);
   check(width + ': undo is a real unobstructed hit target', (await topmost(page, '.undo-toast.show button')).hittable);
+  await checkSavedFeedback(page, String(width));
   await screenshot(state, 'weekly-' + width + '-saved');
+  const resizedWidth = width === 1280 ? 1024 : 1280;
+  await page.setViewportSize({ width: resizedWidth, height: 1000 });
+  await checkSavedFeedback(page, width + ' resized to ' + resizedWidth);
+  await screenshot(state, 'weekly-' + width + '-saved-resized');
+  await page.setViewportSize({ width, height: 1000 });
   await page.locator('.undo-toast.show button').click();
   await eventually('undo restored source', async () => moves.length === 2 && !!(await group(14)) && !(await group(15)));
   check(width + ': undo uses returned versions for every row and original position', JSON.stringify(moves[1].ids) === JSON.stringify(ids)

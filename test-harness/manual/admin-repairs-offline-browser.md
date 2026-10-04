@@ -51,6 +51,9 @@ secrets, Cloudflare configuration, or running application server is required.
   cancel; confirmed three-row versioned batch; held response without premature UI
   success; hit-testable undo using returned versions; restored positions; 409
   preserving the group; retry; unobstructed controls and horizontal overflow.
+  Saved-message and undo rectangles must not overlap at either width, including
+  an actual in-case viewport resize in each direction. Both toasts must remain
+  present for this assertion; disappearance cannot masquerade as separation.
   The first-visit guide is dismissed through its actual close button before grid
   interaction; hit testing remains required after dismissal.
 - Teacher: real week buttons/date input, reversed responses, selected week through
