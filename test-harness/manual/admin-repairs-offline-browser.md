@@ -16,6 +16,13 @@ namespace containing only loopback and no default routes. A fresh HOME and TMPDI
 keep browser profiles separate. Namespace creation, privilege dropping, missing
 tooling, browser launch failure, and test failure all fail the gate. There are no
 passing skips and no network-enabled fallback.
+Each case has a real-Node 90-second deadline. Held-response body completion and
+clock advances have 12-second deadlines with phase labels; a stalled fixture fails
+instead of keeping the workflow alive indefinitely. Response-order assertions wait
+for the actual body and renderer task turns, independent of the virtual clock.
+Reports are checkpointed after each case and before failure cleanup. Context/browser
+cleanup and report writes also have deadlines; cleanup failure or fewer than all
+13 completed cases makes the run fail and exit nonzero.
 
 No HTTP server is started. A synthetic `http://127.0.0.1:18763` origin is fulfilled
 entirely by Playwright routes. Static bytes are read only below the realpath of

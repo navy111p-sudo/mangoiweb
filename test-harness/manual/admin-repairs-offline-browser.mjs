@@ -17,9 +17,21 @@ const BASE = 'http://127.0.0.1:18763'; // Synthetic origin: nothing listens here
 const PIN = '1.63.0';
 const NOW = '2026-10-04T15:05:00Z'; // Monday in KST, Sunday in UTC/LA/Manila.
 const delay = ms => new Promise(r => setTimeout(r, ms));
+async function deadline(label, promise, milliseconds = 12000) {
+  let timer;
+  try {
+    return await Promise.race([promise, new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('Real-time deadline exceeded: ' + label)), milliseconds);
+    })]);
+  } finally { clearTimeout(timer); }
+}
 let passes = 0, failures = 0;
 const report = { browserVersion: null, assertions: [], cases: [], requests: [], denied: [], pageErrors: [] };
 await mkdir(OUT, { recursive: true });
+async function writeReport() {
+  report.passes = passes; report.failures = failures;
+  await deadline('write fixture report', writeFile(resolve(OUT, 'fixture-report.json'), JSON.stringify(report, null, 2) + '\n'), 5000);
+}
 
 function check(name, condition, detail) {
   report.assertions.push({ name, passed: !!condition, ...(detail === undefined ? {} : { detail }) });
@@ -39,13 +51,26 @@ function hold() { let release; const promise = new Promise(r => { release = r; }
 async function waitHeld(latch, request) { latch.request = request; await latch.promise; }
 async function releaseResponse(page, latch) {
   assert(latch.request, 'Held request must reach the fixture before release');
+  console.log('WAIT held response/body: ' + latch.request.url());
   const responsePromise = page.waitForResponse(response => response.request() === latch.request);
   latch.release();
   const response = await responsePromise;
-  await response.finished();
+  await deadline('held response body: ' + response.url(), response.finished());
   // Drain renderer work after the complete body arrives. A fixed Node sleep can
-  // pass before a delayed response reaches a slow CI renderer.
-  await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
+  // pass too early; virtual rAF can wait indefinitely. MessageChannel provides
+  // actual renderer task turns independent of installed fake clocks/visibility.
+  await deadline('held-response renderer drain', page.evaluate(() => new Promise(done => {
+    const channel = new MessageChannel(); let turns = 0;
+    channel.port1.onmessage = () => {
+      if (++turns === 2) { channel.port1.close(); channel.port2.close(); done(); }
+      else channel.port2.postMessage(null);
+    };
+    channel.port2.postMessage(null);
+  })));
+}
+async function advanceClock(page, milliseconds, label) {
+  console.log('WAIT clock: ' + label);
+  await deadline('clock: ' + label, page.clock.fastForward(milliseconds));
 }
 function dayPlus(day, count) { return new Date(Date.parse(day + 'T00:00:00Z') + count * 86400000).toISOString().slice(0, 10); }
 function monday(instant) {
@@ -195,7 +220,7 @@ async function fixture(name, api, { width = 1280, timezoneId = 'Asia/Seoul', ins
   });
   context.on('page', page => page.on('pageerror', error => report.pageErrors.push({ case: name, message: String(error) })));
   state.page = await context.newPage();
-  state.close = async () => { await context.close(); openContexts.delete(context); };
+  state.close = async () => { await deadline('context cleanup: ' + name, context.close(), 10000); openContexts.delete(context); };
   return state;
 }
 async function screenshot(state, label = state.name) {
@@ -210,19 +235,24 @@ async function finish(state) {
 async function run(name, fn) {
   console.log('\nCASE ' + name);
   const before = failures;
-  try { await fn(); report.cases.push({ name, passed: true }); }
+  try { await deadline('case ' + name, fn(), 90000); report.cases.push({ name, passed: true }); }
   catch (error) {
     if (failures === before) failures++;
     report.cases.push({ name, passed: false, error: String(error), stack: error.stack });
     console.error('CASE FAILED ' + name + '\n' + error.stack);
+    await writeReport(); // Persist the failing phase before potentially broken UI cleanup.
     for (const context of openContexts) {
       for (const [i, page] of context.pages().entries()) {
-        try { await page.screenshot({ path: resolve(OUT, 'failure-' + name + '-' + i + '.png') }); } catch {}
+        try { await deadline('failure screenshot: ' + name, page.screenshot({ path: resolve(OUT, 'failure-' + name + '-' + i + '.png'), timeout: 5000 }), 6000); }
+        catch (error) { console.error('Failure screenshot unavailable: ' + String(error)); }
       }
-      await context.close();
+      // If cleanup fails, abort this run as failed rather than letting a live
+      // previous case mutate state during later cases or hang report delivery.
+      await deadline('failed-case context cleanup: ' + name, context.close(), 10000);
     }
     openContexts.clear();
   }
+  await writeReport();
 }
 async function topmost(page, selector) {
   return page.locator(selector).evaluate(el => {
@@ -396,7 +426,7 @@ async function teacher() {
     && (await page.locator('#week').textContent()).includes('Fixture full-refresh') && await page.locator('#stale').isVisible());
   queue.push({ label: 'auto-refresh' });
   const count = requests.length;
-  await page.clock.fastForward(46000);
+  await advanceClock(page, 46000, 'teacher selected-week auto refresh');
   await shown(page, '2026-11-16', 'auto-refresh');
   check('teacher: real automatic timer requests selected week once', requests.length === count + 1 && requests.at(-1).start === '2026-11-16');
   queue.push({ fail: true });
@@ -413,25 +443,25 @@ async function teacher() {
   check('teacher: stale full refresh cannot overwrite newer selection', !(await page.locator('#week').textContent()).includes('stale-full') && await page.locator('#wk-date').inputValue() === '2026-09-28');
   // The same shared sequencing must apply to the automatic timer.
   const oldAuto = hold(); queue.push({ hold: oldAuto, label: 'stale-auto' }, { label: 'newer-than-auto' });
-  await page.clock.fastForward(46000);
+  await advanceClock(page, 46000, 'teacher stale auto request');
   await eventually('held automatic refresh request', () => requests.at(-1).plan.hold === oldAuto);
   await page.locator('#wk-next').click(); await shown(page, '2026-10-12', 'newer-than-auto');
   await releaseResponse(page, oldAuto);
   check('teacher: stale auto refresh cannot overwrite newer selection', !(await page.locator('#week').textContent()).includes('stale-auto') && await page.locator('#wk-date').inputValue() === '2026-10-12');
   queue.push({ fail: true });
-  await page.clock.fastForward(46000);
+  await advanceClock(page, 46000, 'teacher failed auto refresh');
   await eventually('automatic refresh error visible', () => page.locator('#wk-error').isVisible());
   check('teacher: failed auto refresh retains last valid range/content', await page.locator('#wk-date').inputValue() === '2026-10-12'
     && (await page.locator('#week').textContent()).includes('Fixture newer-than-auto'));
   const beforeOffline = requests.length;
   await page.evaluate(() => window.__fixtureSetOnline(false));
-  await page.clock.fastForward(91000);
+  await advanceClock(page, 91000, 'teacher offline guard');
   check('teacher: offline timer guard sends no request and preserves content', requests.length === beforeOffline
     && await page.evaluate(() => navigator.onLine === false)
     && (await page.locator('#week').textContent()).includes('Fixture newer-than-auto'));
   queue.push({ label: 'online-recovery' });
   await page.evaluate(() => window.__fixtureSetOnline(true));
-  await page.clock.fastForward(1001);
+  await advanceClock(page, 1001, 'teacher online recovery');
   await shown(page, '2026-10-12', 'online-recovery');
   check('teacher: online event refreshes selected week exactly once', requests.length === beforeOffline + 1 && requests.at(-1).rawWeek === '2026-10-12');
   await finish(state);
@@ -467,7 +497,7 @@ async function health() {
   await page.goto(BASE + '/admin/health.html', { waitUntil: 'domcontentloaded' });
   await eventually('passive configuration loaded', async () => (await page.locator('#last-update').textContent()).includes('구성 정보 조회:'));
   check('health: initial load only requests mode=passive', state.apiRequests.length === 1 && active().length === 0);
-  await page.clock.fastForward(10001);
+  await advanceClock(page, 10001, 'health passive timer');
   await eventually('passive timer ran', () => state.apiRequests.length === 2);
   check('health: real timer only requests mode=passive', active().length === 0 && state.apiRequests.every(r => r.method === 'GET'));
   await page.locator('#auto-refresh').uncheck();
@@ -528,7 +558,7 @@ async function adminIdentity() {
   await page.locator('#adm-identity-retry').click({ clickCount: 2, delay: 20 });
   await eventually('identity retry in flight', () => identityRequests.length === 2);
   check('identity: double click creates only one identity request', identityRequests.length === 2 && await page.locator('#adm-identity-retry').isDisabled());
-  await page.clock.fastForward(8001);
+  await advanceClock(page, 8001, 'identity stalled request');
   await eventually('identity timeout visible', () => page.evaluate(() => window.admIdentityState === 'timeout'));
   check('identity: stalled request exposes visible retry', await page.locator('#adm-identity-status').isVisible() && await page.locator('#adm-identity-retry').isEnabled());
   plans.push({ uid: 'recovered_fixture', name: 'Recovered Fixture' });
@@ -573,10 +603,17 @@ try {
   }
   await run('health', health);
   await run('admin-identity', adminIdentity);
+} catch (error) {
+  failures++;
+  report.lifecycleError = String(error);
+  console.error('HARNESS FAILED ' + error.stack);
 } finally {
-  await browser.close();
-  report.passes = passes; report.failures = failures;
-  await writeFile(resolve(OUT, 'fixture-report.json'), JSON.stringify(report, null, 2) + '\n');
+  try { await deadline('browser cleanup', browser.close(), 10000); }
+  catch (error) { failures++; report.cleanupError = String(error); console.error(String(error)); }
+  if (report.cases.length !== 13) { failures++; report.incompleteCases = { completed: report.cases.length, required: 13 }; }
+  try { await writeReport(); }
+  catch (error) { failures++; console.error('REPORT WRITE FAILED ' + String(error)); }
   console.log(`\nadmin-repairs-offline-browser: PASS ${passes} / FAIL ${failures} / SKIP 0`);
 }
-if (failures) process.exitCode = 1;
+// Do not let a failed browser transport/cleanup keep the process alive forever.
+if (failures) process.exit(1);
