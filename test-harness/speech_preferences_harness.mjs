@@ -21,6 +21,13 @@ function page(fetch = fetchMock, store = local) {
   return w.MangoiSpeechPreferences;
 }
 const settle = () => new Promise(resolve => setImmediate(resolve));
+// Legacy login restores its token asynchronously before the first preference read.
+login('LegacyStudent'); local.removeItem('mango_token'); remote.set('legacystudent:friend', 1);
+let authCalls = 0;
+const legacy = page().create('friend', 3, () => {}, async () => {
+  authCalls++; await settle(); local.setItem('mango_token', token('LegacyStudent'));
+});
+await legacy.ready; assert.equal(legacy.level, 1); assert.equal(authCalls, 1);
 for (const app of ['warmup','friend']) {
   login('StudentA');
   let p = page().create(app, 3, () => {}); await p.ready;

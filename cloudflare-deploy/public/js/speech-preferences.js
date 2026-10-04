@@ -16,7 +16,7 @@
     } catch (_) { return { uid: '', token: '' }; }
   }
   window.MangoiSpeechPreferences = {
-    create: function (app, fallback, onChange) {
+    create: function (app, fallback, onChange, prepareAuth) {
       var account = identity();
       var key = 'mangoi_speech_rate_v1:' + encodeURIComponent(account.uid || 'guest') + ':' + app;
       var storage;
@@ -28,6 +28,7 @@
       function remember() { try { storage.setItem(key, JSON.stringify({ level: pref.level, dirty: dirty })); } catch (_) {} }
       function sameAccount() { return identity().uid === account.uid; }
       async function call(method, level) {
+        if (prepareAuth) await prepareAuth();
         var token = identity().token;
         if (!account.uid || !token || !sameAccount()) throw new Error('signed_out');
         var controller = new AbortController();

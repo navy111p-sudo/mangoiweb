@@ -665,7 +665,7 @@
           <div class="menu-label"><span data-ko="🗣️ 듣기 속도" data-en="🗣️ Listening speed">🗣️ 듣기 속도</span><span class="rate-val" id="rateVal">3 · 보통 (0.8배)</span></div>
           <div class="rate-row">
             <span class="rate-side">🐢</span>
-            <input id="rateSlider" type="range" min="1" max="5" step="1" value="4" list="rateTicks"
+            <input id="rateSlider" type="range" min="1" max="5" step="1" value="3" list="rateTicks"
               oninput="setRate(this.value)" title="선생님 음성 속도 (1 아주 느리게 ~ 5 아주 빠르게)" />
             <datalist id="rateTicks"><option value="1"></option><option value="2"></option><option value="3"></option><option value="4"></option><option value="5"></option></datalist>
             <span class="rate-side">🐇</span>
@@ -847,7 +847,7 @@
   </div>
 </dialog>
 <script src="/js/warmup-guide.js?v=8"></script>
-<script src="/js/speech-preferences.js?v=1"></script>
+<script src="/js/speech-preferences.js?v=2"></script>
 <script>
 /* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
 var Q = new URLSearchParams(location.search);

@@ -116,21 +116,11 @@ ok(btnRates.length === 5 && !!STEPS && btnRates.every((v, i) => v === vals[i]),
   `화면 버튼 다섯 개의 값도 같다 (${btnRates.join(' / ')})`,
   '버튼과 목록이 어긋나면 눌러도 «켜진 버튼이 없는» 상태가 된다');
 
-/* 저장된 옛 값(1.5)을 가장 가까운 칸으로 맞춰 주는가 —
-   안 맞추면 어느 버튼도 안 켜지고, 화면은 «보통» 처럼 보이는데 1.5배로 읽는다.
-   ⛔ 이 검사를 «그 다섯 숫자가 적혀 있는가» 로 쓰지 말 것 — 2026-09-10 에 칸을 내리자
-      보장은 오히려 세졌는데(정본 배열 하나를 쓰게 됨) 검사만 빨간불이 났다.
-      물어야 할 것은 «정본 배열로 맞추는가» 와 «옆에 값을 다시 적지 않았는가» 다. */
-ok(/RATE_STEPS_AF\s*\.reduce\(/.test(AF),
-  '저장된 옛 속도를 «정본 계단(RATE_STEPS_AF)» 으로 맞춰서 시작한다',
-  '칸 값이 바뀌면 옛 저장값은 어느 버튼과도 안 맞는다 — 조용히 어긋난 채로 읽는다');
-/* ⚠️ 부정 검사는 «주석을 벗겨 낸» 사본으로 판정한다 — 이 파일들은 📜 이력 주석을 남기는
-      관행이라 「예전에는 [0.6, 0.8, 1, 1.25, 1.5].reduce( … ) 였다」 한 줄이면 자기 주석을
-      잡는다(함정 대조가 실제로 재현해서 거짓 FAIL 을 냈다. CLAUDE.md 2장). */
-const AF_BARE = AF.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
-ok(!/\[\s*[\d.]+\s*(?:,\s*[\d.]+\s*){4}\]\s*\.reduce\(/.test(AF_BARE),
-  '스냅이 숫자를 «다시 적어» 두지 않았다(정본 배열 하나만 본다)',
-  '두 벌이면 한쪽만 고쳐져 «버튼은 보통인데 실제로는 다른 배속» 이 되고 에러는 안 난다');
+// 2026-10-04: account-scoped integer levels replace ownerless legacy rates.
+ok(/RATE_STEPS_AF\[friendRatePreference.level - 1\]/.test(AF),
+  '계정에 저장된 칸 번호를 정본 속도 표로 변환한다');
+ok(!AF.includes("localStorage.getItem(RATE_KEY_AF)"),
+  '다른 학생이 남긴 계정 구분 없는 속도를 가져오지 않는다');
 
 /* 기본값이 계단 «안» 이고, 그것이 곧 «보통» 인가 —
    밖이면 처음 들어온 학생 화면에 켜진 버튼이 하나도 없고, 보통이 아니면
@@ -146,72 +136,15 @@ ok(afDefault !== null && !!STEPS && Math.abs(afDefault - STEPS[3]) < 1e-9,
   `기본 속도가 «보통»(${STEPS ? STEPS[3] : '?'}) 이다`,
   '기본이 보통이 아니면 아무도 안 골랐는데 다른 속도로 시작한다');
 
-/* ── ⑧ 이미 속도를 골라 둔 학생에게도 지시가 닿는가 ────────────────────────
-   🔴 함정 대조가 브라우저로 재서 잡은 것 — «가장 가까운 값» 으로만 맞추면 저장값이 있는
-      학생 다섯 중 넷은 배속이 한 글자도 안 느려지고(0.8→0.8·1→1), 하필 «아주 느리게» 를
-      골라 둔 학생만 0.6 → 0.65 로 «빨라진다». 그래서 «칸 번호» 로 한 번 옮긴다. */
-const mig = (() => {
-  const m = AF.match(/const RATE_STEPS_V1_AF\s*=\s*\[[^\]]*\];/);
-  if (!m) return null;
-  try { return new Function('return ' + m[0].replace(/^const [^=]+=\s*/, '').replace(/;$/, '') + ';')(); }
-  catch { return null; }
-})();
-ok(!!mig && mig.length === 5, '옛 계단 표(RATE_STEPS_V1_AF)를 읽었다',
-  '없으면 옛 값을 쓰던 기기가 영영 옛 배속으로 남는다');
-ok(!!mig && !!afList && mig.every((v, i) => afList[i] < v - 1e-9),
-  `옛 칸이 «같은 번호의 새 칸» 으로 전부 느려진다 (${mig ? mig.join('/') : '?'} → ${afList ? afList.join('/') : '?'})`,
-  '한 칸이라도 빨라지면 「너무 빠르다」고 말한 학생이 더 빨라진다');
-ok(/RATE_STEPS_V1_AF\.findIndex/.test(AF_BARE) || /findIndex[\s\S]{0,80}RATE_STEPS_V1_AF/.test(AF_BARE),
-  '옮길 때 «값» 이 아니라 «칸 번호» 로 찾는다',
-  '값으로 맞추면 옛 값이 그대로 남아 배속이 안 바뀐다');
-/* 짝 — «한 번만» 인가. 표식이 없으면 매번 옮겨 수업 때마다 계속 느려진다. */
-ok(/RATE_VER_KEY_AF/.test(AF_BARE) && /localStorage\.setItem\(\s*RATE_VER_KEY_AF/.test(AF_BARE),
-  '그 옮기기를 «한 번만» 하도록 표식을 남긴다',
-  '표식이 없으면 새 0.8 을 옛 2단계로 보고 0.65 로, 또 0.65 를… 계속 느려진다');
-ok(/rateMarkAF\(\);/.test(AF_BARE.slice(AF_BARE.indexOf('function applyRate'))),
-  '사람이 속도를 고르면 그 표식도 함께 남긴다',
-  '안 남기면 사람이 고른 새 값을 다음 로드가 옛 값으로 오해해 또 옮긴다');
-
-/* 옛 계단에 «없는» 값도 빨라지지 않는가 — 지시가 「모두 느리게」다.
-   🔴 함정 대조 뒤 브라우저로 재다가 찾았다: «가장 가까운 칸» 이면 1.2 → 1.25 로 빨라진다.
-   ⛔ 「그 줄이 있는가」로 묻지 말 것 — 식을 오려 내 «답» 으로 묻는다. */
-const migExpr = (() => {
-  const m = AF.match(/const next = i >= 0 \? RATE_STEPS_AF\[i\]\s*([\s\S]*?);/);
-  return m ? m[1] : null;
-})();
-ok(!!migExpr, '옛 계단에 없는 값을 어떻게 옮기는지 식을 잘라냈다',
-  '못 잘라내면 아래 검사가 헛돈다');
-if (migExpr && afList) {
-  const fall = (r) => {
-    try { return new Function('RATE_STEPS_AF', 'r', 'return ' + migExpr.replace(/^\s*:/, '') + ';')(afList, r); }
-    catch { return NaN; }
-  };
-  /* ⚠️ 가장 느린 칸(0.5)보다 «더 느린» 저장값은 어느 계단에도 없던 값이다 — 그때는
-     가장 느린 칸으로 올리는 것이 맞다(0.5 아래는 소리가 뭉개진다). 그 하나만 예외로 둔다. */
-  const cases = [1.2, 1.4, 0.9, 0.55, 0.31];
-  const bad = cases.filter((r) => (r >= afList[0] ? !(fall(r) <= r + 1e-9) : fall(r) !== afList[0]));
-  ok(bad.length === 0,
-    `옛 계단에 없는 값도 «그보다 느린 칸» 으로 간다 (${cases.map((r) => r + '→' + fall(r)).join(' · ')})`,
-    '가장 가까운 칸으로 맞추면 1.2 가 1.25 로 «빨라진다» — 지시와 정반대다');
-  ok(cases.every((r) => afList.indexOf(fall(r)) >= 0),
-    '그 결과가 항상 다섯 칸 안이다',
-    '칸 밖이면 켜진 버튼이 하나도 없다');
-  /* 짝 — «너무 많이» 내리지도 않는가. 이 줄이 없으면 «항상 최저칸(0.5)» 도 통과한다
-     (변이시험에서 실제로 통과했다): 빠르게를 고른 학생이 아주 느리게로 떨어진다. */
-  const want = (r) => { const c = afList.filter((v) => v <= r + 1e-9); return c.length ? c[c.length - 1] : afList[0]; };
-  ok(cases.every((r) => Math.abs(fall(r) - want(r)) < 1e-9),
-    `내리되 «바로 아래 칸» 까지만 내린다 (${cases.map((r) => r + '→' + fall(r)).join(' · ')})`,
-    '항상 최저칸으로 떨어뜨리면 빠르게를 고른 학생이 아주 느리게가 된다');
-}
-
-/* ── ⑨ 웜업이 «1배» 로 시작하는가 (2026-09-25 사장님 «1배로 해줘») ─────────────
-   📜 옛 경계: 2026-09-24 «보통(0.8)» 으로 시작 → 이날 «원음 그대로 1.0배» 로 바꿨다.
-   ⛔ 칸 번호(4)를 못 박지 않는다 — «시작 칸의 배속이 1.0 인가» 로 묻는다(계단이 또 바뀌어도 뜻이 남는다).
-   짝 — 슬라이더 초기값도 같은 칸이어야 첫 화면 표시와 실제 배속이 어긋나지 않는다. */
+// Account persistence, invalid data, offline retry and read/write races are
+// exercised by speech_preferences_harness.mjs, replacing the old migration contract.
+ok(AF.includes("MangoiSpeechPreferences.create('friend'") && WU.includes("MangoiSpeechPreferences.create('warmup'"),
+  '두 화면 모두 계정별 속도 저장을 사용한다');
+// First-time users start at Normal; returning users restore their selected level.
 const wuStart = (() => { const m = WU.match(/var WARMUP_START_RATE\s*=\s*(\d+)\s*;/); return m ? Number(m[1]) : null; })();
-ok(wuStart !== null && !!STEPS && Math.abs(STEPS[wuStart] - 1.0) < 1e-9,
-  `웜업 시작 칸(${wuStart})의 배속이 1.0 이다 (${STEPS && wuStart ? STEPS[wuStart] : '?'}배)`,
-  '1.0 이 아니면 2026-09-25 «1배로 해줘» 가 되돌아간 것이다');
+ok(wuStart !== null && !!STEPS && wuStart === 3 && Math.abs(STEPS[wuStart] - 0.8) < 1e-9,
+  `웜업 시작 칸(${wuStart})의 배속이 보통(0.8)이다 (${STEPS && wuStart ? STEPS[wuStart] : '?'}배)`,
+  '2026-10-04: 저장값 없는 학생만 보통으로 시작한다');
 const slv = (() => { const m = WU.match(/id="rateSlider"[^>]*\svalue="(\d+)"/); return m ? Number(m[1]) : null; })();
 ok(slv !== null && slv === wuStart,
   `슬라이더 초기값(${slv})이 시작 칸(${wuStart})과 같다`,
@@ -219,3 +152,4 @@ ok(slv !== null && slv === wuStart,
 
 console.log(`\n${pass} PASS / ${fail} 실패`);
 process.exit(fail ? 1 : 0);
+

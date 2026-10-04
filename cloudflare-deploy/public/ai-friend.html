@@ -510,7 +510,7 @@
       data-ko="🚀 다음 활동 고르기" data-en="🚀 Choose next activity">🚀 다음 활동 고르기</button>
   </div>
 
-  <script src="/js/speech-preferences.js?v=1"></script>
+  <script src="/js/speech-preferences.js?v=2"></script>
   <script>
     // 전체 사이트 로그인된 사용자(mango_user) + 서명 토큰 자동 사용
     // 서버가 uid 를 그대로 믿지 않으므로(타인 대화 열람/삭제 방지 = IDOR 차단)
@@ -603,7 +603,7 @@
     const RATE_DEFAULT_AF = 0.8;              // = «보통»
     const friendRatePreference = MangoiSpeechPreferences.create('friend', 3, function(level) {
       applyRate(RATE_STEPS_AF[level - 1], false);
-    });
+    }, getAuth);
     let currentRate = RATE_STEPS_AF[friendRatePreference.level - 1];
 
     document.querySelectorAll('.opt[data-level]').forEach(b => {

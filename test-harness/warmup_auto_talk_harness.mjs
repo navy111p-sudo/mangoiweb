@@ -350,6 +350,7 @@ function runSpeak({ speechOn = true, btn = null, interrupt = false, synth = fals
   const hooks = [];
   const audio = { play: () => ({ then: (f) => ({ catch() {} }) }), pause() {} };
   const ctx = {
+    warmupRatePreference: { loaded: true },
     hooks, _warmPaused: false, _speechOn: speechOn, _speakSeq: 0, _ttsAudio: null, _lastAiSpeak: null,
     _speechEverStarted: false, AUDIO_RATE: { 3: 1 }, _rateLevel: 3, ZH_MALE_PITCH: 0.78,
     _ttsCache: { 'emma|hi there': 'blob:x' }, _ttsEng: { 'emma|hi there': 'azure' },
@@ -412,3 +413,4 @@ console.log('\n[I] warmup.html 배선 (나머지 연결 지점)');
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
+
