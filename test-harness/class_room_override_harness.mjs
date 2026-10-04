@@ -372,8 +372,9 @@ console.log('\n⑦ 방 번호를 만드는 곳들이 지정을 보는가');
       if (/class-\$\{/.test(t) && !/applyRoomOverrides/.test(t)) OPEN.push(f);
     } catch {}
   }
-  console.log('  ℹ️ 아직 지정을 안 보는 곳(사람 결정 대기): ' + (OPEN.join(' · ') || '없음'));
-  console.log('     → 지정된 수업의 참관 버튼·리마인더 링크는 «옛 방» 을 가리킵니다.');
+  console.log('  ℹ️ 방 ID를 만들지만 파일 안에서 지정 정본을 부르지 않는 곳: ' + (OPEN.join(' · ') || '없음'));
+  console.log('     → 이것만으로 잘못된 입장 링크라고 단정하지 않습니다. classes-now는 호출 핸들러에서 지정을 적용합니다(classes_now_room_override_harness).');
+  console.log('     → lesson-reminder의 class-*는 발송 중복 방지 키이고, 문자 입장 링크는 방 번호 없는 /?go=videocall 입니다.');
 }
 
 console.log('\n결과: PASS ' + pass + ' / FAIL ' + fail);

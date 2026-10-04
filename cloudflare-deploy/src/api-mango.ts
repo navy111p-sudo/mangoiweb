@@ -1,3 +1,6 @@
+import { requireRoomJwtSecret } from './room-jwt-secret';
+import { ensureStudentEvaluationDetailSchema, readStudentAdminEvaluations } from './evaluation-records';
+import { ensureEvaluationScoreSchema, validEvaluationScores } from './evaluation-scores';
 import { hasForeignGloss, KOREAN_GLOSS_RULE } from './korean-vocab';
 /**
  * api-mango.ts - v3 명세서 신규 API
@@ -65,6 +68,7 @@ import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu
 import { recordingDupGate, REC_DUP_LIVE_WINDOW_MS } from './recording-dup-guard';  // 🎥 같은 방 «동시 녹화» 방지 정본 (실패하면 «찍는 쪽» 으로)
 import { ensureStartsOnColumn, startsOnSel, recurStartedOn, normStartsOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { applyRoomOverrides } from './class-room-override';       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
+import { scheduleMoveVersion } from './class-schedule-move';
 import { studentRequestGate, ensureScheduleChangeRequestTable } from './student-schedule-request';  // 📅 학생 연기·변경 요청 판정 정본
 import { loadSchedSummaryMap, loadSchedSummaryOne, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약 수업」 칸 정본 (students_erp 의 수강 칸은 카페24가 정본이라 늘 «—» 였다)       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 import { isPostponedOccurrence } from './class-postponed';  // ⏸ 연기된 회차 판정 정본(2026-10-01)
@@ -73,6 +77,7 @@ import { isUsableKoMeaning, stripJamoRuns } from './learn-meaning-check';  // �
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
+  ROOM_JWT_SECRET?: string;
   SESSION_STATE: KVNamespace;
   // 📼 수업 녹화 파일 저장소 — 런타임엔 wrangler.toml 로 이미 묶여 있는데 «타입 선언만»
   //   없었다. /api/recordings/stop 이 «실물이 있는가» 를 직접 확인하려면 필요하다(2026-08-26).
@@ -2445,7 +2450,7 @@ export async function handleMangoApi(
       await ensureScheduleChangeRequestTable(env);
       const scheduleId = parseInt(body.schedule_id, 10) || null;
       const cs: any = scheduleId
-        ? await env.DB.prepare(`SELECT cs.id, cs.user_id, cs.student_name, cs.scheduled_date, cs.start_time, cs.status, cs.teacher_id, t.name AS teacher_name
+        ? await env.DB.prepare(`SELECT cs.*, t.name AS teacher_name
                                   FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
                                  WHERE cs.id = ? LIMIT 1`).bind(scheduleId).first().catch(() => null)
         : null;
@@ -2514,9 +2519,15 @@ export async function handleMangoApi(
       const studentName = String(cs.student_name || '').trim() || tokUid;
       const reason = [String(body.reason || '').trim().slice(0, 300), wishNote].filter(Boolean).join(' · ') || null;
       const ins: any = await env.DB.prepare(
-        `INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_name, requester_uid, teacher_name, student_name, orig_date, orig_time, new_date, new_time, fee_type, minutes_before, reason, status, created_at, new_teacher_id)
-         VALUES (?,?,'student',?,?,?,?,?,?,?,?,?,?,?,'pending',?,?)`
-      ).bind(cs.id, reqType, studentName, tokUid, teacherName, studentName, origDate, origTime, newDate, newTime, feeType, minutesBefore, reason, nowMs, newTeacherId).run();
+        `INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_name, requester_uid, teacher_name, student_name, orig_date, orig_time, new_date, new_time, fee_type, minutes_before, reason, status, created_at, new_teacher_id, schedule_snapshot)
+         SELECT ?,?,'student',?,?,?,?,?,?,?,?,?,?,?,'pending',?,?,?
+          WHERE NOT EXISTS (SELECT 1 FROM schedule_change_requests WHERE schedule_id = ? AND orig_date = ? AND requester_uid = ? AND status = 'pending')`
+      ).bind(cs.id, reqType, studentName, tokUid, teacherName, studentName, origDate, origTime, newDate, newTime, feeType, minutesBefore, reason, nowMs, newTeacherId, scheduleMoveVersion(cs), cs.id, origDate, tokUid).run();
+      // One SQLite statement arbitrates concurrent submissions, including legacy duplicates.
+      if (!ins?.success || ins?.meta?.changes !== 1) {
+        if (ins?.success && ins?.meta?.changes === 0) return json({ ok: false, error: 'already_pending' }, 409);
+        return json({ ok: false, error: 'request_save_failed' }, 503);
+      }
       try {
         const typeKo = reqType === 'change' ? '변경' : '연기';
         const feeKo = feeType === 'paid' ? '💰유료' : feeType === 'free' ? '🆓무료' : '';
@@ -3987,7 +3998,7 @@ ${numbered}`;
           // 6. 수업료 결제
           env.DB.prepare(`SELECT * FROM student_payments WHERE user_id = ? ORDER BY paid_at DESC LIMIT 50`).bind(uid).all(),
           // 7. 평가서
-          env.DB.prepare(`SELECT * FROM student_evaluations WHERE user_id = ? ORDER BY eval_at DESC LIMIT 50`).bind(uid).all(),
+          readStudentAdminEvaluations(env.DB, uid, 50),
           // 8. 교사 피드백
           env.DB.prepare(`SELECT * FROM teacher_feedbacks WHERE user_id = ? ORDER BY class_at DESC LIMIT 50`).bind(uid).all(),
           // 9. 상담 내역
@@ -4175,20 +4186,23 @@ ${numbered}`;
         await ensureStudentDetailSchema();
         const uid = decodeURIComponent(m[1]);
         if (method === 'GET') {
-          const rs = await env.DB.prepare(
-            `SELECT * FROM student_evaluations WHERE user_id = ? ORDER BY eval_at DESC LIMIT 100`
-          ).bind(uid).all();
+          const rs = await readStudentAdminEvaluations(env.DB, uid, 100);
           return json({ ok: true, items: rs.results || [] });
         }
         if (method === 'POST') {
           const b = await parseJsonBody(request);
           if (!b) return invalidBody(['eval_type or score_total']);
+          if (!validEvaluationScores([b.score_speaking, b.score_listening, b.score_reading, b.score_writing, b.score_total], 100)) {
+            return json({ ok: false, error: 'scores_must_be_0_to_100' }, 400);
+          }
+          await ensureStudentEvaluationDetailSchema(env.DB);
+          await ensureEvaluationScoreSchema(env.DB);
           const now = Date.now();
           const r = await env.DB.prepare(
-            `INSERT INTO student_evaluations (user_id, eval_at, eval_type, level, score_speaking, score_listening, score_reading, score_writing, score_total, evaluator, comment, next_goal, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            `INSERT INTO student_evaluations (user_id, student_uid, eval_at, eval_type, level, score_speaking, score_listening, score_reading, score_writing, score_total, evaluator, comment, next_goal, created_at, updated_at, evaluation_source, score_scale)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
-            uid,
+            uid, uid,
             b.eval_at || now,
             b.eval_type || 'monthly',
             b.level || null,
@@ -4200,7 +4214,7 @@ ${numbered}`;
             b.evaluator || null,
             b.comment || null,
             b.next_goal || null,
-            now
+            now, now, 'student_detail', 100
           ).run();
           return json({ ok: true, id: r.meta.last_row_id });
         }
@@ -5412,12 +5426,7 @@ ${numbered}`;
     // ── JWT 유틸 (Web Crypto API, HS256) ──
     const b64urlEnc = (s: string) => btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const b64urlDec = (s: string) => atob(s.replace(/-/g, '+').replace(/_/g, '/'));
-    const getRoomSecret = (): string => {
-      // 우선 secret(ROOM_JWT_SECRET) → 없으면 강한 상수 폴백(공개 BUILD_STAMP 사용 금지, 2026-07-12 보안)
-      // ⚠️ 운영 환경에서는 반드시 `npx wrangler secret put ROOM_JWT_SECRET --env production` 으로 설정
-      //   폴백 상수는 auth-token.ts / api-mango 8713 / signaling-room.ts 와 동일해야 방JWT 상호검증됨.
-      return (env as any).ROOM_JWT_SECRET || 'mgi-fb-d0895a3a232c5ef0f0950c6128a04a5311ec69ba142cb4a86a8d334e33c56f30';
-    };
+    const getRoomSecret = (): string => requireRoomJwtSecret(env);
 
     const signRoomJWT = async (payload: any): Promise<string> => {
       const enc = new TextEncoder();

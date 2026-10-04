@@ -4,6 +4,8 @@
 //   포함: Phase HW(숙제) + E1~E4(평가서) + BE(일괄평가) + CAL(캘린더·공휴일, 13차)
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
+import { ensureEvaluationScoreSchema, readAdminEvaluationScores, validEvaluationScores } from './evaluation-scores';
+import { projectAdminEvaluationRecords } from './evaluation-records';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, resolveOwnerScope, getAdminActor, isOrgScopedRole } from './auth-admin';  // 🔐 공용 소유자 판정
@@ -118,6 +120,7 @@ export async function handleLessonsApi(
         const info: any = await env.DB.prepare(`PRAGMA table_info(student_evaluations)`).all();
         const have = new Set(((info && info.results) || []).map((r: any) => String(r.name)));
         const want: Array<[string, string]> = [
+          ['user_id','TEXT'],['eval_at','INTEGER'],
           ['student_uid','TEXT'],['student_name','TEXT'],['teacher_uid','TEXT'],['teacher_name','TEXT'],
           ['room_id','TEXT'],['lesson_title','TEXT'],['lesson_date','TEXT'],
           ['score_participation','INTEGER'],['score_comprehension','INTEGER'],['score_homework','INTEGER'],
@@ -232,7 +235,7 @@ export async function handleLessonsApi(
     };
 
     // ── POST /api/eval/create — 강사가 평가서 작성 ──
-    if (method === 'POST' && path === '/api/eval/create') {
+    if (method === 'POST' && (path === '/api/eval/create' || path === '/api/eval/manual-create' || path === '/api/eval/draft-create')) {
       /* 🔐 (2026-08-28) 강사·관리자 세션 필수.
          [무엇이 뚫려 있었나] 이 경로에는 인증이 **한 줄도 없었다** — `isAdminPath` 는
          `/api/eval/…` 를 안 잡고(이 파일의 DELETE 만 2026-07-19 자가점검으로 막혔다),
@@ -247,11 +250,22 @@ export async function handleLessonsApi(
       const _ev = await checkAdminSession(request, env as any);
       if (!_ev.ok) return json({ ok: false, error: 'auth_required' }, 401);
       await ensureEvalTable();
+      await ensureEvaluationScoreSchema(env.DB);
       const body: any = await request.json().catch(() => ({}));
       if (!body.student_uid) return json({ ok: false, error: 'student_uid_required' }, 400);
       const now = Date.now();
-      // 평가 점수 평균으로 종합 점수 자동 계산
-      const scores = [body.score_participation, body.score_comprehension, body.score_homework, body.score_attitude, body.score_speaking]
+      // Separate route for the admin AI-draft form (0–10). Source/scale are server-owned.
+      const draftScore = path === '/api/eval/draft-create';
+      // Old open tabs/offline queues used /create for BOTH 5- and 10-point forms.
+      // Keep accepting their evaluations, but never guess their denominator.
+      const legacyScore = path === '/api/eval/create';
+      const scoreScale = legacyScore ? null : draftScore ? 10 : 5;
+      const evaluationSource = legacyScore ? 'legacy_unclassified' : draftScore ? 'teacher_ai_draft' : 'teacher_manual';
+      const scoreInputs = [body.score_participation, body.score_comprehension, body.score_homework, body.score_attitude, body.score_speaking];
+      if (!validEvaluationScores(scoreInputs, scoreScale ?? 10, draftScore || legacyScore ? 0 : 1)) {
+        return json({ ok: false, error: draftScore || legacyScore ? 'scores_must_be_0_to_10' : 'scores_must_be_1_to_5' }, 400);
+      }
+      const scores = scoreInputs
         .filter(v => v != null && !isNaN(v))
         .map(v => Number(v));
       const overall = scores.length > 0
@@ -284,21 +298,21 @@ export async function handleLessonsApi(
       const ins = await env.DB.prepare(
         `INSERT INTO student_evaluations (user_id, eval_at, student_uid, student_name, teacher_uid, teacher_name, room_id, lesson_title, lesson_date,
           score_participation, score_comprehension, score_homework, score_attitude, score_speaking, score_overall,
-          strengths, improvements, next_goals, teacher_comment, note_en, note_ko, note_chips, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+          strengths, improvements, next_goals, teacher_comment, note_en, note_ko, note_chips, created_at, updated_at, evaluation_source, score_scale)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       ).bind(
         body.student_uid, now,
         body.student_uid, body.student_name || null,
         body.teacher_uid || null, body.teacher_name || null,
         body.room_id || null, body.lesson_title || null,
         body.lesson_date || new Date().toISOString().slice(0,10),
-        body.score_participation || null, body.score_comprehension || null,
-        body.score_homework || null, body.score_attitude || null,
-        body.score_speaking || null, overall,
+        body.score_participation ?? null, body.score_comprehension ?? null,
+        body.score_homework ?? null, body.score_attitude ?? null,
+        body.score_speaking ?? null, overall,
         body.strengths || null, body.improvements || null,
         body.next_goals || null, body.teacher_comment || null,
         noteEn, noteKo, noteChips,
-        now, now
+        now, now, evaluationSource, scoreScale
       ).run();
       const evalId = ins?.meta?.last_row_id;
 
@@ -348,15 +362,17 @@ export async function handleLessonsApi(
       // 🆕 Web Push 도 함께 (학생/학부모 user_id 가 있으면)
       const pushTitle = `📝 ${body.student_name || '학생'}님의 평가서 도착!`;
       // 별점 기본값이 없어져(2026-08-24 1단계) 아무것도 안 고르면 overall 이 null 이다 —
-      // 그때는 점수 문구를 아예 빼고, 만점 표기도 실제 척도(5점)로 맞춘다(예전 «/10» 은 오기).
-      const pushBody = overall != null ? `종합 점수 ${overall}/5. 자세히 보기 클릭` : '자세히 보기 클릭';
+      // 그때는 점수 문구를 아예 빼고, 만점 표기도 서버가 정한 입력 척도로 맞춘다.
+      const pushBody = overall != null ? `종합 점수 ${overall}${scoreScale == null ? ' (척도 확인 필요)' : '/' + scoreScale}. 자세히 보기 클릭` : '자세히 보기 클릭';
       const pushUrl = `/eval.html?id=${evalId}`;
       const pushTag = `eval-${evalId}`;
       const pushResults: any[] = [];
       if (body.student_uid) pushResults.push({ role: 'student', ...(await sendPushToUser(env, body.student_uid, pushTitle, pushBody, pushUrl, pushTag)) });
       if (body.parent_uid) pushResults.push({ role: 'parent', ...(await sendPushToUser(env, body.parent_uid, pushTitle, pushBody, pushUrl, pushTag)) });
       // 🎮 배지는 parent.html / mypage 에서 페이지 로드 시 /api/badges/check 호출로 자동 갱신
-      return json({ ok: true, id: evalId, overall, notify: notifyResult, push: pushResults });
+      return json({ ok: true, id: evalId, overall, evaluation_source: evaluationSource, score_scale: scoreScale,
+        ...(legacyScore ? { warning: 'score_scale_unknown_refresh_required', message: '평가서는 저장했습니다. 점수 척도를 확인하려면 화면을 새로고침해 주세요. 이 점수는 평균에서 제외됩니다.' } : {}),
+        notify: notifyResult, push: pushResults });
     }
 
     // ── GET /api/eval/list?uid=X&role=student|parent|teacher — 평가서 목록 ──
@@ -468,20 +484,11 @@ export async function handleLessonsApi(
     // ── GET /api/admin/eval/list — 관리자: 전체 평가서 목록 + 통계 ──
     if (method === 'GET' && path === '/api/admin/eval/list') {
       await ensureEvalTable();
-      const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get('limit') || '100', 10)));
-      const rs = await env.DB.prepare(
-        `SELECT * FROM student_evaluations ORDER BY created_at DESC LIMIT ?`
-      ).bind(limit).all();
-      // 통계 계산
+      const requestedLimit = Number.parseInt(url.searchParams.get('limit') || '100', 10);
+      const limit = Number.isFinite(requestedLimit) ? Math.min(500, Math.max(1, requestedLimit)) : 100;
       const month_start = new Date(); month_start.setDate(1); month_start.setHours(0,0,0,0);
-      const stats: any = await env.DB.prepare(
-        `SELECT COUNT(*) AS total, AVG(score_overall) AS avg_score,
-                SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS this_month,
-                SUM(parent_notified) AS notified,
-                SUM(viewed_by_parent) AS viewed
-           FROM student_evaluations`
-      ).bind(month_start.getTime()).first();
-      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [], stats });
+      const { rows, stats } = await readAdminEvaluationScores(env.DB, limit, month_start.getTime());
+      return json({ ok: true, count: rows.length, rows: await projectAdminEvaluationRecords(env.DB, rows), stats });
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -495,13 +502,11 @@ export async function handleLessonsApi(
     // ── POST /api/eval/bulk-create — N명에게 한꺼번에 평가서 작성 ──
     //   body: { teacher_uid, teacher_name, lesson_date, lesson_title, common: {...공통항목}, students: [{ student_uid, student_name, scores: {...}, comments }] }
     if (method === 'POST' && path === '/api/eval/bulk-create') {
-      const ensureEval = async () => {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, teacher_uid TEXT, teacher_name TEXT, room_id TEXT, lesson_title TEXT, lesson_date TEXT, score_participation INTEGER, score_comprehension INTEGER, score_homework INTEGER, score_attitude INTEGER, score_speaking INTEGER, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, teacher_comment TEXT, parent_notified INTEGER DEFAULT 0, parent_notified_at INTEGER, viewed_by_parent INTEGER DEFAULT 0, viewed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
-      };
       // 🔐 (2026-08-28) /api/eval/create 와 같은 구멍 — 호출자는 관리자 콘솔(adm-r3.js) 하나뿐이다.
       const _bk = await checkAdminSession(request, env as any);
       if (!_bk.ok) return json({ ok: false, error: 'auth_required' }, 401);
-      await ensureEval();
+      await ensureEvalTable();
+      await ensureEvaluationScoreSchema(env.DB);
       const body: any = await request.json().catch(() => ({}));
       const students = Array.isArray(body.students) ? body.students : [];
       if (!students.length) return json({ ok: false, error: 'no_students' }, 400);
@@ -520,13 +525,16 @@ export async function handleLessonsApi(
       for (const s of students) {
         try {
           const sc = s.scores || {};
-          const scores = [sc.participation, sc.comprehension, sc.homework, sc.attitude, sc.speaking]
+          // adm-r3.js explicitly offers 0–10, unlike the single-evaluation form.
+          const scoreInputs = [sc.participation, sc.comprehension, sc.homework, sc.attitude, sc.speaking];
+          if (!validEvaluationScores(scoreInputs, 10)) throw new Error('scores_must_be_0_to_10');
+          const scores = scoreInputs
             .filter(v => v != null && !isNaN(v)).map(Number);
           const overall = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
           const ins = await env.DB.prepare(
-            `INSERT INTO student_evaluations (student_uid, student_name, teacher_uid, teacher_name, lesson_title, lesson_date, score_participation, score_comprehension, score_homework, score_attitude, score_speaking, score_overall, strengths, improvements, next_goals, teacher_comment, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+            `INSERT INTO student_evaluations (user_id, eval_at, student_uid, student_name, teacher_uid, teacher_name, lesson_title, lesson_date, score_participation, score_comprehension, score_homework, score_attitude, score_speaking, score_overall, strengths, improvements, next_goals, teacher_comment, created_at, updated_at, evaluation_source, score_scale) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
           ).bind(
-            s.student_uid, s.student_name || null,
+            s.student_uid, now, s.student_uid, s.student_name || null,
             body.teacher_uid || null, body.teacher_name || null,
             body.lesson_title || null, body.lesson_date || null,
             sc.participation ?? null, sc.comprehension ?? null, sc.homework ?? null, sc.attitude ?? null, sc.speaking ?? null,
@@ -535,7 +543,7 @@ export async function handleLessonsApi(
             s.improvements || common.improvements || null,
             s.next_goals || common.next_goals || null,
             s.teacher_comment || common.teacher_comment || null,
-            now, now
+            now, now, 'teacher_bulk', 10
           ).run();
           created.push({ student_uid: s.student_uid, id: ins?.meta?.last_row_id, overall });
         } catch (e: any) {
@@ -897,7 +905,8 @@ Limit: max 5 grammar_errors, max 5 alternatives, max 10 word_freq. Be specific a
       parsed.next_goals     = deHanjaList(parsed.next_goals, []);
 
       // 3) 결과 정규화 + DB 저장
-      const overallScore = Math.max(0, Math.min(100, Number(parsed.overall_score || 75)));
+      const aiScore = Number(parsed.overall_score ?? 75);
+      const overallScore = Number.isFinite(aiScore) ? Math.max(0, Math.min(100, aiScore)) : 75;
       const summaryKo = String(parsed.summary_ko || '학생의 영어 발화를 분석했습니다.');
       const grammarErrors = Array.isArray(parsed.grammar_errors) ? parsed.grammar_errors.slice(0, 8) : [];
       const alternatives = Array.isArray(parsed.alternatives) ? parsed.alternatives.slice(0, 8) : [];
@@ -914,16 +923,17 @@ Limit: max 5 grammar_errors, max 5 alternatives, max 10 word_freq. Be specific a
       let evaluationId: number | null = null;
       if (b.auto_save !== false) {
         try {
-          await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, teacher_uid TEXT, teacher_name TEXT, room_id TEXT, lesson_title TEXT, lesson_date TEXT, score_participation INTEGER, score_comprehension INTEGER, score_homework INTEGER, score_attitude INTEGER, score_speaking INTEGER, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, teacher_comment TEXT, parent_notified INTEGER DEFAULT 0, parent_notified_at INTEGER, viewed_by_parent INTEGER DEFAULT 0, viewed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+          await ensureEvalTable();
+          await ensureEvaluationScoreSchema(env.DB);
           const r: any = await env.DB.prepare(
-            `INSERT INTO student_evaluations (student_uid, student_name, teacher_uid, teacher_name, lesson_title, lesson_date, score_overall, score_speaking, strengths, improvements, next_goals, teacher_comment, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+            `INSERT INTO student_evaluations (user_id, eval_at, student_uid, student_name, teacher_uid, teacher_name, lesson_title, lesson_date, score_overall, score_speaking, strengths, improvements, next_goals, teacher_comment, created_at, updated_at, evaluation_source, score_scale) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
           ).bind(
-            studentUid, studentName, String(b.teacher_uid || '').trim() || null, String(b.teacher_name || '').trim() || null,
+            studentUid, now, studentUid, studentName, String(b.teacher_uid || '').trim() || null, String(b.teacher_name || '').trim() || null,
             lessonTitle || null, String(b.lesson_date || '').trim() || new Date(now).toISOString().slice(0,10),
             overallScore, overallScore,
             strengthsArr.join('\n'), weaknessesArr.join('\n'), nextGoalsArr.join('\n'),
             summaryKo + (grammarErrors.length ? '\n\n[🤖 AI 자동 분석] 문법교정 ' + grammarErrors.length + '건, 대안표현 ' + alternatives.length + '건 발견. 상세 리포트는 AI 학습 리포트 메뉴에서 확인하세요.' : ''),
-            now, now
+            now, now, 'ai_lesson_report', 100
           ).run();
           evaluationId = r.meta?.last_row_id || null;
         } catch (e: any) { console.error('[ai-lesson-report] save eval:', e?.message); }

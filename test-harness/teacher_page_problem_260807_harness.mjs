@@ -118,8 +118,18 @@ console.log('\n[ ⑥  주간 스케줄을 날짜로 바로 이동 ]');
 check('날짜 입력칸이 있다 (폰에서는 OS 달력 = 연·월·일 한 번에)', /id="wk-date"/.test(thtml));
 check('고르면 바로 이동한다 (버튼을 또 눌러야 하지 않는다)',
   /wk-date[\s\S]{0,400}addEventListener\('change'[\s\S]{0,80}loadWeekOf/.test(thtml));
-check('🔴 날짜를 로컬 자정으로 읽는다 (UTC 로 읽으면 필리핀·한국에서 하루씩 밀린다)',
-  /new Date\(dateStr \+ 'T00:00:00'\)/.test(thtml));
+// 2026-10-04: 로컬 자정은 KST 월요일·미국 DST에서 서버 주와 달랐다.
+// 문자열 모양 대신 날짜 정본을 실행한다. 실제 클릭/TZ/응답 역전은 teacher_week_navigation_harness가 지킨다.
+{
+  const a = thtml.indexOf('  function weekOfDate('), b = thtml.indexOf('\n  function ', a + 1);
+  let datesOK = false;
+  try {
+    const monday = new Function(thtml.slice(a,b) + '\nreturn weekOfDate;')();
+    datesOK = monday('2026-10-04') === '2026-09-28' && monday('2026-10-05') === '2026-10-05'
+      && monday('2026-03-08') === '2026-03-02' && monday('2026-02-31') === null;
+  } catch (_) {}
+  check('🔴 날짜를 단말 시간대와 무관한 KST 달력의 월요일로 맞춘다', datesOK);
+}
 check('먼 주로 뛰면 [이전/다음] 에 불을 켜 두지 않는다 (지금 어디인지 거짓말 금지)',
   /off === -1 \? 'wk-prev' : \(off === 1 \? 'wk-next' : ''\)/.test(thtml));
 

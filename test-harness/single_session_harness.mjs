@@ -42,8 +42,16 @@ async function loadAuthToken() {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   // CommonJS 로 뽑아 exports 객체를 그대로 받는다
+  const secretJs = ts.transpileModule(fs.readFileSync(path.join(path.dirname(SRC), 'room-jwt-secret.ts'), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const secretExports = {};
+  new Function('exports', secretJs)(secretExports);
   const exportsObj = {};
-  new Function('exports', 'require', 'module', js)(exportsObj, () => ({}), { exports: exportsObj });
+  new Function('exports', 'require', 'module', js)(exportsObj, name => {
+    if (name === './room-jwt-secret') return secretExports;
+    throw new Error('Unexpected auth-token dependency: ' + name);
+  }, { exports: exportsObj });
   return exportsObj;
 }
 

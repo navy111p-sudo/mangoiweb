@@ -62,10 +62,10 @@ ok('(전제) 요청 접수 라우트를 찾았다', i0 > 0 && post.length > 100)
 const iPrev = post.indexOf('body.preview === true'), iIns = post.indexOf('INSERT INTO schedule_change_requests');
 ok('미리보기는 INSERT 보다 앞에서 돌아간다(아무것도 안 씀)', iPrev > 0 && iPrev < iIns);
 ok('날짜는 서버 계산값으로 덮는다(화면 값 무시)', /body\.new_date\s*=\s*_emPlan\.new_date/.test(post) && /body\.request_type\s*=\s*'change'/.test(post));
-ok('접수 뒤 end_makeup 이름을 남긴다', /SET end_makeup = \?/.test(post));
+ok('접수와 같은 INSERT 에 end_makeup 이름을 남긴다', /schedule_snapshot, end_makeup\)/.test(post) && /now, scheduleSnapshot, _endMk/.test(post));
 const d0 = api.indexOf("if (method === 'POST' && path === '/api/admin/schedule-requests/decide')");
 const dec = api.slice(d0, d0 + 20000);
-ok('승인 때 이동과 같은 batch 에 표시를 넣는다', /_mvAll\.push\(env\.DB\.prepare\(END_MAKEUP_MARK_SQL\)/.test(dec) && dec.indexOf('END_MAKEUP_MARK_SQL') < dec.indexOf('await env.DB.batch(_mvAll)'));
+ok('승인 때 이동과 같은 batch 에 표시를 넣는다', /_mvAll\.push\(env\.DB\.prepare\(END_MAKEUP_MARK_SQL\)/.test(dec) && dec.indexOf('END_MAKEUP_MARK_SQL') < dec.indexOf('await commitScheduleRequestDecision(env, guards, mutations, decision)'));
 const sr = readFileSync(join(ROOT, 'cloudflare-deploy/src/student-schedule-request.ts'), 'utf8');
 ok('요청 표에 end_makeup 칸(지연 ALTER)', /'end_makeup TEXT'/.test(sr));
 

@@ -68,6 +68,7 @@ const ensure = oncePerIsolate(async (env: Env) => {
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS daily_handover_notices (
       notice_key TEXT PRIMARY KEY, username TEXT NOT NULL, report_date TEXT NOT NULL,
       kind TEXT NOT NULL, created_at INTEGER NOT NULL, push_state TEXT NOT NULL DEFAULT 'pending')`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS daily_handover_notices_kind ON daily_handover_notices(kind,push_state)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS daily_handover_files (
       id TEXT PRIMARY KEY, username TEXT NOT NULL, report_date TEXT NOT NULL,
       name TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL, object_key TEXT NOT NULL, created_at INTEGER NOT NULL)`),
@@ -185,36 +186,130 @@ async function runReadAlerts(env:Env) {
 async function withFollowups(env:Env, rows:any[]) {
   if(!rows.length)return [];
   const meta=await selectInChunks(env.DB,rows.map(r=>r.id),ph=>`SELECT * FROM daily_handover_followup WHERE report_id IN (${ph})`);
-  return rows.map(r=>({...rowData(r),followup:meta.find(f=>f.report_id===r.id&&f.version===r.version)||null}));
+  const mapped=rows.map(r=>({row:r,followup:meta.find(f=>f.report_id===r.id&&f.version===r.version)||null}));
+  const now=Date.now();
+  const deliveryKind=({row,followup:f}:typeof mapped[number])=>row.status==='submitted'&&f?.due_at&&f.due_at<=now&&f.warning_level<4
+    ?followupDeliveryKind(row,f,followupLevel(f.due_at,now)):null;
+  const pending=await selectInChunks<{kind:string;username:string}>(env.DB,mapped.map(deliveryKind).filter(Boolean),
+    ph=>`SELECT kind,username FROM daily_handover_notices WHERE kind IN (${ph}) AND push_state='no_subscription'`);
+  return mapped.map(item=>({...rowData(item.row),followup:item.followup?{...item.followup,
+    delivery_pending:[...new Set(pending.filter(p=>p.kind===deliveryKind(item)).map(p=>p.username))]}:null}));
 }
 async function followEvent(env:Env,r:any,actor:string,kind:string,detail='') {
   await env.DB.prepare('INSERT INTO daily_handover_followup_events(report_id,version,actor,kind,detail,created_at) VALUES(?,?,?,?,?,?)')
     .bind(r.id,r.version,actor,kind,detail,Date.now()).run();
 }
+type FollowupNotice = { username: string; tag: string; body: string };
+const followupLevel=(due:number,now:number)=>now>=due+3*3600000?4:now>=due+3600000?3:2;
+const followupDeliveryKind=(r:any,f:any,level:number)=>`handover-delivery:${r.id}:${r.version}:${f.due_at}:${level}:${encodeURIComponent(f.escalation_to||'')}`;
+// Keep the eligibility predicate true until the LAST statement in the batch. D1 rolls
+// back the queue and audit event together if any write fails. Concurrent attempts
+// then see the changed follow-up snapshot and cannot replace an already queued stage.
+async function queueFollowup(env:Env,r:any,f:any,actor:string,kind:string,level:number,notices:FollowupNotice[],now:number,schedule?:any) {
+  const automatic=kind==='overdue'||kind==='escalated';
+  if(!automatic&&!await env.DB.prepare('SELECT 1 FROM push_subscriptions WHERE user_id=? AND enabled=1 LIMIT 1').bind(r.recipient).first())return 'no_subscription';
+  let guard=`EXISTS(SELECT 1 FROM daily_handovers h JOIN daily_handover_followup f ON f.report_id=h.id AND f.version=h.version
+    WHERE h.id=? AND h.version=? AND h.status='submitted' AND h.username=? AND h.recipient=?
+    AND f.warning_level=? AND f.due_at IS ? AND f.escalation_to IS ? AND f.last_request_at IS ? AND f.hold_until IS ?)`;
+  const args:any[]=[r.id,r.version,r.username,r.recipient,f.warning_level,f.due_at,f.escalation_to,f.last_request_at,f.hold_until];
+  if(automatic){
+    const s=schedule||readDefaults;
+    // Recheck the read-window snapshot and hold inside the transaction, not just in the sweep's earlier read.
+    guard+=` AND (? IS NULL OR ?<=?) AND COALESCE((SELECT weekdays FROM daily_handover_read_schedule WHERE username=?),?)=?
+      AND COALESCE((SELECT start_time FROM daily_handover_read_schedule WHERE username=?),?)=?
+      AND COALESCE((SELECT end_time FROM daily_handover_read_schedule WHERE username=?),?)=?`;
+    args.push(f.hold_until,f.hold_until,now,r.recipient,readDefaults.weekdays,s.weekdays,
+      r.recipient,readDefaults.start_time,s.start_time,r.recipient,readDefaults.end_time,s.end_time);
+  }else{
+    guard+=' AND (? IS NULL OR ?<=?)';
+    args.push(f.last_request_at,f.last_request_at,now-5*60000);
+  }
+  // Scheduled delivery is tracked per recipient in the existing notices table. A
+  // missing subscription cannot block reachable recipients, nor consume the stage.
+  if(!automatic){guard+=' AND EXISTS(SELECT 1 FROM push_subscriptions WHERE user_id=? AND enabled=1)';args.push(r.recipient);}
+  const batch:D1PreparedStatement[]=[],queueWrites:{index:number;notice:FollowupNotice}[]=[];
+  const link=`/daily-handover.html?date=${r.report_date}&report=${r.id}`;
+  const deliveryKind=followupDeliveryKind(r,f,level);
+  for(const n of notices){
+    const key=`${deliveryKind}:${encodeURIComponent(n.username)}:${n.tag}`;
+    if(automatic)batch.push(env.DB.prepare(`INSERT OR IGNORE INTO daily_handover_notices(notice_key,username,report_date,kind,created_at,push_state)
+      SELECT ?,?,?,?,?,'no_subscription' WHERE ${guard}`).bind(key,n.username,r.report_date,deliveryKind,now,...args));
+    const queueGuard=guard+(automatic?" AND EXISTS(SELECT 1 FROM daily_handover_notices WHERE notice_key=? AND push_state<>'queued')":'');
+    const queueArgs=automatic?[...args,key]:args;
+    batch.push(env.DB.prepare(`DELETE FROM push_queue WHERE tag=? AND endpoint IN
+      (SELECT DISTINCT endpoint FROM push_subscriptions WHERE user_id=? AND enabled=1 LIMIT 10) AND ${queueGuard}`).bind(n.tag,n.username,...queueArgs));
+    queueWrites.push({index:batch.length,notice:n});
+    batch.push(env.DB.prepare(`INSERT INTO push_queue(endpoint,title,body,url,icon,badge,tag,queued_at)
+      SELECT endpoint,?,?,?,?,?,?,? FROM
+      (SELECT DISTINCT endpoint FROM push_subscriptions WHERE user_id=? AND enabled=1 LIMIT 10) WHERE ${queueGuard}`)
+      .bind('매일보고 / Daily handover',n.body,link,null,null,n.tag,now,n.username,...queueArgs));
+    if(automatic)batch.push(env.DB.prepare(`UPDATE daily_handover_notices SET push_state='queued'
+      WHERE notice_key=? AND push_state<>'queued' AND ${guard}
+      AND EXISTS(SELECT 1 FROM push_subscriptions WHERE user_id=? AND enabled=1)`).bind(key,...args,n.username));
+  }
+  // Already delivered recipients stay complete even after the service worker consumes
+  // their push payload; only the still-pending recipients are queued on the next sweep.
+  const completeGuard=guard+(automatic?" AND (SELECT COUNT(*) FROM daily_handover_notices WHERE kind=? AND push_state='queued')=?":'');
+  const completeArgs=automatic?[...args,deliveryKind,notices.length]:args;
+  batch.push(env.DB.prepare(`INSERT INTO daily_handover_followup_events(report_id,version,actor,kind,detail,created_at)
+    SELECT ?,?,?,?,?,? WHERE ${completeGuard}`).bind(r.id,r.version,actor,kind,automatic?String(level):'',now,...completeArgs));
+  batch.push(env.DB.prepare(`UPDATE daily_handover_followup SET warning_level=MAX(warning_level,?)${automatic?'':',last_request_at=?'}
+    WHERE report_id=? AND version=? AND ${completeGuard}`).bind(level,...(automatic?[]:[now]),r.id,r.version,...completeArgs));
+  const results=await env.DB.batch(batch);
+  const completed=!!results[results.length-1].meta.changes;
+  const newlyQueued=queueWrites.filter(q=>results[q.index].meta.changes>0).map(q=>q.notice);
+  let state=completed?'queued':'not_due';
+  if(!completed){
+    if(automatic){
+      if(await env.DB.prepare("SELECT 1 FROM daily_handover_notices WHERE kind=? AND push_state='no_subscription' LIMIT 1").bind(deliveryKind).first())state='no_subscription';
+    }else if(!await env.DB.prepare('SELECT 1 FROM push_subscriptions WHERE user_id=? AND enabled=1 LIMIT 1').bind(r.recipient).first())state='no_subscription';
+  }
+  if(!newlyQueued.length)return state;
+  // Wakeup is best effort only AFTER the durable commit. A failed wakeup must not
+  // erase the pending payload or turn a successfully queued stage into a failed write.
+  try{
+    const queuedEndpoints=new Set<string>();
+    for(const n of newlyQueued){
+      const queued=await env.DB.prepare(`SELECT DISTINCT q.endpoint FROM push_queue q
+        JOIN push_subscriptions s ON s.endpoint=q.endpoint WHERE q.tag=? AND s.user_id=? AND s.enabled=1 LIMIT 10`)
+        .bind(n.tag,n.username).all<{endpoint:string}>();
+      for(const q of queued.results||[])queuedEndpoints.add(q.endpoint);
+    }
+    const endpoints=[...queuedEndpoints];
+    if(!endpoints.length)return state; // A concurrent acknowledgement may already have cleared it.
+    const result=await broadcastWebPush(endpoints,env as any);
+    for(const endpoint of result.expired||[])await env.DB.prepare('UPDATE push_subscriptions SET enabled=0 WHERE endpoint=?').bind(endpoint).run();
+    return completed&&result.sent===endpoints.length?'sent':state;
+  }catch{console.warn('[handover] follow-up wakeup unavailable; delivery remains queued');return state;}
+}
 async function runFollowups(env:Env) {
   const now=Date.now();
-  const rows=await env.DB.prepare(`SELECT h.*,f.due_at,f.warning_level,f.escalation_to,f.hold_until FROM daily_handovers h
+  const rows=await env.DB.prepare(`SELECT h.*,f.due_at,f.warning_level,f.escalation_to,f.hold_until,f.last_request_at FROM daily_handovers h
     JOIN daily_handover_followup f ON f.report_id=h.id AND f.version=h.version
-    WHERE h.status='submitted' AND f.due_at<=? AND f.warning_level<4 ORDER BY f.due_at LIMIT 100`).bind(now).all<any>();
-  for(const r of rows.results||[]){
+    LEFT JOIN daily_handover_notices n ON n.notice_key='handover-followup-retry:'||h.id||':'||h.version
+    WHERE h.status='submitted' AND f.due_at<=? AND f.warning_level<4 ORDER BY COALESCE(n.created_at,0),f.due_at,h.id LIMIT 100`).bind(now).all<any>();
+  for(const r of rows.results||[])try{
+    // Least-recently-attempted ordering keeps the bounded sweep fair even while
+    // older rows have no subscriptions, are on hold, or are outside read windows.
+    await env.DB.prepare(`INSERT INTO daily_handover_notices(notice_key,username,report_date,kind,created_at,push_state)
+      VALUES(?,?,?,'followup_retry',?,'pending') ON CONFLICT(notice_key) DO UPDATE
+      SET created_at=MAX(daily_handover_notices.created_at+1,excluded.created_at)`)
+      .bind(`handover-followup-retry:${r.id}:${r.version}`,r.username,r.report_date,now).run();
     const schedule=await env.DB.prepare('SELECT * FROM daily_handover_read_schedule WHERE username=?').bind(r.recipient).first();
     if(!isReadTime(schedule,now)||r.hold_until>now)continue;
-    const level=now>=r.due_at+3*3600000?4:now>=r.due_at+3600000?3:2;
+    const level=followupLevel(r.due_at,now);
     if(level<=r.warning_level)continue;
-    const claim=await env.DB.prepare(`UPDATE daily_handover_followup SET warning_level=? WHERE report_id=? AND version=? AND warning_level=?
-      AND EXISTS(SELECT 1 FROM daily_handovers WHERE id=? AND version=? AND status='submitted')`)
-      .bind(level,r.id,r.version,r.warning_level,r.id,r.version).run();
-    if(!claim.meta.changes)continue;
-    await followEvent(env,r,'system',level===4?'escalated':'overdue',String(level));
-    const link=`/daily-handover.html?date=${r.report_date}&report=${r.id}`;
-    await notify(env,r.recipient,`handover-followup:${r.id}:${r.version}`,
-      level>=3?'최종 경고: 보고에 응답하고 지연 사유를 남겨 주세요. / Final warning: respond and explain the delay.':'처리 기한이 지났습니다. 보고에 응답해 주세요. / Report response deadline exceeded.',link);
+    const notices:FollowupNotice[]=[{username:r.recipient,tag:`handover-followup:${r.id}:${r.version}`,
+      body:level>=3?'최종 경고: 보고에 응답하고 지연 사유를 남겨 주세요. / Final warning: respond and explain the delay.':'처리 기한이 지났습니다. 보고에 응답해 주세요. / Report response deadline exceeded.'}];
     // Only an explicitly chosen executive can receive escalations. Author is always already authorized.
     if(level===4){
       const users=[r.username];if(r.escalation_to&&r.escalation_to!==r.username)users.push(r.escalation_to);
-      for(const u of users)await notify(env,u,`handover-escalation:${r.id}:${r.version}`,'보고 응답 기한이 초과되었습니다. 지연 이력을 확인해 주세요. / A report remains unanswered. Review its follow-up history.',link);
+      for(const username of users)notices.push({username,tag:`handover-escalation:${r.id}:${r.version}`,
+        body:'보고 응답 기한이 초과되었습니다. 지연 이력을 확인해 주세요. / A report remains unanswered. Review its follow-up history.'});
     }
-  }
+    const push=await queueFollowup(env,r,r,'system',level===4?'escalated':'overdue',level,notices,now,schedule);
+    if(push==='no_subscription')console.warn('[handover] follow-up missing subscription; retry pending');
+  }catch{console.warn('[handover] follow-up queue retry pending');}
 }
 export function attachmentMime(name:string, bytes:Uint8Array):string|null {
   const ext=name.split('.').pop()?.toLowerCase(), start=Array.from(bytes.slice(0,8));
@@ -296,10 +391,25 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       return reply({ok:true,since,reports:await withFollowups(env,rows),files:await attachmentsFor(env,rows)});
     }
     if(request.method==='GET'&&route==='/followup-history'){
-      const r:any=await env.DB.prepare('SELECT * FROM daily_handovers WHERE id=?').bind(Number(url.searchParams.get('id'))||0).first();
-      if(!r||!visible(r,actor))return reply({ok:false,error:'not_found'},404);
-      const events=await env.DB.prepare('SELECT actor,kind,detail,created_at,version FROM daily_handover_followup_events WHERE report_id=? ORDER BY id DESC LIMIT 50').bind(r.id).all();
-      return reply({ok:true,events:events.results||[]});
+      const requested=url.searchParams.get('version'), filteredVersion=requested===null?null:Number(requested);
+      if(url.searchParams.getAll('version').length>1 || (requested!==null &&
+        (!/^[1-9]\d*$/.test(requested)||!Number.isSafeInteger(filteredVersion))))return reply({ok:false,error:'version'},400);
+      // Read authorization, the current stored version, and events in one SQLite
+      // snapshot. A version counts every stored transition, not submissions.
+      // Response events intentionally retain the version BEFORE ack/return.
+      const result=await env.DB.prepare(`SELECT h.username,h.recipient,h.status,h.version AS current_version,
+        e.id AS event_id,e.actor,e.kind,e.detail,e.created_at,e.version
+        FROM daily_handovers h LEFT JOIN daily_handover_followup_events e
+          ON e.report_id=h.id AND (? IS NULL OR e.version=?)
+        WHERE h.id=? ORDER BY e.id DESC LIMIT 51`)
+        .bind(filteredVersion,filteredVersion,Number(url.searchParams.get('id'))||0).all<any>();
+      if((result.success as boolean)===false||!Array.isArray(result.results))throw new Error('handover_history_read_failed');
+      const rows=result.results, current=rows[0];
+      if(!current||!visible(current,actor))return reply({ok:false,error:'not_found'},404);
+      const events=rows.filter(e=>e.event_id!==null);
+      return reply({ok:true,current_version:current.current_version,filtered_version:filteredVersion,
+        limit:50,has_more:events.length>50,
+        events:events.slice(0,50).map(({actor,kind,detail,created_at,version})=>({actor,kind,detail,created_at,version}))});
     }
     if (request.method === 'GET' && route === '/home') {
       const members = await accounts(env);
@@ -355,15 +465,17 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       }else{
         const f:any=await env.DB.prepare('SELECT * FROM daily_handover_followup WHERE report_id=? AND version=?').bind(r.id,r.version).first();
         if(b.action==='final'&&!f.due_at)return reply({ok:false,error:'set_deadline_first'},400);
-        const changed=await env.DB.prepare(`UPDATE daily_handover_followup SET last_request_at=?,warning_level=MAX(warning_level,?)
-          WHERE report_id=? AND version=? AND (last_request_at IS NULL OR last_request_at<=?)
-          AND EXISTS(SELECT 1 FROM daily_handovers WHERE id=? AND version=? AND status='submitted')`)
-          .bind(now,b.action==='final'?3:1,r.id,r.version,now-5*60000,r.id,r.version).run();
-        if(!changed.meta.changes)return reply({ok:false,error:'retry_after_5_minutes'},429);
-        await followEvent(env,r,me,b.action);
-        const push=await notify(env,r.recipient,`handover-followup:${r.id}:${r.version}`,
-          b.action==='final'?'최종 경고: 보고에 응답해 주세요. 지연 이력이 기록됩니다. / Final warning: respond to the report. Delays are recorded.':'긴급 재요청: 보고를 읽고 확인 또는 보완 요청해 주세요. / Urgent reminder: read and respond to your report.',
-          `/daily-handover.html?date=${r.report_date}&report=${r.id}`);
+        if(f.last_request_at!==null&&f.last_request_at>now-5*60000)return reply({ok:false,error:'retry_after_5_minutes'},429);
+        const push=await queueFollowup(env,r,f,me,b.action,b.action==='final'?3:1,[{
+          username:r.recipient,tag:`handover-followup:${r.id}:${r.version}`,
+          body:b.action==='final'?'최종 경고: 보고에 응답해 주세요. 지연 이력이 기록됩니다. / Final warning: respond to the report. Delays are recorded.':'긴급 재요청: 보고를 읽고 확인 또는 보완 요청해 주세요. / Urgent reminder: read and respond to your report.'
+        }],now);
+        if(push==='no_subscription')return reply({ok:false,error:'no_subscription',push},503);
+        if(push==='not_due'){
+          const current:any=await env.DB.prepare('SELECT version,status FROM daily_handovers WHERE id=?').bind(r.id).first();
+          if(!current||current.version!==r.version||current.status!=='submitted')return reply({ok:false,error:'conflict'},409);
+          return reply({ok:false,error:'retry_after_5_minutes'},429);
+        }
         return reply({ok:true,push});
       }
       return reply({ok:true});
@@ -388,17 +500,38 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       const r:any=await env.DB.prepare(`SELECT * FROM daily_handovers WHERE id=?`).bind(Number(b.id)||0).first();
       if (!r || !visible(r,actor)) return reply({ok:false,error:'not_found'},404);
       if (r.username===me || (r.recipient!==me&&!isExec(actor))) return reply({ok:false,error:'forbidden'},403);
-      if (!['submitted','acknowledged'].includes(r.status)) return reply({ok:false,error:'status'},409);
-      const feedback=text(b.feedback,500);
+      const feedback=text(b.feedback,500), version=Number(b.version);
+      if (!Number.isSafeInteger(version)||version<1) return reply({ok:false,error:'version'},400);
       if (route==='/return'&&!feedback) return reply({ok:false,error:'feedback'},400);
-      const result=await env.DB.prepare(`UPDATE daily_handovers SET status=?,acknowledged_by=?,acknowledged_at=?,feedback=?,
-        updated_at=?,version=version+1 WHERE id=? AND version=?`)
-        .bind(route==='/ack'?'acknowledged':'changes_requested',me,Date.now(),feedback,Date.now(),r.id,Number(b.version)).run();
-      if(!result.meta.changes)return reply({ok:false,error:'conflict'},409);
-      try{await env.DB.prepare('DELETE FROM push_queue WHERE tag=?').bind(`handover-read:${r.id}:${r.version}`).run();}catch{console.warn('[handover] acknowledged queue cleanup pending');}
-      try{for(const tag of ['handover-followup','handover-escalation'])await env.DB.prepare('DELETE FROM push_queue WHERE tag=?').bind(`${tag}:${r.id}:${r.version}`).run();}catch{console.warn('[handover] follow-up queue cleanup pending');}
-      await followEvent(env,r,me,route==='/ack'?'acknowledged':'changes_requested',feedback);
-      return reply({ok:true});
+      const status=route==='/ack'?'acknowledged':'changes_requested', now=Date.now();
+      // State, its BEFORE UPDATE history trigger, and the response event must commit
+      // together. Keep these statements adjacent: changes() reads the CAS update's
+      // count (excluding trigger writes), so a lost race cannot create an event.
+      const result=await env.DB.batch([
+        env.DB.prepare(`UPDATE daily_handovers SET status=?,acknowledged_by=?,acknowledged_at=?,feedback=?,
+          updated_at=?,version=version+1 WHERE id=? AND version=? AND status IN ('submitted','acknowledged')`)
+          .bind(status,me,now,feedback,now,r.id,version),
+        env.DB.prepare(`INSERT INTO daily_handover_followup_events(report_id,version,actor,kind,detail,created_at)
+          SELECT ?,?,?,?,?,? WHERE changes()=1`).bind(r.id,version,me,status,feedback,now),
+      ]);
+      const duplicate=!result[0].meta.changes;
+      if(duplicate){
+        // Only the immediately committed, identical response is a retry. An old
+        // event alone must never turn a newer submission or another actor into success.
+        const same=await env.DB.prepare(`SELECT 1 FROM daily_handovers h
+          JOIN daily_handover_followup_events e ON e.report_id=h.id AND e.version=?
+            AND e.actor=h.acknowledged_by AND e.kind=h.status AND e.detail=h.feedback AND e.created_at=h.acknowledged_at
+          WHERE h.id=? AND h.version=? AND h.status=? AND h.acknowledged_by=? AND h.feedback=? LIMIT 1`)
+          .bind(version,r.id,version+1,status,me,feedback).first();
+        if(!same)return reply({ok:false,error:'conflict'},409);
+      }
+      // Best-effort after commit, also on exact retries. Use the request's base
+      // version, not the reloaded report version, to leave a newer revision alone.
+      for(const tag of ['handover-read','handover-followup','handover-escalation']){
+        try{await env.DB.prepare('DELETE FROM push_queue WHERE tag=?').bind(`${tag}:${r.id}:${version}`).run();}
+        catch{console.warn('[handover] response queue cleanup pending');}
+      }
+      return reply(duplicate?{ok:true,duplicate:true}:{ok:true});
     }
     if (!['/review','/save'].includes(route)) return reply({ok:false,error:'not_found'},404);
     const reportDay=text(b.report_date,10);

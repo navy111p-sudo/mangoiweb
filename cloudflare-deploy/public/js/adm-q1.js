@@ -15,11 +15,11 @@
       teacher_name: document.getElementById('aed-teacher-name').value.trim(),
       lesson_title: document.getElementById('aed-lesson-title').value.trim(),
       scores: {
-        participation: parseInt(document.getElementById('aed-sc-part').value) || null,
-        comprehension: parseInt(document.getElementById('aed-sc-comp').value) || null,
-        homework: parseInt(document.getElementById('aed-sc-hw').value) || null,
-        attitude: parseInt(document.getElementById('aed-sc-att').value) || null,
-        speaking: parseInt(document.getElementById('aed-sc-sp').value) || null,
+        participation: (document.getElementById('aed-sc-part').value === '' ? null : Number(document.getElementById('aed-sc-part').value)),
+        comprehension: (document.getElementById('aed-sc-comp').value === '' ? null : Number(document.getElementById('aed-sc-comp').value)),
+        homework: (document.getElementById('aed-sc-hw').value === '' ? null : Number(document.getElementById('aed-sc-hw').value)),
+        attitude: (document.getElementById('aed-sc-att').value === '' ? null : Number(document.getElementById('aed-sc-att').value)),
+        speaking: (document.getElementById('aed-sc-sp').value === '' ? null : Number(document.getElementById('aed-sc-sp').value)),
       },
       keywords: document.getElementById('aed-keywords').value.split(',').map(s=>s.trim()).filter(Boolean),
     };
@@ -64,18 +64,18 @@
       teacher_name: document.getElementById('aed-teacher-name').value.trim(),
       lesson_title: document.getElementById('aed-lesson-title').value.trim(),
       lesson_date: new Date().toISOString().slice(0,10),
-      score_participation: parseInt(document.getElementById('aed-sc-part').value) || null,
-      score_comprehension: parseInt(document.getElementById('aed-sc-comp').value) || null,
-      score_homework: parseInt(document.getElementById('aed-sc-hw').value) || null,
-      score_attitude: parseInt(document.getElementById('aed-sc-att').value) || null,
-      score_speaking: parseInt(document.getElementById('aed-sc-sp').value) || null,
+      score_participation: (document.getElementById('aed-sc-part').value === '' ? null : Number(document.getElementById('aed-sc-part').value)),
+      score_comprehension: (document.getElementById('aed-sc-comp').value === '' ? null : Number(document.getElementById('aed-sc-comp').value)),
+      score_homework: (document.getElementById('aed-sc-hw').value === '' ? null : Number(document.getElementById('aed-sc-hw').value)),
+      score_attitude: (document.getElementById('aed-sc-att').value === '' ? null : Number(document.getElementById('aed-sc-att').value)),
+      score_speaking: (document.getElementById('aed-sc-sp').value === '' ? null : Number(document.getElementById('aed-sc-sp').value)),
       strengths: document.getElementById('aed-out-strengths').value.trim(),
       improvements: document.getElementById('aed-out-improvements').value.trim(),
       next_goals: document.getElementById('aed-out-next_goals').value.trim(),
       teacher_comment: document.getElementById('aed-out-teacher_comment').value.trim(),
     };
     try {
-      const r = await fetch('/api/eval/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const r = await fetch('/api/eval/draft-create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error);
       let extra = '';
@@ -84,7 +84,7 @@
         const sent = d.push.filter(p => p.sent > 0).length;
         if (sent) extra += ` · 푸시 ${sent}건`;
       }
-      out.innerHTML = `<div style="padding:12px 16px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);border-radius:8px;font-size:13px"><b style="color:#34d399">✅ 평가서 #${d.id} 저장 완료</b><br><span style="color:#a3b3d1;font-size:11.5px">종합 점수: <b style="color:#fbbf24">${d.overall}</b>점${extra}</span><br><a href="/eval.html?id=${d.id}" target="_blank" style="color:#93c5fd;font-size:12px;text-decoration:underline">📄 평가서 페이지 열기</a></div>`;
+      out.innerHTML = `<div style="padding:12px 16px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);border-radius:8px;font-size:13px"><b style="color:#34d399">✅ 평가서 #${d.id} 저장 완료</b><br><span style="color:#a3b3d1;font-size:11.5px">종합 점수: <b style="color:#fbbf24">${d.overall == null ? '-' : d.overall + '/10'}</b>점${extra}</span><br><a href="/eval.html?id=${d.id}" target="_blank" style="color:#93c5fd;font-size:12px;text-decoration:underline">📄 평가서 페이지 열기</a></div>`;
     } catch(e) { out.innerHTML = '<div style="color:#f87171">❌ '+esc(e.message)+'</div>'; }
   };
 

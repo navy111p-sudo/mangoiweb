@@ -2,17 +2,15 @@
 // 🔐 UID 서명 토큰 검증 — 모듈 레벨 공용 (IDOR 방지 표준 도구)
 //   로그인(/api/student/login 등) 시 signUidToken 으로 발급한 mango_token 의
 //   uid 가 요청 uid 와 일치하는지 확인. 개인정보 엔드포인트는 이걸로 소유자 검증.
-//   시크릿은 방 JWT 와 동일한 ROOM_JWT_SECRET 재사용(없으면 개발용 폴백).
+//   시크릿은 방 JWT 와 동일한 ROOM_JWT_SECRET 재사용(미설정 시 발급·검증 거부).
 //   ⚠️ api-mango.ts 내부에도 동일 로직의 클로저(authUidFromRequest)가 있으나,
 //      그건 함수 중간(7600줄대)에 정의돼 그 앞 핸들러에선 못 씀 → 이 모듈로 어디서나 사용.
 // ═══════════════════════════════════════════════════════════════════════
 
-// ⚠️ 반드시 wrangler secret 로 ROOM_JWT_SECRET 설정. 폴백은 공개값(BUILD_STAMP)이 아닌 강한 상수로
-//   두어(2026-07-12 보안), 시크릿 미설정 시에도 토큰을 추측·위조할 수 없게 한다.
-//   ⚠️ 이 상수는 api-mango.ts(2곳)·signaling-room.ts 의 폴백과 반드시 동일해야 토큰이 상호검증된다.
-const UID_SECRET_FALLBACK = 'mgi-fb-d0895a3a232c5ef0f0950c6128a04a5311ec69ba142cb4a86a8d334e33c56f30';
+import { requireRoomJwtSecret } from './room-jwt-secret';
+
 function uidTokenSecret(env: any): string {
-  return (env && env.ROOM_JWT_SECRET) || UID_SECRET_FALLBACK;
+  return requireRoomJwtSecret(env);
 }
 
 function b64uToBytes(s: string): Uint8Array {

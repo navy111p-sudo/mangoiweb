@@ -623,6 +623,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       <input type="date" id="wk-date">
       <button type="button" id="wk-go" data-en="Go" data-ko="이동">이동</button>
     </div>
+    <div id="wk-error" class="warnline" role="status" hidden data-en="Could not load the selected week. The last loaded week is still shown. Tap Refresh to retry." data-ko="선택한 주를 불러오지 못했습니다. 마지막으로 불러온 주를 그대로 표시합니다. 새로고침을 눌러 다시 시도해 주세요.">Could not load the selected week. The last loaded week is still shown. Tap Refresh to retry.</div>
     <div id="week"></div>
   </div>
 
@@ -1219,9 +1220,12 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     try {
       var c = JSON.parse(localStorage.getItem(CK) || 'null');
       if (!c || c.today !== todayKST()) return false;
-      DATA = c;
       // 시계 오차는 단말 고유값이라 지난번 값을 그대로 쓰는 게 0 보다 정확하다.
       SKEW = Number(c._skew) || 0;
+      // 캐시에 먼 주가 들어 있어도 새 방문은 이번 주로 시작한다.
+      WK_DATA = validWeek(c.week, wkMonday(0)) ? c.week : null;
+      c.week = WK_DATA;
+      DATA = c;
       // 서버가 정한 언어도 캐시에 실려 있다 → 첫 프레임부터 올바른 언어로 그린다.
       setLangFrom(c.me && c.me.lang);
       applyLang();
@@ -1239,16 +1243,22 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
 
   // ── 첫 화면 ───────────────────────────────────────────────────────────────
   function load(force){
-    var hadCache = paintCached();     // 있으면 즉시 그린다(네트워크 대기 없음)
-    fetch('/api/teacher/portal', { credentials:'same-origin', headers:{ 'Accept':'application/json' } })
+    var hadCache = !!DATA || paintCached(); // 다시 읽을 때는 이미 고른 주를 캐시로 되돌리지 않는다
+    var req = beginWeekRead();
+    fetch('/api/teacher/portal' + (req.start ? '?week=' + req.start : ''), { credentials:'same-origin', cache:'no-store', headers:{ 'Accept':'application/json' } })
       .then(function(r){
+        if (!currentWeekRead(req)) return null;
         if (r.status === 401) { location.href = '/admin/login?next=%2Fteacher'; throw new Error('auth'); }
         return r.json();
       })
       .then(function(d){
-        if (!d || !d.ok) throw new Error((d && (EN() ? d.message_en : d.message)) || 'load failed');
+        if (!currentWeekRead(req)) return;
+        if (!d || !d.ok || !validWeek(d.week, req.start || weekOfDate(d.today))) throw new Error((d && (EN() ? d.message_en : d.message)) || 'load failed');
+        WK_DATA = d.week;
         DATA = d;
         SKEW = (d.now || Date.now()) - Date.now();
+        WK_CLOCK_READY = true;
+        setWeekError(false);
         setStale(false);
         setLangFrom(d.me && d.me.lang);   // 언어의 최종 권한은 서버에 있다
         applyLang();
@@ -1260,7 +1270,9 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         loadOutage();           // ⚡ 장애 현황 — 내 진행 중 신고 + (매니저면) 전체 현황
       })
       .catch(function(e){
-        if (e && e.message === 'auth') return;
+        if (!currentWeekRead(req) || (e && e.message === 'auth')) return;
+        renderWeek(WK_DATA);
+        setWeekError(true);
         if (hadCache) {
           // 캐시를 이미 그려 놨다면 화면을 지우지 않는다. 다만 **최신이 아님을 반드시 알린다** —
           // 오래된 시간표를 지금 것으로 믿고 수업을 놓치면 강사가 공제를 맞는다.
@@ -1414,17 +1426,49 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
      (관리자 캘린더의 시간축 격자는 좁은 화면에서 읽히지 않는다).
      ⚠️ LMS 점유 슬롯·시드 데이터는 학생이 없어 입장할 방이 없다 → 정체를 밝히고 흐리게. */
   var WK_OFFSET = 0;
+  var WK_SELECTED = null; // null = 이번 주를 따라감, 그 외에는 고른 월요일(자정이 지나도 유지)
+  var WK_DATA = null;     // 마지막으로 성공한 주. 실패·언어 변경·탭 복귀 때도 이 값을 쓴다.
+  var WK_READ = 0;        // 이동·전체 새로고침·자동 갱신이 함께 쓰는 응답 순서
+  var WK_CLOCK_READY = false; // 첫 응답 전에는 단말 시계 대신 서버의 «이번 주»를 요청
   function wkMonday(off){
-    var d = new Date();
-    var wd = (d.getDay() + 6) % 7;                       // 월=0
-    d.setDate(d.getDate() - wd + off * 7);
-    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    // 서버와 같은 KST 날짜를 UTC 필드로 계산한다. 단말 시간대/DST에 기대지 않는다.
+    var d = new Date(now() + 9*3600*1000);
+    var wd = (d.getUTCDay() + 6) % 7;                   // 월=0
+    d.setUTCDate(d.getUTCDate() - wd + off * 7);
+    return d.toISOString().slice(0,10);
+  }
+  function weekOfDate(dateStr){
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateStr || ''))) return null;
+    var d = new Date(dateStr + 'T00:00:00Z');
+    if (isNaN(d.getTime()) || d.toISOString().slice(0,10) !== dateStr) return null;
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+    return d.toISOString().slice(0,10);
+  }
+  function beginWeekRead(){
+    return { id: ++WK_READ, selected: WK_SELECTED, start: WK_SELECTED || (WK_CLOCK_READY ? wkMonday(0) : null) };
+  }
+  function currentWeekRead(req){
+    return req.id === WK_READ && req.selected === WK_SELECTED;
+  }
+  function setWeekError(on){
+    var el = document.getElementById('wk-error');
+    if (el) el.hidden = !on;
+  }
+  function validWeek(w, start){
+    return !!(w && w.start === start && Array.isArray(w.days) && w.days.length === 7);
   }
   function renderWeek(w){
     var card = document.getElementById('c-week'), box = document.getElementById('week');
     if (!card || !box || !w || !w.days) return;
     card.hidden = false;
+    card.setAttribute('aria-busy', 'false');
     bindWeekNav();
+    // 버튼·날짜 칸은 요청 중인 주가 아니라 실제로 표시한 주에 맞춘다.
+    var off = Math.round((Date.parse(w.start + 'T00:00:00Z') - Date.parse(wkMonday(0) + 'T00:00:00Z')) / (7 * 86400000));
+    WK_OFFSET = off;
+    ['wk-prev','wk-this','wk-next'].forEach(function(id){ var b=document.getElementById(id); if(b) b.classList.remove('on'); });
+    var on = document.getElementById(off === 0 ? 'wk-this' : (off === -1 ? 'wk-prev' : (off === 1 ? 'wk-next' : '')));
+    if (on) on.classList.add('on');
     var rg = document.getElementById('wk-range');
     if (rg) rg.textContent = '(' + w.start + ' ~ ' + w.end + ')';
     // 날짜 칸을 지금 보고 있는 주의 시작일로 맞춘다 — 다음에 달력을 열면 «여기»에서 시작한다.
@@ -1469,33 +1513,39 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       });
     }
   }
-  /* 고른 날짜가 «이번 주에서 몇 주 떨어져 있는가» 로 바꿔 기존 loadWeek 을 그대로 쓴다.
-     서버는 week=<그 주 월요일> 만 받으므로, 여기서 주 단위로 환산해야 한다.
-     ⚠️ 시차 사고 방지: 문자열을 Date 로 파싱할 때 'T00:00:00' 을 붙여 **로컬 자정**으로 읽는다
-        (붙이지 않으면 UTC 로 읽혀 필리핀·한국에서 하루씩 밀린다). */
+  /* 날짜 입력은 «시각»이 아닌 KST 달력 날짜다. UTC 자정 + UTC 필드를 짝으로 써서
+     단말이 필리핀·미국 어디에 있어도 같은 월요일을 고른다(DST 주도 7일 그대로). */
   function loadWeekOf(dateStr){
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateStr || ''))) return;
-    var picked = new Date(dateStr + 'T00:00:00');
-    if (isNaN(picked.getTime())) return;
-    var pWd = (picked.getDay() + 6) % 7;                 // 월=0
-    picked.setDate(picked.getDate() - pWd);              // 그 주 월요일
-    var base = new Date();
-    base.setHours(0,0,0,0);
-    base.setDate(base.getDate() - ((base.getDay() + 6) % 7));   // 이번 주 월요일
-    var off = Math.round((picked.getTime() - base.getTime()) / (7 * 86400000));
+    var picked = weekOfDate(dateStr);
+    if (!picked) return;
+    var off = Math.round((Date.parse(picked + 'T00:00:00Z') - Date.parse(wkMonday(0) + 'T00:00:00Z')) / (7 * 86400000));
     loadWeek(off);
   }
   function loadWeek(off){
-    WK_OFFSET = off;
-    ['wk-prev','wk-this','wk-next'].forEach(function(id){ var b=document.getElementById(id); if(b) b.classList.remove('on'); });
-    // 이번 주가 아니면 [이전/다음] 을 켜 두지 않는다 — 3주 뒤로 뛰어놓고 「다음 주」에 불이
-    // 들어와 있으면 지금 보고 있는 곳이 어디인지 거짓말이 된다(범위 표시가 진짜 답이다).
-    var on = document.getElementById(off === 0 ? 'wk-this' : (off === -1 ? 'wk-prev' : (off === 1 ? 'wk-next' : '')));
-    if (on) on.classList.add('on');
-    fetch('/api/teacher/portal?week=' + wkMonday(off), { credentials:'include', cache:'no-store' })
+    WK_SELECTED = off === 0 ? null : wkMonday(off);
+    var req = beginWeekRead();
+    renderWeek(WK_DATA); // 실패하더라도 보이던 범위·날짜·버튼을 그대로 남긴다
+    var card = document.getElementById('c-week');
+    if (card) card.setAttribute('aria-busy', 'true');
+    fetch('/api/teacher/portal' + (req.start ? '?week=' + req.start : ''), { credentials:'include', cache:'no-store' })
       .then(function(r){ return r.json(); })
-      .then(function(d){ if (d && d.ok) renderWeek(d.week); })
-      .catch(function(e){ try { console.warn('[week] load failed:', e); } catch(_){} });
+      .then(function(d){
+        if (!currentWeekRead(req)) return;
+        if (!d || !d.ok || !validWeek(d.week, req.start || weekOfDate(d.today))) throw new Error('bad week');
+        WK_DATA = d.week;
+        SKEW = (d.now || Date.now()) - Date.now();
+        WK_CLOCK_READY = true;
+        if (DATA) DATA.week = WK_DATA; // 언어 전환·탭 복귀도 고른 주를 다시 그린다
+        setWeekError(false);
+        renderWeek(WK_DATA);
+      })
+      .catch(function(e){
+        if (!currentWeekRead(req)) return;
+        renderWeek(WK_DATA);
+        if (card) card.setAttribute('aria-busy', 'false');
+        setWeekError(true);
+        try { console.warn('[week] load failed:', e); } catch(_){}
+      });
   }
 
   /* 📅 다가오는 수업 — 오늘 목록과 «따로» 둔다. 섞으면 오늘 할 일이 흐려진다.
@@ -3454,7 +3504,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var a = qLoad();
     if (!a.length) return;
     var one = a[0];
-    fetch('/api/eval/create', {
+    fetch('/api/eval/manual-create', {
       method:'POST', credentials:'same-origin',
       headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(one)
     })
@@ -3713,7 +3763,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
          필리핀 회선에서 「눌렀는데 멈췄다」가 사라지는 지점이다. */
       btn.disabled = true;
       close();
-      fetch('/api/eval/create', {
+      fetch('/api/eval/manual-create', {
         method:'POST', credentials:'same-origin',
         headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload)
       })
@@ -3880,14 +3930,17 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
 
   function autoRefreshTick(){
     arTimer = null;
-    if (document.hidden || navigator.onLine === false || modalOpen()){
+    // 첫 화면이 아직 없으면 전체 load를 추월하지 않는다(부분 렌더는 boot를 닫지 않는다).
+    if (!DATA || document.hidden || navigator.onLine === false || modalOpen()){
       scheduleAutoRefresh(arDelay);   // 조건이 아니면 그냥 다음으로 미룬다(요청 없음)
       return;
     }
-    fetch('/api/teacher/portal', { credentials:'same-origin', headers:{ 'Accept':'application/json' } })
+    var req = beginWeekRead();
+    fetch('/api/teacher/portal' + (req.start ? '?week=' + req.start : ''), { credentials:'same-origin', cache:'no-store', headers:{ 'Accept':'application/json' } })
       .then(function(r){ return r.status === 401 ? null : r.json(); })
       .then(function(d){
-        if (!d || !d.ok) throw new Error('bad');
+        if (!currentWeekRead(req)){ scheduleAutoRefresh(arDelay); return; }
+        if (!d || !d.ok || !validWeek(d.week, req.start || weekOfDate(d.today))) throw new Error('bad');
         // 날짜가 넘어갔으면(자정 근무) 통째로 다시 그린다 — 어제 목록을 남기면 안 된다
         var dayChanged = DATA && DATA.today && d.today && DATA.today !== d.today;
         var before = knownRooms || classKeys(DATA && DATA.classes);
@@ -3895,14 +3948,17 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         var added  = 0;
         for (var k in after) if (!before[k]) added++;
 
+        WK_DATA = d.week;
         DATA = d;
         SKEW = (d.now || Date.now()) - Date.now();
+        WK_CLOCK_READY = true;
+        setWeekError(false);
         setStale(false);
         saveCache(d);
         if (dayChanged) lastSig = null;     // 지문을 비워 강제로 다시 그리게 한다
         renderClasses(d.classes || []);
-    renderUpcoming(d.upcoming || []);
-    renderWeek(d.week);
+        renderUpcoming(d.upcoming || []);
+        renderWeek(d.week);
         renderNotices(d.notices || []);
         paintClassCount(d.classes);
         // 매니저에게는 이쪽이 본체다 — 진행 중 수업과 노쇼가 45초마다 저절로 갱신된다.
@@ -3921,6 +3977,9 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         scheduleAutoRefresh(arDelay);
       })
       .catch(function(){
+        if (!currentWeekRead(req)){ scheduleAutoRefresh(arDelay); return; }
+        renderWeek(WK_DATA);
+        setWeekError(true);
         // 실패해도 화면은 그대로 둔다. 간격만 늘려 회선을 놓아준다.
         arDelay = Math.min(AR_MAX, arDelay * 2);
         scheduleAutoRefresh(arDelay);

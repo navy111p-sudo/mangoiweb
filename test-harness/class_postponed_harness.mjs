@@ -200,17 +200,20 @@ console.log('\nD-2. 다시 잡기 — PATCH · decide');
 {
   const i = ADM_S.indexOf("path === '/api/admin/schedule-requests/decide'");
   const blk = i >= 0 ? ADM_S.slice(i, ADM_S.indexOf("path === '/api/admin/classes/today'", i)) : '';
-  ok('decide: 예약 SELECT 가 status 를 싣는다', /SELECT id, scheduled_date, start_time, duration_min, user_id, teacher_id, source, status FROM class_schedules/.test(blk));
+  ok('decide: 예약 SELECT 가 status 를 싣는다', /SELECT \* FROM class_schedules WHERE id = \? LIMIT 1/.test(blk));
   ok('decide: 연기 상태면 되살리기 문장을 함께 돌린다',
     /if \(String\(\(cs as any\)\?\.status \|\| ''\) === 'postponed'\) _mvAll\.push\(env\.DB\.prepare\(REACTIVATE_POSTPONED_SQL\)\.bind\(row\.schedule_id\)\);/.test(blk));
-  ok('decide: 여러 문장이면 batch 로 묶는다', /if \(_mvAll\.length > 1\) await env\.DB\.batch\(_mvAll\);\s*else await _mv\.run\(\);/.test(blk));
+  ok('decide: 수업과 결정을 같은 원자 batch 로 묶는다', /mutations\.push\(\.\.\._mvAll\)/.test(blk) && /commitScheduleRequestDecision\(env, guards, mutations, decision\)/.test(blk));
   const j = ADM_S.indexOf("/^\\/api\\/admin\\/class-schedules\\/\\d+$/.test(path)) {", ADM_S.indexOf("method === 'PATCH' || method === 'PUT'"));
   const pb = j >= 0 ? ADM_S.slice(j, j + 12000) : '';
   ok('PATCH: 전제 — 핸들러를 찾았다', pb.length > 0);
   ok('PATCH: 연기 회차를 날짜·시각으로 옮기면 active 로 되돌린다',
     /if \(isPostponedOccurrence\(_pchRow\) && sets\.some\(\(x\) => x\.startsWith\('scheduled_date'\) \|\| x\.startsWith\('start_time'\)\)\) \{\s*sets\.push\(`status = 'active'`\);/.test(pb));
-  ok('PATCH: 되돌리기가 UPDATE 보다 앞에서 sets 에 들어간다',
-    pb.indexOf("status = 'active'") > 0 && pb.indexOf("status = 'active'") < pb.indexOf('UPDATE class_schedules SET ${sets.join'));
+  const moveSource = strip(R('src/class-schedule-move.ts'));
+  ok('PATCH: 원자 이동 경로로 저장한다', /await moveSchedulesAtomically\(env, _pchActor/.test(pb));
+  ok('PATCH: 원자 UPDATE 이전에 연기 회차를 되살리고 같은 batch 에 저장한다',
+    moveSource.indexOf("dest.status = 'active'") > 0 && moveSource.indexOf("dest.status = 'active'") < moveSource.indexOf('UPDATE class_schedules SET')
+      && /dest.status \?\? null/.test(moveSource) && /env.DB.batch\(statements\)/.test(moveSource));
 }
 
 // ── E. 화면 ──

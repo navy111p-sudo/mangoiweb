@@ -145,6 +145,46 @@
     }
     detail.append(node('p','수신 확인은 남은 업무를 완료 처리하지 않습니다. / Acknowledgement does not close open tasks.','small'));
   }
+  function paintFollowupHistory(panel,r){
+    var button=node('button','독촉·응답 이력 / Follow-up history'),box=node('div'),label=node('label','이력 범위 / History scope'),scope=node('select');
+    var all=node('option','전체 저장 버전 / All stored versions'),current=node('option','현재 저장 버전 / Current stored version');
+    all.value='all';current.value='current';scope.append(all,current);scope.value='all';label.append(scope);
+    var content=node('div'),knownVersion=r.version,sequence=0;box.hidden=true;box.append(label,content);
+    button.type='button';content.setAttribute('aria-live','polite');panel.append(button,box);
+    async function load(){
+      var request=++sequence,mode=scope.value;box.hidden=false;button.disabled=true;
+      content.replaceChildren(node('p','이력 불러오는 중 / Loading history…','small'));
+      try{
+        var j=await call('/followup-history?id='+r.id+(mode==='current'?'&version='+knownVersion:''));
+        // A newer filter, report selection, or list repaint owns the screen now.
+        if(request!==sequence||!panel.isConnected)return;
+        knownVersion=j.current_version;current.textContent='현재 저장 버전 v'+knownVersion+' / Current stored version v'+knownVersion;
+        content.replaceChildren(node('p','현재 저장 버전 / Current stored version: v'+knownVersion,'small'));
+        content.append(node('p','저장 버전은 제출 횟수가 아닙니다. 확인·보완 요청 때도 증가하며, 응답 이력은 처리 전 버전에 기록됩니다. / Stored versions count saves and responses, not submissions. Response events refer to the version before the action.','small'));
+        if(r.version!==knownVersion)content.append(node('p','이 화면의 보고는 저장 버전 v'+r.version+'입니다. 최신 보고를 보려면 보고 목록을 새로고침해 주세요. / This report view is v'+r.version+'; refresh the report list for the latest report.','notice'));
+        if(mode==='current'&&j.filtered_version!==knownVersion){
+          content.append(node('p','조회 중 저장 버전이 바뀌었습니다. 이력을 새로고침해 주세요. / The stored version changed during this lookup. Refresh history.','notice'));return;
+        }
+        var range=j.filtered_version===null?'전체 저장 버전 / All stored versions':'저장 버전 v'+j.filtered_version+' / Stored version v'+j.filtered_version;
+        content.append(node('p',range+' · 최신 최대 '+j.limit+'건 (최신순) / Up to '+j.limit+' latest events, newest first'+(j.has_more?' · 이전 기록은 생략됨 / Older events omitted':''),'small'));
+        j.events.forEach(function(e){
+          var relation=e.version===knownVersion?'현재 저장 버전 / Current stored version':e.version<knownVersion?'이전 저장 버전 / Earlier stored version':'다른 저장 버전 / Other stored version';
+          var item=node('div',null,'mh-history-event');
+          item.append(node('p','v'+e.version+' · '+relation,'small'));
+          item.append(node('p',kst(e.created_at)+' KST · '+staffName(e.actor)+' · '+({opened:'열람 / Opened',deadline:'기한 설정 / Deadline',remind:'재요청 / Reminder',final:'최종 경고 / Final warning',overdue:'기한 초과 / Overdue',escalated:'지연 전달 / Escalated',hold:'보류 / On hold',acknowledged:'확인 완료 / Acknowledged',changes_requested:'보완 요청 / Changes requested'}[e.kind]||e.kind)+' · '+e.detail,'small'));
+          if(e.kind==='acknowledged'||e.kind==='changes_requested')item.append(node('p','처리 전 저장 버전 v'+e.version+'에 대한 응답 / Response recorded against pre-transition stored version v'+e.version,'small'));
+          content.append(item);
+        });
+        if(!j.events.length)content.append(node('p',mode==='current'?'현재 저장 버전에 기록된 이력이 없습니다. 처리 전 응답은 전체 저장 버전에서 확인하세요. / No events recorded against the current stored version. See All stored versions for pre-transition responses.':'이력 없음 / No history','small'));
+      }catch(e){
+        if(request!==sequence||!panel.isConnected)return;
+        content.replaceChildren(node('p','이력을 불러오지 못했습니다. 다시 시도해 주세요. / Could not load history. Please retry.','small'));networkError(e);
+      }finally{
+        if(request===sequence&&panel.isConnected){button.disabled=false;button.textContent='이력 새로고침 / Refresh history';}
+      }
+    }
+    button.onclick=load;scope.onchange=load;
+  }
   var openedRequests={};
   function paintFollowup(detail,r){
     if(r.status==='draft')return;
@@ -153,8 +193,9 @@
     if(f.opened_at)panel.append(node('p','열람 / Opened: '+kst(f.opened_at)+' KST','small'));
     if(f.due_at)panel.append(node('p','응답 기한 / Respond by: '+kst(f.due_at)+' KST'+(r.status==='submitted'&&Date.now()>f.due_at?' · 🔴 기한 초과 / Overdue':'')));
     if(f.warning_level)panel.append(node('p',f.warning_level>=3?'🔴 최종 경고 / Final warning':'⚠️ 응답 재요청 / Response requested'));
+    if(f.delivery_pending&&f.delivery_pending.length)panel.append(node('p','기기 알림 대기 / Device notification pending: '+f.delivery_pending.map(staffName).join(', ')+' · 구독이 연결되면 재시도합니다. / Will retry when a device is subscribed.','small'));
     if(f.hold_reason)panel.append(node('p','보류 사유 / Hold reason: '+f.hold_reason+' · '+kst(f.hold_until)+' KST'));
-    var history=node('button','독촉·응답 이력 / Follow-up history');history.type='button';history.onclick=async function(){history.disabled=true;try{var j=await call('/followup-history?id='+r.id);var list=node('div');j.events.forEach(function(e){list.append(node('p',kst(e.created_at)+' KST · '+staffName(e.actor)+' · '+({opened:'열람 / Opened',deadline:'기한 설정 / Deadline',remind:'재요청 / Reminder',final:'최종 경고 / Final warning',overdue:'기한 초과 / Overdue',escalated:'지연 전달 / Escalated',hold:'보류 / On hold',acknowledged:'확인 완료 / Acknowledged',changes_requested:'보완 요청 / Changes requested'}[e.kind]||e.kind)+' · '+e.detail,'small'));});if(!j.events.length)list.append(node('p','이력 없음 / No history'));panel.append(list);}catch(e){networkError(e);history.disabled=false;}};panel.append(history);
+    paintFollowupHistory(panel,r);
     if(r.status==='submitted'&&r.username===me.username&&r.recipient!==me.username){
       var label=node('label','응답 기한 (한국 시간) / Deadline (KST)'),due=node('input');due.type='datetime-local';due.value=new Date((f.due_at||Date.now()+4*3600000)+9*3600000).toISOString().slice(0,16);label.append(due);panel.append(label);
       var escalation=node('label','기한 3시간 초과 시 대표에게도 전달 / Also notify CEO after 3h overdue'),check=node('input');check.type='checkbox';check.checked=f.escalation_to==='admin';escalation.prepend(check);if(me.username!=='admin'&&members.some(function(m){return m.username==='admin';}))panel.append(escalation);
