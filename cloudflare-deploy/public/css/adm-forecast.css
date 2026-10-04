@@ -20,3 +20,14 @@
 @media(max-width:520px){#forecast-overview{padding:12px}.af-grid{gap:8px}#forecast-overview .af-card{padding:12px}.af-heading h2{font-size:16px}#fc-result{grid-template-columns:1fr!important}.af-actions button,.af-actions select{flex:1}.af-card small{line-height:1.5}}
 
 .af-student-id{display:inline-block;max-width:100%;margin-left:8px;font-size:12px;color:#475569;overflow-wrap:anywhere;vertical-align:baseline}
+
+/* Readable bilingual consultation picker, contained in the existing modal. */
+.af-dialog{width:min(720px,94vw);max-height:90vh;overflow:auto;font-size:18px;line-height:1.65;margin:auto}
+.af-dialog h3{font-size:24px;margin:0 0 12px}.af-dialog p{margin:10px 0}
+.af-dialog label{display:block;font-weight:700;margin:16px 0 6px}
+.af-dialog select{box-sizing:border-box;width:100%;min-height:48px;font:inherit;background:#fff;color:#172033;border:1px solid #94a3b8;border-radius:8px;padding:10px}
+.af-dialog textarea{font-size:18px;line-height:1.8;min-height:240px;border-radius:8px;resize:vertical}
+.af-dialog .af-draft-note{font-size:15px;color:#475569}.af-draft-actions{display:flex;gap:12px;flex-wrap:wrap}
+.af-dialog button{font-size:17px;min-height:46px;padding:10px 20px}.af-dialog [data-copy]{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+.af-dialog button:disabled{opacity:.5;cursor:default}.af-dialog [data-copy-status]{font-size:16px}
+@media(max-width:520px){.af-dialog{padding:18px;font-size:16px}.af-dialog h3{font-size:21px}.af-dialog textarea{font-size:16px}.af-draft-actions button{flex:1}}
