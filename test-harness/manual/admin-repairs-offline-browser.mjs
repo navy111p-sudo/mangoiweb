@@ -55,7 +55,14 @@ async function releaseResponse(page, latch) {
   const responsePromise = page.waitForResponse(response => response.request() === latch.request);
   latch.release();
   const response = await responsePromise;
-  await deadline('held response body: ' + response.url(), response.finished());
+  const marker = latch.request.headers()['x-offline-fixture-request'];
+  assert(marker, 'Held response must have a native-fetch observer marker');
+  // load() correctly ignores stale responses before reading r.json(). Chromium
+  // need not finish such an unused response body; response.finished() can hang.
+  // The observer drains a clone without delaying/replacing the application's
+  // original Response, proving the actual response arrived and its bytes were read.
+  await deadline('held response clone body: ' + response.url(), eventually('native response clone consumed', () =>
+    page.evaluate(id => window.__fixtureResponses[id]?.bodyComplete === true, marker)));
   // Drain renderer work after the complete body arrives. A fixed Node sleep can
   // pass too early; virtual rAF can wait indefinitely. MessageChannel provides
   // actual renderer task turns independent of installed fake clocks/visibility.
@@ -155,18 +162,30 @@ async function fixture(name, api, { width = 1280, timezoneId = 'Asia/Seoul', ins
     localStorage.setItem('mangoi_lang', 'ko');
     window.__offlineStorageEvents = [];
     addEventListener('storage', event => window.__offlineStorageEvents.push({ key: event.key, trusted: event.isTrusted }));
-    if (identityProbe) {
+    if (identityProbe || teacherIdentity) {
+      let requestSequence = 0;
+      window.__fixtureResponses = Object.create(null);
       const original = window.fetch;
       window.fetch = function(input, init) {
         const url = typeof input === 'string' ? input : input.url;
-        if (new URL(url, location.href).pathname !== '/api/admin/me') return original.apply(this, arguments);
-        const own = /\/js\/adm-identity\.js(?:\?|:)/.test(new Error().stack || '');
+        const path = new URL(url, location.href).pathname;
+        const identityRequest = identityProbe && path === '/api/admin/me';
+        const portalRequest = teacherIdentity && path === '/api/teacher/portal';
+        if (!identityRequest && !portalRequest) return original.apply(this, arguments);
+        const own = identityRequest && /\/js\/adm-identity\.js(?:\?|:)/.test(new Error().stack || '');
         const options = { ...init, headers: new Headers(init?.headers || (input instanceof Request ? input.headers : undefined)) };
-        options.headers.set('x-offline-fixture-caller', own ? 'identity' : 'other');
+        if (identityRequest) options.headers.set('x-offline-fixture-caller', own ? 'identity' : 'other');
+        const marker = String(++requestSequence);
+        options.headers.set('x-offline-fixture-request', marker);
+        const observed = window.__fixtureResponses[marker] = { received: false, bodyComplete: false };
         // Exercise the documented defense against fetch wrappers that ignore
         // AbortSignal. This still uses native fetch and real routed responses.
         if (own) delete options.signal;
-        return original.call(this, input, options);
+        return original.call(this, input, options).then(response => {
+          observed.received = true;
+          response.clone().arrayBuffer().then(() => { observed.bodyComplete = true; }, error => { observed.error = String(error); });
+          return response; // Do not wait for the clone or change the application's body.
+        }, error => { observed.error = String(error); throw error; });
       };
     }
   }, { identityProbe, teacherIdentity, fixtureOrigin: BASE });

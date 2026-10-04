@@ -20,6 +20,10 @@ Each case has a real-Node 90-second deadline. Held-response body completion and
 clock advances have 12-second deadlines with phase labels; a stalled fixture fails
 instead of keeping the workflow alive indefinitely. Response-order assertions wait
 for the actual body and renderer task turns, independent of the virtual clock.
+The native-fetch observer consumes a cloned response without delaying or replacing
+the application's original response. This also proves arrival when the application
+correctly rejects an obsolete response before reading its body, a case where
+Chromium's generic request-finished wait can remain pending indefinitely.
 Reports are checkpointed after each case and before failure cleanup. Context/browser
 cleanup and report writes also have deadlines; cleanup failure or fewer than all
 13 completed cases makes the run fail and exit nonzero.
