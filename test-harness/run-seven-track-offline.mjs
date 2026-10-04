@@ -16,7 +16,7 @@ const focusedSuites=[
  'vc_network_epoch','webrtc_sandbox_guard','vc_office_recovery',
  'ai_voice_latency','warmup_voice_latency','speech_preferences_lifecycle',
  'speech_preferences_fault','speech_preferences_sqlite','game_vocab_account_race',
- 'daily_handover','daily_handover_reminder_delivery','handover_pending_delivery',
+ 'daily_handover','daily_handover_reminder_delivery','handover_pending_delivery','daily_handover_client_race',
  'payment_schedule_integrity','c24_mirror_identity','c24_mirror_move_sync',
  'student_schedule_lifecycle_sync','student_entitlement_contract','offline_network_guard'
 ];

@@ -859,6 +859,7 @@
   "/js/daily-handover.js?v=1": "783f61921c3d3a8f",
   "/js/daily-handover.js?v=10": "fa468c47ca580fc5",
   "/js/daily-handover.js?v=11": "3d6938a7d3ba7148",
+  "/js/daily-handover.js?v=12": "08de6500cf41d725",
   "/js/daily-handover.js?v=2": "85526c76adcdc246",
   "/js/daily-handover.js?v=3": "e8ab9c060dd25776",
   "/js/daily-handover.js?v=4": "f955c8e843d03a00",
@@ -1498,5 +1499,6 @@
   "/video-call/js/recorder.js?v=3": "57388328ad0b58f7",
   "/video-call/js/webrtc.js?v=20260805c": "7cadf5632b7bc206",
   "/video-call/js/webrtc.js?v=20260805d": "8ab78fa3a1291105",
-  "/video-call/js/whiteboard.js?v=20260805c": "97c63a2d61546afd"
+  "/video-call/js/whiteboard.js?v=20260805c": "97c63a2d61546afd",
+  "/js/adm-r11.js?v=5": "449e9d56e18ae780"
 }

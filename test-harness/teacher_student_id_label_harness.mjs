@@ -332,6 +332,7 @@ if (ppIdx >= 0 && srcEsc) {
       var EN = function(){ return false; };
       var T = function(en, ko){ return ko; };
       var now = function(){ return 0; };
+      var loadTeacherRequestRecords = function(){}; // separate request-record panel; ID rendering below remains real
       var DATA = __DATA;
       var window = {};
       var out = '';
@@ -418,3 +419,4 @@ if (sigIdx >= 0) {
 
 console.log(`\nteacher_student_id_label_harness — PASS ${pass} / FAIL ${fail}`);
 if (fail) { console.log('⚠ 실제 확인 필요'); process.exit(1); }
+

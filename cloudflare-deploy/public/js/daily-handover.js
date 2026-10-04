@@ -5,13 +5,13 @@
   if (!root) return;
   var $ = function (id) { return root.querySelector('#mh-' + id); };
   var api = '/api/approval/handover', me, members = [], version = 0, revision = 0;
-  var reviewed = false, sent = false, busy = false, suggestion = null, requestAttempt = null;
+  var reviewed = false, sent = false, busy = false, suggestion = null, requestAttempt = null, readerError = false;
   var started = null, stopped = null, reports = [], originalSubmitted = false, recognition = null;
   var attachments=[], stagedIds=[], fileMap={}, inbox=[], readHistory=[], mine=[], inboxTotal=0, selected=null, uploading=false, lastListState=null, largeReading=false;
   var wanted=new URLSearchParams(location.search), wantedReport=Number(wanted.get('report'))||null;
   var fields = ['work', 'noissue', 'issue', 'noopen', 'open', 'owner', 'deadline', 'student', 'class', 'priority', 'recipient'];
   var labels = { work:'오늘 한 일 / Work completed', issue:'문제·조치 / Issue & action', open:'남은 일 / Open items', owner:'담당자 / Owner', deadline:'기한 / Deadline' };
-  function say(message, error) { $('errors').hidden = !error; if (error) $('errors').textContent = message; else $('save-status').textContent = message; }
+  function say(message, error) { $('errors').hidden = !error; if (error) { $('errors').textContent = message; if($('editor').hidden){readerError=true;$('inbox-message').textContent=message;} } else $('save-status').textContent = message; }
   function node(tag, content, className) { var n = document.createElement(tag); if (content != null) n.textContent = content; if (className) n.className = className; return n; }
   function clock() { var secs = started == null ? 0 : Math.floor(((stopped == null ? Date.now() : stopped) - started) / 1000); $('time').textContent = String(Math.floor(secs / 60)).padStart(2,'0') + ':' + String(secs % 60).padStart(2,'0'); }
   setInterval(clock, 1000);
@@ -250,9 +250,13 @@
   function paintOwn(own){var el=$('own-status');if(!own){el.hidden=true;return;}el.hidden=false;el.textContent='오늘 내 보고 / Today: '+ownStatusText(own);}
   function openEditor(){var editor=$('editor');editor.hidden=false;$('clock-box').hidden=false;begin();editor.scrollIntoView({behavior:'smooth',block:'start'});}
   async function act(r,kind,button){var feedback='';if(kind==='return'){feedback=prompt('보완할 내용을 적어 주세요. / What needs clarification?')||'';if(!feedback.trim())return;}button.disabled=true;try{await call('/'+kind,{id:r.id,version:r.version,feedback:feedback});await loadList();}catch(e){networkError(e);button.disabled=false;}}
+  var listSequence=0;
   async function loadList(){
-    var date=$('list-date').value, wantRead=$('filter').value==='read', wantMine=$('filter').value==='mine', data=await Promise.all([call('/home?date='+encodeURIComponent(date)),call('/inbox'),wantRead?call('/read-history'):null,wantMine?call('/mine'):null]);
-    if(date!==$('list-date').value)return;var j=data[0];reports=j.reports;inbox=data[1].reports;inboxTotal=data[1].total;mergeFiles(j.files);mergeFiles(data[1].files);if(data[2]){readHistory=data[2].reports||[];mergeFiles(data[2].files);}if(data[3]){mine=data[3].reports||[];mergeFiles(data[3].files);}if(date===$('date').value)paintOwn(j.own);var listState=JSON.stringify([date,$('filter').value,reports,inbox,readHistory,mine]);if(listState!==lastListState){paintList();lastListState=listState;}
+    var request=++listSequence, date=$('list-date').value, wantRead=$('filter').value==='read', wantMine=$('filter').value==='mine', data;
+    try{data=await Promise.all([call('/home?date='+encodeURIComponent(date)),call('/inbox'),wantRead?call('/read-history'):null,wantMine?call('/mine'):null]);}
+    catch(e){if(request!==listSequence||date!==$('list-date').value)return;throw e;}
+    // A newer refresh (including after a response) owns this list, even on the same date.
+    if(request!==listSequence||date!==$('list-date').value)return;var j=data[0];reports=j.reports;inbox=data[1].reports;inboxTotal=data[1].total;mergeFiles(j.files);mergeFiles(data[1].files);if(data[2]){readHistory=data[2].reports||[];mergeFiles(data[2].files);}if(data[3]){mine=data[3].reports||[];mergeFiles(data[3].files);}if(date===$('date').value)paintOwn(j.own);if(readerError){readerError=false;$('errors').hidden=true;lastListState=null;}var listState=JSON.stringify([date,$('filter').value,reports,inbox,readHistory,mine]);if(listState!==lastListState){paintList();lastListState=listState;}
     paintRequired(j.required,date);
   }
   $('write-toggle').onclick=function(){var editor=$('editor');editor.hidden=!editor.hidden;$('clock-box').hidden=editor.hidden;if(!editor.hidden){begin();editor.scrollIntoView({behavior:'smooth',block:'start'});}};

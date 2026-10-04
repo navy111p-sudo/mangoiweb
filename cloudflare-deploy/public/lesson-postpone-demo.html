@@ -1025,6 +1025,31 @@ header {
 .consult-fab .cf-ico{font-size:23px;line-height:1}
 .consult-fab .cf-txt{font-size:10px;font-weight:900;color:#3C1E1E;line-height:1}
 .consult-fab.gv-hidden{display:none}
+
+/* Readable light layout, shared PC/mobile controls. */
+:root[data-theme]{--text:#16332e;--text-dim:#526761;--text-mute:#526761;--border:#d8e5df;--bg-card:#fff;--bg-soft:#edf4ef;--bg:#f4f8f5;--indigo:#176a53;--indigo-deep:#176a53;--green:#14815c;--amber:#986000;--shadow-card:0 4px 16px #153d2410}
+body,#app,.screen{background:#f4f8f5!important;color:#16332e}
+header{background:#fff!important;border-bottom:1px solid #d8e5df}
+.main-card,.cur-lesson,.cart-box,.teacher-result,.tr-card{background:#fff!important;color:#16332e!important;border:1px solid #cbded3!important;box-shadow:0 4px 16px #153d2410!important}
+.main-card .mc-desc,.main-intro .sub{color:#526761!important;font-size:18px;line-height:1.65}
+.main-card .mc-label{color:#16332e!important;font-size:26px;text-shadow:none}
+.main-card .mc-cta{color:#176a53;font-size:18px;align-self:flex-start}
+.main-card{text-align:left;backdrop-filter:none;-webkit-backdrop-filter:none}
+.main-card.postpone{border-top:5px solid #14815c!important}
+.main-card.change{border-top:5px solid #3978cf!important}
+.section-label,.header-title{color:#16332e!important;font-size:21px}
+.hour-chip,.date-chip,.seg,.push-btn{font-size:17px!important;min-height:48px;background:#fff;color:#16332e;border-color:#aabfb3}
+.hour-chip.active,.date-chip.active{background:#d6f3e5!important;color:#125b3f!important;border:2px solid #14815c!important}
+.dt-orig{display:grid;grid-template-columns:1fr;max-height:360px;overflow:auto;gap:10px;padding:4px}
+.lp-col-left p,.lp-col-right p,.cart-box li{font-size:18px;line-height:1.7}
+.cart-box ol{max-height:360px;overflow:auto;padding-left:28px}
+#sticky-bar{background:#fff!important;color:#16332e;border-top:1px solid #cbded3}
+#confirm-btn{min-height:52px;font-size:18px}
+#detail-body{padding-bottom:130px}
+button:focus-visible{outline:3px solid #236ccd;outline-offset:3px}
+@media(min-width:1024px){.main-stage{display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:24px;padding:40px}.main-intro{grid-column:1/-1;margin-bottom:16px}.main-card{height:330px}#app{max-width:1360px}.detail-body{gap:30px!important}.lp-col-left{padding:24px}.lp-col-right{padding:24px}.main-card{min-height:240px}.dt-orig{max-height:420px}}
+@media(max-width:600px){.lp-col-left,.lp-col-right{width:100%!important;padding:12px}.dt-orig{max-height:240px}.main-card .mc-label{font-size:23px}.main-card .mc-desc{font-size:17px}.cart-box ol{max-height:260px}}
+
 </style>
 </head>
 <body>
@@ -1047,7 +1072,7 @@ header {
           <div class="mc-icon">⏰</div>
           <div class="mc-label">수업 연기하기</div>
         </div>
-        <div class="mc-desc">이번 주 수업을 다음 주로 미루기.<br>수업 횟수는 그대로 보존됩니다.<br><span style="color:#fbbf24">시작 30분 전까지 무료 · 이후 유료</span></div>
+        <div class="mc-desc">이번 주 수업을 다음 주로 미루기.<br>수업 횟수는 그대로 보존됩니다.<br><span style="color:#986000">시작 30분 전까지 무료 · 이후 유료</span></div>
         <div class="mc-cta">시작하기 →</div>
       </button>
 
@@ -1056,7 +1081,7 @@ header {
           <div class="mc-icon">🔄</div>
           <div class="mc-label">수업 변경하기</div>
         </div>
-        <div class="mc-desc">원하는 다른 날짜·교사로<br>즉시 예약을 교체합니다.</div>
+        <div class="mc-desc">원하는 다른 날짜·교사로<br>변경을 요청합니다. 관리자 승인 후 반영됩니다.</div>
         <div class="mc-cta">시작하기 →</div>
       </button>
     </div>
@@ -1303,6 +1328,8 @@ function __mobPersist(){
     var o = pr.o, nw = pr.nw;
     var body = {
       request_type: state.mode==='change'?'change':'postpone',
+      request_scope: nw && nw.requestScope || null,
+      expected_series_snapshot: nw && nw.seriesSnapshot || null,
       schedule_id: o.schedule_id||null,
       orig_date: o.date,
       new_date: nw?nw.date:null, new_time: nw?nw.hour:null,
@@ -1383,7 +1410,7 @@ function showToast(msg){
    Step 1 → 2 전환
    ════════════════════════════════════════════════════════════ */
 function _goMode(mode){
-  if (!mode) return;
+  if (!mode || state.saving) return;
   state.mode = mode;
   state.tab = 'time';
   state.weeklyTarget = CURRENT_SCHEDULE.length;
@@ -1404,30 +1431,35 @@ function updateSticky(){
   var bar = $('#sticky-bar'), summary = $('#sticky-summary'), btn = $('#confirm-btn');
   if (!bar || !summary || !btn) return;
   var v = VERB[state.mode] || '';
+  var weeklyCount = state.cart[0] && state.cart[0].seriesItems ? state.cart[0].seriesItems.length : 0;
   if (state.cart.length === 0) { bar.classList.remove('show'); return; }
   /* 🔧 (2026-10-01) 실제 수업은 «고른 수업만» — 1개부터 완료할 수 있다(하루만 미루기). 예시 화면은 예전대로. */
   var met = __MOB_REAL ? state.cart.length >= 1 : state.cart.length >= state.weeklyTarget;
   summary.innerHTML = '<span class="icon">🛒</span> <b>' + state.cart.length + ' / ' + state.weeklyTarget + '</b> 담음';
   btn.textContent = met ? (__MOB_REAL ? (__mobT(state.cart.length + '개 수업 ' + v + ' 요청하기 ✓', 'Send request for ' + state.cart.length + ' class(es) ✓')) : (v + ' 완료하기 ✓')) : ('일정을 더 담아주세요 (' + state.cart.length + '/' + state.weeklyTarget + ')');
-  btn.disabled = !met;
+  if (weeklyCount) { summary.textContent = '총 ' + weeklyCount + '회 · 매주 한 주씩 연기'; btn.textContent = weeklyCount + '회 연기 요청하기'; }
+  btn.disabled = !met || !!state.saving;
   btn.classList.toggle('ready', met);
   bar.classList.add('show');
   if (!btn._confirmBound) { btn._confirmBound = true; btn.addEventListener('click', onConfirm); }
 }
 function onConfirm(){
+  if (state.saving) return;
   if (state.cart.length === 0 || (!__MOB_REAL && state.cart.length < state.weeklyTarget)) return;
+  state.saving = true;
   var p = null;
   try { p = __mobPersist(); } catch(e){ p = Promise.resolve({ ok:false, sent:0, total:0 }); }
-  if (!p) { showCompletion(null); return; }
+  if (!p) { state.saving = false; showCompletion(null); return; }
   var btn = document.getElementById('confirm-btn'); if (btn) btn.disabled = true;
   p.then(function(res){ showCompletion(res); }, function(){ showCompletion({ ok:false, sent:0, total:0 }); })
-   .then(function(){ if (btn) btn.disabled = false; });
+   .then(function(){ state.saving = false; if (btn) btn.disabled = false; });
 }
 
 /* ── 완료 화면 (요구사항 6) ── */
 function showCompletion(saved){
   var v = VERB[state.mode] || '';
   var sorted = state.cart.slice().sort(function(a,b){ return (a.date+a.hour) < (b.date+b.hour) ? -1 : 1; });
+  if (sorted[0] && sorted[0].seriesItems) { var head = sorted[0]; sorted = head.seriesItems.map(function(it){return {teacherName:head.teacherName, date:it.to_date, hour:it.to_time};}); }
   var list = sorted.map(function(it){
     return '<li>' + (it.ico||'') + ' <b>' + it.teacherName + '</b> · ' + fmtMD(it.date) + ' (' + fmtDOW(it.date) + ') ' + it.hour + '</li>';
   }).join('');
@@ -1478,6 +1510,7 @@ function resetToMain(){
 }
 
 function enterDetail(){
+  $('#screen-done').classList.remove('active');
   const v = VERB[state.mode];
   $('#detail-title').textContent = `수업 ${v}하기`;
   $('#seg-time-label').textContent    = `🕐 날짜로 ${v}`;
@@ -1525,36 +1558,31 @@ function addToCart(teacherId, date, hour){
 function removeFromCart(idx){ state.cart.splice(idx, 1); renderBody(); updateSticky(); }
 
 /* 한 수업씩 뒤로 밀기 (요구사항 3 / 기획 ①) — 전체 일정을 1주 뒤로 자동 이월 */
-function pushBackAll(){
-  /* 📅 실제 수업: 선생님·시각 그대로 한 주 뒤. ⛔ 가짜 시간표로 선생님을 바꾸지 않는다 — 겹침은 관리자 승인 때 서버가 본다. */
-  if (__MOB_REAL) {
-    /* 🔧 (2026-10-01 jeong 제보) 예전엔 수업 «전부» 를 한 주 뒤로 담았다 → 하루만 미루려다 4건이 모두 요청됐다.
-       이제 ① 에서 고른 수업 «하나만» 한 주 뒤 같은 시각으로 담는다. 다른 수업은 그대로. */
-    var oi = (state.dtOrig != null && CURRENT_SCHEDULE[state.dtOrig]) ? state.dtOrig : __dtFirstOpen();
-    var c = CURRENT_SCHEDULE[oi];
-    if (!c) { showToast(__mobT('먼저 미룰 수업을 고르세요', 'Choose a class first')); return; }
-    var d = new Date(c.date + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 7);
-    state.cart = state.cart.filter(function(it){ return it.origIdx !== oi; });
-    state.cart.push({ teacherId: c.teacherId, realTeacherId: null, teacherName: c.teacherName, ico: c.ico || '', date: d.toISOString().slice(0,10), hour: c.hour, origIdx: oi });
-    state.weeklyTarget = CURRENT_SCHEDULE.length;
-    showToast(__mobT('⏩ ' + fmtMD(c.date) + ' 수업만 한 주 뒤 같은 시각으로 담았어요', '⏩ Only the ' + fmtMD(c.date) + ' class moved one week later'));
-    state.dtOrig = __dtFirstOpen(); state.date = null; state.hour = null;
-    renderBody(); updateSticky(); return;
-  }
-  state.cart = CURRENT_SCHEDULE.map(function(c){
-    var d = new Date(c.date + 'T00:00:00'); d.setDate(d.getDate() + 7);
-    var iso = d.toISOString().slice(0,10);
-    var keep = SCHEDULE[c.teacherId] && SCHEDULE[c.teacherId][iso] && SCHEDULE[c.teacherId][iso].indexOf(c.hour) !== -1;
-    var tId = c.teacherId, tName = c.teacherName, ico = c.ico;
-    if (!keep) {
-      var alt = TEACHERS.find(function(t){ return SCHEDULE[t.id][iso] && SCHEDULE[t.id][iso].indexOf(c.hour) !== -1; });
-      if (alt) { tId = alt.id; tName = alt.name; ico = alt.ico; }
-    }
-    return { teacherId: tId, teacherName: tName, ico: ico, date: iso, hour: c.hour };
-  });
-  state.weeklyTarget = CURRENT_SCHEDULE.length;
-  showToast('⏩ 전체 일정을 한 수업씩 뒤로 밀었어요');
-  renderBody(); updateSticky();
+async function pushBackAll(){
+  if (state.mode !== 'postpone' || state.saving || state.previewLoading) return;
+  var oi = state.dtOrig == null ? __dtFirstOpen() : state.dtOrig;
+  var c = CURRENT_SCHEDULE[oi];
+  if (!c) return;
+  if (!__MOB_REAL) { showToast('로그인 후 실제 수업을 선택해 주세요.'); return; }
+  state.previewLoading = true;
+  try {
+    var tok = localStorage.getItem('mango_token') || '';
+    var response = await fetch('/api/class/schedule/weekly-postpone?schedule_id=' + encodeURIComponent(c.schedule_id),
+      { credentials:'include', headers:tok ? {Authorization:'Bearer ' + tok} : {} });
+    var plan = await response.json();
+    if (!response.ok || !plan.ok) throw new Error(plan.error || 'lookup_failed');
+    if (state.mode !== 'postpone' || state.dtOrig !== oi) return;
+    var first = plan.items.find(function(x){ return String(x.id) === String(c.schedule_id); });
+    if (!first) throw new Error('lookup_failed');
+    state.cart = [{ teacherId:c.teacherId, teacherName:c.teacherName, realTeacherId:null,
+      date:first.to_date, hour:first.to_time, origIdx:oi, requestScope:'weekly_postpone',
+      seriesSnapshot:plan.snapshot, seriesItems:plan.items }];
+    showToast(plan.count + '회 연기 전·후 일정을 확인해 주세요.');
+  } catch(e) {
+    showToast(e.message === 'weekly_row' || e.message === 'mirror_series'
+      ? '이 수업은 자동 연기 대상인지 확인이 필요합니다. 관리자에게 문의해 주세요.'
+      : '연기 일정을 확인하지 못했습니다. 새로고침 후 다시 시도해 주세요.');
+  } finally { state.previewLoading = false; renderBody(); updateSticky(); }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -1581,7 +1609,7 @@ function renderWeekly(){
 }
 function renderPushBtn(){
   var v = VERB[state.mode] || '';
-  if (__MOB_REAL) return '<button class="push-btn" id="pushBtn">⏩ ' + __mobT('고른 수업만 다음 주 같은 시각으로 ' + v, 'Move the chosen class one week later') + '</button>';
+  if (__MOB_REAL) return '<button class="push-btn" id="pushBtn">⏩ ' + __mobT('선택한 수업부터 매주 한 주씩 연기 일정 확인', 'Preview postponing the remaining weekly classes') + '</button>';
   return '<button class="push-btn" id="pushBtn">⏩ 전체 일정 한 수업씩 뒤로 밀기 (자동 ' + v + ')</button>';
 }
 function renderCartBox(){
@@ -1614,11 +1642,23 @@ window.addEventListener('resize', lpPlaceSeg);
 
 function renderBody(){
   const body = $('#detail-body');
+  if (__MOB_REAL && state.mode === 'postpone') {
+    lpSegHome();
+    document.getElementById('segment').style.display = 'none';
+    if (state.dtOrig == null) state.dtOrig = __dtFirstOpen();
+    var chosen = CURRENT_SCHEDULE[state.dtOrig];
+    var choices = CURRENT_SCHEDULE.map(function(c,i){ return '<button type="button" class="hour-chip '+(i===state.dtOrig?'active':'')+'" data-dtsel="'+i+'">'+fmtMD(c.date)+' ('+fmtDOW(c.date)+') '+__ftEsc(c.hour)+' · '+__ftEsc(c.teacherName)+'</button>'; }).join('');
+    var preview = state.cart[0];
+    var details = preview && preview.seriesItems ? '<h3>연기 전 → 연기 후 · '+preview.seriesItems.length+'회</h3><ol>'+preview.seriesItems.map(function(it){return '<li>'+fmtMD(it.from_date)+' → <b>'+fmtMD(it.to_date)+'</b> · '+__ftEsc(it.to_time)+'</li>';}).join('')+'</ol>' : '<p>수업을 선택하고 다음 주 연기 일정을 확인하세요.</p>';
+    body.innerHTML = '<div class="lp-col-left"><h2>수업 연기</h2><p>선택한 수업부터 같은 요일·시간·교사의 남은 수업을 한 주씩 미룹니다. 다른 요일과 총 수업 횟수는 그대로입니다.</p><div class="dt-orig">'+choices+'</div></div><div class="lp-col-right">'+renderPushBtn()+'<div class="cart-box">'+details+'<p>관리자 승인 전에는 현재 시간표가 유지됩니다.</p></div></div>';
+    attachHandlers(); return;
+  }
+  document.getElementById('segment').style.display = '';
   lpSegHome(); // 본문 초기화 전, 탭(segment)을 안전한 위치로 회수
   var leftHtml = '<div class="lp-col-left"><div class="lp-seg-slot"></div>'
-               + renderCurrentLesson() + renderWeekly() + '</div>';
+               + (__MOB_REAL ? '<h2>수업 변경</h2><p>변경할 수업을 고르고 희망 날짜·시간·교사를 선택하세요. 관리자 승인 후 시간표에 반영됩니다.</p>' : renderCurrentLesson()) + renderWeekly() + '</div>';
   var rightInner;
-  if (state.tab === 'time') rightInner = renderPushBtn() + renderTimeTab() + renderCartBox();
+  if (state.tab === 'time') rightInner = (state.mode === 'postpone' ? renderPushBtn() : '') + renderTimeTab() + renderCartBox();
   else rightInner = renderTeacherTab() + renderCartBox();
   body.innerHTML = leftHtml + '<div class="lp-col-right">' + rightInner + '</div>';
   attachHandlers();
@@ -2020,7 +2060,7 @@ function attachHandlers(){
   }));
   // 📅 날짜로 탭(실제)
   $$('#detail-body [data-dtsel]').forEach(el => el.addEventListener('click', () => {
-    state.dtOrig = Number(el.getAttribute('data-dtsel')); state.date = null; state.hour = null; renderBody(); updateSticky();
+    if (state.saving) return; state.cart = state.mode === 'postpone' ? [] : state.cart; state.dtOrig = Number(el.getAttribute('data-dtsel')); state.date = null; state.hour = null; renderBody(); updateSticky();
   }));
   $$('#detail-body .hour-chip[data-dthour]').forEach(el => el.addEventListener('click', () => {
     if (el.classList.contains('disabled')) return;
@@ -2192,3 +2232,4 @@ function attachHandlers(){
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
 </html>
+

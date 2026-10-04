@@ -107,9 +107,9 @@ async function call({ tok, payload, pre }) {
   const enqueueNotification = async (_e, n) => { notes.push(n); };
   let res;
   try {
-    const fn = new Function('env', 'request', 'url', 'json', 'authUidGlobal', 'enqueueNotification', 'studentRequestGate', 'ensureScheduleChangeRequestTable', 'scheduleMoveVersion',
+    const fn = new Function('env', 'request', 'url', 'json', 'authUidGlobal', 'enqueueNotification', 'studentRequestGate', 'ensureScheduleChangeRequestTable', 'scheduleMoveVersion', 'WEEKLY_POSTPONE',
       'return (async () => {' + body + '\n})();');
-    res = await fn(env, request, url, json, authUidGlobal, enqueueNotification, gate, ensureScheduleChangeRequestTable, scheduleMoveVersion); }
+    res = await fn(env, request, url, json, authUidGlobal, enqueueNotification, gate, ensureScheduleChangeRequestTable, scheduleMoveVersion, 'weekly_postpone'); }
   catch (e) { res = { status: 0, body: { error: 'THREW ' + e.message } }; }
   const rows = (() => { try { return db.prepare('SELECT * FROM schedule_change_requests').all(); } catch { return []; } })();
   return { res, rows, notes };
@@ -264,7 +264,7 @@ async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = 
   db.prepare(`INSERT INTO schedule_change_requests (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...cols.map(k => r[k]));
   const audits = []; const confCalls = [];
   const deps = {
-    scheduleMoveVersion, ...atomicModule, ...identityModule,
+    scheduleMoveVersion, ...atomicModule, ...identityModule, WEEKLY_POSTPONE: 'weekly_postpone',
     findScheduleMoveConflicts: async () => null, // Strict availability is exercised through the full Worker lifecycle harness.
     getAdminActor: async () => ({ ok: true, isTeacher, username: 'boss', name: '사장', role: scope }),
     forbiddenTeacherBody: (_a, m) => ({ ok: false, error: 'forbidden_teacher', message: m }),
@@ -499,10 +499,17 @@ ok('실제 수업은 1개부터 완료 가능', /__MOB_REAL \? state\.cart\.leng
 const confirmB = blockAt(page, page.indexOf('function onConfirm(){'));
 ok('확정도 실제 수업은 담은 수를 강요하지 않는다', /!__MOB_REAL && state\.cart\.length < state\.weeklyTarget/.test(confirmB));
 const push = blockAt(page, page.indexOf('function pushBackAll(){'));
-const pushReal = blockAt(push, push.indexOf('if (__MOB_REAL)'));
-ok('«한 주 뒤로» 는 실제 수업에서 고른 하나만 담는다(전부 map 하지 않음)', /state\.cart\.push\(/.test(pushReal) && !/CURRENT_SCHEDULE\.map\(/.test(pushReal), pushReal.slice(0, 200));
+// 2026-10-05: explicitly requested weekly cascading postponement replaces the
+// old one-occurrence shortcut. Execute the actual UI handler against a preview.
+const previewState={mode:'postpone',dtOrig:0,cart:[]};
+const previewItems=[{id:1,from_date:'2027-01-06',to_date:'2027-01-13',to_time:'16:30'},{id:2,from_date:'2027-01-13',to_date:'2027-01-20',to_time:'16:30'}];
+const previewDeps={state:previewState,__MOB_REAL:true,CURRENT_SCHEDULE:[{schedule_id:1,teacherName:'Sandbox',date:'2027-01-06',hour:'16:30'}],__dtFirstOpen:()=>0,localStorage:{getItem:()=> 'sandbox-token'},showToast:()=>{},renderBody:()=>{},updateSticky:()=>{},fetch:async()=>({ok:true,json:async()=>({ok:true,count:2,items:previewItems,snapshot:'sandbox-snapshot'})})};
+await new Function(...Object.keys(previewDeps),'return (async()=>{'+push+'})();')(...Object.values(previewDeps));
+ok('한 주 뒤로: 전체 시리즈를 한 요청으로 담는다',previewState.cart.length===1&&previewState.cart[0].requestScope==='weekly_postpone');
+ok('연기 전후 전체 회차와 서버 스냅샷 보존',previewState.cart[0]?.seriesItems.length===2&&previewState.cart[0]?.seriesSnapshot==='sandbox-snapshot');
 const done = blockAt(page, page.indexOf('function showCompletion('));
 ok('완료 화면의 «기존» 도 고른 수업만', /__mobPickedOrigs\(\)/.test(done) && /beforeSrc\.forEach/.test(done));
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
+

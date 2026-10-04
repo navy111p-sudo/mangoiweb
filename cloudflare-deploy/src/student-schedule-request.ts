@@ -74,7 +74,8 @@ export async function ensureScheduleChangeRequestTable(env: any): Promise<void> 
   /* 2026-10-04 schedule_snapshot: server-captured scheduleMoveVersion. Never backfill old
      pending rows from today's timetable: that would invent their request-time baseline. */
   /* ⏸ (2026-10-02) end_makeup = «연기보강» 이름(예: 연기보강 (10월 2일 연기)). 있으면 승인 때 class_type='makeup' + 메모. */
-  for (const col of ['fee_type TEXT', 'minutes_before INTEGER', 'requester_uid TEXT', 'new_teacher_id TEXT', 'end_makeup TEXT', 'schedule_snapshot TEXT']) {
+  for (const col of ['fee_type TEXT', 'minutes_before INTEGER', 'requester_uid TEXT', 'new_teacher_id TEXT', 'end_makeup TEXT', 'schedule_snapshot TEXT', 'request_scope TEXT', 'series_snapshot TEXT']) {
     try { await env.DB.exec(`ALTER TABLE schedule_change_requests ADD COLUMN ${col}`); } catch {}
   }
 }
+

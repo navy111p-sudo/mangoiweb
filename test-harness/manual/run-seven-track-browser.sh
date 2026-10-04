@@ -31,4 +31,14 @@ for round in 1 2; do
   OUTPUT_DIR="$OUT/payment" run_logged "$OUT/payment.log" node test-harness/manual/payment-integrity-browser.mjs
   grep -Fq '"browserPass":10,"browserFail":0' "$OUT/payment.log"
 done
-echo 'seven-track-browser: PASS 6 suites / FAIL 0 / SKIP 0'
+# These distinct gaps run once; the repeated baseline above remains unchanged.
+OUT="$SEVEN_TRACK_BROWSER_OUTPUT/focused-races"
+mkdir -p "$OUT/voice" "$OUT/handover"
+OUTPUT_DIR="$OUT/voice" run_logged "$OUT/voice.log" node test-harness/manual/voice-client-races-browser.mjs
+grep -Eq '^voice-client-races-browser: PASS [1-9][0-9]* / FAIL 0 / SKIP 0$' "$OUT/voice.log"
+OUTPUT_DIR="$OUT/handover" run_logged "$OUT/handover.log" node test-harness/manual/daily-handover-races-browser.mjs
+grep -Eq '^daily-handover-races-browser: PASS [1-9][0-9]* / FAIL 0 / SKIP 0$' "$OUT/handover.log"
+for fixture in "$OUT/voice/fixture-report.json" "$OUT/handover/fixture-report.json"; do
+  node -e 'const r=require(process.argv[1]);if(!(r.passed>0)||r.failed!==0||r.skipped!==0||!Array.isArray(r.cases)||r.cases.length===0)throw Error("incomplete focused browser fixture result")' "$fixture"
+done
+echo 'seven-track-browser: PASS 8 suites / FAIL 0 / SKIP 0'

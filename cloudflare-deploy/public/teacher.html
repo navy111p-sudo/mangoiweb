@@ -719,6 +719,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
          ⚠️ 수업 줄에는 다시 붙이지 말 것. 그게 뺀 이유다. -->
   <details class="card mycard" id="c-postpone" ontoggle="if(this.open)renderPostponeList()">
     <summary data-en="Postpone / change a class" data-ko="수업 연기 · 변경 요청">Postpone / change a class</summary>
+    <div id="teacherRequestRecords" aria-live="polite"></div>
     <div id="ppList" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
@@ -3078,7 +3079,27 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   //   🪤 서버가 두 목록에 **다른 이름**을 쓴다 — 오늘 수업은 schedule_id, 다가오는 수업은 id.
   //      (api-teacher.ts: today.push({schedule_id: s.id …}) / upcoming.push({id: s.id …}))
   //      여기서 한 번 정규화해 두지 않으면 «다가오는 수업만 요청이 안 되는» 버그가 된다.
+  async function loadTeacherRequestRecords(){
+    const box = document.getElementById('teacherRequestRecords');
+    if (!box) return;
+    box.textContent = T('Loading requests…','요청을 불러오는 중…');
+    try {
+      const response = await fetch('/api/admin/schedule-requests?status=all&limit=300', {credentials:'include',cache:'no-store'});
+      const data = await response.json();
+      if (!response.ok || !data.ok || !Array.isArray(data.rows)) throw new Error('load_failed');
+      box.innerHTML = ['postpone','change'].map(function(type){
+        const label = type === 'postpone' ? T('Postponement','연기') : T('Change','변경');
+        const rows = data.rows.filter(function(r){return r.request_type === type;});
+        return '<section style="border:1px solid #cadbcf;border-radius:12px;padding:16px;margin:12px 0;font-size:17px"><h3>'+esc(label)+' · '+rows.length+'</h3>'+ (rows.length ? rows.map(function(r){
+          const status = r.status === 'pending' ? T('Requested — awaiting approval','요청 · 승인 대기') : r.status === 'rejected' ? T('Rejected','반려') : T('Approved','승인됨');
+          let items=[]; try {if(r.request_scope === 'weekly_postpone')items=JSON.parse(r.series_snapshot||'[]');}catch(e){}
+          return '<article style="padding:12px 0;border-top:1px solid #ddd"><strong>'+esc(r.student_name)+' · '+esc(label)+' '+esc(status)+'</strong><p>'+esc(r.orig_date)+' '+esc(r.orig_time)+' → '+esc(r.new_date||T('Not set','미정'))+' '+esc(r.new_time||'')+'</p>'+ (items.length?'<details><summary>'+esc(T('All postponed classes','전체 연기 수업'))+' · '+items.length+'</summary>'+items.map(function(it){return '<p>'+esc(it.from_date)+' → '+esc(it.to_date)+' '+esc(it.to_time)+'</p>';}).join('')+'</details>':'')+'</article>';
+        }).join('') : esc(T('No requests.','요청이 없습니다.'))) + '</section>';
+      }).join('');
+    } catch(e){box.textContent=T('Could not load requests. Reopen this card to retry.','요청을 불러오지 못했습니다. 카드를 다시 열어 주세요.');}
+  }
   window.renderPostponeList = function(){
+    loadTeacherRequestRecords();
     var t = now();
     var rows = [];
     (DATA && DATA.classes || []).forEach(function(c){
@@ -4088,3 +4109,4 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
 </script>
 </body>
 </html>
+
