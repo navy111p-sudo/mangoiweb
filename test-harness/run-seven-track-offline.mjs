@@ -18,7 +18,7 @@ const focusedSuites=[
  'speech_preferences_fault','speech_preferences_sqlite','game_vocab_account_race',
  'daily_handover','daily_handover_reminder_delivery','handover_pending_delivery','daily_handover_client_race',
  'payment_schedule_integrity','c24_mirror_identity','c24_mirror_move_sync',
- 'student_schedule_lifecycle_sync','student_entitlement_contract','offline_network_guard'
+ 'student_schedule_lifecycle_sync','weekly_drag_change_cutoff','student_entitlement_contract','offline_network_guard'
 ];
 const suites=mode==='fast'?['repository_fast']:focusedSuites;
 const env={PATH:process.env.PATH,HOME:process.env.HOME,TMPDIR:process.env.TMPDIR||out,
