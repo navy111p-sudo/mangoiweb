@@ -423,8 +423,8 @@
 
     var wk = (j.weak || []).filter(function(x){ return x.students >= 2; });
     if (wk.length) out.push(T(
-      '📚 ' + wk.length + ' word(s) are missed by 2+ students — hand them to the textbook owner and put them in next week\'s warm-up.',
-      '📚 학생 2명 이상이 함께 틀린 단어 ' + wk.length + '개 — 교재 담당에게 전달하고 다음 주 워밍업에 넣으세요.'));
+      '📚 ' + wk.length + ' word(s) are missed by 2+ students — hand them to the textbook owner and put them in next week\'s speaking practice.',
+      '📚 학생 2명 이상이 함께 틀린 단어 ' + wk.length + '개 — 교재 담당에게 전달하고 다음 주 말하기에 넣으세요.'));
 
     var core = g.filter(function(x){ return x.repeat_rate >= 50 && x.items_per_session >= 5; });
     if (core.length) out.push(T(
