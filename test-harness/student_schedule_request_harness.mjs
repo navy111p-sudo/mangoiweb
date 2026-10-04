@@ -87,12 +87,14 @@ function makeDb() {
     const exec = args => ({
       first: async () => st.get(...args) || null,
       all: async () => ({ results: st.all(...args) }),
-      run: async () => { const r = st.run(...args); return { meta: { last_row_id: Number(r.lastInsertRowid) } }; },
+      run: async () => { const r = st.run(...args); return { success: true, meta: { last_row_id: Number(r.lastInsertRowid), changes: Number(r.changes) } }; },
     });
     return Object.assign(exec([]), { bind: (...a) => exec(a) });
   };
   return { db, D1: { prepare: wrap, exec: async sql => db.exec(sql) } };
 }
+const versionSrc = SRC('src/class-schedule-move.ts');
+const scheduleMoveVersion = new Function('row', blockAt(versionSrc, versionSrc.indexOf('export function scheduleMoveVersion')));
 const json = (o, status = 200) => ({ status, body: o });
 async function call({ tok, payload, pre }) {
   const { db, D1 } = makeDb();
@@ -105,9 +107,9 @@ async function call({ tok, payload, pre }) {
   const enqueueNotification = async (_e, n) => { notes.push(n); };
   let res;
   try {
-    const fn = new Function('env', 'request', 'url', 'json', 'authUidGlobal', 'enqueueNotification', 'studentRequestGate', 'ensureScheduleChangeRequestTable',
+    const fn = new Function('env', 'request', 'url', 'json', 'authUidGlobal', 'enqueueNotification', 'studentRequestGate', 'ensureScheduleChangeRequestTable', 'scheduleMoveVersion',
       'return (async () => {' + body + '\n})();');
-    res = await fn(env, request, url, json, authUidGlobal, enqueueNotification, gate, ensureScheduleChangeRequestTable); }
+    res = await fn(env, request, url, json, authUidGlobal, enqueueNotification, gate, ensureScheduleChangeRequestTable, scheduleMoveVersion); }
   catch (e) { res = { status: 0, body: { error: 'THREW ' + e.message } }; }
   const rows = (() => { try { return db.prepare('SELECT * FROM schedule_change_requests').all(); } catch { return []; } })();
   return { res, rows, notes };
@@ -239,6 +241,8 @@ for (const cand of ['typescript', join(ROOT, 'cloudflare-deploy', 'node_modules'
 ok('typescript 를 찾았다(decide 를 실제로 돌리려면 필요)', !!tsMod);
 if (tsMod) dBody = tsMod.transpileModule('async function __d(){' + dBody + '\n}', { compilerOptions: { target: 99 } }).outputText
   .replace(/^[\s\S]*?async function __d\(\)\s*\{/, '').replace(/\}\s*$/, '');
+const atomicModule = {};
+if (tsMod) new Function('exports', tsMod.transpileModule(SRC('src/schedule-request-atomic.ts'), { compilerOptions: { target: 99, module: 1 } }).outputText)(atomicModule);
 async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = false, schedSource = null, schedDate = '2026-10-01' }) {
   const db = new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE teachers (id INTEGER PRIMARY KEY, name TEXT, active INTEGER DEFAULT 1)`);
@@ -247,16 +251,19 @@ async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = 
   db.exec(`INSERT INTO class_schedules VALUES (4385,'jeong',${schedDate === null ? 'NULL' : `'${schedDate}'`},'16:00',20,'16',${schedSource ? `'${schedSource}'` : 'NULL'},'active',0)`);
   db.exec(`CREATE TABLE admin_scope (username TEXT, scope_type TEXT)`);
   if (scope) db.prepare(`INSERT INTO admin_scope VALUES ('boss', ?)`).run(scope);
-  const wrap = sql => { const st = db.prepare(sql); const ex = a => ({ first: async () => st.get(...a) || null, all: async () => ({ results: st.all(...a) }), run: async () => { st.run(...a); return {}; } }); return Object.assign(ex([]), { bind: (...a) => ex(a) }); };
+  const wrap = sql => { const st = db.prepare(sql); const ex = a => ({ first: async () => st.get(...a) || null, all: async () => ({ results: st.all(...a) }), run: async () => { const r = st.run(...a); return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; } }); return Object.assign(ex([]), { bind: (...a) => ex(a) }); };
   /* D1 batch = 한 트랜잭션 — 하나라도 실패하면 전부 되돌린다(그 성질까지 흉내낸다). */
-  const batch = async stmts => { db.exec('BEGIN'); try { for (const x of stmts) await x.run(); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; } };
+  const batch = async stmts => { db.exec('BEGIN'); try { const out = []; for (const x of stmts) out.push(await x.run()); db.exec('COMMIT'); return out; } catch (e) { db.exec('ROLLBACK'); throw e; } };
   const env = { DB: { prepare: wrap, exec: async q => db.exec(q), batch } };
   await ensureScheduleChangeRequestTable(env);
   const r = Object.assign({ schedule_id: 4385, request_type: 'postpone', teacher_name: 'KRYSTEL', student_name: '정우영', orig_date: '2026-10-01', orig_time: '16:00', new_date: '2026-10-01', new_time: '16:00', status: 'pending', created_at: 1 }, reqRow);
+  r.schedule_snapshot = scheduleMoveVersion(db.prepare('SELECT * FROM class_schedules WHERE id=4385').get());
   const cols = Object.keys(r);
   db.prepare(`INSERT INTO schedule_change_requests (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...cols.map(k => r[k]));
   const audits = []; const confCalls = [];
   const deps = {
+    scheduleMoveVersion, ...atomicModule,
+    findScheduleMoveConflicts: async () => null, // Strict availability is exercised through the full Worker lifecycle harness.
     getAdminActor: async () => ({ ok: true, isTeacher, username: 'boss', name: '사장', role: scope }),
     forbiddenTeacherBody: (_a, m) => ({ ok: false, error: 'forbidden_teacher', message: m }),
     ensureScheduleRequestTable: async () => {},

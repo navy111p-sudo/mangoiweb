@@ -1871,8 +1871,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       return T('Teachers cannot decide.', '강사는 승인·거절할 수 없습니다.') + (_w ? ' ' + _w : '');
     }
     if (st === 403 || e === 'forbidden_scope')  return T('Not your branch’s request.', '다른 지사·대리점 요청입니다.');
-    if (st === 409 || e === 'already_decided')  return T('Already handled.', '이미 처리된 요청입니다.');
+    if (e === 'already_decided')  return T('Already handled.', '이미 처리된 요청입니다.');
     if (st === 404 || e === 'request_not_found')return T('Request not found.', '요청을 찾을 수 없습니다.');
+    var serverMessage = j && (EN() ? j.message_en : j.message);
+    if (serverMessage) return serverMessage;
+    if (st === 409) return T('The request is still pending. Refresh, or reject it and submit a fresh request.', '요청은 대기 중입니다. 새로고침하거나 반려 후 다시 접수해 주세요.');
     return T('Failed. Try again.', '처리하지 못했습니다. 다시 눌러 주세요.');
   }
 
@@ -1915,15 +1918,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       if (!res.j || res.j.ok !== true) {
         msg.className = 'rq-msg bad';
         msg.textContent = reqErrOf(res.st, res.j);
-        /* 403(남의 것)·409(이미 처리됨)는 **다시 눌러도 안 된다.** 버튼을 되살리면
-           원장님이 되는 줄 알고 반복해서 누른다 — 잠근 채로 둔다.
-           ⚠️ 409 일 때 목록을 곧바로 다시 그리지 않는다. 다시 그리면 방금 쓴 이 안내가
-              통째로 지워져 «눌렀는데 아무 일도 안 났다» 로 보인다. 캐시만 비워
-              카드를 접었다 펴면 최신 상태가 오게 한다. */
+        /* 409 는 이미 처리됨뿐 아니라 대기 요청의 충돌·오래된 정보일 수도 있다.
+           캐시는 비우되 안내는 남긴다. already_decided 만 잠그고 반려·재접수 길은 살린다. */
         if (res.st === 409) {
           D.reqs = null;
           try { localStorage.removeItem(CACHE_PREFIX + 'reqs'); } catch (err) {}
-        } else if (res.st !== 403) {
+        }
+        if (res.st !== 403 && !(res.j && res.j.error === 'already_decided')) {
           for (var i = 0; i < btns.length; i++) btns[i].disabled = false;
         }
         return;

@@ -166,6 +166,7 @@ async function run(opts) {
     reply: { status: 200, json: { ok: true } },     // 서버 응답(호출마다 같은 값)
   }, opts || {});
 
+  if(!o.slot.moveVersions)o.slot.moveVersions=Object.fromEntries((o.slot.ids||[o.slot.id]).filter(Boolean).map(id=>[String(id),'initial-'+id]));
   const calls = [];          // 나간 요청
   const added = [];          // addSlot 호출
   const removed = [];        // SLOTS 에서 지운 키
@@ -201,7 +202,7 @@ async function run(opts) {
       return {
         ok: rep.status >= 200 && rep.status < 300,
         status: rep.status,
-        json: async () => { if (rep.json === undefined) throw new Error('not json'); return rep.json; },
+        json: async () => { if (rep.json === undefined) throw new Error('not json'); return rep.json&&rep.json.ok===true?{...rep.json,move_versions:Object.fromEntries((calls.at(-1).body.ids||[]).map(id=>[String(id),'committed-'+calls.length+'-'+id]))}:rep.json; },
       };
     },
   };
@@ -251,7 +252,7 @@ sec('① 저장이 실제로 나가는가 (이 사고의 본체)');
   ok(r.calls.length === 1, '요청이 1건이 아니다 (' + r.calls.length + '건) — 드래그가 저장되지 않는다');
   const c = r.calls[0] || { url: '', method: '', body: {} };
   ok(c.method === 'PATCH', 'PATCH 가 아니다: ' + c.method);
-  ok(/\/api\/admin\/class-schedules\/11$/.test(c.url), '엉뚱한 주소로 보낸다: ' + c.url);
+  ok(/\/api\/admin\/class-schedules\/move$/.test(c.url), '엉뚱한 주소로 보낸다: ' + c.url);
   ok(c.body.start_time === '15:00', 'start_time 을 안 보낸다: ' + JSON.stringify(c.body));
   ok(r.rendered === 1 && r.srcGone, '저장 성공인데 화면을 안 옮겼다');
 }
@@ -298,8 +299,8 @@ sec('③ 반복 ↔ 일회성 — 보내는 칸이 갈리는가');
 sec('④ 그룹 수업 — 서버 행이 여럿이면 전부 옮기는가');
 {
   const g = await run({ slot: { id: 21, ids: [21, 22, 23], type: 'group', students: [{ uid: 'a' }, { uid: 'b' }, { uid: 'c' }], moveField: 'scheduled_date' } });
-  ok(g.calls.length === 3, '그룹인데 요청이 ' + g.calls.length + '건 — 한 명만 옮기면 수업이 쪼개진다');
-  const ids = g.calls.map(c => c.url.split('/').pop()).sort();
+  ok(g.calls.length === 1, '그룹은 한 번의 원자 요청이어야 한다: ' + g.calls.length);
+  const ids = (g.calls[0]?.body.ids||[]).slice().sort();
   ok(ids.join(',') === '21,22,23', '보낸 id 가 다르다: ' + ids.join(','));
 }
 
@@ -593,12 +594,34 @@ sec('⑪ 되돌리기 — 원래 «값» 을 서버에 다시 보내는가');
   await btn.fire('click');
   ok(r.calls.length === n0 + 1, '되돌리기를 눌렀는데 요청이 안 나간다 — 화면만 되돌리면 그게 이 사고다');
   const u = r.calls[r.calls.length - 1];
-  ok(u.method === 'PATCH' && /\/class-schedules\/11$/.test(u.url), '되돌리기가 엉뚱한 곳으로 간다: ' + u.url);
+  ok(u.method === 'PATCH' && /\/class-schedules\/move$/.test(u.url), '되돌리기가 엉뚱한 곳으로 간다: ' + u.url);
   ok(u.body.start_time === '14:20', '되돌리기가 «원래 시각» 을 안 보낸다: ' + JSON.stringify(u.body));
   ok(u.body.scheduled_date === '2026-09-11', '되돌리기가 «원래 날짜» 를 안 보낸다: ' + JSON.stringify(u.body));
   ok(u.body.teacher_id === '29', '강사를 바꿨는데 되돌리기가 «원래 강사» 를 안 보낸다 — 반쯤 되돌린 상태가 남는다');
+  ok(u.body.expected['11']==='committed-1-11','되돌리기는 커밋된 버전을 조건으로 보내야 한다');
+  ok(!u.body.source_date,'되돌리기는 새로 합류한 그룹의 다른 구성원을 옮기지 않는다');
   ok(r.reloaded >= 1, '되돌린 뒤 서버에서 다시 읽지 않는다 — 부분 실패를 화면이 감춘다');
   ok(r.undos.length === 1, '되돌리기가 또 되돌리기를 내놓는다 — 무한 왕복이 된다');
+}
+
+sec('⑪-1 저장 안내와 되돌리기 — 실제 높이에 맞춰 겹침 방지');
+{
+  const r = await run({});
+  const S = r.sandbox, undo = r.undos[0];
+  ok(undo.style.bottom === '78px', '일반 되돌리기 기본 위치가 바뀌었다');
+  S.window.innerHeight = 1000;
+  let boxes = [{ top: 840, height: 136 }, { top: 920, height: 56 }];
+  S.document.querySelectorAll = () => boxes.map(box => ({ getBoundingClientRect: () => box }));
+  S.wsPositionUndo();
+  ok(undo.style.bottom === '172px', '여러 줄 저장 안내 위 12px 여유가 없다');
+  boxes = [{ top: 720, height: 256 }];
+  S.wsPositionUndo();
+  ok(undo.style.bottom === '292px', '폭 변경으로 길어진 안내 높이를 다시 재지 않는다');
+  boxes = [];
+  S.wsPositionUndo();
+  ok(undo.style.bottom === '78px', '안내가 사라져도 기본 위치로 돌아오지 않는다');
+  S.wsUndoDismiss(); S.wsPositionUndo();
+  ok(r.calls.length === 1, '표시 위치 계산이 수업 저장 요청을 추가했다');
 }
 
 sec('⑪-2 되돌리기 — 자동 잠금 뒤에도 되는가 / 강사를 모르면 안 내놓는가');
@@ -816,7 +839,7 @@ sec('⑬ 변이시험 — 잠금·되돌리기를 되돌리면 실제로 FAIL �
     ['잠금 게이트 제거', t => t.replace(/if\(!opts\.undo && !wsEditing\(\)\) return \{ ok:false, reason:'locked', fails:\[\] \};/, '')],
     ['잠금 조건 뒤집기(항상 통과)', t => t.replace('if(!opts.undo && !wsEditing())', 'if(!opts.undo && false && !wsEditing())')],
     ['기본을 «편집 켬» 으로', t => t.replace('var wsEditUntil = 0;', 'var wsEditUntil = 8640000000000000;')],
-    ['되돌리기를 안 내놓기', t => t.replace('wsOfferUndo({ slot:slot, prev:prev, what:(opts.what||\'\') });', '')],
+    ['되돌리기를 안 내놓기', t => t.replace('if(slot.moveVersions)wsOfferUndo({ slot:JSON.parse(JSON.stringify(slot)), prev:Object.assign({},prev), what:(opts.what||\'\') });', '')],
     ['되돌리기도 잠금에 걸리게', t => t.replace('if(!opts.undo && !wsEditing())', 'if(!wsEditing())')],
     /* ⚠️ 이 변이는 «두 줄» 을 함께 되돌린다 — 되돌리기를 막는 것은 사실상
        «되돌리기 호출이 prev 를 안 넘긴다» 쪽이고, opts.undo 는 그 위의 한 겹이다.

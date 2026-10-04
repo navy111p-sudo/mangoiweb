@@ -71,8 +71,10 @@ export async function ensureScheduleChangeRequestTable(env: any): Promise<void> 
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_scr_status ON schedule_change_requests(status, created_at)`); } catch {}
   // 🆕 유료/무료 태깅(2026-07-14) — 기존 배포 DB 호환 컬럼 추가(멱등, 이미 있으면 무시)
   /* 👨‍🏫 (2026-09-30) new_teacher_id = «교사로 연기» 에서 학생이 고른 강사(원부 번호). teacher_name 은 «담당 강사» 그대로 둔다. */
+  /* 2026-10-04 schedule_snapshot: server-captured scheduleMoveVersion. Never backfill old
+     pending rows from today's timetable: that would invent their request-time baseline. */
   /* ⏸ (2026-10-02) end_makeup = «연기보강» 이름(예: 연기보강 (10월 2일 연기)). 있으면 승인 때 class_type='makeup' + 메모. */
-  for (const col of ['fee_type TEXT', 'minutes_before INTEGER', 'requester_uid TEXT', 'new_teacher_id TEXT', 'end_makeup TEXT']) {
+  for (const col of ['fee_type TEXT', 'minutes_before INTEGER', 'requester_uid TEXT', 'new_teacher_id TEXT', 'end_makeup TEXT', 'schedule_snapshot TEXT']) {
     try { await env.DB.exec(`ALTER TABLE schedule_change_requests ADD COLUMN ${col}`); } catch {}
   }
 }

@@ -684,10 +684,11 @@ const worker = {
     }
 
     // 🩺 /admin/health 페이지가 호출하는 서버측 자가진단 API
-    //   - D1/R2/KV 바인딩 실제 호출 + 시크릿 presence + BUILD_STAMP 리턴
-    //   - Basic Auth 미들웨어 뒤에 걸려 있음 (isAdminPath 참조)
+    //   - mode=passive: 바인딩/시크릿 존재 여부 + BUILD_STAMP만, 진단 쿼리 없음
+    //   - 기본 동작은 기존 SELECT 1 진단 유지. 관리자 세션/스코프 게이트 뒤 (isAdminPath 참조)
     if (path === '/api/admin/health-check') {
-      // Inline admin health probe — no separate handler module needed.
+      // Keep the same authentication/authorization for both modes. Auth still reads D1 and records session activity.
+      const passive = url.searchParams.get('mode') === 'passive';
       const probe: any = {
         ok: true,
         ts: new Date().toISOString(),
@@ -722,8 +723,9 @@ const worker = {
         'GIFTISHOW_API_KEY', 'GIFTISHOW_USER_ID',                    // 🎁 기프티콘
       ];
       for (const k of secretKeys) probe.secrets_present[k] = !!(env as any)?.[k];
+      if (passive) probe.mode = 'passive';
       try {
-        if ((env as any)?.DB) {
+        if (!passive && (env as any)?.DB) {
           const r: any = await (env as any).DB.prepare('SELECT 1 AS one').first();
           probe.db_query_ok = r?.one === 1;
         }
@@ -1240,6 +1242,8 @@ const worker = {
         path === '/api/admin/ai-action' ||
         path === '/api/admin/class-schedules' ||
         path === '/api/admin/class-schedules/seed-demo' ||
+        path === '/api/admin/class-schedules/teacher-options' ||
+        path === '/api/admin/class-schedules/move' ||
         /* 🧹 (2026-08-24) LMS·시드 자리표시 일괄 정리.
            ⚠️ 이 목록은 «허용목록» 이다 — 인증 게이트(isAdminPath)가 `/api/admin/` 을
               통째로 default-deny 하는 것과 **다른 것**이다. 인증은 통과하는데 여기 없으면
@@ -1428,6 +1432,8 @@ const worker = {
         path === '/api/chat/cleanup' ||
         // 📝 Phase E1-E4 평가서
         path === '/api/eval/create' ||
+        path === '/api/eval/draft-create' ||
+        path === '/api/eval/manual-create' ||
         path === '/api/eval/list' ||
         /^\/api\/eval\/\d+$/.test(path) ||
         path === '/api/admin/eval/list' ||

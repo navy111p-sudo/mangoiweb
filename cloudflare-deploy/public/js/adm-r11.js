@@ -123,7 +123,7 @@
               : (isEn?'✅ Approved.':'✅ 승인 완료.'))
           : (isEn?'❌ Rejected.':'❌ 거절 처리했어요.'));
         srqLoad();
-      } else alert('⚠️ ' + (d.error||(isEn?'failed':'실패')));
+      } else alert('⚠️ ' + ((isEn ? d.message_en : d.message) || (r.status === 409 && d.error !== 'already_decided' ? (isEn ? 'The request is still pending. Refresh, or reject it and submit a fresh request.' : '요청은 대기 중입니다. 새로고침하거나 반려 후 다시 접수해 주세요.') : d.error) || (isEn?'failed':'실패')));
     } catch(e){ alert('⚠️ '+e.message); }
   };
 

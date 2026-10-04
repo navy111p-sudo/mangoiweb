@@ -59,6 +59,8 @@ const games = rd(join(SRC, 'api-games.ts'));
 console.log('\n[ A. 학부모에게 문자를 보내는 경로는 인증을 거친다 ]');
 for (const [label, needle] of [
   ['POST /api/eval/create',          `path === '/api/eval/create'`],
+  ['POST /api/eval/manual-create',   `path === '/api/eval/manual-create'`],
+  ['POST /api/eval/draft-create',    `path === '/api/eval/draft-create'`],
   ['POST /api/eval/bulk-create',     `path === '/api/eval/bulk-create'`],
   ['POST /api/eval/ai-lesson-report', `path === '/api/eval/ai-lesson-report'`],
 ]) {
