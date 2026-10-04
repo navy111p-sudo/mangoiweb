@@ -19,8 +19,10 @@ async function unchangedQuery(env: any, select: string, fields: string[], args: 
 }
 
 export async function prepareScheduleRequestGuards(env: any, requestRow: any, schedule?: any, scope?: Guard): Promise<Guard[]> {
-  await env.DB.exec(`CREATE TABLE IF NOT EXISTS schedule_request_guard (
-    token TEXT PRIMARY KEY, valid INTEGER NOT NULL CONSTRAINT schedule_request_snapshot CHECK(valid=1))`);
+  // ⛔ D1 의 exec() 는 «줄마다» 따로 실행해 여러 줄 CREATE 가 실패한다(2026-10-04 실사고:
+  //    이 표가 운영 DB 에 한 번도 안 생겨 모든 저장이 503). 한 문장은 prepare().run() 으로.
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS schedule_request_guard (
+    token TEXT PRIMARY KEY, valid INTEGER NOT NULL CONSTRAINT schedule_request_snapshot CHECK(valid=1))`).run();
   const guards = [unchangedRow('schedule_change_requests', requestRow)];
   if (scope) guards.push(scope);
   if (!schedule) return guards;
