@@ -31,7 +31,7 @@ Base.metadata.create_all(bind=engine)
 # ── 2. FastAPI 앱 생성 ─────────────────────────────────────────
 app = FastAPI(
     title="망고아이 학습 백엔드 (Mangoi Learning Backend)",
-    description="스픽식 연속 학습(불꽃 streak) + 수업 전 AI 웜업 롤플레이 서비스",
+    description="스픽식 연속 학습(불꽃 streak) + 수업 전 A.i 말하기 롤플레이 서비스",
     version="1.0.0",
 )
 
@@ -84,7 +84,7 @@ def root():
     """서비스가 살아있는지 + 어떤 기능이 있는지 간단 안내."""
     return {
         "service": "mangoi-learning-backend",
-        "features": ["streak(연속학습 불꽃)", "warmup(수업 전 AI 웜업)", "graph(Neo4j 학생·강사·피드백)"],
+        "features": ["streak(연속학습 불꽃)", "warmup(수업 전 A.i 말하기)", "graph(Neo4j 학생·강사·피드백)"],
         "docs": "/docs",
     }
 

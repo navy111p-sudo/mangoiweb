@@ -61,7 +61,7 @@
     },
     en: {
       title: '📘 How to use A.i Speaking',
-      lead: 'Warm up by talking with an AI in English or Chinese. Pick in order below, then press <b>Start</b>. With <b>✨ Auto talk</b>, the chat keeps going without tapping the mic.',
+      lead: 'Practice speaking with an AI in English or Chinese. Pick in order below, then press <b>Start</b>. With <b>✨ Auto talk</b>, the chat keeps going without tapping the mic.',
       quickT: 'In one minute',
       quick: ['Pick a language (English / Chinese)', 'Pick textbook or free talk', 'Pick who is practicing (age)',
         'Pick a level — not sure? tap <b>🔍 Find my level</b>', '<b>Pick how to talk — 🎤 Tap mic / ✨ Auto</b>',

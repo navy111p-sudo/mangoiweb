@@ -14,7 +14,7 @@
 <!-- 🌐 EN 전역 번역 스위퍼 — 문서 맨 끝(29195줄)에서 head 로 이동(2026-07-22).
      끝에 두면 114KB 가 앞선 외부 스크립트 수십 개 뒤로 밀려, 영문 계정 강사가 들어와도
      화면이 한동안 한국어로 남았다(강사 피드백 #1). 내부에서 DOMContentLoaded 를 기다리므로 defer 유지. -->
-<script defer src="/js/i18n-sweep.js?v=22"></script>
+<script defer src="/js/i18n-sweep.js?v=23"></script>
 
 <script>
 // === fix v14 (2026-05-26): 카테고리 카드 깨끗한 새 함수 ===
@@ -6723,7 +6723,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
           fab=document.createElement('button');
           fab.id='vcq-fab'; fab.type='button';
           fab.innerHTML='💡 <span class="vcq-label">'+(L()?'AI 질문':'AI questions')+'</span>';
-          fab.title=(L()?'학생 맞춤 워밍업/대화 질문 추천':'AI-suggested questions for this student');
+          fab.title=(L()?'학생 맞춤 말하기/대화 질문 추천':'AI-suggested questions for this student');
           fab.onclick=togglePanel;
           document.body.appendChild(fab);
           return fab;
@@ -9155,7 +9155,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
                읽기 전용이다. 강사가 학생에게 글로 말하려면 수업 채팅을 쓴다(웜업 상대는 AI 다).
                강사에게만, 그리고 첫 줄이 도착했을 때만 나타난다(vcWarmupMirror 가 관리). -->
           <div id="vc-warmup-mirror" style="display:none;flex-shrink:0;max-height:34%;overflow-y:auto;padding:8px 14px;background:rgba(15,23,42,.92);border-top:1px solid rgba(167,139,250,.35)">
-            <div style="font-size:11px;font-weight:800;color:#c4b5fd;margin-bottom:5px" data-ko="🪞 학생의 말하기 연습 대화 (읽기 전용 — 글로 답하려면 수업 채팅을 쓰세요)" data-en="🪞 Student's speaking practice (read-only — use the class chat to reply in text)">🪞 학생의 웜업 대화 (읽기 전용 — 글로 답하려면 수업 채팅을 쓰세요)</div>
+            <div style="font-size:11px;font-weight:800;color:#c4b5fd;margin-bottom:5px" data-ko="🪞 학생의 말하기 연습 대화 (읽기 전용 — 글로 답하려면 수업 채팅을 쓰세요)" data-en="🪞 Student's speaking practice (read-only — use the class chat to reply in text)">🪞 학생의 말하기 연습 대화 (읽기 전용 — 글로 답하려면 수업 채팅을 쓰세요)</div>
             <div id="vc-warmup-mirror-log" style="font-size:12.5px;line-height:1.6;color:#e6ecff"></div>
           </div>
         </div>
@@ -17140,7 +17140,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
     .mg-faq-cats{flex-wrap:wrap;overflow-x:visible}
   }
 </style>
-<script src="/js/idx-x7.js?v=8"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x7.js?v=9"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
 
 <!-- 🧠 복습퀴즈 탭 (화상수업) — 학생 사이드바와 동일 API + AI 자동 출제(듣기/쓰기/말하기) -->
 <script src="/js/idx-x8.js?v=8"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
