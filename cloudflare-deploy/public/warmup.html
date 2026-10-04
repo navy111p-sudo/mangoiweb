@@ -847,6 +847,7 @@
   </div>
 </dialog>
 <script src="/js/warmup-guide.js?v=8"></script>
+<script src="/js/speech-preferences.js?v=1"></script>
 <script>
 /* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
 var Q = new URLSearchParams(location.search);
@@ -877,7 +878,7 @@ function wuApplyLang(){
   wuApplyStatic();
   try{ setLevel(_warmLevel); }catch(e){}
   try{ setSubMode(_subMode); }catch(e){}
-  try{ setRate(_rateLevel); }catch(e){}
+  try{ setRate(_rateLevel, false); }catch(e){}
   try{ applyVoiceFace(); }catch(e){}
   try{ var ab = document.getElementById('ageVal'); if(ab) ab.textContent = ageName(ageInfo(_warmAge)); }catch(e){}
   try{ renderSetup(); }catch(e){}
@@ -1419,24 +1420,20 @@ var RATE_STEPS = { 1:0.5, 2:0.65, 3:0.8, 4:1.0, 5:1.25 };
 var AUDIO_RATE = RATE_STEPS;   // 같은 표를 쓴다(두 벌로 갈라지지 않게)
 var RATE_NAMES = { 1:'아주 느리게', 2:'느리게', 3:'보통', 4:'빠르게', 5:'아주 빠르게' };
 var RATE_NAMES_EN = { 1:'Very slow', 2:'Slow', 3:'Normal', 4:'Fast', 5:'Very fast' };
-/* 🐢 (2026-07-23) 들어올 때는 항상 같은 칸에서 시작한다 — 지난번 속도를 이어받지 않는다.
-   (수업 중 슬라이더로 바꾸는 건 그대로 되고, 다음에 다시 들어오면 또 이 칸부터.)
-   📜 2026-09-24 사장님 «음성을 보통으로 기본값» → 2단계(느리게 0.65) 에서 3단계(보통 0.8) 로.
-      2026-09-10 에 계단을 한 칸씩 내렸으므로 지금 «보통» 이 옛 «느리게»(0.8)와 같은 속도다.
-   📜 2026-09-25 사장님 «1배로 해줘» → 4단계(1.0배 = 원음 그대로). 칸 이름은 «빠르게» 로
-      남는다(계단·이름은 AI 영어친구와 짝이라 안 건드림) — 바꾼 것은 «어느 칸에서 시작하나» 뿐. */
-var WARMUP_START_RATE = 4;
-var _rateLevel = WARMUP_START_RATE;
-function setRate(lv){
+// Each student keeps their own speed; first-time users start at Normal.
+var WARMUP_START_RATE = 3;
+var warmupRatePreference = MangoiSpeechPreferences.create('warmup', WARMUP_START_RATE, function(lv){ setRate(lv, false); });
+var _rateLevel = warmupRatePreference.level;
+function setRate(lv, persist){
   lv = parseInt(lv,10); if(!(lv>=1 && lv<=5)) lv = WARMUP_START_RATE;
   _rateLevel = lv;
-  /* 이 화면은 매번 같은 칸(WARMUP_START_RATE)으로 시작하므로 속도는 저장하지 않는다(저장해도 읽지 않음). */
+  if(persist !== false) warmupRatePreference.set(lv);
   var s=document.getElementById('rateSlider'); if(s && String(s.value)!==String(lv)) s.value=lv;
   // 이름 옆에 «몇 배» 를 함께 적는다 — 눈으로도 «정확히 얼마나» 달라졌는지 보이게
   var v=document.getElementById('rateVal');
   if(v) v.textContent = lv + ' · ' + (wuEn() ? RATE_NAMES_EN[lv] : RATE_NAMES[lv]) + ' (' + RATE_STEPS[lv].toFixed(2).replace(/0$/,'') + (wuEn() ? 'x)' : '배)');
 }
-setRate(_rateLevel);   // 시작 속도(4단계 · 1.0배)로 슬라이더/표시 초기화
+setRate(_rateLevel, false);   // Restore this account’s selected speed without writing the default.
 /* 🐢 (2026-07-23) "천천히 말해줘" 라고 말하거나 쓰면 듣기 속도를 실제로 한 칸 낮춘다.
    그동안은 슬라이더로만 바뀌어서, 부탁해도 같은 속도로 계속 읽어줬다. */
 function maybeAdjustRate(text){
@@ -2858,6 +2855,7 @@ function _latMark(){
   }
 }
 function speak(text, btn){
+  if(!warmupRatePreference.loaded) return warmupRatePreference.ready.then(function(){ speak(text, btn); });
   /* 📡 P2 — 스트리밍 첫 문장이면 «큐 모드» 로 읽는다(_stmSentence 가 바로 앞에서 걸어 둠). 한 번 쓰고 비운다. */
   var live=(typeof _speakLiveNext!=='undefined' && _speakLiveNext) || null; if(live) _speakLiveNext=null;
   if(_warmPaused || !_speechOn || !text){
@@ -3601,6 +3599,7 @@ function updateTopicChip(){
    그러면 연령·수준을 고르기 전에 이미 엉뚱한 눈높이로 말이 나가 되돌릴 수 없다.
    → 이제 시작 버튼(startWarmup)이 부른다. 설정을 건너뛰려면 ?setup=0 을 붙인다. */
 async function initGreeting(){
+  await warmupRatePreference.ready;
   var epoch=_warmEpoch;
   try{
     var qs = new URLSearchParams();
@@ -4083,6 +4082,7 @@ function saveApi(v){
 })();
 
 async function sendMsg(){
+  await warmupRatePreference.ready;
   if(_warmPaused)return;
   var epoch=_warmEpoch;
   var inp = document.getElementById('inp');

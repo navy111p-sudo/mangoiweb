@@ -1,3 +1,4 @@
+import { handleSpeechPreferences } from './speech-preferences';
 import { readableKoreanVocabulary, hasForeignGloss } from './korean-vocab';
 /**
  * index.ts - Main Worker entry point
@@ -265,6 +266,8 @@ const worker = {
       const permanent = request.method === 'GET' || request.method === 'HEAD';
       return Response.redirect(canonical.toString(), permanent ? 301 : 308);
     }
+
+    if (path === '/api/student/speech-preferences') return handleSpeechPreferences(request, env);
 
     // 💬 문의·신규상담 페이지 폐지 → 카카오톡 실시간 상담으로 통합 (2026-08-14 피드백 ⑤)
     //   public/contact.html 을 지웠다. 그런데 이 주소는 검색엔진에 색인돼 있고, 카톡·문자로
