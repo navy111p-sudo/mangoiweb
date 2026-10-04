@@ -60,7 +60,9 @@ export async function prepareWeeklyPostpone(env: any, request: any, anchor: any,
       { ...facts, rows: targets.filter(t => t.id !== target.id) });
     if (internal) return { ...internal, ok: false, mutations: [] };
   }
-  const mutations = targets.map(target => env.DB.prepare(`UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ? WHERE id = ?`)
+  // Vacate the latest slot first: the live unique teacher/date/time index also
+  // applies inside a transaction, before the next UPDATE has run.
+  const mutations = targets.slice().sort((a,b) => String(b.scheduled_date).localeCompare(String(a.scheduled_date))).map(target => env.DB.prepare(`UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ? WHERE id = ?`)
     .bind(target.scheduled_date, target.start_time, Math.max(now, (Number(target.updated_at) || 0) + 1), target.id));
   return { ok: true, error: '', mutations, items: plan.items };
 }

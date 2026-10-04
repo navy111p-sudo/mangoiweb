@@ -17,6 +17,7 @@ for(let n=0;n<600;n++){
  CREATE TABLE teachers(id INTEGER PRIMARY KEY,name TEXT); INSERT INTO teachers VALUES(1,'Sandbox Teacher');
  CREATE TABLE teacher_unavailability(id INTEGER PRIMARY KEY,teacher_id TEXT,kind TEXT,start_date TEXT,end_date TEXT,day_of_week INTEGER,start_time TEXT,end_time TEXT);
  CREATE TABLE calendar_events(id INTEGER PRIMARY KEY,event_type TEXT,teacher_name TEXT,date TEXT,end_date TEXT);`);
+ db.exec("CREATE UNIQUE INDEX uq_sched_teacher_slot ON class_schedules(teacher_id,scheduled_date,start_time) WHERE status='active' AND scheduled_date IS NOT NULL AND teacher_id IS NOT NULL");
  await ensureScheduleChangeRequestTable(env);
  const start=addDays('2027-01-01',n),count=1+n%52,hour=String(8+n%13).padStart(2,'0')+':00';
  const insert=db.prepare("INSERT INTO class_schedules VALUES(?,?,?,?,?,20,'active','sandbox-series',1,'one_off',NULL,NULL)");

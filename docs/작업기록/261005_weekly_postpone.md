@@ -35,3 +35,5 @@ Full repository CI, browser CI and production deployment remain required gates;
 the local results above do not claim they have passed.
 
 The first browser run caught a completed-screen overlay remaining active during repeated mode navigation. enterDetail now clears that overlay; browser CI is rerun.
+
+Review found that the deployed unique teacher/date/time index rejects forward-order weekly updates. Mutations now run from latest date to earliest inside the same transaction, and both sandbox suites create that production index before testing.

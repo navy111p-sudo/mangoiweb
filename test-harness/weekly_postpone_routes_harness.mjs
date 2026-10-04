@@ -220,6 +220,7 @@ if (process.env.SMRS_CHILD === '1') {
     return { tc, sc, p, s };
   };
 
+  sq.exec("CREATE UNIQUE INDEX IF NOT EXISTS uq_sched_teacher_slot ON class_schedules(teacher_id,scheduled_date,start_time) WHERE status='active' AND scheduled_date IS NOT NULL AND teacher_id IS NOT NULL");
   env.ROOM_JWT_SECRET = 'sandbox-only-secret-at-least-thirty-two-characters';
   const {signUidToken} = await imp('auth-token.ts');
   const {addDays} = await imp('class-series-move.ts');
