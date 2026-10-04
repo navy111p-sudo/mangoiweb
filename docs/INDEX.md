@@ -697,3 +697,4 @@
 | [작업기록/261004_admin_evaluation_score_scales.md](작업기록/261004_admin_evaluation_score_scales.md) | 평가 척도 5·10·100 구분, 정규화 평균과 불명확한 과거 점수의 명시적 제외 (과거 점수 덮어쓰기 없음) |
 | [작업기록/261004_admin_evaluation_records.md](작업기록/261004_admin_evaluation_records.md) | 관리자 평가 목록의 구형 UID·평가일·평가자와 명부 표시 호환 (원본·권한 유지) |
 | [작업기록/261004_teacher_week_navigation.md](작업기록/261004_teacher_week_navigation.md) | 강사 주간 달력: 늦은 응답·자동 새로고침·언어 전환의 선택 유지, KST 경계와 잘못된 단말 시계, 실행·변이 검사 |
+| [작업기록/261005_주간스케줄_연기변경_드래그_스트레스.md](작업기록/261005_주간스케줄_연기변경_드래그_스트레스.md) | 🧪 주간 스케줄 «연기·변경» 실제 마우스 드래그 3,000회+(진짜 Worker+SQLite+Chromium) — 학생 «내 수업»·강사 3명 캘린더·관리자 주간·화면 칸 대조, 최종 1,200회+빠른 연속 120회 FAIL 0(초기 실패는 하니스 대기 결함), 변이 6종 전부 실제 FAIL. 하니스 `manual/weekly-drag-stress-browser.mjs` |
