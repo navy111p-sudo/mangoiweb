@@ -847,7 +847,7 @@
   </div>
 </dialog>
 <script src="/js/warmup-guide.js?v=8"></script>
-<script src="/js/speech-preferences.js?v=2"></script>
+<script src="/js/speech-preferences.js?v=3"></script>
 <script>
 /* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
 var Q = new URLSearchParams(location.search);
@@ -2855,7 +2855,12 @@ function _latMark(){
   }
 }
 function speak(text, btn){
-  if(!warmupRatePreference.loaded) return warmupRatePreference.ready.then(function(){ speak(text, btn); });
+  if(!warmupRatePreference.loaded){
+    var waitingSeq=_speakSeq, waitingEpoch=_warmEpoch;
+    return warmupRatePreference.ready.then(function(){
+      if(waitingSeq===_speakSeq && waitingEpoch===_warmEpoch && !_warmPaused) speak(text, btn);
+    });
+  }
   /* 📡 P2 — 스트리밍 첫 문장이면 «큐 모드» 로 읽는다(_stmSentence 가 바로 앞에서 걸어 둠). 한 번 쓰고 비운다. */
   var live=(typeof _speakLiveNext!=='undefined' && _speakLiveNext) || null; if(live) _speakLiveNext=null;
   if(_warmPaused || !_speechOn || !text){
@@ -3599,8 +3604,9 @@ function updateTopicChip(){
    그러면 연령·수준을 고르기 전에 이미 엉뚱한 눈높이로 말이 나가 되돌릴 수 없다.
    → 이제 시작 버튼(startWarmup)이 부른다. 설정을 건너뛰려면 ?setup=0 을 붙인다. */
 async function initGreeting(){
-  await warmupRatePreference.ready;
   var epoch=_warmEpoch;
+  await warmupRatePreference.ready;
+  if(epoch!==_warmEpoch || _warmPaused) return;
   try{
     var qs = new URLSearchParams();
     var uid = getLoginId(); if(uid) qs.set('user_id', uid);
