@@ -100,7 +100,21 @@ async function fixture(name, api, { width = 1280, timezoneId = 'Asia/Seoul', ins
   if (clock) await context.clock.install({ time: new Date(instant) });
   else await context.clock.setFixedTime(new Date(instant));
   const state = { name, context, page: null, apiRequests: [], unexpectedMethods: [], routeErrors: [], otherMe: 0 };
-  await context.addInitScript(({ identityProbe, teacherIdentity }) => {
+  await context.addInitScript(({ identityProbe, teacherIdentity, fixtureOrigin }) => {
+    // newPage's initial about:blank has an opaque origin and no localStorage.
+    // Apply fixtures only to the routed synthetic origin, not opaque documents.
+    if (location.origin !== fixtureOrigin) return;
+    if (teacherIdentity) {
+      // Chromium reports the real loopback-only namespace as offline even after
+      // Playwright's offline(false). Model connectivity as fixture input without
+      // changing OS networking or production source. Tests also exercise false.
+      let online = true;
+      Object.defineProperty(Navigator.prototype, 'onLine', { configurable: true, get: () => online });
+      window.__fixtureSetOnline = value => {
+        online = !!value;
+        window.dispatchEvent(new Event(online ? 'online' : 'offline'));
+      };
+    }
     // Only synthetic state used to enter the shipped administrator UI. No saved
     // server identity: the identity module must obtain its own fixture response.
     // resolveUiIdentity assigns ordinary synthetic HQ names hq_mgr. Executive
@@ -130,7 +144,7 @@ async function fixture(name, api, { width = 1280, timezoneId = 'Asia/Seoul', ins
         return original.call(this, input, options);
       };
     }
-  }, { identityProbe, teacherIdentity });
+  }, { identityProbe, teacherIdentity, fixtureOrigin: BASE });
   await context.routeWebSocket('**/*', ws => {
     report.denied.push({ case: name, kind: 'websocket', origin: new URL(ws.url()).origin });
     ws.close({ code: 1008, reason: 'Offline fixture: WebSockets forbidden' });
@@ -181,11 +195,6 @@ async function fixture(name, api, { width = 1280, timezoneId = 'Asia/Seoul', ins
   });
   context.on('page', page => page.on('pageerror', error => report.pageErrors.push({ case: name, message: String(error) })));
   state.page = await context.newPage();
-  // Toggle after page creation: Playwright skips its initial false/default
-  // emulation. The UI must see online so its polling guard runs; the separate
-  // OS namespace still makes all real external traffic impossible.
-  await context.setOffline(true);
-  await context.setOffline(false);
   state.close = async () => { await context.close(); openContexts.delete(context); };
   return state;
 }
@@ -265,6 +274,10 @@ async function weekly(width) {
   const hit = await topmost(page, '#ws-lock-btn');
   check(width + ': lock button has a real unobstructed hit target', hit.hittable && hit.right <= hit.viewport + 1, hit);
   check(width + ': page has no horizontal overflow', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+  // The first-visit guide intentionally overlays the lower-right grid for 9s.
+  // Close it through the shipped control, just as a person can, before hit tests.
+  await page.locator('#guide-toast button').click();
+  check(width + ': real guide close control reveals the working grid', await page.locator('#guide-toast').count() === 0);
   async function drag() {
     await page.locator(cell(14)).scrollIntoViewIfNeeded();
     await page.locator(cell(15)).scrollIntoViewIfNeeded();
@@ -410,6 +423,17 @@ async function teacher() {
   await eventually('automatic refresh error visible', () => page.locator('#wk-error').isVisible());
   check('teacher: failed auto refresh retains last valid range/content', await page.locator('#wk-date').inputValue() === '2026-10-12'
     && (await page.locator('#week').textContent()).includes('Fixture newer-than-auto'));
+  const beforeOffline = requests.length;
+  await page.evaluate(() => window.__fixtureSetOnline(false));
+  await page.clock.fastForward(91000);
+  check('teacher: offline timer guard sends no request and preserves content', requests.length === beforeOffline
+    && await page.evaluate(() => navigator.onLine === false)
+    && (await page.locator('#week').textContent()).includes('Fixture newer-than-auto'));
+  queue.push({ label: 'online-recovery' });
+  await page.evaluate(() => window.__fixtureSetOnline(true));
+  await page.clock.fastForward(1001);
+  await shown(page, '2026-10-12', 'online-recovery');
+  check('teacher: online event refreshes selected week exactly once', requests.length === beforeOffline + 1 && requests.at(-1).rawWeek === '2026-10-12');
   await finish(state);
 }
 async function teacherBoundary(timezoneId, instant, expected) {

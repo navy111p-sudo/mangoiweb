@@ -24,8 +24,10 @@ API requests return a failing fixture response, unexpected mutation methods fail
 the test, all nonlocal requests are aborted, WebSockets are closed without a
 server connection, and service workers are blocked. There is no `route.continue`.
 The OS namespace also denies any browser networking that bypasses page routing.
-Browser online emulation is explicitly enabled so the teacher page's online-only
-polling guard runs; the independent OS network isolation remains in force.
+The teacher fixture explicitly controls `navigator.onLine` and dispatches browser
+online/offline events so the page's polling guard is tested in both states.
+Chromium detects the loopback-only namespace as offline even after Playwright's
+offline toggle. This fixture input does not change OS networking or routed fetches.
 
 To reproduce on a Linux machine, use the install and namespace commands in the
 workflow. Do not run the script directly in a network-capable namespace: it checks
@@ -38,10 +40,13 @@ secrets, Cloudflare configuration, or running application server is required.
   cancel; confirmed three-row versioned batch; held response without premature UI
   success; hit-testable undo using returned versions; restored positions; 409
   preserving the group; retry; unobstructed controls and horizontal overflow.
+  The first-visit guide is dismissed through its actual close button before grid
+  interaction; hit testing remains required after dismissal.
 - Teacher: real week buttons/date input, reversed responses, selected week through
   full refresh, automatic timer and language redraw; failed navigation preserving
   last good content; stale full/automatic reads; both sides of a KST Monday boundary
-  in UTC, Los Angeles, Seoul, and Manila.
+  in UTC, Los Angeles, Seoul, and Manila; polling suppressed offline and resumed by
+  the online event without losing the selected week.
 - Health: initial/automatic passive-only calls; no-selection and canceled-confirm
   no-ops; worker-only and D1-only explicit choices; canceled late response ignored.
 - Admin identity: visible failed/stalled retry, recovery, double clicks, a genuine
