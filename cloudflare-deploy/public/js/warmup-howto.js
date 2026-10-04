@@ -188,7 +188,7 @@
      ⚠️ 음성은 한국어 한 벌이라 영어 화면에서는 «꺼진 채» 시작하고 누르면 들려준다.
      ⚠️ <audio> 는 안내창 «상자 밖» 에 둔다 — 언어를 바꿔 상자를 다시 그려도 재생이 안 끊긴다.
      ⛔ ?v= 를 올리지 않고 파일만 바꾸지 말 것 — 1년 immutable 캐시에 옛 음성이 남는다. */
-  var AUDIO_SRC = '/audio/warmup-howto-ko.mp3?v=2';
+  var AUDIO_SRC = '/audio/warmup-howto-ko.mp3?v=3';
   var MUTE_KEY = 'mangoi_howto_voice_off';
   var playing = false;
   function voiceOff() { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch (e) { return false; } }
