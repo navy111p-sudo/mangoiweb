@@ -95,6 +95,12 @@ async function open(name, { width = 1600, instant = NOW, role = 'hq_teacher', pr
         const body = ['GET', 'HEAD'].includes(method) ? null : request.postDataJSON();
         const record = { case: name, method, path: url.pathname + url.search, body };
         report.requests.push(record);
+        if (method === 'POST' && url.pathname === '/api/i18n/translate') {
+          assert.equal(body.target, 'en', 'Only the shipped English translation request is configured');
+          assert(Array.isArray(body.texts) && body.texts.every(text => typeof text === 'string'), 'Translation texts must be strings');
+          // i18n-sweep consumes r.map. Keep native labels; no provider translation.
+          return await route.fulfill(json({ map: {} }));
+        }
         if (method === 'PATCH' && url.pathname === MOVE) {
           state.moves.push(record);
           // Fail closed if any group member or optimistic version is missing.
