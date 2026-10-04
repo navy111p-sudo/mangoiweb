@@ -699,3 +699,4 @@
 | [작업기록/261004_teacher_week_navigation.md](작업기록/261004_teacher_week_navigation.md) | 강사 주간 달력: 늦은 응답·자동 새로고침·언어 전환의 선택 유지, KST 경계와 잘못된 단말 시계, 실행·변이 검사 |
 | [작업기록/2026-10-04-c24-manual-origin-sync.md](작업기록/2026-10-04-c24-manual-origin-sync.md) | 트랙 6: Cafe24 원본 ID 기반 수동 이동 보호와 반복 동기화·역할별 일정 검증, 기존 데이터 소급 변경 없음 (로컬, 미배포) |
 | [작업기록/2026-10-04-daily-handover-reminder-contracts.md](작업기록/2026-10-04-daily-handover-reminder-contracts.md) | 트랙 4: 미작성/미확인 독촉 재시도·확인 후 구 본문 억제·기한 표시, 실제 푸시 수신 미검증 (로컬, 미배포) |
+| [작업기록/261005_주간스케줄_연기변경_드래그_스트레스.md](작업기록/261005_주간스케줄_연기변경_드래그_스트레스.md) | 🧪 주간 스케줄 «연기·변경» 실제 마우스 드래그 3,000회+(진짜 Worker+SQLite+Chromium) — 학생 «내 수업»·강사 3명 캘린더·관리자 주간·화면 칸 대조, 최종 1,200회+빠른 연속 120회 FAIL 0(초기 실패는 하니스 대기 결함), 변이 6종 전부 실제 FAIL. 하니스 `manual/weekly-drag-stress-browser.mjs` |

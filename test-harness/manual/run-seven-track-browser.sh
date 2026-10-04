@@ -33,14 +33,17 @@ for round in 1 2; do
 done
 # These distinct gaps run once; the repeated baseline above remains unchanged.
 OUT="$SEVEN_TRACK_BROWSER_OUTPUT/focused-races"
-mkdir -p "$OUT/voice" "$OUT/handover" "$OUT/schedule-lock"
+mkdir -p "$OUT/voice" "$OUT/handover" "$OUT/schedule-lock" "$OUT/calendar-consumers"
 OUTPUT_DIR="$OUT/voice" run_logged "$OUT/voice.log" node test-harness/manual/voice-client-races-browser.mjs
 grep -Eq '^voice-client-races-browser: PASS [1-9][0-9]* / FAIL 0 / SKIP 0$' "$OUT/voice.log"
 OUTPUT_DIR="$OUT/handover" run_logged "$OUT/handover.log" node test-harness/manual/daily-handover-races-browser.mjs
 grep -Eq '^daily-handover-races-browser: PASS [1-9][0-9]* / FAIL 0 / SKIP 0$' "$OUT/handover.log"
 OUTPUT_DIR="$OUT/schedule-lock" run_logged "$OUT/schedule-lock.log" node test-harness/manual/weekly-schedule-lock-browser.mjs
 grep -Eq '^weekly-schedule-lock-browser: PASS [1-9][0-9]* / FAIL 0 / SKIP 0$' "$OUT/schedule-lock.log"
-for fixture in "$OUT/voice/fixture-report.json" "$OUT/handover/fixture-report.json" "$OUT/schedule-lock/fixture-report.json"; do
+OUTPUT_DIR="$OUT/calendar-consumers" run_logged "$OUT/calendar-consumers.log" node test-harness/manual/schedule-consumer-approval-browser.mjs
+grep -Eq '^schedule-consumer-approval-browser: PASS [1-9][0-9]* / FAIL 0 / SKIP 0$' "$OUT/calendar-consumers.log"
+node -e 'const r=require(process.argv[1]);const expected=["student-request-existing-admin-approval-crosses-week-and-teacher","versioned-admin-move-refresh-reload-old-slot-removal-and-join"];if(r.cases.length!==2||r.cases.some((c,i)=>c.name!==expected[i]||c.passed!==true)||r.navigations.length!==2||!r.assertions.some(a=>a.name==="negative control rejects stale visible teacher name with correct API data"&&a.passed)||!r.assertions.some(a=>a.name==="negative control rejects retained old visible slot beside correct new slot"&&a.passed))throw Error("incomplete joined calendar-consumer evidence")' "$OUT/calendar-consumers/fixture-report.json"
+for fixture in "$OUT/voice/fixture-report.json" "$OUT/handover/fixture-report.json" "$OUT/schedule-lock/fixture-report.json" "$OUT/calendar-consumers/fixture-report.json"; do
   node -e 'const r=require(process.argv[1]);if(!(r.passed>0)||r.failed!==0||r.skipped!==0||!Array.isArray(r.cases)||r.cases.length===0)throw Error("incomplete focused browser fixture result")' "$fixture"
 done
-echo 'seven-track-browser: PASS 9 suites / FAIL 0 / SKIP 0'
+echo 'seven-track-browser: PASS 10 suites / FAIL 0 / SKIP 0'

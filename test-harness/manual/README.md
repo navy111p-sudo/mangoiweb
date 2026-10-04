@@ -1032,3 +1032,24 @@ PW_DIR=/tmp/pw node test-harness/manual/warmup-two-way-browser.mjs
 
 ⚠️ 설정 화면의 두 갈래(`#wusTwoSec`)·교재 칸 위치·`btsSortLevel`·`btsRenderBookNow` 를
 건드리면 **사람이 이걸 불러야** 한다.
+
+## 실제 학생·강사 화면에 승인/이동 결과 연결
+
+`manual/schedule-consumer-approval-browser.mjs`는 실제 Worker 번들과 메모리 SQLite를
+`teacher.html` 및 `my-schedule.html`의 실제 Chromium 요청에 연결합니다.
+기존 `run-seven-track-browser.sh`의 loopback-only 격리 환경에서 한 번 실행하며,
+고정 Playwright 1.63.0/Chromium이나 격리가 없으면 SKIP 대신 실패합니다.
+
+- 학생 변경 요청 → 기존 관리자 승인: 일요일에서 월요일로 이동하고 강사를 교체합니다.
+- 버전 확인 관리자 이동: 날짜/시간/강사를 다시 바꾸고 이전 슬롯의 소멸을 확인합니다.
+- 실제 학생 화면 재열기, 강사 Refresh/재열기, 이전 캐시 교체, 실제 Join 버튼의 방 URL을 확인합니다.
+- 교사 계정 승인 거절(403)은 기존 정책 그대로 검사하며 성공으로 바꾸지 않습니다.
+- ID/방 정보는 실제 브라우저 응답·강사 Join URL에서 대조합니다. 학생 화면 DOM에는 원래
+  ID/방 번호가 없으므로 그 화면에 표시된다고 주장하지 않습니다.
+- 같은 화면 판정식이 오래된 강사명 및 남아 있는 이전 슬롯을 거절하는 표현 변이도 검사합니다.
+- 수강/연쇄 소속 정책, 운영 DB, 미팅 코드·미디어·외부 provider, 실제 계정은 범위 밖입니다.
+  부가 공지/교재/평가 패널은 이 일정 fixture에서 인수하지 않습니다.
+
+`manual/schedule-consumer-worker-fixture.mjs --self-check`는 별도의 Node 전용 준비 검사입니다.
+그 통과를 Chromium 화면 통과로 계산하지 않습니다. 실제 브라우저 결과와 스크린샷은
+`calendar-consumers/fixture-report.json` 및 같은 디렉터리에 남깁니다.
