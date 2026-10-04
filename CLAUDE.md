@@ -145,6 +145,9 @@
 
 | 함정 | 실제로 이렇습니다 |
 |---|---|
+| 영상 복구 재협상 요청을 보냈으니 성공이라고 기록함 | 요청 전송과 offer 전송은 다릅니다. 큰 ID는 기존 틱에서 재요청하고, 작은 ID는 실제 offer를 보낸 뒤에만 token을 소진합니다. SDP await 중 WebSocket이 닫힐 수도 있으므로 두 await 뒤 재확인하고, 보내지 못한 자기 local offer만 rollback합니다. 두 endpoint·busy/cooldown·실패 후 복구 검사는 `vc_fast_recovery_harness.mjs`에 있습니다. 오디오가 흐를 때 ICE restart를 추가하지 마세요. |
+| 사무실 모드 트랙이 live인데 상대에게 소리가 안 나감 | AudioContext가 suspended/interrupted/closed이면 가공 트랙은 live여도 무음입니다. resume 1회 뒤 1초 경과를 재고 기존 `disable(true)`로 되돌립니다. 숨은 탭의 40틱을 1초로 가정하지 마세요. 음소거·마이크 선택·저장값과 자동 재활성화 금지의 짝 검사는 `vc_office_recovery_harness.mjs`, 실제 수신 PCM 검사는 `manual/vc-office-recovery-browser.mjs`입니다. |
+| Cloudflare checkout이 submodule 갱신에서 실패함 | `.gitmodules` 없는 mode 160000 gitlink도 원인일 수 있습니다. 별도 패치 작업용 clone인 `mangoi-speech-patch/mangoi_Speech`는 상위 저장소에서 추적하지 않습니다. `git rm --cached`로 연결만 빼고 로컬 파일은 보존하며 해당 경로를 ignore합니다. checkout을 고치기 전 중복 자동 운영 배포 경로가 살아나지 않을지 확인하세요. |
 | 수업 안 웜업 iframe을 숨겼는데 마이크가 계속 동작함 | 부모가 탭을 CSS로 숨기면 자식의 `visibilitychange`는 발생하지 않습니다. `warmup.html`은 같은 오리진 부모의 iframe 조상 표시 상태도 관찰하고, 웜업 STT·Whisper·TTS와 지연 콜백만 종료합니다. 다시 보일 때 마이크를 자동 재시작하지 않습니다. 회귀: `manual/warmup-guided-browser.mjs`의 embedded 검사. |
 | 수업 종료 후 `recording`이 남을 때 | 2026-09-19: 임시본 복구는 12시간 대기인데 야간 정리는 6시간 후 실패로 내려 복구 대상에서 빼고 있었습니다. 청소는 파트·임시본·저장소 조회 오류를 보류하고, 복구기는 종료 힌트와 5분 무활동(구 클라이언트는 시작 4시간·30분 무활동)을 확인합니다. 임시본은 조건부 쓰기로 정상 파일을 보호하고 `r2_snapshot`으로 구분합니다. 승격된 임시본을 multipart 완료 증거로 쓰지 마세요. base cron의 DO는 prod와 달라 빈 방 판정에 쓸 수 없습니다. 검증: `recording_finalize_recovery_harness.mjs`. |
 | wrangler 명령 | wrangler 4에는 `r2 put`, `kv` 에 **`--remote` 옵션이 없습니다** |
