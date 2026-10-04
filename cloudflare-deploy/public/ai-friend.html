@@ -510,6 +510,7 @@
       data-ko="🚀 다음 활동 고르기" data-en="🚀 Choose next activity">🚀 다음 활동 고르기</button>
   </div>
 
+  <script src="/js/speech-preferences.js?v=2"></script>
   <script>
     // 전체 사이트 로그인된 사용자(mango_user) + 서명 토큰 자동 사용
     // 서버가 uid 를 그대로 믿지 않으므로(타인 대화 열람/삭제 방지 = IDOR 차단)
@@ -600,42 +601,10 @@
           칸 사이 비율(30·23·25·25%)은 20% 위로 그대로라 8/31 결정이 안 깨진다. */
     const RATE_STEPS_AF = [0.5, 0.65, 0.8, 1, 1.25];
     const RATE_DEFAULT_AF = 0.8;              // = «보통»
-    const RATE_KEY_AF = 'mangoi_aifriend_tts_rate';
-    /* 🔴 «옛 계단을 쓰던 기기» 를 한 번만 옮겨 준다 — 이 줄이 없으면 사장님 지시가
-       «이미 속도를 골라 둔 학생» 에게는 한 글자도 안 닿습니다.
-       값만 두면 «가장 가까운 칸» 이 옛 값을 그대로 집어 배속이 안 바뀌고(0.8→0.8·1→1),
-       하필 «🐢 아주 느리게» 를 골라 둔 학생 — 「너무 빠르다」를 이미 몸으로 말한 학생 —
-       만 0.6 → 0.65 로 «빨라집니다»(함정 대조가 브라우저로 재서 잡았습니다).
-       그래서 «값» 이 아니라 «칸 번호» 로 옮깁니다: 0.6→0.5 · 0.8→0.65 · 1→0.8 · 1.25→1 · 1.5→1.25.
-       라벨(아주 느리게…아주 빠르게)이 그대로 보존되면서 전원이 지시대로 한 칸 느려집니다.
-       ⛔ 이것은 «한 번만» 이어야 합니다 — 매번 돌면 새 0.8 을 옛 2단계로 보고 0.65 로,
-          또 0.65 를… 하며 수업 때마다 계속 느려집니다. 그래서 표식(RATE_VER_AF)을 둡니다. */
-    const RATE_VER_KEY_AF = 'mangoi_aifriend_tts_rate_v';
-    const RATE_VER_AF = '2';                  // 2 = 2026-09-10 한 칸씩 내린 계단
-    const RATE_STEPS_V1_AF = [0.6, 0.8, 1, 1.25, 1.5];   // 옮겨 오기 전용(판정에 쓰지 말 것)
-    const rateMarkAF = () => { try { localStorage.setItem(RATE_VER_KEY_AF, RATE_VER_AF); } catch(e){} };
-    const rateNearAF = (r) =>
-      RATE_STEPS_AF.reduce((a, b) => Math.abs(b - r) < Math.abs(a - r) ? b : a, RATE_DEFAULT_AF);
-    let currentRate = (function(){
-      try {
-        const r = parseFloat(localStorage.getItem(RATE_KEY_AF));
-        const moved = localStorage.getItem(RATE_VER_KEY_AF) === RATE_VER_AF;
-        /* ⚠️ 칸 값이 바뀌면 저장된 옛 값은 어느 버튼과도 안 맞아 «켜진 버튼이 하나도 없는»
-           상태가 된다 — 화면은 «보통» 처럼 보이는데 실제로는 딴 배속으로 읽는다(에러 없음).
-           ⛔ 범위 밖이라고 «기본값으로» 떨어뜨리지 말 것 — 아주 빠르게를 고른 학생이
-              말없이 보통으로 되돌아간다. 터무니없는 값만 거른다. */
-        if (!(r >= 0.3 && r <= 2)) { rateMarkAF(); return RATE_DEFAULT_AF; }
-        if (moved) return rateNearAF(r);
-        const i = RATE_STEPS_V1_AF.findIndex(v => Math.abs(v - r) < 1e-9);
-        /* ⛔ 옛 계단에 없는 값(예: 1.2)에 «가장 가까운 칸» 을 쓰면 1.25 로 «빨라진다» —
-           지시가 「모두 느리게」이므로 모르는 값은 «그보다 느린 쪽» 으로 내린다. */
-        const next = i >= 0 ? RATE_STEPS_AF[i]
-          : (RATE_STEPS_AF.filter(v => v <= r + 1e-9).pop() || RATE_STEPS_AF[0]);
-        try { localStorage.setItem(RATE_KEY_AF, String(next)); } catch(e){}
-        rateMarkAF();
-        return next;
-      } catch(e){ return RATE_DEFAULT_AF; }
-    })();
+    const friendRatePreference = MangoiSpeechPreferences.create('friend', 3, function(level) {
+      applyRate(RATE_STEPS_AF[level - 1], false);
+    }, getAuth);
+    let currentRate = RATE_STEPS_AF[friendRatePreference.level - 1];
 
     document.querySelectorAll('.opt[data-level]').forEach(b => {
       b.classList.toggle('active', b.dataset.level === currentLevel);   // 기억해 둔 레벨을 화면에 입힌다
@@ -906,11 +875,9 @@
        그동안은 속도가 화면 버튼으로만 바뀌어서, 부탁해도 똑같은 속도로 계속 말했다.
        (AI 답변 자체가 요청에 응하는 것은 서버 프롬프트에서 처리) */
     /* 계단 정본(RATE_STEPS_AF)은 이 파일 위쪽 «음성 재생 속도» 블록에 한 벌만 있다. */
-    function applyRate(v) {
+    function applyRate(v, persist) {
       currentRate = v;
-      /* 사람이 고른 값은 이미 새 계단이다 — 표식을 함께 남겨야 다음 로드에서 또 옮기지 않는다 */
-      try { localStorage.setItem(RATE_KEY_AF, String(currentRate)); } catch(e){}
-      rateMarkAF();
+      if (persist !== false) friendRatePreference.set(RATE_STEPS_AF.indexOf(v) + 1);
       document.querySelectorAll('.opt[data-rate]').forEach(x => {
         x.classList.toggle('active', parseFloat(x.dataset.rate) === currentRate);
       });
@@ -1324,6 +1291,7 @@
     }
 
     function speakText(text, btn, row, onDone) {
+      if (!friendRatePreference.loaded) return friendRatePreference.ready.then(function(){ speakText(text, btn, row, onDone); });
       if (!window.MangoiTTS) { if (onDone) onDone(); return; }
       if (!_ttsLangSet) { try { MangoiTTS.setLang('en'); } catch(e){} _ttsLangSet = true; }
       const clean = String(text || '').replace(/^[⚠️❗️\s]+/, '').trim();
