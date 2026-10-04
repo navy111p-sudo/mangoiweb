@@ -308,17 +308,21 @@
     border-radius:12px;cursor:pointer;background:rgba(15,20,38,0.92);color:#ddd6fe;
     border:1px solid rgba(167,139,250,0.45);box-shadow:0 6px 18px -6px rgba(0,0,0,.6)}
   #sc-friend-btn:hover{background:rgba(139,92,246,0.3);color:#fff}
-  #sc-friend-menu{position:fixed;top:60px;right:12px;z-index:99998;width:214px;padding:11px;
+  #sc-friend-menu{position:fixed;top:60px;right:12px;z-index:99998;width:270px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 72px);overflow-y:auto;box-sizing:border-box;padding:12px;
     border-radius:14px;background:rgba(15,20,38,0.97);border:1px solid rgba(167,139,250,0.4);
     box-shadow:0 16px 40px -10px rgba(0,0,0,.75)}
   /* 🔴 작성자 CSS 가 display 를 정하면 브라우저 기본 [hidden]{display:none} 을 이긴다 —
         그래서 «숨겼는데 그대로 보이는» 사고가 난다. 여기서 못 박아 둔다. */
   #sc-friend-menu[hidden]{display:none!important}
-  #sc-friend-menu .scf-title{font-size:11.5px;font-weight:800;color:#a5b4cf;margin:0 2px 8px}
-  #sc-friend-menu button{display:block;width:100%;margin-bottom:6px;padding:9px 10px;
-    font-family:inherit;font-size:13.5px;font-weight:800;text-align:left;cursor:pointer;
+  #sc-friend-menu .scf-title{font-size:14px;font-weight:800;color:#a5b4cf;margin:0 2px 8px}
+  #sc-friend-menu button{display:flex;align-items:center;gap:14px;width:100%;margin-bottom:8px;padding:9px 10px;
+    font-family:inherit;font-size:18px;font-weight:800;text-align:left;cursor:pointer;
     border-radius:10px;border:1px solid rgba(167,139,250,0.28);
     background:rgba(139,92,246,0.10);color:#ddd6fe}
+  #sc-friend-menu .scf-photo{width:64px;height:64px;flex-shrink:0;object-fit:cover;object-position:center;
+    border-radius:50%;background:#e8e4f4;border:2px solid rgba(255,255,255,.7)}
+  #sc-friend-menu button:last-child{margin-bottom:0}
+  #sc-friend-menu button:focus-visible{outline:3px solid #c4b5fd;outline-offset:2px}
   #sc-friend-menu button:hover{background:rgba(139,92,246,0.28);color:#fff}
   #sc-friend-menu button.on{background:linear-gradient(135deg,#8b5cf6,#a78bfa);color:#150c2e;
     border-color:#a78bfa}
@@ -365,10 +369,10 @@
         data-ko-aria="AI 친구 고르기" data-en-aria="Choose your AI friend">&#9776;</button>
 <div id="sc-friend-menu" hidden role="menu" aria-label="AI 친구">
   <div class="scf-title">🎙️ <span data-ko="AI 친구 (목소리·얼굴)" data-en="AI friend (voice &amp; face)">AI 친구 (목소리·얼굴)</span></div>
-  <button type="button" role="menuitemradio" data-p="emma" onclick="scSetFriend('emma',true)">👩 Emma</button>
-  <button type="button" role="menuitemradio" data-p="lily" onclick="scSetFriend('lily',true)">👧 Lily</button>
-  <button type="button" role="menuitemradio" data-p="noah" onclick="scSetFriend('noah',true)">👦 Noah</button>
-  <button type="button" role="menuitemradio" data-p="jake" onclick="scSetFriend('jake',true)">🦸 Jake</button>
+  <button type="button" role="menuitemradio" data-p="emma" onclick="scSetFriend('emma',true)"><img class="scf-photo" src="/img/friend-emma-2.webp" alt="" width="64" height="64"><span>Emma</span></button>
+  <button type="button" role="menuitemradio" data-p="lily" onclick="scSetFriend('lily',true)"><img class="scf-photo" src="/img/friend-lily.webp" alt="" width="64" height="64"><span>Lily</span></button>
+  <button type="button" role="menuitemradio" data-p="noah" onclick="scSetFriend('noah',true)"><img class="scf-photo" src="/img/friend-noah.webp" alt="" width="64" height="64"><span>Noah</span></button>
+  <button type="button" role="menuitemradio" data-p="jake" onclick="scSetFriend('jake',true)"><img class="scf-photo" src="/img/friend-jake.webp" alt="" width="64" height="64"><span>Jake</span></button>
 </div>
 
 <!-- 🏠 홈 — 처음 화면으로. ← (back-nav.js, 직전 페이지)와 짝이다.
@@ -911,7 +915,11 @@ function scSpeaker(){ return (SC_PEOPLE[scFriend] || SC_PEOPLE.emma).speaker; }
 function scGender(){ return (SC_PEOPLE[scFriend] || SC_PEOPLE.emma).g; }
 function scSyncFriendUI(){
   const box = document.getElementById('sc-friend-menu');
-  if (box) box.querySelectorAll('button[data-p]').forEach(b => b.classList.toggle('on', b.dataset.p === scFriend));
+  if (box) box.querySelectorAll('button[data-p]').forEach(b => {
+    const selected = b.dataset.p === scFriend;
+    b.classList.toggle('on', selected);
+    b.setAttribute('aria-checked', String(selected));
+  });
   try { window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter((SC_PEOPLE[scFriend]||SC_PEOPLE.emma).char); } catch(e){}
 }
 function scToggleFriends(e){
