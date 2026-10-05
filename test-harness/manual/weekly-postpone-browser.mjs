@@ -35,7 +35,7 @@ for(const width of [390,1360]){
   await page.locator('#pushBtn').click();
   await page.waitForFunction(()=>state.cart.length===1&&state.cart[0].seriesItems.length===3);
   assert.match(await page.locator('#detail-body').innerText(),/연기 전 → 연기 후 · 3회/);checks++;
-  assert.equal(await page.locator('#segment').isVisible(),false);checks++;
+  assert.equal(await page.locator('#segment').isVisible(),true);assert.equal(await page.evaluate(()=>state.tab),'weekly');checks+=2; /* 2026-10-05 A안: 탭 3개 */
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);assert.equal(overflow,false);checks++;
   await page.locator('#confirm-btn').click({trial:true});
   if(round===0)await page.screenshot({path:out+'/postpone-'+width+'.jpg',type:'jpeg',quality:70});
