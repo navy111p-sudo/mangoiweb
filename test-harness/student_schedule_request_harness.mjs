@@ -499,12 +499,17 @@ ok('확정도 실제 수업은 담은 수를 강요하지 않는다', /!__MOB_RE
 const push = blockAt(page, page.indexOf('function pushBackAll(){'));
 // 2026-10-05: explicitly requested weekly cascading postponement replaces the
 // old one-occurrence shortcut. Execute the actual UI handler against a preview.
-const previewState={mode:'postpone',dtOrig:0,cart:[]};
+const previewState={mode:'postpone',tab:'weekly',dtOrig:0,cart:[]};  // 2026-10-05 A안: «매주» 탭에서만 담는다
 const previewItems=[{id:1,from_date:'2027-01-06',to_date:'2027-01-13',to_time:'16:30'},{id:2,from_date:'2027-01-13',to_date:'2027-01-20',to_time:'16:30'}];
 const previewDeps={state:previewState,__MOB_REAL:true,CURRENT_SCHEDULE:[{schedule_id:1,teacherName:'Sandbox',date:'2027-01-06',hour:'16:30'}],__dtFirstOpen:()=>0,localStorage:{getItem:()=> 'sandbox-token'},showToast:()=>{},renderBody:()=>{},updateSticky:()=>{},fetch:async()=>({ok:true,json:async()=>({ok:true,count:2,items:previewItems,snapshot:'sandbox-snapshot'})})};
 await new Function(...Object.keys(previewDeps),'return (async()=>{'+push+'})();')(...Object.values(previewDeps));
 ok('한 주 뒤로: 전체 시리즈를 한 요청으로 담는다',previewState.cart.length===1&&previewState.cart[0].requestScope==='weekly_postpone');
 ok('연기 전후 전체 회차와 서버 스냅샷 보존',previewState.cart[0]?.seriesItems.length===2&&previewState.cart[0]?.seriesSnapshot==='sandbox-snapshot');
+// 짝: 응답을 기다리는 사이 날짜 탭으로 갔으면 늦게 온 미리보기를 버린다(Codex 리뷰 #1381)
+const awayState={mode:'postpone',tab:'weekly',dtOrig:0,cart:[]};
+const awayDeps={...previewDeps,state:awayState,fetch:async()=>{awayState.tab='time';return {ok:true,json:async()=>({ok:true,count:2,items:previewItems,snapshot:'sandbox-snapshot'})};}};
+await new Function(...Object.keys(awayDeps),'return (async()=>{'+push+'})();')(...Object.values(awayDeps));
+ok('기다리는 사이 다른 탭으로 가면 매주 묶음을 담지 않는다',awayState.cart.length===0);
 const done = blockAt(page, page.indexOf('function showCompletion('));
 ok('완료 화면의 «기존» 도 고른 수업만', /__mobPickedOrigs\(\)/.test(done) && /beforeSrc\.forEach/.test(done));
 

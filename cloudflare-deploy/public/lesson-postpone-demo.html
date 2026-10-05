@@ -1423,6 +1423,7 @@ function _goMode(mode){
   if (!mode || state.saving) return;
   state.mode = mode;
   state.tab = (mode === 'postpone' && __MOB_REAL) ? 'weekly' : 'time';
+  state.tabPicked = false;   /* 사람이 탭을 직접 눌렀나 — 안 눌렀으면 수업을 늦게 불러와도 기본(매주)으로 맞춘다 */
   state.weeklyTarget = CURRENT_SCHEDULE.length;
   state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null; state.dtOrig=null;
   state.cart = [];
@@ -1525,6 +1526,8 @@ function __segSync(){
   var seg = document.getElementById('segment'); if (!seg) return;
   var three = (state.mode === 'postpone' && __MOB_REAL);
   if (!three && state.tab === 'weekly') state.tab = 'time';
+  /* 수업을 늦게 불러왔으면(__MOB_REAL 이 나중에 true) 기본 «매주» 로 — 사람이 고른 탭·담은 것은 건드리지 않는다. */
+  if (three && !state.tabPicked && state.tab !== 'weekly' && !state.cart.length) state.tab = 'weekly';
   seg.classList.toggle('seg3', three);
   seg.setAttribute('data-tab', state.tab);
   $$('.seg').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === state.tab); });
@@ -1558,6 +1561,7 @@ $$('.seg').forEach(s => {
   s.addEventListener('click', () => {
     var prevTab = state.tab;
     state.tab = s.dataset.tab;
+    state.tabPicked = true;
     /* 매주 일괄 연기(묶음)와 한 수업씩 담기는 섞지 않는다 — 넘나들면 장바구니를 비운다. */
     if (prevTab !== state.tab && (prevTab === 'weekly' || state.tab === 'weekly')) state.cart = [];
     $('#segment').setAttribute('data-tab', state.tab);
@@ -1596,7 +1600,8 @@ async function pushBackAll(){
       { credentials:'include', headers:tok ? {Authorization:'Bearer ' + tok} : {} });
     var plan = await response.json();
     if (!response.ok || !plan.ok) throw new Error(plan.error || 'lookup_failed');
-    if (state.mode !== 'postpone' || state.dtOrig !== oi) return;
+    /* 기다리는 사이 다른 탭으로 갔으면 버린다 — 날짜·교사 탭에 매주 묶음이 끼어들면 안 된다. */
+    if (state.mode !== 'postpone' || state.tab !== 'weekly' || state.dtOrig !== oi) return;
     var first = plan.items.find(function(x){ return String(x.id) === String(c.schedule_id); });
     if (!first) throw new Error('lookup_failed');
     state.cart = [{ teacherId:c.teacherId, teacherName:c.teacherName, realTeacherId:null,

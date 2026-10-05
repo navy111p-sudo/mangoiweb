@@ -178,6 +178,25 @@ console.log('\n▶ ② 로그인 학생: «매주» 탭 ↔ 날짜·교사 탭�
   ok('날짜 탭에서 수업을 바꿔 골라도 담은 것은 남는다', await page.evaluate(() => state.cart.length === 1 && state.dtOrig === 1));
   await click(page, '#seg-weekly', '매주 탭');
   ok('매주 탭으로 돌아가면 비우고 «매주» 단추가 보인다', await page.evaluate(() => state.cart.length === 0 && !!document.getElementById('pushBtn')));
+  // (Codex 리뷰 1) 매주 미리보기를 기다리는 사이 다른 탭으로 가면, 늦게 온 응답이 장바구니에 끼어들지 않는다
+  await page.route('**/api/class/schedule/weekly-postpone**', async r => { await new Promise(res => setTimeout(res, 800)); r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, count: 2, snapshot: 's', items: [{ id: 4385, from_date: '2099-09-30', from_time: '16:00', to_date: '2099-10-07', to_time: '16:00' }, { id: 849, from_date: '2099-09-30', from_time: '16:20', to_date: '2099-10-07', to_time: '16:20' }] }) }); });
+  await page.evaluate(() => { state.dtOrig = 0; pushBackAll(); });
+  await click(page, '#seg-time', '기다리는 중 날짜 탭');
+  await page.waitForTimeout(1100);
+  ok('늦게 온 매주 미리보기는 날짜 탭 장바구니에 안 들어온다', await page.evaluate(() => state.tab === 'time' && state.cart.length === 0 && !state.previewLoading));
+  await click(page, '#seg-weekly', '매주 탭(다시)');
+  await click(page, '#pushBtn', '매주 미리보기');
+  await page.waitForTimeout(1100);
+  ok('매주 탭에 머물면 미리보기가 담긴다(짝)', await page.evaluate(() => state.cart.length === 1 && !!state.cart[0].seriesItems));
+  // (Codex 리뷰 2) 수업을 늦게 불러와도 기본은 «매주»
+  await page.evaluate(() => { __MOB_REAL = false; _goMode('postpone'); });
+  ok('불러오기 전엔 날짜 탭(예시)', await page.evaluate(() => state.tab === 'time'));
+  await page.evaluate(() => { __MOB_REAL = true; renderBody(); updateSticky(); });
+  ok('수업이 늦게 와도 기본은 «매주» 로 맞춘다', await page.evaluate(() => state.tab === 'weekly' && document.getElementById('seg-weekly').classList.contains('active')));
+  await page.evaluate(() => { __MOB_REAL = false; _goMode('postpone'); });
+  await click(page, '#seg-teacher', '불러오기 전 교사 탭 직접 누름');
+  await page.evaluate(() => { __MOB_REAL = true; renderBody(); updateSticky(); });
+  ok('사람이 직접 고른 탭은 안 바꾼다(짝)', await page.evaluate(() => state.tab === 'teacher'));
   await page.evaluate(() => _goMode('change'));
   ok('«수업 변경» 에는 매주 탭이 없다', await page.evaluate(() => !document.getElementById('segment').classList.contains('seg3') && document.getElementById('seg-weekly').offsetParent === null));
   ok('페이지 오류 없음', errs.length === 0, errs.join(' | '));
