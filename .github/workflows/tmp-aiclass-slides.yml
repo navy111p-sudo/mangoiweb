@@ -1,0 +1,23 @@
+# 임시 — AI 선생님 수업 샘플용 실제 교재 슬라이드 받기. 작업 브랜치에서만 돌고, 끝나면 지웁니다. main 에 올리지 않습니다.
+name: tmp-aiclass-slides
+on:
+  push:
+    branches: [claude/elegant-allen-owvpm3]
+    paths: [.github/workflows/tmp-aiclass-slides.yml, docs/ai-class-sample/fetch-slides.mjs]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq webp
+      - run: node docs/ai-class-sample/fetch-slides.mjs
+      - run: |
+          du -sh docs/ai-class-sample/slides; ls docs/ai-class-sample/slides | wc -l
+          git config user.name "github-actions"; git config user.email "actions@github.com"
+          git add docs/ai-class-sample/slides docs/ai-class-sample/slides-map.json
+          git commit -m "tmp: AI 선생님 수업 샘플용 실제 교재 슬라이드" || echo nothing
+          git push
