@@ -250,6 +250,15 @@ header {
   z-index: 1;
 }
 .segment[data-tab="teacher"] .seg-slider { transform: translateX(100%); }
+/* ⏩📅👨‍🏫 (2026-10-05 사장님 A안) 실제 수업 «연기» 는 탭 3개 — 매주 한 주씩 · 날짜로 · 교사로 */
+.segment .seg[data-tab="weekly"] { display: none; }
+.segment.seg3 .seg[data-tab="weekly"] { display: block; }
+.segment.seg3 .seg-slider { width: calc(33.333% - 2.67px); }
+.segment.seg3[data-tab="weekly"] .seg-slider { transform: translateX(0); }
+.segment.seg3[data-tab="time"] .seg-slider { transform: translateX(100%); }
+.segment.seg3[data-tab="teacher"] .seg-slider { transform: translateX(200%); }
+/* 탭 3개는 한 줄로 — 390px 폰에서 두 줄로 쪼개졌다(실측). .seg{font-size:17px!important} 를 이기려면 !important. */
+.segment.seg3 .seg { font-size: 14.5px !important; white-space: nowrap; padding-left: 2px; padding-right: 2px; letter-spacing: -0.6px; }
 .segment .seg {
   flex: 1;
   padding: 11px 6px;
@@ -1096,6 +1105,7 @@ button:focus-visible{outline:3px solid #236ccd;outline-offset:3px}
 
     <div class="segment" id="segment" data-tab="time">
       <div class="seg-slider"></div>
+      <button class="seg"        data-tab="weekly"  id="seg-weekly"><span id="seg-weekly-label">⏩ 매주 한 주씩</span></button>
       <button class="seg active" data-tab="time"    id="seg-time"><span id="seg-time-label">🕐 시간으로</span></button>
       <button class="seg"        data-tab="teacher" id="seg-teacher"><span id="seg-teacher-label">👨‍🏫 교사로</span></button>
     </div>
@@ -1412,7 +1422,7 @@ function showToast(msg){
 function _goMode(mode){
   if (!mode || state.saving) return;
   state.mode = mode;
-  state.tab = 'time';
+  state.tab = (mode === 'postpone' && __MOB_REAL) ? 'weekly' : 'time';
   state.weeklyTarget = CURRENT_SCHEDULE.length;
   state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null; state.dtOrig=null;
   state.cart = [];
@@ -1509,12 +1519,24 @@ function resetToMain(){
   $('#screen-main').classList.remove('exit-up'); $('#screen-main').classList.add('active');
 }
 
+/* ⏩ 탭 3개 맞추기 — «매주 한 주씩» 은 실제 수업 연기에서만 보인다(서버 일괄 연기 API 가 실제 수업만 받는다).
+   __MOB_REAL 은 늦게 정해지므로 그릴 때마다 다시 맞춘다. */
+function __segSync(){
+  var seg = document.getElementById('segment'); if (!seg) return;
+  var three = (state.mode === 'postpone' && __MOB_REAL);
+  if (!three && state.tab === 'weekly') state.tab = 'time';
+  seg.classList.toggle('seg3', three);
+  seg.setAttribute('data-tab', state.tab);
+  $$('.seg').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === state.tab); });
+  var wl = document.getElementById('seg-weekly-label');
+  if (wl) wl.textContent = __mobT('⏩ 매주 한 주씩', '⏩ Weekly');
+}
 function enterDetail(){
   $('#screen-done').classList.remove('active');
   const v = VERB[state.mode];
   $('#detail-title').textContent = `수업 ${v}하기`;
-  $('#seg-time-label').textContent    = `🕐 날짜로 ${v}`;
-  $('#seg-teacher-label').textContent = `👨‍🏫 교사로 ${v}`;
+  $('#seg-time-label').textContent    = state.mode === 'postpone' ? __mobT('📅 날짜로 연기', '📅 By date') : `🕐 날짜로 ${v}`;
+  $('#seg-teacher-label').textContent = state.mode === 'postpone' ? __mobT('👨‍🏫 교사로 연기', '👨‍🏫 By teacher') : `👨‍🏫 교사로 ${v}`;
   $('#segment').setAttribute('data-tab', state.tab);
   $$('.seg').forEach(s => s.classList.toggle('active', s.dataset.tab === state.tab));
   renderBody(); updateSticky();
@@ -1534,7 +1556,10 @@ $('#btn-back').addEventListener('click', () => {
 
 $$('.seg').forEach(s => {
   s.addEventListener('click', () => {
+    var prevTab = state.tab;
     state.tab = s.dataset.tab;
+    /* 매주 일괄 연기(묶음)와 한 수업씩 담기는 섞지 않는다 — 넘나들면 장바구니를 비운다. */
+    if (prevTab !== state.tab && (prevTab === 'weekly' || state.tab === 'weekly')) state.cart = [];
     $('#segment').setAttribute('data-tab', state.tab);
     $$('.seg').forEach(b => b.classList.toggle('active', b === s));
     state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
@@ -1642,23 +1667,27 @@ window.addEventListener('resize', lpPlaceSeg);
 
 function renderBody(){
   const body = $('#detail-body');
-  if (__MOB_REAL && state.mode === 'postpone') {
+  __segSync();
+  if (__MOB_REAL && state.mode === 'postpone' && state.tab === 'weekly') {
     lpSegHome();
-    document.getElementById('segment').style.display = 'none';
+    document.getElementById('segment').style.display = '';
     if (state.dtOrig == null) state.dtOrig = __dtFirstOpen();
     var chosen = CURRENT_SCHEDULE[state.dtOrig];
     var choices = CURRENT_SCHEDULE.map(function(c,i){ return '<button type="button" class="hour-chip '+(i===state.dtOrig?'active':'')+'" data-dtsel="'+i+'">'+fmtMD(c.date)+' ('+fmtDOW(c.date)+') '+__ftEsc(c.hour)+' · '+__ftEsc(c.teacherName)+'</button>'; }).join('');
     var preview = state.cart[0];
     var details = preview && preview.seriesItems ? '<h3>연기 전 → 연기 후 · '+preview.seriesItems.length+'회</h3><ol>'+preview.seriesItems.map(function(it){return '<li>'+fmtMD(it.from_date)+' → <b>'+fmtMD(it.to_date)+'</b> · '+__ftEsc(it.to_time)+'</li>';}).join('')+'</ol>' : '<p>수업을 선택하고 다음 주 연기 일정을 확인하세요.</p>';
-    body.innerHTML = '<div class="lp-col-left"><h2>수업 연기</h2><p>선택한 수업부터 같은 요일·시간·교사의 남은 수업을 한 주씩 미룹니다. 다른 요일과 총 수업 횟수는 그대로입니다.</p><div class="dt-orig">'+choices+'</div></div><div class="lp-col-right">'+renderPushBtn()+'<div class="cart-box">'+details+'<p>관리자 승인 전에는 현재 시간표가 유지됩니다.</p></div></div>';
-    attachHandlers(); return;
+    body.innerHTML = '<div class="lp-col-left"><div class="lp-seg-slot"></div><h2>수업 연기</h2><p>선택한 수업부터 같은 요일·시간·교사의 남은 수업을 한 주씩 미룹니다. 다른 요일과 총 수업 횟수는 그대로입니다.</p><div class="dt-orig">'+choices+'</div></div><div class="lp-col-right">'+renderPushBtn()+'<div class="cart-box">'+details+'<p>관리자 승인 전에는 현재 시간표가 유지됩니다.</p></div></div>';
+    attachHandlers(); lpPlaceSeg(); return;
   }
   document.getElementById('segment').style.display = '';
   lpSegHome(); // 본문 초기화 전, 탭(segment)을 안전한 위치로 회수
   var leftHtml = '<div class="lp-col-left"><div class="lp-seg-slot"></div>'
-               + (__MOB_REAL ? '<h2>수업 변경</h2><p>변경할 수업을 고르고 희망 날짜·시간·교사를 선택하세요. 관리자 승인 후 시간표에 반영됩니다.</p>' : renderCurrentLesson()) + renderWeekly() + '</div>';
+               + (__MOB_REAL ? (state.mode === 'postpone'
+                   ? '<h2>수업 연기</h2><p>' + __mobT('연기할 수업 «하나» 를 고르고 원하는 날짜·시간 또는 선생님을 선택하세요. 고른 수업만 요청되고, 관리자 승인 후 시간표에 반영됩니다.', 'Pick one class, then choose a new date/time or another teacher. Only the classes you pick are requested; staff apply them after review.') + '</p>'
+                   : '<h2>수업 변경</h2><p>변경할 수업을 고르고 희망 날짜·시간·교사를 선택하세요. 관리자 승인 후 시간표에 반영됩니다.</p>') : renderCurrentLesson()) + renderWeekly() + '</div>';
   var rightInner;
-  if (state.tab === 'time') rightInner = (state.mode === 'postpone' ? renderPushBtn() : '') + renderTimeTab() + renderCartBox();
+  /* 실제 수업의 «매주 한 주씩» 은 자기 탭(weekly)이 있다 — 날짜 탭에는 예시 화면에서만 단추를 둔다. */
+  if (state.tab === 'time') rightInner = (state.mode === 'postpone' && !__MOB_REAL ? renderPushBtn() : '') + renderTimeTab() + renderCartBox();
   else rightInner = renderTeacherTab() + renderCartBox();
   body.innerHTML = leftHtml + '<div class="lp-col-right">' + rightInner + '</div>';
   attachHandlers();
@@ -2060,7 +2089,7 @@ function attachHandlers(){
   }));
   // 📅 날짜로 탭(실제)
   $$('#detail-body [data-dtsel]').forEach(el => el.addEventListener('click', () => {
-    if (state.saving) return; state.cart = state.mode === 'postpone' ? [] : state.cart; state.dtOrig = Number(el.getAttribute('data-dtsel')); state.date = null; state.hour = null; renderBody(); updateSticky();
+    if (state.saving) return; state.cart = (state.mode === 'postpone' && state.tab === 'weekly') ? [] : state.cart; state.dtOrig = Number(el.getAttribute('data-dtsel')); state.date = null; state.hour = null; renderBody(); updateSticky();
   }));
   $$('#detail-body .hour-chip[data-dthour]').forEach(el => el.addEventListener('click', () => {
     if (el.classList.contains('disabled')) return;

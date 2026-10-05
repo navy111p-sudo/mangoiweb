@@ -81,6 +81,11 @@ console.log('\n▶ ① 로그인 학생: 날짜로 연기(실제 시간표)');
   const { browser, page, seen, errs } = await open({ uid: 'jeong', name: '정우영' });
   await page.evaluate(() => _goMode('postpone'));
   await page.waitForTimeout(300);
+  /* 2026-10-05 A안 — 실제 수업 연기는 탭 3개(⏩ 매주 · 📅 날짜로 · 👨‍🏫 교사로), 기본은 «매주». */
+  ok('연기 탭 3개가 보이고 기본은 «매주 한 주씩»', await page.evaluate(() => state.tab === 'weekly' && document.getElementById('segment').classList.contains('seg3')
+    && ['weekly','time','teacher'].every(t => { const b = document.querySelector('.seg[data-tab="' + t + '"]'); return b && b.offsetParent !== null; })));
+  await click(page, '#seg-time', '📅 날짜로 연기 탭');
+  ok('날짜 탭에는 «매주» 단추가 없다(자기 탭에만)', await page.evaluate(() => !document.getElementById('pushBtn')));
   ok('전제: 진짜 수업 3건 · 날짜 탭', await page.evaluate(() => __MOB_REAL === true && CURRENT_SCHEDULE.length === 3 && state.tab === 'time'));
   ok('옮길 수업 고르기 칩이 3개, 첫 수업이 선택돼 있다', await page.evaluate(() => document.querySelectorAll('[data-dtsel]').length === 3 && !!document.querySelector('[data-dtsel="0"].active')));
   ok('날짜를 고르기 전엔 서버에 안 묻는다', seen.slots.length === 0, seen.slots.length);
@@ -159,16 +164,22 @@ console.log('\n▶ ① 로그인 학생: 날짜로 연기(실제 시간표)');
   await browser.close();
 }
 
-console.log('\n▶ ② 로그인 학생: 전체 한 주 뒤로 밀기');
+console.log('\n▶ ② 로그인 학생: «매주» 탭 ↔ 날짜·교사 탭은 장바구니를 섞지 않는다');
 {
   const { browser, page, errs } = await open({ uid: 'jeong' });
   await page.evaluate(() => _goMode('postpone'));
-  await click(page, '#pushBtn', '전체 밀기');
-  const c = await cart(page);
-  ok('3건 모두 같은 선생님·같은 시각·한 주 뒤·자기 자리', c.length === 3
-    && c[0].o === 0 && c[0].d === '2099-10-07' && c[0].h === '16:00' && c[0].n === 'KRYSTEL' && c[0].id === null
-    && c[1].o === 1 && c[1].d === '2099-10-07' && c[1].n === '중국어 강선생님'
-    && c[2].o === 2 && c[2].d === '2099-10-08', JSON.stringify(c));
+  await page.evaluate(() => { state.cart = [{ teacherId: 'x', teacherName: 'K', date: '2099-10-07', hour: '16:00', origIdx: 0, requestScope: 'weekly_postpone', seriesItems: [{}, {}] }]; renderBody(); updateSticky(); });
+  await click(page, '#seg-teacher', '교사로 탭');
+  ok('매주 묶음을 담은 채 교사 탭으로 가면 장바구니가 비워진다', await page.evaluate(() => state.tab === 'teacher' && state.cart.length === 0));
+  await page.evaluate(() => { state.cart = [{ teacherId: 'x', teacherName: 'K', date: '2099-10-07', hour: '16:00', origIdx: 0 }]; renderBody(); updateSticky(); });
+  await click(page, '#seg-time', '날짜로 탭');
+  ok('날짜 ↔ 교사 탭끼리는 장바구니를 유지한다(짝)', await page.evaluate(() => state.tab === 'time' && state.cart.length === 1));
+  await click(page, '[data-dtsel="1"]', '날짜 탭에서 다른 수업 고르기');
+  ok('날짜 탭에서 수업을 바꿔 골라도 담은 것은 남는다', await page.evaluate(() => state.cart.length === 1 && state.dtOrig === 1));
+  await click(page, '#seg-weekly', '매주 탭');
+  ok('매주 탭으로 돌아가면 비우고 «매주» 단추가 보인다', await page.evaluate(() => state.cart.length === 0 && !!document.getElementById('pushBtn')));
+  await page.evaluate(() => _goMode('change'));
+  ok('«수업 변경» 에는 매주 탭이 없다', await page.evaluate(() => !document.getElementById('segment').classList.contains('seg3') && document.getElementById('seg-weekly').offsetParent === null));
   ok('페이지 오류 없음', errs.length === 0, errs.join(' | '));
   await browser.close();
 }
