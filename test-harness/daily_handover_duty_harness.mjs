@@ -169,6 +169,9 @@ async function prime(t) {
   const js = readFileSync(process.env.BANNER_SRC || 'cloudflare-deploy/public/js/handover-inbox-banner.js', 'utf8');
   const work = readFileSync('cloudflare-deploy/public/work.html', 'utf8');
   ok('결재함 복사본이 공유 스크립트와 같다', process.env.BANNER_SRC || work.includes(js.trim()));
+  const mgr = readFileSync('cloudflare-deploy/public/manager.html', 'utf8');
+  ok('매니저 화면(/manager) 복사본도 공유 스크립트와 같다', process.env.BANNER_SRC || mgr.includes(js.trim()));
+  ok('매니저 화면에 배너 자리가 있다', /<section id="handover-inbox-banner" hidden><\/section>/.test(mgr));
   const cut = (name) => { const a = js.indexOf('function ' + name + '('); if (a < 0) return ''; let i = js.indexOf('{', a), d = 0; for (; i < js.length; i++) { if (js[i] === '{') d++; else if (js[i] === '}' && --d === 0) break; } return js.slice(a, i + 1); };
   const src = 'var pushState=__ps;' + cut('line') + cut('kstNow') + cut('pushLine') + cut('renderWriter');
   ok('전제: renderWriter 를 오려 냈다', /function renderWriter/.test(src));
