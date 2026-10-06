@@ -3127,6 +3127,35 @@ function mgsEnrHasLiveClass(enr) {
   return false;
 }
 
+/* 📅 (2026-10-06 사장님 제보 delaware) 「그 «날짜» 에 살아 있는 수업이 있는가」 — mgsEnrHasLiveClass 의 짝.
+   [왜 생겼나] 위 판정은 «그 신청으로 만든 수업이 하나라도 살아 있으면 그린다» 라서, 일부만 취소된
+     신청이 «취소된 날» 에도 그려졌다. 실측: 체험수업 신청 #124(수 21:10)의 수업 5건 중 9/30(지난 수업)만
+     활성이고 10/7·14·21·28 은 취소 — 그런데 캘린더는 내일(10/7)에 「체험수업」을 그렸고, 아래
+     「등록된 수업 스케줄」(실제 수업)에는 없어 두 화면이 서로 다른 말을 했다.
+   ✅ 그 신청의 살아 있는 수업 중 «이 날짜에 열리는 것» 이 있을 때만 그린다(판정은 mgsSchedHitsDate 하나).
+   ⚠️ 못 읽었으면(aiOk) 예전대로 그린다(fail-open — 위 판정과 같은 방향).
+   ⚠️ 목록이 잘렸을 수 있으면(GET class-schedules 기본 limit=100, 날짜 오름차순이라 «먼 미래» 가 잘린다)
+      그 신청의 마지막 날짜보다 뒤의 날은 «모름» 으로 보고 그린다 — 멀쩡한 수업이 사라지는 쪽이 더 나쁘다.
+   ℹ️ 여기서 안 그린 날은 «안 그린 N건» 안내에 세지 않는다 — 그 안내는 «수업이 하나도 없는 신청» 이라는 뜻이다. */
+var MGS_AI_LIST_LIMIT = 100;
+function mgsEnrLiveOnDate(enr, date) {
+  if (!_dSchedState.aiOk) return true;
+  var id = enr && enr.id;
+  if (id === undefined || id === null || id === '' || !date) return true;
+  var key = 'adm-enroll:' + String(id);
+  var list = _dSchedState.aiSchedules || [];
+  var lastYmd = '';
+  for (var i = 0; i < list.length; i++) {
+    var r = list[i];
+    if (String((r && r.source) || '') !== key) continue;
+    if (mgsSchedHitsDate(r, date)) return true;
+    var sd = String(r.scheduled_date || '').slice(0, 10);
+    if (sd > lastYmd) lastYmd = sd;
+  }
+  if (list.length >= MGS_AI_LIST_LIMIT && lastYmd && mgsYmd(date) > lastYmd) return true;
+  return false;
+}
+
 /* 🔕 (2026-09-21 사장님 지시) 「체험수업이 없는데 나오는 것은 안돼. 캘린더에 나오지 않게 해줘」
    ─ 그래서 «신청만 있고 실제 수업은 하나도 없는» 수강신청은 캘린더에 아예 그리지 않는다.
    📜 같은 날 앞 판(#1059)은 «회색으로 낮추고 사실을 적기» 였다 — 그것을 사장님이 바꾸신 것이다.
@@ -3372,6 +3401,7 @@ function renderDSchedWeek() {
       /* 🔕 «실제로 그려졌을 칸» 을 찾은 «뒤» 에 판정한다 — ⛔ 요일·시각 매칭보다 앞에 두면
          그 주에 원래 안 그려질 신청까지 세어 「그리지 않았습니다」가 거짓이 된다(월간과 같은 자리). */
       if (!mgsEnrHasLiveClass(enr)) { _ghostIds.add(String(enr.id)); break; }
+      if (!mgsEnrLiveOnDate(enr, dayDate)) continue;   /* 📅 그 날짜의 수업이 취소됐으면 그 칸만 비운다 */
       const slotIdx = (hh - HOUR_START)*6 + Math.floor(mm/10);
       const colors = typeColors[enr.type || '정규수업'] || typeColors['정규수업'];
       const top = slotIdx * ROW_H;
@@ -3463,6 +3493,7 @@ function renderDSchedMonth() {
         /* 🔕 주간 뷰와 «같은» 정본으로 판정해, 실제 수업이 없으면 그리지 않는다.
            ⛔ 여기에 판정을 다시 적지 말 것 — 한쪽만 고쳐지는 사고가 난다. */
         if (!mgsEnrHasLiveClass(enr)) { _ghostIds.add(String(enr.id)); continue; }
+        if (!mgsEnrLiveOnDate(enr, c.date)) continue;   // 📅 주간과 같은 정본
         const cl = tc[enr.type||'정규수업'] || tc['정규수업'];
         html += '<div style="background:' + cl.bg + ';border-left:3px solid ' + cl.b + ';border-radius:3px;padding:3px 5px;margin-bottom:3px;font-size:10px;color:#0f172a"><b>' + (enr.type||'정규수업').substring(0,4) + '</b><br>' + (enr.teacher_name||'TBD') + '<br>' + timeStr + ' (' + (enr.class_size||'1:1') + ')</div>';
       }
