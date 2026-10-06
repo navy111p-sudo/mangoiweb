@@ -12,6 +12,8 @@
  *   C. createEnrollOrder(신규) — 첫 회차가 학생 겹침이면 409 + «이 학생은» 문구 · (짝) 안 겹치면 그 409 가 아님
  *   D. enrollCreateSchedules — 결제 뒤 생성에서도 그 날짜를 안 만든다
  *   E. 기간 채우기(planEnrollBackfill) — 그 날짜를 skipped.student_conflict 로 뺀다
+ *   F. 공개 미리보기 /api/pay/enroll/check — «본인 토큰» 일 때만 학생 겹침을 보고 답한다
+ *      (짝) 토큰 없이·남의 토큰으로 남의 uid 를 넣으면 학생 일정을 안 본다(엿보기 차단)
  */
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -175,6 +177,46 @@ console.log('\n[ E. 기간 채우기(백필) ]');
   let b = null; try { b = await A.planEnrollBackfill(env, 9); } catch (e) { b = { __err: e.message }; }
   ok(b && b.ok && b.skipped && (b.skipped.student_conflict || []).includes(hit), '학생 겹침 날짜를 skipped.student_conflict 로 뺀다', b && (b.__err || b.skipped));
   ok(b && b.add && !b.add.some((x) => x.date === hit) && b.add.some((x) => x.date === addDay(TUE, 7)), '(짝) 그 날짜만 빠지고 다른 화요일은 채운다', b && b.add && b.add.map((x) => x.date));
+}
+
+/* ═══ F ═══ */
+console.log('\n[ F. 미리보기 /api/pay/enroll/check ]');
+{
+  let T = null; try { T = await import(pathToFileURL(mkCopy('auth-token')).href); } catch (e) { console.log('  (auth-token 로드 실패) ' + e.message); }
+  ok(!!(T && T.signUidToken && O.handleEnrollApi), '전제: 토큰 발급·라우트 핸들러를 불러왔다');
+  const { env, db } = await withTables();
+  env.ROOM_JWT_SECRET = 'harness-secret-0123456789abcdef';
+  insCls(db, { date: TUE, time: '21:10', tid: '6' });   // stu 가 이미 KAYE 와 수업
+  const call = async (extra) => {
+    const body = { teacher_id: '5', weekly: 1, months: 1, minutes: 20, days: [2], times: { 2: '21:10' }, start_date: TUE, ...extra };
+    const req = new Request('https://x/api/pay/enroll/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    try { const r = await O.handleEnrollApi(req, new URL(req.url), env); return r ? await r.json() : { __err: 'null response' }; }
+    catch (e) { return { __err: String(e.message || e) }; }
+  };
+  let tok = ''; try { tok = await T.signUidToken('stu', env); } catch (e) { console.log('  (토큰 발급 실패) ' + e.message); }
+  const own = await call({ uid: 'stu', token: tok });
+  ok(own && own.ok && own.student_checked === true && own.student_busy === true && own.ok_to_book === false && own.first_student_conflict === TUE,
+    '본인 토큰이면 학생 겹침을 보고 «예약 불가 · 첫 겹침 날짜» 로 답한다', own);
+  const anon = await call({ uid: 'stu' });
+  ok(anon && anon.ok && anon.student_checked === false && anon.student_busy === false && anon.ok_to_book === true,
+    '(짝) 토큰 없이 uid 만 넣으면 학생 일정을 안 본다 — 엿보기 차단', anon);
+  let otherTok = ''; try { otherTok = await T.signUidToken('other', env); } catch {}
+  const spoof = await call({ uid: 'stu', token: otherTok });
+  ok(spoof && spoof.ok && spoof.student_checked === false && spoof.student_busy === false,
+    '(짝) 남의 토큰으로 다른 uid 를 넣어도 안 본다', spoof);
+  const clean = await call({ uid: 'other', token: otherTok });
+  ok(clean && clean.ok && clean.student_checked === true && clean.student_busy === false && clean.ok_to_book === true,
+    '(짝) 본인인데 겹침이 없으면 그대로 예약 가능', clean);
+}
+{
+  /* 학생 화면이 본인 토큰을 실어 보내고, 학생 겹침을 강사 겹침과 다른 말로 그리는가 */
+  const html = readFileSync(resolve(__dir, '../cloudflare-deploy/public/enroll.html'), 'utf8');
+  const i = html.indexOf("fetch('/api/pay/enroll/check'");
+  const seg = i >= 0 ? html.slice(i, html.indexOf('}, 450);', i)) : '';
+  ok(seg.length > 0, '전제: enroll.html 의 미리보기 호출을 찾았다');
+  ok(/uid\s*:\s*UID/.test(seg) && /token\s*:\s*TOKEN/.test(seg), '미리보기 호출이 uid·token 을 함께 보낸다');
+  const bi = seg.indexOf('d.student_busy'), ci = seg.indexOf('d.conflict_count');
+  ok(bi > 0 && ci > 0 && bi < ci && /이 학생은/.test(seg.slice(bi, ci)), '학생 겹침이면 «이 학생은 …» 으로 따로 말한다(강사 겹침 문구보다 먼저 가른다)');
 }
 
 done();
