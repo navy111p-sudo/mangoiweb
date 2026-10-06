@@ -371,6 +371,9 @@
 .mgsu-chip.past{opacity:.55;text-decoration:line-through}
 .mgsu-act{border:1px solid #93c5fd;background:#eff6ff;border-radius:10px;padding:10px 12px;color:#101828;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .mgsu-act .w{font-weight:800}
+/* (2026-10-06 사장님 «교사 이름을 항상 보이게») 날짜 옆 교사 이름 알약 */
+.mgsu-tch{display:inline-block;font-size:13px;font-weight:800;padding:2px 10px;border-radius:999px;background:#eef4ff;border:1px solid #93c5fd;color:#1d4ed8;white-space:nowrap;vertical-align:middle}
+.mgsu-hero .v .mgsu-tch{font-size:15px;margin-left:8px}
 .mgsu-act .n{flex-basis:100%;font-size:12px;color:#475467;line-height:1.5}
 .mgsu-btn{padding:6px 12px;border:1px solid #2563eb;background:#ffffff;color:#1d4ed8;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:700;white-space:nowrap}
 .mgsu-btn:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
@@ -3743,6 +3746,13 @@ function mgsuHolName(o) {
   } catch (e) { return ''; }
 }
 
+/* (2026-10-06 사장님 «교사 이름을 항상 보이게») 날짜 바로 옆 교사 이름 알약.
+   ⛔ 판정을 새로 만들지 않는다 — 정본 teacherLabel(이미 이스케이프된 값 · AI 배정·미배정도 사실대로)을 그대로 감싼다.
+   ⛔ class 에 'ty' 를 쓰지 말 것 — 칩의 «종류 글자» 판정(.ty)과 섞인다. */
+function mgsuTch(sch) {
+  return ' <span class="mgsu-tch" title="' + (mgsuEn() ? 'Teacher' : '담당 교사') + '">' + teacherLabel(sch) + '</span>';
+}
+
 function mgsuRender() {
   var box = document.getElementById('mgsuTop');
   if (!box) return;
@@ -3758,8 +3768,8 @@ function mgsuRender() {
     var nt = mgsuType(nx.sch.class_type);
     h += '<div class="mgsu-hero"><div class="k">' + (en ? 'Next class' : '다음 수업')
       + ' <span class="mgsu-ty" style="background:' + nt.bg + ';color:' + nt.fg + '">' + esc(en ? nt.fullEn : nt.full) + '</span></div>'
-      + '<div class="v">' + esc(mgsuDayWord(nx.ymd, todayYmd) + ' ' + mgsuMd(nx) + ' ' + nx.hm) + '</div>'
-      + '<div class="m">' + esc((Number(nx.sch.duration_min) || 20) + (en ? ' min · ' : '분 · ')) + teacherLabel(nx.sch) + '</div></div>'   /* teacherLabel 은 이미 이스케이프된 값 */;
+      + '<div class="v">' + esc(mgsuDayWord(nx.ymd, todayYmd) + ' ' + mgsuMd(nx) + ' ' + nx.hm) + mgsuTch(nx.sch) + '</div>'
+      + '<div class="m">' + esc((Number(nx.sch.duration_min) || 20) + (en ? ' min' : '분')) + '</div></div>';
   } else {
     h += '<div class="mgsu-note">' + (en ? 'No class in the next ' + MGSU_DAYS + ' days.' : '앞으로 ' + MGSU_DAYS + '일 안에 잡힌 수업이 없습니다.') + '</div>';
   }
@@ -3807,7 +3817,7 @@ function mgsuOpenAct(key) {
   var ty = mgsuType(sch.class_type);
   var dated = !!String(sch.scheduled_date || '').slice(0, 10);
   var ended = mgsuEnded(o, Date.now());
-  var head = '<span class="w">' + esc(mgsuMd(o) + ' ' + o.hm) + '</span> <span class="mgsu-ty" style="background:' + ty.bg + ';color:' + ty.fg + '">' + esc(en ? ty.fullEn : ty.full) + '</span>';
+  var head = '<span class="w">' + esc(mgsuMd(o) + ' ' + o.hm) + '</span>' + mgsuTch(sch) + ' <span class="mgsu-ty" style="background:' + ty.bg + ';color:' + ty.fg + '">' + esc(en ? ty.fullEn : ty.full) + '</span>';
   if (mgsuMkLabel(sch)) head += ' <span class="mgsu-ty" style="background:#fff4e0;color:#92400e">' + esc(en ? 'Postponement make-up' : mgsuMkLabel(sch)) + '</span>';
   if (ended) {
     act.innerHTML = '<div class="mgsu-act">' + head + '<div class="n">' + (en ? 'This class has already ended.' : '이미 끝난 수업입니다.') + '</div></div>';
