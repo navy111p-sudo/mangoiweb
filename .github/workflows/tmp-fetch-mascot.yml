@@ -1,0 +1,23 @@
+# 임시 — 프레젠테이션용 마스코트 이미지를 러너에서 받아 이 브랜치에 커밋한다. main 에 올리지 않는다.
+name: tmp-fetch-mascot
+on:
+  push:
+    branches: [claude/pensive-johnson-xcwgzq]
+    paths: ['.github/workflows/tmp-fetch-mascot.yml']
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p tmp-mascot
+          B=https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k
+          curl -fsSL -o tmp-mascot/a.png $B/hf_20261006_070941_b87077ee-b563-4429-845b-49bc2447572c.png
+          curl -fsSL -o tmp-mascot/b.png $B/hf_20261006_070941_f8549aa5-c19e-447f-a452-fe9b34241014.png
+          curl -fsSL -o tmp-mascot/a-cut.png $B/hf_20261006_071051_6b88392e-f6e6-4dc2-8df5-3423c248bf74.png
+          curl -fsSL -o tmp-mascot/b-cut.png $B/hf_20261006_071108_ae4462f4-1a21-4cf1-83ae-15bc556a593c.png
+          ls -la tmp-mascot
+          git config user.name "github-actions" && git config user.email "actions@github.com"
+          git add tmp-mascot && git commit -m "tmp: mascot images [skip ci]" && git push
