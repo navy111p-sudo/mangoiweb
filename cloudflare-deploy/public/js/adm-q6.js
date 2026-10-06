@@ -257,7 +257,7 @@
         admin-inline-c.css 의 `.ph54-ev { color }` 를 #1e293b 로 함께 바꿨다(둘은 한 몸). */
   var PH54_BLOCK_HATCH = 'repeating-linear-gradient(45deg,#cbd5e1,#cbd5e1 5px,#aab6c6 5px,#aab6c6 10px)';
   var PH54_TYPE_COLOR = { '1on1':'#bcaef0', 'group':'#f4abce', 'temp':'#8cc3f0', 'blocked':PH54_BLOCK_HATCH, 'leveltest':'#a7ddd4' };
-  var PH54_TYPE_LABEL = { '1on1':'1:1', 'group':'그룹', 'temp':'대체', 'blocked':'휴무', 'leveltest':'레벨테스트' };
+  var PH54_TYPE_LABEL = { '1on1':'1:1', 'group':'그룹', 'temp':'보충', 'blocked':'휴무', 'leveltest':'레벨테스트' };
 
   /* 🏷 (2026-08-11) 「이 칸은 무엇인가」 — 카드에 정체를 적는다.
      활성 667행 중 진짜 망고아이 수업은 9행뿐이고, BELLE 처럼 24칸이 꽉 찬 강사도

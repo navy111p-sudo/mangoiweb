@@ -6127,7 +6127,10 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         //    예전엔 아래 기본값에 걸려 평범한 '1:1' 로 그려졌다 — 있어도 못 알아봤다.
         if (c === 'level_test' || c === 'leveltest' || c === '레벨테스트') return 'leveltest';
         if (c === 'group' || c === '1:2' || c === 'g' || c === '그룹') return 'group';
-        if (c === 'temp' || c === 'substitute' || c === '대체') return 'temp';
+        // 🟦 (2026-10-06 사장님) 보충수업(makeup)도 'temp' 칸으로 — 주간 스케줄의 «임시» 를 «보충» 으로 바꿨다.
+        //    그 화면은 'temp' 로 만든 수업을 class_type='makeup' 으로 저장하는데(SLOT_TYPE_TO_CLASS_TYPE),
+        //    여기서 makeup 을 모르면 다시 읽을 때 '1on1'(보라)로 떨어져 «보충» 이 사라졌다.
+        if (c === 'temp' || c === 'substitute' || c === '대체' || c === 'makeup' || c === '보충') return 'temp';
         if (c === 'blocked' || c === 'off' || c === '휴무') return 'blocked';
         return '1on1';
       };
