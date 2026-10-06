@@ -267,7 +267,10 @@ if (process.env.SLS_CHILD === '1') {
       const rejected=await submit(id);const no=await decide(rejected.body.id,'reject');
       ok('reject: request rejected and original schedule untouched',no.status===200&&requestRow(rejected.body.id).status==='rejected'&&JSON.stringify(original)===JSON.stringify(row(id)),JSON.stringify(no));
       const r=await submit(id,{request_type:'postpone',new_date:null,new_time:null,teacher_id:null});
-      const done=await decide(r.body.id);ok('postpone: approved dated occurrence postponed',done.body.applied==='postponed'&&row(id).status==='postponed',JSON.stringify(done));
+      /* ⏩ (2026-10-06) 학생 무료 «미정 연기» 는 접수 즉시 자동 승인된다(student-auto-postpone.ts) —
+         관리자 /decide 를 다시 부르면 already_decided 여야 한다(이중 적용 없음). */
+      ok('postpone: free student postpone auto-approved on submit',r.status===200&&r.body.status==='approved'&&r.body.auto_applied==='postponed'&&row(id).status==='postponed'&&requestRow(r.body.id).status==='approved',JSON.stringify(r));
+      const done=await decide(r.body.id);ok('postpone: admin re-decide does not reapply',done.status===409&&done.body.error==='already_decided'&&row(id).status==='postponed',JSON.stringify(done));
       await projections('postponed',id,originDate,'15:00','1',false);
       const rebook=await submit(id);const approved=await decide(rebook.body.id);
       ok('postpone: rebook restores active',approved.status===200&&approved.body.applied==='moved'&&row(id).status==='active',JSON.stringify({rebook,approved,row:row(id)}));
