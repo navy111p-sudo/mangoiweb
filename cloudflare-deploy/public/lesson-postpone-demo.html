@@ -914,6 +914,14 @@ header .header-title { padding: 0 8px; min-width: 0; }
 #screen-done .done-sub{font-size:14.8px;color:var(--text-mute);margin-bottom:20px;line-height:1.6}
 #screen-done .done-list{list-style:none;width:100%;max-width:360px;margin:0 0 24px;padding:0}
 #screen-done .done-list li{background:var(--bg-card);border:1px solid var(--border);border-left:4px solid var(--green);border-radius:10px;padding:11px 14px;margin-bottom:8px;font-size:15.3px;color:var(--text);text-align:left}
+#screen-done .done-list li.mv-li{line-height:1.55}
+#screen-done .mv-from{color:#667085;text-decoration:line-through}
+#screen-done .mv-arrow{color:#667085;font-weight:800}
+#screen-done .mv-to{color:#101828;font-weight:800}
+#screen-done .mv-tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:99px;font-size:12px;font-weight:800;border:1px solid}
+#screen-done .mv-tag.ok{background:#dcfce7;color:#166534;border-color:#86efac}
+#screen-done .mv-tag.wait{background:#fef3c7;color:#92400e;border-color:#fcd34d}
+#screen-done .mv-tag.bad{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
 #screen-done .done-actions{display:flex;gap:10px;width:100%;max-width:360px}
 #screen-done .done-btn{flex:1;padding:14px 10px;border:0;border-radius:14px;background:var(--green);color:#04210f;font-weight:900;font-size:17.1px;cursor:pointer;transition:transform .12s}
 #screen-done .done-btn:active{transform:scale(0.97)}
@@ -1382,7 +1390,7 @@ function __mobPersist(){
     var firstErr = (res.find(function(x){ return !x.ok; }) || {}).error || null;
     /* ⏩ (2026-10-06) 서버가 무료 연기를 바로 반영했는가 — auto = 반영된 건수 */
     var auto = res.filter(function(x){ return x.ok && x.auto; }).length;
-    return { ok: sent === res.length && res.length > 0, sent: sent, total: res.length, auto: auto, error: firstErr };
+    return { ok: sent === res.length && res.length > 0, sent: sent, total: res.length, auto: auto, error: firstErr, items: res };
   });
 }
 window.__mobLastFee = null;
@@ -1494,17 +1502,44 @@ function onConfirm(){
 }
 
 /* ── 완료 화면 (요구사항 6) ── */
+function __doneDT(d, h){ return d ? (fmtMD(d) + '(' + fmtDOW(d) + ') ' + (h || '')) : __mobT('새 날짜 미정', 'new date TBD'); }
+/* 완료 화면용 «옮김» 목록 — [{teacher, from:{d,h}, to:{d,h}, st:'auto'|'pending'|'fail'|null}] */
+function __doneMoves(saved){
+  var sorted = state.cart.slice().sort(function(a,b){ return (a.date+a.hour) < (b.date+b.hour) ? -1 : 1; });
+  var head = sorted[0];
+  var res = saved && saved.items || [];
+  var stOf = function(r){ return !r ? null : (r.ok ? (r.auto ? 'auto' : 'pending') : 'fail'); };
+  if (head && head.seriesItems) {
+    /* ⏩ 매주 한 주씩 — 요청은 1건, 옮겨지는 수업은 여러 회 */
+    var st = stOf(res[0]);
+    return head.seriesItems.map(function(it){
+      return { teacher: head.teacherName, from: { d: it.from_date, h: it.from_time }, to: { d: it.to_date, h: it.to_time }, st: st };
+    });
+  }
+  var pairs = __mobPairs(sorted, CURRENT_SCHEDULE.slice(), sorted.filter(function(c){ return c.origIdx == null; }));
+  return pairs.map(function(pr, i){
+    return { teacher: (pr.nw && pr.nw.teacherName) || pr.o.teacherName, from: { d: pr.o.date, h: pr.o.hour },
+             to: { d: pr.nw && pr.nw.date, h: pr.nw && pr.nw.hour }, st: stOf(res[i]) };
+  });
+}
+function __doneMoveLi(m){
+  var tag = m.st === 'auto' ? ' <span class="mv-tag ok">' + __mobT('반영됨', 'Applied') + '</span>'
+          : m.st === 'pending' ? ' <span class="mv-tag wait">' + __mobT('확인 대기', 'Pending') + '</span>'
+          : m.st === 'fail' ? ' <span class="mv-tag bad">' + __mobT('저장 안 됨', 'Not saved') + '</span>' : '';
+  return '<li class="mv-li"><b>' + m.teacher + '</b>' + tag + '<br>'
+    + '<span class="mv-from">' + __doneDT(m.from.d, m.from.h) + '</span> <span class="mv-arrow">→</span> '
+    + '<span class="mv-to">' + __doneDT(m.to.d, m.to.h) + '</span></li>';
+}
 function showCompletion(saved){
   var v = VERB[state.mode] || '';
   var sorted = state.cart.slice().sort(function(a,b){ return (a.date+a.hour) < (b.date+b.hour) ? -1 : 1; });
   if (sorted[0] && sorted[0].seriesItems) { var head = sorted[0]; sorted = head.seriesItems.map(function(it){return {teacherName:head.teacherName, date:it.to_date, hour:it.to_time};}); }
-  var list = sorted.map(function(it){
-    return '<li>' + (it.ico||'') + ' <b>' + it.teacherName + '</b> · ' + fmtMD(it.date) + ' (' + fmtDOW(it.date) + ') ' + it.hour + '</li>';
-  }).join('');
+  /* 📅 (2026-10-06 사장님 「완료 화면에 옮겨진 날짜도 보이게」) «어느 수업이 어디로» 를 한 줄씩.
+     예전엔 «기존» 목록과 «새 일정» 목록을 따로 그려 어느 것이 어디로 갔는지 짝이 안 보였다
+     (그날 10/8 수업을 10/7 로 옮긴 것을 «10/7 연기» 로 오해). 짝은 저장과 «같은» __mobPairs 로 만든다. */
+  var moves = __doneMoves(saved);
+  var list = moves.map(function(m){ return __doneMoveLi(m); }).join('');
   var beforeSrc = __MOB_REAL ? __mobPickedOrigs() : CURRENT_SCHEDULE;
-  var beforeList = beforeSrc.map(function(c){
-    return (c.ico||'') + ' ' + c.teacherName + ' ' + fmtMD(c.date) + '(' + fmtDOW(c.date) + ') ' + c.hour;
-  }).join(' / ');
   /* 🔧 (2026-09-30) 저장 결과를 사실대로 말한다 — 요청은 «접수» 이지 확정이 아니다.
      saved === null = 서버에 보내지 않는 경우(예시 수업) */
   if (saved === null) $('#done-title').textContent = __mobT('ℹ️ 예시 화면이라 저장되지 않았어요', 'ℹ️ Sample only — nothing was saved');
@@ -1536,7 +1571,7 @@ function showCompletion(saved){
   else if (saved && saved.ok && saved.auto) saveNote = '<br><span style="font-size:12px">' + __mobT(saved.auto + '건은 바로 반영됐고, 나머지 ' + (saved.total - saved.auto) + '건은 관리자가 확인한 뒤 반영됩니다.', saved.auto + ' applied now; the rest after staff review.') + '</span>';
   else if (saved && saved.ok) saveNote = '<br><span style="font-size:12px">' + __mobT('관리자가 확인한 뒤 반영됩니다.', 'It will be applied after staff review.') + '</span>';
   var _autoAll = !!(saved && saved.ok && saved.auto === saved.total);
-  $('#done-sub').innerHTML = '기존: ' + beforeList + '<br>↓ 아래 일정으로 ' + v + (saved && saved.ok && !_autoAll ? ' 요청' : '') + feeNote + saveNote;
+  $('#done-sub').innerHTML = (_autoAll ? __mobT('📅 아래처럼 옮겨졌어요', '📅 Moved as below') : __mobT('📅 옮길 날짜', '📅 Requested changes')) + feeNote + saveNote;
   $('#done-list').innerHTML = list;
   $('#sticky-bar').classList.remove('show'); // fix(2026-06-18): fixed 바 — 화면 이탈 시 직접 숨김
   $('#screen-detail').classList.remove('active');

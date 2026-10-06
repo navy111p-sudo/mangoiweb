@@ -123,6 +123,25 @@ async function run(label, { user, mine, reqStatus }) {
   ok('자동이면 «관리자가 확인한 뒤» 라고 안 한다', !/관리자가 확인한 뒤/.test(t[1]), t[1]);
   await browser.close();
 }
+/* ②-d 📅 (2026-10-06) 완료 화면에 «어느 수업 → 어디로» 가 한 줄씩 보인다(10/8 을 10/7 로 옮긴 것을 «10/7 연기» 로 오해한 일) */
+{
+  const { browser, page } = await run('②-d jeong · 옮겨진 날짜', { user: { uid: 'jeong', name: 'jeong' }, mine: { status: 200, body: MINE_JEONG }, reqStatus: 'auto' });
+  const r = await page.evaluate(() => {
+    const o = CURRENT_SCHEDULE[0];
+    const nd = new Date(o.date + 'T00:00:00Z'); nd.setUTCDate(nd.getUTCDate() + 7);
+    const to = nd.toISOString().slice(0, 10);
+    state.mode = 'postpone'; state.cart = [Object.assign({}, o, { date: to, origIdx: 0 })]; onConfirm();
+    return { from: fmtMD(o.date) + '(' + fmtDOW(o.date) + ') ' + o.hour, to: fmtMD(to) + '(' + fmtDOW(to) + ') ' + o.hour };
+  });
+  await page.waitForFunction(() => document.getElementById('screen-done').classList.contains('active'), null, { timeout: 5000 }).catch(() => {});
+  const d = await page.evaluate(() => ({ n: document.querySelectorAll('#done-list li').length, li: (document.querySelector('#done-list li') || {}).textContent || '',
+    fromStrike: (() => { const e = document.querySelector('#done-list .mv-from'); return e ? getComputedStyle(e).textDecorationLine : ''; })() }));
+  ok('한 줄만(고른 수업 하나)', d.n === 1, d);
+  ok('«기존 → 새 날짜» 순서로 보인다', d.li.indexOf(r.from) >= 0 && d.li.indexOf(r.to) > d.li.indexOf(r.from) && d.li.includes('→'), [r, d.li]);
+  ok('바로 반영된 줄에 «반영됨» 표시', /반영됨/.test(d.li), d.li);
+  ok('기존 날짜는 줄을 그어 «지나간 것» 으로', d.fromStrike.includes('line-through'), d.fromStrike);
+  await browser.close();
+}
 /* ②-c 일부만 자동 — 몇 건이 바로 됐고 몇 건이 대기인지 사실대로 */
 {
   const { browser, page } = await run('②-c jeong · 일부만 자동', { user: { uid: 'jeong', name: 'jeong' }, mine: { status: 200, body: MINE_JEONG }, reqStatus: 'mix' });
