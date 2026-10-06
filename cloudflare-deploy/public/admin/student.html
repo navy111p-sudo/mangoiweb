@@ -4057,7 +4057,8 @@ async function loadAiSchedules() {
         + _onceChip + _pastChip
         + '<span style="color:#fbbf24;font-weight:700">' + (it.start_time || '') + '</span>'
         + '<span style="color:#94a3b8;font-size:11px">' + (it.duration_min ? it.duration_min + (_en ? ' min · ' : '분 · ') : '') + (statusName[it.status] || it.status) + '</span>'
-        + '<span class="mgt-chip" style="color:#475467;font-size:11px">👩‍🏫 ' + teacherLabel(it) + '</span>'
+        /* (2026-10-06 «요일별 줄에도 교사 이름») 작은 회색 글씨라 눈에 안 띄었다 — 다음 수업·날짜 칩과 같은 파란 알약으로 */
+        + '<span class="mgt-chip" style="color:#1d4ed8;font-size:12px;font-weight:800;background:#eef4ff;border:1px solid #93c5fd;border-radius:999px;padding:1px 9px;white-space:nowrap">👩‍🏫 ' + teacherLabel(it) + '</span>'
         + _startSmall
         + '<span class="mgs-src-chip" style="color:#475467;font-size:10.5px;border:1px solid #cbd5e1;border-radius:6px;padding:1px 7px" title="' + (_en ? 'The enrollment list and this actual class table are different tables — a class here may not appear in the enrollment list.' : '수강신청(enrollments) 표와 이 실제 수업표(class_schedules)는 서로 다른 표입니다 — 여기 있어도 수강신청 신청 목록에는 없을 수 있습니다.') + '">🔖 ' + sourceLabel(it) + '</span>'
         /* 📅 (2026-10-01 사장님 「취소는 빼고 그냥 연기, 변경」) — 이 카드에서는 연기·변경만 준다.
