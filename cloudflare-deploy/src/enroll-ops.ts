@@ -366,6 +366,56 @@ export async function enrollConflicts(env: any, teacherId: string, dates: string
   return conflicts;
 }
 
+/** 👤 (2026-10-06 사장님 지시) «학생 본인» 의 기존 수업과 겹치는 날짜들.
+ *  [왜] 위 enrollConflicts 는 «강사» 만 봐서, 같은 학생이 같은 시간에 이미 다른 강사와 수업이 있어도
+ *       수강신청이 그 자리에 수업을 하나 더 만들었다(한 사람이 두 수업에 못 앉는다).
+ *  · 합반 예외 없음 — 학생 기준 겹침은 언제나 겹침(schedule-conflict.ts 와 같은 규칙).
+ *  · 날짜 지정 행은 그 날짜로, 날짜 없는 반복 행은 요일로 본다(날짜가 이긴다 — sessions/today 와 같은 순서).
+ *  · excludeSource: 이 신청이 이미 만든 자기 행은 빼야 다시 계획할 때 «자기 자신과 겹침» 이 안 된다.
+ *  · 반환 null = 조회 실패(«모름»). 부르는 쪽은 막지 않고(예전 동작) «확인 못 함» 을 말한다. */
+export async function enrollStudentConflicts(env: any, userId: string, dates: string[], timesMinByDow: Record<number, number>,
+  minutes: number, days: number[], excludeSource?: string | null): Promise<Set<string> | null> {
+  const conflicts = new Set<string>();
+  const uid = String(userId || '').trim();
+  if (!uid || !dates.length) return conflicts;
+  const ex = String(excludeSource || '');
+  try {
+    const rows: any[] = await selectInChunks<any>(env.DB, dates,
+      (ph) => `SELECT scheduled_date, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
+         WHERE user_id = ? AND status = 'active' AND COALESCE(source,'') <> ? AND scheduled_date IN (${ph})`,
+      { lead: [uid, ex] });
+    for (const r of rows) {
+      const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
+      const startMin = timesMinByDow[dow];
+      if (startMin === undefined) continue;
+      const s = enrollTimeToMin(String(r.start_time || ''));
+      if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) conflicts.add(String(r.scheduled_date));
+    }
+    const rs2: any = await env.DB.prepare(
+      `SELECT day_of_week, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
+       WHERE user_id = ? AND status = 'active' AND COALESCE(source,'') <> ?
+         AND COALESCE(scheduled_date,'') = '' AND day_of_week IS NOT NULL`
+    ).bind(uid, ex).all();
+    const badDows = new Set<number>();
+    for (const r of ((rs2?.results as any[]) || [])) {
+      const s = enrollTimeToMin(String(r.start_time || ''));
+      if (s < 0) continue;
+      for (const dw of enrollDowList(r.day_of_week)) {
+        if (!days.includes(dw)) continue;
+        const startMin = timesMinByDow[dw];
+        if (startMin === undefined) continue;
+        if (enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) badDows.add(dw);
+      }
+    }
+    if (badDows.size) {
+      for (const iso of dates) {
+        if (badDows.has(new Date(iso + 'T00:00:00Z').getUTCDay())) conflicts.add(iso);
+      }
+    }
+  } catch (e) { console.warn('[enroll] student conflicts:', (e as any)?.message); return null; }
+  return conflicts;
+}
+
 /* 🕐 (2026-07-31) 시간 슬롯 전체 목록(06:00~23:40, 10분 단위) — 예약가능시간 필터링·강사프리 조회 공용 */
 function allTimeSlots(): string[] {
   const out: string[] = [];
@@ -585,6 +635,10 @@ export async function enrollCreateSchedules(env: any, order: any, orderId: strin
   // 결제 시점 기준 재검사 — 주문~결제 사이에 찬 슬롯 + 공휴일을 함께 blocked 처리
   const probe = enrollDates(String(ej.start_date), ej.days, sessions * 2);
   const blocked = await enrollConflicts(env, String(ej.teacher_id), probe, timesMinByDow, Number(ej.minutes) || 20, ej.days);
+  /* 👤 (2026-10-06) 학생 본인의 다른 수업과 겹치는 날짜도 건너뛴다(주문 뒤 다른 수업이 잡혔을 수 있다). */
+  const stuBlocked = await enrollStudentConflicts(env, String(ej.uid), probe, timesMinByDow, Number(ej.minutes) || 20, ej.days, src);
+  if (stuBlocked) stuBlocked.forEach((d) => blocked.add(d));
+  if (stuBlocked && stuBlocked.size) console.warn('[enroll] student overlap skipped', orderId, [...stuBlocked].slice(0, 5));
   const hol = await holidaySet(env, String(ej.start_date));
   hol.forEach((d) => blocked.add(d));
   const dates = enrollDates(String(ej.start_date), ej.days, sessions, blocked);
@@ -1881,15 +1935,25 @@ export async function createEnrollOrder(env: any, uid: string, p: any, kind: 'ne
   const hol = await holidaySet(env, p.startDate);
   const probe = enrollDates(p.startDate, p.days, sessions * 2);
   const conflicts = await enrollConflicts(env, p.teacherId, probe, p.timesMin, p.minutes, p.days);
-  const blocked = new Set<string>([...conflicts, ...hol]);
+  /* 👤 (2026-10-06 사장님 지시) 학생 본인이 그 시간에 이미 수업이 있으면 그 날짜는 막힌 자리다.
+     ⚠️ 조회 실패(null)는 막지 않는다(예전 동작) — 결제 뒤 생성 단계가 한 번 더 본다. */
+  const stuConf = (await enrollStudentConflicts(env, uid, probe, p.timesMin, p.minutes, p.days)) || new Set<string>();
+  const blocked = new Set<string>([...conflicts, ...stuConf, ...hol]);
   const dates = enrollDates(p.startDate, p.days, sessions, blocked);
   if (dates.length < sessions) {
-    return json({ ok: false, error: 'slot_conflict', conflict_count: conflicts.size,
-      message: '선택한 시간에 이미 다른 수업이 많습니다. 다른 시간을 골라주세요.' }, 409);
+    return json({ ok: false, error: 'slot_conflict', conflict_count: conflicts.size, student_conflict_count: stuConf.size,
+      message: stuConf.size && !conflicts.size
+        ? '이 학생은 선택한 시간에 이미 다른 수업이 있습니다. 다른 시간을 골라주세요.'
+        : '선택한 시간에 이미 다른 수업이 많습니다. 다른 시간을 골라주세요.' }, 409);
   }
   // 신규 신청은 "첫 회차가 막힌 경우"를 사용자에게 알려 다른 시간을 고르게 한다(연장은 밀어서 진행).
   if (kind === 'new') {
     const plain = enrollDates(p.startDate, p.days, sessions);
+    const firstStudent = plain.find((d) => stuConf.has(d));
+    if (firstStudent) {
+      return json({ ok: false, error: 'slot_conflict', conflict_count: conflicts.size, student_conflict_count: stuConf.size,
+        message: '이 학생은 선택한 시간에 이미 다른 수업이 있습니다(' + firstStudent + ' 등). 다른 시간을 골라주세요.' }, 409);
+    }
     const firstBlockedByConflict = plain.some((d) => conflicts.has(d));
     if (firstBlockedByConflict) {
       return json({ ok: false, error: 'slot_conflict', conflict_count: conflicts.size,

@@ -25,7 +25,7 @@
 import { json, parseJsonBody } from './api-util';
 import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES, classLengthMultiplier } from './class-policy';
 import {
-  enrollTimeToMin, enrollDates, enrollConflicts, teachersFreeAt,
+  enrollTimeToMin, enrollDates, enrollConflicts, enrollStudentConflicts, teachersFreeAt,
   holidaySet, ensureEnrollTables, kstToday, enrollAdminHqOnly
 } from './enroll-ops';
 import { sendPlainSms } from './solapi-client';
@@ -245,6 +245,8 @@ export interface EnrollPlan {
   start_date: string;
   dates: string[];
   skipped_holidays: string[];
+  /** 👤 학생 본인의 다른 수업과 겹쳐 건너뛴 날짜 (2026-10-06) */
+  skipped_student_conflicts: string[];
   student: { linked: boolean; user_id: string | null; candidates: any[]; parent_phone_masked: string };
   assign_priority: 'schedule' | 'teacher';
   teacher: {
@@ -390,9 +392,28 @@ export async function buildEnrollPlan(env: any, id: number, teacherOverride?: st
   // ── 실제로 잡힐 날짜 (충돌·공휴일 회피)
   let dates: string[] = [];
   let skipped: string[] = [];
+  let studentSkipped: string[] = [];
   if (days.length && teacherId && Object.keys(timesMinByDow).length === days.length) {
     const probe = enrollDates(start_date, days, sessions * 2);
     const blocked = await enrollConflicts(env, teacherId, probe, timesMinByDow, minutes, days);
+    /* 👤 (2026-10-06 사장님 지시) 학생 본인의 다른 수업과 겹치는 날짜도 건너뛰고 «알린다».
+       ⚠️ 학생이 아직 정해지지 않았으면(동명이인·미등록) 볼 수 없다 — 그 사실을 말한다.
+       ⚠️ 조회 실패(null)는 막지 않고 «확인 못 함» 을 말한다(예전 동작 유지). */
+    const planUid = linkedUid || (candidates.length === 1 ? String(candidates[0].user_id || '') : '');
+    if (planUid) {
+      const stu = await enrollStudentConflicts(env, planUid, probe, timesMinByDow, minutes, days, SRC_PREFIX + id);
+      if (stu === null) {
+        warnings.push('학생의 다른 수업과 겹치는지 확인하지 못했습니다 — 학생 스케줄을 직접 확인해 주세요');
+      } else if (stu.size) {
+        const hit = probe.filter(d => stu.has(d));
+        studentSkipped = hit;
+        stu.forEach(d => blocked.add(d));
+        warnings.push('이 학생은 그 시간에 이미 다른 수업이 있습니다 — 겹치는 ' + hit.length + '개 날짜(' +
+          hit.slice(0, 3).join(', ') + (hit.length > 3 ? ' 등' : '') + ')는 건너뜁니다');
+      }
+    } else {
+      warnings.push('학생이 정해지지 않아 학생의 다른 수업과 겹치는지 아직 확인하지 못했습니다');
+    }
     const hol = await holidaySet(env, start_date);
     skipped = probe.filter(d => hol.has(d) || blocked.has(d));
     hol.forEach(d => blocked.add(d));
@@ -414,6 +435,7 @@ export async function buildEnrollPlan(env: any, id: number, teacherOverride?: st
   return {
     enrollment: e, days, times, minutes, sessions, sessions_basis: sc.basis, until: sc.until, start_date, dates,
     skipped_holidays: skipped,
+    skipped_student_conflicts: studentSkipped,
     student: {
       linked: !!linkedUid, user_id: linkedUid, candidates,
       parent_phone_masked: maskPhone(parentPhone)
@@ -600,14 +622,17 @@ export interface BackfillPlan {
   last_active: string | null;
   active_count: number;
   add: Array<{ date: string; start_time: string; teacher_id: string; duration_min: number }>;
-  skipped: { existing: string[]; holiday: string[]; conflict: string[] };
+  /** student_conflict = 학생 본인의 다른 수업과 겹쳐 건너뛴 날짜 (2026-10-06) */
+  skipped: { existing: string[]; holiday: string[]; conflict: string[]; student_conflict: string[] };
+  /** 학생 겹침을 확인하지 못했으면 true — 막지 않고 사실만 알린다 */
+  student_check_failed?: boolean;
   total_after: number;
 }
 
 /** 백필 계획 — **아무것도 쓰지 않는다.** */
 export async function planEnrollBackfill(env: any, id: number): Promise<BackfillPlan> {
   const out: BackfillPlan = { ok: false, id, until: null, basis: null, from: null, last_active: null,
-    active_count: 0, add: [], skipped: { existing: [], holiday: [], conflict: [] }, total_after: 0 };
+    active_count: 0, add: [], skipped: { existing: [], holiday: [], conflict: [], student_conflict: [] }, total_after: 0 };
   const e: any = await env.DB.prepare(`SELECT * FROM enrollments WHERE id = ? LIMIT 1`).bind(id).first();
   if (!e) { out.reason = 'not_found'; return out; }
   if (!['confirmed', 'active'].includes(String(e.status || ''))) { out.reason = 'not_confirmed'; return out; }
@@ -671,11 +696,30 @@ export async function planEnrollBackfill(env: any, id: number): Promise<Backfill
     const c = await enrollConflicts(env, tid, ds, tm, mins, days);
     c.forEach(x => blocked.add(tid + '|' + x));
   }
+  /* 👤 (2026-10-06) 학생 본인의 다른 수업과 겹치는 날짜 — 이 신청이 만든 자기 행(src)은 뺀다. */
+  const stuBlocked = new Set<string>();
+  const bUid = e.student_user_id ? String(e.student_user_id) : '';
+  if (bUid) {
+    const byTm: Record<number, number> = {};
+    let bMins = DEFAULT_CLASS_MINUTES;
+    for (const [dw, r] of byDow) {
+      const m = enrollTimeToMin(String(r.start_time || ''));
+      if (m >= 0) byTm[dw] = m;
+      if (Number(r.duration_min) > 0) bMins = Number(r.duration_min);
+    }
+    /* 그 요일에 활성 회차가 없으면 pickFor 처럼 «가장 최근» 회차 시각으로 본다 */
+    const lm = enrollTimeToMin(String(latest.start_time || ''));
+    for (const dw of days) if (byTm[dw] === undefined && lm >= 0) byTm[dw] = lm;
+    const sc = await enrollStudentConflicts(env, bUid, cand.filter(d => !hol.has(d)), byTm, bMins, days, src);
+    if (sc === null) out.student_check_failed = true;
+    else sc.forEach(d => stuBlocked.add(d));
+  }
   for (const d of cand) {
     if (hol.has(d)) continue;
     const r = pickFor(d);
     const tid = String(r.teacher_id);
     if (blocked.has(tid + '|' + d)) { out.skipped.conflict.push(d); continue; }
+    if (stuBlocked.has(d)) { out.skipped.student_conflict.push(d); continue; }
     if (out.add.length >= room) break;
     out.add.push({ date: d, start_time: String(r.start_time).slice(0, 5), teacher_id: tid,
       duration_min: Number(r.duration_min) > 0 ? Number(r.duration_min) : DEFAULT_CLASS_MINUTES });
