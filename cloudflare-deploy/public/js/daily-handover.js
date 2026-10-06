@@ -225,9 +225,9 @@
   async function loadList(){
     var date=$('list-date').value, wantRead=$('filter').value==='read', wantMine=$('filter').value==='mine', data=await Promise.all([call('/home?date='+encodeURIComponent(date)),call('/inbox'),wantRead?call('/read-history'):null,wantMine?call('/mine'):null]);
     if(date!==$('list-date').value)return;var j=data[0];reports=j.reports;inbox=data[1].reports;inboxTotal=data[1].total;mergeFiles(j.files);mergeFiles(data[1].files);if(data[2]){readHistory=data[2].reports||[];mergeFiles(data[2].files);}if(data[3]){mine=data[3].reports||[];mergeFiles(data[3].files);}if(date===$('date').value)paintOwn(j.own);var listState=JSON.stringify([date,$('filter').value,reports,inbox,readHistory,mine]);if(listState!==lastListState){paintList();lastListState=listState;}
-    var weekday=new Date(date+'T00:00:00Z').getUTCDay();var required=(j.required||[]).filter(function(r){return r.exempt_date!==date&&r.weekdays.split(',').includes(String(weekday));});
+    var weekday=new Date(date+'T00:00:00Z').getUTCDay();var required=(j.required||[]).filter(function(r){if(r.required_today===false)return false;/* 서버가 공휴일까지 판정(2026-10-06) */return r.exempt_date!==date&&r.weekdays.split(',').includes(String(weekday));});
     var missing=required.filter(function(r){return !r.submitted_at;});
-    $('required').textContent=required.length?'보고 대상 '+required.length+'명 · 미제출 / Not submitted: '+(missing.map(function(r){return r.name||r.username;}).join(', ')||'없음 / None'):'';
+    $('required').textContent=(required.length?'보고 대상 '+required.length+'명 · 미제출 / Not submitted: '+(missing.map(function(r){return r.name||r.username;}).join(', ')||'없음 / None'):'')+((j.missed_staff||[]).length?' · ⚠️ 지난 근무일 미제출 / Missed last workday: '+j.missed_staff.map(function(m){return m.name+' ('+m.prev_day+')';}).join(', '):'');
   }
   $('write-toggle').onclick=function(){var editor=$('editor');editor.hidden=!editor.hidden;$('clock-box').hidden=editor.hidden;if(!editor.hidden){begin();editor.scrollIntoView({behavior:'smooth',block:'start'});}};
   $('filter').onchange=function(){if($('filter').value==='read'||$('filter').value==='mine')loadList().catch(networkError);else paintList();};
@@ -245,12 +245,14 @@
   async function init(){
     fields.forEach(function(k){$(k).disabled=true;});$('review').disabled=true;$('save').disabled=true;$('manual').disabled=true;
     try{
-      var j=await call('/home');me=j.me;members=j.members;mergeFiles(j.files);stagedIds=(j.staged_ids||[]).slice();$('editor').hidden=!!j.reader_mode;$('clock-box').hidden=!!j.reader_mode;if(j.reader_mode)$('editor').prepend($('alert'));
+      // ✍️ 지난 근무일 보고 늦게 쓰기(2026-10-06) — ?write=YYYY-MM-DD 면 그 날짜 보고를 편집기에 연다(서버가 미래 날짜는 거절).
+      var writeDay=/^\d{4}-\d{2}-\d{2}$/.test(wanted.get('write')||'')?wanted.get('write'):'';
+      var j=await call(writeDay?'/home?date='+encodeURIComponent(writeDay):'/home');me=j.me;members=j.members;mergeFiles(j.files);stagedIds=(j.staged_ids||[]).slice();$('editor').hidden=!!j.reader_mode;$('clock-box').hidden=!!j.reader_mode;if(j.reader_mode)$('editor').prepend($('alert'));
       $('filter').value=j.reader_mode?'unread':'all';selected=wantedReport;if(wantedReport)$('filter').value='all';if(wanted.get('view')==='mine')$('filter').value='mine';root.dataset.exec=String(j.can_review_all);
-      $('date').value=j.day;$('list-date').value=/^\d{4}-\d{2}-\d{2}$/.test(wanted.get('date')||'')?wanted.get('date'):j.day;$('staff').value=me.name;
+      $('date').value=j.day;$('list-date').value=/^\d{4}-\d{2}-\d{2}$/.test(wanted.get('date')||'')?wanted.get('date'):j.day;if(writeDay){$('date').value=writeDay;}$('staff').value=me.name;
       ['owner','recipient'].forEach(function(k){members.forEach(function(m){var option=node('option',m.name?m.name+' ('+m.username+')':m.username);option.value=m.username;$(k).append(option);});});
       paintOwn(j.own);if(j.own){version=j.own.version;populate(j.own.payload);$('recipient').value=j.own.recipient;originalSubmitted=!!j.own.submitted_at;$('badge').textContent=statusLabel(j.own.status);if(j.own.feedback){$('alert').hidden=false;$('alert').textContent='보완 요청 / Changes requested: '+j.own.feedback;}}
-      else{$('recipient').value=j.default_recipient;$('noissue').checked=true;$('noopen').checked=true;$('alert').hidden=false;$('alert').textContent='오늘 보고를 아직 제출하지 않았습니다. / Today’s handover has not been submitted.';}
+      else{$('recipient').value=j.default_recipient;$('noissue').checked=true;$('noopen').checked=true;$('alert').hidden=false;$('alert').textContent=writeDay?writeDay+' 보고를 아직 제출하지 않았습니다 — 지금 작성해 제출해 주세요. / The handover for '+writeDay+' has not been submitted — please write it now.':'오늘 보고를 아직 제출하지 않았습니다. / Today’s handover has not been submitted.';}
       try{var saved=JSON.parse(localStorage.getItem(storageKey())||'null');if(saved&&saved.version===version){populate(saved.payload);$('recipient').value=saved.recipient;$('save-status').textContent='이 기기의 임시 작성 내용을 복원했습니다. / Device draft restored.';}else{$('save-status').textContent=j.own?'저장된 보고를 불러왔습니다. / Saved report loaded.':'날짜·담당자가 자동 입력되었습니다. / Date and staff filled automatically.';}}catch(e){}
       if(j.schedule){$('schedule-enabled').checked=!!j.schedule.enabled;$('due-time').value=j.schedule.due_time;$('exempt-date').value=j.schedule.exempt_date;Array.from($('weekdays').querySelectorAll('input')).forEach(function(c){c.checked=j.schedule.weekdays.split(',').includes(c.value);});}
       if(j.read_schedule){$('read-start').value=j.read_schedule.start_time;$('read-end').value=j.read_schedule.end_time;Array.from($('read-weekdays').querySelectorAll('input')).forEach(function(c){c.checked=j.read_schedule.weekdays.split(',').includes(c.value);});}
