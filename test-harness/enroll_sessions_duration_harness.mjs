@@ -247,5 +247,38 @@ console.log('\n[ D. 라우트 — 게이트·기본값 ]');
   ok(gi > 0 && ri > gi, '본사 게이트가 실행보다 앞에 있다');
 }
 
+/* ═══ E. 수업 종류(class_type) — 2026-10-06 「체험수업으로 확정했는데 정규수업으로 나온다」 ═══ */
+console.log('\n[ E. 수업 종류 — 체험은 trial 로 ]');
+{
+  const T = M.enrollClassType;
+  ok(typeof T === 'function', '전제: enrollClassType 이 있다');
+  const t = (o) => safe(() => T(o));
+  ok(t({ type: '체험수업', package: '체험수업 · 총 1회' }) === 'trial', '🔴 체험수업 → trial (사고 그대로)');
+  ok(t({ type: '', package: '체험수업' }) === 'trial', 'type 이 비어도 package 로 → trial');
+  ok(t({ type: '레벨테스트' }) === 'level_test' && t({ package: '보강 1회' }) === 'makeup', '레벨테스트·보강도 갈린다');
+  ok(t({ type: '정규수업', package: '정규수업' }) === 'regular', '(짝) 정규수업은 그대로 regular');
+  ok(t({}) === 'regular' && t(null) === 'regular' && t({ type: '???' }) === 'regular', '(짝) 모르면 예전처럼 regular — 지어내지 않는다');
+  /* 백필을 진짜 SQLite 로 — 체험 신청이면 trial 로 적힌다 */
+  const S = await seedBackfill();
+  S.db.prepare(`UPDATE enrollments SET type='체험수업', package='1회권' WHERE id=120`).run();
+  S.db.prepare(`UPDATE class_schedules SET class_type='trial' WHERE source='adm-enroll:120'`).run();
+  let r = null; try { r = await M.runEnrollBackfill(S.env, 120, false, 'h'); } catch (e) { r = { __err: e.message }; }
+  const kinds = S.db.prepare(`SELECT DISTINCT class_type k FROM class_schedules WHERE source='adm-enroll:120' AND created_by='h'`).all().map(x => x.k);
+  ok(r && r.created > 0 && kinds.length === 1 && kinds[0] === 'trial', '🔴 백필이 체험 신청을 trial 로 만든다(실행 — type 칸에만 «체험»)', { r: r && (r.__err || r.created), kinds });
+  const S2 = await seedBackfill();
+  let r2 = null; try { r2 = await M.runEnrollBackfill(S2.env, 120, false, 'h'); } catch (e) { r2 = { __err: e.message }; }
+  const k2 = S2.db.prepare(`SELECT DISTINCT class_type k FROM class_schedules WHERE source='adm-enroll:120' AND created_by='h'`).all().map(x => x.k);
+  ok(r2 && r2.created > 0 && k2.length === 1 && k2[0] === 'regular', '(짝) 정규 신청 백필은 regular 그대로', { r: r2 && (r2.__err || r2.created), k2 });
+  /* 확정 경로(runActivate — 내보내지 않음)는 구조로: INSERT 에 'regular' 를 못 박지 않고 그 신청으로 종류를 정한다 */
+  const src = readSrc('enroll-activate').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  const ins = src.match(/INSERT OR IGNORE INTO class_schedules[\s\S]*?VALUES \([^)]*\)/g) || [];
+  ok(ins.length === 2, '전제: 시간표 INSERT 두 곳을 찾았다', ins.length);
+  ok(ins.every(x => !/'regular'/.test(x)), "🔴 INSERT 에 'regular' 를 못 박지 않았다");
+  const binds = src.match(/stmt\.bind\(uid, String\(e\??\.student_name \|\| ''\), ([^,]+),/g) || [];
+  ok(binds.length === 2 && binds.every(b => /enrollClassType\(e\)/.test(b)), '두 INSERT 모두 그 신청(e)으로 종류를 정한다', binds);
+  const ai = src.indexOf('async function runActivate'); const eAt = src.indexOf('const e = plan.enrollment', ai);
+  ok(ai > 0 && eAt > ai, '전제: 확정 경로의 e 는 신청서 전체(plan.enrollment = SELECT *)');
+}
+
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);
 process.exit(FAIL ? 1 : 0);
