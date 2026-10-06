@@ -48,6 +48,7 @@ import { KCP_TRANSFER_CYPHER_RE, KCP_REVENUE_CYPHER_RE } from './accounting-repo
 import { c24ExpenseDrop, C24_HANGUL_CYPHER_RE, C24_LETTER_CYPHER_RE } from './c24-expense-filter';  // 🧾 카페24 지출결의 중 «우리 것이 아닌» 건(한글 결재·특정 결재라인) 제외 — 판정 정본
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance, ensureCenterOverrideTables, ensureFranchiseOverrideTable } from './cafe24-sync';
 import { buildMangoiClassesNow, mergeClassesNow, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
+import { findRoomMismatches } from './room-mismatch';   // 🚨 «같은 수업인데 서로 다른 방» 감시(2026-10-07 delaware)
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
 import { sendPlainSms } from './solapi-client';
@@ -14961,15 +14962,19 @@ LIMIT $limit`;
         /* 실접속 행 — 오늘 «정말로 화상방에 붙은» 사람. 하루 수십 건이라 통째로 읽어도 가볍다.
            (`last_seen_at > 0` 이 카페24 씨앗과 실접속을 가르는 유일하게 확실한 표시다) */
         const liveRows = await (async () => {
-          try {
-            const r: any = await env.DB.prepare(
-              `SELECT user_id, username, room_id, joined_at, left_at, last_seen_at
-                 FROM attendance
-                WHERE joined_at >= ? AND last_seen_at IS NOT NULL AND last_seen_at > 0
-                LIMIT 500`
-            ).bind(now - SCAN_MS - AHEAD_MS).all();
-            return (r.results || []) as any[];
-          } catch { return [] as any[]; }
+          /* 🚨 (2026-10-07) account_uid 도 함께 뽑는다 — «서로 다른 방» 감시가 학생 «계정» 으로 잇는다
+             (user_id 는 기기 임시번호). 그 칸이 없는 옛 DB 에서는 예전 SELECT 로 떨어진다. */
+          const q = (cols: string) => env.DB.prepare(
+            `SELECT ${cols}
+               FROM attendance
+              WHERE joined_at >= ? AND last_seen_at IS NOT NULL AND last_seen_at > 0
+              LIMIT 500`
+          ).bind(now - SCAN_MS - AHEAD_MS).all();
+          try { const r: any = await q('user_id, username, account_uid, room_id, joined_at, left_at, last_seen_at'); return (r.results || []) as any[]; }
+          catch {
+            try { const r: any = await q('user_id, username, room_id, joined_at, left_at, last_seen_at'); return (r.results || []) as any[]; }
+            catch { return [] as any[]; }
+          }
         })();
         const normName = (v: any) => String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
         // 이름 → 실접속 행. 같은 이름이 둘 이상이면 «누구인지 모름» 이므로 잇지 않는다.
@@ -15075,6 +15080,15 @@ LIMIT $limit`;
 
         const classes = mergeClassesNow(c24Classes as any, mgClasses);
 
+        /* 🚨 (2026-10-07) «같은 수업인데 서로 다른 방» — 학생은 다른 방에, 예약방에는 누군가 접속 중.
+           판정 정본 src/room-mismatch.ts. 실패해도 목록은 그대로 뜬다(빈 배열). */
+        let roomMismatch: any[] = [];
+        try {
+          const infoBySched = new Map<number, { uid: string; source: any }>();
+          for (const r of schedRows) infoBySched.set(Number(r.id), { uid: String(r.user_id || ''), source: r.source });
+          roomMismatch = findRoomMismatches(mgClasses as any, liveRows, (id) => infoBySched.get(id) || null, now);
+        } catch (e: any) { console.warn('[classes-now] room mismatch:', e?.message); }
+
         return json({
           ok: true,
           now_kst: kstHM(now),
@@ -15088,6 +15102,7 @@ LIMIT $limit`;
             cafe24: classes.filter(c => c.source === 'cafe24').length,
           },
           classes,
+          room_mismatch: roomMismatch,
         });
       } catch (e: any) {
         return json({ ok: false, error: 'classes_now_failed', detail: String(e?.message || e) }, 500);

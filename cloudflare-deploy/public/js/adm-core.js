@@ -1837,6 +1837,41 @@ function _ensureRoomEnhCss(){
    ⚠️ 색은 `background-color:` 로만 준다 — `background:linear-gradient(…)` 이나
       `background:#…` 은 admin-inline-c.css 의 옛 다크 규칙이 `!important` 로 덮는다
       (CLAUDE.md 2장 「관리자 카드 안 박스 색이 안 먹음」). */
+/* 🚨 (2026-10-07 delaware · LEN) «같은 수업인데 서로 다른 방» 경고 띠.
+   판정은 서버(src/room-mismatch.ts)가 하고 여기는 그리기만 한다 — 학생은 다른 방에 접속 중인데
+   예약방에는 누군가(대개 선생님)가 접속 중인 수업. 둘 다 «접속» 으로 보여 어느 표에도 안 드러나던 사고다.
+   ⚠️ 글자색은 인라인 !important — admin-inline-c.css 가 카드 안 글자를 #101828 !important 로 덮는다.
+   ⛔ list 가 null(서버가 그 칸을 안 줌·옛 서버)이면 아무것도 그리지 않는다(0건을 «정상» 이라 말하지 않음). */
+function _renderRoomMismatch(list, _L) {
+  try {
+    const sum = document.getElementById('rooms-now-summary');
+    if (!sum || !sum.parentNode) return;
+    let box = document.getElementById('rooms-mismatch-alert');
+    if (!list || !list.length) { if (box) box.remove(); return; }
+    if (!box) { box = document.createElement('div'); box.id = 'rooms-mismatch-alert'; sum.parentNode.insertBefore(box, sum); }
+    box.setAttribute('role', 'alert');
+    box.style.cssText = 'background-color:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:10px 12px;margin:0 0 10px;line-height:1.6';
+    const head = _L
+      ? '🚨 Student and teacher are in different rooms (' + list.length + ')'
+      : '🚨 학생과 선생님이 서로 다른 방에 있습니다 (' + list.length + '건)';
+    const rows = list.map(m => {
+      const who = _esc(String(m.student_name || (_L ? 'Student' : '학생')));
+      const t = _L ? _esc(String(m.teacher_name || 'the teacher')) : (m.teacher_name ? _esc(String(m.teacher_name)) + ' 선생님' : '선생님');
+      const tw = m.via_twin ? (_L ? ' · via twin account' : ' · 쌍둥이 계정으로 접속') : '';
+      return '<div style="font-size:12.5px;color:#7f1d1d !important">'
+        + _esc(String(m.start_kst || '')) + ' ' + who + ' — '
+        + (_L ? 'student in ' : '학생은 ') + '<b style="color:#7f1d1d !important">' + _esc(String(m.student_room || '')) + '</b>'
+        + (_L ? ', ' + t + ' waiting in ' : ', ' + t + '은 ') + '<b style="color:#7f1d1d !important">' + _esc(String(m.expected_room || '')) + '</b>'
+        + (_L ? '' : ' 에서 대기') + tw + '</div>';
+    }).join('');
+    box.innerHTML = '<div style="font-weight:800;font-size:13.5px;color:#991b1b !important;margin-bottom:4px">' + head + '</div>' + rows
+      + '<div style="font-size:12px;color:#7f1d1d !important;margin-top:4px">'
+      + (_L ? 'Ask the student to leave and re-enter from the home screen, or join the waiting room to guide them.'
+            : '학생에게 홈에서 다시 입장하도록 안내하거나, 대기 중인 방에 들어가 안내해 주세요.')
+      + '</div>';
+  } catch (e) { /* 카드를 그리는 길목 — 던지지 않는다 */ }
+}
+
 function _renderRoomsSummary(counts, liveRooms, _L) {
   /* 📣 (2026-09-01 A안) 「오늘 수업」 탭 줄의 «화상방 접속» 숫자 — 세는 곳은 여기 하나뿐이고
      탭은 받아 적기만 한다. ⚠️ 통째로 try/catch — 이 함수는 카드를 그리는 길목이라 던지면 안 된다. */
@@ -1953,11 +1988,12 @@ async function loadActiveRooms() {
     } catch(_) {}
     /* 📅 예약 기준 «지금 수업» — 강사 계정(403)·구버전 서버에서는 조용히 없는 것으로 둔다.
        ⛔ 여기서 실패한다고 방 목록까지 못 그리게 하면 안 된다(원래 기능이 우선). */
-    let sched = [], scounts = null;
+    let sched = [], scounts = null, mism = null;
     try {
-      if (cr) { const cj = await cr.json(); if (cj && cj.ok) { sched = cj.classes || []; scounts = cj.counts || null; } }
+      if (cr) { const cj = await cr.json(); if (cj && cj.ok) { sched = cj.classes || []; scounts = cj.counts || null; mism = Array.isArray(cj.room_mismatch) ? cj.room_mismatch : null; } }
     } catch(_) {}
     _renderRoomsSummary(scounts, (rooms || []).length, _L);
+    _renderRoomMismatch(mism, _L);
     const schedRows = _schedRowsHtml(sched, _L, !rooms || rooms.length === 0);
 
     if (!rooms || rooms.length === 0) {
