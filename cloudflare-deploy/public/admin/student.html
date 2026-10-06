@@ -368,6 +368,8 @@
 .mgsu-chip.post{border-style:dashed;color:#475467}
 .mgsu-chip.sel{outline:2px solid #2563eb;outline-offset:1px}
 .mgsu-chip .ty{font-size:10.5px;font-weight:800;padding:0 6px;border-radius:999px}
+.mgsu-chip .tch{font-size:11px;font-weight:800;color:#1d4ed8;padding-left:4px;border-left:1px solid #cbd5e1;margin-left:2px}
+.mgsu-chip.past .tch{color:inherit}
 .mgsu-chip.past{opacity:.55;text-decoration:line-through}
 .mgsu-act{border:1px solid #93c5fd;background:#eff6ff;border-radius:10px;padding:10px 12px;color:#101828;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .mgsu-act .w{font-weight:800}
@@ -3825,6 +3827,7 @@ function mgsuRender() {
       var tag = (o.sch.class_type && o.sch.class_type !== 'regular') ? '<span class="ty" style="background:' + ty.bg + ';color:' + ty.fg + '">' + esc(en ? ty.en : ty.ko) + '</span>' : '';
       return '<button type="button" role="listitem" class="' + cls + '" data-mgsu-occ="' + esc(key) + '">' + tag
         + (o.ymd === todayYmd ? (en ? 'Today ' : '오늘 ') : '') + esc(mgsuMd(o) + ' ' + o.hm)
+        + '<span class="tch">' + teacherLabel(o.sch) + '</span>'   /* (2026-10-06 «날짜 칩에도 교사 이름») teacherLabel 은 이미 이스케이프된 값 · ⛔ class 'ty' 금지(종류 글자 판정과 섞임) */
         + (hol ? ' · ' + esc(hol) : '') + (post ? (en ? ' · postponed' : ' · 연기됨') : '') + '</button>';
     }).join('') + '</div>'
       + '<div class="mgsu-note">' + (en ? 'Tap a date to postpone or change that class. Next ' + MGSU_DAYS + ' days.' : '날짜를 누르면 그 날 수업을 연기·변경할 수 있습니다. 앞으로 ' + MGSU_DAYS + '일.') + '</div>';
