@@ -1353,13 +1353,15 @@ function __mobPersist(){
     var headers = {'Content-Type':'application/json'};
     if (tok) headers['Authorization'] = 'Bearer ' + tok;
     return fetch('/api/class/schedule/request',{method:'POST',credentials:'include',headers:headers,body:JSON.stringify(body)})
-      .then(function(r){ return r.json().then(function(j){ return { ok: !!(r.ok && j && j.ok === true), error: (j && j.error) || ('http_' + r.status) }; }, function(){ return { ok:false, error:'http_' + r.status }; }); })
+      .then(function(r){ return r.json().then(function(j){ return { ok: !!(r.ok && j && j.ok === true), auto: !!(r.ok && j && j.ok === true && j.auto_applied), error: (j && j.error) || ('http_' + r.status) }; }, function(){ return { ok:false, error:'http_' + r.status }; }); })
       .catch(function(){ return { ok:false, error:'network' }; });
   });
   return Promise.all(jobs).then(function(res){
     var sent = res.filter(function(x){ return x.ok; }).length;
     var firstErr = (res.find(function(x){ return !x.ok; }) || {}).error || null;
-    return { ok: sent === res.length && res.length > 0, sent: sent, total: res.length, error: firstErr };
+    /* ⏩ (2026-10-06) 서버가 무료 연기를 바로 반영했는가 — auto = 반영된 건수 */
+    var auto = res.filter(function(x){ return x.ok && x.auto; }).length;
+    return { ok: sent === res.length && res.length > 0, sent: sent, total: res.length, auto: auto, error: firstErr };
   });
 }
 window.__mobLastFee = null;
@@ -1485,6 +1487,7 @@ function showCompletion(saved){
   /* 🔧 (2026-09-30) 저장 결과를 사실대로 말한다 — 요청은 «접수» 이지 확정이 아니다.
      saved === null = 서버에 보내지 않는 경우(예시 수업) */
   if (saved === null) $('#done-title').textContent = __mobT('ℹ️ 예시 화면이라 저장되지 않았어요', 'ℹ️ Sample only — nothing was saved');
+  else if (saved && saved.ok && saved.auto === saved.total) $('#done-title').textContent = __mobT('✅ ' + v + '됐어요 · 시간표에 바로 반영', '✅ Done — your timetable is updated');
   else if (saved && saved.ok) $('#done-title').textContent = __mobT('✅ ' + v + ' 요청을 보냈어요', '✅ Request sent');
   else $('#done-title').textContent = __mobT('⚠️ ' + v + ' 요청이 저장되지 않았어요', '⚠️ Your request was not saved');
   var feeNote = '';
@@ -1508,8 +1511,11 @@ function showCompletion(saved){
       : __mobT('수업은 아직 그대로이니 카카오 상담으로 알려 주세요.', 'Your classes are unchanged — please contact us on KakaoTalk.');
     saveNote = '<br><span style="color:#d97706;font-weight:700">' + __mobT('서버에 저장되지 않았습니다', 'Not saved') + ' (' + saved.sent + '/' + saved.total + '). ' + why + '</span>';
   }
+  else if (saved && saved.ok && saved.auto === saved.total) saveNote = '<br><span style="font-size:12px">' + __mobT('선생님·관리자 시간표에도 바로 반영됐어요.', 'Teacher and staff timetables are updated too.') + '</span>';
+  else if (saved && saved.ok && saved.auto) saveNote = '<br><span style="font-size:12px">' + __mobT(saved.auto + '건은 바로 반영됐고, 나머지 ' + (saved.total - saved.auto) + '건은 관리자가 확인한 뒤 반영됩니다.', saved.auto + ' applied now; the rest after staff review.') + '</span>';
   else if (saved && saved.ok) saveNote = '<br><span style="font-size:12px">' + __mobT('관리자가 확인한 뒤 반영됩니다.', 'It will be applied after staff review.') + '</span>';
-  $('#done-sub').innerHTML = '기존: ' + beforeList + '<br>↓ 아래 일정으로 ' + v + (saved && saved.ok ? ' 요청' : '') + feeNote + saveNote;
+  var _autoAll = !!(saved && saved.ok && saved.auto === saved.total);
+  $('#done-sub').innerHTML = '기존: ' + beforeList + '<br>↓ 아래 일정으로 ' + v + (saved && saved.ok && !_autoAll ? ' 요청' : '') + feeNote + saveNote;
   $('#done-list').innerHTML = list;
   $('#sticky-bar').classList.remove('show'); // fix(2026-06-18): fixed 바 — 화면 이탈 시 직접 숨김
   $('#screen-detail').classList.remove('active');

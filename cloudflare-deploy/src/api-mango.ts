@@ -1,4 +1,5 @@
 import { WEEKLY_POSTPONE, readWeeklyPostponePlan } from './weekly-postpone';
+import { autoApproveStudentPostpone } from './student-auto-postpone';  // ⏩ 학생 무료 연기 자동 승인(2026-10-06)
 import { requireRoomJwtSecret } from './room-jwt-secret';
 import { ensureStudentEvaluationDetailSchema, readStudentAdminEvaluations } from './evaluation-records';
 import { ensureEvaluationScoreSchema, validEvaluationScores } from './evaluation-scores';
@@ -2482,19 +2483,29 @@ export async function handleMangoApi(
       } catch { recent = null; }
       /* 같은 수업·같은 회차에 이미 대기 중인 요청이 있으면 또 받지 않는다(2026-10-01 대기 8건 중복). */
       let pendingDup: boolean | null = null;
+      let pendingDupId: number | null = null;   // ⏩ 대기 중인 그 요청 — 자동 승인을 한 번 더 시도한다
       try {
         const dupOrig = cs && cs.scheduled_date ? String(cs.scheduled_date).replace(/\//g, '-').slice(0, 10) : bodyOrigDate;
         if (cs && dupOrig) {
           const dr: any = await env.DB.prepare(`SELECT id FROM schedule_change_requests WHERE schedule_id = ? AND orig_date = ? AND requester_uid = ? AND status = 'pending' LIMIT 1`)
             .bind(cs.id, dupOrig, tokUid).first();
           pendingDup = !!dr;
+          pendingDupId = dr && dr.id ? Number(dr.id) : null;
         }
       } catch { pendingDup = null; }
       const gate = studentRequestGate({
         tokUid, schedule: cs, requestType: reqType, origDate: bodyOrigDate,
         newDate, newTime, todayKst, recentCount: recent, pendingDup,
       });
-      if (!gate.ok) return json({ ok: false, error: gate.error }, gate.status);
+      if (!gate.ok) {
+        /* ⏩ (2026-10-06) 이미 대기 중인 같은 요청이 «자동 승인 대상» 이면 지금 반영한다 —
+           자동 승인이 생기기 전에 접수돼 대기로 남은 요청이 다시 보내도 영영 안 풀리던 것을 막는다. */
+        if (gate.error === 'already_pending' && pendingDupId) {
+          const ap = await autoApproveStudentPostpone(env, pendingDupId);
+          if (ap.applied) return json({ ok: true, id: pendingDupId, status: 'approved', auto_applied: ap.applied });
+        }
+        return json({ ok: false, error: gate.error }, gate.status);
+      }
 
       const origDate = cs.scheduled_date ? String(cs.scheduled_date).replace(/\//g, '-').slice(0, 10) : bodyOrigDate;
       const origTime = String(cs.start_time || '').slice(0, 5) || null;
@@ -2553,18 +2564,22 @@ export async function handleMangoApi(
         if (ins?.success && ins?.meta?.changes === 0) return json({ ok: false, error: 'already_pending' }, 409);
         return json({ ok: false, error: 'request_save_failed' }, 503);
       }
+      /* ⏩ (2026-10-06 사장님 「자동 연기되게」) 무료 연기는 접수 즉시 승인 — 조건은 student-auto-postpone.ts.
+         안 되면(유료·반복·강사 변경·겹침 등) 예전처럼 «대기» 로 남아 관리자가 승인한다. */
+      const reqId: number | null = ins?.meta?.last_row_id ? Number(ins.meta.last_row_id) : null;
+      const auto = await autoApproveStudentPostpone(env, reqId);
       try {
         const typeKo = reqType === 'change' ? '변경' : '연기';
         const feeKo = feeType === 'paid' ? '💰유료' : feeType === 'free' ? '🆓무료' : '';
         await enqueueNotification(env, {
           type: 'schedule_request',
-          title: `📅 수업 ${typeKo} 요청 ${feeKo}`.trim(),
-          body: `${studentName} 님(학생 직접) · 강사 ${teacherName}${wishNote ? ` · ${wishNote}` : ''} · 원수업 ${origDate || ''} ${origTime || ''}${newDate ? ` → ${newDate} ${newTime || ''}` : ''}. 관리자 페이지에서 승인/거절하세요.`,
+          title: `📅 수업 ${typeKo} ${auto.applied ? '자동 반영' : '요청'} ${feeKo}`.trim(),
+          body: `${studentName} 님(학생 직접) · 강사 ${teacherName}${wishNote ? ` · ${wishNote}` : ''} · 원수업 ${origDate || ''} ${origTime || ''}${newDate ? ` → ${newDate} ${newTime || ''}` : ''}. ${auto.applied ? '시간표에 자동 반영됐습니다(무료 연기).' : '관리자 페이지에서 승인/거절하세요.'}`,
           meta: { request_id: ins?.meta?.last_row_id || null, request_type: reqType, requester_role: 'student', new_teacher_id: newTeacherId, fee_type: feeType, minutes_before: minutesBefore, student_name: studentName, teacher_name: teacherName },
           channel: 'kakao_memo',
         });
       } catch (e: any) { console.warn('[class/schedule/request] notify skipped:', e?.message || e); }
-      return json({ ok: true, id: ins?.meta?.last_row_id || null, status: 'pending', fee_type: feeType, minutes_before: minutesBefore });
+      return json({ ok: true, id: reqId, status: auto.applied ? 'approved' : 'pending', auto_applied: auto.applied, auto_reason: auto.reason, fee_type: feeType, minutes_before: minutesBefore });
     }
 
     /* ═══ 📡 /api/class/sfu/* — Realtime SFU 자격증명 경계 (2026-09-02, C안 1단계) ═══
