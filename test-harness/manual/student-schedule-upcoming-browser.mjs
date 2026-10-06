@@ -105,7 +105,7 @@ try {
       return {
         hero: (top && top.querySelector('.mgsu-hero') || {}).textContent || '',
         groups: [...document.querySelectorAll('#mgsuTop .mgsu-grp .t')].map(e => e.textContent),
-        chips: [...document.querySelectorAll('#mgsuTop .mgsu-chip')].map(e => ({ t: e.textContent, tag: !!e.querySelector('.ty'), key: e.getAttribute('data-mgsu-occ'), past: e.classList.contains('past'), tagBg: e.querySelector('.ty') ? getComputedStyle(e.querySelector('.ty')).backgroundColor : '' })),
+        chips: [...document.querySelectorAll('#mgsuTop .mgsu-chip')].map(e => ({ t: e.textContent, tch: (e.querySelector('.tch') || {}).textContent || '', tag: !!e.querySelector('.ty'), key: e.getAttribute('data-mgsu-occ'), past: e.classList.contains('past'), tagBg: e.querySelector('.ty') ? getComputedStyle(e.querySelector('.ty')).backgroundColor : '' })),
         heroTyBg: (() => { const e = document.querySelector('#mgsuTop .mgsu-hero .mgsu-ty'); return e ? getComputedStyle(e).backgroundColor : ''; })(),
         expect: exp.length, future: exp.some(o => o.sch.id === 7),
         foldOpen: !!(document.getElementById('mgsuFold') || {}).open,
@@ -126,6 +126,7 @@ try {
     check('③ [짝] 시작일이 아직 안 온 수업은 칩에 안 나온다', !info.future);
     const mk = info.chips.find(c => /보충/.test(c.t));
     check('④ 보충 수업 칩에 «보충» 글자가 붙는다', !!mk && mk.tag);
+    check('③ 모든 날짜 칩에 교사 이름이 붙는다(정본 teacherLabel)', info.chips.length > 0 && info.chips.every(c => /중국어 강선생님/.test(c.tch)), JSON.stringify(info.chips.map(c => c.tch)).slice(0, 120));
     check('④ [짝] 정규 칩에는 종류 글자가 안 붙는다', info.chips.filter(c => !c.tag).length === info.chips.length - 1);
     check('⑥ 이 카드에 «취소» 버튼이 없다', info.cancelBtns === 0, String(info.cancelBtns));
     check('요일별 줄은 접혀 있고 펼치면 8줄(전부)이 있다', !info.foldOpen && info.rows === 8, info.foldOpen + '/' + info.rows);
@@ -188,6 +189,8 @@ try {
     const c2 = await page.evaluate('(' + CONTRAST + ')("#mgsuTop .mgsu-grp .m")');
     const c3 = await page.evaluate('(' + CONTRAST + ')("#mgsuTop .mgsu-chip:not(.today):not(.hol)")');
     const c4 = await page.evaluate('(' + CONTRAST + ')("#mgsuTop .mgsu-hero .mgsu-tch")');
+    const c5 = await page.evaluate('(' + CONTRAST + ')("#mgsuTop .mgsu-chip:not(.today):not(.hol):not(.past) .tch")');
+    check('⑧ 날짜 칩의 교사 이름이 읽힌다(대비 4.5 이상)', c5 >= 4.5, String(c5));
     console.log(`     대비: 다음수업 ${c1} · 묶음 설명 ${c2} · 날짜 칩 ${c3} · 교사 이름 ${c4}`);
     check('⑧ 교사 이름 알약 글자가 읽힌다(대비 4.5 이상)', c4 >= 4.5, String(c4));
     check('⑧ 글자가 읽힌다(대비 4.5 이상 — 다음수업·묶음·칩)', c1 >= 4.5 && c2 >= 4.5 && c3 >= 4.5);
