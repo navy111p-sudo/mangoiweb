@@ -74,7 +74,7 @@ import { scheduleMoveVersion } from './class-schedule-move';
 import { studentRequestGate, ensureScheduleChangeRequestTable } from './student-schedule-request';  // 📅 학생 연기·변경 요청 판정 정본
 import { loadSchedSummaryMap, loadSchedSummaryOne, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약 수업」 칸 정본 (students_erp 의 수강 칸은 카페24가 정본이라 늘 «—» 였다)       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 import { isPostponedOccurrence } from './class-postponed';  // ⏸ 연기된 회차 판정 정본(2026-10-01)
-import { resolveStudentTwins, dropShadowedTwinSessions } from './student-alias';  // 👥 카페24 쌍둥이 계정(X ↔ mangoai_X) — 학생 «내 수업» 찾기(2026-10-02 lby01)
+import { resolveStudentTwins, pickTwinSessions } from './student-alias';  // 👥 카페24 쌍둥이 계정(X ↔ mangoai_X) — 학생 «내 수업» 찾기(2026-10-02 lby01)
 import { isUsableKoMeaning, stripJamoRuns } from './learn-meaning-check';  // 🧹 «뜻» 카드에 'ㅋㅋㅋㅋ' 가 나가지 않게(2026-10-02)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
@@ -1904,8 +1904,8 @@ export async function handleMangoApi(
         if (!conds.length) return [];
         const whereSql = `cs.status != 'cancelled' AND (${conds.join(' OR ')})`;
         const _soSelT = startsOnSel(await ensureStartsOnColumn(env), 'cs');
-        const sqlJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status${_soSelT}, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${whereSql}`;
-        const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status${_soSelT} FROM class_schedules cs WHERE ${whereSql}`;
+        const sqlJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source${_soSelT}, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${whereSql}`;
+        const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source${_soSelT} FROM class_schedules cs WHERE ${whereSql}`;
         let rows: any;
         try { rows = await env.DB.prepare(sqlJoin).bind(...binds).all<any>(); }
         catch { rows = await env.DB.prepare(sqlNoJoin).bind(...binds).all<any>(); }
@@ -1947,6 +1947,7 @@ export async function handleMangoApi(
             start_ts, end_ts, open_at_ts, close_at_ts,
             duration_min: dur, status, join_open,
             starts_in_ms: start_ts - now,
+            source: s.source || null,   // 겹친 쌍둥이 예약의 «정본» 판정용 — 응답 전에 뗀다
           });
         }
         return out;
@@ -1960,8 +1961,14 @@ export async function handleMangoApi(
         sessions = await runPass(condsName, bindsName);
         if (sessions.length) matchedBy = 'name';
       }
-      // 👥 (2026-10-06 delaware) 내 예약과 시간이 겹친 쌍둥이 계정 예약은 뺀다 — 정본 student-alias.ts
-      if (!isTeacher && matchedBy === 'uid') sessions = dropShadowedTwinSessions(sessions, userId);
+      /* 👥 (2026-10-06 delaware · 2026-10-07 개정) 쌍둥이 계정 예약이 시간이 겹치면 «정본» 쪽만 남긴다 —
+         로그인한 계정이 아니라 예약 출처로 고른다(카페24 미러 자동 행이 진다). 정본 student-alias.ts */
+      if (!isTeacher && matchedBy === 'uid') {
+        const tp = pickTwinSessions(sessions, userId);
+        sessions = tp.sessions;
+        if (tp.ambiguous) console.warn('[twin-pick] 정본 판정 불가 — 로그인 계정 쪽으로 입장', userId, tp.dropped.map((x: any) => x.schedule_id).join(','));
+      }
+      for (const s3 of sessions) delete (s3 as any).source;   // 내부 판정용 칸 — 화면에 안 보낸다
       sessions.sort((a, b) => a.start_ts - b.start_ts);
 
       /* 🚪 「오늘은 이 방으로」 — 선생님·관리자가 지정해 둔 회의방이 있으면 room_id 를 갈아 끼운다.
