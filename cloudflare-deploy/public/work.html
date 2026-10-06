@@ -683,7 +683,7 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
     var w=last&&last.writer,ms=last&&last.missed_staff,out=[];
     if(w&&w.required){
       if(w.prev_missed)out.push(line('bad',t('⚠️ 지난 근무일('+w.prev_day+') 매일보고 미제출 — 지금 작성해 주세요','⚠️ Daily handover for '+w.prev_day+' was not submitted — please write it now'),'/daily-handover.html?write='+encodeURIComponent(w.prev_day),t('지난 보고 쓰기','Write it now')));
-      if(w.today_required&&!w.today_submitted){var late=kstNow().slice(11,16)>=w.due_time;out.push(line(late?'bad':'',late?t('🔴 오늘 매일보고 마감('+w.due_time+' KST) 지남 — 아직 제출 안 함','🔴 Today\'s daily handover is past due ('+w.due_time+' KST) — not submitted'):t('📝 오늘 매일보고 반드시 작성 · 마감 '+w.due_time+' (KST)','📝 Daily handover required today · due '+w.due_time+' KST'),'/daily-handover.html',t('오늘 보고 쓰기','Write today\'s report')));}
+      if(w.today_required&&!w.today_submitted){var late=kstNow().slice(11,16)>=w.due_time;out.push(line(late?'bad':'',late?t('🔴 오늘 매일보고 마감('+w.due_time+' KST) 지남 — 아직 제출 안 함','🔴 Today\'s daily handover is past due ('+w.due_time+' KST) — not submitted'):t('📝 오늘 매일보고 반드시 작성 · 마감 '+w.due_time+' (KST)','📝 Daily handover required today · due '+w.due_time+' KST'),'/daily-handover.html?write='+encodeURIComponent(w.day||''),t('오늘 보고 쓰기','Write today\'s report')));}
     }
     if(ms&&ms.length)out.push(line('bad',t('📋 매일보고 미제출: ','📋 Not submitted: ')+ms.map(function(m){return m.name+' ('+m.prev_day.slice(5)+')';}).join(', '),'/daily-handover.html?date='+encodeURIComponent(ms[0].prev_day),t('보고 보기','Open reports')));
     writer.replaceChildren.apply(writer,out);writer.hidden=!out.length;return out.length;

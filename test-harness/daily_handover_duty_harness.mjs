@@ -180,11 +180,11 @@ async function prime(t) {
     const txt = (x) => x.kids.map(k => k.textContent).join(' ');
     return { n, hidden: writer.hidden, lines: writer.kids.map(k => ({ cls: k.className, text: txt(k), href: (k.kids.find(c => c.tag === 'a') || {}).href })) };
   };
-  const base = { required: true, due_time: '23:00', today_required: true, today_submitted: false, prev_day: '2026-10-12', prev_missed: true };
+  const base = { required: true, day: '2026-10-13', due_time: '23:00', today_required: true, today_submitted: false, prev_day: '2026-10-12', prev_missed: true };
   let r = draw({ writer: base });
   ok('안 쓴 사람: 두 줄(지난 근무일·오늘)', r.n === 2 && !r.hidden, JSON.stringify(r));
   ok('지난 근무일 줄은 빨강 + 그 날짜 쓰기 링크', r.lines[0]?.cls.includes('bad') && r.lines[0]?.href === '/daily-handover.html?write=2026-10-12', JSON.stringify(r.lines[0]));
-  ok('오늘 줄에 마감 시각', /23:00/.test(r.lines[1]?.text || '') && r.lines[1]?.href === '/daily-handover.html');
+  ok('오늘 줄에 마감 시각 + 오늘 쓰기 링크(?write=)', /23:00/.test(r.lines[1]?.text || '') && r.lines[1]?.href === '/daily-handover.html?write=2026-10-13', JSON.stringify(r.lines[1]));
   ok('마감 전엔 오늘 줄이 빨강 아님', !r.lines[1]?.cls.includes('bad'));
   r = draw({ writer: base }, '2026-10-13T14:10:00Z'); // 23:10 KST
   ok('마감 지나면 오늘 줄 빨강', r.lines[1]?.cls.includes('bad') && /지남/.test(r.lines[1]?.text || ''), JSON.stringify(r.lines[1]));
@@ -211,6 +211,7 @@ async function prime(t) {
   const out = ev([{ name: 'A' }], [{ name: 'A' }], { missed_staff: [{ name: 'Karl', prev_day: '2026-10-12' }] });
   ok('대상이 있는 날에도 «지난 근무일 미제출» 이 붙는다', /보고 대상 1명/.test(out) && /Karl/.test(out), out);
   ok('미제출 명단이 없으면 덧붙이지 않는다(짝)', !/지난 근무일/.test(ev([{ name: 'A' }], [], {})));
+  ok('읽는 사람(reader_mode)도 ?write= 로 오면 편집기를 연다', /var readOnly=!!j\.reader_mode&&!writeDay;/.test(js) && /\$\('editor'\)\.hidden=readOnly;/.test(js));
   ok('?write= 를 읽어 그 날짜 보고를 연다', /wanted\.get\('write'\)/.test(js) && /\/home\?date='\+encodeURIComponent\(writeDay\)/.test(js) && /\$\('date'\)\.value=writeDay/.test(js));
 }
 
@@ -224,6 +225,29 @@ async function prime(t) {
   ok('시작일 당일 오늘 줄은 나온다(짝)', melca.writer.today_required === true);
   const jjw = await call('mgr_jjw');
   ok('장지웅(경영진이지만 대표님 아님)은 남의 명단을 안 받음', jjw.missed_staff === null);
+}
+
+
+// ⑩ 필수 대상은 본인 설정으로 빠질 수 없다 (Codex 리뷰 P1)
+{
+  const t = setup(); await prime(t);
+  t.db.exec(`UPDATE daily_handover_schedule SET mandatory=1 WHERE username IN ('mgr_jjw','mgr_melca','mgr_karl','mgr_maimai')`);
+  t.at('2026-10-13T05:00:00Z');
+  const post = async (u, route, body) => { const url = new URL('https://mangoi.ai/api/approval/handover' + route); const r = await t.m.handleDailyHandover(new Request(url, { method: 'POST', body: JSON.stringify(body) }), url, t.env, { ok: true, username: u, name: u, role: 'hq' }); return r.json(); };
+  const res = await post('mgr_melca', '/schedule', { enabled: false, weekdays: [6], due_time: '09:00', exempt_date: '2026-10-20' });
+  ok('필수 대상이 끄려 하면 locked 로 답한다', res.ok === true && res.locked === true, JSON.stringify(res));
+  const row = t.db.prepare(`SELECT enabled,weekdays,due_time,exempt_date FROM daily_handover_schedule WHERE username='mgr_melca'`).get();
+  ok('켜짐·요일·마감은 그대로', row.enabled === 1 && row.weekdays === '1,2,3,4,5' && row.due_time === '23:00', JSON.stringify(row));
+  ok('쉬는 날은 본인이 지정할 수 있다(짝)', row.exempt_date === '2026-10-20');
+  t.db.exec(`UPDATE daily_handover_schedule SET enabled=0 WHERE username='mgr_karl'`);
+  const duty = await t.m.handoverDuty(t.env, '2026-10-13');
+  ok('필수 대상은 enabled=0 이어도 명단에 남는다', duty.some(d => d.username === 'mgr_karl' && d.today_required), JSON.stringify(duty.map(d => d.username)));
+  t.db.exec(`UPDATE daily_handover_schedule SET mandatory=0, enabled=0 WHERE username='mgr_maimai'`);
+  const duty2 = await t.m.handoverDuty(t.env, '2026-10-13');
+  ok('필수 아님 + 꺼짐이면 명단에서 빠진다(짝)', !duty2.some(d => d.username === 'mgr_maimai'));
+  t.db.exec(`INSERT INTO daily_handover_schedule(username,enabled,weekdays,due_time,exempt_date,updated_at) VALUES('nobody',1,'1,2,3,4,5','19:00','',1)`);
+  const r2 = await post('nobody', '/schedule', { enabled: false, weekdays: [1], due_time: '19:00', exempt_date: '' });
+  ok('필수 아닌 사람은 예전처럼 스스로 끌 수 있다', r2.ok && !r2.locked && t.db.prepare(`SELECT enabled FROM daily_handover_schedule WHERE username='nobody'`).get().enabled === 0);
 }
 
 console.log(`daily_handover_duty_harness — PASS ${pass} / FAIL ${fail}`);

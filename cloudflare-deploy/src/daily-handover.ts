@@ -83,6 +83,8 @@ const ensure = oncePerIsolate(async (env: Env) => {
   ]);
   // 공휴일 나라(KR/PH). 없으면 읽는 쪽이 'KR' 로 본다 — 이미 있으면 ALTER 가 던지므로 삼킨다.
   try { await env.DB.prepare(`ALTER TABLE daily_handover_schedule ADD COLUMN holiday_country TEXT NOT NULL DEFAULT 'KR'`).run(); } catch {}
+  // 필수 대상(대표님 지정). 1이면 본인 «알림 설정» 으로 끄거나 요일·마감을 바꿀 수 없다(쉬는 날만 지정 가능).
+  try { await env.DB.prepare(`ALTER TABLE daily_handover_schedule ADD COLUMN mandatory INTEGER NOT NULL DEFAULT 0`).run(); } catch {}
 });
 async function accounts(env: Env): Promise<any[]> {
   const r = await env.DB.prepare(`SELECT a.username, a.name FROM admin_scope s
@@ -153,9 +155,10 @@ const shortName = (n: any, u: string) => String(n || u).replace(/\s*\(.*?\)\s*$/
 export async function handoverDuty(env: Env, day = kstDay(), only?: string) {
   const rows = await env.DB.prepare(`SELECT s.*, a.name FROM daily_handover_schedule s
     JOIN admin_scope sc ON sc.username=s.username AND sc.scope_type='hq'
-    JOIN admin_account a ON a.username=s.username WHERE s.enabled=1 AND (? IS NULL OR s.username=?) LIMIT 200`)
+    JOIN admin_account a ON a.username=s.username WHERE (s.enabled=1 OR s.mandatory=1) AND (? IS NULL OR s.username=?) LIMIT 200`)
     .bind(only ?? null, only ?? null).all<any>();
-  const list = rows.results || [];
+  // 필수 대상은 본인이 알림을 꺼도 «써야 하는 사람» 이다.
+  const list = (rows.results || []).map((s: any) => Number(s.mandatory) ? { ...s, enabled: 1 } : s);
   if (!list.length) return [];
   const isHoliday = await holidayLookup(env, shiftDay(day, -15), day);
   const out: any[] = [];
@@ -167,7 +170,7 @@ export async function handoverDuty(env: Env, day = kstDay(), only?: string) {
     out.push({ username: s.username, name: shortName(s.name, s.username), due_time: s.due_time,
       holiday_country: s.holiday_country || 'KR', today_required: isWorkday(s, day, isHoliday),
       today_holiday: isHoliday(String(s.holiday_country || 'KR'), day), today_submitted: !!by(day)?.submitted_at,
-      prev_day: prev, prev_missed: !!prev && prev >= DUTY_START && !by(prev)?.submitted_at, _s: s });
+      day, mandatory: !!Number(s.mandatory), prev_day: prev, prev_missed: !!prev && prev >= DUTY_START && !by(prev)?.submitted_at, _s: s });
   }
   return out;
 }
@@ -215,7 +218,7 @@ export async function runDailyHandoverSweep(env: Env) {
     const claim = await env.DB.prepare(`INSERT OR IGNORE INTO daily_handover_notices
       (notice_key,username,report_date,kind,created_at) VALUES(?,?,?,?,?)`).bind(key,s.username,day,stage,Date.now()).run();
     if (!claim.meta.changes) continue;
-    const state = await notify(env, s.username, key, '오늘 보고를 확인해 주세요. / Please review and submit your daily handover.');
+    const state = await notify(env, s.username, key, '오늘 보고를 확인해 주세요. / Please review and submit your daily handover.', '/daily-handover.html?write=' + day);
     await env.DB.prepare(`UPDATE daily_handover_notices SET push_state=? WHERE notice_key=?`).bind(state,key).run();
   }
 }
@@ -580,6 +583,12 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
     if (route === '/schedule') {
       const days = Array.isArray(b.weekdays) ? [...new Set(b.weekdays.filter((x:any)=>Number.isInteger(x)&&x>=0&&x<=6))].sort().join(',') : '';
       if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(b.due_time||'') || !days || (b.exempt_date&&!validDay(b.exempt_date))) return reply({ok:false,error:'schedule'},400);
+      const cur:any=await env.DB.prepare(`SELECT * FROM daily_handover_schedule WHERE username=?`).bind(me).first();
+      if (cur && Number(cur.mandatory)) {
+        // 필수 대상: 켜짐·요일·마감은 대표님 지정 그대로, 쉬는 날만 본인이 바꾼다.
+        await env.DB.prepare(`UPDATE daily_handover_schedule SET exempt_date=?,updated_at=? WHERE username=?`).bind(b.exempt_date||'',Date.now(),me).run();
+        return reply({ok:true,locked:true});
+      }
       await env.DB.prepare(`INSERT INTO daily_handover_schedule(username,enabled,weekdays,due_time,exempt_date,updated_at)
         VALUES(?,?,?,?,?,?) ON CONFLICT(username) DO UPDATE SET enabled=excluded.enabled,weekdays=excluded.weekdays,
         due_time=excluded.due_time,exempt_date=excluded.exempt_date,updated_at=excluded.updated_at`)
