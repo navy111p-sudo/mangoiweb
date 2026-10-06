@@ -1,24 +1,16 @@
 /**
- * 수업을 옮긴 뒤 «강사와 학생이 같은 방·같은 시각» 을 받는가 — 샌드박스 끝-끝 검사
+ * 학생 «무료 연기» 자동 승인 — 샌드박스 끝-끝 검사 (2026-10-06 사장님 「자동 연기되게」)
  * ─────────────────────────────────────────────────────────────────────────────
- * 왜 이 하니스가 있나
- *   방 번호는 `class-{예약id}-{YYYYMMDD KST}` 로 결정론적이다. 그런데 그 방을 «만드는 곳» 이
- *   둘이다 — 학생 `/api/class/sessions/today`(api-mango.ts)와 강사 `/api/teacher/portal`
- *   (api-teacher.ts). 수업을 옮기는 입구(드래그 PATCH · 연기/변경 요청 승인 · 「오늘은 이 방」)
- *   중 하나라도 한쪽만 따라가면 «같은 수업인데 둘 다 참여자 1명» 이 재현된다(CLAUDE.md 2장).
- *
- * 무엇이 «진짜» 이고 무엇이 «모형» 인가
- *   ✅ 진짜: handleAdminApi · handleMangoApi · handleTeacherApi 를 **소스 그대로**
- *      (`node --experimental-strip-types` + 확장자 해석 훅) import 해 Request 를 넣어 돌린다.
- *      인증(checkAdminSession·getAdminActor·getScope)·스키마 생성·SQL 전부 실제 코드다.
- *   ✅ 진짜: SQLite(node:sqlite) — D1 모양(prepare/bind/first/all/run/raw, exec, batch)으로 감쌌다.
- *   🟡 모형: src/index.ts 의 라우팅·인증 게이트(isAdminPath 등)는 거치지 않는다 — 핸들러를 직접 부른다.
- *   🟡 모형: 시계(Date.now / new Date())는 고정값. KV·외부 API 는 없음(빈 가짜 KV).
- *   🟡 모형: 스키마 일부(teachers·students_erp·teacher_account_links)는 소스의 CREATE 문을 «읽어서»
- *      만든다(손으로 베끼지 않는다). class_schedules·auth·override 표는 핸들러가 스스로 만든다.
- *
- * 변이시험: src 를 임시 폴더로 «복사» 한 뒤 복사본의 글자만 바꿔 자식 프로세스로 다시 돌린다.
- *   ⛔ 저장소 파일은 한 글자도 안 건드린다.
+ * 정본: cloudflare-deploy/src/student-auto-postpone.ts · 배선: api-mango.ts POST /api/class/schedule/request
+ * ✅ 진짜: handleMangoApi · handleAdminApi · handleTeacherApi 를 소스 그대로 import 해 돌린다(SQLite).
+ * 🟡 모형: src/index.ts 라우팅·인증 게이트는 거치지 않는다. 시계는 고정값.
+ * 묻는 것(짝으로):
+ *   · 자동 반영된다 — 날짜 지정 수업 1건 연기 · 매주 연기 · 날짜 없이 연기(postponed)
+ *     그리고 강사 포털·학생 오늘 수업·관리자 캘린더에 «바로» 새 일시로 보인다
+ *   · 자동 반영 «안» 된다(대기로 남고 수업이 그대로) — 유료(30분 이내) · 반복 수업 · 강사 변경 ·
+ *     겹침 · 변경(change) 요청 · 카페24 미러 같은 날 시각만
+ *   · 예전에 대기로 남은 요청(jeong #14 모양)을 다시 보내면 그 요청이 자동 반영된다
+ * 변이시험: src 복사본만 고친다(저장소 파일은 그대로).
  */
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, cpSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -220,73 +212,139 @@ if (process.env.SMRS_CHILD === '1') {
     return { tc, sc, p, s };
   };
 
+
   sq.exec("CREATE UNIQUE INDEX IF NOT EXISTS uq_sched_teacher_slot ON class_schedules(teacher_id,scheduled_date,start_time) WHERE status='active' AND scheduled_date IS NOT NULL AND teacher_id IS NOT NULL");
   env.ROOM_JWT_SECRET = 'sandbox-only-secret-at-least-thirty-two-characters';
   const {signUidToken} = await imp('auth-token.ts');
   const {addDays} = await imp('class-series-move.ts');
+  const { autoPostponeEligible } = await imp('student-auto-postpone.ts');
   const studentCall = async(uid,method,path,body) => {
     const token=await signUidToken(uid,env);
     const request=new Request(BASE+path,{method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
     const response=await handleMangoApi(request,new URL(request.url),env,{});
     return {status:response.status,body:await response.json()};
   };
-  for(let trial=0;trial<400;trial++){
-    sq.exec('DELETE FROM class_schedules');
+  const row = (id) => sq.prepare('SELECT * FROM class_schedules WHERE id=?').get(id);
+  const reqRow = (id) => sq.prepare('SELECT * FROM schedule_change_requests WHERE id=?').get(id);
+  const showsMoved = async (label, sid, uid, date, time) => {
+    setNow(date, '08:00');
+    await both(label, sid, uid, 'tok_alpha', 'tok_beta', { present: true, time, ymd: date.replaceAll('-','') });
+    const cal = await callAdmin('GET','/api/admin/schedules?week='+addDays(date,-1),{cookie:'tok_admin'});
+    const shown = Array.isArray(cal.body)?cal.body:(cal.body.items||cal.body.schedules||[]);
+    ok(label+' · 관리자 캘린더에 새 일시로', shown.some(r=>r.id===sid&&r.date===date&&r.start_time===time), JSON.stringify(shown.filter(r=>r.id===sid)));
+  };
+  const reset = () => { sq.exec('DELETE FROM class_schedules'); try { sq.exec('DELETE FROM schedule_change_requests'); } catch {} };
+
+  for (let trial = 0; trial < 6; trial++) {
+    const uid = 'auto_' + trial;
+    const hour = String(10 + trial).padStart(2,'0') + ':00';
+
+    // ① 단건 날짜 지정 연기 → 자동 반영 + 세 화면에 보임
+    reset(); setNow(TODAY,'08:00');
+    const s1 = mkClass(uid,'one_off',null,TODAY,hour,'1');
+    const nd = addDays(TODAY, 2), nt = String(10+trial).padStart(2,'0')+':30';
+    let r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'postpone',schedule_id:s1,new_date:nd,new_time:nt});
+    ok(trial+' ① 단건 연기 자동 반영', r.status===200&&r.body.status==='approved'&&r.body.auto_applied==='moved', JSON.stringify(r.body));
+    ok(trial+' ① 수업표가 실제로 옮겨짐', row(s1).scheduled_date===nd&&row(s1).start_time===nt, JSON.stringify(row(s1)));
+    ok(trial+' ① 요청은 approved · 자동승인 표시', reqRow(r.body.id)?.status==='approved'&&/자동/.test(reqRow(r.body.id)?.decided_by||''));
+    if (r.body.auto_applied) await showsMoved(trial+' ① ', s1, uid, nd, nt);
     setNow(TODAY,'08:00');
-    const uid='sandbox_route_'+trial, kind=trial%2?'change':'postpone';
-    const hour=String(9+trial%12).padStart(2,'0')+':00';
-    const ids=[0,7,14].map(days=>mkClass(uid,'one_off',null,addDays(TODAY,days),hour,'1'));
-    const untouched=mkClass(uid,'one_off',null,addDays(TODAY,1),hour,'1');
-    const body={request_type:kind,schedule_id:ids[0],new_date:addDays(TODAY,7),new_time:kind==='change'?hour.slice(0,3)+'30':hour};
-    if(kind==='postpone'){
-      const preview=await studentCall(uid,'GET','/api/class/schedule/weekly-postpone?schedule_id='+ids[0]);
-      ok(trial+' preview full series',preview.status===200&&preview.body.count===3,JSON.stringify(preview));
-      body.request_scope='weekly_postpone';body.expected_series_snapshot=preview.body.snapshot;
-    }
-    const submitted=await studentCall(uid,'POST','/api/class/schedule/request',body);
-    ok(trial+' student '+kind+' request saved',submitted.status===200&&submitted.body.ok,JSON.stringify(submitted));
-    if(!submitted.body.ok)continue;
-    const requestId=submitted.body.id;
-    /* ⏩ (2026-10-06) 학생 «무료 연기» 는 접수 즉시 자동 승인된다(student-auto-postpone.ts).
-       변경(change)은 예전처럼 대기 → 관리자 승인. */
-    if(kind==='postpone'){
-      ok(trial+' auto-approved on submit',submitted.body.status==='approved'&&submitted.body.auto_applied==='moved',JSON.stringify(submitted.body));
-      const list=await callAdmin('GET','/api/admin/schedule-requests?status=pending&limit=300',{cookie:'tok_admin'});
-      ok(trial+' auto-approved not left pending',!(list.body.rows||[]).some(r=>r.id===requestId));
-      const again=await callAdmin('POST','/api/admin/schedule-requests/decide',{cookie:'tok_admin',body:{id:requestId,action:'approve'}});
-      ok(trial+' admin decide sees already_decided',again.status===409&&again.body.error==='already_decided',JSON.stringify(again));
-    }
-    for(const cookie of (kind==='postpone'?[]:['tok_admin','tok_alpha'])){
-      const list=await callAdmin('GET','/api/admin/schedule-requests?status=pending&limit=300',{cookie});
-      ok(trial+' visible pending '+cookie,(list.body.rows||[]).some(r=>r.id===requestId&&r.request_type===kind),JSON.stringify(list.body).slice(0,120));
-    }
-    const foreign=await callAdmin('GET','/api/admin/schedule-requests?status=pending&limit=300',{cookie:'tok_beta'});
-    ok(trial+' other teacher excluded',!(foreign.body.rows||[]).some(r=>r.id===requestId));
-    if(kind!=='postpone'){
-      const approved=await callAdmin('POST','/api/admin/schedule-requests/decide',{cookie:'tok_admin',body:{id:requestId,action:'approve'}});
-      ok(trial+' approved actual move',approved.status===200&&approved.body.applied==='moved',JSON.stringify(approved));
-      if(approved.body.applied!=='moved')continue;
-    } else if(submitted.body.auto_applied!=='moved') continue;
-    const count=sq.prepare('SELECT COUNT(*) n FROM class_schedules').get().n;
-    ok(trial+' same count and other weekday untouched',count===4&&sq.prepare('SELECT scheduled_date FROM class_schedules WHERE id=?').get(untouched).scheduled_date===addDays(TODAY,1));
-    const days=kind==='postpone'?[7,14,21]:[7,7,14];
-    ok(trial+' all expected dates',ids.every((id,i)=>sq.prepare('SELECT scheduled_date FROM class_schedules WHERE id=?').get(id).scheduled_date===addDays(TODAY,days[i])));
-    for (const [index,sid] of (kind === 'postpone' ? ids : [ids[0]]).entries()) {
-      const date = addDays(TODAY,7*(index+1));
-      setNow(date,hour);
-      await both(trial+' '+kind+' matching room '+index,sid,uid,'tok_alpha','tok_beta',{present:true,time:body.new_time,ymd:date.replaceAll('-','')});
-      const calendar=await callAdmin('GET','/api/admin/schedules?week='+addDays(date,-1),{cookie:'tok_admin'});
-      const shown=Array.isArray(calendar.body)?calendar.body:(calendar.body.items||calendar.body.schedules||[]);
-      ok(trial+' admin calendar contains moved lesson '+index,shown.some(r=>r.id===sid&&r.date===date&&r.start_time===body.new_time),JSON.stringify(shown.filter(r=>r.id===sid)));
-    }
+    const st = await studentToday(uid);
+    ok(trial+' ① 옛 날짜(오늘)에는 더 이상 안 보임', !(st.sessions||[]).some(c=>Number(c.schedule_id)===s1));
+    let audit = -1; try { audit = sq.prepare("SELECT COUNT(*) n FROM class_audit_log WHERE schedule_id=? AND source='schedule-request-auto'").get(s1).n; } catch { audit = -1; }
+    ok(trial+' ① 변경 이력에 남음', audit===1, 'n='+audit);
+
+    // ② 유료(30분 이내) → 대기, 수업 그대로
+    reset(); setNow(TODAY, '09:50');
+    const s2 = mkClass(uid,'one_off',null,TODAY,'10:00','1');
+    r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'postpone',schedule_id:s2,new_date:addDays(TODAY,1),new_time:'10:00'});
+    ok(trial+' ② 유료는 대기', r.status===200&&r.body.status==='pending'&&!r.body.auto_applied&&r.body.fee_type==='paid', JSON.stringify(r.body));
+    ok(trial+' ② 유료는 수업 그대로', row(s2).scheduled_date===TODAY&&row(s2).start_time==='10:00');
+
+    // ③ 반복 수업 → 대기(recorded 경로라 자동으로 안 함)
+    reset(); setNow(TODAY,'08:00');
+    const s3 = mkClass(uid,'recurring','Thu',null,hour,'1');
+    r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'postpone',schedule_id:s3,orig_date:'2026-10-01',new_date:'2026-10-08',new_time:hour});
+    ok(trial+' ③ 반복 수업은 대기', r.status===200&&r.body.status==='pending'&&r.body.auto_reason==='recurring', JSON.stringify(r.body));
+    ok(trial+' ③ 반복 수업 행 그대로', row(s3).day_of_week==='Thu'&&!row(s3).scheduled_date);
+
+    // ④ 강사 변경 → 대기
+    reset(); setNow(TODAY,'08:00');
+    const s4 = mkClass(uid,'one_off',null,addDays(TODAY,1),hour,'1');
+    r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'postpone',schedule_id:s4,new_date:addDays(TODAY,2),new_time:hour,teacher_id:2});
+    ok(trial+' ④ 강사 변경은 대기', r.status===200&&r.body.status==='pending'&&r.body.auto_reason==='teacher_change', JSON.stringify(r.body));
+    ok(trial+' ④ 수업·강사 그대로', row(s4).scheduled_date===addDays(TODAY,1)&&String(row(s4).teacher_id)==='1');
+
+    // ⑤ 겹침 → 대기, 수업 그대로
+    reset(); setNow(TODAY,'08:00');
+    const s5 = mkClass(uid,'one_off',null,addDays(TODAY,1),hour,'1');
+    mkClass(uid,'one_off',null,addDays(TODAY,3),hour,'2');   // 같은 «학생» 이 그 시각에 다른 강사 수업 — DB 유니크 인덱스(강사 기준)로는 안 막힌다
+    r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'postpone',schedule_id:s5,new_date:addDays(TODAY,3),new_time:hour});
+    ok(trial+' ⑤ 겹치면 대기', r.status===200&&r.body.status==='pending'&&!r.body.auto_applied, JSON.stringify(r.body));
+    ok(trial+' ⑤ 겹치면 수업 그대로', row(s5).scheduled_date===addDays(TODAY,1));
+
+    // ⑥ 변경(change) → 대기
+    reset(); setNow(TODAY,'08:00');
+    const s6 = mkClass(uid,'one_off',null,addDays(TODAY,1),hour,'1');
+    r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'change',schedule_id:s6,new_date:addDays(TODAY,2),new_time:hour});
+    ok(trial+' ⑥ 변경은 대기', r.status===200&&r.body.status==='pending'&&r.body.auto_reason==='not_postpone', JSON.stringify(r.body));
+
+    // ⑦ 날짜 없이 연기 → postponed 로 자동
+    reset(); setNow(TODAY,'08:00');
+    const s7 = mkClass(uid,'one_off',null,addDays(TODAY,1),hour,'1');
+    r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'postpone',schedule_id:s7});
+    ok(trial+' ⑦ 미정 연기 자동 postponed', r.body.auto_applied==='postponed'&&row(s7).status==='postponed', JSON.stringify(r.body));
+
+    // ⑧ 매주 연기 → 자동, 세 회차 모두 한 주씩 + 다른 요일 그대로
+    reset(); setNow(TODAY,'08:00');
+    const ids = [0,7,14].map(d=>mkClass(uid,'one_off',null,addDays(TODAY,d+1),hour,'1'));
+    const keep = mkClass(uid,'one_off',null,addDays(TODAY,2),hour,'1');
+    const pv = await studentCall(uid,'GET','/api/class/schedule/weekly-postpone?schedule_id='+ids[0]);
+    r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'postpone',schedule_id:ids[0],new_date:addDays(TODAY,8),new_time:hour,request_scope:'weekly_postpone',expected_series_snapshot:pv.body.snapshot});
+    ok(trial+' ⑧ 매주 연기 자동', r.body.auto_applied==='moved', JSON.stringify(r.body));
+    ok(trial+' ⑧ 세 회차 한 주씩', ids.every((id,i)=>row(id).scheduled_date===addDays(TODAY,i*7+8)));
+    ok(trial+' ⑧ 다른 요일 그대로', row(keep).scheduled_date===addDays(TODAY,2));
+    if (r.body.auto_applied) for (const [i,id] of ids.entries()) await showsMoved(trial+' ⑧-'+i+' ', id, uid, addDays(TODAY,i*7+8), hour);
+
+    // ⑨ jeong #14 모양: 자동 승인 전 접수돼 대기로 남은 요청 → 다시 보내면 반영
+    reset(); setNow(TODAY,'08:00');
+    const s9 = mkClass(uid,'one_off',null,addDays(TODAY,1),hour,'1');
+    const nd9 = addDays(TODAY,4);
+    const { scheduleMoveVersion } = await imp('class-schedule-move.ts');
+    const cs9 = row(s9);
+    const legacy = Number(sq.prepare(`INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_name, requester_uid, teacher_name, student_name, orig_date, orig_time, new_date, new_time, fee_type, minutes_before, status, created_at, schedule_snapshot)
+      VALUES (?,'postpone','student',?,?,'ALPHA',?,?,?,?,?,'free',600,'pending',?,?)`).run(s9, uid, uid, uid, cs9.scheduled_date, hour, nd9, hour, NOW, scheduleMoveVersion(cs9)).lastInsertRowid);
+    r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'postpone',schedule_id:s9,new_date:nd9,new_time:hour});
+    ok(trial+' ⑨ 다시 보내면 대기 요청이 자동 반영', r.status===200&&r.body.id===legacy&&r.body.auto_applied==='moved', JSON.stringify(r.body));
+    ok(trial+' ⑨ 수업표 반영 · 요청 approved', row(s9).scheduled_date===nd9&&reqRow(legacy).status==='approved');
+    const n9 = sq.prepare('SELECT COUNT(*) n FROM schedule_change_requests WHERE schedule_id=?').get(s9).n;
+    ok(trial+' ⑨ 중복 요청이 새로 안 생김', n9===1, 'n='+n9);
+    r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'postpone',schedule_id:s9,new_date:addDays(TODAY,5),new_time:hour});
+    ok(trial+' ⑨ 그 뒤 또 연기해도 정상 접수(새 날짜로)', r.status===200&&r.body.auto_applied==='moved'&&row(s9).scheduled_date===addDays(TODAY,5), JSON.stringify(r.body));
   }
+
+  // ⑩ 순수 판정 짝
+  const base = { status:'pending', requester_role:'student', request_type:'postpone', fee_type:'free', schedule_snapshot:null };
+  const csx = { id:1, scheduled_date:'2026-10-06', status:'active', source:'x', teacher_id:'1', start_time:'10:00', duration_min:20, user_id:'u' };
+  const { scheduleMoveVersion: smv } = await imp('class-schedule-move.ts');
+  const good = { ...base, schedule_snapshot: smv(csx), new_date:'2026-10-07', new_time:'10:00' };
+  ok('⑩ 조건 맞으면 null', autoPostponeEligible(good, csx) === null);
+  ok('⑩ 유료면 막음', autoPostponeEligible({ ...good, fee_type:'paid' }, csx) === 'not_free');
+  ok('⑩ 요금 모르면 막음', autoPostponeEligible({ ...good, fee_type:null }, csx) === 'not_free');
+  ok('⑩ 강사(관리자) 요청은 막음', autoPostponeEligible({ ...good, requester_role:'teacher' }, csx) === 'not_student');
+  ok('⑩ 스냅샷 없으면 막음', autoPostponeEligible({ ...good, schedule_snapshot:null }, csx) === 'schedule_changed');
+  ok('⑩ 스냅샷 다르면 막음', autoPostponeEligible(good, { ...csx, start_time:'11:00' }) === 'schedule_changed');
+  ok('⑩ 연기보강 막음', autoPostponeEligible({ ...good, end_makeup:'연기보강' }, csx) === 'end_makeup');
+  const mir = { ...csx, source:'c24-mirror' };
+  ok('⑩ 미러 같은 날 시각만은 막음', autoPostponeEligible({ ...good, schedule_snapshot:smv(mir), new_date:'2026-10-06', new_time:'11:00' }, mir) === 'mirror_same_day');
+  ok('⑩ 미러 다른 날은 허용', autoPostponeEligible({ ...good, schedule_snapshot:smv(mir) }, mir) === null);
 
   writeFileSync(process.env.WEEKLY_RESULT, JSON.stringify({ results, warns: warns.slice(0, 5) }));
   process.exit(0);
 }
 
 /* ═════════════════════════════ 부모: 준비·실행·변이 ═════════════════════════════ */
-const tmp = mkdtempSync(join(tmpdir(), 'smrs-'));
+const tmp = mkdtempSync(join(tmpdir(), 'sap-'));
 const cleanup = () => { try { rmSync(tmp, { recursive: true, force: true }); } catch {} };
 writeFileSync(join(tmp, 'hooks.mjs'), `
 import { existsSync } from 'node:fs';
@@ -309,7 +367,7 @@ function runChild(srcDir) {
 }
 
 let pass = 0, fail = 0;
-console.log('\n═ 수업 이동 뒤 강사·학생 방 동기화 (실제 핸들러 · SQLite) ═');
+console.log('\n═ 학생 무료 연기 자동 반영 (실제 핸들러 · SQLite) ═');
 const base = runChild(REAL_SRC);
 if (base.crashed) {
   console.log('  FAIL 자식 실행이 죽었다:\n' + base.err);
@@ -324,7 +382,15 @@ if (base.crashed) {
 
 /* ── 변이시험: 복사본만 고친다 ── */
 console.log('\n═ 변이시험 (복사본 src — 저장소 파일은 그대로) ═');
-const MUT = [];
+const MUT = [
+  { name: '자격 판정을 항상 통과(유료·반복도 자동)', file: 'student-auto-postpone.ts', from: "if (row.fee_type !== 'free') return 'not_free';", to: '' },
+  { name: '반복 수업 막기 제거', file: 'student-auto-postpone.ts', from: "if (!cs.scheduled_date) return 'recurring';", to: '' },
+  { name: '강사 변경 막기 제거', file: 'student-auto-postpone.ts', from: "if (String(row.new_teacher_id ?? '').trim()) return 'teacher_change';", to: '' },
+  { name: '겹침 검사 둘 다 무시', file: 'student-auto-postpone.ts', from: "if (strict) return { applied: null, reason: strict.error || 'conflict' };", to: '' , also: ["if (conf.has) return { applied: null, reason: 'conflict' };", ''] },
+  { name: '접수 뒤 자동 승인 안 부름', file: 'api-mango.ts', from: 'const auto = await autoApproveStudentPostpone(env, reqId);', to: "const auto = { applied: null, reason: 'off' };" },
+  { name: '대기 요청 재시도 자동 반영 제거', file: 'api-mango.ts', from: "if (gate.error === 'already_pending' && pendingDupId) {", to: 'if (false) {' },
+  { name: '조건 뒤집기 — 유료만 자동', file: 'student-auto-postpone.ts', from: "if (row.fee_type !== 'free') return 'not_free';", to: "if (row.fee_type === 'free') return 'not_free';" },
+];
 if (!base.crashed) {
   for (const m of MUT) {
     const dir = join(tmp, 'mut-' + Math.random().toString(36).slice(2));
@@ -332,7 +398,8 @@ if (!base.crashed) {
     const f = join(dir, m.file);
     const s = readFileSync(f, 'utf8');
     if (!s.includes(m.from)) { fail++; console.log('  FAIL ' + m.name + ' — 치환 앵커를 못 찾음(변이가 한 번도 안 돎)'); continue; }
-    writeFileSync(f, s.replace(m.from, m.to));
+    let s2 = s.replace(m.from, m.to); if (m.also) s2 = s2.replace(m.also[0], m.also[1]);
+    writeFileSync(f, s2);
     const r = runChild(dir);
     const nFail = r.crashed ? -1 : r.results.filter((t) => !t.pass && !t.info).length;
     if (r.crashed) { fail++; console.log('  FAIL ' + m.name + ' — 자식이 크래시(깔끔한 FAIL 이 아님)\n' + r.err); }

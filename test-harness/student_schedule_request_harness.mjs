@@ -96,6 +96,7 @@ function makeDb() {
 const versionSrc = SRC('src/class-schedule-move.ts');
 const scheduleMoveVersion = new Function('row', blockAt(versionSrc, versionSrc.indexOf('export function scheduleMoveVersion')));
 const json = (o, status = 200) => ({ status, body: o });
+const autoCalls = [];
 async function call({ tok, payload, pre }) {
   const { db, D1 } = makeDb();
   const env = { DB: D1 };
@@ -104,12 +105,16 @@ async function call({ tok, payload, pre }) {
   const url = new URL('http://x/api/class/schedule/request');
   const authUidGlobal = async () => tok;
   const notes = [];
+  /* ⏩ (2026-10-06) 자동 승인은 student_auto_postpone_harness 가 진짜로 돌린다 — 여기서는
+     «접수 뒤 그 요청 번호로 부르는가» 만 보고, 결과는 «대기 그대로»(applied:null)로 돌려준다. */
+  autoCalls.length = 0;
+  const autoStub = async (_e, id) => { autoCalls.push(id); return { applied: null, reason: 'stub' }; };
   const enqueueNotification = async (_e, n) => { notes.push(n); };
   let res;
   try {
-    const fn = new Function('env', 'request', 'url', 'json', 'authUidGlobal', 'enqueueNotification', 'studentRequestGate', 'ensureScheduleChangeRequestTable', 'scheduleMoveVersion', 'WEEKLY_POSTPONE',
+    const fn = new Function('env', 'request', 'url', 'json', 'authUidGlobal', 'enqueueNotification', 'studentRequestGate', 'ensureScheduleChangeRequestTable', 'scheduleMoveVersion', 'WEEKLY_POSTPONE', 'autoApproveStudentPostpone',
       'return (async () => {' + body + '\n})();');
-    res = await fn(env, request, url, json, authUidGlobal, enqueueNotification, gate, ensureScheduleChangeRequestTable, scheduleMoveVersion, 'weekly_postpone'); }
+    res = await fn(env, request, url, json, authUidGlobal, enqueueNotification, gate, ensureScheduleChangeRequestTable, scheduleMoveVersion, 'weekly_postpone', autoStub); }
   catch (e) { res = { status: 0, body: { error: 'THREW ' + e.message } }; }
   const rows = (() => { try { return db.prepare('SELECT * FROM schedule_change_requests').all(); } catch { return []; } })();
   return { res, rows, notes };
@@ -120,6 +125,7 @@ const plus = n => new Date(Date.parse(today + 'T00:00:00Z') + n * 864e5).toISOSt
 {
   const { res, rows, notes } = await call({ tok: 'jeong', payload: { schedule_id: 849, request_type: 'postpone', orig_date: plus(1), new_date: plus(3), new_time: '11:20', student_name: '가짜이름', orig_time: '03:00', student_uid: 'kim' } });
   ok('내 반복 수업 연기 → 200', res.status === 200 && res.body.ok === true, res);
+  ok('접수 뒤 자동 승인을 «그 요청 번호» 로 부른다', autoCalls.length === 1 && autoCalls[0] === res.body.id, autoCalls);
   ok('요청 1행 저장', rows.length === 1, rows.length);
   const r = rows[0] || {};
   ok('학생 역할·토큰 uid 로 적는다', r.requester_role === 'student' && r.requester_uid === 'jeong', r);
