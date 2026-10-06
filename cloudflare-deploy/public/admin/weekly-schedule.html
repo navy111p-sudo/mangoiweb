@@ -70,7 +70,7 @@ html[data-admin-theme="ivory"]{
   /* 수업 셀 파스텔 — 흰 배경에 어울리는 부드러운 톤 */
   --cell-1on1:#E4DCFB;   /* 연보라 — 1:1 */
   --cell-group:#FBDCEA;  /* 연분홍 — 그룹 */
-  --cell-temp:#D8ECFB;   /* 연하늘 — 대체/임시 */
+  --cell-temp:#D8ECFB;   /* 연하늘 — 보충(makeup) — 2026-10-06 «임시» 에서 이름 변경 */
   /* 🪟 일간 뷰 격자 값은 :root 에 «반투명 한 벌» 로 둔다 — 여기서 테마별로 덮지 말 것(그 줄 주석 참고) */
 }
 /* 흰 배경 위에서 #fff 로 하드코딩된 글자들을 짙은 회색으로 보정 */
@@ -830,7 +830,7 @@ body.dragging{cursor:crosshair}
   <div class="lgs">
     <span><i style="background:#bcaef0;border-left:3px solid #7c3aed"></i><span data-ko="1대1" data-en="1-on-1">1대1</span></span>
     <span><i style="background:#f4abce;border-left:3px solid #db2777"></i><span data-ko="그룹" data-en="Group">그룹</span></span>
-    <span><i style="background:#8cc3f0;border-left:3px solid #2563eb"></i><span data-ko="임시" data-en="Temp">임시</span></span>
+    <span><i style="background:#8cc3f0;border-left:3px solid #2563eb"></i><span data-ko="보충" data-en="Make-up">보충</span></span>
     <span><i style="background:repeating-linear-gradient(45deg,#94a3b8,#94a3b8 3px,#64748b 3px,#64748b 6px)"></i><span data-ko="휴무" data-en="Off">휴무</span></span>
     <span><i style="background:repeating-linear-gradient(45deg,rgba(251,191,36,.55),rgba(251,191,36,.55) 3px,rgba(180,83,9,.65) 3px,rgba(180,83,9,.65) 6px)"></i><span data-ko="LMS·시드" data-en="LMS/Demo">LMS·시드</span></span>
   </div>
@@ -873,7 +873,7 @@ body.dragging{cursor:crosshair}
   <span class="legend-item"><span class="legend-chip" style="background:repeating-linear-gradient(45deg,#ef4444,#ef4444 3px,#dc2626 3px,#dc2626 6px)"></span><span data-ko="수업불가 (휴무)" data-en="Blocked (Off)">수업불가 (휴무)</span></span>
   <span class="legend-item"><span class="legend-chip" style="background:#8b5cf6"></span><span data-ko="🟣 1대1 수업" data-en="🟣 1-on-1 Class">🟣 1대1 수업</span></span>
   <span class="legend-item"><span class="legend-chip" style="background:#ec4899"></span><span data-ko="💗 그룹 수업" data-en="💗 Group Class">💗 그룹 수업</span></span>
-  <span class="legend-item"><span class="legend-chip" style="background:repeating-linear-gradient(135deg,#3b82f6,#3b82f6 3px,#2563eb 3px,#2563eb 6px)"></span><span data-ko="🔵 임시 수업" data-en="🔵 Temporary">🔵 임시 수업</span></span>
+  <span class="legend-item"><span class="legend-chip" style="background:repeating-linear-gradient(135deg,#3b82f6,#3b82f6 3px,#2563eb 3px,#2563eb 6px)"></span><span data-ko="🔵 보충 수업" data-en="🔵 Make-up Class">🔵 보충 수업</span></span>
   <span style="margin-left:auto;color:var(--tx3);font-size:11px" data-ko="💡 셀에 마우스를 올리면 자세히 보입니다" data-en="💡 Hover a cell for details">💡 셀에 마우스를 올리면 자세히 보입니다</span>
 </div>
 <!-- 교사 칩 내비는 좌측 고정 교사 열이 그 역할을 대신하므로 제거(2026-07-28). 참조하는 JS 가 있어 껍데기는 남긴다 -->
@@ -1637,7 +1637,7 @@ document.addEventListener('mousemove',function(e){
   var L=currentLang==='ko';
   var ghost3=isGhostSlot(s);
   var typeL=ghost3?(L?'⚠️ '+GHOST_TAG[s.origin].ko:'⚠️ '+GHOST_TAG[s.origin].en)
-    :({blocked:currentLang==='ko'?'🚫 수업 불가':'🚫 Blocked','1on1':currentLang==='ko'?'🟣 1대1 수업':'🟣 1-on-1 Class',group:currentLang==='ko'?'💗 그룹 수업':'💗 Group Class',temp:currentLang==='ko'?'🔵 임시 수업':'🔵 Temporary'})[s.type]||s.type;
+    :({blocked:currentLang==='ko'?'🚫 수업 불가':'🚫 Blocked','1on1':currentLang==='ko'?'🟣 1대1 수업':'🟣 1-on-1 Class',group:currentLang==='ko'?'💗 그룹 수업':'💗 Group Class',temp:currentLang==='ko'?'🔵 보충 수업':'🔵 Make-up Class'})[s.type]||s.type;
   var html='<div class="tooltip-title">'+typeL+'</div>';
   /* 🏷 (2026-08-21) 학생이 안 붙어 있어 «누구 수업인지 모를 1:1 수업» 으로 오해하던 자리 —
      지우지 않고(운영 판단 영역) 정체만 밝힌다(adm-q6.js «강사 스케줄» 카드와 같은 원칙). */
@@ -2010,7 +2010,7 @@ document.addEventListener('mousemove', function(e){
     var slot=dnd.sourceData.slot;
     var icon={blocked:'🚫','1on1':'🟣',group:'💗',temp:'🔵'}[slot.type]||'📌';
     var L=currentLang==='ko';
-    var title=L?({blocked:'수업 불가','1on1':'1대1 수업',group:'그룹 수업',temp:'임시 수업'}[slot.type]):({blocked:'Blocked','1on1':'1-on-1',group:'Group',temp:'Temporary'}[slot.type]);
+    var title=L?({blocked:'수업 불가','1on1':'1대1 수업',group:'그룹 수업',temp:'보충 수업'}[slot.type]):({blocked:'Blocked','1on1':'1-on-1',group:'Group',temp:'Make-up'}[slot.type]);
     var sub=(slot.students&&slot.students.length>0)?(slot.students.length===1?slot.students[0].name:(L?'그룹 ':'G ')+slot.students.length):(slot.note||'');
     dnd.ghost.innerHTML='<div class="gh-ico">'+icon+'</div><div class="gh-info"><div class="gh-title">'+title+'</div><div class="gh-sub">'+escapeHtml(sub)+' • '+(dnd.locked?(L?'🔒 놓으면 편집 켜기를 물어봐요':'🔒 Drop to unlock & move'):(L?'끌어서 놓기':'Drop to move'))+'</div></div>';
     document.body.appendChild(dnd.ghost);
@@ -2102,7 +2102,7 @@ function showMoveConfirm(ctx){
     'blocked':L?'🚫 수업 불가':'🚫 Blocked',
     '1on1':L?'🟣 1대1 수업':'🟣 1-on-1',
     'group':L?'💗 그룹 수업':'💗 Group',
-    'temp':L?'🔵 임시 수업':'🔵 Temporary'
+    'temp':L?'🔵 보충 수업':'🔵 Make-up Class'
   }[ctx.srcData.slot.type]||ctx.srcData.slot.type;
   var students=ctx.srcData.slot.students||[];
   var stuLine=students.length>0
@@ -3632,7 +3632,7 @@ function typePill(type){
     blocked:{cls:'blocked',ico:'🚫',ko:'수업 불가',en:'Blocked'},
     '1on1':{cls:'t1on1',ico:'🟣',ko:'1대1 수업',en:'1-on-1 Class'},
     group:{cls:'group',ico:'💗',ko:'그룹 수업',en:'Group Class'},
-    temp:{cls:'temp',ico:'🔵',ko:'임시 수업',en:'Temporary'}
+    temp:{cls:'temp',ico:'🔵',ko:'보충 수업',en:'Make-up Class'}
   }[type]||{cls:'',ico:'',ko:type,en:type};
   return '<span class="modal-type-pill '+info.cls+'">'+info.ico+' '+(currentLang==='ko'?info.ko:info.en)+'</span>';
 }
@@ -3800,7 +3800,7 @@ function openNewSlotModal(infos){
         '<div class="type-choices" id="type-choices">'+
           '<div class="type-choice" data-type="1on1"><span class="tc-ico">🟣</span><div class="tc-name">'+(L?'1대1':'1-on-1')+'</div><div class="tc-desc">'+(L?'학생 1명':'1 student')+'</div></div>'+
           '<div class="type-choice" data-type="group"><span class="tc-ico">💗</span><div class="tc-name">'+(L?'그룹':'Group')+'</div><div class="tc-desc">'+(L?'학생 다수':'Multiple students')+'</div></div>'+
-          '<div class="type-choice" data-type="temp"><span class="tc-ico">🔵</span><div class="tc-name">'+(L?'임시':'Temporary')+'</div><div class="tc-desc">'+(L?'대체 수업':'Substitute')+'</div></div>'+
+          '<div class="type-choice" data-type="temp"><span class="tc-ico">🔵</span><div class="tc-name">'+(L?'보충':'Make-up')+'</div><div class="tc-desc">'+(L?'결석·연기 보충':'Make-up for a missed class')+'</div></div>'+
           '<div class="type-choice" data-type="blocked"><span class="tc-ico">🚫</span><div class="tc-name">'+(L?'수업 불가':'Blocked')+'</div><div class="tc-desc">'+(L?'휴무 / 차단':'Off / Block')+'</div></div>'+
         '</div>'+
       '</div>'+
