@@ -145,6 +145,24 @@ header {
 }
 .back-btn:active { transform: scale(0.92); background: var(--border); }
 .back-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+/* 🧭 위쪽 «뒤로 · 홈» (2026-10-06 사장님 지시) — 화면 셋 모두 같은 자리.
+   ⛔ 아이콘만 두지 않는다(폰에는 hover·title 이 없다) — 글자를 함께 그린다.
+   ⛔ «‹» 로 시작해야 back-nav.js 가 자기 떠 있는 ← 를 또 넣지 않는다(hasVisibleBack). */
+.nav-btn {
+  flex: 0 0 auto;
+  height: 36px; padding: 0 11px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 15px; font-weight: 800; line-height: 1.2; white-space: nowrap;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.nav-btn:active { background: var(--border); }
+.nav-btn:focus-visible { outline: 3px solid #0ea5e9; outline-offset: 2px; }
+header .header-title { padding: 0 8px; min-width: 0; }
 .header-title {
   flex: 1; text-align: center;
   font-weight: 800; font-size: 18.9px;
@@ -1071,8 +1089,9 @@ button:focus-visible{outline:3px solid #236ccd;outline-offset:3px}
   <!-- ━━━━━━━━━━ Step 1: 대메뉴 ━━━━━━━━━━ -->
   <section id="screen-main" class="screen active">
     <header>
-      <button class="back-btn" onclick="location.href='/'" title="홈으로" aria-label="홈으로">🏠</button>
+      <button type="button" class="nav-btn nav-back" id="nav-back-main" aria-label="뒤로"><span class="nav-t-back">‹ 뒤로</span></button>
       <div class="header-title">📅 수업 일정</div>
+      <button type="button" class="nav-btn nav-home" aria-label="홈으로"><span class="nav-t-home">🏠 홈</span></button>
     </header>
     <div class="main-stage">
       <div class="main-intro">
@@ -1103,8 +1122,9 @@ button:focus-visible{outline:3px solid #236ccd;outline-offset:3px}
   <!-- ━━━━━━━━━━ Step 2/3: 상세 ━━━━━━━━━━ -->
   <section id="screen-detail" class="screen">
     <header>
-      <button class="back-btn" id="btn-back">‹</button>
+      <button type="button" class="nav-btn nav-back" id="btn-back" aria-label="뒤로"><span class="nav-t-back">‹ 뒤로</span></button>
       <div class="header-title" id="detail-title">—</div>
+      <button type="button" class="nav-btn nav-home" aria-label="홈으로"><span class="nav-t-home">🏠 홈</span></button>
     </header>
 
     <div class="segment" id="segment" data-tab="time">
@@ -1120,8 +1140,9 @@ button:focus-visible{outline:3px solid #236ccd;outline-offset:3px}
   <!-- ━━━━━━━━━━ Step 4: 완료 ━━━━━━━━━━ -->
   <section id="screen-done" class="screen">
     <header>
-      <button class="back-btn" disabled>‹</button>
+      <button type="button" class="nav-btn nav-back" id="nav-back-done" aria-label="뒤로"><span class="nav-t-back">‹ 뒤로</span></button>
       <div class="header-title">완료</div>
+      <button type="button" class="nav-btn nav-home" aria-label="홈으로"><span class="nav-t-home">🏠 홈</span></button>
     </header>
     <div class="done-wrap">
       <div class="done-ico">✅</div>
@@ -1562,6 +1583,32 @@ $('#btn-back').addEventListener('click', () => {
   $('#screen-detail').classList.remove('active');
   $('#screen-main').classList.remove('exit-up'); $('#screen-main').classList.add('active');
 });
+/* 🧭 위쪽 «뒤로 · 홈» — 첫 화면의 뒤로는 앞 페이지(정본 mangoiGoBack — 카톡 링크로 바로 왔으면 홈),
+   상세의 뒤로는 기존 #btn-back(첫 화면으로), 완료의 뒤로는 «다시하기» 와 같다. */
+function __navGoHome(){
+  /* 담아 둔 것이 있으면 한 번 묻는다 — 홈으로 가면 사라진다. */
+  try {
+    if (state.cart && state.cart.length && $('#screen-detail').classList.contains('active')
+        && !window.confirm(__mobT('담아 둔 수업이 있어요. 저장하지 않고 홈으로 갈까요?', 'You have classes in your list. Go home without saving?'))) return;
+  } catch(e){}
+  location.href = '/';
+}
+function __navLabels(){
+  $$('.nav-t-back').forEach(function(el){ el.textContent = __mobT('‹ 뒤로', '‹ Back'); });
+  $$('.nav-t-home').forEach(function(el){ el.textContent = __mobT('🏠 홈', '🏠 Home'); });
+  $$('.nav-back').forEach(function(el){ el.setAttribute('aria-label', __mobT('뒤로', 'Back')); });
+  $$('.nav-home').forEach(function(el){ el.setAttribute('aria-label', __mobT('홈으로', 'Home')); });
+}
+(function(){
+  var b = $('#nav-back-main');
+  if (b) b.addEventListener('click', function(){ if (window.mangoiGoBack) window.mangoiGoBack('/'); else location.href = '/'; });
+  var bd = $('#nav-back-done'); if (bd) bd.addEventListener('click', resetToMain);
+  $$('.nav-home').forEach(function(el){ el.addEventListener('click', __navGoHome); });
+  __navLabels();
+  /* 🌐 언어 이벤트는 화면마다 발행처가 다르다(window·document) — 둘 다 듣는다. */
+  window.addEventListener('mangoi:lang-changed', __navLabels);
+  document.addEventListener('mangoi:lang-changed', __navLabels);
+})();
 (function(){
   var a = $('#done-again'); if (a) a.addEventListener('click', resetToMain);
   var h = $('#done-home');  if (h) h.addEventListener('click', function(){ location.href = '/'; });
