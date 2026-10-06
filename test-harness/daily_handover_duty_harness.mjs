@@ -170,13 +170,13 @@ async function prime(t) {
   const work = readFileSync('cloudflare-deploy/public/work.html', 'utf8');
   ok('결재함 복사본이 공유 스크립트와 같다', process.env.BANNER_SRC || work.includes(js.trim()));
   const cut = (name) => { const a = js.indexOf('function ' + name + '('); if (a < 0) return ''; let i = js.indexOf('{', a), d = 0; for (; i < js.length; i++) { if (js[i] === '{') d++; else if (js[i] === '}' && --d === 0) break; } return js.slice(a, i + 1); };
-  const src = cut('line') + cut('kstNow') + cut('renderWriter');
+  const src = 'var pushState=__ps;' + cut('line') + cut('kstNow') + cut('pushLine') + cut('renderWriter');
   ok('전제: renderWriter 를 오려 냈다', /function renderWriter/.test(src));
   const el = (tag) => ({ tag, className: '', textContent: '', href: '', kids: [], append(...k) { this.kids.push(...k); } });
-  const draw = (last, nowIso = '2026-10-13T05:00:00Z') => {
+  const draw = (last, nowIso = '2026-10-13T05:00:00Z', ps = '') => {
     const writer = { hidden: true, kids: [], replaceChildren(...k) { this.kids = k; } };
     class D extends Date { constructor(...a) { a.length ? super(...a) : super(Date.parse(nowIso)); } static now() { return Date.parse(nowIso); } }
-    let n = 0; try { n = new Function('last', 'writer', 'document', 't', 'Date', src + '; return renderWriter();')(last, writer, { createElement: el }, (ko) => ko, D); } catch (e) { return { err: String(e), lines: [] }; }
+    let n = 0; try { n = new Function('last', 'writer', 'document', 't', 'Date', '__ps', 'askPush', src + '; return renderWriter();')(last, writer, { createElement: el }, (ko) => ko, D, ps, () => {}); } catch (e) { return { err: String(e), lines: [] }; }
     const txt = (x) => x.kids.map(k => k.textContent).join(' ');
     return { n, hidden: writer.hidden, lines: writer.kids.map(k => ({ cls: k.className, text: txt(k), href: (k.kids.find(c => c.tag === 'a') || {}).href })) };
   };
@@ -199,7 +199,72 @@ async function prime(t) {
   r = draw(null);
   ok('응답 없으면 줄 없음(던지지 않음)', r.n === 0 && !r.err, JSON.stringify(r));
   ok('쓸 줄이 있으면 배너를 숨기지 않는다', /host\.hidden=!inbox&&!renderWriter\(\)/.test(js));
-  ok('admin.html 이 새 번호로 부른다', /handover-inbox-banner\.js\?v=4/.test(readFileSync('cloudflare-deploy/public/admin.html', 'utf8')));
+  ok('admin.html 이 새 번호로 부른다', /handover-inbox-banner\.js\?v=5/.test(readFileSync('cloudflare-deploy/public/admin.html', 'utf8')));
+
+  // 🔔 기기 알림 자동 켜기 줄 — 상태별로 무엇을 말하는가(짝: 켜진 사람·명단 밖은 줄 없음)
+  r = draw({ writer: { ...base, prev_missed: false, today_submitted: true } }, undefined, 'ask');
+  ok('알림 미허락(필수 대상): «알림 허용» 버튼 줄', r.n === 1 && /알림 허용/.test(r.lines[0]?.text || ''), JSON.stringify(r));
+  r = draw({ writer: { ...base, prev_missed: false, today_submitted: true } }, undefined, 'denied');
+  ok('차단됨: 푸는 법을 빨간 줄로', r.n === 1 && r.lines[0]?.cls.includes('bad') && /자물쇠/.test(r.lines[0]?.text || ''));
+  r = draw({ writer: { ...base, prev_missed: false, today_submitted: true } }, undefined, 'fail');
+  ok('등록 실패: 결재함으로 보내는 줄', r.n === 1 && r.lines[0]?.href === '/work#pushBtn');
+  r = draw({ writer: { ...base, prev_missed: false, today_submitted: true } }, undefined, 'on');
+  ok('켜졌으면 줄 없음(짝)', r.n === 0);
+  r = draw({ writer: { required: false } }, undefined, 'ask');
+  ok('명단 밖 사람에겐 알림 줄 없음(짝)', r.n === 0);
+}
+
+// ⑦-2 자동 켜기 실행 — autoPush·askPush 를 오려 내 가짜 브라우저로 돌린다
+{
+  const js = readFileSync(process.env.BANNER_SRC || 'cloudflare-deploy/public/js/handover-inbox-banner.js', 'utf8');
+  const cut = (name) => { const a = js.search(new RegExp('(async )?function ' + name + '\\(')); if (a < 0) return ''; let i = js.indexOf('{', a), d = 0; for (; i < js.length; i++) { if (js[i] === '{') d++; else if (js[i] === '}' && --d === 0) break; } return js.slice(a, i + 1); };
+  const src = cut('pushOk') + cut('pushWanted') + cut('b64u8') + cut('pushSubscribe') + cut('autoPush') + cut('askPush') + cut('reshow') + cut('askPushOnce');
+  ok('전제: 자동 켜기 함수를 오려 냈다', /function autoPush/.test(src) && /function askPush\(/.test(src) && /async function pushSubscribe/.test(src) && /function reshow/.test(src) && /function askPushOnce/.test(src));
+  const run = async ({ perm = 'granted', grantTo = 'granted', required = true, saveOk = true, keyOk = true, clicks = ['once'], lines = 1 }) => {
+    const calls = { req: 0, subscribe: 0, post: null, reg: 0 };
+    const Notification = { permission: perm, requestPermission() { calls.req++; Notification.permission = grantTo; return Promise.resolve(grantTo); } };
+    const sw = { register() { calls.reg++; return Promise.resolve({ pushManager: { getSubscription: () => Promise.resolve(null), subscribe: () => { calls.subscribe++; return Promise.resolve({ endpoint: 'e1', toJSON() { return { endpoint: 'e1', keys: {} }; } }); } } }); }, ready: Promise.resolve() };
+    const fetch = async (u, o) => {
+      if (u === '/api/push/vapid-public-key') return keyOk ? { ok: true, json: async () => ({ key: 'AAAA' }) } : { ok: false, status: 500, json: async () => ({}) };
+      if (u === '/api/push/subscribe') { calls.post = JSON.parse(o.body); return { ok: saveOk, json: async () => ({ ok: saveOk }) }; }
+      throw new Error('unexpected ' + u);
+    };
+    const navigator = { serviceWorker: sw, userAgent: 'x' };
+    const window = { PushManager: function () {} };
+    const box = { hidden: true }, host = { hidden: true };
+    const code = 'var pushState="",pushBusy=false,pushAsked=false;' + src + ';return {autoPush,askPush,askPushOnce,get state(){return pushState;}};';
+    let api;
+    try { api = new Function('last', 'Notification', 'navigator', 'window', 'fetch', 'atob', 'render', 'console', 'host', 'box', 'renderWriter', code)({ writer: { required }, me: { username: 'mgr_karl' } }, Notification, navigator, window, fetch, (b) => Buffer.from(b, 'base64').toString('binary'), () => {}, { warn() {} }, host, box, () => (api && api.state && api.state !== 'on' ? lines : 0)); } catch (e) { return { err: String(e), calls }; }
+    api.autoPush(); await new Promise(r => setTimeout(r, 20));
+    const before = api.state;
+    for (const c of clicks) { (c === 'btn' ? api.askPush : api.askPushOnce)(); await new Promise(r => setTimeout(r, 30)); }
+    return { before, after: api.state, calls, hostHidden: host.hidden };
+  };
+  let r = await run({ perm: 'granted' });
+  ok('허락돼 있으면 클릭 없이 조용히 등록', r.before === 'on' && r.calls.req === 0 && r.calls.post?.user_id === 'mgr_karl', JSON.stringify(r));
+  r = await run({ perm: 'default', grantTo: 'granted' });
+  ok('안 물었으면: 처음엔 «ask» · 등록 안 함', r.before === 'ask' && r.calls.subscribe === 1 && r.calls.req === 1, JSON.stringify(r));
+  ok('클릭(askPush) 하면 허락 창 → 등록까지', r.after === 'on' && r.calls.post?.user_id === 'mgr_karl', JSON.stringify(r));
+  r = await run({ perm: 'default', grantTo: 'denied' });
+  ok('허락 창에서 거절하면 «denied» · 등록 안 함', r.after === 'denied' && r.calls.subscribe === 0, JSON.stringify(r));
+  r = await run({ perm: 'denied' });
+  ok('이미 차단: 허락 창을 다시 안 띄움', r.before === 'denied' && r.calls.req === 0, JSON.stringify(r));
+  r = await run({ perm: 'granted', saveOk: false });
+  ok('서버 저장 실패는 «fail» 로 말한다(삼키지 않음)', r.before === 'fail', JSON.stringify(r));
+  r = await run({ perm: 'granted', keyOk: false });
+  ok('키 응답 오류도 «fail»', r.before === 'fail', JSON.stringify(r));
+  r = await run({ perm: 'default', required: false });
+  ok('명단 밖 사람: 허락 창도 등록도 없음(짝)', r.calls.req === 0 && r.calls.subscribe === 0 && r.before === '', JSON.stringify(r));
+  r = await run({ perm: 'granted', saveOk: false });
+  ok('보고·줄이 없던 화면이라도 등록 실패 줄이 보이게 배너를 다시 연다(Codex P1)', r.before === 'fail' && r.hostHidden === false, JSON.stringify(r));
+  r = await run({ perm: 'granted' });
+  ok('등록 성공이면 빈 배너를 열지 않는다(짝)', r.before === 'on' && r.hostHidden === true, JSON.stringify(r));
+  r = await run({ perm: 'default', grantTo: 'default', clicks: ['once', 'once', 'once'] });
+  ok('허락 창을 닫으면 화면 클릭으로는 다시 안 묻는다(Codex P2)', r.calls.req === 1 && r.after === 'ask', JSON.stringify(r));
+  r = await run({ perm: 'default', grantTo: 'default', clicks: ['once', 'btn'] });
+  ok('그래도 «알림 허용» 버튼을 누르면 다시 묻는다(짝)', r.calls.req === 2, JSON.stringify(r));
+  ok('첫 클릭·키 입력에서 askPush 를 부른다', /addEventListener\('click',askPushOnce,true\)/.test(js) && /addEventListener\('keydown',askPushOnce,true\)/.test(js) && /k\.onclick=askPush;/.test(js));
+  ok('응답을 받으면 autoPush 를 부른다', /last=j;failed=false;autoPush\(\);/.test(js));
 }
 
 // ⑧ 매일보고 화면 — 명단 줄(연산자 우선순위)·?write= 로 지난 날짜 열기
