@@ -58,3 +58,26 @@ export async function resolveStudentTwins(db: any, uid: string): Promise<string[
     return [];
   }
 }
+
+/* 🚪 (2026-10-06 delaware 김연숙 · LEN) 같은 시간에 «내 계정 예약» 과 «쌍둥이 계정 예약» 이 겹치면
+   쌍둥이 쪽을 뺀다.
+   [사고] 10/6 21:10 에 `delaware`(LEN, 수강신청 확정 4397)와 `mangoai_delaware`(HANNAH, 카페24 미러 4379 —
+        강사를 바꾸기 전 카페24 예약이 남은 것)가 둘 다 잡혔다. 위 쌍둥이 찾기(10/2)로 학생 목록에 둘 다 들어왔고,
+        시작 시각이 같아 번호가 작은 4379 로 자동 입장 → LEN 선생님은 4397, 학생은 4379 에서 서로 못 만났다.
+        10/1 에는 쌍둥이 찾기가 없어 정상으로 만났다(녹화 class-4396 43분).
+   [규칙] 시간이 «겹칠 때만» 뺀다 — 안 겹치는 쌍둥이 예약은 그대로 둔다(10/2 lby01 의 «그 수업만 사라짐» 구제 유지).
+        «내 계정» 은 로그인 uid 와 대소문자만 다른 것까지 포함(위 sessions/today 의 NOCASE 조회와 같은 폭).
+   ⛔ 쌍둥이 예약이 «혼자» 있으면 절대 빼지 않는다. ⛔ 쓰기 금지 — 학생 화면에 «보여 주는 목록» 만 거른다. */
+export function dropShadowedTwinSessions<T extends { student_uid?: any; start_ts: number; end_ts: number }>(sessions: T[], uid: string): T[] {
+  const me = String(uid || '').trim().toLowerCase();
+  if (!me || !Array.isArray(sessions) || sessions.length < 2) return sessions;
+  const twin = String(twinCandidate(me) || '').toLowerCase();
+  if (!twin) return sessions;
+  const who = (s: T) => String(s && s.student_uid != null ? s.student_uid : '').trim().toLowerCase();
+  const mine = sessions.filter(s => who(s) === me);
+  if (!mine.length) return sessions;
+  return sessions.filter(s => {
+    if (who(s) !== twin) return true;
+    return !mine.some(m => s.start_ts < m.end_ts && m.start_ts < s.end_ts);
+  });
+}

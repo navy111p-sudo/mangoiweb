@@ -74,7 +74,7 @@ import { scheduleMoveVersion } from './class-schedule-move';
 import { studentRequestGate, ensureScheduleChangeRequestTable } from './student-schedule-request';  // 📅 학생 연기·변경 요청 판정 정본
 import { loadSchedSummaryMap, loadSchedSummaryOne, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약 수업」 칸 정본 (students_erp 의 수강 칸은 카페24가 정본이라 늘 «—» 였다)       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 import { isPostponedOccurrence } from './class-postponed';  // ⏸ 연기된 회차 판정 정본(2026-10-01)
-import { resolveStudentTwins } from './student-alias';  // 👥 카페24 쌍둥이 계정(X ↔ mangoai_X) — 학생 «내 수업» 찾기(2026-10-02 lby01)
+import { resolveStudentTwins, dropShadowedTwinSessions } from './student-alias';  // 👥 카페24 쌍둥이 계정(X ↔ mangoai_X) — 학생 «내 수업» 찾기(2026-10-02 lby01)
 import { isUsableKoMeaning, stripJamoRuns } from './learn-meaning-check';  // 🧹 «뜻» 카드에 'ㅋㅋㅋㅋ' 가 나가지 않게(2026-10-02)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
@@ -1960,6 +1960,8 @@ export async function handleMangoApi(
         sessions = await runPass(condsName, bindsName);
         if (sessions.length) matchedBy = 'name';
       }
+      // 👥 (2026-10-06 delaware) 내 예약과 시간이 겹친 쌍둥이 계정 예약은 뺀다 — 정본 student-alias.ts
+      if (!isTeacher && matchedBy === 'uid') sessions = dropShadowedTwinSessions(sessions, userId);
       sessions.sort((a, b) => a.start_ts - b.start_ts);
 
       /* 🚪 「오늘은 이 방으로」 — 선생님·관리자가 지정해 둔 회의방이 있으면 room_id 를 갈아 끼운다.
