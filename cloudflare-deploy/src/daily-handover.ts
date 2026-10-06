@@ -81,6 +81,10 @@ const ensure = oncePerIsolate(async (env: Env) => {
       attempts INTEGER NOT NULL DEFAULT 0, push_state TEXT NOT NULL DEFAULT 'pending',
       PRIMARY KEY(report_id,version))`),
   ]);
+  // 공휴일 나라(KR/PH). 없으면 읽는 쪽이 'KR' 로 본다 — 이미 있으면 ALTER 가 던지므로 삼킨다.
+  try { await env.DB.prepare(`ALTER TABLE daily_handover_schedule ADD COLUMN holiday_country TEXT NOT NULL DEFAULT 'KR'`).run(); } catch {}
+  // 필수 대상(대표님 지정). 1이면 본인 «알림 설정» 으로 끄거나 요일·마감을 바꿀 수 없다(쉬는 날만 지정 가능).
+  try { await env.DB.prepare(`ALTER TABLE daily_handover_schedule ADD COLUMN mandatory INTEGER NOT NULL DEFAULT 0`).run(); } catch {}
 });
 async function accounts(env: Env): Promise<any[]> {
   const r = await env.DB.prepare(`SELECT a.username, a.name FROM admin_scope s
@@ -119,14 +123,92 @@ export function reminderStage(s: any, day: string, now = Date.now()): string | n
   if (delta < -30 * 60000 || delta > 120 * 60000) return null;
   return delta >= 30 * 60000 ? 'late' : delta >= 0 ? 'due' : 'soon';
 }
+/* 📌 2026-10-06 사장님 — 매일보고는 «반드시» 쓴다 · 공휴일은 안 쓴다 · 어제 안 썼으면 본인과 대표님께 알린다.
+ *   근무일 = 명단에 켜져 있고 · 근무 요일이고 · 쉬는 날(exempt_date)이 아니고 · 그 사람 나라(KR/PH) 공휴일이 아님.
+ *   공휴일 표(holidays)를 못 읽으면 «공휴일 아님» 으로 본다 — 알림이 한 번 더 가는 쪽이 «안 써도 되는 줄» 아는 쪽보다 낫다. */
+export const MISSED_REPORT_TO = ['admin'];            // 어제 미제출 요약을 받는 사람(대표님)
+export const MISSED_WINDOW = { from: '09:00', to: '12:00' }; // KST — 15분 cron 이 이 사이 첫 회차에 한 번 보낸다
+export const DUTY_START = '2026-10-06'; // 규칙 시작일 — 그 전 날짜는 «미제출» 로 세지 않는다(명단에 넣기 전 날까지 소급하지 않기)
+export const shiftDay = (day: string, n: number) => new Date(Date.parse(day + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+export function isWorkday(s: any, day: string, isHoliday: (country: string, day: string) => boolean): boolean {
+  if (!s || !Number(s.enabled) || s.exempt_date === day) return false;
+  if (!String(s.weekdays || '').split(',').includes(String(new Date(day + 'T00:00:00Z').getUTCDay()))) return false;
+  return !isHoliday(String(s.holiday_country || 'KR'), day);
+}
+export function previousWorkday(s: any, day: string, isHoliday: (country: string, day: string) => boolean): string | null {
+  for (let i = 1; i <= 14; i++) { const d = shiftDay(day, -i); if (isWorkday(s, d, isHoliday)) return d; }
+  return null;
+}
+export function inMissedWindow(now = Date.now()): boolean {
+  const hm = new Date(now + 9 * 3600000).toISOString().slice(11, 16);
+  return hm >= MISSED_WINDOW.from && hm < MISSED_WINDOW.to;
+}
+async function holidayLookup(env: Env, from: string, to: string): Promise<(country: string, day: string) => boolean> {
+  try {
+    const r = await env.DB.prepare(`SELECT country,date FROM holidays WHERE date>=? AND date<=?`).bind(from, to).all<any>();
+    const set = new Set((r.results || []).map((h: any) => String(h.country).toUpperCase() + ':' + h.date));
+    return (country, day) => set.has(String(country).toUpperCase() + ':' + day);
+  } catch { return () => false; }
+}
+const shortName = (n: any, u: string) => String(n || u).replace(/\s*\(.*?\)\s*$/, '').trim() || u;
+/* 정본: 명단의 사람마다 «오늘 근무일인가» 와 «직전 근무일에 제출했나». 알림(sweep)과 화면(inbox·home)이 같은 답을 쓴다. */
+export async function handoverDuty(env: Env, day = kstDay(), only?: string) {
+  const rows = await env.DB.prepare(`SELECT s.*, a.name FROM daily_handover_schedule s
+    JOIN admin_scope sc ON sc.username=s.username AND sc.scope_type='hq'
+    JOIN admin_account a ON a.username=s.username WHERE (s.enabled=1 OR s.mandatory=1) AND (? IS NULL OR s.username=?) LIMIT 200`)
+    .bind(only ?? null, only ?? null).all<any>();
+  // 필수 대상은 본인이 알림을 꺼도 «써야 하는 사람» 이다.
+  const list = (rows.results || []).map((s: any) => Number(s.mandatory) ? { ...s, enabled: 1 } : s);
+  if (!list.length) return [];
+  const isHoliday = await holidayLookup(env, shiftDay(day, -15), day);
+  const out: any[] = [];
+  for (const s of list) {
+    const prev = previousWorkday(s, day, isHoliday);
+    const subs = await env.DB.prepare(`SELECT report_date,status,submitted_at FROM daily_handovers
+      WHERE username=? AND report_date IN (?,?)`).bind(s.username, day, prev || day).all<any>();
+    const by = (d: string | null) => (subs.results || []).find((r: any) => r.report_date === d);
+    out.push({ username: s.username, name: shortName(s.name, s.username), due_time: s.due_time,
+      holiday_country: s.holiday_country || 'KR', today_required: isWorkday(s, day, isHoliday),
+      today_holiday: isHoliday(String(s.holiday_country || 'KR'), day), today_submitted: !!by(day)?.submitted_at,
+      day, mandatory: !!Number(s.mandatory), prev_day: prev, prev_missed: !!prev && prev >= DUTY_START && !by(prev)?.submitted_at, _s: s });
+  }
+  return out;
+}
+const dutyView = (d: any) => { const { _s, ...v } = d; return v; };
 export async function runDailyHandoverSweep(env: Env) {
   await ensure(env);
   await runFollowups(env);
   await runReadAlerts(env);
   const day = kstDay();
-  const rows = await env.DB.prepare(`SELECT s.* FROM daily_handover_schedule s
-    JOIN admin_scope a ON a.username=s.username AND a.scope_type='hq' WHERE s.enabled=1 LIMIT 200`).all<any>();
-  for (const s of rows.results || []) {
+  const duty = await handoverDuty(env, day);
+  // ① 어제 미제출 — 근무일 아침 한 번. 본인에게, 그리고 대표님께 이름을 모아 한 번.
+  if (inMissedWindow()) {
+    const missed: string[] = [];
+    for (const d of duty) {
+      if (!d.today_required || !d.prev_missed) continue;
+      missed.push(`${d.name}(${d.prev_day.slice(5)})`);
+      const key = `${d.prev_day}:${d.username}:missed`;
+      const claim = await env.DB.prepare(`INSERT OR IGNORE INTO daily_handover_notices
+        (notice_key,username,report_date,kind,created_at) VALUES(?,?,?,?,?)`).bind(key, d.username, d.prev_day, 'missed', Date.now()).run();
+      if (!claim.meta.changes) continue;
+      const state = await notify(env, d.username, key,
+        `지난 근무일(${d.prev_day}) 매일보고가 제출되지 않았습니다. 지금 작성해 주세요. / Your daily handover for ${d.prev_day} was not submitted. Please write it now.`,
+        '/daily-handover.html?write=' + d.prev_day);
+      await env.DB.prepare(`UPDATE daily_handover_notices SET push_state=? WHERE notice_key=?`).bind(state, key).run();
+    }
+    if (missed.length) for (const boss of MISSED_REPORT_TO) {
+      const key = `${day}:${boss}:missed_summary`;
+      const claim = await env.DB.prepare(`INSERT OR IGNORE INTO daily_handover_notices
+        (notice_key,username,report_date,kind,created_at) VALUES(?,?,?,?,?)`).bind(key, boss, day, 'missed_summary', Date.now()).run();
+      if (!claim.meta.changes) continue;
+      const state = await notify(env, boss, key, `매일보고 미제출: ${missed.join(', ')} / Daily handover not submitted: ${missed.join(', ')}`);
+      await env.DB.prepare(`UPDATE daily_handover_notices SET push_state=? WHERE notice_key=?`).bind(state, key).run();
+    }
+  }
+  // ② 오늘 마감 전후 — 공휴일·쉬는 날에는 안 보낸다.
+  for (const d of duty) {
+    const s = d._s;
+    if (!d.today_required) continue;
     const stage = reminderStage(s, day);
     if (!stage) continue;
     const submitted = await env.DB.prepare(`SELECT id FROM daily_handovers WHERE username=? AND report_date=? AND submitted_at IS NOT NULL`).bind(s.username, day).first();
@@ -136,7 +218,7 @@ export async function runDailyHandoverSweep(env: Env) {
     const claim = await env.DB.prepare(`INSERT OR IGNORE INTO daily_handover_notices
       (notice_key,username,report_date,kind,created_at) VALUES(?,?,?,?,?)`).bind(key,s.username,day,stage,Date.now()).run();
     if (!claim.meta.changes) continue;
-    const state = await notify(env, s.username, key, '오늘 보고를 확인해 주세요. / Please review and submit your daily handover.');
+    const state = await notify(env, s.username, key, '오늘 보고를 확인해 주세요. / Please review and submit your daily handover.', '/daily-handover.html?write=' + day);
     await env.DB.prepare(`UPDATE daily_handover_notices SET push_state=? WHERE notice_key=?`).bind(state,key).run();
   }
 }
@@ -369,7 +451,13 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       const result=await env.DB.prepare(`SELECT * FROM daily_handovers WHERE recipient=? AND username<>? AND status='submitted'
         ORDER BY CASE WHEN json_extract(payload,'$.priority')='urgent' THEN 0 ELSE 1 END, submitted_at ASC LIMIT 200`).bind(me,me).all();
       const count:any=await env.DB.prepare(`SELECT COUNT(*) n FROM daily_handovers WHERE recipient=? AND username<>? AND status='submitted'`).bind(me,me).first();
-      return reply({ok:true,me:{username:me,name:actor.name||me},reader_mode:['admin','mgr_jjw'].includes(me),total:count.n,reports:await withFollowups(env,result.results||[]),files:await attachmentsFor(env,result.results||[])});
+      // ✍️ 쓰는 쪽(2026-10-06) — 배너가 «오늘 아직 안 씀»·«어제 미제출» 을 말하게. 못 구하면 null(배너는 예전처럼).
+      let writer:any=null,missed_staff:any=null;
+      // 60초 폴링이라 대표님 말고는 «내 줄» 만 계산한다.
+      try{const boss=MISSED_REPORT_TO.includes(me);const all=await handoverDuty(env,kstDay(),boss?undefined:me);const mine=all.find(d=>d.username===me);writer=mine?{required:true,...dutyView(mine)}:{required:false};
+        if(boss)missed_staff=all.filter(d=>d.today_required&&d.prev_missed).map(d=>({username:d.username,name:d.name,prev_day:d.prev_day}));}
+      catch{console.warn('[daily-handover] duty unavailable');}
+      return reply({ok:true,me:{username:me,name:actor.name||me},reader_mode:['admin','mgr_jjw'].includes(me),total:count.n,reports:await withFollowups(env,result.results||[]),files:await attachmentsFor(env,result.results||[]),writer,missed_staff});
     }
     // 📖 다시 읽기(2026-09-29) — 확인·보완요청한 보고는 «미확인» 목록에서 빠지므로 되돌아볼 길이 없었다.
     // 내가 받았거나 내가 확인한 것만(최근 30일). ⛔ 경영진 «전체 보기» 로 넓히지 않는다 — 그건 날짜별 «전체» 필터가 한다.
@@ -424,12 +512,17 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
         h.status,h.submitted_at FROM daily_handover_schedule s JOIN admin_account a ON a.username=s.username
         JOIN admin_scope sc ON sc.username=s.username AND sc.scope_type='hq'
         LEFT JOIN daily_handovers h ON h.username=s.username AND h.report_date=? WHERE s.enabled=1 LIMIT 200`).bind(day).all() : {results:[]};
+      let duty:any[]=[];try{duty=all?await handoverDuty(env,day):[];}catch{console.warn('[daily-handover] duty unavailable');}
+      const dutyBy=new Map(duty.map(d=>[d.username,d]));
+      const requiredRows=(required.results||[]).map((r:any)=>({...r,required_today:dutyBy.has(r.username)?dutyBy.get(r.username).today_required:undefined,
+        today_holiday:dutyBy.get(r.username)?.today_holiday||false}));
+      const missed_staff=duty.filter(d=>d.today_required&&d.prev_missed).map(d=>({username:d.username,name:d.name,prev_day:d.prev_day}));
       return reply({ok:true,day,me:{username:me,name:actor.name||me},members,own:own?(await withFollowups(env,[own]))[0]:null,
         reports:await withFollowups(env,(rows.results||[]).filter(r=>visible(r,actor))),
         files:[...await attachmentsFor(env,(rows.results||[]).filter(r=>visible(r,actor))),...(staged.results||[]).map(fileMeta)],
         // Uploaded today but not in the saved payload (e.g. page reloaded before Save). The editor offers them back.
         staged_ids:(staged.results||[]).map((f:any)=>f.id),
-        reader_mode:['admin','mgr_jjw'].includes(me),read_schedule,schedule,required:required.results,
+        reader_mode:['admin','mgr_jjw'].includes(me),read_schedule,schedule,required:requiredRows,missed_staff,
         default_recipient: members.find(m=>m.username==='mgr_jjw'&&m.username!==me)?.username || members.find(m=>m.username==='admin'&&m.username!==me)?.username || '',
         ai_available:!!env.AI, can_review_all:all});
     }
@@ -490,6 +583,12 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
     if (route === '/schedule') {
       const days = Array.isArray(b.weekdays) ? [...new Set(b.weekdays.filter((x:any)=>Number.isInteger(x)&&x>=0&&x<=6))].sort().join(',') : '';
       if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(b.due_time||'') || !days || (b.exempt_date&&!validDay(b.exempt_date))) return reply({ok:false,error:'schedule'},400);
+      const cur:any=await env.DB.prepare(`SELECT * FROM daily_handover_schedule WHERE username=?`).bind(me).first();
+      if (cur && Number(cur.mandatory)) {
+        // 필수 대상: 켜짐·요일·마감은 대표님 지정 그대로, 쉬는 날만 본인이 바꾼다.
+        await env.DB.prepare(`UPDATE daily_handover_schedule SET exempt_date=?,updated_at=? WHERE username=?`).bind(b.exempt_date||'',Date.now(),me).run();
+        return reply({ok:true,locked:true});
+      }
       await env.DB.prepare(`INSERT INTO daily_handover_schedule(username,enabled,weekdays,due_time,exempt_date,updated_at)
         VALUES(?,?,?,?,?,?) ON CONFLICT(username) DO UPDATE SET enabled=excluded.enabled,weekdays=excluded.weekdays,
         due_time=excluded.due_time,exempt_date=excluded.exempt_date,updated_at=excluded.updated_at`)

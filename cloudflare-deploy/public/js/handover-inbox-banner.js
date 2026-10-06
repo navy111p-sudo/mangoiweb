@@ -4,8 +4,8 @@
   var host=document.getElementById('handover-inbox-banner');if(!host)return;
   var shadow=host.attachShadow({mode:'open'}),pending=false,stopped=false,last=null,failed=false,mine=[];
   var audio=null,blocked=false,ringing=false,lastSignature='',lastRing=0,ringCount=0;
-  shadow.innerHTML='<style>:host([hidden]){display:none!important}:host{display:block;margin:0 0 18px;color-scheme:light dark}*{box-sizing:border-box}.box{background:light-dark(#eef4ff,#20334e);color:light-dark(#193351,#edf4ff);border:2px solid light-dark(#b8cbe6,#4a6688);border-radius:12px;padding:18px 22px;font:18px/1.5 system-ui,sans-serif;display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}.box.warning{border-color:#c23425;background:light-dark(#fff0ec,#4b2020)}.title{font-size:23px;font-weight:700;margin:0}.note,.permission{font-size:16px;margin:6px 0 0}a,button{font:inherit;color:light-dark(#214faf,#bdd3ff);font-weight:650;display:inline-block;padding:10px;min-height:44px}button{cursor:pointer;border:1px solid currentColor;border-radius:8px;background:transparent}.actions{display:flex;gap:12px;flex-wrap:wrap}.primary{background:light-dark(#244fad,#b9d1ff);color:light-dark(#fff,#14243c);border-radius:8px;padding:12px 18px;text-decoration:none}[hidden]{display:none!important}@media(max-width:600px){.box{padding:16px}.title{font-size:22px}}</style><section class="box"><div><p class="title"></p><p class="note" role="status"></p><p class="permission"></p><p class="sound-status" role="status"></p></div><div class="actions"><a class="primary" href="/daily-handover.html"></a><a class="sent" href="/daily-handover.html?view=mine"></a><a class="appr" href="/work"></a><button class="sound" type="button"></button><button class="snooze" type="button"></button></div></section>';
-  var box=shadow.querySelector('.box'),title=shadow.querySelector('.title'),note=shadow.querySelector('.note'),permission=shadow.querySelector('.permission'),link=shadow.querySelector('.primary'),sent=shadow.querySelector('.sent'),appr=shadow.querySelector('.appr'),sound=shadow.querySelector('.sound'),snooze=shadow.querySelector('.snooze'),soundStatus=shadow.querySelector('.sound-status');
+  shadow.innerHTML='<style>:host([hidden]){display:none!important}:host{display:block;margin:0 0 18px;color-scheme:light dark}*{box-sizing:border-box}.box{background:light-dark(#eef4ff,#20334e);color:light-dark(#193351,#edf4ff);border:2px solid light-dark(#b8cbe6,#4a6688);border-radius:12px;padding:18px 22px;font:18px/1.5 system-ui,sans-serif;display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}.box.warning{border-color:#c23425;background:light-dark(#fff0ec,#4b2020)}.title{font-size:23px;font-weight:700;margin:0}.note,.permission{font-size:16px;margin:6px 0 0}a,button{font:inherit;color:light-dark(#214faf,#bdd3ff);font-weight:650;display:inline-block;padding:10px;min-height:44px}button{cursor:pointer;border:1px solid currentColor;border-radius:8px;background:transparent}.actions{display:flex;gap:12px;flex-wrap:wrap}.primary{background:light-dark(#244fad,#b9d1ff);color:light-dark(#fff,#14243c);border-radius:8px;padding:12px 18px;text-decoration:none}[hidden]{display:none!important}.writer{display:flex;flex-direction:column;gap:10px;margin:0 0 12px}.wline{background:light-dark(#fff7e8,#3d2f14);color:light-dark(#4a3305,#fbe8c4);border:2px solid light-dark(#d39b2a,#b3842c);border-radius:12px;padding:14px 18px;font:18px/1.5 system-ui,sans-serif;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.wline.bad{border-color:#c23425;background:light-dark(#fff0ec,#4b2020);color:light-dark(#5b1a12,#ffe1da)}.wline b{font-size:19px}.wline a{background:light-dark(#9a5b00,#f2c46d);color:light-dark(#fff,#2a1d05);border-radius:8px;padding:10px 16px;text-decoration:none}@media(max-width:600px){.box{padding:16px}.title{font-size:22px}}</style><div class="writer" hidden></div><section class="box"><div><p class="title"></p><p class="note" role="status"></p><p class="permission"></p><p class="sound-status" role="status"></p></div><div class="actions"><a class="primary" href="/daily-handover.html"></a><a class="sent" href="/daily-handover.html?view=mine"></a><a class="appr" href="/work"></a><button class="sound" type="button"></button><button class="snooze" type="button"></button></div></section>';
+  var box=shadow.querySelector('.box'),title=shadow.querySelector('.title'),note=shadow.querySelector('.note'),permission=shadow.querySelector('.permission'),link=shadow.querySelector('.primary'),sent=shadow.querySelector('.sent'),appr=shadow.querySelector('.appr'),sound=shadow.querySelector('.sound'),snooze=shadow.querySelector('.snooze'),soundStatus=shadow.querySelector('.sound-status'),writer=shadow.querySelector('.writer');
   function en(){var l=window.adminLang;if(l!=='en'&&l!=='ko')l=(document.documentElement.lang||'').slice(0,2);return l==='en';}
   function t(ko,e){return en()?e:ko;}
   function get(k){try{return localStorage.getItem(k);}catch(e){return null;}}
@@ -13,11 +13,24 @@
   function key(s){return 'mangoi_handover_'+s+':'+(last&&last.me?last.me.username:'');}
   function enabled(){return get('mangoi_work_sound_v1')!=='0';}
   function eligible(){return !last?[]:last.reports.filter(function(r){return !(r.followup&&r.followup.hold_until>Date.now());});}
+  // ✍️ 내 보고(2026-10-06) — 오늘 미작성·지난 근무일 미제출은 쓸 때까지 남는다(닫기 없음). 대표님 화면엔 미제출 명단.
+  function line(cls,txt,href,btn){var d=document.createElement('div');d.className='wline'+(cls?' '+cls:'');var b=document.createElement('b');b.textContent=txt;d.append(b);if(href){var a=document.createElement('a');a.href=href;a.textContent=btn;d.append(a);}return d;}
+  function kstNow(){return new Date(Date.now()+9*3600000).toISOString();}
+  function renderWriter(){
+    var w=last&&last.writer,ms=last&&last.missed_staff,out=[];
+    if(w&&w.required){
+      if(w.prev_missed)out.push(line('bad',t('⚠️ 지난 근무일('+w.prev_day+') 매일보고 미제출 — 지금 작성해 주세요','⚠️ Daily handover for '+w.prev_day+' was not submitted — please write it now'),'/daily-handover.html?write='+encodeURIComponent(w.prev_day),t('지난 보고 쓰기','Write it now')));
+      if(w.today_required&&!w.today_submitted){var late=kstNow().slice(11,16)>=w.due_time;out.push(line(late?'bad':'',late?t('🔴 오늘 매일보고 마감('+w.due_time+' KST) 지남 — 아직 제출 안 함','🔴 Today\'s daily handover is past due ('+w.due_time+' KST) — not submitted'):t('📝 오늘 매일보고 반드시 작성 · 마감 '+w.due_time+' (KST)','📝 Daily handover required today · due '+w.due_time+' KST'),'/daily-handover.html?write='+encodeURIComponent(w.day||''),t('오늘 보고 쓰기','Write today\'s report')));}
+    }
+    if(ms&&ms.length)out.push(line('bad',t('📋 매일보고 미제출: ','📋 Not submitted: ')+ms.map(function(m){return m.name+' ('+m.prev_day.slice(5)+')';}).join(', '),'/daily-handover.html?date='+encodeURIComponent(ms[0].prev_day),t('보고 보기','Open reports')));
+    writer.replaceChildren.apply(writer,out);writer.hidden=!out.length;return out.length;
+  }
   function render(){
     box.setAttribute('aria-label',t('받은 매일보고','Handover inbox'));link.textContent=t('보고 읽고 응답하기','Read and respond');appr.textContent=t('결재함','Approvals');
     sound.textContent=blocked?t('🔊 알람 소리 켜기','Enable alarm sound'):enabled()?t('🔊 소리 끄기','Mute sound'):t('🔇 소리 켜기','Enable sound');
     snooze.textContent=t('30분간 소리 쉬기','Silence for 30 min');snooze.hidden=!last||!last.total;
     soundStatus.textContent=blocked?t('브라우저가 자동 소리를 막았습니다. ‘알람 소리 켜기’를 눌러 주세요.','Autoplay was blocked. Click Enable alarm sound.'):Number(get(key('snooze')))>Date.now()?t('소리는 잠시 쉬는 중 · 미응답 상태는 유지됩니다.','Sound is paused; reports still need a response.'):'';
+    renderWriter();
     if(!last){if(failed)note.textContent=t('새 보고 확인이 지연됩니다. 보고함을 열어 주세요.','Unable to refresh. Open the inbox.');return;}
     title.textContent=t('매일보고 · 미응답 '+last.total+'건','Daily reports · '+last.total+' awaiting response');
     var alerts=eligible(),urgent=alerts.some(function(r){return r.payload.priority==='urgent'||(r.followup&&r.followup.warning_level>0);}),overdue=alerts.filter(function(r){return r.followup&&r.followup.due_at&&r.followup.due_at<Date.now();}).length;
@@ -61,9 +74,9 @@
       if(r.status===401||r.status===403){stopped=true;last=null;host.hidden=true;if(audio)audio.close().catch(function(){});return;}
       if(!r.ok)throw Error('unavailable');var j=await r.json();if(!j.ok)throw Error('unavailable');
       var m=await fetch('/api/approval/handover/mine',{credentials:'same-origin',cache:'no-store',signal:c.signal});if(!m.ok)throw Error('mine unavailable');var data=await m.json();if(!data.ok)throw Error('mine unavailable');mine=data.reports||[];
-      host.hidden=!j.reader_mode&&!j.total&&!mine.some(function(x){return x.status==='submitted';});
+      var inbox=!!(j.reader_mode||j.total||mine.some(function(x){return x.status==='submitted';}));box.hidden=!inbox;
       var first=j.reports[0];link.href=first?'/daily-handover.html?date='+encodeURIComponent(first.report_date)+'&report='+first.id:'/daily-handover.html';
-      last=j;failed=false;render();ring();
+      last=j;failed=false;render();host.hidden=!inbox&&!renderWriter();ring();
     }catch(e){failed=true;render();}finally{clearTimeout(timer);pending=false;}
   }
   render();refresh();setInterval(refresh,60000);window.addEventListener('focus',refresh);window.addEventListener('online',refresh);window.addEventListener('storage',render);
