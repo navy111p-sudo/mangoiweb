@@ -40,6 +40,20 @@ const DOW_EN: Record<string, number> = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:
 const DOW_LABEL = ['일','월','화','수','목','금','토'];
 
 /** '월수금' · '월,수,금' · '월 화' · 'mon wed' → [1,3,5] (오름차순·중복 제거) */
+/**
+ * 수강신청 «종류» → class_schedules.class_type (2026-10-06 사장님 제보)
+ * 「체험수업」으로 확정했는데 시간표·학생 상세에 «정규수업» 으로 뜨던 사고 — 확정·백필이
+ * class_type 을 'regular' 로 못 박아 넣고 있었다. 서버 허용값은 regular|trial|level_test|makeup.
+ * ⛔ 모르면 'regular'(예전 동작)로 떨어진다 — 종류를 지어내지 않는다.
+ */
+export function enrollClassType(e: { type?: any; package?: any } | null | undefined): string {
+  const t = String((e && e.type) || '') + ' ' + String((e && e.package) || '');
+  if (/체험|trial/i.test(t)) return 'trial';
+  if (/레벨\s*테스트|level\s*test/i.test(t)) return 'level_test';
+  if (/보강|makeup/i.test(t)) return 'makeup';
+  return 'regular';
+}
+
 export function parseDowList(s: string): number[] {
   const t = String(s || '');
   const out = new Set<number>();
@@ -466,11 +480,11 @@ async function runActivate(env: any, id: number, body: any, actor: string) {
       const note = '수강신청 확정 자동생성 · ' + (plan.teacher.name || '') + ' · ' + dowLabel(plan.days) + ' · ' + (e.package || '');
       const stmt = env.DB.prepare(
         `INSERT OR IGNORE INTO class_schedules (user_id, student_name, schedule_kind, class_type, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes)
-         VALUES (?, ?, 'dated', 'regular', ?, ?, ?, ?, 'active', ?, ?, ?, ?)`
+         VALUES (?, ?, 'dated', ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)`
       );
       const batch = plan.dates.map(d => {
         const dow = new Date(d + 'T00:00:00Z').getUTCDay();
-        return stmt.bind(uid, String(e.student_name || ''), d, plan.times[String(dow)], plan.minutes,
+        return stmt.bind(uid, String(e.student_name || ''), enrollClassType(e), d, plan.times[String(dow)], plan.minutes,
                          plan.teacher.id, src, actor || 'admin', now, note);
       });
       let made = 0;
@@ -678,16 +692,16 @@ export async function runEnrollBackfill(env: any, id: number, dry: boolean, acto
   const plan = await planEnrollBackfill(env, id);
   const res: BackfillPlan & { dry: boolean; created: number; error?: string } = { ...plan, dry, created: 0 };
   if (dry || !plan.ok || !plan.add.length) return res;
-  const e: any = await env.DB.prepare(`SELECT student_user_id, student_name, package, days_of_week FROM enrollments WHERE id = ? LIMIT 1`).bind(id).first();
+  const e: any = await env.DB.prepare(`SELECT student_user_id, student_name, package, type, days_of_week FROM enrollments WHERE id = ? LIMIT 1`).bind(id).first();
   const uid = e?.student_user_id ? String(e.student_user_id) : '';
   if (!uid) { res.ok = false; res.reason = 'no_student'; return res; }
   const now = Date.now();
   const note = '수강기간 채우기(백필) · ' + dowLabel(parseDowList(e?.days_of_week || '')) + ' · ' + (e?.package || '') + ' · ~' + plan.until;
   const stmt = env.DB.prepare(
     `INSERT OR IGNORE INTO class_schedules (user_id, student_name, schedule_kind, class_type, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes)
-     VALUES (?, ?, 'dated', 'regular', ?, ?, ?, ?, 'active', ?, ?, ?, ?)`
+     VALUES (?, ?, 'dated', ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)`
   );
-  const batch = plan.add.map(a => stmt.bind(uid, String(e?.student_name || ''), a.date, a.start_time, a.duration_min,
+  const batch = plan.add.map(a => stmt.bind(uid, String(e?.student_name || ''), enrollClassType(e), a.date, a.start_time, a.duration_min,
     a.teacher_id, SRC_PREFIX + id, actor || 'admin', now, note));
   try {
     for (let i = 0; i < batch.length; i += 80) {
