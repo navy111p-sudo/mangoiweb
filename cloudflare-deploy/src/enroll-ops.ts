@@ -1279,19 +1279,44 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const hol = await holidaySet(env, p.startDate);
     const probe = enrollDates(p.startDate, p.days, sessions * 2);
     const conflicts = await enrollConflicts(env, p.teacherId, probe, p.timesMin, p.minutes, p.days);
-    const blocked = new Set<string>([...conflicts, ...hol]);
+    /* 👤 (2026-10-06 사장님 지시) 학생 본인 겹침 — 결제 주문(createEnrollOrder)과 같은 판정을 미리 보여 준다.
+       🔒 이 API 는 공개라, 본문 uid 가 «로그인한 본인» 으로 확인될 때만 본다.
+          ⛔ 확인 없이 보면 남의 아이디를 넣어 그 학생의 수업 시각을 알아낼 수 있다.
+       ⚠️ 못 보면(비로그인·조회 실패) 예전처럼 강사만 보고 student_checked:false — 주문 단계가 다시 막는다. */
+    let stuConf = new Set<string>();
+    let studentChecked = false;
+    const cUid = String(body.uid || '').trim();
+    if (cUid) {
+      let aUid: string | null = null;
+      try { aUid = await authUidOrAdminSession(request, url, env, body); } catch { aUid = null; }
+      if (aUid && aUid === cUid) {
+        const sc = await enrollStudentConflicts(env, cUid, probe, p.timesMin, p.minutes, p.days);
+        if (sc) { stuConf = sc; studentChecked = true; }
+      }
+    }
+    const blocked = new Set<string>([...conflicts, ...stuConf, ...hol]);
     const dates = enrollDates(p.startDate, p.days, sessions, blocked);
-    if (dates.length < sessions) return json({ ok: false, error: 'date_gen_failed' }, 400);
+    if (dates.length < sessions) {
+      if (stuConf.size) return json({ ok: true, sessions, conflict_count: conflicts.size, shifted_count: sessions,
+        ok_to_book: false, hard_blocked: true, teacher_busy: conflicts.size > 0,
+        student_checked: true, student_busy: true, student_conflict_count: stuConf.size,
+        first_student_conflict: probe.find((d) => stuConf.has(d)) || null });
+      return json({ ok: false, error: 'date_gen_failed' }, 400);
+    }
     // 원래 자리(공휴일·충돌 없이) 대비 몇 건이 밀렸는지 = 안내용
     const plain = enrollDates(p.startDate, p.days, sessions);
     const shifted = plain.filter((d) => blocked.has(d)).length;
     const firstConflict = plain.find((d) => conflicts.has(d)) || null;
+    /* 주문(신규)은 첫 회차가 학생 겹침이면 409 로 막는다 — 미리보기도 같은 답을 해야 «가능» 뒤에 결제에서 막히지 않는다 */
+    const firstStudent = plain.find((d) => stuConf.has(d)) || null;
     return json({
       ok: true, sessions, conflict_count: conflicts.size, shifted_count: shifted,
-      ok_to_book: !firstConflict || shifted < sessions,   // 밀려서라도 회차를 채울 수 있으면 예약 가능
+      ok_to_book: !firstStudent && (!firstConflict || shifted < sessions),   // 밀려서라도 회차를 채울 수 있으면 예약 가능
       hard_blocked: !!firstConflict && dates.length < sessions,
       first_date: dates[0], last_date: dates[dates.length - 1],
       teacher_busy: conflicts.size > 0,
+      student_checked: studentChecked, student_busy: stuConf.size > 0,
+      student_conflict_count: stuConf.size, first_student_conflict: firstStudent,
     });
   }
 
