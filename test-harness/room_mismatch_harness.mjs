@@ -119,5 +119,35 @@ try {
 } catch (e) { ok('화면 실행: ' + e.message, false); }
 ok('loadActiveRooms 가 서버 칸을 넘긴다', /mism = Array\.isArray\(cj\.room_mismatch\) \? cj\.room_mismatch : null/.test(CORE) && /_renderRoomMismatch\(mism, _L\);/.test(CORE));
 
+console.log('⑦ 관제탑 — monitor-wall.js renderUrgent (가짜 DOM 으로 실행)');
+{
+  const MW = rd(resolve(PUB, 'js/monitor-wall.js'));
+  const ru = fnBody(MW, 'function renderUrgent(){');
+  ok('renderUrgent 를 오려 냈다(전제)', !!ru);
+  ok('load 가 서버 칸(room_mismatch)을 state.mism 에 담는다', /state\.mism = \(cn && cn\.ok === true && Array\.isArray\(cn\.room_mismatch\)\) \? cn\.room_mismatch : \[\];/.test(MW));
+  const esc = (x) => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const go = (state, rooms = []) => {
+    const box = { hidden: true, innerHTML: '' };
+    const f = new Function('$', 'state', 'L', 'esc', 'visibleRooms', 'severity', 'reasonHtml', 'OBS_MAX', 'OBS_BUSY',
+      `${ru}\nrenderUrgent();`);
+    f(() => box, state, (k) => k, esc, () => rooms, () => 0, () => '', 4, 2);
+    return box;
+  };
+  try {
+    const st = { forbidden: false, mism: r, rooms: [{ roomId: 'class-4397-20261006', observerCount: 0 }], names: {}, alerts: {}, quality: {} };
+    const b1 = go(st);
+    ok('경고 줄을 상자 맨 위에 그린다', !b1.hidden && /서로 다른 방/.test(b1.innerHTML) && /class-4379-20261006/.test(b1.innerHTML));
+    ok('참관 버튼은 «선생님이 기다리는 방» 으로', /data-act="observe" data-room="class-4397-20261006"/.test(b1.innerHTML));
+    const b2 = go({ ...st, rooms: [{ roomId: 'class-4397-20261006', observerCount: 4 }] });
+    ok('짝: 참관 정원이 차면 그 버튼도 막는다', / disabled>/.test(b2.innerHTML));
+    const b3 = go({ ...st, mism: [] });
+    ok('짝: 경고가 없고 손볼 방도 없으면 상자를 숨긴다', b3.hidden === true && b3.innerHTML === '');
+    const b4 = go({ ...st, forbidden: true });
+    ok('짝: 강사 계정(forbidden)에는 안 그린다', b4.hidden === true);
+    const b5 = go({ ...st, mism: [{ ...r[0], student_name: '<img src=x>' }] });
+    ok('이름을 이스케이프한다', !/<img/.test(b5.innerHTML));
+  } catch (e) { ok('관제탑 실행: ' + e.message, false); }
+}
+
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) process.exit(1);

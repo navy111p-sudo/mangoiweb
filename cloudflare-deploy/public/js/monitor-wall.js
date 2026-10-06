@@ -67,6 +67,7 @@
       state.forbiddenWhoEn = (state.forbidden && cn && cn.who_line_en) ? String(cn.who_line_en) : '';
       state.sched  = (cn && cn.ok === true && Array.isArray(cn.classes)) ? cn.classes : [];
       state.counts = (cn && cn.ok === true) ? (cn.counts || null) : null;
+      state.mism = (cn && cn.ok === true && Array.isArray(cn.room_mismatch)) ? cn.room_mismatch : [];
       var alerts = {};
       var al = res[2];
       if (al && al.ok !== false && Array.isArray(al.items)) al.items.forEach(function(it){
@@ -192,20 +193,29 @@
   function renderUrgent(){
     var box = $('urgent');
     if (!box) return;
+    /* 참관 정원은 표(rowHtml)와 같은 규칙 — 차면 disabled, 2명 이상이면 🎧 소리만 */
+    function ob(rid, obs){
+      var full = obs >= OBS_MAX, busy = obs >= OBS_BUSY;
+      return (obs ? ' <span class="badge ' + (busy ? 'alone' : 'obs') + '">' + L('관찰 ', 'obs ') + obs + '/' + OBS_MAX + (full ? L(' 정원 참', ' full') : '') + '</span>' : '')
+        + '<button type="button" class="go" data-act="' + (busy ? 'observe-audio' : 'observe') + '" data-room="' + esc(rid) + '"'
+        + (full ? ' disabled' : '') + '>' + (busy ? L('🎧 소리만', '🎧 Audio') : L('👁 참관', '👁 Observe')) + '</button></div>';
+    }
     var list = state.forbidden ? [] : visibleRooms().filter(function(rm){ return severity(rm) > 0; });
-    box.hidden = !list.length;
-    if (!list.length) { box.innerHTML = ''; return; }
-    box.innerHTML = '<h3>🚨 ' + L('지금 손봐야 할 방 ' + list.length, list.length + ' rooms need attention') + '</h3>'
+    /* 🚨 학생·선생님이 서로 다른 방(판정은 서버 src/room-mismatch.ts) — 맨 위에 */
+    var mm = state.forbidden ? [] : (state.mism || []), n = list.length + mm.length;
+    box.hidden = !n;
+    if (!n) { box.innerHTML = ''; return; }
+    box.innerHTML = '<h3>🚨 ' + L('지금 손봐야 할 방 ' + n, n + ' rooms need attention') + '</h3>'
+      + mm.map(function(m){
+        var r = state.rooms.filter(function(x){ return String(x.roomId) === m.expected_room; })[0];
+        return '<div class="u"><span class="t">' + esc(m.start_kst || '—') + '</span><b>' + esc([m.teacher_name, m.student_name].filter(Boolean).join(' · ')) + '</b>'
+          + '<span class="why">🔀 ' + L('서로 다른 방 — 학생 ', 'different rooms — student ') + esc(m.student_room) + L(' · 선생님 ', ' · teacher ') + esc(m.expected_room) + '</span>'
+          + ob(m.expected_room, (r && r.observerCount) || 0);
+      }).join('')
       + list.map(function(rm){
         var rid = String(rm.roomId), sc = state.names[rid] || {};
-        var who = [sc.teacher_name, sc.student_name].filter(Boolean).join(' · ') || rid;
-        /* 참관 정원은 표(rowHtml)와 같은 규칙 — 차면 disabled, 2명 이상이면 🎧 소리만 */
-        var obs = rm.observerCount || 0, full = obs >= OBS_MAX, busy = obs >= OBS_BUSY;
-        return '<div class="u"><span class="t">' + esc(sc.start_time || '—') + '</span><b>' + esc(who) + '</b>'
-          + reasonHtml(rm)
-          + (obs ? ' <span class="badge ' + (busy ? 'alone' : 'obs') + '">' + L('관찰 ', 'obs ') + obs + '/' + OBS_MAX + (full ? L(' 정원 참', ' full') : '') + '</span>' : '')
-          + '<button type="button" class="go" data-act="' + (busy ? 'observe-audio' : 'observe') + '" data-room="' + esc(rid) + '"'
-          + (full ? ' disabled' : '') + '>' + (busy ? L('🎧 소리만', '🎧 Audio') : L('👁 참관', '👁 Observe')) + '</button></div>';
+        return '<div class="u"><span class="t">' + esc(sc.start_time || '—') + '</span><b>' + esc([sc.teacher_name, sc.student_name].filter(Boolean).join(' · ') || rid) + '</b>'
+          + reasonHtml(rm) + ob(rid, rm.observerCount || 0);
       }).join('');
   }
 
@@ -407,12 +417,7 @@
 
   /* ── 참관 / 입장 / 종료 — «클릭된 요소» 의 data-room 을 읽는다(위임) ────── */
   function openTab(url){
-    /* 🔴 (2026-09-02) 'noopener' 를 «기능 문자열» 로 주면 표준상 **탭은 열리는데 반환값이 null** 이다.
-       그래서 반환값으로 «막혔나» 를 판정하면 **언제나 «막혔다»** 가 된다 — 실측(크로미움):
-         window.open(u,'_blank','noopener') → null · 탭 1→2 (열림)
-         window.open(u,'_blank')            → object · 탭 2→3 (열림)
-       → 반환값이 필요하면 기능 문자열에서 빼고 **w.opener = null** 로 같은 보호를 건다.
-       ⚠️ 반환값을 안 쓰는 자리는 'noopener' 를 그대로 둬도 무해하다. */
+    /* 🔴 'noopener' 를 기능 문자열로 주면 탭은 열려도 반환값이 null — 빼고 w.opener=null 로 막는다(CLAUDE.md 2장 window.open 줄) */
     var w = null;
     try { w = window.open(url, '_blank'); } catch(e){}
     if (w) { try { w.opener = null; } catch(e){} }
@@ -490,15 +495,9 @@
     else if (act === 'end') endRoom(rid);
   });
 
-  /* ── 🔁 순회 참관 ────────────────────────────────────────────────────
-     [무엇을 푸는가] 「방 번호를 하나하나 넣지 않고 빨리빨리 확인하고 싶다」.
-        탭을 여러 개 여는 대신 **창 하나가 방을 옮겨 다닌다**. 10개 반이면 20초씩 3분 20초에 한 바퀴.
-     [왜 창을 다시 여는 방식인가] 수업 화면(index.html)은 공동 금지구역이고 첫 화면 예산이
-        수백 바이트뿐이라 «방 갈아타기» 코드를 그쪽에 넣을 수 없다. 대신 우리가 연 창의 주소만
-        바꾼다 — 같은 오리진이라 팝업 차단에 걸리지 않고(창은 사람이 누른 그 순간에 연다),
-        수업 화면은 한 줄도 고치지 않는다.
-     ⚠️ 옮길 때마다 수업 화면을 새로 여느라 몇 초 걸린다 → 최소 간격을 15초로 뒀다.
-     ⚠️ 방마다 참관 기록을 그대로 남긴다(기록 없이 들어가는 길은 만들지 않는다). */
+  /* ── 🔁 순회 참관 — 창 하나가 방을 옮겨 다닌다(우리가 연 창의 주소만 바꿈 · index.html 0줄).
+     최소 간격 15초(수업 화면을 새로 여느라) · 방마다 참관 기록은 그대로 남긴다.
+     경위: docs/작업기록/260830_수업관제탑_STEP1_순회참관.md */
   var rot = { on:false, win:null, room:'', idx:-1, left:0, paused:false, timer:null };
 
   function rotStart(){
