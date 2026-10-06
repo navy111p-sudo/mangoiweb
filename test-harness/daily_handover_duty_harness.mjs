@@ -218,9 +218,9 @@ async function prime(t) {
 {
   const js = readFileSync(process.env.BANNER_SRC || 'cloudflare-deploy/public/js/handover-inbox-banner.js', 'utf8');
   const cut = (name) => { const a = js.search(new RegExp('(async )?function ' + name + '\\(')); if (a < 0) return ''; let i = js.indexOf('{', a), d = 0; for (; i < js.length; i++) { if (js[i] === '{') d++; else if (js[i] === '}' && --d === 0) break; } return js.slice(a, i + 1); };
-  const src = cut('pushOk') + cut('pushWanted') + cut('b64u8') + cut('pushSubscribe') + cut('autoPush') + cut('askPush');
-  ok('전제: 자동 켜기 함수를 오려 냈다', /function autoPush/.test(src) && /function askPush/.test(src) && /async function pushSubscribe/.test(src));
-  const run = async ({ perm = 'granted', grantTo = 'granted', required = true, saveOk = true, keyOk = true }) => {
+  const src = cut('pushOk') + cut('pushWanted') + cut('b64u8') + cut('pushSubscribe') + cut('autoPush') + cut('askPush') + cut('reshow') + cut('askPushOnce');
+  ok('전제: 자동 켜기 함수를 오려 냈다', /function autoPush/.test(src) && /function askPush\(/.test(src) && /async function pushSubscribe/.test(src) && /function reshow/.test(src) && /function askPushOnce/.test(src));
+  const run = async ({ perm = 'granted', grantTo = 'granted', required = true, saveOk = true, keyOk = true, clicks = ['once'], lines = 1 }) => {
     const calls = { req: 0, subscribe: 0, post: null, reg: 0 };
     const Notification = { permission: perm, requestPermission() { calls.req++; Notification.permission = grantTo; return Promise.resolve(grantTo); } };
     const sw = { register() { calls.reg++; return Promise.resolve({ pushManager: { getSubscription: () => Promise.resolve(null), subscribe: () => { calls.subscribe++; return Promise.resolve({ endpoint: 'e1', toJSON() { return { endpoint: 'e1', keys: {} }; } }); } } }); }, ready: Promise.resolve() };
@@ -231,14 +231,14 @@ async function prime(t) {
     };
     const navigator = { serviceWorker: sw, userAgent: 'x' };
     const window = { PushManager: function () {} };
-    const box = { state: '' };
-    const code = 'var pushState="",pushBusy=false;' + src + ';return {autoPush,askPush,get state(){return pushState;}};';
+    const box = { hidden: true }, host = { hidden: true };
+    const code = 'var pushState="",pushBusy=false,pushAsked=false;' + src + ';return {autoPush,askPush,askPushOnce,get state(){return pushState;}};';
     let api;
-    try { api = new Function('last', 'Notification', 'navigator', 'window', 'fetch', 'atob', 'render', 'console', code)({ writer: { required }, me: { username: 'mgr_karl' } }, Notification, navigator, window, fetch, (b) => Buffer.from(b, 'base64').toString('binary'), () => {}, { warn() {} }); } catch (e) { return { err: String(e), calls }; }
+    try { api = new Function('last', 'Notification', 'navigator', 'window', 'fetch', 'atob', 'render', 'console', 'host', 'box', 'renderWriter', code)({ writer: { required }, me: { username: 'mgr_karl' } }, Notification, navigator, window, fetch, (b) => Buffer.from(b, 'base64').toString('binary'), () => {}, { warn() {} }, host, box, () => (api && api.state && api.state !== 'on' ? lines : 0)); } catch (e) { return { err: String(e), calls }; }
     api.autoPush(); await new Promise(r => setTimeout(r, 20));
     const before = api.state;
-    api.askPush(); await new Promise(r => setTimeout(r, 30));
-    return { before, after: api.state, calls };
+    for (const c of clicks) { (c === 'btn' ? api.askPush : api.askPushOnce)(); await new Promise(r => setTimeout(r, 30)); }
+    return { before, after: api.state, calls, hostHidden: host.hidden };
   };
   let r = await run({ perm: 'granted' });
   ok('허락돼 있으면 클릭 없이 조용히 등록', r.before === 'on' && r.calls.req === 0 && r.calls.post?.user_id === 'mgr_karl', JSON.stringify(r));
@@ -255,7 +255,15 @@ async function prime(t) {
   ok('키 응답 오류도 «fail»', r.before === 'fail', JSON.stringify(r));
   r = await run({ perm: 'default', required: false });
   ok('명단 밖 사람: 허락 창도 등록도 없음(짝)', r.calls.req === 0 && r.calls.subscribe === 0 && r.before === '', JSON.stringify(r));
-  ok('첫 클릭·키 입력에서 askPush 를 부른다', /addEventListener\('click',askPush,true\)/.test(js) && /addEventListener\('keydown',askPush,true\)/.test(js));
+  r = await run({ perm: 'granted', saveOk: false });
+  ok('보고·줄이 없던 화면이라도 등록 실패 줄이 보이게 배너를 다시 연다(Codex P1)', r.before === 'fail' && r.hostHidden === false, JSON.stringify(r));
+  r = await run({ perm: 'granted' });
+  ok('등록 성공이면 빈 배너를 열지 않는다(짝)', r.before === 'on' && r.hostHidden === true, JSON.stringify(r));
+  r = await run({ perm: 'default', grantTo: 'default', clicks: ['once', 'once', 'once'] });
+  ok('허락 창을 닫으면 화면 클릭으로는 다시 안 묻는다(Codex P2)', r.calls.req === 1 && r.after === 'ask', JSON.stringify(r));
+  r = await run({ perm: 'default', grantTo: 'default', clicks: ['once', 'btn'] });
+  ok('그래도 «알림 허용» 버튼을 누르면 다시 묻는다(짝)', r.calls.req === 2, JSON.stringify(r));
+  ok('첫 클릭·키 입력에서 askPush 를 부른다', /addEventListener\('click',askPushOnce,true\)/.test(js) && /addEventListener\('keydown',askPushOnce,true\)/.test(js) && /k\.onclick=askPush;/.test(js));
   ok('응답을 받으면 autoPush 를 부른다', /last=j;failed=false;autoPush\(\);/.test(js));
 }
 

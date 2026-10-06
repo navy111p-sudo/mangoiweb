@@ -31,7 +31,9 @@
   //   그래서: 허락됨 → 조용히 등록 · 아직 안 물음 → 이 화면의 첫 클릭/키 입력 때 허락 창 · 차단됨 → 푸는 법을 줄로.
   //   ⚠️ 매일보고 «필수 대상»(writer.required)에게만 건다 — 다른 사람에게 허락 창을 띄우지 않는다.
   //   ⚠️ 등록 실패는 삼키지 않고 줄로 말한다(«켜졌겠지» 로 믿으면 알림이 안 간다).
-  var pushState='',pushBusy=false;
+  var pushState='',pushBusy=false,pushAsked=false;
+  // 배너 전체를 숨긴 채 줄만 바뀌면 안 보인다 — 등록 결과가 나오면 숨김 여부도 다시 정한다(Codex P1).
+  function reshow(){render();if(last)host.hidden=box.hidden&&!renderWriter();}
   function pushOk(){return typeof Notification!=='undefined'&&'serviceWorker' in navigator&&'PushManager' in window;}
   function pushWanted(){return !!(last&&last.writer&&last.writer.required&&last.me&&last.me.username&&pushOk());}
   function b64u8(b){var r=atob((b+'='.repeat((4-b.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/')),o=new Uint8Array(r.length);for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o;}
@@ -50,13 +52,15 @@
     if(p==='denied'){pushState='denied';return;}
     if(p!=='granted'){pushState='ask';return;}
     if(pushState==='fail')return; // 같은 화면에서 계속 다시 하지 않는다(다시 열면 재시도)
-    pushBusy=true;pushSubscribe().then(function(){pushState='on';}).catch(function(e){pushState='fail';try{console.warn('[handover-push] 등록 실패',e);}catch(_){}}).then(function(){pushBusy=false;render();});
+    pushBusy=true;pushSubscribe().then(function(){pushState='on';}).catch(function(e){pushState='fail';try{console.warn('[handover-push] 등록 실패',e);}catch(_){}}).then(function(){pushBusy=false;reshow();});
   }
   function askPush(){
     if(!pushWanted()||pushBusy||pushState!=='ask')return;
-    pushBusy=true;var q;try{q=Notification.requestPermission();}catch(e){q=null;}
-    Promise.resolve(q).then(function(){pushBusy=false;pushState='';autoPush();render();}).catch(function(){pushBusy=false;render();});
+    pushBusy=true;pushAsked=true;var q;try{q=Notification.requestPermission();}catch(e){q=null;}
+    Promise.resolve(q).then(function(){pushBusy=false;pushState='';autoPush();reshow();}).catch(function(){pushBusy=false;reshow();});
   }
+  // 화면 아무 곳 첫 클릭·키 입력은 «한 번만» 묻는다 — 창을 닫았으면 그 뒤엔 «알림 허용» 버튼으로만(Codex P2).
+  function askPushOnce(){if(!pushAsked)askPush();}
   function pushLine(){
     if(pushState==='ask'){var d=document.createElement('div');d.className='wline';var b=document.createElement('b');b.textContent=t('🔔 매일보고 알림을 받으려면 기기 알림을 허용해 주세요','🔔 Allow device notifications to get daily-report reminders');var k=document.createElement('button');k.type='button';k.className='push-allow';k.textContent=t('알림 허용','Allow notifications');k.onclick=askPush;d.append(b,k);return d;}
     if(pushState==='denied')return line('bad',t('🔕 이 브라우저는 알림이 차단돼 있습니다 — 주소창 왼쪽 자물쇠 → 알림 → 허용','🔕 Notifications are blocked in this browser — lock icon left of the address bar → Notifications → Allow'));
@@ -105,7 +109,7 @@
   // A browser may require this gesture again after every login/navigation.
   function wake(e){if(e&&e.composedPath&&e.composedPath().some(function(n){return n===sound||n===snooze;}))return;if(blocked&&enabled())ring();}
   document.addEventListener('pointerdown',wake,{passive:true});document.addEventListener('keydown',wake);
-  document.addEventListener('click',askPush,true);document.addEventListener('keydown',askPush,true);
+  document.addEventListener('click',askPushOnce,true);document.addEventListener('keydown',askPushOnce,true);
   async function refresh(){
     if(pending||stopped||document.hidden)return;pending=true;var c=new AbortController(),timer=setTimeout(function(){c.abort();},10000);
     try{
