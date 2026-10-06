@@ -76,6 +76,8 @@ console.log('\n🔕 수강신청 유령 카드 — 「캘린더에 그리지 않
 console.log('① 정본 판정 — 오려 내 실제로 돌린다');
 
 const fnSrc   = cut('function mgsEnrHasLiveClass(enr)');
+/* 📅 (2026-10-06) «그 날짜» 판정 짝 — 상수 줄부터 함수 끝까지(⛔ 베끼지 말 것). */
+const dateFnSrc = cut('var MGS_AI_LIST_LIMIT = 100;');
 const noteSrc = cut('function mgsSetGhostNote(n)');
 const weekSrc = cut('function renderDSchedWeek()');
 const monthSrc= cut('function renderDSchedMonth()');
@@ -105,6 +107,7 @@ function holSrc() {
 ok('[전제] 예약 판정 정본을 오려 냈다', canonSrc.length > 700, canonSrc.length + '자');
 
 ok('[전제] 판정 함수를 오려 냈다', fnSrc.length > 120, fnSrc.length + '자');
+ok('[전제] 날짜 판정 함수를 오려 냈다', dateFnSrc.length > 200, dateFnSrc.length + '자');
 ok('[전제] 안내 함수를 오려 냈다', noteSrc.length > 120, noteSrc.length + '자');
 ok('[전제] 주간 렌더를 오려 냈다', weekSrc.length > 1500, weekSrc.length + '자');
 ok('[전제] 월간 렌더를 오려 냈다', monthSrc.length > 800, monthSrc.length + '자');
@@ -140,7 +143,7 @@ function run(enrollments, aiSchedules, aiOk, lang) {
     }
   };
   vm.createContext(sandbox);
-  vm.runInContext(canonSrc + '\n' + fnSrc + '\n' + noteSrc + '\n' + weekSrc + '\n' + monthSrc, sandbox);
+  vm.runInContext(canonSrc + '\n' + fnSrc + '\n' + dateFnSrc + '\n' + noteSrc + '\n' + weekSrc + '\n' + monthSrc, sandbox);
   const snapNote = () => {
     const el = els['d-sched-ghost-note'];
     return el ? { text: String(el.textContent || ''), display: String(el.style.display) } : null;
@@ -219,6 +222,31 @@ if (R.dead) {
   ok('짝 — 월간도 살아 있으면 없다',  !!(R.alive.monthNote) && R.alive.monthNote.display === 'none');
   ok('영어에서는 영어로 말한다',      !!(R.en.weekNote) && /no live class/.test(R.en.weekNote.text) && !/건은/.test(R.en.weekNote.text), R.en.weekNote && R.en.weekNote.text);
   ok('짝 — 한국어는 한국어로',        !!(R.dead.weekNote) && /수강신청/.test(R.dead.weekNote.text));
+}
+
+/* 📅 (2026-10-06 사장님 제보 delaware) «일부만» 취소된 신청 — 지난 수업 1건만 살아 있고 이번 주 그 날은 취소.
+   옛 판정(«하나라도 살아 있으면 그린다»)은 취소된 날에도 카드를 그렸다. */
+console.log('\n⑤-0 일부만 취소된 신청 — «그 날짜» 에 살아 있는 수업이 있을 때만');
+const M_CNT = (h) => h.split('background:' + TRIAL_M.bg + ';border-left:3px solid ' + TRIAL_M.b).length - 1;
+const W_CNT = (h) => h.split('background:' + TRIAL.bg + ';border-left:3px solid ' + TRIAL.border).length - 1;
+const PAST_ONLY = [{ id: 2330, source: 'adm-enroll:103', start_time: '14:20', class_type: 'trial', scheduled_date: '2026-09-18', status: 'active' }];
+const FILL = Array.from({ length: 99 }, (_, k) => ({ id: 5000 + k, source: 'adm-enroll:777', start_time: '09:00', class_type: 'regular', scheduled_date: '2026-09-01', status: 'active' }));
+let P = {};
+try {
+  P = {
+    past:  run(ENR, PAST_ONLY, true),
+    trunc: run(ENR, PAST_ONLY.concat(FILL), true),   // 100건 = 목록이 잘렸을 수 있음
+    pastUnread: run(ENR, PAST_ONLY, false)
+  };
+} catch (e) { ok('[전제] 일부취소 시나리오가 돈다', false, String(e && e.message || e)); }
+if (P.past) {
+  ok('주간: 그 날(9/25) 수업이 취소됐으면 그리지 않는다', W_CNT(P.past.week) === 0, String(W_CNT(P.past.week)));
+  ok('짝 — 그 날 살아 있으면 그린다(9/25 활성)', W_CNT(R.alive.week) === 1, String(W_CNT(R.alive.week)));
+  ok('월간: 살아 있는 9/18 한 칸만 그린다', M_CNT(P.past.month) === 1, String(M_CNT(P.past.month)));
+  ok('짝 — 월간 9/25 활성이면 그 한 칸', M_CNT(R.alive.month) === 1, String(M_CNT(R.alive.month)));
+  ok('«수업이 하나도 없는 신청» 안내에는 안 센다', !!P.past.weekNote && P.past.weekNote.display === 'none', JSON.stringify(P.past.weekNote));
+  ok('짝 — 목록이 잘렸을 수 있으면(100건) 마지막 날짜 뒤는 그린다(fail-open)', W_CNT(P.trunc.week) === 1, String(W_CNT(P.trunc.week)));
+  ok('짝 — 못 읽었으면 예전 그대로 그린다', W_CNT(P.pastUnread.week) === 1, String(W_CNT(P.pastUnread.week)));
 }
 
 console.log('\n⑤ 배선·구조');

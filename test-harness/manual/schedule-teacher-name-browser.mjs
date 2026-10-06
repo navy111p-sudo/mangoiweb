@@ -148,6 +148,8 @@ async function measure(page) {
       return out;
     }
     function rgb(s) { const m = String(s).match(/(\d+),\s*(\d+),\s*(\d+)/); return m ? [+m[1], +m[2], +m[3]] : null; }
+    /* 접힌 «요일별 보기» 는 목록을 다시 그리면 도로 접힌다(mgsuRender) — 재기 «직전» 에 펼친다. 접힌 칸 안의 칩은 칠해지지 않아 «맨 위» 가 늘 남이다. */
+    { const f = document.getElementById('mgsuFold'); if (f) f.open = true; }
     const chips = [...document.querySelectorAll('#aiSchedulesList .mgt-chip')];
     return {
       xss: !!window.__xss,
@@ -155,7 +157,8 @@ async function measure(page) {
       chips: chips.map(el => {
         /* ⚠️ elementFromPoint 는 «뷰포트» 좌표를 받는다 — 화면 밖에 있는 칩은 null 이 돌아와
            «남이 덮었다» 로 잘못 읽힌다(화면 버그가 아니라 검사 문제). 재기 «전» 에 올린다. */
-        el.scrollIntoView({ block: 'center' });
+        el.scrollIntoView({ block: 'center', behavior: 'instant' });   /* smooth 면 스크롤이 끝나기 전 좌표를 잰다 */
+        { const r0 = el.getBoundingClientRect(); if (r0.top < 0 || r0.bottom > innerHeight) window.scrollTo({ top: scrollY + r0.top - innerHeight / 2, behavior: 'instant' }); }
         const r = el.getBoundingClientRect();
         const cs = getComputedStyle(el);
         const cx = Math.round(r.left + r.width / 2), cy = Math.round(r.top + r.height / 2);
@@ -167,7 +170,7 @@ async function measure(page) {
           color: rgb(cs.color), bg: bg(el),
           inlinePriority: el.style.getPropertyPriority('color'),
           inView: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth,
-          topIsSelf: !!top && (top === el || el.contains(top))
+          topIsSelf: !!top && (top === el || el.contains(top)), dbg: [r.top|0, r.bottom|0, r.left|0, r.right|0, innerWidth, innerHeight, top ? top.tagName + "." + String(top.className).slice(0,20) : null].join(",")
         };
       })
     };
@@ -242,8 +245,8 @@ async function measure(page) {
     //    못 본다. 그런 오버레이가 이 카드에 생기면 색을 찍어 재는 절을 따로 두어야 한다.
     for (let i = 0; i < N; i++) {
       // 전제 — 화면 밖을 재면 언제나 «덮였다» 가 나온다(검사 문제이지 화면 버그가 아니다)
-      check('칩 ' + (i + 1) + ' 을 뷰포트 «안» 에서 쟀다 (전제)', !!m.chips[i] && m.chips[i].inView);
-      check('칩 ' + (i + 1) + ' 이 맨 위에 있다', !!m.chips[i] && m.chips[i].topIsSelf);
+      check('칩 ' + (i + 1) + ' 을 뷰포트 «안» 에서 쟀다 (전제)', !!m.chips[i] && m.chips[i].inView, m.chips[i] && m.chips[i].dbg);
+      check('칩 ' + (i + 1) + ' 이 맨 위에 있다', !!m.chips[i] && m.chips[i].topIsSelf, m.chips[i] && m.chips[i].dbg);
     }
 
     await ctx.close();
@@ -254,10 +257,10 @@ async function measure(page) {
       ['칩을 통째로 빼기 (고치기 전 상태)',
         s => s.replace(/\n\s*\+ '<span class="mgt-chip"[^\n]*teacherLabel\(it\)[^\n]*\n/, '\n')],
       ['이름 대신 번호를 그리기',
-        s => s.replace("return tid ? '강사 미확인' : '미배정';", 'return tid || \'미배정\';')
+        s => s.replace("return tid ? (_en ? 'Teacher unknown' : '강사 미확인') : (_en ? 'Unassigned' : '미배정');", 'return tid || \'미배정\';')
               .replace('if (nm) return esc(nm);', 'if (nm) return esc(it.teacher_id || nm);')],
       ['못 풀면 빈칸으로 두기',
-        s => s.replace("return tid ? '강사 미확인' : '미배정';", "return '';")],
+        s => s.replace("return tid ? (_en ? 'Teacher unknown' : '강사 미확인') : (_en ? 'Unassigned' : '미배정');", "return '';")],
       // ⛔ 「N종 전부 FAIL」을 적을 때 그 N 에 «조건 뒤집기» 가 들어 있는지 세어 볼 것 (CLAUDE.md 2026-09-05)
       ['ai_auto 가드를 «조건 뒤집기» 로 무력화',
         s => s.replace("if (src === 'ai_auto')", "if (src !== 'ai_auto' && false)")],
@@ -266,7 +269,7 @@ async function measure(page) {
       ['esc() 를 빼기 (이름은 사람이 넣는 값이다)',
         s => s.replace('if (nm) return esc(nm);', 'if (nm) return nm;')],
       ['선언 색을 페인터에 기대는 옛 값으로 되돌리기',
-        s => s.replace('class="mgt-chip" style="color:#475467;', 'class="mgt-chip" style="color:#94a3b8;')]
+        s => s.replace('class="mgt-chip" style="color:#1d4ed8;', 'class="mgt-chip" style="color:#94a3b8;')]
     ];
     for (const [name, fn] of MUTS) {
       const mutated = fn(orig);
