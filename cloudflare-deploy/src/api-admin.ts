@@ -15084,9 +15084,9 @@ LIMIT $limit`;
            판정 정본 src/room-mismatch.ts. 실패해도 목록은 그대로 뜬다(빈 배열). */
         let roomMismatch: any[] = [];
         try {
-          const uidBySched = new Map<number, string>();
-          for (const r of schedRows) uidBySched.set(Number(r.id), String(r.user_id || ''));
-          roomMismatch = findRoomMismatches(mgClasses as any, liveRows, (id) => uidBySched.get(id) || null, now);
+          const infoBySched = new Map<number, { uid: string; source: any }>();
+          for (const r of schedRows) infoBySched.set(Number(r.id), { uid: String(r.user_id || ''), source: r.source });
+          roomMismatch = findRoomMismatches(mgClasses as any, liveRows, (id) => infoBySched.get(id) || null, now);
         } catch (e: any) { console.warn('[classes-now] room mismatch:', e?.message); }
 
         return json({

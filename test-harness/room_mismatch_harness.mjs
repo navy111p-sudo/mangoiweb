@@ -58,6 +58,36 @@ ok('쌍둥이 계정으로 다른 방이면 잡는다 + via_twin=true', tw.lengt
 ok('대소문자만 다른 계정도 같은 학생', T([live[0], { ...live[1], account_uid: 'Delaware' }]) === 1);
 ok('mangoai_ 예약 + 원래 계정 접속도 잡는다', M.findRoomMismatches(cls, live, () => 'mangoai_delaware', NOW).length === 1);
 
+console.log('③-2 정본 고르기 — 옛 쌍둥이 예약으로는 경고하지 않는다 (2026-10-07 Codex 리뷰)');
+{
+  const M0 = 1791289200000, M1 = M0 + 20 * 60000;
+  const both = [
+    { schedule_id: 4397, room_id: 'class-4397-20261006', phase: 'now', start_ms: M0, end_ms: M1, student_name: '김연숙', teacher_name: 'LEN' },
+    { schedule_id: 4379, room_id: 'class-4379-20261006', phase: 'now', start_ms: M0, end_ms: M1, student_name: '김연숙', teacher_name: 'HANNAH' },
+  ];
+  const inf = (src4379) => (id) => ({ 4397: { uid: 'delaware', source: 'adm-enroll:123' }, 4379: { uid: 'mangoai_delaware', source: src4379 } })[id] || null;
+  // 학생은 정본 방(4397)에 LEN 과 함께 · 옛 강사 HANNAH 는 옛 방(4379)
+  const okLive = [
+    { account_uid: 'delaware', room_id: 'class-4397-20261006', last_seen_at: NOW - 5000 },
+    { account_uid: null, room_id: 'class-4397-20261006', last_seen_at: NOW - 5000 },
+    { account_uid: null, room_id: 'class-4379-20261006', last_seen_at: NOW - 5000 },
+  ];
+  ok('학생이 정본 방에 있으면 옛 미러 예약 때문에 경고하지 않는다', M.findRoomMismatches(both, okLive, inf('c24-mirror'), NOW).length === 0);
+  // 짝: 학생이 옛 방에 가 있으면(10/6 그대로) 정본 예약 기준으로 경고한다
+  const badLive = [
+    { account_uid: 'delaware', room_id: 'class-4379-20261006', last_seen_at: NOW - 5000 },
+    { account_uid: null, room_id: 'class-4397-20261006', last_seen_at: NOW - 5000 },
+  ];
+  const bad = M.findRoomMismatches(both, badLive, inf('c24-mirror'), NOW);
+  ok('짝: 학생이 옛 방이면 정본 예약(4397) 기준으로 1건 경고', bad.length === 1 && bad[0].expected_room === 'class-4397-20261006');
+  // 짝: 급이 같으면(정본 모름) 둘 다 본다 — 알리는 편
+  ok('짝: 출처 급이 같으면 옛 예약도 그대로 본다(정본 모름)', M.findRoomMismatches(both, okLive, inf('c24-mirror:manual'), NOW).length === 1);
+  // 짝: 안 겹치는 시간이면 가리지 않는다
+  const apart = [both[0], { ...both[1], start_ms: M1 + 60000, end_ms: M1 + 21 * 60000 }];
+  ok('짝: 시간이 안 겹치면 가리지 않는다', M.findRoomMismatches(apart, okLive, inf('c24-mirror'), NOW).length === 1);
+  ok('옛 호출(문자열만 주는 uidOf)도 그대로 동작', M.findRoomMismatches(cls, live, uidOf, NOW).length === 1);
+}
+
 console.log('④ isLiveNow');
 ok('3분 안 + 퇴장 없음 = 접속 중', M.isLiveNow({ last_seen_at: NOW - 10000 }, NOW));
 ok('last_seen 0 은 아님(카페24 씨앗)', !M.isLiveNow({ last_seen_at: 0 }, NOW));
@@ -74,8 +104,8 @@ ok('응답에 room_mismatch 를 싣는다', /room_mismatch: roomMismatch,/.test(
 ok('판정을 try 로 감싼다(목록은 그대로)', /try \{[\s\S]{0,400}findRoomMismatches\(mgClasses[\s\S]{0,200}\} catch/.test(cBody));
 ok('판정에 «방 지정 반영 뒤» mgClasses 를 넘긴다', cBody.indexOf('findRoomMismatches(mgClasses') > cBody.indexOf('applyRoomOverrides('));
 {
-  const m = cBody.match(/const uidBySched = new Map<number, string>\(\);\n([^\n]*)\n/);
-  ok('예약 id → 학생 계정 표를 schedRows 로 만든다', !!m && /schedRows/.test(m[1]) && /r\.user_id/.test(m[1]));
+  const m = cBody.match(/const infoBySched = new Map<number, \{ uid: string; source: any \}>\(\);\n([^\n]*)\n/);
+  ok('예약 id → 학생 계정·출처 표를 schedRows 로 만든다', !!m && /schedRows/.test(m[1]) && /r\.user_id/.test(m[1]) && /source: r\.source/.test(m[1]));
 }
 
 console.log('⑥ 화면 — adm-core.js _renderRoomMismatch (가짜 DOM 으로 실행)');

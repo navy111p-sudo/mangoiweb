@@ -20,7 +20,7 @@
    ⛔ 아무것도 고치지 않는다 — 방을 옮기거나 끊는 일은 사람이 한다.
    감시: test-harness/room_mismatch_harness.mjs */
 
-import { twinCandidate } from './student-alias';
+import { twinCandidate, sessionSourceRank } from './student-alias';
 
 export const LIVE_FRESH_MS = 3 * 60 * 1000;
 
@@ -31,7 +31,10 @@ export interface MismatchClass {
   student_name?: string | null;
   teacher_name?: string | null;
   start_kst?: string;
+  start_ms?: number; end_ms?: number;
 }
+/** 예약 한 건의 학생 계정·출처. 옛 호출(문자열만)도 받는다. */
+export type SchedInfo = string | { uid?: any; source?: any } | null;
 export interface MismatchLive { account_uid?: any; room_id?: any; last_seen_at?: any; left_at?: any }
 export interface RoomMismatch {
   schedule_id: number | null;
@@ -50,17 +53,36 @@ export function isLiveNow(lr: MismatchLive, now: number, freshMs = LIVE_FRESH_MS
   return seen > 0 && seen >= now - freshMs && (left == null || left === '' || Number(left) === 0);
 }
 
-/** 순수 함수. uidOf(schedule_id) → 그 예약의 학생 계정(없으면 null). */
+/* 🪞 (2026-10-07 Codex 리뷰) 쌍둥이 예약 둘이 다 살아 있고 옛 강사가 옛 방에 들어가 있으면, 학생이 정본 방에
+   제대로 있어도 «옛 예약» 기준으로 «서로 다른 방» 이 떴다(사람을 잘못 옮기게 하는 경고).
+   → 학생 입장(sessions/today 의 pickTwinSessions)과 같은 규칙으로, 시간이 겹치는 같은 사람(대소문자·쌍둥이) 예약 중
+     출처 급이 더 높은 것이 있으면 그 예약은 판정에서 뺀다. 급이 같으면 둘 다 본다(정본을 모르는 상태 — 알리는 편이 낫다). */
+
+/** 순수 함수. infoOf(schedule_id) → 그 예약의 학생 계정(문자열) 또는 {uid, source}. */
 export function findRoomMismatches(
-  classes: MismatchClass[], live: MismatchLive[], uidOf: (scheduleId: number) => string | null, now: number,
+  classes: MismatchClass[], live: MismatchLive[], infoOf: (scheduleId: number) => SchedInfo, now: number,
 ): RoomMismatch[] {
   const alive = (live || []).filter(lr => isLiveNow(lr, now) && String(lr.room_id || '') !== '');
+  const info = (c: MismatchClass) => {
+    const v = infoOf(Number(c.schedule_id));
+    const o = (v && typeof v === 'object') ? v : { uid: v, source: null };
+    return { uid: String(o.uid || '').trim().toLowerCase(), source: o.source };
+  };
+  const nowCls = (classes || []).filter(c => c && c.phase === 'now' && c.schedule_id != null);
+  const shadowed = (c: MismatchClass, uid: string, twin: string, rank: number) => nowCls.some(o => {
+    if (o === c) return false;
+    const oi = info(o);
+    if (!oi.uid || (oi.uid !== uid && oi.uid !== twin)) return false;
+    const a0 = Number(c.start_ms), a1 = Number(c.end_ms), b0 = Number(o.start_ms), b1 = Number(o.end_ms);
+    const over = [a0, a1, b0, b1].every(Number.isFinite) ? (a0 < b1 && b0 < a1) : true;
+    return over && sessionSourceRank(oi.source) > rank;
+  });
   const out: RoomMismatch[] = [];
-  for (const c of classes || []) {
-    if (!c || c.phase !== 'now' || c.schedule_id == null) continue;
-    const uid = String(uidOf(Number(c.schedule_id)) || '').trim().toLowerCase();
+  for (const c of nowCls) {
+    const ci = info(c), uid = ci.uid;
     if (!uid) continue;
     const twin = String(twinCandidate(uid) || '').toLowerCase();
+    if (shadowed(c, uid, twin, sessionSourceRank(ci.source))) continue;   // 더 정본인 예약이 같은 시간에 있다
     const isStu = (lr: MismatchLive) => {
       const a = String(lr.account_uid ?? '').trim().toLowerCase();
       return !!a && (a === uid || (!!twin && a === twin));
