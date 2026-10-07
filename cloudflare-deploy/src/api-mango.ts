@@ -2573,8 +2573,8 @@ export async function handleMangoApi(
         if (ins?.success && ins?.meta?.changes === 0) return json({ ok: false, error: 'already_pending' }, 409);
         return json({ ok: false, error: 'request_save_failed' }, 503);
       }
-      /* ⏩ (2026-10-06 사장님 「자동 연기되게」) 무료 연기는 접수 즉시 승인 — 조건은 student-auto-postpone.ts.
-         안 되면(유료·반복·강사 변경·겹침 등) 예전처럼 «대기» 로 남아 관리자가 승인한다. */
+      /* ⏩ (2026-10-06 「자동 연기되게」 → 2026-10-07 「승인 없이 즉시」) 학생의 연기·변경은 접수 즉시 승인 — 조건은 student-auto-postpone.ts.
+         안 되면(반복 수업·겹침·강사 불가 등) 예전처럼 «대기» 로 남아 관리자가 승인한다. */
       const reqId: number | null = ins?.meta?.last_row_id ? Number(ins.meta.last_row_id) : null;
       const auto = await autoApproveStudentPostpone(env, reqId);
       try {
@@ -2583,7 +2583,7 @@ export async function handleMangoApi(
         await enqueueNotification(env, {
           type: 'schedule_request',
           title: `📅 수업 ${typeKo} ${auto.applied ? '자동 반영' : '요청'} ${feeKo}`.trim(),
-          body: `${studentName} 님(학생 직접) · 강사 ${teacherName}${wishNote ? ` · ${wishNote}` : ''} · 원수업 ${origDate || ''} ${origTime || ''}${newDate ? ` → ${newDate} ${newTime || ''}` : ''}. ${auto.applied ? '시간표에 자동 반영됐습니다(무료 연기).' : '관리자 페이지에서 승인/거절하세요.'}`,
+          body: `${studentName} 님(학생 직접) · 강사 ${teacherName}${wishNote ? ` · ${wishNote}` : ''} · 원수업 ${origDate || ''} ${origTime || ''}${newDate ? ` → ${newDate} ${newTime || ''}` : ''}. ${auto.applied ? '시간표에 자동 반영됐습니다.' : '자동으로 옮기지 못했습니다(반복 수업·겹침 등) — 관리자 페이지에서 확인하세요.'}`,
           meta: { request_id: ins?.meta?.last_row_id || null, request_type: reqType, requester_role: 'student', new_teacher_id: newTeacherId, fee_type: feeType, minutes_before: minutesBefore, student_name: studentName, teacher_name: teacherName },
           channel: 'kakao_memo',
         });

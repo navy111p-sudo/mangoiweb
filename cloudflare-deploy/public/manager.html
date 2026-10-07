@@ -608,8 +608,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   }
 
   var REQS = [
-    { id: 990001, status: 'pending', request_type: 'change', teacher_name: 'Teacher Joy', student_name: STUDENTS[3].name, orig_date: kst(1), orig_time: '17:00', new_date: kst(1), new_time: '18:00', reason: '학원 행사로 시간 변경 요청' },
-    { id: 990002, status: 'pending', request_type: 'postpone', teacher_name: 'Teacher Mark', student_name: STUDENTS[20].name, orig_date: kst(2), orig_time: '16:30', new_date: kst(4), new_time: '16:30', reason: '학생 가족 여행' },
+    { id: 990001, status: 'approved', decided_by: '자동승인(학생 연기·변경)', requester_role: 'student', request_type: 'change', teacher_name: 'Teacher Joy', student_name: STUDENTS[3].name, orig_date: kst(1), orig_time: '17:00', new_date: kst(1), new_time: '18:00', reason: '학원 행사로 시간 변경 요청' },
+    { id: 990002, status: 'approved', decided_by: '자동승인(학생 연기·변경)', requester_role: 'student', request_type: 'postpone', teacher_name: 'Teacher Mark', student_name: STUDENTS[20].name, orig_date: kst(2), orig_time: '16:30', new_date: kst(4), new_time: '16:30', reason: '학생 가족 여행' },
     { id: 990003, status: 'approved', request_type: 'change', teacher_name: 'Teacher Anna', student_name: STUDENTS[31].name, orig_date: kst(-2), orig_time: '15:00', new_date: kst(-1), new_time: '15:00', reason: '감기' }
   ];
 
@@ -2440,17 +2440,20 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var rows = j.items || j.rows || j.requests || [];
     hqRows('reqBody', rows, function(r){
       var pend = String(r.status || '') === 'pending';
+      /* ⏩ (2026-10-07 사장님 «학생 신청은 대리점 승인 없이 즉시 반영») 서버가 접수 즉시 반영한 요청 —
+         decided_by 정본은 src/student-auto-postpone.ts 의 AUTO_POSTPONE_DECIDER(«자동승인(…)»). */
+      var autoDone = !pend && /자동승인/.test(String(r.decided_by || ''));
       var kind = r.request_type === 'cancel' ? T('Cancel', '취소')
                : r.request_type === 'change' ? T('Change', '변경') : T('Postpone', '연기');
       var to = (r.new_date || r.new_time) ? ((r.new_date || '') + ' ' + (r.new_time || '')).trim() : '';
       return '<div class="row"><b>' + esc(r.teacher_name || '-') + ' &middot; ' + esc(r.student_name || '') + '</b>'
            + '<span class="muted">' + esc((r.orig_date || '') + ' ' + (r.orig_time || '')) + '</span>'
-           + '<span class="tag' + (pend ? ' hot' : ' ok') + '">' + esc(kind + ' · ' + (r.status || '')) + '</span></div>'
+           + '<span class="tag' + (pend ? ' hot' : ' ok') + '">' + esc(kind + ' · ' + (autoDone ? T('applied automatically', '자동 반영') : pend ? T('needs a check', '확인 필요') : r.status === 'approved' ? T('approved', '승인됨') : r.status === 'rejected' ? T('rejected', '거절됨') : (r.status || ''))) + '</span></div>'
            /* ⚠️ «옮길 시각» 을 위 .row 안에 넣지 말 것 — .row b 가 flex:1;min-width:0 이라
                  줄이 넘치기 전에 **이름부터 찌그러진다.** 「박도윤」이 한 글자씩 세 줄로 쪼개졌다.
                  .row 는 다른 카드도 함께 쓰므로 공용 CSS 를 고치는 대신 줄을 따로 뺀다.
                  승인 판단에 가장 중요한 값이라 눈에 띄는 자리가 오히려 낫다. */
-           + (to ? '<div class="rq-to">→ ' + esc(T('move to ', '옮길 시각 ')) + esc(to) + '</div>' : '')
+           + (to ? '<div class="rq-to">→ ' + esc(pend ? T('move to ', '옮길 시각 ') : r.status === 'approved' ? T('moved to ', '옮긴 시각 ') : T('asked for ', '요청한 시각 ')) + esc(to) + '</div>' : '')
            + (r.reason ? '<div class="muted" style="padding:0 0 6px">' + esc(r.reason) + '</div>' : '')
            /* ⭐ 보는 자리에서 바로 승인·거절. 예전엔 여기까지 보고 admin.html 로 옮겨 가야 했다.
                 대기 중인 것에만 붙인다 — 이미 처리된 요청은 서버가 409 로 막으므로 버튼도 안 준다. */
@@ -2464,6 +2467,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
                    + '<span class="rq-msg"></span></div>'
                  : '');
     }, T('No requests.', '요청이 없습니다.'));
+    /* 왜 «확인 필요» 가 남는지 — 사람이 «승인을 안 해서» 가 아니라 «자동으로 옮길 수 없어서» 다. 보이는 글자로. */
+    var rb = document.getElementById('reqBody');
+    if (rb && rows.length) rb.insertAdjacentHTML('afterbegin', '<div class="muted" style="padding-bottom:6px">'
+      + esc(T('Students\' postpone/change requests are applied right away — no approval needed. Anything marked «needs a check» could not be moved automatically (weekly class, time clash, teacher unavailable, or a teacher/staff request).',
+              '학생이 신청한 연기·변경은 승인 없이 바로 반영됩니다. «확인 필요» 는 자동으로 옮길 수 없던 요청입니다(매주 반복 수업 · 시간 겹침 · 강사 불가 · 강사·직원이 낸 요청).')) + '</div>');
   }
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -3459,8 +3467,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         var who = rq.length ? (rq[0].student_name || rq[0].teacher_name || '') : '';
         html += todoRow('#b45309',
           T('Reschedule requests: ' + rqN, '연기 · 변경 요청 ' + rqN + '건'),
-          rqN > 1 && who ? T(who + ' and ' + (rqN - 1) + ' more — waiting for you', who + ' 외 ' + (rqN - 1) + '건 — 승인 대기')
-                         : T('Waiting for your decision', '승인 · 거절을 기다리고 있어요'),
+          /* ⏩ (2026-10-07) 학생 신청은 즉시 반영되므로 여기 남는 것은 «자동으로 못 옮긴 것» 뿐이다 */
+          rqN > 1 && who ? T(who + ' and ' + (rqN - 1) + ' more — could not be applied automatically', who + ' 외 ' + (rqN - 1) + '건 — 자동 반영 안 됨, 확인 필요')
+                         : T('Could not be applied automatically — please check', '자동 반영이 안 된 요청이에요 — 확인해 주세요'),
           'c-req');
         total += rqN;
       }
