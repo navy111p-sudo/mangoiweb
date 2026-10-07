@@ -631,6 +631,29 @@ async function diagnose(env: Env, shop: string, month: string, text: string) {
     unmatched: parsed.unmatched, mismatches: rows.filter(r => r.theirs != null && r.diff !== 0).length };
 }
 
+/**
+ * 결제창 열기 — 공개 링크(/api/pay/b2b/checkout)와 대리점 로그인(/api/admin/ai-billing/tuition/checkout)이 같이 쓴다.
+ *   ⛔ shop 은 부르는 쪽이 «토큰» 또는 «로그인 스코프» 로 정한 값이다 — 요청 본문의 학원 이름을 받지 않는다.
+ *   ⛔ 금액은 청구서에서 서버가 다시 정한다(owed = due − paid). 화면이 보낸 금액은 없다.
+ */
+/** 대리점 로그인 결제의 문지기(순수) — 하니스가 경계값을 넣어 실제로 돌린다.
+ *   대리점 스코프 + 본사가 켠(enabled=1) 학원만 통과. 모르면(행 없음·스코프 없음) 막는다. */
+export function agencyCheckoutGate(scope: { type?: string; value?: any } | null, shopRowV: any):
+  { ok: boolean; shop: string; error: string; status: number } {
+  // ⚠️ 한 가지 모양으로 둔다 — strict 꺼진 tsconfig 에서는 판별 유니온 좁히기가 안 먹는다(CLAUDE.md 2장).
+  if (!scope || scope.type !== 'agency' || !scope.value || !String(scope.value).trim()) return { ok: false, shop: '', error: 'agency_only', status: 403 };
+  if (!shopRowV || Number(shopRowV.enabled) !== 1) return { ok: false, shop: '', error: 'not_enabled', status: 409 };
+  return { ok: true, shop: String(scope.value), error: '', status: 200 };
+}
+
+export async function checkoutInvoice(env: Env, shop: string, invoiceId: any): Promise<Response> {
+  const inv: any = await safe(async () => await env.DB.prepare(`SELECT * FROM b2b_tuition_invoices WHERE id = ? AND shop_name = ?`).bind(Number(invoiceId), shop).first(), null);
+  if (!inv) return err('invoice_not_found', 404);
+  if (inv.status === 'paid' || inv.status === 'void') return err('already_paid', 409);
+  const o = await createOrder(env, inv);
+  return o.ok ? json({ ok: true, order_id: o.order_id, amount: o.amount, order_name: o.order_name, customer_name: shop }) : err(o.error || 'order_failed', 500);
+}
+
 // ───────────────────────── 공개 라우터 (/api/pay/b2b/*) ─────────────────────────
 export async function handleB2bTuitionPublic(request: Request, url: URL, env: Env): Promise<Response | null> {
   if (!url.pathname.startsWith('/api/pay/b2b/')) return null;
@@ -650,13 +673,7 @@ export async function handleB2bTuitionPublic(request: Request, url: URL, env: En
     res.headers.set('X-Robots-Tag', 'noindex');
     return res;
   }
-  if (p === 'checkout' && method === 'POST') {
-    const inv: any = await safe(async () => await env.DB.prepare(`SELECT * FROM b2b_tuition_invoices WHERE id = ? AND shop_name = ?`).bind(Number(body.invoice_id), shop).first(), null);
-    if (!inv) return err('invoice_not_found', 404);
-    if (inv.status === 'paid' || inv.status === 'void') return err('already_paid', 409);
-    const o = await createOrder(env, inv);
-    return o.ok ? json({ ok: true, order_id: o.order_id, amount: o.amount, order_name: o.order_name, customer_name: shop }) : err(o.error || 'order_failed', 500);
-  }
+  if (p === 'checkout' && method === 'POST') return await checkoutInvoice(env, shop, body.invoice_id);
   if (p === 'postpone' && method === 'POST') {
     const sid = Number(body.schedule_id), date = String(body.date || '');
     if (!(sid > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return err('bad_params');
@@ -869,6 +886,17 @@ export async function tuitionAdminRouter(request: Request, env: Env, sub: string
     if (!(id > 0) || !ans) return err('bad_params');
     const ok = await safe(async () => { await env.DB.prepare(`UPDATE b2b_tuition_disputes SET status='answered', answer=?, answered_by=?, answered_at=? WHERE id=?`).bind(ans, who, Date.now(), id).run(); return true; }, false);
     return ok ? json({ ok: true }) : err('save_failed', 500);
+  }
+
+  /* 💳 (2026-10-07) 대리점 매니저 화면(/manager) 「수업료 결제」 — 문자로 받은 링크 없이 로그인한 채로 낸다.
+     ⛔ 대리점 스코프만 — 학원은 «로그인 스코프» 로 고정하고 본문의 학원 이름은 받지 않는다(남의 청구서를 못 연다).
+        본사·지사·강사(scope 'none')는 403 — 본사는 결제하는 쪽이 아니고, 'none' 오판으로 열리지 않게 막는 쪽으로 실패한다.
+     ⛔ 본사가 켜지 않은(꺼 둔) 학원은 막는다 — 공개 링크(tokenShop)와 같은 조건. */
+  if (sub === 'checkout' && method === 'POST') {
+    const scopeShop = scope.type === 'agency' && scope.value ? String(scope.value) : '';
+    const g = agencyCheckoutGate(scope, scopeShop ? await shopRow(env, scopeShop) : null);
+    if (!g.ok) return err(g.error, g.status);
+    return await checkoutInvoice(env, g.shop, body.invoice_id);
   }
 
   if (sub === 'diagnose' && method === 'POST') {

@@ -150,6 +150,16 @@ html.dark .kpi-arrow{color:#7c8899}
 .row b{min-width:0;flex:1}
 .row .num{font-variant-numeric:tabular-nums;font-weight:700}
 .muted{color:#7a8794;font-size:13px}
+/* 💳 수업료 결제 카드 (2026-10-07) — 흰 카드 위에서 읽히는 색만 쓴다(#b45309 대비 5.0 · #15803d · #b91c1c) */
+.tui-pay{display:block;width:100%;margin-top:8px;min-height:44px;border:0;border-radius:10px;background:#f59e0b;color:#1f1300;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit}
+.tui-pay:disabled{opacity:.55;cursor:default}
+.tui-inv{border:1px solid #eaeef2;border-radius:10px;padding:4px 10px 10px;margin:8px 0}
+.tui-msg{border-radius:8px;padding:8px 10px;font-size:13px;margin:8px 0;background:#fff4dc;color:#7c3d06}
+.tui-msg.ok{background:#e8f7ee;color:#15803d}
+.tui-msg.bad{background:#fdecec;color:#991b1b}
+.tui-al{font-size:12px;font-weight:700;border-radius:999px;padding:1px 8px;border:1px solid #f5d79a;background:#fff4dc;color:#b45309}
+.tui-al-ok{border-color:#b9e4c8;background:#e8f7ee;color:#15803d}
+.tui-al-empty{border-color:#f2c1c1;background:#fdecec;color:#b91c1c}
 .empty{padding:18px 4px;text-align:center;color:#8b97a4;font-size:13.5px}
 
 input[type="search"],input[type="text"]{
@@ -739,6 +749,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="sgrp">
     <button type="button" onclick="sideGo('c-trend')"><span class="ic">📊</span><span data-en="30-day trend" data-ko="30일 추이">30-day trend</span></button>
     <button type="button" onclick="sideGo('c-settle')"><span class="ic">💰</span><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></button>
+    <button type="button" id="sideTuition" onclick="sideGo('c-tuition')" hidden><span class="ic">💳</span><span data-en="Tuition payment" data-ko="수업료 결제">Tuition payment</span></button>
     <button type="button" id="sideAibill" onclick="sideGo('c-aibill')" hidden><span class="ic">🧾</span><span data-en="AI usage invoice" data-ko="AI 사용료 청구서">AI usage invoice</span></button>
   </div>
   <div class="sgrp-h" data-en="Operations" data-ko="운영관리">Operations</div>
@@ -1159,6 +1170,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        paintMonth() 가 scope.type==='agency' 일 때만 hidden 을 푼다. 서버(ai-billing.ts)가
        shop_name 을 요청 파라미터가 아니라 로그인 스코프에서 직접 정하므로, 여기서
        엉뚱한 대리점 값을 보낼 방법이 없다(남의 청구서를 볼 수 없다). -->
+  <!-- 💳 (2026-10-07 사장님 「대리점 메뉴에 수업료 결제 화면이 없어」) 화상수업 수업료(충전금) — 대리점 계정에만.
+       본사가 문자로 보내는 링크(/b2b-pay.html)와 같은 청구서를 «로그인한 채로» 보고 낸다.
+       서버(b2b-tuition-load.ts)가 학원을 로그인 스코프로 고정하므로 남의 청구서를 볼·낼 방법이 없다.
+       ⛔ 이 화면은 금액을 계산하지 않는다 — 서버가 준 숫자·문장만 그린다. -->
+  <details class="card" id="c-tuition" ontoggle="if(this.open)loadTuition()" hidden>
+      <summary><span data-en="Tuition payment" data-ko="수업료 결제">Tuition payment</span></summary>
+      <div id="tuiBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
   <details class="card" id="c-aibill" ontoggle="if(this.open)loadAiBill()" hidden>
       <summary><span data-en="AI usage invoice" data-ko="AI 사용료 청구서">AI usage invoice</span></summary>
       <div id="aibillBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
@@ -1541,6 +1561,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (_aib) _aib.hidden = (sc.type !== 'agency');
     var _sAib = document.getElementById('sideAibill');
     if (_sAib) _sAib.hidden = (sc.type !== 'agency');
+    // 💳 (2026-10-07) 수업료 결제도 대리점 계정에만 — 서버 tuition/checkout 이 대리점 밖은 403 이라 짝을 맞춘다.
+    var _tui = document.getElementById('c-tuition');
+    if (_tui) _tui.hidden = (sc.type !== 'agency');
+    var _sTui = document.getElementById('sideTuition');
+    if (_sTui) _sTui.hidden = (sc.type !== 'agency');
     // 🏢 본사 매니저면 전용 카드를 켠다. 판정은 이미 받은 exec/summary 의 scope 로 한다(추가 요청 0).
     //    ⚠️ 화면을 켜는 것뿐이고 권한은 서버가 정한다 — 여기 값을 고쳐도 API 는 안 열린다.
     IS_HQ = (sc.type === 'hq');
@@ -2135,6 +2160,141 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     }
     el.innerHTML = html;
   }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 💳 (2026-10-07) 화상수업 수업료(충전금) 결제 — 대리점 계정 전용.
+  //   조회: GET  /api/admin/ai-billing/tuition/shop      (서버가 학원을 로그인 스코프로 고정)
+  //   결제: POST /api/admin/ai-billing/tuition/checkout  (청구서 id 만 보낸다 — 금액은 서버가 청구서에서 다시 정한다)
+  //   확정: 토스에서 /manager?tui_paid=1 로 돌아오면 /api/pay/confirm (MGT- 주문 → 충전금에 들어간다)
+  //   ⛔ 캐시(localStorage)를 쓰지 않는다 — 돈 화면에서 «옛 잔액·옛 청구서» 를 보여 주면 이미 낸 것을 또 내게 된다.
+  // ══════════════════════════════════════════════════════════════════════════
+  var TUI_OVERDUE = { due_soon: ['마감 임박', 'Due soon'], overdue: ['마감 지남', 'Overdue'], warn: ['연체', 'Overdue'], lock_candidate: ['연체 · 수업 중지 예정', 'Overdue · may pause'] };
+  window.loadTuition = function(){
+    var el = document.getElementById('tuiBody');
+    el.className = 'empty';
+    el.textContent = T('Loading...', '불러오는 중...');
+    get('/api/admin/ai-billing/tuition/shop')
+      .then(function(j){ D.tuition = j; paintTuition(); })
+      .catch(function(e){ failBox(el, e); });
+  };
+  function tuiMonth(ym){ return T(String(ym || ''), Number(String(ym || '').slice(5, 7)) + '월'); }
+  function tuiKind(inv){ return inv.kind === 'topup' ? tuiMonth(inv.month) + ' ' + T('top-up', '충전금 보충') : tuiMonth(inv.month) + ' ' + T('tuition', '수업료'); }
+  function tuiExplain(calc){
+    if (!calc) return '';
+    var lines = (EN() ? calc.explain_en : calc.explain_ko) || [];
+    var h = lines.length ? '<ul style="margin:6px 0;padding-left:18px">' + lines.map(function(x){ return '<li class="muted">' + esc(x) + '</li>'; }).join('') + '</ul>' : '';
+    (calc.lines || []).forEach(function(l){
+      h += '<div class="row"><span>' + esc(l.name) + (l.excluded ? ' <span class="muted">(' + T('excluded', '청구 제외') + ')</span>' : '') + '</span>'
+        + '<span class="muted">' + esc(EN() ? (l.pattern_en || '') : (l.pattern_ko || '')) + ' · ' + n0(l.count) + T(' cls', '회') + '</span><b class="num" style="text-align:right">' + won(l.amount) + '</b></div>';
+    });
+    return h;
+  }
+  function paintTuition(){
+    var d = D.tuition; if (!d) return;
+    var el = document.getElementById('tuiBody');
+    el.className = '';
+    var h = '';
+    if (D.tuiMsg) h += '<p class="tui-msg ' + (D.tuiMsg.ok ? 'ok' : 'bad') + '">' + esc(D.tuiMsg.text) + '</p>';
+    if (!d.enabled) {
+      // 본사가 아직 이 학원의 수업료 정산을 켜지 않았다 — 결제할 청구서가 «원리상» 없다. 지어내지 않는다.
+      h += '<p class="muted">' + T('Head office has not turned on tuition billing for this academy yet, so there is nothing to pay here. Please contact head office.',
+                                 '본사가 아직 이 학원의 수업료 정산을 켜지 않아 여기서 결제할 청구서가 없습니다. 본사로 문의해 주세요.') + '</p>';
+      el.innerHTML = h; return;
+    }
+    var w = d.wallet;
+    var al = d.alert === 'empty' ? T('No credit', '충전금 없음') : d.alert === 'low' ? T('Low credit', '충전금 부족') : T('OK', '충분');
+    h += '<div class="row"><span>' + T('Credit balance now', '지금 충전금 잔액') + '</span><b class="num" style="text-align:right">' + (w ? won(w.balance) : '—') + '</b><span class="tui-al tui-al-' + esc(d.alert || 'ok') + '">' + esc(al) + '</span></div>';
+    h += '<div class="row"><span>' + T('Classes left this month', '이번 달 남은 수업 금액') + '</span><b class="num" style="text-align:right">' + won(d.committed_krw) + '</b></div>';
+    if (d.alert === 'low') h += '<p class="tui-msg bad">⚠️ ' + T('Your credit is below the next 2 weeks of classes (' + won(d.upcoming14_krw) + '). Please pay the invoice below.', '앞으로 2주 수업(' + won(d.upcoming14_krw) + ')보다 잔액이 적습니다. 아래 청구서로 채워 주세요.') + '</p>';
+    if (d.alert === 'empty') h += '<p class="tui-msg bad">⛔ ' + T('No credit left. Please pay the invoice below.', '충전금이 없습니다. 아래 청구서를 결제해 주세요.') + '</p>';
+
+    var open = (d.invoices || []).filter(function(i){ return (i.status === 'issued' || i.status === 'partial') && Number(i.owed_krw) > 0; });
+    h += '<div class="row" style="margin-top:6px"><b>' + T('Amount due', '낼 금액') + '</b></div>';
+    if (!open.length) h += '<p class="muted">' + T('There is no invoice to pay right now.', '지금 낼 청구서가 없습니다.') + '</p>';
+    open.forEach(function(inv){
+      var ov = TUI_OVERDUE[inv.overdue];
+      h += '<div class="tui-inv">'
+        + '<div class="row"><b>' + esc(tuiKind(inv)) + (inv.first_month ? ' <span class="muted">(' + T('first month · remaining classes only', '첫 달 · 남은 회차만') + ')</span>' : '') + '</b>'
+        + (ov ? '<span class="tui-al tui-al-low">' + esc(T(ov[1], ov[0])) + '</span>' : '') + '</div>'
+        + '<div class="row"><span>' + T('Due', '마감') + ' ' + esc(inv.due_date || '') + (Number(inv.paid_krw) > 0 ? ' · ' + T('already paid ', '이미 낸 금액 ') + won(inv.paid_krw) : '') + '</span>'
+        + '<b class="num" style="text-align:right;font-size:18px">' + won(inv.owed_krw) + '</b></div>'
+        + (inv.calc ? '<details><summary class="muted" style="cursor:pointer">' + T('Why this amount?', '왜 이 금액인가요?') + '</summary>' + tuiExplain(inv.calc) + '</details>' : '')
+        + '<button type="button" class="tui-pay" onclick="tuiPay(this,' + Number(inv.id) + ')">💳 ' + T('Pay ' + won(inv.owed_krw), won(inv.owed_krw) + ' 결제하기') + '</button>'
+        + '</div>';
+    });
+    if (d.next_preview && !open.some(function(i){ return i.kind === 'monthly' && i.month === d.next_month; })) {
+      h += '<details style="margin-top:8px"><summary class="muted" style="cursor:pointer">🔮 ' + T(String(d.next_month) + ' estimate (fixed on the 20th): ', tuiMonth(d.next_month) + ' 예상 청구액(20일에 확정): ') + won(d.next_preview.due_krw) + '</summary>' + tuiExplain(d.next_preview) + '</details>';
+    }
+    if (d.autopay && d.autopay.active) h += '<p class="muted">💳 ' + T('Auto-pay is on', '자동결제 사용 중') + (d.autopay.card_label ? ' · ' + esc(d.autopay.card_label) : '') + '</p>';
+    var past = (d.invoices || []).filter(function(i){ return i.status === 'paid'; }).slice(0, 6);
+    if (past.length) {
+      h += '<div class="row" style="margin-top:10px"><b>' + T('Paid', '지난 결제') + '</b></div>'
+        + past.map(function(i){ return '<div class="row"><span>' + esc(tuiKind(i)) + '</span><b class="num" style="text-align:right">' + won(i.paid_krw) + '</b><span>✅</span></div>'; }).join('');
+    }
+    h += '<p class="muted" style="font-size:11.5px;margin-top:8px">' + T('Credit is deducted per class held. Class records by student and postponement requests are on the payment link head office texts you.', '충전금은 수업한 만큼 자동으로 빠집니다. 학생별 수업 기록·연기 신청은 본사가 문자로 보내 드린 결제 링크 화면에서 볼 수 있습니다.') + '</p>';
+    el.innerHTML = h;
+  }
+  window.tuiPay = function(btn, invoiceId){
+    if (btn) btn.disabled = true;
+    var done = function(){ if (btn) btn.disabled = false; };
+    fetch('/api/admin/ai-billing/tuition/checkout', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoice_id: invoiceId })
+    }).then(function(r){ return r.json().catch(function(){ return {}; }); }).then(async function(o){
+      // «성공이라고 말했는가» 로 가른다(ok === true + 주문번호). 404 본문 등은 ok 칸이 없을 수 있다.
+      if (!o || o.ok !== true || !o.order_id) {
+        var why = o && o.error === 'already_paid' ? T('This invoice is already paid.', '이미 결제된 청구서입니다.')
+          : o && o.error === 'not_enabled' ? T('Tuition billing is not on for this academy.', '이 학원은 수업료 정산이 켜져 있지 않습니다.')
+          : T('Could not start payment.', '결제를 시작하지 못했습니다.') + (o && o.error ? ' (' + o.error + ')' : '');
+        alert(why); done(); D.tuition = null; loadTuition(); return;
+      }
+      var ck = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
+      try { var cfg = await fetch('/api/pay/config').then(function(r){ return r.json(); }); if (cfg && cfg.ok && cfg.clientKey) ck = cfg.clientKey; } catch (e) {}
+      if (!window.TossPayments) {
+        try {
+          await new Promise(function(resolve, reject){
+            var s = document.createElement('script');
+            s.src = 'https://js.tosspayments.com/v1/payment';
+            s.onload = resolve; s.onerror = reject;
+            document.head.appendChild(s);
+          });
+        } catch (e) { alert(T('Could not load the payment module.', '결제 모듈을 불러오지 못했습니다.')); done(); return; }
+      }
+      try {
+        var back = location.origin + location.pathname;
+        await window.TossPayments(ck).requestPayment('카드', {
+          amount: o.amount, orderId: o.order_id, orderName: o.order_name, customerName: o.customer_name,
+          successUrl: back + '?tui_paid=1', failUrl: back + '?tui_fail=1'
+        });
+      } catch (e) {
+        if (e && e.code !== 'USER_CANCEL') alert(T('Could not open the payment window: ', '결제창을 열 수 없습니다: ') + (e.message || 'unknown'));
+      }
+      done();
+    }).catch(function(){ alert(T('Network error.', '네트워크 오류가 발생했습니다.')); done(); });
+  };
+  // 토스에서 돌아왔을 때 — 확정은 서버(/api/pay/confirm)가 한다. 이 화면은 결과만 말하고 카드를 연다.
+  (function(){
+    var qs; try { qs = new URLSearchParams(location.search); } catch (e) { return; }
+    var paid = qs.get('tui_paid') === '1', failed = qs.get('tui_fail') === '1';
+    if (!paid && !failed) return;
+    var clean = function(){ try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {} };
+    var show = function(ok, text){
+      D.tuiMsg = { ok: ok, text: text };
+      var card = document.getElementById('c-tuition');
+      if (card) { card.hidden = false; D.tuition = null; if (card.open) loadTuition(); else window.openCard('c-tuition'); }
+    };
+    if (failed) { clean(); show(false, T('Payment was not completed: ', '결제가 완료되지 않았습니다: ') + (qs.get('message') || qs.get('code') || '')); return; }
+    if (!qs.get('paymentKey') || !qs.get('orderId')) { clean(); show(false, T('Payment details are missing.', '결제 정보가 확인되지 않았습니다.')); return; }
+    fetch('/api/pay/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentKey: qs.get('paymentKey'), orderId: qs.get('orderId'), amount: Number(qs.get('amount')) }) })
+      .then(function(r){ return r.json().catch(function(){ return {}; }); })
+      .then(function(r){
+        clean();
+        if (r && r.ok === true) show(true, '✅ ' + T('Paid — added to your credit.', '결제가 완료되어 충전금에 들어갔습니다.'));
+        else show(false, T('Payment confirmation failed: ', '결제 확인에 실패했습니다: ') + ((r && (r.message || r.error)) || ''));
+      })
+      .catch(function(){ clean(); show(false, T('Network error while confirming the payment. If your card was charged, it will be cancelled automatically.', '네트워크 오류로 결제 확인에 실패했습니다. 카드에서 빠져나갔다면 자동 취소됩니다.')); });
+  })();
 
   // ══════════════════════════════════════════════════════════════════════════
   // 🏢 본사 매니저 전용 카드 — scope.type === 'hq' 일 때만 보인다(paintMonth 에서 켠다).
@@ -3103,6 +3263,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     //    열려 있어 ontoggle 도 재발화하지 않아 되돌릴 방법이 없다(CLAUDE.md 2장 「그릇에 달았더니
     //    그린 내용이 통째로 사라짐」).
     if (D.aibill) paintAiBill();
+    if (D.tuition) paintTuition();   // 💳 #tuiBody 도 data-ko/data-en «그릇» — 같은 이유로 다시 그린다
     // 🗒 새로 붙은 두 구역도 언어를 따라간다 — 빠뜨리면 KO/EN 토글 뒤에도
     //    「오늘 봐야 할 것」·「오늘 전체 수업」 만 옛 언어로 남는다(JS로 그린 라벨 함정).
     try { paintTodo(); } catch (e) {}
