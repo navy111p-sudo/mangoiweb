@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A.i 선생님 수업 — 망고아이</title>
+<link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<!--
+  🤖 A.i 선생님 화상수업 (2026-10-07 · 숨은 주소 시범 — 메뉴에 아직 없음)
+  [무엇] 아바타 선생님 Lily 가 우리 교재(new BTS · new SIU, 443레슨)를 쪽마다 짚어 가며 읽어 주고,
+        학생이 따라 말하면 결정론 엔진(/js/ai-class-engine.js)이 채점·칭찬·복습을 정한다.
+  [데이터] 레슨 목록 = /data/ai-class-catalog.json (scripts/build-ai-class-catalog.mjs 로 만듦)
+          문장 = /data/tb-say/<권>.json (수업 화면 «이 쪽 문장 듣기» 와 같은 정본 — 고를 때 그 권만 받음)
+          그림 = /api/textbook-files?book=… 로 받은 번호 → /api/textbook-files/<id>/raw (수업 화면과 같은 API)
+          ⛔ 원본 슬라이드 이미지를 저장소에 올리지 않는다(저장소가 공개입니다).
+  [사생활] 학생 카메라는 «내 화면에서만» 보이고 어디에도 보내지 않는다. 녹화 없음.
+          마이크 음성인식은 브라우저 기능(웜업과 같음)이라 그 브라우저 제공자를 거친다.
+  [이름] 로그인할 때 적은 이름(mangoi_logged_user.name)을 부른다 — 그 칸이 아이디와 같으면 쓰지 않는다.
+  ⛔ 상주 setInterval·body class MutationObserver 를 두지 않는다(수업 타이머는 수업 중에만 돈다).
+  감시: test-harness/ai_class_page_harness.mjs(자동) · test-harness/manual/ai-class-browser.mjs(브라우저 — 사람이 부릅니다)
+-->
+<style>
+/* 레이아웃: 위 = 제목, 가운데 = 수업(늘 어두운 교실) */
+:root{
+  --bg:#f3f5f8; --paper:#ffffff; --ink:#152033; --muted:#4f5d73; --line:#d8dee8;
+  --mango:#b45f06; --mango-soft:#fff1dc; --ok:#11743f; --warn:#9a3412; --chip:#e9eef6;
+  --f-body:MangoiHanSC,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:MangoiHanSC,ui-monospace,Menlo,monospace;
+  /* 교실은 실제 수업 화면처럼 언제나 어둡습니다 */
+  --c-bg:#0b0f17; --c-panel:#121a28; --c-line:#2a3446; --c-fg:#e8edf6; --c-dim:#9aa7bd; --c-gold:#f5c24b; --c-hl:#3b2f0b; --c-blue:#60a5fa;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0d121b;--paper:#151d2a;--ink:#e6ebf3;--muted:#a3afc2;--line:#2b3546;--mango:#f2a33a;--mango-soft:#2d2210;--ok:#4ade80;--warn:#fb923c;--chip:#1f293a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0d121b;--paper:#151d2a;--ink:#e6ebf3;--muted:#a3afc2;--line:#2b3546;--mango:#f2a33a;--mango-soft:#2d2210;--ok:#4ade80;--warn:#fb923c;--chip:#1f293a;color-scheme:dark}
+[hidden]{display:none!important}
+html,body{background:var(--bg);color:var(--ink)}
+body{margin:0;font-family:var(--f-body);font-size:15px;line-height:1.65;padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:40px}
+h1,h2,h3{text-wrap:balance;line-height:1.3;margin:0}
+h1{font-size:clamp(26px,4vw,38px);letter-spacing:-.01em}
+h2{font-size:22px} h3{font-size:16px}
+p{margin:0;max-width:70ch} .muted{color:var(--muted)}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mango)}
+header{display:flex;flex-direction:column;gap:10px}
+section{display:flex;flex-direction:column;gap:14px}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* ───────── 교실 ───────── */
+.class{background:var(--c-bg);color:var(--c-fg);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;position:relative;border:1px solid #1d2636;font-size:13px}
+.cbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:2px 4px}
+.live{display:inline-flex;align-items:center;gap:6px;color:var(--c-dim)}
+.live i{width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.2)}
+.cbar .sp{flex:1}
+.pill{border:1px solid var(--c-line);border-radius:8px;padding:4px 9px;background:var(--c-panel);color:var(--c-fg);font:inherit;font-size:12px;white-space:nowrap}
+button.pill{cursor:pointer} button.pill:hover{border-color:var(--c-gold)}
+button:focus-visible,select:focus-visible{outline:2px solid var(--c-gold);outline-offset:2px}
+select.pill{max-width:min(100%,280px)}
+.tabs{display:flex;gap:6px;padding:0 4px;flex-wrap:wrap}
+.stagebar{display:flex;gap:4px;margin:0;padding:0 4px;list-style:none;counter-reset:none}
+.stagebar li{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:5px;border:1px solid var(--c-line);background:var(--c-panel);color:var(--c-dim);border-radius:8px;padding:5px 6px;font-size:12px;white-space:nowrap;overflow:hidden}
+.stagebar li b{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#1e2a3d;color:#cbd5e1;font-size:11px;flex:0 0 auto}
+.stagebar li.done{color:#86efac;border-color:#1f5f3a}.stagebar li.done b{background:#166534;color:#fff}
+.stagebar li.now{color:#fff;border-color:var(--c-gold);background:#2a2412;box-shadow:0 0 0 2px rgba(245,194,75,.2)}.stagebar li.now b{background:var(--c-gold);color:#1a1405}
+.stagebar li .sen{opacity:.75;font-size:10px}
+.tab{border:1px solid var(--c-line);background:var(--c-panel);color:var(--c-dim);border-radius:8px 8px 0 0;padding:5px 12px;font:inherit;font-size:12px}
+.tab.on{color:var(--c-gold);border-color:var(--c-gold);background:#1a1607}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,31%);gap:8px;min-height:440px}
+.book{background:#05070b;color:#1d2433;border-radius:10px;position:relative;display:flex;flex-direction:column;overflow:hidden;min-width:0;border:1px solid var(--c-line)}
+.slide{flex:1;display:flex;align-items:center;justify-content:center;padding:10px;min-height:0}
+.page{background:#f7f5ef;border-radius:6px;aspect-ratio:4/3;width:100%;max-width:100%;max-height:100%;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.5);position:relative}
+.page.img{background:transparent;box-shadow:none;aspect-ratio:auto;height:100%;width:100%}
+.page.img::before{display:none}
+.page img.sl{display:block;width:100%;height:100%;object-fit:contain}
+.cap{display:flex;gap:8px;align-items:center;padding:7px 12px;background:#1b2436;color:#fff;font-size:15px;min-height:40px;border-top:1px solid var(--c-line)}
+.cap .k{font-size:11px;color:var(--c-gold);white-space:nowrap}
+.cap .t{flex:1;min-width:0}
+.cap button{border:1px solid var(--c-line);background:#0f1724;color:#fff;border-radius:6px;padding:2px 8px;font:inherit;font-size:12px;cursor:pointer}
+.lines{display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px;background:#0f1520;max-height:72px;overflow:auto}
+.lines button{border:1px solid var(--c-line);background:#151e2e;color:#cbd5e1;border-radius:14px;padding:2px 9px;font:inherit;font-size:12px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#book.finding .lines{flex-wrap:wrap!important;max-height:none!important;overflow:visible!important}
+#book.finding .lines button{white-space:normal;text-overflow:clip;border-style:dashed;border-color:var(--c-gold);color:#fde68a;font-size:13px;padding:4px 10px}
+#book.finding .bl{outline:2px dashed var(--c-gold);outline-offset:-2px}
+.db.mic.rec{outline:2px solid var(--c-gold);outline-offset:-2px}
+.sticker{position:absolute;right:6px;top:4px;font-size:26px;line-height:1;pointer-events:none;animation:stk 1.3s ease-out forwards;z-index:3}
+@keyframes stk{0%{transform:scale(.4);opacity:0}20%{transform:scale(1.25);opacity:1}70%{opacity:1}100%{transform:translateY(-16px);opacity:0}}
+.res.heard{background:#1e293b;color:#e2e8f0}
+.lines button.on{border-color:var(--c-gold);color:#1a1300;background:var(--c-gold)}
+.page::before{content:"";height:10px;background:linear-gradient(90deg,#f59e0b,#ef4444,#3b82f6)}
+.bhead{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 12px;background:#121a28;color:#cbd5e1;font-size:12px}
+.bhead b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bbody{flex:1;padding:14px 20px;display:flex;flex-direction:column;gap:6px;justify-content:center;overflow:auto;min-height:0}
+.bl{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:clamp(15px,1.8vw,20px);line-height:1.4;border:2px solid transparent;background:transparent;color:inherit;font-family:inherit;text-align:left;width:100%}
+.bl:hover{background:#ece7da}
+.bl .who{font-size:12px;color:#6b7280;flex:0 0 auto;padding-top:5px;width:22px}
+.bl.word{font-size:clamp(18px,2.3vw,26px);font-weight:700}
+.bl.read{font-size:14px;color:#374151}
+.bl.on{background:#fff3c4;border-color:#e0a106}
+.bl.big{font-size:clamp(22px,3vw,34px)}
+.pointer{position:absolute;pointer-events:none;font-size:26px;transition:top .35s ease,left .35s ease;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35));z-index:3}
+.bnav{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px;background:#121a28;font-size:12px;color:#9aa7bd}
+.bnav button{border:1px solid var(--c-line);background:#0f1724;border-radius:6px;padding:3px 10px;font:inherit;color:#e8edf6;cursor:pointer}
+.follow{position:absolute;top:44px;left:50%;transform:translateX(-50%);background:#1e3a8a;color:#fff;border:0;border-radius:20px;padding:6px 14px;font:inherit;font-size:12px;cursor:pointer;z-index:4}
+.side{display:flex;flex-direction:column;gap:8px;min-width:0}
+.tile{position:relative;border-radius:10px;overflow:hidden;background:#0f1724;border:2px solid var(--c-line)}
+.tile.t{flex:1 1 auto;min-height:260px;display:flex;align-items:flex-end;justify-content:center}
+.tile.t.speaking{border-color:var(--c-gold);box-shadow:0 0 0 3px rgba(245,194,75,.25)}
+.tile.t img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%}
+.tile.t .facebox{position:absolute;inset:0}
+.tile.t .facebox.breath{animation:breath 4.5s ease-in-out infinite}
+/* 입모양 3장을 겹쳐 두고 투명도로 섞는다 — 장을 갈아끼우면 «탁탁» 끊겨 보인다 */
+.tile.t img.fm{opacity:0;transition:opacity 90ms ease-out}
+.tile.t img.fm.on{opacity:1}
+@keyframes breath{50%{transform:scale(1.012) translateY(-1px)}}
+.tag{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;border-radius:6px;padding:2px 8px;z-index:2}
+.sub{position:relative;z-index:2;margin:0 8px 34px;background:rgba(6,9,15,.82);color:#fff;border-radius:8px;padding:7px 10px;font-size:14px;line-height:1.4;text-align:center;max-width:100%}
+.sub small{display:block;color:#fde68a;font-size:12px;margin-top:2px}
+.tile.s{height:118px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:var(--c-dim);font-size:12px;text-align:center;padding:8px}
+.tile.s .me{width:46px;height:46px;border-radius:50%;background:#26324a;display:flex;align-items:center;justify-content:center;font-size:22px}
+/* 학생 카메라 — 화상수업처럼 켜고 끈다. 켜면 내 얼굴(거울처럼 좌우 반전)이 칸을 채우고, 끄면 카메라를 완전히 놓는다 */
+.tile.s video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);background:#000}
+.tile.s.cam-on .me,.tile.s.cam-on .camnote{visibility:hidden}
+.tile.s.cam-on .slabel{position:absolute;left:6px;bottom:6px;z-index:2;background:rgba(6,9,15,.7);color:#fff;border-radius:6px;padding:2px 6px}
+.tile.s.cam-on #camBtn{position:absolute;right:6px;bottom:6px;z-index:2}
+.tile.s .camnote{color:#fca5a5;font-size:11px}
+.db.camoff span{opacity:.55}
+.praise{display:flex;align-items:center;gap:8px;background:var(--c-panel);border:1px solid var(--c-line);border-radius:10px;padding:6px 10px}
+.praise .stars{font-family:var(--f-mono);color:var(--c-gold);font-size:15px}
+.subw{display:none;background:rgba(6,9,15,.9);border:1px solid var(--c-line);border-radius:10px;padding:7px 10px;font-size:14px;line-height:1.4}
+.subw small{display:block;color:#fde68a;font-size:12px}
+/* 한국어 뜻은 처음엔 흐리게 — 눌러야 보인다(먼저 영어를 듣고 읽어 보게) */
+.ko{position:relative;display:block;width:100%;margin:2px 0 0;padding:2px 4px;border:0;background:none;color:#fde68a;font:inherit;font-size:12px;text-align:inherit;cursor:pointer;border-radius:6px}
+.ko .kt{display:block;filter:blur(5px);transition:filter .2s;user-select:none}
+.ko .kh{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;opacity:.9;pointer-events:none}
+.ko.open .kt{filter:none;user-select:auto} .ko.open .kh{display:none}
+.ko:focus-visible{outline:2px solid var(--c-gold);outline-offset:1px}
+.ask{background:#13203a;border:1px solid #284a86;border-radius:10px;padding:9px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-height:42px}
+.ask b{color:#bfdbfe}
+.ask .tgt{font-size:15px;color:#fff}
+.res{font-family:var(--f-mono);font-size:12px;border-radius:6px;padding:2px 8px}
+.res.ok{background:#14532d;color:#bbf7d0} .res.no{background:#7c2d12;color:#fed7aa}
+.dock{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;background:var(--c-panel);border:1px solid var(--c-line);border-radius:12px;padding:8px}
+.db{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:72px;border:1px solid var(--c-line);background:#0f1724;color:var(--c-fg);border-radius:10px;padding:7px 8px;font:inherit;font-size:11px;cursor:pointer}
+.db span{font-size:18px;line-height:1}
+.db:hover{border-color:var(--c-gold)}
+.db:disabled{opacity:.45;cursor:not-allowed}
+.db.mic{min-width:110px;background:#1d3a1f;border-color:#2f7a3a}
+.db.mic.listen{background:#14532d;border-color:#4ade80;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(74,222,128,.18)}}
+.db.leave{border-color:#7f1d1d;background:#2a0e0e}
+.sim{position:absolute;left:50%;bottom:86px;transform:translateX(-50%);background:#0f1726;border:1px solid var(--c-gold);border-radius:12px;padding:12px;width:min(92%,460px);display:flex;flex-direction:column;gap:8px;z-index:6;box-shadow:0 12px 30px rgba(0,0,0,.5)}
+.sim .row{display:flex;flex-wrap:wrap;gap:6px}
+.sim .row:empty{display:none}
+.sim .choice{border:1px solid #3b82f6;background:#13233f;color:#dbeafe;border-radius:16px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
+.res.miss{background:#3b2a0a;color:#fde68a}.res.own{background:#0f3b2a;color:#a7f3d0}
+.sim input{flex:1;min-width:0;border:1px solid var(--c-line);background:#0b1220;color:#fff;border-radius:8px;padding:7px 9px;font:inherit}
+.over{position:absolute;inset:0;background:rgba(5,8,14,.86);border-radius:14px;display:flex;align-items:center;justify-content:center;z-index:8;padding:16px}
+.over .card{background:var(--c-panel);border:1px solid var(--c-line);border-radius:14px;padding:22px;max-width:520px;width:100%;display:flex;flex-direction:column;gap:12px;text-align:center}
+.over h3{font-size:20px;color:#fff}
+.over .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.big-btn{border:0;border-radius:10px;padding:10px 18px;font:inherit;font-weight:700;cursor:pointer;background:var(--c-gold);color:#1a1300}
+.ghost-btn{border:1px solid var(--c-line);border-radius:10px;padding:10px 18px;font:inherit;cursor:pointer;background:transparent;color:var(--c-fg)}
+.missed{text-align:left;font-size:13px;color:var(--c-dim);max-height:30vh;overflow-y:auto}
+.over{overflow-y:auto}.over .card{margin:auto}
+.namebox{display:flex;flex-direction:column;gap:4px;text-align:left}
+.namebox label{font-size:13px;color:var(--c-dim)}
+.namebox input{font:inherit;font-size:16px;padding:8px 10px;border-radius:10px;border:1px solid var(--c-line);background:#0b1220;color:var(--c-fg);width:100%;box-sizing:border-box}
+.namebox small{color:var(--c-dim);font-size:12px}
+.wowpop{position:absolute;left:4px;right:4px;top:4px;text-align:center;color:var(--c-gold);font-weight:700;font-size:13px;line-height:1.2;text-shadow:0 1px 2px #000;pointer-events:none;z-index:3;animation:stk 1.6s ease-out forwards}
+@media (max-height:560px){.over{padding:8px}.over .card{padding:12px;gap:6px}.over h3{font-size:16px}.missed{max-height:18vh}}
+/* 폰 세로도 «왼쪽 교재 전체 · 오른쪽 선생님+학생» 을 지킵니다 (위아래로 쌓지 않음) */
+@media (max-width:760px){
+  .stage{grid-template-columns:minmax(0,1fr) 32%;grid-template-rows:minmax(150px,1fr) auto;grid-template-areas:"book t" "book s" "sw sw" "pr pr" "ask ask";min-height:0;gap:6px}
+  .book{grid-area:book} .side{display:contents}
+  .tile.t{grid-area:t;min-height:150px;height:auto} .tile.s{grid-area:s;height:auto;min-height:0;padding:4px;gap:3px}
+  .tile.s .slabel{font-size:10px;line-height:1.3}
+  .sub{display:none!important} .subw{grid-area:sw;display:block}
+  .praise{grid-area:pr} .ask{grid-area:ask}
+  .slide{padding:4px} .bbody{padding:6px 8px}
+  .bl{font-size:13px;padding:3px 5px} .bl.word{font-size:15px} .bl.big{font-size:17px} .bl.read{font-size:11px}
+  #navNote{display:none}
+  .lines{flex-wrap:nowrap;overflow-x:auto;max-height:none}
+  .tag{font-size:10px;left:4px;bottom:4px}
+  .tile.s .me{width:30px;height:30px;font-size:16px} .tile.s .pill{font-size:10px;padding:2px 5px}
+  .cap{font-size:13px;padding:5px 8px} .lines{max-height:56px}
+  .db{min-width:52px;padding:6px}
+  .stagebar{gap:3px} .stagebar li{padding:3px 2px;font-size:10px;gap:3px} .stagebar li .sen{display:none} .stagebar li b{width:15px;height:15px;font-size:9px}
+}
+/* 작은 폰(≤420px): 바깥 여백·오른쪽 칸을 줄여 교재 그림이 너무 작아지지 않게 */
+@media (max-width:420px){ .class{padding:4px} .stage{grid-template-columns:minmax(0,1fr) 28%;gap:5px} .slide{padding:3px} }
+/* 폰 가로·낮은 창: 교실 전체를 화면 높이에 맞춰 교재와 선생님이 함께 보이게 */
+@media (max-height:560px) and (min-width:600px){
+  .tabs{display:none}
+  .stagebar li{padding:2px 4px;font-size:10px} .stagebar li .sen{display:none} .stagebar li b{width:14px;height:14px;font-size:9px}
+  .stage{min-height:0;height:calc(100svh - 44px)}
+  .tile.t{min-height:0}
+  .tile.s{height:64px;flex-direction:row}
+  .tile.s .me{width:30px;height:30px;font-size:15px}
+  .ask{min-height:0;padding:5px 8px} .praise{padding:4px 8px}
+  .bhead,.bnav{padding:3px 8px}
+  .bl{font-size:14px;padding:3px 6px} .bl.word{font-size:16px} .bl.read{font-size:11px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.top .home{margin-left:auto;color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:6px 12px;background:var(--paper);font-size:14px}
+.top .home:hover{border-color:var(--mango)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header class="top">
+  <h1 style="font-size:clamp(20px,3vw,28px)">🤖 A.i 선생님 수업</h1>
+  <a class="home" href="/">🏠 홈</a>
+</header>
+
+<section aria-label="수업">
+  <p class="muted">레슨을 고르고 「수업 시작」을 누르면 Lily 선생님이 교재를 읽어 줘요. 🎤 를 누르고 따라 말해 보세요. 마이크를 쓸 수 없으면 대답을 골라 보낼 수 있어요.</p>
+  <div class="class" id="cls">
+    <div class="cbar">
+      <span class="live"><i></i>LIVE · <span id="room">AI-BTS1-001</span> · Lily 선생님 + 나</span>
+      <select class="pill" id="lessonSel" aria-label="레슨 고르기"></select>
+      <span class="sp"></span>
+      <span class="pill num" id="timer">00:00</span>
+      <span class="pill num" id="pageInfo">1 / 1</span>
+      <button class="pill" id="subBtn" type="button">💬 자막: 영+한</button>
+      <button class="pill" id="sndBtn" type="button">🔊 소리 켬</button>
+      <button class="pill" id="spdBtn" type="button" title="선생님 말하기 속도">🐇 속도: 보통</button>
+      <button class="pill" id="talkBtn" type="button" title="내 차례가 되면 마이크가 저절로 켜져요">🎙 자동 말하기: 끔</button>
+    </div>
+    <ol class="stagebar" id="stageBar" aria-label="수업 단계"></ol>
+    <div class="tabs" role="tablist">
+      <span class="tab on">📖 Textbook</span>
+      <span class="tab" id="revTab">🧠 오늘 복습 (끝나면 열림)</span>
+    </div>
+    <div class="stage">
+      <div class="book" id="book">
+        <div class="bhead"><b id="bookTitle">교재</b><span id="slideName" class="num">Slide</span></div>
+        <div class="slide"><div class="page" id="pageBox"><img class="sl" id="slideImg" alt="교재 쪽" hidden><div class="bbody" id="bbody"></div></div></div>
+        <div class="cap" id="cap"><span class="k">📖 지금 읽는 문장</span><span class="t" id="capText">—</span><button type="button" id="capSay" aria-label="이 문장 듣기">🔊</button></div>
+        <div class="lines" id="lineChips" aria-label="이 쪽 문장"></div>
+        <span class="pointer" id="pointer" aria-hidden="true">✏️</span>
+        <button class="follow" id="followBtn" type="button" hidden>선생님 쪽으로 돌아가기</button>
+        <div class="bnav"><button type="button" id="prevPg" aria-label="앞 쪽 보기">◀</button><span id="navNote">줄을 누르면 그 문장을 다시 들을 수 있어요</span><button type="button" id="nextPg" aria-label="다음 쪽 보기">▶</button></div>
+      </div>
+      <div class="side">
+        <div class="tile t" id="tTile">
+          <div class="facebox breath" id="faceBox"><img id="face" src="/img/lily-closed.webp" alt="AI 선생님 Lily"><img class="fm" id="faceMid" src="/img/lily-mid.webp" alt="" aria-hidden="true"><img class="fm" id="faceWide" src="/img/lily-wide.webp" alt="" aria-hidden="true"></div>
+          <div class="sub" id="sub" hidden></div>
+          <span class="tag">Lily · A.i Teacher</span>
+        </div>
+        <div class="tile s" id="sTile">
+          <video id="camVid" autoplay muted playsinline hidden></video>
+          <div class="me" aria-hidden="true">🙂</div>
+          <div class="slabel" id="camLabel">나 (민서) · 카메라 꺼짐</div>
+          <div class="camnote" id="camNote" hidden></div>
+          <button class="pill" type="button" id="camBtn" aria-pressed="false">📷 카메라 켜기</button>
+        </div>
+        <div class="praise"><span>칭찬 별</span><span class="stars" id="stars">☆ 0</span><span class="sp"></span><span class="muted num" id="prog" style="color:var(--c-dim)">0 / 0</span></div>
+        <div class="subw" id="subW" aria-live="polite"></div>
+        <div class="ask" id="ask" aria-live="polite"><b>대기 중</b><span class="tgt">「수업 시작」을 눌러 주세요</span></div>
+      </div>
+    </div>
+    <div class="dock" role="toolbar" aria-label="수업 버튼">
+      <button class="db mic" id="micBtn" type="button" disabled><span>🎤</span>말하기</button>
+      <button class="db" id="againBtn" type="button" disabled><span>🔁</span>다시 듣기</button>
+      <button class="db" id="slowBtn" type="button" disabled><span>🐢</span>천천히</button>
+      <button class="db" id="skipBtn" type="button" disabled><span>⏭</span>넘어가기</button>
+      <button class="db camoff" id="camDock" type="button" aria-pressed="false"><span>📷</span>카메라 끔</button>
+      <button class="db" id="autoBtn" type="button"><span>🤖</span>자동 데모</button>
+      <button class="db leave" id="endBtn" type="button"><span>🚪</span>끝내기</button>
+    </div>
+
+    <div class="sim" id="sim" hidden>
+      <div><b>마이크 대신</b> — 무엇을 말했는지 골라 주세요 <span class="muted" style="color:var(--c-dim)">(입력해서 보내도 돼요)</span></div>
+      <div class="row" id="simChoices" aria-label="이렇게 대답할 수 있어요"></div>
+      <div class="row">
+        <button class="ghost-btn" type="button" data-say="exact">✅ 정확히</button>
+        <button class="ghost-btn" type="button" data-say="half">〰️ 반만</button>
+        <button class="ghost-btn" type="button" data-say="quiet">🤫 말 안 함</button>
+      </div>
+      <form class="row" id="simForm"><input id="simInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="직접 입력해도 돼요"><button class="big-btn" type="submit">보내기</button></form>
+    </div>
+
+    <div class="over" id="startOv">
+      <div class="card">
+        <h3>Lily 선생님과 수업</h3>
+        <p style="color:var(--c-dim)">교재 한 레슨을 함께 읽고 따라 말해요. 어려운 문장은 끝에서 한 번 더 연습합니다.</p>
+        <div class="namebox"><label for="nameIn">선생님이 불러 줄 이름</label><input id="nameIn" type="text" maxlength="20" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="민서"><small id="namePrev"></small></div>
+        <div class="row"><button class="big-btn" type="button" id="startBtn" disabled>▶ 수업 시작</button><button class="ghost-btn" type="button" id="startAuto" disabled>🤖 자동 데모로 보기</button></div>
+      </div>
+    </div>
+    <div class="over" id="endOv" hidden>
+      <div class="card">
+        <h3 id="endTitle">수업 끝!</h3>
+        <p id="endStars" class="num" style="font-size:22px;color:var(--c-gold)"></p>
+        <div class="missed" id="endMissed"></div>
+        <div class="row"><button class="big-btn" type="button" id="againLesson">다시 하기</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<script src="/js/ai-class-engine.js?v=1"></script>
+
+<script>
+(function(){
+  'use strict';
+  var FAST = location.hash === '#fast';
+  var $ = function(id){ return document.getElementById(id); };
+  var E = window.AiClass, CAT = [], LS = [], SLIDE = {}, FILES = {}, openSeq = 0, loading = true;
+  var st = null, unit = null, li = 0, busy = false, auto = false, subMode = 1, sound = !FAST, timerAt = 0, timerId = 0, seq = 0, listenTO = 0, lastTarget = '', lastMiss = null;
+  // 말하기 속도(선생님) · 자동 말하기(내 차례에 마이크 저절로) — 이 기기에만 기억
+  var SPEEDS = [[0.75, '아주 천천히', '아주 천천히'], [0.9, '천천히', '천천히'], [1, '보통', '보통'], [1.15, '빠르게', '빠르게']], spd = 2;
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition, talk = false, rec = null, recBlocked = false;
+  function lsGet(k){ try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v){ try { localStorage.setItem(k, v); } catch (e) {} }
+  (function(){ var v = lsGet('aiClassSpd'); if (v !== null && /^[0-3]$/.test(v)) spd = +v; var tv = lsGet('aiClassTalk'); talk = tv === null ? !!SR : tv === '1'; })();
+  window.__aiClass = { get state(){ return st; }, get busy(){ return busy; }, get unit(){ return unit; }, get speed(){ return SPEEDS[spd][0]; }, get talk(){ return talk; }, get rec(){ return !!rec; }, get recBlocked(){ return recBlocked; }, get loading(){ return loading; }, get cat(){ return CAT; }, get slides(){ return SLIDE; } };
+  function fillPicker(){
+    var sel = $('lessonSel'); sel.replaceChildren();
+    var groups = {};
+    CAT.forEach(function(u, i){
+      var g = /^NEW SIU BASIC/.test(u.book) ? 'new SIU BASIC' : /^NEW SIU ADV/.test(u.book) ? 'new SIU ADVANCE' : 'new BTS';
+      (groups[g] = groups[g] || []).push([u, i]);
+    });
+    ['new BTS','new SIU BASIC','new SIU ADVANCE'].forEach(function(g){
+      if (!groups[g]) return; var og = document.createElement('optgroup'); og.label = g + ' (' + groups[g].length + '레슨)';
+      groups[g].forEach(function(x){ var o = document.createElement('option'); o.value = x[1]; o.textContent = x[0].id.replace(/^NEW /,'') + ' · ' + x[0].n + '쪽'; og.append(o); });
+      sel.append(og);
+    });
+    var d = CAT.findIndex(function(u){ return /^BTS 1 001 .* New$/.test(u.id) || u.id.indexOf('BTS 1 001') === 0; });
+    li = d >= 0 ? d : 0; sel.value = li;
+  }
+  // 레슨 문장 — tb-say 의 키 「[권] 판 / SlideN.JPG」 에서 그 레슨 것만 골라 쪽 순서로 (scripts/build-ai-class-catalog.mjs 와 같은 규칙)
+  var KEY_RE = /^\[(.+?)\]\s*(.*?)\s*\/\s*Slide(\d+)\.JPG$/i;
+  function unitFrom(c, d){
+    var pages = [];
+    Object.keys(d || {}).forEach(function(k){ var m = KEY_RE.exec(k); if (m && m[1] === c.book && m[2] === c.part) pages.push({ slide: +m[3], name: k, lines: d[k] }); });
+    pages.sort(function(a, b){ return a.slide - b.slide; });
+    return { id: c.id, book: c.book, part: c.part, title: c.title, pages: pages };
+  }
+  function getJson(u){ return fetch(u).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }); }
+  function loadFile(f){
+    if (!FILES[f]) FILES[f] = getJson('/data/tb-say/' + encodeURIComponent(f) + '.json').catch(function(e){ delete FILES[f]; throw e; });
+    return FILES[f];
+  }
+  function loadUnit(k){
+    var c = CAT[k]; if (!c) return Promise.resolve(null);
+    if (LS[k]) return Promise.resolve(LS[k]);
+    return loadFile(c.file).then(function(d){ var u = unitFrom(c, d); if (!u.pages.length) throw new Error('empty'); LS[k] = u; return u; });
+  }
+  // 교재 그림 번호 — 수업 화면과 같은 API. 못 받으면 그림 없이 문장으로 보여 준다(수업은 그대로 된다)
+  function loadSlides(book){
+    return getJson('/api/textbook-files?book=' + encodeURIComponent(book) + '&limit=2000').then(function(j){
+      var m = {}; ((j && j.items) || []).forEach(function(it){ if (it && it.name && it.url && !m[it.name] && /^\/api\/textbook-files\/\d+\/raw$/.test(it.url)) m[it.name] = it.url; });
+      return m;
+    }).catch(function(){ return {}; });
+  }
+  function openLesson(k){
+    var my = ++openSeq; loading = true;
+    seq++; busy = false; stopSpeech(); stopRec(); clearTimeout(listenTO); clearInterval(timerId);
+    $('startBtn').disabled = true; $('startAuto').disabled = true; $('startOv').hidden = false; $('endOv').hidden = true;
+    setAsk('불러오는 중', '교재를 불러오고 있어요…');
+    var c = CAT[k];
+    Promise.all([loadUnit(k), k > 0 ? loadUnit(k - 1).catch(function(){ return null; }) : null, loadSlides(c.book)]).then(function(a){
+      if (my !== openSeq) return;
+      SLIDE = a[2] || {}; loading = false; reset(); $('startBtn').disabled = false; $('startAuto').disabled = false;
+    }).catch(function(){ if (my !== openSeq) return; loading = false; setAsk('오류', '교재를 불러오지 못했어요 — 다른 레슨을 고르거나 새로고침해 주세요'); });
+  }
+  getJson('/data/ai-class-catalog.json?v=7f5bde7e').then(function(c){ CAT = c || []; if (!CAT.length) throw new Error('empty'); fillPicker(); openLesson(li); })
+    .catch(function(){ setAsk('오류', '교재 목록을 불러오지 못했어요 — 새로고침해 주세요'); });
+  $('lessonSel').addEventListener('change', function(){ li = +this.value; window.__seenSlides = new Set(); openLesson(li); });
+
+  // 수업 5단계 표시 (엔진의 STAGES 하나만 정본)
+  function buildStageBar(){ var ol = $('stageBar'); ol.replaceChildren(); E.STAGES.forEach(function(g){ var li = document.createElement('li'); li.dataset.n = g.n; var b = document.createElement('b'); b.textContent = g.n; var k = document.createElement('span'); k.textContent = g.ko; var e = document.createElement('span'); e.className = 'sen'; e.textContent = g.en; li.append(b, k, e); ol.append(li); }); }
+  function setStage(n){ $('stageBar').querySelectorAll('li').forEach(function(li){ var k = +li.dataset.n; li.classList.toggle('now', k === n); li.classList.toggle('done', n > 0 && k < n); if (k === n) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current'); }); }
+  // 지금 읽는 문장 띠 — 지난 시간 문장·묻고 답하기는 교재 강조와 다른 것을 보여 준다
+  function syncCap(){
+    var t = st && st.plan[st.i], k = $('cap').querySelector('.k');
+    if (t && t.t === 'repeat' && t.mode === 'warm') { k.textContent = '🔁 지난 시간 문장'; $('capText').textContent = t.say; return; }
+    if (t && t.t === 'repeat' && t.mode === 'qa') { k.textContent = '❓ 묻고 답하기'; $('capText').textContent = 'Q: ' + t.ask + '   A: ' + t.say; return; }
+    if (t && t.t === 'repeat' && t.mode === 'swap') { k.textContent = '🔄 역할 바꾸기 — 내가 물어봐요'; $('capText').textContent = 'Q: ' + t.say + '   A: ' + t.answer; return; }
+    if (t && t.t === 'find') { k.textContent = '🔎 낱말 찾기'; $('capText').textContent = '«' + t.word + '» 가 들어 있는 문장을 눌러 보세요'; return; }
+    if (t && t.t === 'repeat' && t.mode === 'solo') k.textContent = '🙋 혼자 말하기'; else k.textContent = '📖 지금 읽는 문장';
+  }
+  buildStageBar();
+  // 학생 이름 — 로그인할 때 적은 이름을 부른다. 한국어 이름이면 성을 떼고(3글자 이상) 영어 문장에는 로마자로 읽는다
+  var RI = ['g','kk','n','d','tt','r','m','b','pp','s','ss','','j','jj','ch','k','t','p','h'];
+  var RM = ['a','ae','ya','yae','eo','e','yeo','ye','o','wa','wae','oe','yo','u','wo','we','wi','yu','eu','ui','i'];
+  var RF = ['','k','k','k','n','n','n','t','l','k','m','l','l','l','p','l','m','p','p','t','t','ng','t','t','k','t','p','t'];
+  function romanize(h){ var o = ''; for (var i = 0; i < h.length; i++) { var c = h.charCodeAt(i) - 0xAC00; if (c < 0 || c > 11171) return ''; o += RI[Math.floor(c / 588)] + RM[Math.floor((c % 588) / 28)] + RF[c % 28]; } return o; }
+  function nameOf(raw){
+    var t = String(raw || '').replace(/\s+/g, ' ').trim().slice(0, 20);
+    if (/^[가-힣]+$/.test(t)) { var g = t.length >= 3 ? t.slice(1) : t, r = romanize(g); return { en: r ? r.charAt(0).toUpperCase() + r.slice(1) : 'friend', ko: g }; }
+    if (/^[A-Za-z][A-Za-z .'-]*$/.test(t)) { var e = t.charAt(0).toUpperCase() + t.slice(1); return { en: e, ko: e }; }
+    return { en: 'friend', ko: t || '친구' };
+  }
+  function loginName(){
+    try { var q = new URLSearchParams(location.search).get('name'); if (q && q.trim()) return q; } catch (e) {}
+    try { var u = JSON.parse(lsGet('mangoi_logged_user') || 'null'); if (u && u.name && u.name !== u.uid && u.name !== u.user_id) return u.name; } catch (e) {}
+    return lsGet('aiClassName') || '';
+  }
+  (function(){ var v = loginName(); if (v) $('nameIn').value = v; })();
+  function curName(){ return nameOf($('nameIn').value); }
+  function namePrev(){ var n = curName(); $('namePrev').textContent = n.en === 'friend' ? '이름을 한글이나 영어로 적어 주세요 — 지금은 «friend» 로 불러요' : 'Lily 선생님이 «' + n.en + '» 라고 불러요 · 자막에는 «' + n.ko + '»'; }
+  $('nameIn').addEventListener('input', function(){ namePrev(); camPaint(); }); namePrev();
+  // 맞혔을 때 축하 소리 — 파일 없이 브라우저에서 짧게 만든다. 「소리 끔」이면 안 낸다
+  var actx = null;
+  function sfx(){
+    window.__sfx = (window.__sfx || 0) + 1;
+    if (!sound) return;
+    try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume();
+      var t0 = actx.currentTime + 0.02;
+      [523.25, 659.25, 783.99, 1046.5].forEach(function(f, i){ var o = actx.createOscillator(), g = actx.createGain(); o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t0 + i * 0.07); g.gain.exponentialRampToValueAtTime(0.12, t0 + i * 0.07 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.07 + 0.32); o.connect(g); g.connect(actx.destination); o.start(t0 + i * 0.07); o.stop(t0 + i * 0.07 + 0.35); });
+      window.__sfxPlayed = (window.__sfxPlayed || 0) + 1;
+    } catch (e) {}
+  }
+  function wowPop(w){
+    window.__wowShown = (window.__wowShown || 0) + 1; window.__lastWow = w;
+    if (FAST) return;
+    var e = document.createElement('span'); e.className = 'wowpop'; e.setAttribute('aria-hidden', 'true'); e.textContent = '🎉 ' + w;
+    $('sTile').append(e); setTimeout(function(){ e.remove(); }, 1700);
+  }
+  function reset(){
+    seq++; busy = false; stopSpeech(); stopRec(); clearTimeout(listenTO); lastMiss = null; $('book').classList.remove('finding');
+    unit = LS[li]; var nm = curName(); st = E.create(unit, { name: nm.en, nameKo: nm.ko, prev: E.prevUnitOf(LS, li) });
+    setStage(0); $('cap').querySelector('.k').textContent = '📖 지금 읽는 문장';
+    $('room').textContent = 'AI-' + unit.book.replace(/[^A-Z0-9]+/gi, '').slice(0, 10);
+    $('bookTitle').textContent = unit.book;
+    drawPage(0, null); setAsk('대기 중', '「수업 시작」을 눌러 주세요'); setButtons();
+    $('stars').textContent = '☆ 0'; $('prog').textContent = '0 / ' + st.targets;
+    $('startOv').hidden = false; $('endOv').hidden = true; $('sim').hidden = true; $('sub').hidden = true;
+    clearInterval(timerId); $('timer').textContent = '00:00'; camPaint();
+  }
+
+  // 교재 그리기 (서비스에서는 실제 슬라이드 JPG 위에 같은 강조를 얹습니다)
+  var hl = null;
+  function drawPage(p, h){
+    var pg = unit.pages[p]; if (!pg) return;
+    $('slideName').textContent = 'Slide ' + pg.slide + (SLIDE[pg.name] ? '' : ' · 문장만');
+    $('pageInfo').textContent = (p + 1) + ' / ' + unit.pages.length;
+    var img = $('slideImg'), box = $('pageBox'), body = $('bbody'), chips = $('lineChips');
+    body.replaceChildren(); chips.replaceChildren();
+    var src = SLIDE[pg.name] || '';
+    img.onerror = src ? function(){ if (SLIDE[pg.name] !== src) return; delete SLIDE[pg.name]; if (st && st.view === p) drawPage(p, hl); } : null;
+    if (src) { (window.__seenSlides = window.__seenSlides || new Set()).add(src); img.src = src; img.hidden = false; body.hidden = true; box.classList.add('img'); }
+    else { img.hidden = true; img.removeAttribute('src'); body.hidden = false; box.classList.remove('img'); }
+    pg.lines.forEach(function(l, i){
+      var k = E.kindOf(l[0]); if (k === 'skip') return;
+      var say = function(){ if (isFinding()) return run({ type: 'tap', page: st.view, line: i }); if (!busy) speakRaw(E.speakable(l[0]), l[1] ? 'm' : 'f', 1); };
+      var c = document.createElement('button'); c.type = 'button'; c.dataset.line = i; c.textContent = (l[1] ? '👦 ' : '') + l[0]; c.title = l[0]; c.addEventListener('click', say); chips.append(c);
+      if (src) return;
+      var b = document.createElement('button'); b.type = 'button';
+      b.className = 'bl ' + k; b.dataset.line = i;
+      var who = document.createElement('span'); who.className = 'who'; who.textContent = l[1] ? '👦' : (pg.lines.some(function(x){ return x[1]; }) ? '👧' : '🔊');
+      var tx = document.createElement('span'); tx.textContent = l[0];
+      b.append(who, tx); b.addEventListener('click', say); body.append(b);
+    });
+    chips.hidden = !chips.children.length;
+    hl = h; markHL(); $('followBtn').hidden = !st || st.view === st.page;
+  }
+  function markHL(big){
+    var pt = $('pointer'); pt.style.display = 'none';
+    $('bbody').querySelectorAll('.bl').forEach(function(b){ b.classList.remove('on','big'); });
+    $('lineChips').querySelectorAll('button').forEach(function(b){ b.classList.toggle('on', !!(hl && st && st.view === hl.page && +b.dataset.line === hl.line)); });
+    var cl = hl && unit.pages[hl.page] && unit.pages[hl.page].lines[hl.line];
+    $('capText').textContent = cl ? cl[0] : '—';
+    if (!hl || !st || st.view !== hl.page || !$('slideImg').hidden) return;
+    var b = $('bbody').querySelector('.bl[data-line="' + hl.line + '"]'); if (!b) return;
+    b.classList.add('on'); if (big) b.classList.add('big');
+    var br = $('book').getBoundingClientRect(), r = b.getBoundingClientRect();
+    pt.style.display = ''; pt.style.left = Math.max(2, r.left - br.left - 30) + 'px'; pt.style.top = (r.top - br.top + r.height / 2 - 16) + 'px';
+    if (r.top < br.top + 40 || r.bottom > br.bottom - 30) b.scrollIntoView({ block: 'nearest' });
+  }
+
+  // 소리 · 입모양
+  // ── 입모양 ── 문장을 음절로 나눠 그 박자대로 «살짝/크게/다묾» 을 섞는다.
+  //  · 음절마다 모음을 보고 크게(a·o) 또는 살짝(e·i·u) 벌린다
+  //  · m·b·p 로 시작하는 음절은 먼저 입을 다문다(입술소리)
+  //  · 낱말 사이엔 잠깐, 쉼표·마침표에선 길게 다문다
+  //  · 브라우저가 낱말 위치(onboundary)를 알려 주면 그 낱말로 다시 맞춘다
+  function mouthPlan(text, rate){
+    var r = Math.min(1.3, Math.max(0.5, rate || 1)) * 0.92, plan = [], words = String(text || '').split(/\s+/).filter(Boolean);
+    var SYL = Math.round(175 / r), GAP = Math.round(55 / r);
+    words.forEach(function(w, wi){
+      plan.push({ word: wi });
+      var core = w.toLowerCase().replace(/[^a-z']/g, '');
+      var digits = (w.match(/\d/g) || []).length;
+      var groups = core.match(/[aeiouy]+/g) || (core ? ['e'] : digits ? Array(Math.min(4, digits * 2)).fill('i') : []);   // 숫자는 소리 내어 읽으므로 입을 움직인다
+      if (groups.length > 1 && /[^aeiou]e$/.test(core)) groups.pop();          // 끝의 묵음 e
+      groups = groups.slice(0, 4);
+      var rest = core;
+      groups.forEach(function(g, gi){
+        var at = rest.indexOf(g), lead = at > 0 ? rest.slice(0, at) : '';
+        rest = rest.slice(at + g.length);
+        if (/[mbp]$/.test(lead) || (gi === 0 && /^[mbp]/.test(core))) plan.push({ lv: 0, ms: Math.round(SYL * 0.35) });
+        var lv = /[ao]/.test(g) ? 2 : 1;
+        plan.push({ lv: lv, ms: SYL });
+        if (gi < groups.length - 1) plan.push({ lv: lv === 2 ? 1 : 0, ms: Math.round(SYL * 0.3) });
+      });
+      if (/[.!?]["')]*$/.test(w)) plan.push({ lv: 0, ms: Math.round(320 / r) });
+      else if (/[,;:]["')]*$/.test(w)) plan.push({ lv: 0, ms: Math.round(170 / r) });
+      else plan.push({ lv: 0, ms: GAP });
+    });
+    return plan;
+  }
+  var mouthTO = 0, mouthPlanNow = null, mouthPos = 0, mouthBoundary = false;
+  function setMouth(lv){ $('faceMid').classList.toggle('on', lv >= 1); $('faceWide').classList.toggle('on', lv >= 2); }
+  function mouthTick(){
+    var p = mouthPlanNow; if (!p) return;
+    while (mouthPos < p.length && p[mouthPos].word != null) mouthPos++;
+    if (mouthPos >= p.length) {
+      // 계획을 다 썼는데 아직 말하는 중 — 낱말 신호가 오는 브라우저면 기다리고, 아니면 처음부터 다시
+      setMouth(0);
+      if (mouthBoundary) return;
+      mouthPos = 0; mouthTO = setTimeout(mouthTick, 120); return;
+    }
+    var step = p[mouthPos++]; setMouth(step.lv); mouthTO = setTimeout(mouthTick, step.ms);
+  }
+  function mouthAtWord(wi){
+    var p = mouthPlanNow; if (!p) return; mouthBoundary = true;
+    for (var k = 0; k < p.length; k++) if (p[k].word === wi) { clearTimeout(mouthTO); mouthPos = k; mouthTick(); return; }
+  }
+  function startMouth(text, rate){ $('tTile').classList.add('speaking'); clearTimeout(mouthTO); mouthPlanNow = mouthPlan(text, rate); mouthPos = 0; mouthBoundary = false; mouthTick(); }
+  function stopMouth(){ clearTimeout(mouthTO); mouthPlanNow = null; setMouth(0); $('tTile').classList.remove('speaking'); }
+  // 낱말 시작 위치(글자 번호) → 몇 번째 낱말인가
+  function wordIndexAt(text, ch){ var n = -1, inW = false; for (var k = 0; k <= ch && k < text.length; k++) { var sp = /\s/.test(text[k]); if (!sp && !inW) n++; inW = !sp; } return Math.max(0, n); }
+  function stopSpeech(){ try { speechSynthesis.cancel(); } catch(e){} stopMouth(); }
+  function speakRaw(text, voice, rate){
+    return new Promise(function(done){
+      var finished = false, fin = function(){ if (finished) return; finished = true; stopMouth(); done(); };
+      rate = (rate || 1) * SPEEDS[spd][0];        // 사람이 고른 속도를 모든 말하기에 곱한다(입 모양도 같은 속도)
+      var est = FAST ? 15 : Math.min(9000, 500 + text.split(' ').length * 380 / rate);
+      startMouth(text, rate);
+      if (sound && 'speechSynthesis' in window) {
+        try {
+          var u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = rate * 0.92; u.pitch = voice === 'm' ? 0.8 : 1.05;
+          u.onend = fin; u.onerror = fin; u.onboundary = function(e){ if (e.name === 'word' || e.name == null) mouthAtWord(wordIndexAt(text, e.charIndex || 0)); }; speechSynthesis.speak(u);
+          setTimeout(fin, est + 4000);           // 엔진이 onend 를 안 주는 브라우저 대비
+          return;
+        } catch(e){}
+      }
+      setTimeout(fin, est);
+    });
+  }
+  function showSub(sp){
+    var w = $('subW');
+    if (!subMode || !sp) { $('sub').hidden = true; w.replaceChildren(); return; }
+    [$('sub'), w].forEach(function(s){
+      s.replaceChildren(document.createTextNode(sp.en));
+      if (subMode === 1 && sp.ko) {
+        var k = document.createElement('button'); k.type = 'button'; k.className = 'ko'; k.setAttribute('aria-label', '눌러서 한국어 뜻 보기');
+        var kt = document.createElement('span'); kt.className = 'kt'; kt.textContent = sp.ko;
+        var kh = document.createElement('span'); kh.className = 'kh'; kh.textContent = '👆 눌러서 뜻 보기';
+        k.append(kt, kh);
+        k.addEventListener('click', function(){ var o = !this.classList.contains('open'); this.classList.toggle('open', o); this.setAttribute('aria-label', o ? '한국어 뜻 가리기' : '눌러서 한국어 뜻 보기'); });
+        s.append(k);
+      }
+    });
+    $('sub').hidden = false;
+  }
+
+  // 엔진 효과 실행
+  function run(ev){
+    stopRec(); $('book').classList.remove('finding');
+    var my = seq, r = E.step(st, ev); st = r.state;
+    var speeches = [];
+    r.out.forEach(function(o){
+      if (o.page != null) drawPage(o.page, hl);
+      if (o.view != null) drawPage(o.view, hl);
+      if (o.highlight) { hl = o.highlight; markHL(); }
+      if (o.star != null) { $('stars').textContent = '⭐ ' + o.star; }
+      if (o.result) setResult(o.result);
+      if (o.speak) { speeches.push(o); if (o.speak.wow) { sfx(); wowPop(o.speak.wow); } }
+      if (o.listen) listen(o.listen);
+      if (o.end) showEnd(o.end);
+      if (o.stage != null) setStage(o.stage);
+      if (o.praise) sticker(o.praise);
+    });
+    syncCap();
+    $('prog').textContent = Math.min(st.targets, st.stars + st.missed.length + (st.inReview ? 0 : 0)) + ' / ' + st.targets;
+    setButtons();
+    if (!speeches.length) return;
+    busy = true; setButtons();
+    (async function(){
+      for (var i = 0; i < speeches.length; i++) {
+        if (my !== seq) return;
+        var sp = speeches[i]; showSub(sp.speak);
+        if (sp.bigText) markHL(true);
+        if (sp.target) setAsk('선생님', sp.speak.en);
+        await speakRaw(sp.speak.en, sp.voice, sp.rate || 1);
+      }
+      if (my !== seq) return;
+      busy = false;
+      if (speeches.some(function(s){ return s.replay; })) { setButtons(); armAuto(); armTalk(); return; }
+      run({ type: 'spoken' });
+    })();
+  }
+
+  // 마이크 대신 고르는 «이렇게 말할 수 있어요» — 대답이 여러 가지인 질문(기분·그림·나에 대한 질문)
+  function answerChoices(t){
+    if (!t) return [];
+    if (t.t === 'greet') return t.frees || [t.free];
+    if (t.t === 'intro') return (t.words || []).slice(0, 3).map(function(w){ return 'I see ' + w + '.'; }).concat(['I don\'t know.']);
+    if (t.t === 'repeat' && t.personal) return [t.say, 'Yes, I do.', 'No, I don\'t.'];
+    return [];
+  }
+  function fillChoices(){
+    var box = $('simChoices'); box.replaceChildren();
+    answerChoices(st && st.plan[st.i]).forEach(function(c){ var b = document.createElement('button'); b.type = 'button'; b.className = 'choice'; b.dataset.text = c; b.textContent = '💬 ' + c; box.append(b); });
+  }
+  function listen(target){
+    fillChoices();
+    lastTarget = target === '*' ? '' : target;
+    var cur = st.plan[st.i] || {};
+    if (cur.t === 'find') { $('book').classList.add('finding'); setAsk('👆 찾아 눌러 보세요', '교재에서 «' + cur.word + '» 가 들어 있는 문장을 눌러 보세요'); $('micBtn').classList.remove('listen'); armAuto(); return; }
+    if (cur.mode === 'swap') { setAsk('🎤 선생님께 물어보세요', target); $('micBtn').classList.add('listen'); armAuto(); armTalk(); return; }
+    setAsk(target === '*' ? '🎤 대답해 보세요' : cur.mode === 'qa' ? '🎤 대답해 보세요' : cur.mode === 'solo' ? '🎤 혼자 말해 보세요' : '🎤 따라 말해 보세요', target === '*' ? (cur.t === 'intro' ? '예: I see a bag. (자유롭게)' : cur.t === 'greet' ? '예: I am happy. / I am tired. (기분을 말해요)' : 'Yes! / I am ready.') : target);
+    if (lastMiss && lastMiss.i === st.i) missChip('빠진 낱말: ' + lastMiss.words.join(' '));   // 다시 말할 때도 무엇이 빠졌는지 보이게
+    else lastMiss = null;
+    $('micBtn').classList.add('listen');
+    armAuto(); armTalk();
+  }
+  function isFinding(){ var t = st && st.plan[st.i]; return !!(t && t.t === 'find' && st.phase === 'await' && !busy); }
+  // 칭찬 스티커 — 학생 화면에 잠깐 떴다 사라진다
+  function sticker(k){
+    if (FAST) return;
+    var set = k === 'praiseStreak' ? ['🙌'] : k === 'findOk' ? ['🔎', '👀'] : k === 'praiseSwap' ? ['🔄', '👏'] : ['⭐', '👏', '🎉', '💯', '🌟'];
+    var e = document.createElement('span'); e.className = 'sticker'; e.setAttribute('aria-hidden', 'true'); e.textContent = set[(st.stars + st.attempts) % set.length];
+    $('sTile').append(e); setTimeout(function(){ e.remove(); }, 1400);
+  }
+  // 자동 말하기 — 내 차례가 되면 마이크를 켜고, 말이 끝나면 그 말로 대답한다
+  function talkNote(){ missChip('🎙 마이크를 쓸 수 없어요 — 주소창의 🔒 에서 마이크를 허락하거나, 아래에서 골라 보내 주세요'); fillChoices(); $('sim').hidden = false; }
+  function armTalk(){
+    if (!talk || auto || !st || st.phase !== 'await' || busy) return;
+    var t = st.plan[st.i]; if (!t || t.t === 'find') return;
+    if (!SR || recBlocked) return talkNote();
+    startRec();
+  }
+  function startRec(){
+    stopRec();
+    var my = seq, idx = st.i, heard = null, r;
+    try { r = new SR(); } catch (e) { recBlocked = true; return talkNote(); }
+    r.lang = 'en-US'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = false;
+    r.onresult = function(e){
+      if (my !== seq || st.i !== idx) return;
+      var txt = '', fin = false;
+      for (var k = 0; k < e.results.length; k++) { txt += e.results[k][0].transcript; if (e.results[k].isFinal) fin = true; }
+      if (!heard) { heard = document.createElement('span'); heard.className = 'res heard'; $('ask').append(heard); }
+      heard.textContent = '🎙 ' + txt;
+      if (fin && st.phase === 'await' && !busy) { rec = null; say(txt.trim()); }
+    };
+    r.onerror = function(e){
+      if (rec !== r) return; rec = null;
+      if (/not-allowed|service-not-allowed|audio-capture|network/.test(e.error || '')) { recBlocked = true; if (my === seq && st.i === idx && st.phase === 'await') talkNote(); return; }
+      if (e.error === 'no-speech' && my === seq && st.i === idx && st.phase === 'await' && !busy) run({ type: 'silence' });
+    };
+    r.onend = function(){ if (rec === r) { rec = null; $('micBtn').classList.remove('rec'); } };
+    rec = r; $('micBtn').classList.add('rec');
+    try { r.start(); } catch (e) { rec = null; recBlocked = true; talkNote(); }
+  }
+  function stopRec(){ var r = rec; rec = null; $('micBtn') && $('micBtn').classList.remove('rec'); if (r) try { r.abort(); } catch (e) {} }
+  // 자동 데모: 학생 차례이고 선생님이 말하고 있지 않을 때만 대답을 예약 (다시 듣기·데모 켜기 뒤에도 다시 건다)
+  function armAuto(){
+    clearTimeout(listenTO);
+    if (!auto) return;
+    var my = seq; listenTO = setTimeout(function(){ if (my !== seq || !auto) return; if (busy) return armAuto(); if (st.phase === 'await') autoAnswer(); }, FAST ? 5 : 900);
+  }
+  function autoAnswer(){
+    var t = st.plan[st.i]; var r = Math.random();
+    if (t.t === 'find') {
+      var pg = unit.pages[t.page], wrong = pg.lines.map(function(l, k){ return k; }).filter(function(k){ return k !== t.line && E.kindOf(pg.lines[k][0]) !== 'skip'; });
+      return run({ type: 'tap', page: t.page, line: r < 0.8 || !wrong.length ? t.line : wrong[Math.floor(r * 97) % wrong.length] });
+    }
+    var ch = answerChoices(t);
+    if (t.t === 'greet') return say(ch[Math.floor(r * ch.length)]);
+    if (t.t === 'intro') return r < 0.6 ? say(ch[0]) : r < 0.8 ? say('I don\'t know.') : run({ type: 'silence' });
+    if (t.personal && r < 0.4) return say(r < 0.2 ? 'Yes, I do.' : 'No, I don\'t.');
+    if (t.free) return say(t.free);
+    if (r < 0.7) say(t.say); else if (r < 0.85) say(t.say.split(' ').slice(0, Math.ceil(t.say.split(' ').length / 2)).join(' ')); else run({ type: 'silence' });
+  }
+  function say(text){ $('micBtn').classList.remove('listen'); $('sim').hidden = true; run({ type: 'say', text: String(text == null ? '' : text) }); }
+  function setAsk(b, t){ var a = $('ask'); a.replaceChildren(); var x = document.createElement('b'); x.textContent = b; var y = document.createElement('span'); y.className = 'tgt'; y.textContent = t; a.append(x, y); }
+  function setResult(r){
+    var a = $('ask'); var c = document.createElement('span'); c.className = 'res ' + (r.pass ? 'ok' : 'no');
+    c.textContent = r.own ? '내 대답 ✓' : (r.pass ? '통과 ' : '다시 ') + Math.round(r.score * 100) + '%' + (r.said ? '' : ' · 조용했어요'); if (r.own) c.className = 'res own'; a.append(c);
+    lastMiss = (!r.pass && r.said && r.missing && r.missing.length) ? { i: st.i, words: r.missing } : null;
+    if (r.missing && r.missing.length && r.said) missChip((r.pass ? '다음엔 ' : '빠진 낱말: ') + r.missing.join(' '));
+  }
+  function missChip(text){ var m = document.createElement('span'); m.className = 'res miss'; m.textContent = text; $('ask').append(m); }
+  function setButtons(){
+    var started = st && st.turn > 0, wait = st && st.phase === 'await';
+    var isRep = wait && st.plan[st.i] && st.plan[st.i].t === 'repeat';
+    var isFind = wait && st.plan[st.i] && st.plan[st.i].t === 'find';
+    $('micBtn').disabled = !wait || auto || isFind; $('againBtn').disabled = !isRep || busy; $('slowBtn').disabled = !isRep || busy; $('skipBtn').disabled = !wait;
+    if (!wait) $('micBtn').classList.remove('listen');
+    $('autoBtn').querySelector('span').nextSibling.textContent = auto ? '데모 멈춤' : '자동 데모';
+    $('endBtn').disabled = !started || st.phase === 'done';
+  }
+  function showEnd(e){
+    clearInterval(timerId);
+    $('endTitle').textContent = 'Lily: You did it, ' + st.name + '!';
+    $('endStars').textContent = '⭐ ' + e.stars + ' / ' + e.targets;
+    var m = st.missed.slice(0, 5), box = $('endMissed'); box.replaceChildren();
+    var h = document.createElement('div'); h.textContent = m.length ? '다시 연습할 문장 (오늘 복습 탭으로 갑니다)' : '다시 연습할 문장이 없어요!'; box.append(h);
+    m.forEach(function(x){ var d = document.createElement('div'); d.textContent = '· ' + x.say; box.append(d); });
+    $('revTab').textContent = '🧠 오늘 복습 (' + st.missed.length + ')'; $('revTab').classList.add('on');
+    setTimeout(function(){ $('endOv').hidden = false; var b = $('againLesson'); try { b.scrollIntoView({block:'nearest'}); b.focus({preventScroll:true}); } catch (x) {} }, FAST ? 0 : 1800);
+  }
+
+  function start(withAuto){
+    if (!st) return;                       // 교재 목록을 아직 못 받았으면 시작하지 않음
+    var nm = curName(); st.name = nm.en; st.nameKo = nm.ko; lsSet('aiClassName', $('nameIn').value.trim()); camPaint();
+    auto = !!withAuto; $('startOv').hidden = true;
+    timerAt = Date.now(); clearInterval(timerId);
+    timerId = setInterval(function(){ var s = Math.floor((Date.now() - timerAt) / 1000); $('timer').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }, 1000);
+    run({ type: 'start' });
+  }
+  $('startBtn').addEventListener('click', function(){ start(false); });
+  $('startAuto').addEventListener('click', function(){ start(true); });
+  $('againLesson').addEventListener('click', function(){ reset(); });
+  $('micBtn').addEventListener('click', function(){
+    if (st.phase !== 'await') return;
+    if (SR && !recBlocked) { if (rec) stopRec(); else startRec(); return; }
+    $('sim').hidden = !$('sim').hidden;
+  });
+  $('sim').addEventListener('click', function(e){
+    var c = e.target.closest('[data-text]'); if (c && st.phase === 'await') return say(c.dataset.text);
+    var b = e.target.closest('[data-say]'); if (!b || st.phase !== 'await') return;
+    var t = st.plan[st.i], tgt = t.free || t.say;
+    if (!tgt) return;
+    if (b.dataset.say === 'exact') say(tgt);
+    else if (b.dataset.say === 'half') say(tgt.split(' ').slice(0, Math.max(1, Math.floor(tgt.split(' ').length / 2))).join(' ') + (tgt.split(' ').length === 1 ? 'zz' : ''));
+    else { $('sim').hidden = true; run({ type: 'silence' }); }
+  });
+  $('simForm').addEventListener('submit', function(e){ e.preventDefault(); if (st.phase !== 'await') return; var v = $('simInput').value; $('simInput').value = ''; say(v); });
+  $('againBtn').addEventListener('click', function(){ run({ type: 'replay' }); });
+  $('slowBtn').addEventListener('click', function(){ run({ type: 'replay', slow: true }); });
+  $('skipBtn').addEventListener('click', function(){ $('sim').hidden = true; run({ type: 'skip' }); });
+  function paintSpd(){ $('spdBtn').textContent = (spd < 2 ? '🐢' : spd > 2 ? '🐇' : '🙂') + ' 속도: ' + SPEEDS[spd][1]; }
+  function paintTalk(){ $('talkBtn').textContent = '🎙 자동 말하기: ' + (talk ? '켬' : '끔'); $('talkBtn').setAttribute('aria-pressed', talk ? 'true' : 'false'); }
+  $('spdBtn').addEventListener('click', function(){ spd = (spd + 1) % SPEEDS.length; lsSet('aiClassSpd', String(spd)); paintSpd(); });
+  $('talkBtn').addEventListener('click', function(){ talk = !talk; lsSet('aiClassTalk', talk ? '1' : '0'); paintTalk(); if (talk) { recBlocked = false; armTalk(); } else stopRec(); });
+  paintSpd(); paintTalk();
+  $('autoBtn').addEventListener('click', function(){
+    if (!st) return;
+    if ($('startOv').hidden === false) { start(true); return; }
+    auto = !auto; setButtons(); if (auto && st.phase === 'await') armAuto();
+  });
+  $('endBtn').addEventListener('click', function(){
+    if (!st || st.phase === 'done') return;
+    seq++; stopSpeech(); stopRec(); busy = false; clearTimeout(listenTO);
+    showEnd({ stars: st.stars, targets: st.targets, missed: st.missed.length }); st.phase = 'done'; setButtons();
+  });
+  $('prevPg').addEventListener('click', function(){ if (st) run({ type: 'browse', page: st.view - 1 }); });
+  $('nextPg').addEventListener('click', function(){ if (st) run({ type: 'browse', page: st.view + 1 }); });
+  $('followBtn').addEventListener('click', function(){ run({ type: 'follow' }); });
+  $('capSay').addEventListener('click', function(){ if (busy) return; var t = st && st.plan[st.i]; if (t && t.t === 'repeat' && (t.mode === 'warm' || t.mode === 'qa' || t.mode === 'swap')) return speakRaw(t.mode === 'qa' ? t.ask : t.say, (t.mode === 'qa' ? t.askMale : t.male) ? 'm' : 'f', 1); var cl = hl && unit.pages[hl.page] && unit.pages[hl.page].lines[hl.line]; if (cl) speakRaw(E.speakable(cl[0]), cl[1] ? 'm' : 'f', 1); });
+  $('subBtn').addEventListener('click', function(){ subMode = (subMode + 1) % 3; this.textContent = '💬 자막: ' + ['끔','영+한','영어'][subMode]; if (!subMode) { $('sub').hidden = true; $('subW').replaceChildren(); } });
+  $('sndBtn').addEventListener('click', function(){ sound = !sound; this.textContent = sound ? '🔊 소리 켬' : '🔇 소리 끔'; if (!sound) try { speechSynthesis.cancel(); } catch(e){} });
+  // 학생 카메라 켜기/끄기 — 화상수업 독의 카메라 버튼과 같은 동작. 영상은 내 화면에만 보이고 어디에도 보내지 않는다
+  var camStream = null, camBusy = false;
+  function camPaint(){
+    var on = !!camStream;
+    $('sTile').classList.toggle('cam-on', on); $('camVid').hidden = !on;
+    $('camLabel').textContent = '나 (' + curName().ko + ') · 카메라 ' + (on ? '켜짐' : '꺼짐');
+    $('camBtn').textContent = on ? '📷 카메라 끄기' : '📷 카메라 켜기'; $('camBtn').setAttribute('aria-pressed', on ? 'true' : 'false');
+    var d = $('camDock'); d.classList.toggle('camoff', !on); d.setAttribute('aria-pressed', on ? 'true' : 'false'); d.lastChild.textContent = on ? '카메라 켬' : '카메라 끔';
+    $('camBtn').disabled = d.disabled = camBusy;
+  }
+  function camStop(){ if (camStream) camStream.getTracks().forEach(function(tr){ tr.stop(); }); camStream = null; $('camVid').srcObject = null; }
+  function camNote(msg){ var n = $('camNote'); n.textContent = msg || ''; n.hidden = !msg; }
+  async function camToggle(){
+    if (camBusy) return;
+    if (camStream) { camStop(); camNote(''); camPaint(); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { camNote('이 브라우저는 카메라를 쓸 수 없어요'); return; }
+    camBusy = true; camNote(''); camPaint();
+    try {
+      var s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      camStream = s; $('camVid').srcObject = s;
+      s.getVideoTracks().forEach(function(tr){ tr.addEventListener('ended', function(){ if (camStream === s) { camStop(); camNote('카메라 연결이 끊겼어요'); camPaint(); } }); });
+      // 화면을 먼저 «켜짐» 으로 바꾼 뒤 재생한다 — 숨은 영상의 play() 가 늦게 끝나면 버튼이 한동안 «꺼짐» 으로 남았다(브라우저 테스트에서 실측)
+      camBusy = false; camPaint();
+      var pv = $('camVid').play(); if (pv && pv.catch) pv.catch(function(){});
+      return;
+    } catch(e) {
+      var n = e && e.name;
+      camNote(n === 'NotFoundError' || n === 'OverconstrainedError' ? '카메라를 찾지 못했어요' : n === 'NotReadableError' ? '다른 앱이 카메라를 쓰고 있어요' : '카메라 권한이 없어요 — 주소창의 🔒 에서 카메라를 허용해 주세요');
+    }
+    camBusy = false; camPaint();
+  }
+  $('camBtn').addEventListener('click', camToggle); $('camDock').addEventListener('click', camToggle);
+  window.addEventListener('pagehide', camStop);
+  window.__aiClassCam = function(){ return { on: !!camStream, live: !!camStream && camStream.getVideoTracks().some(function(tr){ return tr.readyState === 'live'; }) }; };
+  window.addEventListener('resize', function(){ markHL(); });
+})();
+</script>
+</body>
+</html>
