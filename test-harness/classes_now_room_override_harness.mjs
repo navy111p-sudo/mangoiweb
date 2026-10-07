@@ -50,6 +50,7 @@ const mirror = compile(fn(read('src/c24-mirror.ts'), 'mirrorNoteClassId'));
 const classesNow = compile(read('src/classes-now.ts'), { './c24-mirror': mirror, './class-start-date': start });
 const overrides = compile(read('src/class-room-override.ts'), { './d1-chunk': chunks });
 const postponed = compile(read('src/class-postponed.ts'));
+const groupRoom = compile(read('src/group-room.ts'), { './d1-chunk': chunks });   // 👥 합반 대표 방(2026-10-07)
 const scopes = compile(read('src/scope.ts'), {
   './d1-chunk': chunks,
   './auth-admin': { checkAdminSession() { throw new Error('No live authentication in fixtures'); } },
@@ -119,6 +120,7 @@ async function fixture({ rows = [base], roomOverrides = [override], live = [], a
     classesNowScanDates: classesNow.classesNowScanDates, liveOverlaps: classesNow.liveOverlaps,
     applyRoomOverrides: overrides.applyRoomOverrides, kstYmd: overrides.kstYmd,
     isPostponedOccurrence: postponed.isPostponedOccurrence,
+    loadGroupLeadsForIds: groupRoom.loadGroupLeadsForIds, leadIdOf: groupRoom.leadIdOf,
     json: (body, status = 200) => ({ body, status }),
   };
   vm.createContext(context); vm.runInContext(routeJs, context);

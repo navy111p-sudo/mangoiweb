@@ -579,14 +579,22 @@ await (async () => {
     /* node 로 돌리려고 «타입만» 벗긴다 — 논리는 한 글자도 안 고친다. */
     src = src.replace(/^async function sfuRoomAllowed\([\s\S]*?\)\s*:\s*Promise<boolean>\s*\{/,
                       'async function sfuRoomAllowed(env, room, ident) {')
-             .replace(/<any>/g, '').replace(/\bas any\b/g, '');
+             .replace(/<any>/g, '').replace(/\bas any\b/g, '').replace(/\((\w+): any\)/g, '($1)');
   }
+  /* 👥 (2026-10-07) 정본이 합반 정본(group-room.ts 의 loadGroupMembers)을 부른다 — 진짜를 타입만 벗겨 주입한다. */
+  let GR = null;
+  try {
+    const { stripTypeScriptTypes } = await import('node:module');
+    const grCode = stripTypeScriptTypes(fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/group-room.ts'), 'utf8'))
+      .replace(/^import[^;]*;/m, 'const selectInChunks = async () => [];');
+    GR = await import('data:text/javascript;base64,' + Buffer.from(grCode).toString('base64'));
+  } catch (e) { ok(false, '합반 정본(group-room.ts)을 못 불러옴: ' + e.message); }
   /* ⚠️ 정본은 `env.DB.prepare` 를 부른다 — 가짜를 `env` 자리에 그냥 주면 예외가 나고
      catch 가 false 를 돌려준다. 그러면 «막는다» 검사만 초록이 되어 헛돈다(CLAUDE.md 2장
      「가짜 DB 로 하니스를 돌렸는데 검사가 헛돌며 통과」). 그래서 «제대로 찾는다» 를 짝으로 둔다. */
-  const mk = (rows) => ({ DB: { prepare: () => ({ bind: () => ({ first: async () => rows.shift() }) }) } });
+  const mk = (rows, all = []) => ({ DB: { prepare: () => ({ bind: () => ({ first: async () => rows.shift(), all: async () => ({ results: all }) }) }) } });
   let f = null;
-  try { f = new Function('return (' + src + ')')(); } catch (e) { ok(false, '오려 낸 함수를 못 돌림: ' + e.message); }
+  try { f = new Function('loadGroupMembers', 'return (' + src + ')')(GR && GR.loadGroupMembers); } catch (e) { ok(false, '오려 낸 함수를 못 돌림: ' + e.message); }
   if (f) {
     ok(await f(mk([]), 'mangoi-class', { uid: 'anyone', kind: 'student' }) === true,
        '공용 연습방은 통과 — mesh 도 누구나 들어가는 방이라 SFU 만 좁히면 «되던 것» 이 깨진다');
@@ -601,6 +609,12 @@ await (async () => {
        '대소문자만 다른 계정도 통과 (Kim/kim 이 실재한다)');
     ok(await f(mk([]), 'class-1079-20260904', { uid: 'jye46712', kind: 'student' }) === false,
        '예약을 못 찾으면 «막는다» — 여기서 막혀도 수업은 mesh 로 그대로 간다');
+    /* 👥 합반 — 방 번호는 대표 예약 id. 같은 수업의 다른 학생도 통과, 그 수업 밖 학생은 여전히 막는다(짝). */
+    const G = (id, u) => ({ id, user_id: u, teacher_id: '9', start_time: '19:00', duration_min: 20, scheduled_date: '2026-09-04', status: 'active' });
+    ok(await f(mk([G(1079, 'g1')], [G(1079, 'g1'), G(1080, 'g2'), G(1081, 'g3')]), 'class-1079-20260904', { uid: 'g3', kind: 'student' }) === true,
+       '합반 — 대표 방에 같은 수업의 다른 학생(g3)도 통과');
+    ok(await f(mk([G(1079, 'g1')], [G(1079, 'g1'), G(1080, 'g2')]), 'class-1079-20260904', { uid: 'outsider', kind: 'student' }) === false,
+       '🔴 (짝) 합반이어도 그 수업 밖 학생은 막는다');
     const boom = { DB: { prepare: () => { throw new Error('d1 down'); } } };
     ok(await f(boom, 'class-1079-20260904', { uid: 'jye46712', kind: 'student' }) === false,
        '조회가 실패해도 막는 쪽으로 실패한다');

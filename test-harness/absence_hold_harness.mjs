@@ -237,7 +237,8 @@ console.log('\n④ 배선 — 정본을 실제로 쓰는가');
 const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const pay = strip(rd(resolve(SRC, 'api-admin.ts')));
 const iUp = pay.indexOf("else if (upcoming) st = 'upcoming';");
-const iHold = pay.indexOf("else if (heldAttended && !heldAttended.has(roomId) && heldOnFor(holdRanges, l.user_id, dateStr)) st = 'absence_hold';");
+/* 👥 (2026-10-07) 합반이면 대표 방(gRoom)으로 대조한다 — `has(gRoom || roomId)` 도 같은 판정이다. */
+const iHold = pay.search(/else if \(heldAttended && !heldAttended\.has\((?:gRoom \|\| )?roomId\) && heldOnFor\(holdRanges, l\.user_id, dateStr\)\) st = 'absence_hold';/);
 const iAbs = pay.indexOf("st = 'student_absent';");
 ok(iHold > iUp && iHold < iAbs, '급여: 보류 판정이 «학생 결석» 보다 먼저 — 보류 기간은 0%');
 ok(/if \(st === 'absence_hold'\) \{[^}]*continue; \}/.test(pay), '급여: 보류 수업은 수업 수·지급액에 안 들어간다');

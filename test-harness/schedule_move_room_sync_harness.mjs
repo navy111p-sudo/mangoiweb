@@ -314,20 +314,21 @@ if (process.env.SMRS_CHILD === '1') {
   setNow('2026-09-29', '23:40');
   await both('4d 9/29 23:40 에는 같은 방(날짜 9/29)', D, 'stu_d', 'tok_alpha', null, { present: true, time: '23:55', ymd: '20260929' });
 
-  // Atomic visual group movement preserves each schedule's existing room identity.
+  // Atomic visual group movement — 👥 (2026-10-07) 합반은 «한 수업 = 한 방»(정본 src/group-room.ts):
+  // 같은 강사·시각·길이의 학생 행들은 가장 작은 예약 id 방 하나로 모인다(옛 기대값 «학생마다 자기 방» 이 바로 그 사고였다).
   setNow(TODAY,'10:00');
   const { scheduleMoveVersion } = await imp('class-schedule-move.ts');
   const groupIds = ['group_a','group_b','group_c'].map(u=>mkClass(u,'one_off',null,TODAY,'21:00','1'));
   const expected = Object.fromEntries(groupIds.map(id=>[String(id),scheduleMoveVersion(sq.prepare('SELECT * FROM class_schedules WHERE id=?').get(id))]));
   const groupMove = await callAdmin('PATCH','/api/admin/class-schedules/move',{cookie:'tok_admin',body:{ids:groupIds,expected,source_date:TODAY,destination_date:TODAY,start_time:'21:20',teacher_id:'2'}});
   ok('5a group batch moves all three rows',groupMove.status===200&&groupMove.body.count===3,JSON.stringify(groupMove));
-  for(let i=0;i<groupIds.length;i++)await both('5b group member '+i,groupIds[i],['group_a','group_b','group_c'][i],'tok_beta','tok_alpha',{present:true,time:'21:20'});
+  for(let i=0;i<groupIds.length;i++)await both('5b group member '+i,groupIds[i],['group_a','group_b','group_c'][i],'tok_beta','tok_alpha',{present:true,time:'21:20',room:'class-'+Math.min(...groupIds)+'-'+YMD});
   const weekly = await callAdmin('GET','/api/admin/schedules?week=2026-09-28',{cookie:'tok_admin'});
   const displayed = Array.isArray(weekly.body)?weekly.body:(weekly.body.items||weekly.body.schedules||[]);
   ok('5c admin weekly view reads all moved group rows',groupIds.every(id=>displayed.some(s=>s.id===id&&String(s.teacher_id)==='2'&&s.start_time==='21:20')),JSON.stringify(displayed.filter(s=>groupIds.includes(s.id))));
   const undoGroup = await callAdmin('PATCH','/api/admin/class-schedules/move',{cookie:'tok_admin',body:{ids:groupIds,expected:groupMove.body.move_versions,destination_date:TODAY,start_time:'21:00',teacher_id:'1'}});
   ok('5d group undo restores all three rows',undoGroup.status===200&&undoGroup.body.count===3,JSON.stringify(undoGroup));
-  for(let i=0;i<groupIds.length;i++)await both('5e undone group member '+i,groupIds[i],['group_a','group_b','group_c'][i],'tok_alpha','tok_beta',{present:true,time:'21:00'});
+  for(let i=0;i<groupIds.length;i++)await both('5e undone group member '+i,groupIds[i],['group_a','group_b','group_c'][i],'tok_alpha','tok_beta',{present:true,time:'21:00',room:'class-'+Math.min(...groupIds)+'-'+YMD});
 
   process.stdout.write('\n@@RESULTS@@' + JSON.stringify({ results, warns: warns.slice(0, 5) }) + '\n');
   process.exit(0);
