@@ -149,6 +149,11 @@ html.dark .kpi-arrow{color:#7c8899}
 .row:first-of-type{border-top:0}
 .row b{min-width:0;flex:1}
 .row .num{font-variant-numeric:tabular-nums;font-weight:700}
+/* 📋 (2026-10-07 사장님 «시간·이름·아이디·강사명만») 「오늘 전체 수업」 간단히 보기 — 한 줄 네 칸 */
+.row.ta-s{display:grid;grid-template-columns:52px minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr);gap:8px;flex-wrap:nowrap}
+.row.ta-s>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.ta-s b{flex:none}
+.ta-mode{cursor:pointer;display:inline-block;margin-left:6px;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700;border:1px solid #cbd5e1;background:#fff;color:#344054}
 .muted{color:#7a8794;font-size:13px}
 /* 💳 수업료 결제 카드 (2026-10-07) — 흰 카드 위에서 읽히는 색만 쓴다(#b45309 대비 5.0 · #15803d · #b91c1c) */
 .tui-pay{display:block;width:100%;margin-top:8px;min-height:44px;border:0;border-radius:10px;background:#f59e0b;color:#1f1300;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit}
@@ -2705,6 +2710,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     return el.value;
   }
 
+  /* 📋 (2026-10-07 사장님) 기본은 «간단히»(시간·이름·아이디·강사). 연기·입장·평가 등은 «자세히» 에 그대로 있다.
+     ⛔ 자세히 보기를 없애지 말 것 — 매니저 요청(연기·변경·교재 배정·캘린더)이 전부 그쪽에 있다.
+     저장은 이 기기 편의(localStorage) — 못 읽으면 간단히. */
+  function taSimple(){ try { return localStorage.getItem('mgr_today_detail') !== '1'; } catch (e) { return true; } }
+  window.taToggleDetail = function(){
+    try { localStorage.setItem('mgr_today_detail', taSimple() ? '1' : '0'); } catch (e) {}
+    paintTodayAll();
+    return false;
+  };
   window.paintTodayAll = paintTodayAll;
   function paintTodayAll(){
     if (!D.todayAll) return; // 🏫 아직 안 불러왔는데 드롭다운이 바뀐 경우 — 그릴 것이 없다
@@ -2759,18 +2773,26 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         + '<br>'
       : '';
     j._shown = rows; j._shownAc = acSel;
+    var simple = taSimple();
     var head = '<div class="muted" style="padding-bottom:6px">'
       + pickLine
-      + (cnote ? esc(cnote) + '<br>' : '')
+      + (cnote && !simple ? esc(cnote) + '<br>' : '')
       + esc(T((j.date || '') + ' · ' + rows.length + ' total'
                 + (c.cafe24 ? ' · ' + c.cafe24 + ' on cafe24' : '')
                 + (c.joinable ? ' · ' + c.joinable + ' joinable' : ''),
               (j.date || '') + ' · 전체 ' + rows.length + '건'
                 + (c.cafe24 ? ' · 카페24 ' + c.cafe24 + '건' : '')
-                + (c.joinable ? ' · 입장가능 ' + c.joinable + '건' : ''))) + '</div>';
+                + (c.joinable ? ' · 입장가능 ' + c.joinable + '건' : '')))
+      + '<a href="#" class="ta-mode" onclick="return taToggleDetail()">' + esc(simple ? T('Show details', '자세히 보기') : T('Simple view', '간단히 보기')) + '</a></div>';
     hqRows('todayAllBody', rows, function(r){
       var t = esc(r.start_time || '');
       var who = esc(r.student_name || r.student_uid || '-');
+      if (simple) {
+        return '<div class="row ta-s"><b>' + t + '</b><span>' + esc(r.student_name || '—') + '</span>'
+          + '<span class="muted">' + esc(r.student_uid || '—') + '</span>'
+          + (r.teacher_name ? '<span>' + esc(r.teacher_name) + '</span>'
+             : '<span style="color:#b45309;font-weight:800">' + esc(T('unassigned', '미배정')) + '</span>') + '</div>';
+      }
       /* ⚠️ 강사 미배정은 매니저가 가장 먼저 봐야 하는 줄이다 — 회색(.muted) 안에 넣으면
          부모 색에 묻혀 «그냥 한 줄» 로 보인다(2026-08-25 브라우저 실측에서 잡음). 상자를 갈라 둔다. */
       var tea = r.teacher_name
