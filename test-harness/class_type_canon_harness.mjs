@@ -184,7 +184,8 @@ const mm = (v) => { try { return mt(v); } catch { return '?'; } };
 ok('trial → trial · makeup → temp · level_test → leveltest · regular → 1on1', mm('trial') === 'trial' && mm('makeup') === 'temp' && mm('level_test') === 'leveltest' && mm('regular') === '1on1');
 const lbl = ['1on1', 'group', 'temp', 'trial', 'leveltest'];
 ok('주간 툴팁·끌기·이동확인·종류알약 모두 trial·leveltest 이름을 안다', (W.match(/trial:currentLang==='ko'\?'🟢 체험수업'/g) || []).length === 1 && W.includes("trial:'체험수업',leveltest:'레벨테스트'}") && W.includes("'trial':L?'🟢 체험수업'") && W.includes("trial:{cls:'trial',ico:'🟢',ko:'체험수업'"));
-ok('?v= 를 올렸다(adm-q6 16 · adm-core 261007-ctype)', /adm-q6\.js\?v=16/.test(rd('public/admin.html')) && /adm-core\.js\?v=261007-ctype/.test(rd('public/admin.html')));
+// 번호는 병합으로 또 오를 수 있다 — «이 변경 이전 번호가 아닌가» 로 묻는다(정확한 일치는 asset_version_harness 몫)
+ok('?v= 를 올렸다(adm-q6 · adm-core)', !/adm-q6\.js\?v=(1[0-5]|[0-9])"/.test(rd('public/admin.html')) && /adm-q6\.js\?v=\d+/.test(rd('public/admin.html')) && !/adm-core\.js\?v=261007-room"/.test(rd('public/admin.html')));
 
 
 // 일간 뷰는 모든 칸이 col-today — 오늘 앰버가 수업 칸까지 덮으면 종류 색이 사라진다(2026-10-07 실측)

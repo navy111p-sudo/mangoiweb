@@ -9890,6 +9890,34 @@ async function _enAutoConfirm(id) {
   }
 }
 
+/* 📥 (2026-10-07 사장님 지시) 등록할 때마다 엑셀(CSV)·워드가 «무조건» 내려받아지던 것을 선택으로.
+   「등록 후 엑셀·워드 받기」(#en-export-files)를 켠 경우에만 바로 내려받고, 끄면(기본) 파일을 모아 두었다가
+   상태 줄 옆 「📥 엑셀·워드 받기」 버튼으로 필요할 때만 받는다(선택은 이 기기에 기억). 카톡 알림은 그대로 나간다. */
+var _enPendingFiles = [];
+function _enWantFiles() {
+  var cb = document.getElementById('en-export-files');
+  return !!(cb && cb.checked);
+}
+function _enDl(blob, name) {
+  if (_enWantFiles()) { _downloadBlob(blob, name); return; }
+  _enPendingFiles.push({ blob: blob, name: name });
+  var btn = document.getElementById('en-export-later');
+  if (btn) {
+    btn.style.display = '';
+    var ko = '📥 엑셀·워드 받기 (' + _enPendingFiles.length + ')', en = '📥 Download files (' + _enPendingFiles.length + ')';
+    btn.setAttribute('data-ko', ko); btn.setAttribute('data-en', en);
+    btn.textContent = (adminLang === 'en') ? en : ko;
+  }
+}
+function _enDownloadPending() {
+  var list = _enPendingFiles.slice();
+  list.forEach(function (f, i) { setTimeout(function () { _downloadBlob(f.blob, f.name); }, i * 300); });
+}
+function _enResetPending() {
+  _enPendingFiles = [];
+  var btn = document.getElementById('en-export-later');
+  if (btn) btn.style.display = 'none';
+}
 async function addEnrollment() {
   const records = _readEnrollmentRows();
   const status = document.getElementById('en-multi-status');
@@ -10101,6 +10129,7 @@ async function addEnrollment() {
 
 // 다중 등록 자동 export — 통합 카톡 + 통합 CSV + 통합 Word
 function autoExportBulkEnrollment(records) {
+  _enResetPending();
   const dateStr = new Date().toISOString().slice(0,10);
   const N = records.length;
 
@@ -10147,7 +10176,7 @@ function autoExportBulkEnrollment(records) {
            '"' + (r._teacher || r.teacher_name || '').replace(/"/g, '""') + '",' +
            (r._started_at_str || '') + '\n';
   });
-  _downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+  _enDl(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
     '수강신청_일괄_' + N + '명_' + dateStr + '.csv');
 
   // 통합 Word (다행 표)
@@ -10184,7 +10213,7 @@ function autoExportBulkEnrollment(records) {
       '</tr>';
   });
   docHtml += '</table><div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div></body></html>';
-  _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
+  _enDl(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
     '수강신청_일괄_' + N + '명_' + dateStr + '.doc');
 }
 
@@ -10193,6 +10222,7 @@ function autoExportBulkEnrollment(records) {
 //   ② Excel CSV 자동 다운로드 (한글 BOM 포함, 엑셀에서 깨짐 없이 열림)
 //   ③ Word HTML 자동 다운로드 (.doc — MS Word 에서 표 그대로 열림)
 async function autoExportEnrollment(enr) {
+  _enResetPending();
   // ① 카톡 큐 — 백엔드 KV 큐에 메시지 적재
   const categoryBadge = enr.category === 'test_only' ? '🔍 레벨테스트만'
                       : enr.category === 'full' ? '🌟 풀패키지(레벨+체험+정규)'
@@ -10242,7 +10272,7 @@ async function autoExportEnrollment(enr) {
     '"강사","' + String(enr.teacher || '').replace(/"/g, '""') + '"\n' +
     '"시작일","' + enr.started_at + '"\n' +
     '"등록일시","' + enr.created_at + '"\n';
-  _downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+  _enDl(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
     '수강신청_' + safeName + '_' + dateStr + '.csv');
 
   // ③ Word (.doc HTML) 다운로드 — MS Word 가 HTML 을 표로 렌더링
@@ -10277,7 +10307,7 @@ async function autoExportEnrollment(enr) {
     '</table>' +
     '<div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div>' +
     '</body></html>';
-  _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
+  _enDl(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
     '수강신청_' + safeName + '_' + dateStr + '.doc');
 
   // 사용자 안내 토스트 (간단한 alert)
@@ -13575,6 +13605,13 @@ window.bulkCopyContacts = function() {
     setTimeout(loadTeacherProfiles, 200);
   }
   if (e('en-add-btn'))         e('en-add-btn').addEventListener('click', addEnrollment);
+  if (e('en-export-later'))     e('en-export-later').addEventListener('click', _enDownloadPending);
+  if (e('en-export-files')) {
+    try { e('en-export-files').checked = localStorage.getItem('mangoi_en_export_files') === '1'; } catch (_) {}
+    e('en-export-files').addEventListener('change', function () {
+      try { localStorage.setItem('mangoi_en_export_files', this.checked ? '1' : '0'); } catch (_) {}
+    });
+  }
   if (e('en-refresh-btn'))     e('en-refresh-btn').addEventListener('click', loadEnrollments);
   if (e('en-import-file-btn')) e('en-import-file-btn').addEventListener('click', importEnrollmentFromFile);
   if (e('en-import-kakao-btn'))e('en-import-kakao-btn').addEventListener('click', importEnrollmentFromKakao);
