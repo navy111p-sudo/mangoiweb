@@ -226,7 +226,13 @@
       ico: '<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/>',
       items: [
         { ko: '강사 명부',   en: 'Teachers',        cards: ['card-teacher-mgmt', 'card-mbti-mgmt', 'card-teacher-link', 'card-teacher-contact'] },
-        { ko: '시간표·근무', en: 'Schedule',        cards: ['card-timetable', 'card-calendar', 'card-auto-schedule', 'card-schedule-seed'] },
+        /* 📅 (2026-10-07 사장님) 「시간표·근무」를 누르면 «오늘» 일간 시간표가 바로 뜨게 — go.
+           go 는 «사람이 직접 누른 클릭» 에서만 쓴다(wireDelegate). select() 는 안 쓴다 —
+           select 는 «마지막으로 보던 항목» 복원에도 불리므로, 거기서 이동하면 admin.html 을
+           열 때마다 시간표로 튕겨 나간다. 카드(cards)·▾ 손자는 그대로 둔다 — 캘린더·자동배정·
+           씨앗 카드는 ▾ 손자나 검색으로 계속 간다. ?preset=today 는 weekly-schedule.html 의
+           PRESET_KEYS 와 짝이다(일간 버튼을 실제로 눌러 오늘로 연다). */
+        { ko: '시간표·근무', en: 'Schedule',        cards: ['card-timetable', 'card-calendar', 'card-auto-schedule', 'card-schedule-seed'], go: '/admin/weekly-schedule.html?preset=today' },
         /* 📅 수업 길이 변경 신청함 (2026-08-17 사장님) — 카드가 아니라 별도 페이지다.
            href 배선은 capiHref 와 같은 계약으로 이미 있었다(select() 참고). 여기가 첫 사용처다.
            ⚠️ href 항목은 select() 가 localStorage 에 «마지막으로 보던 항목» 으로 저장하지 않는다
@@ -986,6 +992,7 @@
            손자 생성기(adm-r25.js)는 이 화면의 카드만 읽을 수 있어서, 이걸 안 실어 주면
            그 항목만 손자가 없는 «2단짜리» 로 남는다. */
         if (it.href) d.setAttribute('data-ia6-href', it.href);
+        if (it.go) d.setAttribute('data-ia6-go', it.go);
         /* 🔐 (2026-09-09) 이 항목을 감춰야 하는 역할. 사이드바는 통째로 다시 그려질 수 있어서
            («리스너를 붙이지 않는다» 바로 아래 주석과 같은 사정) 판정 근거를 DOM 에 실어 둔다. */
         if (it.hideFrom && it.hideFrom.length) d.setAttribute('data-ia6-hide-from', it.hideFrom.join(' '));
@@ -1204,6 +1211,9 @@
            표시는 adm-r25.js 가 남긴다(우리보다 먼저 돈다 — 문서상 위). 800ms 뒤 저절로 풀린다. */
         if (sub.getAttribute('data-ia6-secs') && window.__ph125OpenedEl === sub &&
             window.__ph125OpenedUntil > Date.now()) return;
+        /* 📅 (2026-10-07) 직접 누르면 바로 그 화면으로 — 위 GROUPS 의 go 주석 참고. */
+        var go = sub.getAttribute('data-ia6-go');
+        if (go) { location.href = go; return; }
         select(sub.getAttribute('data-ia6-item'));
         return;
       }
