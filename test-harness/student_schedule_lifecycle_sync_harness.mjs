@@ -85,7 +85,9 @@ if (process.env.SLS_CHILD === '1') {
     async delete(k) { kvMap.delete(k); },
     async list() { return { keys: [...kvMap.keys()].map((name) => ({ name })), list_complete: true }; },
   };
-  const env = new Proxy({ DB, ADMIN_PASSWORD: 'harness-pw', ROOM_JWT_SECRET: 'local-lifecycle-test-secret' }, {
+  /* ⏩ (2026-10-07) 학생 연기·변경은 이제 접수 즉시 반영된다. 이 하니스는 «관리자 승인 경로» 를 학생 요청으로 시험하므로
+     되돌리기 스위치로 2026-10-06 정책(무료 연기만 자동)을 켜고 돈다. 새 정책 자체는 student_auto_postpone_harness 가 본다. */
+  const env = new Proxy({ DB, ADMIN_PASSWORD: 'harness-pw', ROOM_JWT_SECRET: 'local-lifecycle-test-secret', STUDENT_AUTO_APPLY: 'free_postpone' }, {
     get(t, p) { if (p in t) return t[p]; if (typeof p === 'string' && /^[A-Z_]+$/.test(p) && /KV|STATE|CACHE|SESS/.test(p)) return KV; return undefined; },
   });
 

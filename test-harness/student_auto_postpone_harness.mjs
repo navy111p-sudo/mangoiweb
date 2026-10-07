@@ -218,7 +218,7 @@ if (process.env.SMRS_CHILD === '1') {
   env.ROOM_JWT_SECRET = 'sandbox-only-secret-at-least-thirty-two-characters';
   const {signUidToken} = await imp('auth-token.ts');
   const {addDays} = await imp('class-series-move.ts');
-  const { autoPostponeEligible, autoApproveStudentPostpone } = await imp('student-auto-postpone.ts');
+  const { autoPostponeEligible, autoApproveStudentPostpone, autoApplyMode } = await imp('student-auto-postpone.ts');
   const studentCall = async(uid,method,path,body) => {
     const token=await signUidToken(uid,env);
     const request=new Request(BASE+path,{method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
@@ -355,6 +355,13 @@ if (process.env.SMRS_CHILD === '1') {
   const mir = { ...csx, source:'c24-mirror' };
   ok('⑩ 미러 같은 날 시각만은 막음', autoPostponeEligible({ ...good, schedule_snapshot:smv(mir), new_date:'2026-10-06', new_time:'11:00' }, mir) === 'mirror_same_day');
   ok('⑩ 미러 다른 날은 허용', autoPostponeEligible({ ...good, schedule_snapshot:smv(mir) }, mir) === null);
+  // ⑪ 되돌리기 스위치 env.STUDENT_AUTO_APPLY — 짝으로(기본은 전부 · 옛 정책 · 끔 · 모르는 값은 기본)
+  ok('⑪ 스위치 없음 = 전부', autoApplyMode({}) === 'all' && autoApplyMode(null) === 'all');
+  ok('⑪ 모르는 값 = 전부(오타로 정책이 조용히 안 바뀜)', autoApplyMode({ STUDENT_AUTO_APPLY: 'of' }) === 'all');
+  ok('⑪ off 면 막음', autoApplyMode({ STUDENT_AUTO_APPLY: ' OFF ' }) === 'off' && autoPostponeEligible(good, csx, 'off') === 'auto_off');
+  ok('⑪ free_postpone 이면 유료는 막음', autoPostponeEligible({ ...good, fee_type:'paid' }, csx, 'free_postpone') === 'not_free');
+  ok('⑪ free_postpone 이면 변경은 막음', autoPostponeEligible({ ...good, request_type:'change' }, csx, 'free_postpone') === 'not_postpone');
+  ok('⑪ free_postpone 이어도 무료 연기는 통과', autoPostponeEligible(good, csx, 'free_postpone') === null);
   ok('⑩ 미러 날짜+강사 동시 변경은 막음', autoPostponeEligible({ ...good, schedule_snapshot:smv(mir), new_teacher_id:'2' }, mir) === 'mirror_teacher_date');
 
   writeFileSync(process.env.WEEKLY_RESULT, JSON.stringify({ results, warns: warns.slice(0, 5) }));

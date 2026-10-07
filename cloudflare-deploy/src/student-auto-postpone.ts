@@ -34,12 +34,27 @@ export const AUTO_POSTPONE_DECIDER = '자동승인(학생 연기·변경)';
 
 export type AutoPostponeResult = { applied: 'moved' | 'postponed' | null; reason: string | null };
 
+/* 🔁 되돌리기 스위치 — env.STUDENT_AUTO_APPLY (wrangler 변수, 기본 = 비어 있음 = 연기·변경 전부)
+     'free_postpone' → 2026-10-06 정책(무료 연기만) · 'off' → 자동 승인 끔(전부 대기, 관리자 승인)
+   ⚠️ 이름을 모르는 값은 «기본(전부)» 으로 둔다 — 오타로 정책이 조용히 바뀌지 않게 허용 값만 읽는다. */
+export function autoApplyMode(env: any): 'all' | 'free_postpone' | 'off' {
+  const v = String((env && env.STUDENT_AUTO_APPLY) || '').trim().toLowerCase();
+  return v === 'off' ? 'off' : v === 'free_postpone' ? 'free_postpone' : 'all';
+}
+
 /** 순수 판정 — «자동 승인을 시도해도 되는 요청인가». 하니스가 경계값을 넣어 돌린다. */
-export function autoPostponeEligible(row: any, cs: any): string | null {
+export function autoPostponeEligible(row: any, cs: any, mode: 'all' | 'free_postpone' | 'off' = 'all'): string | null {
+  if (mode === 'off') return 'auto_off';
   if (!row) return 'request_not_found';
   if (row.status !== 'pending') return 'not_pending';
   if (row.requester_role !== 'student') return 'not_student';
   if (row.request_type !== 'postpone' && row.request_type !== 'change') return 'not_postpone_or_change';
+  if (mode === 'free_postpone') {
+    if (row.request_type !== 'postpone') return 'not_postpone';
+    if (row.fee_type !== 'free') return 'not_free';
+    if (String(row.new_teacher_id ?? '').trim()) return 'teacher_change';
+    if (String(row.end_makeup ?? '').trim()) return 'end_makeup';
+  }
   if (!cs) return 'schedule_not_found';
   if (!cs.scheduled_date) return 'recurring';
   if (['cancelled', 'ended', 'completed'].includes(String(cs.status || ''))) return 'schedule_not_movable';
@@ -63,7 +78,7 @@ export async function autoApproveStudentPostpone(env: any, requestId: number | n
     const cs: any = row && row.schedule_id
       ? await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(row.schedule_id).first()
       : null;
-    const why = autoPostponeEligible(row, cs);
+    const why = autoPostponeEligible(row, cs, autoApplyMode(env));
     if (why) return { applied: null, reason: why };
 
     const now = Date.now();
