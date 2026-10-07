@@ -15286,8 +15286,9 @@ async function askAI(command) {
       change_schedule:    '🔄 스케줄 변경',
       postpone_class:     '⏸ 수업 연기',
     };
-    const typeNames = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
-    const typeColor = { regular:'#3b82f6', level_test:'#f59e0b', trial:'#10b981' };
+    /* 🎨 (2026-10-07 사장님 «종류 이름·색 통일») 정규 주황 · 보강 보라 · 체험 초록 · 레벨테스트 파랑 */
+    const typeNames = { regular:'정규수업', makeup:'보강수업', level_test:'레벨테스트', trial:'체험수업' };
+    const typeColor = { regular:'#d97706', makeup:'#8b5cf6', level_test:'#3b82f6', trial:'#059669' };
     let html = '<div class="ai-answer">' + _aiEsc(res.answer || 'AI가 스케줄을 파싱했습니다') + '</div>';
     if (items.length === 0) {
       html += '<div class="ai-error" style="margin-top:10px">⚠️ 파싱된 스케줄이 없습니다. 학생명·요일·시간을 명확히 다시 입력해 주세요.</div>';
@@ -15404,8 +15405,8 @@ async function executeAiAction(name, args) {
         change_schedule:    '🔄 스케줄 변경',
         postpone_class:     '⏸ 수업 연기',
       };
-      const typeNames = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
-      const typeColor = { regular:'#3b82f6', level_test:'#f59e0b', trial:'#10b981' };
+      const typeNames = { regular:'정규수업', makeup:'보강수업', level_test:'레벨테스트', trial:'체험수업' };
+      const typeColor = { regular:'#d97706', makeup:'#8b5cf6', level_test:'#3b82f6', trial:'#059669' };
       // type 별 등록 카운트 (체험/레벨 누락 진단용)
       const typeCount = { regular: 0, trial: 0, level_test: 0 };
       ok.forEach(x => { if (typeCount[x.type] !== undefined) typeCount[x.type]++; });
@@ -15419,8 +15420,8 @@ async function executeAiAction(name, args) {
       // 유형별 카운트 (정규/체험/레벨)
       if (ok.length > 0) {
         html += '<div style="margin-top:6px;font-size:12px;color:#6b7280">📊 유형별: ' +
-          '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700">정규 ' + typeCount.regular + '</span> ' +
-          '<span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:4px">체험 ' + typeCount.trial + '</span> ' +
+          '<span style="background:#d97706;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700">정규 ' + typeCount.regular + '</span> ' +
+          '<span style="background:#059669;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:4px">체험 ' + typeCount.trial + '</span> ' +
           '<span style="background:#3b82f6;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:4px">레벨 ' + typeCount.level_test + '</span>' +
         '</div>';
       }
@@ -15564,7 +15565,7 @@ window.openNewStudentForm = function(items) {
   if (typeof items === 'string') { try { items = JSON.parse(items); } catch { items = []; } }
   if (!Array.isArray(items) || items.length === 0) return;
   const dayNames = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
-  const typeNames = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
+  const typeNames = { regular:'정규수업', makeup:'보강수업', level_test:'레벨테스트', trial:'체험수업' };
   function escAttr(s){ return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
   // Phase 7i: 동일 student_name 으로 그룹화 → 1명당 1개 fieldset, 스케줄은 리스트로
   const groups = {};
