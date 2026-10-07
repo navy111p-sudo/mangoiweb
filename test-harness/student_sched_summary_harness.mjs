@@ -130,11 +130,14 @@ if (!NO_ESBUILD) {
   }; } } };
   const okMap = await M.loadSchedSummaryMap(fake);
   check('짝: 행이 있으면 실제로 센다 (map)', okMap.get('lee')?.weekly === 1);
-  const mapSql = seen[seen.length - 1] || '';
+  /* 강사 이름 조회(teachers·teacher_account_links)도 같은 DB 로 나가므로 «마지막 질의» 가 아니라
+     «class_schedules 를 읽는 질의» 를 골라 대조한다(2026-10-07 — 강사 칸 추가 뒤). */
+  const pickSched = () => seen.filter(q => /FROM\s+class_schedules/i.test(q)).pop() || '';
+  const mapSql = pickSched();
   seen.length = 0;
   const okOne = await M.loadSchedSummaryOne(fake, 'lee');
   check('짝: 행이 있으면 실제로 센다 (one)', okOne.upcoming === 1);
-  const oneSql = seen[seen.length - 1] || '';
+  const oneSql = pickSched();
 
   /* ⚠️ 조건절을 «선언 텍스트» 로만 읽으면(③절) 그것을 쓰지 않는 질의문을 못 본다.
         실제로 나간 SQL 이 그 조건을 «담고 있는가» 로 묻는다. */
