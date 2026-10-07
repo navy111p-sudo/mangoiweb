@@ -423,6 +423,26 @@ html.dark .sgrp-h{color:#fbbf24}
 html.dark .sgrp a,html.dark .sgrp button{color:#d3dbe4}
 html.dark .sgrp a:active,html.dark .sgrp button:active{background:#242d37}
 
+/* 🖥 (2026-10-07 사장님 「PC 에서는 누를 때마다 페이지가 스크롤된다」) 넓은 화면(PC) 전용 —
+   왼쪽 메뉴를 늘 펴 두고, 메뉴를 누르면 긴 페이지를 굴리는 대신 «그 카드 하나만» 보여 준다.
+   ⚠️ 휴대폰(좁은 화면)은 전혀 안 바뀐다 — 규칙이 전부 이 미디어쿼리 안이다(창을 좁히면 예전 모양으로 돌아온다).
+   ⚠️ 카드를 숨기는 것은 «보이기» 뿐이다 — 권한으로 감춘 카드(hidden)는 그대로 감춰져 있다. */
+@media (min-width:1100px){
+  #side{transform:none;z-index:50;box-shadow:none}
+  #sideOverlay,body.side-open #sideOverlay{display:none}
+  .side-x,#sideBtn{display:none}
+  body{padding-left:272px}
+  .sgrp button.on{background:#fff4dc;color:#b45309;font-weight:800}
+  html.dark .sgrp button.on{background:#3a2c12;color:#fbbf24}
+  body.pane-on .wrap details.card:not(.pane-active),
+  body.pane-on .wrap > div.card,
+  body.pane-on .wrap .grouphead,
+  body.pane-on .wrap .hqhead,
+  body.pane-on #todo,
+  body.pane-on .qlbl,
+  body.pane-on .qbar{display:none!important}
+}
+
 /* 카드 그룹 표제 — 본문 쪽. 사이드바 소제목과 같은 색으로 「지금 어느 묶음을 보고 있는지」 잇는다. */
 .grouphead{
   font-size:12.5px;font-weight:800;color:#b45309;letter-spacing:.02em;
@@ -601,6 +621,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
           return { ok: true, applied: body.action === 'approve' ? 'moved' : undefined, status: body.action === 'approve' ? 'approved' : 'rejected' };
         };
       }
+      // 💳 (2026-10-07) 시연 계정의 수업료 결제는 «결제창을 열지 않는다» — 진짜 토스 주문·D1 기록이 생기면 안 된다.
+      if (p === '/api/admin/ai-billing/tuition/checkout') return function(){ return { ok: false, error: 'demo' }; };
       return null;
     }
     switch (p) {
@@ -661,6 +683,22 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       case '/api/admin/classes/today': return function(){
         var ss = sessions();
         return { ok: true, date: TODAY, sessions: ss, counts: { cafe24: 0, joinable: 0 }, contact_source: 'restricted' };
+      };
+      // 💳 (2026-10-07 사장님 「대리점테스트계정 수업료 정산 켜줘」) — 시연 계정은 운영 DB 에서 켜지 않고
+      //    «켜진 모습» 을 예시로 보여 준다(가짜 학원의 결제가 본사 매출·정산에 섞이지 않게). 숫자는 지어낸 것.
+      case '/api/admin/ai-billing/tuition/shop': return function(){
+        var nm = (function(m){ var y = +m.slice(0, 4), mo = +m.slice(5, 7) + 1; if (mo > 12) { mo = 1; y++; } return y + '-' + (mo < 10 ? '0' : '') + mo; })(MONTH);
+        var pm = (function(m){ var y = +m.slice(0, 4), mo = +m.slice(5, 7) - 1; if (mo < 1) { mo = 12; y--; } return y + '-' + (mo < 10 ? '0' : '') + mo; })(MONTH);
+        var lines = STUDENTS.slice(0, 6).map(function(st, i){ var c = [4, 4, 8, 4, 4, 8][i]; return { name: st.name, pattern_ko: c === 8 ? '매주 화·목' : (i % 2 ? '매주 수' : '매주 화'), pattern_en: c === 8 ? 'Tue · Thu' : (i % 2 ? 'Wed' : 'Tue'), count: c, amount: c * 15000 }; });
+        return { ok: true, shop_name: SHOPS[0].name, today: TODAY, month: MONTH, next_month: nm, enabled: true, enabled_on: MONTH + '-01',
+          unit: { price: 60000, is_default: true }, wallet: { balance: 420000 }, committed_krw: 1140000, upcoming14_krw: 570000, alert: 'low',
+          invoices: [
+            { id: 9002, kind: 'topup', month: MONTH, seq: 1, status: 'issued', due_krw: 720000, paid_krw: 0, owed_krw: 720000, due_date: kst(3), overdue: 'due_soon', first_month: false,
+              calc: { explain_ko: ['이번 달 남은 수업 1,140,000원', '지금 잔액 420,000원', '부족한 720,000원을 채웁니다'], explain_en: ['Rest of this month: 1,140,000', 'Balance now: 420,000', 'Top-up: 720,000'], lines: lines } },
+            { id: 9001, kind: 'monthly', month: pm, seq: 1, status: 'paid', due_krw: 1080000, paid_krw: 1080000, owed_krw: 0 }
+          ],
+          next_preview: { due_krw: 1200000, explain_ko: ['다음 달 예정 수업 80회 × 15,000원'], explain_en: ['Next month: 80 classes × 15,000'], lines: [] },
+          autopay: null };
       };
       case '/api/admin/omnisearch': return function(){
         var m = /q=([^&]*)/.exec(qs), w = m ? decodeURIComponent(m[1]).trim() : '';
@@ -1375,9 +1413,38 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   };
 
   // ── ⭐ 자주 쓰는 기능 바로가기 ──────────────────────────
+  /* 🖥 (2026-10-07) PC(1100px 이상)는 «한 화면에 카드 하나» — 스크롤로 옮겨 가지 않는다.
+     판정은 CSS 미디어쿼리와 «같은 숫자» 로 한다(어긋나면 휴대폰에서 카드가 사라진다). */
+  var PC_MQ = (window.matchMedia ? window.matchMedia('(min-width:1100px)') : null);
+  function pcPane(){ return !!(PC_MQ && PC_MQ.matches); }
+  function markSide(id){
+    var bs = document.querySelectorAll('#side .sgrp button');
+    for (var i = 0; i < bs.length; i++) {
+      var on = (bs[i].getAttribute('onclick') || '') === "sideGo('" + id + "')";
+      bs[i].classList.toggle('on', on);
+    }
+  }
+  function setPane(id){
+    var cur = document.querySelectorAll('.wrap details.card.pane-active');
+    for (var i = 0; i < cur.length; i++) cur[i].classList.remove('pane-active');
+    if (id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.add('pane-active');
+      document.body.classList.add('pane-on');
+    } else {
+      document.body.classList.remove('pane-on');
+    }
+    markSide(id || 'top');
+  }
   window.openCard = function(id){
     var el = document.getElementById(id);
     if (!el) return;
+    if (pcPane() && el.tagName === 'DETAILS' && !el.hidden) {
+      setPane(id);
+      if (!el.open) el.open = true;   // ontoggle → 기존 loadXxx() 가 알아서 부른다
+      try { window.scrollTo(0, 0); } catch (e) {}
+      return;
+    }
     if (!el.open) el.open = true;   // ontoggle → 기존 loadXxx() 가 알아서 부른다
     try { el.scrollIntoView({ block: 'start' }); } catch (e) { el.scrollIntoView(); }
   };
@@ -1393,7 +1460,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   };
   window.sideGo = function(id){
     closeSide();
-    if (id === 'top') { try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } return; }
+    if (id === 'top') { setPane(null); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } return; }
     window.openCard(id);
   };
 
@@ -1543,6 +1610,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (!b) return;
     var sec = document.getElementById(b.getAttribute('data-go'));
     if (!sec) return;
+    if (pcPane()) { window.openCard(sec.id); return; }   // 🖥 PC 는 그 카드 하나만(스크롤 없음)
     sec.open = true;                                  // ontoggle 이 알아서 불러온다
     try { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     catch (err) { sec.scrollIntoView(); }
@@ -2245,8 +2313,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       if (!o || o.ok !== true || !o.order_id) {
         var why = o && o.error === 'already_paid' ? T('This invoice is already paid.', '이미 결제된 청구서입니다.')
           : o && o.error === 'not_enabled' ? T('Tuition billing is not on for this academy.', '이 학원은 수업료 정산이 켜져 있지 않습니다.')
+          : o && o.error === 'demo' ? T('This is a demo account — the payment window does not open. (Sample data)', '시연용 계정이라 실제 결제창은 열리지 않습니다. (예시 데이터)')
           : T('Could not start payment.', '결제를 시작하지 못했습니다.') + (o && o.error ? ' (' + o.error + ')' : '');
-        alert(why); done(); D.tuition = null; loadTuition(); return;
+        alert(why); done(); if (o && o.error === 'demo') return; D.tuition = null; loadTuition(); return;
       }
       var ck = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
       try { var cfg = await fetch('/api/pay/config').then(function(r){ return r.json(); }); if (cfg && cfg.ok && cfg.clientKey) ck = cfg.clientKey; } catch (e) {}
@@ -3411,6 +3480,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (href) { location.href = href; return; }        // 결재함처럼 «딴 화면» 인 줄
     var sec = document.getElementById(b.getAttribute('data-card'));
     if (!sec) return;
+    if (pcPane()) { window.openCard(sec.id); return; }   // 🖥 PC 는 그 카드 하나만(스크롤 없음)
     sec.open = true;
     try { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (err) { sec.scrollIntoView(); }
   });
@@ -3457,6 +3527,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (go === 'top') {
       /* 「할 일」 = 맨 위 「오늘 봐야 할 것」. 아직 못 받았거나 볼 게 없어 숨어 있으면
          그 자리가 없으므로 화면 맨 위로 보낸다 — 눌렀는데 아무 일도 안 나는 것이 제일 나쁘다. */
+      setPane(null);   // 🖥 PC 에서 카드 하나만 보던 중이면 첫 화면으로 돌아온다
       var todo = document.getElementById('todo');
       if (todo && !todo.hidden) { try { todo.scrollIntoView({ block: 'start' }); } catch (err) { todo.scrollIntoView(); } }
       else window.scrollTo(0, 0);
