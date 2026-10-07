@@ -1121,7 +1121,7 @@ button:focus-visible{outline:3px solid #236ccd;outline-offset:3px}
           <div class="mc-icon">🔄</div>
           <div class="mc-label">수업 변경하기</div>
         </div>
-        <div class="mc-desc">원하는 다른 날짜·교사로<br>변경을 요청합니다. 관리자 승인 후 반영됩니다.</div>
+        <div class="mc-desc">원하는 다른 날짜·교사로<br>변경을 신청합니다. 신청하면 바로 반영됩니다.</div>
         <div class="mc-cta">시작하기 →</div>
       </button>
     </div>
@@ -1773,15 +1773,15 @@ function renderBody(){
     var choices = CURRENT_SCHEDULE.map(function(c,i){ return '<button type="button" class="hour-chip '+(i===state.dtOrig?'active':'')+'" data-dtsel="'+i+'">'+fmtMD(c.date)+' ('+fmtDOW(c.date)+') '+__ftEsc(c.hour)+' · '+__ftEsc(c.teacherName)+'</button>'; }).join('');
     var preview = state.cart[0];
     var details = preview && preview.seriesItems ? '<h3>연기 전 → 연기 후 · '+preview.seriesItems.length+'회</h3><ol>'+preview.seriesItems.map(function(it){return '<li>'+fmtMD(it.from_date)+' → <b>'+fmtMD(it.to_date)+'</b> · '+__ftEsc(it.to_time)+'</li>';}).join('')+'</ol>' : '<p>수업을 선택하고 다음 주 연기 일정을 확인하세요.</p>';
-    body.innerHTML = '<div class="lp-col-left"><div class="lp-seg-slot"></div><h2>수업 연기</h2><p>선택한 수업부터 같은 요일·시간·교사의 남은 수업을 한 주씩 미룹니다. 다른 요일과 총 수업 횟수는 그대로입니다.</p><div class="dt-orig">'+choices+'</div></div><div class="lp-col-right">'+renderPushBtn()+'<div class="cart-box">'+details+'<p>관리자 승인 전에는 현재 시간표가 유지됩니다.</p></div></div>';
+    body.innerHTML = '<div class="lp-col-left"><div class="lp-seg-slot"></div><h2>수업 연기</h2><p>선택한 수업부터 같은 요일·시간·교사의 남은 수업을 한 주씩 미룹니다. 다른 요일과 총 수업 횟수는 그대로입니다.</p><div class="dt-orig">'+choices+'</div></div><div class="lp-col-right">'+renderPushBtn()+'<div class="cart-box">'+details+'<p>신청하면 바로 시간표에 반영됩니다. 다른 수업과 겹치면 관리자가 확인한 뒤 반영돼요.</p></div></div>';
     attachHandlers(); lpPlaceSeg(); return;
   }
   document.getElementById('segment').style.display = '';
   lpSegHome(); // 본문 초기화 전, 탭(segment)을 안전한 위치로 회수
   var leftHtml = '<div class="lp-col-left"><div class="lp-seg-slot"></div>'
                + (__MOB_REAL ? (state.mode === 'postpone'
-                   ? '<h2>수업 연기</h2><p>' + __mobT('연기할 수업 «하나» 를 고르고 원하는 날짜·시간 또는 선생님을 선택하세요. 고른 수업만 요청되고, 관리자 승인 후 시간표에 반영됩니다.', 'Pick one class, then choose a new date/time or another teacher. Only the classes you pick are requested; staff apply them after review.') + '</p>'
-                   : '<h2>수업 변경</h2><p>변경할 수업을 고르고 희망 날짜·시간·교사를 선택하세요. 관리자 승인 후 시간표에 반영됩니다.</p>') : renderCurrentLesson()) + renderWeekly() + '</div>';
+                   ? '<h2>수업 연기</h2><p>' + __mobT('연기할 수업 «하나» 를 고르고 원하는 날짜·시간 또는 선생님을 선택하세요. 고른 수업만 신청되고, 시간표에 바로 반영됩니다(매주 반복 수업·겹치는 시간은 관리자가 확인 후 반영).', 'Pick one class, then choose a new date/time or another teacher. Only the classes you pick change, and your timetable updates right away (weekly classes or clashes are checked by staff first).') + '</p>'
+                   : '<h2>수업 변경</h2><p>변경할 수업을 고르고 희망 날짜·시간·교사를 선택하세요. 시간표에 바로 반영됩니다(매주 반복 수업·겹치는 시간은 관리자가 확인 후 반영).</p>') : renderCurrentLesson()) + renderWeekly() + '</div>';
   var rightInner;
   /* 실제 수업의 «매주 한 주씩» 은 자기 탭(weekly)이 있다 — 날짜 탭에는 예시 화면에서만 단추를 둔다. */
   if (state.tab === 'time') rightInner = (state.mode === 'postpone' && !__MOB_REAL ? renderPushBtn() : '') + renderTimeTab() + renderCartBox();
@@ -2068,7 +2068,7 @@ function renderTimeTabReal(){
     + '<span class="lg-item"><span class="lg-swatch" style="border-color:#16a34a;box-shadow:inset 0 0 0 1px #16a34a"></span>' + __mobT('초록 테두리 = 지금 선생님 그대로 가능', 'Green border = your teacher is free') + '</span>'
     + '<span class="lg-item"><span class="lg-swatch"></span>' + __mobT('테두리 없음 = 다른 선생님 확인', 'No border = check other teachers') + '</span>'
     + '<span class="lg-item"><span class="lg-swatch off"></span><span class="lg-dim">' + __mobT('흐린 칸 = 내 다른 수업과 겹치거나 지난 시간', 'Dim = overlaps your other class or already passed') + '</span></span></div>'
-    + '<div style="font-size:12.5px;color:var(--text-dim);margin:-2px 0 8px">' + __mobT('ℹ️ 지금 시간표 기준이에요 — 승인할 때 한 번 더 확인해요.', 'ℹ️ Based on the current timetable — checked again at approval.') + '</div>'
+    + '<div style="font-size:12.5px;color:var(--text-dim);margin:-2px 0 8px">' + __mobT('ℹ️ 지금 시간표 기준이에요 — 신청할 때 한 번 더 확인해요.', 'ℹ️ Based on the current timetable — checked again when you submit.') + '</div>'
     + '<div class="hour-grid">' + ds.data.slots.map(function(s){
         var off = s.past || s.student_busy;
         if (state.hour === s.t) slot = s;

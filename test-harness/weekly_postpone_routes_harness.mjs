@@ -248,25 +248,17 @@ if (process.env.SMRS_CHILD === '1') {
     if(!submitted.body.ok)continue;
     const requestId=submitted.body.id;
     /* ⏩ (2026-10-06) 학생 «무료 연기» 는 접수 즉시 자동 승인된다(student-auto-postpone.ts).
-       변경(change)은 예전처럼 대기 → 관리자 승인. */
-    if(kind==='postpone'){
+       (2026-10-07 사장님 «대리점 승인 필요 없음») 변경(change)도 접수 즉시 반영 — 둘 다 같은 검사를 받는다. */
+    {
       ok(trial+' auto-approved on submit',submitted.body.status==='approved'&&submitted.body.auto_applied==='moved',JSON.stringify(submitted.body));
       const list=await callAdmin('GET','/api/admin/schedule-requests?status=pending&limit=300',{cookie:'tok_admin'});
       ok(trial+' auto-approved not left pending',!(list.body.rows||[]).some(r=>r.id===requestId));
       const again=await callAdmin('POST','/api/admin/schedule-requests/decide',{cookie:'tok_admin',body:{id:requestId,action:'approve'}});
       ok(trial+' admin decide sees already_decided',again.status===409&&again.body.error==='already_decided',JSON.stringify(again));
     }
-    for(const cookie of (kind==='postpone'?[]:['tok_admin','tok_alpha'])){
-      const list=await callAdmin('GET','/api/admin/schedule-requests?status=pending&limit=300',{cookie});
-      ok(trial+' visible pending '+cookie,(list.body.rows||[]).some(r=>r.id===requestId&&r.request_type===kind),JSON.stringify(list.body).slice(0,120));
-    }
     const foreign=await callAdmin('GET','/api/admin/schedule-requests?status=pending&limit=300',{cookie:'tok_beta'});
     ok(trial+' other teacher excluded',!(foreign.body.rows||[]).some(r=>r.id===requestId));
-    if(kind!=='postpone'){
-      const approved=await callAdmin('POST','/api/admin/schedule-requests/decide',{cookie:'tok_admin',body:{id:requestId,action:'approve'}});
-      ok(trial+' approved actual move',approved.status===200&&approved.body.applied==='moved',JSON.stringify(approved));
-      if(approved.body.applied!=='moved')continue;
-    } else if(submitted.body.auto_applied!=='moved') continue;
+    if(submitted.body.auto_applied!=='moved') continue;
     const count=sq.prepare('SELECT COUNT(*) n FROM class_schedules').get().n;
     ok(trial+' same count and other weekday untouched',count===4&&sq.prepare('SELECT scheduled_date FROM class_schedules WHERE id=?').get(untouched).scheduled_date===addDays(TODAY,1));
     const days=kind==='postpone'?[7,14,21]:[7,7,14];
