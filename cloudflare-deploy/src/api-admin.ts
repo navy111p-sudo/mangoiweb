@@ -17,7 +17,8 @@ import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 
 import { praiseCountForRoom } from './point-policy';   // ⭐ 칭찬 횟수 정본(복제 금지)
 import { loadRevenue, loadCare, saveCare } from './forecast-dashboard';
 import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
-import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
+import { selectInChunks } from './d1-chunk';
+import { workplaceOf } from './recording-teacher';   // 🏠/🏢 강사 근무지 판정 정본(명부 group_name)   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { ensureRateOverrideTable } from './org-settlement';   // 💰 수수료·수강료 설정표 — DDL 정본은 그 파일 한 곳
 import { teacherPresenceByRoom } from './no-show-truth';
 import { enrichClassesToday } from './class-today-extras';   // 📋 오늘 수업 일곱 칸(날짜·강사입장·결제·일정·평가·출결)   // 🔎 「강사 미입장」이 오판인지 출석 기록과 대조
@@ -5190,6 +5191,28 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         const _hide = ['rate_per_10min_php','fee_per_10min','bank_account','bank_name','salary','monthly_salary','monthly_salary_php','pay_php','account_no'];
         teacherRows = teacherRows.map(r => { const o = { ...r }; for (const k of _hide) delete o[k]; return o; });
       }
+      /* 🏠/🏢 (2026-10-07 사장님 「담당 강사 옆에 전체·홈·사무실 칸」) 근무지 — 화면이 거르는 데 쓴다.
+         ⚠️ 정본은 teachers.status 가 아니라 강사 명부 teacher_profiles.group_name 이다
+            (2026-10-07 D1 실측: CHAINE·KRYSTEL·WIN 은 status='office' 인데 명부는 Home-based,
+             LEN 은 반대 — 명부 화면·녹화 목록이 이미 group_name 으로 판정한다. 같은 규칙 workplaceOf).
+         ⛔ 원부 번호(linked_teacher_id)로만 잇고, 프로필이 둘 이상인데 서로 다르면 '' (모름) — 지어내지 않는다.
+         ⚠️ 이 조회가 실패해도 목록은 그대로 — workplace 만 '' 로 남는다(화면은 «전체» 에서만 보인다). */
+      try {
+        const _wpRs = await env.DB.prepare(
+          `SELECT linked_teacher_id, group_name FROM teacher_profiles WHERE linked_teacher_id IS NOT NULL ORDER BY id DESC`
+        ).all();
+        const _wpBy = new Map<string, 'home' | 'office' | ''>();
+        for (const p of ((_wpRs.results || []) as any[])) {
+          const k = String(p.linked_teacher_id);
+          const w = workplaceOf(p.group_name);
+          if (!_wpBy.has(k)) _wpBy.set(k, w);
+          else if (_wpBy.get(k) !== w) _wpBy.set(k, '');
+        }
+        teacherRows = teacherRows.map(r => ({ ...r, workplace: _wpBy.get(String(r.id)) || '' }));
+      } catch (e: any) {
+        console.error('[teachers] 근무지 조회 실패(목록은 그대로):', e?.message || e);
+        teacherRows = teacherRows.map(r => ({ ...r, workplace: '' }));
+      }
       // items/teachers/data 별칭 모두 제공(프론트 호환: weekly-schedule.html 등)
       return json({ ok: true, items: teacherRows, teachers: teacherRows, data: teacherRows });
     }
@@ -6159,10 +6182,12 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         //    예전엔 아래 기본값에 걸려 평범한 '1:1' 로 그려졌다 — 있어도 못 알아봤다.
         if (c === 'level_test' || c === 'leveltest' || c === '레벨테스트') return 'leveltest';
         if (c === 'group' || c === '1:2' || c === 'g' || c === '그룹') return 'group';
-        // 🟦 (2026-10-06 사장님) 보충수업(makeup)도 'temp' 칸으로 — 주간 스케줄의 «임시» 를 «보충» 으로 바꿨다.
-        //    그 화면은 'temp' 로 만든 수업을 class_type='makeup' 으로 저장하는데(SLOT_TYPE_TO_CLASS_TYPE),
-        //    여기서 makeup 을 모르면 다시 읽을 때 '1on1'(보라)로 떨어져 «보충» 이 사라졌다.
-        if (c === 'temp' || c === 'substitute' || c === '대체' || c === 'makeup' || c === '보충') return 'temp';
+        // 🟣 (2026-10-06 사장님) 보강수업(makeup)도 'temp' 칸으로 — 주간 스케줄의 «임시» 를 «보강» 으로 바꿨다
+        //    (2026-10-07 «보충» → «보강» 으로 이름 통일). 그 화면은 'temp' 로 만든 수업을 class_type='makeup' 으로
+        //    저장하는데(SLOT_TYPE_TO_CLASS_TYPE), 여기서 makeup 을 모르면 다시 읽을 때 '1on1'(정규)로 떨어졌다.
+        if (c === 'temp' || c === 'substitute' || c === '대체' || c === 'makeup' || c === '보충' || c === '보강') return 'temp';
+        // 🟢 (2026-10-07 사장님 «정규·보강·체험·레벨테스트로 통일») 체험수업이 기본값에 걸려 '1on1'(정규)로 그려졌다.
+        if (c === 'trial' || c === '체험') return 'trial';
         if (c === 'blocked' || c === 'off' || c === '휴무') return 'blocked';
         return '1on1';
       };

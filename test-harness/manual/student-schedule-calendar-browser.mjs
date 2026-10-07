@@ -247,7 +247,7 @@ async function main() {
   console.log('\n── ⑤ 등록에 성공하면 캘린더도 다시 읽는가 ───────────');
   const before = await ev('(window.__calls||[]).filter(c=>/^GET .*class-schedules/.test(c)).length');
   await ev(`(async()=>{
-      var k=document.getElementById('ns-kind'); k.value='one_off'; k.dispatchEvent(new Event('change',{bubbles:true}));
+      var k=document.getElementById('ns-kind'); k.value='makeup'; k.dispatchEvent(new Event('change',{bubbles:true}));
       document.getElementById('ns-date').value = window.__WEEK.wed;
       document.getElementById('ns-time').value = '11:00';
       document.getElementById('ns-add').click();
@@ -317,7 +317,7 @@ async function main() {
      이름으로 보내면 서버가 `name = ? OR name LIKE ? LIMIT 1` 로 3(퇴사)을 붙인다. */
   await ev(`(function(){
       window.__bodies = [];
-      var k=document.getElementById('ns-kind'); k.value='one_off'; k.dispatchEvent(new Event('change',{bubbles:true}));
+      var k=document.getElementById('ns-kind'); k.value='makeup'; k.dispatchEvent(new Event('change',{bubbles:true}));
       document.getElementById('ns-date').value = window.__WEEK.wed;
       document.getElementById('ns-time').value = '13:00';
       var t=document.getElementById('ns-teacher-sel'); t.value='22'; t.dispatchEvent(new Event('change',{bubbles:true}));

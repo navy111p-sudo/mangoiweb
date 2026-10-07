@@ -1781,10 +1781,11 @@
           var nlBox = document.getElementById('tw-next-list');
           if (nlBox){
             var KIND = {
-              level_test: [en?'LEVEL TEST':'레벨테스트', 'rgba(16,185,129,0.20)', '#6ee7b7'],
-              leveltest:  [en?'LEVEL TEST':'레벨테스트', 'rgba(16,185,129,0.20)', '#6ee7b7'],
-              trial:      [en?'TRIAL':'체험수업',        'rgba(56,189,248,0.20)', '#7dd3fc'],
-              makeup:     [en?'MAKE-UP':'보강수업',      'rgba(251,191,36,0.20)', '#fcd34d'],
+              /* 🎨 (2026-10-07 사장님 «색 통일») 레벨테스트 파랑 · 체험 초록 · 보강 보라 (정규 주황 — 배지 없음) */
+              level_test: [en?'LEVEL TEST':'레벨테스트', 'rgba(59,130,246,0.20)', '#93c5fd'],
+              leveltest:  [en?'LEVEL TEST':'레벨테스트', 'rgba(59,130,246,0.20)', '#93c5fd'],
+              trial:      [en?'TRIAL':'체험수업',        'rgba(16,185,129,0.20)', '#6ee7b7'],
+              makeup:     [en?'MAKE-UP':'보강수업',      'rgba(139,92,246,0.22)', '#c4b5fd'],
             };
             var seenU = {}, upList = [];
             lessons.forEach(function(l){
