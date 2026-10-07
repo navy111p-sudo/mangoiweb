@@ -12869,7 +12869,7 @@ function renderStudentTable() {
     return `<tr>
       <td title="${safeUid}"><code>${safeUid}</code></td>
       <td title="${safeName}"><b>${safeName}</b>${smLearningBadge(s, _L)}</td>
-      <td style="text-align:center;line-height:1.7"><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세'}</a><br><a href="${smContactUrl(uid)}" target="_blank" style="color:#0369a1" title="${_L?'Edit contact & info':'연락처·정보 수정'}">✏️ ${_L?'Edit':'수정'}</a></td>
+      <td style="text-align:center;line-height:1.7"><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세'}</a><br><a href="${smContactUrl(uid)}" target="_blank" style="color:#0369a1" title="${_L?'Edit contact & info':'연락처·정보 수정'}">✏️ ${_L?'Edit':'수정'}</a><br><a href="/admin/student?uid=${uidEnc}&tab=schedule" target="_blank" style="color:#067647" title="${_L?'Calendar · teacher · move/postpone':'캘린더 · 담당 강사 · 연기·변경'}">📅 ${_L?'Schedule':'스케줄'}</a><br><a href="/admin/student?uid=${uidEnc}&tab=extension" target="_blank" style="color:#b42318" title="${_L?'End classes · extend · undo':'수업 종료 · 연장 · 되돌리기'}">🗓️ ${_L?'End/Extend':'종료·연장'}</a></td>
       <td>${_c(s.payment_type)}</td>
       <td>${_d(s.signup_date)}</td>
       <td>${_d(s.end_date)}</td>
