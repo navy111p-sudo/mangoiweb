@@ -1398,9 +1398,11 @@
       let heard = false, voiceError = '';
       _whisperOn = true; _recognizing = true; updateMicUI();
       stopSpeakingNow();   // ⏹ 말을 걸었으니 AI 낭독을 멈춥니다(큐까지 함께 — B)
-      let said = '';
+      let said = '', recBlob = null;   // 🎤 녹음 파일 — 판정이 놓친 작은 목소리를 다시 잰다(voice-has-speech.js)
       try { said = await MangoiVoice.record({
         lang: 'en',
+        onAudio: b => { recBlob = b; },
+        firstMs: auto ? 0 : 20000,     // ✋ 버튼 모드: 판정이 말소리를 못 봐도 9초에 끊지 않는다(0 = 모듈 기본값)
         onState: (s, info) => {
           if (micSeq !== _friendMicSeq) return;
           if (s === 'speaking') heard = true;
@@ -1424,6 +1426,13 @@
       if (micSeq !== _friendMicSeq) return;
       _whisperOn = false; _recognizing = false; updateMicUI();
       // Automatic listening must never submit Whisper hallucinations from silence.
+      /* 🎤 (2026-10-07) 판정(peak>8/128)이 놓친 작은 목소리는 녹음 파일로 다시 잰다 — 모르면 예전대로 버린다 */
+      if (auto && !heard && said) {
+        let v = null;
+        try { v = window.MangoiVoiceCheck ? await MangoiVoiceCheck.blobHasVoice(recBlob) : null; } catch(e) { v = null; }
+        if (micSeq !== _friendMicSeq) return;
+        if (v === true) heard = true;
+      }
       if (auto && !heard) said = '';
       if (said) {
         micHint(null);
@@ -1960,6 +1969,7 @@
 </style>
 <script defer src="/js/game-tts.js?v=6"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크). v6: 서버 실패 시 400ms 뒤 한 번 더 물어본 뒤에만 기기 목소리로 — 「목소리가 계속 변해」 -->
 <script defer src="/js/mangoi-voice-input.js?v=5"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
+<script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
 <script defer src="/js/aifriend-auto-talk.js?v=1"></script>
 <script defer src="/js/aifriend-facetalk.js?v=3"></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 얼굴 가득 + 유리판 자막, 막히면 저절로 열림) -->
 <script defer src="/js/ai-diff.js?v=2"></script><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->

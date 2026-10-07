@@ -3267,33 +3267,9 @@ async function micViaWhisper(){
   if(said && manual && !_whisperUserStop){ _micManualHold(said); return; }   // ✋ 수동: ⏹ 를 눌러야 보낸다
   if(said){ document.getElementById('inp').value=said; sendMsg(); }
 }
-/* 🎤 녹음 파일에 «말소리» 가 있는가 — true / false / null(모름: 디코드 불가).
-   소리 크기만이 아니라 «바닥 소음 대비» 로 본다: 완전 무음·일정한 잡음에서 Whisper 가 지어낸 글자는 계속 버린다. */
-function _voiceInSamples(x, sr){
-  if(!x || !x.length || !sr) return null;
-  var n=Math.max(1, Math.round(sr*0.02)), fr=[];
-  for(var i=0;i+n<=x.length;i+=n){ var s=0; for(var j=i;j<i+n;j++) s+=x[j]*x[j]; fr.push(Math.sqrt(s/n)); }
-  if(fr.length<5) return false;
-  var srt=fr.slice().sort(function(a,b){return a-b;});
-  var floor=srt[Math.floor(srt.length*0.02)], top=srt[srt.length-1];   // 하위 2% — 쉬지 않고 길게 말해도 말소리를 바닥으로 잡지 않게
-  var th=Math.max(0.006, floor*3), loud=0;
-  for(var k=0;k<fr.length;k++) if(fr[k]>th) loud++;
-  return top>=0.008 && top>=floor*4 && loud>=8;    // 8칸 = 160ms 이상 — 딸깍 한 번은 말이 아니다
-}
+/* 🎤 녹음 파일 말소리 판정은 공용 정본 js/voice-has-speech.js — 없으면 null(예전대로 버림) */
 function _blobHasVoice(blob){
-  return new Promise(function(res){
-    try{
-      var AC=window.AudioContext||window.webkitAudioContext;
-      if(!AC || !blob || !blob.arrayBuffer) return res(null);
-      blob.arrayBuffer().then(function(ab){
-        var ac=new AC(), done=false;
-        function end(v){ if(done)return; done=true; try{ ac.close(); }catch(e){} res(v); }
-        var ok=function(buf){ try{ end(_voiceInSamples(buf.getChannelData(0), buf.sampleRate)); }catch(e){ end(null); } };
-        try{ var pr=ac.decodeAudioData(ab, ok, function(){ end(null); }); if(pr && pr.catch) pr.catch(function(){ end(null); }); }catch(e){ end(null); }
-        setTimeout(function(){ end(null); }, 4000);
-      }).catch(function(){ res(null); });
-    }catch(e){ res(null); }
-  });
+  try{ return window.MangoiVoiceCheck ? MangoiVoiceCheck.blobHasVoice(blob) : Promise.resolve(null); }catch(e){ return Promise.resolve(null); }
 }
 /* ✨ 자동 말하기(베타, 2026-09-24) — 켜는 «시점» 만 js/warmup-auto-talk.js 가 정한다.
    듣기·말 끝 판단·전송은 이 파일의 기존 코드 그대로다. 모듈이 없거나 죽어도 버튼 모드는 그대로 돈다. */
@@ -4380,6 +4356,7 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 }
 </style>
 <script defer src="/js/mangoi-voice-input.js?v=5"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
+<script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
 <script defer src="/js/ai-diff.js?v=2"></script>
 <script defer src="/js/warmup-howto.js?v=5"></script><!-- 📘 A.i말하기 사용방법 쉽게 알기 안내창 (2026-10-03) --><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
 <script defer src="/js/back-nav.js"></script>
