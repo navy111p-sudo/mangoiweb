@@ -558,6 +558,15 @@
                 <select id="ns-teacher-sel" style="padding:5px 8px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:6px;font-size:12px;width:158px"><option value="">불러오는 중… / Loading…</option></select>
                 <input type="text" id="ns-teacher" placeholder="예: 강선생님" style="display:none;padding:5px 8px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:6px;font-size:12px;width:130px">
               </label>
+              <!-- 🏠/🏢 (2026-10-07 사장님) 담당 강사 옆 «근무지» 칸 — 전체·홈·사무실로 강사 목록을 거른다.
+                   근거는 서버가 실어 주는 workplace(강사 명부 group_name — workplaceOf). 모르는 강사는 «전체» 에만 나온다. -->
+              <label id="ns-wp-wrap" style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8">근무지 / Place
+                <select id="ns-teacher-wp" style="padding:5px 8px;border:1px solid #cbd5e1;background:#ffffff;color:#101828;border-radius:6px;font-size:12px;width:150px">
+                  <option value="">전체 / All</option>
+                  <option value="home">🏠 홈 / Home</option>
+                  <option value="office">🏢 사무실 / Office</option>
+                </select>
+              </label>
               <!-- 🚪 (2026-09-22) 퇴사 강사는 기본으로 뺀다 + 되돌릴 길을 화면에 둔다.
                    adm-teacher-links.js(2026-09-09)가 같은 쌍(FAR/HT FARRAH)으로 이미 정한 방식이다 —
                    두 화면이 서로 다른 말을 하면 다음 사람이 어느 쪽을 믿을지 모른다. -->
@@ -4229,6 +4238,8 @@ async function cancelAiSchedule(id) {
   var leftChkEl = document.getElementById('ns-show-left');
   var leftLbEl = document.getElementById('ns-show-left-lb');
   var teacherRows = [];
+  var wpEl = document.getElementById('ns-teacher-wp');
+  var wpWrapEl = document.getElementById('ns-wp-wrap');
 
   function nsTeacherActive(t){
     /* ⚠️ active 가 NULL·빈 값이면 «재직» 이다 — Number(null)===0 이라
@@ -4244,11 +4255,19 @@ async function cancelAiSchedule(id) {
     return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  function nsBuildTeacherOptions(rows, showLeft){
+  /* 🏠/🏢 근무지 거르기 — wp 가 비면(전체) 다 통과. 서버가 준 workplace 만 본다(화면에서 짐작하지 않음).
+     ⚠️ 모르는 강사(workplace '')는 홈·사무실 어느 쪽에도 안 넣는다 — 틀린 쪽에 넣는 것보다 «전체» 에만 두는 게 낫다. */
+  function nsWpMatch(t, wp){
+    if (!wp) return true;
+    return String((t && t.workplace) || '') === wp;
+  }
+
+  function nsBuildTeacherOptions(rows, showLeft, wp){
     var live = [], gone = [], i, t;
     for (i = 0; i < (rows || []).length; i++) {
       t = rows[i];
       if (!t || t.id === null || t.id === undefined || !String(t.name == null ? '' : t.name).trim()) continue;
+      if (!nsWpMatch(t, wp)) continue;
       (nsTeacherActive(t) ? live : gone).push(t);
     }
     var opt = function(t, suffix){
@@ -4266,19 +4285,33 @@ async function cancelAiSchedule(id) {
     var showLeft = !!(leftChkEl && leftChkEl.checked);
     /* ⚠️ 다시 그리면 고른 값이 날아간다 — 그 값이 아직 목록에 있으면 되돌려 놓는다. */
     var keep = String(selEl.value || '');
-    selEl.innerHTML = nsBuildTeacherOptions(teacherRows, showLeft);
+    var wp = wpEl ? String(wpEl.value || '') : '';
+    selEl.innerHTML = nsBuildTeacherOptions(teacherRows, showLeft, wp);
     if (keep) selEl.value = keep;
-    var goneN = 0;
+    /* ⚠️ 고른 강사가 이번 거르기에서 빠졌으면 조용히 «지정 안 함» 이 된다 — 그 사실을 말한다. */
+    if (keep && String(selEl.value || '') !== keep) say('ℹ️ 고른 강사가 이 근무지에 없어 선택이 풀렸습니다. / The picked teacher is not in this place — selection cleared.', '#b45309');
+    var goneN = 0, cnt = { '': 0, home: 0, office: 0 };
     for (var i = 0; i < teacherRows.length; i++) {
       var t = teacherRows[i];
       if (!t || t.id === null || t.id === undefined || !String(t.name == null ? '' : t.name).trim()) continue;
-      if (!nsTeacherActive(t)) goneN++;
+      if (!nsTeacherActive(t)) { if (nsWpMatch(t, wp)) goneN++; if (!showLeft) continue; }
+      cnt['']++;
+      var w = String(t.workplace || '');
+      if (w === 'home' || w === 'office') cnt[w]++;
+    }
+    if (wpEl) {
+      var lb = { '': '전체 / All', home: '🏠 홈 / Home', office: '🏢 사무실 / Office' };
+      for (var k = 0; k < wpEl.options.length; k++) {
+        var o = wpEl.options[k];
+        o.textContent = lb[o.value] + ' (' + cnt[o.value] + ')';
+      }
     }
     /* ⚠️ 감춘 사람이 없으면 체크박스 자체를 안 보인다 — 잃는 정보가 없다. */
     if (leftWrapEl) leftWrapEl.style.display = goneN ? 'flex' : 'none';
     if (leftLbEl) leftLbEl.textContent = '퇴사 강사도 보기 (' + goneN + '명) / Show left';
   }
   if (leftChkEl) leftChkEl.addEventListener('change', nsSyncTeacherOptions);
+  if (wpEl) wpEl.addEventListener('change', nsSyncTeacherOptions);
 
   function nsFallbackToText(why){
     /* ⛔ 목록을 못 받으면 «옆 텍스트 칸» 으로 떨어진다 — 강사 칸이 통째로
@@ -4286,6 +4319,7 @@ async function cancelAiSchedule(id) {
     if (selEl) selEl.style.display = 'none';
     if (txtEl) txtEl.style.display = '';
     if (leftWrapEl) leftWrapEl.style.display = 'none';
+    if (wpWrapEl) wpWrapEl.style.display = 'none';
     say('⚠️ 강사 목록을 못 받아 이름을 직접 입력합니다' + (why ? ' (' + why + ')' : '')
       + '. / Teacher list unavailable — type the name.', '#b45309');
   }
