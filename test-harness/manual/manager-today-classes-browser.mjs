@@ -55,6 +55,8 @@ const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbo
 /* ⚠️ isMobile 은 켜지 않는다 — 그 문맥은 레이아웃 뷰포트가 어긋나 «멀쩡한 버튼이 안 눌린다» 는
    거짓 실패를 만든다(CLAUDE.md 2장). 폭만 좁히면 반응형 확인에는 충분하다. */
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+/* 📋 (2026-10-07) 이 검사는 «자세히 보기» 의 줄(연기·입장·교재 배지)을 잰다 — 기본은 «간단히» 라 켜 두고 시작 */
+await ctx.addInitScript(() => { try { localStorage.setItem('mgr_today_detail', '1'); } catch (e) {} });
 const page = await ctx.newPage();
 
 // ── API 스텁 — 카페24 2건(입장 불가) + 망고아이 2건(1건 입장 가능) ────────────
@@ -192,6 +194,51 @@ const of = await narrow.evaluate(() => ({
 }));
 check(`⑭ 문서가 가로로 넘치지 않는다  [${of.doc} ≤ ${of.win}]`, of.doc <= of.win);
 check(`⑮ 한 줄이 3줄 이상으로 쪼개지지 않는다  [최대 ${of.worst}줄]`, of.worst <= 3);
+
+console.log('\n── 6. 📋 기본은 «간단히» — 시간·이름·아이디·강사 네 칸만 (2026-10-07 사장님) ──');
+/* 위 1~5 는 «자세히 보기» 를 켜고 잰다. 여기는 새 문맥(저장값 없음) = 사람이 처음 보는 화면. */
+const SIMPLE = JSON.parse(JSON.stringify(TODAY));
+SIMPLE.sessions.forEach((s, i) => { s.student_uid = 'demo00' + (i + 1); s.schedule_id = s.source === 'mangoi' ? 1000 + i : null; s.can_move = true; });
+for (const W of [1280, 390]) {
+  const sc = await browser.newContext({ viewport: { width: W, height: 900 } });
+  const sp = await sc.newPage();
+  await sp.route('**/api/**', async (route) => {
+    const u = new URL(route.request().url());
+    const send = (b) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
+    if (u.pathname === '/api/admin/classes/today') return send(SIMPLE);
+    if (u.pathname === '/api/admin/me') return send({ ok: true, username: 'mgr_melca', scope_type: 'hq' });
+    return send({ ok: true });
+  });
+  await sp.goto('http://127.0.0.1:8893/manager.html', { waitUntil: 'networkidle' });
+  await sp.evaluate(() => { const d = document.getElementById('hqCards'); if (d) d.hidden = false; document.getElementById('c-today').open = true; });
+  await sp.waitForFunction(() => /홍민수/.test(document.getElementById('todayAllBody')?.textContent || ''), null, { timeout: 5000 }).catch(() => {});
+  const r = await sp.evaluate(() => {
+    const rows = [...document.querySelectorAll('#todayAllBody .row')];
+    return {
+      n: rows.length, simple: rows.filter((x) => x.classList.contains('ta-s')).length,
+      cells: rows.map((x) => [...x.children].map((c) => c.innerText.trim())),
+      extra: !!document.querySelector('#todayAllBody [data-ta], #todayAllBody a[onclick*="taJoin"], #todayAllBody [data-bookpin], #todayAllBody [data-calpin], #todayAllBody .tag'),
+      lines: Math.max(...rows.map((x) => Math.round(x.getBoundingClientRect().height / (parseFloat(getComputedStyle(x).lineHeight) || 20)))),
+      doc: document.documentElement.scrollWidth, win: innerWidth,
+      warn: (() => { const e = [...document.querySelectorAll('#todayAllBody .row span')].find((s) => /미배정|unassigned/.test(s.textContent)); return e ? getComputedStyle(e).color : ''; })(),
+    };
+  });
+  check(`⑱ [${W}px] 네 줄 모두 «간단히» 줄이다`, r.n === 4 && r.simple === 4, `[${r.simple}/${r.n}]`);
+  check(`⑲ [${W}px] 한 줄 = 시간·이름·아이디·강사 네 칸`, r.cells.every((c) => c.length === 4)
+    && r.cells.some((c) => c[0] === '21:30' && c[1] === '홍민수' && c[2] === 'demo001' && c[3] === 'HANNAH'), JSON.stringify(r.cells[0]));
+  check(`⑳ [${W}px] 연기·입장·교재·캘린더 배지는 안 보인다`, !r.extra);
+  check(`㉑ [${W}px] 각 줄이 한 줄로 그려진다  [최대 ${r.lines}줄]`, r.lines <= 2);
+  check(`㉒ [${W}px] 가로로 넘치지 않는다  [${r.doc} ≤ ${r.win}]`, r.doc <= r.win);
+  check(`㉓ [${W}px] 강사 미배정은 경고색  [${r.warn}]`, /^rgb\(180, 83, 9\)/.test(r.warn));
+  // 자세히 보기로 바꾸면 예전 줄이 그대로 나오고, 다시 누르면 돌아온다 (짝)
+  await sp.click('#todayAllBody .ta-mode');
+  const d = await sp.evaluate(() => ({ simple: document.querySelectorAll('#todayAllBody .row.ta-s').length,
+    move: document.querySelectorAll('#todayAllBody [data-ta]').length, lms: /LMS/.test(document.getElementById('todayAllBody').innerText) }));
+  check(`㉔ [${W}px] «자세히 보기» 를 누르면 연기·변경·LMS 표시가 다시 나온다`, d.simple === 0 && d.move === 2 && d.lms, JSON.stringify(d));
+  await sp.click('#todayAllBody .ta-mode');
+  check(`㉕ [${W}px] 다시 누르면 «간단히» 로 돌아온다`, await sp.evaluate(() => document.querySelectorAll('#todayAllBody .row.ta-s').length) === 4);
+  await sc.close();
+}
 
 await browser.close(); server.close();
 console.log('\n─────────────────────────────────────────────');
