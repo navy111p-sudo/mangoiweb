@@ -168,7 +168,8 @@ const win1 = runQa(dom1);
 const labels = labelsOf(dom1.box.innerHTML);
 /* 2026-08-30 「수업 관제탑」이 들어와 12개가 되었다(사장님 「바로바로 들어가서 볼 수 있게」).
    ⚠️ 결재함과 같은 href 칸이라 카드가 없다 — 아래 ④ 의 검사 대상이 하나 더 늘었다. */
-check(`항목이 12개 렌더된다 (실제: ${labels.length})`, labels.length === 12);
+/* 2026-10-07 「수강 종료 · 종료 후보」(매니저 요청 4)가 들어와 13개가 되었다. */
+check(`항목이 13개 렌더된다 (실제: ${labels.length})`, labels.length === 13);
 check(`첫 항목이 「결재함」이다 (실제: "${labels[0] || ''}")`, labels[0] === '결재함');
 check(`그 다음이 「오늘 수업」이다 (실제: "${labels[1] || ''}")`, /^오늘 수업/.test(labels[1] || ''));
 ['출결 현황', '결제 · 미납', '평가서', '문의 · 신규상담'].forEach((l) =>
@@ -215,7 +216,7 @@ console.log('\n[ ④ 역할 권한으로 감춰진 카드는 «바로가기도»
   const ls = labelsOf(dom.box.innerHTML);
   check('권한 없는 「평가서」가 목록에서 빠진다', !ls.includes('평가서'));
   check('권한 없는 「결제 · 미납」이 목록에서 빠진다', !ls.includes('결제 · 미납'));
-  check(`나머지는 그대로 남는다 (실제: ${ls.length}개)`, ls.length === 10 && ls.includes('출결 현황'));
+  check(`나머지는 그대로 남는다 (실제: ${ls.length}개)`, ls.length === 11 && ls.includes('출결 현황'));
   /* 🪤 결재함은 «가리킬 카드» 가 없다 — 카드의 display 만 보고 판정하면 조용히 사라진다.
      결재는 지사·대리점도 올려야 하는 일이라 사라지면 안 된다. */
   check('카드가 없는 「결재함」은 권한 판정에서 빠지지 않는다', ls[0] === '결재함');
@@ -225,8 +226,8 @@ console.log('\n[ ④ 역할 권한으로 감춰진 카드는 «바로가기도»
   const dom = makeDom({ cardIds: ALL });
   ALL.forEach((id) => dom.cards[id].classList.add('ia6-hide'));
   runQa(dom);
-  check('.ia6-hide 는 권한 숨김이 아니다 — 12개가 그대로 남는다',
-    labelsOf(dom.box.innerHTML).length === 12);
+  check('.ia6-hide 는 권한 숨김이 아니다 — 13개가 그대로 남는다',
+    labelsOf(dom.box.innerHTML).length === 13);
 }
 {
   // 🔴 (2026-08-08 실측 회귀) 바깥 컨테이너 #legacy-cards 가 display:none 인 순간이 있다.
@@ -234,8 +235,8 @@ console.log('\n[ ④ 역할 권한으로 감춰진 카드는 «바로가기도»
   //    컨테이너의 display 는 «지금 무엇을 보여 주는가» 이지 «이 사람이 볼 수 있는가» 가 아니다.
   const dom = makeDom({ cardIds: ALL, containerHidden: true });
   runQa(dom);
-  check('바깥 컨테이너가 감춰져 있어도 12개가 그대로 남는다 (권한과 화면전환을 구분한다)',
-    labelsOf(dom.box.innerHTML).length === 12);
+  check('바깥 컨테이너가 감춰져 있어도 13개가 그대로 남는다 (권한과 화면전환을 구분한다)',
+    labelsOf(dom.box.innerHTML).length === 13);
 }
 
 console.log('\n[ ⑤ 🐞 data-ko 는 «span 에만» — 바깥 div 에 붙으면 아이콘이 지워진다 ]');
@@ -284,7 +285,7 @@ check('망가진 사용기록(JSON 아님)에도 죽지 않는다', (() => {
     const bad = memStore({ mangoi_qa_use: '{{{망가짐' });
     const dom = makeDom({ cardIds: ALL });
     runQa(dom, bad);
-    return labelsOf(dom.box.innerHTML).length === 12;
+    return labelsOf(dom.box.innerHTML).length === 13;
   } catch { return false; }
 })());
 

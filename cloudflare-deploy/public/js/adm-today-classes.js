@@ -572,6 +572,69 @@
     for (var i = 0; i < _rows.length; i++) if (String(_rows[i].schedule_id) === String(sid)) return _rows[i];
     return null;
   }
+  /* 📩 메시지 — 누가 보낼 수 있나(화면 판정). 정본은 서버(enrollAdminHqOnly)이고 여기는 «안 되는 버튼» 을 안 그리는 것뿐.
+     역할을 모르면 그린다(서버가 최종 판정 — 본사 화면이 잠깐 비는 것보다 낫다). */
+  function tcCanMessage() {
+    var role = '';
+    try { role = (window.__ADM_ME && window.__ADM_ME.role) ? String(window.__ADM_ME.role) : ''; } catch (e) {}
+    return ['teacher', 'franchise', 'branch', 'agency'].indexOf(role) < 0;
+  }
+  function tcMsgModalClose() { var m = document.getElementById('tc-msg-modal'); if (m) m.remove(); }
+  function tcOpenMsgModal(el) {
+    tcMsgModalClose();
+    var uid = el.getAttribute('data-uid') || '', name = el.getAttribute('data-name') || uid;
+    var tch = el.getAttribute('data-teacher') || '', tm = el.getAttribute('data-time') || '';
+    var tpl = T(
+      '[망고아이] ' + name + ' 학생, 오늘' + (tm ? ' ' + tm : '') + ' 수업 안내입니다.\n'
+        + (tch ? tch + ' 선생님께 ' : '선생님께 ') + '갑작스러운 기술 문제가 생겨 잠시 지연되고 있습니다. 조금만 기다려 주세요. 불편을 드려 죄송합니다.',
+      '[Mangoi] Hi ' + name + ', about your class today' + (tm ? ' at ' + tm : '') + ':\n'
+        + 'Your teacher' + (tch ? ' (' + tch + ')' : '') + ' has a sudden technical problem, so the class is slightly delayed. Please wait a moment. We are sorry for the inconvenience.'
+    );
+    var box = document.createElement('div');
+    box.id = 'tc-msg-modal';
+    box.setAttribute('role', 'dialog');
+    box.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:100002;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
+    box.innerHTML = '<div style="background:#ffffff;color:#101828;border-radius:12px;max-width:520px;width:100%;padding:18px;margin:auto;box-shadow:0 10px 30px rgba(0,0,0,.25)">'
+      + '<div style="font-weight:800;font-size:15px;margin-bottom:6px">📩 ' + T('학생에게 안내 보내기', 'Send a notice to the student') + '</div>'
+      + '<div style="font-size:12.5px;color:#475467;margin-bottom:8px">' + esc(name) + ' · <code>' + esc(uid) + '</code></div>'
+      + '<textarea id="tc-msg-text" rows="6" style="width:100%;box-sizing:border-box;background:#ffffff;color:#101828;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font-size:13px"></textarea>'
+      + '<div style="display:flex;gap:14px;margin:8px 0;font-size:13px;color:#344054">'
+      +   '<label><input type="checkbox" id="tc-msg-push" checked> ' + T('푸시', 'Push') + '</label>'
+      +   '<label><input type="checkbox" id="tc-msg-sms" checked> ' + T('문자(SMS)', 'SMS') + '</label></div>'
+      + '<div style="font-size:11.5px;color:#475467;margin-bottom:10px">' + T('푸시는 그 학생이 알림을 켰을 때만, 문자는 연락처가 등록돼 있을 때만 갑니다. 결과를 아래에 그대로 알려 드립니다.',
+          'Push reaches the student only if they turned on notifications; SMS only if a phone number is on file. The result is shown below.') + '</div>'
+      + '<div id="tc-msg-out" style="font-size:12.5px;min-height:18px;margin-bottom:8px"></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end">'
+      +   '<span role="button" tabindex="0" id="tc-msg-cancel" style="cursor:pointer;padding:7px 14px;border-radius:8px;border:1px solid #cbd5e1;color:#344054;background:#ffffff">' + T('닫기', 'Close') + '</span>'
+      +   '<span role="button" tabindex="0" id="tc-msg-send" style="cursor:pointer;padding:7px 14px;border-radius:8px;background:#067647;color:#ffffff;font-weight:800">' + T('보내기', 'Send') + '</span>'
+      + '</div></div>';
+    document.body.appendChild(box);
+    document.getElementById('tc-msg-text').value = tpl;
+    box.addEventListener('click', function (e) { if (e.target === box) tcMsgModalClose(); });
+    document.getElementById('tc-msg-cancel').addEventListener('click', tcMsgModalClose);
+    var busy = false;
+    document.getElementById('tc-msg-send').addEventListener('click', function () {
+      if (busy) return;
+      var out = document.getElementById('tc-msg-out');
+      var msg = String(document.getElementById('tc-msg-text').value || '').trim();
+      var push = document.getElementById('tc-msg-push').checked, sms = document.getElementById('tc-msg-sms').checked;
+      if (!msg) { out.style.color = '#b42318'; out.textContent = T('보낼 내용을 적어 주세요.', 'Please write a message.'); return; }
+      if (!push && !sms) { out.style.color = '#b42318'; out.textContent = T('푸시나 문자 중 하나는 골라 주세요.', 'Pick push or SMS.'); return; }
+      busy = true; out.style.color = '#475467'; out.textContent = T('보내는 중…', 'Sending…');
+      fetch('/api/admin/retention/care', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: uid, action_type: 'class_notice', message: msg, push: push, sms: sms, title: T('망고아이 수업 안내', 'Mangoi class notice') })
+      }).then(function (r) { return r.json().then(function (j) { return { r: r, j: j }; }, function () { return { r: r, j: {} }; }); })
+        .then(function (x) {
+          busy = false;
+          var j = x.j || {};
+          if (x.r.ok && j.ok === true && j.status === 'sent') { out.style.color = '#067647'; out.textContent = '✅ ' + (j.detail || T('보냈습니다', 'Sent')); }
+          else if (x.r.ok && j.ok === true) { out.style.color = '#b42318'; out.textContent = '⚠️ ' + T('아무 데도 닿지 않았습니다: ', 'Not delivered: ') + (j.detail || ''); }
+          else { out.style.color = '#b42318'; out.textContent = '❌ ' + (j.who_line ? j.who_line + ' ' : '') + (j.detail || j.message || j.error || x.r.status); }
+        }, function (e) { busy = false; out.style.color = '#b42318'; out.textContent = '❌ ' + T('통신 오류: ', 'Network error: ') + (e && e.message || e); });
+    });
+  }
+
   function tcOpenMoveModal(sid) {
     var r = mvRowOf(sid);
     if (!r || !window.mangoiMoveModal) return;
@@ -993,6 +1056,20 @@
               }
             }
           }
+          /* 📩 (2026-10-07 매니저 요청 3) 「강사에게 기술 문제가 생겼다」 같은 안내를 그 학생에게 바로 —
+             카페24 「메시지 보내기」(PUSH+SMS)에 해당. 서버 정본은 /api/admin/retention/care 의 'class_notice'
+             (본사 전용 · 받아 둔 번호 먼저 · 하나도 안 닿으면 «못 보냈다» 고 말함).
+             ⛔ 강사·지사·대리점에는 안 그린다(서버도 403) — «눌러도 안 되는 버튼» 을 만들지 않는다.
+             ⛔ <button> 대신 span[role=button] — 카드 안 전역 button 규칙이 파란 알약으로 덮는다. */
+          if (s.student_uid && tcCanMessage()) {
+            act += '<span class="tc-msg-pin" role="button" tabindex="0" data-uid="' + esc(s.student_uid) + '" '
+              + 'data-name="' + esc(s.student_name || s.student_uid) + '" data-teacher="' + esc(s.teacher_name || '') + '" '
+              + 'data-time="' + esc(s.start_time || '') + '" '
+              + 'title="' + T('이 학생에게 안내(푸시·문자)를 보냅니다', 'Send a notice (push · SMS) to this student') + '" '
+              + 'style="cursor:pointer;display:inline-block;white-space:nowrap;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+              + 'background:#ecfdf3;color:#067647;border:1px solid #a6e9c5">'
+              + T('📩 메시지', '📩 Message') + '</span>';
+          }
           /* 📚 (2026-08-25 보고서 ①) 옛 LMS 한 줄에 있던 「TEXTBOOK 배정 없음」 배지의 대응.
              수업 «전에» 손써야 하는 줄이라 눈에 띄어야 한다 — 배정된 줄은 조용히 교재명만. */
           /* 🎯 (2026-09-08 사장님 요청) 미배정 배지를 누르면 «그 학생만» 배정 창이 열린다.
@@ -1155,6 +1232,16 @@
       });
     }
     bindStChips(box);
+    var mss = box.querySelectorAll('.tc-msg-pin');
+    for (var si2 = 0; si2 < mss.length; si2++) {
+      (function (el) {
+        var open = function (ev) { if (ev) ev.preventDefault(); tcOpenMsgModal(el); };
+        el.addEventListener('click', open);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') open(ev);
+        });
+      })(mss[si2]);
+    }
     var mvs = box.querySelectorAll('.tc-move-pin');
     for (var mi = 0; mi < mvs.length; mi++) {
       (function (el) {

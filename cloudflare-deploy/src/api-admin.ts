@@ -42,6 +42,7 @@ import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap,
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { ensureScheduleChangeRequestTable } from './student-schedule-request';
 import { enqueueNotification, sendPushToUser } from './api-notify';
+import { phonesForStudent } from './notify-contacts';   // 📣 (2026-10-07) 수업 안내 문자 — 받아 둔 번호 먼저
 import { scopeFragments, studentScopeWhere, getScope, franchiseList, scopeStudentCond, scopeFranchiseCond, scopeCenterCond, canEditOrg } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(학부모봇과 공유)
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
@@ -7395,6 +7396,43 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const deny = await enrollAdminHqOnly(request, env);
       if (deny) return deny;
       const body: any = await request.json().catch(() => ({}));
+      /* ↩ (2026-10-07 매니저 요청 4) { action:'restore' } — 잘못 «수업 종료» 한 수업을 되살린다.
+         학생 상세 「🗓️ 종료·연장」이 DELETE(=cancelled) 로 내린 행을 그 자리 그대로 active 로 돌린다.
+         ⛔ source 는 안 바꾼다 — DELETE 가 미러 행에 찍은 'c24-mirror:manual' 이 남아야 미러가 그 행을
+            «사람 손» 으로 보고 덮지도·두 벌 만들지도 않는다.
+         ⛔ 같은 학생·같은 날짜·같은 시각에 이미 살아 있는 수업이 있으면 되살리지 않는다(두 벌 방지).
+         ⛔ 지난 날짜는 되살리지 않는다(지난 수업을 «예정» 으로 만들면 결석 감지·급여가 엉킨다). */
+      if (body && body.action === 'restore') {
+        const actor = await getAdminActor(request, env as any);
+        const row: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
+        if (!row) return json({ ok: false, error: 'not_found' }, 404);
+        if (String(row.status || '') !== 'cancelled') return json({ ok: false, error: 'not_cancelled', status: row.status || null }, 409);
+        const sd = String(row.scheduled_date || '').slice(0, 10);
+        const todayKst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(sd) && sd < todayKst) return json({ ok: false, error: 'past_date' }, 409);
+        /* ⛔ 날짜 없는 매주 반복 행은 여기서 되살리지 않는다 — 날짜·중복 확인을 할 수 없다(시간표에서 다시 등록). */
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(sd)) return json({ ok: false, error: 'weekly_row' }, 409);
+        /* ⚠️ 중복 확인을 못 하면 «없다» 로 넘기지 않는다(fail-closed) — 두 벌이 되는 쪽이 더 나쁘다.
+           학생 쪽(같은 학생·같은 시각)과 강사 쪽(같은 강사·같은 시각, LMS·시드 자리표시 제외)을 함께 본다. */
+        let dup: any = null;
+        try {
+          dup = await env.DB.prepare(
+            `SELECT id FROM class_schedules WHERE id <> ? AND scheduled_date = ? AND substr(start_time,1,5) = substr(?,1,5) AND status != 'cancelled'
+               AND (user_id = ? OR (? <> '' AND teacher_id = ? AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed'))) LIMIT 1`
+          ).bind(id, sd, String(row.start_time || ''), row.user_id, String(row.teacher_id || ''), String(row.teacher_id || '')).first();
+        } catch (e: any) { return json({ ok: false, error: 'lookup_failed' }, 409); }
+        if (dup) return json({ ok: false, error: 'slot_taken', other_id: dup.id }, 409);
+        const upd: any = await env.DB.prepare(`UPDATE class_schedules SET status='active', updated_at=? WHERE id=? AND status='cancelled'`).bind(Date.now(), id).run();
+        if (!(upd && upd.meta && upd.meta.changes > 0)) return json({ ok: false, error: 'not_cancelled' }, 409);
+        await writeClassAudit(env, {
+          action: 'restore', schedule_id: id,
+          teacher_name: row.teacher_name || null, student_name: row.student_name || null,
+          lesson_date: sd || null, lesson_time: row.start_time || null,
+          actor: actor.name || actor.username || '관리자', actor_role: 'admin', source: 'ui',
+          reason: body.reason ? String(body.reason).slice(0, 300) : '수업 종료 되돌리기',
+        });
+        return json({ ok: true, id, status: 'active' });
+      }
       if (!body || body.action !== 'split') return json({ ok: false, error: 'unknown_action' }, 400);
       const dry = body.dry_run !== false;
       const actor = await getAdminActor(request, env as any);
@@ -9097,6 +9135,44 @@ ${chatSampleText}
            ℹ️ 「장기 결석생」 화면의 퀵케어는 이 경로가 아니라 sms:·tel: 링크라 손대지 않았다
               (그쪽은 폰의 문자앱을 열어 줄 뿐이라 «보냈다» 고 말하지 않는다). */
         const _careTo = parentPhone || studentPhone || '';
+        /* 📣 (2026-10-07 매니저 요청 3) 'class_notice' — 「오늘 수업」 줄에서 «강사가 기술 문제로 못 하게 됐다» 같은
+           안내를 그 학생에게 바로 보낸다(카페24 「메시지 보내기」 PUSH+SMS 에 해당).
+           - 받는 곳 둘: ① 웹푸시(그 학생 계정이 알림을 켰을 때만) ② 문자(번호는 정본 phonesForStudent —
+             화면에서 받아 둔 번호(override)를 먼저 본다. 위 _careTo 는 명부만 봐서 그 번호를 못 본다).
+           - 🔒 돈이 나가고 우리 이름으로 나가는 문자라 강사·지사·대리점은 막는다(모르면 막는 쪽).
+           - ⚠️ «하나라도 닿았는가» 로 sent/failed 를 가른다 — 둘 다 0이면 «보냈다» 고 하지 않는다. */
+        if (actionType === 'class_notice') {
+          //    판정은 정본 enrollAdminHqOnly(스코프를 다시 읽고 못 읽으면 막음 — getAdminActor 의 fail-open 을 안 탄다).
+          const _cnDeny = await enrollAdminHqOnly(request, env);
+          if (_cnDeny) return _cnDeny;
+          if (!message) return json({ ok: false, error: 'empty_message' }, 400);
+          const _wantPush = b.push !== false, _wantSms = b.sms !== false;
+          const parts: string[] = [];
+          let reached = 0;
+          if (_wantPush) {
+            const pr: any = await sendPushToUser(env as any, uid, String(b.title || '망고아이 안내').slice(0, 60), message, '/', 'class-notice-' + now).catch((e: any) => ({ ok: false, error: e?.message }));
+            const n = Number(pr && pr.sent) || 0;
+            reached += n;
+            parts.push(n > 0 ? '푸시 ' + n + '대 전송' : (pr && pr.msg === 'no_subscriptions' ? '푸시: 이 학생은 알림을 켜지 않았습니다' : '푸시: 못 보냄'));
+          }
+          if (_wantSms) {
+            let to = '';
+            try { const ph = await phonesForStudent(env as any, uid); to = ph.parent || ph.student || ''; } catch {}
+            if (!to) to = _careTo;
+            if (!to || to.replace(/[^0-9]/g, '').length < 10) parts.push('문자: 보낼 번호가 없습니다');
+            else {
+              const r: any = await sendPlainSms(env as any, to, message, { subject: String(b.title || '망고아이 안내').slice(0, 30) });
+              if (r.ok && r.mode !== 'mock') { reached++; parts.push('문자 발송 → ' + maskPhoneForLog(to)); }
+              else if (r.ok) parts.push('문자: 테스트 모드라 실제로는 안 나갔습니다');
+              else parts.push('문자 실패: ' + (r.message || r.error || 'unknown'));
+            }
+          }
+          status = reached > 0 ? 'sent' : 'failed';
+          detail = parts.join(' · ');
+          await env.DB.prepare(`INSERT INTO retention_care_log (user_id, action_type, message, gift_type, event_id, status, error, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+            .bind(uid, actionType, message, '', '', status, status === 'failed' ? detail : null, now).run();
+          return json({ ok: true, status, detail, reached });
+        }
         if (actionType === 'kakao' || actionType === 'sms') {
           if (!message) { status = 'failed'; detail = '보낼 내용이 비어 있습니다.'; }
           else if (!_careTo) {

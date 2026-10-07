@@ -625,6 +625,21 @@
           </div>
           <div class="form-actions"><button class="btn-add" onclick="extendCustom()" data-ko="🗓️ 종료일 직접 변경" data-en="🗓️ Set Custom Date">🗓️ 종료일 직접 변경</button></div>
         </div>
+        <!-- ⛔ (2026-10-07 매니저 요청 1·4) 수업 종료 — 이 날짜부터 남은 수업을 내린다 + 잘못 내렸으면 되돌리기.
+             수업 하나씩 지우는 DELETE(=취소, 미러 도장 포함)를 그대로 부른다 — 새 판정을 만들지 않는다. -->
+        <div class="add-form-card" id="endClassCard">
+          <h4 data-ko="⛔ 수업 종료 (남은 수업 내리기)" data-en="⛔ End classes (remove remaining classes)">⛔ 수업 종료 (남은 수업 내리기)</h4>
+          <div class="grid-2">
+            <div class="form-row"><label data-ko="이 날짜부터 종료" data-en="End from this date">이 날짜부터 종료</label><input id="endFromDate" type="date" style="background:#ffffff;color:#101828;border:1px solid #cbd5e1"></div>
+            <div class="form-row"><label data-ko="종료 사유" data-en="Reason">종료 사유</label><input id="endReason" type="text" style="background:#ffffff;color:#101828;border:1px solid #cbd5e1"></div>
+          </div>
+          <div class="form-actions" style="gap:8px;display:flex;flex-wrap:wrap">
+            <button class="btn-add" onclick="endClassesPreview()" data-ko="🔍 내릴 수업 보기" data-en="🔍 Preview classes">🔍 내릴 수업 보기</button>
+            <button class="btn-add" id="endRunBtn" onclick="endClassesRun()" disabled data-ko="⛔ 종료 실행" data-en="⛔ End these classes">⛔ 종료 실행</button>
+          </div>
+          <div id="endPreviewBox" style="margin-top:10px;font-size:12.5px;color:#344054"></div>
+          <div id="endUndoBox" style="margin-top:10px;font-size:12.5px;color:#344054"></div>
+        </div>
         <h3 style="font-size:13px;color:var(--mut);margin:18px 0 8px;text-transform:uppercase;letter-spacing:.5px" data-ko="연장 이력" data-en="Extension History">연장 이력</h3>
         <div id="extHistoryBox"><div class="empty" data-ko="연장 이력이 없습니다." data-en="No extension history.">연장 이력이 없습니다.</div></div>
       </div>
@@ -2336,6 +2351,7 @@ function renderExtension(){
     <div class="kpi purple"><div class="lab">${_lang==='en'?'Sign-up':'가입일'}</div><div class="val" style="font-size:16px">${esc(erp.signup_date || fmtDay(erp.created_at))}</div></div>
   `;
 
+  try { if ($('endFromDate') && !$('endFromDate').value) $('endFromDate').value = _endKstToday(); renderEndUndo(); } catch (_) {}
   // 연장 이력 fetch
   fetch('/api/admin/student/'+encodeURIComponent(uid)+'/extensions', { credentials:'include' })
     .then(r => r.json())
@@ -2355,6 +2371,125 @@ function renderExtension(){
     })
     .catch(()=>{});
 }
+
+/* ⛔ (2026-10-07 매니저 요청 1·4) 수업 종료 + 되돌리기.
+   - 미리보기: 이 학생의 «날짜가 잡힌» 활성 수업 중 고른 날짜 이후 것만 내린다.
+   - 매주 반복(날짜 없는) 줄은 여기서 내리지 않는다 — 한 줄이 «매주 전부» 라 따로 고르게 한다.
+   - 실행: 수업 하나씩 DELETE(=status 'cancelled', 미러 행엔 'c24-mirror:manual' 도장 · 이력 남김).
+   - 되돌리기: POST /api/admin/class-schedules/:id {action:'restore'} — 내린 목록은 이 기기에 30일 기억.
+   ⚠️ 카페24에도 수업이 잡혀 있으면 카페24에서도 종료해야 한다(미러가 «새» 수업을 만들 수 있다). */
+var _endPlan = [];
+function _endEn(){ return _lang === 'en'; }
+function _endKey(){ return 'mgsEndBatch:' + uid; }
+function _endLoadBatch(){ try { var b = JSON.parse(localStorage.getItem(_endKey()) || 'null'); if (b && b.at && Date.now() - b.at < 30*86400000 && Array.isArray(b.items)) return b; } catch(_){} return null; }
+function _endSaveBatch(b){ try { if (b) localStorage.setItem(_endKey(), JSON.stringify(b)); else localStorage.removeItem(_endKey()); } catch(_){} }
+function _endTwinUid(){ var u = String(uid || ''); return /^mangoai_/i.test(u) ? u.slice(8) : ('mangoai_' + u); }
+function _endKstToday(){ return new Date(Date.now() + 9*3600000).toISOString().slice(0,10); }
+function renderEndUndo(){
+  var box = $('endUndoBox'); if (!box) return;
+  var b = _endLoadBatch();
+  if (!b || !b.items.length) { box.innerHTML = ''; return; }
+  var en = _endEn();
+  box.innerHTML = '<div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:10px 12px">'
+    + '<b>' + (en ? '↩ Last ended: ' : '↩ 최근 종료한 수업: ') + b.items.length + (en ? ' class(es)' : '건') + '</b> '
+    + '<span style="color:#667085">(' + esc(new Date(b.at).toLocaleString()) + ')</span><br>'
+    + '<span style="color:#667085">' + b.items.map(function(x){ return esc(x.date + ' ' + x.time); }).join(', ') + '</span><br>'
+    + '<button class="btn-add" style="margin-top:8px" onclick="endClassesUndo()">' + (en ? '↩ Undo (restore these classes)' : '↩ 되돌리기 (이 수업들 다시 살리기)') + '</button>'
+    + ' <span id="endUndoMsg"></span></div>';
+}
+window.endClassesPreview = async function(){
+  var en = _endEn(), box = $('endPreviewBox'), btn = $('endRunBtn');
+  var from = ($('endFromDate').value || '').trim() || _endKstToday();
+  /* ⛔ 지난 날짜부터는 내리지 않는다 — 지난 수업을 취소로 바꾸면 결석·급여 근거가 바뀌고, 되돌리기(restore)도 지난 날짜는 거절한다. */
+  if (from < _endKstToday()) from = _endKstToday();
+  $('endFromDate').value = from;
+  _endPlan = []; if (btn) btn.disabled = true;
+  box.textContent = en ? 'Loading…' : '불러오는 중…';
+  try {
+    var r = await fetch('/api/admin/class-schedules?user_id=' + encodeURIComponent(uid) + '&limit=500', { credentials:'include' });
+    var j = await r.json();
+    if (!r.ok || j.ok !== true || !Array.isArray(j.items)) throw new Error((j && j.error) || r.status);
+    if (j.warning) throw new Error(j.warning);
+    var dated = [], weekly = [], others = 0;
+    j.items.forEach(function(it){
+      if (String(it.status || '') === 'cancelled') return;
+      /* ⛔ 이 GET 은 이름이 하나뿐이면 같은 이름 계정의 수업까지 섞어 준다 — «이 계정» 수업만 내린다. */
+      if (String(it.user_id || '') !== String(uid)) { others++; return; }
+      var d = String(it.scheduled_date || '').slice(0,10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) { if (d >= from) dated.push(it); }
+      else weekly.push(it);
+    });
+    dated.sort(function(a,b){ return (a.scheduled_date + (a.start_time||'')).localeCompare(b.scheduled_date + (b.start_time||'')); });
+    _endPlan = dated;
+    var html = '';
+    var TN = en ? { regular:'Regular', makeup:'Make-up', trial:'Trial', level_test:'Level test' } : { regular:'정규', makeup:'보강', trial:'체험', level_test:'레벨테스트' };
+    if (j.items.length >= 500) html += '<div style="color:#b42318">' + (en ? '⚠️ The list was cut at 500 rows — later classes may be missing. Run again after this.' : '⚠️ 목록이 500건에서 잘렸습니다 — 뒤쪽 수업이 빠졌을 수 있습니다. 실행 뒤 한 번 더 보세요.') + '</div>';
+    if (!dated.length) html += '<div>' + (en ? 'No dated classes from ' : '') + esc(from) + (en ? ' onward.' : ' 이후로 잡힌 수업이 없습니다.') + '</div>';
+    else html += '<div><b>' + (en ? dated.length + ' class(es) will be ended:' : '내릴 수업 ' + dated.length + '건:') + '</b></div>'
+      + '<div style="max-height:180px;overflow:auto;margin-top:4px">' + dated.map(function(it){
+          return '<div>· ' + esc(it.scheduled_date) + ' ' + esc(String(it.start_time||'').slice(0,5)) + ' · ' + esc(it.teacher_name || '—') + ' · ' + esc(TN[it.class_type] || it.class_type || '') + '</div>';
+        }).join('') + '</div>';
+    if (weekly.length) html += '<div style="margin-top:6px;color:#b45309">' + (en
+      ? weekly.length + ' weekly (repeating) row(s) are not ended here — cancel them in the Schedule tab (one row = every week).'
+      : '매주 반복 줄 ' + weekly.length + '건은 여기서 내리지 않습니다 — 「스케줄」 탭에서 따로 취소하세요(한 줄 = 매주 전부).') + '</div>';
+    if (others) html += '<div style="margin-top:6px;color:#b45309">' + (en ? others + ' class(es) of another account with the same name are not included — open that account to end them.' : '같은 이름의 다른 계정 수업 ' + others + '건은 넣지 않았습니다 — 그 계정 화면에서 따로 종료하세요.') + '</div>';
+    html += '<div style="margin-top:6px;color:#667085">' + (en
+      ? 'If this student has another account (e.g. «' + esc(_endTwinUid()) + '»), end the classes there too. If the class is also booked in Cafe24, end it in Cafe24 as well.'
+      : '이 학생에게 다른 계정(예: «' + esc(_endTwinUid()) + '»)이 있다면 그 계정에서도 종료하세요. 카페24에도 수업이 잡혀 있으면 카페24에서도 종료해야 합니다.') + '</div>';
+    box.innerHTML = html;
+    if (btn) btn.disabled = !dated.length;
+  } catch (e) {
+    box.textContent = (en ? '⚠️ Could not load classes: ' : '⚠️ 수업 목록을 불러오지 못했습니다: ') + (e.message || e);
+  }
+};
+window.endClassesRun = async function(){
+  var en = _endEn(), box = $('endPreviewBox'), btn = $('endRunBtn');
+  if (!_endPlan.length) return;
+  if (!confirm(en ? 'End ' + _endPlan.length + ' class(es)? You can undo right after.' : _endPlan.length + '건의 수업을 종료할까요? 바로 아래에서 되돌릴 수 있습니다.')) return;
+  if (btn) btn.disabled = true;
+  var reason = ($('endReason').value || '').trim() || (en ? 'End classes (student page)' : '수업 종료 (학생 상세)');
+  var done = [], fail = 0;
+  for (var i = 0; i < _endPlan.length; i++) {
+    var it = _endPlan[i];
+    box.textContent = (en ? 'Ending… ' : '종료 중… ') + (i+1) + '/' + _endPlan.length;
+    try {
+      var r = await fetch('/api/admin/class-schedules/' + it.id, { method:'DELETE', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ reason: reason }) });
+      var j = await r.json().catch(function(){ return {}; });
+      if (r.ok && j.ok === true) done.push({ id: it.id, date: it.scheduled_date, time: String(it.start_time||'').slice(0,5) });
+      else fail++;
+    } catch (_) { fail++; }
+  }
+  if (done.length) _endSaveBatch({ at: Date.now(), items: done });
+  _endPlan = [];
+  box.innerHTML = '<b>' + (en ? '✅ Ended ' + done.length + ' class(es).' : '✅ ' + done.length + '건 종료했습니다.') + '</b>'
+    + (fail ? ' <span style="color:#b91c1c">' + (en ? fail + ' failed — try again.' : fail + '건 실패 — 다시 시도하세요.') + '</span>' : '');
+  renderEndUndo();
+  try { if (typeof loadAiSchedules === 'function') loadAiSchedules(); } catch (_) {}
+  try { if (typeof loadDStudentSchedule === 'function') loadDStudentSchedule(); } catch (_) {}
+};
+window.endClassesUndo = async function(){
+  var en = _endEn(), b = _endLoadBatch(); if (!b) return;
+  if (!confirm(en ? 'Restore ' + b.items.length + ' class(es)?' : b.items.length + '건의 수업을 되살릴까요?')) return;
+  var left = [], ok = 0, why = {};
+  for (var i = 0; i < b.items.length; i++) {
+    var x = b.items[i];
+    try {
+      var r = await fetch('/api/admin/class-schedules/' + x.id, { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'restore' }) });
+      var j = await r.json().catch(function(){ return {}; });
+      if (r.ok && j.ok === true) ok++;
+      else if (j.error === 'not_cancelled') ok++;           // 이미 살아 있음
+      else { left.push(x); why[j.error || r.status] = (why[j.error || r.status] || 0) + 1; }
+    } catch (_) { left.push(x); why.network = (why.network || 0) + 1; }
+  }
+  var WHY = en ? { past_date:'date already passed', slot_taken:'another class (student or teacher) is already at that time', forbidden_teacher:'no permission', lookup_failed:'could not check — try again', weekly_row:'weekly row' }
+               : { past_date:'이미 지난 날짜', slot_taken:'그 시간에 학생·강사의 다른 수업이 이미 있음', forbidden_teacher:'권한 없음', lookup_failed:'확인 실패 — 다시 시도', weekly_row:'매주 반복 줄' };
+  _endSaveBatch(left.length ? { at: b.at, items: left } : null);
+  renderEndUndo();
+  var msg = (en ? '✅ Restored ' + ok : '✅ ' + ok + '건 되살렸습니다') + (left.length ? (en ? ' · not restored ' : ' · 못 되살림 ') + left.length + ' (' + Object.keys(why).map(function(k){ return (WHY[k] || k) + ' ' + why[k]; }).join(', ') + ')' : '');
+  $('endPreviewBox').textContent = msg;
+  try { if (typeof loadAiSchedules === 'function') loadAiSchedules(); } catch (_) {}
+  try { if (typeof loadDStudentSchedule === 'function') loadDStudentSchedule(); } catch (_) {}
+};
 
 window.extendBy = async function(months) {
   if (!confirm((_lang==='en'?'Extend course by ':'수강을 ')+months+(_lang==='en'?' month(s)?':'개월 연장할까요?'))) return;
