@@ -1,4 +1,5 @@
 import { WEEKLY_POSTPONE, readWeeklyPostponePlan } from './weekly-postpone';
+import { loadGroupLeads, leadIdOf, loadGroupMembers } from './group-room';
 import { autoApproveStudentPostpone } from './student-auto-postpone';  // ⏩ 학생 무료 연기 자동 승인(2026-10-06)
 import { requireRoomJwtSecret } from './room-jwt-secret';
 import { ensureStudentEvaluationDetailSchema, readStudentAdminEvaluations } from './evaluation-records';
@@ -182,12 +183,16 @@ async function sfuRoomAllowed(env: any, room: string, ident: { uid: string; kind
   try {
     /* ⚠️ `.first<any>()` 로 쓰지 말 것 — env 가 any 라 prepare 체인이 «타입 없는 호출» 이고,
        거기에 타입인자를 주면 TS2347 로 컴파일이 깨진다(CI 게이트 ①이 실제로 잡았다). */
-    const row = await env.DB.prepare(`SELECT user_id FROM class_schedules WHERE id = ?`).bind(Number(m[1])).first() as any;
-    if (!row) return false;
+    /* 👥 (2026-10-07) 합반 — 방 번호는 «대표 예약 id» 다. 그 수업의 행 전부(정본 src/group-room.ts)로 본다.
+       null(조회 실패) = 모름 = 막는다(이 함수의 원래 방향). */
+    const members = await loadGroupMembers(env, room);
+    if (!members || !members.length) return false;
     const mine = String(ident.uid || '');
-    const owner = String(row.user_id || '');
-    if (!owner || !mine) return false;
-    return owner === mine || owner.toLowerCase() === mine.toLowerCase();
+    if (!mine) return false;
+    return members.some((row: any) => {
+      const owner = String(row.user_id || '');
+      return !!owner && (owner === mine || owner.toLowerCase() === mine.toLowerCase());
+    });
   } catch { return false; }                   // 조회 실패 = 모름 = 막는다(SFU 만 안 켜진다)
 }
 
@@ -1971,6 +1976,18 @@ export async function handleMangoApi(
       for (const s3 of sessions) delete (s3 as any).source;   // 내부 판정용 칸 — 화면에 안 보낸다
       sessions.sort((a, b) => a.start_ts - b.start_ts);
 
+      /* 👥 (2026-10-07) 그룹(1:N) 수업은 «학생마다 한 행» 이라 예약 id 로 방을 만들면 학생마다 방이 갈린다.
+         같은 강사·시각·길이 무리는 «가장 작은 예약 id» 의 방으로 모은다(1:1 은 한 글자도 안 바뀜).
+         정본 src/group-room.ts — ⛔ 강사 화면(api-teacher.ts)·결석 감지 등 방을 만드는 모든 곳이 같은 함수를 쓴다.
+         실패하면 빈 Map = 예약 id 그대로(fail-open). */
+      {
+        const _gl = await loadGroupLeads(env, sessions, todayStr);
+        for (const s4 of sessions) {
+          const lead = leadIdOf(_gl, s4.schedule_id);
+          if (lead !== Number(s4.schedule_id)) { s4.room_id = `class-${lead}-${ymd}`; s4.group_lead_id = lead; }
+        }
+      }
+
       /* 🚪 「오늘은 이 방으로」 — 선생님·관리자가 지정해 둔 회의방이 있으면 room_id 를 갈아 끼운다.
          학생 화면은 이 답을 그대로 쓰므로(js/idx-main.js 「빈 방코드 → 오늘 예약 방으로 자동 교정」)
          **학생이 하는 일은 평소와 똑같다.** 정본·주의사항은 src/class-room-override.ts.
@@ -2813,6 +2830,27 @@ export async function handleMangoApi(
           } catch {}
         }
       }
+      /* 👥 (2026-10-07) 합반(1:N) — 방 번호는 «대표 예약 id» 라 대표가 아닌 합반 학생은 위 row 와 안 맞는다.
+         그 수업의 행 전부(정본 src/group-room.ts loadGroupMembers)와 대조한다. 1:1 이면 멤버가 자기 하나라 무동작.
+         ⛔ 이름은 «완전일치» 만 — 동명이인이 실재한다(CLAUDE.md 2장). 조회 실패(null)면 예전대로. */
+      let _gMembers: any[] | null = null;
+      if (!ok) {
+        try { _gMembers = await loadGroupMembers(env, roomId); } catch { _gMembers = null; }
+        if (_gMembers && _gMembers.length > 1) {
+          const ul = userId.toLowerCase();
+          for (const g of _gMembers) {
+            const gu = String(g.user_id || '');
+            if (userId && gu && (gu === userId || gu.toLowerCase() === ul)) { ok = true; resolvedRole = 'student'; break; }
+            if (nameParam && g.student_name && String(g.student_name) === nameParam) { ok = true; resolvedRole = 'student'; break; }
+          }
+          if (!ok && userId) {
+            try {
+              const tw = await resolveStudentTwins(env.DB, userId);
+              if (_gMembers.some(g => tw.includes(String(g.user_id || '')))) { ok = true; resolvedRole = 'student'; }
+            } catch {}
+          }
+        }
+      }
       if (!ok && nameParam) {
         // 🔧 (2026-07-28 실사고) 역할 접두사('교사 …')를 떼고도 비교한다.
         //   마이페이지 '수업 입장'은 vc_name 을 '교사 {계정명}' 으로 만들어 보내는데(mypage.html ph…),
@@ -2879,6 +2917,10 @@ export async function handleMangoApi(
               const su = String(sess.username);
               const ru = String(row.user_id || '');
               if (ru && (ru === su || ru.toLowerCase() === su.toLowerCase())) { ok = true; resolvedRole = 'student'; }
+              // 👥 합반 — 대표가 아닌 학생도 그 수업의 학생이다(위 _gMembers)
+              if (!ok && _gMembers && _gMembers.length > 1 && _gMembers.some(g => {
+                const gu = String(g.user_id || ''); return !!gu && (gu === su || gu.toLowerCase() === su.toLowerCase());
+              })) { ok = true; resolvedRole = 'student'; }
             }
           }
         } catch { /* 세션 확인 실패해도 기존 폴백으로 이어진다 — 수업은 막지 않는다 */ }
@@ -4761,13 +4803,22 @@ ${numbered}`;
       const schedMatch = /^class-(\d+)-/.exec(String(b.room_id || ''));
       if (schedMatch) {
         try {
-          const cs: any = await env.DB.prepare(
-            `SELECT user_id, student_name FROM class_schedules WHERE id = ?`
-          ).bind(parseInt(schedMatch[1], 10)).first();
-          const suid = String(cs?.user_id || '').trim();
-          const sname = String(cs?.student_name || '').trim();
-          if (suid && !participantIds.includes(suid)) participantIds.push(suid);
-          if (sname && !participantNames.includes(sname)) participantNames.push(sname);
+          /* 👥 (2026-10-07) 합반(1:N) — 방 번호는 «대표 예약 id» 라 그 행 하나만 보면 나머지 학생이
+             참가자·동의 대상에서 빠진다(= 자기 수업 녹화가 안 보이고, 동의 확인도 대표 한 명만).
+             그 수업의 행 전부를 넣는다(정본 src/group-room.ts). 실패하면 대표 행만(예전 동작). */
+          let rowsG: any[] | null = await loadGroupMembers(env, String(b.room_id || ''));
+          if (!rowsG || !rowsG.length) {
+            const cs: any = await env.DB.prepare(
+              `SELECT user_id, student_name FROM class_schedules WHERE id = ?`
+            ).bind(parseInt(schedMatch[1], 10)).first();
+            rowsG = cs ? [cs] : [];
+          }
+          for (const cs of rowsG) {
+            const suid = String(cs?.user_id || '').trim();
+            const sname = String(cs?.student_name || '').trim();
+            if (suid && !participantIds.includes(suid)) participantIds.push(suid);
+            if (sname && !participantNames.includes(sname)) participantNames.push(sname);
+          }
         } catch (e: any) {
           console.error('[recordings] 스케줄에서 학생 채우기 실패:', e?.message || e);
         }

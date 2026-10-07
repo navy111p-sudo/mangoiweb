@@ -20,6 +20,7 @@
 
 import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { loadGroupLeads, leadIdOf, studentJoinedIn } from './group-room';   // 👥 합반 대표 방(2026-10-07)
 import { sendPlainSms } from './solapi-client';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 /* 📧 강사 대부분이 필리핀에 있어 «한국 문자» 로는 못 닿는다 — 이메일이 유일한 국제 자동 수단이다. */
@@ -156,6 +157,17 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
     candidates.push({ ...s, schedule_id: s.id, start_ts, late_min: Math.floor(late / 60000), room_id: `class-${s.id}-${ymd}` });
   }
 
+  /* 👥 (2026-10-07) 합반(1:N) — 학생마다 한 행이라 예약 id 방은 학생마다 갈린다. 학생·강사 화면과
+     **같은 정본**(src/group-room.ts)으로 대표 방을 본다. 안 보면 합반 학생 전원이 «안 들어온 방» 을 보고
+     매번 결석 위험이 찍힌다(그 class_no_show 가 급여로 번진다). 실패하면 예약 id 그대로(예전 동작). */
+  if (candidates.length) {
+    const _gl = await loadGroupLeads(env, candidates, todayStr);
+    for (const c of candidates) {
+      const lead = leadIdOf(_gl, c.id);
+      if (_gl.has(Number(c.id))) { c.room_id = `class-${lead}-${ymd}`; c.group = true; }
+    }
+  }
+
   /* 🚪 「오늘은 이 방으로」 — 지정이 걸린 수업은 **그 회의방**의 출석을 봐야 한다.
      ⚠️ 안 보면 학생이 지정된 방에 멀쩡히 있는데 예약방(class-…)에 없다는 이유로
         「결석 위험」이 찍히고, 그 `class_no_show` 행을 `no-show-truth.ts` 가 읽어
@@ -208,6 +220,25 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
   for (const c of candidates) {
     if (heldOnFor(holdRanges, c.user_id, todayStr)) { result.details.push({ room_id: c.room_id, status: 'absence_hold' }); continue; }
     // ① 학생이 이미 입장했으면 정상 — attendance 는 /api/attendance/join 이 기록
+    if (c.group) {
+      /* 👥 합반 방 — «학생이 한 명이라도 있으면 입장» 으로 보면 한 명만 와도 나머지 결석을 못 잡는다.
+         학생별로 본다(정본 studentJoinedIn). 신원 없는 학생 행이 있으면 «모름» → 알리지 않는다. */
+      try {
+        const rs: any = await env.DB.prepare(
+          `SELECT account_uid, user_id, username FROM attendance WHERE room_id = ? AND role = 'student'`
+        ).bind(c.room_id).all();
+        const v = studentJoinedIn((rs && rs.results) || [], c.user_id, c.student_name);
+        if (v !== 'absent') { result.details.push({ room_id: c.room_id, student: c.user_id, status: v === 'joined' ? 'joined' : 'unknown_group' }); continue; }
+      } catch { continue; }
+      try {
+        const dup = await env.DB.prepare(
+          `SELECT 1 FROM class_no_show WHERE room_id = ? AND missing_role = 'student' AND missing_uid = ? LIMIT 1`
+        ).bind(c.room_id, c.user_id || '').first();
+        if (dup) { result.details.push({ room_id: c.room_id, student: c.user_id, status: 'already_alerted' }); continue; }
+      } catch {}
+      newlyAbsent.push(c);
+      continue;
+    }
     try {
       const att = await env.DB.prepare(
         `SELECT 1 FROM attendance WHERE room_id = ? AND (user_id = ? OR role = 'student') LIMIT 1`
@@ -293,7 +324,7 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
         try {
           const pr = await pushToTeacher(env, c.teacher_id,
             '⏰ ' + name + ' has not joined · 학생 미입장 (' + hhmm + ')', bodyEn + '\n' + bodyKo,
-            '/teacher', 'absent-' + c.room_id);
+            '/teacher', 'absent-' + c.room_id + (c.group ? '-' + String(c.user_id || '') : ''));
           pushOk = pr.sent > 0;
           detail.teacher_push = pushOk ? 'sent' : (pr.why || 'failed');
         } catch (e: any) { detail.teacher_push = 'error:' + String(e?.message || e).slice(0, 80); }

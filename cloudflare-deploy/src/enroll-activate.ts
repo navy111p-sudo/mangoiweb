@@ -26,7 +26,8 @@ import { json, parseJsonBody } from './api-util';
 import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES, classLengthMultiplier } from './class-policy';
 import {
   enrollTimeToMin, enrollDates, enrollConflicts, enrollStudentConflicts, teachersFreeAt,
-  holidaySet, ensureEnrollTables, kstToday, enrollAdminHqOnly
+  holidaySet, ensureEnrollTables, kstToday, enrollAdminHqOnly, GROUP_HARD_MAX_STUDENTS,
+  groupSeatSources,
 } from './enroll-ops';
 import { sendPlainSms } from './solapi-client';
 import { NOT_AI_PASS_PLAN_SQL } from './ai-pass';   // 🤖 A.i 이용권 구독은 수업 구독 조회에서 뺀다(정본)
@@ -218,6 +219,12 @@ export function parseClassSize(s: string): number {
   return m ? Number(m[1]) : 0;
 }
 
+/** 🔒 (2026-10-07) 이 신청이 만든 수업 행을 «합반 좌석»(group_seat=1)으로 적을지 — 1:N(N≥2) 일 때만.
+ *  ⚠️ 1:1·모름이면 NULL = 예전 잠금(강사·날짜·시각 하나) 그대로(enroll-ops.ts ensureTeacherSlotIndexes). */
+export function groupSeatFlag(e: { class_size?: any } | null | undefined): number | null {
+  return parseClassSize(String((e && e.class_size) || '')) >= 2 ? 1 : null;
+}
+
 /** 010-1234-5678 → 010-****-5678 (화면·로그에 그대로 뿌리지 않기 위해) */
 export function maskPhone(p: string): string {
   const d = String(p || '').replace(/[^0-9]/g, '');
@@ -260,6 +267,51 @@ export interface EnrollPlan {
   warnings: string[];
 }
 
+/** 👥 (2026-10-07) 그 요일·시각·길이에 «합반이 이미 열려 있고 자리가 남은» 강사.
+ *  첫 주 각 요일의 날짜로 본다 — 날짜 지정 행(scheduled_date)과 반복 행(요일)을 둘 다 센다.
+ *  가장 많이 찬 반(그러나 정원 미만)을 고른다. 없으면 null. */
+export async function findOpenGroupTeacher(env: any, startDate: string, days: number[], timesMinByDow: Record<number, number>,
+  minutes: number, seats: number): Promise<{ id: string; name: string; seats: number } | null> {
+  const first = enrollDates(startDate, days, days.length);
+  const perTeacher = new Map<string, number>();
+  const rs: any = await env.DB.prepare(
+    `SELECT cs.teacher_id AS tid, cs.scheduled_date AS sd, cs.day_of_week AS dw, cs.start_time AS st, COALESCE(cs.duration_min, 20) AS dm, cs.source AS src
+       FROM class_schedules cs JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
+      WHERE cs.status = 'active' AND t.active = 1 AND cs.teacher_id IS NOT NULL
+        AND LOWER(COALESCE(cs.user_id,'')) NOT IN ('lms','type_seed')`
+  ).all();
+  const allRows: any[] = (rs?.results as any[]) || [];
+  /* ⛔ «합반 좌석» 이 아닌 행(다른 학생의 1:1·카페24 미러)이 그 자리에 하나라도 있으면 그 강사는 후보가 아니다 —
+     1:N 학생이 1:1 수업에 끼어들어 몰래 합반이 되는 것을 막는다(enroll-ops.ts groupSeatSources 머리말). */
+  const seatSrc = await groupSeatSources(env, allRows.map(r => String(r.src || '')));
+  const blocked = new Set<string>();
+  const capOf = new Map<string, number>();   // 그 반의 정원(이미 앉은 신청들 중 가장 작은 N)
+  for (const iso of first) {
+    const dow = new Date(iso + 'T00:00:00Z').getUTCDay();
+    const want = timesMinByDow[dow];
+    if (want === undefined) continue;
+    const count = new Map<string, number>();
+    for (const r of allRows) {
+      const sd = String(r.sd || '').trim();
+      const hit = sd ? sd === iso : (r.dw != null && parseDowList(String(r.dw)).includes(dow));
+      if (!hit) continue;
+      if (enrollTimeToMin(String(r.st || '')) !== want || (Number(r.dm) || DEFAULT_CLASS_MINUTES) !== minutes) continue;
+      if (!seatSrc.has(String(r.src || ''))) { blocked.add(String(r.tid)); continue; }
+      count.set(String(r.tid), (count.get(String(r.tid)) || 0) + 1);
+      capOf.set(String(r.tid), Math.min(capOf.get(String(r.tid)) ?? seats, seatSrc.get(String(r.src || '')) || seats));
+    }
+    for (const [tid, n] of count) perTeacher.set(tid, Math.max(perTeacher.get(tid) || 0, n));
+  }
+  let best: { id: string; seats: number } | null = null;
+  for (const [tid, n] of perTeacher) {
+    if (n >= Math.min(seats, capOf.get(tid) ?? seats) || blocked.has(tid)) continue;           // 정원이 찬 반 · 1:1 수업이 섞인 자리
+    if (!best || n > best.seats) best = { id: tid, seats: n };
+  }
+  if (!best) return null;
+  const t: any = await env.DB.prepare(`SELECT name FROM teachers WHERE id = ? LIMIT 1`).bind(best.id).first().catch(() => null);
+  return { id: best.id, name: String((t && t.name) || ''), seats: best.seats };
+}
+
 export async function buildEnrollPlan(env: any, id: number, teacherOverride?: string | null): Promise<EnrollPlan | null> {
   await ensureEnrollTables(env);
   const e: any = await env.DB.prepare(`SELECT * FROM enrollments WHERE id = ? LIMIT 1`).bind(id).first();
@@ -283,6 +335,9 @@ export async function buildEnrollPlan(env: any, id: number, teacherOverride?: st
   const minutes = (Number(e.duration_min) > 0 && ALLOWED_CLASS_MINUTES.includes(Number(e.duration_min)))
     ? Number(e.duration_min) : DEFAULT_CLASS_MINUTES;
   if (size > 3) warnings.push('인원 ' + size + '명 — 그룹 수업은 같은 시간에 여러 학생이 들어갑니다');
+  /* 👥 (2026-10-07) 합반 정원 — 1:N 이면 N(화상방 한도 GROUP_HARD_MAX_STUDENTS 까지). 1:1·모름이면 1 = 예전과 같다. */
+  const groupSeats = size >= 2 ? Math.min(size, GROUP_HARD_MAX_STUDENTS) : 1;
+  if (size > GROUP_HARD_MAX_STUDENTS) warnings.push('인원 ' + size + '명 — 화상수업 한 방은 학생 ' + GROUP_HARD_MAX_STUDENTS + '명까지입니다. ' + GROUP_HARD_MAX_STUDENTS + '명이 차면 그 날짜는 건너뜁니다');
 
   const startMs = e.started_at ? Number(e.started_at) : Date.now();
   const today = kstToday();
@@ -359,6 +414,19 @@ export async function buildEnrollPlan(env: any, id: number, teacherOverride?: st
     else warnings.push('적혀 있는 강사 «' + e.teacher_name + '» 을(를) 강사 명부에서 못 찾았습니다');
   }
 
+  /* 👥 (2026-10-07) 합반(1:N) 신청 — 같은 요일·시각·길이에 «이미 합반이 열려 있고 자리가 남은» 강사가 있으면
+     그 반에 합류시킨다. 안 그러면 두 번째 학생부터 «그 시간에 비어 있는» 다른 강사가 붙어 반이 쪼개진다.
+     ⚠️ 사람이 강사를 고른 경우(teacherOverride·적힌 이름)는 건드리지 않는다. 실패하면 예전 흐름. */
+  if (!teacherId && groupSeats > 1 && days.length && Object.keys(timesMinByDow).length === days.length) {
+    try {
+      const gt = await findOpenGroupTeacher(env, start_date, days, timesMinByDow, minutes, groupSeats);
+      if (gt) {
+        teacherId = gt.id; teacherName = gt.name; autoAssigned = 'free';
+        if (!free.some(f => f.id === gt.id)) free = [{ id: gt.id, name: gt.name }].concat(free);
+        warnings.push('합반 — 같은 시간 «' + gt.name + '» 강사의 반(지금 ' + gt.seats + '명 / 정원 ' + groupSeats + '명)에 합류합니다');
+      }
+    } catch { /* 예전 흐름 */ }
+  }
   if (!teacherId) {
     // 이 학생을 지금까지 가장 많이 가르친 활성 강사 (없으면 null)
     let keep: { id: string; name: string } | null = null;
@@ -395,7 +463,7 @@ export async function buildEnrollPlan(env: any, id: number, teacherOverride?: st
   let studentSkipped: string[] = [];
   if (days.length && teacherId && Object.keys(timesMinByDow).length === days.length) {
     const probe = enrollDates(start_date, days, sessions * 2);
-    const blocked = await enrollConflicts(env, teacherId, probe, timesMinByDow, minutes, days);
+    const blocked = await enrollConflicts(env, teacherId, probe, timesMinByDow, minutes, days, groupSeats);
     /* 👤 (2026-10-06 사장님 지시) 학생 본인의 다른 수업과 겹치는 날짜도 건너뛰고 «알린다».
        ⚠️ 학생이 아직 정해지지 않았으면(동명이인·미등록) 볼 수 없다 — 그 사실을 말한다.
        ⚠️ 조회 실패(null)는 막지 않고 «확인 못 함» 을 말한다(예전 동작 유지). */
@@ -501,13 +569,13 @@ async function runActivate(env: any, id: number, body: any, actor: string) {
       const src = SRC_PREFIX + id;
       const note = '수강신청 확정 자동생성 · ' + (plan.teacher.name || '') + ' · ' + dowLabel(plan.days) + ' · ' + (e.package || '');
       const stmt = env.DB.prepare(
-        `INSERT OR IGNORE INTO class_schedules (user_id, student_name, schedule_kind, class_type, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes)
-         VALUES (?, ?, 'dated', ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)`
+        `INSERT OR IGNORE INTO class_schedules (user_id, student_name, schedule_kind, class_type, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes, group_seat)
+         VALUES (?, ?, 'dated', ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`
       );
       const batch = plan.dates.map(d => {
         const dow = new Date(d + 'T00:00:00Z').getUTCDay();
         return stmt.bind(uid, String(e.student_name || ''), enrollClassType(e), d, plan.times[String(dow)], plan.minutes,
-                         plan.teacher.id, src, actor || 'admin', now, note);
+                         plan.teacher.id, src, actor || 'admin', now, note, groupSeatFlag(e));
       });
       let made = 0;
       try {
@@ -683,6 +751,7 @@ export async function planEnrollBackfill(env: any, id: number): Promise<Backfill
     const arr = byTeacher.get(t) || []; arr.push(d); byTeacher.set(t, arr);
   }
   const blocked = new Set<string>();
+  const capOf = new Map<string, number>();   // 그 반의 정원(이미 앉은 신청들 중 가장 작은 N)
   for (const [tid, ds] of byTeacher) {
     const tm: Record<number, number> = {};
     let mins = DEFAULT_CLASS_MINUTES;
@@ -693,7 +762,7 @@ export async function planEnrollBackfill(env: any, id: number): Promise<Backfill
       if (m >= 0) tm[dw] = m;
       if (Number(r.duration_min) > 0) mins = Number(r.duration_min);
     }
-    const c = await enrollConflicts(env, tid, ds, tm, mins, days);
+    const c = await enrollConflicts(env, tid, ds, tm, mins, days, parseClassSize(e.class_size || '') >= 2 ? parseClassSize(e.class_size || '') : 1);
     c.forEach(x => blocked.add(tid + '|' + x));
   }
   /* 👤 (2026-10-06) 학생 본인의 다른 수업과 겹치는 날짜 — 이 신청이 만든 자기 행(src)은 뺀다. */
@@ -736,17 +805,17 @@ export async function runEnrollBackfill(env: any, id: number, dry: boolean, acto
   const plan = await planEnrollBackfill(env, id);
   const res: BackfillPlan & { dry: boolean; created: number; error?: string } = { ...plan, dry, created: 0 };
   if (dry || !plan.ok || !plan.add.length) return res;
-  const e: any = await env.DB.prepare(`SELECT student_user_id, student_name, package, type, days_of_week FROM enrollments WHERE id = ? LIMIT 1`).bind(id).first();
+  const e: any = await env.DB.prepare(`SELECT student_user_id, student_name, package, type, days_of_week, class_size FROM enrollments WHERE id = ? LIMIT 1`).bind(id).first();
   const uid = e?.student_user_id ? String(e.student_user_id) : '';
   if (!uid) { res.ok = false; res.reason = 'no_student'; return res; }
   const now = Date.now();
   const note = '수강기간 채우기(백필) · ' + dowLabel(parseDowList(e?.days_of_week || '')) + ' · ' + (e?.package || '') + ' · ~' + plan.until;
   const stmt = env.DB.prepare(
-    `INSERT OR IGNORE INTO class_schedules (user_id, student_name, schedule_kind, class_type, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes)
-     VALUES (?, ?, 'dated', ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)`
+    `INSERT OR IGNORE INTO class_schedules (user_id, student_name, schedule_kind, class_type, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes, group_seat)
+     VALUES (?, ?, 'dated', ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`
   );
   const batch = plan.add.map(a => stmt.bind(uid, String(e?.student_name || ''), enrollClassType(e), a.date, a.start_time, a.duration_min,
-    a.teacher_id, SRC_PREFIX + id, actor || 'admin', now, note));
+    a.teacher_id, SRC_PREFIX + id, actor || 'admin', now, note, groupSeatFlag(e)));
   try {
     for (let i = 0; i < batch.length; i += 80) {
       const r = await env.DB.batch(batch.slice(i, i + 80));

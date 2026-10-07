@@ -254,7 +254,7 @@ export async function ensureEnrollTables(env: any): Promise<void> {
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS enroll_notify_log (uid TEXT NOT NULL, kind TEXT NOT NULL, day TEXT NOT NULL, sent_at INTEGER, PRIMARY KEY (uid, kind, day))`);
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`);
     try { await env.DB.prepare(`ALTER TABLE payment_orders ADD COLUMN enroll_json TEXT`).run(); } catch (_) {}
-    try { await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS uq_sched_teacher_slot ON class_schedules(teacher_id, scheduled_date, start_time) WHERE status='active' AND scheduled_date IS NOT NULL AND teacher_id IS NOT NULL`).run(); } catch (_) {}
+    await ensureTeacherSlotIndexes(env);
     try { await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_sched_user_date ON class_schedules(user_id, scheduled_date)`).run(); } catch (_) {}
     /* 🔄 (2026-08-28) 1회성 대체강사 배정 — "매주 반복 수업"의 정본 행(class_schedules)은 하루치
        예외를 기록할 칸이 없다(teacher_id 를 바꾸면 그 요일 전체가 영구히 바뀐다 — 그건 이미 있는
@@ -325,26 +325,96 @@ const NOT_PLACEHOLDER = `AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_see
  *  🕐 (2026-07-30) 요일별 다른 시간 지정 — 제보 #2-3. startMin(공통 시각) 하나 대신
  *  timesMinByDow(요일→분) 맵을 받는다 — 날짜마다 그 날의 요일에 맞는 시각으로 충돌을 검사한다.
  *  timesMinByDow 에 없는 요일(days 밖)은 건너뛴다. */
-export async function enrollConflicts(env: any, teacherId: string, dates: string[], timesMinByDow: Record<number, number>, minutes: number, days: number[]): Promise<Set<string>> {
+/** 🔒 (2026-10-07 사장님 승인) 강사 시간 잠금 — 1:1 은 그대로, «합반 좌석» 만 예외.
+ *  옛 잠금 uq_sched_teacher_slot = (강사·날짜·시각) 하나뿐이라 1:N 의 두 번째 학생부터 수업 행이
+ *  INSERT OR IGNORE 로 «에러 없이» 버려졌다(운영 1:N 0건의 원인). 그래서 둘로 나눈다:
+ *    · uq_sched_teacher_slot_1to1 — group_seat 가 아닌 행끼리는 예전과 똑같이 (강사·날짜·시각) 하나만
+ *    · uq_sched_group_seat        — 합반 좌석(group_seat=1)은 (강사·날짜·시각·학생) — 같은 학생 두 벌만 막는다
+ *  ⛔ 옛 잠금에 user_id 만 덧붙여 «넓히지» 말 것 — schedule-split·주간 연기처럼 이 잠금 하나로
+ *     1:1 겹침을 막는 경로가 있어, 그 순간 서로 다른 학생 1:1 두 개가 한 강사 시간에 들어간다.
+ *  ⛔ 아래 «새 잠금을 먼저 만들고 옛 잠금을 지운다» 순서를 뒤집지 말 것 — 사이에 잠금 없는 순간이 생긴다.
+ *  ⚠️ 새 잠금을 못 만들면 옛 잠금을 지우지 않는다(= 1:N 은 예전처럼 안 되지만 1:1 은 안전). */
+const _slotIdxReady = new WeakSet<object>();   // DB 별로 한 번(테스트에서 DB 가 바뀌어도 새로 확인)
+export const GROUP_SEAT_COL = 'group_seat';
+export async function ensureTeacherSlotIndexes(env: any): Promise<void> {
+  if (!env || !env.DB || _slotIdxReady.has(env.DB)) return;
+  try { await env.DB.exec(`ALTER TABLE class_schedules ADD COLUMN group_seat INTEGER`); } catch { /* 이미 있음 — 정상 */ }
+  let newOk = false;
+  try {
+    await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS uq_sched_teacher_slot_1to1 ON class_schedules(teacher_id, scheduled_date, start_time) WHERE status='active' AND scheduled_date IS NOT NULL AND teacher_id IS NOT NULL AND COALESCE(group_seat, 0) = 0`).run();
+    await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS uq_sched_group_seat ON class_schedules(teacher_id, scheduled_date, start_time, user_id) WHERE status='active' AND scheduled_date IS NOT NULL AND teacher_id IS NOT NULL AND group_seat = 1`).run();
+    newOk = true;
+  } catch (e) { console.warn('[enroll] slot index v2:', (e as any)?.message); }
+  if (newOk) {
+    try { await env.DB.prepare(`DROP INDEX IF EXISTS uq_sched_teacher_slot`).run(); } catch (e) { console.warn('[enroll] drop old slot index:', (e as any)?.message); }
+    _slotIdxReady.add(env.DB);
+  }
+}
+
+/** 👥 (2026-10-07) 합반(1:N) 한 방의 최대 학생 수 — 화상방(DO) MAX_USERS=10 에서 강사 1명을 뺀 값.
+ *  ⛔ video-call-room.ts 의 MAX_USERS 를 바꾸면 이 값도 함께(하니스가 대조한다). */
+export const GROUP_HARD_MAX_STUDENTS = 9;
+
+/** 👥 (2026-10-07) «합반 좌석» 으로 셀 수 있는 행인가 — 그 수업을 만든 수강신청이 1:N(N≥2) 일 때만.
+ *  ⛔ 같은 시각이라고 아무 행이나 좌석으로 세지 말 것 — 다른 학생의 1:1 수업(카페24 미러·결제·1:1 신청)에
+ *     1:N 학생이 «합류» 해 1:1 이 몰래 합반이 된다. 근거는 source='adm-enroll:<id>' → enrollments.class_size 하나.
+ *  ⚠️ 조회가 실패하면 빈 집합 = 아무 행도 좌석이 아니다 = 예전처럼 «같은 시각은 충돌» (막는 쪽으로 실패). */
+export async function groupSeatSources(env: any, sources: string[]): Promise<Map<string, number>> {
+  /* 값 = 그 신청의 정원 N — 이미 앉은 반의 정원이 더 작으면 그쪽이 정원이다(1:2 반에 1:3 학생이 끼어 3명이 되지 않게). */
+  const out = new Map<string, number>();
+  const ids = Array.from(new Set(sources.map(s => /^adm-enroll:(\d+)$/.exec(String(s || '')))
+    .filter(Boolean).map(m => Number((m as RegExpExecArray)[1]))));
+  if (!ids.length) return out;
+  try {
+    const rows: any[] = await selectInChunks<any>(env.DB, ids,
+      (ph) => `SELECT id, class_size FROM enrollments WHERE id IN (${ph})`);
+    for (const r of rows) {
+      const m = /1\s*[:：대]\s*(\d+)/.exec(String(r.class_size || ''));   // enroll-activate.ts parseClassSize 와 같은 규칙
+      if (m && Number(m[1]) >= 2) out.set('adm-enroll:' + r.id, Number(m[1]));
+    }
+  } catch (e) { console.warn('[enroll] groupSeatSources:', (e as any)?.message); }
+  return out;
+}
+
+export async function enrollConflicts(env: any, teacherId: string, dates: string[], timesMinByDow: Record<number, number>, minutes: number, days: number[],
+  /* 👥 (2026-10-07) 합반 정원 — 이 신청이 «1:N» 이면 N. 1(기본)이면 예전과 100% 같다(같은 시각도 충돌).
+     N≥2 면 «같은 강사·같은 시작·같은 길이» 자리는 충돌이 아니라 «합반 좌석» 으로 세고,
+     이미 N명(또는 화상방 한도 GROUP_HARD_MAX_STUDENTS)이 앉아 있을 때만 충돌로 본다.
+     이것은 schedule-conflict.ts 의 «합반 예외»(같은 시각·같은 길이)와 같은 판정이다. */
+  groupMax = 1): Promise<Set<string>> {
   const conflicts = new Set<string>();
   if (!dates.length) return conflicts;
+  const gMax = Math.min(GROUP_HARD_MAX_STUDENTS, Math.max(1, Math.floor(Number(groupMax) || 1)));
+  const seatsByDate = new Map<string, number>();
+  const seatsByDow = new Map<number, number>();
   try {
     // D1 파라미터 한도 분할은 공용 selectInChunks 로 일원화(2026-08-07)
     const rows: any[] = await selectInChunks<any>(env.DB, dates,
-      (ph) => `SELECT scheduled_date, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
+      (ph) => `SELECT scheduled_date, start_time, COALESCE(duration_min, 20) AS dm, source FROM class_schedules
          WHERE teacher_id = ? AND status = 'active' AND scheduled_date IN (${ph}) ${NOT_PLACEHOLDER}`,
       { lead: [teacherId] });
+    const seatSrc = gMax > 1 ? await groupSeatSources(env, rows.map(r => String(r.source || ''))) : new Map<string, number>();
+    const capByDate = new Map<string, number>();
     for (const r of rows) {
       const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
       const startMin = timesMinByDow[dow];
       if (startMin === undefined) continue;
       const s = enrollTimeToMin(String(r.start_time || ''));
-      if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) conflicts.add(String(r.scheduled_date));
+      if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) {
+        // 👥 합반 좌석 — 같은 시작·같은 길이면 충돌이 아니라 좌석 하나(정원 넘으면 아래에서 충돌로)
+        if (gMax > 1 && s === startMin && (Number(r.dm) || DEFAULT_CLASS_MINUTES) === minutes && seatSrc.has(String(r.source || ''))) {
+          const d0 = String(r.scheduled_date);
+          seatsByDate.set(d0, (seatsByDate.get(d0) || 0) + 1);
+          capByDate.set(d0, Math.min(capByDate.get(d0) ?? gMax, seatSrc.get(String(r.source || '')) || gMax));
+        } else conflicts.add(String(r.scheduled_date));
+      }
     }
     const rs2: any = await env.DB.prepare(
-      `SELECT day_of_week, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
+      `SELECT day_of_week, start_time, COALESCE(duration_min, 20) AS dm, source FROM class_schedules
        WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL ${NOT_PLACEHOLDER}`
     ).bind(teacherId).all();
+    const seatSrc2 = gMax > 1 ? await groupSeatSources(env, ((rs2?.results as any[]) || []).map(r => String(r.source || ''))) : new Map<string, number>();
+    const capByDow = new Map<number, number>();
     const badDows = new Set<number>();
     for (const r of ((rs2?.results as any[]) || [])) {
       const s = enrollTimeToMin(String(r.start_time || ''));
@@ -353,13 +423,27 @@ export async function enrollConflicts(env: any, teacherId: string, dates: string
         if (!days.includes(dw)) continue;
         const startMin = timesMinByDow[dw];
         if (startMin === undefined) continue;
-        if (enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) badDows.add(dw);
+        if (enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) {
+          if (gMax > 1 && s === startMin && (Number(r.dm) || DEFAULT_CLASS_MINUTES) === minutes && seatSrc2.has(String(r.source || ''))) {
+            seatsByDow.set(dw, (seatsByDow.get(dw) || 0) + 1);
+            capByDow.set(dw, Math.min(capByDow.get(dw) ?? gMax, seatSrc2.get(String(r.source || '')) || gMax));
+          }
+          else badDows.add(dw);
+        }
       }
     }
     if (badDows.size) {
       for (const iso of dates) {
         const dw = new Date(iso + 'T00:00:00Z').getUTCDay();
         if (badDows.has(dw)) conflicts.add(iso);
+      }
+    }
+    // 👥 합반 정원 — 이미 앉은 학생이 정원(또는 화상방 한도)에 닿은 날짜는 충돌
+    if (gMax > 1) {
+      for (const iso of dates) {
+        const dw = new Date(iso + 'T00:00:00Z').getUTCDay();
+        const cap = Math.min(gMax, capByDate.get(iso) ?? gMax, capByDow.get(dw) ?? gMax);
+        if ((seatsByDate.get(iso) || 0) + (seatsByDow.get(dw) || 0) >= cap) conflicts.add(iso);
       }
     }
   } catch (e) { console.warn('[enroll] conflicts:', (e as any)?.message); }

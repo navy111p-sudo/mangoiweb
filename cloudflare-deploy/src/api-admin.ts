@@ -1,4 +1,5 @@
 import { WEEKLY_POSTPONE, prepareWeeklyPostpone } from './weekly-postpone';
+import { loadGroupLeads, leadIdOf, loadGroupLeadsForIds } from './group-room';   // 👥 합반 대표 방(2026-10-07)
 import { counselingRecipient, sendCounselingSms } from './counseling-send';
 // ═══════════════════════════════════════════════════════════════════════
 // 🛡️ api-admin.ts — 관리자 도메인 API (api-mango.ts 에서 분리)
@@ -2257,8 +2258,10 @@ export async function handleAdminApi(
       // teacher_name·student_name 을 함께 읽는다 — 아래 «오판» 대조(이름 일치 + 학생과의 혼동 배제)에 필요하다.
       const noShows: any = await env.DB.prepare(`SELECT room_id, schedule_id, missing_role, teacher_name, student_name, created_at FROM class_no_show WHERE created_at >= ? AND created_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
       const nsByRoom: any = {}; const nsBySched: any = {};
+      const nsTeacherByRoom: any = {};   // 👥 합반 — «강사 미입장» 은 방 전체(학생 전원)의 일이다
       for (const n of (noShows.results || [])) {
         if (n.room_id) nsByRoom[n.room_id] = n;
+        if (n.room_id && n.missing_role === 'teacher') nsTeacherByRoom[n.room_id] = n;
         if (n.schedule_id != null) nsBySched[`${n.schedule_id}|${kstDay(n.created_at)}`] = n;
       }
       /* 🔎 (2026-08-19) 「강사 미입장」이 **정말** 미입장이었나를 출석 기록과 대조한다.
@@ -2356,9 +2359,24 @@ export async function handleAdminApi(
       const holdRanges = await loadHoldRanges(env as any);
       // 보류 구간이라도 학생이 실제로 들어온 회차는 «수업함» — 그 방 번호만 한 번에 묻는다.
       // 못 읽으면 null → 아래에서 보류를 적용하지 않는다(가르친 수업을 0원으로 만들지 않는 쪽).
+      /* 👥 (2026-10-07) 합반(1:N) — 같은 강사·시각·길이의 학생 행들은 «대표 방» 하나에서 수업한다
+         (정본 src/group-room.ts — 학생·강사 화면이 같은 함수). 출석·피드백은 그 방 번호로 남으므로
+         여기서도 그 방으로 대조해야 «수업했는데 피드백 미작성 공제» 가 붙지 않는다.
+         ⚠️ 노쇼는 «학생별» 이다 — 합반 방의 노쇼 행은 다른 학생 것일 수 있어 방 번호로 잇지 않는다(아래 ns).
+         실패하면 빈 Map = 예약 id 방 그대로(예전 동작). */
+      const gRoomOf = new Map<string, string>();
+      try {
+        const byDate = new Map<string, any[]>();
+        for (const l of instances) { const a2 = byDate.get(l._date) || []; a2.push(l); byDate.set(l._date, a2); }
+        for (const [dstr, arr] of byDate) {
+          const gl = await loadGroupLeads(env, arr, dstr);
+          if (!gl.size) continue;
+          for (const l of arr) if (gl.has(Number(l.id))) gRoomOf.set(`${l.id}|${dstr}`, `class-${leadIdOf(gl, l.id)}-${dstr.replace(/-/g, '')}`);
+        }
+      } catch { /* 예약 id 방 그대로 */ }
       const heldRooms = instances
         .filter((l: any) => holdRanges.size && heldOnFor(holdRanges, l.user_id, l._date))
-        .map((l: any) => `class-${l.id}-${String(l._date).replace(/-/g, '')}`);
+        .map((l: any) => gRoomOf.get(`${l.id}|${l._date}`) || `class-${l.id}-${String(l._date).replace(/-/g, '')}`);
       const heldAttended = heldRooms.length ? await attendedStudentRooms(env as any, heldRooms) : new Set<string>();
 
       // 오늘(KST) — 아직 시작 전인 예정 수업은 지급 계산에서 제외(status: upcoming)
@@ -2371,6 +2389,7 @@ export async function handleAdminApi(
       for (const l of instances) {
         const dateStr = l._date;
         const roomId = `class-${l.id}-${dateStr.replace(/-/g, '')}`;
+        const gRoom = gRoomOf.get(`${l.id}|${dateStr}`) || null;   // 👥 합반이면 대표 방(위 gRoomOf)
         // teacher_id(원부 teachers.id) → 연결된 프로필. 번호 직조회(tMap[l.teacher_id])는
         // 다른 번호 체계라 남의 프로필이 나온다 — 위 profByTeacherId 다리로만 건넌다.
         const prof = profByTeacherId[String(l.teacher_id)] || tByName[l.teacher_name || ''] || null;
@@ -2392,7 +2411,11 @@ export async function handleAdminApi(
         }
 
         const upcoming = dateStr > todayKey || (dateStr === todayKey && String(l.start_time || '00:00') > nowHm);
-        const ns = nsByRoom[roomId] || nsBySched[`${l.id}|${dateStr}`] || null;
+        /* 👥 합반이면 «학생 미입장» 은 학생별(schedule_id)로만 — 대표 방의 학생 노쇼는 다른 학생 것일 수 있다.
+           «강사 미입장» 은 방 하나에 강사 하나라 그 방 학생 전원의 수업에 같이 걸린다(안 걸면 대표 학생 수업만 0원이고
+           나머지 학생 수업은 «완료» 로 지급된다). 오판(nsIsFalseAlarm) 대조는 아래에서 그대로 탄다. */
+        const ns = gRoom ? (nsBySched[`${l.id}|${dateStr}`] || nsTeacherByRoom[gRoom] || null)
+                         : (nsByRoom[roomId] || nsBySched[`${l.id}|${dateStr}`] || null);
         /* ⏸ (2026-08-08) 연기된 수업 — 매니저가 강사 요청을 승인하면
            class_schedules.status 가 'postponed' 가 된다(위 /schedule-requests/decide).
            그런데 이 계산은 그 값을 **한 번도 보지 않았다**. 결과가 두 가지로 나빴다:
@@ -2407,7 +2430,7 @@ export async function handleAdminApi(
         else if (upcoming) st = 'upcoming';
         /* ⏸ 연속 결석 보류 기간 — 강사는 기다리지 않고 매니저에게 확인한다(사장님 결정: 0%).
            보류를 건 날(두 번째 결석) 수업은 기존 «학생 결석» 규칙 그대로다(구간이 그 «다음» 부터). */
-        else if (heldAttended && !heldAttended.has(roomId) && heldOnFor(holdRanges, l.user_id, dateStr)) st = 'absence_hold';
+        else if (heldAttended && !heldAttended.has(gRoom || roomId) && heldOnFor(holdRanges, l.user_id, dateStr)) st = 'absence_hold';
         else if (ns && ns.missing_role === 'student') st = 'student_absent';
         /* 🔎 오판이면 «미입장» 으로 보지 않는다 — 강사가 실제로 들어와 수업한 건이다.
            그러면 아래 흐름을 그대로 타고 'finish'(정상 수업, 전액)로 남는다. 위 nsIsFalseAlarm 주석 참고. */
@@ -2430,7 +2453,7 @@ export async function handleAdminApi(
         // 당일 피드백 여부 — 완료 수업만 판정. room_id 정확 매칭 → (구 데이터 폴백) 강사명+같은 날
         let fbOk: boolean | null = null;
         if (st === 'finish') {
-          fbOk = fbByRoom[roomId] === dateStr || !!fbByTeacherDay[`${teacherName}|${dateStr}`];
+          fbOk = fbByRoom[roomId] === dateStr || (!!gRoom && fbByRoom[gRoom] === dateStr) || !!fbByTeacherDay[`${teacherName}|${dateStr}`];
         }
 
         // 지각 연장실패(분당 차감) — 완료 수업에 관리자가 입력한 지각분 × 요율
@@ -3610,6 +3633,15 @@ export async function handleAdminApi(
       }
 
       // Join/observe and room-linked enrichment must use the student/teacher room for this date.
+      /* 👥 (2026-10-07) 합반(1:N) — 학생·강사 화면과 같은 «대표 방»(정본 src/group-room.ts). 실패하면 그대로. */
+      try {
+        const _mg = sessions.filter(s => s.source === 'mangoi' && s.schedule_id != null);
+        const _gl = await loadGroupLeadsForIds(env, _mg.map(s => s.schedule_id), dateStr);
+        if (_gl.size) for (const s of _mg) {
+          if (s.room_id !== `class-${s.schedule_id}-${ymd}`) continue;
+          s.room_id = `class-${leadIdOf(_gl, s.schedule_id)}-${ymd}`;
+        }
+      } catch { /* 예약 id 방 그대로 */ }
       await applyRoomOverrides(env.DB, sessions.filter(s => s.source === 'mangoi'), ymd);
 
       /* 📋 (2026-09-23 매니저 요청) 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결 — 정본 class-today-extras.ts.
@@ -15071,6 +15103,19 @@ LIMIT $limit`;
 
         // Resolve the same date-specific room as student/teacher schedule projections.
         // Use each occurrence's KST date, including yesterday/tomorrow near midnight.
+        /* 👥 (2026-10-07) 합반(1:N)은 학생마다 한 행 — 학생·강사 화면과 같은 «대표 방» 으로 모은다
+           (정본 src/group-room.ts). 안 하면 참관 버튼이 아무도 없는 방으로 데려간다. 실패하면 그대로. */
+        for (const ymd of new Set(mgClasses.map(c => kstYmd(c.start_ms)))) {
+          const day = mgClasses.filter(c => kstYmd(c.start_ms) === ymd && c.schedule_id != null);
+          const dStr = String(ymd).replace(/^(\d{4})-?(\d{2})-?(\d{2})$/, '$1-$2-$3');
+          const gl = await loadGroupLeadsForIds(env, day.map(c => c.schedule_id), dStr);
+          if (!gl.size) continue;
+          const compact = dStr.replace(/-/g, '');
+          for (const c of day) {
+            if (c.room_id !== `class-${c.schedule_id}-${compact}`) continue;
+            c.room_id = `class-${leadIdOf(gl, c.schedule_id)}-${compact}`;
+          }
+        }
         for (const ymd of new Set(mgClasses.map(c => kstYmd(c.start_ms)))) {
           await applyRoomOverrides(env.DB, mgClasses.filter(c => kstYmd(c.start_ms) === ymd), ymd);
         }

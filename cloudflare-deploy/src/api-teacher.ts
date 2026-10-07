@@ -18,6 +18,7 @@
 //     첫 화면(오늘 수업)의 렌더를 막으면 안 되므로 페이지가 나중에 따로 부른다.
 // ────────────────────────────────────────────────────────────────────────────
 
+import { loadGroupLeadsForIds, leadIdOf, groupSizes } from './group-room';
 import { getAdminActor, PH_MANAGERS, otherAccountOf } from './auth-admin';
 // 🎚️ 학생 읽기 밴드(판단력 훈련) — KV 1회 조회. 수업 전에 강사가 "이 아이가 지금
 //    어느 정도 문장을 읽나"를 알 수 있게 오늘 수업 목록에 얹는다.
@@ -857,6 +858,26 @@ export async function handleTeacherApi(
         「같은 수업인데 둘 다 참여자 1명」이 **매번** 재현된다(이 저장소가 네 번 사고 낸 그 자리).
      ⚠️ 이 자리여야 한다 — 아래 노쇼·녹화 조회가 `room_id` 로 돌므로 **그 전에** 갈아 끼운다.
      ⚠️ 던지지 않는다(fail-open) — 지정이 안 걸리면 예약방 그대로다. 정본 src/class-room-override.ts */
+  /* 👥 (2026-10-07) 그룹(1:N) 수업 — 학생마다 한 행이라 예약 id 로 방을 만들면 학생마다 방이 갈린다.
+     학생 쪽(sessions/today)과 **같은 정본**(src/group-room.ts)으로 대표 방에 모은다.
+     ⚠️ 위 불변식(「sessions/today 와 반드시 같은 식」)이 그대로 걸린 자리다 — 한쪽만 고치면 갈린다.
+     ⚠️ 지정방(applyRoomOverrides)보다 «앞» — 지정이 걸리면 그쪽이 이긴다(학생 쪽과 같은 순서). */
+  try {
+    const _ids = classes.filter((c: any) => c && c.kind === 'class' && c.schedule_id != null).map((c: any) => c.schedule_id);
+    const _gl = await loadGroupLeadsForIds(env as any, _ids, todayStr);
+    if (_gl.size) {
+      const _gs = groupSizes(_gl);
+      for (const c of classes) {
+        if (!c || c.kind !== 'class' || c.schedule_id == null) continue;
+        if (c.room_id !== `class-${c.schedule_id}-${ymd}`) continue;   // 다른 규칙으로 만든 방은 건드리지 않는다
+        const lead = leadIdOf(_gl, c.schedule_id);
+        if (lead === Number(c.schedule_id) && !_gs.has(lead)) continue;
+        c.room_id = `class-${lead}-${ymd}`;
+        c.group_lead_id = lead;
+        c.group_size = _gs.get(lead) || 1;
+      }
+    }
+  } catch (e: any) { console.warn('[teacher-portal] group room:', e?.message); }
   await applyRoomOverrides(env.DB, classes, ymd);
 
   /* ⏸ (2026-09-25 사장님 결정) 연속 결석으로 «보류» 된 학생의 수업 — 강사는 방에서 기다리지 않고
