@@ -160,7 +160,15 @@ try {
   const c = names({ mangoi_logged_user: JSON.stringify({ uid: 'x1', user_id: 'x1', name: 'x1' }), aiClassName: '민서' });
   ok(c.loginName() === '민서', 'saved typed name not used when login name equals id');
   ok(names({}).nameOf('小明').en === 'friend', 'non-latin/hangul name must be «friend»');
+  // {id,name} 모양 — 이름 칸에 아이디가 든 계정도 이름으로 부르지 않는다(CLAUDE.md 2장 uid||user_id||id)
+  ok(names({ mangoi_logged_user: JSON.stringify({ id: 'kimsky', name: 'kimsky' }) }).loginName() === '', '{id,name} shape: account id used as the name');
+  // 짝 — 이름이 진짜면 그대로 부른다(«전부 빈 값» 도 통과하지 않게)
+  ok(names({ mangoi_logged_user: JSON.stringify({ id: 'kimsky', name: '김하늘' }) }).loginName() === '김하늘', '{id,name} shape: real name dropped');
 } catch (e) { ok(false, 'name functions crashed: ' + e.message); }
+
+// ⑥-2 로그인 안 한 학생을 지어낸 이름(예: «민서»)으로 부르지 않는다 — 기본값은 빈칸
+{ const m = html.match(/<input id="nameIn"[^>]*>/); ok(!!m, 'nameIn input not found');
+  if (m) ok(!/\bvalue="[^"]+"/.test(m[0]), 'nameIn has a made-up default name: ' + m[0]); }
 
 // ⑦ 숨은 주소 — 홈·공용 사이드바에서 아직 링크하지 않는다(시범)
 for (const f of ['index.html', 'js/mg-sidebar.js', 'js/idx-allmenu.js', 'today.html']) {

@@ -215,7 +215,7 @@ select.pill{max-width:min(100%,280px)}
 </header>
 
 <section aria-label="수업">
-  <p class="muted">레슨을 고르고 「수업 시작」을 누르면 Lily 선생님이 교재를 읽어 줘요. 🎤 를 누르고 따라 말해 보세요. 마이크를 쓸 수 없으면 대답을 골라 보낼 수 있어요.</p>
+  <p class="muted">레슨을 고르고 «수업 시작»을 누르면 Lily 선생님이 교재를 읽어 줘요. 🎤 를 누르고 따라 말해 보세요. 마이크를 쓸 수 없으면 대답을 골라 보낼 수 있어요.</p>
   <div class="class" id="cls">
     <div class="cbar">
       <span class="live"><i></i>LIVE · <span id="room">AI-BTS1-001</span> · Lily 선생님 + 나</span>
@@ -252,13 +252,13 @@ select.pill{max-width:min(100%,280px)}
         <div class="tile s" id="sTile">
           <video id="camVid" autoplay muted playsinline hidden></video>
           <div class="me" aria-hidden="true">🙂</div>
-          <div class="slabel" id="camLabel">나 (민서) · 카메라 꺼짐</div>
+          <div class="slabel" id="camLabel">나 (친구) · 카메라 꺼짐</div>
           <div class="camnote" id="camNote" hidden></div>
           <button class="pill" type="button" id="camBtn" aria-pressed="false">📷 카메라 켜기</button>
         </div>
         <div class="praise"><span>칭찬 별</span><span class="stars" id="stars">☆ 0</span><span class="sp"></span><span class="muted num" id="prog" style="color:var(--c-dim)">0 / 0</span></div>
         <div class="subw" id="subW" aria-live="polite"></div>
-        <div class="ask" id="ask" aria-live="polite"><b>대기 중</b><span class="tgt">「수업 시작」을 눌러 주세요</span></div>
+        <div class="ask" id="ask" aria-live="polite"><b>대기 중</b><span class="tgt">«수업 시작»을 눌러 주세요</span></div>
       </div>
     </div>
     <div class="dock" role="toolbar" aria-label="수업 버튼">
@@ -276,7 +276,7 @@ select.pill{max-width:min(100%,280px)}
       <div class="row" id="simChoices" aria-label="이렇게 대답할 수 있어요"></div>
       <div class="row">
         <button class="ghost-btn" type="button" data-say="exact">✅ 정확히</button>
-        <button class="ghost-btn" type="button" data-say="half">〰️ 반만</button>
+        <button class="ghost-btn" type="button" data-say="half">✂️ 반만</button>
         <button class="ghost-btn" type="button" data-say="quiet">🤫 말 안 함</button>
       </div>
       <form class="row" id="simForm"><input id="simInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="직접 입력해도 돼요"><button class="big-btn" type="submit">보내기</button></form>
@@ -286,7 +286,7 @@ select.pill{max-width:min(100%,280px)}
       <div class="card">
         <h3>Lily 선생님과 수업</h3>
         <p style="color:var(--c-dim)">교재 한 레슨을 함께 읽고 따라 말해요. 어려운 문장은 끝에서 한 번 더 연습합니다.</p>
-        <div class="namebox"><label for="nameIn">선생님이 불러 줄 이름</label><input id="nameIn" type="text" maxlength="20" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="민서"><small id="namePrev"></small></div>
+        <div class="namebox"><label for="nameIn">선생님이 불러 줄 이름</label><input id="nameIn" type="text" maxlength="20" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="" placeholder="예: 민서"><small id="namePrev"></small></div>
         <div class="row"><button class="big-btn" type="button" id="startBtn" disabled>▶ 수업 시작</button><button class="ghost-btn" type="button" id="startAuto" disabled>🤖 자동 데모로 보기</button></div>
       </div>
     </div>
@@ -303,6 +303,7 @@ select.pill{max-width:min(100%,280px)}
 
 </div>
 
+<script src="/js/tts-short-text.js?v=1"></script>
 <script src="/js/ai-class-engine.js?v=1"></script>
 
 <script>
@@ -334,7 +335,7 @@ select.pill{max-width:min(100%,280px)}
     var d = CAT.findIndex(function(u){ return /^BTS 1 001 .* New$/.test(u.id) || u.id.indexOf('BTS 1 001') === 0; });
     li = d >= 0 ? d : 0; sel.value = li;
   }
-  // 레슨 문장 — tb-say 의 키 「[권] 판 / SlideN.JPG」 에서 그 레슨 것만 골라 쪽 순서로 (scripts/build-ai-class-catalog.mjs 와 같은 규칙)
+  // 레슨 문장 — tb-say 의 키 «[권] 판 / SlideN.JPG» 에서 그 레슨 것만 골라 쪽 순서로 (scripts/build-ai-class-catalog.mjs 와 같은 규칙)
   var KEY_RE = /^\[(.+?)\]\s*(.*?)\s*\/\s*Slide(\d+)\.JPG$/i;
   function unitFrom(c, d){
     var pages = [];
@@ -400,14 +401,14 @@ select.pill{max-width:min(100%,280px)}
   }
   function loginName(){
     try { var q = new URLSearchParams(location.search).get('name'); if (q && q.trim()) return q; } catch (e) {}
-    try { var u = JSON.parse(lsGet('mangoi_logged_user') || 'null'); if (u && u.name && u.name !== u.uid && u.name !== u.user_id) return u.name; } catch (e) {}
+    try { var u = JSON.parse(lsGet('mangoi_logged_user') || 'null'); if (u && u.name && u.name !== u.uid && u.name !== u.user_id && u.name !== u.id) return u.name; } catch (e) {}
     return lsGet('aiClassName') || '';
   }
   (function(){ var v = loginName(); if (v) $('nameIn').value = v; })();
   function curName(){ return nameOf($('nameIn').value); }
   function namePrev(){ var n = curName(); $('namePrev').textContent = n.en === 'friend' ? '이름을 한글이나 영어로 적어 주세요 — 지금은 «friend» 로 불러요' : 'Lily 선생님이 «' + n.en + '» 라고 불러요 · 자막에는 «' + n.ko + '»'; }
   $('nameIn').addEventListener('input', function(){ namePrev(); camPaint(); }); namePrev();
-  // 맞혔을 때 축하 소리 — 파일 없이 브라우저에서 짧게 만든다. 「소리 끔」이면 안 낸다
+  // 맞혔을 때 축하 소리 — 파일 없이 브라우저에서 짧게 만든다. «소리 끔»이면 안 낸다
   var actx = null;
   function sfx(){
     window.__sfx = (window.__sfx || 0) + 1;
@@ -430,7 +431,7 @@ select.pill{max-width:min(100%,280px)}
     setStage(0); $('cap').querySelector('.k').textContent = '📖 지금 읽는 문장';
     $('room').textContent = 'AI-' + unit.book.replace(/[^A-Z0-9]+/gi, '').slice(0, 10);
     $('bookTitle').textContent = unit.book;
-    drawPage(0, null); setAsk('대기 중', '「수업 시작」을 눌러 주세요'); setButtons();
+    drawPage(0, null); setAsk('대기 중', '«수업 시작»을 눌러 주세요'); setButtons();
     $('stars').textContent = '☆ 0'; $('prog').textContent = '0 / ' + st.targets;
     $('startOv').hidden = false; $('endOv').hidden = true; $('sim').hidden = true; $('sub').hidden = true;
     clearInterval(timerId); $('timer').textContent = '00:00'; camPaint();
