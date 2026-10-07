@@ -1407,7 +1407,10 @@ function renderCard(){
           label 을 고르기만 한다(정본 src/student-schedule-summary.ts). */
     [t('qBooked'), (function(){
       const q = f.sched;
-      return q ? (String((_lang==='en' ? q.label_en : q.label_ko) || '—') || '—') : '—';
+      const lb = q ? (String((_lang==='en' ? q.label_en : q.label_ko) || '—') || '—') : '—';
+      /* 👩‍🏫 (2026-10-07) 담당 강사 — 서버 정본 sched.teachers 를 그대로(지난 수업 강사 제외, 모르면 안 적음). */
+      const tl = (q && Array.isArray(q.teachers)) ? q.teachers.filter(Boolean) : [];
+      return (lb !== '—' && tl.length) ? lb + ' · 👩‍🏫 ' + tl.join(', ') : lb;
     })()],
     [t('qPayType'), erp.payment_type || '—'],
     [t('qFranchise'), erp.franchise || erp.shop_name || '—'],
