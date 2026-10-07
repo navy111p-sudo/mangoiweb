@@ -86,9 +86,22 @@
       card: null, sub: null, href: '/admin/monitor-wall.html',
       ico: '<path d="M12 2v20"/><path d="M5 22l7-9 7 9"/><path d="M7 8h10"/><circle cx="12" cy="5" r="2"/>' },
 
-    { key: '수업종료연장', ko: '수업 종료 / 연장', en: 'End / extend classes',
+    /* ⚠️ (2026-10-07 매니저 요청 4) 이 칸은 «지금 열려 있는 화상방» 을 끝내거나 늘리는 카드다.
+       「End / extend classes」라는 이름 때문에 «수강을 끝내는 곳» 으로 읽혀, 수업이 없는 시간에 열면
+       빈 화면만 나와 «아무것도 안 된다» 로 보였다 → 이름에 «화상방» 을 밝히고(key 는 사용기록 때문에 그대로),
+       수강 종료는 아래 새 칸(수강 운영 › 종료 후보 · 학생 상세 › 종료·연장)으로 보낸다. */
+    { key: '수업종료연장', ko: '진행 중 화상수업 종료 / 연장', en: 'End / extend a live video class',
       card: 'card-active-rooms', sub: null,
       ico: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
+
+    /* 🗓️ (2026-10-07 매니저 요청 4) 수강 종료 — 카페24 «수업종료대상 / 종료완료» 에 해당하는 곳.
+       종료가 가까운 학생 명단(수강 운영 › 종료 후보)으로 바로 간다. 한 학생을 끝내거나 잘못 끝낸 것을
+       되돌리는 일은 그 학생 상세의 「🗓️ 종료·연장」 탭에서 한다.
+       🔒 수강 운영은 본사 전용(enrollAdminHqOnly) — 강사·지사·대리점에는 «들어갈 수 없는 버튼» 이 되므로 감춘다. */
+    { key: '수강종료', ko: '수강 종료 · 종료 후보', en: 'Course end · ending soon',
+      card: null, sub: null, href: '/enroll-ops.html#ending',
+      hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+      ico: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="15" x2="15" y2="15"/>' },
 
     /* 신규 — 30일 4,834건으로 데이터량 1위인데 지금까지 두 번 눌러야 닿았다 */
     { key: '출결현황',   ko: '출결 현황', en: 'Attendance',
