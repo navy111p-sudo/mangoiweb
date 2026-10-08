@@ -97,6 +97,10 @@ console.log('\n▶ ① 로그인 학생: 교사로 연기');
   ok('가능 강사 이름이 보인다(Teacher Ana · Teacher Farrah)', t.includes('Teacher Ana') && t.includes('Teacher Farrah'));
   ok('가짜 시간표 강사(Karl·Mo·Teacher Janice)는 안 보인다', !/Karl|Teacher Janice|\bMo\b/.test(t), t.slice(0, 300));
   ok('가능 0명인 수업은 «없어요» 라고 말한다', t.includes('수업 가능한 다른 선생님이 없어요'));
+  /* 🔤 2026-10-05 — 사진이 없으면 이모지 대신 이름 첫 글자 동그라미(AI 얼굴을 지어내지 않는다). */
+  const av = await page.evaluate(() => [...document.querySelectorAll('.teacher-card .t-avatar')].map(a => ({ img: !!a.querySelector('img'), ini: (a.querySelector('.t-ini') || {}).textContent || '', txt: a.textContent })));
+  ok('선생님 얼굴 자리에 👨‍🏫 이모지가 없다', av.length > 0 && av.every(x => !/👨/.test(x.txt)), JSON.stringify(av));
+  ok('사진 없는 자리는 이름 첫 글자(이니셜)다', av.filter(x => !x.img).length > 0 && av.filter(x => !x.img).every(x => /^\S$/.test(x.ini)), JSON.stringify(av));
   ok('서버 오류인 수업은 «불러오지 못했어요» 라고 말한다(가능 0명으로 위장하지 않음)', t.includes('불러오지 못했어요'));
   ok('수업마다 지금 선생님을 보여 준다', t.includes('KRYSTEL') && t.includes('중국어 강선생님'));
 

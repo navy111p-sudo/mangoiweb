@@ -3261,8 +3261,11 @@ async function micViaWhisper(){
   var trace=window.MangoiVoiceTiming ? MangoiVoiceTiming.begin(manual ? 'manual' : 'auto', 'warmup-whisper') : null;
   _warmInputTrace=trace;
   var heard=false, errored=false; // 🔇 말소리가 한 번도 안 들렸나 — Whisper 는 무음에서 "Thank you." 를 지어낸다
+  var recBlob=null;               // 🎤 녹음 파일 — 모듈의 소리크기 판정이 놓쳤을 때 다시 재 본다(_blobHasVoice)
   var said = await MangoiVoice.record({
     onTiming: trace ? trace.mark : null,
+    onAudio: function(b){ recBlob=b; },
+    firstMs: manual ? MIC_MANUAL_IDLE : 0,        // ✋ 수동: 판정이 말소리를 못 봐도 9초에 끊지 않는다(⏹ 로 끝냄). 0 = 모듈 기본값
     lang: _warmLang,              // 🀄 서버 Whisper 언어 힌트 — 안 주면 자동감지로 떨어져 오인식이 는다
     silenceMs: manual ? MIC_MANUAL_IDLE : 1600,   // ✋ 수동은 침묵으로 끝내지 않는다(30초는 안전장치). ⚡ 자동: 2.5초(기본) → 1.8초(2026-09-25) → 1.6초(2026-10-02). 녹음 경로는 «문장이 끝났나» 를 모르므로 1.5초까지는 안 줄인다
     maxMs: manual ? MIC_MANUAL_MAX : 20000,       // ⚠️ 수동은 한 번에 최대 3분을 받아 전사로 보낸다(예전 20초) — 길게 말하는 학생을 자르지 않으려고 고른 값
@@ -3281,15 +3284,29 @@ async function micViaWhisper(){
     }
   });
   if(_warmPaused || epoch!==_warmEpoch || voiceEpoch!==_warmVoiceEpoch)return;
-  _whisperOn=false; setMicState(false);
+  // Keep cancellation active while quiet-speech decoding is still pending.
   /* 🔇 (2026-09-26) 말소리가 한 번도 안 들린 녹음의 전사는 버린다 — 학생이 하지도 않은 말로 대화가 이어진다.
      자동 말하기·얼굴 대화는 조용한 순간에도 마이크를 열어서 이 일이 잦다(A.i 친구하기 얼굴 대화와 같은 규칙). */
+  /* 🎤 (2026-10-07 MAIMAI 제보 — 수업 안 demo-1) 모듈 판정(peak>8/128)이 «말소리 없음» 이라 해도
+     녹음 파일을 다시 재서 말소리가 있으면 버리지 않는다. 수업 중에는 같은 마이크를 화상수업(교사 사무실 모드 = 자동게인 끔)이
+     먼저 쥐고 있어 이 녹음도 작게 들어온다(추론 — CLAUDE.md «같은 장치를 겹쳐 열면 앞선 설정을 그대로 준다»).
+     모르면(디코드 실패) 예전대로 버린다. */
+  if(said && !heard){
+    var _v=await _blobHasVoice(recBlob);
+    if(_warmPaused || epoch!==_warmEpoch || voiceEpoch!==_warmVoiceEpoch)return;
+    if(_v===true) heard=true;
+  }
+  _whisperOn=false; setMicState(false);
   if(said && !heard){ said=''; addMsg(wuT('🎤 소리가 잘 안 들렸어요. 조금 더 크게 다시 말해 주세요.', '🎤 I couldn\'t hear you well. Please say it again a little louder.'), 'sys'); }
   /* 🔁 (2026-10-02) 말소리는 들렸는데 받아쓴 글자가 비었다 = 서버가 «oah, oah…» 같은 반복 환각을 걸러냈거나
      알아듣지 못했다(src/stt-loop.ts). 아무 말 없이 넘어가면 학생은 기다리기만 한다 — 사실대로 말한다. */
   if(!said && heard && !errored) addMsg(wuT('🎤 잘 못 알아들었어요. 조금 더 또박또박 다시 말해 주세요.', '🎤 I didn\'t catch that. Please say it again more clearly.'), 'sys');
   if(said && manual && !_whisperUserStop){ _micManualHold(said); return; }   // ✋ 수동: ⏹ 를 눌러야 보낸다
   if(said){ document.getElementById('inp').value=said; _warmPendingTrace=trace; _warmInputTrace=null; sendMsg(); }
+}
+/* 🎤 녹음 파일 말소리 판정은 공용 정본 js/voice-has-speech.js — 없으면 null(예전대로 버림) */
+function _blobHasVoice(blob){
+  try{ return window.MangoiVoiceCheck ? MangoiVoiceCheck.blobHasVoice(blob) : Promise.resolve(null); }catch(e){ return Promise.resolve(null); }
 }
 /* ✨ 자동 말하기(베타, 2026-09-24) — 켜는 «시점» 만 js/warmup-auto-talk.js 가 정한다.
    듣기·말 끝 판단·전송은 이 파일의 기존 코드 그대로다. 모듈이 없거나 죽어도 버튼 모드는 그대로 돈다. */
@@ -4392,6 +4409,7 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 </style>
 <script defer src="/js/ai-voice-timing.js?v=1"></script>
 <script defer src="/js/mangoi-voice-input.js?v=6"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
+<script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
 <script defer src="/js/ai-diff.js?v=2"></script>
 <script defer src="/js/warmup-howto.js?v=5"></script><!-- 📘 A.i말하기 사용방법 쉽게 알기 안내창 (2026-10-03) --><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
 <script defer src="/js/back-nav.js"></script>

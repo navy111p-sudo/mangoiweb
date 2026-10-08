@@ -18,7 +18,12 @@ const focusedSuites=[
  'speech_preferences_fault','speech_preferences_sqlite','game_vocab_account_race',
  'daily_handover','daily_handover_reminder_delivery','handover_pending_delivery','daily_handover_client_race',
  'payment_schedule_integrity','c24_mirror_identity','c24_mirror_move_sync',
- 'student_schedule_lifecycle_sync','weekly_drag_change_cutoff','student_entitlement_contract','offline_network_guard'
+ 'student_schedule_lifecycle_sync','weekly_drag_change_cutoff',
+ 'class_series_move','class_series_atomic','admin_schedule_ui_consistency','class_schedules_pagination',
+ 'student_postpone_retry_intent','enroll_student_conflict','enroll_student_conflict_boundaries',
+ 'student_alias','room_mismatch','daily_handover_duty',
+ 'end_classes_preview','schedule_restore','voice_decode_cancel','student_auto_postpone','student_sched_summary',
+ 'student_entitlement_contract','offline_network_guard'
 ];
 const suites=mode==='fast'?['repository_fast']:focusedSuites;
 const env={PATH:process.env.PATH,HOME:process.env.HOME,TMPDIR:process.env.TMPDIR||out,

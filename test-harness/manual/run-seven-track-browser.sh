@@ -29,7 +29,7 @@ for round in 1 2; do
   RESULT_PATH="$OUT/voice.json" run_logged "$OUT/voice.log" node test-harness/manual/ai-friend-turn-latency-browser.mjs
   node -e 'const r=require(process.argv[1]);if(r.length!==3||r.some(x=>!x.canceledMicResumedWithin3s||x.staleAvatarStopped))throw Error("incomplete voice fixture result")' "$OUT/voice.json"
   OUTPUT_DIR="$OUT/payment" run_logged "$OUT/payment.log" node test-harness/manual/payment-integrity-browser.mjs
-  grep -Fq '"browserPass":10,"browserFail":0' "$OUT/payment.log"
+  grep -Fq '"browserPass":21,"browserFail":0' "$OUT/payment.log"
 done
 # These distinct gaps run once; the repeated baseline above remains unchanged.
 OUT="$SEVEN_TRACK_BROWSER_OUTPUT/focused-races"
@@ -42,8 +42,12 @@ OUTPUT_DIR="$OUT/schedule-lock" run_logged "$OUT/schedule-lock.log" node test-ha
 grep -Eq '^weekly-schedule-lock-browser: PASS [1-9][0-9]* / FAIL 0 / SKIP 0$' "$OUT/schedule-lock.log"
 OUTPUT_DIR="$OUT/calendar-consumers" run_logged "$OUT/calendar-consumers.log" node test-harness/manual/schedule-consumer-approval-browser.mjs
 grep -Eq '^schedule-consumer-approval-browser: PASS [1-9][0-9]* / FAIL 0 / SKIP 0$' "$OUT/calendar-consumers.log"
-node -e 'const r=require(process.argv[1]);const expected=["student-request-existing-admin-approval-crosses-week-and-teacher","versioned-admin-move-refresh-reload-old-slot-removal-and-join"];if(r.cases.length!==2||r.cases.some((c,i)=>c.name!==expected[i]||c.passed!==true)||r.navigations.length!==2||!r.assertions.some(a=>a.name==="negative control rejects stale visible teacher name with correct API data"&&a.passed)||!r.assertions.some(a=>a.name==="negative control rejects retained old visible slot beside correct new slot"&&a.passed))throw Error("incomplete joined calendar-consumer evidence")' "$OUT/calendar-consumers/fixture-report.json"
+node -e 'const r=require(process.argv[1]);const expected=["automatic-student-change-updates-projections-cache-and-room","student-request-existing-admin-approval-crosses-week-and-teacher","versioned-admin-move-refresh-reload-old-slot-removal-and-join"];if(r.cases.length!==3||r.cases.some((c,i)=>c.name!==expected[i]||c.passed!==true)||r.navigations.length!==3||!r.assertions.some(a=>a.name==="negative control rejects stale visible teacher name with correct API data"&&a.passed)||!r.assertions.some(a=>a.name==="negative control rejects retained old visible slot beside correct new slot"&&a.passed))throw Error("incomplete joined calendar-consumer evidence")' "$OUT/calendar-consumers/fixture-report.json"
 for fixture in "$OUT/voice/fixture-report.json" "$OUT/handover/fixture-report.json" "$OUT/schedule-lock/fixture-report.json" "$OUT/calendar-consumers/fixture-report.json"; do
   node -e 'const r=require(process.argv[1]);if(!(r.passed>0)||r.failed!==0||r.skipped!==0||!Array.isArray(r.cases)||r.cases.length===0)throw Error("incomplete focused browser fixture result")' "$fixture"
 done
-echo 'seven-track-browser: PASS 10 suites / FAIL 0 / SKIP 0'
+mkdir -p "$OUT/admin-schedule-consistency"
+OFFLINE_BROWSER_OUTPUT="$OUT/admin-schedule-consistency" run_logged "$OUT/admin-schedule-consistency.log" node test-harness/manual/admin-schedule-consistency-browser.mjs
+grep -Eq '^admin-schedule-consistency-browser: PASS [1-9][0-9]* / FAIL 0 / SKIP 0$' "$OUT/admin-schedule-consistency.log"
+node -e 'const r=require(process.argv[1]);if(r.failure||!r.summary||r.summary.failed!==0||r.summary.skipped!==0||r.summary.passed!==11||r.cases.length!==11||r.cases.some(c=>c.status!=="passed")||r.unknownReads.length||r.denied.length||r.unexpectedWrites.length||r.routeErrors.length||r.pageErrors.length)throw Error("incomplete admin/student consistency browser evidence")' "$OUT/admin-schedule-consistency/schedule-fixture-report.json"
+echo 'seven-track-browser: PASS 11 suites / FAIL 0 / SKIP 0'

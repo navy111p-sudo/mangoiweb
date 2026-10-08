@@ -1,8 +1,9 @@
 /**
  * Joined schedule-consumer regression: shipped teacher.html AND my-schedule.html
  * consume a real bundled Worker backed only by ephemeral SQLite/synthetic auth.
- * One student request crosses Sunday -> Monday and changes teacher; a versioned
- * admin move changes date/time/teacher again. Teacher approval MUST remain 403.
+ * The production default auto-applies a resolved student change across Sunday -> Monday.
+ * A separate transient SQLite decision rollback leaves a real pending request, recovered
+ * by existing admin approval, then a versioned admin move. Teacher approval remains403.
  *
  * Run with the existing seven-track CI loopback-only network namespace, cleared
  * environment, pinned Playwright 1.63.0/Chromium, PW_DIR and OUTPUT_DIR. This test
@@ -30,7 +31,8 @@ const report = { passed: 0, failed: 0, skipped: 0, cases: [], assertions: [], re
   denied: [], routeErrors: [], pageErrors: [], navigations: [], browserVersion: null,
   coverage: { dom: ['student date/time/teacher display name/count', 'teacher identity/date/time/student/count/old-slot absence'],
     response: ['schedule ID', 'teacher ID via linked identity/admin projection', 'room ID via sessions/teacher projection'],
-    navigation: ['actual teacher Join button room URL'], excluded: ['student room/ID DOM (not shipped)', 'admin drag UI', 'meeting/media/provider execution'] } };
+    navigation: ['actual teacher Join button room URL after automatic/manual application'],
+    policy: ['current default automatic resolved student change', 'pending on actual decision rollback, then manual recovery'], excluded: ['student room/ID DOM (not shipped)', 'admin drag UI', 'meeting/media/provider execution'] } };
 await mkdir(OUT, { recursive: true });
 let browser, backend;
 const contexts = [];
@@ -292,6 +294,56 @@ async function joinAndCompare(teacher, student, expected, label) {
   await assertTeacher(teacher, expected, true, label + ' reopened teacher', true);
 }
 
+async function automaticStudentConsumerCase(publicDir) {
+  const student = await newConsumer('student', '/my-schedule.html', publicDir);
+  const alpha = await newConsumer('alpha', '/teacher.html', publicDir);
+  const beta = await newConsumer('beta', '/teacher.html', publicDir);
+  const admin = await newConsumer('admin', '/__consumer_control.html', publicDir);
+  const states = [student, alpha, beta, admin];
+  const navigationStart = report.navigations.length;
+  await assertStudent(student, INITIAL, 'automatic initial');
+  await assertTeacher(alpha, INITIAL, true, 'automatic initial assigned teacher', true);
+  await assertTeacher(beta, INITIAL, false, 'automatic initial other teacher', true);
+  const submitted = await browserCall(student, 'POST', '/api/class/schedule/request', {
+    schedule_id: backend.scheduleId, request_type: 'change', new_date: APPROVED.date,
+    new_time: APPROVED.time, teacher_id: TEACHERS.beta.id,
+  });
+  check('current default immediately approves resolved student change', submitted.status === 200
+    && submitted.body.ok === true && Number.isInteger(submitted.body.id)
+    && submitted.body.status === 'approved' && submitted.body.auto_applied === 'moved', submitted);
+  const request = backend.requestRow(submitted.body.id);
+  check('automatic request persisted as approved without injected fault or admin decision', request.status === 'approved'
+    && /자동승인/.test(request.decided_by) && backend.faults.length === 0
+    && backend.row().scheduled_date === APPROVED.date && backend.row().start_time === APPROVED.time
+    && String(backend.row().teacher_id) === TEACHERS.beta.id, request);
+  const alphaCache = await alpha.page.evaluate(() => JSON.parse(localStorage.getItem('mangoi_teacher_portal_v1')));
+  check('automatic reload starts with old same-Sunday teacher cache', alphaCache.today === INITIAL.date
+    && alphaCache.classes.length === 1 && alphaCache.classes[0].room_id === roomFor(INITIAL));
+  await readConsumer(alpha, 'reload after automatic application with stale cache', () => alpha.page.reload());
+  await assertTeacher(alpha, INITIAL, false, 'automatic application removes cached old slot', true);
+  await adminProjection(admin, APPROVED, 'automatic application');
+  await readConsumer(student, 'reload after automatic application', () => student.page.reload());
+  await assertStudent(student, APPROVED, 'automatic application', INITIAL);
+  await readConsumer(beta, 'next week after automatic application', () => beta.page.locator('#wk-next').click());
+  await assertTeacher(beta, APPROVED, true, 'automatic application crosses week and teacher');
+  await screenshot(student, 'automatic'); await screenshot(alpha, 'automatic-old-slot'); await screenshot(beta, 'automatic-new-week');
+  await setDay(APPROVED.date, '09:30', states);
+  for (const state of [student, alpha, beta]) await readConsumer(state, 'automatic Monday reload', () => state.page.reload());
+  await assertStudent(student, APPROVED, 'automatic Monday student');
+  await assertTeacher(alpha, APPROVED, false, 'automatic Monday old teacher', true);
+  await assertTeacher(beta, APPROVED, true, 'automatic Monday new teacher', true);
+  await joinAndCompare(beta, student, APPROVED, 'automatic room');
+  check('automatic student request reaches one exact final-date teacher Join URL', report.navigations.length === navigationStart + 1
+    && new URL(report.navigations[navigationStart].url).searchParams.get('vc_room') === roomFor(APPROVED));
+  check('automatic consumer flow attempts no provider calls', backend.outbound.length === 0, backend.outbound);
+  report.cases.push({ name: 'automatic-student-change-updates-projections-cache-and-room', passed: true });
+  for (const state of states) {
+    await deadline('automatic context cleanup', state.context.close(), 5000);
+    contexts.splice(contexts.indexOf(state.context), 1);
+  }
+  await backend.close(); backend = null;
+}
+
 try {
   // Identical fail-closed safety boundary to admin-repairs-offline-browser.mjs.
   const interfaces = (await readFile('/proc/self/net/dev', 'utf8')).trim().split('\n').slice(2).map(line => line.trim().split(':')[0]).sort();
@@ -309,6 +361,9 @@ try {
   backend = await createScheduleWorkerFixture();
   browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-background-networking'] });
   report.browserVersion = browser.version();
+  await automaticStudentConsumerCase(publicDir);
+  backend = await createScheduleWorkerFixture();
+  const manualNavigationStart = report.navigations.length;
   const student = await newConsumer('student', '/my-schedule.html', publicDir);
   const alpha = await newConsumer('alpha', '/teacher.html', publicDir);
   const beta = await newConsumer('beta', '/teacher.html', publicDir);
@@ -318,10 +373,16 @@ try {
   await assertTeacher(alpha, INITIAL, true, 'initial assigned teacher', true);
   await assertTeacher(beta, INITIAL, false, 'initial other teacher', true);
 
+  const initialRow = backend.row();
+  backend.failNextDecisionTransaction(); // A real transaction rollback, not an automatic-apply policy override.
   const submitted = await browserCall(student, 'POST', '/api/class/schedule/request', { schedule_id: backend.scheduleId,
     request_type: 'change', new_date: APPROVED.date, new_time: APPROVED.time, teacher_id: TEACHERS.beta.id });
-  check('student creates one actual pending change request', submitted.status === 200 && submitted.body.ok === true && Number.isInteger(submitted.body.id), submitted);
-  const initialRow = backend.row(), decision = { id: submitted.body.id, action: 'approve' };
+  check('transient decision failure leaves one actual pending student request', submitted.status === 200
+    && submitted.body.ok === true && Number.isInteger(submitted.body.id) && submitted.body.status === 'pending'
+    && submitted.body.auto_applied === null && submitted.body.auto_reason === 'apply_failed', submitted);
+  check('injected decision failure rolled back schedule and was consumed exactly once', JSON.stringify(backend.row()) === JSON.stringify(initialRow)
+    && backend.faults.length === 1 && backend.faults[0].stage === 'before_commit', backend.faults);
+  const decision = { id: submitted.body.id, action: 'approve' };
   const denied = await browserCall(beta, 'POST', '/api/admin/schedule-requests/decide', decision);
   check('existing teacher approval policy remains HTTP 403', denied.status === 403, denied);
   check('teacher denial leaves schedule unchanged and request pending', JSON.stringify(backend.row()) === JSON.stringify(initialRow) && backend.requestRow(decision.id).status === 'pending');
@@ -339,7 +400,7 @@ try {
   await assertTeacher(beta, APPROVED, true, 'approval appears across week boundary');
   await screenshot(student, 'approved'); await screenshot(alpha, 'approved-old-slot'); await screenshot(beta, 'approved-new-week');
   await presentationNegativeControls(student);
-  report.cases.push({ name: 'student-request-existing-admin-approval-crosses-week-and-teacher', passed: true });
+  report.cases.push({ name: 'student-request-existing-admin-approval-crosses-week-and-teacher', passed: true, pendingCause: 'decision-transaction-rollback' });
 
   await setDay(APPROVED.date, '09:30', states);
   for (const state of [student, alpha, beta]) await readConsumer(state, 'Monday reload', () => state.page.reload());
@@ -371,9 +432,9 @@ try {
   await assertTeacher(beta, MOVED, false, 'Tuesday previous teacher remains empty', true);
   await assertTeacher(alpha, MOVED, true, 'Tuesday moved teacher', true);
   await joinAndCompare(alpha, student, MOVED, 'admin-moved room');
-  check('approved and moved Join destinations use distinct final-date rooms', report.navigations.length === 2
-    && new URL(report.navigations[0].url).searchParams.get('vc_room') === roomFor(APPROVED)
-    && new URL(report.navigations[1].url).searchParams.get('vc_room') === roomFor(MOVED));
+  check('approved and moved Join destinations use distinct final-date rooms', report.navigations.length === manualNavigationStart + 2
+    && new URL(report.navigations[manualNavigationStart].url).searchParams.get('vc_room') === roomFor(APPROVED)
+    && new URL(report.navigations[manualNavigationStart + 1].url).searchParams.get('vc_room') === roomFor(MOVED));
   report.cases.push({ name: 'versioned-admin-move-refresh-reload-old-slot-removal-and-join', passed: true });
   check('no attempted Worker provider or external fetches', backend.outbound.length === 0, backend.outbound);
   check('no unexpected browser mutations', !report.denied.some(item => item.kind === 'unexpected-method' || item.kind === 'unconfigured-api' && !['GET', 'HEAD'].includes(item.method)), report.denied);

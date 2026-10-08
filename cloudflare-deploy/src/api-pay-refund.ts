@@ -164,7 +164,8 @@ export async function refundLessonChoices(env: any, orderId: string, uid: string
         json_each(CASE WHEN json_valid(r.basis) THEN COALESCE(json_extract(r.basis,'$.refund_schedule_ids'),'[]') ELSE '[]' END) picked
         WHERE r.order_id = ? AND r.status IN ('requested','done') AND r.id <> ? AND CAST(picked.value AS INTEGER) = s.id)
     ORDER BY s.scheduled_date, s.start_time, s.id`).bind(`enroll:${orderId}`, uid, now, orderId, excludeRefundId).all();
-  return (rs.results || []).map((r: any) => ({ id: Number(r.id), date: String(r.date), time: String(r.time), teacher_id: r.teacher_id == null ? null : String(r.teacher_id) }));
+  if (!rs || rs.success === false || !Array.isArray(rs.results)) throw new Error('lesson_verification_unavailable');
+  return rs.results.map((r: any) => ({ id: Number(r.id), date: String(r.date), time: String(r.time), teacher_id: r.teacher_id == null ? null : String(r.teacher_id) }));
 }
 
 /** 주문 하나의 환불 가능 상태를 모아 온다. 실행 전 미리보기와 실행 검증이 **같은 함수**를 쓴다. */
@@ -203,22 +204,24 @@ export async function refundPreview(env: any, orderId: string): Promise<RefundPr
   let suggested = max;
   let basis: any = { rule: 'full', note: '수강신청 주문이 아니어서 사용분 계산 없이 잔액 전액을 권장합니다.' };
   let remainingClasses = 0;
+  let remainingLessons: any[] = [];
   let ej: any = null;
   try { ej = JSON.parse(String(o.enroll_json || 'null')); } catch (_) {}
   if (ej) {
     const sessions = Number(ej.sessions || 0);
-    const today = kstToday();
-    const rem: any = await env.DB.prepare(
-      `SELECT COUNT(*) AS n FROM class_schedules WHERE source = ? AND status = 'active' AND scheduled_date >= ?`
-    ).bind(`enroll:${orderId}`, today).first();
-    remainingClasses = Number(rem?.n || 0);
+    // One verified unused-lesson set supplies the count, settlement input, and choices.
+    // A failed read is unknown, not zero remaining or a guessed refundable balance.
+    try { remainingLessons = await refundLessonChoices(env, orderId, String(o.uid || '')); }
+    catch { return { error: 'lesson_verification_unavailable' }; }
+    remainingClasses = remainingLessons.length;
     const refundedSessions = new Set<number>();
     for (const r of history.filter(r => r.status === 'done')) {
       let b: any; try { b = JSON.parse(String(r.basis || '{}')); } catch { continue; }
       if (Array.isArray(b.refund_schedule_ids)) for (const id of b.refund_schedule_ids)
         if (Number.isSafeInteger(id) && id > 0) refundedSessions.add(id);
     }
-    // Already-refunded unused lessons are not attended/consumed lessons.
+    // Keep the existing settlement formula; "used" is broader than attendance alone.
+    // Already-refunded unused lessons must not be charged again as used.
     const used = Math.max(0, sessions - remainingClasses - refundedSessions.size);
     const lenMul = classLengthMultiplier(Number(ej.minutes));
     const basePrice = Number(ej.weekly1_price || ENROLL_BASE_WEEKLY1) * Number(ej.weekly || 1) * Number(ej.months || 1) * lenMul;
@@ -232,12 +235,6 @@ export async function refundPreview(env: any, orderId: string): Promise<RefundPr
       base_price_no_discount: basePrice, calc_refund: calc.refund, already_refunded: already,
       policy: '기간할인 취소 후 정가로 사용분 정산 → 잔액 환불 (2026-07-23 확인)',
     };
-  }
-
-  let remainingLessons: any[] = [], remainingLessonsError: string | null = null;
-  if (ej) {
-    try { remainingLessons = await refundLessonChoices(env, orderId, String(o.uid || '')); }
-    catch (e: any) { remainingLessonsError = String(e?.message || e); }
   }
 
   let activeSub = false;
@@ -256,7 +253,7 @@ export async function refundPreview(env: any, orderId: string): Promise<RefundPr
     already_refunded: already, pending_refunds: pending, refundable_max: max,
     external_unrecorded: externalUnrecorded, recordable_max: o.payment_key ? externalUnrecorded : max,
     suggested, suggest_basis: basis, remaining_classes: remainingClasses,
-    remaining_lessons: remainingLessons, remaining_lessons_error: remainingLessonsError,
+    remaining_lessons: remainingLessons, remaining_lessons_error: null,
     active_subscription: activeSub, history,
   };
 }
@@ -275,7 +272,7 @@ export async function handleRefundApi(request: Request, url: URL, env: any): Pro
     const orderId = String(url.searchParams.get('order_id') || '').trim();
     if (!orderId) return json({ ok: false, error: 'order_id_required' }, 400);
     const p = await refundPreview(env, orderId);
-    if ('error' in p) return json({ ok: false, ...p }, p.error === 'order_not_found' ? 404 : 400);
+    if ('error' in p) return json({ ok: false, ...p }, p.error === 'lesson_verification_unavailable' ? 503 : p.error === 'order_not_found' ? 404 : 400);
     return json({ ok: true, preview: p });
   }
 
@@ -327,7 +324,7 @@ export async function handleRefundApi(request: Request, url: URL, env: any): Pro
     if (!orderId) return json({ ok: false, error: 'order_id_required' }, 400);
 
     const p = await refundPreview(env, orderId);
-    if ('error' in p) return json({ ok: false, ...p }, p.error === 'order_not_found' ? 404 : 400);
+    if ('error' in p) return json({ ok: false, ...p }, p.error === 'lesson_verification_unavailable' ? 503 : p.error === 'order_not_found' ? 404 : 400);
 
     const amount = Number.isFinite(Number(body.amount)) && Number(body.amount) > 0
       ? Math.floor(Number(body.amount))

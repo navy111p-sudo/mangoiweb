@@ -130,11 +130,14 @@ if (!NO_ESBUILD) {
   }; } } };
   const okMap = await M.loadSchedSummaryMap(fake);
   check('짝: 행이 있으면 실제로 센다 (map)', okMap.get('lee')?.weekly === 1);
-  const mapSql = seen[seen.length - 1] || '';
+  /* 강사 이름 조회(teachers·teacher_account_links)도 같은 DB 로 나가므로 «마지막 질의» 가 아니라
+     «class_schedules 를 읽는 질의» 를 골라 대조한다(2026-10-07 — 강사 칸 추가 뒤). */
+  const pickSched = () => seen.filter(q => /FROM\s+class_schedules/i.test(q)).pop() || '';
+  const mapSql = pickSched();
   seen.length = 0;
   const okOne = await M.loadSchedSummaryOne(fake, 'lee');
   check('짝: 행이 있으면 실제로 센다 (one)', okOne.upcoming === 1);
-  const oneSql = seen[seen.length - 1] || '';
+  const oneSql = pickSched();
 
   /* ⚠️ 조건절을 «선언 텍스트» 로만 읽으면(③절) 그것을 쓰지 않는 질의문을 못 본다.
         실제로 나간 SQL 이 그 조건을 «담고 있는가» 로 묻는다. */
@@ -216,6 +219,53 @@ check('주당 수업은 여전히 erp.classes_per_week 만 본다',
   /\[t\('qClassesPW'\), \(erp\.classes_per_week\|\|'—'\)/.test(detailNC));
 check('목록의 수강 시작/종료도 그대로다',
   /<td>\$\{_d\(s\.signup_date\)\}<\/td>/.test(coreNC) && /<td>\$\{_d\(s\.end_date\)\}<\/td>/.test(coreNC));
+
+console.log('\n[ ⑦ 👩‍🏫 담당 강사 이름 (2026-10-07 매니저 요청) — 정본을 실제로 돌린다 ]');
+/* esbuild 가 없어도 돌도록 node 의 타입 지우기를 쓴다(이 절만). */
+await (async () => {
+  let T;
+  try {
+    const { stripTypeScriptTypes } = await import('node:module');
+    const js = stripTypeScriptTypes(TS).replace(/^export /gm, '');
+    T = new Function('console', js + '\nreturn { summarizeStudentSchedules, loadTeacherNameOf, EMPTY_SCHED_SUMMARY };')(console);
+  } catch (e) { check('정본을 타입 지워 돌릴 수 있다: ' + (e && e.message), false); return; }
+  const fakeEnv = (teachers, links, failLinks) => ({ DB: { prepare(sql) {
+    return { all: async () => {
+      if (/FROM teachers/.test(sql)) return { results: teachers };
+      if (/FROM teacher_account_links/.test(sql)) { if (failLinks) throw new Error('no table'); return { results: links }; }
+      return { results: [] };
+    } };
+  } } });
+  const nameOf = await T.loadTeacherNameOf(fakeEnv(
+    [{ id: 7, name: 'ANA' }, { id: 22, name: 'FAR' }, { id: 29, name: '강선생님' }],
+    [{ username: 'Mangoi_018', teacher_id: '22' }]));
+  const TODAY = '2026-10-07';
+  const sm = T.summarizeStudentSchedules([
+    { schedule_kind: 'recurring', teacher_id: '29' },
+    { schedule_kind: 'one_off', scheduled_date: '2026-10-08', teacher_id: 'mangoi_018' },  // 계정명 행 → FAR
+    { schedule_kind: 'one_off', scheduled_date: '2026-10-09', teacher_id: '29' },           // 중복
+    { schedule_kind: 'one_off', scheduled_date: '2026-09-01', teacher_id: '7' },            // 지난 수업 → 제외
+    { schedule_kind: 'dated', scheduled_date: '2026-10-10', teacher_id: '999' },            // 모르는 번호 → 지어내지 않음
+    { schedule_kind: 'one_off', scheduled_date: '2026-10-11', teacher_id: null },
+  ], TODAY, nameOf);
+  check('지금 담당 강사만 · 중복 없이 · 처음 나온 순서 ' + JSON.stringify(sm.teachers),
+    JSON.stringify(sm.teachers) === JSON.stringify(['강선생님', 'FAR']));
+  check('지난 수업의 강사(ANA)는 안 넣는다', sm.teachers.indexOf('ANA') < 0);
+  check('모르는 번호는 이름을 지어내지 않는다', !sm.teachers.some(t => /999/.test(t)));
+  check('세는 숫자는 그대로다 (주1 · 단건4 · 지난1)', sm.weekly === 1 && sm.upcoming === 4 && sm.past === 1);
+  check('이름 함수 없이 부르면 빈 목록(예전 호출부 호환)',
+    Array.isArray(T.summarizeStudentSchedules([{ schedule_kind: 'recurring', teacher_id: '29' }], TODAY).teachers)
+    && T.summarizeStudentSchedules([{ schedule_kind: 'recurring', teacher_id: '29' }], TODAY).teachers.length === 0);
+  check('빈 요약에도 teachers 칸이 있다', Array.isArray(T.EMPTY_SCHED_SUMMARY.teachers));
+  const n2 = await T.loadTeacherNameOf(fakeEnv([{ id: 7, name: 'ANA' }], [], true));
+  check('계정 연결표가 없어도 원부 번호로는 찾는다(fail-open)', n2('7') === 'ANA' && n2('x') === '');
+  const n3 = await T.loadTeacherNameOf({ DB: { prepare() { return { all: async () => { throw new Error('down'); } }; } } });
+  check('조회가 전부 실패해도 던지지 않고 «모름»', n3('7') === '');
+})();
+check('정본 조회가 teacher_id 를 함께 뽑는다(안 뽑으면 이름이 늘 빈다)',
+  (TS.match(/SELECT user_id, schedule_kind, scheduled_date, teacher_id FROM class_schedules/g) || []).length === 2);
+check('목록 칸이 서버의 sched.teachers 를 그린다', /q\.teachers/.test(coreNC) && /👩‍🏫/.test(coreNC));
+check('상세 카드도 sched.teachers 를 그린다', /q\.teachers/.test(detailNC));
 
 console.log('\n' + '─'.repeat(45));
 console.log(`  통과 ${pass} · 실패 ${fail}`);

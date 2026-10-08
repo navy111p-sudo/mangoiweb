@@ -49,7 +49,7 @@ ok('조회가 실패해도 던지지 않고 [] (예전 동작)', !threw && Array
 
 console.log('③ 배선 (api-mango.ts 를 오려 내 실행)');
 const API = rd(resolve(SRC, 'api-mango.ts'));
-ok('import 가 있다', /import \{ resolveStudentTwins \} from '\.\/student-alias'/.test(API));
+ok('import 가 있다', /import \{[^}]*\bresolveStudentTwins\b[^}]*\} from '\.\/student-alias'/.test(API));
 function blockFrom(src, anchor) {
   const i = src.indexOf(anchor); if (i < 0) return '';
   const j = src.indexOf('{', i + anchor.length - 1); let d = 0;
@@ -104,6 +104,95 @@ try {
   const c = await f3(async () => [], { DB: {} }, 'lby01', { user_id: 'mangoai_lby01' });
   ok('verify-room: 쌍둥이로 확인 안 되면 통과시키지 않는다', !c.ok);
 } catch (e) { ok('verify-room 배선 실행: ' + e.message, false); }
+
+console.log('④ 겹친 쌍둥이 예약 빼기 (2026-10-06 delaware · LEN — 서로 다른 방)');
+{
+  const T = 1000 * 60;
+  const S = (id, uid, start, dur = 20) => ({ schedule_id: id, student_uid: uid, start_ts: start * T, end_ts: (start + dur) * T });
+  // 실사고 그대로: 21:10 에 HANNAH 잔재(4379, mangoai_delaware)와 LEN 진짜(4397, delaware)
+  const real = [S(4379, 'mangoai_delaware', 1270), S(4397, 'delaware', 1270)];
+  const out = M.dropShadowedTwinSessions(real, 'delaware');
+  ok('실사고: 겹친 쌍둥이(4379)를 빼고 내 예약(4397)만 남긴다', out.length === 1 && out[0].schedule_id === 4397);
+  // 짝: 쌍둥이 예약이 혼자면 그대로 (10/2 lby01 구제 유지)
+  const alone = [S(1, 'mangoai_lby01', 840)];
+  ok('짝: 쌍둥이 예약이 혼자면 안 뺀다', M.dropShadowedTwinSessions(alone, 'lby01').length === 1);
+  // 짝: 안 겹치면 둘 다 남긴다 (lby01 14:00 + 16:30)
+  const apart = [S(1, 'mangoai_lby01', 840), S(2, 'lby01', 990)];
+  ok('짝: 시간이 안 겹치면 둘 다 남긴다', M.dropShadowedTwinSessions(apart, 'lby01').length === 2);
+  // 경계: 끝난 직후 시작(맞닿음)은 겹침이 아니다
+  const touch = [S(1, 'mangoai_x1', 1270), S(2, 'x1', 1290)];
+  ok('경계: 맞닿기만 하면 안 뺀다', M.dropShadowedTwinSessions(touch, 'x1').length === 2);
+  // 일부만 겹쳐도 뺀다
+  const part = [S(1, 'mangoai_x1', 1275), S(2, 'x1', 1270)];
+  ok('일부만 겹쳐도 쌍둥이를 뺀다', M.dropShadowedTwinSessions(part, 'x1').map(s => s.schedule_id).join() === '2');
+  // 대소문자만 다른 내 계정도 «내 것»
+  ok('대소문자만 다른 내 예약도 내 것으로 본다', M.dropShadowedTwinSessions([S(1, 'mangoai_delaware', 1270), S(2, 'Delaware', 1270)], 'delaware').map(s => s.schedule_id).join() === '2');
+  // 남의 계정은 건드리지 않는다
+  ok('쌍둥이가 아닌 남의 예약은 안 뺀다', M.dropShadowedTwinSessions([S(1, 'mangoai_other', 1270), S(2, 'delaware', 1270)], 'delaware').length === 2);
+  // 내 예약을 빼지 않는다 (반대 방향 로그인: mangoai_X 로 로그인하면 X 쪽이 쌍둥이)
+  ok('mangoai_ 로 로그인하면 그쪽이 «내 것»', M.dropShadowedTwinSessions(real, 'mangoai_delaware').map(s => s.schedule_id).join() === '4379');
+  ok('uid 가 비면 그대로', M.dropShadowedTwinSessions(real, '').length === 2);
+}
+console.log('④-2 정본 출처로 고르기 (2026-10-07 — «로그인 계정 우선» 의 구멍)');
+{
+  const T = 1000 * 60;
+  const S = (id, uid, start, source, dur = 20) => ({ schedule_id: id, student_uid: uid, start_ts: start * T, end_ts: (start + dur) * T, source });
+  // 실사고 출처 그대로: 4379 = 카페24 미러 자동 행(HANNAH 잔재) · 4397 = 수강신청 확정(LEN)
+  const real = () => [S(4379, 'mangoai_delaware', 1270, 'c24-mirror'), S(4397, 'delaware', 1270, 'adm-enroll:123')];
+  const a = M.pickTwinSessions(real(), 'delaware');
+  ok('delaware 로 로그인 → 4397(LEN)', a.sessions.map(s => s.schedule_id).join() === '4397' && !a.ambiguous);
+  const b = M.pickTwinSessions(real(), 'mangoai_delaware');
+  ok('🔴 mangoai_delaware 로 로그인해도 → 4397(LEN) (옛 규칙은 4379 로 갔다)', b.sessions.map(s => s.schedule_id).join() === '4397' && !b.ambiguous);
+  ok('두 계정 어느 쪽이든 같은 방', a.sessions[0].schedule_id === b.sessions[0].schedule_id);
+  ok('버려진 쪽을 알려 준다', b.dropped.map(s => s.schedule_id).join() === '4379');
+  // 짝: 미러 행이 «정본» 이면(사람이 손댄 manual) 미러 자동 행에 지지 않는다 — 급이 같아 예전 규칙 + ambiguous
+  const tie = M.pickTwinSessions([S(1, 'mangoai_x1', 1270, 'c24-mirror:manual'), S(2, 'x1', 1270, 'adm-enroll:9')], 'x1');
+  ok('같은 급이면 예전 규칙(로그인 계정 쪽) + 판정불가 표시', tie.sessions.map(s => s.schedule_id).join() === '2' && tie.ambiguous === true);
+  const tie2 = M.pickTwinSessions([S(1, 'mangoai_x1', 1270, 'c24-mirror'), S(2, 'x1', 1270, 'c24-mirror')], 'mangoai_x1');
+  ok('둘 다 미러 자동 행이면 로그인 계정 쪽 + 판정불가', tie2.sessions.map(s => s.schedule_id).join() === '1' && tie2.ambiguous === true);
+  // 짝: 미러가 «내 계정» 쪽이어도 진다(방향이 아니라 출처)
+  const rev = M.pickTwinSessions([S(1, 'x1', 1270, 'c24-mirror'), S(2, 'mangoai_x1', 1270, 'enroll:ORD1')], 'x1');
+  ok('내 계정 쪽이 미러 잔재면 쌍둥이(정본)를 남긴다', rev.sessions.map(s => s.schedule_id).join() === '2' && !rev.ambiguous);
+  // 짝: 안 겹치면 아무것도 안 뺀다(lby01 구제)
+  const apart = M.pickTwinSessions([S(1, 'mangoai_lby01', 840, 'c24-mirror'), S(2, 'lby01', 990, 'adm-enroll:1')], 'lby01');
+  ok('안 겹치면 둘 다 남긴다(미러여도)', apart.sessions.length === 2 && apart.dropped.length === 0);
+  const alone = M.pickTwinSessions([S(1, 'mangoai_lby01', 840, 'c24-mirror')], 'lby01');
+  ok('쌍둥이 미러 예약이 혼자면 안 뺀다', alone.sessions.length === 1);
+  // 짝: 같은 계정끼리 겹친 것은 건드리지 않는다
+  const self = M.pickTwinSessions([S(1, 'x1', 1270, 'c24-mirror'), S(2, 'x1', 1270, 'adm-enroll:2')], 'x1');
+  ok('같은 계정끼리 겹친 예약은 안 건드린다(예전 동작)', self.sessions.length === 2);
+  // 남의 계정
+  const other = M.pickTwinSessions([S(1, 'mangoai_other', 1270, 'adm-enroll:3'), S(2, 'x1', 1270, 'c24-mirror')], 'x1');
+  ok('쌍둥이가 아닌 남의 예약 때문에 내 예약을 빼지 않는다', other.sessions.length === 2);
+  ok('출처 급: c24-mirror 만 0', M.sessionSourceRank('c24-mirror') === 0 && M.sessionSourceRank('c24-mirror:manual') === 1 && M.sessionSourceRank('adm-enroll:1') === 1 && M.sessionSourceRank(null) === 1);
+}
+// 배선: sessions/today 가 이름 폴백이 아니라 계정 단계 결과에, 학생일 때만, current 고르기 «전에» 거는가
+{
+  const st2 = API.indexOf("path === '/api/class/sessions/today'");
+  const body = API.slice(st2, API.indexOf('let current', st2));
+  const bi = body.indexOf("if (!isTeacher && matchedBy === 'uid') {");
+  ok('배선: sessions/today 에서 정본(pickTwinSessions)을 부른다(전제)', bi > 0 && body.indexOf('pickTwinSessions(sessions, userId)', bi) > bi);
+  ok('배선: import 했다', /import \{[^}]*pickTwinSessions[^}]*\} from '\.\/student-alias'/.test(API));
+  ok('배선: SELECT 두 벌 모두 source 를 뽑는다', /cs\.status, cs\.source\$\{_soSelT\}, t\.name AS teacher_name/.test(API) && /teacher_id, status, source\$\{_soSelT\} FROM class_schedules cs WHERE/.test(API));
+  ok('배선: 세션에 source 를 싣는다', /source: s\.source \|\| null,/.test(body));
+  ok('배선: 응답 전에 source 를 뗀다', /delete \(s3 as any\)\.source/.test(body));
+  // 블록을 중괄호 짝으로 오려 실제로 돌린다
+  let blk = '';
+  if (bi > 0) { let d = 0; for (let k = body.indexOf('{', bi); k < body.length; k++) { if (body[k] === '{') d++; else if (body[k] === '}') { d--; if (d === 0) { blk = body.slice(bi, k + 1); break; } } } }
+  try {
+    const g = new Function('pickTwinSessions', 'isTeacher', 'matchedBy', 'userId', 'sessions0',
+      `let sessions = sessions0; ${blk.replace(/: any/g, '')} return sessions;`);
+    const T = 60000, two = () => [
+      { schedule_id: 4379, student_uid: 'mangoai_delaware', start_ts: 1270 * T, end_ts: 1290 * T, source: 'c24-mirror' },
+      { schedule_id: 4397, student_uid: 'delaware', start_ts: 1270 * T, end_ts: 1290 * T, source: 'adm-enroll:123' }];
+    const warn = console.warn; console.warn = () => {};
+    const r1 = g(M.pickTwinSessions, false, 'uid', 'mangoai_delaware', two());
+    console.warn = warn;
+    ok('배선 실행: mangoai_ 로그인도 4397 로', r1.length === 1 && r1[0].schedule_id === 4397);
+    ok('배선 실행: 교사 화면은 안 건드린다', g(M.pickTwinSessions, true, 'uid', 'delaware', two()).length === 2);
+    ok('배선 실행: 이름 폴백 결과는 안 건드린다', g(M.pickTwinSessions, false, 'name', 'delaware', two()).length === 2);
+  } catch (e) { ok('배선 실행: ' + e.message, false); }
+}
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) process.exit(1);

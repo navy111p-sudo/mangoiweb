@@ -159,10 +159,11 @@
       (notices.followup||[]).forEach(function(n){detail.append(node('p','경고 단계 / Warning stage '+n.level+' · '+staffName(n.username)+' · '+notificationLabel(n.state),'small'));});
     }
   }
-  function paintRequired(rows,date){
+  function paintRequired(rows,date,missed){
     var host=$('required');host.replaceChildren();
     var weekday=new Date(date+'T00:00:00Z').getUTCDay();
-    var required=(rows||[]).filter(function(r){return r.exempt_date!==date&&r.weekdays.split(',').includes(String(weekday));});
+    var required=(rows||[]).filter(function(r){return r.required_today!==false&&r.exempt_date!==date&&r.weekdays.split(',').includes(String(weekday));});
+    if((missed||[]).length)host.append(node('p','⚠️ 지난 근무일 미제출 / Missed last workday: '+missed.map(function(m){return m.name+' ('+m.prev_day+')';}).join(', ')));
     if(!required.length)return;
     var missing=required.filter(function(r){return !r.submitted_at;});
     host.append(node('p','보고 대상 '+required.length+'명 · 미제출 / Not submitted: '+(missing.map(function(r){return r.name||r.username;}).join(', ')||'없음 / None')));
@@ -257,14 +258,14 @@
     catch(e){if(request!==listSequence||date!==$('list-date').value)return;throw e;}
     // A newer refresh (including after a response) owns this list, even on the same date.
     if(request!==listSequence||date!==$('list-date').value)return;var j=data[0];reports=j.reports;inbox=data[1].reports;inboxTotal=data[1].total;mergeFiles(j.files);mergeFiles(data[1].files);if(data[2]){readHistory=data[2].reports||[];mergeFiles(data[2].files);}if(data[3]){mine=data[3].reports||[];mergeFiles(data[3].files);}if(date===$('date').value)paintOwn(j.own);if(readerError){readerError=false;$('errors').hidden=true;lastListState=null;}var listState=JSON.stringify([date,$('filter').value,reports,inbox,readHistory,mine]);if(listState!==lastListState){paintList();lastListState=listState;}
-    paintRequired(j.required,date);
+    paintRequired(j.required,date,j.missed_staff);
   }
   $('write-toggle').onclick=function(){var editor=$('editor');editor.hidden=!editor.hidden;$('clock-box').hidden=editor.hidden;if(!editor.hidden){begin();editor.scrollIntoView({behavior:'smooth',block:'start'});}};
   $('filter').onchange=function(){if($('filter').value==='read'||$('filter').value==='mine')loadList().catch(networkError);else paintList();};
   $('reread').onclick=function(){$('filter').value=$('filter').value==='read'?'unread':'read';$('filter').onchange();};$('mine').onclick=function(){$('filter').value=$('filter').value==='mine'?'unread':'mine';$('filter').onchange();};$('own-status').onclick=function(){$('filter').value='mine';$('filter').onchange();};$('list-date').onchange=function(){loadList().catch(networkError);};$('refresh').onclick=function(){loadList().catch(networkError);};
   var weeknames=['일 / Sun','월 / Mon','화 / Tue','수 / Wed','목 / Thu','금 / Fri','토 / Sat'];
   weeknames.forEach(function(name,i){var label=node('label',null,'check'),c=document.createElement('input');c.type='checkbox';c.value=String(i);c.checked=i>0&&i<6;label.append(c,document.createTextNode(name));$('weekdays').append(label);});
-  $('schedule-save').onclick=async function(){var button=$('schedule-save');button.disabled=true;try{await call('/schedule',{enabled:$('schedule-enabled').checked,weekdays:Array.from($('weekdays').querySelectorAll('input:checked')).map(function(c){return Number(c.value);}),due_time:$('due-time').value,exempt_date:$('exempt-date').value});$('schedule-status').textContent='설정 저장 완료 · 마감 30분 전/마감/30분 후 알림. / Saved: reminders at −30 / 0 / +30 min (15-min checks).';}catch(e){networkError(e);}finally{button.disabled=false;}};
+  $('schedule-save').onclick=async function(){var button=$('schedule-save');button.disabled=true;try{var res=await call('/schedule',{enabled:$('schedule-enabled').checked,weekdays:Array.from($('weekdays').querySelectorAll('input:checked')).map(function(c){return Number(c.value);}),due_time:$('due-time').value,exempt_date:$('exempt-date').value});$('schedule-status').textContent=res&&res.locked?'필수 보고 대상입니다 — 요일·마감 시각은 대표님이 정한 대로 유지되고, 쉬는 날만 저장했습니다. / You are a required reporter: weekdays and due time are set by management; only your day off was saved.':'설정 저장 완료 · 마감 30분 전/마감/30분 후 알림. / Saved: reminders at −30 / 0 / +30 min (15-min checks).';}catch(e){networkError(e);}finally{button.disabled=false;}};
   recognition=window.HandoverDictation.create({button:$('voice-record'),language:$('voice-lang'),status:$('voice-status'),
     canStart:function(){return !!me&&!busy&&!uploading;},
     onText:function(t){var old=$('work').value,combined=(old+' '+t).trim();$('work').value=combined.slice(0,1500);invalidate();if(combined.length>1500)say('오늘 한 일은 1,500자까지 입력됩니다. / Work completed is limited to 1,500 characters.',true);},
@@ -275,12 +276,14 @@
   async function init(){
     fields.forEach(function(k){$(k).disabled=true;});$('review').disabled=true;$('save').disabled=true;$('manual').disabled=true;
     try{
-      var j=await call('/home');me=j.me;members=j.members;mergeFiles(j.files);stagedIds=(j.staged_ids||[]).slice();$('editor').hidden=!!j.reader_mode;$('clock-box').hidden=!!j.reader_mode;if(j.reader_mode)$('editor').prepend($('alert'));
+      // ✍️ 지난 근무일 보고 늦게 쓰기(2026-10-06) — ?write=YYYY-MM-DD 면 그 날짜 보고를 편집기에 연다(서버가 미래 날짜는 거절).
+      var writeDay=/^\d{4}-\d{2}-\d{2}$/.test(wanted.get('write')||'')?wanted.get('write'):'';
+      var j=await call(writeDay?'/home?date='+encodeURIComponent(writeDay):'/home');me=j.me;members=j.members;mergeFiles(j.files);stagedIds=(j.staged_ids||[]).slice();var readOnly=!!j.reader_mode&&!writeDay;/* 쓰기 링크(?write=)로 왔으면 읽는 사람도 편집기를 연다 */$('editor').hidden=readOnly;$('clock-box').hidden=readOnly;if(readOnly)$('editor').prepend($('alert'));
       $('filter').value=j.reader_mode?'unread':'all';selected=wantedReport;if(wantedReport)$('filter').value='all';if(wanted.get('view')==='mine')$('filter').value='mine';root.dataset.exec=String(j.can_review_all);
-      $('date').value=j.day;$('list-date').value=/^\d{4}-\d{2}-\d{2}$/.test(wanted.get('date')||'')?wanted.get('date'):j.day;$('staff').value=me.name;
+      $('date').value=j.day;$('list-date').value=/^\d{4}-\d{2}-\d{2}$/.test(wanted.get('date')||'')?wanted.get('date'):j.day;if(writeDay){$('date').value=writeDay;}$('staff').value=me.name;
       ['owner','recipient'].forEach(function(k){members.forEach(function(m){var option=node('option',m.name?m.name+' ('+m.username+')':m.username);option.value=m.username;$(k).append(option);});});
       paintOwn(j.own);if(j.own){version=j.own.version;populate(j.own.payload);$('recipient').value=j.own.recipient;originalSubmitted=!!j.own.submitted_at;$('badge').textContent=statusLabel(j.own.status);if(j.own.feedback){$('alert').hidden=false;$('alert').textContent='보완 요청 / Changes requested: '+j.own.feedback;}}
-      else{$('recipient').value=j.default_recipient;$('noissue').checked=true;$('noopen').checked=true;$('alert').hidden=false;$('alert').textContent='오늘 보고를 아직 제출하지 않았습니다. / Today’s handover has not been submitted.';}
+      else{$('recipient').value=j.default_recipient;$('noissue').checked=true;$('noopen').checked=true;$('alert').hidden=false;$('alert').textContent=writeDay?writeDay+' 보고를 아직 제출하지 않았습니다 — 지금 작성해 제출해 주세요. / The handover for '+writeDay+' has not been submitted — please write it now.':'오늘 보고를 아직 제출하지 않았습니다. / Today’s handover has not been submitted.';}
       try{var saved=JSON.parse(localStorage.getItem(storageKey())||'null');if(saved&&saved.version===version){populate(saved.payload);$('recipient').value=saved.recipient;$('save-status').textContent='이 기기의 임시 작성 내용을 복원했습니다. / Device draft restored.';}else{$('save-status').textContent=j.own?'저장된 보고를 불러왔습니다. / Saved report loaded.':'날짜·담당자가 자동 입력되었습니다. / Date and staff filled automatically.';}}catch(e){}
       if(j.schedule){$('schedule-enabled').checked=!!j.schedule.enabled;$('due-time').value=j.schedule.due_time;$('exempt-date').value=j.schedule.exempt_date;Array.from($('weekdays').querySelectorAll('input')).forEach(function(c){c.checked=j.schedule.weekdays.split(',').includes(c.value);});}
       if(j.read_schedule){$('read-start').value=j.read_schedule.start_time;$('read-end').value=j.read_schedule.end_time;Array.from($('read-weekdays').querySelectorAll('input')).forEach(function(c){c.checked=j.read_schedule.weekdays.split(',').includes(c.value);});}

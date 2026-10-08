@@ -32,7 +32,7 @@
   function courseIcon(name){
     var n = (name || '').toLowerCase();
     if (n.indexOf('phonics') >= 0) return '🔤';
-    if (n.indexOf('mes') >= 0) return '🎯';
+    if (/(^|[^a-z])mes([^a-z]|$)/.test(n)) return '🎯'; // 낱말로만(Games 오인 방지)
     if (n.indexOf('bts') >= 0) return '🌟';
     if (n.indexOf('siu') >= 0) return '🦁';
     if (n.indexOf('마스터') >= 0 || n.indexOf('master') >= 0) return '🏆';
@@ -41,7 +41,8 @@
   function courseOrder(name){
     var n = (name || '').toLowerCase();
     for (var i = 0; i < COURSE_ORDER.length; i++) {
-      if (n.indexOf(COURSE_ORDER[i].toLowerCase()) >= 0) return i;
+      var k = COURSE_ORDER[i].toLowerCase();
+      if (k === 'mes' ? /(^|[^a-z])mes([^a-z]|$)/.test(n) : n.indexOf(k) >= 0) return i;
     }
     return 99;
   }
@@ -211,7 +212,7 @@
     if (/phonics|파닉스/.test(b)) return 'Phonics';
     if (/siu/.test(b)) return 'SIU';
     if (/bts/.test(b)) return 'BTS';
-    if (/mes/.test(b)) return 'MES';
+    if (/(^|[^a-z])mes([^a-z]|$)/.test(b)) return 'MES';
     if (/다락원|master|마스터/.test(b)) return '중국어';
     return '서버 교재';
   }

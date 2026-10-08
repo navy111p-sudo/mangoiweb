@@ -1837,6 +1837,41 @@ function _ensureRoomEnhCss(){
    ⚠️ 색은 `background-color:` 로만 준다 — `background:linear-gradient(…)` 이나
       `background:#…` 은 admin-inline-c.css 의 옛 다크 규칙이 `!important` 로 덮는다
       (CLAUDE.md 2장 「관리자 카드 안 박스 색이 안 먹음」). */
+/* 🚨 (2026-10-07 delaware · LEN) «같은 수업인데 서로 다른 방» 경고 띠.
+   판정은 서버(src/room-mismatch.ts)가 하고 여기는 그리기만 한다 — 학생은 다른 방에 접속 중인데
+   예약방에는 누군가(대개 선생님)가 접속 중인 수업. 둘 다 «접속» 으로 보여 어느 표에도 안 드러나던 사고다.
+   ⚠️ 글자색은 인라인 !important — admin-inline-c.css 가 카드 안 글자를 #101828 !important 로 덮는다.
+   ⛔ list 가 null(서버가 그 칸을 안 줌·옛 서버)이면 아무것도 그리지 않는다(0건을 «정상» 이라 말하지 않음). */
+function _renderRoomMismatch(list, _L) {
+  try {
+    const sum = document.getElementById('rooms-now-summary');
+    if (!sum || !sum.parentNode) return;
+    let box = document.getElementById('rooms-mismatch-alert');
+    if (!list || !list.length) { if (box) box.remove(); return; }
+    if (!box) { box = document.createElement('div'); box.id = 'rooms-mismatch-alert'; sum.parentNode.insertBefore(box, sum); }
+    box.setAttribute('role', 'alert');
+    box.style.cssText = 'background-color:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:10px 12px;margin:0 0 10px;line-height:1.6';
+    const head = _L
+      ? '🚨 Student and teacher are in different rooms (' + list.length + ')'
+      : '🚨 학생과 선생님이 서로 다른 방에 있습니다 (' + list.length + '건)';
+    const rows = list.map(m => {
+      const who = _esc(String(m.student_name || (_L ? 'Student' : '학생')));
+      const t = _L ? _esc(String(m.teacher_name || 'the teacher')) : (m.teacher_name ? _esc(String(m.teacher_name)) + ' 선생님' : '선생님');
+      const tw = m.via_twin ? (_L ? ' · via twin account' : ' · 쌍둥이 계정으로 접속') : '';
+      return '<div style="font-size:12.5px;color:#7f1d1d !important">'
+        + _esc(String(m.start_kst || '')) + ' ' + who + ' — '
+        + (_L ? 'student in ' : '학생은 ') + '<b style="color:#7f1d1d !important">' + _esc(String(m.student_room || '')) + '</b>'
+        + (_L ? ', ' + t + ' waiting in ' : ', ' + t + '은 ') + '<b style="color:#7f1d1d !important">' + _esc(String(m.expected_room || '')) + '</b>'
+        + (_L ? '' : ' 에서 대기') + tw + '</div>';
+    }).join('');
+    box.innerHTML = '<div style="font-weight:800;font-size:13.5px;color:#991b1b !important;margin-bottom:4px">' + head + '</div>' + rows
+      + '<div style="font-size:12px;color:#7f1d1d !important;margin-top:4px">'
+      + (_L ? 'Ask the student to leave and re-enter from the home screen, or join the waiting room to guide them.'
+            : '학생에게 홈에서 다시 입장하도록 안내하거나, 대기 중인 방에 들어가 안내해 주세요.')
+      + '</div>';
+  } catch (e) { /* 카드를 그리는 길목 — 던지지 않는다 */ }
+}
+
 function _renderRoomsSummary(counts, liveRooms, _L) {
   /* 📣 (2026-09-01 A안) 「오늘 수업」 탭 줄의 «화상방 접속» 숫자 — 세는 곳은 여기 하나뿐이고
      탭은 받아 적기만 한다. ⚠️ 통째로 try/catch — 이 함수는 카드를 그리는 길목이라 던지면 안 된다. */
@@ -1953,11 +1988,12 @@ async function loadActiveRooms() {
     } catch(_) {}
     /* 📅 예약 기준 «지금 수업» — 강사 계정(403)·구버전 서버에서는 조용히 없는 것으로 둔다.
        ⛔ 여기서 실패한다고 방 목록까지 못 그리게 하면 안 된다(원래 기능이 우선). */
-    let sched = [], scounts = null;
+    let sched = [], scounts = null, mism = null;
     try {
-      if (cr) { const cj = await cr.json(); if (cj && cj.ok) { sched = cj.classes || []; scounts = cj.counts || null; } }
+      if (cr) { const cj = await cr.json(); if (cj && cj.ok) { sched = cj.classes || []; scounts = cj.counts || null; mism = Array.isArray(cj.room_mismatch) ? cj.room_mismatch : null; } }
     } catch(_) {}
     _renderRoomsSummary(scounts, (rooms || []).length, _L);
+    _renderRoomMismatch(mism, _L);
     const schedRows = _schedRowsHtml(sched, _L, !rooms || rooms.length === 0);
 
     if (!rooms || rooms.length === 0) {
@@ -9854,6 +9890,34 @@ async function _enAutoConfirm(id) {
   }
 }
 
+/* 📥 (2026-10-07 사장님 지시) 등록할 때마다 엑셀(CSV)·워드가 «무조건» 내려받아지던 것을 선택으로.
+   「등록 후 엑셀·워드 받기」(#en-export-files)를 켠 경우에만 바로 내려받고, 끄면(기본) 파일을 모아 두었다가
+   상태 줄 옆 「📥 엑셀·워드 받기」 버튼으로 필요할 때만 받는다(선택은 이 기기에 기억). 카톡 알림은 그대로 나간다. */
+var _enPendingFiles = [];
+function _enWantFiles() {
+  var cb = document.getElementById('en-export-files');
+  return !!(cb && cb.checked);
+}
+function _enDl(blob, name) {
+  if (_enWantFiles()) { _downloadBlob(blob, name); return; }
+  _enPendingFiles.push({ blob: blob, name: name });
+  var btn = document.getElementById('en-export-later');
+  if (btn) {
+    btn.style.display = '';
+    var ko = '📥 엑셀·워드 받기 (' + _enPendingFiles.length + ')', en = '📥 Download files (' + _enPendingFiles.length + ')';
+    btn.setAttribute('data-ko', ko); btn.setAttribute('data-en', en);
+    btn.textContent = (adminLang === 'en') ? en : ko;
+  }
+}
+function _enDownloadPending() {
+  var list = _enPendingFiles.slice();
+  list.forEach(function (f, i) { setTimeout(function () { _downloadBlob(f.blob, f.name); }, i * 300); });
+}
+function _enResetPending() {
+  _enPendingFiles = [];
+  var btn = document.getElementById('en-export-later');
+  if (btn) btn.style.display = 'none';
+}
 async function addEnrollment() {
   const records = _readEnrollmentRows();
   const status = document.getElementById('en-multi-status');
@@ -10065,6 +10129,7 @@ async function addEnrollment() {
 
 // 다중 등록 자동 export — 통합 카톡 + 통합 CSV + 통합 Word
 function autoExportBulkEnrollment(records) {
+  _enResetPending();
   const dateStr = new Date().toISOString().slice(0,10);
   const N = records.length;
 
@@ -10111,7 +10176,7 @@ function autoExportBulkEnrollment(records) {
            '"' + (r._teacher || r.teacher_name || '').replace(/"/g, '""') + '",' +
            (r._started_at_str || '') + '\n';
   });
-  _downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+  _enDl(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
     '수강신청_일괄_' + N + '명_' + dateStr + '.csv');
 
   // 통합 Word (다행 표)
@@ -10148,7 +10213,7 @@ function autoExportBulkEnrollment(records) {
       '</tr>';
   });
   docHtml += '</table><div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div></body></html>';
-  _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
+  _enDl(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
     '수강신청_일괄_' + N + '명_' + dateStr + '.doc');
 }
 
@@ -10157,6 +10222,7 @@ function autoExportBulkEnrollment(records) {
 //   ② Excel CSV 자동 다운로드 (한글 BOM 포함, 엑셀에서 깨짐 없이 열림)
 //   ③ Word HTML 자동 다운로드 (.doc — MS Word 에서 표 그대로 열림)
 async function autoExportEnrollment(enr) {
+  _enResetPending();
   // ① 카톡 큐 — 백엔드 KV 큐에 메시지 적재
   const categoryBadge = enr.category === 'test_only' ? '🔍 레벨테스트만'
                       : enr.category === 'full' ? '🌟 풀패키지(레벨+체험+정규)'
@@ -10206,7 +10272,7 @@ async function autoExportEnrollment(enr) {
     '"강사","' + String(enr.teacher || '').replace(/"/g, '""') + '"\n' +
     '"시작일","' + enr.started_at + '"\n' +
     '"등록일시","' + enr.created_at + '"\n';
-  _downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+  _enDl(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
     '수강신청_' + safeName + '_' + dateStr + '.csv');
 
   // ③ Word (.doc HTML) 다운로드 — MS Word 가 HTML 을 표로 렌더링
@@ -10241,7 +10307,7 @@ async function autoExportEnrollment(enr) {
     '</table>' +
     '<div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div>' +
     '</body></html>';
-  _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
+  _enDl(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
     '수강신청_' + safeName + '_' + dateStr + '.doc');
 
   // 사용자 안내 토스트 (간단한 alert)
@@ -12771,7 +12837,12 @@ function renderStudentTable() {
     const txt = q ? String((_L ? q.label_en : q.label_ko) || '—') : '—';
     if (!txt || txt === '—') return '<td style="text-align:center">—</td>';
     const x = _esc(txt);
-    return '<td style="text-align:center" title="' + x + '">' + x + '</td>';
+    /* 👩‍🏫 (2026-10-07 매니저 요청) 담당 강사 이름 — 서버 정본(sched.teachers)을 그대로 쓴다.
+       지난 수업의 강사는 빠져 있고, 이름을 못 찾은 번호는 서버가 넣지 않는다(지어내지 않음). */
+    const tl = (q && Array.isArray(q.teachers)) ? q.teachers.filter(Boolean) : [];
+    const tx = tl.length ? _esc(tl.join(', ')) : '';
+    return '<td style="text-align:center" title="' + x + (tx ? ' · ' + tx : '') + '">' + x
+      + (tx ? '<div style="font-size:11px;color:#475467;white-space:nowrap">👩‍🏫 ' + tx + '</div>' : '') + '</td>';
   };
   /* 📚 (2026-09-24 사장님 지시) 「수강신청」 칸 — 학생마다 카드 하나. 누르면 smGoEnroll 이
      수강신청 등록 표로 가서 그 학생 아이디를 채운다.
@@ -12803,7 +12874,7 @@ function renderStudentTable() {
     return `<tr>
       <td title="${safeUid}"><code>${safeUid}</code></td>
       <td title="${safeName}"><b>${safeName}</b>${smLearningBadge(s, _L)}</td>
-      <td style="text-align:center;line-height:1.7"><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세'}</a><br><a href="${smContactUrl(uid)}" target="_blank" style="color:#0369a1" title="${_L?'Edit contact & info':'연락처·정보 수정'}">✏️ ${_L?'Edit':'수정'}</a></td>
+      <td style="text-align:center;line-height:1.7"><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세'}</a><br><a href="${smContactUrl(uid)}" target="_blank" style="color:#0369a1" title="${_L?'Edit contact & info':'연락처·정보 수정'}">✏️ ${_L?'Edit':'수정'}</a><br><a href="/admin/student?uid=${uidEnc}&tab=schedule" target="_blank" style="color:#067647" title="${_L?'Calendar · teacher · move/postpone':'캘린더 · 담당 강사 · 연기·변경'}">📅 ${_L?'Schedule':'스케줄'}</a><br><a href="/admin/student?uid=${uidEnc}&tab=extension" target="_blank" style="color:#b42318" title="${_L?'End classes · extend · undo':'수업 종료 · 연장 · 되돌리기'}">🗓️ ${_L?'End/Extend':'종료·연장'}</a></td>
       <td>${_c(s.payment_type)}</td>
       <td>${_d(s.signup_date)}</td>
       <td>${_d(s.end_date)}</td>
@@ -13539,6 +13610,13 @@ window.bulkCopyContacts = function() {
     setTimeout(loadTeacherProfiles, 200);
   }
   if (e('en-add-btn'))         e('en-add-btn').addEventListener('click', addEnrollment);
+  if (e('en-export-later'))     e('en-export-later').addEventListener('click', _enDownloadPending);
+  if (e('en-export-files')) {
+    try { e('en-export-files').checked = localStorage.getItem('mangoi_en_export_files') === '1'; } catch (_) {}
+    e('en-export-files').addEventListener('change', function () {
+      try { localStorage.setItem('mangoi_en_export_files', this.checked ? '1' : '0'); } catch (_) {}
+    });
+  }
   if (e('en-refresh-btn'))     e('en-refresh-btn').addEventListener('click', loadEnrollments);
   if (e('en-import-file-btn')) e('en-import-file-btn').addEventListener('click', importEnrollmentFromFile);
   if (e('en-import-kakao-btn'))e('en-import-kakao-btn').addEventListener('click', importEnrollmentFromKakao);
@@ -15250,8 +15328,9 @@ async function askAI(command) {
       change_schedule:    '🔄 스케줄 변경',
       postpone_class:     '⏸ 수업 연기',
     };
-    const typeNames = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
-    const typeColor = { regular:'#3b82f6', level_test:'#f59e0b', trial:'#10b981' };
+    /* 🎨 (2026-10-07 사장님 «종류 이름·색 통일») 정규 주황 · 보강 보라 · 체험 초록 · 레벨테스트 파랑 */
+    const typeNames = { regular:'정규수업', makeup:'보강수업', level_test:'레벨테스트', trial:'체험수업' };
+    const typeColor = { regular:'#d97706', makeup:'#8b5cf6', level_test:'#3b82f6', trial:'#059669' };
     let html = '<div class="ai-answer">' + _aiEsc(res.answer || 'AI가 스케줄을 파싱했습니다') + '</div>';
     if (items.length === 0) {
       html += '<div class="ai-error" style="margin-top:10px">⚠️ 파싱된 스케줄이 없습니다. 학생명·요일·시간을 명확히 다시 입력해 주세요.</div>';
@@ -15368,8 +15447,8 @@ async function executeAiAction(name, args) {
         change_schedule:    '🔄 스케줄 변경',
         postpone_class:     '⏸ 수업 연기',
       };
-      const typeNames = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
-      const typeColor = { regular:'#3b82f6', level_test:'#f59e0b', trial:'#10b981' };
+      const typeNames = { regular:'정규수업', makeup:'보강수업', level_test:'레벨테스트', trial:'체험수업' };
+      const typeColor = { regular:'#d97706', makeup:'#8b5cf6', level_test:'#3b82f6', trial:'#059669' };
       // type 별 등록 카운트 (체험/레벨 누락 진단용)
       const typeCount = { regular: 0, trial: 0, level_test: 0 };
       ok.forEach(x => { if (typeCount[x.type] !== undefined) typeCount[x.type]++; });
@@ -15383,8 +15462,8 @@ async function executeAiAction(name, args) {
       // 유형별 카운트 (정규/체험/레벨)
       if (ok.length > 0) {
         html += '<div style="margin-top:6px;font-size:12px;color:#6b7280">📊 유형별: ' +
-          '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700">정규 ' + typeCount.regular + '</span> ' +
-          '<span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:4px">체험 ' + typeCount.trial + '</span> ' +
+          '<span style="background:#d97706;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700">정규 ' + typeCount.regular + '</span> ' +
+          '<span style="background:#059669;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:4px">체험 ' + typeCount.trial + '</span> ' +
           '<span style="background:#3b82f6;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:4px">레벨 ' + typeCount.level_test + '</span>' +
         '</div>';
       }
@@ -15528,7 +15607,7 @@ window.openNewStudentForm = function(items) {
   if (typeof items === 'string') { try { items = JSON.parse(items); } catch { items = []; } }
   if (!Array.isArray(items) || items.length === 0) return;
   const dayNames = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
-  const typeNames = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
+  const typeNames = { regular:'정규수업', makeup:'보강수업', level_test:'레벨테스트', trial:'체험수업' };
   function escAttr(s){ return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
   // Phase 7i: 동일 student_name 으로 그룹화 → 1명당 1개 fieldset, 스케줄은 리스트로
   const groups = {};

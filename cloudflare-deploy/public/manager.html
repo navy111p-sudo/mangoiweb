@@ -149,7 +149,22 @@ html.dark .kpi-arrow{color:#7c8899}
 .row:first-of-type{border-top:0}
 .row b{min-width:0;flex:1}
 .row .num{font-variant-numeric:tabular-nums;font-weight:700}
+/* 📋 (2026-10-07 사장님 «시간·이름·아이디·강사명만») 「오늘 전체 수업」 간단히 보기 — 한 줄 네 칸 */
+.row.ta-s{display:grid;grid-template-columns:52px minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr);gap:8px;flex-wrap:nowrap}
+.row.ta-s>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.ta-s b{flex:none}
+.ta-mode{cursor:pointer;display:inline-block;margin-left:6px;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700;border:1px solid #cbd5e1;background:#fff;color:#344054}
 .muted{color:#7a8794;font-size:13px}
+/* 💳 수업료 결제 카드 (2026-10-07) — 흰 카드 위에서 읽히는 색만 쓴다(#b45309 대비 5.0 · #15803d · #b91c1c) */
+.tui-pay{display:block;width:100%;margin-top:8px;min-height:44px;border:0;border-radius:10px;background:#f59e0b;color:#1f1300;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit}
+.tui-pay:disabled{opacity:.55;cursor:default}
+.tui-inv{border:1px solid #eaeef2;border-radius:10px;padding:4px 10px 10px;margin:8px 0}
+.tui-msg{border-radius:8px;padding:8px 10px;font-size:13px;margin:8px 0;background:#fff4dc;color:#7c3d06}
+.tui-msg.ok{background:#e8f7ee;color:#15803d}
+.tui-msg.bad{background:#fdecec;color:#991b1b}
+.tui-al{font-size:12px;font-weight:700;border-radius:999px;padding:1px 8px;border:1px solid #f5d79a;background:#fff4dc;color:#b45309}
+.tui-al-ok{border-color:#b9e4c8;background:#e8f7ee;color:#15803d}
+.tui-al-empty{border-color:#f2c1c1;background:#fdecec;color:#b91c1c}
 .empty{padding:18px 4px;text-align:center;color:#8b97a4;font-size:13.5px}
 
 input[type="search"],input[type="text"]{
@@ -413,6 +428,28 @@ html.dark .sgrp-h{color:#fbbf24}
 html.dark .sgrp a,html.dark .sgrp button{color:#d3dbe4}
 html.dark .sgrp a:active,html.dark .sgrp button:active{background:#242d37}
 
+/* 🖥 (2026-10-07 사장님 「PC 에서는 누를 때마다 페이지가 스크롤된다」) 넓은 화면(PC) 전용 —
+   왼쪽 메뉴를 늘 펴 두고, 메뉴를 누르면 긴 페이지를 굴리는 대신 «그 카드 하나만» 보여 준다.
+   ⚠️ 휴대폰(좁은 화면)은 전혀 안 바뀐다 — 규칙이 전부 이 미디어쿼리 안이다(창을 좁히면 예전 모양으로 돌아온다).
+   ⚠️ 카드를 숨기는 것은 «보이기» 뿐이다 — 권한으로 감춘 카드(hidden)는 그대로 감춰져 있다. */
+@media (min-width:1100px){
+  #side{transform:none;z-index:50;box-shadow:none}
+  #sideOverlay,body.side-open #sideOverlay{display:none}
+  .side-x,#sideBtn{display:none}
+  body{padding-left:272px}
+  /* 🖥 (2026-10-08 사장님 「PC 에서 양쪽 여백이 너무 크다 — 차 보이게」) 본문 폭 820px 상한을 PC 에서만 푼다. */
+  .wrap{max-width:none;padding:12px 24px 48px}
+  .sgrp button.on{background:#fff4dc;color:#b45309;font-weight:800}
+  html.dark .sgrp button.on{background:#3a2c12;color:#fbbf24}
+  body.pane-on .wrap details.card:not(.pane-active),
+  body.pane-on .wrap > div.card,
+  body.pane-on .wrap .grouphead,
+  body.pane-on .wrap .hqhead,
+  body.pane-on #todo,
+  body.pane-on .qlbl,
+  body.pane-on .qbar{display:none!important}
+}
+
 /* 카드 그룹 표제 — 본문 쪽. 사이드바 소제목과 같은 색으로 「지금 어느 묶음을 보고 있는지」 잇는다. */
 .grouphead{
   font-size:12.5px;font-weight:800;color:#b45309;letter-spacing:.02em;
@@ -430,6 +467,294 @@ html.dark .evq-open{color:#93c5fd}
 /* 🌗 저장된 화면 모드를 첫 그리기 전에 적용 — 밝았다 어두워지는 깜빡임 방지.
    전환 자체는 아래 본문 스크립트의 toggleMode() 가 담당한다. */
 try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentElement.classList.add('dark');}catch(e){}
+</script>
+<script>
+/* 🎬 (2026-10-06 사장님) 시연용 예시 데이터 — 대리점 시연 계정(testagency) 전용.
+   branch.html 의 testbranch 블록(2026-09-27)을 그대로 옮겨 «대리점 한 곳» 모양으로 맞췄다.
+   ⚠️ 이 화면은 «외부 리소스 0개» 계약이라 공용 파일로 빼지 않고 인라인으로 둔다 —
+      두 블록은 따로 산다(branch.html 쪽을 고쳐도 여기는 안 바뀐다).
+   ⛔ D1 에는 한 줄도 쓰지 않는다 — 가짜 결제를 DB 에 넣으면 본사 매출·월간 리포트·
+      가맹점 정산서에 그대로 섞여 되돌리기 어렵다(개발·운영이 같은 DB).
+   ✅ 대신 이 화면이 부르는 조회 API 를 «그 계정일 때만» 가로채 예시 숫자를 돌려준다.
+      판정은 두 겹: ① 저장된 로그인이 testagency 일 때만 깨어나고(다른 계정은 요청이 하나도
+      늘지 않는다) ② 서버 /api/admin/me 가 그 계정이라고 «확인해 줄 때만» 예시를 쓴다.
+      확인이 실패하면 진짜 API 로 그대로 보낸다(모르면 진짜 숫자).
+   ⚠️ 화면 구석에 「시연용 예시 데이터」 표시를 둔다 — 실제 숫자로 오해하지 않게.
+   ⚠️ 이름·숫자는 전부 지어낸 것이다. 실제 학생·강사·대리점과 무관하다.
+   되돌리기: DEMO_USERS 에서 이름을 빼면 끝(이 블록 전체를 지워도 화면은 예전 그대로). */
+(function(){
+  'use strict';
+  var DEMO_USERS = { testagency: 1 };
+  var who = '';
+  try { var s = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null'); who = s && s.uid ? String(s.uid).toLowerCase() : ''; } catch (e) {}
+  if (!DEMO_USERS[who] || typeof window.fetch !== 'function') return;
+
+  var realFetch = window.fetch.bind(window);
+  var meP = null;
+  function confirmed(){
+    if (!meP) meP = realFetch('/api/admin/me', { credentials: 'include', headers: { 'Accept': 'application/json' } })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        var u = j && (j.user || j);
+        var ok = !!(u && DEMO_USERS[String(u.username || '').toLowerCase()]);
+        if (ok) badge();
+        return ok;
+      })
+      .catch(function(){ return false; });
+    return meP;
+  }
+
+  function badge(){
+    function put(){
+      if (document.getElementById('demoBadge') || !document.body) return;
+      var b = document.createElement('div');
+      b.id = 'demoBadge';
+      b.setAttribute('role', 'note');
+      b.style.cssText = 'position:fixed;right:10px;bottom:10px;z-index:50;pointer-events:none;'
+        + 'background:#fffbeb;color:#92400e;border:1px solid #f59e0b;border-radius:999px;'
+        + 'padding:4px 10px;font-size:12px;font-weight:700;line-height:1.3;white-space:nowrap';
+      var en = false; try { en = localStorage.getItem('mangoi_lang') === 'en'; } catch (e) {}
+      b.textContent = en ? 'Sample data (demo)' : '시연용 예시 데이터';
+      document.body.appendChild(b);
+    }
+    if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
+  }
+
+  // ── 결정론적 난수(새로고침해도 같은 숫자) ─────────────────────────────
+  var seed = 20261006;
+  function rnd(){ seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }
+  function ri(a, b){ return a + Math.floor(rnd() * (b - a + 1)); }
+  function pick(a){ return a[Math.floor(rnd() * a.length)]; }
+
+  // KST 날짜
+  function kst(offsetDays){ var d = new Date(Date.now() + 9 * 3600e3 + (offsetDays || 0) * 86400e3); return d.toISOString().slice(0, 10); }
+  var TODAY = kst(0), MONTH = TODAY.slice(0, 7);
+
+  var BRANCH = '테스트브런치 지사';
+  // 대리점 계정은 자기 한 곳만 본다 — 학원 하나·학생 38명.
+  var SHOPS = [
+    { name: '대리점테스트 영어학원', manager: '정민아 원장', n: 38 }
+  ];
+  var NSTU = 38;
+  var TEACHERS = ['Teacher Anna', 'Teacher Joy', 'Teacher Mark', 'Teacher Bella'];
+  var SUR = ['김','이','박','최','정','강','조','윤','장','임','한','오','서','신','권'];
+  var GIV = ['서연','민준','하윤','도윤','지우','서준','하은','시우','지아','예준','수아','주원','윤서','건우','채원','유준','다은','이준','소율','지호'];
+  var ENG = ['Olivia','Liam','Emma','Noah','Ava','Leo','Mia','Ethan','Chloe','Ryan','Grace','Daniel','Lily','Jason','Sophie','Eric'];
+
+  // 학생 38명
+  var STUDENTS = [];
+  (function(){
+    var k = 0;
+    SHOPS.forEach(function(sh){
+      for (var i = 0; i < sh.n; i++) {
+        k++;
+        var r = rnd();
+        STUDENTS.push({
+          user_id: 'demo' + ('00' + k).slice(-3),
+          name: pick(SUR) + pick(GIV),
+          english_name: pick(ENG),
+          shop_name: sh.name,
+          franchise: BRANCH,
+          status: '재원',
+          track: r < 0.75 ? 'live_ai' : (r < 0.92 ? 'ai_only' : 'idle')
+        });
+      }
+    });
+  })();
+
+  // 30일 추이
+  var SERIES = [];
+  (function(){
+    var cum = 31;
+    for (var i = 29; i >= 0; i--) {
+      if (i < 29 && rnd() < 0.5) cum += 1;
+      if (cum > NSTU) cum = NSTU;
+      var dt = kst(-i);
+      var wd = new Date(dt + 'T00:00:00Z').getUTCDay();
+      var inc = (wd === 0 || wd === 6) ? ri(0, 2) * 110000 : ri(2, 5) * 110000;
+      SERIES.push({ date: dt, income: inc, cum_students: i === 0 ? NSTU : cum });
+    }
+  })();
+  var MONTH_INCOME = 0, MONTH_PAYS = 0;
+  SERIES.forEach(function(s){ if (s.date.slice(0, 7) === MONTH) { MONTH_INCOME += s.income; MONTH_PAYS += Math.round(s.income / 110000 / 3); } });
+  if (MONTH_INCOME < 1000000) { MONTH_INCOME = 9680000; MONTH_PAYS = 27; }   // 달 첫날 근처엔 비어 보이지 않게
+  var TODAY_INCOME = SERIES[SERIES.length - 1].income;
+
+  function feeOf(rate){ return (typeof rate === 'number' && rate >= 0 && rate < 1) ? rate : 0.15; }
+  var FEE = 0.15;
+
+  function sessions(){
+    var out = [], times = ['14:00','15:00','15:30','16:30','17:00','18:00','19:00','19:30'];
+    var nowHM = new Date(Date.now() + 9 * 3600e3).toISOString().slice(11, 16);
+    var base = Date.parse(TODAY + 'T00:00:00+09:00');
+    times.forEach(function(t, i){
+      var st = STUDENTS[(i * 7) % STUDENTS.length];
+      var ts = base + (+t.slice(0, 2) * 60 + +t.slice(3)) * 60000;
+      var past = t < nowHM;
+      var att = past ? (i === 4 ? { state: 'absent' } : (i === 2 ? { state: 'late', late_min: 4, at: ts + 240000 } : { state: 'attended', at: ts - 60000 })) : { state: 'not_yet' };
+      var te = past ? { state: 'on_time', at: ts - 120000 } : { state: 'pending' };
+      out.push({
+        schedule_id: 900000 + i, class_date: TODAY, start_time: t, start_ts: ts,
+        join_open: false, student_name: st.name, student_uid: st.user_id,
+        teacher_name: TEACHERS[i % TEACHERS.length], source: 'mangoi',
+        textbook_assigned: true, textbook: pick(['BTS 3', 'BTS 5', 'SIU BASIC 004', 'BTS 8']),
+        room_id: 'demo-room-' + i, contact_phone: '', academy: st.shop_name,
+        can_move: false, pay_type: i % 3 ? 'B2C' : 'B2B',
+        sched_label_ko: '주 2회', sched_label_en: '2× a week',
+        teacher_entry: te, attendance: att, eval_hidden: false,
+        last_eval: { date: kst(-7), score: ri(4, 5), max: 5, text: '발음이 좋아졌어요' },
+        today_eval: past && att.state !== 'absent' ? { date: TODAY, score: ri(4, 5), max: 5, text: '오늘 문장 말하기를 잘했어요' } : null
+      });
+    });
+    return out;
+  }
+
+  var REQS = [
+    { id: 990001, status: 'approved', decided_by: '자동승인(학생 연기·변경)', requester_role: 'student', request_type: 'change', teacher_name: 'Teacher Joy', student_name: STUDENTS[3].name, orig_date: kst(1), orig_time: '17:00', new_date: kst(1), new_time: '18:00', reason: '학원 행사로 시간 변경 요청' },
+    { id: 990002, status: 'approved', decided_by: '자동승인(학생 연기·변경)', requester_role: 'student', request_type: 'postpone', teacher_name: 'Teacher Mark', student_name: STUDENTS[20].name, orig_date: kst(2), orig_time: '16:30', new_date: kst(4), new_time: '16:30', reason: '학생 가족 여행' },
+    { id: 990003, status: 'approved', request_type: 'change', teacher_name: 'Teacher Anna', student_name: STUDENTS[31].name, orig_date: kst(-2), orig_time: '15:00', new_date: kst(-1), new_time: '15:00', reason: '감기' }
+  ];
+
+  var AI_TOOLS = ['judgment','warmup','friend','write','speech','review','vocab','micro'];
+
+  function handler(path, method, init){
+    var q = path.split('?'), p = q[0], qs = q[1] || '';
+    method = String(method || 'GET').toUpperCase();
+    if (method === 'POST') {
+      if (p === '/api/admin/schedule-requests/decide') {
+        var body = {}; try { body = JSON.parse(init && init.body || '{}'); } catch (e) {}
+        return function(){
+          REQS.forEach(function(r){ if (r.id === Number(body.id)) r.status = body.action === 'approve' ? 'approved' : 'rejected'; });
+          return { ok: true, applied: body.action === 'approve' ? 'moved' : undefined, status: body.action === 'approve' ? 'approved' : 'rejected' };
+        };
+      }
+      // 💳 (2026-10-07) 시연 계정의 수업료 결제는 «결제창을 열지 않는다» — 진짜 토스 주문·D1 기록이 생기면 안 된다.
+      if (p === '/api/admin/ai-billing/tuition/checkout') return function(){ return { ok: false, error: 'demo' }; };
+      return null;
+    }
+    switch (p) {
+      case '/api/admin/stats/today': return function(){ return {
+        ok: true, date: TODAY,
+        revenue: { amount_krw: TODAY_INCOME, pay_count: Math.max(1, Math.round(TODAY_INCOME / 330000)) },
+        students: { attended: 12, active: NSTU },
+        absence: { booked_today: 14, done_today: 12, prev_rate_pct: 6.3, weekday_avg_pct: 7.1, prev_date: kst(-1) },
+        signups: { count: 1 }
+      }; };
+      case '/api/admin/exec/summary': return 'summary';
+      case '/api/admin/exec/series': return function(){ return { ok: true, series: SERIES }; };
+      case '/api/admin/stats/student-flow': return function(){ return { ok: true, total_new: 5, total_dropped: 1, net_growth: 4, active: NSTU }; };
+      case '/api/admin/students/unified':
+        if (/summary_only=1/.test(qs)) return function(){
+          var orgs = SHOPS.map(function(sh){
+            var l = 0, a = 0; STUDENTS.forEach(function(s){ if (s.shop_name === sh.name) { if (s.track === 'live_ai') l++; else if (s.track === 'ai_only') a++; } });
+            return { franchise: BRANCH, shop_name: sh.name, live: l, ai_only: a };
+          });
+          var L = 0, A = 0, I = 0; STUDENTS.forEach(function(s){ if (s.track === 'live_ai') L++; else if (s.track === 'ai_only') A++; else I++; });
+          return { ok: true, track_summary: { ok: true, live: L, ai_only: A, idle: I, lookback_days: 30, orgs: orgs } };
+        };
+        return function(){ return { ok: true, students: STUDENTS, can_view_pii: true, track_ok: true }; };
+      case '/api/admin/stats/teacher-utilization': return function(){
+        return { ok: true, teachers: TEACHERS.map(function(t, i){ return { teacher_name: t, utilization_pct: [92, 84, 77, 68][i] }; }) };
+      };
+      case '/api/admin/stats/waitlist': return function(){ return { ok: true, items: [
+        { student_name: '윤지아', wish_time: '평일 17:00', status: 'waiting' },
+          { student_name: '한소율', wish_time: '토 10:00', status: 'waiting' }
+      ] }; };
+      case '/api/admin/franchises': return function(){ return { ok: true, items: [{ name: BRANCH, master_branch_name: '망고아이 본사' }] }; };
+      case '/api/admin/centers': return function(){ return { ok: true, items: SHOPS.map(function(s){ return { name: s.name, manager: s.manager }; }) }; };
+      case '/api/admin/attendance/school-stats': return function(){
+        var rates = [92.6];
+        return { ok: true, kpi: { rate: 92.6, schools: SHOPS.length, risk: 0 },
+          items: SHOPS.map(function(s, i){ var tot = s.n * 8; return { shop_name: s.name, franchise: BRANCH, attended_n: Math.round(tot * rates[i] / 100), total_n: tot, rate: rates[i] }; }) };
+      };
+      case '/api/admin/ai-usage/students': return function(){
+        var m = /days=(\d+)/.exec(qs), days = m ? +m[1] : 30;
+        var tm = /tool=([a-z]+)/.exec(qs), tool = tm ? tm[1] : 'all';
+        var sum = {}; AI_TOOLS.forEach(function(k){ sum[k] = 0; });
+        var list = [];
+        STUDENTS.forEach(function(s, i){
+          if (s.track === 'idle' || i % 3 === 2) return;
+          var tools = {}, total = 0;
+          AI_TOOLS.forEach(function(k, j){ if ((i + j) % 3 === 0) { var n = 1 + ((i * 7 + j * 3) % 9) * Math.ceil(days / 30); tools[k] = { n: n }; total += n; } });
+          if (tool !== 'all' && !tools[tool]) return;
+          Object.keys(tools).forEach(function(k){ sum[k]++; });
+          list.push({ uid: s.user_id, name: s.name, shop_name: s.shop_name, franchise: BRANCH, total: tool === 'all' ? total : tools[tool].n,
+            level: 'Lv ' + (1 + i % 8), last_ts: Date.now() - (i % 5) * 86400e3 - 3600e3, tools: tools });
+        });
+        return { ok: true, count: list.length, days: days, summary: AI_TOOLS.map(function(k){ return { key: k, students: sum[k] }; }), students: list };
+      };
+      case '/api/admin/settlement/branch-summary': return 'settle';
+      case '/api/admin/schedule-requests': return function(){
+        return { ok: true, items: REQS, pending_count: REQS.filter(function(r){ return r.status === 'pending'; }).length };
+      };
+      case '/api/admin/classes/today': return function(){
+        var ss = sessions();
+        return { ok: true, date: TODAY, sessions: ss, counts: { cafe24: 0, joinable: 0 }, contact_source: 'restricted' };
+      };
+      // 💳 (2026-10-07 사장님 「대리점테스트계정 수업료 정산 켜줘」) — 시연 계정은 운영 DB 에서 켜지 않고
+      //    «켜진 모습» 을 예시로 보여 준다(가짜 학원의 결제가 본사 매출·정산에 섞이지 않게). 숫자는 지어낸 것.
+      case '/api/admin/ai-billing/tuition/shop': return function(){
+        var nm = (function(m){ var y = +m.slice(0, 4), mo = +m.slice(5, 7) + 1; if (mo > 12) { mo = 1; y++; } return y + '-' + (mo < 10 ? '0' : '') + mo; })(MONTH);
+        var pm = (function(m){ var y = +m.slice(0, 4), mo = +m.slice(5, 7) - 1; if (mo < 1) { mo = 12; y--; } return y + '-' + (mo < 10 ? '0' : '') + mo; })(MONTH);
+        var lines = STUDENTS.slice(0, 6).map(function(st, i){ var c = [4, 4, 8, 4, 4, 8][i]; return { name: st.name, pattern_ko: c === 8 ? '매주 화·목' : (i % 2 ? '매주 수' : '매주 화'), pattern_en: c === 8 ? 'Tue · Thu' : (i % 2 ? 'Wed' : 'Tue'), count: c, amount: c * 15000 }; });
+        return { ok: true, shop_name: SHOPS[0].name, today: TODAY, month: MONTH, next_month: nm, enabled: true, enabled_on: MONTH + '-01',
+          unit: { price: 60000, is_default: true }, wallet: { balance: 420000 }, committed_krw: 1140000, upcoming14_krw: 570000, alert: 'low',
+          invoices: [
+            { id: 9002, kind: 'topup', month: MONTH, seq: 1, status: 'issued', due_krw: 720000, paid_krw: 0, owed_krw: 720000, due_date: kst(3), overdue: 'due_soon', first_month: false,
+              calc: { explain_ko: ['이번 달 남은 수업 1,140,000원', '지금 잔액 420,000원', '부족한 720,000원을 채웁니다'], explain_en: ['Rest of this month: 1,140,000', 'Balance now: 420,000', 'Top-up: 720,000'], lines: lines } },
+            { id: 9001, kind: 'monthly', month: pm, seq: 1, status: 'paid', due_krw: 1080000, paid_krw: 1080000, owed_krw: 0 }
+          ],
+          next_preview: { due_krw: 1200000, explain_ko: ['다음 달 예정 수업 80회 × 15,000원'], explain_en: ['Next month: 80 classes × 15,000'], lines: [] },
+          autopay: null };
+      };
+      case '/api/admin/omnisearch': return function(){
+        var m = /q=([^&]*)/.exec(qs), w = m ? decodeURIComponent(m[1]).trim() : '';
+        var res = !w ? [] : STUDENTS.filter(function(s){ return s.name.indexOf(w) >= 0 || s.english_name.toLowerCase().indexOf(w.toLowerCase()) >= 0; })
+          .slice(0, 20).map(function(s){ return { title: s.name + ' (' + s.english_name + ') · ' + s.shop_name, kind: '학생' }; });
+        return { ok: true, results: res };
+      };
+    }
+    return null;
+  }
+
+  function reply(obj){
+    return new Response(JSON.stringify(obj), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  window.fetch = function(input, init){
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    var path = url.indexOf(location.origin) === 0 ? url.slice(location.origin.length) : url;
+    var method = (init && init.method) || (input && typeof input !== 'string' && input.method) || 'GET';
+    var h = path.charAt(0) === '/' ? handler(path, method, init) : null;
+    if (!h) return realFetch(input, init);
+    return confirmed().then(function(ok){
+      if (!ok) return realFetch(input, init);
+      if (h === 'summary' || h === 'settle') {
+        // 범위(scope)·수수료율은 서버의 진짜 값을 쓰고 숫자만 바꾼다
+        return realFetch(input, init).then(function(r){ return r.ok ? r.json() : {}; }).catch(function(){ return {}; }).then(function(j){
+          j = j || {};
+          if (h === 'summary') FEE = feeOf(j.fee_rate);
+          var settle = Math.round(MONTH_INCOME * (1 - FEE));
+          if (h === 'summary') {
+            var sc = j.scope && j.scope.type ? j.scope : { type: 'agency', label: SHOPS[0].name, value: SHOPS[0].name };
+            return reply({ ok: true, scope: sc,
+              this_month: { period: (j.this_month && j.this_month.period) || MONTH, income: MONTH_INCOME, pay_count: MONTH_PAYS, settle: settle },
+              students: { active: NSTU, new_this_month: 3, new_today: 1 },
+              cost_hq_only: true, fee_rate: FEE });
+          }
+          var gross = MONTH_INCOME, fee = gross - settle;
+          var totalN = 0; SHOPS.forEach(function(s){ totalN += s.n; });
+          var ag = SHOPS.map(function(s){ return { agency_name: s.name, net_settlement: Math.round(settle * s.n / totalN) }; });
+          var pm = /period=([0-9-]+)/.exec(path);
+          return reply({ ok: true, period: pm ? pm[1] : MONTH, label: (pm ? pm[1] : MONTH) + ' 정산',
+            totals: { gross: gross, fee: fee, net: settle },
+            rows: [{ franchise_name: BRANCH, gross_revenue: gross, net_settlement: settle, agencies: ag }] });
+        });
+      }
+      return reply(h());
+    });
+  };
+})();
 </script>
 
 <!-- ☰ 좌측 그룹 메뉴 — 옛 LMS·admin.html 과 같은 «누르면 왼쪽에서 나오는 서랍» 방식.
@@ -469,6 +794,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="sgrp">
     <button type="button" onclick="sideGo('c-trend')"><span class="ic">📊</span><span data-en="30-day trend" data-ko="30일 추이">30-day trend</span></button>
     <button type="button" onclick="sideGo('c-settle')"><span class="ic">💰</span><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></button>
+    <button type="button" id="sideTuition" onclick="sideGo('c-tuition')" hidden><span class="ic">💳</span><span data-en="Tuition payment" data-ko="수업료 결제">Tuition payment</span></button>
     <button type="button" id="sideAibill" onclick="sideGo('c-aibill')" hidden><span class="ic">🧾</span><span data-en="AI usage invoice" data-ko="AI 사용료 청구서">AI usage invoice</span></button>
   </div>
   <div class="sgrp-h" data-en="Operations" data-ko="운영관리">Operations</div>
@@ -486,12 +812,143 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       <button type="button" onclick="sideGo('c-bugs')"><span class="ic">🛠</span><span data-en="Problem reports" data-ko="문제 신고">Problem reports</span></button>
     </div>
   </div>
-  <div class="sgrp" style="border-top:1px solid #eef2f8;margin-top:8px">
-    <a href="/admin.html?full=1"><span class="ic">🖥</span><span data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</span></a>
-  </div>
+  <!-- 2026-10-08 사장님 지시: 사이드바 맨 아래 「전체 경영 대시보드」 줄 삭제 (본문 맨 아래 링크는 그대로) -->
 </nav>
 
 <div class="wrap">
+<section id="handover-inbox-banner" hidden></section>
+<script>
+// Inline copy of handover-inbox-banner.js: manager.html must remain self-contained (외부 리소스 0개 계약).
+// (2026-10-06) 필리핀 매니저 3명의 첫 화면이 /manager 라 매일보고 «반드시 작성» 배너·기기 푸시 자동 켜기를 여기도 둔다.
+/* Authenticated handover alerts. Web Audio failures remain visible; no acknowledgement on view. */
+(function(){
+  'use strict';
+  var host=document.getElementById('handover-inbox-banner');if(!host)return;
+  var shadow=host.attachShadow({mode:'open'}),pending=false,stopped=false,last=null,failed=false,mine=[];
+  var audio=null,blocked=false,ringing=false,lastSignature='',lastRing=0,ringCount=0;
+  shadow.innerHTML='<style>:host([hidden]){display:none!important}:host{display:block;margin:0 0 18px;color-scheme:light dark}*{box-sizing:border-box}.box{background:light-dark(#eef4ff,#20334e);color:light-dark(#193351,#edf4ff);border:2px solid light-dark(#b8cbe6,#4a6688);border-radius:12px;padding:18px 22px;font:18px/1.5 system-ui,sans-serif;display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}.box.warning{border-color:#c23425;background:light-dark(#fff0ec,#4b2020)}.title{font-size:23px;font-weight:700;margin:0}.note,.permission{font-size:16px;margin:6px 0 0}a,button{font:inherit;color:light-dark(#214faf,#bdd3ff);font-weight:650;display:inline-block;padding:10px;min-height:44px}button{cursor:pointer;border:1px solid currentColor;border-radius:8px;background:transparent}.actions{display:flex;gap:12px;flex-wrap:wrap}.primary{background:light-dark(#244fad,#b9d1ff);color:light-dark(#fff,#14243c);border-radius:8px;padding:12px 18px;text-decoration:none}[hidden]{display:none!important}.writer{display:flex;flex-direction:column;gap:10px;margin:0 0 12px}.wline{background:light-dark(#fff7e8,#3d2f14);color:light-dark(#4a3305,#fbe8c4);border:2px solid light-dark(#d39b2a,#b3842c);border-radius:12px;padding:14px 18px;font:18px/1.5 system-ui,sans-serif;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.wline.bad{border-color:#c23425;background:light-dark(#fff0ec,#4b2020);color:light-dark(#5b1a12,#ffe1da)}.wline b{font-size:19px}.wline button.push-allow,.wline a{background:light-dark(#9a5b00,#f2c46d);color:light-dark(#fff,#2a1d05);border-radius:8px;padding:10px 16px;text-decoration:none}@media(max-width:600px){.box{padding:16px}.title{font-size:22px}}</style><div class="writer" hidden></div><section class="box"><div><p class="title"></p><p class="note" role="status"></p><p class="permission"></p><p class="sound-status" role="status"></p></div><div class="actions"><a class="primary" href="/daily-handover.html"></a><a class="sent" href="/daily-handover.html?view=mine"></a><a class="appr" href="/work"></a><button class="sound" type="button"></button><button class="snooze" type="button"></button></div></section>';
+  var box=shadow.querySelector('.box'),title=shadow.querySelector('.title'),note=shadow.querySelector('.note'),permission=shadow.querySelector('.permission'),link=shadow.querySelector('.primary'),sent=shadow.querySelector('.sent'),appr=shadow.querySelector('.appr'),sound=shadow.querySelector('.sound'),snooze=shadow.querySelector('.snooze'),soundStatus=shadow.querySelector('.sound-status'),writer=shadow.querySelector('.writer');
+  function en(){var l=window.adminLang;if(l!=='en'&&l!=='ko')l=(document.documentElement.lang||'').slice(0,2);return l==='en';}
+  function t(ko,e){return en()?e:ko;}
+  function get(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+  function put(k,v){try{localStorage.setItem(k,String(v));}catch(e){}}
+  function key(s){return 'mangoi_handover_'+s+':'+(last&&last.me?last.me.username:'');}
+  function enabled(){return get('mangoi_work_sound_v1')!=='0';}
+  function eligible(){return !last?[]:last.reports.filter(function(r){return !(r.followup&&r.followup.hold_until>Date.now());});}
+  // ✍️ 내 보고(2026-10-06) — 오늘 미작성·지난 근무일 미제출은 쓸 때까지 남는다(닫기 없음). 대표님 화면엔 미제출 명단.
+  function line(cls,txt,href,btn){var d=document.createElement('div');d.className='wline'+(cls?' '+cls:'');var b=document.createElement('b');b.textContent=txt;d.append(b);if(href){var a=document.createElement('a');a.href=href;a.textContent=btn;d.append(a);}return d;}
+  function kstNow(){return new Date(Date.now()+9*3600000).toISOString();}
+  function renderWriter(){
+    var w=last&&last.writer,ms=last&&last.missed_staff,out=[];
+    if(w&&w.required){
+      if(w.prev_missed)out.push(line('bad',t('⚠️ 지난 근무일('+w.prev_day+') 매일보고 미제출 — 지금 작성해 주세요','⚠️ Daily handover for '+w.prev_day+' was not submitted — please write it now'),'/daily-handover.html?write='+encodeURIComponent(w.prev_day),t('지난 보고 쓰기','Write it now')));
+      if(w.today_required&&!w.today_submitted){var late=kstNow().slice(11,16)>=w.due_time;out.push(line(late?'bad':'',late?t('🔴 오늘 매일보고 마감('+w.due_time+' KST) 지남 — 아직 제출 안 함','🔴 Today\'s daily handover is past due ('+w.due_time+' KST) — not submitted'):t('📝 오늘 매일보고 반드시 작성 · 마감 '+w.due_time+' (KST)','📝 Daily handover required today · due '+w.due_time+' KST'),'/daily-handover.html?write='+encodeURIComponent(w.day||''),t('오늘 보고 쓰기','Write today\'s report')));}
+    }
+    if(ms&&ms.length)out.push(line('bad',t('📋 매일보고 미제출: ','📋 Not submitted: ')+ms.map(function(m){return m.name+' ('+m.prev_day.slice(5)+')';}).join(', '),'/daily-handover.html?date='+encodeURIComponent(ms[0].prev_day),t('보고 보기','Open reports')));
+    if(w&&w.required){var pl=pushLine();if(pl)out.push(pl);}
+    writer.replaceChildren.apply(writer,out);writer.hidden=!out.length;return out.length;
+  }
+  // 🔔 기기 알림 자동 켜기(2026-10-07 사장님 지시: 매일보고 대상은 알림이 «저절로» 켜지게).
+  //   브라우저 규칙상 허락 창은 «사람의 클릭» 없이 못 띄운다 — 서버가 대신 켤 방법은 없다.
+  //   그래서: 허락됨 → 조용히 등록 · 아직 안 물음 → 이 화면의 첫 클릭/키 입력 때 허락 창 · 차단됨 → 푸는 법을 줄로.
+  //   ⚠️ 매일보고 «필수 대상»(writer.required)에게만 건다 — 다른 사람에게 허락 창을 띄우지 않는다.
+  //   ⚠️ 등록 실패는 삼키지 않고 줄로 말한다(«켜졌겠지» 로 믿으면 알림이 안 간다).
+  var pushState='',pushBusy=false,pushAsked=false;
+  // 배너 전체를 숨긴 채 줄만 바뀌면 안 보인다 — 등록 결과가 나오면 숨김 여부도 다시 정한다(Codex P1).
+  function reshow(){render();if(last)host.hidden=box.hidden&&!renderWriter();}
+  function pushOk(){return typeof Notification!=='undefined'&&'serviceWorker' in navigator&&'PushManager' in window;}
+  function pushWanted(){return !!(last&&last.writer&&last.writer.required&&last.me&&last.me.username&&pushOk());}
+  function b64u8(b){var r=atob((b+'='.repeat((4-b.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/')),o=new Uint8Array(r.length);for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o;}
+  async function pushSubscribe(){
+    var r=await fetch('/api/push/vapid-public-key',{credentials:'same-origin'});if(!r.ok)throw Error('http');
+    var j=await r.json();if(!j||!j.key)throw Error('no_key');
+    var reg=await navigator.serviceWorker.register('/sw.js');await navigator.serviceWorker.ready;
+    var sub=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u8(j.key)});
+    var s=sub.toJSON?sub.toJSON():sub;
+    var x=await fetch('/api/push/subscribe',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:s,user_id:last.me.username,ua:navigator.userAgent})});
+    var k=await x.json().catch(function(){return null;});if(!x.ok||!k||!k.ok)throw Error('save');
+  }
+  function autoPush(){
+    if(!pushWanted()||pushBusy||pushState==='on')return;
+    var p=Notification.permission;
+    if(p==='denied'){pushState='denied';return;}
+    if(p!=='granted'){pushState='ask';return;}
+    if(pushState==='fail')return; // 같은 화면에서 계속 다시 하지 않는다(다시 열면 재시도)
+    pushBusy=true;pushSubscribe().then(function(){pushState='on';}).catch(function(e){pushState='fail';try{console.warn('[handover-push] 등록 실패',e);}catch(_){}}).then(function(){pushBusy=false;reshow();});
+  }
+  function askPush(){
+    if(!pushWanted()||pushBusy||pushState!=='ask')return;
+    pushBusy=true;pushAsked=true;var q;try{q=Notification.requestPermission();}catch(e){q=null;}
+    Promise.resolve(q).then(function(){pushBusy=false;pushState='';autoPush();reshow();}).catch(function(){pushBusy=false;reshow();});
+  }
+  // 화면 아무 곳 첫 클릭·키 입력은 «한 번만» 묻는다 — 창을 닫았으면 그 뒤엔 «알림 허용» 버튼으로만(Codex P2).
+  function askPushOnce(){if(!pushAsked)askPush();}
+  function pushLine(){
+    if(pushState==='ask'){var d=document.createElement('div');d.className='wline';var b=document.createElement('b');b.textContent=t('🔔 매일보고 알림을 받으려면 기기 알림을 허용해 주세요','🔔 Allow device notifications to get daily-report reminders');var k=document.createElement('button');k.type='button';k.className='push-allow';k.textContent=t('알림 허용','Allow notifications');k.onclick=askPush;d.append(b,k);return d;}
+    if(pushState==='denied')return line('bad',t('🔕 이 브라우저는 알림이 차단돼 있습니다 — 주소창 왼쪽 자물쇠 → 알림 → 허용','🔕 Notifications are blocked in this browser — lock icon left of the address bar → Notifications → Allow'));
+    if(pushState==='fail')return line('bad',t('⚠️ 기기 알림 등록에 실패했습니다 — 결재함의 «알림 받기» 를 눌러 주세요','⚠️ Could not register device notifications — press «Notify me» in Approvals'),'/work#pushBtn',t('결재함 열기','Open Approvals'));
+    return null;
+  }
+  function render(){
+    box.setAttribute('aria-label',t('받은 매일보고','Handover inbox'));link.textContent=t('보고 읽고 응답하기','Read and respond');appr.textContent=t('결재함','Approvals');
+    sound.textContent=blocked?t('🔊 알람 소리 켜기','Enable alarm sound'):enabled()?t('🔊 소리 끄기','Mute sound'):t('🔇 소리 켜기','Enable sound');
+    snooze.textContent=t('30분간 소리 쉬기','Silence for 30 min');snooze.hidden=!last||!last.total;
+    soundStatus.textContent=blocked?t('브라우저가 자동 소리를 막았습니다. ‘알람 소리 켜기’를 눌러 주세요.','Autoplay was blocked. Click Enable alarm sound.'):Number(get(key('snooze')))>Date.now()?t('소리는 잠시 쉬는 중 · 미응답 상태는 유지됩니다.','Sound is paused; reports still need a response.'):'';
+    renderWriter();
+    if(!last){if(failed)note.textContent=t('새 보고 확인이 지연됩니다. 보고함을 열어 주세요.','Unable to refresh. Open the inbox.');return;}
+    title.textContent=t('매일보고 · 미응답 '+last.total+'건','Daily reports · '+last.total+' awaiting response');
+    var alerts=eligible(),urgent=alerts.some(function(r){return r.payload.priority==='urgent'||(r.followup&&r.followup.warning_level>0);}),overdue=alerts.filter(function(r){return r.followup&&r.followup.due_at&&r.followup.due_at<Date.now();}).length;
+    box.classList.toggle('warning',urgent||overdue>0);
+    note.textContent=failed?t('최신 상태 확인 실패 · 보고함을 열어 확인해 주세요.','Refresh failed; open the inbox to verify.'):last.total?(overdue?t('🔴 기한 초과 '+overdue+'건 · ','Overdue '+overdue+' · '):'')+t('확인 완료·보완 요청·사유 있는 보류 중 하나로 응답해 주세요.','Acknowledge, request changes, or give a hold reason.'):t('받은 보고를 모두 확인했습니다.','All received reports acknowledged.');
+    var count=mine.filter(function(r){return r.status==='submitted';}).length;
+    sent.textContent=t('내가 보낸 보고 · 미응답 '+count+'건 (최근 30일)','My sent reports · '+count+' pending (last 30 days)');
+    permission.replaceChildren();var a=document.createElement('a');a.href='/work#pushBtn';a.textContent=typeof Notification==='undefined'||Notification.permission!=='granted'?t('기기 알림 켜기','Enable device notifications'):t('기기 푸시 등록 확인','Check device push registration');permission.append(a);
+  }
+  function ring(){
+    if(!last||failed||stopped||document.hidden||!enabled()||ringing||Number(get(key('snooze')))>Date.now())return;
+    var alerts=eligible();if(!alerts.length){blocked=false;render();return;}
+    var sig=alerts.map(function(r){var f=r.followup||{};return r.id+':'+r.version+':'+(f.warning_level||0)+':'+(f.last_request_at||0);}).sort().join('|');
+    var urgent=alerts.some(function(r){return r.payload.priority==='urgent'||(r.followup&&r.followup.warning_level>0);});
+    if(sig===lastSignature&&(!urgent||ringCount>=3||Date.now()-lastRing<300000))return;
+    if(Date.now()-Number(get(key('last_sound'))||0)<60000)return;
+    try{
+      var AC=window.AudioContext||window.webkitAudioContext;
+      if(!AC){blocked=true;render();return;}
+      if(!audio)audio=new AC();
+      if(audio.state!=='running'){
+        blocked=true;render();
+        // Never schedule oscillators on a suspended context: they could sound after reports were resolved.
+        var resume=audio.resume();if(resume&&resume.then)resume.then(function(){if(audio.state==='running')ring();}).catch(function(){blocked=true;render();});return;
+      }
+      ringing=true;
+      for(var i=0;i<3;i++){var o=audio.createOscillator(),g=audio.createGain(),start=audio.currentTime+i*0.35;o.type='sine';o.frequency.value=urgent?980:740;g.gain.setValueAtTime(0,start);g.gain.linearRampToValueAtTime(0.13,start+0.03);g.gain.linearRampToValueAtTime(0,start+0.22);o.connect(g);g.connect(audio.destination);o.onended=(function(osc,gain){return function(){osc.disconnect();gain.disconnect();};})(o,g);o.start(start);o.stop(start+0.24);}
+      if(sig!==lastSignature)ringCount=0;lastSignature=sig;ringCount++;lastRing=Date.now();put(key('last_sound'),lastRing);blocked=false;render();setTimeout(function(){ringing=false;},1200);
+    }catch(e){ringing=false;blocked=true;render();}
+  }
+  function setSound(on){if(enabled()!==on&&typeof window.toggleSound==='function')window.toggleSound();put('mangoi_work_sound_v1',on?'1':'0');}
+  sound.onclick=function(){if(blocked||!enabled()){setSound(true);blocked=false;put(key('snooze'),0);lastSignature='';ring();}else setSound(false);render();};
+  snooze.onclick=function(){put(key('snooze'),Date.now()+1800000);blocked=false;render();};
+  // A browser may require this gesture again after every login/navigation.
+  function wake(e){if(e&&e.composedPath&&e.composedPath().some(function(n){return n===sound||n===snooze;}))return;if(blocked&&enabled())ring();}
+  document.addEventListener('pointerdown',wake,{passive:true});document.addEventListener('keydown',wake);
+  document.addEventListener('click',askPushOnce,true);document.addEventListener('keydown',askPushOnce,true);
+  async function refresh(){
+    if(pending||stopped||document.hidden)return;pending=true;var c=new AbortController(),timer=setTimeout(function(){c.abort();},10000);
+    try{
+      var r=await fetch('/api/approval/handover/inbox',{credentials:'same-origin',cache:'no-store',signal:c.signal});
+      if(r.status===401||r.status===403){stopped=true;last=null;host.hidden=true;if(audio)audio.close().catch(function(){});return;}
+      if(!r.ok)throw Error('unavailable');var j=await r.json();if(!j.ok)throw Error('unavailable');
+      var m=await fetch('/api/approval/handover/mine',{credentials:'same-origin',cache:'no-store',signal:c.signal});if(!m.ok)throw Error('mine unavailable');var data=await m.json();if(!data.ok)throw Error('mine unavailable');mine=data.reports||[];
+      var inbox=!!(j.reader_mode||j.total||mine.some(function(x){return x.status==='submitted';}));box.hidden=!inbox;
+      var first=j.reports[0];link.href=first?'/daily-handover.html?date='+encodeURIComponent(first.report_date)+'&report='+first.id:'/daily-handover.html';
+      last=j;failed=false;autoPush();render();host.hidden=!inbox&&!renderWriter();ring();
+    }catch(e){failed=true;render();}finally{clearTimeout(timer);pending=false;}
+  }
+  render();refresh();setInterval(refresh,60000);window.addEventListener('focus',refresh);window.addEventListener('online',refresh);window.addEventListener('storage',render);
+  document.addEventListener('mangoi:lang-changed',render);window.addEventListener('mangoi:lang-changed',render);
+  try{new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});}catch(e){}
+})();
+</script>
 
   <div class="top">
     <button type="button" class="hbtn" id="sideBtn" onclick="openSide()" aria-label="Menu">&#9776;</button>
@@ -756,6 +1213,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        paintMonth() 가 scope.type==='agency' 일 때만 hidden 을 푼다. 서버(ai-billing.ts)가
        shop_name 을 요청 파라미터가 아니라 로그인 스코프에서 직접 정하므로, 여기서
        엉뚱한 대리점 값을 보낼 방법이 없다(남의 청구서를 볼 수 없다). -->
+  <!-- 💳 (2026-10-07 사장님 「대리점 메뉴에 수업료 결제 화면이 없어」) 화상수업 수업료(충전금) — 대리점 계정에만.
+       본사가 문자로 보내는 링크(/b2b-pay.html)와 같은 청구서를 «로그인한 채로» 보고 낸다.
+       서버(b2b-tuition-load.ts)가 학원을 로그인 스코프로 고정하므로 남의 청구서를 볼·낼 방법이 없다.
+       ⛔ 이 화면은 금액을 계산하지 않는다 — 서버가 준 숫자·문장만 그린다. -->
+  <details class="card" id="c-tuition" ontoggle="if(this.open)loadTuition()" hidden>
+      <summary><span data-en="Tuition payment" data-ko="수업료 결제">Tuition payment</span></summary>
+      <div id="tuiBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
   <details class="card" id="c-aibill" ontoggle="if(this.open)loadAiBill()" hidden>
       <summary><span data-en="AI usage invoice" data-ko="AI 사용료 청구서">AI usage invoice</span></summary>
       <div id="aibillBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
@@ -952,9 +1418,38 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   };
 
   // ── ⭐ 자주 쓰는 기능 바로가기 ──────────────────────────
+  /* 🖥 (2026-10-07) PC(1100px 이상)는 «한 화면에 카드 하나» — 스크롤로 옮겨 가지 않는다.
+     판정은 CSS 미디어쿼리와 «같은 숫자» 로 한다(어긋나면 휴대폰에서 카드가 사라진다). */
+  var PC_MQ = (window.matchMedia ? window.matchMedia('(min-width:1100px)') : null);
+  function pcPane(){ return !!(PC_MQ && PC_MQ.matches); }
+  function markSide(id){
+    var bs = document.querySelectorAll('#side .sgrp button');
+    for (var i = 0; i < bs.length; i++) {
+      var on = (bs[i].getAttribute('onclick') || '') === "sideGo('" + id + "')";
+      bs[i].classList.toggle('on', on);
+    }
+  }
+  function setPane(id){
+    var cur = document.querySelectorAll('.wrap details.card.pane-active');
+    for (var i = 0; i < cur.length; i++) cur[i].classList.remove('pane-active');
+    if (id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.add('pane-active');
+      document.body.classList.add('pane-on');
+    } else {
+      document.body.classList.remove('pane-on');
+    }
+    markSide(id || 'top');
+  }
   window.openCard = function(id){
     var el = document.getElementById(id);
     if (!el) return;
+    if (pcPane() && el.tagName === 'DETAILS' && !el.hidden) {
+      setPane(id);
+      if (!el.open) el.open = true;   // ontoggle → 기존 loadXxx() 가 알아서 부른다
+      try { window.scrollTo(0, 0); } catch (e) {}
+      return;
+    }
     if (!el.open) el.open = true;   // ontoggle → 기존 loadXxx() 가 알아서 부른다
     try { el.scrollIntoView({ block: 'start' }); } catch (e) { el.scrollIntoView(); }
   };
@@ -970,7 +1465,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   };
   window.sideGo = function(id){
     closeSide();
-    if (id === 'top') { try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } return; }
+    if (id === 'top') { setPane(null); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } return; }
     window.openCard(id);
   };
 
@@ -1120,6 +1615,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (!b) return;
     var sec = document.getElementById(b.getAttribute('data-go'));
     if (!sec) return;
+    if (pcPane()) { window.openCard(sec.id); return; }   // 🖥 PC 는 그 카드 하나만(스크롤 없음)
     sec.open = true;                                  // ontoggle 이 알아서 불러온다
     try { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     catch (err) { sec.scrollIntoView(); }
@@ -1138,6 +1634,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (_aib) _aib.hidden = (sc.type !== 'agency');
     var _sAib = document.getElementById('sideAibill');
     if (_sAib) _sAib.hidden = (sc.type !== 'agency');
+    // 💳 (2026-10-07) 수업료 결제도 대리점 계정에만 — 서버 tuition/checkout 이 대리점 밖은 403 이라 짝을 맞춘다.
+    var _tui = document.getElementById('c-tuition');
+    if (_tui) _tui.hidden = (sc.type !== 'agency');
+    var _sTui = document.getElementById('sideTuition');
+    if (_sTui) _sTui.hidden = (sc.type !== 'agency');
     // 🏢 본사 매니저면 전용 카드를 켠다. 판정은 이미 받은 exec/summary 의 scope 로 한다(추가 요청 0).
     //    ⚠️ 화면을 켜는 것뿐이고 권한은 서버가 정한다 — 여기 값을 고쳐도 API 는 안 열린다.
     IS_HQ = (sc.type === 'hq');
@@ -1734,6 +2235,142 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   }
 
   // ══════════════════════════════════════════════════════════════════════════
+  // 💳 (2026-10-07) 화상수업 수업료(충전금) 결제 — 대리점 계정 전용.
+  //   조회: GET  /api/admin/ai-billing/tuition/shop      (서버가 학원을 로그인 스코프로 고정)
+  //   결제: POST /api/admin/ai-billing/tuition/checkout  (청구서 id 만 보낸다 — 금액은 서버가 청구서에서 다시 정한다)
+  //   확정: 토스에서 /manager?tui_paid=1 로 돌아오면 /api/pay/confirm (MGT- 주문 → 충전금에 들어간다)
+  //   ⛔ 캐시(localStorage)를 쓰지 않는다 — 돈 화면에서 «옛 잔액·옛 청구서» 를 보여 주면 이미 낸 것을 또 내게 된다.
+  // ══════════════════════════════════════════════════════════════════════════
+  var TUI_OVERDUE = { due_soon: ['마감 임박', 'Due soon'], overdue: ['마감 지남', 'Overdue'], warn: ['연체', 'Overdue'], lock_candidate: ['연체 · 수업 중지 예정', 'Overdue · may pause'] };
+  window.loadTuition = function(){
+    var el = document.getElementById('tuiBody');
+    el.className = 'empty';
+    el.textContent = T('Loading...', '불러오는 중...');
+    get('/api/admin/ai-billing/tuition/shop')
+      .then(function(j){ D.tuition = j; paintTuition(); })
+      .catch(function(e){ failBox(el, e); });
+  };
+  function tuiMonth(ym){ return T(String(ym || ''), Number(String(ym || '').slice(5, 7)) + '월'); }
+  function tuiKind(inv){ return inv.kind === 'topup' ? tuiMonth(inv.month) + ' ' + T('top-up', '충전금 보충') : tuiMonth(inv.month) + ' ' + T('tuition', '수업료'); }
+  function tuiExplain(calc){
+    if (!calc) return '';
+    var lines = (EN() ? calc.explain_en : calc.explain_ko) || [];
+    var h = lines.length ? '<ul style="margin:6px 0;padding-left:18px">' + lines.map(function(x){ return '<li class="muted">' + esc(x) + '</li>'; }).join('') + '</ul>' : '';
+    (calc.lines || []).forEach(function(l){
+      h += '<div class="row"><span>' + esc(l.name) + (l.excluded ? ' <span class="muted">(' + T('excluded', '청구 제외') + ')</span>' : '') + '</span>'
+        + '<span class="muted">' + esc(EN() ? (l.pattern_en || '') : (l.pattern_ko || '')) + ' · ' + n0(l.count) + T(' cls', '회') + '</span><b class="num" style="text-align:right">' + won(l.amount) + '</b></div>';
+    });
+    return h;
+  }
+  function paintTuition(){
+    var d = D.tuition; if (!d) return;
+    var el = document.getElementById('tuiBody');
+    el.className = '';
+    var h = '';
+    if (D.tuiMsg) h += '<p class="tui-msg ' + (D.tuiMsg.ok ? 'ok' : 'bad') + '">' + esc(D.tuiMsg.text) + '</p>';
+    if (!d.enabled) {
+      // 본사가 아직 이 학원의 수업료 정산을 켜지 않았다 — 결제할 청구서가 «원리상» 없다. 지어내지 않는다.
+      h += '<p class="muted">' + T('Head office has not turned on tuition billing for this academy yet, so there is nothing to pay here. Please contact head office.',
+                                 '본사가 아직 이 학원의 수업료 정산을 켜지 않아 여기서 결제할 청구서가 없습니다. 본사로 문의해 주세요.') + '</p>';
+      el.innerHTML = h; return;
+    }
+    var w = d.wallet;
+    var al = d.alert === 'empty' ? T('No credit', '충전금 없음') : d.alert === 'low' ? T('Low credit', '충전금 부족') : T('OK', '충분');
+    h += '<div class="row"><span>' + T('Credit balance now', '지금 충전금 잔액') + '</span><b class="num" style="text-align:right">' + (w ? won(w.balance) : '—') + '</b><span class="tui-al tui-al-' + esc(d.alert || 'ok') + '">' + esc(al) + '</span></div>';
+    h += '<div class="row"><span>' + T('Classes left this month', '이번 달 남은 수업 금액') + '</span><b class="num" style="text-align:right">' + won(d.committed_krw) + '</b></div>';
+    if (d.alert === 'low') h += '<p class="tui-msg bad">⚠️ ' + T('Your credit is below the next 2 weeks of classes (' + won(d.upcoming14_krw) + '). Please pay the invoice below.', '앞으로 2주 수업(' + won(d.upcoming14_krw) + ')보다 잔액이 적습니다. 아래 청구서로 채워 주세요.') + '</p>';
+    if (d.alert === 'empty') h += '<p class="tui-msg bad">⛔ ' + T('No credit left. Please pay the invoice below.', '충전금이 없습니다. 아래 청구서를 결제해 주세요.') + '</p>';
+
+    var open = (d.invoices || []).filter(function(i){ return (i.status === 'issued' || i.status === 'partial') && Number(i.owed_krw) > 0; });
+    h += '<div class="row" style="margin-top:6px"><b>' + T('Amount due', '낼 금액') + '</b></div>';
+    if (!open.length) h += '<p class="muted">' + T('There is no invoice to pay right now.', '지금 낼 청구서가 없습니다.') + '</p>';
+    open.forEach(function(inv){
+      var ov = TUI_OVERDUE[inv.overdue];
+      h += '<div class="tui-inv">'
+        + '<div class="row"><b>' + esc(tuiKind(inv)) + (inv.first_month ? ' <span class="muted">(' + T('first month · remaining classes only', '첫 달 · 남은 회차만') + ')</span>' : '') + '</b>'
+        + (ov ? '<span class="tui-al tui-al-low">' + esc(T(ov[1], ov[0])) + '</span>' : '') + '</div>'
+        + '<div class="row"><span>' + T('Due', '마감') + ' ' + esc(inv.due_date || '') + (Number(inv.paid_krw) > 0 ? ' · ' + T('already paid ', '이미 낸 금액 ') + won(inv.paid_krw) : '') + '</span>'
+        + '<b class="num" style="text-align:right;font-size:18px">' + won(inv.owed_krw) + '</b></div>'
+        + (inv.calc ? '<details><summary class="muted" style="cursor:pointer">' + T('Why this amount?', '왜 이 금액인가요?') + '</summary>' + tuiExplain(inv.calc) + '</details>' : '')
+        + '<button type="button" class="tui-pay" onclick="tuiPay(this,' + Number(inv.id) + ')">💳 ' + T('Pay ' + won(inv.owed_krw), won(inv.owed_krw) + ' 결제하기') + '</button>'
+        + '</div>';
+    });
+    if (d.next_preview && !open.some(function(i){ return i.kind === 'monthly' && i.month === d.next_month; })) {
+      h += '<details style="margin-top:8px"><summary class="muted" style="cursor:pointer">🔮 ' + T(String(d.next_month) + ' estimate (fixed on the 20th): ', tuiMonth(d.next_month) + ' 예상 청구액(20일에 확정): ') + won(d.next_preview.due_krw) + '</summary>' + tuiExplain(d.next_preview) + '</details>';
+    }
+    if (d.autopay && d.autopay.active) h += '<p class="muted">💳 ' + T('Auto-pay is on', '자동결제 사용 중') + (d.autopay.card_label ? ' · ' + esc(d.autopay.card_label) : '') + '</p>';
+    var past = (d.invoices || []).filter(function(i){ return i.status === 'paid'; }).slice(0, 6);
+    if (past.length) {
+      h += '<div class="row" style="margin-top:10px"><b>' + T('Paid', '지난 결제') + '</b></div>'
+        + past.map(function(i){ return '<div class="row"><span>' + esc(tuiKind(i)) + '</span><b class="num" style="text-align:right">' + won(i.paid_krw) + '</b><span>✅</span></div>'; }).join('');
+    }
+    h += '<p class="muted" style="font-size:11.5px;margin-top:8px">' + T('Credit is deducted per class held. Class records by student and postponement requests are on the payment link head office texts you.', '충전금은 수업한 만큼 자동으로 빠집니다. 학생별 수업 기록·연기 신청은 본사가 문자로 보내 드린 결제 링크 화면에서 볼 수 있습니다.') + '</p>';
+    el.innerHTML = h;
+  }
+  window.tuiPay = function(btn, invoiceId){
+    if (btn) btn.disabled = true;
+    var done = function(){ if (btn) btn.disabled = false; };
+    fetch('/api/admin/ai-billing/tuition/checkout', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoice_id: invoiceId })
+    }).then(function(r){ return r.json().catch(function(){ return {}; }); }).then(async function(o){
+      // «성공이라고 말했는가» 로 가른다(ok === true + 주문번호). 404 본문 등은 ok 칸이 없을 수 있다.
+      if (!o || o.ok !== true || !o.order_id) {
+        var why = o && o.error === 'already_paid' ? T('This invoice is already paid.', '이미 결제된 청구서입니다.')
+          : o && o.error === 'not_enabled' ? T('Tuition billing is not on for this academy.', '이 학원은 수업료 정산이 켜져 있지 않습니다.')
+          : o && o.error === 'demo' ? T('This is a demo account — the payment window does not open. (Sample data)', '시연용 계정이라 실제 결제창은 열리지 않습니다. (예시 데이터)')
+          : T('Could not start payment.', '결제를 시작하지 못했습니다.') + (o && o.error ? ' (' + o.error + ')' : '');
+        alert(why); done(); if (o && o.error === 'demo') return; D.tuition = null; loadTuition(); return;
+      }
+      var ck = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
+      try { var cfg = await fetch('/api/pay/config').then(function(r){ return r.json(); }); if (cfg && cfg.ok && cfg.clientKey) ck = cfg.clientKey; } catch (e) {}
+      if (!window.TossPayments) {
+        try {
+          await new Promise(function(resolve, reject){
+            var s = document.createElement('script');
+            s.src = 'https://js.tosspayments.com/v1/payment';
+            s.onload = resolve; s.onerror = reject;
+            document.head.appendChild(s);
+          });
+        } catch (e) { alert(T('Could not load the payment module.', '결제 모듈을 불러오지 못했습니다.')); done(); return; }
+      }
+      try {
+        var back = location.origin + location.pathname;
+        await window.TossPayments(ck).requestPayment('카드', {
+          amount: o.amount, orderId: o.order_id, orderName: o.order_name, customerName: o.customer_name,
+          successUrl: back + '?tui_paid=1', failUrl: back + '?tui_fail=1'
+        });
+      } catch (e) {
+        if (e && e.code !== 'USER_CANCEL') alert(T('Could not open the payment window: ', '결제창을 열 수 없습니다: ') + (e.message || 'unknown'));
+      }
+      done();
+    }).catch(function(){ alert(T('Network error.', '네트워크 오류가 발생했습니다.')); done(); });
+  };
+  // 토스에서 돌아왔을 때 — 확정은 서버(/api/pay/confirm)가 한다. 이 화면은 결과만 말하고 카드를 연다.
+  (function(){
+    var qs; try { qs = new URLSearchParams(location.search); } catch (e) { return; }
+    var paid = qs.get('tui_paid') === '1', failed = qs.get('tui_fail') === '1';
+    if (!paid && !failed) return;
+    var clean = function(){ try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {} };
+    var show = function(ok, text){
+      D.tuiMsg = { ok: ok, text: text };
+      var card = document.getElementById('c-tuition');
+      if (card) { card.hidden = false; D.tuition = null; if (card.open) loadTuition(); else window.openCard('c-tuition'); }
+    };
+    if (failed) { clean(); show(false, T('Payment was not completed: ', '결제가 완료되지 않았습니다: ') + (qs.get('message') || qs.get('code') || '')); return; }
+    if (!qs.get('paymentKey') || !qs.get('orderId')) { clean(); show(false, T('Payment details are missing.', '결제 정보가 확인되지 않았습니다.')); return; }
+    fetch('/api/pay/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentKey: qs.get('paymentKey'), orderId: qs.get('orderId'), amount: Number(qs.get('amount')) }) })
+      .then(function(r){ return r.json().catch(function(){ return {}; }); })
+      .then(function(r){
+        clean();
+        if (r && r.ok === true) show(true, '✅ ' + T('Paid — added to your credit.', '결제가 완료되어 충전금에 들어갔습니다.'));
+        else show(false, T('Payment confirmation failed: ', '결제 확인에 실패했습니다: ') + ((r && (r.message || r.error)) || ''));
+      })
+      .catch(function(){ clean(); show(false, T('Network error while confirming the payment. If your card was charged, it will be cancelled automatically.', '네트워크 오류로 결제 확인에 실패했습니다. 카드에서 빠져나갔다면 자동 취소됩니다.')); });
+  })();
+
+  // ══════════════════════════════════════════════════════════════════════════
   // 🏢 본사 매니저 전용 카드 — scope.type === 'hq' 일 때만 보인다(paintMonth 에서 켠다).
   //    전부 «펼칠 때만» 부른다. 첫 화면 API 2회는 그대로다.
   // ══════════════════════════════════════════════════════════════════════════
@@ -1803,17 +2440,20 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var rows = j.items || j.rows || j.requests || [];
     hqRows('reqBody', rows, function(r){
       var pend = String(r.status || '') === 'pending';
+      /* ⏩ (2026-10-07 사장님 «학생 신청은 대리점 승인 없이 즉시 반영») 서버가 접수 즉시 반영한 요청 —
+         decided_by 정본은 src/student-auto-postpone.ts 의 AUTO_POSTPONE_DECIDER(«자동승인(…)»). */
+      var autoDone = !pend && /자동승인/.test(String(r.decided_by || ''));
       var kind = r.request_type === 'cancel' ? T('Cancel', '취소')
                : r.request_type === 'change' ? T('Change', '변경') : T('Postpone', '연기');
       var to = (r.new_date || r.new_time) ? ((r.new_date || '') + ' ' + (r.new_time || '')).trim() : '';
       return '<div class="row"><b>' + esc(r.teacher_name || '-') + ' &middot; ' + esc(r.student_name || '') + '</b>'
            + '<span class="muted">' + esc((r.orig_date || '') + ' ' + (r.orig_time || '')) + '</span>'
-           + '<span class="tag' + (pend ? ' hot' : ' ok') + '">' + esc(kind + ' · ' + (r.status || '')) + '</span></div>'
+           + '<span class="tag' + (pend ? ' hot' : ' ok') + '">' + esc(kind + ' · ' + (autoDone ? T('applied automatically', '자동 반영') : pend ? T('needs a check', '확인 필요') : r.status === 'approved' ? T('approved', '승인됨') : r.status === 'rejected' ? T('rejected', '거절됨') : (r.status || ''))) + '</span></div>'
            /* ⚠️ «옮길 시각» 을 위 .row 안에 넣지 말 것 — .row b 가 flex:1;min-width:0 이라
                  줄이 넘치기 전에 **이름부터 찌그러진다.** 「박도윤」이 한 글자씩 세 줄로 쪼개졌다.
                  .row 는 다른 카드도 함께 쓰므로 공용 CSS 를 고치는 대신 줄을 따로 뺀다.
                  승인 판단에 가장 중요한 값이라 눈에 띄는 자리가 오히려 낫다. */
-           + (to ? '<div class="rq-to">→ ' + esc(T('move to ', '옮길 시각 ')) + esc(to) + '</div>' : '')
+           + (to ? '<div class="rq-to">→ ' + esc(pend ? T('move to ', '옮길 시각 ') : r.status === 'approved' ? T('moved to ', '옮긴 시각 ') : T('asked for ', '요청한 시각 ')) + esc(to) + '</div>' : '')
            + (r.reason ? '<div class="muted" style="padding:0 0 6px">' + esc(r.reason) + '</div>' : '')
            /* ⭐ 보는 자리에서 바로 승인·거절. 예전엔 여기까지 보고 admin.html 로 옮겨 가야 했다.
                 대기 중인 것에만 붙인다 — 이미 처리된 요청은 서버가 409 로 막으므로 버튼도 안 준다. */
@@ -1827,6 +2467,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
                    + '<span class="rq-msg"></span></div>'
                  : '');
     }, T('No requests.', '요청이 없습니다.'));
+    /* 왜 «확인 필요» 가 남는지 — 사람이 «승인을 안 해서» 가 아니라 «자동으로 옮길 수 없어서» 다. 보이는 글자로. */
+    var rb = document.getElementById('reqBody');
+    if (rb && rows.length) rb.insertAdjacentHTML('afterbegin', '<div class="muted" style="padding-bottom:6px">'
+      + esc(T('Students\' postpone/change requests are applied right away — no approval needed. Anything marked «needs a check» could not be moved automatically (weekly class, time clash, teacher unavailable, or a teacher/staff request).',
+              '학생이 신청한 연기·변경은 승인 없이 바로 반영됩니다. «확인 필요» 는 자동으로 옮길 수 없던 요청입니다(매주 반복 수업 · 시간 겹침 · 강사 불가 · 강사·직원이 낸 요청).')) + '</div>');
   }
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -2073,6 +2718,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     return el.value;
   }
 
+  /* 📋 (2026-10-07 사장님) 기본은 «간단히»(시간·이름·아이디·강사). 연기·입장·평가 등은 «자세히» 에 그대로 있다.
+     ⛔ 자세히 보기를 없애지 말 것 — 매니저 요청(연기·변경·교재 배정·캘린더)이 전부 그쪽에 있다.
+     저장은 이 기기 편의(localStorage) — 못 읽으면 간단히. */
+  function taSimple(){ try { return localStorage.getItem('mgr_today_detail') !== '1'; } catch (e) { return true; } }
+  window.taToggleDetail = function(){
+    try { localStorage.setItem('mgr_today_detail', taSimple() ? '1' : '0'); } catch (e) {}
+    paintTodayAll();
+    return false;
+  };
   window.paintTodayAll = paintTodayAll;
   function paintTodayAll(){
     if (!D.todayAll) return; // 🏫 아직 안 불러왔는데 드롭다운이 바뀐 경우 — 그릴 것이 없다
@@ -2127,18 +2781,26 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         + '<br>'
       : '';
     j._shown = rows; j._shownAc = acSel;
+    var simple = taSimple();
     var head = '<div class="muted" style="padding-bottom:6px">'
       + pickLine
-      + (cnote ? esc(cnote) + '<br>' : '')
+      + (cnote && !simple ? esc(cnote) + '<br>' : '')
       + esc(T((j.date || '') + ' · ' + rows.length + ' total'
                 + (c.cafe24 ? ' · ' + c.cafe24 + ' on cafe24' : '')
                 + (c.joinable ? ' · ' + c.joinable + ' joinable' : ''),
               (j.date || '') + ' · 전체 ' + rows.length + '건'
                 + (c.cafe24 ? ' · 카페24 ' + c.cafe24 + '건' : '')
-                + (c.joinable ? ' · 입장가능 ' + c.joinable + '건' : ''))) + '</div>';
+                + (c.joinable ? ' · 입장가능 ' + c.joinable + '건' : '')))
+      + '<a href="#" class="ta-mode" onclick="return taToggleDetail()">' + esc(simple ? T('Show details', '자세히 보기') : T('Simple view', '간단히 보기')) + '</a></div>';
     hqRows('todayAllBody', rows, function(r){
       var t = esc(r.start_time || '');
       var who = esc(r.student_name || r.student_uid || '-');
+      if (simple) {
+        return '<div class="row ta-s"><b>' + t + '</b><span>' + esc(r.student_name || '—') + '</span>'
+          + '<span class="muted">' + esc(r.student_uid || '—') + '</span>'
+          + (r.teacher_name ? '<span>' + esc(r.teacher_name) + '</span>'
+             : '<span style="color:#b45309;font-weight:800">' + esc(T('unassigned', '미배정')) + '</span>') + '</div>';
+      }
       /* ⚠️ 강사 미배정은 매니저가 가장 먼저 봐야 하는 줄이다 — 회색(.muted) 안에 넣으면
          부모 색에 묻혀 «그냥 한 줄» 로 보인다(2026-08-25 브라우저 실측에서 잡음). 상자를 갈라 둔다. */
       var tea = r.teacher_name
@@ -2361,7 +3023,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       for (var i = 0; i < qs.length; i++) qs[i](got);
     };
     var sc = document.createElement('script');
-    sc.src = '/js/class-move-modal.js?v=4';
+    sc.src = '/js/class-move-modal.js?v=5';
     sc.onload = function(){ done(true); };
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);
@@ -2700,6 +3362,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     //    열려 있어 ontoggle 도 재발화하지 않아 되돌릴 방법이 없다(CLAUDE.md 2장 「그릇에 달았더니
     //    그린 내용이 통째로 사라짐」).
     if (D.aibill) paintAiBill();
+    if (D.tuition) paintTuition();   // 💳 #tuiBody 도 data-ko/data-en «그릇» — 같은 이유로 다시 그린다
     // 🗒 새로 붙은 두 구역도 언어를 따라간다 — 빠뜨리면 KO/EN 토글 뒤에도
     //    「오늘 봐야 할 것」·「오늘 전체 수업」 만 옛 언어로 남는다(JS로 그린 라벨 함정).
     try { paintTodo(); } catch (e) {}
@@ -2804,8 +3467,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         var who = rq.length ? (rq[0].student_name || rq[0].teacher_name || '') : '';
         html += todoRow('#b45309',
           T('Reschedule requests: ' + rqN, '연기 · 변경 요청 ' + rqN + '건'),
-          rqN > 1 && who ? T(who + ' and ' + (rqN - 1) + ' more — waiting for you', who + ' 외 ' + (rqN - 1) + '건 — 승인 대기')
-                         : T('Waiting for your decision', '승인 · 거절을 기다리고 있어요'),
+          /* ⏩ (2026-10-07) 학생 신청은 즉시 반영되므로 여기 남는 것은 «자동으로 못 옮긴 것» 뿐이다 */
+          rqN > 1 && who ? T(who + ' and ' + (rqN - 1) + ' more — could not be applied automatically', who + ' 외 ' + (rqN - 1) + '건 — 자동 반영 안 됨, 확인 필요')
+                         : T('Could not be applied automatically — please check', '자동 반영이 안 된 요청이에요 — 확인해 주세요'),
           'c-req');
         total += rqN;
       }
@@ -2847,6 +3511,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (href) { location.href = href; return; }        // 결재함처럼 «딴 화면» 인 줄
     var sec = document.getElementById(b.getAttribute('data-card'));
     if (!sec) return;
+    if (pcPane()) { window.openCard(sec.id); return; }   // 🖥 PC 는 그 카드 하나만(스크롤 없음)
     sec.open = true;
     try { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (err) { sec.scrollIntoView(); }
   });
@@ -2893,6 +3558,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (go === 'top') {
       /* 「할 일」 = 맨 위 「오늘 봐야 할 것」. 아직 못 받았거나 볼 게 없어 숨어 있으면
          그 자리가 없으므로 화면 맨 위로 보낸다 — 눌렀는데 아무 일도 안 나는 것이 제일 나쁘다. */
+      setPane(null);   // 🖥 PC 에서 카드 하나만 보던 중이면 첫 화면으로 돌아온다
       var todo = document.getElementById('todo');
       if (todo && !todo.hidden) { try { todo.scrollIntoView({ block: 'start' }); } catch (err) { todo.scrollIntoView(); } }
       else window.scrollTo(0, 0);

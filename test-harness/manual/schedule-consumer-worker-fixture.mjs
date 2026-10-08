@@ -56,12 +56,23 @@ export async function createScheduleWorkerFixture() {
       async raw() { return sql.prepare(query).all(...args).map(row => Object.values(row)); },
     };
   }
+  // Inject an actual rollback in this ephemeral adapter, never a different approval policy.
+  let failNextDecisionCommit = false;
+  const faults = [];
   const DB = {
     prepare: query => statement(query),
     async exec(query) { sql.exec(query); return { count: 1 }; },
     async batch(statements) {
       sql.exec('BEGIN IMMEDIATE');
-      try { const results = []; for (const st of statements) results.push(await st.run()); sql.exec('COMMIT'); return results; }
+      try {
+        const results = []; for (const st of statements) results.push(await st.run());
+        if (failNextDecisionCommit && statements.some(st => /INSERT INTO schedule_request_guard/i.test(st.query))) {
+          failNextDecisionCommit = false;
+          faults.push({ kind: 'decision_transaction', stage: 'before_commit' });
+          throw new Error('synthetic_decision_commit_failure');
+        }
+        sql.exec('COMMIT'); return results;
+      }
       catch (error) { sql.exec('ROLLBACK'); throw error; }
     },
   };
@@ -139,7 +150,11 @@ export async function createScheduleWorkerFixture() {
     return { status: response.status, body: await response.json() };
   };
   return {
-    scheduleId, studentToken, outbound, fetchWorker, call,
+    scheduleId, studentToken, outbound, fetchWorker, call, faults,
+    failNextDecisionTransaction() {
+      assert.equal(failNextDecisionCommit, false, 'Only one decision fault may be armed');
+      failNextDecisionCommit = true;
+    },
     now: () => now,
     setNow(date, time) { now = RealDate.parse(`${date}T${time}:00+09:00`); assert(Number.isFinite(now)); },
     row: () => ({ ...sql.prepare('SELECT * FROM class_schedules WHERE id=?').get(scheduleId) }),
@@ -150,40 +165,88 @@ export async function createScheduleWorkerFixture() {
 }
 
 if (process.argv.includes('--self-check') && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  const fixture = await createScheduleWorkerFixture();
-  try {
-    const submitted = await fixture.call('POST', '/api/class/schedule/request', { bearer: fixture.studentToken,
-      body: { schedule_id: fixture.scheduleId, request_type: 'change', new_date: APPROVED.date, new_time: APPROVED.time, teacher_id: TEACHERS.beta.id } });
-    assert.equal(submitted.status, 200, JSON.stringify(submitted)); assert.equal(submitted.body.ok, true);
-    const before = fixture.row(), decision = { id: submitted.body.id, action: 'approve' };
-    const denied = await fixture.call('POST', '/api/admin/schedule-requests/decide', { token: TEACHERS.beta.token, body: decision });
-    assert.equal(denied.status, 403); assert.deepEqual(fixture.row(), before); assert.equal(fixture.requestRow(decision.id).status, 'pending');
-    const approved = await fixture.call('POST', '/api/admin/schedule-requests/decide', { token: ADMIN_TOKEN, body: decision });
-    assert.equal(approved.status, 200, JSON.stringify(approved)); assert.equal(approved.body.applied, 'moved');
-    for (const expected of [APPROVED, MOVED]) {
-      if (expected === MOVED) {
-        const moved = await fixture.call('PATCH', '/api/admin/class-schedules/move', { token: ADMIN_TOKEN, body: {
-          ids: [fixture.scheduleId], expected: { [fixture.scheduleId]: fixture.version() }, source_date: APPROVED.date,
-          destination_date: MOVED.date, start_time: MOVED.time, teacher_id: TEACHERS.alpha.id,
-        } });
-        assert.equal(moved.status, 200, JSON.stringify(moved)); assert.equal(moved.body.count, 1);
-      }
-      fixture.setNow(expected.date, '09:30');
-      const teacher = TEACHERS[expected.teacher];
-      const portal = await fixture.call('GET', '/api/teacher/portal', { token: teacher.token });
-      const mine = await fixture.call('GET', '/api/class/schedule/mine?user_id=' + STUDENT.uid);
-      const sessions = await fixture.call('GET', '/api/class/sessions/today?user_id=' + STUDENT.uid, { bearer: fixture.studentToken });
+  let checks = 0;
+  const cases = [];
+  const check = (name, fn) => { fn(); checks++; console.log('PASS ' + name); };
+  async function projections(fixture, expected, label) {
+    fixture.setNow(expected.date, '09:30');
+    const teacher = TEACHERS[expected.teacher];
+    const portal = await fixture.call('GET', '/api/teacher/portal', { token: teacher.token });
+    const mine = await fixture.call('GET', '/api/class/schedule/mine?user_id=' + STUDENT.uid);
+    const sessions = await fixture.call('GET', '/api/class/sessions/today?user_id=' + STUDENT.uid, { bearer: fixture.studentToken });
+    check(label + ': actual student and teacher projections agree', () => {
       assert.equal(portal.status, 200, JSON.stringify(portal)); assert.equal(portal.body.classes.length, 1);
-      assert.equal(mine.body.schedules.length, 1); assert.equal(mine.body.schedules[0].teacher_name, teacher.name);
+      assert.equal(mine.status, 200); assert.equal(sessions.status, 200);
+      assert.equal(mine.body.schedules.length, 1); assert.equal(mine.body.schedules[0].schedule_id, fixture.scheduleId);
+      assert.equal(mine.body.schedules[0].teacher_name, teacher.name);
       assert.equal(mine.body.schedules[0].scheduled_date, expected.date); assert.equal(mine.body.schedules[0].start_time, expected.time);
       assert.equal(String(fixture.row().teacher_id), teacher.id); assert.equal(portal.body.me.name, teacher.name);
       assert.equal(portal.body.classes[0].schedule_id, fixture.scheduleId);
+      assert.equal(sessions.body.sessions.length, 1);
+    });
+    check(label + ': exact dated room and timestamp agree', () => {
       assert.equal(portal.body.classes[0].room_id, `class-${fixture.scheduleId}-${expected.date.replaceAll('-', '')}`);
       assert.equal(sessions.body.sessions[0].room_id, portal.body.classes[0].room_id);
-      const old = await fixture.call('GET', '/api/teacher/portal', { token: TEACHERS[expected.teacher === 'alpha' ? 'beta' : 'alpha'].token });
-      assert.equal(old.body.classes.length, 0); assert.equal(old.body.week.days.flatMap(day => day.items).length, 0);
-    }
-    assert.equal(fixture.outbound.length, 0, 'No attempted provider calls');
-    console.log('schedule-consumer-worker-fixture: PASS request / teacher 403 / admin approval / versioned move / role projections (Node only; browser NOT RUN)');
+      assert.equal(sessions.body.sessions[0].start_ts, portal.body.classes[0].start_ts);
+    });
+    const old = await fixture.call('GET', '/api/teacher/portal', { token: TEACHERS[expected.teacher === 'alpha' ? 'beta' : 'alpha'].token });
+    check(label + ': old teacher loses today and weekly slots', () => {
+      assert.equal(old.status, 200); assert.equal(old.body.classes.length, 0); assert.equal(old.body.week.days.flatMap(day => day.items).length, 0);
+    });
+  }
+  for (const type of ['change', 'postpone']) {
+    const fixture = await createScheduleWorkerFixture();
+    try {
+      if (type === 'postpone') fixture.setNow(INITIAL.date, '14:45'); // 15 minutes before original class: paid.
+      const submitted = await fixture.call('POST', '/api/class/schedule/request', { bearer: fixture.studentToken,
+        body: { schedule_id: fixture.scheduleId, request_type: type, new_date: APPROVED.date, new_time: APPROVED.time, teacher_id: TEACHERS.beta.id } });
+      check(type + ': current default auto-applies resolved teacher request', () => {
+        assert.equal(submitted.status, 200, JSON.stringify(submitted)); assert.equal(submitted.body.ok, true);
+        assert.equal(submitted.body.status, 'approved'); assert.equal(submitted.body.auto_applied, 'moved');
+        assert.equal(fixture.requestRow(submitted.body.id).status, 'approved');
+        assert.match(fixture.requestRow(submitted.body.id).decided_by, /자동승인/);
+        assert.equal(fixture.faults.length, 0);
+        if (type === 'postpone') { assert.equal(submitted.body.fee_type, 'paid'); assert.equal(fixture.requestRow(submitted.body.id).fee_type, 'paid'); }
+      });
+      await projections(fixture, APPROVED, 'automatic ' + type);
+      check(type + ': no provider attempts', () => assert.equal(fixture.outbound.length, 0));
+      cases.push('automatic-student-' + type + '-resolved-teacher-projections');
+    } finally { await fixture.close(); }
+  }
+  const fixture = await createScheduleWorkerFixture();
+  try {
+    const initial = fixture.row(); fixture.failNextDecisionTransaction();
+    const submitted = await fixture.call('POST', '/api/class/schedule/request', { bearer: fixture.studentToken,
+      body: { schedule_id: fixture.scheduleId, request_type: 'change', new_date: APPROVED.date, new_time: APPROVED.time, teacher_id: TEACHERS.beta.id } });
+    check('real decision transaction rollback leaves request pending and schedule unchanged', () => {
+      assert.equal(submitted.status, 200, JSON.stringify(submitted)); assert.equal(submitted.body.ok, true);
+      assert.equal(submitted.body.status, 'pending'); assert.equal(submitted.body.auto_applied, null); assert.equal(submitted.body.auto_reason, 'apply_failed');
+      assert.deepEqual(fixture.faults, [{ kind: 'decision_transaction', stage: 'before_commit' }]);
+      assert.deepEqual(fixture.row(), initial); assert.equal(fixture.requestRow(submitted.body.id).status, 'pending');
+    });
+    const decision = { id: submitted.body.id, action: 'approve' };
+    const denied = await fixture.call('POST', '/api/admin/schedule-requests/decide', { token: TEACHERS.beta.token, body: decision });
+    check('teacher403 preserves pending request and original schedule', () => {
+      assert.equal(denied.status, 403); assert.deepEqual(fixture.row(), initial); assert.equal(fixture.requestRow(decision.id).status, 'pending');
+    });
+    const approved = await fixture.call('POST', '/api/admin/schedule-requests/decide', { token: ADMIN_TOKEN, body: decision });
+    check('existing admin approval recovers the pending request after transient fault', () => {
+      assert.equal(approved.status, 200, JSON.stringify(approved)); assert.equal(approved.body.applied, 'moved');
+      assert.equal(fixture.requestRow(decision.id).status, 'approved'); assert.equal(fixture.faults.length, 1);
+    });
+    await projections(fixture, APPROVED, 'manual approval');
+    const expected = { [fixture.scheduleId]: fixture.version() };
+    const body = { ids: [fixture.scheduleId], expected, source_date: APPROVED.date,
+      destination_date: MOVED.date, start_time: MOVED.time, teacher_id: TEACHERS.alpha.id };
+    const moved = await fixture.call('PATCH', '/api/admin/class-schedules/move', { token: ADMIN_TOKEN, body });
+    check('versioned admin move changes exactly one schedule', () => { assert.equal(moved.status, 200, JSON.stringify(moved)); assert.equal(moved.body.count, 1); });
+    const after = fixture.row();
+    const stale = await fixture.call('PATCH', '/api/admin/class-schedules/move', { token: ADMIN_TOKEN, body });
+    check('old-version retry is rejected without another mutation', () => { assert.equal(stale.status, 409); assert.deepEqual(fixture.row(), after); });
+    await projections(fixture, MOVED, 'versioned move');
+    check('manual path has no provider attempts', () => assert.equal(fixture.outbound.length, 0));
+    cases.push('pending-transaction-failure-teacher403-admin-approval-versioned-move');
   } finally { await fixture.close(); }
+  console.log(JSON.stringify({ scope: 'actual bundled Worker + ephemeral SQLite; browser NOT RUN', checks, cases, failures: 0, skipped: 0 }));
+  console.log('schedule-consumer-worker-fixture: PASS ' + checks + ' / FAIL 0 / SKIP 0 (Node only; browser NOT RUN)');
 }

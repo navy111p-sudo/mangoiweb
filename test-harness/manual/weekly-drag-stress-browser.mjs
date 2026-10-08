@@ -40,6 +40,12 @@ const MUTATIONS = {
   'undo-keeps-teacher': ['info.prev.teacherId, null, {undo:true}', 'null, null, {undo:true}'],
   'postpone-any-teacher': ["(ctx.movedTeacher?' disabled title=", "(false?' disabled title="],
   'unlock-without-yes': ["dnd.locked=!wsEditing();", "dnd.locked=!wsEditing(); if(dnd.locked) wsSetEditing(true,{quiet:true});"],
+  /* 🗓 날짜 이동 모달 단계(WDS_ONLY=modal)가 잡아야 하는 것들 */
+  'ctx-zoom': ['var _z=parseFloat(getComputedStyle(document.body).zoom)||1;', 'var _z=1;'],
+  'grid-8h': ['for(var h=GRID_H0;h<GRID_H1;h++){\n    html+=\'<div class="tp-cell tp-hour">\'', 'for(var h=8;h<=22;h++){\n    html+=\'<div class="tp-cell tp-hour">\''],
+  'grid-no-lock-ask': ['  if(!wsEditing()){\n    if(!window.confirm(L?', '  if(false){\n    if(!window.confirm(L?'],
+  'toast-over-modal': ['.modal-overlay.show ~ .undo-toast{z-index:8990}', ''],
+  'grid-wrong-date': ["var click=s?'':'onclick=\"confirmMove(\\''+dateISO+'\\',\'+h+\')\"';", "var click=s?'':'onclick=\"confirmMove(\\''+fmtISO(currentWeekStart)+'\\',\'+h+\')\"';"],
 };
 const DOW3 = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const dowOf = date => new Date(date + 'T00:00:00Z').getUTCDay();
@@ -194,6 +200,9 @@ async function stress({ N, rand, pick, MON, DAYS, ORIGIN, plan }) {
   });
   const page = await ctx.newPage(); page.setDefaultTimeout(8000);
   const pageErrors = []; page.on('pageerror', e => pageErrors.push(String(e && e.message || e)));
+  /* 🔒 잠긴 채 모달을 열면 window.confirm 으로 «편집을 켤까요?» 를 묻는다 — 회차마다 예/아니요를 정해 둔다. */
+  let dialogAnswer = false; const dialogs = [];
+  page.on('dialog', dlg => { dialogs.push(dlg.message()); (dialogAnswer ? dlg.accept() : dlg.dismiss()).catch(() => {}); });
   /* ⏳ «끝났다» 의 기준 — 진행 중인 /api 요청이 0 이고 화면의 reloadAndRender 가 다 끝났을 때.
      ⛔ waitForLoadState('networkidle') 는 쓰지 말 것 — 페이지가 한 번 idle 에 닿은 뒤에는 «즉시»
         돌아와서(새 idle 을 기다리지 않음) 저장 뒤 재읽기 «도중» 에 화면을 재게 된다(실측: 화면 칸만 옛 자리). */
@@ -218,7 +227,9 @@ async function stress({ N, rand, pick, MON, DAYS, ORIGIN, plan }) {
   const rows0 = (await getJ('/__h/rows')).body;
   const model = rows0.map((r, i) => ({ id: r.id, user: r.user_id, kind: r.schedule_kind, date: plan[i].date, time: r.start_time, tid: String(r.teacher_id) }));
   /* 화면은 같은 강사·같은 날·같은 시각·같은 종류를 한 칸(그룹)으로 묶어 한꺼번에 옮긴다 */
-  const groupOf = c => model.filter(o => o.tid === c.tid && o.time === c.time && o.kind === c.kind && (c.kind === 'recurring' ? dowOf(o.date) === dowOf(c.date) : o.date === c.date));
+  /* 화면은 (강사·이번 주 날짜·시각) 한 칸에 모인 행을 «종류와 무관하게» 한 슬롯으로 합친다(loadAll 의 합치기). */
+  const occOf = o => o.kind === 'recurring' ? DAYS[(dowOf(o.date) + 6) % 7] : o.date;
+  const groupOf = c => model.filter(o => o.tid === c.tid && o.time === c.time && occOf(o) === occOf(c));
   ok('전제: 씨앗 수업 ' + plan.length + '건', model.length === plan.length, JSON.stringify(rows0));
 
   await page.goto(ORIGIN + '/admin/weekly-schedule.html');
@@ -233,7 +244,10 @@ async function stress({ N, rand, pick, MON, DAYS, ORIGIN, plan }) {
   const onDate = (c, date) => c.kind === 'recurring' ? dowOf(c.date) === dowOf(date) : c.date === date;
   function expectConflict(c, date, startMin, tid) {
     const g = groupOf(c), gid = new Set(g.map(x => x.id)), users = new Set(g.map(x => x.user));
-    return model.some(o => !gid.has(o.id) && onDate(o, date) && (o.tid === tid || users.has(o.user))
+    /* 서버 계약(schedule-conflict.ts): 같은 강사라도 «정확히 같은 시작·길이» 는 그룹 합치기라 겹침이 아니다.
+       학생 쪽은 예외 없이 겹침이다. */
+    return model.some(o => !gid.has(o.id) && onDate(o, date)
+      && (users.has(o.user) || (o.tid === tid && toMin(o.time) !== startMin))
       && overlaps(startMin, startMin + 20, toMin(o.time), toMin(o.time) + 20));
   }
   async function showDay(date) {
@@ -325,10 +339,11 @@ async function stress({ N, rand, pick, MON, DAYS, ORIGIN, plan }) {
      (예외 자체는 FAIL 로 이미 셌다). */
   async function recover() {
     const rows = (await getJ('/__h/rows')).body;
-    for (const c of model) { const r = rows.find(x => x.id === c.id); if (r) { c.time = r.start_time; c.tid = String(r.teacher_id); } }
+    for (const c of model) { const r = rows.find(x => x.id === c.id); if (r) { c.time = r.start_time; c.tid = String(r.teacher_id); if (r.scheduled_date) c.date = r.scheduled_date; else if (r.day_of_week) c.date = DAYS[(DOW3.indexOf(r.day_of_week) + 6) % 7] || c.date; } }
     await boot();
   }
-  for (let it = 1; it <= N; it++) {
+  const ONLY = process.env.WDS_ONLY || '';
+  for (let it = 1; it <= (ONLY === 'modal' ? 0 : N); it++) {
     const L = '#' + it;
     try {
     const day = pick(DAYS.filter(d => model.some(c => onDate(c, d))));
@@ -423,7 +438,7 @@ async function stress({ N, rand, pick, MON, DAYS, ORIGIN, plan }) {
   }
   /* ⚡⚡ 빠른 연속 드래그 — 저장 응답이 오자마자(화면 재읽기 «도중») 다음 수업을 끈다.
      사람이 연달아 옮길 때 «확인창이 먹통» 이 되거나 엉뚱한 자리에 저장되면 안 된다. */
-  const RAPID = Number(process.env.WDS_RAPID || 40);
+  const RAPID = ONLY === 'modal' ? 0 : Number(process.env.WDS_RAPID || 40);
   for (let k = 1; k <= RAPID && fail <= 40; k++) {
     const L = '⚡' + k;
     try {
@@ -461,6 +476,170 @@ async function stress({ N, rand, pick, MON, DAYS, ORIGIN, plan }) {
       await recover().catch(() => {});
     }
   }
+  /* ═════ 🗓 날짜를 바꾸는 «이동 모달» — 우클릭 → 「🔄 시간 변경」(시간 격자) · 「📅 수업 연기」·「🔄 수업 변경」(요일+10분 칩·대체 강사) ═════
+     드래그(일간 보기)는 «같은 날» 안에서만 옮긴다. 다른 날로 가는 길은 이 세 모달뿐이라 따로 수백 번 돌린다.
+     매 회차: 진짜 우클릭 → 진짜 클릭으로 목적지를 고르고 → 서버·관리자 주간·강사 셋·학생 «내 수업»·화면 칸을
+     원래 날과 «옮겨 간 날» 둘 다에서 대조한다. 고를 수 있는 칸·강사가 모델과 같은지도 매번 본다. */
+  async function modalPhase(NM) {
+    const t1 = Date.now();
+    const dateOfDi = di => addDays(MON, di);
+    const grp = c => new Set(groupOf(c).map(x => x.id));
+    for (let it = 1; it <= NM && fail <= 40; it++) {
+      const L = '🗓' + it; let step = 'start';
+      try {
+        await settle();
+        const day = pick(DAYS.filter(d => model.some(c => onDate(c, d))));
+        await showDay(day); await settle();
+        const c = pick(model.filter(x => onDate(x, day)));
+        const gset = grp(c), group0 = groupOf(c);
+        const srcSel = cellSel(c.tid, day, toMin(c.time));
+        const locked = rand() < 0.25;
+        await page.evaluate(l => { wsSetEditing(!l, { quiet: true }); }, locked);
+        const entry = pick(['grid', 'grid', 'postpone', 'change', 'change']);
+        dialogAnswer = rand() < 0.7; const dlg0 = dialogs.length;
+        const before = patches.length;
+        const box = await boxOf(srcSel);
+        ok(L + ' 원래 칸이 보임', !!box, srcSel);
+        if (!box) continue;
+        await page.mouse.click(box.x + Math.min(8, box.width / 2), box.y + box.height / 2, { button: 'right' });
+        const menu = page.locator('#ctx-menu.show');
+        step = 'menu'; await menu.waitFor({ timeout: 3000 }); step = 'menu-item';
+        await page.waitForTimeout(30);
+        const mb = await menu.boundingBox(); const vp = page.viewportSize();
+        ok(L + ' 우클릭 메뉴가 화면 안·커서 옆', mb && mb.x >= 0 && mb.y >= 0 && mb.x + mb.width <= vp.width + 1 && mb.y + mb.height <= vp.height + 1
+          && Math.abs(mb.x - Math.min(box.x + Math.min(8, box.width / 2), vp.width - mb.width)) < 260, JSON.stringify({ mb, at: box }));
+        if (entry === 'grid') await menu.locator('.ctx-item', { hasText: '시간 변경' }).click();
+        else { const mi = menu.locator('[data-ctx-rsc="' + entry + '"]'); await mi.waitFor({ timeout: 2000 }); await mi.click(); }
+        await page.waitForTimeout(150);
+        const asked = dialogs.length > dlg0;
+        ok(L + ' 잠겼으면 «먼저» 묻고, 아니면 안 묻는다', asked === locked, entry + ' locked=' + locked + ' asked=' + asked);
+        const modal = page.locator('#modal-overlay.show');
+        if (locked && asked && !dialogAnswer) {
+          await page.waitForTimeout(120);
+          ok(L + ' 아니요: 모달 안 열림', !(await modal.count()));
+          ok(L + ' 아니요: 잠금 그대로', (await page.evaluate(() => wsEditing())) === false);
+          ok(L + ' 아니요: 요청 0', patches.length === before);
+          bump(entry + '-declined'); await verifyAll(L); continue;
+        }
+        step = 'modal'; await modal.waitFor({ timeout: 4000 });
+        let dst = null, tid = c.tid, m = toMin(c.time), teacherTab = false;
+        const busyOf = (t, d, a, b, skipGroup) => model.some(o => o.tid === t && onDate(o, d) && !(skipGroup && gset.has(o.id)) && overlaps(a, b, toMin(o.time), toMin(o.time) + 20));
+        if (entry === 'grid') {
+          let cells = await page.evaluate(() => {
+            const kids = [...document.getElementById('move-grid-inner').children], out = [], rowsN = (kids.length - 8) / 8;
+            for (let r = 0; r < rowsN; r++) { const h = Number(kids[8 + r * 8].textContent); for (let di = 0; di < 7; di++) { const el = kids[8 + r * 8 + 1 + di]; out.push({ r, h, di, on: !!(el && el.getAttribute('onclick')), click: el && el.getAttribute('onclick') }); } }
+            return { out, h0: GRID_H0, h1: GRID_H1 };
+          });
+          const hs = [...new Set(cells.out.map(x => x.h))];
+          ok(L + ' 격자 시간 = 캘린더가 그리는 시간', hs[0] === cells.h0 && hs[hs.length - 1] === cells.h1 - 1 && hs.length === cells.h1 - cells.h0, JSON.stringify(hs));
+          cells = cells.out;
+          for (const x of cells) {
+            const d = dateOfDi(x.di), want = !busyOf(c.tid, d, x.h * 60, x.h * 60 + 60, false);
+            if (x.on !== want) { ok(L + ' 격자 칸 열림 = 강사 빈 시간', false, JSON.stringify({ d, h: x.h, on: x.on, want, c })); break; }
+            if (x.on) ok(L + ' 격자 칸이 그 날짜로 감', x.click === "confirmMove('" + d + "'," + x.h + ")", x.click);
+          }
+          const idx = i => page.locator('#move-grid-inner > div').nth(8 + cells[i].r * 8 + 1 + cells[i].di);
+          if (rand() < 0.1) {
+            const shut = cells.map((x, i) => i).filter(i => !cells[i].on && cells[i].di < 5);
+            if (shut.length) {
+              const sc = idx(pick(shut)); await sc.scrollIntoViewIfNeeded(); await sc.click({ force: true }); await page.waitForTimeout(150);
+              ok(L + ' 막힌 칸: 요청 0·창 그대로', patches.length === before && (await modal.count()) === 1);
+              bump('grid-shut');
+            }
+            await page.locator('#modal-overlay.show .modal-btn.ghost').click();
+            await verifyAll(L); continue;
+          }
+          const open = cells.map((x, i) => i).filter(i => cells[i].on && cells[i].di < 5);
+          if (!open.length) { await page.locator('#modal-overlay.show .modal-btn.ghost').click(); bump('grid-full'); continue; }
+          const i = pick(open); dst = dateOfDi(cells[i].di); m = cells[i].h * 60;
+          var fire = () => idx(i).click();
+        } else {
+          const di = pick([0, 1, 2, 3, 4]); dst = dateOfDi(di);
+          if (entry === 'change' && rand() < 0.35) {
+            teacherTab = true; dst = day; m = toMin(c.time);
+            await page.locator('#modal-overlay.show .rsc-tab').nth(1).click();
+            await page.waitForFunction(() => window.__rescheduleCtx && /ready|failed/.test(window.__rescheduleCtx.teacherOptionsState || ''), null, { timeout: 8000 });
+            await page.waitForTimeout(60);
+            const cards = await page.evaluate(() => [...document.querySelectorAll('#modal-overlay.show .teacher-pick-card')].map(b => ({ on: !b.disabled, tid: ((b.getAttribute('onclick') || '').match(/'(\d+)'/) || [])[1], name: b.querySelector('.tpc-name').textContent })));
+            const nameTid = { ALPHA: '1', BETA: '2', GAMMA: '3' };
+            for (const k of cards) {
+              const t = k.tid || nameTid[k.name];
+              /* 서버 계약: 같은 강사·«정확히 같은 시작·길이» 는 그룹 합치기라 겹침이 아니다(schedule-conflict.ts). */
+              const want = !model.some(o => o.tid === t && !gset.has(o.id) && onDate(o, day) && o.time !== c.time && overlaps(toMin(c.time), toMin(c.time) + 20, toMin(o.time), toMin(o.time) + 20));
+              ok(L + ' 대체 강사 고를 수 있음 = 그 시간 비어 있음', k.on === want, JSON.stringify({ k, want, c }));
+            }
+            const can = cards.filter(k => k.on);
+            if (!can.length) { await page.locator('#modal-overlay.show .modal-btn.ghost').click(); bump('teacher-none'); await verifyAll(L); continue; }
+            tid = can[Math.floor(rand() * can.length)].tid;
+            await page.locator('#modal-overlay.show .teacher-pick-card[onclick*="\'' + tid + '\'"]').click();
+            var fire = () => page.locator('#modal-overlay.show .modal-btn.primary').click();
+          } else {
+            step = 'day'; await page.locator('#modal-overlay.show .rsc-day').nth(di).click();
+            await page.waitForFunction(d => window.__rescheduleCtx && window.__rescheduleCtx.bDay === d, dst, { timeout: 4000 });
+            const chips = await page.evaluate(() => [...document.querySelectorAll('#modal-overlay.show .rsc-chip')].map(b => ({ on: !b.disabled, t: b.textContent.trim(), click: b.getAttribute('onclick') })));
+            for (const k of chips) {
+              const km = toMin(k.t), orig = dst === day && km === toMin(c.time);
+              const want = !orig && km + 20 <= 23 * 60 && !busyOf(c.tid, dst, km, km + 20, dst === day);
+              if (k.on !== want) { ok(L + ' 10분 칩 열림 = 들어가는 시각', false, JSON.stringify({ dst, k, want, c })); break; }
+            }
+            const can = chips.filter(k => k.on);
+            if (!can.length) { await page.locator('#modal-overlay.show .modal-btn.ghost').click(); bump('chip-none'); continue; }
+            const ch = can[Math.floor(rand() * can.length)]; m = toMin(ch.t);
+            step = 'chip ' + ch.t; await page.locator('#modal-overlay.show .rsc-chip', { hasText: ch.t }).first().click(); step = 'chip-done';
+            ok(L + ' 확인 버튼이 켜짐', await page.locator('#modal-overlay.show .modal-btn.primary').isEnabled());
+            var fire = () => page.locator('#modal-overlay.show .modal-btn.primary').click();
+          }
+        }
+        if (rand() < 0.08) {
+          await page.locator('#modal-overlay.show .modal-btn.ghost').click(); await page.waitForTimeout(120);
+          ok(L + ' 취소: 요청 0·창 닫힘', patches.length === before && !(await modal.count()));
+          bump(entry + '-cancel'); await verifyAll(L); continue;
+        }
+        const wantConflict = expectConflict(c, dst, m, tid);
+        bump(entry + (teacherTab ? '-teacher' : dst !== day ? '-otherday' : '-sameday') + (locked ? '-locked' : '') + (group0.length > 1 ? '-group' : '') + (c.kind === 'recurring' ? '-recur' : ''));
+        const resp = page.waitForResponse(r => r.url().includes('/api/admin/class-schedules/move'), { timeout: 8000 }).catch(() => null);
+        step = 'fire'; await fire(); step = 'fired';
+        const r = await resp;
+        ok(L + ' 요청 1건', patches.length === before + 1, (patches.length - before) + ' ' + JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('.dnd-toast')].map(e => e.textContent.slice(0, 160)))));
+        const body = patches[patches.length - 1] || {};
+        ok(L + ' 요청 내용', body.start_time === lab(m) && body.destination_date === dst && body.source_date === day
+          && (teacherTab ? body.teacher_id === tid : !('teacher_id' in body))
+          /* 묶음의 «필드» 는 칸의 첫 행(move_field)을 따른다 — 매주+1회가 한 칸이면 둘 중 하나만 온다.
+             서버는 destination_date 로 행마다 제 칸을 고친다(그 결과는 아래 DB 대조가 행마다 본다). */
+          && (('day_of_week' in body) !== ('scheduled_date' in body))
+          && (body.day_of_week ? body.day_of_week === DOW3[dowOf(dst)] && (group0.length > 1 || c.kind === 'recurring') : body.scheduled_date === dst && (group0.length > 1 || c.kind !== 'recurring'))
+          && JSON.stringify([...(body.ids || [])].map(Number).sort((a, b) => a - b)) === JSON.stringify(group0.map(x => x.id).sort((a, b) => a - b)), JSON.stringify({ body, dst, m: lab(m), tid }));
+        const st = r ? r.status() : 0;
+        let moved = [];
+        if (wantConflict) { ok(L + ' 겹침이면 서버가 거절', st === 409 || st === 400, st); bump('conflict'); }
+        else {
+          ok(L + ' 저장 성공', st === 200, st + ' ' + (r ? await r.text().catch(() => '') : ''));
+          if (st === 200) { moved = groupOf(c); for (const g of moved) { g._s = { time: g.time, tid: g.tid, date: g.date }; g.time = lab(m); g.tid = tid; g.date = dst; } }
+        }
+        await settle();
+        if (moved.length && rand() < 0.15) {
+          const ub = page.locator('.undo-toast.show button');
+          await ub.first().waitFor({ timeout: 3000 }).catch(() => {});
+          if (await ub.count()) {
+            const r2p = page.waitForResponse(x => x.url().includes('/api/admin/class-schedules/move'), { timeout: 8000 }).catch(() => null);
+            step = 'undo'; await ub.first().click(); const r2 = await r2p;
+            ok(L + ' 되돌리기 저장', r2 && r2.status() === 200, r2 && r2.status());
+            if (r2 && r2.status() === 200) for (const g of moved) Object.assign(g, g._s);
+            await settle(); bump('undo');
+          } else ok(L + ' 되돌리기 버튼이 있음', false, entry);
+        }
+        await verifyAll(L);
+        if (moved.length && moved[0].date !== day && DAYS.includes(moved[0].date)) { await showDay(moved[0].date); await settle(); await verifyAll(L + '→' + moved[0].date.slice(5)); }
+      } catch (e) {
+        const why = await page.evaluate(() => ({ modal: (document.querySelector('#modal-overlay.show') || {}).innerText?.slice(0, 400) || null, dnd: [...document.querySelectorAll('.dnd-toast')].map(e => e.textContent.slice(0, 160)), trace: (window.__trace || []).slice(-20) })).catch(() => null);
+        ok(L + ' 회차가 예외 없이 끝남', false, 'step=' + step + ' ' + String(e && e.message || e).split('\n').filter(x => /intercept|outside|scroll|attached|detached/.test(x)).slice(-3).join(' / ') + ' ' + String(e && e.message || e).split('\n')[0] + ' ' + JSON.stringify(why));
+        await page.keyboard.press('Escape').catch(() => {});
+        await recover().catch(() => {});
+      }
+      if (it % 25 === 0) console.log(`… 🗓 ${it}/${NM}  PASS ${pass} FAIL ${fail}  (${Math.round((Date.now() - t1) / 1000)}s)`);
+    }
+  }
+  if (ONLY !== 'drag') await modalPhase(ONLY === 'modal' ? N : Number(process.env.WDS_MODAL || 150));
   console.log('\n분포:', JSON.stringify(tally));
   for (const f of fails) console.log('❌ ' + f);
   console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);

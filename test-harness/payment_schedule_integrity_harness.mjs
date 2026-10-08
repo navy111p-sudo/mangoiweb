@@ -5,13 +5,14 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
+import { runInNewContext } from 'node:vm';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dir = mkdtempSync(join(tmpdir(), 'payment-integrity-'));
 const copies = new Map();
 function copy(name) {
   if (copies.has(name)) return copies.get(name);
   const path = join(dir, name + '.ts'); copies.set(name, path);
-  const override = name === 'api-pay' ? process.env.INTEGRITY_PAY_SRC : name === 'enroll-ops' ? process.env.INTEGRITY_ENROLL_SRC : name === 'api-pay-refund' ? process.env.INTEGRITY_REFUND_SRC : '';
+  const override = name === 'api-pay' ? process.env.INTEGRITY_PAY_SRC : name === 'enroll-ops' ? process.env.INTEGRITY_ENROLL_SRC : name === 'api-pay-refund' ? process.env.INTEGRITY_REFUND_SRC : name === 'payment-schedule-audit' ? process.env.INTEGRITY_AUDIT_SRC : '';
   const src = readFileSync(override || join(root, 'cloudflare-deploy/src', name + '.ts'), 'utf8');
   writeFileSync(path, src.replace(/from (['"])\.\/([\w-]+)\1/g, (_, q, n) => `from '${pathToFileURL(copy(n)).href}'`));
   return path;
@@ -23,6 +24,10 @@ const Audit = await import(pathToFileURL(copy('payment-schedule-audit')).href);
 const Refund = await import(pathToFileURL(copy('api-pay-refund')).href);
 const Ledger = await import(pathToFileURL(copy('session-ledger-load')).href);
 let pass = 0, fail = 0;
+const observations = {};
+const previewFields = p => ({ remaining_classes: p.remaining_classes, choice_count: p.remaining_lessons.length,
+  used_sessions: p.suggest_basis.used_sessions, remaining_by_schedule: p.suggest_basis.remaining_by_schedule,
+  suggested: p.suggested, already_refunded: p.already_refunded, refundable_max: p.refundable_max });
 function check(name, cond, value) { if (cond) { pass++; console.log('PASS ' + name); } else { fail++; console.log('FAIL ' + name + ' ' + JSON.stringify(value)); } }
 let providerCalls = 0, providerStatus = 'DONE', providerReplies = [];
 let providerPayment = {total:360000,balance:360000};
@@ -40,12 +45,20 @@ globalThis.fetch = async (url, init) => {
 };
 function fresh() {
   const db = new DatabaseSync(':memory:');
-  const faults = { batch: 0, statementAt: 0, inserts: 0, delayedSource: false, sourceReads: 0 };
+  const faults = { batch: 0, statementAt: 0, inserts: 0, delayedSource: false, sourceReads: 0, lessonReads: 0, lessonReadFault: '' };
   let afterBatch; const batchFinished=new Promise(r=>{afterBatch=r;});
   const prepare = (sql, args = []) => ({
     bind: (...a) => prepare(sql, a.map(v => v ?? null)),
     first: async () => { const value=db.prepare(sql).get(...args) ?? null; if(faults.delayedSource && sql.includes('SELECT id FROM class_schedules WHERE source')) { faults.sourceReads++; if(faults.sourceReads===2) await batchFinished; } return value; },
-    all: async () => ({ results: db.prepare(sql).all(...args) }),
+    all: async () => {
+      if (sql.includes('SELECT s.id, s.scheduled_date AS date')) {
+        faults.lessonReads++;
+        if (faults.lessonReadFault === 'throw') throw Error('injected temporary attendance read failure');
+        if (faults.lessonReadFault === 'missing_results') return { success: true };
+        if (faults.lessonReadFault === 'failed_result') return { success: false, results: [] };
+      }
+      return { results: db.prepare(sql).all(...args) };
+    },
     _run: () => { if(sql.includes('INSERT OR IGNORE INTO class_schedules')) {faults.inserts++; if(faults.statementAt && faults.inserts===faults.statementAt) throw Error('injected mid-transaction failure');} return db.prepare(sql).run(...args); },
     run: async () => { const r = db.prepare(sql).run(...args); return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
   });
@@ -175,6 +188,74 @@ async function refund(s,o,body={},authorized=true) {
  const url=new URL('https://offline.invalid/api/pay/admin/refund');
  const res=await Refund.handleRefundApi(new Request(url,{method:'POST',headers:authorized?{cookie:'mango_admin_session=synthetic-session'}:{},body:JSON.stringify({order_id:o.orderId,amount:30000,reason:'Synthetic selected unused lesson refund',...body})}),url,s.env);
  return {status:res.status,...await res.json()};
+}
+async function preview(s,o) {
+ const url=new URL('https://offline.invalid/api/pay/admin/refund-preview?order_id='+encodeURIComponent(o.orderId));
+ const res=await Refund.handleRefundApi(new Request(url,{headers:{cookie:'mango_admin_session=synthetic-session'}}),url,s.env);
+ return {status:res.status,...await res.json()};
+}
+async function atTime(iso,run) {
+ const original=Date.now;Date.now=()=>Date.parse(iso);
+ try{return await run();}finally{Date.now=original;}
+}
+// The visible count, settlement input, and selectable IDs must use one verified read.
+for(const c of [
+ {name:'attended earlier today',time:'09:00',role:'student',remaining:23},
+ {name:'exact KST start',time:'10:00',remaining:23},
+ {name:'one future minute',time:'10:01',remaining:24},
+ {name:'future student attendance',time:'10:01',role:'student',remaining:23},
+ {name:'future teacher attendance alone',time:'10:01',role:'teacher',remaining:24},
+ {name:'cancelled future lesson',time:'10:01',state:'cancelled',remaining:23},
+ {name:'completed future lesson',time:'10:01',state:'completed',remaining:23},
+ {name:'KST midnight previous minute',date:'2027-01-03',time:'23:59',now:'2027-01-04T00:00:00+09:00',remaining:23},
+ {name:'KST midnight next minute',time:'00:01',now:'2027-01-04T00:00:00+09:00',remaining:24},
+]) await atTime(c.now||'2027-01-04T10:00:00+09:00',async()=>{
+ const s=fresh(),o=await order(s);await confirm(s,o);refundFixture(s);
+ const date=c.date||'2027-01-04';
+ s.db.prepare('UPDATE class_schedules SET scheduled_date=?, start_time=?, status=? WHERE id=1').run(date,c.time,c.state||'active');
+ if(c.role)s.db.prepare('INSERT INTO attendance(room_id,role) VALUES(?,?)').run('class-1-'+date.replaceAll('-',''),c.role);
+ const reads=s.faults.lessonReads,before=providerCalls,r=await preview(s,o),p=r.preview;
+ if(c.name==='attended earlier today')observations.attended_earlier_today=previewFields(p);
+ check('consistent preview: '+c.name,r.status===200&&p.remaining_classes===c.remaining&&p.remaining_lessons.length===c.remaining
+  &&p.suggest_basis.remaining_by_schedule===c.remaining&&p.suggest_basis.used_sessions===24-c.remaining
+  &&p.suggested===360000-(24-c.remaining)*15000,p||r);
+ check('one verified choice read and no provider: '+c.name,s.faults.lessonReads-reads===1&&providerCalls===before
+  &&p.remaining_lessons.some(x=>x.id===1)===(c.remaining===24),{reads:s.faults.lessonReads-reads,p});
+});
+await atTime('2027-01-04T10:00:00+09:00',async()=>{
+ const s=fresh(),o=await order(s);await confirm(s,o);refundFixture(s);
+ s.db.exec("UPDATE class_schedules SET start_time='09:00' WHERE id=1; INSERT INTO attendance(room_id,role) VALUES('class-1-20270104','student');");
+ const done=await refund(s,o,{confirm:true,refund_schedule_ids:[2,3]});
+ const r=await preview(s,o),p=r.preview;
+ observations.prior_refund2_plus_attended1=previewFields(p);
+ check('prior refund2 plus attended1 yields21 remaining /1 used /315000',done.ok&&p.remaining_classes===21&&p.remaining_lessons.length===21
+  &&p.suggest_basis.used_sessions===1&&p.suggested===315000,p||r);
+ const snapshot=()=>JSON.stringify({schedules:s.db.prepare('SELECT * FROM class_schedules ORDER BY id').all(),orders:s.db.prepare('SELECT * FROM payment_orders').all(),refunds:s.db.prepare('SELECT * FROM payment_refunds').all()});
+ let saved=snapshot();
+ check('partial refund2 retains24 lineage rows and clean read-only audit',(await Audit.auditPaymentSchedules(s.env)).issues.length===0&&snapshot()===saved&&n(s,'class_schedules')===24);
+ s.db.exec('DELETE FROM class_schedules WHERE id=24');saved=snapshot();
+ const missing=(await Audit.auditPaymentSchedules(s.env)).issues[0];
+ check('partial refund unrelated missing row is flagged without repair',missing?.actual_rows===23&&missing.active_rows===21
+  &&missing.reasons.includes('schedule_count_mismatch_review')&&snapshot()===saved,missing);
+ s.db.exec("INSERT INTO class_schedules(user_id,teacher_id,scheduled_date,start_time,duration_min,class_type,status,source,created_at) SELECT user_id,teacher_id,'2027-12-30','19:00',duration_min,class_type,'active',source,created_at FROM class_schedules WHERE id=23; INSERT INTO class_schedules(user_id,teacher_id,scheduled_date,start_time,duration_min,class_type,status,source,created_at) SELECT user_id,teacher_id,'2027-12-31','19:00',duration_min,class_type,'active',source,created_at FROM class_schedules WHERE id=23;");saved=snapshot();
+ const extra=(await Audit.auditPaymentSchedules(s.env)).issues[0];
+ check('partial refund unrelated extra row is flagged without repair',extra?.actual_rows===25&&extra.active_rows===23
+  &&extra.reasons.includes('schedule_count_mismatch_review')&&snapshot()===saved,extra);
+});
+for(const fault of ['throw','missing_results','failed_result','missing_attendance_table']) {
+ const s=fresh(),o=await order(s);await confirm(s,o);refundFixture(s);
+ if(fault==='missing_attendance_table')s.db.exec('ALTER TABLE attendance RENAME TO hidden_attendance');else s.faults.lessonReadFault=fault;
+ const before=providerCalls,r=await preview(s,o);
+ check(fault+' holds preview with503 and no guessed amounts',r.status===503&&r.error==='lesson_verification_unavailable'&&!r.preview,r);
+ for(const body of [{refund_schedule_ids:[1,2]},{amount:360000},{confirm:true,refund_schedule_ids:[1,2]}]) {
+  const attempted=await refund(s,o,body);
+  check(fault+' blocks '+(body.confirm?'execution':body.amount?'full planning':'partial planning')+' before provider or refund record',attempted.status===503
+   &&attempted.error==='lesson_verification_unavailable'&&providerCalls===before&&n(s,'payment_refunds')===0&&n(s,'class_schedules')===24,attempted);
+ }
+ if(fault==='missing_attendance_table')s.db.exec('ALTER TABLE hidden_attendance RENAME TO attendance');else s.faults.lessonReadFault='';
+ const recovered=await preview(s,o),planned=await refund(s,o,{refund_schedule_ids:[1,2]});
+ check(fault+' recovery returns verified24 and restores planning without provider',recovered.status===200&&recovered.preview.remaining_classes===24
+  &&recovered.preview.remaining_lessons.length===24&&planned.dry_run&&providerCalls===before&&n(s,'payment_refunds')===0,{recovered,planned});
 }
 {
  const s=fresh(),o=await order(s);await confirm(s,o);refundFixture(s);
@@ -556,7 +637,61 @@ for (const changed of ['attendance','start_time']) {
   {r,issue,again,calls:providerCalls-before});
 }
 
+// Exercise the actual refund page script without a browser. This checks state only,
+// not DOM rendering/layout; the separate Chromium fixture remains required for that.
+{
+ const s=fresh(),o=await order(s);await confirm(s,o);refundFixture(s);
+ const nodes=new Map(),dialogs=[];let posts=0,hold=null,transportFailure=false;
+ const node=id=>{
+  if(!nodes.has(id)){
+   const classes=new Set(['pv-card','confirm-box'].includes(id)?['hide']:[]),listeners=new Map();
+   nodes.set(id,{value:'',innerHTML:'',textContent:'',disabled:false,checked:false,focus(){},
+    classList:{add:c=>classes.add(c),remove:c=>classes.delete(c),contains:c=>classes.has(c)},
+    addEventListener:(e,fn)=>{const list=listeners.get(e)||[];list.push(fn);listeners.set(e,list);},
+    querySelectorAll:selector=>selector==='input:checked'?[{value:'1'},{value:'2'}]:[],
+    fire:(e='click')=>{for(const fn of listeners.get(e)||[])fn({});}});
+  }
+  return nodes.get(id);
+ };
+ const document={documentElement:{lang:'ko'},getElementById:node};
+ const html=readFileSync(process.env.INTEGRITY_REFUND_UI_SRC||join(root,'cloudflare-deploy/public/admin/refunds.html'),'utf8');
+ const script=[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].find(m=>m[1].includes('var current = null'))?.[1];
+ if(!script)throw Error('refund page inline script not found');
+ runInNewContext(script,{document,alert:m=>dialogs.push(String(m)),console,fetch:async(path,init={})=>{
+  if(init.method==='POST')posts++;
+  if(transportFailure&&path.includes('refund-preview'))throw Error('injected disconnected preview');
+  const gate=hold&&path.includes(hold.path)?hold:null;if(gate)hold=null;
+  const url=new URL(path,'https://offline.invalid'),res=await Refund.handleRefundApi(new Request(url,{...init,headers:{...init.headers,cookie:'mango_admin_session=synthetic-session'}}),url,s.env);
+  if(gate){gate.entered();await gate.waiting;}
+  return res;
+ }});
+ const flush=()=>new Promise(r=>setImmediate(r));
+ const click=async id=>{node(id).fire();await flush();};
+ const defer=path=>{let entered,release;const started=new Promise(r=>entered=r),waiting=new Promise(r=>release=r);hold={path,entered,waiting};return{started,release};};
+ node('q-order').value=o.orderId;node('f-reason').value='Synthetic UI state test';await click('btn-load');
+ check('actual page script initially accepts a verified preview',!node('pv-card').classList.contains('hide')&&!node('btn-dry').disabled&&node('f-amount').value===360000);
+ node('f-amount').value=30000;await click('btn-dry');node('f-typed').value='환불';node('f-typed').fire('input');
+ check('actual page script opens a valid confirmation',!node('confirm-box').classList.contains('hide')&&!node('btn-run').disabled);
+ s.faults.lessonReadFault='throw';await click('btn-load');const before=posts;await click('btn-run');await click('btn-dry');
+ check('actual page script invalidates current and plan on verification failure',node('pv-card').classList.contains('hide')&&node('confirm-box').classList.contains('hide')&&node('btn-dry').disabled&&node('btn-run').disabled&&posts===before&&String(dialogs.at(-1)||'').includes('미사용 수업을 확인하지 못해'));
+ document.documentElement.lang='en';await click('btn-load');
+ check('actual page script uses English verification hold',String(dialogs.at(-1)||'').includes('unused lessons could not be verified'));
+ s.faults.lessonReadFault='';await click('btn-load');
+ check('actual page script recovers after temporary read failure',!node('pv-card').classList.contains('hide')&&!node('btn-dry').disabled&&node('f-amount').value===360000);
+ transportFailure=true;await click('btn-load');const beforeTransport=posts;await click('btn-dry');
+ check('actual page script invalidates old preview on transport failure',node('pv-card').classList.contains('hide')&&node('btn-dry').disabled&&posts===beforeTransport);transportFailure=false;
+ await click('btn-load');const old=defer('refund-preview');node('btn-load').fire();await old.started;s.faults.lessonReadFault='throw';await click('btn-load');old.release();await flush();
+ check('actual page script discards older success after newer failed load',node('pv-card').classList.contains('hide')&&node('btn-dry').disabled);
+ s.faults.lessonReadFault='';await click('btn-load');node('f-amount').value=30000;const oldPlan=defer('/api/pay/admin/refund');node('btn-dry').fire();await oldPlan.started;s.faults.lessonReadFault='throw';await click('btn-load');oldPlan.release();await flush();
+ check('actual page script discards old planning response after failed reload',node('pv-card').classList.contains('hide')&&node('confirm-box').classList.contains('hide')&&node('btn-run').disabled);
+ s.faults.lessonReadFault='';await click('btn-load');node('f-amount').value=30000;s.faults.lessonReadFault='throw';await click('btn-dry');
+ check('actual page script holds planning when revalidation fails',node('pv-card').classList.contains('hide')&&node('btn-dry').disabled&&node('btn-run').disabled&&String(dialogs.at(-1)||'').includes('unused lessons could not be verified')&&n(s,'payment_refunds')===0);
+ s.faults.lessonReadFault='';await click('btn-load');node('f-amount').value=30000;await click('btn-dry');node('f-typed').value='환불';node('f-typed').fire('input');s.faults.lessonReadFault='throw';await click('btn-run');
+ check('actual page script requires reload after execution-time verification failure',node('pv-card').classList.contains('hide')&&node('btn-dry').disabled&&node('btn-run').disabled&&String(dialogs.at(-1)||'').includes('unused lessons could not be verified')&&n(s,'payment_refunds')===0);
+}
+
 console.log(JSON.stringify({pass,fail,providerCalls,liveTransactions:0}));
+if(process.env.INTEGRITY_EVIDENCE_FILE)writeFileSync(process.env.INTEGRITY_EVIDENCE_FILE,JSON.stringify({synthetic:true,liveTransactions:0,...observations},null,2)+'\n');
 process.exitCode = fail ? 1 : 0;
 
 export { fresh, order, confirm, refundFixture, Refund };

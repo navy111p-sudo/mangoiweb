@@ -58,3 +58,57 @@ export async function resolveStudentTwins(db: any, uid: string): Promise<string[
     return [];
   }
 }
+
+/* 🚪 (2026-10-06 delaware 김연숙 · LEN) 같은 시간에 «내 계정 예약» 과 «쌍둥이 계정 예약» 이 겹치면
+   한쪽만 남긴다.
+   [사고] 10/6 21:10 에 `delaware`(LEN, 수강신청 확정 4397)와 `mangoai_delaware`(HANNAH, 카페24 미러 4379 —
+        강사를 바꾸기 전 카페24 예약이 남은 것)가 둘 다 잡혔다. 위 쌍둥이 찾기(10/2)로 학생 목록에 둘 다 들어왔고,
+        시작 시각이 같아 번호가 작은 4379 로 자동 입장 → LEN 선생님은 4397, 학생은 4379 에서 서로 못 만났다.
+   [2026-10-07 개정 — «로그인 계정 우선» 의 구멍] 처음 규칙(#1389)은 «로그인한 계정 쪽» 을 남겼다. 그러면
+        학생이 `mangoai_delaware` 로 로그인하는 날 HANNAH 잔재(4379)가 남아 **같은 사고가 그대로 재현된다**
+        (twinCandidate 가 양방향이라). 그래서 «누가 로그인했나» 가 아니라 **«어느 예약이 정본인가»** 로 고른다:
+        ① 카페24 미러가 «자동으로» 만든 행(source === 'c24-mirror')은 강사 변경 뒤 잔재일 수 있다 → 진다.
+        ② 그 밖(수강신청 확정 adm-enroll:* · 결제 enroll:* · 사람이 손댄 c24-mirror:manual · 관리자 등록)이 이긴다.
+        ③ 둘이 같은 급이면 정본을 판정할 수 없다 → 예전 규칙(로그인 계정 쪽)으로 떨어지고 `ambiguous` 로 알린다.
+           ⛔ 번호·시각으로 «아무거나» 고르지 않는다.
+   [규칙] 시간이 «겹칠 때만» 뺀다 — 안 겹치는 쌍둥이 예약은 그대로 둔다(10/2 lby01 의 «그 수업만 사라짐» 구제 유지).
+        «내 계정» 은 로그인 uid 와 대소문자만 다른 것까지 포함(위 sessions/today 의 NOCASE 조회와 같은 폭).
+   ⛔ 쌍둥이 예약이 «혼자» 있으면 절대 빼지 않는다. ⛔ 같은 계정끼리 겹친 예약은 건드리지 않는다(예전 동작).
+   ⛔ 쓰기 금지 — 학생 화면에 «보여 주는 목록» 만 거른다.
+   감시: test-harness/student_alias_harness.mjs ④·④-2 */
+
+/** 예약 행의 «정본 급». 높을수록 이긴다. 카페24 미러 자동 행만 0. 순수 함수. */
+export function sessionSourceRank(source: any): number {
+  return String(source ?? '').trim() === 'c24-mirror' ? 0 : 1;
+}
+
+export interface TwinPick<T> { sessions: T[]; dropped: T[]; ambiguous: boolean }
+
+export function pickTwinSessions<T extends { student_uid?: any; start_ts: number; end_ts: number; source?: any }>(sessions: T[], uid: string): TwinPick<T> {
+  const same: TwinPick<T> = { sessions, dropped: [], ambiguous: false };
+  const me = String(uid || '').trim().toLowerCase();
+  if (!me || !Array.isArray(sessions) || sessions.length < 2) return same;
+  const twin = String(twinCandidate(me) || '').toLowerCase();
+  if (!twin) return same;
+  const who = (s: T) => String(s && s.student_uid != null ? s.student_uid : '').trim().toLowerCase();
+  const mine = sessions.filter(s => who(s) === me);
+  const twins = sessions.filter(s => who(s) === twin);
+  if (!mine.length || !twins.length) return same;
+  const over = (a: T, b: T) => a.start_ts < b.end_ts && b.start_ts < a.end_ts;
+  const drop = new Set<T>();
+  let ambiguous = false;
+  for (const t of twins) for (const m of mine) {
+    if (!over(t, m)) continue;
+    const rt = sessionSourceRank(t.source), rm = sessionSourceRank(m.source);
+    if (rt < rm) drop.add(t);
+    else if (rm < rt) drop.add(m);
+    else { drop.add(t); ambiguous = true; }   // 판정 불가 → 예전 규칙(로그인 계정 쪽) + 알림
+  }
+  if (!drop.size) return same;
+  return { sessions: sessions.filter(s => !drop.has(s)), dropped: sessions.filter(s => drop.has(s)), ambiguous };
+}
+
+/** 예전 이름 — 걸러진 목록만 돌려준다(배선·하니스 호환). */
+export function dropShadowedTwinSessions<T extends { student_uid?: any; start_ts: number; end_ts: number; source?: any }>(sessions: T[], uid: string): T[] {
+  return pickTwinSessions(sessions, uid).sessions;
+}

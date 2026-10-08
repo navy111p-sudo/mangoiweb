@@ -128,7 +128,7 @@ check('배지가 유형별로 갈린다 (정규·체험·보강·레벨테스트
 check('옛 응답(캐시)에도 안 깨진다 — is_level_test 폴백',
   /is_level_test\) \? 'level_test' : 'regular'/.test(thtml));
 check('배지가 한/영 둘 다', /T\('LEVEL TEST','레벨테스트'\)/.test(thtml));
-check('배지 색이 정의돼 있다', /\.pill\.p-lt\{background:#0d9488/.test(thtml));
+check('배지 색이 정의돼 있다', /\.pill\.p-lt\{background:#1d4ed8/.test(thtml)); // 2026-10-07: 레벨테스트 = 파랑으로 전 화면 통일
 
 console.log('\n[ ⑥-2 강사가 «내일» 수업도 미리 본다 ]');
 /* 마이마이 제보: "내일 수업이 안 보인다". 버그가 아니라 이 화면이 «오늘» 만 그려서였다.

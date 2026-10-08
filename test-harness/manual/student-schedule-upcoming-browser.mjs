@@ -8,7 +8,7 @@
 //     ① 다음 수업이 맨 위에 «종류와 함께» 나온다
 //     ② 매주 반복 4줄이 «주 4회» 한 줄로 묶인다 (짝: 날짜 지정 수업은 묶지 않는다)
 //     ③ 날짜 칩 개수 = 앞으로 14일의 실제 회차 수 (짝: 시작일 «전»·취소된 것은 안 나온다)
-//     ④ 보충·체험 칩에만 종류 글자가 붙는다 (짝: 정규 칩에는 안 붙는다)
+//     ④ 보강·체험 칩에만 종류 글자가 붙는다 (짝: 정규 칩에는 안 붙는다)
 //     ⑤ 매주 반복 칩을 누르면 «이 날 하나만은 못 한다» 고 사실대로 말하고 연기 버튼을 안 준다
 //        (짝: 날짜 지정 칩은 연기·변경 버튼을 주고, 누르면 공용 연기·변경 창이 실제로 열린다)
 //     ⑥ 이 카드에 «취소» 버튼이 없다 (2026-10-01 사장님 「취소는 빼고」)
@@ -48,7 +48,7 @@ const BOOT = `
                  teacher_name:'중국어 강선생님', status:'active', source:'admin_ui', created_at:Date.parse('2026-07-23T00:00:00+09:00') };
     var rec = function(id, dow){ return Object.assign({}, base, { id:id, schedule_kind:'recurring', day_of_week:dow, scheduled_date:null, start_time:'19:20', starts_on:'2026-07-23' }); };
     var items = [ rec(1,'Tue'), rec(2,'Wed'), rec(3,'Thu'), rec(4,'Fri'),
-      /* 보충 — 날짜 지정 */
+      /* 보강 — 날짜 지정 */
       Object.assign({}, base, { id:5, schedule_kind:'one_off', class_type:'makeup', day_of_week:null, scheduled_date:window.__D.mk, start_time:'16:00' }),
       /* 정규 날짜 지정(수강신청 확정이 만드는 모양) */
       Object.assign({}, base, { id:6, schedule_kind:'dated', day_of_week:null, scheduled_date:window.__D.dt, start_time:'20:00', source:'adm-enroll:1' }),
@@ -105,7 +105,7 @@ try {
       return {
         hero: (top && top.querySelector('.mgsu-hero') || {}).textContent || '',
         groups: [...document.querySelectorAll('#mgsuTop .mgsu-grp .t')].map(e => e.textContent),
-        chips: [...document.querySelectorAll('#mgsuTop .mgsu-chip')].map(e => ({ t: e.textContent, tag: !!e.querySelector('.ty'), key: e.getAttribute('data-mgsu-occ'), past: e.classList.contains('past'), tagBg: e.querySelector('.ty') ? getComputedStyle(e.querySelector('.ty')).backgroundColor : '' })),
+        chips: [...document.querySelectorAll('#mgsuTop .mgsu-chip')].map(e => ({ t: e.textContent, tch: (e.querySelector('.tch') || {}).textContent || '', tag: !!e.querySelector('.ty'), key: e.getAttribute('data-mgsu-occ'), past: e.classList.contains('past'), tagBg: e.querySelector('.ty') ? getComputedStyle(e.querySelector('.ty')).backgroundColor : '' })),
         heroTyBg: (() => { const e = document.querySelector('#mgsuTop .mgsu-hero .mgsu-ty'); return e ? getComputedStyle(e).backgroundColor : ''; })(),
         expect: exp.length, future: exp.some(o => o.sch.id === 7),
         foldOpen: !!(document.getElementById('mgsuFold') || {}).open,
@@ -116,20 +116,24 @@ try {
       };
     });
     check('① 다음 수업 상자가 맨 위에 있다', /다음 수업/.test(info.hero), info.hero);
-    check('① 다음 수업에 수업 종류가 함께 나온다', /정규수업|보충수업|체험수업/.test(info.hero), info.hero);
+    { const tch = await page.evaluate(() => { const e = document.querySelector('#mgsuTop .mgsu-hero .v .mgsu-tch'); if (!e) return null; e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { t: e.textContent, vis: r.width > 0 && r.height > 0, onTop: !!top && e.contains(top) }; });
+      // (2026-10-06 «교사 이름을 항상 보이게») 날짜 줄 «안» 에 교사 이름 — 정본 teacherLabel 과 같은 글자
+      check('① 다음 수업 날짜 옆에 교사 이름이 보인다', !!tch && tch.vis && tch.onTop && /중국어 강선생님/.test(tch.t), JSON.stringify(tch)); }
+    check('① 다음 수업에 수업 종류가 함께 나온다', /정규수업|보강수업|체험수업/.test(info.hero), info.hero);
     check('② 매주 반복 4줄이 «주 4회» 한 줄로 묶인다', info.groups.some(t => /주 4회/.test(t) && /화·수·목·금/.test(t)), JSON.stringify(info.groups));
     check('② [짝] 시작일이 아직 안 온 반복은 따로 묶인다(합쳐지지 않는다)', info.groups.length === 2, JSON.stringify(info.groups));
     check('③ 날짜 칩 개수 = 정본(mgsuUpcoming)이 센 앞으로 14일 회차', info.chips.length === info.expect && info.expect >= 9, info.chips.length + ' vs ' + info.expect);
     check('③ [짝] 시작일이 아직 안 온 수업은 칩에 안 나온다', !info.future);
-    const mk = info.chips.find(c => /보충/.test(c.t));
-    check('④ 보충 수업 칩에 «보충» 글자가 붙는다', !!mk && mk.tag);
+    const mk = info.chips.find(c => /보강/.test(c.t));
+    check('④ 보강 수업 칩에 «보강» 글자가 붙는다', !!mk && mk.tag);
+    check('③ 모든 날짜 칩에 교사 이름이 붙는다(정본 teacherLabel)', info.chips.length > 0 && info.chips.every(c => /중국어 강선생님/.test(c.tch)), JSON.stringify(info.chips.map(c => c.tch)).slice(0, 120));
     check('④ [짝] 정규 칩에는 종류 글자가 안 붙는다', info.chips.filter(c => !c.tag).length === info.chips.length - 1);
     check('⑥ 이 카드에 «취소» 버튼이 없다', info.cancelBtns === 0, String(info.cancelBtns));
     check('요일별 줄은 접혀 있고 펼치면 8줄(전부)이 있다', !info.foldOpen && info.rows === 8, info.foldOpen + '/' + info.rows);
     check('⑦ 페이지가 옆으로 안 밀린다', info.docW <= info.winW, info.docW + ' > ' + info.winW + ' ' + JSON.stringify(info.wide));
 
     // ⑤ 반복 칩 — 사실대로 말하고 연기 버튼을 안 준다
-    check('④ 보충 색과 정규 색이 화면에서 실제로 다르다(페인터가 덮지 않았다)', !!mk && mk.tagBg && info.heroTyBg && mk.tagBg !== info.heroTyBg, (mk && mk.tagBg) + ' vs ' + info.heroTyBg);
+    check('④ 보강 색과 정규 색이 화면에서 실제로 다르다(페인터가 덮지 않았다)', !!mk && mk.tagBg && info.heroTyBg && mk.tagBg !== info.heroTyBg, (mk && mk.tagBg) + ' vs ' + info.heroTyBg);
     const pastChip = info.chips.find(c => c.past);
     if (pastChip) {
       await page.evaluate(k => document.querySelector(`[data-mgsu-occ="${k}"]`).click(), pastChip.key);
@@ -139,6 +143,8 @@ try {
     const recKey = info.chips.find(c => /\|[1-4]$/.test(c.key || '') && !c.past).key;
     await page.evaluate(k => document.querySelector(`[data-mgsu-occ="${k}"]`).click(), recKey);
     const recAct = await page.evaluate(() => ({ t: document.getElementById('mgsuAct').textContent, mv: document.querySelectorAll('#mgsuAct [data-mgsu-move]').length, se: document.querySelectorAll('#mgsuAct [data-mgsu-series]').length }));
+    { const at = await page.evaluate(() => { const e = document.querySelector('#mgsuAct .mgsu-tch'); return e ? e.textContent : null; });
+      check('⑤ 날짜를 눌러 연 카드에도 교사 이름이 보인다', /중국어 강선생님/.test(at || ''), String(at)); }
     check('⑤ 반복 칩: «이 날 하나만은 못 한다» 고 말한다', /매주 반복 수업이라/.test(recAct.t), recAct.t.slice(0, 80));
     check('⑤ 반복 칩: 연기 버튼을 안 주고 «매주 변경» 만 준다', recAct.mv === 0 && recAct.se === 1);
     await page.evaluate(() => document.querySelector('#mgsuAct [data-mgsu-series]').click());
@@ -182,7 +188,11 @@ try {
     const c1 = await page.evaluate('(' + CONTRAST + ')("#mgsuTop .mgsu-hero .v")');
     const c2 = await page.evaluate('(' + CONTRAST + ')("#mgsuTop .mgsu-grp .m")');
     const c3 = await page.evaluate('(' + CONTRAST + ')("#mgsuTop .mgsu-chip:not(.today):not(.hol)")');
-    console.log(`     대비: 다음수업 ${c1} · 묶음 설명 ${c2} · 날짜 칩 ${c3}`);
+    const c4 = await page.evaluate('(' + CONTRAST + ')("#mgsuTop .mgsu-hero .mgsu-tch")');
+    const c5 = await page.evaluate('(' + CONTRAST + ')("#mgsuTop .mgsu-chip:not(.today):not(.hol):not(.past) .tch")');
+    check('⑧ 날짜 칩의 교사 이름이 읽힌다(대비 4.5 이상)', c5 >= 4.5, String(c5));
+    console.log(`     대비: 다음수업 ${c1} · 묶음 설명 ${c2} · 날짜 칩 ${c3} · 교사 이름 ${c4}`);
+    check('⑧ 교사 이름 알약 글자가 읽힌다(대비 4.5 이상)', c4 >= 4.5, String(c4));
     check('⑧ 글자가 읽힌다(대비 4.5 이상 — 다음수업·묶음·칩)', c1 >= 4.5 && c2 >= 4.5 && c3 >= 4.5);
     /* ⑨ (2026-10-01 사장님) 요일별 줄 — 시작일 대신 «다음 수업일», 시작일은 줄 끝에 작게. */
     const row = await page.evaluate(() => {

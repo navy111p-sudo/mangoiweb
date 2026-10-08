@@ -99,10 +99,12 @@ check('⑥ 자체 게이트 목록에 등록돼 있다', /ENROLL_ADMIN_SELF_GATE
 check('⑥ 정본 planSeries 를 부른다', /planSeries\(/.test(body));
 check('⑥ 겹침은 realConflict 로 거른다', /realConflict\(/.test(body));
 check('⑥ 기본은 미리보기(apply 가 참일 때만 쓴다)', /apply/.test(body) && /dry_run/.test(body));
-check('⑥ 적용 UPDATE 가 옛 날짜·시각을 WHERE 에서 다시 확인한다',
-  /UPDATE class_schedules[\s\S]{0,300}WHERE id = \?[\s\S]{0,200}status\s*=\s*'active'[\s\S]{0,200}scheduled_date[\s\S]{0,200}start_time/.test(body));
+check('⑥ 권위 읽기 전에 스냅샷을 잡고 원자 적용 정본을 부른다',
+  /captureSeriesMoveSnapshot[\s\S]+SELECT cs.id/.test(body) && /applySeriesMoveAtomically\(/.test(body));
 check('⑥ 강사 변경은 teacherMoveDenyReason 게이트를 지난다', /teacherMoveDenyReason\(/.test(body));
-check('⑥ 행마다 감사 이력을 남긴다', /writeClassAudit\(/.test(body));
+const atomic = readFileSync(join(ROOT, 'cloudflare-deploy/src/class-series-atomic.ts'), 'utf8');
+check('⑥ 감사 이력과 변경은 같은 배치 정본에 있다', /INSERT INTO class_audit_log/.test(atomic) && /env.DB.batch\(stmts\)/.test(atomic));
+check('⑥ 정확한 미리보기 키를 대조한다', /seriesPreviewKey\(/.test(body) && /expected_preview !== summary.preview_key/.test(body) && /stale_preview/.test(body));
 
 console.log(`결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);

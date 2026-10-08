@@ -321,6 +321,12 @@
     .aw-guide .awg-step:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
     .aw-guide .awg-arrow { color: var(--text2); font-weight: 800; padding: 0 3px; }
     @media (max-width: 640px) { .aw-guide { padding: 6px 8px; line-height: 1.7; } .aw-guide .awg-step { font-size: 12.5px; padding: 4px 8px; } .aw-guide .awg-arrow { padding: 0 1px; } }
+    /* ✍️ 글감 고르는 법 — «셋 중 하나만» 안내 */
+    .pick-note { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; font-size: 13.5px; line-height: 1.6;
+      color: var(--text); background: rgba(15,23,42,0.62); border: 1px solid rgba(251,191,36,0.42); }
+    .pick-note b { display: block; color: var(--gold); font-size: 14.5px; margin-bottom: 2px; }
+    .go-pick-lbl { display: block; font-size: 13px; font-weight: 800; color: var(--text2); margin: 2px 0 7px; }
+    .go-cur-swap { flex-basis: 100%; font-size: 12.5px; color: #fde68a; }
     /* ═══ 🧠 그래픽 오가나이저 (브레인스토밍) ═══ */
     .go-card { background: rgba(56,189,248,0.08); border: 1px solid rgba(125,211,252,0.35);
       border-radius: 18px; padding: 18px 20px; margin-bottom: 16px; }
@@ -516,6 +522,12 @@
       <div class="mission-words" id="missionWords"></div>
     </div>
 
+    <!-- ✍️ 글감 고르는 법 — 고르는 곳이 세 군데라 «셋 중 하나만» 이라고 먼저 말해 준다(2026-10-05 세미나 준비 중 제보).
+         세 곳 모두 STEP 2 의 «지금 주제» 칸 하나로 모이고, 마지막에 고른 것 하나만 쓰인다(_goTheme). -->
+    <div class="pick-note" id="pickNote">
+      <b data-ko="✍️ 글감은 세 곳 중 «하나만» 고르면 돼요" data-en="✍️ Pick just «one» topic from these three">✍️ 글감은 세 곳 중 «하나만» 고르면 돼요</b>
+      <span data-ko="① 🖼 오늘의 그림 → «이 장면으로 쓰기» · ② 🎲 오늘의 글감 · ③ 🧠 내 경험 주제(STEP 2). 어디서 골라도 STEP 2 브레인스토밍의 «지금 주제» 로 모이고, 마지막에 고른 하나로 글을 써요." data-en="① 🖼 Today's picture → «Write this scene» · ② 🎲 Today's topics · ③ 🧠 My own story (STEP 2). Whichever you pick goes to «Topic» in STEP 2 Brainstorming — your last pick is the one you write about.">① 🖼 오늘의 그림 → «이 장면으로 쓰기» · ② 🎲 오늘의 글감 · ③ 🧠 내 경험 주제(STEP 2). 어디서 골라도 STEP 2 브레인스토밍의 «지금 주제» 로 모이고, 마지막에 고른 하나로 글을 써요.</span>
+    </div>
     <div class="topic-row scene-picker">
       <label for="picChoice" data-ko="🎬 장면 선택" data-en="🎬 Choose a scene">🎬 장면 선택</label>
       <select id="picChoice" onchange="choosePic(Number(this.value))"></select>
@@ -524,7 +536,7 @@
       <div class="pic-scene" id="picScene">
         <img class="pic-photo" id="picPhoto" alt="" decoding="async">
         <video class="pic-video" id="picVideo" muted loop playsinline preload="none" hidden></video>
-        <span class="pic-badge">📸 <span data-ko="오늘의 그림" data-en="Today's picture">오늘의 그림</span></span>
+        <span class="pic-badge">📸 <span data-ko="① 오늘의 그림" data-en="① Today's picture">① 오늘의 그림</span></span>
       </div>
         <div class="pic-cap">
           <span class="pic-cap-txt" id="picCapTxt">—</span>
@@ -553,7 +565,7 @@
 
     <!-- 🎲 오늘의 글감 -->
     <div class="topic-row" id="topicRow">
-      <span style="font-size:14px;font-weight:800;color:var(--text2)" data-ko="🎲 오늘의 글감:" data-en="🎲 Today's topics:">🎲 오늘의 글감:</span>
+      <span style="font-size:14px;font-weight:800;color:var(--text2)" data-ko="② 🎲 오늘의 글감 (그림 대신):" data-en="② 🎲 Today's topics (instead of the picture):">② 🎲 오늘의 글감 (그림 대신):</span>
       <!-- 칩은 JS가 채움 -->
       <button class="topic-chip" onclick="shuffleTopics()" style="background:rgba(251,191,36,0.14);border-color:rgba(251,191,36,0.4);color:var(--gold)" data-ko="🔀 다른 주제" data-en="🔀 Shuffle">🔀 다른 주제</button>
     </div>
@@ -563,7 +575,7 @@
             한글 답은 아래 «내 브레인스토밍 메모» 로만 남겨 보면서 쓰게 한다. -->
     <div class="go-card" id="goCard">
       <div class="go-title">🧠 <span data-ko="STEP 2 · 브레인스토밍 — 무엇을 쓸지 먼저 정리해요" data-en="STEP 2 · Brainstorming — plan before you write">STEP 2 · 브레인스토밍 — 무엇을 쓸지 먼저 정리해요</span></div>
-      <div class="go-sub" data-ko="위의 🖼 오늘의 그림이나 🎲 오늘의 글감을 눌러도 여기로 와요. 짧게 답만 적으면 서론·본론·결론 뼈대가 자동으로 만들어져요. (질문 없이 바로 써도 괜찮아요!)" data-en="The picture and topic chips above also bring you here. Just answer briefly — your intro·body·ending outline is built for you. (You can skip the questions too!)">위의 🖼 오늘의 그림이나 🎲 오늘의 글감을 눌러도 여기로 와요. 짧게 답만 적으면 서론·본론·결론 뼈대가 자동으로 만들어져요. (질문 없이 바로 써도 괜찮아요!)</div>
+      <div class="go-sub" data-ko="위의 ① 🖼 오늘의 그림이나 ② 🎲 오늘의 글감을 눌러도 여기로 와요 — 글감은 셋 중 «하나만», 마지막에 고른 것이 «지금 주제» 예요. 짧게 답만 적으면 서론·본론·결론 뼈대가 자동으로 만들어져요. (질문 없이 바로 써도 괜찮아요!)" data-en="① the picture or ② the topic chips above also bring you here — pick just «one» topic; your last pick is the «Topic». Just answer briefly — your intro·body·ending outline is built for you. (You can skip the questions too!)">위의 ① 🖼 오늘의 그림이나 ② 🎲 오늘의 글감을 눌러도 여기로 와요 — 글감은 셋 중 «하나만», 마지막에 고른 것이 «지금 주제» 예요. 짧게 답만 적으면 서론·본론·결론 뼈대가 자동으로 만들어져요. (질문 없이 바로 써도 괜찮아요!)</div>
       <div class="go-themes" id="goThemes"><!-- 주제 칩은 JS가 채움 --></div>
       <div id="goBody"><!-- 질문·뼈대는 주제를 고르면 JS가 그림 --></div>
     </div>
@@ -1875,10 +1887,12 @@
       } catch(e){}
     }
     // 주제 이름 — 이미 이모지로 시작하는 이름(글감)에는 아이콘을 또 붙이지 않는다
-    function goCurName(ko) {
-      const nm = (ko ? _goTheme.ko : _goTheme.en) || '';
-      return /^[A-Za-z0-9가-힣]/.test(nm) ? (_goTheme.icon + ' ' + nm) : nm;
+    function goCurName(ko, t) {
+      t = t || _goTheme;
+      const nm = (ko ? t.ko : t.en) || '';
+      return /^[A-Za-z0-9가-힣]/.test(nm) ? (t.icon + ' ' + nm) : nm;
     }
+    let _goPrev = null;   // 방금 «다른 곳에서» 고른 주제가 바꿔 치운 앞 주제 — 조용히 덮이지 않게 한 줄로 알린다
     function renderGoThemes() {
       /* 지금 주제 표시줄 — 그림·글감에서 넘어왔을 때 «어디서 온 주제인지» 를 말해 준다.
          (이게 없으면 그림은 정글인데 브레인스토밍은 생일인 상태를 아무도 눈치채지 못한다) */
@@ -1888,13 +1902,17 @@
           <span class="go-cur-t">${escapeHtml((ko ? '지금 주제: ' : 'Topic: ') + goCurName(ko))}</span>
           <span class="go-cur-src">${escapeHtml(ko ? (_goTheme.srcKo || '이야기 주제') : (_goTheme.srcEn || 'Story topic'))}</span>
           <button class="go-cur-x" onclick="goClearTheme()">${escapeHtml(ko ? '✕ 주제 바꾸기' : '✕ Change topic')}</button>
+          ${_goPrev ? `<span class="go-cur-swap">${escapeHtml(ko
+              ? '↻ 앞서 고른 «' + goCurName(true, _goPrev) + '» 대신 이 주제로 바꿨어요.'
+              : '↻ Switched from «' + goCurName(false, _goPrev) + '» to this topic.')}</span>` : ''}
         </div>` : '';
       const chips = GO_THEMES.map(t =>
         `<button class="go-theme${_goTheme && _goTheme.id === t.id ? ' on' : ''}" onclick="goSelectTheme('${t.id}')"
            data-ko="${escapeHtml(t.icon + ' ' + t.ko)}" data-en="${escapeHtml(t.icon + ' ' + t.en)}">${escapeHtml(t.icon + ' ' + t.ko)}</button>`
       ).join('');
       const el = document.getElementById('goThemes');
-      el.innerHTML = cur + `<div class="go-themes-row">${chips}</div>`;
+      const lbl = `<span class="go-pick-lbl">${escapeHtml(ko ? '③ 🧠 또는 내 경험 주제로 쓰기:' : '③ 🧠 Or write about your own story:')}</span>`;
+      el.innerHTML = cur + lbl + `<div class="go-themes-row">${chips}</div>`;
       try { window.applyI18n && window.applyI18n(el); } catch(e){}
     }
     function renderGoQuestions() {
@@ -2012,7 +2030,9 @@
       wrap.style.display = '';
     }
     function goApplyTheme(t, toggle) {
+      const prev = _goTheme;
       _goTheme = (toggle && _goTheme && t && _goTheme.id === t.id) ? null : t;   // 같은 것을 다시 누르면 접기
+      _goPrev = (prev && _goTheme && prev.id !== _goTheme.id) ? prev : null;
       renderGoThemes(); renderGoQuestions(); goSave();
       flowMark(1);
       if (_goTheme) {

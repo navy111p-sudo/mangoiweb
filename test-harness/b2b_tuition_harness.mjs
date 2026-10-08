@@ -329,6 +329,28 @@ if (!sqlite) {
   const po = raw.prepare(`SELECT program, amount, status, uid FROM payment_orders WHERE order_id=?`).get(co.body.order_id);
   ok(po && po.program === 'b2b_tuition' && po.amount === top.due_krw && po.uid === null, 'payment_orders 에 기록(학생 uid 없음)');
 
+  section('B2-b. 대리점 로그인 결제(/manager 「수업료 결제」, 2026-10-07) — 공개 링크와 같은 정본');
+  {
+    const G = load.agencyCheckoutGate;
+    const on = { enabled: 1 }, off = { enabled: 0 };
+    ok(typeof G === 'function', '문지기 함수가 정본에서 나온다');
+    const g1 = G({ type: 'agency', value: SHOP }, on);
+    ok(g1.ok === true && g1.shop === SHOP, '대리점 + 켠 학원 → 통과(학원 = 로그인 스코프)', g1);
+    for (const [sc, row, why] of [
+      [{ type: 'hq', value: null }, on, '본사'], [{ type: 'none', value: null }, on, "스코프 'none'(강사·오판)"],
+      [{ type: 'branch', value: SHOP }, on, '지사'], [{ type: 'franchise', value: SHOP }, on, '지사본사'],
+      [{ type: 'agency', value: '' }, on, '대리점인데 학원 이름 없음'], [{ type: 'agency', value: '   ' }, on, '학원 이름이 공백'], [null, on, '스코프를 못 읽음'],
+    ]) { const g = G(sc, row); ok(g.ok === false && g.status === 403, `막는다: ${why} → 403`, g); }
+    ok(G({ type: 'agency', value: SHOP }, off).ok === false && G({ type: 'agency', value: SHOP }, off).status === 409, '본사가 안 켠(꺼 둔) 학원 → 409');
+    ok(G({ type: 'agency', value: SHOP }, null).ok === false, '학원 설정 행이 없으면(모름) 막는다');
+    // 공유 결제 함수 — 남의 학원 청구서는 못 연다 · 자기 것은 연다
+    const r404 = await load.checkoutInvoice(env, SHOP, otherId);
+    ok(r404.status === 404, '로그인 결제도 남의 학원 청구서 → 404');
+    const rOwn = await load.checkoutInvoice(env, '다른학원', otherId);
+    const jOwn = await rOwn.json();
+    ok(jOwn.ok === true && /^MGT-/.test(jOwn.order_id) && jOwn.amount === 99990, '자기 학원 청구서 → 주문 생성(금액은 청구서에서)', jOwn);
+  }
+
   section('B3. 결제 확정 — 멱등 · 부분 입금');
   const paidOk = await load.activateB2bTuitionPayment(env, co.body.order_id, top.due_krw, NOW + 7200e3);
   ok(paidOk === true, '확정 성공');
@@ -506,6 +528,30 @@ const apiPay = read('api-pay.ts'), aiBill = read('ai-billing.ts'), ld = read('b2
     const i = ld.indexOf(`if (sub === '${sub}'`);
     const seg = i > 0 ? ld.slice(i, i + 220) : '';
     ok(i > 0 && /const g = await hqGate\(\); if \(g\) return g;/.test(seg), `「${sub}」 는 본사 게이트(enrollAdminHqOnly)를 먼저 지난다`);
+  }
+  {
+    // 💳 대리점 로그인 결제 라우트 — 문지기를 «실제로» 부르고 그 결과의 shop 만 넘긴다(본문의 학원 이름을 안 받는다)
+    const i = ld.indexOf("if (sub === 'checkout' && method === 'POST')");
+    let j = ld.indexOf('{', i), d = 0, e = j;
+    for (; e < ld.length; e++) { if (ld[e] === '{') d++; else if (ld[e] === '}') { d--; if (d === 0) break; } }
+    const seg = i > 0 ? ld.slice(i, e + 1) : '';
+    ok(seg.length > 0, '전제: 대리점 결제 라우트를 잘라 냈다');
+    ok(/agencyCheckoutGate\(scope,/.test(seg) && /if \(!g\.ok\) return err\(/.test(seg), '라우트가 문지기를 부르고 막히면 그 자리에서 돌아간다');
+    ok(/checkoutInvoice\(env, g\.shop, body\.invoice_id\)/.test(seg), '결제 학원 = 문지기가 정한 값(로그인 스코프)');
+    ok(!/body\.shop_name/.test(seg), '⛔ 본문의 학원 이름을 받지 않는다');
+    const iPub = ld.indexOf("if (p === 'checkout' && method === 'POST')");
+    ok(/return await checkoutInvoice\(env, shop, body\.invoice_id\)/.test(ld.slice(iPub, iPub + 200)), '공개 링크 결제도 같은 정본(checkoutInvoice)을 쓴다');
+    const mgr = fs.readFileSync(path.join(PUB, 'manager.html'), 'utf8');
+    ok(/id="c-tuition"[^>]*hidden/.test(mgr) && /id="sideTuition"[^>]*hidden/.test(mgr), '매니저 화면: 카드·메뉴는 기본 감춤');
+    ok(/_tui\.hidden = \(sc\.type !== 'agency'\)/.test(mgr) && /_sTui\.hidden = \(sc\.type !== 'agency'\)/.test(mgr), '대리점 계정에서만 보인다(서버 403 과 짝)');
+    ok(/\/api\/admin\/ai-billing\/tuition\/shop/.test(mgr) && /\/api\/admin\/ai-billing\/tuition\/checkout/.test(mgr), '조회·결제 API 를 부른다');
+    const iPay = mgr.indexOf('window.tuiPay');
+    const pay = mgr.slice(iPay, mgr.indexOf('};', mgr.indexOf("tui_fail=1", iPay)));
+    ok(/JSON\.stringify\(\{ invoice_id: invoiceId \}\)/.test(pay) && !/amount:\s*[a-z]/i.test(pay.split('requestPayment')[0]), '결제 요청은 청구서 id 만 보낸다(금액은 서버)');
+    ok(/o\.ok !== true/.test(pay), '«성공이라고 말했는가»(ok === true) 로 가른다');
+    ok(/if \(D\.tuition\) paintTuition\(\)/.test(mgr), '🌐 언어 전환 때 다시 그린다(그릇 함정)');
+    ok(/\/api\/pay\/confirm/.test(mgr.slice(mgr.indexOf("tui_paid"))), '토스에서 돌아오면 서버 확정(/api/pay/confirm)을 부른다');
+    ok(!/get\('\/api\/admin\/ai-billing\/tuition\/shop',\s*'/.test(mgr), '⛔ 돈 화면은 옛 값 캐시를 쓰지 않는다');
   }
   const iShopPost = ld.indexOf("if (sub === 'shop' && method === 'POST')");
   ok(/hqGate/.test(ld.slice(iShopPost, iShopPost + 200)), '학원 설정 저장은 본사만');

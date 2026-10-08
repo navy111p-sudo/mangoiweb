@@ -1,4 +1,5 @@
 import { WEEKLY_POSTPONE, readWeeklyPostponePlan } from './weekly-postpone';
+import { autoApproveStudentPostpone } from './student-auto-postpone';  // ⏩ 학생 무료 연기 자동 승인(2026-10-06)
 import { requireRoomJwtSecret } from './room-jwt-secret';
 import { ensureStudentEvaluationDetailSchema, readStudentAdminEvaluations } from './evaluation-records';
 import { ensureEvaluationScoreSchema, validEvaluationScores } from './evaluation-scores';
@@ -73,7 +74,7 @@ import { scheduleMoveVersion } from './class-schedule-move';
 import { studentRequestGate, ensureScheduleChangeRequestTable } from './student-schedule-request';  // 📅 학생 연기·변경 요청 판정 정본
 import { loadSchedSummaryMap, loadSchedSummaryOne, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약 수업」 칸 정본 (students_erp 의 수강 칸은 카페24가 정본이라 늘 «—» 였다)       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 import { isPostponedOccurrence } from './class-postponed';  // ⏸ 연기된 회차 판정 정본(2026-10-01)
-import { resolveStudentTwins } from './student-alias';  // 👥 카페24 쌍둥이 계정(X ↔ mangoai_X) — 학생 «내 수업» 찾기(2026-10-02 lby01)
+import { resolveStudentTwins, pickTwinSessions } from './student-alias';  // 👥 카페24 쌍둥이 계정(X ↔ mangoai_X) — 학생 «내 수업» 찾기(2026-10-02 lby01)
 import { isUsableKoMeaning, stripJamoRuns } from './learn-meaning-check';  // 🧹 «뜻» 카드에 'ㅋㅋㅋㅋ' 가 나가지 않게(2026-10-02)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
@@ -1903,8 +1904,8 @@ export async function handleMangoApi(
         if (!conds.length) return [];
         const whereSql = `cs.status != 'cancelled' AND (${conds.join(' OR ')})`;
         const _soSelT = startsOnSel(await ensureStartsOnColumn(env), 'cs');
-        const sqlJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status${_soSelT}, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${whereSql}`;
-        const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status${_soSelT} FROM class_schedules cs WHERE ${whereSql}`;
+        const sqlJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source${_soSelT}, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${whereSql}`;
+        const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source${_soSelT} FROM class_schedules cs WHERE ${whereSql}`;
         let rows: any;
         try { rows = await env.DB.prepare(sqlJoin).bind(...binds).all<any>(); }
         catch { rows = await env.DB.prepare(sqlNoJoin).bind(...binds).all<any>(); }
@@ -1946,6 +1947,7 @@ export async function handleMangoApi(
             start_ts, end_ts, open_at_ts, close_at_ts,
             duration_min: dur, status, join_open,
             starts_in_ms: start_ts - now,
+            source: s.source || null,   // 겹친 쌍둥이 예약의 «정본» 판정용 — 응답 전에 뗀다
           });
         }
         return out;
@@ -1959,6 +1961,14 @@ export async function handleMangoApi(
         sessions = await runPass(condsName, bindsName);
         if (sessions.length) matchedBy = 'name';
       }
+      /* 👥 (2026-10-06 delaware · 2026-10-07 개정) 쌍둥이 계정 예약이 시간이 겹치면 «정본» 쪽만 남긴다 —
+         로그인한 계정이 아니라 예약 출처로 고른다(카페24 미러 자동 행이 진다). 정본 student-alias.ts */
+      if (!isTeacher && matchedBy === 'uid') {
+        const tp = pickTwinSessions(sessions, userId);
+        sessions = tp.sessions;
+        if (tp.ambiguous) console.warn('[twin-pick] 정본 판정 불가 — 로그인 계정 쪽으로 입장', userId, tp.dropped.map((x: any) => x.schedule_id).join(','));
+      }
+      for (const s3 of sessions) delete (s3 as any).source;   // 내부 판정용 칸 — 화면에 안 보낸다
       sessions.sort((a, b) => a.start_ts - b.start_ts);
 
       /* 🚪 「오늘은 이 방으로」 — 선생님·관리자가 지정해 둔 회의방이 있으면 room_id 를 갈아 끼운다.
@@ -2469,9 +2479,11 @@ export async function handleMangoApi(
         : null;
       const reqType = String(body.request_type || 'postpone');
       const s10 = (v: any) => { const x = String(v || '').trim(); return x ? x : null; };
-      const newDate = s10(body.new_date) ? String(body.new_date).trim().replace(/\//g, '-').slice(0, 10) : null;
-      const newTime = s10(body.new_time) ? String(body.new_time).trim().slice(0, 5) : null;
-      const bodyOrigDate = s10(body.orig_date) ? String(body.orig_date).trim().replace(/\//g, '-').slice(0, 10) : null;
+      const normalizeDate = (v: any) => s10(v) ? String(v).trim().replace(/\//g, '-').slice(0, 10) : null;
+      const normalizeTime = (v: any) => s10(v) ? String(v).trim().slice(0, 5) : null;
+      const newDate = normalizeDate(body.new_date);
+      const newTime = normalizeTime(body.new_time);
+      const bodyOrigDate = normalizeDate(body.orig_date);
       const nowMs = Date.now();
       const todayKst = new Date(nowMs + 9 * 3600 * 1000).toISOString().slice(0, 10);
       let recent: number | null = null;
@@ -2482,19 +2494,23 @@ export async function handleMangoApi(
       } catch { recent = null; }
       /* 같은 수업·같은 회차에 이미 대기 중인 요청이 있으면 또 받지 않는다(2026-10-01 대기 8건 중복). */
       let pendingDup: boolean | null = null;
+      let pendingDupId: number | null = null;   // ⏩ 대기 중인 그 요청 — 자동 승인을 한 번 더 시도한다
+      let pendingRequest: any = null;
       try {
         const dupOrig = cs && cs.scheduled_date ? String(cs.scheduled_date).replace(/\//g, '-').slice(0, 10) : bodyOrigDate;
         if (cs && dupOrig) {
-          const dr: any = await env.DB.prepare(`SELECT id FROM schedule_change_requests WHERE schedule_id = ? AND orig_date = ? AND requester_uid = ? AND status = 'pending' LIMIT 1`)
+          const dr: any = await env.DB.prepare(`SELECT id, request_type, new_date, new_time, new_teacher_id, request_scope, series_snapshot, reason FROM schedule_change_requests WHERE schedule_id = ? AND orig_date = ? AND requester_uid = ? AND status = 'pending' LIMIT 1`)
             .bind(cs.id, dupOrig, tokUid).first();
           pendingDup = !!dr;
+          pendingDupId = dr && dr.id ? Number(dr.id) : null;
+          pendingRequest = dr || null;
         }
       } catch { pendingDup = null; }
       const gate = studentRequestGate({
         tokUid, schedule: cs, requestType: reqType, origDate: bodyOrigDate,
         newDate, newTime, todayKst, recentCount: recent, pendingDup,
       });
-      if (!gate.ok) return json({ ok: false, error: gate.error }, gate.status);
+      if (!gate.ok && gate.error !== 'already_pending') return json({ ok: false, error: gate.error }, gate.status);
 
       const origDate = cs.scheduled_date ? String(cs.scheduled_date).replace(/\//g, '-').slice(0, 10) : bodyOrigDate;
       const origTime = String(cs.start_time || '').slice(0, 5) || null;
@@ -2508,21 +2524,60 @@ export async function handleMangoApi(
       const teacherName = schedTeacher;
       let wishNote = '';
       let newTeacherId: string | null = null;
-      const wish = String(body.teacher_name || '').trim().slice(0, 60);
-      const wishId = parseInt(body.teacher_id, 10) || 0;
+      const rawWish = String(body.teacher_name ?? '');
+      const rawWishId = String(body.teacher_id ?? '');
+      const wish = rawWish.trim().slice(0, 60);
+      const wishIdInput = rawWishId.trim();
+      // parseInt would silently turn "1junk" or 1.5 into another teacher's valid ID.
+      const wishIdNumber = /^\d+$/.test(wishIdInput) ? Number(wishIdInput) : 0;
+      const wishId = Number.isSafeInteger(wishIdNumber) && wishIdNumber > 0 ? wishIdNumber : 0;
+      // A failed/ambiguous lookup cannot prove that the requested teacher is unchanged.
+      let teacherIntentResolved = !wishIdInput && (!wish || wish === schedTeacher);
       if (wishId) {
         const tr: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE id = ? AND COALESCE(active,1) = 1 LIMIT 1`).bind(wishId).first().catch(() => null);
-        if (tr && tr.name) { newTeacherId = String(tr.id); wishNote = `희망 강사: ${tr.name}`; }
+        if (tr && tr.name) { newTeacherId = String(tr.id); wishNote = `희망 강사: ${tr.name}`; teacherIntentResolved = true; }
       }
       if (!newTeacherId && wish && wish !== schedTeacher) {
         const hit: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE name = ? COLLATE NOCASE AND COALESCE(active,1) = 1 LIMIT 2`)
           .bind(wish).all().catch(() => null);
         const rows = (hit && hit.results) || [];
-        if (rows.length === 1) { newTeacherId = String(rows[0].id); wishNote = `희망 강사: ${rows[0].name}`; }
+        if (rows.length === 1) { newTeacherId = String(rows[0].id); wishNote = `희망 강사: ${rows[0].name}`; teacherIntentResolved = true; }
         else wishNote = `희망 강사: ${wish}`;
+      }
+      if (!teacherIntentResolved) {
+        // Keep the unresolved choice for staff review; a missing ID is not permission
+        // to move the class with its current teacher instead.
+        wishNote = [wish ? `희망 강사: ${rawWish}` : '', wishIdInput ? `희망 강사 번호: ${rawWishId}` : '', '희망 강사 확인 필요']
+          .filter(Boolean).join(' · ');
       }
       /* 담당 강사와 같은 사람을 «골랐다» 면 바꿀 것이 없다. */
       if (newTeacherId && cs.teacher_id != null && String(cs.teacher_id) === newTeacherId) { newTeacherId = null; wishNote = ''; }
+      const requestScope = body.request_scope == null ? null : String(body.request_scope);
+      if (!gate.ok) {
+        /* Retry only the same normalized intent. A pending request for this occurrence
+           may have a different destination/type/teacher/series; never approve that old
+           choice while reporting success for the new one, or silently replace it. */
+        if (gate.error === 'already_pending' && pendingDupId) {
+          // Legacy unresolved names also live in reason with no new_teacher_id.
+          // Omitting teacher on a later retry must not erase that pending choice.
+          const pendingTeacherUnresolved = !s10(pendingRequest.new_teacher_id)
+            && /희망 강사(?::| 번호:| 확인 필요)/.test(String(pendingRequest.reason || ''));
+          const sameIntent = teacherIntentResolved
+            && !pendingTeacherUnresolved
+            && pendingRequest.request_type === reqType
+            && (pendingRequest.new_date || null) === newDate
+            && (pendingRequest.new_time || null) === newTime
+            && s10(pendingRequest.new_teacher_id) === newTeacherId
+            && (pendingRequest.request_scope || null) === (requestScope || null)
+            && (!requestScope || requestScope === WEEKLY_POSTPONE)
+            && (requestScope !== WEEKLY_POSTPONE || pendingRequest.series_snapshot === body.expected_series_snapshot);
+          if (sameIntent) {
+            const ap = await autoApproveStudentPostpone(env, pendingDupId);
+            if (ap.applied) return json({ ok: true, id: pendingDupId, status: 'approved', auto_applied: ap.applied });
+          }
+        }
+        return json({ ok: false, error: gate.error }, gate.status);
+      }
       let minutesBefore: number | null = null;
       let feeType: string | null = null;
       if (reqType !== 'change' && origDate && origTime) {
@@ -2530,7 +2585,6 @@ export async function handleMangoApi(
         if (!isNaN(startKst)) { minutesBefore = Math.round((startKst - nowMs) / 60000); feeType = minutesBefore > 30 ? 'free' : 'paid'; }
       }
       let seriesSnapshot: string | null = null;
-      const requestScope = body.request_scope == null ? null : String(body.request_scope);
       if (requestScope && requestScope !== WEEKLY_POSTPONE) return json({ ok: false, error: 'invalid_request_scope' }, 400);
       if (requestScope === WEEKLY_POSTPONE) {
         if (reqType !== 'postpone' || newTeacherId) return json({ ok: false, error: 'invalid_weekly_postpone' }, 400);
@@ -2553,18 +2607,24 @@ export async function handleMangoApi(
         if (ins?.success && ins?.meta?.changes === 0) return json({ ok: false, error: 'already_pending' }, 409);
         return json({ ok: false, error: 'request_save_failed' }, 503);
       }
+      /* ⏩ (2026-10-06 「자동 연기되게」 → 2026-10-07 「승인 없이 즉시」) 학생의 연기·변경은 접수 즉시 승인 — 조건은 student-auto-postpone.ts.
+         안 되면(반복 수업·겹침·강사 불가 등) 예전처럼 «대기» 로 남아 관리자가 승인한다. */
+      const reqId: number | null = ins?.meta?.last_row_id ? Number(ins.meta.last_row_id) : null;
+      const auto = teacherIntentResolved
+        ? await autoApproveStudentPostpone(env, reqId)
+        : { applied: null, reason: 'teacher_unresolved' };
       try {
         const typeKo = reqType === 'change' ? '변경' : '연기';
         const feeKo = feeType === 'paid' ? '💰유료' : feeType === 'free' ? '🆓무료' : '';
         await enqueueNotification(env, {
           type: 'schedule_request',
-          title: `📅 수업 ${typeKo} 요청 ${feeKo}`.trim(),
-          body: `${studentName} 님(학생 직접) · 강사 ${teacherName}${wishNote ? ` · ${wishNote}` : ''} · 원수업 ${origDate || ''} ${origTime || ''}${newDate ? ` → ${newDate} ${newTime || ''}` : ''}. 관리자 페이지에서 승인/거절하세요.`,
+          title: `📅 수업 ${typeKo} ${auto.applied ? '자동 반영' : '요청'} ${feeKo}`.trim(),
+          body: `${studentName} 님(학생 직접) · 강사 ${teacherName}${wishNote ? ` · ${wishNote}` : ''} · 원수업 ${origDate || ''} ${origTime || ''}${newDate ? ` → ${newDate} ${newTime || ''}` : ''}. ${auto.applied ? '시간표에 자동 반영됐습니다.' : '자동으로 옮기지 못했습니다(반복 수업·겹침 등) — 관리자 페이지에서 확인하세요.'}`,
           meta: { request_id: ins?.meta?.last_row_id || null, request_type: reqType, requester_role: 'student', new_teacher_id: newTeacherId, fee_type: feeType, minutes_before: minutesBefore, student_name: studentName, teacher_name: teacherName },
           channel: 'kakao_memo',
         });
       } catch (e: any) { console.warn('[class/schedule/request] notify skipped:', e?.message || e); }
-      return json({ ok: true, id: ins?.meta?.last_row_id || null, status: 'pending', fee_type: feeType, minutes_before: minutesBefore });
+      return json({ ok: true, id: reqId, status: auto.applied ? 'approved' : 'pending', auto_applied: auto.applied, auto_reason: auto.reason, fee_type: feeType, minutes_before: minutesBefore });
     }
 
     /* ═══ 📡 /api/class/sfu/* — Realtime SFU 자격증명 경계 (2026-09-02, C안 1단계) ═══

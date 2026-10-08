@@ -256,8 +256,11 @@
      ⚠️ 배경이 밝아졌으므로 카드 글자는 흰색이면 안 읽힌다.
         admin-inline-c.css 의 `.ph54-ev { color }` 를 #1e293b 로 함께 바꿨다(둘은 한 몸). */
   var PH54_BLOCK_HATCH = 'repeating-linear-gradient(45deg,#cbd5e1,#cbd5e1 5px,#aab6c6 5px,#aab6c6 10px)';
-  var PH54_TYPE_COLOR = { '1on1':'#bcaef0', 'group':'#f4abce', 'temp':'#8cc3f0', 'blocked':PH54_BLOCK_HATCH, 'leveltest':'#a7ddd4' };
-  var PH54_TYPE_LABEL = { '1on1':'1:1', 'group':'그룹', 'temp':'대체', 'blocked':'휴무', 'leveltest':'레벨테스트' };
+  /* 🎨 (2026-10-07 사장님 «스케줄·캘린더 색 통일») 위 목록은 옛 값이다 — 지금은 수업 «종류» 네 색:
+       정규 1:1 주황 #fde68a · 정규 그룹 분홍(그대로) · 보강 보라 #c4b5fd · 체험 초록 #86efac · 레벨테스트 파랑 #93c5fd
+     (weekly-schedule.html 다크 값과 같은 값. 대조: test-harness/class_type_canon_harness.mjs) */
+  var PH54_TYPE_COLOR = { '1on1':'#fde68a', 'group':'#f4abce', 'temp':'#c4b5fd', 'trial':'#86efac', 'blocked':PH54_BLOCK_HATCH, 'leveltest':'#93c5fd' };
+  var PH54_TYPE_LABEL = { '1on1':'정규', 'group':'정규 그룹', 'temp':'보강', 'trial':'체험', 'blocked':'휴무', 'leveltest':'레벨테스트' };
 
   /* 🏷 (2026-08-11) 「이 칸은 무엇인가」 — 카드에 정체를 적는다.
      활성 667행 중 진짜 망고아이 수업은 9행뿐이고, BELLE 처럼 24칸이 꽉 찬 강사도
@@ -758,9 +761,10 @@
     var nReal   = evClass.filter(function(e){ return !ph54OriginOf(e.rec); }).length;
     var nOther  = evClass.length - nReal;
     html += '<div class="ph54-legend">'
-      +   '<span><i style="background:'+PH54_TYPE_COLOR['1on1']+'"></i>'+ph54T('1:1 수업','1:1')+'</span>'
-      +   '<span><i style="background:'+PH54_TYPE_COLOR['group']+'"></i>'+ph54T('그룹 수업','Group')+'</span>'
-      +   '<span><i style="background:'+PH54_TYPE_COLOR['temp']+'"></i>'+ph54T('대체','Substitute')+'</span>'
+      +   '<span><i style="background:'+PH54_TYPE_COLOR['1on1']+'"></i>'+ph54T('정규수업 1:1','Regular 1:1')+'</span>'
+      +   '<span><i style="background:'+PH54_TYPE_COLOR['group']+'"></i>'+ph54T('정규수업 그룹','Regular group')+'</span>'
+      +   '<span><i style="background:'+PH54_TYPE_COLOR['temp']+'"></i>'+ph54T('보강수업','Make-up')+'</span>'
+      +   '<span><i style="background:'+PH54_TYPE_COLOR['trial']+'"></i>'+ph54T('체험수업','Trial')+'</span>'
       +   '<span><i style="background:'+PH54_TYPE_COLOR['leveltest']+'"></i>'+ph54T('레벨테스트','Level test')+'</span>'
       +   '<span><i style="background:'+PH54_TYPE_COLOR['blocked']+'"></i>'+ph54T('휴무','Off')+'</span>'
       +   '<span><i class="ph54-legend-nonclass"></i>'+ph54T('LMS 점유·시드 (수업 아님)','LMS busy / seed (not a class)')+'</span>'

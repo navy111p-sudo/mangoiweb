@@ -49,7 +49,7 @@
      ⛔ 취소는 막는 쪽으로 실패: can_move===true · 역할을 «알고» 본사 계열일 때만.
         (DELETE 는 지사·대리점에 403 — 주면 «눌러도 안 되는 버튼».)
      ══════════════════════════════════════════════════════════════════════ */
-  var _mvChanged = false;
+  var _mvChanged = false, _mvBusy = false, _mvUncertain = false;
   /* 부르는 화면이 넘겨 준 것 — { day, isEn, canCancel, me:{name}, onClose(changed) }.
      ⛔ 역할 판정(누가 취소할 수 있나)은 화면마다 근거가 달라(admin=__ADM_ME.role · manager=scope)
         «부르는 쪽» 이 canCancel 로 넘긴다. 여기서는 «그리고 날짜 지정 수업인가» 만 더 본다. */
@@ -87,6 +87,8 @@
     });
   }
   function tcMoveModalClose() {
+    if (_mvBusy) return false;
+    mvInvalidateReads();
     var b = $('tc-move-modal');
     if (b && b.parentNode) b.parentNode.removeChild(b);
     var ch = _mvChanged;
@@ -160,7 +162,8 @@
   }
   function tcOpenMoveModal(r, opt) {
     if (!r) return;
-    tcMoveModalClose();
+    if (tcMoveModalClose() === false) return;
+    _mvBusy = false; _mvUncertain = false;
     _opt = opt || {};
     var day = /^\d{4}-\d{2}-\d{2}$/.test(String(_opt.day || '')) ? String(_opt.day) : kstTodayStr();
     var canCancel = mvCanCancel(r);
@@ -214,6 +217,7 @@
     document.body.appendChild(box);
     box.addEventListener('click', function (e) {
       if (e.target === box) { tcMoveModalClose(); return; }
+      if (_mvBusy || _mvUncertain) return;
       var pk = e.target.closest && e.target.closest('[data-mv-pick]');
       if (pk) { _mvPick = pk.getAttribute('data-mv-pick') || ''; mvPaint(); if (mvAct() === 'series') mvSeriesLater(r); return; }
       var mb = e.target.closest && e.target.closest('[data-mv-mode]');
@@ -224,7 +228,7 @@
           all[i].setAttribute('aria-pressed', on ? 'true' : 'false');
           mvModeStyle(all[i], all[i].getAttribute('data-mv-mode'), on);
         }
-        mvSync(r, day); return;
+        mvInvalidateReads(); mvSync(r, day); return;
       }
       var sb = e.target.closest && e.target.closest('[data-mv-sub]');
       if (sb) {
@@ -236,7 +240,7 @@
           subs[j].style.background = so ? '#fff4e0' : '#fff';
           subs[j].style.fontWeight = so ? '800' : '500';
         }
-        mvSync(r, day); return;
+        mvInvalidateReads(); mvSync(r, day); return;
       }
       var dc = e.target.closest && e.target.closest('[data-mv-day]');
       var tc = e.target.closest && e.target.closest('[data-mv-hm]');
@@ -247,6 +251,7 @@
       }
     });
     box.addEventListener('keydown', function (e) {
+      if (_mvBusy || _mvUncertain) return;
       if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
       var pk = e.target.closest && e.target.closest('[data-mv-pick]');
       if (pk) { e.preventDefault(); _mvPick = pk.getAttribute('data-mv-pick') || ''; mvPaint(); if (mvAct() === 'series') mvSeriesLater(r); }
@@ -329,6 +334,7 @@
     box.innerHTML = mvTeachersHtml(_mvData);
   }
   function mvTeachersLater(r) {
+    ++_mvSeq; _mvData = null;
     if (_mvTimer) clearTimeout(_mvTimer);
     _mvTimer = setTimeout(function () { mvLoadTeachers(r); }, 350);
   }
@@ -347,7 +353,7 @@
           + '&date=' + encodeURIComponent(date) + '&time=' + encodeURIComponent(time), { credentials: 'include' })
       .then(function (rs) { return rs.json().catch(function () { return null; }).then(function (j) { return { st: rs.status, j: j }; }); })
       .then(function (res) {
-        if (my !== _mvSeq || !$('tc-mv-teachers')) return;
+        if (my !== _mvSeq || $('tc-mv-teachers') !== box || box.hidden) return;
         if (!res.j || res.j.ok !== true) {
           box.innerHTML = '<span style="color:#475467">' + (res.st === 403
             ? T('강사 가능 여부는 이 계정으로 볼 수 없습니다. (옮기기는 됩니다)', 'This account cannot see teacher availability. (Moving still works.)')
@@ -361,9 +367,10 @@
           || (res.j.teacher_change_ok && (res.j.candidates || []).some(function (t) { return String(t.id) === _mvPick; })));
         if (!keep) _mvPick = (cur && cur.free) ? String(cur.id) : '';
         mvPaint();
+        if (mvAct() === 'series') mvSeriesLater(r);
       })
       .catch(function () {
-        if (my !== _mvSeq) return;
+        if (my !== _mvSeq || $('tc-mv-teachers') !== box || box.hidden) return;
         box.innerHTML = '<span style="color:#475467">' + T('강사 가능 여부를 불러오지 못했습니다. (옮기기는 됩니다)', 'Could not load teacher availability. (Moving still works.)') + '</span>';
       });
   }
@@ -434,10 +441,14 @@
     });
   }
   function mvWhenChanged(r) {
-    var box = $('tc-move-modal'); if (!box) return;
+    var box = $('tc-move-modal'); if (!box || _mvBusy || _mvUncertain) return;
+    mvInvalidateReads();
     mvSync(r, (box.getAttribute('data-day') || ''));
   }
   function mvSeriesLater(r) {
+    ++_mvSerSeq; _mvSer = null;
+    var box = $('tc-mv-series');
+    if (box && !box.hidden) box.textContent = T('앞으로의 회차 확인 중…', 'Checking later classes…');
     if (_mvSerTimer) clearTimeout(_mvSerTimer);
     _mvSerTimer = setTimeout(function () { mvLoadSeries(r); }, 400);
   }
@@ -461,11 +472,11 @@
     _mvSer = null;
     box.innerHTML = T('앞으로의 회차 확인 중…', 'Checking later classes…');
     mvReq('POST', '/api/pay/enroll/admin/series-move', b).then(function (res) {
-      if (my !== _mvSerSeq || !$('tc-mv-series')) return;
+      if (my !== _mvSerSeq || $('tc-mv-series') !== box || mvAct() !== 'series' || mvSerKey(b) !== mvSerKey(mvSeriesBody(r))) return;
       _mvSer = { key: mvSerKey(b), st: res.st, j: res.j };
       box.innerHTML = mvSeriesHtml(res.st, res.j);
     }).catch(function () {
-      if (my !== _mvSerSeq) return;
+      if (my !== _mvSerSeq || $('tc-mv-series') !== box || mvAct() !== 'series') return;
       box.innerHTML = '<span style="color:#b91c1c">' + T('앞으로의 회차를 불러오지 못했습니다. 다시 골라 주세요.', 'Could not load later classes. Pick again.') + '</span>';
     });
   }
@@ -480,61 +491,97 @@
     if (e === 'forbidden_teacher') return T('강사 계정은 처리할 수 없습니다.', 'Teachers cannot do this.');
     return mvErrOf(st, j);
   }
+  /* Input-time invalidation also closes the debounce and close/reopen windows. */
+  function mvInvalidateReads() {
+    ++_mvSeq; ++_mvSerSeq; ++_mvEndSeq;
+    if (_mvTimer) clearTimeout(_mvTimer);
+    if (_mvSerTimer) clearTimeout(_mvSerTimer);
+    _mvData = null; _mvPick = ''; _mvSer = null; _mvEnd = null;
+  }
+  function mvCompleteSeries(j) {
+    if (!j || j.ok !== true || j.dry_run !== true || typeof j.preview_key !== 'string' || !j.preview_key.trim()
+        || !Array.isArray(j.items) || !Number.isInteger(j.count) || j.count < 1 || j.count > 60 || j.count !== j.items.length
+        || !j.teacher || typeof j.teacher.changed !== 'boolean') return false;
+    var ids = {};
+    return j.items.every(function (it) {
+      if (!it || !Number.isSafeInteger(Number(it.id)) || Number(it.id) <= 0 || ids[it.id]) return false;
+      ids[it.id] = true;
+      return ['from_date', 'to_date'].every(function (k) {
+        return /^\d{4}-\d{2}-\d{2}$/.test(it[k]) && !isNaN(Date.parse(it[k] + 'T00:00:00Z'))
+          && new Date(it[k] + 'T00:00:00Z').toISOString().slice(0, 10) === it[k];
+      }) && ['from_time', 'to_time'].every(function (k) { return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(it[k]); });
+    });
+  }
+  function mvSeriesTeacher(j) {
+    var t = (j && j.teacher) || {};
+    var from = t.from_name || (t.from_id ? '#' + t.from_id : T('미배정', 'Unassigned'));
+    var to = t.to_name || (t.to_id ? '#' + t.to_id : T('미배정', 'Unassigned'));
+    return T('담당 강사: ', 'Teacher: ') + from + (t.changed ? ' → ' + to : T(' (유지)', ' (unchanged)'));
+  }
+  function mvSeriesLine(it) { return it.from_date + ' ' + it.from_time + ' → ' + it.to_date + ' ' + it.to_time; }
   function mvSeriesHtml(st, j) {
     if (!j) return '<span style="color:#b91c1c">' + T('확인하지 못했습니다.', 'Could not check.') + '</span>';
-    var items = j.items || [];
-    var line = function (it) {
-      return '<div>' + esc(mvDayLabel(it.from_date)) + ' ' + esc(it.from_time) + ' → <b>' + esc(mvDayLabel(it.to_date)) + ' ' + esc(it.to_time) + '</b></div>';
-    };
-    var list = function () {
-      var h = items.slice(0, 8).map(line).join('');
-      if (items.length > 8) h += '<div style="color:#475467">' + T('… 외 ', '… and ') + (items.length - 8) + T('회', ' more') + '</div>';
-      return h;
-    };
-    var tch = (j.teacher && j.teacher.changed)
-      ? '<div style="margin-top:4px">👤 ' + T('담당 강사: ', 'Teacher: ') + esc(j.teacher.from_name || '—') + ' → <b>' + esc(j.teacher.to_name || '') + '</b></div>' : '';
     if (j.ok === true) {
-      return '<div style="font-weight:800;margin-bottom:4px">🔄 ' + T('앞으로 ', 'From now on: ') + items.length + T('회를 옮깁니다', ' classes move') + '</div>' + list() + tch;
+      if (st !== 200 || !mvCompleteSeries(j)) return '<span style="color:#b91c1c">' + T('전체 미리보기를 확인하지 못했습니다. 다시 선택해 주세요.', 'The complete preview is unavailable. Pick again.') + '</span>';
+      return '<div style="font-weight:800;margin-bottom:4px">🔄 ' + T('앞으로 ', 'From now on: ') + j.count + T('회를 옮깁니다', ' classes move') + '</div>'
+        + '<div style="font-weight:700;margin-bottom:6px">' + esc(mvSeriesTeacher(j)) + '</div>'
+        + '<ol data-mv-series-list tabindex="0" aria-label="' + T('전체 변경 회차', 'All affected classes') + '" style="margin:0;padding:0 0 0 22px;max-height:260px;overflow-y:auto;overflow-wrap:anywhere">'
+        + j.items.map(function (it) { return '<li data-mv-series-id="' + esc(it.id) + '" style="margin-bottom:5px">' + esc(mvSeriesLine(it)) + '</li>'; }).join('') + '</ol>'
+        + '<div style="margin-top:6px;color:#475467">' + T('같은 학생·출처·강사·요일·시각의 이후 수업만 포함합니다. 따로 변경한 회차는 이 목록에서 제외될 수 있습니다.',
+          'Includes later classes with the same student, source, teacher, weekday and start time. Separately edited classes may be excluded.') + '</div>';
     }
     if (j.error === 'conflict') {
-      var cs = (j.conflicts || []).map(function (c) { return esc(mvDayLabel(c.date)); }).join(', ');
-      return '<div style="color:#b91c1c;font-weight:800">⛔ ' + T('자리가 겹치는 날이 있어 옮길 수 없습니다: ', 'Some dates clash, so nothing can move: ') + cs + '</div>'
-        + '<div style="color:#475467;margin-top:2px">' + T('다른 요일·시각이나 다른 강사를 고르세요. (앞으로 ', 'Pick another day/time or teacher. (') + items.length + T('회 중)', ' classes in total)') + '</div>';
+      var cs = (j.conflicts || []).map(function (c) { return esc(c.date); }).join(', ');
+      return '<div style="color:#b91c1c;font-weight:800">⛔ ' + T('자리가 겹치는 날이 있어 옮길 수 없습니다: ', 'Some dates clash, so nothing can move: ') + cs + '</div>';
     }
     return '<span style="color:#92400e">' + mvSerErr(st, j) + '</span>';
   }
-  /* 🔄 변경(앞으로 계속) 실행 — 미리보기와 «같은 조건» 일 때만. 확인창에 회차를 그대로 적는다. */
+  /* Bind one complete, current preview to one confirmation and one write. */
   function mvRunSeries(r, day, reason, swapTo, curT) {
-    var msg = $('tc-mv-msg'), go = $('tc-mv-go');
-    var bad = function (t) { msg.style.color = '#b91c1c'; msg.innerHTML = t; };
+    var modal = $('tc-move-modal'), msg = $('tc-mv-msg'), go = $('tc-mv-go');
+    if (!modal || _mvBusy || _mvUncertain || go.disabled) return;
+    var bad = function (t) { msg.style.color = '#b91c1c'; msg.textContent = t; };
     var b = mvSeriesBody(r);
     if (swapTo) b.teacher_id = String(swapTo.id);
     if (!_mvSer || _mvSer.key !== mvSerKey(b)) { bad(T('앞으로의 회차를 확인하는 중입니다. 잠깐 뒤 다시 눌러 주세요.', 'Still checking later classes — press again in a moment.')); mvSeriesLater(r); return; }
-    var j = _mvSer.j;
-    if (!j || j.ok !== true) { bad(j && j.error === 'conflict' ? T('자리가 겹치는 날이 있어 옮길 수 없습니다 — 위 목록을 보세요.', 'Some dates clash — see the list above.') : mvSerErr(_mvSer.st, j)); return; }
-    var items = j.items || [];
-    var lines = items.slice(0, 10).map(function (it) { return '· ' + mvDayLabel(it.from_date) + ' ' + it.from_time + ' → ' + mvDayLabel(it.to_date) + ' ' + it.to_time; }).join('\n')
-      + (items.length > 10 ? '\n' + T('… 외 ', '… and ') + (items.length - 10) + T('회', ' more') : '');
-    var tline = (j.teacher && j.teacher.changed) ? '\n\n' + T('담당 강사: ', 'Teacher: ') + (j.teacher.from_name || '—') + ' → ' + (j.teacher.to_name || '') : '';
+    var preview = _mvSer, j = preview.j;
+    if (preview.st !== 200 || !mvCompleteSeries(j)) {
+      bad(j && j.ok === false ? mvSerErr(preview.st, j) : T('전체 미리보기를 확인하지 못했습니다. 다시 선택해 주세요.', 'The complete preview is unavailable. Pick again.')); return;
+    }
+    var lines = j.items.map(function (it) { return '· ' + mvSeriesLine(it); }).join('\n');
     var who = String(r.student_name || r.student_uid || '');
-    if (!window.confirm(T('앞으로 계속 바꿀까요?\n\n' + who + ' · ' + items.length + '회\n' + lines + tline + '\n\n· 한 회라도 그 사이 자리가 겹치면 아무것도 바꾸지 않습니다.',
-                          'Change from now on?\n\n' + who + ' · ' + items.length + ' classes\n' + lines + tline + '\n\n· If any one clashes in the meantime, nothing changes.'))) return;
-    go.disabled = true;
+    if (!window.confirm(T('앞으로 계속 바꿀까요?', 'Change from now on?') + '\n\n' + who + ' · ' + j.count + T('회', ' classes')
+        + '\n' + mvSeriesTeacher(j) + '\n' + lines)) return;
+    if ($('tc-move-modal') !== modal || mvAct() !== 'series' || _mvSer !== preview || mvSerKey(b) !== mvSerKey(mvSeriesBody(r))) return;
+    _mvBusy = true; go.disabled = true;
     msg.style.color = '#475467'; msg.textContent = T('처리 중...', 'Sending...');
-    var payload = { schedule_id: b.schedule_id, new_date: b.new_date, new_time: b.new_time, apply: true, reason: reason || undefined };
+    var payload = { schedule_id: b.schedule_id, new_date: b.new_date, new_time: b.new_time, apply: true,
+      expected_preview: j.preview_key, reason: reason || undefined };
     if (b.teacher_id) payload.teacher_id = b.teacher_id;
+    var uncertain = function () {
+      _mvBusy = false; _mvUncertain = true; _mvChanged = true;
+      bad(T('결과를 확인하지 못했습니다. 다시 보내지 말고 닫은 뒤 목록을 새로 확인해 주세요.', 'The result is uncertain. Do not resend. Close and reload the list to check.'));
+    };
     mvReq('POST', '/api/pay/enroll/admin/series-move', payload).then(function (res) {
+      if ($('tc-move-modal') !== modal) return;
+      _mvBusy = false;
       var jj = res.j;
-      if (!jj || jj.ok !== true) {
+      if (res.st === 409 && jj && (jj.error === 'stale_preview' || jj.error === 'schedule_changed')) {
+        go.disabled = false; mvSeriesLater(r);
+        bad(T('수업표가 바뀌었습니다. 새 미리보기를 확인한 뒤 다시 실행해 주세요.', 'The timetable changed. Review the refreshed preview, then confirm again.')); return;
+      }
+      if (!jj || res.st >= 500 || (res.st >= 200 && res.st < 300 && jj.ok !== true)) { uncertain(); return; }
+      if (jj.ok !== true) {
         go.disabled = false;
-        if (jj && jj.error === 'conflict') { _mvSer = { key: mvSerKey(b), st: res.st, j: jj }; var sb = $('tc-mv-series'); if (sb) sb.innerHTML = mvSeriesHtml(res.st, jj); bad(T('그 사이 자리가 겹쳐 아무것도 바꾸지 않았습니다.', 'A clash appeared — nothing was changed.')); return; }
-        bad(mvSerErr(res.st, jj) + ' ' + T('(아무것도 바꾸지 않았습니다)', '(Nothing was changed)')); return;
+        if (jj.error === 'conflict') { _mvSer = { key: mvSerKey(b), st: res.st, j: jj }; var sb = $('tc-mv-series'); if (sb) sb.innerHTML = mvSeriesHtml(res.st, jj); }
+        bad(mvSerErr(res.st, jj)); return;
       }
       _mvChanged = true;
-      var n = Number(jj.moved) || 0, total = Number(jj.count) || items.length;
-      if (n === total) { msg.style.color = '#047857'; msg.textContent = T('앞으로 ' + n + '회를 옮겼습니다. (닫으면 목록을 다시 불러옵니다)', 'Moved ' + n + ' classes from now on. (Closing reloads the list)'); }
-      else { msg.style.color = '#92400e'; msg.textContent = T('⚠ ' + total + '회 중 ' + n + '회만 옮겨졌습니다 — 그 사이 누군가 바꾼 회차가 있습니다. 시간표에서 확인해 주세요.', '⚠ Only ' + n + ' of ' + total + ' moved — some were changed meanwhile. Check the timetable.'); }
-    }).catch(function () { go.disabled = false; bad(T('연결이 끊겼습니다. 결과를 모르니 목록을 다시 불러와 확인해 주세요.', 'Network error — reload the list to check the result.')); _mvChanged = true; });
+      var n = Number(jj.moved), total = j.count;
+      if (jj.applied === true && Number(jj.count) === total && n === total) {
+        msg.style.color = '#047857'; msg.textContent = T('앞으로 ' + n + '회를 옮겼습니다. (닫으면 목록을 다시 불러옵니다)', 'Moved ' + n + ' classes from now on. (Closing reloads the list)');
+      } else { uncertain(); }
+    }).catch(uncertain);
   }
   /* ⏸ 연기보강 실행 — «지정한 날짜로 연기» 와 같은 두 요청. 날짜는 서버가 다시 계산한다(미리보기 값을 안 믿음). */
   function mvRunEnd(r, day) {
@@ -575,7 +622,7 @@
     }).catch(function () { go.disabled = false; bad(T('연결이 끊겼습니다. 목록을 다시 불러와 확인해 주세요.', 'Network error — reload the list to check.')); _mvChanged = true; });
   }
   function mvRun(r, day) {
-    var box = $('tc-move-modal'); if (!box) return;
+    var box = $('tc-move-modal'); if (!box || _mvBusy || _mvUncertain || ($('tc-mv-go') || {}).disabled) return;
     /* 서버 경로는 그대로 — «완전히 연기» = postpone, «지정한 날짜로 연기» = 예전 «날짜·시각 변경»(이 회만 옮김). */
     var act = mvAct();
     var mode = act === 'hold' ? 'postpone' : act === 'date' ? 'change' : act;

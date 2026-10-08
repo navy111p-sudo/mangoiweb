@@ -55,7 +55,10 @@ async function run(label, { user, mine, reqStatus }) {
   await ctx.route('**/api/class/schedule/request', r => {
     seen.posts++;
     seen.auth = r.request().headers()['authorization'] || '';
-    r.fulfill({ status: reqStatus, contentType: 'application/json', body: reqStatus === 200 ? '{"ok":true,"id":1}' : '{"ok":false,"error":"login_required"}' });
+    /* ⏩ (2026-10-06) reqStatus: 200 = 대기 접수 · 'auto' = 접수 즉시 자동 반영 · 'mix' = 홀수 번째만 자동 */
+    const autoOn = reqStatus === 'auto' || (reqStatus === 'mix' && seen.posts % 2 === 1);
+    const st = (reqStatus === 'auto' || reqStatus === 'mix') ? 200 : reqStatus;
+    r.fulfill({ status: st, contentType: 'application/json', body: st === 200 ? JSON.stringify(autoOn ? { ok: true, id: seen.posts, status: 'approved', auto_applied: 'moved' } : { ok: true, id: seen.posts, status: 'pending' }) : '{"ok":false,"error":"login_required"}' });
   });
   await ctx.addInitScript(u => {
     try { localStorage.clear(); if (u) { localStorage.setItem('mangoi_logged_user', JSON.stringify(u)); localStorage.setItem('mango_token', 'tok-' + (u.uid || u.user_id)); } } catch (e) {}
@@ -106,6 +109,47 @@ async function run(label, { user, mine, reqStatus }) {
   await page.waitForFunction(() => document.getElementById('screen-done').classList.contains('active'), null, { timeout: 5000 }).catch(() => {});
   const t = await page.evaluate(() => document.getElementById('done-title').textContent);
   ok('성공이면 «요청을 보냈어요»', /요청을 보냈어요/.test(t), t);
+  await browser.close();
+}
+
+/* ②-b 자동 반영 — «시간표에 바로 반영» 이라고 말하고, «관리자 확인» 이라고 하지 않는다 */
+{
+  const { browser, page } = await run('②-b jeong · 자동 반영', { user: { uid: 'jeong', name: 'jeong' }, mine: { status: 200, body: MINE_JEONG }, reqStatus: 'auto' });
+  await page.evaluate(() => { state.mode = 'postpone'; state.cart = CURRENT_SCHEDULE.map(c => Object.assign({}, c)); state.weeklyTarget = CURRENT_SCHEDULE.length; onConfirm(); });
+  await page.waitForFunction(() => document.getElementById('screen-done').classList.contains('active'), null, { timeout: 5000 }).catch(() => {});
+  const t = await page.evaluate(() => [document.getElementById('done-title').textContent, document.getElementById('done-sub').textContent]);
+  ok('자동이면 «바로 반영» 이라고 말한다', /바로 반영/.test(t[0]) && !/요청을 보냈어요/.test(t[0]), t[0]);
+  ok('자동이면 선생님·관리자 시간표도 말한다', /선생님·관리자 시간표에도 바로 반영/.test(t[1]), t[1]);
+  ok('자동이면 «관리자가 확인한 뒤» 라고 안 한다', !/관리자가 확인한 뒤/.test(t[1]), t[1]);
+  await browser.close();
+}
+/* ②-d 📅 (2026-10-06) 완료 화면에 «어느 수업 → 어디로» 가 한 줄씩 보인다(10/8 을 10/7 로 옮긴 것을 «10/7 연기» 로 오해한 일) */
+{
+  const { browser, page } = await run('②-d jeong · 옮겨진 날짜', { user: { uid: 'jeong', name: 'jeong' }, mine: { status: 200, body: MINE_JEONG }, reqStatus: 'auto' });
+  const r = await page.evaluate(() => {
+    const o = CURRENT_SCHEDULE[0];
+    const nd = new Date(o.date + 'T00:00:00Z'); nd.setUTCDate(nd.getUTCDate() + 7);
+    const to = nd.toISOString().slice(0, 10);
+    state.mode = 'postpone'; state.cart = [Object.assign({}, o, { date: to, origIdx: 0 })]; onConfirm();
+    return { from: fmtMD(o.date) + '(' + fmtDOW(o.date) + ') ' + o.hour, to: fmtMD(to) + '(' + fmtDOW(to) + ') ' + o.hour };
+  });
+  await page.waitForFunction(() => document.getElementById('screen-done').classList.contains('active'), null, { timeout: 5000 }).catch(() => {});
+  const d = await page.evaluate(() => ({ n: document.querySelectorAll('#done-list li').length, li: (document.querySelector('#done-list li') || {}).textContent || '',
+    fromStrike: (() => { const e = document.querySelector('#done-list .mv-from'); return e ? getComputedStyle(e).textDecorationLine : ''; })() }));
+  ok('한 줄만(고른 수업 하나)', d.n === 1, d);
+  ok('«기존 → 새 날짜» 순서로 보인다', d.li.indexOf(r.from) >= 0 && d.li.indexOf(r.to) > d.li.indexOf(r.from) && d.li.includes('→'), [r, d.li]);
+  ok('바로 반영된 줄에 «반영됨» 표시', /반영됨/.test(d.li), d.li);
+  ok('기존 날짜는 줄을 그어 «지나간 것» 으로', d.fromStrike.includes('line-through'), d.fromStrike);
+  await browser.close();
+}
+/* ②-c 일부만 자동 — 몇 건이 바로 됐고 몇 건이 대기인지 사실대로 */
+{
+  const { browser, page } = await run('②-c jeong · 일부만 자동', { user: { uid: 'jeong', name: 'jeong' }, mine: { status: 200, body: MINE_JEONG }, reqStatus: 'mix' });
+  await page.evaluate(() => { state.mode = 'postpone'; state.cart = CURRENT_SCHEDULE.map(c => Object.assign({}, c)); state.weeklyTarget = CURRENT_SCHEDULE.length; onConfirm(); });
+  await page.waitForFunction(() => document.getElementById('screen-done').classList.contains('active'), null, { timeout: 5000 }).catch(() => {});
+  const t = await page.evaluate(() => [document.getElementById('done-title').textContent, document.getElementById('done-sub').textContent]);
+  ok('일부만 자동이면 «바로 반영» 제목이 아니다', /요청을 보냈어요/.test(t[0]), t[0]);
+  ok('일부만 자동이면 건수를 나눠 말한다', /3건은 바로 반영됐고, 나머지 2건은 관리자가 확인/.test(t[1]), t[1]);
   await browser.close();
 }
 

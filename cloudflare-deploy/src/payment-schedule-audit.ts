@@ -56,7 +56,7 @@ export async function auditPaymentSchedules(env: any): Promise<{ issues: Payment
     const schedules = bySource.get(`enroll:${o.order_id}`) || [];
     const active = schedules.filter(r => String(r.status || 'active') === 'active').length;
     if (schedules.some(r => String(r.user_id || '') !== String(o.uid || ''))) reasons.push('schedule_student_mismatch');
-    if (o.status === 'paid' && Number.isInteger(expected) && expected > 0 && schedules.length !== expected)
+    if (['paid', 'partial_refunded'].includes(String(o.status)) && Number.isInteger(expected) && expected > 0 && schedules.length !== expected)
       reasons.push(schedules.length === 0 ? 'paid_without_schedules' : 'schedule_count_mismatch_review');
     if (['pending', 'failed', 'await_deposit'].includes(String(o.status)) && schedules.length)
       reasons.push('unpaid_order_has_schedules');

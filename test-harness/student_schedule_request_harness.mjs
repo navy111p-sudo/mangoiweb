@@ -96,6 +96,7 @@ function makeDb() {
 const versionSrc = SRC('src/class-schedule-move.ts');
 const scheduleMoveVersion = new Function('row', blockAt(versionSrc, versionSrc.indexOf('export function scheduleMoveVersion')));
 const json = (o, status = 200) => ({ status, body: o });
+const autoCalls = [];
 async function call({ tok, payload, pre }) {
   const { db, D1 } = makeDb();
   const env = { DB: D1 };
@@ -104,12 +105,16 @@ async function call({ tok, payload, pre }) {
   const url = new URL('http://x/api/class/schedule/request');
   const authUidGlobal = async () => tok;
   const notes = [];
+  /* ⏩ (2026-10-06) 자동 승인은 student_auto_postpone_harness 가 진짜로 돌린다 — 여기서는
+     «접수 뒤 그 요청 번호로 부르는가» 만 보고, 결과는 «대기 그대로»(applied:null)로 돌려준다. */
+  autoCalls.length = 0;
+  const autoStub = async (_e, id) => { autoCalls.push(id); return { applied: null, reason: 'stub' }; };
   const enqueueNotification = async (_e, n) => { notes.push(n); };
   let res;
   try {
-    const fn = new Function('env', 'request', 'url', 'json', 'authUidGlobal', 'enqueueNotification', 'studentRequestGate', 'ensureScheduleChangeRequestTable', 'scheduleMoveVersion', 'WEEKLY_POSTPONE',
+    const fn = new Function('env', 'request', 'url', 'json', 'authUidGlobal', 'enqueueNotification', 'studentRequestGate', 'ensureScheduleChangeRequestTable', 'scheduleMoveVersion', 'WEEKLY_POSTPONE', 'autoApproveStudentPostpone',
       'return (async () => {' + body + '\n})();');
-    res = await fn(env, request, url, json, authUidGlobal, enqueueNotification, gate, ensureScheduleChangeRequestTable, scheduleMoveVersion, 'weekly_postpone'); }
+    res = await fn(env, request, url, json, authUidGlobal, enqueueNotification, gate, ensureScheduleChangeRequestTable, scheduleMoveVersion, 'weekly_postpone', autoStub); }
   catch (e) { res = { status: 0, body: { error: 'THREW ' + e.message } }; }
   const rows = (() => { try { return db.prepare('SELECT * FROM schedule_change_requests').all(); } catch { return []; } })();
   return { res, rows, notes };
@@ -120,6 +125,7 @@ const plus = n => new Date(Date.parse(today + 'T00:00:00Z') + n * 864e5).toISOSt
 {
   const { res, rows, notes } = await call({ tok: 'jeong', payload: { schedule_id: 849, request_type: 'postpone', orig_date: plus(1), new_date: plus(3), new_time: '11:20', student_name: '가짜이름', orig_time: '03:00', student_uid: 'kim' } });
   ok('내 반복 수업 연기 → 200', res.status === 200 && res.body.ok === true, res);
+  ok('접수 뒤 자동 승인을 «그 요청 번호» 로 부른다', autoCalls.length === 1 && autoCalls[0] === res.body.id, autoCalls);
   ok('요청 1행 저장', rows.length === 1, rows.length);
   const r = rows[0] || {};
   ok('학생 역할·토큰 uid 로 적는다', r.requester_role === 'student' && r.requester_uid === 'jeong', r);
@@ -501,12 +507,17 @@ ok('확정도 실제 수업은 담은 수를 강요하지 않는다', /!__MOB_RE
 const push = blockAt(page, page.indexOf('function pushBackAll(){'));
 // 2026-10-05: explicitly requested weekly cascading postponement replaces the
 // old one-occurrence shortcut. Execute the actual UI handler against a preview.
-const previewState={mode:'postpone',dtOrig:0,cart:[]};
+const previewState={mode:'postpone',tab:'weekly',dtOrig:0,cart:[]};  // 2026-10-05 A안: «매주» 탭에서만 담는다
 const previewItems=[{id:1,from_date:'2027-01-06',to_date:'2027-01-13',to_time:'16:30'},{id:2,from_date:'2027-01-13',to_date:'2027-01-20',to_time:'16:30'}];
 const previewDeps={state:previewState,__MOB_REAL:true,CURRENT_SCHEDULE:[{schedule_id:1,teacherName:'Sandbox',date:'2027-01-06',hour:'16:30'}],__dtFirstOpen:()=>0,localStorage:{getItem:()=> 'sandbox-token'},showToast:()=>{},renderBody:()=>{},updateSticky:()=>{},fetch:async()=>({ok:true,json:async()=>({ok:true,count:2,items:previewItems,snapshot:'sandbox-snapshot'})})};
 await new Function(...Object.keys(previewDeps),'return (async()=>{'+push+'})();')(...Object.values(previewDeps));
 ok('한 주 뒤로: 전체 시리즈를 한 요청으로 담는다',previewState.cart.length===1&&previewState.cart[0].requestScope==='weekly_postpone');
 ok('연기 전후 전체 회차와 서버 스냅샷 보존',previewState.cart[0]?.seriesItems.length===2&&previewState.cart[0]?.seriesSnapshot==='sandbox-snapshot');
+// 짝: 응답을 기다리는 사이 날짜 탭으로 갔으면 늦게 온 미리보기를 버린다(Codex 리뷰 #1381)
+const awayState={mode:'postpone',tab:'weekly',dtOrig:0,cart:[]};
+const awayDeps={...previewDeps,state:awayState,fetch:async()=>{awayState.tab='time';return {ok:true,json:async()=>({ok:true,count:2,items:previewItems,snapshot:'sandbox-snapshot'})};}};
+await new Function(...Object.keys(awayDeps),'return (async()=>{'+push+'})();')(...Object.values(awayDeps));
+ok('기다리는 사이 다른 탭으로 가면 매주 묶음을 담지 않는다',awayState.cart.length===0);
 const done = blockAt(page, page.indexOf('function showCompletion('));
 ok('완료 화면의 «기존» 도 고른 수업만', /__mobPickedOrigs\(\)/.test(done) && /beforeSrc\.forEach/.test(done));
 

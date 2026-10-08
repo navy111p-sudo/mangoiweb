@@ -17,7 +17,8 @@ import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 
 import { praiseCountForRoom } from './point-policy';   // ⭐ 칭찬 횟수 정본(복제 금지)
 import { loadRevenue, loadCare, saveCare } from './forecast-dashboard';
 import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
-import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
+import { selectInChunks } from './d1-chunk';
+import { workplaceOf } from './recording-teacher';   // 🏠/🏢 강사 근무지 판정 정본(명부 group_name)   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { ensureRateOverrideTable } from './org-settlement';   // 💰 수수료·수강료 설정표 — DDL 정본은 그 파일 한 곳
 import { teacherPresenceByRoom } from './no-show-truth';
 import { enrichClassesToday } from './class-today-extras';   // 📋 오늘 수업 일곱 칸(날짜·강사입장·결제·일정·평가·출결)   // 🔎 「강사 미입장」이 오판인지 출석 기록과 대조
@@ -28,7 +29,7 @@ import { computeMonthlyFee, weeklyCountFromDays } from './enroll-fee';
 import { priceForUid, enrollAdminHqOnly } from './enroll-ops';   // 🏪 대리점 주1회 단가 — 기준가가 없을 때만 쓴다
 import { prepareScheduleRequestGuards, commitScheduleRequestDecision } from './schedule-request-atomic';
 import { moveSchedulesAtomically, scheduleMoveVersion } from './class-schedule-move';
-import { findScheduleConflicts, findScheduleMoveConflicts, loadScheduleMoveFacts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
+import { findScheduleConflicts, findScheduleMoveConflicts, loadScheduleMoveFacts, scheduleRowsOverlap, scheduleDays } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { loadSchedSummaryMap, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약」 칸 정본 — erp-list 와 «같은» 값을 쓴다(복제 금지)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buildClassRenewalText, CLASS_RENEWAL_FROM_PHONE } from './solapi-client';
 /* 🔗 미연장 안내 문자에 넣는 «그 학생 전용» 1회용 연장 링크. 학부모 폰에 학생 로그인이
@@ -42,6 +43,7 @@ import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap,
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { ensureScheduleChangeRequestTable } from './student-schedule-request';
 import { enqueueNotification, sendPushToUser } from './api-notify';
+import { phonesForStudent } from './notify-contacts';   // 📣 (2026-10-07) 수업 안내 문자 — 받아 둔 번호 먼저
 import { scopeFragments, studentScopeWhere, getScope, franchiseList, scopeStudentCond, scopeFranchiseCond, scopeCenterCond, canEditOrg } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(학부모봇과 공유)
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
@@ -49,11 +51,12 @@ import { KCP_TRANSFER_CYPHER_RE, KCP_REVENUE_CYPHER_RE } from './accounting-repo
 import { c24ExpenseDrop, C24_HANGUL_CYPHER_RE, C24_LETTER_CYPHER_RE } from './c24-expense-filter';  // 🧾 카페24 지출결의 중 «우리 것이 아닌» 건(한글 결재·특정 결재라인) 제외 — 판정 정본
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance, ensureCenterOverrideTables, ensureFranchiseOverrideTable } from './cafe24-sync';
 import { buildMangoiClassesNow, mergeClassesNow, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
+import { findRoomMismatches } from './room-mismatch';   // 🚨 «같은 수업인데 서로 다른 방» 감시(2026-10-07 delaware)
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
 import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
-import { writeClassAudit, listClassAudit } from './class-audit';
+import { writeClassAudit, listClassAudit, ensureClassAuditTable } from './class-audit';
 import { runScheduleSplit } from './schedule-split';
 import { planEndMakeup, END_MAKEUP_MARK_SQL } from './end-makeup';   // ⏸ 연기보강(2026-10-02)   // 📅 매주 수업 → 날짜별 수업 나누기(2026-10-02)   // 📜 수업 변경 이력(연기/삭제/종료)
 import { TEACHER_STATUSES, canonTeacherStatus, isTeacherStatus, toTeacherListHidden, teacherVisibleSql } from './teacher-status';   // 🧑‍🏫 강사 상태(활동중·비활동·퇴사) + 명부 숨김 — 판정 정본
@@ -5143,6 +5146,28 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         const _hide = ['rate_per_10min_php','fee_per_10min','bank_account','bank_name','salary','monthly_salary','monthly_salary_php','pay_php','account_no'];
         teacherRows = teacherRows.map(r => { const o = { ...r }; for (const k of _hide) delete o[k]; return o; });
       }
+      /* 🏠/🏢 (2026-10-07 사장님 「담당 강사 옆에 전체·홈·사무실 칸」) 근무지 — 화면이 거르는 데 쓴다.
+         ⚠️ 정본은 teachers.status 가 아니라 강사 명부 teacher_profiles.group_name 이다
+            (2026-10-07 D1 실측: CHAINE·KRYSTEL·WIN 은 status='office' 인데 명부는 Home-based,
+             LEN 은 반대 — 명부 화면·녹화 목록이 이미 group_name 으로 판정한다. 같은 규칙 workplaceOf).
+         ⛔ 원부 번호(linked_teacher_id)로만 잇고, 프로필이 둘 이상인데 서로 다르면 '' (모름) — 지어내지 않는다.
+         ⚠️ 이 조회가 실패해도 목록은 그대로 — workplace 만 '' 로 남는다(화면은 «전체» 에서만 보인다). */
+      try {
+        const _wpRs = await env.DB.prepare(
+          `SELECT linked_teacher_id, group_name FROM teacher_profiles WHERE linked_teacher_id IS NOT NULL ORDER BY id DESC`
+        ).all();
+        const _wpBy = new Map<string, 'home' | 'office' | ''>();
+        for (const p of ((_wpRs.results || []) as any[])) {
+          const k = String(p.linked_teacher_id);
+          const w = workplaceOf(p.group_name);
+          if (!_wpBy.has(k)) _wpBy.set(k, w);
+          else if (_wpBy.get(k) !== w) _wpBy.set(k, '');
+        }
+        teacherRows = teacherRows.map(r => ({ ...r, workplace: _wpBy.get(String(r.id)) || '' }));
+      } catch (e: any) {
+        console.error('[teachers] 근무지 조회 실패(목록은 그대로):', e?.message || e);
+        teacherRows = teacherRows.map(r => ({ ...r, workplace: '' }));
+      }
       // items/teachers/data 별칭 모두 제공(프론트 호환: weekly-schedule.html 등)
       return json({ ok: true, items: teacherRows, teachers: teacherRows, data: teacherRows });
     }
@@ -6112,7 +6137,12 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         //    예전엔 아래 기본값에 걸려 평범한 '1:1' 로 그려졌다 — 있어도 못 알아봤다.
         if (c === 'level_test' || c === 'leveltest' || c === '레벨테스트') return 'leveltest';
         if (c === 'group' || c === '1:2' || c === 'g' || c === '그룹') return 'group';
-        if (c === 'temp' || c === 'substitute' || c === '대체') return 'temp';
+        // 🟣 (2026-10-06 사장님) 보강수업(makeup)도 'temp' 칸으로 — 주간 스케줄의 «임시» 를 «보강» 으로 바꿨다
+        //    (2026-10-07 «보충» → «보강» 으로 이름 통일). 그 화면은 'temp' 로 만든 수업을 class_type='makeup' 으로
+        //    저장하는데(SLOT_TYPE_TO_CLASS_TYPE), 여기서 makeup 을 모르면 다시 읽을 때 '1on1'(정규)로 떨어졌다.
+        if (c === 'temp' || c === 'substitute' || c === '대체' || c === 'makeup' || c === '보충' || c === '보강') return 'temp';
+        // 🟢 (2026-10-07 사장님 «정규·보강·체험·레벨테스트로 통일») 체험수업이 기본값에 걸려 '1on1'(정규)로 그려졌다.
+        if (c === 'trial' || c === '체험') return 'trial';
         if (c === 'blocked' || c === 'off' || c === '휴무') return 'blocked';
         return '1on1';
       };
@@ -6391,7 +6421,19 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const fromDate = url.searchParams.get('from_date');
       const toDate = url.searchParams.get('to_date');
       const kind = url.searchParams.get('kind') || 'all';
-      const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 500);
+      const rawLimit = url.searchParams.get('limit') || '100', rawOffset = url.searchParams.get('offset') || '0';
+      const requestedLimit = Number(rawLimit), offset = Number(rawOffset);
+      if (!/^\d+$/.test(rawLimit) || !/^\d+$/.test(rawOffset) || !Number.isSafeInteger(requestedLimit)
+        || requestedLimit < 1 || !Number.isSafeInteger(offset) || offset < 0) {
+        return json({ ok: false, error: 'invalid_pagination' }, 400);
+      }
+      const limit = Math.min(requestedLimit, 500);
+      const snapshotPagination = url.searchParams.has('offset') || url.searchParams.has('expected_snapshot');
+      const expectedSnapshot = url.searchParams.get('expected_snapshot');
+      if ((expectedSnapshot != null && !/^[a-f0-9]{64}$/.test(expectedSnapshot))
+        || (snapshotPagination && offset > 0 && !expectedSnapshot)) {
+        return json({ ok: false, error: 'invalid_pagination_snapshot', complete: false }, 400);
+      }
 
       /* 🔴 (2026-09-11) WHERE 의 컬럼에는 반드시 `cs.` 를 붙인다 — `teachers` 에도
          **`status` 와 `user_id` 가 있어서**(실측 스키마) JOIN 을 붙이는 순간
@@ -6484,25 +6526,47 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       if (kind === 'recurring') where.push(`cs.schedule_kind = 'recurring'`);
       else if (kind === 'one_off') where.push(`cs.schedule_kind = 'one_off'`);
 
-      binds.push(limit);
+      binds.push(limit + 1, offset);
       // 1차: teachers JOIN 시도 (강사명 함께)
       const _soSel = startsOnSel(await ensureStartsOnColumn(env), 'cs');
-      const sqlWithJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.notes, cs.created_at${_soSel}, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
+      const sqlWithJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.notes, cs.created_at${_soSel}, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC, cs.id ASC LIMIT ? OFFSET ?`;
       // 2차: JOIN 없이 (teachers 테이블 미존재 등에 대비)
-      const sqlNoJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.notes, cs.created_at${_soSel} FROM class_schedules cs WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
+      const sqlNoJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.notes, cs.created_at${_soSel} FROM class_schedules cs WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC, cs.id ASC LIMIT ? OFFSET ?`;
       try {
+        // Page and revision come from one ordered SELECT; separate reads can miss
+        // cancellation or insertion between offsets. Oversize snapshots fail closed.
+        const readPage = async (sql: string) => snapshotPagination
+          ? env.DB.prepare(sql.replace(/LIMIT \? OFFSET \?$/, 'LIMIT 10001')).bind(...binds.slice(0, -2)).all<any>()
+          : env.DB.prepare(sql).bind(...binds).all<any>();
         let rows;
         try {
-          rows = await env.DB.prepare(sqlWithJoin).bind(...binds).all<any>();
+          rows = await readPage(sqlWithJoin);
         } catch (joinErr: any) {
           console.warn('[class-schedules] JOIN failed, fallback no-JOIN:', joinErr?.message);
-          rows = await env.DB.prepare(sqlNoJoin).bind(...binds).all<any>();
+          rows = await readPage(sqlNoJoin);
         }
         // Phase 7g: server-side 변환 제거 - client 가 visible week/month 기준으로 1회성 위치 계산
-        return json({ ok: true, count: (rows.results || []).length, items: rows.results || [], merge_info: mergeInfo });
+        if (!rows || rows.success === false || !Array.isArray(rows.results)) throw new Error('schedule_lookup_failed');
+        let snapshot: string | undefined;
+        if (snapshotPagination) {
+          if (rows.results.length > 10000) throw new Error('schedule_snapshot_too_large');
+          const bytes = new TextEncoder().encode(JSON.stringify(rows.results));
+          if (bytes.byteLength > 1500000) throw new Error('schedule_snapshot_too_large');
+          snapshot = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)))
+            .map(value => value.toString(16).padStart(2, '0')).join('');
+          if (expectedSnapshot && expectedSnapshot !== snapshot) {
+            return json({ ok: false, error: 'schedule_changed', count: 0, items: [], complete: false,
+              has_more: null, next_offset: null, merge_info: mergeInfo }, 409);
+          }
+        }
+        const pageRows = snapshotPagination ? rows.results.slice(offset, offset + limit + 1) : rows.results;
+        const hasMore = pageRows.length > limit, items = pageRows.slice(0, limit);
+        return json({ ok: true, count: items.length, items, merge_info: mergeInfo, snapshot,
+          offset, limit, has_more: hasMore, next_offset: hasMore ? offset + items.length : null, complete: !hasMore });
       } catch (e: any) {
         console.warn('[class-schedules] both queries failed:', e?.message);
-        return json({ ok: true, count: 0, items: [], warning: String(e?.message || e), merge_info: mergeInfo });
+        return json({ ok: false, error: 'schedule_lookup_failed', count: 0, items: [], complete: false,
+          has_more: null, next_offset: null, warning: String(e?.message || e), merge_info: mergeInfo }, 503);
       }
     }
 
@@ -7352,6 +7416,94 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const deny = await enrollAdminHqOnly(request, env);
       if (deny) return deny;
       const body: any = await request.json().catch(() => ({}));
+      /* ↩ (2026-10-07 매니저 요청 4) { action:'restore' } — 잘못 «수업 종료» 한 수업을 되살린다.
+         학생 상세 「🗓️ 종료·연장」이 DELETE(=cancelled) 로 내린 행을 그 자리 그대로 active 로 돌린다.
+         ⛔ source 는 안 바꾼다 — DELETE 가 미러 행에 찍은 'c24-mirror:manual' 이 남아야 미러가 그 행을
+            «사람 손» 으로 보고 덮지도·두 벌 만들지도 않는다.
+         ⛔ 같은 학생·같은 날짜·같은 시각에 이미 살아 있는 수업이 있으면 되살리지 않는다(두 벌 방지).
+         ⛔ 지난 날짜는 되살리지 않는다(지난 수업을 «예정» 으로 만들면 결석 감지·급여가 엉킨다). */
+      if (body && body.action === 'restore') {
+        const actor = await getAdminActor(request, env as any);
+        const row: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
+        if (!row) return json({ ok: false, error: 'not_found' }, 404);
+        if (String(row.status || '') !== 'cancelled') return json({ ok: false, error: 'not_cancelled', status: row.status || null }, 409);
+        const sd = String(row.scheduled_date || '').slice(0, 10);
+        const todayKst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(sd) && sd < todayKst) return json({ ok: false, error: 'past_date' }, 409);
+        /* ⛔ 날짜 없는 매주 반복 행은 여기서 되살리지 않는다 — 날짜·중복 확인을 할 수 없다(시간표에서 다시 등록). */
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(sd)) return json({ ok: false, error: 'weekly_row' }, 409);
+        /* ⚠️ 중복 확인을 못 하면 «없다» 로 넘기지 않는다(fail-closed).
+           날짜 지정·매주 반복 후보를 함께 읽고 이동 경로의 정본 반개구간/starts_on 판정을 쓴다.
+           restore의 기존 같은 시각 차단은 유지한다 — 합반 허용 정책은 이 수정에서 바꾸지 않는다. */
+        let dup: any = null, snapshotSql = '', snapshotValue = '';
+        const fields = Object.keys(row), quote = (field: string) => '"' + field.replace(/"/g, '""') + '"';
+        const candidateArgs = [id, row.user_id, String(row.teacher_id || ''), String(row.teacher_id || '')];
+        try {
+          // D1 limits SQL functions to 32 arguments and statements to 100 binds. Never truncate a proof.
+          if (!fields.length || fields.length > 32 || fields.length + candidateArgs.length + 2 > 100) throw new Error('restore_capacity_exceeded');
+          const snapshotBytes = (value: string) => new TextEncoder().encode(value).byteLength;
+          const maxSnapshotBytes = 1_500_000; // Headroom below D1's 2 MB value/row limit, including the source proof.
+          if (snapshotBytes(JSON.stringify(fields.map(field => row[field] ?? null))) > maxSnapshotBytes) throw new Error('restore_capacity_exceeded');
+          // Read the exact facts later compared inside the transaction, including optional legacy columns.
+          snapshotSql = `SELECT json_group_array(json_array(${fields.map(quote).join(',')})) AS value FROM (
+            SELECT * FROM class_schedules WHERE id <> ? AND (status IS NULL OR status != 'cancelled')
+               AND (user_id = ? OR (? <> '' AND teacher_id = ? AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed'))) ORDER BY id)`;
+          const snapshot: any = await env.DB.prepare(snapshotSql).bind(...candidateArgs).all();
+          if (!snapshot || snapshot.success === false || !Array.isArray(snapshot.results) || snapshot.results.length !== 1
+            || typeof snapshot.results[0]?.value !== 'string') throw new Error('schedule_lookup_failed');
+          snapshotValue = snapshot.results[0].value;
+          if (snapshotBytes(snapshotValue) > maxSnapshotBytes) throw new Error('restore_capacity_exceeded');
+          const values = JSON.parse(snapshotValue);
+          if (!Array.isArray(values) || values.some((value: any) => !Array.isArray(value) || value.length !== fields.length)) throw new Error('schedule_lookup_failed');
+          const candidates = values.map((value: any[]) => Object.fromEntries(fields.map((field, i) => [field, value[i]])));
+          const validDate = (value: any) => /^\d{4}-\d{2}-\d{2}$/.test(String(value))
+            && Number.isFinite(Date.parse(value + 'T00:00:00Z')) && new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value;
+          const validSlot = (slot: any) => {
+            if (!slot || !/^(?:[01]?\d|2[0-3]):[0-5]\d$/.test(String(slot.start_time || ''))
+              || slot.duration_min != null && (!Number.isInteger(Number(slot.duration_min)) || Number(slot.duration_min) <= 0 || Number(slot.duration_min) > 240)) return false;
+            // 정본 이동 판정과 같이 NULL 길이만 기존 20분 수업으로 본다. 잘못된 값은 빈 시간의 근거가 아니다.
+            if (slot.scheduled_date) return validDate(slot.scheduled_date);
+            const days = String(slot.day_of_week ?? '').trim().split(/[,\s]+/);
+            return days.length > 0 && days.every(day => scheduleDays({ day_of_week: day }).length === 1)
+              && (!slot.starts_on || validDate(slot.starts_on));
+          };
+          if (!validSlot(row) || candidates.some((other: any) => !validSlot(other))) throw new Error('schedule_data_unknown');
+          dup = candidates.find((other: any) => scheduleRowsOverlap(row, other, todayKst));
+        } catch (e: any) { return json({ ok: false, error: 'lookup_failed' }, 409); }
+        if (dup) return json({ ok: false, error: 'slot_taken', other_id: dup.id }, 409);
+        try {
+          // Reuse the existing move CHECK guard and D1.batch transaction; no new schema definition.
+          const guardReady: any = await env.DB.prepare(`CREATE TABLE IF NOT EXISTS schedule_move_guard (
+            token TEXT PRIMARY KEY, valid INTEGER NOT NULL CONSTRAINT schedule_move_snapshot CHECK(valid=1))`).run();
+          if (!guardReady || guardReady.success === false) throw new Error('restore_guard_failed');
+          await ensureClassAuditTable(env);
+          const token = crypto.randomUUID(), now = Date.now();
+          // An ignored write is not a SQL failure. Abort inside the transaction before it can partially commit.
+          // JSON is already required by the snapshot; its invalid-input branch deliberately raises a SQL error.
+          const assertOneChange = () => env.DB.prepare(`SELECT CASE WHEN changes() = 1 THEN 1 ELSE json('restore_statement_failed') END`);
+          const result = await env.DB.batch([
+            env.DB.prepare(`INSERT INTO schedule_move_guard(token,valid) SELECT ?, CASE WHEN
+              EXISTS (SELECT 1 FROM class_schedules WHERE ${fields.map(field => `${quote(field)} IS ?`).join(' AND ')})
+              AND (${snapshotSql}) IS ? THEN 1 ELSE 0 END`).bind(token, ...fields.map(field => row[field] ?? null), ...candidateArgs, snapshotValue),
+            assertOneChange(),
+            env.DB.prepare(`UPDATE class_schedules SET status='active', updated_at=? WHERE id=? AND status='cancelled'`).bind(now, id),
+            assertOneChange(),
+            env.DB.prepare(`INSERT INTO class_audit_log (action,schedule_id,teacher_name,student_name,lesson_date,lesson_time,actor,actor_role,source,reason,created_at)
+              VALUES ('restore',?,?,?,?,?,?,'admin','ui',?,?)`).bind(id, row.teacher_name || null, row.student_name || null, sd, row.start_time || null,
+              actor.name || actor.username || '관리자', body.reason ? String(body.reason).slice(0, 300) : '수업 종료 되돌리기', now),
+            assertOneChange(),
+            env.DB.prepare(`DELETE FROM schedule_move_guard WHERE token=?`).bind(token),
+            assertOneChange(),
+          ]);
+          if (!Array.isArray(result) || result.length !== 8 || result.some((r: any) => !r || r.success === false)
+            || Number(result[2]?.meta?.changes) !== 1) throw new Error('restore_batch_failed');
+          return json({ ok: true, id, status: 'active' });
+        } catch (e: any) {
+          if (/schedule_move_snapshot/.test(String(e?.message || e))) return json({ ok: false, error: 'schedule_changed',
+            message: '확인 중 수업 정보가 변경되었습니다. 새로고침한 뒤 다시 시도해 주세요.' }, 409);
+          return json({ ok: false, error: 'restore_failed', message: '수업 복원을 확인하지 못했습니다. 새로고침한 뒤 다시 시도해 주세요.' }, 503);
+        }
+      }
       if (!body || body.action !== 'split') return json({ ok: false, error: 'unknown_action' }, 400);
       const dry = body.dry_run !== false;
       const actor = await getAdminActor(request, env as any);
@@ -9054,6 +9206,44 @@ ${chatSampleText}
            ℹ️ 「장기 결석생」 화면의 퀵케어는 이 경로가 아니라 sms:·tel: 링크라 손대지 않았다
               (그쪽은 폰의 문자앱을 열어 줄 뿐이라 «보냈다» 고 말하지 않는다). */
         const _careTo = parentPhone || studentPhone || '';
+        /* 📣 (2026-10-07 매니저 요청 3) 'class_notice' — 「오늘 수업」 줄에서 «강사가 기술 문제로 못 하게 됐다» 같은
+           안내를 그 학생에게 바로 보낸다(카페24 「메시지 보내기」 PUSH+SMS 에 해당).
+           - 받는 곳 둘: ① 웹푸시(그 학생 계정이 알림을 켰을 때만) ② 문자(번호는 정본 phonesForStudent —
+             화면에서 받아 둔 번호(override)를 먼저 본다. 위 _careTo 는 명부만 봐서 그 번호를 못 본다).
+           - 🔒 돈이 나가고 우리 이름으로 나가는 문자라 강사·지사·대리점은 막는다(모르면 막는 쪽).
+           - ⚠️ «하나라도 닿았는가» 로 sent/failed 를 가른다 — 둘 다 0이면 «보냈다» 고 하지 않는다. */
+        if (actionType === 'class_notice') {
+          //    판정은 정본 enrollAdminHqOnly(스코프를 다시 읽고 못 읽으면 막음 — getAdminActor 의 fail-open 을 안 탄다).
+          const _cnDeny = await enrollAdminHqOnly(request, env);
+          if (_cnDeny) return _cnDeny;
+          if (!message) return json({ ok: false, error: 'empty_message' }, 400);
+          const _wantPush = b.push !== false, _wantSms = b.sms !== false;
+          const parts: string[] = [];
+          let reached = 0;
+          if (_wantPush) {
+            const pr: any = await sendPushToUser(env as any, uid, String(b.title || '망고아이 안내').slice(0, 60), message, '/', 'class-notice-' + now).catch((e: any) => ({ ok: false, error: e?.message }));
+            const n = Number(pr && pr.sent) || 0;
+            reached += n;
+            parts.push(n > 0 ? '푸시 ' + n + '대 전송' : (pr && pr.msg === 'no_subscriptions' ? '푸시: 이 학생은 알림을 켜지 않았습니다' : '푸시: 못 보냄'));
+          }
+          if (_wantSms) {
+            let to = '';
+            try { const ph = await phonesForStudent(env as any, uid); to = ph.parent || ph.student || ''; } catch {}
+            if (!to) to = _careTo;
+            if (!to || to.replace(/[^0-9]/g, '').length < 10) parts.push('문자: 보낼 번호가 없습니다');
+            else {
+              const r: any = await sendPlainSms(env as any, to, message, { subject: String(b.title || '망고아이 안내').slice(0, 30) });
+              if (r.ok && r.mode !== 'mock') { reached++; parts.push('문자 발송 → ' + maskPhoneForLog(to)); }
+              else if (r.ok) parts.push('문자: 테스트 모드라 실제로는 안 나갔습니다');
+              else parts.push('문자 실패: ' + (r.message || r.error || 'unknown'));
+            }
+          }
+          status = reached > 0 ? 'sent' : 'failed';
+          detail = parts.join(' · ');
+          await env.DB.prepare(`INSERT INTO retention_care_log (user_id, action_type, message, gift_type, event_id, status, error, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+            .bind(uid, actionType, message, '', '', status, status === 'failed' ? detail : null, now).run();
+          return json({ ok: true, status, detail, reached });
+        }
         if (actionType === 'kakao' || actionType === 'sms') {
           if (!message) { status = 'failed'; detail = '보낼 내용이 비어 있습니다.'; }
           else if (!_careTo) {
@@ -14947,15 +15137,19 @@ LIMIT $limit`;
         /* 실접속 행 — 오늘 «정말로 화상방에 붙은» 사람. 하루 수십 건이라 통째로 읽어도 가볍다.
            (`last_seen_at > 0` 이 카페24 씨앗과 실접속을 가르는 유일하게 확실한 표시다) */
         const liveRows = await (async () => {
-          try {
-            const r: any = await env.DB.prepare(
-              `SELECT user_id, username, room_id, joined_at, left_at, last_seen_at
-                 FROM attendance
-                WHERE joined_at >= ? AND last_seen_at IS NOT NULL AND last_seen_at > 0
-                LIMIT 500`
-            ).bind(now - SCAN_MS - AHEAD_MS).all();
-            return (r.results || []) as any[];
-          } catch { return [] as any[]; }
+          /* 🚨 (2026-10-07) account_uid 도 함께 뽑는다 — «서로 다른 방» 감시가 학생 «계정» 으로 잇는다
+             (user_id 는 기기 임시번호). 그 칸이 없는 옛 DB 에서는 예전 SELECT 로 떨어진다. */
+          const q = (cols: string) => env.DB.prepare(
+            `SELECT ${cols}
+               FROM attendance
+              WHERE joined_at >= ? AND last_seen_at IS NOT NULL AND last_seen_at > 0
+              LIMIT 500`
+          ).bind(now - SCAN_MS - AHEAD_MS).all();
+          try { const r: any = await q('user_id, username, account_uid, room_id, joined_at, left_at, last_seen_at'); return (r.results || []) as any[]; }
+          catch {
+            try { const r: any = await q('user_id, username, room_id, joined_at, left_at, last_seen_at'); return (r.results || []) as any[]; }
+            catch { return [] as any[]; }
+          }
         })();
         const normName = (v: any) => String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
         // 이름 → 실접속 행. 같은 이름이 둘 이상이면 «누구인지 모름» 이므로 잇지 않는다.
@@ -15061,6 +15255,15 @@ LIMIT $limit`;
 
         const classes = mergeClassesNow(c24Classes as any, mgClasses);
 
+        /* 🚨 (2026-10-07) «같은 수업인데 서로 다른 방» — 학생은 다른 방에, 예약방에는 누군가 접속 중.
+           판정 정본 src/room-mismatch.ts. 실패해도 목록은 그대로 뜬다(빈 배열). */
+        let roomMismatch: any[] = [];
+        try {
+          const infoBySched = new Map<number, { uid: string; source: any }>();
+          for (const r of schedRows) infoBySched.set(Number(r.id), { uid: String(r.user_id || ''), source: r.source });
+          roomMismatch = findRoomMismatches(mgClasses as any, liveRows, (id) => infoBySched.get(id) || null, now);
+        } catch (e: any) { console.warn('[classes-now] room mismatch:', e?.message); }
+
         return json({
           ok: true,
           now_kst: kstHM(now),
@@ -15074,6 +15277,7 @@ LIMIT $limit`;
             cafe24: classes.filter(c => c.source === 'cafe24').length,
           },
           classes,
+          room_mismatch: roomMismatch,
         });
       } catch (e: any) {
         return json({ ok: false, error: 'classes_now_failed', detail: String(e?.message || e) }, 500);

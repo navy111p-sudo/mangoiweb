@@ -85,7 +85,9 @@ if (process.env.SLS_CHILD === '1') {
     async delete(k) { kvMap.delete(k); },
     async list() { return { keys: [...kvMap.keys()].map((name) => ({ name })), list_complete: true }; },
   };
-  const env = new Proxy({ DB, ADMIN_PASSWORD: 'harness-pw', ROOM_JWT_SECRET: 'local-lifecycle-test-secret' }, {
+  /* ⏩ (2026-10-07) 학생 연기·변경은 이제 접수 즉시 반영된다. 이 하니스는 «관리자 승인 경로» 를 학생 요청으로 시험하므로
+     되돌리기 스위치로 2026-10-06 정책(무료 연기만 자동)을 켜고 돈다. 새 정책 자체는 student_auto_postpone_harness 가 본다. */
+  const env = new Proxy({ DB, ADMIN_PASSWORD: 'harness-pw', ROOM_JWT_SECRET: 'local-lifecycle-test-secret', STUDENT_AUTO_APPLY: 'free_postpone' }, {
     get(t, p) { if (p in t) return t[p]; if (typeof p === 'string' && /^[A-Z_]+$/.test(p) && /KV|STATE|CACHE|SESS/.test(p)) return KV; return undefined; },
   });
 
@@ -332,7 +334,10 @@ if (process.env.SLS_CHILD === '1') {
       const rejected=await submit(id);const no=await decide(rejected.body.id,'reject');
       ok('reject: request rejected and original schedule untouched',no.status===200&&requestRow(rejected.body.id).status==='rejected'&&JSON.stringify(original)===JSON.stringify(row(id)),JSON.stringify(no));
       const r=await submit(id,{request_type:'postpone',new_date:null,new_time:null,teacher_id:null});
-      const done=await decide(r.body.id);ok('postpone: approved dated occurrence postponed',done.body.applied==='postponed'&&row(id).status==='postponed',JSON.stringify(done));
+      /* ⏩ (2026-10-06) 학생 무료 «미정 연기» 는 접수 즉시 자동 승인된다(student-auto-postpone.ts) —
+         관리자 /decide 를 다시 부르면 already_decided 여야 한다(이중 적용 없음). */
+      ok('postpone: free student postpone auto-approved on submit',r.status===200&&r.body.status==='approved'&&r.body.auto_applied==='postponed'&&row(id).status==='postponed'&&requestRow(r.body.id).status==='approved',JSON.stringify(r));
+      const done=await decide(r.body.id);ok('postpone: admin re-decide does not reapply',done.status===409&&done.body.error==='already_decided'&&row(id).status==='postponed',JSON.stringify(done));
       await projections('postponed',id,originDate,'15:00','1',false);
       const rebook=await submit(id);const approved=await decide(rebook.body.id);
       ok('postpone: rebook restores active',approved.status===200&&approved.body.applied==='moved'&&row(id).status==='active',JSON.stringify({rebook,approved,row:row(id)}));

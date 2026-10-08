@@ -59,7 +59,9 @@ import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 �
 import { resolveRenewToken, markRenewLinkUsed, type RenewTokenScope } from './renew-link';
 import { writeClassAudit } from './class-audit';
 import { findScheduleConflicts, activeRowsFor, findLongClassCapBlock } from './schedule-conflict';
-import { planSeries, realConflict, normTime } from './class-series-move';   // 🔄 «변경(계속)» 시리즈 판정 정본
+import { planSeries, realConflict, normTime, seriesPreviewKey } from './class-series-move';   // 🔄 «변경(계속)» 시리즈 판정 정본
+import { recurStartedOn } from './class-start-date';
+import { captureSeriesMoveSnapshot, observeSeriesConflictReads, applySeriesMoveAtomically, readSeriesMoveFirst, readSeriesMoveRows } from './class-series-atomic';
 import { teacherMoveDenyReason } from './class-teacher-move';   // 🔒 담당 강사 변경 게이트 정본(PATCH 와 같음)   // 📅 옮기기 승인(/decide)이 쓰는 그 겹침 검사 — 복제 금지   // 📜 수업 변경 이력(공휴일 자동연기·강사 휴가대체)
 
 export const ENROLL_WEEKLY = [1, 2, 3, 5];
@@ -366,6 +368,55 @@ export async function enrollConflicts(env: any, teacherId: string, dates: string
   return conflicts;
 }
 
+/** 👤 (2026-10-06 사장님 지시) «학생 본인» 의 기존 수업과 겹치는 날짜들.
+ *  [왜] 위 enrollConflicts 는 «강사» 만 봐서, 같은 학생이 같은 시간에 이미 다른 강사와 수업이 있어도
+ *       수강신청이 그 자리에 수업을 하나 더 만들었다(한 사람이 두 수업에 못 앉는다).
+ *  · 합반 예외 없음 — 학생 기준 겹침은 언제나 겹침(schedule-conflict.ts 와 같은 규칙).
+ *  · 날짜 지정 행은 그 날짜로, 날짜 없는 반복 행은 요일로 본다(날짜가 이긴다 — sessions/today 와 같은 순서).
+ *  · excludeSource: 이 신청이 이미 만든 자기 행은 빼야 다시 계획할 때 «자기 자신과 겹침» 이 안 된다.
+ *  · 반환 null = 조회 실패(«모름»). 부르는 쪽은 막지 않고(예전 동작) «확인 못 함» 을 말한다. */
+export async function enrollStudentConflicts(env: any, userId: string, dates: string[], timesMinByDow: Record<number, number>,
+  minutes: number, days: number[], excludeSource?: string | null): Promise<Set<string> | null> {
+  const conflicts = new Set<string>();
+  const uid = String(userId || '').trim();
+  if (!uid || !dates.length) return conflicts;
+  const ex = String(excludeSource || '');
+  const sourceFilter = ex ? `AND COALESCE(source,'') <> ?` : '';
+  const lead = ex ? [uid, ex] : [uid];
+  try {
+    const rows: any[] = await selectInChunks<any>(env.DB, dates,
+      (ph) => `SELECT scheduled_date, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
+         WHERE user_id = ? AND status = 'active' ${sourceFilter} AND scheduled_date IN (${ph})`,
+      { lead });
+    for (const r of rows) {
+      const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
+      const startMin = timesMinByDow[dow];
+      if (startMin === undefined) continue;
+      const s = enrollTimeToMin(String(r.start_time || ''));
+      if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) conflicts.add(String(r.scheduled_date));
+    }
+    const rs2: any = await env.DB.prepare(
+      `SELECT *, COALESCE(duration_min, 20) AS dm FROM class_schedules
+       WHERE user_id = ? AND status = 'active' ${sourceFilter}
+         AND COALESCE(scheduled_date,'') = '' AND day_of_week IS NOT NULL`
+    ).bind(...lead).all();
+    // Keep optional starts_on when present without requiring a legacy schema change.
+    for (const r of ((rs2?.results as any[]) || [])) {
+      const s = enrollTimeToMin(String(r.start_time || ''));
+      if (s < 0) continue;
+      const rowDays = enrollDowList(r.day_of_week);
+      for (const iso of dates) {
+        const dw = new Date(iso + 'T00:00:00Z').getUTCDay();
+        if (!days.includes(dw) || !rowDays.includes(dw) || !recurStartedOn(r, iso)) continue;
+        const startMin = timesMinByDow[dw];
+        if (startMin === undefined) continue;
+        if (enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) conflicts.add(iso);
+      }
+    }
+  } catch (e) { console.warn('[enroll] student conflicts:', (e as any)?.message); return null; }
+  return conflicts;
+}
+
 /* 🕐 (2026-07-31) 시간 슬롯 전체 목록(06:00~23:40, 10분 단위) — 예약가능시간 필터링·강사프리 조회 공용 */
 function allTimeSlots(): string[] {
   const out: string[] = [];
@@ -587,6 +638,10 @@ export async function enrollCreateSchedules(env: any, order: any, orderId: strin
   // 결제 시점 기준 재검사 — 주문~결제 사이에 찬 슬롯 + 공휴일을 함께 blocked 처리
   const probe = enrollDates(String(ej.start_date), ej.days, sessions * 2);
   const blocked = await enrollConflicts(env, String(ej.teacher_id), probe, timesMinByDow, Number(ej.minutes) || 20, ej.days);
+  /* 👤 (2026-10-06) 학생 본인의 다른 수업과 겹치는 날짜도 건너뛴다(주문 뒤 다른 수업이 잡혔을 수 있다). */
+  const stuBlocked = await enrollStudentConflicts(env, String(ej.uid), probe, timesMinByDow, Number(ej.minutes) || 20, ej.days, src);
+  if (stuBlocked) stuBlocked.forEach((d) => blocked.add(d));
+  if (stuBlocked && stuBlocked.size) console.warn('[enroll] student overlap skipped', orderId, [...stuBlocked].slice(0, 5));
   const hol = await holidaySet(env, String(ej.start_date));
   hol.forEach((d) => blocked.add(d));
   const dates = enrollDates(String(ej.start_date), ej.days, sessions, blocked);
@@ -1239,19 +1294,44 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const hol = await holidaySet(env, p.startDate);
     const probe = enrollDates(p.startDate, p.days, sessions * 2);
     const conflicts = await enrollConflicts(env, p.teacherId, probe, p.timesMin, p.minutes, p.days);
-    const blocked = new Set<string>([...conflicts, ...hol]);
+    /* 👤 (2026-10-06 사장님 지시) 학생 본인 겹침 — 결제 주문(createEnrollOrder)과 같은 판정을 미리 보여 준다.
+       🔒 이 API 는 공개라, 본문 uid 가 «로그인한 본인» 으로 확인될 때만 본다.
+          ⛔ 확인 없이 보면 남의 아이디를 넣어 그 학생의 수업 시각을 알아낼 수 있다.
+       ⚠️ 못 보면(비로그인·조회 실패) 예전처럼 강사만 보고 student_checked:false — 주문 단계가 다시 막는다. */
+    let stuConf = new Set<string>();
+    let studentChecked = false;
+    const cUid = String(body.uid || '').trim();
+    if (cUid) {
+      let aUid: string | null = null;
+      try { aUid = await authUidOrAdminSession(request, url, env, body); } catch { aUid = null; }
+      if (aUid && aUid === cUid) {
+        const sc = await enrollStudentConflicts(env, cUid, probe, p.timesMin, p.minutes, p.days);
+        if (sc) { stuConf = sc; studentChecked = true; }
+      }
+    }
+    const blocked = new Set<string>([...conflicts, ...stuConf, ...hol]);
     const dates = enrollDates(p.startDate, p.days, sessions, blocked);
-    if (dates.length < sessions) return json({ ok: false, error: 'date_gen_failed' }, 400);
+    if (dates.length < sessions) {
+      if (stuConf.size) return json({ ok: true, sessions, conflict_count: conflicts.size, shifted_count: sessions,
+        ok_to_book: false, hard_blocked: true, teacher_busy: conflicts.size > 0,
+        student_checked: true, student_busy: true, student_conflict_count: stuConf.size,
+        first_student_conflict: probe.find((d) => stuConf.has(d)) || null });
+      return json({ ok: false, error: 'date_gen_failed' }, 400);
+    }
     // 원래 자리(공휴일·충돌 없이) 대비 몇 건이 밀렸는지 = 안내용
     const plain = enrollDates(p.startDate, p.days, sessions);
     const shifted = plain.filter((d) => blocked.has(d)).length;
     const firstConflict = plain.find((d) => conflicts.has(d)) || null;
+    /* 주문(신규)은 첫 회차가 학생 겹침이면 409 로 막는다 — 미리보기도 같은 답을 해야 «가능» 뒤에 결제에서 막히지 않는다 */
+    const firstStudent = plain.find((d) => stuConf.has(d)) || null;
     return json({
       ok: true, sessions, conflict_count: conflicts.size, shifted_count: shifted,
-      ok_to_book: !firstConflict || shifted < sessions,   // 밀려서라도 회차를 채울 수 있으면 예약 가능
+      ok_to_book: !firstStudent && (!firstConflict || shifted < sessions),   // 밀려서라도 회차를 채울 수 있으면 예약 가능
       hard_blocked: !!firstConflict && dates.length < sessions,
       first_date: dates[0], last_date: dates[dates.length - 1],
       teacher_busy: conflicts.size > 0,
+      student_checked: studentChecked, student_busy: stuConf.size > 0,
+      student_conflict_count: stuConf.size, first_student_conflict: firstStudent,
     });
   }
 
@@ -1660,93 +1740,88 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const body = await parseJsonBody(request) || {};
     const scheduleId = Number(body.schedule_id || 0);
     const apply = body.apply === true;
-    if (!scheduleId) return json({ ok: false, error: 'bad_params' }, 400);
-    const row: any = await env.DB.prepare(
-      `SELECT cs.id, cs.user_id, cs.student_name, cs.scheduled_date, cs.start_time, COALESCE(cs.duration_min,20) AS dm,
-              cs.teacher_id, cs.status, cs.source, t.name AS teacher_name
-         FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
-        WHERE cs.id = ? LIMIT 1`
-    ).bind(scheduleId).first();
-    if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
-    if (['lms', 'type_seed'].includes(String(row.user_id || '').toLowerCase())) return json({ ok: false, error: 'placeholder_row' }, 400);
-    { const d = await subScopeDenied(env, request, actor.role, row.user_id); if (d) return d; }
+    if (!scheduleId || body.expected_preview != null && typeof body.expected_preview !== 'string') return json({ ok: false, error: 'bad_params' }, 400);
+    let writing = false;
+    try {
+      const moveSnapshot = await captureSeriesMoveSnapshot(env, scheduleId, body.teacher_id);
+      const conflictReads = observeSeriesConflictReads(env, moveSnapshot);
+      const row: any = await readSeriesMoveFirst(env, moveSnapshot,
+        `SELECT cs.id, cs.user_id, cs.student_name, cs.scheduled_date, cs.start_time, COALESCE(cs.duration_min,20) AS dm,
+                cs.teacher_id, cs.status, cs.source, t.name AS teacher_name
+           FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
+          WHERE cs.id = ? LIMIT 1`, [scheduleId],
+        ['id','user_id','student_name','scheduled_date','start_time','dm','teacher_id','status','source','teacher_name']);
+      if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
+      if (['lms', 'type_seed'].includes(String(row.user_id || '').toLowerCase())) return json({ ok: false, error: 'placeholder_row' }, 400);
+      { const d = await subScopeDenied(env, request, actor.role, row.user_id); if (d) return d; }
 
-    /* 담당 강사 변경 — 같은 강사면 «안 바꿈». 바꾸면 본사 전용 + 실재하는 강사만. */
-    const curTid = row.teacher_id != null ? String(row.teacher_id) : '';
-    const wantTid = String(body.teacher_id ?? '').trim();
-    const swap = !!wantTid && wantTid !== curTid;
-    let newTeacherName: string | null = null;
-    if (swap) {
-      if (!/^\d+$/.test(wantTid)) return json({ ok: false, error: 'invalid_teacher_id' }, 400);
-      let scopeType: string | null = null;
-      try {
-        const sr: any = await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`).bind(actor.username).first();
-        const st = sr ? String(sr.scope_type ?? '').trim() : '';
-        scopeType = st || null;
-      } catch { scopeType = null; }                    // 모르면 정본 게이트가 막는다
-      const deny = teacherMoveDenyReason({ ok: actor.ok, isTeacher: actor.isTeacher, scopeType });
-      if (deny) return json(deny.error === 'forbidden_teacher' ? forbiddenTeacherBody(actor, deny.message)
-        : { ok: false, error: deny.error, message: deny.message }, deny.status as any);
-      const tr: any = await env.DB.prepare(`SELECT name FROM teachers WHERE CAST(id AS TEXT) = ? LIMIT 1`).bind(wantTid).first().catch(() => null);
-      if (!tr) return json({ ok: false, error: 'teacher_not_found' }, 400);
-      newTeacherName = String(tr.name || '');
+      /* 담당 강사 변경 — 같은 강사면 «안 바꿈». 바꾸면 본사 전용 + 실재하는 강사만. */
+      const curTid = row.teacher_id != null ? String(row.teacher_id) : '';
+      const wantTid = String(body.teacher_id ?? '').trim();
+      const swap = !!wantTid && wantTid !== curTid;
+      let newTeacherName: string | null = null;
+      if (swap) {
+        if (!/^\d+$/.test(wantTid)) return json({ ok: false, error: 'invalid_teacher_id' }, 400);
+        let scopeType: string | null = null;
+        try {
+          const sr: any = await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`).bind(actor.username).first();
+          const st = sr ? String(sr.scope_type ?? '').trim() : '';
+          scopeType = st || null;
+        } catch { scopeType = null; }                    // 모르면 정본 게이트가 막는다
+        const deny = teacherMoveDenyReason({ ok: actor.ok, isTeacher: actor.isTeacher, scopeType });
+        if (deny) return json(deny.error === 'forbidden_teacher' ? forbiddenTeacherBody(actor, deny.message)
+          : { ok: false, error: deny.error, message: deny.message }, deny.status as any);
+        const tr: any = await readSeriesMoveFirst(env, moveSnapshot,
+          `SELECT name FROM teachers WHERE CAST(id AS TEXT) = ? LIMIT 1`, [wantTid], ['name']);
+        if (!tr) return json({ ok: false, error: 'teacher_not_found' }, 400);
+        newTeacherName = String(tr.name || '');
+      }
+
+      // Past rows must not exhaust a candidate limit before canonical future selection.
+      const members = await readSeriesMoveRows(env, moveSnapshot,
+        `SELECT id, user_id, scheduled_date, start_time, teacher_id, source, status FROM class_schedules
+          WHERE user_id = ? AND status = 'active' AND scheduled_date IS NOT NULL AND scheduled_date <> ''
+          ORDER BY scheduled_date`, [row.user_id],
+        ['id','user_id','scheduled_date','start_time','teacher_id','source','status']);
+      const plan = planSeries(row, members, body.new_date, body.new_time);
+      if (!plan.ok) return json({ ok: false, error: plan.error }, plan.error === 'mirror_series' ? 409 : 400);
+
+      const minutes = Number(row.dm) || DEFAULT_CLASS_MINUTES;
+      const newTid = swap ? wantTid : curTid;
+      const ids = new Set(plan.items.map((it) => String(it.id)));
+      const conflicts: { date: string; ko: string; en: string }[] = [];
+      for (let i = 0; i < plan.items.length; i += 6) {
+        await Promise.all(plan.items.slice(i, i + 6).map(async (it) => {
+          const c = await findScheduleConflicts(conflictReads.env, {
+            kind: 'one_off', userId: row.user_id, teacherId: newTid || null,
+            schedDate: it.to_date, startTime: it.to_time, durationMin: minutes, excludeId: it.id,
+          });
+          if (realConflict(c, ids)) conflicts.push({ date: it.to_date, ko: c.ko, en: c.en });
+        }));
+      }
+      conflictReads.assertHealthy();
+      conflicts.sort((a, b) => (a.date < b.date ? -1 : 1));
+      const summary = {
+        preview_key: seriesPreviewKey(row, plan, newTid, minutes),
+        count: plan.items.length, delta_days: plan.delta_days, items: plan.items,
+        from_time: normTime(row.start_time), to_time: plan.items[0]?.to_time || '',
+        teacher: { from_id: curTid, from_name: row.teacher_name || null, to_id: newTid, to_name: swap ? newTeacherName : (row.teacher_name || null), changed: swap },
+      };
+      if (apply && body.expected_preview != null && body.expected_preview !== summary.preview_key)
+        return json({ ok: false, error: 'stale_preview', message: '미리보기 이후 수업이 변경되었습니다. 다시 확인해 주세요.' }, 409);
+      if (conflicts.length) return json({ ok: false, error: 'conflict', conflicts, ...summary }, 409);
+      if (!apply) return json({ ok: true, dry_run: true, ...summary });
+
+      writing = true;
+      await applySeriesMoveAtomically(env, moveSnapshot, row, plan, actor,
+        { swap, teacherId: newTid, teacherName: newTeacherName, reason: body.reason });
+      return json({ ok: true, applied: true, moved: plan.items.length, ...summary });
+    } catch (e: any) {
+      if (/schedule_move_snapshot/.test(String(e?.message || e)))
+        return json({ ok: false, error: 'schedule_changed', message: '확인 중 수업 정보가 변경되었습니다. 새로고침한 뒤 다시 시도해 주세요.' }, 409);
+      return json({ ok: false, error: writing ? 'move_failed' : 'availability_unknown',
+        message: writing ? '수업 저장을 확인하지 못했습니다. 새로고침한 뒤 다시 확인해 주세요.' : '수업 겹침을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 503);
     }
-
-    const rs: any = await env.DB.prepare(
-      `SELECT id, user_id, scheduled_date, start_time, teacher_id, source, status FROM class_schedules
-        WHERE user_id = ? AND status = 'active' AND scheduled_date IS NOT NULL AND scheduled_date <> ''
-        ORDER BY scheduled_date LIMIT 400`
-    ).bind(row.user_id).all();
-    const plan = planSeries(row, (rs?.results as any[]) || [], body.new_date, body.new_time);
-    if (!plan.ok) return json({ ok: false, error: plan.error }, plan.error === 'mirror_series' ? 409 : 400);
-
-    const minutes = Number(row.dm) || DEFAULT_CLASS_MINUTES;
-    const newTid = swap ? wantTid : curTid;
-    const ids = new Set(plan.items.map((it) => String(it.id)));
-    const conflicts: { date: string; ko: string; en: string }[] = [];
-    for (let i = 0; i < plan.items.length; i += 6) {
-      await Promise.all(plan.items.slice(i, i + 6).map(async (it) => {
-        const c = await findScheduleConflicts(env, {
-          kind: 'one_off', userId: row.user_id, teacherId: newTid || null,
-          schedDate: it.to_date, startTime: it.to_time, durationMin: minutes, excludeId: it.id,
-        });
-        if (realConflict(c, ids)) conflicts.push({ date: it.to_date, ko: c.ko, en: c.en });
-      }));
-    }
-    conflicts.sort((a, b) => (a.date < b.date ? -1 : 1));
-    const summary = {
-      count: plan.items.length, delta_days: plan.delta_days, items: plan.items,
-      from_time: normTime(row.start_time), to_time: plan.items[0]?.to_time || '',
-      teacher: { from_id: curTid, from_name: row.teacher_name || null, to_id: newTid, to_name: swap ? newTeacherName : (row.teacher_name || null), changed: swap },
-    };
-    if (conflicts.length) return json({ ok: false, error: 'conflict', conflicts, ...summary }, 409);
-    if (!apply) return json({ ok: true, dry_run: true, ...summary });
-
-    /* 적용 — 한 번의 batch. 행마다 «옛 날짜·시각 그대로인가» 를 WHERE 로 다시 본다(그 사이 누가 바꿨으면 0행). */
-    const now = Date.now();
-    const stmts = plan.items.map((it) => env.DB.prepare(
-      swap
-        ? `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, teacher_id = ?, updated_at = ?
-            WHERE id = ? AND status = 'active' AND substr(replace(scheduled_date,'/','-'),1,10) = ? AND substr(start_time,1,5) = ?`
-        : `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ?
-            WHERE id = ? AND status = 'active' AND substr(replace(scheduled_date,'/','-'),1,10) = ? AND substr(start_time,1,5) = ?`
-    ).bind(...(swap
-      ? [it.to_date, it.to_time, newTid, now, it.id, it.from_date, it.from_time]
-      : [it.to_date, it.to_time, now, it.id, it.from_date, it.from_time])));
-    const res: any[] = await env.DB.batch(stmts);
-    const moved = res.reduce((n, r) => n + (Number(r?.meta?.changes) || 0), 0);
-    const actorName = String(actor.name || actor.username || '관리자');
-    for (const it of plan.items) {
-      await writeClassAudit(env, {
-        action: 'reschedule', schedule_id: it.id,
-        teacher_name: row.teacher_name || null, student_name: row.student_name || row.user_id || null,
-        lesson_date: it.from_date, lesson_time: it.from_time,
-        actor: actorName, actor_role: 'admin', source: 'series-move',
-        reason: String(body.reason || '').trim().slice(0, 200) || null,
-        detail: `→ ${it.to_date} ${it.to_time}` + (swap ? ` · 강사 ${row.teacher_name || curTid} → ${newTeacherName || newTid}` : '') + ` (변경·앞으로 계속 ${plan.items.length}회)`,
-      });
-    }
-    return json({ ok: true, applied: true, moved, ...summary });
   }
 
   /* ── (m-3) 1회성 대체강사 배정 — 등록/취소 (관리자) ──
@@ -1895,15 +1970,25 @@ export async function createEnrollOrder(env: any, uid: string, p: any, kind: 'ne
   const hol = await holidaySet(env, p.startDate);
   const probe = enrollDates(p.startDate, p.days, sessions * 2);
   const conflicts = await enrollConflicts(env, p.teacherId, probe, p.timesMin, p.minutes, p.days);
-  const blocked = new Set<string>([...conflicts, ...hol]);
+  /* 👤 (2026-10-06 사장님 지시) 학생 본인이 그 시간에 이미 수업이 있으면 그 날짜는 막힌 자리다.
+     ⚠️ 조회 실패(null)는 막지 않는다(예전 동작) — 결제 뒤 생성 단계가 한 번 더 본다. */
+  const stuConf = (await enrollStudentConflicts(env, uid, probe, p.timesMin, p.minutes, p.days)) || new Set<string>();
+  const blocked = new Set<string>([...conflicts, ...stuConf, ...hol]);
   const dates = enrollDates(p.startDate, p.days, sessions, blocked);
   if (dates.length < sessions) {
-    return json({ ok: false, error: 'slot_conflict', conflict_count: conflicts.size,
-      message: '선택한 시간에 이미 다른 수업이 많습니다. 다른 시간을 골라주세요.' }, 409);
+    return json({ ok: false, error: 'slot_conflict', conflict_count: conflicts.size, student_conflict_count: stuConf.size,
+      message: stuConf.size && !conflicts.size
+        ? '이 학생은 선택한 시간에 이미 다른 수업이 있습니다. 다른 시간을 골라주세요.'
+        : '선택한 시간에 이미 다른 수업이 많습니다. 다른 시간을 골라주세요.' }, 409);
   }
   // 신규 신청은 "첫 회차가 막힌 경우"를 사용자에게 알려 다른 시간을 고르게 한다(연장은 밀어서 진행).
   if (kind === 'new') {
     const plain = enrollDates(p.startDate, p.days, sessions);
+    const firstStudent = plain.find((d) => stuConf.has(d));
+    if (firstStudent) {
+      return json({ ok: false, error: 'slot_conflict', conflict_count: conflicts.size, student_conflict_count: stuConf.size,
+        message: '이 학생은 선택한 시간에 이미 다른 수업이 있습니다(' + firstStudent + ' 등). 다른 시간을 골라주세요.' }, 409);
+    }
     const firstBlockedByConflict = plain.some((d) => conflicts.has(d));
     if (firstBlockedByConflict) {
       return json({ ok: false, error: 'slot_conflict', conflict_count: conflicts.size,

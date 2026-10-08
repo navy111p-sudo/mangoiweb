@@ -43,7 +43,7 @@
      ⚠️ 되살리려면 자체 호스팅 + 서브셋으로.
      ═══════════════════════════════════════════════════════════════════ -->
 <style>
-:root{--bg:#0a0e1a;--bg2:#131826;--bg3:#1a2032;--bd:#232b40;--bd2:#1e2538;--tx:#e2e8f0;--tx2:#94a3b8;--tx3:#64748b;--ac:#fbbf24;--home:#10b981;--office:#3b82f6;--native:#8b5cf6;--manager:#f97316;--c-blk:#ef4444;--c-1:#8b5cf6;--c-g:#ec4899;--c-t:#3b82f6;--shL:0 12px 32px rgba(0,0,0,.5);
+:root{--bg:#0a0e1a;--bg2:#131826;--bg3:#1a2032;--bd:#232b40;--bd2:#1e2538;--tx:#e2e8f0;--tx2:#94a3b8;--tx3:#64748b;--ac:#fbbf24;--home:#10b981;--office:#3b82f6;--native:#8b5cf6;--manager:#f97316;--c-blk:#ef4444;--c-1:#d97706;--c-g:#ec4899;--c-t:#7c3aed;--c-tr:#059669;--c-lt:#3b82f6;--shL:0 12px 32px rgba(0,0,0,.5);
   /* 🪟 일간 뷰 격자 — ⛔ 테마별로 «불투명 색» 을 갈라 두지 말 것. 이 페이지는 data-admin-theme 이
      dark 여도 화면이 밝다 — 범인은 페인터가 아니라 adm-light-theme.css 가 :root 의 --bg2 를
      #e6ecf4 로, --bd 를 #e4e9f2 로 !important 덮는 것이라 테마와 무관하게 무조건 적용된다
@@ -68,9 +68,14 @@ html[data-admin-theme="ivory"]{
   --ac:#F59E0B;       /* 포인트(망고 옐로) — 흰 배경 대비 살짝 진하게 */
   --shL:0 10px 28px rgba(0,0,0,.10);
   /* 수업 셀 파스텔 — 흰 배경에 어울리는 부드러운 톤 */
-  --cell-1on1:#E4DCFB;   /* 연보라 — 1:1 */
+  /* 🎨 (2026-10-07 사장님) 수업 종류 색 — 스케줄·캘린더 «모든 화면» 이 같은 네 색을 쓴다.
+     정규=주황 · 보강=보라 · 체험=초록 · 레벨테스트=파랑. 정본 표는 test-harness/class_type_canon_harness.mjs
+     (학생 상세 캘린더 MGS_AI_COLORS 와 같은 계열). 그룹은 «정규» 의 한 형태라 분홍을 그대로 둔다. */
+  --cell-1on1:#FEF3C7;   /* 연주황 — 정규 1:1 */
   --cell-group:#FBDCEA;  /* 연분홍 — 그룹 */
-  --cell-temp:#D8ECFB;   /* 연하늘 — 대체/임시 */
+  --cell-temp:#EDE9FE;   /* 연보라 — 보강(makeup) (옛 이름 보충·임시) */
+  --cell-trial:#DCFCE7;  /* 연초록 — 체험 */
+  --cell-lt:#DBEAFE;     /* 연파랑 — 레벨테스트 */
   /* 🪟 일간 뷰 격자 값은 :root 에 «반투명 한 벌» 로 둔다 — 여기서 테마별로 덮지 말 것(그 줄 주석 참고) */
 }
 /* 흰 배경 위에서 #fff 로 하드코딩된 글자들을 짙은 회색으로 보정 */
@@ -89,6 +94,8 @@ html[data-admin-theme="ivory"] .slot-weekend{ background:#F4F6F8; }
 html[data-admin-theme="ivory"] .slot-1on1{ background:var(--cell-1on1); }
 html[data-admin-theme="ivory"] .slot-group{ background:var(--cell-group); }
 html[data-admin-theme="ivory"] .slot-temp{ background:var(--cell-temp); }
+html[data-admin-theme="ivory"] .slot-trial{ background:var(--cell-trial); }
+html[data-admin-theme="ivory"] .slot-leveltest{ background:var(--cell-lt); }
 /* 잔여 어두운 디테일 보정 */
 html[data-admin-theme="ivory"] .legend-chip{ border-color:#DEE2E6; }
 html[data-admin-theme="ivory"] .tooltip-date,
@@ -117,7 +124,7 @@ h1 .sub{font-size:13px;color:var(--tx2);font-weight:500;margin-left:4px}
 .stat-card:hover{transform:translateY(-2px);border-color:var(--ac)}
 .stat-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px}
 .stat-icon.s1{background:rgba(251,191,36,.15);color:var(--ac)}
-.stat-icon.s2{background:rgba(139,92,246,.15);color:var(--c-1)}
+.stat-icon.s2{background:rgba(217,119,6,.15);color:var(--c-1)}
 .stat-icon.s3{background:rgba(236,72,153,.15);color:var(--c-g)}
 .stat-icon.s4{background:rgba(16,185,129,.15);color:var(--home)}
 .stat-body{flex:1;min-width:0}
@@ -191,9 +198,11 @@ h1 .sub{font-size:13px;color:var(--tx2);font-weight:500;margin-left:4px}
 /* 공휴일/휴가 종일 차단 — 빈 셀에 빨강 사선 + 배정 금지 커서 */
 .slot-blocked-day{background:repeating-linear-gradient(45deg,rgba(239,68,68,.14),rgba(239,68,68,.14) 5px,rgba(239,68,68,.26) 5px,rgba(239,68,68,.26) 10px)!important;cursor:not-allowed!important}
 /* 🎨 파스텔톤 수업 셀 (다크모드 눈 피로 완화) */
-.slot-1on1{background:#bcaef0}   /* 라벤더 — 1:1 */
+.slot-1on1{background:#fde68a}   /* 주황 — 정규 1:1 (2026-10-07 종류 색 통일) */
 .slot-group{background:#f4abce}  /* 소프트 핑크 — 그룹 */
-.slot-temp{background:#8cc3f0} /* 스카이블루 단색 — 대체 (체크무늬 제거) */
+.slot-temp{background:#c4b5fd} /* 보라 — 보강(makeup). 2026-10-07 사장님 «보강은 보라로 통일» */
+.slot-trial{background:#86efac} /* 초록 — 체험 */
+.slot-leveltest{background:#93c5fd} /* 파랑 — 레벨테스트 */
 /* 🏷 (2026-08-21) LMS 점유·시연 시드 — 진짜 수업(1on1/group/temp)과 같은 색을 쓰지 않는다.
    지우지 않고(운영 판단 영역) 정체만 밝힌다 — adm-q6.js «강사 스케줄» 카드와 같은 원칙. */
 .slot-ghost{background:repeating-linear-gradient(45deg,rgba(251,191,36,.35),rgba(251,191,36,.35) 5px,rgba(180,83,9,.45) 5px,rgba(180,83,9,.45) 10px)}
@@ -306,9 +315,11 @@ tr:hover .tl-td-day{background:rgba(251,191,36,.07)}
 .tl-strip{position:absolute;left:4px;right:4px;top:3px;bottom:3px;border-radius:4px;
   background:rgba(120,130,150,.10)}
 .tl-seg{position:absolute;top:0;bottom:0;border-radius:3px;overflow:hidden}
-.tl-seg.s-1on1{background:#bcaef0;border-left:2.5px solid #7c3aed}
+.tl-seg.s-1on1{background:#fde68a;border-left:2.5px solid #b45309}
 .tl-seg.s-group{background:#f4abce;border-left:2.5px solid #db2777}
-.tl-seg.s-temp{background:#8cc3f0;border-left:2.5px solid #2563eb}
+.tl-seg.s-temp{background:#c4b5fd;border-left:2.5px solid #6d28d9}
+.tl-seg.s-trial{background:#86efac;border-left:2.5px solid #047857}
+.tl-seg.s-leveltest{background:#93c5fd;border-left:2.5px solid #1d4ed8}
 .tl-seg.s-blocked{background:repeating-linear-gradient(45deg,rgba(148,163,184,.45),rgba(148,163,184,.45) 3px,rgba(100,116,139,.6) 3px,rgba(100,116,139,.6) 6px)}
 /* 🏷 (2026-08-21) LMS 점유·시연 시드 — 위 .slot-ghost 와 같은 뜻(진짜 수업 아님), 주간 타임라인용 */
 .tl-seg.s-ghost{background:repeating-linear-gradient(45deg,rgba(251,191,36,.55),rgba(251,191,36,.55) 3px,rgba(180,83,9,.65) 3px,rgba(180,83,9,.65) 6px)}
@@ -316,6 +327,8 @@ tr:hover .tl-td-day{background:rgba(251,191,36,.07)}
 html[data-admin-theme="ivory"] .tl-seg.s-1on1{background:var(--cell-1on1)}
 html[data-admin-theme="ivory"] .tl-seg.s-group{background:var(--cell-group)}
 html[data-admin-theme="ivory"] .tl-seg.s-temp{background:var(--cell-temp)}
+html[data-admin-theme="ivory"] .tl-seg.s-trial{background:var(--cell-trial)}
+html[data-admin-theme="ivory"] .tl-seg.s-leveltest{background:var(--cell-lt)}
 .tl-nowline{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;z-index:2;opacity:.8}
 .tl-blockday{position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(239,68,68,.10),rgba(239,68,68,.10) 5px,rgba(239,68,68,.20) 5px,rgba(239,68,68,.20) 10px);pointer-events:none}
 
@@ -381,7 +394,8 @@ html[data-admin-theme="ivory"] .tl-seg.s-temp{background:var(--cell-temp)}
 .tl-scroll td.slot.slot-empty,.tl-scroll td.slot.slot-weekend{font-size:0}   /* 빈 10분 칸엔 글자를 넣지 않는다 */
 .tl-scroll td.slot.slot-empty,.tl-scroll td.slot.slot-weekend{color:var(--tx3)}
 .tl-scroll td.slot:hover{outline:2px solid var(--ac);outline-offset:-2px;z-index:4}
-.tl-scroll td.slot.col-today{background:rgba(251,191,36,.07)}
+/* 2026-10-07: 오늘 앰버는 빈칸·주말칸에만 — 일간 뷰는 모든 칸이 col-today 라 수업 칸의 종류 색(정규·보강·체험·레벨)이 통째로 덮였다 */
+.tl-scroll td.slot.slot-empty.col-today,.tl-scroll td.slot.slot-weekend.col-today{background:rgba(251,191,36,.07)}
 .tl-scroll td.slot .dg-dur{opacity:.65;font-size:8px;margin-left:2px;font-weight:700}
 .tl-scroll td.slot.drop-ready{outline:2px dashed #10b981;outline-offset:-2px;
   background:rgba(16,185,129,.12)!important}
@@ -573,6 +587,9 @@ html, body { overscroll-behavior: contain; }
 .undo-toast button:disabled{opacity:.55;cursor:default}
 .undo-toast .cd{font-variant-numeric:tabular-nums;color:#475467;font-size:12px}
 .undo-toast{max-width:calc(100vw - 32px)}
+/* 🪟 (2026-10-05 스트레스 하니스 실측) 토스트(9901)가 모달(9000) 위라, 저장 직후 15초 안에 다음 모달을 열면
+   그 «확인» 버튼을 덮어 «눌러도 안 되는» 창이 됐다. 모달이 열린 동안만 그 아래로 내린다(닫히면 다시 위). */
+.modal-overlay.show ~ .undo-toast{z-index:8990}
 /* 잠긴 채로 끌었을 때 «어디를 눌러야 하는지» 를 1초쯤 가리킨다. */
 .ws-lock.nudge{animation:wsNudge .45s ease-in-out 2}
 @keyframes wsNudge{0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,0)}50%{box-shadow:0 0 0 4px rgba(251,191,36,.45)}}
@@ -656,7 +673,7 @@ html, body { overscroll-behavior: contain; }
 .big-input::placeholder{color:var(--tx3);font-weight:400}
 
 /* 셀 우클릭 컨텍스트 메뉴 */
-.ctx-menu{position:fixed;background:var(--bg3);border:1px solid var(--bd);border-radius:10px;padding:6px;z-index:9500;min-width:180px;box-shadow:var(--shL);display:none}
+.ctx-menu{position:fixed;background:var(--bg3);border:1px solid var(--bd);border-radius:10px;padding:6px;z-index:9950;min-width:180px;box-shadow:var(--shL);display:none}
 .ctx-menu.show{display:block;animation:fadeIn .15s}
 .ctx-item{padding:9px 12px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--tx);display:flex;align-items:center;gap:8px;transition:background .12s}
 .ctx-item:hover{background:var(--bg)}
@@ -753,6 +770,8 @@ body.half-hour .slot-text{font-size:9px;line-height:18px}
 .modal-type-pill.t1on1{background:var(--c-1)}
 .modal-type-pill.group{background:var(--c-g)}
 .modal-type-pill.temp{background:var(--c-t)}
+.modal-type-pill.trial{background:var(--c-tr)}
+.modal-type-pill.leveltest{background:var(--c-lt)}
 .modal-actions{display:flex;gap:8px;padding:14px 22px;border-top:1px solid var(--bd);background:var(--bg2);border-radius:0 0 18px 18px;position:sticky;bottom:0}
 .modal-btn{flex:1;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:1px solid var(--bd)}
 .modal-btn.primary{background:var(--ac);color:#1a1a1a;border-color:var(--ac)}
@@ -812,8 +831,8 @@ body.dragging{cursor:crosshair}
 <!-- 📊 요약 — KPI 카드 4장을 한 줄로 압축(2026-07-28). id 는 그대로 두어 render() 를 건드리지 않음 -->
 <section class="sumbar">
   <div class="sm"><span data-ko="총 수업" data-en="Total">총 수업</span><b id="st-total">—</b></div>
-  <div class="sm"><span data-ko="1대1" data-en="1-on-1">1대1</span><b id="st-1on1">—</b><span class="u" id="st-1on1-pct">—</span></div>
-  <div class="sm"><span data-ko="그룹" data-en="Group">그룹</span><b id="st-group">—</b><span class="u" id="st-group-pct">—</span></div>
+  <div class="sm"><span data-ko="정규 1:1" data-en="Regular 1:1">정규 1:1</span><b id="st-1on1">—</b><span class="u" id="st-1on1-pct">—</span></div>
+  <div class="sm"><span data-ko="정규 그룹" data-en="Regular group">정규 그룹</span><b id="st-group">—</b><span class="u" id="st-group-pct">—</span></div>
   <div class="sm"><span data-ko="활동 교사" data-en="Active">활동 교사</span><b id="st-teachers">—</b></div>
   <div class="sm"><span data-ko="빈 슬롯" data-en="Open slots">빈 슬롯</span><b id="st-free">—</b><span class="u" data-ko="배정 가능" data-en="assignable">배정 가능</span></div>
   <!-- 🏷 (2026-08-21) LMS 점유/시연 시드 — 진짜 수업이 아닌 칸이 몇 건인지 숫자로 먼저 말해 준다.
@@ -825,9 +844,11 @@ body.dragging{cursor:crosshair}
             data-ko-title="LMS·시드 자리표시를 한 번에 정리합니다" data-en-title="Clear LMS/Demo placeholders"
             data-ko="정리" data-en="Clear">정리</button></div>
   <div class="lgs">
-    <span><i style="background:#bcaef0;border-left:3px solid #7c3aed"></i><span data-ko="1대1" data-en="1-on-1">1대1</span></span>
-    <span><i style="background:#f4abce;border-left:3px solid #db2777"></i><span data-ko="그룹" data-en="Group">그룹</span></span>
-    <span><i style="background:#8cc3f0;border-left:3px solid #2563eb"></i><span data-ko="임시" data-en="Temp">임시</span></span>
+    <span><i style="background:#fde68a;border-left:3px solid #b45309"></i><span data-ko="정규 1:1" data-en="Regular 1:1">정규 1:1</span></span>
+    <span><i style="background:#f4abce;border-left:3px solid #db2777"></i><span data-ko="정규 그룹" data-en="Regular group">정규 그룹</span></span>
+    <span><i style="background:#c4b5fd;border-left:3px solid #6d28d9"></i><span data-ko="보강수업" data-en="Make-up">보강수업</span></span>
+    <span><i style="background:#86efac;border-left:3px solid #047857"></i><span data-ko="체험수업" data-en="Trial">체험수업</span></span>
+    <span><i style="background:#93c5fd;border-left:3px solid #1d4ed8"></i><span data-ko="레벨테스트" data-en="Level test">레벨테스트</span></span>
     <span><i style="background:repeating-linear-gradient(45deg,#94a3b8,#94a3b8 3px,#64748b 3px,#64748b 6px)"></i><span data-ko="휴무" data-en="Off">휴무</span></span>
     <span><i style="background:repeating-linear-gradient(45deg,rgba(251,191,36,.55),rgba(251,191,36,.55) 3px,rgba(180,83,9,.65) 3px,rgba(180,83,9,.65) 6px)"></i><span data-ko="LMS·시드" data-en="LMS/Demo">LMS·시드</span></span>
   </div>
@@ -868,9 +889,11 @@ body.dragging{cursor:crosshair}
 <div class="legend-bar" style="display:none">
   <span class="legend-label" data-ko="셀 색상:" data-en="Cell color:">셀 색상:</span>
   <span class="legend-item"><span class="legend-chip" style="background:repeating-linear-gradient(45deg,#ef4444,#ef4444 3px,#dc2626 3px,#dc2626 6px)"></span><span data-ko="수업불가 (휴무)" data-en="Blocked (Off)">수업불가 (휴무)</span></span>
-  <span class="legend-item"><span class="legend-chip" style="background:#8b5cf6"></span><span data-ko="🟣 1대1 수업" data-en="🟣 1-on-1 Class">🟣 1대1 수업</span></span>
-  <span class="legend-item"><span class="legend-chip" style="background:#ec4899"></span><span data-ko="💗 그룹 수업" data-en="💗 Group Class">💗 그룹 수업</span></span>
-  <span class="legend-item"><span class="legend-chip" style="background:repeating-linear-gradient(135deg,#3b82f6,#3b82f6 3px,#2563eb 3px,#2563eb 6px)"></span><span data-ko="🔵 임시 수업" data-en="🔵 Temporary">🔵 임시 수업</span></span>
+  <span class="legend-item"><span class="legend-chip" style="background:#d97706"></span><span data-ko="🟠 정규수업 1:1" data-en="🟠 Regular 1:1">🟠 정규수업 1:1</span></span>
+  <span class="legend-item"><span class="legend-chip" style="background:#ec4899"></span><span data-ko="💗 정규수업 그룹" data-en="💗 Regular group">💗 정규수업 그룹</span></span>
+  <span class="legend-item"><span class="legend-chip" style="background:repeating-linear-gradient(135deg,#8b5cf6,#8b5cf6 3px,#6d28d9 3px,#6d28d9 6px)"></span><span data-ko="🟣 보강수업" data-en="🟣 Make-up class">🟣 보강수업</span></span>
+  <span class="legend-item"><span class="legend-chip" style="background:#059669"></span><span data-ko="🟢 체험수업" data-en="🟢 Trial class">🟢 체험수업</span></span>
+  <span class="legend-item"><span class="legend-chip" style="background:#3b82f6"></span><span data-ko="🔵 레벨테스트" data-en="🔵 Level test">🔵 레벨테스트</span></span>
   <span style="margin-left:auto;color:var(--tx3);font-size:11px" data-ko="💡 셀에 마우스를 올리면 자세히 보입니다" data-en="💡 Hover a cell for details">💡 셀에 마우스를 올리면 자세히 보입니다</span>
 </div>
 <!-- 교사 칩 내비는 좌측 고정 교사 열이 그 역할을 대신하므로 제거(2026-07-28). 참조하는 JS 가 있어 껍데기는 남긴다 -->
@@ -1634,7 +1657,7 @@ document.addEventListener('mousemove',function(e){
   var L=currentLang==='ko';
   var ghost3=isGhostSlot(s);
   var typeL=ghost3?(L?'⚠️ '+GHOST_TAG[s.origin].ko:'⚠️ '+GHOST_TAG[s.origin].en)
-    :({blocked:currentLang==='ko'?'🚫 수업 불가':'🚫 Blocked','1on1':currentLang==='ko'?'🟣 1대1 수업':'🟣 1-on-1 Class',group:currentLang==='ko'?'💗 그룹 수업':'💗 Group Class',temp:currentLang==='ko'?'🔵 임시 수업':'🔵 Temporary'})[s.type]||s.type;
+    :({blocked:currentLang==='ko'?'🚫 수업 불가':'🚫 Blocked','1on1':currentLang==='ko'?'🟠 정규수업 1:1':'🟠 Regular 1:1',group:currentLang==='ko'?'💗 정규수업 그룹':'💗 Regular group',temp:currentLang==='ko'?'🟣 보강수업':'🟣 Make-up class',trial:currentLang==='ko'?'🟢 체험수업':'🟢 Trial class',leveltest:currentLang==='ko'?'🔵 레벨테스트':'🔵 Level test'})[s.type]||s.type;
   var html='<div class="tooltip-title">'+typeL+'</div>';
   /* 🏷 (2026-08-21) 학생이 안 붙어 있어 «누구 수업인지 모를 1:1 수업» 으로 오해하던 자리 —
      지우지 않고(운영 판단 영역) 정체만 밝힌다(adm-q6.js «강사 스케줄» 카드와 같은 원칙). */
@@ -2005,9 +2028,9 @@ document.addEventListener('mousemove', function(e){
     dnd.ghost=document.createElement('div');
     dnd.ghost.className='drag-ghost';
     var slot=dnd.sourceData.slot;
-    var icon={blocked:'🚫','1on1':'🟣',group:'💗',temp:'🔵'}[slot.type]||'📌';
+    var icon={blocked:'🚫','1on1':'🟠',group:'💗',temp:'🟣',trial:'🟢',leveltest:'🔵'}[slot.type]||'📌';
     var L=currentLang==='ko';
-    var title=L?({blocked:'수업 불가','1on1':'1대1 수업',group:'그룹 수업',temp:'임시 수업'}[slot.type]):({blocked:'Blocked','1on1':'1-on-1',group:'Group',temp:'Temporary'}[slot.type]);
+    var title=L?({blocked:'수업 불가','1on1':'정규수업 1:1',group:'정규수업 그룹',temp:'보강수업',trial:'체험수업',leveltest:'레벨테스트'}[slot.type]):({blocked:'Blocked','1on1':'Regular 1:1',group:'Regular group',temp:'Make-up',trial:'Trial',leveltest:'Level test'}[slot.type]);
     var sub=(slot.students&&slot.students.length>0)?(slot.students.length===1?slot.students[0].name:(L?'그룹 ':'G ')+slot.students.length):(slot.note||'');
     dnd.ghost.innerHTML='<div class="gh-ico">'+icon+'</div><div class="gh-info"><div class="gh-title">'+title+'</div><div class="gh-sub">'+escapeHtml(sub)+' • '+(dnd.locked?(L?'🔒 놓으면 편집 켜기를 물어봐요':'🔒 Drop to unlock & move'):(L?'끌어서 놓기':'Drop to move'))+'</div></div>';
     document.body.appendChild(dnd.ghost);
@@ -2097,9 +2120,11 @@ function showMoveConfirm(ctx){
   ctx.unlockOnYes=!wsEditing();
   var typeLabel={
     'blocked':L?'🚫 수업 불가':'🚫 Blocked',
-    '1on1':L?'🟣 1대1 수업':'🟣 1-on-1',
-    'group':L?'💗 그룹 수업':'💗 Group',
-    'temp':L?'🔵 임시 수업':'🔵 Temporary'
+    '1on1':L?'🟠 정규수업 1:1':'🟠 Regular 1:1',
+    'group':L?'💗 정규수업 그룹':'💗 Regular group',
+    'temp':L?'🟣 보강수업':'🟣 Make-up class',
+    'trial':L?'🟢 체험수업':'🟢 Trial class',
+    'leveltest':L?'🔵 레벨테스트':'🔵 Level test'
   }[ctx.srcData.slot.type]||ctx.srcData.slot.type;
   var students=ctx.srcData.slot.students||[];
   var stuLine=students.length>0
@@ -2898,8 +2923,11 @@ document.addEventListener('contextmenu',function(e){
     (isBlock?'':'<div class="ctx-item" onclick="moveSlotStart(\''+data.teacher+'\',\''+data.date+'\','+data.hour+','+(data.minute||0)+');hideCtx()">🔄 '+(L?'시간 변경':'Move')+'</div>')+
     '<div class="ctx-divider"></div>'+
     '<div class="ctx-item danger" onclick="deleteSlotConfirm(\''+data.teacher+'\',\''+data.date+'\','+data.hour+','+(data.minute||0)+');hideCtx()">🗑 '+(L?'삭제':'Delete')+'</div>';
-  ctxMenu.style.left=Math.min(e.clientX,window.innerWidth-200)+'px';
-  ctxMenu.style.top=Math.min(e.clientY,window.innerHeight-160)+'px';
+  /* 🔍 (2026-10-05) PC 는 body{zoom:1.3} 이라 fixed 의 left/top 에도 1.3 이 곱해진다 — clientX 를 그대로 넣으면
+     메뉴가 커서에서 30% 밀리고 화면 오른쪽 절반에서는 «화면 밖» 으로 나가 아무것도 못 고른다(실측). 배율로 나눈다. */
+  var _z=parseFloat(getComputedStyle(document.body).zoom)||1;
+  ctxMenu.style.left=Math.max(0,Math.min(e.clientX,window.innerWidth-220*_z))/_z+'px';
+  ctxMenu.style.top=Math.max(0,Math.min(e.clientY,window.innerHeight-210*_z))/_z+'px';
   ctxMenu.classList.add('show');
 });
 document.addEventListener('click',function(e){ if(!e.target.closest('.ctx-menu'))hideCtx(); });
@@ -2914,6 +2942,12 @@ function moveSlotStart(teacherName,dateISO,hour,minute){
   var t=TEACHERS.find(function(t){var nm=(currentLang==='en'&&t.name_en)?t.name_en:t.name;return nm===teacherName;});
   if(!t)return;
   var slot=getSlot(t.id,dateISO,hour,minute);if(!slot)return;
+  /* 🔒 (2026-10-05) openRescheduleModal 과 같은 규칙 — 잠긴 채 열면 칸을 고른 «뒤» 에야 저장이 거절됐다(요청 0건). */
+  if(!wsEditing()){
+    if(!window.confirm(L?'🔒 편집이 잠겨 있어 이대로는 저장되지 않습니다.\n편집을 켜고 계속할까요?'
+                       :'🔒 Editing is locked — changes would not be saved.\nTurn editing on and continue?'))return;
+    wsSetEditing(true,{quiet:true});
+  }
   movingSlot={teacher:t,oldDate:dateISO,oldHour:hour,oldMinute:minute,slot:slot};
   // 위저드처럼 시간 그리드로 새 시간 선택
   var html='<div class="modal wiz-modal">'+
@@ -2939,7 +2973,8 @@ function renderMoveGrid(t){
   var dn=L?['월','화','수','목','금','토','일']:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   var html='<div class="time-pref" id="move-grid-inner"><div class="tp-th"></div>';
   for(var i=0;i<7;i++)html+='<div class="tp-th">'+dn[i]+'</div>';
-  for(var h=8;h<=22;h++){
+  /* ⏰ (2026-10-05) 캘린더가 그리는 시간(GRID_H0~GRID_H1)만 준다 — 08시로 옮기면 저장은 되는데 주간·일간 어디에도 안 보였다(실측). */
+  for(var h=GRID_H0;h<GRID_H1;h++){
     html+='<div class="tp-cell tp-hour">'+String(h).padStart(2,'0')+'</div>';
     for(var di=0;di<7;di++){
       var d=new Date(currentWeekStart);d.setDate(d.getDate()+di);
@@ -3624,9 +3659,11 @@ window.closeModal=closeModal;
 function typePill(type){
   var info={
     blocked:{cls:'blocked',ico:'🚫',ko:'수업 불가',en:'Blocked'},
-    '1on1':{cls:'t1on1',ico:'🟣',ko:'1대1 수업',en:'1-on-1 Class'},
-    group:{cls:'group',ico:'💗',ko:'그룹 수업',en:'Group Class'},
-    temp:{cls:'temp',ico:'🔵',ko:'임시 수업',en:'Temporary'}
+    '1on1':{cls:'t1on1',ico:'🟠',ko:'정규수업 1:1',en:'Regular 1:1'},
+    group:{cls:'group',ico:'💗',ko:'정규수업 그룹',en:'Regular group'},
+    temp:{cls:'temp',ico:'🟣',ko:'보강수업',en:'Make-up class'},
+    trial:{cls:'trial',ico:'🟢',ko:'체험수업',en:'Trial class'},
+    leveltest:{cls:'leveltest',ico:'🔵',ko:'레벨테스트',en:'Level test'}
   }[type]||{cls:'',ico:'',ko:type,en:type};
   return '<span class="modal-type-pill '+info.cls+'">'+info.ico+' '+(currentLang==='ko'?info.ko:info.en)+'</span>';
 }
@@ -3792,9 +3829,9 @@ function openNewSlotModal(infos){
       '<div class="modal-section">'+
         '<h3>'+(L?'수업 종류':'Class Type')+'</h3>'+
         '<div class="type-choices" id="type-choices">'+
-          '<div class="type-choice" data-type="1on1"><span class="tc-ico">🟣</span><div class="tc-name">'+(L?'1대1':'1-on-1')+'</div><div class="tc-desc">'+(L?'학생 1명':'1 student')+'</div></div>'+
-          '<div class="type-choice" data-type="group"><span class="tc-ico">💗</span><div class="tc-name">'+(L?'그룹':'Group')+'</div><div class="tc-desc">'+(L?'학생 다수':'Multiple students')+'</div></div>'+
-          '<div class="type-choice" data-type="temp"><span class="tc-ico">🔵</span><div class="tc-name">'+(L?'임시':'Temporary')+'</div><div class="tc-desc">'+(L?'대체 수업':'Substitute')+'</div></div>'+
+          '<div class="type-choice" data-type="1on1"><span class="tc-ico">🟠</span><div class="tc-name">'+(L?'정규 1:1':'Regular 1:1')+'</div><div class="tc-desc">'+(L?'학생 1명':'1 student')+'</div></div>'+
+          '<div class="type-choice" data-type="group"><span class="tc-ico">💗</span><div class="tc-name">'+(L?'정규 그룹':'Regular group')+'</div><div class="tc-desc">'+(L?'학생 다수':'Multiple students')+'</div></div>'+
+          '<div class="type-choice" data-type="temp"><span class="tc-ico">🟣</span><div class="tc-name">'+(L?'보강수업':'Make-up class')+'</div><div class="tc-desc">'+(L?'결석·연기 보강':'Make-up for a missed class')+'</div></div>'+
           '<div class="type-choice" data-type="blocked"><span class="tc-ico">🚫</span><div class="tc-name">'+(L?'수업 불가':'Blocked')+'</div><div class="tc-desc">'+(L?'휴무 / 차단':'Off / Block')+'</div></div>'+
         '</div>'+
       '</div>'+

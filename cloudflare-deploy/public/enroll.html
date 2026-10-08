@@ -476,12 +476,15 @@ document.getElementById('navBack').addEventListener('click', function(){
     clearTimeout(checkTimer);
     checkTimer = setTimeout(function(){
       fetch('/api/pay/enroll/check', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ teacher_id:st.teacher, weekly:st.weekly, months:st.months, minutes:st.minutes, days:st.days, times:timesPayload(), start_date:st.date }) })
+        body: JSON.stringify({ uid:UID, token:TOKEN, teacher_id:st.teacher, weekly:st.weekly, months:st.months, minutes:st.minutes, days:st.days, times:timesPayload(), start_date:st.date }) })
         .then(function(r){return r.json();}).then(function(d){
           if (!d || !d.ok) { msg.innerHTML = '<span class="bad">확인 실패: '+esc((d&&d.error)||'오류')+'</span>'; return; }
           if (d.ok_to_book) {
             CHECK_OK = true;
             msg.innerHTML = '<span class="ok">✅ 예약 가능! '+esc(d.first_date)+' ~ '+esc(d.last_date)+' · 총 '+d.sessions+'회</span>';
+          } else if (d.student_busy) {
+            /* 👤 (2026-10-06) 학생 본인이 그 시간에 이미 수업이 있음 — 강사 겹침과 다른 말로 */
+            msg.innerHTML = '<span class="bad">❌ 이 학생은 이 시간에 이미 다른 수업이 있어요'+(d.first_student_conflict ? ' ('+esc(d.first_student_conflict)+' 등)' : '')+'. 다른 시간·요일을 골라주세요</span>';
           } else {
             msg.innerHTML = '<span class="bad">❌ 이 시간에 이미 다른 수업이 '+d.conflict_count+'건 있어요. 다른 시간·요일을 골라주세요</span>';
           }

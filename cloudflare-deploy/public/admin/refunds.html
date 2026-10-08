@@ -272,6 +272,12 @@
   };
   var current = null;   // 지금 화면에 올라온 미리보기
   var plan = null;      // dry-run 이 돌려준 «이렇게 하겠다»
+  var previewLoad = 0;
+  function verificationHoldMessage() {
+    return document.documentElement.lang === 'en'
+      ? 'Refund preview is on hold because unused lessons could not be verified. Please load the order again before continuing.'
+      : '미사용 수업을 확인하지 못해 환불 미리보기를 보류했습니다. 주문을 다시 불러온 뒤 진행해 주세요.';
+  }
 
   async function api(url, opt) {
     var r = await fetch(url, Object.assign({ credentials: 'include' }, opt || {}));
@@ -358,11 +364,17 @@
   async function loadPreview(keepResult) {
     var id = $('q-order').value.trim();
     if (!id) { alert('주문번호를 입력하세요.'); return; }
+    var load = ++previewLoad;
+    current = null;
+    $('pv-card').classList.add('hide');
+    $('btn-dry').disabled = true;
     resetRun(keepResult);
     try {
       var j = await api('/api/pay/admin/refund-preview?order_id=' + encodeURIComponent(id));
+      if (load !== previewLoad) return;
       if (!j.ok) {
         var m = j.message || j.error;
+        if (j.error === 'lesson_verification_unavailable') m = verificationHoldMessage();
         if (j.error === 'not_paid') m = '이 주문은 결제완료 상태가 아닙니다 (현재: ' + (j.status || '?') + '). 환불은 실제로 돈이 들어온 주문에만 할 수 있습니다.';
         if (j.error === 'order_not_found') m = '그 주문번호를 찾을 수 없습니다.';
         /* 🪪 «지금 누구로 들어와 있는가» 는 서버가 완성해 준 한 문장(who_line)을 붙이기만 한다 —
@@ -378,6 +390,7 @@
       current = j.preview;
       renderPreview(j.preview);
     } catch (e) {
+      if (load !== previewLoad) return;
       alert('불러오지 못했습니다: ' + e.message);
     }
   }
@@ -465,13 +478,24 @@
 
   async function dryRun() {
     if (!current) return;
+    var preview = current;
     if (!$('f-reason').value.trim()) { alert('환불 사유를 적어 주세요. 나중에 남는 것은 그 한 줄입니다.'); $('f-reason').focus(); return; }
     try {
       var j = await api('/api/pay/admin/refund', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyFromForm(false)),
       });
-      if (!j.ok) { alert(j.message || j.error); return; }
+      if (current !== preview) return;
+      if (!j.ok) {
+        if (j.error === 'lesson_verification_unavailable') {
+          current = null;
+          $('pv-card').classList.add('hide');
+          $('btn-dry').disabled = true;
+          resetRun();
+          alert(verificationHoldMessage());
+        } else alert(j.message || j.error);
+        return;
+      }
       plan = j.will;
       var t = '<b>이대로 실행합니다</b><br>'
         + '· ' + esc(plan.order_id) + ' 에 <b>' + won(plan.amount) + '</b> ' + (plan.kind === 'full' ? '(전액)' : '(부분)') + '<br>'
@@ -500,6 +524,14 @@
         body: JSON.stringify(bodyFromForm(true)),
       });
       if (!j.ok) {
+        if (j.error === 'lesson_verification_unavailable') {
+          current = null;
+          $('pv-card').classList.add('hide');
+          $('btn-dry').disabled = true;
+          resetRun();
+          alert(verificationHoldMessage());
+          return;
+        }
         var extra = j.needs_check
           ? '<br><b>⚠️ 결과를 확인하지 못했습니다. 토스에서 실제 취소 여부를 확인해 주세요.</b> (요청 #' + (j.refund_id || '?') + ' 로 기록에 남았습니다)'
           : (j.refund_id ? '<br><span class="muted">요청 #' + j.refund_id + ' 로 기록에 남았습니다.</span>' : '');
