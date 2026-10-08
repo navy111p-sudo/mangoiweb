@@ -44,6 +44,7 @@
        갈 길이 아예 없었다(AI 글쓰기 화면에서 «AI 글쓰기»조차 안 보였다).
        ⚠️ 주소는 지어내지 말고 index.html 의 #mg-drawer 에서 그대로 가져올 것. */
     'today':'/today.html',
+    'ai-class':'/ai-class.html',   // 🎓 2026-10-08 사장님 「메뉴에도 연결해줘」 — 홈 드로어와 같은 자리(오늘의 A.i 학습 바로 아래)
     'judgment':'/judgment.html',
     'ai-friend':'/ai-friend.html',
     'ai-write':'/ai-write.html',
@@ -63,7 +64,7 @@
     { ko:'수업',          en:'Classes',        go:['booking','precheck','warmup','leveltest'] },
     /* 2026-09-12 — 홈 드로어의 «AI 학습 도구» 차례를 그대로 따른다.
        ⛔ 웜업(warmup)은 옮기지 않았다 — 아래 «수업» 그룹에 그대로 둔다(배치 변경 최소화). */
-    { ko:'학습 도구',     en:'Learning Tools', go:['today','judgment','speech','ai-friend','ai-write','review-quiz','review-quiz-cn','micro-quiz','vocab','student-game','points-shop'] },
+    { ko:'학습 도구',     en:'Learning Tools', go:['today','ai-class','judgment','speech','ai-friend','ai-write','review-quiz','review-quiz-cn','micro-quiz','vocab','student-game','points-shop'] },
     { ko:'결제 · 문의',   en:'Billing & Help', go:['payment','refund','inquiry','faq'] }
   ];
   // 그룹에 넣지 않고 맨 위/맨 아래에 그대로 두는 것 (성격이 달라 분류가 어색한 항목)
@@ -92,6 +93,7 @@
     /* 🤖 2026-09-12 추가 — 라벨·별점(cls)은 홈 드로어(index.html #mg-drawer)와 «같은 값»이어야 한다.
        한쪽만 고치면 화면마다 다른 이름이 뜬다. */
     { go:'today',       cls:'mg-hl mg-s3', ko:'📅 오늘의 A.i 학습',   en:'📅 Today\'s AI Plan' },
+    { go:'ai-class',    cls:'mg-hl mg-s3', ko:'🎓 A.i 선생님 수업',   en:'🎓 A.i Teacher Class' },
     { go:'judgment',    cls:'mg-hl mg-s2', ko:'🧠 판단력 훈련',       en:'🧠 Decision Training' },
     { go:'ai-friend',   cls:'',            ko:'🤖 AI 친구 대화',      en:'🤖 AI Friend Chat' },
     { go:'ai-write',    cls:'',            ko:'✍️ AI 글쓰기',         en:'✍️ AI Writing' },

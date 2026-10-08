@@ -1043,8 +1043,10 @@
                ⛔ 매주 반복 행(can_move===false)에는 조작을 주지 않는다 — 한 행이 «매주» 라
                   취소하면 모든 주가 죽는다. 판정은 서버가 준 can_move 하나.
                ⛔ <button> 이 아니라 span[role=button] — 카드 안 전역 button 규칙이 파란 알약으로 덮는다. */
+            /* 🔁 (2026-10-08 매니저 「다음 주 수업도 아무 때나 연기하게」) 매주 반복 줄도 서버가 can_split 을 주면
+               버튼을 준다 — 창이 먼저 «날짜별로 나누기» 를 한 뒤 그 날만 처리한다(js/class-move-modal.js mvSplitFirst). */
             if (s.schedule_id) {
-              if (s.can_move === false) {
+              if (s.can_move === false && s.can_split !== true) {
                 act += '<span style="display:inline-block;white-space:nowrap;font-size:10.5px;color:#475467;padding:2px 8px;border-radius:99px;background:#f1f5f9;border:1px solid #cbd5e1">'
                   + T('매주 반복 — 시간표에서', 'weekly — use timetable') + '</span>';
               } else {
