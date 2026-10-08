@@ -439,7 +439,8 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
       <span id="langLabel">English</span>
     </button>
-    <a class="btn" href="/admin.html#card-students-mgmt" data-ko="👨‍🎓 학생 목록" data-en="👨‍🎓 Students">👨‍🎓 학생 목록</a>
+    <!-- 👨‍🎓 (2026-10-08 Melca 제보) ?full=1 필수 — 없으면 index.ts managerPortalRedirect 가 필리핀 매니저를 /manager(홈)로 보내 학생 목록이 안 열린다. -->
+    <a class="btn" href="/admin.html?full=1#card-students-mgmt" data-ko="👨‍🎓 학생 목록" data-en="👨‍🎓 Students">👨‍🎓 학생 목록</a>
     <a class="btn" href="#" data-ko="🧠 게임 리포트" data-en="🧠 Game Report"
        onclick="event.preventDefault();var u=new URLSearchParams(location.search).get('uid')||'';window.open('/game-report.html'+(u?'?uid='+encodeURIComponent(u):''),'_blank');">🧠 게임 리포트</a>
     <a class="btn" href="/admin.html" data-ko="📊 대시보드" data-en="📊 Dashboard">📊 대시보드</a>
