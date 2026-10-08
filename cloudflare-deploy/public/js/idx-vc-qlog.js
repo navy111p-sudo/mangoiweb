@@ -400,6 +400,42 @@ function vcqRxRecoverySample(id, kind, sample, pc, receiver, seq) {
     } catch (_) {}
 }
 
+/* 🔈 누적 에너지 두 개의 차이 → 그 구간 평균 세기(dBFS). 모르면 null.
+   ⛔ 0 이나 -1 로 적지 않는다 — dB 는 음수가 정상이라 -1 은 «아주 큰 소리» 로 읽힌다. */
+function vcqEnergyDb(en, du, pen, pdu, same) {
+    if (!same || en === null || du === null || typeof pen !== 'number' || typeof pdu !== 'number') return null;
+    var dd = du - pdu, de = en - pen;
+    if (!(dd >= 1) || !(de >= 0)) return null;   // 1초 미만은 버린다(틱이 밀린 경우)
+    var p = de / dd;
+    return p > 0 ? Math.max(-127, Math.min(0, 10 * Math.log10(p))) : -127;
+}
+/* 🎙 (2026-10-08) 내가 보낸 소리 크기 — sender 의 media-source(가공 «뒤», 실제로 나가는 트랙).
+   사무실 모드가 목소리를 줄였는지·마이크가 작았는지를 «보낸 쪽» 에서 잰다. 마이크는 하나라 첫 연결 하나만 본다. */
+function vcqTxLevelTick(pcs) {
+    var Q = window.__vcQ; if (!Q) return;
+    var ids = Object.keys(pcs || {});
+    for (var i = 0; i < ids.length; i++) {
+        var pc = pcs[ids[i]];
+        if (!pc || !pc.getSenders) continue;
+        var snd = pc.getSenders().filter(function (x) { return x && x.track && x.track.kind === 'audio' && x.track.readyState === 'live'; })[0];
+        if (!snd || !snd.getStats || snd.__vcTxReading) continue;
+        snd.__vcTxReading = true;
+        Promise.resolve().then(function () { return snd.getStats(); }).then(function (st) {
+            st.forEach(function (s) {
+                if (s.type !== 'media-source' || (s.kind && s.kind !== 'audio')) return;
+                var en = (typeof s.totalAudioEnergy === 'number') ? s.totalAudioEnergy : null;
+                var du = (typeof s.totalSamplesDuration === 'number') ? s.totalSamplesDuration : null;
+                var P = window.__vcTxPrev;
+                var same = !!(P && P.tid === snd.track.id);
+                var lv = vcqEnergyDb(en, du, P && P.en, P && P.du, same);
+                if (lv !== null && window.__vcQ) (window.__vcQ.txl || (window.__vcQ.txl = [])).push(lv);
+                window.__vcTxPrev = { tid: snd.track.id, en: en, du: du };
+            });
+        }).catch(function () {}).finally(function () { snd.__vcTxReading = false; });
+        return;
+    }
+}
+
 function vcqRxTick() {
     var Q = window.__vcQ; if (!Q) return;
     var pcs = window.vcPeerConnections || {};
@@ -415,6 +451,7 @@ function vcqRxTick() {
     try { vcqDupTabWatch(); } catch (_) {}   // 👥 같은 계정 둘째 탭(③)
     try { vcqWrapCreatePeer(); } catch (_) {}   // ② 로드 순서상 아직 못 감쌌으면 여기서
     try { vcqWrapAAONotify(); } catch (_) {}    // ④ 같은 이유
+    try { vcqTxLevelTick(pcs); } catch (_) {}   // 🎙 내가 «실제로 내보낸» 소리 크기(아래)
     ids.forEach(function (id) {
         var pc = pcs[id];
         try { vcqPathProbe(id, pc); } catch (_) {}   // 🛰 이 연결이 중계인지 직접인지(아래 vcqPathProbe)
@@ -466,14 +503,20 @@ function vcqRxTick() {
                         try { vcqRxRecoverySample(id, 'video', { dr: dr, dfr: dfr, known: frameKnown, stalledKnown: frKnown ? frameKnown : receivedKnown, progress: progress, packetsKnown: !!sameMedia && typeof s.packetsReceived === 'number' && rec >= prev.rec }, pc, r, rxSeq); } catch (_) {}
                     } else {
                         var cs = s.concealedSamples || 0, ts = s.totalSamplesReceived || 0;
+                        var en = (typeof s.totalAudioEnergy === 'number') ? s.totalAudioEnergy : null;
+                        var du = (typeof s.totalSamplesDuration === 'number') ? s.totalSamplesDuration : null;
                         if (prev) {
                             if (dl + dr >= 8) Q.rxa.push(100 * dl / (dl + dr));
+                            /* 🔈 (2026-10-08) 받은 소리의 «크기» — 패킷이 와도 소리가 0 이면 안 들린다
+                               (class-4586: 손실 0% 인데 수업 내내 무음). 4초 평균 세기를 dBFS 로. */
+                            var lv = vcqEnergyDb(en, du, prev.en, prev.du, sameMedia);
+                            if (lv !== null) (Q.rxl || (Q.rxl = [])).push(lv);
                             var dcs = Math.max(0, cs - (prev.cs || 0)), dts = Math.max(0, ts - (prev.ts || 0));
                             /* 메워진 소리 비율 — «끊겨서 브라우저가 만들어 낸 소리» 다.
                                표본이 너무 적으면(무음·DTX) 비율이 튀므로 버린다. */
                             if (dts >= 4000) Q.rxc.push(100 * dcs / dts);
                         }
-                        prevAll[key] = { pc: pc, statId: s.id, trackId: r.track.id, lost: lost, rec: rec, cs: cs, ts: ts };
+                        prevAll[key] = { pc: pc, statId: s.id, trackId: r.track.id, lost: lost, rec: rec, cs: cs, ts: ts, en: en, du: du };
                         try { vcqRxRecoverySample(id, 'audio', { dr: dr, known: !!sameMedia && typeof s.packetsReceived === 'number' && rec >= prev.rec }, pc, r, rxSeq); } catch (_) {}
                     }
                 });
@@ -860,7 +903,7 @@ function vcLowQRemote(id, frameWidth, flowing) {
 }
 
 function vcQualityAcc(loss, rtt) {
-    var Q = window.__vcQ || (window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], pt: 0, pr: 0, turn: '', proto: '', sentAt: Date.now() });
+    var Q = window.__vcQ || (window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxl: [], txl: [], rxf: 0, p: [], pt: 0, pr: 0, turn: '', proto: '', sentAt: Date.now() });
     vcqRxStart();
     try { vcNetSelfWatch(loss, rtt); } catch (_) {}   // 🔔 내 회선이 나쁘면 나에게 알린다
     /* loss === -1 은 «영상 표본이 아예 없던 4초» 라는 뜻(위 머리말). 평균에 섞지 않고 센다. */
@@ -881,6 +924,8 @@ function vcQualityAcc(loss, rtt) {
         var w = vcqWho();
         var isT = (typeof vcIsTeacherRole === 'function') && vcIsTeacherRole();
         var A = window.__vcAAO || {};
+        var G0 = null;
+        try { if (typeof window.vcOfficeGateStats === 'function') G0 = window.vcOfficeGateStats(); } catch (_) {}
         var body = JSON.stringify({
             room: (vcRoomId || ''),
             uid: w.uid, name: w.name,
@@ -902,12 +947,20 @@ function vcQualityAcc(loss, rtt) {
                ⛔ 빈 값을 '직접' 으로 바꾸지 말 것(위 vcqPathProbe 주석). */
             path: (Q.pt || 0) ? ((Q.pr || 0) === 0 ? 'direct' : ((Q.pr || 0) === Q.pt ? 'relay' : 'mixed')) : '',
             relay_ticks: (Q.pr || 0), path_ticks: (Q.pt || 0),
-            turn: Q.turn ? (Q.turn + (Q.proto ? ' ' + Q.proto : '')) : ''
+            turn: Q.turn ? (Q.turn + (Q.proto ? ' ' + Q.proto : '')) : '',
+            /* 🔈🎙 (2026-10-08) 소리 «크기» — 상위 10%(= 말할 때) dBFS. 표본이 없으면 null(«모름»). */
+            rx_alevel: (Q.rxl && Q.rxl.length) ? +pct(Q.rxl, 0.9).toFixed(1) : null,
+            tx_alevel: (Q.txl && Q.txl.length) ? +pct(Q.txl, 0.9).toFixed(1) : null,
+            /* 🏢 사무실 모드 — office: 켜짐 1 / 꺼짐 0 / 모듈 없음 null.
+               gate_closed: 판정한 시간 중 게이트가 닫혀 있던 %(10초 미만이면 null) · mic_db: 게이트 «앞» 마이크 크기. */
+            office: G0 ? (G0.on ? 1 : 0) : null,
+            gate_closed: (G0 && G0.ticks >= 400) ? +(100 * G0.closed / G0.ticks).toFixed(1) : null,
+            mic_db: (G0 && typeof G0.mic_db === 'number' && isFinite(G0.mic_db)) ? +G0.mic_db.toFixed(1) : null
         });
         if (navigator.sendBeacon) navigator.sendBeacon('/api/vc/quality-log', new Blob([body], { type: 'application/json' }));
         else fetch('/api/vc/quality-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true }).catch(function () {});
     } catch (_) {}
-    window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxf: 0, p: [], pt: 0, pr: 0, turn: '', proto: '', sentAt: Date.now() };
+    window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxl: [], txl: [], rxf: 0, p: [], pt: 0, pr: 0, turn: '', proto: '', sentAt: Date.now() };
 }
 
 /* ═══ ⑤ 음성전용(AAO) «화면 멈춤» ═══════════════════════════════════════════════════

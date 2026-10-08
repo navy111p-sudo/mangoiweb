@@ -255,10 +255,25 @@ export async function handleMangoApi(
           for (const c of ['net TEXT', 'isp TEXT', 'country TEXT']) {
             try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
           }
+          /* 🔈 (2026-10-08 class-4586 「선생님 목소리가 수업 내내 안 들렸다」) 소리 «크기».
+             손실 0% 로 패킷이 왔는데 안 들렸다 — 크기가 0 이었는지(보낸 쪽) 재생을 못 했는지(받은 쪽) 가를 칸이 없었다.
+               · rx_alevel / tx_alevel — 받은/보낸 소리의 상위 10% 세기(dBFS, 음수). 모르면 NULL
+               · office      — 사무실 모드 켜짐 1 / 꺼짐 0 / 모름 NULL
+               · gate_closed — 그 1분 중 게이트가 닫혀 있던 %(NULL=모름) · mic_db — 게이트 «앞» 마이크 세기
+             ⛔ dB 칸의 «모름» 을 -1 로 적지 않는다(-1dBFS 는 «아주 큰 소리» 다). ALTER 로만 붙이는 이유는 위와 같다. */
+          for (const c of ['rx_alevel REAL', 'tx_alevel REAL', 'office INTEGER', 'gate_closed REAL', 'mic_db REAL']) {
+            try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
+          }
         });
         /* ⚠️ rx_* 는 «모름» 이 -1 이라 `Number(x) || 0` 을 쓰면 안 된다 — 모름이 0(=완벽)으로 뒤집힌다.
            화면에서 정확히 그 형태의 사고가 났었다(CLAUDE.md 2장 「영상이 죽은 사람이 회선이 제일 좋은 사람으로」). */
         const num = (v: any, dflt: number) => { const n = Number(v); return Number.isFinite(n) ? n : dflt; };
+        /* «모름» 이 NULL 인 칸 — null·빈값·숫자 아님은 NULL, 숫자는 [lo, hi] 로 자른다(무인증 본문이다). */
+        const nn = (v: any, lo: number, hi: number): number | null => {
+          if (v === null || v === undefined || v === '') return null;
+          const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : null;
+        };
+        const officeV = (b.office === 1 || b.office === 0) ? b.office : null;
         /* 🛰 path 는 «아는 값» 만 받는다(모르는 문자열은 빈 값 = 모름). turn 은 서버 주소 한 줄이라 글자를 좁히고 길이를 자른다
            — 이 경로는 무인증이라 본문이 곧 남의 손이다(관리자 화면에 그대로 그려진다). */
         const PATHS = ['relay', 'direct', 'mixed'];
@@ -270,14 +285,15 @@ export async function handleMangoApi(
         const _net = ipToNet(request.headers.get('CF-Connecting-IP') || '');
         const _isp = asLabel(_cf.asn, _cf.asOrganization);
         const _cc = String(_cf.country || '').slice(0, 2);
-        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers, path, turn, relay_ticks, path_ticks, net, isp, country) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers, path, turn, relay_ticks, path_ticks, net, isp, country, rx_alevel, tx_alevel, office, gate_closed, mic_db) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
           .bind(Date.now(), String(b.room || ''), String(b.uid), String(b.name || ''), String(b.role || ''),
             Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0,
             Number(b.novideo) || 0,
             num(b.rx_loss, -1), num(b.rx_aloss, -1), num(b.rx_conceal, -1),
             num(b.rx_freeze, 0), num(b.p95_loss, 0), num(b.peers, 0),
             pathV, turnV, Math.max(0, num(b.relay_ticks, 0)), Math.max(0, num(b.path_ticks, 0)),
-            _net, _isp, _cc).run();
+            _net, _isp, _cc,
+            nn(b.rx_alevel, -127, 0), nn(b.tx_alevel, -127, 0), officeV, nn(b.gate_closed, 0, 100), nn(b.mic_db, -127, 0)).run();
         if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch (e) { console.warn('[vc-quality-log] 30일 정리 실패', (e as any)?.message); } }  /* 30일 지난 것 가끔 정리. ⚠️ 2026-09-03 부터 접속 회선(net·isp·country)도 담기므로
      이 정리가 조용히 실패하면 그 기록이 계속 쌓인다. 📌 이 표는 승인받은 파기 정본(src/retention.ts)에
      **없다** — 정본에 등록할지는 사람이 정할 일이다(작업기록 6장). */
