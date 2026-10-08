@@ -186,14 +186,24 @@ await narrow.evaluate(() => {
 await narrow.waitForFunction(() => /c24-|홍민수/.test(document.getElementById('todayAllBody')?.textContent || ''), null, { timeout: 5000 }).catch(() => {});
 const of = await narrow.evaluate(() => ({
   doc: document.documentElement.scrollWidth, win: window.innerWidth,
-  /* 줄이 낱글자로 쪼개지지 않았나 — 높이 ÷ 줄높이 로 «몇 줄인가» 를 센다 (CLAUDE.md 2장) */
-  worst: Math.max(...[...document.querySelectorAll('#todayAllBody .row')].map((r) => {
-    const lh = parseFloat(getComputedStyle(r).lineHeight) || 18;
-    return Math.round(r.getBoundingClientRect().height / lh);
+  /* 줄이 낱글자로 쪼개지지 않았나 — «짧은 글자 조각»(이름·강사·배지, 16자 이하)이 몇 줄로 그려졌나를
+     Range.getClientRects 로 센다 (CLAUDE.md 2장 «글자는 텍스트 노드마다 Range 로»).
+     ⚠️ 2026-10-08: 예전엔 «줄 높이 ÷ lineHeight» 였는데, 폰의 «자세히 보기» 줄은 시간·이름·날짜·강사·배지를
+     세로로 쌓은 카드라 원래 8~10줄 높이다 — 낱글자 쪼개짐이 아닌데 늘 FAIL 이었다(#1374 이전부터). */
+  worst: Math.max(1, ...[...document.querySelectorAll('#todayAllBody .row')].flatMap((r) => {
+    const out = [];
+    const tw = document.createTreeWalker(r, NodeFilter.SHOW_TEXT);
+    for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+      const t = n.textContent.trim();
+      if (!t || t.length > 16) continue;
+      const rg = document.createRange(); rg.selectNodeContents(n);
+      out.push(new Set([...rg.getClientRects()].filter((q) => q.width > 0).map((q) => Math.round(q.top))).size);
+    }
+    return out;
   })),
 }));
 check(`⑭ 문서가 가로로 넘치지 않는다  [${of.doc} ≤ ${of.win}]`, of.doc <= of.win);
-check(`⑮ 한 줄이 3줄 이상으로 쪼개지지 않는다  [최대 ${of.worst}줄]`, of.worst <= 3);
+check(`⑮ 짧은 글자(이름·강사·배지)가 여러 줄로 쪼개지지 않는다  [최대 ${of.worst}줄]`, of.worst <= 1);
 
 console.log('\n── 6. 📋 기본은 «간단히» — 시간·이름·아이디·강사 네 칸만 (2026-10-07 사장님) ──');
 /* 위 1~5 는 «자세히 보기» 를 켜고 잰다. 여기는 새 문맥(저장값 없음) = 사람이 처음 보는 화면. */
