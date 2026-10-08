@@ -1530,6 +1530,7 @@ const worker = {
         path === '/api/ai/chat-history' ||
         path === '/api/ai/chat-clear' ||
         path === '/api/ai/chat-guest-token' ||
+        path === '/api/ai/class-ask' ||        // ✋ A.i 선생님 수업 질문 즉답(2026-10-08 사장님 승인)
         // 📅 Phase WD 부모 위클리 다이제스트
         path === '/api/parent/digest/preview' ||
         path === '/api/parent/digest/send-one' ||
