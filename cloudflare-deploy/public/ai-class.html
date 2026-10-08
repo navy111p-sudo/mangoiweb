@@ -153,6 +153,11 @@ select.pill{max-width:min(100%,280px)}
 .sim .row:empty{display:none}
 .sim .choice{border:1px solid #3b82f6;background:#13233f;color:#dbeafe;border-radius:16px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
 .res.miss{background:#3b2a0a;color:#fde68a}.res.own{background:#0f3b2a;color:#a7f3d0}
+/* ✋ 학생 질문 → Lily 즉답 (2026-10-08) */
+.db.askq{background:#2a1f3d;border-color:#7c5cc4}
+.db.askq.on{background:#3b2a5c;border-color:#c4b5fd}
+.res.q{background:#2e1f4d;color:#ddd6fe}.res.think{background:#1e293b;color:#cbd5e1}
+.askbox{border-color:#a78bfa}
 .sim input{flex:1;min-width:0;border:1px solid var(--c-line);background:#0b1220;color:#fff;border-radius:8px;padding:7px 9px;font:inherit}
 .over{position:absolute;inset:0;background:rgba(5,8,14,.86);border-radius:14px;display:flex;align-items:center;justify-content:center;z-index:8;padding:16px}
 .over .card{background:var(--c-panel);border:1px solid var(--c-line);border-radius:14px;padding:22px;max-width:520px;width:100%;display:flex;flex-direction:column;gap:12px;text-align:center}
@@ -263,6 +268,7 @@ select.pill{max-width:min(100%,280px)}
     </div>
     <div class="dock" role="toolbar" aria-label="수업 버튼">
       <button class="db mic" id="micBtn" type="button" disabled><span>🎤</span>말하기</button>
+      <button class="db askq" id="askBtn" type="button" disabled aria-expanded="false"><span>✋</span>선생님께 질문</button>
       <button class="db" id="againBtn" type="button" disabled><span>🔁</span>다시 듣기</button>
       <button class="db" id="slowBtn" type="button" disabled><span>🐢</span>천천히</button>
       <button class="db" id="skipBtn" type="button" disabled><span>⏭</span>넘어가기</button>
@@ -280,6 +286,17 @@ select.pill{max-width:min(100%,280px)}
         <button class="ghost-btn" type="button" data-say="quiet">🤫 말 안 함</button>
       </div>
       <form class="row" id="simForm"><input id="simInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="직접 입력해도 돼요"><button class="big-btn" type="submit">보내기</button></form>
+    </div>
+
+    <div class="sim askbox" id="askBox" hidden>
+      <div><b>✋ 선생님께 질문</b> — 모르는 낱말·문장을 물어보세요 <span class="muted" style="color:var(--c-dim)">(한국어로 물어도 돼요)</span></div>
+      <div class="row">
+        <button class="ghost-btn" type="button" id="askMicKo">🎤 한국어로 말하기</button>
+        <button class="ghost-btn" type="button" id="askMicEn">🎤 영어로 말하기</button>
+        <button class="ghost-btn" type="button" id="askClose">닫기</button>
+      </div>
+      <form class="row" id="askForm"><input id="askInput" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="예: apple 이 무슨 뜻이에요? / What does 'tired' mean?"><button class="big-btn" type="submit">물어보기</button></form>
+      <small class="muted" id="askNote" style="color:var(--c-dim)">말을 마치면 Lily 선생님이 바로 대답해 줘요. 수업은 대답이 끝나면 이어집니다.</small>
     </div>
 
     <div class="over" id="startOv">
@@ -313,6 +330,7 @@ select.pill{max-width:min(100%,280px)}
   var $ = function(id){ return document.getElementById(id); };
   var E = window.AiClass, CAT = [], LS = [], SLIDE = {}, FILES = {}, openSeq = 0, loading = true;
   var st = null, unit = null, li = 0, busy = false, auto = false, subMode = 1, sound = !FAST, timerAt = 0, timerId = 0, seq = 0, listenTO = 0, lastTarget = '', lastMiss = null;
+  var lastListen = null, askBusy = false, askN = 0, askRec = null;   // ✋ 학생 질문
   // 말하기 속도(선생님) · 자동 말하기(내 차례에 마이크 저절로) — 이 기기에만 기억
   var SPEEDS = [[0.75, '아주 천천히', '아주 천천히'], [0.9, '천천히', '천천히'], [1, '보통', '보통'], [1.15, '빠르게', '빠르게']], spd = 2;
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition, talk = false, rec = null, recBlocked = false;
@@ -427,6 +445,7 @@ select.pill{max-width:min(100%,280px)}
   }
   function reset(){
     seq++; busy = false; stopSpeech(); stopRec(); clearTimeout(listenTO); lastMiss = null; $('book').classList.remove('finding');
+    askBusy = false; askN = 0; lastListen = null; askOpen(false);   // ✋ 새 수업이면 질문 상태도 처음부터
     unit = LS[li]; var nm = curName(); st = E.create(unit, { name: nm.en, nameKo: nm.ko, prev: E.prevUnitOf(LS, li) });
     setStage(0); $('cap').querySelector('.k').textContent = '📖 지금 읽는 문장';
     $('room').textContent = 'AI-' + unit.book.replace(/[^A-Z0-9]+/gi, '').slice(0, 10);
@@ -614,6 +633,7 @@ select.pill{max-width:min(100%,280px)}
     answerChoices(st && st.plan[st.i]).forEach(function(c){ var b = document.createElement('button'); b.type = 'button'; b.className = 'choice'; b.dataset.text = c; b.textContent = '💬 ' + c; box.append(b); });
   }
   function listen(target){
+    lastListen = target;   // ✋ 질문에 답한 뒤 이 차례로 되돌아오기 위해
     fillChoices();
     lastTarget = target === '*' ? '' : target;
     var cur = st.plan[st.i] || {};
@@ -683,7 +703,14 @@ select.pill{max-width:min(100%,280px)}
     if (t.free) return say(t.free);
     if (r < 0.7) say(t.say); else if (r < 0.85) say(t.say.split(' ').slice(0, Math.ceil(t.say.split(' ').length / 2)).join(' ')); else run({ type: 'silence' });
   }
-  function say(text){ $('micBtn').classList.remove('listen'); $('sim').hidden = true; run({ type: 'say', text: String(text == null ? '' : text) }); }
+  function say(text){
+    if (askBusy) return;
+    var t = String(text == null ? '' : text);
+    // ✋ 내 차례에 영어로 «질문» 을 말하면 수업 대답이 아니라 선생님께 묻는 말로 받는다(자동 데모·선생님께 묻는 차례 제외)
+    var cur = st && st.plan[st.i];
+    if (!auto && !(cur && cur.mode === 'swap') && isStudentQuestion(t, lastTarget)) return askTeacher(t);
+    $('micBtn').classList.remove('listen'); $('sim').hidden = true; run({ type: 'say', text: t });
+  }
   function setAsk(b, t){ var a = $('ask'); a.replaceChildren(); var x = document.createElement('b'); x.textContent = b; var y = document.createElement('span'); y.className = 'tgt'; y.textContent = t; a.append(x, y); }
   function setResult(r){
     var a = $('ask'); var c = document.createElement('span'); c.className = 'res ' + (r.pass ? 'ok' : 'no');
@@ -700,6 +727,7 @@ select.pill{max-width:min(100%,280px)}
     if (!wait) $('micBtn').classList.remove('listen');
     $('autoBtn').querySelector('span').nextSibling.textContent = auto ? '데모 멈춤' : '자동 데모';
     $('endBtn').disabled = !started || st.phase === 'done';
+    $('askBtn').disabled = !started || st.phase === 'done' || auto || askBusy;
   }
   function showEnd(e){
     clearInterval(timerId);
@@ -711,6 +739,82 @@ select.pill{max-width:min(100%,280px)}
     $('revTab').textContent = '🧠 오늘 복습 (' + st.missed.length + ')'; $('revTab').classList.add('on');
     setTimeout(function(){ $('endOv').hidden = false; var b = $('againLesson'); try { b.scrollIntoView({block:'nearest'}); b.focus({preventScroll:true}); } catch (x) {} }, FAST ? 0 : 1800);
   }
+
+  /* ✋ 학생 질문 → Lily 즉답 (2026-10-08 사장님 지시 · 정본 서버 src/class-ask.ts)
+     ⛔ 서버가 «못 만들었다» 고 하면 답인 척하는 문장을 지어내지 않습니다 — 사실대로 말하고 수업으로 돌아갑니다. */
+  var ASK_MAX = 30;   // 한 수업(페이지 한 번 열기)에서 물을 수 있는 횟수 — 서버 하루 상한과 별개의 안전판
+  function isStudentQuestion(text, target){
+    var t = String(text || '').toLowerCase().replace(/[^a-z' ?]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!t || t.split(' ').length < 2) return false;
+    var tg = String(target || '').toLowerCase().replace(/[^a-z' ]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (/\?\s*$/.test(String(target || ''))) return false;                 // 따라 할 문장 자체가 질문이면 따라 말한 것
+    if (tg) {                                                                // 따라 할 문장과 거의 같으면 대답이다
+      var tw = tg.split(' '), hit = 0, ws = t.split(' ');
+      ws.forEach(function(w){ if (tw.indexOf(w) >= 0) hit++; });
+      if (hit / ws.length >= 0.6) return false;
+    }
+    return /^(what|why|how|where|when|who|which)\b/.test(t)
+      || /^(can|could|may|do|does|did|is|are|will|would|should) (you|i|we|it|this|that|there|he|she|they)\b/.test(t)
+      || /\b(what does|what is|what's) .* mean\b/.test(t) || /\bi (don't|do not) (understand|know what)\b/.test(t);
+  }
+  function askLines(){
+    var pg = unit && st && (unit.pages[st.view] || unit.pages[st.page]);
+    return pg ? pg.lines.map(function(l){ return E.speakable(l[0]); }).filter(Boolean).slice(0, 14) : [];
+  }
+  function askOpen(o){ $('askBox').hidden = !o; $('askBtn').classList.toggle('on', o); $('askBtn').setAttribute('aria-expanded', o ? 'true' : 'false'); if (o) { $('sim').hidden = true; try { $('askInput').focus({ preventScroll: true }); } catch (e) {} } else askRecStop(); }
+  function askRecStop(){ var r = askRec; askRec = null; if (r) try { r.abort(); } catch (e) {} }
+  function askListen(lang){
+    if (!SR) { $('askNote').textContent = '이 브라우저는 말로 묻기를 못 해요 — 글로 적어 주세요'; return; }
+    stopRec(); askRecStop();
+    var r; try { r = new SR(); } catch (e) { $('askNote').textContent = '마이크를 쓸 수 없어요 — 글로 적어 주세요'; return; }
+    r.lang = lang; r.interimResults = true; r.maxAlternatives = 1; r.continuous = false;
+    $('askNote').textContent = '🎙 듣고 있어요… 말을 마치면 바로 물어봐요';
+    r.onresult = function(e){ if (askRec !== r) return; var txt = '', fin = false; for (var k = 0; k < e.results.length; k++) { txt += e.results[k][0].transcript; if (e.results[k].isFinal) fin = true; } $('askInput').value = txt; if (fin) { askRec = null; askTeacher(txt); } };
+    r.onerror = function(e){ if (askRec !== r) return; askRec = null; $('askNote').textContent = /not-allowed|service-not-allowed|audio-capture/.test(e.error || '') ? '마이크를 쓸 수 없어요 — 주소창의 🔒 에서 허락하거나 글로 적어 주세요' : '잘 못 들었어요 — 다시 말하거나 글로 적어 주세요'; };
+    r.onend = function(){ if (askRec === r) askRec = null; };
+    askRec = r; try { r.start(); } catch (e) { askRec = null; $('askNote').textContent = '마이크를 쓸 수 없어요 — 글로 적어 주세요'; }
+  }
+  function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  async function askTeacher(q){
+    q = String(q || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+    if (!q || askBusy || !st || st.turn === 0 || st.phase === 'done') return;
+    var my = seq;
+    if (askN >= ASK_MAX) { askOpen(false); missChip('이번 수업에서 물어볼 수 있는 만큼 다 물어봤어요 — 수업을 이어 가요'); return; }
+    askBusy = true; askN++; stopRec(); askRecStop(); clearTimeout(listenTO); askOpen(false); $('askInput').value = '';
+    for (var w = 0; busy && w < 120; w++) await sleep(250);              // 선생님이 말하는 중이면 끝날 때까지(최대 30초)
+    if (my !== seq || busy) { askBusy = false; setButtons(); if (busy) missChip('선생님 말이 끝나면 다시 물어봐 주세요'); return; }
+    busy = true; setButtons();
+    setAsk('✋ 내 질문', q);
+    var think = document.createElement('span'); think.className = 'res think'; think.textContent = '💭 Lily 선생님이 생각하는 중…'; $('ask').append(think);
+    var d = null, http = 0, note = '';
+    try {
+      var ac = new AbortController(), to = setTimeout(function(){ ac.abort(); }, 15000);
+      var res = await fetch('/api/ai/class-ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ac.signal,
+        body: JSON.stringify({ q: q, title: unit && unit.title, lines: askLines(), name: st.name }) });
+      clearTimeout(to); http = res.status; d = await res.json().catch(function(){ return null; });
+    } catch (e) { d = null; }
+    if (my !== seq) { askBusy = false; return; }
+    think.remove();
+    if (d && d.ok === true && d.en) {
+      var a = document.createElement('span'); a.className = 'res q'; a.textContent = '💬 Lily: ' + d.en; $('ask').append(a);
+      showSub({ en: d.en, ko: d.ko || '' });
+      await speakRaw(d.en, 'f', 1);
+    } else {
+      note = d && d.error === 'daily_cap' ? '✋ 오늘은 질문을 많이 해서 내일 다시 물어볼 수 있어요' : '✋ 지금은 선생님이 대답하기 어려워요 — 잠시 뒤 다시 물어봐 주세요' + (http ? ' (' + http + ')' : '');
+      missChip(note);
+    }
+    if (my !== seq) { askBusy = false; return; }
+    busy = false; askBusy = false; setButtons();
+    await sleep(FAST ? 0 : 900);                                         // 대답을 읽을 틈
+    if (my !== seq || askBusy || busy) return;
+    if (st.phase === 'await' && lastListen != null) listen(lastListen);   // 하던 차례로 돌아간다(마이크도 다시)
+    if (note) missChip(note);                                            // 실패 안내는 돌아온 뒤에도 남긴다(0.9초면 못 읽는다)
+  }
+  $('askBtn').addEventListener('click', function(){ askOpen($('askBox').hidden); });
+  $('askClose').addEventListener('click', function(){ askOpen(false); });
+  $('askMicKo').addEventListener('click', function(){ askListen('ko-KR'); });
+  $('askMicEn').addEventListener('click', function(){ askListen('en-US'); });
+  $('askForm').addEventListener('submit', function(e){ e.preventDefault(); askTeacher($('askInput').value); });
 
   function start(withAuto){
     if (!st) return;                       // 교재 목록을 아직 못 받았으면 시작하지 않음
