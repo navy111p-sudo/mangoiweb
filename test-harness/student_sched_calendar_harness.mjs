@@ -203,7 +203,7 @@ check('전제 — 주간 렌더 함수를 잘라 냈다', weekFn.length > 2000, 
 let drew = null, drawErr = '';
 try {
   const sandbox = new Function(
-    canon + '\n' + funcAt(src, 'mgsSrcLabel') + '\n' + weekFn + '\n' +
+    canon + '\n' + funcAt(src, 'mgsSrcLabel') + '\n' + funcAt(src, 'teacherLabel') + '\n' + weekFn + '\n' +
     'function mgsEnrHasLiveClass(){ return true; }\n' +
     /* 🎌 2026-09-25 공휴일 도우미 — 소스에서 그 구간을 오려 낸다(⛔ 베껴 적지 말 것).
        fetch 가 없으니 «공휴일 없음» 으로 그려지고, 위 카드 수 검사는 그대로 뜻을 갖는다. */
@@ -285,7 +285,7 @@ console.log('\n⑧ 공휴일 표시');
   check('전제 — 공휴일 도우미를 오려 냈다', helpers.length > 800, 'len=' + helpers.length);
   let R = null, err = '';
   try {
-    R = new Function(canon + '\n' + funcAt(src, 'mgsSrcLabel') + '\n' + helpers + '\n' +
+    R = new Function(canon + '\n' + funcAt(src, 'mgsSrcLabel') + '\n' + funcAt(src, 'teacherLabel') + '\n' + helpers + '\n' +
       'function esc(s){ return String(s); }\n' +
       'function mgsEnrHasLiveClass(){ return true; }\nfunction mgsSetGhostNote(){}\n' +
       'var __ev = []; var fetch = function(u){ var s = String(u);\n' +

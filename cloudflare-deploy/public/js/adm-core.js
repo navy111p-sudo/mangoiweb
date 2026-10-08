@@ -12837,7 +12837,12 @@ function renderStudentTable() {
     const txt = q ? String((_L ? q.label_en : q.label_ko) || '—') : '—';
     if (!txt || txt === '—') return '<td style="text-align:center">—</td>';
     const x = _esc(txt);
-    return '<td style="text-align:center" title="' + x + '">' + x + '</td>';
+    /* 👩‍🏫 (2026-10-07 매니저 요청) 담당 강사 이름 — 서버 정본(sched.teachers)을 그대로 쓴다.
+       지난 수업의 강사는 빠져 있고, 이름을 못 찾은 번호는 서버가 넣지 않는다(지어내지 않음). */
+    const tl = (q && Array.isArray(q.teachers)) ? q.teachers.filter(Boolean) : [];
+    const tx = tl.length ? _esc(tl.join(', ')) : '';
+    return '<td style="text-align:center" title="' + x + (tx ? ' · ' + tx : '') + '">' + x
+      + (tx ? '<div style="font-size:11px;color:#475467;white-space:nowrap">👩‍🏫 ' + tx + '</div>' : '') + '</td>';
   };
   /* 📚 (2026-09-24 사장님 지시) 「수강신청」 칸 — 학생마다 카드 하나. 누르면 smGoEnroll 이
      수강신청 등록 표로 가서 그 학생 아이디를 채운다.

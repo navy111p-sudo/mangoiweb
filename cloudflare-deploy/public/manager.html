@@ -437,6 +437,8 @@ html.dark .sgrp a:active,html.dark .sgrp button:active{background:#242d37}
   #sideOverlay,body.side-open #sideOverlay{display:none}
   .side-x,#sideBtn{display:none}
   body{padding-left:272px}
+  /* 🖥 (2026-10-08 사장님 「PC 에서 양쪽 여백이 너무 크다 — 차 보이게」) 본문 폭 820px 상한을 PC 에서만 푼다. */
+  .wrap{max-width:none;padding:12px 24px 48px}
   .sgrp button.on{background:#fff4dc;color:#b45309;font-weight:800}
   html.dark .sgrp button.on{background:#3a2c12;color:#fbbf24}
   body.pane-on .wrap details.card:not(.pane-active),
@@ -810,9 +812,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       <button type="button" onclick="sideGo('c-bugs')"><span class="ic">🛠</span><span data-en="Problem reports" data-ko="문제 신고">Problem reports</span></button>
     </div>
   </div>
-  <div class="sgrp" style="border-top:1px solid #eef2f8;margin-top:8px">
-    <a href="/admin.html?full=1"><span class="ic">🖥</span><span data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</span></a>
-  </div>
+  <!-- 2026-10-08 사장님 지시: 사이드바 맨 아래 「전체 경영 대시보드」 줄 삭제 (본문 맨 아래 링크는 그대로) -->
 </nav>
 
 <div class="wrap">
