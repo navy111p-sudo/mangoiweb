@@ -69,7 +69,7 @@ import { resolveRecordingStudents } from './recording-students';   // 🎓 녹�
 import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
 import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
 import { recordingDupGate, REC_DUP_LIVE_WINDOW_MS } from './recording-dup-guard';  // 🎥 같은 방 «동시 녹화» 방지 정본 (실패하면 «찍는 쪽» 으로)
-import { ensureStartsOnColumn, startsOnSel, recurStartedOn, normStartsOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
+import { ensureStartsOnColumn, startsOnSel, recurStartedOn, normStartsOn, recurSkippedOn, normSkipDates } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { applyRoomOverrides } from './class-room-override';       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
 import { scheduleMoveVersion } from './class-schedule-move';
 import { studentRequestGate, ensureScheduleChangeRequestTable } from './student-schedule-request';  // 📅 학생 연기·변경 요청 판정 정본
@@ -2382,10 +2382,24 @@ export async function handleMangoApi(
               }
             }
           }
+          /* ⏭ (2026-10-09) «그 주만 연기·변경» 으로 빠진 날이면 그다음 회차로 민다(옮긴 수업은 하루짜리 줄로 따로 온다).
+             ⛔ 끝없이 돌지 않게 상한(60일) — 넘으면 마지막으로 본 날을 그대로 둔다(수업을 지우지 않는다). */
+          for (let guard = 0; guard < 60 && recurSkippedOn(r, nextDate); guard++) {
+            const [cy, cmo, cda] = nextDate.split('-').map(Number);
+            for (let k = 1; k <= 7; k++) {
+              const cd = new Date(Date.UTC(cy, cmo - 1, cda + k));
+              if (dows.includes(cd.getUTCDay())) {
+                nextDate = `${cd.getUTCFullYear()}-${msPad(cd.getUTCMonth() + 1)}-${msPad(cd.getUTCDate())}`;
+                nextStartTs = Date.UTC(cd.getUTCFullYear(), cd.getUTCMonth(), cd.getUTCDate(), hh, mm, 0) - MS_KST;
+                break;
+              }
+            }
+          }
         }
         return {
           schedule_id: r.id,
           starts_on: normStartsOn(r.starts_on),
+          skip_dates: r.scheduled_date ? [] : normSkipDates(r.skip_dates),   // ⏭ 그 주만 빠진 날(화면이 «이번 주 쉼» 을 그린다)
           day_labels_ko: dows.map(d => DOW_LABEL_KO[d]),
           day_labels_en: dows.map(d => DOW_LABEL_EN[d]),
           scheduled_date: r.scheduled_date || null,

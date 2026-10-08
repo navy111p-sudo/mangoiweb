@@ -61,6 +61,9 @@ ok('전제 — 모달 파일을 실행해 mangoiMoveModal 을 얻었다', !!MM &
 
 let SP = null;
 try { SP = await import(pathToFileURL(SPLIT).href + '?t=' + Date.now()); } catch (e) { console.log('  ❌ schedule-split.ts 불러오기 실패: ' + e.message); }
+/* 🔁 (2026-10-09) 급여 전개가 «그 주 하루만» 건너뛴 날을 빼려고 정본 recurSkippedOn 을 부른다 — 하니스에 베끼지 않고 정본을 불러 넣는다. */
+let CSD = null;
+try { CSD = await import(pathToFileURL(P('cloudflare-deploy/src/class-start-date.ts')).href + '?t=' + Date.now()); } catch (e) { console.log('  ❌ class-start-date.ts 불러오기 실패: ' + e.message); }
 ok('전제 — 서버 정본(schedule-split.ts)을 불러왔다', !!SP && typeof SP.runScheduleSplit === 'function');
 if (!MM || !SP) { console.log('\n결과: PASS ' + PASS + ' / FAIL ' + FAIL); process.exit(1); }
 
@@ -171,6 +174,9 @@ function oracle(items, today, days, nowMs, canSplit) {
   ok('날짜가 요일을 이긴다(날짜 수업은 그 날짜에만)', one({ day_of_week: 'Thu', scheduled_date: '2026-10-12' }).map(o => o.ymd).join() === '2026-10-12');
   ok('시작일(starts_on) 전에는 안 연다', one({ day_of_week: 'Thu', starts_on: '2026-10-10' }).map(o => o.ymd).join() === '2026-10-15');
   ok('이미 끝난 오늘 회차는 빼고 남은 것만', MM.pickOccurrences([{ id: 9, user_id: 'a', day_of_week: 'Thu', start_time: '08:00', duration_min: 20, status: 'active' }], T0, 14, now0).map(o => o.ymd).join() === '2026-10-15');
+  ok('«그 주 하루만» 건너뛴 날(skip_dates)은 매주 줄을 안 연다', one({ day_of_week: 'Thu', skip_dates: '2026-10-08' }).map(o => o.ymd).join() === '2026-10-15');
+  ok('건너뛴 날이 다른 날이면 그대로 연다 (짝)', one({ day_of_week: 'Thu', skip_dates: '2026-10-09' }).map(o => o.ymd).join() === '2026-10-08,2026-10-15');
+  ok('날짜 수업에는 skip_dates 를 안 쓴다 (짝)', one({ scheduled_date: '2026-10-08', skip_dates: '2026-10-08' }).map(o => o.ymd).join() === '2026-10-08');
   ok('본사면 매주 줄을 나눌 수 있다(can_split)', one({ day_of_week: 'Thu' }, true)[0].row.can_split === true);
   ok('지사·대리점(canSplit=false)이면 매주 줄은 잠긴다 (짝)', one({ day_of_week: 'Thu' }, false)[0].row.can_split === false);
   ok('카페24 매주 줄은 본사라도 못 나눈다 (짝)', one({ day_of_week: 'Thu', source: 'c24-mirror' }, true)[0].row.can_split === false);
@@ -193,12 +199,12 @@ const PAY = (() => {
   const body = ts.slice(a, b).replace(/: any\[\]/g, '').replace(/: any/g, '').replace(/\(v\): number \| null =>/g, '(v) =>');
   try {
     const AF = Object.getPrototypeOf(async function () {}).constructor;
-    return new AF('env', 'year', 'month', 'splitOriginsFromNotes', 'splitPastDay',
+    return new AF('env', 'year', 'month', 'splitOriginsFromNotes', 'splitPastDay', 'recurSkippedOn',
       'const ymPrefix = `${year}-${String(month).padStart(2, "0")}`;\n' + body + '\nreturn instances;');
   } catch (e) { console.log('PAY 오려내기 실패', e.message); return null; }
 })();
 ok('전제 — 급여 전개 코드를 정본에서 오려 냈다(나눈 매주 줄 포함)', typeof PAY === 'function' && /splitPast/.test(String(PAY)));
-const payKeys = async (env, uid, y, m, TODAY) => (await PAY(env, y, m, SP.splitOriginsFromNotes, SP.splitPastDay))
+const payKeys = async (env, uid, y, m, TODAY) => (await PAY(env, y, m, SP.splitOriginsFromNotes, SP.splitPastDay, CSD && CSD.recurSkippedOn))
   .filter(x => x.user_id === uid && x._date < TODAY)
   .map(x => `${x.id}|${x._date}|${x.status || 'active'}|${x._mins}`).sort().join(',');
 function mkEnv() {

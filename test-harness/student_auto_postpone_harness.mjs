@@ -267,8 +267,24 @@ if (process.env.SMRS_CHILD === '1') {
     reset(); setNow(TODAY,'08:00');
     const s3 = mkClass(uid,'recurring','Thu',null,hour,'1');
     r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'postpone',schedule_id:s3,orig_date:'2026-10-01',new_date:'2026-10-08',new_time:hour});
-    ok(trial+' ③ 반복 수업은 대기', r.status===200&&r.body.status==='pending'&&r.body.auto_reason==='recurring', JSON.stringify(r.body));
-    ok(trial+' ③ 반복 수업 행 그대로', row(s3).day_of_week==='Thu'&&!row(s3).scheduled_date);
+    /* 🔁 (2026-10-09 「반복 수업 그 주 하루만 연기」) 옛 경계 「반복 수업은 언제나 대기」를 새 경계로 옮겼다:
+       반복 수업도 «그 주 하루만» 반영하되, 다음 주 «같은 시각» 은 그 반복 줄 자신과 겹치므로 대기(conflict). */
+    ok(trial+' ③ 반복 수업 — 다음 주 같은 시각은 자기 수업과 겹쳐 대기', r.status===200&&r.body.status==='pending'&&r.body.auto_reason==='conflict', JSON.stringify(r.body));
+    ok(trial+' ③ 반복 수업 행 그대로(빠지는 날도 없음)', row(s3).day_of_week==='Thu'&&!row(s3).scheduled_date&&!row(s3).skip_dates, JSON.stringify(row(s3)));
+    // ③-b 다른 날로 옮기면 → 그 주(10/8)만 빠지고 10/9 에 하루짜리 줄
+    //      (10/1 은 ③ 의 대기 요청이 있어 중복 방지로 막힌다 — 그것도 정상)
+    r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'postpone',schedule_id:s3,orig_date:'2026-10-01',new_date:'2026-10-02',new_time:hour});
+    ok(trial+' ③-b0 같은 회차에 대기 요청이 있으면 중복으로 막힘', r.status===409&&r.body.error==='already_pending', JSON.stringify(r.body));
+    r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'postpone',schedule_id:s3,orig_date:'2026-10-08',new_date:'2026-10-09',new_time:hour});
+    ok(trial+' ③-b 반복 수업 그 주 하루만 자동 반영', r.status===200&&r.body.status==='approved'&&r.body.auto_applied==='moved', JSON.stringify(r.body));
+    ok(trial+' ③-b 반복 줄은 매주 그대로 · 10/8 만 빠짐', row(s3).day_of_week==='Thu'&&!row(s3).scheduled_date&&row(s3).skip_dates==='2026-10-08', JSON.stringify(row(s3)));
+    const mv = sq.prepare("SELECT * FROM class_schedules WHERE source=?").all('recurring-week:'+s3);
+    ok(trial+' ③-b 10/9 에 하루짜리 보강 줄 1개', mv.length===1&&mv[0].scheduled_date==='2026-10-09'&&mv[0].start_time===hour&&mv[0].status==='active'&&mv[0].class_type==='makeup', JSON.stringify(mv));
+    // ③-c 그다음 주(10/15)는 날짜 없이 연기 → '연기' 기록 줄
+    r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'postpone',schedule_id:s3,orig_date:'2026-10-15'});
+    ok(trial+' ③-c 날짜 없이 연기도 그 주만', r.status===200&&r.body.status==='approved'&&r.body.auto_applied==='postponed'&&row(s3).skip_dates==='2026-10-08,2026-10-15', JSON.stringify(r.body)+JSON.stringify(row(s3)));
+    const pp = sq.prepare("SELECT * FROM class_schedules WHERE source=? AND status='postponed'").all('recurring-week:'+s3);
+    ok(trial+' ③-c 10/15 연기 기록 줄', pp.length===1&&pp[0].scheduled_date==='2026-10-15'&&pp[0].start_time===hour, JSON.stringify(pp));
 
     // ④ 강사 변경 → 즉시 반영(시각과 강사가 «함께» 바뀐다)
     reset(); setNow(TODAY,'08:00');
@@ -409,7 +425,7 @@ if (base.crashed) {
 console.log('\n═ 변이시험 (복사본 src — 저장소 파일은 그대로) ═');
 const MUT = [
   { name: '종류 막기 제거(취소도 자동)', file: 'student-auto-postpone.ts', from: "if (row.request_type !== 'postpone' && row.request_type !== 'change') return 'not_postpone_or_change';", to: '' },
-  { name: '반복 수업 막기 제거', file: 'student-auto-postpone.ts', from: "if (!cs.scheduled_date) return 'recurring';", to: '' },
+  { name: '반복 수업 그 주 반영을 안 씀', file: 'student-auto-postpone.ts', from: "mutations.push(...ow.mutations);", to: '' },
   { name: '고른 강사를 못 찾아도 진행', file: 'student-auto-postpone.ts', from: "if (!tr) return { applied: null, reason: 'teacher_not_found' };", to: '' },
   { name: '강사는 안 바꾸고 시각만', file: 'student-auto-postpone.ts', from: "if (swap) mutations.push(", to: "if (false) mutations.push(" },
   { name: '미러 날짜+강사 막기 제거', file: 'student-auto-postpone.ts', from: "if (isMirror && String(row.new_date) !== String(cs.scheduled_date)) return 'mirror_teacher_date';", to: '' },

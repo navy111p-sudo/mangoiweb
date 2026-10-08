@@ -1002,6 +1002,9 @@
         else {
           var so = String(s.starts_on || '').slice(0, 10);
           hit = !(/^\d{4}-\d{2}-\d{2}$/.test(so) && ymd < so) && pickDowList(s.day_of_week).indexOf(dow) >= 0;
+          /* 🔁 «그 주 하루만» 으로 건너뛴 날(skip_dates)은 매주 줄이 안 열린다 — 그날은 보강·연기 줄이 따로 있다
+             (정본 src/class-start-date.ts recurSkippedOn 과 같은 규칙). */
+          if (hit && String(s.skip_dates || '').split(',').map(function (x) { return x.trim(); }).indexOf(ymd) >= 0) hit = false;
         }
         if (!hit) continue;
         if (sd && st === 'postponed') continue;
