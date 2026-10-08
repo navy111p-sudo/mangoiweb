@@ -418,18 +418,22 @@ function vcqTxLevelTick(pcs) {
         var pc = pcs[ids[i]];
         if (!pc || !pc.getSenders) continue;
         var snd = pc.getSenders().filter(function (x) { return x && x.track && x.track.kind === 'audio' && x.track.readyState === 'live'; })[0];
-        if (!snd || !snd.getStats || snd.__vcTxReading) continue;
+        if (!snd || !snd.getStats) continue;
+        /* ⛔ 읽는 중이면 이 틱은 «건너뛴다» — 다른 연결의 sender 로 넘어가면 서로 다른 누적값끼리 빼게 된다. */
+        if (snd.__vcTxReading) return;
         snd.__vcTxReading = true;
+        var tid = snd.track.id;   // 요청 «보낼 때» 의 트랙 — 기다리는 사이 replaceTrack 되면 옛 누적값이 새 id 로 섞인다
         Promise.resolve().then(function () { return snd.getStats(); }).then(function (st) {
+            if (!snd.track || snd.track.id !== tid) { window.__vcTxPrev = null; return; }
             st.forEach(function (s) {
                 if (s.type !== 'media-source' || (s.kind && s.kind !== 'audio')) return;
                 var en = (typeof s.totalAudioEnergy === 'number') ? s.totalAudioEnergy : null;
                 var du = (typeof s.totalSamplesDuration === 'number') ? s.totalSamplesDuration : null;
                 var P = window.__vcTxPrev;
-                var same = !!(P && P.tid === snd.track.id);
+                var same = !!(P && P.tid === tid);
                 var lv = vcqEnergyDb(en, du, P && P.en, P && P.du, same);
                 if (lv !== null && window.__vcQ) (window.__vcQ.txl || (window.__vcQ.txl = [])).push(lv);
-                window.__vcTxPrev = { tid: snd.track.id, en: en, du: du };
+                window.__vcTxPrev = { tid: tid, en: en, du: du };
             });
         }).catch(function () {}).finally(function () { snd.__vcTxReading = false; });
         return;
@@ -952,9 +956,10 @@ function vcQualityAcc(loss, rtt) {
             rx_alevel: (Q.rxl && Q.rxl.length) ? +pct(Q.rxl, 0.9).toFixed(1) : null,
             tx_alevel: (Q.txl && Q.txl.length) ? +pct(Q.txl, 0.9).toFixed(1) : null,
             /* 🏢 사무실 모드 — office: 켜짐 1 / 꺼짐 0 / 모듈 없음 null.
-               gate_closed: 판정한 시간 중 게이트가 닫혀 있던 %(10초 미만이면 null) · mic_db: 게이트 «앞» 마이크 크기. */
+               gate_closed: «소리가 있던»(바닥+6dB 초과) 시간 중 게이트가 닫혀 있던 % — 「말하는데 잘렸나」.
+               꺼져 있거나 소리 있던 시간이 1초 미만이면 null. mic_db: 그때 게이트 «앞» 마이크 크기. */
             office: G0 ? (G0.on ? 1 : 0) : null,
-            gate_closed: (G0 && G0.ticks >= 400) ? +(100 * G0.closed / G0.ticks).toFixed(1) : null,
+            gate_closed: (G0 && G0.on && G0.loud >= 40) ? +(100 * G0.loudClosed / G0.loud).toFixed(1) : null,
             mic_db: (G0 && typeof G0.mic_db === 'number' && isFinite(G0.mic_db)) ? +G0.mic_db.toFixed(1) : null
         });
         if (navigator.sendBeacon) navigator.sendBeacon('/api/vc/quality-log', new Blob([body], { type: 'application/json' }));

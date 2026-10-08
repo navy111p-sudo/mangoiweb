@@ -92,8 +92,11 @@
   var procTrack = null;   // peer 에게 실제로 보내는 가공 트랙
   var timer = null, buf = null, floorDb = -60, openUntil = 0, isOpen = false;
   /* 📊 (2026-10-08) 게이트 통계 — 회선 기록(idx-vc-qlog.js)이 1분마다 가져가고 비운다.
-     ticks = 판정한 틱 수(숨은 탭·멈춘 엔진은 안 셈) · closed = 그중 닫혀 있던 틱 · db = 게이트 «앞» 마이크 크기. */
-  var G = { ticks: 0, closed: 0, db: [] };
+     ticks = 판정한 틱 수(숨은 탭·멈춘 엔진은 안 셈) · closed = 그중 닫혀 있던 틱
+     loud / loudClosed = «소리가 있던»(바닥+6dB 초과) 틱 · 그중 닫혀 있던 틱 — 「말하는데 잘렸나」는 이쪽이다
+     (전체 닫힌 비율은 조용한 시간이 많으면 정상이어도 높게 나온다). db = 소리가 있던 틱의 게이트 «앞» 크기.
+     ⚠️ 켜고 끌 때(teardown) 비운다 — 안 비우면 지난 수업 통계가 다음 수업 첫 1분에 섞인다. */
+  var G = { ticks: 0, closed: 0, loud: 0, loudClosed: 0, db: [] };
   var srcMicId = '';      // 켜기 «전» 에 쓰던 «진짜» 마이크 장치 id — 되돌릴 때 이것으로 다시 잡는다
 
   /* 🔛 저장값은 «셋» 이다 — '1'(켬) · '0'(사람이 껐음) · 없음(아직 안 정함).
@@ -241,7 +244,7 @@
 
       gainNode.gain.setTargetAtTime(isOpen ? 1 : DUCK, ctx.currentTime, isOpen ? ATTACK : RELEASE);
       G.ticks++; if (!isOpen) G.closed++;
-      if (G.db.length < 4000) G.db.push(db);
+      if (db > floorDb + 6) { G.loud++; if (!isOpen) G.loudClosed++; if (G.db.length < 4000) G.db.push(db); }
     } catch (e) {
       /* 재는 데 실패하면 «열어 두는» 쪽으로 실패한다 — 목소리가 막히는 것이 최악이다. */
       try { gainNode.gain.setTargetAtTime(1, ctx.currentTime, ATTACK); } catch (e2) {}
@@ -278,6 +281,7 @@
     ctx = srcNode = hpNode = gainNode = anaNode = destNode = null;
     rawStream = null; procTrack = null; buf = null;
     floorDb = -60; isOpen = false; openUntil = 0;
+    G = { ticks: 0, closed: 0, loud: 0, loudClosed: 0, db: [] };
   }
 
   /* 지금 쓰는 «진짜» 마이크 장치 id.
@@ -546,14 +550,14 @@
   };
   window.vcOfficeModeOn = function () { return on; };
   /* 📊 1분 요약용 — 부를 때마다 비운다. 꺼져 있으면 on:false 만(«모름» 을 0% 로 적지 않게).
-     mic_db 는 게이트 «앞» 소리의 상위 10% 크기(dBFS) = «말할 때» 마이크가 얼마나 크게 들어오나. */
+     mic_db 는 «소리가 있던» 틱의 게이트 «앞» 크기 상위 10%(dBFS) = 말할 때 마이크가 얼마나 크게 들어오나. */
   window.vcOfficeGateStats = function () {
-    var r = { on: !!on, ticks: G.ticks, closed: G.closed, mic_db: null };
+    var r = { on: !!on, ticks: G.ticks, closed: G.closed, loud: G.loud, loudClosed: G.loudClosed, mic_db: null };
     if (G.db.length) {
       var b = G.db.slice().sort(function (x, y) { return x - y; });
       r.mic_db = b[Math.min(b.length - 1, Math.floor(0.9 * b.length))];
     }
-    G = { ticks: 0, closed: 0, db: [] };
+    G = { ticks: 0, closed: 0, loud: 0, loudClosed: 0, db: [] };
     return r;
   };
 

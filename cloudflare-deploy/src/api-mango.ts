@@ -259,7 +259,7 @@ export async function handleMangoApi(
              손실 0% 로 패킷이 왔는데 안 들렸다 — 크기가 0 이었는지(보낸 쪽) 재생을 못 했는지(받은 쪽) 가를 칸이 없었다.
                · rx_alevel / tx_alevel — 받은/보낸 소리의 상위 10% 세기(dBFS, 음수). 모르면 NULL
                · office      — 사무실 모드 켜짐 1 / 꺼짐 0 / 모름 NULL
-               · gate_closed — 그 1분 중 게이트가 닫혀 있던 %(NULL=모름) · mic_db — 게이트 «앞» 마이크 세기
+               · gate_closed — «소리가 있던» 시간 중 게이트가 닫혀 있던 %(=말하는데 잘렸나, NULL=모름·꺼짐) · mic_db — 게이트 «앞» 마이크 세기
              ⛔ dB 칸의 «모름» 을 -1 로 적지 않는다(-1dBFS 는 «아주 큰 소리» 다). ALTER 로만 붙이는 이유는 위와 같다. */
           for (const c of ['rx_alevel REAL', 'tx_alevel REAL', 'office INTEGER', 'gate_closed REAL', 'mic_db REAL']) {
             try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
