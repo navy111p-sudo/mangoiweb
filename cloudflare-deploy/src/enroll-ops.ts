@@ -58,6 +58,7 @@ import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 �
       ⛔ 로그인이 아니다. authUidGlobal 은 이 토큰을 모른다(개인정보 API 에 안 통한다). */
 import { resolveRenewToken, markRenewLinkUsed, type RenewTokenScope } from './renew-link';
 import { writeClassAudit } from './class-audit';
+import { loadTeacherNameOf } from './student-schedule-summary';   // 👩‍🏫 강사 이름 정본(원부 번호 → 계정 연결)
 import { findScheduleConflicts, activeRowsFor, findLongClassCapBlock } from './schedule-conflict';
 import { planSeries, realConflict, normTime } from './class-series-move';   // 🔄 «변경(계속)» 시리즈 판정 정본
 import { teacherMoveDenyReason } from './class-teacher-move';   // 🔒 담당 강사 변경 게이트 정본(PATCH 와 같음)   // 📅 옮기기 승인(/decide)이 쓰는 그 겹침 검사 — 복제 금지   // 📜 수업 변경 이력(공휴일 자동연기·강사 휴가대체)
@@ -1046,7 +1047,7 @@ export async function runHolidayShiftSweep(env: any, opts?: { dry?: boolean }): 
           if (!conf.has(cand)) target = cand;
         }
         if (!target) { out.failed++; continue; }
-        out.items.push({ id: r.id, uid, from: hday, to: target });
+        out.items.push({ id: r.id, uid, from: hday, to: target, teacher_id: tid || null, student_name: (r as any).student_name || null });
         if (opts?.dry) continue;
         try {
           await env.DB.prepare(
@@ -1065,6 +1066,13 @@ export async function runHolidayShiftSweep(env: any, opts?: { dry?: boolean }): 
           });
         } catch (e) { out.failed++; }
       }
+    }
+    /* 👩‍🏫 (2026-10-08) 미리보기·결과에 담당 강사 «이름» — 정본 loadTeacherNameOf(원부 번호 → 계정 연결).
+       ⛔ 카페24 강사번호와 섞지 않는다. 실패해도 이동 결과는 그대로(이름만 빈다). */
+    if (out.items.length) {
+      let nameOf: (tid: any) => string = () => '';
+      try { nameOf = await loadTeacherNameOf(env); } catch { /* 이름 없이 간다 */ }
+      for (const it of out.items) it.teacher_name = nameOf(it.teacher_id) || null;
     }
   } catch (e) { out.ok = false; out.error = String((e as any)?.message || e); }
   return out;
