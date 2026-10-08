@@ -43,7 +43,16 @@ for(const width of [390,1360]){
   await page.waitForFunction(()=>!state.saving);
   assert.equal(posts.length,1);assert.equal(posts[0].request_scope,'weekly_postpone');assert.equal(posts[0].request_type,'postpone');checks+=3;
   assert.match(await page.locator('#done-title').innerText(),fail?/저장되지/:/요청을 보냈/);checks++;
-  await page.evaluate(()=>_goMode('change'));
+  if(fail){
+   const retained=await page.evaluate(()=>JSON.stringify(state.cart));
+   for(const accept of [false,true]){
+    const shown=page.waitForEvent('dialog');
+    const navigating=page.evaluate(()=>_goMode('change'));
+    const dialog=await shown;assert.equal(dialog.type(),'confirm');assert.match(dialog.message(),/저장하지 않고|without saving/);checks+=2;
+    await (accept?dialog.accept():dialog.dismiss());await navigating;
+    if(!accept){assert.equal(await page.evaluate(()=>state.mode),'postpone');assert.equal(await page.evaluate(()=>JSON.stringify(state.cart)),retained);checks+=2;}
+   }
+  }else await page.evaluate(()=>_goMode('change'));
   assert.equal(await page.locator('#pushBtn').count(),0);assert.match(await page.locator('#detail-title').innerText(),/변경/);checks+=2;
  }
  assert.deepEqual(errors,[]);checks++;await context.close();

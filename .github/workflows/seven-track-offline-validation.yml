@@ -91,7 +91,7 @@ jobs:
               /bin/bash test-harness/manual/run-seven-track-browser.sh
           ' seven-track-browser "$(id -u)" "$(id -g)" "$NODE" "$GITHUB_WORKSPACE" "$HOME_DIR" "$TEMP_DIR" "$PW_DIR" "$PLAYWRIGHT_BROWSERS_PATH" "$OUTPUT" \
             2>&1 | tee "$OUTPUT/browser.log"
-          grep -Fq 'seven-track-browser: PASS 11 suites / FAIL 0 / SKIP 0' "$OUTPUT/browser.log"
+          grep -Fq 'seven-track-browser: PASS 12 suites / FAIL 0 / SKIP 0' "$OUTPUT/browser.log"
       - name: Preserve synthetic browser results and screenshots
         if: always()
         uses: actions/upload-artifact@v4

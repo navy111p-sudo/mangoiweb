@@ -50,4 +50,12 @@ mkdir -p "$OUT/admin-schedule-consistency"
 OFFLINE_BROWSER_OUTPUT="$OUT/admin-schedule-consistency" run_logged "$OUT/admin-schedule-consistency.log" node test-harness/manual/admin-schedule-consistency-browser.mjs
 grep -Eq '^admin-schedule-consistency-browser: PASS [1-9][0-9]* / FAIL 0 / SKIP 0$' "$OUT/admin-schedule-consistency.log"
 node -e 'const r=require(process.argv[1]);if(r.failure||!r.summary||r.summary.failed!==0||r.summary.skipped!==0||r.summary.passed!==11||r.cases.length!==11||r.cases.some(c=>c.status!=="passed")||r.unknownReads.length||r.denied.length||r.unexpectedWrites.length||r.routeErrors.length||r.pageErrors.length)throw Error("incomplete admin/student consistency browser evidence")' "$OUT/admin-schedule-consistency/schedule-fixture-report.json"
-echo 'seven-track-browser: PASS 11 suites / FAIL 0 / SKIP 0'
+mkdir -p "$OUT/termination"
+TERMINATION_SOURCE_ROOT="$ROOT" \
+TERMINATION_SOURCE_COMMIT="$(git rev-parse HEAD)" \
+TERMINATION_SOURCE_TREE="$(git rev-parse HEAD^{tree})" \
+TERMINATION_BROWSER_OUTPUT="$OUT/termination" \
+  run_logged "$OUT/termination.log" node test-harness/manual/student-termination-browser.mjs
+grep -Eq '^student-termination-browser: PASS [1-9][0-9]* / FAIL 0 / SKIP 0$' "$OUT/termination.log"
+node -e 'const r=require(process.argv[1]);if(r.failure||r.summary.passed!==21||r.summary.failed!==0||r.summary.skipped!==0||r.summary.assertionsFailed!==0||r.cases.length!==21||r.cases.some(c=>c.status!=="passed")||r.unknownReads.length||r.denied.length||r.unexpectedWrites.length||r.routeErrors.length||r.pageErrors.length||!r.testedCommit||!r.testedTree||!r.sourcePageSha256)throw Error("incomplete termination browser evidence")' "$OUT/termination/termination-fixture-report.json"
+echo 'seven-track-browser: PASS 12 suites / FAIL 0 / SKIP 0'

@@ -94,7 +94,11 @@ async function fixture(width, mode = 'success', n = 12, student = false) {
   page.on('dialog', async dialog => { local.dialogs.push(dialog.message()); await (local.accept === false ? dialog.dismiss() : dialog.accept()); });
   const close = async () => { await context.close(); contexts.delete(context); };
   if (student) { await page.goto(BASE + '/lesson-postpone-demo.html'); await page.waitForFunction(() => typeof __MOB_REAL !== 'undefined' && __MOB_REAL === true); return { context, page, local, close }; }
-  await page.goto(BASE + '/manager.html'); await page.locator('#c-today').evaluate(e => e.open = true); await page.locator('[data-ta="7"]').click();
+  await page.goto(BASE + '/manager.html'); await page.locator('#c-today').evaluate(e => e.open = true);
+  await page.locator('#todayAllBody .ta-mode').waitFor({ state: 'visible' });
+  check('manager starts in simple view', await page.locator('[data-ta="7"]').count() === 0);
+  await page.locator('#todayAllBody .ta-mode').click();
+  await page.locator('[data-ta="7"]').click();
   await page.locator('[data-mv-mode="series"]').click(); await page.locator('#tc-mv-date').fill('2027-01-06');
   await page.waitForFunction(() => { const t = document.getElementById('tc-mv-series'); return t && /classes move|회를 옮깁니다|complete preview|전체 미리보기/.test(t.innerText); });
   return { context, page, local, close };

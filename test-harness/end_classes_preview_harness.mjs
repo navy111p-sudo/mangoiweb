@@ -85,7 +85,7 @@ for(const from of ['', '2026-10-01']){const w=world();w.date(from);await w.previ
  const w=world();await w.preview();w.onDelete=op=>op.id===1?reply({ok:false},503):reply({ok:true});await w.run();const saved=JSON.parse(w.storage.get('mgsEndBatch:fixture_A'));check('partial failures journal only successful rows',saved.items.length===1&&saved.items[0].id===2);check('partial failures do not claim full success',w.el('endPreviewBox').innerHTML.includes('1건 실패'));
 }
 {
- const w=world(),pending=defer();await w.preview();w.onGet=()=>pending.promise;const request=w.preview();await w.run();
+ const w=world(),pending=defer();await w.preview();w.onGet=()=>pending.promise;const request=w.preview();check('pending preview immediately clears plan before any run attempt',w.el('endRunBtn').disabled&&w.ctx._endPlan.length===0&&w.ctx._endPreviewContext===null);await w.run();
  check('new preview pending cannot execute previous valid plan',w.writes.length===0&&w.el('endRunBtn').disabled);
  pending.resolve(reply({ok:false,error:'latest_failed'},503));await request;await w.run();check('failed pending preview leaves previous plan unusable',w.writes.length===0);
 }
@@ -110,6 +110,19 @@ for(const status of ['active','completed',undefined]){
 for(const lang of ['ko','en']){
  const w=world(lang);w.storage.set('mgsEndBatch:fixture_A',JSON.stringify({at:w.now,items:[{id:1,date:'2026-10-08',time:'19:00'}]}));w.onRestore=()=>reply({ok:false,error:'restore_failed'},503);await w.undo();
  check(lang+' uncertain restore asks for refresh instead of raw code',!w.el('endPreviewBox').textContent.includes('restore_failed')&&/refresh|새로고침/.test(w.el('endPreviewBox').textContent),w.el('endPreviewBox').textContent);
+}
+// Same selected date and student: only request generation can reject these responses.
+for(const older of ['success','failure'])for(const newer of ['success','failure']){
+ const w=world('en'),pending=defer();w.onGet=()=>pending.promise;const old=w.preview();
+ w.onGet=()=>newer==='success'?reply({ok:true,items:[w.rows[1]]}):reply({ok:false,error:'newer_failure'},503);
+ await w.preview();
+ const label='same-date older '+older+' after newer '+newer;
+ const current=()=>newer==='success'?w.ctx._endPlan.length===1&&w.ctx._endPlan[0].id===2&&!w.el('endRunBtn').disabled
+ :w.ctx._endPlan.length===0&&w.el('endRunBtn').disabled&&w.el('endPreviewBox').textContent.includes('newer_failure');
+ check(label+' first applies latest response',current());
+ pending.resolve(older==='success'?reply({ok:true,items:[w.rows[0]]}):reply({ok:false,error:'older_failure'},503));await old;
+ check(label+' preserves latest preview state',current());
+ await w.run();check(label+' executes only latest successful preview',newer==='success'?w.writes.length===1&&w.writes[0].id===2&&w.confirms.length===1:w.writes.length===0&&w.confirms.length===0,w.writes);
 }
 check('actual HTML wires both cutoff edit events',!!inputCode&&!!changeCode);check('actual preview button can be disabled',/id="endPreviewBtn"/.test(source));
 console.log(`end_classes_preview: PASS ${pass} / FAIL ${fail}`);
