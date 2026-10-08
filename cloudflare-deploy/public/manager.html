@@ -439,6 +439,11 @@ html.dark .sgrp a:active,html.dark .sgrp button:active{background:#242d37}
   body{padding-left:272px}
   /* 🖥 (2026-10-08 사장님 「PC 에서 양쪽 여백이 너무 크다 — 차 보이게」) 본문 폭 820px 상한을 PC 에서만 푼다. */
   .wrap{max-width:none;padding:12px 24px 48px}
+  /* 💳 (2026-10-08 사장님 「결제창이 양쪽으로 너무 길고 가운데가 비어 읽기 어렵다」) 넓은 화면에서는
+     잔액(왼쪽 위) · 낼 금액(오른쪽) · 지난 결제(왼쪽 아래) 두 칸으로. 칸 하나는 560px 까지라 금액이 글자에서 멀어지지 않는다.
+     폰은 이 규칙 밖이라 예전처럼 위→아래 한 줄(잔액 → 낼 금액 → 지난 결제) 그대로. */
+  .tui-grid{display:grid;grid-template-columns:repeat(2,minmax(0,560px));grid-template-areas:"a b" "c b";column-gap:32px;align-items:start}
+  .tui-a{grid-area:a}.tui-b{grid-area:b}.tui-c{grid-area:c}
   .sgrp button.on{background:#fff4dc;color:#b45309;font-weight:800}
   html.dark .sgrp button.on{background:#3a2c12;color:#fbbf24}
   body.pane-on .wrap details.card:not(.pane-active),
@@ -2274,6 +2279,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
                                  '본사가 아직 이 학원의 수업료 정산을 켜지 않아 여기서 결제할 청구서가 없습니다. 본사로 문의해 주세요.') + '</p>';
       el.innerHTML = h; return;
     }
+    h += '<div class="tui-grid"><div class="tui-a">';
     var w = d.wallet;
     var al = d.alert === 'empty' ? T('No credit', '충전금 없음') : d.alert === 'low' ? T('Low credit', '충전금 부족') : T('OK', '충분');
     h += '<div class="row"><span>' + T('Credit balance now', '지금 충전금 잔액') + '</span><b class="num" style="text-align:right">' + (w ? won(w.balance) : '—') + '</b><span class="tui-al tui-al-' + esc(d.alert || 'ok') + '">' + esc(al) + '</span></div>';
@@ -2282,6 +2288,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (d.alert === 'empty') h += '<p class="tui-msg bad">⛔ ' + T('No credit left. Please pay the invoice below.', '충전금이 없습니다. 아래 청구서를 결제해 주세요.') + '</p>';
 
     var open = (d.invoices || []).filter(function(i){ return (i.status === 'issued' || i.status === 'partial') && Number(i.owed_krw) > 0; });
+    h += '</div><div class="tui-b">';
     h += '<div class="row" style="margin-top:6px"><b>' + T('Amount due', '낼 금액') + '</b></div>';
     if (!open.length) h += '<p class="muted">' + T('There is no invoice to pay right now.', '지금 낼 청구서가 없습니다.') + '</p>';
     open.forEach(function(inv){
@@ -2299,12 +2306,14 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       h += '<details style="margin-top:8px"><summary class="muted" style="cursor:pointer">🔮 ' + T(String(d.next_month) + ' estimate (fixed on the 20th): ', tuiMonth(d.next_month) + ' 예상 청구액(20일에 확정): ') + won(d.next_preview.due_krw) + '</summary>' + tuiExplain(d.next_preview) + '</details>';
     }
     if (d.autopay && d.autopay.active) h += '<p class="muted">💳 ' + T('Auto-pay is on', '자동결제 사용 중') + (d.autopay.card_label ? ' · ' + esc(d.autopay.card_label) : '') + '</p>';
+    h += '</div><div class="tui-c">';
     var past = (d.invoices || []).filter(function(i){ return i.status === 'paid'; }).slice(0, 6);
     if (past.length) {
       h += '<div class="row" style="margin-top:10px"><b>' + T('Paid', '지난 결제') + '</b></div>'
         + past.map(function(i){ return '<div class="row"><span>' + esc(tuiKind(i)) + '</span><b class="num" style="text-align:right">' + won(i.paid_krw) + '</b><span>✅</span></div>'; }).join('');
     }
     h += '<p class="muted" style="font-size:11.5px;margin-top:8px">' + T('Credit is deducted per class held. Class records by student and postponement requests are on the payment link head office texts you.', '충전금은 수업한 만큼 자동으로 빠집니다. 학생별 수업 기록·연기 신청은 본사가 문자로 보내 드린 결제 링크 화면에서 볼 수 있습니다.') + '</p>';
+    h += '</div></div>';
     el.innerHTML = h;
   }
   window.tuiPay = function(btn, invoiceId){
