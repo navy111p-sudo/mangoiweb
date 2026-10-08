@@ -25,6 +25,12 @@
 (function () {
   var KEY = 'mangoi_vc_out_vol';   // 0 ~ MAX (1 = 원래 소리)
   var MAX = 3;                     // 300% — 이보다 키우면 잡음까지 커져 오히려 못 알아듣는다
+  /* 🔇 (2026-10-09 class-4586 — 학생 폰에 선생님 소리 패킷은 손실 0% 로 왔는데 수업 내내 무음·재접속해도 무음)
+     이 값은 localStorage 라 «다음 수업에도» 그대로 남는다. 슬라이더를 왼쪽 끝(0%)까지 한 번 밀면
+     그 기기는 그 뒤로 모든 수업이 무음이 되고, 다시 들어가도 안 풀리며, 화면은 아무 말도 안 한다.
+     ⟹ 하한을 10% 로 두고, 그보다 작은 «저장값» 은 불러올 때 지운다(= 원래 소리 100%).
+     ⛔ 0% 를 다시 허용하지 마세요 — 소리를 끄고 싶으면 기기 볼륨이나 타일 음소거가 있습니다. */
+  var MIN = 0.1;
   var ctx = null;                  // AudioContext — 100% 를 넘겨야 «처음» 만든다
   var nodes = Object.create(null); // 오디오 트랙 id -> { src, gain }
   var mo = null;                   // #vc-video-grid 감시 (수업 중에만)
@@ -33,9 +39,24 @@
   function saved() {
     try {
       var v = parseFloat(localStorage.getItem(KEY));
-      return (isFinite(v) && v >= 0 && v <= MAX) ? v : 1;
+      return (isFinite(v) && v >= MIN && v <= MAX) ? v : 1;
     } catch (e) { return 1; }
   }
+
+  /* 저장값이 하한보다 작으면(옛 0% 포함) 지운다 — idx-main.js 의 vcOutVol() 도 같은 키를 직접 읽으므로
+     «읽을 때만 1 로 보는» 것으로는 그쪽 자가복구가 여전히 0 을 다시 넣는다. 키 자체를 지워야 둘 다 100% 가 된다. */
+  function heal() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw === null) return;
+      var v = parseFloat(raw);
+      if (isFinite(v) && v < MIN) {
+        localStorage.removeItem(KEY);
+        try { console.warn('[vc-outvol] 저장된 출력 음량 ' + Math.round(v * 100) + '% 가 너무 작아 100% 로 되돌렸습니다'); } catch (e) {}
+      }
+    } catch (e) {}
+  }
+  heal();
 
   /* 소리를 내는 요소들. 내 미리보기는 항상 음소거라 건드릴 이유가 없다. */
   function targets() {
@@ -117,6 +138,16 @@
         var AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) { window.vcOutBoost = false; applyPlain(1); return; }
         ctx = new AC();
+        /* 🔇 증폭 중에 엔진이 멈추면(폰 화면잠금·앱 전환·오디오 포커스를 뺏김) 타일은 음소거된 채
+           WebAudio 도 소리를 안 내 «완전 무음» 이 된다. 멈추는 그 순간 원래 경로로 되돌리고,
+           다시 돌면 한 번 더 먹인다. ⛔ 지우지 마세요 — 지우면 그 무음이 수업 끝까지 갑니다. */
+        ctx.onstatechange = function () {
+          try {
+            if (!ctx) return;
+            if (ctx.state !== 'running') { if (window.vcOutBoost) { boostOff(); applyPlain(1); } }
+            else if (saved() > 1 && !window.vcOutBoost) reapply();
+          } catch (e) {}
+        };
       } catch (e) { ctx = null; window.vcOutBoost = false; applyPlain(1); return; }
     }
     /* 🔊 (2026-08-10 장치 도우미와의 관계) WebAudio 출력은 element 의 setSinkId 를 따르지 않는다.
@@ -163,10 +194,11 @@
 
   window.vcSavedOutputVolume = saved;
   window.vcOutputVolumeMax = MAX;
+  window.vcOutputVolumeMin = MIN;
   window.vcSetOutputVolume = function (vol) {
     vol = parseFloat(vol);
     if (!isFinite(vol)) return;
-    vol = Math.max(0, Math.min(MAX, vol));
+    vol = Math.max(MIN, Math.min(MAX, vol));
     try { localStorage.setItem(KEY, String(vol)); } catch (e) {}
     apply(vol);
   };
