@@ -4110,6 +4110,14 @@ function takeFile(f){
       return;
     }
     OCR = j;
+    if (j.doubtful) {
+      // 🧾 서버가 «엉터리 판독» 으로 본 경우(손글씨 등) — 금액·날짜를 채우지 않았다. 사람이 영수증을 보고 넣는다.
+      fillFromReceipt(j);
+      note(T('The AI could not read this receipt reliably (handwritten?) — please type the amount and date from the receipt. The photo is still attached.',
+             'AI 가 이 영수증을 제대로 읽지 못했습니다(손글씨 등) — 영수증을 보고 금액·날짜를 직접 넣어 주세요. 사진은 첨부되어 있습니다.'));
+      photoWarn();
+      return;
+    }
     if (j.amount != null && !getVal('f_amount')) setVal('f_amount', j.amount);
     if (j.spent_at && !getVal('f_spent')) setVal('f_spent', j.spent_at);
     if (j.vendor && !getVal('f_title')) setVal('f_title', j.vendor);
