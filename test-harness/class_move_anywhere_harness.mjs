@@ -183,6 +183,18 @@ function oracle(items, today, days, nowMs, canSplit) {
 
 /* ══ C. 나누기 + focus_date — 진짜 SQLite (400 시나리오) ═══════════════════ */
 sec('C. runScheduleSplit(focusDate) — 진짜 SQLite × 400');
+/* 💰 급여 화면의 «이 달 수업 전개» 를 정본에서 그대로 오려 낸다(⛔ 하니스에 베껴 적지 않는다). */
+const PAY = (() => {
+  const ts = readFileSync(ADMIN_TS, 'utf8');
+  const a = ts.indexOf('const DOW: any = { sun: 0, mon: 1');
+  const b = ts.indexOf('instances.sort(', a);
+  if (a < 0 || b < 0) return null;
+  const body = ts.slice(a, b).replace(/: any\[\]/g, '').replace(/: any/g, '').replace(/\(v\): number \| null =>/g, '(v) =>');
+  try { return new Function('ls', 'year', 'month', 'const ymPrefix = `${year}-${String(month).padStart(2, "0")}`;\n' + body + '\nreturn instances;'); }
+  catch (e) { console.log('PAY 오려내기 실패', e.message); return null; }
+})();
+ok('전제 — 급여 전개 코드를 정본에서 오려 냈다', typeof PAY === 'function');
+const PAY0 = PAY;
 function mkEnv() {
   const db = new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT, starts_on TEXT);
@@ -267,7 +279,19 @@ const snap = (db) => JSON.stringify(db.prepare('SELECT * FROM class_schedules OR
       if (orig.status !== 'cancelled') fail('나눴으면 원본은 «취소» 로 내린다(지우지 않는다)');
       if (!db.prepare('SELECT 1 FROM class_schedules WHERE id=500').get()) fail('원본 행이 사라졌다');
       if (res.made + res.existing.length !== plan.dates.filter(d => !conflictDates.includes(d) || existDates.includes(d)).length) fail('만든 수 + 이미 있던 수 = 계획 − 강사 겹침');
-      for (const d of live) if (!plan.dates.includes(d)) fail('계획 밖 날짜에 수업이 생겼다: ' + d);
+      for (const d of live) if (!plan.dates.includes(d) && !(plan.past || []).includes(d)) fail('계획 밖 날짜에 수업이 생겼다: ' + d);
+      { const seen = new Set(); for (const d of live) { if (seen.has(d)) fail('같은 날 수업이 두 줄(중복): ' + d); seen.add(d); } }
+      if ((plan.past || []).some(d => d >= TODAY)) fail('지난 회차에 오늘·미래가 섞였다');
+      /* 💰 급여 — 정본 급여 전개 코드를 오려 내 «나누기 전/후» 지난 회차 수가 같은지(지난달·이번 달) */
+      for (const [y, m] of [[2026, 9], [2026, 10]]) {
+        const cnt = (rows) => PAY0({ results: rows.filter(r => (r.status || 'active') !== 'cancelled' && r.teacher_id != null && !['lms','type_seed'].includes(String(r.user_id || '').toLowerCase())) }, y, m).filter(x => x.user_id === uid && x._date < TODAY && (!startsOn || x._date >= startsOn)).length;
+        const b = cnt(JSON.parse(before)), a = cnt(db.prepare('SELECT * FROM class_schedules').all());
+        /* ⚠️ 급여 전개(dowOf)는 '화,수' 같은 나열의 «첫 요일만» 센다(별개의 옛 결함) — 그래서 여러 요일 줄은
+           나눈 뒤가 «더 정확히» 많다. 지켜야 할 것은 «줄지 않는다» · 한 요일이면 «정확히 같다». */
+        if (a < b) fail(`급여: ${y}-${m} 지난 회차가 ${b} → ${a} (나누면 급여가 줄어든다)`);
+        if (dows.length === 1 && a !== b) fail(`급여: ${y}-${m} 한 요일인데 지난 회차가 ${b} → ${a}`);
+      }
+      stats.payChecked = (stats.payChecked || 0) + 1;
       for (const d of plan.dates) if (!conflictDates.includes(d) && !live.includes(d)) fail('계획 날짜에 수업이 없다: ' + d);
     } else {
       if (res.error !== 'nothing_created' || orig.status !== 'active') fail('하나도 못 만들면 원본을 안 내린다');
@@ -291,6 +315,7 @@ const snap = (db) => JSON.stringify(db.prepare('SELECT * FROM class_schedules OR
   ok('«그 날이 이미 있던» 경우를 실제로 탔다', stats.existFocus >= 3, stats);
   ok('«강사 겹침으로 그 날이 안 생긴» 경우를 실제로 탔다', stats.conflictFocus >= 3, stats);
   ok('미러·취소 원본 거절을 실제로 탔다', stats.refused >= 10, stats);
+  ok('💰 급여 전/후 대조를 실제로 탔다(지난달·이번 달 지난 회차 수가 같다)', (stats.payChecked || 0) >= 100, stats);
   console.log('  ℹ️ ' + JSON.stringify(stats));
 }
 /* 콕 집은 — 실사고 모양(jeong 화요일 19:30, 다음 주 수업을 그 날만) */

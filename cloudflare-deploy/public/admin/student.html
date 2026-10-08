@@ -4045,14 +4045,16 @@ function mgsuOpenAct(key) {
 function mgsuLoadMoveModal(cb) {
   if (window.mangoiMoveModal) { cb(); return; }
   var sc = document.createElement('script');
-  sc.src = '/js/class-move-modal.js?v=5';
+  sc.src = '/js/class-move-modal.js?v=6';
   sc.onload = function () { if (window.mangoiMoveModal) cb(); else alert(mgsuEn() ? 'Could not open the window. Reload and try again.' : '연기·변경 창을 열지 못했습니다. 새로고침 후 다시 눌러 주세요.'); };
   sc.onerror = function () { alert(mgsuEn() ? 'Could not open the window. Reload and try again.' : '연기·변경 창을 열지 못했습니다. 새로고침 후 다시 눌러 주세요.'); };
   document.head.appendChild(sc);
 }
 /* 👤 (2026-10-08) 이 화면에는 신원 정본(js/adm-identity.js)이 안 실린다(관리자 화면 «창» 안에서 열린다).
    «취소»·«매주 수업 나누기» 는 본사 전용이라 /api/admin/me 로 역할을 한 번 묻는다.
-   ⛔ 모르면(실패·응답 이상) 본사로 보지 않는다 — 버튼을 안 주는 쪽으로 실패(서버가 최종 판정). */
+   ⛔ 응답을 못 받으면(실패·응답 이상) 본사로 보지 않는다 — 버튼을 안 주는 쪽으로 실패.
+   ⚠️ 단 서버 /api/admin/me 는 범위 조회가 실패하면 role='staff' 를 주므로, 그때는 «본사» 로 보여
+      취소·나누기 버튼이 뜰 수 있다 — 누르면 서버(enrollAdminHqOnly·DELETE 게이트)가 다시 막는다. */
 var _mgsuMe = null;
 function mgsuMeRole(cb) {
   if (_mgsuMe) { cb(_mgsuMe); return; }
@@ -4115,6 +4117,14 @@ function mgsuOpenSeries(ids) {
     try { fold.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
   }
 }
+/* ⌨️ 캘린더 카드는 role=button 이라 Enter·Space 로도 열린다(마우스 없이). */
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  var t = e.target && e.target.closest ? e.target.closest('[data-mgs-move]') : null;
+  if (!t || t !== e.target) return;
+  e.preventDefault();
+  mgsuOpenMove(t.getAttribute('data-mgs-move'));
+});
 document.addEventListener('click', function (e) {
   var t = e.target && e.target.closest ? e.target : null;
   if (!t) return;

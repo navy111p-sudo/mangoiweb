@@ -603,9 +603,9 @@
     var bad = function (t) { if (msg) { msg.style.color = '#b91c1c'; msg.textContent = t; } };
     var who = String(r.student_name || r.student_uid || '');
     if (!window.confirm(T('매주 반복 수업입니다 — 먼저 날짜별 수업으로 나눕니다.\n\n' + who + ' · ' + mvDayLabel(day) + ' ' + String(r.start_time || '').slice(0, 5)
-          + '\n\n· 수강 종료일까지(없으면 12주) 날짜마다 수업이 한 줄씩 생깁니다.\n· 원래 «매주» 줄은 지우지 않고 «취소» 로 내립니다.\n· 그다음 이 날 수업만 처리합니다.',
+          + '\n\n· 수강 종료일까지(없으면 12주) 날짜마다 수업이 한 줄씩 생깁니다.\n· 지난달 1일부터 어제까지의 지난 회차도 날짜 줄로 남겨 강사 급여가 줄지 않습니다.\n· 원래 «매주» 줄은 지우지 않고 «취소» 로 내립니다.\n· 그다음 이 날 수업만 처리합니다.',
           'This is a weekly class — it will first be split into dated classes.\n\n' + who + ' · ' + mvDayLabel(day) + ' ' + String(r.start_time || '').slice(0, 5)
-          + '\n\n· One class per date until the enrollment end (or 12 weeks).\n· The weekly row is set to cancelled, not deleted.\n· Then only this date is handled.'))) return Promise.resolve(false);
+          + '\n\n· One class per date until the enrollment end (or 12 weeks).\n· Past sessions since the 1st of last month are kept as dated rows, so teacher pay does not drop.\n· The weekly row is set to cancelled, not deleted.\n· Then only this date is handled.'))) return Promise.resolve(false);
     if (go) go.disabled = true;
     if (msg) { msg.style.color = '#475467'; msg.textContent = T('날짜별로 나누는 중...', 'Splitting into dated classes...'); }
     return mvReq('POST', '/api/admin/class-schedules/' + encodeURIComponent(Number(r.schedule_id)), { action: 'split', dry_run: false, focus_date: day }).then(function (res) {
@@ -628,8 +628,8 @@
       r.schedule_id = Number(j.focus_id);
       r.can_move = true; r.can_split = false;
       var sb = $('tc-mv-split');
-      if (sb) sb.innerHTML = T('✅ 날짜별 수업 ' + (Number(j.made || 0) + (j.existing || []).length) + '회로 나눴습니다. 이제 이 날 수업만 처리합니다.',
-                               '✅ Split into ' + (Number(j.made || 0) + (j.existing || []).length) + ' dated classes. Now only this date is handled.');
+      if (sb) sb.innerHTML = T('✅ 날짜별 수업 ' + (Number(j.made || 0) + (j.existing || []).length) + '회로 나눴습니다. (이 날 수업은 아직 그대로 — 이어서 처리합니다. 여기서 멈추면 «나누기» 만 된 상태입니다.)',
+                               '✅ Split into ' + (Number(j.made || 0) + (j.existing || []).length) + ' dated classes. (This date is not changed yet — continuing. If you stop here, only the split is done.)');
       return true;
     }).catch(function () {
       if (go) go.disabled = false;

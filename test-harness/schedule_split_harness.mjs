@@ -67,11 +67,14 @@ function mkEnv() {
   const r = await runScheduleSplit(env, 848, { dry: false, actor: 't', today: '2026-10-02' });
   ok('11회 생성 + 강사 겹친 10/13 은 skipped 로 말한다', r.ok && r.made === 11 && r.skipped.join() === '2026-10-13', r);
   ok('원본은 지우지 않고 취소로 내린다', db.prepare(`SELECT status FROM class_schedules WHERE id=848`).get().status === 'cancelled');
-  const nr = db.prepare(`SELECT * FROM class_schedules WHERE user_id='jeong' AND scheduled_date IS NOT NULL ORDER BY scheduled_date`).all();
+  const nr = db.prepare(`SELECT * FROM class_schedules WHERE user_id='jeong' AND scheduled_date >= '2026-10-02' ORDER BY scheduled_date`).all();
+  /* 💰 (2026-10-08) 지난 회차(지난달 1일~어제)도 날짜 줄로 남는다 — 급여가 매주 줄을 그 달 전체로 펼치므로 */
+  const past = db.prepare(`SELECT scheduled_date d FROM class_schedules WHERE user_id='jeong' AND status='active' AND scheduled_date < '2026-10-02' ORDER BY d`).all().map(x => x.d);
+  ok('지난 회차(9/1~10/1)도 날짜 줄로 남겨 급여가 줄지 않는다', r.backfilled === past.length && past.length > 0 && past[0] >= '2026-09-01' && past.every(d => new Date(d + 'T00:00:00Z').getUTCDay() === 2), { backfilled: r.backfilled, past });
   ok('새 줄은 날짜·시각·강사·출처를 이어받는다', nr.length === 11 && nr.every(x => x.schedule_kind === 'dated' && x.start_time === '19:20' && x.teacher_id === '29' && x.source === 'ai_enroll' && x.status === 'active'));
   ok('새 줄 메모에 원본 번호', /#848/.test(nr[0].notes || ''));
   const again = await runScheduleSplit(env, 848, { dry: false, actor: 't', today: '2026-10-02' });
-  ok('두 번 눌러도 다시 안 만든다(원본이 이미 취소)', again.ok === false && db.prepare(`SELECT COUNT(*) n FROM class_schedules WHERE user_id='jeong' AND status='active'`).get().n === 11);
+  ok('두 번 눌러도 다시 안 만든다(원본이 이미 취소)', again.ok === false && db.prepare(`SELECT COUNT(*) n FROM class_schedules WHERE user_id='jeong' AND status='active'`).get().n === 11 + (r.backfilled || 0));
 }
 {
   const { db, env } = mkEnv();
