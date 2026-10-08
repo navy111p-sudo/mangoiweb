@@ -23,6 +23,7 @@ import { checkAdminSession } from './auth-admin';
 import { writeClassAudit } from './class-audit';
 import { findScheduleConflicts, toDow } from './schedule-conflict';
 import { DEFAULT_CLASS_MINUTES, isAllowedClassMinutes } from './class-policy';
+import { loadTeacherNameOf } from './student-schedule-summary';
 
 export type DurationChangeStatus = 'pending' | 'applied' | 'cancelled' | 'failed';
 
@@ -186,8 +187,14 @@ export async function handleDurationQueue(request: Request, env: any, path: stri
       `SELECT MAX(applied_month) AS m FROM class_duration_requests WHERE status='applied'`
     ).first().catch(() => null);
     const thisMonth = kstMonth();
+    /* 👩‍🏫 (2026-10-08) 화면이 강사 «번호» 만 받던 것을 이름으로 — 정본 loadTeacherNameOf. 실패해도 목록은 뜬다. */
+    const reqs = (rs?.results as any[]) || [];
+    try {
+      const nameOf = await loadTeacherNameOf(env);
+      for (const r of reqs) r.teacher_name = nameOf(r.teacher_id) || null;
+    } catch { /* 이름 없이 간다 */ }
     return json({
-      ok: true, requests: (rs?.results as any[]) || [],
+      ok: true, requests: reqs,
       this_month: thisMonth,
       last_applied_month: last?.m || null,
       can_apply_this_month: canApplyMonth(last?.m, thisMonth),

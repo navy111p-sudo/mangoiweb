@@ -13,6 +13,7 @@ import {
 import { dowList, loadHoldRanges, heldOnFor } from './absence-hold';
 import { recurStartedOn } from './class-start-date';
 import { teacherPresenceByRoom } from './no-show-truth';
+import { loadTeacherNameOf } from './student-schedule-summary';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const KST = 9 * 3600 * 1000;
@@ -196,6 +197,12 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
       on_leave: !!isOnLeave(leaves || [], o.date), holiday: holidays.has(o.date),
     };
   });
+
+  /* 👩‍🏫 (2026-10-08) 화면이 강사 «번호» 만 받던 것을 이름으로. 정본 loadTeacherNameOf(원부 번호 → 계정 연결)
+     — 실패해도 던지지 않고 빈 이름을 준다(원장은 그대로 떠야 한다). ⛔ 카페24 강사번호와 섞지 않는다. */
+  let nameOf: (tid: any) => string = () => '';
+  try { nameOf = await loadTeacherNameOf(env); } catch { /* 이름 없이 간다 */ }
+  for (const it of items as any[]) it.teacher_name = nameOf(it.teacher_id) || null;
 
   return {
     ok: true, uid, month: ym,
