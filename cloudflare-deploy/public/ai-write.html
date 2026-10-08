@@ -295,6 +295,40 @@
        (2026-08-30 제안서 «AI 영작 첨삭 및 브레인스토밍 통합» 반영)
        ⚠️ .flow-steps 는 flex 지만 «칸(블록)» 을 늘어놓는 것뿐이다.
           글자가 흐르는 요소에 flex 를 걸면 낱글자로 쪼개진다(CLAUDE.md 2장). */
+    .flow-steps[hidden], .aw-how-ov[hidden] { display: none !important; }
+    /* 🙋 도움 접기 (시안 B) */
+    .aw-help { margin: 0 0 16px; border: 1px dashed rgba(251,191,36,0.45); border-radius: 14px; background: rgba(251,191,36,0.06); }
+    .aw-help-sum { cursor: pointer; padding: 13px 16px; font-weight: 800; font-size: 15px; color: var(--gold); list-style: none; }
+    .aw-help-sum::-webkit-details-marker { display: none; }
+    .aw-help-sum::after { content: " \25BE"; }
+    .aw-help[open] .aw-help-sum::after { content: " \25B4"; }
+    .aw-help-sum:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 12px; }
+    .aw-help-in { padding: 0 12px 12px; }
+    /* 📖 사용 방법 버튼 · 설명서 */
+    .aw-how-btn { display: block; width: 100%; margin: 0 0 10px; padding: 12px 14px; font-size: 16px !important; border-radius: 99px; border: 1px solid rgba(251,191,36,0.6); background: rgba(251,191,36,0.16);
+      color: var(--gold); font-weight: 800; cursor: pointer; font-family: inherit; }
+    .aw-how-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .aw-how-ov { position: fixed; inset: 0; z-index: 100002; background: rgba(5,10,20,0.78); display: flex;
+      align-items: flex-start; justify-content: center; overflow-y: auto; padding: 16px 12px; }
+    .aw-how { background: #14213b; color: var(--text); border: 1px solid rgba(251,191,36,0.4); border-radius: 18px;
+      width: 100%; max-width: 560px; padding: 16px 16px 18px; margin: auto 0; box-sizing: border-box; }
+    .aw-how-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .aw-how-top h2 { margin: 0; flex: 1; font-size: 19px; color: var(--gold); }
+    .aw-how-x { border: 0; background: rgba(255,255,255,0.12); color: var(--text); width: 40px; height: 40px; border-radius: 50%;
+      font-size: 20px; cursor: pointer; font-family: inherit; }
+    .aw-how-dots { display: flex; gap: 6px; justify-content: center; margin: 10px 0 2px; }
+    .aw-how-dots span { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.25); }
+    .aw-how-dots span.on { background: var(--gold); }
+    .aw-how-step h3 { margin: 4px 0 6px; font-size: 21px; line-height: 1.35; }
+    .aw-how-step p { margin: 8px 0 0; font-size: 16.5px; line-height: 1.65; }
+    .aw-how-step img { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); background: #0b1324; }
+    .aw-how-nav { display: flex; gap: 8px; margin-top: 14px; }
+    .aw-how-nav button { flex: 1; padding: 13px; border-radius: 12px; font-size: 16px; font-weight: 800; cursor: pointer; font-family: inherit; border: 0; }
+    .aw-how-prev { background: rgba(255,255,255,0.1); color: var(--text); }
+    .aw-how-next { background: var(--gold); color: #1d1402; }
+    .aw-how-nav button:disabled { opacity: .35; cursor: default; }
+    .aw-how-nav button:focus-visible, .aw-how-x:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+    body.aw-how-open { overflow: hidden; }
     .flow-steps { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
     .fstep { flex: 1 1 195px; min-width: 0; padding: 11px 15px; border-radius: 13px;
       background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.22); }
@@ -443,9 +477,11 @@
   <div class="wrap">
     <!-- 🧭 3단계 안내 줄(P7) — 누르면 그 칸으로 간다. 갈 곳(id)이 바뀌면 data-aw-go 도 함께.
          감시: test-harness/ai_write_guide_harness.mjs · manual/ai-write-guide-browser.mjs -->
+    <!-- 📖 사용 방법 — 머리줄 오른쪽은 공용 🏠/EN 칩(고정)이 덮어 못 누른다(2026-10-08 실측). 그래서 본문 맨 위에 둔다. -->
+    <button type="button" class="aw-how-btn" id="awHowBtn" onclick="openHowTo()" aria-haspopup="dialog"><span data-ko="📖 처음이에요? 사용 방법 보기" data-en="📖 New here? See how to use">📖 처음이에요? 사용 방법 보기</span></button>
     <nav class="aw-guide" id="awGuide" aria-label="AI 영작 첨삭 3단계 / 3 steps">
       <button type="button" class="awg-step" data-aw-go="picCard"><span data-ko="① 그림이나 주제 고르기" data-en="① Pick a picture or topic">① 그림이나 주제 고르기</span></button><span class="awg-arrow" aria-hidden="true">→</span>
-      <button type="button" class="awg-step" data-aw-go="goCard"><span data-ko="② 질문에 답하기" data-en="② Answer the questions">② 질문에 답하기</span></button><span class="awg-arrow" aria-hidden="true">→</span>
+      <button type="button" class="awg-step" data-aw-go="goCard"><span data-ko="② 막히면 질문에 답하기" data-en="② Stuck? Answer questions">② 막히면 질문에 답하기</span></button><span class="awg-arrow" aria-hidden="true">→</span>
       <button type="button" class="awg-step" data-aw-go="text"><span data-ko="③ AI 첨삭 받기" data-en="③ Get AI feedback">③ AI 첨삭 받기</span></button>
     </nav>
     <script>
@@ -460,6 +496,9 @@
         var id = b.getAttribute('data-aw-go');
         var t = document.getElementById(id);
         if (!t) return;
+        // 🙋 접힌 «도움» 안의 칸이면 먼저 펼친다(닫힌 details 안은 스크롤이 안 먹는다)
+        var fold = t.closest ? t.closest('details.aw-help') : null;
+        if (fold && !fold.open) fold.open = true;
         var head = document.querySelector('.top');
         var off = (head ? head.getBoundingClientRect().height : 0) + 12;
         var y = t.getBoundingClientRect().top + (window.pageYOffset || 0) - off;
@@ -485,7 +524,7 @@
     </div>
 
     <!-- 🧭 4단계 파이프라인 — 지금 어느 단계인지 한눈에 -->
-    <div class="flow-steps" id="flowSteps">
+    <div class="flow-steps" id="flowSteps" hidden>
       <div class="fstep on" data-step="1">
         <div class="fs-no">STEP 1</div>
         <div class="fs-t" data-ko="주제 &amp; 그림 고르기" data-en="Pick a topic &amp; picture">주제 &amp; 그림 고르기</div>
@@ -516,18 +555,6 @@
       <button class="level-btn" data-level="C1">C1 고급</button>
     </div>
 
-    <!-- 📚 오늘의 미션 단어 — 교재/레벨 맞춤 (사용하면 ⭐ + 보너스 포인트) -->
-    <div class="mission" id="missionCard" style="display:none">
-      <div class="mission-head">📚 <span data-ko="오늘의 미션 단어 — 3개 모두 쓰면 보너스 +15P!" data-en="Today's mission words — use all 3 for +15P bonus!">오늘의 미션 단어 — 3개 모두 쓰면 보너스 +15P!</span></div>
-      <div class="mission-words" id="missionWords"></div>
-    </div>
-
-    <!-- ✍️ 글감 고르는 법 — 고르는 곳이 세 군데라 «셋 중 하나만» 이라고 먼저 말해 준다(2026-10-05 세미나 준비 중 제보).
-         세 곳 모두 STEP 2 의 «지금 주제» 칸 하나로 모이고, 마지막에 고른 것 하나만 쓰인다(_goTheme). -->
-    <div class="pick-note" id="pickNote">
-      <b data-ko="✍️ 글감은 세 곳 중 «하나만» 고르면 돼요" data-en="✍️ Pick just «one» topic from these three">✍️ 글감은 세 곳 중 «하나만» 고르면 돼요</b>
-      <span data-ko="① 🖼 오늘의 그림 → «이 장면으로 쓰기» · ② 🎲 오늘의 글감 · ③ 🧠 내 경험 주제(STEP 2). 어디서 골라도 STEP 2 브레인스토밍의 «지금 주제» 로 모이고, 마지막에 고른 하나로 글을 써요." data-en="① 🖼 Today's picture → «Write this scene» · ② 🎲 Today's topics · ③ 🧠 My own story (STEP 2). Whichever you pick goes to «Topic» in STEP 2 Brainstorming — your last pick is the one you write about.">① 🖼 오늘의 그림 → «이 장면으로 쓰기» · ② 🎲 오늘의 글감 · ③ 🧠 내 경험 주제(STEP 2). 어디서 골라도 STEP 2 브레인스토밍의 «지금 주제» 로 모이고, 마지막에 고른 하나로 글을 써요.</span>
-    </div>
     <div class="topic-row scene-picker">
       <label for="picChoice" data-ko="🎬 장면 선택" data-en="🎬 Choose a scene">🎬 장면 선택</label>
       <select id="picChoice" onchange="choosePic(Number(this.value))"></select>
@@ -545,6 +572,26 @@
           <button class="pic-btn shuffle" id="picMotionToggle" onclick="togglePicMotion()" hidden></button>
         </div>
       <div class="pic-hint" id="picHint" aria-live="polite"></div>
+    </div>
+
+    <!-- 📚 그림 속 미션 단어 (2026-10-08 선생님 피드백 «그림에 apple 이 없는데 미션 단어는 apple»).
+         예전엔 그림과 따로(단어장·레벨 기본 목록) 뽑혀 그림에 없는 낱말이 나왔다 → 지금은 «그 그림에 실제로 보이는» 낱말(SCENE_WORDS). -->
+    <div class="mission" id="missionCard" style="display:none">
+      <div class="mission-head">📚 <span data-ko="그림 속 미션 단어 — 그림에서 찾아 3개 모두 쓰면 +15P!" data-en="Picture mission words — find them in the picture and use all 3 for +15P!">그림 속 미션 단어 — 그림에서 찾아 3개 모두 쓰면 +15P!</span></div>
+      <div class="mission-words" id="missionWords"></div>
+    </div>
+
+    <!-- 🙋 도움이 필요해요 (2026-10-08 시안 B) — 첫 화면은 «그림 보고 쓰기» 만 보이고,
+         글감 고르는 법·문장 연습·다른 글감·브레인스토밍은 여기 접어 둔다. 기능은 하나도 지우지 않았다.
+         ⚠️ 접힌 안의 칸으로 스크롤할 때는 먼저 펼쳐야 한다(awOpenHelp) — 닫힌 details 안은 scrollIntoView 가 안 먹는다. -->
+    <details class="aw-help" id="awHelp">
+      <summary class="aw-help-sum"><span data-ko="🙋 도움이 필요해요 — 질문에 답하며 쓰기 · 문장 연습 · 다른 글감" data-en="🙋 Need help? — answer questions · sentence practice · other topics">🙋 도움이 필요해요 — 질문에 답하며 쓰기 · 문장 연습 · 다른 글감</span></summary>
+      <div class="aw-help-in">
+    <!-- ✍️ 글감 고르는 법 — 고르는 곳이 세 군데라 «셋 중 하나만» 이라고 먼저 말해 준다(2026-10-05 세미나 준비 중 제보).
+         세 곳 모두 STEP 2 의 «지금 주제» 칸 하나로 모이고, 마지막에 고른 것 하나만 쓰인다(_goTheme). -->
+    <div class="pick-note" id="pickNote">
+      <b data-ko="✍️ 글감은 세 곳 중 «하나만» 고르면 돼요" data-en="✍️ Pick just «one» topic from these three">✍️ 글감은 세 곳 중 «하나만» 고르면 돼요</b>
+      <span data-ko="① 🖼 오늘의 그림 → «이 장면으로 쓰기» · ② 🎲 오늘의 글감 · ③ 🧠 내 경험 주제(STEP 2). 어디서 골라도 STEP 2 브레인스토밍의 «지금 주제» 로 모이고, 마지막에 고른 하나로 글을 써요." data-en="① 🖼 Today's picture → «Write this scene» · ② 🎲 Today's topics · ③ 🧠 My own story (STEP 2). Whichever you pick goes to «Topic» in STEP 2 Brainstorming — your last pick is the one you write about.">① 🖼 오늘의 그림 → «이 장면으로 쓰기» · ② 🎲 오늘의 글감 · ③ 🧠 내 경험 주제(STEP 2). 어디서 골라도 STEP 2 브레인스토밍의 «지금 주제» 로 모이고, 마지막에 고른 하나로 글을 써요.</span>
     </div>
 
     <details class="go-card" id="sentenceCoach">
@@ -579,6 +626,8 @@
       <div class="go-themes" id="goThemes"><!-- 주제 칩은 JS가 채움 --></div>
       <div id="goBody"><!-- 질문·뼈대는 주제를 고르면 JS가 그림 --></div>
     </div>
+      </div>
+    </details>
 
     <details class="go-memo" id="goMemo" style="display:none">
       <summary>📝 <span data-ko="내 브레인스토밍 메모 (쓰면서 보기)" data-en="My brainstorming notes (keep them handy)">내 브레인스토밍 메모 (쓰면서 보기)</span></summary>
@@ -633,6 +682,90 @@
       <button onclick="window.MangoFlow&&MangoFlow.open('aiwrite')" style="display:inline-flex;align-items:center;gap:8px;padding:14px 30px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px -4px rgba(56,189,248,.5);font-family:inherit" data-ko="🚀 다음으로 이동 (수업·말하기 연습·게임·나가기)" data-en="🚀 Go next (Class·Speaking·Games·Exit)">🚀 다음으로 이동 (수업·말하기 연습·게임·나가기)</button>
     </div>
   </div>
+
+  <!-- 📖 사용 방법 — 초등학생도 따라 할 수 있게 «사진 + 화살표» 로 한 장씩 (2026-10-08 사장님 지시).
+       사진은 /img/aiwrite-guide/stepN.webp (실제 화면을 찍어 화살표를 그린 것 — 화면이 바뀌면 다시 찍는다).
+       ⛔ data-ko/data-en 은 «글자만 담은 span» 에만 단다(그릇에 달면 i18n 이 내용을 통째로 갈아끼운다). -->
+  <div class="aw-how-ov" id="awHowOv" hidden role="dialog" aria-modal="true" aria-labelledby="awHowTitle">
+    <div class="aw-how">
+      <div class="aw-how-top">
+        <h2 id="awHowTitle"><span data-ko="📖 이렇게 써 봐요!" data-en="📖 Here's how!">📖 이렇게 써 봐요!</span></h2>
+        <button type="button" class="aw-how-x" onclick="closeHowTo()" aria-label="닫기 / Close">✕</button>
+      </div>
+      <div class="aw-how-step" id="awHowStep"></div>
+      <div class="aw-how-dots" id="awHowDots" aria-hidden="true"></div>
+      <div class="aw-how-nav">
+        <button type="button" class="aw-how-prev" id="awHowPrev" onclick="howToGo(-1)"><span data-ko="◀ 이전" data-en="◀ Back">◀ 이전</span></button>
+        <button type="button" class="aw-how-next" id="awHowNext" onclick="howToGo(1)"><span data-ko="다음 ▶" data-en="Next ▶">다음 ▶</span></button>
+      </div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    var STEPS = [
+      { img: 1, ko: ['① 그림을 봐요', '마음에 드는 그림을 골라요. 다른 그림이 보고 싶으면 «🔀 다른 그림» 을 눌러요.'],
+                en: ['① Look at the picture', 'Pick a picture you like. Tap «🔀 Another picture» to see a different one.'] },
+      { img: 2, ko: ['② 그림 속 단어를 찾아요', '보라색 단어 3개가 그림 안에 숨어 있어요. 3개를 모두 넣어서 쓰면 ⭐ +15P!'],
+                en: ['② Find the picture words', 'The 3 purple words are hiding in the picture. Use all 3 to get ⭐ +15P!'] },
+      { img: 3, ko: ['③ 영어로 써요', '그림 속 사람이 무엇을 하는지 영어로 써요. 짧아도 괜찮아요! «🎤 말로 쓰기» 버튼이 보이면 말로도 쓸 수 있어요.'],
+                en: ['③ Write in English', 'Write what the people in the picture are doing. Short is OK! If you see «🎤 Speak to write», you can write by speaking.'] },
+      { img: 4, ko: ['④ «AI 첨삭 받기» 를 눌러요', '망고 선생님이 틀린 곳을 고쳐 주고 점수를 알려 줘요. 고친 문장을 보고 따라 써 보면 포인트를 더 받아요.'],
+                en: ['④ Tap «Get AI Correction»', 'Coach Mango fixes mistakes and gives you a score. Copy the fixed sentence to earn more points.'] },
+      { img: 5, ko: ['⑤ 막히면 «도움이 필요해요»', '무엇을 쓸지 모르겠으면 눌러 봐요. 질문에 답하면 문장 뼈대를 만들어 줘요.'],
+                en: ['⑤ Stuck? Tap «Need help?»', 'Not sure what to write? Tap it. Answer the questions and you get a sentence outline.'] }
+    ];
+    var cur = 0;
+    function en() { try { return window.getLang && window.getLang() === 'en'; } catch (e) { return false; } }
+    function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function draw() {
+      var st = STEPS[cur], L = en() ? st.en : st.ko;
+      document.getElementById('awHowStep').innerHTML =
+        '<h3>' + esc(L[0]) + '</h3>' +
+        '<img src="/img/aiwrite-guide/step' + st.img + '.webp?v=1" width="780" height="880" alt="' + esc(L[0]) + '" loading="lazy">' +
+        '<p>' + esc(L[1]) + '</p>';
+      document.getElementById('awHowDots').innerHTML = STEPS.map(function (_, i) { return '<span' + (i === cur ? ' class="on"' : '') + '></span>'; }).join('');
+      document.getElementById('awHowPrev').disabled = cur === 0;
+      var nx = document.getElementById('awHowNext').querySelector('span');
+      var last = cur === STEPS.length - 1;
+      nx.setAttribute('data-ko', last ? '시작하기 ✍️' : '다음 ▶'); nx.setAttribute('data-en', last ? 'Start ✍️' : 'Next ▶');
+      nx.textContent = en() ? nx.getAttribute('data-en') : nx.getAttribute('data-ko');
+    }
+    window.openHowTo = function () {
+      cur = 0; draw();
+      document.getElementById('awHowOv').hidden = false;
+      document.body.classList.add('aw-how-open');
+      try { document.getElementById('awHowNext').focus(); } catch (e) {}
+    };
+    window.closeHowTo = function () {
+      document.getElementById('awHowOv').hidden = true;
+      document.body.classList.remove('aw-how-open');
+      try { document.getElementById('awHowBtn').focus(); } catch (e) {}
+    };
+    window.howToGo = function (d) {
+      if (d > 0 && cur === STEPS.length - 1) { window.closeHowTo(); try { document.getElementById('text').focus(); } catch (e) {} return; }
+      cur = Math.max(0, Math.min(STEPS.length - 1, cur + d)); draw();
+    };
+    document.getElementById('awHowOv').addEventListener('click', function (e) { if (e.target === this) window.closeHowTo(); });
+    document.addEventListener('keydown', function (e) {
+      if (document.getElementById('awHowOv').hidden) return;
+      if (e.key === 'Escape') window.closeHowTo();
+      else if (e.key === 'ArrowRight') window.howToGo(1);
+      else if (e.key === 'ArrowLeft') window.howToGo(-1);
+    });
+    // 🌐 언어를 바꾸면 열린 설명서도 다시 그린다
+    ['mangoi:lang-changed'].forEach(function (ev) {
+      window.addEventListener(ev, function () { if (!document.getElementById('awHowOv').hidden) draw(); });
+      document.addEventListener(ev, function () { if (!document.getElementById('awHowOv').hidden) draw(); });
+    });
+    // 처음 온 학생에게는 한 번 저절로 보여 준다(다시 보려면 위 «📖 사용 방법»)
+    try {
+      if (!localStorage.getItem('mangoi_aiwrite_howto_v1')) {
+        localStorage.setItem('mangoi_aiwrite_howto_v1', '1');
+        setTimeout(window.openHowTo, 600);
+      }
+    } catch (e) {}
+  })();
+  </script>
 
   <!-- 📕 동화책 오버레이 -->
   <div id="bookModal"></div>
@@ -765,6 +898,32 @@
       C1: ['perspective', 'significant', 'circumstance', 'inevitably', 'appreciate', 'demonstrate', 'perceive', 'profound'],
     };
     let _missionWords = [];
+    /* 🖼 그림마다 «그 그림에 실제로 보이는» 낱말 3개 (2026-10-08 — 36장을 눈으로 보고 골랐다).
+       ⚠️ 단수형으로 적는다 — 서버(api-ai.ts)가 -s/-es 붙은 복수형도 «썼다» 로 센다.
+       ⚠️ 그림을 갈아 끼우거나 새로 넣으면 여기도 함께 고친다(없으면 예전 레벨 목록으로 떨어진다). */
+    const SCENE_WORDS = {
+      'birthday-action':['cake','candle','gift'], 'playground-action':['ball','slide','tree'],
+      'cooking-action':['pancake','egg','bowl'], 'helping-action':['flower','bag','tree'],
+      'dino-school':['dinosaur','teacher','desk'], 'space':['astronaut','Earth','window'],
+      'beach':['sandcastle','ball','sea'], 'jungle':['tree','leaf','boy'],
+      'castle':['dragon','wizard','book'], 'restaurant':['food','table','plate'],
+      'ocean':['fish','turtle','sea'], 'robot':['robot','cap','table'],
+      'circus':['ball','dancer','flag'], 'soccer':['ball','goal','grass'],
+      'birthday':['cake','balloon','door'], 'haunted':['house','door','window'],
+      'farm':['chicken','fence','barn'], 'zoo':['giraffe','tree','leaf'],
+      'bakery':['bread','baker','hat'], 'library':['book','table','glasses'],
+      'playground':['slide','swing','ball'], 'snow':['snow','hat','tree'],
+      'rain':['umbrella','boot','puddle'], 'market':['apple','basket','box'],
+      'camping':['tent','flashlight','tree'], 'train':['train','window','table'],
+      'airport':['suitcase','door','window'], 'clinic':['doctor','boy','chair'],
+      'firestation':['firefighter','hose','helmet'], 'aquarium':['fish','water','teacher'],
+      'musicroom':['drum','guitar','music'], 'artroom':['flower','picture','brush'],
+      'sportsday':['track','friend','sky'], 'picnic':['plate','grass','tree'],
+      'treehouse':['ladder','basket','tree'], 'balloon':['balloon','basket','cloud'],
+    };
+    function sceneMissionWords() {
+      try { const sc = PIC_SCENES[_picIdx]; return (sc && SCENE_WORDS[sc.img]) ? SCENE_WORDS[sc.img].slice() : []; } catch (e) { return []; }
+    }
     // 날짜 기반 결정적 선택 — "오늘의" 미션이 하루 동안 고정되도록
     function pickDaily(arr, n) {
       const day = Math.floor((Date.now() + 9*3600*1000) / 86400000);
@@ -777,6 +936,9 @@
       return out;
     }
     async function loadMission() {
+      // 🖼 그림이 있으면 그 그림 속 낱말이 미션이다(그림과 미션이 따로 놀던 것을 고침)
+      const sw = sceneMissionWords();
+      if (sw.length >= 3) { _missionWords = sw; renderMission(); return; }
       let words = [];
       try {
         const uid = getUid();
@@ -952,6 +1114,9 @@
       img.onload = () => { img.classList.add('on'); };
       img.onerror = () => {
         if (_picIdx !== idx) return;
+        // 움직이는 그림용 첫 장면(posterSrc)이 깨졌으면 원래 그림으로 한 번 더 (cooking-action 포스터가 0바이트였다)
+        const plain = '/img/write-scenes/' + sc.img + '.webp';
+        if (img.getAttribute('src') !== plain) { img.src = plain; return; }
         img.classList.remove('on');
         const hint = document.getElementById('picHint');
         hint.setAttribute('data-ko', '그림을 불러오지 못했어요. ‘다른 그림’을 눌러 주세요.');
@@ -961,6 +1126,7 @@
       img.alt = (window.getLang && window.getLang() === 'en') ? (sc.altEn || sc.en) : (sc.altKo || sc.ko);
       img.src = sc.posterSrc || '/img/write-scenes/' + sc.img + '.webp';
       renderPicMotion(sc);
+      if (sceneMissionWords().length >= 3) { _missionWords = sceneMissionWords(); renderMission(); }
       if (window.refreshSentenceCoach) window.refreshSentenceCoach();
       /* 캐시에 이미 있으면 onload 가 안 오는 브라우저가 있어 보정 */
       if (img.complete && img.naturalWidth) img.classList.add('on');
@@ -2036,6 +2202,7 @@
       renderGoThemes(); renderGoQuestions(); goSave();
       flowMark(1);
       if (_goTheme) {
+        const fold = document.getElementById('awHelp'); if (fold && !fold.open) fold.open = true;
         document.getElementById('goCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
         // 첫 질문에 바로 쓸 수 있게 (폰에서는 키보드가 올라오지 않게 포커스만)
         setTimeout(() => { const f = document.querySelector('#goBody .go-q input'); if (f) f.focus({ preventScroll: true }); }, 350);

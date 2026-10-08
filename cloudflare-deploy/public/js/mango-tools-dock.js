@@ -97,6 +97,38 @@
     if (bar.style.right !== 'auto') bar.style.right = 'auto';
   }
 
+  // ✕ (2026-10-08 사장님 「닫기 기능이 없음 — 필기도구·교재도구 모두에 닫기 표시」)
+  //   폰 세로에서는 패널이 화면 가운데를 덮는데(position:fixed) 닫는 길이 칩을 다시
+  //   누르는 것뿐이었고, 그 칩은 패널·☰ 기능 메뉴 뒤에 있어 찾을 수 없었다.
+  //   패널마다 맨 위에 «✕ 닫기» 를 넣는다. 보이기/숨기기는 CSS(열렸을 때만)가 맡는다.
+  //   도구바가 다시 그려져도 enforce 틱(1.2초)이 다시 넣는다.
+  function ensureClose(bar) {
+    try {
+      if (!bar || typeof bar.querySelector !== 'function' || typeof document.createElement !== 'function') return;
+      if (bar.querySelector(':scope > .mango-dock-close')) return;
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'mango-dock-close';
+      b.textContent = lang() === 'en' ? '✕ Close (닫기)' : '✕ 닫기 (Close)';
+      b.setAttribute('data-ko', '✕ 닫기 (Close)');
+      b.setAttribute('data-en', '✕ Close (닫기)');
+      b.setAttribute('aria-label', lang() === 'en' ? 'Close tools' : '도구 닫기');
+      b.addEventListener('click', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        window.mangoCloseToolDock();
+      });
+      bar.insertBefore(b, bar.firstChild);
+    } catch (_) {}
+  }
+
+  // 모든 도구 패널 닫기 (탭 전환·화면 모드 변경 없이 닫기만)
+  window.mangoCloseToolDock = function () {
+    openState.materials = false;
+    openState.write = false;
+    applyMaterialsState();
+    applyWriteState();
+  };
+
   // ── 교재도구 상태 반영 (항상 교재 탭의 pdf-controls) ──
   function applyMaterialsState() {
     var bar = pdfControls();
@@ -104,6 +136,7 @@
       setAttr(bar, 'data-mango-dock-open', openState.materials);
       var collapsed = bar.classList.contains('ph49-collapsed');
       if (openState.materials) {
+        ensureClose(bar);
         if (collapsed) bar.classList.remove('ph49-collapsed');
         positionDockEl(bar, 'materials');
       } else {
@@ -128,7 +161,7 @@
       }
       // 칠판 도구바는 접힘(ph49) 로직을 쓰지 않는다 — 내부 버튼 항상 노출
       if (wb.classList.contains('ph49-collapsed')) wb.classList.remove('ph49-collapsed');
-      if (wbShow) positionDockEl(wb, 'write');
+      if (wbShow) { ensureClose(wb); positionDockEl(wb, 'write'); }
     }
 
     // PDF 주석 도구바 — 필기도구가 열려 있고 '칠판이 아닌' 탭(=교재)일 때만 표시
@@ -137,6 +170,7 @@
       setAttr(anno, 'data-mango-dock-open', annoShow);
       var collapsed = anno.classList.contains('ph49-collapsed');
       if (annoShow) {
+        ensureClose(anno);
         if (collapsed) anno.classList.remove('ph49-collapsed');
         positionDockEl(anno, 'write');
       } else {
@@ -171,6 +205,9 @@
 
   // 동적 재렌더에도 클릭 없이는 열리지 않도록 상태 강제
   function enforce() {
+    ensureClose(pdfControls());
+    ensureClose(pdfAnnoBar());
+    ensureClose(wbToolbar());
     applyMaterialsState();
     applyWriteState();
   }

@@ -120,6 +120,54 @@
     var list=filter==='unread'?inbox:reports.filter(function(r){return filter==='all'||filter===r.status||(filter==='open'&&!r.payload.no_open)||(filter==='urgent'&&r.payload.priority==='urgent');});
     return list.slice().sort(function(a,b){var rank=function(r){return (r.payload.priority==='urgent'&&r.status==='submitted'?-10:0)+({submitted:0,changes_requested:1,draft:2,acknowledged:3}[r.status]||0);};return rank(a)-rank(b)||b.updated_at-a.updated_at;});
   }
+  /* 🇰🇷 받은 보고 한국어 번역(2026-10-08): 필리핀 매니저가 영어로 쓴 보고를 버튼 한 번에 한글로 바꿔 읽는다.
+     서버 /api/translate mode:'chat'(존댓말·직원 대화용)을 그대로 쓴다. 그 모드는 «첫 줄만» 돌려주므로
+     줄마다 따로 보낸다. 번역은 화면에만 보이고 저장된 보고는 바꾸지 않는다. */
+  var koCache={}, KO_FIELDS=['work','issue','open','student','class_info'];
+  function koKey(r){return JSON.stringify([r.version,r.payload]);}
+  function koState(r){
+    var key=koKey(r),state=koCache[r.id];
+    // A report can change within one timestamp. Bind both the cache and display
+    // choice to the exact revision/payload; pending work keeps its own snapshot.
+    if(!state||state.key!==key)state=koCache[r.id]={key:key,payload:JSON.parse(JSON.stringify(r.payload)),value:null,show:false,pending:null};
+    return state;
+  }
+  function needsKo(d){return KO_FIELDS.some(function(k){var v=String(d[k]||'');return /[A-Za-z]/.test(v);});}
+  function koLines(d){var out=[];KO_FIELDS.forEach(function(k){String(d[k]||'').split(/\r?\n/).forEach(function(line){var t=line.replace(/^[\s•\-*·]+/,'').trim();if(/[A-Za-z]/.test(t)&&out.indexOf(t)<0)out.push(t);});});return out;}
+  async function translateKo(d){
+    var lines=koLines(d),map={};
+    for(var i=0;i<lines.length;i+=40){var r=await fetch('/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texts:lines.slice(i,i+40),target:'ko',mode:'chat'})});var j=await r.json().catch(function(){return null;});if(!r.ok||!j||j.ok!==true||!j.map)throw new Error('translate '+r.status);Object.assign(map,j.map);}
+    var failed=0,copy=Object.assign({},d);
+    KO_FIELDS.forEach(function(k){if(!d[k])return;copy[k]=String(d[k]).split(/\r?\n/).map(function(line){var m=line.match(/^([\s•\-*·]*)(.*)$/),t=m[2].trim(),ko=map[t];if(!t||!/[A-Za-z]/.test(t))return line;if(!ko||!/[가-힣]/.test(ko)||/불러오지 못했어요/.test(ko)){failed++;return line;}return m[1]+ko;}).join('\n');});
+    copy.__failed=failed;return copy;
+  }
+  function koButton(r,content){
+    var state=koState(r),b=node('button',state.show?'🔤 원문 보기 / Original':'🌐 한국어로 번역 / Translate to Korean');b.type='button';b.style.marginLeft='8px';
+    function current(){return koCache[r.id]===state&&state.key===koKey(r)&&content.isConnected;}
+    b.onclick=async function(){
+      if(!current()||b.disabled)return;
+      if(state.show){state.show=false;showPayload(content,r.payload,r.report_date,r.staff_name);b.textContent='🌐 한국어로 번역 / Translate to Korean';return;}
+      if(!state.value){
+        b.disabled=true;b.textContent='번역 중… / Translating…';
+        var pending;
+        try{
+          pending=state.pending||(state.pending=translateKo(state.payload));
+          var value=await pending;
+          if(koCache[r.id]!==state||state.key!==koKey(r))return;
+          state.value=value;if(state.pending===pending)state.pending=null;
+        }catch(e){
+          if(state.pending===pending)state.pending=null;
+          if(!current())return;
+          b.disabled=false;b.textContent='⚠️ 번역 실패 · 다시 누르기 / Retry';return;
+        }
+        if(!current())return;
+        b.disabled=false;
+      }
+      state.show=true;showPayload(content,state.value,r.report_date,r.staff_name);b.textContent='🔤 원문 보기 / Original';
+      if(state.value.__failed)b.textContent='🔤 원문 보기 / Original · '+state.value.__failed+'줄 번역 실패(원문 유지)';
+    };
+    return b;
+  }
   function paintList(){
     var host=$('reports'), detail=$('report-detail'),list=visibleList();host.replaceChildren();detail.replaceChildren();
     var mode=$('filter').value;$('list-date').disabled=mode==='unread'||mode==='read'||mode==='mine';$('reread').textContent=mode==='read'?'← 미확인 보고로 / Back to unread':'📖 확인한 보고 다시 읽기 / Re-read';$('mine').textContent=mode==='mine'?'← 미확인 보고로 / Back to unread':'📤 내가 보낸 보고 · 확인 여부 / My sent reports';
@@ -130,8 +178,8 @@
     var nav=node('div',null,'mh-mobile-nav'),idx=list.indexOf(r),prev=node('button','←'),next=node('button','→');prev.setAttribute('aria-label','이전 보고 / Previous');next.setAttribute('aria-label','다음 보고 / Next');prev.disabled=idx===0;next.disabled=idx===list.length-1;
     prev.onclick=function(){selected=list[idx-1].id;paintList();};next.onclick=function(){selected=list[idx+1].id;paintList();};nav.append(prev,node('span',(idx+1)+' / '+list.length),next);detail.append(nav);
     detail.append(node('p',r.staff_name+' · '+r.report_date+' · '+statusLabel(r.status),'badge'),node('h3',r.payload.work.slice(0,150)));
-    var size=node('button','글자 더 크게 / Larger text');size.type='button';size.onclick=function(){var content=detail.querySelector('.preview');var enlarged=largeReading;largeReading=!enlarged;content.style.fontSize=enlarged?'':'26px';size.textContent=enlarged?'글자 더 크게 / Larger text':'기본 크기 / Default text';};detail.append(size);
-    var content=node('div',null,'preview');showPayload(content,r.payload,r.report_date,r.staff_name);if(largeReading){content.style.fontSize='26px';size.textContent='기본 크기 / Default text';}detail.append(content);
+    var size=node('button','글자 더 크게 / Larger text');size.type='button';size.onclick=function(){var content=detail.querySelector('.mh-reading-text');var enlarged=largeReading;largeReading=!enlarged;content.style.fontSize=enlarged?'':'26px';size.textContent=enlarged?'글자 더 크게 / Larger text':'기본 크기 / Default text';};detail.append(size);
+    var translation=koState(r),content=node('div',null,'preview mh-reading-text');showPayload(content,translation.show&&translation.value?translation.value:r.payload,r.report_date,r.staff_name);if(largeReading){content.style.fontSize='26px';size.textContent='기본 크기 / Default text';}if(needsKo(r.payload))detail.append(koButton(r,content));detail.append(content);
     (r.payload.attachments||[]).forEach(function(id){detail.append(attachmentLinks(id,false));});
     paintReportStatus(detail,r);
     detail.append(node('p','전달 / To: '+staffName(r.recipient),'small'));

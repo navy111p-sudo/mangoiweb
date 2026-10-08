@@ -16,13 +16,13 @@ const focusedSuites=[
  'vc_network_epoch','webrtc_sandbox_guard','vc_office_recovery',
  'ai_voice_latency','warmup_voice_latency','speech_preferences_lifecycle',
  'speech_preferences_fault','speech_preferences_sqlite','game_vocab_account_race',
- 'daily_handover','daily_handover_reminder_delivery','handover_pending_delivery','daily_handover_client_race',
+ 'daily_handover','daily_handover_reminder_delivery','handover_pending_delivery','daily_handover_client_race','daily_handover_translation',
  'payment_schedule_integrity','c24_mirror_identity','c24_mirror_move_sync',
  'student_schedule_lifecycle_sync','weekly_drag_change_cutoff',
  'class_series_move','class_series_atomic','admin_schedule_ui_consistency','class_schedules_pagination',
  'student_postpone_retry_intent','enroll_student_conflict','enroll_student_conflict_boundaries',
  'student_alias','room_mismatch','daily_handover_duty',
- 'end_classes_preview','schedule_restore','voice_decode_cancel','student_auto_postpone','student_sched_summary',
+ 'end_classes_preview','schedule_restore','enrollment_restore','enroll_cancel_cascade','voice_decode_cancel','student_auto_postpone','student_sched_summary',
  'student_entitlement_contract','offline_network_guard'
 ];
 const suites=mode==='fast'?['repository_fast']:focusedSuites;

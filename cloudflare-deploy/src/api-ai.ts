@@ -24,6 +24,7 @@ import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
          decideWarmupFixShow, warmupShouldOfferRepeat, isRfRejection } from './warmup-correction';
 import type { MangoEnv } from './api-mango';
 import { recordAiFailure } from './ai-failure-log';
+import { handleClassAsk } from './class-ask';   // ✋ A.i 선생님 수업 — 학생 질문 즉답(2026-10-08)
 import { recordAiLatency } from './ai-latency-log';   // ⏱ «학생이 얼마나 기다리는가» (A-3)
 import { createJsonTextTap, takeSentences } from './stream-json-text';   // 📡 스트리밍 본문 추출 (A-1)
 
@@ -180,7 +181,8 @@ Student text: """${text}"""`;
         ? b.mission_words.slice(0, 5).map((w: any) => String(w || '').trim()).filter((w: string) => /^[a-zA-Z' -]{1,30}$/.test(w))
         : [];
       const missionUsed = missionWords.filter(w =>
-        new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text));
+        // 복수형(-s/-es)도 «썼다» 로 센다 — 그림 속 미션 단어는 단수로 주는데 아이들은 «candles» 로 쓴다(2026-10-08)
+        new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:s|es)?\\b`, 'i').test(text));
 
       // raw 가 있긴 한데 JSON 파싱 실패 → AI 응답 텍스트를 tip 에 일부 포함
       const meta = raw && !Object.keys(parsed).length
@@ -592,6 +594,11 @@ Student text: """${text}"""`;
       crypto.getRandomValues(bytes);
       const guestUid = 'guest_' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
       return json({ ok: true, uid: guestUid, token: await signUidToken(guestUid, env, 7 * 86400 * 1000) });
+    }
+
+    // ✋ A.i 선생님 수업 — 학생 질문 즉답. 판정·상한·파싱은 전부 class-ask.ts 정본(여기는 부르기만)
+    if (method === 'POST' && path === '/api/ai/class-ask') {
+      return handleClassAsk(request, env, { json, recordFailure: (f: any) => recordAiFailure(env, f) });
     }
 
     if (method === 'POST' && path === '/api/ai/chat-friend') {

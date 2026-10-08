@@ -57,6 +57,8 @@ import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사
 import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
 import { writeClassAudit, listClassAudit, ensureClassAuditTable } from './class-audit';
+import { pickClassesToEnd } from './enroll-cancel-cascade';
+import { restoreEnrollmentAtomically } from './enrollment-restore-atomic';   // ✕ 신청 취소 → 남은 수업 종료 (정본)
 import { runScheduleSplit } from './schedule-split';
 import { planEndMakeup, END_MAKEUP_MARK_SQL } from './end-makeup';   // ⏸ 연기보강(2026-10-02)   // 📅 매주 수업 → 날짜별 수업 나누기(2026-10-02)   // 📜 수업 변경 이력(연기/삭제/종료)
 import { TEACHER_STATUSES, canonTeacherStatus, isTeacherStatus, toTeacherListHidden, teacherVisibleSql } from './teacher-status';   // 🧑‍🏫 강사 상태(활동중·비활동·퇴사) + 명부 숨김 — 판정 정본
@@ -12730,12 +12732,87 @@ LIMIT $limit`;
       const _pRaw = b && b.parent_phone !== undefined ? String(b.parent_phone ?? '').replace(/[^0-9]/g, '') : null;
       const _wantPhone = _pRaw !== null;
       if (!b || (!b.status && !_wantPhone)) return invalidBody(['status']);
+      let _stRes: any = {};
+      let _phoneSaved: any = null;
       if (b.status) {
         const allowed = new Set(['pending', 'confirmed', 'active', 'cancelled', 'expired']);
         if (!allowed.has(b.status)) return json({ ok: false, error: 'invalid_status', allowed: Array.from(allowed) }, 400);
-        await env.DB.prepare(`UPDATE enrollments SET status = ?, updated_at = ? WHERE id = ?`).bind(b.status, Date.now(), id).run();
+        /* ✕ (2026-10-08 사장님 지시) «취소» 하면 그 신청이 만든 수업도 함께 종료한다.
+           되돌리면(취소 → 다른 상태) 이번 취소가 내린 수업 중 아직 안 지난 것만 되살린다.
+           규칙 정본은 src/enroll-cancel-cascade.ts — 여기서 다시 판정하지 않는다. */
+        try { await env.DB.exec(`ALTER TABLE enrollments ADD COLUMN cancelled_class_ids TEXT`); } catch { /* 이미 있음 */ }
+        let prevRow: any = await env.DB.prepare(`SELECT status, student_name, cancelled_class_ids, updated_at FROM enrollments WHERE id = ?`).bind(id).first().catch(() => null);
+        // 칸이 아직 없는 DB(ALTER 실패)에서 «없는 신청» 으로 오판하지 않게 한 번 더 — 되살리기 목록만 비게 된다
+        if (!prevRow) prevRow = await env.DB.prepare(`SELECT status, student_name, updated_at FROM enrollments WHERE id = ?`).bind(id).first().catch(() => null);
+        if (!prevRow) return json({ ok: false, error: 'not_found' }, 404);
+        if (prevRow.success === false || !Object.prototype.hasOwnProperty.call(prevRow, 'status')
+          || !Object.prototype.hasOwnProperty.call(prevRow, 'student_name')
+          || prevRow.status != null && typeof prevRow.status !== 'string') {
+          return json({ ok: false, error: 'restore_failed', restore_failed: true, restored_classes: 0,
+            message: '현재 수강신청 상태를 확인하지 못했습니다. 새로고침한 뒤 다시 시도해 주세요.',
+            message_en: 'Could not verify the enrollment status. Refresh and try again.' }, 503);
+        }
+        const prevStatus = String(prevRow.status || '');
+        const src = 'adm-enroll:' + id;
+        const now = Date.now();
+        /* ⛔ 취소(=수업 종료)·되살리기(=수업 다시 열기)는 둘 다 수업 행을 바꾼다 — 수업은 곧 급여라
+           본사 전용. 판정은 정본 enrollAdminHqOnly(스코프를 다시 읽고 못 읽으면 막음) — 여기서 복제하지 않는다.
+           이 경로는 TEACHER_BLOCKED_PREFIXES 에 없어 핸들러가 직접 막아야 한다. */
+        const _touchesClasses = (b.status === 'cancelled') !== (prevStatus === 'cancelled');
+        let _cActor: any = null;
+        if (_touchesClasses) {
+          const deny = await enrollAdminHqOnly(request, env);
+          if (deny) return deny;
+          try { _cActor = await getAdminActor(request, env as any); } catch {}
+        }
+        const _actorName = (_cActor && (_cActor.name || _cActor.username)) || '관리자';
+        if (b.status === 'cancelled' && prevStatus !== 'cancelled') {
+          /* ⚠️ 수업 목록을 못 읽으면 신청 상태도 안 바꾼다 — «취소됐는데 수업은 살아 있는» 상태를 만들지 않는다. */
+          let rows: any[];
+          try {
+            const rs = await env.DB.prepare(`SELECT id, scheduled_date, start_time, status FROM class_schedules WHERE source = ? AND status = 'active'`).bind(src).all();
+            rows = (rs.results || []) as any[];
+          } catch (e: any) {
+            return json({ ok: false, error: 'schedule_lookup_failed', detail: String(e?.message || e) }, 503);
+          }
+          const plan = pickClassesToEnd(rows, now);
+          /* 수업 UPDATE 한 문장(json_each — 바인드 1개, 건수 무관) + 신청 UPDATE 를 한 batch 로: 둘 다 되거나 둘 다 안 된다. */
+          const _ids = JSON.stringify(plan.end);
+          try {
+            await env.DB.batch([
+              env.DB.prepare(`UPDATE class_schedules SET status='cancelled', updated_at=? WHERE source = ? AND status = 'active' AND id IN (SELECT value FROM json_each(?))`).bind(now, src, _ids),
+              env.DB.prepare(`UPDATE enrollments SET status = ?, cancelled_class_ids = ?, updated_at = ? WHERE id = ?`).bind('cancelled', _ids, now, id),
+            ]);
+          } catch (e: any) {
+            return json({ ok: false, error: 'cancel_failed', message: '취소하지 못했습니다(수업·신청 모두 그대로입니다). 잠시 뒤 다시 눌러 주세요.', message_en: 'Could not cancel (classes and enrollment unchanged). Please try again.', detail: String(e?.message || e) }, 503);
+          }
+          if (plan.end.length) {
+            try {
+              await writeClassAudit(env, {
+                action: 'remove', student_name: prevRow.student_name || null,
+                actor: _actorName, actor_role: 'admin', source: 'enrollment',
+                reason: '수강신청 취소 → 남은 수업 종료',
+                detail: JSON.stringify({ enrollment_id: id, ended: plan.end, past_kept: plan.past }),
+              });
+            } catch {}
+          }
+          _stRes = { ended_classes: plan.end.length, weekly_left: plan.weekly, past_kept: plan.past };
+        } else if (prevStatus === 'cancelled' && b.status !== 'cancelled') {
+          // Occupied/past/weekly rows still count as skipped. Unknown evidence or
+          // a failed write must leave enrollment, saved IDs and all classes unchanged.
+          try {
+            _stRes = await restoreEnrollmentAtomically(env, id, prevRow, b.status, _actorName, now);
+          } catch (e: any) {
+            const changed = /schedule_move_snapshot/.test(String(e?.message || e));
+            return json({ ok: false, error: changed ? 'schedule_changed' : 'restore_failed',
+              restore_failed: true, restored_classes: 0,
+              message: '수강신청과 수업 복원을 확인하지 못했습니다. 새로고침한 뒤 다시 시도해 주세요.',
+              message_en: 'Could not confirm the enrollment and class restoration. Refresh and try again.' }, changed ? 409 : 503);
+          }
+        } else {
+          await env.DB.prepare(`UPDATE enrollments SET status = ?, updated_at = ? WHERE id = ?`).bind(b.status, now, id).run();
+        }
       }
-      let _phoneSaved: any = null;
       if (_wantPhone) {
         /* ⛔ **강사는 남의 «발송 번호» 를 바꿀 수 없다.** 이 경로는 `TEACHER_BLOCKED_PREFIXES` 에
            없어 강사도 닿는데, 여기서 바꾼 번호로 **실제 문자가 나갑니다**(돈이 나가고 우리 이름으로).
@@ -12779,7 +12856,7 @@ LIMIT $limit`;
           }
         }
       }
-      return json({ ok: true, id, status: b.status || null, phone_saved: _phoneSaved });
+      return json({ ok: true, id, status: b.status || null, phone_saved: _phoneSaved, ..._stRes });
     }
 
     /* 🗑️ DELETE — 수강신청 삭제 (2026-08-21, 사장님 지시: 수강신청 목록의 데모 항목 정리)

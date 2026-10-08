@@ -439,6 +439,11 @@ html.dark .sgrp a:active,html.dark .sgrp button:active{background:#242d37}
   body{padding-left:272px}
   /* 🖥 (2026-10-08 사장님 「PC 에서 양쪽 여백이 너무 크다 — 차 보이게」) 본문 폭 820px 상한을 PC 에서만 푼다. */
   .wrap{max-width:none;padding:12px 24px 48px}
+  /* 💳 (2026-10-08 사장님 「결제창이 양쪽으로 너무 길고 가운데가 비어 읽기 어렵다」) 넓은 화면에서는
+     잔액(왼쪽 위) · 낼 금액(오른쪽) · 지난 결제(왼쪽 아래) 두 칸으로. 칸 하나는 560px 까지라 금액이 글자에서 멀어지지 않는다.
+     폰은 이 규칙 밖이라 예전처럼 위→아래 한 줄(잔액 → 낼 금액 → 지난 결제) 그대로. */
+  .tui-grid{display:grid;grid-template-columns:repeat(2,minmax(0,560px));grid-template-areas:"a b" "c b";column-gap:32px;align-items:start}
+  .tui-a{grid-area:a}.tui-b{grid-area:b}.tui-c{grid-area:c}
   .sgrp button.on{background:#fff4dc;color:#b45309;font-weight:800}
   html.dark .sgrp button.on{background:#3a2c12;color:#fbbf24}
   body.pane-on .wrap details.card:not(.pane-active),
@@ -793,7 +798,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="sgrp-h" data-en="Settlement &amp; stats" data-ko="정산통계관리">Settlement &amp; stats</div>
   <div class="sgrp">
     <button type="button" onclick="sideGo('c-trend')"><span class="ic">📊</span><span data-en="30-day trend" data-ko="30일 추이">30-day trend</span></button>
-    <button type="button" onclick="sideGo('c-settle')"><span class="ic">💰</span><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></button>
+    <button type="button" id="sideSettle" onclick="sideGo('c-settle')"><span class="ic">💰</span><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></button>
     <button type="button" id="sideTuition" onclick="sideGo('c-tuition')" hidden><span class="ic">💳</span><span data-en="Tuition payment" data-ko="수업료 결제">Tuition payment</span></button>
     <button type="button" id="sideAibill" onclick="sideGo('c-aibill')" hidden><span class="ic">🧾</span><span data-en="AI usage invoice" data-ko="AI 사용료 청구서">AI usage invoice</span></button>
   </div>
@@ -1639,6 +1644,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (_tui) _tui.hidden = (sc.type !== 'agency');
     var _sTui = document.getElementById('sideTuition');
     if (_sTui) _sTui.hidden = (sc.type !== 'agency');
+    // 💰 (2026-10-08 사장님) 지사 · 대리점별 정산은 대리점 계정에는 필요 없다 → 카드·사이드바 둘 다 감춘다.
+    var _stl = document.getElementById('c-settle');
+    if (_stl) _stl.hidden = (sc.type === 'agency');
+    var _sStl = document.getElementById('sideSettle');
+    if (_sStl) _sStl.hidden = (sc.type === 'agency');
     // 🏢 본사 매니저면 전용 카드를 켠다. 판정은 이미 받은 exec/summary 의 scope 로 한다(추가 요청 0).
     //    ⚠️ 화면을 켜는 것뿐이고 권한은 서버가 정한다 — 여기 값을 고쳐도 API 는 안 열린다.
     IS_HQ = (sc.type === 'hq');
@@ -1765,7 +1775,33 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var nm = s.username || s.korean_name || s.english_name || '(no name)';
       var id = s.user_id || s.student_id || s.login_id || '';
       var st = s.status || '';
-      return '<div class="row"><b>' + esc(nm) + '</b><span class="muted">' + esc(id) + '</span>'
+      /* 📅👩‍🏫📄 (2026-10-08 매니저 요청 «at student list can we see the schedule, the student's teacher, report,
+         move (postpone), change teacher button, for easy access»)
+         ⚠️ 일정·강사는 서버 정본(student-schedule-summary.ts → unified 의 sched)을 «그리기만» 한다 — 화면에서 다시 세지 않는다.
+            모르면 «—» (지어내지 않음).
+         ⚠️ 연기·변경·강사 변경은 이 줄에서 바로 하지 않는다 — 학생이 수업을 여러 개 가질 수 있어 «어느 수업» 인지 모른다.
+            학생 캘린더 창(오늘 수업의 📅 캘린더와 «같은» mgCalOpen)을 열고 날짜를 눌러 고른다.
+            그 창의 연기·변경 창(js/class-move-modal.js)에 새 강사 고르기가 있다 — 창을 두 벌 만들지 않는다. */
+      var sc = s.sched || null;
+      var schL = sc ? T(sc.label_en, sc.label_ko) : '';
+      var tchs = (sc && Array.isArray(sc.teachers)) ? sc.teachers : [];
+      var info = '<span class="muted" style="display:block;font-size:11px;line-height:1.55">'
+        + esc(T('Schedule: ', '일정: ')) + esc(schL && schL !== '—' ? schL : '—')
+        + ' · ' + esc(T('Teacher: ', '강사: ')) + esc(tchs.length ? tchs.join(', ') : '—') + '</span>';
+      var acts = '';
+      if (id) {
+        var hasCls = !!(sc && (Number(sc.weekly) > 0 || Number(sc.upcoming) > 0));
+        var cal = function(lbl){
+          return '<span class="tag" role="button" tabindex="0" style="cursor:pointer" data-calpin="' + esc(id) + '" data-calwho="' + esc(nm) + '">' + esc(lbl) + '</span> ';
+        };
+        acts = '<span style="display:block;margin-top:3px">'
+          + cal(T('📅 Schedule', '📅 일정'))
+          + (hasCls ? cal(T('⏸ Postpone · Move', '⏸ 연기 · 변경')) + cal(T('🔄 Change teacher', '🔄 강사 변경')) : '')
+          + '<a class="tag" target="_blank" rel="noopener" href="/monthly-report.html?uid=' + encodeURIComponent(id)
+          +   '&period=' + encodeURIComponent(stuKstMonth()) + '">' + esc(T('📄 Report', '📄 리포트')) + '</a>'
+          + '</span>';
+      }
+      return '<div class="row"><span style="flex:1;min-width:0"><b>' + esc(nm) + '</b>' + info + acts + '</span><span class="muted">' + esc(id) + '</span>'
            + (st ? '<span class="muted">' + esc(st) + '</span>' : '') + '</div>';
     }).join('')
     + '<div class="muted" style="padding-top:8px">'
@@ -1774,8 +1810,32 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
             list.length + '명 중 ' + shown.length + '명 표시 — 검색으로 좁혀 보세요.')
         : T(list.length + ' students', '학생 ' + list.length + '명'))
     + (j.can_view_pii === false ? ' · ' + esc(T('Contact details are masked.', '연락처는 가려져 있습니다.')) : '')
-    + '</div>';
+    + '</div>'
+    + '<div class="muted" style="font-size:11px;padding-top:4px">'
+    + esc(T('Postpone · Move · Change teacher: tap a date in the calendar window, then choose in the postpone/change window.',
+            '연기 · 변경 · 강사 변경: 캘린더 창에서 날짜를 누른 뒤 연기·변경 창에서 고릅니다.')) + '</div>';
+    bindStuActions();
   };
+  /* KST 기준 이번 달 — 월간 리포트 기본값(그 화면에서 다른 달로 바꿀 수 있다). UTC 로 재면 월초에 한 달 밀린다. */
+  function stuKstMonth(){ return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7); }
+  /* ⚠️ 위임 리스너 — innerHTML 을 갈아도 상자는 남으므로 한 번만 건다(bindTodayActions 와 같은 사정). */
+  var _stuBound = false;
+  function bindStuActions(){
+    var box = document.getElementById('stuBody');
+    if (!box || _stuBound) return;
+    _stuBound = true;
+    var onTap = function(ev){
+      var cal = ev.target && ev.target.closest && ev.target.closest('[data-calpin]');
+      if (!cal) return;
+      ev.preventDefault();
+      mgCalOpen(cal.getAttribute('data-calpin'), cal.getAttribute('data-calwho'));
+    };
+    box.addEventListener('click', onTap);
+    box.addEventListener('keydown', function(ev){
+      if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
+      onTap(ev);
+    });
+  }
 
   // ── ⑥ 강사 가동률 ─────────────────────────────────────────────────────────
   window.loadUtil = function(){
@@ -2274,6 +2334,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
                                  '본사가 아직 이 학원의 수업료 정산을 켜지 않아 여기서 결제할 청구서가 없습니다. 본사로 문의해 주세요.') + '</p>';
       el.innerHTML = h; return;
     }
+    h += '<div class="tui-grid"><div class="tui-a">';
     var w = d.wallet;
     var al = d.alert === 'empty' ? T('No credit', '충전금 없음') : d.alert === 'low' ? T('Low credit', '충전금 부족') : T('OK', '충분');
     h += '<div class="row"><span>' + T('Credit balance now', '지금 충전금 잔액') + '</span><b class="num" style="text-align:right">' + (w ? won(w.balance) : '—') + '</b><span class="tui-al tui-al-' + esc(d.alert || 'ok') + '">' + esc(al) + '</span></div>';
@@ -2282,6 +2343,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (d.alert === 'empty') h += '<p class="tui-msg bad">⛔ ' + T('No credit left. Please pay the invoice below.', '충전금이 없습니다. 아래 청구서를 결제해 주세요.') + '</p>';
 
     var open = (d.invoices || []).filter(function(i){ return (i.status === 'issued' || i.status === 'partial') && Number(i.owed_krw) > 0; });
+    h += '</div><div class="tui-b">';
     h += '<div class="row" style="margin-top:6px"><b>' + T('Amount due', '낼 금액') + '</b></div>';
     if (!open.length) h += '<p class="muted">' + T('There is no invoice to pay right now.', '지금 낼 청구서가 없습니다.') + '</p>';
     open.forEach(function(inv){
@@ -2299,12 +2361,14 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       h += '<details style="margin-top:8px"><summary class="muted" style="cursor:pointer">🔮 ' + T(String(d.next_month) + ' estimate (fixed on the 20th): ', tuiMonth(d.next_month) + ' 예상 청구액(20일에 확정): ') + won(d.next_preview.due_krw) + '</summary>' + tuiExplain(d.next_preview) + '</details>';
     }
     if (d.autopay && d.autopay.active) h += '<p class="muted">💳 ' + T('Auto-pay is on', '자동결제 사용 중') + (d.autopay.card_label ? ' · ' + esc(d.autopay.card_label) : '') + '</p>';
+    h += '</div><div class="tui-c">';
     var past = (d.invoices || []).filter(function(i){ return i.status === 'paid'; }).slice(0, 6);
     if (past.length) {
       h += '<div class="row" style="margin-top:10px"><b>' + T('Paid', '지난 결제') + '</b></div>'
         + past.map(function(i){ return '<div class="row"><span>' + esc(tuiKind(i)) + '</span><b class="num" style="text-align:right">' + won(i.paid_krw) + '</b><span>✅</span></div>'; }).join('');
     }
     h += '<p class="muted" style="font-size:11.5px;margin-top:8px">' + T('Credit is deducted per class held. Class records by student and postponement requests are on the payment link head office texts you.', '충전금은 수업한 만큼 자동으로 빠집니다. 학생별 수업 기록·연기 신청은 본사가 문자로 보내 드린 결제 링크 화면에서 볼 수 있습니다.') + '</p>';
+    h += '</div></div>';
     el.innerHTML = h;
   }
   window.tuiPay = function(btn, invoiceId){
@@ -2828,6 +2892,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var act = r.join_open
         ? '<a class="tag" href="#" onclick="return taJoin(this)" data-room="' + esc(r.room_id || '') + '" data-who="' + who + '">'
           + esc(T('Join', '입장')) + '</a>'
+          /* 💬 (2026-10-08 매니저 질문 «where can we message the student if the teacher has a technical problem?»)
+             관찰(고스트) 창의 «받는 사람» 에서 그 학생을 고르면 학생 화면에만 메시지가 뜬다(관찰자는 학생에게 안 보임).
+             「지금 진행 중인 수업」 카드에만 있던 길을 이 줄에도 둔다 — 같은 화면(ghost-view.html), 같은 권한.
+             ⚠️ 학생이 방에 들어와 있어야 닿는다 — 아직 안 들어왔으면 창이 «받은 사람 0명» 이라고 말한다. */
+          + ' <a class="tag" target="_blank" rel="noopener" href="/admin/ghost-view.html?room_id=' + encodeURIComponent(r.room_id || '') + '">'
+          + esc(T('👁 Observe · 💬 Message', '👁 관찰 · 💬 메시지')) + '</a>'
         : '';
       /* 🆔🏫☎️ (2026-09-07 매니저 요청 «Please include student Name, ID, contact number, Academy»)
          수업에 안 들어오는 학생을 이 줄에서 바로 찾을 수 있게 — 둘째 줄로 붙인다.
@@ -2869,7 +2939,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
            행이 없어 여기서 옮길 수 없다 — 버튼이 «없다» 대신 그 이유를 글자로 적는다(폰엔 hover 가 없다). */
         resch = '<span class="tag">' + esc(T('LMS class — change in cafe24', '카페24 수업 — 카페24에서 변경')) + '</span>';
       } else if (r.schedule_id && r.can_move === false) {
-        resch = '<span class="tag">' + esc(T('weekly — use timetable', '매주 반복 — 시간표에서')) + '</span>';
+        /* 📅 (2026-10-08 매니저 요청 «move button even for future classes») 매주 반복 줄도 막다른 글자 대신
+           학생 캘린더(학생 상세 스케줄 탭)를 연다 — 거기서 «날짜별로 나누기» 후 그 날짜 하나만 연기·변경한다.
+           ⛔ 여기서 바로 옮기지 않는다 — 반복 행 하나는 «매주 전부» 다(위 주석). */
+        resch = r.student_uid
+          ? '<span class="tag" role="button" tabindex="0" style="cursor:pointer" data-calpin="' + esc(r.student_uid) + '" data-calwho="' + esc(r.student_name || r.student_uid) + '">'
+            + esc(T('📅 Weekly — move a date in calendar (not timetable)', '📅 매주 반복 — 캘린더에서 날짜별로')) + '</span>'
+          : '<span class="tag">' + esc(T('weekly — use timetable', '매주 반복 — 시간표에서')) + '</span>';
       } else if (r.schedule_id) {
         resch = '<span class="tag ta-open" role="button" tabindex="0" data-ta="' + esc(r.schedule_id) + '">'
               + esc(T('📅 Move', '📅 연기·변경')) + '</span>';
