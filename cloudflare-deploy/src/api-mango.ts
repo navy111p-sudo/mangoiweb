@@ -50,6 +50,7 @@ import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEn
 import { broadcastWebPush } from './web-push';
 import { ipToNet, asLabel } from './net-prefix';
 import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid } from './attendance-uid';
+import { loadRoomTeacherNames } from './room-teacher';   // 👩‍🏫 방 번호 → 담당 강사 이름(정본)
 import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메인–워커 배치 기록(방 갈림 감시)
 import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
 
@@ -4162,6 +4163,14 @@ ${numbered}`;
         // 📘 (2026-09-15) 「예약 수업」 — 목록과 «같은 정본» 을 쓴다(화면마다 답이 다르면 안 된다)
         const _fullSched = await loadSchedSummaryOne(env as any, uid);
 
+        /* 👩‍🏫 (2026-10-08) 접속 기록에 «그 수업의 담당 강사» — 방 번호(class-{예약id}-{날짜})로 정본에서 되찾는다.
+           ⛔ attendance.teacher_name 은 안 쓴다(남의 이름이 들어간 전례). 예약방이 아니면 null(모름). */
+        const _fullSessions: any[] = pickList(4);
+        try {
+          const _roomT = await loadRoomTeacherNames(env as any, _fullSessions.map((x: any) => x?.room_id));
+          for (const _s of _fullSessions) _s.teacher_name = _roomT(_s?.room_id) || null;
+        } catch { /* 이름 없이 간다 */ }
+
         return json({
           ok: true,
           user_id: uid,
@@ -4177,7 +4186,7 @@ ${numbered}`;
           profile: pick(1),
           summary: pick(2) || {},
           by_day: pickList(3),
-          sessions: pickList(4),
+          sessions: _fullSessions,
           enrollments: pickList(5),
           payments: pickList(6),
           evaluations: pickList(7),

@@ -462,8 +462,8 @@ async function viewSweeps(){
     var r = j.result||{};
     if (j.ok !== true || r.ok === false) { $('sHolOut').innerHTML = '<div class="no">'+L('확인하지 못했습니다.','Could not check.')+'</div>'; return; }
     $('sHolOut').innerHTML = '<div class="hint">'+L('등록 공휴일 '+(r.holidays||0)+'건 · 옮길 수업 <b>'+((r.items||[]).length)+'건</b>', (r.holidays||0)+' holiday(s) · <b>'+((r.items||[]).length)+'</b> class(es) to move')+(r.failed?L(' · 자리 못 찾음 '+r.failed+'건',' · '+r.failed+' without a free slot'):'')+'</div>'
-      + ((r.items||[]).length ? '<table class="rs"><thead><tr><th>'+L('학생','Student')+'</th><th>'+L('공휴일','Holiday')+'</th><th>'+L('→ 옮길 날','→ New date')+'</th></tr></thead><tbody>'
-        + r.items.map(function(i){ return '<tr><td data-l="'+L('학생','Student')+'">'+esc(i.uid)+'</td><td data-l="'+L('공휴일','Holiday')+'">'+esc(i.from)+'</td><td data-l="'+L('→ 옮길 날','→ New date')+'"><b>'+esc(i.to)+'</b></td></tr>'; }).join('')
+      + ((r.items||[]).length ? '<table class="rs"><thead><tr><th>'+L('학생','Student')+'</th><th>'+L('담당 강사','Teacher')+'</th><th>'+L('공휴일','Holiday')+'</th><th>'+L('→ 옮길 날','→ New date')+'</th></tr></thead><tbody>'
+        + r.items.map(function(i){ return '<tr><td data-l="'+L('학생','Student')+'">'+esc(i.student_name ? i.student_name+' ('+i.uid+')' : i.uid)+'</td><td data-l="'+L('담당 강사','Teacher')+'">'+(i.teacher_name ? esc(i.teacher_name) : (i.teacher_id ? L('강사 미확인','Unknown teacher') : L('미배정','Unassigned')))+'</td><td data-l="'+L('공휴일','Holiday')+'">'+esc(i.from)+'</td><td data-l="'+L('→ 옮길 날','→ New date')+'"><b>'+esc(i.to)+'</b></td></tr>'; }).join('')
         + '</tbody></table>' : '');
   };
 }
