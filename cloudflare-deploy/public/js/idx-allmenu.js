@@ -45,6 +45,8 @@
     /* 📅 (2026-09-03) 오늘의 A.i 학습 — AI 도구 8종을 «오늘 할 순서» 로 이어 주는 화면. img 는 일부러 비운다
        (전용 사진이 없고, 위 렌더는 img 가 비면 emoji 로 그린다 — 없는 파일을 적으면 열 때마다 404). */
     {emoji:'📅', img:'', name:'오늘의 A.i 학습', url:'/today.html'},
+    /* 🎓 (2026-10-08 사장님 「메뉴에도 연결해줘」) A.i 선생님 수업 — 전용 사진이 없어 img 는 비운다(emoji 로 그림). */
+    {emoji:'🎓', img:'', name:'A.i 선생님 수업', en:'A.i Teacher Class', url:'/ai-class.html'},
     {emoji:'🤖', img:'/img/menu/ai-friend.webp', name:'AI 친구', url:'/ai-friend.html'},
     {emoji:'✍', img:'/img/menu/ai-write.webp', name:'AI 작문', url:'/ai-write.html'},
     {emoji:'🗣', img:'/img/menu/speech.webp', name:'영어 발음 코치', url:'/speech-coach.html'},

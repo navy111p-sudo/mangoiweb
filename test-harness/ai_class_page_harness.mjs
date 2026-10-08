@@ -6,7 +6,7 @@
 //   ④ 원본 슬라이드 이미지·외부 글꼴을 저장소·페이지에 싣지 않았는가
 //   ⑤ 엔진을 실제로 돌려 몇 레슨을 끝까지 수업해 보는가
 //   ⑥ 학생 이름 — 로그인 이름이 아이디와 같으면 부르지 않는가(짝: 진짜 이름은 부른다)
-//   ⑦ 숨은 주소 — 홈·사이드바 메뉴에 아직 걸리지 않았는가
+//   ⑦ 메뉴 연결 — 홈 드로어·공용 사이드바·전체메뉴가 같은 주소·같은 이름으로 잇는가
 // 실패하면 종료코드 1.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -170,11 +170,18 @@ try {
 { const m = html.match(/<input id="nameIn"[^>]*>/); ok(!!m, 'nameIn input not found');
   if (m) ok(!/\bvalue="[^"]+"/.test(m[0]), 'nameIn has a made-up default name: ' + m[0]); }
 
-// ⑦ 숨은 주소 — 홈·공용 사이드바에서 아직 링크하지 않는다(시범)
-for (const f of ['index.html', 'js/mg-sidebar.js', 'js/idx-allmenu.js', 'today.html']) {
-  const p = path.join(PUB, f);
-  if (fs.existsSync(p)) ok(!fs.readFileSync(p, 'utf8').includes('ai-class.html'), `${f} links /ai-class.html (still a hidden pilot)`);
+// ⑦ 메뉴 연결 (2026-10-08 사장님 「메뉴에도 연결해줘」 — 옛 «숨은 주소» 검사를 뒤집음)
+//    홈 드로어·공용 사이드바·전체메뉴 세 곳이 «같은 주소» 로 잇는가. 한 곳만 걸면 화면마다 길이 달라진다.
+for (const f of ['index.html', 'js/mg-sidebar.js', 'js/idx-allmenu.js']) {
+  const t = fs.readFileSync(path.join(PUB, f), 'utf8');
+  ok(t.includes("'/ai-class.html'"), `${f} does not link /ai-class.html`);
 }
+{ const home = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8'), side = fs.readFileSync(path.join(PUB, 'js/mg-sidebar.js'), 'utf8');
+  const hm = home.match(/location\.href='\/ai-class\.html';" data-ko="([^"]+)" data-en="([^"]+)"/);
+  ok(!!hm, 'home drawer button for /ai-class.html not found');
+  if (hm) ok(side.includes(`ko:'${hm[1]}'`) && side.includes(`en:'${hm[2]}'`), `sidebar label differs from home drawer: ${hm[1]} / ${hm[2]}`);
+  const g = side.match(/ko:'학습 도구'[^\n]*go:\[([^\]]*)\]/);
+  ok(!!g && /'ai-class'/.test(g[1]), 'ai-class not in sidebar «학습 도구» group'); }
 
 console.log(`결과: PASS ${pass} / FAIL ${fail}`);
 fails.forEach(f => console.log('  ❌ ' + f));

@@ -424,6 +424,33 @@ async function featOne(vp) {
   await ev(`document.getElementById('sndBtn').click()`);
 }
 
+
+// 2026-10-08 «마이크에 하는 소리가 들리지 않아» — 인식이 «마지막 결과» 없이 끝나도 조용히 멈추지 않는가
+async function srEndOne(vp) {
+  const tag = `${vp.n}/sr-end`;
+  const go = async (mode) => {
+    await send('Emulation.setDeviceMetricsOverride', { width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.m });
+    await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/ai-class.html?sr=${mode}&deftalk=1&r=${Date.now()}#fast` });
+    for (let i = 0; i < 80; i++) { await sleep(60); try { if (await ev('!!(window.__aiClass && !document.getElementById("startBtn").disabled)')) break; } catch (e) { } }
+    await ev(`speechSynthesis.speak=function(u){setTimeout(function(){u.onend&&u.onend()},3)};speechSynthesis.cancel=function(){};`);
+    await ev(`document.getElementById('startBtn').click()`);
+    for (let i = 0; i < 200; i++) { if (await ev(`(s=>!!s&&s.phase==='await'&&!window.__aiClass.busy)(window.__aiClass.state)`)) break; await sleep(20); }
+  };
+  // ⓐ 듣는 동안 버튼이 «듣는 중…» 이라고 말한다
+  await go('hold'); await sleep(150);
+  const lab = await ev(`document.getElementById('micBtn').textContent`);
+  ok(/듣는 중/.test(lab) && await ev('window.__aiClass.rec'), `${tag}: mic label while listening = ${lab}`);
+  // ⓑ 아무것도 못 듣고 끝나면 «소리가 들어오지 않았어요» + 고르는 칸이 열린다(조용히 멈추지 않음)
+  await go('mute'); await sleep(250);
+  const mute = await ev(`({chip:[...document.querySelectorAll('#ask .res.miss')].map(x=>x.textContent).join('|'),sim:!document.getElementById('sim').hidden,lab:document.getElementById('micBtn').textContent})`);
+  ok(/소리가 들어오지 않았어요/.test(mute.chip) && mute.sim && /말하기/.test(mute.lab) && !/듣는 중/.test(mute.lab), `${tag}: silent end not told ${JSON.stringify(mute)}`);
+  // ⓒ 중간 결과만 오고 끝나면 그 말로 대답한다(짝: 들은 것이 있으면 «못 들었다» 고 하지 않는다)
+  await go('interim');
+  const i0 = await ev('window.__aiClass.state.i'); await sleep(300);
+  const after = await ev(`({i:window.__aiClass.state.i,turn:window.__aiClass.state.turn,chip:[...document.querySelectorAll('#ask .res.miss')].map(x=>x.textContent).join('|')})`);
+  ok(after.i !== i0 && !/소리가 들어오지 않았어요/.test(after.chip), `${tag}: interim-only result not used ${JSON.stringify({ i0, ...after })}`);
+}
+
 (async () => {
   ws = new WebSocket(await connect());
   await new Promise(r => ws.onopen = r);
@@ -438,6 +465,9 @@ async function featOne(vp) {
     F.prototype.start=function(){ var me=this; window.__recStarts=(window.__recStarts||0)+1;
       if(m==='deny'){ setTimeout(function(){ me.onerror&&me.onerror({error:'not-allowed'}); me.onend&&me.onend(); },10); return; }
       var s=window.__aiClass.state, t=s.plan[s.i]||{}, say=t.say||t.free||'I am happy.';
+      if(m==='mute'){ me._t=setTimeout(function(){ me.onend&&me.onend(); },40); return; }
+      if(m==='hold'){ return; }
+      if(m==='interim'){ me._t=setTimeout(function(){ me.onresult&&me.onresult({results:[{0:{transcript:say},isFinal:false,length:1}]}); me._t=setTimeout(function(){ me.onend&&me.onend(); },20); },20); return; }
       me._t=setTimeout(function(){ me.onresult&&me.onresult({results:[{0:{transcript:say.split(' ')[0]},isFinal:false,length:1}]});
         me._t=setTimeout(function(){ me.onresult&&me.onresult({results:[{0:{transcript:say},isFinal:true,length:1}]}); me.onend&&me.onend(); },20); },20); };
     F.prototype.abort=function(){ clearTimeout(this._t); }; F.prototype.stop=F.prototype.abort;
@@ -449,6 +479,7 @@ async function featOne(vp) {
     try { ms += await runOne(vp, li, mode, s); runs++; } catch (e) { ok(false, `${vp.n}/L${li}/${mode}#${s}: crashed ${e.message}`); }
   }
   for (const vp of VPS) { try { await talkOne(vp, '/^BTS/'); } catch (e) { ok(false, `${vp.n}/talk: crashed ${e.message}`); } }
+  for (const vp of VPS) { try { await srEndOne(vp); } catch (e) { ok(false, `${vp.n}/sr-end: crashed ${e.message}`); } }
   for (const vp of VPS) { try { await featOne(vp); } catch (e) { ok(false, `${vp.n}/feat: crashed ${e.message}`); } }
   for (const vp of VPS) { try { await prodOne(vp); } catch (e) { ok(false, `${vp.n}/prod: crashed ${e.message}`); } }
   // 정적 점검: 독 버튼이 가려지지 않는가 (시작 전, 각 크기)
