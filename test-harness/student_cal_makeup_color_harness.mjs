@@ -6,8 +6,18 @@ let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) { pass++; console.log('  ✅', n); } else { fail++; console.log('  ❌ FAIL', n); } };
 const a = src.indexOf('var MGS_AI_COLORS'), b = src.indexOf('function mgsAiColors');
 ok('전제: 판정 블록을 오려 냈다', a > 0 && b > a);
+/* 👩‍🏫 (2026-10-08) 카드가 담당 강사를 그리면서 정본 teacherLabel() 을 부른다 — 소스에서 중괄호 짝으로 오려 낸다(⛔ 베껴 적지 말 것). */
+function funcAt(text, name) {
+  const i = text.indexOf('function ' + name + '(');
+  if (i < 0) return '';
+  let d = 0, j = text.indexOf('{', i);
+  for (let k = j; k < text.length; k++) { const ch = text[k]; if (ch === '{') d++; else if (ch === '}') { d--; if (!d) return text.slice(i, k + 1); } }
+  return '';
+}
+const tl = funcAt(src, 'teacherLabel');
+ok('전제: 강사 이름 정본 teacherLabel 을 오려 냈다', tl.length > 200);
 let f = null;
-try { f = new Function('function mgsSrcLabel(){return ""};' + src.slice(a, src.indexOf('\n', b)) + ';return {mgsSchCls,mgsSchInner,mgsAiColors};')(); } catch (e) { console.log('  오려 낸 블록 실행 실패:', e.message); }
+try { f = new Function('function mgsSrcLabel(){return ""};function esc(s){return String(s==null?"":s).replace(/[&<>"\']/g,function(c){return "&#"+c.charCodeAt(0)+";";});};' + tl + ';' + src.slice(a, src.indexOf('\n', b)) + ';return {mgsSchCls,mgsSchInner,mgsAiColors};')(); } catch (e) { console.log('  오려 낸 블록 실행 실패:', e.message); }
 ok('전제: 판정 함수를 실제로 돌릴 수 있다', !!f);
 const run = (t) => { try { const c = f.mgsAiColors({ class_type: t }); return { cls: f.mgsSchCls({ class_type: t }), name: c.name, inner: f.mgsSchInner({ class_type: t }, c, '21:10') }; } catch (e) { return { cls: '', name: '', inner: '' }; } };
 const m = run('makeup');
@@ -18,6 +28,13 @@ ok('짝: 정규는 그대로 정규', run('regular').name === '정규수업' && 
 ok('짝: 체험은 그대로 체험', run('trial').name === '체험수업');
 ok('짝: 레벨테스트는 그대로', run('level_test').name === '레벨테스트');
 ok('짝: 모르는 종류는 정규로 떨어진다(예전 동작)', run('weird').cls === 'mgs-ev mgs-regular' && run(undefined).name === '정규수업');
+/* 👩‍🏫 카드에 담당 강사 — «이름이 나온다» 옆에 «AI 배정 행은 남의 이름 대신 확인 필요»·«없으면 미배정» 을 짝으로. */
+const inner = (sch) => { try { return f.mgsSchInner(sch, f.mgsAiColors(sch), '21:10'); } catch (e) { return 'ERR ' + e.message; } };
+ok('강사: 카드에 담당 강사 이름이 나온다', /<span class="tc">FAR<\/span>/.test(inner({ class_type: 'regular', teacher_name: 'FAR', teacher_id: '22' })));
+ok('강사: 이름은 이스케이프된다', !/<b>x<\/b>/.test(inner({ class_type: 'regular', teacher_name: '<b>x</b>' })));
+ok('강사 짝: AI 배정 행은 이름 대신 «확인 필요»', /<span class="tc">확인 필요/.test(inner({ class_type: 'regular', teacher_name: 'FAR', source: 'ai_auto' })));
+ok('강사 짝: 강사가 없으면 «미배정»', /<span class="tc">미배정<\/span>/.test(inner({ class_type: 'regular' })));
+ok('CSS: 아주 좁은 칸(≤66px)에서는 강사를 감춘다', /@container \(max-width:66px\)\{ \.mgs-in \.tc\{display:none\}/.test(src));
 ok('CSS 에 보라 테두리 색이 있다', /\.mgs-ev\.mgs-makeup\{--mc:#6d28d9\}/.test(src));
 ok('범례에 보강수업 칸이 있다', /class="mgs-ev mgs-makeup"[^>]*><\/span>\s*<span data-ko="보강수업" data-en="Make-up">/.test(src));
 console.log(`결과: PASS ${pass} / FAIL ${fail}`);
