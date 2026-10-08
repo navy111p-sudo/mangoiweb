@@ -243,7 +243,7 @@ try {
 check('주간 격자가 실제로 그려진다', !!drew && !!drew.html, drawErr);
 if (drew && drew.html) {
   /* 🏷 (2026-09-24) 카드는 title 글자가 아니라 data-mgs-sch 로 찾는다 — 이름표가 source 따라 바뀐다. */
-  const cards = drew.html.match(/data-mgs-sch="1" title="[^"]*"/g) || [];
+  const cards = drew.html.match(/data-mgs-sch="1"[^>]*?title="[^"]*"/g) || [];
   const cols  = (drew.html.match(/\* (\d) \/ 7 \+ 2px/g) || []).map(x => x.match(/(\d)/)[1]);
   check('그려야 할 것은 그린다 — 카드 5장', cards.length === 5, '실제 ' + cards.length + '장');
   /* 🪤 «없는가» 를 drew.html 전체로 묻지 말 것 — 격자의 시간 눈금(>18:00<)이 걸려

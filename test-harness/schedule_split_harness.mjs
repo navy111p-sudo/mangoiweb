@@ -67,6 +67,8 @@ function mkEnv() {
   const r = await runScheduleSplit(env, 848, { dry: false, actor: 't', today: '2026-10-02' });
   ok('11회 생성 + 강사 겹친 10/13 은 skipped 로 말한다', r.ok && r.made === 11 && r.skipped.join() === '2026-10-13', r);
   ok('원본은 지우지 않고 취소로 내린다', db.prepare(`SELECT status FROM class_schedules WHERE id=848`).get().status === 'cancelled');
+  /* 💰 (2026-10-08) 원본 메모에 «나눈 날» — 급여가 그 날 이전 회차를 원래 id 로 계속 센다 */
+  ok('원본 메모에 «날짜별로 나눔 @2026-10-02» 를 남긴다', /날짜별로 나눔 @2026-10-02/.test(db.prepare(`SELECT notes FROM class_schedules WHERE id=848`).get().notes || ''));
   const nr = db.prepare(`SELECT * FROM class_schedules WHERE user_id='jeong' AND scheduled_date IS NOT NULL ORDER BY scheduled_date`).all();
   ok('새 줄은 날짜·시각·강사·출처를 이어받는다', nr.length === 11 && nr.every(x => x.schedule_kind === 'dated' && x.start_time === '19:20' && x.teacher_id === '29' && x.source === 'ai_enroll' && x.status === 'active'));
   ok('새 줄 메모에 원본 번호', /#848/.test(nr[0].notes || ''));
@@ -104,6 +106,27 @@ ok("action:'split' 이 아니면 거절", /action !== 'split'/.test(blk));
 const html = readFileSync(join(ROOT, 'cloudflare-deploy/public/admin/student.html'), 'utf8');
 ok('화면: 매주 줄에 «날짜별로 나누기» 버튼', (html.match(/data-mgsu-split=/g) || []).length >= 2);
 ok('화면: 미리보기 뒤 확인을 받고 실행', /dry_run: dry/.test(html) && /call\(list\[i\], true\)/.test(html) && /confirm\(msg\)/.test(html) && /call\(list\[j\], false\)/.test(html));
+
+/* 💰 (2026-10-08) 옛 방식(원본 메모에 @ 표시 없음)으로 이미 나뉜 줄 — 날짜 줄 메모로 «나눈 날» 을 되찾는다 */
+{
+  const { splitOriginsFromNotes, splitPastDay } = M;
+  ok('전제 — 급여 복구 함수 두 개를 내보낸다', typeof splitOriginsFromNotes === 'function' && typeof splitPastDay === 'function');
+  const t1002 = Date.parse('2026-10-02T10:00:00+09:00'), t1005 = Date.parse('2026-10-05T01:00:00+09:00');
+  const kids = [
+    { notes: '메모 · 매주 수업 #848 을 날짜별로 나눔', created_at: t1002 },     // 같은 원본을 두 번 → 이른 날
+    { notes: '매주 수업 #848 을 날짜별로 나눔', created_at: t1005 },
+    { notes: '매주 수업 #848 을 날짜별로 나눔', created_at: t1005 + 1 },
+    { notes: '옛 메모 매주 수업 #12 · 매주 수업 #77 을 날짜별로 나눔', created_at: t1005 }, // 마지막 번호가 원본
+    { notes: '아무 메모', created_at: t1002 },
+  ];
+  const og = splitOriginsFromNotes(kids);
+  ok('옛 나누기: 날짜 줄 메모로 원본 id → 나눈 날(KST, 가장 이른 날)', og.get(848) === '2026-10-02' && og.get(77) === '2026-10-05' && !og.has(12) && og.size === 2, [...og]);
+  const wk = (id, extra) => Object.assign({ id, status: 'cancelled', scheduled_date: null, notes: '' }, extra || {});
+  ok('옛 나누기(원본에 @ 없음)도 날짜 줄 메모로 나눈 날을 준다', splitPastDay(wk(848), og) === '2026-10-02');
+  ok('새 나누기: 원본 메모의 @날짜가 먼저', splitPastDay(wk(848, { notes: 'x · 날짜별로 나눔 @2026-10-08' }), og) === '2026-10-08');
+  ok('짝 — 날짜 줄도 @ 도 없는 그냥 취소 줄은 null(되살리지 않음)', splitPastDay(wk(999), og) === null);
+  ok('짝 — 살아 있는 줄·날짜 줄은 null', splitPastDay(wk(848, { status: 'active' }), og) === null && splitPastDay(wk(848, { scheduled_date: '2026-10-09' }), og) === null);
+}
 
 console.log('결과: PASS ' + pass + ' / FAIL ' + fail);
 process.exit(fail ? 1 : 0);
