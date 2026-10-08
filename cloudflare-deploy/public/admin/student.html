@@ -345,13 +345,16 @@
   .mgs-in .tc{font-weight:800;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
   @container (max-width:130px){ .mgs-in .f,.mgs-in .src{display:none} .mgs-in .s{display:inline} }
   @container (max-width:66px){ .mgs-in .tc{display:none} .mgs-in{flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;padding:0 1px;font-size:8.5px;letter-spacing:-.3px;line-height:1.05} }
-  /* 👤 (2026-10-08 사장님 «주간 캘린더 카드에도 교사 이름») 주간 카드는 한 줄이라 강사 이름이
-     1500px 에서 «Te…»(24px), 1280px 이하에서는 통째로 숨었다(실측). 주간만 «종류·시각 / 강사» 두 줄로 —
-     출처 이름표(.src)는 툴팁에 있으니 주간 카드에서는 뺀다. 아주 좁은 칸(폰)은 «시각 / 강사» — 종류는 색이 말한다. */
+  /* 👤 (2026-10-08 사장님 «주간·월간 캘린더 카드에 교사 이름») 주간·월간 카드(.mgs-w)는 한 줄이라 강사 이름이
+     1500px 에서 «Te…»(24px), 1280px 이하에서는 통째로 숨었다(실측 — 월간도 같았다). «종류·시각 / 강사» 두 줄로 —
+     출처 이름표(.src)는 툴팁에 있으니 이 카드에서는 뺀다. 아주 좁은 칸(폰)은 «시각 / 강사» — 종류는 색이 말한다. */
   .mgs-ev.mgs-w .mgs-in{flex-wrap:wrap;align-content:center;row-gap:0;line-height:1.05}
   .mgs-ev.mgs-w .mgs-in .src{display:none}
   .mgs-ev.mgs-w .mgs-in .tc{flex:0 0 100%;max-width:100%;font-size:10px}
   @container (max-width:66px){ .mgs-ev.mgs-w .mgs-in .s{display:none} .mgs-ev.mgs-w .mgs-in .tc{display:block;flex:none;font-size:8.5px} }
+  /* 월간 칸은 높이가 정해져 있지 않다 — 이름을 «…» 로 자르지 말고 줄을 바꿔 다 보여 준다(주간은 칸 높이가 시각이라 자른다). */
+  .mgs-ev.mgs-m.mgs-w .mgs-in{height:auto;padding-top:3px;padding-bottom:3px}
+  .mgs-ev.mgs-m.mgs-w .mgs-in .tc{white-space:normal;overflow-wrap:anywhere;text-overflow:clip;line-height:1.15}
 
 /* 📅 (2026-10-01 사장님 «B안») 등록된 수업 스케줄 — 다음 수업 · 묶음 · 앞으로 날짜 칩.
    ⚠️ 이 화면은 adm-light-theme.css 로 «밝은» 테마다 — 글자·배경을 밝은 값으로 준다
@@ -436,7 +439,8 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
       <span id="langLabel">English</span>
     </button>
-    <a class="btn" href="/admin.html#card-students-mgmt" data-ko="👨‍🎓 학생 목록" data-en="👨‍🎓 Students">👨‍🎓 학생 목록</a>
+    <!-- 👨‍🎓 (2026-10-08 Melca 제보) ?full=1 필수 — 없으면 index.ts managerPortalRedirect 가 필리핀 매니저를 /manager(홈)로 보내 학생 목록이 안 열린다. -->
+    <a class="btn" href="/admin.html?full=1#card-students-mgmt" data-ko="👨‍🎓 학생 목록" data-en="👨‍🎓 Students">👨‍🎓 학생 목록</a>
     <a class="btn" href="#" data-ko="🧠 게임 리포트" data-en="🧠 Game Report"
        onclick="event.preventDefault();var u=new URLSearchParams(location.search).get('uid')||'';window.open('/game-report.html'+(u?'?uid='+encodeURIComponent(u):''),'_blank');">🧠 게임 리포트</a>
     <a class="btn" href="/admin.html" data-ko="📊 대시보드" data-en="📊 Dashboard">📊 대시보드</a>
@@ -3677,7 +3681,7 @@ function renderDSchedMonth() {
         const ac = mgsAiColors(sch);
         const at = mgsSchedTime(sch);
         const aWhen = at ? (String(at.hh).padStart(2,'0') + ':' + String(at.mm).padStart(2,'0')) : (sch.start_time || '');
-        html += '<div class="' + mgsSchCls(sch) + ' mgs-m" data-mgs-sch="1" data-mgs-move="' + mgsYmd(c.date) + '|' + sch.id + '" role="button" tabindex="0" title="' + mgsSrcLabel(sch) + ' / ' + ac.name + ' / ' + teacherLabel(sch) + ' / ' + (sch.scheduled_date ? sch.scheduled_date + ' ' : ((typeof _lang!=='undefined'&&_lang==='en')?'Weekly ':'매주 ')) + aWhen + (sch.status==='postponed'?((typeof _lang!=='undefined'&&_lang==='en')?' / Postponed':' / 연기'):'') + '">' + mgsSchInner(sch, ac, aWhen) + '</div>';
+        html += '<div class="' + mgsSchCls(sch) + ' mgs-m mgs-w" data-mgs-sch="1" data-mgs-move="' + mgsYmd(c.date) + '|' + sch.id + '" role="button" tabindex="0" title="' + mgsSrcLabel(sch) + ' / ' + ac.name + ' / ' + teacherLabel(sch) + ' / ' + (sch.scheduled_date ? sch.scheduled_date + ' ' : ((typeof _lang!=='undefined'&&_lang==='en')?'Weekly ':'매주 ')) + aWhen + (sch.status==='postponed'?((typeof _lang!=='undefined'&&_lang==='en')?' / Postponed':' / 연기'):'') + '">' + mgsSchInner(sch, ac, aWhen) + '</div>';
       }
     }
     html += '</div>';
