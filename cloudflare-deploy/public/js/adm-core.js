@@ -12687,6 +12687,30 @@ window.aiOpenAnalysis = aiOpenAnalysis;
       (CLAUDE.md 「같은 기능이 두 벌이 되면 화면마다 답이 다른 사고가 시작된다」).
    ⛔ 주소를 여기저기서 조립하지 말 것 — 입구가 둘(표의 행 ✏️ · 도구 줄 「✏️ 정보 수정」)이라
       한 곳만 고치면 조용히 갈린다. 이 함수가 정본이다. */
+/* ⏸ (2026-10-08 매니저·사장님 「학생목록·오늘 수업·스케줄 캘린더 모두 연기/변경/취소」)
+   학생 목록 한 줄에서 그 학생의 앞으로 수업을 고르고 → 공용 연기·변경·취소 창(js/class-move-modal.js)을 연다.
+   ⛔ 판정·서버 경로를 여기 새로 만들지 않는다 — 고르기·펼치기는 그 파일의 pickOpen/pickOccurrences 정본.
+   🔒 «취소»·«매주 수업 나누기» 는 본사 전용 — 신원 정본 window.__ADM_ME.role 로 판정하고, 모르면 안 준다. */
+function smOpenMovePick(uid, name) {
+  if (!uid) return;
+  var en = (typeof window.adminLang !== 'undefined' && window.adminLang === 'en');
+  if (!window.mangoiMoveModal || typeof window.mangoiMoveModal.pickOpen !== 'function') {
+    alert(en ? 'Could not open the window. Reload and try again.' : '연기·변경 창을 열지 못했습니다. 새로고침 후 다시 눌러 주세요.');
+    return;
+  }
+  var me = null;
+  try { me = window.__ADM_ME || null; } catch (e) {}
+  var role = (me && me.role) ? String(me.role) : '';
+  var hq = !!role && ['teacher', 'branch', 'agency', 'franchise'].indexOf(role) < 0;
+  window.mangoiMoveModal.pickOpen({ uid: uid, name: name || uid }, {
+    isEn: function () { return typeof window.adminLang !== 'undefined' && window.adminLang === 'en'; },
+    canCancel: hq, canSplit: hq, days: 28,
+    me: me ? { name: me.name || me.uid || '' } : null
+    /* ⚠️ onClose 에서 학생 목록을 다시 받지 않는다 — 검색·필터·쪽 상태를 잃는다. 바뀐 것은 고르기 창이 다시 받아 보여 준다. */
+  });
+}
+window.smOpenMovePick = smOpenMovePick;
+
 function smContactUrl(uid) {
   return '/admin/student?uid=' + encodeURIComponent(String(uid == null ? '' : uid)) + '&tab=contact';
 }
@@ -12884,7 +12908,7 @@ function renderStudentTable() {
     return `<tr>
       <td title="${safeUid}"><code>${safeUid}</code></td>
       <td title="${safeName}"><b>${safeName}</b>${smLearningBadge(s, _L)}</td>
-      <td style="text-align:center;line-height:1.7"><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세'}</a><br><a href="${smContactUrl(uid)}" target="_blank" style="color:#0369a1" title="${_L?'Edit contact & info':'연락처·정보 수정'}">✏️ ${_L?'Edit':'수정'}</a><br><a href="/admin/student?uid=${uidEnc}&tab=schedule" target="_blank" style="color:#067647" title="${_L?'Calendar · teacher · move/postpone':'캘린더 · 담당 강사 · 연기·변경'}">📅 ${_L?'Schedule':'스케줄'}</a><br><a href="/admin/student?uid=${uidEnc}&tab=extension" target="_blank" style="color:#b42318" title="${_L?'End classes · extend · undo':'수업 종료 · 연장 · 되돌리기'}">🗓️ ${_L?'End/Extend':'종료·연장'}</a></td>
+      <td style="text-align:center;line-height:1.7"><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세'}</a><br><a href="${smContactUrl(uid)}" target="_blank" style="color:#0369a1" title="${_L?'Edit contact & info':'연락처·정보 수정'}">✏️ ${_L?'Edit':'수정'}</a><br><a href="/admin/student?uid=${uidEnc}&tab=schedule" target="_blank" style="color:#067647" title="${_L?'Calendar · teacher · move/postpone':'캘린더 · 담당 강사 · 연기·변경'}">📅 ${_L?'Schedule':'스케줄'}</a><br><a href="/admin/student?uid=${uidEnc}&tab=extension" target="_blank" style="color:#b42318" title="${_L?'End classes · extend · undo':'수업 종료 · 연장 · 되돌리기'}">🗓️ ${_L?'End/Extend':'종료·연장'}</a><br><a href="#" class="sm-move-go" data-uid="${safeUid}" data-name="${safeName}" onclick="event.preventDefault();smOpenMovePick(this.getAttribute('data-uid'),this.getAttribute('data-name'))" style="color:#b45309" title="${_L?'Postpone · change · cancel one class':'수업 한 번 연기 · 변경 · 취소'}">⏸ ${_L?'Postpone/Change/Cancel':'연기·변경·취소'}</a></td>
       <td>${_c(s.payment_type)}</td>
       <td>${_d(s.signup_date)}</td>
       <td>${_d(s.end_date)}</td>

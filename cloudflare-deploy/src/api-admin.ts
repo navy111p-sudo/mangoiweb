@@ -57,7 +57,7 @@ import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
 import { writeClassAudit, listClassAudit } from './class-audit';
 import { pickClassesToEnd, pickClassesToRestore, parseSavedIds } from './enroll-cancel-cascade';   // ✕ 신청 취소 → 남은 수업 종료 (정본)
-import { runScheduleSplit, kstToday } from './schedule-split';
+import { runScheduleSplit, kstToday, splitOriginsFromNotes, splitPastDay } from './schedule-split';
 import { oneWeekEligible, oneWeekMessage, prepareRecurringOneWeek, ONE_WEEK_FALLBACK, RECUR_WEEK_SOURCE_PREFIX } from './recurring-one-week';   // 🔁 반복 수업 «그 주 하루만»(2026-10-09)
 import { planEndMakeup, END_MAKEUP_MARK_SQL } from './end-makeup';   // ⏸ 연기보강(2026-10-02)   // 📅 매주 수업 → 날짜별 수업 나누기(2026-10-02)   // 📜 수업 변경 이력(연기/삭제/종료)
 import { TEACHER_STATUSES, canonTeacherStatus, isTeacherStatus, toTeacherListHidden, teacherVisibleSql } from './teacher-status';   // 🧑‍🏫 강사 상태(활동중·비활동·퇴사) + 명부 숨김 — 판정 정본
@@ -2221,6 +2221,26 @@ export async function handleAdminApi(
             AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')`
       ).all().catch(() => ({ results: [] }));
 
+      /* 💰 (2026-10-08) «날짜별로 나눈» 매주 줄 — 나누면 원본이 cancelled 가 되어 위 SELECT 에서 빠진다.
+         그러면 이미 가르친 «나눈 날 이전» 회차가 급여에서 사라진다. 그 회차만 «원래 id 그대로» 다시 센다
+         (노쇼·연기·지각·피드백이 전부 class-{원래id}-날짜 기준이라 새 id 로 만들면 상태가 끊긴다).
+         ⚠️ 못 읽으면 빈 목록 — 예전과 같은 결과(빠짐)로 떨어진다. */
+      let splitPast: any[] = [];
+      try {
+        const sk: any = await env.DB.prepare(
+          `SELECT notes, MIN(created_at) AS created_at FROM class_schedules
+            WHERE scheduled_date IS NOT NULL AND notes LIKE '%을 날짜별로 나눔%' GROUP BY notes`
+        ).all();
+        const origins = splitOriginsFromNotes((sk && sk.results) || []);
+        const sc: any = await env.DB.prepare(
+          `SELECT * FROM class_schedules WHERE status = 'cancelled' AND (scheduled_date IS NULL OR scheduled_date = '')
+              AND teacher_id IS NOT NULL AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')`
+        ).all();
+        for (const r of ((sc && sc.results) || [])) {
+          const day = splitPastDay(r, origins);
+          if (day) splitPast.push({ row: r, before: day });
+        }
+      } catch (e: any) { console.warn('[payroll] 나눈 매주 줄 조회 생략:', e?.message); }
       const DOW: any = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
       const dowOf = (v: any): number | null => {
         if (v == null || v === '') return null;
@@ -2252,6 +2272,18 @@ export async function handleAdminApi(
             if (recurSkippedOn(row, _ymd)) continue;
             instances.push({ ...row, _date: _ymd, _mins: mins });
           }
+        }
+      }
+      // 💰 나눈 매주 줄의 «나눈 날 이전» 회차 — 원래 id 그대로(위 splitPast 주석)
+      for (const sp of splitPast) {
+        const row = sp.row;
+        const mins = row.duration_min ?? row.duration_minutes ?? 30;
+        const dw = dowOf(row.day_of_week);
+        if (dw == null) continue;
+        for (let d = 1; d <= daysInMonth; d++) {
+          const ds = `${ymPrefix}-${String(d).padStart(2, '0')}`;
+          if (ds >= sp.before) break;
+          if (new Date(Date.UTC(year, month - 1, d)).getUTCDay() === dw) instances.push({ ...row, status: 'active', _date: ds, _mins: mins });   // 나누기 «전» 상태 그대로
         }
       }
       instances.sort((a, b) => (a._date + (a.start_time || '')).localeCompare(b._date + (b.start_time || '')));
@@ -3582,6 +3614,13 @@ export async function handleAdminApi(
              🔴 반복(매주) 수업에 «취소» 를 허용하면 **그 주만이 아니라 모든 주가 죽는다**
                 (class_schedules 한 행이 매주를 뜻하므로). 그래서 화면이 아예 안 준다. */
           can_move: !!s.scheduled_date,
+          /* 📅 (2026-10-08 매니저 「매니저는 그날만 연기할 수 있나? 아무 때나 연기하게 해줘」)
+             매주 반복 줄도 «날짜별로 나누기»(src/schedule-split.ts) 를 먼저 하면 그 날 하나만 옮길 수 있다.
+             연기·변경 창(js/class-move-modal.js)이 이 칸이 참일 때만 «나눈 뒤 처리» 를 준다.
+             ⛔ 나누기는 본사 전용(enrollAdminHqOnly)이라 지사·대리점에는 안 준다(«눌러도 403 나는 버튼» 금지).
+             ⛔ 카페24 미러 행은 나누지 않는다(미러가 다시 만든다 — planScheduleSplit 과 같은 판정). */
+          can_split: !s.scheduled_date && !String(s.source || '').startsWith('c24-mirror')
+            && (_ctScope.type === 'hq' || _ctScope.type === 'none'),
           is_level_test: /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
         });
       }
@@ -7468,7 +7507,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const dry = body.dry_run !== false;
       const actor = await getAdminActor(request, env as any);
       try {
-        const r = await runScheduleSplit(env, id, { dry, actor: actor.username || actor.name || 'admin' });
+        /* 📅 (2026-10-08) focus_date — 「오늘 수업·학생 목록·캘린더」 의 연기·변경·취소 창이 매주 수업을
+           «그 날 하나만» 다루려고 먼저 나눌 때 보낸다. 응답 focus_id 가 그 날의 날짜 수업 id 다. */
+        const r = await runScheduleSplit(env, id, { dry, actor: actor.username || actor.name || 'admin', focusDate: body.focus_date != null ? String(body.focus_date) : null });
         if (!dry && r.cancelled) {
           await writeClassAudit(env, {
             action: 'split', schedule_id: id,

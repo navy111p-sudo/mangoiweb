@@ -2939,7 +2939,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         /* ❔ (2026-10-01 매니저 질문 «why other classes don't have move button?») 카페24(LMS) 줄은 망고아이 예약표에
            행이 없어 여기서 옮길 수 없다 — 버튼이 «없다» 대신 그 이유를 글자로 적는다(폰엔 hover 가 없다). */
         resch = '<span class="tag">' + esc(T('LMS class — change in cafe24', '카페24 수업 — 카페24에서 변경')) + '</span>';
-      } else if (r.schedule_id && r.can_move === false) {
+      } else if (r.schedule_id && r.can_move === false && r.can_split !== true) {
+        /* 🔁 (2026-10-08) can_split(본사 계정·미러 아님)이면 아래 갈래가 «📅 연기·변경» 버튼을 준다(창이 먼저 나눈 뒤 그 날만). */
         /* 📅 (2026-10-08 매니저 요청 «move button even for future classes») 매주 반복 줄도 막다른 글자 대신
            학생 캘린더(학생 상세 스케줄 탭)를 연다 — 거기서 «날짜별로 나누기» 후 그 날짜 하나만 연기·변경한다.
            ⛔ 여기서 바로 옮기지 않는다 — 반복 행 하나는 «매주 전부» 다(위 주석). */
@@ -3100,7 +3101,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       for (var i = 0; i < qs.length; i++) qs[i](got);
     };
     var sc = document.createElement('script');
-    sc.src = '/js/class-move-modal.js?v=4';
+    sc.src = '/js/class-move-modal.js?v=8';
     sc.onload = function(){ done(true); };
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);

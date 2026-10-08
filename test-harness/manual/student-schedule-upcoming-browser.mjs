@@ -9,9 +9,11 @@
 //     ② 매주 반복 4줄이 «주 4회» 한 줄로 묶인다 (짝: 날짜 지정 수업은 묶지 않는다)
 //     ③ 날짜 칩 개수 = 앞으로 14일의 실제 회차 수 (짝: 시작일 «전»·취소된 것은 안 나온다)
 //     ④ 보강·체험 칩에만 종류 글자가 붙는다 (짝: 정규 칩에는 안 붙는다)
-//     ⑤ 매주 반복 칩을 누르면 «이 날 하나만은 못 한다» 고 사실대로 말하고 연기 버튼을 안 준다
+//     ⑤ 매주 반복 칩도 «연기·변경·취소 — 이 날만» 을 준다(창이 먼저 날짜별로 나눈 뒤 그 날만 처리) + «매주 변경» 도 그대로
 //        (짝: 날짜 지정 칩은 연기·변경 버튼을 주고, 누르면 공용 연기·변경 창이 실제로 열린다)
-//     ⑥ 이 카드에 «취소» 버튼이 없다 (2026-10-01 사장님 「취소는 빼고」)
+//        📌 2026-10-08 사장님 「학생목록·오늘 수업·스케줄 캘린더 모두 연기/변경/취소」 로 바뀐 경계다.
+//           그전(2026-10-01)에는 «매주 칩은 이 날 하나만 못 한다 · 취소는 빼고» 였다 — 그 단정은 이 지시로 뒤집혔다.
+//     ⑥ 카드 «목록» 에는 따로 «취소» 버튼이 없다(창 안에서만) · 본사 계정이면 창에 «수업 취소» 가 있다
 //     ⑦ 휴대폰 폭: 페이지가 옆으로 안 밀리고, 칩 줄만 옆으로 넘긴다, 버튼이 맨 위에서 눌린다
 //     ⑧ 글자가 읽힌다(대비 4.5 이상)
 //
@@ -145,8 +147,13 @@ try {
     const recAct = await page.evaluate(() => ({ t: document.getElementById('mgsuAct').textContent, mv: document.querySelectorAll('#mgsuAct [data-mgsu-move]').length, se: document.querySelectorAll('#mgsuAct [data-mgsu-series]').length }));
     { const at = await page.evaluate(() => { const e = document.querySelector('#mgsuAct .mgsu-tch'); return e ? e.textContent : null; });
       check('⑤ 날짜를 눌러 연 카드에도 교사 이름이 보인다', /중국어 강선생님/.test(at || ''), String(at)); }
-    check('⑤ 반복 칩: «이 날 하나만은 못 한다» 고 말한다', /매주 반복 수업이라/.test(recAct.t), recAct.t.slice(0, 80));
-    check('⑤ 반복 칩: 연기 버튼을 안 주고 «매주 변경» 만 준다', recAct.mv === 0 && recAct.se === 1);
+    check('⑤ 반복 칩: «연기·변경·취소 — 이 날만» 을 준다 (2026-10-08 새 경계)', recAct.mv === 1 && /이 날만/.test(recAct.t), recAct.t.slice(0, 120));
+    check('⑤ [짝] 반복 칩: «매주 변경» 도 그대로 준다', recAct.se === 1);
+    await page.evaluate(() => document.querySelector('#mgsuAct [data-mgsu-move]').click());
+    await page.waitForSelector('#tc-move-modal', { timeout: 4000 }).catch(() => {});
+    const wkModal = await page.evaluate(() => ({ split: !!document.getElementById('tc-mv-split'), t: (document.getElementById('tc-move-modal') || {}).textContent || '' }));
+    check('⑤ 반복 칩으로 연 창은 «매주 → 날짜별로 나눈 뒤 이 날만» 을 말한다', wkModal.split && /매주 반복 수업/.test(wkModal.t), wkModal.t.slice(0, 120));
+    await page.evaluate(() => { try { window.mangoiMoveModal.close(); } catch (e) {} });
     await page.evaluate(() => document.querySelector('#mgsuAct [data-mgsu-series]').click());
     await page.waitForTimeout(300);
     check('⑤ «매주 변경» 을 누르면 요일별 줄이 펼쳐지고 그 줄의 변경 편집기가 열린다',
@@ -177,7 +184,9 @@ try {
     await page.waitForSelector('#tc-move-modal', { timeout: 4000 }).catch(() => {});
     const modal = await page.evaluate(() => { const m = document.getElementById('tc-move-modal'); return m ? m.textContent : ''; });
     check('⑤ 누르면 공용 «수업 연기·변경» 창이 실제로 열린다', /수업 연기·변경/.test(modal));
-    check('⑥ 그 창에도 «수업 취소» 는 없다(canCancel:false)', !/수업 취소/.test(modal));
+    /* 📌 2026-10-08 새 경계 — 본사 계정(이 검사의 /api/admin/me 는 hq_exec)이면 창에 «수업 취소» 가 있다.
+       지사·대리점에 안 주는 짝은 test-harness/class_move_anywhere_harness.mjs E절이 판정 함수를 돌려 본다. */
+    check('⑥ 본사 계정이면 그 창에 «수업 취소» 가 있다 (2026-10-08 새 경계)', /수업 취소/.test(modal));
     if (SHOT) await page.screenshot({ path: join(SHOT, `upcoming-${vp.w}-modal.png`) });
     await page.evaluate(() => { try { window.mangoiMoveModal.close(); } catch (e) {} });
 

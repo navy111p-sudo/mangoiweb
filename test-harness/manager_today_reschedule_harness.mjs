@@ -365,8 +365,18 @@ ok('못 읽으면 «연기(날짜 미정)» 로 떨어진다 (가장 덜 위험�
 const mCancelGate = blockFrom(MV_S, 'function mvCanCancel(r)').match(/return ([^;]+);/);
 ok('전제 — 취소 게이트를 찾았다', !!mCancelGate);
 if (mCancelGate) {
-  const h = new Function('_opt', 'r', 'return ' + mCancelGate[1] + ';');
+  /* 2026-10-08: 매주 수업은 «먼저 날짜별로 나눈 뒤» 취소한다 — 게이트가 mvWeekly 를 부른다.
+     mvWeekly 도 소스에서 오려 내 함께 넣는다(손으로 베끼지 않는다). */
+  const mWk = blockFrom(MV_S, 'function mvWeekly(r)').match(/return ([^;]+);/);
+  ok('전제 — mvWeekly 를 찾았다', !!mWk);
+  const mvWeeklyFn = mWk ? new Function('r', 'return ' + mWk[1] + ';') : (() => false);
+  const h0 = new Function('_opt', 'r', 'mvWeekly', 'return ' + mCancelGate[1] + ';');
+  const h = (o, r) => { try { return h0(o, r, mvWeeklyFn); } catch (e) { return 'ERR:' + e.message; } };
   ok('본사 + 날짜 지정 수업이면 취소를 준다', h({ canCancel: true }, { can_move: true }) === true);
+  ok('본사 + 매주 수업 + 나눌 수 있음(can_split) → 나눈 뒤 취소를 준다',
+     h({ canCancel: true }, { can_move: false, can_split: true, schedule_id: 7 }) === true);
+  ok('지사·대리점은 매주 수업에도 안 준다 (짝)',
+     h({ canCancel: false }, { can_move: false, can_split: true, schedule_id: 7 }) === false);
   ok('지사·대리점에는 안 준다 (DELETE 가 403) (짝)', h({ canCancel: false }, { can_move: true }) === false);
   ok('매주 반복에는 안 준다 (모든 주가 죽는다) (짝)', h({ canCancel: true }, { can_move: false }) === false);
   ok('«모름» 에도 안 준다 (막는 쪽으로 실패) (짝)', h({ canCancel: true }, {}) === false && h({}, { can_move: true }) === false);
