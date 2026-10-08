@@ -1456,6 +1456,9 @@ function showToast(msg){
    ════════════════════════════════════════════════════════════ */
 function _goMode(mode){
   if (!mode || state.saving) return;
+  if (__navHasUnsaved() && mode === state.mode && !state.saveAttempted) { enterDetail(); return; }
+  if (__navHasUnsaved() && !__navConfirmDiscard()) return;
+  state.completed = false; state.saveAttempted = false;
   state.mode = mode;
   state.tab = (mode === 'postpone' && __MOB_REAL) ? 'weekly' : 'time';
   state.tabPicked = false;   /* 사람이 탭을 직접 눌렀나 — 안 눌렀으면 수업을 늦게 불러와도 기본(매주)으로 맞춘다 */
@@ -1492,7 +1495,7 @@ function updateSticky(){
 function onConfirm(){
   if (state.saving) return;
   if (state.cart.length === 0 || (!__MOB_REAL && state.cart.length < state.weeklyTarget)) return;
-  state.saving = true;
+  state.saving = true; state.saveAttempted = true;
   var p = null;
   try { p = __mobPersist(); } catch(e){ p = Promise.resolve({ ok:false, sent:0, total:0 }); }
   if (!p) { state.saving = false; showCompletion(null); return; }
@@ -1531,6 +1534,7 @@ function __doneMoveLi(m){
     + '<span class="mv-to">' + __doneDT(m.to.d, m.to.h) + '</span></li>';
 }
 function showCompletion(saved){
+  state.completed = saved === null || !!(saved && saved.ok);
   var v = VERB[state.mode] || '';
   var sorted = state.cart.slice().sort(function(a,b){ return (a.date+a.hour) < (b.date+b.hour) ? -1 : 1; });
   if (sorted[0] && sorted[0].seriesItems) { var head = sorted[0]; sorted = head.seriesItems.map(function(it){return {teacherName:head.teacherName, date:it.to_date, hour:it.to_time};}); }
@@ -1578,6 +1582,8 @@ function showCompletion(saved){
   $('#screen-done').classList.add('active');
 }
 function resetToMain(){
+  if (state.saving || (__navHasUnsaved() && !__navConfirmDiscard())) return;
+  state.completed = false; state.saveAttempted = false;
   state.mode=null; state.tab='time'; state.cart=[];
   state.weeklyTarget=CURRENT_SCHEDULE.length;
   state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
@@ -1614,20 +1620,30 @@ function enterDetail(){
 }
 
 $('#btn-back').addEventListener('click', () => {
+  if (state.saving) return;
   $('#sticky-bar').classList.remove('show'); // fix(2026-06-18): fixed 바 — 뒤로가기 시 직접 숨김
   $('#screen-detail').classList.remove('active');
   $('#screen-main').classList.remove('exit-up'); $('#screen-main').classList.add('active');
 });
 /* 🧭 위쪽 «뒤로 · 홈» — 첫 화면의 뒤로는 앞 페이지(정본 mangoiGoBack — 카톡 링크로 바로 왔으면 홈),
    상세의 뒤로는 기존 #btn-back(첫 화면으로), 완료의 뒤로는 «다시하기» 와 같다. */
-function __navGoHome(){
-  /* 담아 둔 것이 있으면 한 번 묻는다 — 홈으로 가면 사라진다. */
-  try {
-    if (state.cart && state.cart.length && $('#screen-detail').classList.contains('active')
-        && !window.confirm(__mobT('담아 둔 수업이 있어요. 저장하지 않고 홈으로 갈까요?', 'You have classes in your list. Go home without saving?'))) return;
-  } catch(e){}
-  location.href = '/';
+function __navHasUnsaved(){ return !!(state.cart && state.cart.length && !state.completed); }
+function __navConfirmDiscard(){
+  return !__navHasUnsaved() || window.confirm(__mobT('담아 둔 수업이 있어요. 저장하지 않고 나갈까요?', 'You have unsaved classes in your list. Leave without saving?'));
 }
+function __navLeave(go){
+  if (state.saving) { showToast(__mobT('저장 결과를 확인하는 중이에요. 잠시 기다려 주세요.', 'Waiting for the save result. Please wait.')); return; }
+  if (!__navConfirmDiscard()) return;
+  /* Keep the cart if the approved navigation fails. */
+  state.leaving = true;
+  go();
+  setTimeout(function(){ state.leaving = false; }, 1000);
+}
+function __navGoHome(){ __navLeave(function(){ location.href = '/'; }); }
+function __navGoBack(){ __navLeave(function(){ if (window.mangoiGoBack) window.mangoiGoBack('/'); else location.href = '/'; }); }
+window.addEventListener('beforeunload', function(e){
+  if (!state.leaving && (state.saving || __navHasUnsaved())) { e.preventDefault(); e.returnValue = ''; }
+});
 function __navLabels(){
   $$('.nav-t-back').forEach(function(el){ el.textContent = __mobT('‹ 뒤로', '‹ Back'); });
   $$('.nav-t-home').forEach(function(el){ el.textContent = __mobT('🏠 홈', '🏠 Home'); });
@@ -1636,7 +1652,7 @@ function __navLabels(){
 }
 (function(){
   var b = $('#nav-back-main');
-  if (b) b.addEventListener('click', function(){ if (window.mangoiGoBack) window.mangoiGoBack('/'); else location.href = '/'; });
+  if (b) b.addEventListener('click', __navGoBack);
   var bd = $('#nav-back-done'); if (bd) bd.addEventListener('click', resetToMain);
   $$('.nav-home').forEach(function(el){ el.addEventListener('click', __navGoHome); });
   __navLabels();
@@ -1646,12 +1662,14 @@ function __navLabels(){
 })();
 (function(){
   var a = $('#done-again'); if (a) a.addEventListener('click', resetToMain);
-  var h = $('#done-home');  if (h) h.addEventListener('click', function(){ location.href = '/'; });
+  var h = $('#done-home');  if (h) h.addEventListener('click', __navGoHome);
 })();
 
 $$('.seg').forEach(s => {
   s.addEventListener('click', () => {
+    if (state.saving) return;
     var prevTab = state.tab;
+    if (prevTab !== s.dataset.tab && (prevTab === 'weekly' || s.dataset.tab === 'weekly') && !__navConfirmDiscard()) return;
     state.tab = s.dataset.tab;
     state.tabPicked = true;
     /* 매주 일괄 연기(묶음)와 한 수업씩 담기는 섞지 않는다 — 넘나들면 장바구니를 비운다. */

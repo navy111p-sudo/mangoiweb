@@ -46,11 +46,9 @@
  *          · 가상계좌(await_deposit → 입금완료) 결제는 **돌려줄 계좌**가 필요하다
  *            → refundReceiveAccount { bank, accountNumber, holderName }
  *   응답:  status 가 CANCELED(전액) / PARTIAL_CANCELED(부분), balanceAmount 에 남은 금액.
- *   ⚠️ 이 코드는 응답 «모양»에 기대지 않는다 — 이 작업 환경에서는 토스 문서에 접근할 수 없어
- *      필드 이름을 눈으로 확인하지 못했다(프록시 차단). 그래서 성공 판정은 HTTP 2xx 로 하고,
- *      status·balanceAmount·cancels 는 **있으면 기록**하고 없으면 원문을 통째로 남긴다.
- *      돈이 오가는 코드에서 「내가 아는 필드가 없으면 실패로 친다」는 더 위험하다 —
- *      실제로는 취소됐는데 우리는 실패로 적고, 사람이 한 번 더 누르게 된다.
+ *   검증되지 않은 응답은 성공/실패 어느 쪽으로 단정하지 않고 requested로 보존한다.
+ *   실제 취소 상태와 총액·잔액을 확인한 뒤에만 수업 배분을 변경한다.
+ *   https://docs.tosspayments.com/reference
  */
 import { json, parseJsonBody } from './api-util';
 import { getAdminActor } from './auth-admin';
@@ -144,20 +142,38 @@ export type RefundPreview = {
   paid_at: number | null;
   already_refunded: number;      // 지금까지 환불한 합계 (done 만 셈)
   pending_refunds: number;       // 결과를 못 받은 행 수 — 있으면 실행을 막는다
+  external_unrecorded: number;   // Verified external total not yet assigned to local refund records.
+  recordable_max: number;
   refundable_max: number;        // 이번에 환불할 수 있는 상한
   suggested: number;             // 권장 금액 (수강신청 주문이면 사용분 정산 결과)
   suggest_basis: any;            // 그 근거 (사람이 화면에서 확인)
   remaining_classes: number;     // 남은 수업 수 (환불 시 취소 대상)
+  remaining_lessons?: Array<{ id: number; date: string; time: string; teacher_id: string | null }>;
+  remaining_lessons_error?: string | null;
   active_subscription: boolean;  // 자동연장이 살아 있는가 — 남겨두면 다음 달 또 청구된다
   history: any[];
 };
+
+/** Refund selection is restricted to this order's future, unconsumed lessons. */
+export async function refundLessonChoices(env: any, orderId: string, uid: string, now = Date.now(), excludeRefundId = 0) {
+  const rs: any = await env.DB.prepare(`SELECT s.id, s.scheduled_date AS date, s.start_time AS time, s.teacher_id
+    FROM class_schedules s WHERE s.source = ? AND s.user_id = ? AND s.status = 'active'
+      AND CAST(strftime('%s', s.scheduled_date || 'T' || substr(s.start_time,1,5) || ':00', '-9 hours') AS INTEGER) * 1000 > ?
+      AND NOT EXISTS (SELECT 1 FROM attendance a WHERE a.room_id = 'class-' || s.id || '-' || replace(s.scheduled_date,'-','') AND a.role = 'student')
+      AND NOT EXISTS (SELECT 1 FROM payment_refunds r,
+        json_each(CASE WHEN json_valid(r.basis) THEN COALESCE(json_extract(r.basis,'$.refund_schedule_ids'),'[]') ELSE '[]' END) picked
+        WHERE r.order_id = ? AND r.status IN ('requested','done') AND r.id <> ? AND CAST(picked.value AS INTEGER) = s.id)
+    ORDER BY s.scheduled_date, s.start_time, s.id`).bind(`enroll:${orderId}`, uid, now, orderId, excludeRefundId).all();
+  if (!rs || rs.success === false || !Array.isArray(rs.results)) throw new Error('lesson_verification_unavailable');
+  return rs.results.map((r: any) => ({ id: Number(r.id), date: String(r.date), time: String(r.time), teacher_id: r.teacher_id == null ? null : String(r.teacher_id) }));
+}
 
 /** 주문 하나의 환불 가능 상태를 모아 온다. 실행 전 미리보기와 실행 검증이 **같은 함수**를 쓴다. */
 export async function refundPreview(env: any, orderId: string): Promise<RefundPreview | { error: string; status?: string }> {
   await ensureRefundTable(env);
   const o: any = await env.DB.prepare(
     `SELECT order_id, uid, amount, status, payment_key, method, paid_at, student_name, payer_name, enroll_json,
-            IFNULL(refunded_amount, 0) AS refunded_amount
+            IFNULL(refunded_amount, 0) AS refunded_amount, fail_reason
        FROM payment_orders WHERE order_id = ? LIMIT 1`
   ).bind(orderId).first();
   if (!o) return { error: 'order_not_found' };
@@ -165,16 +181,20 @@ export async function refundPreview(env: any, orderId: string): Promise<RefundPr
   /* 환불은 «돈이 실제로 들어온» 주문에만 성립한다.
      await_deposit(가상계좌 발급했지만 미입금)은 취소가 아니라 «발급 취소» 라 성격이 다르고,
      pending/failed 는 애초에 받은 돈이 없다. 여기서 막고 화면이 이유를 그대로 말하게 한다. */
-  if (o.status !== 'paid' && o.status !== 'partial_refunded') {
+  if (o.fail_reason === 'external_refund_amount_unknown') return { error: 'refund_amount_unverified', status: String(o.status) };
+  if (o.status !== 'paid' && o.status !== 'partial_refunded' && o.status !== 'refunded') {
     return { error: 'not_paid', status: String(o.status || '') };
   }
 
   const rows = await env.DB.prepare(
-    `SELECT id, refund_amount, kind, reason, status, pg_status, pg_code, requested_by, requested_at, done_at, cancelled_classes, note
+    `SELECT id, refund_amount, kind, reason, status, pg_status, pg_code, requested_by, requested_at, done_at, cancelled_classes, note, basis
        FROM payment_refunds WHERE order_id = ? ORDER BY id DESC`
   ).bind(orderId).all();
   const history = (rows.results || []) as any[];
-  const already = history.filter(r => r.status === 'done').reduce((s, r) => s + Number(r.refund_amount || 0), 0);
+  const recorded = history.filter(r => r.status === 'done').reduce((s, r) => s + Number(r.refund_amount || 0), 0);
+  const already = Math.max(recorded, Number(o.refunded_amount) || 0); // include verified external PG cancellations
+  const externalUnrecorded = Math.max(0, Number(o.refunded_amount || 0) - recorded);
+  if (o.status === 'refunded' && !externalUnrecorded) return { error: 'not_paid', status: String(o.status) };
   const pending = history.filter(r => r.status === 'requested').length;
 
   const paid = Number(o.amount || 0);
@@ -184,16 +204,25 @@ export async function refundPreview(env: any, orderId: string): Promise<RefundPr
   let suggested = max;
   let basis: any = { rule: 'full', note: '수강신청 주문이 아니어서 사용분 계산 없이 잔액 전액을 권장합니다.' };
   let remainingClasses = 0;
+  let remainingLessons: any[] = [];
   let ej: any = null;
   try { ej = JSON.parse(String(o.enroll_json || 'null')); } catch (_) {}
   if (ej) {
     const sessions = Number(ej.sessions || 0);
-    const today = kstToday();
-    const rem: any = await env.DB.prepare(
-      `SELECT COUNT(*) AS n FROM class_schedules WHERE source = ? AND status = 'active' AND scheduled_date >= ?`
-    ).bind(`enroll:${orderId}`, today).first();
-    remainingClasses = Number(rem?.n || 0);
-    const used = Math.max(0, sessions - remainingClasses);
+    // One verified unused-lesson set supplies the count, settlement input, and choices.
+    // A failed read is unknown, not zero remaining or a guessed refundable balance.
+    try { remainingLessons = await refundLessonChoices(env, orderId, String(o.uid || '')); }
+    catch { return { error: 'lesson_verification_unavailable' }; }
+    remainingClasses = remainingLessons.length;
+    const refundedSessions = new Set<number>();
+    for (const r of history.filter(r => r.status === 'done')) {
+      let b: any; try { b = JSON.parse(String(r.basis || '{}')); } catch { continue; }
+      if (Array.isArray(b.refund_schedule_ids)) for (const id of b.refund_schedule_ids)
+        if (Number.isSafeInteger(id) && id > 0) refundedSessions.add(id);
+    }
+    // Keep the existing settlement formula; "used" is broader than attendance alone.
+    // Already-refunded unused lessons must not be charged again as used.
+    const used = Math.max(0, sessions - remainingClasses - refundedSessions.size);
     const lenMul = classLengthMultiplier(Number(ej.minutes));
     const basePrice = Number(ej.weekly1_price || ENROLL_BASE_WEEKLY1) * Number(ej.weekly || 1) * Number(ej.months || 1) * lenMul;
     const calc = enrollRefundCalc(paid, sessions, used, basePrice);
@@ -222,7 +251,9 @@ export async function refundPreview(env: any, orderId: string): Promise<RefundPr
     paid_amount: paid, status: String(o.status), payment_key: o.payment_key ? String(o.payment_key) : null,
     method: o.method ? String(o.method) : null, paid_at: o.paid_at ? Number(o.paid_at) : null,
     already_refunded: already, pending_refunds: pending, refundable_max: max,
+    external_unrecorded: externalUnrecorded, recordable_max: o.payment_key ? externalUnrecorded : max,
     suggested, suggest_basis: basis, remaining_classes: remainingClasses,
+    remaining_lessons: remainingLessons, remaining_lessons_error: null,
     active_subscription: activeSub, history,
   };
 }
@@ -241,7 +272,7 @@ export async function handleRefundApi(request: Request, url: URL, env: any): Pro
     const orderId = String(url.searchParams.get('order_id') || '').trim();
     if (!orderId) return json({ ok: false, error: 'order_id_required' }, 400);
     const p = await refundPreview(env, orderId);
-    if ('error' in p) return json({ ok: false, ...p }, p.error === 'order_not_found' ? 404 : 400);
+    if ('error' in p) return json({ ok: false, ...p }, p.error === 'lesson_verification_unavailable' ? 503 : p.error === 'order_not_found' ? 404 : 400);
     return json({ ok: true, preview: p });
   }
 
@@ -293,12 +324,14 @@ export async function handleRefundApi(request: Request, url: URL, env: any): Pro
     if (!orderId) return json({ ok: false, error: 'order_id_required' }, 400);
 
     const p = await refundPreview(env, orderId);
-    if ('error' in p) return json({ ok: false, ...p }, p.error === 'order_not_found' ? 404 : 400);
+    if ('error' in p) return json({ ok: false, ...p }, p.error === 'lesson_verification_unavailable' ? 503 : p.error === 'order_not_found' ? 404 : 400);
 
     const amount = Number.isFinite(Number(body.amount)) && Number(body.amount) > 0
       ? Math.floor(Number(body.amount))
       : p.suggested;
 
+    const reconcileExternal = recordOnly && !!p.payment_key;
+    const executionMax = reconcileExternal ? p.recordable_max : p.refundable_max;
     // ── 검증 ──
     if (p.pending_refunds > 0) {
       return json({
@@ -307,26 +340,37 @@ export async function handleRefundApi(request: Request, url: URL, env: any): Pro
         pending: p.pending_refunds,
       }, 409);
     }
+    if (reconcileExternal && executionMax <= 0) return json({ ok: false, error: 'external_refund_verification_required', message: '결제사에서 확인된 미기록 환불이 없습니다. 기존 환불과 대사한 뒤 기록해 주세요.' }, 409);
     if (amount <= 0) {
       return json({ ok: false, error: 'nothing_to_refund', message: '환불할 금액이 없습니다.', refundable_max: p.refundable_max }, 400);
     }
-    if (amount > p.refundable_max) {
+    if (amount > executionMax) {
       return json({
         ok: false, error: 'amount_exceeds',
-        message: `환불 가능한 금액을 넘습니다 (최대 ${p.refundable_max.toLocaleString('ko-KR')}원).`,
-        refundable_max: p.refundable_max, already_refunded: p.already_refunded,
+        message: `환불 가능한 금액을 넘습니다 (최대 ${executionMax.toLocaleString('ko-KR')}원).`,
+        refundable_max: executionMax, already_refunded: p.already_refunded,
       }, 400);
     }
     if (!reason) {
       return json({ ok: false, error: 'reason_required', message: '환불 사유를 적어 주세요. (나중에 이 줄만 남습니다)' }, 400);
     }
 
-    const isFull = amount >= p.refundable_max;
-    /* 남은 수업을 함께 끌 것인가.
-       기본값: 전액 환불이면 켜고(돈을 돌려줬는데 수업이 남아 있으면 안 된다),
-              부분 환불이면 끈다(회차를 몇 개 뺄지는 사람이 정할 일). 화면에서 뒤집을 수 있다. */
-    const cancelClasses = body.cancel_remaining_classes === undefined
-      ? isFull : body.cancel_remaining_classes === true;
+    const isFull = reconcileExternal ? p.already_refunded >= p.paid_amount : amount >= p.refundable_max;
+    // Partial class refunds require named unused lessons; never cancel an arbitrary quota.
+    const selected = body.refund_schedule_ids;
+    const partialClassRefund = !isFull && p.suggest_basis?.rule === 'enroll_used_settlement';
+    let refundScheduleIds: number[] = [];
+    if (partialClassRefund) {
+      if (p.remaining_lessons_error) return json({ ok: false, error: 'lesson_verification_unavailable', message: '미사용 수업을 확인하지 못해 환불을 중단했습니다.' }, 503);
+      if (!Array.isArray(selected) || !selected.length || selected.length > 400 || selected.some((id: any) => !Number.isSafeInteger(id) || id <= 0))
+        return json({ ok: false, error: 'refund_lessons_required', message: '부분환불할 미사용 수업을 선택해 주세요.' }, 400);
+      refundScheduleIds = [...new Set<number>(selected)];
+      if (refundScheduleIds.length !== selected.length) return json({ ok: false, error: 'duplicate_refund_lessons' }, 400);
+      const eligible = new Set((p.remaining_lessons || []).map(r => r.id));
+      if (refundScheduleIds.some(id => !eligible.has(id))) return json({ ok: false, error: 'refund_lesson_not_unused', message: '선택한 수업이 이 주문의 미사용 수업인지 다시 확인해 주세요.' }, 409);
+    }
+    const cancelClasses = partialClassRefund ? true : (body.cancel_remaining_classes === undefined
+      ? isFull : body.cancel_remaining_classes === true);
 
     // ── 2단계: confirm 이 없으면 여기서 멈춘다 ──
     if (!confirm) {
@@ -335,7 +379,9 @@ export async function handleRefundApi(request: Request, url: URL, env: any): Pro
         will: {
           order_id: orderId, amount, kind: isFull ? 'full' : 'partial',
           mode: recordOnly ? 'record_only' : 'pg_cancel',
+          reconciles_existing_external_refund: reconcileExternal,
           cancel_remaining_classes: cancelClasses,
+          refund_schedule_ids: refundScheduleIds,
           remaining_classes: p.remaining_classes,
           active_subscription: p.active_subscription,
         },
@@ -356,26 +402,41 @@ export async function handleRefundApi(request: Request, url: URL, env: any): Pro
         `INSERT INTO payment_refunds
            (order_id, payment_key, uid, student_name, paid_amount, refund_amount, kind, reason, basis,
             status, requested_by, requested_at, note)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+         SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?
+         WHERE NOT EXISTS (SELECT 1 FROM payment_refunds WHERE order_id = ? AND status = 'requested')
+           AND CASE WHEN ? THEN
+             COALESCE((SELECT SUM(refund_amount) FROM payment_refunds WHERE order_id = ? AND status IN ('done','requested')),0) + ? <= COALESCE((SELECT refunded_amount FROM payment_orders WHERE order_id = ?),0)
+             ELSE MAX(COALESCE((SELECT SUM(refund_amount) FROM payment_refunds WHERE order_id = ? AND status IN ('done','requested')),0),COALESCE((SELECT refunded_amount FROM payment_orders WHERE order_id = ?),0)) + ? <= ? END
+           AND EXISTS (SELECT 1 FROM payment_orders WHERE order_id = ? AND status IN ('paid','partial_refunded','refunded') AND COALESCE(fail_reason,'') <> 'external_refund_amount_unknown')
+           AND NOT EXISTS (SELECT 1 FROM json_each(?) chosen WHERE NOT EXISTS (
+             SELECT 1 FROM class_schedules s WHERE s.id = CAST(chosen.value AS INTEGER)
+               AND s.source = ? AND s.user_id = ? AND s.status = 'active'
+               AND CAST(strftime('%s', s.scheduled_date || 'T' || substr(s.start_time,1,5) || ':00', '-9 hours') AS INTEGER) * 1000 > ?
+               AND NOT EXISTS (SELECT 1 FROM attendance a WHERE a.room_id = 'class-' || s.id || '-' || replace(s.scheduled_date,'-','') AND a.role = 'student')))
+           AND NOT EXISTS (SELECT 1 FROM payment_refunds r,
+             json_each(CASE WHEN json_valid(r.basis) THEN COALESCE(json_extract(r.basis,'$.refund_schedule_ids'),'[]') ELSE '[]' END) prior,
+             json_each(?) chosen WHERE r.order_id = ? AND r.status IN ('done','requested') AND CAST(prior.value AS INTEGER) = CAST(chosen.value AS INTEGER))
          RETURNING id`
       ).bind(
         orderId, p.payment_key, p.uid, p.student_name, p.paid_amount, amount,
-        isFull ? 'full' : 'partial', reason, JSON.stringify(p.suggest_basis).slice(0, 2000),
+        isFull ? 'full' : 'partial', reason, JSON.stringify({ ...p.suggest_basis, refund_schedule_ids: refundScheduleIds, external_reconciliation: reconcileExternal }),
         recordOnly ? 'done' : 'requested', g.username, now,
         recordOnly ? '토스 대시보드 등 밖에서 처리한 환불을 장부에만 기록' : null,
+        orderId, reconcileExternal ? 1 : 0, orderId, amount, orderId, orderId, orderId, amount, p.paid_amount,
+        orderId, JSON.stringify(refundScheduleIds), `enroll:${orderId}`, p.uid, now, JSON.stringify(refundScheduleIds), orderId,
       ).first();
       refundId = Number(ins?.id || 0);
     } catch (e) {
       return json({ ok: false, error: 'record_failed', message: '환불 기록을 남기지 못해 중단했습니다. (기록 없이는 실행하지 않습니다)' , detail: String((e as any)?.message || e) }, 500);
     }
     if (!refundId) {
-      return json({ ok: false, error: 'record_failed', message: '환불 기록을 남기지 못해 중단했습니다.' }, 500);
+      return json({ ok: false, error: 'refund_state_changed', message: '다른 환불 요청이 먼저 처리되었습니다. 다시 조회해 주세요.' }, 409);
     }
 
     // ── 장부 기록만 하는 모드는 여기서 마무리 ──
     if (recordOnly) {
       await env.DB.prepare(`UPDATE payment_refunds SET done_at = ? WHERE id = ?`).bind(now, refundId).run();
-      const done = await finishRefund(env, { orderId, refundId, amount, isFull, cancelClasses, preview: p, now });
+      const done = await finishRefund(env, { orderId, refundId, amount, isFull, cancelClasses, refundScheduleIds, reconcileExternal, preview: p, now });
       return json({ ok: true, recorded: true, mode: 'record_only', refund_id: refundId, amount, ...done });
     }
 
@@ -431,18 +492,33 @@ export async function handleRefundApi(request: Request, url: URL, env: any): Pro
     if (!res.ok) {
       const code = String(out?.code || `http_${res.status}`);
       const msg = String(out?.message || '결제사가 취소를 거절했습니다.');
+      if (res.status >= 500 || res.status === 408 || res.status === 429 || !out?.code || code === 'ALREADY_CANCELED_PAYMENT') {
+        await env.DB.prepare(`UPDATE payment_refunds SET pg_code=?, pg_raw=?, note=? WHERE id=?`)
+          .bind(code, JSON.stringify(out).slice(0,2000), '결제사 응답만으로 취소 결과를 확정할 수 없습니다. 기존 요청 키로 대사해 주세요.', refundId).run();
+        return json({ ok: false, error: code, refund_id: refundId, needs_check: true, message: msg }, 502);
+      }
       await failRefund(env, refundId, code, msg, JSON.stringify(out).slice(0, 2000));
       return json({ ok: false, error: code, refund_id: refundId, message: msg }, 400);
     }
 
-    /* 성공 — 응답 «모양»에 기대지 않는다(파일 머리말 참조). 2xx 면 취소된 것으로 보고,
-       status·balanceAmount 는 있으면 기록한다. */
+    // HTTP success alone cannot prove a completed cancellation. Keep the same durable
+    // claim for reconciliation when the provider result is incomplete or contradictory.
+    const verifiedCancel = ['CANCELED','PARTIAL_CANCELED'].includes(String(out?.status))
+      && Number.isSafeInteger(out.totalAmount) && out.totalAmount === p.paid_amount
+      && Number.isSafeInteger(out.balanceAmount) && out.balanceAmount >= 0 && out.balanceAmount <= out.totalAmount
+      && out.totalAmount - out.balanceAmount >= p.already_refunded + amount
+      && (!out.paymentKey || out.paymentKey === p.payment_key);
+    if (!verifiedCancel) {
+      await env.DB.prepare(`UPDATE payment_refunds SET pg_code='unverified_cancel_response', pg_raw=?, note=? WHERE id=?`)
+        .bind(JSON.stringify(out).slice(0,4000), '취소 상태·금액을 확인하지 못했습니다. 기존 요청을 결제사와 대사해 주세요.', refundId).run();
+      return json({ ok: false, error: 'unverified_cancel_response', refund_id: refundId, needs_check: true }, 502);
+    }
     const pgStatus = String(out?.status || '');
     await env.DB.prepare(
       `UPDATE payment_refunds SET status = 'done', pg_status = ?, pg_raw = ?, done_at = ? WHERE id = ?`
     ).bind(pgStatus || null, JSON.stringify(out).slice(0, 4000), Date.now(), refundId).run();
 
-    const done = await finishRefund(env, { orderId, refundId, amount, isFull, cancelClasses, preview: p, now: Date.now() });
+    const done = await finishRefund(env, { orderId, refundId, amount, isFull, cancelClasses, refundScheduleIds, verifiedRefundedTotal: out.totalAmount - out.balanceAmount, preview: p, now: Date.now() });
     await notifyOwnerRefund(env, { orderId, amount, isFull, reason, who: g.username, student: p.student_name });
 
     return json({
@@ -467,17 +543,17 @@ export async function handleRefundApi(request: Request, url: URL, env: any): Pro
  */
 async function finishRefund(env: any, a: {
   orderId: string; refundId: number; amount: number; isFull: boolean;
-  cancelClasses: boolean; preview: RefundPreview; now: number;
+  cancelClasses: boolean; refundScheduleIds?: number[]; reconcileExternal?: boolean; verifiedRefundedTotal?: number; preview: RefundPreview; now: number;
 }): Promise<{ cancelled_classes: number; warnings: string[] }> {
   const warnings: string[] = [];
-  const totalRefunded = a.preview.already_refunded + a.amount;
+  const totalRefunded = Math.max(a.verifiedRefundedTotal || 0, a.preview.already_refunded + (a.reconcileExternal ? 0 : a.amount));
 
   try {
     await env.DB.prepare(
-      `UPDATE payment_orders SET status = ?, refunded_amount = ?, refunded_at = ? WHERE order_id = ?`
+      `UPDATE payment_orders SET status = CASE WHEN MAX(COALESCE(refunded_amount,0),?,COALESCE((SELECT SUM(refund_amount) FROM payment_refunds WHERE order_id=? AND status='done'),0)) >= amount THEN 'refunded' ELSE 'partial_refunded' END,
+         refunded_amount = MAX(COALESCE(refunded_amount,0),?,COALESCE((SELECT SUM(refund_amount) FROM payment_refunds WHERE order_id=? AND status='done'),0)), refunded_at = ? WHERE order_id = ?`
     ).bind(
-      totalRefunded >= a.preview.paid_amount ? 'refunded' : 'partial_refunded',
-      totalRefunded, a.now, a.orderId,
+      totalRefunded, a.orderId, totalRefunded, a.orderId, a.now, a.orderId,
     ).run();
   } catch (e) {
     warnings.push('주문 상태를 갱신하지 못했습니다: ' + String((e as any)?.message || e));
@@ -486,6 +562,23 @@ async function finishRefund(env: any, a: {
   let cancelled = 0;
   if (a.cancelClasses) {
     try {
+      if (a.refundScheduleIds?.length) {
+        const eligible = new Set((await refundLessonChoices(env, a.orderId, String(a.preview.uid || ''), a.now, a.refundId)).map(r => r.id));
+        const ids = a.refundScheduleIds.filter(id => eligible.has(id));
+        if (ids.length !== a.refundScheduleIds.length) warnings.push('환불 처리 중 선택 수업 상태가 바뀌었습니다. 환불 기록의 수업 ID와 대조해 주세요.');
+        // Eligibility can change after the read: the final write must compare it again.
+        const results = ids.length ? await env.DB.batch(ids.map(id => env.DB.prepare(
+          `UPDATE class_schedules SET status = 'cancelled', updated_at = ?, notes = COALESCE(notes || ' / ', '') || ?
+            WHERE id = ? AND source = ? AND user_id = ? AND status = 'active'
+              AND CAST(strftime('%s', scheduled_date || 'T' || substr(start_time,1,5) || ':00', '-9 hours') AS INTEGER) * 1000
+                > MAX(?, CAST(strftime('%s','now') AS INTEGER) * 1000)
+              AND NOT EXISTS (SELECT 1 FROM attendance a
+                WHERE a.room_id = 'class-' || class_schedules.id || '-' || replace(class_schedules.scheduled_date,'-','')
+                  AND a.role = 'student')`
+        ).bind(a.now, `부분환불로 취소 (refund #${a.refundId})`, id, `enroll:${a.orderId}`, a.preview.uid, a.now))) : [];
+        cancelled = results.reduce((sum: number, r: any) => sum + Number(r?.meta?.changes || 0), 0);
+        if (cancelled !== a.refundScheduleIds.length) warnings.push('선택 수업 일부의 취소가 반영되지 않았습니다. 관리자 확인이 필요합니다.');
+      } else {
       const today = kstToday();
       /* ⛔ DELETE 가 아니라 status='cancelled' 다 — 되돌릴 수 있어야 하고,
             「왜 이 수업이 사라졌나」가 남아야 한다. (스케줄 정리와 같은 방식) */
@@ -495,13 +588,15 @@ async function finishRefund(env: any, a: {
           WHERE source = ? AND status = 'active' AND scheduled_date >= ?`
       ).bind(a.now, `환불로 취소 (refund #${a.refundId})`, `enroll:${a.orderId}`, today).run();
       cancelled = Number(r?.meta?.changes || 0);
+      }
     } catch (e) {
       warnings.push('남은 수업을 취소하지 못했습니다: ' + String((e as any)?.message || e));
     }
   }
 
   try {
-    await env.DB.prepare(
+    // Selected partial class refunds leave the rest of this enrollment active.
+    if (!a.refundScheduleIds?.length) await env.DB.prepare(
       `UPDATE enrollments SET status = 'refunded', updated_at = ? WHERE notes LIKE ?`
     ).bind(a.now, `%${a.orderId}%`).run();
   } catch (e) {

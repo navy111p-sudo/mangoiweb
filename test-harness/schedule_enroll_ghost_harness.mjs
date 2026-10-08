@@ -12,7 +12,7 @@
  *    「체험수업이 없는데 나오는 것은 안돼. 캘린더에 나오지 않게 해줘」로 바꾸셨다.
  *    ⟹ 옛 경계(「회색이 된다」)를 느슨하게 푼 것이 아니라 «새 경계» 로 옮겨 적는다:
  *       ① 캘린더에 안 그린다 ② 대신 «안 그린 N건» 한 줄이 그 사실을 남긴다
- *       ③ 살아 있는 신청·못 읽은 경우는 예전 그대로다.
+ *       ③ 확인된 수업은 그대로, 미확인 목록은 경고와 함께 모름으로 남긴다.
  *
  * ⚠️ 문자열 하니스로는 이 사고를 못 본다 — 함수도 값도 다 «있고» 틀린 것은
  *    «무엇이 그려지는가» 뿐이다. 그래서 렌더 함수를 중괄호 짝으로 오려 내
@@ -77,7 +77,7 @@ console.log('① 정본 판정 — 오려 내 실제로 돌린다');
 
 const fnSrc   = cut('function mgsEnrHasLiveClass(enr)');
 /* 📅 (2026-10-06) «그 날짜» 판정 짝 — 상수 줄부터 함수 끝까지(⛔ 베끼지 말 것). */
-const dateFnSrc = cut('var MGS_AI_LIST_LIMIT = 100;');
+const dateFnSrc = cut('function mgsEnrLiveOnDate(enr, date)');
 const noteSrc = cut('function mgsSetGhostNote(n)');
 const weekSrc = cut('function renderDSchedWeek()');
 const monthSrc= cut('function renderDSchedMonth()');
@@ -139,7 +139,7 @@ function run(enrollments, aiSchedules, aiOk, lang) {
       view: 'week',
       weekStart: new Date('2026-09-20T00:00:00'),
       year: 2026, month: 8,
-      enrollments, aiSchedules, aiOk
+      enrollments, aiSchedules, aiOk, aiComplete: aiOk
     }
   };
   vm.createContext(sandbox);
@@ -177,7 +177,7 @@ try {
     dead:   run(ENR, [],         true),   // 살아 있는 수업 0건 → 안 그린다
     alive:  run(ENR, LIVE_ROW,   true),   // 살아 있음 → 예전 그대로
     other:  run(ENR, OTHER_ROW,  true),   // 남의 신청 수업뿐 → 안 그린다
-    unread: run(ENR, [],         false),  // 못 읽었다 → 예전 그대로(fail-open)
+    unread: run(ENR, [],         false),  // 못 읽었다 → 모름; 빈 수업으로 세거나 카드를 만들지 않는다
     en:     run(ENR, [],         true, 'en')
   };
 } catch (e) {
@@ -190,7 +190,7 @@ if (R.dead) {
   ok('판정: 살아 있는 수업이 0건이면 «없음»', R.dead.live === false);
   ok('짝 — 살아 있으면 «있음»',              R.alive.live === true);
   ok('짝 — 남의 신청 수업은 안 센다',         R.other.live === false);
-  ok('짝 — 못 읽었으면 «있음»(fail-open)',   R.unread.live === true);
+  ok('짝 — 못 읽었으면 «모름», 빈 신청으로 단정하지 않는다', R.unread.live === null);
 
   const W_CARD = 'background:' + TRIAL.bg + ';border-left:3px solid ' + TRIAL.border;
   const M_CARD = 'background:' + TRIAL_M.bg + ';border-left:3px solid ' + TRIAL_M.b;
@@ -199,7 +199,7 @@ if (R.dead) {
   ok('캘린더에 그리지 않는다(카드 0개)', !R.dead.week.includes(W_CARD));
   ok('그 신청의 강사 이름도 안 남는다',   !R.dead.week.includes('중국어 강선생님'));
   ok('짝 — 살아 있으면 예전 그대로 그린다', R.alive.week.includes(W_CARD) && R.alive.week.includes('중국어 강선생님'));
-  ok('짝 — 못 읽었으면 예전 그대로 그린다', R.unread.week.includes(W_CARD) && R.unread.week.includes('중국어 강선생님'));
+  ok('짝 — 못 읽었으면 확인 안 된 카드를 만들지 않는다', !R.unread.week.includes(W_CARD));
   ok('짝 — 남의 신청 수업뿐이면 안 그린다', !R.other.week.includes(W_CARD));
   /* 2026-09-21 사장님이 «회색으로 낮추기»(#1059)를 «안 그리기» 로 바꾸셨다 —
      회색 카드로 되돌아가면 그 지시가 조용히 풀린 것이다. */
@@ -209,7 +209,7 @@ if (R.dead) {
   console.log('\n③ 월간 뷰 — «같은» 정본을 쓴다');
   ok('캘린더에 그리지 않는다',            !R.dead.month.includes(M_CARD));
   ok('짝 — 살아 있으면 그대로',           R.alive.month.includes(M_CARD));
-  ok('짝 — 못 읽었으면 그대로',           R.unread.month.includes(M_CARD));
+  ok('짝 — 월간도 모르는 카드를 만들지 않는다', !R.unread.month.includes(M_CARD));
   ok('회색 카드로 되돌아가지 않았다',      !R.dead.month.includes('신청만'));
 
   console.log('\n④ «안 그린 N건» 한 줄 — 어긋남이 화면에서 사라지지 않게');
@@ -218,7 +218,7 @@ if (R.dead) {
   /* ⚠️ 한 신청이 9월 금요일 세 번(11·18·25)에 걸려도 «1건» 이라야 한다 — 날짜가 아니라 신청 id 로 센다. */
   ok('월간에서도 여러 날 → 1건',      !!(R.dead.monthNote && /(^|[^0-9])1건/.test(R.dead.monthNote.text)), R.dead.monthNote && R.dead.monthNote.text);
   ok('짝 — 살아 있으면 안내가 없다',  !!(R.alive.weekNote) && R.alive.weekNote.display === 'none' && R.alive.weekNote.text === '');
-  ok('짝 — 못 읽었으면 안내가 없다',  !!(R.unread.weekNote) && R.unread.weekNote.display === 'none');
+  ok('짝 — 못 읽었으면 빈 수업 대신 미확인 안내', !!R.unread.weekNote && R.unread.weekNote.display !== 'none' && /확인하지 못/.test(R.unread.weekNote.text) && !/1건/.test(R.unread.weekNote.text));
   ok('짝 — 월간도 살아 있으면 없다',  !!(R.alive.monthNote) && R.alive.monthNote.display === 'none');
   ok('영어에서는 영어로 말한다',      !!(R.en.weekNote) && /no live class/.test(R.en.weekNote.text) && !/건은/.test(R.en.weekNote.text), R.en.weekNote && R.en.weekNote.text);
   ok('짝 — 한국어는 한국어로',        !!(R.dead.weekNote) && /수강신청/.test(R.dead.weekNote.text));
@@ -235,7 +235,7 @@ let P = {};
 try {
   P = {
     past:  run(ENR, PAST_ONLY, true),
-    trunc: run(ENR, PAST_ONLY.concat(FILL), true),   // 100건 = 목록이 잘렸을 수 있음
+    trunc: run(ENR, PAST_ONLY.concat(FILL), true),   // explicitly complete100-row result
     pastUnread: run(ENR, PAST_ONLY, false)
   };
 } catch (e) { ok('[전제] 일부취소 시나리오가 돈다', false, String(e && e.message || e)); }
@@ -245,8 +245,8 @@ if (P.past) {
   ok('월간: 살아 있는 9/18 한 칸만 그린다', M_CNT(P.past.month) === 1, String(M_CNT(P.past.month)));
   ok('짝 — 월간 9/25 활성이면 그 한 칸', M_CNT(R.alive.month) === 1, String(M_CNT(R.alive.month)));
   ok('«수업이 하나도 없는 신청» 안내에는 안 센다', !!P.past.weekNote && P.past.weekNote.display === 'none', JSON.stringify(P.past.weekNote));
-  ok('짝 — 목록이 잘렸을 수 있으면(100건) 마지막 날짜 뒤는 그린다(fail-open)', W_CNT(P.trunc.week) === 1, String(W_CNT(P.trunc.week)));
-  ok('짝 — 못 읽었으면 예전 그대로 그린다', W_CNT(P.pastUnread.week) === 1, String(W_CNT(P.pastUnread.week)));
+  ok('회귀 — 정확히 100건인 완전 목록도 취소된 날짜를 되살리지 않는다', W_CNT(P.trunc.week) === 0, String(W_CNT(P.trunc.week)));
+  ok('짝 — 부분 조회의 과거 행으로 취소된 미래 날짜를 만들지 않는다', W_CNT(P.pastUnread.week) === 0, String(W_CNT(P.pastUnread.week)));
 }
 
 console.log('\n⑤ 배선·구조');

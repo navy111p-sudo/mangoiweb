@@ -162,7 +162,7 @@ for (const s of SCEN) {
   for (const [라벨, tmpl] of [['JOIN', mJoin && mJoin[1]], ['폴백(JOIN 없음)', mNo && mNo[1]]]) {
     if (!tmpl) continue;
     let err = null, rows = [];
-    try { rows = db.prepare(mkSql(tmpl, s.where)).all(...s.binds); }
+    try { rows = db.prepare(mkSql(tmpl, s.where)).all(...s.binds, 0); }
     catch (e) { err = String(e && e.message || e); }
     check(`${라벨} 쿼리가 에러 없이 돈다 — ${s.이름}`, err === null, err);
   }
@@ -185,7 +185,7 @@ for (const [라벨, tmpl] of [['JOIN', mJoin && mJoin[1]], ['폴백(JOIN 없음)
 /* ══ ④ 짝 — «이름이 실제로 실린다» 와 «원부에 없는 번호는 안 지어낸다» ══ */
 console.log('\n④ 짝 검사 — 이름이 실리는가 / 없는 번호를 지어내지 않는가');
 let joined = [];
-try { joined = db.prepare(mkSql(mJoin[1], [...whereInit, cUidOnly])).all('jeong', 100); } catch (e) { joined = []; }
+try { joined = db.prepare(mkSql(mJoin[1], [...whereInit, cUidOnly])).all('jeong', 100, 0); } catch (e) { joined = []; }
 check('JOIN 결과에 teacher_name 칸이 있다 (이게 없으면 화면이 「강사 미확인」을 그린다)',
   joined.length > 0 && Object.prototype.hasOwnProperty.call(joined[0], 'teacher_name'),
   joined[0] ? Object.keys(joined[0]) : null);
@@ -210,7 +210,7 @@ for (const [라벨, tmpl] of [['JOIN', mJoin && mJoin[1]], ['폴백(JOIN 없음)
   if (!tmpl) continue;
   let plan = [], err = null;
   try { plan = db.prepare('EXPLAIN QUERY PLAN ' + mkSql(tmpl, [...whereInit, cUidName]))
-                 .all('jeong', '정우영', '정우영', '정우영', 100); }
+                 .all('jeong', '정우영', '정우영', '정우영', 100, 0); }
   catch (e) { err = String(e && e.message || e); }
   const detail = plan.map((r) => r.detail || '').join(' | ');
   check(`${라벨} — 실행계획에 CORRELATED 가 없다 (매 행 전수 스캔 방지)`,

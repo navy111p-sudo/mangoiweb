@@ -249,12 +249,14 @@ if (tsMod) dBody = tsMod.transpileModule('async function __d(){' + dBody + '\n}'
   .replace(/^[\s\S]*?async function __d\(\)\s*\{/, '').replace(/\}\s*$/, '');
 const atomicModule = {};
 if (tsMod) new Function('exports', tsMod.transpileModule(SRC('src/schedule-request-atomic.ts'), { compilerOptions: { target: 99, module: 1 } }).outputText)(atomicModule);
+const identityModule = {};
+if (tsMod) new Function('exports', tsMod.transpileModule(SRC('src/c24-identity.ts'), { compilerOptions: { target: 99, module: 1 } }).outputText)(identityModule);
 async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = false, schedSource = null, schedDate = '2026-10-01' }) {
   const db = new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE teachers (id INTEGER PRIMARY KEY, name TEXT, active INTEGER DEFAULT 1)`);
   db.exec(`INSERT INTO teachers VALUES (16,'KRYSTEL',1),(21,'KARL',1),(30,'LEFT',0)`);
-  db.exec(`CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, user_id TEXT, scheduled_date TEXT, start_time TEXT, duration_min INTEGER, teacher_id TEXT, source TEXT, status TEXT, updated_at INTEGER)`);
-  db.exec(`INSERT INTO class_schedules VALUES (4385,'jeong',${schedDate === null ? 'NULL' : `'${schedDate}'`},'16:00',20,'16',${schedSource ? `'${schedSource}'` : 'NULL'},'active',0)`);
+  db.exec(`CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, user_id TEXT, scheduled_date TEXT, start_time TEXT, duration_min INTEGER, teacher_id TEXT, source TEXT, status TEXT, updated_at INTEGER, notes TEXT)`);
+  db.exec(`INSERT INTO class_schedules VALUES (4385,'jeong',${schedDate === null ? 'NULL' : `'${schedDate}'`},'16:00',20,'16',${schedSource ? `'${schedSource}'` : 'NULL'},'active',0,'c24:4385')`);
   db.exec(`CREATE TABLE admin_scope (username TEXT, scope_type TEXT)`);
   if (scope) db.prepare(`INSERT INTO admin_scope VALUES ('boss', ?)`).run(scope);
   const wrap = sql => { const st = db.prepare(sql); const ex = a => ({ first: async () => st.get(...a) || null, all: async () => ({ results: st.all(...a) }), run: async () => { const r = st.run(...a); return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; } }); return Object.assign(ex([]), { bind: (...a) => ex(a) }); };
@@ -268,7 +270,7 @@ async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = 
   db.prepare(`INSERT INTO schedule_change_requests (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...cols.map(k => r[k]));
   const audits = []; const confCalls = [];
   const deps = {
-    scheduleMoveVersion, ...atomicModule, WEEKLY_POSTPONE: 'weekly_postpone',
+    scheduleMoveVersion, ...atomicModule, ...identityModule, WEEKLY_POSTPONE: 'weekly_postpone',
     findScheduleMoveConflicts: async () => null, // Strict availability is exercised through the full Worker lifecycle harness.
     getAdminActor: async () => ({ ok: true, isTeacher, username: 'boss', name: '사장', role: scope }),
     forbiddenTeacherBody: (_a, m) => ({ ok: false, error: 'forbidden_teacher', message: m }),

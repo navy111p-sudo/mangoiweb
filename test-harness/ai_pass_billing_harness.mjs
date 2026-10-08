@@ -149,6 +149,9 @@ try {
   const db = freshDb(); const env = { DB: d1(db) }; const calls = {};
   const act = mkActivate(calls);
   const w = kst(2026, 9, 29, 14);
+  // Activation requires persisted paid provenance, as the real confirm/webhook routes provide.
+  for (const [id,uid,program,amount] of [['MGI-A1','kim','ai_content',10000],['MGI-A2','kim','ai_content',10000],['MGI-P1','kim','pron_ai',15000],['MGI-A3',null,'ai_content',10000]])
+    db.prepare(`INSERT INTO payment_orders(order_id,uid,program,amount,status,paid_at) VALUES(?,?,?,?,'paid',?)`).run(id,uid,program,amount,w);
   await act(env, { uid: 'kim', program: 'ai_content', student_name: '김' }, 10000, w, 'MGI-A1');
   const r1 = db.prepare(`SELECT started_at, ended_at FROM enrollments WHERE notes LIKE '%MGI-A1%'`).get();
   ok('첫 결제: 지금부터 1개월 끝이 적힌다(9/29 → 10/29)', r1 && r1.started_at === w && kday(r1.ended_at) === '2026-10-29', JSON.stringify(r1));
@@ -208,7 +211,7 @@ async function runCharge(tossReply, preEnd, opt = {}) {
 }
 try {
   const t0 = Date.now();
-  const s = await runCharge({ ok: true, json: { status: 'DONE', paymentKey: 'pk1' } }, null);
+  const s = await runCharge({ ok: true, json: { status: 'DONE', totalAmount: PRICES.ai_content.amount, paymentKey: 'pk1' } }, null);
   const ord = s.db.prepare(`SELECT * FROM payment_orders`).get();
   const en = s.db.prepare(`SELECT * FROM enrollments WHERE package = ?`).get(AI_NAME);
   const sb = s.db.prepare(`SELECT * FROM subscriptions WHERE id=1`).get();
@@ -220,7 +223,7 @@ try {
   ok('성공: 실패 횟수 0 · 금액은 가격표 값으로 갱신', sb.fail_count === 0 && sb.amount === PRICES.ai_content.amount);
 
   const pre = Date.now() + 10 * DAY;
-  const s2 = await runCharge({ ok: true, json: { status: 'DONE', paymentKey: 'pk2' } }, pre);
+  const s2 = await runCharge({ ok: true, json: { status: 'DONE', totalAmount: PRICES.ai_content.amount, paymentKey: 'pk2' } }, pre);
   const en2 = s2.db.prepare(`SELECT ended_at FROM enrollments WHERE notes LIKE '%토스%'`).get();
   ok('성공(남은 기간 있음): 그 끝에 1개월을 이어 붙인다', en2 && en2.ended_at === M.addMonthsKst(pre, 1));
 
@@ -229,13 +232,15 @@ try {
     && s3.db.prepare(`SELECT COUNT(*) n FROM enrollments`).get().n === 0
     && s3.db.prepare(`SELECT status FROM payment_orders`).get().status === 'failed');
   const s4 = await runCharge('network', null);
-  ok('짝: 네트워크 오류 → 실패 처리, 이용권 안 생김', !s4.r.ok && s4.r.error === 'network_error' && s4.calls.bump.length === 1
+  ok('짝: 네트워크 오류 → 미확정 주문 보존·재청구 보류·이용권 없음', !s4.r.ok && s4.r.error === 'network_error' && s4.calls.bump.length === 0
+    && s4.db.prepare(`SELECT status FROM payment_orders`).get().status === 'pending'
+    && s4.db.prepare(`SELECT next_billing_at FROM subscriptions`).get().next_billing_at === null
     && s4.db.prepare(`SELECT COUNT(*) n FROM enrollments`).get().n === 0);
 
-  const s5 = await runCharge({ ok: true, json: { status: 'DONE', paymentKey: 'pk5' } }, null, { noActivate: true });
+  const s5 = await runCharge({ ok: true, json: { status: 'DONE', totalAmount: PRICES.ai_content.amount, paymentKey: 'pk5' } }, null, { noActivate: true });
   const sb5 = s5.db.prepare(`SELECT next_billing_at FROM subscriptions WHERE id=1`).get();
   ok('결제는 됐는데 이용권이 안 생기면 자동결제를 멈춘다(다음 청구일 NULL · activation_failed)', s5.r && s5.r.error === 'activation_failed' && sb5.next_billing_at === null, JSON.stringify({ r: s5.r, sb5 }));
-  const s6 = await runCharge({ ok: true, json: { status: 'DONE', paymentKey: 'pk6' } }, null, { throwOn: "UPDATE payment_orders SET status='paid'" });
+  const s6 = await runCharge({ ok: true, json: { status: 'DONE', totalAmount: PRICES.ai_content.amount, paymentKey: 'pk6' } }, null, { throwOn: "UPDATE payment_orders SET status='paid'" });
   const sb6 = s6.db.prepare(`SELECT next_billing_at FROM subscriptions WHERE id=1`).get();
   ok('돈이 나간 뒤 장부 쓰기가 던져도 다음 청구일이 «지금» 으로 남지 않는다(NULL = 재청구 안 함)', !!s6.threw && sb6.next_billing_at === null, JSON.stringify({ threw: !!s6.threw, sb6 }));
 } catch (e) { ok('⑤ 실행', false, e && e.message); }

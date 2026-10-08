@@ -40,21 +40,35 @@
      ⚠️ 이 파일은 defer 라 화면의 인라인 스크립트가 먼저 돈다. speakText 는 그 스크립트의
         최상위 함수 선언이라 window 속성과 «같은 바인딩» 이다 — 여기서 갈아 끼우면 화면 안의
         맨이름 호출(stmSpeak·sendMsg)도 이 감싼 판을 부른다. */
-  var pending = 0, lastSpeakEnd = 0, spokeThisTurn = false;
+  var pending = 0, lastSpeakEnd = 0, spokeThisTurn = false, speechEpoch = 0;
+  // stop() deliberately has no completion callback. Invalidate canceled accounting now.
+  if (typeof window.stopSpeakingNow === 'function') {
+    var originalStop = window.stopSpeakingNow;
+    window.stopSpeakingNow = function () {
+      speechEpoch++; pending = 0; lastSpeakEnd = Date.now();
+      return originalStop.apply(this, arguments);
+    };
+  }
   (function wrapSpeak() {
     if (typeof window.speakText !== 'function' || window.speakText.__ftk) return;
     var orig = window.speakText;
-    var wrapped = function (text, btn, row, onDone) {
-      var fired = false;
-      pending++; spokeThisTurn = true;
+    var wrapped = function (text, btn, row, onDone, trace) {
+      var fired = false, epoch = ++speechEpoch;
+      pending = 1; spokeThisTurn = true;
       var fin = function () {
         if (fired) return; fired = true;
+        if (epoch !== speechEpoch) return;
         pending = Math.max(0, pending - 1); lastSpeakEnd = Date.now();
         if (typeof onDone === 'function') { try { onDone(); } catch (e) {} }
       };
       /* 원본이 조용히 돌아가 버리는 경우(빈 글·⚠️ 줄·TTS 없음)에도 세기가 영영 안 남도록 */
-      var safety = setTimeout(fin, 25000);
-      try { orig(text, btn, row, function () { clearTimeout(safety); fin(); }); }
+      function watchSpeech() {
+        if (epoch !== speechEpoch) return;
+        if (window.MangoiTTS && MangoiTTS.busy && MangoiTTS.busy()) { safety = setTimeout(watchSpeech, 25000); return; }
+        fin();
+      }
+      var safety = setTimeout(watchSpeech, 25000);
+      try { orig(text, btn, row, function () { clearTimeout(safety); fin(); }, trace); }
       catch (e) { clearTimeout(safety); fin(); }
     };
     wrapped.__ftk = true;
@@ -259,15 +273,22 @@
       var t0 = Date.now();
       (function tick() {
         if (my !== turnSeq || !active) return res(false);
-        var quiet = pending === 0 && !avatarSpeaking() && Date.now() - lastSpeakEnd >= QUIET_MS;
-        if (quiet || Date.now() - t0 > SPEAK_WAIT_MS) return res(true);
+        var ttsBusy = window.MangoiTTS && MangoiTTS.busy && MangoiTTS.busy();
+        var quiet = pending === 0 && !avatarSpeaking() && !ttsBusy && Date.now() - lastSpeakEnd >= QUIET_MS;
+        if (quiet) return res(true);
+        if (Date.now() - t0 > SPEAK_WAIT_MS) {
+          setState('pause');
+          showStuck('음성 응답이 오래 걸리고 있어요. 얼굴을 눌러 다시 시작해 주세요.',
+                    'The voice response is taking too long. Tap the face to try again.');
+          return res(false); // Never open the mic over unfinished or stuck playback.
+        }
         setTimeout(tick, 150);
       })();
     });
   }
   async function listen() {
     var my = ++turnSeq;
-    await waitQuiet(my);
+    if (!await waitQuiet(my)) return;
     if (my !== turnSeq || !active) return;
     if (!window.MangoiVoice || !MangoiVoice.supported()) {
       setState('pause');
@@ -277,7 +298,9 @@
     }
     setState('listen');
     var heard = false, errReason = '';
+    var trace = window.MangoiVoiceTiming ? MangoiVoiceTiming.begin('face') : null;
     var said = await MangoiVoice.record({
+      onTiming: trace ? trace.mark : null,
       lang: 'en',
       onState: function (s, info) {
         if (my !== turnSeq) return;
@@ -307,9 +330,9 @@
       return listen();
     }
     silentRuns = 0;
-    await send(said, my);
+    await send(said, my, trace);
   }
-  async function send(text, my) {
+  async function send(text, my, trace) {
     clearHelp();
     meEl.textContent = t('나: ', 'Me: ') + text; teacherEl.textContent = '';
     refreshOpen();
@@ -319,7 +342,7 @@
     if (!input || typeof window.sendMsg !== 'function') { exit(); return; }
     input.value = text;
     /* 🎤 음성으로 보낸 턴 — 서버가 «말하기» 보너스를 셉니다(🎤 버튼과 같은 값) */
-    try { _pendingVoice = true; } catch (e) {}
+    try { _pendingVoice = true; _pendingVoiceTrace = trace || null; } catch (e) {}
     watchSpeakState(my);
     try { await window.sendMsg(); } catch (e) {}
     try { input.blur(); } catch (e) {}

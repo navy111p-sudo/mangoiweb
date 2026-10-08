@@ -100,7 +100,7 @@ check('이미 환불한 합계는 «done» 만 센다',
   /status === 'done'\)\s*\.reduce/.test(refundCode.replace(/\s+/g, ' ').replace(/ \./g, '.')) ||
   /filter\(r => r\.status === 'done'\)\.reduce/.test(refundCode));
 check('상한을 넘으면 거절한다 (amount_exceeds)',
-  /amount > p\.refundable_max/.test(refundCode) && /amount_exceeds/.test(refundCode));
+  /amount > executionMax/.test(refundCode) && /reconcileExternal \? p\.recordable_max : p\.refundable_max/.test(refundCode) && /amount_exceeds/.test(refundCode));
 check('0원 이하는 거절한다', /nothing_to_refund/.test(refundCode));
 check('사유가 없으면 거절한다 (나중에 남는 것은 그 한 줄뿐이다)',
   /reason_required/.test(refundCode));

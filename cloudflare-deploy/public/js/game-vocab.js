@@ -54,18 +54,22 @@
       var c = JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null');
       if(c && c.uid === uid && (Date.now() - c.at) < CACHE_MS) return Promise.resolve(c.data);
     }catch(_){}
-    if(_inflight) return _inflight;
-    _inflight = fetch('/api/games/vocab?user_id=' + encodeURIComponent(uid))
+    // A shared browser can change accounts while this request is still pending.
+    // Deduplicate only the same owner, and never deliver/cache the old owner's result.
+    if(_inflight && _inflight.uid === uid) return _inflight.promise;
+    var flight = { uid: uid, promise: null };
+    flight.promise = fetch('/api/games/vocab?user_id=' + encodeURIComponent(uid))
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){
-        _inflight = null;
-        if(!d || !d.ok) return null;
+        if(_inflight === flight) _inflight = null;
+        if(getUserId() !== uid || !d || !d.ok) return null;
         var data = normalize(d);
         try{ sessionStorage.setItem(CACHE_KEY, JSON.stringify({ uid: uid, at: Date.now(), data: data })); }catch(_){}
         return data;
       })
-      .catch(function(){ _inflight = null; return null; });
-    return _inflight;
+      .catch(function(){ if(_inflight === flight) _inflight = null; return null; });
+    _inflight = flight;
+    return flight.promise;
   }
 
   window.MangoiGameVocab = { load: load, getUserId: getUserId, tokenize: tokenize };

@@ -419,29 +419,52 @@ function vcqRxTick() {
         var pc = pcs[id];
         try { vcqPathProbe(id, pc); } catch (_) {}   // 🛰 이 연결이 중계인지 직접인지(아래 vcqPathProbe)
         if (!pc || !pc.getReceivers) return;
+        // Do not expose the retired peer's silent streak while the new peer's
+        // first asynchronous report is still pending.
+        ['video', 'audio'].forEach(function (kind) {
+            var prev = prevAll[id + ':' + kind];
+            if (prev && prev.pc !== pc) {
+                delete prevAll[id + ':' + kind];
+                if (window.__vcPeerSilence && window.__vcPeerSilence[id]) window.__vcPeerSilence[id][kind] = 0;
+            }
+        });
         pc.getReceivers().forEach(function (r) {
-            if (!r || !r.track || !r.getStats || r.__vcRxReading) return;
-            var kind = r.track.kind;
+            if (!r || !r.track || !r.getStats) return;
+            var track = r.track, kind = track.kind;
             if (kind !== 'video' && kind !== 'audio') return;
+            var previous = prevAll[id + ':' + kind];
+            if (previous && previous.trackId !== track.id) {
+                delete prevAll[id + ':' + kind];
+                if (window.__vcPeerSilence && window.__vcPeerSilence[id]) window.__vcPeerSilence[id][kind] = 0;
+            }
+            if (r.__vcRxReading) return;
             r.__vcRxReading = true;
             Promise.resolve().then(function () { return r.getStats(); }).then(function (st) {
-                if ((window.vcPeerConnections || {})[id] !== pc) return;
+                if ((window.vcPeerConnections || {})[id] !== pc || r.track !== track || window.__vcQ !== Q) return;
                 st.forEach(function (s) {
                     if (s.type !== 'inbound-rtp' || ((s.kind || s.mediaType) && (s.kind || s.mediaType) !== kind)) return;
                     var key = id + ':' + kind;
                     var prev = prevAll[key];
-                    var sameMedia = prev && prev.pc === pc && prev.statId === s.id && prev.trackId === r.track.id;
-                    var lost = s.packetsLost || 0, rec = s.packetsReceived || 0;
-                    var dl = Math.max(0, lost - ((prev && prev.lost) || 0));
-                    var dr = Math.max(0, rec - ((prev && prev.rec) || 0));
+                    var packetsKnown = Number.isFinite(s.packetsReceived) && s.packetsReceived >= 0;
+                    var lost = Number.isFinite(s.packetsLost) ? s.packetsLost : 0, rec = packetsKnown ? s.packetsReceived : null;
+                    // A rebuilt peer, replaced track/SSRC or reset counter is a new
+                    // baseline. Never inherit the old media's silence or losses.
+                    var sameMedia = !!(prev && prev.pc === pc && prev.statId === s.id && prev.trackId === track.id
+                        && packetsKnown && typeof prev.rec === 'number' && rec >= prev.rec);
+                    var dl = sameMedia ? Math.max(0, lost - prev.lost) : 0;
+                    var dr = sameMedia ? rec - prev.rec : 0;
                     /* 💀 이 종류(영상/오디오)가 «조용한» 틱을 센다(위 vcPeerNoMedia 참고).
                        ⚠️ 첫 틱은 기준값이 없어 세지 않는다 — 안 그러면 막 붙은 상대가 죽은 것이 된다. */
-                    if (prev) {
+                    {
                         var SIL = window.__vcPeerSilence || (window.__vcPeerSilence = {});
                         var sp = SIL[id] || (SIL[id] = {});
-                        sp[kind] = (dr > 0) ? 0 : (sp[kind] || 0) + 1;
+                        sp[kind] = !sameMedia || dr > 0 ? 0 : (sp[kind] || 0) + 1;
                     }
                     if (kind === 'video') {
+                        if (!sameMedia) {
+                            if (window.__vcRxBad) window.__vcRxBad[id] = 0;
+                            vcNetPeerMark(id, false);
+                        }
                         try { vcLowQRemote(id, s.frameWidth || 0, dr > 0); } catch (_) {}   // 📶 저화질로 받는 중이면 그 타일에 배지
                         var fz = s.freezeCount || 0;
                         var frKnown = (typeof s.framesDecoded === 'number');
@@ -450,7 +473,7 @@ function vcqRxTick() {
                         var dfr = frameKnown ? fr - prev.fr : 0;
                         var receivedKnown = !!(sameMedia && typeof s.framesReceived === 'number' && typeof prev.received === 'number' && s.framesReceived >= prev.received);
                         var progress = frKnown ? dfr : receivedKnown ? s.framesReceived - prev.received : 0;
-                        if (prev) {
+                        if (sameMedia) {
                             if (dl + dr >= 25) {
                                 var lp = 100 * dl / (dl + dr);
                                 Q.rxv.push(lp);
@@ -463,10 +486,10 @@ function vcqRxTick() {
                             Q.rxf += Math.max(0, fz - (prev.fz || 0));
                         }
                         prevAll[key] = { pc: pc, statId: s.id, trackId: r.track.id, lost: lost, rec: rec, fz: fz, fr: frKnown ? fr : null, received: s.framesReceived };
-                        try { vcqRxRecoverySample(id, 'video', { dr: dr, dfr: dfr, known: frameKnown, stalledKnown: frKnown ? frameKnown : receivedKnown, progress: progress, packetsKnown: !!sameMedia && typeof s.packetsReceived === 'number' && rec >= prev.rec }, pc, r, rxSeq); } catch (_) {}
+                        try { vcqRxRecoverySample(id, 'video', { dr: dr, dfr: dfr, known: frameKnown, stalledKnown: frKnown ? frameKnown : receivedKnown, progress: progress, packetsKnown: sameMedia }, pc, r, rxSeq); } catch (_) {}
                     } else {
                         var cs = s.concealedSamples || 0, ts = s.totalSamplesReceived || 0;
-                        if (prev) {
+                        if (sameMedia) {
                             if (dl + dr >= 8) Q.rxa.push(100 * dl / (dl + dr));
                             var dcs = Math.max(0, cs - (prev.cs || 0)), dts = Math.max(0, ts - (prev.ts || 0));
                             /* 메워진 소리 비율 — «끊겨서 브라우저가 만들어 낸 소리» 다.
@@ -474,7 +497,7 @@ function vcqRxTick() {
                             if (dts >= 4000) Q.rxc.push(100 * dcs / dts);
                         }
                         prevAll[key] = { pc: pc, statId: s.id, trackId: r.track.id, lost: lost, rec: rec, cs: cs, ts: ts };
-                        try { vcqRxRecoverySample(id, 'audio', { dr: dr, known: !!sameMedia && typeof s.packetsReceived === 'number' && rec >= prev.rec }, pc, r, rxSeq); } catch (_) {}
+                        try { vcqRxRecoverySample(id, 'audio', { dr: dr, known: sameMedia }, pc, r, rxSeq); } catch (_) {}
                     }
                 });
             }).catch(function () {}).finally(function () { r.__vcRxReading = false; });
@@ -504,9 +527,11 @@ function vcqTurnHost(url) {
     } catch (_) { return ''; }
 }
 function vcqPathProbe(id, pc) {
-    if (!pc || typeof pc.getStats !== 'function') return;
+    if (!pc || typeof pc.getStats !== 'function' || pc.__vcPathReading) return;
     var Q = window.__vcQ; if (!Q) return;
-    pc.getStats().then(function (st) {
+    pc.__vcPathReading = true;
+    Promise.resolve().then(function () { return pc.getStats(); }).then(function (st) {
+        if ((window.vcPeerConnections || {})[id] !== pc || window.__vcQ !== Q) return;
         var byId = {}, selId = null, pair = null;
         st.forEach(function (s) {
             if (!s || !s.id) return;
@@ -515,9 +540,13 @@ function vcqPathProbe(id, pc) {
         });
         if (selId && byId[selId]) pair = byId[selId];
         if (!pair) st.forEach(function (s) { if (!pair && s && s.type === 'candidate-pair' && s.nominated && s.state === 'succeeded') pair = s; });
-        if (!pair) return;                                   // 아직 연결 전 — «모름», 세지 않는다
+        if (!pair || pair.type !== 'candidate-pair' || pair.state !== 'succeeded') return; // Unknown/failed is not a usable path.
         var lc = byId[pair.localCandidateId] || {}, rc = byId[pair.remoteCandidateId] || {};
         var relay = (lc.candidateType === 'relay' || rc.candidateType === 'relay');
+        // One relay candidate proves TURN. Direct requires both candidate types;
+        // redacted or unavailable candidate details must stay unknown.
+        if (!relay && (!['host', 'srflx', 'prflx'].includes(lc.candidateType)
+            || !['host', 'srflx', 'prflx'].includes(rc.candidateType))) return;
         var turn = (lc.candidateType === 'relay') ? vcqTurnHost(lc.url) : '';
         var proto = (lc.candidateType === 'relay') ? String(lc.relayProtocol || '') : '';
         var P = window.__vcPath || (window.__vcPath = {});
@@ -530,7 +559,7 @@ function vcqPathProbe(id, pc) {
         Q.pt = (Q.pt || 0) + 1;
         if (relay) Q.pr = (Q.pr || 0) + 1;
         if (turn) { Q.turn = turn; Q.proto = proto; }
-    }).catch(function () {});
+    }).catch(function () {}).finally(function () { pc.__vcPathReading = false; });
 }
 
 /* ═══ 2026-09-03 «2층 2·3·4번» — 사장님 「진행해줘」(Farrah 1초 RTT 사고 후속) ═══

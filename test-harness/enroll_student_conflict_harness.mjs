@@ -157,6 +157,9 @@ const P = { teacherId: '5', days: [2], timesMin: TIMES, times: { 2: '21:10' }, m
 console.log('\n[ D. enrollCreateSchedules (결제 뒤 생성) ]');
 {
   const { env, db } = await withTables();
+  // 결제 뒤 생성은 paid 주문의 미완료 생성 표식이 있어야 한다(중복 콜백 방지).
+  db.exec(`CREATE TABLE payment_orders (order_id TEXT PRIMARY KEY, status TEXT, fail_reason TEXT);
+           INSERT INTO payment_orders VALUES ('ORD1', 'paid', 'schedule_generation_pending:v1')`);
   insCls(db, { date: TUE, time: '21:10', tid: '6' });
   const order = { student_name: '김학생', enroll_json: JSON.stringify({ uid: 'stu', teacher_id: '5', days: [2], times: { 2: '21:10' }, minutes: 20, sessions: 4, start_date: TUE, weekly: 1, months: 1 }) };
   try { await O.enrollCreateSchedules(env, order, 'ORD1'); } catch (e) { console.log('  (오류) ' + e.message); }

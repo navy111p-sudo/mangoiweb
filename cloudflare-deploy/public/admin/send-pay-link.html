@@ -189,7 +189,7 @@
         if (!d || !d.ok) { g('auditOut').innerHTML = '<div style="color:#f87171">점검 실패: '+((d&&d.error)||'오류')+'</div>'; return; }
         var a = d.audit || {}, s = a.summary || {};
         var html = '';
-        if (!s.anomalies) {
+        if (!s.anomalies && !a.scheduleAuditError && !a.scheduleTruncated && !a.billingPendingError && !a.billingPendingTruncated) {
           html += '<div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.35);border-radius:12px;padding:14px 16px;color:#86efac">✅ 이상 없음 — 이중결제 의심 0건 · 수업연결 누락 0건</div>';
         } else {
           if (a.legacyDup && a.legacyDup.length) {
@@ -207,6 +207,26 @@
             a.missingEnroll.forEach(function(x){ html += '<div style="margin-top:6px;font-size:15px">· '+(x.student_name||x.payer_name||'?')+' — '+Number(x.amount).toLocaleString('ko-KR')+'원 ('+x.order_id+')</div>'; });
             html += '</div>';
           }
+        }
+        if (a.billingPendingError) html += '<div style="color:#fca5a5">정기청구 결과 점검 실패: ' + esc(a.billingPendingError) + '</div>';
+        if (a.billingPendingTruncated) html += '<div style="color:#fcd34d">미확정 정기청구 최근100건만 표시했습니다. 추가 대사가 필요합니다.</div>';
+        if (a.billingPending && a.billingPending.length) {
+          html += '<div style="color:#fca5a5;margin:10px 0"><b>정기청구 결과 확인 필요 · 재청구 보류</b>';
+          a.billingPending.forEach(function(x) { html += '<div>주문 ' + esc(x.order_id) + ' · ' + esc(x.student_name || x.uid) + ' · ' + Number(x.amount).toLocaleString('ko-KR') + '원 · ' + esc(x.fail_reason) + '</div>'; });
+          html += '</div>';
+        }
+        if (a.scheduleAuditError) html += '<div style="color:#fca5a5;margin:10px 0"><b>수업 정합성 점검 실패. 이상 없음으로 판정할 수 없습니다.</b> ' + esc(a.scheduleAuditError) + '</div>';
+        if (a.scheduleTruncated) html += '<div style="color:#fcd34d;margin:10px 0">최근 신청 주문 ' + Number(a.scheduleChecked || 500) + '건만 점검했습니다. 이전 주문은 추가 점검이 필요합니다.</div>';
+        if (a.scheduleIssues && a.scheduleIssues.length) {
+          html += '<div style="color:#fcd34d;margin:10px 0"><b>수업 정합성 확인 ' + a.scheduleIssues.length + '건</b>';
+          a.scheduleIssues.forEach(function(x) {
+            html += '<div style="margin-top:8px">주문 ' + esc(x.order_id) + ' · 학생 ' + esc(x.student_name || x.uid || '?')
+              + ' (' + esc(x.uid || '?') + ') · 상태 ' + esc(x.payment_status)
+              + '<br>예정 ' + Number(x.expected_sessions || 0) + '회 / 생성 ' + Number(x.actual_rows) + '회 / 활성 ' + Number(x.active_rows) + '회'
+              + '<br>확인 사유: ' + esc((x.reasons || []).join(', '))
+              + '<br>수업 ID: ' + esc((x.schedule_ids || []).join(', ')) + '</div>';
+          });
+          html += '</div>';
         }
         if (a.stalePending) html += '<div style="color:#9fb0c6;font-size:14.5px;margin-top:8px">참고: 시작만 하고 완료 안 된 주문(1일 이상) '+a.stalePending+'건 — 자동 만료되므로 조치 불필요</div>';
         g('auditOut').innerHTML = html;

@@ -1,0 +1,25 @@
+{
+  "scope": "offline synthetic integration; no browser/media/provider validation",
+  "mode": "fast",
+  "rounds": 1,
+  "suites": 1,
+  "passedRuns": 1,
+  "failedRuns": 0,
+  "rows": [
+    {
+      "suite": "repository_fast",
+      "round": 1,
+      "gateCounts": {
+        "passed": 486,
+        "excluded": 20,
+        "failed": 0,
+        "total": 506
+      },
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 156717,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    }
+  ]
+}

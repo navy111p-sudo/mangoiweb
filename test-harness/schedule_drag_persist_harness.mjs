@@ -82,12 +82,16 @@ const LOCK_SRC = (LOCK_A > 0 && LOCK_B > LOCK_A) ? html.slice(LOCK_A, LOCK_B) : 
 /* 저장은 공용 함수 한 곳(persistSlotMove)에 있고 세 입구가 그것을 부른다 — 함께 오려 낸다. */
 const PERSIST_SRC = sliceStmt(html, 'async function persistSlotMove(');
 const FAILMSG_SRC = sliceStmt(html, 'function slotMoveFailMsg(');
-const MOVE_SRC = PERSIST_SRC + '\n' + FAILMSG_SRC + '\n' + sliceStmt(html, 'window.confirmMoveDo=async function(){');
+const TIME_A = html.indexOf('function getClassStartTime(');
+const TIME_B = html.indexOf('// 거부 팝업', TIME_A);
+const TIME_POLICY_SRC = TIME_A >= 0 && TIME_B > TIME_A ? html.slice(TIME_A, TIME_B) : '';
+const MOVE_SRC = TIME_POLICY_SRC + '\n' + PERSIST_SRC + '\n' + FAILMSG_SRC + '\n' + sliceStmt(html, 'window.confirmMoveDo=async function(){');
 const RSC_SRC = sliceStmt(html, 'window.rscConfirm = async function(){');
 const CMOVE_SRC = sliceStmt(html, 'window.confirmMove=async function(newDate,newHour){');
 
 sec('⓪ 전제 — 검사 대상을 실제로 오려 냈는가 (이게 깨지면 아래가 전부 헛돈다)');
 ok(MOVE_SRC.length > 800, 'confirmMoveDo/persistSlotMove 를 오려 내지 못했다 (길이 ' + MOVE_SRC.length + ')');
+ok(TIME_POLICY_SRC.includes('function canChange(') && TIME_POLICY_SRC.includes('function schedEffectiveRole('), '실제 시간/역할 예외 helper가 추출되지 않았다');
 ok(/fetch\(/.test(MOVE_SRC), '오려 낸 코드에 fetch 가 없다 — 범위가 어긋났거나 저장을 안 한다');
 ok(PERSIST_SRC.length > 400 && FAILMSG_SRC.length > 100, '공용 저장 함수를 오려 내지 못했다');
 ok(RSC_SRC.length > 400 && CMOVE_SRC.length > 200, '형제 입구(rscConfirm·confirmMove)를 오려 내지 못했다');
@@ -185,6 +189,9 @@ async function run(opts) {
     console: { log: console.log, error: console.error, warn: (...a) => warns.push(a.join(' ')) },
     currentLang: 'ko',
     document: dom.document, Date: clock.Date,
+    // These historical-date cases test persistence/locking under the existing
+    // manager exception. Restricted-user cutoffs have their own real-helper suite.
+    localStorage: { getItem: (key) => key === 'mangoi_admin_session' ? JSON.stringify({ role: 'hq_mgr' }) : null },
     setInterval: timers.setInterval, clearInterval: timers.clearInterval,
     setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
     requestAnimationFrame: (f) => { f(); return 0; },

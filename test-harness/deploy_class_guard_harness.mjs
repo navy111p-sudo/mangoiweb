@@ -146,23 +146,24 @@ console.log('\n── ②-2 창 안에서는 D1 을 «부르지 않는다» (CLI
    ⛔ 소스에 그 조건이 «있는가» 로 검사하지 말 것 — 조건을 옮겨도 통과한다. 돌려서 본다. */
 const { spawnSync } = await import('node:child_process');
 const runCli = (nowIso) => spawnSync(process.execPath,
-    [join(ROOT, '.github/scripts/class-window.mjs')],
+    ['--import', 'data:text/javascript,' + encodeURIComponent("globalThis.fetch = async () => { console.error('[fixture] live probe requested'); throw new Error('synthetic probe unavailable'); };"),
+     join(ROOT, '.github/scripts/class-window.mjs')],
     { encoding: 'utf8', env: { ...process.env, NOW_ISO: nowIso,
-        CLOUDFLARE_API_TOKEN: 'dummy-token-for-probe-test',
+        CLOUDFLARE_API_TOKEN: 'dummy-token-for-probe-test', SKIP_LIVE_PROBE: '',
         CLOUDFLARE_ACCOUNT_ID: '', FORCE_NOW: '', COMMIT_MESSAGE: '',
         GITHUB_OUTPUT: '', GITHUB_STEP_SUMMARY: '' } });
 /* 2026-09-01 은 화요일 — 05:00 UTC = 14:00 KST = 창 «안» (2026-10-02 창 끝이 15:00 으로 당겨져 06:00 UTC 는 창 밖) */
 const inWin = runCli('2026-09-01T05:00:00Z');
 ok('창 안이면 보류로 끝난다', /hold=true/.test(inWin.stdout));
 ok('창 안에서는 실접속을 물어보지 않는다 (조회 실패 문구가 없다)',
-   !/실접속 확인 실패/.test(inWin.stdout));
+   !/실접속 확인 실패/.test(inWin.stdout) && !inWin.stderr.includes('[fixture] live probe requested'));
 /* 2026-09-05 는 토요일 — 창 «밖» 이라 물어보고, 자격증명이 반쪽이라 실패해야 한다.
    ⛔ 여기를 평일로 되돌리지 말 것 — 그 요일이 창에 들어오는 순간 «물어보지도 않고
       보류로 끝나» 이 절이 통째로 헛돈다. 2026-09-02 에 수요일로 두었다가 실제로 밟았다
       (그날 수요일이 창에 들어왔다 다시 빠졌다 — #761 · #768). */
 const outWin = runCli('2026-09-05T06:00:00Z');
 ok('🧬 창 밖에서는 실제로 물어본다 (그래서 실패 문구가 나온다 — 검사가 헛돌지 않는다)',
-   /실접속 확인 실패/.test(outWin.stdout));
+   /실접속 확인 실패/.test(outWin.stdout) && outWin.stderr.includes('[fixture] live probe requested'));
 ok('그래도 막지 않는다 (fail-open)', /hold=false/.test(outWin.stdout));
 
 console.log('\n── ③ 계정·DB id 를 wrangler.toml 에서 읽는다 (복사해 두지 않는다) ──');

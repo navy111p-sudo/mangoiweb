@@ -78,9 +78,9 @@ if (!DatabaseSync) {
     const SQL = m[1];
     const LEASE = 10 * 60 * 1000;
     const db = new DatabaseSync(':memory:');
-    db.exec(`CREATE TABLE subscriptions (id INTEGER PRIMARY KEY, charge_lock_at INTEGER)`);
-    db.exec(`INSERT INTO subscriptions (id, charge_lock_at) VALUES (1, NULL)`);
-    const claim = (now) => db.prepare(SQL).run(now, 1, now - LEASE).changes;
+    db.exec(`CREATE TABLE subscriptions (id INTEGER PRIMARY KEY, charge_lock_at INTEGER, user_id TEXT, plan TEXT)`);
+    db.exec(`INSERT INTO subscriptions (id, charge_lock_at,user_id,plan) VALUES (1, NULL,'A','auto_renew')`);
+    const claim = (now) => db.prepare(SQL).run(now, 1, now - LEASE, now - LEASE).changes;
 
     const now = 1788000000000;
     const first = claim(now);

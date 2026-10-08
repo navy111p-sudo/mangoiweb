@@ -123,3 +123,10 @@ export function realConflict(c: { has: boolean; student: any[]; teacher: any[]; 
   const other = (x: any) => !seriesIds.has(String(x && x.id));
   return (c.student || []).some(other) || (c.teacher || []).some(other);
 }
+
+/** Exact reviewed plan identity, not authorization. Canonical selectors stay unchanged. */
+export function seriesPreviewKey(anchor: SeriesRow, plan: SeriesPlan, teacherId: any, durationMin: number): string {
+  return JSON.stringify(['series-move-v1', String(anchor.id), String(anchor.user_id ?? ''),
+    String(anchor.source ?? ''), String(anchor.teacher_id ?? ''), durationMin,
+    String(teacherId ?? ''), plan.items.map(it => [it.id, it.from_date, it.from_time, it.to_date, it.to_time])]);
+}

@@ -273,12 +273,19 @@ async function prime(t) {
 // ⑧ 매일보고 화면 — 명단 줄(연산자 우선순위)·?write= 로 지난 날짜 열기
 {
   const js = readFileSync('cloudflare-deploy/public/js/daily-handover.js', 'utf8');
-  const m = js.match(/\$\('required'\)\.textContent=(\(required\.length[\s\S]*?:''\));/);
-  ok('전제: 명단 줄 식을 찾았다', !!m);
-  const ev = (required, missing, j) => { try { return new Function('required', 'missing', 'j', 'return ' + (m ? m[1] : 'null'))(required, missing, j) || ''; } catch (e) { return 'ERR ' + e; } };
-  const out = ev([{ name: 'A' }], [{ name: 'A' }], { missed_staff: [{ name: 'Karl', prev_day: '2026-10-12' }] });
-  ok('대상이 있는 날에도 «지난 근무일 미제출» 이 붙는다', /보고 대상 1명/.test(out) && /Karl/.test(out), out);
-  ok('미제출 명단이 없으면 덧붙이지 않는다(짝)', !/지난 근무일/.test(ev([{ name: 'A' }], [], {})));
+  const a=js.indexOf('  function paintRequired('), b=js.indexOf('  function paintFollowupHistory(',a);
+  ok('전제: 실제 명단 렌더 함수를 찾았다', a>=0&&b>a);
+  const draw=(rows,missed)=>{const host={kids:[],replaceChildren(){this.kids=[];},append(...v){this.kids.push(...v);}};
+    const node=(tag,text)=>({tag,textContent:text,kids:[],append(...v){this.kids.push(...v);}});
+    const paint=new Function('$','node','kst','notificationLabel',js.slice(a,b)+';return paintRequired;')(()=>host,node,String,String);
+    paint(rows,'2026-10-13',missed);const text=n=>(n.textContent||'')+(n.kids||[]).map(text).join(' ');return text(host);};
+  const row={name:'A',username:'a',weekdays:'1,2,3,4,5',due_time:'19:00',exempt_date:''};
+  const out=draw([row],[{name:'Karl',prev_day:'2026-10-12'}]);
+  ok('대상이 있는 날에도 «지난 근무일 미제출» 이 붙는다', /보고 대상 1명/.test(out)&&/Karl/.test(out),out);
+  ok('미제출 명단이 없으면 덧붙이지 않는다(짝)', !/지난 근무일/.test(draw([row],[])));
+  ok('서버가 공휴일로 판정한 사람은 제외한다', !/보고 대상/.test(draw([{...row,required_today:false}],[])));
+  ok('오늘 대상이 없어도 지난 근무일 미제출은 보인다', /Karl/.test(draw([],[{name:'Karl',prev_day:'2026-10-12'}])));
+  ok('이전 알림 상태도 보존한다', /queued/.test(draw([{...row,notices:[{stage:'due',state:'queued'}]}],[])));
   ok('읽는 사람(reader_mode)도 ?write= 로 오면 편집기를 연다', /var readOnly=!!j\.reader_mode&&!writeDay;/.test(js) && /\$\('editor'\)\.hidden=readOnly;/.test(js));
   ok('?write= 를 읽어 그 날짜 보고를 연다', /wanted\.get\('write'\)/.test(js) && /\/home\?date='\+encodeURIComponent\(writeDay\)/.test(js) && /\$\('date'\)\.value=writeDay/.test(js));
 }

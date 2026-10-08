@@ -243,10 +243,10 @@ ok(/'v4\|' \+ lang/.test(G), '캐시 세대가 v4 로 올라갔다 (폴백 오�
   const sp = WU2.match(/function _ttsSpeak\([\s\S]*?\n\}/);
   ok(!!sp, 'warmup: 서버 TTS 요청이 _ttsSpeak 한 곳에 모여 있다');
   if (sp) {
-    ok(/tryNo\s*===\s*0/.test(sp[0]) && /_ttsSpeak\(text, spk, key, btn, seq, done, play, 1\)/.test(sp[0]),
+    ok(/tryNo\s*===\s*0/.test(sp[0]) && /_ttsSpeak\(text, spk, key, btn, seq, done, play, 1(?:, trace)?\)/.test(sp[0]),
       'warmup: 한 번 실패했다고 곧바로 기기 목소리로 가지 않는다(한 번 더 물어봄)',
       '기기 목소리는 원어민 음성과 전혀 달라서 «목소리가 변했다» 로 제일 크게 들린다');
-    ok(/_synthSpeak\(text, btn, done\)/.test(sp[0]),
+    ok(/_synthSpeak\(text, btn, done(?:, trace)?\)/.test(sp[0]),
       'warmup: 그래도 안 되면 기기 목소리로 읽는다(폴백을 없애지 않았다)',
       '소리가 아예 안 나는 것이 더 나쁘다 — 앱 WebView·뉴런 소진 때는 그것뿐이다');
     ok(/X-TTS-Speaker/.test(sp[0]) && /if\(!o\.got \|\| o\.got===spk\)/.test(sp[0]),

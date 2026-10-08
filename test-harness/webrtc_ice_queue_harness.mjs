@@ -50,7 +50,10 @@ class FakeRTCPeerConnection {
 }
 const noop = () => {};
 const fakeDoc = { addEventListener: noop, removeEventListener: noop, getElementById: () => null, querySelectorAll: () => [], createElement: () => ({ appendChild: noop, querySelector: () => ({}), style: {} }) };
+const fixtureFetchRequests = [];
 const sandbox = {
+  // Explicit offline configuration failure; never inherit the host's real fetch.
+  fetch: async (url) => { fixtureFetchRequests.push(String(url)); throw new Error('synthetic ICE config unavailable'); },
   RTCPeerConnection: FakeRTCPeerConnection,
   RTCSessionDescription: function (x) { return x; },
   RTCIceCandidate: function (x) { return x; },
@@ -122,6 +125,9 @@ async function run() {
   // setRemoteDescription 3개 지점(글레어/offer/answer) 뒤에 flush 가 붙어있는지
   const flushCalls = (idx.match(/vcFlushPendingIce\(/g) || []).length;
   ok(flushCalls >= 4, `E: flush 호출이 정의+3개 적용지점 이상 존재 (${flushCalls}회)`);
+
+  ok(fixtureFetchRequests.length === 1 && fixtureFetchRequests[0] === '/api/turn-config',
+    'F: TURN 설정 선반입은 한 번의 명시적 오프라인 대역만 사용');
 
   console.log('\n════════ WebRTC ICE 큐잉 회귀 가드 ════════');
   console.log(results.join('\n'));

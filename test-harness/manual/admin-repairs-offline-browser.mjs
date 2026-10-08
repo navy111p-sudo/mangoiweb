@@ -407,10 +407,27 @@ async function weekly(width) {
     && moves[1].destination_date === day && moves[1].start_time === '14:00' && moves[1].teacher_id === '24', moves[1]);
   check(width + ': undo restores all three fixture records including teacher', rows.every(row => row.date === day && row.start_time === '14:00' && row.teacher_id === '24'));
 
+  // A schedules request starts before reloadAndRender finishes its holiday
+  // load and grid redraw. Observe that lifecycle before retrying the drag.
+  await page.evaluate(() => {
+    const original = window.reloadAndRender;
+    const observed = window.__fixtureConflictReload = { completed: 0, fulfilled: 0 };
+    window.reloadAndRender = async function() {
+      try {
+        const result = await original.apply(this, arguments);
+        observed.fulfilled++;
+        return result;
+      } finally {
+        observed.completed++;
+        window.reloadAndRender = original;
+      }
+    };
+  });
   conflict = true;
   await drag(); await page.locator('button[onclick="confirmMoveDo()"]').click();
   await eventually('conflict presented', async () => moves.length === 3 && (await page.locator('.dnd-toast.bad').allTextContents()).some(text => text.includes('Fixture conflict')));
-  await eventually('conflict reload complete', () => state.apiRequests.filter(r => r.path.startsWith('/api/admin/schedules?')).length >= 4);
+  await eventually('conflict reload complete', async () => state.apiRequests.filter(r => r.path.startsWith('/api/admin/schedules?')).length >= 4
+    && await page.evaluate(() => window.__fixtureConflictReload.completed === 1 && window.__fixtureConflictReload.fulfilled === 1));
   check(width + ': 409 preserves the complete group and destination is empty', JSON.parse(decodeURIComponent(await group(14))).slot.ids.length === 3 && !(await group(15)) && rows.every(row => row.start_time === '14:00' && row.teacher_id === '24'));
   conflict = false;
   await drag(); await page.locator('button[onclick="confirmMoveDo()"]').click();

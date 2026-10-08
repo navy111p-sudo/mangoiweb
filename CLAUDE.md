@@ -772,3 +772,8 @@ git diff -I'BUILD:' main..작업브랜치
 ---
 
 *이 파일은 두 사람이 공유합니다. 새 함정을 발견하면 여기에 추가하고 PR에 포함하세요.*
+
+### 2026-10-04 추가 회귀: Cafe24 원본 ID와 보고 알림의 최종 상태
+- Cafe24 수업의 날짜 이동을 `source='c24-mirror'`로 남겨 UNIQUE 오류에 기대면 다음 창의 동기화가 이동 수업을 취소할 수 있다. 수동 원본 ID 보호는 날짜 창 밖에서도 읽되, 취소 후보 창은 넓히지 않는다. JS 토큰 경계와 SQLite GLOB의 NUL 차이도 fail-closed 검사한다. 승인 날짜+강사 제한은 base/manual 모두 적용한다. `c24_mirror_move_sync_harness.mjs`와 `c24_mirror_identity_harness.mjs` 참조.
+- 보고 확인 성공 뒤 best-effort 큐 삭제가 실패할 수 있다. handover 본문 claim과 wake 직전 모두 최신 상태/버전·fetched 상태를 검사한다. 외부 전송과 DB 확인은 원자화할 수 없으므로 최종 조회 이후 경합/이미 보낸 generic wakeup을 회수했다고 표시하지 않는다. `daily_handover_reminder_delivery_harness.mjs`와 `handover_pending_delivery_harness.mjs` 참조.
+- 상세 검증·운영 미검증 범위: `docs/작업기록/2026-10-04-c24-manual-origin-sync.md`, `docs/작업기록/2026-10-04-daily-handover-reminder-contracts.md`. 새 스키마 및 기존 운영 데이터 일괄 정리 없음.

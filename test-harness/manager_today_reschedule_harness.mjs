@@ -194,14 +194,9 @@ for (let i = 0; i < terns.length; i++) {
   }
 }
 
-/* ══ ①-b 🔴 날짜가 바뀌는 이동에는 도장을 찍지 «않는다» ═══════════════════════
-   [잰 것 — 2026-09-22, 진짜 SQLite] 미러의 부분 유니크 인덱스가
-     `ON class_schedules(notes) WHERE source='c24-mirror'` 라 도장 찍은 행은 그 «밖» 이다.
-       · 도장 없음 → 야간 미러의 새 INSERT 가 UNIQUE 위반으로 거절 (중복 없음)
-       · 도장 있음 → INSERT 성공 ⟹ **옛 날짜에 그 수업이 다시 생긴다**
-   ⟹ 2026-09-01 「미러가 «없는 수업» 을 만듦 — 강사가 20분 헛기다림」과 같은 모양이다.
-   ⚠️ 도장이 실제로 일하는 것은 «같은 날짜에 머무는» 수정뿐이다(planMirror 실측:
-      시각만 옮김 → diverged · 연기 → manual_locked · 연기 뒤 강사 변경 → manual_locked).      */
+/* ══ ①-b Stable origin-ID ownership now protects cross-date manual changes.
+   c24_mirror_move_sync_harness executes move → sync → undo through SQLite;
+   the old "do not stamp cross-date" workaround could let later sync cancel it. */
 const mStampMove = API.match(/const _stampMove = ([^;]+);/);
 ok('전제 — 이동의 도장 조건을 찾았다', !!mStampMove, mStampMove && mStampMove[1]);
 if (mStampMove) {
@@ -222,10 +217,9 @@ if (mStampMove) {
     if (r2) {
       ok('이동 도장 조건을 실제로 돌린다', true);
       ok('같은 날 안에서 시각만 옮기면 도장을 찍는다', r2.same === true, r2.same);
-      // 🔴 짝 — 이 줄이 없으면 «전부 도장» 이 되어 옛 날짜에 유령이 되살아난다
-      ok('🔴 날짜가 바뀌면 도장을 «안» 찍는다 (유령 방지) (짝)', r2.moved === false, r2.moved);
+      ok('날짜가 바뀌어도 원본 ID 보호를 위해 수동 도장을 찍는다', r2.moved === true, r2.moved);
       ok('미러 행이 아니면 애초에 안 찍는다 (짝)', r2.plain === false, r2.plain);
-      ok('행을 못 읽었으면 안 찍는다 (막는 쪽으로 실패) (짝)', r2.noCs === false, r2.noCs);
+      ok('stamp expression uses validated mirror classification only; missing rows are rejected earlier', r2.noCs === true && API.includes("if (!cs)") && API.includes('schedule_snapshot'), r2.noCs);
     }
   }
 }

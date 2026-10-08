@@ -21,7 +21,7 @@
       var key = 'mangoi_speech_rate_v1:' + encodeURIComponent(account.uid || 'guest') + ':' + app;
       var storage;
       try { storage = account.uid ? localStorage : sessionStorage; } catch (_) {}
-      var cached = null, revision = 0, queue = Promise.resolve();
+      var cached = null, revision = 0, restoreGeneration = 0, queue = Promise.resolve();
       try { cached = JSON.parse(storage.getItem(key)); } catch (_) {}
       var pref = { level: cached && valid(cached.level) ? cached.level : fallback, loaded: false };
       var dirty = !!(cached && valid(cached.level) && cached.dirty);
@@ -61,11 +61,12 @@
         revision++; pref.level = level; dirty = true; remember(); save();
       };
       async function restore() {
+        var generation = ++restoreGeneration;
         try {
           if (dirty) { await save(); return; }
           var version = revision;
           var data = await call('GET');
-          if (version !== revision || !sameAccount()) return;
+          if (generation !== restoreGeneration || version !== revision || !sameAccount()) return;
           if (valid(data.level)) { pref.level = data.level; dirty = false; remember(); onChange(pref.level); }
         } catch (_) { /* Use only this account's cached preference on network failure. */ }
         finally { pref.loaded = true; }

@@ -1,0 +1,172 @@
+{
+  "scope": "offline synthetic integration; no browser/media/provider validation",
+  "mode": "focused",
+  "rounds": 1,
+  "suites": 18,
+  "passedRuns": 18,
+  "failedRuns": 0,
+  "rows": [
+    {
+      "suite": "vc_network_epoch",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 106,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "webrtc_sandbox_guard",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 87,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "vc_office_recovery",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 72,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "ai_voice_latency",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 1692,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "warmup_voice_latency",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 413,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "speech_preferences_lifecycle",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 331,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "speech_preferences_fault",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 95,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "speech_preferences_sqlite",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 131,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "game_vocab_account_race",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 45,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "daily_handover",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 700,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "daily_handover_reminder_delivery",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 516,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "handover_pending_delivery",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 356,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "payment_schedule_integrity",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 875,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "c24_mirror_identity",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 169,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "c24_mirror_move_sync",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 1897,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "student_schedule_lifecycle_sync",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 4998,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "student_entitlement_contract",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 1864,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    },
+    {
+      "suite": "offline_network_guard",
+      "round": 1,
+      "exit": 0,
+      "signal": null,
+      "elapsedMs": 453,
+      "blockedTransportAttempts": 0,
+      "pass": true
+    }
+  ]
+}

@@ -414,7 +414,7 @@ const MUT = [
   { name: '강사는 안 바꾸고 시각만', file: 'student-auto-postpone.ts', from: "if (swap) mutations.push(", to: "if (false) mutations.push(" },
   { name: '미러 날짜+강사 막기 제거', file: 'student-auto-postpone.ts', from: "if (isMirror && String(row.new_date) !== String(cs.scheduled_date)) return 'mirror_teacher_date';", to: '' },
   { name: '겹침 검사 둘 다 무시', file: 'student-auto-postpone.ts', from: "if (strict) return { applied: null, reason: strict.error || 'conflict' };", to: '' , also: ["if (conf.has) return { applied: null, reason: 'conflict' };", ''] },
-  { name: '접수 뒤 자동 승인 안 부름', file: 'api-mango.ts', from: 'const auto = await autoApproveStudentPostpone(env, reqId);', to: "const auto = { applied: null, reason: 'off' };" },
+  { name: '접수 뒤 자동 승인 안 부름', file: 'api-mango.ts', from: 'await autoApproveStudentPostpone(env, reqId)', to: "({ applied: null, reason: 'off' })" },
   { name: '대기 요청 재시도 자동 반영 제거', file: 'api-mango.ts', from: "if (gate.error === 'already_pending' && pendingDupId) {", to: 'if (false) {' },
   { name: '조건 뒤집기 — 연기·변경만 막음', file: 'student-auto-postpone.ts', from: "if (row.request_type !== 'postpone' && row.request_type !== 'change')", to: "if (row.request_type === 'postpone' || row.request_type === 'change')" },
 ];

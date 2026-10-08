@@ -1,3 +1,4 @@
+import { c24NoteIds, trustworthyC24Identity } from './c24-identity';
 import { WEEKLY_POSTPONE, prepareWeeklyPostpone } from './weekly-postpone';
 import { counselingRecipient, sendCounselingSms } from './counseling-send';
 // ═══════════════════════════════════════════════════════════════════════
@@ -28,7 +29,7 @@ import { computeMonthlyFee, weeklyCountFromDays } from './enroll-fee';
 import { priceForUid, enrollAdminHqOnly } from './enroll-ops';   // 🏪 대리점 주1회 단가 — 기준가가 없을 때만 쓴다
 import { prepareScheduleRequestGuards, commitScheduleRequestDecision } from './schedule-request-atomic';
 import { moveSchedulesAtomically, scheduleMoveVersion } from './class-schedule-move';
-import { findScheduleConflicts, findScheduleMoveConflicts, loadScheduleMoveFacts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
+import { findScheduleConflicts, findScheduleMoveConflicts, loadScheduleMoveFacts, scheduleRowsOverlap, scheduleDays } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { loadSchedSummaryMap, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약」 칸 정본 — erp-list 와 «같은» 값을 쓴다(복제 금지)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buildClassRenewalText, CLASS_RENEWAL_FROM_PHONE } from './solapi-client';
 /* 🔗 미연장 안내 문자에 넣는 «그 학생 전용» 1회용 연장 링크. 학부모 폰에 학생 로그인이
@@ -55,7 +56,7 @@ import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
 import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
-import { writeClassAudit, listClassAudit } from './class-audit';
+import { writeClassAudit, listClassAudit, ensureClassAuditTable } from './class-audit';
 import { runScheduleSplit } from './schedule-split';
 import { planEndMakeup, END_MAKEUP_MARK_SQL } from './end-makeup';   // ⏸ 연기보강(2026-10-02)   // 📅 매주 수업 → 날짜별 수업 나누기(2026-10-02)   // 📜 수업 변경 이력(연기/삭제/종료)
 import { TEACHER_STATUSES, canonTeacherStatus, isTeacherStatus, toTeacherListHidden, teacherVisibleSql } from './teacher-status';   // 🧑‍🏫 강사 상태(활동중·비활동·퇴사) + 명부 숨김 — 판정 정본
@@ -3166,45 +3167,30 @@ export async function handleAdminApi(
             message: '요청 후 수업이 변경되었습니다. 반려 후 최신 시간표에서 다시 요청해 주세요.', message_en: 'The class changed after this request. Reject it, then submit a fresh request from the current timetable.' }, 409);
           if (isDated && ['cancelled','ended','completed'].includes(String(cs.status || ''))) return json({ ok: false, error: 'schedule_not_movable' }, 409);
           guards = await prepareScheduleRequestGuards(env, row, cs, decisionScope);
-          /* 🔒 (2026-09-22) 「사람 손이 이긴다」 도장 — 미러가 우리 수정을 덮지 않게 한다.
-             [잰 것 — 2026-09-22, c24-mirror.ts 의 planMirror 를 있는 그대로 돌림]
-               · 시각만 옮김(같은 날) — 도장 없으면 'ok'(새로 만들기 시도) / 있으면 'diverged'(손 안 대고 알림) ✅
-               · 연기(status=postponed) — 없으면 'already' / 있으면 'manual_locked' ✅
-               · 연기 뒤 카페24가 강사를 바꿈 — 없으면 **'update'(start_time·duration·teacher 를 덮어씀)** / 있으면 'manual_locked' ✅
-             ⟹ 도장이 실제로 막는 것은 **«같은 날짜에 머무는» 수정**이다.
-             ⛔ 「옮긴 수업이 밤사이 되돌아간다」로 적지 말 것 — 그 'update' 는 행이 카페24와
-                **같은 (날짜,시각) 자리에 그대로 있을 때만** 닿는다(planMirror 의 sameSlot).
-                한 번 옮기면 그 자리를 벗어나 'ok' 로 가므로 되돌림이 일어나지 않는다.
-
-             🔴 **날짜가 바뀌는 이동에는 도장을 찍으면 «안 된다»** — 찍으면 오히려 유령이 생긴다.
-                [잰 것 — 2026-09-22, 진짜 SQLite] 미러의 부분 유니크 인덱스는
-                `ON class_schedules(notes) WHERE source='c24-mirror'` 라 도장을 찍은 행은 **그 밖**이다.
-                  · 도장 없음 → 새 INSERT 가 UNIQUE 위반으로 **거절**(중복 없음)
-                  · 도장 있음 → INSERT **성공** ⟹ **옛 날짜에 그 수업이 다시 생긴다**
-                그것이 2026-09-01 「미러가 «실제로 없는 수업» 을 만듦 — 강사가 20분 헛기다리고
-                학생 노쇼까지 찍힘」과 같은 모양이다.
-             ✅ 그래서 **날짜가 그대로일 때만** 찍는다(연기는 날짜가 안 바뀌므로 언제나 찍는다).
-                날짜가 바뀌는 이동은 도장 없이 — 예전 동작 그대로라 새로 잃는 것이 없다.
-             ⛔ 도장을 나중에 «따로» 찍지 말 것 — 그 사이에 야간 미러가 돌 수 있고, 한 줄이
-                실패하면 반쪽만 남는다. **같은 UPDATE 안에서** 찍는다(DELETE·PATCH 가 이미 쓰는 방식).
-             ℹ️ 미러 행이 아니면 손대지 않는다 — 예전 동작 그대로다.
-             🟡 더 나은 길(별건·사람이 정할 일): planMirror 의 `manual` 찾기를 «날짜» 가 아니라
-                **notes(c24:<수업번호>)** 로 맞추면 날짜를 옮겨도 도장이 일한다. 미러의 심장을
-                고치는 일이라 여기서는 안 건드렸다. */
+          /* Manual ownership stays atomic with approval/movement. The old date-only
+             stamp left moved rows vulnerable to a later destination-window cancel.
+             Cafe24 now resolves manual overrides by stable origin ID across dates,
+             and the INSERT rechecks that identity after planning. No historic rows
+             are rewritten here; missing/ambiguous identity is rejected below. */
           const _isMirror = String((cs as any)?.source || '') === MIRROR_SOURCE;
+          const _isManualMirror = String((cs as any)?.source || '') === MIRROR_SOURCE_MANUAL;
+          if (isDated && (_isMirror || _isManualMirror)
+            && ((row.new_date && String(row.new_date) !== String(cs.scheduled_date)) || c24NoteIds(cs.notes).length > 0)
+            && !trustworthyC24Identity(cs))
+            return json({ ok: false, error: 'mirror_identity_missing', message: '카페24 원본 수업 번호를 확인할 수 없어 승인하지 않았습니다. 원본 정보를 확인해 주세요.' }, 409);
           /* 👨‍🏫 (2026-09-30) 학생이 «교사로 연기» 에서 고른 강사(new_teacher_id) — 승인이 «실제로» 바꾼다.
              예전엔 이 경로에 teacher_id 를 바꾸는 코드가 한 줄도 없어서, 학생은 «선택됨» 을 보고 관리자는
              «승인·이동됨» 을 보는데 수업은 원래 강사 그대로였다(함정 대조가 잡음 — 에러 없음).
              🔒 게이트는 PATCH 담당 강사 변경과 같은 정본 teacherMoveDenyReason(본사만 · 강사 차단 · 모르면 막음).
              ⛔ 막히거나 못 바꾸면 «옮기지도 않는다» — 강사를 바꾸려던 요청인데 시각만 바꾸고 «완료» 라 하면 거짓이다.
-             ⛔ 카페24 미러 수업을 «날짜를 바꾸면서» 강사까지 바꾸지 않는다(도장 → 옛 날짜에 유령. 위 🔴).
+             ⛔ 카페24 날짜+강사 동시 변경 제한은 기존 운영 계약이므로 이번 원본 ID 보호 수정에서 넓히지 않는다.
              ℹ️ 반복 수업은 여전히 'recorded' — 한 줄이 «매주 전부» 라 그 주만 바꿀 방법이 없다. */
           const _wantTid = String((row as any).new_teacher_id ?? '').trim();
           let _swap = isDated && !!(row.new_date && row.new_time) && /^\d+$/.test(_wantTid) && _wantTid !== String((cs as any)?.teacher_id ?? '');
           let _swapBlock: { ko: string; en: string } | null = null;
           let _swapName: string | null = null;
           if (_swap) {
-            if (_isMirror && String(row.new_date || '') !== String((cs as any)?.scheduled_date || '')) {
+            if ((_isMirror || _isManualMirror) && String(row.new_date || '') !== String((cs as any)?.scheduled_date || '')) {
               _swapBlock = { ko: '카페24에서 온 수업은 날짜를 옮기면서 담당 강사까지 바꿀 수 없어요. 시간표에서 직접 조정해 주세요.', en: 'For Cafe24 classes the teacher cannot be changed together with a date change. Please adjust it in the timetable.' };
             } else {
               let _stScope: string | null = null;
@@ -3250,8 +3236,8 @@ export async function handleAdminApi(
             if (conf.has) {
               return json({ ok: false, error: 'conflict', applied: 'conflict', conflict: { ko: conf.ko, en: conf.en, student: conf.student.length, teacher: conf.teacher.length }, message: conf.ko, message_en: conf.en }, 409);
             } else {
-              /* ⛔ 날짜가 바뀌면 도장을 찍지 않는다 — 찍으면 옛 날짜에 유령이 되살아난다(위 🔴). */
-              const _stampMove = _isMirror && String(row.new_date || '') === String((cs as any)?.scheduled_date || '');
+              /* Stamp in this same guarded transaction; sync protects the stable ID. */
+              const _stampMove = _isMirror; // Stable origin-ID matching now protects moves across dates too.
               const _mv = env.DB.prepare(
                 _stampMove
                   ? `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, source = '${MIRROR_SOURCE_MANUAL}', updated_at = ? WHERE id = ?`
@@ -6435,7 +6421,19 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const fromDate = url.searchParams.get('from_date');
       const toDate = url.searchParams.get('to_date');
       const kind = url.searchParams.get('kind') || 'all';
-      const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 500);
+      const rawLimit = url.searchParams.get('limit') || '100', rawOffset = url.searchParams.get('offset') || '0';
+      const requestedLimit = Number(rawLimit), offset = Number(rawOffset);
+      if (!/^\d+$/.test(rawLimit) || !/^\d+$/.test(rawOffset) || !Number.isSafeInteger(requestedLimit)
+        || requestedLimit < 1 || !Number.isSafeInteger(offset) || offset < 0) {
+        return json({ ok: false, error: 'invalid_pagination' }, 400);
+      }
+      const limit = Math.min(requestedLimit, 500);
+      const snapshotPagination = url.searchParams.has('offset') || url.searchParams.has('expected_snapshot');
+      const expectedSnapshot = url.searchParams.get('expected_snapshot');
+      if ((expectedSnapshot != null && !/^[a-f0-9]{64}$/.test(expectedSnapshot))
+        || (snapshotPagination && offset > 0 && !expectedSnapshot)) {
+        return json({ ok: false, error: 'invalid_pagination_snapshot', complete: false }, 400);
+      }
 
       /* 🔴 (2026-09-11) WHERE 의 컬럼에는 반드시 `cs.` 를 붙인다 — `teachers` 에도
          **`status` 와 `user_id` 가 있어서**(실측 스키마) JOIN 을 붙이는 순간
@@ -6528,25 +6526,47 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       if (kind === 'recurring') where.push(`cs.schedule_kind = 'recurring'`);
       else if (kind === 'one_off') where.push(`cs.schedule_kind = 'one_off'`);
 
-      binds.push(limit);
+      binds.push(limit + 1, offset);
       // 1차: teachers JOIN 시도 (강사명 함께)
       const _soSel = startsOnSel(await ensureStartsOnColumn(env), 'cs');
-      const sqlWithJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.notes, cs.created_at${_soSel}, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
+      const sqlWithJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.notes, cs.created_at${_soSel}, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC, cs.id ASC LIMIT ? OFFSET ?`;
       // 2차: JOIN 없이 (teachers 테이블 미존재 등에 대비)
-      const sqlNoJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.notes, cs.created_at${_soSel} FROM class_schedules cs WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
+      const sqlNoJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.notes, cs.created_at${_soSel} FROM class_schedules cs WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC, cs.id ASC LIMIT ? OFFSET ?`;
       try {
+        // Page and revision come from one ordered SELECT; separate reads can miss
+        // cancellation or insertion between offsets. Oversize snapshots fail closed.
+        const readPage = async (sql: string) => snapshotPagination
+          ? env.DB.prepare(sql.replace(/LIMIT \? OFFSET \?$/, 'LIMIT 10001')).bind(...binds.slice(0, -2)).all<any>()
+          : env.DB.prepare(sql).bind(...binds).all<any>();
         let rows;
         try {
-          rows = await env.DB.prepare(sqlWithJoin).bind(...binds).all<any>();
+          rows = await readPage(sqlWithJoin);
         } catch (joinErr: any) {
           console.warn('[class-schedules] JOIN failed, fallback no-JOIN:', joinErr?.message);
-          rows = await env.DB.prepare(sqlNoJoin).bind(...binds).all<any>();
+          rows = await readPage(sqlNoJoin);
         }
         // Phase 7g: server-side 변환 제거 - client 가 visible week/month 기준으로 1회성 위치 계산
-        return json({ ok: true, count: (rows.results || []).length, items: rows.results || [], merge_info: mergeInfo });
+        if (!rows || rows.success === false || !Array.isArray(rows.results)) throw new Error('schedule_lookup_failed');
+        let snapshot: string | undefined;
+        if (snapshotPagination) {
+          if (rows.results.length > 10000) throw new Error('schedule_snapshot_too_large');
+          const bytes = new TextEncoder().encode(JSON.stringify(rows.results));
+          if (bytes.byteLength > 1500000) throw new Error('schedule_snapshot_too_large');
+          snapshot = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)))
+            .map(value => value.toString(16).padStart(2, '0')).join('');
+          if (expectedSnapshot && expectedSnapshot !== snapshot) {
+            return json({ ok: false, error: 'schedule_changed', count: 0, items: [], complete: false,
+              has_more: null, next_offset: null, merge_info: mergeInfo }, 409);
+          }
+        }
+        const pageRows = snapshotPagination ? rows.results.slice(offset, offset + limit + 1) : rows.results;
+        const hasMore = pageRows.length > limit, items = pageRows.slice(0, limit);
+        return json({ ok: true, count: items.length, items, merge_info: mergeInfo, snapshot,
+          offset, limit, has_more: hasMore, next_offset: hasMore ? offset + items.length : null, complete: !hasMore });
       } catch (e: any) {
         console.warn('[class-schedules] both queries failed:', e?.message);
-        return json({ ok: true, count: 0, items: [], warning: String(e?.message || e), merge_info: mergeInfo });
+        return json({ ok: false, error: 'schedule_lookup_failed', count: 0, items: [], complete: false,
+          has_more: null, next_offset: null, warning: String(e?.message || e), merge_info: mergeInfo }, 503);
       }
     }
 
@@ -7412,26 +7432,77 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         if (/^\d{4}-\d{2}-\d{2}$/.test(sd) && sd < todayKst) return json({ ok: false, error: 'past_date' }, 409);
         /* ⛔ 날짜 없는 매주 반복 행은 여기서 되살리지 않는다 — 날짜·중복 확인을 할 수 없다(시간표에서 다시 등록). */
         if (!/^\d{4}-\d{2}-\d{2}$/.test(sd)) return json({ ok: false, error: 'weekly_row' }, 409);
-        /* ⚠️ 중복 확인을 못 하면 «없다» 로 넘기지 않는다(fail-closed) — 두 벌이 되는 쪽이 더 나쁘다.
-           학생 쪽(같은 학생·같은 시각)과 강사 쪽(같은 강사·같은 시각, LMS·시드 자리표시 제외)을 함께 본다. */
-        let dup: any = null;
+        /* ⚠️ 중복 확인을 못 하면 «없다» 로 넘기지 않는다(fail-closed).
+           날짜 지정·매주 반복 후보를 함께 읽고 이동 경로의 정본 반개구간/starts_on 판정을 쓴다.
+           restore의 기존 같은 시각 차단은 유지한다 — 합반 허용 정책은 이 수정에서 바꾸지 않는다. */
+        let dup: any = null, snapshotSql = '', snapshotValue = '';
+        const fields = Object.keys(row), quote = (field: string) => '"' + field.replace(/"/g, '""') + '"';
+        const candidateArgs = [id, row.user_id, String(row.teacher_id || ''), String(row.teacher_id || '')];
         try {
-          dup = await env.DB.prepare(
-            `SELECT id FROM class_schedules WHERE id <> ? AND scheduled_date = ? AND substr(start_time,1,5) = substr(?,1,5) AND status != 'cancelled'
-               AND (user_id = ? OR (? <> '' AND teacher_id = ? AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed'))) LIMIT 1`
-          ).bind(id, sd, String(row.start_time || ''), row.user_id, String(row.teacher_id || ''), String(row.teacher_id || '')).first();
+          // D1 limits SQL functions to 32 arguments and statements to 100 binds. Never truncate a proof.
+          if (!fields.length || fields.length > 32 || fields.length + candidateArgs.length + 2 > 100) throw new Error('restore_capacity_exceeded');
+          const snapshotBytes = (value: string) => new TextEncoder().encode(value).byteLength;
+          const maxSnapshotBytes = 1_500_000; // Headroom below D1's 2 MB value/row limit, including the source proof.
+          if (snapshotBytes(JSON.stringify(fields.map(field => row[field] ?? null))) > maxSnapshotBytes) throw new Error('restore_capacity_exceeded');
+          // Read the exact facts later compared inside the transaction, including optional legacy columns.
+          snapshotSql = `SELECT json_group_array(json_array(${fields.map(quote).join(',')})) AS value FROM (
+            SELECT * FROM class_schedules WHERE id <> ? AND (status IS NULL OR status != 'cancelled')
+               AND (user_id = ? OR (? <> '' AND teacher_id = ? AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed'))) ORDER BY id)`;
+          const snapshot: any = await env.DB.prepare(snapshotSql).bind(...candidateArgs).all();
+          if (!snapshot || snapshot.success === false || !Array.isArray(snapshot.results) || snapshot.results.length !== 1
+            || typeof snapshot.results[0]?.value !== 'string') throw new Error('schedule_lookup_failed');
+          snapshotValue = snapshot.results[0].value;
+          if (snapshotBytes(snapshotValue) > maxSnapshotBytes) throw new Error('restore_capacity_exceeded');
+          const values = JSON.parse(snapshotValue);
+          if (!Array.isArray(values) || values.some((value: any) => !Array.isArray(value) || value.length !== fields.length)) throw new Error('schedule_lookup_failed');
+          const candidates = values.map((value: any[]) => Object.fromEntries(fields.map((field, i) => [field, value[i]])));
+          const validDate = (value: any) => /^\d{4}-\d{2}-\d{2}$/.test(String(value))
+            && Number.isFinite(Date.parse(value + 'T00:00:00Z')) && new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value;
+          const validSlot = (slot: any) => {
+            if (!slot || !/^(?:[01]?\d|2[0-3]):[0-5]\d$/.test(String(slot.start_time || ''))
+              || slot.duration_min != null && (!Number.isInteger(Number(slot.duration_min)) || Number(slot.duration_min) <= 0 || Number(slot.duration_min) > 240)) return false;
+            // 정본 이동 판정과 같이 NULL 길이만 기존 20분 수업으로 본다. 잘못된 값은 빈 시간의 근거가 아니다.
+            if (slot.scheduled_date) return validDate(slot.scheduled_date);
+            const days = String(slot.day_of_week ?? '').trim().split(/[,\s]+/);
+            return days.length > 0 && days.every(day => scheduleDays({ day_of_week: day }).length === 1)
+              && (!slot.starts_on || validDate(slot.starts_on));
+          };
+          if (!validSlot(row) || candidates.some((other: any) => !validSlot(other))) throw new Error('schedule_data_unknown');
+          dup = candidates.find((other: any) => scheduleRowsOverlap(row, other, todayKst));
         } catch (e: any) { return json({ ok: false, error: 'lookup_failed' }, 409); }
         if (dup) return json({ ok: false, error: 'slot_taken', other_id: dup.id }, 409);
-        const upd: any = await env.DB.prepare(`UPDATE class_schedules SET status='active', updated_at=? WHERE id=? AND status='cancelled'`).bind(Date.now(), id).run();
-        if (!(upd && upd.meta && upd.meta.changes > 0)) return json({ ok: false, error: 'not_cancelled' }, 409);
-        await writeClassAudit(env, {
-          action: 'restore', schedule_id: id,
-          teacher_name: row.teacher_name || null, student_name: row.student_name || null,
-          lesson_date: sd || null, lesson_time: row.start_time || null,
-          actor: actor.name || actor.username || '관리자', actor_role: 'admin', source: 'ui',
-          reason: body.reason ? String(body.reason).slice(0, 300) : '수업 종료 되돌리기',
-        });
-        return json({ ok: true, id, status: 'active' });
+        try {
+          // Reuse the existing move CHECK guard and D1.batch transaction; no new schema definition.
+          const guardReady: any = await env.DB.prepare(`CREATE TABLE IF NOT EXISTS schedule_move_guard (
+            token TEXT PRIMARY KEY, valid INTEGER NOT NULL CONSTRAINT schedule_move_snapshot CHECK(valid=1))`).run();
+          if (!guardReady || guardReady.success === false) throw new Error('restore_guard_failed');
+          await ensureClassAuditTable(env);
+          const token = crypto.randomUUID(), now = Date.now();
+          // An ignored write is not a SQL failure. Abort inside the transaction before it can partially commit.
+          // JSON is already required by the snapshot; its invalid-input branch deliberately raises a SQL error.
+          const assertOneChange = () => env.DB.prepare(`SELECT CASE WHEN changes() = 1 THEN 1 ELSE json('restore_statement_failed') END`);
+          const result = await env.DB.batch([
+            env.DB.prepare(`INSERT INTO schedule_move_guard(token,valid) SELECT ?, CASE WHEN
+              EXISTS (SELECT 1 FROM class_schedules WHERE ${fields.map(field => `${quote(field)} IS ?`).join(' AND ')})
+              AND (${snapshotSql}) IS ? THEN 1 ELSE 0 END`).bind(token, ...fields.map(field => row[field] ?? null), ...candidateArgs, snapshotValue),
+            assertOneChange(),
+            env.DB.prepare(`UPDATE class_schedules SET status='active', updated_at=? WHERE id=? AND status='cancelled'`).bind(now, id),
+            assertOneChange(),
+            env.DB.prepare(`INSERT INTO class_audit_log (action,schedule_id,teacher_name,student_name,lesson_date,lesson_time,actor,actor_role,source,reason,created_at)
+              VALUES ('restore',?,?,?,?,?,?,'admin','ui',?,?)`).bind(id, row.teacher_name || null, row.student_name || null, sd, row.start_time || null,
+              actor.name || actor.username || '관리자', body.reason ? String(body.reason).slice(0, 300) : '수업 종료 되돌리기', now),
+            assertOneChange(),
+            env.DB.prepare(`DELETE FROM schedule_move_guard WHERE token=?`).bind(token),
+            assertOneChange(),
+          ]);
+          if (!Array.isArray(result) || result.length !== 8 || result.some((r: any) => !r || r.success === false)
+            || Number(result[2]?.meta?.changes) !== 1) throw new Error('restore_batch_failed');
+          return json({ ok: true, id, status: 'active' });
+        } catch (e: any) {
+          if (/schedule_move_snapshot/.test(String(e?.message || e))) return json({ ok: false, error: 'schedule_changed',
+            message: '확인 중 수업 정보가 변경되었습니다. 새로고침한 뒤 다시 시도해 주세요.' }, 409);
+          return json({ ok: false, error: 'restore_failed', message: '수업 복원을 확인하지 못했습니다. 새로고침한 뒤 다시 시도해 주세요.' }, 503);
+        }
       }
       if (!body || body.action !== 'split') return json({ ok: false, error: 'unknown_action' }, 400);
       const dry = body.dry_run !== false;

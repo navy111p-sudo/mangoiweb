@@ -18,7 +18,8 @@ import { sendPlainSms } from './solapi-client';
 import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnrollOrder, priceForUid, teacherRateFor, enrollQuoteCalc, ENROLL_WEEKLY, addDays, authUidOrAdminSession, renewStartDate } from './enroll-ops';
 import { authUidFromRequest } from './auth-token';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서 (사전고지 문자)
-import { handleRefundApi } from './api-pay-refund';   // 💸 환불 실행·기록 (2026-08-25 신설)
+import { auditPaymentSchedules } from './payment-schedule-audit';
+import { handleRefundApi, ensureRefundTable } from './api-pay-refund';   // 💸 환불 실행·기록 (2026-08-25 신설)
 import { activateB2bAiInvoicePayment } from './ai-billing';   // 🏢 대리점 AI 사용료 일괄결제 활성화 (MGB- 주문 전용, 2026-09-10)
 import { activateB2bTuitionPayment, handleB2bTuitionPublic } from './b2b-tuition-load';   // 🏫 B2B 화상수업 수업료 (MGT- 주문 · /api/pay/b2b/*, 2026-10-01)
 import { AI_PASS_PLAN, NOT_AI_PASS_PLAN_SQL, aiPassPeriod, aiPassNextBilling, currentAiPassEnd } from './ai-pass';
@@ -190,7 +191,7 @@ function nextBillingFromLastDate(lastDate: string): number {
  *  실패: fail_count 누적, 3회째면 자동 해지(카드가 계속 막히는데 계속 시도하지 않음). */
 /** ⏱ 한 구독을 «동시에 두 번 청구하지 않기» 위한 선점 시간(밀리초).
  *  이보다 오래된 표식은 죽은 것으로 보고 다음 실행이 가져간다 — 워커가 청구 도중 죽어도
- *  스스로 풀린다. 토스 호출 + 수업 생성까지 넉넉히 덮으면서, 막혀도 다음 스윕에서 곧 재시도된다. */
+ *  스스로 풀린다. 다만 PG 결과가 미확정이면 주문의 billing_pending 표식이 새 청구를 별도로 막는다. */
 const CHARGE_LEASE_MS = 10 * 60 * 1000;
 
 /**
@@ -212,7 +213,7 @@ const CHARGE_LEASE_MS = 10 * 60 * 1000;
  *    돈이 걸린 자리에서는 «안 긁는 것» 이 «두 번 긁는 것» 보다 낫다. 대신 조용히 넘어가지 않고
  *    로그를 남긴다(다음 스윕에서 다시 시도된다).
  * ⛔ 선점을 «성공했을 때만» 푸는 식으로 바꾸지 말 것 — 카드 거절·네트워크 오류로 빠져나가는
- *    길이 여럿이라 한 곳만 빠뜨려도 그 구독이 10분간 청구되지 않는다. finally 로 항상 푼다.
+ *    길이 여럿이라 finally 로 항상 푼다. 미확정 PG 결과는 리스가 아닌 영속 주문 표식으로 보류한다.
  */
 export async function chargeSubscriptionOnce(env: any, sub: any, months = 1): Promise<{ ok: boolean; error?: string; amount?: number }> {
   if (!sub.billing_key || !sub.customer_key) return { ok: false, error: 'no_billing_key' };
@@ -221,12 +222,17 @@ export async function chargeSubscriptionOnce(env: any, sub: any, months = 1): Pr
      양쪽 진입부가 env.DB 를 wrapDbDdlOnce 로 감싸 **같은 DDL 문자열은 격리당 한 번만** 나간다
      (src/db-ddl-once.ts). ⚠️ 그 래핑이 사라지면 이 호출이 구독 1건마다 8건씩 나간다. */
   await ensureSubscriptionsSchema(env);
+  await ensurePayTable(env);
   const _lockNow = Date.now();
   let _claim: any = null;
   try {
     _claim = await env.DB.prepare(
-      `UPDATE subscriptions SET charge_lock_at = ? WHERE id = ? AND (charge_lock_at IS NULL OR charge_lock_at < ?)`
-    ).bind(_lockNow, sub.id, _lockNow - CHARGE_LEASE_MS).run();
+      `UPDATE subscriptions SET charge_lock_at = ? WHERE id = ? AND (charge_lock_at IS NULL OR charge_lock_at < ?)
+         AND NOT EXISTS (SELECT 1 FROM subscriptions other WHERE other.id <> subscriptions.id
+           AND other.user_id = subscriptions.user_id
+           AND (CASE WHEN other.plan='ai_content' THEN 1 ELSE 0 END) = (CASE WHEN subscriptions.plan='ai_content' THEN 1 ELSE 0 END)
+           AND other.charge_lock_at >= ?)`
+    ).bind(_lockNow, sub.id, _lockNow - CHARGE_LEASE_MS, _lockNow - CHARGE_LEASE_MS).run();
   } catch (e: any) {
     console.error('[billing] 선점 실패 — 청구하지 않는다(이중청구 방지):', sub.id, e?.message);
     return { ok: false, error: 'claim_failed' };
@@ -236,6 +242,16 @@ export async function chargeSubscriptionOnce(env: any, sub: any, months = 1): Pr
     return { ok: false, error: 'already_charging' };
   }
   try {
+    // The lease only protects concurrent callers. A durable pending order also protects
+    // a later caller after a crash, timeout, or an unknown provider result.
+    try {
+      const pending: any = await env.DB.prepare(`SELECT order_id FROM payment_orders WHERE uid=? AND program=? AND status='pending' AND fail_reason LIKE 'billing_pending:v1:%' LIMIT 1`)
+        .bind(String(sub.user_id), String(sub.plan) === AI_PASS_PLAN ? AI_PASS_PLAN : 'enroll').first();
+      if (pending) return { ok: false, error: 'billing_reconciliation_required' };
+    } catch (e: any) {
+      console.warn('[billing] pending order verification failed:', sub.id, e?.message);
+      return { ok: false, error: 'billing_state_check_failed' };
+    }
     return await chargeSubscriptionOnceInner(env, sub, months);
   } finally {
     /* ⚠️ «내가 잡은 표식» 일 때만 푼다. Inner 가 리스(10분)를 넘기면 다른 실행이 만료로
@@ -279,6 +295,12 @@ async function chargeSubscriptionOnceInner(env: any, sub: any, months = 1): Prom
     return { ok: false, error: orderBody?.error || 'order_failed' };
   }
   const { orderId, amount, orderName } = orderBody;
+  const pending: any = await env.DB.prepare(`UPDATE payment_orders SET fail_reason=? WHERE order_id=? AND status='pending'
+      AND NOT EXISTS (SELECT 1 FROM payment_orders WHERE uid=? AND program='enroll' AND status='pending' AND fail_reason LIKE 'billing_pending:v1:%')`)
+    .bind(`billing_pending:v1:${sub.id}`, orderId, String(sub.user_id)).run();
+  if (!pending?.meta?.changes) return { ok: false, error: 'billing_reconciliation_required' };
+  await env.DB.prepare(`UPDATE subscriptions SET next_billing_at=NULL, updated_at=? WHERE id=?`).bind(Date.now(), sub.id).run();
+
 
   // 2) 토스 빌링키 실청구
   const auth = 'Basic ' + btoa(String(env.TOSS_SECRET_KEY) + ':');
@@ -291,23 +313,39 @@ async function chargeSubscriptionOnceInner(env: any, sub: any, months = 1): Prom
     });
     tossJson = await tossRes.json();
   } catch (e: any) {
-    await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=?`).bind('network:' + String(e?.message || e), orderId).run();
-    await bumpSubscriptionFailure(env, sub, 'network_error');
+    await env.DB.prepare(`UPDATE payment_orders SET raw=? WHERE order_id=? AND status='pending'`)
+      .bind(JSON.stringify({ billing_error: 'network', message: String(e?.message || e) }).slice(0,2000), orderId).run();
     return { ok: false, error: 'network_error' };
   }
 
   if (!tossRes.ok || tossJson.status !== 'DONE') {
-    await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=?, raw=? WHERE order_id=?`)
-      .bind(String(tossJson?.message || tossJson?.code || 'toss_declined'), JSON.stringify(tossJson).slice(0, 4000), orderId).run();
+    if (tossRes.ok || tossRes.status >= 500 || tossRes.status === 408 || tossRes.status === 429 || !tossJson?.code || tossJson.code === 'ALREADY_PROCESSED_PAYMENT') {
+      await env.DB.prepare(`UPDATE payment_orders SET raw=? WHERE order_id=? AND status='pending'`)
+        .bind(JSON.stringify(tossJson).slice(0,4000), orderId).run();
+      return { ok: false, error: 'billing_reconciliation_required' };
+    }
+    const declined: any = await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=?, raw=? WHERE order_id=? AND status='pending' AND fail_reason=?`)
+      .bind(String(tossJson?.message || tossJson?.code || 'toss_declined'), JSON.stringify(tossJson).slice(0, 4000), orderId, `billing_pending:v1:${sub.id}`).run();
+    if (!declined?.meta?.changes) {
+      const current: any = await env.DB.prepare(`SELECT status FROM payment_orders WHERE order_id=?`).bind(orderId).first();
+      return current?.status === 'paid' ? { ok: true, amount } : { ok: false, error: 'billing_state_changed' };
+    }
     await bumpSubscriptionFailure(env, sub, String(tossJson?.message || 'card_declined'));
     return { ok: false, error: String(tossJson?.message || 'card_declined') };
   }
+  if (!Number.isSafeInteger(tossJson.totalAmount) || tossJson.totalAmount !== amount || (tossJson.orderId && tossJson.orderId !== orderId)) {
+    await env.DB.prepare(`UPDATE payment_orders SET raw=? WHERE order_id=? AND status='pending'`)
+      .bind(JSON.stringify(tossJson).slice(0,4000), orderId).run();
+    return { ok: false, error: 'provider_payment_mismatch' };
+  }
+
 
   // 3) 성공 — 결제 확정 + 수업 실제 생성(기존 confirm/webhook과 동일 경로)
   const now = Date.now();
-  await env.DB.prepare(`UPDATE payment_orders SET status='paid', payment_key=?, paid_at=?, method=?, raw=? WHERE order_id=?`)
+  await env.DB.prepare(`UPDATE payment_orders SET status='paid', fail_reason=CASE WHEN enroll_json IS NOT NULL THEN 'schedule_generation_pending:v1' WHEN fail_reason LIKE 'billing_pending:v1:%' THEN NULL ELSE fail_reason END, payment_key=?, paid_at=?, method=?, raw=? WHERE order_id=? AND status NOT IN ('paid','partial_refunded','refunded','cancelled')`)
     .bind(String(tossJson.paymentKey || ''), now, '자동연장(빌링키)', JSON.stringify(tossJson).slice(0, 4000), orderId).run();
   const order: any = await env.DB.prepare(`SELECT * FROM payment_orders WHERE order_id = ?`).bind(orderId).first();
+  if (order?.status !== 'paid') return { ok: false, error: 'billing_state_changed' };
   if (order) {
     await activateEnrollment(env, order, amount, now, orderId);
     await sendBuyerPaidSms(env, order, amount, orderId).catch(() => {});
@@ -338,15 +376,18 @@ async function chargeAiPassOnce(env: any, sub: any): Promise<{ ok: boolean; erro
   const rnd = bytesHex(crypto.getRandomValues(new Uint8Array(6)));
   const orderId = `MGI-${Date.now().toString(36).toUpperCase()}-${rnd}`;
   try {
-    await env.DB.prepare(
-      `INSERT INTO payment_orders (order_id, uid, program, amount, status, method, payer_name, student_name, phone, created_at)
-       VALUES (?, ?, ?, ?, 'pending', 'card', NULL, ?, NULL, ?)`
-    ).bind(orderId, uid, AI_PASS_PLAN, amount, sub.student_name ? String(sub.student_name) : null, Date.now()).run();
+    const inserted: any = await env.DB.prepare(
+      `INSERT INTO payment_orders (order_id, uid, program, amount, status, method, payer_name, student_name, phone, created_at, fail_reason)
+       SELECT ?, ?, ?, ?, 'pending', 'card', NULL, ?, NULL, ?, ?
+       WHERE NOT EXISTS (SELECT 1 FROM payment_orders WHERE uid=? AND program=? AND status='pending' AND fail_reason LIKE 'billing_pending:v1:%')`
+    ).bind(orderId, uid, AI_PASS_PLAN, amount, sub.student_name ? String(sub.student_name) : null, Date.now(), `billing_pending:v1:${sub.id}`, uid, AI_PASS_PLAN).run();
+    if (!inserted?.meta?.changes) return { ok: false, error: 'billing_reconciliation_required' };
   } catch (e: any) {
     await bumpSubscriptionFailure(env, sub, 'order_failed:' + String(e?.message || e));
     return { ok: false, error: 'order_failed' };
   }
 
+  await env.DB.prepare(`UPDATE subscriptions SET next_billing_at=NULL, updated_at=? WHERE id=?`).bind(Date.now(), sub.id).run();
   const auth = 'Basic ' + btoa(String(env.TOSS_SECRET_KEY) + ':');
   let tossRes: Response, tossJson: any;
   try {
@@ -357,25 +398,41 @@ async function chargeAiPassOnce(env: any, sub: any): Promise<{ ok: boolean; erro
     });
     tossJson = await tossRes.json();
   } catch (e: any) {
-    await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=?`).bind('network:' + String(e?.message || e), orderId).run();
-    await bumpSubscriptionFailure(env, sub, 'network_error');
+    await env.DB.prepare(`UPDATE payment_orders SET raw=? WHERE order_id=? AND status='pending'`)
+      .bind(JSON.stringify({ billing_error: 'network', message: String(e?.message || e) }).slice(0,2000), orderId).run();
     return { ok: false, error: 'network_error' };
   }
   if (!tossRes.ok || tossJson.status !== 'DONE') {
-    await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=?, raw=? WHERE order_id=?`)
-      .bind(String(tossJson?.message || tossJson?.code || 'toss_declined'), JSON.stringify(tossJson).slice(0, 4000), orderId).run();
+    if (tossRes.ok || tossRes.status >= 500 || tossRes.status === 408 || tossRes.status === 429 || !tossJson?.code || tossJson.code === 'ALREADY_PROCESSED_PAYMENT') {
+      await env.DB.prepare(`UPDATE payment_orders SET raw=? WHERE order_id=? AND status='pending'`)
+        .bind(JSON.stringify(tossJson).slice(0,4000), orderId).run();
+      return { ok: false, error: 'billing_reconciliation_required' };
+    }
+    const declined: any = await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=?, raw=? WHERE order_id=? AND status='pending' AND fail_reason=?`)
+      .bind(String(tossJson?.message || tossJson?.code || 'toss_declined'), JSON.stringify(tossJson).slice(0, 4000), orderId, `billing_pending:v1:${sub.id}`).run();
+    if (!declined?.meta?.changes) {
+      const current: any = await env.DB.prepare(`SELECT status FROM payment_orders WHERE order_id=?`).bind(orderId).first();
+      return current?.status === 'paid' ? { ok: true, amount } : { ok: false, error: 'billing_state_changed' };
+    }
     await bumpSubscriptionFailure(env, sub, String(tossJson?.message || 'card_declined'));
     return { ok: false, error: String(tossJson?.message || 'card_declined') };
   }
+  if (!Number.isSafeInteger(tossJson.totalAmount) || tossJson.totalAmount !== amount || (tossJson.orderId && tossJson.orderId !== orderId)) {
+    await env.DB.prepare(`UPDATE payment_orders SET raw=? WHERE order_id=? AND status='pending'`)
+      .bind(JSON.stringify(tossJson).slice(0,4000), orderId).run();
+    return { ok: false, error: 'provider_payment_mismatch' };
+  }
+
 
   const now = Date.now();
   /* 🛡️ 돈은 이미 나갔다 — 뒷정리를 하기 «전에» 먼저 다음 청구일을 비운다(NULL = 스윕 대상 아님).
      아래 어느 줄이 던져도 이 구독은 «아직 청구 대상» 인 채로 남지 않아 다음 스윕이 같은 카드를 또 긁지 않는다.
      (이 줄이 없으면 next_billing_at 이 «지금» 이던 구독 — 첫 즉시결제·밀린 청구 — 이 그대로 재청구된다.) */
   await env.DB.prepare(`UPDATE subscriptions SET next_billing_at=NULL, last_billed_at=?, updated_at=? WHERE id=?`).bind(now, now, sub.id).run();
-  await env.DB.prepare(`UPDATE payment_orders SET status='paid', payment_key=?, paid_at=?, method=?, raw=? WHERE order_id=?`)
+  await env.DB.prepare(`UPDATE payment_orders SET status='paid', fail_reason=NULL, payment_key=?, paid_at=?, method=?, raw=? WHERE order_id=? AND status NOT IN ('paid','partial_refunded','refunded','cancelled')`)
     .bind(String(tossJson.paymentKey || ''), now, '자동결제(빌링키)', JSON.stringify(tossJson).slice(0, 4000), orderId).run();
   const order: any = await env.DB.prepare(`SELECT * FROM payment_orders WHERE order_id = ?`).bind(orderId).first();
+  if (order?.status !== 'paid') return { ok: false, error: 'billing_state_changed' };
   if (order) await activateEnrollment(env, order, amount, now, orderId);
   let endAt: number | null = null;
   try { endAt = await currentAiPassEnd(env, uid, priced.name); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
@@ -672,21 +729,29 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     }
 
     const order: any = await env.DB.prepare(
-      `SELECT order_id, amount, status, program, uid, student_name, payer_name, phone, enroll_json FROM payment_orders WHERE order_id = ? LIMIT 1`
+      `SELECT order_id, amount, status, program, uid, student_name, payer_name, phone, enroll_json, paid_at, payment_key, fail_reason FROM payment_orders WHERE order_id = ? LIMIT 1`
     ).bind(orderId).first();
     if (!order) {
       return json({ ok: false, error: 'order_not_found', message: '주문을 찾을 수 없습니다.' }, 404);
     }
-    // 멱등: 이미 확정된 주문이면 다시 청구하지 않고 성공으로 응답.
-    if (order.status === 'paid') {
-      return json({ ok: true, already: true, orderId, amount: order.amount, message: '이미 결제 완료된 주문입니다.' });
-    }
+    if (order.status === 'pending' && String(order.fail_reason || '').startsWith('billing_pending:v1:'))
+      return json({ ok: false, error: 'billing_reconciliation_required', needs_check: true }, 409);
     // 🔒 금액 위변조 방지: 요청 금액 == 저장된 주문 금액 이어야 확정 진행.
     if (Number(order.amount) !== amount) {
-      await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason='amount_mismatch' WHERE order_id=?`).bind(orderId).run();
+      await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason='amount_mismatch' WHERE order_id=? AND status NOT IN ('paid','partial_refunded','refunded','cancelled')`).bind(orderId).run();
       return json({ ok: false, error: 'amount_mismatch', message: '결제 금액이 주문과 일치하지 않습니다.' }, 400);
     }
 
+    // 멱등: 이미 확정된 주문이면 다시 청구하지 않고 성공으로 응답.
+    if (order.status === 'paid') {
+      if (order.payment_key && String(order.payment_key) !== paymentKey) return json({ ok: false, error: 'payment_key_mismatch' }, 409);
+      // Payment is already final, but a prior schedule write may have failed. Never recharge.
+      await activateEnrollment(env, order, Number(order.amount), Number(order.paid_at) || Date.now(), orderId);
+      return json({ ok: true, already: true, orderId, amount: order.amount, message: '이미 결제 완료된 주문입니다.' });
+    }
+    if (['partial_refunded', 'refunded', 'cancelled'].includes(String(order.status))) {
+      return json({ ok: false, error: 'order_already_reversed', message: '취소 또는 환불된 주문은 다시 승인할 수 없습니다.' }, 409);
+    }
     // 토스 confirm 호출 (시크릿키 Basic 인증). 여기서 실제 승인이 완료된다.
     const auth = 'Basic ' + btoa(String(env.TOSS_SECRET_KEY) + ':');
     let tossRes: Response, tossJson: any;
@@ -702,10 +767,21 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     }
 
     if (tossRes.ok && (tossJson?.status === 'DONE' || tossJson?.status === 'PAID')) {
+      if (!Number.isSafeInteger(tossJson.totalAmount) || tossJson.totalAmount !== Number(order.amount)
+          || (tossJson.orderId && tossJson.orderId !== orderId) || (tossJson.paymentKey && tossJson.paymentKey !== paymentKey)) {
+        await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason='provider_payment_mismatch' WHERE order_id=? AND status NOT IN ('paid','partial_refunded','refunded','cancelled')`).bind(orderId).run();
+        return json({ ok: false, error: 'provider_payment_mismatch', needs_check: true }, 409);
+      }
       const now2 = Date.now();
-      await env.DB.prepare(
-        `UPDATE payment_orders SET status='paid', payment_key=?, paid_at=?, raw=? WHERE order_id=?`
+      const settled: any = await env.DB.prepare(
+        `UPDATE payment_orders SET status='paid', fail_reason=CASE WHEN enroll_json IS NOT NULL THEN 'schedule_generation_pending:v1' WHEN fail_reason LIKE 'billing_pending:v1:%' THEN NULL ELSE fail_reason END, payment_key=?, paid_at=?, raw=? WHERE order_id=? AND status NOT IN ('paid','partial_refunded','refunded','cancelled')`
       ).bind(paymentKey, now2, JSON.stringify(tossJson).slice(0, 4000), orderId).run();
+      if (!settled?.meta?.changes) {
+        const current: any = await env.DB.prepare(`SELECT * FROM payment_orders WHERE order_id=?`).bind(orderId).first();
+        if (current?.status !== 'paid') return json({ ok: false, error: 'order_already_reversed' }, 409);
+        await activateEnrollment(env, current, amount, Number(current.paid_at) || now2, orderId);
+        return json({ ok: true, already: true, orderId, amount });
+      }
 
       // 💳→📚 수강 자동 활성화 + 📱 학부모 결제완료 확인문자 (둘 다 실패해도 결제 성공 응답 유지)
       await activateEnrollment(env, order, amount, now2, orderId);
@@ -733,7 +809,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
        거기서 상태를 'DONE'으로 재조회해 확정 + 수강 자동활성화까지 처리한다(기존 로직 그대로). */
     if (tossRes.ok && tossJson?.status === 'WAITING_FOR_DEPOSIT') {
       await env.DB.prepare(
-        `UPDATE payment_orders SET status='await_deposit', payment_key=?, raw=? WHERE order_id=?`
+        `UPDATE payment_orders SET status='await_deposit', payment_key=?, raw=? WHERE order_id=? AND status NOT IN ('paid','partial_refunded','refunded','cancelled')`
       ).bind(paymentKey, JSON.stringify(tossJson).slice(0, 4000), orderId).run();
       const va = tossJson?.virtualAccount || null;
       return json({
@@ -751,7 +827,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     // 실패 — 토스 에러코드/메시지를 그대로 담아 프론트가 친절히 안내
     const code = tossJson?.code || ('http_' + tossRes.status);
     const msg = tossJson?.message || '결제 승인에 실패했습니다.';
-    await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=?`).bind(String(code).slice(0, 100), orderId).run();
+    await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=? AND status NOT IN ('paid','partial_refunded','refunded','cancelled')`).bind(String(code).slice(0, 100), orderId).run();
 
     // 🔔 결제 실패 시 사장님 폰 문자 알림 (실패해도 응답엔 영향 없음). 학부모 후속 연락용.
     try {
@@ -926,7 +1002,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     if (!orderId) return json({ ok: true, skipped: 'no_order_id' });
 
     const order: any = await env.DB.prepare(
-      `SELECT order_id, amount, status, program, uid, student_name, payer_name, phone, enroll_json FROM payment_orders WHERE order_id = ? LIMIT 1`
+      `SELECT order_id, amount, status, program, uid, student_name, payer_name, phone, enroll_json, paid_at, payment_key, fail_reason FROM payment_orders WHERE order_id = ? LIMIT 1`
     ).bind(orderId).first();
     if (!order) return json({ ok: true, skipped: 'order_not_found' });
 
@@ -940,16 +1016,23 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     } catch (_) {}
     if (!pay || !pay.status) return json({ ok: true, skipped: 'verify_failed' });
 
-    if (pay.status === 'DONE' && order.status !== 'paid') {
+    if (pay.status === 'DONE' && order.status === 'paid') {
+      if (Number(pay.totalAmount) !== Number(order.amount)) return json({ ok: true, flagged: 'amount_mismatch' });
+      await activateEnrollment(env, order, Number(order.amount), Number(order.paid_at) || Date.now(), orderId);
+      return json({ ok: true, already: true });
+    }
+
+    if (pay.status === 'DONE' && !['paid', 'partial_refunded', 'refunded', 'cancelled'].includes(String(order.status))) {
       // 금액 대조 후 확정 (프론트가 미완료한 결제를 웹훅이 보완 확정하는 순간)
       if (Number(pay.totalAmount) !== Number(order.amount)) {
-        await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason='webhook_amount_mismatch' WHERE order_id=?`).bind(orderId).run();
+        await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason='webhook_amount_mismatch' WHERE order_id=? AND status NOT IN ('paid','partial_refunded','refunded','cancelled') AND COALESCE(fail_reason,'') NOT LIKE 'billing_pending:v1:%'`).bind(orderId).run();
         return json({ ok: true, flagged: 'amount_mismatch' });
       }
       const now3 = Date.now();
-      await env.DB.prepare(
-        `UPDATE payment_orders SET status='paid', payment_key=?, paid_at=?, method=?, raw=? WHERE order_id=?`
+      const settled: any = await env.DB.prepare(
+        `UPDATE payment_orders SET status='paid', fail_reason=CASE WHEN enroll_json IS NOT NULL THEN 'schedule_generation_pending:v1' WHEN fail_reason LIKE 'billing_pending:v1:%' THEN NULL ELSE fail_reason END, payment_key=?, paid_at=?, method=?, raw=? WHERE order_id=? AND status NOT IN ('paid','partial_refunded','refunded','cancelled')`
       ).bind(String(pay.paymentKey || ''), now3, String(pay.method || order.method || ''), JSON.stringify(pay).slice(0, 4000), orderId).run();
+      if (!settled?.meta?.changes) return json({ ok: true, skipped: 'state_changed' });
       await activateEnrollment(env, order, Number(order.amount), now3, orderId);
       await sendBuyerPaidSms(env, order, Number(order.amount), orderId);
       // 프론트 확정이 누락됐던 건을 웹훅이 잡은 것 → 사장님께 정보 문자(유령결제 방지 확인용)
@@ -967,9 +1050,21 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       return json({ ok: true, confirmed: true });
     }
 
-    if ((pay.status === 'CANCELED' || pay.status === 'PARTIAL_CANCELED') && order.status !== 'cancelled') {
-      await env.DB.prepare(`UPDATE payment_orders SET status='cancelled', fail_reason=? , raw=? WHERE order_id=?`)
-        .bind(String(pay.status), JSON.stringify(pay).slice(0, 4000), orderId).run();
+    if (pay.status === 'CANCELED' || pay.status === 'PARTIAL_CANCELED') {
+      const reversedStatus = pay.status === 'PARTIAL_CANCELED' ? 'partial_refunded' : 'refunded';
+      await ensureRefundTable(env);
+      const total = pay.totalAmount, balance = pay.balanceAmount;
+      const cancelledAmount = Number.isSafeInteger(total) && total === Number(order.amount)
+        && Number.isSafeInteger(balance) && balance >= 0 && balance <= total
+        && (pay.status === 'CANCELED' ? balance === 0 : balance > 0 && balance < total)
+        ? total - balance : null;
+      await env.DB.prepare(`UPDATE payment_orders SET status=CASE WHEN status IN ('refunded','cancelled') THEN status ELSE ? END, fail_reason=?, raw=?,
+        refunded_amount=MAX(COALESCE(refunded_amount,0),COALESCE(?,0)), refunded_at=? WHERE order_id=?`)
+        .bind(reversedStatus, cancelledAmount === null ? 'external_refund_amount_unknown' : String(pay.status), JSON.stringify(pay).slice(0, 4000), cancelledAmount, Date.now(), orderId).run();
+      if (order.status === reversedStatus) return json({ ok: true, already: true });
+      // External refunds have no selected lesson allocation. Preserve lessons for review;
+      // the schedule audit identifies this order and its active rows rather than guessing a quota.
+      console.warn('[pay] external_refund_schedule_review', orderId, reversedStatus);
       try {
         const toPhone = (env as any).OWNER_ALERT_PHONE;
         if (toPhone) {
@@ -1218,6 +1313,13 @@ async function confirmAiPassBilling(env: any, authUid: string, authKey: string, 
 
 /** 💳→📚 수강 자동 활성화 (confirm·webhook 공용, 실패해도 결제 흐름에 영향 없음) */
 async function activateEnrollment(env: any, order: any, amount: number, when: number, orderId: string): Promise<void> {
+  const live: any = await env.DB.prepare(`SELECT status, fail_reason FROM payment_orders WHERE order_id=?`).bind(orderId).first();
+  if (live?.status !== 'paid') return;
+  if (order.enroll_json && live.fail_reason !== 'schedule_generation_pending:v1') {
+    // No durable unfinished-generation marker: absent rows may be an intentional removal.
+    const existing: any = await env.DB.prepare(`SELECT id FROM class_schedules WHERE source=? LIMIT 1`).bind(`enroll:${orderId}`).first().catch(() => null);
+    if (!existing) { console.warn('[pay] missing_schedule_provenance_review', orderId); return; }
+  }
   /* 🏢 (2026-09-10) B2B 대리점 청구서 결제 — 개인 1건 활성화가 아니라 청구서에 포함된
      학생 전원을 한 번에 활성화해야 한다. 구분은 주문번호 접두사(MGB-)뿐이다 —
      ai-billing.ts 쪽에서 그렇게 정했다(스키마를 안 늘려서 이 파일의 SELECT 세 곳을
@@ -1234,8 +1336,9 @@ async function activateEnrollment(env: any, order: any, amount: number, when: nu
   try {
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY AUTOINCREMENT, student_user_id TEXT, student_name TEXT NOT NULL, package TEXT, started_at INTEGER, ended_at INTEGER, monthly_fee_krw INTEGER, status TEXT DEFAULT 'pending', notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
     // 멱등: 같은 주문으로 이미 활성화됐으면 두 번 만들지 않음 (confirm과 webhook이 경합해도 안전)
-    const dup: any = await env.DB.prepare(`SELECT id FROM enrollments WHERE notes LIKE ? LIMIT 1`).bind(`%${orderId}%`).first();
-    if (dup) return;
+    const dup: any = await env.DB.prepare(`SELECT id, status FROM enrollments WHERE notes LIKE ? LIMIT 1`).bind(`%${orderId}%`).first();
+    if (dup && ['cancelled', 'refunded'].includes(String(dup.status))) return;
+    if (!dup) {
     const sName = String(order.student_name || order.payer_name || '결제고객');
     const pkg = (PRICES[String(order.program)] && PRICES[String(order.program)].name) || String(order.program || '');
     /* 🤖 (2026-09-29) A.i 이용권은 «끝나는 날» 을 적는다 — 결제 시각부터 1달, 남은 기간이 있으면 그 끝에 이어서.
@@ -1249,8 +1352,11 @@ async function activateEnrollment(env: any, order: any, amount: number, when: nu
     }
     await env.DB.prepare(
       `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`
-    ).bind(order.uid || null, sName, pkg, startAt, endAt, amount, `토스 결제 자동활성화 · ${orderId}`, when, when).run();
+       SELECT ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?
+       WHERE NOT EXISTS (SELECT 1 FROM enrollments WHERE notes LIKE ?)
+         AND EXISTS (SELECT 1 FROM payment_orders WHERE order_id = ? AND status = 'paid')`
+    ).bind(order.uid || null, sName, pkg, startAt, endAt, amount, `토스 결제 자동활성화 · ${orderId}`, when, when, `%${orderId}%`, orderId).run();
+    }
   } catch (e) { console.warn('[pay] enrollment activate:', (e as any)?.message); }
   // 📚 수강신청 주문이면 회차 전량을 실제 수업으로 생성 (멱등·충돌 회피)
   await enrollCreateSchedules(env, order, orderId).catch((e: any) => console.warn('[enroll] schedules:', e?.message));
@@ -1305,7 +1411,7 @@ async function sendBuyerPaidSms(env: any, order: any, amount: number, orderId: s
  *   D) 오래된 pending(24h+) 건수 — 정보용(문자 안 보냄)
  */
 export async function runPaymentAudit(env: any, opts?: { sms?: boolean }): Promise<any> {
-  const out: any = { legacyDup: [], newDup: [], missingEnroll: [], stalePending: 0, checkedAt: Date.now() };
+  const out: any = { legacyDup: [], newDup: [], missingEnroll: [], billingPending: [], stalePending: 0, checkedAt: Date.now() };
   await ensurePayTable(env);
 
   // A) 레거시 이중결제 의심 (최근 3일, 10분 내 동일 회원·동일 금액 반복)
@@ -1354,8 +1460,27 @@ export async function runPaymentAudit(env: any, opts?: { sms?: boolean }): Promi
     out.stalePending = r?.n || 0;
   } catch (_) {}
 
-  const anomalies = (out.legacyDup.length || 0) + (out.newDup.length || 0) + (out.missingEnroll.length || 0);
-  out.summary = { anomalies, legacyDup: out.legacyDup.length, newDup: out.newDup.length, missingEnroll: out.missingEnroll.length, stalePending: out.stalePending };
+  // E) Paid amount alone is insufficient: reconcile its immutable enrollment snapshot to schedules.
+  try {
+    const schedules = await auditPaymentSchedules(env);
+    out.scheduleIssues = schedules.issues;
+    out.scheduleChecked = schedules.checked;
+    out.scheduleTruncated = schedules.truncated;
+    for (const issue of schedules.issues) console.warn('[pay] schedule_integrity', JSON.stringify(issue));
+  } catch (e: any) {
+    out.scheduleIssues = [];
+    out.scheduleAuditError = String(e?.message || e); // unavailable is not a clean audit
+  }
+  // A pending billing order is not an abandoned checkout: it may already be charged.
+  try {
+    const pending: any = await env.DB.prepare(`SELECT order_id, uid, student_name, amount, created_at, fail_reason
+      FROM payment_orders WHERE status='pending' AND fail_reason LIKE 'billing_pending:v1:%'
+      ORDER BY created_at DESC LIMIT 101`).all();
+    out.billingPending = (pending.results || []).slice(0,100);
+    out.billingPendingTruncated = (pending.results || []).length > 100;
+  } catch (e: any) { out.billingPendingError = String(e?.message || e); }
+  const anomalies = (out.legacyDup.length || 0) + (out.newDup.length || 0) + (out.missingEnroll.length || 0) + out.scheduleIssues.length + out.billingPending.length;
+  out.summary = { anomalies, legacyDup: out.legacyDup.length, newDup: out.newDup.length, missingEnroll: out.missingEnroll.length, scheduleIssues: out.scheduleIssues.length, billingPending: out.billingPending.length, scheduleAuditError: out.scheduleAuditError || null, stalePending: out.stalePending };
 
   // 이상 있을 때만 사장님 문자 (매일 "정상" 문자는 소음이라 안 보냄)
   if (opts?.sms && anomalies > 0) {
@@ -1366,6 +1491,13 @@ export async function runPaymentAudit(env: any, opts?: { sms?: boolean }): Promi
         if (out.legacyDup.length) lines.push(`·이중결제 의심 ${out.legacyDup.length}건(기존 결제창)`);
         if (out.newDup.length) lines.push(`·이중결제 의심 ${out.newDup.length}건(새 결제)`);
         if (out.missingEnroll.length) lines.push(`·수업연결 누락 ${out.missingEnroll.length}건`);
+        if (out.billingPending.length) lines.push(`·정기청구 결과 확인 필요 ${out.billingPending.length}건 (재청구 보류)`);
+        if (out.scheduleIssues.length) {
+          lines.push(`·수업 정합성 확인 ${out.scheduleIssues.length}건`);
+          for (const issue of out.scheduleIssues.slice(0, 3))
+            lines.push(`${issue.uid} · ${issue.order_id} · ${issue.actual_rows}/${issue.expected_sessions ?? '?'}회 · ${issue.reasons.join(',')}`);
+        }
+        if (out.scheduleTruncated) lines.push('최근 500건만 검사됨 — 추가 대사 필요');
         lines.push(`관리자 결제센터에서 확인하세요`);
         await sendPlainSms(env, toPhone, lines.join('\n'));
         out.smsSent = true;

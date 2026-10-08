@@ -11,28 +11,65 @@ permissions:
   contents: read
 jobs:
   schedule-regression:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: 600 transaction scenarios
-        run: node test-harness/weekly_postpone_atomic_harness.mjs
-      - name: 200 postponement and 200 change request workflows
-        run: node test-harness/weekly_postpone_routes_harness.mjs
-      - name: Install browser tools outside checkout
+      - name: Install browser tools outside checkout before isolation
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/lesson-browsers
         run: |
-          npm install --prefix "$RUNNER_TEMP/lesson-browser" --ignore-scripts --package-lock=false --no-audit --no-fund playwright@1.56.1
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/lesson-browser" --ignore-scripts --package-lock=false --no-audit --no-fund --registry=https://registry.npmjs.org playwright@1.56.1
           node "$RUNNER_TEMP/lesson-browser/node_modules/playwright/cli.js" install --with-deps chromium
-      - name: PC and mobile browser checks
+      - name: Existing schedule scenarios and PC/mobile browser in loopback-only namespace
         env:
           PW_DIR: ${{ runner.temp }}/lesson-browser
-          BROWSER_OUTPUT: ${{ runner.temp }}/lesson-browser-results
-        run: node test-harness/manual/weekly-postpone-browser.mjs
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/lesson-browsers
+        run: |
+          set -euo pipefail
+          OUTPUT="$RUNNER_TEMP/lesson-browser-results"
+          HOME_DIR="$RUNNER_TEMP/lesson-offline-home"
+          TEMP_DIR="$RUNNER_TEMP/lesson-offline-tmp"
+          mkdir -p "$OUTPUT" "$HOME_DIR" "$TEMP_DIR"
+          NODE="$(command -v node)"
+          cat > "$TEMP_DIR/run-lesson-tests.sh" <<'LESSON_TESTS'
+          set -euo pipefail
+          run_logged() { local log="$1"; shift; local code=0; "$@" > "$log" 2>&1 || code=$?; cat "$log"; return "$code"; }
+          node -e 'const a=require("node:assert/strict");a.equal(require(process.env.PW_DIR+"/node_modules/playwright/package.json").version,"1.56.1");'
+          export MANGOI_OFFLINE_NETWORK_LOG="$BROWSER_OUTPUT/blocked-network.log"
+          : > "$MANGOI_OFFLINE_NETWORK_LOG"
+          NODE_OPTIONS="--require=$PWD/test-harness/helpers/offline-network-guard.cjs" run_logged "$BROWSER_OUTPUT/atomic.log" node test-harness/weekly_postpone_atomic_harness.mjs
+          NODE_OPTIONS="--require=$PWD/test-harness/helpers/offline-network-guard.cjs" run_logged "$BROWSER_OUTPUT/routes.log" node test-harness/weekly_postpone_routes_harness.mjs
+          test ! -s "$MANGOI_OFFLINE_NETWORK_LOG"
+          # Browser requires local IPC; OS namespace remains the hard boundary.
+          run_logged "$BROWSER_OUTPUT/browser.log" node test-harness/manual/weekly-postpone-browser.mjs
+          grep -Eq '"checks":[1-9][0-9]*,"failures":0' "$BROWSER_OUTPUT/browser.log"
+          LESSON_TESTS
+          sudo unshare --net -- /bin/bash -euo pipefail -c '
+            uid="$1"; gid="$2"; node="$3"; root="$4"; home="$5"; temp="$6"; pw="$7"; browsers="$8"; output="$9"
+            ip link set lo up
+            test "$(ip -o link show | wc -l)" -eq 1
+            ip link show dev lo >/dev/null
+            test -z "$(ip -4 route show default)"
+            test -z "$(ip -6 route show default)"
+            echo "Isolation verified: only lo; no IPv4/IPv6 default routes"
+            cd "$root"
+            exec setpriv --reuid="$uid" --regid="$gid" --clear-groups --bounding-set=-all --no-new-privs \
+              env -i PATH="$(dirname "$node"):/usr/bin:/bin" HOME="$home" TMPDIR="$temp" \
+              LANG=C.UTF-8 TZ=UTC SKIP_LIVE_PROBE=1 npm_config_offline=true npm_config_update_notifier=false \
+              PW_DIR="$pw" PLAYWRIGHT_BROWSERS_PATH="$browsers" BROWSER_OUTPUT="$output" \
+              /bin/bash "$temp/run-lesson-tests.sh"
+          ' lesson-tests "$(id -u)" "$(id -g)" "$NODE" "$GITHUB_WORKSPACE" "$HOME_DIR" "$TEMP_DIR" "$PW_DIR" "$PLAYWRIGHT_BROWSERS_PATH" "$OUTPUT" \
+            2>&1 | tee "$OUTPUT/combined.log"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: lesson-browser-results
+          name: lesson-browser-results-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ runner.temp }}/lesson-browser-results

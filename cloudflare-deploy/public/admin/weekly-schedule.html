@@ -2314,6 +2314,13 @@ window.confirmMoveDo=async function(){
   var L=currentLang==='ko';
   var ctx=window.__moveCtx;
   if(!ctx){closeModal();return;}
+  // Direct Modify and confirmMoveAs('change') share the existing modal cutoff, before unlocking.
+  var sc=ctx.srcCoords;
+  if(ctx.mode!=='postpone' && !canChange(sc.dateISO, sc.hour, sc.minute||0)){
+    closeModal(); window.__moveCtx=null;
+    setTimeout(function(){ showRejectModal('change', sc.dateISO, sc.hour, sc.minute||0); }, 150);
+    return;
+  }
   var slot=(ctx.srcData&&ctx.srcData.slot)||{};
   closeModal();
   window.__moveCtx=null;

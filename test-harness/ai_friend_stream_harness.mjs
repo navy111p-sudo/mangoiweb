@@ -140,8 +140,8 @@ ok('Content-Type 으로 옛 서버와 가른다', /text\/event-stream/.test(U));
 })();
 /* ⛔ 연달아 부르면 발화 순번이 앞 문장을 끊습니다 — «앞 문장이 끝나면 다음» 이어야 합니다. */
 ok('문장 큐가 앞 문장이 끝나기를 기다린다', /_stmChain = _stmChain\.then/.test(U));
-ok('speakText 가 끝 콜백을 받는다', /function speakText\(text, btn, row, onDone\)/.test(U));
-ok('끝 신호가 안 와도 큐가 멈추지 않는다 (안전망)', /setTimeout\(fin, \d+\)/.test(U));
+ok('speakText 가 끝 콜백을 받는다', /function speakText\(text, btn, row, onDone(?:, trace)?\)/.test(U));
+ok('끝 신호가 안 와도 큐가 멈추지 않는다 (안전망)', /setTimeout\((?:fin|watchSpeech), \d+\)/.test(U));
 ok('이미 읽었으면 다시 읽지 않는다', /_stmSpoke && !d\.replaced/.test(U));
 ok('답이 바뀌었으면(replaced) 읽던 것을 멈추고 다시 읽는다', /if \(_stmSpoke\) \{ stmReset\(\);[\s\S]{0,80}MangoiTTS\.stop\(\)/.test(U));
 /* ⛔ 미리보기 말풍선이 «정본» 말풍선으로 오인되면 안 됩니다(기존 코드가 마지막 .ai-row 를 찾습니다). */

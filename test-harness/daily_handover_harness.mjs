@@ -12,7 +12,7 @@ const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.Comm
 const db=new DatabaseSync(':memory:');
 db.exec(`CREATE TABLE admin_account(username TEXT PRIMARY KEY,name TEXT); CREATE TABLE admin_scope(username TEXT,scope_type TEXT);
 CREATE TABLE push_subscriptions(endpoint TEXT,user_id TEXT,enabled INTEGER);
-CREATE TABLE push_queue(endpoint TEXT,title TEXT,body TEXT,url TEXT,icon TEXT,badge TEXT,tag TEXT,queued_at INTEGER);
+CREATE TABLE push_queue(endpoint TEXT,title TEXT,body TEXT,url TEXT,icon TEXT,badge TEXT,tag TEXT,queued_at INTEGER,fetched_at INTEGER);
 INSERT INTO admin_account VALUES('alice','Alice'),('bob','Bob'),('carol','Carol'),('admin','Admin');
 INSERT INTO admin_scope SELECT username,'hq' FROM admin_account;`);
 let statementHook=null,beforeBatch=null,batchTail=Promise.resolve();

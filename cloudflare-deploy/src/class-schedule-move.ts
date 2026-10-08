@@ -1,3 +1,4 @@
+import { C24_SOURCE, C24_MANUAL_SOURCE, c24NoteIds, trustworthyC24Identity } from './c24-identity';
 /** Atomic schedule movement. D1.batch rolls back every statement on any failure.
  * A CHECK guard compares pre-validation snapshots inside the same transaction as
  * the writes, preventing a concurrent booking, leave edit or stale undo from
@@ -121,6 +122,10 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
       if (patch.day_of_week != null) dest.day_of_week = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][scheduleDays({day_of_week:patch.day_of_week})[0]];
       if (patch.duration_min != null) dest.duration_min = Number(patch.duration_min);
       if (patch.teacher_id != null) dest.teacher_id = String(patch.teacher_id);
+      if ((row.source === C24_SOURCE || row.source === C24_MANUAL_SOURCE)
+        && (!same(dest.scheduled_date, row.scheduled_date) || c24NoteIds(row.notes).length > 0)
+        && !trustworthyC24Identity(row))
+        return fail(409, 'mirror_identity_missing', '카페24 원본 수업 번호를 확인할 수 없어 날짜를 변경하지 않았습니다. 원본 정보를 확인해 주세요.');
       if (!same(dest.teacher_id,row.teacher_id)) {
         const deny = teacherMoveDenyReason({ ok: actor.ok, isTeacher: actor.isTeacher, scopeType: scope?.scope_type || null });
         if (deny) return { ok: false as const, ...deny };

@@ -1,0 +1,17 @@
+GAP unpaid student must not consume paid AI model calls {"http":200,"model_calls":1}
+PASS unpaid chat histories stay owned by studentA
+[chat-friend] gamification failed: no such table: point_rule_log
+GAP expired student must not consume paid AI model calls {"http":200,"model_calls":1}
+PASS expired chat histories stay owned by studentA
+[chat-friend] gamification failed: no such table: point_rule_log
+GAP cancelled student must not consume paid AI model calls {"http":200,"model_calls":1}
+PASS cancelled chat histories stay owned by studentA
+[chat-friend] gamification failed: no such table: point_rule_log
+PASS paid unexpired AI pass can chat
+PASS active chat histories stay owned by studentA
+PASS signed studentA cannot invoke studentB learning route
+PASS historical reservation intentionally preserves teacher-review diagnostic classification; never an entitlement gate
+PASS video conversion preserves pre-existing paidAI enrollment record
+GAP video freeAI inclusion must prevent redundant AI subscription charge {"mock_provider_calls":1,"result":{"ok":true,"amount":10000}}
+PASS AI billing records remain separate program classification
+{"pass":9,"gaps":4,"unexpected_failures":0,"mock_provider_calls":1,"live_transactions":0,"reports":[{"name":"unpaid student must not consume paid AI model calls","evidence":{"http":200,"model_calls":1}},{"name":"expired student must not consume paid AI model calls","evidence":{"http":200,"model_calls":1}},{"name":"cancelled student must not consume paid AI model calls","evidence":{"http":200,"model_calls":1}},{"name":"video freeAI inclusion must prevent redundant AI subscription charge","evidence":{"mock_provider_calls":1,"result":{"ok":true,"amount":10000}}}]}

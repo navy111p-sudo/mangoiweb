@@ -203,7 +203,7 @@ if (process.env.SLS_CHILD === '1') {
   });
   const decide = (id,action='approve') => admin('POST','/api/admin/schedule-requests/decide',{id,action});
   const list = body => Array.isArray(body)?body:(body.items||body.schedules||body.sessions||[]);
-  const projections = async (label,id,date,time,tid='2',present=true) => {
+  const projections = async (label,id,date,time,tid='2',present=true,expectedRoom=null) => {
     setNow(date,time==='00:20'?'00:05':'09:00');
     const before=row(id);
     const mine=await studentCall('GET','/api/class/schedule/mine?user_id='+student);
@@ -228,11 +228,15 @@ if (process.env.SLS_CHILD === '1') {
       ok(label+': student upcoming schedule time/date correct',m[0]?.next_date===date&&m[0]?.start_time===time,JSON.stringify(m));
       ok(label+': teacher and student same timestamp',t.length===1&&s[0]?.start_ts===t[0]?.start_ts&&t[0]?.start_time===time,JSON.stringify({s,t}));
       ok(label+': admin/student/teacher same room',a.length===1&&a[0]?.room_id===s[0]?.room_id&&s[0]?.room_id===t[0]?.room_id,JSON.stringify({a,s,t}));
-      ok(label+': final room follows same schedule id + KST date',s[0]?.room_id===`class-${id}-${date.replaceAll('-','')}`,JSON.stringify(s));
+      ok(label+': final room preserves expected routing',s[0]?.room_id===(expectedRoom||`class-${id}-${date.replaceAll('-','')}`),JSON.stringify(s));
       const finalRoom=s[0]?.room_id||'';
       const studentVerify=await studentCall('GET','/api/class/verify-room?'+new URLSearchParams({room_id:finalRoom,user_id:student,role:'student'}));
       const teacherVerify=await call('GET','/api/class/verify-room?'+new URLSearchParams({room_id:finalRoom,user_id:tid,role:'teacher'}),{cookie:tid==='1'?'tok_alpha':'tok_beta'});
-      ok(label+': final room entry verification accepts student and assigned teacher',studentVerify.body.authorized===true&&studentVerify.body.resolved_role==='student'&&teacherVerify.body.authorized===true&&teacherVerify.body.resolved_role==='teacher',JSON.stringify({studentVerify,teacherVerify}));
+      if (expectedRoom?.startsWith('meet-')) {
+        ok(label+': meeting override follows existing unmanaged-room verification contract',studentVerify.body.authorized===true&&studentVerify.body.reason==='not_managed_room'&&teacherVerify.body.authorized===true&&teacherVerify.body.reason==='not_managed_room',JSON.stringify({studentVerify,teacherVerify}));
+      } else {
+        ok(label+': final managed room verifies student and assigned teacher roles',studentVerify.body.authorized===true&&studentVerify.body.resolved_role==='student'&&teacherVerify.body.authorized===true&&teacherVerify.body.resolved_role==='teacher',JSON.stringify({studentVerify,teacherVerify}));
+      }
       const teacherPage=readFileSync(join(ROOT,'cloudflare-deploy/public/teacher.html'),'utf8');
       const extract=name=>{const begin=teacherPage.indexOf('function '+name+'(');if(begin<0)throw new Error('Missing executable teacher UI '+name);const open=teacherPage.indexOf('{',begin);let depth=0;for(let i=open;i<teacherPage.length;i++){if(teacherPage[i]==='{')depth++;else if(teacherPage[i]==='}'&&--depth===0)return teacherPage.slice(begin,i+1);}throw new Error('Unclosed teacher function '+name);};
       const location={};new Function('DATA','c','location',extract('freshClass')+'\n'+extract('joinClass')+'\njoinClass(c);')({...tp.body,me:{name:tid==='1'?'ALPHA':'BETA'}},{schedule_id:id,kind:'class',room_id:`class-${id}-${originDate.replaceAll('-','')}`},location);
@@ -246,6 +250,67 @@ if (process.env.SLS_CHILD === '1') {
     ok(label+': projections did not alter schedule',JSON.stringify(row(id))===JSON.stringify(before));
   };
   const scenarios = [
+    ['Cafe24 move and future sync preserve all role projections',async()=>{
+      const { applyMirror, ensureMirrorTables } = await imp('c24-mirror.ts');
+      await ensureMirrorTables(env);
+      sq.exec(`CREATE TABLE IF NOT EXISTS teacher_payroll_auto(teacher_id TEXT,teacher_name TEXT,year INTEGER,month INTEGER);
+        INSERT INTO teacher_payroll_auto(teacher_id,teacher_name,year,month) VALUES ('37','Teacher ALPHA',2026,10),('38','Teacher BETA',2026,10);
+        INSERT OR REPLACE INTO c24_mirror_config(k,v,updated_at) VALUES ('mode','all',0);`);
+      for (const initiatingRole of ['student','admin']) {
+        reset(); const id=seed(), originId='lifecycle_'+trial+'_'+initiatingRole;
+        sq.prepare("UPDATE class_schedules SET source='c24-mirror',notes=? WHERE id=?").run('c24:'+originId,id);
+        let expectedRoom=null, overrideSnapshot=null;
+        if(initiatingRole==='admin') {
+          const code='sync-room-'+trial;
+          const assigned=await admin('PUT','/api/admin/class-schedules',{action:'room_override',schedule_id:id,room_code:code});
+          ok('Cafe24 admin: room override setup succeeds',assigned.status===200&&assigned.body.ok!==false,JSON.stringify(assigned));
+          // Overrides intentionally belong to one KST day and must not follow a date move.
+          overrideSnapshot=JSON.stringify(sq.prepare('SELECT * FROM class_room_override WHERE schedule_id=?').all(id));
+        }
+        const tid=initiatingRole==='student'?'1':'2';
+        let moved;
+        if(initiatingRole==='student') {
+          const request=await submit(id,{teacher_id:null});
+          moved=await decide(request.body.id);
+        } else {
+          moved=await admin('PATCH','/api/admin/class-schedules/move',{ids:[id],expected:{[id]:scheduleMoveVersion(row(id))},
+            patch:{scheduled_date:destDate,start_time:destTime,teacher_id:tid}});
+        }
+        ok('Cafe24 '+initiatingRole+': moved same class and claimed manual ownership',moved.status===200&&row(id).source==='c24-mirror:manual'
+          &&row(id).scheduled_date===destDate&&row(id).notes==='c24:'+originId,JSON.stringify(moved));
+        const original={class_id:originId,user_id:student,date:originDate,start_ms:kstMs(originDate,'15:00'),end_ms:kstMs(originDate,'15:20'),class_state:1,teacher_id:'37'};
+        let upstream=[original];
+        const cypher=async(_env,query,params,mode)=>{
+          if(mode!=='READ'||!query.includes('MATCH (c:Class)'))throw Error('Unexpected Cafe24 mock request');
+          const fields=['class_id','user_id','start_ms','end_ms','date','class_state','teacher_id'];
+          return {fields,values:upstream.filter(c=>c.date>=params.since&&c.date<=params.until).map(c=>fields.map(f=>c[f]))};
+        };
+        await projections('Cafe24 '+initiatingRole+' before sync',id,destDate,destTime,tid,true,expectedRoom);
+        const bounds=[originDate,destDate].sort();
+        for(let repeat=0;repeat<2;repeat++) {
+          const sync=await applyMirror(env,cypher,{since:bounds[0],until:bounds[1],dry_run:false});
+          ok('Cafe24 '+initiatingRole+': repeated source-inclusive sync does not recreate/revert/cancel',sync.applied.created===0&&sync.applied.updated===0
+            &&sync.applied.cancelled===0&&sync.errors.length===0,JSON.stringify(sync));
+        }
+        // Nonempty destination-only window: old source-preservation cancelled here.
+        upstream=[{...original,class_id:'unmapped_control',user_id:'unmapped_control',date:destDate,
+          start_ms:kstMs(destDate,'11:00'),end_ms:kstMs(destDate,'11:20')}];
+        const later=await applyMirror(env,cypher,{since:destDate,until:destDate,dry_run:false});
+        ok('Cafe24 '+initiatingRole+': later destination-only sync preserves active class',later.applied.cancelled===0&&row(id).status==='active'
+          &&sq.prepare('SELECT COUNT(*) n FROM class_schedules WHERE notes=?').get('c24:'+originId).n===1,JSON.stringify(later));
+        if(overrideSnapshot!==null)ok('Cafe24 admin: original room routing record stays unchanged through sync',
+          overrideSnapshot===JSON.stringify(sq.prepare('SELECT * FROM class_room_override WHERE schedule_id=?').all(id)));
+        await projections('Cafe24 '+initiatingRole+' after sync',id,destDate,destTime,tid,true,expectedRoom);
+        if(initiatingRole==='admin') {
+          const newCode='sync-newday-'+trial;
+          const assigned=await admin('PUT','/api/admin/class-schedules',{action:'room_override',schedule_id:id,room_code:newCode});
+          ok('Cafe24 admin: new-day override is explicitly assigned',assigned.status===200&&assigned.body.ok!==false,JSON.stringify(assigned));
+          await projections('Cafe24 admin new-day override',id,destDate,destTime,tid,true,'meet-'+newCode);
+          const originalRows=sq.prepare('SELECT * FROM class_room_override WHERE schedule_id=? AND ymd=?').all(id,originDate.replaceAll('-',''));
+          ok('Cafe24 admin: old-day override remains unchanged and is not implicitly moved',overrideSnapshot===JSON.stringify(originalRows));
+        }
+      }
+    }],
     ['student change approval across week boundary',async()=>{
       reset(); const id=seed(), original=row(id); const r=await submit(id);
       ok('student change: authenticated request pending',r.status===200&&r.body.status==='pending',JSON.stringify(r));

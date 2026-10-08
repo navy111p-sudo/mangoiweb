@@ -1,12 +1,12 @@
 /**
  * 📶 화상수업 다중 동시접속 + 네트워크 열화 E2E 하네스 (puppeteer-core)
  * -----------------------------------------------------------------------------
- * 실서버(test.mangoi.co.kr)의 격리된 하네스 전용 방(harness-net-*)에
+ * 명시적으로 준비한 localhost 전용 Sandbox의 하네스 방(harness-net-*)에
  * 가짜 카메라/마이크로 3명(교사1+학생2)을 동시 입장시켜 검증한다.
  *
  *  P1) 다중 동시 접속: 3자 메시(mesh) 전원 P2P connected + 입장→연결 소요시간 측정
  *  P2) 미디어 실흐름: 각 클라이언트 framesDecoded/bytesReceived 실제 증가
- *  P3) 송신 상한 적용: maxBitrate ≤ 1.2Mbps + degradationPreference=balanced (저전력·적응 기반)
+ *  P3) 송신 상한 적용: maxBitrate ≤ 1.2Mbps + degradationPreference=maintain-framerate (저전력·적응 기반)
  *  P4) 대역 제한 생존: CDP로 학생1의 HTTP/WS 를 300kbps+400ms 로 조이고 20초 —
  *      수업(WS·P2P)이 튕기지 않는지 확인
  *      ⚠️ CDP Network.emulateNetworkConditions 는 WebRTC UDP 미디어는 조이지 못함.
@@ -17,15 +17,17 @@
  *      재협상 후 다시 connected + 프레임 재유입 확인 (이동 중 끊김 복구 경로)
  *
  * 실행:
- *   node test-harness/vc_netem_multiclient_harness.mjs
+ *   MANGOI_WEBRTC_SANDBOX=1 BASE_URL=http://127.0.0.1:8791 TEACHER_PROFILE=HOME node test-harness/vc_netem_multiclient_harness.mjs
  * 옵션(env):
- *   BASE_URL    기본 https://test.mangoi.co.kr
+ *   BASE_URL    필수 literal loopback origin (운영/원격 주소 금지)
+ *   TEACHER_PROFILE HOME 또는 OFFICE (실제 KR/PH 현장 측정이라는 뜻이 아님)
  *   CHROME_PATH 기본 C:/Program Files/Google/Chrome/Application/chrome.exe
  *   CLIENTS     기본 3 (2~4)
  */
-import puppeteer from 'puppeteer-core';
-
-const BASE = process.env.BASE_URL || 'https://test.mangoi.co.kr';
+import { requireWebrtcSandbox } from './webrtc-sandbox-guard.mjs';
+const { origin: BASE, teacherProfile: PROFILE } = requireWebrtcSandbox();
+// Validate before loading a browser dependency or starting any connection.
+const { default: puppeteer } = await import('puppeteer-core');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const CLIENTS = Math.min(4, Math.max(2, parseInt(process.env.CLIENTS || '3', 10)));
 const ROOM = 'harness-net-' + Date.now().toString(36);
@@ -89,7 +91,7 @@ const statsFn = async () => {
   return res;
 };
 
-console.log(`📶 화상수업 네트워크 내성 E2E — ${BASE}  방=${ROOM}  인원=${CLIENTS}`);
+console.log(`📶 화상수업 네트워크 내성 E2E — ${BASE}  방=${ROOM}  인원=${CLIENTS}  synthetic profile=${PROFILE}`);
 
 const browser = await puppeteer.launch({
   executablePath: CHROME,
@@ -159,7 +161,7 @@ try {
   });
   chk('비디오 sender 파라미터 조회됨', params.length > 0, JSON.stringify(params));
   chk('maxBitrate ≤ 1.2Mbps 상한 적용', params.length > 0 && params.every(x => x.br > 0 && x.br <= 1200 * 1000));
-  chk('degradationPreference=balanced', params.length > 0 && params.every(x => x.dp === 'balanced'));
+  chk('degradationPreference=maintain-framerate', params.length > 0 && params.every(x => x.dp === 'maintain-framerate'));
 
   /* ── P4) 대역 제한(300kbps+400ms) 생존 ── */
   console.log('\n[P4] 대역 제한 생존 — 학생1 HTTP/WS 300kbps·400ms 20초 (UDP 미디어는 CDP 한계로 미적용)');
