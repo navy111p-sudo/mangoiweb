@@ -82,7 +82,10 @@ function makeWorld() {
   const chips = { materials: mkEl('button'), write: mkEl('button') };
   const sel = { '#tab-pdf .pdf-controls': materials, '#tab-pdf .pdf-anno-bar': anno, '#tab-whiteboard .wb-toolbar': wb };
   for (const k of Object.keys(chips)) sel[`.mango-tool-chip[data-tool="${k}"]`] = chips[k];
-  const W = { lang: 'ko', switches: 0, portrait: true, tick: null, listeners: {} };
+  const W = { lang: 'ko', switches: 0, portrait: true, tick: null, listeners: {}, tab: 'pdf' };
+  const pdfTab = mkEl('div'), videoTab = mkEl('div');
+  pdfTab.id = 'tab-pdf'; videoTab.id = 'tab-video'; wbTab.id = 'tab-whiteboard';
+  const activeTabEl = () => wbTab.classList.contains('active') ? wbTab : (W.tab === 'video' ? videoTab : pdfTab);
   const window = {
     innerWidth: 390, innerHeight: 844,
     matchMedia: () => ({ matches: W.portrait }),
@@ -91,17 +94,20 @@ function makeWorld() {
   };
   const document = {
     readyState: 'complete',
-    querySelector: s => sel[s] || null,
+    querySelector: s => s === '.tab-panel.active' ? activeTabEl() : (sel[s] || null),
     getElementById: id => ({ 'tab-whiteboard': wbTab, 'vc-content-pane': pane })[id] || null,
     createElement: t => mkEl(t),
   };
-  const ctx = {
-    window, document,
-    setInterval: fn => { W.tick = fn; },
-    vcSwitchTab: t => { W.switches++; if (t === 'pdf') wbTab.classList.remove('active'); else if (t === 'whiteboard') wbTab.classList.add('active'); },
+  // 진짜 탭 전환 함수 — 브라우저처럼 window 와 전역이 «같은 이름» 을 보게 한다(감싸기가 둘 다에 먹도록)
+  window.vcSwitchTab = t => {
+    W.switches++;
+    if (t === 'whiteboard') wbTab.classList.add('active');
+    else { wbTab.classList.remove('active'); W.tab = t === 'video' ? 'video' : 'pdf'; }
   };
+  const ctx = { window, document, setInterval: fn => { W.tick = fn; } };
+  Object.defineProperty(ctx, 'vcSwitchTab', { get: () => window.vcSwitchTab, enumerable: true });
   vm.runInNewContext(SRC, ctx);
-  return { W, window, materials, anno, wb, wbTab, chips, bars: { materials, anno, wb } };
+  return { W, window, materials, anno, wb, wbTab, chips, bars: { materials, anno, wb }, activeTabEl };
 }
 
 function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
@@ -191,6 +197,43 @@ for (const [which, onWb, barKey] of [['materials', false, 'materials'], ['write'
   ok('⑥ 하나 열면 다른 하나는 닫힘(상호 배타)', openBars(w).length === 1 && openBars(w)[0][0] === 'anno');
 }
 
+// ── 2-1. 탭 바꿨다 돌아오면 닫혀 있음(⑦ 2026-10-08) ──────────
+for (const [which, from, to] of [['materials', 'pdf', 'whiteboard'], ['materials', 'pdf', 'video'], ['write', 'pdf', 'whiteboard'], ['write', 'pdf', 'video'], ['write', 'whiteboard', 'pdf'], ['write', 'whiteboard', 'video']]) {
+  const w = makeWorld();
+  w.window.vcSwitchTab(from);
+  w.window.mangoToggleToolDock(which);
+  const tag = `${which}@${from}→${to}`;
+  ok(`⑦ 전제: 열림 ${tag}`, openBars(w).length === 1);
+  w.window.vcSwitchTab(from);   // 같은 탭 다시 → 그대로
+  ok(`⑦ 같은 탭 재선택은 안 닫음 ${tag}`, openBars(w).length === 1);
+  w.window.vcSwitchTab(to);
+  ok(`⑦ 다른 탭으로 가면 닫힘 ${tag}`, openBars(w).length === 0, openBars(w).map(x => x[0]).join(','));
+  w.window.vcSwitchTab(from);   // 돌아옴
+  w.W.tick && w.W.tick();
+  ok(`⑦ 돌아와도 닫혀 있음 ${tag}`, openBars(w).length === 0, openBars(w).map(x => x[0]).join(','));
+  ok(`⑦ 칩 화살표 ▾ ${tag}`, / ▾$/.test(w.chips[which].textContent));
+  // 다시 열 수 있다
+  w.window.mangoToggleToolDock(which);
+  ok(`⑦ 돌아와서 다시 열림 ${tag}`, openBars(w).length === 1);
+}
+// 탭이 vcSwitchTab 말고 다른 길로 바뀌어도(클래스 직접) 틱이 닫는다
+{
+  const w = makeWorld();
+  w.window.mangoToggleToolDock('materials');
+  w.wbTab.classList.add('active');
+  w.W.tick && w.W.tick();
+  ok('⑦ 다른 경로로 탭이 바뀌어도 다음 틱에 닫힘', openBars(w).length === 0);
+}
+// 다른 칩을 누르면(교재 탭 전환을 지나도) 새 창은 열린다
+{
+  const w = makeWorld();
+  w.window.vcSwitchTab('whiteboard');
+  w.window.mangoToggleToolDock('write');
+  w.window.mangoToggleToolDock('materials');
+  const o = openBars(w);
+  ok('⑦ 칠판 필기도구 → 교재도구 누르면 교재도구가 열림', o.length === 1 && o[0][0] === 'materials', o.map(x => x[0]).join(','));
+}
+
 // ── 3. 무작위 조작 수백 번 × 여러 시드 ─────────────────────────
 let totalOps = 0;
 for (const seed of SEEDS) {
@@ -198,7 +241,8 @@ for (const seed of SEEDS) {
   const w = makeWorld();
   const stale = new Set();
   for (let i = 0; i < ITER; i++) {
-    const op = Math.floor(r() * 9);
+    const op = Math.floor(r() * 10);
+    const tabBefore = w.activeTabEl().id; const openBefore = openBars(w).length;
     let name = '';
     if (op === 0) { name = 'toggle-materials'; stale.clear(); w.window.mangoToggleToolDock('materials'); }
     else if (op === 1) { name = 'toggle-write'; stale.clear(); w.window.mangoToggleToolDock('write'); }
@@ -220,8 +264,9 @@ for (const seed of SEEDS) {
         ok(`닫힌 상태에서 닫기는 무해 (seed ${seed} #${i})`, openBars(w).length === 0);
       }
     }
-    else if (op === 3) { name = 'to-whiteboard'; w.wbTab.classList.add('active'); }
-    else if (op === 4) { name = 'to-pdf'; w.wbTab.classList.remove('active'); }
+    else if (op === 3) { name = 'to-whiteboard'; w.window.vcSwitchTab('whiteboard'); }
+    else if (op === 4) { name = 'to-pdf'; w.window.vcSwitchTab('pdf'); }
+    else if (op === 9) { name = 'to-video'; w.window.vcSwitchTab('video'); }
     else if (op === 5) {
       name = 'rerender';
       const keys = ['materials', 'anno', 'wb'];
@@ -239,6 +284,11 @@ for (const seed of SEEDS) {
     }
     else if (op === 7) { name = 'lang'; stale.clear(); w.W.lang = w.W.lang === 'en' ? 'ko' : 'en'; w.W.listeners['mangoi:lang-changed'] && w.W.listeners['mangoi:lang-changed'](); }
     else { name = 'resize'; w.W.portrait = !w.W.portrait; w.W.listeners.resize && w.W.listeners.resize(); }
+    if (op === 3 || op === 4 || op === 9) {
+      const changed = w.activeTabEl().id !== tabBefore;
+      if (changed) ok(`⑦ 탭 바꾸면 창이 닫힘 ${tabBefore}→${w.activeTabEl().id} (seed ${seed} #${i})`, openBars(w).length === 0, openBars(w).map(x => x[0]).join(','));
+      else if (openBefore) ok(`⑦ 같은 탭이면 그대로 열림 (seed ${seed} #${i})`, openBars(w).length === openBefore);
+    }
     totalOps++;
     invariants(w, `seed ${seed} #${i} ${name}`, stale);
   }

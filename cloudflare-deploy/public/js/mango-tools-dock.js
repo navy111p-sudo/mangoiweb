@@ -19,6 +19,12 @@
 
   // 열림 상태 기억 (클릭으로만 변경) — 기본 둘 다 닫힘
   var openState = { materials: false, write: false };
+  // 패널을 «어느 탭에서» 열었나 (2026-10-08 사장님 「탭 바꿨다 돌아오면 창 닫히게」)
+  var openedTab = null;
+  function activeTab() {
+    var t = document.querySelector('.tab-panel.active');
+    return t ? (t.id || null) : null;
+  }
 
   function setAttr(el, name, value) {
     value = String(value);
@@ -123,6 +129,7 @@
 
   // 모든 도구 패널 닫기 (탭 전환·화면 모드 변경 없이 닫기만)
   window.mangoCloseToolDock = function () {
+    openedTab = null;
     openState.materials = false;
     openState.write = false;
     applyMaterialsState();
@@ -199,12 +206,36 @@
     openState.materials = false;
     openState.write = false;
     openState[which] = willOpen;
+    openedTab = willOpen ? activeTab() : null;
     applyMaterialsState();
     applyWriteState();
   };
 
+  // 🔁 탭을 바꾸면(교재↔칠판↔동영상↔게임…) 열려 있던 도구 창을 닫는다 — 돌아와도 닫힌 채.
+  //   예전엔 openState 가 남아 있어 교재 탭으로 돌아오면 창이 다시 튀어나와 화면을 덮었다.
+  //   ⚠️ 탭이 «실제로» 바뀌었을 때만(같은 탭으로 vcSwitchTab 을 다시 불러도 안 닫음).
+  //   ⛔ mangoToggleToolDock 안의 vcSwitchTab('pdf') 도 여기를 지나지만, 그 직후 새 상태를 정하므로 무해.
+  function closeIfTabChanged() {
+    if (!openState.materials && !openState.write) return;
+    var cur = activeTab();
+    if (openedTab && cur && cur !== openedTab) window.mangoCloseToolDock();
+  }
+  try {
+    var _origSwitch = window.vcSwitchTab;
+    if (typeof _origSwitch === 'function' && !_origSwitch.__dockTabWrapped) {
+      var wrapped = function () {
+        var r = _origSwitch.apply(this, arguments);
+        try { closeIfTabChanged(); } catch (_) {}
+        return r;
+      };
+      wrapped.__dockTabWrapped = true;
+      window.vcSwitchTab = wrapped;
+    }
+  } catch (_) {}
+
   // 동적 재렌더에도 클릭 없이는 열리지 않도록 상태 강제
   function enforce() {
+    try { closeIfTabChanged(); } catch (_) {}
     ensureClose(pdfControls());
     ensureClose(pdfAnnoBar());
     ensureClose(wbToolbar());
