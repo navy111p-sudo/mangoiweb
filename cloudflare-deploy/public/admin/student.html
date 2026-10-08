@@ -345,6 +345,13 @@
   .mgs-in .tc{font-weight:800;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
   @container (max-width:130px){ .mgs-in .f,.mgs-in .src{display:none} .mgs-in .s{display:inline} }
   @container (max-width:66px){ .mgs-in .tc{display:none} .mgs-in{flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;padding:0 1px;font-size:8.5px;letter-spacing:-.3px;line-height:1.05} }
+  /* 👤 (2026-10-08 사장님 «주간 캘린더 카드에도 교사 이름») 주간 카드는 한 줄이라 강사 이름이
+     1500px 에서 «Te…»(24px), 1280px 이하에서는 통째로 숨었다(실측). 주간만 «종류·시각 / 강사» 두 줄로 —
+     출처 이름표(.src)는 툴팁에 있으니 주간 카드에서는 뺀다. 아주 좁은 칸(폰)은 «시각 / 강사» — 종류는 색이 말한다. */
+  .mgs-ev.mgs-w .mgs-in{flex-wrap:wrap;align-content:center;row-gap:0;line-height:1.05}
+  .mgs-ev.mgs-w .mgs-in .src{display:none}
+  .mgs-ev.mgs-w .mgs-in .tc{flex:0 0 100%;max-width:100%;font-size:10px}
+  @container (max-width:66px){ .mgs-ev.mgs-w .mgs-in .s{display:none} .mgs-ev.mgs-w .mgs-in .tc{display:block;flex:none;font-size:8.5px} }
 
 /* 📅 (2026-10-01 사장님 «B안») 등록된 수업 스케줄 — 다음 수업 · 묶음 · 앞으로 날짜 칩.
    ⚠️ 이 화면은 adm-light-theme.css 로 «밝은» 테마다 — 글자·배경을 밝은 값으로 준다
@@ -3598,7 +3605,7 @@ function renderDSchedWeek() {
       const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
       const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
       const when = sch.scheduled_date ? (sch.scheduled_date + ' ') : '';
-      html += '<div class="' + mgsSchCls(sch) + '" style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;z-index:3" data-mgs-sch="1" title="' + mgsSrcLabel(sch) + ' / ' + colors.name + ' / ' + teacherLabel(sch) + ' / ' + when + sch.start_time + (sch.status==='postponed'?' / 연기':'') + '">' +
+      html += '<div class="' + mgsSchCls(sch) + ' mgs-w" style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;z-index:3" data-mgs-sch="1" title="' + mgsSrcLabel(sch) + ' / ' + colors.name + ' / ' + teacherLabel(sch) + ' / ' + when + sch.start_time + (sch.status==='postponed'?' / 연기':'') + '">' +
         mgsSchInner(sch, colors, sch.start_time) + '</div>';
     }
   }
