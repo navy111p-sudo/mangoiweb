@@ -550,7 +550,9 @@ function lite(i: any) {
   return { date: i.date, start: i.start, minutes: i.duration_min, schedule_id: i.schedule_id, state: i.state,
     label_ko: (LEDGER_STATES as any)[i.state]?.ko, label_en: (LEDGER_STATES as any)[i.state]?.en,
     deduct: !!i.deduct, unit_krw: i.unit_krw, charge_krw: i.charge_krw, hold: i.hold || null,
-    on_leave: !!i.on_leave, holiday: !!i.holiday, pending_postpone: i.pending_postpone || null, start_ms: i.start_ms };
+    on_leave: !!i.on_leave, holiday: !!i.holiday, pending_postpone: i.pending_postpone || null, start_ms: i.start_ms,
+    // 👩‍🏫 (2026-10-08) 담당 강사 «이름» 만 — 원장(session-ledger-load)이 정본 loadTeacherNameOf 로 붙인 값. 번호·아이디는 안 싣는다.
+    teacher_name: i.teacher_name || null };
 }
 /** 학원이 보는 화면 묶음. ⛔ 학생 «아이디» 는 싣지 않는다(이 서비스에서 아이디 = 로그인 수단). */
 export async function shopView(env: Env, shop: string, opts: { withUid?: boolean } = {}) {

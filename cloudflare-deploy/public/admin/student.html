@@ -1769,7 +1769,7 @@ function renderClasses(){
   $('classBox').innerHTML = '<table class="list"><thead><tr><th>'+t('thDay')+'</th><th>'+t('thRoom')+'</th><th>'+t('thIn')+'</th><th>'+t('thOut')+'</th><th>'+t('thDuration')+'</th><th>'+t('thActive')+'</th><th>'+t('thRatio')+'</th><th>'+t('thDC')+'</th><th>'+t('thFocusCol')+'</th><th>'+t('thStatus')+'</th></tr></thead><tbody>'+
     sessions.slice(0,100).map(s=>`<tr>
       <td>${esc(s.date)}</td>
-      <td><a href="javascript:void(0)" onclick="showRoom('${esc(s.room_id)}')">${esc(s.room_id)}</a></td>
+      <td><a href="javascript:void(0)" onclick="showRoom('${esc(s.room_id)}')">${esc(s.room_id)}</a>${s.teacher_name?'<div class="sess-tch" style="font-size:11px;opacity:.8;margin-top:2px">'+t('thTeacher')+' '+esc(s.teacher_name)+'</div>':''}</td>
       <td>${fmtDate(s.joined_at)}</td>
       <td>${s.left_at?fmtDate(s.left_at):'—'}</td>
       <td>${fmtMs(s.total_session_ms)}</td>
