@@ -12676,39 +12676,48 @@ LIMIT $limit`;
         const prevStatus = String(prevRow.status || '');
         const src = 'adm-enroll:' + id;
         const now = Date.now();
-        if (b.status === 'cancelled' && prevStatus !== 'cancelled') {
-          /* ⛔ 강사는 신청을 취소할 수 없다 — 이제 취소가 «수업 종료» 이고 수업은 곧 급여다.
-             못 물어보면 막는 쪽으로 실패한다. */
-          let _cActor: any = null;
+        /* ⛔ 취소(=수업 종료)·되살리기(=수업 다시 열기)는 둘 다 수업 행을 바꾼다 — 수업은 곧 급여라
+           본사 전용. 판정은 정본 enrollAdminHqOnly(스코프를 다시 읽고 못 읽으면 막음) — 여기서 복제하지 않는다.
+           이 경로는 TEACHER_BLOCKED_PREFIXES 에 없어 핸들러가 직접 막아야 한다. */
+        const _touchesClasses = (b.status === 'cancelled') !== (prevStatus === 'cancelled');
+        let _cActor: any = null;
+        if (_touchesClasses) {
+          const deny = await enrollAdminHqOnly(request, env);
+          if (deny) return deny;
           try { _cActor = await getAdminActor(request, env as any); } catch {}
-          if (!_cActor || _cActor.ok === false || _cActor.isTeacher) {
-            return json({ ...forbiddenTeacherBody(_cActor, '수강신청 취소(수업 종료)는 본사·관리자만 할 수 있습니다.'), detail: '수강신청 취소(수업 종료)는 본사·관리자만 할 수 있습니다.' }, 403);
-          }
+        }
+        const _actorName = (_cActor && (_cActor.name || _cActor.username)) || '관리자';
+        if (b.status === 'cancelled' && prevStatus !== 'cancelled') {
           /* ⚠️ 수업 목록을 못 읽으면 신청 상태도 안 바꾼다 — «취소됐는데 수업은 살아 있는» 상태를 만들지 않는다. */
           let rows: any[];
           try {
-            const rs = await env.DB.prepare(`SELECT id, scheduled_date, start_time, status FROM class_schedules WHERE source = ? AND status != 'cancelled'`).bind(src).all();
+            const rs = await env.DB.prepare(`SELECT id, scheduled_date, start_time, status FROM class_schedules WHERE source = ? AND status = 'active'`).bind(src).all();
             rows = (rs.results || []) as any[];
           } catch (e: any) {
             return json({ ok: false, error: 'schedule_lookup_failed', detail: String(e?.message || e) }, 503);
           }
           const plan = pickClassesToEnd(rows, now);
-          const stmts: any[] = plan.end.map((sid) =>
-            env.DB.prepare(`UPDATE class_schedules SET status='cancelled', updated_at=? WHERE id=? AND status!='cancelled'`).bind(now, sid));
-          stmts.push(env.DB.prepare(`UPDATE enrollments SET status = ?, cancelled_class_ids = ?, updated_at = ? WHERE id = ?`)
-            .bind('cancelled', JSON.stringify(plan.end), now, id));
-          await env.DB.batch(stmts);
+          /* 수업 UPDATE 한 문장(json_each — 바인드 1개, 건수 무관) + 신청 UPDATE 를 한 batch 로: 둘 다 되거나 둘 다 안 된다. */
+          const _ids = JSON.stringify(plan.end);
+          try {
+            await env.DB.batch([
+              env.DB.prepare(`UPDATE class_schedules SET status='cancelled', updated_at=? WHERE source = ? AND status = 'active' AND id IN (SELECT value FROM json_each(?))`).bind(now, src, _ids),
+              env.DB.prepare(`UPDATE enrollments SET status = ?, cancelled_class_ids = ?, updated_at = ? WHERE id = ?`).bind('cancelled', _ids, now, id),
+            ]);
+          } catch (e: any) {
+            return json({ ok: false, error: 'cancel_failed', message: '취소하지 못했습니다(수업·신청 모두 그대로입니다). 잠시 뒤 다시 눌러 주세요.', message_en: 'Could not cancel (classes and enrollment unchanged). Please try again.', detail: String(e?.message || e) }, 503);
+          }
           if (plan.end.length) {
             try {
               await writeClassAudit(env, {
                 action: 'remove', student_name: prevRow.student_name || null,
-                actor: _cActor.name || _cActor.username || '관리자', actor_role: 'admin', source: 'enrollment',
+                actor: _actorName, actor_role: 'admin', source: 'enrollment',
                 reason: '수강신청 취소 → 남은 수업 종료',
                 detail: JSON.stringify({ enrollment_id: id, ended: plan.end, past_kept: plan.past }),
               });
             } catch {}
           }
-          _stRes = { ended_classes: plan.end.length, ended_weekly: plan.weekly, past_kept: plan.past };
+          _stRes = { ended_classes: plan.end.length, weekly_left: plan.weekly, past_kept: plan.past };
         } else {
         await env.DB.prepare(`UPDATE enrollments SET status = ?, updated_at = ? WHERE id = ?`).bind(b.status, now, id).run();
         }
@@ -12737,6 +12746,16 @@ LIMIT $limit`;
                 if (upd && upd.meta && upd.meta.changes > 0) restored++; else skipped++;
               }
               await env.DB.prepare(`UPDATE enrollments SET cancelled_class_ids = NULL WHERE id = ?`).bind(id).run();
+              if (restored) {
+                try {
+                  await writeClassAudit(env, {
+                    action: 'restore', student_name: prevRow.student_name || null,
+                    actor: _actorName, actor_role: 'admin', source: 'enrollment',
+                    reason: '수강신청 취소 되돌리기 → 수업 되살림',
+                    detail: JSON.stringify({ enrollment_id: id, restored, skipped }),
+                  });
+                } catch {}
+              }
             } catch (e: any) {
               console.warn('[enrollments] 취소 되돌리기 중 수업 복구 실패:', e?.message || e);
               restoreFailed = true;

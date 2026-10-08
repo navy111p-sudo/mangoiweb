@@ -7,11 +7,16 @@
  * [규칙 — 이 파일이 정본. 라우트는 «부르기만» 한다]
  *   · 내리는 것: 아직 «안 지난» 수업만.
  *       - 날짜가 있는 수업: 오늘(KST) 이후, 또는 오늘인데 시작 시각이 아직 안 된 것
- *       - 날짜가 없는 매주 반복 줄: 내린다(신청 취소 = 앞으로의 매주 수업도 끝)
+ *       - ⛔ 날짜가 없는 매주 반복 줄은 내리지 않는다 — 급여가 반복 행을 «그 달 모든 해당 요일» 로
+ *         펼치므로(api-admin.ts 급여 계산), 그 행 하나를 cancelled 로 바꾸면 이번 달 이미 가르친
+ *         회차까지 급여에서 빠진다. 건수만 세어 «스케줄 탭에서 따로» 라고 화면이 말한다.
+ *       - ⛔ status 가 'active' 인 수업만 — 'postponed' 등은 안 건드린다(되살릴 때 원래 상태를 잃는다).
  *   · ⛔ 지난 수업은 안 건드린다 — 이미 한 수업을 cancelled 로 바꾸면 출석·급여 근거가 흔들린다.
  *   · ⛔ 날짜·시각을 못 읽는 행은 «지난 것» 으로 보고 안 내린다(모르면 안 바꾼다).
  *   · 되살리기(취소를 되돌림): 이번 취소가 내린 수업 중 «날짜가 있고 아직 안 지난» 것만.
- *       매주 반복 줄은 되살리지 않는다(날짜가 없어 겹침 확인을 할 수 없다 — 시간표에서 다시 등록).
+ *       (매주 반복 줄은 애초에 안 내리므로 되살릴 것도 없다.)
+ *   · ⚠️ 되살리지 못한 수업은 «수강신청 확정» 을 다시 눌러도 안 생긴다 — enroll-activate.ts 의
+ *     멱등 확인이 취소된 행도 «이미 만들어짐» 으로 센다. 스케줄에서 손으로 다시 넣어야 한다.
  * ═══════════════════════════════════════════════════════════════════════ */
 
 export interface CascadeRow {
@@ -48,11 +53,11 @@ export function pickClassesToEnd(rows: CascadeRow[], nowMs: number): { end: numb
   const end: number[] = [];
   let past = 0, weekly = 0;
   for (const r of rows || []) {
-    if (!r || String(r.status || '') === 'cancelled') continue;
+    if (!r || String(r.status || '') !== 'active') continue;
     const id = Number(r.id);
     if (!Number.isFinite(id) || id <= 0) continue;
     const up = isUpcoming(r, nowMs);
-    if (up === null) { weekly++; end.push(id); }
+    if (up === null) weekly++;            // 매주 반복 줄 — 안 내린다(급여)
     else if (up) end.push(id);
     else past++;
   }

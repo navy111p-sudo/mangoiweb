@@ -10339,8 +10339,8 @@ async function setEnrollmentStatus(id, status) {
   // 되돌리기 어려운 쪽만 확인 — 취소는 오탭 한 번에 그대로 넘어가던 자리였다
   if (status === 'cancelled') {
     const msg = en
-      ? ('Cancel this enrollment' + (name ? ' — ' + name : '') + '?\nThe classes it booked that have not happened yet will be ended too (past classes stay as they are).\nThe student account stays. You can undo with «↩ Reopen».')
-      : ('이 수강신청을 «취소» 처리할까요' + (name ? ' — ' + name : '') + '?\n이 신청으로 잡힌 수업 중 아직 안 지난 수업도 함께 종료됩니다(지난 수업은 그대로).\n학생 계정은 그대로 남고, «↩ 되살리기» 로 되돌릴 수 있습니다.');
+      ? ('Cancel this enrollment' + (name ? ' — ' + name : '') + '?\nThe classes it booked that have not happened yet will be ended too (past classes stay as they are; weekly repeating rows must be ended in the student’s Schedule tab).\nThe student account stays. You can undo with «↩ Reopen».')
+      : ('이 수강신청을 «취소» 처리할까요' + (name ? ' — ' + name : '') + '?\n이 신청으로 잡힌 수업 중 아직 안 지난 수업도 함께 종료됩니다(지난 수업은 그대로 · 매주 반복 줄은 학생 «스케줄» 탭에서 따로).\n학생 계정은 그대로 남고, «↩ 되살리기» 로 되돌릴 수 있습니다.');
     if (!confirm(msg)) return;
   }
   const r = await fetch('/api/admin/enrollments/'+id, {method:'PATCH',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({status})});
@@ -10350,6 +10350,7 @@ async function setEnrollmentStatus(id, status) {
   let extra = '';
   if (d.ended_classes != null) {
     extra = en ? (' · ' + d.ended_classes + ' upcoming class(es) ended') : (' · 남은 수업 ' + d.ended_classes + '건 종료');
+    if (d.weekly_left) extra += en ? (' · ' + d.weekly_left + ' weekly row(s) left — end them in the Schedule tab') : (' · 매주 반복 ' + d.weekly_left + '줄은 그대로 — 스케줄 탭에서 따로 종료');
   } else if (d.restore_failed) {
     extra = en ? ' · ⚠ could not restore the classes — re-add them in the schedule' : ' · ⚠ 수업을 되살리지 못했습니다 — 스케줄에서 다시 넣어 주세요';
   } else if (d.restored_classes != null) {
