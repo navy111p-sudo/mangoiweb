@@ -66,7 +66,9 @@ for (const vp of VPS) {
 
   let seed = vp.width * 7 + 13;
   const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  let tabPrev = await p.evaluate(() => (document.querySelector('.tab-panel.active') || {}).id);
   for (let i = 0; i < ITER; i++) {
+    if (i) tabPrev = await p.evaluate(() => (document.querySelector('.tab-panel.active') || {}).id);
     const op = Math.floor(rnd() * 7);
     let name;
     if (op === 0) { name = 'toggle-materials'; await p.evaluate(() => mangoToggleToolDock('materials')); }
@@ -77,10 +79,16 @@ for (const vp of VPS) {
     else { name = 'click-close'; }
     await p.waitForTimeout(op === 4 ? 400 : 120);
     let st = await state();
+    if (op === 2 || op === 3) {
+      const tabNow = await p.evaluate(() => (document.querySelector('.tab-panel.active') || {}).id);
+      if (tabNow !== tabPrev) ok(`[${vp.width}x${vp.height} #${i} ${name}] 탭 바뀜 → 창 모두 닫힘`, Object.values(st).every(x => !x.open), tabPrev + '→' + tabNow);
+      tabPrev = tabNow;
+    }
     const tag = `[${vp.width}x${vp.height} #${i} ${name}]`;
     for (const [k, o] of Object.entries(st)) {
       ok(`${tag} ${k} 버튼 최대 1개`, o.n <= 1, o.n);
-      if (o.open && !o.shown) { hiddenTab++; continue; }
+      // 2026-10-08: 탭을 바꾸면 창을 닫으므로 «숨은 탭에 열린 창» 은 0 이어야 한다
+      if (o.open && !o.shown) { hiddenTab++; ok(`${tag} 숨은 탭에 열린 ${k} 창이 없음(탭 바꾸면 닫힘)`, false); continue; }
       if (o.open) {
         ok(`${tag} 열린 ${k} 에 버튼 보임`, o.n === 1 && o.visible, JSON.stringify(o));
         if (o.visible) {
