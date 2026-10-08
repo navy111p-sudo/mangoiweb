@@ -3598,7 +3598,7 @@ function renderDSchedWeek() {
       const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
       const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
       const when = sch.scheduled_date ? (sch.scheduled_date + ' ') : '';
-      html += '<div class="' + mgsSchCls(sch) + '" style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;z-index:3" data-mgs-sch="1" title="' + mgsSrcLabel(sch) + ' / ' + colors.name + ' / ' + teacherLabel(sch) + ' / ' + when + sch.start_time + (sch.status==='postponed'?' / 연기':'') + '">' +
+      html += '<div class="' + mgsSchCls(sch) + '" style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;z-index:3" data-mgs-sch="1" data-mgs-move="' + mgsYmd(days[i]) + '|' + sch.id + '" role="button" tabindex="0" title="' + mgsSrcLabel(sch) + ' / ' + colors.name + ' / ' + teacherLabel(sch) + ' / ' + when + sch.start_time + (sch.status==='postponed'?' / 연기':'') + '">' +
         mgsSchInner(sch, colors, sch.start_time) + '</div>';
     }
   }
@@ -3670,7 +3670,7 @@ function renderDSchedMonth() {
         const ac = mgsAiColors(sch);
         const at = mgsSchedTime(sch);
         const aWhen = at ? (String(at.hh).padStart(2,'0') + ':' + String(at.mm).padStart(2,'0')) : (sch.start_time || '');
-        html += '<div class="' + mgsSchCls(sch) + ' mgs-m" data-mgs-sch="1" title="' + mgsSrcLabel(sch) + ' / ' + ac.name + ' / ' + teacherLabel(sch) + ' / ' + (sch.scheduled_date ? sch.scheduled_date + ' ' : ((typeof _lang!=='undefined'&&_lang==='en')?'Weekly ':'매주 ')) + aWhen + (sch.status==='postponed'?((typeof _lang!=='undefined'&&_lang==='en')?' / Postponed':' / 연기'):'') + '">' + mgsSchInner(sch, ac, aWhen) + '</div>';
+        html += '<div class="' + mgsSchCls(sch) + ' mgs-m" data-mgs-sch="1" data-mgs-move="' + mgsYmd(c.date) + '|' + sch.id + '" role="button" tabindex="0" title="' + mgsSrcLabel(sch) + ' / ' + ac.name + ' / ' + teacherLabel(sch) + ' / ' + (sch.scheduled_date ? sch.scheduled_date + ' ' : ((typeof _lang!=='undefined'&&_lang==='en')?'Weekly ':'매주 ')) + aWhen + (sch.status==='postponed'?((typeof _lang!=='undefined'&&_lang==='en')?' / Postponed':' / 연기'):'') + '">' + mgsSchInner(sch, ac, aWhen) + '</div>';
       }
     }
     html += '</div>';
@@ -3835,7 +3835,11 @@ function mgsOnceInfo(scheduledDate, todayYmd) {
      ⛔ 그런데도 창을 열어 «연기했습니다» 를 보게 하지 말 것 — 그 날 수업이 그대로 열린다.
      ✅ 그 날짜 칩에서는 사실대로 말하고 «매주 변경»(요일·시각을 앞으로 모두) 만 준다.
    [수업 종류] class_type 이 정규가 아니면 칩에 글자를 붙인다(보강·체험·레벨테스트). 정규는 묶음 줄이 말한다.
-   [취소] 이 카드에서는 연기·변경만 준다(2026-10-01 사장님 「취소는 빼고」). */
+   [취소] (2026-10-08 매니저·사장님 「학생목록·오늘 수업·스케줄 캘린더 모두 연기/변경/취소」) — 2026-10-01 의
+     「취소는 빼고」를 뒤집었다. 다만 «취소» 는 본사 계정에게만 준다(서버 DELETE 가 지사·대리점에 403 —
+     mgsuMeRole() 이 /api/admin/me 로 역할을 확인하고, 모르면 안 준다).
+   [매주 수업 그날만] 같은 날(2026-10-08) — 매주 줄도 «연기·변경·취소» 를 누르면 창이 먼저
+     «날짜별로 나누기»(본사 전용) 를 하고 그 날만 처리한다(js/class-move-modal.js mvSplitFirst). */
 var MGSU_DAYS = 14;
 /* ⚠️ 종류 색은 «옅은 바탕 + 진한 글자» 로 둔다 — 진한 바탕(#2563eb 등)을 주면 js/adm-light-surfaces.js 가
       «어두운 면» 으로 보고 바탕을 밝게 덮어 색이 사라진다(2026-10-01 PC 화면 실측: 보강·정규가 같은 색이 됐다). */
@@ -4024,15 +4028,16 @@ function mgsuOpenAct(key) {
     /* 공용 창은 모드를 미리 골라 받지 않는다 — 버튼을 둘로 나눠도 같은 창이 열리므로 하나로 둔다.
        ⚠️ 그 창의 «변경(앞으로 계속)» 은 같은 요일·시각의 뒤 회차도 함께 옮긴다 — «다른 날은 그대로» 라고 말하지 않는다. */
     act.innerHTML = '<div class="mgsu-act">' + head
-      + '<div class="btns"><button type="button" class="mgsu-btn" data-mgsu-move="' + esc(key) + '">⏸ ' + (en ? 'Postpone' : '연기') + ' · ✏️ ' + (en ? 'Change' : '변경') + '</button></div>'
+      + '<div class="btns"><button type="button" class="mgsu-btn" data-mgsu-move="' + esc(key) + '">⏸ ' + (en ? 'Postpone' : '연기') + ' · ✏️ ' + (en ? 'Change' : '변경') + ' · ✕ ' + (en ? 'Cancel' : '취소') + '</button></div>'
       + '<div class="n">' + (en ? 'Choose in the window — Postpone = this class only (pick a new date now or later). Change (from now on) = this class and every later class at the same weekday/time.'
                                : '창에서 고릅니다 — 연기 = 이 회차만(새 날짜는 지금 고르거나 나중에). 변경(앞으로 계속) = 이 회차부터 같은 요일·시각 수업 «전부».') + '</div></div>';
   } else {
     act.innerHTML = '<div class="mgsu-act">' + head
-      + '<div class="btns"><button type="button" class="mgsu-btn" data-mgsu-split="' + esc(String(sch.id)) + '">📅 ' + (en ? 'Split into dated classes' : '날짜별로 나누기') + '</button>'
+      + '<div class="btns"><button type="button" class="mgsu-btn" data-mgsu-move="' + esc(key) + '">⏸ ' + (en ? 'Postpone' : '연기') + ' · ✏️ ' + (en ? 'Change' : '변경') + ' · ✕ ' + (en ? 'Cancel' : '취소') + ' — ' + (en ? 'this date' : '이 날만') + '</button>'
+      + '<button type="button" class="mgsu-btn" data-mgsu-split="' + esc(String(sch.id)) + '">📅 ' + (en ? 'Split into dated classes' : '날짜별로 나누기') + '</button>'
       + '<button type="button" class="mgsu-btn" data-mgsu-series="' + esc(String(sch.id)) + '">✏️ ' + (en ? 'Change weekly' : '매주 변경') + '</button></div>'
-      + '<div class="n">' + (en ? 'This is a weekly class, so one date cannot be postponed yet. «Split into dated classes» makes one class per date (until the enrollment end, or 12 weeks) — then each date can be postponed or changed on its own.'
-                               : '매주 반복 수업이라 지금은 «이 날 하나만» 연기할 수 없습니다. «날짜별로 나누기» 를 누르면 날짜마다 수업이 한 줄씩 생겨(수강 종료일까지, 없으면 12주) 그날만 연기·변경할 수 있습니다.') + '</div></div>';
+      + '<div class="n">' + (en ? 'This is a weekly class. «Postpone · Change · Cancel — this date» first splits it into dated classes (until the enrollment end, or 12 weeks; HQ accounts), then handles only this date.'
+                               : '매주 반복 수업입니다. «연기·변경·취소 — 이 날만» 을 누르면 먼저 날짜별 수업으로 나눈 뒤(수강 종료일까지, 없으면 12주 · 본사 계정) 이 날 수업만 처리합니다.') + '</div></div>';
   }
 }
 
@@ -4040,25 +4045,53 @@ function mgsuOpenAct(key) {
 function mgsuLoadMoveModal(cb) {
   if (window.mangoiMoveModal) { cb(); return; }
   var sc = document.createElement('script');
-  sc.src = '/js/class-move-modal.js?v=4';
+  sc.src = '/js/class-move-modal.js?v=5';
   sc.onload = function () { if (window.mangoiMoveModal) cb(); else alert(mgsuEn() ? 'Could not open the window. Reload and try again.' : '연기·변경 창을 열지 못했습니다. 새로고침 후 다시 눌러 주세요.'); };
   sc.onerror = function () { alert(mgsuEn() ? 'Could not open the window. Reload and try again.' : '연기·변경 창을 열지 못했습니다. 새로고침 후 다시 눌러 주세요.'); };
   document.head.appendChild(sc);
 }
+/* 👤 (2026-10-08) 이 화면에는 신원 정본(js/adm-identity.js)이 안 실린다(관리자 화면 «창» 안에서 열린다).
+   «취소»·«매주 수업 나누기» 는 본사 전용이라 /api/admin/me 로 역할을 한 번 묻는다.
+   ⛔ 모르면(실패·응답 이상) 본사로 보지 않는다 — 버튼을 안 주는 쪽으로 실패(서버가 최종 판정). */
+var _mgsuMe = null;
+function mgsuMeRole(cb) {
+  if (_mgsuMe) { cb(_mgsuMe); return; }
+  fetch('/api/admin/me', { credentials: 'include' })
+    .then(function (r) { return r.json().catch(function () { return null; }); })
+    .then(function (j) {
+      var role = (j && j.role) ? String(j.role) : '';
+      var u = (j && j.user) || {};
+      _mgsuMe = { role: role, name: u.name || u.username || '', hq: !!role && ['teacher', 'franchise', 'branch', 'agency'].indexOf(role) < 0 };
+      cb(_mgsuMe);
+    })
+    .catch(function () { cb({ role: '', name: '', hq: false }); });
+}
+/** 날짜 칩·캘린더 카드 공용 — «그 날» 의 연기·변경·취소 창. 날짜 수업·매주 수업 모두. */
 function mgsuOpenMove(key) {
+  var en = mgsuEn();
   var p = String(key || '').split('|'), ymd = p[0], id = Number(p[1]);
-  var sch = _mgsuItems.filter(function (x) { return Number(x.id) === id; })[0];
-  if (!sch || !String(sch.scheduled_date || '').slice(0, 10)) return;   // ⛔ 반복 줄은 여기로 안 온다(위 설명)
+  var sch = _mgsuItems.filter(function (x) { return Number(x.id) === id; })[0]
+         || (_dSchedState.aiSchedules || []).filter(function (x) { return Number(x.id) === id; })[0];
+  if (!sch || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return;
   var hm = mgsuHm(sch);
-  var row = {
-    schedule_id: sch.id, start_ts: mgsuKstMs(ymd, hm), start_time: hm,
-    student_name: sch.student_name || '', student_uid: sch.user_id || '',
-    teacher_name: (sch.teacher_name || ''), can_move: true
-  };
+  var dated = !!String(sch.scheduled_date || '').slice(0, 10);
+  var d0 = new Date(Number(ymd.slice(0, 4)), Number(ymd.slice(5, 7)) - 1, Number(ymd.slice(8, 10)));
+  if (mgsuEnded({ ymd: ymd, dow: d0.getDay(), sch: sch, hm: hm }, Date.now())) { alert(en ? 'This class has already ended.' : '이미 끝난 수업입니다.'); return; }
+  if (dated && String(sch.status || '') === 'postponed') { alert(en ? 'This class is already postponed. Set its new date in “By weekday” below.' : '이미 연기된 수업입니다. 새 날짜는 아래 «요일별 보기» 에서 정하세요.'); return; }
+  var mirror = /^c24-mirror/.test(String(sch.source || ''));
+  if (!dated && mirror) { alert(en ? 'A cafe24 weekly class is changed in cafe24.' : '카페24 매주 수업은 카페24에서 바꿔 주세요.'); return; }
+  mgsuMeRole(function (me) {
+    var row = {
+      schedule_id: sch.id, start_ts: mgsuKstMs(ymd, hm), start_time: hm,
+      student_name: sch.student_name || '', student_uid: sch.user_id || '',
+      teacher_name: (sch.teacher_name || ''), can_move: dated,
+      can_split: !dated && !mirror && me.hq === true
+    };
+    if (!dated && !row.can_split) { alert(en ? 'Splitting a weekly class (to change one date) is done by an HQ account.' : '매주 수업을 «이 날만» 바꾸는 것(날짜별로 나누기)은 본사 계정에서 합니다.'); return; }
   mgsuLoadMoveModal(function () {
     window.mangoiMoveModal.open(row, {
-      day: ymd, isEn: mgsuEn, canCancel: false,
-      me: { name: (window.__ADM_ME && (window.__ADM_ME.name || window.__ADM_ME.username)) || '' },
+      day: ymd, isEn: mgsuEn, canCancel: me.hq === true,
+      me: { name: me.name || (window.__ADM_ME && (window.__ADM_ME.name || window.__ADM_ME.username)) || '' },
       onClose: function (changed) {
         if (!changed) return;
         _mgsuSel = '';
@@ -4066,6 +4099,7 @@ function mgsuOpenMove(key) {
         try { if (typeof loadDStudentSchedule === 'function') loadDStudentSchedule(); } catch (_) {}
       }
     });
+  });
   });
 }
 /* «매주 변경» — 요일별 보기를 펼치고 그 줄의 변경 편집기를 연다(이미 있는 openReschedule 그대로). */
@@ -4088,6 +4122,9 @@ document.addEventListener('click', function (e) {
   if (occ) { var k = occ.getAttribute('data-mgsu-occ'); _mgsuSel = (_mgsuSel === k) ? '' : k; mgsuRender(); return; }
   var mv = t.closest('[data-mgsu-move]');
   if (mv) { mgsuOpenMove(mv.getAttribute('data-mgsu-move')); return; }
+  /* 📅 (2026-10-08 «스케줄 캘린더에서도 연기·변경·취소») 캘린더의 예약 카드를 누르면 «그 날» 창이 바로 열린다. */
+  var cm = t.closest('[data-mgs-move]');
+  if (cm) { mgsuOpenMove(cm.getAttribute('data-mgs-move')); return; }
   var se = t.closest('[data-mgsu-series]');
   if (se) { mgsuOpenSeries(se.getAttribute('data-mgsu-series')); return; }
   var sp = t.closest('[data-mgsu-split]');

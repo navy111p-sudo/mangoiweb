@@ -112,15 +112,37 @@ export function kstToday(nowMs = Date.now()): string {
   return new Date(nowMs + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
-export interface SplitResult { ok: boolean; error?: string; plan: SplitPlan; made: number; existing: string[]; skipped: string[]; cancelled: boolean }
+export interface SplitResult { ok: boolean; error?: string; plan: SplitPlan; made: number; existing: string[]; skipped: string[]; cancelled: boolean; focus_date?: string | null; focus_id?: number | null }
 
-/** 실행. dry 면 아무것도 안 쓴다. 새 줄이 하나도 안 생기면 원본을 내리지 않는다. */
-export async function runScheduleSplit(env: any, id: number, opts: { dry: boolean; actor: string; today?: string }): Promise<SplitResult> {
+/** 📅 (2026-10-08 매니저 요청 «오늘 수업·학생 목록·캘린더 모두에서 연기·변경·취소») — «그 날» 의 날짜 수업 id.
+    나눈 뒤(또는 이미 있던) 같은 학생·같은 시각·그 날짜의 살아 있는 행. 못 찾으면 null(지어내지 않는다). */
+export async function findFocusRowId(env: any, row: any, focusDate: string): Promise<number | null> {
+  if (!row || !YMD.test(String(focusDate || ''))) return null;
+  try {
+    const r: any = await env.DB.prepare(
+      `SELECT id FROM class_schedules WHERE user_id = ? AND start_time = ? AND scheduled_date = ? AND status = 'active'
+        ORDER BY id DESC LIMIT 1`
+    ).bind(row.user_id, row.start_time, focusDate).first();
+    return r && Number(r.id) > 0 ? Number(r.id) : null;
+  } catch (e) {
+    console.warn('[schedule-split] focus lookup:', (e as any)?.message);
+    return null;
+  }
+}
+
+/** 실행. dry 면 아무것도 안 쓴다. 새 줄이 하나도 안 생기면 원본을 내리지 않는다.
+ *  focusDate 를 주면 ⛔ 그 날짜가 나눌 범위(plan.dates)에 «없을 때» 아무것도 쓰지 않고 거절한다
+ *  (나눴는데 정작 그 날 수업이 없으면 «연기하려던 수업» 을 못 찾는다). */
+export async function runScheduleSplit(env: any, id: number, opts: { dry: boolean; actor: string; today?: string; focusDate?: string | null }): Promise<SplitResult> {
   const row: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first();
   const today = opts.today || kstToday();
   const plan = planScheduleSplit(row, today, row ? await findEnrollmentEnd(env, row) : null);
-  const base: SplitResult = { ok: plan.ok, error: plan.reason, plan, made: 0, existing: [], skipped: [], cancelled: false };
+  const focus = opts.focusDate && YMD.test(String(opts.focusDate)) ? String(opts.focusDate) : null;
+  const base: SplitResult = { ok: plan.ok, error: plan.reason, plan, made: 0, existing: [], skipped: [], cancelled: false, focus_date: focus, focus_id: null };
   if (!plan.ok || !plan.dates.length) return { ...base, ok: false, error: plan.reason || 'no_dates' };
+  if (opts.focusDate != null && opts.focusDate !== '' && (!focus || !plan.dates.includes(focus))) {
+    return { ...base, ok: false, error: 'focus_not_in_plan' };
+  }
 
   const ex: any = await env.DB.prepare(
     `SELECT scheduled_date FROM class_schedules WHERE user_id = ? AND start_time = ? AND status = 'active'
@@ -129,7 +151,10 @@ export async function runScheduleSplit(env: any, id: number, opts: { dry: boolea
   const have = new Set((ex?.results || []).map((x: any) => String(x.scheduled_date).slice(0, 10)));
   const todo = plan.dates.filter(d => !have.has(d));
   base.existing = plan.dates.filter(d => have.has(d));
-  if (opts.dry) return base;
+  if (opts.dry) {
+    if (focus && have.has(focus)) base.focus_id = await findFocusRowId(env, row, focus);
+    return base;
+  }
 
   const now = Date.now();
   const note = (row.notes ? String(row.notes) + ' · ' : '') + '매주 수업 #' + id + ' 을 날짜별로 나눔';
@@ -145,5 +170,6 @@ export async function runScheduleSplit(env: any, id: number, opts: { dry: boolea
   if (base.made + base.existing.length === 0) return { ...base, ok: false, error: 'nothing_created' };
   await env.DB.prepare(`UPDATE class_schedules SET status='cancelled', updated_at=? WHERE id=? AND status='active'`).bind(now, id).run();
   base.cancelled = true;
+  if (focus) base.focus_id = await findFocusRowId(env, row, focus);
   return base;
 }

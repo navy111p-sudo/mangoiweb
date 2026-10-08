@@ -3552,6 +3552,13 @@ export async function handleAdminApi(
              🔴 반복(매주) 수업에 «취소» 를 허용하면 **그 주만이 아니라 모든 주가 죽는다**
                 (class_schedules 한 행이 매주를 뜻하므로). 그래서 화면이 아예 안 준다. */
           can_move: !!s.scheduled_date,
+          /* 📅 (2026-10-08 매니저 「매니저는 그날만 연기할 수 있나? 아무 때나 연기하게 해줘」)
+             매주 반복 줄도 «날짜별로 나누기»(src/schedule-split.ts) 를 먼저 하면 그 날 하나만 옮길 수 있다.
+             연기·변경 창(js/class-move-modal.js)이 이 칸이 참일 때만 «나눈 뒤 처리» 를 준다.
+             ⛔ 나누기는 본사 전용(enrollAdminHqOnly)이라 지사·대리점에는 안 준다(«눌러도 403 나는 버튼» 금지).
+             ⛔ 카페24 미러 행은 나누지 않는다(미러가 다시 만든다 — planScheduleSplit 과 같은 판정). */
+          can_split: !s.scheduled_date && !String(s.source || '').startsWith('c24-mirror')
+            && (_ctScope.type === 'hq' || _ctScope.type === 'none'),
           is_level_test: /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
         });
       }
@@ -7438,7 +7445,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const dry = body.dry_run !== false;
       const actor = await getAdminActor(request, env as any);
       try {
-        const r = await runScheduleSplit(env, id, { dry, actor: actor.username || actor.name || 'admin' });
+        /* 📅 (2026-10-08) focus_date — 「오늘 수업·학생 목록·캘린더」 의 연기·변경·취소 창이 매주 수업을
+           «그 날 하나만» 다루려고 먼저 나눌 때 보낸다. 응답 focus_id 가 그 날의 날짜 수업 id 다. */
+        const r = await runScheduleSplit(env, id, { dry, actor: actor.username || actor.name || 'admin', focusDate: body.focus_date != null ? String(body.focus_date) : null });
         if (!dry && r.cancelled) {
           await writeClassAudit(env, {
             action: 'split', schedule_id: id,
