@@ -798,7 +798,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="sgrp-h" data-en="Settlement &amp; stats" data-ko="정산통계관리">Settlement &amp; stats</div>
   <div class="sgrp">
     <button type="button" onclick="sideGo('c-trend')"><span class="ic">📊</span><span data-en="30-day trend" data-ko="30일 추이">30-day trend</span></button>
-    <button type="button" onclick="sideGo('c-settle')"><span class="ic">💰</span><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></button>
+    <button type="button" id="sideSettle" onclick="sideGo('c-settle')"><span class="ic">💰</span><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></button>
     <button type="button" id="sideTuition" onclick="sideGo('c-tuition')" hidden><span class="ic">💳</span><span data-en="Tuition payment" data-ko="수업료 결제">Tuition payment</span></button>
     <button type="button" id="sideAibill" onclick="sideGo('c-aibill')" hidden><span class="ic">🧾</span><span data-en="AI usage invoice" data-ko="AI 사용료 청구서">AI usage invoice</span></button>
   </div>
@@ -1644,6 +1644,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (_tui) _tui.hidden = (sc.type !== 'agency');
     var _sTui = document.getElementById('sideTuition');
     if (_sTui) _sTui.hidden = (sc.type !== 'agency');
+    // 💰 (2026-10-08 사장님) 지사 · 대리점별 정산은 대리점 계정에는 필요 없다 → 카드·사이드바 둘 다 감춘다.
+    var _stl = document.getElementById('c-settle');
+    if (_stl) _stl.hidden = (sc.type === 'agency');
+    var _sStl = document.getElementById('sideSettle');
+    if (_sStl) _sStl.hidden = (sc.type === 'agency');
     // 🏢 본사 매니저면 전용 카드를 켠다. 판정은 이미 받은 exec/summary 의 scope 로 한다(추가 요청 0).
     //    ⚠️ 화면을 켜는 것뿐이고 권한은 서버가 정한다 — 여기 값을 고쳐도 API 는 안 열린다.
     IS_HQ = (sc.type === 'hq');
