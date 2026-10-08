@@ -4052,7 +4052,7 @@ function mgsuOpenAct(key) {
 function mgsuLoadMoveModal(cb) {
   if (window.mangoiMoveModal) { cb(); return; }
   var sc = document.createElement('script');
-  sc.src = '/js/class-move-modal.js?v=6';
+  sc.src = '/js/class-move-modal.js?v=7';
   sc.onload = function () { if (window.mangoiMoveModal) cb(); else alert(mgsuEn() ? 'Could not open the window. Reload and try again.' : '연기·변경 창을 열지 못했습니다. 새로고침 후 다시 눌러 주세요.'); };
   sc.onerror = function () { alert(mgsuEn() ? 'Could not open the window. Reload and try again.' : '연기·변경 창을 열지 못했습니다. 새로고침 후 다시 눌러 주세요.'); };
   document.head.appendChild(sc);

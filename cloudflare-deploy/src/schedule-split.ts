@@ -56,17 +56,6 @@ export interface SplitPlan {
   until?: string;
   until_source?: 'enrollment' | 'default';
   dates: string[];
-  /** 💰 (2026-10-08) 지난 회차 — 지난달 1일(또는 starts_on)부터 어제까지. 급여가 매주 줄을
-      «그 달 모든 해당 요일» 로 펼치므로, 원본을 내리면 이미 가르친 회차가 급여에서 빠진다.
-      그래서 그 날짜들도 날짜 줄로 남긴다(⛔ 지우면 나누는 순간 강사 급여가 줄어든다). */
-  past?: string[];
-}
-
-/** 지난달 1일 'YYYY-MM-01'. */
-export function prevMonthStart(today: string): string {
-  const y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7));
-  const py = m === 1 ? y - 1 : y, pm = m === 1 ? 12 : m - 1;
-  return `${py}-${String(pm).padStart(2, '0')}-01`;
 }
 
 /** 순수 함수 — DB 를 모른다. today 는 KST 'YYYY-MM-DD'. */
@@ -93,13 +82,7 @@ export function planScheduleSplit(row: any, today: string, enrollEnd: string | n
   }
   const dates: string[] = [];
   for (let d = from; d <= until; d = addDays(d, 1)) if (dows.includes(dowOf(d))) dates.push(d);
-  const past: string[] = [];
-  if (from === today) {
-    const lo0 = prevMonthStart(today);
-    const lo = YMD.test(so) && so > lo0 ? so : lo0;
-    for (let d = lo; d < today; d = addDays(d, 1)) if (dows.includes(dowOf(d))) past.push(d);
-  }
-  return { ok: true, from, until, until_source: src, dates, past };
+  return { ok: true, from, until, until_source: src, dates };
 }
 
 /** 그 수업과 같은 시각·같은 요일을 담은 «살아 있는» 수강신청의 종료일. 못 찾으면 null. */
@@ -125,11 +108,45 @@ export async function findEnrollmentEnd(env: any, row: any): Promise<string | nu
   }
 }
 
+/** 💰 (2026-10-08 함정 대조) 급여용 — 나누기가 만든 날짜 줄의 메모(«매주 수업 #ID 을 날짜별로 나눔»)에서
+    «원래 매주 줄 id → 나눈 날(KST)» 을 되찾는다. 급여는 매주 줄을 그 달 전체로 펼치는데 나누면 원본이
+    cancelled 가 되어 지난 회차가 빠진다 — 그래서 급여가 «나눈 날 이전» 회차를 원래 id 그대로 센다.
+    ⛔ 지난 회차를 새 id 로 다시 만들지 않는다: 노쇼·연기·지각·피드백이 전부 원래 id(class-{id}-날짜) 기준이다.
+    rows: { notes, created_at } — 같은 원본을 여러 번 나눴으면 «가장 이른» 날. */
+export const SPLIT_MARK = '날짜별로 나눔 @';
+
+/** 💰 급여용 — 취소된 매주 줄이 «나눈» 것이면 나눈 날(KST)을, 아니면 null.
+    ① 원본 메모의 «날짜별로 나눔 @YYYY-MM-DD»(2026-10-08 부터) ② 없으면 날짜 줄 메모로 찾은 날(그 전 나누기).
+    ⛔ 그냥 취소된 매주 줄은 null — 지난 회차를 되살리지 않는다. */
+export function splitPastDay(row: any, origins: Map<number, string>): string | null {
+  if (!row || String(row.status || '') !== 'cancelled') return null;
+  if (row.scheduled_date && String(row.scheduled_date).trim()) return null;
+  const m = String(row.notes || '').match(/날짜별로 나눔 @(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  return origins.get(Number(row.id)) || null;
+}
+
+export function splitOriginsFromNotes(rows: any[]): Map<number, string> {
+  const out = new Map<number, string>();
+  for (const r of rows || []) {
+    const all = String(r?.notes || '').match(/매주 수업 #(\d+) 을 날짜별로 나눔/g);
+    if (!all || !all.length) continue;
+    const m = all[all.length - 1].match(/#(\d+)/);
+    const id = m ? Number(m[1]) : 0;
+    const t = Number(r?.created_at);
+    if (!(id > 0) || !(t > 0)) continue;
+    const day = kstToday(t);
+    const prev = out.get(id);
+    if (!prev || day < prev) out.set(id, day);
+  }
+  return out;
+}
+
 export function kstToday(nowMs = Date.now()): string {
   return new Date(nowMs + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
-export interface SplitResult { ok: boolean; error?: string; plan: SplitPlan; made: number; existing: string[]; skipped: string[]; cancelled: boolean; focus_date?: string | null; focus_id?: number | null; backfilled?: number }
+export interface SplitResult { ok: boolean; error?: string; plan: SplitPlan; made: number; existing: string[]; skipped: string[]; cancelled: boolean; focus_date?: string | null; focus_id?: number | null }
 
 /** 📅 (2026-10-08 매니저 요청 «오늘 수업·학생 목록·캘린더 모두에서 연기·변경·취소») — «그 날» 의 날짜 수업 id.
     나눈 뒤(또는 이미 있던) 같은 학생·같은 시각·그 날짜의 살아 있는 행. 못 찾으면 null(지어내지 않는다). */
@@ -161,14 +178,12 @@ export async function runScheduleSplit(env: any, id: number, opts: { dry: boolea
     return { ...base, ok: false, error: 'focus_not_in_plan' };
   }
 
-  const past = plan.past || [];
   const ex: any = await env.DB.prepare(
     `SELECT scheduled_date FROM class_schedules WHERE user_id = ? AND start_time = ? AND status = 'active'
        AND scheduled_date BETWEEN ? AND ?`
-  ).bind(row.user_id, row.start_time, past.length ? past[0] : plan.from, plan.until).all();
+  ).bind(row.user_id, row.start_time, plan.from, plan.until).all();
   const have = new Set((ex?.results || []).map((x: any) => String(x.scheduled_date).slice(0, 10)));
   const todo = plan.dates.filter(d => !have.has(d));
-  const pastTodo = past.filter(d => !have.has(d));
   base.existing = plan.dates.filter(d => have.has(d));
   if (opts.dry) {
     if (focus && have.has(focus)) base.focus_id = await findFocusRowId(env, row, focus);
@@ -187,16 +202,10 @@ export async function runScheduleSplit(env: any, id: number, opts: { dry: boolea
   (res as any[]).forEach((x, i) => { if (Number(x?.meta?.changes || 0) > 0) base.made++; else base.skipped.push(todo[i]); });
 
   if (base.made + base.existing.length === 0) return { ...base, ok: false, error: 'nothing_created' };
-  // 💰 지난 회차를 날짜 줄로 남긴 «뒤에» 원본을 내린다 — 순서를 바꾸면 그 사이 급여 계산이 회차를 잃는다.
-  base.backfilled = 0;
-  if (pastTodo.length) {
-    const pNote = note + ' (지난 회차 — 급여 유지용)';
-    const pres = await env.DB.batch(pastTodo.map(d => stmt.bind(
-      row.user_id, row.student_name || null, row.class_type || 'regular', d, row.start_time,
-      row.duration_min || 20, row.teacher_id || null, row.source || 'schedule_split', opts.actor, now, pNote)));
-    (pres as any[]).forEach(x => { if (Number(x?.meta?.changes || 0) > 0) base.backfilled!++; });
-  }
-  await env.DB.prepare(`UPDATE class_schedules SET status='cancelled', updated_at=? WHERE id=? AND status='active'`).bind(now, id).run();
+  /* 💰 원본에 «나눈 날» 을 적는다 — 급여가 그 날 «이전» 회차를 원래 id 로 계속 센다(splitPastDay).
+     새 날짜 줄이 하나도 안 생겨도(전부 이미 있던 날) 남아야 해서 «원본» 에 적는다. */
+  await env.DB.prepare(`UPDATE class_schedules SET status='cancelled', updated_at=?, notes = COALESCE(notes,'') || ? WHERE id=? AND status='active'`)
+    .bind(now, ' · ' + SPLIT_MARK + today, id).run();
   base.cancelled = true;
   if (focus) base.focus_id = await findFocusRowId(env, row, focus);
   return base;
