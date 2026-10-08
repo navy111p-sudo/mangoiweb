@@ -151,13 +151,67 @@ check('⑥ vcOutBoost 를 «타일을 음소거하기 전» 에 켠다 (순서)'
     set(0.5);  check('⑦ 50% 를 저장하고 그대로 읽는다', get() === 0.5, '읽은 값 ' + get());
     set(2.5);  check('⑦ 100% 를 넘는 값도 저장한다 (여기서 1 로 깎으면 증폭이 통째로 죽는다)', get() === 2.5, '읽은 값 ' + get());
     set(99);   check('⑦ 상한 밖은 상한으로 자른다', get() === win.vcOutputVolumeMax, '읽은 값 ' + get());
-    set(-5);   check('⑦ 음수는 0 으로 자른다', get() === 0, '읽은 값 ' + get());
+    set(-5);   check('⑦ 음수는 하한(10%)으로 자른다 — 0 이면 그 기기는 다음 수업까지 무음', get() === win.vcOutputVolumeMin && get() > 0, '읽은 값 ' + get());
+    set(0);    check('⑦ 0% 도 하한으로 자른다 (class-4586 — 저장된 0 이 모든 수업을 무음으로)', get() > 0, '읽은 값 ' + get());
     const before = get(); set('abc');
     check('⑦ 숫자가 아니면 값을 바꾸지 않는다', get() === before, '읽은 값 ' + get());
     store['mangoi_vc_out_vol'] = 'zzz';
     check('⑦ 저장값이 깨져 있으면 원래 소리(1)로 읽는다', get() === 1, '읽은 값 ' + get());
+    store['mangoi_vc_out_vol'] = '0';
+    check('⑦ 불러온 «뒤» 에 0 이 들어와도(다른 탭) 원래 소리(1)로 읽는다', get() === 1, '읽은 값 ' + get());
   }
 }
+
+/* ── ⑨ (2026-10-09 class-4586) 저장된 «0%» 가 다음 수업까지 무음을 끌고 가지 않는가 ──
+   파일을 실제로 실행해 «불러오는 순간» 키가 지워지는지 본다. idx-main.js 의 vcOutVol() 은 같은 키를
+   직접 읽으므로 «읽을 때만 1 로 보기» 로는 그쪽이 0 을 다시 넣는다 — 키가 «지워졌는가» 로 묻는다. */
+const minAttr = Number((sliderTag.match(/min="(\d+)"/) || [])[1]);
+check('⑨ 슬라이더 하한이 0 이 아니다 (왼쪽 끝 = 영구 무음)', minAttr >= 10, 'min=' + minAttr);
+function runWith(stored, AC) {
+  const store = {}; if (stored !== undefined) store['mangoi_vc_out_vol'] = stored;
+  const els = [{ volume: 1, muted: false, srcObject: { getAudioTracks: () => [{ id: 't1' }] }, closest: () => null }];
+  const win = { localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } },
+    addEventListener() {}, AudioContext: AC, webkitAudioContext: undefined };
+  const doc = { readyState: 'complete', body: { classList: { contains: () => false } }, addEventListener() {}, getElementById: () => null, querySelectorAll: () => els };
+  const c = vm.createContext({ window: win, document: doc, localStorage: win.localStorage,
+    MediaStream: function () {}, MutationObserver: function () { this.observe = () => {}; this.disconnect = () => {}; },
+    setTimeout, clearTimeout, console: { log() {}, warn() {} }, parseFloat, isFinite, Math, Promise });
+  c.globalThis = c;
+  vm.runInContext(vol, c, { timeout: 3000 });
+  return { store, win, els };
+}
+for (const [raw, want] of [['0', null], ['0.0', null], ['0.05', null], ['0.1', '0.1'], ['0.5', '0.5'], ['1', '1'], ['2.5', '2.5']]) {
+  let r = null; try { r = runWith(raw); } catch (e) { console.log('       실행 실패: ' + e.message); }
+  const got = r ? (('mangoi_vc_out_vol' in r.store) ? r.store['mangoi_vc_out_vol'] : null) : 'CRASH';
+  check('⑨ 저장값 ' + raw + ' → 불러온 뒤 ' + (want === null ? '지워짐(=100%)' : '그대로 ' + want), got === want, '남은 값 ' + got);
+}
+{ let r = null; try { r = runWith(undefined); } catch (e) {}
+  check('⑨ 저장값이 없으면 아무것도 안 쓴다 (짝)', r && !('mangoi_vc_out_vol' in r.store)); }
+
+/* ── ⑩ 증폭 중 엔진이 멈추면 «원래 경로» 로 되돌아가는가 (가짜 AudioContext 로 실제 실행) ── */
+await (async () => {
+  let inst = null;
+  function FakeAC() { inst = this; this.state = 'suspended'; this.destination = {}; this.onstatechange = null;
+    const node = () => ({ connect() {}, disconnect() {}, gain: { value: 1 }, threshold: {}, knee: {}, ratio: {}, attack: {}, release: {} });
+    this.createMediaStreamSource = node; this.createGain = node; this.createDynamicsCompressor = node;
+    this.resume = () => { this.state = 'running'; return Promise.resolve(); }; }
+  let r = null; try { r = runWith('2', FakeAC); } catch (e) { console.log('       실행 실패: ' + e.message); }
+  if (!r) { check('⑩ 가짜 엔진으로 실행된다', false); return; }
+  r.win.vcSetOutputVolume(2);
+  await new Promise(res => setTimeout(res, 20));
+  check('⑩ 전제: 200% 에서 증폭이 켜지고 타일은 음소거된다', r.win.vcOutBoost === true && r.els[0].muted === true, 'boost=' + r.win.vcOutBoost + ' muted=' + r.els[0].muted);
+  let ensured = 0; r.win.vcEnsureRemoteAudio = () => { ensured++; r.els[0].muted = false; };
+  inst.state = 'suspended';
+  check('⑩ 엔진에 상태 감시가 붙어 있다', typeof inst.onstatechange === 'function');
+  try { inst.onstatechange && inst.onstatechange(); } catch (e) {}
+  check('⑩ 엔진이 멈추면 증폭을 끈다', r.win.vcOutBoost === false);
+  check('⑩ 엔진이 멈추면 타일 음소거를 푼다 (안 풀면 수업 끝까지 무음)', r.els[0].muted === false && ensured >= 1, 'muted=' + r.els[0].muted + ' ensured=' + ensured);
+  check('⑩ 그때 소리 크기는 원래 소리(100%)', r.els[0].volume === 1, 'volume=' + r.els[0].volume);
+  inst.state = 'running';
+  try { inst.onstatechange && inst.onstatechange(); } catch (e) {}
+  await new Promise(res => setTimeout(res, 400));
+  check('⑩ 엔진이 다시 돌면 증폭을 다시 건다 (짝)', r.win.vcOutBoost === true, 'boost=' + r.win.vcOutBoost);
+})();
 
 /* ── ⑧ 첫 화면 예산 — defer 로만 붙는다 ──────────────────────────────────── */
 const tag = (html.match(/<script[^>]*idx-vc-outputvolume\.js[^>]*>/) || [''])[0];
