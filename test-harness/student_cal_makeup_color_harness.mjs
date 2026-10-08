@@ -35,6 +35,15 @@ ok('강사: 이름은 이스케이프된다', !/<b>x<\/b>/.test(inner({ class_ty
 ok('강사 짝: AI 배정 행은 이름 대신 «확인 필요»', /<span class="tc">확인 필요/.test(inner({ class_type: 'regular', teacher_name: 'FAR', source: 'ai_auto' })));
 ok('강사 짝: 강사가 없으면 «미배정»', /<span class="tc">미배정<\/span>/.test(inner({ class_type: 'regular' })));
 ok('CSS: 아주 좁은 칸(≤66px)에서는 강사를 감춘다', /@container \(max-width:66px\)\{ \.mgs-in \.tc\{display:none\}/.test(src));
+/* 👤 (2026-10-08 «주간 캘린더 카드에도 교사 이름») 주간 카드는 .mgs-w 를 달고, 좁은 칸에서도 강사를 «다시» 보인다.
+   짝: 월간 카드(.mgs-m)는 그 클래스를 안 단다 — 주간만의 두 줄 배치다. */
+{
+  const wk = funcAt(src, 'renderDSchedWeek'), mo = funcAt(src, 'renderDSchedMonth');
+  ok('주간: 예약 카드에 mgs-w 를 단다', /mgsSchCls\(sch\) \+ ' mgs-w"/.test(wk));
+  ok('짝: 월간 카드에는 mgs-w 가 없다', mo.length > 200 && !/mgs-w/.test(mo));
+  ok('CSS: 주간 카드는 좁은 칸(≤66px)에서도 강사를 보인다', /@container \(max-width:66px\)\{[^}]*\}\s*\.mgs-ev\.mgs-w \.mgs-in \.tc\{display:block/.test(src));
+  ok('CSS: 주간 카드에서 강사는 두 번째 줄(폭 100%)', /\.mgs-ev\.mgs-w \.mgs-in \.tc\{flex:0 0 100%/.test(src));
+}
 ok('CSS 에 보라 테두리 색이 있다', /\.mgs-ev\.mgs-makeup\{--mc:#6d28d9\}/.test(src));
 ok('범례에 보강수업 칸이 있다', /class="mgs-ev mgs-makeup"[^>]*><\/span>\s*<span data-ko="보강수업" data-en="Make-up">/.test(src));
 console.log(`결과: PASS ${pass} / FAIL ${fail}`);
