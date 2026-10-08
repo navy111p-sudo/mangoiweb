@@ -9892,7 +9892,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         var isLT=(c.class_type==='level_test');   // 레벨테스트 수업은 한눈에 구분되게
         return '<div class="cal-chip" title="'+calEsc((calEn()?'Class #':'수업 #')+c.id+' · '+(c.start_time||'')+' '+who+(tch?(' · '+tch):'')+' · '+(c.class_type||''))+'"'
           +' style="background:'+(isLT?'#e0f2fe':'#dcfce7')+';color:'+(isLT?'#075985':'#166534')+';border:1px solid '+(isLT?'#7dd3fc':'#86efac')+'">'
-          +(isLT?'📝 ':'')+calEsc(c.start_time||'')+' '+who+'</div>';
+          +(isLT?'📝 ':'')+calEsc(c.start_time||'')+' '+who
+          /* (2026-10-08 사장님 «아직 안 되어 있는 곳에 강사 이름») 툴팁에만 있던 강사를 칸에도 — 폰은 hover 가 없다. */
+          +(tch?('<span style="opacity:.85"> · '+tch+'</span>'):'')+'</div>';
       }).join(''):'';
       var dowCls=cur.getDay()===0?' cal-sun':cur.getDay()===6?' cal-sat':'';html+='<div class="cal-cell'+(inM?'':' cal-out')+(iso===today?' cal-today':'')+'" data-date="'+iso+'"><div class="cal-date'+dowCls+'">'+cur.getDate()+'</div>'+chips+ltChips+clsChips+'</div>';
       cur.setDate(cur.getDate()+1);
