@@ -136,6 +136,7 @@
       setAttr(bar, 'data-mango-dock-open', openState.materials);
       var collapsed = bar.classList.contains('ph49-collapsed');
       if (openState.materials) {
+        ensureClose(bar);
         if (collapsed) bar.classList.remove('ph49-collapsed');
         positionDockEl(bar, 'materials');
       } else {
@@ -160,7 +161,7 @@
       }
       // 칠판 도구바는 접힘(ph49) 로직을 쓰지 않는다 — 내부 버튼 항상 노출
       if (wb.classList.contains('ph49-collapsed')) wb.classList.remove('ph49-collapsed');
-      if (wbShow) positionDockEl(wb, 'write');
+      if (wbShow) { ensureClose(wb); positionDockEl(wb, 'write'); }
     }
 
     // PDF 주석 도구바 — 필기도구가 열려 있고 '칠판이 아닌' 탭(=교재)일 때만 표시
@@ -169,6 +170,7 @@
       setAttr(anno, 'data-mango-dock-open', annoShow);
       var collapsed = anno.classList.contains('ph49-collapsed');
       if (annoShow) {
+        ensureClose(anno);
         if (collapsed) anno.classList.remove('ph49-collapsed');
         positionDockEl(anno, 'write');
       } else {
