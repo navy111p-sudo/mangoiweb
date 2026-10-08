@@ -29,6 +29,9 @@ import { MIRROR_SOURCE, MIRROR_SOURCE_MANUAL } from './c24-mirror';
 import { DEFAULT_CLASS_MINUTES } from './class-policy';
 import { writeClassAudit } from './class-audit';
 import { END_MAKEUP_MARK_SQL } from './end-makeup';
+import { oneWeekEligible, prepareRecurringOneWeek } from './recurring-one-week';   // 🔁 반복 수업 «그 주 하루만»(2026-10-09)
+import { ensureStartsOnColumn } from './class-start-date';
+import { kstToday } from './schedule-split';
 
 export const AUTO_POSTPONE_DECIDER = '자동승인(학생 연기·변경)';
 
@@ -43,7 +46,7 @@ export function autoApplyMode(env: any): 'all' | 'free_postpone' | 'off' {
 }
 
 /** 순수 판정 — «자동 승인을 시도해도 되는 요청인가». 하니스가 경계값을 넣어 돌린다. */
-export function autoPostponeEligible(row: any, cs: any, mode: 'all' | 'free_postpone' | 'off' = 'all'): string | null {
+export function autoPostponeEligible(row: any, cs: any, mode: 'all' | 'free_postpone' | 'off' = 'all', today: string = kstToday()): string | null {
   if (mode === 'off') return 'auto_off';
   if (!row) return 'request_not_found';
   if (row.status !== 'pending') return 'not_pending';
@@ -56,7 +59,15 @@ export function autoPostponeEligible(row: any, cs: any, mode: 'all' | 'free_post
     if (String(row.end_makeup ?? '').trim()) return 'end_makeup';
   }
   if (!cs) return 'schedule_not_found';
-  if (!cs.scheduled_date) return 'recurring';
+  /* 🔁 (2026-10-09) 반복 수업은 «그 주 하루만» 으로 반영할 수 있을 때만 — 판정 정본은 recurring-one-week.ts.
+     못 하면(회차 날짜 없음·겹칠 일 아님·이미 지난 날 등) 'recurring_<사유>' 로 «대기» 에 남긴다. */
+  if (!cs.scheduled_date) {
+    const w = oneWeekEligible(row, cs, today);
+    if (w) return 'recurring_' + w;
+    const tid = String(row.new_teacher_id ?? '').trim();
+    if (tid && tid !== String(cs.teacher_id ?? '') && (!/^\d+$/.test(tid) || !(row.new_date && row.new_time))) return 'teacher_change_invalid';
+    return null;
+  }
   if (['cancelled', 'ended', 'completed'].includes(String(cs.status || ''))) return 'schedule_not_movable';
   if (!row.schedule_snapshot || row.schedule_snapshot !== scheduleMoveVersion(cs)) return 'schedule_changed';
   const isMirror = String(cs.source || '') === MIRROR_SOURCE;
@@ -74,20 +85,34 @@ export function autoPostponeEligible(row: any, cs: any, mode: 'all' | 'free_post
 export async function autoApproveStudentPostpone(env: any, requestId: number | null): Promise<AutoPostponeResult> {
   if (!requestId) return { applied: null, reason: 'no_request_id' };
   try {
+    await ensureStartsOnColumn(env);   // ⏭ skip_dates 칸이 «읽기 전» 에 있어야 guard 스냅샷이 맞는다
     const row: any = await env.DB.prepare(`SELECT * FROM schedule_change_requests WHERE id = ? LIMIT 1`).bind(requestId).first();
     const cs: any = row && row.schedule_id
       ? await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(row.schedule_id).first()
       : null;
-    const why = autoPostponeEligible(row, cs, autoApplyMode(env));
+    const now = Date.now();
+    const why = autoPostponeEligible(row, cs, autoApplyMode(env), kstToday(now));
     if (why) return { applied: null, reason: why };
 
-    const now = Date.now();
     const scheduleUpdatedAt = Math.max(now, (Number(cs.updated_at) || 0) + 1);
     const guards = await prepareScheduleRequestGuards(env, row, cs);
     const mutations: any[] = [];
     let applied: 'moved' | 'postponed';
 
-    if (row.request_scope === WEEKLY_POSTPONE) {
+    if (!cs.scheduled_date) {
+      /* 🔁 반복 수업 — 그 날짜 하나만 빠지고, 새 일시면 하루짜리 줄·없으면 '연기' 기록 줄(recurring-one-week.ts). */
+      const wantTid = String(row.new_teacher_id ?? '').trim();
+      let tid: string | null = null;
+      if (wantTid && wantTid !== String(cs.teacher_id ?? '')) {
+        const tr: any = await env.DB.prepare(`SELECT name FROM teachers WHERE CAST(id AS TEXT) = ? AND COALESCE(active,1) = 1 LIMIT 1`).bind(wantTid).first();
+        if (!tr) { return { applied: null, reason: 'teacher_not_found' }; }   // 반복 갈래 — 퇴사 강사로는 안 옮김
+        tid = wantTid;
+      }
+      const ow = await prepareRecurringOneWeek(env, row, cs, now, { teacherId: tid, actor: 'student-auto' });
+      if (!ow.ok || !ow.applied) return { applied: null, reason: ow.error || 'one_week_failed' };
+      mutations.push(...ow.mutations);
+      applied = ow.applied;
+    } else if (row.request_scope === WEEKLY_POSTPONE) {
       const weekly = await prepareWeeklyPostpone(env, row, cs, now);
       if (!weekly.ok) return { applied: null, reason: weekly.error || 'weekly_failed' };
       mutations.push(...weekly.mutations);

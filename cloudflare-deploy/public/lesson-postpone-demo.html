@@ -1780,8 +1780,8 @@ function renderBody(){
   lpSegHome(); // 본문 초기화 전, 탭(segment)을 안전한 위치로 회수
   var leftHtml = '<div class="lp-col-left"><div class="lp-seg-slot"></div>'
                + (__MOB_REAL ? (state.mode === 'postpone'
-                   ? '<h2>수업 연기</h2><p>' + __mobT('연기할 수업 «하나» 를 고르고 원하는 날짜·시간 또는 선생님을 선택하세요. 고른 수업만 신청되고, 시간표에 바로 반영됩니다(매주 반복 수업·겹치는 시간은 관리자가 확인 후 반영).', 'Pick one class, then choose a new date/time or another teacher. Only the classes you pick change, and your timetable updates right away (weekly classes or clashes are checked by staff first).') + '</p>'
-                   : '<h2>수업 변경</h2><p>변경할 수업을 고르고 희망 날짜·시간·교사를 선택하세요. 시간표에 바로 반영됩니다(매주 반복 수업·겹치는 시간은 관리자가 확인 후 반영).</p>') : renderCurrentLesson()) + renderWeekly() + '</div>';
+                   ? '<h2>수업 연기</h2><p>' + __mobT('연기할 수업 «하나» 를 고르고 원하는 날짜·시간 또는 선생님을 선택하세요. 고른 수업만 신청되고, 시간표에 바로 반영됩니다(매주 반복 수업은 고른 그 주만 바뀌어요 · 겹치는 시간은 관리자가 확인 후 반영).', 'Pick one class, then choose a new date/time or another teacher. Only the classes you pick change, and your timetable updates right away (a weekly class changes for that week only · clashes are checked by staff first).') + '</p>'
+                   : '<h2>수업 변경</h2><p>변경할 수업을 고르고 희망 날짜·시간·교사를 선택하세요. 시간표에 바로 반영됩니다(매주 반복 수업은 고른 그 주만 바뀌어요 · 겹치는 시간은 관리자가 확인 후 반영).</p>') : renderCurrentLesson()) + renderWeekly() + '</div>';
   var rightInner;
   /* 실제 수업의 «매주 한 주씩» 은 자기 탭(weekly)이 있다 — 날짜 탭에는 예시 화면에서만 단추를 둔다. */
   if (state.tab === 'time') rightInner = (state.mode === 'postpone' && !__MOB_REAL ? renderPushBtn() : '') + renderTimeTab() + renderCartBox();
@@ -1953,9 +1953,9 @@ function renderTeacherTab(){
     var picked = state.cart.find(function(c){ return c.origIdx === i; }) || null;
     var head = '<div class="section-label">📌 ' + fmtMD(o.date) + ' (' + fmtDOW(o.date) + ') ' + __ftEsc(o.hour)
       + ' · ' + __mobT('지금 ', 'Now ') + '<b>' + __ftEsc(o.teacherName) + '</b></div>';
-    /* ℹ️ 매주 반복 수업은 승인해도 시간표가 자동으로 안 바뀐다(관리자가 그 주만 손으로 조정) — 미리 말한다. */
+    /* ℹ️ (2026-10-09) 매주 반복 수업은 «그 주 하루만» 바뀐다(recurring-one-week.ts) — 다른 주는 그대로라고 미리 말한다. */
     if (o.recurring) head += '<div style="font-size:13px;color:var(--text-dim);margin:-4px 0 8px">'
-      + __mobT('🔁 매주 반복 수업이라, 승인되면 관리자가 이 날만 시간표에서 선생님을 바꿔요.', '🔁 Weekly class — once approved, staff will change the teacher for this date in the timetable.') + '</div>';
+      + __mobT('🔁 매주 반복 수업 — 이 날 하루만 선생님이 바뀌고, 다른 주는 그대로예요.', '🔁 Weekly class — only this date changes teacher; other weeks stay the same.') + '</div>';
     var body = '';
     if (f.st === 'loading') {
       body = '<div class="teacher-result"><div class="tr-title">⏳ ' + __mobT('이 시간에 수업 가능한 선생님을 찾는 중…', 'Finding teachers free at this time…') + '</div>'
@@ -2049,7 +2049,7 @@ function renderTimeTabReal(){
   }).join('');
   var html = '<div class="section-label">① ' + __mobT(v + '할 수업을 고르세요', 'Choose the class to move') + '</div><div class="dt-orig">' + origHtml + '</div>';
   if (o && o.recurring) html += '<div style="font-size:13px;color:var(--text-dim);margin:-4px 0 8px">'
-    + __mobT('🔁 매주 반복 수업이라, 승인되면 관리자가 이 날만 시간표에서 옮겨요.', '🔁 Weekly class — once approved, staff will move this date in the timetable.') + '</div>';
+    + __mobT('🔁 매주 반복 수업 — 이 날 하루만 옮겨지고, 다른 주는 그대로예요.', '🔁 Weekly class — only this date moves; other weeks stay the same.') + '</div>';
   var dates = getNext14Dates();
   html += '<div class="section-label">② ' + __mobT('날짜 선택 · 좌우로 밀어보세요', 'Choose a date') + '</div>'
     + '<div class="date-scroller-wrap at-start" id="dateScrollerWrap"><button type="button" class="date-scroller-nav prev" id="dateScrollPrev" aria-label="이전 날짜">◀</button>'

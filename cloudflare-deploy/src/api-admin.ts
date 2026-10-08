@@ -57,7 +57,8 @@ import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
 import { writeClassAudit, listClassAudit } from './class-audit';
 import { pickClassesToEnd, pickClassesToRestore, parseSavedIds } from './enroll-cancel-cascade';   // ✕ 신청 취소 → 남은 수업 종료 (정본)
-import { runScheduleSplit } from './schedule-split';
+import { runScheduleSplit, kstToday } from './schedule-split';
+import { oneWeekEligible, oneWeekMessage, prepareRecurringOneWeek, ONE_WEEK_FALLBACK, RECUR_WEEK_SOURCE_PREFIX } from './recurring-one-week';   // 🔁 반복 수업 «그 주 하루만»(2026-10-09)
 import { planEndMakeup, END_MAKEUP_MARK_SQL } from './end-makeup';   // ⏸ 연기보강(2026-10-02)   // 📅 매주 수업 → 날짜별 수업 나누기(2026-10-02)   // 📜 수업 변경 이력(연기/삭제/종료)
 import { TEACHER_STATUSES, canonTeacherStatus, isTeacherStatus, toTeacherListHidden, teacherVisibleSql } from './teacher-status';   // 🧑‍🏫 강사 상태(활동중·비활동·퇴사) + 명부 숨김 — 판정 정본
 import { resolveTeacherRegion, teacherRegionMatches } from './teacher-region';   // 🌏 강사 구분(필리핀·북미·중국) — 판정 정본
@@ -89,7 +90,7 @@ import { buildLeveltestReview, type LtBankItem } from './leveltest-review';    /
 import type { MangoEnv } from './api-mango';
 import { cleanAnalysis, cleanScore, foreignFields, parseAnalysisJson, recoverNextAction, KOREAN_ONLY_RETRY_NOTE, SUMMARY_UNAVAILABLE } from './ai-analysis-clean';   // 🧹 AI 학습 분석 — 한국어 아닌 글자 거르기·다음 액션 되살리기
 import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid } from './attendance-uid';   // 📌 attendance 를 학생 계정으로 찾는 정본
-import { ensureStartsOnColumn, startsOnSel, normStartsOn, kstYmdOfMs } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
+import { ensureStartsOnColumn, startsOnSel, normStartsOn, kstYmdOfMs, recurSkippedOn, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { isPostponedOccurrence, REACTIVATE_POSTPONED_SQL } from './class-postponed';
 import { diagnoseStudentDay } from './class-diagnose';   // 🔎 학생 하루 수업 진단(읽기 전용, 2026-10-01)   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
@@ -2244,7 +2245,12 @@ export async function handleAdminApi(
         if (dw == null) continue;
         for (let d = 1; d <= daysInMonth; d++) {
           if (new Date(Date.UTC(year, month - 1, d)).getUTCDay() === dw) {
-            instances.push({ ...row, _date: `${ymPrefix}-${String(d).padStart(2, '0')}`, _mins: mins });
+            const _ymd = `${ymPrefix}-${String(d).padStart(2, '0')}`;
+            /* ⏭ (2026-10-09) «그 주만 연기·변경» 한 날은 반복 줄로 세지 않는다 — 그 수업은
+               옮긴 하루짜리 줄(또는 '연기' 기록 줄)로 따로 잡힌다(recurring-one-week.ts). 두 번 세지 않게.
+               ⚠️ starts_on 은 여기서 일부러 안 본다 — 급여가 바뀌는 별건이다(사람이 정할 일). */
+            if (recurSkippedOn(row, _ymd)) continue;
+            instances.push({ ...row, _date: _ymd, _mins: mins });
           }
         }
       }
@@ -2420,7 +2426,11 @@ export async function handleAdminApi(
         /* ⏸ 연기 수업의 지급률 — 「언제 연기했나」로 갈린다(위 earlyPostponePct 주석 참고).
            요청 기록이 없는 연기(관리자가 직접 상태만 바꾼 경우)는 판정할 근거가 없으므로
            기존 규칙(postponePct)을 그대로 쓴다. 모르는 것을 «사전 연기» 로 단정하지 않는다. */
-        const pReq = (st === 'postponed') ? (postponeReq[`${l.id}|${dateStr}`] || null) : null;
+        /* 🔁 (2026-10-09) 반복 수업 «그 주만» 연기는 요청이 «반복 줄» 번호로 남고 연기 기록은 새 줄이다
+           (source='recurring-week:<반복 줄 id>') — 그 번호로 한 번 더 찾는다. */
+        const _rwSrc = String(l.source || '');
+        const _rwParent = _rwSrc.indexOf(RECUR_WEEK_SOURCE_PREFIX) === 0 ? _rwSrc.slice(RECUR_WEEK_SOURCE_PREFIX.length) : '';
+        const pReq = (st === 'postponed') ? (postponeReq[`${l.id}|${dateStr}`] || (_rwParent ? postponeReq[`${_rwParent}|${dateStr}`] : null) || null) : null;
         const pFeeType: string | null = pReq ? (pReq.fee_type || null) : null;
         const pPct = (st === 'postponed')
           ? (pFeeType === 'free' ? earlyPostponePct : postponePct)
@@ -3146,17 +3156,22 @@ export async function handleAdminApi(
       try { guards = await prepareScheduleRequestGuards(env, row, undefined, decisionScope); }
       catch { return json({ ok: false, error: 'request_lookup_failed' }, 503); }
       let applied: string | null = null;
+      let _oneWeekApplied = false;   // 🔁 반복 수업 «그 주 하루만» 으로 반영했나(이력 문구용)
       let teacherChanged: { id: string; name: string | null } | null = null;   // 👨‍🏫 승인으로 담당 강사를 바꿨으면
       if (action === 'approved' && row.schedule_id) {
         try {
           // ⚠️ 운영 스케줄은 대부분 반복(매주, scheduled_date=NULL) — 반복 row 를 덮어쓰면
           //   그 주만이 아니라 모든 주가 바뀌므로, 날짜 지정 수업일 때만 자동 반영한다.
           //   반복 수업은 요청 기록만 영구 보존(applied='recorded') → 시간표에서 수동 조정.
+          await ensureStartsOnColumn(env);   // ⏭ skip_dates 칸이 «읽기 전» 에 있어야 guard 스냅샷이 맞는다
           const cs: any = await env.DB.prepare(
             `SELECT * FROM class_schedules WHERE id = ? LIMIT 1`
           ).bind(row.schedule_id).first();
           if (!cs) return json({ ok: false, error: 'schedule_not_found' }, 409);
           const isDated = !!(cs && cs.scheduled_date);
+          /* 🔁 (2026-10-09) 반복 수업은 «그 주 하루만» 반영할 수 있으면 그렇게 한다(recurring-one-week.ts).
+             못 하는 사유가 «예전 요청이라 회차·스냅샷이 없음» 이면 예전처럼 기록만(recorded). */
+          const _oneWeekWhy: string | null = isDated ? 'not_recurring' : oneWeekEligible(row, cs, kstToday(now));
           // Match direct atomic moves: a frozen clock / A→B→A must not revive a stale snapshot.
           const scheduleUpdatedAt = Math.max(now, (Number(cs.updated_at) || 0) + 1);
           // Old requests have no reliable teacher/status/version baseline. They may be
@@ -3201,7 +3216,7 @@ export async function handleAdminApi(
              ⛔ 카페24 미러 수업을 «날짜를 바꾸면서» 강사까지 바꾸지 않는다(도장 → 옛 날짜에 유령. 위 🔴).
              ℹ️ 반복 수업은 여전히 'recorded' — 한 줄이 «매주 전부» 라 그 주만 바꿀 방법이 없다. */
           const _wantTid = String((row as any).new_teacher_id ?? '').trim();
-          let _swap = isDated && !!(row.new_date && row.new_time) && /^\d+$/.test(_wantTid) && _wantTid !== String((cs as any)?.teacher_id ?? '');
+          let _swap = (isDated || !_oneWeekWhy) && !!(row.new_date && row.new_time) && /^\d+$/.test(_wantTid) && _wantTid !== String((cs as any)?.teacher_id ?? '');
           let _swapBlock: { ko: string; en: string } | null = null;
           let _swapName: string | null = null;
           if (_swap) {
@@ -3280,8 +3295,21 @@ export async function handleAdminApi(
                 : `UPDATE class_schedules SET status = 'postponed', updated_at = ? WHERE id = ?`
             ).bind(scheduleUpdatedAt, row.schedule_id));
             applied = 'postponed';
+          } else if (_oneWeekWhy && ONE_WEEK_FALLBACK.includes(_oneWeekWhy)) {
+            applied = 'recorded';   // 옛 요청(회차 날짜·스냅샷 없음) — 예전처럼 기록만, 시간표에서 수동 조정
+          } else if (_oneWeekWhy) {
+            const _m = oneWeekMessage(_oneWeekWhy);
+            return json({ ok: false, error: _oneWeekWhy, message: _m.ko, message_en: _m.en }, 409);
           } else {
-            applied = 'recorded';
+            const _ow = await prepareRecurringOneWeek(env, row, cs, now, { teacherId: _swap ? _wantTid : null, actor: _srdActor.username || 'admin' });
+            if (!_ow.ok) {
+              const _m = (_ow.conflict && _ow.conflict.ko) ? { ko: _ow.conflict.ko, en: _ow.conflict.en || oneWeekMessage('conflict').en } : (_ow.conflict && _ow.conflict.message) ? { ko: _ow.conflict.message, en: oneWeekMessage(String(_ow.error)).en } : oneWeekMessage(String(_ow.error));
+              return json({ ok: false, error: _ow.error, applied: _ow.error === 'conflict' ? 'conflict' : undefined, message: _m.ko, message_en: _m.en }, _ow.status);
+            }
+            mutations.push(..._ow.mutations);
+            applied = _ow.applied;
+            _oneWeekApplied = true;
+            if (_swap && _ow.applied === 'moved') teacherChanged = { id: _wantTid, name: _swapName };
           }
         } catch (e: any) { console.warn('[schedule-requests] apply err:', e?.message); return json({ ok: false, error: 'request_apply_failed' }, 503); }
       }
@@ -3309,7 +3337,7 @@ export async function handleAdminApi(
           source: 'schedule-request',
           reason: row.reason || null,
           detail: [((row as any).end_makeup && applied === 'moved' ? String((row as any).end_makeup) : null),
-                   ((row.new_date || row.new_time) ? `→ ${row.new_date || ''} ${row.new_time || ''}`.trim() : (applied === 'recorded' ? '반복수업 기록보존(수동조정 필요)' : null)),
+                   ((row.new_date || row.new_time) ? `→ ${row.new_date || ''} ${row.new_time || ''}`.trim() : (applied === 'recorded' ? '반복수업 기록보존(수동조정 필요)' : (_oneWeekApplied && applied === 'postponed' ? `반복수업 ${row.orig_date} 회차만 연기` : null))),
                    (teacherChanged ? `담당 강사 → ${teacherChanged.name || ('#' + teacherChanged.id)}` : null)].filter(Boolean).join(' · ') || null,
         });
       }
@@ -3484,7 +3512,9 @@ export async function handleAdminApi(
         let occurs = false;
         if (s.scheduled_date) occurs = (String(s.scheduled_date).slice(0, 10) === dateStr);
         // ⚠️ Number() 로 비교하지 말 것 — 운영 값은 'Thu' 같은 문자열이라 NaN 이 된다(admDowMatches 주석 참고).
-        else if (s.day_of_week != null && s.day_of_week !== '') occurs = admDowMatches(s.day_of_week, kDow);
+        else if (s.day_of_week != null && s.day_of_week !== '') occurs = admDowMatches(s.day_of_week, kDow) && recurStartedOn(s, dateStr);
+        /* ⏭ (2026-10-09) 정본 recurStartedOn — «그 주만 빠진 날»·«시작일 전» 의 반복 줄은 오늘 목록에 안 뜬다
+           (학생 입장·강사 화면과 같은 답. 전에는 여기만 이 판정을 안 거쳐 시작 전 수업까지 «오늘 수업» 이었다). */
         if (!occurs) continue;
 
         const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));

@@ -249,6 +249,15 @@ if (tsMod) dBody = tsMod.transpileModule('async function __d(){' + dBody + '\n}'
   .replace(/^[\s\S]*?async function __d\(\)\s*\{/, '').replace(/\}\s*$/, '');
 const atomicModule = {};
 if (tsMod) new Function('exports', tsMod.transpileModule(SRC('src/schedule-request-atomic.ts'), { compilerOptions: { target: 99, module: 1 } }).outputText)(atomicModule);
+/* 🔁 (2026-10-09) 반복 수업 «그 주 하루만» 정본 — esbuild 로 번들해 진짜 판정을 쓴다(복제 금지). */
+const oneWeekModule = {};
+try {
+  const esb = createRequire(join(ROOT, 'cloudflare-deploy', 'package.json'))('esbuild');
+  const out = esb.buildSync({ entryPoints: [join(ROOT, 'cloudflare-deploy/src/recurring-one-week.ts')], bundle: true, format: 'cjs', platform: 'node', write: false, logLevel: 'silent' });
+  const m = { exports: {} }; new Function('module', 'exports', 'require', out.outputFiles[0].text)(m, m.exports, createRequire(import.meta.url));
+  Object.assign(oneWeekModule, m.exports);
+} catch (e) { /* 아래 전제 검사가 FAIL 로 알린다 */ }
+ok('반복 수업 «그 주 하루만» 정본을 불러왔다', typeof oneWeekModule.oneWeekEligible === 'function');
 async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = false, schedSource = null, schedDate = '2026-10-01' }) {
   const db = new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE teachers (id INTEGER PRIMARY KEY, name TEXT, active INTEGER DEFAULT 1)`);
@@ -279,6 +288,9 @@ async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = 
     MIRROR_SOURCE: 'c24-mirror', MIRROR_SOURCE_MANUAL: 'c24-mirror:manual', DEFAULT_CLASS_MINUTES: 20,
     teacherMoveDenyReason: gateMod.teacherMoveDenyReason,
     writeClassAudit: async (_e, a) => { audits.push(a); },
+    ensureStartsOnColumn: async () => 2, kstToday: () => '2026-09-30',
+    oneWeekEligible: oneWeekModule.oneWeekEligible, oneWeekMessage: oneWeekModule.oneWeekMessage,
+    prepareRecurringOneWeek: oneWeekModule.prepareRecurringOneWeek, ONE_WEEK_FALLBACK: oneWeekModule.ONE_WEEK_FALLBACK,
   };
   const names = Object.keys(deps);
   let res;
@@ -338,7 +350,13 @@ ok('게이트 정본을 불러왔다', typeof gateMod.teacherMoveDenyReason === 
 }
 {
   const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21' }, schedDate: null });
-  ok('반복 수업은 여전히 기록만(recorded) — 강사 안 바뀜', res.body && res.body.applied === 'recorded' && cs.teacher_id === '16', { res, cs });
+  /* 🔁 (2026-10-09) 옛 경계 「반복 수업은 언제나 기록만」을 옮겼다 — 이제 «그 주 하루만» 반영한다.
+     이 표에는 요일 칸이 없어 회차(10/1)가 «그 요일이 아님» 이므로 옮기지 않고(409) 강사도 안 바뀐다. */
+  ok('반복 수업 — 그 요일이 아닌 회차면 옮기지 않는다(409) · 강사 안 바뀜', res.status === 409 && res.body && res.body.error === 'orig_not_class_day' && cs.teacher_id === '16' && typeof res.body.message === 'string', { res, cs });
+}
+{
+  const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21', orig_date: null }, schedDate: null });
+  ok('반복 수업 — 회차 날짜 없는 옛 요청은 예전처럼 기록만(recorded) · 강사 안 바뀜', res.body && res.body.applied === 'recorded' && cs.teacher_id === '16', { res, cs });
 }
 {
   const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21' }, isTeacher: true });

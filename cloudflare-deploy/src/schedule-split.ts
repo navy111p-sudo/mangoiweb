@@ -80,8 +80,12 @@ export function planScheduleSplit(row: any, today: string, enrollEnd: string | n
     until = addDays(from, SPLIT_DEFAULT_WEEKS * 7 - 1);
     src = 'default';
   }
+  // 「그 주 하루만」 연기·변경으로 건너뛴 날(skip_dates)은 만들지 않는다 — 그날은 보강·연기 행이 따로 있어
+  // 여기서 또 만들면 같은 날 수업이 두 번 생기고 급여도 이중 계산된다(정본 판정 recurSkippedOn 과 같은 뜻.
+  // 이 파일은 node 가 직접 import 하므로 다른 모듈을 끌어오지 않고 목록만 읽는다).
+  const skip = new Set(String(row.skip_dates || '').split(',').map((x: string) => x.trim()).filter(Boolean));
   const dates: string[] = [];
-  for (let d = from; d <= until; d = addDays(d, 1)) if (dows.includes(dowOf(d))) dates.push(d);
+  for (let d = from; d <= until; d = addDays(d, 1)) if (dows.includes(dowOf(d)) && !skip.has(d)) dates.push(d);
   return { ok: true, from, until, until_source: src, dates };
 }
 

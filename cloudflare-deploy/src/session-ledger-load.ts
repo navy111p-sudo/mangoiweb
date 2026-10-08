@@ -173,7 +173,9 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
     //   · 반복 행 → 요청이 «기록만» 되고 행은 안 바뀌므로(decide 의 'recorded') 요청이 유일한 근거
     //   · 날짜 행 → 실제로 status='postponed' 로 바뀐 경우만. 새 날짜로 «옮겨진» 행은 옮겨진 날짜의
     //     회차가 따로 세어지므로(급여도 같음) 여기서 연기로 또 세지 않는다.
-    const pr0 = postponeReq[key] || null;
+    /* 🔁 (2026-10-09) 반복 수업 «그 주만» 연기 — 요청은 반복 줄 번호, 연기 기록은 새 줄(source='recurring-week:<id>'). */
+    const rwParent = o.source.indexOf('recurring-week:') === 0 ? o.source.slice('recurring-week:'.length) : '';
+    const pr0 = postponeReq[key] || (rwParent ? postponeReq[`${rwParent}|${o.date}`] : null) || null;
     const pr = pr0 && (!o.dated || o.status === 'postponed') ? pr0 : null;
     const state: LedgerState = classifyOccurrence({
       schedStatus: o.status,

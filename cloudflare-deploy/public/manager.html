@@ -2535,7 +2535,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var rb = document.getElementById('reqBody');
     if (rb && rows.length) rb.insertAdjacentHTML('afterbegin', '<div class="muted" style="padding-bottom:6px">'
       + esc(T('Students\' postpone/change requests are applied right away — no approval needed. Anything marked «needs a check» could not be moved automatically (weekly class, time clash, teacher unavailable, or a teacher/staff request).',
-              '학생이 신청한 연기·변경은 승인 없이 바로 반영됩니다. «확인 필요» 는 자동으로 옮길 수 없던 요청입니다(매주 반복 수업 · 시간 겹침 · 강사 불가 · 강사·직원이 낸 요청).')) + '</div>');
+              '학생이 신청한 연기·변경은 승인 없이 바로 반영됩니다. «확인 필요» 는 자동으로 옮길 수 없던 요청입니다(시간 겹침 · 강사 불가 · 강사·직원이 낸 요청 · 회차 날짜가 없는 예전 반복수업 요청).')) + '</div>');
   }
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -2562,8 +2562,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var a = j && j.applied;
     if (a === 'moved')     return { ok: true,  s: T('Moved.', '수업을 옮겼습니다.') };
     if (a === 'postponed') return { ok: true,  s: T('Postponed.', '연기 처리했습니다.') };
-    if (a === 'recorded')  return { ok: false, s: T('Weekly class — move it by hand in the timetable.',
-                                                    '반복 수업이라 자동으로 못 옮깁니다 — 시간표에서 직접 옮겨 주세요.') };
+    /* 🔁 (2026-10-09) 반복 수업도 «그 주만» 옮겨진다 — 'recorded' 는 회차 날짜가 없는 예전 요청뿐이다. */
+    if (a === 'recorded')  return { ok: false, s: T('Older weekly-class request without the class date — move that week by hand in the timetable.',
+                                                    '회차 날짜가 없는 예전 반복수업 요청이라 자동으로 못 옮깁니다 — 시간표에서 그 주만 직접 옮겨 주세요.') };
     if (a === 'conflict')  return { ok: false, s: T('That slot is taken — move it by hand.',
                                                     '그 시간에 다른 수업이 있어 못 옮겼습니다 — 직접 옮겨 주세요.') };
     return { ok: true, s: T('Done.', '처리했습니다.') };

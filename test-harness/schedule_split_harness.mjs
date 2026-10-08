@@ -34,6 +34,10 @@ ok('시작일이 미래면 시작일부터', pf.dates[0] === '2026-11-03', pf.da
 const pc = planScheduleSplit(wk, '2026-10-02', '2030-01-01');
 ok('종료일이 아주 멀어도 26주에서 자른다', pc.dates.length <= 26 && pc.dates.length >= 25, pc.dates.length);
 ok('오늘이 그 요일이면 오늘도 포함', planScheduleSplit({ ...wk, day_of_week: 'fri' }, '2026-10-02', null).dates[0] === '2026-10-02');
+{ const ps = planScheduleSplit({ ...wk, day_of_week: 'fri', skip_dates: '2026-10-09' }, '2026-10-02', null);
+  const p0 = planScheduleSplit({ ...wk, day_of_week: 'fri' }, '2026-10-02', null);
+  ok('그 주만 건너뛴 날(skip_dates)은 안 만든다', ps.ok && !ps.dates.includes('2026-10-09'), ps.dates);
+  ok('(짝) 건너뛰지 않은 날은 그대로 만든다', ps.dates.includes('2026-10-02') && ps.dates.includes('2026-10-16') && p0.dates.includes('2026-10-09')); }
 ok('카페24 미러 행은 안 나눈다', planScheduleSplit({ ...wk, source: 'c24-mirror' }, '2026-10-02', null).ok === false);
 ok('이미 날짜가 있는 행은 안 나눈다', planScheduleSplit({ ...wk, scheduled_date: '2026-10-06' }, '2026-10-02', null).ok === false);
 ok('취소된 행은 안 나눈다', planScheduleSplit({ ...wk, status: 'cancelled' }, '2026-10-02', null).ok === false);

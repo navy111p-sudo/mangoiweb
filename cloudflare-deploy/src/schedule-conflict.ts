@@ -1,3 +1,4 @@
+import { recurSkippedOn } from './class-start-date';   // ⏭ 그 주만 빠진 날
 import {
   DEFAULT_CLASS_MINUTES, isLongClass,
   DEFAULT_LONG_CLASS_DAILY_CAP, longClassCapReached,
@@ -288,6 +289,8 @@ export function scheduleSharesDay(a: any, b: any, today: string): boolean {
   if (ad && bd) return ad === bd;
   if (ad || bd) {
     const d = ad || bd, recurring = ad ? b : a;
+    /* ⏭ (2026-10-09) 그 주만 빠진 날의 반복 줄은 그날 자리를 차지하지 않는다(정본 recurSkippedOn). */
+    if (recurSkippedOn(recurring, d)) return false;
     return d >= starts(recurring) && (!ad ? d >= today : true)
       && scheduleDays(recurring).includes(new Date(d + 'T00:00:00Z').getUTCDay());
   }

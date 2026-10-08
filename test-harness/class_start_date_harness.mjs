@@ -37,7 +37,16 @@ if (M) {
     '캘린더용: 시작일 없는 행은 등록한 날 전으로 번지지 않는다');
   ok(M.recurStartedOn({ day_of_week: '5', created_at: created }, '2026-06-05') === true,
     '(짝) 서버 판정은 created_at 을 바닥으로 안 쓴다');
-  ok(M.startsOnSel(false) === ', NULL AS starts_on' && M.startsOnSel(true, 'cs') === ', cs.starts_on', 'SELECT 조각 모양');
+  /* ⏭ (2026-10-09) skip_dates 칸이 함께 실린다 — 0=둘 다 없음 · 1=starts_on 만 · 2=둘 다. 칸이 없으면 NULL 로 모양만 맞춘다. */
+  ok(M.startsOnSel(false) === ', NULL AS starts_on, NULL AS skip_dates' && M.startsOnSel(2, 'cs') === ', cs.starts_on, cs.skip_dates'
+     && M.startsOnSel(1, 'cs') === ', cs.starts_on, NULL AS skip_dates', 'SELECT 조각 모양');
+  // ⏭ 그 주만 빠지는 날 — 짝으로(그날만 안 열림 · 다른 주는 그대로 · 날짜 지정 행은 무관 · 깨진 조각은 무시)
+  const rec = { day_of_week: '4', skip_dates: '2026-10-08, junk,2026-10-15' };
+  ok(M.recurStartedOn(rec, '2026-10-08') === false && M.recurStartedOn(rec, '2026-10-15') === false, '빠지는 날에는 반복 수업이 안 열린다');
+  ok(M.recurStartedOn(rec, '2026-10-01') === true && M.recurStartedOn(rec, '2026-10-22') === true, '(짝) 다른 주는 그대로 열린다');
+  ok(M.recurSkippedOn({ scheduled_date: '2026-10-08', skip_dates: '2026-10-08' }, '2026-10-08') === false && M.recurStartedOn({ scheduled_date: '2026-10-08', skip_dates: '2026-10-08' }, '2026-10-08') === true, '날짜 지정 행은 skip 과 무관');
+  ok(JSON.stringify(M.normSkipDates('2026-10-15,junk,2026-10-08,2026-10-15,2026-02-30x')) === '["2026-10-08","2026-10-15"]', '깨진 조각은 버리고 정렬·중복 제거');
+  ok(M.recurStartedOn({ day_of_week: '4', skip_dates: '2026-10-08', starts_on: '2026-10-01' }, '2026-09-24') === false, '(짝) 시작일 판정은 그대로');
 
   /* 진짜 SQLite — 칸이 없으면 만들고, 있으면 true */
   const db = new DatabaseSync(':memory:');
@@ -46,10 +55,10 @@ if (M) {
     exec: async (q) => db.exec(q),
     prepare: (q) => ({ all: async () => ({ results: db.prepare(q).all() }) }),
   } };
-  ok(await M.ensureStartsOnColumn(env) === true, '칸이 없던 DB 에 starts_on 을 만든다');
-  ok(await M.ensureStartsOnColumn(env) === true, '두 번 불러도 true(멱등)');
+  ok(await M.ensureStartsOnColumn(env) === 2, '칸이 없던 DB 에 starts_on·skip_dates 를 만든다');
+  ok(await M.ensureStartsOnColumn(env) === 2, '두 번 불러도 2(멱등)');
   const env2 = { DB: { exec: async () => { throw Error('x'); }, prepare: () => ({ all: async () => { throw Error('x'); } }) } };
-  ok(await M.ensureStartsOnColumn(env2) === false, '(짝) 못 물어보면 false — SELECT 에 그 칸을 안 넣는다');
+  ok(await M.ensureStartsOnColumn(env2) === 0, '(짝) 못 물어보면 0 — SELECT 에 그 칸을 안 넣는다');
 }
 
 /* ② 캘린더 판정 — 소스에서 오려 내 실제로 돌린다 */

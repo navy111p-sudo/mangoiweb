@@ -443,9 +443,27 @@ if (process.env.SLS_CHILD === '1') {
     ['weekly recurring approval contract',async()=>{
       reset();const id=mkClass(student,'recurring','Sun',null,'15:00','1'),original=row(id);
       const r=await submit(id,{orig_date:originDate});const done=await decide(r.body.id);
-      ok('recurring: explicitly recorded only, template untouched',done.body.applied==='recorded'&&JSON.stringify(row(id))===JSON.stringify(original),JSON.stringify({r,done,row:row(id)}));
+      /* 🔁 (2026-10-09 「반복 수업 그 주 하루만 연기」) 옛 경계 「반복 수업은 기록만·원본 그대로」를 옮겼다:
+         원본 반복 줄은 «그 회차 하나만» 빠지고(skip_dates) 나머지 칸은 그대로, 옮긴 회차는 하루짜리 새 줄이다. */
+      const after=row(id),{skip_dates:_sk,...restAfter}=after,{skip_dates:_sk0,...restOrig}=original;
+      ok('recurring: one week only — template keeps every other field, only that date skipped',done.body.applied==='moved'&&after.skip_dates===originDate&&JSON.stringify(restAfter)===JSON.stringify(restOrig),JSON.stringify({r,done,row:after}));
+      const moved=sq.prepare('SELECT * FROM class_schedules WHERE source=?').all('recurring-week:'+id);
+      ok('recurring: one dated makeup row with the new teacher',moved.length===1&&moved[0].scheduled_date===destDate&&moved[0].start_time===destTime&&String(moved[0].teacher_id)==='2'&&moved[0].status==='active',JSON.stringify(moved));
+      if(moved.length===1) await projections('recurring one week moved',Number(moved[0].id),destDate,destTime,'2',true);
+      setNow(originDate,'10:00');
+      const so=await studentCall('GET','/api/class/sessions/today?user_id='+student);
+      ok('recurring: skipped date no longer opens the weekly class',!(so.body.sessions||[]).some(x=>Number(x.schedule_id)===id),JSON.stringify(so.body.sessions));
+      const tpo=await teacher('1');
+      ok('recurring: old teacher has no class that day',!(tpo.body.classes||[]).some(x=>Number(x.schedule_id)===id),JSON.stringify(tpo.body.classes));
+      const nextWeek=new RealDate(RealDate.parse(originDate+'T00:00:00Z')+7*86400000).toISOString().slice(0,10);
+      setNow(nextWeek,'10:00');
+      const sn=await studentCall('GET','/api/class/sessions/today?user_id='+student);
+      ok('recurring: the following week still opens normally (pair)',(sn.body.sessions||[]).some(x=>Number(x.schedule_id)===id&&x.room_id===`class-${id}-${nextWeek.replaceAll('-','')}`),JSON.stringify(sn.body.sessions));
+      setNow(originDate,'10:00');
       const {runInNewContext}=await import('node:vm');const alerts=[];
-      const ui={adminLang:'en',document:{readyState:'loading',addEventListener(){},getElementById(){return null;}},localStorage:{getItem(){return null;}},prompt:()=>'',alert:x=>alerts.push(String(x)),fetch:async()=>({json:async()=>done.body})};
+      /* 회차 날짜가 없는 옛 요청만 'recorded' 로 떨어진다 — 그 화면 문구는 그 응답 모양으로 검사한다. */
+      const legacy={ok:true,id:r.body.id,status:'approved',applied:'recorded'};
+      const ui={adminLang:'en',document:{readyState:'loading',addEventListener(){},getElementById(){return null;}},localStorage:{getItem(){return null;}},prompt:()=>'',alert:x=>alerts.push(String(x)),fetch:async()=>({json:async()=>legacy})};
       ui.window=ui;runInNewContext(readFileSync(join(ROOT,'cloudflare-deploy/public/js/adm-r11.js'),'utf8'),ui);ui.srqLoad=()=>{};
       await ui.srqDecide(r.body.id,'approve');
       ok('recurring: executable admin UI explicitly asks manual timetable adjustment',alerts.some(x=>/not auto-changed/.test(x)&&/manually/.test(x)),JSON.stringify(alerts));
