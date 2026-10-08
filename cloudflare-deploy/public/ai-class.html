@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <!--
-  🤖 A.i 선생님 화상수업 (2026-10-07 · 숨은 주소 시범 — 메뉴에 아직 없음)
+  🤖 A.i 선생님 화상수업 (2026-10-07 · 시범 — 2026-10-08 홈 드로어·사이드바·전체메뉴에 연결)
   [무엇] 아바타 선생님 Lily 가 우리 교재(new BTS · new SIU, 443레슨)를 쪽마다 짚어 가며 읽어 주고,
         학생이 따라 말하면 결정론 엔진(/js/ai-class-engine.js)이 채점·칭찬·복습을 정한다.
   [데이터] 레슨 목록 = /data/ai-class-catalog.json (scripts/build-ai-class-catalog.mjs 로 만듦)
@@ -663,7 +663,7 @@ select.pill{max-width:min(100%,280px)}
   }
   function startRec(){
     stopRec();
-    var my = seq, idx = st.i, heard = null, r;
+    var my = seq, idx = st.i, heard = null, last = '', done = false, r;
     try { r = new SR(); } catch (e) { recBlocked = true; return talkNote(); }
     r.lang = 'en-US'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = false;
     r.onresult = function(e){
@@ -671,19 +671,28 @@ select.pill{max-width:min(100%,280px)}
       var txt = '', fin = false;
       for (var k = 0; k < e.results.length; k++) { txt += e.results[k][0].transcript; if (e.results[k].isFinal) fin = true; }
       if (!heard) { heard = document.createElement('span'); heard.className = 'res heard'; $('ask').append(heard); }
-      heard.textContent = '🎙 ' + txt;
-      if (fin && st.phase === 'await' && !busy) { rec = null; say(txt.trim()); }
+      heard.textContent = '🎙 ' + txt; last = txt.trim();
+      if (fin && st.phase === 'await' && !busy) { done = true; rec = null; micLabel(false); say(last); }
     };
     r.onerror = function(e){
-      if (rec !== r) return; rec = null;
+      if (rec !== r) return; rec = null; done = true; micLabel(false);
       if (/not-allowed|service-not-allowed|audio-capture|network/.test(e.error || '')) { recBlocked = true; if (my === seq && st.i === idx && st.phase === 'await') talkNote(); return; }
       if (e.error === 'no-speech' && my === seq && st.i === idx && st.phase === 'await' && !busy) run({ type: 'silence' });
     };
-    r.onend = function(){ if (rec === r) { rec = null; $('micBtn').classList.remove('rec'); } };
-    rec = r; $('micBtn').classList.add('rec');
+    // 2026-10-08 «마이크에 한 소리가 안 들린다» — 브라우저가 «마지막 결과» 없이 끝내면 예전엔 아무 일도 없었다.
+    //   들은 말이 있으면 그것으로 대답하고, 아무것도 못 들었으면 그 사실을 말한다(조용히 멈추지 않기).
+    r.onend = function(){
+      if (rec !== r) return; rec = null; micLabel(false);
+      if (done || my !== seq || st.i !== idx || st.phase !== 'await' || busy) return;
+      if (last) return say(last);
+      missChip('🎙 소리가 들어오지 않았어요 — 🎤 말하기를 누르고 또박또박 말하거나, 아래에서 골라 보내 주세요'); fillChoices(); $('sim').hidden = false;
+    };
+    rec = r; micLabel(true);
     try { r.start(); } catch (e) { rec = null; recBlocked = true; talkNote(); }
   }
-  function stopRec(){ var r = rec; rec = null; $('micBtn') && $('micBtn').classList.remove('rec'); if (r) try { r.abort(); } catch (e) {} }
+  function stopRec(){ var r = rec; rec = null; micLabel(false); if (r) try { r.abort(); } catch (e) {} }
+  // 듣고 있는 동안은 버튼 글자로 알린다(테두리만으로는 «지금 말해도 되나» 를 모른다)
+  function micLabel(on){ var b = $('micBtn'); if (!b) return; b.classList.toggle('rec', !!on); var sp = b.querySelector('span'); if (sp && sp.nextSibling) sp.nextSibling.textContent = on ? '듣는 중…' : '말하기'; }
   // 자동 데모: 학생 차례이고 선생님이 말하고 있지 않을 때만 대답을 예약 (다시 듣기·데모 켜기 뒤에도 다시 건다)
   function armAuto(){
     clearTimeout(listenTO);
@@ -771,7 +780,7 @@ select.pill{max-width:min(100%,280px)}
     $('askNote').textContent = '🎙 듣고 있어요… 말을 마치면 바로 물어봐요';
     r.onresult = function(e){ if (askRec !== r) return; var txt = '', fin = false; for (var k = 0; k < e.results.length; k++) { txt += e.results[k][0].transcript; if (e.results[k].isFinal) fin = true; } $('askInput').value = txt; if (fin) { askRec = null; askTeacher(txt); } };
     r.onerror = function(e){ if (askRec !== r) return; askRec = null; $('askNote').textContent = /not-allowed|service-not-allowed|audio-capture/.test(e.error || '') ? '마이크를 쓸 수 없어요 — 주소창의 🔒 에서 허락하거나 글로 적어 주세요' : '잘 못 들었어요 — 다시 말하거나 글로 적어 주세요'; };
-    r.onend = function(){ if (askRec === r) askRec = null; };
+    r.onend = function(){ if (askRec !== r) return; askRec = null; var v = $('askInput').value.trim(); if (v) askTeacher(v); else $('askNote').textContent = '🎙 소리가 들어오지 않았어요 — 다시 누르고 말하거나 글로 적어 주세요'; };
     askRec = r; try { r.start(); } catch (e) { askRec = null; $('askNote').textContent = '마이크를 쓸 수 없어요 — 글로 적어 주세요'; }
   }
   function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }

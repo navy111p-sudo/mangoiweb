@@ -333,3 +333,38 @@ body.vc-in-call #tab-pdf .pdf-controls #pdf-zoom-info {
     z-index: 99994 !important;
   }
 }
+
+/* ✕ (2026-10-08) 도구 패널 «닫기» 버튼 — mango-tools-dock.js ensureClose() 가 넣는다.
+ *   열렸을 때만 보이고, 패널이 길어 스크롤돼도 맨 위에 붙어 있다(sticky).
+ *   id 두 개로 기존 패널 버튼 규칙((1,4,2))을 이긴다. */
+body #view-videocall-call #tab-pdf .pdf-controls:not([data-mango-dock-open="true"]) > button.mango-dock-close,
+body #view-videocall-call #tab-pdf .pdf-anno-bar:not([data-mango-dock-open="true"]) > button.mango-dock-close,
+body #view-videocall-call #tab-whiteboard .wb-toolbar:not(.mango-wb-dock-open) > button.mango-dock-close {
+  display: none !important;
+}
+body #view-videocall-call #tab-pdf button.mango-dock-close,
+body #view-videocall-call #tab-whiteboard button.mango-dock-close {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 2 !important;
+  align-self: flex-end !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  box-sizing: border-box !important;
+  min-height: 36px !important;
+  padding: 6px 14px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(248, 113, 113, 0.65) !important;
+  background: #7f1d1d !important;
+  color: #ffffff !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  transform: none !important;
+}
+body #view-videocall-call #tab-pdf button.mango-dock-close:hover,
+body #view-videocall-call #tab-whiteboard button.mango-dock-close:hover {
+  background: #991b1b !important;
+}

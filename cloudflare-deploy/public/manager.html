@@ -1775,7 +1775,33 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var nm = s.username || s.korean_name || s.english_name || '(no name)';
       var id = s.user_id || s.student_id || s.login_id || '';
       var st = s.status || '';
-      return '<div class="row"><b>' + esc(nm) + '</b><span class="muted">' + esc(id) + '</span>'
+      /* 📅👩‍🏫📄 (2026-10-08 매니저 요청 «at student list can we see the schedule, the student's teacher, report,
+         move (postpone), change teacher button, for easy access»)
+         ⚠️ 일정·강사는 서버 정본(student-schedule-summary.ts → unified 의 sched)을 «그리기만» 한다 — 화면에서 다시 세지 않는다.
+            모르면 «—» (지어내지 않음).
+         ⚠️ 연기·변경·강사 변경은 이 줄에서 바로 하지 않는다 — 학생이 수업을 여러 개 가질 수 있어 «어느 수업» 인지 모른다.
+            학생 캘린더 창(오늘 수업의 📅 캘린더와 «같은» mgCalOpen)을 열고 날짜를 눌러 고른다.
+            그 창의 연기·변경 창(js/class-move-modal.js)에 새 강사 고르기가 있다 — 창을 두 벌 만들지 않는다. */
+      var sc = s.sched || null;
+      var schL = sc ? T(sc.label_en, sc.label_ko) : '';
+      var tchs = (sc && Array.isArray(sc.teachers)) ? sc.teachers : [];
+      var info = '<span class="muted" style="display:block;font-size:11px;line-height:1.55">'
+        + esc(T('Schedule: ', '일정: ')) + esc(schL && schL !== '—' ? schL : '—')
+        + ' · ' + esc(T('Teacher: ', '강사: ')) + esc(tchs.length ? tchs.join(', ') : '—') + '</span>';
+      var acts = '';
+      if (id) {
+        var hasCls = !!(sc && (Number(sc.weekly) > 0 || Number(sc.upcoming) > 0));
+        var cal = function(lbl){
+          return '<span class="tag" role="button" tabindex="0" style="cursor:pointer" data-calpin="' + esc(id) + '" data-calwho="' + esc(nm) + '">' + esc(lbl) + '</span> ';
+        };
+        acts = '<span style="display:block;margin-top:3px">'
+          + cal(T('📅 Schedule', '📅 일정'))
+          + (hasCls ? cal(T('⏸ Postpone · Move', '⏸ 연기 · 변경')) + cal(T('🔄 Change teacher', '🔄 강사 변경')) : '')
+          + '<a class="tag" target="_blank" rel="noopener" href="/monthly-report.html?uid=' + encodeURIComponent(id)
+          +   '&period=' + encodeURIComponent(stuKstMonth()) + '">' + esc(T('📄 Report', '📄 리포트')) + '</a>'
+          + '</span>';
+      }
+      return '<div class="row"><span style="flex:1;min-width:0"><b>' + esc(nm) + '</b>' + info + acts + '</span><span class="muted">' + esc(id) + '</span>'
            + (st ? '<span class="muted">' + esc(st) + '</span>' : '') + '</div>';
     }).join('')
     + '<div class="muted" style="padding-top:8px">'
@@ -1784,8 +1810,32 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
             list.length + '명 중 ' + shown.length + '명 표시 — 검색으로 좁혀 보세요.')
         : T(list.length + ' students', '학생 ' + list.length + '명'))
     + (j.can_view_pii === false ? ' · ' + esc(T('Contact details are masked.', '연락처는 가려져 있습니다.')) : '')
-    + '</div>';
+    + '</div>'
+    + '<div class="muted" style="font-size:11px;padding-top:4px">'
+    + esc(T('Postpone · Move · Change teacher: tap a date in the calendar window, then choose in the postpone/change window.',
+            '연기 · 변경 · 강사 변경: 캘린더 창에서 날짜를 누른 뒤 연기·변경 창에서 고릅니다.')) + '</div>';
+    bindStuActions();
   };
+  /* KST 기준 이번 달 — 월간 리포트 기본값(그 화면에서 다른 달로 바꿀 수 있다). UTC 로 재면 월초에 한 달 밀린다. */
+  function stuKstMonth(){ return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7); }
+  /* ⚠️ 위임 리스너 — innerHTML 을 갈아도 상자는 남으므로 한 번만 건다(bindTodayActions 와 같은 사정). */
+  var _stuBound = false;
+  function bindStuActions(){
+    var box = document.getElementById('stuBody');
+    if (!box || _stuBound) return;
+    _stuBound = true;
+    var onTap = function(ev){
+      var cal = ev.target && ev.target.closest && ev.target.closest('[data-calpin]');
+      if (!cal) return;
+      ev.preventDefault();
+      mgCalOpen(cal.getAttribute('data-calpin'), cal.getAttribute('data-calwho'));
+    };
+    box.addEventListener('click', onTap);
+    box.addEventListener('keydown', function(ev){
+      if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
+      onTap(ev);
+    });
+  }
 
   // ── ⑥ 강사 가동률 ─────────────────────────────────────────────────────────
   window.loadUtil = function(){
@@ -2842,6 +2892,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var act = r.join_open
         ? '<a class="tag" href="#" onclick="return taJoin(this)" data-room="' + esc(r.room_id || '') + '" data-who="' + who + '">'
           + esc(T('Join', '입장')) + '</a>'
+          /* 💬 (2026-10-08 매니저 질문 «where can we message the student if the teacher has a technical problem?»)
+             관찰(고스트) 창의 «받는 사람» 에서 그 학생을 고르면 학생 화면에만 메시지가 뜬다(관찰자는 학생에게 안 보임).
+             「지금 진행 중인 수업」 카드에만 있던 길을 이 줄에도 둔다 — 같은 화면(ghost-view.html), 같은 권한.
+             ⚠️ 학생이 방에 들어와 있어야 닿는다 — 아직 안 들어왔으면 창이 «받은 사람 0명» 이라고 말한다. */
+          + ' <a class="tag" target="_blank" rel="noopener" href="/admin/ghost-view.html?room_id=' + encodeURIComponent(r.room_id || '') + '">'
+          + esc(T('👁 Observe · 💬 Message', '👁 관찰 · 💬 메시지')) + '</a>'
         : '';
       /* 🆔🏫☎️ (2026-09-07 매니저 요청 «Please include student Name, ID, contact number, Academy»)
          수업에 안 들어오는 학생을 이 줄에서 바로 찾을 수 있게 — 둘째 줄로 붙인다.
@@ -2883,9 +2939,14 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
            행이 없어 여기서 옮길 수 없다 — 버튼이 «없다» 대신 그 이유를 글자로 적는다(폰엔 hover 가 없다). */
         resch = '<span class="tag">' + esc(T('LMS class — change in cafe24', '카페24 수업 — 카페24에서 변경')) + '</span>';
       } else if (r.schedule_id && r.can_move === false && r.can_split !== true) {
-        /* 🔁 (2026-10-08) 서버가 can_split 을 주면(본사 계정·미러 아님) 매주 줄도 버튼을 준다 —
-           창이 먼저 «날짜별로 나누기» 를 한 뒤 그 날만 처리한다(js/class-move-modal.js mvSplitFirst). */
-        resch = '<span class="tag">' + esc(T('weekly — use timetable', '매주 반복 — 시간표에서')) + '</span>';
+        /* 🔁 (2026-10-08) can_split(본사 계정·미러 아님)이면 아래 갈래가 «📅 연기·변경» 버튼을 준다(창이 먼저 나눈 뒤 그 날만). */
+        /* 📅 (2026-10-08 매니저 요청 «move button even for future classes») 매주 반복 줄도 막다른 글자 대신
+           학생 캘린더(학생 상세 스케줄 탭)를 연다 — 거기서 «날짜별로 나누기» 후 그 날짜 하나만 연기·변경한다.
+           ⛔ 여기서 바로 옮기지 않는다 — 반복 행 하나는 «매주 전부» 다(위 주석). */
+        resch = r.student_uid
+          ? '<span class="tag" role="button" tabindex="0" style="cursor:pointer" data-calpin="' + esc(r.student_uid) + '" data-calwho="' + esc(r.student_name || r.student_uid) + '">'
+            + esc(T('📅 Weekly — move a date in calendar (not timetable)', '📅 매주 반복 — 캘린더에서 날짜별로')) + '</span>'
+          : '<span class="tag">' + esc(T('weekly — use timetable', '매주 반복 — 시간표에서')) + '</span>';
       } else if (r.schedule_id) {
         resch = '<span class="tag ta-open" role="button" tabindex="0" data-ta="' + esc(r.schedule_id) + '">'
               + esc(T('📅 Move', '📅 연기·변경')) + '</span>';
