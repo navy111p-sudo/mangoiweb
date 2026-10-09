@@ -1,0 +1,39 @@
+# 임시: AI 생성 배너 3장을 러너에서 받아 webp 로 변환·커밋 (작업 끝나면 지움 — main 에 올리지 않음)
+name: tmp gift banner fetch
+on:
+  push:
+    branches: [claude/hopeful-albattani-rwww9h]
+    paths: [.github/workflows/tmp-gift-fetch.yml]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install pillow
+      - run: |
+          set -e
+          B=https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k
+          mkdir -p /tmp/g
+          curl -fsSL -o /tmp/g/kyochon.png     $B/hf_20261009_062935_654a48b5-b04b-4500-9b35-b3c7f9aeda50.png
+          curl -fsSL -o /tmp/g/baemin.png      $B/hf_20261009_062936_b6aa3ed3-8785-49f7-91ba-3b31527beee1.png
+          curl -fsSL -o /tmp/g/cultureland.png $B/hf_20261009_062935_06e14ec0-7d56-4102-be3a-073c20064b01.png
+          python3 - <<'PY'
+          from PIL import Image
+          import os
+          out='cloudflare-deploy/public/img/gifts'
+          os.makedirs('docs/tmp-gift-src', exist_ok=True)
+          for n in ['kyochon','baemin','cultureland']:
+              im=Image.open(f'/tmp/g/{n}.png').convert('RGB')
+              W,H=im.size; th=round(W/1.86)
+              top=(H-th)//2
+              im=im.crop((0,top,W,top+th)).resize((620,333),Image.LANCZOS)
+              im.save(f'{out}/{n}-photo.webp','WEBP',quality=86)
+              im.resize((620,333)).save(f'docs/tmp-gift-src/{n}-preview.jpg',quality=85)
+              print(n, os.path.getsize(f'{out}/{n}-photo.webp'))
+          PY
+      - run: |
+          git config user.name "github-actions"; git config user.email "actions@github.com"
+          git add cloudflare-deploy/public/img/gifts/*-photo.webp docs/tmp-gift-src
+          git commit -m "tmp: AI 생성 배너 3장 받아오기 (러너)" && git push
