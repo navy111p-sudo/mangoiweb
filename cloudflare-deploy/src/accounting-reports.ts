@@ -3130,6 +3130,17 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
   /* 💰 매출·비용은 monthPL() 한 곳에서 — 월간 리포트와 숫자가 어긋나지 않게(2026-08-16).
      매출에는 통장 B2B 직접입금이 포함된다. 분기면 3개월치를 합산한 값이다(2026-08-18). */
   const B = await statementBasis(env, months);
+  /* 📅 (2026-10-09) 분기·연간·월간·KPI 와 같은 판정 — 진행 중인 달·통장/카드 연동 전 달이 끼면 «참고값».
+     재무제표만 이 표시가 없어 이번 달(진행 중)을 골라도 반쪽 숫자가 확정처럼 보였다.
+     분기는 세 달 중 가장 나쁜 달을 따르고, 온전하지 않은 달마다 이유를 적는다. */
+  const fsStarts = await syncStarts(env);
+  const fsCovs = months.map(m => ({ m, c: coverageOf(m, fsStarts) }));
+  const covRank: Record<string, number> = { full: 0, partial: 1, future: 2, none: 3 };
+  const fsBad = fsCovs.filter(x => x.c.level !== 'full');
+  const coverage = {
+    level: fsBad.length ? fsBad.reduce((a, x) => covRank[x.c.level] > covRank[a] ? x.c.level : a, 'partial' as string) : 'full',
+    note: fsBad.map(x => (months.length > 1 ? `${x.m}: ` : '') + x.c.note).join(' / '),
+  };
   const rev = { revenue: B.revTotal, pay_count: B.payCount };
   const payroll = B.payroll;
   const ax = B.ax;
@@ -3314,7 +3325,9 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
     const operatingIn = rev.revenue;
     const operatingOut = payrollEff + opCost + pgFee + tax + ax.refunds;
     const operatingNet = operatingIn - operatingOut;
-    const investingNet = -Math.round(rev.revenue * 0.02);   // 투자활동 (장비) 추정
+    /* ⛔ (2026-10-09) 예전엔 «장비 구매 = 매출 × 2%» 로 지어낸 숫자였다 — 근거가 없다(자산대장·구매기록 없음).
+       모르는 값은 0 으로 두고 «자료없음» 이라고 밝힌다(재무상태표의 유형자산과 같은 처리). */
+    const investingNet = 0;
     const financingNet = 0;                                 // 차입/상환 추정
     const netCashChange = operatingNet + investingNet + financingNet;
     data = {
@@ -3331,7 +3344,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
           { name: '영업활동 순현금흐름', amount: operatingNet, total: true, highlight: true },
         ]},
         { title: 'II. 투자활동 현금흐름 (Investing)', items: [
-          { name: '장비 구매 (추정)', amount: investingNet },
+          { name: '장비 구매 — 자료없음 (구매·자산 기록이 없어 계산하지 않음)', amount: investingNet },
           { name: '투자활동 순현금흐름', amount: investingNet, total: true, highlight: true },
         ]},
         { title: 'III. 재무활동 현금흐름 (Financing)', items: [
@@ -3339,10 +3352,20 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
           { name: '재무활동 순현금흐름', amount: financingNet, total: true, highlight: true },
         ]},
         { title: 'IV. 현금 순증감', items: [
-          { name: '당기 현금 변동', amount: netCashChange, highlight: true, big: true },
+          { name: '당기 현금 변동 (장부 기준 계산)', amount: netCashChange, highlight: true, big: true },
         ]},
+        /* 💵 위 표는 장부(결제기록)로 «계산한» 흐름이다. 실제 통장이 얼마나 늘고 줄었는지를 옆에 둔다
+           — 손익계산서의 같은 참고 섹션과 같은 값(monthCash, 내부 자금이체 제외). */
+        ...(plCash.n > 0 ? [{ title: '※ 참고 — 통장 기준 실제 현금흐름 (신한 계좌)', items: [
+          { name: '실제 입금', amount: plCash.cin },
+          { name: '실제 출금', amount: -plCash.cout },
+          { name: '순증감 (통장이 실제로 늘거나 준 돈)', amount: plCash.cin - plCash.cout, highlight: true },
+        ]}] : []),
       ],
-      summary: { operating: operatingNet, investing: investingNet, financing: financingNet, net_change: netCashChange },
+      summary: { operating: operatingNet, investing: investingNet, financing: financingNet, net_change: netCashChange,
+        cash_in_krw: plCash.cin, cash_out_krw: plCash.cout, cash_net_krw: plCash.cin - plCash.cout },
+      notes: ['위 I~IV 는 장부(결제기록)와 비용 계산으로 만든 표입니다. 실제 통장 변동은 맨 아래 «참고» 를 보세요 — 장부에 안 잡힌 매출, 수업료가 아닌 입금(세금 환급·이자 등) 때문에 두 값이 다를 수 있습니다.',
+        '투자활동(장비 구매)·재무활동(차입/상환)은 기록이 없어 0 입니다.'],
     };
   }
   else if (type === 'tb') {
@@ -3389,6 +3412,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
   else {
     return err('unknown type: ' + type + ' (use pl|bs|cf|tb)');
   }
+  data.coverage = coverage;
 
   if (fmt === 'csv' || fmt === 'xlsx') {
     const rows: (string | number)[][] = [
@@ -3406,6 +3430,9 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
       }
       rows.push([]);
     }
+    // 화면과 같은 말을 엑셀에도 — 참고값 경고·안내문
+    if (coverage.level !== 'full') rows.push(['⚠ 자료가 온전하지 않은 기간 — 참고값', coverage.note]);
+    for (const n of (data.notes || [])) rows.push(['※ ' + n]);
     return out(fmt, `statement-${type}-${period}.csv`, rows);
   }
   return json(data);

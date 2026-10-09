@@ -18059,6 +18059,30 @@ window.rebuildGlobalSearchIndex = function() {
     if (format) qs.set('format', format);
     return '/api/admin/reports/statement?' + qs.toString();
   }
+  /* (2026-10-09) 서버가 보내는 coverage(참고값 경고)·notes(안내문)를 그린다 — 예전엔 notes 를 한 줄도
+     안 그려서 재무상태표의 「완전한 표가 아닙니다」·시산표의 차대 일치 여부가 화면·PDF 어디에도 안 나왔다.
+     화면과 PDF 가 같은 함수를 쓴다. */
+  function _fsExtras(d, where){
+    let h = '';
+    const c = d && d.coverage;
+    if (c && c.level && c.level !== 'full') {
+      h += `<div style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:8px;padding:10px 13px;margin:${where === 'top' ? '0 0 12px' : '12px 0'};font-size:12.5px;line-height:1.7;color:#78350f">
+        <b>⚠️ 이 기간은 자료가 온전하지 않습니다 — 아래 숫자는 참고값입니다.</b><br>${_esc(c.note || '')}</div>`;
+    }
+    return h;
+  }
+  function _fsNotes(d){
+    const ns = (d && Array.isArray(d.notes)) ? d.notes : [];
+    return ns.length ? `<div style="margin-top:12px;font-size:12px;color:#475467;line-height:1.7">${ns.map(n => '※ ' + _esc(n)).join('<br>')}</div>` : '';
+  }
+  /* (2026-10-09) 월 선택칸이 HTML 에 2026-04 로 박혀 있어 늘 4월 재무제표가 나왔다 — «지난달» 로 시작
+     (이번 달은 진행 중이라 반쪽 숫자다). 사람이 이미 바꿨으면 안 건드린다. */
+  (function(){
+    const mEl = document.getElementById('acc-fs-month');
+    if (!mEl || mEl.value !== mEl.defaultValue) return;
+    const t = _today().slice(0,7).split('-').map(Number);
+    mEl.value = new Date(Date.UTC(t[0], t[1] - 2, 1)).toISOString().slice(0,7);
+  })();
   window.accGenStatement = async function(){
     _fsGenerated = true;
     const wrap = document.getElementById('acc-fs-result');
@@ -18068,6 +18092,7 @@ window.rebuildGlobalSearchIndex = function() {
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||'API error');
       let html = `<div style="font-size:18px;font-weight:800;color:#111;border-bottom:3px solid #fb923c;padding-bottom:6px;margin-bottom:14px">${_esc(d.label)}</div>`;
+      html += _fsExtras(d, 'top');
       for (const sec of d.sections) {
         html += `<div style="font-size:14px;font-weight:700;color:#374151;margin:14px 0 6px">${_esc(sec.title)}</div>`;
         html += '<table style="width:100%;border-collapse:collapse;font-size:13px">';
@@ -18086,6 +18111,7 @@ window.rebuildGlobalSearchIndex = function() {
         }
         html += '</table>';
       }
+      html += _fsNotes(d);
       wrap.innerHTML = html;
     } catch(e) {
       wrap.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px">에러: ${_esc(e.message||e)}</div>`;
@@ -18195,6 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||'API error');
       let body = `<h1 style="font-size:22px;border-bottom:3px solid #fb923c;padding-bottom:8px">${_esc(d.label)}</h1>`;
+      body += _fsExtras(d, 'top');
       for (const sec of d.sections) {
         body += `<h2 style="font-size:14px;color:#374151;margin:16px 0 6px">${_esc(sec.title)}</h2>`;
         body += '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">';
@@ -18211,6 +18238,7 @@ window.rebuildGlobalSearchIndex = function() {
         }
         body += '</table>';
       }
+      body += _fsNotes(d);
       w.document.open();
       w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${_esc(d.label)}</title>
         <style>@page{size:A4;margin:18mm 14mm}body{font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;max-width:900px;margin:0 auto}.toolbar{position:fixed;top:10px;right:10px;background:#fff;padding:8px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.1)}.toolbar button{padding:8px 14px;font-size:13px;border:0;border-radius:6px;cursor:pointer;margin-left:6px;font-weight:600}@media print{.toolbar{display:none}body{padding:0}}</style>
