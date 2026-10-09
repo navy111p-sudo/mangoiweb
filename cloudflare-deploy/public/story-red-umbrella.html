@@ -1,0 +1,965 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>The Red Umbrella</title>
+<meta name="description" content="망고아이 A.i 동화책 심화1 · 읽고 듣기 · 근거 찾기 · 바꿔 쓰기">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@500;700;800&family=Noto+Sans+KR:wght@500;700&display=swap">
+<link rel="stylesheet" href="/css/mangoi-han.css">
+<script defer src="/js/back-nav.js"></script>
+<script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
+<style>
+/* Layout: a single storybook column — picture on top, the story as a page, then four activity "pages" below. */
+:root{
+  --paper:#fbf8f2; --page:#ffffff; --ink:#23262f; --soft:#5b6170; --line:#e4dccd;
+  --umbrella:#c8372d; --sky:#8fa3b8; --mark:#ffe58a; --ok:#1f7a4d; --okbg:#e3f3ea; --no:#a33a2c; --nobg:#fbe8e4;
+  --chip:#f1ebdf;
+  --display:'Fraunces',Georgia,serif;
+  --body:'MangoiHanSC','Nunito','Noto Sans KR',system-ui,sans-serif;
+  --ko:'MangoiHanSC','Noto Sans KR','Nunito',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#17191f; --page:#20232b; --ink:#eceae4; --soft:#a9adb8; --line:#363a45;
+  --umbrella:#ef5a4e; --sky:#5c6f84; --mark:#6b5a12; --ok:#7fd3a6; --okbg:#1d3a2c; --no:#f2998c; --nobg:#40231f; --chip:#2b2f39; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#17191f; --page:#20232b; --ink:#eceae4; --soft:#a9adb8; --line:#363a45;
+  --umbrella:#ef5a4e; --sky:#5c6f84; --mark:#6b5a12; --ok:#7fd3a6; --okbg:#1d3a2c; --no:#f2998c; --nobg:#40231f; --chip:#2b2f39; color-scheme:dark}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6}
+.wrap{max-width:760px;margin:0 auto;padding-block:20px 60px;padding-inline:16px;display:grid;gap:22px}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.tag{font-family:var(--ko);font-size:13px;color:var(--soft)}
+.tag b{color:var(--umbrella)}
+button{font:inherit;cursor:pointer}
+.lang{border:1px solid var(--line);background:var(--page);color:var(--ink);border-radius:99px;padding:5px 14px;font-weight:800;font-size:13px}
+:focus-visible{outline:3px solid var(--umbrella);outline-offset:2px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(32px,7vw,48px);line-height:1.05;margin:0;text-wrap:balance}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.meta span{background:var(--chip);border-radius:99px;padding:3px 11px;font-size:13px;font-weight:700;color:var(--soft)}
+.pic{border-radius:18px;overflow:hidden;border:1px solid var(--line);background:var(--page)}
+.pic img{display:block;width:100%;height:auto}
+.scene{margin:6px 0 18px;border-radius:14px;overflow:hidden;border:1px solid var(--line);box-shadow:0 10px 24px -18px rgba(0,0,0,.45)}
+.scene img{display:block;width:100%;height:auto}
+.cover{box-shadow:0 18px 40px -24px rgba(0,0,0,.5)}
+.pg{font-size:12px;font-weight:800;letter-spacing:.1em;color:var(--soft);text-transform:uppercase;margin:0 0 6px}
+.page{background:var(--page);border:1px solid var(--line);border-radius:18px;padding:22px clamp(16px,4vw,30px)}
+.page h2{font-family:var(--display);font-weight:800;font-size:22px;margin:0 0 4px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.page h2 small{font-family:var(--body);font-size:13px;color:var(--soft);font-weight:700}
+.howto{font-family:var(--ko);color:var(--soft);font-size:14px;margin:0 0 14px}
+.story p{margin:0 0 12px;font-size:17.5px;line-height:1.9}
+.s{border-radius:6px;padding:1px 2px;transition:background .15s;cursor:pointer}
+.s:hover{background:var(--chip)}
+.s.pick{background:var(--mark)}
+.s.good{background:var(--okbg);box-shadow:inset 0 -2px 0 var(--ok)}
+.s.miss{background:var(--nobg)}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.b{border:0;border-radius:12px;padding:9px 16px;font-weight:800;background:var(--ink);color:var(--paper)}
+.b.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.fb{margin-top:12px;font-family:var(--ko);font-size:14.5px;border-radius:12px;padding:12px 14px;display:grid;gap:6px}
+.fb.ok{background:var(--okbg);color:var(--ok)}
+.fb.no{background:var(--nobg);color:var(--no)}
+.fb p{margin:0}
+.fb .en{font-family:var(--body);font-weight:700}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:10px;margin-bottom:12px}
+.box{border:1px dashed var(--line);border-radius:14px;padding:12px}
+.box .k{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--umbrella)}
+.box .q{font-family:var(--ko);font-size:13px;color:var(--soft)}
+.box .a{font-weight:700;margin-top:4px}
+.sum p{font-size:17px;line-height:2.2;margin:0}
+select{font:inherit;font-weight:800;color:var(--ink);background:var(--chip);border:1px solid var(--line);border-radius:8px;padding:2px 6px}
+select.right{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
+.words{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:10px}
+.w{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--paper);display:grid;gap:4px;min-width:0}
+.w .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.w .en{font-family:var(--display);font-size:20px;font-weight:800}
+.w .ko{font-family:var(--ko);font-weight:700;color:var(--umbrella)}
+.w .ex{font-size:14px;color:var(--soft)}
+.w .ex b{color:var(--ink)}
+.spk{border:1px solid var(--line);background:var(--page);color:var(--ink);border-radius:99px;width:34px;height:34px;flex:none;font-size:15px}
+.ends{display:grid;gap:10px}
+.end{text-align:left;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:14px;padding:12px 14px;display:grid;gap:2px}
+.end.on{border-color:var(--umbrella);box-shadow:0 0 0 2px var(--umbrella) inset}
+.end .ko{font-family:var(--ko);font-size:13.5px;color:var(--soft)}
+.note{font-family:var(--ko);font-size:13px;color:var(--soft);border-top:1px solid var(--line);padding-top:14px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div class="tag" data-ko="망고아이 A.i 동화책 · <b>심화1</b>" data-en="Mangoi A.i Storybook · <b>Advanced 1</b>">망고아이 A.i 동화책 · <b>심화1</b></div>
+    <div class="topbtns"><button class="lang" id="bgm" type="button" aria-pressed="true">🎵 음악 끄기</button><button class="lang" id="lang" type="button">EN</button></div>
+  </div>
+
+  <header>
+    <h1>The Red Umbrella</h1>
+    <div class="meta">
+      <span>Story 1</span>
+      <span data-ko="약 380단어" data-en="about 380 words">약 380단어</span>
+      <span data-ko="20~25분" data-en="20–25 min">20~25분</span>
+      <span data-ko="캐피 심화1 수준" data-en="Level: CAPPY Advanced 1">캐피 심화1 수준</span>
+    </div>
+  </header>
+
+  <div class="stampboard" id="stampBoard" aria-live="polite"></div>
+
+  <figure class="pic cover"><img src="img/story/red-umbrella-cover.webp" alt="Jake and Lily under a big red umbrella with Mr. Park the baker" width="1024" height="688"></figure>
+
+  <section class="page story" id="story">
+    <h2><span data-ko="① 읽고 듣기" data-en="① Read &amp; listen">① 읽고 듣기</span> <small id="ttsNote"></small></h2>
+    <p class="howto" data-ko="문장을 누르면 원어민 목소리로 읽어 줍니다. 다음 단계에서는 문장을 «골라» 칠합니다." data-en="Tap a sentence to hear it. In step ② you will tap sentences to highlight them.">문장을 누르면 원어민 목소리로 읽어 줍니다. 다음 단계에서는 문장을 «골라» 칠합니다.</p>
+    <div class="btns" style="margin-bottom:14px">
+      <button class="b" type="button" id="readAll" data-ko="▶ 처음부터 듣기" data-en="▶ Listen from the start">▶ 처음부터 듣기</button>
+      <button class="b ghost" type="button" id="stopAll" data-ko="■ 멈추기" data-en="■ Stop">■ 멈추기</button>
+    </div>
+    <div class="speed" role="group" aria-label="말 속도"><span class="speed-l" data-ko="말 속도" data-en="Speed">말 속도</span><button type="button" class="sp" data-rate="0.65" data-ko="🐢 천천히" data-en="🐢 Slow">🐢 천천히</button><button type="button" class="sp" data-rate="0.88" data-ko="보통" data-en="Normal">보통</button><button type="button" class="sp" data-rate="1.05" data-ko="🐇 빠르게" data-en="🐇 Fast">🐇 빠르게</button></div>
+    <div id="text"></div>
+  </section>
+
+  <section class="page" id="keysec">
+    <h2 data-ko="② 핵심문장 찾기" data-en="② Find the key sentences">② 핵심문장 찾기</h2>
+    <p class="howto" data-ko="이 이야기에서 가장 중요한 문장 2개를 위 본문에서 눌러 고르세요. 하나는 «문제», 하나는 «해결» 입니다." data-en="Tap the 2 most important sentences in the story above: one shows the problem, one shows the solution.">이 이야기에서 가장 중요한 문장 2개를 위 본문에서 눌러 고르세요. 하나는 «문제», 하나는 «해결» 입니다.</p>
+    <div class="btns">
+      <button class="b" type="button" id="pickMode" data-ko="✏️ 고르기 시작" data-en="✏️ Start choosing">✏️ 고르기 시작</button>
+      <button class="b ghost" type="button" id="checkKey" data-ko="정답 확인" data-en="Check">정답 확인</button>
+    </div>
+    <div id="keyFb"></div>
+  </section>
+
+  <section class="page sum" id="sumsec">
+    <h2 data-ko="③ 요점정리" data-en="③ Summary">③ 요점정리</h2>
+    <p class="howto" data-ko="먼저 누가·무슨 문제·어떻게 해결했는지 보고, 빈칸에 알맞은 단어를 고르세요." data-en="Look at Who / Problem / Solution, then choose the right word for each blank.">먼저 누가·무슨 문제·어떻게 해결했는지 보고, 빈칸에 알맞은 단어를 고르세요.</p>
+    <div class="grid3">
+      <div class="box"><div class="k">Who</div><div class="q" data-ko="누가 나오나요?" data-en="Who is in the story?">누가 나오나요?</div><div class="a">Jake, Lily, Mr. Park</div></div>
+      <div class="box"><div class="k">Problem</div><div class="q" data-ko="무슨 문제가 있었나요?" data-en="What is the problem?">무슨 문제가 있었나요?</div><div class="a">Mr. Park's umbrella is lost, and it starts to rain.</div></div>
+      <div class="box"><div class="k">Solution</div><div class="q" data-ko="어떻게 해결했나요?" data-en="How do they solve it?">어떻게 해결했나요?</div><div class="a">They take it to his bakery.</div></div>
+    </div>
+    <p id="sumText"></p>
+    <div class="btns"><button class="b" type="button" id="checkSum" data-ko="정답 확인" data-en="Check">정답 확인</button></div>
+    <div id="sumFb"></div>
+  </section>
+
+  <section class="page" id="wordsec">
+    <h2 data-ko="④ 핵심단어" data-en="④ Key words">④ 핵심단어</h2>
+    <p class="howto" data-ko="🔊 를 눌러 발음을 듣고 예문을 따라 읽은 뒤, 아래 «뜻 맞히기 게임» 을 끝까지 풀어 보세요." data-en="Tap 🔊 to hear each word and read the example, then finish the word game below.">🔊 를 눌러 발음을 듣고 예문을 따라 읽은 뒤, 아래 «뜻 맞히기 게임» 을 끝까지 풀어 보세요.</p>
+    <div class="words" id="words"></div>
+    <div class="wq" id="wq"></div>
+  </section>
+
+  <section class="page" id="infer">
+    <h2 data-ko="⑤ 근거 찾기" data-en="⑤ Find the evidence">⑤ 근거 찾기</h2>
+    <p class="howto" data-ko="답을 고른 뒤, 그 답을 뒷받침하는 본문 문장도 고르세요. 답과 근거가 둘 다 맞아야 정답입니다." data-en="Choose an answer, then choose the sentence(s) in the story that prove it. Both must be right.">답을 고른 뒤, 그 답을 뒷받침하는 본문 문장도 고르세요. 답과 근거가 둘 다 맞아야 정답입니다.</p>
+    <div class="qs" id="qs"></div>
+  </section>
+
+  <section class="page" id="mywrite">
+    <h2 data-ko="⑥ 내 이야기로 바꿔 쓰기" data-en="⑥ Make it your own">⑥ 내 이야기로 바꿔 쓰기</h2>
+    <p class="howto" data-ko="Lily 의 말을 틀로 삼아, 빈칸 두 곳을 내 생활로 바꿔 영어로 써 보세요." data-en="Use Lily’s sentence as a pattern. Fill the two blanks with your own life, in English.">Lily 의 말을 틀로 삼아, 빈칸 두 곳을 내 생활로 바꿔 영어로 써 보세요.</p>
+    <div class="pat">
+      <div class="pat-k" data-ko="본문 문장" data-en="From the story">본문 문장</div>
+      <p class="pat-src">“Let’s <u>take it to him</u> before <u>the rain gets heavy</u>.”</p>
+      <div class="pat-k" data-ko="틀" data-en="Pattern">틀</div>
+      <p class="pat-frame">Let’s <span class="slot">무엇을 할지</span> before <span class="slot">무슨 일이 생기기 전</span>.</p>
+    </div>
+    <div class="ex-row"><span class="ex-l" data-ko="예시 넣어 보기" data-en="Try an example">예시 넣어 보기</span>
+      <button type="button" class="chip" data-a="finish our homework" data-b="dinner is ready">homework</button>
+      <button type="button" class="chip" data-a="clean our room" data-b="Mom comes home">room</button>
+      <button type="button" class="chip" data-a="go inside" data-b="it gets dark">outside</button>
+    </div>
+    <div class="wline">
+      <span class="wfix">Let’s</span>
+      <input id="wa" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="finish our homework" aria-label="what to do">
+      <span class="wfix">before</span>
+      <input id="wb" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="dinner is ready" aria-label="before what">
+      <span class="wfix">.</span>
+    </div>
+    <p class="wprev" id="wprev"></p>
+    <div class="btns">
+      <button class="b" type="button" id="wcheck" data-ko="완성하기" data-en="Finish">완성하기</button>
+      <button class="b ghost" type="button" id="wsay" data-ko="🔊 내 문장 듣기" data-en="🔊 Hear my sentence">🔊 내 문장 듣기</button>
+    </div>
+    <div id="wfb"></div>
+  </section>
+
+  <section class="page finish" id="finish">
+    <h2 data-ko="⑦ 완주" data-en="⑦ Finish">⑦ 완주</h2>
+    <p class="howto" data-ko="①~⑥ 도장 6개를 다 모으면 포인트를 받아요 (하루 2번까지)." data-en="Collect all 6 stamps (①–⑥) to get points (up to 2 times a day).">①~⑥ 도장 6개를 다 모으면 포인트를 받아요 (하루 2번까지).</p>
+    <div id="finishBox"></div>
+    <div class="btns"><button class="b ghost" type="button" id="stampReset" data-ko="↺ 처음부터 다시" data-en="↺ Start over">↺ 처음부터 다시</button></div>
+  </section>
+
+  <section class="page" id="vote">
+    <h2 data-ko="🗳️ 보너스 · 다음 이야기 투표" data-en="🗳️ Bonus · Vote for the next story">🗳️ 보너스 · 다음 이야기 투표</h2>
+    <p class="howto" data-ko="다음 이야기는 어떻게 시작하면 좋을까요? 재미로 하는 투표예요 (도장·포인트와는 상관없어요)." data-en="How should the next story begin? Just for fun (no stamps or points).">다음 이야기는 어떻게 시작하면 좋을까요? 재미로 하는 투표예요 (도장·포인트와는 상관없어요).</p>
+    <div class="ends" id="ends"></div>
+    <div id="endFb"></div>
+  </section>
+
+  <p class="note rev" data-ko="원장님 의견 반영: 심화반은 «다음 장면 상상» 대신 «근거 찾기»(원인·결과, 문맥상 의미, 단서 연결)와 «내 이야기로 바꿔 쓰기» 로 공부합니다. 그림은 표지 포함 3장으로 줄이고 글 중심으로 읽습니다. 다음 편 투표는 보너스로 남겼습니다." data-en="Teacher feedback applied: advanced readers practice evidence-based inference and personal writing instead of guessing the next scene. Pictures are cut to 3 so the text leads. The next-story vote stays as a bonus.">원장님 의견 반영: 심화반은 «다음 장면 상상» 대신 «근거 찾기»(원인·결과, 문맥상 의미, 단서 연결)와 «내 이야기로 바꿔 쓰기» 로 공부합니다. 그림은 표지 포함 3장으로 줄이고 글 중심으로 읽습니다. 다음 편 투표는 보너스로 남겼습니다.</p>
+  <p class="note" data-ko="이 이야기는 망고아이가 새로 쓴 오리지널입니다. 다른 교재·동화책의 문장, 캐릭터, 그림은 쓰지 않았습니다. 삽화는 Higgsfield AI 로 이 이야기를 위해 새로 그렸습니다." data-en="This is an original Mangoi story. No sentences, characters or pictures from other books are used. The illustrations were newly made for this story with Higgsfield AI.">이 이야기는 망고아이가 새로 쓴 오리지널입니다. 다른 교재·동화책의 문장, 캐릭터, 그림은 쓰지 않았습니다. 삽화는 Higgsfield AI 로 이 이야기를 위해 새로 그렸습니다.</p>
+</div>
+
+<script>
+/* STORY-CORE-START — 채점·판정 정본(DOM 없음). 하니스(story_red_umbrella_harness)가 이 블록을 오려 내 실제로 돌립니다.
+   ⛔ 화면 코드에 같은 판정을 다시 적지 마세요 — 한쪽만 고쳐지는 사고가 납니다. */
+var STORY_POINTS = 10;          // ⚠️ 서버 규칙 story_read 금액과 같아야 합니다(api-points.ts)
+var STORY_RULE = 'story_read';
+var STORY_ID = 'red-umbrella';
+var StoryCore = (function(){
+  var STAMPS = ['read','key','sum','words','infer','write'];
+  function normQ(s){ return String(s == null ? '' : s).replace(/[“”"‘’]/g,'').replace(/\s+/g,' ').trim(); }
+  // ② 핵심 문장 — 고른 문장의 역할(P/S/d) 목록 → 2개 모두 핵심(P·S)일 때만 만점
+  function gradeKey(roles){
+    var hit = 0, seen = {};
+    for (var i = 0; i < roles.length; i++) if (roles[i] !== 'd' && !seen[roles[i]]) { seen[roles[i]] = 1; hit++; }
+    return { hit: hit, total: 2, full: roles.length === 2 && hit === 2 };
+  }
+  // ③ 요점정리 빈칸
+  function gradeSum(values, answers){
+    var ok = 0, empty = 0, marks = [];
+    for (var i = 0; i < answers.length; i++) {
+      var v = values[i];
+      if (!v) { empty++; marks.push(''); }
+      else if (v === answers[i]) { ok++; marks.push('right'); }
+      else marks.push('wrong');
+    }
+    return { ok: ok, empty: empty, total: answers.length, full: empty === 0 && ok === answers.length, marks: marks };
+  }
+  // ⑤ 근거 찾기 — 답(a)과 근거(e) «둘 다» 맞아야 정답
+  function gradeQ(q, a, e){
+    if (a == null) return { status: 'need_a' };
+    e = e || [];
+    if (e.length < q.ev.length) return { status: 'need_e' };
+    var aOk = a === q.ans, uniq = {}, eOk = e.length === q.ev.length;
+    for (var i = 0; i < e.length && eOk; i++) { if (uniq[e[i]] || q.ev.indexOf(e[i]) < 0) eOk = false; uniq[e[i]] = 1; }
+    return { status: aOk && eOk ? 'full' : aOk ? 'a_only' : eOk ? 'e_only' : 'none', aOk: aOk, eOk: eOk };
+  }
+  // 근거 칩 누르기 — 이미 고른 것은 지우고, 개수를 넘으면 null(못 고름)
+  function toggleEvidence(q, e, ei){
+    var k = e.indexOf(ei), next = e.slice();
+    if (k >= 0) { next.splice(k, 1); return next; }
+    if (next.length >= q.ev.length) return null;
+    next.push(ei); return next;
+  }
+  // ⑥ 바꿔 쓰기 — Let’s ___ before ___.
+  var HANGUL = /[가-힣ㄱ-ㅎㅏ-ㅣ]/;
+  function cleanW(s){ return String(s == null ? '' : s).trim().replace(/\s+/g, ' ').replace(/^let[’']?s\s+/i, '').replace(/[.!?]+$/, '').trim(); }
+  function buildSentence(a, b){
+    a = cleanW(a); b = cleanW(b).replace(/^before\s+/i, '');
+    return (a && b) ? 'Let’s ' + a + ' before ' + b + '.' : '';
+  }
+  function checkWrite(a, b){
+    var ca = cleanW(a), cb = cleanW(b).replace(/^before\s+/i, '');
+    if (!ca || !cb) return { ok: false, why: 'empty' };
+    if (HANGUL.test(ca) || HANGUL.test(cb)) return { ok: false, why: 'hangul' };
+    if ((ca + ' ' + cb).length > 120) return { ok: false, why: 'too_long' };
+    var words = (ca + ' ' + cb).split(' ').length;
+    return { ok: true, sentence: buildSentence(ca, cb), more: cb.split(' ').length < 2 || words < 4 };
+  }
+  // 🔤 뜻 맞히기 — seed 로 섞되 같은 seed 면 같은 문제(검사에서 재현)
+  function rng(seed){ var x = (seed >>> 0) || 1; return function(){ x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; }
+  function shuffle(arr, r){ var a = arr.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(r() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function wordQuiz(words, seed){
+    var r = rng(seed), order = shuffle(words.map(function(_, i){ return i; }), r);
+    return order.map(function(i){
+      var others = shuffle(words.map(function(_, j){ return j; }).filter(function(j){ return j !== i; }), r).slice(0, 2);
+      var opts = shuffle([i].concat(others), r);
+      return { en: words[i][0], idx: i, opts: opts, ans: opts.indexOf(i) };
+    });
+  }
+  // 🏅 도장
+  function allDone(st){ for (var i = 0; i < STAMPS.length; i++) if (!st || !st[STAMPS[i]]) return false; return true; }
+  function countDone(st){ var n = 0; for (var i = 0; i < STAMPS.length; i++) if (st && st[STAMPS[i]]) n++; return n; }
+  // 🪙 포인트 요청을 «보내도 되는가» — 도장 6개 + 오늘 아직 안 받음 + 보내는 중 아님
+  function shouldEarn(st, paidToday, inflight){ return allDone(st) && !paidToday && !inflight; }
+  // 🪙 서버 응답 → 화면이 할 말. 요청이 아예 실패했을 때(err)는 «어디서 열었나» 로 가릅니다 —
+  //    망고아이 사이트면 «연결 실패 → 다시 받기», 그 밖(미리보기)이면 «여기선 포인트가 안 쌓여요».
+  //    ⛔ 사이트에서 끊긴 것을 «미리보기» 라고 말하면 학생이 포인트를 그냥 포기합니다.
+  function isSiteHost(h){ return /(^|\.)mangoi\.(ai|co\.kr)$/i.test(String(h || '')) || /^(localhost|127\.0\.0\.1)$/.test(String(h || '')); }
+  function earnView(resp, err, onSite){
+    if (err || !resp || typeof resp !== 'object') return onSite ? { kind: 'error', code: 'network' } : { kind: 'sample' };
+    if (resp.ok === true && resp.rule && Number(resp.rule.amount) > 0)
+      return { kind: 'ok', amount: Number(resp.rule.amount), balance: resp.newBalance == null ? null : Number(resp.newBalance) };
+    var e = String(resp.error || '');
+    if (e === 'daily_cap_reached' || e === 'game_daily_cap_reached' || e === 'daily_total_cap_reached')
+      return { kind: 'cap', ko: resp.message_ko || '', en: resp.message_en || '' };
+    if (e === 'auth_required') return { kind: 'login' };
+    if (e === 'rule_not_found_or_disabled') return { kind: 'off' };
+    return { kind: 'error', code: e || 'unknown' };
+  }
+  function kstDay(now){ var d = new Date((now == null ? Date.now() : now) + 9 * 3600 * 1000); return d.toISOString().slice(0, 10); }
+  return { STAMPS: STAMPS, normQ: normQ, gradeKey: gradeKey, gradeSum: gradeSum, gradeQ: gradeQ, toggleEvidence: toggleEvidence,
+           HANGUL: HANGUL, cleanW: cleanW, buildSentence: buildSentence, checkWrite: checkWrite, wordQuiz: wordQuiz,
+           allDone: allDone, countDone: countDone, shouldEarn: shouldEarn, earnView: earnView, isSiteHost: isSiteHost, kstDay: kstDay };
+})();
+/* STORY-CORE-END */
+</script>
+<script>
+(function(){
+  // role: 'P' = key sentence (problem), 'S' = key sentence (solution), 'd' = detail sentence
+  var STORY = [
+    [["It is Monday morning.","d"],["Jake and Lily walk to the bus stop.","d"],["The sky is gray, and the wind is cold.","d"],["\"I think it will rain today,\" says Lily.","d"]],
+    [["At the bus stop, Jake sees something under the bench.","d"],["It is a big red umbrella.","d"],["\"Whose umbrella is this?\" he asks.","d"]],
+    [["Lily picks it up and looks at the handle.","d"],["\"There is a name on it,\" she says.","d"],["\"It says Mr. Park.\"","d"]],
+    [["\"I know Mr. Park!\" says Jake.","d"],["\"He is the baker on Green Street.","d"],["He makes the best bread in town.\"","d"]],
+    [["Lily looks up at the sky.","d"],["Little drops of rain start to fall.","d"],["\"Mr. Park needs his umbrella,\" she says.","P"],["\"Let's take it to him before the rain gets heavy.\"","S"]],
+    [["\"But what about the bus?\" asks Jake.","d"],["\"We can take the next bus,\" says Lily.","d"],["\"It comes in twenty minutes.\"","d"]],
+    [["Jake and Lily walk down Green Street.","d"],["They walk past the toy shop and the flower shop.","d"],["The bakery is at the end of the street.","d"],["It smells like warm bread.","d"]],
+    [["Mr. Park is standing at the door.","d"],["He looks worried.","d"],["\"Good morning, Mr. Park,\" says Lily.","d"],["\"Is this your umbrella?\"","d"]],
+    [["Mr. Park smiles a big smile.","d"],["\"Yes, it is mine!","d"],["My wife gave it to me.","d"],["It is very special to me.\"","d"]],
+    [["\"Thank you, Jake. Thank you, Lily,\" says Mr. Park.","d"],["He gives them two warm bread rolls.","d"],["\"These are for you.","d"],["Have a good day at school!\"","d"]],
+    [["Now it is raining hard.","d"],["Mr. Park opens the red umbrella.","d"],["\"Come,\" he says.","d"],["\"I will walk you to the bus stop.\"","d"]],
+    [["The three friends walk together under the big red umbrella.","d"],["Jake eats his bread.","d"],["\"This is the best bread in town,\" he says.","d"],["Lily laughs.","d"],["\"And this is the best umbrella in town!\"","d"]]
+  ];
+  var SUM = [
+    {pre:"Jake and Lily find a red ", ans:"umbrella", opts:["wallet","umbrella","hat"]},
+    {pre:" under a bench at the bus stop. The name on it says Mr. ", ans:"Park", opts:["Kim","Park","Green"]},
+    {pre:". He is a ", ans:"baker", opts:["baker","teacher","doctor"]},
+    {pre:" on Green Street. The rain starts, so they take the umbrella to his ", ans:"bakery", opts:["school","bank","bakery"]},
+    {pre:". Mr. Park gives them warm ", ans:"bread", opts:["milk","bread","cake"]},
+    {pre:" and walks them back under the umbrella.", ans:null}
+  ];
+  var WORDS = [
+    ["umbrella","우산","It is a big red <b>umbrella</b>."],
+    ["bench","벤치, 긴 의자","Jake sees something under the <b>bench</b>."],
+    ["handle","손잡이","She looks at the <b>handle</b>."],
+    ["baker","제빵사, 빵 굽는 사람","He is the <b>baker</b> on Green Street."],
+    ["worried","걱정하는","He looks <b>worried</b>."],
+    ["heavy","(비가) 세찬, 무거운","before the rain gets <b>heavy</b>"]
+  ];
+  // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들, story = 본문에서 칠할 문장(정확히 같은 글자)
+  var QS = [
+    { type:['원인·결과','Cause & effect'],
+      q:'Why did Lily want to take the umbrella to Mr. Park right away?',
+      qko:'Lily 는 왜 우산을 바로 갖다 드리자고 했나요?',
+      opts:['Because it was starting to rain.','Because the bus was late.','Because Mr. Park was their teacher.'],
+      ans:0,
+      evq:['근거 문장 1개를 고르세요.','Choose 1 evidence sentence.'],
+      evs:['It comes in twenty minutes.','Little drops of rain start to fall.','He makes the best bread in town.','It smells like warm bread.'],
+      ev:[1],
+      why:['비가 내리기 시작했다는 문장이 «바로 가자»의 원인입니다. 버스가 늦었다거나 선생님이라는 말은 본문에 없어요.',
+           'Rain starting to fall is the cause. The story never says the bus was late or that Mr. Park is a teacher.'] },
+    { type:['문맥상 의미','Meaning in context'],
+      q:'“He looks worried.” Why was Mr. Park worried?',
+      qko:'«He looks worried.» 박 아저씨는 왜 걱정스러워 보였나요?',
+      opts:['He had no bread to sell today.','He lost a special umbrella, and rain was coming.','Jake and Lily were late for school.'],
+      ans:1,
+      evq:['근거 문장 2개를 고르세요.','Choose 2 evidence sentences.'],
+      evs:['It is very special to me.','He gives them two warm bread rolls.','Little drops of rain start to fall.','The bakery is at the end of the street.'],
+      ev:[0,2],
+      why:['«worried» 의 이유는 본문 두 곳에 흩어져 있어요. 우산이 특별한 물건이라는 것, 그리고 비가 오기 시작했다는 것. 빵이 없다는 말은 없어요.',
+           'The reason is spread over two places: the umbrella is special to him, and rain is starting. Nothing says he had no bread.'] },
+    { type:['단서 연결','Connecting clues'],
+      q:'How did Jake and Lily know where to take the umbrella?',
+      qko:'두 아이는 우산을 어디로 가져가야 할지 어떻게 알았나요?',
+      opts:['Mr. Park called them on the phone.','They saw Mr. Park at the bus stop.','The handle had his name, and Jake knew where he works.'],
+      ans:2,
+      evq:['근거 문장 2개를 고르세요.','Choose 2 evidence sentences.'],
+      evs:['It is a big red umbrella.','“It says Mr. Park.”','“We can take the next bus,” says Lily.','“He is the baker on Green Street.'],
+      ev:[1,3],
+      why:['단서 두 개를 이어야 결론이 나옵니다. ① 손잡이에 이름이 있다 + ② Jake 가 그 사람이 Green Street 의 제빵사라는 것을 안다 → 빵집으로 간다.',
+           'Two clues together lead to the answer: the name on the handle, and Jake knowing he is the baker on Green Street.'] }
+  ];
+
+  var ENDS = [
+    ["A","Mr. Park asks Jake and Lily to help at the bakery on Saturday.","박 아저씨가 토요일에 빵집 일을 도와 달라고 부탁해요.","Saturday at the Bakery"],
+    ["B","The next bus is late, and the friends see a little dog with no owner.","다음 버스가 늦게 오고, 주인 없는 작은 강아지를 만나요.","The Little Lost Dog"]
+  ];
+  function storyDone(k){ try { if (window.StoryFun) window.StoryFun.done(k); } catch(e){} }
+
+  var lang = 'ko';
+  try { lang = localStorage.getItem('story_lang') || 'ko'; } catch(e){}
+  function t(ko,en){ return lang === 'en' ? en : ko; }
+  function applyLang(){
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-ko]').forEach(function(el){ el.innerHTML = el.getAttribute(lang === 'en' ? 'data-en' : 'data-ko'); });
+    document.getElementById('lang').textContent = lang === 'en' ? '한국어' : 'EN';
+    renderQs(); renderWords(); renderWQ(); renderEnds(); paintWrite();
+  }
+  document.getElementById('lang').addEventListener('click', function(){
+    lang = lang === 'en' ? 'ko' : 'en';
+    try { localStorage.setItem('story_lang', lang); } catch(e){}
+    applyLang();
+  });
+
+  // ---- speech ----
+  var synth = window.speechSynthesis || null, voice = null;
+  function pickVoice(){
+    if (!synth) return;
+    var v = synth.getVoices().filter(function(x){ return /^en(-|_)/i.test(x.lang); });
+    voice = v.find(function(x){ return /en-US/i.test(x.lang); }) || v[0] || null;
+  }
+  if (synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
+  else document.getElementById('ttsNote').textContent = '(이 브라우저는 소리 읽기를 지원하지 않아요)';
+  function say(text, onend){
+    if (!synth) { if (onend) onend(); return; }
+    try {
+      var u = new SpeechSynthesisUtterance(text.replace(/[“”"]/g,''));
+      u.lang = 'en-US'; u.rate = (window.__ttsRate || 0.88); if (voice) u.voice = voice;
+      u.onend = function(){ if (onend) onend(); };
+      synth.speak(u);
+    } catch(e){ if (onend) onend(); }
+  }
+  function stop(){ try { if (synth) synth.cancel(); } catch(e){} playing = false; try { spans.forEach(function(s){ s.classList.remove('reading'); }); } catch(e){} }
+
+  // ---- story ----
+  var SCENES = {2:['img/story/red-umbrella-s2.webp','Lily reads the name on the handle'],8:['img/story/red-umbrella-s8.webp','Mr. Park gets his umbrella back']};
+  var box = document.getElementById('text'), spans = [], picking = false, playing = false;
+  STORY.forEach(function(par, pi){
+    if (SCENES[pi]) { var f = document.createElement('figure'); f.className = 'scene'; f.innerHTML = '<img loading="lazy" width="1024" height="688" alt="' + SCENES[pi][1] + '" src="' + SCENES[pi][0] + '">'; box.appendChild(f); }
+    var p = document.createElement('p');
+    par.forEach(function(s, i){
+      var sp = document.createElement('span');
+      sp.className = 's'; sp.textContent = s[0]; sp.dataset.role = s[1]; sp.tabIndex = 0;
+      sp.addEventListener('click', function(){ onSentence(sp); });
+      sp.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSentence(sp); } });
+      p.appendChild(sp); if (i < par.length - 1) p.appendChild(document.createTextNode(' '));
+      spans.push(sp);
+    });
+    box.appendChild(p);
+  });
+  function onSentence(sp){
+    if (picking) {
+      if (sp.classList.contains('pick')) sp.classList.remove('pick');
+      else if (document.querySelectorAll('.s.pick').length < 2) sp.classList.add('pick');
+      else flash(t('두 문장까지만 고를 수 있어요. 하나를 다시 눌러 지운 뒤 고르세요.','You can pick only 2. Tap one again to remove it.'), false);
+      return;
+    }
+    stop(); say(sp.textContent);
+    heard[spans.indexOf(sp)] = 1;
+    if (Object.keys(heard).length >= 5) storyDone('read');   // 문장 5개를 눌러 들어도 «읽고 듣기» 도장
+  }
+  var heard = {};
+  document.getElementById('readAll').addEventListener('click', function(){
+    stop(); playing = true; var i = 0;
+    (function next(){
+      spans.forEach(function(s){ s.classList.remove('reading'); });
+      if (!playing) return;
+      if (i >= spans.length) { playing = false; storyDone('read'); return; }
+      var cur = spans[i++]; cur.classList.add('reading');
+      if (cur.getBoundingClientRect) { var r = cur.getBoundingClientRect(); if (r.top < 60 || r.bottom > innerHeight - 40) cur.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+      say(cur.textContent, next);
+    })();
+  });
+  document.getElementById('stopAll').addEventListener('click', stop);
+
+  // ---- key sentences ----
+  var keyFb = document.getElementById('keyFb');
+  function flash(msg, ok, en){
+    keyFb.innerHTML = '<div class="fb ' + (ok ? 'ok' : 'no') + '"><p>' + msg + '</p>' + (en ? '<p class="en">' + en + '</p>' : '') + '</div>';
+  }
+  document.getElementById('pickMode').addEventListener('click', function(){
+    picking = !picking; stop();
+    spans.forEach(function(s){ s.classList.remove('good','miss'); });
+    this.innerHTML = picking ? t('✔ 고르기 끝','✔ Done choosing') : t('✏️ 고르기 시작','✏️ Start choosing');
+    keyFb.innerHTML = picking ? '<div class="fb ok"><p>' + t('이제 본문 문장을 누르면 노란색으로 칠해집니다.','Tap sentences in the story to highlight them.') + '</p></div>' : '';
+    if (picking) document.getElementById('story').scrollIntoView({behavior:'smooth', block:'start'});
+  });
+  document.getElementById('checkKey').addEventListener('click', function(){
+    var picked = Array.prototype.slice.call(document.querySelectorAll('.s.pick'));
+    if (picked.length < 2) { flash(t('먼저 «고르기 시작» 을 누르고 본문에서 문장 2개를 골라 주세요.','Press “Start choosing” and pick 2 sentences first.'), false); return; }
+    var gk = StoryCore.gradeKey(picked.map(function(s){ return s.dataset.role; })), hit = gk.hit;
+    spans.forEach(function(s){ if (s.dataset.role !== 'd') s.classList.add('good'); });
+    picked.forEach(function(s){ if (s.dataset.role === 'd') s.classList.add('miss'); });
+    picking = false;
+    document.getElementById('pickMode').innerHTML = t('✏️ 다시 고르기','✏️ Choose again');
+    var why = t('핵심은 «박 아저씨에게 우산이 필요하다(문제)» 와 «비가 세지기 전에 갖다 드리자(해결)» 입니다. 초록색 문장이 정답이에요.',
+                'The key ideas are the problem (Mr. Park needs his umbrella) and the solution (take it to him before the rain gets heavy). The green sentences are the answers.');
+    if (gk.full) { storyDone('key'); flash(t('정답! 2개 모두 맞았어요. ','Great! Both are right. ') + why, true); }
+    else flash(t(hit + '개 맞았어요. 빨간 문장은 이야기의 «자세한 내용» 이에요. ', hit + ' of 2 right. Red sentences are details. ') + why, false);
+    spans.forEach(function(s){ s.classList.remove('pick'); });
+  });
+
+  // ---- summary ----
+  var sumText = document.getElementById('sumText'), sels = [];
+  SUM.forEach(function(item, i){
+    sumText.appendChild(document.createTextNode(item.pre));
+    if (!item.ans) return;
+    var sel = document.createElement('select');
+    sel.id = 'blank' + i; sel.setAttribute('aria-label', 'blank ' + (i + 1));
+    sel.innerHTML = '<option value="">______</option>' + item.opts.map(function(o){ return '<option>' + o + '</option>'; }).join('');
+    sel.dataset.ans = item.ans;
+    sel.addEventListener('change', function(){ sel.classList.remove('right','wrong'); });
+    sumText.appendChild(sel); sels.push(sel);
+  });
+  document.getElementById('checkSum').addEventListener('click', function(){
+    var gs = StoryCore.gradeSum(sels.map(function(s){ return s.value; }), sels.map(function(s){ return s.dataset.ans; }));
+    var ok = gs.ok, empty = gs.empty;
+    sels.forEach(function(s, i){ s.classList.remove('right','wrong'); if (gs.marks[i]) s.classList.add(gs.marks[i]); });
+    var fb = document.getElementById('sumFb');
+    if (empty) { fb.innerHTML = '<div class="fb no"><p>' + t('빈칸 ' + empty + '개가 남았어요.', empty + ' blank(s) left.') + '</p></div>'; return; }
+    var full = gs.full; if (full) storyDone('sum');
+    fb.innerHTML = '<div class="fb ' + (full ? 'ok' : 'no') + '"><p>' +
+      (full ? t('모두 정답! 이제 이 요점정리를 소리 내어 한 번 읽어 보세요.','All correct! Now read the summary out loud once.')
+            : t(sels.length + '개 중 ' + ok + '개 맞았어요. 빨간 칸을 본문에서 다시 찾아보세요.', ok + ' of ' + sels.length + ' correct. Find the red ones in the story again.')) +
+      '</p>' + (full ? '<div class="btns"><button class="b" type="button" id="readSum">▶ ' + t('요점정리 듣기','Listen to the summary') + '</button></div>' : '') + '</div>';
+    if (full) document.getElementById('readSum').addEventListener('click', function(){ stop(); say(sumText.textContent.replace(/______/g,'')); });
+  });
+
+  // ---- words ----
+  function renderWords(){
+    var w = document.getElementById('words');
+    w.innerHTML = WORDS.map(function(x, i){
+      return '<div class="w"><div class="row"><span class="en">' + x[0] + '</span><button class="spk" type="button" data-i="' + i + '" aria-label="listen ' + x[0] + '">🔊</button></div>' +
+        (lang === 'en' ? '' : '<span class="ko">' + x[1] + '</span>') + '<span class="ex">' + x[2] + '</span></div>';
+    }).join('');
+    w.querySelectorAll('.spk').forEach(function(b){
+      b.addEventListener('click', function(){ var x = WORDS[+b.dataset.i]; stop(); say(x[0], function(){ say(x[2].replace(/<[^>]+>/g,'')); }); });
+    });
+  }
+
+  // ---- evidence inference ----
+  var QST = QS.map(function(){ return { a:null, e:[], done:false, res:null }; });
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function renderQs(){
+    var box = document.getElementById('qs');
+    box.innerHTML = QS.map(function(q, qi){
+      var st = QST[qi], need = q.ev.length;
+      var opts = q.opts.map(function(o, oi){
+        var cls = 'opt' + (st.a === oi ? ' on' : '') + (st.done && oi === q.ans ? ' right' : '') + (st.done && st.a === oi && oi !== q.ans ? ' wrong' : '');
+        return '<button type="button" class="' + cls + '" data-q="' + qi + '" data-o="' + oi + '"' + (st.done ? ' disabled' : '') + '><span class="ol">' + 'ABC'[oi] + '</span><span>' + esc(o) + '</span></button>';
+      }).join('');
+      var evs = q.evs.map(function(e, ei){
+        var picked = st.e.indexOf(ei) >= 0, good = q.ev.indexOf(ei) >= 0;
+        var cls = 'evb' + (picked ? ' on' : '') + (st.done && good ? ' right' : '') + (st.done && picked && !good ? ' wrong' : '');
+        return '<button type="button" class="' + cls + '" data-q="' + qi + '" data-e="' + ei + '" aria-pressed="' + picked + '"' + (st.done ? ' disabled' : '') + '>' + esc(e) + '</button>';
+      }).join('');
+      var fb = '';
+      if (st.res) fb = '<div class="fb ' + (st.res.full ? 'ok' : 'no') + '"><p>' + st.res.msg + '</p><p>' + t(q.why[0], q.why[1]) + '</p>' +
+        (st.done ? '<div class="btns"><button type="button" class="b ghost" data-show="' + qi + '">' + t('본문에서 근거 보기','Show evidence in the story') + '</button>' +
+          (st.res.full ? '' : '<button type="button" class="b ghost" data-retry="' + qi + '">' + t('다시 풀기','Try again') + '</button>') + '</div>' : '') + '</div>';
+      return '<div class="qcard"><div class="qtype">Q' + (qi + 1) + ' · ' + t(q.type[0], q.type[1]) + '</div>' +
+        '<p class="qq">' + esc(q.q) + '</p>' + (lang === 'en' ? '' : '<p class="qko">' + q.qko + '</p>') +
+        '<div class="step">' + t('1단계 · 답 고르기','Step 1 · Choose the answer') + '</div><div class="opts">' + opts + '</div>' +
+        '<div class="step">' + t('2단계 · ', 'Step 2 · ') + t(q.evq[0], q.evq[1]) + ' <span class="cnt">' + st.e.length + '/' + need + '</span></div><div class="evs">' + evs + '</div>' +
+        (st.done ? '' : '<div class="btns"><button type="button" class="b" data-check="' + qi + '">' + t('정답 확인','Check') + '</button></div>') + fb + '</div>';
+    }).join('');
+  }
+  document.getElementById('qs').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (!b) return;
+    var qi, st, q;
+    if (b.dataset.o != null) { qi = +b.dataset.q; QST[qi].a = +b.dataset.o; QST[qi].res = null; renderQs(); return; }
+    if (b.dataset.e != null) {
+      qi = +b.dataset.q; st = QST[qi]; q = QS[qi]; var nx = StoryCore.toggleEvidence(q, st.e, +b.dataset.e);
+      if (nx) st.e = nx;
+      else { st.res = { full:false, msg:t('근거는 ' + q.ev.length + '개까지 고를 수 있어요. 하나를 다시 눌러 지운 뒤 고르세요.', 'You can choose ' + q.ev.length + '. Tap one again to remove it.') }; renderQs(); return; }
+      st.res = null; renderQs(); return;
+    }
+    if (b.dataset.check != null) {
+      qi = +b.dataset.check; st = QST[qi]; q = QS[qi];
+      var gq = StoryCore.gradeQ(q, st.a, st.e);
+      if (gq.status === 'need_a') { st.res = { full:false, msg:t('먼저 1단계에서 답을 골라 주세요.','Choose an answer in step 1 first.') }; renderQs(); return; }
+      if (gq.status === 'need_e') { st.res = { full:false, msg:t('2단계에서 근거 문장을 ' + q.ev.length + '개 골라 주세요.','Choose ' + q.ev.length + ' evidence sentence(s) in step 2.') }; renderQs(); return; }
+      var aOk = gq.aOk, eOk = gq.eOk;
+      st.done = true;
+      st.res = { full: aOk && eOk, msg: aOk && eOk ? t('정답! 답도 근거도 맞았어요.','Correct! Both the answer and the evidence are right.')
+        : aOk ? t('답은 맞았어요. 근거 문장을 다시 살펴보세요 — 초록색이 근거입니다.','The answer is right, but check the evidence. Green shows the evidence.')
+        : eOk ? t('근거는 잘 찾았는데 답이 달라요. 그 근거가 말하는 답을 골라 보세요.','You found the evidence, but the answer is different. Pick the answer the evidence supports.')
+        : t('답과 근거를 다시 확인해 보세요. 초록색이 정답입니다.','Check the answer and the evidence again. Green shows the right ones.') };
+      if (QST.every(function(x){ return x.res && x.res.full; })) storyDone('infer');
+      renderQs(); return;
+    }
+    if (b.dataset.retry != null) { qi = +b.dataset.retry; QST[qi] = { a:null, e:[], done:false, res:null }; renderQs(); return; }
+    if (b.dataset.show != null) {
+      q = QS[+b.dataset.show];
+      var want = q.ev.map(function(x){ return q.evs[x].replace(/[“”"]/g,'').trim(); });
+      spans.forEach(function(s){ s.classList.remove('good','miss','evhl'); });
+      var first = null;
+      spans.forEach(function(s){ if (want.indexOf(s.textContent.replace(/[“”"]/g,'').trim()) >= 0) { s.classList.add('evhl'); if (!first) first = s; } });
+      if (first) first.scrollIntoView({behavior:'smooth', block:'center'});
+      return;
+    }
+  });
+
+  // ---- make it your own ----
+  var wa = document.getElementById('wa'), wb = document.getElementById('wb'), wprev = document.getElementById('wprev'), wfb = document.getElementById('wfb');
+  try { wa.value = localStorage.getItem('story_wa') || ''; wb.value = localStorage.getItem('story_wb') || ''; } catch(e){}
+  function sentence(){ return StoryCore.buildSentence(wa.value, wb.value); }
+  var HANGUL = StoryCore.HANGUL;
+  function paintWrite(){
+    var s = sentence();
+    wprev.innerHTML = s ? esc(s) : '<span class="ph">' + t('두 칸을 채우면 여기에 내 문장이 만들어져요.','Fill both blanks to build your sentence here.') + '</span>';
+    try { localStorage.setItem('story_wa', wa.value); localStorage.setItem('story_wb', wb.value); } catch(e){}
+  }
+  [wa, wb].forEach(function(el){ el.addEventListener('input', function(){ wfb.innerHTML = ''; paintWrite(); }); });
+  document.querySelectorAll('#mywrite .chip').forEach(function(c){
+    c.addEventListener('click', function(){ wa.value = c.dataset.a; wb.value = c.dataset.b; wfb.innerHTML = ''; paintWrite(); });
+  });
+  document.getElementById('wcheck').addEventListener('click', function(){
+    var cw = StoryCore.checkWrite(wa.value, wb.value);
+    if (cw.why === 'empty') { wfb.innerHTML = '<div class="fb no"><p>' + t('빈칸 두 곳을 모두 채워 주세요.','Fill both blanks.') + '</p></div>'; return; }
+    if (cw.why === 'too_long') { wfb.innerHTML = '<div class="fb no"><p>' + t('조금 짧게 써 보세요 (두 칸 합쳐 120자까지).','Make it a little shorter (120 letters in total).') + '</p></div>'; return; }
+    if (cw.why === 'hangul') { wfb.innerHTML = '<div class="fb no"><p>' + t('영어로 써 보세요. 모르는 낱말은 선생님께 물어보거나 예시를 눌러 보세요.','Write it in English. Ask your teacher or try an example.') + '</p></div>'; return; }
+    storyDone('write');
+    wfb.innerHTML = '<div class="fb ok"><p>' + t('완성! 소리 내어 두 번 읽어 보세요. 다 쓴 문장은 선생님께 보여 주세요.','Done! Read it out loud twice, then show it to your teacher.') + '</p><p class="en">' + esc(sentence()) + '</p>' +
+      (cw.more ? '<p>' + t('한 걸음 더: «before» 뒤에 «누가 + 무엇을» 넣어 보세요. (예: before Dad comes home)','One more step: after “before”, try “who + does what”. (e.g. before Dad comes home)') + '</p>' : '') + '</div>';
+  });
+  document.getElementById('wsay').addEventListener('click', function(){
+    var s = sentence();
+    if (!s) { wfb.innerHTML = '<div class="fb no"><p>' + t('먼저 두 칸을 채워 주세요.','Fill both blanks first.') + '</p></div>'; return; }
+    if (HANGUL.test(s)) { wfb.innerHTML = '<div class="fb no"><p>' + t('영어로 쓴 문장만 읽어 줄 수 있어요.','Only English sentences can be read aloud.') + '</p></div>'; return; }
+    stop(); say(s);
+  });
+
+  // ---- 🔤 뜻 맞히기 게임: 틀린 낱말은 뒤에 다시 나옵니다. 끝까지 다 맞히면 도장 ----
+  var WQS = { list: StoryCore.wordQuiz(WORDS, (Date.now() & 0xffff) || 7), i: 0, combo: 0, best: 0, tries: 0, picked: null, over: false };
+  function renderWQ(){
+    var box = document.getElementById('wq'); if (!box) return;
+    if (WQS.over) {
+      box.innerHTML = '<div class="wq-card done"><p class="wq-big">🎉 ' + t('6개 모두 맞혔어요!','All 6 correct!') + '</p><p>' + t('최고 콤보 ','Best combo ') + '🔥' + WQS.best + ' · ' + t('시도 ','tries ') + WQS.tries + '</p>' +
+        '<div class="btns"><button type="button" class="b ghost" data-wq="again">' + t('한 번 더 하기','Play again') + '</button></div></div>';
+      return;
+    }
+    var it = WQS.list[WQS.i], left = WQS.list.length - WQS.i;
+    box.innerHTML = '<div class="wq-card"><div class="wq-top"><b>' + t('🎯 뜻 맞히기','🎯 Word game') + '</b><span>' + t('남은 문제 ','Left ') + left + '</span><span class="wq-combo">' + (WQS.combo > 1 ? '🔥' + WQS.combo : '') + '</span></div>' +
+      '<div class="wq-word"><span>' + esc(it.en) + '</span><button type="button" class="spk" data-wq="say" aria-label="listen">🔊</button></div>' +
+      '<div class="wq-opts">' + it.opts.map(function(oi, k){
+        var cls = 'wq-o' + (WQS.picked != null && k === it.ans ? ' right' : '') + (WQS.picked === k && k !== it.ans ? ' wrong' : '');
+        return '<button type="button" class="' + cls + '" data-wq="' + k + '"' + (WQS.picked != null ? ' disabled' : '') + '>' + esc(lang === 'en' ? WORDS[oi][2].replace(/<[^>]+>/g, '') : WORDS[oi][1]) + '</button>';
+      }).join('') + '</div></div>';
+  }
+  document.getElementById('wq').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (!b) return;
+    var v = b.getAttribute('data-wq');
+    if (v === 'again') { WQS = { list: StoryCore.wordQuiz(WORDS, (Date.now() & 0xffff) || 9), i: 0, combo: 0, best: 0, tries: 0, picked: null, over: false }; renderWQ(); return; }
+    var it = WQS.list[WQS.i];
+    if (v === 'say') { stop(); say(it.en); return; }
+    if (WQS.picked != null) return;
+    var k = +v; WQS.picked = k; WQS.tries++;
+    var good = k === it.ans;
+    if (good) { WQS.combo++; WQS.best = Math.max(WQS.best, WQS.combo); } else { WQS.combo = 0; WQS.list.push(it); }
+    renderWQ();
+    setTimeout(function(){
+      WQS.picked = null; WQS.i++;
+      if (WQS.i >= WQS.list.length) { WQS.over = true; storyDone('words'); }
+      renderWQ();
+    }, good ? 650 : 1200);
+  });
+
+  // ---- 🗳️ 보너스 · 다음 이야기 투표 (포인트와 무관, 이 기기에만 기억) ----
+  var chosen = null; try { chosen = localStorage.getItem('story_vote_' + STORY_ID); } catch(e){}
+  function renderEnds(){
+    var e = document.getElementById('ends'); if (!e) return;
+    e.innerHTML = ENDS.map(function(x){
+      return '<button type="button" class="end' + (chosen === x[0] ? ' on' : '') + '" data-k="' + x[0] + '"><strong>' + x[0] + '. ' + esc(x[1]) + '</strong>' +
+        (lang === 'en' ? '' : '<span class="ko">' + x[2] + '</span>') + '</button>';
+    }).join('');
+    var f = document.getElementById('endFb');
+    if (chosen && f) { var c = ENDS.filter(function(x){ return x[0] === chosen; })[0];
+      f.innerHTML = '<div class="fb ok"><p>' + t('투표했어요! 반 친구들 투표가 모이면 다음 편 «' + c[3] + '» 의 첫 장면이 정해져요.', 'Voted! When the class votes are in, they decide how “' + c[3] + '” begins.') + '</p></div>'; }
+  }
+  document.getElementById('ends').addEventListener('click', function(ev){
+    var b = ev.target.closest('.end'); if (!b) return;
+    chosen = b.getAttribute('data-k'); try { localStorage.setItem('story_vote_' + STORY_ID, chosen); } catch(e){}
+    renderEnds();
+  });
+
+  applyLang();
+})();
+</script>
+
+<style>
+.topbtns{display:flex;gap:8px;align-items:center}
+#bgm.on{background:var(--umbrella);border-color:var(--umbrella);color:#fff}
+</style>
+<script>
+(function(){
+  var TUNE = {"name": "Rainy Street", "bpm": 92, "beats": 4, "wave": "musicbox", "chords": [[43, 71, 74], [52, 67, 71], [48, 64, 67], [50, 66, 69], [43, 71, 74], [52, 67, 71], [48, 64, 67], [50, 66, 69]], "melody": [[83, 1.0], [86, 0.5], [83, 0.5], [81, 1.0], [79, 1.0], [79, 0.5], [81, 0.5], [83, 1.0], [76, 2.0], [76, 0.5], [79, 0.5], [84, 1.0], [83, 0.5], [81, 0.5], [79, 1.0], [78, 1.0], [81, 1.0], [74, 2.0], [74, 0.5], [79, 0.5], [83, 1.0], [81, 0.5], [79, 0.5], [74, 1.0], [76, 1.0], [79, 0.5], [83, 0.5], [88, 2.0], [84, 0.5], [83, 0.5], [81, 0.5], [79, 0.5], [76, 1.0], [81, 1.0], [78, 1.0], [81, 1.0], [79, 2.0]]};
+  var btn = document.getElementById('bgm'); if (!btn) return;
+  var ctx = null, master = null, timer = null, on = false, nextT = 0, mi = 0, bar = 0, beatInBar = 0;
+  var VOL = 0.11, DUCK = 0.03, spb = 60 / TUNE.bpm;
+  function hz(n){ return 440 * Math.pow(2, (n - 69) / 12); }
+  // 한 음 = 짧게 퉁기고 사라지는 소리(마림바·오르골 느낌). 사람 목소리를 가리지 않게 부드럽게.
+  function pluck(n, t, len, g){
+    var o = ctx.createOscillator(), o2 = ctx.createOscillator(), v = ctx.createGain();
+    o.type = TUNE.wave === 'marimba' ? 'sine' : 'triangle';
+    o2.type = 'sine'; o.frequency.value = hz(n); o2.frequency.value = hz(n) * (TUNE.wave === 'marimba' ? 4 : 3);
+    var v2 = ctx.createGain(); v2.gain.value = TUNE.wave === 'marimba' ? 0.08 : 0.12;
+    o2.connect(v2); v2.connect(v); o.connect(v); v.connect(master);
+    var dec = Math.min(TUNE.wave === 'marimba' ? 0.9 : 1.6, len + 0.6);
+    v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g, t + 0.012);
+    v.gain.exponentialRampToValueAtTime(0.0001, t + dec);
+    o.start(t); o2.start(t); o.stop(t + dec + 0.05); o2.stop(t + dec + 0.05);
+  }
+  var beatAcc = 0;  // 멜로디 진행(박 단위)
+  function schedule(){
+    if (!ctx) return;
+    var talk = false; try { talk = !!(window.speechSynthesis && speechSynthesis.speaking); } catch(e){}
+    master.gain.setTargetAtTime(on ? (talk ? DUCK : VOL) : 0, ctx.currentTime, 0.25);
+    while (nextT < ctx.currentTime + 0.4) {
+      // 반주: 한 박마다
+      var ch = TUNE.chords[bar % TUNE.chords.length];
+      if (beatInBar === 0) pluck(ch[0], nextT, spb * 2, 0.22);
+      else pluck(ch[1 + (beatInBar % 2)], nextT, spb, 0.07);
+      // 멜로디: 이 박 안에서 시작하는 음들
+      while (true) {
+        var note = TUNE.melody[mi % TUNE.melody.length];
+        var startBeat = beatAcc;
+        if (startBeat >= (bar * TUNE.beats + beatInBar + 1)) break;
+        var t = nextT + (startBeat - (bar * TUNE.beats + beatInBar)) * spb;
+        if (note[0] != null) pluck(note[0], t, note[1] * spb, 0.16);
+        beatAcc += note[1]; mi++;
+        if (mi % TUNE.melody.length === 0) { /* 멜로디 한 바퀴 */ }
+      }
+      nextT += spb; beatInBar++;
+      if (beatInBar >= TUNE.beats) { beatInBar = 0; bar++; }
+      if (bar >= TUNE.chords.length) { bar = 0; beatAcc = 0; mi = 0; }
+    }
+  }
+  function label(){
+    var ko = on ? '🎵 음악 끄기' : '🎵 음악 켜기', en = on ? '🎵 Music off' : '🎵 Music on';
+    btn.setAttribute('data-ko', ko); btn.setAttribute('data-en', en);
+    btn.textContent = document.documentElement.lang === 'en' ? en : ko;
+    btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  function start(){
+    try {
+      if (!ctx) {
+        var AC = window.AudioContext || window.webkitAudioContext; if (!AC) { btn.hidden = true; return; }
+        ctx = new AC(); master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination);
+      }
+      if (ctx.state === 'suspended') ctx.resume();
+      nextT = ctx.currentTime + 0.1; bar = 0; beatInBar = 0; mi = 0; beatAcc = 0;
+      if (!timer) timer = setInterval(schedule, 100);
+      on = true;
+    } catch(e){ on = false; }
+    label();
+  }
+  function stopMusic(){
+    on = false; label();
+    if (master && ctx) master.gain.setTargetAtTime(0, ctx.currentTime, 0.15);
+    setTimeout(function(){ if (!on && timer) { clearInterval(timer); timer = null; } }, 800);
+  }
+  btn.addEventListener('click', function(){
+    if (on) stopMusic(); else start();
+  });
+  // 열면 언제나 «켜짐». 🎵 끄기는 이 화면을 보는 동안에만 유효하다.
+  // 브라우저는 사람이 화면을 누르기 전에는 소리를 못 내므로, 켜 둔 상태로 기다리다 첫 터치·키 입력에 소리를 낸다.
+  var want = true;  // 무조건 켜짐 — 지난번에 끈 것은 기억하지 않는다(2026-10-09 사장님 지시).
+  if (want) {
+    start();
+    var once = function(ev){
+      if (ev.target === btn || (btn.contains && btn.contains(ev.target))) return;
+      document.removeEventListener('pointerdown', once, true); document.removeEventListener('keydown', once, true);
+      if (on && ctx && ctx.state !== 'running') { ctx.resume(); nextT = ctx.currentTime + 0.1; bar = 0; beatInBar = 0; mi = 0; beatAcc = 0; }
+    };
+    document.addEventListener('pointerdown', once, true); document.addEventListener('keydown', once, true);
+  }
+  document.addEventListener('visibilitychange', function(){
+    if (!ctx) return; if (document.hidden) ctx.suspend(); else if (on) { ctx.resume(); nextT = Math.max(nextT, ctx.currentTime + 0.1); }
+  });
+  document.getElementById('lang').addEventListener('click', function(){ setTimeout(label, 0); });
+  label();
+  window.__bgm = { isOn: function(){ return on; }, ctx: function(){ return ctx; } };
+})();
+</script>
+
+<style>
+.speed{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-4px 0 14px}
+.speed-l{font-family:var(--ko);font-size:13px;font-weight:700;color:var(--soft);margin-right:2px}
+.sp{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:6px 13px;font-weight:800;font-size:14px}
+.sp.on{background:var(--umbrella);border-color:var(--umbrella);color:#fff}
+</style>
+<script>
+(function(){
+  var bs = document.querySelectorAll('.speed .sp'); if (!bs.length) return;
+  var rate = 0.88; try { var v = parseFloat(localStorage.getItem('story_rate')); if (v >= 0.5 && v <= 1.5) rate = v; } catch(e){}
+  function paint(){ bs.forEach(function(b){ var on = Math.abs(+b.dataset.rate - rate) < 0.001; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }); }
+  window.__ttsRate = rate; paint();
+  bs.forEach(function(b){ b.addEventListener('click', function(){
+    rate = +b.dataset.rate; window.__ttsRate = rate; paint();
+    try { localStorage.setItem('story_rate', String(rate)); } catch(e){}
+  }); });
+})();
+</script>
+
+
+<style>
+/* 수정본: ⑤ 근거 찾기 · ⑥ 바꿔 쓰기 */
+.qs{display:grid;gap:14px}
+.qcard{border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:var(--paper);display:grid;gap:8px;min-width:0}
+.qtype{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--umbrella)}
+.qq{margin:0;font-weight:800;font-size:17px}
+.qko{margin:-4px 0 0;font-family:var(--ko);font-size:14px;color:var(--soft)}
+.step{font-family:var(--ko);font-size:13px;font-weight:700;color:var(--soft);margin-top:4px}
+.cnt{font-family:var(--body);font-variant-numeric:tabular-nums;color:var(--ink)}
+.opts,.evs{display:grid;gap:8px}
+.opt,.evb{text-align:left;border:1px solid var(--line);background:var(--page);color:var(--ink);border-radius:12px;padding:10px 12px;font-weight:700;min-width:0}
+.opt{display:flex;gap:10px;align-items:baseline}
+.ol{flex:none;font-weight:800;color:var(--soft)}
+.evb{font-weight:600;font-style:italic}
+.opt.on,.evb.on{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset;background:var(--chip)}
+.opt.right,.evb.right{border-color:var(--ok);background:var(--okbg);color:var(--ok);box-shadow:none}
+.opt.wrong,.evb.wrong{border-color:var(--no);background:var(--nobg);color:var(--no);box-shadow:none}
+.opt:disabled,.evb:disabled{cursor:default}
+.s.evhl{background:var(--okbg);box-shadow:inset 0 -2px 0 var(--ok)}
+.pat{border:1px dashed var(--line);border-radius:14px;padding:12px 14px;display:grid;gap:4px;margin-bottom:12px}
+.pat-k{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--umbrella);font-family:var(--ko)}
+.pat-src,.pat-frame{margin:0 0 6px;font-size:17px}
+.pat-src u{text-decoration-color:var(--umbrella);text-decoration-thickness:2px;text-underline-offset:3px}
+.slot{display:inline-block;border-bottom:2px solid var(--umbrella);padding:0 6px;font-family:var(--ko);font-size:13px;color:var(--soft)}
+.ex-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px}
+.ex-l{font-family:var(--ko);font-size:13px;font-weight:700;color:var(--soft);margin-right:2px}
+.chip{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:999px;padding:5px 12px;font-weight:700;font-size:14px}
+.wline{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:18px;font-weight:800}
+.wline input{flex:1 1 180px;min-width:0;font:inherit;font-weight:700;font-size:16px;color:var(--ink);background:var(--page);border:1px solid var(--line);border-bottom:2px solid var(--umbrella);border-radius:10px;padding:8px 10px}
+.wprev{margin:12px 0 4px;font-size:18px;font-weight:700;min-height:1.6em}
+.wprev .ph{font-family:var(--ko);font-size:14px;font-weight:500;color:var(--soft)}
+.note.rev{color:var(--ink);border-top:0;padding-top:0}
+</style>
+
+<style>
+/* 🏅 도장판 · 🔤 낱말 게임 · 🎉 완주 */
+.stampboard{background:var(--page);border:1px solid var(--line);border-radius:18px;padding:14px 16px;display:grid;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;box-shadow:0 10px 24px -20px rgba(0,0,0,.5)}
+.sb-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 12px;font-family:var(--ko)}
+.sb-n{font-variant-numeric:tabular-nums;font-weight:800;color:var(--umbrella)}
+.sb-prize{margin-left:auto;font-size:13px;font-weight:800;color:var(--soft)}
+.sb-bar{height:6px;border-radius:99px;background:var(--chip);overflow:hidden}
+.sb-bar i{display:block;height:100%;background:var(--umbrella);border-radius:99px;transition:width .4s}
+.sb-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.stamp{border:1px dashed var(--line);background:var(--paper);color:var(--soft);border-radius:12px;padding:6px 2px;display:grid;justify-items:center;gap:2px;min-width:0}
+.stamp .si{font-size:20px;line-height:1.2}
+.stamp .sl{font-family:var(--ko);font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.stamp.on{border-style:solid;border-color:var(--umbrella);background:var(--nobg);color:var(--ink)}
+.stamp.pop .si{animation:stampPop .5s ease-out}
+@keyframes stampPop{0%{transform:scale(.3) rotate(-25deg)}60%{transform:scale(1.35) rotate(8deg)}100%{transform:scale(1) rotate(0)}}
+.s.reading{background:var(--mark);box-shadow:inset 0 -2px 0 var(--umbrella)}
+.wq{margin-top:14px}
+.wq-card{border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:var(--paper);display:grid;gap:10px}
+.wq-top{display:flex;gap:10px;align-items:baseline;font-family:var(--ko);font-size:14px;color:var(--soft)}
+.wq-top b{color:var(--ink)}
+.wq-combo{margin-left:auto;font-weight:800;color:var(--umbrella);font-variant-numeric:tabular-nums}
+.wq-word{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:28px;font-weight:800}
+.wq-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:8px}
+.wq-o{border:1px solid var(--line);background:var(--page);color:var(--ink);border-radius:12px;padding:10px 12px;font-family:var(--ko);font-weight:700;text-align:left;min-width:0}
+.wq-o.right{border-color:var(--ok);background:var(--okbg);color:var(--ok)}
+.wq-o.wrong{border-color:var(--no);background:var(--nobg);color:var(--no)}
+.wq-o:disabled{cursor:default}
+.wq-card.done{text-align:center;font-family:var(--ko)}
+.wq-big{font-size:20px;font-weight:800;margin:0}
+.wq-card p{margin:0}
+.fin-card{border-radius:14px;padding:16px;background:var(--okbg);color:var(--ok);font-family:var(--ko);display:grid;gap:6px;margin-bottom:10px}
+.fin-card p{margin:0}
+.fin-card .big{font-family:var(--display);font-size:40px;font-weight:800;line-height:1}
+.fin-card .dim{color:var(--ink);opacity:.8}
+.fin-error,.fin-login,.fin-off{background:var(--nobg);color:var(--no)}
+.fin-sample,.fin-again,.fin-wait{background:var(--chip);color:var(--ink)}
+.confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:50}
+.confetti i{position:absolute;top:-12px;width:9px;height:14px;border-radius:2px;animation:fall linear forwards}
+@keyframes fall{to{top:105vh;transform:rotate(720deg) translateX(40px)}}
+@media (max-width:480px){.stamp .sl{display:none}.stamp .si{font-size:22px}}
+@media (prefers-reduced-motion: reduce){.stamp.pop .si{animation:none}}
+</style>
+<script>
+/* 🏅 도장판 · 🎉 완주 축하 · 🪙 포인트 — 판정은 StoryCore 만 씁니다. */
+(function(){
+  var KEY = 'story_' + STORY_ID + '_stamps';
+  var ICON = { read:'📖', key:'🔑', sum:'🧩', words:'🔤', infer:'🔍', write:'✍️' };
+  var NAME = { read:['읽고 듣기','Read & listen'], key:['핵심 문장','Key sentences'], sum:['요점정리','Summary'],
+               words:['낱말 게임','Word game'], infer:['근거 찾기','Evidence'], write:['바꿔 쓰기','Make it yours'] };
+  var GO = { read:'story', key:'keysec', sum:'sumsec', words:'wordsec', infer:'infer', write:'mywrite' };
+  var st = {}, inflight = false, ON_SITE = StoryCore.isSiteHost(location.hostname);
+  try { st = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch(e){ st = {}; }
+  function en(){ return document.documentElement.lang === 'en'; }
+  function t(ko, e){ return en() ? e : ko; }
+  function save(){ try { localStorage.setItem(KEY, JSON.stringify(st)); } catch(e){} }
+  function paidKey(){ return 'story_' + STORY_ID + '_paid_' + StoryCore.kstDay(); }
+  function paidToday(){ try { return localStorage.getItem(paidKey()) === '1'; } catch(e){ return false; } }
+
+  var board = document.getElementById('stampBoard');
+  function paint(popKey){
+    if (!board) return;
+    var n = StoryCore.countDone(st), all = StoryCore.allDone(st);
+    board.innerHTML =
+      '<div class="sb-top"><b>' + t('🏅 오늘의 도장','🏅 Story stamps') + '</b> <span class="sb-n">' + n + ' / 6</span>' +
+      '<span class="sb-prize">' + (all ? t('🎉 완주!','🎉 Finished!') : t('6개 모으면 +' + STORY_POINTS + 'P','Collect 6 for +' + STORY_POINTS + 'P')) + '</span></div>' +
+      '<div class="sb-bar" aria-hidden="true"><i style="width:' + Math.round(n / 6 * 100) + '%"></i></div>' +
+      '<div class="sb-row">' + StoryCore.STAMPS.map(function(k){
+        var on = !!st[k];
+        return '<button type="button" class="stamp' + (on ? ' on' : '') + (popKey === k ? ' pop' : '') + '" data-go="' + GO[k] + '" aria-label="' + t(NAME[k][0], NAME[k][1]) + (on ? t(' 완료',' done') : '') + '">' +
+          '<span class="si">' + (on ? ICON[k] : '·') + '</span><span class="sl">' + t(NAME[k][0], NAME[k][1]) + '</span></button>';
+      }).join('') + '</div>';
+  }
+  if (board) board.addEventListener('click', function(ev){
+    var b = ev.target.closest('.stamp'); if (!b) return;
+    var el = document.getElementById(b.getAttribute('data-go')); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  // 🔔 도장 소리 — 짧은 «딩». 음악을 쓰는 화면이라 그 엔진을 빌리고, 없으면 조용히 넘어갑니다.
+  function chime(big){
+    try {
+      var ctx = window.__bgm && window.__bgm.ctx && window.__bgm.ctx(); if (!ctx || ctx.state !== 'running') return;
+      var notes = big ? [72, 76, 79, 84] : [79, 84];
+      notes.forEach(function(n, i){
+        var o = ctx.createOscillator(), g = ctx.createGain(), t0 = ctx.currentTime + i * 0.09;
+        o.type = 'triangle'; o.frequency.value = 440 * Math.pow(2, (n - 69) / 12);
+        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.12, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+        o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0 + 0.55);
+      });
+    } catch(e){}
+  }
+  function confetti(){
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var box = document.createElement('div'); box.className = 'confetti'; box.setAttribute('aria-hidden', 'true');
+    var C = ['#c8372d','#ffcf3f','#3aa76d','#4a8fd8','#f08a3c','#8f6bd6'];
+    for (var i = 0; i < 46; i++) {
+      var p = document.createElement('i');
+      p.style.left = (Math.random() * 100) + '%'; p.style.background = C[i % C.length];
+      p.style.animationDelay = (Math.random() * 0.5) + 's'; p.style.animationDuration = (1.6 + Math.random() * 1.4) + 's';
+      p.style.transform = 'rotate(' + Math.round(Math.random() * 360) + 'deg)';
+      box.appendChild(p);
+    }
+    document.body.appendChild(box); setTimeout(function(){ box.remove(); }, 3600);
+  }
+
+  var fin = document.getElementById('finishBox');
+  function finishMsg(view){
+    if (!fin) return;
+    var h = '';
+    if (!view) h = '<p>' + t('도장 6개를 다 모았어요! 포인트를 받는 중…','All 6 stamps! Getting your points…') + '</p>';
+    else if (view.kind === 'ok') h = '<p class="big">+' + view.amount + 'P</p><p>' + t('포인트를 받았어요!','Points added!') + (view.balance != null ? ' ' + t('지금 내 포인트: ','Your points now: ') + view.balance + 'P' : '') + '</p>';
+    else if (view.kind === 'cap') h = '<p>' + (en() ? (view.en || 'You reached today’s point limit.') : (view.ko || '오늘 받을 수 있는 포인트를 다 채웠어요.')) + '</p><p class="dim">' + t('그래도 이야기는 끝까지 잘 읽었어요! 도장은 그대로예요.','You still finished the story — your stamps stay!') + '</p>';
+    else if (view.kind === 'login') h = '<p>' + t('로그인하면 포인트가 쌓여요. 로그인한 뒤 이 화면을 다시 열어 주세요.','Log in to save points, then open this page again.') + '</p>';
+    else if (view.kind === 'sample') h = '<p>' + t('여기는 미리보기 화면이라 포인트가 쌓이지 않아요. 망고아이 사이트에서 하면 +' + STORY_POINTS + 'P!','This is a preview, so no points here. On the Mangoi site you get +' + STORY_POINTS + 'P!') + '</p>';
+    else if (view.kind === 'off') h = '<p>' + t('지금은 동화책 포인트가 꺼져 있어요.','Story points are turned off right now.') + '</p>';
+    else h = '<p>' + t('포인트를 받지 못했어요. 잠시 뒤 «다시 받기» 를 눌러 주세요.','Could not add points. Try “Get points” again in a moment.') + '</p>' +
+             '<div class="btns"><button type="button" class="b" id="earnRetry">' + t('다시 받기','Get points') + '</button></div>';
+    fin.innerHTML = '<div class="fin-card fin-' + (view ? view.kind : 'wait') + '">' + h + '</div>';
+    var r = document.getElementById('earnRetry'); if (r) r.addEventListener('click', earn);
+  }
+  function uid(){
+    try { var a = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); if (a && (a.uid || a.user_id || a.id)) return a.uid || a.user_id || a.id; } catch(e){}
+    try { var u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && (u.uid || u.user_id || u.id)) return u.uid || u.user_id || u.id; } catch(e){}
+    try { var g = localStorage.getItem('mangoi_guest_uid'); if (!g) { g = 'guest_' + Math.random().toString(36).slice(2, 8); localStorage.setItem('mangoi_guest_uid', g); } return g; } catch(e){}
+    return 'guest_' + Math.random().toString(36).slice(2, 8);
+  }
+  function token(){ try { return localStorage.getItem('mango_token') || ''; } catch(e){ return ''; } }
+  function earn(){
+    if (!StoryCore.shouldEarn(st, paidToday(), inflight)) return;
+    inflight = true; finishMsg(null);
+    var ctl = window.AbortController ? new AbortController() : null, to = setTimeout(function(){ if (ctl) ctl.abort(); }, 9000);
+    var tok = token(), headers = { 'Content-Type': 'application/json' };
+    if (tok) headers.Authorization = 'Bearer ' + tok;
+    fetch('/api/points/earn-by-rule', { method: 'POST', headers: headers, credentials: 'same-origin', signal: ctl ? ctl.signal : undefined,
+      body: JSON.stringify({ user_id: uid(), token: tok, rule_code: STORY_RULE, meta: { story: STORY_ID, via: 'story' } }) })
+      .then(function(r){ return r.json().catch(function(){ return { ok: false, error: 'http_' + r.status }; }); })
+      .then(function(d){ return StoryCore.earnView(d, null, ON_SITE); }, function(e){ return StoryCore.earnView(null, e || true, ON_SITE); })
+      .then(function(v){
+        clearTimeout(to); inflight = false;
+        if (v.kind === 'ok' || v.kind === 'cap') { try { localStorage.setItem(paidKey(), '1'); } catch(e){} }
+        window.__storyLastEarn = v; finishMsg(v);
+      });
+  }
+  function done(k){
+    if (StoryCore.STAMPS.indexOf(k) < 0 || st[k]) return;
+    st[k] = Date.now(); save(); paint(k); chime(false);
+    if (StoryCore.allDone(st)) { setTimeout(function(){ chime(true); confetti(); }, 250); if (paidToday()) finishMsg({ kind: 'cap', ko: '오늘은 이 이야기 포인트를 이미 받았어요.', en: 'You already got points for this story today.' }); else earn(); }
+  }
+  function reset(){ st = {}; save(); paint(); if (fin) fin.innerHTML = ''; }
+  var rb = document.getElementById('stampReset');
+  if (rb) rb.addEventListener('click', function(){ reset(); var el = document.getElementById('story'); if (el) el.scrollIntoView({ behavior: 'smooth' }); });
+  document.getElementById('lang').addEventListener('click', function(){ setTimeout(function(){ paint(); if (window.__storyLastEarn) finishMsg(window.__storyLastEarn); }, 0); });
+  window.StoryFun = { done: done, state: function(){ return st; }, reset: reset, earn: earn };
+  paint();
+  // ⛔ 다시 열었다고 포인트를 보내지 않습니다 — 적립은 «6번째 도장을 찍는 순간» 한 번뿐입니다.
+  if (StoryCore.allDone(st) && fin) fin.innerHTML = '<div class="fin-card fin-again"><p>' + t('이미 완주한 이야기예요. 아래 «처음부터 다시» 를 누르면 도장을 다시 모을 수 있어요.','You already finished this story. Press “Start over” below to collect stamps again.') + '</p></div>';
+})();
+</script>
+</body></html>

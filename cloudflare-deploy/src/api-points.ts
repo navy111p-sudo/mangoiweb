@@ -318,6 +318,12 @@ export async function handlePointsApi(
       if (ruleCode === 'rescue_sentence') {
         await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('rescue_sentence','구조선 문장 완성',5,0,30,1,'망고 구조선 게임에서 단어를 순서대로 구조해 문장을 완성하면 지급(하루 30점까지)',?) ON CONFLICT(code) DO NOTHING`).bind(Date.now()).run();
       }
+      // 📖 A.i 동화책 한 편 완주 — 한 편의 활동 6가지(읽기·핵심문장·요점·낱말·근거찾기·바꿔쓰기)를
+      //   모두 마치면 지급. 10점 · 하루 2번까지 · 게임·퀴즈 묶음(하루 30점)과 전체 상한(100점)을 함께 지난다.
+      //   ⚠️ 화면(/story-red-umbrella.html)의 STORY_POINTS 와 금액이 같아야 합니다 — story_red_umbrella_harness 가 대조.
+      if (ruleCode === 'story_read') {
+        await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('story_read','A.i 동화책 한 편 완주',10,0,2,1,'동화책 한 편의 활동 6가지를 모두 마치면 지급(하루 2번까지)',?) ON CONFLICT(code) DO NOTHING`).bind(Date.now()).run();
+      }
       const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code=? AND enabled=1`).bind(ruleCode).first();
       if (!rule) return json({ ok: false, error: 'rule_not_found_or_disabled', code: ruleCode }, 404);
       // 쿨다운 검사
