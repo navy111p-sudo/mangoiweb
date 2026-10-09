@@ -25,6 +25,12 @@
   function won(n){ return '₩' + (Number(n)||0).toLocaleString('ko-KR'); }
 
   var LAST = null;   // 마지막으로 불러온 목록 (재계산·재검증용)
+  /* 🔽 (2026-10-09) 대리점 드롭다운 — 사장님 「드롭다운 형식으로 해서 대리점들 고르게 해줘」.
+     목록은 «검색어 없이» 불러온 전체에서 만든다(검색 결과로 만들면 고를 수 있는 곳이 줄어든다).
+     고르면 서버를 다시 부르지 않고 그 한 줄만 그린다(정확일치 — 검색어 LIKE 와 달리 남의 학원이 안 섞인다).
+     검색어로 불러오면 고른 것은 풀린다(두 조건이 겹치면 «왜 안 보이지» 가 된다). */
+  var ALL_SHOPS = null;   // [{name, franchise}] — 검색어 없이 불러온 전체
+  var PICK = '';
 
   function aibFetch(path){
     return fetch(path, { credentials:'same-origin' })
@@ -36,6 +42,7 @@
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:18px">불러오는 중…</td></tr>';
     var q = (el('aib-q') && el('aib-q').value.trim()) || '';
+    if (q) setPick('');
     var url = '/api/admin/ai-billing/rate' + (q ? '?q=' + encodeURIComponent(q) : '');
     aibFetch(url).then(function(res){
       var d = res.body;
@@ -45,12 +52,20 @@
         return;
       }
       LAST = d;
+      if (!q) {
+        ALL_SHOPS = (d.rows || []).map(function(r){ return { name: String(r.shop_name || ''), franchise: r.franchise || '' }; })
+          .filter(function(x){ return x.name; })
+          .sort(function(a, b){ return a.name.localeCompare(b.name, 'ko'); });
+        if (PICK && !ALL_SHOPS.some(function(x){ return x.name === PICK; })) PICK = '';
+      }
+      renderPick();
       renderSwitch(d);
       var note = el('aib-readonly-note');
       if (note) note.hidden = !!d.editable;
       var cnt = el('aib-count');
       if (cnt) cnt.textContent = d.count + '개' + (d.truncated ? ' (500개까지만 표시)' : '');
       renderRows(d);
+      renderCount(d);
       renderCron(d.last_cron);
     }).catch(function(e){
       tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:18px;color:#dc2626">네트워크 오류: ' + esc(e && e.message || e) + '</td></tr>';
@@ -152,9 +167,50 @@
       }).catch(function(e){ alert(L('네트워크 오류: ', 'Network error: ') + (e && e.message || e)); if (btn) btn.disabled = false; });
   };
 
+  function setPick(v){
+    PICK = v || '';
+    var sel = el('aib-pick');
+    if (sel) sel.value = PICK;
+  }
+  function renderPick(){
+    var sel = el('aib-pick');
+    if (!sel) return;
+    var list = ALL_SHOPS || [];
+    var html = '<option value="">' + esc(L('— 대리점 선택 (전체 ' + num(list.length) + '곳) —', '— Pick an agency (all ' + num(list.length) + ') —')) + '</option>';
+    html += list.map(function(x){
+      return '<option value="' + esc(x.name) + '">' + esc(x.name + (x.franchise ? ' · ' + x.franchise : '')) + '</option>';
+    }).join('');
+    sel.innerHTML = html;
+    sel.value = PICK;
+  }
+  function renderCount(d){
+    var cnt = el('aib-count');
+    if (!cnt || !PICK) return;
+    cnt.textContent = L('1곳 선택됨 / 전체 ' + num(d.count) + '곳', '1 selected / ' + num(d.count) + ' total');
+  }
+  window.aibPick = function(){
+    var sel = el('aib-pick');
+    var v = sel ? sel.value : '';
+    var qEl = el('aib-q');
+    // 검색어로 좁혀 둔 목록이면 그 학원이 안 들어 있을 수 있다 → 검색어를 비우고 전체를 다시 불러온다
+    if (qEl && qEl.value.trim()) { qEl.value = ''; PICK = v; window.aibLoad(); return; }
+    PICK = v;
+    if (LAST) {
+      renderRows(LAST);
+      var cnt = el('aib-count');
+      if (cnt) cnt.textContent = LAST.count + '개' + (LAST.truncated ? ' (500개까지만 표시)' : '');
+      renderCount(LAST);
+    } else window.aibLoad();
+  };
+
   function renderRows(d){
     var tbody = el('aib-tbody');
-    var rows = d.rows || [];
+    var all = d.rows || [];
+    var rows = PICK ? all.filter(function(r){ return String(r.shop_name || '') === PICK; }) : all;
+    if (PICK && !rows.length && all.length) {
+      tbody.innerHTML = '<tr><td colspan="11" class="empty">' + esc(L('고른 대리점이 지금 목록에 없습니다 — 드롭다운에서 «전체» 를 고르세요.', 'The picked agency is not in this list — choose “all” in the dropdown.')) + '</td></tr>';
+      return;
+    }
     if (!rows.length) {
       tbody.innerHTML = '<tr><td colspan="11" class="empty">' + esc(L('재원 학생이 있는 대리점이 없습니다.', 'No agencies with enrolled students.')) + '</td></tr>';
       return;
@@ -217,7 +273,7 @@
       });
   };
 
-  function relang(){ if (LAST) { renderSwitch(LAST); renderRows(LAST); renderCron(LAST_CRON); } }
+  function relang(){ if (LAST) { renderPick(); renderSwitch(LAST); renderRows(LAST); renderCount(LAST); renderCron(LAST_CRON); } }
   document.addEventListener('mangoi:lang-changed', relang);   // 관리자 화면은 document 에서 발행(bubbles:false)
   window.addEventListener('mangoi:lang-changed', relang);
 

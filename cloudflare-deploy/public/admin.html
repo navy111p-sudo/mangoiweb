@@ -12031,6 +12031,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       ▸ <span data-ko="«예외 단가» 칸은 특정 학원만 다르게 받을 때 씁니다(비우고 저장하면 구간 단가로 돌아감)." data-en="Use «Custom rate» only for academies with a special deal (clear it and save to return to the tier rate).">«예외 단가» 칸은 특정 학원만 다르게 받을 때 씁니다(비우고 저장하면 구간 단가로 돌아감).</span>
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+      <select id="aib-pick" onchange="aibPick()" title="대리점 고르기" style="padding:7px 11px;font-size:12.5px;border-radius:8px;border:1px solid #d1d5db;min-width:200px;max-width:320px;background-color:#ffffff;color:#101828"><option value="">— 대리점 선택 (전체) —</option></select>
       <input id="aib-q" type="search" placeholder="🔍 대리점(학원)명 검색" style="padding:7px 11px;font-size:12.5px;border-radius:8px;border:1px solid #d1d5db;min-width:180px" onkeydown="if(event.key==='Enter')aibLoad()">
       <button onclick="aibLoad()" style="padding:7px 14px;font-size:12.5px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700" data-ko="🔎 불러오기" data-en="🔎 Load">🔎 불러오기</button>
       <span id="aib-count" style="font-size:11.5px;color:#64748b"></span>
@@ -12057,7 +12058,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </details>
 <script src="/js/adm-student-track.js?v=2" defer></script><!-- 🎥🤖 (2026-09-24) 학생관리 › 학생 구분(화상+AI / AI만) -->
-<script src="/js/adm-ai-billing.js?v=4" defer></script><!-- 🏢 (2026-09-10 신설) card-ai-billing 전용 -->
+<script src="/js/adm-ai-billing.js?v=5" defer></script><!-- 🏢 (2026-09-10 신설) card-ai-billing 전용 -->
 
 <!-- === Card: BtoC 결제관리 (2번 양식 베이스) === -->
 <details class="table-card menu-card" id="card-payments-b2c">
