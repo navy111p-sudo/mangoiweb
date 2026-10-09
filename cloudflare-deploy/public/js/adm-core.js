@@ -16466,9 +16466,10 @@ window.rebuildGlobalSearchIndex = function() {
     /* 📅 분기 선택칸 (2026-10-09 사장님 「1분기·2분기·3분기 분기별로 볼 수 있는 선택칸」) —
        이 창은 관리자 화면이 연 창이라 opener.openReport 로 같은 창을 다시 채운다.
        opener 가 없으면(관리자 화면을 닫음) 지어내지 않고 사실대로 말한다. */
-    const qPicker = (type !== 'quarterly' && type !== 'annual' && type !== 'monthly') ? '' : (() => {
+    const qPicker = (type !== 'quarterly' && type !== 'annual' && type !== 'monthly' && type !== 'franchise') ? '' : (() => {
       /* 월간(2026-10-09 사장님 「월간 회계 리포트도 년월 선택칸」)은 년도 + 1~12월, 분기는 년도 + 1~4분기, 연간은 년도만 */
-      const isQ = type === 'quarterly', isM = type === 'monthly';
+      /* 가맹점별 정산서(2026-10-09 사장님 「가맹점별 정산서도 년월 선택칸」)도 월간과 같은 년도+1~12월 */
+      const isQ = type === 'quarterly', isM = type === 'monthly' || type === 'franchise';
       const pm = isM ? /^(\d{4})-(\d{2})$/.exec(String(d.period || '')) : null;
       const nowY = Number(defaultYear()), curY = (pm ? Number(pm[1]) : Number(d.year)) || nowY;
       const curQ = Number(d.quarter) || 1, curM = pm ? Number(pm[2]) : 1;
@@ -16480,7 +16481,7 @@ window.rebuildGlobalSearchIndex = function() {
       const keep = isQ ? curQ : isM ? curM : 0;
       return `<div class="qpick"><label>기간</label><select id="qp-year" onchange="qGo(${keep})">${yOpts}</select>${qBtns}</div>
         <script>function qGo(q){var y=Number(document.getElementById('qp-year').value);
-          var ov='${type}'==='monthly'?{period:y+'-'+(q<10?'0':'')+q}:(q?{year:y,quarter:q}:{year:y});
+          var ov=${isM}?{period:y+'-'+(q<10?'0':'')+q}:(q?{year:y,quarter:q}:{year:y});
           var o=window.opener;if(o&&!o.closed&&typeof o.openReport==='function'){var w=window;setTimeout(function(){o.openReport('${type}',ov,w);},0);}
           else{alert('관리자 화면이 닫혀 있어 다른 기간을 불러올 수 없습니다. 관리자 화면에서 다시 열어 주세요. / The admin page is closed — reopen the report from there.');}}<\/script>`;
     })();
