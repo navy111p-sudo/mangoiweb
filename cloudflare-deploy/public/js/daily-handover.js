@@ -27,7 +27,7 @@
   function preview(){showPayload($('preview'),payload(),$('date').value,me?me.name:'');}
   function storageKey(){return 'mangoi_handover_v1:'+me.username+':'+$('date').value;}
   function cacheDraft(){if(!me)return;try{localStorage.setItem(storageKey(),JSON.stringify({payload:payload(),recipient:$('recipient').value,version:version,updated:Date.now()}));$('save-status').textContent='이 기기에 임시 보관 중 / Kept on this device · 서버 저장은 임시 저장 버튼';}catch(e){$('save-status').textContent='기기 임시 보관 불가 · 임시 저장을 눌러 주세요. / Use Save draft.';}}
-  function invalidate(){begin();revision++;reviewed=false;sent=false;stopped=null;suggestion=null;requestAttempt=null;$('confirm').checked=false;$('confirm').disabled=true;$('send').disabled=true;$('success').hidden=true;$('ai').hidden=true;$('review-status').textContent='';$('badge').textContent='작성 중 / Editing';$('step1').className='active';$('step2').className='';$('step3').className='';$('errors').hidden=true;sync();preview();cacheDraft();}
+  function invalidate(){begin();revision++;reviewed=false;sent=false;stopped=null;suggestion=null;requestAttempt=null;$('confirm').checked=false;$('confirm').disabled=true;$('send').disabled=true;$('success').hidden=true;$('ai').hidden=true;$('route').hidden=true;$('review-status').textContent='';$('badge').textContent='작성 중 / Editing';$('step1').className='active';$('step2').className='';$('step3').className='';$('errors').hidden=true;sync();preview();cacheDraft();}
   fields.forEach(function(k){$(k).addEventListener('input',invalidate);});
   async function call(path,body,timeout){
     var controller=new AbortController(),timer=setTimeout(function(){controller.abort();},timeout||20000);
@@ -51,11 +51,31 @@
       if(!$('recipient').value){say('전달 대상을 선택해 주세요. / Select a recipient.',true);return;}
       reviewed=true;$('confirm').disabled=false;$('badge').textContent='확인 준비 / Ready';$('step1').className='';$('step2').className='active';$('step3').className='';$('errors').hidden=true;
       $('review-status').textContent='✓ 필수 항목 완료 / Required fields complete'+(useAI&&j.ai_state!=='ready'?' · AI 연결 지연: 직접 확인 후 제출 가능 / AI unavailable; manual review available':'');
+      paintRoute(j.approval_hints);
       suggestion=j.suggestion;
       if(suggestion){$('ai').hidden=false;var h=$('ai-text');h.replaceChildren();['work','issue','open'].forEach(function(k){if(suggestion[k])h.append(row(labels[k],suggestion[k]));});suggestion.tips.forEach(function(t){h.append(node('p',t,'small'));});}
       preview();
     }catch(e){networkError(e);$('review-status').textContent='AI 없이 점검을 눌러 다시 시도할 수 있습니다. / Try Check without AI.';}
     finally{busy=false;$('review').disabled=false;$('manual').disabled=false;}
+  }
+  /* 🧭 결재로 보낼 줄(2026-10-09) — 서버(handover-routing.ts)가 고른 «제안» 만 그린다.
+     누르면 결재 화면(/work?type=…)이 새 탭에서 내용이 채워진 채 열린다. 올리는 것은 사람이 한다.
+     ⛔ 보고서에서 그 줄을 자동으로 지우지 않는다(지울지는 사람이 정한다). */
+  var ROUTE_KIND={purchase:'물품 구입 / Purchase',expense:'지출 정산 / Expense',leave:'휴가 신청 / Time off'};
+  function paintRoute(list){
+    var box=$('route');box.replaceChildren();list=Array.isArray(list)?list:[];
+    if(!list.length){box.hidden=true;return;}
+    box.append(node('h3','⚠️ 결재로 올려야 할 것 같아요 / These may need approval'));
+    box.append(node('p','승인·결정이 필요한 일은 결재, 알리기만 하면 매일보고입니다. AI 제안이니 직접 판단해 주세요. / Needs a decision → approval; just sharing → report.','small'));
+    list.forEach(function(h){
+      if(!ROUTE_KIND[h.type])return;
+      var r=node('div',null,'mh-rt');r.append(node('q',h.line));
+      r.append(node('small','→ '+ROUTE_KIND[h.type]+' · '+h.reason_ko+' / '+h.reason_en));
+      var a=node('a','결재로 옮기기 / Move to approval');a.href='/work?type='+encodeURIComponent(h.type);a.target='_blank';a.rel='noopener';
+      a.onclick=function(){try{localStorage.setItem('mangoi_work_prefill_v1',JSON.stringify({type:h.type,user:me&&me.username||'',title:String(h.line).slice(0,80),body:h.line+'\n\n(매일보고에서 옮김 / From daily handover)',amount:h.amount==null?'':String(h.amount),cur:h.currency||'',at:Date.now()}));}catch(e){}};
+      r.append(a);box.append(r);
+    });
+    box.hidden=false;
   }
   $('review').onclick=function(){review(true);};$('manual').onclick=function(){review(false);};
   $('apply').onclick=function(){if(!suggestion)return;var s=suggestion;$('work').value=s.work;$('issue').value=s.issue;$('open').value=s.open;invalidate();review(false);};

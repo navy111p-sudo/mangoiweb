@@ -42,6 +42,8 @@ function setup({ withHolidays = true } = {}) {
       if (name === './d1-chunk') return { selectInChunks: async () => [] };
       if (name === './approval-policy') return { isHqStaff: a => !!a.ok, isExec: a => ['admin', 'mgr_jjw'].includes(a.username) };
       if (name === './once-per-isolate') return { oncePerIsolate: f => f };
+      if (name === './auth-admin') return { PH_MANAGERS: [] };
+      if (name === './handover-routing') return { approvalHints: () => [], APPROVAL_PROMPT_RULE: '' }; // 결재 길 안내 — 자체 하니스(handover_approval_route)가 따로 본다
       if (name === './web-push') return { broadcastWebPush: async eps => ({ sent: eps.length }) };
       throw new Error(name);
     } });

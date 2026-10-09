@@ -28,6 +28,8 @@ const context={module,exports:module.exports,console,crypto,Date:TestDate,Reques
  if(name==='./d1-chunk'){const m={exports:{}};vm.runInNewContext(ts.transpileModule(readFileSync('cloudflare-deploy/src/d1-chunk.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{module:m,exports:m.exports});return m.exports;}
  if(name==='./approval-policy')return{isHqStaff:a=>!!a.ok&&!a.isTeacher&&['hq','staff'].includes(a.role),isExec:a=>a.username==='admin'};
  if(name==='./once-per-isolate')return{oncePerIsolate:f=>f};
+ if(name==='./handover-routing')return{approvalHints:()=>[],APPROVAL_PROMPT_RULE:''};
+ if(name==='./auth-admin')return{PH_MANAGERS:[]};
  if(name==='./web-push')return{broadcastWebPush:async eps=>{broadcastCalls.push([...eps]);return broadcastImpl(eps);}};
  throw new Error(name);
 }};

@@ -16294,6 +16294,9 @@ window.rebuildGlobalSearchIndex = function() {
   document.addEventListener('DOMContentLoaded', () => {
     const p = document.getElementById('acc-rep-period');
     if (p) p.addEventListener('change', () => window.accCloseRefresh && window.accCloseRefresh());
+    // (2026-10-09) 분기 선택칸이 HTML 첫 옵션(1분기)으로 시작해 사람이 안 바꾸면 늘 1분기 보고서가 나왔다 — 지금 분기로 시작
+    const q = document.getElementById('acc-rep-quarter');
+    if (q) q.value = String(Math.ceil(Number(defaultMonth().slice(5, 7)) / 3));
   });
 
   // 메인: 리포트 종류별 fetch + render
