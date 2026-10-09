@@ -859,7 +859,7 @@ async function buildMonthly(env: Env, period: string) {
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(total_active_ms),0)/60000 AS total_min,
              COUNT(*) AS sessions,
-             SUM(CASE WHEN COALESCE(total_active_ms,0)=0 THEN 1 ELSE 0 END) AS zero_sessions
+             SUM(CASE WHEN COALESCE(total_active_ms,0)=0 AND COALESCE(room_id,'') NOT LIKE 'c24-%' THEN 1 ELSE 0 END) AS zero_sessions
       FROM attendance
       WHERE date BETWEEN ? AND ?
     `).bind(period + '-01', period + '-31').first<{ total_min: number; sessions: number; zero_sessions: number }>();
@@ -1938,11 +1938,21 @@ function snapshotCsvRows(snap: any): (string | number)[][] {
 /* 👥 그 달에 «실제로 움직인» 학생 수 — 수업에 들어왔거나(attendance) 결제한(student_payments)
    학생의 합집합. students_erp.status='active' 는 퇴원 처리가 안 된 옛 학생까지 포함해
    지표의 분모로 쓸 수 없다(2026-08-16: active 28,672명 vs 실제 활동 805명). */
+/* 출석 행 → 학생 계정(모르면 NULL). 정본은 이 두 줄 — 활동 학생 수를 세는 곳은 여기만 쓴다. */
+const ATT_STUDENT_ACCT = `COALESCE(NULLIF(account_uid,''), CASE WHEN room_id LIKE 'c24-%' THEN user_id END)`;
+const ATT_STUDENT_ONLY = `COALESCE(role,'student') = 'student'`;
 async function monthActiveStudents(env: Env, period: string) {
   const { startMs, endMs } = monthRange(period);
+  /* 👤 (2026-10-09) «학생 한 명» 은 계정으로 센다 — attendance.user_id 는 실접속이면 «접속마다 새로 나오는
+     기기 임시번호»(u_xxx·DO 번호)이고 카페24 예약 씨앗(c24-*)이면 계정이다. 그대로 DISTINCT 하면
+     같은 학생이 접속할 때마다 한 명씩 늘고 선생님·관리자까지 섞인다.
+     실측 2026-09: 옛 방식 762명 → 계정 기준 학생 531명(선생님 44·관리자 10·기기번호 112 등이 섞여 있었음).
+     실접속은 account_uid(2026-08-12 부터 기록), 씨앗은 user_id 가 계정. 계정을 모르는 실접속 행은 «모름» 으로 빼고
+     지어내지 않는다(그 학생은 대개 같은 달 씨앗 행으로 이미 세어진다). */
   const attended = await safe(async () => {
     const r = await env.DB.prepare(`
-      SELECT COUNT(DISTINCT user_id) AS c FROM attendance WHERE date BETWEEN ? AND ?
+      SELECT COUNT(DISTINCT ${ATT_STUDENT_ACCT}) AS c FROM attendance
+      WHERE date BETWEEN ? AND ? AND ${ATT_STUDENT_ONLY}
     `).bind(period + '-01', period + '-31').first<{ c: number }>();
     return Number(r?.c) || 0;
   }, 0);
@@ -1956,7 +1966,8 @@ async function monthActiveStudents(env: Env, period: string) {
   const total = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT COUNT(*) AS c FROM (
-        SELECT DISTINCT user_id FROM attendance WHERE date BETWEEN ? AND ?
+        SELECT DISTINCT ${ATT_STUDENT_ACCT} AS user_id FROM attendance
+         WHERE date BETWEEN ? AND ? AND ${ATT_STUDENT_ONLY} AND ${ATT_STUDENT_ACCT} IS NOT NULL
         UNION
         SELECT DISTINCT user_id FROM student_payments
          WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
@@ -2963,7 +2974,7 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const classMin = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(total_active_ms),0)/60000 AS total_min,
-             SUM(CASE WHEN COALESCE(total_active_ms,0)=0 THEN 1 ELSE 0 END) AS zero_sessions
+             SUM(CASE WHEN COALESCE(total_active_ms,0)=0 AND COALESCE(room_id,'') NOT LIKE 'c24-%' THEN 1 ELSE 0 END) AS zero_sessions
       FROM attendance WHERE date BETWEEN ? AND ?
     `).bind(period + '-01', period + '-31').first<{ total_min: number; zero_sessions: number }>();
     return r || { total_min: 0, zero_sessions: 0 };
@@ -2981,7 +2992,8 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const kpis: Kpi[] = [
     { key: 'revenue', label: '월 매출 (장부+통장 B2B)', value: revenue, unit: 'KRW', source: 'actual', available: true },
     { key: 'revenue_b2b', label: '  └ 통장 직접입금(B2B)', value: pl.rev.b2b, unit: 'KRW', source: pl.rev.b2b > 0 ? 'actual' : 'none', available: true },
-    { key: 'active_real', label: '활동 학생 (수업·결제한 학생)', value: activeReal.total, unit: '명', source: 'actual', available: true },
+    { key: 'active_real', label: '활동 학생 (수업·결제한 학생)', value: activeReal.total, unit: '명', source: 'actual', available: true,
+      note: '학생 계정 기준(선생님·관리자·접속마다 바뀌는 기기번호는 세지 않음).' },
     { key: 'active_students', label: '재적 학생 (원부 status=active)', value: active, unit: '명', source: 'review', available: true,
       note: '퇴원 처리가 안 된 옛 학생까지 포함돼 있어 지표의 분모로는 쓰지 않습니다.' },
     { key: 'paying_users', label: '결제 학생', value: pl.rev.payingUsers, unit: '명', source: 'actual', available: true },
@@ -3003,7 +3015,10 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
       note: classMin.zero_sessions > 0 ? `수업 기록 ${classMin.zero_sessions}건의 수업시간이 0으로 저장돼 있어 실제보다 적게 나옵니다.` : '' },
   ];
 
-  const data = { ok: true, type: 'kpi', period, label: `${label} 경영지표 (KPI)`, kpis,
+  /* 📅 (2026-10-09) 분기·연간·월간과 같은 판정 — 진행 중인 달·통장/카드 연동 전 달은 이익률·ROI·순이익이
+     «확정값» 이 아니다. KPI 만 이 표시가 없어 기본값(이번 달)을 열면 반쪽 숫자가 확정처럼 보였다. */
+  const coverage = coverageOf(period, await syncStarts(env));
+  const data = { ok: true, type: 'kpi', period, label: `${label} 경영지표 (KPI)`, kpis, coverage,
     revenue, cost, net, payroll: pl.payroll.total, margin_pct: pl.margin };
 
   if (fmt === 'csv' || fmt === 'xlsx') {
