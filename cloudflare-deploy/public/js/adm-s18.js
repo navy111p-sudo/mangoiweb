@@ -15,7 +15,7 @@
         "강사 보기","자료실에서 설명서 받기","우리 홈페이지가 어떻게 보이나","안전하게 마치기",
         "메뉴 한눈에 보기","막혔을 때 이렇게 하세요","자주 묻는 질문","첫날에는 이것만",
         "세 가지만 기억하세요","이제 준비 끝!"] },
-    en:{ dir:'/guide/admin-easy-en/', ver:'26a', pdf:'/guide/admin-easy-en/admin-easy-en.pdf?v=26a', pdfName:'Mangoi_Admin_Page_Guide_EN.pdf',
+    en:{ dir:'/guide/admin-easy-en/', ver:'26b', pdf:'/guide/admin-easy-en/admin-easy-en.pdf?v=26b', pdfName:'Mangoi_Admin_Page_Guide_EN.pdf',
       titles:["Easy Admin Page Guide","Who is this guide for?","Contents","Getting in (signing in)",
         "What the screen looks like","Finding what you need, fast","What an admin does every day — at a glance","Taking enrollments and creating classes",
         "Seeing the class schedule at a glance","Approving postpone / change requests","Checking student payments","Running teacher payroll",
