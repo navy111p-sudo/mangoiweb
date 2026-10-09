@@ -4033,8 +4033,15 @@ function mgsuOpenAct(key) {
     act.innerHTML = '<div class="mgsu-act">' + head + '<div class="n">' + (en ? 'This class has already ended.' : '이미 끝난 수업입니다.') + '</div></div>';
   } else if (dated && sch.status === 'postponed') {
     /* 요일별 줄의 ⏸ 버튼과 같은 판정 — 이미 연기된 회차에는 버튼을 주지 않는다. */
-    act.innerHTML = '<div class="mgsu-act">' + head + '<div class="n">' + (en ? 'This class is already postponed. Set its new date in “By weekday” below.'
+    act.innerHTML = '<div class="mgsu-act">' + head + '<div class="btns" id="mgsuPostCancel"></div><div class="n">' + (en ? 'This class is already postponed. Set its new date in “By weekday” below.'
                                                                               : '이미 연기된 수업입니다. 새 날짜는 아래 «요일별 보기» 에서 정하세요.') + '</div></div>';
+    /* ✕ (2026-10-09 사장님 지시 «연기 수업도 취소할 수 있게») — 취소는 본사 전용(DELETE 가 지사·대리점에 403)이라
+       역할을 물은 «뒤» 에만 버튼을 그린다(⛔ 눌러도 안 되는 버튼을 주지 않음). 연기·변경 버튼은 그대로 안 준다. */
+    mgsuMeRole(function (me) {
+      var slot = document.getElementById('mgsuPostCancel');
+      if (!slot || !me.hq || _mgsuSel !== key) return;
+      slot.innerHTML = '<button type="button" class="mgsu-btn" data-mgsu-pcancel="' + esc(key) + '" style="color:#b42318;border-color:#f3a8a0">✕ ' + (en ? 'Cancel this class' : '이 수업 취소') + '</button>';
+    });
   } else if (dated) {
     /* 공용 창은 모드를 미리 골라 받지 않는다 — 버튼을 둘로 나눠도 같은 창이 열리므로 하나로 둔다.
        ⚠️ 그 창의 «변경(앞으로 계속)» 은 같은 요일·시각의 뒤 회차도 함께 옮긴다 — «다른 날은 그대로» 라고 말하지 않는다. */
@@ -4090,7 +4097,7 @@ function mgsuOpenMove(key) {
   var dated = !!String(sch.scheduled_date || '').slice(0, 10);
   var d0 = new Date(Number(ymd.slice(0, 4)), Number(ymd.slice(5, 7)) - 1, Number(ymd.slice(8, 10)));
   if (mgsuEnded({ ymd: ymd, dow: d0.getDay(), sch: sch, hm: hm }, Date.now())) { alert(en ? 'This class has already ended.' : '이미 끝난 수업입니다.'); return; }
-  if (dated && String(sch.status || '') === 'postponed') { alert(en ? 'This class is already postponed. Set its new date in “By weekday” below.' : '이미 연기된 수업입니다. 새 날짜는 아래 «요일별 보기» 에서 정하세요.'); return; }
+  if (dated && String(sch.status || '') === 'postponed') { mgsuCancelPostponed(key); return; }
   var mirror = /^c24-mirror/.test(String(sch.source || ''));
   if (!dated && mirror) { alert(en ? 'A cafe24 weekly class is changed in cafe24.' : '카페24 매주 수업은 카페24에서 바꿔 주세요.'); return; }
   mgsuMeRole(function (me) {
@@ -4113,6 +4120,34 @@ function mgsuOpenMove(key) {
       }
     });
   });
+  });
+}
+/** ✕ 이미 연기된 «날짜 수업» 을 취소한다(2026-10-09 사장님 지시).
+    공용 창의 취소와 같은 경로 — DELETE /api/admin/class-schedules/:id (status='cancelled' + 이력, 미러 행은 도장).
+    ⛔ request_type:'cancel' 로 보내지 말 것(승인이 postponed 로 적어 급여 뜻이 바뀝니다). 본사 전용. */
+function mgsuCancelPostponed(key) {
+  var en = mgsuEn();
+  var p = String(key || '').split('|'), ymd = p[0], id = Number(p[1]);
+  var sch = _mgsuItems.filter(function (x) { return Number(x.id) === id; })[0]
+         || (_dSchedState.aiSchedules || []).filter(function (x) { return Number(x.id) === id; })[0];
+  if (!sch || String(sch.status || '') !== 'postponed' || !String(sch.scheduled_date || '').slice(0, 10)) return;
+  mgsuMeRole(function (me) {
+    if (!me.hq) { alert(en ? 'This class is already postponed. Cancelling is done by an HQ account.' : '이미 연기된 수업입니다. 취소는 본사 계정에서 합니다.'); return; }
+    var when = ymd + ' ' + mgsuHm(sch);
+    var reason = prompt(en ? ('Cancel the postponed class on ' + when + '?\nIt will be set to cancelled (not deleted). Reason (optional):')
+                           : (when + ' 연기된 수업을 취소할까요?\n지우지 않고 «취소» 로 바뀝니다. 사유(선택):'), '');
+    if (reason === null) return;
+    fetch('/api/admin/class-schedules/' + encodeURIComponent(String(id)), {
+      method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: String(reason || '').trim() || (en ? 'Cancel postponed class' : '연기 수업 취소') })
+    }).then(function (r) { return r.json().catch(function () { return { ok: false, error: 'http_' + r.status }; }); })
+      .then(function (d) {
+        if (!d || d.ok !== true) { alert((en ? 'Could not cancel: ' : '취소하지 못했습니다: ') + ((d && (d.error || d.detail)) || 'unknown')); return; }
+        _mgsuSel = '';
+        loadAiSchedules();
+        try { if (typeof loadDStudentSchedule === 'function') loadDStudentSchedule(); } catch (_) {}
+      })
+      .catch(function () { alert(en ? 'Could not cancel (network). Try again.' : '취소하지 못했습니다(통신 오류). 다시 눌러 주세요.'); });
   });
 }
 /* (2026-10-09) 요일별 줄의 ⏸ 연기 · ✏️ 변경 — 학생 목록 «⏸ 연기·변경·취소»(adm-core.js smOpenMovePick)와 같은
@@ -4162,6 +4197,8 @@ document.addEventListener('click', function (e) {
   if (!t) return;
   var occ = t.closest('[data-mgsu-occ]');
   if (occ) { var k = occ.getAttribute('data-mgsu-occ'); _mgsuSel = (_mgsuSel === k) ? '' : k; mgsuRender(); return; }
+  var pc = t.closest('[data-mgsu-pcancel]');
+  if (pc) { mgsuCancelPostponed(pc.getAttribute('data-mgsu-pcancel')); return; }
   var mv = t.closest('[data-mgsu-move]');
   if (mv) { mgsuOpenMove(mv.getAttribute('data-mgsu-move')); return; }
   /* 📅 (2026-10-08 «스케줄 캘린더에서도 연기·변경·취소») 캘린더의 예약 카드를 누르면 «그 날» 창이 바로 열린다. */

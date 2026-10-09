@@ -174,6 +174,17 @@ try {
       await page.evaluate(k => document.querySelector(`[data-mgsu-occ="${k}"]`).click(), ppKey);
       const pp = await page.evaluate(() => ({ t: document.getElementById('mgsuAct').textContent, mv: document.querySelectorAll('#mgsuAct [data-mgsu-move]').length }));
       check('⑤ [짝] 이미 연기된 회차에는 연기·변경 버튼을 안 준다', pp.mv === 0 && /이미 연기된/.test(pp.t), JSON.stringify(pp).slice(0, 120));
+      /* ✕ (2026-10-09 사장님 「연기 수업도 취소할 수 있게」) — 본사 계정이면 연기된 회차에 «취소» 버튼이 붙고, 누르면 DELETE 가 나간다. */
+      await page.waitForSelector('#mgsuAct [data-mgsu-pcancel]', { timeout: 3000 }).catch(() => {});
+      const pcN = await page.evaluate(() => document.querySelectorAll('#mgsuAct [data-mgsu-pcancel]').length);
+      check('⑤-c 연기된 회차에 «이 수업 취소» 버튼이 있다(본사)', pcN === 1, String(pcN));
+      if (pcN === 1) {
+        await page.evaluate(() => { window.prompt = () => 'test'; window.__del = []; const f = window.fetch; window.fetch = function (u, o) { if (o && o.method === 'DELETE') window.__del.push(String(u)); return f(u, o); }; });
+        await page.evaluate(() => document.querySelector('#mgsuAct [data-mgsu-pcancel]').click());
+        await page.waitForTimeout(400);
+        const dels = await page.evaluate(() => window.__del);
+        check('⑤-c 누르면 DELETE /api/admin/class-schedules/8 이 나간다', dels.length === 1 && /\/api\/admin\/class-schedules\/8$/.test(dels[0]), JSON.stringify(dels));
+      }
       await page.evaluate(k => document.querySelector(`[data-mgsu-occ="${k}"]`).click(), mkKey);
     }
     const btn = page.locator('#mgsuAct [data-mgsu-move]').first();
