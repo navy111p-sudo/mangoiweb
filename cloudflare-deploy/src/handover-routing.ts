@@ -44,27 +44,29 @@ export function parseAmount(line: string): { amount: number; currency: 'PHP' | '
   if (m && num(m[1]) > 0) return { amount: num(m[1]), currency: 'PHP' };
   m = s.match(/([\d,]+(?:\.\d+)?)\s*만\s*원/);
   if (m && num(m[1]) > 0) return { amount: Math.round(num(m[1]) * 10000), currency: 'KRW' };
-  m = s.match(/(?:₩|krw)\s*([\d,]+)/i) || s.match(/([\d,]+)\s*(?:원|krw)(?![가-힣])/i);
+  m = s.match(/(?:₩|krw)\s*([\d,]+)/i) || s.match(/([\d,]+)\s*(?:원|krw)(?:(?=에|으로|짜리|정도|어치|씩|이|을|은)|(?![가-힣]))/i);
   if (m && num(m[1]) > 0) return { amount: num(m[1]), currency: 'KRW' };
   return null;
 }
 
 const LEAVE_RE = /(휴가|연차|반차|월차|병가|조퇴|결근|day\s*off|days\s*off|leave\b|vacation|sick\s*leave|absent\s+(on|tomorrow|next))/i;
-const HR_RE = /(급여|월급|임금|인상|채용|해고|퇴사|사직|계약\s*(연장|해지)|salary|payroll|raise\b|hire|hiring|resign|termination|contract\s+(renewal|extension))/i;
+const HR_RE = /(급여|월급|임금|채용|해고|퇴사|사직|계약\s*(연장|해지)|salary|payroll|raise\b|hire|hiring|resign|termination|contract\s+(renewal|extension))/i;
 const BUY_RE = /(구입|구매|사야|살\s*예정|주문|교체\s*필요|buy|purchase|order\b|need\s+to\s+get|replace)/i;
 const PAID_RE = /(정산|환급|대신\s*(냄|결제|지불)|자비|사비|영수증|reimburse|paid\s+(for|out\s+of)|out\s+of\s+pocket|receipt|refund\s+me)/i;
 
-const INCOME_RE = /(입금|수납|결제\s*(됨|완료|받)|받았|받음|received|payment\s+from|paid\s+by\s+(the\s+)?(student|parent))/i;
+const INCOME_RE = /(입금|수납|결제\s*(됨|완료|받)|결제를?\s*받|(학생|학부모|부모님?).{0,12}결제|received\s+payment|payment\s+(from|received)|paid\s+by\s+(the\s+)?(student|parent))/i;
+/** 학생·학부모 이야기 — 직원 휴가가 아니다(「학생 조퇴함」) */
+const STUDENT_RE = /(학생|학부모|아이가|student|parent|kid)/i;
 
 /** 한 줄을 규칙으로 판정 — 모르면 null(지어내지 않는다) */
 export function ruleTypeOf(line: string): RouteType | null {
   const s = String(line || '');
   if (!s.trim() || DONE_RE.test(s)) return null;
   const money = parseAmount(s);
-  if (LEAVE_RE.test(s)) return 'leave';
+  if (LEAVE_RE.test(s)) return STUDENT_RE.test(s) ? null : 'leave';
   if (HR_RE.test(s)) return 'hr';
+  if (INCOME_RE.test(s)) return null;      // 학생 결제를 «받은» 것은 매출 — 결재가 아니다(지출 정산보다 먼저 본다)
   if (PAID_RE.test(s) && (money || /영수증|receipt/i.test(s))) return 'expense';
-  if (INCOME_RE.test(s)) return null;      // 학생 결제를 «받은» 것은 매출 — 결재가 아니다
   if (BUY_RE.test(s) && money) return 'purchase';
   // 금액만 있고 «사야 한다/내가 냈다» 가 없으면 모른다 — 지어내지 않는다(AI 가 볼 몫).
   return null;
@@ -73,7 +75,7 @@ export function ruleTypeOf(line: string): RouteType | null {
 /** 본문을 줄 단위로 — 머리기호를 벗기고 빈 줄은 버린다 */
 export function linesOf(text: string): string[] {
   return String(text || '').split(/\r?\n|[;•]/)
-    .map(l => l.replace(/^[\s\-*·\d.)]+/, '').trim())
+    .map(l => l.replace(/^\s*(?:[-*·•]|\d+[.)])\s*/, '').trim())   // 머리기호·번호만 — 「1,200페소」의 숫자는 벗기지 않는다
     .filter(l => l.length >= 2);
 }
 
@@ -99,7 +101,7 @@ function hint(line: string, type: RouteType, source: 'rule' | 'ai'): ApprovalHin
  * 규칙 판정 + (있으면) AI 판정을 합친다. 같은 줄은 한 번만 — 규칙이 이긴다.
  * aiItems 는 모델이 준 [{line,type}] — 모르는 종류·원문에 없는 줄·이미 처리된 줄은 버린다.
  */
-export function approvalHints(d: HandoverText, aiItems?: unknown): ApprovalHint[] {
+export function approvalHints(d: HandoverText, aiItems?: unknown, allowed?: (t: RouteType) => boolean): ApprovalHint[] {
   const lines = [
     ...linesOf(d.work || ''),
     ...(d.no_issue ? [] : linesOf(d.issue || '')),
@@ -120,7 +122,9 @@ export function approvalHints(d: HandoverText, aiItems?: unknown): ApprovalHint[
       seen.add(norm(line)); out.push(hint(line, type, 'ai'));
     }
   }
-  return out.slice(0, 5);
+  // 이 계정이 올릴 수 없는 분류는 빼다(«보이는데 못 쓰는 버튼» 금지). 판정이 던지면 그 분류만 뺀다.
+  const can = (t: RouteType) => { if (!allowed) return true; try { return !!allowed(t); } catch { return false; } };
+  return out.filter(h => can(h.type)).slice(0, 5);
 }
 
 /** AI 프롬프트에 덧붙이는 규칙 — 기존 정리 JSON 에 approval 칸 하나를 더한다 */

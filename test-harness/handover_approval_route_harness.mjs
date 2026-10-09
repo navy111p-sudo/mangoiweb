@@ -47,6 +47,25 @@ ok('₱1,200 → 1200 PHP', a && a.amount === 1200 && a.currency === 'PHP');
 const b = M.parseAmount('마이크 3만원');
 ok('3만원 → 30000 KRW', b && b.amount === 30000 && b.currency === 'KRW');
 
+
+// ③-2 함정 대조가 찾은 것(2026-10-09) — 줄 앞 숫자·낱말 오탐·학생 이야기·지출/수입 순서·조사 붙은 원
+const L1 = M.approvalHints({ work: '1,200페소 마우스 구입', no_issue: true, no_open: true });
+ok('줄 앞 금액이 안 잘림(1,200 → 1200)', L1.length === 1 && L1[0].amount === 1200 && L1[0].line.startsWith('1,200'));
+const L2 = M.approvalHints({ work: '3만원 교재 구입 필요', no_issue: true, no_open: true });
+ok('줄 앞 «3만원» 도 읽힘', L2.length === 1 && L2[0].amount === 30000);
+ok('머리 번호는 벗김', M.linesOf('1. 카카오 답변\n2) 잉크 ₱300 사야 함')[1] === '잉크 ₱300 사야 함');
+ok('인상적인 수업 ≠ 인사·급여', T('인상적인 수업이었음') === null);
+ok('가격 인상 문의 ≠ 인사·급여', T('가격 인상 문의 받음') === null);
+ok('학부모 결제 + 영수증 발송 = 매출', T('학부모 결제 완료, 영수증 발송') === null);
+ok('학생 조퇴 ≠ 직원 휴가', T('학생 조퇴함') === null);
+ok('「원에」 도 금액으로 읽음', T('마우스 12,000원에 구입 예정') === 'purchase');
+ok('사비 + 영수증 받음은 여전히 지출 정산', T('택시비 사비로 ₱300 냄, 영수증 받음') === 'expense');
+// 계정이 못 올리는 분류는 뺌 + 판정이 던져도 안 죽음(짝: 허용하면 남음)
+const D2 = { work: '잉크 ₱300 사야 함\n급여 인상 요청', no_issue: true, no_open: true };
+ok('허용 안 하면 뺌', M.approvalHints(D2, null, t => t !== 'hr').map(x => x.type).join() === 'purchase');
+ok('허용 함수가 없으면 그대로', M.approvalHints(D2).length === 2);
+ok('허용 판정이 던지면 그 분류만 뺌', M.approvalHints(D2, null, () => { throw new Error('x'); }).length === 0);
+
 // ④ 본문 전체 + AI 결과 합치기
 const d = { work: '카카오 문의 3건 답변\n프린터 잉크 ₱1,200 사야 함', issue: '', no_issue: true, open: '다음 주 금요일 연차', no_open: false };
 const h = M.approvalHints(d, [
@@ -68,7 +87,7 @@ ok('AI 결과가 이상한 모양이어도 안 죽음', Array.isArray(M.approval
 // ⑤ 배선 — 서버가 실어 보내고, 화면이 그리고, 결재 화면이 받는가
 const dh = readFileSync(join(ROOT, 'src', 'daily-handover.ts'), 'utf8');
 ok('서버가 approval_hints 를 응답에 실음', /reply\(\{ok:true,check,suggestion,ai_state,approval_hints\}\)/.test(dh));
-ok('서버가 정본을 부름(AI 결과를 넘김)', /approvalHints\(data,aiApproval\)/.test(dh));
+ok('서버가 정본을 부름(AI 결과·계정 허용 판정을 넘김)', /approvalHints\(data,aiApproval,[\s\S]{0,80}canSubmit\(actor,t,ph\)/.test(dh));
 const js = readFileSync(join(ROOT, 'public', 'js', 'daily-handover.js'), 'utf8');
 ok('화면이 approval_hints 를 그림', /paintRoute\(j\.approval_hints\)/.test(js));
 ok('화면이 /work?type= 로 보냄', /'\/work\?type='\+encodeURIComponent\(h\.type\)/.test(js));
@@ -77,7 +96,8 @@ const html = readFileSync(join(ROOT, 'public', 'daily-handover.html'), 'utf8');
 ok('상자 자리 있음', html.includes('id="mh-route"'));
 const w = readFileSync(join(ROOT, 'public', 'work.html'), 'utf8');
 ok('결재 화면이 같은 키를 읽음', w.includes("'mangoi_work_prefill_v1'") && js.includes("'mangoi_work_prefill_v1'"));
-ok('결재 화면은 채우기만(초안 있으면 안 덮음)', /if \(WANT_TYPE && PICK && takePrefill\(WANT_TYPE\)\)/.test(w));
+ok('결재 화면은 채우기만(초안 있으면 안 덮음)', /if \(WANT_TYPE && PICK && takePrefill\(WANT_TYPE, true\)\)/.test(w));
+ok('계정이 다르면 안 채움', /d\.user && d\.user !== me/.test(w) && /user:me&&me\.username/.test(js));
 
 console.log(`handover_approval_route_harness — PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);

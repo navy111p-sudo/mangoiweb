@@ -1,5 +1,6 @@
 // Daily handover is separate from financial approvals: acknowledging is not approving money.
-import { isHqStaff, isExec } from './approval-policy';
+import { isHqStaff, isExec, canSubmit } from './approval-policy';
+import { PH_MANAGERS } from './auth-admin';
 import { oncePerIsolate } from './once-per-isolate';
 import { broadcastWebPush } from './web-push';
 import { selectInChunks } from './d1-chunk';
@@ -658,7 +659,8 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       }
       // 🧭 결재로 보낼 줄(제안만 — 옮기거나 제출하지 않는다). 규칙은 AI 없이도 돈다. 정본 handover-routing.ts
       let approval_hints:any[]=[];
-      try{approval_hints=approvalHints(data,aiApproval);}catch(e){console.warn('[handover] approval hints failed');}
+      const ph=(PH_MANAGERS||[]).indexOf(String(actor?.username||'').toLowerCase())>=0;
+      try{approval_hints=approvalHints(data,aiApproval,typeof canSubmit==='function'?(t)=>canSubmit(actor,t,ph):undefined);}catch(e){console.warn('[handover] approval hints failed');}
       return reply({ok:true,check,suggestion,ai_state,approval_hints});
     }
     const members=await accounts(env), recipient=text(b.recipient,100);

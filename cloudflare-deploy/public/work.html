@@ -4894,18 +4894,23 @@ function restoreDraft(){
 /* 🧭 매일보고 「결재로 옮기기」(2026-10-09) 가 남긴 내용 — 같은 분류일 때 15분 안에만 한 번 채운다.
    ⛔ 쓰던 초안이 있으면 덮지 않는다(그 사실을 한 줄 알린다). 정본 판정은 src/handover-routing.ts. */
 var PREFILL_KEY = 'mangoi_work_prefill_v1';
-function takePrefill(type){
+/* keep=true 면 읽기만 한다(쓰던 초안이 있을 때 매일보고 내용을 버리지 않으려고). 계정이 다르면 안 채운다(공용 PC). */
+function takePrefill(type, keep){
   try {
     var d = JSON.parse(localStorage.getItem(PREFILL_KEY) || 'null');
-    localStorage.removeItem(PREFILL_KEY);
-    if (!d || d.type !== type || (Date.now() - Number(d.at || 0)) > 900000) return null;
+    var me = (D && D.me && D.me.username) || '';
+    if (!d || d.type !== type || (Date.now() - Number(d.at || 0)) > 900000 || (d.user && d.user !== me)) {
+      if (d) localStorage.removeItem(PREFILL_KEY);
+      return null;
+    }
+    if (!keep) localStorage.removeItem(PREFILL_KEY);
     return d;
   } catch (e) { return null; }
 }
 function openWantedType(){
-  if (WANT_TYPE && PICK && takePrefill(WANT_TYPE)) {
+  if (WANT_TYPE && PICK && takePrefill(WANT_TYPE, true)) {
     WANT_TYPE = '';
-    toast(T('You have an unfinished draft, so the handover text was not filled in.', '쓰던 결재 초안이 있어 매일보고 내용은 채우지 않았습니다.'));
+    toast(T('You have an unfinished draft. Close it (tap the type again), then press «Move to approval» again within 15 minutes.', '쓰던 결재 초안이 있어 채우지 않았습니다. 그 분류를 한 번 더 눌러 닫은 뒤 15분 안에 「결재로 옮기기」를 다시 눌러 주세요.'));
     return;
   }
   if (!WANT_TYPE || PICK) return;

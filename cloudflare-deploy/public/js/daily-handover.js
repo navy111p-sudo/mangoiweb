@@ -72,7 +72,7 @@
       var r=node('div',null,'mh-rt');r.append(node('q',h.line));
       r.append(node('small','→ '+ROUTE_KIND[h.type]+' · '+h.reason_ko+' / '+h.reason_en));
       var a=node('a','결재로 옮기기 / Move to approval');a.href='/work?type='+encodeURIComponent(h.type);a.target='_blank';a.rel='noopener';
-      a.onclick=function(){try{localStorage.setItem('mangoi_work_prefill_v1',JSON.stringify({type:h.type,title:String(h.line).slice(0,80),body:h.line+'\n\n(매일보고에서 옮김 / From daily handover)',amount:h.amount==null?'':String(h.amount),cur:h.currency||'',at:Date.now()}));}catch(e){}};
+      a.onclick=function(){try{localStorage.setItem('mangoi_work_prefill_v1',JSON.stringify({type:h.type,user:me&&me.username||'',title:String(h.line).slice(0,80),body:h.line+'\n\n(매일보고에서 옮김 / From daily handover)',amount:h.amount==null?'':String(h.amount),cur:h.currency||'',at:Date.now()}));}catch(e){}};
       r.append(a);box.append(r);
     });
     box.hidden=false;
