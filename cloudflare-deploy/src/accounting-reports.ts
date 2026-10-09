@@ -3485,15 +3485,31 @@ async function journalReport(env: Env, url: URL, fmt: string): Promise<Response>
     return (r.results || []) as Array<any>;
   }, []);
 
+  // 🧑‍🎓 학생 이름 (2026-10-09 사장님 지시 — 아이디만으로는 누구인지 모름)
+  //   user_id «완전일치» 로만 잇고, 이름이 없거나 아이디와 같으면(카페24에 이름 없는 계정) 빈 값.
+  //   ⛔ 이름을 지어내지 않는다. 조회가 실패해도 전표는 그대로 나간다(이름 칸만 빔).
+  const nameByUid = new Map<string, string>();
+  const payUids = [...new Set(pays.map(p => String(p.user_id || '')).filter(Boolean))];
+  const nameRows = await safe(() => selectInChunks<any>(env.DB, payUids, ph =>
+    `SELECT user_id, COALESCE(NULLIF(TRIM(korean_name),''), NULLIF(TRIM(username),'')) AS nm
+       FROM students_erp WHERE user_id IN (${ph})`), [] as any[]);
+  for (const r of nameRows) {
+    const uid = String(r.user_id || ''), nm = String(r.nm || '').trim();
+    if (uid && nm && nm !== uid && !nameByUid.has(uid)) nameByUid.set(uid, nm);
+  }
+
   // 자동 분개 생성
   const entries: any[] = [];
   let docNo = 1;
   for (const p of pays) {
     const date = new Date((p.paid_at || 0) + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    const uid = String(p.user_id || '');
+    const studentName = nameByUid.get(uid) || '';
     entries.push({
       doc_no: 'J-' + String(docNo++).padStart(4, '0'),
       date,
-      desc: `학생 결제 (${p.user_id || ''})`,
+      desc: studentName ? `학생 결제 (${studentName} · ${uid})` : `학생 결제 (${uid})`,
+      student_name: studentName || null,
       debit_account: '현금',
       credit_account: '매출',
       amount: p.amount_krw,
