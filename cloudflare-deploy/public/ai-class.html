@@ -205,6 +205,20 @@ select.pill{max-width:min(100%,280px)}
   .bhead,.bnav{padding:3px 8px}
   .bl{font-size:14px;padding:3px 6px} .bl.word{font-size:16px} .bl.read{font-size:11px}
 }
+/* PC 큰 화면(2026-10-09 사장님 «PC에 적합하게 크게»): 머리글을 한 줄로 줄여 교실을 위로 올리고, 화면이 넉넉하면
+   교실 전체를 비율 그대로 키운다(--z, CSS zoom). ⛔ 칸 높이를 화면 높이로 고정하지 말 것 — 오른쪽 칸 내용이 넘쳐 아래 버튼줄을 덮는다(실측) */
+@media (min-width:1100px) and (min-height:700px){
+  body{padding-block:12px 16px}
+  .wrap{--z:1;zoom:var(--z);gap:10px}
+  header.top{flex-direction:row;align-items:center;justify-content:space-between}
+  section[aria-label="수업"]{gap:8px}
+  section[aria-label="수업"] > p.muted{max-width:none;font-size:13px;line-height:1.4}
+}
+/* 키우는 정도 — 교실 높이(배율 1 에서 약 1,100px)가 «화면 안에 다 들어오는» 만큼만. 폭과 높이 둘 다 볼 것 */
+@media (min-width:1500px) and (min-height:1260px){.wrap{--z:1.15}}
+@media (min-width:1700px) and (min-height:1430px){.wrap{--z:1.3}}
+@media (min-width:1950px) and (min-height:1650px){.wrap{--z:1.5}}
+@media (min-width:2300px) and (min-height:1980px){.wrap{--z:1.8}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .top .home{margin-left:auto;color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:6px 12px;background:var(--paper);font-size:14px}
@@ -492,7 +506,8 @@ select.pill{max-width:min(100%,280px)}
     var b = $('bbody').querySelector('.bl[data-line="' + hl.line + '"]'); if (!b) return;
     b.classList.add('on'); if (big) b.classList.add('big');
     var br = $('book').getBoundingClientRect(), r = b.getBoundingClientRect();
-    pt.style.display = ''; pt.style.left = Math.max(2, r.left - br.left - 30) + 'px'; pt.style.top = (r.top - br.top + r.height / 2 - 16) + 'px';
+    var zf = ($('book').offsetWidth && br.width / $('book').offsetWidth) || 1; // PC 확대(zoom) 중엔 화면 좌표를 칸 좌표로 되돌린다
+    pt.style.display = ''; pt.style.left = Math.max(2, (r.left - br.left) / zf - 30) + 'px'; pt.style.top = ((r.top - br.top + r.height / 2) / zf - 16) + 'px';
     if (r.top < br.top + 40 || r.bottom > br.bottom - 30) b.scrollIntoView({ block: 'nearest' });
   }
 
