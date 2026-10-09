@@ -365,7 +365,8 @@ check('문서함 자동 조회는 «home 을 시도한 뒤» 에만 나간다',
   /HOME_TRIED/.test(autoOpenBody));
 /* 짝 검사 — 플래그를 «세우는» 곳이 load() 안에 있어야 한다. 어디서도 안 세우면
    문서함이 영영 안 채워지고, 아무 데서나 세우면 가드가 뜻을 잃는다. */
-const loadBody = fnBody(workJs, 'function load()');
+// ⚠️ 인자 모양을 못 박지 않는다 — 2026-10-09 «새로고침» 수리로 load(fresh) 가 됐다.
+const loadBody = fnBody(workJs, (workJs.match(/function load\([^)]*\)/) || [''])[0] || 'function load(');
 check('그 플래그는 load() 안에서 «성공·실패 양쪽» 에 세운다 (짝 검사)',
   (loadBody.match(/HOME_TRIED = true/g) || []).length >= 2,
   (loadBody.match(/HOME_TRIED = true/g) || []).length + '곳');
