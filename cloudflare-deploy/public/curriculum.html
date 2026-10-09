@@ -122,6 +122,10 @@
     .lvl-en{display:none}
     .lvl-head .lvl-en-col{display:none}
   }
+  /* PC 큰 화면: 폭 1100px 에 글자 11~14px 이라 1920 모니터에서 너무 작음(2026-10-09 사장님) → 본문 통째로 확대.
+     zoom 이라 폭도 함께 커져 배치 비율이 그대로. 1440px 미만·폰은 그대로. */
+  @media (min-width:1440px){ .wrap{zoom:1.15} }
+  @media (min-width:1700px){ .wrap{zoom:1.28} }
 </style>
 </head>
 <body>

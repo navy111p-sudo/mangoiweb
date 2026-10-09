@@ -96,6 +96,9 @@
     #playBtn .circle b{border-top-width:12px; border-bottom-width:12px; border-left-width:19px}
   }
   @media (prefers-reduced-motion:reduce){ #playBtn .circle{transition:none} }
+  /* PC 큰 화면: 본문 860px·글자 13~14px 이 1920 모니터에서 작음(2026-10-09 사장님) → 통째로 확대(폰은 그대로) */
+  @media (min-width:1024px){ main, .top{zoom:1.12} }
+  @media (min-width:1440px){ main, .top{zoom:1.2} }  /* 더 키우면 1920 첫 화면에서 신청 버튼이 아래로 밀림 */
 </style>
 </head>
 <body>
