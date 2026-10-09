@@ -217,8 +217,9 @@ check('수강 종료일은 여전히 erp.end_date 만 본다',
   /\[t\('qEnd'\), erp\.end_date \|\| '—'\]/.test(detailNC));
 check('주당 수업은 여전히 erp.classes_per_week 만 본다',
   /\[t\('qClassesPW'\), \(erp\.classes_per_week\|\|'—'\)/.test(detailNC));
+/* (2026-10-09 A안) 수강 종료일 칸 뒤에 🗓️ 종료·연장 버튼이 붙었다 — 값은 여전히 s.end_date 그대로인지만 본다. */
 check('목록의 수강 시작/종료도 그대로다',
-  /<td>\$\{_d\(s\.signup_date\)\}<\/td>/.test(coreNC) && /<td>\$\{_d\(s\.end_date\)\}<\/td>/.test(coreNC));
+  /<td>\$\{_d\(s\.signup_date\)\}<\/td>/.test(coreNC) && /<td>\$\{_d\(s\.end_date\)\}(<\/td>|\$\{uid \?)/.test(coreNC));
 
 console.log('\n[ ⑦ 👩‍🏫 담당 강사 이름 (2026-10-07 매니저 요청) — 정본을 실제로 돌린다 ]');
 /* esbuild 가 없어도 돌도록 node 의 타입 지우기를 쓴다(이 절만). */

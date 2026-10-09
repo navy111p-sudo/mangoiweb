@@ -87,6 +87,7 @@ html.dark .top{background:#16202c;border-bottom-color:#26313f}
 html.dark .tbtn{background:#1d2836;border-color:#33404f;color:#e6edf3}
 .tbtn:hover{background:#eef2f6}
 html.dark .tbtn:hover{background:#26313f}
+.tbtn.is-busy{opacity:.55;cursor:progress}
 .tbtn-out{color:#a4341f;border-color:#e0b6ad}
 html.dark .tbtn-out{color:#f0907c;border-color:#5a3129}
 a.tbtn{text-decoration:none;display:inline-block;line-height:22px}
@@ -642,7 +643,7 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
     <a class="tbtn" id="homeBtn" href="/admin.html"><span data-en="🏠 Home" data-ko="🏠 홈">🏠 Home</span></a>
     <button class="tbtn" id="lang" onclick="toggleLang()">KO</button>
     <button class="tbtn" onclick="toggleMode()"><span id="modeLbl" data-en="Dark" data-ko="어둡게">Dark</span></button>
-    <button class="tbtn" onclick="reloadAll()"><span data-en="Refresh" data-ko="새로고침">Refresh</span></button>
+    <button class="tbtn" onclick="reloadAll(this)"><span data-en="Refresh" data-ko="새로고침">Refresh</span></button>
     <button class="tbtn" id="pushBtn" onclick="askPush()" hidden><span data-en="Notify me" data-ko="알림 받기">Notify me</span></button>
     <button class="tbtn" id="soundBtn" onclick="toggleSound()"><span data-en="Sound: on" data-ko="소리 켬">Sound: on</span></button>
     <button class="tbtn" id="awayBtn" onclick="openAway()" hidden><span data-en="Away" data-ko="부재중">Away</span></button>
@@ -1161,8 +1162,13 @@ try {
 } catch (e) {}
 
 /* ── 첫 화면 — API 1회 ────────────────────────────────────────────────────── */
-function load(){
-  return fetch('/api/approval/home', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+function load(fresh){
+  /* 🔄 (2026-10-09) fresh=true(사람이 «새로고침» 을 누름)면 브라우저 캐시를 건너뛴다(cache:'reload').
+     안 그러면 서버가 «바뀐 것 없음(304)» 이라 답해 화면이 그대로고, 사람에게는 «안 눌린다» 로 보였다
+     (사장님 제보). 60초 자동 갱신은 그대로 304 로 아낀다. */
+  var opt = { credentials: 'same-origin', headers: { 'Accept': 'application/json' } };
+  if (fresh) opt.cache = 'reload';
+  return fetch('/api/approval/home', opt)
     .then(function(r){
       /* 🔐 (2026-09-24) 401 과 403 은 다른 사실이다 — 갈라야 한다.
          401 = 로그인이 안 됨 → 로그인 창.  403 = 로그인은 됐는데 이 계정이 못 씀(지사·대리점).
@@ -1204,7 +1210,27 @@ function load(){
       throw err;
     });
 }
-window.reloadAll = function(){ load().catch(function(){}); };
+/* 🔄 (2026-10-09) 누르면 «눌렸다» 를 화면이 말한다 — 버튼을 잠깐 잠그고 끝나면 결과를 토스트로.
+   ⛔ 인자 없이 불러도 된다(브라우저 검사 하니스들이 window.reloadAll() 로 부른다). */
+var RELOAD_BUSY = false;
+window.reloadAll = function(btn){
+  if (RELOAD_BUSY) return;
+  RELOAD_BUSY = true;
+  if (btn && btn.nodeType === 1) { btn.disabled = true; btn.classList.add('is-busy'); }
+  toast(T('Refreshing…', '새로 불러오는 중…'));
+  var done = function(ok){
+    RELOAD_BUSY = false;
+    if (btn && btn.nodeType === 1) { btn.disabled = false; btn.classList.remove('is-busy'); }
+    var d = new Date(), p = function(x){ return (x < 10 ? '0' : '') + x; };
+    var hm = p(d.getHours()) + ':' + p(d.getMinutes());
+    toast(ok ? T('Up to date · ' + hm, '최신 상태입니다 · ' + hm)
+             : T('Could not refresh. Check your connection.', '새로 불러오지 못했습니다. 연결을 확인해 주세요.'));
+  };
+  load(true).then(function(){ done(true); }, function(e){
+    if (String(e && e.message) === 'auth') { RELOAD_BUSY = false; return; }
+    done(false);
+  });
+};
 
 /* 🚫 (2026-09-24) 이 계정은 결재함을 쓸 수 없다 — 로그인 창 대신 «왜» 와 «어디로» 를 말한다.
    - 캐시(mangoi_work_home_v1)를 지운다: 공용 PC 에서 앞사람(본사)의 결재 목록이 남아 보이면 안 된다.
