@@ -217,6 +217,32 @@ for (const f of ['index.html', 'js/mg-sidebar.js', 'js/idx-allmenu.js']) {
   ok((html.match(/data-spd="[0-3]"/g) || []).length === 4, 'teacher-tile speed buttons != 4');
 }
 
+// ⑩ 레슨 고르는 목록도 단계를 말하는가 — fillPicker 를 오려 내 «가짜 DOM» 으로 443레슨 전부에 실제로 돌린다
+{ const lvm = html.match(/var LV_BANDS = (\[[\s\S]*?\]\]);/);
+  const LV = lvm ? eval(lvm[1]) : [];
+  const mk = tag => ({ tag, kids: [], label: '', value: '', textContent: '', append(...k) { this.kids.push(...k); }, replaceChildren() { this.kids = []; } });
+  const sel = mk('select');
+  let res = null;
+  try {
+    const f = new Function('LV_BANDS', 'CAT', '$', 'document', fnSrc('bookLevel') + fnSrc('fillPicker') + '; var li=0; fillPicker(); return li;');
+    res = f(LV, cat, () => sel, { createElement: mk });
+  } catch (e) { ok(false, 'fillPicker did not run: ' + e.message); }
+  if (res !== null) {
+    const groups = sel.kids, opts = groups.flatMap(g => g.kids);
+    ok(opts.length === cat.length, `picker lost lessons ${opts.length}/${cat.length}`);
+    ok(new Set(opts.map(o => o.value)).size === cat.length, 'picker duplicate lesson');
+    const bts = groups.filter(g => /new BTS/.test(g.label));
+    ok(bts.length === 8 && bts.every((g, i) => g.label.startsWith((i + 1) + '단계 · ' + LV[i][3])), `BTS groups not 1..8단계 in order ${JSON.stringify(bts.map(g => g.label))}`);
+    ok(groups.some(g => /^5단계 · 중급 \(권장\) — new SIU BASIC/.test(g.label)) && groups.some(g => /^7단계 · 고급 \(권장\) — new SIU ADVANCE/.test(g.label)), `SIU group labels ${JSON.stringify(groups.map(g => g.label))}`);
+    ok(!groups.some(g => /단계 모름/.test(g.label)), 'some lesson has unknown level');
+    // 각 레슨이 «자기 단계» 묶음에 있고, 글자에도 같은 단계가 적혔는가(짝: 두 값이 갈리면 FAIL)
+    let bad = 0; groups.forEach(g => { const gn = +(g.label.match(/^(\d)단계/) || [])[1]; g.kids.forEach(o => { const on = +(o.textContent.match(/ · (\d)단계 · /) || [])[1]; const u = cat[+o.value]; const m = /^BTS\s+(\d+)\b/.exec(u.book); const want = m ? LV.find(r => +m[1] >= r[1] && +m[1] <= r[2])[0] : /BASIC/.test(u.book) ? 5 : 7; if (gn !== want || on !== want) bad++; }); });
+    ok(bad === 0, `${bad} lessons in wrong level group/text`);
+    ok(opts.every(o => !/^NEW /.test(o.textContent)) && opts.some(o => /^BTS/.test(o.textContent)), 'option text should start with book name (browser harness relies on /^BTS/)');
+    ok(cat[res] && /^BTS 1 001/.test(cat[res].id), 'default lesson is not BTS 1 001');
+  }
+}
+
 console.log(`결과: PASS ${pass} / FAIL ${fail}`);
 fails.forEach(f => console.log('  ❌ ' + f));
 process.exit(fail ? 1 : 0);

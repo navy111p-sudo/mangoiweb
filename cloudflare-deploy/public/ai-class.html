@@ -414,15 +414,22 @@ select.pill{max-width:min(100%,280px)}
   (function(){ var v = lsGet('aiClassSpd'); if (v !== null && /^[0-3]$/.test(v)) spd = +v; var tv = lsGet('aiClassTalk'); talk = tv === null ? !!SR : tv === '1'; })();
   window.__aiClass = { get state(){ return st; }, get busy(){ return busy; }, get unit(){ return unit; }, get speed(){ return SPEEDS[spd][0]; }, get talk(){ return talk; }, get rec(){ return !!rec; }, get recBlocked(){ return recBlocked; }, get loading(){ return loading; }, get cat(){ return CAT; }, get slides(){ return SLIDE; }, bookLevel: function(b){ return bookLevel(b); } };
   function fillPicker(){
+    // 레슨 목록도 «8단계 중 어디» 를 말한다 (2026-10-09) — 판정은 bookLevel 하나(제목 옆 배지와 같은 값).
+    //  BTS 는 단계별로 묶고, SIU 는 시리즈 묶음 그대로 «(권장)» 을 밝힌다. 모르는 교재는 «단계 모름» 묶음으로(지어내지 않음).
     var sel = $('lessonSel'); sel.replaceChildren();
-    var groups = {};
+    var groups = {}, order = [];
     CAT.forEach(function(u, i){
-      var g = /^NEW SIU BASIC/.test(u.book) ? 'new SIU BASIC' : /^NEW SIU ADV/.test(u.book) ? 'new SIU ADVANCE' : 'new BTS';
-      (groups[g] = groups[g] || []).push([u, i]);
+      var L = bookLevel(u.book);
+      var series = /^NEW SIU BASIC/.test(u.book) ? 'new SIU BASIC' : /^NEW SIU ADV/.test(u.book) ? 'new SIU ADVANCE' : 'new BTS';
+      var g = series === 'new BTS' ? (L ? 'b' + L.band : 'b9') : series;
+      if (!groups[g]) { groups[g] = { L: L, series: series, items: [] }; order.push(g); }
+      groups[g].items.push([u, i, L]);
     });
-    ['new BTS','new SIU BASIC','new SIU ADVANCE'].forEach(function(g){
-      if (!groups[g]) return; var og = document.createElement('optgroup'); og.label = g + ' (' + groups[g].length + '레슨)';
-      groups[g].forEach(function(x){ var o = document.createElement('option'); o.value = x[1]; o.textContent = x[0].id.replace(/^NEW /,'') + ' · ' + x[0].n + '쪽'; og.append(o); });
+    var rank = function(g){ return g[0] === 'b' ? +g.slice(1) : g === 'new SIU BASIC' ? 20 : 21; };
+    order.sort(function(a, b){ return rank(a) - rank(b); }).forEach(function(g){
+      var G = groups[g], og = document.createElement('optgroup'), L = G.L;
+      og.label = (L && g !== 'b9' ? L.band + '단계 · ' + L.name + (L.rec ? ' (권장)' : ' (' + L.lv + ')') + ' — ' : '단계 모름 — ') + G.series + ' (' + G.items.length + '레슨)';
+      G.items.forEach(function(x){ var o = document.createElement('option'); o.value = x[1]; o.textContent = x[0].id.replace(/^NEW /,'') + ' · ' + (x[2] ? x[2].band + '단계 · ' : '') + x[0].n + '쪽'; og.append(o); });
       sel.append(og);
     });
     var d = CAT.findIndex(function(u){ return /^BTS 1 001 .* New$/.test(u.id) || u.id.indexOf('BTS 1 001') === 0; });
