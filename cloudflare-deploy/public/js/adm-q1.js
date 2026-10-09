@@ -126,6 +126,8 @@
           const color = r.risk_level === 'high' ? '#ef4444' : r.risk_level === 'medium' ? '#f59e0b' : '#94a3b8';
           const bg = r.risk_level === 'high' ? 'rgba(239,68,68,0.08)' : r.risk_level === 'medium' ? 'rgba(245,158,11,0.08)' : 'rgba(148,163,184,0.06)';
           const actions = (r.recommended_actions||[r.recommended_action]).map(a => esc(a)).join(' · ');
+          // 학생이름: 서버가 이름을 못 찾으면 student_name 에 아이디를 넣으므로, 같으면 «이름 없음» 으로 그림(아이디를 이름처럼 보이지 않게)
+          const _nm = r.name_known !== false && r.student_name && r.student_name !== r.user_id;
           const metrics = `
             <span title="최근 30일 출석">📅 ${r.attendance_30d}회</span>
             <span title="평가 평균">⭐ ${r.eval_avg||'-'}</span>
@@ -137,7 +139,9 @@
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
               <div style="flex:1;min-width:0">
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                  <span style="font-weight:800;font-size:15px">${esc(r.student_name)}</span>
+                  <span style="font-size:11px;color:#94a3b8">${isEn?'Name':'학생이름'}</span>
+                  <span style="font-weight:800;font-size:15px">${_nm ? esc(r.student_name) : `<span style="color:#94a3b8;font-weight:600">${isEn?'(no name)':'(이름 없음)'}</span>`}</span>
+                  <span style="font-size:11px;color:#94a3b8">${isEn?'ID':'아이디'}</span>
                   <span style="font-family:MangoiHanSC,monospace;font-size:11px;color:#a3b3d1">${esc(r.user_id)}</span>
                   ${r.parent_name ? `<span style="font-size:11px;color:#94a3b8">👪 ${esc(r.parent_name)}${r.parent_phone?' · '+esc(r.parent_phone):''}</span>` : ''}
                 </div>
