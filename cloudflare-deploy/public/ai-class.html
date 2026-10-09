@@ -140,6 +140,11 @@ select.pill{max-width:min(100%,280px)}
 .praise .stars{font-family:var(--f-mono);color:var(--c-gold);font-size:15px}
 .subw{display:none;background:rgba(6,9,15,.9);border:1px solid var(--c-line);border-radius:10px;padding:7px 10px;font-size:14px;line-height:1.4}
 .subw small{display:block;color:#fde68a;font-size:12px}
+/* 자막은 얼굴 «위» 가 아니라 얼굴 칸 «바로 아래» 에(2026-10-09 사장님 «글이 얼굴을 가린다»). 칸 안 #sub 는 감추고 밖의 #subW 를 쓴다(폰은 원래 그 방식) */
+.sub{display:none!important}
+@media (min-width:761px){.side>.tile.t{order:-2}.side>.subw{order:-1;display:block;text-align:center}.side>.subw:empty{display:none}}
+/* 폰 가로·낮은 창: 자막이 칸을 밀어 얼굴이 납작해지지 않게(실측 4px) — 얼굴 최소 높이를 지키고 자막은 작게, 넘치면 그 안에서 굴린다 */
+@media (max-height:560px) and (min-width:600px){.side>.tile.t{min-height:96px}.side>.subw{font-size:12px;padding:4px 8px;max-height:72px;overflow-y:auto}.side{min-height:0;overflow-y:auto}}
 /* 한국어 뜻은 처음엔 흐리게 — 눌러야 보인다(먼저 영어를 듣고 읽어 보게) */
 .ko{position:relative;display:block;width:100%;margin:2px 0 0;padding:2px 4px;border:0;background:none;color:#fde68a;font:inherit;font-size:12px;text-align:inherit;cursor:pointer;border-radius:6px}
 .ko .kt{display:block;filter:blur(5px);transition:filter .2s;user-select:none}
