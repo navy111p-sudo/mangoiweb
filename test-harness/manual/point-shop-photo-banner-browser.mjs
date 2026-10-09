@@ -46,7 +46,7 @@ const PORT = server.address().port;
 // 운영 D1 의 활성 상품(2026-10-09 SELECT) — 배너만 사진으로 바꾼 모양
 const BRANDS = [
   ['메가커피','아이스 아메리카노','megacoffee',4500],['투썸플레이스','아이스 카페라떼','twosome',5000],
-  ['GS25','3천원 모바일상품권','gs25',3000],['CU','5천원 모바일상품권','cu',5000],
+  ['GS25','3천원 모바일상품권','gs25',3000],['GS25','편의점 금액권 5,000원','gs25-5000',5000],['CU','5천원 모바일상품권','cu',5000],
   ['배스킨라빈스','싱글레귤러','baskinrobbins',3200],['교보문고','5천원 도서상품권','kyobo',5000],
   ['올리브영','1만원 금액권','oliveyoung',10000],['CGV','영화 관람권','cgv',12000],
   ['맥도날드','빅맥세트','mcdonalds',7000],['BBQ','황금올리브 치킨','bbq',23000],['스타벅스','아이스 아메리카노','starbucks',4700],
@@ -83,7 +83,7 @@ for (const [label, width] of [['PC', 1000], ['휴대폰', 390]]) {
     }
     return { out, overflow: document.documentElement.scrollWidth > innerWidth };
   });
-  ok('사진 배너 카드 수 = 11', m.out.length === 11, String(m.out.length));
+  ok('사진 배너 카드 수 = 12', m.out.length === 12, String(m.out.length));
   for (const x of m.out) {
     const n = x.src.replace('/img/gifts/','');
     ok(n+' 열림·실사 webp', x.decoded && /-photo\.webp$/.test(x.src) && x.nat[0] >= 300 && x.nat[0]/x.nat[1] <= 1.95, x.nat.join('×'));

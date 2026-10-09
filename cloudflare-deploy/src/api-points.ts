@@ -32,7 +32,7 @@ export async function seedGiftCatalog(env: { DB: D1Database }): Promise<number> 
     ['CGV','영화 1매 (전 지점)','movie',14000,14000,40,'평일 일반관 1회 사용','/img/gifts/cgv-photo.webp'],
     ['교보문고','도서상품권 5,000원','book',5000,5000,50,'온/오프라인 사용 가능','/img/gifts/kyobo-photo.webp'],
     ['컬쳐랜드','문화상품권 5,000원','voucher',5000,5000,55,'쿠팡·게임·도서·OTT 등 어디든','/img/gifts/cultureland.svg'],
-    ['GS25','편의점 금액권 5,000원','voucher',5000,5000,60,'전국 GS25에서 사용','/img/gifts/gs25-photo.webp'],
+    ['GS25','편의점 금액권 5,000원','voucher',5000,5000,60,'전국 GS25에서 사용','/img/gifts/gs25-5000-photo.webp'],
   ];
   let n = 0;
   for (const [brand, name, cat, fv, pp, sort, desc, thumb] of seeds) {
