@@ -3,17 +3,18 @@
 //   외부 classic script, 전역 스코프 공유. 원복=이 위치에 인라인.
 // ═══════════════════════════════════════════════════════════════
 (function(){
-  // 두 언어 데크: 한국어 21장 / 영어 24장. 여는 시점의 언어로 자동 선택.
-  //  📝 한국어 21장의 «글 정본» 은 docs/관리자안내_소스/slides.mjs 다(그림도 거기서 굽는다).
+  // 두 언어 데크: 한국어 26장 / 영어 24장. 여는 시점의 언어로 자동 선택.
+  //  📝 한국어 안내의 «글 정본» 은 docs/관리자안내_소스/slides.mjs 다(그림도 거기서 굽는다).
   //     아래 titles 는 그 파일의 제목과 **같아야** 한다 — build.mjs 가 어긋나면 경고한다.
   var DECKS={
-    ko:{ dir:'/guide/admin-easy/', pdf:'/guide/admin-easy/admin-easy.pdf', pdfName:'망고아이_관리자페이지_쉬운사용법.pdf',
-      titles:["관리자 페이지 쉬운 사용법","이 안내는 누구를 위한 건가요?","차례",
-        "① 들어가기 (로그인)","② 화면이 어떻게 생겼나요?","③ 찾고 싶은 걸 바로 찾기",
-        "④ 평가서 보기","⑤ 공지 보내보기","⑥ 학생·학부모 찾기","⑦ 학부모에게 리포트 보내기",
-        "⑧ 강사 보기","⑨ 결제·환불 보기","⑩ 자료실에서 설명서 받기","⑪ 우리 홈페이지가 어떻게 보이나",
-        "⑫ 안전하게 마치기","메뉴 한눈에 보기","막혔을 때 이렇게 하세요","자주 묻는 질문",
-        "첫날에는 이것만","세 가지만 기억하세요","이제 준비 끝!"] },
+    ko:{ dir:'/guide/admin-easy/', ver:'26a', pdf:'/guide/admin-easy/admin-easy.pdf?v=26a', pdfName:'망고아이_관리자페이지_쉬운사용법.pdf',
+      titles:["관리자 페이지 쉬운 사용법","이 안내는 누구를 위한 건가요?","차례","들어가기 (로그인)",
+        "화면이 어떻게 생겼나요?","찾고 싶은 걸 바로 찾기","관리자가 매일 하는 일 — 한 줄로 보기","수강신청 받고 수업 만들기",
+        "수업 스케줄 한눈에 보기","수업 연기·변경 승인하기","학생 결제 확인하기","강사 급여 정산하기",
+        "평가서 보기","공지 보내보기","학생·학부모 찾기","학부모에게 리포트 보내기",
+        "강사 보기","자료실에서 설명서 받기","우리 홈페이지가 어떻게 보이나","안전하게 마치기",
+        "메뉴 한눈에 보기","막혔을 때 이렇게 하세요","자주 묻는 질문","첫날에는 이것만",
+        "세 가지만 기억하세요","이제 준비 끝!"] },
     en:{ dir:'/guide/admin-easy-en/', pdf:'/guide/admin-easy-en/admin-easy-en.pdf', pdfName:'Mangoi_Admin_Page_Guide_EN.pdf',
       titles:["Easy Admin Page Guide","Introduction","Contents","🔐 ① Getting in (signing in)",
         "🖥 ② What the screen looks like","🔎 ③ Finding what you need, fast",
@@ -28,8 +29,10 @@
   var i=0, wired=false;
   var pad=function(n){return (n<10?'0':'')+n;};
   // 🖼 (2026-08-04) .jpg → .webp (같은 그림, 용량 1/3). 없으면 아래에서 .jpg 로 되돌린다.
-  var src=function(n){return deck.dir+pad(n+1)+'.webp';};
-  var toJpg=function(u){return String(u||'').replace(/\.webp$/,'.jpg');};
+  // 🔁 (2026-10-09) 그림은 7일 캐시라 같은 이름으로 갈아 끼우면 옛 그림이 남는다 → ver 를 붙인다.
+  //    그림을 다시 구우면 DECKS.ko.ver 를 올릴 것(docs/관리자안내_소스/README.md).
+  var src=function(n){return deck.dir+pad(n+1)+'.webp'+(deck.ver?'?v='+deck.ver:'');};
+  var toJpg=function(u){return String(u||'').replace(/\.webp(\?|$)/,'.jpg$1');};
   var ov,img,cap,cnt,prev,next,thumbs;
   // 언어에 맞춰 데크 선택 + 썸네일/프리로드 재구성 (언어가 바뀌면 다시).
   function useLang(lang){
@@ -42,7 +45,7 @@
     for(var k=0;k<N;k++){
       h+='<div class="ag-thumb" data-i="'+k+'"><span class="ag-tn">'+(k+1)+'</span>'
         +'<img loading="lazy" src="'+src(k)+'" alt="" '
-        +'onerror="if(!this.__fb){this.__fb=1;this.src=this.src.replace(/\\.webp$/,\'.jpg\');}"></div>';
+        +'onerror="if(!this.__fb){this.__fb=1;this.src=this.src.replace(/\\.webp(\\?|$)/,\'.jpg$1\');}"></div>';
     }
     thumbs.innerHTML=h;
     thumbs.querySelectorAll('.ag-thumb').forEach(function(t){
