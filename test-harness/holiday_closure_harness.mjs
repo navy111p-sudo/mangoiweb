@@ -175,31 +175,37 @@ console.log('\n⑧ 관제탑·급여');
   ok('전제: dropHolidayClosed 를 오려 냈다', fn.length > 200);
   const t2 = mkdtempSync(join(tmpdir(), 'hol2-'));
   copyFileSync(SRC, join(t2, 'holiday-closure.ts'));
-  writeFileSync(join(t2, 'mini.ts'), `import { isHolidayClosedFor, type HolidayClosure } from './holiday-closure.ts';\ntype ClassesNowRow = any;\nconst KST9 = 9 * 60 * 60 * 1000;\n${fn}\n`);
+  const _exConst = (cn.match(/export const EXEMPT_BY_NAME = [^;]+;/) || [''])[0];
+  writeFileSync(join(t2, 'mini.ts'), `import { isHolidayClosedFor, type HolidayClosure } from './holiday-closure.ts';\ntype ClassesNowRow = any;\nconst KST9 = 9 * 60 * 60 * 1000;\n${_exConst}\n${fn}\n`);
   writeFileSync(join(t2, 'run.mjs'), `
-import { dropHolidayClosed } from './mini.ts';
+import { dropHolidayClosed, EXEMPT_BY_NAME } from './mini.ts';
 const at = (ymd, hm) => Date.parse(ymd + 'T' + hm + ':00+09:00');
 const hol = { closed: true, name: '한글날', exempt: new Set(['29']), opened: false };
 const open = { closed: false, name: null, exempt: new Set(['29']), opened: false };
 const rows = [
   { source: 'mangoi', schedule_id: 1, start_ms: at('2026-10-09','14:00'), room_id: 'class-1' },   // 영어 → 뺀다
   { source: 'mangoi', schedule_id: 2, start_ms: at('2026-10-09','15:00'), room_id: 'class-2' },   // 중국어(29) → 남김
-  { source: 'cafe24', start_ms: at('2026-10-09','16:00'), room_id: 'c24-9' },                     // 카페24 → 남김
+  { source: 'cafe24', start_ms: at('2026-10-09','16:00'), room_id: 'c24-9' },                     // 카페24 영어(원부 7) → 뺀다
+  { source: 'cafe24', start_ms: at('2026-10-09','16:30'), room_id: 'c24-10' },                    // 카페24 중국어(원부 29) → 남김
+  { source: 'cafe24', start_ms: at('2026-10-09','17:00'), room_id: 'c24-11' },                    // 카페24 이름으로만 중국어 → 남김
+  { source: 'cafe24', start_ms: at('2026-10-09','17:30'), room_id: 'c24-12' },                    // 카페24 강사 모름 → 뺀다
+  { source: 'cafe24', start_ms: at('2026-10-10','10:00'), room_id: 'c24-13' },                    // 카페24 평일 → 남김
   { source: 'mangoi', schedule_id: 3, start_ms: at('2026-10-10','00:10'), room_id: 'class-3' },   // 다음날(평일) → 남김
   { source: 'mangoi', schedule_id: 4, start_ms: at('2026-10-09','23:50'), room_id: 'class-4' },   // 휴강일 밤(KST) → 뺀다
 ];
-const tOf = (id) => ({ 1: '7', 2: '29', 3: '7', 4: '7' })[id];
+const tOf = (c) => c.source === 'cafe24' ? ({ 'c24-9': '7', 'c24-10': '29', 'c24-11': EXEMPT_BY_NAME, 'c24-12': '', 'c24-13': '7' })[c.room_id] : ({ 1: '7', 2: '29', 3: '7', 4: '7' })[c.schedule_id];
 const r = dropHolidayClosed(rows, tOf, { '2026-10-09': hol, '2026-10-10': open });
 const nolook = dropHolidayClosed(rows, tOf, {});
-console.log(JSON.stringify({ kept: r.kept.map(x => x.room_id), closed: r.closed, name: r.name, nolook: nolook.kept.length }));
+console.log(JSON.stringify({ kept: r.kept.map(x => x.room_id), closed: r.closed, c24: r.closed_c24, name: r.name, nolook: nolook.kept.length }));
 `);
   const r2 = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', join(t2, 'run.mjs')], { encoding: 'utf8' });
   let q = null; try { q = JSON.parse((r2.stdout || '').trim().split('\n').pop()); } catch {}
   ok('관제탑: 판정을 실제로 돌렸다', !!q, (r2.stderr || '').slice(0, 300));
   if (q) {
-    ok('관제탑: 휴강 영어 수업(낮·KST 밤)은 뺀다', !q.kept.includes('class-1') && !q.kept.includes('class-4') && q.closed === 2 && q.name === '한글날');
-    ok('짝: 중국어·카페24·다음날 평일 수업은 남긴다', ['class-2', 'c24-9', 'class-3'].every(x => q.kept.includes(x)));
-    ok('짝: 판정을 못 읽으면 아무것도 안 뺀다(fail-open)', q.nolook === 5);
+    ok('관제탑: 휴강 영어 수업(낮·KST 밤)은 뺀다', !q.kept.includes('class-1') && !q.kept.includes('class-4') && q.name === '한글날');
+    ok('관제탑: 카페24 영어·강사 모름 수업도 뺀다', !q.kept.includes('c24-9') && !q.kept.includes('c24-12') && q.c24 === 2 && q.closed === 4);
+    ok('짝: 중국어(원부·이름)·다음날 평일 수업은 남긴다', ['class-2', 'class-3', 'c24-10', 'c24-11', 'c24-13'].every(x => q.kept.includes(x)), JSON.stringify(q.kept));
+    ok('짝: 판정을 못 읽으면 아무것도 안 뺀다(fail-open)', q.nolook === 9);
   }
   const a = rd('src/api-admin.ts');
   const ri = a.indexOf("path === '/api/admin/classes-now'");
@@ -207,6 +213,8 @@ console.log(JSON.stringify({ kept: r.kept.map(x => x.room_id), closed: r.closed,
   ok('관제탑: 합친 «뒤» 에 뺀다(카페24 짝이 되살아나지 않게)', /dropHolidayClosed\(mergeClassesNow\(/.test(route));
   ok('관제탑: 방 어긋남 경보도 남은 수업으로만', /findRoomMismatches\(_mgOpen as any/.test(route));
   ok('관제탑: 응답에 휴강 건수를 싣는다', /holiday_closed: _hol\.closed/.test(route));
+  ok('관제탑: 카페24 줄은 카페24 강사번호→원부 번호로 판정한다', /c\.source === 'cafe24' \? _c24Tid\.get\(String\(c\.room_id\)\)/.test(route) && /_c24Tid\.set\(String\(r\.room_id\), info && info\.teacherId \? info\.teacherId : \(byName \? EXEMPT_BY_NAME : ''\)\)/.test(route));
+  ok('관제탑: 이름으로 중국어 강사를 알아본다(예외 강사 원부 이름·중국어·chinese)', /_exNames\.has\(normTeacherName\(nm\)\) \|\| \/중국어\|chinese\/i\.test\(nm\)/.test(route));
   // 급여
   const fi = a.indexOf('const holByDate');
   ok('급여: 날짜별 휴강 판정을 미리 읽는다', fi > 0 && /holByDate\[ds\] = await loadHolidayClosure\(env\.DB, ds\)/.test(a));

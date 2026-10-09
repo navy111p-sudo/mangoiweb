@@ -176,21 +176,28 @@ export function mergeClassesNow(c24: ClassesNowRow[], mangoi: ClassesNowRow[]): 
     .sort((a, b) => (a.start_ms - b.start_ms) || String(a.room_id).localeCompare(String(b.room_id)));
 }
 
-/** 🎌 (2026-10-09) 공휴일 휴강으로 «열리지 않는» 망고아이 수업을 뺀다 — 합친(merge) «뒤» 의 목록에 쓴다.
- *  · 망고아이 줄만 본다(카페24 줄은 강사 번호 체계가 달라 중국어 예외를 못 가린다 — 그대로 둔다).
- *  · 날짜는 그 수업의 KST 날짜(자정 근처면 어제·내일일 수 있다), 강사는 schedule_id → teacher_id.
+/** 🎌 (2026-10-09) 공휴일 휴강으로 «열리지 않는» 수업을 뺀다 — 합친(merge) «뒤» 의 목록에 쓴다.
+ *  · 망고아이·카페24 줄 둘 다 본다(카페24 는 2026-10-09 사장님 「카페24 수업도 관제탑에서 휴강 반영」).
+ *  · 날짜는 그 수업의 KST 날짜(자정 근처면 어제·내일일 수 있다).
+ *  · 강사는 teacherOf(줄) 이 돌려준 원부 번호(teachers.id). 망고아이 = schedule_id → teacher_id,
+ *    카페24 = 카페24 강사번호 → 이름 → 원부 번호(유일할 때만). 부르는 쪽이 정한다.
+ *    teacherOf 가 EXEMPT_BY_NAME 을 돌려주면 «이름으로 중국어 강사임을 알았다» = 연다.
  *  · 그 날짜의 판정이 없으면(못 읽음) «휴강 아님» — 막는 쪽으로 실패하지 않는다. */
+export const EXEMPT_BY_NAME = '__exempt_by_name__';
 export function dropHolidayClosed<T extends ClassesNowRow>(
-  rows: T[], teacherOf: (scheduleId: any) => any, byYmd: Record<string, HolidayClosure | undefined>,
-): { kept: T[]; closed: number; name: string | null } {
-  let closed = 0; let name: string | null = null;
+  rows: T[], teacherOf: (row: T) => any, byYmd: Record<string, HolidayClosure | undefined>,
+): { kept: T[]; closed: number; closed_c24: number; name: string | null } {
+  let closed = 0, closedC24 = 0; let name: string | null = null;
   const kept = rows.filter((c) => {
-    if (c.source !== 'mangoi') return true;
     const ymd = new Date(Number(c.start_ms) + KST9).toISOString().slice(0, 10);
     const h = byYmd[ymd];
-    if (!isHolidayClosedFor(h, teacherOf(c.schedule_id))) return true;
-    closed++; if (!name && h) name = h.name;
+    if (!h || !h.closed) return true;
+    const tid = teacherOf(c);
+    if (tid === EXEMPT_BY_NAME) return true;
+    if (!isHolidayClosedFor(h, tid)) return true;
+    closed++; if (c.source === 'cafe24') closedC24++;
+    if (!name) name = h.name;
     return false;
   });
-  return { kept, closed, name };
+  return { kept, closed, closed_c24: closedC24, name };
 }
