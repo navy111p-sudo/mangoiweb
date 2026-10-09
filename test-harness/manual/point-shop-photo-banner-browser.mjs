@@ -51,6 +51,7 @@ const BRANDS = [
   ['올리브영','1만원 금액권','oliveyoung',10000],['CGV','영화 관람권','cgv',12000],
   ['맥도날드','빅맥세트','mcdonalds',7000],['BBQ','황금올리브 치킨','bbq',23000],['스타벅스','아이스 아메리카노','starbucks',4700],
   ['교촌치킨','교촌오리지날 + 콜라1.25L','kyochon',21000],['배달의민족','e쿠폰 5,000원','baemin',5000],['컬쳐랜드','문화상품권 5,000원','cultureland',5000],
+  ['쿠팡','모바일 상품권 5,000원','coupang',5000],
 ];
 const CATALOG = { ok:true, rows:[
   { id:9, brand:'🥭 망고아이', name:'수업료 전환 (5,000원)', category:'tuition', face_value:5000, point_price:5000, stock:null, description:'모든 포인트를 다음 수업료 즉시 차감', thumbnail_url:'/img/gifts/mangoi.svg' },
