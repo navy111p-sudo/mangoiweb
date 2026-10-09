@@ -92,6 +92,12 @@
       .intro { padding:15px 16px; }
       table.refund th, table.refund td { padding:11px 9px; font-size:12.5px; }
     }
+    /* PC 화면: 본문 760px·13px 이 1920 모니터에서 너무 작아(2026-10-09 사장님) 통째로 확대.
+       zoom 은 폭(max-width)까지 함께 키워 줄바꿈 비율이 그대로 유지됨. 오른쪽 안내 영상(190px)과
+       안 겹치게 화면 폭별로 단계를 둠. 폰(<1024px)은 그대로. */
+    @media (min-width:1024px) { .wrap, .top { zoom:1.1; } }
+    @media (min-width:1440px) { .wrap, .top { zoom:1.22; } }
+    @media (min-width:1700px) { .wrap, .top { zoom:1.35; } }
   </style>
 </head>
 <body>
