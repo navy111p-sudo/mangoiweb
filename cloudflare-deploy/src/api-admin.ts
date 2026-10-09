@@ -1789,6 +1789,7 @@ export async function handleAdminApi(
                   COALESCE(SUM(disconnect_count), 0) AS disconnect_sum,
                   AVG(CASE WHEN gaze_score IS NOT NULL THEN gaze_score END) AS avg_gaze,
                   COUNT(CASE WHEN gaze_score IS NOT NULL THEN 1 END) AS gaze_count,
+                  MIN(room_id) AS room_min, MAX(room_id) AS room_max,
                   MAX(joined_at) AS last_seen
            FROM attendance
            WHERE joined_at BETWEEN ? AND ?
@@ -1812,9 +1813,40 @@ export async function handleAdminApi(
           ).bind(fromMs, toMs).all<any>();
           for (const a of (ar.results || [])) _rkAcct.set(String(a.user_id), String(a.account_uid).trim());
         } catch (_) { /* account_uid 칸이 아직 없는 DB — 이름만 덜 붙는다 */ }
+        /* 🔗 (2026-10-09) 「임시번호」 행 — 시선 점수만 보내는 화면(mango-gaze)이 계정 없이
+           화상방 접속 번호(peer id)로 행을 만든다. 두 근거로 누구인지 찾는다:
+             ① vc_roster(room_id, peer_id) → 그 접속의 계정 (사실)
+             ② 방 번호 class-<예약id>-<날짜> → 그 예약의 학생 (추정 — 그 접속이 강사 화면일 수도 있음)
+           ②는 화면이 «예약 기준» 이라고 함께 말한다. 방이 둘 이상 섞인 행은 ②를 쓰지 않는다. */
+        const _rkRoom = (r: any): string => (r.room_min && r.room_min === r.room_max) ? String(r.room_min) : '';
+        const _rkRoster = new Map<string, { acct: string; name: string; role: string }>();
+        try {
+          const peers = Array.from(new Set(_rkRows.filter(r => _rkRoom(r)).map(r => String(r.user_id))));
+          const rr = await selectInChunks<any>(env.DB, peers,
+            ph => `SELECT room_id, peer_id, account_uid, name, role FROM vc_roster WHERE peer_id IN (${ph})`,
+            { swallowErrors: true });
+          for (const x of rr) _rkRoster.set(String(x.room_id) + '|' + String(x.peer_id),
+            { acct: String(x.account_uid || '').trim(), name: String(x.name || '').trim(), role: String(x.role || '') });
+        } catch (_) { /* 로스터 없이 */ }
+        const _rkRosterOf = (r: any) => _rkRoom(r) ? _rkRoster.get(_rkRoom(r) + '|' + String(r.user_id)) : undefined;
+        const _rkSched = new Map<number, { uid: string; name: string }>();
+        try {
+          const ids = Array.from(new Set(_rkRows.map(r => {
+            const m = /^class-(\d+)-\d{8}$/.exec(_rkRoom(r)); return m ? Number(m[1]) : 0;
+          }).filter(n => n > 0)));
+          const sr = await selectInChunks<any>(env.DB, ids,
+            ph => `SELECT id, user_id, student_name FROM class_schedules WHERE id IN (${ph})`,
+            { swallowErrors: true });
+          for (const x of sr) _rkSched.set(Number(x.id), { uid: String(x.user_id || '').trim(), name: String(x.student_name || '').trim() });
+        } catch (_) { /* 예약 없이 */ }
+        const _rkSchedOf = (r: any) => {
+          const m = /^class-(\d+)-\d{8}$/.exec(_rkRoom(r)); return m ? _rkSched.get(Number(m[1])) : undefined;
+        };
         const _rkCands = (r: any): string[] => {
           const out: string[] = [];
-          for (const v of [_rkAcct.get(String(r.user_id)), r.username, r.user_id]) {
+          const ro = _rkRosterOf(r);
+          const sc = _rkSchedOf(r);
+          for (const v of [_rkAcct.get(String(r.user_id)), r.username, r.user_id, ro && ro.acct, sc && sc.uid]) {
             const t = String(v == null ? '' : v).trim();
             if (t && out.indexOf(t) < 0) out.push(t);
           }
@@ -1833,11 +1865,27 @@ export async function handleAdminApi(
             if (uid && nm) _rkNames.set(uid, nm);
           }
         } catch (_) { /* 이름 없이 랭킹만 */ }
-        const _rkNameOf = (r: any): { name: string | null; uid: string | null } => {
-          for (const k of _rkCands(r)) { const nm = _rkNames.get(k); if (nm) return { name: nm, uid: k }; }
-          return { name: null, uid: null };
+        /* basis: 'account'(접속 기록의 계정) · 'roster'(화상방 접속 명단) · 'schedule'(그 방 예약 학생 — 추정) */
+        const _rkNameOf = (r: any): { name: string | null; uid: string | null; basis: string | null } => {
+          for (const v of [_rkAcct.get(String(r.user_id)), r.username, r.user_id]) {
+            const k = String(v == null ? '' : v).trim(); const nm = k && _rkNames.get(k);
+            if (nm) return { name: nm, uid: k, basis: 'account' };
+          }
+          const ro = _rkRosterOf(r);
+          if (ro && ro.acct) {
+            const nm = _rkNames.get(ro.acct);
+            if (nm) return { name: nm, uid: ro.acct, basis: 'roster' };
+            if (ro.name && ro.name !== ro.acct) return { name: ro.name, uid: ro.acct, basis: 'roster' };
+          }
+          /* 화상방 명단이 «강사» 라고 하면 예약 학생으로 추정하지 않는다 */
+          if (ro && /teacher|admin|observer/i.test(ro.role)) return { name: null, uid: null, basis: null };
+          const sc = _rkSchedOf(r);
+          if (sc && sc.uid) {
+            const nm = _rkNames.get(sc.uid) || (sc.name && sc.name !== sc.uid ? sc.name : '');
+            if (nm) return { name: nm, uid: sc.uid, basis: 'schedule' };
+          }
+          return { name: null, uid: null, basis: null };
         };
-
         const items = _rkRows.map(r => {
           const _nm = _rkNameOf(r);
           const activeRatio = r.session_ms > 0 ? (r.active_ms / r.session_ms * 100) : 0;
@@ -1858,6 +1906,7 @@ export async function handleAdminApi(
             username: r.username,
             student_name: _nm.name,       // 학생 명부 이름(못 찾으면 null)
             student_uid: _nm.uid,         // 그 이름을 찾은 계정
+            student_name_basis: _nm.basis, // account·roster·schedule(추정)
             session_count: r.session_count,
             active_ms: r.active_ms,
             session_ms: r.session_ms,
