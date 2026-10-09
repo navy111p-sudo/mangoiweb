@@ -9017,9 +9017,10 @@ ${chatSampleText}
         try {
           const cols: any = await env.DB.prepare(`PRAGMA table_info(students_erp)`).all();
           const colNames = ((cols.results || []) as any[]).map(c => c.name);
-          if (colNames.includes('student_name')) nameCol = 'student_name';
-          else if (colNames.includes('korean_name')) nameCol = 'korean_name';
-          else if (colNames.includes('name')) nameCol = 'name';
+          // ⚠️ 2026-10-09: 운영 D1 은 student_name 칸이 «있지만» 29,551명 중 12명만 채워져 있고 실제 이름은
+          //    korean_name(전원)에 있습니다. 한 칸만 고르면 이름이 비어 아이디로 떨어지므로, 있는 칸을 전부 COALESCE.
+          const _nc = ['student_name', 'korean_name', 'name'].filter(c => colNames.includes(c));
+          if (_nc.length) nameCol = 'COALESCE(' + _nc.map(c => `NULLIF(TRIM(${c}),'')`).join(', ') + ", '')";
           if (colNames.includes('parent_phone')) parentPhoneCol = 'parent_phone';
           if (colNames.includes('parent_name')) parentNameCol = 'parent_name';
         } catch {}
@@ -9039,7 +9040,7 @@ ${chatSampleText}
         const _swRisk = await studentScopeWhere(env, request);  // 🔒 지사/대리점 격리
 
         // ⚡ KV 캐시(scope 별 키, 180초) — 반복 열람 시 무거운 스캔 생략. 케어 발송 등 변경 후엔 자연 만료.
-        const _rrKey = 'retrisk:' + nameCol + ':' + ((_swRisk.cond || 'all') + '|' + (_swRisk.binds || []).join(','));
+        const _rrKey = 'retrisk2:' + nameCol + ':' + ((_swRisk.cond || 'all') + '|' + (_swRisk.binds || []).join(','));
         try {
           const _hit = await env.SESSION_STATE.get(_rrKey);
           if (_hit) return new Response(_hit, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } });
@@ -9214,6 +9215,7 @@ ${chatSampleText}
             atRisk.push({
               user_id: s.user_id,
               student_name: s.student_name || s.user_id,
+              name_known: !!(s.student_name && s.student_name !== s.user_id),  // 화면 「학생이름」 칸: 이름이 없으면 아이디를 이름처럼 그리지 않기
               parent_name: s.parent_name || null,
               parent_phone: s.parent_phone || null,
               risk_score: Math.min(risk, 100),
