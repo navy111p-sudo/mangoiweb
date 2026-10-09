@@ -262,6 +262,40 @@ function srcLabel(list){
   (list||[]).forEach(function(x){ if (x === 'official') { ko.push('공식 공휴일'); en.push('Official holidays'); } else { ko.push('캘린더'); en.push('Calendar'); } });
   return { ko: ko.join('·') || '공휴일', en: en.join(', ') || 'Holidays' };
 }
+/* 🎌 (2026-10-09) 공휴일 휴강 — 한국 공식 공휴일·위 표의 날에는 중국어 수업(예외 강사)을 뺀 수업이 휴강입니다.
+   홈 벨·입장·강사 화면 입장 버튼·30분 전 문자·결석 감지가 그날 멈춥니다. 수업 자체는 지우거나 옮기지 않습니다.
+   판정 정본은 서버 src/holiday-closure.ts — 이 화면은 «이날은 수업함» 과 «예외 강사» 만 고칩니다. */
+async function loadClosure(){
+  var box = $('hcBox'); if (!box) return;
+  var j = await api('/api/pay/enroll/admin/holiday-closure');
+  if (!j || j.ok !== true) { box.innerHTML = '<div class="hint" style="margin-bottom:10px">' + L('공휴일 휴강 설정을 불러오지 못했습니다.','Could not load holiday closure settings.') + '</div>'; return; }
+  var days = j.days || [], ex = j.exempt || [];
+  box.innerHTML = '<div class="card"><h2>🎌 ' + L('공휴일 휴강 (중국어 수업 제외)', 'Holiday closure (except Chinese classes)') + '</h2>'
+    + '<div class="hint" style="margin-bottom:8px">' + L('한국 공식 공휴일과 아래 «수업을 미루는 공휴일» 에 있는 날은 <b>휴강</b>입니다 — 수업 벨·입장·강사 입장 버튼·30분 전 문자·결석 감지가 멈춥니다. 예외 강사(중국어) 수업만 평소처럼 엽니다. 수업은 지우거나 옮기지 않습니다(수업을 미루려면 아래 표에 넣으세요).',
+        'Korean public holidays and the days below are <b>closed</b> — class bell, entry, teacher join button, 30-min SMS and absence alerts stop. Only exempt (Chinese) teachers run classes. Classes are not deleted or moved.') + '</div>'
+    + '<div class="hint" style="margin-bottom:8px"><b>' + L('오늘', 'Today') + ' ' + esc(j.today) + '</b>: ' + (j.today_closed ? L('휴강 (' + esc(j.today_name || '') + ')', 'Closed (' + esc(j.today_name || '') + ')') : L('평소대로', 'Normal')) + '</div>'
+    + '<table class="rs"><thead><tr><th>' + L('날짜','Date') + '</th><th>' + L('이름','Name') + '</th><th>' + L('상태','Status') + '</th><th></th></tr></thead><tbody>'
+    + (days.length ? days.map(function(d){
+        return '<tr><td data-l="' + L('날짜','Date') + '"><b>' + esc(d.day) + '</b></td><td data-l="' + L('이름','Name') + '">' + esc(d.name || '') + ' <span class="pill p-gry">' + (d.src === 'enroll' ? L('위 표','Table below') : srcPill(d.src)) + '</span></td>'
+          + '<td data-l="' + L('상태','Status') + '">' + (d.opened ? L('수업함','Classes run') : L('휴강','Closed')) + '</td>'
+          + '<td class="full">' + (d.opened ? '<button data-hc="close_day" data-key="' + esc(d.day) + '">' + L('휴강으로 되돌리기','Close again') + '</button>'
+                                            : '<button class="go" data-hc="open_day" data-key="' + esc(d.day) + '">' + L('이날은 수업함','Run classes') + '</button>') + '</td></tr>';
+      }).join('') : '<tr><td colspan="4" class="hint full">' + L('앞으로 90일 안에 공휴일이 없습니다.','No holidays in the next 90 days.') + '</td></tr>')
+    + '</tbody></table>'
+    + '<div style="margin-top:10px"><b>' + L('예외 강사 (공휴일에도 수업)', 'Exempt teachers (run on holidays)') + '</b></div>'
+    + '<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px">' + ex.map(function(t){
+        return '<span class="pill p-gry">' + esc(t.name || ('#' + t.id)) + (t.fixed ? ' · ' + L('기본','default') : ' <button class="danger" data-hc="remove_exempt" data-key="' + esc(t.id) + '" style="padding:0 6px">✕</button>') + '</span>';
+      }).join('') + '</div>'
+    + '<div class="row" style="margin-top:6px"><input id="hcTid" inputmode="numeric" placeholder="' + L('강사 번호(원부)','Teacher # (roster)') + '" style="width:150px" aria-label="' + L('강사 번호','Teacher #') + '"><button id="hcAdd">' + L('예외 추가','Add exempt') + '</button><span id="hcMsg"></span></div>'
+    + '</div>';
+  $('hcAdd').onclick = async function(){
+    var v = String($('hcTid').value || '').trim();
+    if (!/^\d{1,6}$/.test(v)) { $('hcMsg').innerHTML = '<span class="no">' + L('강사 번호(숫자)를 넣어 주세요.','Enter a teacher number.') + '</span>'; return; }
+    var r = await post('/api/pay/enroll/admin/holiday-closure', { action: 'add_exempt', key: v });
+    if (r && r.ok) loadClosure();
+    else $('hcMsg').innerHTML = '<span class="no">' + (r && r.error === 'teacher_not_found' ? L('그 번호의 강사가 없습니다.','No such teacher.') : L('실패','Failed')) + '</span>';
+  };
+}
 async function viewHolidays(){
   $('body').innerHTML = '<div class="msg">'+L('불러오는 중…','Loading…')+'</div>';
   var j = await api('/api/pay/enroll/admin/holidays');
@@ -287,7 +321,7 @@ async function viewHolidays(){
       + '</tbody></table>'
       + '<div class="row" style="margin-top:8px"><button id="mvAll">'+L('모두 옮기기 (' + miss.length + '건)', 'Move all (' + miss.length + ')')+'</button><span id="mvMsg"></span></div></div>';
   }
-  $('body').innerHTML = missHtml +
+  $('body').innerHTML = '<div id="hcBox"></div>' + missHtml +
     '<div class="card"><h2>🎌 ' + L('수업을 미루는 공휴일', 'Holidays that push classes') + '</h2>'
     + '<div class="hint" style="margin-bottom:8px">' + L('여기 등록된 날에는 <b>새 수업이 잡히지 않고</b>, 이미 잡힌 수업은 매일 새벽 6시에 그 학생의 맨 뒤 수업 다음으로 옮겨집니다(회차 수는 그대로).',
         'On these days <b>no new classes are booked</b>; existing classes move to after the student’s last class every day at 6 AM (same number of sessions).') + '</div>'
@@ -301,6 +335,7 @@ async function viewHolidays(){
       }).join('') : '<tr><td colspan="4" class="hint full">'+L('등록된 공휴일이 없습니다.','No holidays registered.')+'</td></tr>')
     + '</tbody></table></div>';
   async function add(day, name){ return post('/api/pay/enroll/admin/holidays', { day: day, name: name || '휴일' }); }
+  loadClosure();
   $('hAdd').onclick = async function(){
     var day = $('hDay').value, name = $('hName').value || '휴일';
     if (!day) { $('hMsg').innerHTML = '<span class="no">'+L('날짜를 선택해 주세요.','Pick a date.')+'</span>'; return; }
@@ -321,6 +356,17 @@ async function viewHolidays(){
       if (!confirm(L(mv.getAttribute('data-mv') + ' 을(를) 수업 미루는 공휴일로 옮길까요?', 'Move ' + mv.getAttribute('data-mv') + '?'))) return;
       var r = await add(mv.getAttribute('data-mv'), mv.getAttribute('data-nm'));
       if (r.ok) viewHolidays(); else mv.insertAdjacentHTML('afterend', ' <span class="no">'+L('실패','Failed')+'</span>');
+      return;
+    }
+    var hc = ev.target.closest('button[data-hc]');
+    if (hc) {
+      var act = hc.getAttribute('data-hc'), key = hc.getAttribute('data-key');
+      var ask = act === 'open_day' ? L(key + ' 에 수업을 그대로 엽니다(휴강 안 함). 그날 벨·입장·문자 알림이 평소처럼 나갑니다. 계속할까요?', 'Run classes on ' + key + ' (no holiday closure)?')
+              : act === 'close_day' ? L(key + ' 을(를) 다시 휴강으로 되돌릴까요?', 'Close ' + key + ' again?')
+              : act === 'remove_exempt' ? L('이 강사를 예외에서 뺄까요? 공휴일에 그 강사 수업도 휴강이 됩니다.', 'Remove this teacher from the exception list?') : '';
+      if (ask && !confirm(ask)) return;
+      var rr = await post('/api/pay/enroll/admin/holiday-closure', { action: act, key: key });
+      if (rr && rr.ok) loadClosure(); else hc.insertAdjacentHTML('afterend', ' <span class="no">' + L('실패','Failed') + '</span>');
       return;
     }
     var b = ev.target.closest('button[data-del]'); if (!b) return;

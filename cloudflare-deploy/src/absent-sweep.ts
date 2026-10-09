@@ -20,6 +20,7 @@
 
 import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { loadHolidayClosure, isHolidayClosedFor } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { sendPlainSms } from './solapi-client';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 /* 📧 강사 대부분이 필리핀에 있어 «한국 문자» 로는 못 닿는다 — 이메일이 유일한 국제 자동 수단이다. */
@@ -122,6 +123,7 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
   const pad = (n: number) => String(n).padStart(2, '0');
   const ymd = `${kY}${pad(kMo + 1)}${pad(kD)}`;
   const todayStr = `${kY}-${pad(kMo + 1)}-${pad(kD)}`;
+  const _holiday = await loadHolidayClosure(env.DB, todayStr);   // 🎌 던지지 않는다(fail-open)
 
   // 오늘 발생 예약 전체 (일회성=날짜 일치 / 반복=요일 일치) — /api/class/sessions/today 와 동일 규칙
   let rows: any[] = [];
@@ -145,6 +147,7 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
     if (!occurs) continue;
     seen.add(s.id);
     if (isPostponedOccurrence(s)) continue;   // ⏸ 연기된 회차는 오늘 열리지 않는다(2026-10-01, class-postponed.ts)
+    if (isHolidayClosedFor(_holiday, s.teacher_id)) continue;   // 🎌 공휴일 휴강 — 문자·결석감지 안 함(중국어 수업 제외)
     const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
     if (!Number.isFinite(hh)) continue;
     const start_ts = Date.UTC(kY, kMo, kD, hh, mm || 0, 0) - KST;

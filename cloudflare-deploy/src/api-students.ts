@@ -20,6 +20,7 @@ import { ATTENDANCE_BY_UID, ATTENDANCE_BY_UID_NOCASE, attUidBinds } from './atte
 import { readParentWarmup } from './warmup-parent';   // 👪 웜업 횟수·고쳐 준 표현(2026-10-02 P4)
 import { resolveStudentTrack } from './student-track';   // 🎯 화상수업 학생 / AI 전용 학생 판정 정본
 import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, sceneBookId, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
+import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 
 export async function handleStudentsApi(
   request: Request,
@@ -564,7 +565,7 @@ ${MANGOI_KNOWLEDGE}`;
         /* ⚠️ exactUid(명부에 적힌 표기)로 «정확일치» — NOCASE 로 넓히면 대소문자만 다른 «남의» 수업이 섞인다
            (CLAUDE.md 2장 「Kim/kim」). 2026-09-03 함정 대조 검사 지적. */
         env.DB.prepare(
-          `SELECT day_of_week, scheduled_date, start_time, duration_min, schedule_kind${startsOnSel(await ensureStartsOnColumn(env))}
+          `SELECT day_of_week, scheduled_date, start_time, duration_min, schedule_kind, teacher_id${startsOnSel(await ensureStartsOnColumn(env))}
              FROM class_schedules
             WHERE user_id = ? AND status = 'active'
               AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')
@@ -611,16 +612,20 @@ ${MANGOI_KNOWLEDGE}`;
         const t = String(h).padStart(2, '0') + ':' + m[2];
         if (!weekTimes[d] || t < weekTimes[d]) weekTimes[d] = t;
       };
+      /* 🎌 (2026-10-09) 공휴일 휴강 수업은 «오늘 수업» 으로 세지 않는다 — 중국어 수업(예외 강사)만 남는다.
+         주간 요일 표시(weekDows)는 그대로 둔다(«평소 수업일» 이라는 사실은 안 바뀐다). 정본 holiday-closure.ts */
+      const _holiday = await loadHolidayClosure(env.DB, k.ymd);
+      let _holidaySkipped = 0;
       for (const r of (clsRs?.results || [])) {
         const mins = Number(r.duration_min || 20) || 20;
         if (String(r.schedule_kind) === 'recurring') {
           for (let d = 0; d <= 6; d++) if (dowMatches(r.day_of_week, d)) { weekDows.add(d); if (r.start_time) noteTime(d, String(r.start_time)); }
-          if (dowMatches(r.day_of_week, k.dow) && recurStartedOn(r, k.ymd) && r.start_time) classes.push({ start: String(r.start_time).slice(0, 5), minutes: mins, source: 'mangoi' });
+          if (dowMatches(r.day_of_week, k.dow) && recurStartedOn(r, k.ymd) && r.start_time) { if (isHolidayClosedFor(_holiday, r.teacher_id)) _holidaySkipped++; else classes.push({ start: String(r.start_time).slice(0, 5), minutes: mins, source: 'mangoi' }); }
         } else if (r.scheduled_date) {
           const dd = kstParts(Date.parse(String(r.scheduled_date) + 'T12:00:00+09:00')).dow;
           weekDows.add(dd);
           if (r.start_time) noteTime(dd, String(r.start_time));
-          if (String(r.scheduled_date) === k.ymd && r.start_time) classes.push({ start: String(r.start_time).slice(0, 5), minutes: mins, source: 'mangoi' });
+          if (String(r.scheduled_date) === k.ymd && r.start_time) { if (isHolidayClosedFor(_holiday, r.teacher_id)) _holidaySkipped++; else classes.push({ start: String(r.start_time).slice(0, 5), minutes: mins, source: 'mangoi' }); }
         }
       }
       for (const r of (c24Rs?.results || [])) {
@@ -630,6 +635,8 @@ ${MANGOI_KNOWLEDGE}`;
         weekDows.add(kp.dow);
         noteTime(kp.dow, String(Math.floor(kp.min / 60)).padStart(2, '0') + ':' + String(kp.min % 60).padStart(2, '0'));
         if (String(r.date) === k.ymd) {
+          // 카페24 씨앗에는 우리 원부 강사 번호가 없다 → 휴강일엔 «예외 아님» 으로 본다(isHolidayClosedFor 와 같은 답)
+          if (isHolidayClosedFor(_holiday, '')) { _holidaySkipped++; continue; }
           const hh = String(Math.floor(kp.min / 60)).padStart(2, '0'), mm = String(kp.min % 60).padStart(2, '0');
           classes.push({ start: `${hh}:${mm}`, minutes: 20, source: 'cafe24' });
         }
@@ -657,6 +664,8 @@ ${MANGOI_KNOWLEDGE}`;
         points_today: Number(ptRow?.s || 0),
         ai_streak: aiStreak(dates, k.ymd),
         plan,
+        // 🎌 오늘 휴강으로 뺀 수업이 있을 때만 — 홈 「수업 입장」 버튼 아래 한 줄(idx-cta-status.js)
+        holiday: (_holiday.closed && _holidaySkipped > 0) ? { name: _holiday.name, closed_count: _holidaySkipped, msg: holidayClosedMsg(_holiday.name) } : null,
       });
       res.headers.set('Cache-Control', 'private, no-store');   // 이름·수업 시각이 실린 응답 — 캐시 금지
       return res;

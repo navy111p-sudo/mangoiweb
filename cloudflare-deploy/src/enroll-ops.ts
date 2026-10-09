@@ -62,6 +62,7 @@ import { loadTeacherNameOf } from './student-schedule-summary';   // 👩‍🏫
 import { findScheduleConflicts, activeRowsFor, findLongClassCapBlock } from './schedule-conflict';
 import { planSeries, realConflict, normTime } from './class-series-move';   // 🔄 «변경(계속)» 시리즈 판정 정본
 import { teacherMoveDenyReason } from './class-teacher-move';   // 🔒 담당 강사 변경 게이트 정본(PATCH 와 같음)   // 📅 옮기기 승인(/decide)이 쓰는 그 겹침 검사 — 복제 금지   // 📜 수업 변경 이력(공휴일 자동연기·강사 휴가대체)
+import { ensureHolidayClosureTable, clearHolidayClosureCache, loadHolidayClosure, HOLIDAY_EXEMPT_TEACHERS_DEFAULT } from './holiday-closure';   // 🎌 공휴일 휴강(2026-10-09)
 
 export const ENROLL_WEEKLY = [1, 2, 3, 5];
 export const ENROLL_MONTHS = [1, 3, 6, 12];
@@ -1515,6 +1516,70 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
       ok: true, holidays: (rs?.results as any[]) || [],
       calendar_missing: miss.items, calendar_ok: miss.ok, calendar_failed: miss.failed || [],
     });
+  }
+
+  /* ── (i-3) 🎌 공휴일 휴강 (본사 관리자, 2026-10-09 사장님 「추천안대로」) ──
+     휴강 판정 정본은 src/holiday-closure.ts — 여기는 «이날은 수업함» 과 «예외 강사(중국어)» 를 고치는 창구다.
+     ⛔ class_schedules 는 안 건드린다(읽을 때 가린다). 본사 전용 게이트는 위 enrollAdminHqOnly 가 이미 건다. */
+  if (path === '/api/pay/enroll/admin/holiday-closure' && method === 'GET') {
+    const today = kstToday();
+    const until = addDays(today, 90);
+    await ensureHolidayClosureTable(env.DB);
+    const days = new Map<string, { day: string; name: string; src: string }>();
+    try {
+      const rs: any = await env.DB.prepare(`SELECT date AS day, MIN(name) AS name FROM holidays WHERE country = 'KR' AND date >= ? AND date <= ? GROUP BY date`).bind(today, until).all();
+      for (const r of ((rs?.results as any[]) || [])) days.set(String(r.day), { day: String(r.day), name: String(r.name || ''), src: 'official' });
+    } catch { /* 표 없음 */ }
+    try {
+      const rs: any = await env.DB.prepare(`SELECT day, name FROM enroll_holidays WHERE day >= ? AND day <= ?`).bind(today, until).all();
+      for (const r of ((rs?.results as any[]) || [])) { const d = String(r.day); const had = days.get(d); days.set(d, { day: d, name: (had && had.name) || String(r.name || '휴일'), src: had ? 'both' : 'enroll' }); }
+    } catch { /* 표 없음 */ }
+    const ov: any = await env.DB.prepare(`SELECT kind, key, note, updated_by, updated_at FROM holiday_closure_override ORDER BY kind, key LIMIT 400`).all();
+    const ovRows = ((ov?.results as any[]) || []);
+    const opened = new Set(ovRows.filter((r) => r.kind === 'open_day').map((r) => String(r.key)));
+    const exemptIds = Array.from(new Set([...HOLIDAY_EXEMPT_TEACHERS_DEFAULT, ...ovRows.filter((r) => r.kind === 'exempt_teacher').map((r) => String(r.key))]));
+    let nameOf: (tid: any) => string = () => '';
+    try { nameOf = await loadTeacherNameOf(env); } catch { /* 이름 없이 */ }
+    const todayH = await loadHolidayClosure(env.DB, today);
+    return json({
+      ok: true, today,
+      today_closed: todayH.closed, today_name: todayH.name,
+      days: Array.from(days.values()).sort((a, b) => a.day.localeCompare(b.day)).map((d) => ({ ...d, opened: opened.has(d.day) })),
+      exempt: exemptIds.map((id) => ({ id, name: nameOf(id) || null, fixed: HOLIDAY_EXEMPT_TEACHERS_DEFAULT.includes(id) })),
+    });
+  }
+  if (path === '/api/pay/enroll/admin/holiday-closure' && method === 'POST') {
+    const sess = await checkAdminSession(request, env);
+    if (!sess.ok) return json({ ok: false, error: 'auth_required' }, 401);
+    const body = await parseJsonBody(request) || {};
+    const action = String(body.action || '');
+    const key = String(body.key || '').trim();
+    const by = String((sess as any).username || 'admin');
+    await ensureHolidayClosureTable(env.DB);
+    if (action === 'open_day' || action === 'close_day') {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return json({ ok: false, error: 'bad_day' }, 400);
+      if (action === 'open_day') {
+        await env.DB.prepare(`INSERT INTO holiday_closure_override (kind, key, note, updated_by, updated_at) VALUES ('open_day', ?, ?, ?, ?)
+          ON CONFLICT(kind, key) DO UPDATE SET updated_by=excluded.updated_by, updated_at=excluded.updated_at`).bind(key, String(body.note || '').slice(0, 100) || null, by, Date.now()).run();
+      } else {
+        await env.DB.prepare(`DELETE FROM holiday_closure_override WHERE kind = 'open_day' AND key = ?`).bind(key).run();
+      }
+    } else if (action === 'add_exempt' || action === 'remove_exempt') {
+      if (!/^\d{1,6}$/.test(key)) return json({ ok: false, error: 'bad_teacher_id' }, 400);
+      if (action === 'add_exempt') {
+        const t: any = await env.DB.prepare(`SELECT id FROM teachers WHERE id = ?`).bind(Number(key)).first().catch(() => null);
+        if (!t) return json({ ok: false, error: 'teacher_not_found' }, 404);
+        await env.DB.prepare(`INSERT INTO holiday_closure_override (kind, key, note, updated_by, updated_at) VALUES ('exempt_teacher', ?, NULL, ?, ?)
+          ON CONFLICT(kind, key) DO UPDATE SET updated_by=excluded.updated_by, updated_at=excluded.updated_at`).bind(key, by, Date.now()).run();
+      } else {
+        if (HOLIDAY_EXEMPT_TEACHERS_DEFAULT.includes(key)) return json({ ok: false, error: 'fixed_default' }, 400);
+        await env.DB.prepare(`DELETE FROM holiday_closure_override WHERE kind = 'exempt_teacher' AND key = ?`).bind(key).run();
+      }
+    } else {
+      return json({ ok: false, error: 'unknown_action' }, 400);
+    }
+    clearHolidayClosureCache();   // ⚠️ 이 isolate 만 — 다른 isolate 는 최대 5분 뒤 따라온다
+    return json({ ok: true, action, key });
   }
 
   /* ── (i-2) 📋 오늘 할 일 요약 (본사 관리자, 2026-09-25) ── */

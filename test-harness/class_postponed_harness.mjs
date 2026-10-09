@@ -111,8 +111,8 @@ for (const [file, nLoops] of [['src/absent-sweep.ts', 1], ['src/lesson-reminder.
 {
   const S = strip(R('src/api-teacher.ts'));
   ok('강사 포털: 정본으로 판정한다', /const _postponed = isPostponedOccurrence\(s\);/.test(S));
-  ok('강사 포털: 상태를 «postponed» 로 내려준다', /: _postponed \? 'postponed'/.test(S));
-  ok('강사 포털: 입장을 닫는다', /can_enter: !_postponed && now >= enterFromTs/.test(S) && /join_open: !_postponed && now >= open_at_ts/.test(S));
+  ok('강사 포털: 상태를 «postponed» 로 내려준다', /: \(?_postponed(?: \|\| _holidayOff\))? \? 'postponed'/.test(S));
+  ok('강사 포털: 입장을 닫는다', /can_enter: !_postponed && (?:!_holidayOff && )?now >= enterFromTs/.test(S) && /join_open: !_postponed && (?:!_holidayOff && )?now >= open_at_ts/.test(S));
   const H = strip(R('public/teacher.html'));
   const a = H.indexOf("if (c.class_state === 'postponed'){");
   const blk = a > 0 ? H.slice(a, H.indexOf('continue;', a)) : '';
