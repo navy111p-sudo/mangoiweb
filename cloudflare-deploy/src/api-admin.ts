@@ -49,7 +49,7 @@ import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸�
 import { KCP_TRANSFER_CYPHER_RE, KCP_REVENUE_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 / 「케이씨피」 = 매출 인정 — 판정 정본
 import { c24ExpenseDrop, C24_HANGUL_CYPHER_RE, C24_LETTER_CYPHER_RE } from './c24-expense-filter';  // 🧾 카페24 지출결의 중 «우리 것이 아닌» 건(한글 결재·특정 결재라인) 제외 — 판정 정본
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance, ensureCenterOverrideTables, ensureFranchiseOverrideTable } from './cafe24-sync';
-import { buildMangoiClassesNow, mergeClassesNow, dropHolidayClosed, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
+import { buildMangoiClassesNow, mergeClassesNow, dropHolidayClosed, EXEMPT_BY_NAME, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
 import { findRoomMismatches } from './room-mismatch';   // 🚨 «같은 수업인데 서로 다른 방» 감시(2026-10-07 delaware)
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
@@ -15464,7 +15464,27 @@ LIMIT $limit`;
         for (const d of scanDates) _holBy[d] = await loadHolidayClosure(env.DB, d);
         const _tOf = new Map<number, any>();
         for (const r of schedRows) _tOf.set(Number(r.id), r.teacher_id);
-        const _hol = dropHolidayClosed(mergeClassesNow(c24Classes as any, mgClasses), (sid) => _tOf.get(Number(sid)), _holBy);
+        /* 카페24 줄: 카페24 강사번호 → 원부 번호(loadCafe24TeacherMap — 이름이 유일하게 맞을 때만).
+           못 이으면 이름으로 «중국어 강사인가» 만 한 번 더 본다(예외 강사 원부 이름 정확일치 · 「중국어」·chinese 포함).
+           그래도 모르면 «예외 아님» = 휴강(망고아이의 «강사 미배정 = 휴강» 과 같은 규칙). */
+        const _c24Tid = new Map<string, any>();
+        if (Object.values(_holBy).some(h => h && h.closed)) {
+          const _exIds = new Set<string>();
+          for (const h of Object.values(_holBy)) if (h) for (const x of h.exempt) _exIds.add(x);
+          const _exNames = new Set<string>();
+          try {
+            const er: any = await env.DB.prepare(`SELECT id, name FROM teachers`).all();
+            for (const t of ((er.results || []) as any[])) if (_exIds.has(String(t.id))) _exNames.add(normTeacherName(t.name));
+          } catch { /* 원부 없음 — 이름 예외만 못 본다 */ }
+          for (const r of rows) {
+            const info = tmap.get(String(r.teacher_uid || '')) || null;
+            const nm = info && info.name ? String(info.name) : '';
+            const byName = !!nm && (_exNames.has(normTeacherName(nm)) || /중국어|chinese/i.test(nm));
+            _c24Tid.set(String(r.room_id), info && info.teacherId ? info.teacherId : (byName ? EXEMPT_BY_NAME : ''));
+          }
+        }
+        const _hol = dropHolidayClosed(mergeClassesNow(c24Classes as any, mgClasses),
+          (c: any) => c.source === 'cafe24' ? _c24Tid.get(String(c.room_id)) : _tOf.get(Number(c.schedule_id)), _holBy);
         const classes = _hol.kept;
         const _mgOpen = mgClasses.filter(c => classes.indexOf(c) >= 0);
 
@@ -15488,9 +15508,9 @@ LIMIT $limit`;
             // 🏷 출처별 건수 — 「카페24가 0건」과 「수업이 0건」은 다른 사실이다
             mangoi: classes.filter(c => c.source === 'mangoi').length,
             cafe24: classes.filter(c => c.source === 'cafe24').length,
-            holiday_closed: _hol.closed,   // 🎌 공휴일 휴강으로 뺀 망고아이 수업 수
+            holiday_closed: _hol.closed,   // 🎌 공휴일 휴강으로 뺀 수업 수(망고아이+카페24)
           },
-          holiday: _hol.name ? { name: _hol.name, closed: _hol.closed } : null,
+          holiday: _hol.name ? { name: _hol.name, closed: _hol.closed, closed_cafe24: _hol.closed_c24 } : null,
           classes,
           room_mismatch: roomMismatch,
         });
