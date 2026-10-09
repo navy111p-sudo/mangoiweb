@@ -159,10 +159,25 @@ if (o) {
   ok('짝: 열린 수업(중국어)이 있으면 안내 없이 입장', !live.shown.length && live.entered.length === 1, JSON.stringify(live));
   const lobby = js.slice(js.indexOf("var _jd = await fetch('/api/class/sessions/today?"), js.indexOf("var _jd = await fetch('/api/class/sessions/today?") + 6000);
   ok('로비(게이트 켜짐): 휴강이면 공휴일 안내 후 멈춘다', /else if \(_jd\.holiday && _jd\.holiday\.alert\) \{\s*alert\(_jd\.holiday\.alert\); _stopJoin = true;/.test(lobby));
-  ok('로비(게이트 꺼짐): 공용방 안내를 공휴일 안내로 바꾼다', /window\.__vcHolidayMsg = _jd\.holiday && _jd\.holiday\.alert;/.test(lobby) && /if \(_hm\) alert\(_hm \+/.test(js));
+  // (2026-10-09 사장님 「게이트 꺼짐일 때도 공용방 안 들어가게」) 휴강 갈래는 게이트 분기 «앞», 교사 분기 «뒤»
+  const hm = lobby.match(/\} else if \((!_jss\.length && _jd && _jd\.holiday && _jd\.holiday\.alert)\) \{\s*\n\s*alert\(_jd\.holiday\.alert\); _stopJoin = true;/);
+  ok('로비: 휴강 갈래가 있다(게이트와 무관하게 공휴일 안내 후 멈춤)', !!hm);
+  ok('로비: 그 갈래는 교사 분기 뒤·게이트 꺼짐 분기 앞', !!hm && lobby.indexOf("} else if (_isT) {") < lobby.indexOf(hm[0]) && lobby.indexOf(hm[0]) < lobby.indexOf("} else if (_jd && _jd.student_gate !== 'on') {"));
+  if (hm) {
+    let f = null, r = [];
+    try { f = new Function('_jss', '_jd', 'return !!(' + hm[1] + ');');
+      const H = { student_gate: 'off', holiday: { alert: 'A' } };
+      r = [f([], H), f([], { student_gate: 'off', holiday: null }), f([{}], H), f([], { student_gate: 'off', holiday: { alert: '' } })];
+    } catch (e) { r = []; }
+    ok('로비: 게이트 꺼짐·수업 0·휴강 → 멈춘다', r[0] === true);
+    ok('짝: 휴강 아님 → 예전 공용방 폴백', r[1] === false);
+    ok('짝: 남은 수업(중국어 등)이 있으면 예전 동작', r[2] === false);
+    ok('짝: 안내 문구가 비면 막지 않는다', r[3] === false);
+  }
+  ok('로비(게이트 꺼짐·남은 수업 있음): 공용방 안내를 공휴일 안내로 바꾸는 줄은 그대로', /window\.__vcHolidayMsg = _jd\.holiday && _jd\.holiday\.alert;/.test(lobby) && /if \(_hm\) alert\(_hm \+/.test(js));
   const ix = readFileSync(join(ROOT, 'cloudflare-deploy/public/index.html'), 'utf8');
   const th = readFileSync(join(ROOT, 'cloudflare-deploy/public/teacher.html'), 'utf8');
-  ok('idx-main.js ?v= 를 두 곳 다 올렸다', /idx-main\.js\?v=65/.test(ix) && /idx-main\.js\?v=65/.test(th));
+  ok('idx-main.js ?v= 를 두 곳 다 올렸다', /idx-main\.js\?v=66/.test(ix) && /idx-main\.js\?v=66/.test(th));
 }
 
 // ── ⑧ (2026-10-09 후속) 관제탑(지금 수업)·급여 — 휴강 수업을 빼고 0 원으로 ─────────────────────────
