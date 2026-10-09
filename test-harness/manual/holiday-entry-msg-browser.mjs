@@ -72,9 +72,13 @@ async function newPage() {
   return { page, ctx };
 }
 
+let ROOM = '';
 function session(joinOpen) {
   const now = Date.now();
-  return { schedule_id: 9001, room_id: 'class-9001-20261009', student_uid: 'stu_test', teacher_id: '29',
+  // ⚠️ 방 번호의 날짜는 «오늘(KST)» 이어야 한다 — 박아 두면 자정을 넘는 순간 «지난 날짜 링크» 로 되돌림 고리가 돈다(실제로 밟음)
+  const k = new Date(now + 9 * 3600 * 1000), p2 = n => (n < 10 ? '0' : '') + n;
+  ROOM = 'class-9001-' + k.getUTCFullYear() + p2(k.getUTCMonth() + 1) + p2(k.getUTCDate());
+  return { schedule_id: 9001, room_id: ROOM, student_uid: 'stu_test', teacher_id: '29',
     start_ts: now, end_ts: now + 1800000, open_at_ts: now - 600000, close_at_ts: now + 2700000,
     duration_min: 30, status: joinOpen ? 'live' : 'early', join_open: joinOpen, starts_in_ms: 0 };
 }
@@ -146,7 +150,7 @@ try {
     await setup(page, { role: 'student', resp: { ok: true, sessions: [s], current: s, student_gate: 'off', holiday: hol } });
     await page.evaluate(() => { vcJoinRoom(); });
     let r = await waitOutcome(page, 8000);
-    ok(`C1#${i} 열린 수업 → 예약방 입장`, r.inCall && r.ws.some(u => u.includes('class-9001-20261009')), JSON.stringify(r.ws) + ' ' + JSON.stringify(page.__dialogs));
+    ok(`C1#${i} 열린 수업 → 예약방 입장`, r.inCall && r.ws.some(u => u.includes(ROOM)), JSON.stringify(r.ws) + ' ' + JSON.stringify(page.__dialogs));
     ok(`C1#${i} 공휴일 안내 안 뜸`, !page.__dialogs.some(d => d.includes('수업이 쉬어요')));
     ok(`C1#${i} 오류 없음`, page.__errs.length === 0, page.__errs.join(' | '));
     await ctx.close();
@@ -158,15 +162,15 @@ try {
     ok(`C2#${i} 교사 → 예전처럼 입장`, r.inCall, JSON.stringify(page.__dialogs));
     ok(`C2#${i} 교사에게 공휴일 안내로 막지 않음`, !page.__dialogs.some(d => d.includes('수업이 쉬어요')));
     await ctx.close();
-    // C4 휴강·게이트 꺼짐 학생 → 예전처럼 공용방에 들어가되, 사후 안내가 «공용 연습방» 대신 공휴일 안내
+    // C4 휴강·게이트 꺼짐 학생 → (2026-10-09) 공용방에도 안 들어가고 공휴일 안내만
     ({ page, ctx } = await newPage());
     await setup(page, { role: 'student', resp: { ok: true, sessions: [], current: null, student_gate: 'off', holiday: hol } });
     await page.evaluate(() => { vcJoinRoom(); });
-    await waitOutcome(page, 8000);
-    { const t0 = Date.now(); while (!page.__dialogs.length && Date.now() - t0 < 5000) await new Promise(r => setTimeout(r, 100)); }
-    ok(`C4#${i} 게이트 꺼짐 → 안내가 공휴일 안내로 시작(1번)`, page.__dialogs.length === 1 && page.__dialogs[0].startsWith(hol.alert), JSON.stringify(page.__dialogs));
-    ok(`C4#${i} 지금 위치(공용 연습방)를 한 줄로 알려 줌`, page.__dialogs.some(d => d.includes('shared practice room')));
-    ok(`C4#${i} 옛 긴 «예약 없음 · 공용 연습방» 안내는 안 뜸`, !page.__dialogs.some(d => d.includes('예약된 수업이 없')));
+    const r4 = await waitOutcome(page, 8000);
+    await new Promise(r => setTimeout(r, 1500));   // 공용방 사후 안내(900ms)가 «안» 뜨는지까지 본다
+    ok(`C4#${i} 게이트 꺼짐 → 공휴일 안내 정확히 1번`, page.__dialogs.length === 1 && page.__dialogs[0] === hol.alert, JSON.stringify(page.__dialogs));
+    ok(`C4#${i} 게이트 꺼짐 → 공용방에 안 들어감`, !r4.inCall && !(await page.evaluate(() => document.body.classList.contains('vc-in-call'))));
+    ok(`C4#${i} 게이트 꺼짐 → 방에 접속 안 함`, r4.ws.length === 0, JSON.stringify(r4.ws));
     ok(`C4#${i} 오류 없음`, page.__errs.length === 0, page.__errs.join(' | '));
     await ctx.close();
     // C5 휴강 아님·게이트 꺼짐 → 예전 «공용 연습방» 안내 그대로(짝)

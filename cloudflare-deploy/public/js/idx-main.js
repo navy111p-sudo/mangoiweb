@@ -2727,6 +2727,8 @@ async function vcJoinRoom(skipUI) {
           /* 오늘 예약이 없는 교사(연습·시연)는 공용방으로 간다 — 이때는 다른 사람이 들어올 수 있음을
              분명히 알려 준다. 예약된 실제 수업은 위에서 각자 방으로 갈리므로 겹치지 않는다. */
           window.__vcSharedRoomNotice = 'teacher';
+        } else if (!_jss.length && _jd && _jd.holiday && _jd.holiday.alert) {
+          alert(_jd.holiday.alert); _stopJoin = true;   // 🎌 휴강: 게이트가 꺼져 있어도 공용방에 안 넣는다(2026-10-09)
         } else if (_jd && _jd.student_gate !== 'on') {
           /* 🚪 게이트 꺼짐(기본) = 예전과 100% 동일하게 공용방으로 폴백한다.
              ⛔ 지금 켜면 안 되는 이유: class_schedules 663건 중 «실제 학생 예약» 은 6건뿐이다.
