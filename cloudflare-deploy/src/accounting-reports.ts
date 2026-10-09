@@ -844,11 +844,23 @@ async function buildMonthly(env: Env, period: string) {
      장부 쪽도 KCP 정산 대상(bookPg)만 넣는다 — 대사 화면과 규칙이 갈라지면 안 된다. */
   /* ⏳ 그 달 «결제분» 이 들어온 입금 구간 = [월초+시차, 월말+시차]. classifyDeposit 으로
      「케이씨피」 정산분만 센다. 실패하면 null → reconcileMonth 가 종전(같은 달)으로 돈다. */
+  /* ⏳ (2026-10-09) 그 입금 구간이 «아직 안 끝났으면» 판정하지 않는다.
+     실사고: 10/9 에 9월 리포트를 열었더니 구간(9/22~10/22)의 절반만 지났는데
+     들어온 두 번(₩3,129,279)을 9월 결제 «전체» 의 예상 입금(₩15,443,560)과 견줘
+     🚨 「크게 어긋남 · -393.5%」 가 떴다. 돈이 빈 것이 아니라 아직 안 들어온 것이다.
+     구간 끝이 «통장 자료가 있는 마지막 날» 보다 뒤면 → verdict 'pending'.
+     ⚠️ 마지막 날을 못 읽으면 null → 예전처럼 판정한다(모르면 옛 동작). */
+  const lagShift = (ms: number) => new Date(ms + PG_SETTLE_LAG_DAYS * 86400000 + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  const lagWin = (() => { const { startMs, endMs } = monthRange(period); return { from: lagShift(startMs), to: lagShift(endMs) }; })();
+  const lastBankDay = await safe(async () => {
+    const r = await env.DB.prepare(`SELECT MAX(substr(trans_at,1,10)) AS d FROM bankacct_transactions`).first<{ d: string }>();
+    return r?.d ? String(r.d) : null;
+  }, null as string | null);
   const lagPg = await safe(async () => {
     const { startMs, endMs } = monthRange(period);
     // startMs 는 «KST 자정» 의 epoch 라 UTC ISO 로 자르면 하루 이른 날짜가 나온다
     // (실효 시차 20일 — reconcileReport 의 날짜문자열 +21일과 하루 어긋남). +9h 로 맞춘다.
-    const shift = (ms: number) => new Date(ms + PG_SETTLE_LAG_DAYS * 86400000 + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    const shift = lagShift;
     const r = await env.DB.prepare(`
       SELECT COALESCE(remark,'') AS remark, amount FROM bankacct_transactions
        WHERE kind='in' AND substr(trans_at,1,10) >= ? AND substr(trans_at,1,10) < ?
@@ -860,7 +872,8 @@ async function buildMonthly(env: Env, period: string) {
     }
     return pg;
   }, null);
-  const rec = reconcileMonth(pl.rev.bookPg, pl.rev.dep, lagPg);
+  const rec = reconcileMonth(pl.rev.bookPg, pl.rev.dep, lagPg,
+    lagPg != null ? lagWindowOpen(lagWin, lastBankDay) : null);
 
   /* 💵 통장 기준 «실제» 현금흐름 — 장부(결제기록)가 불완전해도 이건 사실이다.
      «리포트가 적자라는데 회사는 돌아간다» 는 혼란을 없애려고 나란히 보여 준다.
@@ -1031,7 +1044,9 @@ async function buildMonthly(env: Env, period: string) {
       ['비용', pl.cost],
       ['순이익', pl.net],
       ['이익률(%)', pl.margin],
-      ...(data.pl.confident ? [] : [['(주의) 장부와 통장이 어긋나 순이익이 확정치가 아닙니다'] as (string | number)[]]),
+      ...(data.pl.confident ? [] : [[rec.verdict === 'pending'
+        ? '(주의) PG 정산 입금이 아직 다 안 들어와 순이익이 확정치가 아닙니다'
+        : '(주의) 장부와 통장이 어긋나 순이익이 확정치가 아닙니다'] as (string | number)[]]),
       [],
       ['[장부 vs 통장] — 기준: 통장 「케이씨피」 입금'],
       ['실제 PG 정산 입금(기준)', rec.deposit_pg],
@@ -1039,6 +1054,7 @@ async function buildMonthly(env: Env, period: string) {
       ['장부 매출(KCP 정산 대상만)', rec.revenue],
       ['예상 입금(수수료 차감)', rec.expected],
       ['차이', rec.diff == null ? '(자료없음)' : rec.diff],
+      ...(rec.verdict === 'pending' ? [['(정산 대기) ' + rec.message] as (string | number)[]] : []),
       /* ⛔ «성격 미확인 입금» 줄 제거(2026-08-18 사장님 지시 — 「케이씨피M」 표기 정리의 마지막 단계).
          금액은 payload 의 deposit_transfer_unknown_krw 로 계속 나가지만 화면·CSV 에는 그리지 않는다. */
       [],
@@ -1933,7 +1949,21 @@ async function monthActiveStudents(env: Env, period: string) {
       그 달 결제가 그 달 통장에 다 안 들어온다 — 같은 달끼리 빼면 매번 «통장이 적다» 가
       나온다. 호출부가 [월초+시차, 월말+시차] 구간으로 구해 넘긴다. 못 구했으면(자료 부족)
       null 이고, 그때만 종전처럼 같은 달 입금을 쓴다. */
-function reconcileMonth(revenueBook: number, dep: MonthDeposits, lagPg: number | null = null) {
+/* ⏳ 입금 구간 [from, to) 가 아직 안 끝났는가 — 끝(to 전날)이 통장 마지막 자료 날짜보다 뒤면 열려 있다.
+   마지막 날을 모르면(null) 열려 있지 않은 것으로 본다(= 예전 동작). 열려 있으면 그 구간을 돌려준다. */
+function lagWindowOpen(win: { from: string; to: string }, lastBankDay: string | null)
+  : { from: string; to: string; last_bank: string } | null {
+  if (!lastBankDay || !/^\d{4}-\d{2}-\d{2}$/.test(lastBankDay)) return null;
+  // to 는 «다음 날 0시»(배타) — 마지막 자료 날짜가 to 보다 앞이면 그 구간 입금이 아직 다 안 왔다
+  return lastBankDay < prevDay(win.to) ? { from: win.from, to: win.to, last_bank: lastBankDay } : null;
+}
+function prevDay(ymd: string): string {
+  const t = Date.parse(ymd + 'T00:00:00Z');
+  return Number.isFinite(t) ? new Date(t - 86400000).toISOString().slice(0, 10) : ymd;
+}
+
+function reconcileMonth(revenueBook: number, dep: MonthDeposits, lagPg: number | null = null,
+                        lagOpen: { from: string; to: string; last_bank: string } | null = null) {
   const expected = Math.round(revenueBook * (1 - PG_FEE_RATE));
   const hasBank = dep.hasBank;
   const pgUsed = lagPg == null ? dep.pg : lagPg;      // 시차를 맞춘 입금(있으면)
@@ -1941,8 +1971,10 @@ function reconcileMonth(revenueBook: number, dep: MonthDeposits, lagPg: number |
   // 통장이 기준 — 들어온 돈을 100 으로 놓고 장부가 얼마나 벌어졌는지 본다.
   // 통장에 정산금이 한 푼도 없는데 장부엔 매출이 있으면 −100%(= 확인 필요)로 본다.
   const pct = diff == null ? 0 : (pgUsed > 0 ? (diff / pgUsed) * 100 : (expected > 0 ? -100 : 0));
-  let verdict: 'ok' | 'warn' | 'alert' | 'no_data';
+  let verdict: 'ok' | 'warn' | 'alert' | 'no_data' | 'pending';
   if (!hasBank) verdict = 'no_data';
+  // ⏳ 입금 구간이 아직 안 끝났다 — 들어온 일부를 «전체 예상» 과 견주면 늘 크게 모자라 보인다
+  else if (lagPg != null && lagOpen) verdict = 'pending';
   /* 시차를 맞춘 뒤로는 여유를 좁힌다. 예전 ±15/30% 는 «어차피 시차로 어긋난다» 는
      전제였는데, 맞춘 값이면 그렇게 벌어질 이유가 없다. */
   else if (Math.abs(pct) <= (lagPg == null ? 15 : 10)) verdict = 'ok';
@@ -1960,6 +1992,9 @@ function reconcileMonth(revenueBook: number, dep: MonthDeposits, lagPg: number |
       ? 'PG 정산 입금이 장부보다 크게 적습니다. 정산 시차인지 미수금인지 KCP 정산내역을 확인하세요.'
       : 'PG 정산 입금이 장부보다 크게 많습니다. 장부에 안 잡힌 결제가 있는지 확인하세요.',
     no_data: '이 달은 계좌 입금 자료가 없어 대사를 할 수 없습니다.',
+    pending: lagOpen
+      ? `이 달 결제분의 PG 정산이 아직 다 들어오지 않았습니다(입금 구간 ${lagOpen.from} ~ ${prevDay(lagOpen.to)}, 통장 자료는 ${lagOpen.last_bank} 까지). ${prevDay(lagOpen.to)} 이후에 다시 확인하세요.`
+      : '이 달 결제분의 PG 정산이 아직 다 들어오지 않았습니다.',
   };
   return {
     revenue: revenueBook, expected, deposit_pg: pgUsed,
@@ -1970,7 +2005,9 @@ function reconcileMonth(revenueBook: number, dep: MonthDeposits, lagPg: number |
     // ⚠️ reconcileReport 쪽 deposit_transfer 는 «성격 미확인만» 이다 — 같은 이름에
     //    확인된 자금이체(케이씨피M)까지 실으면 1-3 장 금지(화면 부활)가 되살아난다.
     deposit_b2b: dep.b2b, deposit_transfer: dep.transferUnknown, deposit_other: dep.other,
-    diff, diff_pct: Number(pct.toFixed(1)), verdict, message: MSG[verdict],
+    // ⏳ 구간이 열려 있으면 비율은 뜻이 없다(들어온 일부로 나눠 수백 % 로 부푼다) → null
+    diff, diff_pct: verdict === 'pending' ? null : Number(pct.toFixed(1)), verdict, message: MSG[verdict],
+    lag_window: lagOpen ? { from: lagOpen.from, to: prevDay(lagOpen.to), last_bank: lagOpen.last_bank } : null,
     /* ⚠️ 확인이 끝난 내부 자금이체는 안내하지 않는다(2026-08-18 사장님 지시 — 설명이
        오히려 혼동을 준다). 아직 «모르는» 입금만 묻는다. */
     /* ⛔ 대사 배너는 타계좌 입금을 더 이상 안내하지 않는다 — 확인된 자금이체도(2026-08-18),
