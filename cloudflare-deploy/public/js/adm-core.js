@@ -16300,8 +16300,15 @@ window.rebuildGlobalSearchIndex = function() {
   });
 
   // 메인: 리포트 종류별 fetch + render
-  window.openReport = async function(type){
-    const inputs = getInputs();
+  /* (2026-10-09) 보고서 창 안에서 다른 분기를 고르면 그 창이 이 함수를 다시 부른다(override + targetWin).
+     새 창을 또 열지 않고 같은 창을 다시 채운다. 관리자 화면의 선택칸도 맞춰 둔다(다음에 열 때 같은 분기). */
+  window.openReport = async function(type, override, targetWin){
+    const inputs = Object.assign(getInputs(), override || {});
+    if (override) {
+      const yEl = document.getElementById('acc-rep-year'), qEl = document.getElementById('acc-rep-quarter');
+      if (yEl && override.year) yEl.value = String(override.year);
+      if (qEl && override.quarter) qEl.value = String(override.quarter);
+    }
     let url, csvUrl, title;
     switch(type){
       case 'monthly':
@@ -16338,7 +16345,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
 
     // 새 창 먼저 열기 (사용자 액션 컨텍스트 유지 — 팝업 차단 회피)
-    const win = window.open('', '_blank', 'width=1100,height=900,scrollbars=yes');
+    const win = (targetWin && !targetWin.closed) ? targetWin : window.open('', '_blank', 'width=1100,height=900,scrollbars=yes');
     if (!win) {
       alert('팝업이 차단되었습니다. 이 사이트의 팝업을 허용해 주세요.');
       return;
@@ -16432,6 +16439,12 @@ window.rebuildGlobalSearchIndex = function() {
         .toolbar .csv{background:#10b981;color:#fff}
         .toolbar .close{background:#6b7280;color:#fff}
         @media print{.toolbar{display:none}body{padding:0}}
+        .qpick{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 14px;padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px}
+        .qpick label{font-size:12px;font-weight:700;color:#9a3412;margin-right:4px}
+        .qpick select{padding:6px 8px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#111}
+        .qpick .qbtn{padding:6px 14px;font-size:13px;border:1px solid #fdba74;border-radius:6px;background:#fff;color:#9a3412;cursor:pointer;font-weight:600}
+        .qpick .qbtn.on{background:#fb923c;border-color:#fb923c;color:#fff}
+        @media print{.qpick{display:none}}
         .footer{margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center}
       </style>`;
     // 📊 엑셀 — 숫자가 «숫자» 로 들어가고 상세 내역이 시트로 나뉜다(CSV 는 한 장뿐)
@@ -16442,6 +16455,19 @@ window.rebuildGlobalSearchIndex = function() {
         <button class="csv" onclick="location.href='${csvUrl}'">📥 CSV</button>
         <button class="close" onclick="window.close()">✕ 닫기</button>
       </div>`;
+    /* 📅 분기 선택칸 (2026-10-09 사장님 「1분기·2분기·3분기 분기별로 볼 수 있는 선택칸」) —
+       이 창은 관리자 화면이 연 창이라 opener.openReport 로 같은 창을 다시 채운다.
+       opener 가 없으면(관리자 화면을 닫음) 지어내지 않고 사실대로 말한다. */
+    const qPicker = type !== 'quarterly' ? '' : (() => {
+      const nowY = Number(defaultYear()), curY = Number(d.year) || nowY, curQ = Number(d.quarter) || 1;
+      const years = []; for (let y = Math.max(nowY, curY); y >= Math.min(nowY - 3, curY); y--) years.push(y);
+      const yOpts = years.map(y => `<option value="${y}"${y === curY ? ' selected' : ''}>${y}년</option>`).join('');
+      const qBtns = [1,2,3,4].map(q => `<button type="button" class="qbtn${q === curQ ? ' on' : ''}" data-q="${q}" onclick="qGo(${q})">${q}분기</button>`).join('');
+      return `<div class="qpick"><label>기간</label><select id="qp-year" onchange="qGo(${curQ})">${yOpts}</select>${qBtns}</div>
+        <script>function qGo(q){var y=Number(document.getElementById('qp-year').value);
+          var o=window.opener;if(o&&!o.closed&&typeof o.openReport==='function'){var w=window;setTimeout(function(){o.openReport('quarterly',{year:y,quarter:q},w);},0);}
+          else{alert('관리자 화면이 닫혀 있어 다른 분기를 불러올 수 없습니다. 관리자 화면에서 다시 열어 주세요. / The admin page is closed — reopen the report from there.');}}<\/script>`;
+    })();
     const footer = `<div class="footer">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')} · 출처: webrtc-unified-platform</div>`;
 
     let body = '';
@@ -16452,7 +16478,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${qPicker}${body}${footer}
 </body></html>`;
   }
 
