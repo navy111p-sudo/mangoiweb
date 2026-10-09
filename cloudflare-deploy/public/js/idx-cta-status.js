@@ -78,6 +78,9 @@
 
   /* ── ① 수업 입장 — 아래 카드가 «이미 그려 놓은 것» 을 읽는다 ────────────── */
   function classSub() {
+    /* 🎌 (2026-10-09) 공휴일 휴강 — 서버(/api/student/today 의 holiday)가 «오늘 휴강으로 뺀 수업이 있다» 고
+       말했을 때만. 문구 이름은 서버 값(공휴일 이름)이다. 휴강이면 아래 카드도 안 그려지므로 이 줄이 이유를 말한다. */
+    if (todayState && todayState.hn) return L() ? ('🎌 오늘은 ' + todayState.hn + ' 휴강') : '🎌 Holiday — no class today';
     var c = document.getElementById('next-class-countdown');
     if (!shown(c)) return '';                       // 오늘 수업이 없거나 아직 안 그려짐 → 안 그린다
     if (c.querySelector('.ncc-card.ncc-live')) return L() ? '지금 입장할 수 있어요' : 'You can join now';
@@ -106,7 +109,7 @@
       if (!raw) return null;
       var o = JSON.parse(raw);
       if (!o || (Date.now() - (o.t || 0)) > CACHE_MS) return null;
-      return { dn: o.dn | 0, n: o.n | 0 };
+      return { dn: o.dn | 0, n: o.n | 0, hn: (typeof o.hn === 'string' && o.hn) ? o.hn.slice(0, 20) : '' };
     } catch (e) { return null; }
   }
 
@@ -127,9 +130,10 @@
            `d.ok === false` 로만 보면 그냥 통과한다(CLAUDE.md 「새 API 추가」 함정). */
         if (!d || d.ok !== true || !d.plan || !Array.isArray(d.plan.steps)) return;
         var n = d.plan.steps.length;
-        if (!n) return;                             // 계획이 없는 날 → 안 그린다
-        todayState = { dn: Math.max(0, Math.min(n, d.plan.doneCount | 0)), n: n };
-        try { sessionStorage.setItem(TODAY_CACHE, JSON.stringify({ t: Date.now(), dn: todayState.dn, n: n })); } catch (e) {}
+        var hn = (d.holiday && d.holiday.closed_count > 0) ? String(d.holiday.name || '공휴일').slice(0, 20) : '';
+        if (!n && !hn) return;                      // 계획이 없는 날 → 안 그린다
+        todayState = { dn: Math.max(0, Math.min(n, d.plan.doneCount | 0)), n: n, hn: hn };
+        try { sessionStorage.setItem(TODAY_CACHE, JSON.stringify({ t: Date.now(), dn: todayState.dn, n: n, hn: hn })); } catch (e) {}
         render();
       })
       .catch(function () { /* 모르면 그냥 안 그린다 */ });
