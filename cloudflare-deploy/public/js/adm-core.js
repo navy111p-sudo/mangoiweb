@@ -762,7 +762,9 @@ async function loadStudentRankings() {
       return `<tr>
         <td style="font-weight:700;text-align:center">${medal}</td>
         <td>${it.student_name
-              ? `<b style="color:#101828">${escName(it.student_name)}</b>`
+              ? `<b style="color:#101828">${escName(it.student_name)}</b>` + (it.student_name_basis === 'schedule'
+                  ? ` <span style="color:#b45309;font-size:11px" title="${adminLang==='en'?'No account on this connection — inferred from the class reservation of that room (it could be the teacher\u2019s screen)':'이 접속에는 계정이 없어 그 방 예약 학생으로 추정했습니다 (강사 화면일 수도 있음)'}">${adminLang==='en'?'(by booking)':'(예약 기준)'}</span>`
+                  : '')
               : `<span style="color:#667085" title="${adminLang==='en'?'Not found in the student roster (temporary device id or unregistered account)':'학생 명부에서 이름을 찾지 못했습니다 (접속 임시번호이거나 명부에 없는 계정)'}">—</span>`}</td>
         <td><a href="/admin/student?uid=${uidEnc}" target="_blank" style="color:#0984e3;text-decoration:none;border-bottom:1px dotted #0984e3">${escName(it.username)}</a></td>
         <td>${it.session_count}</td>
