@@ -29,6 +29,7 @@ import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start
 import { applyRoomOverrides } from './class-room-override';   // 🚪 「오늘은 이 방으로」 — 학생 쪽과 같은 답을 받는다
 import { loadHoldRanges, heldOnFor } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25) — 강사에게 «기다리지 말라» 를 알린다
 import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 
 interface TeacherEnv {
   DB: D1Database;
@@ -185,6 +186,7 @@ export async function handleTeacherApi(
   const pad = (n: number) => String(n).padStart(2, '0');
   const ymd = `${kY}${pad(kMo + 1)}${pad(kD)}`;
   const todayStr = `${kY}-${pad(kMo + 1)}-${pad(kD)}`;
+  const _holiday = await loadHolidayClosure(env.DB, todayStr);   // 🎌 공휴일 휴강(던지지 않음)
 
   // ── 담당 예약 조회 조건 ────────────────────────────────────────────────
   //   teacher_id 는 운영 DB 에서 TEXT("28") 이고, 계정 username 이 그대로 들어간 행도 있다.
@@ -543,6 +545,9 @@ export async function handleTeacherApi(
       const dur = Number(s.duration_min) || 30;
       const end_ts = start_ts + dur * 60000;
       const _kind = classKindOf(s);
+      /* 🎌 (2026-10-09) 공휴일 휴강 — 학생 쪽(sessions/today)은 이 수업을 아예 안 보낸다. 강사 화면은
+         «연기된 수업» 과 같은 줄(입장 버튼 없음)로 그리고 holiday_name 으로 이유를 말한다. 중국어 수업(예외 강사)은 그대로. */
+      const _holidayOff = !_cancelled && !_postponed && isHolidayClosedFor(_holiday, s.teacher_id);
       // 레벨테스트는 학생 창(30분)과 **최소 동시**로 열어야 한다. 위 상수 주석 참고.
       const open_at_ts = start_ts - (_kind === 'level_test' ? OPEN_BEFORE_LEVELTEST : OPEN_BEFORE);
       const close_at_ts = end_ts + LATE_AFTER;
@@ -613,12 +618,14 @@ export async function handleTeacherApi(
            들어가 기다렸다(class-1931 Farrah). teacher.html 은 이 줄에 입장 버튼 대신
            «기다리지 않아도 됩니다» 를 그린다. */
         class_state: _cancelled ? 'cancelled'
-                   : _postponed ? 'postponed'
+                   : (_postponed || _holidayOff) ? 'postponed'
                    : (status === 'live' ? 'ongoing'
                    : (status === 'done' ? 'done' : 'scheduled')),
-        join_open: !_postponed && now >= open_at_ts && now <= close_at_ts,
+        join_open: !_postponed && !_holidayOff && now >= open_at_ts && now <= close_at_ts,
+        holiday_name: _holidayOff ? (_holiday.name || '공휴일') : null,
+        holiday_msg: _holidayOff ? holidayClosedMsg(_holiday.name) : null,
         // ⚠️ join_open 은 «수업 시간인가» 다. «들어갈 수 있나» 는 이 값 — 둘을 섞지 말 것.
-        can_enter: !_postponed && now >= enterFromTs && now <= enterUntilTs,
+        can_enter: !_postponed && !_holidayOff && now >= enterFromTs && now <= enterUntilTs,
       });
     }
 

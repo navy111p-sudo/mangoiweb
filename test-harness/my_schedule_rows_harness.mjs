@@ -99,7 +99,7 @@ console.log('▶ my_schedule_rows_harness — 홈 «내 수업» 카드 세로 �
   const fakeC = { querySelector: sel => sel === '.ncc-card.ncc-live' ? null : (sel === '.ncc-sub' ? firstOf(r.html, 'ncc-sub') : null) };
   const fakeDoc = { getElementById: id => id === 'next-class-countdown' ? fakeC : null };
   let sub = null;
-  try { sub = new Function('document', 'shown', 'L', 'return (function(){' + (m ? m[1] : 'return null;') + '})();')(fakeDoc, () => true, () => true); }
+  try { sub = new Function('document', 'shown', 'L', 'todayState', 'return (function(){' + (m ? m[1] : 'return null;') + '})();')(fakeDoc, () => true, () => true, null); }   // todayState=null = 공휴일 휴강 아님(2026-10-09)
   catch (e) { sub = 'ERR:' + e.message; }
   ok(typeof sub === 'string' && /^다음 수업: 9\/15\(화\) 오후 7:20 · 강선생님/.test(sub), '⑦ 버튼 줄이 「다음 수업: 9/15(화) 오후 7:20 · 강선생님」이다', sub);
   ok(!/강사 \d+명/.test(String(sub)), '⑦ 버튼 줄에 「강사 N명」이 올라가지 않는다(2026-09-14 회귀)', sub);

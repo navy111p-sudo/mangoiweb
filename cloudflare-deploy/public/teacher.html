@@ -1809,6 +1809,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     function stPill(c, live, done, open){
       var st = c.class_state;
       if (st === 'cancelled') return ' <span class="pill p-cancel">' + esc(T('Cancelled','취소됨')) + '</span>';
+      if (st === 'postponed' && c.holiday_name) return ' <span class="pill p-postponed">' + esc(T('Holiday','공휴일 휴강')) + '</span>';   // 🎌 2026-10-09
       if (st === 'postponed') return ' <span class="pill p-postponed">' + esc(T('Postponed','연기됨')) + '</span>';
       if (st === 'no_show'){
         var who = c.no_show_role === 'teacher' ? T('teacher','강사')
@@ -1937,8 +1938,12 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
           +     '<div class="cls-name">' + stuLabelHtml(c, T('(name not set)','(이름 미등록)'))
           +       stPill(c, live, done, open)
           +     '</div>'
-          +     '<div class="cls-meta"><b class="cls-pnote">' + esc(T('This class was postponed — no need to wait in the room. A new date will be set later.',
-                                                    '연기된 수업입니다 — 방에서 기다리지 않아도 됩니다. 새 날짜는 나중에 잡힙니다.')) + ' &middot; </b>'
+          +     '<div class="cls-meta"><b class="cls-pnote">' + esc(c.holiday_name
+                  /* 🎌 (2026-10-09) 공휴일 휴강 — 서버가 holiday_name 을 실었을 때만. 학생에게도 입장 안내가 안 갑니다. */
+                  ? T('Korean public holiday (' + c.holiday_name + ') — no class today. No need to wait in the room.',
+                      '공휴일(' + c.holiday_name + ') 휴강입니다 — 방에서 기다리지 않아도 됩니다.')
+                  : T('This class was postponed — no need to wait in the room. A new date will be set later.',
+                      '연기된 수업입니다 — 방에서 기다리지 않아도 됩니다. 새 날짜는 나중에 잡힙니다.')) + ' &middot; </b>'
           +       c.duration_min + T(' min', '분') + '</div>'
           +   '</div>'
           +   sboxHtml(c, 'post')
