@@ -1,5 +1,5 @@
 import { WEEKLY_POSTPONE, readWeeklyPostponePlan } from './weekly-postpone';
-import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
+import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg, holidayEntryAlert } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { autoApproveStudentPostpone } from './student-auto-postpone';  // ⏩ 학생 무료 연기 자동 승인(2026-10-06)
 import { requireRoomJwtSecret } from './room-jwt-secret';
 import { ensureStudentEvaluationDetailSchema, readStudentAdminEvaluations } from './evaluation-records';
@@ -2067,7 +2067,7 @@ export async function handleMangoApi(
       // matched_by: 'uid'=계정 ID 로 찾음(가장 안전) · 'name'=이름 폴백(계정 연결 어긋남 → 운영에서 고쳐야 할 대상)
       // 🎌 holiday: 오늘 휴강으로 가린 수업이 있을 때만 싣는다(화면이 안내 한 줄을 그린다). 이름·문구는 서버가 만든다.
       const holidayInfo = (holiday.closed && holidaySkipped > 0)
-        ? { name: holiday.name, closed_count: holidaySkipped, msg: holidayClosedMsg(holiday.name) } : null;
+        ? { name: holiday.name, closed_count: holidaySkipped, msg: holidayClosedMsg(holiday.name), alert: holidayEntryAlert(holiday.name) } : null;
       return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current, matched_by: matchedBy, student_gate: studentGate, net_relay: netRelay, holiday: holidayInfo });
     }
 
