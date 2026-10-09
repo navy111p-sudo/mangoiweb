@@ -16466,10 +16466,11 @@ window.rebuildGlobalSearchIndex = function() {
     /* 📅 분기 선택칸 (2026-10-09 사장님 「1분기·2분기·3분기 분기별로 볼 수 있는 선택칸」) —
        이 창은 관리자 화면이 연 창이라 opener.openReport 로 같은 창을 다시 채운다.
        opener 가 없으면(관리자 화면을 닫음) 지어내지 않고 사실대로 말한다. */
-    const qPicker = (type !== 'quarterly' && type !== 'annual' && type !== 'monthly' && type !== 'franchise') ? '' : (() => {
+    const qPicker = (type !== 'quarterly' && type !== 'annual' && type !== 'monthly' && type !== 'franchise' && type !== 'payslips' && type !== 'kpi') ? '' : (() => {
       /* 월간(2026-10-09 사장님 「월간 회계 리포트도 년월 선택칸」)은 년도 + 1~12월, 분기는 년도 + 1~4분기, 연간은 년도만 */
       /* 가맹점별 정산서(2026-10-09 사장님 「가맹점별 정산서도 년월 선택칸」)도 월간과 같은 년도+1~12월 */
-      const isQ = type === 'quarterly', isM = type === 'monthly' || type === 'franchise';
+      /* 강사별 급여명세서·경영지표 KPI(2026-10-09 사장님 「급여명세서랑 경영지표도 년월 선택칸」)도 같은 년도+1~12월 — 둘 다 서버가 period=YYYY-MM 을 돌려준다 */
+      const isQ = type === 'quarterly', isM = type === 'monthly' || type === 'franchise' || type === 'payslips' || type === 'kpi';
       const pm = isM ? /^(\d{4})-(\d{2})$/.exec(String(d.period || '')) : null;
       const nowY = Number(defaultYear()), curY = (pm ? Number(pm[1]) : Number(d.year)) || nowY;
       const curQ = Number(d.quarter) || 1, curM = pm ? Number(pm[2]) : 1;

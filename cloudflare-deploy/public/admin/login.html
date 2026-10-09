@@ -483,6 +483,16 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
       }
     };
 
+    /* 🌐 (2026-10-09) 영어 화면에서도 이 버튼만 한국어로 남았다 — 공용 i18n 사전(i18n-sweep)은
+       버튼 안 줄바꿈·공백 때문에 «전체 문자열 일치» 가 안 걸렸다. 사전(42개 화면 공용)을 고치지 않고
+       여기서 언어를 보고 직접 쓴다. 판정은 i18n-sweep 의 lang() 과 같은 순서. */
+    var EN = (function () {
+      try { if (window.getLang) return window.getLang() === 'en'; } catch (e) {}
+      try { var l = localStorage.getItem('mangoi_lang'); if (l) return l === 'en'; } catch (e) {}
+      return document.documentElement.lang === 'en';
+    })();
+    var T = function (ko, en) { return EN ? en : ko; };
+    btn.textContent = T('😊 지문 · Face ID 로 로그인', '😊 Sign in with fingerprint · Face ID');
     btn.style.display = 'block';
     btn.addEventListener('click', async function () {
       var err = document.getElementById('errMsg');
@@ -490,7 +500,7 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
       err.classList.remove('show');
       btn.disabled = true;
       var label0 = btn.textContent;
-      btn.textContent = '🔄 기기에 확인 중...';
+      btn.textContent = T('🔄 기기에 확인 중...', '🔄 Checking your device...');
       try {
         var r1 = await fetch('/api/passkey/login/options', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
@@ -528,24 +538,25 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
         });
         var d2 = await r2.json().catch(function () { return null; });
         if (r2.ok && d2 && d2.ok === true) {
-          btn.textContent = '✅ 로그인 성공!';
+          btn.textContent = T('✅ 로그인 성공!', '✅ Signed in!');
           /* 비밀번호 로그인과 **같은 함수** — 세션 저장·언어·첫 화면이 어긋날 수 없다 */
           await onAdminLoginSuccess(d2, d2.username || uid, btn, err);
           return;
         }
-        var msg = (d2 && (d2.message || d2.error)) || '기기 인증에 실패했어요.';
-        err.textContent = '❌ ' + msg + ' 아이디·비밀번호로 로그인해 주세요.';
+        /* EN 에서는 서버의 한국어 message 를 쓰지 않는다 — message_en 이 있을 때만 */
+        var msg = (d2 && (EN ? d2.message_en : (d2.message || d2.error))) || T('기기 인증에 실패했어요.', 'Device check failed.');
+        err.textContent = '❌ ' + msg + T(' 아이디·비밀번호로 로그인해 주세요.', ' Please sign in with your ID and password.');
         err.classList.add('show');
       } catch (e) {
         /* 사용자가 취소한 것도 여기로 온다 — «실패» 라고 겁주지 않는다 */
         var nm = (e && (e.name || e.message)) || '';
         err.textContent = (nm === 'NotAllowedError' || nm === 'cancelled')
-          ? 'ℹ️ 기기 인증이 취소됐어요. 아이디·비밀번호로도 로그인할 수 있어요.'
-          : '❌ 이 기기에 등록된 관리자 지문·Face ID 가 없어요. 아이디·비밀번호로 로그인한 뒤 등록해 주세요.';
+          ? T('ℹ️ 기기 인증이 취소됐어요. 아이디·비밀번호로도 로그인할 수 있어요.', 'ℹ️ The device check was cancelled. You can also sign in with your ID and password.')
+          : T('❌ 이 기기에 등록된 관리자 지문·Face ID 가 없어요. 아이디·비밀번호로 로그인한 뒤 등록해 주세요.', '❌ No admin fingerprint or Face ID is registered on this device. Sign in with your ID and password, then register it.');
         err.classList.add('show');
       } finally {
         btn.disabled = false;
-        if (btn.textContent !== '✅ 로그인 성공!') btn.textContent = label0;
+        if (btn.textContent !== T('✅ 로그인 성공!', '✅ Signed in!')) btn.textContent = label0;
       }
     });
   })();
