@@ -260,6 +260,16 @@ async function featOne(vp) {
   const spds = []; for (let k = 0; k < 4; k++) { await ev(`document.getElementById('spdBtn').click()`); spds.push(await ev(`[window.__aiClass.speed,document.getElementById('spdBtn').textContent]`)); }
   ok(JSON.stringify(spds.map(x => x[0])) === '[1.15,0.75,0.9,1]', `${tag}: speed cycle ${JSON.stringify(spds)}`);
   ok(/빠르게/.test(spds[0][1]) && /아주 천천히/.test(spds[1][1]) && /보통/.test(spds[3][1]), `${tag}: speed label ${JSON.stringify(spds)}`);
+  // ①-b 선생님 칸의 속도 버튼 4개(2026-10-09): 보이고·맨 위이고·누르면 그 값이 되고·위쪽 알약과 같은 말을 한다
+  const ts = await ev(`(()=>{const ov=document.getElementById('startOv'),was=ov.hidden;ov.hidden=true;const out=[];const bs=[...document.querySelectorAll('#tSpd button')];bs.forEach(b=>{b.scrollIntoView({block:'nearest'});const top=__probe.top(b),r=b.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2),at=hit?hit.tagName+'#'+hit.id+'.'+hit.className:'none';b.click();out.push({sp:window.__aiClass.speed,on:b.classList.contains('on'),ons:document.querySelectorAll('#tSpd button.on').length,pill:document.getElementById('spdBtn').textContent,top,at,w:Math.round(r.width),h:Math.round(r.height)});});ov.hidden=was;return out})()`);
+  ok(ts.length === 4 && JSON.stringify(ts.map(x => x.sp)) === '[0.75,0.9,1,1.15]', `${tag}: teacher-tile speed buttons ${JSON.stringify(ts)}`);
+  ok(ts.every(x => x.on && x.ons === 1 && x.top), `${tag}: teacher-tile speed not on/top ${JSON.stringify(ts)}`);
+  ok(/아주 천천히/.test(ts[0].pill) && /빠르게/.test(ts[3].pill), `${tag}: pill not synced with tile buttons ${JSON.stringify(ts.map(x => x.pill))}`);
+  ok(await ev(`(()=>{const t=document.getElementById('tTile').getBoundingClientRect(),c=document.getElementById('tSpd').getBoundingClientRect();return c.left>=t.left-1&&c.right<=t.right+1&&c.top>=t.top-1})()`), `${tag}: teacher-tile speed overflows tile`);
+  // ①-c 교재 레벨 배지(8단계 중 몇 단계): 보이고, 칸 8개 중 그 단계만큼 칠해지고, 제목칸을 넘지 않는다
+  const lvb = await ev(`(()=>{const e=document.getElementById('bookLv'),h=document.querySelector('.bhead').getBoundingClientRect(),r=e.getBoundingClientRect();return {hidden:e.hidden,txt:e.textContent,on:e.querySelectorAll('.dots i.on').length,all:e.querySelectorAll('.dots i').length,inside:r.right<=h.right+1&&r.width>0,vis:__probe.vis(e)}})()`);
+  ok(!lvb.hidden && /1\/8단계/.test(lvb.txt) && lvb.on === 1 && lvb.all === 8 && lvb.inside && lvb.vis > 0.9, `${tag}: book level badge ${JSON.stringify(lvb)}`);
+  await ev(`document.getElementById('tSpd').querySelector('[data-spd="2"]').click()`);   // 보통으로 되돌린 뒤 아래 알약 시험
   await ev(`document.getElementById('spdBtn').click()`); await ev(`document.getElementById('spdBtn').click()`);   // 0.75
   await go(vp, '&keep=1', '');
   ok(await ev(`window.__aiClass.speed`) === 0.75 && /아주 천천히/.test(await ev(`document.getElementById('spdBtn').textContent`)), `${tag}: speed not remembered`);
