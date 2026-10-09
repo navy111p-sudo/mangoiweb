@@ -15976,6 +15976,9 @@ window.rebuildGlobalSearchIndex = function() {
       warn:    ['#92400e', '#fffbeb', '#fcd34d', '⚠️ 장부와 통장이 조금 어긋납니다'],
       alert:   ['#991b1b', '#fef2f2', '#fca5a5', '🚨 장부와 통장이 크게 어긋납니다'],
       no_data: ['#374151', '#f9fafb', '#d1d5db', 'ℹ️ 이 달은 통장 자료가 없습니다'],
+      // ⏳ 2026-10-09 — 입금 구간이 아직 안 끝난 달. 들어온 일부를 전체와 견주면 늘 «크게 모자람» 이라
+      //    판정하지 않는다(서버 reconcileMonth 가 정함). 경고색이 아니라 안내색.
+      pending: ['#1e40af', '#eff6ff', '#93c5fd', '⏳ PG 정산 입금을 기다리는 중입니다 — 아직 판정하지 않습니다'],
     }[rec.verdict] || null;
     if (!V) return '';
     /* 기준은 통장이다(2026-08-18) — 실제로 들어온 「케이씨피」 정산금을 먼저 말하고,
@@ -15984,7 +15987,9 @@ window.rebuildGlobalSearchIndex = function() {
       `<div style="margin-top:6px;font-size:12px;color:#374151">
         통장에 들어온 「케이씨피」 정산금 <b>${fmtKRW(rec.deposit_pg)}</b>${rec.lag_days ? `<span style="color:#1e3a8a"> (이 달 결제분이 ${rec.lag_days}일 뒤 들어온 구간 기준 — 같은 달 통장에 찍힌 금액은 ${fmtKRW(rec.deposit_pg_same_month)})</span>` : ''} → 수수료 ${window.pgFeeRateLabel()}를 되돌린 통장 기준 매출 <b>${rec.bank_revenue == null ? '—' : fmtKRW(rec.bank_revenue)}</b> ·
         장부 매출(KCP 정산 대상) <b>${fmtKRW(rec.revenue)}</b> → 예상 입금 <b>${fmtKRW(rec.expected)}</b>
-        (차이 ${rec.diff == null ? '—' : fmtKRW(rec.diff)}, 통장 기준 ${rec.diff_pct}%)
+        ${rec.verdict === 'pending'
+          ? `· 지금까지 들어온 것은 일부라 차이·비율을 내지 않습니다`
+          : `(차이 ${rec.diff == null ? '—' : fmtKRW(rec.diff)}, 통장 기준 ${rec.diff_pct}%)`}
       </div>`;
     const extra = [rec.transfer_note, rec.b2b_note].filter(Boolean)
       .map(t => `<div style="margin-top:6px;font-size:12px;color:#374151">· ${esc(t)}</div>`).join('');
@@ -16450,7 +16455,13 @@ window.rebuildGlobalSearchIndex = function() {
     const headline = `이번 달 매출 <b>${fmtKRW(p.revenue)}</b>, 쓴 돈 <b>${fmtKRW(p.cost)}</b>, `
       + (p.confident
           ? `남은 돈 <b>${fmtKRW(p.net_income)}</b> (이익률 ${p.margin_pct}%) 입니다.`
-          : `계산상 <b>${fmtKRW(p.net_income)}</b> 이지만 <b>장부와 통장이 어긋나 확정 숫자가 아닙니다.</b>`);
+          : `계산상 <b>${fmtKRW(p.net_income)}</b> 이지만 <b>${
+              d.reconcile && d.reconcile.verdict === 'pending'
+                ? 'PG 정산 입금이 아직 다 안 들어와'
+                : (d.reconcile && (d.reconcile.verdict === 'warn' || d.reconcile.verdict === 'alert'))
+                  ? '장부와 통장이 어긋나'
+                  : '비용 자료가 온전하지 않아'
+            } 확정 숫자가 아닙니다.</b>`);
     return `
       <h1>📅 월간 회계 리포트</h1>
       <div class="meta">${d.label}</div>
