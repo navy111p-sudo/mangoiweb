@@ -206,20 +206,25 @@ select.pill{max-width:min(100%,280px)}
   .bhead,.bnav{padding:3px 8px}
   .bl{font-size:14px;padding:3px 6px} .bl.word{font-size:16px} .bl.read{font-size:11px}
 }
-/* PC 큰 화면(2026-10-09 사장님 «PC에 적합하게 크게»): 머리글을 한 줄로 줄여 교실을 위로 올리고, 화면이 넉넉하면
-   교실 전체를 비율 그대로 키운다(--z, CSS zoom). ⛔ 칸 높이를 화면 높이로 고정하지 말 것 — 오른쪽 칸 내용이 넘쳐 아래 버튼줄을 덮는다(실측) */
+/* PC 큰 화면(2026-10-09 사장님 «PC에 적합하게 크게» → «더 크게»): 머리글을 한 줄로 줄이고, 교실 전체를 비율 그대로
+   키운 뒤(--z, CSS zoom) 교재·선생님 칸 높이를 «화면 높이» 에 맞춘다(--z 로 나눠야 확대 뒤 화면에 딱 맞음).
+   오른쪽 칸은 넘치면 «그 칸 안에서» 굴린다 — 그냥 두면 아래 버튼줄을 덮는다(실측). 폰·낮은 창은 그대로 */
 @media (min-width:1100px) and (min-height:700px){
   body{padding-block:12px 16px}
   .wrap{--z:1;zoom:var(--z);gap:10px}
   header.top{flex-direction:row;align-items:center;justify-content:space-between}
   section[aria-label="수업"]{gap:8px}
   section[aria-label="수업"] > p.muted{max-width:none;font-size:13px;line-height:1.4}
+  .stage{min-height:0;height:max(420px,calc(100svh / var(--z) - 345px))}
+  .side{min-height:0;overflow-y:auto}
+  .tile.t{min-height:160px}
+  .page{width:100%;height:100%;aspect-ratio:auto}
 }
-/* 키우는 정도 — 교실 높이(배율 1 에서 약 1,100px)가 «화면 안에 다 들어오는» 만큼만. 폭과 높이 둘 다 볼 것 */
-@media (min-width:1500px) and (min-height:1260px){.wrap{--z:1.15}}
-@media (min-width:1700px) and (min-height:1430px){.wrap{--z:1.3}}
-@media (min-width:1950px) and (min-height:1650px){.wrap{--z:1.5}}
-@media (min-width:2300px) and (min-height:1980px){.wrap{--z:1.8}}
+/* 키우는 정도 — 폭이 넓을수록 크게. 칸 높이가 420 밑으로 줄지 않을 만큼 화면이 높을 때만(약 760×배율) */
+@media (min-width:1400px) and (min-height:912px){.wrap{--z:1.2}}
+@media (min-width:1700px) and (min-height:1064px){.wrap{--z:1.4}}
+@media (min-width:2100px) and (min-height:1292px){.wrap{--z:1.7}}
+@media (min-width:2600px) and (min-height:1520px){.wrap{--z:2}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .top .home{margin-left:auto;color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:6px 12px;background:var(--paper);font-size:14px}
