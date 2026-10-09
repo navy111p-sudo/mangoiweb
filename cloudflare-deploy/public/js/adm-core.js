@@ -16458,15 +16458,17 @@ window.rebuildGlobalSearchIndex = function() {
     /* 📅 분기 선택칸 (2026-10-09 사장님 「1분기·2분기·3분기 분기별로 볼 수 있는 선택칸」) —
        이 창은 관리자 화면이 연 창이라 opener.openReport 로 같은 창을 다시 채운다.
        opener 가 없으면(관리자 화면을 닫음) 지어내지 않고 사실대로 말한다. */
-    const qPicker = type !== 'quarterly' ? '' : (() => {
+    const qPicker = (type !== 'quarterly' && type !== 'annual') ? '' : (() => {
       const nowY = Number(defaultYear()), curY = Number(d.year) || nowY, curQ = Number(d.quarter) || 1;
       const years = []; for (let y = Math.max(nowY, curY); y >= Math.min(nowY - 3, curY); y--) years.push(y);
       const yOpts = years.map(y => `<option value="${y}"${y === curY ? ' selected' : ''}>${y}년</option>`).join('');
-      const qBtns = [1,2,3,4].map(q => `<button type="button" class="qbtn${q === curQ ? ' on' : ''}" data-q="${q}" onclick="qGo(${q})">${q}분기</button>`).join('');
-      return `<div class="qpick"><label>기간</label><select id="qp-year" onchange="qGo(${curQ})">${yOpts}</select>${qBtns}</div>
+      /* 연간 결산(2026-10-09 사장님 「연간 결산도 년도 선택칸」)은 년도만 고른다 — 분기 버튼 없음 */
+      const isQ = type === 'quarterly';
+      const qBtns = !isQ ? '' : [1,2,3,4].map(q => `<button type="button" class="qbtn${q === curQ ? ' on' : ''}" data-q="${q}" onclick="qGo(${q})">${q}분기</button>`).join('');
+      return `<div class="qpick"><label>기간</label><select id="qp-year" onchange="qGo(${isQ ? curQ : 0})">${yOpts}</select>${qBtns}</div>
         <script>function qGo(q){var y=Number(document.getElementById('qp-year').value);
-          var o=window.opener;if(o&&!o.closed&&typeof o.openReport==='function'){var w=window;setTimeout(function(){o.openReport('quarterly',{year:y,quarter:q},w);},0);}
-          else{alert('관리자 화면이 닫혀 있어 다른 분기를 불러올 수 없습니다. 관리자 화면에서 다시 열어 주세요. / The admin page is closed — reopen the report from there.');}}<\/script>`;
+          var o=window.opener;if(o&&!o.closed&&typeof o.openReport==='function'){var w=window;setTimeout(function(){o.openReport('${type}',q?{year:y,quarter:q}:{year:y},w);},0);}
+          else{alert('관리자 화면이 닫혀 있어 다른 기간을 불러올 수 없습니다. 관리자 화면에서 다시 열어 주세요. / The admin page is closed — reopen the report from there.');}}<\/script>`;
     })();
     const footer = `<div class="footer">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')} · 출처: webrtc-unified-platform</div>`;
 
