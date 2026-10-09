@@ -28,10 +28,10 @@ export async function seedGiftCatalog(env: { DB: D1Database }): Promise<number> 
     ['🥭 망고아이','수업료 전환 (5,000원)','tuition',5000,5000,5,'모은 포인트로 다음 수업료 즉시 차감','/img/Mangoi_Character.png'],
     ['메가커피','아메리카노 (ICE)','cafe',1500,1500,10,'가성비 1위, 시원한 한 잔','/img/gifts/megacoffee-photo.webp'],
     ['배스킨라빈스','파인트 (1개)','cafe',9800,9800,20,'취향대로 골라먹는 31','/img/gifts/baskinrobbins-photo.webp'],
-    ['배달의민족','e쿠폰 5,000원','food',5000,5000,25,'배달 음식 주문 시 즉시 차감','/img/gifts/baemin.svg'],
+    ['배달의민족','e쿠폰 5,000원','food',5000,5000,25,'배달 음식 주문 시 즉시 차감','/img/gifts/baemin-photo.webp'],
     ['CGV','영화 1매 (전 지점)','movie',14000,14000,40,'평일 일반관 1회 사용','/img/gifts/cgv-photo.webp'],
     ['교보문고','도서상품권 5,000원','book',5000,5000,50,'온/오프라인 사용 가능','/img/gifts/kyobo-photo.webp'],
-    ['컬쳐랜드','문화상품권 5,000원','voucher',5000,5000,55,'쿠팡·게임·도서·OTT 등 어디든','/img/gifts/cultureland.svg'],
+    ['컬쳐랜드','문화상품권 5,000원','voucher',5000,5000,55,'쿠팡·게임·도서·OTT 등 어디든','/img/gifts/cultureland-photo.webp'],
     ['GS25','편의점 금액권 5,000원','voucher',5000,5000,60,'전국 GS25에서 사용','/img/gifts/gs25-5000-photo.webp'],
   ];
   let n = 0;
