@@ -2259,6 +2259,7 @@ async function vcJoinMyClass() {
         var current = d && d.current;
         if (d) window.__vcRelayAlways = !!d.net_relay;
         if (!sessions.length) {
+            if (d.holiday && d.holiday.alert) { alert(d.holiday.alert); return; }
             alert('오늘 예약된 수업이 없어요. 🗓️\n예약이 있는데도 안 보이면 아래 "방 코드 직접 입력"으로 입장해 주세요.');
             return;
         }
@@ -2739,6 +2740,7 @@ async function vcJoinRoom(skipUI) {
                 수강생이라 여기서 막으면 그 학생들이 수업에 못 들어간다(위 주석과 같은 사정). */
           console.log('[vc] student_gate=off → 예전 폴백 유지(공용방, 학생에게는 안내 배너)');
           window.__vcSharedRoomNotice = 'student';
+          window.__vcHolidayMsg = _jd.holiday && _jd.holiday.alert;
         } else {
           // ── 학생: 공용방 폴백 금지 (게이트 켜짐) ──
           var _early = _jss.filter(function (s) { return s.status === 'early'; })
@@ -2753,6 +2755,8 @@ async function vcJoinRoom(skipUI) {
             alert('오늘 수업은 이미 끝났어요. ⏹\n그래도 들어가야 한다면 매니저에게 방 번호를 받아 아래에 입력해 주세요.\n\n'
               + "Today's class has already ended.\nIf you still need to join, ask your manager for the room code and enter it below.");
             _stopJoin = true;
+          } else if (_jd.holiday && _jd.holiday.alert) {
+            alert(_jd.holiday.alert); _stopJoin = true;
           } else {
             alert('오늘 예약된 수업이 없어요. 🗓️\n예약이 있는데도 이렇게 나오면, 매니저에게 방 번호를 받아 아래에 입력해 주세요.\n\n'
               + 'You have no class booked for today.\nIf you believe this is wrong, ask your manager for the room code and enter it below.');
@@ -2906,8 +2910,10 @@ async function vcJoinRoom(skipUI) {
           _tag.style.cssText = 'font-size:11.5px;font-weight:700;color:#fbbf24;margin-left:6px';
           _nm.parentNode.insertBefore(_tag, _nm.nextSibling);
         }
+        var _hm = window.__vcHolidayMsg; window.__vcHolidayMsg = '';
         setTimeout(function(){
-          if (_sharedWho === 'student') {
+          if (_hm) alert(_hm + '\n\n(지금 들어온 곳은 공용 연습방이에요 · This is a shared practice room)');
+          else if (_sharedWho === 'student') {
             alert(_en0
               ? "You don't have a class booked for today, so you entered a SHARED practice room — not your real classroom.\n\nOther students/teachers may also be here. Please don't start a lesson here. Check the home screen for your class days/times, and use \"Enter My Class\" when it's actually time."
               : '오늘 예약된 수업이 없어서, 실제 수업방이 아닌 "공용 연습방"으로 들어왔어요.\n\n다른 학생·강사도 이 방에 있을 수 있어요. 여기서 수업을 진행하지 마세요.\n홈 화면에서 내 수업 요일·시간을 확인하고, 수업 시간이 되면 "오늘 내 수업 바로 입장"을 이용해 주세요.');

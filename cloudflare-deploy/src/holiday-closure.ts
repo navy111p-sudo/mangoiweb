@@ -91,3 +91,10 @@ export function holidayClosedMsg(name: string | null): string {
   const n = name || '공휴일';
   return `🎌 오늘은 ${n} 휴강입니다 · Holiday — no class today`;
 }
+
+/** 휴강일에 학생이 «입장» 을 눌렀을 때 띄울 안내(한/영 병기). ⛔ 화면에 문장을 복제하지 말 것 — 이 함수가 정본. */
+export function holidayEntryAlert(name: string | null): string {
+  const n = name || '공휴일';
+  return `🎌 오늘은 ${n}이라 수업이 쉬어요.\n다음 수업일에 만나요! 수업 일정은 홈의 «내 수업» 에서 확인할 수 있어요.\n\n`
+    + `Today is a holiday (${n}), so there is no class.\nSee you at your next class! Check «My classes» on the home screen for your schedule.`;
+}

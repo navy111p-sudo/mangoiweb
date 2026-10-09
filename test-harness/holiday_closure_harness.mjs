@@ -56,6 +56,7 @@ const bad = await H.loadHolidayClosure(d1(db, true), '2026-10-09'); H.clearHolid
 out.failOpen = { closed: bad.closed, en: H.isHolidayClosedFor(bad, '7') };
 out.nul = H.isHolidayClosedFor(null, '7');
 out.msg = H.holidayClosedMsg('한글날');
+out.alert = H.holidayEntryAlert('한글날'); out.alertNull = H.holidayEntryAlert(null);
 console.log(JSON.stringify(out));
 `);
 const r = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', join(tmp, 'run.mjs')], { encoding: 'utf8' });
@@ -117,6 +118,51 @@ for (const [f, n] of [['src/lesson-reminder.ts', 2], ['src/absent-sweep.ts', 1]]
   const t = rd('src/enroll-ops.ts');
   ok('관리: 모르는 action 은 거절', /error: 'unknown_action'/.test(t));
   ok('관리: 기본 예외(29)는 못 뺀다', /error: 'fixed_default'/.test(t));
+}
+
+// ── ⑦ (2026-10-09 후속) 휴강일 «입장» 안내 — «예약된 수업이 없어요» 대신 공휴일 안내 ─────────────
+console.log('\n⑦ 휴강일 입장 안내');
+if (o) {
+  ok('안내에 공휴일 이름이 한/영 둘 다 들어간다', (o.alert.match(/한글날/g) || []).length === 2 && /holiday/i.test(o.alert) && /쉬어요/.test(o.alert));
+  ok('이름을 모르면 «공휴일» 로', /오늘은 공휴일이라/.test(o.alertNull));
+  ok('안내가 «예약된 수업이 없어요» 라고 하지 않는다', !/예약된 수업이 없/.test(o.alert));
+}
+{
+  const t = rd('src/api-mango.ts');
+  ok('서버: sessions/today 의 holiday 에 alert 를 싣는다', /alert: holidayEntryAlert\(holiday\.name\)/.test(t));
+}
+{
+  // vcJoinMyClass 를 오려 내 가짜 fetch 로 «실제로» 돌린다 — 무슨 글자가 alert 되는가
+  const js = readFileSync(join(ROOT, 'cloudflare-deploy/public/js/idx-main.js'), 'utf8');
+  const i0 = js.indexOf('async function vcJoinMyClass()');
+  let body = '';
+  if (i0 >= 0) { let d = 0, j = js.indexOf('{', i0); for (let k = j; k < js.length; k++) { if (js[k] === '{') d++; else if (js[k] === '}') { d--; if (!d) { body = js.slice(i0, k + 1); break; } } } }
+  ok('전제: vcJoinMyClass 를 오려 냈다', body.length > 500);
+  const run = async (resp) => {
+    const shown = []; const entered = [];
+    try {
+      const f = new Function('window', 'document', 'fetch', 'alert', 'vcEnterResolvedRoom', 'vcShowClassGate', 'vcShowSessionPicker', 'vcIsTeacherRole', 'console',
+        body + '\nreturn vcJoinMyClass;');
+      const btn = { dataset: {}, textContent: '' };
+      const fn = f({ getCurrentUser: () => ({ uid: 'kim', name: '김', role: 'student' }) },
+        { getElementById: (id) => id === 'vc-join-myclass' ? btn : { value: '' } },
+        async () => ({ json: async () => resp }), (m) => shown.push(String(m)), () => entered.push(1), () => entered.push('g'), () => entered.push('p'), () => false, { warn() {}, log() {} });
+      await fn();
+    } catch (e) { shown.push('CRASH ' + e.message); }
+    return { shown, entered };
+  };
+  const hol = await run({ ok: true, sessions: [], current: null, holiday: { name: '한글날', closed_count: 2, alert: 'HOLIDAY-ALERT' } });
+  ok('휴강일: 공휴일 안내만 띄우고 입장 안 함', hol.shown.length === 1 && hol.shown[0] === 'HOLIDAY-ALERT' && !hol.entered.length, JSON.stringify(hol));
+  const none = await run({ ok: true, sessions: [], current: null, holiday: null });
+  ok('짝: 평일 수업 없음은 예전 문구 그대로', none.shown.length === 1 && /오늘 예약된 수업이 없어요/.test(none.shown[0]), JSON.stringify(none));
+  const live = await run({ ok: true, sessions: [{ status: 'live', room_id: 'class-1-20261009' }], current: { status: 'live', room_id: 'class-1-20261009' }, holiday: { name: '한글날', closed_count: 1, alert: 'HOLIDAY-ALERT' } });
+  ok('짝: 열린 수업(중국어)이 있으면 안내 없이 입장', !live.shown.length && live.entered.length === 1, JSON.stringify(live));
+  const lobby = js.slice(js.indexOf("var _jd = await fetch('/api/class/sessions/today?"), js.indexOf("var _jd = await fetch('/api/class/sessions/today?") + 6000);
+  ok('로비(게이트 켜짐): 휴강이면 공휴일 안내 후 멈춘다', /else if \(_jd\.holiday && _jd\.holiday\.alert\) \{\s*alert\(_jd\.holiday\.alert\); _stopJoin = true;/.test(lobby));
+  ok('로비(게이트 꺼짐): 공용방 안내를 공휴일 안내로 바꾼다', /window\.__vcHolidayMsg = _jd\.holiday && _jd\.holiday\.alert;/.test(lobby) && /if \(_hm\) alert\(_hm \+/.test(js));
+  const ix = readFileSync(join(ROOT, 'cloudflare-deploy/public/index.html'), 'utf8');
+  const th = readFileSync(join(ROOT, 'cloudflare-deploy/public/teacher.html'), 'utf8');
+  ok('idx-main.js ?v= 를 두 곳 다 올렸다', /idx-main\.js\?v=65/.test(ix) && /idx-main\.js\?v=65/.test(th));
 }
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
