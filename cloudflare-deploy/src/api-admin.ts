@@ -49,7 +49,7 @@ import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸�
 import { KCP_TRANSFER_CYPHER_RE, KCP_REVENUE_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 / 「케이씨피」 = 매출 인정 — 판정 정본
 import { c24ExpenseDrop, C24_HANGUL_CYPHER_RE, C24_LETTER_CYPHER_RE } from './c24-expense-filter';  // 🧾 카페24 지출결의 중 «우리 것이 아닌» 건(한글 결재·특정 결재라인) 제외 — 판정 정본
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance, ensureCenterOverrideTables, ensureFranchiseOverrideTable } from './cafe24-sync';
-import { buildMangoiClassesNow, mergeClassesNow, dropHolidayClosed, EXEMPT_BY_NAME, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
+import { buildMangoiClassesNow, mergeClassesNow, dropHolidayClosed, EXEMPT_BY_NAME, cafe24HolidayTeacher, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
 import { findRoomMismatches } from './room-mismatch';   // 🚨 «같은 수업인데 서로 다른 방» 감시(2026-10-07 delaware)
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
@@ -385,6 +385,20 @@ function normTeacherName(v: any): string {
       (실측: 665건 중 이름 665건 · 원부연결 590건. 못 이은 것은 「HT NESS」·「Wan」과
        사람이 아닌 「스케줄변경중」·「test teacher」다) */
 export type Cafe24TeacherInfo = { name: string | null; teacherId: string | null };
+
+/** 🎌 (2026-10-09) 휴강 예외 강사(원부 번호)의 «정규화된 이름» — 카페24 줄을 이름으로 알아보는 데 쓴다.
+ *  원부를 못 읽으면 빈 집합(이름 예외만 못 볼 뿐 — 「중국어」·chinese 글자 판정은 그대로). 던지지 않는다. */
+async function loadHolidayExemptNames(env: any, hols: Array<HolidayClosure | null | undefined>): Promise<Set<string>> {
+  const ids = new Set<string>();
+  for (const h of hols) if (h) for (const x of h.exempt) ids.add(x);
+  const names = new Set<string>();
+  if (!ids.size) return names;
+  try {
+    const er: any = await env.DB.prepare(`SELECT id, name FROM teachers`).all();
+    for (const t of ((er.results || []) as any[])) if (ids.has(String(t.id))) names.add(normTeacherName(t.name));
+  } catch { /* 원부 없음 */ }
+  return names;
+}
 
 async function loadCafe24TeacherMap(
   env: { DB: D1Database }, uids: (string | null | undefined)[],
@@ -3641,6 +3655,11 @@ export async function handleAdminApi(
         } catch (e: any) { console.warn('[classes/today] contact map:', e?.message); }
       }
 
+      /* 🎌 (2026-10-09 사장님 「매니저 오늘 수업도 휴강 반영」) 그날이 공휴일 휴강이면 수업 줄을 «지우지 않고»
+         상태를 'holiday' 로 바꾸고 입장을 닫는다 — 매니저는 «오늘 무엇이 쉬는지» 를 봐야 한다(지우면 «수업이 없어졌다» 로 읽힌다).
+         판정 정본 holiday-closure.ts(중국어 수업 = 예외 강사는 그대로 연다 · 조회 실패 = 휴강 아님). */
+      const _ctHol = await loadHolidayClosure(env.DB, dateStr);
+
       const sessions: any[] = [];
       for (const s of (rows.results || [])) {
         // 오늘 열리는 수업인가? (일회성=날짜 일치 / 반복=요일 일치)
@@ -3671,6 +3690,9 @@ export async function handleAdminApi(
         /* 🔄 대체강사가 배정된 회차면 화면에는 대체강사만 보인다 — 원래 강사 이름은
            substituted_from 에 남겨 「오늘 왜 다른 선생님이냐」 물었을 때 바로 답할 수 있게. */
         const sub = subOverlay.get(String(s.id));
+        // 🎌 휴강 — 그날 실제로 가르칠 강사(대체강사가 있으면 그쪽)로 판정한다. 연기가 먼저(연기는 이미 «안 열림»).
+        const _holOff = !_postponed && isHolidayClosedFor(_ctHol, sub ? sub.id : s.teacher_id);
+        if (_holOff) status = 'holiday';
         const origTeacherName = s.t_name || s.teacher_name || null;
 
         sessions.push({
@@ -3699,8 +3721,10 @@ export async function handleAdminApi(
           start_time: s.start_time || null,
           duration_min: dur,
           start_ts, end_ts, status,
-          join_open: !_postponed && nowMs >= open_at_ts && nowMs <= close_at_ts,
+          join_open: !_postponed && !_holOff && nowMs >= open_at_ts && nowMs <= close_at_ts,
           postponed: _postponed,
+          holiday: _holOff,
+          holiday_name: _holOff ? (_ctHol.name || null) : null,
           /* 🧪 (2026-08-06 마이마이 요청) "레벨테스트와 일반수업을 한 화면에서 보고 싶다".
              레벨테스트도 예약을 잡는 순간 class_schedules 의 일회성(one_off) 행이 되므로
              목록은 이미 하나다. 다만 **구분이 안 돼서** 따로 있는 것처럼 보였다.
@@ -3750,6 +3774,8 @@ export async function handleAdminApi(
 
       if (c24Rows.length) {
         const tmap = await loadCafe24TeacherMap(env as any, c24Rows.map(r => r.teacher_uid));
+        // 🎌 카페24 줄도 휴강 판정 — 강사 열쇠는 관제탑과 같은 정본(cafe24HolidayTeacher).
+        const _c24ExNames = _ctHol.closed ? await loadHolidayExemptNames(env, [_ctHol]) : new Set<string>();
         for (const r of c24Rows) {
           const start_ts = Number(r.joined_at) || 0;
           const end_ts = Number(r.left_at) || (start_ts + 30 * 60000);
@@ -3757,6 +3783,9 @@ export async function handleAdminApi(
           if (nowMs < start_ts) status = 'early';
           else if (nowMs <= end_ts + LATE_AFTER) status = 'live';
           else status = 'ended';
+          const _c24Key = _ctHol.closed ? cafe24HolidayTeacher(tmap.get(String(r.teacher_uid || '')), _c24ExNames, normTeacherName) : '';
+          const _c24Hol = _ctHol.closed && _c24Key !== EXEMPT_BY_NAME && isHolidayClosedFor(_ctHol, _c24Key);
+          if (_c24Hol) status = 'holiday';
           sessions.push({
             schedule_id: null,
             // 🗓 카페24 줄은 class_schedules 에 행이 아예 없다 — 여기서 옮길 방법이 없다(카페24가 정본).
@@ -3777,6 +3806,8 @@ export async function handleAdminApi(
             duration_min: Math.max(1, Math.round((end_ts - start_ts) / 60000)),
             start_ts, end_ts, status,
             join_open: false,
+            holiday: _c24Hol,
+            holiday_name: _c24Hol ? (_ctHol.name || null) : null,
             cafe24_status: r.status || null,
             schedule_kind: null,
             is_level_test: false,
@@ -3810,7 +3841,10 @@ export async function handleAdminApi(
           mangoi: sessions.length - c24Count,
           cafe24: c24Count,
           joinable: sessions.filter(x => x.join_open).length,
+          holiday: sessions.filter(x => x.holiday).length,
         },
+        // 🎌 그날이 휴강일이면 이름과 쉬는 건수(화면이 머리 줄에 한 번 말한다). 평일이면 null.
+        holiday: _ctHol.closed ? { name: _ctHol.name || null, closed: sessions.filter(x => x.holiday).length } : null,
         level_test_count: sessions.filter(x => x.is_level_test).length,
       });
       /* 🔒 이제 이 응답에 학생 전화번호가 실린다 — 공유 캐시에 앉으면 한 사람 것이 남에게 나간다
@@ -15469,18 +15503,9 @@ LIMIT $limit`;
            그래도 모르면 «예외 아님» = 휴강(망고아이의 «강사 미배정 = 휴강» 과 같은 규칙). */
         const _c24Tid = new Map<string, any>();
         if (Object.values(_holBy).some(h => h && h.closed)) {
-          const _exIds = new Set<string>();
-          for (const h of Object.values(_holBy)) if (h) for (const x of h.exempt) _exIds.add(x);
-          const _exNames = new Set<string>();
-          try {
-            const er: any = await env.DB.prepare(`SELECT id, name FROM teachers`).all();
-            for (const t of ((er.results || []) as any[])) if (_exIds.has(String(t.id))) _exNames.add(normTeacherName(t.name));
-          } catch { /* 원부 없음 — 이름 예외만 못 본다 */ }
+          const _exNames = await loadHolidayExemptNames(env, Object.values(_holBy));
           for (const r of rows) {
-            const info = tmap.get(String(r.teacher_uid || '')) || null;
-            const nm = info && info.name ? String(info.name) : '';
-            const byName = !!nm && (_exNames.has(normTeacherName(nm)) || /중국어|chinese/i.test(nm));
-            _c24Tid.set(String(r.room_id), info && info.teacherId ? info.teacherId : (byName ? EXEMPT_BY_NAME : ''));
+            _c24Tid.set(String(r.room_id), cafe24HolidayTeacher(tmap.get(String(r.teacher_uid || '')), _exNames, normTeacherName));
           }
         }
         const _hol = dropHolidayClosed(mergeClassesNow(c24Classes as any, mgClasses),

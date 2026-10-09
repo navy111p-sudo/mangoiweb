@@ -184,6 +184,19 @@ export function mergeClassesNow(c24: ClassesNowRow[], mangoi: ClassesNowRow[]): 
  *    teacherOf 가 EXEMPT_BY_NAME 을 돌려주면 «이름으로 중국어 강사임을 알았다» = 연다.
  *  · 그 날짜의 판정이 없으면(못 읽음) «휴강 아님» — 막는 쪽으로 실패하지 않는다. */
 export const EXEMPT_BY_NAME = '__exempt_by_name__';
+
+/** 🎌 카페24 줄의 «휴강 판정용 강사 열쇠» — 관제탑(classes-now)·매니저 «오늘 수업»(classes/today) 이 같은 답을 내게 한 곳에 둔다.
+ *  info = loadCafe24TeacherMap 의 결과(원부 번호는 이름이 유일할 때만). 원부 번호를 알면 그 번호,
+ *  모르면 이름으로 중국어 강사인지 본다(예외 강사 원부 이름 정확일치 · 「중국어」·chinese 포함 → EXEMPT_BY_NAME = 연다).
+ *  그래도 모르면 '' = «예외 아님» = 휴강(망고아이의 «강사 미배정 = 휴강» 과 같은 규칙). */
+export function cafe24HolidayTeacher(
+  info: { teacherId?: any; name?: any } | null | undefined, exemptNames: Set<string>, norm: (v: any) => string,
+): string {
+  if (info && info.teacherId) return String(info.teacherId);
+  const nm = info && info.name ? String(info.name) : '';
+  if (nm && (exemptNames.has(norm(nm)) || /중국어|chinese/i.test(nm))) return EXEMPT_BY_NAME;
+  return '';
+}
 export function dropHolidayClosed<T extends ClassesNowRow>(
   rows: T[], teacherOf: (row: T) => any, byYmd: Record<string, HolidayClosure | undefined>,
 ): { kept: T[]; closed: number; closed_c24: number; name: string | null } {
