@@ -357,12 +357,10 @@ async function featOne(vp) {
   await ev(`document.getElementById('startBtn').click()`);
   ok(await awaitT(`t=>true`), `${tag}/cam: never waited for the student`);
   const CAM = `(()=>{const t=document.getElementById('sTile'),v=document.getElementById('camVid'),b=document.getElementById('camBtn'),d=document.getElementById('camDock');t.scrollIntoView({block:'nearest'});const r=v.getBoundingClientRect(),tr=t.getBoundingClientRect();return {fill:(r.width*r.height)/Math.max(1,tr.width*tr.height),cls:t.classList.contains('cam-on'),vid:!v.hidden&&getComputedStyle(v).display!=='none',vw:v.videoWidth,rw:Math.round(r.width),rh:Math.round(r.height),btn:b.textContent,bp:b.getAttribute('aria-pressed'),dock:d.textContent,dp:d.getAttribute('aria-pressed'),off:d.classList.contains('camoff'),label:document.getElementById('camLabel').textContent,note:!document.getElementById('camNote').hidden&&document.getElementById('camNote').textContent,api:window.__aiClassCam(),btop:__probe.top(b),me:getComputedStyle(t.querySelector('.me')).visibility,lf:getComputedStyle(document.getElementById('camLabel')).fontSize,mf:getComputedStyle(t.querySelector('.me')).fontSize}})()`;
-  const c0 = await ev(CAM);
-  ok(!c0.cls && !c0.vid && !c0.api.on && c0.bp === 'false' && c0.dp === 'false' && c0.off && /꺼짐/.test(c0.label) && /켜기/.test(c0.btn) && /끔/.test(c0.dock) && !c0.note, `${tag}/cam: not off at start ${JSON.stringify(c0)}`);
-  ok(!(vp.w <= 400 && vp.m) || c0.lf === '10px', `${tag}/cam: phone label font not small (${c0.lf}/${c0.mf})`);
+  // 2026-10-09 사장님 지시: «수업 시작» 을 누르면 카메라가 기본으로 켜진다(옛 기대 «시작하면 꺼짐» 을 뒤집음)
   const ph0 = await ev(`window.__aiClass.state.phase+'/'+window.__aiClass.state.i`);
-  await ev(`document.getElementById('camBtn').click()`);
   let c1 = null; for (let i = 0; i < 100; i++) { await sleep(30); c1 = await ev(CAM); if (c1.api.live && c1.vw > 0) break; }
+  ok(!(vp.w <= 400 && vp.m) || c1.lf === '10px', `${tag}/cam: phone label font not small (${c1.lf}/${c1.mf})`);
   ok(c1.api.on && c1.api.live && c1.vw > 0 && c1.cls && c1.vid && c1.fill >= 0.8 && c1.rh >= 30, `${tag}/cam: camera on but no live video in tile ${JSON.stringify(c1)}`);
   ok(c1.bp === 'true' && c1.dp === 'true' && !c1.off && /켜짐/.test(c1.label) && /끄기/.test(c1.btn) && /켬/.test(c1.dock) && !c1.note, `${tag}/cam: buttons/label not synced when on ${JSON.stringify(c1)}`);
   ok(c1.btop && c1.me === 'hidden', `${tag}/cam: off button covered or placeholder over video ${JSON.stringify(c1)}`);
@@ -390,6 +388,11 @@ async function featOne(vp) {
   let moved = false; for (let i = 0; i < 200 && !moved; i++) { await sleep(15); moved = await ev(`window.__aiClass.state.phase+'/'+window.__aiClass.state.i`) !== ph0; }
   ok(moved && (await ev(CAM)).api.live, `${tag}/cam: lesson did not go on with camera on (moved ${moved})`);
   await ev(`document.getElementById('camBtn').click()`);
+  // 짝: 학생이 직접 끈 뒤 «다시 시작» 하면 자동으로 다시 켜지지 않는다
+  ok(!(await ev(CAM)).api.on, `${tag}/cam: off click did not turn camera off`);
+  await ev(`document.getElementById('againLesson').click()`); await sleep(100);
+  await ev(`document.getElementById('startBtn').click()`); await sleep(600);
+  ok(!(await ev(CAM)).api.on, `${tag}/cam: camera turned itself back on after the student turned it off`);
 
   // ⑥ 학생 이름: 주소의 name · 로그인 정보(mangoi_logged_user)의 이름을 부른다. 한국어 이름은 성을 떼고 영어 문장엔 로마자, 자막엔 한글
   for (const [q, en, ko] of [['&name=' + encodeURIComponent('정우영'), 'Uyeong', '우영'], ['&name=Tom', 'Tom', 'Tom'], ['&name=' + encodeURIComponent('민서'), 'Minseo', '민서'], ['&name=123', 'friend', '123'], ['&name=' + encodeURIComponent('小明'), 'friend', '小明'], ['&name=' + encodeURIComponent('Tom!'), 'friend', 'Tom!'], ['typed:이서윤', 'Seoyun', '서윤']]) {
