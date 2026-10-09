@@ -57,6 +57,7 @@ const AI = { async run(model, opts) {
     case 'approval-junk': return { response: JSON.stringify({ ...base, approval: [null, 1, 'x', { line: null }, { type: 'leave' }, { line: lines[0], type: 'LEAVE' }] }) };
     case 'throw': throw new Error('AI down');
     case 'empty': return {};
+    case 'hang': return new Promise(() => {}); // 영영 안 끝나는 AI — 서버 12초 시한이 일해야 한다
     default: return { response: JSON.stringify(base) };
   }
 } };
@@ -103,6 +104,26 @@ for (const m of ['fenced', 'garbage', 'approval-object', 'approval-junk', 'throw
   ok(`AI ${m}: 200`, r.status === 200 && r.ok === true);
   ok(`AI ${m}: 규칙 안내 유지`, r.approval_hints.length >= 1 && r.approval_hints[0].type === 'purchase');
   ok(`AI ${m}: 종류는 셋 중 하나`, r.approval_hints.every(h => ['purchase', 'expense', 'leave'].includes(h.type)));
+}
+// ③-2 AI 가 «영영 안 끝나면» — 서버의 시한(Promise.race)이 요청을 살리고 규칙 안내를 남긴다
+//  12초를 실제로 기다리지 않게, 이 구간만 «10초 넘는 타이머» 를 50ms 로 줄인다(원래 setTimeout 은 되돌림).
+//  시한이 없어지는 변이에서 하니스가 «멈추지» 않게, 바깥에 진짜 2초 안전망을 둔다 — 그때는 깔끔한 FAIL.
+{
+  const realST = globalThis.setTimeout;
+  aiMode = 'hang';
+  globalThis.setTimeout = (fn, ms, ...a) => realST(fn, ms >= 10000 ? 50 : ms, ...a);
+  let hr = null, hung = false;
+  try {
+    hr = await Promise.race([
+      review(P('헤드셋 PHP 850 구입 필요'), { use_ai: true }),
+      new Promise(res => realST(() => { hung = true; res(null); }, 2000)),
+    ]);
+  } catch (e) { hr = null; }
+  finally { globalThis.setTimeout = realST; }
+  ok('AI hang: 요청이 멈추지 않고 끝남', !hung && !!hr);
+  ok('AI hang: 200', !!hr && hr.status === 200 && hr.ok === true);
+  ok('AI hang: ai_state=failed', !!hr && hr.ai_state === 'failed');
+  ok('AI hang: 규칙 안내 유지', !!hr && hr.approval_hints.length >= 1 && hr.approval_hints[0].type === 'purchase');
 }
 aiMode = 'approval-junk';
 r = await review(P('다음 주 금요일 연차 쓰고 싶습니다'), { use_ai: true });

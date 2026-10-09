@@ -62,8 +62,12 @@ async function reviewPage(ctx, work) {
   await page.goto(ORIGIN + '/daily-handover.html');
   await page.waitForFunction(() => !document.querySelector('#mh-work').disabled);
   await page.locator('#mh-work').fill(work);
-  await page.locator('#mh-manual').click();
-  await page.waitForTimeout(150);
+  // 고정 대기 대신 «/review 응답이 도착한 뒤» 를 기다린다 — 느린 CI 에서 거짓 FAIL 방지
+  await Promise.all([
+    page.waitForResponse(r => r.url().endsWith('/review'), { timeout: 10000 }).catch(() => null),
+    page.locator('#mh-manual').click(),
+  ]);
+  await page.waitForTimeout(80);
   return { page, errs };
 }
 async function openWork(page, idx = 0) {
