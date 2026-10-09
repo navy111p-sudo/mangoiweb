@@ -16766,13 +16766,22 @@ window.rebuildGlobalSearchIndex = function() {
 
   function renderKpi(d){
     // 계산할 근거가 없는 지표는 숫자를 지어내지 않고 «자료없음» 으로 보여 준다(2026-08-16)
+    /* (2026-10-09) 서버 coverage(분기·연간·월간과 같은 판정)가 full 이 아니면 이익률·ROI·순이익에 «참고값».
+       옛 서버라 coverage 가 없으면 아무것도 안 붙인다(예전 그대로) */
+    const cov = d.coverage || null;
+    const partial = !!(cov && cov.level && cov.level !== 'full');
+    const REF_KEYS = { margin_pct:1, roi_pct:1 };
     return `
       <h1>⭐ 경영지표 (KPI)</h1>
       <div class="meta">${d.label}</div>
+      ${partial ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:8px;padding:12px 15px;margin:12px 0;font-size:12.5px;line-height:1.75">
+        <b>⚠️ 이 달은 자료가 온전하지 않습니다 — 이익률·ROI·순이익은 참고값입니다.</b><br>${esc(cov.note || '')}
+      </div>` : ''}
       <div class="kpi-grid">
         ${d.kpis.map(k => `<div class="kpi" style="${k.available === false ? 'opacity:.72' : ''}">
           <div class="l">${esc(k.label)}${badge(k.source)}</div>
           <div class="v" style="${k.available === false ? 'font-size:15px;color:#991b1b' : ''}">${k.available === false ? '자료없음' : fmtNum(k.value, k.unit)}</div>
+          ${partial && REF_KEYS[k.key] && k.available !== false ? '<div style="font-size:10.5px;color:#b45309;margin-top:3px">참고값</div>' : ''}
           ${k.note ? `<div style="font-size:10.5px;color:#6b7280;margin-top:5px;line-height:1.55">${esc(k.note)}</div>` : ''}
         </div>`).join('')}
       </div>
@@ -16780,7 +16789,7 @@ window.rebuildGlobalSearchIndex = function() {
       <table>
         <tr><th>매출 (장부 결제 + 통장 B2B)</th><td class="num">${fmtKRW(d.revenue)}</td></tr>
         <tr><th>비용 (강사급여 포함)</th><td class="num">${fmtKRW(d.cost)}</td></tr>
-        <tr class="total"><td>순이익</td><td class="num">${fmtKRW(d.net)}</td></tr>
+        <tr class="total"><td>순이익${partial ? ' <span style="font-size:10.5px;color:#b45309">(참고값)</span>' : ''}</td><td class="num">${fmtKRW(d.net)}</td></tr>
       </table>
       <p style="font-size:11px;color:#6b7280;margin-top:14px;line-height:1.7">
         ※ ARPU = 매출 ÷ <b>그 달 활동 학생수</b>(수업에 들어왔거나 결제한 학생). 재적 학생수로 나누지 않습니다 —
