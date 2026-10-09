@@ -88,6 +88,12 @@ select.pill{max-width:min(100%,280px)}
 .lines button.on{border-color:var(--c-gold);color:#1a1300;background:var(--c-gold)}
 .page::before{content:"";height:10px;background:linear-gradient(90deg,#f59e0b,#ef4444,#3b82f6)}
 .bhead{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 12px;background:#121a28;color:#cbd5e1;font-size:12px}
+.blv{display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:2px 7px;border-radius:999px;background:#1d2a40;border:1px solid #33496e;color:#e2e8f0;font-size:11px;white-space:nowrap;vertical-align:middle}
+.blv .dots{display:inline-flex;gap:2px}.blv .dots i{width:6px;height:6px;border-radius:2px;background:#33415a}.blv .dots i.on{background:var(--c-gold)}
+.blv .rec{color:#94a3b8}
+.bhead .bt{display:flex;align-items:center;min-width:0}
+.bhead .bt b{min-width:3em}
+#slideName{white-space:nowrap}
 .bhead b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bbody{flex:1;padding:14px 20px;display:flex;flex-direction:column;gap:6px;justify-content:center;overflow:auto;min-height:0}
 .bl{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:clamp(15px,1.8vw,20px);line-height:1.4;border:2px solid transparent;background:transparent;color:inherit;font-family:inherit;text-align:left;width:100%}
@@ -112,6 +118,11 @@ select.pill{max-width:min(100%,280px)}
 .tile.t img.fm{opacity:0;transition:opacity 90ms ease-out}
 .tile.t img.fm.on{opacity:1}
 @keyframes breath{50%{transform:scale(1.012) translateY(-1px)}}
+.tspd{position:absolute;top:6px;right:6px;z-index:3;display:flex;align-items:center;gap:2px;background:rgba(6,9,15,.72);border:1px solid var(--c-line);border-radius:999px;padding:2px 3px}
+.tspd .lb{color:#cbd5e1;font-size:11px;padding:0 4px 0 3px}
+.tspd button{border:0;background:transparent;color:#e2e8f0;border-radius:999px;font:inherit;font-size:12px;line-height:1;padding:4px 6px;cursor:pointer;min-width:26px}
+.tspd button.on{background:var(--c-gold);color:#1a1300;font-weight:700}
+.tspd button:focus-visible{outline:2px solid var(--c-gold);outline-offset:1px}
 .tag{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;border-radius:6px;padding:2px 8px;z-index:2}
 .sub{position:relative;z-index:2;margin:0 8px 34px;background:rgba(6,9,15,.82);color:#fff;border-radius:8px;padding:7px 10px;font-size:14px;line-height:1.4;text-align:center;max-width:100%}
 .sub small{display:block;color:#fde68a;font-size:12px;margin-top:2px}
@@ -186,13 +197,15 @@ select.pill{max-width:min(100%,280px)}
   #navNote{display:none}
   .lines{flex-wrap:nowrap;overflow-x:auto;max-height:none}
   .tag{font-size:10px;left:4px;bottom:4px}
+  .blv{margin-left:5px;padding:1px 5px;gap:3px}.blv .dots,.blv .nm,.blv .rec{display:none}
+  .tspd{top:3px;right:3px;padding:1px}.tspd .lb{display:none}.tspd button{font-size:11px;padding:3px 3px;min-width:20px}
   .tile.s .me{width:30px;height:30px;font-size:16px} .tile.s .pill{font-size:10px;padding:2px 5px}
   .cap{font-size:13px;padding:5px 8px} .lines{max-height:56px}
   .db{min-width:52px;padding:6px}
   .stagebar{gap:3px} .stagebar li{padding:3px 2px;font-size:10px;gap:3px} .stagebar li .sen{display:none} .stagebar li b{width:15px;height:15px;font-size:9px}
 }
 /* 작은 폰(≤420px): 바깥 여백·오른쪽 칸을 줄여 교재 그림이 너무 작아지지 않게 */
-@media (max-width:420px){ .class{padding:4px} .stage{grid-template-columns:minmax(0,1fr) 28%;gap:5px} .slide{padding:3px} }
+@media (max-width:420px){ .class{padding:4px} .stage{grid-template-columns:minmax(0,1fr) 28%;gap:5px} .slide{padding:3px} .tspd{gap:0;right:2px}.tspd button{min-width:0;padding:3px 2px;font-size:10px} }
 /* 폰 가로·낮은 창: 교실 전체를 화면 높이에 맞춰 교재와 선생님이 함께 보이게 */
 @media (max-height:560px) and (min-width:600px){
   .tabs{display:none}
@@ -240,7 +253,7 @@ select.pill{max-width:min(100%,280px)}
     </div>
     <div class="stage">
       <div class="book" id="book">
-        <div class="bhead"><b id="bookTitle">교재</b><span id="slideName" class="num">Slide</span></div>
+        <div class="bhead"><span class="bt"><b id="bookTitle">교재</b><span class="blv" id="bookLv" hidden></span></span><span id="slideName" class="num">Slide</span></div>
         <div class="slide"><div class="page" id="pageBox"><img class="sl" id="slideImg" alt="교재 쪽" hidden><div class="bbody" id="bbody"></div></div></div>
         <div class="cap" id="cap"><span class="k">📖 지금 읽는 문장</span><span class="t" id="capText">—</span><button type="button" id="capSay" aria-label="이 문장 듣기">🔊</button></div>
         <div class="lines" id="lineChips" aria-label="이 쪽 문장"></div>
@@ -252,6 +265,7 @@ select.pill{max-width:min(100%,280px)}
         <div class="tile t" id="tTile">
           <div class="facebox breath" id="faceBox"><img id="face" src="/img/lily-closed.webp" alt="AI 선생님 Lily"><img class="fm" id="faceMid" src="/img/lily-mid.webp" alt="" aria-hidden="true"><img class="fm" id="faceWide" src="/img/lily-wide.webp" alt="" aria-hidden="true"></div>
           <div class="sub" id="sub" hidden></div>
+          <div class="tspd" id="tSpd" role="group" aria-label="선생님 말하기 속도"><span class="lb">속도</span><button type="button" data-spd="0" aria-label="아주 천천히" title="아주 천천히">🐌</button><button type="button" data-spd="1" aria-label="천천히" title="천천히">🐢</button><button type="button" data-spd="2" aria-label="보통" title="보통">🙂</button><button type="button" data-spd="3" aria-label="빠르게" title="빠르게">🐇</button></div>
           <span class="tag">Lily · A.i Teacher</span>
         </div>
         <div class="tile s" id="sTile">
@@ -331,13 +345,37 @@ select.pill{max-width:min(100%,280px)}
   var E = window.AiClass, CAT = [], LS = [], SLIDE = {}, FILES = {}, openSeq = 0, loading = true;
   var st = null, unit = null, li = 0, busy = false, auto = false, subMode = 1, sound = !FAST, timerAt = 0, timerId = 0, seq = 0, listenTO = 0, lastTarget = '', lastMiss = null;
   var lastListen = null, askBusy = false, askN = 0, askRec = null;   // ✋ 학생 질문
+  // 📶 교재 레벨 — 8단계 중 어디인가 (2026-10-09)
+  //  BTS N 의 N 이 교재 Lv 이고, 단계 구간은 서버 정본 BAND_SPECS(src/judgment-level.ts)·웜업 LEVEL_CATALOG 와 같은 값이다
+  //  (하니스가 셋을 대조한다 — 한쪽만 고치지 마세요). SIU 는 권마다 난이도를 매기지 않고, 웜업이 정한
+  //  «이 단계부터 권하는» 값(SIU_BAND_MIN 5 · SIU_ADV_BAND_MIN 7)을 «권장» 이라고 밝혀 그린다. 모르면 안 그린다.
+  var LV_BANDS = [[1,1,4,'첫걸음'],[2,5,8,'기초'],[3,9,12,'초급'],[4,13,17,'초중급'],[5,18,21,'중급'],[6,22,25,'중고급'],[7,26,30,'고급'],[8,31,34,'최상급']];
+  function bookLevel(book){
+    var b = String(book || ''), m = /^BTS\s+(\d+)\b/i.exec(b), row = null, rec = false;
+    if (m) { var n = +m[1]; LV_BANDS.forEach(function(r){ if (n >= r[1] && n <= r[2]) row = r; }); }
+    else if (/^NEW SIU BASIC/i.test(b)) { row = LV_BANDS[4]; rec = true; }
+    else if (/^NEW SIU ADV/i.test(b)) { row = LV_BANDS[6]; rec = true; }
+    return row ? { band: row[0], name: row[3], lv: 'Lv ' + row[1] + '-' + row[2], rec: rec } : null;
+  }
+  function paintBookLv(book){
+    var el = $('bookLv'), L = bookLevel(book);
+    if (!L) { el.hidden = true; el.replaceChildren(); return; }
+    var dots = document.createElement('span'); dots.className = 'dots'; dots.setAttribute('aria-hidden', 'true');
+    for (var k = 1; k <= 8; k++) { var d = document.createElement('i'); if (k <= L.band) d.className = 'on'; dots.append(d); }
+    var t = document.createElement('span'); t.textContent = L.band + '/8단계';
+    var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = '· ' + L.name;
+    el.replaceChildren(dots, t, nm);
+    if (L.rec) { var r = document.createElement('span'); r.className = 'rec'; r.textContent = '(권장)'; el.append(r); }
+    el.title = '교재 레벨: 8단계 중 ' + L.band + '단계 «' + L.name + '» · ' + (L.rec ? '이 단계부터 권하는 교재' : L.lv);
+    el.setAttribute('aria-label', el.title); el.hidden = false;
+  }
   // 말하기 속도(선생님) · 자동 말하기(내 차례에 마이크 저절로) — 이 기기에만 기억
   var SPEEDS = [[0.75, '아주 천천히', '아주 천천히'], [0.9, '천천히', '천천히'], [1, '보통', '보통'], [1.15, '빠르게', '빠르게']], spd = 2;
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition, talk = false, rec = null, recBlocked = false;
   function lsGet(k){ try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v){ try { localStorage.setItem(k, v); } catch (e) {} }
   (function(){ var v = lsGet('aiClassSpd'); if (v !== null && /^[0-3]$/.test(v)) spd = +v; var tv = lsGet('aiClassTalk'); talk = tv === null ? !!SR : tv === '1'; })();
-  window.__aiClass = { get state(){ return st; }, get busy(){ return busy; }, get unit(){ return unit; }, get speed(){ return SPEEDS[spd][0]; }, get talk(){ return talk; }, get rec(){ return !!rec; }, get recBlocked(){ return recBlocked; }, get loading(){ return loading; }, get cat(){ return CAT; }, get slides(){ return SLIDE; } };
+  window.__aiClass = { get state(){ return st; }, get busy(){ return busy; }, get unit(){ return unit; }, get speed(){ return SPEEDS[spd][0]; }, get talk(){ return talk; }, get rec(){ return !!rec; }, get recBlocked(){ return recBlocked; }, get loading(){ return loading; }, get cat(){ return CAT; }, get slides(){ return SLIDE; }, bookLevel: function(b){ return bookLevel(b); } };
   function fillPicker(){
     var sel = $('lessonSel'); sel.replaceChildren();
     var groups = {};
@@ -449,7 +487,7 @@ select.pill{max-width:min(100%,280px)}
     unit = LS[li]; var nm = curName(); st = E.create(unit, { name: nm.en, nameKo: nm.ko, prev: E.prevUnitOf(LS, li) });
     setStage(0); $('cap').querySelector('.k').textContent = '📖 지금 읽는 문장';
     $('room').textContent = 'AI-' + unit.book.replace(/[^A-Z0-9]+/gi, '').slice(0, 10);
-    $('bookTitle').textContent = unit.book;
+    $('bookTitle').textContent = unit.book; paintBookLv(unit.book);
     drawPage(0, null); setAsk('대기 중', '«수업 시작»을 눌러 주세요'); setButtons();
     $('stars').textContent = '☆ 0'; $('prog').textContent = '0 / ' + st.targets;
     $('startOv').hidden = false; $('endOv').hidden = true; $('sim').hidden = true; $('sub').hidden = true;
@@ -854,9 +892,15 @@ select.pill{max-width:min(100%,280px)}
   $('againBtn').addEventListener('click', function(){ run({ type: 'replay' }); });
   $('slowBtn').addEventListener('click', function(){ run({ type: 'replay', slow: true }); });
   $('skipBtn').addEventListener('click', function(){ $('sim').hidden = true; run({ type: 'skip' }); });
-  function paintSpd(){ $('spdBtn').textContent = (spd < 2 ? '🐢' : spd > 2 ? '🐇' : '🙂') + ' 속도: ' + SPEEDS[spd][1]; }
+  // 속도 정본은 spd 하나 — 위쪽 알약 버튼(돌려 가며)과 선생님 칸의 네 버튼(바로 고르기)이 같은 값을 그린다
+  function paintSpd(){
+    $('spdBtn').textContent = (spd < 2 ? '🐢' : spd > 2 ? '🐇' : '🙂') + ' 속도: ' + SPEEDS[spd][1];
+    [].forEach.call($('tSpd').querySelectorAll('button'), function(b){ var on = +b.dataset.spd === spd; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+  }
+  function setSpd(n){ if (!(n >= 0 && n < SPEEDS.length)) return; spd = n; lsSet('aiClassSpd', String(spd)); paintSpd(); }
   function paintTalk(){ $('talkBtn').textContent = '🎙 자동 말하기: ' + (talk ? '켬' : '끔'); $('talkBtn').setAttribute('aria-pressed', talk ? 'true' : 'false'); }
-  $('spdBtn').addEventListener('click', function(){ spd = (spd + 1) % SPEEDS.length; lsSet('aiClassSpd', String(spd)); paintSpd(); });
+  $('spdBtn').addEventListener('click', function(){ setSpd((spd + 1) % SPEEDS.length); });
+  $('tSpd').addEventListener('click', function(e){ var b = e.target.closest && e.target.closest('button[data-spd]'); if (b) setSpd(+b.dataset.spd); });
   $('talkBtn').addEventListener('click', function(){ talk = !talk; lsSet('aiClassTalk', talk ? '1' : '0'); paintTalk(); if (talk) { recBlocked = false; armTalk(); } else stopRec(); });
   paintSpd(); paintTalk();
   $('autoBtn').addEventListener('click', function(){

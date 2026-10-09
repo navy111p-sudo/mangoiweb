@@ -183,6 +183,40 @@ for (const f of ['index.html', 'js/mg-sidebar.js', 'js/idx-allmenu.js']) {
   const g = side.match(/ko:'학습 도구'[^\n]*go:\[([^\]]*)\]/);
   ok(!!g && /'ai-class'/.test(g[1]), 'ai-class not in sidebar «학습 도구» group'); }
 
+// ⑧ 교재 레벨(8단계 중 몇 단계) — 2026-10-09
+//   페이지의 LV_BANDS 가 서버 정본 BAND_SPECS(judgment-level.ts)와 같은 구간인가, SIU 권장 단계가 웜업 상수와 같은가,
+//   그리고 bookLevel 을 오려 내 실제로 돌려 «BTS 경계값» 과 «모르는 교재는 안 그린다» 를 짝으로 본다.
+{ const lvm = html.match(/var LV_BANDS = (\[[\s\S]*?\]\]);/);
+  ok(!!lvm, 'LV_BANDS not found');
+  const LV = lvm ? eval(lvm[1]) : [];
+  const bs = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy', 'src', 'judgment-level.ts'), 'utf8');
+  const spec = [...bs.matchAll(/band:\s*(\d+),\s*lvFrom:\s*(\d+),\s*lvTo:\s*(\d+)/g)].map(m => [+m[1], +m[2], +m[3]]);
+  ok(spec.length === 8, `BAND_SPECS read ${spec.length} (expected 8)`);
+  ok(LV.length === 8 && LV.every((r, i) => spec[i] && r[0] === spec[i][0] && r[1] === spec[i][1] && r[2] === spec[i][2]), `LV_BANDS differs from BAND_SPECS ${JSON.stringify(LV.map(r => r.slice(0, 3)))} vs ${JSON.stringify(spec)}`);
+  const names = [...bs.matchAll(/nameKo:\s*'([^']+)'/g)].map(m => m[1]);
+  ok(LV.every((r, i) => r[3] === names[i]), `LV_BANDS names differ from BAND_SPECS ${JSON.stringify(LV.map(r => r[3]))} vs ${JSON.stringify(names)}`);
+  const wu = fs.readFileSync(path.join(PUB, 'warmup.html'), 'utf8');
+  const sb = +(wu.match(/var SIU_BAND_MIN = (\d+)/) || [])[1], sa = +(wu.match(/var SIU_ADV_BAND_MIN = (\d+)/) || [])[1];
+  let bookLevel = null;
+  try { bookLevel = new Function('LV_BANDS', fnSrc('bookLevel') + '; return bookLevel;')(LV); } catch (e) { ok(false, 'bookLevel did not compile: ' + e.message); }
+  if (bookLevel) {
+    const t = b => { try { return bookLevel(b); } catch (e) { return 'THROW ' + e.message; } };
+    const cases = [['BTS 1 001 (Welcome to school)', 1], ['BTS 4 009 (x)', 1], ['BTS 5 001 (x)', 2], ['BTS 12 TEST', 3], ['BTS 13 Review', 4], ['BTS 17 001', 4], ['BTS 18 001', 5], ['BTS 25 001', 6], ['BTS 26 001', 7], ['BTS 30 Test', 7], ['BTS 31 001', 8], ['BTS 34 Review', 8]];
+    cases.forEach(([b, n]) => { const r = t(b); ok(r && r.band === n && !r.rec, `bookLevel(${b}) = ${JSON.stringify(r)} (expected band ${n})`); });
+    ok((t('NEW SIU BASIC 001 - A talk with you') || {}).band === sb && t('NEW SIU BASIC 001').rec === true, `SIU BASIC band should be warmup SIU_BAND_MIN ${sb} (권장)`);
+    ok((t('NEW SIU ADVANCE 003 - Make your point') || {}).band === sa && t('NEW SIU ADVANCE 003').rec === true, `SIU ADVANCE band should be warmup SIU_ADV_BAND_MIN ${sa} (권장)`);
+    ['', 'BTS 35 001', 'BTS 0 001', 'Phonics A', 'MES 3', null].forEach(b => ok(t(b) === null, `unknown book ${JSON.stringify(b)} should give null, got ${JSON.stringify(t(b))}`));
+    ok(cat.every(u => t(u.book) && t(u.book).band >= 1), 'some catalog lesson has no level');
+  }
+  ok(/paintBookLv\(unit\.book\)/.test(fnSrc('reset')), 'paintBookLv not called when a lesson opens');
+}
+// ⑨ 선생님 칸 속도 버튼 — 위쪽 알약과 같은 정본(spd)을 쓰는가
+{ const ps = fnSrc('paintSpd'), ss = fnSrc('setSpd');
+  ok(/#?tSpd/.test(ps) && /\.on/.test(ps) || /'on'/.test(ps), 'paintSpd does not paint teacher-tile buttons');
+  ok(/lsSet\('aiClassSpd'/.test(ss) && /paintSpd\(\)/.test(ss), 'setSpd does not save+paint');
+  ok((html.match(/data-spd="[0-3]"/g) || []).length === 4, 'teacher-tile speed buttons != 4');
+}
+
 console.log(`결과: PASS ${pass} / FAIL ${fail}`);
 fails.forEach(f => console.log('  ❌ ' + f));
 process.exit(fail ? 1 : 0);
