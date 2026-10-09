@@ -543,7 +543,8 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
           await onAdminLoginSuccess(d2, d2.username || uid, btn, err);
           return;
         }
-        var msg = (d2 && (d2.message || d2.error)) || T('기기 인증에 실패했어요.', 'Device check failed.');
+        /* EN 에서는 서버의 한국어 message 를 쓰지 않는다 — message_en 이 있을 때만 */
+        var msg = (d2 && (EN ? d2.message_en : (d2.message || d2.error))) || T('기기 인증에 실패했어요.', 'Device check failed.');
         err.textContent = '❌ ' + msg + T(' 아이디·비밀번호로 로그인해 주세요.', ' Please sign in with your ID and password.');
         err.classList.add('show');
       } catch (e) {
