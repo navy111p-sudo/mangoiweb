@@ -1,4 +1,5 @@
 import { WEEKLY_POSTPONE, readWeeklyPostponePlan } from './weekly-postpone';
+import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg, holidayEntryAlert } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { autoApproveStudentPostpone } from './student-auto-postpone';  // ⏩ 학생 무료 연기 자동 승인(2026-10-06)
 import { requireRoomJwtSecret } from './room-jwt-secret';
 import { ensureStudentEvaluationDetailSchema, readStudentAdminEvaluations } from './evaluation-records';
@@ -1917,6 +1918,10 @@ export async function handleMangoApi(
       const LATE_AFTER = 15 * 60 * 1000;  // 종료 15분 후까지 지각 입장 허용
 
       /** 조건 한 벌로 «오늘 발생하는» 수업 목록을 만든다. 2단계 조회(ID → 이름)에서 두 번 쓰인다. */
+      /* 🎌 (2026-10-09 한글날 벨 사고) 공휴일 휴강 — 중국어 수업(예외 강사)만 연다. 정본 src/holiday-closure.ts
+         ⚠️ 던지지 않는다(fail-open). 휴강 수업은 연기 회차처럼 아예 안 보낸다 → 홈 벨·자동입장이 저절로 멈춘다. */
+      const holiday = await loadHolidayClosure(env.DB, todayStr);
+      let holidaySkipped = 0;
       const runPass = async (conds: string[], binds: any[]): Promise<any[]> => {
         if (!conds.length) return [];
         const whereSql = `cs.status != 'cancelled' AND (${conds.join(' OR ')})`;
@@ -1940,6 +1945,7 @@ export async function handleMangoApi(
           /* ⏸ (2026-10-01) 연기된 회차는 오늘 열리지 않는다 — 학생을 그 방으로 보내지 않는다.
              예전엔 status != 'cancelled' 만 봐서 연기한 수업에도 입장이 열렸다. 정본 src/class-postponed.ts. */
           if (isPostponedOccurrence(s)) continue;
+          if (isHolidayClosedFor(holiday, s.teacher_id)) { holidaySkipped++; continue; }   // 🎌 공휴일 휴강
           const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
           const start_ts = Date.UTC(kY, kMo, kD, hh, mm, 0) - KST; // KST 벽시계 → UTC ms
           const dur = Number(s.duration_min) || 30;
@@ -2059,7 +2065,10 @@ export async function handleMangoApi(
       }
 
       // matched_by: 'uid'=계정 ID 로 찾음(가장 안전) · 'name'=이름 폴백(계정 연결 어긋남 → 운영에서 고쳐야 할 대상)
-      return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current, matched_by: matchedBy, student_gate: studentGate, net_relay: netRelay });
+      // 🎌 holiday: 오늘 휴강으로 가린 수업이 있을 때만 싣는다(화면이 안내 한 줄을 그린다). 이름·문구는 서버가 만든다.
+      const holidayInfo = (holiday.closed && holidaySkipped > 0)
+        ? { name: holiday.name, closed_count: holidaySkipped, msg: holidayClosedMsg(holiday.name), alert: holidayEntryAlert(holiday.name) } : null;
+      return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current, matched_by: matchedBy, student_gate: studentGate, net_relay: netRelay, holiday: holidayInfo });
     }
 
     // 🥭 (2026-08-24) GET /api/class/schedule/mine — 학생 홈 화면 "내 수업" 위젯.

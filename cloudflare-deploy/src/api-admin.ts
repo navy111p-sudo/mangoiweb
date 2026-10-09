@@ -49,7 +49,7 @@ import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸�
 import { KCP_TRANSFER_CYPHER_RE, KCP_REVENUE_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 / 「케이씨피」 = 매출 인정 — 판정 정본
 import { c24ExpenseDrop, C24_HANGUL_CYPHER_RE, C24_LETTER_CYPHER_RE } from './c24-expense-filter';  // 🧾 카페24 지출결의 중 «우리 것이 아닌» 건(한글 결재·특정 결재라인) 제외 — 판정 정본
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance, ensureCenterOverrideTables, ensureFranchiseOverrideTable } from './cafe24-sync';
-import { buildMangoiClassesNow, mergeClassesNow, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
+import { buildMangoiClassesNow, mergeClassesNow, dropHolidayClosed, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
 import { findRoomMismatches } from './room-mismatch';   // 🚨 «같은 수업인데 서로 다른 방» 감시(2026-10-07 delaware)
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
@@ -92,6 +92,7 @@ import { cleanAnalysis, cleanScore, foreignFields, parseAnalysisJson, recoverNex
 import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid } from './attendance-uid';   // 📌 attendance 를 학생 계정으로 찾는 정본
 import { ensureStartsOnColumn, startsOnSel, normStartsOn, kstYmdOfMs, recurSkippedOn, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { isPostponedOccurrence, REACTIVATE_POSTPONED_SQL } from './class-postponed';
+import { loadHolidayClosure, isHolidayClosedFor, type HolidayClosure } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { diagnoseStudentDay } from './class-diagnose';   // 🔎 학생 하루 수업 진단(읽기 전용, 2026-10-01)   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
@@ -2381,6 +2382,12 @@ export async function handleAdminApi(
       }
       instances.sort((a, b) => (a._date + (a.start_time || '')).localeCompare(b._date + (b.start_time || '')));
 
+      /* 🎌 (2026-10-09) 공휴일 휴강 — 그날 열리지 않은 수업은 수업료 0(상태 'holiday'), 공제도 안 붙는다.
+         중국어 수업(예외 강사)·«이날은 수업함» 으로 연 날은 평소대로. 정본 src/holiday-closure.ts.
+         날짜당 한 번 조회(그 달 수업이 있는 날만). 던지지 않는다 — 못 읽으면 «휴강 아님»(예전과 같음). */
+      const holByDate: Record<string, HolidayClosure> = {};
+      for (const ds of new Set(instances.map((i: any) => String(i._date)))) holByDate[ds] = await loadHolidayClosure(env.DB, ds);
+
       // 이 달 노쇼·피드백 (KST 기준 월 범위 ms)
       const mStart = Date.parse(`${ymPrefix}-01T00:00:00+09:00`);
       const mEnd = month === 12
@@ -2538,6 +2545,7 @@ export async function handleAdminApi(
         const schedStatus = String(l.status || 'active').toLowerCase();
         let st = 'finish';
         if (schedStatus === 'postponed') st = 'postponed';
+        else if (isHolidayClosedFor(holByDate[dateStr], l.teacher_id)) st = 'holiday';   // 🎌 공휴일 휴강 — 지급 0
         else if (upcoming) st = 'upcoming';
         /* ⏸ 연속 결석 보류 기간 — 강사는 기다리지 않고 매니저에게 확인한다(사장님 결정: 0%).
            보류를 건 날(두 번째 결석) 수업은 기존 «학생 결석» 규칙 그대로다(구간이 그 «다음» 부터). */
@@ -2611,6 +2619,8 @@ export async function handleAdminApi(
         if (st === 'upcoming') { agg.upcoming_count++; continue; }
         // ⏸ 보류 수업은 «수업 수·시간» 에 넣지 않는다 — 열리지 않은 수업이다(지급 0).
         if (st === 'absence_hold') { agg.hold_count = (agg.hold_count || 0) + 1; continue; }
+        // 🎌 공휴일 휴강도 «열리지 않은 수업» 이다 — 수업 수·시간·금액에 넣지 않는다.
+        if (st === 'holiday') { agg.holiday_count = (agg.holiday_count || 0) + 1; continue; }
         agg.lesson_count++;
         agg.total_minutes += mins;
         if (st === 'finish') agg.finish_count++;
@@ -15447,7 +15457,16 @@ LIMIT $limit`;
           c.live_room = hit ? String(hit.room_id || '') : null;
         }
 
-        const classes = mergeClassesNow(c24Classes as any, mgClasses);
+        /* 🎌 (2026-10-09) 공휴일 휴강 — 그날 열리지 않는 망고아이 수업은 «지금 수업» 이 아니다.
+           ⚠️ «합친 뒤» 에 뺀다: 먼저 빼면 그 수업의 카페24 짝(c24-<번호>)이 미러 짝을 잃고 되살아난다.
+           카페24에만 있는 줄은 강사 번호 체계가 달라 예외(중국어)를 가릴 수 없어 그대로 둔다. */
+        const _holBy: Record<string, HolidayClosure> = {};
+        for (const d of scanDates) _holBy[d] = await loadHolidayClosure(env.DB, d);
+        const _tOf = new Map<number, any>();
+        for (const r of schedRows) _tOf.set(Number(r.id), r.teacher_id);
+        const _hol = dropHolidayClosed(mergeClassesNow(c24Classes as any, mgClasses), (sid) => _tOf.get(Number(sid)), _holBy);
+        const classes = _hol.kept;
+        const _mgOpen = mgClasses.filter(c => classes.indexOf(c) >= 0);
 
         /* 🚨 (2026-10-07) «같은 수업인데 서로 다른 방» — 학생은 다른 방에, 예약방에는 누군가 접속 중.
            판정 정본 src/room-mismatch.ts. 실패해도 목록은 그대로 뜬다(빈 배열). */
@@ -15455,7 +15474,7 @@ LIMIT $limit`;
         try {
           const infoBySched = new Map<number, { uid: string; source: any }>();
           for (const r of schedRows) infoBySched.set(Number(r.id), { uid: String(r.user_id || ''), source: r.source });
-          roomMismatch = findRoomMismatches(mgClasses as any, liveRows, (id) => infoBySched.get(id) || null, now);
+          roomMismatch = findRoomMismatches(_mgOpen as any, liveRows, (id) => infoBySched.get(id) || null, now);
         } catch (e: any) { console.warn('[classes-now] room mismatch:', e?.message); }
 
         return json({
@@ -15469,7 +15488,9 @@ LIMIT $limit`;
             // 🏷 출처별 건수 — 「카페24가 0건」과 「수업이 0건」은 다른 사실이다
             mangoi: classes.filter(c => c.source === 'mangoi').length,
             cafe24: classes.filter(c => c.source === 'cafe24').length,
+            holiday_closed: _hol.closed,   // 🎌 공휴일 휴강으로 뺀 망고아이 수업 수
           },
+          holiday: _hol.name ? { name: _hol.name, closed: _hol.closed } : null,
           classes,
           room_mismatch: roomMismatch,
         });

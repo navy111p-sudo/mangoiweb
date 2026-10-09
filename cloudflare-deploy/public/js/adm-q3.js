@@ -111,6 +111,7 @@
       student_absent:  ['🙅 학생 결석', '🙅 Absent',     '#fee2e2', '#991b1b'],
       absence_hold:    ['⏸ 연속결석 보류', '⏸ On hold',  '#fce9e5', '#9b2a1a'],   // 2026-09-25 — 지급 0%
       teacher_no_show: ['⚠️ 강사 미입장', '⚠️ No-show',  '#ffedd5', '#9a3412'],
+      holiday:         ['🎌 공휴일 휴강', '🎌 Holiday',   '#f1f5f9', '#475569'],   // 2026-10-09 — 지급 0
       upcoming:        ['⏳ 예정', '⏳ Upcoming',        '#f1f5f9', '#475569'],
     };
     const m = M[st] || M.finish;
