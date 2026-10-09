@@ -3537,9 +3537,10 @@ async function journalReport(env: Env, url: URL, fmt: string): Promise<Response>
     return out(fmt, `journal-${period}.csv`, [
       ['망고아이 회계 전표 / 분개장', period],
       [],
-      ['전표번호', '일자', '적요', '차변', '대변', '금액', '참조'],
-      ...entries.map(e => [e.doc_no, e.date, e.desc, e.debit_account, e.credit_account, e.amount, e.ref]),
-      ['합계', '', '', '', '', totals.debit, ''],
+      // 🧑‍🎓 학생 이름은 칸을 따로 둔다(2026-10-09 — 엑셀에서 이름으로 정렬·필터하려고). 급여 줄·이름 모름은 빈칸.
+      ['전표번호', '일자', '적요', '학생 이름', '차변', '대변', '금액', '참조'],
+      ...entries.map(e => [e.doc_no, e.date, e.desc, e.student_name || '', e.debit_account, e.credit_account, e.amount, e.ref]),
+      ['합계', '', '', '', '', '', totals.debit, ''],
     ]);
   }
   return json(data);
