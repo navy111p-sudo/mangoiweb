@@ -3,7 +3,7 @@
 //   외부 classic script, 전역 스코프 공유. 원복=이 위치에 인라인.
 // ═══════════════════════════════════════════════════════════════
 (function(){
-  // 두 언어 데크: 한국어 26장 / 영어 24장. 여는 시점의 언어로 자동 선택.
+  // 두 언어 데크: 한국어 26장 / 영어 26장(같은 구성 — 영어 글 정본은 docs/관리자안내_소스/slides-en.mjs). 여는 시점의 언어로 자동 선택.
   //  📝 한국어 안내의 «글 정본» 은 docs/관리자안내_소스/slides.mjs 다(그림도 거기서 굽는다).
   //     아래 titles 는 그 파일의 제목과 **같아야** 한다 — build.mjs 가 어긋나면 경고한다.
   var DECKS={
@@ -15,14 +15,14 @@
         "강사 보기","자료실에서 설명서 받기","우리 홈페이지가 어떻게 보이나","안전하게 마치기",
         "메뉴 한눈에 보기","막혔을 때 이렇게 하세요","자주 묻는 질문","첫날에는 이것만",
         "세 가지만 기억하세요","이제 준비 끝!"] },
-    en:{ dir:'/guide/admin-easy-en/', pdf:'/guide/admin-easy-en/admin-easy-en.pdf', pdfName:'Mangoi_Admin_Page_Guide_EN.pdf',
-      titles:["Easy Admin Page Guide","Introduction","Contents","🔐 ① Getting in (signing in)",
-        "🖥 ② What the screen looks like","🔎 ③ Finding what you need, fast",
-        "📋 ④ Viewing evaluations","📢 ⑤ Sending a notice","👪 ⑥ Finding students and parents",
-        "📅 ⑦ Sending the parent report","🧑‍🏫 ⑧ Viewing teachers","💳 ⑨ Payments and refunds",
-        "📚 ⑩ Getting manuals from the Library","🏠 ⑪ How our home page looks to visitors",
-        "🚪 ⑫ Finishing safely","Summary · Data","Data at a Glance","Frequently Asked Questions",
-        "First-Day Checklist","Conclusion","You're all set!"] }
+    en:{ dir:'/guide/admin-easy-en/', ver:'26a', pdf:'/guide/admin-easy-en/admin-easy-en.pdf?v=26a', pdfName:'Mangoi_Admin_Page_Guide_EN.pdf',
+      titles:["Easy Admin Page Guide","Who is this guide for?","Contents","Getting in (signing in)",
+        "What the screen looks like","Finding what you need, fast","What an admin does every day — at a glance","Taking enrollments and creating classes",
+        "Seeing the class schedule at a glance","Approving postpone / change requests","Checking student payments","Running teacher payroll",
+        "Viewing evaluations","Sending a notice","Finding students and parents","Sending the parent report",
+        "Viewing teachers","Getting manuals from the Library","How our home page looks to visitors","Finishing safely",
+        "Menus at a glance","When you get stuck, do this","Frequently asked questions","Just these on day one",
+        "Remember just three things","You're all set!"] }
   };
   function curLang(){ try{ return (window.adminLang==='en'||window.getLang&&window.getLang()==='en')?'en':'ko'; }catch(e){ return 'ko'; } }
   var deck=DECKS.ko, TITLES=deck.titles, N=TITLES.length, builtLang=null;
@@ -30,7 +30,7 @@
   var pad=function(n){return (n<10?'0':'')+n;};
   // 🖼 (2026-08-04) .jpg → .webp (같은 그림, 용량 1/3). 없으면 아래에서 .jpg 로 되돌린다.
   // 🔁 (2026-10-09) 그림은 7일 캐시라 같은 이름으로 갈아 끼우면 옛 그림이 남는다 → ver 를 붙인다.
-  //    그림을 다시 구우면 DECKS.ko.ver 를 올릴 것(docs/관리자안내_소스/README.md).
+  //    그림을 다시 구우면 그 언어의 DECKS.*.ver 를 올릴 것(docs/관리자안내_소스/README.md).
   var src=function(n){return deck.dir+pad(n+1)+'.webp'+(deck.ver?'?v='+deck.ver:'');};
   var toJpg=function(u){return String(u||'').replace(/\.webp(\?|$)/,'.jpg$1');};
   var ov,img,cap,cnt,prev,next,thumbs;

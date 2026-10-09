@@ -93,7 +93,19 @@ node build.mjs
 
 ## 영어판은?
 
-영어판(`/guide/admin-easy-en/`, 24장)은 **아직 이 소스로 만들지 않습니다.**
-한국어판만 2026-08-22 에 새로 만들었습니다. 영어판을 같은 방식으로 옮기려면
-`slides.mjs` 에 영어 글을 더하고 `build.mjs` 의 내보내는 곳을 하나 더 두면 됩니다.
+## 영어판(2026-10-09 부터 같은 소스로 만듭니다)
+
+영어판(`/guide/admin-easy-en/`)도 **26장 · 같은 구조**입니다. 글 정본은 `slides-en.mjs`(장 순서·`step`·`focus` 가 `slides.mjs` 와 같아야 합니다),
+슬라이드 틀의 글자(«Be careful»·«Follow the red numbers…»)는 `build.mjs` 의 `UI` 표입니다.
+
+```bash
+GUIDE_LANG=en node capture.mjs   # 관리자 화면을 «영어»로 찍어 .shots/en/ 에
+GUIDE_LANG=en node build.mjs     # → public/guide/admin-easy-en/ 26장 + admin-easy-en.pdf
+```
+
+- 영어로 찍을 때는 `localStorage` 에 `mangoi_lang='en'`·`mangoi_lang_by='user'` 를 넣습니다(안 넣으면 한국 국적 계정이 KO 로 되돌립니다).
+- 견본 데이터의 지점·강사 표시는 `enSample()` 이 영어로 바꿉니다(학생 이름은 그대로 — 실제 화면도 한글 이름입니다).
+- 표시가 버튼 «글자» 로 찾는 장은 `marksEn` 을 따로 둡니다(화면 글자가 다르니까). 영어 글자가 길어 칸이 잘리는 장은 `viewportEn`(급여 = 2400 폭).
+- 화면에 적는 버튼 이름은 **실제 영어 화면의 글자**(그 요소의 `data-en`)로 맞추세요.
+- 다시 구우면 `adm-s18.js` 의 `DECKS.en.ver`·`pdf` 의 `?v=`, `admin.html` 영어 PDF 링크의 `?v=`, `adm-welcome.js` 의 그림 `?v=` 를 함께 올리세요.
 - 그림을 다시 구우면 `cloudflare-deploy/public/js/adm-s18.js` 의 `DECKS.ko.ver`(그리고 PDF 주소의 `?v=`)를 올리세요. 그림은 7일 캐시라 안 올리면 옛 그림이 남습니다.

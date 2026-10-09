@@ -11,13 +11,28 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SLIDES, DECK_TITLE } from './slides.mjs';
+/* 언어 — `GUIDE_LANG=en node build.mjs` 면 slides-en.mjs 로 영어판(admin-easy-en/)을 굽습니다. */
+const LANG = process.env.GUIDE_LANG === 'en' ? 'en' : 'ko';
+const { SLIDES, DECK_TITLE } = await import(LANG === 'en' ? './slides-en.mjs' : './slides.mjs');
+
+/* 슬라이드 «틀» 의 글자 — 글 정본(slides*.mjs) 밖에서 그리는 말은 여기 한 곳에만 둡니다. */
+const UI = {
+  ko: { warn:'조심할 것', tip:'쉬운 방법', introFoot:'한 장에 하나씩입니다. 오늘 다 못 읽어도 괜찮아요.',
+        tocSub:'보고 싶은 쪽 번호를 눌러도 바로 갑니다', doThis:'이렇게 하세요', remember:'이것만 기억하세요',
+        menu:'메뉴', hint:'그림의 빨간 번호 순서대로',
+        more:(no, pg) => `자세히 → ${no}번 (${pg}쪽)`, th:['묶음','안에 든 것','한마디로'] },
+  en: { warn:'Be careful', tip:'Easy way', introFoot:'One thing per page. No need to read it all today.',
+        tocSub:'Press a page number to jump straight there', doThis:'Do this', remember:'Just remember',
+        menu:'Menu', hint:'Follow the red numbers in the picture',
+        more:(no, pg) => `Details → No. ${no} (p. ${pg})`, th:['Group','What is inside','In a word'] }
+}[LANG];
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../..');
-const OUT  = path.join(ROOT, 'cloudflare-deploy/public/guide/admin-easy');
-const SHOTS= path.join(HERE, '.shots');
-const TMP  = path.join(HERE, '.build');
+const OUT  = path.join(ROOT, 'cloudflare-deploy/public/guide', LANG === 'en' ? 'admin-easy-en' : 'admin-easy');
+const SHOTS= LANG === 'en' ? path.join(HERE, '.shots', 'en') : path.join(HERE, '.shots');
+const TMP  = path.join(HERE, LANG === 'en' ? '.build/en' : '.build');
+const PDF  = LANG === 'en' ? 'admin-easy-en.pdf' : 'admin-easy.pdf';
 const W = 1920, H = 1080;
 
 /* 한글 글꼴 — 저장소에 넣지 않습니다(10MB). README ① 단계로 받아 둡니다. */
@@ -193,8 +208,8 @@ td.d{color:#5b6b7c;width:32%;font-size:24px}
 /* ── 조각 ─────────────────────────────────────────────────────────────── */
 const chrome = (s, inner) => `<div class="hdr"><span>${esc(DECK_TITLE)}</span><span class="r">${esc(s.head||'')}</span></div><div class="rule"></div>${inner}`;
 const strip = s => (!s.tip && !s.warn) ? '' : `<div class="strip">
-  ${s.warn ? `<div class="note warn"><b>조심할 것 · </b>${esc(s.warn)}</div>` : ''}
-  ${s.tip  ? `<div class="note tip"><b>쉬운 방법 · </b>${esc(s.tip)}</div>` : ''}</div>`;
+  ${s.warn ? `<div class="note warn"><b>${UI.warn} · </b>${esc(s.warn)}</div>` : ''}
+  ${s.tip  ? `<div class="note tip"><b>${UI.tip} · </b>${esc(s.tip)}</div>` : ''}</div>`;
 
 function shotTag(s) {
   const f = path.join(TMP, `shot-${s.shot}.png`);
@@ -230,7 +245,7 @@ function render(s, i) {
     <div class="thead"><div><h1>${esc(s.title)}</h1></div></div>
     <div class="lead">${s.lead.map(esc).join('<br>')}</div>
     <div class="grid2">${s.cards.map(([b,d])=>`<div class="gcard"><b>${esc(b)}</b><span>${esc(d)}</span></div>`).join('')}</div>
-    <div class="bigfoot">한 장에 하나씩입니다. 오늘 다 못 읽어도 괜찮아요.</div></div>`);
+    <div class="bigfoot">${esc(UI.introFoot)}</div></div>`);
 
   case 'toc': {
     // 배지 = 그 장의 큰 번호(따라하기 장만). 나머지는 점 — 차례 번호와 장 번호가 어긋나 헷갈리지 않게.
@@ -240,7 +255,7 @@ function render(s, i) {
     const half = Math.ceil(items.length/2);
     const cell = (x)=>`<div><span class="n${x.no?'':' dot'}">${x.no||'·'}</span><span>${esc(x.t)}</span><span class="p">${x.p}</span></div>`;
     return chrome(s, `<div class="body"><div class="thead"><div><h1>${esc(s.title)}</h1>
-      <div class="sub">보고 싶은 쪽 번호를 눌러도 바로 갑니다</div></div></div>
+      <div class="sub">${esc(UI.tocSub)}</div></div></div>
       <div class="toc"><div class="col">${items.slice(0,half).map(cell).join('')}</div>
       <div class="col">${items.slice(half).map(cell).join('')}</div></div></div>`); }
 
@@ -250,9 +265,9 @@ function render(s, i) {
     <div class="lead">${esc(s.lead)}</div>
     <div class="cols">
       <div class="left">
-        <div class="h3">이렇게 하세요</div>
+        <div class="h3">${esc(UI.doThis)}</div>
         <ol class="steps">${s.steps.map((t,k)=>`<li><span class="no">${k+1}</span><span>${esc(t)}</span></li>`).join('')}</ol>
-        ${s.remember?`<div class="rem"><b>이것만 기억하세요</b><ul>${s.remember.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>`:''}
+        ${s.remember?`<div class="rem"><b>${esc(UI.remember)}</b><ul>${s.remember.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>`:''}
       </div>
       <div class="right">${shotTag(s)}</div>
     </div>${strip(s)}</div>`);
@@ -260,11 +275,11 @@ function render(s, i) {
 
   case 'focus': return chrome(s, `<div class="body">
     <div class="thead"><div class="badge k">${esc(stepNo(i))}</div>
-      <div><h1>${esc(s.title)}</h1><span class="path">메뉴 · ${esc(s.sub)}</span></div></div>
+      <div><h1>${esc(s.title)}</h1><span class="path">${esc(UI.menu)} · ${esc(s.sub)}</span></div></div>
     <div class="lead k">${esc(s.lead)}</div>
     <div class="fcols">
       <div class="fshot">${shotTag(s)}</div>
-      <div class="fsteps"><div class="hint">그림의 빨간 번호 순서대로</div>
+      <div class="fsteps"><div class="hint">${esc(UI.hint)}</div>
         <ol>${s.steps.map((t,k)=>`<li><span class="no">${k+1}</span><span>${esc(t)}</span></li>`).join('')}</ol></div>
     </div>${strip(s)}</div>`);
 
@@ -276,13 +291,13 @@ function render(s, i) {
     <div class="flow">${s.flow.map(([b,d,m,more],k)=>`${k?'<div class="farr"></div>':''}<div class="fstep" style="background:${COL[k%COL.length]}">
       <div class="no" style="color:${COL[k%COL.length]}">${k+1}</div><b>${esc(b)}</b><span>${esc(d)}</span><em>${esc(m)}</em>
       <ul class="fmore">${(more||[]).map(t=>`<li>${esc(t)}</li>`).join('')}</ul>
-      <div class="fpage">자세히 → ${stepNo(i + 1 + k)}번 (${i + 2 + k}쪽)</div></div>`).join('')}</div>
+      <div class="fpage">${esc(UI.more(stepNo(i + 1 + k), i + 2 + k))}</div></div>`).join('')}</div>
     <div class="bigfoot">${esc(s.foot)}</div></div>`); }
 
   case 'table': return chrome(s, `<div class="body">
     <div class="thead"><div><h1>${esc(s.title)}</h1></div></div>
     <div class="lead">${esc(s.lead)}</div>
-    <table><tr><th>묶음</th><th>안에 든 것</th><th>한마디로</th></tr>
+    <table><tr>${UI.th.map(t=>`<th>${esc(t)}</th>`).join('')}</tr>
       ${s.rows.map(([a,b,c])=>`<tr><td class="k">${esc(a)}</td><td>${esc(b)}</td><td class="d">${esc(c)}</td></tr>`).join('')}</table>
     <div class="bigfoot">${esc(s.foot)}</div></div>`);
 
@@ -422,19 +437,21 @@ const pdfHtml = `<!doctype html><meta charset="utf-8"><style>
 const pf = path.join(TMP, 'pdf.html');
 fs.writeFileSync(pf, pdfHtml);
 await page.goto('file://' + pf, { waitUntil:'load' });
-await page.pdf({ path: path.join(OUT, 'admin-easy.pdf'), width:`${W}px`, height:`${H}px`, printBackground:true, pageRanges:`1-${SLIDES.length}` });
+await page.pdf({ path: path.join(OUT, PDF), width:`${W}px`, height:`${H}px`, printBackground:true, pageRanges:`1-${SLIDES.length}` });
 await b.close();
 
 /* ④ 보는 쪽(adm-s18.js)의 제목이 이 파일의 제목과 어긋나지 않았는지 확인합니다.
       ⚠️ 어긋나도 그림은 정상이라 «에러가 안 나는» 종류의 사고입니다 — 그래서 여기서 알려 줍니다. */
 try {
   const js = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/public/js/adm-s18.js'), 'utf8');
-  const seg = js.slice(js.indexOf('titles:["관리자'), js.indexOf('en:{ dir'));
+  const blk = LANG === 'en' ? js.slice(js.indexOf('en:{ dir')) : js.slice(js.indexOf('ko:{ dir'), js.indexOf('en:{ dir'));
+  const t0 = blk.indexOf('titles:[');
+  const seg = blk.slice(t0, blk.indexOf(']', t0));
   const shown = [...seg.matchAll(/"([^"]+)"/g)].map(m => m[1]);
   const mine  = SLIDES.map(s => s.title || '');
   const bad = mine.filter((t, i) => shown[i] !== t);
   if (shown.length !== mine.length || bad.length) {
-    console.warn('⚠️ adm-s18.js 의 한국어 제목이 slides.mjs 와 다릅니다 — 보는 화면의 쪽 제목만 옛것으로 남습니다.');
+    console.warn(`⚠️ adm-s18.js 의 ${LANG === 'en' ? '영어' : '한국어'} 제목이 ${LANG === 'en' ? 'slides-en.mjs' : 'slides.mjs'} 와 다릅니다 — 보는 화면의 쪽 제목만 옛것으로 남습니다.`);
     mine.forEach((t, i) => { if (shown[i] !== t) console.warn(`   ${i+1}쪽  화면 "${shown[i]}"  ≠  글 "${t}"`); });
   } else console.log(`✓ adm-s18.js 제목도 같습니다 (${mine.length}쪽)`);
 } catch (e) { console.warn('⚠️ adm-s18.js 제목 확인을 못 했습니다:', e.message); }
