@@ -4150,6 +4150,27 @@ function mgsuCancelPostponed(key) {
       .catch(function () { alert(en ? 'Could not cancel (network). Try again.' : '취소하지 못했습니다(통신 오류). 다시 눌러 주세요.'); });
   });
 }
+/* (2026-10-09) 요일별 줄의 ⏸ 연기 · ✏️ 변경 — 학생 목록 «⏸ 연기·변경·취소»(adm-core.js smOpenMovePick)와 같은
+   회차 고르기 창(pickOpen)을 이 학생으로 연다. 권한은 mgsuMeRole(모르면 본사 아님 = 취소·나누기 안 줌). */
+function mgsuOpenPick() {
+  var uid = new URLSearchParams(location.search).get('uid') || '';
+  if (!uid) return;
+  var it0 = (_mgsuItems || [])[0] || {};
+  mgsuMeRole(function (me) {
+    mgsuLoadMoveModal(function () {
+      if (typeof window.mangoiMoveModal.pickOpen !== 'function') { alert(mgsuEn() ? 'Could not open the window. Reload and try again.' : '연기·변경 창을 열지 못했습니다. 새로고침 후 다시 눌러 주세요.'); return; }
+      window.mangoiMoveModal.pickOpen({ uid: uid, name: it0.student_name || uid }, {
+        isEn: mgsuEn, canCancel: me.hq === true, canSplit: me.hq === true, days: 28,
+        me: { name: me.name || '' },
+        onClose: function (changed) {
+          if (!changed) return;
+          loadAiSchedules();
+          try { if (typeof loadDStudentSchedule === 'function') loadDStudentSchedule(); } catch (_) {}
+        }
+      });
+    });
+  });
+}
 /* «매주 변경» — 요일별 보기를 펼치고 그 줄의 변경 편집기를 연다(이미 있는 openReschedule 그대로). */
 function mgsuOpenSeries(ids) {
   var list = String(ids || '').split(',').filter(Boolean);
@@ -4183,6 +4204,8 @@ document.addEventListener('click', function (e) {
   /* 📅 (2026-10-08 «스케줄 캘린더에서도 연기·변경·취소») 캘린더의 예약 카드를 누르면 «그 날» 창이 바로 열린다. */
   var cm = t.closest('[data-mgs-move]');
   if (cm) { mgsuOpenMove(cm.getAttribute('data-mgs-move')); return; }
+  var pk = t.closest('[data-mgsu-pick]');
+  if (pk) { mgsuOpenPick(); return; }
   var se = t.closest('[data-mgsu-series]');
   if (se) { mgsuOpenSeries(se.getAttribute('data-mgsu-series')); return; }
   var sp = t.closest('[data-mgsu-split]');
@@ -4319,12 +4342,13 @@ async function loadAiSchedules() {
         + '<span class="mgt-chip" style="color:#1d4ed8;font-size:12px;font-weight:800;background:#eef4ff;border:1px solid #93c5fd;border-radius:999px;padding:1px 9px;white-space:nowrap">👩‍🏫 ' + teacherLabel(it) + '</span>'
         + _startSmall
         + '<span class="mgs-src-chip" style="color:#475467;font-size:10.5px;border:1px solid #cbd5e1;border-radius:6px;padding:1px 7px" title="' + (_en ? 'The enrollment list and this actual class table are different tables — a class here may not appear in the enrollment list.' : '수강신청(enrollments) 표와 이 실제 수업표(class_schedules)는 서로 다른 표입니다 — 여기 있어도 수강신청 신청 목록에는 없을 수 있습니다.') + '">🔖 ' + sourceLabel(it) + '</span>'
-        /* 📅 (2026-10-01 사장님 「취소는 빼고 그냥 연기, 변경」) — 이 카드에서는 연기·변경만 준다.
-           ⏸ 연기는 «날짜가 정해진» 줄에만(공용 연기·변경 창 · 위 mgsuOpenMove). 매주 반복 줄은
-           «그 날 하나만» 옮길 수 없어서(서버가 기록만 남김) 연기 버튼을 안 준다 — 주면 «눌렀는데 안 됨».
+        /* 📅 (2026-10-09 사장님 「연기도 추가 · 이미 만든 연기/변경 페이지로」) — 모든 줄에 ⏸ 연기 · ✏️ 변경.
+           둘 다 학생 목록의 «⏸ 연기·변경·취소» 와 «같은» 창을 연다: 회차 고르기(pickOpen) → 그 회차 창.
+           ⛔ 새 창·새 판정을 만들지 않는다 — js/class-move-modal.js 의 pickOpen 그대로(mgsuOpenPick).
+           매주 요일·시각을 «전부» 바꾸는 것은 위 묶음 줄의 «매주 변경» 이 그대로 맡는다.
            ⚠️ cancelAiSchedule() 함수는 남겨 둔다(다른 경로·하니스가 그 «새로고침 배선» 을 본다). */
-        + ((it.scheduled_date && !_oi.past && it.status !== 'postponed') ? '<button type="button" data-mgsu-move="' + esc(String(it.scheduled_date).slice(0, 10) + '|' + it.id) + '" style="margin-left:auto;padding:3px 10px;border:1px solid #b45309;background:#ffffff;color:#b45309;border-radius:6px;cursor:pointer;font-size:11px">⏸ ' + (_en ? 'Postpone' : '연기') + '</button>' : '')
-        + '<button onclick="openReschedule(' + it.id + ')" style="' + ((it.scheduled_date && !_oi.past && it.status !== 'postponed') ? '' : 'margin-left:auto;') + 'padding:3px 10px;border:1px solid #2563eb;background:#ffffff;color:#1d4ed8;border-radius:6px;cursor:pointer;font-size:11px">✏️ ' + (_en ? (it.scheduled_date ? 'Change' : 'Change weekly') : (it.scheduled_date ? '변경' : '매주 변경')) + '</button>'
+        + '<button type="button" data-mgsu-pick="1" style="margin-left:auto;padding:3px 10px;background:#ffffff;border-radius:6px;cursor:pointer;font-size:11px;border:1px solid #b45309;color:#b45309">⏸ ' + (_en ? 'Postpone' : '연기') + '</button>'
+        + '<button type="button" data-mgsu-pick="1" style="padding:3px 10px;background:#ffffff;border-radius:6px;cursor:pointer;font-size:11px;border:1px solid #2563eb;color:#1d4ed8">✏️ ' + (_en ? 'Change' : '변경') + '</button>'
         + '</div>'
         + '<div id="resch-' + it.id + '" style="display:none;margin-top:10px;border-top:1px dashed rgba(148,163,184,0.35);padding-top:10px"></div>'
         + '</div>';
