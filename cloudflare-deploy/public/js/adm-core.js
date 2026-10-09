@@ -16350,16 +16350,23 @@ window.rebuildGlobalSearchIndex = function() {
 
     try {
       const r = await fetch(url, { credentials:'include' });
-      const data = await r.json();
-      if (!data.ok) throw new Error(data.error || 'API error');
+      const data = await r.json().catch(() => ({ ok:false, error:'http_' + r.status }));
+      if (!data.ok) { const er = new Error(data.error || 'API error'); er.who = data.who_line || ''; throw er; }
       const html = renderReport(type, data, csvUrl);
       win.document.open();
       win.document.write(html);
       win.document.close();
     } catch(e) {
-      win.document.body.innerHTML = `<h2 style="color:#ef4444">에러: ${e.message}</h2>
-        <p>API 호출 실패 — wrangler 배포 후 다시 시도하세요.</p>
-        <p><code>${url}</code></p>`;
+      /* (2026-10-09) 옛 문구는 무슨 오류든 «wrangler 배포 후 다시» 였다 — 로그인이 풀린 사장님께 엉뚱한 안내였음 */
+      const code = String(e.message || '');
+      const why = code === 'auth_required'
+        ? '로그인이 풀렸습니다. 관리자 화면을 새로고침해 다시 로그인한 뒤 눌러 주세요.<br>(같은 브라우저에서 다른 계정으로 로그인하면 이전 로그인이 풀립니다.)<br><span style="color:#6b7280">Your login expired — reload the admin page, sign in again and retry.</span>'
+        : code.indexOf('forbidden') === 0
+          ? '이 계정에는 이 리포트를 볼 권한이 없습니다. ' + esc(e.who || '')
+          : '리포트를 불러오지 못했습니다. 잠시 뒤 다시 눌러 주세요.';
+      win.document.body.innerHTML = `<h2 style="color:#ef4444">에러: ${esc(code)}</h2>
+        <p>${why}</p>
+        <p><code>${esc(url)}</code></p>`;
     }
   };
 
@@ -16575,12 +16582,15 @@ window.rebuildGlobalSearchIndex = function() {
     };
     const st = d.sync_starts || {};
     const bad = ms.filter(m => m.coverage && m.coverage.level !== 'full');
+    /* (2026-10-09) «진행 중인 달» 은 통장·카드가 다 연동돼 있어도 자료부족이다(서버 coverageOf).
+       그 달만 있는데 «연동 이전이라 비용이 없다» 고 말하면 거짓 — 이유는 달마다 서버 note 를 그대로 쓴다 */
+    const syncBad = bad.filter(m => m.coverage.bank !== 'full' || m.coverage.card !== 'full');
     return `
       ${bad.length ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:8px;padding:12px 15px;margin:12px 0;font-size:12.5px;line-height:1.75">
         <b style="color:#92400e">⚠️ 자료가 온전하지 않은 달이 ${bad.length}개 있습니다 — 그 달의 순이익을 그대로 믿으면 안 됩니다.</b><br>
-        통장 연동은 <b>${esc(st.bankFrom || '미연동')}</b>, 법인카드 연동은 <b>${esc(st.cardFrom || '미연동')}</b> 부터입니다.
-        그 전 달은 <b>비용이 없거나 일부만</b> 잡혀서 순이익이 실제보다 좋게(때로는 흑자로) 나옵니다.<br>
-        해당 달: ${bad.map(m => `<b>${esc(m.period)}</b>`).join(' · ')}
+        ${syncBad.length ? `통장 연동은 <b>${esc(st.bankFrom || '미연동')}</b>, 법인카드 연동은 <b>${esc(st.cardFrom || '미연동')}</b> 부터입니다.
+        그 전 달은 <b>비용이 없거나 일부만</b> 잡혀서 순이익이 실제보다 좋게(때로는 흑자로) 나옵니다.<br>` : ''}
+        ${bad.map(m => `<b>${esc(m.period)}</b> — ${esc((m.coverage && m.coverage.note) || '')}`).join('<br>')}
       </div>` : ''}
       <div class="tblwrap"><table class="compact">
         <thead><tr><th>${headLabel}</th><th class="num">매출</th><th class="barcell"></th><th class="num">장부 결제</th><th class="num">통장 B2B</th><th class="num">결제건</th><th class="num">강사 급여</th><th class="num">비용 합계</th><th class="num">순이익</th><th class="barcell"></th></tr></thead>
