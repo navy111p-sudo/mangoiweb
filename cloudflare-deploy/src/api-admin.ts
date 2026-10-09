@@ -1797,7 +1797,49 @@ export async function handleAdminApi(
            HAVING session_ms > 0 OR session_count > 0`
         ).bind(fromMs, toMs).all<any>();
 
-        const items = (rows.results || []).map(r => {
+        /* 👤 (2026-10-09) 학생 이름 — `user_id` 는 접속마다 새로 나는 기기 번호일 수 있어서
+           (CLAUDE.md 「출결만 통째로 0」) 계정(`account_uid`) → 로그인 이름(`username`) →
+           `user_id` 순으로 학생 명부(`students_erp.user_id`) **완전일치**로만 이름을 찾는다.
+           ⛔ 부분일치·대소문자 무시 금지(동명이인·Kim/kim). 못 찾으면 null(지어내지 않음).
+           조회가 실패해도 랭킹은 그대로 나가야 하므로 전부 fail-open. */
+        const _rkRows: any[] = rows.results || [];
+        const _rkAcct = new Map<string, string>();
+        try {
+          const ar = await env.DB.prepare(
+            `SELECT user_id, MAX(account_uid) AS account_uid FROM attendance
+              WHERE joined_at BETWEEN ? AND ? AND account_uid IS NOT NULL AND TRIM(account_uid) <> ''
+              GROUP BY user_id`
+          ).bind(fromMs, toMs).all<any>();
+          for (const a of (ar.results || [])) _rkAcct.set(String(a.user_id), String(a.account_uid).trim());
+        } catch (_) { /* account_uid 칸이 아직 없는 DB — 이름만 덜 붙는다 */ }
+        const _rkCands = (r: any): string[] => {
+          const out: string[] = [];
+          for (const v of [_rkAcct.get(String(r.user_id)), r.username, r.user_id]) {
+            const t = String(v == null ? '' : v).trim();
+            if (t && out.indexOf(t) < 0) out.push(t);
+          }
+          return out;
+        };
+        const _rkNames = new Map<string, string>();
+        try {
+          const keys = Array.from(new Set(_rkRows.flatMap(_rkCands)));
+          const nr = await selectInChunks<any>(env.DB, keys,
+            ph => `SELECT user_id, korean_name, student_name, english_name FROM students_erp WHERE user_id IN (${ph})`,
+            { swallowErrors: true });
+          for (const n of nr) {
+            const uid = String(n.user_id || '');
+            const nm = [n.korean_name, n.student_name, n.english_name]
+              .map(x => String(x == null ? '' : x).trim()).find(x => x && x !== uid);
+            if (uid && nm) _rkNames.set(uid, nm);
+          }
+        } catch (_) { /* 이름 없이 랭킹만 */ }
+        const _rkNameOf = (r: any): { name: string | null; uid: string | null } => {
+          for (const k of _rkCands(r)) { const nm = _rkNames.get(k); if (nm) return { name: nm, uid: k }; }
+          return { name: null, uid: null };
+        };
+
+        const items = _rkRows.map(r => {
+          const _nm = _rkNameOf(r);
           const activeRatio = r.session_ms > 0 ? (r.active_ms / r.session_ms * 100) : 0;
           const avgGaze = r.avg_gaze != null ? Number(r.avg_gaze) : null;
           // 집중도 composite: 시선 50% + 발화 비율 40% - 끊김 페널티 10%
@@ -1814,6 +1856,8 @@ export async function handleAdminApi(
           return {
             user_id: r.user_id,
             username: r.username,
+            student_name: _nm.name,       // 학생 명부 이름(못 찾으면 null)
+            student_uid: _nm.uid,         // 그 이름을 찾은 계정
             session_count: r.session_count,
             active_ms: r.active_ms,
             session_ms: r.session_ms,
