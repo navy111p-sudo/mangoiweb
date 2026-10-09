@@ -61,7 +61,7 @@
   /* 🧭 결재로 보낼 줄(2026-10-09) — 서버(handover-routing.ts)가 고른 «제안» 만 그린다.
      누르면 결재 화면(/work?type=…)이 새 탭에서 내용이 채워진 채 열린다. 올리는 것은 사람이 한다.
      ⛔ 보고서에서 그 줄을 자동으로 지우지 않는다(지울지는 사람이 정한다). */
-  var ROUTE_KIND={purchase:'물품 구입 / Purchase',expense:'지출 정산 / Expense',leave:'휴가 신청 / Time off',hr:'인사·급여 / HR & Pay'};
+  var ROUTE_KIND={purchase:'물품 구입 / Purchase',expense:'지출 정산 / Expense',leave:'휴가 신청 / Time off'};
   function paintRoute(list){
     var box=$('route');box.replaceChildren();list=Array.isArray(list)?list:[];
     if(!list.length){box.hidden=true;return;}

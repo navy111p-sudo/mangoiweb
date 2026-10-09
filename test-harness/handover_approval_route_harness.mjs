@@ -29,7 +29,9 @@ ok('사비 + 영수증 → expense', T('택시비 사비로 ₱300 냄, 영수�
 ok('reimburse → expense', T('Paid for printer ink out of pocket 450 pesos, please reimburse') === 'expense');
 ok('휴가 → leave', T('다음 주 금요일 연차 쓰고 싶습니다') === 'leave');
 ok('day off → leave', T('I need a day off on Oct 15') === 'leave');
-ok('급여 → hr', T('Teacher Kaye 급여 인상 요청') === 'hr');
+ok('인사·급여는 안내하지 않음(전용 폼에 글을 옮길 칸이 없음)', T('Teacher Kaye 급여 인상 요청') === null && !M.ROUTE_TYPES.includes('hr'));
+ok('급여 명세서 발송 완료 → 안 잡음', T('급여 명세서 발송 완료') === null);
+ok('지난 휴가 «알림» 은 안 잡음', T('Teacher A 휴가 중이라 대신 수업함') === null && T('연차 다녀옴, 오늘 복귀') === null);
 // ② 잡으면 안 되는 줄 (짝)
 ok('평범한 보고 줄', T('카카오 문의 3건 답변') === null);
 ok('수업 일정 확인', T('내일 수업 일정 확인 완료') === null);
@@ -54,15 +56,14 @@ ok('줄 앞 금액이 안 잘림(1,200 → 1200)', L1.length === 1 && L1[0].amou
 const L2 = M.approvalHints({ work: '3만원 교재 구입 필요', no_issue: true, no_open: true });
 ok('줄 앞 «3만원» 도 읽힘', L2.length === 1 && L2[0].amount === 30000);
 ok('머리 번호는 벗김', M.linesOf('1. 카카오 답변\n2) 잉크 ₱300 사야 함')[1] === '잉크 ₱300 사야 함');
-ok('인상적인 수업 ≠ 인사·급여', T('인상적인 수업이었음') === null);
-ok('가격 인상 문의 ≠ 인사·급여', T('가격 인상 문의 받음') === null);
 ok('학부모 결제 + 영수증 발송 = 매출', T('학부모 결제 완료, 영수증 발송') === null);
 ok('학생 조퇴 ≠ 직원 휴가', T('학생 조퇴함') === null);
 ok('「원에」 도 금액으로 읽음', T('마우스 12,000원에 구입 예정') === 'purchase');
 ok('사비 + 영수증 받음은 여전히 지출 정산', T('택시비 사비로 ₱300 냄, 영수증 받음') === 'expense');
 // 계정이 못 올리는 분류는 뺌 + 판정이 던져도 안 죽음(짝: 허용하면 남음)
-const D2 = { work: '잉크 ₱300 사야 함\n급여 인상 요청', no_issue: true, no_open: true };
-ok('허용 안 하면 뺌', M.approvalHints(D2, null, t => t !== 'hr').map(x => x.type).join() === 'purchase');
+const D2 = { work: '잉크 ₱300 사야 함\n다음 주 월요일 연차 쓰고 싶어요', no_issue: true, no_open: true };
+ok('허용 안 하면 뺌', M.approvalHints(D2, null, t => t !== 'leave').map(x => x.type).join() === 'purchase');
+ok('AI 가 hr 을 줘도 안 받음', M.approvalHints({ work: '교재 복사', no_issue: true, no_open: true }, [{ line: '교재 복사', type: 'hr' }]).length === 0);
 ok('허용 함수가 없으면 그대로', M.approvalHints(D2).length === 2);
 ok('허용 판정이 던지면 그 분류만 뺌', M.approvalHints(D2, null, () => { throw new Error('x'); }).length === 0);
 

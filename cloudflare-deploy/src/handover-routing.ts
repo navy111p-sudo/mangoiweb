@@ -11,8 +11,10 @@
  * 종류는 approval-policy.ts TYPES 의 key 와 같아야 한다 — 화면이 /work?type=<key> 로 넘긴다.
  */
 
-export type RouteType = 'purchase' | 'expense' | 'leave' | 'hr';
-export const ROUTE_TYPES: readonly RouteType[] = ['purchase', 'expense', 'leave', 'hr'];
+// ⛔ 'hr'(인사·급여)은 넣지 않는다(2026-10-09 Codex 리뷰) — 결재 화면의 인사·급여 폼은 «기간 확정» 전용이라
+//    제목·내용 칸이 없어 옮긴 글이 사라지고, 「급여 명세서 발송 완료」처럼 낱말만으로는 «결정이 필요한가» 를 못 가른다.
+export type RouteType = 'purchase' | 'expense' | 'leave';
+export const ROUTE_TYPES: readonly RouteType[] = ['purchase', 'expense', 'leave'];
 
 export interface ApprovalHint {
   line: string;            // 원문 그대로의 한 줄
@@ -28,7 +30,6 @@ const REASON: Record<RouteType, [string, string]> = {
   purchase: ['돈을 써서 물건을 사야 해서 구입 승인이 필요합니다', 'Buying something needs purchase approval'],
   expense:  ['이미 쓴 돈을 돌려받으려면 지출 정산 결재가 필요합니다', 'Getting paid back needs an expense claim'],
   leave:    ['쉬는 날은 허락이 필요해서 휴가 신청 결재가 필요합니다', 'Time off needs approval'],
-  hr:       ['인사·급여는 결정이 필요한 일이라 결재로 올려야 합니다', 'HR and pay matters need a decision'],
 };
 
 /** 이미 결재로 처리했다고 적힌 줄 — 다시 권하지 않는다 */
@@ -50,7 +51,8 @@ export function parseAmount(line: string): { amount: number; currency: 'PHP' | '
 }
 
 const LEAVE_RE = /(휴가|연차|반차|월차|병가|조퇴|결근|day\s*off|days\s*off|leave\b|vacation|sick\s*leave|absent\s+(on|tomorrow|next))/i;
-const HR_RE = /(급여|월급|임금|채용|해고|퇴사|사직|계약\s*(연장|해지)|salary|payroll|raise\b|hire|hiring|resign|termination|contract\s+(renewal|extension))/i;
+/** 이미 지난 결근·휴가를 «알리는» 줄 — 허락을 구하는 것이 아니다 */
+const LEAVE_REPORT_RE = /(휴가\s*중|병가\s*중|복귀|다녀[옴왔]|대신\s*수업|대타|cover(ed|ing)?\s+for|was\s+on\s+(leave|vacation)|returned\s+from)/i;
 const BUY_RE = /(구입|구매|사야|살\s*예정|주문|교체\s*필요|buy|purchase|order\b|need\s+to\s+get|replace)/i;
 const PAID_RE = /(정산|환급|대신\s*(냄|결제|지불)|자비|사비|영수증|reimburse|paid\s+(for|out\s+of)|out\s+of\s+pocket|receipt|refund\s+me)/i;
 
@@ -63,8 +65,7 @@ export function ruleTypeOf(line: string): RouteType | null {
   const s = String(line || '');
   if (!s.trim() || DONE_RE.test(s)) return null;
   const money = parseAmount(s);
-  if (LEAVE_RE.test(s)) return STUDENT_RE.test(s) ? null : 'leave';
-  if (HR_RE.test(s)) return 'hr';
+  if (LEAVE_RE.test(s)) return (STUDENT_RE.test(s) || LEAVE_REPORT_RE.test(s)) ? null : 'leave';
   if (INCOME_RE.test(s)) return null;      // 학생 결제를 «받은» 것은 매출 — 결재가 아니다(지출 정산보다 먼저 본다)
   if (PAID_RE.test(s) && (money || /영수증|receipt/i.test(s))) return 'expense';
   if (BUY_RE.test(s) && money) return 'purchase';
@@ -129,6 +130,6 @@ export function approvalHints(d: HandoverText, aiItems?: unknown, allowed?: (t: 
 
 /** AI 프롬프트에 덧붙이는 규칙 — 기존 정리 JSON 에 approval 칸 하나를 더한다 */
 export const APPROVAL_PROMPT_RULE =
-  'Also add "approval": a list (max 3) of {"line": exact text copied from the input, "type": one of purchase|expense|leave|hr} ' +
+  'Also add "approval": a list (max 3) of {"line": exact text copied from the input, "type": one of purchase|expense|leave} ' +
   'for items that need a manager decision instead of a report: buying something (purchase), being paid back for money already spent (expense), ' +
-  'time off (leave), pay or hiring matters (hr). Only include an item if the input clearly asks for it; skip items already approved or submitted. Use [] when none.';
+  'time off the writer is asking for (leave). Never use other types. Only include an item if the input clearly asks for it; skip items already approved or submitted. Use [] when none.';
