@@ -20,6 +20,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SAMPLE } from './sample-data.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT  = path.join(HERE, '.shots');
@@ -34,7 +35,13 @@ const SPECIFIC = {
       email:'help@mangoi.ai', phone:'02-000-0000', center:'본사', scope:'hq', role_label:'본사 관리자' } }
 };
 
-/* 찍을 화면 — slides.mjs 의 shot 이름과 짝입니다. card 는 jumpToMenu 로 엽니다. */
+/* 찍을 화면 — slides.mjs 의 shot 이름과 짝입니다. card 는 jumpToMenu 로 엽니다.
+ *   marks: 화살표·번호를 붙일 곳. 'css:선택자' 또는 '글자'(그 글자를 가진 가장 작은 보이는 요소).
+ *          찍은 뒤 그 자리(px)를 .shots/marks-<이름>.json 에 남기고 build.mjs 가 그 위에 그립니다.
+ *          ⚠️ 못 찾으면 null 로 남기고 경고합니다 — 화면이 바뀌어 화살표가 엉뚱한 곳을 가리키는 것보다 낫습니다.
+ *   wide:  관리자 표는 폭이 넓어 오른쪽(승인·지급 버튼)이 잘립니다 → 넓은 창으로 찍습니다. */
+const WIDE = { width:1920, height:1080 };
+const HIDE_AI = '#mi-ops-fab,#mangoi-widget,#mangoi-toggle,[id*="ai-sec"],[class*="ai-sec-fab"],#mga-fab,#aiw-fab';
 const TARGETS = [
   { name:'login',   url:'/admin/login.html' },
   { name:'home',    url:'/admin.html' },
@@ -44,10 +51,27 @@ const TARGETS = [
   { name:'student', url:'/admin.html', card:'card-students-mgmt' },
   { name:'parent',  url:'/admin.html', card:'card-parent-digest' },
   { name:'teacher', url:'/admin.html', card:'card-teacher-mgmt' },
-  { name:'pay',     url:'/admin.html', card:'card-payments-b2c' },
   { name:'library', url:'/admin.html', card:'card-lib-admin' },
   { name:'site',    url:'/index.html' },
-  { name:'logout',  url:'/admin.html', act:'account', viewport:{ width:1440, height:1400 }, clip:'#ph115-modal' }
+  { name:'logout',  url:'/admin.html', act:'account', viewport:{ width:1440, height:1400 }, clip:'#ph115-modal' },
+
+  /* ── 2026-10-09 «특히 자세히» — 수업 스케줄 · 수강신청 · 연기/변경 · 학생 결제 · 강사 급여 ── */
+  { name:'week', url:'/admin/weekly-schedule.html?demo=1', viewport:WIDE,
+    prep:`document.getElementById('guide-toast')&&(document.getElementById('guide-toast').style.display='none');
+          var b=document.getElementById('demo-badge'); if(b) b.remove();`,
+    marks:['◀ 이전','css:#search-input,input[placeholder*="검색"]','Anna Reyes','빈자리 찾기','css:.ai-suggest-btn','css:#ws-lock-btn'] },
+  { name:'enroll', url:'/admin.html', card:'card-enrollments', viewport:{ width:1920, height:1500 },
+    prep:`typeof loadEnrollments==='function'&&loadEnrollments()`,
+    scrollTo:'css:#card-enrollments details[data-gc]',
+    marks:['css:#card-enrollments details[data-gc] > summary','css:#en-status-filter','대기 3','css:#enrollments-table button[onclick^="enOpenPanel"]'] },
+  { name:'srq', url:'/admin.html', card:'card-schedule-requests', viewport:WIDE,
+    prep:`typeof srqLoad==='function'&&srqLoad()`, scrollTo:'css:#srq-filter',
+    marks:['css:#srq-filter','css:#srq-table tbody tr','css:button[onclick*="\'approve\'"]','css:button[onclick*="\'reject\'"]'] },
+  { name:'pay', url:'/admin.html', card:'card-payments-b2c', viewport:WIDE,
+    marks:['css:#b2c-kpi-today','css:#b2c-f-agency','css:#b2c-f-from','css:#b2c-f-q','css:button[onclick*="b2cSearch"]','css:button[onclick*="b2cDownloadCsv"]','css:#b2c-tbody tr'] },
+  { name:'payroll', url:'/admin.html', card:'card-payroll-auto', viewport:WIDE,
+    prep:`typeof prCalculate==='function'&&prCalculate()`, scrollTo:'css:#pr-year',
+    marks:['css:#pr-month','css:button[onclick="prCalculate()"]','css:#pr-summary','css:button[onclick^="prShowDetail"]','css:button[onclick^="prMarkPaid"]','css:#pr-save-btn'] }
 ];
 
 const { chromium } = await import('playwright-core');
@@ -62,7 +86,7 @@ await ctx.addInitScript(() => { try {
 await ctx.route('**/api/**', async route => {
   const p = new URL(route.request().url()).pathname;
   await route.fulfill({ status:200, contentType:'application/json; charset=utf-8',
-    body: JSON.stringify(SPECIFIC[p] || GENERIC) });
+    body: JSON.stringify(SAMPLE[p] || SPECIFIC[p] || GENERIC) });
 });
 
 const only = process.argv.slice(2);
@@ -90,6 +114,34 @@ for (const t of TARGETS) {
     if (t.act === 'account') {
       await page.evaluate(() => { const el = document.getElementById('ph115-user'); if (el) el.click(); });
       await page.waitForTimeout(1800);
+    }
+    if (t.prep) { await page.evaluate(t.prep); await page.waitForTimeout(3000); }
+    if (t.marks) await page.evaluate(sel => document.querySelectorAll(sel).forEach(el => { el.style.display = 'none'; }), HIDE_AI);
+    if (t.scrollTo) {
+      await page.evaluate(q => { const el = document.querySelector(q.slice(4)); if (el) el.scrollIntoView({ block:'start' }); window.scrollBy(0, -110); }, t.scrollTo);
+      await page.waitForTimeout(900);
+    }
+    if (t.marks) {
+      const boxes = await page.evaluate(list => {
+        const vis = el => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
+          return r.width > 2 && r.height > 2 && cs.visibility !== 'hidden' && cs.display !== 'none' && r.bottom > 0 && r.top < innerHeight; };
+        const find = m => {
+          if (m.startsWith('css:')) return [...document.querySelectorAll(m.slice(4))].find(vis) || null;
+          let best = null;
+          for (const el of document.querySelectorAll('button,a,select,input,th,td,span,div,summary,label,h1,h2,b')) {
+            if (!vis(el) || (el.textContent || '').trim() !== m) continue;
+            if (!best || el.contains(best) === false && best.contains(el)) best = el;
+            if (best && best.contains(el)) best = el;
+          }
+          return best;
+        };
+        return list.map(m => { const el = find(m); if (!el) return null;
+          const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; });
+      }, t.marks);
+      const dpr = 2;
+      const px = boxes.map(b => b && b.map(v => Math.round(v * dpr)));
+      px.forEach((b, i) => { if (!b) console.warn('  ⚠️ 화살표 자리를 못 찾음', t.name, i + 1, t.marks[i]); });
+      fs.writeFileSync(path.join(OUT, `marks-${t.name}.json`), JSON.stringify(px));
     }
     const dest = path.join(OUT, `raw-${t.name}.png`);
     if (t.clip) { const el = await page.$(t.clip); if (el) { await el.screenshot({ path: dest }); }
