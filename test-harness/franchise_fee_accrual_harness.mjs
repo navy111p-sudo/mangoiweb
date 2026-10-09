@@ -60,5 +60,52 @@ try {
   const jul = await run('2026-07', rows, []);
   ok('짝: 그 달에 기타출금이 없어도 다음 달 초 수수료는 없으면 0', cat(jul, '지사수수료') === 0);
 } catch (e) { fail++; console.log('  ❌ FAIL 실행 실패 ' + e.message); }
+
+// ── 📅 자료 온전성(coverageOf) — 다음 달 1~3일엔 지난달을 «확정» 이라 말하지 않는다 (2026-10-09)
+// 함수 두 개를 소스에서 중괄호 짝으로 오려 내 시각을 넣어 «실제로» 돌린다.
+function cutFn(name) {
+  const i = s.indexOf('function ' + name + '(');
+  if (i < 0) return '';
+  // 인자 목록을 괄호 짝으로 건너뛴 뒤 첫 «{» 가 몸통 — «) {» 로 찾으면 본문의 if 가 먼저 걸린다
+  let pd = 0, q = s.indexOf('(', i);
+  for (; q < s.length; q++) { if (s[q] === '(') pd++; else if (s[q] === ')') { pd--; if (pd === 0) break; } }
+  const b = s.indexOf('{', q); let d = 0, j = b;
+  for (; j < s.length; j++) { if (s[j] === '{') d++; else if (s[j] === '}') { d--; if (d === 0) break; } }
+  return s.slice(i, j + 1);
+}
+function stripTs(t) {
+  // 시그니처: 괄호 짝으로 인자 목록을 잘라 «이름 = 기본값» 만 남기고 반환 타입은 버린다
+  const o = t.indexOf('('); let d = 0, k = o;
+  for (; k < t.length; k++) { if (t[k] === '(') d++; else if (t[k] === ')') { d--; if (d === 0) break; } }
+  const parts = []; let cur = '', dd = 0;
+  for (const ch of t.slice(o + 1, k)) {
+    if ('({['.includes(ch)) dd++; else if (')}]'.includes(ch)) dd--;
+    if (ch === ',' && dd === 0) { parts.push(cur); cur = ''; } else cur += ch;
+  }
+  if (cur.trim()) parts.push(cur);
+  const args = parts.map(x => { const m = x.match(/^\s*(\w+)[\s\S]*?(=\s*[\s\S]+)?$/); const def = x.match(/=\s*([\s\S]+)$/); return m[1] + (def ? ' = ' + def[1].trim() : ''); });
+  const body = t.slice(t.indexOf('{', k));
+  return t.slice(0, o) + '(' + args.join(', ') + ') ' + body
+    .replace(/const (\w+): [^=]+=/g, 'const $1 =')
+    .replace(/ as const/g, '');
+}
+const covSrc = cutFn('coverageOf'), srcSrc = cutFn('sourceCoverage');
+ok('전제: coverageOf · sourceCoverage 를 오려 냈다', covSrc.length > 200 && srcSrc.length > 50);
+let cov = null;
+try {
+  cov = new Function('ACCRUAL_SHIFT_DAY', 'currentMonth', stripTs(srcSrc) + '\n' + stripTs(covSrc) + '\nreturn coverageOf;')(
+    dayM ? dayM[1] : '03', () => { throw new Error('currentMonth 를 부르면 시각 주입이 안 됨'); });
+} catch (e) { console.log('    (오려 내기 실패) ' + e.message); }
+ok('전제: coverageOf 를 만들었다', typeof cov === 'function');
+const at = ymd => Date.parse(ymd + 'T12:00:00+09:00');
+const ST = { bankFrom: '2026-06-01', cardFrom: '2026-06-01' };
+const C = (p, d) => { try { return cov(p, ST, at(d)); } catch (e) { return { level: 'ERR:' + e.message, note: '' }; } };
+ok('11/1 의 10월 → 확정 아님(지사수수료 대기)', C('2026-10', '2026-11-01').level === 'partial' && /지사 수수료/.test(C('2026-10', '2026-11-01').note));
+ok('11/3 의 10월 → 아직 확정 아님(3일까지 포함)', C('2026-10', '2026-11-03').level === 'partial');
+ok('짝: 11/4 의 10월 → 확정', C('2026-10', '2026-11-04').level === 'full');
+ok('짝: 11/2 의 9월(지난지난달) → 확정', C('2026-09', '2026-11-02').level === 'full');
+ok('짝: 10/9 의 10월 → «진행 중» 문구 그대로', /진행 중/.test(C('2026-10', '2026-10-09').note));
+ok('짝: 1/2 의 전년 12월 → 확정 아님(해 넘김)', (() => { try { return cov('2025-12', { bankFrom: '2025-01-01', cardFrom: '2025-01-01' }, at('2026-01-02')).level === 'partial'; } catch (e) { return false; } })());
+ok('짝: 통장 자료가 없는 달은 «지사수수료» 가 아니라 «자료 없음» 으로 말한다', C('2026-05', '2026-06-02').level === 'none');
 console.log(`결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);

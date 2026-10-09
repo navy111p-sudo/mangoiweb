@@ -2121,8 +2121,10 @@ function sourceCoverage(period: string, from: string | null): 'full' | 'partial'
   return from.slice(8, 10) === '01' ? 'full' : 'partial';
 }
 
-function coverageOf(period: string, starts: { bankFrom: string | null; cardFrom: string | null }): Coverage {
-  if (period > currentMonth()) {
+function coverageOf(period: string, starts: { bankFrom: string | null; cardFrom: string | null }, nowMs: number = Date.now()): Coverage {
+  const kst = new Date(nowMs + 9 * 3600 * 1000).toISOString();   // 판정 기준 «지금»(KST) — 하니스가 시각을 넣어 돌린다
+  const curM = kst.slice(0, 7);
+  if (period > curM) {
     return { level: 'future', bank: 'none', card: 'none', note: '아직 오지 않은 달입니다.' };
   }
   const bank = sourceCoverage(period, starts.bankFrom);
@@ -2130,9 +2132,17 @@ function coverageOf(period: string, starts: { bankFrom: string | null; cardFrom:
   const parts: string[] = [];
   /* 진행 중인 달은 «온전» 이라고 할 수 없다 — 아직 절반만 지났는데 한 달치로 읽으면
      매출도 비용도 실제보다 작다. 자료 연동과 무관한 이유라 따로 먼저 판정한다. */
-  if (period === currentMonth()) {
+  if (period === curM) {
     return { level: 'partial', bank, card,
       note: '아직 진행 중인 달입니다 — 매출도 비용도 한 달치가 아니라 오늘까지의 값입니다.' };
+  }
+  /* 📅 지사수수료 귀속월(ACCRUAL_SHIFT_DAY) 때문에 «지난달» 은 다음 달 3일까지 아직 온전하지 않다 —
+     그 사이 나가는 지사수수료가 지난달 비용으로 들어오는데, 그 전에 «확정» 으로 읽으면 순이익이 부풀어 보인다.
+     ⛔ 날짜가 «이 달 1~3일» 이고 period 가 «바로 전 달» 일 때만. 자료가 없을 뿐인 옛 달은 아래 판정 그대로. */
+  const prevM = (() => { const [yy, mm] = curM.split('-').map(Number); return new Date(Date.UTC(yy, mm - 2, 1)).toISOString().slice(0, 7); })();
+  if (period === prevM && kst.slice(8, 10) <= ACCRUAL_SHIFT_DAY && bank !== 'none') {
+    return { level: 'partial', bank, card,
+      note: `지사 수수료가 ${curM.slice(5)}월 ${Number(ACCRUAL_SHIFT_DAY)}일까지 이 달 비용으로 더 들어올 수 있습니다 — ${Number(ACCRUAL_SHIFT_DAY) + 1}일 이후 확정됩니다.` };
   }
   if (bank === 'none') parts.push(`통장 자료가 없습니다(연동 ${starts.bankFrom || '미연동'}부터)`);
   else if (bank === 'partial') parts.push(`통장 자료가 ${starts.bankFrom}부터라 이 달은 일부만 있습니다`);
