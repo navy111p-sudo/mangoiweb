@@ -712,12 +712,12 @@ async function loadStudentRankings() {
   const tb = document.getElementById('rk-tbody');
   const sumEl = document.getElementById('rk-summary');
   if (!tb) return;
-  tb.innerHTML = '<tr><td colspan="8" class="empty">' + (adminLang==='en'?'Loading…':'로딩 중…') + '</td></tr>';
+  tb.innerHTML = '<tr><td colspan="9" class="empty">' + (adminLang==='en'?'Loading…':'로딩 중…') + '</td></tr>';
 
   const params = new URLSearchParams({ period, sort_by: sortBy, limit: '20' });
   if (period === 'custom') {
     if (!fromV || !toV) {
-      tb.innerHTML = '<tr><td colspan="8" class="empty">' + (adminLang==='en'?'Pick from/to dates':'시작·종료 날짜를 선택하세요') + '</td></tr>';
+      tb.innerHTML = '<tr><td colspan="9" class="empty">' + (adminLang==='en'?'Pick from/to dates':'시작·종료 날짜를 선택하세요') + '</td></tr>';
       return;
     }
     params.set('from', fromV);
@@ -735,7 +735,7 @@ async function loadStudentRankings() {
     }
 
     if (j.items.length === 0) {
-      tb.innerHTML = '<tr><td colspan="8" class="empty">' + (adminLang==='en'?'No data in this period':'기간 내 데이터 없음') + '</td></tr>';
+      tb.innerHTML = '<tr><td colspan="9" class="empty">' + (adminLang==='en'?'No data in this period':'기간 내 데이터 없음') + '</td></tr>';
       return;
     }
 
@@ -761,6 +761,9 @@ async function loadStudentRankings() {
       const uidEnc = encodeURIComponent(it.user_id);
       return `<tr>
         <td style="font-weight:700;text-align:center">${medal}</td>
+        <td>${it.student_name
+              ? `<b style="color:#101828">${escName(it.student_name)}</b>`
+              : `<span style="color:#667085" title="${adminLang==='en'?'Not found in the student roster (temporary device id or unregistered account)':'학생 명부에서 이름을 찾지 못했습니다 (접속 임시번호이거나 명부에 없는 계정)'}">—</span>`}</td>
         <td><a href="/admin/student?uid=${uidEnc}" target="_blank" style="color:#0984e3;text-decoration:none;border-bottom:1px dotted #0984e3">${escName(it.username)}</a></td>
         <td>${it.session_count}</td>
         <td>${fmtMs2(it.active_ms)}</td>
@@ -772,7 +775,7 @@ async function loadStudentRankings() {
     }).join('');
   } catch (e) {
     console.warn('[rankings] load failed:', e);
-    tb.innerHTML = '<tr><td colspan="8" class="empty">' + (adminLang==='en'?'Load failed':'로드 실패') + ': ' + (e.message||e) + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="9" class="empty">' + (adminLang==='en'?'Load failed':'로드 실패') + ': ' + (e.message||e) + '</td></tr>';
   }
 }
 
