@@ -101,8 +101,9 @@ const cBody = ci > 0 ? API.slice(ci, API.indexOf('/* 🔍 GET /api/admin/textboo
 ok('classes-now 블록을 잘랐다(전제)', cBody.length > 1000);
 ok('실접속 행에 account_uid 를 뽑는다(+옛 DB 폴백)', /user_id, username, account_uid, room_id/.test(cBody) && /catch \{\s*try \{ const r: any = await q\('user_id, username, room_id/.test(cBody));
 ok('응답에 room_mismatch 를 싣는다', /room_mismatch: roomMismatch,/.test(cBody));
-ok('판정을 try 로 감싼다(목록은 그대로)', /try \{[\s\S]{0,400}findRoomMismatches\(mgClasses[\s\S]{0,200}\} catch/.test(cBody));
-ok('판정에 «방 지정 반영 뒤» mgClasses 를 넘긴다', cBody.indexOf('findRoomMismatches(mgClasses') > cBody.indexOf('applyRoomOverrides('));
+// 🎌 (2026-10-09) 공휴일 휴강으로 뺀 수업은 경보에서도 뺀다 — 넘기는 목록이 «휴강 아닌 망고아이 수업»(_mgOpen) 일 수 있다
+ok('판정을 try 로 감싼다(목록은 그대로)', /try \{[\s\S]{0,400}findRoomMismatches\((?:mgClasses|_mgOpen)[\s\S]{0,200}\} catch/.test(cBody));
+{ const _fm = cBody.search(/findRoomMismatches\((?:mgClasses|_mgOpen)/); ok('판정에 «방 지정 반영 뒤» mgClasses 를 넘긴다', _fm > cBody.indexOf('applyRoomOverrides(') && cBody.indexOf('applyRoomOverrides(') > 0); }
 {
   const m = cBody.match(/const infoBySched = new Map<number, \{ uid: string; source: any \}>\(\);\n([^\n]*)\n/);
   ok('예약 id → 학생 계정·출처 표를 schedRows 로 만든다', !!m && /schedRows/.test(m[1]) && /r\.user_id/.test(m[1]) && /source: r\.source/.test(m[1]));

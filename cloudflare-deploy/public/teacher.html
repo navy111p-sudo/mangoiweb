@@ -3191,6 +3191,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         if (l.status === 'student_absent')  return '<span class="pill p-plan">'   + esc(T('Student absent','학생 결석')) + '</span>';
         if (l.status === 'absence_hold')    return '<span class="pill p-hold">'   + esc(T('On hold (no pay)','보류 (지급 0)')) + '</span>';
         if (l.status === 'teacher_no_show') return '<span class="pill p-noshow">' + esc(T('No-show','미입장')) + '</span>';
+        if (l.status === 'holiday')         return '<span class="pill p-hold">'   + esc(T('Holiday (no class)','공휴일 휴강')) + '</span>';
         if (l.status === 'postponed')
           //  왜 이 금액인지 — 30분 이내 연기는 전액, 사전 연기는 0 (2026-08-13 사장님 결정)
           return '<span class="pill p-cancel">' + esc(l.postpone_fee_type === 'free'

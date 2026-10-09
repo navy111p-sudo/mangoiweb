@@ -47,7 +47,8 @@ function compile(source, deps = {}) {
 const chunks = compile(read('src/d1-chunk.ts'));
 const start = compile(read('src/class-start-date.ts'));
 const mirror = compile(fn(read('src/c24-mirror.ts'), 'mirrorNoteClassId'));
-const classesNow = compile(read('src/classes-now.ts'), { './c24-mirror': mirror, './class-start-date': start });
+const holidayClosure = compile(read('src/holiday-closure.ts'));   // 🎌 2026-10-09 dropHolidayClosed 가 판정을 import 한다
+const classesNow = compile(read('src/classes-now.ts'), { './c24-mirror': mirror, './class-start-date': start, './holiday-closure': holidayClosure });
 const overrides = compile(read('src/class-room-override.ts'), { './d1-chunk': chunks });
 const postponed = compile(read('src/class-postponed.ts'));
 const scopes = compile(read('src/scope.ts'), {
@@ -117,6 +118,9 @@ async function fixture({ rows = [base], roomOverrides = [override], live = [], a
     admDowMatches: () => { throw new Error('Dated fixtures must not need weekday matching'); },
     buildMangoiClassesNow: classesNow.buildMangoiClassesNow, mergeClassesNow: classesNow.mergeClassesNow,
     classesNowScanDates: classesNow.classesNowScanDates, liveOverlaps: classesNow.liveOverlaps,
+    // 🎌 (2026-10-09) 공휴일 휴강 — 이 fixture 날짜는 평일(휴강 아님). 정본 판정은 holiday_closure_harness 가 실제로 돌린다.
+    loadHolidayClosure: async () => ({ closed: false, name: null, exempt: new Set(['29']), opened: false }),
+    dropHolidayClosed: classesNow.dropHolidayClosed,
     applyRoomOverrides: overrides.applyRoomOverrides, kstYmd: overrides.kstYmd,
     isPostponedOccurrence: postponed.isPostponedOccurrence,
     json: (body, status = 200) => ({ body, status }),

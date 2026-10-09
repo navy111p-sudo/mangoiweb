@@ -21,6 +21,7 @@
  */
 import { mirrorNoteClassId } from './c24-mirror';
 import { recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
+import { isHolidayClosedFor, type HolidayClosure } from './holiday-closure';   // 🎌 공휴일 휴강 정본
 
 /** 화면이 «참관 버튼을 달아도 되는가» 를 가르는 값. */
 export type ClassesNowSource = 'mangoi' | 'cafe24';
@@ -173,4 +174,23 @@ export function mergeClassesNow(c24: ClassesNowRow[], mangoi: ClassesNowRow[]): 
   );
   return [...c24.filter(c => !mirrored.has(String(c.room_id))), ...mangoi]
     .sort((a, b) => (a.start_ms - b.start_ms) || String(a.room_id).localeCompare(String(b.room_id)));
+}
+
+/** 🎌 (2026-10-09) 공휴일 휴강으로 «열리지 않는» 망고아이 수업을 뺀다 — 합친(merge) «뒤» 의 목록에 쓴다.
+ *  · 망고아이 줄만 본다(카페24 줄은 강사 번호 체계가 달라 중국어 예외를 못 가린다 — 그대로 둔다).
+ *  · 날짜는 그 수업의 KST 날짜(자정 근처면 어제·내일일 수 있다), 강사는 schedule_id → teacher_id.
+ *  · 그 날짜의 판정이 없으면(못 읽음) «휴강 아님» — 막는 쪽으로 실패하지 않는다. */
+export function dropHolidayClosed<T extends ClassesNowRow>(
+  rows: T[], teacherOf: (scheduleId: any) => any, byYmd: Record<string, HolidayClosure | undefined>,
+): { kept: T[]; closed: number; name: string | null } {
+  let closed = 0; let name: string | null = null;
+  const kept = rows.filter((c) => {
+    if (c.source !== 'mangoi') return true;
+    const ymd = new Date(Number(c.start_ms) + KST9).toISOString().slice(0, 10);
+    const h = byYmd[ymd];
+    if (!isHolidayClosedFor(h, teacherOf(c.schedule_id))) return true;
+    closed++; if (!name && h) name = h.name;
+    return false;
+  });
+  return { kept, closed, name };
 }
