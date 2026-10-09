@@ -3465,25 +3465,34 @@ async function journalReport(env: Env, url: URL, fmt: string): Promise<Response>
   const endMs   = to   ? new Date(to   + 'T23:59:59+09:00').getTime()
                         : monthRange(period).endMs;
 
+  // 📏 화면은 200건까지만 그리지만, 엑셀(내보내기)은 «그 기간 전부» 여야 한다 — 잘린 장부가 합계까지 틀리게 만든다.
+  //    잘렸으면 truncated 로 말한다(조용히 자르지 않기).
+  const isExport = fmt === 'csv' || fmt === 'xlsx';
+  const rowLimit = isExport ? 20000 : 200;
   const pays = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT id, paid_at, user_id, amount_krw, method, memo
       FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
-      ORDER BY paid_at DESC LIMIT 200
-    `).bind(startMs, endMs).all();
+      ORDER BY paid_at DESC LIMIT ?
+    `).bind(startMs, endMs, rowLimit).all();
     return (r.results || []) as Array<any>;
   }, []);
 
+  // 💼 강사 급여 전표는 «고른 기간» 에 맞춘다 — 예전에는 from~to 를 줘도 이번 달(period 기본값) 급여가 섞였다.
+  //    기간에 걸친 달(YYYY-MM)의 급여를 읽고, 전표일(그 달 25일)이 기간 안인 것만 남긴다.
+  const kstDay = (ms: number) => new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  const fromDay = kstDay(startMs), toDay = kstDay(endMs);
   const slips = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT id, teacher_id, period, payment_krw FROM payslips
-      WHERE period=? AND ${realPayslipSql()} ORDER BY payment_krw DESC LIMIT 200
-    `).bind(period).first ? await env.DB.prepare(`
-      SELECT id, teacher_id, period, payment_krw FROM payslips
-      WHERE period=? AND ${realPayslipSql()} ORDER BY payment_krw DESC LIMIT 200
-    `).bind(period).all() : { results: [] };
-    return (r.results || []) as Array<any>;
+      WHERE period>=? AND period<=? AND ${realPayslipSql()} ORDER BY period DESC, payment_krw DESC LIMIT ?
+    `).bind(fromDay.slice(0, 7), toDay.slice(0, 7), rowLimit).all();
+    return ((r.results || []) as Array<any>).filter(s => {
+      const d = String(s.period || '') + '-25';
+      return d >= fromDay && d <= toDay;
+    });
   }, []);
+  const truncated = pays.length >= rowLimit;
 
   // 🧑‍🎓 학생 이름 (2026-10-09 사장님 지시 — 아이디만으로는 누구인지 모름)
   //   user_id «완전일치» 로만 잇고, 이름이 없거나 아이디와 같으면(카페24에 이름 없는 계정) 빈 값.
@@ -3519,7 +3528,7 @@ async function journalReport(env: Env, url: URL, fmt: string): Promise<Response>
   for (const s of slips) {
     entries.push({
       doc_no: 'J-' + String(docNo++).padStart(4, '0'),
-      date: period + '-25',
+      date: String(s.period || '') + '-25',
       desc: `강사 급여 지급 (${s.teacher_id || ''})`,
       debit_account: '인건비',
       credit_account: '미지급금',
@@ -3531,11 +3540,13 @@ async function journalReport(env: Env, url: URL, fmt: string): Promise<Response>
 
   const totals = entries.reduce((a, e) => ({ debit: a.debit + e.amount, credit: a.credit + e.amount }), { debit: 0, credit: 0 });
 
-  const data = { ok: true, type: 'journal', period, label: `회계 전표 / 분개장 — ${period}`, entries, totals };
+  const rangeLabel = (from || to) ? `${fromDay}~${toDay}` : period;
+  const data = { ok: true, type: 'journal', period, label: `회계 전표 / 분개장 — ${rangeLabel}`, entries, totals, truncated };
 
-  if (fmt === 'csv' || fmt === 'xlsx') {
-    return out(fmt, `journal-${period}.csv`, [
-      ['망고아이 회계 전표 / 분개장', period],
+  if (isExport) {
+    return out(fmt, `journal-${fromDay}_${toDay}.csv`, [
+      ['망고아이 회계 전표 / 분개장', rangeLabel],
+      ...(truncated ? [[`⚠ ${rowLimit}건에서 잘렸습니다 — 기간을 나눠 받아 주세요`]] : []),
       [],
       // 🧑‍🎓 학생 이름은 칸을 따로 둔다(2026-10-09 — 엑셀에서 이름으로 정렬·필터하려고). 급여 줄·이름 모름은 빈칸.
       ['전표번호', '일자', '적요', '학생 이름', '차변', '대변', '금액', '참조'],
