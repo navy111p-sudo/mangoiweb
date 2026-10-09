@@ -17867,6 +17867,16 @@ window.rebuildGlobalSearchIndex = function() {
     } catch(e) { _showErr(tbody, e, 6); }
   };
 
+  // 📥 분개장 엑셀 — 화면과 같은 기간(from~to)을 그대로 넘긴다. 비어 있으면 서버가 이번 달로 잡는다.
+  window.accJournalExcel = function(){
+    const qs = new URLSearchParams({ format: 'xlsx' });
+    const from = (document.getElementById('acc-jrn-from') || {}).value || '';
+    const to   = (document.getElementById('acc-jrn-to') || {}).value || '';
+    if (from) qs.set('from', from);
+    if (to)   qs.set('to', to);
+    location.href = '/api/admin/reports/journal?' + qs.toString();
+  };
+
   window.accNewJournalEntry = function(){
     const date  = prompt('일자 (YYYY-MM-DD)', _today());
     if (!date) return;
