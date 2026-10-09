@@ -44,6 +44,7 @@
 #mangoi-handover .mh-mobile-nav,#mangoi-handover .mh-narrow{display:none}
 #mangoi-handover .mh-pdf{width:100%;height:600px;border:1px solid var(--mh-line);border-radius:8px}
 @media(max-width:720px){#mangoi-handover .mh-wide{display:none}#mangoi-handover .mh-narrow{display:inline}#mangoi-handover #mh-reading>.row h3{font-size:19px;margin:0}#mangoi-handover .mh-reader-grid{grid-template-columns:1fr}#mangoi-handover #mh-reports{display:none}#mangoi-handover .mh-mobile-nav{display:flex;gap:8px;margin:12px 0;align-items:center;flex-wrap:wrap}#mangoi-handover #mh-report-detail .preview{font-size:20px}#mangoi-handover #mh-report-detail h3{font-size:24px}#mangoi-handover .mh-pdf{display:none}}
+#mangoi-handover .mh-route{border:1px solid #f59e0b;background:#fffbeb;color:#101828;border-radius:10px;padding:12px;margin:12px 0}#mangoi-handover .mh-route h3{margin:0 0 6px;font-size:16px}#mangoi-handover .mh-route .mh-rt{border-top:1px solid #fde68a;padding:8px 0}#mangoi-handover .mh-route .mh-rt q{display:block;font-weight:600;margin:2px 0}#mangoi-handover .mh-route .mh-rt small{display:block;color:#475467}#mangoi-handover .mh-route a{display:inline-block;margin-top:6px;padding:8px 12px;border-radius:8px;background:#b45309;color:#fff;text-decoration:none;font-weight:600}
 </style>
 <header><div><div class="brand">MANGO<span>I</span> <span class="crumb">관리자</span></div><div class="crumb">결재함 / 매일보고</div></div><span class="badge"><a href="/work">← 결재함 / Approvals</a></span></header>
 <main>
@@ -64,7 +65,7 @@
 <button id="mh-manual" type="button" style="margin-top:10px">AI 없이 점검 / Check without AI</button><p id="mh-save-status" class="small" aria-live="polite" style="margin-top:10px">불러오는 중 / Loading…</p>
 </section>
 <aside class="panel" aria-label="보고 미리보기"><div class="row"><h3>보고 미리보기 / Preview</h3><span id="mh-badge" class="badge">작성 전</span></div><div id="mh-preview" class="preview"><p class="sub">오늘 한 일을 짧게 입력해 주세요. / Briefly describe today’s work.</p></div><div id="mh-review-status" class="status" aria-live="polite"></div>
-<div id="mh-ai" hidden><h3>AI 제안 / Suggestions</h3><div id="mh-ai-text" class="preview"></div><button id="mh-apply" type="button">제안 적용 / Apply wording</button></div><div class="hint">AI 문장은 제안입니다. 적용 전 사실과 이름을 확인해 주세요. / Check AI suggestions before applying.</div>
+<div id="mh-route" class="mh-route" hidden></div><div id="mh-ai" hidden><h3>AI 제안 / Suggestions</h3><div id="mh-ai-text" class="preview"></div><button id="mh-apply" type="button">제안 적용 / Apply wording</button></div><div class="hint">AI 문장은 제안입니다. 적용 전 사실과 이름을 확인해 주세요. / Check AI suggestions before applying.</div>
 <hr class="divider"><label for="mh-recipient">전달 대상 <small>Recipient</small></label><select id="mh-recipient"><option value="">선택 / Select</option></select>
 <label class="check" style="margin-top:14px"><input id="mh-confirm" type="checkbox" disabled>내용·첨부·전달 대상 확인 / I checked the content, attachments and recipient.</label><div class="buttons"><button id="mh-send" class="primary cursor-interaction" disabled type="button">확인 후 전달 / Confirm & send</button></div>
 <div id="mh-success" class="success" role="status" hidden></div>
@@ -75,5 +76,5 @@
 </div>
 <script src="/js/mangoi-voice-input.js?v=5" defer></script>
 <script src="/js/handover-dictation.js?v=2" defer></script>
-<script src="/js/daily-handover.js?v=12" defer></script>
+<script src="/js/daily-handover.js?v=13" defer></script>
 </body></html>
