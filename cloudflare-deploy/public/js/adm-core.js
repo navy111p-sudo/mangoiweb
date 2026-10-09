@@ -12470,7 +12470,7 @@ async function loadStudentList(q, opts) {
   //   대신 인원수 라벨 옆에만 조용히 표시한다.
   const _quiet = !!(opts && opts.quiet) && _smStudents.length > 0;
   if (_quiet) { if (cnt) cnt.textContent = (_L ? '🔄 Searching…' : '🔄 전체에서 찾는 중…'); }
-  else tb.innerHTML = '<tr><td colspan="20" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
+  else tb.innerHTML = '<tr><td colspan="19" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
   let seedStudents = [];
   let apiItems = [];
   let d = null;
@@ -12559,7 +12559,7 @@ async function loadStudentList(q, opts) {
     // 🩹 백그라운드 검색이 0건이어도 이미 떠 있는 목록을 지우지 않는다.
     //   (지우면 "결과 있음 → 없음 → 있음" 으로 표가 깜빡이며 왔다갔다 한다)
     if (_quiet) { renderStudentTable(); return; }
-    tb.innerHTML = '<tr><td colspan="20" class="empty">' + (window._smShowHidden
+    tb.innerHTML = '<tr><td colspan="19" class="empty">' + (window._smShowHidden
       ? (_L ? 'No hidden students' : '숨긴 학생이 없습니다')
       : (_L?'No students yet':'아직 학생 데이터 없음')) + '</td></tr>';
     if (cnt) cnt.textContent = window._smShowHidden ? (_L ? '🙈 Hidden: 0' : '🙈 숨긴 학생 0명') : '';
@@ -12803,7 +12803,7 @@ function renderStudentTable() {
     _smRows = []; _smShown = 0;
     const _why = _ag && !_q ? (_L ? 'No students in “' + _esc(_ag) + '”' : '“' + _esc(_ag) + '” 소속 학생이 없습니다')
                             : (_L ? 'No matching students' : '검색 결과가 없습니다 — “' + _esc(_q) + '”');
-    tb.innerHTML = '<tr><td colspan="20" class="empty">' + _why + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="19" class="empty">' + _why + '</td></tr>';
     return;
   }
 
@@ -12866,17 +12866,32 @@ function renderStudentTable() {
      늘 «—» 였다. 이 칸만 실제 예약을 본다.
      ⛔ 문장을 여기서 조립하지 말 것 — 학생 상세 카드도 같은 값을 그리므로 서버
         (src/student-schedule-summary.ts)가 만든 label_ko/label_en 을 «고르기만» 한다. */
+  /* 🧭 (2026-10-09 사장님 「A안」) 예전 «상세보기» 칸에 5개가 세로로 쌓여 있던 버튼을
+     «그 버튼이 바꾸는 값» 옆으로 나눠 옮겼다: 이름 = 상세 · 이름 옆 ✏️ = 수정 ·
+     예약 칸 = 📅 스케줄 · ⏸ 연기·변경 · 수강 종료일 칸 = 🗓️ 종료·연장.
+     ⏸ 은 예약이 있을 때만 — 미룰 수업이 없는 학생에게 «눌러도 할 일 없는» 버튼을 주지 않는다.
+     ⛔ <button> 으로 바꾸지 말 것(admin-inline-c.css 전역 버튼 규칙 — 위 수강신청 칸과 같은 이유). */
+  const _schedActs = (s, hasSched) => {
+    const uid = String((s && s.user_id) || '');
+    if (!uid) return '';
+    const uidEnc = encodeURIComponent(uid);
+    const safeUid = _esc(uid), safeName = _esc((s && s.username) || uid);
+    return '<div class="sm-acts">'
+      + '<a class="sm-act sm-act-sched" href="/admin/student?uid=' + uidEnc + '&tab=schedule" target="_blank" title="' + (_L ? 'Calendar · teacher · move/postpone' : '캘린더 · 담당 강사 · 연기·변경') + '">📅 ' + (_L ? 'Schedule' : '스케줄') + '</a>'
+      + (hasSched ? '<a href="#" class="sm-move-go" data-uid="' + safeUid + '" data-name="' + safeName + '" onclick="event.preventDefault();smOpenMovePick(this.getAttribute(\'data-uid\'),this.getAttribute(\'data-name\'))" title="' + (_L ? 'Postpone · change · cancel one class' : '수업 한 번 연기 · 변경 · 취소') + '">⏸ ' + (_L ? 'Postpone' : '연기·변경') + '</a>' : '')
+      + '</div>';
+  };
   const _schedTd = (s) => {
     const q = s && s.sched;
     const txt = q ? String((_L ? q.label_en : q.label_ko) || '—') : '—';
-    if (!txt || txt === '—') return '<td style="text-align:center">—</td>';
+    if (!txt || txt === '—') return '<td style="text-align:center">—' + _schedActs(s, false) + '</td>';
     const x = _esc(txt);
     /* 👩‍🏫 (2026-10-07 매니저 요청) 담당 강사 이름 — 서버 정본(sched.teachers)을 그대로 쓴다.
        지난 수업의 강사는 빠져 있고, 이름을 못 찾은 번호는 서버가 넣지 않는다(지어내지 않음). */
     const tl = (q && Array.isArray(q.teachers)) ? q.teachers.filter(Boolean) : [];
     const tx = tl.length ? _esc(tl.join(', ')) : '';
     return '<td style="text-align:center" title="' + x + (tx ? ' · ' + tx : '') + '">' + x
-      + (tx ? '<div style="font-size:11px;color:#475467;white-space:nowrap">👩‍🏫 ' + tx + '</div>' : '') + '</td>';
+      + (tx ? '<div style="font-size:11px;color:#475467;white-space:nowrap">👩‍🏫 ' + tx + '</div>' : '') + _schedActs(s, true) + '</td>';
   };
   /* 📚 (2026-09-24 사장님 지시) 「수강신청」 칸 — 학생마다 카드 하나. 누르면 smGoEnroll 이
      수강신청 등록 표로 가서 그 학생 아이디를 채운다.
@@ -12907,11 +12922,10 @@ function renderStudentTable() {
     const safeName = _esc(s.username || uid);
     return `<tr>
       <td title="${safeUid}"><code>${safeUid}</code></td>
-      <td title="${safeName}"><b>${safeName}</b>${smLearningBadge(s, _L)}</td>
-      <td style="text-align:center;line-height:1.7"><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세'}</a><br><a href="${smContactUrl(uid)}" target="_blank" style="color:#0369a1" title="${_L?'Edit contact & info':'연락처·정보 수정'}">✏️ ${_L?'Edit':'수정'}</a><br><a href="/admin/student?uid=${uidEnc}&tab=schedule" target="_blank" style="color:#067647" title="${_L?'Calendar · teacher · move/postpone':'캘린더 · 담당 강사 · 연기·변경'}">📅 ${_L?'Schedule':'스케줄'}</a><br><a href="/admin/student?uid=${uidEnc}&tab=extension" target="_blank" style="color:#b42318" title="${_L?'End classes · extend · undo':'수업 종료 · 연장 · 되돌리기'}">🗓️ ${_L?'End/Extend':'종료·연장'}</a><br><a href="#" class="sm-move-go" data-uid="${safeUid}" data-name="${safeName}" onclick="event.preventDefault();smOpenMovePick(this.getAttribute('data-uid'),this.getAttribute('data-name'))" style="color:#b45309" title="${_L?'Postpone · change · cancel one class':'수업 한 번 연기 · 변경 · 취소'}">⏸ ${_L?'Postpone/Change/Cancel':'연기·변경·취소'}</a></td>
+      <td title="${safeName}"><a class="sm-name-go" href="/admin/student?uid=${uidEnc}" target="_blank" title="${_L?'Open student details':'학생 상세 열기'}"><b>${safeName}</b></a><a class="sm-act sm-act-edit" href="${smContactUrl(uid)}" target="_blank" title="${_L?'Edit contact & info':'연락처·정보 수정'}" aria-label="${_L?'Edit':'수정'}">✏️</a>${smLearningBadge(s, _L)}</td>
       <td>${_c(s.payment_type)}</td>
       <td>${_d(s.signup_date)}</td>
-      <td>${_d(s.end_date)}</td>
+      <td>${_d(s.end_date)}${uid ? `<div class="sm-acts"><a class="sm-act sm-act-end" href="/admin/student?uid=${uidEnc}&tab=extension" target="_blank" title="${_L?'End classes · extend · undo':'수업 종료 · 연장 · 되돌리기'}">🗓️ ${_L?'End/Extend':'종료·연장'}</a></div>` : ''}</td>
       ${_ct(s.summary)}
       <td>${splitDt(s.created_at)}</td>
       <td style="text-align:right">${_c(s.classes_per_week)}</td>
@@ -12990,7 +13004,7 @@ window.smGoEnroll = smGoEnroll;
 function _smMoreRow(_L) {
   const left = _smRows.length - _smShown;
   if (left <= 0) return '';
-  return '<tr id="sm-more-row"><td colspan="20" class="empty" style="cursor:pointer" onclick="smAppendRows()">'
+  return '<tr id="sm-more-row"><td colspan="19" class="empty" style="cursor:pointer" onclick="smAppendRows()">'
        + (_L ? ('▾ ' + left.toLocaleString() + ' more — scroll or click') : ('▾ ' + left.toLocaleString() + '명 더 있습니다 — 아래로 굴리거나 눌러서 더 보기'))
        + '</td></tr>';
 }
