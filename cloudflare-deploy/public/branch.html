@@ -2483,6 +2483,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
                 '☎ 연락처 ' + noMobile + '/' + rows.length + '건이 «—» 입니다 — 명부에는 번호가 없고 «관리 대상» 학생만 있습니다.');
     }
     var head = '<div class="muted" style="padding-bottom:6px">'
+      /* 🎌 휴강일이면 맨 위에 한 줄 — 서버가 준 이름·건수만 쓴다(판정은 서버 holiday-closure.ts). */
+      + (j.holiday ? '<b>' + esc(T('🎌 ' + (j.holiday.name || 'Holiday') + ' — ' + (j.holiday.closed || 0) + ' class(es) off today (Chinese classes run as usual)',
+                                   '🎌 ' + (j.holiday.name || '공휴일') + ' 휴강 — ' + (j.holiday.closed || 0) + '건 쉼 (중국어 수업은 그대로)')) + '</b><br>' : '')
       + (cnote ? esc(cnote) + '<br>' : '')
       + esc(T((j.date || '') + ' · ' + rows.length + ' total'
                 + (c.cafe24 ? ' · ' + c.cafe24 + ' on cafe24' : '')
@@ -2558,6 +2561,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var resch = '';
       /* ⏸ (2026-10-01) 연기된 수업은 «연기됨» 을 글자로 — manager.html 과 같은 서버 칸(postponed). */
       if (r.postponed) act = '<span class="tag hot">' + esc(T('⏸ Postponed', '⏸ 연기됨')) + '</span>';
+      /* 🎌 (2026-10-09) 공휴일 휴강 — 서버가 status='holiday'·join_open=false 로 보낸다(중국어 수업은 그대로 열림). */
+      if (r.holiday) act = '<span class="tag">' + esc(T('🎌 Holiday — no class', '🎌 공휴일 휴강')) + '</span>';
       /* 📋 (2026-09-23 매니저 요청) 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결 — admin.html 「오늘 수업」 표와
          **같은 API·같은 칸**(서버 정본 src/class-today-extras.ts). 모르면 «—». 색이 아니라 글자·이모지로 뜻을 전한다. */
       var hm = function (ts) { try { return new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' }); } catch (e) { return ''; } };
@@ -2571,11 +2576,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         : te.state === 'late' ? '⏰ ' + hm(te.at) + ' ' + T(te.late_min + ' min late', te.late_min + '분 지각')
         : te.state === 'pending' ? T('not yet', '아직 전')
         : te.state === 'postponed' ? '⏸ ' + T('postponed', '연기됨')
+        : te.state === 'holiday' ? '🎌 ' + T('holiday', '휴강')
         : te.state === 'none' ? '⚠ ' + T('no entry record', '입장 기록 없음')
         : te.state === 'cafe24' ? T('cafe24 · n/a', '카페24 · 기록 없음') : T('unknown', '확인 불가');
       ex.push(esc(T('Instructor in: ', '강사 입장: ')) + esc(teTxt));
       var AT = { attended: ['✅', 'Attended', '출석'], late: ['⏰', 'Late', '지각'], absent: ['❌', 'Absent (no entry)', '결석(입장 기록 없음)'],
-                 waiting: ['⏳', 'Not in yet', '아직 입장 안 함'], not_yet: ['', 'Not started', '시작 전'], postponed: ['⏸', 'Postponed', '연기됨'],
+                 waiting: ['⏳', 'Not in yet', '아직 입장 안 함'], not_yet: ['', 'Not started', '시작 전'], postponed: ['⏸', 'Postponed', '연기됨'], holiday: ['🎌', 'Holiday', '휴강'],
                  unknown: ['❔', 'Unknown', '확인 불가'], cafe24: ['', 'cafe24 · n/a', '카페24 · 기록 없음'] }[at && at.state];
       var atTxt = AT ? ((AT[0] ? AT[0] + ' ' : '') + T(AT[1], AT[2]) + (at.at ? ' ' + hm(at.at) : '')
                    + (at.state === 'late' && at.late_min != null ? ' (+' + at.late_min + T('m', '분') + ')' : '')) : '—';

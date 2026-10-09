@@ -38,7 +38,9 @@
     ended: { ko: '✔ 종료',      en: '✔ Ended',    bg: 'rgba(148,163,184,0.12)', fg: '#94a3b8', bd: 'rgba(148,163,184,0.3)' },
     /* ⏸ (2026-10-01) 연기된 수업 — 서버가 시각 판정을 덮어 'postponed' 로 보낸다(api-admin.ts classes/today).
        그전에는 «🟢 Open» 으로 보여 연기가 됐는지 알 수 없었다. */
-    postponed: { ko: '⏸ 연기됨', en: '⏸ Postponed', bg: '#fff4e0', fg: '#b45309', bd: '#f5c98a' }
+    postponed: { ko: '⏸ 연기됨', en: '⏸ Postponed', bg: '#fff4e0', fg: '#b45309', bd: '#f5c98a' },
+    /* 🎌 (2026-10-09) 공휴일 휴강 — 서버가 'holiday' 로 보낸다(판정 정본 holiday-closure.ts · 중국어 수업은 그대로 열림). */
+    holiday: { ko: '🎌 공휴일 휴강', en: '🎌 Holiday', bg: '#f1f5f9', fg: '#475569', bd: '#cbd5e1' }
   };
 
   /* 📋 (2026-09-23 매니저 요청) 일곱 칸 — 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결.
@@ -57,6 +59,7 @@
     if (e.state === 'late') return xSmall('⏰ ' + esc(hhmm(e.at)) + ' · ' + T(e.late_min + '분 지각', e.late_min + ' min late'), ';color:#b91c1c;font-weight:800');
     if (e.state === 'pending') return xSmall(T('아직 전', 'not yet'), ';color:#6b7280');
     if (e.state === 'postponed') return xSmall(T('⏸ 연기됨', '⏸ postponed'), ';color:#b45309');
+    if (e.state === 'holiday') return xSmall(T('🎌 휴강', '🎌 holiday'), ';color:#475569');
     if (e.state === 'none') return xSmall('⚠ ' + T('입장 기록 없음', 'no entry record'), ';color:#b45309;font-weight:700');
     if (e.state === 'cafe24') return xSmall(T('카페24 · 기록 없음', 'cafe24 · n/a'), ';color:#92400e');
     return xSmall(T('확인 불가', 'unknown'), ';color:#6b7280');
@@ -70,6 +73,7 @@
       waiting:  ['⏳', '아직 입장 안 함', 'Not in yet', ';color:#b45309'],
       not_yet:  ['', '시작 전', 'Not started', ';color:#6b7280'],
       postponed: ['⏸', '연기됨', 'Postponed', '', 'tc-st-postponed'],
+      holiday:  ['🎌', '휴강', 'Holiday', ';color:#475569'],
       unknown:  ['❔', '확인 불가', 'Unknown', ';color:#6b7280'],
       cafe24:   ['', '카페24 · 기록 없음', 'cafe24 · n/a', ';color:#92400e']
     }[a.state];
@@ -460,7 +464,7 @@
   /* 📊 (2026-10-01 사장님 「여기에도 보이게」) 상태별 개수 칩 — 강사 «오늘의 수업» 의 요약 칩(B)과 같은 생각.
      누르면 그 상태만 보이고, 한 번 더 누르면 풀린다. ⏸ 연기는 0건이어도 늘 보인다(«연기가 됐나» 가 묻는 질문이라). */
   var _stSel = '';
-  var ST_ORDER = ['live', 'open', 'early', 'postponed', 'ended'];
+  var ST_ORDER = ['live', 'open', 'early', 'postponed', 'holiday', 'ended'];
   function stChipsHtml(base) {
     var n = {}; for (var i = 0; i < base.length; i++) { var k = String(base[i].status || 'early'); n[k] = (n[k] || 0) + 1; }
     var h = '<div class="tc-st-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 2px 8px">';
@@ -558,6 +562,7 @@
       + label + '<span aria-hidden="true" style="margin-left:3px;font-size:10px;opacity:' + (on ? '1' : '.4') + '">' + ar + '</span></th>';
   }
   var _contactSrc = '';   // 서버가 준 연락처 근거('retention' | 'restricted')
+  var _holiday = null;    // 🎌 서버가 준 휴강일 정보 {name, closed} — 평일이면 null
 
   /* 🔎 (2026-09-01 사장님 요청) 「카페24 수업」과 「우리가 새로 넣은 수업」 가르기 + 검색.
      [왜] 오늘 목록 166건 중 142건이 카페24라, 새로 넣은 수업이 그 안에 파묻혀 눈으로 못 찾았다.
@@ -956,7 +961,13 @@
     /* 🏫 학원을 골랐으면 «그 학원 오늘 한눈에» 한 줄 — 연기할 대상(몇 건·어디서·강사 몇 명)을 먼저 읽게.
        ⚠️ 카페24 줄은 여기서 옮길 수 없다는 사실도 함께(버튼이 없는 이유). */
     var acLine = acSel ? academySummary(rows, acSel) : '';
-    box.innerHTML = stChips + acLine + (nNote
+    /* 🎌 휴강일이면 목록 위에 한 줄 — 이름·건수는 서버가 센 값(판정을 화면이 다시 하지 않는다). */
+    var holLine = _holiday
+      ? '<div style="padding:6px 2px 4px;color:#475569;font-size:12px;font-weight:700;line-height:1.6">'
+        + esc(T('🎌 ' + (_holiday.name || '공휴일') + ' 휴강 — ' + (_holiday.closed || 0) + '건 쉼 (중국어 수업은 그대로)',
+                '🎌 ' + (_holiday.name || 'Holiday') + ' — ' + (_holiday.closed || 0) + ' class(es) off (Chinese classes run as usual)')) + '</div>'
+      : '';
+    box.innerHTML = holLine + stChips + acLine + (nNote
         ? '<div style="padding:6px 2px 4px;color:#4338ca;font-size:11.5px;line-height:1.6">' + esc(nNote) + '</div>'
         : '')
       + (note
@@ -1007,6 +1018,10 @@
               + T('카페24에서 진행되는 수업입니다. 망고아이 화상방이 없어 입장·참관할 수 없습니다.',
                   'This class runs on cafe24. There is no Mangoi room, so join/observe is not possible.') + '">'
               + T('카페24 수업 · 입장 불가', 'on cafe24 · cannot join') + '</span>';
+          } else if (s.holiday) {
+            /* 🎌 공휴일 휴강 — 입장·참관 버튼을 주지 않는다(서버가 join_open=false 로 보낸다). */
+            act = '<span style="color:#475569;font-size:11.5px;font-weight:700;margin-right:4px">'
+              + T('🎌 공휴일 휴강', '🎌 Holiday — no class') + '</span>';
           } else if (s.postponed) {
             /* ⏸ 연기된 수업 — 입장·참관·초대 링크를 주지 않는다(강사가 연기된 방에 들어가 기다린 사고, class-1931).
                「📅 연기·변경」은 남긴다: «새 날짜로 옮기기» 를 여기서 마저 할 수 있어야 한다. */
@@ -1313,6 +1328,8 @@
       }
       /* ☎️ 연락처 근거는 서버 말을 그대로 받는다(모르면 빈 값 → 안내를 안 그린다) */
       _contactSrc = (d.contact_source === 'retention' || d.contact_source === 'restricted') ? d.contact_source : '';
+      /* 🎌 휴강일 정보도 서버 말 그대로(평일이면 null) */
+      _holiday = (d.holiday && typeof d.holiday === 'object') ? d.holiday : null;
       /* 지금 들어갈 수 있는 수업을 맨 위로 — 급할 때 위만 보면 되도록 */
       _rows = (d.sessions || []).slice().sort(function (a, b) {
         if (!!a.join_open !== !!b.join_open) return a.join_open ? -1 : 1;
