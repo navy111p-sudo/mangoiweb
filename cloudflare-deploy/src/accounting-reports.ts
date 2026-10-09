@@ -360,6 +360,8 @@ export function expenseRoleOf(account: string): ExpenseRole {
 
 const OPEX_DUP_CATEGORIES = ['급여이체', '카드대금'];          // 다른 항목과 이중계상 → 제외
 const OPEX_MOVED_CATEGORIES = ['강사급여송금', '학생환불'];     // 판관비가 아니라 다른 줄로 가는 돈
+/** 이 날(포함)까지 나간 지사수수료는 전월 비용으로 본다 — 'DD' 문자열 비교. 아래 monthActualOpex 주석 참고. */
+export const ACCRUAL_SHIFT_DAY = '03';
 async function monthActualOpex(env: Env, period: string) {
   const cardSpend = await safe(async () => {
     const r = await env.DB.prepare(`
@@ -379,36 +381,63 @@ async function monthActualOpex(env: Env, period: string) {
   /* 🏷️ 「기타출금」 덩어리를 계정과목으로 쪼갠다. 판정은 위 주석의 ①②③ 순서.
      ⚠️ 저장된 category 를 덮어쓰지 않고 «읽을 때» 다시 나눈다 — 바로빌 동기화(배포
         권한자만 실행)를 기다리지 않고 지정한 것이 바로 반영되게. */
+  /* 📅 지사수수료 «귀속월» 기준 (2026-10-09 사장님 지시 — 2번안)
+     [무엇이 문제였나] 지사 수수료는 매달 한 번 묶어서 이체하는데, 월말(7/31·9/30)에 보내면
+     그 달로, 다음 달 1일(7/1·9/1)에 보내면 다음 달로 잡혔다. 그래서 7월·9월은 두 달 치,
+     6월·8월은 0 이 되어 연간 결산에서 8월은 흑자가 부풀고 9월은 비용이 부풀었다
+     (실측: 9/1 26건 3,823,287 + 9/30 24건 3,121,888 이 둘 다 9월).
+     [그래서] «지사수수료» 로 판정된 출금 중 **1~3일에 나간 것은 전월 비용**으로 본다.
+       · 이 달 1~3일 지사수수료 → 빼서 전월로
+       · 다음 달 1~3일 지사수수료 → 이 달로 가져옴
+     ⚠️ 판정은 resolveExpenseAccount() 그대로다 — 지사수수료가 아닌 출금은 날짜와 무관하게
+        통장 날짜의 달에 둔다(현금 기준 그대로). 원본 DB 는 한 글자도 안 바꾼다(읽을 때만).
+     ⚠️ 계좌 원장 화면(bank-expenses)은 «통장에 찍힌 날» 기준 목록이라 그대로다 — 두 화면의
+        월 합계가 이 이동분만큼 다를 수 있고, 그것이 의도다(ACCRUAL_SHIFT_DAY).
+     ⛔ 쪼개기가 실패하면(규칙표를 못 읽음) 예전처럼 통장 날짜 기준 한 덩어리로 남는다. */
+  const nextP = (() => {
+    const [yy, mm] = period.split('-').map(Number);
+    const d = new Date(Date.UTC(yy, mm, 1));
+    return d.toISOString().slice(0, 7);
+  })();
   const split = await safe(async () => {
-    const misc = bankAll.find(b => b.category === UNCLASSIFIED);
-    if (!misc) return null;
     const rows = await env.DB.prepare(`
-      SELECT COALESCE(remark,'') AS remark, amount FROM bankacct_transactions
-      WHERE kind='out' AND COALESCE(category,'기타출금')=? AND substr(trans_at,1,7)=?
-    `).bind(UNCLASSIFIED, period).all();
+      SELECT COALESCE(remark,'') AS remark, amount, substr(trans_at,1,7) AS m, substr(trans_at,9,2) AS dd
+      FROM bankacct_transactions
+      WHERE kind='out' AND COALESCE(category,'기타출금')=?
+        AND (substr(trans_at,1,7)=? OR (substr(trans_at,1,7)=? AND substr(trans_at,9,2)<=?))
+    `).bind(UNCLASSIFIED, period, nextP, ACCRUAL_SHIFT_DAY).all();
     /* 🧭 판정은 resolveExpenseAccount() 한 곳에서 — 계좌 원장 화면
        (/api/admin/reports/bank-expenses)도 같은 함수를 쓴다. 여기서 규칙을 다시 적으면
        두 화면의 분류가 조용히 갈라진다(2026-08-23 에 함수로 뺀 이유). */
     const rules = await loadExpenseAccountRules(env);
 
     const byCat = new Map<string, number>();
-    let unresolved = 0;
-    for (const r of ((rows.results || []) as Array<{ remark: string; amount: number }>)) {
+    let unresolved = 0, shiftIn = 0, shiftOut = 0;
+    for (const r of ((rows.results || []) as Array<{ remark: string; amount: number; m: string; dd: string }>)) {
       const amt = Number(r.amount) || 0;
       const cat = resolveExpenseAccount(rules, r.remark, UNCLASSIFIED);
+      const early = String(r.dd || '') <= ACCRUAL_SHIFT_DAY;
+      if (r.m === nextP) {                       // 다음 달 초 출금 — 지사수수료만 이 달로 가져온다
+        if (cat !== '지사수수료') continue;
+        shiftIn += amt;
+      } else if (cat === '지사수수료' && early) { // 이 달 초 지사수수료 — 전월 몫이라 뺀다
+        shiftOut += amt;
+        continue;
+      }
       if (cat === UNCLASSIFIED) unresolved += amt;
       byCat.set(cat, (byCat.get(cat) || 0) + amt);
     }
-    return { byCat, unresolved };
+    return { byCat, unresolved, shiftIn, shiftOut };
   }, null);
 
   if (split) {
-    // 기타출금 한 줄을 쪼갠 결과로 갈아 끼운다(합계는 그대로)
+    // 기타출금 한 줄을 쪼갠 결과로 갈아 끼운다(귀속월 이동분 만큼 합계가 달라질 수 있다)
     const idx = bankAll.findIndex(b => b.category === UNCLASSIFIED);
     if (idx >= 0) bankAll.splice(idx, 1);
     for (const [cat, total] of split.byCat) bankAll.push({ category: cat, total });
     bankAll.sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0));
   }
+  const franchiseShift = { in: split ? split.shiftIn : 0, out: split ? split.shiftOut : 0, next: nextP };
 
   const catSum = (cats: string[]) => bankAll.filter(b => cats.includes(b.category))
     .reduce((a, b) => a + (Number(b.total) || 0), 0);
@@ -422,7 +451,7 @@ async function monthActualOpex(env: Env, period: string) {
   const actual = cardSpend + bankOpex;
   // hasActual 은 «그 달에 신한 실데이터가 있긴 한가» — 송금·환불만 있는 달도 실데이터가 있는 달이다
   const hasActual = actual > 0 || teacherPayout > 0 || refunds > 0 || bankDup > 0;
-  return { cardSpend, bankRows, bankOpex, bankDup, teacherPayout, refunds, actual, hasActual };
+  return { cardSpend, bankRows, bankOpex, bankDup, teacherPayout, refunds, actual, hasActual, franchiseShift };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2088,7 +2117,7 @@ async function periodRow(env: Env, period: string, starts: { bankFrom: string | 
   if (coverage.level === 'future') {
     return {
       period, revenue: 0, revenue_book: 0, revenue_b2b: 0, pays: 0, payroll: 0, cost: 0, net: 0,
-      op_cost_source: 'none' as const, coverage,
+      op_cost_source: 'none' as const, fee_shift_in: 0, fee_shift_out: 0, coverage,
     };
   }
   const pl = await monthPL(env, period);
@@ -2102,6 +2131,9 @@ async function periodRow(env: Env, period: string, starts: { bankFrom: string | 
     cost: pl.cost,
     net: pl.net,
     op_cost_source: pl.opCostSource as 'actual' | 'estimated' | 'none',
+    /* 📅 지사수수료 귀속월 이동분 — in: 다음 달 초 이체를 이 달로 가져옴 · out: 이 달 초 이체를 전월로 보냄 */
+    fee_shift_in: pl.ax.franchiseShift.in,
+    fee_shift_out: pl.ax.franchiseShift.out,
     coverage,
   };
 }
@@ -2135,6 +2167,7 @@ function trendCsv(title: string, label: string, rows: PeriodRow[],
   return [
     [title, label],
     ['※ 매출 = 장부 결제 + 통장 직접입금(B2B).'],
+    [`※ 지사 수수료는 «귀속월» 기준입니다 — 매달 ${Number(ACCRUAL_SHIFT_DAY)}일까지 이체된 지사 수수료는 전월 비용으로 잡습니다(그 밖의 비용은 통장에 찍힌 날 기준).`],
     [`※ 자료 연동 시작 — 통장 ${starts.bankFrom || '미연동'} · 법인카드 ${starts.cardFrom || '미연동'}. 그 전 달은 비용이 없거나 일부라 순이익이 실제보다 좋게 나옵니다.`],
     [],
     ['월', '매출', '  장부 결제', '  통장 B2B', '결제건수', '강사급여', '비용 합계', '순이익', '자료 상태'],

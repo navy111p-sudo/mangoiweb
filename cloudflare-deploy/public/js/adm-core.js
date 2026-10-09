@@ -16581,7 +16581,7 @@ window.rebuildGlobalSearchIndex = function() {
             <td class="num">${fmtKRW(m.revenue_b2b)}</td>
             <td class="num">${m.pays}</td>
             <td class="num">${fmtKRW(m.payroll)}</td>
-            <td class="num">${fmtKRW(m.cost)}</td>
+            <td class="num">${fmtKRW(m.cost)}${(m.fee_shift_in||m.fee_shift_out) ? `<div style="font-size:10px;color:#475467" title="지사 수수료 귀속월 이동분">${m.fee_shift_in ? '수수료 +' + fmtKRW(m.fee_shift_in) + ' (다음달 초 이체)' : ''}${m.fee_shift_in && m.fee_shift_out ? '<br>' : ''}${m.fee_shift_out ? '수수료 −' + fmtKRW(m.fee_shift_out) + ' (전월로)' : ''}</div>` : ''}</td>
             <td class="num"><b style="color:${dim ? '#9ca3af' : ((m.net||0) < 0 ? '#dc2626' : '#166534')}">${fmtKRW(m.net)}</b>${dim ? '<div style="font-size:10px;color:#b45309">참고값</div>' : ''}</td>
             <td class="barcell">${dim ? '' : bar(m.net, (m.net||0) < 0 ? '#ef4444' : '#22c55e')}</td>
           </tr>`; }).join('')}
@@ -16593,6 +16593,7 @@ window.rebuildGlobalSearchIndex = function() {
       </table></div>
       <p style="font-size:11.5px;color:#6b7280;margin:10px 0 0;line-height:1.7">
         ※ 매출 = 장부 결제(카페24 등) + 통장 직접입금(B2B).<br>
+        ※ 지사 수수료는 <b>귀속월 기준</b> — 매달 3일까지 이체된 지사 수수료는 전월 비용으로 잡습니다(다른 비용은 통장 날짜 기준).<br>
         ※ <b>회사 상태는 「자료 온전한 달만」 합계로 보세요.</b> 전체 합계에는 비용이 덜 잡힌 달이 섞여 있어 실제보다 좋게 나옵니다.<br>
         ※ 아직 오지 않은 달은 표에서 뺐습니다.
       </p>
