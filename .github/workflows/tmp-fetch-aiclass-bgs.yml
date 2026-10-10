@@ -25,10 +25,10 @@ jobs:
             convert /tmp/s/$NAME.png -resize 240x -gravity south -background white -splice 0x18 -pointsize 14 -annotate +0+2 "$NAME" /tmp/s/$NAME.t.jpg
             N=$((N+1))
           done < .github/aiclass-bg-list.txt
-          echo "fetched $N"; [ "$N" = 36 ]
+          W=$(grep -c . .github/aiclass-bg-list.txt); echo "fetched $N of $W"; [ "$N" = "$W" ]
           montage /tmp/s/*.t.jpg -tile 6x -geometry +4+4 -quality 80 tmp-preview/aiclass-bgs-sheet.jpg
           du -ch $D/*.webp | tail -1
           git config user.name "github-actions"; git config user.email "actions@github.com"
           git add $D tmp-preview
-          git commit -m "tmp: 교재별 AI 수업 배경 36장 받아오기 (러너)"
+          git commit -m "tmp: 교재별 AI 수업 배경 다시 받아오기(사람·어두움 교체) (러너)"
           git push
