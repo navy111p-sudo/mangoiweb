@@ -158,8 +158,13 @@ export async function setStudentGoal(db: any, a: { uid: string; key: string; by:
   const g = key ? goalByKey(key) : null;
   if (key && !g) return { ok: false, error: 'unknown_goal' };
   await ensureGoalTable(db);
-  const endOld = db.prepare(`UPDATE student_goals SET status = ? WHERE student_uid = ? AND status = 'active'`)
-    .bind(g ? 'replaced' : 'cleared', uid);
+  // 확인된 쌍둥이 계정의 활성 목표도 함께 끝낸다 — 학생·학부모·A.i 친구는 두 계정을 함께 읽으므로
+  // 한쪽만 끝내면 지운 목표가 계속 보이거나 활성 목표가 둘이 된다(Codex P2).
+  let twins: string[] = [];
+  try { twins = await resolveStudentTwins(db, uid); } catch { twins = []; }
+  const twin = twins.find((t) => t && t !== uid) || null;
+  const endOld = db.prepare(`UPDATE student_goals SET status = ? WHERE student_uid IN ${twin ? '(?, ?)' : '(?)'} AND status = 'active'`)
+    .bind(g ? 'replaced' : 'cleared', ...(twin ? [uid, twin] : [uid]));
   if (!g) { await endOld.run(); return { ok: true, goal: null }; }
   const endsAt = a.nowMs + GOAL_DAYS * DAY_MS;
   const ins = db.prepare(`INSERT INTO student_goals (student_uid, goal_key, set_by, set_by_name, set_at, ends_at, status)

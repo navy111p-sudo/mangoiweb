@@ -128,9 +128,24 @@ if (M) {
   await M.setStudentGoal(D, { uid: 'mangoai_delaware', key: 'likes_because', by: 'x', byName: 'x', nowMs: now });
   await M.setStudentGoal(D, { uid: 'mangoai_jin', key: 'likes_because', by: 'x', byName: 'x', nowMs: now });
   ok('쌍둥이 계정에 적힌 목표도 학생 로그인 계정에서 보인다', (await M.loadActiveGoal(D, 'delaware', now + 5))?.key === 'likes_because');
-  await M.setStudentGoal(D, { uid: 'delaware', key: 'describe', by: 'x', byName: 'x', nowMs: now - DAY });   // 내 계정엔 더 «옛» 목표
+  // 두 계정에 활성 목표가 «이미» 있는 옛 상태(이 수리 전에 생긴 행)를 직접 넣어 읽기 쪽을 잰다
+  db.prepare(`INSERT INTO student_goals (student_uid, goal_key, set_by, set_by_name, set_at, ends_at, status) VALUES (?,?,?,?,?,?,'active')`)
+    .run('delaware', 'describe', 'x', 'x', now - DAY, now + 20 * DAY);   // 내 계정엔 더 «옛» 목표
   ok('두 계정에 다 있으면 «가장 최근에 정한» 목표', (await M.loadActiveGoal(D, 'delaware', now + 5))?.key === 'likes_because');
+  // 저장은 쌍둥이 계정의 활성 목표도 함께 끝낸다(Codex P2) — 지우기·바꾸기 둘 다
+  const activeOf = (u) => db.prepare(`SELECT COUNT(*) AS n FROM student_goals WHERE student_uid = ? AND status = 'active'`).get(u).n;
+  await M.setStudentGoal(D, { uid: 'delaware', key: 'past_tense', by: 'x', byName: 'x', nowMs: now + 10 });
+  ok('쌍둥이 한쪽에 새로 정하면 다른 쪽 활성 목표가 끝난다', activeOf('mangoai_delaware') === 0 && activeOf('delaware') === 1,
+     `${activeOf('delaware')}/${activeOf('mangoai_delaware')}`);
+  ok('…그래서 학생 화면도 새 목표', (await M.loadActiveGoal(D, 'mangoai_delaware', now + 20))?.key === 'past_tense');
+  db.prepare(`INSERT INTO student_goals (student_uid, goal_key, set_by, set_by_name, set_at, ends_at, status) VALUES (?,?,?,?,?,?,'active')`)
+    .run('mangoai_delaware', 'describe', 'x', 'x', now + 11, now + 20 * DAY);
+  await M.setStudentGoal(D, { uid: 'delaware', key: '', by: 'x', byName: 'x', nowMs: now + 12 });
+  ok('쌍둥이 한쪽에서 지우면 두 계정 모두 목표 없음', !(await M.loadActiveGoal(D, 'delaware', now + 20)) && !(await M.loadActiveGoal(D, 'mangoai_delaware', now + 20)));
+  ok('이름이 다른 «가짜 쌍둥이» 목표는 안 건드린다', activeOf('mangoai_jin') === 1);
   ok('짝: 이름이 다른 «쌍둥이 모양» 계정은 남이다', (await M.loadActiveGoal(D, 'jin', now + 5)) === null);
+  await M.setStudentGoal(D, { uid: 'jin', key: 'describe', by: 'x', byName: 'x', nowMs: now + 13 });
+  ok('…jin 에 정해도 mangoai_jin 목표는 그대로', activeOf('mangoai_jin') === 1 && activeOf('jin') === 1);
   ch.run('mangoai_delaware', 'user', 'tw', now + 8); ch.run('delaware', 'user', 'me', now + 8);
   const prT = await M.loadGoalPractice(D, 'delaware', now);
   ok('연습도 쌍둥이 계정을 함께 센다', prT.friend === 2, JSON.stringify(prT));
