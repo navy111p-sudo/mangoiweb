@@ -464,7 +464,7 @@ export async function runAutoRenewChargeSweep(env: any): Promise<any> {
        선점 자체를 못 한 것(claim_failed)이다. 이것을 failed 에 섞으면 관리자 화면이
        «카드 거절» 로 읽어, 있지도 않은 결제 문제를 쫓게 된다. */
     if (r.ok) charged++;
-    else if (r.error === 'already_charging' || r.error === 'claim_failed') skipped++;
+    else if (r.error === 'already_charging' || r.error === 'claim_failed' || r.error === 'stale_snapshot') skipped++;
     else failed++;
     results.push({ id: sub.id, user_id: sub.user_id, ...r });
   }
@@ -728,9 +728,14 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
        덮어쓰고(수업은 생겼는데 장부는 실패) 사장님께 «결제 실패» 문자까지 보냈다. 학부모 화면도 «실패» 라
        다시 결제할 위험이 있었다. ⟹ 그 답이 오면 토스에 «이 주문의 진짜 상태» 를 다시 묻고, 승인돼 있으면 성공으로 처리한다. */
     let tossDone = tossRes.ok && (tossJson?.status === 'DONE' || tossJson?.status === 'PAID');
-    if (!tossDone && String(tossJson?.code || '') === 'ALREADY_PROCESSED_PAYMENT') {
+    let tossWaiting = tossRes.ok && tossJson?.status === 'WAITING_FOR_DEPOSIT';
+    if (!tossDone && !tossWaiting && String(tossJson?.code || '') === 'ALREADY_PROCESSED_PAYMENT') {
       const pay = await tossOrderLookup(env, orderId);
-      if (pay && pay.status === 'DONE' && Number(pay.totalAmount) === Number(order.amount)) { tossDone = true; tossJson = pay; }
+      if (pay && Number(pay.totalAmount) === Number(order.amount)) {
+        // 가상계좌 연타는 DONE 이 아니라 «입금 대기» — 그것도 실패가 아니라 아래 입금대기 분기로 보낸다(계좌번호 포함)
+        if (pay.status === 'DONE') { tossDone = true; tossJson = pay; }
+        else if (pay.status === 'WAITING_FOR_DEPOSIT') { tossWaiting = true; tossJson = pay; }
+      }
     }
     if (tossDone) {
       const now2 = Date.now();
@@ -763,10 +768,11 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
        오판하고 사장님께 "⚠️ 결제 실패" 문자까지 나갈 뻔했다 — 별도 분기로 반드시 갈라야 한다.
        실제 입금 확인은 여기서 하지 않는다: 입금되면 토스가 /api/pay/webhook 으로 알려주고,
        거기서 상태를 'DONE'으로 재조회해 확정 + 수강 자동활성화까지 처리한다(기존 로직 그대로). */
-    if (tossRes.ok && tossJson?.status === 'WAITING_FOR_DEPOSIT') {
+    if (tossWaiting) {
+      /* ⚠️ 이미 paid(웹훅이 입금을 먼저 확정)면 입금대기로 되돌리지 않는다. */
       await env.DB.prepare(
-        `UPDATE payment_orders SET status='await_deposit', payment_key=?, raw=? WHERE order_id=?`
-      ).bind(paymentKey, JSON.stringify(tossJson).slice(0, 4000), orderId).run();
+        `UPDATE payment_orders SET status='await_deposit', payment_key=?, raw=? WHERE order_id=? AND status != 'paid'`
+      ).bind(String(tossJson?.paymentKey || paymentKey), JSON.stringify(tossJson).slice(0, 4000), orderId).run();
       const va = tossJson?.virtualAccount || null;
       return json({
         ok: true, orderId, amount, waitingDeposit: true,
@@ -1148,7 +1154,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
        하나만 선점하는데, 진 쪽에 「결제에 실패했어요」라고 말하면 학부모가 **다시 누른다** —
        60초가 지난 뒤라면 그때는 진짜 두 번째 청구가 된다. 이중청구를 막으려 넣은 장치가
        사람을 통해 이중청구로 되돌아오는 모양이라, 문구와 상태코드를 갈라 둔다. */
-    if (!r.ok && (r.error === 'already_charging' || r.error === 'claim_failed')) {
+    if (!r.ok && (r.error === 'already_charging' || r.error === 'claim_failed' || r.error === 'stale_snapshot')) {
       return json({ ok: false, error: r.error,
         message: '결제를 이미 처리하고 있어요. 잠시 후 결제 내역을 확인해 주세요.' }, 409);
     }
@@ -1242,7 +1248,7 @@ async function confirmAiPassBilling(env: any, authUid: string, authKey: string, 
       message: '카드는 등록됐지만 첫 결제 결과를 확인하지 못했어요. 결제 내역을 확인한 뒤 문의해 주세요.' });
   }
   /* 선점 경합(already_charging·claim_failed)은 bump 를 안 탄다 — next 가 NULL 로 남으면 영영 안 긁히니 하루 뒤로. */
-  if (!r.ok && (r.error === 'already_charging' || r.error === 'claim_failed' || r.error === 'subscription_not_saved')) {
+  if (!r.ok && (r.error === 'already_charging' || r.error === 'claim_failed' || r.error === 'stale_snapshot' || r.error === 'subscription_not_saved')) {
     await env.DB.prepare(`UPDATE subscriptions SET next_billing_at=?, updated_at=? WHERE id=? AND next_billing_at IS NULL`).bind(now + 86400 * 1000, now, subId).run().catch((e: any) => console.warn('[ai-pass] 재시도일 기록 실패:', e?.message));
   }
   let after: number | null = null;
@@ -1254,7 +1260,6 @@ async function confirmAiPassBilling(env: any, authUid: string, authKey: string, 
     next_billing_at: s2 && s2.next_billing_at != null ? Number(s2.next_billing_at) : null, ai_pass_ends_at: after });
 }
 
-/** 💳→📚 수강 자동 활성화 (confirm·webhook 공용, 실패해도 결제 흐름에 영향 없음) */
 /** ✅ 주문을 paid 로 «차지» 한다 — 아직 paid 가 아닐 때만 바꾸고, 바꾼 쪽만 true.
  *  confirm 연타·confirm 과 웹훅 동시 도착에서 활성화(수강 기록·수업 생성·확인문자)가 두 번 나가지 않게 하는 유일한 문.
  *  D1(SQLite)은 쓰기를 직렬화하므로 둘이 동시에 와도 changes=1 은 정확히 하나다. (2026-10-10 샌드박스 반복검사) */
@@ -1278,6 +1283,7 @@ async function tossOrderLookup(env: any, orderId: string): Promise<any | null> {
   } catch (_) { return null; }
 }
 
+/** 💳→📚 수강 자동 활성화 (confirm·webhook 공용, 실패해도 결제 흐름에 영향 없음) */
 async function activateEnrollment(env: any, order: any, amount: number, when: number, orderId: string): Promise<void> {
   /* 🏢 (2026-09-10) B2B 대리점 청구서 결제 — 개인 1건 활성화가 아니라 청구서에 포함된
      학생 전원을 한 번에 활성화해야 한다. 구분은 주문번호 접두사(MGB-)뿐이다 —

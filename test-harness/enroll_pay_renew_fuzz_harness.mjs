@@ -276,8 +276,16 @@ if (process.env.EPRF_CHILD === '1') {
     else if (mode === 'decline') { tossPlan.set(orderId, 'decline'); r = await confirm(); meta.expectFail = true; }
     else if (mode === 'network') { tossPlan.set(orderId, 'network'); r = await confirm(); meta.expectFail = true; }
     else if (mode === 'tamper') { r = await confirm(amount - 1000); meta.expectFail = true; if (r.body.ok) fail(opName, '금액 위조', '금액을 바꿔 보낸 confirm 이 성공: ' + JSON.stringify(r.body)); }
-    else if (mode === 'vbank') {
-      tossPlan.set(orderId, 'waiting'); r = await confirm();
+    else if (mode === 'vbank' || mode === 'vbank_double') {
+      tossPlan.set(orderId, 'waiting');
+      if (mode === 'vbank_double') {
+        // 가상계좌 «연타» — 두 응답 모두 «입금대기 + 계좌번호» 여야 한다(실패·계좌 없음이면 학부모가 입금할 곳을 모른다)
+        const [a, b] = await Promise.all([confirm(), confirm()]);
+        for (const x of [a, b]) if (!x.body.ok || !x.body.waitingDeposit || !x.body.virtualAccount) fail(opName, 'I10 가상계좌 연타', '입금대기·계좌가 아닌 응답: ' + JSON.stringify(x.body).slice(0, 200));
+        r = a;
+        const st = sq.prepare(`SELECT status FROM payment_orders WHERE order_id=?`).get(orderId);
+        if (st && st.status !== 'await_deposit') fail(opName, 'I10 가상계좌 연타', '연타 뒤 주문 상태 ' + st.status);
+      } else r = await confirm();
       if (!r.body.ok || !r.body.waitingDeposit) fail(opName, '가상계좌', '입금대기 응답이 아님: ' + JSON.stringify(r.body));
       // 며칠 뒤 입금 — 토스가 DONE 으로 바꾸고 웹훅이 온다(가끔 두 번 온다)
       const rec = toss.get(orderId); if (rec) { rec.status = 'DONE'; tossCharges.push({ orderId, amount: rec.totalAmount }); }
@@ -288,7 +296,7 @@ if (process.env.EPRF_CHILD === '1') {
     return r;
   }
 
-  const MODES = ['normal', 'normal', 'normal', 'double', 'retry', 'race_webhook', 'decline', 'network', 'tamper', 'vbank'];
+  const MODES = ['normal', 'normal', 'normal', 'double', 'retry', 'race_webhook', 'decline', 'network', 'tamper', 'vbank', 'vbank_double'];
 
   // ── 조작들 ──
   async function opProduct(i) {
@@ -567,10 +575,11 @@ else {
 if (process.env.FUZZ_MUTATE) {
   /* 한 줄 = 한 변이. 겹겹이 막은 자리(재클릭 조회 + 실패 표시 가드)는 «둘 다» 되돌려야 사고가 난다 —
      하나만 되돌리면 다른 겹이 막아 위반이 안 나오는 것이 정상이라, 짝으로 묶어 되돌린다. */
-  const RECLICK = ['api-pay.ts', "if (!tossDone && String(tossJson?.code || '') === 'ALREADY_PROCESSED_PAYMENT') {", 'if (false) {'];
+  const RECLICK = ['api-pay.ts', "if (!tossDone && !tossWaiting && String(tossJson?.code || '') === 'ALREADY_PROCESSED_PAYMENT') {", 'if (false) {'];
   const FAILGUARD = ['api-pay.ts', "WHERE order_id=? AND status NOT IN ('paid','await_deposit')`).bind(String(code)", 'WHERE order_id=?`).bind(String(code)'];
   const MUTANTS = [
     ['재클릭 조회 + 실패표시 가드 둘 다 제거', [RECLICK, FAILGUARD]],
+    ['가상계좌 연타 재조회 끄기', [['api-pay.ts', "else if (pay.status === 'WAITING_FOR_DEPOSIT') { tossWaiting = true; tossJson = pay; }", '']]],
     ['넣은 뒤 재검사 끄기', [['enroll-ops.ts', 'round < 4; round++', 'round < 0; round++']]],
     ['빈 날짜 창 넓히기 끄기', [['enroll-ops.ts', 'span *= 2;', 'break;']]],
     ['자동연장 timesMin 빼기', [['api-pay.ts', 'timesMin: Object.fromEntries((q.cur.days as number[]).map((d) => [d, enrollTimeToMin(q.cur.times[d])])),', '']]],
