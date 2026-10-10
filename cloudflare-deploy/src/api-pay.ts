@@ -15,7 +15,7 @@
 import { json, parseJsonBody } from './api-util';
 import { checkAdminSession } from './auth-admin';
 import { sendPlainSms } from './solapi-client';
-import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnrollOrder, priceForUid, teacherRateFor, enrollQuoteCalc, ENROLL_WEEKLY, addDays, authUidOrAdminSession, renewStartDate } from './enroll-ops';
+import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnrollOrder, priceForUid, teacherRateFor, enrollQuoteCalc, ENROLL_WEEKLY, addDays, authUidOrAdminSession, renewStartDate, enrollTimeToMin } from './enroll-ops';
 import { authUidFromRequest } from './auth-token';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서 (사전고지 문자)
 import { handleRefundApi } from './api-pay-refund';   // 💸 환불 실행·기록 (2026-08-25 신설)
@@ -236,6 +236,24 @@ export async function chargeSubscriptionOnce(env: any, sub: any, months = 1): Pr
     return { ok: false, error: 'already_charging' };
   }
   try {
+    /* 🛡️ (2026-10-10 퍼즈 실측) 선점 «전» 에 읽은 행이 낡았으면 청구하지 않는다.
+       스윕 둘이 같은 구독을 같은 순간 SELECT 하면, 첫 실행이 청구·해제를 끝낸 «뒤» 두 번째가
+       선점에 성공해 낡은 행으로 한 번 더 긁는다(실측: 같은 날 같은 카드 2회). 선점 직후 다시 읽어
+       last_billed_at·next_billing_at 이 내가 본 값 그대로일 때만 진행한다.
+       ⚠️ 다시 읽기가 실패하면 청구하지 않는다(안 긁는 쪽으로 실패 — 다음 스윕이 다시 본다). */
+    let _fresh: any = null;
+    try {
+      _fresh = await env.DB.prepare(`SELECT last_billed_at, next_billing_at FROM subscriptions WHERE id = ?`).bind(sub.id).first();
+    } catch (e: any) {
+      console.error('[billing] 선점 뒤 재조회 실패 — 청구하지 않는다:', sub.id, e?.message);
+      return { ok: false, error: 'claim_failed' };
+    }
+    if (!_fresh
+        || Number(_fresh.last_billed_at || 0) !== Number(sub.last_billed_at || 0)
+        || Number(_fresh.next_billing_at || 0) !== Number(sub.next_billing_at || 0)) {
+      console.warn('[billing] 읽은 뒤 다른 실행이 이미 처리한 구독이라 건너뜀:', sub.id);
+      return { ok: false, error: 'stale_snapshot' };
+    }
     return await chargeSubscriptionOnceInner(env, sub, months);
   } finally {
     /* ⚠️ «내가 잡은 표식» 일 때만 푼다. Inner 가 리스(10분)를 넘기면 다른 실행이 만료로
@@ -272,6 +290,10 @@ async function chargeSubscriptionOnceInner(env: any, sub: any, months = 1): Prom
   const orderResp = await createEnrollOrder(env, sub.user_id, {
     weekly: q.weekly, months: q.months, minutes: q.cur.minutes, times: q.cur.times,
     startDate: renewStartDate(q.cur.last_date), teacherId: q.cur.teacher_id, days: q.cur.days,
+    /* ⚠️ (2026-10-10) 요일→분 맵을 반드시 넘긴다 — 빠지면 createEnrollOrder 의 충돌검사가
+       timesMinByDow[dow] 에서 던지고(catch 가 삼킴) «충돌 없음» 으로 통과해 막힌 날짜를 그대로 잡는다.
+       연장 주문(renew-order)과 같은 계산. */
+    timesMin: Object.fromEntries((q.cur.days as number[]).map((d) => [d, enrollTimeToMin(q.cur.times[d])])),
   }, 'auto_renew');
   const orderBody: any = await orderResp.json().catch(() => ({}));
   if (!orderBody || !orderBody.ok) {
@@ -683,7 +705,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     }
     // 🔒 금액 위변조 방지: 요청 금액 == 저장된 주문 금액 이어야 확정 진행.
     if (Number(order.amount) !== amount) {
-      await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason='amount_mismatch' WHERE order_id=?`).bind(orderId).run();
+      await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason='amount_mismatch' WHERE order_id=? AND status NOT IN ('paid','await_deposit')`).bind(orderId).run();
       return json({ ok: false, error: 'amount_mismatch', message: '결제 금액이 주문과 일치하지 않습니다.' }, 400);
     }
 
@@ -701,15 +723,25 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       return json({ ok: false, error: 'pg_network', message: '결제사 연결 오류. 잠시 후 다시 시도해 주세요.' }, 502);
     }
 
-    if (tossRes.ok && (tossJson?.status === 'DONE' || tossJson?.status === 'PAID')) {
+    /* 🖱️🖱️ (2026-10-10 샌드박스 반복검사로 발견) 결제 버튼 «연타» — 두 번째 승인 요청에 토스가
+       ALREADY_PROCESSED_PAYMENT 로 답한다. 예전에는 그것을 «실패» 로 읽어 이미 결제된 주문을 failed 로
+       덮어쓰고(수업은 생겼는데 장부는 실패) 사장님께 «결제 실패» 문자까지 보냈다. 학부모 화면도 «실패» 라
+       다시 결제할 위험이 있었다. ⟹ 그 답이 오면 토스에 «이 주문의 진짜 상태» 를 다시 묻고, 승인돼 있으면 성공으로 처리한다. */
+    let tossDone = tossRes.ok && (tossJson?.status === 'DONE' || tossJson?.status === 'PAID');
+    if (!tossDone && String(tossJson?.code || '') === 'ALREADY_PROCESSED_PAYMENT') {
+      const pay = await tossOrderLookup(env, orderId);
+      if (pay && pay.status === 'DONE' && Number(pay.totalAmount) === Number(order.amount)) { tossDone = true; tossJson = pay; }
+    }
+    if (tossDone) {
       const now2 = Date.now();
-      await env.DB.prepare(
-        `UPDATE payment_orders SET status='paid', payment_key=?, paid_at=?, raw=? WHERE order_id=?`
-      ).bind(paymentKey, now2, JSON.stringify(tossJson).slice(0, 4000), orderId).run();
-
-      // 💳→📚 수강 자동 활성화 + 📱 학부모 결제완료 확인문자 (둘 다 실패해도 결제 성공 응답 유지)
-      await activateEnrollment(env, order, amount, now2, orderId);
-      await sendBuyerPaidSms(env, order, amount, orderId);
+      /* 💳→📚 수강 자동 활성화 + 📱 학부모 결제완료 확인문자 (둘 다 실패해도 결제 성공 응답 유지)
+         ⚠️ «paid 로 바꾸는 쪽» 이 정확히 하나여야 활성화도 한 번이다 — confirm 연타·confirm 과 웹훅이 동시에 와도
+            조건부 UPDATE(아직 paid 가 아닐 때만)를 이긴 쪽만 활성화한다(markOrderPaid). */
+      const claimed = await markOrderPaid(env, orderId, String(tossJson?.paymentKey || paymentKey), now2, null, tossJson);
+      if (claimed) {
+        await activateEnrollment(env, order, amount, now2, orderId);
+        await sendBuyerPaidSms(env, order, amount, orderId);
+      }
       let aiPassEndsAt: number | null = null;   // 🤖 A.i 이용권이면 «언제까지» 를 결제 완료 화면이 말하게
       if (String(order.program) === AI_PASS_PLAN && order.uid) {
         try { aiPassEndsAt = await currentAiPassEnd(env, String(order.uid), PRICES[AI_PASS_PLAN].name); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
@@ -751,7 +783,13 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     // 실패 — 토스 에러코드/메시지를 그대로 담아 프론트가 친절히 안내
     const code = tossJson?.code || ('http_' + tossRes.status);
     const msg = tossJson?.message || '결제 승인에 실패했습니다.';
-    await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=?`).bind(String(code).slice(0, 100), orderId).run();
+    /* ⚠️ 이미 결제됐거나(다른 요청이 먼저 확정) 입금 대기인 주문은 failed 로 덮지 않는다 — 덮으면 돈은 나갔는데 장부만 실패가 된다. */
+    const failRes: any = await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=? AND status NOT IN ('paid','await_deposit')`).bind(String(code).slice(0, 100), orderId).run();
+    if (!failRes?.meta?.changes) {
+      const now: any = await env.DB.prepare(`SELECT status, amount FROM payment_orders WHERE order_id = ? LIMIT 1`).bind(orderId).first();
+      if (now?.status === 'paid') return json({ ok: true, already: true, orderId, amount: now.amount, message: '이미 결제 완료된 주문입니다.' });
+      if (now?.status === 'await_deposit') return json({ ok: true, already: true, orderId, amount: now.amount, waitingDeposit: true });
+    }
 
     // 🔔 결제 실패 시 사장님 폰 문자 알림 (실패해도 응답엔 영향 없음). 학부모 후속 연락용.
     try {
@@ -943,13 +981,13 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     if (pay.status === 'DONE' && order.status !== 'paid') {
       // 금액 대조 후 확정 (프론트가 미완료한 결제를 웹훅이 보완 확정하는 순간)
       if (Number(pay.totalAmount) !== Number(order.amount)) {
-        await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason='webhook_amount_mismatch' WHERE order_id=?`).bind(orderId).run();
+        await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason='webhook_amount_mismatch' WHERE order_id=? AND status != 'paid'`).bind(orderId).run();
         return json({ ok: true, flagged: 'amount_mismatch' });
       }
       const now3 = Date.now();
-      await env.DB.prepare(
-        `UPDATE payment_orders SET status='paid', payment_key=?, paid_at=?, method=?, raw=? WHERE order_id=?`
-      ).bind(String(pay.paymentKey || ''), now3, String(pay.method || order.method || ''), JSON.stringify(pay).slice(0, 4000), orderId).run();
+      /* ⚠️ confirm 과 동시에 오면 둘 다 «아직 paid 아님» 으로 읽는다 — 조건부 UPDATE 를 이긴 쪽만 활성화(markOrderPaid). */
+      const claimed = await markOrderPaid(env, orderId, String(pay.paymentKey || ''), now3, String(pay.method || order.method || ''), pay);
+      if (!claimed) return json({ ok: true, already: true });
       await activateEnrollment(env, order, Number(order.amount), now3, orderId);
       await sendBuyerPaidSms(env, order, Number(order.amount), orderId);
       // 프론트 확정이 누락됐던 건을 웹훅이 잡은 것 → 사장님께 정보 문자(유령결제 방지 확인용)
@@ -1217,6 +1255,29 @@ async function confirmAiPassBilling(env: any, authUid: string, authKey: string, 
 }
 
 /** 💳→📚 수강 자동 활성화 (confirm·webhook 공용, 실패해도 결제 흐름에 영향 없음) */
+/** ✅ 주문을 paid 로 «차지» 한다 — 아직 paid 가 아닐 때만 바꾸고, 바꾼 쪽만 true.
+ *  confirm 연타·confirm 과 웹훅 동시 도착에서 활성화(수강 기록·수업 생성·확인문자)가 두 번 나가지 않게 하는 유일한 문.
+ *  D1(SQLite)은 쓰기를 직렬화하므로 둘이 동시에 와도 changes=1 은 정확히 하나다. (2026-10-10 샌드박스 반복검사) */
+async function markOrderPaid(env: any, orderId: string, paymentKey: string, when: number, method: string | null, raw: any): Promise<boolean> {
+  const r: any = method == null
+    ? await env.DB.prepare(`UPDATE payment_orders SET status='paid', payment_key=?, paid_at=?, raw=? WHERE order_id=? AND status != 'paid'`)
+        .bind(paymentKey, when, JSON.stringify(raw ?? {}).slice(0, 4000), orderId).run()
+    : await env.DB.prepare(`UPDATE payment_orders SET status='paid', payment_key=?, paid_at=?, method=?, raw=? WHERE order_id=? AND status != 'paid'`)
+        .bind(paymentKey, when, method, JSON.stringify(raw ?? {}).slice(0, 4000), orderId).run();
+  return !!(r?.meta?.changes);
+}
+
+/** 🔎 토스에 «이 주문의 진짜 상태» 를 묻는다(시크릿키). 못 물어보면 null — 부르는 쪽은 «모름» 으로 다룬다. */
+async function tossOrderLookup(env: any, orderId: string): Promise<any | null> {
+  try {
+    const auth = 'Basic ' + btoa(String(env.TOSS_SECRET_KEY) + ':');
+    const r = await fetch(`https://api.tosspayments.com/v1/payments/orders/${encodeURIComponent(orderId)}`, { headers: { 'Authorization': auth } });
+    if (!r.ok) return null;
+    const j: any = await r.json();
+    return j && j.status ? j : null;
+  } catch (_) { return null; }
+}
+
 async function activateEnrollment(env: any, order: any, amount: number, when: number, orderId: string): Promise<void> {
   /* 🏢 (2026-09-10) B2B 대리점 청구서 결제 — 개인 1건 활성화가 아니라 청구서에 포함된
      학생 전원을 한 번에 활성화해야 한다. 구분은 주문번호 접두사(MGB-)뿐이다 —
