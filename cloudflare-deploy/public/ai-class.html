@@ -18,8 +18,12 @@
   [사생활] 학생 카메라는 «내 화면에서만» 보이고 어디에도 보내지 않는다. 녹화 없음.
           마이크 음성인식은 브라우저 기능(웜업과 같음)이라 그 브라우저 제공자를 거친다.
   [이름] 로그인할 때 적은 이름(mangoi_logged_user.name)을 부른다 — 그 칸이 아이디와 같으면 쓰지 않는다.
+  [재미 — 2026-10-10 사장님 지시] 본수업에 선생님 질문(❓ ask)·빈칸 퀴즈(✏️ blank) 레슨당 3개 ·
+        Hello Song 은 각 책 첫 레슨만 따라 말하기, 그 뒤는 노래(1절 Lily · 2절 내가) ·
+        시작 징글·단계 신호·배경음악(학생 차례엔 꺼짐)·정답 효과음·마무리 음악 = /js/ai-class-music.js ·
+        선생님 배경 = 책마다 다른 실사(/img/aiclass-bg/bts-NN · siu-basic · siu-advance, 못 받으면 기본 스튜디오).
   ⛔ 상주 setInterval·body class MutationObserver 를 두지 않는다(수업 타이머는 수업 중에만 돈다).
-  감시: test-harness/ai_class_page_harness.mjs(자동) · test-harness/manual/ai-class-browser.mjs(브라우저 — 사람이 부릅니다)
+  감시: test-harness/ai_class_page_harness.mjs · ai_class_fun_harness.mjs(자동) · test-harness/manual/ai-class-browser.mjs(브라우저 — 사람이 부릅니다)
 -->
 <style>
 /* 레이아웃: 위 = 제목, 가운데 = 수업(늘 어두운 교실) */
@@ -285,6 +289,7 @@ select.pill{max-width:min(100%,280px)}
       <span class="pill num" id="pageInfo">1 / 1</span>
       <button class="pill" id="subBtn" type="button">💬 자막: 영+한</button>
       <button class="pill" id="sndBtn" type="button">🔊 소리 켬</button>
+      <button class="pill" id="bgmBtn" type="button" title="선생님이 말할 때 깔리는 배경음악">🎵 배경음악: 켬</button>
       <button class="pill" id="spdBtn" type="button" title="선생님 말하기 속도">🐇 속도: 보통</button>
       <button class="pill" id="talkBtn" type="button" title="내 차례가 되면 마이크가 저절로 켜져요">🎙 자동 말하기: 끔</button>
     </div>
@@ -377,7 +382,8 @@ select.pill{max-width:min(100%,280px)}
 </div>
 
 <script src="/js/tts-short-text.js?v=1"></script>
-<script src="/js/ai-class-engine.js?v=1"></script>
+<script src="/js/ai-class-engine.js?v=2"></script>
+<script src="/js/ai-class-music.js?v=1"></script>
 
 <script>
 (function(){
@@ -387,6 +393,7 @@ select.pill{max-width:min(100%,280px)}
   var E = window.AiClass, CAT = [], LS = [], SLIDE = {}, FILES = {}, openSeq = 0, loading = true;
   var st = null, unit = null, li = 0, busy = false, auto = false, subMode = 1, sound = !FAST, timerAt = 0, timerId = 0, seq = 0, listenTO = 0, lastTarget = '', lastMiss = null;
   var lastListen = null, askBusy = false, askN = 0, askRec = null;   // ✋ 학생 질문
+  var MU = window.AiClassMusic || null, streak = 0, curStage = 0;   // 🎵 소리 모듈 · 연속 정답 · 지금 단계
   // 📶 교재 레벨 — 8단계 중 어디인가 (2026-10-09)
   //  BTS N 의 N 이 교재 Lv 이고, 단계 구간은 서버 정본 BAND_SPECS(src/judgment-level.ts)·웜업 LEVEL_CATALOG 와 같은 값이다
   //  (하니스가 셋을 대조한다 — 한쪽만 고치지 마세요). SIU 는 권마다 난이도를 매기지 않고, 웜업이 정한
@@ -467,7 +474,7 @@ select.pill{max-width:min(100%,280px)}
   }
   function openLesson(k){
     var my = ++openSeq; loading = true;
-    seq++; busy = false; stopSpeech(); stopRec(); clearTimeout(listenTO); clearInterval(timerId);
+    seq++; busy = false; stopSpeech(); stopRec(); clearTimeout(listenTO); clearInterval(timerId); if (MU) MU.stopAll();
     $('startBtn').disabled = true; $('startAuto').disabled = true; $('startOv').hidden = false; $('endOv').hidden = true;
     setAsk('불러오는 중', '교재를 불러오고 있어요…');
     var c = CAT[k];
@@ -489,6 +496,9 @@ select.pill{max-width:min(100%,280px)}
     if (t && t.t === 'repeat' && t.mode === 'warm') { k.textContent = '🔁 지난 시간 문장'; $('capText').textContent = t.say; return; }
     if (t && t.t === 'repeat' && t.mode === 'qa') { k.textContent = '❓ 묻고 답하기'; $('capText').textContent = 'Q: ' + t.ask + '   A: ' + t.say; return; }
     if (t && t.t === 'repeat' && t.mode === 'swap') { k.textContent = '🔄 역할 바꾸기 — 내가 물어봐요'; $('capText').textContent = 'Q: ' + t.say + '   A: ' + t.answer; return; }
+    if (t && t.t === 'repeat' && t.mode === 'ask') { k.textContent = '❓ 선생님 질문 — 책을 보고 대답해요'; $('capText').textContent = 'Q: ' + t.ask; return; }
+    if (t && t.t === 'repeat' && t.mode === 'blank') { k.textContent = '✏️ 빈칸 채우기 — 문장을 다 말해요'; $('capText').textContent = t.shown; return; }
+    if (t && t.t === 'song') { k.textContent = '🎵 Hello Song'; $('capText').textContent = t.lines.join(' / '); return; }
     if (t && t.t === 'find') { k.textContent = '🔎 낱말 찾기'; $('capText').textContent = '«' + t.word + '» 가 들어 있는 문장을 눌러 보세요'; return; }
     if (t && t.t === 'repeat' && t.mode === 'solo') k.textContent = '🙋 혼자 말하기'; else k.textContent = '📖 지금 읽는 문장';
   }
@@ -513,16 +523,12 @@ select.pill{max-width:min(100%,280px)}
   function curName(){ return nameOf($('nameIn').value); }
   function namePrev(){ var n = curName(); $('namePrev').textContent = n.en === 'friend' ? '이름을 한글이나 영어로 적어 주세요 — 지금은 «friend» 로 불러요' : 'Lily 선생님이 «' + n.en + '» 라고 불러요 · 자막에는 «' + n.ko + '»'; }
   $('nameIn').addEventListener('input', function(){ namePrev(); camPaint(); }); namePrev();
-  // 맞혔을 때 축하 소리 — 파일 없이 브라우저에서 짧게 만든다. «소리 끔»이면 안 낸다
-  var actx = null;
-  function sfx(){
-    window.__sfx = (window.__sfx || 0) + 1;
-    if (!sound) return;
-    try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume();
-      var t0 = actx.currentTime + 0.02;
-      [523.25, 659.25, 783.99, 1046.5].forEach(function(f, i){ var o = actx.createOscillator(), g = actx.createGain(); o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t0 + i * 0.07); g.gain.exponentialRampToValueAtTime(0.12, t0 + i * 0.07 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.07 + 0.32); o.connect(g); g.connect(actx.destination); o.start(t0 + i * 0.07); o.stop(t0 + i * 0.07 + 0.35); });
-      window.__sfxPlayed = (window.__sfxPlayed || 0) + 1;
-    } catch (e) {}
+  // 맞혔을 때 축하 소리 — 소리 모듈(js/ai-class-music.js)이 브라우저에서 만든다. «소리 끔»이면 안 낸다
+  //  ok = 통과 · great = 세 번 연속 통과·내 말로 대답·퀴즈 · find = 낱말 찾기 성공
+  function sfx(kind){
+    window.__sfx = (window.__sfx || 0) + 1; window.__lastSfx = kind || 'ok';
+    if (!sound || !MU) return;
+    if (MU.sfx(kind || 'ok')) window.__sfxPlayed = (window.__sfxPlayed || 0) + 1;
   }
   function wowPop(w){
     window.__wowShown = (window.__wowShown || 0) + 1; window.__lastWow = w;
@@ -532,11 +538,12 @@ select.pill{max-width:min(100%,280px)}
   }
   function reset(){
     seq++; busy = false; stopSpeech(); stopRec(); clearTimeout(listenTO); lastMiss = null; $('book').classList.remove('finding');
+    if (MU) MU.stopAll(); streak = 0; curStage = 0; songHL(-1, -1);
     askBusy = false; askN = 0; lastListen = null; askOpen(false);   // ✋ 새 수업이면 질문 상태도 처음부터
     unit = LS[li]; var nm = curName(); st = E.create(unit, { name: nm.en, nameKo: nm.ko, prev: E.prevUnitOf(LS, li) });
     setStage(0); $('cap').querySelector('.k').textContent = '📖 지금 읽는 문장';
     $('room').textContent = 'AI-' + unit.book.replace(/[^A-Z0-9]+/gi, '').slice(0, 10);
-    $('bookTitle').textContent = unit.book; paintBookLv(unit.book);
+    $('bookTitle').textContent = unit.book; paintBookLv(unit.book); paintBg(unit.book);
     drawPage(0, null); setAsk('대기 중', '«수업 시작»을 눌러 주세요'); setButtons();
     $('stars').textContent = '☆ 0'; $('prog').textContent = '0 / ' + st.targets;
     $('startOv').hidden = false; $('endOv').hidden = true; $('sim').hidden = true; $('sub').hidden = true;
@@ -671,6 +678,42 @@ select.pill{max-width:min(100%,280px)}
     $('sub').hidden = false;
   }
 
+
+  // 🖼 교재별 선생님 배경 (2026-10-10 사장님 지시: «BTS 1, 2, 3… 책이 바뀔 때마다 배경도 바뀌게»)
+  //  /img/aiclass-bg/bts-NN.webp(1~34) · siu-basic · siu-advance. 그림을 못 받으면 기본 스튜디오 그대로(빈 칸이 되지 않게)
+  function bgOf(book){
+    var m = /^BTS\s*0*(\d+)\b/i.exec(book || '');
+    if (m && +m[1] >= 1 && +m[1] <= 34) return '/img/aiclass-bg/bts-' + ('0' + (+m[1])).slice(-2) + '.webp';
+    if (/\bSIU\b/i.test(book || '')) return /\bADVANCE\b/i.test(book) ? '/img/aiclass-bg/siu-advance.webp' : '/img/aiclass-bg/siu-basic.webp';
+    return '';
+  }
+  var bgWant = '';
+  function paintBg(book){
+    var u = bgOf(book), tile = $('tTile'); bgWant = u; window.__aiBg = u;
+    if (!u) { tile.style.backgroundImage = ''; return; }
+    var im = new Image();
+    im.onload = function(){ if (bgWant === u) tile.style.backgroundImage = 'url(' + u + ')'; };
+    im.onerror = function(){ if (bgWant === u) tile.style.backgroundImage = ''; };
+    im.src = u;
+  }
+  // 🎵 배경음악 — 선생님 말(talk)엔 보통, 교재 문장 시범(model, 한국어 뜻이 없는 문장)엔 더 작게
+  function bgmFor(sp){ if (!MU || FAST || !sound) return; MU.bgm(sp.speak && sp.speak.ko === '' ? 'model' : 'talk'); }
+  // 🎵 Hello Song — 첫 레슨이 아니면 따라 말하기 대신 노래로(엔진이 정한다). 1절은 Lily 가 부르고 2절은 반주만 — 내가 부른다
+  function songHL(pass, i){
+    window.__songAt = pass < 0 ? null : [pass, i];
+    $('lineChips').querySelectorAll('button').forEach(function(c, k){ c.classList.toggle('on', pass >= 0 && k === i); });   // 지금 부르는 줄(가사 강조)
+    if (pass < 0) return;
+    var t = st && st.plan[st.i], ln = t && t.lines ? t.lines[i] : '';
+    $('cap').querySelector('.k').textContent = pass === 0 ? '🎵 Lily 선생님이 불러요 — 들어 봐요' : '🎤 이번엔 내가 불러요! (반주에 맞춰)';
+    $('capText').textContent = ln;
+    setAsk(pass === 0 ? '🎵 노래 듣기' : '🎤 같이 불러요', ln);
+  }
+  async function playSong(sg, my){
+    var lines = (sg && sg.lines) || [];
+    if (!lines.length) return;
+    if (FAST || !MU) { for (var k = 0; k < lines.length; k++) { if (my !== seq) return; songHL(0, k); await speakRaw(lines[k], 'f', 1); } songHL(-1, -1); return; }
+    await MU.song(lines, function(line){ return my === seq ? speakRaw(line, 'f', 0.95) : Promise.resolve(); }, function(pass, i){ if (my === seq) songHL(pass, i); });
+  }
   // 엔진 효과 실행
   function run(ev){
     stopRec(); $('book').classList.remove('finding');
@@ -681,11 +724,13 @@ select.pill{max-width:min(100%,280px)}
       if (o.view != null) drawPage(o.view, hl);
       if (o.highlight) { hl = o.highlight; markHL(); }
       if (o.star != null) { $('stars').textContent = '⭐ ' + o.star; }
-      if (o.result) setResult(o.result);
-      if (o.speak) { speeches.push(o); if (o.speak.wow) { sfx(); wowPop(o.speak.wow); } }
+      if (o.result) { setResult(o.result); streak = o.result.pass ? streak + 1 : 0; }
+      if (o.song) speeches.push({ song: o.song });
+      if (o.speak) { speeches.push(o); if (o.speak.wow) { sfx(o.praise === 'praiseQuiz' || o.reply === 'ownTalk' || o.reply === 'own' || (streak > 0 && streak % 3 === 0) ? 'great' : 'ok'); wowPop(o.speak.wow); } }
+      if (o.reply === 'findOk') sfx('find');
       if (o.listen) listen(o.listen);
       if (o.end) showEnd(o.end);
-      if (o.stage != null) setStage(o.stage);
+      if (o.stage != null) { if (o.stage > 1 && o.stage !== curStage && sound && MU && !FAST) MU.sting(); curStage = o.stage; setStage(o.stage); }
       if (o.praise) sticker(o.praise);
     });
     syncCap();
@@ -696,13 +741,17 @@ select.pill{max-width:min(100%,280px)}
     (async function(){
       for (var i = 0; i < speeches.length; i++) {
         if (my !== seq) return;
-        var sp = speeches[i]; showSub(sp.speak);
+        var sp = speeches[i];
+        if (sp.song) { await playSong(sp.song, my); continue; }
+        showSub(sp.speak);
         if (sp.bigText) markHL(true);
-        if (sp.target) setAsk('선생님', sp.speak.en);
+        if (sp.target) setAsk('선생님', sp.show || sp.speak.en);
+        bgmFor(sp);
         await speakRaw(sp.speak.en, sp.voice, sp.rate || 1);
       }
       if (my !== seq) return;
       busy = false;
+      if (MU) MU.bgm(st.phase === 'done' ? 'off' : 'talk');
       if (speeches.some(function(s){ return s.replay; })) { setButtons(); armAuto(); armTalk(); return; }
       run({ type: 'spoken' });
     })();
@@ -714,6 +763,12 @@ select.pill{max-width:min(100%,280px)}
     if (t.t === 'greet') return t.frees || [t.free];
     if (t.t === 'intro') return (t.words || []).slice(0, 3).map(function(w){ return 'I see ' + w + '.'; }).concat(['I don\'t know.']);
     if (t.t === 'repeat' && t.personal) return [t.say, 'Yes, I do.', 'No, I don\'t.'];
+    if (t.t === 'repeat' && t.mode === 'blank') {   // 빈칸 — 정답 문장 하나 + 같은 쪽 낱말로 바꾼 문장 둘(순서는 섞는다)
+      var ws = E.pageWords(unit.pages[t.page]).filter(function(w){ return w !== t.blank; }).slice(0, 2);
+      var opts = [t.say].concat(ws.map(function(w){ return t.shown.replace('____', w); }));
+      return opts.sort(function(a, b){ return (a.length * 7 % 5) - (b.length * 7 % 5); });
+    }
+    if (t.t === 'repeat' && t.mode === 'ask') return [t.say, 'I don\'t know.'];
     return [];
   }
   function fillChoices(){
@@ -722,11 +777,14 @@ select.pill{max-width:min(100%,280px)}
   }
   function listen(target){
     lastListen = target;   // ✋ 질문에 답한 뒤 이 차례로 되돌아오기 위해
+    if (MU) MU.bgm('off');   // 🎵 학생 차례엔 배경음악을 끈다 — 음성인식이 음악을 말로 받아 적지 않게
     fillChoices();
     lastTarget = target === '*' ? '' : target;
     var cur = st.plan[st.i] || {};
     if (cur.t === 'find') { $('book').classList.add('finding'); setAsk('👆 찾아 눌러 보세요', '교재에서 «' + cur.word + '» 가 들어 있는 문장을 눌러 보세요'); $('micBtn').classList.remove('listen'); armAuto(); return; }
     if (cur.mode === 'swap') { setAsk('🎤 선생님께 물어보세요', target); $('micBtn').classList.add('listen'); armAuto(); armTalk(); return; }
+    // ❓ 질문·✏️ 빈칸 차례엔 정답 문장을 보여 주지 않는다 — 질문(또는 빈칸 문장)만 보인다
+    if (cur.mode === 'ask' || cur.mode === 'blank') { setAsk(cur.mode === 'ask' ? '🎤 질문에 대답해 보세요' : '🎤 빈칸을 채워 문장을 말해 보세요', cur.mode === 'ask' ? cur.ask : cur.shown); $('micBtn').classList.add('listen'); armAuto(); armTalk(); return; }
     setAsk(target === '*' ? '🎤 대답해 보세요' : cur.mode === 'qa' ? '🎤 대답해 보세요' : cur.mode === 'solo' ? '🎤 혼자 말해 보세요' : '🎤 따라 말해 보세요', target === '*' ? (cur.t === 'intro' ? '예: I see a bag. (자유롭게)' : cur.t === 'greet' ? '예: I am happy. / I am tired. (기분을 말해요)' : 'Yes! / I am ready.') : target);
     if (lastMiss && lastMiss.i === st.i) missChip('빠진 낱말: ' + lastMiss.words.join(' '));   // 다시 말할 때도 무엇이 빠졌는지 보이게
     else lastMiss = null;
@@ -812,8 +870,9 @@ select.pill{max-width:min(100%,280px)}
   function setResult(r){
     var a = $('ask'); var c = document.createElement('span'); c.className = 'res ' + (r.pass ? 'ok' : 'no');
     c.textContent = r.own ? '내 대답 ✓' : (r.pass ? '통과 ' : '다시 ') + Math.round(r.score * 100) + '%' + (r.said ? '' : ' · 조용했어요'); if (r.own) c.className = 'res own'; a.append(c);
-    lastMiss = (!r.pass && r.said && r.missing && r.missing.length) ? { i: st.i, words: r.missing } : null;
-    if (r.missing && r.missing.length && r.said) missChip((r.pass ? '다음엔 ' : '빠진 낱말: ') + r.missing.join(' '));
+    var quiz = st.plan[st.i] && st.plan[st.i].mode === 'blank' && !r.pass;   // 빈칸을 못 맞혔을 때 빠진 낱말을 보여 주면 정답을 알려 주는 셈
+    lastMiss = (!quiz && !r.pass && r.said && r.missing && r.missing.length) ? { i: st.i, words: r.missing } : null;
+    if (!quiz && r.missing && r.missing.length && r.said) missChip((r.pass ? '다음엔 ' : '빠진 낱말: ') + r.missing.join(' '));
   }
   function missChip(text){ var m = document.createElement('span'); m.className = 'res miss'; m.textContent = text; $('ask').append(m); }
   function setButtons(){
@@ -828,6 +887,7 @@ select.pill{max-width:min(100%,280px)}
   }
   function showEnd(e){
     clearInterval(timerId);
+    if (MU && sound && !FAST) MU.outro();   // 🎶 마무리 음악(약 30초, 서서히 줄어듦)
     $('endTitle').textContent = 'Lily: You did it, ' + st.name + '!';
     $('endStars').textContent = '⭐ ' + e.stars + ' / ' + e.targets;
     var m = st.missed.slice(0, 5), box = $('endMissed'); box.replaceChildren();
@@ -921,6 +981,9 @@ select.pill{max-width:min(100%,280px)}
     if (!camStream && !camUserOff) camToggle();
     timerAt = Date.now(); clearInterval(timerId);
     timerId = setInterval(function(){ var s = Math.floor((Date.now() - timerAt) / 1000); $('timer').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }, 1000);
+    // 🎺 시작 시그널 — 짧은 징글이 끝나면 수업을 연다(소리 끔·빠른 모드면 바로)
+    var my = seq;
+    if (MU && sound && !FAST) { MU.setSound(true); busy = true; MU.jingle().then(function(){ if (my !== seq) return; busy = false; run({ type: 'start' }); }); return; }
     run({ type: 'start' });
   }
   $('startBtn').addEventListener('click', function(){ start(false); });
@@ -970,7 +1033,10 @@ select.pill{max-width:min(100%,280px)}
   $('followBtn').addEventListener('click', function(){ run({ type: 'follow' }); });
   $('capSay').addEventListener('click', function(){ if (busy) return; var t = st && st.plan[st.i]; if (t && t.t === 'repeat' && (t.mode === 'warm' || t.mode === 'qa' || t.mode === 'swap')) return speakRaw(t.mode === 'qa' ? t.ask : t.say, (t.mode === 'qa' ? t.askMale : t.male) ? 'm' : 'f', 1); var cl = hl && unit.pages[hl.page] && unit.pages[hl.page].lines[hl.line]; if (cl) speakRaw(E.speakable(cl[0]), cl[1] ? 'm' : 'f', 1); });
   $('subBtn').addEventListener('click', function(){ subMode = (subMode + 1) % 3; this.textContent = '💬 자막: ' + ['끔','영+한','영어'][subMode]; if (!subMode) { $('sub').hidden = true; $('subW').replaceChildren(); } });
-  $('sndBtn').addEventListener('click', function(){ sound = !sound; this.textContent = sound ? '🔊 소리 켬' : '🔇 소리 끔'; if (!sound) try { speechSynthesis.cancel(); } catch(e){} });
+  $('sndBtn').addEventListener('click', function(){ sound = !sound; this.textContent = sound ? '🔊 소리 켬' : '🔇 소리 끔'; if (MU) MU.setSound(sound); if (!sound) try { speechSynthesis.cancel(); } catch(e){} });
+  function paintBgm(){ var on = !MU || MU.bgmOn(); $('bgmBtn').textContent = '🎵 배경음악: ' + (on ? '켬' : '끔'); $('bgmBtn').setAttribute('aria-pressed', on ? 'true' : 'false'); }
+  $('bgmBtn').addEventListener('click', function(){ if (!MU) return; MU.setBgm(!MU.bgmOn()); paintBgm(); if (MU.bgmOn() && busy && sound) MU.bgm('talk'); });
+  paintBgm();
   // 학생 카메라 켜기/끄기 — 화상수업 독의 카메라 버튼과 같은 동작. 영상은 내 화면에만 보이고 어디에도 보내지 않는다
   var camStream = null, camBusy = false, camUserOff = false;   // camUserOff: 학생이 직접 끔 → 다음 레슨에서도 자동으로 안 켬(이 페이지 안에서만)
   function camPaint(){
@@ -1005,6 +1071,7 @@ select.pill{max-width:min(100%,280px)}
   function camClick(){ if (camBusy) return; camUserOff = !!camStream; camToggle(); }
   $('camBtn').addEventListener('click', camClick); $('camDock').addEventListener('click', camClick);
   window.addEventListener('pagehide', camStop);
+  window.addEventListener('pagehide', function(){ if (MU) MU.stopAll(); });
   window.__aiClassCam = function(){ return { on: !!camStream, live: !!camStream && camStream.getVideoTracks().some(function(tr){ return tr.readyState === 'live'; }) }; };
   window.addEventListener('resize', function(){ markHL(); });
 })();
