@@ -1306,6 +1306,9 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       return '<div class="cls-preq done">👪 <b>' + esc(T('Parent request','학부모 요청')) + '</b>: ' + label
         + ' <span class="stu-id">✔ ' + esc(T('done','반영함')) + (r.done_by_name ? ' · ' + esc(r.done_by_name) : '') + '</span></div>';
     }
+    if (c.class_state === 'cancelled' || c.class_state === 'postponed'){   // 수업이 안 열리면 «반영» 버튼도 없다(서버도 막는다)
+      return '<div class="cls-preq">👪 <b>' + esc(T('Parent request','학부모 요청')) + '</b>: ' + label + '</div>';
+    }
     return '<div class="cls-preq">👪 <b>' + esc(T('Parent request','학부모 요청')) + '</b>: ' + label
       + '<button type="button" class="preq-done" data-uid="' + esc(c.student_uid) + '" data-id="' + esc(r.id) + '">'
       + esc(T('Done ✔','반영함 ✔')) + '</button><span class="cls-goal-msg" data-preq-msg="' + esc(c.student_uid) + '"></span></div>';

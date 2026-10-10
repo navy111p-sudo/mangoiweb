@@ -1045,7 +1045,9 @@ export async function handleTeacherApi(
     const uid = String((b && b.student_uid) || '').trim();
     const id = Number(b && b.request_id);
     if (!uid) return json({ ok: false, error: 'student_uid_required' }, 400);
-    const mine = classes.some((c: any) => c.kind === 'class' && String(c.student_uid || '') === uid);
+    // ⚠️ 취소·연기(공휴일 포함)된 수업만 남은 학생은 «반영» 할 수업이 없다 — 화면이 오래돼 버튼이 남아 있어도 막는다(Codex P2).
+    const mine = classes.some((c: any) => c.kind === 'class' && String(c.student_uid || '') === uid
+      && c.class_state !== 'cancelled' && c.class_state !== 'postponed');
     if (!mine) return json({ ok: false, error: 'not_your_student' }, 403);
     try {
       const r = await markParentRequestDone(env.DB, { uid, id, by: String(actor.username || ''), byName: String(actor.name || actor.username || ''), nowMs: now });

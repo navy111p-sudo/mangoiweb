@@ -192,6 +192,13 @@ console.log('③ 강사 포털 (api-teacher.ts)');
   ok('대소문자만 다른 계정은 남이다(403)', c.out?.status === 403 && c.calls.length === 0);
   const d = await go({ student_uid: 'lmsu', request_id: 7 }, cls);
   ok('LMS 자리표시 줄은 권한 범위가 아니다(403)', d.out?.status === 403 && d.calls.length === 0);
+  // Codex P2(2026-10-10): 취소·연기된 수업만 남은 학생은 «반영» 할 수업이 없다.
+  for (const st of ['cancelled', 'postponed']) {
+    const x = await go({ student_uid: 'kim', request_id: 7 }, [{ kind: 'class', student_uid: 'kim', class_state: st }]);
+    ok('수업이 ' + st + ' 이면 403 이고 저장을 안 부른다', x.out?.status === 403 && x.calls.length === 0, JSON.stringify(x));
+  }
+  const y = await go({ student_uid: 'kim', request_id: 7 }, [{ kind: 'class', student_uid: 'kim', class_state: 'cancelled' }, { kind: 'class', student_uid: 'kim', class_state: 'live' }]);
+  ok('짝: 같은 학생의 다른 수업이 열려 있으면 반영된다', y.out?.status === 200 && y.calls.length === 1);
   const e = await go({ request_id: 7 }, cls);
   ok('uid 가 없으면 400', e.out?.status === 400 && e.calls.length === 0);
   const ld = s.indexOf('const pBy = await loadParentRequests(');
@@ -234,6 +241,8 @@ console.log('⑤ 강사 화면 (teacher.html)');
   const h2 = pr('en', { ...openC, parent_request: { ...openC.parent_request, status: 'done', done_by_name: 'Kaye' } });
   ok('짝: 반영한 요청은 버튼 없이 ✔ + 이름', /✔/.test(h2) && /Kaye/.test(h2) && !/preq-done/.test(h2), h2);
   ok('한국어 화면은 한국어 문구', /문법을 더 짚어 주세요/.test(pr('ko', openC)));
+  ok('수업이 취소·연기면 요청은 보이되 «반영함» 버튼은 없다', ['cancelled','postponed'].every(st => { const h = pr('en', { ...openC, class_state: st }); return h.includes('Please point out grammar more') && !h.includes('preq-done'); }));
+  ok('짝: 열리는 수업이면 버튼이 있다', pr('en', { ...openC, class_state: 'live' }).includes('preq-done'));
   ok('요청이 없으면 아무것도 안 그린다', pr('en', { kind: 'class', student_uid: 'kim' }) === '');
   ok('LMS 자리표시 줄에는 안 그린다', pr('en', { ...openC, kind: 'lms' }) === '');
   ok('수업 줄이 preqHtml 을 부른다', /\+\s*goalHtml\(c\)\s*\+\s*preqHtml\(c\)/.test(s));
