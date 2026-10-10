@@ -161,6 +161,25 @@ if (M) {
   db2.prepare('INSERT INTO student_evaluations VALUES (?,?,?,?,?,?)').run('kim', null, null, 'Next Lesson: NO OLD COL', null, now - DAY);
   const r4 = await M.loadHandovers(d1(db2), ['kim'], now, dayStart);
   ok('옛 next_goal 칸이 없는 DB 에서도 목표를 읽는다', r4.get('kim') && r4.get('kim').goal && r4.get('kim').goal.text === 'NO OLD COL');
+
+  // (PR #1507 리뷰) 카드 재료 한쪽만 읽혔으면 숫자를 말하지 않는다
+  const r5 = await M.loadHandovers(d1(db, /ai_lesson_reports/), ['kim'], now, dayStart);
+  ok('수업 리포트를 못 읽으면 카드 칸은 «모름» — 웜업 카드만으로 «2장» 이라 하지 않는다', r5.get('kim') && r5.get('kim').fix === null, JSON.stringify(r5.get('kim')));
+  const r6 = await M.loadHandovers(d1(db, /warmup_fix_log/), ['kim'], now, dayStart);
+  ok('짝: 웜업 교정을 못 읽어도 «모름»', !r6.get('kim') || r6.get('kim').fix === null);
+  // (PR #1507 리뷰) 목표 없는 최근 기록이 한도를 채워도 60일 창의 목표를 찾는다
+  const db3 = new DatabaseSync(':memory:');
+  db3.exec(`CREATE TABLE ai_lesson_reports (student_uid TEXT, next_goals TEXT, grammar_errors TEXT, lesson_title TEXT, lesson_date TEXT, created_at INTEGER);
+            CREATE TABLE student_evaluations (student_uid TEXT, user_id TEXT, next_goals TEXT, next_goal TEXT, note_en TEXT, lesson_date TEXT, created_at INTEGER);`);
+  const ev3 = db3.prepare('INSERT INTO student_evaluations VALUES (?,?,?,?,?,?,?)');
+  ev3.run('kim', null, null, null, 'Next Lesson: BURIED GOAL', null, now - 40 * DAY);
+  for (let i = 0; i < 30; i++) ev3.run('kim', null, null, null, 'Lesson Done: unit ' + i, null, now - 2 * DAY - i * 60000);
+  const rp3 = db3.prepare('INSERT INTO ai_lesson_reports VALUES (?,?,?,?,?,?)');
+  rp3.run('park', '["오래된 리포트 목표"]', '[]', 'T', null, now - 50 * DAY);
+  for (let i = 0; i < 15; i++) rp3.run('park', '[]', '[]', 'T', null, now - 2 * DAY - i * 60000);
+  const r7 = await M.loadHandovers(d1(db3), ['kim', 'park'], now, dayStart);
+  ok('목표 없는 일지 30건 뒤에 묻힌 40일 전 목표도 찾는다', r7.get('kim') && r7.get('kim').goal && r7.get('kim').goal.text === 'BURIED GOAL', JSON.stringify(r7.get('kim')));
+  ok('목표 없는 리포트 15건 뒤의 50일 전 리포트 목표도 찾는다', r7.get('park') && r7.get('park').goal && r7.get('park').goal.text === '오래된 리포트 목표', JSON.stringify(r7.get('park')));
 }
 
 /* ── ③ 배선: api-teacher.ts ── */
@@ -234,6 +253,14 @@ console.log('④ 강사 화면');
   ok('카드 0장이면 카드 줄을 안 그린다', ko({ handover: { goal: null, fix: { total: 0, practiced: 0, unfixed_n: 0, unfixed: [] } } }) === '');
   ok('목표 글자도 탈출시킨다(XSS)', !/<img/.test(ko({ handover: { goal: { text: '<img src=x>' }, fix: null } })));
   ok('다 말해 봤으면 못 고친 줄은 없다', !/연습 안 한/.test(done) && /2장 중 2장/.test(done));
+  // (PR #1507 리뷰) 다시 그리기 지문에 인수인계가 들어가야 캐시 뒤 서버 응답이 반영된다
+  {
+    const si = ui.indexOf("var sig = LANG + '|';");
+    const se = si > 0 ? ui.indexOf('if (sig === lastSig) return;', si) : -1;
+    const loop = (si > 0 && se > si) ? ui.slice(si, se).replace(/\/\/[^\n]*/g, '') : '';
+    ok('전제: 다시 그리기 지문을 찾았다', loop.length > 100);
+    ok('다시 그리기 지문에 인수인계가 들어 있다', /sc\.handover/.test(loop));
+  }
 }
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);

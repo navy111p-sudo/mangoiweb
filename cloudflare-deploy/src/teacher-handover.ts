@@ -35,8 +35,15 @@ const DAY_MS = 86400000;
    ⚠️ «묶음 전체» 에 LIMIT 을 걸면 활동이 많은 한 학생이 한도를 채워 다른 학생 행이 잘린다
       (d1-chunk.ts 머리말 «ORDER BY + 전역 LIMIT 은 청크를 가로지르면 달라진다»).
       그래서 ROW_NUMBER() 로 학생마다 자른다. 리포트는 «목표» 60일 창까지 보므로 넉넉히 둔다. */
-const PER_STUDENT_REPORTS = 10;
-const PER_STUDENT_EVALS = 20;
+const PER_STUDENT_REPORTS = 5;      // ① 과 같은 값(카드 재료)
+/* 목표는 «목표가 적힌 행만» 고른 뒤 학생마다 자른다 — 목표 없는 최근 기록이 한도를 채워
+   60일 창 안의 진짜 목표를 밀어내지 않게(PR #1507 리뷰). 아래 SQL 조건은 pickGoal 이 받는 것의
+   «넓은» 거르개일 뿐이고 최종 판정은 pickGoal 이 한다. */
+const PER_STUDENT_GOAL_ROWS = 5;
+const GOAL_REPORT_COND = `next_goals IS NOT NULL AND TRIM(next_goals) NOT IN ('', '[]')`;
+const GOAL_EVAL_COND = `(TRIM(COALESCE(next_goals, '')) NOT IN ('', '[]') OR TRIM(COALESCE(next_goal, '')) <> '' OR instr(lower(COALESCE(note_en, '')), 'next') > 0)`;
+/** 옛 next_goal 칸이 없는 DB 용 */
+const GOAL_EVAL_COND_NO_NG = `(TRIM(COALESCE(next_goals, '')) NOT IN ('', '[]') OR instr(lower(COALESCE(note_en, '')), 'next') > 0)`;
 const PER_STUDENT_WARMUP = 30;
 const PER_STUDENT_COACH = 300;
 function perStudent(inner: string, n: number): string {
@@ -149,45 +156,44 @@ export async function loadHandovers(db: any, uids: string[], nowMs: number, dayS
   const goalSince = dayStartMs - HANDOVER_GOAL_DAYS * DAY_MS;
   const fixSince = nowMs - FIX_CARD_DAYS * DAY_MS;
 
-  // ── 목표 재료 ──
-  let reportRows: any[] = [], evalRows: any[] = [];
-  let reportOk = false, warmOk = false;
-  let fixReportRows: any[] = [];
+  // ── 목표 재료(60일·오늘 이전·«목표가 적힌 행만») ──
+  let goalRepRows: any[] = [], evalRows: any[] = [];
   try {
-    // 목표(60일·오늘 이전)와 ① 카드(30일·오늘 포함)는 창이 달라 한 번에 넓게 읽고 아래서 가른다.
-    reportRows = await selectInChunks<any>(db, list,
-      (ph) => perStudent(`SELECT student_uid, next_goals, grammar_errors, lesson_title, lesson_date, created_at,
+    goalRepRows = await selectInChunks<any>(db, list,
+      (ph) => perStudent(`SELECT student_uid, next_goals, lesson_date, created_at,
                       ROW_NUMBER() OVER (PARTITION BY student_uid ORDER BY created_at DESC) AS rn
-                 FROM ai_lesson_reports WHERE student_uid IN (${ph}) AND created_at >= ?`, PER_STUDENT_REPORTS),
-      { tail: [Math.min(goalSince, fixSince)] });
-    reportOk = true;
-  } catch { reportRows = []; }
-  fixReportRows = reportRows.filter((r) => (Number(r.created_at) || 0) >= fixSince);
-  try {
-    // 옛 행은 student_uid 가 비고 user_id 만 있다 → COALESCE 로 한 키로 본다(포털 prev_lesson 과 같은 규칙).
-    evalRows = await selectInChunks<any>(db, list,
-      (ph) => perStudent(`SELECT COALESCE(NULLIF(student_uid, ''), user_id) AS suid,
-                      next_goals, next_goal, substr(COALESCE(note_en, ''), 1, 1500) AS note_en,
+                 FROM ai_lesson_reports WHERE student_uid IN (${ph}) AND created_at >= ? AND created_at < ?
+                  AND ${GOAL_REPORT_COND}`, PER_STUDENT_GOAL_ROWS),
+      { tail: [goalSince, dayStartMs] });
+  } catch { goalRepRows = []; }
+  // 옛 행은 student_uid 가 비고 user_id 만 있다 → COALESCE 로 한 키로 본다(포털 prev_lesson 과 같은 규칙).
+  const evalSql = (withNextGoal: boolean) => (ph: string) => perStudent(`SELECT COALESCE(NULLIF(student_uid, ''), user_id) AS suid,
+                      next_goals, ${withNextGoal ? 'next_goal, ' : ''}substr(COALESCE(note_en, ''), 1, 1500) AS note_en,
                       lesson_date, created_at,
                       ROW_NUMBER() OVER (PARTITION BY COALESCE(NULLIF(student_uid, ''), user_id) ORDER BY created_at DESC) AS rn
                  FROM student_evaluations
                 WHERE COALESCE(NULLIF(student_uid, ''), user_id) IN (${ph})
-                  AND created_at >= ? AND created_at < ?`, PER_STUDENT_EVALS),
-      { tail: [goalSince, dayStartMs] });
+                  AND created_at >= ? AND created_at < ?
+                  AND ${withNextGoal ? GOAL_EVAL_COND : GOAL_EVAL_COND_NO_NG}`, PER_STUDENT_GOAL_ROWS);
+  try {
+    evalRows = await selectInChunks<any>(db, list, evalSql(true), { tail: [goalSince, dayStartMs] });
   } catch {
     // 옛 next_goal 칸이 없는 DB 도 있다 — 그 칸 없이 한 번 더.
-    try {
-      evalRows = await selectInChunks<any>(db, list,
-        (ph) => perStudent(`SELECT COALESCE(NULLIF(student_uid, ''), user_id) AS suid,
-                        next_goals, substr(COALESCE(note_en, ''), 1, 1500) AS note_en,
-                        lesson_date, created_at,
-                        ROW_NUMBER() OVER (PARTITION BY COALESCE(NULLIF(student_uid, ''), user_id) ORDER BY created_at DESC) AS rn
-                   FROM student_evaluations
-                  WHERE COALESCE(NULLIF(student_uid, ''), user_id) IN (${ph})
-                    AND created_at >= ? AND created_at < ?`, PER_STUDENT_EVALS),
-        { tail: [goalSince, dayStartMs] });
-    } catch { evalRows = []; }
+    try { evalRows = await selectInChunks<any>(db, list, evalSql(false), { tail: [goalSince, dayStartMs] }); }
+    catch { evalRows = []; }
   }
+
+  // ── ① 카드 재료(수업 리포트 — 30일·오늘 포함, ① 과 같은 학생별 5건) ──
+  let reportOk = false, warmOk = false;
+  let fixReportRows: any[] = [];
+  try {
+    fixReportRows = await selectInChunks<any>(db, list,
+      (ph) => perStudent(`SELECT student_uid, grammar_errors, lesson_title, created_at,
+                      ROW_NUMBER() OVER (PARTITION BY student_uid ORDER BY created_at DESC) AS rn
+                 FROM ai_lesson_reports WHERE student_uid IN (${ph}) AND created_at >= ?`, PER_STUDENT_REPORTS),
+      { tail: [fixSince] });
+    reportOk = true;
+  } catch { fixReportRows = []; }
 
   // ── ① 카드 재료(웜업 교정) ──
   let warmRows: any[] = [];
@@ -201,7 +207,7 @@ export async function loadHandovers(db: any, uids: string[], nowMs: number, dayS
   } catch { warmRows = []; }
 
   // ⛔ 오늘 리포트는 «지난» 목표가 아니다 — 목표 후보에서는 오늘 이전만.
-  const repBy = _group(reportRows.filter((r) => (Number(r.created_at) || 0) < dayStartMs && (Number(r.created_at) || 0) >= goalSince), 'student_uid');
+  const repBy = _group(goalRepRows, 'student_uid');
   const fixRepBy = _group(fixReportRows, 'student_uid');
   const evBy = _group(evalRows, 'suid');
   const warmBy = _group(warmRows, 'user_id');
@@ -232,8 +238,9 @@ export async function loadHandovers(db: any, uids: string[], nowMs: number, dayS
   for (const u of list) {
     const goal = pickGoal(repBy.get(u) || [], evBy.get(u) || []);
     const cards = cardsBy.get(u) || [];
-    // 카드 재료를 하나도 못 물어봤으면 «모름». 연습 기록만 못 읽었으면 «모름»(연습 0으로 위장하지 않는다).
-    const fixKnown = (reportOk || warmOk) && (!cards.length || practiceOk);
+    // 카드 재료 «둘 다» 를 읽었을 때만 숫자를 말한다 — 한쪽만 읽고 «1장» 이라 하면 거짓이다(PR #1507 리뷰).
+    // 연습 기록만 못 읽었어도 «모름»(연습 0으로 위장하지 않는다).
+    const fixKnown = reportOk && warmOk && (!cards.length || practiceOk);
     const h: Handover = { goal, fix: fixKnown ? summarizeFix(cards) : null };
     if (handoverWorthShowing(h)) out.set(u, h);
   }

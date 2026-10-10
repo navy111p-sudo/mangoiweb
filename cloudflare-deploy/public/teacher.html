@@ -1821,6 +1821,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
            // ✍ 일지 배지·지난수업 도착도 지문에 넣는다 — 안 넣으면 캐시를 먼저 그린 뒤
            //    서버 응답이 와도 «바뀐 게 없다» 로 보고 배지가 영영 안 뜬다.
            + ':' + (sc.eval_written ? 'E' : '') + (sc.prev_lesson ? 'P' : '')
+           // 🤝 인수인계도 넣는다 — 안 넣으면 캐시를 먼저 그린 뒤 서버 응답의 인수인계가 영영 안 뜬다(PR #1507 리뷰).
+           + ':' + (sc.handover ? JSON.stringify(sc.handover) : '')
            + ':' + (sc.absence_hold ? 'H' : '')
            + ':' + (sc.postponed_info ? (sc.postponed_info.at || '') + (sc.postponed_info.by || '') : '')
            // 📋 출결·강사 입장·평가도 넣는다 — 안 넣으면 학생이 들어와도 «바뀐 게 없다» 로 보고 옛 칸이 남는다.
