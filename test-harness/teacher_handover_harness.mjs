@@ -75,6 +75,8 @@ if (M) {
   const g3 = run(() => M.pickGoal([], [{ next_goals: '', next_goal: '옛 목표', note_en: 'Next Lesson: X', created_at: 1 }]));
   ok('평가 목표 칸이 있으면 일지 줄보다 먼저(같은 행)', g3 && g3.text === '옛 목표' && g3.from === 'evaluation');
   ok('아무 재료도 없으면 null', run(() => M.pickGoal([], [{ note_en: 'Good!', created_at: 1 }])) === null);
+  ok('한국어 목표는 lang=ko', (run(() => M.pickGoal([{ next_goals: '["과거형 말하기"]', created_at: 1 }], [])) || {}).lang === 'ko');
+  ok('짝: 영어 목표는 lang=en', (run(() => M.pickGoal([], [{ note_en: 'Next Lesson: BTS 2 005', created_at: 1 }])) || {}).lang === 'en');
 
   const card = (to, p) => ({ key: to.toLowerCase(), from: 'x ' + to, to, why_ko: '', source: 'warmup', at: 1, lesson_title: '', practiced: p, best_accuracy: null });
   const sf = run(() => M.summarizeFix([card('A one.', 0), card('B two.', 2), card('C three.', 0)]));
@@ -127,6 +129,20 @@ if (M) {
   ok('아무 기록도 없으면 싣지 않는다', !res.has('nobody'));
   ok('짝: 목표 없이 카드만 있어도 싣는다', res.get('lee') && res.get('lee').goal === null && res.get('lee').fix.total === 1);
 
+  // 오늘 리포트는 «지난» 목표가 아니다
+  db.prepare('INSERT INTO ai_lesson_reports VALUES (?,?,?,?,?,?)').run('lee', '["오늘 리포트 목표"]', '[]', 'T', '2026-10-10', now - 60000);
+  const rl = await M.loadHandovers(d1(db), ['lee'], now, dayStart);
+  ok('오늘 리포트의 목표는 «지난 목표» 가 아니다', rl.get('lee') && rl.get('lee').goal === null, JSON.stringify(rl.get('lee')));
+  // 학생별 한도 — 한 학생이 연습 기록을 잔뜩 채워도 다른 학생 행이 안 잘린다
+  const busy = db.prepare('INSERT INTO voice_coaching VALUES (?,?,?,?)');
+  for (let i = 0; i < 3200; i++) busy.run('lee', 'filler ' + i, 50, now - 1000 + i % 500);
+  const wf = db.prepare('INSERT INTO warmup_fix_log VALUES (?,?,?,?,?,?)');
+  for (let i = 0; i < 1100; i++) wf.run('lee', 'x' + i, 'Filler sentence number ' + i + '.', '', 'en', now - 500);
+  const rb = await M.loadHandovers(d1(db), ['kim', 'lee'], now, dayStart);
+  ok('바쁜 학생이 한도를 채워도 다른 학생의 카드·연습은 그대로', rb.get('kim') && rb.get('kim').fix && rb.get('kim').fix.total === 2 && rb.get('kim').fix.practiced === 1, JSON.stringify(rb.get('kim') && rb.get('kim').fix));
+  const fcLee = await FC.loadFixCards(d1(db), 'lee', now);
+  ok('짝: 바쁜 학생도 학생 화면과 같은 카드', rb.get('lee') && rb.get('lee').fix && rb.get('lee').fix.total === fcLee.cards.length
+    && rb.get('lee').fix.unfixed.map(c => c.to).join('|') === fcLee.cards.filter(c => !(c.practiced > 0)).slice(0, 2).map(c => c.to).join('|'));
   // ① 화면과 «같은 카드» 를 말하는가 — 학생 화면 정본 loadFixCards 와 대조
   const fc = await FC.loadFixCards(d1(db), 'kim', now);
   ok('학생 화면(①)과 같은 카드를 본다', k && fc.cards.length === k.fix.total
@@ -194,25 +210,30 @@ console.log('④ 강사 화면');
   const body = i > 0 ? bodyFrom(ui, i) : '';
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const mk = (lang) => {
-    try { return new Function('esc', 'T', 'return function(c)' + body)(esc, (en, ko) => lang === 'en' ? en : ko); }
+    try {
+      const f = new Function('esc', 'T', 'EN', 'return function(c)' + body)(esc, (en, ko) => lang === 'en' ? en : ko, () => lang === 'en');
+      return c => { try { return f(c); } catch (e) { return '__ERR ' + e.message; } };
+    }
     catch (e) { return () => '__ERR ' + e.message; }
   };
   const ko = mk('ko'), en = mk('en');
   const full = { handover: { goal: { text: 'BTS 2 005', date: '2026-10-08' },
     fix: { total: 3, practiced: 1, unfixed_n: 2, unfixed: [{ from: 'I go <b>', to: 'I went.' }, { from: 'x', to: 'y' }] } } };
   const hk = ko(full), he = en(full);
-  ok('세 줄을 그린다(지난 목표·못 고친 것·복습 카드)', /지난 목표/.test(hk) && /아직 못 고친 것/.test(hk) && /3장 중 1장/.test(hk), hk);
-  ok('영어 화면도 같은 세 줄', /Last goal/.test(he) && /Not fixed yet/.test(he) && /practiced 1 of 3/.test(he) && /\+1 more/.test(he), he);
+  ok('세 줄을 그린다(지난 목표·못 고친 것·복습 카드)', /지난 목표/.test(hk) && /아직 연습 안 한 문장/.test(hk) && /3장 중 1장/.test(hk), hk);
+  ok('영어 화면도 같은 세 줄', /Last goal/.test(he) && /Not practiced yet/.test(he) && /practiced 1 of 3/.test(he) && /\+1 more/.test(he), he);
+  ok('영어 화면에서 한국어 목표면 «Korean note» 라고 알린다', /Korean note/.test(en({ handover: { goal: { text: '과거형', lang: 'ko' }, fix: null } })));
+  ok('짝: 영어 목표·한국어 화면엔 안 붙인다', !/Korean note/.test(he) && !/Korean note/.test(ko({ handover: { goal: { text: '과거형', lang: 'ko' }, fix: null } })));
   ok('글자를 탈출시킨다(XSS)', !/<b>'/.test(hk) && hk.includes('I go &lt;b&gt;'));
   ok('handover 가 없으면 아무것도 안 그린다', ko({}) === '' && ko({ handover: null }) === '');
   const unk = ko({ handover: { goal: { text: 'G' }, fix: null } });
-  ok('카드를 모르면(null) 목표 줄만', /지난 목표/.test(unk) && !/복습 카드/.test(unk) && !/못 고친/.test(unk));
+  ok('카드를 모르면(null) 목표 줄만', /지난 목표/.test(unk) && !/복습 카드/.test(unk) && !/연습 안 한/.test(unk));
   const none = ko({ handover: { goal: null, fix: { total: 2, practiced: 0, unfixed_n: 2, unfixed: [{ from: 'a', to: 'b' }] } } });
   ok('짝: 아직 안 했으면 «아직 안 함»', /아직 안 함 \(2장\)/.test(none) && !/지난 목표/.test(none));
   const done = ko({ handover: { goal: null, fix: { total: 2, practiced: 2, unfixed_n: 0, unfixed: [] } } });
   ok('카드 0장이면 카드 줄을 안 그린다', ko({ handover: { goal: null, fix: { total: 0, practiced: 0, unfixed_n: 0, unfixed: [] } } }) === '');
   ok('목표 글자도 탈출시킨다(XSS)', !/<img/.test(ko({ handover: { goal: { text: '<img src=x>' }, fix: null } })));
-  ok('다 말해 봤으면 못 고친 줄은 없다', !/못 고친/.test(done) && /2장 중 2장/.test(done));
+  ok('다 말해 봤으면 못 고친 줄은 없다', !/연습 안 한/.test(done) && /2장 중 2장/.test(done));
 }
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);

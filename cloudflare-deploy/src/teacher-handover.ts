@@ -4,7 +4,8 @@
 //   무엇을 하나
 //     강사 포털 «오늘 수업» 줄마다 이 학생의 세 줄을 붙인다(학생 기준이라 강사가 바뀌어도 그대로).
 //       🎯 지난 목표      — 직전 수업 기록의 «다음 목표»
-//       🔁 아직 못 고친 것 — ① 「틀린 문장 다시 말하기」 카드 중 학생이 아직 안 말해 본 문장
+//       🔁 아직 연습 안 한 문장 — ① 「틀린 문장 다시 말하기」 카드 중 학생이 아직 안 말해 본 문장
+//          ⚠️ «고쳤는가» 가 아니라 «연습했는가» 다 — 다음 수업에서 맞게 쓰는지는 재지 않는다.
 //       📝 복습 카드       — 그 카드를 몇 장 말해 봤는가
 //     대체강사·강사 교체 때 «처음부터 다시» 를 없애는 것이 목적이다.
 //
@@ -30,8 +31,19 @@ export const HANDOVER_GOAL_DAYS = 60;
 export const HANDOVER_GOAL_MAXLEN = 160;
 export const HANDOVER_UNFIXED_SHOW = 2;
 const DAY_MS = 86400000;
+/* 학생별 행 한도 — ① 학생 화면(loadFixCards)의 LIMIT 과 같은 값(리포트 5·웜업 30·연습 300).
+   ⚠️ «묶음 전체» 에 LIMIT 을 걸면 활동이 많은 한 학생이 한도를 채워 다른 학생 행이 잘린다
+      (d1-chunk.ts 머리말 «ORDER BY + 전역 LIMIT 은 청크를 가로지르면 달라진다»).
+      그래서 ROW_NUMBER() 로 학생마다 자른다. 리포트는 «목표» 60일 창까지 보므로 넉넉히 둔다. */
+const PER_STUDENT_REPORTS = 10;
+const PER_STUDENT_EVALS = 20;
+const PER_STUDENT_WARMUP = 30;
+const PER_STUDENT_COACH = 300;
+function perStudent(inner: string, n: number): string {
+  return `SELECT * FROM (${inner}) WHERE rn <= ${Math.max(1, Math.floor(n))} ORDER BY created_at DESC`;
+}
 
-export type HandoverGoal = { text: string; date: string | null; from: 'lesson_report' | 'teacher_note' | 'evaluation' };
+export type HandoverGoal = { text: string; date: string | null; from: 'lesson_report' | 'teacher_note' | 'evaluation'; lang: 'ko' | 'en' };
 export type Handover = {
   goal: HandoverGoal | null;
   /** null = 카드 재료를 못 물어봤다(0건과 다름) */
@@ -81,17 +93,20 @@ export function pickGoal(reportRows: any[], evalRows: any[]): HandoverGoal | nul
   const cand: { at: number; g: HandoverGoal }[] = [];
   for (const r of (reportRows || [])) {
     const text = firstGoal(r && r.next_goals);
-    if (text) cand.push({ at: Number(r.created_at) || 0, g: { text, date: _date(r), from: 'lesson_report' } });
+    if (text) cand.push({ at: Number(r.created_at) || 0, g: { text, date: _date(r), from: 'lesson_report', lang: 'en' } });
   }
   for (const r of (evalRows || [])) {
     if (!r) continue;
     const ev = firstGoal(r.next_goals) || firstGoal(r.next_goal);
     const text = ev || nextLessonLine(r.note_en);
-    if (text) cand.push({ at: Number(r.created_at) || 0, g: { text, date: _date(r), from: ev ? 'evaluation' : 'teacher_note' } });
+    if (text) cand.push({ at: Number(r.created_at) || 0, g: { text, date: _date(r), from: ev ? 'evaluation' : 'teacher_note', lang: 'en' } });
   }
   if (!cand.length) return null;
   cand.sort((a, b) => b.at - a.at);
-  return cand[0].g;
+  const g = cand[0].g;
+  // 🌐 AI 리포트 목표는 한국어로 만들어진다(api-lessons.ts 프롬프트) — 화면이 «한국어 메모» 라고 알릴 수 있게.
+  //    번역하지 않는다(사람·AI 가 쓴 글을 기계번역하지 않는다).
+  return { ...g, lang: /[\uac00-\ud7a3]/.test(g.text) ? 'ko' : 'en' };
 }
 
 /** 카드 → 인수인계의 fix 칸(순수 함수). cards 가 null 이면 «모름». */
@@ -141,9 +156,9 @@ export async function loadHandovers(db: any, uids: string[], nowMs: number, dayS
   try {
     // 목표(60일·오늘 이전)와 ① 카드(30일·오늘 포함)는 창이 달라 한 번에 넓게 읽고 아래서 가른다.
     reportRows = await selectInChunks<any>(db, list,
-      (ph) => `SELECT student_uid, next_goals, grammar_errors, lesson_title, lesson_date, created_at
-                 FROM ai_lesson_reports WHERE student_uid IN (${ph}) AND created_at >= ?
-                ORDER BY created_at DESC LIMIT 400`,
+      (ph) => perStudent(`SELECT student_uid, next_goals, grammar_errors, lesson_title, lesson_date, created_at,
+                      ROW_NUMBER() OVER (PARTITION BY student_uid ORDER BY created_at DESC) AS rn
+                 FROM ai_lesson_reports WHERE student_uid IN (${ph}) AND created_at >= ?`, PER_STUDENT_REPORTS),
       { tail: [Math.min(goalSince, fixSince)] });
     reportOk = true;
   } catch { reportRows = []; }
@@ -151,25 +166,25 @@ export async function loadHandovers(db: any, uids: string[], nowMs: number, dayS
   try {
     // 옛 행은 student_uid 가 비고 user_id 만 있다 → COALESCE 로 한 키로 본다(포털 prev_lesson 과 같은 규칙).
     evalRows = await selectInChunks<any>(db, list,
-      (ph) => `SELECT COALESCE(NULLIF(student_uid, ''), user_id) AS suid,
+      (ph) => perStudent(`SELECT COALESCE(NULLIF(student_uid, ''), user_id) AS suid,
                       next_goals, next_goal, substr(COALESCE(note_en, ''), 1, 1500) AS note_en,
-                      lesson_date, created_at
+                      lesson_date, created_at,
+                      ROW_NUMBER() OVER (PARTITION BY COALESCE(NULLIF(student_uid, ''), user_id) ORDER BY created_at DESC) AS rn
                  FROM student_evaluations
                 WHERE COALESCE(NULLIF(student_uid, ''), user_id) IN (${ph})
-                  AND created_at >= ? AND created_at < ?
-                ORDER BY created_at DESC LIMIT 400`,
+                  AND created_at >= ? AND created_at < ?`, PER_STUDENT_EVALS),
       { tail: [goalSince, dayStartMs] });
   } catch {
     // 옛 next_goal 칸이 없는 DB 도 있다 — 그 칸 없이 한 번 더.
     try {
       evalRows = await selectInChunks<any>(db, list,
-        (ph) => `SELECT COALESCE(NULLIF(student_uid, ''), user_id) AS suid,
+        (ph) => perStudent(`SELECT COALESCE(NULLIF(student_uid, ''), user_id) AS suid,
                         next_goals, substr(COALESCE(note_en, ''), 1, 1500) AS note_en,
-                        lesson_date, created_at
+                        lesson_date, created_at,
+                        ROW_NUMBER() OVER (PARTITION BY COALESCE(NULLIF(student_uid, ''), user_id) ORDER BY created_at DESC) AS rn
                    FROM student_evaluations
                   WHERE COALESCE(NULLIF(student_uid, ''), user_id) IN (${ph})
-                    AND created_at >= ? AND created_at < ?
-                  ORDER BY created_at DESC LIMIT 400`,
+                    AND created_at >= ? AND created_at < ?`, PER_STUDENT_EVALS),
         { tail: [goalSince, dayStartMs] });
     } catch { evalRows = []; }
   }
@@ -178,14 +193,15 @@ export async function loadHandovers(db: any, uids: string[], nowMs: number, dayS
   let warmRows: any[] = [];
   try {
     warmRows = await selectInChunks<any>(db, list,
-      (ph) => `SELECT user_id, was, fixed, why_ko, lang, created_at FROM warmup_fix_log
-                WHERE user_id IN (${ph}) AND created_at >= ?
-                ORDER BY created_at DESC LIMIT 1000`,
+      (ph) => perStudent(`SELECT user_id, was, fixed, why_ko, lang, created_at,
+                      ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn
+                 FROM warmup_fix_log WHERE user_id IN (${ph}) AND created_at >= ?`, PER_STUDENT_WARMUP),
       { tail: [fixSince] });
     warmOk = true;
   } catch { warmRows = []; }
 
-  const repBy = _group(reportRows, 'student_uid');
+  // ⛔ 오늘 리포트는 «지난» 목표가 아니다 — 목표 후보에서는 오늘 이전만.
+  const repBy = _group(reportRows.filter((r) => (Number(r.created_at) || 0) < dayStartMs && (Number(r.created_at) || 0) >= goalSince), 'student_uid');
   const fixRepBy = _group(fixReportRows, 'student_uid');
   const evBy = _group(evalRows, 'suid');
   const warmBy = _group(warmRows, 'user_id');
@@ -204,9 +220,9 @@ export async function loadHandovers(db: any, uids: string[], nowMs: number, dayS
   if (withCards.length) {
     try {
       const coach = await selectInChunks<any>(db, withCards,
-        (ph) => `SELECT student_uid, target_text, accuracy_score, created_at FROM voice_coaching
-                  WHERE student_uid IN (${ph}) AND created_at >= ?
-                  ORDER BY created_at DESC LIMIT 3000`,
+        (ph) => perStudent(`SELECT student_uid, target_text, accuracy_score, created_at,
+                        ROW_NUMBER() OVER (PARTITION BY student_uid ORDER BY created_at DESC) AS rn
+                   FROM voice_coaching WHERE student_uid IN (${ph}) AND created_at >= ?`, PER_STUDENT_COACH),
         { tail: [oldest] });
       const coachBy = _group(coach, 'student_uid');
       for (const u of withCards) cardsBy.set(u, attachPractice(cardsBy.get(u) || [], coachBy.get(u) || []));
