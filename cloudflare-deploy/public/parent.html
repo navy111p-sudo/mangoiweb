@@ -569,14 +569,14 @@ function pdSkillHtml(s, en) {
   if (vr != null) { left += row('단어 복습', 'Word reviews', vr); n++; }
   const rw = num(sk.remembered_words), fr = num(sk.fixed_said_right), fto = num(sk.fixed_total);
   if (rw != null) {
-    right += row('7일 넘게 지나서도 맞힌 단어', 'Words still known after 7+ days', rw); n++;
+    right += row('넣은 지 7일 넘어 단어 퀴즈에서 맞힌 단어', 'Words right in a quiz 7+ days after adding', rw); n++;
     const ex = Array.isArray(sk.remembered_examples) ? sk.remembered_examples.filter(Boolean).slice(0, 3) : [];
     if (ex.length) right += `<div style="font-size:12.5px;color:var(--pd-muted);padding:0 0 4px">${ex.map(esc).join(', ')}</div>`;
   }
-  if (fr != null && fto != null && fto > 0) { right += row('고친 문장을 다시 바르게 말함', 'Corrected sentences said right again', fr + ' / ' + fto); n++; }
+  if (fr != null && fto != null && fto > 0) { right += row('고친 문장(최근 최대 3개)을 다시 읽어 발음 정확도 80+', 'Corrected sentences (latest 3) re-read at 80+ accuracy', fr + ' / ' + fto); n++; }
   if (!n) return null;
   if (!right) right = `<div style="font-size:13px;color:var(--pd-muted)">${T('아직 셀 수 있는 기록이 없어요', 'Nothing to count yet')}</div>`;
-  else if (rw === 0 && !(fr > 0)) right += `<div style="font-size:12.5px;color:var(--pd-muted);margin-top:4px">${T('단어를 넣고 7일 뒤에 다시 맞히면 여기에 쌓입니다', 'Words count here when answered right 7+ days after adding')}</div>`;
+  else if (rw === 0 && !(fr > 0)) right += `<div style="font-size:12.5px;color:var(--pd-muted);margin-top:4px">${T('단어를 넣고 7일 뒤 단어 퀴즈에서 맞히면 여기에 쌓입니다', 'Words count here when a quiz is answered right 7+ days after adding')}</div>`;
   const col = (title, body) => `<div style="flex:1 1 220px;min-width:0;border:1px solid rgba(148,163,184,.35);border-radius:12px;padding:10px 12px"><div style="font-weight:900;margin-bottom:6px">${title}</div>${body}</div>`;
   return `<div style="display:flex;flex-wrap:wrap;gap:10px">`
     + col('🗂 ' + T('한 것 (공부량)', 'Done (amount)'), left || `<div style="font-size:13px;color:var(--pd-muted)">—</div>`)

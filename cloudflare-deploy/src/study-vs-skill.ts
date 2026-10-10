@@ -4,17 +4,19 @@
 //   무엇을 하나
 //     학부모 대시보드(parent.html)에 지난 30일을 두 칸으로 보여 준다.
 //       · 한 것   — 화상수업에 들어온 날 · A.i 친구에게 말한 횟수 · 웜업 횟수 · 단어 복습 횟수
-//       · 해낸 것 — 넣은 지 7일 넘게 지나서도 맞힌 단어 · 고친 문장을 다시 바르게(정확도 80+) 말한 수
+//       · 해낸 것 — 넣은 지 7일 넘어 단어 퀴즈(서버 채점)에서 맞힌 단어 ·
+//                   고친 문장(최근 최대 3개)을 발음 코칭에서 다시 읽어 정확도 80+ 를 넘긴 수
 //
 //   규칙
 //     ⛔ «한 것» 의 숫자(시간·횟수·게임 점수)를 «실력» 이라고 부르지 않는다 — 그래서 칸을 나눈다.
 //     ⛔ 지어내지 않는다 — 셀 수 없으면 null(«모름»). 0 과 null 은 다른 사실이고 화면도 다르게 말한다.
-//        «7일 뒤 기억» 은 vocab_review_log 의 «맞힘» 이 그 단어를 넣은 때(vocabulary.created_at)보다
+//        «7일 뒤 기억» 은 서버가 채점한 단어 퀴즈의 «맞힘» 이 그 단어를 넣은 때(vocabulary.created_at)보다
 //        REMEMBER_DAYS 일 넘게 뒤일 때만 센다. 넣은 날 바로 맞힌 것은 «기억» 이 아니라 «방금 본 것» 이다.
 //     ⚠️ «고친 문장» 은 fix-cards.ts(①) 정본을 그대로 쓴다 — 판정을 복제하지 않는다.
 //     ⚠️ 쌍둥이 계정(X ↔ mangoai_X, 이름까지 같을 때만)은 함께 센다(③·⑤ 와 같은 규칙). 고친 문장은
 //        fix-cards 가 로그인 계정만 보므로 그 칸만 로그인 계정 기준이다.
-//     ⚠️ 출석은 «실제로 들어온» 행만(last_seen_at > 0) — 카페24 예약 씨앗 행은 실접속이 아니다(CLAUDE.md 2장).
+//     ⚠️ 출석은 «실제로 들어온» 예약 수업방(class-*) 행만(last_seen_at > 0) — 카페24 씨앗·회의방·공용방은 뺀다.
+//     ⚠️ 웜업은 «첫마디를 뗀» 세션만(first_reply_at) — 같은 대시보드의 웜업 카드와 같은 기준.
 //        계정은 account_uid 와 user_id 두 칸을 함께 본다(attendance-uid.ts 와 같은 뜻).
 //     ⚠️ 읽기 전용이고 던지지 않는다 — 조회 하나가 실패하면 그 칸만 null.
 // ═══════════════════════════════════════════════════════════════════════
@@ -71,28 +73,32 @@ export async function loadStudyVsSkill(db: any, uid: string, nowMs: number): Pro
 
   const class_days = await countOf(db,
     `SELECT COUNT(DISTINCT date(joined_at / 1000, 'unixepoch', '+9 hours')) AS n FROM attendance
-      WHERE (account_uid IN ${ph} OR user_id IN ${ph}) AND joined_at >= ? AND last_seen_at > 0`,
+      WHERE (account_uid IN ${ph} OR user_id IN ${ph}) AND joined_at >= ? AND last_seen_at > 0
+        AND room_id LIKE 'class-%'`,
     [...ids, ...ids, since]);
   const friend_talks = await countOf(db,
     `SELECT COUNT(*) AS n FROM ai_friend_chats WHERE student_uid IN ${ph} AND role = 'user' AND created_at >= ?`,
     [...ids, since]);
   const warmups = await countOf(db,
-    `SELECT COUNT(*) AS n FROM warmup_session_log WHERE user_id IN ${ph} AND started_at >= ?`,
+    `SELECT COUNT(*) AS n FROM warmup_session_log WHERE user_id IN ${ph} AND started_at >= ? AND first_reply_at IS NOT NULL`,
     [...ids, since]);
   const vocab_reviews = await countOf(db,
     `SELECT COUNT(*) AS n FROM vocab_review_log WHERE user_id IN ${ph} AND reviewed_at >= ?`,
     [...ids, since]);
 
-  // «7일 넘게 지나서도 맞힌 단어» — 단어는 그 학생 것이어야 하고(v.user_id = l.user_id), 맞힘이 넣은 뒤 REMEMBER_DAYS 일 넘게 뒤.
+  // «7일 넘게 지나서도 맞힌 단어» — 서버가 채점한 단어 퀴즈(vocab_quizzes.is_correct)만 센다.
+  //   ⛔ vocab_review_log 는 쓰지 않는다 — 플래시카드 «✅ 알았어요» (학생 자기 신고)도 correct=1 로 남고
+  //      로그에 출처 칸이 없어 가를 수 없다. 자기 신고를 «실력» 칸에 넣으면 이 카드가 막으려던 일 그대로다.
+  //   단어는 그 학생 것이어야 하고(v.user_id = q.user_id), 맞힘이 넣은 뒤 REMEMBER_DAYS 일 넘게 뒤.
   let remembered_words: number | null = null;
   let remembered_examples: string[] = [];
   try {
     const rs: any = await db.prepare(
-      `SELECT v.id AS id, v.word AS word, MAX(l.reviewed_at) AS last_at
-         FROM vocab_review_log l JOIN vocabulary v ON v.id = l.vocab_id AND v.user_id = l.user_id
-        WHERE l.user_id IN ${ph} AND l.correct = 1 AND l.reviewed_at >= ?
-          AND l.reviewed_at >= v.created_at + ?
-        GROUP BY v.id ORDER BY last_at DESC`
+      `SELECT LOWER(v.word) AS k, MAX(v.word) AS word, MAX(q.completed_at) AS last_at
+         FROM vocab_quizzes q JOIN vocabulary v ON v.user_id = q.user_id AND LOWER(v.word) = LOWER(q.source_word)
+        WHERE q.user_id IN ${ph} AND q.completed = 1 AND q.is_correct = 1 AND q.completed_at >= ?
+          AND q.completed_at >= v.created_at + ?
+        GROUP BY LOWER(v.word) ORDER BY last_at DESC`
     ).bind(...ids, since, REMEMBER_DAYS * DAY_MS).all();
     const rows: any[] = (rs && rs.results) || [];
     remembered_words = rows.length;

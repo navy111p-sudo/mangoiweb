@@ -79,7 +79,8 @@ if (M) {
   db.exec(`CREATE TABLE students_erp (user_id TEXT PRIMARY KEY, korean_name TEXT, username TEXT);
     CREATE TABLE attendance (id INTEGER PRIMARY KEY, user_id TEXT, account_uid TEXT, room_id TEXT, joined_at INTEGER, last_seen_at INTEGER);
     CREATE TABLE ai_friend_chats (id INTEGER PRIMARY KEY, student_uid TEXT, role TEXT, created_at INTEGER);
-    CREATE TABLE warmup_session_log (id INTEGER PRIMARY KEY, user_id TEXT, started_at INTEGER);
+    CREATE TABLE warmup_session_log (id INTEGER PRIMARY KEY, user_id TEXT, started_at INTEGER, first_reply_at INTEGER);
+    CREATE TABLE vocab_quizzes (id INTEGER PRIMARY KEY, user_id TEXT, source_word TEXT, completed INTEGER, is_correct INTEGER, completed_at INTEGER);
     CREATE TABLE vocabulary (id INTEGER PRIMARY KEY, user_id TEXT, word TEXT, created_at INTEGER);
     CREATE TABLE vocab_review_log (id INTEGER PRIMARY KEY, user_id TEXT, vocab_id INTEGER, correct INTEGER, reviewed_at INTEGER);
     CREATE TABLE ai_lesson_reports (id INTEGER PRIMARY KEY, student_uid TEXT, grammar_errors TEXT, lesson_title TEXT, created_at INTEGER);
@@ -94,9 +95,12 @@ if (M) {
   at.run('mangoai_kim', 'mangoai_kim', 'class-2-z', now - 5 * DAY, now - 5 * DAY + 1); // 쌍둥이 계정 → 셈
   at.run('u_dev3', 'kim', 'class-3', now - 40 * DAY, now - 40 * DAY + 1);             // 30일 밖
   at.run('u_x', 'lee', 'class-4', now - 1 * DAY, now - 1 * DAY + 1);                  // 남
+  at.run('u_dev4', 'kim', 'meet-1234', now - 6 * DAY, now - 6 * DAY + 1);             // 회의방 → 수업 아님
+  at.run('u_dev5', 'kim', 'mangoi-class', now - 7 * DAY, now - 7 * DAY + 1);          // 공용방 → 수업 아님
   const fc = db.prepare('INSERT INTO ai_friend_chats (student_uid, role, created_at) VALUES (?,?,?)');
   fc.run('kim', 'user', now - DAY); fc.run('kim', 'assistant', now - DAY); fc.run('kim', 'user', now - 31 * DAY); fc.run('Kim', 'user', now - DAY);
-  db.prepare('INSERT INTO warmup_session_log (user_id, started_at) VALUES (?,?)').run('kim', now - DAY);
+  db.prepare('INSERT INTO warmup_session_log (user_id, started_at, first_reply_at) VALUES (?,?,?)').run('kim', now - DAY, now - DAY + 5000);
+  db.prepare('INSERT INTO warmup_session_log (user_id, started_at, first_reply_at) VALUES (?,?,?)').run('kim', now - DAY, null); // 인사만 보고 나감 → 안 셈
   const vo = db.prepare('INSERT INTO vocabulary (id, user_id, word, created_at) VALUES (?,?,?,?)');
   vo.run(1, 'kim', 'apple', now - 20 * DAY); vo.run(2, 'kim', 'banana', now - 3 * DAY); vo.run(3, 'kim', 'cherry', now - 20 * DAY);
   vo.run(4, 'lee', 'durian', now - 20 * DAY); vo.run(5, 'kim', 'elder', now - 20 * DAY);
@@ -106,7 +110,16 @@ if (M) {
   rv.run('kim', 2, 1, now - DAY);       // 넣고 2일 뒤 → 기억 아님
   rv.run('kim', 3, 0, now - DAY);       // 틀림 → 아님
   rv.run('kim', 4, 1, now - DAY);       // 남의 단어 id → 아님
-  rv.run('kim', 5, 1, now - 12 * DAY);  // 넣고 8일 뒤 맞힘 → 기억
+  rv.run('kim', 5, 1, now - 12 * DAY);  // 넣고 8일 뒤 «알았어요» (자기 신고) → 실력 아님 — 이 표는 «한 것» 에만
+  // 서버가 채점한 퀴즈만 «기억» 의 근거
+  const vq = db.prepare('INSERT INTO vocab_quizzes (user_id, source_word, completed, is_correct, completed_at) VALUES (?,?,?,?,?)');
+  vq.run('kim', 'apple', 1, 1, now - 2 * DAY);   // 넣고 18일 뒤 맞힘 → 기억
+  vq.run('kim', 'Apple', 1, 1, now - DAY);       // 같은 단어(대소문자만 다름) → 한 번만
+  vq.run('kim', 'banana', 1, 1, now - DAY);      // 넣고 2일 뒤 → 아님
+  vq.run('kim', 'cherry', 1, 0, now - DAY);      // 틀림 → 아님
+  vq.run('kim', 'durian', 1, 1, now - DAY);      // 남의 단어 → 아님
+  vq.run('kim', 'elder', 1, 1, now - 12 * DAY);  // 넣고 8일 뒤 맞힘 → 기억
+  vq.run('kim', 'fig', 0, null, now - DAY);      // 안 푼 퀴즈 → 아님
   db.prepare('INSERT INTO warmup_fix_log (user_id, was, fixed, why_ko, lang, created_at) VALUES (?,?,?,?,?,?)')
     .run('kim', 'I go school yesterday', 'I went to school yesterday.', '과거', 'en', now - 5 * DAY);
   db.prepare('INSERT INTO voice_coaching (student_uid, target_text, accuracy_score, created_at) VALUES (?,?,?,?)')
@@ -115,18 +128,26 @@ if (M) {
   const r = await M.loadStudyVsSkill(d1(db), 'kim', now);
   ok('결과가 온다', !!(r && r.study && r.skill), JSON.stringify(r));
   if (r) {
-    ok('수업 들어온 날: 실접속만 · 같은 날은 하루 · 쌍둥이 포함 · 30일 밖·씨앗·남 제외 = 2', r.study.class_days === 2, String(r.study.class_days));
+    ok('수업 들어온 날: 실접속 수업방만 · 같은 날은 하루 · 쌍둥이 포함 · 30일 밖·씨앗·회의방·공용방·남 제외 = 2', r.study.class_days === 2, String(r.study.class_days));
     ok('A.i 친구: 학생 발화만 · 30일 안 · 대소문자 다른 계정 제외 = 1', r.study.friend_talks === 1, String(r.study.friend_talks));
-    ok('웜업 = 1', r.study.warmups === 1);
+    ok('웜업 = 첫마디를 뗀 세션만 1', r.study.warmups === 1, String(r.study.warmups));
     ok('단어 복습 = 30일 안 전체 6', r.study.vocab_reviews === 6, String(r.study.vocab_reviews));
-    ok('7일 넘게 지나서 맞힌 단어 = apple·elder 2개(중복·2일 뒤·틀림·남의 단어 제외)', r.skill.remembered_words === 2, String(r.skill.remembered_words));
+    ok('7일 넘게 지나서 퀴즈로 맞힌 단어 = apple·elder 2개(중복·2일 뒤·틀림·남의 단어·안 푼 것 제외)', r.skill.remembered_words === 2, String(r.skill.remembered_words));
     ok('예시 단어는 그 단어들', JSON.stringify([...r.skill.remembered_examples].sort()) === '["apple","elder"]', JSON.stringify(r.skill.remembered_examples));
     ok('고친 문장 다시 바르게 = 1/1', r.skill.fixed_said_right === 1 && r.skill.fixed_total === 1, JSON.stringify(r.skill));
   }
   const rl = await M.loadStudyVsSkill(d1(db), 'lee', now);
   ok('짝: 다른 학생은 자기 것만(수업 1일 · 기억 0 · 문장 0/0)', rl && rl.study.class_days === 1 && rl.skill.remembered_words === 0 && rl.skill.fixed_total === 0, JSON.stringify(rl));
   const rf = await M.loadStudyVsSkill(d1(db, /vocab_review_log/), 'kim', now);
-  ok('단어 기록을 못 읽으면 그 칸만 null(0 으로 위장하지 않음)', rf && rf.study.vocab_reviews === null && rf.skill.remembered_words === null && rf.study.class_days === 2, JSON.stringify(rf));
+  ok('복습 기록을 못 읽으면 복습 칸만 null — 기억 칸은 퀴즈 기준이라 그대로', rf && rf.study.vocab_reviews === null && rf.skill.remembered_words === 2 && rf.study.class_days === 2, JSON.stringify(rf));
+  const rq = await M.loadStudyVsSkill(d1(db, /vocab_quizzes/), 'kim', now);
+  ok('퀴즈 기록을 못 읽으면 기억 칸만 null(0 으로 위장하지 않음)', rq && rq.skill.remembered_words === null && rq.study.vocab_reviews === 6, JSON.stringify(rq));
+  // 짝: 자기 신고만 있는 학생 — 복습은 세지만 «기억» 은 0
+  db.prepare('INSERT INTO students_erp VALUES (?,?,?)').run('park', '박', 'park');
+  db.prepare('INSERT INTO vocabulary (id, user_id, word, created_at) VALUES (?,?,?,?)').run(9, 'park', 'grape', now - 20 * DAY);
+  db.prepare('INSERT INTO vocab_review_log (user_id, vocab_id, correct, reviewed_at) VALUES (?,?,?,?)').run('park', 9, 1, now - DAY);
+  const rp = await M.loadStudyVsSkill(d1(db), 'park', now);
+  ok('자기 신고(«알았어요») 만으로는 «실력» 칸에 안 들어간다', rp && rp.study.vocab_reviews === 1 && rp.skill.remembered_words === 0, JSON.stringify(rp));
   const ra = await M.loadStudyVsSkill(d1(db, /FROM attendance/), 'kim', now);
   ok('짝: 출석을 못 읽어도 나머지는 그대로', ra && ra.study.class_days === null && ra.study.friend_talks === 1);
   const rx = await M.loadStudyVsSkill(d1(db, /warmup_fix_log|ai_lesson_reports/), 'kim', now);
@@ -171,7 +192,7 @@ console.log('④ 화면 (parent.html pdSkillHtml)');
   ok('셀 수 있는 것이 하나도 없으면 null(카드 감춤)', all0 === null);
   ok('서버가 칸을 안 보냈으면 null', call(undefined, false) === null && call(null, false) === null);
   const z = call({ study: { class_days: 0, friend_talks: 0, warmups: 0, vocab_reviews: 0 }, skill: { remembered_words: 0, remembered_examples: [], fixed_said_right: 0, fixed_total: 0 } }, false);
-  ok('0 은 0 으로 그린다 + 다음 할 일 안내', typeof z === 'string' && z.includes('>0<') && z.includes('7일 뒤에 다시 맞히면'));
+  ok('0 은 0 으로 그린다 + 다음 할 일 안내', typeof z === 'string' && z.includes('>0<') && z.includes('7일 뒤 단어 퀴즈에서 맞히면'));
   ok('고친 문장 카드가 0장이면 그 줄은 안 그린다', !z.includes('고친 문장을 다시'));
   const he = call(full, true);
   ok('영어 화면', typeof he === 'string' && he.includes('Done (amount)') && he.includes('Achieved (skill)'));
