@@ -405,6 +405,13 @@ function showKakaoShareDialog(url) {
       <div id="pd-goal"></div>
     </div>
 
+    <!-- 📊 (2026-10-10) 지난 30일 «한 것» 과 «해낸 것» 을 따로 — 공부한 양을 «실력» 이라 부르지 않으려고 칸을 나눈다.
+         서버가 study_skill 칸을 안 보냈거나 셀 수 있는 것이 하나도 없으면 카드째 감춘다(pdSkillHtml 이 null). -->
+    <div class="card" id="pd-skill-card" style="margin-top:16px;display:none">
+      <h3>📊 <span data-ko="지난 30일: 한 것과 해낸 것" data-en="Last 30 days: what was done and what was achieved">지난 30일: 한 것과 해낸 것</span></h3>
+      <div id="pd-skill"></div>
+    </div>
+
     <!-- 👪 (2026-10-10) 선생님께 요청 하나 — 보기 중 하나를 고르면 다음 수업 강사 화면에 뜨고, 선생님이 «반영함» 을 누르면 여기에 ✔ 로 돌아온다.
          서버가 request_options 칸을 안 보낸 응답(옛 서버·배포 중)에는 카드째 감춘다(pdReqHtml 이 null). -->
     <div class="card" id="pd-req-card" style="margin-top:16px;display:none">
@@ -543,6 +550,38 @@ function pdGoalHtml(g, en) {
   h += '</div>';
   if (g.set_by_name) h += `<div style="font-size:12.5px;color:var(--pd-muted);margin-top:4px">${T('정한 선생님: ', 'Set by: ')}${esc(g.set_by_name)}</div>`;
   return h;
+}
+
+/* 📊 «한 것» / «해낸 것» 카드 (2026-10-10) — 서버(study-vs-skill.ts)가 센 값을 «그리기만» 한다.
+   null = «셀 수 없었음» 이라 그 줄을 안 그린다(0 과 다르다). 셀 수 있는 줄이 하나도 없으면 null = 카드를 감춘다.
+   ⛔ «한 것» 의 횟수를 «실력» 이라고 쓰지 않는다 — 그래서 두 칸이다. */
+function pdSkillHtml(s, en) {
+  if (!s || typeof s !== 'object' || !s.study || !s.skill) return null;
+  const T = (ko, enS) => `<span data-ko="${esc(ko)}" data-en="${esc(enS)}">${esc(en ? enS : ko)}</span>`;
+  const num = (v) => (v == null || !Number.isFinite(Number(v))) ? null : Number(v);
+  const row = (ko, enS, v) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0"><span>${T(ko, enS)}</span><b>${esc(String(v))}</b></div>`;
+  const st = s.study, sk = s.skill;
+  let left = '', right = '', n = 0;
+  const cd = num(st.class_days), ft = num(st.friend_talks), wu = num(st.warmups), vr = num(st.vocab_reviews);
+  if (cd != null) { left += row('화상수업 들어온 날', 'Days in class', cd); n++; }
+  if (ft != null) { left += row('A.i 친구에게 말한 횟수', 'Times spoke to A.i friend', ft); n++; }
+  if (wu != null) { left += row('수업 전 웜업', 'Warm-ups', wu); n++; }
+  if (vr != null) { left += row('단어 복습', 'Word reviews', vr); n++; }
+  const rw = num(sk.remembered_words), fr = num(sk.fixed_said_right), fto = num(sk.fixed_total);
+  if (rw != null) {
+    right += row('7일 넘게 지나서도 맞힌 단어', 'Words still known after 7+ days', rw); n++;
+    const ex = Array.isArray(sk.remembered_examples) ? sk.remembered_examples.filter(Boolean).slice(0, 3) : [];
+    if (ex.length) right += `<div style="font-size:12.5px;color:var(--pd-muted);padding:0 0 4px">${ex.map(esc).join(', ')}</div>`;
+  }
+  if (fr != null && fto != null && fto > 0) { right += row('고친 문장을 다시 바르게 말함', 'Corrected sentences said right again', fr + ' / ' + fto); n++; }
+  if (!n) return null;
+  if (!right) right = `<div style="font-size:13px;color:var(--pd-muted)">${T('아직 셀 수 있는 기록이 없어요', 'Nothing to count yet')}</div>`;
+  else if (rw === 0 && !(fr > 0)) right += `<div style="font-size:12.5px;color:var(--pd-muted);margin-top:4px">${T('단어를 넣고 7일 뒤에 다시 맞히면 여기에 쌓입니다', 'Words count here when answered right 7+ days after adding')}</div>`;
+  const col = (title, body) => `<div style="flex:1 1 220px;min-width:0;border:1px solid rgba(148,163,184,.35);border-radius:12px;padding:10px 12px"><div style="font-weight:900;margin-bottom:6px">${title}</div>${body}</div>`;
+  return `<div style="display:flex;flex-wrap:wrap;gap:10px">`
+    + col('🗂 ' + T('한 것 (공부량)', 'Done (amount)'), left || `<div style="font-size:13px;color:var(--pd-muted)">—</div>`)
+    + col('🏅 ' + T('해낸 것 (실력)', 'Achieved (skill)'), right)
+    + `</div><div style="font-size:12px;color:var(--pd-muted);margin-top:8px">${T('공부한 시간·횟수와 게임 점수는 «실력» 으로 세지 않습니다.', 'Study time, counts and game scores are not counted as skill.')}</div>`;
 }
 
 /* 👪 학부모 요청 카드 (2026-10-10) — 서버(parent-request.ts)가 준 보기·상태를 «그리기만» 한다.
@@ -1098,6 +1137,16 @@ function pdRender(d){
     if (gCard) {
       if (gHtml == null) { gCard.style.display = 'none'; }
       else { document.getElementById('pd-goal').innerHTML = gHtml; gCard.style.display = ''; }
+    }
+  }
+
+  // 📊 한 것 / 해낸 것 (2026-10-10)
+  {
+    const sCard = document.getElementById('pd-skill-card');
+    const sHtml = pdSkillHtml(d.study_skill, !!(window.getLang && getLang() === 'en'));
+    if (sCard) {
+      if (sHtml == null) { sCard.style.display = 'none'; }
+      else { document.getElementById('pd-skill').innerHTML = sHtml; sCard.style.display = ''; }
     }
   }
 
