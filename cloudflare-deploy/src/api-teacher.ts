@@ -32,6 +32,7 @@ import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 �
 import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인계 카드(2026-10-10)
 import { loadActiveGoals, setStudentGoal, goalByKey, GOALS } from './student-goal';   // 🗓 4주 목표(2026-10-10)
+import { loadParentRequests, markParentRequestDone } from './parent-request';   // 👪 학부모 요청 반영(2026-10-10)
 
 interface TeacherEnv {
   DB: D1Database;
@@ -108,7 +109,8 @@ export async function handleTeacherApi(
    *  같은 경로에 얹는 이유는 `?part=my_evals` 와 같다(신원 판정 한 벌·index.ts 게이트 재등록 없음).
    *  ⚠️ 권한 = «이 강사의 오늘 수업 학생» — 아래에서 classes 를 다 만든 뒤에 확인한다. */
   const isGoalPost = method === 'POST' && url.searchParams.get('part') === 'goal';
-  if (path !== '/api/teacher/portal' || (method !== 'GET' && !isGoalPost)) return null;
+  const isPreqPost = method === 'POST' && url.searchParams.get('part') === 'preq';   // 👪 학부모 요청 «반영함»
+  if (path !== '/api/teacher/portal' || (method !== 'GET' && !isGoalPost && !isPreqPost)) return null;
 
   /* 🔔 `?only=next` — «다음 수업 하나» 만 돌려주는 초경량 모드 (2026-08-09)
    *
@@ -1022,6 +1024,40 @@ export async function handleTeacherApi(
       }
     }
   } catch (e) { console.warn('[teacher-portal] goal:', (e as any)?.message); }
+
+  /* 👪 학부모 요청 — 오늘 학생마다 «열린» 요청(또는 최근 반영한 것)을 싣는다. 쌍둥이 계정 것도 본다.
+   *  loadParentRequests 는 던지지 않는다(표가 없으면 빈 Map). */
+  if (!onlyNext) try {
+    const pUids = classes.filter((c: any) => c.kind === 'class' && c.student_uid).map((c: any) => String(c.student_uid));
+    if (pUids.length) {
+      const pBy = await loadParentRequests(env.DB, pUids, now);
+      for (const c of (classes as any[])) {
+        const pr = pBy.get(String(c.student_uid || ''));
+        if (pr && c.kind === 'class') c.parent_request = pr;
+      }
+    }
+  } catch (e) { console.warn('[teacher-portal] parent-request:', (e as any)?.message); }
+
+  /* 👪 «반영함 ✔» — «오늘 이 강사 수업의 학생» 의 «열린» 요청만(목표와 같은 권한 범위·정확일치). */
+  if (isPreqPost) {
+    let b: any = {};
+    try { b = await request.json(); } catch { b = {}; }
+    const uid = String((b && b.student_uid) || '').trim();
+    const id = Number(b && b.request_id);
+    if (!uid) return json({ ok: false, error: 'student_uid_required' }, 400);
+    // ⚠️ 취소·연기(공휴일 포함)된 수업만 남은 학생은 «반영» 할 수업이 없다 — 화면이 오래돼 버튼이 남아 있어도 막는다(Codex P2).
+    const mine = classes.some((c: any) => c.kind === 'class' && String(c.student_uid || '') === uid
+      && c.class_state !== 'cancelled' && c.class_state !== 'postponed');
+    if (!mine) return json({ ok: false, error: 'not_your_student' }, 403);
+    try {
+      const r = await markParentRequestDone(env.DB, { uid, id, by: String(actor.username || ''), byName: String(actor.name || actor.username || ''), nowMs: now });
+      if (!r.ok) return json(r, r.error === 'not_open' ? 409 : 400);
+      return json({ ok: true, parent_request: r.request });
+    } catch (e) {
+      console.warn('[teacher-portal] parent-request save:', (e as any)?.message);
+      return json({ ok: false, error: 'db_error' }, 500);
+    }
+  }
 
   /* 🗓 목표 정하기·지우기 — «오늘 이 강사 수업의 학생» 만(classes 가 곧 권한 범위).
    *  ⛔ 클라이언트가 보낸 uid 를 그대로 믿지 않는다 — 목록에 있는지 «정확일치» 로 확인한다(Kim/kim 은 다른 계정). */
