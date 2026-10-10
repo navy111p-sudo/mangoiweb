@@ -5751,12 +5751,22 @@ function _populateFranchiseSelect(items) {
   // 🔎 «지사 소속 대리점 찾기» 의 지사 드롭다운도 같은 목록을 쓴다(고른 값은 지킨다)
   const fba = document.getElementById('fba-branch');
   if (fba) { const keep = fba.value; fba.innerHTML = opts; if (keep) fba.value = keep; }
+  // 🏢 (2026-10-10) 대리점 목록 «지사로 좁히기» 드롭다운 — 같은 목록, 첫 칸만 «전체».
+  const ctf = document.getElementById('ct-fid');
+  if (ctf) {
+    const keep = ctf.value;
+    ctf.innerHTML = '<option value="" data-ko="— 지사 선택 (전체) —" data-en="— All branches —">'
+      + (adminLang==='en' ? '— All branches —' : '— 지사 선택 (전체) —') + '</option>'
+      + items.map(f => `<option value="${f.id}">${_esc(f.name)}</option>`).join('');
+    if (keep) ctf.value = keep;
+  }
 }
 // 🏢 지사 드롭다운만 필요할 때 (대리점·학원 카드를 먼저 연 경우) — {id,name} 만 받는다.
 //    이게 없으면 «조직 관리» 카드를 안 열고 대리점을 등록하려 할 때 지사 목록이 빈칸이었다.
 async function _ensureFranchiseSelect() {
   const sel = document.getElementById('ct-franchise');
-  if (!sel || sel.options.length > 1) return;
+  const ctf = document.getElementById('ct-fid');
+  if (!sel || (sel.options.length > 1 && (!ctf || ctf.options.length > 1))) return;
   try {
     const r = await fetch('/api/admin/franchises?fields=min',{cache:'no-store',credentials:'include'});
     const d = await r.json().catch(()=>({}));
@@ -6461,7 +6471,7 @@ window.hqDelete = hqDelete;
 //   🐢 예전엔 921행을 한 번에 받아(약 130KB) 카드가 닫혀 있어도 DOM 에 다 그렸다.
 //      → 서버 페이징 50건 + 서버 검색. 검색은 '이 페이지 50행'이 아니라 921건 전체 대상.
 //   💳 pt = 결제유형 필터('' | 'B2B' | 'B2C' | 'NONE'). counts 는 서버가 준 유형별 건수.
-var _ctState = { q: '', offset: 0, limit: 50, total: 0, pt: '', counts: null };
+var _ctState = { q: '', offset: 0, limit: 50, total: 0, pt: '', fid: '', counts: null };
 /* 💰 수강료 상수 — 표 안 칸(_tuCell)과 수정 폼(ct-tuition)이 «같은 값» 을 써야 해서
    함수 밖으로 올렸다(2026-09-11). ⚠️ 18,000 은 서버 HQ_UNIT_KRW 와 짝이다
    (org-settlement.ts) — 한쪽만 고치면 화면이 통과시킨 값을 서버가 거절한다. */
@@ -6477,13 +6487,15 @@ async function loadCenters(opts) {
   opts = opts || {};
   if (opts.q !== undefined) { _ctState.q = String(opts.q || '').trim(); _ctState.offset = 0; }
   if (opts.pt !== undefined) { _ctState.pt = String(opts.pt || ''); _ctState.offset = 0; }
+  if (opts.fid !== undefined) { _ctState.fid = String(opts.fid || ''); _ctState.offset = 0; }
   if (opts.offset !== undefined) _ctState.offset = Math.max(0, opts.offset);
   const tb = document.getElementById('centers-table');
   if (!tb) return;
   _ensureFranchiseSelect();
   const qs = '?limit=' + _ctState.limit + '&offset=' + _ctState.offset
            + (_ctState.q ? '&q=' + encodeURIComponent(_ctState.q) : '')
-           + (_ctState.pt ? '&payment_type=' + encodeURIComponent(_ctState.pt) : '');
+           + (_ctState.pt ? '&payment_type=' + encodeURIComponent(_ctState.pt) : '')
+           + (_ctState.fid ? '&franchise_id=' + encodeURIComponent(_ctState.fid) : '');
   let d = {}, _ctHttp = 0;
   try {
     const r = await fetch('/api/admin/centers' + qs, { cache:'no-store', credentials:'include' });
@@ -6516,7 +6528,7 @@ async function loadCenters(opts) {
   if (!d.ok || !Array.isArray(d.items) || d.items.length === 0) {
     _ctRows = [];
     tb.innerHTML = '<tr><td colspan="10" class="empty">'
-      + ((_ctState.q || _ctState.pt) ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
+      + ((_ctState.q || _ctState.pt || _ctState.fid) ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
     _ctRenderPager();
     return;
   }
@@ -6667,6 +6679,9 @@ function _ctRenderPtFilter() {
   }).join('');
 }
 function ctFilterPayType(v) { loadCenters({ pt: v }); }
+// 🏢 (2026-10-10) 지사 드롭다운으로 좁히기 — 서버 franchise_id 필터(이름으로 거르면 같은 이름 지사가 섞인다)
+function ctFilterFranchise(v) { loadCenters({ fid: v }); }
+window.ctFilterFranchise = ctFilterFranchise;
 window.ctFilterPayType = ctFilterPayType;
 function _ctRenderPager() {
   const el = document.getElementById('ct-pager');
