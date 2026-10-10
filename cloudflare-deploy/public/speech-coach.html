@@ -579,7 +579,7 @@ function setTarget(t) {
   try { closeTargetMeaning(); } catch(e){}
   window.isCustomTarget = false;         // 프리셋/커리큘럼 문장 = 문법이 이미 정답 → 문법검사 생략
   var idx = STEPS.indexOf(t);            // 프리셋/직접선택도 단계와 동기화
-  if (idx >= 0) { currentStep = idx; updateStepUI(); }
+  if (idx >= 0) { currentStep = idx; updateStepUI(); window.__scSayMode = false; }   // 단계 문장을 고르면 ?say= 모드 끝
   resetUI();
 }
 
@@ -745,6 +745,7 @@ function celebrate(msg){
   setTimeout(function(){ badge.style.opacity='0'; badge.style.transform='translate(-50%,-50%) scale(0.8)'; setTimeout(function(){ badge.remove(); }, 400); }, 2300);
 }
 function loadStep(i, speak){
+  window.__scSayMode = false;   // 단계로 돌아오면 ?say= 모드는 끝난다
   currentStep = ((i % STEPS.length) + STEPS.length) % STEPS.length;   // 순환(끝→처음)
   setTarget(STEPS[currentStep]);   // setTarget 내부에서 updateStepUI 동기화
   updateStepUI();
@@ -897,7 +898,7 @@ try {
   if (_qsCourse === 'siu-basic' || _qsCourse === 'siu-advance') _qsCourse = 'siu';
   var _savedPos = null;
   try { _savedPos = JSON.parse(localStorage.getItem('mangoi_speech_course_pos') || 'null'); } catch(e){}
-  if (_qsSay) setTarget(_qsSay);
+  if (_qsSay) { setTarget(_qsSay); window.__scSayMode = true; }
   else if (_qsCourse && COURSES[_qsCourse]) selectCourse(_qsCourse);
   else if (_savedPos && COURSES[_savedPos.course]) selectCourse(_savedPos.course);
 } catch(e){}
@@ -1501,7 +1502,8 @@ async function processAudio(blob) {
     })();
     document.getElementById('result').style.display = 'block';
     document.body.classList.add('m-showing-result');   // 📱 녹음 버튼 자리에서 결과로 교체(모바일, 스크롤 없이)
-    try { markStepDone(currentStep); } catch(e){}   // 채점 완료 → 이 단계 완료 체크
+    // ⛔ ?say= 로 연 문장은 단계 문장이 아니다 — 말하지 않은 단계를 «완료» 로 찍으면 진도·포인트가 틀어진다
+    try { if (!window.__scSayMode) markStepDone(currentStep); } catch(e){}   // 채점 완료 → 이 단계 완료 체크
     document.getElementById('rec-status').textContent = '✅ 완료! 다시 녹음하려면 마이크 누르세요';
 
     // 📝 문법 검사 — 직접 쓴 자유 문장(영어)일 때만. 커리큘럼/프리셋 문장은 이미 정답이라 생략.

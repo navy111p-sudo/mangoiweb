@@ -139,6 +139,13 @@ if (M) {
   half.prepare('INSERT INTO warmup_fix_log VALUES (?,?,?,?,?,?)').run('kim', 'I go school', 'I went to school.', '', 'en', now - 1000);
   let r3 = null;
   try { r3 = await M.loadFixCards(d1(half), 'kim', now); } catch (e) { r3 = { __err: e.message }; }
+  // 최근 것부터 — 30건 넘게 쌓여도 «가장 최근» 교정이 나와야 한다
+  const many = new DatabaseSync(':memory:');
+  many.exec(`CREATE TABLE warmup_fix_log (user_id TEXT, was TEXT, fixed TEXT, why_ko TEXT, lang TEXT, created_at INTEGER);`);
+  for (let i = 0; i < 35; i++) many.prepare('INSERT INTO warmup_fix_log VALUES (?,?,?,?,?,?)').run('kim', 'w' + i, 'Old sentence number ' + i + ' here.', '', 'en', now - 20 * 86400000 + i);
+  many.prepare('INSERT INTO warmup_fix_log VALUES (?,?,?,?,?,?)').run('kim', 'I go', 'Newest sentence is here.', '', 'en', now - 1000);
+  let rM = null; try { rM = await M.loadFixCards(d1(many), 'kim', now); } catch (e) { rM = null; }
+  ok('웜업은 최근 것부터(30건 상한에서도 최신이 첫 카드)', rM && rM.cards && rM.cards[0] && rM.cards[0].to === 'Newest sentence is here.');
   ok('짝: 수업 표가 없어도 웜업 카드는 나온다', r3 && r3.cards && r3.cards.length === 1 && r3.sources.lesson === false && r3.sources.warmup === true);
   ok('연습 표가 없으면 카드는 그대로·연습 «모름»', r3 && r3.cards && r3.cards[0].practiced === 0 && r3.sources.practice === false);
 }
@@ -156,6 +163,15 @@ console.log('③ 서버 배선 — 게이트 «뒤» 갈래');
   const fxBody = fx > 0 ? bodyFrom(body, fx) : '';
   ok('그 갈래는 정본 loadFixCards 를 부르고 그 결과를 싣는다', /loadFixCards\(\s*env\.DB\s*,\s*uid/.test(fxBody) && /cards\s*:\s*\w+\.cards/.test(fxBody));
   ok('캐시 금지(private, no-store)', /private, no-store/.test(fxBody));
+  /* 조건식을 오려 내 실제로 평가 — `!==` 뒤집기·`false &&` 를 잡는다(뒤집히면 모든 학생의 오늘 계획이 카드 응답이 된다) */
+  const ifAt = fx > 0 ? body.lastIndexOf('if (', fx) : -1;
+  let cond = '';
+  if (ifAt >= 0) { let d = 0, k = ifAt + 3; for (; k < body.length; k++) { if (body[k] === '(') d++; else if (body[k] === ')') { d--; if (d === 0) break; } } cond = body.slice(ifAt + 3, k + 1); }
+  const evalCond = (qs) => { try { return !!new Function('url', 'return ' + cond)({ searchParams: new URLSearchParams(qs) }); } catch (e) { return 'ERR'; } };
+  ok('전제: 갈래 조건식을 오려 냈다', /fixcards/.test(cond));
+  ok('fixcards=1 이면 갈래로 간다', evalCond('fixcards=1&uid=a') === true);
+  ok('짝: fixcards 가 없으면 평소 계획으로 간다', evalCond('uid=a') === false);
+  ok('짝: fixcards=0 도 평소 계획', evalCond('fixcards=0&uid=a') === false);
   ok('import 가 있다', /import\s*\{\s*loadFixCards\s*\}\s*from\s*'\.\/fix-cards'/.test(s));
 }
 
@@ -180,12 +196,13 @@ console.log('④ 발음 코칭 ?say= — 오려 내 실행');
   const ti = s.indexOf('var _qsSay = scSayFromUrl(');
   const tryStart = ti >= 0 ? s.lastIndexOf('try {', ti) : -1;
   const block = tryStart >= 0 ? 'try ' + bodyFrom(s, tryStart) + ' catch(e){}' : '';
+  let W = {};
   const runBlock = (search, saved) => {
-    const calls = [];
+    const calls = []; W = {};
     try {
-      new Function('location', 'localStorage', 'COURSES', 'setTarget', 'selectCourse', 'scSayFromUrl', block)(
+      new Function('location', 'localStorage', 'COURSES', 'setTarget', 'selectCourse', 'scSayFromUrl', 'window', block)(
         { search }, { getItem: () => saved }, { bts: 1, siu: 1, phonics: 1 },
-        (t) => calls.push('T:' + t), (c) => calls.push('C:' + c), say);
+        (t) => calls.push('T:' + t), (c) => calls.push('C:' + c), say, W);
     } catch (e) { calls.push('ERR:' + e.message); }
     return calls.join('|');
   };
@@ -196,7 +213,25 @@ console.log('④ 발음 코칭 ?say= — 오려 내 실행');
     ok('짝: ?say 가 없으면 예전대로 저장 코스를 연다', runBlock('', saved) === 'C:bts');
     ok('짝: ?course 도 예전대로', runBlock('?course=siu', null) === 'C:siu');
     ok('?say 가 한글이면 무시하고 예전대로', runBlock('?say=' + encodeURIComponent('안녕') + '&course=siu', null) === 'C:siu');
+    runBlock('?say=I%20went%20home.', saved);
+    ok('?say 로 열면 «say 모드» 를 켠다', W.__scSayMode === true);
+    runBlock('', saved);
+    ok('짝: ?say 가 없으면 say 모드가 아니다', W.__scSayMode !== true);
   }
+  /* 🔴 say 모드에서는 채점이 «말하지 않은 단계» 를 완료로 찍지 않는다(진도·포인트 보호) — 오려 내 실행 */
+  const mi = s.indexOf('markStepDone(currentStep)');
+  const ln0 = s.lastIndexOf('\n', mi), ln1 = s.indexOf('\n', mi);
+  const markLine = mi > 0 ? s.slice(ln0 + 1, ln1) : '';
+  ok('전제: 채점 뒤 완료 표시 줄을 찾았다', /markStepDone\(currentStep\)/.test(markLine));
+  const runMark = (mode) => { const marked = [];
+    try { new Function('window', 'markStepDone', 'currentStep', markLine.replace(/\/\/.*$/, ''))({ __scSayMode: mode }, (i) => marked.push(i), 2); }
+    catch (e) { marked.push('ERR'); }
+    return marked.join(','); };
+  ok('say 모드면 단계 완료를 안 찍는다', runMark(true) === '');
+  ok('짝: 평소에는 예전대로 찍는다', runMark(false) === '2');
+  const lsi = s.indexOf('function loadStep(');
+  const lsBody = lsi >= 0 ? bodyFrom(s, lsi) : '';
+  ok('단계로 돌아가면 say 모드를 끈다(loadStep)', /window\.__scSayMode\s*=\s*false/.test(lsBody));
 }
 
 console.log('⑤ 오늘의 A.i 학습 화면 — renderFix 를 가짜 DOM 으로 실행');
