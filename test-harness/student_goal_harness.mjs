@@ -162,7 +162,8 @@ if (M) {
 console.log('③ 강사 포털: 저장 권한·목표 싣기');
 {
   const api = rd(API_T);
-  const gate = api.match(/if \(path !== '\/api\/teacher\/portal' \|\| \(method !== 'GET' && !isGoalPost\)\) return null;/);
+  /* 뜻으로 묻는다 — POST 는 «정해 둔 part» 일 때만(goal 이 그중 하나). 다른 part 가 더 생겨도(2026-10-10 preq) 깨지지 않게. */
+  const gate = api.match(/if \(path !== '\/api\/teacher\/portal' \|\| \(method !== 'GET' && !isGoalPost(?: && !is\w+Post)*\)\) return null;/);
   ok('POST 는 ?part=goal 일 때만 받는다', !!gate && /const isGoalPost = method === 'POST' && url\.searchParams\.get\('part'\) === 'goal';/.test(api));
   const i = api.indexOf('if (isGoalPost) {');
   ok('전제: 저장 갈래를 찾았다', i > 0);
@@ -236,7 +237,9 @@ console.log('⑤ 학생 «오늘의 A.i 학습» · 학부모 대시보드');
   const pw = st.indexOf('password_not_set', pd);
   const pg = st.indexOf('loadActiveGoal(env.DB, childUid', pd);
   ok('학부모 대시보드: 비밀번호 게이트 «뒤» 에서 목표를 읽는다', pd > 0 && pw > pd && pg > pw);
-  ok('학부모 응답에 goal 칸', /\n\s+goal,\n\s+generated_at: Date\.now\(\),/.test(st));
+  { const rj = st.indexOf('return json({', st.indexOf('const parentRequest', pd) > 0 ? st.indexOf('const parentRequest', pd) : pg);
+    const rb = rj > 0 ? bodyFrom(st, rj) : '';
+    ok('학부모 응답에 goal 칸', /\n\s+goal,\n/.test(rb) && /generated_at: Date\.now\(\)/.test(rb), rb.slice(0, 60)); }
 }
 
 /* ── ⑥ 화면 ── */
