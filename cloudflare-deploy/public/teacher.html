@@ -198,6 +198,12 @@ html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
 .cls-goal b{font-weight:800;color:#15803d}
 .cls-goal select{font-size:12.5px;padding:2px 4px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#101828;max-width:100%}
 .cls-goal-msg{font-size:12px;color:#667085;margin-left:6px}
+/* 👪 학부모 요청 — 열린 요청은 주황, 반영한 것은 회색(«이미 했다» 는 사실만). */
+.cls-preq{margin-top:4px;padding:5px 10px;border-left:3px solid #ea580c;background:#fff7ed;border-radius:6px;font-size:12.5px;line-height:1.55;color:#344054}
+.cls-preq b{font-weight:800;color:#c2410c}
+.cls-preq.done{border-left-color:#94a3b8;background:#f8fafc;color:#475467}
+.cls-preq.done b{color:#475467}
+.cls-preq button{font-size:12px;padding:2px 8px;margin-left:6px;border:1px solid #16a34a;border-radius:6px;background:#fff;color:#15803d;font-weight:700;cursor:pointer}
 .cls-act{width:100%;display:flex;gap:8px;flex-wrap:wrap}
 
 /* ── 큼직한 액션 버튼 (터치 최소 48px) ── */
@@ -419,6 +425,11 @@ html[data-t="dark"] .cls-hand-was{color:#94a3b8}
 html[data-t="dark"] .cls-goal{background:#12301f;border-left-color:#4ade80;color:#c9d4e0}
 html[data-t="dark"] .cls-goal b{color:#86efac}
 html[data-t="dark"] .cls-goal select{background:#0f172a;color:#e2e8f0;border-color:#334155}
+html[data-t="dark"] .cls-preq{background:#3a1d0b;border-left-color:#fb923c;color:#c9d4e0}
+html[data-t="dark"] .cls-preq b{color:#fdba74}
+html[data-t="dark"] .cls-preq.done{background:#1e293b;border-left-color:#64748b;color:#cbd5e1}
+html[data-t="dark"] .cls-preq.done b{color:#cbd5e1}
+html[data-t="dark"] .cls-preq button{background:#0f172a;color:#86efac;border-color:#4ade80}
 html[data-t="dark"] .cls-info .cls-time,
 html[data-t="dark"] .cls-info .cls-name{color:#9dabb9}
 html[data-t="dark"] .kpi{background:#1d2630;border-color:#2b3541}
@@ -1284,6 +1295,49 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         if (m2) m2.textContent = why; else window.alert(why);
       });
   });
+  /* 👪 (2026-10-10) 학부모 요청 — 학부모가 보기 중 하나를 고른다(서버 parent-request.ts). 강사는 반영했으면 «반영함 ✔» 을 누른다.
+     ⚠️ 문구는 서버가 준 en/ko 를 그대로 — 이 화면에 보기를 적지 않는다. 반영한 것은 회색으로 «언제·누가» 만 남긴다. */
+  function preqHtml(c){
+    if (!c || c.kind !== 'class' || !c.student_uid) return '';
+    var r = c.parent_request;
+    if (!r || !r.key) return '';
+    var label = esc(EN() ? r.en : r.ko);
+    if (r.status === 'done'){
+      return '<div class="cls-preq done">👪 <b>' + esc(T('Parent request','학부모 요청')) + '</b>: ' + label
+        + ' <span class="stu-id">✔ ' + esc(T('done','반영함')) + (r.done_by_name ? ' · ' + esc(r.done_by_name) : '') + '</span></div>';
+    }
+    return '<div class="cls-preq">👪 <b>' + esc(T('Parent request','학부모 요청')) + '</b>: ' + label
+      + '<button type="button" class="preq-done" data-uid="' + esc(c.student_uid) + '" data-id="' + esc(r.id) + '">'
+      + esc(T('Done ✔','반영함 ✔')) + '</button><span class="cls-goal-msg" data-preq-msg="' + esc(c.student_uid) + '"></span></div>';
+  }
+  /* «반영함 ✔» — 위임 리스너(목록을 다시 그려도 살아남는다). 서버가 «내 오늘 학생의 열린 요청» 인지 다시 확인한다. */
+  document.addEventListener('click', function(ev){
+    var btn = ev.target && ev.target.closest ? ev.target.closest('button.preq-done') : null;
+    if (!btn) return;
+    var uid = btn.getAttribute('data-uid') || '', id = Number(btn.getAttribute('data-id'));
+    if (!window.confirm(T('Mark this parent request as done? The parent will see it.', '이 학부모 요청을 «반영함» 으로 표시할까요? 학부모 화면에 보입니다.'))) return;
+    var safeUid = uid.replace(/["\\]/g, '');
+    var curMsg = function(){ return document.querySelector('[data-preq-msg="' + safeUid + '"]'); };
+    var m = curMsg();
+    if (m) m.textContent = T('Saving…','저장 중…');
+    btn.disabled = true;
+    var fail = function(why){
+      var b2 = document.querySelector('button.preq-done[data-uid="' + safeUid + '"]') || btn, m2 = curMsg();
+      b2.disabled = false;
+      if (m2) m2.textContent = why; else window.alert(why);
+    };
+    fetch('/api/teacher/portal?part=preq', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ student_uid: uid, request_id: id }) })
+      .then(function(r){ return r.json().catch(function(){ return null; }).then(function(j){ return { ok: r.ok, j: j }; }); })
+      .then(function(x){
+        if (!x.ok || !x.j || x.j.ok !== true){ fail(T('Not saved','저장 안 됨') + (x.j && x.j.error ? ' (' + x.j.error + ')' : '')); return; }
+        (DATA && DATA.classes || []).forEach(function(c){
+          if (c.kind === 'class' && String(c.student_uid || '') === uid){ if (x.j.parent_request) c.parent_request = x.j.parent_request; else delete c.parent_request; }
+        });
+        if (DATA) renderClasses(DATA.classes || []);
+      })
+      .catch(function(){ fail(T('Not saved (network)','저장 안 됨(연결)')); });
+  });
   function now(){ return Date.now() + SKEW; }
   function hhmm(ts){
     // 수업 시각은 서버가 KST 벽시계로 계산해 보낸다. 강사 단말은 필리핀(UTC+8)이라
@@ -1895,6 +1949,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
            + ':' + (sc.handover ? JSON.stringify(sc.handover) : '')
            // 🗓 4주 목표도 — 바꾼 직후 다시 그려야 하고, 날이 바뀌면 «N일째» 가 달라진다.
            + ':' + (sc.student_goal ? sc.student_goal.key + sc.student_goal.day : '') + ((typeof DATA !== 'undefined' && DATA && DATA.goal_options) ? 'O' : '')
+           // 👪 학부모 요청도 — 안 넣으면 «반영함» 을 누른 뒤나 새 요청이 와도 옛 칸이 남는다.
+           + ':' + (sc.parent_request ? sc.parent_request.id + sc.parent_request.status : '')
            + ':' + (sc.absence_hold ? 'H' : '')
            + ':' + (sc.postponed_info ? (sc.postponed_info.at || '') + (sc.postponed_info.by || '') : '')
            // 📋 출결·강사 입장·평가도 넣는다 — 안 넣으면 학생이 들어와도 «바뀐 게 없다» 로 보고 옛 칸이 남는다.
@@ -2119,6 +2175,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         +     '<div class="cls-meta">' + meta.join(' &middot; ') + '</div>'
         +     extrasHtml(c, (live || done) ? i : -1)
         +     goalHtml(c)
+        +     preqHtml(c)
         +     handoverHtml(c)
         +     prevHtml
         +   '</div>'

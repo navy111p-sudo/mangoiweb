@@ -405,6 +405,13 @@ function showKakaoShareDialog(url) {
       <div id="pd-goal"></div>
     </div>
 
+    <!-- 👪 (2026-10-10) 선생님께 요청 하나 — 보기 중 하나를 고르면 다음 수업 강사 화면에 뜨고, 선생님이 «반영함» 을 누르면 여기에 ✔ 로 돌아온다.
+         서버가 request_options 칸을 안 보낸 응답(옛 서버·배포 중)에는 카드째 감춘다(pdReqHtml 이 null). -->
+    <div class="card" id="pd-req-card" style="margin-top:16px;display:none">
+      <h3>👪 <span data-ko="선생님께 요청" data-en="Request to the teacher">선생님께 요청</span></h3>
+      <div id="pd-req"></div>
+    </div>
+
     <!-- 🗣️ A.i 말하기 (2026-10-02 P4 — 사장님 결정: 횟수 + 고쳐 준 표현 1~2개).
          서버가 warmup 칸을 안 보낸 응답(옛 서버·배포 중)에는 카드를 통째로 감춘다(pdWarmupHtml 이 null). -->
     <div class="card" id="pd-warmup-card" style="margin-top:16px;display:none">
@@ -536,6 +543,64 @@ function pdGoalHtml(g, en) {
   h += '</div>';
   if (g.set_by_name) h += `<div style="font-size:12.5px;color:var(--pd-muted);margin-top:4px">${T('정한 선생님: ', 'Set by: ')}${esc(g.set_by_name)}</div>`;
   return h;
+}
+
+/* 👪 학부모 요청 카드 (2026-10-10) — 서버(parent-request.ts)가 준 보기·상태를 «그리기만» 한다.
+   반환 null = 카드를 감춘다(옛 응답이라 보기 목록이 없을 때). 보기를 이 화면에 적지 않는다. */
+function pdReqHtml(r, opts, en) {
+  if (!Array.isArray(opts) || !opts.length) return null;
+  const T = (ko, enS) => `<span data-ko="${esc(ko)}" data-en="${esc(enS)}">${esc(en ? enS : ko)}</span>`;
+  let h = '';
+  if (r && r.key && r.status === 'done') {
+    const dd = r.done_at ? new Date(r.done_at + 9 * 3600000).toISOString().slice(5, 10).replace('-', '/') : '';
+    h += `<div style="font-weight:800;margin-bottom:4px">✔ ${T(String(r.ko || ''), String(r.en || ''))}</div>`;
+    h += `<div style="font-size:13px;color:var(--pd-green);font-weight:700">${T('선생님이 수업에 반영했어요', 'The teacher applied it in class')}${r.done_by_name ? ' · ' + esc(r.done_by_name) : ''}${dd ? ' · ' + esc(dd) : ''}</div>`;
+  } else if (r && r.key && r.status === 'open') {
+    h += `<div style="font-weight:800;margin-bottom:4px">${T(String(r.ko || ''), String(r.en || ''))}</div>`;
+    h += `<div style="font-size:13px;color:var(--pd-muted)">${T('다음 수업 선생님 화면에 보입니다 · 아직 반영 전', 'Shown to the next teacher · not applied yet')}</div>`;
+  } else {
+    h += `<div style="font-size:13px;color:var(--pd-muted);margin-bottom:4px">${T('다음 수업에서 선생님이 신경 써 주셨으면 하는 것을 하나 골라 주세요.', 'Pick one thing you would like the teacher to focus on next class.')}</div>`;
+  }
+  const cur = (r && r.status === 'open') ? r.key : '';
+  h += `<div style="margin-top:8px"><select id="pd-req-pick" aria-label="${esc(en ? 'Choose a request' : '요청 고르기')}" style="max-width:100%;padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#101828;font-size:14px">`;
+  h += `<option value="">${esc(cur ? (en ? '— cancel request —' : '— 요청 취소 —') : (en ? 'Choose a request…' : '요청 고르기…'))}</option>`;
+  for (const o of opts) h += `<option value="${esc(o.key)}"${o.key === cur ? ' selected' : ''}>${esc(en ? o.en : o.ko)}</option>`;
+  h += `</select> <span id="pd-req-msg" style="font-size:12.5px;color:var(--pd-muted)"></span></div>`;
+  return h;
+}
+let _pdReqCur = '';
+async function pdReqSave(sel) {
+  const key = sel.value;
+  if (!key && !_pdReqCur) return;
+  const en = !!(window.getLang && getLang() === 'en');
+  if (!key && !confirm(en ? 'Cancel this request?' : '이 요청을 취소할까요?')) { sel.value = _pdReqCur; return; }
+  const msg = document.getElementById('pd-req-msg');
+  if (msg) msg.textContent = en ? 'Saving…' : '저장 중…';
+  sel.disabled = true;
+  try {
+    const r = await fetch('/api/parent/dashboard?part=request&child_uid=' + encodeURIComponent(_currentUid) + '&token=' + encodeURIComponent(_token || ''),
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ request_key: key }) });
+    const d = await r.json().catch(() => null);
+    if (!r.ok || !d || d.ok !== true) throw new Error((d && d.error) || ('http_' + r.status));
+    pdReqRender(d.parent_request || null, window.__pdReqOpts || []);
+  } catch (e) {
+    sel.disabled = false; sel.value = _pdReqCur;
+    const m2 = document.getElementById('pd-req-msg');
+    const why = (en ? 'Not saved' : '저장 안 됨') + ' (' + (e && e.message || '') + ')';
+    if (m2) m2.textContent = why; else alert(why);
+  }
+}
+function pdReqRender(r, opts) {
+  const card = document.getElementById('pd-req-card');
+  if (!card) return;
+  const h = pdReqHtml(r, opts, !!(window.getLang && getLang() === 'en'));
+  if (h == null) { card.style.display = 'none'; return; }
+  window.__pdReqOpts = opts;
+  _pdReqCur = (r && r.status === 'open') ? r.key : '';
+  document.getElementById('pd-req').innerHTML = h;
+  card.style.display = '';
+  const sel = document.getElementById('pd-req-pick');
+  if (sel) sel.addEventListener('change', () => pdReqSave(sel));
 }
 
 let _currentUid = null;
@@ -1035,6 +1100,9 @@ function pdRender(d){
       else { document.getElementById('pd-goal').innerHTML = gHtml; gCard.style.display = ''; }
     }
   }
+
+  // 👪 선생님께 요청 (2026-10-10)
+  pdReqRender(d.parent_request || null, d.request_options);
 
   // 🗣️ A.i 말하기 (2026-10-02 P4)
   {

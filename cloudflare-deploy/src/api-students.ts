@@ -22,7 +22,8 @@ import { resolveStudentTrack } from './student-track';   // 🎯 화상수업 �
 import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, sceneBookId, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
 import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { loadActiveGoal, loadGoalPractice } from './student-goal';   // 🗓 4주 목표(2026-10-10)
-import { loadFixCards } from './fix-cards';   // 📝 «지난번에 틀린 문장 다시 말하기» 카드 정본(2026-10-10)
+import { loadFixCards } from './fix-cards';
+import { loadParentRequest, setParentRequest, PARENT_REQUESTS } from './parent-request';   // 👪 학부모 요청 → 선생님 반영 확인(2026-10-10)   // 📝 «지난번에 틀린 문장 다시 말하기» 카드 정본(2026-10-10)
 
 export async function handleStudentsApi(
   request: Request,
@@ -37,7 +38,10 @@ export async function handleStudentsApi(
     //   GET /api/parent/dashboard?child_uid=X
     //   반환: 자녀 기본정보 + 최근 출석 + 평가서 4개 + 포인트 잔액/거래 + 결제내역 + 다음 수업
     // ═══════════════════════════════════════════════════════════════
-    if (method === 'GET' && path === '/api/parent/dashboard') {
+    /* 👪 (2026-10-10) POST ?part=request — 학부모 요청 보내기·지우기. 같은 경로·같은 본인확인 게이트를 탄다
+       (src/index.ts 라우팅 허용목록이 메서드를 안 가리므로 새 경로 등록이 필요 없다). */
+    const isParentReqPost = method === 'POST' && path === '/api/parent/dashboard' && url.searchParams.get('part') === 'request';
+    if ((method === 'GET' || isParentReqPost) && path === '/api/parent/dashboard') {
       /* 🔤 (2026-08-26) 아이디 대소문자 무시 — 아래에서 DB 표기로 통일하므로 let 이다. */
       let childUid = (url.searchParams.get('child_uid') || '').trim();
       if (!childUid) return json({ ok: false, error: 'child_uid_required' }, 400);
@@ -74,6 +78,20 @@ export async function handleStudentsApi(
         return json({ ok: false, error: 'password_not_set', message: '자녀 정보를 보호하려면 비밀번호를 먼저 설정하세요.' }, 401);
       }
       delete (student as any).password_hash;  // 해시는 응답에 절대 포함하지 않음
+
+      /* 👪 요청 보내기·지우기 — 위 게이트(자녀 계정 토큰 + 비밀번호)를 통과한 «뒤» 에만. 보기 밖 key 는 거절. */
+      if (isParentReqPost) {
+        let b: any = {};
+        try { b = await request.json(); } catch { b = {}; }
+        try {
+          const r = await setParentRequest(env.DB, { uid: childUid, key: String((b && b.request_key) || ''), nowMs: Date.now() });
+          if (!r.ok) return json(r, 400);
+          return json({ ok: true, parent_request: r.request });
+        } catch (e) {
+          console.warn('[parent-request] save:', (e as any)?.message);
+          return json({ ok: false, error: 'db_error' }, 500);
+        }
+      }
 
       // 포인트 잔액
       const pts = await env.DB.prepare(`SELECT balance, lifetime_earned, lifetime_spent FROM student_points WHERE user_id = ?`).bind(childUid).first<any>();
@@ -114,6 +132,8 @@ export async function handleStudentsApi(
         const g = await loadActiveGoal(env.DB, childUid, Date.now());
         if (g) goal = { ...g, practice: await loadGoalPractice(env.DB, childUid, g.set_at) };
       } catch { goal = null; }
+      /* 👪 학부모 요청 — 가장 최근 열린 것 또는 최근 반영된 것(loadParentRequest 는 던지지 않는다). */
+      const parentRequest = await loadParentRequest(env.DB, childUid, Date.now());
 
       return json({
         ok: true,
@@ -129,6 +149,8 @@ export async function handleStudentsApi(
         payments: pays.results || [],
         warmup,
         goal,
+        parent_request: parentRequest,
+        request_options: PARENT_REQUESTS.map((r) => ({ key: r.key, ko: r.ko, en: r.en })),
         generated_at: Date.now(),
       });
     }
