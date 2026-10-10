@@ -156,6 +156,11 @@
             box-shadow:0 6px 18px rgba(0,0,0,.28); }
   .foot a:active { background:rgba(251,191,36,.18); }
   .foot .foot-note { color:var(--muted); font-size:12px; margin-top:8px; }
+  /* ❓ (2026-10-10) 사용법 다시 보기 — 처음 한 번은 저절로 열리고, 다음부터는 이 버튼으로(js/today-guide.js).
+     ⛔ 상단바(.top)에 넣지 말 것 — 오른쪽 120px 은 공용 홈/EN 칩 자리라 390px 폭에서 제목과 겹친다. */
+  .tg-row { text-align:right; margin:0 0 10px; }
+  .tg-btn { min-height:40px; padding:8px 14px; border-radius:999px; cursor:pointer; font-size:14px; font-weight:900;
+            color:#e6ecff; background:rgba(96,165,250,.16); border:1.5px solid rgba(96,165,250,.55); }
 </style>
 </head>
 <body>
@@ -165,6 +170,7 @@
 </div>
 
 <div class="wrap">
+  <div class="tg-row"><button type="button" class="tg-btn" id="td-guide-btn" data-ko="❓ 사용법 보기" data-en="❓ How to use">❓ 사용법 보기</button></div>
   <!-- 로그인 전 -->
   <div class="card login" id="td-login" hidden>
     <p class="hello" data-ko="로그인하면 오늘 할 일이 보여요" data-en="Log in to see today's plan">로그인하면 오늘 할 일이 보여요</p>
@@ -249,5 +255,6 @@
 </div>
 
 <script defer src="/js/today-page.js?v=12"></script>
+<script defer src="/js/today-guide.js?v=1"></script>
 </body>
 </html>
