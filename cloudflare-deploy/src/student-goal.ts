@@ -15,8 +15,12 @@
 //     ⚠️ 학생 하나에 활성 목표는 하나. 새로 정하면 앞 것은 'replaced' 로 남긴다(지우지 않는다 — 이력).
 //     ⚠️ 읽기 조회는 던지지 않는다(표가 없거나 실패하면 «목표 없음»). 화면 하나를 막지 않는다.
 //     ⚠️ uid 는 정확일치(Kim/kim 은 다른 계정).
+//     ⚠️ 쌍둥이 계정(X ↔ mangoai_X, 이름까지 같을 때만 — student-alias.ts resolveStudentTwins):
+//        강사는 «수업 줄의 계정» 에 목표를 적는데 학생은 다른 쪽으로 로그인할 수 있다. 학생·학부모·A.i 친구는
+//        «로그인 계정 + 확인된 쌍둥이» 를 함께 읽고 가장 최근에 정한 목표를 쓴다(함정 대조 2026-10-10).
 // ═══════════════════════════════════════════════════════════════════════
 import { selectInChunks } from './d1-chunk';
+import { resolveStudentTwins } from './student-alias';
 
 export const GOAL_DAYS = 28;
 const DAY_MS = 86400000;
@@ -103,23 +107,39 @@ export async function loadActiveGoals(db: any, uids: string[], nowMs: number): P
   return out;
 }
 
+/** 한 학생(로그인 계정)의 지금 목표 — 확인된 쌍둥이 계정에 적힌 목표도 본다. 던지지 않는다. */
 export async function loadActiveGoal(db: any, uid: string, nowMs: number): Promise<GoalView | null> {
-  return (await loadActiveGoals(db, [uid], nowMs)).get(String(uid || '').trim()) || null;
+  const u = String(uid || '').trim();
+  if (!u) return null;
+  let uids = [u];
+  try { uids = uids.concat(await resolveStudentTwins(db, u)); } catch { /* 쌍둥이를 못 물으면 내 계정만 */ }
+  const m = await loadActiveGoals(db, uids, nowMs);
+  let best: GoalView | null = null;
+  for (const v of m.values()) if (!best || v.set_at > best.set_at) best = v;
+  return best;
 }
 
 /** 목표를 정한 뒤 실제로 한 연습 — 셀 수 없으면 null(0 으로 위장하지 않는다). 던지지 않는다. */
+/** 목표를 정한 뒤 실제로 한 연습 — friend = A.i 친구에게 «말한 횟수»(학생 발화 수), warmup = 웜업 «횟수»(세션).
+ *  단위가 다르니 화면은 그대로 말해야 한다. 셀 수 없으면 null(0 으로 위장하지 않는다). 쌍둥이 계정도 함께 센다. 던지지 않는다. */
 export async function loadGoalPractice(db: any, uid: string, sinceMs: number): Promise<{ friend: number | null; warmup: number | null }> {
   const res = { friend: null as number | null, warmup: null as number | null };
+  const u = String(uid || '').trim();
+  if (!u) return res;
+  let twin: string | null = null;
+  try { twin = (await resolveStudentTwins(db, u))[0] || null; } catch { twin = null; }
+  const ids = twin ? '(?, ?)' : '(?)';
+  const binds = twin ? [u, twin] : [u];
   try {
     const r: any = await db.prepare(
-      `SELECT COUNT(*) AS n FROM ai_friend_chats WHERE student_uid = ? AND role = 'user' AND created_at >= ?`
-    ).bind(uid, sinceMs).first();
+      `SELECT COUNT(*) AS n FROM ai_friend_chats WHERE student_uid IN ${ids} AND role = 'user' AND created_at >= ?`
+    ).bind(...binds, sinceMs).first();
     if (r && r.n != null) res.friend = Number(r.n) || 0;
   } catch { /* 모름 */ }
   try {
     const r: any = await db.prepare(
-      `SELECT COUNT(*) AS n FROM warmup_session_log WHERE user_id = ? AND started_at >= ?`
-    ).bind(uid, sinceMs).first();
+      `SELECT COUNT(*) AS n FROM warmup_session_log WHERE user_id IN ${ids} AND started_at >= ?`
+    ).bind(...binds, sinceMs).first();
     if (r && r.n != null) res.warmup = Number(r.n) || 0;
   } catch { /* 모름 */ }
   return res;

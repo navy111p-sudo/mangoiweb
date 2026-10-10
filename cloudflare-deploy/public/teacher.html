@@ -1253,7 +1253,13 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var key = sel.value;
     if (!key && !cur){ return; }
     if (!key && !window.confirm(T('Clear this student\'s 4-week goal?', '이 학생의 4주 목표를 지울까요?'))){ sel.value = cur ? cur.key : ''; return; }
-    var msg = document.querySelector('[data-goal-msg="' + uid.replace(/"/g, '') + '"]');
+    /* 이미 목표가 있는데 다른 것으로 바꾸면 «새 4주» 가 처음부터 시작한다 — 한 번 묻는다. */
+    if (key && cur && cur.key !== key && !window.confirm(T('Replace the current goal? The new goal starts a new 4 weeks.', '지금 목표를 바꿀까요? 새 목표로 4주를 처음부터 다시 셉니다.'))){ sel.value = cur.key; return; }
+    /* 60초 자동 다시그리기가 저장 도중에 줄을 갈아 끼울 수 있다 — 응답 때 «지금 화면의» 칸을 다시 찾는다. */
+    var safeUid = uid.replace(/["\\]/g, '');
+    var curMsg = function(){ return document.querySelector('[data-goal-msg="' + safeUid + '"]'); };
+    var curSel = function(){ return document.querySelector('select.goal-pick[data-uid="' + safeUid + '"]'); };
+    var msg = curMsg();
     if (msg) msg.textContent = T('Saving…','저장 중…');
     sel.disabled = true;
     fetch('/api/teacher/portal?part=goal', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
@@ -1261,8 +1267,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       .then(function(r){ return r.json().catch(function(){ return null; }).then(function(j){ return { ok: r.ok, j: j }; }); })
       .then(function(x){
         if (!x.ok || !x.j || x.j.ok !== true){
-          sel.disabled = false; sel.value = cur ? cur.key : '';
-          if (msg) msg.textContent = T('Not saved','저장 안 됨') + (x.j && x.j.error ? ' (' + x.j.error + ')' : '');
+          var s2 = curSel() || sel, m2 = curMsg();
+          s2.disabled = false; s2.value = cur ? cur.key : '';
+          var why = T('Not saved','저장 안 됨') + (x.j && x.j.error ? ' (' + x.j.error + ')' : '');
+          if (m2) m2.textContent = why; else window.alert(why);
           return;
         }
         (DATA && DATA.classes || []).forEach(function(c){
@@ -1270,7 +1278,11 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         });
         if (DATA) renderClasses(DATA.classes || []);
       })
-      .catch(function(){ sel.disabled = false; sel.value = cur ? cur.key : ''; if (msg) msg.textContent = T('Not saved (network)','저장 안 됨(연결)'); });
+      .catch(function(){
+        var s2 = curSel() || sel, m2 = curMsg(), why = T('Not saved (network)','저장 안 됨(연결)');
+        s2.disabled = false; s2.value = cur ? cur.key : '';
+        if (m2) m2.textContent = why; else window.alert(why);
+      });
   });
   function now(){ return Date.now() + SKEW; }
   function hhmm(ts){

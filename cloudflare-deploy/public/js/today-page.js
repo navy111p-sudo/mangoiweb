@@ -124,8 +124,8 @@
     var pct = Math.max(4, Math.min(100, Math.round(day / days * 100)));
     $('td-h-goal').textContent = T('🗓 이번 달 목표 — 선생님이 정했어요', '🗓 This month\'s goal — set by your teacher');
     var p = GOAL.practice, pl = [];
-    if (p && p.friend != null) pl.push(T('A.i 친구 ' + p.friend + '번', 'A.i friend ' + p.friend + 'x'));
-    if (p && p.warmup != null) pl.push(T('웜업 ' + p.warmup + '번', 'Warm-up ' + p.warmup + 'x'));
+    if (p && p.friend != null) pl.push(T('A.i 친구에게 ' + p.friend + '번 말함', 'spoke to A.i friend ' + p.friend + 'x'));
+    if (p && p.warmup != null) pl.push(T('웜업 ' + p.warmup + '회', 'warm-up ' + p.warmup + ' sessions'));
     card.innerHTML = '<p class="gt">' + esc(isEn() ? g.en : g.ko) + '</p>' +
       '<div class="gbar"><div class="gfill" style="width:' + pct + '%"></div></div>' +
       '<p class="gm">' + esc(T(days + '일 중 ' + day + '일째', 'Day ' + day + ' of ' + days)) +

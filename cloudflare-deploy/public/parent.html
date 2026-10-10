@@ -531,8 +531,8 @@ function pdGoalHtml(g, en) {
   h += `<div style="display:block;height:8px;border-radius:99px;background:rgba(148,163,184,.25);overflow:hidden;margin:4px 0 6px"><div class="pd-goal-fill" style="display:block;height:100%;width:${pct}%;border-radius:99px;background:var(--pd-green)"></div></div>`;
   h += `<div style="font-size:13px;color:var(--pd-muted)">${T(days + '일 중 ' + day + '일째', 'Day ' + day + ' of ' + days)}`;
   const p = g.practice || null;
-  if (p && p.friend != null) h += ' · ' + T('A.i 친구 ' + (Number(p.friend) || 0) + '번', 'A.i friend ' + (Number(p.friend) || 0) + 'x');
-  if (p && p.warmup != null) h += ' · ' + T('웜업 ' + (Number(p.warmup) || 0) + '번', 'Warm-up ' + (Number(p.warmup) || 0) + 'x');
+  if (p && p.friend != null) h += ' · ' + T('A.i 친구에게 ' + (Number(p.friend) || 0) + '번 말함', 'spoke to A.i friend ' + (Number(p.friend) || 0) + 'x');
+  if (p && p.warmup != null) h += ' · ' + T('웜업 ' + (Number(p.warmup) || 0) + '회', 'warm-up ' + (Number(p.warmup) || 0) + ' sessions');
   h += '</div>';
   if (g.set_by_name) h += `<div style="font-size:12.5px;color:var(--pd-muted);margin-top:4px">${T('정한 선생님: ', 'Set by: ')}${esc(g.set_by_name)}</div>`;
   return h;

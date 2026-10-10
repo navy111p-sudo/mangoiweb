@@ -47,7 +47,8 @@ const strip = t => t.replace(/^[ \t]*\/\/.*$/gm, '');
 let M = null;
 try {
   const DC = await import(asData(stripTypeScriptTypes(rd(resolve(SRC, 'd1-chunk.ts')))));
-  globalThis.__SG = { ...DC };
+  const SA = await import(asData(stripTypeScriptTypes(rd(resolve(SRC, 'student-alias.ts')))));
+  globalThis.__SG = { ...DC, ...SA };
   M = await import(asData(inject(stripTypeScriptTypes(rd(G_FILE)), '__SG')));
 } catch (e) { console.log('  (정본 로드 실패: ' + e.message + ')'); }
 const run = f => { try { return f(); } catch (e) { return { __err: e.message }; } };
@@ -119,6 +120,22 @@ if (M) {
   db.prepare('INSERT INTO warmup_session_log VALUES (?,?)').run('kim', now + 9);
   const pr = await M.loadGoalPractice(D, 'kim', now);
   ok('목표 뒤 학생 발화만 센다(AI 답·이전·남의 계정 제외)', pr.friend === 1 && pr.warmup === 1, JSON.stringify(pr));
+  // 쌍둥이 계정(X ↔ mangoai_X, 이름이 같을 때만) — 강사는 수업 줄 계정에 적고 학생은 다른 쪽으로 로그인한다
+  db.exec(`CREATE TABLE students_erp (user_id TEXT PRIMARY KEY, korean_name TEXT, username TEXT)`);
+  const se = db.prepare('INSERT INTO students_erp VALUES (?,?,?)');
+  se.run('delaware', '김연숙', 'delaware'); se.run('mangoai_delaware', '김연숙', 'x');
+  se.run('jin', '박진', 'jin'); se.run('mangoai_jin', '다른사람', 'y');
+  await M.setStudentGoal(D, { uid: 'mangoai_delaware', key: 'likes_because', by: 'x', byName: 'x', nowMs: now });
+  await M.setStudentGoal(D, { uid: 'mangoai_jin', key: 'likes_because', by: 'x', byName: 'x', nowMs: now });
+  ok('쌍둥이 계정에 적힌 목표도 학생 로그인 계정에서 보인다', (await M.loadActiveGoal(D, 'delaware', now + 5))?.key === 'likes_because');
+  await M.setStudentGoal(D, { uid: 'delaware', key: 'describe', by: 'x', byName: 'x', nowMs: now - DAY });   // 내 계정엔 더 «옛» 목표
+  ok('두 계정에 다 있으면 «가장 최근에 정한» 목표', (await M.loadActiveGoal(D, 'delaware', now + 5))?.key === 'likes_because');
+  ok('짝: 이름이 다른 «쌍둥이 모양» 계정은 남이다', (await M.loadActiveGoal(D, 'jin', now + 5)) === null);
+  ch.run('mangoai_delaware', 'user', 'tw', now + 8); ch.run('delaware', 'user', 'me', now + 8);
+  const prT = await M.loadGoalPractice(D, 'delaware', now);
+  ok('연습도 쌍둥이 계정을 함께 센다', prT.friend === 2, JSON.stringify(prT));
+  const prJ = await M.loadGoalPractice(D, 'jin', now);
+  ok('짝: 이름이 다르면 안 섞는다', prJ.friend === 0, JSON.stringify(prJ));
   const pr2 = await M.loadGoalPractice(d1(db, /warmup_session_log/), 'kim', now);
   ok('못 센 재료는 null(0 으로 위장하지 않음)', pr2.friend === 1 && pr2.warmup === null, JSON.stringify(pr2));
   let thrown = null, em = null;
@@ -239,6 +256,8 @@ const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g,
   const se = si > 0 ? ui.indexOf('if (sig === lastSig) return;', si) : -1;
   const loop = (si > 0 && se > si) ? strip(ui.slice(si, se)) : '';
   ok('다시 그리기 지문에 목표가 들어 있다', /sc\.student_goal/.test(loop));
+  ok('목표를 바꿀 때 한 번 묻는다(새 4주가 시작됨)', /cur\.key !== key && !window\.confirm\(/.test(ui));
+  ok('저장 응답 때 «지금 화면의» 칸을 다시 찾는다(60초 다시그리기 대비)', /var s2 = curSel\(\) \|\| sel, m2 = curMsg\(\)/.test(ui) && /if \(m2\) m2\.textContent = why; else window\.alert\(why\);/.test(ui));
   ok('저장은 ?part=goal POST · 위임 리스너', /fetch\('\/api\/teacher\/portal\?part=goal', \{ method:'POST'/.test(ui) && /closest\('select\.goal-pick'\)/.test(ui));
 }
 {
@@ -258,7 +277,7 @@ const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g,
   const G = { ok: true, goal: { key: 'past_tense', ko: '과거형으로 지난 일 이야기하기', en: 'Past', day: 7, days: 28 }, practice: { friend: 4, warmup: null } };
   const r = mk(G, {});
   ok('목표가 있으면 칸을 보이고 이름·「28일 중 7일째」', r.ok && els['td-goal'].hidden === false && /과거형/.test(els['td-goal-card'].innerHTML) && /28일 중 7일째/.test(els['td-goal-card'].innerHTML), JSON.stringify(r) + els['td-goal-card']?.innerHTML);
-  ok('세어진 연습만 말한다(웜업 null 은 빼고 A.i 친구 4번)', /A\.i 친구 4번/.test(els['td-goal-card'].innerHTML) && !/웜업/.test(els['td-goal-card'].innerHTML));
+  ok('세어진 연습만 말한다(웜업 null 은 빼고 «A.i 친구에게 4번 말함» — 단위를 그대로)', /A\.i 친구에게 4번 말함/.test(els['td-goal-card'].innerHTML) && !/웜업/.test(els['td-goal-card'].innerHTML));
   ok('막대 폭 = 7/28 = 25%', /width:25%/.test(els['td-goal-card'].innerHTML));
   mk({ ok: true, goal: null }, {});
   ok('짝: 목표가 없으면 칸째 감춘다', els['td-goal'].hidden === true);
@@ -278,7 +297,7 @@ const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g,
   try { f = new Function('esc', 'return function(g, en)' + body)(esc); } catch (e) { ok('pdGoalHtml 만들기', false, e.message); }
   const call = (g, en) => { try { return f(g, en); } catch (e) { return '__ERR ' + e.message; } };
   const h = call({ key: 'past_tense', ko: '과거형', en: 'Past', day: 14, days: 28, set_by_name: 'Kaye', practice: { friend: 2, warmup: 3 } }, false);
-  ok('학부모: 목표·「28일 중 14일째」·연습·정한 선생님', /과거형/.test(h) && /28일 중 14일째/.test(h) && /A\.i 친구 2번/.test(h) && /웜업 3번/.test(h) && /Kaye/.test(h), h);
+  ok('학부모: 목표·「28일 중 14일째」·연습·정한 선생님', /과거형/.test(h) && /28일 중 14일째/.test(h) && /A\.i 친구에게 2번 말함/.test(h) && /웜업 3회/.test(h) && /Kaye/.test(h), h);
   ok('짝: 목표가 없으면 null(카드 감춤)', call(null, false) === null && call({}, false) === null);
   const h2 = call({ key: 'k', ko: '<b>x', en: 'x', day: 1, days: 28, set_by_name: '<img>', practice: { friend: null, warmup: null } }, false);
   ok('학부모: 못 센 연습은 안 그리고 글자를 탈출시킨다', !/A\.i 친구/.test(h2) && !/<img>/.test(h2) && !/<b>x/.test(h2), h2);
