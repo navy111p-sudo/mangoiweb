@@ -32,6 +32,7 @@ ok('화면에 «임시 수업»·«Temporary» 문구가 남지 않았다', !/�
 ok('새 수업 고르기 카드 이름이 «보강수업»', W.includes("(L?'보강수업':'Make-up class')"));
 const Q6 = rd('public/js/adm-q6.js');
 ok('강사 캘린더(adm-q6) 라벨도 «보강»', /'temp':'보강'/.test(Q6) && !/'보충'/.test(Q6));
-ok('adm-q6 ?v= 를 올렸다', /\/js\/adm-q6\.js\?v=16/.test(rd('public/admin.html')));
+// 2026-10-10: 숫자를 못 박으면 다음 수정마다 거짓 FAIL — «16 이상» 으로
+ok('adm-q6 ?v= 를 올렸다', +((rd('public/admin.html').match(/\/js\/adm-q6\.js\?v=(\d+)/) || [])[1] || 0) >= 16);
 console.log(`결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
