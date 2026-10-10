@@ -63,9 +63,15 @@ function _t(v: unknown, n: number): string {
   return String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
 }
 
+/** 활자 부호(‘’ “” – — …)를 ASCII 로 — 발음 코칭 ?say= 는 ASCII 만 받으므로 카드 문장도 맞춘다 */
+export function asciiPunct(s: string): string {
+  return s.replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"')
+          .replace(/[\u2013\u2014]/g, '-').replace(/\u2026/g, '...');
+}
+
 /** 교정 «쌍» 하나를 카드로 쓸 수 있는가 — 쓸 수 없으면 null(지어내지 않는다) */
 export function cleanPair(from: unknown, to: unknown, why: unknown): { from: string; to: string; why_ko: string } | null {
-  const f = _t(from, FIX_CARD_MAXLEN), t = _t(to, FIX_CARD_MAXLEN + 1);
+  const f = asciiPunct(_t(from, FIX_CARD_MAXLEN)), t = asciiPunct(_t(to, FIX_CARD_MAXLEN + 1));
   if (!f || !t) return null;
   if (t.length > FIX_CARD_MAXLEN) return null;                 // 잘린 문장을 따라 말하게 하지 않는다
   if (!isEnglishText(t, FIX_CARD_MAXLEN)) return null;         // 고친 문장은 반드시 영어

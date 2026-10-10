@@ -56,6 +56,8 @@ if (M) {
   ok('고친 영어 문장은 카드가 된다', !!run(() => M.cleanPair('I go school', 'I go to school.', '전치사 to')));
   ok('고친 문장이 영어가 아니면 버린다', run(() => M.cleanPair('나 학교 가', '나는 학교에 가', '')) === null);
   ok('대소문자·마침표만 다르면 버린다', run(() => M.cleanPair('i like dogs', 'I like dogs.', '')) === null);
+  const cp = run(() => M.cleanPair('I dont know', 'I don\u2019t know\u2026', ''));
+  ok('활자 부호(’ …)는 ASCII 로 바꿔 싣는다(발음 코칭 ?say= 가 받게)', cp && cp.to === "I don't know...", JSON.stringify(cp));
   ok('빈 값은 버린다', run(() => M.cleanPair('', 'I like dogs.', '')) === null && run(() => M.cleanPair('x', '', '')) === null);
   ok('너무 긴 고친 문장은 버린다(잘라 쓰지 않는다)', run(() => M.cleanPair('a', 'I ' + 'very '.repeat(40) + 'like it.', '')) === null);
 
@@ -187,6 +189,7 @@ console.log('④ 발음 코칭 ?say= — 오려 내 실행');
     ok('영어 문장을 받는다', say('?say=' + encodeURIComponent('I went to school.')) === 'I went to school.');
     ok('겹공백은 하나로', say('?say=' + encodeURIComponent('  I   went ')) === 'I went');
     ok('한글은 안 받는다', say('?say=' + encodeURIComponent('나는 학교에 갔다')) === '');
+    ok('활자 부호는 ASCII 로 바꿔 받는다', say('?say=' + encodeURIComponent('I don\u2019t know\u2026')) === "I don't know...");
     ok('영어에 한글이 섞여도 안 받는다', say('?say=' + encodeURIComponent('I like 김치.')) === '');
     ok('160자 넘으면 안 받는다', say('?say=' + encodeURIComponent('a'.repeat(161))) === '');
     ok('글자 없는 기호만이면 안 받는다', say('?say=' + encodeURIComponent('!!! ...')) === '');
@@ -251,7 +254,7 @@ console.log('⑤ 오늘의 A.i 학습 화면 — renderFix 를 가짜 DOM 으로
     return els;
   };
   const card = { to: 'I went to school.', from: 'I go school', why_ko: '과거형', source: 'warmup', practiced: 0, best_accuracy: null, lesson_title: '' };
-  const a = run({ ok: true, cards: [card] }, { sample: false }, false);
+  const a = run({ ok: true, cards: [card], sources: { practice: true } }, { sample: false }, false);
   ok('카드가 있으면 칸을 보인다', a['td-fix'].hidden === false && !a.err, a.err);
   ok('따라 말하기 링크가 ?say=<고친 문장>&from=today', a['td-fix-list'].innerHTML.includes('/speech-coach.html?say=' + encodeURIComponent('I went to school.').replace(/[&]/g, '&#38;') + '&#38;from=today'), a['td-fix-list'].innerHTML.slice(0, 300));
   ok('내가 한 말·이유가 그려진다', a['td-fix-list'].innerHTML.includes('I go school') && a['td-fix-list'].innerHTML.includes('과거형'));
@@ -264,8 +267,10 @@ console.log('⑤ 오늘의 A.i 학습 화면 — renderFix 를 가짜 DOM 으로
   ok('맛보기에서는 그리지 않는다', d['td-fix'].hidden === true);
   const e = run({ ok: false, cards: [card] }, { sample: false }, false);
   ok('ok 가 아니면 그리지 않는다', e['td-fix'].hidden === true);
-  const f = run({ ok: true, cards: [{ ...card, practiced: 2, best_accuracy: 88.4 }] }, { sample: false }, true);
+  const f = run({ ok: true, cards: [{ ...card, practiced: 2, best_accuracy: 88.4 }], sources: { practice: true } }, { sample: false }, true);
   ok('EN: 영어로 연습 기록을 말한다', f['td-fix-list'].innerHTML.includes('Practiced 2x') && f['td-fix-list'].innerHTML.includes('best 88'));
+  const g = run({ ok: true, cards: [card], sources: { practice: false } }, { sample: false }, false);
+  ok('연습 기록을 못 물어봤으면 «안 했다» 고 말하지 않는다', g['td-fix'].hidden === false && !g['td-fix-list'].innerHTML.includes('아직 연습 안 함') && !g['td-fix-list'].innerHTML.includes('class="pr'));
   ok('EN: 한국어 이유는 영어 화면에 안 그린다', !f['td-fix-list'].innerHTML.includes('과거형'));
   // 배선 — 계획을 그린 «뒤» 에 카드를 부르는가(성공 갈래 안)
   const li = s.indexOf('function load(');

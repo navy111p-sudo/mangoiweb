@@ -95,7 +95,9 @@
                      : (c.lesson_title ? T('수업에서 · ', 'From class · ') + c.lesson_title : T('수업에서', 'From class'));
       var n = Number(c.practiced) || 0;
       var best = (c.best_accuracy == null || !isFinite(Number(c.best_accuracy))) ? null : Math.round(Number(c.best_accuracy));
-      var pr = n ? T(n + '번 연습' + (best != null ? ' · 최고 ' + best + '점' : ''), 'Practiced ' + n + 'x' + (best != null ? ' · best ' + best : ''))
+      /* 연습 기록을 «못 물어봤으면»(sources.practice !== true) 아무 말도 안 한다 — «안 했다» 로 단정하지 않는다 */
+      var known = !!(FIX.sources && FIX.sources.practice === true);
+      var pr = !known ? '' : n ? T(n + '번 연습' + (best != null ? ' · 최고 ' + best + '점' : ''), 'Practiced ' + n + 'x' + (best != null ? ' · best ' + best : ''))
                  : T('아직 연습 안 함', 'Not practiced yet');
       return '<div class="card fix">' +
         '<span class="lab' + (warm ? ' warm' : '') + '">' + esc(lab) + '</span>' +
@@ -103,7 +105,7 @@
         '<p class="to">' + esc(c.to) + '</p>' +
         (c.why_ko && !isEn() ? '<p class="why">' + esc(c.why_ko) + '</p>' : '') +
         '<a class="go" href="' + esc(fixUrl(c)) + '">' + esc(T('🎤 따라 말하기', '🎤 Say it')) + '</a>' +
-        '<span class="pr' + (n ? ' ok' : '') + '">' + esc(pr) + '</span>' +
+        (pr ? '<span class="pr' + (n ? ' ok' : '') + '">' + esc(pr) + '</span>' : '') +
         '</div>';
     }).join('');
     box.hidden = false;

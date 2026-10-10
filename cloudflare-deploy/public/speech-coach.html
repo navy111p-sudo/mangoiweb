@@ -885,6 +885,7 @@ function markCourseCards(){
 function scSayFromUrl(search){
   var v = '';
   try { v = String((new URLSearchParams(search)).get('say') || ''); } catch(e){ return ''; }
+  v = v.replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"').replace(/[\u2013\u2014]/g, '-').replace(/\u2026/g, '...');   // 활자 부호 → ASCII
   v = v.replace(/\s+/g, ' ').trim();
   if (!v || v.length > 160) return '';
   if (!/^[\x20-\x7E]+$/.test(v)) return '';
