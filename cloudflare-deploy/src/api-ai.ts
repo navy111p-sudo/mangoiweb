@@ -2,6 +2,7 @@
 // 🤖 api-ai.ts — AI 영작 첨삭(AW) + AI 영어친구 챗봇(CF) (25차 분리)
 //   게임화 포인트/배지는 api-points·api-games 의 export 헬퍼 사용.
 // ═══════════════════════════════════════════════════════════════════════
+import { loadActiveGoal, goalPromptLine } from './student-goal';   // 🗓 4주 목표(2026-10-10)
 import { json } from './api-util';
 import { applyEmpathyGuard, FRIEND_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
 import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';
@@ -633,7 +634,7 @@ Student text: """${text}"""`;
       // 🐢 (2026-07-27) 응답 지연 최소화 — 서로 무관한 조회들을 순서대로 기다리지 않고 한꺼번에 보낸다.
       //   (gamSnapshot 은 "오늘 몇 번째 대화인가"를 이번 메시지가 기록된 뒤에 세야 정확해서
       //   여기서 같이 시작하지 않는다 — 채팅 로그 저장 이후에 계산한다.)
-      const [recent, st, wk, turns]: any[] = await Promise.all([
+      const [recent, st, wk, turns, goalNow]: any[] = await Promise.all([
         env.DB.prepare(`SELECT role, content FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT 20`).bind(uid).all(),
         env.DB.prepare(`SELECT english_name, korean_name, textbook, level FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first().catch(() => null),
         env.DB.prepare(`SELECT item, ko FROM game_progress WHERE user_id = ? AND lang = 'en' AND wrong_count > 0 AND wrong_count >= correct_count ORDER BY wrong_count DESC LIMIT 5`).bind(uid).all().catch(() => null),
@@ -645,6 +646,8 @@ Student text: """${text}"""`;
               그때도 뜹니다. 다만 «계속» 실패하면 turnNo 가 1 에 고정되어 «작은 실수는 두 번째부터»
               쪽이 멎는다(아래 게이트 주석). */
         env.DB.prepare(`SELECT COUNT(*) AS n FROM ai_friend_chats WHERE student_uid = ? AND role = 'assistant'`).bind(uid).first().catch(() => null),
+        // 🗓 강사가 정한 4주 목표(src/student-goal.ts) — 던지지 않는다(없으면 null).
+        loadActiveGoal(env.DB, uid, Date.now()),
       ]);
       const history = (recent.results || []).reverse();
 
@@ -687,6 +690,10 @@ Student text: """${text}"""`;
       const topicCtx = topic
         ? `\nThe student picked "${topic}" as a starting point. Open there, then FOLLOW THE STUDENT: if they bring up anything else — their dog, their day, a game, a feeling — get curious about THAT and stay with it. Only steer back to "${topic}" when the chat stalls and they have nothing to say.`
         : '';
+      /* 🗓 (2026-10-10) 강사가 정한 4주 목표 — 대화를 «그 연습 쪽으로 살짝» 기울인다.
+         ⛔ 목표는 사람(강사)이 정한다 — 여기서 AI 가 목표를 고르거나 바꾸지 않는다.
+         ⛔ «학생을 따라간다» 규칙을 이기지 않게 «기회가 될 때» 로만 쓴다(goalPromptLine 문구). */
+      const goalCtx = goalPromptLine(goalNow || null);
       /* 🎚 기초 단계(A1·A2)에서는 «길이를 늘리는 규칙» 을 끕니다.
          재미있는 사실 한 줄이 붙는 순간 3~5단어 문장은 지킬 수 없습니다 — 실측된 45단어짜리
          A1 답변이 정확히 그 모양이었습니다(칭찬+사실+설명+질문). 약점 단어 끼워 넣기도 같은 이유로
@@ -716,7 +723,7 @@ Student text: """${text}"""`;
         : '- Usually end with ONE short follow-up question — but when the student is telling you something they care about, react to THAT instead and let them keep going. Never ask two questions in one reply. Any question counts inside the sentence limit above.\n';
       const funFactRule = lvSpec.plain ? ''
         : '- Sprinkle in tiny fun facts kids enjoy when it fits — but the fact must be about whatever you are BOTH talking about right now. Never drag in a new subject just to share a fact.\n';
-      const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}${topicCtx}
+      const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}${topicCtx}${goalCtx}
 Rules:
 - Your name is ${friendName}. If the student asks your name, say "${friendName}" — never invent a different name.
 - LEVEL — this is the MOST IMPORTANT rule. Obey it even if it means dropping something else you wanted to say. ${lvSpec.rule}${studentAsked ? ' (Exception for THIS reply only: you may use one extra sentence so that your answer fits. Keep every word limit above.)' : ''}

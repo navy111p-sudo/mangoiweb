@@ -21,6 +21,7 @@ import { readParentWarmup } from './warmup-parent';   // 👪 웜업 횟수·고
 import { resolveStudentTrack } from './student-track';   // 🎯 화상수업 학생 / AI 전용 학생 판정 정본
 import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, sceneBookId, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
 import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
+import { loadActiveGoal, loadGoalPractice } from './student-goal';   // 🗓 4주 목표(2026-10-10)
 import { loadFixCards } from './fix-cards';   // 📝 «지난번에 틀린 문장 다시 말하기» 카드 정본(2026-10-10)
 
 export async function handleStudentsApi(
@@ -107,6 +108,12 @@ export async function handleStudentsApi(
          ⚠️ childUid(DB 표기)로 정확일치. 실패해도 대시보드는 그대로 뜬다(readParentWarmup 은 던지지 않는다). */
       let warmup: any = null;
       try { warmup = await readParentWarmup(env.DB, childUid, Date.now()); } catch { warmup = null; }
+      /* 🗓 (2026-10-10) 강사가 정한 4주 목표 + 그 뒤 연습 횟수 — 위 게이트 «뒤». 둘 다 던지지 않는다. */
+      let goal: any = null;
+      try {
+        const g = await loadActiveGoal(env.DB, childUid, Date.now());
+        if (g) goal = { ...g, practice: await loadGoalPractice(env.DB, childUid, g.set_at) };
+      } catch { goal = null; }
 
       return json({
         ok: true,
@@ -121,6 +128,7 @@ export async function handleStudentsApi(
         attendance: attSummary,
         payments: pays.results || [],
         warmup,
+        goal,
         generated_at: Date.now(),
       });
     }
@@ -527,6 +535,17 @@ ${MANGOI_KNOWLEDGE}`;
       if (String(url.searchParams.get('fixcards') || '') === '1') {
         const fc = await loadFixCards(env.DB, uid, Date.now());
         const res = json({ ok: true, cards: fc.cards, sources: fc.sources });
+        res.headers.set('Cache-Control', 'private, no-store');
+        return res;
+      }
+      /* 🗓 (2026-10-10) ?goal=1 — 강사가 정한 «4주 목표» 와 그 뒤 실제로 한 연습 횟수.
+         정본 student-goal.ts. 목표가 없으면 goal:null(화면은 칸을 감춘다). 연습 횟수를 못 세면 null(0 으로 위장하지 않음).
+         ⚠️ 위 게이트 «뒤» — 남의 목표를 캐는 길을 만들지 않는다. 던지지 않는다. */
+      if (String(url.searchParams.get('goal') || '') === '1') {
+        const nowG = Date.now();
+        const goal = await loadActiveGoal(env.DB, uid, nowG);
+        const practice = goal ? await loadGoalPractice(env.DB, uid, goal.set_at) : null;
+        const res = json({ ok: true, goal, practice });
         res.headers.set('Cache-Control', 'private, no-store');
         return res;
       }
