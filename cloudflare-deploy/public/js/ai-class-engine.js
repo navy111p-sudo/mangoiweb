@@ -67,7 +67,34 @@
     { n: 1, ko: '시작', en: 'Warm-up' }, { n: 2, ko: '도입', en: 'Look' }, { n: 3, ko: '본 수업', en: 'Learn' },
     { n: 4, ko: '연습', en: 'Practice' }, { n: 5, ko: '마무리', en: 'Wrap-up' }
   ];
-  var MAX_WARM = 2, MAX_PRACTICE = 3, MAX_FIND = 2;
+  var MAX_WARM = 2, MAX_PRACTICE = 3, MAX_FIND = 2, MAX_QUIZ = 3;
+  // 🎵 Hello Song (2026-10-10 사장님): 각 권의 첫 레슨(001)은 지금처럼 «듣고 따라 말하기», 그다음 레슨부터는 «노래» 로 부른다.
+  //  판정은 이 두 함수 하나뿐 — 페이지·하니스가 같은 것을 쓴다.
+  function isFirstLesson(book) { return /^BTS\s+\d+\s+\(?\s*001\b/i.test(String(book || '')); }
+  function isHelloSong(page) {
+    var ls = ((page && page.lines) || []).map(function (l) { return String(Array.isArray(l) ? l[0] : l); });
+    return ls.some(function (t) { return /\bhello,?\s+teacher\b/i.test(t); }) && ls.some(function (t) { return /\bhow are you\b/i.test(t); });
+  }
+  // ✏️ 빈칸 질문 — 방금 배운 문장에서 뜻 있는 낱말 하나를 가린다(지어내지 않는다: 문장·낱말 모두 교재 그대로)
+  function blankOf(say) {
+    var ws = String(say || '').split(/\s+/); if (tokens(say).length < 4) return null;
+    for (var i = ws.length - 1; i >= 1; i--) {
+      var core = ws[i].toLowerCase().replace(/[^a-z']/g, '');
+      if (!/^[a-z]{3,}$/.test(core) || STOP[core]) continue;
+      var pre = (ws[i].match(/^[^A-Za-z]*/) || [''])[0], post = (ws[i].match(/[^A-Za-z]*$/) || [''])[0];
+      var sh = ws.slice(), sp = ws.slice(); sh[i] = pre + '____' + post; sp[i] = pre + 'blank' + post;
+      return { word: core, shown: sh.join(' '), spoken: sp.join(' ') };
+    }
+    return null;
+  }
+  // 본 수업 질문으로 쓸 짝인가 — 교재에서 «질문 줄 바로 다음 줄» 이 늘 그 대답은 아니다(「What color is the car? → The rose is red.」).
+  //  질문과 대답이 뜻 있는 낱말을 하나 이상 나눠 갖거나, 「What is it/this/that?」 처럼 가리키는 질문일 때만 쓴다
+  function qaFits(q, a) {
+    if (/\bwhat(\s+is|'s)\s+(it|this|that)\b/i.test(q)) return true;
+    var aw = {}; tokens(a).forEach(function (w) { if (w.length >= 3 && !STOP[w]) aw[w] = 1; });
+    return tokens(q).some(function (w) { return w.length >= 3 && !STOP[w] && aw[w]; });
+  }
+  function pickEven(list, n) { if (list.length <= n) return list.slice(); var out = []; for (var k = 0; k < n; k++) out.push(list[Math.floor((k + 0.5) * list.length / n)]); return out; }
   function isQ(t) { return /\?["')]*$/.test(String(t).trim()); }
 
   // ── 주고받기(상호작용) ── 학생의 대답을 듣고 «그 대답에 맞춰» 말한다. 지어내지 않는다:
@@ -122,8 +149,11 @@
     opts = opts || {};
     var pages = unit.pages || [];
     var seen = {}, perPage = [];
+    var song = opts.song != null ? !!opts.song : !isFirstLesson(unit.book), songPage = -1;
+    if (song) pages.forEach(function (p, pi) { if (songPage < 0 && isHelloSong(p)) songPage = pi; });
     pages.forEach(function (p, pi) {
       var items = [];
+      if (pi === songPage) { perPage.push(items); return; }        // 노래로 부르므로 따라 말하기·찾기·질문에서 뺀다
       (p.lines || []).forEach(function (l, li) {
         var text = Array.isArray(l) ? l[0] : l, male = Array.isArray(l) && !!l[1];
         var k = kindOf(text); if (k === 'skip') return;
@@ -143,6 +173,7 @@
     var sum = quota.reduce(function (a, b) { return a + b; }, 0);
     while (sum > MAX_REPEAT) { var mx = quota.indexOf(Math.max.apply(null, quota)); if (quota[mx] <= 1) break; quota[mx]--; sum--; }
     var plan = [{ t: 'greet', stage: 1, free: 'I am happy!', frees: ['I am happy!', 'I am tired.', 'I am fine, thank you.', 'Not good.'] }], lastSig = null;
+    if (songPage >= 0) plan.push({ t: 'song', stage: 1, page: songPage, lines: pages[songPage].lines.map(function (l) { return String(Array.isArray(l) ? l[0] : l); }).filter(function (t) { return kindOf(t) !== 'skip'; }) });
     // 1 시작 — 지난 레슨의 문장(있을 때만). 지어내지 않는다: 지난 레슨이 없으면 건너뜀
     var prev = opts.prev, warmKeys = {};
     if (prev && prev.pages) {
@@ -198,9 +229,7 @@
         if (end >= 0) plan.splice(end + 1, 0, f);
       });
     }
-    // 3-ㄴ 본 수업이 길면 절반쯤에서 한 번 응원
-    if (main.length >= 10) { var mid = plan.indexOf(main[Math.floor(main.length / 2)]); if (mid > 0) plan.splice(mid, 0, { t: 'cheer', stage: 3 }); }
-    // 4 연습 — 같은 쪽에서 «질문 → 바로 다음 줄 대답» 짝을 찾는다. 없으면 배운 문장을 혼자 말하기
+    // 같은 쪽에서 «질문 → 바로 다음 줄 대답» 짝을 찾는다 — 본 수업 질문(3-ㄷ)과 연습(4)이 함께 쓴다
     var cand = [];
     perPage.forEach(function (it, pi) {
       for (var k = 0; k + 1 < it.length; k++) {
@@ -208,11 +237,34 @@
         if (qx.kind !== 'sentence' || !isQ(qx.say) || ax.kind !== 'sentence' || isQ(ax.say)) continue;
         if (!/^["'(]?[A-Z]/.test(ax.say)) continue;                 // 「in my backpack.」 같은 빈칸 조각은 대답이 아니다
         if (cand.some(function (p) { return p.say === ax.say; })) continue;
-        cand.push({ t: 'repeat', mode: 'qa', stage: 4, page: pi, line: ax.line, text: ax.text, say: ax.say, kind: 'sentence', male: ax.male, ask: qx.say, askMale: qx.male, qline: qx.line, qtext: qx.text, personal: isPersonalQ(qx.say), greet: /^how are you/i.test(qx.say) });
+        cand.push({ t: 'repeat', mode: 'qa', stage: 4, page: pi, line: ax.line, text: ax.text, say: ax.say, kind: 'sentence', male: ax.male, ask: qx.say, askMale: qx.male, qline: qx.line, qtext: qx.text, personal: isPersonalQ(qx.say), greet: /\bhow are you\b/i.test(qx.say) });
       }
     });
+    // 3-ㄷ 본 수업 «선생님 질문» (2026-10-10 사장님 «따라만 해서 재미없다 — 질문하면 대답하게»)
+    //  그 쪽에 «질문 → 대답» 짝이 있으면 그 질문을 묻고(ask), 없으면 그 쪽에서 배운 문장의 낱말 하나를 가려 묻는다(blank).
+    //  수업에 많아야 MAX_QUIZ 번, 그 쪽 공부가 끝난 바로 뒤. 질문·정답 모두 교재 그대로라 지어낼 자리가 없다.
+    var asks = [], blanks = [], usedQ = {};
+    perPage.forEach(function (it, pi) {
+      if (!it.length) return;
+      var pair = cand.filter(function (c) { return c.page === pi && !c.greet && qaFits(c.ask, c.say); })[0];
+      if (pair) { asks.push({ kind: 'ask', page: pi, c: pair }); return; }
+      var reps = main.filter(function (m) { return m.page === pi && m.kind === 'sentence'; });
+      for (var r = reps.length - 1; r >= 0; r--) { var b = blankOf(reps[r].say); if (b) { blanks.push({ kind: 'blank', page: pi, m: reps[r], b: b }); break; } }
+    });
+    var qa1 = pickEven(asks, Math.min(2, asks.length)), qpick = qa1.concat(pickEven(blanks, Math.max(0, MAX_QUIZ - qa1.length)));
+    qpick.sort(function (a, b) { return a.page - b.page; }).forEach(function (q) {
+      var step;
+      if (q.kind === 'ask') { usedQ[q.c.say] = 1; step = { t: 'repeat', mode: 'ask', quiz: 1, stage: 3, page: q.page, line: q.c.line, text: q.c.text, say: q.c.say, kind: 'sentence', male: q.c.male, ask: q.c.ask, askMale: q.c.askMale, qline: q.c.qline, personal: q.c.personal }; }
+      else step = { t: 'repeat', mode: 'blank', quiz: 1, stage: 3, page: q.page, line: q.m.line, text: q.m.text, say: q.m.say, kind: 'sentence', male: q.m.male, blank: q.b.word, shown: q.b.shown, spoken: q.b.spoken };
+      var end = -1; for (var x = 0; x < plan.length; x++) if (plan[x].stage === 3 && plan[x].page === q.page) end = x;
+      if (end >= 0) plan.splice(end + 1, 0, step);
+    });
+    // 3-ㄴ 본 수업이 길면 절반쯤에서 한 번 응원
+    if (main.length >= 10) { var mid = plan.indexOf(main[Math.floor(main.length / 2)]); if (mid > 0) plan.splice(mid, 0, { t: 'cheer', stage: 3 }); }
+    // 4 연습 — 짝이 있으면 묻고 답하기, 없으면 배운 문장을 혼자 말하기
     // 거의 모든 레슨 첫 쪽에 있는 인사(How are you?)는 «시작» 에서 이미 한 셈이라 연습 짝으로 안 쓴다
-    var prac = cand.filter(function (c) { return !c.greet; }).slice(0, MAX_PRACTICE);
+    // 본 수업에서 이미 물은 질문은 뒤로 — 같은 질문이 연달아 두 번 나오지 않게
+    var prac = cand.filter(function (c) { return !c.greet && !usedQ[c.say]; }).concat(cand.filter(function (c) { return !c.greet && usedQ[c.say]; })).slice(0, MAX_PRACTICE);
     prac.forEach(function (c) { delete c.greet; });
     if (!prac.length) {
       var pool = main.filter(function (m) { return m.kind === 'sentence'; });
@@ -309,6 +361,18 @@
     bye: [['You did it, {name}! You got {stars} stars today. See you next time. Goodbye!', '{name}, 해냈어요! 오늘 별을 {stars}개 받았어요. 다음에 또 만나요!'],
       ['Great class, {name}! {stars} stars today. See you soon. Bye!', '{name}, 멋진 수업이었어요! 오늘 별 {stars}개. 또 만나요!']],
     byePerfect: [['Wow, {name}! You got all {stars} stars! Perfect class. See you next time!', '와, {name}! 별 {stars}개를 다 받았어요! 완벽한 수업이에요. 다음에 또 만나요!']],
+    quizAsk: [['Question time! Look at the page and answer me.', '질문 시간! 책을 보고 대답해 봐요.'], ['Now I ask you a question. Ready?', '이번엔 선생님이 질문할게요. 준비됐어요?'],
+      ['Let\'s check! Can you answer this?', '확인해 볼까요? 이 질문에 대답할 수 있어요?'], ['Pop quiz! Listen to my question.', '깜짝 질문! 잘 들어 봐요.']],
+    quizBlank: [['Quick quiz! What word is missing? Say the whole sentence.', '깜짝 퀴즈! 빠진 낱말은 뭘까요? 문장을 다 말해 봐요.'], ['Fill in the blank! Listen.', '빈칸을 채워 봐요! 잘 들어요.'],
+      ['Memory game! One word is hiding. Can you find it?', '기억력 놀이! 낱말 하나가 숨었어요. 찾을 수 있어요?'], ['Let\'s see what you remember. Say the missing word!', '얼마나 기억하는지 볼까요? 빠진 낱말을 말해 봐요!']],
+    blankHint: [['Hint! It starts with "{c}".', '힌트! «{c}» 로 시작해요.'], ['Here is a hint: the first letter is "{c}".', '힌트예요: 첫 글자는 «{c}» 예요.'],
+      ['Think again! It begins with "{c}".', '다시 생각해 봐요! «{c}» 로 시작해요.']],
+    praiseQuiz: [['Correct! You know it!', '정답! 잘 알고 있네요!'], ['Yes! That\'s the answer!', '네! 그게 정답이에요!'], ['Bingo! Great thinking!', '빙고! 생각을 잘했어요!'], ['Right answer! Smart!', '맞혔어요! 똑똑해요!']],
+    ownAnswer: [['Great answer! Thank you for telling me about you.', '좋은 대답이에요! {name} 이야기를 해 줘서 고마워요.'], ['I love your answer!', '대답이 정말 마음에 들어요!'],
+      ['Interesting! That\'s a good answer.', '재미있어요! 좋은 대답이에요.']],
+    songIntro: [['Let\'s sing the Hello Song together! Listen and sing along.', '같이 Hello Song 을 불러요! 듣고 따라 불러 봐요.'], ['Song time! Sing the Hello Song with me.', '노래 시간! 저랑 Hello Song 을 불러요.'],
+      ['Clap your hands! It\'s the Hello Song.', '손뼉을 쳐요! Hello Song 이에요.']],
+    songOk: [['Great singing! Now let\'s start our lesson.', '노래 정말 잘했어요! 이제 수업을 시작해요.'], ['What a nice song! Let\'s begin.', '멋진 노래였어요! 시작해요.'], ['Lovely singing, {name}!', '{name}, 노래 최고예요!']],
     byeTry: [['Good work, {name}! You got {stars} stars. Let\'s practice more next time. Bye!', '{name}, 수고했어요! 별 {stars}개. 다음에 더 연습해요!']]
   };
 
@@ -391,6 +455,7 @@
     if (s.streak >= 3 && s.streak % 3 === 0) return 'praiseStreak';
     if (s.comeback) return 'praiseComeback';            // 바로 앞 문장을 놓쳤는데 이번엔 한 번에
     if (s.stars === 1) return 'praiseFirst';            // 오늘의 첫 별
+    if (st.quiz) return 'praiseQuiz';
     if (st.mode === 'swap') return 'praiseSwap';
     if (st.mode === 'warm') return 'praiseWarm';
     if (st.mode === 'qa') return 'praiseQa';
@@ -427,16 +492,19 @@
     if (st.t === 'intro') { s.page = st.page; s.view = st.page; out.push({ page: st.page }, { speak: line('intro', s) }); s.phase = 'teacher'; return; }
     if (st.t === 'page') { s.page = st.page; s.view = st.page; out.push({ page: st.page }, { speak: line('page', s) }); s.phase = 'teacher'; return; }
     if (st.t === 'cheer') { out.push({ speak: line('cheer', s) }); s.phase = 'teacher'; return; }
+    if (st.t === 'song') { s.page = st.page; s.view = st.page; out.push({ page: st.page }, { speak: line('songIntro', s) }, { song: { lines: st.lines, page: st.page } }, { speak: line('songOk', s) }); s.phase = 'teacher'; return; }
     if (st.t === 'find') { s.fwrong = 0; s.page = st.page; s.view = st.page; out.push({ page: st.page }, { speak: line('find', s, { w: st.word }), find: st.word }); s.phase = 'teacher'; return; }
     if (st.t === 'read') { out.push({ highlight: { page: st.page, line: st.line } }, { speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f' }); s.phase = 'teacher'; return; }
     if (st.t === 'repeat') {
       s.tries = 0;
       if (!st.prev) {
         if (s.page !== st.page) { s.page = st.page; s.view = st.page; out.push({ page: st.page }); }
-        out.push({ highlight: { page: st.page, line: st.line } });
+        if (!st.quiz) out.push({ highlight: { page: st.page, line: st.line } });   // 질문은 정답 줄을 미리 짚지 않는다
       }
       if (st.mode === 'warm') out.push({ speak: line('warm', s) }, { speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f', target: st.say, show: st.say });
       else if (st.mode === 'qa') out.push({ speak: line('qa', s) }, { speak: { en: st.ask, ko: '' }, voice: st.askMale ? 'm' : 'f', target: st.say });
+      else if (st.mode === 'ask') out.push({ speak: line('quizAsk', s) }, { speak: { en: st.ask, ko: '' }, voice: st.askMale ? 'm' : 'f', target: st.say, show: st.ask });
+      else if (st.mode === 'blank') out.push({ speak: line('quizBlank', s) }, { speak: { en: st.spoken, ko: '' }, voice: 'f', target: st.say, show: st.shown });
       else if (st.mode === 'swap') out.push({ speak: line('swap', s) }, { speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f', target: st.say });
       else if (st.mode === 'solo') out.push({ speak: line('solo', s), target: st.say });   // 선생님이 먼저 읽어 주지 않는다
       else out.push({ speak: line(st.kind === 'word' ? 'word' : 'repeat', s) }, { speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f', target: st.say });
@@ -446,7 +514,7 @@
       if (!s.inReview && s.missed.length) {
         s.inReview = true;
         var again = s.missed.slice(0, MAX_REVIEW);
-        var extra = again.map(function (m) { return { t: 'repeat', mode: m.mode === 'qa' ? 'qa' : 'main', stage: 5, prev: m.prev, ask: m.ask, askMale: m.askMale, page: m.page, line: m.line, text: m.text, say: m.say, kind: m.kind, male: m.male, review: 1 }; });
+        var extra = again.map(function (m) { return { t: 'repeat', mode: m.mode === 'qa' || m.mode === 'ask' ? 'qa' : 'main', stage: 5, prev: m.prev, ask: m.ask, askMale: m.askMale, page: m.page, line: m.line, text: m.text, say: m.say, kind: m.kind, male: m.male, review: 1 }; });
         s.plan = s.plan.slice(0, s.i).concat(extra, [{ t: 'wrap' }]);
         s.missed = s.missed.slice(again.length);
         out.push({ speak: line('review', s) });
@@ -500,11 +568,19 @@
         }
         s.quietRun = ev.type === 'silence' ? (s.quietRun || 0) + 1 : 0;
         var sc = score(st.say, said), yn = st.personal ? yesNoOf(said) : '', miss = missingWords(st.say, said);
+        // 빈칸 질문은 «빠진 낱말» 하나만 말해도 정답이다
+        if (st.mode === 'blank' && st.blank && tokens(said).concat(looseTokens(said)).indexOf(st.blank) >= 0) { sc = Math.max(sc, 1); miss = []; }
         s.tries++;
         // 나에 대한 질문(Do you ...?) 에 «Yes/No» 로 자기 대답을 하면 그것도 맞는 대답이다
         var own = !!yn && sc < PASS && tokens(said).length >= 1;
-        out.push({ result: { score: own ? 1 : sc, pass: own || sc >= PASS, text: st.say, said: said, missing: own ? [] : miss, own: own } });
-        if (own) {
+        // 나에 대한 질문(«your favorite …?»)에 자기 이야기로 대답하면(질문의 뜻 있는 낱말을 넣어 3낱말 이상) 그것도 맞는 대답이다
+        var ownTalk = !own && sc < PASS && (st.mode === 'ask' || st.mode === 'qa') && /\byou(r)?\b/i.test(st.ask || '') && tokens(said).length >= 3 && qaFits(st.ask, said);
+        out.push({ result: { score: own || ownTalk ? 1 : sc, pass: own || ownTalk || sc >= PASS, text: st.say, said: said, missing: own || ownTalk ? [] : miss, own: own || ownTalk } });
+        if (ownTalk) {
+          s.stars++; s.streak = s.tries === 1 ? s.streak + 1 : 0; s.comeback = false;
+          out.push({ star: s.stars }, { speak: withWow(line('ownAnswer', s), s), reply: 'ownTalk', praise: 'praiseQuiz' }, { speak: line('bookSays', s) }, { speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f' });
+          s.phase = 'teacher'; s.i++; s.pend = 1;
+        } else if (own) {
           s.stars++; s.streak = s.tries === 1 ? s.streak + 1 : 0; s.comeback = false;
           out.push({ star: s.stars }, { speak: withWow(line(yn === 'yes' ? 'personalYes' : 'personalNo', s), s), reply: 'own' }, { speak: line('bookSays', s) }, { speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f' });
           s.phase = 'teacher'; s.i++; s.pend = 1;
@@ -513,6 +589,7 @@
           var pk = praiseKey(st, s, sc); s.comeback = false;
           out.push({ star: s.stars }, { speak: withWow(line(pk, s, { n: s.streak, w: String(st.say).replace(/[.!?,]+$/, '') }), s), praise: pk });
           if (st.mode === 'swap' && st.answer) out.push({ speak: { en: st.answer, ko: '' }, voice: st.answerMale ? 'm' : 'f' });
+          if (st.mode === 'blank') out.push({ speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f', show: st.say });   // 맞힌 뒤 문장 전체를 한 번 들려준다
           if (miss.length && st.kind !== 'word') out.push({ speak: line('passMissing', s, { w: miss.join(' ') }), reply: 'passMissing' });
           s.phase = 'teacher'; s.i++; s.pend = 1;
         } else if (s.tries >= MAX_TRIES) {
@@ -523,6 +600,11 @@
         } else {
           var partial = ev.type !== 'silence' && miss.length && miss.length < tokens(st.say).length && st.kind !== 'word';
           var key = ev.type === 'silence' ? (s.quietRun >= 2 ? 'checkIn' : 'quiet') : partial && s.tries === 1 ? 'missing' : (s.tries === 1 ? 'retry' : 'hint');
+          if (st.mode === 'blank' && s.tries === 1) {      // 빈칸: 첫 번째엔 정답을 말하지 않고 첫 글자만 알려 준다
+            out.push({ speak: line('blankHint', s, { c: st.blank.charAt(0) }), reply: 'blankHint' }, { speak: { en: st.spoken, ko: '' }, voice: 'f', rate: 0.85, target: st.say, show: st.shown });
+          } else if (st.mode === 'ask' && s.tries === 1) { // 질문: 한 번 더 묻는다(정답은 두 번째에 들려준다)
+            out.push({ speak: line(key, s, { w: miss.join(' ') }), reply: key }, { speak: { en: st.ask, ko: '' }, voice: st.askMale ? 'm' : 'f', rate: 0.85, target: st.say, show: st.ask });
+          } else
           out.push({ speak: line(key, s, { w: miss.join(' ') }), reply: key }, { speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f', rate: s.tries >= 2 ? 0.7 : 0.85, target: st.say, bigText: s.tries >= 2 });
           s.phase = 'teacher';
         }
@@ -549,7 +631,7 @@
         s.phase = 'teacher'; s.i++; s.pend = 1;
         break;
       case 'replay':
-        if (s.phase === 'await' && st && st.t === 'repeat') out.push({ speak: { en: st.mode === 'qa' ? st.ask : st.say, ko: '' }, voice: (st.mode === 'qa' ? st.askMale : st.male) ? 'm' : 'f', rate: ev.slow ? 0.7 : 1, target: st.say, replay: true });
+        if (s.phase === 'await' && st && st.t === 'repeat') out.push({ speak: { en: st.mode === 'qa' || st.mode === 'ask' ? st.ask : st.mode === 'blank' ? st.spoken : st.say, ko: '' }, voice: (st.mode === 'qa' || st.mode === 'ask' ? st.askMale : st.mode === 'blank' ? false : st.male) ? 'm' : 'f', rate: ev.slow ? 0.7 : 1, target: st.say, replay: true });
         break;
       case 'browse':
         var p = Math.max(0, Math.min(s.pages - 1, ev.page | 0)); s.view = p; out.push({ view: p });
@@ -565,6 +647,6 @@
   function seriesOf(u) { var b = String(u && u.book || ''); var m = b.match(/^(BTS \d+|NEW SIU (?:BASIC|ADVANCE))\b/i); return m ? m[1].toUpperCase() : ''; }
   function prevUnitOf(units, k) { var a = units[k], b = units[k - 1]; return a && b && seriesOf(a) && seriesOf(a) === seriesOf(b) ? b : null; }
 
-  var api = { feelOf: feelOf, missingWords: missingWords, pageWords: pageWords, isPersonalQ: isPersonalQ, STAGES: STAGES, prevUnitOf: prevUnitOf, create: create, step: step, buildPlan: buildPlan, score: score, tokens: tokens, kindOf: kindOf, speakable: speakable, MAX_REPEAT: MAX_REPEAT, MAX_TRIES: MAX_TRIES, PASS: PASS, MAX_REVIEW: MAX_REVIEW, T: T, praiseKey: praiseKey, MAX_FIND: MAX_FIND };
+  var api = { qaFits: qaFits, isFirstLesson: isFirstLesson, isHelloSong: isHelloSong, blankOf: blankOf, feelOf: feelOf, missingWords: missingWords, pageWords: pageWords, isPersonalQ: isPersonalQ, STAGES: STAGES, prevUnitOf: prevUnitOf, create: create, step: step, buildPlan: buildPlan, score: score, tokens: tokens, kindOf: kindOf, speakable: speakable, MAX_REPEAT: MAX_REPEAT, MAX_TRIES: MAX_TRIES, PASS: PASS, MAX_REVIEW: MAX_REVIEW, T: T, praiseKey: praiseKey, MAX_FIND: MAX_FIND };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.AiClass = api;
 })(this);
