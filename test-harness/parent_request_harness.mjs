@@ -125,6 +125,14 @@ if (M) {
   ok('짝: id 가 숫자가 아니면 거절', (await M.markParentRequestDone(D, { uid: 'lee', id: 'x', by: 't', byName: 'T', nowMs: now })).ok === false);
   ok('반영한 요청은 14일 동안 «반영함» 으로 보인다', (await M.loadParentRequest(D, 'lee', now + 13 * DAY))?.status === 'done');
   ok('…14일이 지나면 안 보인다(다시 고르기)', (await M.loadParentRequest(D, 'lee', now + 15 * DAY)) === null);
+  // 함정 대조(2026-10-10): 반영 → 새 요청 → 그 새 요청 취소 — 옛 «반영함» 이 되살아나면 안 된다.
+  const pk = (await M.setParentRequest(D, { uid: 'park', key: 'review', nowMs: now })).request;
+  await M.markParentRequestDone(D, { uid: 'park', id: pk.id, by: 't', byName: 'T', nowMs: now + 1 });
+  await M.setParentRequest(D, { uid: 'park', key: 'grammar', nowMs: now + 5 });
+  ok('짝: 반영 뒤 새 요청을 보내면 그것이 보인다', (await M.loadParentRequest(D, 'park', now + 6))?.key === 'grammar');
+  await M.setParentRequest(D, { uid: 'park', key: '', nowMs: now + 7 });
+  ok('그 새 요청을 취소하면 옛 «반영함» 이 되살아나지 않는다', (await M.loadParentRequest(D, 'park', now + 8)) === null);
+  ok('…강사 화면(여러 학생 조회)도 마찬가지', !(await M.loadParentRequests(D, ['park'], now + 8)).has('park'));
 
   /* 쌍둥이 계정 — 학부모는 로그인 계정(delaware)에 적고, 강사 수업 줄은 mangoai_delaware 일 수 있다 */
   await M.setParentRequest(D, { uid: 'delaware', key: 'review', nowMs: now });

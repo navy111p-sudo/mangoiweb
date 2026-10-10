@@ -22,8 +22,8 @@ import { resolveStudentTrack } from './student-track';   // 🎯 화상수업 �
 import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, sceneBookId, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
 import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { loadActiveGoal, loadGoalPractice } from './student-goal';   // 🗓 4주 목표(2026-10-10)
-import { loadFixCards } from './fix-cards';
-import { loadParentRequest, setParentRequest, PARENT_REQUESTS } from './parent-request';   // 👪 학부모 요청 → 선생님 반영 확인(2026-10-10)   // 📝 «지난번에 틀린 문장 다시 말하기» 카드 정본(2026-10-10)
+import { loadFixCards } from './fix-cards';   // 📝 «지난번에 틀린 문장 다시 말하기» 카드 정본(2026-10-10)
+import { loadParentRequest, setParentRequest, PARENT_REQUESTS } from './parent-request';   // 👪 학부모 요청 → 선생님 반영 확인(2026-10-10)
 
 export async function handleStudentsApi(
   request: Request,

@@ -106,13 +106,17 @@ export async function loadParentRequests(db: any, uids: string[], nowMs: number)
     const all = Array.from(owner.keys());
     const rows = await selectInChunks<any>(db, all,
       (ph) => `SELECT id, student_uid, req_key, created_at, status, done_by_name, done_at FROM parent_requests
-                WHERE student_uid IN (${ph}) AND status IN ('open', 'done')
+                WHERE student_uid IN (${ph})
                 ORDER BY created_at DESC, id DESC`);
+    // ⚠️ «가장 최근 행 하나» 가 결정한다 — 상태를 먼저 거르면 학부모가 새 요청을 «취소» 한 뒤
+    //    14일 안의 옛 «반영함» 이 다시 최신으로 살아난다(함정 대조 2026-10-10). 최신이 cleared/replaced 면 «요청 없음».
+    const decided = new Set<string>();
     for (const r of rows) {
       const v = parentReqView(r, nowMs);
-      if (!v) continue;
       for (const u of owner.get(String(r.student_uid || '')) || []) {
-        if (!out.has(u)) out.set(u, v);       // 가장 최근 것 하나
+        if (decided.has(u)) continue;
+        decided.add(u);
+        if (v) out.set(u, v);
       }
     }
   } catch { /* 표가 아직 없거나 조회 실패 — 요청 없음 */ }

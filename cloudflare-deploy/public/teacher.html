@@ -1330,6 +1330,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       body: JSON.stringify({ student_uid: uid, request_id: id }) })
       .then(function(r){ return r.json().catch(function(){ return null; }).then(function(j){ return { ok: r.ok, j: j }; }); })
       .then(function(x){
+        if (x.j && x.j.error === 'not_open'){   // 그사이 학부모가 바꾸거나 취소 — 옛 줄을 남기지 말고 다시 읽는다
+          window.alert(T('The parent changed or cancelled this request. Reloading.', '학부모가 그사이 요청을 바꾸거나 취소했습니다. 다시 불러옵니다.'));
+          load(true); return;
+        }
         if (!x.ok || !x.j || x.j.ok !== true){ fail(T('Not saved','저장 안 됨') + (x.j && x.j.error ? ' (' + x.j.error + ')' : '')); return; }
         (DATA && DATA.classes || []).forEach(function(c){
           if (c.kind === 'class' && String(c.student_uid || '') === uid){ if (x.j.parent_request) c.parent_request = x.j.parent_request; else delete c.parent_request; }
