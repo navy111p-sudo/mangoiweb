@@ -68,12 +68,52 @@
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { d.__http = r.status; return d; }); })
       .then(function (d) {
         /* «성공이라고 말했는가» 로 판정한다 — 관문이 빠진 404 본문에는 ok 칸이 없다(CLAUDE.md 「새 API 추가」) */
-        if (d && d.ok === true && d.plan) { DATA = d; render(); return; }
+        if (d && d.ok === true && d.plan) { DATA = d; render(); loadFix(u); return; }
         if (d.__http === 401) { show('td-login'); return; }
         if (d.__http === 404) { status(T('계정을 찾지 못했어요. 학원에 문의해 주세요.', 'Account not found — please contact your academy.'), true); return; }
         status(T('지금은 계획을 읽지 못했어요. 잠시 뒤 다시 열어 주세요.', 'Could not load the plan. Please try again shortly.'), true);
       })
       .catch(function () { status(T('연결이 끊겼어요. 인터넷을 확인해 주세요.', 'Connection failed. Check your internet.'), true); });
+  }
+
+  /* ═══ 📝 «지난번에 틀린 문장 다시 말하기» (2026-10-10, 경쟁사 분석 적용 ①) ═══
+     서버 정본 fix-cards.ts(?fixcards=1)가 고른 카드(최대 3장)만 그린다 — 화면은 문장을 고르지 않는다.
+     · 카드가 0장이거나 못 읽으면 칸째 감춘다(«없다» 를 고장처럼 보이게 하지 않는다).
+     · 맛보기(로그인 안 함)에서는 부르지 않는다 — 남의 문장이 없고, 지어내지도 않는다.
+     · «🎤 따라 말하기» 는 발음 코칭을 ?say=<고친 문장> 으로 연다(채점은 그 화면 그대로). */
+  var FIX = null;
+  function fixUrl(c) { return '/speech-coach.html?say=' + encodeURIComponent(c.to) + '&from=today'; }
+  function renderFix() {
+    var box = $('td-fix'), list = $('td-fix-list');
+    if (!box || !list) return;
+    var cards = (FIX && FIX.ok === true && Array.isArray(FIX.cards)) ? FIX.cards : [];
+    if (!cards.length || (DATA && DATA.sample)) { box.hidden = true; list.innerHTML = ''; return; }
+    $('td-h-fix').textContent = T('📝 지난번에 틀린 문장 — 다시 말해 봐요', '📝 Sentences to fix — say them again');
+    list.innerHTML = cards.map(function (c) {
+      var warm = c.source === 'warmup';
+      var lab = warm ? T('웜업에서', 'From warm-up')
+                     : (c.lesson_title ? T('수업에서 · ', 'From class · ') + c.lesson_title : T('수업에서', 'From class'));
+      var n = Number(c.practiced) || 0;
+      var best = (c.best_accuracy == null || !isFinite(Number(c.best_accuracy))) ? null : Math.round(Number(c.best_accuracy));
+      var pr = n ? T(n + '번 연습' + (best != null ? ' · 최고 ' + best + '점' : ''), 'Practiced ' + n + 'x' + (best != null ? ' · best ' + best : ''))
+                 : T('아직 연습 안 함', 'Not practiced yet');
+      return '<div class="card fix">' +
+        '<span class="lab' + (warm ? ' warm' : '') + '">' + esc(lab) + '</span>' +
+        '<p class="from">' + esc(T('내가 한 말: ', 'I said: ') + c.from) + '</p>' +
+        '<p class="to">' + esc(c.to) + '</p>' +
+        (c.why_ko && !isEn() ? '<p class="why">' + esc(c.why_ko) + '</p>' : '') +
+        '<a class="go" href="' + esc(fixUrl(c)) + '">' + esc(T('🎤 따라 말하기', '🎤 Say it')) + '</a>' +
+        '<span class="pr' + (n ? ' ok' : '') + '">' + esc(pr) + '</span>' +
+        '</div>';
+    }).join('');
+    box.hidden = false;
+  }
+  function loadFix(u) {
+    if (!u || !u.uid) { FIX = null; renderFix(); return; }
+    fetch('/api/student/today?fixcards=1&uid=' + encodeURIComponent(u.uid) + '&token=' + encodeURIComponent(tok()), { credentials: 'include' })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (d) { FIX = d; renderFix(); })
+      .catch(function () { FIX = null; renderFix(); });   // 못 읽으면 칸만 감춘다 — 오늘 계획은 그대로
   }
 
   /* 서버 레벨 → 도구 키. 비어 있을 때만. (웜업 1~8 · AI 친구 S1~S8 = 같은 눈금) */
@@ -235,6 +275,6 @@
   window.addEventListener('pageshow', function (e) { if (e.persisted) load(); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden && DATA) load(); });
   /* 언어 토글 — 발행처가 화면마다 다르다(document / window). 둘 다 듣는다(CLAUDE.md 2장). */
-  window.addEventListener('mangoi:lang-changed', function () { if (DATA) render(); });
-  document.addEventListener('mangoi:lang-changed', function () { if (DATA) render(); });
+  window.addEventListener('mangoi:lang-changed', function () { if (DATA) { render(); renderFix(); } });
+  document.addEventListener('mangoi:lang-changed', function () { if (DATA) { render(); renderFix(); } });
 })();

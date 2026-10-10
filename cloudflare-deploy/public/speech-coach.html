@@ -877,13 +877,28 @@ function markCourseCards(){
     });
   });
 }
+/* 📝 ?say= 딥링크 (2026-10-10) — «오늘의 A.i 학습» 의 «지난번에 틀린 문장» 카드가 고친 문장을 실어 보낸다.
+   ⚠️ 받은 문장이 있으면 코스 이어서 하기를 «건너뛴다» — selectCourse 가 나중에 단계 문장으로 덮어쓰기 때문.
+   ⛔ 영어(ASCII 인쇄가능)·160자 이하·글자 1개 이상만 받는다 — 아니면 예전처럼 코스로(지어내지 않음).
+   ⛔ 단계 저장(saveStep)은 안 한다 — 학생이 하던 코스 진도를 이 한 문장이 바꾸면 안 된다. */
+function scSayFromUrl(search){
+  var v = '';
+  try { v = String((new URLSearchParams(search)).get('say') || ''); } catch(e){ return ''; }
+  v = v.replace(/\s+/g, ' ').trim();
+  if (!v || v.length > 160) return '';
+  if (!/^[\x20-\x7E]+$/.test(v)) return '';
+  if (!/[A-Za-z]/.test(v)) return '';
+  return v;
+}
 /* 이어서 하기 + ?course= 딥링크 (옛 pages.dev 링크의 course 값과 동일: phonics|bts|siu) */
 try {
+  var _qsSay = scSayFromUrl(location.search);
   var _qsCourse = (new URLSearchParams(location.search)).get('course');
   if (_qsCourse === 'siu-basic' || _qsCourse === 'siu-advance') _qsCourse = 'siu';
   var _savedPos = null;
   try { _savedPos = JSON.parse(localStorage.getItem('mangoi_speech_course_pos') || 'null'); } catch(e){}
-  if (_qsCourse && COURSES[_qsCourse]) selectCourse(_qsCourse);
+  if (_qsSay) setTarget(_qsSay);
+  else if (_qsCourse && COURSES[_qsCourse]) selectCourse(_qsCourse);
   else if (_savedPos && COURSES[_savedPos.course]) selectCourse(_savedPos.course);
 } catch(e){}
 
