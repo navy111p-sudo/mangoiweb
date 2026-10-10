@@ -31,6 +31,7 @@ import { loadHoldRanges, heldOnFor } from './absence-hold';   // ⏸ 연속 결�
 import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인계 카드(2026-10-10)
+import { loadActiveGoals, setStudentGoal, goalByKey, GOALS } from './student-goal';   // 🗓 4주 목표(2026-10-10)
 
 interface TeacherEnv {
   DB: D1Database;
@@ -103,7 +104,11 @@ export async function handleTeacherApi(
   const path = url.pathname;
   const method = request.method;
 
-  if (path !== '/api/teacher/portal' || method !== 'GET') return null;
+  /* 🗓 `POST ?part=goal` — 강사가 학생의 «4주 목표» 를 고른다(2026-10-10, src/student-goal.ts).
+   *  같은 경로에 얹는 이유는 `?part=my_evals` 와 같다(신원 판정 한 벌·index.ts 게이트 재등록 없음).
+   *  ⚠️ 권한 = «이 강사의 오늘 수업 학생» — 아래에서 classes 를 다 만든 뒤에 확인한다. */
+  const isGoalPost = method === 'POST' && url.searchParams.get('part') === 'goal';
+  if (path !== '/api/teacher/portal' || (method !== 'GET' && !isGoalPost)) return null;
 
   /* 🔔 `?only=next` — «다음 수업 하나» 만 돌려주는 초경량 모드 (2026-08-09)
    *
@@ -1005,6 +1010,40 @@ export async function handleTeacherApi(
     }
   } catch (e) { console.warn('[teacher-portal] handover:', (e as any)?.message); }
 
+  /* 🗓 4주 목표 — 오늘 학생마다 «지금 목표» 를 싣는다(없으면 안 싣는다 → 화면이 «목표 정하기» 를 그린다).
+   *  loadActiveGoals 는 던지지 않는다(표가 없으면 빈 Map). */
+  if (!onlyNext) try {
+    const gUids = classes.filter((c: any) => c.kind === 'class' && c.student_uid).map((c: any) => String(c.student_uid));
+    if (gUids.length) {
+      const gBy = await loadActiveGoals(env.DB, gUids, now);
+      for (const c of (classes as any[])) {
+        const g = gBy.get(String(c.student_uid || ''));
+        if (g && c.kind === 'class') c.student_goal = g;
+      }
+    }
+  } catch (e) { console.warn('[teacher-portal] goal:', (e as any)?.message); }
+
+  /* 🗓 목표 정하기·지우기 — «오늘 이 강사 수업의 학생» 만(classes 가 곧 권한 범위).
+   *  ⛔ 클라이언트가 보낸 uid 를 그대로 믿지 않는다 — 목록에 있는지 «정확일치» 로 확인한다(Kim/kim 은 다른 계정). */
+  if (isGoalPost) {
+    let b: any = {};
+    try { b = await request.json(); } catch { b = {}; }
+    const uid = String((b && b.student_uid) || '').trim();
+    const key = String((b && b.goal_key) || '').trim();
+    if (!uid) return json({ ok: false, error: 'student_uid_required' }, 400);
+    if (key && !goalByKey(key)) return json({ ok: false, error: 'unknown_goal' }, 400);
+    const mine = classes.some((c: any) => c.kind === 'class' && String(c.student_uid || '') === uid);
+    if (!mine) return json({ ok: false, error: 'not_your_student' }, 403);
+    try {
+      const r = await setStudentGoal(env.DB, { uid, key, by: String(actor.username || ''), byName: String(actor.name || actor.username || ''), nowMs: now });
+      if (!r.ok) return json(r, 400);
+      return json({ ok: true, goal: r.goal });
+    } catch (e) {
+      console.warn('[teacher-portal] goal save:', (e as any)?.message);
+      return json({ ok: false, error: 'db_error' }, 500);
+    }
+  }
+
   /* 🔔 `?only=next` — 여기서 끝낸다. 아래 매니저 블록·주간 스케줄·반환문은 타지 않는다.
    *
    *  고르는 규칙: «아직 안 끝난 것 중 가장 이른 하나». 끝난 수업은 배너로 부를 이유가 없다.
@@ -1159,6 +1198,8 @@ export async function handleTeacherApi(
   return json({
     ok: true,
     now, today: todayStr,
+    // 🗓 4주 목표 보기 — 화면이 목록을 따로 들고 있지 않게 서버 정본(student-goal.ts GOALS)을 그대로 내려준다.
+    goal_options: GOALS.map((g) => ({ key: g.key, ko: g.ko, en: g.en })),
     me: {
       username: actor.username, name: actor.name, role: actor.role,
       is_teacher: !isManager, is_manager: isManager, lang,

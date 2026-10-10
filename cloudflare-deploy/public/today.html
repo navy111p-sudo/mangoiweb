@@ -88,6 +88,11 @@
              background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1a1200; }
   .fix .pr { color:var(--muted); font-size:12.5px; margin-left:6px; }
   .fix .pr.ok { color:var(--ok); }
+  /* 🗓 (2026-10-10) 4주 목표 — 막대는 «시간» 진행(N/28일)이지 «달성률» 이 아니다. 채움은 div(인라인이면 폭이 안 먹는다). */
+  .goal .gt { font-size:16px; font-weight:900; margin:0 0 6px; color:var(--text); }
+  .goal .gbar { display:block; height:8px; border-radius:99px; background:rgba(148,163,184,.25); overflow:hidden; margin:4px 0 6px; }
+  .goal .gfill { display:block; height:100%; border-radius:99px; background:var(--ok); }
+  .goal .gm { color:var(--muted); font-size:12.5px; margin:0; }
   /* ── 주간표 «이번 주 리듬 띠» (2026-09-04 사장님이 4안 중 «C + 오늘만 B처럼 펼치기» 를 고름)
      예전에는 칸마다 이모지를 2~3개씩 늘어놓고 밑에 범례를 한 줄로 눌러 두었다. 🎤 가 음성코치인지
      🧠 가 복습퀴즈인지 알려면 범례를 읽어야 해서, «오늘 뭐 하지»에는 답이 되는데
@@ -206,6 +211,12 @@
     <!-- 🎬 처음 온 사람에게만(아직 레벨이 없을 때) 뜬다. 닫으면 다시 안 뜬다. -->
     <div class="intro" id="td-intro" hidden></div>
 
+    <!-- 🗓 (2026-10-10) 선생님이 정한 «4주 목표» — 목표가 없으면 칸째 감춘다. 그리는 것은 js/today-page.js renderGoal(서버 ?goal=1). -->
+    <div id="td-goal" hidden>
+      <div class="h" id="td-h-goal"></div>
+      <div class="card goal" id="td-goal-card"></div>
+    </div>
+
     <div class="h" id="td-h-steps"></div>
     <div id="td-steps"></div>
 
@@ -237,6 +248,6 @@
   </div>
 </div>
 
-<script defer src="/js/today-page.js?v=11"></script>
+<script defer src="/js/today-page.js?v=12"></script>
 </body>
 </html>

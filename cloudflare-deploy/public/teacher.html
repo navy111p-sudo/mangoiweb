@@ -193,6 +193,11 @@ html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
 .cls-hand-l{margin-top:1px}
 .cls-hand-l b{font-weight:700}
 .cls-hand-was{text-decoration:line-through;color:#667085}
+/* 🗓 (2026-10-10) 4주 목표 줄 */
+.cls-goal{margin-top:4px;padding:5px 10px;border-left:3px solid #16a34a;background:#f0fdf4;border-radius:6px;font-size:12.5px;line-height:1.55;color:#344054}
+.cls-goal b{font-weight:800;color:#15803d}
+.cls-goal select{font-size:12.5px;padding:2px 4px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#101828;max-width:100%}
+.cls-goal-msg{font-size:12px;color:#667085;margin-left:6px}
 .cls-act{width:100%;display:flex;gap:8px;flex-wrap:wrap}
 
 /* ── 큼직한 액션 버튼 (터치 최소 48px) ── */
@@ -411,6 +416,9 @@ html[data-t="dark"] .cls-prev-score{color:#e0b463}
 html[data-t="dark"] .cls-hand{background:#16233a;border-left-color:#60a5fa;color:#c9d4e0}
 html[data-t="dark"] .cls-hand-h{color:#93c5fd}
 html[data-t="dark"] .cls-hand-was{color:#94a3b8}
+html[data-t="dark"] .cls-goal{background:#12301f;border-left-color:#4ade80;color:#c9d4e0}
+html[data-t="dark"] .cls-goal b{color:#86efac}
+html[data-t="dark"] .cls-goal select{background:#0f172a;color:#e2e8f0;border-color:#334155}
 html[data-t="dark"] .cls-info .cls-time,
 html[data-t="dark"] .cls-info .cls-name{color:#9dabb9}
 html[data-t="dark"] .kpi{background:#1d2630;border-color:#2b3541}
@@ -1214,6 +1222,56 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     return '<div class="cls-hand"><div class="cls-hand-h">🤝 ' + esc(T('Handover','인수인계')) + '</div>'
       + lines.map(function(l){ return '<div class="cls-hand-l">' + l + '</div>'; }).join('') + '</div>';
   }
+  /* 🗓 (2026-10-10) 4주 목표 — 강사가 보기(서버 goal_options) 중 하나를 고른다. 목표는 사람이 정한다(AI 가 정하지 않는다).
+     정해진 목표가 있으면 «N/28일째» 를 보여 주고, 같은 칸의 고르개로 바꾸거나 지운다.
+     ⚠️ 보기 목록을 이 화면에 적지 않는다 — 옛 응답(캐시)에 goal_options 가 없으면 고르개를 안 그린다(지어내지 않는다). */
+  function goalHtml(c){
+    if (!c || c.kind !== 'class' || !c.student_uid) return '';
+    var opts = (DATA && Array.isArray(DATA.goal_options)) ? DATA.goal_options : null;
+    var g = c.student_goal;
+    if (!g && !opts) return '';
+    var h = '<div class="cls-goal">🗓 <b>' + esc(T('4-week goal','4주 목표')) + '</b>: ';
+    if (g) h += esc(EN() ? g.en : g.ko) + ' <span class="stu-id">' + esc(T('day ' + g.day + '/' + g.days, g.day + '/' + g.days + '일째')) + '</span> ';
+    if (opts){
+      h += '<select class="goal-pick" data-uid="' + esc(c.student_uid) + '" aria-label="' + esc(T('Choose a 4-week goal','4주 목표 고르기')) + '">'
+        + '<option value="">' + esc(g ? T('— clear goal —','— 목표 지우기 —') : T('Choose a goal…','목표 고르기…')) + '</option>';
+      for (var i = 0; i < opts.length; i++){
+        var o = opts[i];
+        h += '<option value="' + esc(o.key) + '"' + (g && g.key === o.key ? ' selected' : '') + '>' + esc(EN() ? o.en : o.ko) + '</option>';
+      }
+      h += '</select><span class="cls-goal-msg" data-goal-msg="' + esc(c.student_uid) + '"></span>';
+    }
+    return h + '</div>';
+  }
+  /* 고르면 바로 저장 — 위임 리스너 하나(목록을 다시 그려도 살아남는다). 서버가 «내 오늘 학생» 인지 다시 확인한다. */
+  document.addEventListener('change', function(ev){
+    var sel = ev.target && ev.target.closest ? ev.target.closest('select.goal-pick') : null;
+    if (!sel) return;
+    var uid = sel.getAttribute('data-uid') || '';
+    var cur = null;
+    (DATA && DATA.classes || []).forEach(function(c){ if (c.kind === 'class' && String(c.student_uid || '') === uid && c.student_goal) cur = c.student_goal; });
+    var key = sel.value;
+    if (!key && !cur){ return; }
+    if (!key && !window.confirm(T('Clear this student\'s 4-week goal?', '이 학생의 4주 목표를 지울까요?'))){ sel.value = cur ? cur.key : ''; return; }
+    var msg = document.querySelector('[data-goal-msg="' + uid.replace(/"/g, '') + '"]');
+    if (msg) msg.textContent = T('Saving…','저장 중…');
+    sel.disabled = true;
+    fetch('/api/teacher/portal?part=goal', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ student_uid: uid, goal_key: key }) })
+      .then(function(r){ return r.json().catch(function(){ return null; }).then(function(j){ return { ok: r.ok, j: j }; }); })
+      .then(function(x){
+        if (!x.ok || !x.j || x.j.ok !== true){
+          sel.disabled = false; sel.value = cur ? cur.key : '';
+          if (msg) msg.textContent = T('Not saved','저장 안 됨') + (x.j && x.j.error ? ' (' + x.j.error + ')' : '');
+          return;
+        }
+        (DATA && DATA.classes || []).forEach(function(c){
+          if (c.kind === 'class' && String(c.student_uid || '') === uid){ if (x.j.goal) c.student_goal = x.j.goal; else delete c.student_goal; }
+        });
+        if (DATA) renderClasses(DATA.classes || []);
+      })
+      .catch(function(){ sel.disabled = false; sel.value = cur ? cur.key : ''; if (msg) msg.textContent = T('Not saved (network)','저장 안 됨(연결)'); });
+  });
   function now(){ return Date.now() + SKEW; }
   function hhmm(ts){
     // 수업 시각은 서버가 KST 벽시계로 계산해 보낸다. 강사 단말은 필리핀(UTC+8)이라
@@ -1823,6 +1881,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
            + ':' + (sc.eval_written ? 'E' : '') + (sc.prev_lesson ? 'P' : '')
            // 🤝 인수인계도 넣는다 — 안 넣으면 캐시를 먼저 그린 뒤 서버 응답의 인수인계가 영영 안 뜬다(PR #1507 리뷰).
            + ':' + (sc.handover ? JSON.stringify(sc.handover) : '')
+           // 🗓 4주 목표도 — 바꾼 직후 다시 그려야 하고, 날이 바뀌면 «N일째» 가 달라진다.
+           + ':' + (sc.student_goal ? sc.student_goal.key + sc.student_goal.day : '') + ((typeof DATA !== 'undefined' && DATA && DATA.goal_options) ? 'O' : '')
            + ':' + (sc.absence_hold ? 'H' : '')
            + ':' + (sc.postponed_info ? (sc.postponed_info.at || '') + (sc.postponed_info.by || '') : '')
            // 📋 출결·강사 입장·평가도 넣는다 — 안 넣으면 학생이 들어와도 «바뀐 게 없다» 로 보고 옛 칸이 남는다.
@@ -2046,6 +2106,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         +     '</div>'
         +     '<div class="cls-meta">' + meta.join(' &middot; ') + '</div>'
         +     extrasHtml(c, (live || done) ? i : -1)
+        +     goalHtml(c)
         +     handoverHtml(c)
         +     prevHtml
         +   '</div>'

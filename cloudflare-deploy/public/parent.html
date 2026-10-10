@@ -399,6 +399,12 @@ function showKakaoShareDialog(url) {
 
     </div>
 
+    <!-- 🗓 (2026-10-10) 선생님이 정한 4주 목표 — 목표가 없거나 서버가 goal 칸을 안 보냈으면 카드째 감춘다(pdGoalHtml 이 null). -->
+    <div class="card" id="pd-goal-card" style="margin-top:16px;display:none">
+      <h3>🗓 <span data-ko="이번 달 목표" data-en="This month's goal">이번 달 목표</span></h3>
+      <div id="pd-goal"></div>
+    </div>
+
     <!-- 🗣️ A.i 말하기 (2026-10-02 P4 — 사장님 결정: 횟수 + 고쳐 준 표현 1~2개).
          서버가 warmup 칸을 안 보낸 응답(옛 서버·배포 중)에는 카드를 통째로 감춘다(pdWarmupHtml 이 null). -->
     <div class="card" id="pd-warmup-card" style="margin-top:16px;display:none">
@@ -510,6 +516,25 @@ function pdWarmupHtml(w, en) {
         <div class="eval-date" style="margin-left:0">${esc(fmtDate(f.at))}</div>
       </div>`).join('');
   }
+  return h;
+}
+
+/* 🗓 4주 목표 카드 (2026-10-10) — 서버(student-goal.ts)가 준 값을 «그리기만» 한다.
+   목표는 선생님이 정한다. 막대는 «28일 중 며칠째» (시간)이지 «달성률» 이 아니다.
+   연습 횟수는 서버가 셀 수 있었을 때만(null = 모름 → 그 줄을 안 그린다). 반환 null = 카드를 감춘다. */
+function pdGoalHtml(g, en) {
+  if (!g || typeof g !== 'object' || !g.key) return null;
+  const T = (ko, enS) => `<span data-ko="${esc(ko)}" data-en="${esc(enS)}">${esc(en ? enS : ko)}</span>`;
+  const day = Number(g.day) || 1, days = Number(g.days) || 28;
+  const pct = Math.max(4, Math.min(100, Math.round(day / days * 100)));
+  let h = `<div style="font-weight:900;font-size:16px;margin-bottom:6px">${T(String(g.ko || ''), String(g.en || ''))}</div>`;
+  h += `<div style="display:block;height:8px;border-radius:99px;background:rgba(148,163,184,.25);overflow:hidden;margin:4px 0 6px"><div class="pd-goal-fill" style="display:block;height:100%;width:${pct}%;border-radius:99px;background:var(--pd-green)"></div></div>`;
+  h += `<div style="font-size:13px;color:var(--pd-muted)">${T(days + '일 중 ' + day + '일째', 'Day ' + day + ' of ' + days)}`;
+  const p = g.practice || null;
+  if (p && p.friend != null) h += ' · ' + T('A.i 친구 ' + (Number(p.friend) || 0) + '번', 'A.i friend ' + (Number(p.friend) || 0) + 'x');
+  if (p && p.warmup != null) h += ' · ' + T('웜업 ' + (Number(p.warmup) || 0) + '번', 'Warm-up ' + (Number(p.warmup) || 0) + 'x');
+  h += '</div>';
+  if (g.set_by_name) h += `<div style="font-size:12.5px;color:var(--pd-muted);margin-top:4px">${T('정한 선생님: ', 'Set by: ')}${esc(g.set_by_name)}</div>`;
   return h;
 }
 
@@ -1000,6 +1025,16 @@ function pdRender(d){
    *   ⛔ 「/5」로 바꾸는 것도 안 된다 — 그 순간 0~100 행이 「88 / 5」가 되어 새 거짓말이 된다.
    *   ⚠️ eval.html·report.html 의 evalMax() 와 «같은 말» 을 해야 한다(하니스 ⑤절이 대조한다). */
   const pdEvalMax = (v) => (Number(v) || 0) > 5 ? 100 : 5;
+
+  // 🗓 4주 목표 (2026-10-10)
+  {
+    const gCard = document.getElementById('pd-goal-card');
+    const gHtml = pdGoalHtml(d.goal, !!(window.getLang && getLang() === 'en'));
+    if (gCard) {
+      if (gHtml == null) { gCard.style.display = 'none'; }
+      else { document.getElementById('pd-goal').innerHTML = gHtml; gCard.style.display = ''; }
+    }
+  }
 
   // 🗣️ A.i 말하기 (2026-10-02 P4)
   {
