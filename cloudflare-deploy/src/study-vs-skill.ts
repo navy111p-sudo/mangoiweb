@@ -109,10 +109,11 @@ export async function loadStudyVsSkill(db: any, uid: string, nowMs: number): Pro
   try {
     const fc = await loadFixCards(db, u, nowMs);
     const cards = (fc && fc.cards) || [];
-    const askedAny = !!(fc && fc.sources && (fc.sources.lesson || fc.sources.warmup));
+    // 두 재료(수업 리포트·웜업)를 «둘 다» 읽었을 때만 — 한쪽만 읽고 비율을 내면 «일부» 를 «전체» 로 말한다.
+    const askedAll = !!(fc && fc.sources && fc.sources.lesson && fc.sources.warmup);
     // 카드가 없으면 연습 조회를 안 해서 practice=false 다 — 그때 0/0 은 «모름» 이 아니라 사실이다.
     const practiceKnown = cards.length === 0 || !!(fc && fc.sources && fc.sources.practice);
-    if (askedAny && practiceKnown) {
+    if (askedAll && practiceKnown) {
       const c = countSaidRight(cards);
       fixed_said_right = c.right; fixed_total = c.total;
     }

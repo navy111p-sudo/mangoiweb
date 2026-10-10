@@ -152,6 +152,10 @@ if (M) {
   ok('짝: 출석을 못 읽어도 나머지는 그대로', ra && ra.study.class_days === null && ra.study.friend_talks === 1);
   const rx = await M.loadStudyVsSkill(d1(db, /warmup_fix_log|ai_lesson_reports/), 'kim', now);
   ok('교정 기록을 못 읽으면 문장 칸은 null', rx && rx.skill.fixed_said_right === null && rx.skill.fixed_total === null, JSON.stringify(rx && rx.skill));
+  for (const only of ['warmup_fix_log', 'ai_lesson_reports']) {
+    const r1 = await M.loadStudyVsSkill(d1(db, new RegExp(only)), 'kim', now);
+    ok('교정 재료 한쪽(' + only + ')만 못 읽어도 문장 칸은 null(일부를 전체로 말하지 않음)', r1 && r1.skill.fixed_said_right === null && r1.skill.fixed_total === null, JSON.stringify(r1 && r1.skill));
+  }
   ok('uid 가 비면 null', (await M.loadStudyVsSkill(d1(db), '', now)) === null);
 }
 
