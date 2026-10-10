@@ -30,6 +30,7 @@ import { applyRoomOverrides } from './class-room-override';   // 🚪 「오늘�
 import { loadHoldRanges, heldOnFor } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25) — 강사에게 «기다리지 말라» 를 알린다
 import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
+import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인계 카드(2026-10-10)
 
 interface TeacherEnv {
   DB: D1Database;
@@ -987,6 +988,22 @@ export async function handleTeacherApi(
       }
     }
   } catch { /* 배지·지난수업이 없어도 목록은 정상 */ }
+
+  /* 🤝 강사 인수인계 카드 (2026-10-10, 경쟁사 분석 적용 ②) — src/teacher-handover.ts
+   *  오늘 학생마다 «지난 목표 / 아직 못 고친 문장 / 복습 카드 했는지» 를 붙인다.
+   *  학생 기준이라 대체강사·강사 교체 때도 그대로 넘어간다.
+   *  ⚠️ 권한 범위 = «이 강사의 오늘 수업 학생» 목록 그 자체(클라이언트가 uid 를 보내지 않는다).
+   *  ⚠️ 배너용(?only=next)은 건너뛴다. 실패해도 목록은 그대로(loadHandovers 는 던지지 않는다). */
+  if (!onlyNext) try {
+    const hUids = classes.filter((c: any) => c.kind === 'class' && c.student_uid).map((c: any) => String(c.student_uid));
+    if (hUids.length) {
+      const hBy = await loadHandovers(env.DB, hUids, now, Date.UTC(kY, kMo, kD, 0, 0, 0) - KST);
+      for (const c of (classes as any[])) {
+        const h = hBy.get(String(c.student_uid || ''));
+        if (h && c.kind === 'class') c.handover = h;
+      }
+    }
+  } catch (e) { console.warn('[teacher-portal] handover:', (e as any)?.message); }
 
   /* 🔔 `?only=next` — 여기서 끝낸다. 아래 매니저 블록·주간 스케줄·반환문은 타지 않는다.
    *
