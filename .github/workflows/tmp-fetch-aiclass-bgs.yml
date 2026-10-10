@@ -30,5 +30,5 @@ jobs:
           du -ch $D/*.webp | tail -1
           git config user.name "github-actions"; git config user.email "actions@github.com"
           git add $D tmp-preview
-          git commit -m "tmp: 교재별 AI 수업 배경 다시 받아오기(사람·어두움 교체) (러너)"
+          git commit -m "tmp: 교재별 AI 수업 배경 다시 받아오기(2차 교체) (러너)"
           git push
