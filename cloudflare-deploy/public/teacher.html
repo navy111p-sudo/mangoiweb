@@ -188,6 +188,11 @@ html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
 .cls-prev summary{cursor:pointer;color:#3b5bd6;font-weight:600;user-select:none}
 .cls-prev-body{margin-top:3px;padding:6px 10px;background:#f4f6fa;border-radius:6px;color:#3d4a58;line-height:1.5}
 .cls-prev-score{color:#8a6d1a;font-weight:700}
+.cls-hand{margin-top:4px;padding:6px 10px;border-left:3px solid #3b82f6;background:#f1f6ff;border-radius:6px;font-size:12.5px;line-height:1.55;color:#344054}
+.cls-hand-h{font-weight:800;color:#1d4ed8}
+.cls-hand-l{margin-top:1px}
+.cls-hand-l b{font-weight:700}
+.cls-hand-was{text-decoration:line-through;color:#667085}
 .cls-act{width:100%;display:flex;gap:8px;flex-wrap:wrap}
 
 /* ── 큼직한 액션 버튼 (터치 최소 48px) ── */
@@ -403,6 +408,9 @@ html[data-t="dark"] .cls-name{color:#e6ecf2}
 html[data-t="dark"] .cls-prev summary{color:#8fa7ff}
 html[data-t="dark"] .cls-prev-body{background:#1b2330;color:#c9d4e0}
 html[data-t="dark"] .cls-prev-score{color:#e0b463}
+html[data-t="dark"] .cls-hand{background:#16233a;border-left-color:#60a5fa;color:#c9d4e0}
+html[data-t="dark"] .cls-hand-h{color:#93c5fd}
+html[data-t="dark"] .cls-hand-was{color:#94a3b8}
 html[data-t="dark"] .cls-info .cls-time,
 html[data-t="dark"] .cls-info .cls-name{color:#9dabb9}
 html[data-t="dark"] .kpi{background:#1d2630;border-color:#2b3541}
@@ -1174,6 +1182,35 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   function esc(s){
     return String(s == null ? '' : s)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  /* 🤝 (2026-10-10) 강사 인수인계 카드 — 서버(src/teacher-handover.ts)가 c.handover 를 줄 때만 그린다.
+     지난 목표 / 아직 못 고친 문장 / 복습 카드. 없는 줄은 그리지 않는다(지어내지 않는다).
+     fix 가 null 이면 «모름» 이라 2·3번째 줄을 빼고, 0장이면 그 줄도 뺀다.
+     목표·문장은 기록된 언어 그대로 보여 준다(사람이 쓴 글을 기계번역하지 않는다). */
+  function handoverHtml(c){
+    var h = c && c.handover;
+    if (!h) return '';
+    var lines = [];
+    if (h.goal && h.goal.text){
+      lines.push('🎯 <b>' + esc(T('Last goal','지난 목표')) + '</b>: ' + esc(h.goal.text)
+        + (h.goal.date ? ' <span class="stu-id">' + esc(h.goal.date) + '</span>' : ''));
+    }
+    var f = h.fix;
+    if (f && f.total > 0){
+      if (f.unfixed_n > 0 && f.unfixed && f.unfixed.length){
+        var u = f.unfixed[0];
+        lines.push('🔁 <b>' + esc(T('Not fixed yet','아직 못 고친 것')) + '</b>: '
+          + '<span class="cls-hand-was">' + esc(u.from) + '</span> → ' + esc(u.to)
+          + (f.unfixed_n > 1 ? ' ' + esc(T('(+' + (f.unfixed_n - 1) + ' more)', '(외 ' + (f.unfixed_n - 1) + '개)')) : ''));
+      }
+      lines.push('📝 <b>' + esc(T('Review cards','복습 카드')) + '</b>: '
+        + esc(f.practiced > 0
+            ? T('practiced ' + f.practiced + ' of ' + f.total, f.total + '장 중 ' + f.practiced + '장 말해 봄')
+            : T('not practiced yet (' + f.total + ' cards)', '아직 안 함 (' + f.total + '장)')));
+    }
+    if (!lines.length) return '';
+    return '<div class="cls-hand"><div class="cls-hand-h">🤝 ' + esc(T('Handover','인수인계')) + '</div>'
+      + lines.map(function(l){ return '<div class="cls-hand-l">' + l + '</div>'; }).join('') + '</div>';
   }
   function now(){ return Date.now() + SKEW; }
   function hhmm(ts){
@@ -2005,6 +2042,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         +     '</div>'
         +     '<div class="cls-meta">' + meta.join(' &middot; ') + '</div>'
         +     extrasHtml(c, (live || done) ? i : -1)
+        +     handoverHtml(c)
         +     prevHtml
         +   '</div>'
         +   '<div class="cls-act">';
