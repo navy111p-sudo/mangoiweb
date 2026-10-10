@@ -1,0 +1,34 @@
+# 임시 — 교재별 AI 수업 배경 36장을 러너가 받아 WebP 로 변환해 커밋. 받은 뒤 지웁니다(main 에 안 올라감).
+name: tmp-fetch-aiclass-bgs
+on:
+  push:
+    branches: [claude/zen-carson-wizwhc]
+    paths: ['.github/workflows/tmp-fetch-aiclass-bgs.yml']
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq webp imagemagick
+      - run: |
+          set -e
+          D=cloudflare-deploy/public/img/aiclass-bg
+          mkdir -p $D tmp-preview /tmp/s
+          N=0
+          while read -r NAME URL || [ -n "$NAME" ]; do
+            [ -z "$NAME" ] && continue
+            curl -fsSL --retry 3 -o /tmp/s/$NAME.png "$URL"
+            convert /tmp/s/$NAME.png -resize 720x /tmp/s/$NAME.r.png
+            cwebp -quiet -q 78 -m 6 /tmp/s/$NAME.r.png -o $D/$NAME.webp
+            convert /tmp/s/$NAME.png -resize 240x -gravity south -background white -splice 0x18 -pointsize 14 -annotate +0+2 "$NAME" /tmp/s/$NAME.t.jpg
+            N=$((N+1))
+          done < .github/aiclass-bg-list.txt
+          echo "fetched $N"; [ "$N" = 36 ]
+          montage /tmp/s/*.t.jpg -tile 6x -geometry +4+4 -quality 80 tmp-preview/aiclass-bgs-sheet.jpg
+          du -ch $D/*.webp | tail -1
+          git config user.name "github-actions"; git config user.email "actions@github.com"
+          git add $D tmp-preview
+          git commit -m "tmp: 교재별 AI 수업 배경 36장 받아오기 (러너)"
+          git push
