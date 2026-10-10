@@ -579,7 +579,7 @@ function setTarget(t) {
   try { closeTargetMeaning(); } catch(e){}
   window.isCustomTarget = false;         // 프리셋/커리큘럼 문장 = 문법이 이미 정답 → 문법검사 생략
   var idx = STEPS.indexOf(t);            // 프리셋/직접선택도 단계와 동기화
-  if (idx >= 0) { currentStep = idx; updateStepUI(); }
+  if (idx >= 0) { currentStep = idx; updateStepUI(); window.__scSayMode = false; }   // 단계 문장을 고르면 ?say= 모드 끝
   resetUI();
 }
 
@@ -745,6 +745,7 @@ function celebrate(msg){
   setTimeout(function(){ badge.style.opacity='0'; badge.style.transform='translate(-50%,-50%) scale(0.8)'; setTimeout(function(){ badge.remove(); }, 400); }, 2300);
 }
 function loadStep(i, speak){
+  window.__scSayMode = false;   // 단계로 돌아오면 ?say= 모드는 끝난다
   currentStep = ((i % STEPS.length) + STEPS.length) % STEPS.length;   // 순환(끝→처음)
   setTarget(STEPS[currentStep]);   // setTarget 내부에서 updateStepUI 동기화
   updateStepUI();
@@ -877,13 +878,29 @@ function markCourseCards(){
     });
   });
 }
+/* 📝 ?say= 딥링크 (2026-10-10) — «오늘의 A.i 학습» 의 «지난번에 틀린 문장» 카드가 고친 문장을 실어 보낸다.
+   ⚠️ 받은 문장이 있으면 코스 이어서 하기를 «건너뛴다» — selectCourse 가 나중에 단계 문장으로 덮어쓰기 때문.
+   ⛔ 영어(ASCII 인쇄가능)·160자 이하·글자 1개 이상만 받는다 — 아니면 예전처럼 코스로(지어내지 않음).
+   ⛔ 단계 저장(saveStep)은 안 한다 — 학생이 하던 코스 진도를 이 한 문장이 바꾸면 안 된다. */
+function scSayFromUrl(search){
+  var v = '';
+  try { v = String((new URLSearchParams(search)).get('say') || ''); } catch(e){ return ''; }
+  v = v.replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"').replace(/[\u2013\u2014]/g, '-').replace(/\u2026/g, '...');   // 활자 부호 → ASCII
+  v = v.replace(/\s+/g, ' ').trim();
+  if (!v || v.length > 160) return '';
+  if (!/^[\x20-\x7E]+$/.test(v)) return '';
+  if (!/[A-Za-z]/.test(v)) return '';
+  return v;
+}
 /* 이어서 하기 + ?course= 딥링크 (옛 pages.dev 링크의 course 값과 동일: phonics|bts|siu) */
 try {
+  var _qsSay = scSayFromUrl(location.search);
   var _qsCourse = (new URLSearchParams(location.search)).get('course');
   if (_qsCourse === 'siu-basic' || _qsCourse === 'siu-advance') _qsCourse = 'siu';
   var _savedPos = null;
   try { _savedPos = JSON.parse(localStorage.getItem('mangoi_speech_course_pos') || 'null'); } catch(e){}
-  if (_qsCourse && COURSES[_qsCourse]) selectCourse(_qsCourse);
+  if (_qsSay) { setTarget(_qsSay); window.__scSayMode = true; }
+  else if (_qsCourse && COURSES[_qsCourse]) selectCourse(_qsCourse);
   else if (_savedPos && COURSES[_savedPos.course]) selectCourse(_savedPos.course);
 } catch(e){}
 
@@ -1486,7 +1503,8 @@ async function processAudio(blob) {
     })();
     document.getElementById('result').style.display = 'block';
     document.body.classList.add('m-showing-result');   // 📱 녹음 버튼 자리에서 결과로 교체(모바일, 스크롤 없이)
-    try { markStepDone(currentStep); } catch(e){}   // 채점 완료 → 이 단계 완료 체크
+    // ⛔ ?say= 로 연 문장은 단계 문장이 아니다 — 말하지 않은 단계를 «완료» 로 찍으면 진도·포인트가 틀어진다
+    try { if (!window.__scSayMode) markStepDone(currentStep); } catch(e){}   // 채점 완료 → 이 단계 완료 체크
     document.getElementById('rec-status').textContent = '✅ 완료! 다시 녹음하려면 마이크 누르세요';
 
     // 📝 문법 검사 — 직접 쓴 자유 문장(영어)일 때만. 커리큘럼/프리셋 문장은 이미 정답이라 생략.

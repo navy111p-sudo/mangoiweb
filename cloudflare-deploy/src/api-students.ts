@@ -21,6 +21,7 @@ import { readParentWarmup } from './warmup-parent';   // 👪 웜업 횟수·고
 import { resolveStudentTrack } from './student-track';   // 🎯 화상수업 학생 / AI 전용 학생 판정 정본
 import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, sceneBookId, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
 import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
+import { loadFixCards } from './fix-cards';   // 📝 «지난번에 틀린 문장 다시 말하기» 카드 정본(2026-10-10)
 
 export async function handleStudentsApi(
   request: Request,
@@ -517,6 +518,15 @@ ${MANGOI_KNOWLEDGE}`;
           book = sceneBookId(r?.textbook);
         } catch { book = null; }
         const res = json({ ok: true, book });
+        res.headers.set('Cache-Control', 'private, no-store');
+        return res;
+      }
+      /* 📝 (2026-10-10) ?fixcards=1 — «지난번에 틀린 문장» 카드(최대 3장)만 묻는 가벼운 갈래.
+         정본 loadFixCards(fix-cards.ts) — 재료는 수업 AI 리포트·웜업 교정 기록, 연습은 voice_coaching.
+         ⚠️ 위 게이트 «뒤» — 남의 학생이 틀린 문장을 캐는 길을 만들지 않는다. 던지지 않는다. */
+      if (String(url.searchParams.get('fixcards') || '') === '1') {
+        const fc = await loadFixCards(env.DB, uid, Date.now());
+        const res = json({ ok: true, cards: fc.cards, sources: fc.sources });
         res.headers.set('Cache-Control', 'private, no-store');
         return res;
       }
