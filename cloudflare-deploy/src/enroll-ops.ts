@@ -603,6 +603,29 @@ export function enrollParse(body: any): any {
   return { weekly, months, minutes, startDate, teacherId, days, times, timesMin };
 }
 
+/** 📅 빈 날짜 `need` 개 — 강사·학생 충돌과 `extra`(공휴일·이미 잡은 날)를 피한다.
+ *  ⚠️ (2026-10-10 샌드박스 반복검사로 발견) 예전에는 «sessions×2 짜리 창» 만 조회하고
+ *     enrollDates 가 창 «밖» 날짜를 막힌 줄 모르고 골랐다. 창 안이 전부 막히면(같은 학생의
+ *     연장이 겹친 경우 등) 창 밖의 «이미 찬» 날짜가 골라져 INSERT OR IGNORE 가 조용히 버렸다
+ *     → 돈은 받았는데 수업 0회. 이제 고른 날짜는 전부 «조회한 창 안» 이고, 모자라면 창을 넓혀 다시 잰다.
+ *  ⚠️ 학생 충돌 조회가 실패(null)하면 예전처럼 막지 않는다. */
+export async function enrollFreeDates(env: any, teacherId: string, uid: string, startDate: string, days: number[],
+  timesMinByDow: Record<number, number>, minutes: number, need: number, extra?: Set<string>, excludeSource?: string,
+): Promise<{ dates: string[]; conflicts: Set<string>; stuConf: Set<string> }> {
+  let span = Math.max(need * 2, 8);
+  let last = { dates: [] as string[], conflicts: new Set<string>(), stuConf: new Set<string>() };
+  for (let round = 0; round < 6 && need > 0; round++) {
+    const probe = enrollDates(startDate, days, span);
+    const conflicts = await enrollConflicts(env, teacherId, probe, timesMinByDow, minutes, days);
+    const stuConf = (await enrollStudentConflicts(env, uid, probe, timesMinByDow, minutes, days, excludeSource)) || new Set<string>();
+    const free = probe.filter((d) => !conflicts.has(d) && !stuConf.has(d) && !(extra && extra.has(d)));
+    last = { dates: free.slice(0, need), conflicts, stuConf };
+    if (free.length >= need || probe.length < span) break;   // 충분하거나 더 넓힐 수 없음(800일 한도)
+    span *= 2;
+  }
+  return last;
+}
+
 /* ═══════════════ 1단계: 결제 확정 → 수업 전량 생성 ═══════════════ */
 
 /**
@@ -635,15 +658,12 @@ export async function enrollCreateSchedules(env: any, order: any, orderId: strin
   if (!sessions || Object.keys(timesMinByDow).length !== ej.days.length) return;
 
   // 결제 시점 기준 재검사 — 주문~결제 사이에 찬 슬롯 + 공휴일을 함께 blocked 처리
-  const probe = enrollDates(String(ej.start_date), ej.days, sessions * 2);
-  const blocked = await enrollConflicts(env, String(ej.teacher_id), probe, timesMinByDow, Number(ej.minutes) || 20, ej.days);
   /* 👤 (2026-10-06) 학생 본인의 다른 수업과 겹치는 날짜도 건너뛴다(주문 뒤 다른 수업이 잡혔을 수 있다). */
-  const stuBlocked = await enrollStudentConflicts(env, String(ej.uid), probe, timesMinByDow, Number(ej.minutes) || 20, ej.days, src);
-  if (stuBlocked) stuBlocked.forEach((d) => blocked.add(d));
-  if (stuBlocked && stuBlocked.size) console.warn('[enroll] student overlap skipped', orderId, [...stuBlocked].slice(0, 5));
   const hol = await holidaySet(env, String(ej.start_date));
-  hol.forEach((d) => blocked.add(d));
-  const dates = enrollDates(String(ej.start_date), ej.days, sessions, blocked);
+  const plan0 = await enrollFreeDates(env, String(ej.teacher_id), String(ej.uid), String(ej.start_date), ej.days,
+    timesMinByDow, Number(ej.minutes) || 20, sessions, hol, src);
+  if (plan0.stuConf.size) console.warn('[enroll] student overlap skipped', orderId, [...plan0.stuConf].slice(0, 5));
+  const dates = plan0.dates;
   if (dates.length < sessions) console.warn('[enroll] not enough dates', orderId, dates.length, '/', sessions);
 
   const now = Date.now();
@@ -653,12 +673,57 @@ export async function enrollCreateSchedules(env: any, order: any, orderId: strin
      VALUES (?, ?, 'dated', 'regular', ?, ?, ?, ?, 'active', ?, 'enroll-auto', ?, ?)`
   );
   const note = `수강신청 자동생성 · ${ej.teacher_name || ''} · 주${ej.weekly}회×${ej.months}개월`;
-  const batch: any[] = dates.map((d) => {
-    const dow = new Date(d + 'T00:00:00Z').getUTCDay();
-    const t = String(timesMap[String(dow)] ?? timesMap[dow] ?? fallbackTime);
-    return stmt.bind(String(ej.uid), sName || null, d, t, Number(ej.minutes) || 20, String(ej.teacher_id), src, now, note);
-  });
-  for (let i = 0; i < batch.length; i += 80) await env.DB.batch(batch.slice(i, i + 80));
+  const minutes = Number(ej.minutes) || 20;
+  const insertDates = async (list: string[]) => {
+    const batch: any[] = list.map((d) => {
+      const dow = new Date(d + 'T00:00:00Z').getUTCDay();
+      const t = String(timesMap[String(dow)] ?? timesMap[dow] ?? fallbackTime);
+      return stmt.bind(String(ej.uid), sName || null, d, t, minutes, String(ej.teacher_id), src, now, note);
+    });
+    for (let i = 0; i < batch.length; i += 80) await env.DB.batch(batch.slice(i, i + 80));
+  };
+  await insertDates(dates);
+
+  /* 🏁 (2026-10-10 샌드박스 반복검사로 발견) 두 학생이 같은 강사·같은 자리를 «동시에» 결제하면
+     둘 다 «아직 비어 있음» 으로 읽고 같은 날짜를 고른다. 그러면
+       ① 시작 시각이 같으면 → INSERT OR IGNORE 가 늦은 쪽 줄을 «조용히» 버린다(돈은 받았는데 수업 0회)
+       ② 시각이 조금 다르면(19:00 40분 vs 19:20) → 둘 다 들어가 강사가 겹친다
+     ⟹ 넣은 «뒤에» 다시 잰다: 남의 수업과 겹친 내 줄은 «나중에 생긴 쪽(id 가 큰 쪽)» 이 물러나고,
+        모자란 회차는 그 시점의 빈자리로 다시 채운다. 둘 다 이 규칙을 따르므로 한쪽만 물러난다.
+     ⚠️ 물러나는 줄은 이 호출이 방금 넣은(아직 아무에게도 안내되지 않은) 내 줄뿐이다(source 로 좁힌다). */
+  for (let round = 0; round < 4; round++) {
+    let clash: any[] = [];
+    try {
+      const rs: any = await env.DB.prepare(
+        `SELECT DISTINCT m.id FROM class_schedules m
+           JOIN class_schedules o
+             ON o.id < m.id AND o.status = 'active' AND o.scheduled_date = m.scheduled_date
+            AND o.source IS NOT ? AND LOWER(COALESCE(o.user_id,'')) NOT IN ('lms','type_seed')
+            AND (o.teacher_id = m.teacher_id OR o.user_id = m.user_id)
+            AND (CAST(substr(o.start_time,1,2) AS INTEGER)*60 + CAST(substr(o.start_time,4,2) AS INTEGER))
+                < (CAST(substr(m.start_time,1,2) AS INTEGER)*60 + CAST(substr(m.start_time,4,2) AS INTEGER)) + COALESCE(m.duration_min,20)
+            AND (CAST(substr(m.start_time,1,2) AS INTEGER)*60 + CAST(substr(m.start_time,4,2) AS INTEGER))
+                < (CAST(substr(o.start_time,1,2) AS INTEGER)*60 + CAST(substr(o.start_time,4,2) AS INTEGER)) + COALESCE(o.duration_min,20)
+          WHERE m.source = ? AND m.status = 'active'`
+      ).bind(src, src).all();
+      clash = (rs?.results as any[]) || [];
+    } catch (e) { console.warn('[enroll] post-insert overlap check failed', orderId, (e as any)?.message); break; }
+    for (const c of clash) {
+      await env.DB.prepare(`DELETE FROM class_schedules WHERE id = ? AND source = ?`).bind(c.id, src).run();
+    }
+    const mine: any = await env.DB.prepare(
+      `SELECT scheduled_date FROM class_schedules WHERE source = ? AND status = 'active'`
+    ).bind(src).all();
+    const have = new Set<string>(((mine?.results as any[]) || []).map((r) => String(r.scheduled_date)));
+    const missing = sessions - have.size;
+    if (missing <= 0) break;
+    console.warn('[enroll] concurrent slot taken — re-planning', orderId, 'missing', missing);
+    const skip2 = new Set<string>([...hol, ...have]);
+    const more = (await enrollFreeDates(env, String(ej.teacher_id), String(ej.uid), String(ej.start_date), ej.days,
+      timesMinByDow, minutes, missing, skip2, src)).dates;
+    if (!more.length) break;
+    await insertDates(more);
+  }
 }
 
 /* ═══════════════ 2단계: 현재 수강 현황 · 연장 ═══════════════ */
@@ -2031,13 +2096,9 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
 export async function createEnrollOrder(env: any, uid: string, p: any, kind: 'new' | 'renew' | 'auto_renew'): Promise<Response> {
   const sessions = p.weekly * 4 * p.months;
   const hol = await holidaySet(env, p.startDate);
-  const probe = enrollDates(p.startDate, p.days, sessions * 2);
-  const conflicts = await enrollConflicts(env, p.teacherId, probe, p.timesMin, p.minutes, p.days);
   /* 👤 (2026-10-06 사장님 지시) 학생 본인이 그 시간에 이미 수업이 있으면 그 날짜는 막힌 자리다.
      ⚠️ 조회 실패(null)는 막지 않는다(예전 동작) — 결제 뒤 생성 단계가 한 번 더 본다. */
-  const stuConf = (await enrollStudentConflicts(env, uid, probe, p.timesMin, p.minutes, p.days)) || new Set<string>();
-  const blocked = new Set<string>([...conflicts, ...stuConf, ...hol]);
-  const dates = enrollDates(p.startDate, p.days, sessions, blocked);
+  const { dates, conflicts, stuConf } = await enrollFreeDates(env, p.teacherId, uid, p.startDate, p.days, p.timesMin, p.minutes, sessions, hol);
   if (dates.length < sessions) {
     return json({ ok: false, error: 'slot_conflict', conflict_count: conflicts.size, student_conflict_count: stuConf.size,
       message: stuConf.size && !conflicts.size
@@ -2091,7 +2152,7 @@ export async function createEnrollOrder(env: any, uid: string, p: any, kind: 'ne
     summary: {
       teacher: tName, days: p.days, times: p.times, minutes: p.minutes, sessions: q.sessions,
       first_date: dates[0], last_date: dates[dates.length - 1], discount: q.discountRate,
-      teacher_rate: tRate, shifted: sessions - enrollDates(p.startDate, p.days, sessions).filter((d) => !blocked.has(d)).length,
+      teacher_rate: tRate, shifted: sessions - enrollDates(p.startDate, p.days, sessions).filter((d) => dates.includes(d)).length,
     },
   });
 }
