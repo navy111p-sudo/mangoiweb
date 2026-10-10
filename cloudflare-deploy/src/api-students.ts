@@ -24,6 +24,7 @@ import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holi
 import { loadActiveGoal, loadGoalPractice } from './student-goal';   // 🗓 4주 목표(2026-10-10)
 import { loadFixCards } from './fix-cards';   // 📝 «지난번에 틀린 문장 다시 말하기» 카드 정본(2026-10-10)
 import { loadParentRequest, setParentRequest, PARENT_REQUESTS } from './parent-request';   // 👪 학부모 요청 → 선생님 반영 확인(2026-10-10)
+import { loadStudyVsSkill } from './study-vs-skill';   // 📊 «한 것» 과 «해낸 것» 따로(2026-10-10)
 
 export async function handleStudentsApi(
   request: Request,
@@ -134,6 +135,9 @@ export async function handleStudentsApi(
       } catch { goal = null; }
       /* 👪 학부모 요청 — 가장 최근 열린 것 또는 최근 반영된 것(loadParentRequest 는 던지지 않는다). */
       const parentRequest = await loadParentRequest(env.DB, childUid, Date.now());
+      /* 📊 지난 30일 «한 것» / «해낸 것» — 위 게이트 «뒤». loadStudyVsSkill 은 던지지 않지만 한 겹 더. */
+      let studySkill: any = null;
+      try { studySkill = await loadStudyVsSkill(env.DB, childUid, Date.now()); } catch { studySkill = null; }
 
       return json({
         ok: true,
@@ -150,6 +154,7 @@ export async function handleStudentsApi(
         warmup,
         goal,
         parent_request: parentRequest,
+        study_skill: studySkill,
         request_options: PARENT_REQUESTS.map((r) => ({ key: r.key, ko: r.ko, en: r.en })),
         generated_at: Date.now(),
       });
