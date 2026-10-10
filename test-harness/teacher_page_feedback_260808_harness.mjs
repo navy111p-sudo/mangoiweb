@@ -113,7 +113,9 @@ check('매주 반복 차단을 그 주 날짜로 펼친다', /dowIdxToKey\[Numbe
 check('🔴 휴식시간에는 id 를 안 준다 (수업 id 와 겹쳐 엉뚱한 수업이 이동한다)',
   /block_id: b\.id,/.test(aapi) && !/\n\s+id: b\.id,/.test(aapi));
 check('휴식시간 조회가 실패해도 수업 캘린더는 그려진다', /catch \{ \/\* 휴식시간 조회 실패가/.test(aapi));
-check('화면에서 휴식시간은 드래그 금지', /var canDrag\s*=\s*\(s\.source !== 'unavailability'\)/.test(q6));
+// 2026-10-10: 판정이 ph54Movable 로 모였다(차단·LMS·id 없는 칸 함께) — «식 모양» 대신 뜻으로 묻는다
+check('화면에서 휴식시간은 드래그 금지', /var canDrag\s*=\s*ph54Movable\(s\)/.test(q6)
+  && /function ph54Movable\(s\)\{[\s\S]{0,200}s\.source === 'unavailability'[\s\S]{0,60}return false;/.test(q6));
 check('빈 칸 클릭으로 차단을 만든다', /teacher-unavailability/.test(q6) && /ph54-cal-col/.test(q6));
 check('강사를 고른 뒤에만 차단할 수 있다 (전체 보기에선 누구를 막을지 모른다)',
   /if \(calTrack0 && filterId\)/.test(q6));

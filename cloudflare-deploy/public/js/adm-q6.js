@@ -325,6 +325,155 @@
   // 분 → 'HH:MM'
   function ph54FmtMin(mins){ return ph54Pad(Math.floor(mins/60))+':'+ph54Pad(mins%60); }
 
+  /* ═══ 🚚 드래그 이동(연기·변경) — 계산은 «순수 함수» 로 (2026-10-10 사장님 「캘린더 drag 로 연기·변경이 완벽하게」)
+     [고치기 전] 드롭이 PATCH /class-schedules/:id 에 «요일» 만 보냈다. 그런데 활성 수업 대부분은
+       날짜 지정(one_off·dated) 행이라 요일 칸을 바꿔도 «날짜는 그대로» 였다 — 서버는 ok 를 주고
+       화면은 「✅ 저장됨」 을 띄웠지만 새로고침하면 원래 날짜로 되돌아갔다. 게다가
+       ① 저장 «전» 에 화면을 옮기고 실패해도 「화면만 이동」 으로 남겨 두었고
+       ② 그룹 수업(학생마다 한 행)은 잡은 학생 «한 명» 만 옮겨 수업이 쪼개졌고
+       ③ 30분 칸에 맞춰 14:20 수업이 14:00/14:30 으로 바뀌었고
+       ④ LMS 점유·시연 시드(서버가 «옮길 수 없음» 으로 거절)도 끌렸다.
+     [지금] 주간 전체 스케줄(weekly-schedule.html)과 같은 원자적 이동 API(PATCH /class-schedules/move)
+       를 쓴다 — 어느 칸(날짜/요일)을 고칠지는 서버가 행마다 정하고(destination_date), 겹침·휴가·
+       동시 수정(expected)·그룹 구성(source_date)을 한 번에 검사한다.
+     ⛔ 이 계산을 드롭 핸들러 안에 다시 풀어 쓰지 말 것 — 하니스(test-harness/ph54_drag_move_harness.mjs)가
+        이 함수들을 오려 내 실제로 돌린다. */
+  var PH54_MOVE_SNAP = 10;   // 이동은 10분 칸 — 수업 시각이 :10·:20·:40·:50 에도 있다(30분 칸이면 시각이 바뀐다)
+
+  /** 서버가 «옮길 수 없음» 으로 거절하는 카드인가(차단·LMS 점유·시연 시드·id 없음). */
+  function ph54Movable(s){
+    if (!s || s.id == null || s.id === '') return false;
+    if (s.source === 'unavailability' || s.type === 'blocked') return false;
+    var o = String(s.origin || 'class');
+    return o === 'class';
+  }
+
+  /** 드롭 위치(열 위의 y 비율) → 새 시작 분. 잡은 자리(offsetMin)만큼 빼서 «카드 윗변» 이 놓인 곳을 쓴다.
+      ratio: 0~1(열 꼭대기~바닥), offsetMin: 카드 윗변에서 손가락까지 분, dur: 수업 길이(분). */
+  function ph54DropMinute(ratio, offsetMin, dur){
+    var total = (PH54_END_H - PH54_START_H) * 60;
+    var r = Number(ratio); if (!isFinite(r)) r = 0;
+    var off = Number(offsetMin); if (!isFinite(off) || off < 0) off = 0;
+    var d = Number(dur); if (!isFinite(d) || d <= 0) d = 20;
+    var raw = PH54_START_H * 60 + r * total - off;
+    var snapped = Math.round(raw / PH54_MOVE_SNAP) * PH54_MOVE_SNAP;
+    var lo = PH54_START_H * 60, hi = PH54_END_H * 60 - d;
+    hi = Math.floor(hi / PH54_MOVE_SNAP) * PH54_MOVE_SNAP;
+    return Math.max(lo, Math.min(snapped, hi));
+  }
+
+  /** 같은 수업 묶음(같은 강사·같은 날·같은 시각)의 id — 그룹 수업은 학생마다 한 행이라 전부 함께 옮긴다.
+      서버 moveSchedulesAtomically 의 source_date 검사와 같은 기준이다(모자라면 group_changed 로 거절된다). */
+  function ph54MoveGroupIds(rec, records){
+    var want = ph54MinOf(rec), out = [], seen = {};
+    (records || []).forEach(function(r){
+      if (!ph54Movable(r)) return;
+      if (String(r.teacher_id) !== String(rec.teacher_id) || String(r.date) !== String(rec.date)) return;
+      if (ph54MinOf(r) !== want) return;
+      var k = String(r.id); if (seen[k]) return; seen[k] = 1; out.push(k);
+    });
+    if (!seen[String(rec.id)] && ph54Movable(rec)) out.unshift(String(rec.id));
+    return out;
+  }
+
+  function ph54DowLabel(ymd){
+    var d = new Date(String(ymd) + 'T00:00:00Z'); if (isNaN(d)) return '';
+    var i = d.getUTCDay();
+    return ph54T(['일','월','화','수','목','금','토'][i], ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][i]);
+  }
+
+  /** 서버 응답 → «성공이라고 말했는가». ⛔ d.ok===false 로 묻지 말 것(404 본문엔 ok 칸이 없다). */
+  function ph54MoveResult(httpOk, d){
+    if (httpOk && d && d.ok === true) return { ok:true, versions: (d.move_versions && typeof d.move_versions === 'object') ? d.move_versions : null };
+    return { ok:false, msg: String((d && (d.message || d.error)) || '') };
+  }
+
+  /** 저장 한 곳 — 드롭과 «되돌리기» 가 함께 쓴다. 성공·실패 모두 서버에서 다시 읽어 그린다. */
+  async function ph54SaveMove(plan, from, newDate, newTime, dur, isUndo){
+    if (ph54State._saving) { ph54Toast(ph54T('💾 저장 중입니다. 잠시만요.', '💾 Saving — one moment.')); return false; }
+    ph54State._saving = true;
+    ph54HideUndo();
+    ph54Toast(ph54T('💾 저장 중… ', '💾 Saving… ') + newDate + ' ' + newTime);
+    var res;
+    try {
+      var r = await fetch('/api/admin/class-schedules/move', {
+        method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(plan.body)
+      });
+      var d = null; try { d = await r.json(); } catch(e2){}
+      res = ph54MoveResult(r.ok, d);
+      if (!res.ok && !res.msg) res.msg = 'HTTP ' + r.status;
+    } catch(e){ res = { ok:false, msg: ph54T('네트워크 오류', 'network error') }; }
+    finally { ph54State._saving = false; }
+    try { await ph54LoadRecords(); } catch(e3){}
+    ph54Render();
+    if (res.ok){
+      ph54Toast((isUndo ? ph54T('↩ 되돌렸습니다: ', '↩ Undone: ') : ph54T('✅ 저장됨: ', '✅ Saved: '))
+        + newDate + ' (' + ph54DowLabel(newDate) + ') ' + newTime + ' · ' + dur + ph54T('분', ' min'));
+      if (!isUndo && res.versions && from) {
+        var back = { ids: plan.ids.slice(), recurring: plan.recurring,
+          body: { ids: plan.ids.slice(), destination_date: from.date, start_time: ph54FmtMin(from.min),
+                  source_date: newDate, expected: res.versions } };
+        var ok = plan.ids.every(function(id){ return typeof res.versions[id] === 'string'; });
+        if (ok) ph54OfferUndo(back, from.date, ph54FmtMin(from.min), dur);
+      }
+    } else {
+      ph54Toast(ph54T('❌ 저장하지 못했습니다(옮기지 않음): ', '❌ Not saved (nothing moved): ') + res.msg);
+    }
+    return res.ok;
+  }
+
+  /* ↩ 15초 되돌리기 — 서버에 원래 자리로 다시 보낸다(화면만 되돌리지 않는다).
+     토스트(#ph54-toast)는 pointer-events:none 이라 버튼을 못 담아 따로 둔다. */
+  function ph54HideUndo(){
+    var u = document.getElementById('ph54-undo'); if (u) u.remove();
+    clearTimeout(ph54HideUndo._t);
+  }
+  /* ⚠️ 색은 «밝은» 값으로 — 어두운 인라인 배경(#1d4ed8 류)은 관리자 밝기 페인터(adm-light-surfaces)가
+     희게 덮어 1초쯤 «흰 바탕 흰 글자» 가 된다. bottom:110px 은 오른쪽 아래 스피드다이얼(FAB)을 비켜선 자리. */
+  function ph54OfferUndo(back, date, time, dur){
+    ph54HideUndo();
+    var u = document.createElement('div'); u.id = 'ph54-undo';
+    u.style.cssText = 'position:fixed;right:18px;bottom:110px;z-index:2147483646;background:#ffffff;color:#101828;border:1px solid #cbd5e1;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;box-shadow:0 10px 24px rgba(0,0,0,.18);display:block';
+    var b = document.createElement('button'); b.type = 'button';
+    b.style.cssText = 'margin-left:8px;background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;border-radius:8px;padding:6px 12px;font-weight:800;cursor:pointer';
+    b.textContent = ph54T('↩ 되돌리기', '↩ Undo');
+    var t = document.createElement('span'); t.textContent = ph54T('잘못 옮겼나요?', 'Moved by mistake?');
+    u.appendChild(t); u.appendChild(b); document.body.appendChild(u);
+    b.addEventListener('click', function(){ ph54HideUndo(); ph54SaveMove(back, null, date, time, dur, true); });
+    ph54HideUndo._t = setTimeout(ph54HideUndo, 15000);
+  }
+
+  /** 드롭 하나 → 서버에 보낼 요청. { ok:false, reason } 이면 보내지 않는다. */
+  function ph54BuildMovePlan(rec, records, newDate, newMin){
+    if (!ph54Movable(rec)) return { ok:false, reason:'not_movable' };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(newDate || ''))) return { ok:false, reason:'bad_date' };
+    if (!(isFinite(newMin) && newMin >= PH54_START_H*60 && newMin < PH54_END_H*60)) return { ok:false, reason:'bad_time' };
+    var newTime = ph54FmtMin(newMin);
+    if (String(newDate) === String(rec.date) && newMin === ph54MinOf(rec)) return { ok:false, reason:'same' };
+    var ids = ph54MoveGroupIds(rec, records);
+    /* 같은 강사의 다른 수업이 «정확히 그 날짜·시각» 에 이미 있으면 막는다(주간 전체 스케줄과 같은 규칙).
+       ⚠️ 서버는 «같은 강사·같은 시각·같은 길이» 를 그룹 합류로 받아 주므로 저장은 «성공» 하지만,
+          그 순간 두 수업이 한 묶음이 되어 ↩ 되돌리기가 «구성원 변경» 으로 거절된다(브라우저 300회 왕복에서 실측).
+       엇갈려 겹치는 자리는 서버가 거절하므로 여기서 따로 보지 않는다. */
+    var mine = {}; ids.forEach(function(x){ mine[x] = 1; });
+    var taken = (records || []).some(function(r){
+      return r && r.id != null && !mine[String(r.id)] && ph54Movable(r)
+        && String(r.teacher_id) === String(rec.teacher_id) && String(r.date) === String(newDate) && ph54MinOf(r) === newMin;
+    });
+    if (taken) return { ok:false, reason:'occupied' };
+    var expected = {}, byId = {};
+    (records || []).forEach(function(r){ if (r && r.id != null) byId[String(r.id)] = r; });
+    for (var i = 0; i < ids.length; i++){
+      var v = byId[ids[i]] && byId[ids[i]].move_version;
+      if (typeof v !== 'string' || !v) return { ok:false, reason:'stale' };
+      expected[ids[i]] = v;
+    }
+    return { ok:true, ids: ids, recurring: String(rec.move_field || '') === 'day_of_week',
+      body: { ids: ids, destination_date: String(newDate), start_time: newTime,
+              source_date: String(rec.date), expected: expected } };
+  }
+
   /* ═══ 🗂 겹침 없는 배치 (2026-09-02 사장님 선택 — 샘플 B-1 «요일 접기 + 강사별 열» + B-3 «빈 시간») ═══
      [왜] «전체 강사» 보기에서 카드가 전부 left:3px;right:3px 로 요일 칸 «전체 폭» 에 절대배치돼,
           20:00 에 강사 6명의 수업이 정확히 같은 자리에 쌓이고 맨 위 한 장만 보였다(사장님 화면 캡처).
@@ -439,17 +588,18 @@
     // ⑭ 「매주 반복인가 하루짜리인가」 를 카드에서 바로 읽히게 — 질문의 절반은 이걸 몰라서 나왔다.
     var typeTxt  = isBlock ? (s.recurring ? ph54T('매주 반복 차단', 'Every week') : ph54T('이 날짜만 차단', 'This date only'))
                            : (PH54_TYPE_LABEL[s.type] || '');
-    var canDrag  = (s.source !== 'unavailability');
+    var canDrag  = ph54Movable(s);   // 차단·LMS 점유·시드·id 없는 칸은 서버가 거절하므로 애초에 안 끌린다
     return '<div class="ph54-ev ph54-t-'+(s.type||'')+(canDrag?'':' ph54-locked')+(org?' ph54-nonclass':'')+(lay && lay.dup ? ' ph54-dup' : '')+'"'
       + (canDrag ? ' draggable="true"' : '')
       + ' data-idx="'+idx+'"'
       + (s.block_id != null ? ' data-block="'+s.block_id+'"' : '')
       /* 차단 카드는 «누를 수 있는 것» 이다(누르면 지운다) → 손가락 커서. 예전 default 커서는
          «아무 일도 안 일어나는 칸» 처럼 보여서 지우는 길이 있다는 걸 아무도 몰랐다. */
-      + ' style="top:'+top+'px;height:'+height+'px;'+ph54LaneStyle(lay)+'background:'+c+(canDrag?'':';cursor:pointer;opacity:.92')+'" '
+      + ' style="top:'+top+'px;height:'+height+'px;'+ph54LaneStyle(lay)+'background:'+c+(canDrag?'':(isBlock?';cursor:pointer;opacity:.92':';cursor:not-allowed'))+'" '
       + 'title="'+ph54Esc((lay && lay.dup ? ph54T('⚠ 같은 시각에 수업이 둘 · ', '⚠ Two classes at the same time · ') : '')+timeTxt+' · '+typeTxt+(isBlock?(s.reason?(' · '+s.reason):''):(org?(' · '+ph54T(org.ko,org.en)):(student?(' · '+student):''))))
-      + (canDrag ? '' : ph54T(' (드래그 불가 — 누르면 이 차단을 지웁니다)',
-                              ' (cannot drag — click to delete this block)'))+'">'
+      + (canDrag ? '' : isBlock ? ph54T(' (드래그 불가 — 누르면 이 차단을 지웁니다)',
+                              ' (cannot drag — click to delete this block)')
+                              : ph54T(' (수업이 아닌 칸이라 옮길 수 없습니다)', ' (not a class — cannot be moved)'))+'">'
       +   '<div class="ph54-ev-time">'+ph54Esc(timeTxt)
       +     (org ? '<span class="ph54-ev-tag">'+ph54Esc(org.badge)+'</span>' : '')+'</div>'
       +   '<div class="ph54-ev-name">'+ph54Esc(nameTxt)+'</div>'   /* ← 학생 이름 (말줄임 처리) */
@@ -940,13 +1090,27 @@
       });
     }
 
-    // ── HTML5 Drag & Drop: 카드를 다른 요일/시간으로 이동 ──
+    // ── HTML5 Drag & Drop: 카드를 다른 요일/시간으로 이동(연기·변경) ──
+    //    계산은 위 순수 함수(ph54DropMinute·ph54BuildMovePlan), 저장은 ph54SaveMove 한 곳.
     var track = document.getElementById('ph54-cal-track');
     if (track){
-      // (1) 드래그 시작 — 어떤 레코드를 잡았는지 ph54State._drag 에 기억
+      // (1) 드래그 시작 — 어떤 레코드를, 카드의 «어디» 를 잡았는지 기억(놓을 때 카드 윗변 기준으로 맞춘다)
       track.addEventListener('dragstart', function(ev){
         var card = ev.target.closest && ev.target.closest('.ph54-ev'); if(!card) return;
-        ph54State._drag = { idx: parseInt(card.dataset.idx, 10) };
+        var rec0 = ph54State.records[parseInt(card.dataset.idx, 10)];
+        if (!ph54Movable(rec0)) { ev.preventDefault(); return; }
+        if (ph54State._saving) {   // 앞 이동을 저장하는 중 — 겹쳐 보내면 두 번째가 «옛 버전» 으로 거절된다
+          ev.preventDefault();
+          ph54Toast(ph54T('💾 앞의 이동을 저장하는 중입니다. 잠시 뒤 다시 끌어 주세요.', '💾 Still saving the previous move — try again in a moment.'));
+          return;
+        }
+        var offsetMin = 0;
+        try {
+          var colEl = card.closest('.ph54-cal-col');
+          var cr = card.getBoundingClientRect(), colR = colEl && colEl.getBoundingClientRect();
+          if (colR && colR.height > 0) offsetMin = (ev.clientY - cr.top) / (colR.height / ((PH54_END_H - PH54_START_H) * 60));
+        } catch(e){}
+        ph54State._drag = { idx: parseInt(card.dataset.idx, 10), offsetMin: offsetMin };
         card.classList.add('dragging');
         try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', card.dataset.idx); } catch(e){}
       });
@@ -955,8 +1119,8 @@
         Array.prototype.forEach.call(track.querySelectorAll('.ph54-col-over'), function(c){ c.classList.remove('ph54-col-over'); });
       });
       /* (2) 컬럼 위로 드래그 — preventDefault 해야 drop 이 발생, 하이라이트 표시
-         🗂 접힌 요일 띠(.ph54-cal-fold)도 놓을 자리다 — 놓으면 그 요일로 옮기고 그 요일을 펼친다.
-            강사별 열에 놓아도 «강사는 바뀌지 않는다»(PATCH 는 요일·시각만 보낸다). */
+         🗂 접힌 요일 띠(.ph54-cal-fold)도 놓을 자리다 — 놓으면 그 요일 «같은 시각» 으로 옮기고 그 요일을 펼친다.
+            강사별 열에 놓아도 «강사는 바뀌지 않는다»(요일·시각만 보낸다). */
       var PH54_DROP_SEL = '.ph54-cal-col, .ph54-cal-fold';
       track.addEventListener('dragover', function(ev){
         var col = ev.target.closest && ev.target.closest(PH54_DROP_SEL); if(!col) return;
@@ -969,48 +1133,52 @@
         var col = ev.target.closest && ev.target.closest(PH54_DROP_SEL); if(!col) return;
         if (!col.contains(ev.relatedTarget)) col.classList.remove('ph54-col-over');
       });
-      // (3) 드롭 — 드롭한 컬럼(요일) + Y좌표(시간, 30분 스냅)로 레코드 갱신 → 재렌더 + 알림
+      // (3) 드롭 — 계산 → 확인 → 서버 저장 → «서버에서 다시 읽어» 그린다.
+      //     ⛔ 저장 «전» 에 화면을 옮기지 않는다(예전: 실패해도 「화면만 이동」 으로 남아 거짓말을 했다).
       track.addEventListener('drop', function(ev){
         var col = ev.target.closest && ev.target.closest(PH54_DROP_SEL);
         if (!col || !ph54State._drag) return;
         ev.preventDefault();
-        var idx = ph54State._drag.idx; ph54State._drag = null;
-        var rec = ph54State.records[idx]; if(!rec) return;
+        Array.prototype.forEach.call(track.querySelectorAll('.ph54-col-over'), function(c){ c.classList.remove('ph54-col-over'); });
+        var drag = ph54State._drag; ph54State._drag = null;
+        var rec = ph54State.records[drag.idx]; if(!rec) return;
         var newCol = parseInt(col.dataset.day, 10);
-        // 드롭 Y → 30분 칸 인덱스 → 분
-        var rect = col.getBoundingClientRect();
-        var rowIdx = Math.round((ev.clientY - rect.top) / (PH54_HOUR_PX * PH54_SNAP / 60));
+        if (!(newCol >= 0 && newCol <= 6)) return;
         var dur = rec.duration_min || 20;   // 기본 수업 20분(영어·중국어 공통, 2026-07-23)
-        var newMin = PH54_START_H*60 + rowIdx*PH54_SNAP;
-        newMin = Math.max(PH54_START_H*60, Math.min(newMin, PH54_END_H*60 - dur));  // 06:00~24:00 범위 클램프
-        // 레코드 갱신(요일/날짜/시간/시)
-        var newDate = ph54FmtDate(days[newCol]);
-        var newTime = ph54FmtMin(newMin);
-        rec.date = newDate; rec.start_time = newTime; rec.hour = Math.floor(newMin/60); rec.day_of_week = dowKeyByIdx[newCol];
-        if (col.classList.contains('ph54-cal-fold')) ph54State.openDay = newCol;   // 접힌 요일에 놓았으면 그 요일을 펼쳐 결과를 보여 준다
-        /* 다른 강사 열에 놓았을 때의 안내는 «저장» 토스트에 덧붙인다 — 토스트는 요소 하나라 따로 띄우면
-           바로 다음 줄의 '💾 저장 중…' 이 0ms 뒤 덮어쓴다(trap-check 지적 — 2장 「«완료» 메시지가 곧바로 사라짐」). */
-        var otherTeacher = col.dataset.teacher && String(rec.teacher_id) !== String(col.dataset.teacher);
-        var keepNote = otherTeacher ? ph54T(' · 강사는 그대로(요일·시각만 옮김)', ' · instructor unchanged (day/time only)') : '';
-        ph54Render();   // 즉시 다시 그리기(낙관적 업데이트)
-        console.log('[ph54] 일정 이동 →', { id: rec.id, day: dowKeyByIdx[newCol], date: newDate, start_time: newTime, duration_min: dur });
-        // 🔒 서버에 영구 저장(PATCH /api/admin/class-schedules/:id). id 없으면 화면 이동만.
-        if (rec.id != null) {
-          ph54Toast('💾 저장 중… ' + dayLabel[newCol] + '요일 ' + newTime + keepNote);
-          fetch('/api/admin/class-schedules/' + rec.id, {
-            method: 'PATCH', credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ day_of_week: dowKeyByIdx[newCol], start_time: newTime })
-          })
-          .then(function(r){ return r.json().catch(function(){ return {}; }); })
-          .then(function(res){
-            if (res && res.ok) ph54Toast('✅ 저장됨: ' + dayLabel[newCol] + '요일 ' + newTime + ' (' + dur + '분)' + keepNote);
-            else ph54Toast('⚠️ 저장 실패(화면만 이동): ' + ((res && res.error) || '서버 오류'));
-          })
-          .catch(function(){ ph54Toast('⚠️ 저장 실패(네트워크). 화면만 이동됨'); });
-        } else {
-          ph54Toast('📌 이동(임시): ' + dayLabel[newCol] + '요일 ' + newTime + ' — 저장 불가(id 없음)' + keepNote);
+        var newMin;
+        if (col.classList.contains('ph54-cal-fold')) newMin = ph54MinOf(rec);   // 띠에는 시각 눈금이 없다 — 같은 시각
+        else {
+          var rect = col.getBoundingClientRect();
+          newMin = ph54DropMinute(rect.height > 0 ? (ev.clientY - rect.top) / rect.height : 0, drag.offsetMin, dur);
         }
+        var newDate = ph54FmtDate(days[newCol]);
+        var plan = ph54BuildMovePlan(rec, ph54State.records, newDate, newMin);
+        if (!plan.ok){
+          if (plan.reason === 'same') return;   // 제자리에 놓았다 — 아무 일도 없다(정상)
+          ph54Toast(plan.reason === 'stale'
+            ? ph54T('⚠️ 수업 정보가 오래되었습니다 — 새로고침한 뒤 다시 옮겨 주세요. (저장 안 함)', '⚠️ Class data is out of date — reload and try again. (Not saved)')
+            : plan.reason === 'occupied'
+            ? ph54T('⚠️ 그 시각에는 이 강사의 다른 수업이 이미 있습니다. (저장 안 함)', '⚠️ This instructor already has another class at that time. (Not saved)')
+            : ph54T('⚠️ 이 칸은 옮길 수 없습니다. (저장 안 함)', '⚠️ This slot cannot be moved. (Not saved)'));
+          return;
+        }
+        var otherTeacher = col.dataset.teacher && String(rec.teacher_id) !== String(col.dataset.teacher);
+        var newTime = plan.body.start_time;
+        var who = (rec.students || []).map(function(x){ return x && x.name; }).filter(Boolean).join(', ');
+        var ask = ph54T('이 수업을 옮길까요?\n\n', 'Move this class?\n\n')
+          + (who ? who + '\n' : '')
+          + ph54T('지금: ', 'Now: ') + rec.date + ' (' + ph54DowLabel(rec.date) + ') ' + ph54FmtMin(ph54MinOf(rec)) + '\n'
+          + ph54T('바꿀 곳: ', 'To: ') + newDate + ' (' + ph54DowLabel(newDate) + ') ' + newTime + ' · ' + dur + ph54T('분', ' min')
+          // 같은 강사·같은 시각 줄은 서버가 «한 묶음» 으로 옮긴다 — 그룹이 아니면(1:1 이 겹친 것) 그렇게 말한다
+          + (plan.ids.length > 1 ? (rec.type === 'group'
+              ? ph54T('\n👥 그룹 수업 — 학생 ' + plan.ids.length + '명이 함께 옮겨집니다', '\n👥 Group class — all ' + plan.ids.length + ' students move together')
+              : ph54T('\n👥 같은 시각에 겹친 수업 ' + plan.ids.length + '건이 함께 옮겨집니다', '\n👥 ' + plan.ids.length + ' classes at the same time move together')) : '')
+          + (plan.recurring ? ph54T('\n🔁 매주 반복 수업입니다 — 이번 주만이 아니라 «매주» 바뀝니다', '\n🔁 Weekly class — this changes EVERY week, not just this one') : '')
+          + (newDate < ph54TodayKst() ? ph54T('\n⚠️ 이미 지난 날짜입니다 — 기록을 바로잡을 때만 옮기세요', '\n⚠️ That date is in the past — only for correcting records') : '')
+          + (otherTeacher ? ph54T('\nℹ️ 강사는 그대로입니다(요일·시각만 옮김)', '\nℹ️ The instructor stays the same (day/time only)') : '');
+        if (!window.confirm(ask)) { ph54Toast(ph54T('취소했습니다 — 아무것도 바꾸지 않았습니다', 'Cancelled — nothing changed')); return; }
+        if (col.classList.contains('ph54-cal-fold')) ph54State.openDay = newCol;
+        ph54SaveMove(plan, { date: rec.date, min: ph54MinOf(rec) }, newDate, newTime, dur, false);
       });
     }
   }
