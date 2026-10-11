@@ -197,7 +197,7 @@ select.pill{max-width:min(100%,280px)}
 .namebox small{color:var(--c-dim);font-size:12px}
 .wowpop{position:absolute;left:4px;right:4px;top:4px;text-align:center;color:var(--c-gold);font-weight:700;font-size:13px;line-height:1.2;text-shadow:0 1px 2px #000;pointer-events:none;z-index:3;animation:stk 1.6s ease-out forwards}
 @media (max-height:560px){.over{padding:8px}.over .card{padding:12px;gap:6px}.over h3{font-size:16px}.missed{max-height:18vh}}
-/* 폰 세로도 «왼쪽 교재 전체 · 오른쪽 선생님+학생» 을 지킵니다 (위아래로 쌓지 않음) */
+/* 좁은 화면(≤760): «왼쪽 교재 · 오른쪽 선생님+학생». 단 폰 «세로» 는 아래 portrait 블록이 «교재 위 · 선생님 아래» 로 덮는다(2026-10-11) */
 @media (max-width:760px){
   .stage{grid-template-columns:minmax(0,1fr) 32%;grid-template-rows:minmax(150px,1fr) auto;grid-template-areas:"book t" "book s" "sw sw" "pr pr" "ask ask";min-height:0;gap:6px}
   .book{grid-area:book} .side{display:contents}
@@ -219,6 +219,31 @@ select.pill{max-width:min(100%,280px)}
 }
 /* 작은 폰(≤420px): 바깥 여백·오른쪽 칸을 줄여 교재 그림이 너무 작아지지 않게 */
 @media (max-width:420px){ .class{padding:4px} .stage{grid-template-columns:minmax(0,1fr) 28%;gap:5px} .slide{padding:3px} .tspd{gap:0;right:2px}.tspd button{min-width:0;padding:3px 2px;font-size:10px} }
+/* 폰 «세로»(2026-10-11 사장님 «교재는 크게, 밑의 글은 작게 · 복잡하지 않게»): 교재를 맨 위에 화면 폭 그대로 크게,
+   그 아래 한 줄에 «선생님(작게) | 대답·자막·별». 학생 칸은 얇은 띠로 줄인다(카메라는 아래 버튼줄에도 있음).
+   «마이크 대신» 상자도 작게 접어 교재를 안 가리게. 폰 가로·PC 는 그대로 */
+@media (max-width:760px) and (orientation:portrait){
+  .stage{grid-template-columns:30% minmax(0,1fr);grid-template-rows:auto;grid-template-areas:"book book" "t ask" "t sw" "s pr";gap:6px}
+  .slide{padding:2px}
+  .page,.page.img{width:100%;height:auto;max-height:none;aspect-ratio:4/3}
+  .cap{font-size:12px;min-height:30px;padding:3px 8px}.cap .k{display:none}
+  .lines{max-height:40px;padding:3px 6px}
+  .bnav{padding:2px 6px}
+  .tile.t{min-height:0;aspect-ratio:4/5;align-self:start}
+  .tile.t .tag{font-size:9px;padding:1px 4px;left:3px;bottom:3px}
+  .tile.s{aspect-ratio:4/3;padding:3px;gap:2px;min-height:0}
+  .tile.s .me{width:24px;height:24px;font-size:13px}
+  .tile.s .slabel{font-size:10px;line-height:1.2}
+  .ask{min-height:0;padding:5px 8px;gap:5px;font-size:12px}.ask .tgt{font-size:13px}
+  .subw{font-size:12px;padding:5px 8px}.subw small{font-size:11px}.subw:empty{display:none}
+  .praise{padding:3px 8px;font-size:12px}.praise .stars{font-size:13px}
+  .sim{position:static;transform:none;order:1;width:auto;padding:8px;gap:5px;font-size:12px;box-shadow:none}.sim>div:first-child .muted{display:none}.dock{order:2}
+  .sim .choice{font-size:12px;padding:3px 9px}
+  .sim .ghost-btn{padding:5px 9px;font-size:12px;flex:1 1 0}
+  .sim .big-btn{padding:6px 12px;font-size:13px}
+  .sim input{padding:5px 8px}
+  .dock{gap:4px;padding:5px}.db{min-width:0;flex:1 1 22%;padding:4px 2px;font-size:10px}.db span{font-size:15px}.db.mic{min-width:0}
+}
 /* 폰 가로·낮은 창: 교실 전체를 화면 높이에 맞춰 교재와 선생님이 함께 보이게 */
 @media (max-height:560px) and (min-width:600px){
   .tabs{display:none}

@@ -95,8 +95,11 @@ async function runOne(vp, li, mode, seed) { seed += +(process.env.SEED_BASE || 0
   await sleep(30);
   const together = await ev(`(()=>{const b=document.getElementById('book'),t=document.getElementById('tTile');return {b:__probe.vis(b),t:__probe.vis(t),bh:b.getBoundingClientRect().height,th:t.getBoundingClientRect().height}})()`);
   ok(together.b >= 0.9 && together.t >= 0.9, `${tag}: textbook+teacher not on screen together (book ${together.b.toFixed(2)} teacher ${together.t.toFixed(2)})`);
-  const lr = await ev(`(()=>{const r=id=>document.getElementById(id).getBoundingClientRect();const b=r('book'),t=r('tTile'),s=r('sTile');return {bookLeft:b.right<=t.left+1&&b.right<=s.left+1,teacherAbove:t.bottom<=s.top+1,sameSide:Math.abs(t.left-s.left)<2,studentVis:__probe.vis(document.getElementById('sTile'))}})()`);
-  ok(lr.bookLeft && lr.teacherAbove && lr.sameSide, `${tag}: layout not «book left · teacher+student right» ${JSON.stringify(lr)}`);
+  const lr = await ev(`(()=>{const r=id=>document.getElementById(id).getBoundingClientRect();const b=r('book'),t=r('tTile'),s=r('sTile');return {bookLeft:b.right<=t.left+1&&b.right<=s.left+1,bookAbove:b.bottom<=t.top+1&&b.bottom<=s.top+1,bookWide:b.width>=innerWidth*0.8,teacherAbove:t.bottom<=s.top+1,sameSide:Math.abs(t.left-s.left)<2,studentVis:__probe.vis(document.getElementById('sTile'))}})()`);
+  // 폰 «세로»(≤760) 는 2026-10-11 사장님 «교재는 크게, 밑의 글은 작게» 로 «교재 위(화면 폭) · 선생님+학생 아래» 다. 짝: 나머지는 예전대로 «교재 왼쪽»
+  const portraitPhone = vp.w <= 760 && vp.w < vp.h;
+  if (portraitPhone) ok(lr.bookAbove && lr.bookWide && lr.teacherAbove && lr.sameSide, `${tag}: portrait layout not «book on top (wide) · teacher+student below» ${JSON.stringify(lr)}`);
+  else ok(lr.bookLeft && lr.teacherAbove && lr.sameSide, `${tag}: layout not «book left · teacher+student right» ${JSON.stringify(lr)}`);
   ok(lr.studentVis >= 0.9, `${tag}: student tile not on screen with textbook (${lr.studentVis.toFixed(2)})`);
   ok(together.bh >= 150 && together.th >= 80, `${tag}: textbook/teacher too small (${together.bh}/${together.th})`);
   // 시작
