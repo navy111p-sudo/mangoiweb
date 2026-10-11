@@ -146,6 +146,9 @@ select.pill{max-width:min(100%,280px)}
 .subw small{display:block;color:#fde68a;font-size:12px}
 /* 자막은 얼굴 «위» 가 아니라 얼굴 칸 «바로 아래» 에(2026-10-09 사장님 «글이 얼굴을 가린다»). 칸 안 #sub 는 감추고 밖의 #subW 를 쓴다(폰은 원래 그 방식) */
 .sub{display:none!important}
+/* 선생님 칸을 «목까지» 보이게(2026-10-11 사장님). 세로 사진(640x800)을 가로로 긴 칸에 꽉 채우면 얼굴만 남아 목이 잘린다 —
+   칸을 10:7 로 키우고 그림을 조금 아래로(25%) 맞춰 머리끝~목(원본 y≈86~543)이 들어오게. 폰·낮은 창은 그대로 */
+@media (min-width:761px) and (min-height:561px){.side>.tile.t{flex:0 0 auto;aspect-ratio:10/7;min-height:0}.tile.t img{object-position:center 25%}}
 @media (min-width:761px){.side>.tile.t{order:-2}.side>.subw{order:-1;display:block;text-align:center}.side>.subw:empty{display:none}}
 /* 폰 가로·낮은 창: 자막이 칸을 밀어 얼굴이 납작해지지 않게(실측 4px) — 얼굴 최소 높이를 지키고 자막은 작게, 넘치면 그 안에서 굴린다 */
 @media (max-height:560px) and (min-width:600px){.side>.tile.t{min-height:96px}.side>.subw{font-size:12px;padding:4px 8px;max-height:72px;overflow-y:auto}.side{min-height:0;overflow-y:auto}}
