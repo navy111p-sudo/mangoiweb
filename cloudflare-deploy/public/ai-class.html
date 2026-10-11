@@ -213,6 +213,9 @@ select.pill{max-width:min(100%,280px)}
   .blv{margin-left:5px;padding:1px 5px;gap:3px}.blv .dots,.blv .nm,.blv .rec{display:none}
   .tspd{top:3px;right:3px;padding:1px}.tspd .lb{display:none}.tspd button{font-size:11px;padding:3px 3px;min-width:20px}
   .tile.s .me{width:30px;height:30px;font-size:16px} .tile.s .pill{font-size:10px;padding:2px 5px}
+  /* 폰: 카메라가 켜지면 칸 안 «카메라 끄기» 알약이 작은 칸의 얼굴을 덮는다(2026-10-11 사장님) — 아래 독 «📷 카메라 켬» 으로 끄면 되니 감추고, 칸에 얼굴 높이를 준다 */
+  .tile.s.cam-on{min-height:96px} .tile.s.cam-on #camBtn{display:none}
+  .tile.s.cam-on .slabel{font-size:9px;padding:1px 4px;left:3px;bottom:3px}
   .cap{font-size:13px;padding:5px 8px} .lines{max-height:56px}
   .db{min-width:52px;padding:6px}
   .stagebar{gap:3px} .stagebar li{padding:3px 2px;font-size:10px;gap:3px} .stagebar li .sen{display:none} .stagebar li b{width:15px;height:15px;font-size:9px}
