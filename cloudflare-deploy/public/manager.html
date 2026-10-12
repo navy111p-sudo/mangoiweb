@@ -793,7 +793,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="sgrp">
     <button type="button" onclick="sideGo('c-req')"><span class="ic">🗓</span><span data-en="Reschedule requests" data-ko="수업 연기 · 변경 요청">Reschedule requests</span></button>
     <button type="button" onclick="sideGo('c-today')"><span class="ic">🏫</span><span data-en="All classes today" data-ko="오늘 전체 수업">All classes today</span></button>
-    <button type="button" onclick="sideGo('c-util')"><span class="ic">📈</span><span data-en="Teacher utilisation" data-ko="강사 가동률">Teacher utilisation</span></button>
+    <button type="button" id="sideUtil" onclick="sideGo('c-util')"><span class="ic">📈</span><span data-en="Teacher utilisation" data-ko="강사 가동률">Teacher utilisation</span></button>
   </div>
   <div class="sgrp-h" data-en="Settlement &amp; stats" data-ko="정산통계관리">Settlement &amp; stats</div>
   <div class="sgrp">
@@ -1018,7 +1018,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <button type="button" onclick="openCard('c-search')"><span data-en="Search" data-ko="통합 검색">Search</span></button>
     <button type="button" id="qWait" onclick="openCard('c-wait')"><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
     <button type="button" onclick="openCard('c-students')"><span data-en="My students" data-ko="학생 명부">My students</span></button>
-    <button type="button" onclick="openCard('c-util')"><span data-en="Teacher use" data-ko="강사 가동률">Teacher use</span></button>
+    <button type="button" id="qUtil" onclick="openCard('c-util')"><span data-en="Teacher use" data-ko="강사 가동률">Teacher use</span></button>
     <!-- 👩‍🏫 (2026-08-19 Melca 8/19 제보 ④) 강사 명부·검색·재직/퇴사 필터는 관리자 화면에
          **이미 있다**(#card-teacher-mgmt). 이 화면에 옮겨오지 않는다 — 설계 계약 1·4번을 깬다.
          한 번 눌러 그 카드로 바로 가는 링크만 둔다. 본사(hq)일 때만 보인다(#toTeacher 와 같은 판정). -->
@@ -1663,6 +1663,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var _orgAcct = (sc.type === 'branch' || sc.type === 'agency' || sc.type === 'franchise');
     NO_WAIT = _orgAcct;
     ['c-wait', 'sideWait', 'qWait', 'footFull'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = NO_WAIT; });
+    // 📈 (2026-10-12 사장님) 강사 가동률은 대리점 계정에는 필요 없다 → 카드·사이드바·바로가기를 감춘다.
+    ['c-util', 'sideUtil', 'qUtil'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = (sc.type === 'agency'); });
+    if (sc.type === 'agency') { var _cu = document.getElementById('c-util'); if (_cu && _cu.classList.contains('pane-active')) setPane(null); }
     if (NO_WAIT) { var _cw = document.getElementById('c-wait'); if (_cw && _cw.classList.contains('pane-active')) setPane(null); }
     try { if (D.wait || D.reqs) paintTodo(); } catch (e) {}
     ['toWork', 'tbWork'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = _orgAcct; });
