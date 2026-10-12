@@ -1170,7 +1170,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <!-- 🏫 (2026-09-23 매니저 Karl 요청) 학원·강사를 치지 않고 골라서 거르기 — 「오늘 ○○학원 수업만」.
          목록은 그날 불러온 줄에서만 만든다(건수 포함). admin.html 「오늘 수업」과 같은 판정(아래 pickKey·pickOptions).
          ⚠️ 이 화면은 외부 스크립트 0개 계약이라 판정이 두 벌이다 — test-harness/today_class_pickers_harness.mjs 가 대조한다. -->
-    <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;padding:0 0 8px 8px">
+    <label id="taAcademyWrap" style="font-size:12px;display:inline-flex;align-items:center;gap:6px;padding:0 0 8px 8px">
       <span data-en="Academy" data-ko="학원">Academy</span>
       <select id="taAcademy" onchange="paintTodayAll()" style="box-sizing:border-box;max-width:200px;padding:3px 6px;font-size:12px"><option value="">All</option></select>
     </label>
@@ -1666,6 +1666,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     // 📈 (2026-10-12 사장님) 강사 가동률은 대리점 계정에는 필요 없다 → 카드·사이드바·바로가기를 감춘다.
     ['c-util', 'sideUtil', 'qUtil'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = (sc.type === 'agency'); });
     if (sc.type === 'agency') { var _cu = document.getElementById('c-util'); if (_cu && _cu.classList.contains('pane-active')) setPane(null); }
+    // 🏫 (2026-10-12 사장님) 대리점이 곧 학원이다 → 「오늘 전체 수업」의 학원 고르기를 감추고 «전체» 로 둔다.
+    var _taw = document.getElementById('taAcademyWrap');
+    if (_taw) _taw.hidden = (sc.type === 'agency');
+    if (sc.type === 'agency') { var _tas = document.getElementById('taAcademy'); if (_tas && _tas.value) { _tas.value = ''; try { paintTodayAll(); } catch (e) {} } }
     if (NO_WAIT) { var _cw = document.getElementById('c-wait'); if (_cw && _cw.classList.contains('pane-active')) setPane(null); }
     try { if (D.wait || D.reqs) paintTodo(); } catch (e) {}
     ['toWork', 'tbWork'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = _orgAcct; });
