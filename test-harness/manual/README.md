@@ -28,6 +28,7 @@ PW_DIR=/tmp/pw node test-harness/manual/approval-withdraw-reverse-browser.mjs
 ```
 
 - Chromium 은 `/opt/pw-browsers` 에서 찾는다(웹 세션 환경에 미리 깔려 있다).
+- `speech-coach-rate-browser.mjs`(A.i 발음연습 듣기 속도)는 playwright 없이 CDP 로 직접 돌린다: `ROUNDS=5 node test-harness/manual/speech-coach-rate-browser.mjs` · 변이시험은 `SC_PAGE=<변이본.html>`.
   다른 곳이면 `PLAYWRIGHT_BROWSERS_PATH` 로 알려 준다.
 - 준비물이 없으면 **실패가 아니라 «건너뜀»** 으로 조용히 끝난다.
 - 두 검사 모두 **서버를 띄우지 않는다.** `fetch` 를 가짜로 바꿔 응답을 물린다.
