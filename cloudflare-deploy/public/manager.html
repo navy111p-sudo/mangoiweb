@@ -668,9 +668,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       case '/api/admin/franchises': return function(){ return { ok: true, items: [{ name: BRANCH, master_branch_name: '망고아이 본사' }] }; };
       case '/api/admin/centers': return function(){ return { ok: true, items: SHOPS.map(function(s){ return { name: s.name, manager: s.manager }; }) }; };
       case '/api/admin/attendance/school-stats': return function(){
-        var rates = [92.6];
-        return { ok: true, kpi: { rate: 92.6, schools: SHOPS.length, risk: 0 },
-          items: SHOPS.map(function(s, i){ var tot = s.n * 8; return { shop_name: s.name, franchise: BRANCH, attended_n: Math.round(tot * rates[i] / 100), total_n: tot, rate: rates[i] }; }) };
+        // 학생 1명 = 1줄 (실서버 school-stats 와 같은 모양)
+        var items = STUDENTS.map(function(st){
+          var tot = ri(6, 9), att = Math.max(0, tot - (rnd() < 0.8 ? ri(0, 1) : ri(2, 4)));
+          return { user_id: st.user_id, name: st.name, english_name: st.english_name, shop_name: st.shop_name, franchise: BRANCH,
+                   attended_n: att, total_n: tot, rate: Math.round(100 * att / tot) };
+        });
+        var sa = 0, stt = 0, risk = 0;
+        items.forEach(function(r){ sa += r.attended_n; stt += r.total_n; if (r.rate <= 70) risk++; });
+        return { ok: true, total: items.length, kpi: { rate: Math.round(100 * sa / stt), schools: SHOPS.length, students: items.length, risk: risk }, items: items };
       };
       case '/api/admin/ai-usage/students': return function(){
         var m = /days=(\d+)/.exec(qs), days = m ? +m[1] : 30;
@@ -786,7 +792,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <button type="button" onclick="sideGo('c-students')"><span class="ic">👤</span><span data-en="Student roster" data-ko="학생 명부">Student roster</span></button>
     <button type="button" onclick="sideGo('c-flow')"><span class="ic">🔀</span><span data-en="Student flow" data-ko="학생 흐름">Student flow</span></button>
     <button type="button" id="sideWait" onclick="sideGo('c-wait')"><span class="ic">⏳</span><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
-    <button type="button" onclick="sideGo('c-attn')"><span class="ic">📋</span><span data-en="Attendance by academy" data-ko="학원별 출석 현황">Attendance by academy</span></button>
+    <button type="button" onclick="sideGo('c-attn')"><span class="ic">📋</span><span data-en="Attendance by student" data-ko="학생별 출석 현황">Attendance by student</span></button>
     <button type="button" onclick="sideGo('c-aiusage')"><span class="ic">🤖</span><span data-en="AI tool usage" data-ko="AI 학습도구 활용 학생">AI tool usage</span></button>
   </div>
   <div class="sgrp-h" data-en="Classes" data-ko="수업 관리">Classes</div>
@@ -1094,10 +1100,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <div id="waitBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
-  <!-- 📋 (2026-09-21) 학원별 출석 현황 — attendance/school-stats 는 index.ts 6196-6198 에서
+  <!-- 📋 (2026-09-21) 학원별 출석 현황 → (2026-10-12 사장님) «학생별 출석 현황» — attendance/school-stats 는 index.ts 6196-6198 에서
        scopeStudentCond() 로 이미 자기 범위만 잘라 준다고 확인된 주소. -->
   <details class="card" id="c-attn" ontoggle="if(this.open)loadAttn()">
-    <summary><span data-en="Attendance by academy" data-ko="학원별 출석 현황">Attendance by academy</span></summary>
+    <summary><span data-en="Attendance by student" data-ko="학생별 출석 현황">Attendance by student</span></summary>
     <div id="attnBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
@@ -1987,29 +1993,39 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (D.attn) { paintAttn(); return; }
     var el = document.getElementById('attnBody');
     el.textContent = T('Loading...', '불러오는 중...');
-    once('attn', function(){ return get('/api/admin/attendance/school-stats', 'attn'); })
+    once('attn', function(){ return get('/api/admin/attendance/school-stats?limit=200', 'attn'); })
       .then(function(j){ D.attn = j; paintAttn(); }).catch(function(e){ failBox(el, e); });
   };
   function paintAttn(){
+    /* 👤 (2026-10-12 사장님) 학원별이 아니라 «학생별» — 서버는 원래 학생 1명 = 1줄을 주는데
+       이 카드가 그 줄에 학원 이름만 찍고 있었다. 이제 학생 이름·아이디·출석/수업·출석률을 그린다.
+       기간은 서버 기본(올해 1월 1일 ~ 오늘)이고, 아직 안 온 날은 세지 않는다(서버 판정). */
     var j = D.attn; if (!j) return;
     var k = j.kpi || {};
     var rows = j.items || [];
+    var total = j.total != null ? Number(j.total) : rows.length;
+    var multiShop = Number(k.schools || 0) > 1;   // 대리점은 학원이 하나라 학원 칸을 안 그린다
     var el = document.getElementById('attnBody');
     el.className = '';
     var head = '<div class="kpis">'
       + tile((k.rate != null ? k.rate + '%' : '-'), T('Attendance rate', '출석률'), '')
-      + tile(n0(k.schools), T('Academies', '학원 수'), '')
-      + tile(n0(k.risk), T('At risk', '위험'), '', k.risk > 0 ? 'warn' : '')
-      + '</div>';
+      + tile(n0(k.students != null ? k.students : total), T('Students', '학생 수'), '')
+      + tile(n0(k.risk), T('70% or below', '출석률 70% 이하'), '', k.risk > 0 ? 'warn' : '')
+      + '</div>'
+      + (j.from ? '<div class="muted" style="padding:0 0 6px">' + esc(T('Period: ' + j.from + ' ~ ' + (j.counted_to || ''), '기간: ' + j.from + ' ~ ' + (j.counted_to || ''))) + '</div>' : '');
     if (!rows.length) { el.innerHTML = head + '<div class="empty">' + esc(T('No data yet.', '아직 자료가 없습니다.')) + '</div>'; return; }
-    el.innerHTML = head + rows.slice(0, 50).map(function(r){
-      return '<div class="row"><b>' + esc(r.shop_name || r.name || '-') + '</b>'
-           + '<span class="muted">' + esc(r.franchise || '') + '</span>'
-           + '<span class="num">' + n0(r.attended_n) + ' / ' + n0(r.total_n) + '</span>'
-           + '<span class="num">' + (r.rate != null ? r.rate + '%' : '-') + '</span></div>';
+    el.innerHTML = head + rows.map(function(r){
+      var nm = r.name || r.user_id || '-';
+      var sub = [r.english_name, r.user_id && r.user_id !== nm ? r.user_id : '', multiShop ? r.shop_name : ''].filter(Boolean).join(' · ');
+      var hasClass = Number(r.total_n || 0) > 0;
+      var low = r.rate != null && r.rate <= 70;
+      return '<div class="row"><b>' + esc(nm) + '</b>'
+           + '<span class="muted">' + esc(sub) + '</span>'
+           + '<span class="num">' + (hasClass ? n0(r.attended_n) + ' / ' + n0(r.total_n) : esc(T('no classes', '수업 기록 없음'))) + '</span>'
+           + '<span class="num"' + (low ? ' style="color:#b45309;font-weight:700"' : '') + '>' + (r.rate != null ? r.rate + '%' : '-') + '</span></div>';
     }).join('')
-      + (rows.length > 50 ? '<div class="muted" style="padding-top:8px">'
-          + esc(T('Showing 50 of ' + rows.length + '.', rows.length + '건 중 50건 표시.')) + '</div>' : '');
+      + (total > rows.length ? '<div class="muted" style="padding-top:8px">'
+          + esc(T('Showing ' + rows.length + ' of ' + total + '.', total + '명 중 ' + rows.length + '명 표시.')) + '</div>' : '');
   }
 
   // ══════════════════════════════════════════════════════════════════════════
