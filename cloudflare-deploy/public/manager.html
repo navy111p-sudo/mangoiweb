@@ -785,7 +785,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="sgrp">
     <button type="button" onclick="sideGo('c-students')"><span class="ic">👤</span><span data-en="Student roster" data-ko="학생 명부">Student roster</span></button>
     <button type="button" onclick="sideGo('c-flow')"><span class="ic">🔀</span><span data-en="Student flow" data-ko="학생 흐름">Student flow</span></button>
-    <button type="button" onclick="sideGo('c-wait')"><span class="ic">⏳</span><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
+    <button type="button" id="sideWait" onclick="sideGo('c-wait')"><span class="ic">⏳</span><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
     <button type="button" onclick="sideGo('c-attn')"><span class="ic">📋</span><span data-en="Attendance by academy" data-ko="학원별 출석 현황">Attendance by academy</span></button>
     <button type="button" onclick="sideGo('c-aiusage')"><span class="ic">🤖</span><span data-en="AI tool usage" data-ko="AI 학습도구 활용 학생">AI tool usage</span></button>
   </div>
@@ -1016,7 +1016,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="qlbl" data-en="Quick access" data-ko="자주 쓰는 기능">Quick access</div>
   <div class="qbar">
     <button type="button" onclick="openCard('c-search')"><span data-en="Search" data-ko="통합 검색">Search</span></button>
-    <button type="button" onclick="openCard('c-wait')"><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
+    <button type="button" id="qWait" onclick="openCard('c-wait')"><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
     <button type="button" onclick="openCard('c-students')"><span data-en="My students" data-ko="학생 명부">My students</span></button>
     <button type="button" onclick="openCard('c-util')"><span data-en="Teacher use" data-ko="강사 가동률">Teacher use</span></button>
     <!-- 👩‍🏫 (2026-08-19 Melca 8/19 제보 ④) 강사 명부·검색·재직/퇴사 필터는 관리자 화면에
@@ -1560,6 +1560,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   // 🏢 (2026-09-21) paintMonth() 가 scope 를 받으면 채운다. 그 전에는 «모름» 쪽(false)으로 —
   //    지사장이 배지를 눌러도 403 이 뜨는 것보다 «안 눌리는» 쪽이 안전하다(CLAUDE.md 「모르면 막는다」).
   var IS_HQ = false;
+  // ⏳ (2026-10-12 사장님) 「대기자」는 지사·대리점에는 필요 없다 → 카드·사이드바·바로가기·오늘 할 일 줄을 감춘다.
+  //    범위를 모르면(sc.type 없음) 감추지 않는다. 화면만 감추는 것이고 API 는 그대로다.
+  var NO_WAIT = false;
 
   function paintToday(){
     var d = D.today; if (!d) return;
@@ -1657,6 +1660,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        지사·대리점에게 결재함 버튼이 보이면 «누를 수는 있는데 들어갈 수 없는» 버튼이 된다.
        범위를 모를 때(sc.type 없음)는 감추지 않는다 — 눌러도 결재 화면이 «본사 전용» 이라고 말한다. */
     var _orgAcct = (sc.type === 'branch' || sc.type === 'agency' || sc.type === 'franchise');
+    NO_WAIT = _orgAcct;
+    ['c-wait', 'sideWait', 'qWait'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = NO_WAIT; });
+    if (NO_WAIT) { var _cw = document.getElementById('c-wait'); if (_cw && _cw.classList.contains('pane-active')) setPane(null); }
+    try { if (D.wait || D.reqs) paintTodo(); } catch (e) {}
     ['toWork', 'tbWork'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = _orgAcct; });
     var _sHq = document.getElementById('sideHq');
     if (_sHq) _sHq.hidden = !IS_HQ;
@@ -3559,8 +3566,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       }
     }
 
-    // ② 대기자 — 상담·배정을 기다리는 학생
-    if (D.wait) {
+    // ② 대기자 — 상담·배정을 기다리는 학생 (지사·대리점은 안 보임 — NO_WAIT)
+    if (D.wait && !NO_WAIT) {
       var wr = D.wait.items || D.wait.rows || D.wait.waitlist || [];
       if (wr.length > 0) {
         var w0 = wr[0].student_name || wr[0].name || '';
@@ -3574,11 +3581,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     }
 
     // 받은 게 하나도 없으면 «괜찮다» 고 말하지 않는다 — 모르는 것과 없는 것은 다르다
-    if (!D.reqs && !D.wait) { box.hidden = true; return; }
+    if (!D.reqs && (!D.wait || NO_WAIT)) { box.hidden = true; return; }
 
     if (!html) {
       body.innerHTML = '<div class="todo-clear">' + esc(T('Nothing to check right now', '지금은 볼 것이 없습니다'))
-        + '<span>' + esc(T('No requests or waiting students', '대기 중인 요청도 대기자도 없어요')) + '</span></div>';
+        + '<span>' + esc(NO_WAIT ? T('No pending requests', '대기 중인 요청이 없어요') : T('No requests or waiting students', '대기 중인 요청도 대기자도 없어요')) + '</span></div>';
       nEl.textContent = ''; nEl.hidden = true;
     } else {
       body.innerHTML = html;
