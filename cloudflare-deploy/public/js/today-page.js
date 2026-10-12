@@ -218,6 +218,8 @@
     if (sb) sb.hidden = !d.sample;
     show('td-main');
     var name = d.name || '';
+    /* 사용법 1번 그림의 예시 이름을 이 사람 이름으로 덮는 데 쓴다(js/today-guide.js). ⛔ data-ko/en 아님 */
+    $('td-hello').setAttribute('data-name', d.sample ? '' : name);
     $('td-hello').textContent = name ? T(name + ' 님, 오늘도 조금만 해요', 'Hi ' + name + ' — a little today') : T('오늘도 조금만 해요', 'A little today');
     var sub = '';
     if (p.mode === 'unassigned') sub = T('아직 레벨이 없어요. 레벨테스트를 먼저 보면 모든 도구가 내 수준에 맞춰져요.', 'No level yet — take the level test first and every tool adapts to you.');
