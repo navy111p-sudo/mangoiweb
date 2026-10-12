@@ -1308,7 +1308,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     </details>
   </div>
 
-  <div class="muted" style="text-align:center;padding:6px 0 0">
+  <!-- 2026-10-12 사장님: 지사·대리점 계정에서는 이 링크도 감춘다(paintMonth 의 _orgAcct). 본사는 그대로. -->
+  <div id="footFull" class="muted" style="text-align:center;padding:6px 0 0">
     <a href="/admin.html?full=1" class="footlink" data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</a>
   </div>
 
@@ -1661,7 +1662,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        범위를 모를 때(sc.type 없음)는 감추지 않는다 — 눌러도 결재 화면이 «본사 전용» 이라고 말한다. */
     var _orgAcct = (sc.type === 'branch' || sc.type === 'agency' || sc.type === 'franchise');
     NO_WAIT = _orgAcct;
-    ['c-wait', 'sideWait', 'qWait'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = NO_WAIT; });
+    ['c-wait', 'sideWait', 'qWait', 'footFull'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = NO_WAIT; });
     if (NO_WAIT) { var _cw = document.getElementById('c-wait'); if (_cw && _cw.classList.contains('pane-active')) setPane(null); }
     try { if (D.wait || D.reqs) paintTodo(); } catch (e) {}
     ['toWork', 'tbWork'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = _orgAcct; });
