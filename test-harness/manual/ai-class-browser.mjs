@@ -95,11 +95,15 @@ async function runOne(vp, li, mode, seed) { seed += +(process.env.SEED_BASE || 0
   await sleep(30);
   const together = await ev(`(()=>{const b=document.getElementById('book'),t=document.getElementById('tTile');return {b:__probe.vis(b),t:__probe.vis(t),bh:b.getBoundingClientRect().height,th:t.getBoundingClientRect().height}})()`);
   ok(together.b >= 0.9 && together.t >= 0.9, `${tag}: textbook+teacher not on screen together (book ${together.b.toFixed(2)} teacher ${together.t.toFixed(2)})`);
-  const lr = await ev(`(()=>{const r=id=>document.getElementById(id).getBoundingClientRect();const b=r('book'),t=r('tTile'),s=r('sTile');return {bookLeft:b.right<=t.left+1&&b.right<=s.left+1,bookAbove:b.bottom<=t.top+1&&b.bottom<=s.top+1,bookWide:b.width>=innerWidth*0.8,teacherAbove:t.bottom<=s.top+1,sameSide:Math.abs(t.left-s.left)<2,studentVis:__probe.vis(document.getElementById('sTile'))}})()`);
+  const lr = await ev(`(()=>{const r=id=>document.getElementById(id).getBoundingClientRect();const b=r('book'),t=r('tTile'),s=r('sTile');return {bookLeft:b.right<=t.left+1&&b.right<=s.left+1,bookAbove:b.bottom<=t.top+1&&b.bottom<=s.top+1,bookWide:b.width>=innerWidth*0.8,teacherAbove:t.bottom<=s.top+1,sameSide:Math.abs(t.left-s.left)<2,pip:s.left>=t.left+t.width*0.4&&s.right<=t.right+1&&s.bottom<=t.bottom+1&&s.top>=t.top&&s.width<=t.width*0.5,studentVis:__probe.vis(document.getElementById('sTile'))}})()`);
   // 폰 «세로»(≤760) 는 2026-10-11 사장님 «교재는 크게, 밑의 글은 작게» 로 «교재 위(화면 폭) · 선생님+학생 아래» 다. 짝: 나머지는 예전대로 «교재 왼쪽»
   const portraitPhone = vp.w <= 760 && vp.w < vp.h;
   if (portraitPhone) ok(lr.bookAbove && lr.bookWide && lr.teacherAbove && lr.sameSide, `${tag}: portrait layout not «book on top (wide) · teacher+student below» ${JSON.stringify(lr)}`);
+  // 2026-10-12 사장님 선택: 폭 761+·높이 561+ 는 학생 얼굴이 선생님 칸 «오른쪽 아래 작은 창»(PiP). 그 밖(폰 가로·낮은 창)은 예전처럼 «선생님 아래»
+  else if (vp.w >= 761 && vp.h >= 561) ok(lr.bookLeft && lr.pip, `${tag}: layout not «book left · student PiP inside teacher (bottom-right)» ${JSON.stringify(lr)}`);
   else ok(lr.bookLeft && lr.teacherAbove && lr.sameSide, `${tag}: layout not «book left · teacher+student right» ${JSON.stringify(lr)}`);
+  if (vp.w >= 1100 && vp.h >= 700) { const sv = await ev(`(()=>{const s=document.querySelector('.side');return {c:s.clientHeight,h:s.scrollHeight,ask:__probe.vis(document.getElementById('ask'))}})()`);
+    ok(sv.h <= sv.c + 2 && sv.ask >= 0.9, `${tag}: right column overflows (needs scroll to see «따라 말해») ${JSON.stringify(sv)}`); }
   ok(lr.studentVis >= 0.9, `${tag}: student tile not on screen with textbook (${lr.studentVis.toFixed(2)})`);
   ok(together.bh >= 150 && together.th >= 80, `${tag}: textbook/teacher too small (${together.bh}/${together.th})`);
   // 시작
@@ -366,7 +370,9 @@ async function featOne(vp) {
   ok(!(vp.w <= 400 && vp.m) || c1.lf === '10px', `${tag}/cam: phone label font not small (${c1.lf}/${c1.mf})`);
   ok(c1.api.on && c1.api.live && c1.vw > 0 && c1.cls && c1.vid && c1.fill >= 0.8 && c1.rh >= 30, `${tag}/cam: camera on but no live video in tile ${JSON.stringify(c1)}`);
   ok(c1.bp === 'true' && c1.dp === 'true' && !c1.off && /켜짐/.test(c1.label) && /끄기/.test(c1.btn) && /켬/.test(c1.dock) && !c1.note, `${tag}/cam: buttons/label not synced when on ${JSON.stringify(c1)}`);
-  ok(c1.btop && c1.me === 'hidden', `${tag}/cam: off button covered or placeholder over video ${JSON.stringify(c1)}`);
+  // 학생 작은 창(PiP, 761+·561+)은 폰처럼 칸 안 «카메라 끄기» 를 감추고 아래 독 버튼으로 끈다(작은 창의 얼굴을 덮지 않게) — 짝: 독 버튼은 눌린다
+  if (vp.w >= 761 && vp.h >= 561) ok(!c1.btop && await ev(`getComputedStyle(document.getElementById('camBtn')).display==='none' && (document.getElementById('camDock').scrollIntoView({block:'nearest'}), __probe.top(document.getElementById('camDock')))`) && c1.me === 'hidden', `${tag}/cam: PiP — tile off button should hide, dock button usable ${JSON.stringify(c1)}`);
+  else ok(c1.btop && c1.me === 'hidden', `${tag}/cam: off button covered or placeholder over video ${JSON.stringify(c1)}`);
   ok(await ev(`window.__aiClass.state.phase+'/'+window.__aiClass.state.i`) === ph0, `${tag}/cam: camera changed the lesson flow`);
   ok(await ev('document.documentElement.scrollWidth <= innerWidth'), `${tag}/cam: overflow with camera on`);
   await ev(`window.__camTr = window.__aiClassCam && document.getElementById('camVid').srcObject && document.getElementById('camVid').srcObject.getTracks()`);
