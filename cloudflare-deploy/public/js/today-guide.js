@@ -57,6 +57,11 @@
       '#tg-head .k{font-size:12.5px;font-weight:800;color:#a3b3d1}' +
       '#tg-head .x{position:absolute;top:4px;right:4px;width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:#e6ecff;font-size:20px;cursor:pointer}' +
       '#tg-body{overflow-y:auto;min-height:0;padding:12px 16px 4px}' +
+      '#tg-body .picw{position:relative;container-type:inline-size}' +
+      /* 1번 그림의 인사줄(예시 이름 «민서») 자리 — 같은 카드색으로 덮고 이 사람 이름으로 다시 쓴다 (2026-10-12) */
+      '#tg-body .hi{position:absolute;left:6%;top:8%;width:89%;height:8.8%;background:#14213b;color:#f1f5ff;font-weight:900;letter-spacing:-.02em;' +
+        'font-size:16px;font-size:4.9cqw;line-height:1;display:flex;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}' +
+      '#tg-body .hi[hidden]{display:none!important}' +
       '#tg-body .pic{display:block;width:100%;height:auto;border-radius:12px;background:#0a1530;border:1px solid rgba(255,255,255,.08)}' +
       '#tg-body .tt{display:block;font-size:20px;font-weight:900;letter-spacing:-.02em;line-height:1.35;margin:12px 0 6px;color:#fbbf24}' +
       '#tg-body .tt b{display:inline-block;min-width:30px;height:30px;line-height:30px;margin-right:8px;text-align:center;border-radius:50%;background:#ff2d6f;color:#fff;font-size:16px;vertical-align:2px}' +
@@ -85,7 +90,7 @@
     ov.innerHTML =
       '<div id="tg-box">' +
         '<div id="tg-head"><div class="k"></div><button type="button" class="x">✕</button></div>' +
-        '<div id="tg-body"><img class="pic" alt="" width="780" height="560" decoding="async"><span class="tt"></span><p class="tx"></p></div>' +
+        '<div id="tg-body"><div class="picw"><img class="pic" alt="" width="780" height="560" decoding="async"><div class="hi" aria-hidden="true" hidden></div></div><span class="tt"></span><p class="tx"></p></div>' +
         '<div id="tg-foot"><div id="tg-dots"></div><div id="tg-nav"><button type="button" class="pv"></button><button type="button" class="nx"></button></div></div>' +
       '</div>';
     document.body.appendChild(ov);
@@ -111,6 +116,8 @@
     var img = ov.querySelector('.pic');
     img.src = imgUrl(idx, en);
     img.alt = txt[0];
+    var hi = ov.querySelector('.hi');
+    if (idx === 0) { hi.textContent = helloText(en); hi.hidden = false; } else { hi.hidden = true; }
     var tt = ov.querySelector('.tt');
     tt.innerHTML = '';
     var b = document.createElement('b'); b.textContent = String(idx + 1); tt.appendChild(b);
@@ -126,6 +133,14 @@
     ov.querySelector('#tg-body').scrollTop = 0;
     /* 다음 장 그림만 미리 받는다 — 넘길 때 빈 칸이 안 보이게 */
     if (idx + 1 < SLIDES.length) { var pre = new Image(); pre.src = imgUrl(idx + 1, en); }
+  }
+  /* 그림에 박힌 예시 이름 대신 «로그인한 사람» 이름 — 이름을 모르면 이름 없는 인사(지어내지 않음).
+     문구는 today-page.js 의 td-hello 와 같은 말이어야 한다. */
+  function helloText(en) {
+    var h = document.getElementById('td-hello');
+    var name = (h && h.getAttribute('data-name')) || '';
+    if (name) return en ? 'Hi ' + name + ' — a little today' : name + ' 님, 오늘도 조금만 해요';
+    return en ? 'A little today' : '오늘도 조금만 해요';
   }
   function go(i) { idx = Math.max(0, Math.min(SLIDES.length - 1, i)); draw(); }
 
