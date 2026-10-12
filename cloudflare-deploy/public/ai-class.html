@@ -299,6 +299,28 @@ select.pill{max-width:min(100%,280px)}
 .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .top .home{margin-left:auto;color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:6px 12px;background:var(--paper);font-size:14px}
 .top .home:hover{border-color:var(--mango)}
+/* 학생 얼굴 = 선생님 칸 오른쪽 아래 «작은 창»(2026-10-12 사장님 선택). 그 전에는 학생 칸이 선생님 칸 «아래» 줄이라
+   오른쪽 칸이 보이는 높이의 약 1.6배로 넘쳐(1920x983 실측 454 대 747) 학생 얼굴·칭찬 별·«따라 말해 보세요» 를 굴려 내려야 보였다.
+   두 칸을 같은 그리드 칸에 겹친다 — 순서는 선생님(+학생 창) · 자막 · 칭찬 별 · 따라 말해. 폰·낮은 창은 그대로 */
+@media (min-width:761px) and (min-height:561px){
+  .side{display:grid;grid-template-columns:minmax(0,1fr);grid-auto-rows:auto;align-content:start}
+  .side>.tile.t{grid-row:1;grid-column:1}
+  .side>.tile.s{grid-row:1;grid-column:1;align-self:end;justify-self:end;height:58%;width:auto;max-width:44%;min-height:64px;aspect-ratio:4/3;margin:0 8px 8px 0;padding:4px;gap:2px;z-index:4;font-size:11px;border-color:#e2e8f0;box-shadow:0 4px 14px rgba(0,0,0,.45)}
+  .side>.tile.s .me{width:28px;height:28px;font-size:15px}
+  .side>.tile.s .slabel{font-size:11px;line-height:1.25;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .side>.tile.s #camBtn{font-size:11px;padding:2px 6px}
+  .side>.tile.s.cam-on .slabel{font-size:10px;padding:1px 4px;left:3px;bottom:3px;right:3px}
+  .side>.tile.s.cam-on #camBtn{display:none} /* 켜진 뒤 끄기는 아래 버튼줄 «📷 카메라 켬» 으로 — 작은 창의 얼굴을 덮지 않게 */
+  .side>.tile.t .tag{z-index:5}
+  .side>.tile.t .tspd{right:auto;left:6px} /* 속도 버튼은 왼쪽 위로 — 오른쪽은 학생 창 자리 */
+}
+/* PC 큰 화면은 칸 높이가 정해져 있으니 선생님 얼굴이 «남는 높이» 만 쓰게 — 자막·별·따라 말해가 굴리지 않고 보인다 */
+@media (min-width:1100px) and (min-height:700px){
+  /* 선생님은 최소 110, 남는 만큼. 자막은 길면 그 안에서 굴린다(72) — 아래 «따라 말해» 가 밀려나지 않게 */
+  .side{grid-template-rows:minmax(110px,1fr)}
+  .side>.tile.t{aspect-ratio:auto;min-height:0}
+  .side>.subw{font-size:15px;padding:5px 10px;max-height:72px;overflow-y:auto}.side>.subw small,.side>.subw .ko{font-size:13px}
+}
 </style>
 </head>
 <body>
