@@ -63,6 +63,12 @@
   .ko-chip { margin-top: 14px; padding: 10px 14px; border-radius: 12px; font-size: 15px; line-height: 1.5;
     background: rgba(167,139,250,0.14); border: 1px solid rgba(167,139,250,0.4); color: #ddd6fe; white-space: normal; }
   .ko-chip.err { background: rgba(148,163,184,0.12); border-color: rgba(148,163,184,0.35); color: #cbd5e1; }
+  /* 🐢🐇 듣기 속도 (2026-10-12) — 웜업·A.i 친구와 같은 다섯 칸(0.5·0.65·0.8·1.0·1.25배) */
+  .sc-rate { margin: 12px auto 0; max-width: 380px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #c4b5fd; }
+  .sc-rate .sc-rate-name { white-space: nowrap; font-weight: 700; }
+  .sc-rate .sc-rate-side { font-size: 16px; line-height: 1; }
+  .sc-rate input[type=range] { flex: 1; min-width: 60px; accent-color: #a78bfa; height: 24px; cursor: pointer; }
+  .sc-rate .sc-rate-val { white-space: nowrap; min-width: 92px; text-align: center; padding: 3px 8px; border-radius: 999px; background: rgba(167,139,250,0.16); border: 1px solid rgba(167,139,250,0.4); color: #ede9fe; font-weight: 700; }
   .play-btn-hero { background: linear-gradient(135deg, rgba(167,139,250,0.28), rgba(139,92,246,0.16)); border-color: rgba(167,139,250,0.55); color: #ede9fe; box-shadow: 0 8px 20px -8px rgba(139,92,246,0.5); }
 
   .recorder { background: rgba(18,24,42,0.6); border: 1px solid rgba(139,92,246,0.18); border-radius: 18px; padding: 26px 22px; margin-bottom: 16px; text-align: center; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
@@ -205,6 +211,8 @@
     .target-text { font-size: 19px; }
     .target-input { font-size: 13px; padding: 8px 12px; margin-top: 8px; }
     .play-btn-hero { padding: 7px 14px; font-size: 12px; }
+    .sc-rate { margin-top: 8px; font-size: 11px; gap: 6px; }
+    .sc-rate .sc-rate-val { min-width: 78px; padding: 2px 6px; }
     .target-tip { font-size: 9.5px; margin-top: 6px; }
 
     .recorder { padding: 16px; margin-bottom: 8px; }
@@ -222,6 +230,7 @@
     body.m-showing-result .target-box .target-label,
     body.m-showing-result .target-box .target-input,
     body.m-showing-result .target-box .play-btn-hero,
+    body.m-showing-result .target-box .sc-rate,
     body.m-showing-result .target-box .target-tip { display: none; }
     body.m-showing-result .target-text { font-size: 13.5px; margin-top: 0; color: #cbd5e1; }
     body.m-showing-result .result { padding: 16px; }
@@ -357,6 +366,7 @@
      이 화면은 아바타 크기·모양 CSS 를 이미 자기 <style> 안에 갖고 있고(150·260·118·92px),
      공용 CSS 가 뒤에 오면 같은 명시도에서 이겨 카드 크기가 136px 로 줄어듭니다. -->
 <script src="/js/mango-avatar.js?v=19" defer></script>
+<script src="/js/speech-preferences.js?v=3"></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
 <body>
@@ -506,6 +516,14 @@
          ⚠️ 국기 이모지를 쓰지 말 것 — Win10 은 국기를 못 그려서 알파벳 두 글자로 나온다. -->
     <button onclick="toggleTargetMeaning()" id="mean-btn" class="play-btn" style="margin-top:14px;margin-left:8px">📖 <span data-ko="뜻 보기" data-en="Meaning">뜻 보기</span></button>
     <div class="ko-chip" id="mean-chip" style="display:none"></div>
+    <!-- 🐢🐇 듣기 속도 (2026-10-12 사장님) — 원어민 발음을 천천히/빠르게. 정본 표는 아래 SC_RATE_STEPS -->
+    <div class="sc-rate" id="sc-rate">
+      <span class="sc-rate-name"><span data-ko="🗣️ 듣기 속도" data-en="🗣️ Speed">🗣️ 듣기 속도</span></span>
+      <span class="sc-rate-side" aria-hidden="true">🐢</span>
+      <input id="sc-rate-slider" type="range" min="1" max="5" step="1" value="3" oninput="scSetRate(this.value)" aria-label="듣기 속도 / Listening speed" />
+      <span class="sc-rate-side" aria-hidden="true">🐇</span>
+      <span class="sc-rate-val" id="sc-rate-val">3 · 보통 (0.8배)</span>
+    </div>
     <div class="target-tip" data-ko="먼저 듣고, 똑같이 따라 말해보세요" data-en="Listen first, then repeat it the same way">먼저 듣고, 똑같이 따라 말해보세요</div>
   </div>
 
@@ -1003,7 +1021,7 @@ function speakFallback(t, lang, _retried) {
     }
     u.voice = v;
     u.lang = pref === 'ko' ? 'ko-KR' : pref === 'zh' ? 'zh-CN' : 'en-US';
-    u.rate = SC_RATE_NORMAL;
+    u.rate = scLevelRate();   // 🐢🐇 고른 듣기 속도를 브라우저 음성에도
     // 👩‍🏫 아바타: 브라우저 음성은 분석 불가 → 단순 입 움직임(재생/정지)
     u.onstart = function(){ if (window.MangoAvatar) MangoAvatar.plainStart(); };
     u.onend   = function(){ if (window.MangoAvatar) MangoAvatar.plainStop(); };
@@ -1170,9 +1188,37 @@ var SC_RATE_NORMAL = 0.8;
 /* 🎚️ 2026-10-02 사장님 «Jake·Noah 는 보통을 0.9배로» — 낮은 남자 목소리는 늘이면 갈라진다.
    웜업(EN_MALE_MIN_RATE)·A.i 친구(MALE_MIN_RATE_AF)와 같은 값. 서버 영어 음성에만 건다(⛔ 중국어·한국어는 그대로). */
 var SC_MALE_MIN_RATE = 0.9;
-function scRateFor(lang) { return (lang === 'en' && scGender() === 'male') ? SC_MALE_MIN_RATE : SC_RATE_NORMAL; }
+/* 🐢🐇 듣기 속도 다섯 칸 (2026-10-12 사장님 «발음연습도 말소리 속도 조절») —
+   ⛔ 웜업 RATE_STEPS · A.i 친구 RATE_STEPS_AF 와 «같은 다섯 값» 이어야 한다(화면마다 «보통» 이 달라지면 안 됨).
+   3 = 보통 = SC_RATE_NORMAL. 남자 영어 목소리는 웜업·A.i 친구처럼 0.9배보다 더 늘이지 않는다(갈라짐). */
+var SC_RATE_STEPS = { 1:0.5, 2:0.65, 3:0.8, 4:1.0, 5:1.25 };
+var SC_RATE_NAMES = { 1:'아주 느리게', 2:'느리게', 3:'보통', 4:'빠르게', 5:'아주 빠르게' };
+var SC_RATE_NAMES_EN = { 1:'Very slow', 2:'Slow', 3:'Normal', 4:'Fast', 5:'Very fast' };
+var scRateLevel = 3;
+function scLevelRate() { return (typeof SC_RATE_STEPS !== 'undefined' && SC_RATE_STEPS[scRateLevel]) || SC_RATE_NORMAL; }
+function scRateFor(lang) {
+  // ⚠️ 하니스가 이 함수만 오려 내 돌리므로 다른 함수를 부르지 않고 typeof 로 스스로 읽는다
+  var r = (typeof SC_RATE_STEPS !== 'undefined' && typeof scRateLevel !== 'undefined' && SC_RATE_STEPS[scRateLevel]) || SC_RATE_NORMAL;
+  return (lang === 'en' && scGender() === 'male' && r < SC_MALE_MIN_RATE) ? SC_MALE_MIN_RATE : r;
+}
+function scRenderRate() {
+  var v = document.getElementById('sc-rate-val'); if (!v) return;
+  var en = !!(window.getLang && window.getLang() === 'en');
+  v.textContent = scRateLevel + ' · ' + (en ? SC_RATE_NAMES_EN[scRateLevel] : SC_RATE_NAMES[scRateLevel]) + ' (' + String(SC_RATE_STEPS[scRateLevel]) + (en ? 'x)' : '배)');
+}
+var scRatePreference = null;
+function scSetRate(lv, persist) {
+  lv = parseInt(lv, 10); if (!(lv >= 1 && lv <= 5)) lv = 3;
+  scRateLevel = lv;
+  if (persist !== false && scRatePreference) { try { scRatePreference.set(lv); } catch (e) {} }
+  var s = document.getElementById('sc-rate-slider'); if (s && String(s.value) !== String(lv)) s.value = lv;
+  scRenderRate();
+  // 지금 읽는 중이면 그 자리에서 바로 바뀌게(다음 재생을 기다리지 않음)
+  try { if (ttsAudio && !ttsAudio.paused) scApplyNormalRate(ttsAudio, ttsAudio.__scLang || 'en'); } catch (e) {}
+}
 function scApplyNormalRate(a, lang) {
   var r = scRateFor(lang);
+  try { a.__scLang = lang; } catch (e) {}
   try {
     a.preservesPitch = true; a.mozPreservesPitch = true; a.webkitPreservesPitch = true;   // 느려져도 목소리 높이는 그대로
     a.defaultPlaybackRate = r; a.playbackRate = r;
@@ -1231,7 +1277,8 @@ async function speakTarget() {
   // 👩‍🏫 커리큘럼 문장이면 미리 만든 립싱크 클립을 재생(정확한 입모양+음성). 실패 시 아래 TTS 로 폴백.
   // ⚠️ SAY_CLIPS 는 Emma 얼굴·목소리로 미리 만든 립싱크 영상이다 — 다른 친구를 골랐는데 틀면
   //    «Jake 를 골랐는데 Emma 가 말한다» 가 된다(에러는 안 난다). Emma 일 때만 쓴다.
-  if (lang === 'en' && scFriend === 'emma' && window.MangoAvatar && MangoAvatar.playClip && SAY_CLIPS.hasOwnProperty(t)) {
+  // 🐢🐇 립싱크 클립은 «보통» 속도로 미리 만든 영상이라 속도를 못 바꾼다 — 다른 속도를 골랐으면 TTS 로 읽는다.
+  if (lang === 'en' && scRateLevel === 3 && scFriend === 'emma' && window.MangoAvatar && MangoAvatar.playClip && SAY_CLIPS.hasOwnProperty(t)) {
     try { await MangoAvatar.playClip(SAY_CLIPS[t]); return; }
     catch (e) { /* 클립 미배포/로드실패 → 기존 TTS 경로로 진행 */ }
   }
@@ -1250,6 +1297,19 @@ async function speakTarget() {
     await ttsAudio.play();
   } catch (e) { if (mine === scTtsSeq) speakFallback(t, lang); } // 두 번 다 안 되면 브라우저 TTS 폴백
 }
+
+/* 🐢🐇 듣기 속도 시작 — 계정별 저장값을 불러온다(웜업 'warmup' · A.i 친구 'friend' 와 같은 통로, 이 화면은 'coach').
+   ⚠️ 이 줄들은 «실행» 되는 코드라 renderWordMap~speakWord 사이(하니스가 오려 내 돌리는 구간)에 두지 않는다. */
+try {
+  if (window.MangoiSpeechPreferences) {
+    scRatePreference = MangoiSpeechPreferences.create('coach', 3, function (lv) { scSetRate(lv, false); });
+    scRateLevel = scRatePreference.level;
+  }
+} catch (e) { scRatePreference = null; }
+function scRateInit() { scSetRate(scRateLevel, false); }
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scRateInit); else scRateInit();
+window.addEventListener('mangoi:lang-changed', scRenderRate);
+document.addEventListener('mangoi:lang-changed', scRenderRate);
 
 function resetUI() {
   document.getElementById('result').style.display = 'none';

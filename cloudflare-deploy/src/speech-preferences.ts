@@ -9,7 +9,7 @@ export async function handleSpeechPreferences(request: Request, env: any): Promi
   const uid = await authUidFromRequest(request, new URL(request.url), env);
   if (!uid || /^guest[_:-]/i.test(uid)) return reply({ ok: false }, 401);
   const app = new URL(request.url).searchParams.get('app');
-  if (app !== 'warmup' && app !== 'friend') return reply({ ok: false }, 400);
+  if (app !== 'warmup' && app !== 'friend' && app !== 'coach') return reply({ ok: false }, 400);
   let level: number | undefined;
   if (request.method === 'PUT') {
     try { level = (await request.json() as any).level; } catch { return reply({ ok: false }, 400); }
