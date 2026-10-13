@@ -171,6 +171,8 @@ export function storyFixReasons(orig: { a: string; b: string }, fix: { a: string
 
 export const STORY_FIX_MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct'];
 
+/** 보관기간 — 이 날수가 지난 기록은 야간 파기(retention.ts)가 지운다. 강사 카드(7일)보다 길어야 한다. */
+export const STORY_LOG_RETENTION_DAYS = 30;
 export const STORY_LOG_SCHEMA = 'CREATE TABLE IF NOT EXISTS story_write_log (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, story TEXT NOT NULL, sentence TEXT NOT NULL, original TEXT, fixes INTEGER NOT NULL DEFAULT 0, ai TEXT, created_at INTEGER NOT NULL)';
 export const STORY_LOG_INDEX = 'CREATE INDEX IF NOT EXISTS idx_story_write_log_uid ON story_write_log(student_uid, created_at)';
 const AI_STATES = new Set(['none', 'fixed', 'kept', 'unavailable', 'skipped']);
