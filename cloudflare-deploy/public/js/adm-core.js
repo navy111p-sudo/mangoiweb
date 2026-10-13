@@ -12360,6 +12360,60 @@ function smPaintLearningFilters(rows) {
     '<a role="button" tabindex="0" data-learning-type="' + k + '" aria-pressed="' + (k === _smLearningType) + '">' + _esc(smLearningLabel(k, en)) + ' (' + counts[k] + ')</a>').join('')
     + '<small>' + (en ? 'Loaded list · AI is free with video classes' : '불러온 목록 기준 · 화상수업은 AI 학습 무료 포함') + '</small>';
 }
+/* ✅ (2026-10-13 사장님 「D+A 추천안」) «오늘 손볼 학생» 카드 — 학생 목록 맨 위.
+   누르면 그 학생만 남는다(한 번 더 누르면 풀림). 판정은 이미 받은 값만 쓴다(서버 요청 0).
+   ⚠️ «예약 없음»: 서버 예약 요약(loadSchedSummaryMap)은 실패해도 빈 Map 으로 떨어져(fail-open)
+      «전원 예약 없음» 처럼 보인다 — 그래서 불러온 목록에 예약이 «한 명도» 없으면 이 카드는
+      숫자 대신 «—» 로 «모름» 을 말한다(지어내지 않는다).
+   ⚠️ «번호 없음»: 학생·부모 번호가 «둘 다» 빈 학생. 문자(리마인더·안내)가 닿지 않는다. */
+let _smTodo = '';
+const SM_TODO = [
+  { k: 'nophone',   ko: '번호 없음 · 문자 안 감',      en: 'No phone · texts can’t reach', tone: 'bad',
+    test: s => !String(s.student_phone || '').trim() && !String(s.parent_phone || '').trim() },
+  { k: 'nosched',   ko: '예약 없음 · 수강신청 필요',   en: 'No booking · needs enrollment', tone: 'warn', needSched: true,
+    test: s => !(s.sched && Number(s.sched.total || 0) > 0) },
+  { k: 'noteacher', ko: '예약은 있는데 강사 이름 없음', en: 'Booked but no teacher shown', tone: 'warn', needSched: true,
+    test: s => !!(s.sched && Number(s.sched.total || 0) > 0) && !(Array.isArray(s.sched.teachers) && s.sched.teachers.filter(Boolean).length) },
+];
+function smTodoApply(rows) {
+  const t = SM_TODO.find(x => x.k === _smTodo);
+  return t ? rows.filter(t.test) : rows;
+}
+function smPaintTodoCards(rows) {
+  const el = document.getElementById('sm-todo-cards');
+  if (!el) return;
+  const en = adminLang === 'en';
+  const schedKnown = rows.some(s => s.sched && Number(s.sched.total || 0) > 0);
+  el.innerHTML = SM_TODO.map(t => {
+    const unknown = t.needSched && !schedKnown;
+    const n = unknown ? '—' : rows.filter(t.test).length.toLocaleString();
+    const tip = unknown ? (en ? 'Booking info not loaded — can’t count' : '예약 정보를 못 받아 셀 수 없습니다') : (en ? 'Show only these students' : '이 학생만 보기');
+    return '<a role="button" tabindex="0" class="sm-todo sm-todo-' + t.tone + '" data-todo="' + t.k + '" aria-pressed="' + (_smTodo === t.k) + '" title="' + _esc(tip) + '">'
+      + '<b>' + n + '</b><span>' + _esc(en ? t.en : t.ko) + '</span></a>';
+  }).join('')
+    + (_smTodo ? '<a role="button" tabindex="0" class="sm-todo sm-todo-clear" data-todo="">' + (en ? '✕ Show all' : '✕ 전체 보기') + '</a>' : '');
+}
+/* ▦ 간단히 보기(기본) ↔ 모든 칸 — 카페24 정본이라 대부분 비어 있는 칸(결제타입·수강 시작일·요약·수업회수)과
+   덜 쓰는 칸(대리점 연락처·본사명·지사명·세션 수)을 접고, 아이디는 학생명 아래로 내린다.
+   ⛔ 칸을 «지우지» 않는다 — 열 구조(col·th·td·colspan 19)는 그대로이고 CSS 로만 감춘다(정렬·CSV 그대로). */
+function smApplyCompact() {
+  let on = true;
+  try { on = localStorage.getItem('mangoi_sm_compact') !== '0'; } catch (e) {}
+  const tbl = document.getElementById('sm-students-table');
+  if (tbl) tbl.classList.toggle('sm-compact', on);
+  const b = document.getElementById('sm-compact-toggle');
+  if (b) {
+    const ko = on ? '▦ 모든 칸 보기' : '▤ 간단히 보기', en = on ? '▦ Show all columns' : '▤ Compact view';
+    b.setAttribute('data-ko', ko); b.setAttribute('data-en', en);
+    b.textContent = adminLang === 'en' ? en : ko;
+  }
+}
+function smToggleCompact() {
+  let on = true;
+  try { on = localStorage.getItem('mangoi_sm_compact') !== '0'; localStorage.setItem('mangoi_sm_compact', on ? '0' : '1'); } catch (e) {}
+  smApplyCompact();
+}
+window.smToggleCompact = smToggleCompact;
 let _smAgency = '';                                         // 🏫 대리점·학원 필터 (빈값 = 전체)
 let _smCountBase = '';                                      // 전체 인원수 라벨 (검색 시 "N명 / 전체" 표시용)
 /* ⚡ (2026-08-05 사장님 지적: "버벅거리고 자꾸 왔다갔다 움직인다") 안정화용 상태 4개.
@@ -12810,18 +12864,22 @@ function renderStudentTable() {
   let _filtered = smLearningRows();
   smPaintLearningFilters(_filtered);
   if (_smLearningType !== 'all') _filtered = _filtered.filter(s => smLearningType(s) === _smLearningType);
+  smPaintTodoCards(_filtered);
+  _filtered = smTodoApply(_filtered);
+  smApplyCompact();
 
   // 인원수 라벨 — 검색·필터 중이면 "N명 / 전체" 로 표시
   const _cntEl = document.getElementById('sm-students-count');
   if (_cntEl && _smCountBase) {
-    _cntEl.textContent = (_q || _ag || _smLearningType !== 'all')
+    _cntEl.textContent = (_q || _ag || _smLearningType !== 'all' || _smTodo)
       ? (_L ? ('🔍 ' + _filtered.length + ' found / ' + _smCountBase) : ('🔍 ' + _filtered.length + '명 / 전체 ' + _smCountBase))
       : _smCountBase;
   }
 
   if (!_filtered.length) {
     _smRows = []; _smShown = 0;
-    const _why = _ag && !_q ? (_L ? 'No students in “' + _esc(_ag) + '”' : '“' + _esc(_ag) + '” 소속 학생이 없습니다')
+    const _why = _smTodo && !_q ? (_L ? 'No students in this group' : '해당하는 학생이 없습니다')
+               : _ag && !_q ? (_L ? 'No students in “' + _esc(_ag) + '”' : '“' + _esc(_ag) + '” 소속 학생이 없습니다')
                             : (_L ? 'No matching students' : '검색 결과가 없습니다 — “' + _esc(_q) + '”');
     tb.innerHTML = '<tr><td colspan="19" class="empty">' + _why + '</td></tr>';
     return;
@@ -12942,7 +13000,7 @@ function renderStudentTable() {
     const safeName = _esc(s.username || uid);
     return `<tr>
       <td title="${safeUid}"><code>${safeUid}</code></td>
-      <td title="${safeName}"><a class="sm-name-go" href="/admin/student?uid=${uidEnc}" target="_blank" title="${_L?'Open student details':'학생 상세 열기'}"><b>${safeName}</b></a><a class="sm-act sm-act-edit" href="${smContactUrl(uid)}" target="_blank" title="${_L?'Edit contact & info':'연락처·정보 수정'}" aria-label="${_L?'Edit':'수정'}">✏️</a>${smLearningBadge(s, _L)}</td>
+      <td title="${safeName}"><a class="sm-name-go" href="/admin/student?uid=${uidEnc}" target="_blank" title="${_L?'Open student details':'학생 상세 열기'}"><b>${safeName}</b></a><a class="sm-act sm-act-edit" href="${smContactUrl(uid)}" target="_blank" title="${_L?'Edit contact & info':'연락처·정보 수정'}" aria-label="${_L?'Edit':'수정'}">✏️</a><span class="sm-uid-sub">${safeUid}</span>${smLearningBadge(s, _L)}</td>
       <td>${_c(s.payment_type)}</td>
       <td>${_d(s.signup_date)}</td>
       <td>${_d(s.end_date)}${uid ? `<div class="sm-acts"><a class="sm-act sm-act-end" href="/admin/student?uid=${uidEnc}&tab=extension" target="_blank" title="${_L?'End classes · extend · undo':'수업 종료 · 연장 · 되돌리기'}">🗓️ ${_L?'End/Extend':'종료·연장'}</a></div>` : ''}</td>
@@ -13049,6 +13107,7 @@ function smExportStudentsCsv() {
   if (!_smStudents || !_smStudents.length) { alert(_L ? 'Load the student list first.' : '먼저 “불러오기”로 학생 목록을 불러오세요.'); return; }
   let _pre = smLearningRows();
   if (_smLearningType !== 'all') _pre = _pre.filter(s => smLearningType(s) === _smLearningType);
+  _pre = smTodoApply(_pre);
   const rows = _pre.slice().sort((a, b) => {
       for (const so of _smSort) {
         const k = so.key === 'username' ? '_username_lc' : so.key;
@@ -13153,6 +13212,18 @@ document.addEventListener('click', (ev) => {
     if (active) active.focus();
   }
   if (lf) { lf.addEventListener('click', selectLearningType); lf.addEventListener('keydown', selectLearningType); }
+  const tc = document.getElementById('sm-todo-cards');
+  function selectTodo(ev) {
+    const target = ev.target.closest('[data-todo]');
+    if (!target || !tc.contains(target)) return;
+    if (ev.type === 'keydown' && ev.key !== 'Enter' && ev.key !== ' ') return;
+    ev.preventDefault();
+    const k = target.dataset.todo || '';
+    _smTodo = (_smTodo === k) ? '' : k;
+    renderStudentTable();
+  }
+  if (tc) { tc.addEventListener('click', selectTodo); tc.addEventListener('keydown', selectTodo); }
+  smApplyCompact();
   document.addEventListener('mangoi:lang-changed', () => renderStudentTable());
 
 
