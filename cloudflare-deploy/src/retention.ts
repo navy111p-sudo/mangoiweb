@@ -21,7 +21,11 @@
  *  - 비상 이벤트: 1년
  *  - 동의 기록: 영구 (감사 추적, 단 철회 시 PII는 마스킹)
  *  - AI 영작 첨삭 원문/기록: 30일 (아동 개인정보 최소보관 원칙)
+ *  - 영어 동화책 바꿔 쓰기 기록(story_write_log): 30일 — 같은 «학생이 쓴 영어 문장» 이라 위와 같은 기간.
+ *    강사 인수인계 카드는 그중 최근 7일만 읽는다(teacher-handover.ts HANDOVER_STORY_DAYS).
  */
+
+import { STORY_LOG_RETENTION_DAYS } from './story-correct';
 
 export interface PurgeEnv {
   DB: D1Database;
@@ -49,6 +53,8 @@ export interface PurgeResult {
   emergency_events: number;
   consents_masked: number;
   ai_writing: number;
+  /** 영어 동화책 바꿔 쓰기 기록 — 지운 건수(dryRun 이면 «지울» 건수) */
+  story_write?: number;
   errors: string[];
   /** R2 에서 실제로 지운 영상 파일 수 */
   recording_files_deleted?: number;
@@ -73,6 +79,7 @@ export async function purgeExpired(env: PurgeEnv, opts: PurgeOptions = {}): Prom
     emergency_events: 0,
     consents_masked: 0,
     ai_writing: 0,
+    story_write: 0,
     errors: [],
     recording_files_deleted: 0,
     recording_files_failed: 0,
@@ -226,6 +233,30 @@ export async function purgeExpired(env: PurgeEnv, opts: PurgeOptions = {}): Prom
     ).bind(thirtyDaysAgo).run();
     result.ai_writing = r.meta.changes || 0;
   } catch (e: any) { result.errors.push('ai_writing: ' + e.message); }
+
+  /* 5c) 영어 동화책 바꿔 쓰기 기록(story_write_log): 30일 지난 것.
+     ⚠️ 표를 «만들지» 않는다 — 학생이 아직 한 번도 안 썼으면 표가 없고, 그건 «지울 것 0건» 이다
+        (파기 작업이 남의 표를 새로 만드는 부작용을 두지 않는다. 표 정의의 정본은 story-correct.ts).
+     ✅ 이 단계는 dryRun 을 지킨다 — 그때는 지우지 않고 «지울 건수» 만 센다. */
+  try {
+    const has = await env.DB.prepare(
+      `SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = 'story_write_log'`
+    ).first<any>();
+    if (has) {
+      const storyCut = now - STORY_LOG_RETENTION_DAYS * DAY;
+      if (opts.dryRun) {
+        const c = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM story_write_log WHERE created_at < ?`
+        ).bind(storyCut).first<any>();
+        result.story_write = Number(c && c.n) || 0;
+      } else {
+        const r = await env.DB.prepare(
+          `DELETE FROM story_write_log WHERE created_at < ?`
+        ).bind(storyCut).run();
+        result.story_write = r.meta.changes || 0;
+      }
+    }
+  } catch (e: any) { result.errors.push('story_write: ' + e.message); }
 
   // 6) 동의 철회 레코드의 PII 마스킹 (username, raw_payload에 담긴 개인정보)
   //    → 완전 삭제하지 않고 감사 추적을 위해 마스킹만
