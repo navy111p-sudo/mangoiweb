@@ -1981,6 +1981,13 @@
             #sm-students-table.sm-compact .sm-uid-sub + br{display:none}
             #sm-students-table.sm-compact .sm-learning-unknown{display:none}
             #sm-students-table.sm-compact tbody tr:hover td:nth-child(2){box-shadow:inset 3px 0 0 #2563eb}
+            /* 칸 구분 진하게(2026-10-13 사장님 «회색을 좀더 진하게») — 줄무늬 #fafbfc→#e9edf2 · 줄선 #f0f2f5→#cfd6df.
+               ivory 전역 줄무늬(.menu-card tbody tr:nth-child(even)>td, 0,3,3)를 id 로 이김. 호버는 그 뒤에 둬야 줄무늬를 이김. */
+            #sm-students-table tbody tr:nth-child(odd) > td{background:#ffffff !important}
+            #sm-students-table tbody tr:nth-child(even) > td{background:#e9edf2 !important}
+            #sm-students-table tbody td{border-bottom:1px solid #cfd6df !important}
+            #sm-students-table thead th{border-bottom:2px solid #c3cbd6 !important}
+            #sm-students-table tbody tr:hover > td{background:#e3edfd !important}
             #sm-students-table .sm-name-go:focus-visible,#sm-students-table .sm-act-edit:focus-visible,#sm-students-table .sm-acts a:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
           </style>
           <!-- ✅ (2026-10-13) «오늘 손볼 학생» 카드 — 누르면 그 학생만 남는다(adm-core.js SM_TODO). -->
