@@ -307,7 +307,7 @@ console.log('\n⑨ 매니저 오늘 수업');
   }
   const tc = pub('js/adm-today-classes.js');
   ok('admin 오늘 수업: 배지·칩·강사입장·출결·액션·머리 줄', /holiday: \{ ko: '🎌 공휴일 휴강'/.test(tc) && /'postponed', 'holiday', 'ended'/.test(tc) && /e\.state === 'holiday'/.test(tc) && /holiday:\s+\['🎌', '휴강'/.test(tc) && /\} else if \(s\.holiday\) \{/.test(tc) && /_holiday = \(d\.holiday && typeof d\.holiday === 'object'\)/.test(tc));
-  ok('adm-today-classes.js ?v= 를 올렸다', /adm-today-classes\.js\?v=49/.test(pub('admin.html')));
+  ok('adm-today-classes.js ?v= 를 올렸다(49 이상)', (function(){ var m = /adm-today-classes\.js\?v=(\d+)/.exec(pub('admin.html')); return !!m && Number(m[1]) >= 49; })());
 }
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);

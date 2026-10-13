@@ -1018,6 +1018,10 @@
               + T('카페24에서 진행되는 수업입니다. 망고아이 화상방이 없어 입장·참관할 수 없습니다.',
                   'This class runs on cafe24. There is no Mangoi room, so join/observe is not possible.') + '">'
               + T('카페24 수업 · 입장 불가', 'on cafe24 · cannot join') + '</span>';
+            /* ❔ (2026-10-13 매니저 «Not all schedules have move button») 카페24 줄은 망고아이 예약표에 행이 없어
+               옮길 대상이 없다 — 버튼이 «없는» 대신 이유를 글자로(폰엔 hover 없음). manager.html 과 같은 말. */
+            act += '<span style="display:inline-block;white-space:nowrap;font-size:10.5px;color:#475467;padding:2px 8px;border-radius:99px;background:#f1f5f9;border:1px solid #cbd5e1">'
+              + T('카페24 수업 — 카페24에서 변경', 'LMS class — change in cafe24') + '</span>';
           } else if (s.holiday) {
             /* 🎌 공휴일 휴강 — 입장·참관 버튼을 주지 않는다(서버가 join_open=false 로 보낸다). */
             act = '<span style="color:#475569;font-size:11.5px;font-weight:700;margin-right:4px">'
