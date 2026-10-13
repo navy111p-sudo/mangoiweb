@@ -13015,8 +13015,8 @@ function renderStudentTable() {
       <td>${_c(_piiPhone(s.teacher_phone))}</td>
       ${_ct(s.shop_name)}
       ${_ct(s.hq_name)}
-      ${_ct(s.branch2_name)}
-      <td style="text-align:right"><span class="sess-count">${(s.session_count||0).toLocaleString()}</span></td>
+      ${_ct(s.branch2_name || s.franchise)}
+      <td style="text-align:right">${s.session_count ? `<span class="sess-count">${s.session_count.toLocaleString()}${_L?'':'회'}</span>${s.last_seen ? `<span class="sm-last-class" title="${_L?'Last class':'최근 수업'}">${_L?'Last ':'최근 '}${_esc(String(s.last_seen).slice(5,10))}</span>` : ''}` : '—'}</td>
       <td>${_c(s.status)}</td>
     </tr>`;
   };
@@ -13138,8 +13138,9 @@ function smExportStudentsCsv() {
     ['대리점연락처',  s => _piiPhone(s.teacher_phone)],
     ['대리점명',      s => s.shop_name],
     ['본사명',        s => s.hq_name],
-    ['지사명',        s => s.branch2_name],
-    ['세션수',        s => s.session_count || 0],
+    ['지사',          s => s.branch2_name || s.franchise],
+    ['수업기록',      s => s.session_count || 0],
+    ['최근수업',      s => s.last_seen || ''],
     ['상태',          s => s.status],
   ];
   const cell = v => { let x = (v == null ? '' : String(v)); return /[",\r\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
