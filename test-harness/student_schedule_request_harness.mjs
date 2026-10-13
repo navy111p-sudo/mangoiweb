@@ -174,7 +174,8 @@ let ftBody = blockAt(mango, ftAt);
 ok('라우트 몸통을 오려 냈다', ftBody.length > 400);
 ok('판정은 정본 moveCandidatesFor 를 부른다(복제 금지)', /moveCandidatesFor\(env, row, date, time\)/.test(ftBody));
 ok('정본이 enroll-ops.ts 에 «export» 로 있다', /export async function moveCandidatesFor\(/.test(SRC('src/enroll-ops.ts')));
-ok('관리자 move-candidates 도 같은 정본을 부른다(두 판정이 갈리지 않게)', /return json\(await moveCandidatesFor\(env, row, date, time\)\)/.test(SRC('src/enroll-ops.ts')));
+/* 2026-10-13: 관리자 경로는 { dayCount: true } 를 붙인다(그날 수업 수·적은 순 정렬) — 판정은 같은 정본이다. */
+ok('관리자 move-candidates 도 같은 정본을 부른다(두 판정이 갈리지 않게)', /return json\(await moveCandidatesFor\(env, row, date, time(, \{[^}]*\})?\)\)/.test(SRC('src/enroll-ops.ts')));
 ftBody = ftBody.replace(/ as any/g, '').replace(/\b(let|const) (\w+): [^=;]+=/g, '$1 $2 =').replace(/\((\w+): any\)/g, '($1)').replace(/\(e: any\)/g, '(e)').replace(/\b(let|const) (\w+): any;/g, '$1 $2;');
 async function callFt({ tok, qs, mc, path = '/api/class/schedule/free-teachers', ds }) {
   const { db, D1 } = makeDb();
