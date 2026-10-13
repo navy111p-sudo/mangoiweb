@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>English Reading</title>
+<meta name="description" content="망고아이 A.i 동화책 모음 · 4권">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@500;700;800&family=Noto+Sans+KR:wght@500;700&display=swap">
+<link rel="stylesheet" href="/css/mangoi-han.css">
+<script defer src="/js/back-nav.js"></script>
+<style>
+/* A.i 동화책 모음 — 학생 메뉴 «AI 학습 도구 › 📚 영어 독서» 이 여는 화면. 책 목록은 아래 BOOKS 한 곳이 정본. */
+:root{
+  --paper:#fbf8f2; --page:#ffffff; --ink:#23262f; --soft:#5b6170; --line:#e4dccd; --chip:#f1ebdf; --ok:#1f7a4d;
+  --display:'Fraunces',Georgia,serif;
+  --body:'MangoiHanSC','Nunito','Noto Sans KR',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#17191f; --page:#20232b; --ink:#eceae4; --soft:#a9adb8; --line:#363a45; --chip:#2b2f39; --ok:#7fd3a6; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#17191f; --page:#20232b; --ink:#eceae4; --soft:#a9adb8; --line:#363a45; --chip:#2b2f39; --ok:#7fd3a6; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55}
+.wrap{max-width:980px;margin:0 auto;padding:22px 16px 48px}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-left:44px}
+.tag{font-size:13px;color:var(--soft);flex:1 1 auto}
+.lang{border:1px solid var(--line);background:var(--page);color:var(--ink);border-radius:99px;padding:5px 14px;font:inherit;font-weight:800;font-size:13px;cursor:pointer}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,6vw,44px);line-height:1.1;margin:14px 0 6px}
+.lead{color:var(--soft);margin:0 0 20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:16px}
+.book{display:flex;flex-direction:column;background:var(--page);border:1px solid var(--line);border-left:6px solid var(--c);border-radius:16px;overflow:hidden;color:inherit;text-decoration:none;min-width:0}
+.book:hover{border-color:var(--c)}
+.book:focus-visible{outline:3px solid var(--c);outline-offset:2px}
+.book img{display:block;width:100%;aspect-ratio:1024/687;object-fit:cover;background:var(--chip)}
+.bd{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px}
+.no{font-size:12px;font-weight:800;color:var(--c)}
+.bt{font-family:var(--display);font-weight:800;font-size:21px;line-height:1.2}
+.bs{font-size:14px;color:var(--soft)}
+.prog{font-size:13px;font-weight:700;color:var(--soft)}
+.prog.done{color:var(--ok)}
+.foot{margin-top:22px;font-size:13px;color:var(--soft)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <span class="tag" data-ko="망고아이 A.i 동화책 · 심화1" data-en="Mangoi A.i Storybooks · Advanced 1">망고아이 A.i 동화책 · 심화1</span>
+    <button type="button" class="lang" id="langBtn" aria-label="언어 전환 / Switch language">EN</button>
+  </div>
+  <h1 data-ko="📚 영어 독서" data-en="📚 English Reading">📚 영어 독서</h1>
+  <p class="lead" data-ko="읽고 듣고, 근거를 찾고, 내 이야기로 바꿔 써 보세요. 한 권에서 도장 6개를 모으면 +10P!" data-en="Read and listen, find the evidence, and make the story your own. Collect 6 stamps in a book for +10P!">읽고 듣고, 근거를 찾고, 내 이야기로 바꿔 써 보세요. 한 권에서 도장 6개를 모으면 +10P!</p>
+  <div class="grid" id="books"></div>
+  <p class="foot" data-ko="도장은 이 기기에 저장됩니다. 포인트는 하루 2권까지 받을 수 있어요." data-en="Stamps are saved on this device. You can earn points for up to 2 books a day.">도장은 이 기기에 저장됩니다. 포인트는 하루 2권까지 받을 수 있어요.</p>
+</div>
+<script>
+(function(){
+  // 📚 책 목록 정본 — 새 책을 만들면 여기 한 줄 + 학생 메뉴는 그대로(이 화면 하나로 갑니다).
+  var BOOKS = [
+    { id:'red-umbrella',  no:1, c:'#c8372d', title:'The Red Umbrella',
+      ko:'버스 정류장 의자 밑 빨간 우산, 비 오기 전에 주인을 찾아 줄까?', en:'A red umbrella under the bench — can they return it before the rain?' },
+    { id:'birthday-cake', no:2, c:'#c2410c', title:'The Missing Birthday Cake',
+      ko:'생일 케이크가 사라졌다! 단서를 따라 범인을 찾아라.', en:'The birthday cake is gone! Follow the clues to find who took it.' },
+    { id:'robot-dance',   no:3, c:'#1d6fa5', title:'Bolt Can Dance',
+      ko:'춤을 못 추는 로봇 볼트, 자기만의 춤을 찾을 수 있을까?', en:'Bolt the robot can’t dance — can he find a dance of his own?' },
+    { id:'treasure-map',  no:4, c:'#7a4fb0', title:'The Map in the Library Book',
+      ko:'도서관 책 속에서 나온 오래된 지도, 보물은 어디에?', en:'An old map falls out of a library book. Where is the treasure?' }
+  ];
+  var STAMPS = ['read','key','sum','words','infer','write'];
+  var lang = 'ko';
+  try { lang = localStorage.getItem('story_lang') || 'ko'; } catch(e){}
+
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function stampCount(id){
+    var st = {};
+    try { st = JSON.parse(localStorage.getItem('story_' + id + '_stamps') || '{}') || {}; } catch(e){ st = {}; }
+    return STAMPS.filter(function(k){ return !!st[k]; }).length;
+  }
+  function render(){
+    var en = lang === 'en';
+    document.getElementById('books').innerHTML = BOOKS.map(function(b){
+      var n = stampCount(b.id);
+      var prog = n >= 6 ? (en ? '🎉 Finished (6/6)' : '🎉 완주 (6/6)')
+               : n > 0 ? (en ? '🏅 Stamps ' + n + ' / 6' : '🏅 도장 ' + n + ' / 6')
+               : (en ? 'Not started' : '아직 안 읽었어요');
+      return '<a class="book" style="--c:' + b.c + '" href="/story-' + b.id + '.html">' +
+        '<img src="/img/story/' + b.id + '-cover.webp" alt="' + esc(b.title) + '" loading="lazy" decoding="async">' +
+        '<div class="bd"><span class="no">Story ' + b.no + '</span>' +
+        '<span class="bt">' + esc(b.title) + '</span>' +
+        '<span class="bs">' + esc(en ? b.en : b.ko) + '</span>' +
+        '<span class="prog' + (n >= 6 ? ' done' : '') + '">' + prog + '</span></div></a>';
+    }).join('');
+  }
+  function applyLang(){
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-ko]').forEach(function(el){ el.textContent = el.getAttribute(lang === 'en' ? 'data-en' : 'data-ko'); });
+    document.getElementById('langBtn').textContent = lang === 'en' ? 'KO' : 'EN';
+    render();
+  }
+  document.getElementById('langBtn').addEventListener('click', function(){
+    lang = lang === 'en' ? 'ko' : 'en';
+    try { localStorage.setItem('story_lang', lang); } catch(e){}
+    applyLang();
+  });
+  // 책에서 돌아왔을 때 도장 수가 바로 바뀌게(뒤로가기 캐시 포함)
+  window.addEventListener('pageshow', function(){ render(); });
+  applyLang();
+})();
+</script>
+</body>
+</html>
