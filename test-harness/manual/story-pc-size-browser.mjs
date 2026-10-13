@@ -32,7 +32,7 @@ await new Promise((r) => setTimeout(r, 900));
 let pass = 0, fail = 0;
 const ok = (c, n, x) => { if (c) pass++; else { fail++; console.log('  ❌ FAIL ' + n + (x ? ' — ' + x : '')); } };
 const PAGES = ['story-red-umbrella', 'story-birthday-cake', 'story-robot-dance', 'story-treasure-map'];
-const WIDTHS = [360, 390, 430, 768, 1024, 1366, 1440, 1920, 2560, 2865, 3840];
+const WIDTHS = [320, 360, 390, 430, 768, 1024, 1366, 1440, 1920, 2560, 2865, 3840];
 
 const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' }).catch(() => pw.chromium.launch());
 try {
@@ -79,6 +79,31 @@ try {
         return { top: r.top, mine: !!(hit && b.contains(hit)) };
       });
       ok(sb && sb.top <= 2 && sb.top >= -2 && sb.mine, `${tag} 도장 판이 맨 위에 붙어 보인다`, JSON.stringify(sb));
+
+      /* ⑤-2 뒤로가기 — 도장판 «안» 에 있고, 떠 있는 공용 버튼은 없으며, 도장판 글자를 아무것도 안 가린다 */
+      await page.waitForTimeout(500); /* back-nav 는 DOMContentLoaded 뒤 350ms 에 끼워 넣는다 — 그 뒤에 잰다 */
+      const bk = await page.evaluate(() => {
+        const b = document.querySelector('.stampboard .sb-back');
+        const fl = document.getElementById('mangoi-back-btn');
+        const hitOf = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); };
+        const lab = document.querySelector('.stampboard .sb-top b');
+        const hb = hitOf(b), hl = hitOf(lab);
+        const r = b ? b.getBoundingClientRect() : null;
+        const sbr = document.querySelector('.stampboard').getBoundingClientRect();
+        const ks = [...document.querySelectorAll('.stampboard .sb-top > *')].map((e) => e.getBoundingClientRect());
+        const one = ks.length >= 3 && Math.max(...ks.map((k) => k.top)) < Math.min(...ks.map((k) => k.bottom));
+        const fr = fl && fl.getClientRects().length ? fl.getBoundingClientRect() : null;
+        const covers = !!(fr && fr.right > sbr.left && fr.left < sbr.right && fr.bottom > sbr.top && fr.top < sbr.bottom);
+        return { one, has: !!b, floating: !!(fl && fl.getClientRects().length), covers, btnOk: !!(hb && b && (hb === b || b.contains(hb))),
+                 labOk: !!(hl && lab && (hl === lab || lab.contains(hl))), size: r ? Math.min(r.width, r.height) : 0 };
+      });
+      ok(bk.has && !bk.floating, `${tag} 뒤로가기는 도장판 안에만(떠 있는 버튼 없음)`, JSON.stringify(bk));
+      ok(!bk.covers, `${tag} 떠 있는 뒤로가기가 도장판을 안 덮는다`, JSON.stringify(bk));
+      ok(bk.btnOk && bk.labOk, `${tag} 뒤로가기·도장판 제목 둘 다 맨 위(서로 안 가림)`, JSON.stringify(bk));
+      ok(bk.one, `${tag} 도장판 첫 줄(← · 제목 · 상금)이 한 줄`, JSON.stringify(bk));
+      ok(bk.size >= 30, `${tag} 뒤로가기 누를 만한 크기(≥30px)`, String(bk.size));
+      const went = await page.evaluate(() => { let n = 0; const o = window.mangoiGoBack; window.mangoiGoBack = () => { n++; }; const e = document.querySelector('.stampboard .sb-back'); if (e) e.click(); window.mangoiGoBack = o; return { n, url: location.pathname }; });
+      ok(went.n === 1 && /story-/.test(went.url), `${tag} 뒤로가기를 누르면 정본 mangoiGoBack 을 부른다`, JSON.stringify(went));
 
       /* ⑥ 버튼 한가운데를 누르면 그 버튼이 맞는다 — 보이는 버튼 12개 표본 */
       const miss = await page.evaluate(async () => {
