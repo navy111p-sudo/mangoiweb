@@ -66,7 +66,7 @@ const FAKE_SR = `(()=>{
       if (mode === 'neterr') { setTimeout(()=>{ if (this.ended) return; this._fire('error', { error: 'network' }); this._end(); }, d); return; }
       setTimeout(()=>{ if (this.ended) return; this._fire('start'); this._fire('audiostart');
         if (mode === 'nospeech') setTimeout(()=>{ if (this.ended) return; this._fire('error', { error: 'no-speech' }); this._end(); }, 200);
-        else if (mode === 'ok') setTimeout(()=>{ if (this.ended) return; this._fire('speechstart'); this._fire('result', { results: [Object.assign([{ transcript: fz.text }], { isFinal: true })] }); this._end(); }, 80);
+        else if (mode === 'ok') setTimeout(()=>{ if (this.ended) return; this._fire('speechstart'); this._fire('result', { results: [Object.assign([{ transcript: fz.text + ' [' + this.lang + ']' }], { isFinal: true })] }); this._end(); }, 80);
       }, d);
     }
     _end(){ if (this.ended) return; this.ended = true; if (active === this) active = null; this._fire('end'); }
@@ -147,10 +147,13 @@ async function openLesson(noSR) {
       await sleep(100);
       ok(asks.length === 1, `${tag}: 질문은 한 번만 간다 (${asks.length})`);
       if (mode === 'ok') {
-        ok(asks[0].q === text, `${tag}: 들은 글자 그대로 «${asks[0].q}»`);
+        // 연타면 첫 누름이 두 번째 누름 «전에» 이미 정상으로 끝났을 수 있다 — 그때는 첫 버튼 언어가 맞다
+        const want = lang === 'ko' ? 'ko-KR' : 'en-US', other = lang === 'ko' ? 'en-US' : 'ko-KR';
+        const m = /^(.*) \[(\w\w-\w\w)\]$/.exec(asks[0].q || '');
+        ok(!!m && m[1] === text && (m[2] === want || (twice && m[2] === other)), `${tag}: 들은 글자·언어 그대로 «${asks[0].q}»`);
         ok(stt.length === 0, `${tag}: (짝) 정상일 때 서버 Whisper 를 안 부른다`);
         const log = await ev(`window.__srLog.filter(x=>x.ask).map(x=>x.lang)`);
-        ok(log[log.length - 1] === (lang === 'ko' ? 'ko-KR' : 'en-US'), `${tag}: 음성인식 언어 ${JSON.stringify(log)}`);
+        ok(!!m && log.includes(m[2]) && (twice || log[log.length - 1] === want), `${tag}: 음성인식 언어 ${JSON.stringify(log)}`);
       } else {
         ok(stt.length === 1 && stt[0] === lang, `${tag}: 녹음+Whisper 로 받았다, 언어=${lang} stt=${JSON.stringify(stt)}`);
         ok(asks[0].q === 'WHISPER ' + lang + ' question', `${tag}: Whisper 글자로 묻는다 «${asks[0].q}»`);
