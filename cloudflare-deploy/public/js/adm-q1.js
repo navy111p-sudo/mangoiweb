@@ -97,8 +97,15 @@
       const r = await fetch('/api/admin/retention/risk');
       const d = await r.json();
       if (!d.ok) throw new Error(d.error);
+      /* 📏 (2026-10-13) «누구를 봤는지» 를 말한다 — 예전엔 명부에서 아무 500명만 보고도 아무 말이 없었다.
+         서버가 scan 을 안 보내면(옛 서버) 이 줄은 그리지 않는다(지어내지 않음). */
+      const _sc = d.scan;
+      const scanLine = _sc ? `<div style="font-size:12px;color:#64748b;margin:0 0 10px;line-height:1.6">${isEn
+        ? `Checked ${_sc.scanned.toLocaleString()} students with a class record in the last ${_sc.window_days} days (or in the expiry list)` + (_sc.active_total != null ? ` out of ${_sc.active_total.toLocaleString()} active.` : '.') + ` Students with no class record in ${_sc.window_days} days (incl. new students and future-only bookings) were left out of this list.` + (_sc.truncated ? ` ⚠️ Limit reached — the ${(_sc.candidates - _sc.scanned).toLocaleString()} most active students were not scored.` : '')
+        : (_sc.active_total != null ? `명부 활성 ${_sc.active_total.toLocaleString()}명 중 ` : '') + `최근 ${_sc.window_days}일 수업 기록(또는 만료 목록)이 있는 ${_sc.scanned.toLocaleString()}명을 살펴봤습니다. ${_sc.window_days}일 동안 수업 기록이 없는 학생(새로 등록했거나 앞으로의 예약만 있는 학생 포함)은 이번 목록에서 뺐습니다.` + (_sc.truncated ? ` ⚠️ 상한에 걸려 가장 활발한 ${(_sc.candidates - _sc.scanned).toLocaleString()}명은 점수를 매기지 않았습니다.` : '')
+      }</div>` : '';
       if (!d.count) {
-        out.innerHTML = `<div style="padding:24px;text-align:center;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px"><b style="color:#34d399">✅ ${isEn?'No at-risk students!':'위험 학생이 없습니다!'}</b><br><span style="font-size:11.5px;color:#a3b3d1;margin-top:6px;display:inline-block">${isEn?'All students are attending normally.':'모든 학생이 정상 출석/학습 중입니다.'}</span></div>`;
+        out.innerHTML = scanLine + `<div style="padding:24px;text-align:center;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px"><b style="color:#34d399">✅ ${isEn?'No at-risk students!':'위험 학생이 없습니다!'}</b><br><span style="font-size:11.5px;color:#a3b3d1;margin-top:6px;display:inline-block">${isEn?'All students are attending normally.':'모든 학생이 정상 출석/학습 중입니다.'}</span></div>`;
         return;
       }
       // 위험도 분포 요약
@@ -106,7 +113,7 @@
       const medN = d.at_risk.filter(x=>x.risk_level==='medium').length;
       const lowN = d.at_risk.filter(x=>x.risk_level==='low').length;
 
-      out.innerHTML = `
+      out.innerHTML = scanLine + `
         <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
           <div style="background:rgba(239,68,68,0.15);border:1px solid #ef4444;border-radius:8px;padding:8px 14px;font-size:12px">
             🚨 ${isEn?'High':'심각'}: <b style="color:#fca5a5;font-size:14px">${highN}</b>
