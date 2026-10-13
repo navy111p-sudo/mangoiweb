@@ -60,6 +60,8 @@ export type Handover = {
     unfixed: { from: string; to: string }[]; // 아직 안 말해 본 카드(최대 HANDOVER_UNFIXED_SHOW)
     unfixed_n: number;
   };
+  /** 📖 (2026-10-13) 영어 동화책 «바꿔 쓰기» 최근 7일 — 표가 없거나 못 읽으면 null(«0문장» 과 다름) */
+  story?: null | { n: number; fixes: number; last: string; last_was: string; date: string | null };
 };
 
 function _t(v: unknown, n: number): string {
@@ -130,7 +132,22 @@ export function summarizeFix(cards: FixCard[] | null): Handover['fix'] {
 
 /** 싣을 가치가 있는가 — 목표도 카드도 없으면 싣지 않는다(빈 줄 세 개는 소음이다). */
 export function handoverWorthShowing(h: Handover): boolean {
-  return !!(h.goal || (h.fix && h.fix.total > 0));
+  return !!(h.goal || (h.fix && h.fix.total > 0) || (h.story && h.story.n > 0));
+}
+
+export const HANDOVER_STORY_DAYS = 7;
+/** story_write_log 행들 → 인수인계의 story 칸(순수 함수). rows 가 null 이면 «모름». 최신순으로 받습니다. */
+export function summarizeStory(rows: any[] | null): Handover['story'] {
+  if (!rows) return null;
+  if (!rows.length) return { n: 0, fixes: 0, last: '', last_was: '', date: null };
+  const r0 = rows[0];
+  return {
+    n: rows.length,
+    fixes: rows.reduce((t, r) => t + (Math.max(0, Number(r && r.fixes) || 0)), 0),
+    last: _t(r0.sentence, 160),
+    last_was: _t(r0.original, 160),
+    date: _date(r0),
+  };
 }
 
 function _group(rows: any[], key: string): Map<string, any[]> {
@@ -235,13 +252,26 @@ export async function loadHandovers(db: any, uids: string[], nowMs: number, dayS
     } catch { practiceOk = false; }
   }
 
+  // ── 📖 동화책 바꿔 쓰기(최근 7일 · 학생별 20건) — 표가 아직 없으면(아무도 안 씀) «모름» 이 아니라 0 ──
+  let storyBy: Map<string, any[]> | null = null;
+  try {
+    const sr = await selectInChunks<any>(db, list,
+      (ph) => perStudent(`SELECT student_uid, sentence, original, fixes, created_at,
+                      ROW_NUMBER() OVER (PARTITION BY student_uid ORDER BY created_at DESC) AS rn
+                 FROM story_write_log WHERE student_uid IN (${ph}) AND created_at >= ?`, 20),
+      { tail: [nowMs - HANDOVER_STORY_DAYS * DAY_MS] });
+    storyBy = _group(sr, 'student_uid');
+  } catch (e: any) {
+    storyBy = /no such table/i.test(String(e && e.message || e)) ? new Map() : null;
+  }
+
   for (const u of list) {
     const goal = pickGoal(repBy.get(u) || [], evBy.get(u) || []);
     const cards = cardsBy.get(u) || [];
     // 카드 재료 «둘 다» 를 읽었을 때만 숫자를 말한다 — 한쪽만 읽고 «1장» 이라 하면 거짓이다(PR #1507 리뷰).
     // 연습 기록만 못 읽었어도 «모름»(연습 0으로 위장하지 않는다).
     const fixKnown = reportOk && warmOk && (!cards.length || practiceOk);
-    const h: Handover = { goal, fix: fixKnown ? summarizeFix(cards) : null };
+    const h: Handover = { goal, fix: fixKnown ? summarizeFix(cards) : null, story: storyBy ? summarizeStory(storyBy.get(u) || []) : null };
     if (handoverWorthShowing(h)) out.set(u, h);
   }
   return out;

@@ -26,6 +26,7 @@ import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
 import type { MangoEnv } from './api-mango';
 import { recordAiFailure } from './ai-failure-log';
 import { handleClassAsk } from './class-ask';   // ✋ A.i 선생님 수업 — 학생 질문 즉답(2026-10-08)
+import { handleStoryApi } from './story-correct';   // 📖 동화책 바꿔 쓰기 AI 한 번 더 보기·기록(2026-10-13)
 import { recordAiLatency } from './ai-latency-log';   // ⏱ «학생이 얼마나 기다리는가» (A-3)
 import { createJsonTextTap, takeSentences } from './stream-json-text';   // 📡 스트리밍 본문 추출 (A-1)
 
@@ -316,6 +317,12 @@ Student text: """${text}"""`;
         earned_badges: earnedBadges, vocab_saved: vocabSaved,
         ...(raw ? {} : { ai_unavailable: true, fallback: true }),
       });
+    }
+
+    // 📖 동화책 «바꿔 쓰기» — 이미 등록된 경로의 «비어 있는 POST» 에 얹습니다(src/index.ts 무수정).
+    //    action 이 story_fix·story_log 가 아니면 story-correct.ts 가 400 으로 거절합니다. 판정·상한은 전부 그 파일 정본.
+    if (method === 'POST' && path === '/api/ai/write-history') {
+      return handleStoryApi(request, env, { json, authUid: (b: any) => authUidGlobal(request, url, env, b), recordFailure: (f: any) => recordAiFailure(env, f) });
     }
 
     if (method === 'GET' && path === '/api/ai/write-history') {

@@ -221,7 +221,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
 .wfix-why{margin:0;padding-left:18px;font-family:var(--ko);font-size:14px;display:grid;gap:3px}
 .wfix-note{font-family:var(--ko);font-size:13px;color:var(--soft)}
 </style>
-<script src="/js/story-kit.js?v=1"></script>
+<script src="/js/story-kit.js?v=2"></script>
 <script defer src="/js/story-dict.js?v=1"></script>
 <script>
 /* STORY-CORE-START — 채점·판정 정본(DOM 없음). 하니스(story_books_harness)가 이 블록을 오려 내 실제로 돌립니다.
@@ -623,15 +623,15 @@ var StoryCore = (function(){
     wprev.innerHTML = s ? esc(s) : '<span class="ph">' + t('두 칸을 채우면 여기에 내 문장이 만들어져요.','Fill both blanks to build your sentence here.') + '</span>';
     try { localStorage.setItem(WKEY + 'a', wa.value); localStorage.setItem(WKEY + 'b', wb.value); } catch(e){}
   }
-  [wa, wb].forEach(function(el){ el.addEventListener('input', function(){ wfb.innerHTML = ''; WFIX = null; WLISTEN = null; paintWrite(); }); });
+  [wa, wb].forEach(function(el){ el.addEventListener('input', function(){ wfb.innerHTML = ''; WFIX = null; WLISTEN = null; WSEQ++; paintWrite(); }); });
   document.querySelectorAll('#mywrite .chip').forEach(function(c){
-    c.addEventListener('click', function(){ wa.value = c.dataset.a; wb.value = c.dataset.b; wfb.innerHTML = ''; paintWrite(); });
+    c.addEventListener('click', function(){ wa.value = c.dataset.a; wb.value = c.dataset.b; wfb.innerHTML = ''; WFIX = null; WLISTEN = null; WSEQ++; paintWrite(); });
   });
   // ---- ⑥ 바꿔 쓰기 «규칙 점검» (원장님 의견 1 · 2026-10-13) — 판정 정본은 /js/story-kit.js 의 StoryKit.review
   //      문법이 틀리면 도장 없이 «고친 문장» 을 보여 주고, «고친 문장으로 바꾸기» → «🔊 내 문장 듣기» 까지 하면 도장.
   //      ⛔ StoryKit 이 없으면(불러오기 실패) 예전처럼 그대로 완성 — 점검 때문에 못 끝내는 아이가 없게.
   var KIT_WORDS = (function(){ var a = []; STORY.forEach(function(p){ p.forEach(function(s){ a.push(s[0]); }); }); WORDS.forEach(function(x){ a.push(x[0], x[2].replace(/<[^>]+>/g, '')); }); document.querySelectorAll('#mywrite .chip').forEach(function(c){ a.push(c.dataset.a, c.dataset.b); }); return a; })();
-  var WFIX = null, WLISTEN = null;
+  var WFIX = null, WLISTEN = null, WSEQ = 0, WLOG = null, WKEEP = null, WBUSY = false;   // WSEQ: 고치면 기다리던 AI 답을 버림 · WLOG: 강사용 기록 재료
   function storyReview(){
     if (!window.StoryKit || !StoryKit.review) return null;
     try { var p = StoryCore.splitW(wa.value, wb.value); return StoryKit.review(p[0], p[1], WRITE_SLOTS, KIT_WORDS); } catch(e){ return null; }
@@ -639,19 +639,21 @@ var StoryCore = (function(){
   function markWords(s, set, cls){
     return String(s).split(' ').map(function(w){ var k = w.toLowerCase().replace(/[.,!?’']+$/g, ''); return set[k] ? '<span class="' + cls + '">' + esc(w) + '</span>' : esc(w); }).join(' ');
   }
-  function showFix(r, passed){
+  function showFix(r, passed, ai){
     var mine = sentence(), fixed = StoryCore.buildSentence(r.a, r.b), fromW = {}, toW = {};
     r.issues.forEach(function(x){
       String(x.from || '').toLowerCase().split(' ').forEach(function(y){ if (y) fromW[y] = 1; });
       String(x.to || '').toLowerCase().split(' ').forEach(function(y){ if (y) toW[y] = 1; });
     });
     WFIX = { a: r.a, b: r.b };
-    var html = '<div class="wfix"><p class="wfix-h">' + (passed ? t('완성! 철자도 한 번 확인해 보세요.','Done! Check the spelling once.') : t('고칠 곳이 있어요. 고친 문장과 비교해 보세요.','Something to fix. Compare with the corrected sentence.')) + '</p>' +
+    var html = '<div class="wfix"><p class="wfix-h">' + (ai ? t('🤖 AI 선생님이 고칠 곳을 찾았어요. 고친 문장과 비교해 보세요.','🤖 The AI teacher found something to fix. Compare with the corrected sentence.') : passed ? t('완성! 철자도 한 번 확인해 보세요.','Done! Check the spelling once.') : t('고칠 곳이 있어요. 고친 문장과 비교해 보세요.','Something to fix. Compare with the corrected sentence.')) + '</p>' +
       '<p class="wfix-row"><b>' + t('내 문장','Mine') + '</b><span class="en">' + markWords(mine, fromW, 'del') + '</span></p>' +
       '<p class="wfix-row"><b>' + t('고친 문장','Corrected') + '</b><span class="en">' + markWords(fixed, toW, 'ins') + '</span></p>' +
       '<ul class="wfix-why">' + r.issues.map(function(x){ return '<li>' + esc(t(x.ko, x.en)) + '</li>'; }).join('') + '</ul>' +
       '<div class="btns"><button type="button" class="b" id="wapply">' + t('✏️ 고친 문장으로 바꾸기','✏️ Use the corrected sentence') + '</button>' +
-      (passed ? '' : '<button type="button" class="b ghost" id="wredo">' + t('내가 다시 고쳐 보기','I will fix it myself') + '</button>') + '</div>' +
+      (passed ? '' : '<button type="button" class="b ghost" id="wredo">' + t('내가 다시 고쳐 보기','I will fix it myself') + '</button>') +
+      (ai ? '<button type="button" class="b ghost" id="wkeep">' + t('내 문장 그대로 낼래요','Keep my sentence') + '</button>' : '') + '</div>' +
+      (ai ? '<p class="wfix-note">' + t('AI 도 틀릴 수 있어요. 어느 쪽이든 선생님께 보여 주세요.','The AI can be wrong too. Either way, show it to your teacher.') + '</p>' : '') +
       (passed ? '' : '<p class="wfix-note">' + t('고친 문장으로 바꾼 뒤 «🔊 내 문장 듣기» 를 누르면 도장을 받아요. 직접 고쳐서 다시 «완성하기» 를 눌러도 돼요.','Use the corrected sentence and tap “🔊 Hear my sentence” to get the stamp, or fix it yourself and tap “Finish” again.') + '</p>') + '</div>';
     if (passed) { var box = wfb.querySelector('.fb'); if (box) box.insertAdjacentHTML('beforeend', html); else wfb.innerHTML = html; }
     else wfb.innerHTML = html;
@@ -663,19 +665,46 @@ var StoryCore = (function(){
       wfb.innerHTML = '<div class="fb ok"><p>' + t('바꿨어요! 이제 «🔊 내 문장 듣기» 를 눌러 고친 문장을 들어 보세요.','Changed! Now tap “🔊 Hear my sentence” to listen.') + '</p><p class="en">' + esc(WLISTEN) + '</p></div>';
       return;
     }
-    if (b.id === 'wredo') { WFIX = null; wfb.innerHTML = ''; wa.focus(); }
+    if (b.id === 'wredo') { WFIX = null; WKEEP = null; wfb.innerHTML = ''; wa.focus(); }
+    if (b.id === 'wkeep' && WKEEP) { var k = WKEEP; WKEEP = null; WFIX = null; WLOG.ai = 'kept'; k('kept'); }
   });
+  // 📝 도장을 받은 문장을 강사 인수인계 카드에 남김 — 로그인 학생만(StoryKit.logWrite 가 판단). 실패해도 화면은 그대로.
+  function storyLog(ai, original, fixes){
+    if (!(window.StoryKit && StoryKit.logWrite)) return;
+    try { StoryKit.logWrite({ story: STORY_ID, sentence: sentence(), original: original, fixes: fixes, ai: ai }); } catch(e){}
+  }
   document.getElementById('wcheck').addEventListener('click', function(){
     var cw = StoryCore.checkWrite(wa.value, wb.value);
     if (cw.why === 'empty') { wfb.innerHTML = '<div class="fb no"><p>' + t('빈칸 두 곳을 모두 채워 주세요.','Fill both blanks.') + '</p></div>'; return; }
     if (cw.why === 'too_long') { wfb.innerHTML = '<div class="fb no"><p>' + t('조금 짧게 써 보세요 (두 칸 합쳐 120자까지).','Make it a little shorter (120 letters in total).') + '</p></div>'; return; }
     if (cw.why === 'hangul') { wfb.innerHTML = '<div class="fb no"><p>' + t('영어로 써 보세요. 모르는 낱말은 선생님께 물어보거나 예시를 눌러 보세요.','Write it in English. Ask your teacher or try an example.') + '</p></div>'; return; }
     var kitR = storyReview();
-    if (kitR && kitR.grammar > 0) { showFix(kitR, false); return; }   // 문법이 틀리면 도장 없이 고친 문장부터
-    storyDone('write');
-    wfb.innerHTML = '<div class="fb ok"><p>' + t('완성! 소리 내어 두 번 읽어 보세요. 다 쓴 문장은 선생님께 보여 주세요.','Done! Read it out loud twice, then show it to your teacher.') + '</p><p class="en">' + esc(sentence()) + '</p>' +
-      (cw.more ? '<p>' + t("한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)","One more step: after “because”, try “who + does what”. (e.g. because he is smiling)") + '</p>' : '') + '</div>';
-    if (kitR && kitR.issues.length) showFix(kitR, true);   // 철자만 다르면 도장은 주고 확인만 권함
+    var mine0 = sentence();
+    if (kitR && kitR.grammar > 0) { WLOG = { original: mine0, fixes: kitR.issues.length, ai: 'none' }; showFix(kitR, false); return; }   // 문법이 틀리면 도장 없이 고친 문장부터
+    // 🤖 2단계(2026-10-13): 규칙 점검을 통과하면 AI 가 한 번 더 봅니다 — 판정·상한·기록은 서버 src/story-correct.ts 정본.
+    //    AI 가 고칠 곳을 찾으면 규칙 때와 같은 «바꾸기 → 듣기» 로 도장(또는 «내 문장 그대로»). 못 보면 «지금은 확인 못 함» 이라고 말하고 도장.
+    var finishW = function(state){
+      storyDone('write');
+      wfb.innerHTML = '<div class="fb ok"><p>' + t('완성! 소리 내어 두 번 읽어 보세요. 다 쓴 문장은 선생님께 보여 주세요.','Done! Read it out loud twice, then show it to your teacher.') + '</p><p class="en">' + esc(sentence()) + '</p>' +
+        (cw.more ? '<p>' + t("한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)","One more step: after “because”, try “who + does what”. (e.g. because he is smiling)") + '</p>' : '') + '</div>';
+      if (kitR && kitR.issues.length) showFix(kitR, true);   // 철자만 다르면 도장은 주고 확인만 권함
+      var note = window.StoryKit && StoryKit.aiNote ? StoryKit.aiNote(state) : null;
+      if (note) wfb.insertAdjacentHTML('beforeend', '<p class="wfix-note">' + esc(t(note.ko, note.en)) + '</p>');
+      storyLog(state === 'kept' ? 'kept' : state === 'ok' ? 'none' : state === 'fixed' ? 'fixed' : (state === 'skipped' || state === 'cap') ? 'skipped' : 'unavailable', mine0, kitR ? kitR.issues.length : 0);
+    };
+    if (!(window.StoryKit && StoryKit.aiFix)) { finishW('skipped'); return; }
+    if (WBUSY) return;   // 기다리는 동안 다시 눌러도 AI 를 두 번 부르지 않음(상한·비용)
+    var seq = ++WSEQ, p0 = StoryCore.splitW(wa.value, wb.value); WBUSY = true;
+    wfb.innerHTML = '<div class="fb"><p>' + t('🤖 AI 선생님이 한 번 더 보고 있어요…','🤖 The AI teacher is checking once more…') + '</p></div>';
+    StoryKit.aiFix({ story: STORY_ID, a: p0[0], b: p0[1], slots: WRITE_SLOTS, sentence: mine0 }).then(function(res){
+      WBUSY = false;
+      if (seq !== WSEQ) return;   // 그사이 고쳐 썼으면 옛 답은 버림
+      if (res.state === 'fixed') {
+        WLOG = { original: mine0, fixes: res.issues.length, ai: 'fixed' };
+        WKEEP = finishW; wfb.innerHTML = ''; showFix(res, false, true); return;
+      }
+      finishW(res.state);
+    });
   });
   document.getElementById('wsay').addEventListener('click', function(){
     var s = sentence();
@@ -684,6 +713,7 @@ var StoryCore = (function(){
     stop(); say(s);
     if (WLISTEN && s === WLISTEN) {   // 고친 문장으로 바꾼 뒤 들으면 도장
       WLISTEN = null; storyDone('write');
+      if (WLOG) { storyLog(WLOG.ai === 'fixed' ? 'fixed' : 'none', WLOG.original, WLOG.fixes); WLOG = null; }
       wfb.innerHTML = '<div class="fb ok"><p>' + t('완성! 소리 내어 두 번 읽어 보세요. 다 쓴 문장은 선생님께 보여 주세요.','Done! Read it out loud twice, then show it to your teacher.') + '</p><p class="en">' + esc(s) + '</p></div>';
     }
   });

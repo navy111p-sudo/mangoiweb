@@ -1229,6 +1229,14 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
             ? T('practiced ' + f.practiced + ' of ' + f.total, f.total + '장 중 ' + f.practiced + '장 말해 봄')
             : T('not practiced yet (' + f.total + ' cards)', '아직 안 함 (' + f.total + '장)')));
     }
+    // 📖 (2026-10-13) 영어 동화책 «바꿔 쓰기» 최근 7일 — 학생이 도장을 받은 문장(규칙·AI 점검을 거친 것).
+    var st = h.story;
+    if (st && st.n > 0){
+      lines.push('📖 <b>' + esc(T('Storybook writing (7 days)','동화책 바꿔 쓰기 (7일)')) + '</b>: '
+        + esc(T(st.n + ' sentence' + (st.n > 1 ? 's' : '') + ' · ' + st.fixes + ' fix' + (st.fixes === 1 ? '' : 'es'),
+                st.n + '문장 · 고친 곳 ' + st.fixes + '개'))
+        + (st.last ? ' — ' + (st.last_was ? '<span class="cls-hand-was">' + esc(st.last_was) + '</span> → ' : '') + esc(st.last) : ''));
+    }
     if (!lines.length) return '';
     return '<div class="cls-hand"><div class="cls-hand-h">🤝 ' + esc(T('Handover','인수인계')) + '</div>'
       + lines.map(function(l){ return '<div class="cls-hand-l">' + l + '</div>'; }).join('') + '</div>';
