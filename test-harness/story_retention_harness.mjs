@@ -158,5 +158,94 @@ console.log('② 정확한 경계 한 번 더');
   db.close();
 }
 
+console.log(`③ 모든 파기 단계 — dryRun 은 «아무것도» 안 바꾸고, 센 건수 = 실제로 지운 건수 (무작위 ${ITER}회)`);
+{
+  /* 2026-10-13 전에는 녹화만 dryRun 을 지키고 나머지 단계는 `?dry_run=1` 이어도 실제로 지웠다.
+     같은 데이터를 두 벌 만들어 한쪽은 dryRun, 한쪽은 실제로 돌려 «센 것 == 지운 것» 과
+     «dryRun 쪽은 한 바이트도 안 바뀜» 을 짝으로 본다. */
+  const SCHEMA = `
+    CREATE TABLE recordings (id INTEGER PRIMARY KEY, file_url TEXT, expires_at INTEGER, status TEXT);
+    CREATE TABLE attendance (id INTEGER PRIMARY KEY, joined_at INTEGER, left_at INTEGER);
+    CREATE TABLE rewards (id INTEGER PRIMARY KEY, issued_at INTEGER);
+    CREATE TABLE consents (id INTEGER PRIMARY KEY, user_id TEXT, username TEXT, guardian_contact TEXT, kakao_consent INTEGER,
+      consented_at INTEGER, withdrawn_at INTEGER, raw_payload TEXT, ip_address TEXT, user_agent TEXT);
+    CREATE TABLE kakao_ids (id INTEGER PRIMARY KEY, user_id TEXT, kakao_id TEXT);
+    CREATE TABLE emergency_events (id INTEGER PRIMARY KEY, triggered_at INTEGER);
+    CREATE TABLE ai_writing_corrections (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, original_text TEXT NOT NULL, corrected_text TEXT, feedback TEXT, level TEXT, score INTEGER, created_at INTEGER NOT NULL);`;
+  const TABLES = ['recordings', 'attendance', 'rewards', 'consents', 'kakao_ids', 'emergency_events', 'ai_writing_corrections', 'story_write_log'];
+  const FIELD = { attendance: 'attendance', rewards: 'rewards', kakao_ids: 'kakao_ids', emergency_events: 'emergency_events',
+    ai_writing_corrections: 'ai_writing', story_write_log: 'story_write', consents: 'consents_masked', recordings: 'recordings' };
+  const ago = (d) => NOW - Math.floor(d * DAY);
+  const tAny = () => pick([ago(rnd() * 2000), ago(7), ago(30), ago(365), ago(365 * 3), ago(365 * 5), NOW]);
+  function fill(db) {
+    db.exec(SCHEMA); db.exec(SC.STORY_LOG_SCHEMA);
+    const uids = ['u1', 'u2', 'u3', 'u4', 'u5'];
+    for (let i = 0; i < 8; i++) db.prepare('INSERT INTO recordings (file_url, expires_at, status) VALUES (?,?,?)')
+      .run('rec/' + i + '.webm', pick([ago(1), NOW + DAY]), 'completed');
+    for (let i = 0; i < 15; i++) db.prepare('INSERT INTO attendance (joined_at, left_at) VALUES (?,?)').run(tAny(), rnd() < 0.3 ? null : tAny());
+    for (let i = 0; i < 10; i++) db.prepare('INSERT INTO rewards (issued_at) VALUES (?)').run(tAny());
+    for (let i = 0; i < 10; i++) db.prepare('INSERT INTO emergency_events (triggered_at) VALUES (?)').run(tAny());
+    for (let i = 0; i < 10; i++) db.prepare('INSERT INTO ai_writing_corrections (student_uid, original_text, created_at) VALUES (?,?,?)').run('u1', 'x', tAny());
+    for (let i = 0; i < 10; i++) db.prepare('INSERT INTO story_write_log (student_uid, story, sentence, fixes, created_at) VALUES (?,?,?,?,?)').run('u1', 's', 'x', 0, tAny());
+    for (let i = 0; i < 12; i++) db.prepare('INSERT INTO consents (user_id, username, guardian_contact, kakao_consent, consented_at, withdrawn_at, raw_payload, ip_address, user_agent) VALUES (?,?,?,?,?,?,?,?,?)')
+      .run(pick(uids), 'name', '010', pick([0, 1, null]), tAny(), rnd() < 0.4 ? tAny() : null, pick(['{"kakao":false}', '{"recording":1}', null]), '1.2.3.4', 'UA');
+    for (let i = 0; i < 8; i++) db.prepare('INSERT INTO kakao_ids (user_id, kakao_id) VALUES (?,?)').run(pick(uids), 'k' + i);
+  }
+  const snap = (db) => Object.fromEntries(TABLES.map((t) => [t, JSON.stringify(db.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all())]));
+  let dryTouched = 0, countMismatch = 0, errs = 0, kvOnDry = 0, kvOnReal = 0, realChanged = 0, consentLost = 0, maskWrong = 0, maskedSeen = 0, keepWrong = 0;
+  const bad = [];
+  for (let it = 0; it < ITER; it++) {
+    const dbA = new DatabaseSync(':memory:'), dbB = new DatabaseSync(':memory:');
+    const s0 = seed; fill(dbA); seed = s0; fill(dbB);
+    const before = snap(dbA);
+    const kA = kv(), kB = kv();
+    Date.now = () => NOW;
+    const rA = await R.purgeExpired({ DB: d1(dbA), SESSION_STATE: kA }, { dryRun: true });
+    const rB = await R.purgeExpired({ DB: d1(dbB), SESSION_STATE: kB }, {});
+    Date.now = realNow;
+    const afterA = snap(dbA), afterB = snap(dbB);
+    if (JSON.stringify(afterA) !== JSON.stringify(before)) { dryTouched++; if (bad.length < 3) bad.push('dry touched ' + TABLES.filter((t) => afterA[t] !== before[t]).join(',')); }
+    if (JSON.stringify(afterB) !== JSON.stringify(before)) realChanged++;
+    for (const t of TABLES) {
+      const f = FIELD[t];
+      if (rA[f] !== rB[f]) { countMismatch++; if (bad.length < 3) bad.push(`${t}: dry ${rA[f]} / real ${rB[f]}`); }
+    }
+    if ((rA.errors || []).length || (rB.errors || []).length) { errs++; if (bad.length < 3) bad.push(JSON.stringify((rA.errors || []).concat(rB.errors || []))); }
+    /* 단순 기간 표는 «남아야 할 행» 을 JS 로 따로 계산해 실제 결과와 대조한다(SQL 을 베끼지 않는다) */
+    const KEEP_RULE = {
+      attendance: (r) => (r.left_at ?? r.joined_at) >= NOW - 3 * 365 * DAY,
+      rewards: (r) => r.issued_at >= NOW - 5 * 365 * DAY,
+      emergency_events: (r) => r.triggered_at >= NOW - 365 * DAY,
+      ai_writing_corrections: (r) => r.created_at >= NOW - 30 * DAY,
+      story_write_log: (r) => r.created_at >= NOW - KEEP * DAY,
+    };
+    for (const [t, keep] of Object.entries(KEEP_RULE)) {
+      const want = JSON.stringify(dbA.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all().filter(keep));
+      if (want !== afterB[t]) { keepWrong++; if (bad.length < 3) bad.push('keep ' + t); }
+    }
+    /* 동의 기록은 «지우지 않고 가린다»(감사 추적) — 실제 실행 뒤에도 행 수가 같고, 바뀐 행은 가린 모양이어야 한다 */
+    const cBefore = dbA.prepare('SELECT * FROM consents ORDER BY id').all();
+    const cAfter = dbB.prepare('SELECT * FROM consents ORDER BY id').all();
+    if (cAfter.length !== cBefore.length) consentLost++;
+    cAfter.forEach((r, i) => {
+      if (JSON.stringify(r) === JSON.stringify(cBefore[i])) return;
+      maskedSeen++;
+      if (!(r.username === null && r.raw_payload === '{"masked":true}' && r.ip_address === null && r.user_id === cBefore[i].user_id)) maskWrong++;
+    });
+    if (kA._m.has('retention:last_run')) kvOnDry++;
+    if (kB._m.has('retention:last_run')) kvOnReal++;
+    dbA.close(); dbB.close();
+  }
+  if (bad.length) console.log('    예: ' + bad.join(' | '));
+  ok(realChanged > ITER * 0.9, '전제: 실제로 돌린 쪽은 거의 매번 무언가를 바꿨다(시험 데이터가 살아 있다)', String(realChanged));
+  ok(dryTouched === 0, 'dryRun 은 8개 표 어디도 한 행도 바꾸지 않는다(출결·보상·카카오·비상·영작·동화책·동의 마스킹·녹화)');
+  ok(countMismatch === 0, '(짝) dryRun 이 센 건수 = 같은 데이터에서 실제로 지운/고친 건수 (표마다)');
+  ok(errs === 0, '모든 단계가 오류 없이 돈다');
+  ok(keepWrong === 0, '실제 실행 뒤 남은 행 = 표마다 보관기간으로 «따로 계산한» 남아야 할 행 (출결 3년·보상 5년·비상 1년·영작·동화책 30일)');
+  ok(maskedSeen > 0, '전제: 가려질 동의 기록이 실제로 나왔다', String(maskedSeen));
+  ok(consentLost === 0 && maskWrong === 0, '동의 기록은 지우지 않고 가리기만 한다(행 수 그대로 · 이름·IP 비움 · user_id 유지)');
+  ok(kvOnDry === 0 && kvOnReal === ITER, 'dryRun 은 «마지막 실행» 기록을 덮지 않고, 실제 실행만 남긴다');
+}
+
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
