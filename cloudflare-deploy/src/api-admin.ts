@@ -89,7 +89,7 @@ import { attachRosterTracks, enrolledNowExpr, loadTrackSummary } from './student
 import { buildLeveltestReview, type LtBankItem } from './leveltest-review';    // 📘 틀린 문제 정답·해설 (정답이 새는 창을 좁히는 계약이 그 파일에 있다)
 import type { MangoEnv } from './api-mango';
 import { cleanAnalysis, cleanScore, foreignFields, parseAnalysisJson, recoverNextAction, KOREAN_ONLY_RETRY_NOTE, SUMMARY_UNAVAILABLE } from './ai-analysis-clean';   // 🧹 AI 학습 분석 — 한국어 아닌 글자 거르기·다음 액션 되살리기
-import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid } from './attendance-uid';   // 📌 attendance 를 학생 계정으로 찾는 정본
+import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid, ATTENDANCE_ACCOUNT_KEY, ATTENDANCE_BY_UID_LIST, attUidListBinds } from './attendance-uid';   // 📌 attendance 를 학생 계정으로 찾는 정본
 import { ensureStartsOnColumn, startsOnSel, normStartsOn, kstYmdOfMs, recurSkippedOn, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { isPostponedOccurrence, REACTIVATE_POSTPONED_SQL } from './class-postponed';
 import { loadHolidayClosure, isHolidayClosedFor, type HolidayClosure } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
@@ -9094,19 +9094,61 @@ ${chatSampleText}
         const _swRisk = await studentScopeWhere(env, request);  // 🔒 지사/대리점 격리
 
         // ⚡ KV 캐시(scope 별 키, 180초) — 반복 열람 시 무거운 스캔 생략. 케어 발송 등 변경 후엔 자연 만료.
-        const _rrKey = 'retrisk2:' + nameCol + ':' + ((_swRisk.cond || 'all') + '|' + (_swRisk.binds || []).join(','));
+        const _rrKey = 'retrisk3:' + nameCol + ':' + ((_swRisk.cond || 'all') + '|' + (_swRisk.binds || []).join(','));
         try {
           const _hit = await env.SESSION_STATE.get(_rrKey);
           if (_hit) return new Response(_hit, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } });
         } catch { /* 캐시 miss 무시 */ }
 
-        const studentsRs = await env.DB.prepare(
-          // ⚠️ status 값: 카페24 동기화가 영어 'active'/'inactive'로 적재(실측 28,641/722). 레거시 '정상'/'활동'도 함께 인정(하위호환).
-          //    (기존 '정상'만 필터하면 매칭 0건 → 학생 0명 early-return 으로 이탈위험이 조용히 빈 목록이 됨)
-          `SELECT ${selectCols} FROM students_erp WHERE (status IN ('정상','활동','active') OR status IS NULL OR status = '')${_swRisk.cond ? ' AND ' + _swRisk.cond : ''} LIMIT 500`
-        ).bind(..._swRisk.binds).all();
-        const students = (studentsRs.results || []) as any[];
-        if (!students.length) return json({ ok: true, count: 0, at_risk: [], schema: { name_col: nameCol } });
+        /* 🎯 (2026-10-13 이탈 케어 보드 1단계) 누구를 볼 것인가 — «최근 90일에 수업 흔적이 있는 학생».
+           🔴 그전에는 `… WHERE status 활성 LIMIT 500` 이라 명부 29,000명 중 «정렬 없이 아무» 500명만 봤습니다.
+              그래서 심각+주의+관찰 합(486)이 «위험 학생 수» 가 아니라 «그 500명 거의 전원» 이었고,
+              진짜 위험한 학생이 그 500명 밖이면 화면에 아예 안 나왔습니다(사장님 캡처 2026-10-13).
+           ✅ 후보 = ① 최근 90일 출석·예약 기록이 있는 계정(실접속은 account_uid, 카페24 씨앗은 user_id —
+              정본 ATTENDANCE_ACCOUNT_KEY) ② 카페24 이탈 스냅샷(student_retention — 만료·장기 미수강).
+              90일 넘게 흔적이 없는 학생은 «이탈 위험» 이 아니라 이미 떠난 학생이라 빼고, 그 수를 응답에 적습니다.
+           ✅ 상한(RISK_SCAN_MAX)을 넘으면 «가장 조용한 학생부터»(마지막 기록이 오래된 순) 보고 truncated 로 말합니다.
+              ⛔ 정렬 없는 LIMIT 으로 되돌리지 마세요. */
+        const RISK_SCAN_MAX = 1000;
+        await ensureAttendanceAccountUid(env);
+        const _lastSeen = new Map<string, number>();   // 계정 → 최근 90일 안 마지막 기록(ms). 0 = 스냅샷에만 있음
+        try {
+          const ar: any = await env.DB.prepare(
+            `SELECT ${ATTENDANCE_ACCOUNT_KEY} AS k, MAX(joined_at) AS j FROM attendance
+              WHERE joined_at >= ? AND joined_at <= ? AND COALESCE(role,'student') = 'student'
+              GROUP BY k`).bind(since90, now).all();
+          for (const r of (ar.results || [])) if (r.k) _lastSeen.set(String(r.k), Number(r.j) || 0);
+        } catch (e: any) { console.warn('[retention/risk] 후보(출석) 조회 실패:', e?.message); }
+        try {
+          const sr: any = await env.DB.prepare(`SELECT user_id FROM student_retention`).all();
+          for (const r of (sr.results || [])) if (r.user_id && !_lastSeen.has(String(r.user_id))) _lastSeen.set(String(r.user_id), 0);
+        } catch { /* 스냅샷 표가 없는 환경 — 출석 후보만 */ }
+
+        // ⚠️ status 값: 카페24 동기화가 영어 'active'/'inactive'로 적재. 레거시 '정상'/'활동'도 함께 인정(하위호환).
+        const _activeCond = `(status IN ('정상','활동','active') OR status IS NULL OR status = '')${_swRisk.cond ? ' AND ' + _swRisk.cond : ''}`;
+        let activeTotal: number | null = null;
+        try {
+          const ct: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE ${_activeCond}`).bind(..._swRisk.binds).first();
+          activeTotal = Number(ct?.n) || 0;
+        } catch { /* 표시용 — 못 세면 null */ }
+        let _cands: any[] = [];
+        if (_lastSeen.size) {
+          const sRs: any = await env.DB.prepare(
+            `SELECT ${selectCols} FROM students_erp WHERE user_id IN (SELECT value FROM json_each(?)) AND ${_activeCond}`
+          ).bind(JSON.stringify([..._lastSeen.keys()]), ..._swRisk.binds).all();
+          _cands = (sRs.results || []) as any[];
+        }
+        // 가장 조용한 학생부터(마지막 기록 오래된 순 · 스냅샷에만 있는 학생이 맨 앞) — 동점은 아이디로 고정
+        _cands.sort((a, b) => ((_lastSeen.get(a.user_id) || 0) - (_lastSeen.get(b.user_id) || 0)) || String(a.user_id).localeCompare(String(b.user_id)));
+        const students = _cands.slice(0, RISK_SCAN_MAX);
+        const scanMeta = {
+          active_total: activeTotal,          // 명부 활성 학생(스코프 안)
+          candidates: _cands.length,          // 그중 최근 90일 흔적 또는 이탈 스냅샷에 있는 학생
+          scanned: students.length,           // 실제로 점수를 매긴 학생
+          truncated: _cands.length > students.length,
+          window_days: 90,
+        };
+        if (!students.length) return json({ ok: true, count: 0, at_risk: [], scan: scanMeta, schema: { name_col: nameCol } });
 
         // ⚡ N+1 제거 — 학생당 반복 쿼리(≈8×N=수천건)를 그룹 쿼리 9개로 일괄 집계 후 메모리에서 점수 계산.
         //    점수 로직(S1~S10)·응답 형태는 원본과 100% 동일, 데이터 수집 방식만 변경.
@@ -9126,13 +9168,26 @@ ${chatSampleText}
           for (const r of rows) m.set(String(r[keyCol]), pick(r));
           return m;
         };
+        // 출석 전용 — 계정 목록을 JSON 하나로 넘기므로(json_each) 청크가 필요 없습니다. 실패하면 빈 Map(예전 swallow 동작과 같음).
+        const _attMap = async (sql: string, tail: any[]): Promise<Map<string, any>> => {
+          const m = new Map<string, any>();
+          try {
+            const rs: any = await env.DB.prepare(sql).bind(...attUidListBinds(_ids), ...tail).all();
+            for (const r of (rs.results || [])) if (r.k != null) m.set(String(r.k), _num(r.v));
+          } catch (e: any) { console.warn('[retention/risk] 출석 집계 실패:', e?.message); }
+          return m;
+        };
         try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`); } catch {}
 
         const [att30M, att60M, att90M, lastJoinM, evalM, payM, hwM, ptM, _trendRows, absentStreakM] = await Promise.all([
-          _groupMap(ph => `SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${ph}) AND joined_at >= ? GROUP BY user_id`, [since30], 'user_id', r => _num(r.d)),
-          _groupMap(ph => `SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${ph}) AND joined_at >= ? AND joined_at < ? GROUP BY user_id`, [since60, since30], 'user_id', r => _num(r.d)),
-          _groupMap(ph => `SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${ph}) AND joined_at >= ? AND joined_at < ? GROUP BY user_id`, [since90, since60], 'user_id', r => _num(r.d)),
-          _groupMap(ph => `SELECT user_id, MAX(joined_at) j FROM attendance WHERE user_id IN (${ph}) GROUP BY user_id`, [], 'user_id', r => _num(r.j)),
+          /* 📌 (2026-10-13) 출석 네 신호는 «계정» 으로 셉니다 — 정본 ATTENDANCE_BY_UID_LIST / ATTENDANCE_ACCOUNT_KEY.
+             🔴 그전에는 `attendance.user_id IN (계정들)` 이었는데 그 칸은 실접속에선 «기기 임시번호» 라
+                실제로 화상수업을 듣는 학생도 「30일 출석 0회 · 마지막 입장 수백 일 전」이 됐습니다.
+             ✅ 그리고 «지금 이후» 행(카페24가 미리 만드는 예약 씨앗)은 출석이 아니므로 joined_at <= now 로 자릅니다. */
+          _attMap(`SELECT ${ATTENDANCE_ACCOUNT_KEY} AS k, COUNT(DISTINCT date) AS v FROM attendance WHERE ${ATTENDANCE_BY_UID_LIST} AND joined_at >= ? AND joined_at <= ? GROUP BY k`, [since30, now]),
+          _attMap(`SELECT ${ATTENDANCE_ACCOUNT_KEY} AS k, COUNT(DISTINCT date) AS v FROM attendance WHERE ${ATTENDANCE_BY_UID_LIST} AND joined_at >= ? AND joined_at < ? GROUP BY k`, [since60, since30]),
+          _attMap(`SELECT ${ATTENDANCE_ACCOUNT_KEY} AS k, COUNT(DISTINCT date) AS v FROM attendance WHERE ${ATTENDANCE_BY_UID_LIST} AND joined_at >= ? AND joined_at < ? GROUP BY k`, [since90, since60]),
+          _attMap(`SELECT ${ATTENDANCE_ACCOUNT_KEY} AS k, MAX(joined_at) AS v FROM attendance WHERE ${ATTENDANCE_BY_UID_LIST} AND joined_at <= ? GROUP BY k`, [now]),
           _groupMap(ph => `SELECT student_uid, AVG(score_overall) a, COUNT(*) n FROM student_evaluations WHERE student_uid IN (${ph}) AND created_at >= ? GROUP BY student_uid`, [since60], 'student_uid', r => ({ a: _num(r.a), n: _num(r.n) })),
           _groupMap(ph => `SELECT user_id, MIN(due_at) earliest_due, SUM(amount) total FROM payments WHERE user_id IN (${ph}) AND (paid_at IS NULL OR paid_at = 0) AND due_at < ? GROUP BY user_id`, [now], 'user_id', r => ({ earliest_due: _num(r.earliest_due), total: _num(r.total) })),
           _groupMap(ph => `SELECT user_id, COUNT(*) n FROM homework_submissions WHERE user_id IN (${ph}) AND status = 'missed' AND created_at >= ? GROUP BY user_id`, [since30], 'user_id', r => _num(r.n)),
@@ -9144,23 +9199,25 @@ ${chatSampleText}
           /* 🚷 (2026-08-30 v4 제안서 17) 연속 결석 횟수 — 「3회 이상이면 위험도를 심각으로 올려 달라」.
              ⚠️ 「최근 30일 출석 0」(S2)과는 **다른 사실**이다. 수업이 원래 드문 학생은 S2 만으로는
                 안 걸리고, 반대로 방학처럼 수업 자체가 없던 기간은 «연속 결석» 이 아니다.
-             🧮 판정은 「장기 결석생」 화면(/api/admin/attendance/long-absent)과 **같은 식**이다 —
-                최신 수업일부터 거꾸로 세다가 출석(present)을 만나면 멈춘다. 두 화면이 다른 숫자를
-                말하면 그 자체가 사고이므로 식을 복제하지 말고 같은 모양을 유지할 것.
+             🧮 세는 방법(최신 수업일부터 거꾸로, present 를 만나면 멈춤)은 「장기 결석생」 화면
+                (/api/admin/attendance/long-absent)과 같다.
+             ⚠️ (2026-10-13) 단, 이제 «묶는 키» 가 다르다 — 여기는 계정(ATTENDANCE_ACCOUNT_KEY)으로
+                실접속 행과 카페24 씨앗을 한 줄로 잇고, long-absent 는 아직 a.user_id 로 묶고 기간 하한도
+                있다. 그래서 같은 학생이 두 화면에서 다른 숫자를 말할 수 있다. 맞출지는 사람이 정할 일.
+             ⚙️ 기간 하한이 없지만 풀스캔은 아니다 — 로컬 SQLite EXPLAIN QUERY PLAN 실측:
+                MULTI-INDEX OR (idx_attendance_account_date · idx_attendance_user_date). 운영 D1 은 미측정.
              ⚠️ 미래 예약(status='scheduled', joined_at 이 2030년까지 있다)을 결석으로 세지 않도록
                 date <= 오늘(KST) 로 자른다. */
-          _groupMap(
-            (ph) => `WITH ranked AS (
-                       SELECT user_id, date, status,
-                              ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY date DESC, id DESC) AS rn
+          // 🚷 연속 결석도 «계정» 으로 묶어 셉니다(위와 같은 이유). 실접속 행과 카페24 씨앗이 한 줄로 이어집니다.
+          _attMap(`WITH ranked AS (
+                       SELECT ${ATTENDANCE_ACCOUNT_KEY} AS k, date, status,
+                              ROW_NUMBER() OVER (PARTITION BY ${ATTENDANCE_ACCOUNT_KEY} ORDER BY date DESC, id DESC) AS rn
                          FROM attendance
-                        WHERE COALESCE(role,'student') = 'student' AND user_id IN (${ph})
+                        WHERE COALESCE(role,'student') = 'student' AND ${ATTENDANCE_BY_UID_LIST}
                           AND date IS NOT NULL AND date <= ?
                      )
-                     SELECT user_id,
-                            COALESCE(MIN(CASE WHEN status = 'present' THEN rn END) - 1, MAX(rn)) AS streak
-                       FROM ranked GROUP BY user_id`,
-            [today()], 'user_id', r => _num(r.streak)),
+                     SELECT k, COALESCE(MIN(CASE WHEN status = 'present' THEN rn END) - 1, MAX(rn)) AS v
+                       FROM ranked GROUP BY k`, [today()]),
         ]);
 
         // 평가 추세 — 최근3회 vs 직전3회 평균 (원본 recent3/prev3 동등)
@@ -9204,7 +9261,8 @@ ${chatSampleText}
           const signals: any = {};
 
           // S1: 마지막 입장 기준 (가장 강력한 신호)
-          if (daysSinceLastJoin >= 21)      { risk += 45; reasons.push(`📵 마지막 입장 ${daysSinceLastJoin}일 전`); signals.lastJoin = 'critical'; }
+          // ⚠️ 기록이 아예 없으면(999) «999일 전» 이라고 지어내지 않고 사실대로 적습니다.
+          if (daysSinceLastJoin >= 21)      { risk += 45; reasons.push(_lastJ ? `📵 마지막 입장 ${daysSinceLastJoin}일 전` : '📵 출석 기록 없음'); signals.lastJoin = 'critical'; }
           else if (daysSinceLastJoin >= 14) { risk += 35; reasons.push(`📵 마지막 입장 ${daysSinceLastJoin}일 전`); signals.lastJoin = 'high'; }
           else if (daysSinceLastJoin >= 7)  { risk += 18; reasons.push(`⏰ 최근 1주 미출석`); signals.lastJoin = 'medium'; }
 
@@ -9295,7 +9353,7 @@ ${chatSampleText}
         }
         // 위험도 내림차순
         atRisk.sort((a, b) => b.risk_score - a.risk_score);
-        const _rrPayload = JSON.stringify({ ok: true, count: atRisk.length, at_risk: atRisk, schema: { name_col: nameCol } });
+        const _rrPayload = JSON.stringify({ ok: true, count: atRisk.length, at_risk: atRisk, scan: scanMeta, schema: { name_col: nameCol } });
         try { await env.SESSION_STATE.put(_rrKey, _rrPayload, { expirationTtl: 180 }); } catch { /* 캐시 저장 실패 무시 */ }
         return new Response(_rrPayload, { status: 200, headers: { 'Content-Type': 'application/json' } });
       } catch (e: any) {
