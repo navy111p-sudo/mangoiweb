@@ -187,6 +187,77 @@
     return out;
   }
 
+  // ── 2단계(2026-10-13): AI 한 번 더 보기 · 강사용 기록 — 서버 정본 src/story-correct.ts ──
+  //    POST /api/ai/write-history { action:'story_fix' | 'story_log' } (이미 등록된 경로의 비어 있는 POST)
+  //    ⛔ AI 가 못 보면 «틀린 곳 없음» 이 아니라 'unavailable' — 화면이 «지금은 확인하지 못했어요» 라고 말합니다.
+  //    ⛔ 학생 아이디는 «기록» 에만 실리고 그것도 토큰이 맞을 때만 서버가 저장합니다.
+  var AI_URL = '/api/ai/write-history', AI_TIMEOUT = 8000;
+  function ls(k){ try { return root.localStorage ? root.localStorage.getItem(k) : null; } catch(e){ return null; } }
+  function device(){
+    var d = ls('mangoi_story_dev');
+    if (!d) { d = 'sd_' + Math.random().toString(36).slice(2, 12); try { root.localStorage.setItem('mangoi_story_dev', d); } catch(e){} }
+    return d;
+  }
+  function who(){
+    var keys = ['mangoi_logged_user', 'mango_user'];
+    for (var i = 0; i < keys.length; i++) {
+      try { var a = JSON.parse(ls(keys[i]) || 'null'); if (a && (a.uid || a.user_id || a.id)) return String(a.uid || a.user_id || a.id); } catch(e){}
+    }
+    return '';
+  }
+  function post(body, ms){
+    if (!root.fetch) return Promise.resolve(null);
+    var ctl = root.AbortController ? new root.AbortController() : null, to = setTimeout(function(){ if (ctl) ctl.abort(); }, ms || AI_TIMEOUT);
+    var tok = ls('mango_token') || '', headers = { 'Content-Type': 'application/json' };
+    if (tok) headers.Authorization = 'Bearer ' + tok;
+    // ⏱ AbortController 가 없는 옛 WebView 에서도 «기다리는 중» 에 멈추지 않게 타이머가 직접 끝냅니다.
+    var timer = new Promise(function(res){ setTimeout(function(){ res(null); }, (ms || AI_TIMEOUT) + 500); });
+    var req = root.fetch(AI_URL, { method: 'POST', headers: headers, credentials: 'same-origin', signal: ctl ? ctl.signal : undefined, body: JSON.stringify(body) })
+      .then(function(r){ return r.json().catch(function(){ return null; }); }, function(){ return null; });
+    return Promise.race([req, timer]).then(function(d){ clearTimeout(to); return d; });
+  }
+  function lw(s){ return String(s || '').toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean); }
+  /** 서버 답 → 화면 상태(순수). state: 'ok'(고칠 곳 없음) · 'fixed' · 'cap' · 'unavailable'(못 봄·검사 탈락 포함) */
+  function aiState(d, orig){
+    if (!d || typeof d !== 'object') return { state: 'unavailable' };
+    if (d.ok === true && d.changed === false) return { state: 'ok' };
+    if (d.ok === true && d.changed === true && typeof d.a === 'string' && typeof d.b === 'string' && d.a && d.b) {
+      var issues = [];
+      [[orig.a, d.a], [orig.b, d.b]].forEach(function(pr, k){
+        var o = lw(pr[0]), f = lw(pr[1]);
+        if (o.join(' ') === f.join(' ')) return;
+        var why = (d.reasons || []).filter(function(r){ return r && r.ko; })[issues.length] || {};
+        issues.push({ slot: k, kind: 'ai',
+          from: o.filter(function(w){ return f.indexOf(w) < 0; }).join(' '),
+          to: f.filter(function(w){ return o.indexOf(w) < 0; }).join(' '),
+          ko: why.ko || '더 자연스러운 표현으로 바꿨어요.', en: why.en || 'A more natural way to say it.' });
+      });
+      if (!issues.length) return { state: 'ok' };
+      return { state: 'fixed', a: d.a, b: d.b, issues: issues, grammar: issues.length };
+    }
+    if (d.error === 'daily_cap') return { state: 'cap' };
+    return { state: 'unavailable' };
+  }
+  function aiFix(o){
+    var body = { action: 'story_fix', story: o.story, a: o.a, b: o.b, slots: o.slots, sentence: o.sentence, device: device() };
+    return post(body).then(function(d){ return aiState(d, o); });
+  }
+  /** 도장을 받은 문장 기록 — 로그인 안 했으면 아예 안 보냅니다. 실패해도 화면은 그대로(기록은 덤). */
+  function logWrite(o){
+    var u = who();
+    if (!u || /^guest/i.test(u) || !ls('mango_token')) return Promise.resolve({ saved: false });
+    return post({ action: 'story_log', uid: u, token: ls('mango_token') || '', story: o.story, sentence: o.sentence, original: o.original || '', fixes: o.fixes || 0, ai: o.ai || 'none' }, 6000)
+      .then(function(d){ return d || { saved: false }; });
+  }
+  /** AI 상태별 안내 한 줄(없으면 null) */
+  function aiNote(state){
+    if (state === 'unavailable') return { ko: '🤖 AI 확인은 지금 하지 못했어요. 규칙 점검은 통과했어요 — 선생님께도 보여 주세요.', en: '🤖 The AI check is not available right now. The rule check passed — show it to your teacher too.' };
+    if (state === 'cap') return { ko: '🤖 오늘 AI 확인 횟수(' + 30 + '번)를 다 썼어요. 규칙 점검만 했어요.', en: '🤖 You used all of today’s AI checks (30). Only the rule check was done.' };
+    if (state === 'ok') return { ko: '🤖 AI 선생님도 확인했어요.', en: '🤖 Checked by the AI teacher too.' };
+    return null;
+  }
+
   root.StoryKit = { review: review, poolFor: poolFor, STORY_WORD_POOL: STORY_WORD_POOL,
+    aiFix: aiFix, aiState: aiState, logWrite: logWrite, aiNote: aiNote,
     _forms: { third: third, ing: ing, past: past, F3: F3, FING: FING, FPAST: FPAST, BASESET: BASESET } };
 })(typeof window !== 'undefined' ? window : globalThis);

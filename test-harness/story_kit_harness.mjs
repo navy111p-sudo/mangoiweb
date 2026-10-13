@@ -135,12 +135,12 @@ for (const B of BOOKS) {
   ok(/id="sumCard"/.test(html) && /sumFullText\(\)/.test(code), '요점정리 글은 SUM 정본에서 만든다');
   const wc = block(code, "document.getElementById('wcheck').addEventListener(");
   const g = wc.indexOf('kitR.grammar > 0'), st = wc.indexOf("storyDone('write')"), hg = wc.indexOf("cw.why === 'hangul'");
-  ok(g > hg && g < st && /if \(kitR && kitR\.grammar > 0\) \{ showFix\(kitR, false\); return; \}/.test(wc), '원장님 의견 1: 문법이 틀리면 도장보다 «먼저» 고친 문장을 보이고 멈춘다');
+  ok(g > hg && g < st && /if \(kitR && kitR\.grammar > 0\) \{.*showFix\(kitR, false\); return; \}/.test(wc), '원장님 의견 1: 문법이 틀리면 도장보다 «먼저» 고친 문장을 보이고 멈춘다');
   ok(/if \(kitR && kitR\.issues\.length\) showFix\(kitR, true\)/.test(wc), '(짝) 철자만 다르면 도장은 주고 확인만 권한다');
   ok(/if \(!window\.StoryKit \|\| !StoryKit\.review\) return null;/.test(code), '(짝) StoryKit 을 못 불러오면 예전처럼 그대로 완성');
   const ws = block(code, "document.getElementById('wsay').addEventListener(");
   ok(/if \(WLISTEN && s === WLISTEN\) \{[\s\S]*storyDone\('write'\)/.test(ws), '고친 문장으로 바꾼 뒤 «내 문장 듣기» 를 하면 도장');
-  ok(/WFIX = null; WLISTEN = null; paintWrite\(\)/.test(code), '(짝) 직접 고치기 시작하면 «바꾸기·듣기 도장» 대기를 지운다');
+  ok(/WFIX = null; WLISTEN = null; (?:WSEQ\+\+; )?paintWrite\(\)/.test(code), '(짝) 직접 고치기 시작하면 «바꾸기·듣기 도장» 대기를 지운다');
 }
 
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);
