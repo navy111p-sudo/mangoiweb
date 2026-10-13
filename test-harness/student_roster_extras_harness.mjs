@@ -45,7 +45,9 @@ let CSD, AUID, SSS, M;
 const MUTS = {
   cancelled_counts: [`String(r.status ?? '') !== 'paid'`, `false`],
   tie_flip: [`cand.amount_krw > cur.amount_krw`, `cand.amount_krw < cur.amount_krw`],
-  started_counts: [`at <= nowMs) return;`, `at < nowMs) return;`],
+  started_counts: [`at <= nowMs ||`, `at < nowMs ||`],
+  no_limit: [` || at >= limit) return;`, `) return;`],
+  pay_ignores_flag: [`if (opts.withPay === false)`, `if (false)`],
   no_recur_gate: [`if (!recurStartedOn(r, ymd)) continue;`, ``],
   no_where: [`WHERE \${SCHED_SUMMARY_WHERE} AND user_id`, `WHERE user_id`],
   no_c24: [`AND room_id LIKE 'c24-%'`, ``],
@@ -134,7 +136,8 @@ const oNext = (rows, seeds, now) => {
     }
   }
   for (const s of seeds) cands.push([Number(s), 'cafe24']);
-  const fut = cands.filter(c => Number.isFinite(c[0]) && c[0] > now).sort((a, b) => a[0] - b[0]);
+  const limit = Date.UTC(...today.split('-').map((x, i) => i === 1 ? x - 1 : +x)) - KST + 15 * 86400e3;   // 오늘(KST) 0시 + 15일
+  const fut = cands.filter(c => Number.isFinite(c[0]) && c[0] > now && c[0] < limit).sort((a, b) => a[0] - b[0]);
   if (!fut.length) return null;
   const k = new Date(fut[0][0] + KST).toISOString();
   return { at: fut[0][0], ymd: k.slice(0, 10), hm: k.slice(11, 16), source: fut[0][1] };
@@ -170,6 +173,9 @@ console.log('① 고정 사례');
   ok(n4 === null, '시작일(starts_on)이 14일 밖이면 «—»');
   const n5 = M.pickNextClass([{ day_of_week: 'Wed', start_time: '09:00' }], [now + 3600e3], now, admDowMatches);
   ok(n5 && n5.source === 'cafe24' && n5.hm === '16:00', '카페24 예약이 더 이르면 그것');
+  ok(M.pickNextClass([{ scheduled_date: '2026-10-28', start_time: '10:00' }], [now + 16 * 86400e3], now, admDowMatches) === null, '날짜 지정·카페24 예약도 «앞으로 14일» 밖이면 «—» (반복 수업과 같은 기준)');
+  const n6 = M.pickNextClass([{ scheduled_date: '2026-10-27', start_time: '23:59' }], [], now, admDowMatches);
+  ok(n6 && n6.ymd === '2026-10-27', '(짝) 14일째 날 밤까지는 잡는다');
   ok(M.pickNextClass([{ day_of_week: 'x', start_time: '10:00' }, { scheduled_date: 'bad', start_time: '10:00' }], [], now, admDowMatches) === null, '(짝) 못 읽는 요일·날짜는 지어내지 않는다');
 }
 
@@ -293,6 +299,29 @@ ok(e2eMis === 0, `SQL + 판정이 따로 짠 판정과 ${E2E}회 전부 같다 (
 ok(leak === 0, '모든 학생에 두 칸이 실린다(값이 없으면 null)');
 ok(e2eHasPay > 20 && e2eHasNext > 20 && e2eSeedWin > 3, `전제: 결제·다음수업·카페24 씨앗이 실제로 나온 경우가 충분하다 (${e2eHasPay}·${e2eHasNext}·${e2eSeedWin})`);
 
+// ═══ ③-2 강사에게는 결제 금액을 안 싣는다 ═══
+console.log('③-2 강사·신원 모름 — 결제 칸 비움');
+{
+  const db = new DatabaseSync(':memory:');
+  db.exec(`CREATE TABLE student_payments (id INTEGER PRIMARY KEY, user_id TEXT, paid_at INTEGER, amount_krw INTEGER, status TEXT);
+           CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, user_id TEXT, status TEXT, schedule_kind TEXT, scheduled_date TEXT, day_of_week TEXT, start_time TEXT, starts_on TEXT, skip_dates TEXT);
+           CREATE TABLE attendance (id INTEGER PRIMARY KEY, user_id TEXT, account_uid TEXT, room_id TEXT, joined_at INTEGER, date TEXT);
+           INSERT INTO student_payments (user_id,paid_at,amount_krw,status) VALUES ('a', 1700000000000, 150000, 'paid');`);
+  const seen = [];
+  const d1 = makeD1(db); const spy = { prepare: (q) => { seen.push(q); return d1.prepare(q); }, exec: d1.exec };
+  const st = [{ user_id: 'a' }];
+  await M.attachRosterExtras({ DB: spy }, st, BASE, admDowMatches, { withPay: false });
+  ok(st[0].lastpay === null && !seen.some(q => /student_payments/.test(q)), 'withPay:false 면 결제 조회도 안 하고 칸이 null');
+  const st2 = [{ user_id: 'a' }];
+  await M.attachRosterExtras({ DB: makeD1(db) }, st2, BASE, admDowMatches, { withPay: true });
+  ok(st2[0].lastpay && st2[0].lastpay.amount_krw === 150000, '(짝) withPay:true 면 싣는다');
+  const a = ADMIN.indexOf("path === '/api/admin/students/unified'");
+  const call = ADMIN.indexOf('attachRosterExtras(env', a);
+  const blk = ADMIN.slice(ADMIN.lastIndexOf('let _rxWithPay', call), call + 200);
+  ok(/_rxWithPay = !\(await getAdminActor\(request, env as any\)\)\.isTeacher/.test(blk) && /catch \{ _rxWithPay = false; \}/.test(blk) && /\{ withPay: _rxWithPay \}/.test(blk),
+    'unified 가 강사면 결제를 끄고, 신원을 못 읽어도 끈다(돈 정보는 막는 쪽으로 실패)');
+}
+
 // ═══ ④ fail-open ═══
 console.log('④ 실패해도 던지지 않는다');
 {
@@ -316,7 +345,7 @@ console.log('⑤ 배선');
   const b = ADMIN.indexOf('attachRosterExtras(env', a);
   const out = ADMIN.indexOf('const _out: any = { ok: true, count: _piiStudents.length', a);
   ok(a > 0 && b > a && b < out, 'unified 응답을 만들기 «전» 에 정본을 부른다');
-  ok(/attachRosterExtras\(env as any, _piiStudents as any\[\], Date\.now\(\), admDowMatches\)/.test(ADMIN), '마스킹된 학생 배열·요일 정본을 넘긴다');
+  ok(/attachRosterExtras\(env as any, _piiStudents as any\[\], Date\.now\(\), admDowMatches, \{ withPay: _rxWithPay \}\)/.test(ADMIN), '마스킹된 학생 배열·요일 정본을 넘긴다');
   const tryI = ADMIN.lastIndexOf('try {', b);
   ok(tryI > 0 && b - tryI < 40, '그 호출은 try 안 — 실패해도 명부는 뜬다');
   ok(/import \{ attachRosterExtras \} from '\.\/student-roster-extras'/.test(ADMIN), 'import 가 있다');

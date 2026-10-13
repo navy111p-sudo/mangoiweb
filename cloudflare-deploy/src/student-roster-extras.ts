@@ -31,6 +31,11 @@ const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const HM = /^(\d{1,2}):(\d{2})/;
 export const NEXT_CLASS_LOOKAHEAD_DAYS = 14;
 
+/** «앞으로 14일» 의 끝 — 오늘(KST) 0시 + 15일(= 오늘~14일 뒤 하루 끝까지). 세 근거가 모두 이 선을 쓴다. */
+export function nextClassLimitMs(nowMs: number): number {
+  return Date.parse(msToKst(nowMs).ymd + 'T00:00:00Z') - KST + (NEXT_CLASS_LOOKAHEAD_DAYS + 1) * 86400e3;
+}
+
 export type LastPayment = { paid_at: number; amount_krw: number };
 export type NextClass = { at: number; ymd: string; hm: string; source: 'mangoi' | 'cafe24' };
 
@@ -75,8 +80,9 @@ export function pickLastPayments(rows: any[]): Map<string, LastPayment> {
 export function pickNextClass(schedRows: any[], seedAts: number[], nowMs: number,
                               dowMatches: (raw: any, dow: number) => boolean): NextClass | null {
   let best: NextClass | null = null;
+  const limit = nextClassLimitMs(nowMs);
   const take = (at: number | null, source: NextClass['source']) => {
-    if (at == null || !Number.isFinite(at) || at <= nowMs) return;
+    if (at == null || !Number.isFinite(at) || at <= nowMs || at >= limit) return;   // ⛔ 날짜 지정·카페24도 «앞으로 14일» 같은 기준
     if (best && at >= best.at) return;
     const k = msToKst(at);
     best = { at, ymd: k.ymd, hm: k.hm, source };
@@ -103,12 +109,14 @@ export function pickNextClass(schedRows: any[], seedAts: number[], nowMs: number
 
 /** 목록의 학생들에 lastpay / next_class 를 붙인다. 던지지 않는다(실패하면 그 칸만 비움). */
 export async function attachRosterExtras(env: any, students: any[], nowMs: number,
-                                         dowMatches: (raw: any, dow: number) => boolean): Promise<void> {
+                                         dowMatches: (raw: any, dow: number) => boolean,
+                                         opts: { withPay?: boolean } = {}): Promise<void> {
   const uids = Array.from(new Set((students || []).map((s: any) => String(s?.user_id ?? '').trim()).filter(Boolean)));
   if (!uids.length) return;
   const j = JSON.stringify(uids);
-  // 💰
-  try {
+  // 💰 — ⛔ withPay 가 아니면(강사·신원 모름) 조회도 안 하고 칸을 비운다(금액이 응답에 실리지 않게).
+  if (opts.withPay === false) { for (const s of students) s.lastpay = null; }
+  else try {
     const r = await env.DB.prepare(
       `SELECT id, user_id, paid_at, amount_krw, status FROM student_payments
         WHERE status = 'paid' AND user_id IN (SELECT value FROM json_each(?))`
@@ -142,7 +150,7 @@ export async function attachRosterExtras(env: any, students: any[], nowMs: numbe
            FROM attendance
           WHERE ${ATTENDANCE_BY_UID_LIST} AND room_id LIKE 'c24-%' AND joined_at > ? AND joined_at <= ?
           GROUP BY uid`
-      ).bind(...attUidListBinds(uids), nowMs, nowMs + (NEXT_CLASS_LOOKAHEAD_DAYS + 1) * 86400e3).all();
+      ).bind(...attUidListBinds(uids), nowMs, nextClassLimitMs(nowMs)).all();
       for (const row of ((ar && ar.results) || [])) seeds.set(String(row.uid), [Number(row.at)]);
     } catch (e: any) { console.warn('[roster-extras] 카페24 예약 조회 실패(망고아이 예약만):', e?.message || e); }
     for (const s of students) {
