@@ -187,6 +187,7 @@ select.pill{max-width:min(100%,280px)}
 .over .card{background:var(--c-panel);border:1px solid var(--c-line);border-radius:14px;padding:22px;max-width:520px;width:100%;display:flex;flex-direction:column;gap:12px;text-align:center}
 .over h3{font-size:20px;color:#fff}
 .over .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.end-nav a{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:40px;white-space:nowrap}
 .big-btn{border:0;border-radius:10px;padding:10px 18px;font:inherit;font-weight:700;cursor:pointer;background:var(--c-gold);color:#1a1300}
 .ghost-btn{border:1px solid var(--c-line);border-radius:10px;padding:10px 18px;font:inherit;cursor:pointer;background:transparent;color:var(--c-fg)}
 .missed{text-align:left;font-size:13px;color:var(--c-dim);max-height:30vh;overflow-y:auto}
@@ -427,6 +428,9 @@ select.pill{max-width:min(100%,280px)}
         <p id="endStars" class="num" style="font-size:22px;color:var(--c-gold)"></p>
         <div class="missed" id="endMissed"></div>
         <div class="row"><button class="big-btn" type="button" id="againLesson">다시 하기</button></div>
+        <!-- 끝 창에서 나갈 길(2026-10-13 사장님 «어디로 가야할지 모르겠어») — 이 창이 수업 칸을 덮어 위 홈 링크가 안 보일 수 있어 창 «안»에 둡니다.
+             ⛔ href 를 지우지 마세요: JS 가 죽어도 홈으로는 갑니다. 뒤로는 같은 사이트에서 왔을 때만, 아니면 홈(카톡 링크로 바로 온 사람). -->
+        <div class="row end-nav"><a class="ghost-btn" id="endBack" href="/" aria-label="뒤로 가기 / Back">← 뒤로</a><a class="ghost-btn" id="endHome" href="/" aria-label="홈으로 / Home">🏠 홈</a></div>
       </div>
     </div>
   </div>
@@ -1084,6 +1088,10 @@ select.pill{max-width:min(100%,280px)}
   $('startBtn').addEventListener('click', function(){ start(false); });
   $('startAuto').addEventListener('click', function(){ start(true); });
   $('againLesson').addEventListener('click', function(){ reset(); });
+  $('endBack').addEventListener('click', function(ev){
+    var same = false; try { same = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch (x) {}
+    if (same && history.length > 1) { ev.preventDefault(); history.back(); }   // 아니면 href="/"(홈)로 그대로
+  });
   $('micBtn').addEventListener('click', function(){
     if (st.phase !== 'await') return;
     if (SR && !recBlocked) { if (rec) stopRec(); else startRec(); return; }
