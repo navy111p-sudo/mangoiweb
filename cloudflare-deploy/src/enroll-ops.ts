@@ -60,6 +60,7 @@ import { resolveRenewToken, markRenewLinkUsed, type RenewTokenScope } from './re
 import { writeClassAudit } from './class-audit';
 import { loadTeacherNameOf } from './student-schedule-summary';   // 👩‍🏫 강사 이름 정본(원부 번호 → 계정 연결)
 import { findScheduleConflicts, activeRowsFor, findLongClassCapBlock } from './schedule-conflict';
+import { recurStartedOn, ensureStartsOnColumn, startsOnSel } from './class-start-date';   // 📅 반복 수업이 그날 열리나(시작일·그 주만 빠짐) — 정본
 import { planSeries, realConflict, normTime } from './class-series-move';   // 🔄 «변경(계속)» 시리즈 판정 정본
 import { teacherMoveDenyReason } from './class-teacher-move';   // 🔒 담당 강사 변경 게이트 정본(PATCH 와 같음)   // 📅 옮기기 승인(/decide)이 쓰는 그 겹침 검사 — 복제 금지   // 📜 수업 변경 이력(공휴일 자동연기·강사 휴가대체)
 import { ensureHolidayClosureTable, clearHolidayClosureCache, loadHolidayClosure, HOLIDAY_EXEMPT_TEACHERS_DEFAULT } from './holiday-closure';   // 🎌 공휴일 휴강(2026-10-09)
@@ -1842,7 +1843,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     ).bind(scheduleId).first();
     if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
     { const d = await subScopeDenied(env, request, actor.role, row.user_id); if (d) return d; }
-    return json(await moveCandidatesFor(env, row, date, time));
+    return json(await moveCandidatesFor(env, row, date, time, { dayCount: true }));
   }
 
   /* ── 🔄 (2026-09-23 사장님) 수업 «변경» = 앞으로 계속 ──
@@ -2161,7 +2162,7 @@ export async function createEnrollOrder(env: any, uid: string, p: any, kind: 'ne
  *  관리자 move-candidates 와 학생 «교사로 연기»(/api/class/schedule/free-teachers)가 함께 부른다.
  *  ⛔ 판정을 복제하지 말 것 — 화면이 «가능» 이라 한 강사가 승인(/decide)에서 «겹침» 으로 거절되면 안 된다.
  *  row: class_schedules 한 줄(id·user_id·scheduled_date·dm·teacher_id·teacher_name·source). 읽기 전용. */
-export async function moveCandidatesFor(env: any, row: any, date: string, time: string): Promise<any> {
+export async function moveCandidatesFor(env: any, row: any, date: string, time: string, opts: { dayCount?: boolean } = {}): Promise<any> {
   const scheduleId = Number(row.id) || 0;
   const minutes = Number(row.dm) || DEFAULT_CLASS_MINUTES;
   const startMin = enrollTimeToMin(time);
@@ -2213,10 +2214,18 @@ export async function moveCandidatesFor(env: any, row: any, date: string, time: 
     t.photo = ph && /^(https?:\/\/|\/)/i.test(ph.img) ? ph.img : '';
     t.display_name = (ph && ph.en) || t.name;
   }
+  /* 📊 (2026-10-13 매니저 Karl 제안 · 사장님 승인) 그날 강사별 수업 수 — 결석 강사의 수업을
+     대체 강사에게 «고르게» 나누려고. 관리자 경로만 켠다(opts.dayCount) — 학생 «교사로 연기» 는
+     강사의 하루 업무량을 볼 이유가 없고 순서도 예전(이름순) 그대로 둔다.
+     못 셌으면(null) 숫자를 지어내지 않고 이름순으로 둔다. */
+  const dayCounts = opts.dayCount ? await teacherDayCounts(env, date) : null;
+  for (const t of out) t.day_count = dayCounts ? (dayCounts.get(t.id) || 0) : null;
   const current = out.find((t) => t.current) || null;
-  /* «그 시간대 가능한 강사만» (2026-09-23 사장님) — 안 되는 강사는 수만 센다. */
+  /* «그 시간대 가능한 강사만» (2026-09-23 사장님) — 안 되는 강사는 수만 센다.
+     수를 셌으면 «그날 수업이 적은 강사부터»(같으면 이름순). */
   const free = out.filter((t) => !t.current && t.free)
-    .sort((a, b) => String(a.display_name).localeCompare(String(b.display_name)));
+    .sort((a, b) => (dayCounts ? (a.day_count - b.day_count) : 0)
+      || String(a.display_name).localeCompare(String(b.display_name)));
   const busyCount = out.filter((t) => !t.current && !t.free).length;
   /* 🪞 카페24 미러 수업은 «날짜를 바꾸면서» 담당 강사까지 바꾸면 안 된다 — 강사를 바꾸는 PATCH 가
      「사람 손」 도장(c24-mirror:manual)을 찍어 미러의 유일 인덱스 밖으로 나가고, 그 밤 미러가
@@ -2228,8 +2237,51 @@ export async function moveCandidatesFor(env: any, row: any, date: string, time: 
     ok: true, date, time, duration_min: minutes,
     student_conflict: stu.has && stu.student.length > 0,
     current, candidates: free, busy_count: busyCount,
+    day_count_ok: !!dayCounts,
     teacher_change_ok: !(isMirror && !sameDay),
   };
+}
+
+/** 📊 그날(date) 강사별 수업 수 — teacher_id(원부 번호) → 회수. 실패하면 null(모름 — 0 으로 지어내지 않는다).
+ *  · 날짜 지정 행은 scheduled_date 가 그날일 때, 반복 행은 요일이 맞고 recurStartedOn(시작일·그 주만 빠짐)일 때.
+ *  · 취소·LMS/시드 자리표시는 안 센다(NOT_PLACEHOLDER — 이 파일의 다른 검사와 같은 글자).
+ *  · 그룹 수업은 «학생마다 한 행» 이라 (강사, 시작 시각) 으로 묶어 한 번만 센다.
+ *  · 그날 대체(class_substitutions)가 걸린 수업은 원래 강사가 아니라 대체 강사의 수업으로 센다. */
+export async function teacherDayCounts(env: any, date: string): Promise<Map<string, number> | null> {
+  try {
+    const has = await ensureStartsOnColumn(env);
+    const rs: any = await env.DB.prepare(
+      `SELECT id, teacher_id, start_time, scheduled_date, day_of_week, created_at${startsOnSel(has)}
+         FROM class_schedules
+        WHERE status = 'active' AND teacher_id IS NOT NULL AND TRIM(CAST(teacher_id AS TEXT)) <> ''
+          AND (scheduled_date = ? OR ((scheduled_date IS NULL OR scheduled_date = '') AND day_of_week IS NOT NULL))
+          ${NOT_PLACEHOLDER}`
+    ).bind(date).all();
+    const subs = new Map<number, string>();
+    try {
+      const sr: any = await env.DB.prepare(
+        `SELECT schedule_id, substitute_teacher_id FROM class_substitutions WHERE status = 'active' AND sub_date = ?`
+      ).bind(date).all();
+      for (const r of ((sr?.results as any[]) || [])) {
+        if (r.substitute_teacher_id != null) subs.set(Number(r.schedule_id), String(r.substitute_teacher_id));
+      }
+    } catch { /* 대체 표 없음 — 원래 강사로 센다 */ }
+    const slots = new Map<string, Set<string>>();
+    for (const r of ((rs?.results as any[]) || [])) {
+      if (subScheduleDow(r.scheduled_date, r.day_of_week, date) == null) continue;
+      if (!recurStartedOn(r, date)) continue;
+      const tid = subs.get(Number(r.id)) || String(r.teacher_id);
+      const key = String(r.start_time || '').slice(0, 5) || ('#' + r.id);
+      if (!slots.has(tid)) slots.set(tid, new Set());
+      slots.get(tid)!.add(key);
+    }
+    const out = new Map<string, number>();
+    for (const [tid, set] of slots) out.set(tid, set.size);
+    return out;
+  } catch (e) {
+    console.warn('[enroll] teacherDayCounts:', (e as any)?.message);
+    return null;
+  }
 }
 
 /* ── 근무 불가(teacher_unavailability) — moveCandidatesFor·daySlotsFor 가 함께 쓴다(판정 한 곳) ── */

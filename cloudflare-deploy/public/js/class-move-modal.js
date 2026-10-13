@@ -306,6 +306,11 @@
       + face
       + '<div style="font-size:11.5px;font-weight:800;color:#101828;margin-top:4px;line-height:1.25;word-break:break-word">' + esc(nm) + '</div>'
       + (tag ? '<div style="font-size:10px;color:#065f46;font-weight:700">' + tag + '</div>' : '')
+      /* 📊 (2026-10-13 매니저 제안) 그날 그 강사의 총 수업 수 — 대체 수업을 고르게 나누려고.
+         서버가 못 셌으면(null) 아무것도 안 그린다(0 으로 지어내지 않음). */
+      + (typeof t.day_count === 'number'
+          ? '<div style="font-size:10px;color:#475467;font-weight:700">' + T('그날 ' + t.day_count + '회', t.day_count + (t.day_count === 1 ? ' class' : ' classes') + ' that day') + '</div>'
+          : '')
       + (on ? '<div style="font-size:10px;color:#1d4ed8;font-weight:800">✔ ' + T('선택', 'picked') + '</div>' : '')
       + '</div>';
   }
@@ -328,6 +333,7 @@
       (d.candidates || []).forEach(function (t) { list.push(mvCard(t, '')); });
     }
     h += '<div style="font-weight:700;margin-bottom:4px">' + T('이 시간 가능한 강사', 'Teachers free at this time') + ' ' + list.length + T('명', '') + '</div>';
+    if (d.day_count_ok && list.length > 1) h += '<div style="font-size:11px;color:#475467;margin:-2px 0 4px">' + T('그날 수업이 적은 강사부터 보여 드립니다.', 'Teachers with fewer classes that day come first.') + '</div>';
     if (list.length) h += '<div style="display:flex;flex-wrap:wrap;gap:6px;max-height:260px;overflow-y:auto">' + list.join('') + '</div>';
     else h += '<div style="color:#b91c1c">' + T('이 시간에 되는 강사가 없습니다. 다른 시간을 고르세요.', 'No teacher is free then. Pick another time.') + '</div>';
     if (!d.teacher_change_ok && (d.candidates || []).length) {
