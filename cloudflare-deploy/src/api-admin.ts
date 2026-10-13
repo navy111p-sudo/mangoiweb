@@ -31,6 +31,7 @@ import { prepareScheduleRequestGuards, commitScheduleRequestDecision } from './s
 import { moveSchedulesAtomically, scheduleMoveVersion } from './class-schedule-move';
 import { findScheduleConflicts, findScheduleMoveConflicts, loadScheduleMoveFacts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { loadSchedSummaryMap, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약」 칸 정본 — erp-list 와 «같은» 값을 쓴다(복제 금지)
+import { attachRosterExtras } from './student-roster-extras';   // 💰📅 학생 목록 «최근 결제»·«다음 수업» 칸 정본(2026-10-13)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buildClassRenewalText, CLASS_RENEWAL_FROM_PHONE } from './solapi-client';
 /* 🔗 미연장 안내 문자에 넣는 «그 학생 전용» 1회용 연장 링크. 학부모 폰에 학생 로그인이
       없어도 열리게 하는 좁은 권한이다 — 로그인이 아니다(renew-link.ts 머리말 참고). */
@@ -10321,6 +10322,15 @@ LIMIT $limit`;
       for (const _st of (_piiStudents as any[])) {
         _st.sched = _schedMap.get(String(_st?.user_id || '').trim()) || { ...EMPTY_SCHED_SUMMARY };
       }
+      /* 💰📅 «최근 결제»·«다음 수업» (2026-10-13 사장님 지시) — 정본 student-roster-extras.ts.
+         ⛔ 실패해도 명부는 그대로(그 두 칸만 «—»). 요일 해석은 정본 admDowMatches 를 주입한다. */
+      /* 🔒 결제 금액은 강사에게 안 싣는다 — 같은 student_payments 를 보여 주는 /api/admin/payments 가
+         강사에게 막혀 있다(TEACHER_BLOCKED_PREFIXES «결제·정산»). 이 칸으로 그 차단을 비켜 가면 안 된다.
+         ⚠️ 신원을 못 읽으면 «안 싣는» 쪽으로 실패한다(돈 정보). */
+      let _rxWithPay = false;
+      try { _rxWithPay = !(await getAdminActor(request, env as any)).isTeacher; } catch { _rxWithPay = false; }
+      try { await attachRosterExtras(env as any, _piiStudents as any[], Date.now(), admDowMatches, { withPay: _rxWithPay }); }
+      catch (e: any) { console.warn('[students/unified] roster extras 실패(그 칸만 비움):', e?.message || e); }
       const _out: any = { ok: true, count: _piiStudents.length, students: _piiStudents, can_view_pii: canViewPII(_ssw.scope), hidden_only: _hiddenOnly };
       // 🎥🤖 트랙 — 조회가 실패해도 명부는 그대로 뜬다(그 칸만 «모름»). ⛔ 실패를 «AI만» 으로 그리지 말 것.
       if (_wantTrack) _out.track_ok = await attachRosterTracks(env as any, _piiStudents as any[]);

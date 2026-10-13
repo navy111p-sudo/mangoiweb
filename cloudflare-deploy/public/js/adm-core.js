@@ -12395,7 +12395,7 @@ function smPaintTodoCards(rows) {
 }
 /* ▦ 간단히 보기(기본) ↔ 모든 칸 — 카페24 정본이라 대부분 비어 있는 칸(결제타입·수강 시작일·요약·수업회수)과
    덜 쓰는 칸(대리점 연락처·본사명·지사명·세션 수)을 접고, 아이디는 학생명 아래로 내린다.
-   ⛔ 칸을 «지우지» 않는다 — 열 구조(col·th·td·colspan 20)는 그대로이고 CSS 로만 감춘다(정렬·CSV 그대로). */
+   ⛔ 칸을 «지우지» 않는다 — 열 구조(col·th·td·colspan 22)는 그대로이고 CSS 로만 감춘다(정렬·CSV 그대로). */
 function smApplyCompact() {
   let on = true;
   try { on = localStorage.getItem('mangoi_sm_compact') !== '0'; } catch (e) {}
@@ -12544,7 +12544,7 @@ async function loadStudentList(q, opts) {
   //   대신 인원수 라벨 옆에만 조용히 표시한다.
   const _quiet = !!(opts && opts.quiet) && _smStudents.length > 0;
   if (_quiet) { if (cnt) cnt.textContent = (_L ? '🔄 Searching…' : '🔄 전체에서 찾는 중…'); }
-  else tb.innerHTML = '<tr><td colspan="20" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
+  else tb.innerHTML = '<tr><td colspan="22" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
   let seedStudents = [];
   let apiItems = [];
   let d = null;
@@ -12616,6 +12616,12 @@ async function loadStudentList(q, opts) {
           항상 «—» 가 된다(2026-09-15 도입 이래 실제로 그 상태였다).
           ⛔ 문장을 여기서 조립하지 말 것 — 서버 label_ko/label_en 을 «고르기만» 한다. */
       sched: s.sched || null,
+      /* 💰📅 (2026-10-13) «최근 결제»·«다음 수업» — 서버 정본(student-roster-extras.ts)을 그대로 옮긴다.
+          ⛔ 여기서 지어내지 말 것 — 서버가 안 주면 null(칸은 «—»). 정렬용 숫자만 따로 둔다. */
+      lastpay: s.lastpay || null,
+      next_class: s.next_class || null,
+      lastpay_at: (s.lastpay && Number(s.lastpay.paid_at)) || 0,
+      next_class_at: (s.next_class && Number(s.next_class.at)) || Number.MAX_SAFE_INTEGER,
     }));
   } catch (e) {
     if (e && e.name === 'AbortError') return;   // 최신 요청에 밀림 — 화면 손대지 않고 종료
@@ -12633,7 +12639,7 @@ async function loadStudentList(q, opts) {
     // 🩹 백그라운드 검색이 0건이어도 이미 떠 있는 목록을 지우지 않는다.
     //   (지우면 "결과 있음 → 없음 → 있음" 으로 표가 깜빡이며 왔다갔다 한다)
     if (_quiet) { renderStudentTable(); return; }
-    tb.innerHTML = '<tr><td colspan="20" class="empty">' + (window._smShowHidden
+    tb.innerHTML = '<tr><td colspan="22" class="empty">' + (window._smShowHidden
       ? (_L ? 'No hidden students' : '숨긴 학생이 없습니다')
       : (_L?'No students yet':'아직 학생 데이터 없음')) + '</td></tr>';
     if (cnt) cnt.textContent = window._smShowHidden ? (_L ? '🙈 Hidden: 0' : '🙈 숨긴 학생 0명') : '';
@@ -12881,7 +12887,7 @@ function renderStudentTable() {
     const _why = _smTodo && !_q ? (_L ? 'No students in this group' : '해당하는 학생이 없습니다')
                : _ag && !_q ? (_L ? 'No students in “' + _esc(_ag) + '”' : '“' + _esc(_ag) + '” 소속 학생이 없습니다')
                             : (_L ? 'No matching students' : '검색 결과가 없습니다 — “' + _esc(_q) + '”');
-    tb.innerHTML = '<tr><td colspan="20" class="empty">' + _why + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="22" class="empty">' + _why + '</td></tr>';
     return;
   }
 
@@ -13009,6 +13015,29 @@ function renderStudentTable() {
       + a('recording', 'sm-q-rec', '🎬 녹화', '🎬 Recordings', '수업 녹화 영상', 'Class recordings')
       + '</div></td>';
   };
+  /* 💰 (2026-10-13 사장님 지시) «최근 결제» — 가장 늦은 결제 완료(paid) 한 건의 날짜·금액.
+     ⛔ 취소(cancelled)는 결제가 아니다 — 서버가 이미 뺐다. 없으면 «—». */
+  const _kstMd = (ms) => { const d = new Date(Number(ms) + 9 * 3600e3); return Number.isFinite(d.getTime()) ? d.toISOString().slice(5, 10) : ''; };
+  const _lastPayTd = (s) => {
+    const p = s && s.lastpay;
+    const at = p && Number(p.paid_at);
+    if (!at || !Number.isFinite(at)) return '<td style="text-align:center">—</td>';
+    const md = _kstMd(at), amt = Number(p.amount_krw) || 0;
+    const won = '₩' + amt.toLocaleString();
+    const tip = (_L ? 'Last payment ' : '최근 결제 ') + new Date(at + 9 * 3600e3).toISOString().slice(0, 10) + ' · ' + won;
+    return '<td class="sm-lastpay" style="text-align:center" title="' + _esc(tip) + '">' + _esc(md)
+      + '<span class="sm-pay-amt">' + _esc(won) + '</span></td>';
+  };
+  /* 📅 (2026-10-13 사장님 지시) «다음 수업» — 지금 이후 가장 이른 예약(망고아이 예약 + 카페24 예약).
+     앞으로 14일 안만 본다(그 밖은 «—»). 공휴일 휴강은 반영하지 않는다(예약 기준). */
+  const _nextClassTd = (s) => {
+    const n = s && s.next_class;
+    if (!n || !n.ymd || !n.hm) return '<td style="text-align:center">—</td>';
+    const src = n.source === 'cafe24' ? (_L ? 'Cafe24 booking' : '카페24 예약') : (_L ? 'Mangoi booking' : '망고아이 예약');
+    const tip = (_L ? 'Next class ' : '다음 수업 ') + n.ymd + ' ' + n.hm + ' · ' + src;
+    return '<td class="sm-nextclass" style="text-align:center" title="' + _esc(tip) + '">' + _esc(String(n.ymd).slice(5, 10))
+      + '<span class="sm-next-hm">' + _esc(n.hm) + '</span></td>';
+  };
   _smRowHtml = (s) => {
     const uid = String(s.user_id || '');
     const uidEnc = encodeURIComponent(uid);
@@ -13034,6 +13063,8 @@ function renderStudentTable() {
       ${_ct(s.branch2_name || s.franchise)}
       <td style="text-align:right">${s.session_count ? `<span class="sess-count">${s.session_count.toLocaleString()}${_L?'':'회'}</span>${s.last_seen ? `<span class="sm-last-class" title="${_L?'Last class':'최근 수업'}">${_L?'Last ':'최근 '}${_esc(String(s.last_seen).slice(5,10))}</span>` : ''}` : '—'}</td>
       <td>${_c(s.status)}</td>
+      ${_lastPayTd(s)}
+      ${_nextClassTd(s)}
       ${_quickTd(s)}
     </tr>`;
   };
@@ -13099,7 +13130,7 @@ window.smGoEnroll = smGoEnroll;
 function _smMoreRow(_L) {
   const left = _smRows.length - _smShown;
   if (left <= 0) return '';
-  return '<tr id="sm-more-row"><td colspan="20" class="empty" style="cursor:pointer" onclick="smAppendRows()">'
+  return '<tr id="sm-more-row"><td colspan="22" class="empty" style="cursor:pointer" onclick="smAppendRows()">'
        + (_L ? ('▾ ' + left.toLocaleString() + ' more — scroll or click') : ('▾ ' + left.toLocaleString() + '명 더 있습니다 — 아래로 굴리거나 눌러서 더 보기'))
        + '</td></tr>';
 }
@@ -13159,6 +13190,9 @@ function smExportStudentsCsv() {
     ['수업기록',      s => s.session_count || 0],
     ['최근수업',      s => s.last_seen || ''],
     ['상태',          s => s.status],
+    ['최근결제일',    s => (s.lastpay && s.lastpay.paid_at) ? new Date(Number(s.lastpay.paid_at) + 9 * 3600e3).toISOString().slice(0, 10) : ''],
+    ['최근결제금액',  s => (s.lastpay && s.lastpay.paid_at) ? (Number(s.lastpay.amount_krw) || 0) : ''],
+    ['다음수업',      s => (s.next_class && s.next_class.ymd) ? (s.next_class.ymd + ' ' + s.next_class.hm) : ''],
   ];
   const cell = v => { let x = (v == null ? '' : String(v)); return /[",\r\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
   const out = [cols.map(c => cell(c[0])).join(',')];
