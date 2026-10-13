@@ -42,7 +42,8 @@ function students(withSched) {
   ];
   return S.map(([u, n, p, pp, sc], i) => ({ user_id: u, name: n, student_phone: p, parent_phone: pp,
     created_at: Date.now() - i * 3600e3, points: i * 10, shop_name: i > 5 ? '천안UMC엄마표' : '',
-    sched: withSched ? sc : NOSCHED, track: 'unknown' }));
+    sched: withSched ? sc : NOSCHED, track: 'unknown',
+    franchise: i === 4 ? '천안지사' : '', sessions: i === 4 ? 12 : 0, last_seen: i === 4 ? '2026-10-08' : null }));
 }
 
 async function serve() {
@@ -119,7 +120,10 @@ const state = page => page.evaluate(() => {
     check(`다시 누르면 풀린다 (${s.rows}행)`, s.rows === 7);
 
     console.log('[ ③ 간단히 보기 ]');
-    check(`머리글 10칸 · 첫 줄 10칸 (${s.th}·${s.td})`, s.th === 10 && s.td === 10);
+    check(`머리글 12칸 · 첫 줄 12칸 (${s.th}·${s.td})`, s.th === 12 && s.td === 12);
+    const extra = await page.evaluate(() => { const tr=[...document.querySelectorAll('#sm-students-tbody tr')].find(r=>/yahee/.test(r.textContent)); const c=[...tr.children]; return { br: c[16].textContent.trim(), cls: c[17].textContent.trim(), vis17: getComputedStyle(c[16]).display !== 'none', vis18: getComputedStyle(c[17]).display !== 'none' }; });
+    check(`지사 칸이 보이고 franchise 로 채워진다 (${extra.br})`, extra.vis17 && extra.br === '천안지사');
+    check(`수업 기록 칸에 횟수·최근 수업일 (${extra.cls})`, extra.vis18 && /12회/.test(extra.cls) && /10-08/.test(extra.cls));
     check('머리글과 칸 폭이 맞는다', s.widthOk);
     check(`아이디가 이름 아래 보인다 (${s.uidSub})`, s.uidSub === 'Melca08');
     check('페이지가 옆으로 안 밀린다', !s.pageOverflow);
@@ -132,7 +136,7 @@ const state = page => page.evaluate(() => {
     check('그때 아이디는 이름 아래가 아니라 자기 칸에', s.uidSub === '(hidden)');
     await page.click('#sm-compact-toggle');
     s = await state(page);
-    check(`다시 누르면 10칸 (${s.th})`, s.th === 10);
+    check(`다시 누르면 12칸 (${s.th})`, s.th === 12);
     await ctx.close();
 
     console.log('[ ② 예약 정보가 없으면 «모름» ]');
