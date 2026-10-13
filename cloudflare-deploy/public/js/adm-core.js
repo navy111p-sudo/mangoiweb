@@ -12395,7 +12395,7 @@ function smPaintTodoCards(rows) {
 }
 /* ▦ 간단히 보기(기본) ↔ 모든 칸 — 카페24 정본이라 대부분 비어 있는 칸(결제타입·수강 시작일·요약·수업회수)과
    덜 쓰는 칸(대리점 연락처·본사명·지사명·세션 수)을 접고, 아이디는 학생명 아래로 내린다.
-   ⛔ 칸을 «지우지» 않는다 — 열 구조(col·th·td·colspan 19)는 그대로이고 CSS 로만 감춘다(정렬·CSV 그대로). */
+   ⛔ 칸을 «지우지» 않는다 — 열 구조(col·th·td·colspan 20)는 그대로이고 CSS 로만 감춘다(정렬·CSV 그대로). */
 function smApplyCompact() {
   let on = true;
   try { on = localStorage.getItem('mangoi_sm_compact') !== '0'; } catch (e) {}
@@ -12544,7 +12544,7 @@ async function loadStudentList(q, opts) {
   //   대신 인원수 라벨 옆에만 조용히 표시한다.
   const _quiet = !!(opts && opts.quiet) && _smStudents.length > 0;
   if (_quiet) { if (cnt) cnt.textContent = (_L ? '🔄 Searching…' : '🔄 전체에서 찾는 중…'); }
-  else tb.innerHTML = '<tr><td colspan="19" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
+  else tb.innerHTML = '<tr><td colspan="20" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
   let seedStudents = [];
   let apiItems = [];
   let d = null;
@@ -12633,7 +12633,7 @@ async function loadStudentList(q, opts) {
     // 🩹 백그라운드 검색이 0건이어도 이미 떠 있는 목록을 지우지 않는다.
     //   (지우면 "결과 있음 → 없음 → 있음" 으로 표가 깜빡이며 왔다갔다 한다)
     if (_quiet) { renderStudentTable(); return; }
-    tb.innerHTML = '<tr><td colspan="19" class="empty">' + (window._smShowHidden
+    tb.innerHTML = '<tr><td colspan="20" class="empty">' + (window._smShowHidden
       ? (_L ? 'No hidden students' : '숨긴 학생이 없습니다')
       : (_L?'No students yet':'아직 학생 데이터 없음')) + '</td></tr>';
     if (cnt) cnt.textContent = window._smShowHidden ? (_L ? '🙈 Hidden: 0' : '🙈 숨긴 학생 0명') : '';
@@ -12881,7 +12881,7 @@ function renderStudentTable() {
     const _why = _smTodo && !_q ? (_L ? 'No students in this group' : '해당하는 학생이 없습니다')
                : _ag && !_q ? (_L ? 'No students in “' + _esc(_ag) + '”' : '“' + _esc(_ag) + '” 소속 학생이 없습니다')
                             : (_L ? 'No matching students' : '검색 결과가 없습니다 — “' + _esc(_q) + '”');
-    tb.innerHTML = '<tr><td colspan="19" class="empty">' + _why + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="20" class="empty">' + _why + '</td></tr>';
     return;
   }
 
@@ -12993,6 +12993,22 @@ function renderStudentTable() {
       + (r ? '<div style="font-size:10.5px;color:#667085;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r + '</div>' : '')
       + '</td>';
   };
+  /* 🔗 (2026-10-13 사장님 지시) 맨 오른쪽 «바로가기» — 학생 상세의 탭 셋을 새 탭으로 바로 연다.
+     실측(2026-10-13): 결제 기록 1,366명 · 수업 녹화 약 2,100건 · 출결은 수업 기록과 같은 정본 —
+     데이터가 비어 있는 탭(상담 18건·교사 피드백 2건)은 일부러 고르지 않았다.
+     ⛔ <button> 으로 바꾸지 말 것(위 «예약» 칸과 같은 이유 — 전역 버튼 규칙). */
+  const _quickTd = (s) => {
+    const uid = String((s && s.user_id) || '');
+    if (!uid) return '<td style="text-align:center">—</td>';
+    const u = encodeURIComponent(uid);
+    const a = (tab, cls, ko, en, tko, ten) => '<a class="sm-act ' + cls + '" href="/admin/student?uid=' + u + '&tab=' + tab
+      + '" target="_blank" title="' + (_L ? ten : tko) + '">' + (_L ? en : ko) + '</a>';
+    return '<td style="text-align:center"><div class="sm-acts sm-quick">'
+      + a('payment', 'sm-q-pay', '💰 수업료', '💰 Tuition', '결제 기록 · 밀린 금액', 'Payments · overdue')
+      + a('attend', 'sm-q-att', '🗂️ 출결', '🗂️ Attendance', '출결 현황 · 들어온 시간', 'Attendance · join times')
+      + a('recording', 'sm-q-rec', '🎬 녹화', '🎬 Recordings', '수업 녹화 영상', 'Class recordings')
+      + '</div></td>';
+  };
   _smRowHtml = (s) => {
     const uid = String(s.user_id || '');
     const uidEnc = encodeURIComponent(uid);
@@ -13018,6 +13034,7 @@ function renderStudentTable() {
       ${_ct(s.branch2_name || s.franchise)}
       <td style="text-align:right">${s.session_count ? `<span class="sess-count">${s.session_count.toLocaleString()}${_L?'':'회'}</span>${s.last_seen ? `<span class="sm-last-class" title="${_L?'Last class':'최근 수업'}">${_L?'Last ':'최근 '}${_esc(String(s.last_seen).slice(5,10))}</span>` : ''}` : '—'}</td>
       <td>${_c(s.status)}</td>
+      ${_quickTd(s)}
     </tr>`;
   };
 
@@ -13082,7 +13099,7 @@ window.smGoEnroll = smGoEnroll;
 function _smMoreRow(_L) {
   const left = _smRows.length - _smShown;
   if (left <= 0) return '';
-  return '<tr id="sm-more-row"><td colspan="19" class="empty" style="cursor:pointer" onclick="smAppendRows()">'
+  return '<tr id="sm-more-row"><td colspan="20" class="empty" style="cursor:pointer" onclick="smAppendRows()">'
        + (_L ? ('▾ ' + left.toLocaleString() + ' more — scroll or click') : ('▾ ' + left.toLocaleString() + '명 더 있습니다 — 아래로 굴리거나 눌러서 더 보기'))
        + '</td></tr>';
 }

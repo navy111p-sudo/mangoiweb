@@ -6,7 +6,7 @@
 //     ② 예약 정보가 «한 명도» 없으면 예약 카드는 숫자 대신 «—»(모름) — 서버 예약 요약은 실패해도
 //        빈 Map 으로 떨어져 «전원 예약 없음» 처럼 보이므로 지어내지 않는다.
 //     ③ 간단히 보기(기본)는 머리글 10칸 · 아이디가 이름 아래 · 머리글과 칸 폭이 맞는다.
-//        «모든 칸 보기» 를 누르면 19칸으로 돌아온다(짝 — 없으면 «영영 접기» 도 통과).
+//        «모든 칸 보기» 를 누르면 20칸으로 돌아온다(짝 — 없으면 «영영 접기» 도 통과).
 //     ④ 도구 줄 보조 버튼이 «큰 파란 알약»(전역 버튼 규칙)으로 안 그려진다.
 //
 //   ⚠️ 자동으로 안 돕니다(manual/ 규약). 사람이 부릅니다:
@@ -120,10 +120,16 @@ const state = page => page.evaluate(() => {
     check(`다시 누르면 풀린다 (${s.rows}행)`, s.rows === 7);
 
     console.log('[ ③ 간단히 보기 ]');
-    check(`머리글 12칸 · 첫 줄 12칸 (${s.th}·${s.td})`, s.th === 12 && s.td === 12);
+    check(`머리글 13칸 · 첫 줄 13칸 (${s.th}·${s.td})`, s.th === 13 && s.td === 13);
     const extra = await page.evaluate(() => { const tr=[...document.querySelectorAll('#sm-students-tbody tr')].find(r=>/yahee/.test(r.textContent)); const c=[...tr.children]; return { br: c[16].textContent.trim(), cls: c[17].textContent.trim(), vis17: getComputedStyle(c[16]).display !== 'none', vis18: getComputedStyle(c[17]).display !== 'none' }; });
     check(`지사 칸이 보이고 franchise 로 채워진다 (${extra.br})`, extra.vis17 && extra.br === '천안지사');
     check(`수업 기록 칸에 횟수·최근 수업일 (${extra.cls})`, extra.vis18 && /12회/.test(extra.cls) && /10-08/.test(extra.cls));
+    // 🔗 (2026-10-13) 맨 오른쪽 «바로가기» — 세 버튼이 보이고, 그 학생 상세의 그 탭으로 가며, 손이 닿는다.
+    const q = await page.evaluate(() => { const tr=[...document.querySelectorAll('#sm-students-tbody tr')].find(r=>/yahee/.test(r.textContent)); const td=tr.children[19]; const as=[...td.querySelectorAll('a')]; return { vis: getComputedStyle(td).display !== 'none', hrefs: as.map(a=>a.getAttribute('href')), top: as.map(a=>{ a.scrollIntoView({block:'center',inline:'center'}); const r=a.getBoundingClientRect(); const e=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2); return !!(e && (e===a || a.contains(e))); }), inCell: as.every(a=>{ const r=a.getBoundingClientRect(), c=td.getBoundingClientRect(); return r.left>=c.left-1 && r.right<=c.right+1; }) }; });
+    check(`바로가기 칸이 보이고 버튼 3개 (${q.hrefs.length})`, q.vis && q.hrefs.length === 3);
+    check(`수업료·출결·녹화 탭으로 간다 (${q.hrefs.map(h=>h.split('tab=')[1]).join(',')})`, ['payment','attend','recording'].every((t,i)=>q.hrefs[i]==='/admin/student?uid=yahee&tab='+t));
+    check(`세 버튼 모두 손이 닿는다 (${q.top.join(',')})`, q.top.length === 3 && q.top.every(Boolean));
+    check('세 버튼이 칸 밖으로 안 넘친다', q.inCell);
     check('머리글과 칸 폭이 맞는다', s.widthOk);
     check(`아이디가 이름 아래 보인다 (${s.uidSub})`, s.uidSub === 'Melca08');
     check('페이지가 옆으로 안 밀린다', !s.pageOverflow);
@@ -132,11 +138,11 @@ const state = page => page.evaluate(() => {
     check(`CSV 버튼이 그라데이션 알약이 아니다 (${s.csvBg} · h${s.csvH})`, /none/.test(s.csvBg) && s.csvH <= 40)   // 관리자 PC 는 zoom 1.3 — 27px × 1.3 ≈ 35;
     await page.click('#sm-compact-toggle');
     s = await state(page);
-    check(`«모든 칸 보기» 를 누르면 19칸 (${s.th}·${s.td})`, s.th === 19 && s.td === 19);
+    check(`«모든 칸 보기» 를 누르면 20칸 (${s.th}·${s.td})`, s.th === 20 && s.td === 20);
     check('그때 아이디는 이름 아래가 아니라 자기 칸에', s.uidSub === '(hidden)');
     await page.click('#sm-compact-toggle');
     s = await state(page);
-    check(`다시 누르면 12칸 (${s.th})`, s.th === 12);
+    check(`다시 누르면 13칸 (${s.th})`, s.th === 13);
     await ctx.close();
 
     console.log('[ ② 예약 정보가 없으면 «모름» ]');
