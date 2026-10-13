@@ -1,0 +1,209 @@
+// -*- coding: utf-8 -*-
+// 👥 «특정 날짜·시각에 빈 강사» — 실제로 돌려 보는 하니스 (2026-10-13)
+//   실행: node test-harness/free_teachers_on_date_harness.mjs
+//   (esbuild 위치를 바꾸려면 ESBUILD=/경로/esbuild)
+//
+//   왜 — 매니저 요청 「학원이 5시에 학생 5명을 등록하려는데 빈 강사를 바로 볼 수 있나」.
+//     판정 정본 src/free-teachers-on-date.ts 를 esbuild 로 번들해 «진짜 SQLite» 를 D1 모양으로
+//     감싸 실제로 돌린다. ⚠️ 문자열 검사로는 못 잡는다 — 틀리는 것은 «누가 비었다고 나오는가» 뿐이다.
+//
+//   짝으로 묻는 것:
+//     · 1:1 수업이 «같은 시각·같은 길이» 로 있는 강사는 비지 않았다(옮기기 검사는 합반으로 보고 뺀다)
+//     · 날짜 없는 «매주 반복» 수업도 막는다
+//     · 끝나는 시각에 딱 맞닿은 수업은 막지 않는다(경계)
+//     · 미러를 안 켠 강사는 «확실히 가능» 이 아니라 «확인 필요» 로
+//     · 근무 불가·공휴일 휴강·퇴사는 빠진다
+//     · 못 읽으면 ok:false — «빈 강사 0명» 으로 위장하지 않는다
+import { readFileSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { dirname, resolve, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
+
+const __dir = dirname(fileURLToPath(import.meta.url));
+const CF = resolve(__dir, '../cloudflare-deploy');
+const SRC = process.env.FREE_SRC || join(CF, 'src/free-teachers-on-date.ts');
+
+let PASS = 0, FAIL = 0, SKIP = 0;
+const ok = (name, cond, extra) => {
+  if (cond) PASS++; else FAIL++;
+  console.log(`  ${cond ? '✅' : '❌ FAIL'} ${name}${!cond && extra ? '  — ' + extra : ''}`);
+};
+
+/* 주석·문자열을 벗긴 사본 — 부정 검사(«없어야 한다»)는 이것으로 판정한다 */
+function stripComments(s) {
+  let out = '', q = null;
+  for (let k = 0; k < s.length; k++) {
+    const c = s[k];
+    if (q) { out += c; if (c === '\\') { out += s[k + 1] || ''; k++; continue; } if (c === q) q = null; continue; }
+    if (c === "'" || c === '"' || c === '`') { q = c; out += c; continue; }
+    if (c === '/' && s[k + 1] === '/') { const e = s.indexOf('\n', k); k = e < 0 ? s.length : e - 1; continue; }
+    if (c === '/' && s[k + 1] === '*') { const e = s.indexOf('*/', k + 2); k = e < 0 ? s.length : e + 1; continue; }
+    out += c;
+  }
+  return out;
+}
+
+// ═══ ① 정적 배선 — 게이트·화면 ═══
+console.log('① 배선');
+const enrollOps = readFileSync(join(CF, 'src/enroll-ops.ts'), 'utf8');
+const ROUTE = "'/api/pay/enroll/admin/free-teachers-on-date'";
+ok('라우트가 enroll-ops.ts 에 있다', enrollOps.includes("path === " + ROUTE));
+{
+  const m = /const ENROLL_ADMIN_SELF_GATED = new Set\(\[([\s\S]*?)\]\);/.exec(enrollOps);
+  ok('전제: 자기 게이트 목록을 읽었다', !!m);
+  ok('본사 전용 기본 게이트를 탄다(자기 게이트 목록에 없다)', !!m && !stripComments(m[1]).includes('free-teachers-on-date'));
+}
+const mgr = readFileSync(join(CF, 'public/manager.html'), 'utf8');
+ok('카드는 기본 감춤(hidden)', /<details class="card" id="c-free"[^>]*\bhidden\b/.test(mgr));
+ok('사이드바도 기본 감춤(hidden)', /id="sideFree"[^>]*\bhidden\b/.test(mgr));
+ok('본사일 때만 연다(IS_HQ)', /\['c-free', 'sideFree'\]\.forEach\(function\(id\)\{[^}]*w\.hidden = !IS_HQ/.test(mgr));
+ok('화면이 그 API 를 부른다', mgr.includes('/api/pay/enroll/admin/free-teachers-on-date?date='));
+ok('그릇(freeBody)에 data-en 을 달지 않았다', !/id="freeBody"[^>]*data-en/.test(mgr));
+
+// ═══ ② 화면 판정 — paintFree 를 오려 내 실제로 돌린다 ═══
+console.log('② 화면');
+function fnBody(s, sig) {
+  const i = s.indexOf(sig); if (i < 0) return '';
+  const open = s.indexOf('{', i); let depth = 0, q = null;
+  for (let k = open; k < s.length; k++) {
+    const c = s[k];
+    if (q) { if (c === '\\') { k++; continue; } if (c === q) q = null; continue; }
+    if (c === "'" || c === '"' || c === '`') { q = c; continue; }
+    if (c === '/' && s[k + 1] === '/') { k = s.indexOf('\n', k); continue; }
+    if (c === '{') depth++; else if (c === '}') { depth--; if (depth === 0) return s.slice(i, k + 1); }
+  }
+  return '';
+}
+const paintSrc = fnBody(mgr, 'function paintFree(){');
+ok('전제: paintFree 를 오려 냈다', paintSrc.length > 500);
+function runPaint(j, need, en) {
+  const el = { className: '', textContent: '', innerHTML: '' };
+  const D = { free: { j, need } };
+  const T = (e, k) => (en ? e : k);
+  const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const document = { getElementById: () => el };
+  try {
+    new Function('D', 'T', 'esc', 'document', paintSrc + '\npaintFree();')(D, T, esc, document);
+  } catch (e) { return { err: e.message }; }
+  return { html: el.innerHTML, text: el.textContent, cls: el.className };
+}
+{
+  const t = (id, nm) => ({ id, name: nm, display_name: nm, day_count: 2 });
+  const base = { ok: true, date: '2026-10-15', time: '17:00', duration_min: 20, busy_count: 4, holiday: null };
+  const a = runPaint({ ...base, sure: [t('1', 'A'), t('2', 'B')], check: [t('9', 'Z1'), t('8', 'Z2'), t('7', 'Z3')] }, 5, true);
+  ok('부족하면 «부족» 이라고 말한다(확인 필요 강사는 세지 않는다)', !a.err && /fq-short/.test(a.html) && /3 short/.test(a.html), a.err || a.html.slice(0, 200));
+  ok('확인 필요 강사를 «카페24 확인» 으로 따로 적는다', /check Cafe24/.test(a.html) && /\+ 3 more/.test(a.html));
+  const b = runPaint({ ...base, sure: [t('1', 'A'), t('2', 'B')], check: [] }, 2, false);
+  ok('충분하면 «배정 가능» (짝)', !b.err && /fq-ok/.test(b.html) && /배정 가능/.test(b.html), b.err);
+  const c = runPaint({ ok: true, sure: null }, 1, true);
+  ok('못 읽었으면 «0명» 이라 하지 않는다', !c.err && /NOT "nobody is free"/.test(c.text), c.err || c.text);
+  const d = runPaint({ ...base, holiday: '한글날', sure: [], check: [] }, 1, false);
+  ok('공휴일이면 휴강이라고 말한다', !d.err && /fq-hol/.test(d.html) && /한글날/.test(d.html));
+}
+
+// ═══ ③ 판정 정본을 번들해 진짜 SQLite 로 돌린다 ═══
+console.log('③ 판정 정본 실행');
+const ESB = process.env.ESBUILD || join(CF, 'node_modules', 'esbuild', 'bin', 'esbuild');
+let mod = null;
+if (!existsSync(ESB)) {
+  SKIP++;
+  console.log(`  ⏭ SKIP esbuild 가 없어 정본을 못 돌렸습니다(${ESB}) — ESBUILD=경로 로 지정하세요`);
+} else {
+  const out = join(mkdtempSync(join(tmpdir(), 'freet-')), 'b.mjs');
+  try {
+    execFileSync(process.platform === 'win32' ? process.execPath : ESB,
+      [...(process.platform === 'win32' ? [ESB] : []), SRC, '--bundle', '--format=esm', '--platform=neutral',
+       '--main-fields=module,main', '--log-level=error', '--outfile=' + out], { stdio: 'pipe' });
+    mod = await import(pathToFileURL(out).href);
+  } catch (e) { console.log('  번들 실패: ' + (e.stderr ? String(e.stderr) : e.message)); }
+  ok('전제: 정본을 번들했다', !!(mod && mod.freeTeachersOnDate));
+}
+
+function makeEnv({ mode = 'whitelist', failIntervals = false, holiday = null } = {}) {
+  const db = new DatabaseSync(':memory:');
+  db.exec(`
+    CREATE TABLE teachers (id INTEGER PRIMARY KEY, name TEXT, active INTEGER);
+    CREATE TABLE class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, student_name TEXT,
+      teacher_id TEXT, start_time TEXT, duration_min INTEGER, scheduled_date TEXT, day_of_week TEXT,
+      schedule_kind TEXT, status TEXT, class_type TEXT, source TEXT, notes TEXT,
+      created_at INTEGER, updated_at INTEGER, skip_dates TEXT, starts_on TEXT);
+    CREATE TABLE class_substitutions (id INTEGER PRIMARY KEY, schedule_id INTEGER, sub_date TEXT,
+      substitute_teacher_id TEXT, original_teacher_id TEXT, status TEXT);
+    CREATE TABLE teacher_unavailability (id INTEGER PRIMARY KEY, teacher_id TEXT, kind TEXT, start_date TEXT,
+      end_date TEXT, day_of_week INTEGER, start_time TEXT, end_time TEXT);
+    CREATE TABLE c24_mirror_config (k TEXT PRIMARY KEY, v TEXT NOT NULL, updated_at INTEGER);
+    CREATE TABLE c24_mirror_teachers (teacher_id TEXT PRIMARY KEY, enabled INTEGER DEFAULT 1, note TEXT, updated_by TEXT, updated_at INTEGER);
+    CREATE TABLE enroll_holidays (day TEXT PRIMARY KEY, name TEXT);
+  `);
+  const T = [[1, 'ANNA', 1], [2, 'BEN', 1], [3, 'CARL', 1], [4, 'DINA', 1], [5, 'EVA', 1], [6, 'FAY', 1], [7, 'GUS', 0], [8, 'HUGO', 1]];
+  for (const r of T) db.prepare('INSERT INTO teachers VALUES (?,?,?)').run(...r);
+  db.prepare("INSERT INTO c24_mirror_config VALUES ('mode', ?, 0)").run(mode);
+  for (const id of [1, 2, 3, 4, 6, 7, 8]) db.prepare('INSERT INTO c24_mirror_teachers (teacher_id, enabled) VALUES (?, 1)').run(String(id));
+  const cs = db.prepare(`INSERT INTO class_schedules (user_id, teacher_id, start_time, duration_min, scheduled_date, day_of_week, schedule_kind, status, created_at)
+                         VALUES (?,?,?,?,?,?,?,?,0)`);
+  cs.run('stu_b', '2', '17:00', 20, '2026-10-15', '4', 'one_off', 'active');      // BEN: 같은 시각·같은 길이 1:1
+  cs.run('stu_c', '3', '17:10', 30, null, '4', 'recurring', 'active');             // CARL: 매주 목 17:10 (날짜 없음)
+  cs.run('stu_d', '4', '16:40', 20, '2026-10-15', '4', 'one_off', 'active');      // DINA: 17:00 에 끝남(맞닿음)
+  cs.run('stu_h', '8', '17:00', 20, '2026-10-16', '5', 'one_off', 'active');      // HUGO: 다른 날
+  cs.run('lms', '1', '17:00', 20, '2026-10-15', '4', 'one_off', 'active');        // ANNA: LMS 자리표시(세지 않음)
+  cs.run('stu_x', '1', '17:00', 20, '2026-10-15', '4', 'one_off', 'cancelled');   // ANNA: 취소된 수업(세지 않음)
+  db.prepare("INSERT INTO teacher_unavailability (teacher_id, kind, start_date, end_date) VALUES ('6','date_range','2026-10-14','2026-10-16')").run();
+  if (holiday) db.prepare('INSERT INTO enroll_holidays VALUES (?, ?)').run(holiday, '임시휴일');
+
+  const norm = (a) => a.map((v) => (v === undefined ? null : v));
+  const wrap = (sql, args) => {
+    if (failIntervals && sql.includes('COALESCE(duration_min, 20) AS dm, scheduled_date')) throw new Error('D1 흔들림(시험)');
+    return db.prepare(sql);
+  };
+  const D1 = {
+    prepare(sql) {
+      const mk = (args) => ({
+        bind: (...a) => mk(a),
+        async first() { const r = wrap(sql, args).get(...norm(args)); return r === undefined ? null : r; },
+        async all() { return { results: wrap(sql, args).all(...norm(args)) }; },
+        async run() { wrap(sql, args).run(...norm(args)); return { success: true, meta: { changes: 0 } }; },
+      });
+      return mk([]);
+    },
+    async exec(sql) { db.exec(sql); return {}; },
+    async batch(stmts) { const o = []; for (const s of stmts) o.push(await s.run()); return o; },
+  };
+  return { DB: D1 };
+}
+
+if (mod && mod.freeTeachersOnDate) {
+  const ids = (a) => (a || []).map((t) => t.id).sort().join(',');
+  let r;
+  try { r = await mod.freeTeachersOnDate(makeEnv(), '2026-10-15', '17:00', 20); } catch (e) { r = { ok: false, error: 'throw:' + e.message }; }
+  ok('정상 조회는 ok', r.ok === true, JSON.stringify(r).slice(0, 300));
+  ok('확실히 가능 = ANNA·DINA·HUGO', ids(r.sure) === '1,4,8', ids(r.sure));
+  ok('확인 필요(미러 안 켬) = EVA', ids(r.check) === '5', ids(r.check));
+  ok('같은 시각·같은 길이 1:1 수업 강사(BEN)는 빠진다', !ids(r.sure).split(',').includes('2') && !ids(r.check).split(',').includes('2'));
+  ok('매주 반복 수업 강사(CARL)는 빠진다', !ids(r.sure).split(',').includes('3'));
+  ok('맞닿은 수업 강사(DINA)는 가능(경계·짝)', ids(r.sure).split(',').includes('4'));
+  ok('근무 불가(FAY)·퇴사(GUS)는 빠진다', !/(^|,)(6|7)(,|$)/.test(ids(r.sure) + ',' + ids(r.check)));
+  ok('안 되는 강사 수 = 3 (BEN·CARL·FAY)', r.busy_count === 3, String(r.busy_count));
+  ok('그날 수업 수가 실린다(DINA 1)', (r.sure || []).find((t) => t.id === '4')?.day_count === 1);
+
+  const all = await mod.freeTeachersOnDate(makeEnv({ mode: 'all' }), '2026-10-15', '17:00', 20);
+  ok('미러가 «전원» 이면 EVA 도 확실히 가능(짝)', ids(all.sure) === '1,4,5,8' && ids(all.check) === '', ids(all.sure) + ' / ' + ids(all.check));
+
+  const late = await mod.freeTeachersOnDate(makeEnv(), '2026-10-15', '17:10', 40);
+  ok('17:10~17:50 이면 DINA 도 가능하고 HUGO 는 그대로', ids(late.sure) === '1,4,8', ids(late.sure));
+  const early = await mod.freeTeachersOnDate(makeEnv(), '2026-10-15', '16:50', 20);
+  ok('16:50 이면 DINA(16:40~17:00)는 빠진다', !ids(early.sure).split(',').includes('4'), ids(early.sure));
+
+  // ⚠️ 부르는 자리까지 try — 정본이 던지면 «깔끔한 FAIL» 이어야 한다(크래시면 결과줄이 안 나온다)
+  let fail;
+  try { fail = await mod.freeTeachersOnDate(makeEnv({ failIntervals: true }), '2026-10-15', '17:00', 20); }
+  catch (e) { fail = { threw: e.message }; }
+  ok('일정을 못 읽으면 ok:false (0명으로 위장 안 함)', fail.ok === false && !Array.isArray(fail.sure), JSON.stringify(fail));
+
+  const hol = await mod.freeTeachersOnDate(makeEnv({ holiday: '2026-10-22' }), '2026-10-22', '17:00', 20);
+  ok('공휴일 휴강이면 확실히 가능 0명 + 휴일 이름', hol.ok && (hol.sure || []).length === 0 && hol.holiday === '임시휴일', JSON.stringify(hol).slice(0, 200));
+}
+
+console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL} / SKIP ${SKIP}`);
+if (FAIL) process.exit(1);
