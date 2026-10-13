@@ -32,6 +32,10 @@ const done = () => { console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`); proce
 const importTs = async (file) => import('data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(rd(resolve(SRC, file)))).toString('base64'));
 const ATT = await importTs('attendance-uid.ts');
 const CHUNK = await importTs('d1-chunk.ts');
+// 📞 (2026-10-13 2단계) 핸들러가 «마지막 연락» 을 붙이므로 정본 care-contact 도 함께 물린다(forecast-dashboard 를 먼저 풀어 끼움)
+const _toUrl = (code) => 'data:text/javascript;base64,' + Buffer.from(code).toString('base64');
+const _FD_URL = _toUrl(stripTypeScriptTypes(rd(resolve(SRC, 'forecast-dashboard.ts'))));
+const CC = await import(_toUrl(stripTypeScriptTypes(rd(resolve(SRC, 'care-contact.ts'))).replace(`'./forecast-dashboard'`, JSON.stringify(_FD_URL))));
 
 const adminSrc = rd(process.env.RISK_SRC || resolve(SRC, 'api-admin.ts'));
 const ANCHOR = "if (method === 'GET' && path === '/api/admin/retention/risk') {";
@@ -57,7 +61,7 @@ let run = null;
 try {
   const wrapped = `export async function run(env, request, method, path, H) {
     const { json, studentScopeWhere, selectInChunks, today, ensureAttendanceAccountUid,
-            ATTENDANCE_ACCOUNT_KEY, ATTENDANCE_BY_UID_LIST, attUidListBinds } = H;
+            ATTENDANCE_ACCOUNT_KEY, ATTENDANCE_BY_UID_LIST, attUidListBinds, lastContacts } = H;
     ${block}
     return null;
   }`;
@@ -74,7 +78,7 @@ function mkEnv() {
   const db = new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE students_erp (user_id TEXT PRIMARY KEY, korean_name TEXT, student_name TEXT, parent_phone TEXT, parent_name TEXT, status TEXT);
            CREATE TABLE attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, user_id TEXT, account_uid TEXT, username TEXT, role TEXT, joined_at INTEGER, left_at INTEGER, status TEXT, date TEXT);
-           CREATE TABLE student_retention (user_id TEXT PRIMARY KEY, category TEXT);
+           CREATE TABLE student_retention (user_id TEXT PRIMARY KEY, category TEXT, contacted INTEGER DEFAULT 0, contacted_at INTEGER);
            CREATE TABLE student_evaluations (id INTEGER PRIMARY KEY, student_uid TEXT, score_overall REAL, created_at INTEGER);
            CREATE TABLE homework_submissions (id INTEGER PRIMARY KEY, user_id TEXT, status TEXT, created_at INTEGER);
            CREATE TABLE point_log (id INTEGER PRIMARY KEY, user_id TEXT, created_at INTEGER);`);
@@ -97,6 +101,7 @@ const H = {
   ATTENDANCE_ACCOUNT_KEY: ATT.ATTENDANCE_ACCOUNT_KEY,
   ATTENDANCE_BY_UID_LIST: ATT.ATTENDANCE_BY_UID_LIST,
   attUidListBinds: ATT.attUidListBinds,
+  lastContacts: CC.lastContacts,
 };
 async function call(env) {
   try {
@@ -132,7 +137,7 @@ addAtt(db, { uid: 'kim', daysAgo: 3, room: 'c24-1' });
 addAtt(db, { uid: 'kim', daysAgo: 10, room: 'c24-2' });
 addAtt(db, { uid: 'kim', daysAgo: -5, status: 'scheduled', room: 'c24-3' });
 addAtt(db, { uid: 'gone', daysAgo: 200 });
-db.prepare(`INSERT INTO student_retention VALUES ('exp','expired')`).run();
+db.prepare(`INSERT INTO student_retention (user_id, category) VALUES ('exp','expired')`).run();
 addAtt(db, { uid: 'u_off', acc: 'off', daysAgo: 5 });
 for (const d of [6, 4, 2]) addAtt(db, { uid: 'streak2', daysAgo: d, status: 'scheduled', room: 'c24-s' });
 addAtt(db, { uid: 'mixed', daysAgo: 6, status: 'scheduled', room: 'c24-m' });
@@ -142,6 +147,8 @@ addAtt(db, { uid: 'u_dev7', acc: 'mix2', daysAgo: 10 });
 for (const d of [6, 4, 2]) addAtt(db, { uid: 'mix2', daysAgo: d, status: 'scheduled', room: 'c24-x' });
 
 const r1 = await call(S1.env);
+ok(r1 && r1.last_contact_ok === true && Array.isArray(r1.at_risk) && r1.at_risk.every(x => 'last_contact' in x),
+  '(2단계) 목록마다 «마지막 연락» 칸이 붙는다(연락 기록 표가 없어도 null 로)', r1 && r1.last_contact_ok);
 ok(r1 && r1.ok === true, '응답 ok', r1);
 const by = Object.fromEntries(((r1 && r1.at_risk) || []).map(x => [x.user_id, x]));
 const sc = (r1 && r1.scan) || {};
@@ -167,7 +174,7 @@ const S3 = mkEnv();
 S3.db.prepare(`INSERT INTO students_erp (user_id, korean_name, status) VALUES ('fut','미래만','active'),('none','스냅샷만','active')`).run();
 addAtt(S3.db, { uid: 'fut', daysAgo: 25 });
 addAtt(S3.db, { uid: 'fut', daysAgo: -3, status: 'scheduled', room: 'c24-f' });
-S3.db.prepare(`INSERT INTO student_retention VALUES ('none','inactive')`).run();
+S3.db.prepare(`INSERT INTO student_retention (user_id, category) VALUES ('none','inactive')`).run();
 const r3 = await call(S3.env);
 const by3 = Object.fromEntries(((r3 && r3.at_risk) || []).map(x => [x.user_id, x]));
 ok(by3.fut && by3.fut.days_since_last_join === 25, '«지금 이후» 예약 씨앗은 마지막 입장으로 안 친다 (25일 전, 음수 아님)', by3.fut && by3.fut.days_since_last_join);
