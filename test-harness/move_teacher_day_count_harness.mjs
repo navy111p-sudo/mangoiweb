@@ -194,6 +194,103 @@ let h3 = '';
 try { h3 = mvTeachersHtml({ current: null, teacher_change_ok: true, day_count_ok: false, candidates: [{ id: 1, name: 'A' }, { id: 2, name: 'B' }] }); } catch (e) { h3 = 'ERR ' + e.message; }
 check('짝: 못 셌으면 그 안내를 안 함', !/fewer classes/.test(h3) && !/^ERR/.test(h3));
 
+console.log('\n── E. 샌드박스 반복검사 (무작위 시간표 × 정본 vs 따로 짠 기준 계산)');
+/* 결정론 난수 — 실패가 나면 같은 seed 로 다시 재현된다. */
+function rng(seed) { let x = seed >>> 0 || 1; return () => { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; }
+const ITER = Number(process.env.MTDC_ITER || 500);
+const DOWN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const KO = ['일', '월', '화', '수', '목', '금', '토'];
+function ymdAdd(ymd, n) { const d = new Date(ymd + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+/* 기준 계산 — 정본을 «보지 않고» 규칙만으로 다시 짠 것(같은 실수를 복제하지 않으려고 다른 모양으로). */
+function reference(rows, subs, date) {
+  const dow = new Date(date + 'T00:00:00Z').getUTCDay();
+  const subOf = new Map(subs.filter((x) => x.date === date && x.status === 'active').map((x) => [x.sid, x.tid]));
+  const per = {};
+  for (const r of rows) {
+    if (r.status !== 'active' || !r.teacher || ['lms', 'type_seed'].includes(String(r.user).toLowerCase())) continue;
+    let opens;
+    if (r.date) opens = r.date === date;
+    else if (r.dows) {
+      opens = r.dows.includes(dow) && !(r.startsOn && date < r.startsOn) && !(r.skips || []).includes(date);
+    } else opens = false;
+    if (!opens) continue;
+    const t = subOf.get(r.id) || r.teacher;
+    (per[t] = per[t] || new Set()).add(r.time);
+  }
+  const out = {}; for (const k of Object.keys(per)) out[k] = per[k].size; return out;
+}
+let fuzzBad = 0, fuzzRuns = 0, sortBad = 0, firstBad = '';
+if (M) {
+  for (let it = 0; it < ITER; it++) {
+    const R = rng(1000 + it);
+    const pick = (a) => a[Math.floor(R() * a.length)];
+    const date = ymdAdd('2026-10-12', Math.floor(R() * 14));
+    const db = new DatabaseSync(':memory:');
+    db.exec(`CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, user_id TEXT, teacher_id TEXT, start_time TEXT, scheduled_date TEXT,
+               day_of_week TEXT, schedule_kind TEXT, status TEXT, created_at INTEGER, duration_min INTEGER, starts_on TEXT, skip_dates TEXT);
+             CREATE TABLE class_substitutions (schedule_id INTEGER, substitute_teacher_id TEXT, sub_date TEXT, status TEXT);
+             CREATE TABLE teachers (id INTEGER PRIMARY KEY, name TEXT, active INTEGER);
+             CREATE TABLE teacher_profiles (linked_teacher_id INTEGER, image_url TEXT, english_name TEXT, updated_at INTEGER, created_at INTEGER);`);
+    const nT = 2 + Math.floor(R() * 8);
+    for (let t = 1; t <= nT; t++) db.prepare(`INSERT INTO teachers VALUES (?,?,1)`).run(t, 'T' + String.fromCharCode(64 + t));
+    const rows = [], subs = [];
+    const nR = Math.floor(R() * 40);
+    const ins = db.prepare(`INSERT INTO class_schedules (id,user_id,teacher_id,start_time,scheduled_date,day_of_week,schedule_kind,status,starts_on,skip_dates) VALUES (?,?,?,?,?,?,?,?,?,?)`);
+    for (let i = 1; i <= nR; i++) {
+      const teacher = String(1 + Math.floor(R() * nT));
+      const time = pick(['09:00', '09:20', '10:00', '18:00', '18:20', '21:10']);
+      const user = pick(['s1', 's2', 's3', 'g1', 'g2', 'lms', 'LMS', 'type_seed']);
+      const status = pick(['active', 'active', 'active', 'active', 'cancelled', 'postponed']);
+      const recurring = R() < 0.4;
+      let date0 = null, dowStr = null, dows = null, startsOn = null, skips = null;
+      if (recurring) {
+        const set = [...new Set([pick([0,1,2,3,4,5,6]), pick([0,1,2,3,4,5,6])])];
+        dows = set;
+        dowStr = pick([
+          set.join(','),
+          set.map((d) => DOWN[d]).join(','),
+          set.map((d) => KO[d]).join('/'),
+          set.map((d) => DOWN[d].toLowerCase()).join(' '),
+        ]);
+        if (R() < 0.3) startsOn = ymdAdd(date, Math.floor(R() * 15) - 7);
+        if (R() < 0.3) skips = [date, ymdAdd(date, 7)].slice(0, 1 + Math.floor(R() * 2));
+      } else {
+        date0 = ymdAdd(date, pick([0, 0, 0, -1, 1, 7]));
+      }
+      ins.run(i, user, teacher, time, date0, dowStr, recurring ? 'recurring' : 'dated', status, startsOn, skips ? skips.join(',') : null);
+      rows.push({ id: i, user, teacher, time, date: date0, dows, status, startsOn, skips });
+      if (R() < 0.12) {
+        const sub = { sid: i, tid: String(1 + Math.floor(R() * nT)), date: pick([date, date, ymdAdd(date, 1)]), status: pick(['active', 'active', 'cancelled']) };
+        subs.push(sub);
+        db.prepare(`INSERT INTO class_substitutions VALUES (?,?,?,?)`).run(sub.sid, sub.tid, sub.date, sub.status);
+      }
+    }
+    const wrap = (sql) => { const st = { args: [] }; st.bind = (...a) => { st.args = a; return st; };
+      st.first = async () => db.prepare(sql).get(...st.args) ?? null; st.all = async () => ({ results: db.prepare(sql).all(...st.args) }); return st; };
+    const env = { DB: { prepare: wrap, exec: async (sql) => { try { db.exec(sql); } catch (e) { throw e; } } } };
+    fuzzRuns++;
+    let got = null;
+    try { got = await M.teacherDayCounts(env, date); } catch (e) { got = 'THREW ' + e.message; }
+    /* 대체는 원래 수업이 «그날 열릴 때만» 의미가 있다 — 기준도 정본도 열린 수업만 센 뒤 대체로 옮긴다. */
+    const want = reference(rows, subs, date);
+    const gotObj = got instanceof Map ? Object.fromEntries([...got].filter(([, v]) => v > 0)) : got;
+    const same = got instanceof Map && JSON.stringify(Object.keys(gotObj).sort().map((k) => [k, gotObj[k]])) === JSON.stringify(Object.keys(want).sort().map((k) => [k, want[k]]));
+    if (!same) { fuzzBad++; if (!firstBad) firstBad = 'seed ' + (1000 + it) + ' date ' + date + ' got ' + JSON.stringify(gotObj) + ' want ' + JSON.stringify(want); }
+    /* 정렬 불변식 — 후보는 day_count 오름차순, 같으면 이름순. */
+    try {
+      const r = await M.moveCandidatesFor(env, { id: 99999, user_id: 'x', scheduled_date: date, dm: 20, teacher_id: '1', teacher_name: 'TA', status: 'active', source: '' }, date, '23:00', { dayCount: true });
+      const c = r.candidates || [];
+      for (let i = 1; i < c.length; i++) {
+        const a = c[i - 1], b = c[i];
+        if (a.day_count > b.day_count || (a.day_count === b.day_count && String(a.display_name).localeCompare(String(b.display_name)) > 0)) { sortBad++; break; }
+      }
+      if (c.some((t) => typeof t.day_count !== 'number' || t.day_count !== ((got instanceof Map && got.get(t.id)) || 0))) sortBad++;
+    } catch (e) { sortBad++; }
+  }
+}
+check(`샌드박스 ${fuzzRuns}회 — 정본 수 == 기준 계산 수 (불일치 ${fuzzBad})`, fuzzRuns === ITER && fuzzBad === 0, firstBad);
+check(`샌드박스 ${fuzzRuns}회 — 후보가 «적은 순·같으면 이름순» 이고 카드 숫자 == 센 수 (위반 ${sortBad})`, fuzzRuns === ITER && sortBad === 0);
+
 console.log('\n── D. 배선');
 const adminRoute = (() => { const i = OPS.indexOf("path === '/api/pay/enroll/admin/move-candidates'"); return i < 0 ? '' : braceBlock(OPS, OPS.indexOf('{', i)); })();
 check('관리자 move-candidates 가 dayCount 를 켠다', /moveCandidatesFor\([^)]*\{\s*dayCount:\s*true\s*\}\s*\)/.test(adminRoute));
