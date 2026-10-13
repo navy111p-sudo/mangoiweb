@@ -438,6 +438,7 @@ select.pill{max-width:min(100%,280px)}
 <script src="/js/ai-class-engine.js?v=2"></script>
 <script src="/js/ai-class-music.js?v=1"></script>
 <script src="/js/mangoi-voice-input.js?v=5"></script>
+<script src="/js/voice-has-speech.js?v=1"></script>
 
 <script>
 (function(){
@@ -446,7 +447,7 @@ select.pill{max-width:min(100%,280px)}
   var $ = function(id){ return document.getElementById(id); };
   var E = window.AiClass, CAT = [], LS = [], SLIDE = {}, FILES = {}, openSeq = 0, loading = true;
   var st = null, unit = null, li = 0, busy = false, auto = false, subMode = 1, sound = !FAST, timerAt = 0, timerId = 0, seq = 0, listenTO = 0, lastTarget = '', lastMiss = null;
-  var lastListen = null, askBusy = false, askN = 0, askRec = null, askTok = 0, askWD = 0;   // ✋ 학생 질문
+  var lastListen = null, askBusy = false, askN = 0, askRec = null, askTok = 0;   // ✋ 학생 질문
   var MU = window.AiClassMusic || null, streak = 0, curStage = 0;   // 🎵 소리 모듈 · 연속 정답 · 지금 단계
   // 📶 교재 레벨 — 8단계 중 어디인가 (2026-10-09)
   //  BTS N 의 N 이 교재 Lv 이고, 단계 구간은 서버 정본 BAND_SPECS(src/judgment-level.ts)·웜업 LEVEL_CATALOG 와 같은 값이다
@@ -974,69 +975,54 @@ select.pill{max-width:min(100%,280px)}
     return pg ? pg.lines.map(function(l){ return E.speakable(l[0]); }).filter(Boolean).slice(0, 14) : [];
   }
   function askOpen(o){ $('askBox').hidden = !o; $('askBtn').classList.toggle('on', o); $('askBtn').setAttribute('aria-expanded', o ? 'true' : 'false'); if (o) { $('sim').hidden = true; try { $('askInput').focus({ preventScroll: true }); } catch (e) {} } else askRecStop(); }
-  function askRecStop(){ var r = askRec; askRec = null; clearTimeout(askWD); if (r === 'whisper') { try { window.MangoiVoice && MangoiVoice.cancel(); } catch (e) {} } else if (r) { recQuietAdd(r); try { r.abort(); } catch (e) {} } if (askTok % 2) askTok++; }
-  // 2026-10-13 사장님 「한국어로 말하기·영어로 말하기 둘 다 작동 안 돼」(화면이 「듣고 있어요」에서 그대로 멈춤)
-  //   ① 자동 말하기로 수업 마이크가 듣는 중에 abort() 하고 «곧바로» 새 음성인식을 start() 하면, 크롬은 한 번에
-  //      하나만 돌려 새 것이 이벤트 없이 멈춘다 → 앞의 것이 실제로 끝날 때(onend, 최대 0.8초)까지 기다린 뒤 켠다.
-  //   ② 그래도 브라우저 음성인식이 안 돌면(시작 신호 없음·서비스 오류·아무것도 못 듣고 끝남) 녹음 + 서버 Whisper 로
-  //      한 번 더 받는다(js/mangoi-voice-input.js — 웜업이 쓰는 그 경로). 「듣고 있어요」에 영영 머물지 않는다.
-  //   ⛔ 둘을 동시에 열지 않는다(안드로이드 일부는 오디오 입력이 하나뿐) — 음성인식을 끝낸 «뒤» 에 녹음한다.
+  function askRecStop(){ var r = askRec; askRec = null; if (r === 'whisper') { try { window.MangoiVoice && MangoiVoice.cancel(); } catch (e) {} } else if (r) { recQuietAdd(r); try { r.abort(); } catch (e) {} } if (askTok % 2) askTok++; try { askMicPaint(); } catch (e) {} }
+  // 2026-10-13 사장님 「한국어로 말하기·영어로 말하기 둘 다 작동 안 돼 — 글자 입력은 되는데 말하기가 안 돼」
+  //   1차(#1542)는 브라우저 음성인식을 «기다렸다가» 켜는 수리였는데 그래도 안 됐다 = 그 PC 에서 브라우저 음성인식이
+  //   소리를 못 받는다. 그래서 질문 마이크는 **녹음 → 서버 Whisper 받아쓰기**(js/mangoi-voice-input.js — 웜업이
+  //   실서비스에서 쓰는 그 경로)로 받는다. 한·영이 섞인 질문(「apple 이 무슨 뜻이에요?」)에도 더 강하다.
+  //   ⛔ 브라우저 음성인식과 녹음을 동시에 열지 않는다 — 수업 마이크를 끄고 «끝날 때까지» 기다린 뒤 녹음한다.
+  //   ✋ 녹음 중에 같은 버튼을 한 번 더 누르면 «다 말했다» — 지금까지 말한 것으로 바로 받아 적는다.
   function recEnded(r){ return new Promise(function(res){ if (!r || r === 'whisper') return res(); var t = setTimeout(res, 800); try { r.addEventListener('end', function(){ clearTimeout(t); setTimeout(res, 60); }, { once: true }); } catch (e) { clearTimeout(t); res(); } }); }
-  // 끄라고 한(abort) 음성인식이 «전부» 끝날 때까지의 약속 — 버튼을 연달아 눌러도 앞서 끈 것이 다 끝난 뒤에 켠다
+  // 끄라고 한(abort) 음성인식이 «전부» 끝날 때까지의 약속 — 버튼을 연달아 눌러도 앞서 끈 것이 다 끝난 뒤에 녹음한다
   var recQuiet = Promise.resolve();
   function recQuietAdd(r){ var p = recEnded(r); recQuiet = Promise.all([recQuiet, p]); }
-  var ASK_START_MS = 4000;   // 이 안에 시작 신호(onstart·onaudiostart)가 없으면 멈춘 것으로 본다
+  var askMicLang = '';
   function askNoteSet(t, tok){ if (tok === askTok) $('askNote').textContent = t; }
-  async function askViaWhisper(lang, tok){
-    if (tok !== askTok || $('askBox').hidden) return;
-    if (!window.MangoiVoice || !MangoiVoice.supported()) { askRec = null; askTok++; $('askNote').textContent = '이 브라우저는 말로 묻기를 못 해요 — 글로 적어 주세요'; return; }
-    askRec = 'whisper';
-    var wl = /^ko/i.test(lang) ? 'ko' : 'en';
-    var said = await MangoiVoice.record({ lang: wl, firstMs: 9000, silenceMs: 1600, maxMs: 20000, onState: function(st2, info){
-      if (st2 === 'ready') askNoteSet('🎙 마이크 준비 중…', tok);
-      else if (st2 === 'waiting') askNoteSet('🎙 지금 말해 보세요 — 말을 마치면 바로 물어봐요', tok);
-      else if (st2 === 'speaking') askNoteSet('🎙 듣는 중…', tok);
-      else if (st2 === 'thinking') askNoteSet('🎧 말한 내용을 받아 적는 중…', tok);
-      else if (st2 === 'error') askNoteSet(info && info.reason === 'denied' ? '마이크를 쓸 수 없어요 — 주소창의 🔒 에서 허락하거나 글로 적어 주세요' : info && info.reason === 'no_audio' ? '🎙 소리가 들어오지 않았어요 — 다시 누르고 말하거나 글로 적어 주세요' : '🎙 말을 받아 적지 못했어요 — 다시 누르거나 글로 적어 주세요', tok);
-    } });
-    if (tok !== askTok || askRec !== 'whisper') return;   // 그사이 닫았거나 다른 버튼을 눌렀다
-    askRec = null; askTok++;
-    said = String(said || '').trim();
-    if (said) { $('askInput').value = said; askTeacher(said); }
-    else if (/준비 중|지금 말해|듣는 중|받아 적는 중/.test($('askNote').textContent)) $('askNote').textContent = '🎙 잘 못 알아들었어요 — 다시 누르고 또박또박 말하거나 글로 적어 주세요';
+  function askMicPaint(){
+    [['askMicKo', 'ko', '🎤 한국어로 말하기'], ['askMicEn', 'en', '🎤 영어로 말하기']].forEach(function(b){
+      var el = $(b[0]); if (!el) return; var on = askRec === 'whisper' && askMicLang === b[1];
+      el.textContent = on ? '⏹ 다 말했어요' : b[2]; el.classList.toggle('on', on);
+    });
   }
   async function askListen(lang){
+    var wl = /^ko/i.test(lang) ? 'ko' : 'en';
+    if (askRec === 'whisper' && askMicLang === wl) {   // ⏹ 다 말했어요 — 녹음 중이면 지금까지로 받아 적고, 아직 준비 중이면 취소
+      if (window.MangoiVoice && MangoiVoice.busy()) { try { MangoiVoice.stop(); } catch (e) {} } else { askRecStop(); $('askNote').textContent = ''; }
+      return;
+    }
     stopRec(); askRecStop();
     var tok = ++askTok; if (!(tok % 2)) tok = ++askTok;   // 홀수 = 질문 마이크를 켜는 중·듣는 중
+    askMicLang = wl; askRec = 'whisper'; askMicPaint();   // 대기 중에도 «켜는 중» 으로 보이게(자동 말하기 가드)
     $('askNote').textContent = '🎙 마이크 준비 중…';
     await recQuiet;
     if (tok !== askTok || $('askBox').hidden) return;      // 그사이 닫았거나 다른 버튼을 눌렀다
-    if (!SR) return askViaWhisper(lang, tok);
-    var r; try { r = new SR(); } catch (e) { return askViaWhisper(lang, tok); }
-    r.lang = lang; r.interimResults = true; r.maxAlternatives = 1; r.continuous = false;
-    var alive = false, gotText = false;
-    var fallback = function(){ if (askRec !== r) return; clearTimeout(askWD); askRec = null; recQuietAdd(r); try { r.abort(); } catch (e) {} recQuiet.then(function(){ askViaWhisper(lang, tok); }); };
-    var up = function(){ alive = true; clearTimeout(askWD); };
-    r.onstart = up; r.onaudiostart = up; r.onspeechstart = up;
-    r.onresult = function(e){ if (askRec !== r) return; up(); var txt = '', fin = false; for (var k = 0; k < e.results.length; k++) { txt += e.results[k][0].transcript; if (e.results[k].isFinal) fin = true; } if (txt.trim()) gotText = true; $('askInput').value = txt; if (fin && txt.trim()) { askRec = null; askTok++; askTeacher(txt); } };
-    r.onerror = function(e){
-      if (askRec !== r) return; clearTimeout(askWD);
-      var er = String(e.error || '');
-      if (/not-allowed|audio-capture/.test(er)) { askRec = null; askTok++; $('askNote').textContent = '마이크를 쓸 수 없어요 — 주소창의 🔒 에서 허락하거나 글로 적어 주세요'; return; }
-      if (er === 'no-speech' && alive) { askRec = null; askTok++; $('askNote').textContent = '🎙 소리가 들어오지 않았어요 — 다시 누르고 말하거나 글로 적어 주세요'; return; }
-      fallback();   // network·service-not-allowed·aborted·language-not-supported 등 — 녹음으로 한 번 더
-    };
-    r.onend = function(){
-      if (askRec !== r) return; clearTimeout(askWD);
-      var v = $('askInput').value.trim();
-      if (v) { askRec = null; askTok++; return askTeacher(v); }
-      if (!alive) return fallback();   // 시작 신호도 없이 끝났다 = 브라우저 음성인식이 안 돈다
-      askRec = null; askTok++; $('askNote').textContent = '🎙 소리가 들어오지 않았어요 — 다시 누르고 말하거나 글로 적어 주세요';
-    };
-    $('askNote').textContent = '🎙 듣고 있어요… 말을 마치면 바로 물어봐요';
-    askRec = r;
-    askWD = setTimeout(fallback, ASK_START_MS);   // 안전망: 시작 신호가 없으면 녹음 경로로
-    try { r.start(); } catch (e) { clearTimeout(askWD); askRec = null; askViaWhisper(lang, tok); }
+    if (!window.MangoiVoice || !MangoiVoice.supported()) { askRec = null; askTok++; askMicPaint(); $('askNote').textContent = '이 브라우저는 말로 묻기를 못 해요 — 글로 적어 주세요'; return; }
+    var heard = false, blob = null, errored = false;
+    var said = await MangoiVoice.record({ lang: wl, firstMs: 9000, silenceMs: 1800, maxMs: 25000, onAudio: function(b){ blob = b; }, onState: function(st2, info){
+      if (st2 === 'ready') askNoteSet('🎙 마이크 준비 중…', tok);
+      else if (st2 === 'waiting') askNoteSet('🎙 지금 말해 보세요 — 다 말하면 «⏹ 다 말했어요» 를 누르거나 잠깐 멈추세요', tok);
+      else if (st2 === 'speaking') { heard = true; askNoteSet('🎙 듣는 중…', tok); }
+      else if (st2 === 'thinking') askNoteSet('🎧 말한 내용을 받아 적는 중…', tok);
+      else if (st2 === 'error') { errored = true; askNoteSet(info && info.reason === 'denied' ? '🎙 마이크를 쓸 수 없어요 — 주소창의 🔒 에서 마이크를 «허용» 한 뒤 다시 눌러 주세요(글로 적어도 돼요)' : info && info.reason === 'no_audio' ? '🎙 소리가 들어오지 않았어요 — 마이크를 확인하고 다시 눌러 말해 주세요' : '🎙 말을 받아 적지 못했어요 — 다시 누르거나 글로 적어 주세요', tok); }
+    } });
+    if (tok !== askTok || askRec !== 'whisper') return;   // 그사이 닫았거나 다른 버튼을 눌렀다
+    askRec = null; askTok++; askMicPaint();
+    said = String(said || '').trim();
+    // 🔇 말소리가 한 번도 안 잡혔으면 Whisper 가 지어낸 글자(«Thank you.» 등)일 수 있다 — 녹음을 다시 재 보고, 말소리가 없으면 버린다
+    if (said && !heard) { var v = null; try { v = window.MangoiVoiceCheck ? await MangoiVoiceCheck.blobHasVoice(blob) : null; } catch (e) { v = null; } if (v === true) heard = true; }
+    if (said && !heard) { $('askNote').textContent = '🎙 소리가 작게 들어왔어요 — 마이크 가까이에서 다시 말해 주세요'; return; }
+    if (said) { $('askInput').value = said; askTeacher(said); return; }
+    if (!errored) $('askNote').textContent = heard ? '🎙 잘 못 알아들었어요 — 다시 누르고 또박또박 말하거나 글로 적어 주세요' : '🎙 소리가 들어오지 않았어요 — 마이크를 확인하고 다시 눌러 말해 주세요';
   }
   function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
   async function askTeacher(q){
