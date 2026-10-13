@@ -15,6 +15,7 @@ import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './a
 import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { praiseCountForRoom } from './point-policy';   // ⭐ 칭찬 횟수 정본(복제 금지)
 import { loadRevenue, loadCare, saveCare } from './forecast-dashboard';
+import { recordCareContact, lastContacts, CARE_CONTACT_ACTIONS, CARE_CONTACT_STATUSES } from './care-contact';   // 📞 이탈 케어 연락 기록 정본
 import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 import { selectInChunks } from './d1-chunk';
 import { workplaceOf } from './recording-teacher';   // 🏠/🏢 강사 근무지 판정 정본(명부 group_name)   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
@@ -9095,9 +9096,26 @@ ${chatSampleText}
 
         // ⚡ KV 캐시(scope 별 키, 180초) — 반복 열람 시 무거운 스캔 생략. 케어 발송 등 변경 후엔 자연 만료.
         const _rrKey = 'retrisk3:' + nameCol + ':' + ((_swRisk.cond || 'all') + '|' + (_swRisk.binds || []).join(','));
+        /* 📞 (2026-10-13 케어 보드 2단계) «마지막 연락» 은 캐시 «밖» 에서 붙인다 — 정본 lastContacts.
+           캐시(180초) 안에 넣으면 방금 문자를 보내도 3분 동안 «연락 안 함» 으로 보여 또 보내게 된다.
+           ⚠️ 원천이 하나라도 실패하면 last_contact_ok=false — 화면은 그 줄을 아예 안 그린다
+              («연락 기록 없음» 으로 위장하면 또 연락하게 만든다). 목록 자체는 그대로 낸다. */
+        const _rrWithContact = async (body: string, hdr: Record<string, string>) => {
+          try {
+            const o = JSON.parse(body);
+            const list: any[] = Array.isArray(o.at_risk) ? o.at_risk : [];
+            const { map: m, failed } = await lastContacts(env.DB, list.map(x => x.user_id));
+            for (const x of list) { const c = m.get(String(x.user_id)); x.last_contact = c ? { at: c.at, via: c.via } : null; }
+            o.last_contact_ok = failed === 0;
+            return new Response(JSON.stringify(o), { status: 200, headers: { 'Content-Type': 'application/json', ...hdr } });
+          } catch (e: any) {
+            console.warn('[retention/risk] last_contact 실패:', e?.message);
+            return new Response(body, { status: 200, headers: { 'Content-Type': 'application/json', ...hdr } });
+          }
+        };
         try {
           const _hit = await env.SESSION_STATE.get(_rrKey);
-          if (_hit) return new Response(_hit, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } });
+          if (_hit) return await _rrWithContact(_hit, { 'X-Adm-Cache': 'hit' });
         } catch { /* 캐시 miss 무시 */ }
 
         /* 🎯 (2026-10-13 이탈 케어 보드 1단계) 누구를 볼 것인가 — «최근 90일에 수업 흔적이 있는 학생».
@@ -9355,7 +9373,7 @@ ${chatSampleText}
         atRisk.sort((a, b) => b.risk_score - a.risk_score);
         const _rrPayload = JSON.stringify({ ok: true, count: atRisk.length, at_risk: atRisk, scan: scanMeta, schema: { name_col: nameCol } });
         try { await env.SESSION_STATE.put(_rrKey, _rrPayload, { expirationTtl: 180 }); } catch { /* 캐시 저장 실패 무시 */ }
-        return new Response(_rrPayload, { status: 200, headers: { 'Content-Type': 'application/json' } });
+        return await _rrWithContact(_rrPayload, {});
       } catch (e: any) {
         console.warn('[retention/risk] error:', e?.message);
         return json({ ok: false, error: e?.message || 'risk_failed' }, 500);
@@ -9515,7 +9533,20 @@ ${chatSampleText}
         await env.DB.prepare(`INSERT INTO retention_care_log (user_id, action_type, message, gift_type, event_id, status, error, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
           .bind(uid, actionType, message, giftType, eventId, status, status === 'failed' ? detail : null, now).run();
 
-        return json({ ok: true, status, detail });
+        /* 📞 (2026-10-13 케어 보드 2단계) 실제로 연락했으면 «한 곳» 에도 적는다 — 정본 care-contact.ts.
+           그래야 B(AI 매출·이탈 요약)·E(수강권 만료) 화면도 «연락함» 으로 보여 두 번 연락하지 않는다.
+           ⚠️ 연락으로 세는 것만(카톡·문자·전화 · sent/logged). 실패·테스트모드·포인트는 아니다.
+           🔒 강사·조직(지사·대리점) 계정은 적지 않는다 — 같은 표의 정식 경로(/api/admin/forecast/*)가 막는 계정이다.
+              작성자를 «모르면» 적지 않는다(모르면 막는 쪽). 연락 자체는 이미 끝났으니 응답은 그대로. */
+        const careWriterOk = (a: any) => !!(a && a.ok && a.username && !a.isTeacher && !isOrgScopedRole(a.role));
+        let careRecorded = false;
+        if ((CARE_CONTACT_ACTIONS as readonly string[]).includes(actionType) && (CARE_CONTACT_STATUSES as readonly string[]).includes(status)) {
+          let _a: any = null;
+          try { _a = await getAdminActor(request, env as any); } catch (e) { console.warn('[retention/care] 작성자 조회 실패 — 케어 기록 생략:', (e as any)?.message); }
+          if (careWriterOk(_a)) careRecorded = await recordCareContact(env as any, uid, _a.username, now);
+        }
+
+        return json({ ok: true, status, detail, care_recorded: careRecorded });
       } catch (e: any) {
         console.warn('[retention/care] error:', e?.message);
         return json({ ok: false, error: e?.message || 'care_failed' }, 500);
@@ -10251,6 +10282,33 @@ LIMIT $limit`;
           ORDER BY COALESCE(p.created_at,0) DESC, p._rid DESC`
       ).bind(...binds).all();
       const _piiStudents = applyPIIScope(rs.results || [], _ssw.scope);  // 🔒 권한별 PII 마스킹
+      /* 🗓️ (2026-10-13 사장님 «중요한 정보를 오른쪽에») 「수업 기록」 칸 — 위 CTE 의 sessions·last_seen 은
+         attendance.user_id(=접속마다 바뀌는 기기번호)로만 세서, 카페24에 없는 학생은 늘 0 이었다
+         (CLAUDE.md 「출결만 통째로 0」). 여기서 정본(account_uid OR user_id, 학생 키로 묶음)으로 «다시» 센다.
+         · 오늘 이후 날짜는 안 센다 — 카페24 씨앗은 «예약» 이라 미래 날짜가 섞여 있다(최근 수업이 미래가 되면 거짓).
+         · 바인드는 JSON 배열 하나(json_each) — D1 100개 한도와 무관.
+         ⚠️ 카페24 씨앗을 포함하므로 «출석» 이 아니라 «수업 기록» 이다(KPI 와 같은 말).
+         ⛔ 실패하면 위 CTE 값을 그대로 둔다(fail-open — 그 칸만 옛 값). */
+      try {
+        const _uids = (_piiStudents as any[]).map((x: any) => String(x?.user_id || '')).filter(Boolean);
+        if (_uids.length) {
+          await ensureAttendanceAccountUid(env as any);
+          const _today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+          const _ar = await env.DB.prepare(
+            `SELECT ${ATTENDANCE_ACCOUNT_KEY} AS uid, COUNT(*) AS n, MAX(date) AS last_d
+               FROM attendance
+              WHERE ${ATTENDANCE_BY_UID_LIST} AND date <= ?
+              GROUP BY uid`
+          ).bind(...attUidListBinds(_uids), _today).all();
+          const _am = new Map<string, any>();
+          for (const r of ((_ar as any).results || [])) _am.set(String(r.uid), r);
+          for (const _st of (_piiStudents as any[])) {
+            const r = _am.get(String(_st?.user_id || ''));
+            _st.sessions = r ? Number(r.n) || 0 : 0;
+            _st.last_seen = r ? (r.last_d || null) : null;
+          }
+        }
+      } catch (e) { console.warn('[students/unified] 수업 기록 다시 세기 실패(옛 값 유지):', (e as any)?.message || e); }
       /* 📘 (2026-09-21) 「예약」 칸 — erp-list 와 «같은» 정본을 여기에도 싣는다.
          2026-09-15 에 그 칸을 만들 때 erp-list 에만 실었는데, 학생 명부 표가 실제로
          부르는 것은 이쪽(unified)이라 **도입 이래 한 번도 값이 안 닿아** 늘 «—» 였다
@@ -14244,8 +14302,24 @@ LIMIT $limit`;
           }
           return reply({ ok: false, error: 'method_not_allowed' }, 405);
         }
-        if (method === 'GET') return reply(path.endsWith('/revenue')
-          ? await loadRevenue(env.DB, notSeedSql()) : await loadCare(env.DB, notSeedSql()));
+        if (method === 'GET') {
+          if (path.endsWith('/revenue')) return reply(await loadRevenue(env.DB, notSeedSql()));
+          const _care: any = await loadCare(env.DB, notSeedSql());
+          /* 📞 (2026-10-13 케어 보드 2단계) «마지막 연락» 을 다섯 원천에서 읽어 덮는다 — 정본 lastContacts.
+             ⚠️ 이 칸은 «사례» 가 아니라 «학생» 의 마지막 연락이다(지난 사례의 연락도 보인다 — 또 연락하지 않게).
+             A(이탈 위험) 카드에서 보낸 문자·전화도 여기 «마지막 연락» 에 보인다. 더 최근 것만 덮는다. */
+          try {
+            const _rows: any[] = Array.isArray(_care.rows) ? _care.rows : [];
+            const { map: _m, failed: _f } = await lastContacts(env.DB, _rows.map(r => r.user_id));
+            _care.last_contact_ok = _f === 0;
+            for (const r of _rows) {
+              const c = _m.get(String(r.user_id));
+              if (c && !(Number(r.contacted_at) >= c.at)) r.contacted_at = c.at;
+              r.contact_via = c ? c.via : null;
+            }
+          } catch (e: any) { console.warn('[forecast] last_contact 실패:', e?.message); }
+          return reply(_care);
+        }
         // Churn care is saved explicitly; no message delivery or AI generation on page load.
         if (method === 'POST' && path.endsWith('/churn')) {
           if (request.headers.get('Origin') !== url.origin) return reply({ ok: false, error: 'invalid_origin' }, 403);
