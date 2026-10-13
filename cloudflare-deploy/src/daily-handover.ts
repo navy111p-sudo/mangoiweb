@@ -94,7 +94,7 @@ async function accounts(env: Env): Promise<any[]> {
   return r.results || [];
 }
 function visible(row: any, actor: any) {
-  return row && (row.username === actor.username || (row.status !== 'draft' && (row.recipient === actor.username || isExec(actor))));
+  return row && (row.username === actor.username || (row.status !== 'draft' && (row.recipient === actor.username || isExec(actor) || coReceives(String(actor.username),row.recipient))));
 }
 function rowData(row: any) {
   return row ? { ...row, payload: JSON.parse(row.payload), request_key: undefined } : null;
@@ -128,6 +128,12 @@ export function reminderStage(s: any, day: string, now = Date.now()): string | n
 /* 📌 2026-10-06 사장님 — 매일보고는 «반드시» 쓴다 · 공휴일은 안 쓴다 · 어제 안 썼으면 본인과 대표님께 알린다.
  *   근무일 = 명단에 켜져 있고 · 근무 요일이고 · 쉬는 날(exempt_date)이 아니고 · 그 사람 나라(KR/PH) 공휴일이 아님.
  *   공휴일 표(holidays)를 못 읽으면 «공휴일 아님» 으로 본다 — 알림이 한 번 더 가는 쪽이 «안 써도 되는 줄» 아는 쪽보다 낫다. */
+// 👥 공동 수신(2026-10-13 대표님 지시 «보고는 장지웅과 나 둘 다»): 둘 중 누구 앞으로 와도 둘 다 받는다 —
+// 미확인 목록·열람·첨부·확인/보완요청 권한, 그리고 제출 순간 1회 알림. 반복 읽기 독촉은 받는 사람(recipient) 한 명에게만.
+export const INBOX_ALSO_SEES: Record<string,string[]> = { admin: ['mgr_jjw'], mgr_jjw: ['admin'] };
+export function coReceives(me: string, recipient: string): boolean {
+  return !!recipient && recipient !== me && (INBOX_ALSO_SEES[me] || []).includes(recipient);
+}
 export const MISSED_REPORT_TO = ['admin'];            // 어제 미제출 요약을 받는 사람(대표님)
 export const MISSED_WINDOW = { from: '09:00', to: '12:00' }; // KST — 15분 cron 이 이 사이 첫 회차에 한 번 보낸다
 export const DUTY_START = '2026-10-06'; // 규칙 시작일 — 그 전 날짜는 «미제출» 로 세지 않는다(명단에 넣기 전 날까지 소급하지 않기)
@@ -450,16 +456,18 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
     const me = String(actor.username), route = url.pathname.slice(prefix.length);
     const file=await fileRoute(request,url,env,actor,day);if(file)return file;
     if(request.method==='GET'&&route==='/inbox'){
-      const result=await env.DB.prepare(`SELECT * FROM daily_handovers WHERE recipient=? AND username<>? AND status='submitted'
-        ORDER BY CASE WHEN json_extract(payload,'$.priority')='urgent' THEN 0 ELSE 1 END, submitted_at ASC LIMIT 200`).bind(me,me).all();
-      const count:any=await env.DB.prepare(`SELECT COUNT(*) n FROM daily_handovers WHERE recipient=? AND username<>? AND status='submitted'`).bind(me,me).first();
+      // 👥 공동 수신자 앞 미확인 보고도 함께(INBOX_ALSO_SEES). 콤마 문자열 하나로 바인딩.
+      const also=','+[me,...(INBOX_ALSO_SEES[me]||[])].join(',')+',';
+      const result=await env.DB.prepare(`SELECT * FROM daily_handovers WHERE instr(?, ','||recipient||',')>0 AND username<>? AND status='submitted'
+        ORDER BY CASE WHEN json_extract(payload,'$.priority')='urgent' THEN 0 ELSE 1 END, submitted_at ASC LIMIT 200`).bind(also,me).all();
+      const count:any=await env.DB.prepare(`SELECT COUNT(*) n FROM daily_handovers WHERE instr(?, ','||recipient||',')>0 AND username<>? AND status='submitted'`).bind(also,me).first();
       // ✍️ 쓰는 쪽(2026-10-06) — 배너가 «오늘 아직 안 씀»·«어제 미제출» 을 말하게. 못 구하면 null(배너는 예전처럼).
       let writer:any=null,missed_staff:any=null;
       // 60초 폴링이라 대표님 말고는 «내 줄» 만 계산한다.
       try{const boss=MISSED_REPORT_TO.includes(me);const all=await handoverDuty(env,kstDay(),boss?undefined:me);const mine=all.find(d=>d.username===me);writer=mine?{required:true,...dutyView(mine)}:{required:false};
         if(boss)missed_staff=all.filter(d=>d.today_required&&d.prev_missed).map(d=>({username:d.username,name:d.name,prev_day:d.prev_day}));}
       catch{console.warn('[daily-handover] duty unavailable');}
-      return reply({ok:true,me:{username:me,name:actor.name||me},reader_mode:['admin','mgr_jjw'].includes(me),total:count.n,reports:await withFollowups(env,result.results||[]),files:await attachmentsFor(env,result.results||[]),writer,missed_staff});
+      return reply({ok:true,me:{username:me,name:actor.name||me},reader_mode:['admin','mgr_jjw'].includes(me),also_sees:INBOX_ALSO_SEES[me]||[],total:count.n,reports:await withFollowups(env,result.results||[]),files:await attachmentsFor(env,result.results||[]),writer,missed_staff});
     }
     // 📖 다시 읽기(2026-09-29) — 확인·보완요청한 보고는 «미확인» 목록에서 빠지므로 되돌아볼 길이 없었다.
     // 내가 받았거나 내가 확인한 것만(최근 30일). ⛔ 경영진 «전체 보기» 로 넓히지 않는다 — 그건 날짜별 «전체» 필터가 한다.
@@ -507,7 +515,7 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       const staged = await env.DB.prepare('SELECT * FROM daily_handover_files WHERE username=? AND report_date=?').bind(me,day).all();
       const all = isExec(actor);
       const rows = await env.DB.prepare(`SELECT * FROM daily_handovers WHERE report_date=?
-        AND (username=? OR recipient=? OR ?=1) ORDER BY updated_at DESC LIMIT 200`).bind(day,me,me,all?1:0).all();
+        AND (username=? OR instr(?, ','||recipient||',')>0 OR ?=1) ORDER BY updated_at DESC LIMIT 200`).bind(day,me,','+[me,...(INBOX_ALSO_SEES[me]||[])].join(',')+',',all?1:0).all();
       const read_schedule = await env.DB.prepare('SELECT * FROM daily_handover_read_schedule WHERE username=?').bind(me).first() || readDefaults;
       const schedule = await env.DB.prepare(`SELECT * FROM daily_handover_schedule WHERE username=?`).bind(me).first();
       const required = all ? await env.DB.prepare(`SELECT s.username, a.name, s.enabled,s.weekdays,s.exempt_date,s.due_time,
@@ -526,7 +534,7 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
         staged_ids:(staged.results||[]).map((f:any)=>f.id),
         reader_mode:['admin','mgr_jjw'].includes(me),read_schedule,schedule,required:requiredRows,missed_staff,
         default_recipient: members.find(m=>m.username==='mgr_jjw'&&m.username!==me)?.username || members.find(m=>m.username==='admin'&&m.username!==me)?.username || '',
-        ai_available:!!env.AI, can_review_all:all});
+        ai_available:!!env.AI, can_review_all:all, also_sees:INBOX_ALSO_SEES[me]||[]});
     }
     if (request.method !== 'POST') return reply({ok:false,error:'not_found'},404);
     if (Number(request.headers.get('Content-Length')) > 20000) return reply({ok:false,error:'too_large'},413);
@@ -600,7 +608,7 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
     if (route === '/ack' || route === '/return') {
       const r:any=await env.DB.prepare(`SELECT * FROM daily_handovers WHERE id=?`).bind(Number(b.id)||0).first();
       if (!r || !visible(r,actor)) return reply({ok:false,error:'not_found'},404);
-      if (r.username===me || (r.recipient!==me&&!isExec(actor))) return reply({ok:false,error:'forbidden'},403);
+      if (r.username===me || (r.recipient!==me&&!isExec(actor)&&!coReceives(me,r.recipient))) return reply({ok:false,error:'forbidden'},403);
       const feedback=text(b.feedback,500), version=Number(b.version);
       if (!Number.isSafeInteger(version)||version<1) return reply({ok:false,error:'version'},400);
       if (route==='/return'&&!feedback) return reply({ok:false,error:'feedback'},400);
@@ -690,6 +698,13 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
     if(submit&&recipient!==me){
       try{await env.DB.prepare('INSERT OR IGNORE INTO daily_handover_read_alerts(report_id,version,next_at) VALUES(?,?,?)').bind(row.id,row.version,now).run();push=await sendReadAlert(env,row);}
       catch{push='failed';} // Sweep recovers even if this request stops after the durable save.
+      // 👥 공동 수신자에게도 «도착» 1회 알림 — 읽는 시간대(긴급은 언제나)일 때만. 실패해도 보고는 이미 저장됨.
+      for(const co of Object.keys(INBOX_ALSO_SEES).filter(u=>u!==me&&coReceives(u,recipient))){
+        try{const urgent=data.priority==='urgent';const sch=await env.DB.prepare('SELECT * FROM daily_handover_read_schedule WHERE username=?').bind(co).first();
+          if(urgent||isReadTime(sch,now))await notify(env,co,`handover-cc:${row.id}:${row.version}`,
+            (urgent?'긴급 ':'')+'새 매일보고가 도착했습니다. / A new daily handover has arrived.',`/daily-handover.html?date=${row.report_date}&report=${row.id}`);}
+        catch{console.warn('[handover] co-recipient alert skipped');}
+      }
     }
     return reply({ok:true,row:rowData(row),push});
   } catch(e) { console.error('[daily-handover]', e); return reply({ok:false,error:'unavailable'},503); }
