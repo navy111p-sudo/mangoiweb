@@ -1971,6 +1971,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (j.holiday != null) {
       h += '<div class="fq-head fq-hol">' + esc(T('Public holiday (no classes): ', '공휴일 휴강: ') + (j.holiday || '')) + '</div>';
     }
+    if (j.mirror_off) {
+      h += '<div class="fq-head fq-hol">' + esc(T('Cafe24 LMS classes are not being copied right now, so every teacher needs a Cafe24 check.',
+                                                  '지금 카페24(LMS) 수업을 가져오지 않고 있어 모든 강사를 카페24에서 확인해야 합니다.')) + '</div>';
+    } else if (j.beyond_mirror) {
+      h += '<div class="fq-head fq-hol">' + esc(T('This date is more than 14 days away — Cafe24 LMS classes are not loaded yet, so every teacher needs a Cafe24 check.',
+                                                  '14일보다 먼 날짜라 카페24(LMS) 수업이 아직 들어오지 않았습니다 — 모든 강사를 카페24에서 확인해야 합니다.')) + '</div>';
+    }
     var n = sure.length;
     if (n >= need) {
       h += '<div class="fq-head fq-ok">' + esc(T('✅ ' + n + ' teacher(s) free — enough for ' + need + ' student(s) (1:1).',
@@ -1991,6 +1998,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     }
     h += sure.map(function(t){ return row(t, ''); }).join('');
     h += check.map(function(t){ return row(t, '<span class="tag">' + esc(T('check Cafe24', '카페24 확인')) + '</span>'); }).join('');
+    h += '<div class="muted" style="margin-top:6px">' + esc(T('Cafe24 bookings made today can take up to 15 minutes to appear here.',
+                                                             '카페24에서 방금 잡은 예약은 여기 나타나기까지 최대 15분 걸릴 수 있습니다.')) + '</div>';
     h += '<div class="muted" style="margin-top:8px">' + esc(T((Number(j.busy_count) || 0) + ' teacher(s) are busy, on leave or off at that time. Counted 1:1 — for a group class, one teacher can take several students.',
                                                              '그 시간에 수업·휴가·휴강인 강사 ' + (Number(j.busy_count) || 0) + '명. 1:1 기준입니다 — 그룹 수업이면 강사 한 명이 여러 학생을 맡을 수 있습니다.')) + '</div>';
     el.className = '';

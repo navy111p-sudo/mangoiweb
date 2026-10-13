@@ -2264,51 +2264,24 @@ export async function moveCandidatesFor(env: any, row: any, date: string, time: 
  *  · 그룹 수업은 «학생마다 한 행» 이라 (강사, 시작 시각) 으로 묶어 한 번만 센다.
  *  · 그날 대체(class_substitutions)가 걸린 수업은 원래 강사가 아니라 대체 강사의 수업으로 센다. */
 export async function teacherDayCounts(env: any, date: string): Promise<Map<string, number> | null> {
-  try {
-    const has = await ensureStartsOnColumn(env);
-    const rs: any = await env.DB.prepare(
-      `SELECT id, teacher_id, start_time, scheduled_date, day_of_week, created_at${startsOnSel(has)}
-         FROM class_schedules
-        WHERE status = 'active' AND teacher_id IS NOT NULL AND TRIM(CAST(teacher_id AS TEXT)) <> ''
-          AND (scheduled_date = ? OR ((scheduled_date IS NULL OR scheduled_date = '') AND day_of_week IS NOT NULL))
-          ${NOT_PLACEHOLDER}`
-    ).bind(date).all();
-    const subs = new Map<number, string>();
-    try {
-      const sr: any = await env.DB.prepare(
-        `SELECT schedule_id, substitute_teacher_id FROM class_substitutions WHERE status = 'active' AND sub_date = ?`
-      ).bind(date).all();
-      for (const r of ((sr?.results as any[]) || [])) {
-        if (r.substitute_teacher_id != null) subs.set(Number(r.schedule_id), String(r.substitute_teacher_id));
-      }
-    } catch { /* 대체 표 없음 — 원래 강사로 센다 */ }
-    const slots = new Map<string, Set<string>>();
-    for (const r of ((rs?.results as any[]) || [])) {
-      if (subScheduleDow(r.scheduled_date, r.day_of_week, date) == null) continue;
-      if (!recurStartedOn(r, date)) continue;
-      const tid = subs.get(Number(r.id)) || String(r.teacher_id);
-      const key = String(r.start_time || '').slice(0, 5) || ('#' + r.id);
-      if (!slots.has(tid)) slots.set(tid, new Set());
-      slots.get(tid)!.add(key);
-    }
-    const out = new Map<string, number>();
-    for (const [tid, set] of slots) out.set(tid, set.size);
-    return out;
-  } catch (e) {
-    console.warn('[enroll] teacherDayCounts:', (e as any)?.message);
-    return null;
-  }
+  /* 🔗 (2026-10-13 trap-check 지적) 행을 읽는 규칙은 teacherIntervalsOn 한 곳 — 여기서 다시 쓰지 않는다.
+     «그날 수업 수» 와 «빈 강사» 가 서로 다른 행을 보면 한 화면 안에서 숫자가 어긋난다. */
+  const iv = await teacherIntervalsOn(env, date);
+  if (!iv) return null;
+  const out = new Map<string, number>();
+  for (const [tid, list] of iv) out.set(tid, new Set(list.map((c) => c.start || ('#' + c.id))).size);
+  return out;
 }
 
 /** 🕐 그날(date) 강사별 «수업이 잡힌 시간» — teacher_id(원부 번호) → [{start, dur}]. 실패하면 null(모름).
- *  teacherDayCounts 와 같은 행·같은 규칙(반복 행은 요일+recurStartedOn · 대체는 대체 강사 몫 · 자리표시 제외)이고
- *  «몇 회» 대신 «언제» 를 돌려준다.
+ *  행을 읽는 규칙의 정본(반복 행은 요일+recurStartedOn · 대체는 대체 강사 몫 · 자리표시 제외) —
+ *  teacherDayCounts 도 이것을 세어 «몇 회» 를 만든다(한 곳만 고치면 둘이 어긋나므로 합쳤다).
  *  왜 따로 필요한가 (2026-10-13 매니저 «특정 날짜에 빈 강사» 화면):
  *   · findScheduleConflicts 는 «같은 시각·같은 길이» 수업을 합반(그룹)으로 보고 겹침에서 뺀다 —
  *     옮기기에는 맞지만 «새 학생을 받을 수 있나» 에서는 1:1 수업이 있는 강사를 «빈 강사» 로 셉니다.
  *   · 날짜 지정 조회(one_off)는 scheduled_date 로만 좁혀 날짜 없는 «매주 반복» 행을 못 봅니다.
  *  ⟹ 이 표로 «한 번 더» 막는다(더 엄격한 쪽으로만 — 빈 강사를 늘리지 않는다). */
-export async function teacherIntervalsOn(env: any, date: string): Promise<Map<string, Array<{ start: string; dur: number }>> | null> {
+export async function teacherIntervalsOn(env: any, date: string, opts: { keepOriginal?: boolean } = {}): Promise<Map<string, Array<{ id: number; start: string; dur: number }>> | null> {
   try {
     const has = await ensureStartsOnColumn(env);
     const rs: any = await env.DB.prepare(
@@ -2327,13 +2300,22 @@ export async function teacherIntervalsOn(env: any, date: string): Promise<Map<st
         if (r.substitute_teacher_id != null) subs.set(Number(r.schedule_id), String(r.substitute_teacher_id));
       }
     } catch { /* 대체 표 없음 — 원래 강사로 */ }
-    const out = new Map<string, Array<{ start: string; dur: number }>>();
+    const out = new Map<string, Array<{ id: number; start: string; dur: number }>>();
     for (const r of ((rs?.results as any[]) || [])) {
       if (subScheduleDow(r.scheduled_date, r.day_of_week, date) == null) continue;
       if (!recurStartedOn(r, date)) continue;
-      const tid = subs.get(Number(r.id)) || String(r.teacher_id);
+      const iv = { id: Number(r.id), start: String(r.start_time || '').slice(0, 5), dur: Number(r.dm) || 20 };
+      const sub = subs.get(Number(r.id));
+      const tid = sub || String(r.teacher_id);
       if (!out.has(tid)) out.set(tid, []);
-      out.get(tid)!.push({ start: String(r.start_time || '').slice(0, 5), dur: Number(r.dm) || 20 });
+      out.get(tid)!.push(iv);
+      /* keepOriginal: 대체가 잡힌 수업의 «원래 강사» 도 바쁨으로 둔다(빈 강사 화면 — 보수적).
+         대체는 대개 원래 강사가 못 오는 날이라, «비었다» 고 학원에 답하면 안 된다. 그날 수업 수(teacherDayCounts)는 안 씀. */
+      if (opts.keepOriginal && sub && sub !== String(r.teacher_id)) {
+        const ot = String(r.teacher_id);
+        if (!out.has(ot)) out.set(ot, []);
+        out.get(ot)!.push(iv);
+      }
     }
     return out;
   } catch (e) {
