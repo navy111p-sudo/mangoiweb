@@ -437,6 +437,7 @@ select.pill{max-width:min(100%,280px)}
 <script src="/js/tts-short-text.js?v=1"></script>
 <script src="/js/ai-class-engine.js?v=2"></script>
 <script src="/js/ai-class-music.js?v=1"></script>
+<script src="/js/mangoi-voice-input.js?v=5"></script>
 
 <script>
 (function(){
@@ -445,7 +446,7 @@ select.pill{max-width:min(100%,280px)}
   var $ = function(id){ return document.getElementById(id); };
   var E = window.AiClass, CAT = [], LS = [], SLIDE = {}, FILES = {}, openSeq = 0, loading = true;
   var st = null, unit = null, li = 0, busy = false, auto = false, subMode = 1, sound = !FAST, timerAt = 0, timerId = 0, seq = 0, listenTO = 0, lastTarget = '', lastMiss = null;
-  var lastListen = null, askBusy = false, askN = 0, askRec = null;   // ✋ 학생 질문
+  var lastListen = null, askBusy = false, askN = 0, askRec = null, askTok = 0, askWD = 0;   // ✋ 학생 질문
   var MU = window.AiClassMusic || null, streak = 0, curStage = 0;   // 🎵 소리 모듈 · 연속 정답 · 지금 단계
   // 📶 교재 레벨 — 8단계 중 어디인가 (2026-10-09)
   //  BTS N 의 N 이 교재 Lv 이고, 단계 구간은 서버 정본 BAND_SPECS(src/judgment-level.ts)·웜업 LEVEL_CATALOG 와 같은 값이다
@@ -856,12 +857,13 @@ select.pill{max-width:min(100%,280px)}
   function talkNote(){ missChip('🎙 마이크를 쓸 수 없어요 — 주소창의 🔒 에서 마이크를 허락하거나, 아래에서 골라 보내 주세요'); fillChoices(); $('sim').hidden = false; }
   function armTalk(){
     if (!talk || auto || !st || st.phase !== 'await' || busy) return;
+    if (askRec || askTok % 2) return;   // ✋ 질문 마이크를 켜는 중·듣는 중이면 수업 마이크를 다시 켜지 않는다(크롬은 음성인식을 한 번에 하나만 돌린다)
     var t = st.plan[st.i]; if (!t || t.t === 'find') return;
     if (!SR || recBlocked) return talkNote();
     startRec();
   }
   function startRec(){
-    stopRec();
+    stopRec(); askRecStop();
     var my = seq, idx = st.i, heard = null, last = '', done = false, r;
     try { r = new SR(); } catch (e) { recBlocked = true; return talkNote(); }
     r.lang = 'en-US'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = false;
@@ -889,7 +891,7 @@ select.pill{max-width:min(100%,280px)}
     rec = r; micLabel(true);
     try { r.start(); } catch (e) { rec = null; recBlocked = true; talkNote(); }
   }
-  function stopRec(){ var r = rec; rec = null; micLabel(false); if (r) try { r.abort(); } catch (e) {} }
+  function stopRec(){ var r = rec; rec = null; micLabel(false); if (r) { recQuietAdd(r); try { r.abort(); } catch (e) {} } }
   // 듣고 있는 동안은 버튼 글자로 알린다(테두리만으로는 «지금 말해도 되나» 를 모른다)
   function micLabel(on){ var b = $('micBtn'); if (!b) return; b.classList.toggle('rec', !!on); var sp = b.querySelector('span'); if (sp && sp.nextSibling) sp.nextSibling.textContent = on ? '듣는 중…' : '말하기'; }
   // 자동 데모: 학생 차례이고 선생님이 말하고 있지 않을 때만 대답을 예약 (다시 듣기·데모 켜기 뒤에도 다시 건다)
@@ -972,17 +974,69 @@ select.pill{max-width:min(100%,280px)}
     return pg ? pg.lines.map(function(l){ return E.speakable(l[0]); }).filter(Boolean).slice(0, 14) : [];
   }
   function askOpen(o){ $('askBox').hidden = !o; $('askBtn').classList.toggle('on', o); $('askBtn').setAttribute('aria-expanded', o ? 'true' : 'false'); if (o) { $('sim').hidden = true; try { $('askInput').focus({ preventScroll: true }); } catch (e) {} } else askRecStop(); }
-  function askRecStop(){ var r = askRec; askRec = null; if (r) try { r.abort(); } catch (e) {} }
-  function askListen(lang){
-    if (!SR) { $('askNote').textContent = '이 브라우저는 말로 묻기를 못 해요 — 글로 적어 주세요'; return; }
+  function askRecStop(){ var r = askRec; askRec = null; clearTimeout(askWD); if (r === 'whisper') { try { window.MangoiVoice && MangoiVoice.cancel(); } catch (e) {} } else if (r) { recQuietAdd(r); try { r.abort(); } catch (e) {} } if (askTok % 2) askTok++; }
+  // 2026-10-13 사장님 「한국어로 말하기·영어로 말하기 둘 다 작동 안 돼」(화면이 「듣고 있어요」에서 그대로 멈춤)
+  //   ① 자동 말하기로 수업 마이크가 듣는 중에 abort() 하고 «곧바로» 새 음성인식을 start() 하면, 크롬은 한 번에
+  //      하나만 돌려 새 것이 이벤트 없이 멈춘다 → 앞의 것이 실제로 끝날 때(onend, 최대 0.8초)까지 기다린 뒤 켠다.
+  //   ② 그래도 브라우저 음성인식이 안 돌면(시작 신호 없음·서비스 오류·아무것도 못 듣고 끝남) 녹음 + 서버 Whisper 로
+  //      한 번 더 받는다(js/mangoi-voice-input.js — 웜업이 쓰는 그 경로). 「듣고 있어요」에 영영 머물지 않는다.
+  //   ⛔ 둘을 동시에 열지 않는다(안드로이드 일부는 오디오 입력이 하나뿐) — 음성인식을 끝낸 «뒤» 에 녹음한다.
+  function recEnded(r){ return new Promise(function(res){ if (!r || r === 'whisper') return res(); var t = setTimeout(res, 800); try { r.addEventListener('end', function(){ clearTimeout(t); setTimeout(res, 60); }, { once: true }); } catch (e) { clearTimeout(t); res(); } }); }
+  // 끄라고 한(abort) 음성인식이 «전부» 끝날 때까지의 약속 — 버튼을 연달아 눌러도 앞서 끈 것이 다 끝난 뒤에 켠다
+  var recQuiet = Promise.resolve();
+  function recQuietAdd(r){ var p = recEnded(r); recQuiet = Promise.all([recQuiet, p]); }
+  var ASK_START_MS = 4000;   // 이 안에 시작 신호(onstart·onaudiostart)가 없으면 멈춘 것으로 본다
+  function askNoteSet(t, tok){ if (tok === askTok) $('askNote').textContent = t; }
+  async function askViaWhisper(lang, tok){
+    if (tok !== askTok || $('askBox').hidden) return;
+    if (!window.MangoiVoice || !MangoiVoice.supported()) { askRec = null; askTok++; $('askNote').textContent = '이 브라우저는 말로 묻기를 못 해요 — 글로 적어 주세요'; return; }
+    askRec = 'whisper';
+    var wl = /^ko/i.test(lang) ? 'ko' : 'en';
+    var said = await MangoiVoice.record({ lang: wl, firstMs: 9000, silenceMs: 1600, maxMs: 20000, onState: function(st2, info){
+      if (st2 === 'ready') askNoteSet('🎙 마이크 준비 중…', tok);
+      else if (st2 === 'waiting') askNoteSet('🎙 지금 말해 보세요 — 말을 마치면 바로 물어봐요', tok);
+      else if (st2 === 'speaking') askNoteSet('🎙 듣는 중…', tok);
+      else if (st2 === 'thinking') askNoteSet('🎧 말한 내용을 받아 적는 중…', tok);
+      else if (st2 === 'error') askNoteSet(info && info.reason === 'denied' ? '마이크를 쓸 수 없어요 — 주소창의 🔒 에서 허락하거나 글로 적어 주세요' : info && info.reason === 'no_audio' ? '🎙 소리가 들어오지 않았어요 — 다시 누르고 말하거나 글로 적어 주세요' : '🎙 말을 받아 적지 못했어요 — 다시 누르거나 글로 적어 주세요', tok);
+    } });
+    if (tok !== askTok || askRec !== 'whisper') return;   // 그사이 닫았거나 다른 버튼을 눌렀다
+    askRec = null; askTok++;
+    said = String(said || '').trim();
+    if (said) { $('askInput').value = said; askTeacher(said); }
+    else if (/준비 중|지금 말해|듣는 중|받아 적는 중/.test($('askNote').textContent)) $('askNote').textContent = '🎙 잘 못 알아들었어요 — 다시 누르고 또박또박 말하거나 글로 적어 주세요';
+  }
+  async function askListen(lang){
     stopRec(); askRecStop();
-    var r; try { r = new SR(); } catch (e) { $('askNote').textContent = '마이크를 쓸 수 없어요 — 글로 적어 주세요'; return; }
+    var tok = ++askTok; if (!(tok % 2)) tok = ++askTok;   // 홀수 = 질문 마이크를 켜는 중·듣는 중
+    $('askNote').textContent = '🎙 마이크 준비 중…';
+    await recQuiet;
+    if (tok !== askTok || $('askBox').hidden) return;      // 그사이 닫았거나 다른 버튼을 눌렀다
+    if (!SR) return askViaWhisper(lang, tok);
+    var r; try { r = new SR(); } catch (e) { return askViaWhisper(lang, tok); }
     r.lang = lang; r.interimResults = true; r.maxAlternatives = 1; r.continuous = false;
+    var alive = false, gotText = false;
+    var fallback = function(){ if (askRec !== r) return; clearTimeout(askWD); askRec = null; recQuietAdd(r); try { r.abort(); } catch (e) {} recQuiet.then(function(){ askViaWhisper(lang, tok); }); };
+    var up = function(){ alive = true; clearTimeout(askWD); };
+    r.onstart = up; r.onaudiostart = up; r.onspeechstart = up;
+    r.onresult = function(e){ if (askRec !== r) return; up(); var txt = '', fin = false; for (var k = 0; k < e.results.length; k++) { txt += e.results[k][0].transcript; if (e.results[k].isFinal) fin = true; } if (txt.trim()) gotText = true; $('askInput').value = txt; if (fin && txt.trim()) { askRec = null; askTok++; askTeacher(txt); } };
+    r.onerror = function(e){
+      if (askRec !== r) return; clearTimeout(askWD);
+      var er = String(e.error || '');
+      if (/not-allowed|audio-capture/.test(er)) { askRec = null; askTok++; $('askNote').textContent = '마이크를 쓸 수 없어요 — 주소창의 🔒 에서 허락하거나 글로 적어 주세요'; return; }
+      if (er === 'no-speech' && alive) { askRec = null; askTok++; $('askNote').textContent = '🎙 소리가 들어오지 않았어요 — 다시 누르고 말하거나 글로 적어 주세요'; return; }
+      fallback();   // network·service-not-allowed·aborted·language-not-supported 등 — 녹음으로 한 번 더
+    };
+    r.onend = function(){
+      if (askRec !== r) return; clearTimeout(askWD);
+      var v = $('askInput').value.trim();
+      if (v) { askRec = null; askTok++; return askTeacher(v); }
+      if (!alive) return fallback();   // 시작 신호도 없이 끝났다 = 브라우저 음성인식이 안 돈다
+      askRec = null; askTok++; $('askNote').textContent = '🎙 소리가 들어오지 않았어요 — 다시 누르고 말하거나 글로 적어 주세요';
+    };
     $('askNote').textContent = '🎙 듣고 있어요… 말을 마치면 바로 물어봐요';
-    r.onresult = function(e){ if (askRec !== r) return; var txt = '', fin = false; for (var k = 0; k < e.results.length; k++) { txt += e.results[k][0].transcript; if (e.results[k].isFinal) fin = true; } $('askInput').value = txt; if (fin) { askRec = null; askTeacher(txt); } };
-    r.onerror = function(e){ if (askRec !== r) return; askRec = null; $('askNote').textContent = /not-allowed|service-not-allowed|audio-capture/.test(e.error || '') ? '마이크를 쓸 수 없어요 — 주소창의 🔒 에서 허락하거나 글로 적어 주세요' : '잘 못 들었어요 — 다시 말하거나 글로 적어 주세요'; };
-    r.onend = function(){ if (askRec !== r) return; askRec = null; var v = $('askInput').value.trim(); if (v) askTeacher(v); else $('askNote').textContent = '🎙 소리가 들어오지 않았어요 — 다시 누르고 말하거나 글로 적어 주세요'; };
-    askRec = r; try { r.start(); } catch (e) { askRec = null; $('askNote').textContent = '마이크를 쓸 수 없어요 — 글로 적어 주세요'; }
+    askRec = r;
+    askWD = setTimeout(fallback, ASK_START_MS);   // 안전망: 시작 신호가 없으면 녹음 경로로
+    try { r.start(); } catch (e) { clearTimeout(askWD); askRec = null; askViaWhisper(lang, tok); }
   }
   function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
   async function askTeacher(q){
