@@ -85,7 +85,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
 <div class="wrap">
   <div class="top">
     <div class="tag" data-ko="망고아이 A.i 동화책 · <b>심화1</b>" data-en="Mangoi A.i Storybook · <b>Advanced 1</b>">망고아이 A.i 동화책 · <b>심화1</b></div>
-    <div class="topbtns"><button class="lang" id="bgm" type="button" aria-pressed="true">🎵 음악 끄기</button><button class="lang" id="lang" type="button">EN</button></div>
+    <div class="topbtns"><button class="lang" id="bgm" type="button" aria-pressed="true">🎵 음악 끄기</button></div>
   </div>
 
   <header>
@@ -134,11 +134,12 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
     <p id="sumText"></p>
     <div class="btns"><button class="b" type="button" id="checkSum" data-ko="정답 확인" data-en="Check">정답 확인</button></div>
     <div id="sumFb"></div>
+    <div id="sumCard"></div>
   </section>
 
   <section class="page" id="wordsec">
     <h2 data-ko="④ 핵심단어" data-en="④ Key words">④ 핵심단어</h2>
-    <p class="howto" data-ko="🔊 를 눌러 발음을 듣고 예문을 따라 읽은 뒤, 아래 «뜻 맞히기 게임» 을 끝까지 풀어 보세요." data-en="Tap 🔊 to hear each word and read the example, then finish the word game below.">🔊 를 눌러 발음을 듣고 예문을 따라 읽은 뒤, 아래 «뜻 맞히기 게임» 을 끝까지 풀어 보세요.</p>
+    <p class="howto" data-ko="🔊 를 눌러 발음을 듣고 예문을 따라 읽은 뒤, 아래 «뜻 맞히기 게임» 을 끝까지 풀어 보세요. 뜻은 게임을 끝내면 열려요." data-en="Tap 🔊 to hear each word and read the example, then finish the word game below. Meanings open when you finish the game.">🔊 를 눌러 발음을 듣고 예문을 따라 읽은 뒤, 아래 «뜻 맞히기 게임» 을 끝까지 풀어 보세요. 뜻은 게임을 끝내면 열려요.</p>
     <div class="words" id="words"></div>
     <div class="wq" id="wq"></div>
   </section>
@@ -196,12 +197,40 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
   <p class="note" data-ko="이 이야기는 망고아이가 새로 쓴 오리지널입니다. 다른 교재·동화책의 문장, 캐릭터, 그림은 쓰지 않았습니다. 삽화는 Higgsfield AI 로 이 이야기를 위해 새로 그렸습니다." data-en="This is an original Mangoi story. No sentences, characters or pictures from other books are used. The illustrations were newly made for this story with Higgsfield AI.">이 이야기는 망고아이가 새로 쓴 오리지널입니다. 다른 교재·동화책의 문장, 캐릭터, 그림은 쓰지 않았습니다. 삽화는 Higgsfield AI 로 이 이야기를 위해 새로 그렸습니다.</p>
 </div>
 
+<style>
+/* 원장님 의견 반영 (2026-10-13): ④ 뜻 가리기 · ③ 요점정리 영어 글 카드 · ⑥ 바꿔 쓰기 점검 */
+.ko-peek{justify-self:start;border:1px dashed var(--line);background:var(--chip);color:var(--soft);border-radius:8px;padding:3px 10px;font-family:var(--ko);font-size:13px;font-weight:700}
+.sumcard{margin-top:14px;border:1px solid var(--line);border-radius:14px;background:var(--paper);padding:14px 16px;display:grid;gap:10px}
+.sumcard-k{font-size:13px;font-weight:800;letter-spacing:.06em;color:var(--umbrella)}
+.sumcard-p{margin:0;font-size:17px;line-height:1.9}
+.sumcard .ss{border-radius:4px;padding:1px 2px}
+.sumcard .ss.reading{background:var(--mark);box-shadow:inset 0 -2px 0 var(--umbrella)}
+.sumcard-k2{font-family:var(--ko);font-size:13px;font-weight:700;color:var(--soft)}
+.sumcard-wps{margin:0;padding-left:18px;display:grid;gap:4px;font-size:15px}
+.sumcard-wps b{color:var(--umbrella);margin-right:4px}
+.wfix{margin-top:12px;border:1px solid var(--no);background:var(--nobg);border-radius:12px;padding:12px 14px;display:grid;gap:8px;color:var(--ink)}
+.fb .wfix{border-color:var(--line);background:var(--paper)}
+.wfix p{margin:0}
+.wfix-h{font-family:var(--ko);font-weight:800;color:var(--no)}
+.fb .wfix-h{color:var(--ok)}
+.wfix-row{font-size:16px}
+.wfix-row b{font-family:var(--ko);font-size:13px;color:var(--soft);margin-right:6px}
+.wfix-row .en{font-family:var(--body);font-weight:700}
+.wfix .del{color:var(--no);text-decoration:line-through;text-decoration-thickness:2px}
+.wfix .ins{color:var(--ok);background:var(--okbg);border-radius:4px;padding:0 3px}
+.wfix-why{margin:0;padding-left:18px;font-family:var(--ko);font-size:14px;display:grid;gap:3px}
+.wfix-note{font-family:var(--ko);font-size:13px;color:var(--soft)}
+</style>
+<script src="/js/story-kit.js?v=1"></script>
+<script defer src="/js/story-dict.js?v=1"></script>
 <script>
 /* STORY-CORE-START — 채점·판정 정본(DOM 없음). 하니스(story_books_harness)가 이 블록을 오려 내 실제로 돌립니다.
    ⛔ 화면 코드에 같은 판정을 다시 적지 마세요 — 한쪽만 고쳐지는 사고가 납니다. */
 var STORY_POINTS = 10;          // ⚠️ 서버 규칙 story_read 금액과 같아야 합니다(api-points.ts)
 var STORY_RULE = 'story_read';
 var STORY_ID = 'birthday-cake';
+// ⑥ 바꿔 쓰기 칸 종류 — 'vp' = 동사로 시작(Let’s ___), 'cl' = 주어+동사(because ___). StoryKit.review 가 이것으로 점검합니다.
+var WRITE_SLOTS = ['cl','cl'];
 // ⑥ 바꿔 쓰기 틀 — «I think ___ because ___.» (정본은 아래 cleanW·buildSentence·checkWrite 가 이것만 읽습니다)
 var WRITE_PAT = { pre: "I think", mid: "because", sep: " ", preRe: new RegExp("^i\\s+think\\s+", 'i'), midRe: new RegExp("^because\\s+", 'i') };
 var StoryCore = (function(){
@@ -248,6 +277,7 @@ var StoryCore = (function(){
     a = cleanW(a); b = cleanB(b);
     return (a && b) ? WRITE_PAT.pre + ' ' + a + WRITE_PAT.sep + WRITE_PAT.mid + ' ' + b + '.' : '';
   }
+  function splitW(a, b){ return [cleanW(a), cleanB(b)]; }
   function checkWrite(a, b){
     var ca = cleanW(a), cb = cleanB(b);
     if (!ca || !cb) return { ok: false, why: 'empty' };
@@ -259,10 +289,13 @@ var StoryCore = (function(){
   // 🔤 뜻 맞히기 — seed 로 섞되 같은 seed 면 같은 문제(검사에서 재현)
   function rng(seed){ var x = (seed >>> 0) || 1; return function(){ x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; }
   function shuffle(arr, r){ var a = arr.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(r() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
-  function wordQuiz(words, seed){
+  // pool(선택) = 다른 책 낱말의 한국어 뜻 — 주면 오답 2개 중 1개를 거기서 골라 «남은 것 지우기» 로 못 맞히게 합니다(원장님 의견 4).
+  function wordQuiz(words, seed, pool){
     var r = rng(seed), order = shuffle(words.map(function(_, i){ return i; }), r);
     return order.map(function(i){
-      var others = shuffle(words.map(function(_, j){ return j; }).filter(function(j){ return j !== i; }), r).slice(0, 2);
+      var usePool = pool && pool.length ? pool.filter(function(p){ return p !== words[i][1]; }) : null;
+      var others = shuffle(words.map(function(_, j){ return j; }).filter(function(j){ return j !== i; }), r).slice(0, usePool && usePool.length ? 1 : 2);
+      if (usePool && usePool.length) others.push(shuffle(usePool, r)[0]);
       var opts = shuffle([i].concat(others), r);
       return { en: words[i][0], idx: i, opts: opts, ans: opts.indexOf(i) };
     });
@@ -289,7 +322,7 @@ var StoryCore = (function(){
   }
   function kstDay(now){ var d = new Date((now == null ? Date.now() : now) + 9 * 3600 * 1000); return d.toISOString().slice(0, 10); }
   return { STAMPS: STAMPS, normQ: normQ, gradeKey: gradeKey, gradeSum: gradeSum, gradeQ: gradeQ, toggleEvidence: toggleEvidence,
-           HANGUL: HANGUL, cleanW: cleanW, cleanB: cleanB, buildSentence: buildSentence, checkWrite: checkWrite, wordQuiz: wordQuiz,
+           HANGUL: HANGUL, cleanW: cleanW, cleanB: cleanB, buildSentence: buildSentence, checkWrite: checkWrite, splitW: splitW, wordQuiz: wordQuiz,
            allDone: allDone, countDone: countDone, shouldEarn: shouldEarn, earnView: earnView, isSiteHost: isSiteHost, kstDay: kstDay };
 })();
 /* STORY-CORE-END */
@@ -341,15 +374,15 @@ var StoryCore = (function(){
   function storyDone(k){ try { if (window.StoryFun) window.StoryFun.done(k); } catch(e){} }
 
   var lang = 'ko';
-  try { lang = localStorage.getItem('story_lang') || 'ko'; } catch(e){}
+  // 원장님 의견 2 (2026-10-13): 심화반 학생 화면은 한국어 안내 고정 — EN/한국어 버튼을 뺐습니다(영어 글은 처음부터 영어).
   function t(ko,en){ return lang === 'en' ? en : ko; }
   function applyLang(){
     document.documentElement.lang = lang;
     document.querySelectorAll('[data-ko]').forEach(function(el){ el.innerHTML = el.getAttribute(lang === 'en' ? 'data-en' : 'data-ko'); });
-    document.getElementById('lang').textContent = lang === 'en' ? '한국어' : 'EN';
+    var langBtn0 = document.getElementById('lang'); if (langBtn0) langBtn0.textContent = lang === 'en' ? '한국어' : 'EN';
     renderQs(); renderWords(); renderWQ(); renderEnds(); paintWrite();
   }
-  document.getElementById('lang').addEventListener('click', function(){
+  (document.getElementById('lang') || document.createElement('i')).addEventListener('click', function(){
     lang = lang === 'en' ? 'ko' : 'en';
     try { localStorage.setItem('story_lang', lang); } catch(e){}
     applyLang();
@@ -373,7 +406,7 @@ var StoryCore = (function(){
       synth.speak(u);
     } catch(e){ if (onend) onend(); }
   }
-  function stop(){ try { if (synth) synth.cancel(); } catch(e){} playing = false; try { spans.forEach(function(s){ s.classList.remove('reading'); }); } catch(e){} }
+  function stop(){ try { if (synth) synth.cancel(); } catch(e){} playing = false; sumSeq = (sumSeq || 0) + 1; try { spans.forEach(function(s){ s.classList.remove('reading'); }); } catch(e){} }
 
   // ---- story ----
   var SCENES = {"4":["img/story/birthday-cake-s4.webp","Mia and Ben find crumbs and a paw print in the kitchen"],"7":["img/story/birthday-cake-s7.webp","Biscuit sleeps in his doghouse with pink cream on his nose"]};
@@ -463,21 +496,56 @@ var StoryCore = (function(){
     if (empty) { fb.innerHTML = '<div class="fb no"><p>' + t('빈칸 ' + empty + '개가 남았어요.', empty + ' blank(s) left.') + '</p></div>'; return; }
     var full = gs.full; if (full) storyDone('sum');
     fb.innerHTML = '<div class="fb ' + (full ? 'ok' : 'no') + '"><p>' +
-      (full ? t('모두 정답! 이제 이 요점정리를 소리 내어 한 번 읽어 보세요.','All correct! Now read the summary out loud once.')
+      (full ? t('모두 정답! 아래 영어 요점정리를 눈으로 따라가며 듣고, 소리 내어 한 번 읽어 보세요.','All correct! Listen while you follow the summary below, then read it out loud once.')
             : t(sels.length + '개 중 ' + ok + '개 맞았어요. 빨간 칸을 본문에서 다시 찾아보세요.', ok + ' of ' + sels.length + ' correct. Find the red ones in the story again.')) +
-      '</p>' + (full ? '<div class="btns"><button class="b" type="button" id="readSum">▶ ' + t('요점정리 듣기','Listen to the summary') + '</button></div>' : '') + '</div>';
-    if (full) document.getElementById('readSum').addEventListener('click', function(){ stop(); say(sumText.textContent.replace(/______/g,'')); });
+      '</p></div>';
+    if (full) { try { localStorage.setItem(SUMKEY, '1'); } catch(e){} renderSumCard(); }
   });
 
+  // ---- ③ 요점정리 영어 글 카드 (원장님 의견 5 · 2026-10-13) ----
+  //      빈칸을 «다 맞힌 뒤» 에만 그립니다(그 전에 그리면 빈칸의 답이 보입니다). 한 번 맞히면 이 기기에서는 다음에도 보입니다.
+  var SUMKEY = 'story_' + STORY_ID + '_sumopen', sumSeq = sumSeq || 0;
+  function sumFullText(){ return SUM.map(function(x){ return x.pre + (x.ans || ''); }).join('').replace(/\s+/g, ' ').trim(); }
+  function renderSumCard(){
+    var el = document.getElementById('sumCard'); if (!el) return;
+    var full = sumFullText(), sents = full.match(/[^.!?]+[.!?]+/g) || [full];
+    var wps = Array.prototype.map.call(document.querySelectorAll('#sumsec .box'), function(b){ var k = b.querySelector('.k'), a = b.querySelector('.a'); return (k && a) ? '<li><b>' + esc(k.textContent) + '</b>' + esc(a.textContent) + '</li>' : ''; }).join('');
+    el.innerHTML = '<div class="sumcard"><div class="sumcard-k">📝 MY SUMMARY</div><p class="sumcard-p">' +
+      sents.map(function(s, i){ return '<span class="ss" data-si="' + i + '">' + esc(s.trim()) + '</span>'; }).join(' ') + '</p>' +
+      '<div class="btns"><button class="b" type="button" id="readSum">▶ ' + t('요점정리 듣기','Listen to the summary') + '</button><button class="b ghost" type="button" id="stopSum">■ ' + t('멈추기','Stop') + '</button></div>' +
+      (wps ? '<div class="sumcard-k2">' + t('나중에 스스로 요점정리할 때 쓰는 틀','A frame for writing your own summary') + '</div><ul class="sumcard-wps">' + wps + '</ul>' : '') + '</div>';
+  }
+  document.getElementById('sumCard').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (!b) return;
+    var ss = this.querySelectorAll('.ss');
+    function clear(){ Array.prototype.forEach.call(ss, function(s){ s.classList.remove('reading'); }); }
+    if (b.id === 'stopSum') { stop(); clear(); return; }
+    if (b.id !== 'readSum') return;
+    stop(); var my = ++sumSeq, i = 0;
+    (function next(){ clear(); if (my !== sumSeq || i >= ss.length) return; var cur = ss[i++]; cur.classList.add('reading'); say(cur.textContent, next); })();
+  });
+  try { if (localStorage.getItem(SUMKEY)) renderSumCard(); } catch(e){}
+
   // ---- words ----
+  // 원장님 의견 4 (2026-10-13): 뜻 맞히기를 끝내기 전에는 카드의 한국어 뜻을 가립니다. 눌러서 보면 그 낱말은 게임에 한 번 더 나옵니다.
+  var WOPENKEY = 'story_' + STORY_ID + '_wordsopen', WPEEK = {}, wordsOpen = false;
+  try { wordsOpen = !!localStorage.getItem(WOPENKEY); } catch(e){}
+  function wqAgain(i){
+    if (!WQS || WQS.over) return;
+    for (var k = 0; k < WQS.list.length; k++) if (WQS.list[k].idx === i) { WQS.list.push(JSON.parse(JSON.stringify(WQS.list[k]))); break; }
+    renderWQ();
+  }
   function renderWords(){
     var w = document.getElementById('words');
     w.innerHTML = WORDS.map(function(x, i){
       return '<div class="w"><div class="row"><span class="en">' + x[0] + '</span><button class="spk" type="button" data-i="' + i + '" aria-label="listen ' + x[0] + '">🔊</button></div>' +
-        (lang === 'en' ? '' : '<span class="ko">' + x[1] + '</span>') + '<span class="ex">' + x[2] + '</span></div>';
+        (lang === 'en' ? '' : (wordsOpen || WPEEK[i]) ? '<span class="ko">' + x[1] + '</span>' : '<button type="button" class="ko-peek" data-peek="' + i + '">' + t('🙈 뜻은 게임 뒤에 · 눌러서 보기','🙈 Meaning hidden · tap to see') + '</button>') + '<span class="ex">' + x[2] + '</span></div>';
     }).join('');
     w.querySelectorAll('.spk').forEach(function(b){
       b.addEventListener('click', function(){ var x = WORDS[+b.dataset.i]; stop(); say(x[0], function(){ say(x[2].replace(/<[^>]+>/g,'')); }); });
+    });
+    w.querySelectorAll('.ko-peek').forEach(function(b){
+      b.addEventListener('click', function(){ var i = +b.dataset.peek; WPEEK[i] = 1; wqAgain(i); renderWords(); });
     });
   }
 
@@ -498,11 +566,11 @@ var StoryCore = (function(){
         return '<button type="button" class="' + cls + '" data-q="' + qi + '" data-e="' + ei + '" aria-pressed="' + picked + '"' + (st.done ? ' disabled' : '') + '>' + esc(e) + '</button>';
       }).join('');
       var fb = '';
-      if (st.res) fb = '<div class="fb ' + (st.res.full ? 'ok' : 'no') + '"><p>' + st.res.msg + '</p><p>' + t(q.why[0], q.why[1]) + '</p>' +
+      if (st.res) fb = '<div class="fb ' + (st.res.full ? 'ok' : 'no') + '"><p>' + st.res.msg + '</p><p>' + q.why[0] /* 원장님 의견 3: 근거 설명은 한국어 고정 */ + '</p>' +
         (st.done ? '<div class="btns"><button type="button" class="b ghost" data-show="' + qi + '">' + t('본문에서 근거 보기','Show evidence in the story') + '</button>' +
           (st.res.full ? '' : '<button type="button" class="b ghost" data-retry="' + qi + '">' + t('다시 풀기','Try again') + '</button>') + '</div>' : '') + '</div>';
       return '<div class="qcard"><div class="qtype">Q' + (qi + 1) + ' · ' + t(q.type[0], q.type[1]) + '</div>' +
-        '<p class="qq">' + esc(q.q) + '</p>' + (lang === 'en' ? '' : '<p class="qko">' + q.qko + '</p>') +
+        '<p class="qq">' + esc(q.q) + '</p>' +   /* 원장님 의견 2: 질문 아래 한국어 번역 줄은 그리지 않습니다 (q.qko 데이터는 남김) */
         '<div class="step">' + t('1단계 · 답 고르기','Step 1 · Choose the answer') + '</div><div class="opts">' + opts + '</div>' +
         '<div class="step">' + t('2단계 · ', 'Step 2 · ') + t(q.evq[0], q.evq[1]) + ' <span class="cnt">' + st.e.length + '/' + need + '</span></div><div class="evs">' + evs + '</div>' +
         (st.done ? '' : '<div class="btns"><button type="button" class="b" data-check="' + qi + '">' + t('정답 확인','Check') + '</button></div>') + fb + '</div>';
@@ -555,28 +623,74 @@ var StoryCore = (function(){
     wprev.innerHTML = s ? esc(s) : '<span class="ph">' + t('두 칸을 채우면 여기에 내 문장이 만들어져요.','Fill both blanks to build your sentence here.') + '</span>';
     try { localStorage.setItem(WKEY + 'a', wa.value); localStorage.setItem(WKEY + 'b', wb.value); } catch(e){}
   }
-  [wa, wb].forEach(function(el){ el.addEventListener('input', function(){ wfb.innerHTML = ''; paintWrite(); }); });
+  [wa, wb].forEach(function(el){ el.addEventListener('input', function(){ wfb.innerHTML = ''; WFIX = null; WLISTEN = null; paintWrite(); }); });
   document.querySelectorAll('#mywrite .chip').forEach(function(c){
     c.addEventListener('click', function(){ wa.value = c.dataset.a; wb.value = c.dataset.b; wfb.innerHTML = ''; paintWrite(); });
+  });
+  // ---- ⑥ 바꿔 쓰기 «규칙 점검» (원장님 의견 1 · 2026-10-13) — 판정 정본은 /js/story-kit.js 의 StoryKit.review
+  //      문법이 틀리면 도장 없이 «고친 문장» 을 보여 주고, «고친 문장으로 바꾸기» → «🔊 내 문장 듣기» 까지 하면 도장.
+  //      ⛔ StoryKit 이 없으면(불러오기 실패) 예전처럼 그대로 완성 — 점검 때문에 못 끝내는 아이가 없게.
+  var KIT_WORDS = (function(){ var a = []; STORY.forEach(function(p){ p.forEach(function(s){ a.push(s[0]); }); }); WORDS.forEach(function(x){ a.push(x[0], x[2].replace(/<[^>]+>/g, '')); }); document.querySelectorAll('#mywrite .chip').forEach(function(c){ a.push(c.dataset.a, c.dataset.b); }); return a; })();
+  var WFIX = null, WLISTEN = null;
+  function storyReview(){
+    if (!window.StoryKit || !StoryKit.review) return null;
+    try { var p = StoryCore.splitW(wa.value, wb.value); return StoryKit.review(p[0], p[1], WRITE_SLOTS, KIT_WORDS); } catch(e){ return null; }
+  }
+  function markWords(s, set, cls){
+    return String(s).split(' ').map(function(w){ var k = w.toLowerCase().replace(/[.,!?’']+$/g, ''); return set[k] ? '<span class="' + cls + '">' + esc(w) + '</span>' : esc(w); }).join(' ');
+  }
+  function showFix(r, passed){
+    var mine = sentence(), fixed = StoryCore.buildSentence(r.a, r.b), fromW = {}, toW = {};
+    r.issues.forEach(function(x){
+      String(x.from || '').toLowerCase().split(' ').forEach(function(y){ if (y) fromW[y] = 1; });
+      String(x.to || '').toLowerCase().split(' ').forEach(function(y){ if (y) toW[y] = 1; });
+    });
+    WFIX = { a: r.a, b: r.b };
+    var html = '<div class="wfix"><p class="wfix-h">' + (passed ? t('완성! 철자도 한 번 확인해 보세요.','Done! Check the spelling once.') : t('고칠 곳이 있어요. 고친 문장과 비교해 보세요.','Something to fix. Compare with the corrected sentence.')) + '</p>' +
+      '<p class="wfix-row"><b>' + t('내 문장','Mine') + '</b><span class="en">' + markWords(mine, fromW, 'del') + '</span></p>' +
+      '<p class="wfix-row"><b>' + t('고친 문장','Corrected') + '</b><span class="en">' + markWords(fixed, toW, 'ins') + '</span></p>' +
+      '<ul class="wfix-why">' + r.issues.map(function(x){ return '<li>' + esc(t(x.ko, x.en)) + '</li>'; }).join('') + '</ul>' +
+      '<div class="btns"><button type="button" class="b" id="wapply">' + t('✏️ 고친 문장으로 바꾸기','✏️ Use the corrected sentence') + '</button>' +
+      (passed ? '' : '<button type="button" class="b ghost" id="wredo">' + t('내가 다시 고쳐 보기','I will fix it myself') + '</button>') + '</div>' +
+      (passed ? '' : '<p class="wfix-note">' + t('고친 문장으로 바꾼 뒤 «🔊 내 문장 듣기» 를 누르면 도장을 받아요. 직접 고쳐서 다시 «완성하기» 를 눌러도 돼요.','Use the corrected sentence and tap “🔊 Hear my sentence” to get the stamp, or fix it yourself and tap “Finish” again.') + '</p>') + '</div>';
+    if (passed) { var box = wfb.querySelector('.fb'); if (box) box.insertAdjacentHTML('beforeend', html); else wfb.innerHTML = html; }
+    else wfb.innerHTML = html;
+  }
+  wfb.addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (!b) return;
+    if (b.id === 'wapply' && WFIX) {
+      wa.value = WFIX.a; wb.value = WFIX.b; WFIX = null; paintWrite(); WLISTEN = sentence();
+      wfb.innerHTML = '<div class="fb ok"><p>' + t('바꿨어요! 이제 «🔊 내 문장 듣기» 를 눌러 고친 문장을 들어 보세요.','Changed! Now tap “🔊 Hear my sentence” to listen.') + '</p><p class="en">' + esc(WLISTEN) + '</p></div>';
+      return;
+    }
+    if (b.id === 'wredo') { WFIX = null; wfb.innerHTML = ''; wa.focus(); }
   });
   document.getElementById('wcheck').addEventListener('click', function(){
     var cw = StoryCore.checkWrite(wa.value, wb.value);
     if (cw.why === 'empty') { wfb.innerHTML = '<div class="fb no"><p>' + t('빈칸 두 곳을 모두 채워 주세요.','Fill both blanks.') + '</p></div>'; return; }
     if (cw.why === 'too_long') { wfb.innerHTML = '<div class="fb no"><p>' + t('조금 짧게 써 보세요 (두 칸 합쳐 120자까지).','Make it a little shorter (120 letters in total).') + '</p></div>'; return; }
     if (cw.why === 'hangul') { wfb.innerHTML = '<div class="fb no"><p>' + t('영어로 써 보세요. 모르는 낱말은 선생님께 물어보거나 예시를 눌러 보세요.','Write it in English. Ask your teacher or try an example.') + '</p></div>'; return; }
+    var kitR = storyReview();
+    if (kitR && kitR.grammar > 0) { showFix(kitR, false); return; }   // 문법이 틀리면 도장 없이 고친 문장부터
     storyDone('write');
     wfb.innerHTML = '<div class="fb ok"><p>' + t('완성! 소리 내어 두 번 읽어 보세요. 다 쓴 문장은 선생님께 보여 주세요.','Done! Read it out loud twice, then show it to your teacher.') + '</p><p class="en">' + esc(sentence()) + '</p>' +
       (cw.more ? '<p>' + t("한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)","One more step: after “because”, try “who + does what”. (e.g. because he is smiling)") + '</p>' : '') + '</div>';
+    if (kitR && kitR.issues.length) showFix(kitR, true);   // 철자만 다르면 도장은 주고 확인만 권함
   });
   document.getElementById('wsay').addEventListener('click', function(){
     var s = sentence();
     if (!s) { wfb.innerHTML = '<div class="fb no"><p>' + t('먼저 두 칸을 채워 주세요.','Fill both blanks first.') + '</p></div>'; return; }
     if (HANGUL.test(s)) { wfb.innerHTML = '<div class="fb no"><p>' + t('영어로 쓴 문장만 읽어 줄 수 있어요.','Only English sentences can be read aloud.') + '</p></div>'; return; }
     stop(); say(s);
+    if (WLISTEN && s === WLISTEN) {   // 고친 문장으로 바꾼 뒤 들으면 도장
+      WLISTEN = null; storyDone('write');
+      wfb.innerHTML = '<div class="fb ok"><p>' + t('완성! 소리 내어 두 번 읽어 보세요. 다 쓴 문장은 선생님께 보여 주세요.','Done! Read it out loud twice, then show it to your teacher.') + '</p><p class="en">' + esc(s) + '</p></div>';
+    }
   });
 
   // ---- 🔤 뜻 맞히기 게임: 틀린 낱말은 뒤에 다시 나옵니다. 끝까지 다 맞히면 도장 ----
-  var WQS = { list: StoryCore.wordQuiz(WORDS, (Date.now() & 0xffff) || 7), i: 0, combo: 0, best: 0, tries: 0, picked: null, over: false };
+  var WQ_POOL = (window.StoryKit && StoryKit.poolFor) ? StoryKit.poolFor(STORY_ID) : null;
+  var WQS = { list: StoryCore.wordQuiz(WORDS, (Date.now() & 0xffff) || 7, WQ_POOL), i: 0, combo: 0, best: 0, tries: 0, picked: null, over: false };
   function renderWQ(){
     var box = document.getElementById('wq'); if (!box) return;
     if (WQS.over) {
@@ -589,13 +703,13 @@ var StoryCore = (function(){
       '<div class="wq-word"><span>' + esc(it.en) + '</span><button type="button" class="spk" data-wq="say" aria-label="listen">🔊</button></div>' +
       '<div class="wq-opts">' + it.opts.map(function(oi, k){
         var cls = 'wq-o' + (WQS.picked != null && k === it.ans ? ' right' : '') + (WQS.picked === k && k !== it.ans ? ' wrong' : '');
-        return '<button type="button" class="' + cls + '" data-wq="' + k + '"' + (WQS.picked != null ? ' disabled' : '') + '>' + esc(lang === 'en' ? WORDS[oi][2].replace(/<[^>]+>/g, '') : WORDS[oi][1]) + '</button>';
+        return '<button type="button" class="' + cls + '" data-wq="' + k + '"' + (WQS.picked != null ? ' disabled' : '') + '>' + esc(typeof oi !== 'number' ? oi : lang === 'en' ? WORDS[oi][2].replace(/<[^>]+>/g, '') : WORDS[oi][1]) + '</button>';
       }).join('') + '</div></div>';
   }
   document.getElementById('wq').addEventListener('click', function(ev){
     var b = ev.target.closest('button'); if (!b) return;
     var v = b.getAttribute('data-wq');
-    if (v === 'again') { WQS = { list: StoryCore.wordQuiz(WORDS, (Date.now() & 0xffff) || 9), i: 0, combo: 0, best: 0, tries: 0, picked: null, over: false }; renderWQ(); return; }
+    if (v === 'again') { WQS = { list: StoryCore.wordQuiz(WORDS, (Date.now() & 0xffff) || 9, WQ_POOL), i: 0, combo: 0, best: 0, tries: 0, picked: null, over: false }; renderWQ(); return; }
     var it = WQS.list[WQS.i];
     if (v === 'say') { stop(); say(it.en); return; }
     if (WQS.picked != null) return;
@@ -605,7 +719,7 @@ var StoryCore = (function(){
     renderWQ();
     setTimeout(function(){
       WQS.picked = null; WQS.i++;
-      if (WQS.i >= WQS.list.length) { WQS.over = true; storyDone('words'); }
+      if (WQS.i >= WQS.list.length) { WQS.over = true; storyDone('words'); wordsOpen = true; try { localStorage.setItem(WOPENKEY, '1'); } catch(e){} renderWords(); }
       renderWQ();
     }, good ? 650 : 1200);
   });
@@ -722,7 +836,7 @@ var StoryCore = (function(){
   document.addEventListener('visibilitychange', function(){
     if (!ctx) return; if (document.hidden) ctx.suspend(); else if (on) { ctx.resume(); nextT = Math.max(nextT, ctx.currentTime + 0.1); }
   });
-  document.getElementById('lang').addEventListener('click', function(){ setTimeout(label, 0); });
+  (document.getElementById('lang') || document.createElement('i')).addEventListener('click', function(){ setTimeout(label, 0); });
   label();
   window.__bgm = { isOn: function(){ return on; }, ctx: function(){ return ctx; } };
 })();
@@ -932,7 +1046,7 @@ var StoryCore = (function(){
   function reset(){ st = {}; save(); paint(); if (fin) fin.innerHTML = ''; }
   var rb = document.getElementById('stampReset');
   if (rb) rb.addEventListener('click', function(){ reset(); var el = document.getElementById('story'); if (el) el.scrollIntoView({ behavior: 'smooth' }); });
-  document.getElementById('lang').addEventListener('click', function(){ setTimeout(function(){ paint(); if (window.__storyLastEarn) finishMsg(window.__storyLastEarn); }, 0); });
+  (document.getElementById('lang') || document.createElement('i')).addEventListener('click', function(){ setTimeout(function(){ paint(); if (window.__storyLastEarn) finishMsg(window.__storyLastEarn); }, 0); });
   window.StoryFun = { done: done, state: function(){ return st; }, reset: reset, earn: earn };
   paint();
   // ⛔ 다시 열었다고 포인트를 보내지 않습니다 — 적립은 «6번째 도장을 찍는 순간» 한 번뿐입니다.
