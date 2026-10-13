@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════════
-// 📖 story-pc-size-browser — 영어 동화책 4편 «PC 에서 크게» (2026-10-13)
+// 📖 story-pc-size-browser — 영어 동화책 4편 «PC·모바일 모두 크게» (2026-10-13)
 //   진짜 Chromium 으로 4편 × 화면 폭 7가지를 열어 잰다:
-//   ① 가로 스크롤 없음  ② PC(≥1400)에서 책이 화면 폭의 45~75%  ③ 휴대폰·태블릿은 그대로(zoom 1)
+//   ① 가로 스크롤 없음  ② PC(≥1400)에서 책이 화면 폭의 45~75%
+//   ③ 휴대폰(≤600)은 zoom 1.15 · 태블릿(601~1399)은 zoom 1.1 — 글자가 실제로 커졌다
 //   ④ 본문 글자가 실제로 커졌는가(1920 에서 24px 이상)  ⑤ 도장 판이 스크롤해도 맨 위에 붙는다
 //   ⑥ 버튼 «한가운데» 를 누르면 그 버튼이 맞는다(zoom 뒤 좌표 어긋남 없음)
 //   ⑦ 도장 칸을 누르면 그 단원으로 실제로 이동  ⑧ JS 오류 0
@@ -31,7 +32,7 @@ await new Promise((r) => setTimeout(r, 900));
 let pass = 0, fail = 0;
 const ok = (c, n, x) => { if (c) pass++; else { fail++; console.log('  ❌ FAIL ' + n + (x ? ' — ' + x : '')); } };
 const PAGES = ['story-red-umbrella', 'story-birthday-cake', 'story-robot-dance', 'story-treasure-map'];
-const WIDTHS = [390, 1366, 1440, 1920, 2560, 2865, 3840];
+const WIDTHS = [360, 390, 430, 768, 1024, 1366, 1440, 1920, 2560, 2865, 3840];
 
 const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' }).catch(() => pw.chromium.launch());
 try {
@@ -59,7 +60,12 @@ try {
       });
       ok(m.sw <= m.iw, `${tag} 가로 스크롤 없음`, `${m.sw} > ${m.iw}`);
       if (W >= 1400) ok(m.w / W >= 0.45 && m.w / W <= 0.75, `${tag} 책 폭이 화면의 45~75%`, (m.w / W * 100).toFixed(1) + '%');
-      else ok(Math.abs(m.z - 1) < 1e-6, `${tag} 휴대폰·태블릿은 그대로(zoom 1)`, String(m.z));
+      else {
+        const want = W <= 600 ? 1.15 : 1.1;
+        ok(Math.abs(m.z - want) < 1e-6, `${tag} 휴대폰·태블릿 zoom ${want}`, String(m.z));
+        /* 축소 전 본문 줄 높이 25px — 모바일에서도 1.08배 이상(= 실제로 커졌다) */
+        ok(m.glyph >= 25 * 1.08, `${tag} 모바일 본문 글자가 실제로 커졌다`, m.glyph.toFixed(1));
+      }
       if (W === 1920) ok(m.pf * m.z >= 24 && m.glyph >= 24, `${tag} 본문 글자 24px 이상`, `${(m.pf * m.z).toFixed(1)} / 줄 ${m.glyph.toFixed(1)}`);
       if (W >= 1400) ok(m.glyph >= 25 * 1.1, `${tag} 본문 글자가 실제로 커졌다(축소 전 줄 높이 25px 의 1.1배 이상)`, m.glyph.toFixed(1));
 
