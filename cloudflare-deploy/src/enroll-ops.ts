@@ -62,6 +62,7 @@ import { loadTeacherNameOf } from './student-schedule-summary';   // 👩‍🏫
 import { findScheduleConflicts, activeRowsFor, findLongClassCapBlock } from './schedule-conflict';
 import { recurStartedOn, ensureStartsOnColumn, startsOnSel } from './class-start-date';   // 📅 반복 수업이 그날 열리나(시작일·그 주만 빠짐) — 정본
 import { planSeries, realConflict, normTime } from './class-series-move';   // 🔄 «변경(계속)» 시리즈 판정 정본
+import { freeTeachersOnDate } from './free-teachers-on-date';   // 👥 특정 날짜·시각 빈 강사(매니저) — 판정 정본
 import { teacherMoveDenyReason } from './class-teacher-move';   // 🔒 담당 강사 변경 게이트 정본(PATCH 와 같음)   // 📅 옮기기 승인(/decide)이 쓰는 그 겹침 검사 — 복제 금지   // 📜 수업 변경 이력(공휴일 자동연기·강사 휴가대체)
 import { ensureHolidayClosureTable, clearHolidayClosureCache, loadHolidayClosure, HOLIDAY_EXEMPT_TEACHERS_DEFAULT } from './holiday-closure';   // 🎌 공휴일 휴강(2026-10-09)
 
@@ -1846,6 +1847,21 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     return json(await moveCandidatesFor(env, row, date, time, { dayCount: true }));
   }
 
+  /* ── 👥 (2026-10-13 매니저 요청) «특정 날짜·시각에 빈 강사» — 학원이 「5시에 학생 5명」을 물을 때 바로 답한다.
+     읽기 전용. 게이트는 이 접두사의 기본값(본사 전용 — enrollAdminHqOnly)이다: 전체 강사 명단과 하루 일정이라
+     강사·지사·대리점에는 안 연다. 판정 정본은 freeTeachersOnDate(src/free-teachers-on-date.ts). */
+  if (path === '/api/pay/enroll/admin/free-teachers-on-date' && method === 'GET') {
+    const date = String(url.searchParams.get('date') || '').trim();
+    const time = String(url.searchParams.get('time') || '').trim().slice(0, 5);
+    const minutes = Number(url.searchParams.get('minutes') || DEFAULT_CLASS_MINUTES);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{1,2}:\d{2}$/.test(time) || enrollTimeToMin(time) < 0
+        || !ALLOWED_CLASS_MINUTES.includes(minutes)) {
+      return json({ ok: false, error: 'bad_params' }, 400);
+    }
+    const r = await freeTeachersOnDate(env, date, time, minutes);
+    return json(r, r.ok ? 200 : 500);
+  }
+
   /* ── 🔄 (2026-09-23 사장님) 수업 «변경» = 앞으로 계속 ──
      「연기는 지정한 날짜에 한 번이고, 변경은 계속이야.」
      body: { schedule_id, new_date, new_time, teacher_id?, apply? }
@@ -2248,10 +2264,28 @@ export async function moveCandidatesFor(env: any, row: any, date: string, time: 
  *  · 그룹 수업은 «학생마다 한 행» 이라 (강사, 시작 시각) 으로 묶어 한 번만 센다.
  *  · 그날 대체(class_substitutions)가 걸린 수업은 원래 강사가 아니라 대체 강사의 수업으로 센다. */
 export async function teacherDayCounts(env: any, date: string): Promise<Map<string, number> | null> {
+  /* 🔗 (2026-10-13 trap-check 지적) 행을 읽는 규칙은 teacherIntervalsOn 한 곳 — 여기서 다시 쓰지 않는다.
+     «그날 수업 수» 와 «빈 강사» 가 서로 다른 행을 보면 한 화면 안에서 숫자가 어긋난다. */
+  const iv = await teacherIntervalsOn(env, date);
+  if (!iv) return null;
+  const out = new Map<string, number>();
+  for (const [tid, list] of iv) out.set(tid, new Set(list.map((c) => c.start || ('#' + c.id))).size);
+  return out;
+}
+
+/** 🕐 그날(date) 강사별 «수업이 잡힌 시간» — teacher_id(원부 번호) → [{start, dur}]. 실패하면 null(모름).
+ *  행을 읽는 규칙의 정본(반복 행은 요일+recurStartedOn · 대체는 대체 강사 몫 · 자리표시 제외) —
+ *  teacherDayCounts 도 이것을 세어 «몇 회» 를 만든다(한 곳만 고치면 둘이 어긋나므로 합쳤다).
+ *  왜 따로 필요한가 (2026-10-13 매니저 «특정 날짜에 빈 강사» 화면):
+ *   · findScheduleConflicts 는 «같은 시각·같은 길이» 수업을 합반(그룹)으로 보고 겹침에서 뺀다 —
+ *     옮기기에는 맞지만 «새 학생을 받을 수 있나» 에서는 1:1 수업이 있는 강사를 «빈 강사» 로 셉니다.
+ *   · 날짜 지정 조회(one_off)는 scheduled_date 로만 좁혀 날짜 없는 «매주 반복» 행을 못 봅니다.
+ *  ⟹ 이 표로 «한 번 더» 막는다(더 엄격한 쪽으로만 — 빈 강사를 늘리지 않는다). */
+export async function teacherIntervalsOn(env: any, date: string, opts: { keepOriginal?: boolean } = {}): Promise<Map<string, Array<{ id: number; start: string; dur: number }>> | null> {
   try {
     const has = await ensureStartsOnColumn(env);
     const rs: any = await env.DB.prepare(
-      `SELECT id, teacher_id, start_time, scheduled_date, day_of_week, created_at${startsOnSel(has)}
+      `SELECT id, teacher_id, start_time, COALESCE(duration_min, 20) AS dm, scheduled_date, day_of_week, created_at${startsOnSel(has)}
          FROM class_schedules
         WHERE status = 'active' AND teacher_id IS NOT NULL AND TRIM(CAST(teacher_id AS TEXT)) <> ''
           AND (scheduled_date = ? OR ((scheduled_date IS NULL OR scheduled_date = '') AND day_of_week IS NOT NULL))
@@ -2265,21 +2299,27 @@ export async function teacherDayCounts(env: any, date: string): Promise<Map<stri
       for (const r of ((sr?.results as any[]) || [])) {
         if (r.substitute_teacher_id != null) subs.set(Number(r.schedule_id), String(r.substitute_teacher_id));
       }
-    } catch { /* 대체 표 없음 — 원래 강사로 센다 */ }
-    const slots = new Map<string, Set<string>>();
+    } catch { /* 대체 표 없음 — 원래 강사로 */ }
+    const out = new Map<string, Array<{ id: number; start: string; dur: number }>>();
     for (const r of ((rs?.results as any[]) || [])) {
       if (subScheduleDow(r.scheduled_date, r.day_of_week, date) == null) continue;
       if (!recurStartedOn(r, date)) continue;
-      const tid = subs.get(Number(r.id)) || String(r.teacher_id);
-      const key = String(r.start_time || '').slice(0, 5) || ('#' + r.id);
-      if (!slots.has(tid)) slots.set(tid, new Set());
-      slots.get(tid)!.add(key);
+      const iv = { id: Number(r.id), start: String(r.start_time || '').slice(0, 5), dur: Number(r.dm) || 20 };
+      const sub = subs.get(Number(r.id));
+      const tid = sub || String(r.teacher_id);
+      if (!out.has(tid)) out.set(tid, []);
+      out.get(tid)!.push(iv);
+      /* keepOriginal: 대체가 잡힌 수업의 «원래 강사» 도 바쁨으로 둔다(빈 강사 화면 — 보수적).
+         대체는 대개 원래 강사가 못 오는 날이라, «비었다» 고 학원에 답하면 안 된다. 그날 수업 수(teacherDayCounts)는 안 씀. */
+      if (opts.keepOriginal && sub && sub !== String(r.teacher_id)) {
+        const ot = String(r.teacher_id);
+        if (!out.has(ot)) out.set(ot, []);
+        out.get(ot)!.push(iv);
+      }
     }
-    const out = new Map<string, number>();
-    for (const [tid, set] of slots) out.set(tid, set.size);
     return out;
   } catch (e) {
-    console.warn('[enroll] teacherDayCounts:', (e as any)?.message);
+    console.warn('[enroll] teacherIntervalsOn:', (e as any)?.message);
     return null;
   }
 }

@@ -67,6 +67,7 @@ const pieces = {
   dowList: cutDecl(OPS, 'export function enrollDowList('),
   subDow: cutDecl(OPS, 'function subScheduleDow('),
   notPh: (OPS.match(/^const NOT_PLACEHOLDER = .*;$/m) || [''])[0],
+  intervals: cutDecl(OPS, 'export async function teacherIntervalsOn('),   // 2026-10-13: teacherDayCounts 가 이것을 세어 «몇 회» 를 만든다(행 읽기 정본)
   counts: cutDecl(OPS, 'export async function teacherDayCounts('),
   move: cutDecl(OPS, 'export async function moveCandidatesFor('),
 };
@@ -85,6 +86,7 @@ ${pieces.map}
 ${pieces.notPh}
 ${pieces.dowList}
 ${pieces.subDow}
+${pieces.intervals}
 ${pieces.counts}
 ${pieces.move}
 `;

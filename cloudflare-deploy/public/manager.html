@@ -177,6 +177,16 @@ input[type="search"],input[type="text"]{
   background:#2563eb;color:#fff;font-family:inherit;
 }
 .btn-gray{background:#eef1f5;color:#2c3a48;border:1px solid #d7dee6}
+/* 👥 빈 강사 찾기 (2026-10-13) */
+.fq-form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin:6px 0 8px}
+.fq-form label{display:block;font-size:13px;color:#4a5866;min-width:0}
+.fq-form label > span{display:block;margin-bottom:4px}
+.fq-in{box-sizing:border-box;min-height:44px;padding:9px 10px;border:1px solid #d7dee6;border-radius:8px;font-size:15px;font-family:inherit;color:#16202c;background:#fff}
+#fqNeed{width:90px}
+.fq-head{border-radius:10px;padding:12px 14px;margin:8px 0;font-weight:700;font-size:15px;border:1px solid}
+.fq-ok{border-color:#b9e4c8;background:#e8f7ee;color:#15803d}
+.fq-short{border-color:#f2c1c1;background:#fdecec;color:#b91c1c}
+.fq-hol{border-color:#f5d79a;background:#fff4dc;color:#b45309}
 .btn-wide{display:block;width:100%}
 
 /* 오프라인 띠 — 흰 화면 대신 «마지막으로 본 것» 임을 알린다 */
@@ -340,6 +350,11 @@ html.dark .muted{color:#8b98a6}
 html.dark .empty{color:#7f8c9a}
 html.dark input[type="search"],html.dark input[type="text"]{background:#20272f;border-color:#39434f;color:#dbe3ea}
 html.dark .btn-gray{background:#28313d;color:#d3dbe4;border-color:#39434f}
+html.dark .fq-form label{color:#aeb9c5}
+html.dark .fq-in{background:#20272f;border-color:#39434f;color:#dbe3ea;color-scheme:dark}
+html.dark .fq-ok{background:#12301f;border-color:#2c6b47;color:#7ee2a8}
+html.dark .fq-short{background:#3a201e;border-color:#7a3a35;color:#f1a49e}
+html.dark .fq-hol{background:#3a2c12;border-color:#6e5423;color:#f0c893}
 html.dark #off{background:#3a2c12;border-color:#6e5423;color:#f0c893}
 html.dark .hqhead{color:#95a2b0;border-top-color:#2b343e}
 html.dark .tag{background:#28313d;color:#aeb9c5}
@@ -800,6 +815,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <button type="button" onclick="sideGo('c-req')"><span class="ic">🗓</span><span data-en="Reschedule requests" data-ko="수업 연기 · 변경 요청">Reschedule requests</span></button>
     <button type="button" onclick="sideGo('c-today')"><span class="ic">🏫</span><span data-en="All classes today" data-ko="오늘 전체 수업">All classes today</span></button>
     <button type="button" id="sideUtil" onclick="sideGo('c-util')"><span class="ic">📈</span><span data-en="Teacher utilisation" data-ko="강사 가동률">Teacher utilisation</span></button>
+    <button type="button" id="sideFree" onclick="sideGo('c-free')" hidden><span class="ic">👥</span><span data-en="Find free teachers" data-ko="빈 강사 찾기">Find free teachers</span></button>
   </div>
   <div class="sgrp-h" data-en="Settlement &amp; stats" data-ko="정산통계관리">Settlement &amp; stats</div>
   <div class="sgrp">
@@ -1191,6 +1207,24 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <details class="card" id="c-util" ontoggle="if(this.open)loadUtil()">
     <summary><span data-en="Teacher utilisation" data-ko="강사 가동률">Teacher utilisation</span></summary>
     <div id="utilBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
+  <!-- 👥 (2026-10-13 매니저 요청 · 사장님 「특정 날짜 하루 기준」) 그 날짜·시각에 비어 있는 강사.
+       학원이 「15일 5시에 학생 5명」을 물으면 숫자로 바로 답한다.
+       서버: GET /api/pay/enroll/admin/free-teachers-on-date (판정 정본 src/free-teachers-on-date.ts).
+       ⚠️ 본사 전용 — 그 API 는 강사·지사·대리점에 403. IS_HQ 일 때만 hidden 을 푼다.
+       ⚠️ data-en/data-ko 는 안쪽 span 에만 — 그릇(freeBody)에 달면 🌐 가 결과를 지웁니다. -->
+  <details class="card" id="c-free" ontoggle="if(this.open)freeInit()" hidden>
+    <summary><span data-en="Find free teachers (date &amp; time)" data-ko="빈 강사 찾기 (날짜·시간)">Find free teachers (date &amp; time)</span></summary>
+    <div class="fq-form">
+      <label><span data-en="Date" data-ko="날짜">Date</span><input type="date" id="fqDate" class="fq-in"></label>
+      <label><span data-en="Start time (Korea, KST)" data-ko="시작 시간 (한국 시간)">Start time (Korea, KST)</span><input type="time" id="fqTime" class="fq-in" value="17:00" step="600" oninput="freeHint()"></label>
+      <label><span data-en="Class length (min)" data-ko="수업 길이 (분)">Class length (min)</span><select id="fqMin" class="fq-in"><option value="20">20</option><option value="30">30</option><option value="40">40</option></select></label>
+      <label><span data-en="Students (1:1)" data-ko="학생 수 (1:1)">Students (1:1)</span><input type="number" id="fqNeed" class="fq-in" min="1" max="99" value="1"></label>
+      <button type="button" class="btn" onclick="runFree()"><span data-en="Check" data-ko="확인">Check</span></button>
+    </div>
+    <div class="muted" id="fqHint"></div>
+    <div id="freeBody" class="empty"><span data-en="Pick a date and time, then press Check." data-ko="날짜와 시간을 고르고 «확인» 을 누르세요.">Pick a date and time, then press Check.</span></div>
   </details>
 
   <!-- ⚔️ (2026-09-30 필리핀 매니저 요청 · 사장님 A안) 같은 강사·같은 시간에 LMS(카페24) 수업과
@@ -1663,6 +1697,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     //    ⚠️ 화면을 켜는 것뿐이고 권한은 서버가 정한다 — 여기 값을 고쳐도 API 는 안 열린다.
     IS_HQ = (sc.type === 'hq');
     var _clash = document.getElementById('c-clash'); if (_clash) _clash.hidden = !IS_HQ;   // ⚔️ 본사 전용(API 가 지사·대리점에 403)
+    ['c-free', 'sideFree'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = !IS_HQ; });   // 👥 본사 전용(API 가 강사·지사·대리점에 403)
     /* 🔐 (2026-09-24) 결재함은 본사·강사 전용이다(서버 api-approval.ts 가 지사·대리점을 403).
        지사·대리점에게 결재함 버튼이 보이면 «누를 수는 있는데 들어갈 수 없는» 버튼이 된다.
        범위를 모를 때(sc.type 없음)는 감추지 않는다 — 눌러도 결재 화면이 «본사 전용» 이라고 말한다. */
@@ -1877,6 +1912,98 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       return '<div class="row"><b>' + esc(t.teacher_name || t.name || t.teacher || '-') + '</b>'
            + '<span class="num">' + pct.toFixed(0) + '%</span></div>';
     }).join('');
+  }
+
+  // ── 👥 빈 강사 찾기 (2026-10-13) ──────────────────────────────────────────
+  //    ⛔ 판정은 서버(free-teachers-on-date.ts)가 한다 — 여기서는 그리기만.
+  //    «sure» = 확실히 가능 · «check» = 우리 시간표로는 비었지만 카페24(LMS) 수업이 안 보이는 강사.
+  //    ⛔ check 를 «가능» 숫자에 섞지 말 것 — 학원에 «된다» 고 답했다가 LMS 수업과 겹친다.
+  var FQ_SEQ = 0;
+  function kstToday(){ return new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10); }
+  window.freeInit = function(){
+    var d = document.getElementById('fqDate');
+    if (d && !d.value) d.value = kstToday();
+    freeHint();
+  };
+  /* 필리핀 시간 = 한국 시간 − 1시간. 매니저 대부분이 필리핀이라 옆에 적어 준다. */
+  window.freeHint = function(){
+    var h = document.getElementById('fqHint'), t = document.getElementById('fqTime');
+    if (!h || !t) return;
+    var m = /^(\d{1,2}):(\d{2})$/.exec(t.value || '');
+    if (!m) { h.textContent = ''; return; }
+    var ph = ((Number(m[1]) + 23) % 24);
+    var phs = (ph < 10 ? '0' : '') + ph + ':' + m[2];
+    h.textContent = T('= ' + phs + ' Philippine time', '= 필리핀 시간 ' + phs);
+  };
+  window.runFree = function(){
+    var date = (document.getElementById('fqDate').value || '').trim();
+    var time = (document.getElementById('fqTime').value || '').trim().slice(0, 5);
+    var min = document.getElementById('fqMin').value;
+    var need = Math.max(1, parseInt(document.getElementById('fqNeed').value, 10) || 1);
+    var el = document.getElementById('freeBody');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{1,2}:\d{2}$/.test(time)) {
+      el.className = 'empty';
+      el.textContent = T('Please pick a date and a start time.', '날짜와 시작 시간을 골라 주세요.');
+      return;
+    }
+    var seq = ++FQ_SEQ;
+    D.free = null;
+    el.className = 'empty';
+    el.textContent = T('Checking...', '확인하는 중...');
+    get('/api/pay/enroll/admin/free-teachers-on-date?date=' + encodeURIComponent(date)
+        + '&time=' + encodeURIComponent(time) + '&minutes=' + encodeURIComponent(min), null)
+      .then(function(j){ if (seq !== FQ_SEQ) return; D.free = { j: j, need: need }; paintFree(); })
+      .catch(function(e){ if (seq !== FQ_SEQ) return; failBox(el, e); });
+  };
+  function paintFree(){
+    var F = D.free; if (!F || !F.j) return;
+    var j = F.j, need = F.need;
+    var el = document.getElementById('freeBody');
+    var sure = Array.isArray(j.sure) ? j.sure : null, check = Array.isArray(j.check) ? j.check : [];
+    if (!sure) {   // ⛔ 못 읽었는데 «0명» 이라고 말하지 않는다
+      el.className = 'empty';
+      el.textContent = T('Could not check teachers. This is NOT "nobody is free". Please try again.',
+                         '강사 일정을 확인하지 못했습니다. «빈 강사 0명» 이 아닙니다. 다시 시도해 주세요.');
+      return;
+    }
+    var when = esc(j.date) + ' ' + esc(j.time) + ' KST · ' + esc(j.duration_min) + T(' min', '분');
+    var h = '<div class="muted">' + when + '</div>';
+    if (j.holiday != null) {
+      h += '<div class="fq-head fq-hol">' + esc(T('Public holiday (no classes): ', '공휴일 휴강: ') + (j.holiday || '')) + '</div>';
+    }
+    if (j.mirror_off) {
+      h += '<div class="fq-head fq-hol">' + esc(T('Cafe24 LMS classes are not being copied right now, so every teacher needs a Cafe24 check.',
+                                                  '지금 카페24(LMS) 수업을 가져오지 않고 있어 모든 강사를 카페24에서 확인해야 합니다.')) + '</div>';
+    } else if (j.beyond_mirror) {
+      h += '<div class="fq-head fq-hol">' + esc(T('This date is more than 14 days away — Cafe24 LMS classes are not loaded yet, so every teacher needs a Cafe24 check.',
+                                                  '14일보다 먼 날짜라 카페24(LMS) 수업이 아직 들어오지 않았습니다 — 모든 강사를 카페24에서 확인해야 합니다.')) + '</div>';
+    }
+    var n = sure.length;
+    if (n >= need) {
+      h += '<div class="fq-head fq-ok">' + esc(T('✅ ' + n + ' teacher(s) free — enough for ' + need + ' student(s) (1:1).',
+                                                '✅ 빈 강사 ' + n + '명 — 학생 ' + need + '명(1:1) 배정 가능합니다.')) + '</div>';
+    } else {
+      h += '<div class="fq-head fq-short">' + esc(T('⚠️ Only ' + n + ' teacher(s) surely free — ' + (need - n) + ' short for ' + need + ' student(s) (1:1).',
+                                                   '⚠️ 확실히 빈 강사 ' + n + '명 — 학생 ' + need + '명(1:1)에 ' + (need - n) + '명 부족합니다.')) + '</div>';
+    }
+    if (check.length) {
+      h += '<div class="muted" style="margin:4px 0 8px">' + esc(T('+ ' + check.length + ' more look free here, but their Cafe24 (LMS) classes are not shown on this screen — please check Cafe24 before promising them.',
+                                                                '+ ' + check.length + '명은 여기서는 비어 보이지만 카페24(LMS) 수업이 이 화면에 안 들어옵니다 — 약속하기 전에 카페24에서 확인하세요.')) + '</div>';
+    }
+    function row(t, tagHtml){
+      var dc = (t.day_count == null) ? '' : '<span class="muted">' + esc(T(t.day_count + ' class(es) that day', '그날 수업 ' + t.day_count + '개')) + '</span>';
+      return '<div class="row"><b>' + esc(t.display_name || t.name || ('#' + t.id)) + '</b>'
+        + (t.display_name && t.name && t.display_name !== t.name ? '<span class="muted">' + esc(t.name) + '</span>' : '')
+        + dc + (tagHtml || '') + '</div>';
+    }
+    h += sure.map(function(t){ return row(t, ''); }).join('');
+    h += check.map(function(t){ return row(t, '<span class="tag">' + esc(T('check Cafe24', '카페24 확인')) + '</span>'); }).join('');
+    h += '<div class="muted" style="margin-top:6px">' + esc(T('Cafe24 bookings made today can take up to 15 minutes to appear here.',
+                                                             '카페24에서 방금 잡은 예약은 여기 나타나기까지 최대 15분 걸릴 수 있습니다.')) + '</div>';
+    h += '<div class="muted" style="margin-top:8px">' + esc(T((Number(j.busy_count) || 0) + ' teacher(s) are busy, on leave or off at that time. Counted 1:1 — for a group class, one teacher can take several students.',
+                                                             '그 시간에 수업·휴가·휴강인 강사 ' + (Number(j.busy_count) || 0) + '명. 1:1 기준입니다 — 그룹 수업이면 강사 한 명이 여러 학생을 맡을 수 있습니다.')) + '</div>';
+    el.className = '';
+    el.innerHTML = h;
   }
 
   // ── ⚔️ LMS ↔ 망고아이 강사 겹침 (2026-09-30) ───────────────────────────────
@@ -3458,6 +3585,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (D.students) window.paintStudents();
     if (D.util) paintUtil();
     if (D.clash) paintClash();
+    if (D.free) paintFree();
+    freeHint();
     if (D.wait) paintWait();
     if (D.me) paintMe();
     if (D.payroll) paintPayroll();
