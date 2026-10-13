@@ -1,5 +1,6 @@
 import { phonesForStudent } from './notify-contacts';
 import { getSolapiMode, sendPlainSms } from './solapi-client';
+import { recordCareContact } from './care-contact';   // 📞 이탈 케어 연락 기록 정본(2026-10-13)
 
 export async function counselingRecipient(env: any, uid: string) {
   const exists = await env.DB.prepare('SELECT user_id FROM students_erp WHERE user_id = ?').bind(uid).first();
@@ -32,5 +33,7 @@ export async function sendCounselingSms(env: any, body: any, actor: string) {
   const accepted = result.ok && result.mode === 'real';
   await env.DB.prepare('UPDATE counseling_sms_log SET status=?, message_id=? WHERE request_id=?')
     .bind(accepted ? 'accepted' : 'failed_or_unknown', result.messageId || null, id).run();
+  // 📞 (2026-10-13) 접수된 문자만 «연락» 으로 — A·E 화면도 같은 사실을 본다. 실패는 적지 않는다.
+  if (accepted) await recordCareContact(env, uid, actor, now);
   return accepted ? { ok: true, status: 'accepted' } : { ok: false, error: 'delivery_failed_or_unknown' };
 }

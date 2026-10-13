@@ -153,6 +153,7 @@
                   ${r.parent_name ? `<span style="font-size:11px;color:#94a3b8">👪 ${esc(r.parent_name)}${r.parent_phone?' · '+esc(r.parent_phone):''}</span>` : ''}
                 </div>
                 <div style="margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:#cbd5e1">${metrics}</div>
+                ${arrLastContactLine(r, d, isEn)}
                 <div style="margin-top:8px;font-size:11.5px;color:#cbd5e1;line-height:1.55">${r.reasons.map(x => `<span style="display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;background:rgba(255,255,255,0.05);border-radius:6px">${esc(x)}</span>`).join('')}</div>
                 <div style="margin-top:8px;font-size:12px;color:#fbbf24"><b>💡 ${isEn?'Recommended':'추천'}:</b> ${actions}</div>
                 <!-- 케어 액션 버튼들 -->
@@ -177,6 +178,21 @@
       window._arrAtRisk = d.at_risk;
     } catch(e) { out.innerHTML = '<div style="color:#f87171">❌ '+esc(e.message)+'</div>'; }
   };
+
+  /* 📞 (2026-10-13 케어 보드 2단계) 마지막 연락 — 서버 정본 lastContactMap(care-contact.ts)이 다섯 원천
+     (이 카드의 카톡·문자·전화 · AI 매출·이탈 요약 · 수강권 만료 화면의 연락함·자동 문자 · 상담 문자)을 합쳐 준다.
+     서버가 그 칸을 안 보냈으면(옛 서버·조회 실패) 아무것도 그리지 않는다 — «연락 안 함» 으로 지어내지 않는다. */
+  function arrLastContactLine(r, d, isEn){
+    if (!d || d.last_contact_ok !== true) return '';
+    var c = r.last_contact;
+    if (!c || !(c.at > 0)) return '<div style="margin-top:6px;font-size:11.5px;color:#475467">📞 ' + (isEn ? 'No contact recorded yet' : '아직 연락 기록 없음') + '</div>';
+    var days = Math.max(0, Math.floor((Date.now() - c.at) / 86400000));
+    var VIA = { kakao:['카톡(문자로 발송)','Kakao (sent as SMS)'], sms:['문자','SMS'], call:['전화','Call'], care:['AI 매출·이탈 요약','AI churn summary'],
+                retention:['수강권 만료 화면','Expiry page'], auto_sms:['자동 안내 문자','Auto SMS'], counsel_sms:['상담 문자','Counseling SMS'] };
+    var v = VIA[c.via] || [String(c.via || ''), String(c.via || '')];
+    var when = days === 0 ? (isEn ? 'today' : '오늘') : (isEn ? days + ' day' + (days === 1 ? '' : 's') + ' ago' : days + '일 전');
+    return '<div style="margin-top:6px;font-size:11.5px;color:#15803d">📞 ' + (isEn ? 'Last contact: ' : '마지막 연락: ') + esc(when) + ' · ' + esc(isEn ? v[1] : v[0]) + '</div>';
+  }
 
   // 📵 Phase RM — 노쇼(수업 미입장) 리포트 로드
   window.noShowsLoad = async function(){
