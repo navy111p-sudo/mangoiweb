@@ -10282,6 +10282,33 @@ LIMIT $limit`;
           ORDER BY COALESCE(p.created_at,0) DESC, p._rid DESC`
       ).bind(...binds).all();
       const _piiStudents = applyPIIScope(rs.results || [], _ssw.scope);  // 🔒 권한별 PII 마스킹
+      /* 🗓️ (2026-10-13 사장님 «중요한 정보를 오른쪽에») 「수업 기록」 칸 — 위 CTE 의 sessions·last_seen 은
+         attendance.user_id(=접속마다 바뀌는 기기번호)로만 세서, 카페24에 없는 학생은 늘 0 이었다
+         (CLAUDE.md 「출결만 통째로 0」). 여기서 정본(account_uid OR user_id, 학생 키로 묶음)으로 «다시» 센다.
+         · 오늘 이후 날짜는 안 센다 — 카페24 씨앗은 «예약» 이라 미래 날짜가 섞여 있다(최근 수업이 미래가 되면 거짓).
+         · 바인드는 JSON 배열 하나(json_each) — D1 100개 한도와 무관.
+         ⚠️ 카페24 씨앗을 포함하므로 «출석» 이 아니라 «수업 기록» 이다(KPI 와 같은 말).
+         ⛔ 실패하면 위 CTE 값을 그대로 둔다(fail-open — 그 칸만 옛 값). */
+      try {
+        const _uids = (_piiStudents as any[]).map((x: any) => String(x?.user_id || '')).filter(Boolean);
+        if (_uids.length) {
+          await ensureAttendanceAccountUid(env as any);
+          const _today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+          const _ar = await env.DB.prepare(
+            `SELECT ${ATTENDANCE_ACCOUNT_KEY} AS uid, COUNT(*) AS n, MAX(date) AS last_d
+               FROM attendance
+              WHERE ${ATTENDANCE_BY_UID_LIST} AND date <= ?
+              GROUP BY uid`
+          ).bind(...attUidListBinds(_uids), _today).all();
+          const _am = new Map<string, any>();
+          for (const r of ((_ar as any).results || [])) _am.set(String(r.uid), r);
+          for (const _st of (_piiStudents as any[])) {
+            const r = _am.get(String(_st?.user_id || ''));
+            _st.sessions = r ? Number(r.n) || 0 : 0;
+            _st.last_seen = r ? (r.last_d || null) : null;
+          }
+        }
+      } catch (e) { console.warn('[students/unified] 수업 기록 다시 세기 실패(옛 값 유지):', (e as any)?.message || e); }
       /* 📘 (2026-09-21) 「예약」 칸 — erp-list 와 «같은» 정본을 여기에도 싣는다.
          2026-09-15 에 그 칸을 만들 때 erp-list 에만 실었는데, 학생 명부 표가 실제로
          부르는 것은 이쪽(unified)이라 **도입 이래 한 번도 값이 안 닿아** 늘 «—» 였다
