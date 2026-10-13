@@ -982,6 +982,8 @@ select.pill{max-width:min(100%,280px)}
   //   실서비스에서 쓰는 그 경로)로 받는다. 한·영이 섞인 질문(「apple 이 무슨 뜻이에요?」)에도 더 강하다.
   //   ⛔ 브라우저 음성인식과 녹음을 동시에 열지 않는다 — 수업 마이크를 끄고 «끝날 때까지» 기다린 뒤 녹음한다.
   //   ✋ 녹음 중에 같은 버튼을 한 번 더 누르면 «다 말했다» — 지금까지 말한 것으로 바로 받아 적는다.
+  //   ⚡ (같은 날 「답이 좀 오래 걸린다」) 말이 멈춘 뒤 기다림 1.8 → 1.3초, 상한 25 → 15초(시끄러운 방에서 «조용해짐» 을
+  //      못 잡으면 상한까지 기다렸다). 질문은 짧고 «⏹ 다 말했어요» 가 있어 웜업(1.6초)보다 짧게 둔다.
   function recEnded(r){ return new Promise(function(res){ if (!r || r === 'whisper') return res(); var t = setTimeout(res, 800); try { r.addEventListener('end', function(){ clearTimeout(t); setTimeout(res, 60); }, { once: true }); } catch (e) { clearTimeout(t); res(); } }); }
   // 끄라고 한(abort) 음성인식이 «전부» 끝날 때까지의 약속 — 버튼을 연달아 눌러도 앞서 끈 것이 다 끝난 뒤에 녹음한다
   var recQuiet = Promise.resolve();
@@ -1008,9 +1010,9 @@ select.pill{max-width:min(100%,280px)}
     if (tok !== askTok || $('askBox').hidden) return;      // 그사이 닫았거나 다른 버튼을 눌렀다
     if (!window.MangoiVoice || !MangoiVoice.supported()) { askRec = null; askTok++; askMicPaint(); $('askNote').textContent = '이 브라우저는 말로 묻기를 못 해요 — 글로 적어 주세요'; return; }
     var heard = false, blob = null, errored = false;
-    var said = await MangoiVoice.record({ lang: wl, firstMs: 9000, silenceMs: 1800, maxMs: 25000, onAudio: function(b){ blob = b; }, onState: function(st2, info){
+    var said = await MangoiVoice.record({ lang: wl, firstMs: 9000, silenceMs: 1300, maxMs: 15000, onAudio: function(b){ blob = b; }, onState: function(st2, info){
       if (st2 === 'ready') askNoteSet('🎙 마이크 준비 중…', tok);
-      else if (st2 === 'waiting') askNoteSet('🎙 지금 말해 보세요 — 다 말하면 «⏹ 다 말했어요» 를 누르거나 잠깐 멈추세요', tok);
+      else if (st2 === 'waiting') askNoteSet('🎙 지금 말해 보세요 — 다 말하면 «⏹ 다 말했어요» 를 누르면 가장 빨라요', tok);
       else if (st2 === 'speaking') { heard = true; askNoteSet('🎙 듣는 중…', tok); }
       else if (st2 === 'thinking') askNoteSet('🎧 말한 내용을 받아 적는 중…', tok);
       else if (st2 === 'error') { errored = true; askNoteSet(info && info.reason === 'denied' ? '🎙 마이크를 쓸 수 없어요 — 주소창의 🔒 에서 마이크를 «허용» 한 뒤 다시 눌러 주세요(글로 적어도 돼요)' : info && info.reason === 'no_audio' ? '🎙 소리가 들어오지 않았어요 — 마이크를 확인하고 다시 눌러 말해 주세요' : '🎙 말을 받아 적지 못했어요 — 다시 누르거나 글로 적어 주세요', tok); }
