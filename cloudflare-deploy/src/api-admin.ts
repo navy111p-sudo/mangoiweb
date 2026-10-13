@@ -93,6 +93,7 @@ import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid } from './at
 import { ensureStartsOnColumn, startsOnSel, normStartsOn, kstYmdOfMs, recurSkippedOn, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { isPostponedOccurrence, REACTIVATE_POSTPONED_SQL } from './class-postponed';
 import { loadHolidayClosure, isHolidayClosedFor, type HolidayClosure } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
+import { kstMonthBounds, kstMidnight, kstDateStr, activeBinds, activeCountSql, overdueSql, absentSql, classDaysSql, ATTENDED_ON_DATE_SQL, trendPct, briefingSanity, KPI_DEF_VERSION, OVERDUE_GRACE_DAYS, ABSENT_DAYS, ACTIVE_WINDOW_DAYS } from './kpi-active';   // 📊 경영 지표 분모·기간 정본(2026-10-13)
 import { diagnoseStudentDay } from './class-diagnose';   // 🔎 학생 하루 수업 진단(읽기 전용, 2026-10-01)   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
@@ -1508,7 +1509,7 @@ export async function handleAdminApi(
 
       // ⚡ KV 캐시(180초) — 대시보드 진입마다 20여 개 D1 쿼리를 다시 돌지 않게.
       //   스코프(cond+binds)를 키에 포함해 지사/대리점 크로스테넌트 격리(retrisk 와 동일 원칙).
-      const _kpiKey = 'admkpi:' + (_erpScope || 'all') + '|' + _sb.join(',');
+      const _kpiKey = 'admkpi2:' + (_erpScope || 'all') + '|' + _sb.join(',');
       const _kpiHit = await admCacheHit(env, _kpiKey);
       if (_kpiHit) return _kpiHit;
 
@@ -1521,19 +1522,18 @@ export async function handleAdminApi(
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, scheduled_date TEXT, status TEXT, created_at INTEGER);`); } catch {}
 
       const now = Date.now();
-      // 이번 달 / 지난 달 기간
-      const d = new Date();
-      const thisMonthStart = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
-      const thisMonthEnd = new Date(d.getFullYear(), d.getMonth()+1, 1).getTime();
-      const lastMonthStart = new Date(d.getFullYear(), d.getMonth()-1, 1).getTime();
-      const lastMonthEnd = thisMonthStart;
+      // 📊 (2026-10-13) 기간은 KST 달력 기준. 비교는 «지난달 같은 날수» — 예전엔 이번 달 13일치를
+      //   지난달 한 달 전체와 비교해 매달 초 늘 빨간불(−80%)이었다. 정본 src/kpi-active.ts.
+      const _mb = kstMonthBounds(now);
+      const thisMonthStart = _mb.thisStart, thisMonthEnd = _mb.thisEnd;
+      const lastMonthStart = _mb.lastStart, lastMonthEnd = _mb.lastEnd, lastSameEnd = _mb.lastSameEnd;
       // 30일/7일
       const last30Start = now - 30*86400*1000;
       const last7Start = now - 7*86400*1000;
 
       const fetch1 = async (sql: string, ...binds: any[]): Promise<any> => {
         try { return await env.DB.prepare(sql).bind(...binds).first(); }
-        catch (e) { return {}; }
+        catch (e) { console.warn('[kpi] query failed', (e as any)?.message); return {}; }
       };
       const fetchAll = async (sql: string, ...binds: any[]): Promise<any[]> => {
         try { const rs = await env.DB.prepare(sql).bind(...binds).all(); return rs.results || []; }
@@ -1545,39 +1545,42 @@ export async function handleAdminApi(
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, endpoint TEXT NOT NULL UNIQUE, enabled INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`); } catch {}
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT, queued_at INTEGER NOT NULL, fetched_at INTEGER);`); } catch {}
 
-      // ⚡ 26-07-22 성능: 기존엔 아래 쿼리 20여 개를 전부 직렬 await 로 돌려(7일 매출은
-      //   루프로 7번 더) 대시보드 KPI 스피너가 수 초씩 돌았다.
-      //   → 독립 쿼리는 전부 Promise.all 병렬 + 7일 매출은 GROUP BY 1쿼리로 배칭.
-      //   fetch1/fetchAll 이 내부 try/catch 라 개별 실패는 기존과 동일하게 조용히 0 처리.
-      const cutoff35 = now - 35 * 86400 * 1000;
-      const day0 = new Date(); day0.setHours(0, 0, 0, 0);
-      const revBase = day0.getTime() - 6 * 86400000;   // 6일 전 자정(기존 루프의 첫 버킷)
+      // ⚡ 26-07-22 성능: 독립 쿼리는 전부 Promise.all 병렬 + 7일 매출은 GROUP BY 1쿼리로 배칭.
+      const cutoff35 = now - OVERDUE_GRACE_DAYS * 86400 * 1000;
+      const revBase = kstMidnight(now) - 6 * 86400000;   // KST 6일 전 자정(첫 버킷)
+      const _ab = activeBinds(now);
 
       const [
         studentTotal, studentNewThisMonth, studentNewLastMonth,
         revThisMonth, revLastMonth,
-        a1, a2, e1, o1, p1, c1, oc, i1, ps, pq, revBuckets
+        a1, a2, e1, o1, p1, c1, oc, i1, ps, pq, revBuckets,
+        rosterTotal, revLastSame, absentRow, a2full
       ] = await Promise.all([
-        fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE (status IN ('정상','활동','active') OR status IS NULL OR status = '')${_erpScope}`, ..._sb),
-        fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ?${_erpScope}`, thisMonthStart, ..._sb),
-        fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?${_erpScope}`, lastMonthStart, lastMonthEnd, ..._sb),
+        // «활동 학생» = 최근 30일 수업 예약·카페24 예약·실접속이 있는 학생 (명부 전체가 아님)
+        fetch1(activeCountSql(_erpScope), ..._ab, ..._sb),
+        fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?${_erpScope}`, thisMonthStart, now, ..._sb),
+        fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?${_erpScope}`, lastMonthStart, lastSameEnd, ..._sb),
         fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?${_uidScope}`, thisMonthStart, thisMonthEnd, ..._sb),
         fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?${_uidScope}`, lastMonthStart, lastMonthEnd, ..._sb),
-        fetch1(`SELECT COUNT(*) AS n FROM point_rule_log WHERE rule_code='attendance' AND triggered_at >= ? AND triggered_at < ?`, thisMonthStart, thisMonthEnd),
-        fetch1(`SELECT COUNT(*) AS n FROM point_rule_log WHERE rule_code='attendance' AND triggered_at >= ? AND triggered_at < ?`, lastMonthStart, lastMonthEnd),
+        // «수업 기록» 회수 = attendance (학생·날짜 한 번). 예전엔 «출석 포인트 지급 건수»(point_rule_log)였다.
+        fetch1(classDaysSql(_erpScope), thisMonthStart, now, ..._sb),
+        fetch1(classDaysSql(_erpScope), lastMonthStart, lastSameEnd, ..._sb),
         fetch1(`SELECT IFNULL(AVG(score_overall),0) AS avg, COUNT(*) AS n, IFNULL(SUM(parent_notified),0) AS notified FROM student_evaluations WHERE created_at >= ? AND created_at < ?`, thisMonthStart, thisMonthEnd),
         fetch1(`SELECT COUNT(*) AS n FROM payment_overdue_log WHERE status='sent' AND sent_at >= ? AND sent_at < ?`, thisMonthStart, thisMonthEnd),
         fetch1(`SELECT IFNULL(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END),0) AS earned, IFNULL(SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END),0) AS spent FROM point_transactions WHERE created_at >= ? AND created_at < ?`, thisMonthStart, thisMonthEnd),
         fetch1(`SELECT COUNT(*) AS n FROM chat_messages WHERE sent_at >= ? AND sent_at < ?`, thisMonthStart, thisMonthEnd),
-        fetch1(`SELECT COUNT(DISTINCT s.user_id) AS n FROM students_erp s
-                 WHERE (s.status IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')
-                   AND s.user_id NOT IN (SELECT user_id FROM student_payments WHERE status='paid' AND paid_at >= ?)${_uidScope}`, cutoff35, ..._sb),
+        // «미납» = 결제 기록이 한 번이라도 있는 활동 학생 중 35일 넘게 결제 없음
+        fetch1(overdueSql(_erpScope), ..._ab, cutoff35, ..._sb),
         fetch1(`SELECT COUNT(*) AS n FROM inquiries WHERE created_at >= ?`, last30Start),
         fetch1(`SELECT COUNT(*) AS n FROM push_subscriptions WHERE enabled = 1`),
         fetch1(`SELECT COUNT(*) AS sent, IFNULL(SUM(CASE WHEN fetched_at IS NOT NULL THEN 1 ELSE 0 END),0) AS fetched FROM push_queue WHERE queued_at >= ? AND queued_at < ?`, thisMonthStart, thisMonthEnd),
         fetchAll(`SELECT CAST((paid_at - ?) / 86400000 AS INTEGER) AS d, IFNULL(SUM(amount_krw),0) AS sum
                    FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?${_uidScope} GROUP BY d`,
                  revBase, revBase, revBase + 7 * 86400000, ..._sb),
+        fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE (status IN ('정상','활동','active') OR status IS NULL OR status = '')${_erpScope}`, ..._sb),
+        fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?${_uidScope}`, lastMonthStart, lastSameEnd, ..._sb),
+        fetch1(absentSql(_erpScope), ..._ab, now - ABSENT_DAYS * 86400000, now, ..._sb),
+        fetch1(classDaysSql(_erpScope), lastMonthStart, lastMonthEnd, ..._sb),
       ]) as any[];
 
       const attendanceThisMonth = a1?.n || 0;
@@ -1589,7 +1592,8 @@ export async function handleAdminApi(
       const pointsEarnedThisMonth = p1?.earned || 0;
       const pointsSpentThisMonth = p1?.spent || 0;
       const chatMessagesThisMonth = c1?.n || 0;
-      const overdueCount = oc?.n || 0;
+      const overdueCount = oc?.overdue || 0;
+      const overduePaidEver = oc?.paid_ever || 0;
       const inquiryLast30 = i1?.n || 0;
 
       const pushKpi: any = { active_subs: 0, queued_this_month: 0, fetched_this_month: 0, delivery_rate: 0 };
@@ -1603,35 +1607,40 @@ export async function handleAdminApi(
       for (const r of (revBuckets || [])) bucketMap[Number(r.d)] = r.sum || 0;
       const dailyRev: any[] = [];
       for (let i = 0; i < 7; i++) {
-        dailyRev.push({ date: new Date(revBase + i * 86400000).toISOString().slice(5, 10), revenue: bucketMap[i] || 0 });
+        dailyRev.push({ date: kstDateStr(revBase + i * 86400000).slice(5, 10), revenue: bucketMap[i] || 0 });
       }
 
-      // 비율 계산
-      const trend = (cur: number, prev: number) => {
-        if (prev === 0) return cur > 0 ? 100 : 0;
-        return Math.round(((cur - prev) / prev) * 1000) / 10;  // 소수 1자리
-      };
+      // 비율 계산 — «지난달 같은 날수» 와 비교. 비교 대상이 0 이면 null(비교 불가) — 100% 로 지어내지 않는다.
+      const trend = trendPct;
 
       return admCachePut(env, _kpiKey, {
         ok: true,
         ts: now,
-        period: { this_month_start: thisMonthStart, this_month_end: thisMonthEnd, last_month_start: lastMonthStart },
+        period: { this_month_start: thisMonthStart, this_month_end: thisMonthEnd, last_month_start: lastMonthStart,
+                  last_month_same_end: lastSameEnd, elapsed_days: _mb.elapsedDays, compare: 'same_days' },
+        def_version: KPI_DEF_VERSION,
         kpi: {
           students: {
-            total: studentTotal?.n || 0,
+            total: studentTotal?.n || 0,          // «활동 학생»(최근 30일 수업이 있는 학생) — 명부 전체 아님
+            roster_total: rosterTotal?.n || 0,    // 명부(students_erp) 전체 — 참고용
+            active_window_days: ACTIVE_WINDOW_DAYS,
+            absent_14d: absentRow?.n || 0,        // 활동 학생 중 최근 14일 수업 기록 없음
             new_this_month: studentNewThisMonth?.n || 0,
             new_last_month: studentNewLastMonth?.n || 0,
             trend: trend(studentNewThisMonth?.n || 0, studentNewLastMonth?.n || 0),
           },
           revenue: {
             this_month: revThisMonth?.sum || 0,
-            last_month: revLastMonth?.sum || 0,
+            last_month: revLastMonth?.sum || 0,          // 지난달 한 달 전체(참고)
+            last_month_same: revLastSame?.sum || 0,      // 지난달 같은 날수 — 비교 기준
             this_month_count: revThisMonth?.n || 0,
-            trend: trend(revThisMonth?.sum || 0, revLastMonth?.sum || 0),
+            trend: trend(revThisMonth?.sum || 0, revLastSame?.sum || 0),
           },
           attendance: {
+            // «수업 기록» 회수(학생·날짜 한 번, 카페24 예약 포함) — 출석 포인트 건수가 아님
             this_month: attendanceThisMonth,
-            last_month: attendanceLastMonth,
+            last_month: attendanceLastMonth,             // 지난달 같은 날수
+            last_month_full: a2full?.n || 0,
             trend: trend(attendanceThisMonth, attendanceLastMonth),
           },
           evaluation: {
@@ -1640,7 +1649,8 @@ export async function handleAdminApi(
             notified: evalNotifiedThisMonth,
           },
           overdue: {
-            count: overdueCount,
+            count: overdueCount,           // 결제 기록이 있는 활동 학생 중 35일 넘게 결제 없음
+            paid_ever: overduePaidEver,    // 그 분모(결제 기록이 있는 활동 학생)
             notified_this_month: overdueNotifyThisMonth,
           },
           points: {
@@ -13725,8 +13735,9 @@ LIMIT $limit`;
             const dup: any = await env.DB.prepare(
               `SELECT briefing_date, briefing_text, stats FROM daily_briefings WHERE briefing_date = ? ORDER BY created_at DESC LIMIT 1`
             ).bind(yesterdayStr).first();
-            if (dup) {
-              let st = null; try { st = dup.stats ? JSON.parse(dup.stats) : null; } catch {}
+            let st: any = null; try { st = dup && dup.stats ? JSON.parse(dup.stats) : null; } catch {}
+            // 📊 (2026-10-13) 옛 정의(명부 전체 분모)로 만든 브리핑은 다시 만든다 — 하루 한 번만 일어난다.
+            if (dup && st && st.def === KPI_DEF_VERSION) {
               return json({ ok: true, cached: true, briefing_text: dup.briefing_text, stats: st, briefing_date: dup.briefing_date });
             }
           } catch {}
@@ -13746,53 +13757,23 @@ LIMIT $limit`;
           newInquiry = r?.n || 0;
         } catch {}
 
-        // 3) 미납 «학생 수»
-        //   ⚠️ (2026-08-08 수정) 여기만 `payments` 라는 별개 표를 보고 있었다. 심지어 없으면 만들어서
-        //      거의 빈 표를 세고 있었다. 운영 KPI 대시보드(/api/admin/kpi/dashboard)는 `student_payments`
-        //      기준으로 «35일 넘게 결제 기록이 없는 활성 학생 수» 를 미납으로 센다.
-        //      같은 «미납» 이라는 말이 두 화면에서 다른 숫자였다 → KPI 쪽 정의로 통일한다.
-        let overdueCount = 0;
-        try {
-          const cutoff35 = now - 35 * 86400000;
-          const r: any = await env.DB.prepare(
-            `SELECT COUNT(DISTINCT s.user_id) AS n FROM students_erp s
-              WHERE (s.status IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')
-                AND s.user_id NOT IN (SELECT user_id FROM student_payments WHERE status='paid' AND paid_at >= ?)`
-          ).bind(cutoff35).first();
-          overdueCount = r?.n || 0;
-        } catch {}
-
-        // 4) 2주 이상 결석한 학생 수
-        //   🔴 (2026-08-08 수정) 원래 쿼리는 `WHERE joined_at < (now-14일)` 이었다.
-        //      이건 «14일 전에 한 번이라도 출석한 적 있는 모든 사람» 이라, 그 뒤 매일 나와도 포함된다.
-        //      즉 사실상 전교생 수가 나왔다(화면에 2,809 로 찍히던 값). 주석은 «최근 14일간 결석» 이었지만
-        //      정작 그 조건이 쿼리에 없었다.
-        //      → 사람마다 «마지막 출석» 을 구한 뒤, 그게 14일보다 오래된 사람만 센다.
-        let atRiskCount = 0;
-        try {
-          const r: any = await env.DB.prepare(
-            `SELECT COUNT(*) AS n FROM (
-               SELECT user_id, MAX(joined_at) AS last_at
-                 FROM attendance
-                WHERE role = 'student' OR role IS NULL
-                GROUP BY user_id
-             ) WHERE last_at < ?`
-          ).bind(now - 14 * 86400000).first();
-          atRiskCount = r?.n || 0;
-        } catch {}
-
-        // 5) 출석률 (어제 기준 — 활성 학생 수 대비 출석한 학생 수)
-        //   분자는 `attendance.date`(KST 'YYYY-MM-DD') 기준. 위 KST 보정으로 이제 진짜 «어제» 를 본다.
-        //   분모(활성 학생)는 KPI 대시보드의 «활동 학생» 과 같은 조건을 그대로 쓴다 — 두 화면이 어긋나지 않게.
+        // 3)~5) 📊 (2026-10-13) 분모를 «활동 학생»(최근 30일 수업이 있는 학생)으로 바꿨다.
+        //   예전엔 students_erp 명부 전체(28,825명)라 미납 28,771명·출석률 0%(123/28825)가 나왔고,
+        //   AI 가 그 숫자를 사실처럼 «123명 중 28825명이 출석» 으로 읽었다. 정의는 src/kpi-active.ts 하나.
+        const _ab = activeBinds(now);
+        let activeStudents = 0, overdueCount = 0, overduePaidEver = 0, atRiskCount = 0, attendedYesterday = 0;
         let attendanceRate: number | null = null;
-        let attendedYesterday = 0, activeStudents = 0;
+        try { const r: any = await env.DB.prepare(activeCountSql()).bind(..._ab).first(); activeStudents = r?.n || 0; } catch (e: any) { console.warn('[briefing] active', e?.message); }
         try {
-          const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT user_id) AS n FROM attendance WHERE date = ?`).bind(yesterdayStr).first();
-          attendedYesterday = att?.n || 0;
-          const tot: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE status IN ('정상','활동','active') OR status IS NULL OR status = ''`).first();
-          activeStudents = tot?.n || 0;
+          const r: any = await env.DB.prepare(overdueSql()).bind(..._ab, now - OVERDUE_GRACE_DAYS * 86400000).first();
+          overdueCount = r?.overdue || 0; overduePaidEver = r?.paid_ever || 0;
+        } catch (e: any) { console.warn('[briefing] overdue', e?.message); }
+        try { const r: any = await env.DB.prepare(absentSql()).bind(..._ab, now - ABSENT_DAYS * 86400000, now).first(); atRiskCount = r?.n || 0; } catch (e: any) { console.warn('[briefing] absent', e?.message); }
+        try {
+          const r: any = await env.DB.prepare(ATTENDED_ON_DATE_SQL).bind(..._ab, yesterdayStr).first();
+          attendedYesterday = r?.n || 0;
           if (activeStudents > 0) attendanceRate = Math.round((attendedYesterday / activeStudents) * 100);
-        } catch {}
+        } catch (e: any) { console.warn('[briefing] attended', e?.message); }
 
         // 6) 최근 7일 평가 평균
         //   🔴 (2026-08-08 수정) 평가가 한 건도 없으면 AVG 가 NULL 인데 `|| 0` 으로 0 을 넣고 있었다.
@@ -13813,8 +13794,10 @@ LIMIT $limit`;
           generated_for_kst: kstTodayStr,
           new_enrollment: newEnroll,
           new_inquiry: newInquiry,
+          def: KPI_DEF_VERSION,                 // 이 정의가 아니면 같은 날짜 브리핑도 다시 만든다
           overdue_count: overdueCount,          // 미납 «학생 수» (KPI 대시보드와 같은 정의)
-          at_risk_count: atRiskCount,           // 마지막 출석이 14일 이전인 학생 수
+          overdue_paid_ever: overduePaidEver,   // 그 분모 — 결제 기록이 있는 활동 학생
+          at_risk_count: atRiskCount,           // 활동 학생 중 최근 14일 수업 기록 없음
           attendance_rate: attendanceRate,      // null = 산출 불가
           attended_yesterday: attendedYesterday,
           active_students: activeStudents,
@@ -13835,15 +13818,18 @@ LIMIT $limit`;
           : `- 최근 7일 평가 평균: ${recentEvalAvg}점 (${recentEvalCount}건)`;
         const attLine = (attendanceRate == null)
           ? `- 어제 출석률: 자료 없음`
-          : `- 어제 출석률: ${attendanceRate}% (${attendedYesterday}/${activeStudents}명)`;
+          : `- 어제 수업 기록이 있는 학생: ${attendedYesterday}명 (활동 학생 ${activeStudents}명 중 ${attendanceRate}%)`;
+        const sanity = briefingSanity({ active_students: activeStudents, overdue_count: overdueCount, at_risk_count: atRiskCount, attended_yesterday: attendedYesterday });
         let briefingText = '';
         try {
-          if (env.AI) {
+          // 숫자가 상식에 안 맞으면 AI 에 넘기지 않는다 — 틀린 숫자를 AI 가 차분한 문장으로 바꿔 «사실» 로 만든다.
+          if (env.AI && sanity.length === 0) {
             const prompt = `다음은 어제(${yesterdayStr}, 한국시간) 망고아이 학원의 운영 데이터입니다.\n\n`
               + `- 신규 등록: ${newEnroll}명\n`
               + `- 신규 상담: ${newInquiry}건\n`
-              + `- 미납 학생: ${overdueCount}명 (35일 넘게 결제 기록이 없는 활성 학생)\n`
-              + `- 2주 이상 결석한 학생: ${atRiskCount}명\n`
+              + `- 활동 학생(최근 30일 수업이 있는 학생): ${activeStudents}명\n`
+              + `- 미납 학생: ${overdueCount}명 (결제 기록이 있는 활동 학생 ${overduePaidEver}명 중 35일 넘게 결제 없음)\n`
+              + `- 최근 14일 수업 기록이 없는 활동 학생: ${atRiskCount}명\n`
               + `${attLine}\n`
               + `${evalLine}\n\n`
               + `원장님께 드리는 아침 브리핑을 5-7문장으로 따뜻하고 명료한 한국어 존댓말로 작성해 주세요.\n`
@@ -13865,13 +13851,14 @@ LIMIT $limit`;
           console.warn('[briefing] AI failed', aiErr?.message);
         }
         if (!briefingText) {
-          briefingText = `🌅 어제(${yesterdayStr}) 망고아이 브리핑입니다.\n`
+          briefingText = (sanity.length ? `⚠️ 숫자 확인이 필요해 AI 요약을 만들지 않았습니다: ${sanity.join(', ')}\n` : '')
+            + `🌅 어제(${yesterdayStr}) 망고아이 브리핑입니다.\n`
             + `신규 등록 ${newEnroll}명, 신규 상담 ${newInquiry}건이 접수되었습니다.\n`
             + (attendanceRate == null ? `어제 출석 자료는 아직 집계되지 않았습니다.\n`
-                                      : `어제 출석률은 ${attendanceRate}%(${attendedYesterday}/${activeStudents}명)입니다.\n`)
+                                      : `어제 수업 기록이 있는 학생은 ${attendedYesterday}명(활동 학생 ${activeStudents}명 중 ${attendanceRate}%)입니다.\n`)
             + (recentEvalAvg == null ? `최근 7일 안에 작성된 평가서는 없습니다.\n`
                                      : `최근 7일 평가 평균은 ${recentEvalAvg}점(${recentEvalCount}건)입니다.\n`)
-            + `미납 학생 ${overdueCount}명, 2주 이상 결석 ${atRiskCount}명에 대한 케어가 필요합니다.\n`
+            + `미납 학생 ${overdueCount}명(결제 기록 있는 ${overduePaidEver}명 중), 최근 14일 수업 기록 없는 학생 ${atRiskCount}명을 확인해 주세요.\n`
             + `오늘도 좋은 하루 되세요!`;
         }
 

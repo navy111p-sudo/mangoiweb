@@ -1443,6 +1443,7 @@
 (function(){
   const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
   const fmtWon = (n) => fmt(n) + '원';
+  // 📊 (2026-10-13) 증감은 «지난달 같은 날수» 대비다(서버 kpi-active.ts). 비교 대상이 0 이면 null → 표시 안 함.
   const fmtTrend = (t) => {
     if (t == null) return '';
     if (t === 0) return '<span class="kpi-trend flat">→ 동일</span>';
@@ -1464,11 +1465,11 @@
       if (!d.ok) throw new Error(d.error || (isEn?'Failed to load KPIs':'KPI 로드 실패'));
       const k = d.kpi || {};
       const tiles = [
-        { cls:'kpi-students', label:(isEn?'Active Students':'활동 학생'), value:fmt(k.students.total), sub:(isEn?`+${fmt(k.students.new_this_month)} new this month`:`이번 달 신규 +${fmt(k.students.new_this_month)}명`), trend:fmtTrend(k.students.trend) },
-        { cls:'kpi-revenue', label:(isEn?"This Month's Revenue":'이번 달 매출'), value:fmtWon(k.revenue.this_month), sub:(isEn?`${fmt(k.revenue.this_month_count)} payments`:`결제 ${fmt(k.revenue.this_month_count)}건`), trend:fmtTrend(k.revenue.trend) },
-        { cls:'kpi-attendance', label:(isEn?"This Month's Attendance":'이번 달 출석'), value:fmt(k.attendance.this_month), sub:(isEn?`${fmt(k.attendance.last_month)} last month`:`전월 ${fmt(k.attendance.last_month)}회`), trend:fmtTrend(k.attendance.trend) },
-        { cls:'kpi-eval', label:(isEn?'Avg Evaluation':'평가서 평균'), value:(k.evaluation.avg_score||0).toFixed(1)+'<span class="kpi-unit">/5</span>', sub:(isEn?`${fmt(k.evaluation.count)} written · ${fmt(k.evaluation.notified)} via KakaoTalk`:`${fmt(k.evaluation.count)}건 작성 · ${fmt(k.evaluation.notified)}건 카톡`), trend:'' },
-        { cls:'kpi-overdue', label:(isEn?'Overdue Students':'미납 학생'), value:fmt(k.overdue.count), sub:(isEn?`${fmt(k.overdue.notified_this_month)} reminders sent (this month)`:`알림 ${fmt(k.overdue.notified_this_month)}건 발송 (이번 달)`), trend:'' },
+        { cls:'kpi-students', label:(isEn?'Active Students':'활동 학생'), value:fmt(k.students.total), sub:(isEn?`Had a class in the last ${k.students.active_window_days||30} days · roster ${fmt(k.students.roster_total)}`:`최근 ${k.students.active_window_days||30}일 수업이 있는 학생 · 명부 ${fmt(k.students.roster_total)}명`), trend:'' },
+        { cls:'kpi-revenue', label:(isEn?"This Month's Revenue":'이번 달 매출'), value:fmtWon(k.revenue.this_month), sub:(isEn?`${fmt(k.revenue.this_month_count)} payments · same days last month ${fmtWon(k.revenue.last_month_same)}`:`결제 ${fmt(k.revenue.this_month_count)}건 · 지난달 같은 기간 ${fmtWon(k.revenue.last_month_same)}`), trend:fmtTrend(k.revenue.trend) },
+        { cls:'kpi-attendance', label:(isEn?"This Month's Classes":'이번 달 수업 기록'), value:fmt(k.attendance.this_month)+'<span class="kpi-unit">'+(isEn?'':'회')+'</span>', sub:(isEn?`Student-days · same days last month ${fmt(k.attendance.last_month)}`:`학생·날짜 기준 · 지난달 같은 기간 ${fmt(k.attendance.last_month)}회`), trend:fmtTrend(k.attendance.trend) },
+        { cls:'kpi-eval', label:(isEn?'Avg Evaluation':'평가서 평균'), value:(k.evaluation.count ? (k.evaluation.avg_score||0).toFixed(1)+'<span class="kpi-unit">/5</span>' : '—'), sub:(isEn?`${fmt(k.evaluation.count)} written · ${fmt(k.evaluation.notified)} via KakaoTalk`:`${fmt(k.evaluation.count)}건 작성 · ${fmt(k.evaluation.notified)}건 카톡`) + (k.evaluation.count && k.evaluation.count < 10 ? (isEn?' · small sample':' · 표본 적음') : ''), trend:'' },
+        { cls:'kpi-overdue', label:(isEn?'Overdue Students':'미납 학생'), value:fmt(k.overdue.count), sub:(isEn?`Of ${fmt(k.overdue.paid_ever)} active students with payment records · 35+ days`:`결제 기록 있는 활동 학생 ${fmt(k.overdue.paid_ever)}명 중 35일 넘게 결제 없음`), trend:'' },
         { cls:'kpi-points', label:(isEn?"This Month's Points":'이번 달 포인트'), value:fmt(k.points.earned_this_month)+'<span class="kpi-unit">P</span>', sub:(isEn?`${fmt(k.points.spent_this_month)}P spent`:`사용 ${fmt(k.points.spent_this_month)}P`), trend:'' },
         { cls:'kpi-chat', label:(isEn?'Chat Messages':'채팅 메시지'), value:fmt(k.chat.messages_this_month), sub:(isEn?'Cumulative this month':'이번 달 누적'), trend:'' },
         { cls:'kpi-inquiry', label:(isEn?'New Inquiries':'신규 상담'), value:fmt(k.inquiry.last_30_days), sub:(isEn?'Last 30 days':'최근 30일'), trend:'' },
@@ -1682,12 +1683,12 @@
     if (!k) return;
     var en = (window.adminLang === 'en');
     var items = [
-      [en?'Students':'활동 학생',  n(k.students && k.students.total),        k.students && k.students.trend],
+      [en?'Students':'활동 학생',  n(k.students && k.students.total),        null],
       [en?'Revenue':'이번 달 매출', won(k.revenue && k.revenue.this_month) + (en?'':'원'), k.revenue && k.revenue.trend],
-      [en?'Attend':'이번 달 출석',  n(k.attendance && k.attendance.this_month), k.attendance && k.attendance.trend],
+      [en?'Classes':'이번 달 수업',  n(k.attendance && k.attendance.this_month), k.attendance && k.attendance.trend],
       [en?'Overdue':'미납',        n(k.overdue && k.overdue.count),          null],
       [en?'Inquiry':'신규 상담',    n(k.inquiry && k.inquiry.last_30_days),   null],
-      [en?'Eval':'평가 평균',       (k.evaluation && k.evaluation.avg_score ? k.evaluation.avg_score.toFixed(1) : '—'), null]
+      [en?'Eval':'평가 평균',       (k.evaluation && k.evaluation.count && k.evaluation.avg_score ? k.evaluation.avg_score.toFixed(1) : '—'), null]
     ];
     pillsEl.innerHTML = items.map(function (it) {
       return '<span class="dp">' + esc(it[0]) + ' <b>' + it[1] + '</b>' + arrow(it[2]) + '</span>';
@@ -1700,7 +1701,7 @@
     var uid = '';
     try { uid = (JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {}).uid || ''; } catch (e) {}
     var o = null;
-    try { o = JSON.parse(localStorage.getItem('mangoi_briefing_v1:' + uid) || 'null'); } catch (e) {}
+    try { o = JSON.parse(localStorage.getItem('mangoi_briefing_v2:' + uid) || 'null'); } catch (e) {}
     if (!o || !o.items || !o.items.length) { b1El.hidden = true; return; }
     var b = o.items[0];
     var first = String(b.briefing_text || '').split('\n').filter(function (x) { return x.trim(); })[0] || '';
@@ -5539,9 +5540,10 @@ window.__admSettleRun = function(fn){
       <div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;font-size:11px;color:#94a3b8">
         <div>📝 ${en?'New':'신규'} ${stats.new_enrollment||0}</div>
         <div>💬 ${en?'Inquiry':'상담'} ${stats.new_inquiry||0}</div>
-        <div>💰 ${en?'Overdue':'미납'} ${stats.overdue_count||0}${en?'':'명'}</div>
-        <div>🚨 ${en?'2wk+ absent':'2주+ 결석'} ${stats.at_risk_count||0}</div>
-        <div>✅ ${en?'Attend':'출석'} ${nz(stats.attendance_rate, '%')}</div>
+        <div>👥 ${en?'Active':'활동'} ${stats.active_students||0}${en?'':'명'}</div>
+        <div>💰 ${en?'Overdue':'미납'} ${stats.overdue_count||0}${stats.overdue_paid_ever!=null?'/'+stats.overdue_paid_ever:''}${en?'':'명'}</div>
+        <div>🚨 ${en?'No class 14d':'14일 수업없음'} ${stats.at_risk_count||0}</div>
+        <div>✅ ${en?'Class yday':'어제 수업'} ${stats.attended_yesterday!=null?stats.attended_yesterday:'—'}${en?'':'명'} (${nz(stats.attendance_rate, '%')})</div>
         <div>⭐ ${en?'Avg':'평균'} ${nz(stats.recent_eval_avg)}</div>
       </div>
     </div>`;
@@ -5576,7 +5578,7 @@ window.__admSettleRun = function(fn){
   const DB_CACHE_KEY = (function(){
     var uid = '';
     try { uid = (JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}')||{}).uid || ''; } catch(e){}
-    return 'mangoi_briefing_v1:' + uid;
+    return 'mangoi_briefing_v2:' + uid;   // 📊 v2(2026-10-13): 분모가 «활동 학생» 으로 바뀌어 옛 캐시를 버린다
   })();
   function dbCacheRead(){
     try {
