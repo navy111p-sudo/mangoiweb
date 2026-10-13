@@ -14,6 +14,9 @@ import os from 'os';
 const DIR = path.dirname(new URL(import.meta.url).pathname);
 const PUB = path.join(DIR, '..', '..', 'cloudflare-deploy', 'public');
 const REPS = +(process.env.REPS || 2);
+// 다른 동화책도 같은 틀이라 STORY_FILE=story-robot-dance.html 처럼 넘기면 그 권을 끝까지 눌러 봅니다(2026-10-13).
+const FILE = process.env.STORY_FILE || 'story-red-umbrella.html';
+const SID = FILE.replace(/^story-/, '').replace(/\.html$/, '');
 const PORT = 9300 + Math.floor(Math.random() * 400);
 const PROF = path.join(os.tmpdir(), 'story-browser-' + process.pid);
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.webp': 'image/webp', '.css': 'text/css', '.woff2': 'font/woff2' };
@@ -114,7 +117,7 @@ async function runOne(vp, lang, mode, monkey, tag) {
   MODE = mode; reqs.length = 0;
   await send('Emulation.setDeviceMetricsOverride', { width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.m });
   await send('Network.clearBrowserCookies');
-  await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/story-red-umbrella.html?r=${Date.now()}` });
+  await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/${FILE}?r=${Date.now()}` });
   for (let i = 0; i < 300; i++) { await sleep(50); try { if (await ev('!!(window.StoryFun && document.querySelectorAll("#text .s").length > 30)')) break; } catch {} }
   await ev(`(()=>{try{localStorage.clear();localStorage.setItem('story_lang','${lang}')}catch(e){}})()`);
   await send('Page.reload', { ignoreCache: true });
@@ -137,13 +140,13 @@ async function runOne(vp, lang, mode, monkey, tag) {
   const calls = await ev('window.__earnCalls');
   ok(calls === 1 && reqs.length >= 1, `${tag}: 포인트 요청이 정확히 1번 (화면 ${calls} · 서버 ${reqs.length})`);
   const b = reqs[0] && reqs[0].body;
-  ok(b && b.rule_code === 'story_read' && /^guest_/.test(b.user_id) && b.meta && b.meta.story === 'red-umbrella' && !('student_name' in b), `${tag}: 요청 내용 ${JSON.stringify(b)}`);
+  ok(b && b.rule_code === 'story_read' && /^guest_/.test(b.user_id) && b.meta && b.meta.story === SID && !('student_name' in b), `${tag}: 요청 내용 ${JSON.stringify(b)}`);
   const fin = await ev('(e=>({cls:e?e.className:"",t:e?e.textContent:""}))(document.querySelector("#finishBox .fin-card"))');
   const en = lang === 'en';
   const want = { ok: [/fin-ok/, en ? /Points added/ : /포인트를 받았어요/], cap: [/fin-cap/, en ? /capped at 30/ : /하루 30점까지/], login: [/fin-login/, en ? /Log in/ : /로그인하면/], 'err-then-ok': [/fin-error/, en ? /Get points/ : /다시 받기/], drop: [/fin-error/, en ? /Get points/ : /다시 받기/] }[mode];
   ok(want[0].test(fin.cls) && want[1].test(fin.t), `${tag}: 완주 안내 ${fin.cls} «${fin.t.slice(0, 80)}»`);
   if (mode === 'ok') ok(/\+10P/.test(fin.t) && /130P/.test(fin.t), `${tag}: 받은 금액·잔액을 서버 값 그대로`);
-  const paid = await ev(`!!Object.keys(localStorage).find(k=>/story_red-umbrella_paid_/.test(k))`);
+  const paid = await ev(`!!Object.keys(localStorage).find(k=>k.indexOf('story_${SID}_paid_')===0)`);
   ok(paid === (mode === 'ok' || mode === 'cap'), `${tag}: «오늘 받음» 표시는 성공·상한일 때만 (${paid})`);
   if (mode === 'err-then-ok') {
     await ev('document.getElementById("earnRetry").click()');
