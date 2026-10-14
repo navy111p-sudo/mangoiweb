@@ -63,7 +63,8 @@ const SOLVER = `(function(){
   const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
   let lastTop='';
   function top(el){ el.scrollIntoView({block:'center'}); /* 여러 줄로 감긴 문장은 상자 가운데가 줄 사이 빈칸이라 «첫 줄 조각» 을 잰다 */ const rs=el.getClientRects(); const r=rs.length?rs[0]:el.getBoundingClientRect(); const t=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2); lastTop=t?(t.tagName+'#'+t.id+'.'+String(t.className).slice(0,30)+'@'+Math.round(r.left)+','+Math.round(r.top)+' '+Math.round(r.width)+'x'+Math.round(r.height)):'null'; return !!t&&(t===el||el.contains(t)); }
-  let blocked=[];
+  let blocked=[]; let ok_lock=null;
+  window.__lockSeen=()=>ok_lock;
   function click(el,name){ if(!el){ blocked.push('없음:'+name); return; } if(!top(el)) blocked.push('가림:'+name+'←'+lastTop); el.click(); }
   window.__earnCalls=0; const _f=window.fetch; window.fetch=function(u,o){ if(String(u).indexOf('/api/points/earn-by-rule')>=0) window.__earnCalls++; return _f.apply(this,arguments); };
   window.__solve = async function(monkey){
@@ -81,15 +82,16 @@ const SOLVER = `(function(){
     sels.forEach((s,i)=>{ s.value = (monkey&&i===0) ? s.options[1].value===s.dataset.ans ? s.options[2].value : s.options[1].value : s.dataset.ans; s.dispatchEvent(new Event('change')); });
     click($('#checkSum'),'요점확인');
     if(monkey){ sels[0].value=sels[0].dataset.ans; sels[0].dispatchEvent(new Event('change')); click($('#checkSum'),'요점재확인'); }
-    // ④ 낱말 게임: 뜻 카드에서 정답을 찾아 누른다(원숭이는 첫 문제를 일부러 틀림)
-    const words={}; $$('#words .w').forEach(w=>{ const en=$('.en',w).textContent, ko=$('.ko',w); words[en]=ko?ko.textContent:null; });
-    let wrongOnce=!!monkey, guard=0;
-    while(!$('#wq .wq-card.done') && guard++<30){
+    // ④ 낱말 게임: 뜻은 게임을 끝내야 보이므로(2026-10-14) 화면 데이터가 아니라 «눌러서 나온 초록색» 으로 배운다.
+    //    모르는 낱말은 첫 보기를 눌러 보고 초록색(정답)을 기억 — 틀린 문제는 뒤로 다시 오므로 그때 맞힌다.
+    ok_lock = $$('#words .w .ko').length===0 && $$('#words .w .ko-lock').length>0;
+    const learned={}; let guard=0;
+    while(!$('#wq .wq-card.done') && guard++<40){
       const en=$('#wq .wq-word span').textContent, opts=$$('#wq .wq-o');
-      const ex=$$('#words .w').find(w=>$('.en',w).textContent===en); const exT=$('.ex',ex).textContent;
-      const isRight=(o)=> document.documentElement.lang==='en' ? o.textContent===exT : o.textContent===words[en];
-      let pick = opts.find(isRight); if(wrongOnce){ pick=opts.find(o=>!isRight(o)); wrongOnce=false; }
-      click(pick,'낱말 '+en); await sleep(pick&&isRight(pick)?720:1280);
+      let pick = learned[en]!=null ? opts.find(o=>o.textContent===learned[en]) : opts[monkey?opts.length-1:0];
+      click(pick,'낱말 '+en);
+      const r=$('#wq .wq-o.right'); if(r) learned[en]=r.textContent;
+      await sleep(pick&&pick.classList.contains('right')?720:1280);
     }
     // ⑤ 근거 찾기: 정답 보기·근거는 «틀린 뒤 초록색» 으로 배워서 다시 푼다(사람이 하는 그대로)
     for(let qi=0;qi<3;qi++){
@@ -132,6 +134,8 @@ async function runOne(vp, lang, mode, monkey, tag) {
   await ev(SOLVER);
   const blocked = await ev(`__solve(${monkey})`);
   ok(blocked.length === 0, `${tag}: 누를 것이 가려지거나 없음 ${JSON.stringify(blocked).slice(0, 200)}`);
+  ok(await ev('window.__lockSeen()') === true, `${tag}: 게임 전에는 낱말 뜻이 가려져 있었다`);
+  ok(await ev('document.querySelectorAll("#words .w .ko").length>=6 && !document.querySelector("#words .ko-lock")'), `${tag}: 게임을 끝내자 뜻이 열렸다`);
   await sleep(400);
   const st = await ev('JSON.stringify(Object.keys(window.StoryFun.state()).sort())');
   ok(st === JSON.stringify(['infer', 'key', 'read', 'sum', 'words', 'write']), `${tag}: 도장 6개 ${st}`);
@@ -173,7 +177,7 @@ async function runOne(vp, lang, mode, monkey, tag) {
   await new Promise((r) => ws.onopen = r);
   await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable'); await send('Network.setCacheDisabled', { cacheDisabled: true });
   let runs = 0;
-  for (let rep = 0; rep < REPS; rep++) for (const vp of VPS) for (const lang of ['ko', 'en']) for (const mode of MODES) {
+  for (let rep = 0; rep < REPS; rep++) for (const vp of VPS) for (const lang of ['ko'])  /* EN 버튼은 2026-10-13 원장님 의견으로 빠짐 — 한국어 고정 */ for (const mode of MODES) {
     if (process.env.ONLY && !(vp.n + '/' + lang + '/' + mode).includes(process.env.ONLY)) continue;
     const monkey = (rep + runs) % 3 === 0;
     const tag = `${vp.n}/${lang}/${mode}${monkey ? '/원숭이' : ''}#${rep}`;
@@ -184,6 +188,6 @@ async function runOne(vp, lang, mode, monkey, tag) {
   ok(consoleErr.length === 0, `페이지 예외 0건 (${consoleErr.slice(0, 3).join(' | ')})`);
   console.log(`\n결과: ${runs}회 전 과정 · PASS ${pass} / FAIL ${fail}`);
   if (fails.length) console.log(fails.map((f) => '  ❌ ' + f).join('\n'));
-  ws.close(); chrome.kill(); srv.close(); fs.rmSync(PROF, { recursive: true, force: true });
+  ws.close(); chrome.kill(); srv.close(); await new Promise((r) => { chrome.once('exit', r); setTimeout(r, 3000); }); try { fs.rmSync(PROF, { recursive: true, force: true }); } catch {}  /* 크롬이 아직 쓰는 중이면 ENOTEMPTY — 검사 결과와 무관 */
   process.exit(fail ? 1 : 0);
 })();
