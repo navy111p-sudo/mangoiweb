@@ -140,6 +140,7 @@ async function act(a, R, learned) {
       const s = await ev(STATE);
       ok(!s.noteShown && /고르기 시작/.test(s.pmText), `«처음부터 다시» → 고르기 꺼짐 («${s.pmText}»)`);
       ok(s.picks === 0, `«처음부터 다시» → 고른 문장 0 (${s.picks})`);
+      { const c = await ev('document.querySelectorAll("#text .s.good, #text .s.miss").length'); ok(c === 0, `«처음부터 다시» → 정답 확인 색(초록·빨강)도 지워진다 (${c})`); }
       ok(!s.done && s.ko === 0 && s.lock > 0, `«처음부터 다시» → 새 게임·뜻 가림 (done ${s.done} ko ${s.ko})`);
       const leftNow = s.left;
       await sleep(1400);   // 예전 피드백 예약이 남아 있었다면 이때 첫 문제를 건너뛴다
