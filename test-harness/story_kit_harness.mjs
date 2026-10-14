@@ -134,6 +134,8 @@ for (const B of BOOKS) {
   ok(/<span class="def">/.test(rw) && rw.indexOf('class="def"') < rw.indexOf('class="ex"'), '(짝) 영영풀이가 예문보다 위');
   const pk = block(code, 'function pickNote(');
   ok(/n\.hidden = !picking;/.test(pk) && /고르기 끝내기/.test(pk), '2·4번: 고르기 모드가 켜져 있으면 본문 위에 알림과 끄기 버튼');
+  ok(!/remove\('pick'\)/.test(block(code, 'function setPicking(')) && /__storyPickOff = function\(\)\{[^\n]*remove\('pick'\)/.test(code), '(짝) «고르기 끝내기» 는 고른 문장을 지키고, «처음부터 다시» 만 지운다');
+  ok(/var mine = WQS;[\s\S]{0,200}setTimeout\(function\(\)\{\s*if \(WQS !== mine\) return;/.test(code), '(짝) 새 게임이 되면 옛 «다음 문제» 예약은 버린다');
   ok(/rb\.addEventListener\('click', function\(\)\{ reset\(\); try \{ if \(window\.__storyPickOff\) window\.__storyPickOff\(\); if \(window\.__storyWordsReset\) window\.__storyWordsReset\(\);/.test(code), '(짝) «처음부터 다시» 가 고르기 모드를 끄고 낱말 게임·뜻 가리기를 처음으로');
   ok((code.match(/StoryCore\.wordQuiz\(WORDS, \(Date\.now\(\) & 0xffff\) \|\| \d, WQ_POOL\)/g) || []).length >= 2 && (code.match(/StoryCore\.wordQuiz\(/g) || []).length === (code.match(/StoryCore\.wordQuiz\(WORDS, \(Date\.now\(\) & 0xffff\) \|\| \d, WQ_POOL\)/g) || []).length, '뜻 맞히기를 만드는 곳(처음·한 번 더·처음부터 다시) 모두 다른 책 오답 풀을 쓴다');
   ok(/typeof oi !== 'number' \? oi/.test(code), '다른 책 오답(글자)도 보기로 그린다');

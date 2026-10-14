@@ -510,10 +510,9 @@ var StoryCore = (function(){
     picking = !!on; stop();
     var pm = document.getElementById('pickMode');
     if (pm) pm.innerHTML = picking ? t('✔ 고르기 끝','✔ Done choosing') : t('✏️ 고르기 시작','✏️ Start choosing');
-    if (!picking) spans.forEach(function(s){ s.classList.remove('pick'); });
-    pickNote();
+    pickNote();   // 고른 문장(pick)은 그대로 둔다 — «✔ 고르기 끝» 과 같게(정답 확인에 쓰임)
   }
-  window.__storyPickOff = function(){ if (picking) { setPicking(false); keyFb.innerHTML = ''; } };
+  window.__storyPickOff = function(){ if (picking) setPicking(false); spans.forEach(function(s){ s.classList.remove('pick'); }); keyFb.innerHTML = ''; };   // «처음부터 다시» 만 고른 것까지 지움
   // «처음부터 다시»(도장 초기화)가 낱말 게임과 가린 뜻도 처음 상태로 되돌린다
   window.__storyWordsReset = function(){ wordsOpen = false; WQS = { list: StoryCore.wordQuiz(WORDS, (Date.now() & 0xffff) || 5, WQ_POOL), i: 0, combo: 0, best: 0, tries: 0, picked: null, over: false }; renderWords(); renderWQ(); };
   document.getElementById('pickMode').addEventListener('click', function(){
@@ -804,7 +803,9 @@ var StoryCore = (function(){
     var good = k === it.ans;
     if (good) { WQS.combo++; WQS.best = Math.max(WQS.best, WQS.combo); } else { WQS.combo = 0; WQS.list.push(it); }
     renderWQ();
+    var mine = WQS;   // 그사이 «처음부터 다시»·«한 번 더» 로 새 게임이 되면 옛 예약은 버림(첫 문제 건너뛰기 방지)
     setTimeout(function(){
+      if (WQS !== mine) return;
       WQS.picked = null; WQS.i++;
       if (WQS.i >= WQS.list.length) { WQS.over = true; storyDone('words'); wordsOpen = true; renderWords(); }
       renderWQ();
