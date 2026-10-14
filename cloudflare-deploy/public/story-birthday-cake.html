@@ -945,6 +945,7 @@ var StoryCore = (function(){
 /* 🏅 도장판 · 🔤 낱말 게임 · 🎉 완주 */
 .stampboard{background:var(--page);border:1px solid var(--line);border-radius:18px;padding:14px 16px;display:grid;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;box-shadow:0 10px 24px -20px rgba(0,0,0,.5)}
 .sb-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 12px;font-family:var(--ko)}
+.sb-back.sb-home{font-size:16px}
 .sb-back{flex:none;align-self:center;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:99px;border:1px solid var(--line);background:var(--chip);color:var(--ink);text-decoration:none;font-size:18px;font-weight:800;line-height:1;margin-right:-2px}
 .sb-n{font-variant-numeric:tabular-nums;font-weight:800;color:var(--umbrella)}
 .sb-prize{margin-left:auto;font-size:13px;font-weight:800;color:var(--soft)}
@@ -983,7 +984,7 @@ var StoryCore = (function(){
 @keyframes fall{to{top:105vh;transform:rotate(720deg) translateX(40px)}}
 @media (max-width:480px){.stamp .sl{display:none}.stamp .si{font-size:22px}}
 /* 좁은 폰: 도장판 첫 줄(← · 제목 · 상금)을 한 줄로 — 두 줄이 되면 붙어 있는 판이 그만큼 본문을 더 가린다 */
-@media (max-width:480px){.sb-top{flex-wrap:nowrap;gap:6px 8px;align-items:center;min-width:0}.sb-pl{display:none}.sb-top b,.sb-n{flex:none;white-space:nowrap}.sb-prize{font-size:12px;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}.sb-back{width:30px;height:30px;font-size:17px}}
+@media (max-width:480px){.sb-top{flex-wrap:nowrap;gap:6px 8px;align-items:center;min-width:0}.sb-pl{display:none}.sb-top b,.sb-n{flex:none;white-space:nowrap}.sb-prize{font-size:12px;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}.sb-back{width:30px;height:30px;font-size:17px}.sb-back.sb-home{font-size:15px}}
 @media (prefers-reduced-motion: reduce){.stamp.pop .si{animation:none}}
 </style>
 <script>
@@ -1010,7 +1011,9 @@ var StoryCore = (function(){
       /* ← 뒤로가기 — 도장판 «안» 첫 칸(2026-10-14 사장님 «뒤로가기 버튼도 도장판 안 가리게»).
          공용 back-nav.js 는 화면 왼쪽 위에 떠서 붙어 있는 도장판의 🏅 를 덮었다. 여기 두면 함께 움직이고,
          «보이는 ← 가 있으면» back-nav 가 자기 버튼을 안 넣는다. 판정은 정본 mangoiGoBack · 없으면 href 로 홈 */
-      '<div class="sb-top"><a class="sb-back" href="/" aria-label="' + t('뒤로 가기','Go back') + '" onclick="if(window.mangoiGoBack){event.preventDefault();window.mangoiGoBack();}">←</a><b>' + t('🏅 오늘의 도장','🏅 Story stamps') + '</b> <span class="sb-n">' + n + ' / 6</span>' +
+      '<div class="sb-top"><a class="sb-back" href="/" aria-label="' + t('뒤로 가기','Go back') + '" onclick="if(window.mangoiGoBack){event.preventDefault();window.mangoiGoBack();}">←</a>' +
+      /* 🏠 홈 — 뒤로가기 바로 옆(2026-10-14 사장님 «동화책 안쪽 화면에도 홈버튼»). 글자 없이 아이콘이라 title·aria 로 설명 */
+      '<a class="sb-back sb-home" href="/" aria-label="' + t('홈으로','Home') + '" title="' + t('홈으로','Home') + '">🏠</a><b>' + t('🏅 오늘의 도장','🏅 Story stamps') + '</b> <span class="sb-n">' + n + ' / 6</span>' +
       '<span class="sb-prize">' + (all ? t('🎉 완주!','🎉 Finished!') : ('<span class="sb-pl">' + t('6개 모으면 ','Collect 6 for ') + '</span>+' + STORY_POINTS + 'P')) + '</span></div>' +
       '<div class="sb-bar" aria-hidden="true"><i style="width:' + Math.round(n / 6 * 100) + '%"></i></div>' +
       '<div class="sb-row">' + StoryCore.STAMPS.map(function(k){
