@@ -126,12 +126,13 @@ const ssrc = body('say');
 ok(/isStudentQuestion\(t, lastTarget\)\)\s*return askTeacher\(t\)/.test(ssrc), '말한 질문은 수업 대답이 아니라 askTeacher 로 간다');
 ok(/!auto/.test(ssrc) && /mode === 'swap'/.test(ssrc), '자동 데모·«선생님께 묻는» 차례는 가로채지 않는다');
 try {
-  const runSay = (txt, cur) => { const log = []; const f = new Function('st', 'auto', 'lastTarget', 'askBusy', 'isStudentQuestion', 'askTeacher', 'run', '$', ssrc + '; return say;');
+  const runSay = (txt, cur) => { const log = []; const f = new Function('st', 'auto', 'lastTarget', 'askBusy', 'isStudentQuestion', 'askTeacher', 'run', '$', 'paused', ssrc + '; return say;');   // paused: ⏸ 잠깐 멈추기(2026-10-14) — 멈춘 동안은 대답을 안 보낸다
     const $ = () => ({ classList: { remove() {} }, hidden: false });
-    f({ plan: [cur], i: 0 }, false, 'I am happy.', false, isQ, (q) => log.push('ask:' + q), (e) => log.push('run:' + e.text), $)(txt); return log; };
+    f({ plan: [cur], i: 0 }, false, 'I am happy.', false, isQ, (q) => log.push('ask:' + q), (e) => log.push('run:' + e.text), $, !!(cur && cur.paused))(txt); return log; };
   ok(runSay('What does happy mean', { mode: 'echo' })[0] === 'ask:What does happy mean', '실행: 질문 → askTeacher');
   ok(runSay('I am happy', { mode: 'echo' })[0] === 'run:I am happy', '(짝) 실행: 대답 → 수업 엔진');
   ok(runSay('What does happy mean', { mode: 'swap' })[0] === 'run:What does happy mean', '(짝) 실행: 묻는 차례면 수업 엔진');
+  ok(runSay('I am happy', { mode: 'echo', paused: true }).length === 0, '실행: ⏸ 멈춘 동안은 대답도 질문도 보내지 않는다');
 } catch (e) { ok(false, 'say 실행 실패: ' + e.message); }
 const asrc = body('askTeacher');
 ok(/fetch\('\/api\/ai\/class-ask'/.test(asrc), 'askTeacher 가 서버에 묻는다');

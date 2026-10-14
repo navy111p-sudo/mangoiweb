@@ -179,6 +179,13 @@ select.pill{max-width:min(100%,280px)}
 .res.miss{background:#3b2a0a;color:#fde68a}.res.own{background:#0f3b2a;color:#a7f3d0}
 /* ✋ 학생 질문 → Lily 즉답 (2026-10-08) */
 .db.askq{background:#2a1f3d;border-color:#7c5cc4}
+.db.pause{background:#3a2e0e;border-color:#c99a2e}
+.db.pause.on{background:#14532d;border-color:#4ade80;animation:pulse 1.2s ease-in-out infinite}
+.pauseband{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 14px;background:#3a2e0e;border:2px solid var(--c-gold);border-radius:12px;padding:10px 14px;color:var(--c-fg);text-align:center}
+.pauseband[hidden]{display:none!important}
+.pauseband b{font-size:18px}.pauseband .en{font-size:13px;opacity:.75;font-weight:600}
+.pauseband .muted2{font-size:13px;color:var(--c-dim)}
+.pauseband small{font-size:11px;opacity:.8}
 .db.askq.on{background:#3b2a5c;border-color:#c4b5fd}
 .res.q{background:#2e1f4d;color:#ddd6fe}.res.think{background:#1e293b;color:#cbd5e1}
 .askbox{border-color:#a78bfa}
@@ -384,12 +391,19 @@ select.pill{max-width:min(100%,280px)}
     <div class="dock" role="toolbar" aria-label="수업 버튼">
       <button class="db mic" id="micBtn" type="button" disabled><span>🎤</span>말하기</button>
       <button class="db askq" id="askBtn" type="button" disabled aria-expanded="false"><span>✋</span>선생님께 질문</button>
+      <button class="db pause" id="pauseBtn" type="button" disabled aria-pressed="false" title="잠깐 멈추기 / Pause (스페이스바 Space)"><span>⏸</span>잠깐 멈춤</button>
       <button class="db" id="againBtn" type="button" disabled><span>🔁</span>다시 듣기</button>
       <button class="db" id="slowBtn" type="button" disabled><span>🐢</span>천천히</button>
       <button class="db" id="skipBtn" type="button" disabled><span>⏭</span>넘어가기</button>
       <button class="db camoff" id="camDock" type="button" aria-pressed="false"><span>📷</span>카메라 끔</button>
       <button class="db" id="autoBtn" type="button"><span>🤖</span>자동 데모</button>
       <button class="db leave" id="endBtn" type="button"><span>🚪</span>끝내기</button>
+    </div>
+
+    <div class="pauseband" id="pauseBand" role="status" aria-live="polite" hidden>
+      <b>⏸ 잠깐 멈췄어요 <span class="en">Paused</span></b>
+      <span class="muted2">선생님 말·진행·음악·마이크가 모두 멈춰 있어요. 계속하면 하던 문장부터 다시 읽어요.</span>
+      <button class="big-btn" type="button" id="resumeBtn">▶ 계속하기 <small>(스페이스바)</small></button>
     </div>
 
     <div class="sim" id="sim" hidden>
@@ -440,7 +454,7 @@ select.pill{max-width:min(100%,280px)}
 
 <script src="/js/tts-short-text.js?v=1"></script>
 <script src="/js/ai-class-engine.js?v=2"></script>
-<script src="/js/ai-class-music.js?v=1"></script>
+<script src="/js/ai-class-music.js?v=2"></script>
 <script src="/js/mangoi-voice-input.js?v=5"></script>
 <script src="/js/voice-has-speech.js?v=1"></script>
 
@@ -451,6 +465,7 @@ select.pill{max-width:min(100%,280px)}
   var $ = function(id){ return document.getElementById(id); };
   var E = window.AiClass, CAT = [], LS = [], SLIDE = {}, FILES = {}, openSeq = 0, loading = true;
   var st = null, unit = null, li = 0, busy = false, auto = false, subMode = 1, sound = !FAST, timerAt = 0, timerId = 0, seq = 0, listenTO = 0, lastTarget = '', lastMiss = null;
+  var paused = false, pauseAt = 0, pauseTok = 0, pauseWait = [];   // ⏸ 잠깐 멈추기(2026-10-14 사장님 «계속 말하고 진행되니 빠르다 · 세미나에서 설명하려면 멈춰야»)
   var lastListen = null, askBusy = false, askN = 0, askRec = null, askTok = 0;   // ✋ 학생 질문
   var MU = window.AiClassMusic || null, streak = 0, curStage = 0;   // 🎵 소리 모듈 · 연속 정답 · 지금 단계
   // 📶 교재 레벨 — 8단계 중 어디인가 (2026-10-09)
@@ -483,7 +498,7 @@ select.pill{max-width:min(100%,280px)}
   function lsGet(k){ try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v){ try { localStorage.setItem(k, v); } catch (e) {} }
   (function(){ var v = lsGet('aiClassSpd'); if (v !== null && /^[0-3]$/.test(v)) spd = +v; var tv = lsGet('aiClassTalk'); talk = tv === null ? !!SR : tv === '1'; })();
-  window.__aiClass = { get state(){ return st; }, get busy(){ return busy; }, get unit(){ return unit; }, get speed(){ return SPEEDS[spd][0]; }, get talk(){ return talk; }, get rec(){ return !!rec; }, get recBlocked(){ return recBlocked; }, get loading(){ return loading; }, get cat(){ return CAT; }, get slides(){ return SLIDE; }, bookLevel: function(b){ return bookLevel(b); } };
+  window.__aiClass = { get state(){ return st; }, get busy(){ return busy; }, get unit(){ return unit; }, get speed(){ return SPEEDS[spd][0]; }, get talk(){ return talk; }, get rec(){ return !!rec; }, get recBlocked(){ return recBlocked; }, get loading(){ return loading; }, get paused(){ return paused; }, get cat(){ return CAT; }, get slides(){ return SLIDE; }, bookLevel: function(b){ return bookLevel(b); } };
   function fillPicker(){
     // 레슨 목록도 «8단계 중 어디» 를 말한다 (2026-10-09) — 판정은 bookLevel 하나(제목 옆 배지와 같은 값).
     //  BTS 는 단계별로 묶고, SIU 는 시리즈 묶음 그대로 «(권장)» 을 밝힌다. 모르는 교재는 «단계 모름» 묶음으로(지어내지 않음).
@@ -533,7 +548,7 @@ select.pill{max-width:min(100%,280px)}
   }
   function openLesson(k){
     var my = ++openSeq; loading = true;
-    seq++; busy = false; stopSpeech(); stopRec(); clearTimeout(listenTO); clearInterval(timerId); if (MU) MU.stopAll();
+    pauseSet(false, true); seq++; busy = false; stopSpeech(); stopRec(); clearTimeout(listenTO); clearInterval(timerId); if (MU) MU.stopAll();
     $('startBtn').disabled = true; $('startAuto').disabled = true; $('startOv').hidden = false; $('endOv').hidden = true;
     setAsk('불러오는 중', '교재를 불러오고 있어요…');
     var c = CAT[k];
@@ -596,7 +611,7 @@ select.pill{max-width:min(100%,280px)}
     $('sTile').append(e); setTimeout(function(){ e.remove(); }, 1700);
   }
   function reset(){
-    seq++; busy = false; stopSpeech(); stopRec(); clearTimeout(listenTO); lastMiss = null; $('book').classList.remove('finding');
+    pauseSet(false, true); seq++; busy = false; stopSpeech(); stopRec(); clearTimeout(listenTO); lastMiss = null; $('book').classList.remove('finding');
     if (MU) MU.stopAll(); streak = 0; curStage = 0; songHL(-1, -1);
     askBusy = false; askN = 0; lastListen = null; askOpen(false);   // ✋ 새 수업이면 질문 상태도 처음부터
     unit = LS[li]; var nm = curName(); st = E.create(unit, { name: nm.en, nameKo: nm.ko, prev: E.prevUnitOf(LS, li) });
@@ -623,7 +638,7 @@ select.pill{max-width:min(100%,280px)}
     else { img.hidden = true; img.removeAttribute('src'); body.hidden = false; box.classList.remove('img'); }
     pg.lines.forEach(function(l, i){
       var k = E.kindOf(l[0]); if (k === 'skip') return;
-      var say = function(){ if (isFinding()) return run({ type: 'tap', page: st.view, line: i }); if (!busy) speakRaw(E.speakable(l[0]), l[1] ? 'm' : 'f', 1); };
+      var say = function(){ if (isFinding()) return run({ type: 'tap', page: st.view, line: i }); if (!busy && !paused) speakRaw(E.speakable(l[0]), l[1] ? 'm' : 'f', 1); };
       var c = document.createElement('button'); c.type = 'button'; c.dataset.line = i; c.textContent = (l[1] ? '👦 ' : '') + l[0]; c.title = l[0]; c.addEventListener('click', say); chips.append(c);
       if (src) return;
       var b = document.createElement('button'); b.type = 'button';
@@ -703,7 +718,20 @@ select.pill{max-width:min(100%,280px)}
   // 낱말 시작 위치(글자 번호) → 몇 번째 낱말인가
   function wordIndexAt(text, ch){ var n = -1, inW = false; for (var k = 0; k <= ch && k < text.length; k++) { var sp = /\s/.test(text[k]); if (!sp && !inW) n++; inW = !sp; } return Math.max(0, n); }
   function stopSpeech(){ try { speechSynthesis.cancel(); } catch(e){} stopMouth(); }
-  function speakRaw(text, voice, rate){
+  // ⏸ 멈춘 동안 기다린다 — 다시 누르면(또는 레슨이 바뀌면) 풀린다
+  function waitRun(){ return paused ? new Promise(function(r){ pauseWait.push(r); }) : Promise.resolve(); }
+  // 말하기 정본 — 멈추기가 문장 도중에 오면 그 문장을 «끊었다가» 계속할 때 처음부터 다시 읽는다
+  //  (크롬의 speechSynthesis.pause() 는 믿을 수 없어 cancel + 다시 읽기로 한다). 레슨이 바뀌면(seq) 다시 읽지 않는다
+  async function speakRaw(text, voice, rate){
+    var my = seq;
+    for (;;) {
+      await waitRun(); if (my !== seq) return;
+      var tok = pauseTok;
+      await speakOnce(text, voice, rate);
+      if (tok === pauseTok || my !== seq) return;
+    }
+  }
+  function speakOnce(text, voice, rate){
     return new Promise(function(done){
       var finished = false, fin = function(){ if (finished) return; finished = true; stopMouth(); done(); };
       rate = (rate || 1) * SPEEDS[spd][0];        // 사람이 고른 속도를 모든 말하기에 곱한다(입 모양도 같은 속도)
@@ -756,7 +784,8 @@ select.pill{max-width:min(100%,280px)}
     im.src = u;
   }
   // 🎵 배경음악 — 선생님 말(talk)엔 보통, 교재 문장 시범(model, 한국어 뜻이 없는 문장)엔 더 작게
-  function bgmFor(sp){ if (!MU || FAST || !sound) return; MU.bgm(sp.speak && sp.speak.ko === '' ? 'model' : 'talk'); }
+  var bgmLast = 'talk';   // ⏸ 계속할 때 멈추기 직전의 음량으로 되돌린다
+  function bgmFor(sp){ if (!MU || FAST || !sound) return; bgmLast = sp.speak && sp.speak.ko === '' ? 'model' : 'talk'; MU.bgm(bgmLast); }
   // 🎵 Hello Song — 첫 레슨이 아니면 따라 말하기 대신 노래로(엔진이 정한다). 1절은 Lily 가 부르고 2절은 반주만 — 내가 부른다
   function songHL(pass, i){
     window.__songAt = pass < 0 ? null : [pass, i];
@@ -771,7 +800,13 @@ select.pill{max-width:min(100%,280px)}
     var lines = (sg && sg.lines) || [];
     if (!lines.length) return;
     if (FAST || !MU) { for (var k = 0; k < lines.length; k++) { if (my !== seq) return; songHL(0, k); await speakRaw(lines[k], 'f', 1); } songHL(-1, -1); return; }
-    await MU.song(lines, function(line){ return my === seq ? speakRaw(line, 'f', 0.95) : Promise.resolve(); }, function(pass, i){ if (my === seq) songHL(pass, i); });
+    bgmLast = 'off';   // 노래는 배경음악 없이 — 노래 도중 멈췄다 풀어도 수업 음악을 깔지 않는다
+    for (;;) {   // ⏸ 노래 도중 멈추면 노래를 끊고(stopAll), 계속하면 처음부터 다시 부른다
+      await waitRun(); if (my !== seq) return;
+      var tok = pauseTok;
+      await MU.song(lines, function(line){ return tok === pauseTok && my === seq ? speakOnce(line, 'f', 0.95) : Promise.resolve(); }, function(pass, i){ if (my === seq) songHL(pass, i); });
+      if (tok === pauseTok || my !== seq) return;
+    }
   }
   // 엔진 효과 실행
   function run(ev){
@@ -799,7 +834,7 @@ select.pill{max-width:min(100%,280px)}
     busy = true; setButtons();
     (async function(){
       for (var i = 0; i < speeches.length; i++) {
-        if (my !== seq) return;
+        await waitRun(); if (my !== seq) return;   // ⏸ 멈춘 동안 다음 자막·배경음악으로 넘어가지 않는다
         var sp = speeches[i];
         if (sp.song) { await playSong(sp.song, my); continue; }
         showSub(sp.speak);
@@ -850,7 +885,7 @@ select.pill{max-width:min(100%,280px)}
     $('micBtn').classList.add('listen');
     armAuto(); armTalk();
   }
-  function isFinding(){ var t = st && st.plan[st.i]; return !!(t && t.t === 'find' && st.phase === 'await' && !busy); }
+  function isFinding(){ var t = st && st.plan[st.i]; return !!(t && t.t === 'find' && st.phase === 'await' && !busy && !paused); }
   // 칭찬 스티커 — 학생 화면에 잠깐 떴다 사라진다
   function sticker(k){
     if (FAST) return;
@@ -861,7 +896,7 @@ select.pill{max-width:min(100%,280px)}
   // 자동 말하기 — 내 차례가 되면 마이크를 켜고, 말이 끝나면 그 말로 대답한다
   function talkNote(){ missChip('🎙 마이크를 쓸 수 없어요 — 주소창의 🔒 에서 마이크를 허락하거나, 아래에서 골라 보내 주세요'); fillChoices(); $('sim').hidden = false; }
   function armTalk(){
-    if (!talk || auto || !st || st.phase !== 'await' || busy) return;
+    if (paused || !talk || auto || !st || st.phase !== 'await' || busy) return;
     if (askRec || askTok % 2) return;   // ✋ 질문 마이크를 켜는 중·듣는 중이면 수업 마이크를 다시 켜지 않는다(크롬은 음성인식을 한 번에 하나만 돌린다)
     var t = st.plan[st.i]; if (!t || t.t === 'find') return;
     if (!SR || recBlocked) return talkNote();
@@ -903,7 +938,8 @@ select.pill{max-width:min(100%,280px)}
   function armAuto(){
     clearTimeout(listenTO);
     if (!auto) return;
-    var my = seq; listenTO = setTimeout(function(){ if (my !== seq || !auto) return; if (busy) return armAuto(); if (st.phase === 'await') autoAnswer(); }, FAST ? 5 : 900);
+    if (paused) return;   // ⏸ 계속할 때 다시 건다
+    var my = seq; listenTO = setTimeout(function(){ if (my !== seq || !auto || paused) return; if (busy) return armAuto(); if (st.phase === 'await') autoAnswer(); }, FAST ? 5 : 900);
   }
   function autoAnswer(){
     var t = st.plan[st.i]; var r = Math.random();
@@ -919,7 +955,7 @@ select.pill{max-width:min(100%,280px)}
     if (r < 0.7) say(t.say); else if (r < 0.85) say(t.say.split(' ').slice(0, Math.ceil(t.say.split(' ').length / 2)).join(' ')); else run({ type: 'silence' });
   }
   function say(text){
-    if (askBusy) return;
+    if (askBusy || paused) return;
     var t = String(text == null ? '' : text);
     // ✋ 내 차례에 영어로 «질문» 을 말하면 수업 대답이 아니라 선생님께 묻는 말로 받는다(자동 데모·선생님께 묻는 차례 제외)
     var cur = st && st.plan[st.i];
@@ -939,11 +975,12 @@ select.pill{max-width:min(100%,280px)}
     var started = st && st.turn > 0, wait = st && st.phase === 'await';
     var isRep = wait && st.plan[st.i] && st.plan[st.i].t === 'repeat';
     var isFind = wait && st.plan[st.i] && st.plan[st.i].t === 'find';
-    $('micBtn').disabled = !wait || auto || isFind; $('againBtn').disabled = !isRep || busy; $('slowBtn').disabled = !isRep || busy; $('skipBtn').disabled = !wait;
+    $('micBtn').disabled = !wait || auto || isFind || paused; $('againBtn').disabled = !isRep || busy || paused; $('slowBtn').disabled = !isRep || busy || paused; $('skipBtn').disabled = !wait || paused;
+    var canPause = !!st && $('startOv').hidden && st.phase !== 'done'; $('pauseBtn').disabled = !canPause && !paused;
     if (!wait) $('micBtn').classList.remove('listen');
     $('autoBtn').querySelector('span').nextSibling.textContent = auto ? '데모 멈춤' : '자동 데모';
     $('endBtn').disabled = !started || st.phase === 'done';
-    $('askBtn').disabled = !started || st.phase === 'done' || auto || askBusy;
+    $('askBtn').disabled = !started || st.phase === 'done' || auto || askBusy || paused;
   }
   function showEnd(e){
     clearInterval(timerId);
@@ -1075,14 +1112,14 @@ select.pill{max-width:min(100%,280px)}
   function start(withAuto){
     if (!st) return;                       // 교재 목록을 아직 못 받았으면 시작하지 않음
     var nm = curName(); st.name = nm.en; st.nameKo = nm.ko; lsSet('aiClassName', $('nameIn').value.trim()); camPaint();
-    auto = !!withAuto; $('startOv').hidden = true;
+    auto = !!withAuto; $('startOv').hidden = true; setButtons();
     // 2026-10-09 사장님 지시: 수업에 들어가면 학생 카메라를 기본으로 켠다(이 클릭이 권한 요청의 사람 제스처). 학생이 직접 끈 뒤에는 다시 켜지 않는다
     if (!camStream && !camUserOff) camToggle();
     timerAt = Date.now(); clearInterval(timerId);
-    timerId = setInterval(function(){ var s = Math.floor((Date.now() - timerAt) / 1000); $('timer').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }, 1000);
+    timerId = setInterval(function(){ if (paused) return; var s = Math.floor((Date.now() - timerAt) / 1000); $('timer').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }, 1000);
     // 🎺 시작 시그널 — 짧은 징글이 끝나면 수업을 연다(소리 끔·빠른 모드면 바로)
     var my = seq;
-    if (MU && sound && !FAST) { MU.setSound(true); busy = true; MU.jingle().then(function(){ if (my !== seq) return; busy = false; run({ type: 'start' }); }); return; }
+    if (MU && sound && !FAST) { MU.setSound(true); busy = true; MU.jingle().then(waitRun).then(function(){ if (my !== seq) return; busy = false; run({ type: 'start' }); }); return; }   // ⏸ waitRun: 징글 도중 멈췄으면 계속할 때까지 첫 차례로 안 넘어간다
     run({ type: 'start' });
   }
   $('startBtn').addEventListener('click', function(){ start(false); });
@@ -1098,6 +1135,7 @@ select.pill{max-width:min(100%,280px)}
     $('sim').hidden = !$('sim').hidden;
   });
   $('sim').addEventListener('click', function(e){
+    if (paused) return;
     var c = e.target.closest('[data-text]'); if (c && st.phase === 'await') return say(c.dataset.text);
     var b = e.target.closest('[data-say]'); if (!b || st.phase !== 'await') return;
     var t = st.plan[st.i], tgt = t.free || t.say;
@@ -1106,7 +1144,7 @@ select.pill{max-width:min(100%,280px)}
     else if (b.dataset.say === 'half') say(tgt.split(' ').slice(0, Math.max(1, Math.floor(tgt.split(' ').length / 2))).join(' ') + (tgt.split(' ').length === 1 ? 'zz' : ''));
     else { $('sim').hidden = true; run({ type: 'silence' }); }
   });
-  $('simForm').addEventListener('submit', function(e){ e.preventDefault(); if (st.phase !== 'await') return; var v = $('simInput').value; $('simInput').value = ''; say(v); });
+  $('simForm').addEventListener('submit', function(e){ e.preventDefault(); if (paused || st.phase !== 'await') return; var v = $('simInput').value; $('simInput').value = ''; say(v); });
   $('againBtn').addEventListener('click', function(){ run({ type: 'replay' }); });
   $('slowBtn').addEventListener('click', function(){ run({ type: 'replay', slow: true }); });
   $('skipBtn').addEventListener('click', function(){ $('sim').hidden = true; run({ type: 'skip' }); });
@@ -1128,17 +1166,53 @@ select.pill{max-width:min(100%,280px)}
   });
   $('endBtn').addEventListener('click', function(){
     if (!st || st.phase === 'done') return;
-    seq++; stopSpeech(); stopRec(); busy = false; clearTimeout(listenTO);
+    pauseSet(false, true); seq++; stopSpeech(); stopRec(); busy = false; clearTimeout(listenTO);
     showEnd({ stars: st.stars, targets: st.targets, missed: st.missed.length }); st.phase = 'done'; setButtons();
+  });
+  // ⏸ 잠깐 멈추기 정본 — 이 함수 하나가 말·진행·노래·배경음악·마이크·자동 데모·타이머를 함께 멈추고 푼다.
+  //  ⛔ 멈출 곳을 따로 늘리지 마세요(한 곳만 빠져도 «멈췄는데 다시 말하는» 사고). 기다리는 쪽은 waitRun() 을 지납니다.
+  //  silent: 레슨이 바뀌거나 끝날 때 — 상태만 푼다(다시 이어 말하지 않음: 그쪽에서 seq 가 바뀐다)
+  function pauseSet(on, silent){
+    on = !!on;
+    if (on === paused) return;
+    if (on) {
+      if (!st || !$('startOv').hidden || st.phase === 'done') return;   // 시작 징글(1.6초) 동안에도 멈출 수 있다
+      paused = true; pauseAt = Date.now(); pauseTok++;
+      stopSpeech(); stopRec(); clearTimeout(listenTO); askOpen(false);   // ✋ 질문 창·질문 마이크도 닫는다
+      if (MU) { MU.stopAll(); if (MU.cut) MU.cut(); }   // 노래·배경음악·마무리 음악을 끊고, 이미 예약된 음(가락·징글)까지 끊는다
+    } else {
+      paused = false;
+      if (pauseAt) timerAt += Date.now() - pauseAt; pauseAt = 0;   // 멈춘 시간은 수업 시간에 넣지 않는다
+      var w = pauseWait; pauseWait = []; w.forEach(function(r){ r(); });
+    }
+    var b = $('pauseBtn'); b.classList.toggle('on', paused); b.setAttribute('aria-pressed', paused ? 'true' : 'false');
+    b.querySelector('span').textContent = paused ? '▶' : '⏸'; b.querySelector('span').nextSibling.textContent = paused ? '계속하기' : '잠깐 멈춤';
+    $('pauseBand').hidden = !paused; document.body.classList.toggle('ai-paused', paused);
+    if (st) setButtons();
+    if (paused || silent || !st) return;
+    if (busy) { if (MU && sound && !FAST) MU.bgm(bgmLast); return; }   // 말하던 중이었다 → 기다리던 문장이 이어서 읽힌다
+    if (st.phase === 'await') { armAuto(); armTalk(); }   // 학생 차례였다 → 자동 데모·자동 말하기를 다시 건다
+  }
+  $('pauseBtn').addEventListener('click', function(){ pauseSet(!paused); });
+  $('resumeBtn').addEventListener('click', function(){ pauseSet(false); try { $('pauseBtn').focus({ preventScroll: true }); } catch (e) {} });
+  // 스페이스바 — 글자 칸·버튼·링크에 포커스가 있으면 그쪽 동작을 그대로 둔다(버튼은 스페이스로 눌린다)
+  document.addEventListener('keydown', function(e){
+    if (e.code !== 'Space' && e.key !== ' ') return;
+    if (e.repeat || e.altKey || e.ctrlKey || e.metaKey) return;
+    var t = e.target, tag = t && t.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'A' || (t && t.isContentEditable)) return;
+    if (!st || !$('startOv').hidden || !$('endOv').hidden) return;
+    if (!paused && st.phase === 'done') return;
+    e.preventDefault(); pauseSet(!paused);
   });
   $('prevPg').addEventListener('click', function(){ if (st) run({ type: 'browse', page: st.view - 1 }); });
   $('nextPg').addEventListener('click', function(){ if (st) run({ type: 'browse', page: st.view + 1 }); });
   $('followBtn').addEventListener('click', function(){ run({ type: 'follow' }); });
-  $('capSay').addEventListener('click', function(){ if (busy) return; var t = st && st.plan[st.i]; if (t && t.t === 'repeat' && (t.mode === 'warm' || t.mode === 'qa' || t.mode === 'swap')) return speakRaw(t.mode === 'qa' ? t.ask : t.say, (t.mode === 'qa' ? t.askMale : t.male) ? 'm' : 'f', 1); var cl = hl && unit.pages[hl.page] && unit.pages[hl.page].lines[hl.line]; if (cl) speakRaw(E.speakable(cl[0]), cl[1] ? 'm' : 'f', 1); });
+  $('capSay').addEventListener('click', function(){ if (busy || paused) return; var t = st && st.plan[st.i]; if (t && t.t === 'repeat' && (t.mode === 'warm' || t.mode === 'qa' || t.mode === 'swap')) return speakRaw(t.mode === 'qa' ? t.ask : t.say, (t.mode === 'qa' ? t.askMale : t.male) ? 'm' : 'f', 1); var cl = hl && unit.pages[hl.page] && unit.pages[hl.page].lines[hl.line]; if (cl) speakRaw(E.speakable(cl[0]), cl[1] ? 'm' : 'f', 1); });
   $('subBtn').addEventListener('click', function(){ subMode = (subMode + 1) % 3; this.textContent = '💬 자막: ' + ['끔','영+한','영어'][subMode]; if (!subMode) { $('sub').hidden = true; $('subW').replaceChildren(); } });
   $('sndBtn').addEventListener('click', function(){ sound = !sound; this.textContent = sound ? '🔊 소리 켬' : '🔇 소리 끔'; if (MU) MU.setSound(sound); if (!sound) try { speechSynthesis.cancel(); } catch(e){} });
   function paintBgm(){ var on = !MU || MU.bgmOn(); $('bgmBtn').textContent = '🎵 배경음악: ' + (on ? '켬' : '끔'); $('bgmBtn').setAttribute('aria-pressed', on ? 'true' : 'false'); }
-  $('bgmBtn').addEventListener('click', function(){ if (!MU) return; MU.setBgm(!MU.bgmOn()); paintBgm(); if (MU.bgmOn() && busy && sound) MU.bgm('talk'); });
+  $('bgmBtn').addEventListener('click', function(){ if (!MU) return; MU.setBgm(!MU.bgmOn()); paintBgm(); if (MU.bgmOn() && busy && sound && !paused) MU.bgm('talk'); });
   paintBgm();
   // 학생 카메라 켜기/끄기 — 화상수업 독의 카메라 버튼과 같은 동작. 영상은 내 화면에만 보이고 어디에도 보내지 않는다
   var camStream = null, camBusy = false, camUserOff = false;   // camUserOff: 학생이 직접 끔 → 다음 레슨에서도 자동으로 안 켬(이 페이지 안에서만)

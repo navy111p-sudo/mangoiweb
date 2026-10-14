@@ -13,7 +13,7 @@
 */
 (function () {
   'use strict';
-  var ctx = null, master = null, bgmBus = null, sound = true, bgmPref = true, bgmLv = 0, schedTO = 0, nextAt = 0, beat = 0, outroEl = null, outroTO = 0, songSeq = 0;
+  var ctx = null, master = null, bgmBus = null, sound = true, bgmPref = true, bgmLv = 0, schedTO = 0, nextAt = 0, beat = 0, outroEl = null, outroTO = 0, songSeq = 0, songWake = null;
   var LEVEL = { talk: 0.07, model: 0.03, off: 0 };
   var BPM = 96, SPB = 60 / BPM;
   // C - Am - F - G (마디마다 화음 하나) — 밝고 부드럽게
@@ -107,8 +107,9 @@
         if (onLine) onLine(pass, i);
         var len = phrase(lines[i], i) * 1000, t0 = Date.now();
         if (pass === 0 && singLine) await singLine(lines[i]);
+        if (my !== songSeq) return false;   // 그 줄을 부르는 중에 끊겼으면 남은 박자를 기다리지 않는다
         var left = len - (Date.now() - t0);
-        if (left > 0) await new Promise(function (r) { setTimeout(r, left); });
+        if (left > 0) { var wk; await new Promise(function (r) { wk = songWake = r; setTimeout(r, left); }); if (songWake === wk) songWake = null; }   // stopAll 이 곧바로 깨운다(멈췄다 풀 때 남은 박자만큼 조용하지 않게)
       }
     }
     if (onLine && my === songSeq) onLine(-1, -1);
@@ -128,12 +129,21 @@
     } catch (e) { jingle(); }
   }
   function stopOutro() { clearTimeout(outroTO); var a = outroEl; outroEl = null; if (a) try { a.pause(); a.src = ''; } catch (e) {} }
-  function stopAll() { songSeq++; stopOutro(); bgm('off'); }
+  function stopAll() { songSeq++; var w = songWake; songWake = null; if (w) w(); stopOutro(); bgm('off'); }
+  // ⏸ 잠깐 멈춤 — 이미 예약해 둔 음(노래 가락·징글·효과음)까지 그 자리에서 끊는다.
+  //   예약된 음은 옛 master 에 매여 있으므로 master·bgmBus 를 새로 갈아 끼우면 옛 것은 소리 없이 끝난다.
+  //   ⛔ ctx.suspend() 로 풀지 말 것 — 시계가 멈춰 풀 때 남은 음이 그대로 다시 울린다.
+  function cut() {
+    if (!ctx) return;
+    try { master.disconnect(); bgmBus.disconnect(); } catch (e) {}
+    master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
+    bgmBus = ctx.createGain(); bgmBus.gain.value = 0; bgmBus.connect(master);
+  }
 
   function readPref() { try { return localStorage.getItem('aiClassBgm') !== '0'; } catch (e) { return true; } }
   bgmPref = readPref();
   window.AiClassMusic = {
-    bgm: bgm, jingle: jingle, sting: sting, sfx: sfx, song: song, outro: outro, stopAll: stopAll, sylls: sylls,
+    bgm: bgm, jingle: jingle, sting: sting, sfx: sfx, song: song, outro: outro, stopAll: stopAll, cut: cut, sylls: sylls,
     setSound: function (on) { sound = !!on; if (!sound) stopAll(); },
     setBgm: function (on) { bgmPref = !!on; try { localStorage.setItem('aiClassBgm', on ? '1' : '0'); } catch (e) {} if (!on) bgm('off'); },
     bgmOn: function () { return bgmPref; },
