@@ -124,10 +124,18 @@ for (const B of BOOKS) {
   ok(rq.length > 200 && !/qko/.test(rq), '원장님 의견 2: 근거 찾기 질문 아래 한국어 번역 줄을 그리지 않는다');
   ok(/q\.why\[0\]/.test(rq) && !/q\.why\[1\]/.test(rq), '원장님 의견 3: 근거 설명은 한국어(why[0]) 고정');
   const rw = block(code, 'function renderWords(');
-  ok(/wordsOpen \|\| WPEEK\[i\]/.test(rw) && /ko-peek/.test(rw), '원장님 의견 4: 카드 뜻은 게임을 끝내거나 직접 눌러야 보인다');
-  ok(/WPEEK\[i\] = 1; wqAgain\(i\)/.test(code), '(짝) 눌러서 본 낱말은 게임에 한 번 더 나온다');
+  // 2026-10-14 사장님 «1번은 가»: 엿보기 버튼을 없앴다 — 뜻은 이번 게임을 다 풀었을 때만.
+  ok(/wordsOpen \? '<span class="ko">'/.test(rw) && !/ko-peek|WPEEK|data-peek/.test(code), '뜻은 게임을 끝내야만 보인다(눌러서 미리 보기 없음)');
+  ok(!/localStorage\.setItem\([^)]*wordsopen|setItem\(WOPENKEY/i.test(code) && /var wordsOpen = false;/.test(code), '(짝) «열림» 을 기기에 저장하지 않는다 — 다시 할 때 답이 안 보임');
   ok(/WQS\.over = true; storyDone\('words'\); wordsOpen = true;/.test(code), '게임을 다 풀면 뜻이 열린다');
-  ok((code.match(/StoryCore\.wordQuiz\(WORDS, \(Date\.now\(\) & 0xffff\) \|\| \d, WQ_POOL\)/g) || []).length === 2, '뜻 맞히기 두 곳(처음·한 번 더) 모두 다른 책 오답 풀을 쓴다');
+  ok(/over: false \}; wordsOpen = false; renderWords\(\); renderWQ\(\); return; \}/.test(code), '(짝) «한 번 더 하기» 를 누르면 뜻을 다시 가린다');
+  const W4 = eval(html.match(/var WORDS = (\[[\s\S]*?\n  \]);/)[1]);
+  ok(W4.length === 6 && W4.every((x) => typeof x[3] === 'string' && x[3].length > 10 && /^[a-z][a-z ,;'()]+$/i.test(x[3]) && !x[3].toLowerCase().split(/[^a-z]+/).includes(x[0])), '3번(나): 낱말마다 영영풀이 — 영어만, 그 낱말 자신은 안 씀');
+  ok(/<span class="def">/.test(rw) && rw.indexOf('class="def"') < rw.indexOf('class="ex"'), '(짝) 영영풀이가 예문보다 위');
+  const pk = block(code, 'function pickNote(');
+  ok(/n\.hidden = !picking;/.test(pk) && /고르기 끝내기/.test(pk), '2·4번: 고르기 모드가 켜져 있으면 본문 위에 알림과 끄기 버튼');
+  ok(/rb\.addEventListener\('click', function\(\)\{ reset\(\); try \{ if \(window\.__storyPickOff\) window\.__storyPickOff\(\); if \(window\.__storyWordsReset\) window\.__storyWordsReset\(\);/.test(code), '(짝) «처음부터 다시» 가 고르기 모드를 끄고 낱말 게임·뜻 가리기를 처음으로');
+  ok((code.match(/StoryCore\.wordQuiz\(WORDS, \(Date\.now\(\) & 0xffff\) \|\| \d, WQ_POOL\)/g) || []).length >= 2 && (code.match(/StoryCore\.wordQuiz\(/g) || []).length === (code.match(/StoryCore\.wordQuiz\(WORDS, \(Date\.now\(\) & 0xffff\) \|\| \d, WQ_POOL\)/g) || []).length, '뜻 맞히기를 만드는 곳(처음·한 번 더·처음부터 다시) 모두 다른 책 오답 풀을 쓴다');
   ok(/typeof oi !== 'number' \? oi/.test(code), '다른 책 오답(글자)도 보기로 그린다');
   const cs = block(code, "document.getElementById('checkSum').addEventListener(");
   ok(/if \(full\) \{ try \{ localStorage\.setItem\(SUMKEY, '1'\); \} catch\(e\)\{\} renderSumCard\(\); \}/.test(cs), '원장님 의견 5: 요점정리 글 카드는 «다 맞혔을 때» 그린다');
