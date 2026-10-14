@@ -1146,12 +1146,20 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="grouphead" data-en="Operations" data-ko="운영관리">Operations</div>
 
   <!-- ⑧ 통합 검색 -->
-  <details class="card" id="c-search" ontoggle="if(this.open)setTimeout(function(){var e=document.getElementById('omniQ');if(e)e.focus();},0)">
+  <details class="card" id="c-search" ontoggle="if(this.open){setTimeout(function(){var e=document.getElementById('omniQ');if(e)e.focus();},0);if(window.aiHelpCheck)aiHelpCheck();}">
     <summary><span data-en="Search" data-ko="통합 검색">Search</span></summary>
     <div>
       <input type="text" id="omniQ" onkeydown="if(event.key==='Enter')runOmni()"
              placeholder="학생 · 강사 이름으로 찾기" data-en-ph="Find a student or teacher" data-ko-ph="학생 · 강사 이름으로 찾기">
-      <div style="margin-top:8px"><button class="btn" onclick="runOmni()"><span data-en="Search" data-ko="찾기">Search</span></button></div>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="runOmni()"><span data-en="Search" data-ko="찾기">Search</span></button>
+        <!-- 🤖 (2026-10-14) AI 도우미 — 서버가 허락한 계정(지금은 testbranch)에만 보인다. aiHelpCheck() 가 hidden 을 푼다. -->
+        <button class="btn btn-gray" id="aiHelpBtn" type="button" onclick="runAiHelp()" hidden><span data-en="🤖 Ask AI" data-ko="🤖 AI 에게 묻기">🤖 Ask AI</span></button>
+      </div>
+      <div id="aiHelpNote" class="muted" style="font-size:12px;line-height:1.6;padding-top:6px" hidden
+           data-en="Type a question (e.g. «Where do I see this month's settlement?») and press «Ask AI». The AI only explains menus — it cannot see your data."
+           data-ko="궁금한 것을 적고 「AI 에게 묻기」를 누르세요 (예: 「이번 달 정산은 어디서 봐?」). AI 는 메뉴·사용법만 알려 주고 실제 자료는 보지 않습니다.">Type a question and press «Ask AI».</div>
+      <div id="aiHelpBody"></div>
       <div id="omniBody"></div>
     </div>
   </details>
@@ -2892,6 +2900,76 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       }).join('');
     }).catch(function(e){ failBox(el, e); });
   };
+
+  // ── ⑧-2 🤖 AI 도우미 (2026-10-14 사장님 「testbranch 계정에만 일단」) ─────────────
+  //   서버(src/branch-ai-help.ts)가 계정을 다시 확인한다 — 여기 목록은 «버튼을 보일지» 만 정한다.
+  //   ⛔ 판정을 넓히려면 서버 BRANCH_AI_USERS 와 함께 고친다(한쪽만 넓히면 보이는데 403 인 버튼).
+  //   ⛔ AI 가 준 카드 id 는 이 화면에 실제로 있고 감춰지지 않은 카드일 때만 버튼으로 그린다.
+  var AI_HELP_USERS = { testbranch: 1 };
+  window.aiHelpCheck = function(){
+    once('me', function(){ return D.me ? Promise.resolve(D.me) : get('/api/admin/me', 'me'); }).then(function(j){
+      D.me = j;
+      var u = (j && (j.user || j.admin || j)) || {};
+      var name = String(u.username || u.uid || j.username || '').toLowerCase();
+      var on = !!AI_HELP_USERS[name];
+      ['aiHelpBtn', 'aiHelpNote'].forEach(function(id){ var e = document.getElementById(id); if (e) e.hidden = !on; });
+      if (on) { var q = document.getElementById('omniQ'); if (q) q.placeholder = T('Name to find, or a question for the AI', '이름으로 찾거나, AI 에게 물어볼 질문'); }
+    }).catch(function(){});
+  };
+  function aiCardUsable(id){
+    var el = document.getElementById(id);
+    if (!el || !/^c-/.test(id)) return null;
+    if (el.closest('[hidden]')) return null;   // 이 계정에 감춘 카드(본사 전용 등)는 안내하지 않는다
+    var sm = el.querySelector('summary');
+    return (sm ? sm.textContent : id).trim();
+  }
+  window.runAiHelp = function(){
+    var q = (document.getElementById('omniQ').value || '').trim();
+    var el = document.getElementById('aiHelpBody');
+    if (!q) { el.className = 'empty'; el.textContent = T('Type a question first.', '먼저 질문을 적어 주세요.'); return; }
+    var btn = document.getElementById('aiHelpBtn');
+    if (btn) btn.disabled = true;
+    el.className = 'empty';
+    el.textContent = T('Asking the AI...', 'AI 에게 묻는 중...');
+    fetch('/api/admin/omnisearch', { method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ action: 'ai_help', q: q, lang: EN() ? 'en' : 'ko' }) })
+      .then(function(r){
+        if (r.status === 401) { location.href = '/admin/login?next=%2Fbranch'; throw new Error('auth'); }
+        if (r.status === 403) throw new Error('forbidden');
+        return r.json().catch(function(){ return null; });
+      })
+      .then(function(j){
+        if (!j || j.ok !== true) throw new Error((j && j.error) || 'load_failed');
+        var cards = (Array.isArray(j.cards) ? j.cards : []).map(function(id){ return { id: id, label: aiCardUsable(id) }; })
+          .filter(function(c){ return !!c.label; });
+        var h = '<div class="row" style="display:block;white-space:pre-wrap;line-height:1.6">' + esc(j.answer || '') + '</div>';
+        if (cards.length) {
+          h += '<div style="display:flex;gap:6px;flex-wrap:wrap;padding:6px 0">' + cards.map(function(c){
+            return '<button type="button" class="btn btn-gray" data-ai-card="' + esc(c.id) + '">→ ' + esc(c.label) + '</button>';
+          }).join('') + '</div>';
+        } else if (j.used_ai === false) {
+          h += '<div class="muted" style="font-size:12px">' + esc(T('No matching menu found.', '맞는 메뉴를 찾지 못했습니다.')) + '</div>';
+        }
+        h += '<div class="muted" style="font-size:11px;padding-bottom:6px">' + esc(j.used_ai
+          ? T('AI answers can be wrong — check the menu itself.', 'AI 답변은 틀릴 수 있습니다 — 메뉴에서 직접 확인해 주세요.')
+          : T('Found by keyword, not by AI.', 'AI 가 아니라 낱말 일치로 찾은 결과입니다.')) + '</div>';
+        el.className = '';
+        el.innerHTML = h;
+      })
+      .catch(function(e){
+        el.className = 'empty';
+        if (e && e.message === 'forbidden') { el.textContent = T('This account cannot use the AI helper.', '이 계정은 AI 도우미를 쓸 수 없습니다.'); return; }
+        if (e && e.message === 'auth') return;
+        el.textContent = T('The AI did not answer. Try again in a moment.', 'AI 가 답하지 못했습니다. 잠시 뒤 다시 눌러 주세요.')
+                       + (e && e.message ? ' (' + e.message + ')' : '');
+      })
+      .then(function(){ if (btn) btn.disabled = false; });
+  };
+  document.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('#aiHelpBody [data-ai-card]');
+    if (b) window.openCard(b.getAttribute('data-ai-card'));
+  });
 
   // ── ⑨ 내 계정 ─────────────────────────────────────────────────────────────
   window.loadMe = function(){
