@@ -12,6 +12,8 @@
 //   ⑤ «고르기 끝내기»(알림·버튼) 는 고른 문장을 지우지 않는다 · 고른 문장은 언제나 2개 이하
 //   ⑥ 뜻 열림을 저장하지 않는다(story_*_wordsopen 키 0) · 영영풀이는 모든 카드에 영어로
 //   ⑦ 페이지 예외 0건
+// 같은 SEEDS 면 조작 순서와 낱말 게임 순서(주소의 fz= 로 시계 고정)가 같게 시작합니다. 다만 게임 피드백(0.65~1.2초)이
+//   진짜 타이머라, 그것과 겹치는 조작은 회차마다 조금 갈릴 수 있습니다(실측: 8회 중 앞 4회는 완전히 같음).
 // 실패하면 종료코드 1.
 import { spawn } from 'child_process';
 import http from 'http';
@@ -45,14 +47,15 @@ async function connect() {
 }
 function send(method, params = {}) { return new Promise((res, rej) => { const i = ++id; const to = setTimeout(() => { if (pend.has(i)) { pend.delete(i); rej(new Error('시간초과 ' + method)); } }, 20000); pend.set(i, { res: (v) => { clearTimeout(to); res(v); }, rej: (e) => { clearTimeout(to); rej(e); } }); ws.send(JSON.stringify({ id: i, method, params })); }); }
 async function ev(expr) { const r = await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true }); if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || 'eval error'); return r.result.value; }
-let pass = 0, fail = 0, steps = 0; const fails = []; const actCount = {};
+let pass = 0, fail = 0, steps = 0, againDone = 0; const fails = []; const actCount = {};
 const ok = (c, m) => { if (c) pass++; else { fail++; if (fails.length < 80) fails.push(m); } };
 
 // 결정적 난수(시드마다 같은 순서 — 실패하면 그 시드로 다시 돌려 재현)
 function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
 
 // 소리는 진짜로 못 들으니 speechSynthesis.speak 호출 수를 센다(페이지 스크립트보다 먼저 감싸야 synth 가 잡는 객체가 같다)
-const STUB = `(function(){ window.__speak=0; window.__spoken=[]; try{ const s=window.speechSynthesis; if(s){ const o=s.speak.bind(s); s.speak=function(u){ window.__speak++; window.__spoken.push(u&&u.text); try{ setTimeout(()=>{ try{ u.onend&&u.onend(); }catch(e){} },5); }catch(e){} }; } }catch(e){} })();`;
+const STUB = `(function(){ /* 시드 재현: 낱말 게임 순서가 Date.now 로 정해지므로 주소의 fz= 값으로 시계를 고정 */ try{ const m=location.search.match(/[?&]fz=(\\d+)/); if(m){ let t=1700000000000+ +m[1]*1000; Date.now=()=>t++; } }catch(e){}
+  window.__speak=0; window.__spoken=[]; try{ const s=window.speechSynthesis; if(s){ const o=s.speak.bind(s); s.speak=function(u){ window.__speak++; window.__spoken.push(u&&u.text); try{ setTimeout(()=>{ try{ u.onend&&u.onend(); }catch(e){} },5); }catch(e){} }; } }catch(e){} })();`;
 
 const STATE = `(()=>{const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
   const pn=$('#pickNote'), pm=$('#pickMode'), card=$('#wq .wq-card');
@@ -62,8 +65,8 @@ const STATE = `(()=>{const $=s=>document.querySelector(s),$$=s=>[...document.que
     picks:$$('#text .s.pick').length, left, word:(($('#wq .wq-word span')||{}).textContent)||null, picked:$$('#wq .wq-o.right,#wq .wq-o.wrong').length>0,
     speak:window.__speak, openKeys:Object.keys(localStorage).filter(k=>/wordsopen/.test(k)).length, total:window.__wqTotal||null };})()`;
 
-async function load(book) {
-  await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/story-${book}.html?f=${Date.now()}` });
+async function load(book, fz) {
+  await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/story-${book}.html?fz=${fz}` });
   for (let i = 0; i < 300; i++) { await sleep(50); try { if (await ev('!!(document.querySelectorAll("#text .s").length > 20 && document.querySelector("#wq .wq-card"))')) break; } catch {} }
   await ev('(()=>{try{localStorage.clear();}catch(e){}})()');
   await send('Page.reload', { ignoreCache: true });
@@ -123,7 +126,7 @@ async function act(a, R, learned) {
     }
     case 'again': {
       if (!(await ev('!!document.querySelector("#wq [data-wq=again]")'))) return;
-      await ev('document.querySelector("#wq [data-wq=again]").click()');
+      await ev('document.querySelector("#wq [data-wq=again]").click()'); againDone++;
       const s = await ev(STATE);
       ok(!s.done && s.ko === 0 && s.lock > 0, `«한 번 더 하기» → 뜻이 다시 가려진다 (ko ${s.ko} lock ${s.lock})`);
       return;
@@ -152,7 +155,7 @@ async function act(a, R, learned) {
 }
 
 async function runSeed(book, seed) {
-  if (!(await load(book))) { ok(false, `${book}#${seed}: 화면이 안 열림`); return; }
+  if (!(await load(book, seed * 10 + BOOKS.indexOf(book)))) { ok(false, `${book}#${seed}: 화면이 안 열림`); return; }
   // 전체 문제 수(처음 화면의 «남은 문제») 를 기억 — 새 게임이 나올 때마다 같아야 한다
   await ev(`window.__wqTotal=+((document.querySelector('#wq .wq-top span')||{}).textContent||'').replace(/[^0-9]/g,'')`);
   const s0 = await ev(STATE);
@@ -176,6 +179,9 @@ async function runSeed(book, seed) {
   for (let g = 0; g < 60 && !(await ev('!!document.querySelector("#wq .wq-card.done")')); g++) await act('wqRight', () => 0.1, learned);
   const sEnd = await ev(STATE);
   ok(sEnd.done && sEnd.ko >= 6 && sEnd.lock === 0, `${book}#${seed}: 게임을 끝내면 뜻이 열린다 (done ${sEnd.done} ko ${sEnd.ko})`);
+  // «한 번 더 하기» 는 무작위 구간에서 거의 안 닿으므로(끝까지 풀어야 나옴) 여기서 반드시 한 번 누른다
+  const a0 = againDone; await act('again', () => 0.1, learned);
+  ok(againDone === a0 + 1, `${book}#${seed}: «한 번 더 하기» 를 실제로 눌렀다`);
   // 새로고침하면 다시 가려진다(저장 안 함)
   await send('Page.reload', { ignoreCache: true });
   for (let i = 0; i < 200; i++) { await sleep(50); try { if (await ev('!!document.querySelector("#wq .wq-card")')) break; } catch {} }
@@ -199,7 +205,8 @@ async function runSeed(book, seed) {
   }
   ok(pageErr.length === 0, `페이지 예외 0건 (${pageErr.slice(0, 3).join(' | ')})`);
   console.log(`\n결과: 시퀀스 ${runs}회 · 무작위 조작 ${steps}회 · PASS ${pass} / FAIL ${fail}`);
-  console.log('조작 분포: ' + JSON.stringify(actCount));
+  ok(againDone >= runs, `«한 번 더 하기» 실행 ${againDone}회 ≥ 시퀀스 ${runs}회`);
+  console.log('조작 분포: ' + JSON.stringify(actCount) + ' · 한 번 더 하기 ' + againDone + '회');
   if (fails.length) console.log(fails.map((f) => '  ❌ ' + f).join('\n'));
   ws.close(); chrome.kill(); srv.close(); await new Promise((r) => { chrome.once('exit', r); setTimeout(r, 3000); }); try { fs.rmSync(PROF, { recursive: true, force: true }); } catch {}
   process.exit(fail ? 1 : 0);
