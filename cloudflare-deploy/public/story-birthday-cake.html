@@ -214,7 +214,11 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
 
 <style>
 /* 원장님 의견 반영 (2026-10-13): ④ 뜻 가리기 · ③ 요점정리 영어 글 카드 · ⑥ 바꿔 쓰기 점검 */
-.ko-peek{justify-self:start;border:1px dashed var(--line);background:var(--chip);color:var(--soft);border-radius:8px;padding:3px 10px;font-family:var(--ko);font-size:13px;font-weight:700}
+.ko-lock{justify-self:start;border:1px dashed var(--line);background:var(--chip);color:var(--soft);border-radius:8px;padding:3px 10px;font-family:var(--ko);font-size:13px;font-weight:700}
+.w .def{font-size:15px;line-height:1.5;color:var(--ink)}
+.w .def b{font-family:var(--ko);font-size:12px;font-weight:800;color:var(--umbrella);margin-right:4px}
+.picknote{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 12px;padding:10px 12px;border:1px solid var(--umbrella);border-radius:12px;background:var(--mark);color:var(--ink);font-family:var(--ko);font-size:14px;font-weight:700}
+.picknote[hidden]{display:none!important}
 .sumcard{margin-top:14px;border:1px solid var(--line);border-radius:14px;background:var(--paper);padding:14px 16px;display:grid;gap:10px}
 .sumcard-k{font-size:13px;font-weight:800;letter-spacing:.06em;color:var(--umbrella)}
 .sumcard-p{margin:0;font-size:17px;line-height:1.9}
@@ -368,12 +372,12 @@ var StoryCore = (function(){
     {"pre":".","ans":null}
   ];
   var WORDS = [
-    ["surprise","깜짝 놀랄 일, 깜짝 파티","They want to give her a <b>surprise</b> party."],
-    ["crumbs","(빵·과자) 부스러기","She sees small brown <b>crumbs</b> on the floor."],
-    ["detective","탐정","Mia looks around the kitchen like a <b>detective</b>."],
-    ["clue","단서, 실마리","\"These are <b>clues</b>.\""],
-    ["instead","대신에","Let's make a pancake tower <b>instead</b> of a cake!"],
-    ["guests","손님들","The <b>guests</b> come at eleven o'clock."]
+    ["surprise","깜짝 놀랄 일, 깜짝 파티","They want to give her a <b>surprise</b> party.", "something nice that you did not know about before"],
+    ["crumbs","(빵·과자) 부스러기","She sees small brown <b>crumbs</b> on the floor.", "very small pieces of bread, cake or cookies"],
+    ["detective","탐정","Mia looks around the kitchen like a <b>detective</b>.", "a person who looks for clues to find out the truth"],
+    ["clue","단서, 실마리","\"These are <b>clues</b>.\"", "a small thing that helps you find an answer"],
+    ["instead","대신에","Let's make a pancake tower <b>instead</b> of a cake!", "in place of something else"],
+    ["guests","손님들","The <b>guests</b> come at eleven o'clock.", "people you invite to your home or party"]
   ];
   // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들, story = 본문에서 칠할 문장(정확히 같은 글자)
   var QS = [
@@ -469,8 +473,26 @@ var StoryCore = (function(){
   function flash(msg, ok, en){
     keyFb.innerHTML = '<div class="fb ' + (ok ? 'ok' : 'no') + '"><p>' + msg + '</p>' + (en ? '<p class="en">' + en + '</p>' : '') + '</div>';
   }
+  // 2026-10-14: 고르기 모드에서는 문장을 눌러도 «칠하기» 만 하고 읽지 않는다 — 켜져 있는 것을 본문 위에서 알 수 없어
+  //   «소리가 안 나요» 로 읽혔다. 켜져 있는 동안 ① 칸 본문 바로 위에 알림 + 끄기 버튼을 둔다.
+  function pickNote(){
+    var n = document.getElementById('pickNote');
+    if (!n) { n = document.createElement('div'); n.id = 'pickNote'; n.className = 'picknote'; box.parentNode.insertBefore(n, box);
+      n.addEventListener('click', function(ev){ if (ev.target.closest('button')) setPicking(false); }); }
+    n.hidden = !picking;
+    n.innerHTML = picking ? '<span>' + t('✏️ 지금은 «핵심 문장 고르기» 중이라 문장을 누르면 색만 칠해지고 소리는 안 나요.','✏️ Choosing key sentences: tapping colors a sentence and does not read it.') + '</span><button type="button" class="b ghost">' + t('고르기 끝내기','Stop choosing') + '</button>' : '';
+  }
+  function setPicking(on){
+    picking = !!on; stop();
+    var pm = document.getElementById('pickMode');
+    if (pm) pm.innerHTML = picking ? t('✔ 고르기 끝','✔ Done choosing') : t('✏️ 고르기 시작','✏️ Start choosing');
+    pickNote();   // 고른 문장(pick)은 그대로 둔다 — «✔ 고르기 끝» 과 같게(정답 확인에 쓰임)
+  }
+  window.__storyPickOff = function(){ if (picking) setPicking(false); spans.forEach(function(s){ s.classList.remove('pick'); }); keyFb.innerHTML = ''; };   // «처음부터 다시» 만 고른 것까지 지움
+  // «처음부터 다시»(도장 초기화)가 낱말 게임과 가린 뜻도 처음 상태로 되돌린다
+  window.__storyWordsReset = function(){ wordsOpen = false; WQS = { list: StoryCore.wordQuiz(WORDS, (Date.now() & 0xffff) || 5, WQ_POOL), i: 0, combo: 0, best: 0, tries: 0, picked: null, over: false }; renderWords(); renderWQ(); };
   document.getElementById('pickMode').addEventListener('click', function(){
-    picking = !picking; stop();
+    picking = !picking; stop(); pickNote();
     spans.forEach(function(s){ s.classList.remove('good','miss'); });
     this.innerHTML = picking ? t('✔ 고르기 끝','✔ Done choosing') : t('✏️ 고르기 시작','✏️ Start choosing');
     keyFb.innerHTML = picking ? '<div class="fb ok"><p>' + t('이제 본문 문장을 누르면 노란색으로 칠해집니다.','Tap sentences in the story to highlight them.') + '</p></div>' : '';
@@ -482,7 +504,7 @@ var StoryCore = (function(){
     var gk = StoryCore.gradeKey(picked.map(function(s){ return s.dataset.role; })), hit = gk.hit;
     spans.forEach(function(s){ if (s.dataset.role !== 'd') s.classList.add('good'); });
     picked.forEach(function(s){ if (s.dataset.role === 'd') s.classList.add('miss'); });
-    picking = false;
+    picking = false; pickNote();
     document.getElementById('pickMode').innerHTML = t('✏️ 다시 고르기','✏️ Choose again');
     var why = t("핵심은 «생일 케이크가 사라졌고 파티까지 한 시간뿐이다(문제)» 와 «케이크 대신 팬케이크 탑을 만들자(해결)» 입니다. 초록색 문장이 정답이에요.",
                 "The key ideas are the problem (the cake is gone and the party starts in one hour) and the solution (make a pancake tower instead). The green sentences are the answers.");
@@ -542,25 +564,21 @@ var StoryCore = (function(){
   try { if (localStorage.getItem(SUMKEY)) renderSumCard(); } catch(e){}
 
   // ---- words ----
-  // 원장님 의견 4 (2026-10-13): 뜻 맞히기를 끝내기 전에는 카드의 한국어 뜻을 가립니다. 눌러서 보면 그 낱말은 게임에 한 번 더 나옵니다.
-  var WOPENKEY = 'story_' + STORY_ID + '_wordsopen', WPEEK = {}, wordsOpen = false;
-  try { wordsOpen = !!localStorage.getItem(WOPENKEY); } catch(e){}
-  function wqAgain(i){
-    if (!WQS || WQS.over) return;
-    for (var k = 0; k < WQS.list.length; k++) if (WQS.list[k].idx === i) { WQS.list.push(JSON.parse(JSON.stringify(WQS.list[k]))); break; }
-    renderWQ();
-  }
+  // 원장님 의견 4 (2026-10-13) → 2026-10-14 사장님 «1번은 가»: 카드의 한국어 뜻은 «이번 게임을 다 풀었을 때만» 보입니다.
+  //   ⛔ 눌러서 미리 보기(엿보기)를 되살리지 마세요 — 게임 답이 그대로 보입니다.
+  //   ⛔ 기기에 «열림» 을 저장하지 마세요 — 한 번 끝낸 기기에서 «한 번 더 하기»·«처음부터 다시» 때 답이 다 보입니다.
+  var wordsOpen = false;
+  try { localStorage.removeItem('story_' + STORY_ID + '_wordsopen'); } catch(e){}   // 예전 판이 남긴 «열림» 기록을 치움
   function renderWords(){
     var w = document.getElementById('words');
     w.innerHTML = WORDS.map(function(x, i){
       return '<div class="w"><div class="row"><span class="en">' + x[0] + '</span><button class="spk" type="button" data-i="' + i + '" aria-label="listen ' + x[0] + '">🔊</button></div>' +
-        (lang === 'en' ? '' : (wordsOpen || WPEEK[i]) ? '<span class="ko">' + x[1] + '</span>' : '<button type="button" class="ko-peek" data-peek="' + i + '">' + t('🙈 뜻은 게임 뒤에 · 눌러서 보기','🙈 Meaning hidden · tap to see') + '</button>') + '<span class="ex">' + x[2] + '</span></div>';
+        (lang === 'en' ? '' : wordsOpen ? '<span class="ko">' + x[1] + '</span>' : '<span class="ko-lock">' + t('🙈 뜻은 아래 게임을 끝내면 보여요','🙈 Meaning opens after the game') + '</span>') +
+        (x[3] ? '<span class="def"><b>' + t('영영풀이','Meaning') + '</b> ' + esc(x[3]) + '</span>' : '') +   /* 2026-10-14 사장님 «3번은 나»: 영영풀이를 넣고 예문은 아래에 작게 */
+        '<span class="ex">' + x[2] + '</span></div>';
     }).join('');
     w.querySelectorAll('.spk').forEach(function(b){
-      b.addEventListener('click', function(){ var x = WORDS[+b.dataset.i]; stop(); say(x[0], function(){ say(x[2].replace(/<[^>]+>/g,'')); }); });
-    });
-    w.querySelectorAll('.ko-peek').forEach(function(b){
-      b.addEventListener('click', function(){ var i = +b.dataset.peek; WPEEK[i] = 1; wqAgain(i); renderWords(); });
+      b.addEventListener('click', function(){ var x = WORDS[+b.dataset.i]; stop(); say(x[0], function(){ say(x[3] || x[2].replace(/<[^>]+>/g,'')); }); });
     });
   }
 
@@ -754,7 +772,7 @@ var StoryCore = (function(){
   document.getElementById('wq').addEventListener('click', function(ev){
     var b = ev.target.closest('button'); if (!b) return;
     var v = b.getAttribute('data-wq');
-    if (v === 'again') { WQS = { list: StoryCore.wordQuiz(WORDS, (Date.now() & 0xffff) || 9, WQ_POOL), i: 0, combo: 0, best: 0, tries: 0, picked: null, over: false }; renderWQ(); return; }
+    if (v === 'again') { WQS = { list: StoryCore.wordQuiz(WORDS, (Date.now() & 0xffff) || 9, WQ_POOL), i: 0, combo: 0, best: 0, tries: 0, picked: null, over: false }; wordsOpen = false; renderWords(); renderWQ(); return; }
     var it = WQS.list[WQS.i];
     if (v === 'say') { stop(); say(it.en); return; }
     if (WQS.picked != null) return;
@@ -762,9 +780,11 @@ var StoryCore = (function(){
     var good = k === it.ans;
     if (good) { WQS.combo++; WQS.best = Math.max(WQS.best, WQS.combo); } else { WQS.combo = 0; WQS.list.push(it); }
     renderWQ();
+    var mine = WQS;   // 그사이 «처음부터 다시»·«한 번 더» 로 새 게임이 되면 옛 예약은 버림(첫 문제 건너뛰기 방지)
     setTimeout(function(){
+      if (WQS !== mine) return;
       WQS.picked = null; WQS.i++;
-      if (WQS.i >= WQS.list.length) { WQS.over = true; storyDone('words'); wordsOpen = true; try { localStorage.setItem(WOPENKEY, '1'); } catch(e){} renderWords(); }
+      if (WQS.i >= WQS.list.length) { WQS.over = true; storyDone('words'); wordsOpen = true; renderWords(); }
       renderWQ();
     }, good ? 650 : 1200);
   });
@@ -1099,7 +1119,7 @@ var StoryCore = (function(){
   }
   function reset(){ st = {}; save(); paint(); if (fin) fin.innerHTML = ''; }
   var rb = document.getElementById('stampReset');
-  if (rb) rb.addEventListener('click', function(){ reset(); var el = document.getElementById('story'); if (el) el.scrollIntoView({ behavior: 'smooth' }); });
+  if (rb) rb.addEventListener('click', function(){ reset(); try { if (window.__storyPickOff) window.__storyPickOff(); if (window.__storyWordsReset) window.__storyWordsReset(); } catch(e){} var el = document.getElementById('story'); if (el) el.scrollIntoView({ behavior: 'smooth' }); });
   (document.getElementById('lang') || document.createElement('i')).addEventListener('click', function(){ setTimeout(function(){ paint(); if (window.__storyLastEarn) finishMsg(window.__storyLastEarn); }, 0); });
   window.StoryFun = { done: done, state: function(){ return st; }, reset: reset, earn: earn };
   paint();
