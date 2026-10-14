@@ -488,7 +488,7 @@ var StoryCore = (function(){
     if (pm) pm.innerHTML = picking ? t('✔ 고르기 끝','✔ Done choosing') : t('✏️ 고르기 시작','✏️ Start choosing');
     pickNote();   // 고른 문장(pick)은 그대로 둔다 — «✔ 고르기 끝» 과 같게(정답 확인에 쓰임)
   }
-  window.__storyPickOff = function(){ if (picking) setPicking(false); spans.forEach(function(s){ s.classList.remove('pick'); }); keyFb.innerHTML = ''; };   // «처음부터 다시» 만 고른 것까지 지움
+  window.__storyPickOff = function(){ setPicking(false); spans.forEach(function(s){ s.classList.remove('pick','good','miss'); }); keyFb.innerHTML = ''; };   // «처음부터 다시» 만 고른 것까지 지움 — 2026-10-14: «정답 확인» 뒤(버튼 «다시 고르기»·초록/빨강 색)도 늘 처음 상태로
   // «처음부터 다시»(도장 초기화)가 낱말 게임과 가린 뜻도 처음 상태로 되돌린다
   window.__storyWordsReset = function(){ wordsOpen = false; WQS = { list: StoryCore.wordQuiz(WORDS, (Date.now() & 0xffff) || 5, WQ_POOL), i: 0, combo: 0, best: 0, tries: 0, picked: null, over: false }; renderWords(); renderWQ(); };
   document.getElementById('pickMode').addEventListener('click', function(){
