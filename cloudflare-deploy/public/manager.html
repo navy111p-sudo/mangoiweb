@@ -1741,13 +1741,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       tile(won(m.settle), T('Your settlement', '정산액'), '', '', 'c-trend') +
       tile(n0(st.new_this_month), T('New this month', '이번 달 신규'), T('today ' + n0(st.new_today), '오늘 ' + n0(st.new_today) + '명'),
            st.new_this_month > 0 ? 'good' : '', 'c-flow');
-    // 비용은 본사 통합 관리라 매니저에게 0 으로 온다. «0 원» 으로 오해하지 않게 밝힌다.
-    document.getElementById('feeNote').innerHTML = d.cost_hq_only
-      ? esc(T('Costs are managed by HQ and are not shown here. Settlement = income minus the HQ fee ('
-              + Math.round((d.fee_rate || 0) * 100) + '%).',
-              '비용은 본사에서 통합 관리하여 여기 표시되지 않습니다. 정산액 = 수입에서 본사 수수료('
-              + Math.round((d.fee_rate || 0) * 100) + '%)를 뺀 금액입니다.'))
-      : '';
+    // 🧹 (2026-10-14 사장님) «비용은 본사에서 통합 관리…정산액 = 수입 − 본사 수수료» 안내 문구는 지운다.
+    document.getElementById('feeNote').innerHTML = '';
   }
 
   // ── ③ 30일 추이 — 차트 라이브러리 대신 SVG 선 ─────────────────────────────
