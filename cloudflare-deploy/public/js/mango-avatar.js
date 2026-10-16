@@ -529,6 +529,12 @@
                 buffering=true; showTier('closed', true); fadeData=null; drawStill();
               });
             });
+            // A seek while already playing need not emit another 'playing' event.
+            // Resume from the new audio position once that seek has usable data.
+            audioEl.addEventListener('seeked', function(){
+              if(boundEl!==audioEl || clipActive || audioEl.paused || audioEl.ended || audioEl.readyState<3)return;
+              buffering=false;window.MangoAvatar.plainStart();
+            });
             ['pause','ended','emptied','error'].forEach(function(event){
               audioEl.addEventListener(event, function(){
                 if(boundEl!==audioEl || clipActive) return;

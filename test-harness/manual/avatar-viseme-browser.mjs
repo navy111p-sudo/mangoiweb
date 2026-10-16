@@ -48,7 +48,9 @@ try{
    // before starting a short cue window (CI runners can decode slower than local).
    a.pause();await MangoAvatar.prepare(a);a.currentTime=.65;a.playbackRate=rate;await a.play();
   },{character,rate});
-  await page.waitForFunction(()=>window.pose===6,{},{timeout:5000}); // F at .6-1 seconds, regardless of rate.
+  await page.waitForFunction(()=>window.pose===6&&window.lastSprite==='anchor',{},{timeout:5000}).catch(async error=>{
+   console.error('FAIL: anchor',character,rate,width,await page.evaluate(()=>({time:a.currentTime,paused:a.paused,ended:a.ended,seeking:a.seeking,ready:a.readyState,pose:window.pose,sprite:window.lastSprite,images:[...document.images].map(i=>({src:i.src,ready:i.complete}))})),errors);throw error;
+  }); // F at .6-1 seconds, regardless of rate.
   await page.evaluate(()=>a.pause());await page.waitForFunction(()=>window.pose===0&&window.lastSprite==='anchor');
   await page.evaluate(async()=>{a.currentTime=.35;await a.play();});
   await page.waitForFunction(()=>window.pose===4);

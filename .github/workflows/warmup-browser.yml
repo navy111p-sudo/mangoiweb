@@ -5,6 +5,7 @@ on:
       - 'cloudflare-deploy/public/warmup.html'
       - 'cloudflare-deploy/public/ai-friend.html'
       - 'cloudflare-deploy/public/js/speech-preferences.js'
+      - 'cloudflare-deploy/public/img/visemes/**'
       - 'cloudflare-deploy/public/js/avatar-visemes.js'
       - 'cloudflare-deploy/public/js/avatar-viseme-worker.js'
       - 'cloudflare-deploy/public/js/mango-avatar.js'
@@ -35,6 +36,12 @@ jobs:
           "$RUNNER_TEMP/warmup-pw/node_modules/.bin/playwright" install --with-deps chromium
           mkdir -p "$RUNNER_TEMP/warmup-browser/installed/chrome-linux"
           PW_ROOT="$RUNNER_TEMP/warmup-pw" node -e 'const {chromium}=require(process.env.PW_ROOT+"/node_modules/playwright");require("fs").symlinkSync(chromium.executablePath(),process.env.RUNNER_TEMP+"/warmup-browser/installed/chrome-linux/chrome");'
+      - name: Avatar cue clock, speed and cancellation (18 browser cases)
+        env:
+          PW_DIR: ${{ runner.temp }}/warmup-pw
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/warmup-browser
+        run: node test-harness/manual/avatar-viseme-browser.mjs
+
       - name: Browser baseline and broken-wiring regression
         env:
           PW_DIR: ${{ runner.temp }}/warmup-pw
@@ -61,10 +68,3 @@ jobs:
           PW_DIR: ${{ runner.temp }}/warmup-pw
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/warmup-browser
         run: node test-harness/manual/speech-preferences-browser.mjs
-
-
-      - name: Avatar cue clock, speed and cancellation (18 browser cases)
-        env:
-          PW_DIR: ${{ runner.temp }}/warmup-pw
-          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/warmup-browser
-        run: node test-harness/manual/avatar-viseme-browser.mjs
