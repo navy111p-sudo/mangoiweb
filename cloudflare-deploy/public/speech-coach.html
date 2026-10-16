@@ -364,7 +364,7 @@
      결과를 볼 때(body.m-showing-result — 모든 폭에서 붙는다)는 녹음·추천 문장 칸 자리를
      결과 카드가 쓰고 문장 카드는 한 줄로 접는다. 레벨 카드의 인라인 style 은 !important 로 덮는다.
      얼굴 크기는 «남은 세로» 에 묶는다(제목·레벨줄 약 250px 를 뺀 높이의 80%).
-     긴 문장(SIU)·유닛 줄·결과 카드로 그래도 넘치면 파일 끝 스크립트가 --sc-fit(1→0.5)을
+     긴 문장(SIU)·유닛 줄·결과 카드로 그래도 넘치면 파일 끝 스크립트가 --sc-fit(1→0.4)을
      낮춰 얼굴·문장 글자·여백을 함께 줄인다(넘칠 때만 · 글자 내용은 그대로).
      양옆은 60px 이상 비운다 — 왼쪽 가운데 «메뉴» 손잡이(x≈2~46)를 얼굴이 덮던 것(1024px 실측). */
   @media (min-width: 1024px) {
@@ -427,7 +427,7 @@
     .feedback { margin-bottom: calc(10px * var(--sc-fit, 1)); }
     /* 단어별 발음 칩·안내도 fit 에 함께 묶는다(글자 내용은 그대로) — 짧은 PC 화면의 결과+단어지도 넘침(1366×768 실측 790px). */
     .wordmap-title { margin-bottom: calc(10px * var(--sc-fit, 1)); }
-    .wm { padding: calc(7px * var(--sc-fit, 1)) 11px; }
+    .wm { padding: calc(7px * var(--sc-fit, 1)) calc(11px * var(--sc-fit, 1)); font-size: max(13px, calc(15px * var(--sc-fit, 1))); }
     .wordmap-hint { margin-top: calc(9px * var(--sc-fit, 1)); }
     body.m-showing-result .step-count { display: none; }
   }
@@ -1846,7 +1846,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
 <script defer src="/js/flow.js?v=23"></script>
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 <script>
-/* 📏 PC 한 화면 맞춤 (2026-10-16) — 넘칠 때만 --sc-fit 을 1 → 0.5 으로 조금씩 낮춘다.
+/* 📏 PC 한 화면 맞춤 (2026-10-16) — 넘칠 때만 --sc-fit 을 1 → 0.4 로 조금씩 낮춘다.
    ResizeObserver 로 «내용 칸» 크기가 바뀔 때만 다시 잰다(⛔ 상주 타이머·body class 감시 금지 —
    홈을 멈춘 전력). 측정은 한 번의 콜백 안에서 동기로 끝나므로 화면이 깜빡이지 않는다.
    0.6 에서도 넘치면 그때는 스크롤을 허용한다(글자를 더 줄이지 않는다). */
@@ -1858,7 +1858,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
     try {
       if (!mq.matches) { de.style.removeProperty('--sc-fit'); return; }
       var f = 1; de.style.setProperty('--sc-fit', '1');
-      while (f > 0.5 && de.scrollHeight > innerHeight + 1) { f = Math.round((f - 0.04) * 100) / 100; de.style.setProperty('--sc-fit', String(f)); }
+      while (f > 0.4 && de.scrollHeight > innerHeight + 1) { f = Math.round((f - 0.04) * 100) / 100; de.style.setProperty('--sc-fit', String(f)); }
     } finally { busy = false; }
   }
   var ro = new ResizeObserver(fit), wrap = document.querySelector('.wrap');
