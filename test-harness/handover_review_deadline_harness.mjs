@@ -18,7 +18,8 @@ INSERT INTO push_subscriptions VALUES('ep-admin','admin',1),('ep-jjw','mgr_jjw',
 CREATE TABLE push_queue(endpoint TEXT,title TEXT,body TEXT,url TEXT,icon TEXT,badge TEXT,tag TEXT,queued_at INTEGER);
 INSERT INTO admin_account VALUES('admin','대표'),('mgr_jjw','장지웅'),('mgr_karl','Karl'),('mgr_melca','Melca'),('carol','Carol');
 INSERT INTO admin_scope SELECT username,'hq' FROM admin_account;`);
-function statement(sql){let args=[];return{sql,bind(...a){args=a;return this;},async first(){return db.prepare(sql).get(...args)||null;},async all(){return{results:db.prepare(sql).all(...args)};},runSync(){const r=db.prepare(sql).run(...args);return{meta:{changes:Number(r.changes)}};},async run(){return this.runSync();}};}
+let breakClosed=false;
+function statement(sql){let args=[];return{sql,bind(...a){args=a;return this;},async first(){return db.prepare(sql).get(...args)||null;},async all(){if(breakClosed&&/FROM daily_handover_closed_days/.test(sql))throw new Error('d1 down');return{results:db.prepare(sql).all(...args)};},runSync(){const r=db.prepare(sql).run(...args);return{meta:{changes:Number(r.changes)}};},async run(){return this.runSync();}};}
 const env={DB:{prepare:statement,async batch(items){db.exec('BEGIN');try{const out=items.map(s=>s.runSync());db.exec('COMMIT');return out;}catch(e){db.exec('ROLLBACK');throw e;}}}};
 let now=Date.parse('2026-10-13T10:00:00Z');class TestDate extends Date{static now(){return now;}}
 const module={exports:{}};
@@ -143,6 +144,26 @@ try{
   now=T('2026-10-19T01:00:00Z');const mon2=await send('mgr_melca','mgr_jjw','2026-10-19');now=T('2026-10-20T03:01:00Z');
   ok('공휴일 표 실패 → 주말만 빼고 판정(화 12:01 잠김)',(await api('/inbox',null,'mgr_jjw')).overdue_lock.some(x=>x.id===mon2.id));
   db.exec('ALTER TABLE holidays_x RENAME TO holidays');
+  // 🏢 회사 휴무일 — 경영진만 지정, 마감 계산에서 빠진다
+  for(const x of [fri2,mon2]){await api('/opened',{id:x.id,version:x.version},'mgr_jjw');now+=11000;await api('/ack',{id:x.id,version:x.version},'mgr_jjw');}
+  ok('휴무일: 확인 의무자(장지웅)는 지정 못 함(403)',(await api('/closed-days',{day:'2026-10-28',name:'x'},'mgr_jjw')).status===403);
+  ok('휴무일: 경영진이 아니면 화면에 편집 권한 없음',(await api('/closed-days',null,'mgr_jjw')).can_edit===false);
+  ok('휴무일: 날짜 형식이 틀리면 400',(await api('/closed-days',{day:'2026/10/28'},'admin')).status===400);
+  ok('휴무일: 대표가 추가',(await api('/closed-days',{day:'2026-10-28',name:'창립기념일'},'admin')).ok===true);
+  const cl=await api('/closed-days',null,'admin');
+  ok('휴무일: 목록에 이름과 함께 보인다',cl.can_edit===true&&cl.days.some(d=>d.day==='2026-10-28'&&d.name==='창립기념일'));
+  now=T('2026-10-27T05:00:00Z');const tue=await send('mgr_karl','mgr_jjw','2026-10-27');
+  now=T('2026-10-28T03:01:00Z');ok('휴무일(10/28) 12:01: 안 잠긴다',!(await api('/inbox',null,'mgr_jjw')).overdue_lock.some(x=>x.id===tue.id));
+  await api('/closed-days',{day:'2026-10-28',remove:true},'admin');
+  ok('휴무일 삭제하면 그날 12:01 에 잠긴다',(await api('/inbox',null,'mgr_jjw')).overdue_lock.some(x=>x.id===tue.id));
+  await api('/closed-days',{day:'2026-10-28',name:'창립기념일'},'admin');
+  breakClosed=true;
+  const brk=await api('/inbox',null,'mgr_jjw');
+  ok('휴무일 표 실패 → 주말·공휴일만 빼고 판정(잠김, 오류 없음)',brk.status===200&&brk.overdue_lock.some(x=>x.id===tue.id));
+  breakClosed=false;
+  ok('휴무일 다시 넣으면 다시 안 잠긴다',!(await api('/inbox',null,'mgr_jjw')).overdue_lock.some(x=>x.id===tue.id));
+  now=T('2026-10-29T02:59:00Z');ok('다음 근무일 10/29 11:59: 안 잠긴다',!(await api('/inbox',null,'mgr_jjw')).overdue_lock.some(x=>x.id===tue.id));
+  now=T('2026-10-29T03:01:00Z');ok('다음 근무일 10/29 12:01: 잠긴다',(await api('/inbox',null,'mgr_jjw')).overdue_lock.some(x=>x.id===tue.id));
 }catch(e){fail++;console.log('  ❌ FAIL 실행 중 오류:',e&&e.stack);}
 {const i=source.indexOf('export async function runDailyHandoverSweep');const body=source.slice(i,source.indexOf('\n}\n',i));ok('15분 sweep 이 마감 알림을 부른다',i>0&&/await runReviewEscalation\(env\)/.test(body.replace(/\/\/.*$/gm,'')));}
 // 화면 배선 — 배너 잠금 · 확인 버튼 카운트다운 · 대표 표시
@@ -157,5 +178,7 @@ ok('관리자·매니저·결재 화면의 배너가 같은 코드',['admin.html
 ok('확인 버튼이 N초 카운트다운',/function armReadGate/.test(page)&&/if\(readMinSec>0\)armReadGate\(r,ack\)/.test(page));
 ok('read_first 를 사람 말로 보여준다',/j\.error==='read_first'/.test(page));
 ok('대표 미확인 줄에 장지웅 마감 지남 표시',/overdueLine\(\)/.test(page)&&/reviewerOverdue=data\[1\]\.reviewer_overdue/.test(page));
+ok('회사 휴무일 칸: 경영진에게만 열리고 추가·삭제를 부른다',/function loadClosed\(\)/.test(page)&&/\$\('closed'\)\.hidden=!j\.can_edit/.test(page)&&/call\('\/closed-days',\{day:d\.day,remove:true\}\)/.test(page)&&/if\(j\.can_review_all\)loadClosed\(\)/.test(page));
+ok('회사 휴무일 칸이 화면에 있다(기본 숨김)',/<details id="mh-closed"[^>]*hidden/.test(readFileSync('cloudflare-deploy/public/daily-handover.html','utf8')));
 console.log(`결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail?1:0);
