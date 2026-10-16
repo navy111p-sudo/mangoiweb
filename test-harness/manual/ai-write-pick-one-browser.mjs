@@ -42,10 +42,13 @@ const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbo
 
 async function open(w, h, lang) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+  await ctx.addInitScript(() => { try { localStorage.setItem('mangoi_aiwrite_howto_v1', '1'); } catch (e) {} }); // 첫 방문 «📖 사용 방법» 창이 화면을 덮지 않게(본 것으로 표시) — onescreen 과 같은 방식
   await ctx.addInitScript((l) => { try { localStorage.setItem('mangoi_lang', l); } catch (e) {} }, lang || 'ko');
   const page = await ctx.newPage();
   await page.goto(BASE + '/' + PAGE + '?_nc=' + Date.now(), { waitUntil: 'load' });
   await page.waitForTimeout(600);
+  // 10-08 부터 글감·브레인스토밍은 «🙋 도움이 필요해요» 접이칸(#awHelp, 기본 닫힘) 안 — 학생처럼 눌러 연 뒤 잰다
+  await page.click('#awHelp > summary'); await page.waitForTimeout(200);
   return { ctx, page };
 }
 
