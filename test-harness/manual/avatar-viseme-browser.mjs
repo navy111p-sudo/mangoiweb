@@ -23,9 +23,10 @@ const browser=await pw.chromium.launch({executablePath:exe,headless:true,args:['
 let pass=0;
 try{
  const page=await browser.newPage();let errors=[];page.on('pageerror',e=>errors.push(e.message));
- let releaseAtlas,heldResolve;const held=new Promise(r=>heldResolve=r);
+ let releaseAtlas,heldResolve,delayFirstAtlas=true;const held=new Promise(r=>heldResolve=r);
  await page.route('**/img/visemes/lily-mouths.webp',async route=>{
-  await new Promise(resolve=>{releaseAtlas=resolve;heldResolve();});await route.continue();
+  if(delayFirstAtlas){delayFirstAtlas=false;await new Promise(resolve=>{releaseAtlas=resolve;heldResolve();});}
+  await route.continue();
  });
  await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:'domcontentloaded'});
  await held;
