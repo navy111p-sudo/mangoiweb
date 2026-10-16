@@ -17,7 +17,7 @@
      늦게 도착한 소리가 그 위로 재생된다. 그러면 «AI 목소리가 나오는 채로 마이크가
      열려 음성인식이 AI 말을 받아 적던» 2026-07-23 사고가 그대로 되살아난다.
      그래서 늦게 온 응답은 이 번호를 보고 스스로 물러난다. */
-  var seq = 0;
+  var seq = 0, playTimer = 0;
   // 현재 발음 언어: 'en'(기본) | 'zh'(중국어). localStorage 로 페이지 간 공유.
   var curLang = (function(){ try{ var l=localStorage.getItem('mangoi_game_lang'); return (l==='zh')?'zh':'en'; }catch(_){ return 'en'; } })();
   // 🎙 서버 화자(Aura-2 speaker) — setSpeaker('orion'|'asteria'|null). null=서버 기본(여성 asteria).
@@ -134,18 +134,27 @@
   function playUrl(u, rate, onend){
     try{
       if(!audioEl) audioEl = new Audio();
-      var done=false, fin=function(){ if(!done){ done=true; if(onend) onend(); } };
-      if(onend){ audioEl.onended=fin; audioEl.onerror=fin; setTimeout(fin, 8000); }
-      else { audioEl.onended=null; audioEl.onerror=null; }
-      audioEl.src=u; audioEl.playbackRate = rate||1;
-      audioEl.play().catch(function(){ fin(); });
-    }catch(_){ if(onend) onend(); }
+      clearTimeout(playTimer);
+      var mine=seq, done=false, timer=0;
+      var fin=function(){if(!done){done=true;clearTimeout(timer);if(onend && mine===seq)onend();}};
+      audioEl.onended=fin;audioEl.onerror=fin;
+      audioEl.src=u;audioEl.playbackRate=rate||1;
+      var prepare=window.MangoAvatar && MangoAvatar.prepare ? MangoAvatar.prepare(audioEl) : Promise.resolve();
+      Promise.resolve(prepare).catch(function(){}).then(function(){
+        if(mine!==seq || audioEl.src!==u || done)return;
+        // Start the safety deadline only after preparation, sized for the complete clip.
+        var duration=Number(audioEl.duration);
+        timer=playTimer=setTimeout(fin,Number.isFinite(duration)?Math.max(8000,duration/(rate||1)*1000+4000):90000);
+        audioEl.play().catch(fin);
+      });
+    }catch(_){if(onend)onend();}
   }
   // speak(text, rate?, onend?) — onend 는 재생이 끝나면 1회 호출 (말하기 미션 등 흐름 연결용)
   //   클라우드 우선(en=Deepgram Aura-1, zh=서버가 진짜 만다린 반환) → 실패 시 브라우저 폴백
   function speak(text, rate, onend){
     text=stripEmoji(text); if(!text){ if(onend) onend(); return; }
     try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
+    var mine = ++seq;
     var key = ckey(text);
     if(cache[key]){ playUrl(cache[key], rate, onend); return; }
     /* 🎙️ 한 번 실패했다고 곧바로 «기기 목소리» 로 가지 않는다 — 원어민 음성과 전혀 달라
@@ -153,7 +162,6 @@
        물어보면 일시적 흔들림은 여기서 끝난다.
        ⛔ 기기 목소리 폴백 자체는 없애지 마세요 — 소리가 아예 안 나는 것이 더 나쁩니다
           (앱 WebView·뉴런 소진 때는 그것뿐입니다). 「한 번 더」 뒤에만 갑니다. */
-    var mine = ++seq;
     var attempt = function(tryNo){
       fetchTTS(text).then(function(u){
         if(mine!==seq) return;            // 멈췄거나 다음 발화가 시작됐다 — 물러난다
@@ -193,7 +201,8 @@
      <audio> 로 재생**된다. 그래서 AI 목소리가 스피커로 계속 나오는 채로 마이크가 열렸고,
      음성인식이 AI 목소리를 학생 말로 받아 적어 엉뚱한 문장이 전송됐다. */
   function stop(){
-    seq++;   // ⚠️ 재시도가 «멈춘 뒤» 도착해 마이크 옆에서 재생되지 않게(위 seq 주석)
+    seq++;
+    clearTimeout(playTimer);   // ⚠️ 재시도가 «멈춘 뒤» 도착해 마이크 옆에서 재생되지 않게(위 seq 주석)
     try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
     try{ if(audioEl){ audioEl.onended=null; audioEl.onerror=null; audioEl.pause(); try{ audioEl.currentTime=0; }catch(_2){} } }catch(_){}
   }

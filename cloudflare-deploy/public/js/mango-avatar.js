@@ -91,7 +91,7 @@
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
-    window.MangoAvatar = { plainStart:noop, plainStop:noop, attach:noop, setCharacter:noop,
+    window.MangoAvatar = { plainStart:noop, plainStop:noop, attach:noop, prepare:function(){return Promise.resolve(null);}, setCharacter:noop,
       playClip:function(){ return Promise.reject(new Error('avatar_not_ready')); } };
   }
 
@@ -120,7 +120,10 @@
   //   ℹ️ 기본값은 그 반대(fade 130 > hold 90)이고 Lily·Noah 가 그대로인데 «그게 정상» 입니다 —
   //      그쪽은 한 번에 바뀌는 픽셀이 2~3% 뿐이라 겹쳐도 안 보입니다. 고치지 마세요.
   var CHARACTERS = {
-    emma: { sources:[['/img/teacher-avatar.webm','video/webm'],['/img/teacher-avatar.mp4','video/mp4']],
+    // 2026-10-16: user authorized a new Emma identity with registered mouth-only poses.
+    emma: { frames:{closed:'/img/visemes/emma-v2-rest.webp',medium:'/img/visemes/emma-v2-mid.webp',wide:'/img/visemes/emma-v2-wide.webp'},
+            still:'/img/visemes/emma-v2-rest.webp',rect:{l:0,t:0,r:1,b:1},aspect:0.8,keyed:false,fallback:'emma_classic' },
+    emma_classic: { sources:[['/img/teacher-avatar.webm','video/webm'],['/img/teacher-avatar.mp4','video/mp4']],
             still:'/img/teacher-avatar.png', rect:{ l:67/512, t:40/512, r:445/512, b:1 },
             poses:{ closed:3.3, medium:0.2, wide:4.0 }, hold:200, fade:160 },
     jake: { sources:[['/img/hero-avatar.mp4','video/mp4']],
@@ -128,7 +131,7 @@
             poses:{ closed:3.2, medium:7.1, wide:3.5 }, hold:200, fade:160 },
     lily: { frames:{ closed:'/img/lily-closed.webp', medium:'/img/lily-mid.webp', wide:'/img/lily-wide.webp' },
             still:'/img/lily-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
-            aspect:0.8, keyed:false, fallback:'emma' },
+            aspect:0.8, keyed:false, fallback:'emma_classic' },
     noah: { frames:{ closed:'/img/noah-closed.webp', medium:'/img/noah-mid.webp', wide:'/img/noah-wide.webp' },
             still:'/img/noah-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
             aspect:0.8, keyed:false, fallback:'jake' },
@@ -137,7 +140,7 @@
     //       «중국인 얼굴이 영어로 말하는» 상태가 됩니다(웜업에 중국어가 붙은 것이 먼저입니다).
     mei:  { frames:{ closed:'/img/mei-closed.webp', medium:'/img/mei-mid.webp', wide:'/img/mei-wide.webp' },
             still:'/img/mei-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
-            aspect:0.8, keyed:false, fallback:'emma' },
+            aspect:0.8, keyed:false, fallback:'emma_classic' },
     /* 🀄 long(龙老师·룽 선생님) — 중국어 «남자» 교사(2026-09-14 사장님 「남자 교사도 한명더」).
        메이와 같은 규격입니다(입모양 3장·4:5·투명 WebP). fallback 이 jake 인 까닭은
        그림을 못 받았을 때 «남자» 얼굴로 떨어져야 목소리와 어긋나지 않기 때문입니다.
@@ -151,7 +154,7 @@
   };
   // 옛 이름으로 부르는 코드가 남아 있어도 조용히 죽지 않게 — setCharacter 가 먼저 풀어 준다.
   // ⚠️ 화면이 새 이름으로만 부르도록 고쳤지만, 이 표를 지우면 옛 호출이 «아무 일도 안 일어남» 이 됩니다.
-  var CHAR_ALIAS = { female:'emma', male:'jake', female_classic:'emma', male_classic:'jake' };
+  var CHAR_ALIAS = { female:'emma', male:'jake', female_classic:'emma_classic', male_classic:'jake' };
   var BASE_W = 320;   // 캔버스 내부 해상도 기준 폭(캐릭터별 비율에 맞춰 높이만 재계산)
 
   function build(){
@@ -275,6 +278,31 @@
 
     // ── 음량 분석(Web Audio) — attach 로 오디오를 물릴 때 1회 그래프 생성 ──
     var actx=null, boundEl=null, analyser=null, lipData=null, audioFailed=false;
+    var bindings = new WeakMap(), buffering = false, mouthCues=null, cueUrl='', preciseFaces={};
+    // Generated mouths registered onto the shipped face. G/H use conservative substitutes
+    // until F/V contact and tongue poses pass visual QA.
+    var PRECISION={lily:{extra:true,base:'/img/lily-closed.webp',x:250,y:294,w:144,h:122},
+      noah:{extra:true,base:'/img/noah-closed.webp',x:244,y:364,w:154,h:130},
+      emma:{extra:true,base:'/img/visemes/emma-v2-rest.webp',atlas:'/img/visemes/emma-v2-mouths.webp',x:183,y:282,w:146,h:126}};
+    function precisionFace(){
+      if(!PRECISION[curChar])return null;
+      if(!preciseFaces[curChar]){
+        var p=PRECISION[curChar],base=new Image(),mouths=new Image();
+        base.src=p.base;mouths.src=p.atlas||('/img/visemes/'+curChar+'-mouths.webp');
+        preciseFaces[curChar]={base:base,mouths:mouths,rect:p};
+      }
+      return preciseFaces[curChar];
+    }
+    function prepareCues(el){
+      var nextUrl=el.src||el.currentSrc||'';
+      if(cueUrl!==nextUrl)mouthCues=null;cueUrl=nextUrl;
+      var url=cueUrl;
+      if(!window.AvatarVisemes || !url)return Promise.resolve(null);
+      return window.AvatarVisemes.prepare(url).then(function(cues){
+        if(boundEl===el && cueUrl===url && (el.src||el.currentSrc||'')===url)mouthCues=cues;
+        return cues;
+      }).catch(function(){});
+    }
     function ensureCtx(){
       if(actx) return true; if(audioFailed) return false;
       try{ var AC=window.AudioContext||window.webkitAudioContext; if(!AC) throw 0;
@@ -306,6 +334,19 @@
     var fadeData = null, fadeT0 = 0;
     function keyFrame(){
       var srcEl, vw, vh;
+      var pf=precisionFace(), precise=pf && mouthCues && !clipActive;
+      if(precise && pf.base.complete && pf.base.naturalWidth && pf.mouths.complete && pf.mouths.naturalWidth){
+        var pose=(!boundEl || boundEl.paused || boundEl.ended || buffering || !drawing) ? 'X' : window.AvatarVisemes.at(mouthCues,boundEl.currentTime);
+        if(!pf.rect.extra){if(pose==='G')pose='B';if(pose==='H')pose='C';}
+        var ix='XABCDEFGH'.indexOf(pose), r=pf.rect;
+        var bw=pf.base.naturalWidth,bh=pf.base.naturalHeight;
+        var bx=bw*cropRect.l,by=bh*cropRect.t,sw=bw*(cropRect.r-cropRect.l),sh=bh*(cropRect.b-cropRect.t);
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(pf.base,bx,by,sw,sh,0,0,canvas.width,canvas.height);
+        ctx.drawImage(pf.mouths,(ix%3)*r.w,Math.floor(ix/3)*r.h,r.w,r.h,
+          (r.x-bx)/sw*canvas.width,(r.y-by)/sh*canvas.height,r.w/sw*canvas.width,r.h/sh*canvas.height);
+        return;
+      }
       if (imgFrames){
         srcEl = imgCur;
         if (!srcEl || !srcEl.complete || !srcEl.naturalWidth) return;   // 아직 안 받았으면 다음 프레임에
@@ -366,7 +407,7 @@
       return 'wide';
     }
     var lastSwitchAt = 0;
-    function showTier(tier){
+    function showTier(tier, immediate){
       if(tier === curTier || !curPoses) return;
       // 🔴 (2026-07-27 3차) setCharacter() 직후(video.load() 로 리로드 중) 는 readyState 가
       //   낮아 seek 이 조용히 씹힌다. 그런데도 curTier 를 먼저 확정해버려서, 나중에 영상이
@@ -381,13 +422,13 @@
         //    (v3 사고와 같은 자리 — 확정해버리면 다 받은 뒤에도 영영 안 바꾼다).
         var imN = imgFrames[tier];
         if(!imN || !imN.complete || !imN.naturalWidth) return;
-        if(now - lastSwitchAt < curHold) return;
+        if(!immediate && now - lastSwitchAt < curHold) return;
         try { fadeData = ctx.getImageData(0,0,canvas.width,canvas.height); fadeT0 = now; } catch(e){ fadeData = null; }
         curTier = tier; lastSwitchAt = now; imgCur = imN;
         return;
       }
       if(video.readyState < 2) return;
-      if(now - lastSwitchAt < curHold) return;
+      if(!immediate && now - lastSwitchAt < curHold) return;
       var t = curPoses[tier];
       if(typeof t !== 'number') return;
       // 🎞 전환 직전 화면을 스냅샷해서 keyFrame() 이 새 프레임과 부드럽게 섞도록 넘겨준다.
@@ -398,13 +439,18 @@
     function loop(){
       if(!drawing){ raf=0; return; }
       if(boundEl && analyser && !clipActive){
-        if(boundEl.paused || boundEl.ended){
-          showTier('closed');                              // 말 안 하는 중 → 다문 입 프레임에 고정
+        if(boundEl.paused || boundEl.ended || buffering){
+          showTier('closed', true);                        // 말 안 하는 중 → 다문 입 프레임에 고정
           idleTicks++;
           if(idleTicks > 300){ doStop(); return; }         // 5초 넘게 안 멈춰지면 plainStop() 유실로 보고 안전 종료
         } else {
           idleTicks = 0;
-          showTier(tierFor(rmsLevel()));
+          if(mouthCues && window.AvatarVisemes){
+            // Existing three-pose characters still follow cue timing; no identity change.
+            var cue=window.AvatarVisemes.at(mouthCues,boundEl.currentTime);
+            var tier=(cue==='X'||cue==='A')?'closed':(cue==='D'?'wide':'medium');
+            showTier(tier,tier==='closed');
+          }else showTier(tierFor(rmsLevel()));
         }
       } else {
         // 🔇 분석 불가능한 음성(브라우저 speechSynthesis) — 실제 음량을 모르니 poses 대신
@@ -430,7 +476,12 @@
     function startDraw(){ idleTicks=0; curTier=null; lastSwitchAt=0; fadeData=null; drawing=true; if(!raf) raf=requestAnimationFrame(loop); }
     function stopDraw(){ drawing=false; if(raf){ try{cancelAnimationFrame(raf);}catch(e){} raf=0; } }
     function drawStill(){ keyFrame(); }
-    function doStop(){ setSpeaking(false); stopDraw(); try{ video.pause(); }catch(e){} drawStill(); }
+    function doStop(){
+      setSpeaking(false); stopDraw();
+      // Cancellation must end on the closed pose, even inside the minimum hold window.
+      showTier('closed', true); fadeData=null;
+      try{ video.pause(); }catch(e){} drawStill();
+    }
     video.addEventListener('loadeddata', function(){ if(!drawing) drawStill(); });
     video.addEventListener('seeked',     function(){ if(!drawing) drawStill(); });
     mountCharacter(curChar);   // 🖼 이미지 캐릭터면 입모양 3장을 여기서 받기 시작한다(영상이면 옛 동작 그대로)
@@ -439,16 +490,45 @@
       // TTS 오디오(HTMLAudioElement)를 물려 음량 립싱크. 요소당 MediaElementSource 1회.
       //   소리 경로(destination) 연결 필수 — 안 하면 음소거됨.
       attach: function(audioEl){
-        if(!audioEl || audioEl===boundEl) return;
-        if(!ensureCtx()) return;                       // WebAudio 불가 → 연속 재생 폴백 유지
+        if(!audioEl) return;
+        if(!ensureCtx()) return;
         try{
-          var src=actx.createMediaElementSource(audioEl);
-          src.connect(actx.destination);               // 1) 소리 그대로 출력(필수)
-          src.connect(analyser);                       // 2) 분석 탭
-          boundEl=audioEl;
-          try{ if(actx.state==='suspended') actx.resume(); }catch(e){}
-        }catch(e){ /* 이미 물렸거나 실패 → 연속 재생 폴백 */ }
+          var binding = bindings.get(audioEl);
+          if(!binding){
+            var src=actx.createMediaElementSource(audioEl);
+            var tap=actx.createAnalyser(); tap.fftSize=512;
+            src.connect(actx.destination);
+            src.connect(tap);
+            binding={ source:src, analyser:tap };
+            bindings.set(audioEl, binding);
+            // Only the selected element may drive the face. Old audio events are ignored.
+            audioEl.addEventListener('loadeddata', function(){if(boundEl===audioEl)prepareCues(audioEl);});
+            audioEl.addEventListener('playing', function(){
+              if(boundEl!==audioEl || clipActive) return;
+              if((audioEl.currentSrc||audioEl.src||'')!==cueUrl || !mouthCues)prepareCues(audioEl);
+              buffering=false; window.MangoAvatar.plainStart();
+            });
+            ['waiting','seeking'].forEach(function(event){
+              audioEl.addEventListener(event, function(){
+                if(boundEl!==audioEl || clipActive) return;
+                buffering=true; showTier('closed', true); fadeData=null; drawStill();
+              });
+            });
+            ['pause','ended','emptied','error'].forEach(function(event){
+              audioEl.addEventListener(event, function(){
+                if(boundEl!==audioEl || clipActive) return;
+                buffering=false; doStop();
+              });
+            });
+          }
+          boundEl=audioEl; analyser=binding.analyser; buffering=false;
+          prepareCues(audioEl);
+          lipData=new Uint8Array(analyser.fftSize);
+          if(actx.state==='suspended') actx.resume();
+          if(!audioEl.paused && !audioEl.ended) window.MangoAvatar.plainStart();
+        }catch(e){ /* Preserve audible playback if Web Audio is unavailable. */ }
       },
+      prepare: function(audioEl){ if(boundEl!==audioEl)window.MangoAvatar.attach(audioEl);return prepareCues(audioEl); },
       // 캐릭터 전환 — 'emma'|'jake'|'lily'|'noah' (옛 'female'|'male' 도 받습니다).
       setCharacter: function(name){
         name = CHAR_ALIAS[name] || name;

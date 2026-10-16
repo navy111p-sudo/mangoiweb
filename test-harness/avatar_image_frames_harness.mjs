@@ -88,10 +88,10 @@ if (CH) {
   }
 
   /* ③ 성인 얼굴 보존 — 폴백이자 playClip(teacher-say-*) 클립의 짝 */
-  ok(vidChars.includes('emma') && vidChars.includes('jake'),
+  ok(vidChars.includes(CH.emma.frames ? 'emma_classic' : 'emma') && vidChars.includes('jake'),
     '성인 얼굴(emma·jake)이 영상 캐릭터로 그대로 남아 있다',
     '⛔ 지우지 말 것 — Lily·Noah 의 폴백이고, playClip 의 립싱크 클립이 Emma 얼굴과 짝이다');
-  ok(typeof (CH.emma || {}).poses?.closed === 'number',
+  ok(typeof (CH[CH.emma.frames ? 'emma_classic' : 'emma'] || {}).poses?.closed === 'number',
     'Emma 의 입모양 타임스탬프(poses)가 남아 있다');
 }
 
@@ -315,10 +315,10 @@ if (CH) {
        ⛔ 「모든 영상 캐릭터」로 넓히지 마세요: Jake 는 사장님 지시 밖이라 «되돌릴 수 있어야»
           합니다(넓히면 이 하니스가 Jake 를 잠가 버립니다).
        ⛔ 숫자(200)를 못 박지 않는다 — 180·220 으로 다듬어도 뜻은 그대로여야 합니다. */
-    ok(!!CH.emma && holdOf('emma') > slowestImg,
-      `emma: 이미지 캐릭터보다 입을 천천히 바꾼다 (${CH.emma ? holdOf('emma') : '?'}ms > ${slowestImg}ms)`,
-      'Emma 의 입모양 세 장은 «영상의 다른 순간» 이라 바뀔 때 얼굴째 움직입니다 — 같은 속도로 '
-      + '바꾸면 «입이 빠르다» 가 아니라 «덜덜거린다» 로 보입니다(2026-09-09 사장님 제보)');
+    const legacyEmma = CH.emma && CH.emma.frames ? 'emma_classic' : 'emma';
+    ok(!!CH[legacyEmma] && !!CH[legacyEmma].sources && holdOf(legacyEmma) > slowestImg,
+      `${legacyEmma}: legacy video poses retain their slower hold`,
+      'The rebuilt image Emma has fixed eyes/head; the old video fallback still needs anti-jitter timing.');
 
     // ③ 늦추기로 한 캐릭터는 «영상 캐릭터» 뿐이어야 한다 — 이미지 캐릭터를 늦추면 여기서 걸린다.
     ok(tuned.length > 0 && tuned.every(k => CH[k].sources),
