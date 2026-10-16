@@ -458,6 +458,44 @@
       .go-go { font-size: 15px; }
       .sh-paper { padding: 20px 16px 40px; }
     }
+    /* ═══ 🖥 PC 한 화면 2단 배치 (2026-10-16 사장님 «한방에 모두 보이게 · 글자 크기는 그대로») ═══
+       왼쪽 = ① 고르기(난이도·장면·오늘의 그림), 오른쪽 = ② 쓰기(소개·미션·도움·쓰기 칸·첨삭 버튼).
+       그 아래(결과·성장·일기·다른 활동)는 두 칸을 다 쓴다.
+       ⛔ font-size 는 한 줄도 안 바꾼다 — 바꾸는 것은 배치·여백·그림·캐릭터 크기뿐.
+       ⛔ DOM 순서는 그대로 둔다(JS·하니스가 id 로 찾는다) — 그리드 «자리» 만 정한다.
+       ⚠️ 1200px 미만(태블릿·폰)은 예전 세로 배치 그대로.
+       ⚠️ 마지막 줄(12번)이 1fr 인 이유: 그림 카드가 오른쪽보다 길면 남는 높이를 그 빈 줄이 받아
+          오른쪽 칸들 사이가 벌어지지 않게 한다. */
+    @media (min-width: 1200px) {
+      .wrap { max-width: 1720px; padding-top: 14px; display: grid; column-gap: 24px; align-items: start;
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+        grid-template-rows: repeat(11, auto) 1fr; }
+      .wrap > * { grid-column: 1 / -1; }
+      .wrap > .aw-how-btn { grid-column: 1; grid-row: 1; margin: 0 0 10px; }
+      .wrap > .aw-guide { grid-column: 2; grid-row: 1; margin: 0 0 10px; }
+      /* 왼쪽: 난이도 → 장면 → 그림 */
+      .wrap > .level-row { grid-column: 1; grid-row: 2; margin-bottom: 10px; gap: 8px; flex-wrap: nowrap; }
+      .wrap > .level-row .level-btn { flex: 1 1 0; padding: 11px 6px; white-space: nowrap; }
+      .wrap > .scene-picker { grid-column: 1; grid-row: 3; margin-bottom: 10px; flex-wrap: nowrap; }
+      .wrap > .scene-picker select { flex: 1; min-width: 0; }
+      .wrap > .pic-card { grid-column: 1; grid-row: 4 / 13; margin: 0; }
+      .pic-card .pic-scene { height: clamp(300px, calc(100vh - 450px), 720px); }
+      /* 오른쪽: 소개 → (단계) → 미션 → 도움 → 메모 → 쓰기 칸 → 첨삭 버튼 */
+      .wrap > .hero { grid-column: 2; grid-row: 2 / 4; align-self: start; padding: 12px 18px; gap: 14px; margin: 0 0 10px; }
+      .wrap > .hero img { width: 68px; height: 68px; }
+      .wrap > .hero .hero-title { margin-bottom: 2px; }
+      .wrap > .flow-steps { grid-column: 2; grid-row: 4; margin-bottom: 10px; }
+      .wrap > .mission { grid-column: 2; grid-row: 5; margin-bottom: 10px; padding: 12px 16px; }
+      .wrap > .aw-help { grid-column: 2; grid-row: 6; margin-bottom: 10px; }
+      .wrap > .go-memo { grid-column: 2; grid-row: 7; }
+      .wrap > .draft-label { grid-column: 2; grid-row: 8; margin-top: 2px; }
+      .wrap > #draftHelp { grid-column: 2; grid-row: 9; margin: 2px 0 6px; }
+      .wrap > #text { grid-column: 2; grid-row: 10; min-height: 160px; height: clamp(160px, calc(100vh - 720px), 420px); }
+      .wrap > .char-count { grid-column: 2; grid-row: 11; margin-top: 4px; }
+      .wrap > #dictationBar + div { grid-column: 2; grid-row: 12; align-self: start; }
+      .wrap > #dictationBar + div .submit-btn { padding: 16px; margin: 6px 0 0; }
+      .wrap > #resultBox { margin-top: 18px; }
+    }
   </style>
 <script src="/js/game-track.js?v=4" defer></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
