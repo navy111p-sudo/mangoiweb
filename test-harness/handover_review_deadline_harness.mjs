@@ -13,6 +13,7 @@ const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.Comm
 const db=new DatabaseSync(':memory:');
 db.exec(`CREATE TABLE admin_account(username TEXT PRIMARY KEY,name TEXT); CREATE TABLE admin_scope(username TEXT,scope_type TEXT);
 CREATE TABLE push_subscriptions(endpoint TEXT,user_id TEXT,enabled INTEGER);
+CREATE TABLE holidays(country TEXT,date TEXT,name TEXT); INSERT INTO holidays VALUES('KR','2026-10-20','시험 공휴일'),('PH','2026-10-22','필리핀만'),('KR','2026-10-24','토요일 공휴일');
 INSERT INTO push_subscriptions VALUES('ep-admin','admin',1),('ep-jjw','mgr_jjw',1),('ep-melca','mgr_melca',1);
 CREATE TABLE push_queue(endpoint TEXT,title TEXT,body TEXT,url TEXT,icon TEXT,badge TEXT,tag TEXT,queued_at INTEGER);
 INSERT INTO admin_account VALUES('admin','대표'),('mgr_jjw','장지웅'),('mgr_karl','Karl'),('mgr_melca','Melca'),('carol','Carol');
@@ -44,6 +45,13 @@ try{
   ok('마감: 10/13 19:00 KST 제출 → 10/14 12:00 KST',reviewDueAt(T('2026-10-13T10:00:00Z'))===T('2026-10-14T03:00:00Z'));
   ok('마감: 10/13 23:59 KST 제출 → 10/14 12:00 KST',reviewDueAt(T('2026-10-13T14:59:00Z'))===T('2026-10-14T03:00:00Z'));
   ok('마감: 10/14 00:01 KST 제출 → 10/15 12:00 KST (KST 날짜 기준)',reviewDueAt(T('2026-10-13T15:01:00Z'))===T('2026-10-15T03:00:00Z'));
+  // 주말 제외(2026-10-16 대표님 지시) — 토·일이면 월요일 12시
+  ok('주말: 목 10/15 제출 → 금 10/16 12:00 (평일은 그대로)',reviewDueAt(T('2026-10-15T09:00:00Z'))===T('2026-10-16T03:00:00Z'));
+  ok('주말: 금 10/16 제출 → 월 10/19 12:00',reviewDueAt(T('2026-10-16T09:00:00Z'))===T('2026-10-19T03:00:00Z'));
+  ok('주말: 토 10/17 제출 → 월 10/19 12:00',reviewDueAt(T('2026-10-17T05:00:00Z'))===T('2026-10-19T03:00:00Z'));
+  ok('주말: 일 10/18 제출 → 월 10/19 12:00',reviewDueAt(T('2026-10-18T05:00:00Z'))===T('2026-10-19T03:00:00Z'));
+  ok('주말: 일 23:59 KST 제출 → 월 12:00 (KST 날짜 기준)',reviewDueAt(T('2026-10-18T14:59:00Z'))===T('2026-10-19T03:00:00Z'));
+  ok('주말: 월 00:01 KST 제출 → 화 12:00',reviewDueAt(T('2026-10-18T15:01:00Z'))===T('2026-10-20T03:00:00Z'));
   const karl=await send('mgr_karl','mgr_jjw','2026-10-13');
   const melca=await send('mgr_melca','admin','2026-10-13');       // 대표 앞 — 장지웅 잠금 대상 아님
   // 마감 전
@@ -101,6 +109,40 @@ try{
   ok('마감 조회가 실패하면 잠그지 않는다(null)',jj.ok===true&&jj.overdue_lock===null);
   jj=await api('/inbox',null,'mgr_jjw');
   ok('조회가 되면 다시 잠긴다',jj.overdue_lock.length===1&&jj.overdue_lock[0].id===k3.id);
+  // 공휴일 제외(2026-10-16 대표님 «공휴일도 빼줘») — 정본 함수
+  const kr=d=>d==='2026-10-20';
+  ok('공휴일: 월 10/19 제출, 화 10/20 공휴일 → 수 10/21 12:00',reviewDueAt(T('2026-10-19T01:00:00Z'),kr)===T('2026-10-21T03:00:00Z'));
+  ok('공휴일: 판정 없이 부르면 예전대로(화 12:00)',reviewDueAt(T('2026-10-19T01:00:00Z'))===T('2026-10-20T03:00:00Z'));
+  ok('공휴일: 금 제출 + 월 공휴일 → 화 12:00',reviewDueAt(T('2026-10-16T09:00:00Z'),d=>d==='2026-10-19')===T('2026-10-20T03:00:00Z'));
+  ok('공휴일: 긴 연휴(5일)도 건너뛴다',reviewDueAt(T('2026-10-16T09:00:00Z'),d=>d>='2026-10-19'&&d<='2026-10-23')===T('2026-10-26T03:00:00Z'));
+  // 금요일 보고는 주말 동안 안 잠기고 월 12시에 잠긴다
+  await api('/ack',{id:k3.id,version:k3.version},'admin');
+  now=T('2026-10-16T09:00:00Z');const fri=await send('mgr_karl','mgr_jjw','2026-10-16');
+  now=T('2026-10-18T10:00:00Z');jj=await api('/inbox',null,'mgr_jjw');
+  ok('금요일 보고: 일요일 저녁엔 안 잠긴다',jj.overdue_lock.length===0);
+  now=T('2026-10-19T02:59:00Z');ok('금요일 보고: 월 11:59 엔 안 잠긴다',(await api('/inbox',null,'mgr_jjw')).overdue_lock.length===0);
+  now=T('2026-10-19T03:01:00Z');jj=await api('/inbox',null,'mgr_jjw');
+  ok('금요일 보고: 월 12:01 에 잠긴다',jj.overdue_lock.length===1&&jj.overdue_lock[0].id===fri.id&&jj.overdue_lock[0].late_hours===0);
+  // 실제 라우트: 한국 공휴일(D1 holidays) 은 건너뛰고 필리핀 공휴일은 안 건너뛴다
+  await api('/ack',{id:fri.id,version:fri.version},'mgr_jjw').catch(()=>{});
+  await api('/opened',{id:fri.id,version:fri.version},'mgr_jjw');now+=11000;await api('/ack',{id:fri.id,version:fri.version},'mgr_jjw');
+  now=T('2026-10-19T01:00:00Z');const mon=await send('mgr_karl','mgr_jjw','2026-10-19');
+  now=T('2026-10-20T04:00:00Z');ok('공휴일 10/20 13:00 KST: 안 잠긴다',(await api('/inbox',null,'mgr_jjw')).overdue_lock.length===0);
+  now=T('2026-10-21T02:59:00Z');ok('다음 근무일 10/21 11:59: 안 잠긴다',(await api('/inbox',null,'mgr_jjw')).overdue_lock.length===0);
+  now=T('2026-10-21T03:01:00Z');jj=await api('/inbox',null,'mgr_jjw');
+  ok('다음 근무일 10/21 12:01: 잠긴다',jj.overdue_lock.length===1&&jj.overdue_lock[0].id===mon.id);
+  await api('/opened',{id:mon.id,version:mon.version},'mgr_jjw');now+=11000;await api('/ack',{id:mon.id,version:mon.version},'mgr_jjw');
+  now=T('2026-10-21T05:00:00Z');const wed=await send('mgr_karl','mgr_jjw','2026-10-21');
+  now=T('2026-10-22T03:01:00Z');ok('필리핀 공휴일(10/22)은 안 건너뛴다 — 목 12:01 잠김',(await api('/inbox',null,'mgr_jjw')).overdue_lock.some(x=>x.id===wed.id));
+  await api('/opened',{id:wed.id,version:wed.version},'mgr_jjw');now+=11000;await api('/ack',{id:wed.id,version:wed.version},'mgr_jjw');
+  now=T('2026-10-23T05:00:00Z');const fri2=await send('mgr_karl','mgr_jjw','2026-10-23');
+  now=T('2026-10-26T02:59:00Z');ok('토요일 공휴일이 겹쳐도 월 12시 마감 그대로',(await api('/inbox',null,'mgr_jjw')).overdue_lock.length===0);
+  now=T('2026-10-26T03:01:00Z');ok('… 월 12:01 잠김',(await api('/inbox',null,'mgr_jjw')).overdue_lock.some(x=>x.id===fri2.id));
+  // 공휴일 표를 못 읽으면 주말만 빼는 예전 동작
+  db.exec('ALTER TABLE holidays RENAME TO holidays_x');
+  now=T('2026-10-19T01:00:00Z');const mon2=await send('mgr_melca','mgr_jjw','2026-10-19');now=T('2026-10-20T03:01:00Z');
+  ok('공휴일 표 실패 → 주말만 빼고 판정(화 12:01 잠김)',(await api('/inbox',null,'mgr_jjw')).overdue_lock.some(x=>x.id===mon2.id));
+  db.exec('ALTER TABLE holidays_x RENAME TO holidays');
 }catch(e){fail++;console.log('  ❌ FAIL 실행 중 오류:',e&&e.stack);}
 {const i=source.indexOf('export async function runDailyHandoverSweep');const body=source.slice(i,source.indexOf('\n}\n',i));ok('15분 sweep 이 마감 알림을 부른다',i>0&&/await runReviewEscalation\(env\)/.test(body.replace(/\/\/.*$/gm,'')));}
 // 화면 배선 — 배너 잠금 · 확인 버튼 카운트다운 · 대표 표시
@@ -111,7 +153,7 @@ ok('잠금 화면에 닫기 버튼이 없다',!/handover-review-lock[\s\S]{0,200
 ok('401/403 이면 잠금을 걷는다',/stopped=true;last=null;host\.hidden=true;paintLock\(\)/.test(banner));
 ok('확인 의무자에게도 알림 권유',/last\.read_min_sec>0/.test(banner));
 ok('대표 줄(reviewer_overdue)을 배너에 쓴다',/reviewer_overdue/.test(banner));
-ok('관리자·매니저·결재 화면의 배너가 같은 코드',['admin.html','manager.html','work.html'].every(f=>f==='admin.html'?/handover-inbox-banner\.js\?v=6/.test(readFileSync('cloudflare-deploy/public/admin.html','utf8')):readFileSync('cloudflare-deploy/public/'+f,'utf8').includes(banner.trim())));
+ok('관리자·매니저·결재 화면의 배너가 같은 코드',['admin.html','manager.html','work.html'].every(f=>f==='admin.html'?/handover-inbox-banner\.js\?v=8/.test(readFileSync('cloudflare-deploy/public/admin.html','utf8')):readFileSync('cloudflare-deploy/public/'+f,'utf8').includes(banner.trim())));
 ok('확인 버튼이 N초 카운트다운',/function armReadGate/.test(page)&&/if\(readMinSec>0\)armReadGate\(r,ack\)/.test(page));
 ok('read_first 를 사람 말로 보여준다',/j\.error==='read_first'/.test(page));
 ok('대표 미확인 줄에 장지웅 마감 지남 표시',/overdueLine\(\)/.test(page)&&/reviewerOverdue=data\[1\]\.reviewer_overdue/.test(page));

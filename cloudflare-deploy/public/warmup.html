@@ -542,7 +542,8 @@
   }
 </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/mango-avatar.js?v=19" defer></script>
+<script src="/js/avatar-visemes.js?v=2" defer></script>
+<script src="/js/mango-avatar.js?v=24" defer></script>
 <script src="/js/game-track.js?v=4" defer></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
@@ -2901,8 +2902,12 @@ function speak(text, btn){
       _ttsAudio.playbackRate=(deep ? (AUDIO_RATE[_rateLevel]||1) : _enMaleRate(AUDIO_RATE[_rateLevel]||1)) / (deep ? ZH_MALE_PITCH : 1);
       // 배속 시 음높이 유지(브라우저 기본이지만 명시) — 남자 목소리가 늘어지거나 깔리는 것 방지
       try{ _ttsAudio.preservesPitch=true; _ttsAudio.webkitPreservesPitch=true; }catch(e2){}
-      try{ window.MangoAvatar && MangoAvatar.plainStart(); }catch(e){}   // 👩‍🏫 재생 시작 직전에 아바타 입 움직임 개시
-      _ttsAudio.play().then(function(){ _speechEverStarted=true; _latMark(); })
+      var lipReady=window.MangoAvatar && MangoAvatar.prepare ? MangoAvatar.prepare(_ttsAudio) : Promise.resolve();
+      Promise.resolve(lipReady).catch(function(){}).then(function(){
+        if(_atSeq!==_speakSeq || _ttsAudio.src!==u || fired)return;
+        try{ window.MangoAvatar && MangoAvatar.plainStart(); }catch(e){}
+        return _ttsAudio.play().then(function(){ _speechEverStarted=true; _latMark(); });
+      })
         /* 자동재생 차단 — 첫 터치(unlockAudio)에서 «답장 전체» 를 다시 읽는다.
            ⚠️ 조각 모드에서도 다음 조각으로 넘어가지 않고 여기서 끝낸다 — 넘어가면 사람이 탭한 순간
               뒷조각만 재생돼 unlockAudio 의 재낭독이 취소되고 앞문장이 사라진다. */
