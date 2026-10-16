@@ -495,6 +495,11 @@
       .wrap > #text { grid-column: 2; grid-row: 10; min-height: 160px; height: clamp(160px, calc(100vh - 720px), 420px); }
       .wrap > .char-count { grid-column: 2; grid-row: 11; margin-top: 4px; }
       .wrap > #dictationBar + div { grid-column: 2; grid-row: 12; align-self: start; }
+      /* 💻 노트북(높이가 낮은 PC, 2026-10-16 «노트북 화면에서도 첨삭 버튼 보이게»): 버튼 묶음이 첫 화면 밖이면
+         하단 «말로 쓰기» 바 바로 위에 붙어 있게(sticky). 첫 화면에 들어오는 큰 화면에서는 아무 일도 안 한다.
+         --aw-bar-h 는 아래 높이 맞춤 스크립트가 바 높이를 재서 넣는다. 붙어 있을 때만 .aw-stuck 로 받침판을 그린다. */
+      .wrap > #dictationBar + div { position: sticky; z-index: 5; bottom: var(--aw-bar-h, 72px); border-radius: 16px 16px 0 0; }
+      .wrap > #dictationBar + div.aw-stuck { background: #14213b; box-shadow: 0 -6px 20px #0007; padding: 0 10px 8px; margin-left: -10px; margin-right: -10px; }
       .wrap > #dictationBar + div .submit-btn { padding: 16px; margin: 6px 0 0; }
       .wrap > #resultBox { margin-top: 18px; }
     }
@@ -2438,18 +2443,27 @@
     var mq = window.matchMedia ? window.matchMedia('(min-width: 1200px)') : null;
     var ta = document.getElementById('text'), sc = document.getElementById('picScene');
     var bar = document.getElementById('dictationBar'), sub = document.getElementById('submitBtn'), card = document.getElementById('picCard');
-    if (!mq || !ta || !sc || !bar || !sub || !card) return;
-    var queued = false;
+    var cc = document.getElementById('charCount'), box = sub.parentNode, GAP = 8;   // GAP = 버튼 묶음의 margin-top(인라인 8px)
+    if (!mq || !ta || !sc || !bar || !sub || !card || !cc || !box) return;
+    var queued = false, sq = false;
+    // 붙어 있는가 = 원래 자리(글자 수 줄 아래)보다 위에 그려졌는가. 스크롤·크기 변경 때만 잰다(상주 타이머 없음).
+    function stuck() { sq = false; var on = mq.matches && box.getBoundingClientRect().top < cc.getBoundingClientRect().bottom + GAP - 1;
+      if (box.classList.contains('aw-stuck') !== on) box.classList.toggle('aw-stuck', on); }
+    function stuckLater() { if (!sq) { sq = true; requestAnimationFrame(stuck); } }
+    window.addEventListener('scroll', stuckLater, { passive: true });
     function fit() {
       queued = false;
-      if (!mq.matches) { ta.style.height = ''; sc.style.height = ''; return; }
+      if (!mq.matches) { ta.style.height = ''; sc.style.height = ''; stuckLater(); return; }
       // «첫 화면» 기준(스크롤과 무관): 바는 화면 아래에 붙어 있으니 innerHeight − 바 높이 − 8 까지가 첫 화면이다.
       var y = window.pageYOffset || 0;
       var limit = window.innerHeight - bar.getBoundingClientRect().height - 8;
-      var t = ta.getBoundingClientRect(), s = sub.getBoundingClientRect();
-      ta.style.height = Math.max(160, Math.min(420, Math.floor(t.height + (limit - (s.bottom + y))))) + 'px';
+      document.documentElement.style.setProperty('--aw-bar-h', Math.round(bar.getBoundingClientRect().height) + 'px');
+      // 버튼 묶음은 sticky 라 «붙은 자리» 를 재면 안 된다 — 글자 수 줄 아래 «원래 자리» 로 계산한다.
+      var t = ta.getBoundingClientRect(), natBottom = cc.getBoundingClientRect().bottom + GAP + box.getBoundingClientRect().height;
+      ta.style.height = Math.max(160, Math.min(420, Math.floor(t.height + (limit - (natBottom + y))))) + 'px';
       var p = sc.getBoundingClientRect(), c = card.getBoundingClientRect();
       sc.style.height = Math.max(300, Math.min(720, Math.floor(p.height + (limit - (c.bottom + y))))) + 'px';
+      stuckLater();
     }
     function later() { if (!queued) { queued = true; requestAnimationFrame(fit); } }
     window.addEventListener('resize', later);
