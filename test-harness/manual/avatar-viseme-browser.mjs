@@ -44,7 +44,9 @@ try{
     for(let i=0;i<n;i++)v.setInt16(44+i*2,Math.sin(i*2*Math.PI*220/44100)*3000,true);
     window.a=new Audio(URL.createObjectURL(new Blob([buf],{type:'audio/wav'})));MangoAvatar.attach(a);
    }
-   a.pause();a.currentTime=.65;a.playbackRate=rate;await a.play();
+   // Match the production playback contract: decode the selected actor's assets
+   // before starting a short cue window (CI runners can decode slower than local).
+   a.pause();await MangoAvatar.prepare(a);a.currentTime=.65;a.playbackRate=rate;await a.play();
   },{character,rate});
   await page.waitForFunction(()=>window.pose===6,{},{timeout:5000}); // F at .6-1 seconds, regardless of rate.
   await page.evaluate(()=>a.pause());await page.waitForFunction(()=>window.pose===0&&window.lastSprite==='anchor');
@@ -58,7 +60,7 @@ try{
   await page.evaluate(async()=>{a.pause();window.transitionSeen=false;a.currentTime=.5;await a.play();});
   await page.waitForFunction(()=>window.transitionSeen,{},{timeout:5000});
   assert((await page.evaluate(()=>window.transitionTile))<288,'real canvas used a valid inbetween');
-  await page.evaluate(()=>a.pause());pass++;
+  await page.evaluate(()=>a.pause());pass++;console.log('PASS:',character,rate,width,'anchors + optical-flow transitions');
  }
  assert.deepEqual(errors,[]);console.log(`avatar-viseme-browser: PASS ${pass} / FAIL 0`);
 }finally{await browser.close();await new Promise(r=>server.close(r));}
