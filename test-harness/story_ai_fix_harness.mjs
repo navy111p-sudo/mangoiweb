@@ -245,7 +245,9 @@ for (const id of ['red-umbrella', 'birthday-cake', 'robot-dance', 'treasure-map'
   ok(/showFix\(res, false, true\)/.test(wc) && /id=\\"wkeep\\"|id="wkeep"/.test(html) && /b\.id === 'wkeep' && WKEEP/.test(html), id + ': AI 고침에는 «내 문장 그대로 낼래요» 길이 있음(막다른 길 없음)');
   ok(sd > 0 && /finishW\(res\.state\)/.test(wc), id + ': AI 가 고칠 곳이 없거나 못 보면 도장');
   const ws = bodyFrom(html, html.indexOf("document.getElementById('wsay').addEventListener("));
-  ok(/storyDone\('write'\);\s*\n\s*if \(WLOG\) \{ storyLog\(/.test(ws), id + ': 고친 문장을 들어 도장 받으면 기록');
+  // 2026-10-16 사장님: «고친 문장으로 바꾸기 → 듣기 → 도장» 길을 없앴다 — 학생이 직접 고쳐 다시 «완성하기» 로만 도장.
+  ok(ws.length > 50 && !/storyDone\(/.test(ws) && !/storyLog\(/.test(ws), id + ': «내 문장 듣기» 는 도장·기록을 안 함(직접 고쳐 다시 완성하기로만)');
+  ok(/var lg = WLOG; WLOG = null;/.test(wc) && /lg \? lg\.original : mine0/.test(wc) && /\(lg && lg\.ai === 'fixed'\)/.test(wc), id + ': (짝) 고친 뒤 다시 완성하면 처음 문장·AI 고침 여부를 기록');
   ok(html.includes('/js/story-kit.js?v=2'), id + ': story-kit.js 새 번호(?v=2)');
 }
 

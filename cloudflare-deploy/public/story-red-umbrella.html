@@ -679,15 +679,16 @@ var StoryCore = (function(){
     wprev.innerHTML = s ? esc(s) : '<span class="ph">' + t('두 칸을 채우면 여기에 내 문장이 만들어져요.','Fill both blanks to build your sentence here.') + '</span>';
     try { localStorage.setItem('story_wa', wa.value); localStorage.setItem('story_wb', wb.value); } catch(e){}
   }
-  [wa, wb].forEach(function(el){ el.addEventListener('input', function(){ wfb.innerHTML = ''; WFIX = null; WLISTEN = null; WSEQ++; paintWrite(); }); });
+  [wa, wb].forEach(function(el){ el.addEventListener('input', function(){ wfb.innerHTML = ''; WSEQ++; paintWrite(); }); });
   document.querySelectorAll('#mywrite .chip').forEach(function(c){
-    c.addEventListener('click', function(){ wa.value = c.dataset.a; wb.value = c.dataset.b; wfb.innerHTML = ''; WFIX = null; WLISTEN = null; WSEQ++; paintWrite(); });
+    c.addEventListener('click', function(){ wa.value = c.dataset.a; wb.value = c.dataset.b; wfb.innerHTML = ''; WSEQ++; paintWrite(); });
   });
   // ---- ⑥ 바꿔 쓰기 «규칙 점검» (원장님 의견 1 · 2026-10-13) — 판정 정본은 /js/story-kit.js 의 StoryKit.review
-  //      문법이 틀리면 도장 없이 «고친 문장» 을 보여 주고, «고친 문장으로 바꾸기» → «🔊 내 문장 듣기» 까지 하면 도장.
+  //      문법이 틀리면 도장 없이 «고친 문장» 을 보여 주고, 학생이 «직접» 고쳐 다시 «완성하기» 를 통과하면 도장.
+  //      (2026-10-16 사장님: 자동 «고친 문장으로 바꾸기» 버튼은 정답을 그대로 넣어 줘서 뺐다 — 스스로 고치게.)
   //      ⛔ StoryKit 이 없으면(불러오기 실패) 예전처럼 그대로 완성 — 점검 때문에 못 끝내는 아이가 없게.
   var KIT_WORDS = (function(){ var a = []; STORY.forEach(function(p){ p.forEach(function(s){ a.push(s[0]); }); }); WORDS.forEach(function(x){ a.push(x[0], x[2].replace(/<[^>]+>/g, '')); }); document.querySelectorAll('#mywrite .chip').forEach(function(c){ a.push(c.dataset.a, c.dataset.b); }); return a; })();
-  var WFIX = null, WLISTEN = null, WSEQ = 0, WLOG = null, WKEEP = null, WBUSY = false;   // WSEQ: 고치면 기다리던 AI 답을 버림 · WLOG: 강사용 기록 재료
+  var WSEQ = 0, WLOG = null, WKEEP = null, WBUSY = false;   // WSEQ: 고치면 기다리던 AI 답을 버림 · WLOG: 강사용 기록 재료
   function storyReview(){
     if (!window.StoryKit || !StoryKit.review) return null;
     try { var p = StoryCore.splitW(wa.value, wb.value); return StoryKit.review(p[0], p[1], WRITE_SLOTS, KIT_WORDS); } catch(e){ return null; }
@@ -701,28 +702,21 @@ var StoryCore = (function(){
       String(x.from || '').toLowerCase().split(' ').forEach(function(y){ if (y) fromW[y] = 1; });
       String(x.to || '').toLowerCase().split(' ').forEach(function(y){ if (y) toW[y] = 1; });
     });
-    WFIX = { a: r.a, b: r.b };
     var html = '<div class="wfix"><p class="wfix-h">' + (ai ? t('🤖 AI 선생님이 고칠 곳을 찾았어요. 고친 문장과 비교해 보세요.','🤖 The AI teacher found something to fix. Compare with the corrected sentence.') : passed ? t('완성! 철자도 한 번 확인해 보세요.','Done! Check the spelling once.') : t('고칠 곳이 있어요. 고친 문장과 비교해 보세요.','Something to fix. Compare with the corrected sentence.')) + '</p>' +
       '<p class="wfix-row"><b>' + t('내 문장','Mine') + '</b><span class="en">' + markWords(mine, fromW, 'del') + '</span></p>' +
       '<p class="wfix-row"><b>' + t('고친 문장','Corrected') + '</b><span class="en">' + markWords(fixed, toW, 'ins') + '</span></p>' +
       '<ul class="wfix-why">' + r.issues.map(function(x){ return '<li>' + esc(t(x.ko, x.en)) + '</li>'; }).join('') + '</ul>' +
-      '<div class="btns"><button type="button" class="b" id="wapply">' + t('✏️ 고친 문장으로 바꾸기','✏️ Use the corrected sentence') + '</button>' +
-      (passed ? '' : '<button type="button" class="b ghost" id="wredo">' + t('내가 다시 고쳐 보기','I will fix it myself') + '</button>') +
-      (ai ? '<button type="button" class="b ghost" id="wkeep">' + t('내 문장 그대로 낼래요','Keep my sentence') + '</button>' : '') + '</div>' +
+      (passed ? '' : '<div class="btns"><button type="button" class="b" id="wredo">' + t('✏️ 내가 다시 고쳐 보기','✏️ I will fix it myself') + '</button>' +
+      (ai ? '<button type="button" class="b ghost" id="wkeep">' + t('내 문장 그대로 낼래요','Keep my sentence') + '</button>' : '') + '</div>') +
       (ai ? '<p class="wfix-note">' + t('AI 도 틀릴 수 있어요. 어느 쪽이든 선생님께 보여 주세요.','The AI can be wrong too. Either way, show it to your teacher.') + '</p>' : '') +
-      (passed ? '' : '<p class="wfix-note">' + t('고친 문장으로 바꾼 뒤 «🔊 내 문장 듣기» 를 누르면 도장을 받아요. 직접 고쳐서 다시 «완성하기» 를 눌러도 돼요.','Use the corrected sentence and tap “🔊 Hear my sentence” to get the stamp, or fix it yourself and tap “Finish” again.') + '</p>') + '</div>';
+      (passed ? '' : '<p class="wfix-note">' + t('고친 문장을 보고 칸을 직접 고친 뒤 다시 «완성하기» 를 누르면 도장을 받아요.','Look at the corrected sentence, fix the blanks yourself, then tap “Finish” again to get the stamp.') + '</p>') + '</div>';
     if (passed) { var box = wfb.querySelector('.fb'); if (box) box.insertAdjacentHTML('beforeend', html); else wfb.innerHTML = html; }
     else wfb.innerHTML = html;
   }
   wfb.addEventListener('click', function(ev){
     var b = ev.target.closest('button'); if (!b) return;
-    if (b.id === 'wapply' && WFIX) {
-      wa.value = WFIX.a; wb.value = WFIX.b; WFIX = null; paintWrite(); WLISTEN = sentence();
-      wfb.innerHTML = '<div class="fb ok"><p>' + t('바꿨어요! 이제 «🔊 내 문장 듣기» 를 눌러 고친 문장을 들어 보세요.','Changed! Now tap “🔊 Hear my sentence” to listen.') + '</p><p class="en">' + esc(WLISTEN) + '</p></div>';
-      return;
-    }
-    if (b.id === 'wredo') { WFIX = null; WKEEP = null; wfb.innerHTML = ''; wa.focus(); }
-    if (b.id === 'wkeep' && WKEEP) { var k = WKEEP; WKEEP = null; WFIX = null; WLOG.ai = 'kept'; k('kept'); }
+    if (b.id === 'wredo') { WKEEP = null; wfb.innerHTML = ''; wa.focus(); }
+    if (b.id === 'wkeep' && WKEEP) { var k = WKEEP; WKEEP = null; WLOG.ai = 'kept'; k('kept'); }
   });
   // 📝 도장을 받은 문장을 강사 인수인계 카드에 남김 — 로그인 학생만(StoryKit.logWrite 가 판단). 실패해도 화면은 그대로.
   function storyLog(ai, original, fixes){
@@ -736,7 +730,7 @@ var StoryCore = (function(){
     if (cw.why === 'hangul') { wfb.innerHTML = '<div class="fb no"><p>' + t('영어로 써 보세요. 모르는 낱말은 선생님께 물어보거나 예시를 눌러 보세요.','Write it in English. Ask your teacher or try an example.') + '</p></div>'; return; }
     var kitR = storyReview();
     var mine0 = sentence();
-    if (kitR && kitR.grammar > 0) { WLOG = { original: mine0, fixes: kitR.issues.length, ai: 'none' }; showFix(kitR, false); return; }   // 문법이 틀리면 도장 없이 고친 문장부터
+    if (kitR && kitR.grammar > 0) { WLOG = { original: WLOG ? WLOG.original : mine0, fixes: kitR.issues.length, ai: WLOG ? WLOG.ai : 'none' }; showFix(kitR, false); return; }   // 문법이 틀리면 도장 없이 고친 문장부터
     // 🤖 2단계(2026-10-13): 규칙 점검을 통과하면 AI 가 한 번 더 봅니다 — 판정·상한·기록은 서버 src/story-correct.ts 정본.
     //    AI 가 고칠 곳을 찾으면 규칙 때와 같은 «바꾸기 → 듣기» 로 도장(또는 «내 문장 그대로»). 못 보면 «지금은 확인 못 함» 이라고 말하고 도장.
     var finishW = function(state){
@@ -746,7 +740,8 @@ var StoryCore = (function(){
       if (kitR && kitR.issues.length) showFix(kitR, true);   // 철자만 다르면 도장은 주고 확인만 권함
       var note = window.StoryKit && StoryKit.aiNote ? StoryKit.aiNote(state) : null;
       if (note) wfb.insertAdjacentHTML('beforeend', '<p class="wfix-note">' + esc(t(note.ko, note.en)) + '</p>');
-      storyLog(state === 'kept' ? 'kept' : state === 'ok' ? 'none' : state === 'fixed' ? 'fixed' : (state === 'skipped' || state === 'cap') ? 'skipped' : 'unavailable', mine0, kitR ? kitR.issues.length : 0);
+      var lg = WLOG; WLOG = null;   // 고친 문장을 보고 직접 고쳐 다시 낸 경우: 처음 쓴 문장·고칠 곳 수를 기록
+      storyLog(state === 'kept' ? 'kept' : (lg && lg.ai === 'fixed') || state === 'fixed' ? 'fixed' : state === 'ok' ? 'none' : (state === 'skipped' || state === 'cap') ? 'skipped' : 'unavailable', lg ? lg.original : mine0, lg ? lg.fixes : (kitR ? kitR.issues.length : 0));
     };
     if (!(window.StoryKit && StoryKit.aiFix)) { finishW('skipped'); return; }
     if (WBUSY) return;   // 기다리는 동안 다시 눌러도 AI 를 두 번 부르지 않음(상한·비용)
@@ -756,7 +751,7 @@ var StoryCore = (function(){
       WBUSY = false;
       if (seq !== WSEQ) return;   // 그사이 고쳐 썼으면 옛 답은 버림
       if (res.state === 'fixed') {
-        WLOG = { original: mine0, fixes: res.issues.length, ai: 'fixed' };
+        WLOG = { original: WLOG ? WLOG.original : mine0, fixes: res.issues.length, ai: 'fixed' };
         WKEEP = finishW; wfb.innerHTML = ''; showFix(res, false, true); return;
       }
       finishW(res.state);
@@ -767,11 +762,6 @@ var StoryCore = (function(){
     if (!s) { wfb.innerHTML = '<div class="fb no"><p>' + t('먼저 두 칸을 채워 주세요.','Fill both blanks first.') + '</p></div>'; return; }
     if (HANGUL.test(s)) { wfb.innerHTML = '<div class="fb no"><p>' + t('영어로 쓴 문장만 읽어 줄 수 있어요.','Only English sentences can be read aloud.') + '</p></div>'; return; }
     stop(); say(s);
-    if (WLISTEN && s === WLISTEN) {   // 고친 문장으로 바꾼 뒤 들으면 도장
-      WLISTEN = null; storyDone('write');
-      if (WLOG) { storyLog(WLOG.ai === 'fixed' ? 'fixed' : 'none', WLOG.original, WLOG.fixes); WLOG = null; }
-      wfb.innerHTML = '<div class="fb ok"><p>' + t('완성! 소리 내어 두 번 읽어 보세요. 다 쓴 문장은 선생님께 보여 주세요.','Done! Read it out loud twice, then show it to your teacher.') + '</p><p class="en">' + esc(s) + '</p></div>';
-    }
   });
 
   // ---- 🔤 뜻 맞히기 게임: 틀린 낱말은 뒤에 다시 나옵니다. 끝까지 다 맞히면 도장 ----
