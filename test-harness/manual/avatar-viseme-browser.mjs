@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 const pw=loadPlaywright(),exe=process.env.CHROME_PATH||findChromium();
 if(!pw||!exe){console.log('SKIP: browser unavailable');process.exit(0);}
 const root=join(dirname(fileURLToPath(import.meta.url)),'../../cloudflare-deploy/public');
-const cues=[{start:0,end:.3,value:'A'},{start:.3,end:.6,value:'D'},{start:.6,end:1,value:'F'},{start:1,end:2,value:'C'}];
+const cues=[{start:0,end:.3,value:'A'},{start:.3,end:.6,value:'D'},{start:.6,end:1,value:'F'},{start:1,end:1.3,value:'C'},{start:1.3,end:1.6,value:'G'},{start:1.6,end:2,value:'H'}];
 const server=http.createServer((req,res)=>{
  if(req.url==='/'){
   res.setHeader('Content-Type','text/html');res.end(`<div id="tavatar-wrap"></div><div id="tavatar-ring"></div><canvas id="tavatar-canvas"></canvas><video id="tavatar-video"></video>
@@ -41,6 +41,10 @@ try{
   await page.evaluate(async()=>{a.currentTime=.35;await a.play();});
   await page.waitForFunction(()=>window.pose===4);
   await page.evaluate(()=>MangoAvatar.plainStop());assert.equal(await page.evaluate(()=>window.pose),0);
+  await page.evaluate(async()=>{a.pause();a.currentTime=1.4;await a.play();});
+  await page.waitForFunction(()=>window.pose===7);
+  await page.evaluate(async()=>{a.pause();a.currentTime=1.7;await a.play();});
+  await page.waitForFunction(()=>window.pose===8);
   await page.evaluate(()=>a.pause());pass++;
  }
  assert.deepEqual(errors,[]);console.log(`avatar-viseme-browser: PASS ${pass} / FAIL 0`);

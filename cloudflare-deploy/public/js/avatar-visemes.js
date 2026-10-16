@@ -1,5 +1,5 @@
-/* Audio-derived mouth cues. Does not delay speech, change voice, or upload audio.
-   First-time model loading falls back to existing amplitude animation. */
+/* Audio-derived mouth cues. Does not change voice or upload audio.
+   Callers await preparation before playing; failures retain amplitude animation. */
 (function(){
   'use strict';
   var worker=null, ready=false, failed=false, next=0, decode=null;
