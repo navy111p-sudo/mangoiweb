@@ -345,7 +345,9 @@
        ⚠️ 상자는 flex 를 쓰지 않는다 — 글자가 흐르는 줄에 flex 를 걸면 낱글자로 쪼개진다.
           버튼은 inline-block + nowrap 이라 좁은 폰에서는 «버튼 단위» 로만 줄이 바뀐다.
        ⚠️ 360x640 폰은 이 줄을 넣기 전에도 난이도 버튼이 첫 화면 밖이었다(697px) —
-          그래서 이 줄이 그 폰의 첫 «누를 것» 이 된다. 높이를 작게(한두 줄) 유지할 것. */
+          그래서 이 줄이 그 폰의 첫 «누를 것» 이 된다. 높이를 작게(한두 줄) 유지할 것.
+       ⚠️ 단계 글자는 «STEP n + 짧은 말» 로 둔다 — 2026-10-16 «STEP 2 브레인스토밍(선택)» 처럼 길게 쓰니
+          360·390 폰에서 세 줄(108px)이 됐다. 긴 설명은 각 칸 제목(STEP 1·2·3)에 둔다. */
     .aw-guide { margin: 0 0 14px; padding: 8px 10px; border-radius: 13px;
       background: rgba(15,23,42,0.55); border: 1px solid rgba(251,191,36,0.35); line-height: 1.9; }
     .aw-guide .awg-step { display: inline-block; white-space: nowrap; margin: 2px 0; padding: 5px 11px;
@@ -518,9 +520,9 @@
     <!-- 📖 사용 방법 — 머리줄 오른쪽은 공용 🏠/EN 칩(고정)이 덮어 못 누른다(2026-10-08 실측). 그래서 본문 맨 위에 둔다. -->
     <button type="button" class="aw-how-btn" id="awHowBtn" onclick="openHowTo()" aria-haspopup="dialog"><span data-ko="📖 처음이에요? 사용 방법 보기" data-en="📖 New here? See how to use">📖 처음이에요? 사용 방법 보기</span></button>
     <nav class="aw-guide" id="awGuide" aria-label="AI 영작 첨삭 3단계 / 3 steps">
-      <button type="button" class="awg-step" data-aw-go="picCard"><span data-ko="① 그림이나 주제 고르기" data-en="① Pick a picture or topic">① 그림이나 주제 고르기</span></button><span class="awg-arrow" aria-hidden="true">→</span>
-      <button type="button" class="awg-step" data-aw-go="goCard"><span data-ko="② 막히면 질문에 답하기" data-en="② Stuck? Answer questions">② 막히면 질문에 답하기</span></button><span class="awg-arrow" aria-hidden="true">→</span>
-      <button type="button" class="awg-step" data-aw-go="text"><span data-ko="③ AI 첨삭 받기" data-en="③ Get AI feedback">③ AI 첨삭 받기</span></button>
+      <button type="button" class="awg-step" data-aw-go="picCard"><span data-ko="STEP 1 그림·주제 고르기" data-en="STEP 1 Pick a picture">STEP 1 그림·주제 고르기</span></button><span class="awg-arrow" aria-hidden="true">→</span>
+      <button type="button" class="awg-step" data-aw-go="goCard"><span data-ko="STEP 2 브레인스토밍" data-en="STEP 2 Brainstorm">STEP 2 브레인스토밍</span></button><span class="awg-arrow" aria-hidden="true">→</span>
+      <button type="button" class="awg-step" data-aw-go="text"><span data-ko="STEP 3 AI 첨삭 받기" data-en="STEP 3 Get AI feedback">STEP 3 AI 첨삭 받기</span></button>
     </nav>
     <script>
     /* 🧭 안내 줄 — 누른 단계의 칸으로 스크롤(위쪽 고정 머리줄 높이만큼 비켜서). ③ 은 글쓰기 칸에 포커스.
@@ -601,7 +603,7 @@
       <div class="pic-scene" id="picScene">
         <img class="pic-photo" id="picPhoto" alt="" decoding="async">
         <video class="pic-video" id="picVideo" muted loop playsinline preload="none" hidden></video>
-        <span class="pic-badge">📸 <span data-ko="① 오늘의 그림" data-en="① Today's picture">① 오늘의 그림</span></span>
+        <span class="pic-badge">📸 <span data-ko="STEP 1 · 오늘의 그림" data-en="STEP 1 · Today's picture">STEP 1 · 오늘의 그림</span></span>
       </div>
         <div class="pic-cap">
           <span class="pic-cap-txt" id="picCapTxt">—</span>
@@ -623,13 +625,14 @@
          글감 고르는 법·문장 연습·다른 글감·브레인스토밍은 여기 접어 둔다. 기능은 하나도 지우지 않았다.
          ⚠️ 접힌 안의 칸으로 스크롤할 때는 먼저 펼쳐야 한다(awOpenHelp) — 닫힌 details 안은 scrollIntoView 가 안 먹는다. -->
     <details class="aw-help" id="awHelp">
-      <summary class="aw-help-sum"><span data-ko="🙋 도움이 필요해요 — 브레인스토밍(질문에 답하며 쓰기) · 문장 연습 · 다른 글감" data-en="🙋 Need help? — brainstorming (answer questions) · sentence practice · other topics">🙋 도움이 필요해요 — 브레인스토밍(질문에 답하며 쓰기) · 문장 연습 · 다른 글감</span></summary>
+      <summary class="aw-help-sum"><span data-ko="🙋 도움이 필요해요 — STEP 2 브레인스토밍(질문에 답하며 쓰기) · 문장 연습 · 다른 글감" data-en="🙋 Need help? — STEP 2 brainstorming (answer questions) · sentence practice · other topics">🙋 도움이 필요해요 — STEP 2 브레인스토밍(질문에 답하며 쓰기) · 문장 연습 · 다른 글감</span></summary>
       <div class="aw-help-in">
     <!-- ✍️ 글감 고르는 법 — 고르는 곳이 세 군데라 «셋 중 하나만» 이라고 먼저 말해 준다(2026-10-05 세미나 준비 중 제보).
-         세 곳 모두 STEP 2 의 «지금 주제» 칸 하나로 모이고, 마지막에 고른 것 하나만 쓰인다(_goTheme). -->
+         세 곳 모두 STEP 2 의 «지금 주제» 칸 하나로 모이고, 마지막에 고른 것 하나만 쓰인다(_goTheme).
+         ⚠️ 세 곳에 ①②③ 을 붙이지 않는다 — 단계 번호(STEP 1·2·3)와 겹쳐 «② = 2단계» 로 읽혔다(2026-10-16 선생님 피드백). -->
     <div class="pick-note" id="pickNote">
-      <b data-ko="✍️ 글감은 세 곳 중 «하나만» 고르면 돼요" data-en="✍️ Pick just «one» topic from these three">✍️ 글감은 세 곳 중 «하나만» 고르면 돼요</b>
-      <span data-ko="① 🖼 오늘의 그림 → «이 장면으로 쓰기» · ② 🎲 오늘의 글감 · ③ 🧠 내 경험 주제(STEP 2). 어디서 골라도 STEP 2 브레인스토밍의 «지금 주제» 로 모이고, 마지막에 고른 하나로 글을 써요." data-en="① 🖼 Today's picture → «Write this scene» · ② 🎲 Today's topics · ③ 🧠 My own story (STEP 2). Whichever you pick goes to «Topic» in STEP 2 Brainstorming — your last pick is the one you write about.">① 🖼 오늘의 그림 → «이 장면으로 쓰기» · ② 🎲 오늘의 글감 · ③ 🧠 내 경험 주제(STEP 2). 어디서 골라도 STEP 2 브레인스토밍의 «지금 주제» 로 모이고, 마지막에 고른 하나로 글을 써요.</span>
+      <b data-ko="✍️ STEP 1 · 글감은 세 곳 중 «하나만» 고르면 돼요" data-en="✍️ STEP 1 · Pick just «one» topic from these three">✍️ STEP 1 · 글감은 세 곳 중 «하나만» 고르면 돼요</b>
+      <span data-ko="🖼 오늘의 그림 → «이 장면으로 쓰기» · 🎲 오늘의 글감 · 🧠 내 경험 주제(브레인스토밍 칸 안). 어디서 골라도 STEP 2 브레인스토밍의 «지금 주제» 로 모이고, 마지막에 고른 하나로 글을 써요." data-en="🖼 Today's picture → «Write this scene» · 🎲 Today's topics · 🧠 My own story (inside Brainstorming). Whichever you pick goes to «Topic» in STEP 2 Brainstorming — your last pick is the one you write about.">🖼 오늘의 그림 → «이 장면으로 쓰기» · 🎲 오늘의 글감 · 🧠 내 경험 주제(브레인스토밍 칸 안). 어디서 골라도 STEP 2 브레인스토밍의 «지금 주제» 로 모이고, 마지막에 고른 하나로 글을 써요.</span>
     </div>
 
     <details class="go-card" id="sentenceCoach">
@@ -650,7 +653,7 @@
 
     <!-- 🎲 오늘의 글감 -->
     <div class="topic-row" id="topicRow">
-      <span style="font-size:14px;font-weight:800;color:var(--text2)" data-ko="② 🎲 오늘의 글감 (그림 대신):" data-en="② 🎲 Today's topics (instead of the picture):">② 🎲 오늘의 글감 (그림 대신):</span>
+      <span style="font-size:14px;font-weight:800;color:var(--text2)" data-ko="🎲 오늘의 글감 (그림 대신):" data-en="🎲 Today's topics (instead of the picture):">🎲 오늘의 글감 (그림 대신):</span>
       <!-- 칩은 JS가 채움 -->
       <button class="topic-chip" onclick="shuffleTopics()" style="background:rgba(251,191,36,0.14);border-color:rgba(251,191,36,0.4);color:var(--gold)" data-ko="🔀 다른 주제" data-en="🔀 Shuffle">🔀 다른 주제</button>
     </div>
@@ -659,8 +662,8 @@
          ⚠️ 한글로 적은 답은 글쓰기 칸에 넣지 않는다(그 칸의 글은 그대로 영어 AI 첨삭으로 간다).
             한글 답은 아래 «내 브레인스토밍 메모» 로만 남겨 보면서 쓰게 한다. -->
     <div class="go-card" id="goCard">
-      <div class="go-title">🧠 <span data-ko="STEP 2 · 브레인스토밍 — 무엇을 쓸지 먼저 정리해요" data-en="STEP 2 · Brainstorming — plan before you write">STEP 2 · 브레인스토밍 — 무엇을 쓸지 먼저 정리해요</span></div>
-      <div class="go-sub" data-ko="위의 ① 🖼 오늘의 그림이나 ② 🎲 오늘의 글감을 눌러도 여기로 와요 — 글감은 셋 중 «하나만», 마지막에 고른 것이 «지금 주제» 예요. 짧게 답만 적으면 서론·본론·결론 뼈대가 자동으로 만들어져요. (질문 없이 바로 써도 괜찮아요!)" data-en="① the picture or ② the topic chips above also bring you here — pick just «one» topic; your last pick is the «Topic». Just answer briefly — your intro·body·ending outline is built for you. (You can skip the questions too!)">위의 ① 🖼 오늘의 그림이나 ② 🎲 오늘의 글감을 눌러도 여기로 와요 — 글감은 셋 중 «하나만», 마지막에 고른 것이 «지금 주제» 예요. 짧게 답만 적으면 서론·본론·결론 뼈대가 자동으로 만들어져요. (질문 없이 바로 써도 괜찮아요!)</div>
+      <div class="go-title">🧠 <span data-ko="STEP 2 · 브레인스토밍(선택) — 무엇을 쓸지 먼저 정리해요" data-en="STEP 2 · Brainstorming (optional) — plan before you write">STEP 2 · 브레인스토밍(선택) — 무엇을 쓸지 먼저 정리해요</span></div>
+      <div class="go-sub" data-ko="위의 🖼 오늘의 그림이나 🎲 오늘의 글감을 눌러도 여기로 와요 — 글감은 셋 중 «하나만», 마지막에 고른 것이 «지금 주제» 예요. 짧게 답만 적으면 서론·본론·결론 뼈대가 자동으로 만들어져요. (질문 없이 바로 써도 괜찮아요!)" data-en="The 🖼 picture or 🎲 topic chips above also bring you here — pick just «one» topic; your last pick is the «Topic». Just answer briefly — your intro·body·ending outline is built for you. (You can skip the questions too!)">위의 🖼 오늘의 그림이나 🎲 오늘의 글감을 눌러도 여기로 와요 — 글감은 셋 중 «하나만», 마지막에 고른 것이 «지금 주제» 예요. 짧게 답만 적으면 서론·본론·결론 뼈대가 자동으로 만들어져요. (질문 없이 바로 써도 괜찮아요!)</div>
       <div class="go-themes" id="goThemes"><!-- 주제 칩은 JS가 채움 --></div>
       <div id="goBody"><!-- 질문·뼈대는 주제를 고르면 JS가 그림 --></div>
     </div>
@@ -672,7 +675,7 @@
       <div class="go-memo-b" id="goMemoBody"></div>
     </details>
 
-    <label for="text" class="draft-label" data-ko="✍️ 내 영작 — 여기에 쓰세요" data-en="✍️ My writing — write here">✍️ 내 영작 — 여기에 쓰세요</label>
+    <label for="text" class="draft-label" data-ko="✍️ STEP 3 · 내 영작 — 여기에 쓰고 «AI 첨삭 받기» 를 눌러요" data-en="✍️ STEP 3 · My writing — write here, then press «Get AI Correction»">✍️ STEP 3 · 내 영작 — 여기에 쓰고 «AI 첨삭 받기» 를 눌러요</label>
     <p id="draftHelp" class="go-sub" data-ko="AI 첨삭은 이 칸의 글로 받아요. ‘말로 쓰기’도 여기에 입력돼요. 위 메모는 참고용이에요." data-en="AI corrects this box. Speak to write also adds text here. The notes above are for reference.">AI 첨삭은 이 칸의 글로 받아요. ‘말로 쓰기’도 여기에 입력돼요. 위 메모는 참고용이에요.</p>
     <textarea id="text" aria-describedby="draftHelp" placeholder="여기에 영어로 입력하세요 (3 ~ 2000자)..." oninput="updateCharCount()"></textarea>
     <div class="char-count" id="charCount">0 / 2000</div>
@@ -2115,7 +2118,7 @@
            data-ko="${escapeHtml(t.icon + ' ' + t.ko)}" data-en="${escapeHtml(t.icon + ' ' + t.en)}">${escapeHtml(t.icon + ' ' + t.ko)}</button>`
       ).join('');
       const el = document.getElementById('goThemes');
-      const lbl = `<span class="go-pick-lbl">${escapeHtml(ko ? '③ 🧠 또는 내 경험 주제로 쓰기:' : '③ 🧠 Or write about your own story:')}</span>`;
+      const lbl = `<span class="go-pick-lbl">${escapeHtml(ko ? '🧠 또는 내 경험 주제로 쓰기:' : '🧠 Or write about your own story:')}</span>`;
       el.innerHTML = cur + lbl + `<div class="go-themes-row">${chips}</div>`;
       try { window.applyI18n && window.applyI18n(el); } catch(e){}
     }
