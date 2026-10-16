@@ -131,6 +131,45 @@ export function reminderStage(s: any, day: string, now = Date.now()): string | n
 // 👥 공동 수신(2026-10-13 대표님 지시 «보고는 장지웅과 나 둘 다»): 둘 중 누구 앞으로 와도 둘 다 받는다 —
 // 미확인 목록·열람·첨부·확인/보완요청 권한, 그리고 제출 순간 1회 알림. 반복 읽기 독촉은 받는 사람(recipient) 한 명에게만.
 export const INBOX_ALSO_SEES: Record<string,string[]> = { admin: ['mgr_jjw'], mgr_jjw: ['admin'] };
+// ⏰ 확인 마감(2026-10-14 대표님 지시 «장지웅 부장이 반드시 확인하게»):
+//   마감 = 제출한 날(KST)의 «다음 날 낮 12시». 지나면 ② 대표님께 알림·화면 표시 ③ 관리자 화면 잠금 ④ 열어서 최소 N초 읽어야 확인.
+//   ⛔ 대상은 이 목록뿐 — 대표님(admin)은 잠그지 않는다(관리자 화면 전체가 잠기면 운영이 멈춘다).
+export const REVIEW_ENFORCED = ['mgr_jjw'];
+export const REVIEW_MIN_READ_SEC = 10;
+export function reviewDueAt(submittedAt: number): number {
+  const kstDay = Math.floor((Number(submittedAt) + 9 * 3600000) / 86400000);
+  return (kstDay + 1) * 86400000 + 3 * 3600000; // 다음 날 12:00 KST = 03:00 UTC
+}
+// 마감 지난 미확인(받는 사람 기준). 못 읽으면 null — 부르는 쪽이 «잠그지 않는» 쪽으로 실패한다.
+export async function reviewOverdue(env: Env, reviewer: string, now = Date.now()): Promise<any[] | null> {
+  try {
+    const r = await env.DB.prepare(`SELECT id,version,report_date,staff_name,submitted_at FROM daily_handovers
+      WHERE recipient=? AND username<>? AND status='submitted' AND submitted_at IS NOT NULL ORDER BY submitted_at ASC LIMIT 100`).bind(reviewer, reviewer).all<any>();
+    return (r.results || []).filter(x => reviewDueAt(x.submitted_at) <= now)
+      .map(x => ({ id: x.id, version: x.version, report_date: x.report_date, staff_name: x.staff_name,
+        due_at: reviewDueAt(x.submitted_at), late_hours: Math.floor((now - reviewDueAt(x.submitted_at)) / 3600000) }));
+  } catch { console.warn('[daily-handover] overdue lookup failed'); return null; }
+}
+export async function runReviewEscalation(env: Env, now = Date.now()) {
+  for (const reviewer of REVIEW_ENFORCED) {
+    const items = await reviewOverdue(env, reviewer, now);
+    if (!items || !items.length) continue;
+    let fresh = 0;
+    for (const x of items) {
+      const claim = await env.DB.prepare(`INSERT OR IGNORE INTO daily_handover_notices(notice_key,username,report_date,kind,created_at)
+        VALUES(?,?,?,?,?)`).bind(`review-overdue:${x.id}:${x.version}`, reviewer, x.report_date, 'review_overdue', now).run();
+      fresh += claim.meta.changes ? 1 : 0;
+    }
+    if (!fresh) continue;
+    const who = (await accounts(env)).find(a => a.username === reviewer)?.name || reviewer;
+    for (const boss of MISSED_REPORT_TO) {
+      if (boss === reviewer) continue;
+      await notify(env, boss, `review-overdue:${reviewer}:${now}`,
+        `⏰ ${who} 매일보고 확인 마감(다음 날 12시) 지남 ${items.length}건 · 최장 ${items[0].late_hours}시간`,
+        '/daily-handover.html');
+    }
+  }
+}
 export function coReceives(me: string, recipient: string): boolean {
   return !!recipient && recipient !== me && (INBOX_ALSO_SEES[me] || []).includes(recipient);
 }
@@ -187,6 +226,7 @@ export async function runDailyHandoverSweep(env: Env) {
   await ensure(env);
   await runFollowups(env);
   await runReadAlerts(env);
+  try { await runReviewEscalation(env); } catch { console.warn('[daily-handover] review escalation failed'); }
   const day = kstDay();
   const duty = await handoverDuty(env, day);
   // ① 어제 미제출 — 근무일 아침 한 번. 본인에게, 그리고 대표님께 이름을 모아 한 번.
@@ -467,7 +507,12 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       try{const boss=MISSED_REPORT_TO.includes(me);const all=await handoverDuty(env,kstDay(),boss?undefined:me);const mine=all.find(d=>d.username===me);writer=mine?{required:true,...dutyView(mine)}:{required:false};
         if(boss)missed_staff=all.filter(d=>d.today_required&&d.prev_missed).map(d=>({username:d.username,name:d.name,prev_day:d.prev_day}));}
       catch{console.warn('[daily-handover] duty unavailable');}
-      return reply({ok:true,me:{username:me,name:actor.name||me},reader_mode:['admin','mgr_jjw'].includes(me),also_sees:INBOX_ALSO_SEES[me]||[],total:count.n,reports:await withFollowups(env,result.results||[]),files:await attachmentsFor(env,result.results||[]),writer,missed_staff});
+      const enforced=REVIEW_ENFORCED.includes(me);
+      const overdue_lock=enforced?await reviewOverdue(env,me):null;
+      let reviewer_overdue:any[]=[];
+      if(MISSED_REPORT_TO.includes(me)){const names=await accounts(env);for(const u of REVIEW_ENFORCED){if(u===me)continue;const it=await reviewOverdue(env,u);if(it&&it.length)reviewer_overdue.push({username:u,name:names.find(a=>a.username===u)?.name||u,count:it.length,max_late_hours:it[0].late_hours});}}
+      return reply({ok:true,me:{username:me,name:actor.name||me},reader_mode:['admin','mgr_jjw'].includes(me),also_sees:INBOX_ALSO_SEES[me]||[],
+        overdue_lock,reviewer_overdue,read_min_sec:enforced?REVIEW_MIN_READ_SEC:0,total:count.n,reports:await withFollowups(env,result.results||[]),files:await attachmentsFor(env,result.results||[]),writer,missed_staff});
     }
     // 📖 다시 읽기(2026-09-29) — 확인·보완요청한 보고는 «미확인» 목록에서 빠지므로 되돌아볼 길이 없었다.
     // 내가 받았거나 내가 확인한 것만(최근 30일). ⛔ 경영진 «전체 보기» 로 넓히지 않는다 — 그건 날짜별 «전체» 필터가 한다.
@@ -534,7 +579,7 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
         staged_ids:(staged.results||[]).map((f:any)=>f.id),
         reader_mode:['admin','mgr_jjw'].includes(me),read_schedule,schedule,required:requiredRows,missed_staff,
         default_recipient: members.find(m=>m.username==='mgr_jjw'&&m.username!==me)?.username || members.find(m=>m.username==='admin'&&m.username!==me)?.username || '',
-        ai_available:!!env.AI, can_review_all:all, also_sees:INBOX_ALSO_SEES[me]||[]});
+        ai_available:!!env.AI, can_review_all:all, also_sees:INBOX_ALSO_SEES[me]||[], read_min_sec:REVIEW_ENFORCED.includes(me)?REVIEW_MIN_READ_SEC:0});
     }
     if (request.method !== 'POST') return reply({ok:false,error:'not_found'},404);
     if (Number(request.headers.get('Content-Length')) > 20000) return reply({ok:false,error:'too_large'},413);
@@ -546,7 +591,7 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       const r:any=await env.DB.prepare('SELECT * FROM daily_handovers WHERE id=?').bind(Number(b.id)||0).first();
       if(!r||!visible(r,actor))return reply({ok:false,error:'not_found'},404);
       if(r.status!=='submitted'||r.version!==b.version)return reply({ok:false,error:'conflict'},409);
-      const author=r.username===me, recipient=r.recipient===me&&r.username!==me;
+      const author=r.username===me, recipient=(r.recipient===me||(route==='/opened'&&coReceives(me,r.recipient)))&&r.username!==me;
       if(route==='/followup'?!author:!recipient)return reply({ok:false,error:'forbidden'},403);
       const now=Date.now();
       if(route==='/followup'&&!['deadline','remind','final'].includes(b.action))return reply({ok:false,error:'action'},400);
@@ -557,8 +602,11 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       if(escalation){const list=await accounts(env);if(!list.some(a=>a.username===escalation)||!isExec({ok:true,role:'hq',username:escalation}))return reply({ok:false,error:'escalation_recipient'},400);}
       await env.DB.prepare('INSERT OR IGNORE INTO daily_handover_followup(report_id,version) VALUES(?,?)').bind(r.id,r.version).run();
       if(route==='/opened'){
-        const changed=await env.DB.prepare('UPDATE daily_handover_followup SET opened_at=? WHERE report_id=? AND version=? AND opened_at IS NULL').bind(now,r.id,r.version).run();
-        if(changed.meta.changes)await followEvent(env,r,me,'opened');
+        // 공동 수신자가 열어도 «받는 사람이 열었다»(읽기 독촉 멈춤)로 세지 않는다.
+        const changed=r.recipient===me?await env.DB.prepare('UPDATE daily_handover_followup SET opened_at=? WHERE report_id=? AND version=? AND opened_at IS NULL').bind(now,r.id,r.version).run():{meta:{changes:0}};
+        // ④ «누가» 열었는지 사람마다 한 번 남긴다 — 확인 최소 읽기 시간의 근거(공동 수신자가 먼저 열어도 내 기록은 따로).
+        const seen=changed.meta.changes?null:await env.DB.prepare(`SELECT 1 FROM daily_handover_followup_events WHERE report_id=? AND version=? AND actor=? AND kind='opened' LIMIT 1`).bind(r.id,r.version,me).first();
+        if(changed.meta.changes||!seen)await followEvent(env,r,me,'opened');
       }else if(route==='/hold'){
         await env.DB.prepare('UPDATE daily_handover_followup SET hold_until=?,hold_reason=? WHERE report_id=? AND version=?').bind(until,reason,r.id,r.version).run();
         await followEvent(env,r,me,'hold',reason+' / '+new Date(until).toISOString());
@@ -612,6 +660,13 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       const feedback=text(b.feedback,500), version=Number(b.version);
       if (!Number.isSafeInteger(version)||version<1) return reply({ok:false,error:'version'},400);
       if (route==='/return'&&!feedback) return reply({ok:false,error:'feedback'},400);
+      // ④ 대충 누르기 방지 — 확인 의무자는 «내가 연 뒤» 최소 N초가 지나야 확인할 수 있다. 못 읽으면 막는다(되돌릴 수 있는 쪽).
+      if (route==='/ack'&&REVIEW_ENFORCED.includes(me)) {
+        const op:any=await env.DB.prepare(`SELECT MIN(created_at) t FROM daily_handover_followup_events WHERE report_id=? AND version=? AND actor=? AND kind='opened'`).bind(r.id,version,me).first();
+        const wait=op&&op.t?Math.ceil((Number(op.t)+REVIEW_MIN_READ_SEC*1000-Date.now())/1000):REVIEW_MIN_READ_SEC;
+        if(!op||!op.t||wait>0)return reply({ok:false,error:'read_first',wait_sec:Math.max(1,wait),
+          message:'보고를 열어 '+REVIEW_MIN_READ_SEC+'초 이상 읽은 뒤 확인할 수 있습니다. / Read the report for at least '+REVIEW_MIN_READ_SEC+' seconds before acknowledging.'},409);
+      }
       const status=route==='/ack'?'acknowledged':'changes_requested', now=Date.now();
       // State, its BEFORE UPDATE history trigger, and the response event must commit
       // together. Keep these statements adjacent: changes() reads the CAS update's

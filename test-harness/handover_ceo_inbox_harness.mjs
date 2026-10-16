@@ -56,6 +56,8 @@ try{
   ok('장지웅 미확인에 대표 앞 보고(Melca)도 보인다',ids(jjwIn)==='admin,mgr_karl,mgr_melca'&&jjwIn.total===3);
   const melcaRow=jjwIn.reports.find(r=>r.username==='mgr_melca');
   ok('장지웅이 대표 앞 보고를 열람(/home 날짜별)할 수 있다',(await api('/home?date=2026-10-13',null,'mgr_jjw')).reports.some(r=>r.id===melcaRow.id));
+  // 2026-10-14: 장지웅은 «열고 10초 뒤» 에만 확인된다(handover_review_deadline_harness)
+  await api('/opened',{id:melcaRow.id,version:melcaRow.version},'mgr_jjw');now+=10000;
   ok('장지웅이 대표 앞 보고를 확인할 수 있다',(await api('/ack',{id:melcaRow.id,version:melcaRow.version},'mgr_jjw')).ok===true);
   ok('다른 직원(Karl)은 대표 앞 보고를 확인할 수 없다',(await api('/ack',{id:melcaRow.id,version:melcaRow.version+1},'mgr_karl')).status>=403);
   ok('다른 직원은 남의 앞 보고를 못 본다',(await api('/inbox',null,'mgr_melca')).total===0);
