@@ -358,6 +358,49 @@
   @media (max-width: 640px) { #tavatar-wrap { --av-w: 150px; } }
   @media (max-width: 640px) and (max-height: 799px) { #tavatar-wrap { --av-w: 130px; } }
   @media (max-width: 640px) and (max-height: 700px) { #tavatar-wrap { --av-w: 104px; } }
+
+  /* 🖥 PC 한 화면 (2026-10-16 사장님 «한장에 스크롤 없이 모두 보이게, 글자는 그대로»).
+     글자는 한 글자도 빼지 않고 여백·크기만 줄인다. 녹음 칸은 [마이크 | 안내] 가로 한 줄.
+     결과를 볼 때(body.m-showing-result — 모든 폭에서 붙는다)는 녹음·추천 문장 칸 자리를
+     결과 카드가 쓰고 문장 카드는 한 줄로 접는다. 레벨 카드의 인라인 style 은 !important 로 덮는다.
+     얼굴 크기는 «남은 세로» 에 묶는다(제목·레벨줄 약 250px 를 뺀 높이의 80%). */
+  @media (min-width: 1024px) {
+    body { padding-bottom: 0; }
+    .wrap { padding: 12px 18px 10px; column-gap: 26px; min-height: 100vh; align-content: center; }
+    .brand { margin-bottom: 6px; }
+    .brand-eyebrow { margin-bottom: 4px; padding: 3px 12px; }
+    .brand-logo { font-size: 30px; }
+    .brand-sub { margin-top: 3px; }
+    .brand-rule { margin-top: 6px; }
+    #lang-curriculum-picker { margin: 0 0 10px !important; }
+    #lang-curriculum-picker > div:first-child { margin-bottom: 6px !important; }
+    #lang-curriculum-picker a[href] { padding: 8px 10px !important; }
+    #tavatar-wrap { --av-w: min(330px, calc((100vh - 260px) * .8)); margin: 0; gap: 6px; top: 12px; }
+    .target-box { padding: 14px 22px; margin-bottom: 8px; }
+    .target-text { font-size: 26px; margin-top: 8px; }
+    .target-input { margin-top: 8px; padding: 8px 14px; }
+    .target-box .play-btn { margin-top: 8px !important; padding: 8px 16px; }
+    .sc-rate { margin-top: 6px; }
+    .target-tip { margin-top: 4px; }
+    .step-nav { margin: 4px 0 2px; }
+    .step-progress { margin: 4px auto 2px; }
+    .preset { margin: 6px 0 8px; }
+    .recorder { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 10px 18px; margin-bottom: 8px; }
+    .rec-ring { padding: 6px; }
+    .rec-btn { width: 76px; height: 76px; font-size: 28px; }
+    .rec-status { margin-top: 0; text-align: left; font-size: 13px; }
+    body.m-showing-result .recorder, body.m-showing-result .preset { display: none; }
+    body.m-showing-result .target-box { padding: 8px 18px; }
+    body.m-showing-result .target-box .target-label,
+    body.m-showing-result .target-box .target-input,
+    body.m-showing-result .target-box .sc-rate,
+    body.m-showing-result .target-box .target-tip { display: none; }
+    body.m-showing-result .target-text { font-size: 18px; margin-top: 0; }
+    .result { padding: 14px 18px; }
+    .score-box { padding: 10px 6px; }
+    .score-note { margin-bottom: 8px; }
+    .feedback, .suggestion, .grammar { padding: 10px 12px; }
+  }
 </style>
 <script src="/js/game-track.js?v=4" defer></script>
 <!-- 🎤 Azure 발음평가 공용 서비스 계층(EN/CN 공유) — SDK 로드·토큰·VAD 트리밍·과금 집계 -->
