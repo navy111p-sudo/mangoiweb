@@ -356,6 +356,10 @@
         ctx.clearRect(0,0,canvas.width,canvas.height);
         ctx.drawImage(pf.base,bx,by,sw,sh,0,0,canvas.width,canvas.height);
         var tile=sampled && sampled.tile,transition=sampled && tile>=0 && pf.transitions.complete && pf.transitions.naturalWidth;
+        // Reviewed Noah wide-open/rest morphs double the teeth. Use the exact
+        // phoneme anchor for these pairs until replacement artwork is available.
+        if(transition && curChar==='noah' && ((sampled.from==='D' && (sampled.to==='X'||sampled.to==='A')) ||
+          (sampled.to==='D' && (sampled.from==='X'||sampled.from==='A'))))transition=false;
         var sprite=transition?pf.transitions:pf.mouths,columns=transition?18:3;
         if(transition)ix=tile;
         ctx.drawImage(sprite,(ix%columns)*r.w,Math.floor(ix/columns)*r.h,r.w,r.h,
