@@ -77,8 +77,8 @@
     return 'X';
   }
   // Pure audio-clock sampling: no wall-clock tween to drift after pause/seek/rate changes.
-  // Silence and bilabial closures remain exact. Other neighboring vowels/consonants
-  // share a short coarticulation window, bounded by both cue lengths.
+  // Ease into closures before their onset and release only after speech resumes.
+  // Silence and M/B/P stay fully closed; all movement uses the audio clock.
   function frame(cues,time){
     var pose=at(cues,time),anchor={pose:pose,tile:-1};
     if(pose==='X' || !cues)return anchor;
@@ -86,18 +86,28 @@
     while(lo<=hi){var m=(lo+hi)>>1,c=cues[m];if(time<c.start)hi=m-1;else if(time>=c.end)lo=m+1;else{index=m;break;}}
     if(index<0)return anchor;
     function between(a,b){
-      if(!a||!b||a.value===b.value||a.value==='X'||b.value==='X'||b.value==='A'||Math.abs(a.end-b.start)>.002)return null;
+      if(!a||!b||a.value===b.value||Math.abs(a.end-b.start)>.002)return null;
+      var aClosed=a.value==='A'||a.value==='X',bClosed=b.value==='A'||b.value==='X';
+      if(aClosed&&bClosed)return null;
       var width=Math.min(.08,(a.end-a.start)*.4,(b.end-b.start)*.4);
       var start=b.start-width/2,end=b.start+width/2;
-      // A = M/B/P: do not open lips before the closure has finished.
-      if(a.value==='A'){start=b.start;end=b.start+Math.min(.04,(b.end-b.start)*.25);}
+      // Reach a closed pose AT onset, never animate inside its cue.
+      if(bClosed){end=b.start;start=end-Math.min(.06,(a.end-a.start)*.3);}
+      // Do not open lips before M/B/P or silence has finished.
+      if(aClosed){start=b.start;end=start+Math.min(.05,(b.end-b.start)*.3);}
       if(time<=start||time>=end)return null;
-      var t=(time-start)/(end-start),step=Math.round(t*5);
+      var t=(time-start)/(end-start);
+      t=t*t*(3-2*t); // smoothstep: gentle start/arrival, no wall-clock lag
+      var step=Math.round(t*5);
       if(step<=0||step>=5)return {pose:step<=0?a.value:b.value,tile:-1};
       var from='XABCDEFGH'.indexOf(a.value),to='XABCDEFGH'.indexOf(b.value);
       return {pose:pose,tile:(from*8+(to<from?to:to-1))*4+step-1};
     }
-    return between(cues[index-1],cues[index])||between(cues[index],cues[index+1])||anchor;
+    var current=cues[index],previous=cues[index-1],next=cues[index+1];
+    // Missing cues are silence too, including the first/last speech boundary.
+    if(!previous||current.start-previous.end>.002)previous={start:current.start,end:current.start,value:'X'};
+    if(!next||next.start-current.end>.002)next={start:current.end,end:current.end,value:'X'};
+    return between(previous,current)||between(current,next)||anchor;
   }
   window.AvatarVisemes={prepare:prepare,at:at,frame:frame,valid:valid,boot:boot};
 })();
