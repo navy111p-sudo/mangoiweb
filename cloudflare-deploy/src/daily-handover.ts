@@ -132,14 +132,20 @@ export function reminderStage(s: any, day: string, now = Date.now()): string | n
 // 미확인 목록·열람·첨부·확인/보완요청 권한, 그리고 제출 순간 1회 알림. 반복 읽기 독촉은 받는 사람(recipient) 한 명에게만.
 export const INBOX_ALSO_SEES: Record<string,string[]> = { admin: ['mgr_jjw'], mgr_jjw: ['admin'] };
 // ⏰ 확인 마감(2026-10-14 대표님 지시 «장지웅 부장이 반드시 확인하게»):
-//   마감 = 제출한 날(KST)의 «다음 날 낮 12시» — 토·일이면 월요일 12시(금요일 보고 → 월 12시). 지나면 ② 대표님께 알림·화면 표시 ③ 관리자 화면 잠금 ④ 열어서 최소 N초 읽어야 확인.
+//   마감 = 제출한 날(KST)의 «다음 근무일 낮 12시» — 토·일·한국 공휴일은 건너뛴다(금요일 보고 → 월 12시). 지나면 ② 대표님께 알림·화면 표시 ③ 관리자 화면 잠금 ④ 열어서 최소 N초 읽어야 확인.
 //   ⛔ 대상은 이 목록뿐 — 대표님(admin)은 잠그지 않는다(관리자 화면 전체가 잠기면 운영이 멈춘다).
 export const REVIEW_ENFORCED = ['mgr_jjw'];
 export const REVIEW_MIN_READ_SEC = 10;
-export function reviewDueAt(submittedAt: number): number {
+export const REVIEW_HOLIDAY_COUNTRY = 'KR'; // 확인 의무자(장지웅)는 한국 근무 — 한국 공휴일을 뺀다
+export function reviewDueAt(submittedAt: number, isHoliday: (day: string) => boolean = () => false): number {
   let day = Math.floor((Number(submittedAt) + 9 * 3600000) / 86400000) + 1; // 다음 날(KST)
-  // 2026-10-16 대표님 «주말은 마감에서 빼줘» — 그날이 토·일이면 월요일로. (1970-01-01 = 목요일 → (day+4)%7: 0=일·6=토)
-  while ((day + 4) % 7 === 0 || (day + 4) % 7 === 6) day++;
+  // 2026-10-16 대표님 «주말은 마감에서 빼줘» · «공휴일도 빼줘» — 토·일·공휴일이면 다음 근무일로.
+  // (1970-01-01 = 목요일 → (day+4)%7: 0=일·6=토) · 연휴가 길어도 60일에서 멈춘다.
+  for (let i = 0; i < 60; i++) {
+    const wd = (day + 4) % 7, ymd = new Date(day * 86400000).toISOString().slice(0, 10);
+    if (wd !== 0 && wd !== 6 && !isHoliday(ymd)) break;
+    day++;
+  }
   return day * 86400000 + 3 * 3600000; // 12:00 KST = 03:00 UTC
 }
 // 마감 지난 미확인(받는 사람 기준). 못 읽으면 null — 부르는 쪽이 «잠그지 않는» 쪽으로 실패한다.
@@ -147,9 +153,15 @@ export async function reviewOverdue(env: Env, reviewer: string, now = Date.now()
   try {
     const r = await env.DB.prepare(`SELECT id,version,report_date,staff_name,submitted_at FROM daily_handovers
       WHERE recipient=? AND username<>? AND status='submitted' AND submitted_at IS NOT NULL ORDER BY submitted_at ASC LIMIT 100`).bind(reviewer, reviewer).all<any>();
-    return (r.results || []).filter(x => reviewDueAt(x.submitted_at) <= now)
+    const rows = r.results || [];
+    if (!rows.length) return [];
+    // 공휴일 표를 못 읽으면 holidayLookup 이 «공휴일 없음» 을 준다 — 그때는 주말만 빼는 예전 동작(잠금을 안 거는 쪽이 아니다 — 알고 둔 한계).
+    const kst = (ms: number) => new Date(ms + 9 * 3600000).toISOString().slice(0, 10);
+    const isH = await holidayLookup(env, kst(Number(rows[0].submitted_at)), shiftDay(kst(now), 70));
+    const due = (x: any) => reviewDueAt(x.submitted_at, d => isH(REVIEW_HOLIDAY_COUNTRY, d));
+    return rows.filter(x => due(x) <= now)
       .map(x => ({ id: x.id, version: x.version, report_date: x.report_date, staff_name: x.staff_name,
-        due_at: reviewDueAt(x.submitted_at), late_hours: Math.floor((now - reviewDueAt(x.submitted_at)) / 3600000) }));
+        due_at: due(x), late_hours: Math.floor((now - due(x)) / 3600000) }));
   } catch { console.warn('[daily-handover] overdue lookup failed'); return null; }
 }
 export async function runReviewEscalation(env: Env, now = Date.now()) {
