@@ -523,7 +523,7 @@ function historyUI(row,request=path=>api(path)){
   const host=new HistoryNode('main');host.connectedRoot=true;
   const errors=[];
   const ctx={node:(...args)=>new HistoryNode(...args),call:request,networkError:e=>errors.push(e),staffName:x=>x,
-    me:{username:'admin'},members:[],document:{hidden:false},Date};
+    me:{username:'admin'},members:[],document:{hidden:false},Date,readMinSec:0,alsoSees:[],markOpened:()=>{}};
   const begin=hjs.indexOf('  function paintFollowupHistory('),end=hjs.indexOf('  // 작성자 시점',begin);
   assert.ok(begin>=0&&end>begin);vm.runInNewContext(hjs.slice(begin,end),ctx);
   ctx.paintFollowup(host,row);
