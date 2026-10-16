@@ -28,6 +28,7 @@ import { enrollAdminHqOnly, moveCandidatesFor, daySlotsFor } from './enroll-ops'
 import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
 import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
 import { siteUrl } from './site-url';  // 사람에게 보내는 링크의 정본 주소(mangoi.ai)
+import { runBranchAiHelp } from './branch-ai-help';  // 🤖 지사 화면 통합 검색 AI 도우미(testbranch 만, 2026-10-14)
 import { entryWindow, canEnterNow, enterBlockedMsg, nextStartAfter } from './class-entry-window';  // 🚪 「문을 열어 줄 것인가」 정본 («수업 시간인가» 와 별개)
 import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { type GiftishowEnv } from './giftishow-client';  // (MangoEnv 가 상속하는 타입만 사용)
@@ -1717,6 +1718,19 @@ export async function handleMangoApi(
     // ════════════════════════════════════════════════════════════
     // 🔎 통합 실시간 검색 — 학생(ERP 명부) + 교사 이름을 DB 에서 즉시 조회
     //   GET /api/admin/omnisearch?q=  → {ok, results:[{type,name,sub,uid,url}]}
+    // 🤖 (2026-10-14) 지사 화면 통합 검색의 AI 도우미 — 이미 등록된 경로의 «비어 있던 POST» 를 쓴다
+    //   (src/index.ts 3관문·지사 허용목록에 이미 있어 그 파일을 안 건드린다 — CLAUDE.md 2장 「새 API 추가」).
+    //   ⛔ action 이 모르는 값이면 거절한다(나중에 이 경로에 다른 뜻을 넣을 때 비용 요청이 조용히 흘러들지 않게).
+    //   계정 게이트(testbranch 만)·하루 상한·모델·폴백은 정본 branch-ai-help.ts 한 곳.
+    if (method === 'POST' && path === '/api/admin/omnisearch') {
+      const body: any = await parseJsonBody(request);
+      if (!body || body.action !== 'ai_help') return json({ ok: false, error: 'unknown_action' }, 400);
+      const actor = await getAdminActor(request, env as any);
+      if (!actor.ok) return json({ ok: false, error: 'unauthorized' }, 401);
+      if (actor.isTeacher) return json(forbiddenTeacherBody(actor), 403);
+      const r = await runBranchAiHelp(env as any, actor.username, body);
+      return json(r.body, r.status);
+    }
     if (method === 'GET' && path === '/api/admin/omnisearch') {
       const q = (url.searchParams.get('q') || '').trim();
       if (!q) return json({ ok: true, results: [] });
