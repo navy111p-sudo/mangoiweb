@@ -363,21 +363,27 @@
      글자는 한 글자도 빼지 않고 여백·크기만 줄인다. 녹음 칸은 [마이크 | 안내] 가로 한 줄.
      결과를 볼 때(body.m-showing-result — 모든 폭에서 붙는다)는 녹음·추천 문장 칸 자리를
      결과 카드가 쓰고 문장 카드는 한 줄로 접는다. 레벨 카드의 인라인 style 은 !important 로 덮는다.
-     얼굴 크기는 «남은 세로» 에 묶는다(제목·레벨줄 약 250px 를 뺀 높이의 80%). */
+     얼굴 크기는 «남은 세로» 에 묶는다(제목·레벨줄 약 250px 를 뺀 높이의 80%).
+     긴 문장(SIU)·유닛 줄·결과 카드로 그래도 넘치면 파일 끝 스크립트가 --sc-fit(1→0.4)을
+     낮춰 얼굴·문장 글자·여백을 함께 줄인다(넘칠 때만 · 글자 내용은 그대로).
+     양옆은 60px 이상 비운다 — 왼쪽 가운데 «메뉴» 손잡이(x≈2~46)를 얼굴이 덮던 것(1024px 실측). */
   @media (min-width: 1024px) {
     body { padding-bottom: 0; }
-    .wrap { padding: 12px 18px 10px; column-gap: 26px; min-height: 100vh; align-content: center; }
+    .wrap { max-width: none; width: min(1120px, calc(100vw - 120px)); padding: 12px 0 10px; column-gap: 26px; min-height: 100vh; align-content: center; }
     .brand { margin-bottom: 6px; }
     .brand-eyebrow { margin-bottom: 4px; padding: 3px 12px; }
-    .brand-logo { font-size: 30px; }
+    .brand-logo { font-size: max(22px, calc(30px * var(--sc-fit, 1))); }
     .brand-sub { margin-top: 3px; }
     .brand-rule { margin-top: 6px; }
-    #lang-curriculum-picker { margin: 0 0 10px !important; }
+    #lang-curriculum-picker { margin: 0 0 calc(10px * var(--sc-fit, 1)) !important; }
     #lang-curriculum-picker > div:first-child { margin-bottom: 6px !important; }
-    #lang-curriculum-picker a[href] { padding: 8px 10px !important; }
-    #tavatar-wrap { --av-w: min(330px, calc((100vh - 260px) * .8)); margin: 0; gap: 6px; top: 12px; }
-    .target-box { padding: 14px 22px; margin-bottom: 8px; }
-    .target-text { font-size: 26px; margin-top: 8px; }
+    #lang-curriculum-picker a[href] { padding: calc(8px * var(--sc-fit, 1)) 10px !important; }
+    #tavatar-wrap { --av-w: min(330px, calc((100vh - 260px) * .8 * var(--sc-fit, 1))); margin: 0; gap: 6px; top: 12px; }
+    #unit-picker { margin-top: 6px !important; padding: calc(6px * var(--sc-fit, 1)) 10px !important; }
+    #unit-picker select { padding: 6px 10px !important; }
+    #unit-topic { margin-top: 4px !important; }
+    .target-box { padding: calc(14px * var(--sc-fit, 1)) 22px; margin-bottom: 8px; }
+    .target-text { font-size: max(17px, calc(26px * var(--sc-fit, 1))); margin-top: 8px; }
     .target-input { margin-top: 8px; padding: 8px 14px; }
     .target-box .play-btn { margin-top: 8px !important; padding: 8px 16px; }
     .sc-rate { margin-top: 6px; }
@@ -387,19 +393,43 @@
     .preset { margin: 6px 0 8px; }
     .recorder { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 10px 18px; margin-bottom: 8px; }
     .rec-ring { padding: 6px; }
-    .rec-btn { width: 76px; height: 76px; font-size: 28px; }
+    .rec-btn { width: calc(76px * var(--sc-fit, 1)); height: calc(76px * var(--sc-fit, 1)); font-size: 28px; }
     .rec-status { margin-top: 0; text-align: left; font-size: 13px; }
     body.m-showing-result .recorder, body.m-showing-result .preset { display: none; }
+    body.m-showing-result .step-progress { display: none; }
     body.m-showing-result .target-box { padding: 8px 18px; }
     body.m-showing-result .target-box .target-label,
     body.m-showing-result .target-box .target-input,
     body.m-showing-result .target-box .sc-rate,
     body.m-showing-result .target-box .target-tip { display: none; }
     body.m-showing-result .target-text { font-size: 18px; margin-top: 0; }
-    .result { padding: 14px 18px; }
-    .score-box { padding: 10px 6px; }
+    .result { padding: calc(14px * var(--sc-fit, 1)) 18px; }
+    /* 결과 카드는 PC 에서 두 칸으로(점수·단어별 발음·내 발화 | 피드백·제안·문법). 마크업은 그대로 두고
+       CSS 다단으로 나눈다 — 높이가 저절로 균형을 맞춘다. 등급 배너·단어별 발음(칩을 가로로)·버튼 줄은
+       두 칸을 가로지른다.
+       ⚠️ JS 가 #result 에 인라인 display:block 을 넣으므로 다단은 block 그대로 쓴다(flex 금지). */
+    body.m-showing-result #result { column-count: 2; column-gap: 14px; }
+    body.m-showing-result #result > * { break-inside: avoid; }
+    body.m-showing-result #sc-tier,
+    body.m-showing-result #wordmap { column-span: all; }
+    body.m-showing-result #result > .res-acts { column-span: all; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; margin-top: calc(10px * var(--sc-fit, 1)); }
+    body.m-showing-result #result > .res-acts > div { display: contents; }
+    body.m-showing-result #result > .res-acts button { margin: 0 !important; padding: 8px 16px !important; font-size: 14px !important; }
+    body.m-showing-result .score-note { margin-bottom: calc(8px * var(--sc-fit, 1)); }
+    body.m-showing-result .step-nav { margin: 2px 0; }
+    .scores { margin-bottom: calc(10px * var(--sc-fit, 1)); }
+    .transcript { padding: calc(12px * var(--sc-fit, 1)) 12px; margin-bottom: calc(10px * var(--sc-fit, 1)); }
+    .wordmap { padding: calc(14px * var(--sc-fit, 1)) 12px; margin-bottom: calc(14px * var(--sc-fit, 1)); }
+    .score-box { padding: calc(10px * var(--sc-fit, 1)) 6px; }
+    .score-num, .score-box-hero .score-num { font-size: max(20px, calc(27px * var(--sc-fit, 1))); }
     .score-note { margin-bottom: 8px; }
-    .feedback, .suggestion, .grammar { padding: 10px 12px; }
+    .feedback, .suggestion, .grammar { padding: calc(10px * var(--sc-fit, 1)) 12px; }
+    .feedback { margin-bottom: calc(10px * var(--sc-fit, 1)); }
+    /* 단어별 발음 칩·안내도 fit 에 함께 묶는다(글자 내용은 그대로) — 짧은 PC 화면의 결과+단어지도 넘침(1366×768 실측 790px). */
+    .wordmap-title { margin-bottom: calc(10px * var(--sc-fit, 1)); }
+    .wm { padding: calc(7px * var(--sc-fit, 1)) calc(11px * var(--sc-fit, 1)); font-size: max(13px, calc(15px * var(--sc-fit, 1))); }
+    .wordmap-hint { margin-top: calc(9px * var(--sc-fit, 1)); }
+    body.m-showing-result .step-count { display: none; }
   }
 </style>
 <script src="/js/game-track.js?v=4" defer></script>
@@ -408,7 +438,8 @@
 <!-- 👩‍🏫 공용 아바타 모듈. ⛔ /css/mango-avatar.css 는 «싣지 마세요» —
      이 화면은 아바타 크기·모양 CSS 를 이미 자기 <style> 안에 갖고 있고(150·260·118·92px),
      공용 CSS 가 뒤에 오면 같은 명시도에서 이겨 카드 크기가 136px 로 줄어듭니다. -->
-<script src="/js/mango-avatar.js?v=19" defer></script>
+<script src="/js/avatar-visemes.js?v=2" defer></script>
+<script src="/js/mango-avatar.js?v=24" defer></script>
 <script src="/js/speech-preferences.js?v=3"></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
@@ -422,7 +453,7 @@
         data-ko-aria="AI 친구 고르기" data-en-aria="Choose your AI friend">&#9776;</button>
 <div id="sc-friend-menu" hidden role="menu" aria-label="AI 친구">
   <div class="scf-title">🎙️ <span data-ko="AI 친구 (목소리·얼굴)" data-en="AI friend (voice &amp; face)">AI 친구 (목소리·얼굴)</span></div>
-  <button type="button" role="menuitemradio" data-p="emma" onclick="scSetFriend('emma',true)"><img class="scf-photo" src="/img/friend-emma-2.webp" alt="" width="64" height="64"><span>Emma</span></button>
+  <button type="button" role="menuitemradio" data-p="emma" onclick="scSetFriend('emma',true)"><img class="scf-photo" src="/img/visemes/emma-v2-thumb.webp" alt="" width="64" height="64"><span>Emma</span></button>
   <button type="button" role="menuitemradio" data-p="lily" onclick="scSetFriend('lily',true)"><img class="scf-photo" src="/img/friend-lily.webp" alt="" width="64" height="64"><span>Lily</span></button>
   <button type="button" role="menuitemradio" data-p="noah" onclick="scSetFriend('noah',true)"><img class="scf-photo" src="/img/friend-noah.webp" alt="" width="64" height="64"><span>Noah</span></button>
   <button type="button" role="menuitemradio" data-p="jake" onclick="scSetFriend('jake',true)"><img class="scf-photo" src="/img/friend-jake.webp" alt="" width="64" height="64"><span>Jake</span></button>
@@ -616,6 +647,8 @@
     <div class="suggestion" id="suggestion-text">-</div>
     <!-- 📝 문법 검사 — 직접 쓴 자유 문장일 때만 표시 (무료 LanguageTool). 2026-07-24 -->
     <div class="grammar" id="grammar-box" style="display:none"></div>
+    <!-- 버튼 두 줄을 묶는 상자 — PC 결과 화면에서만 한 줄로 편다(아래 CSS). 휴대폰은 예전 그대로 두 줄. -->
+    <div class="res-acts">
     <div style="text-align:center;margin-top:14px">
       <button onclick="resetUI()" class="play-btn" data-ko="🔄 다시 녹음" data-en="🔄 Try Again">🔄 다시 녹음</button>
       <button onclick="speakTarget()" class="play-btn" style="margin-left:8px" data-ko="🔊 모범 다시 듣기" data-en="🔊 Listen Again">🔊 모범 다시 듣기</button>
@@ -623,6 +656,7 @@
     </div>
     <div style="text-align:center;margin-top:10px">
       <button onclick="window.MangoFlow&&MangoFlow.open('speech')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:12px;padding:12px 24px;font-size:16px;font-weight:800;cursor:pointer" data-ko="🚀 다음 활동 고르기" data-en="🚀 Choose next activity">🚀 다음 활동 고르기</button>
+    </div>
     </div>
   </div>
 </div>
@@ -1811,5 +1845,26 @@ if (typeof window.speechSynthesis !== 'undefined') {
 <script defer src="/js/mg-sidebar.js"></script>
 <script defer src="/js/flow.js?v=23"></script>
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
+<script>
+/* 📏 PC 한 화면 맞춤 (2026-10-16) — 넘칠 때만 --sc-fit 을 1 → 0.4 로 조금씩 낮춘다.
+   ResizeObserver 로 «내용 칸» 크기가 바뀔 때만 다시 잰다(⛔ 상주 타이머·body class 감시 금지 —
+   홈을 멈춘 전력). 측정은 한 번의 콜백 안에서 동기로 끝나므로 화면이 깜빡이지 않는다.
+   0.6 에서도 넘치면 그때는 스크롤을 허용한다(글자를 더 줄이지 않는다). */
+(function(){
+  if (!window.ResizeObserver || !window.matchMedia) return;
+  var mq = matchMedia('(min-width: 1024px)'), de = document.documentElement, busy = false;
+  function fit(){
+    if (busy) return; busy = true;
+    try {
+      if (!mq.matches) { de.style.removeProperty('--sc-fit'); return; }
+      var f = 1; de.style.setProperty('--sc-fit', '1');
+      while (f > 0.4 && de.scrollHeight > innerHeight + 1) { f = Math.round((f - 0.04) * 100) / 100; de.style.setProperty('--sc-fit', String(f)); }
+    } finally { busy = false; }
+  }
+  var ro = new ResizeObserver(fit), wrap = document.querySelector('.wrap');
+  if (wrap) for (var i = 0; i < wrap.children.length; i++) ro.observe(wrap.children[i]);
+  addEventListener('resize', fit); fit();
+})();
+</script>
 </body>
 </html>

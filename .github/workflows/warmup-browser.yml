@@ -5,6 +5,10 @@ on:
       - 'cloudflare-deploy/public/warmup.html'
       - 'cloudflare-deploy/public/ai-friend.html'
       - 'cloudflare-deploy/public/js/speech-preferences.js'
+      - 'cloudflare-deploy/public/js/avatar-visemes.js'
+      - 'cloudflare-deploy/public/js/avatar-viseme-worker.js'
+      - 'cloudflare-deploy/public/js/mango-avatar.js'
+      - 'test-harness/manual/avatar-viseme-browser.mjs'
       - 'test-harness/manual/speech-preferences-browser.mjs'
       - 'test-harness/helpers/speech-sandbox.mjs'
       - 'cloudflare-deploy/public/js/warmup-guide.js'
@@ -58,3 +62,9 @@ jobs:
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/warmup-browser
         run: node test-harness/manual/speech-preferences-browser.mjs
 
+
+      - name: Avatar cue clock, speed and cancellation (18 browser cases)
+        env:
+          PW_DIR: ${{ runner.temp }}/warmup-pw
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/warmup-browser
+        run: node test-harness/manual/avatar-viseme-browser.mjs
