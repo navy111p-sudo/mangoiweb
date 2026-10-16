@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "anchors": "XABCDEFGH",
+  "steps": 4,
+  "columns": 18,
+  "shapesPerActor": 297,
+  "actors": {
+    "lily": {
+      "tileWidth": 144,
+      "tileHeight": 122,
+      "transitionShapes": 288,
+      "bytes": 705992,
+      "sourceSha256": "04f04716765f832929092a0404d489c460753135537d3866932d7c082608e3a4"
+    },
+    "noah": {
+      "tileWidth": 154,
+      "tileHeight": 130,
+      "transitionShapes": 288,
+      "bytes": 759856,
+      "sourceSha256": "3144db671b3a1d3c031b19b73ec8c46efefd0a5460c62dae2d5764de67cd56f3"
+    },
+    "emma": {
+      "tileWidth": 146,
+      "tileHeight": 126,
+      "transitionShapes": 288,
+      "bytes": 488476,
+      "sourceSha256": "871b1ba10696e068074ae1e871df3049632a47386ac88d6a05a4612af52e6e85"
+    }
+  }
+}

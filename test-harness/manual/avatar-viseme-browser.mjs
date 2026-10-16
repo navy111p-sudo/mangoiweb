@@ -12,8 +12,9 @@ const cues=[{start:0,end:.3,value:'A'},{start:.3,end:.6,value:'D'},{start:.6,end
 const server=http.createServer((req,res)=>{
  if(req.url==='/'){
   res.setHeader('Content-Type','text/html');res.end(`<div id="tavatar-wrap"></div><div id="tavatar-ring"></div><canvas id="tavatar-canvas"></canvas><video id="tavatar-video"></video>
-  <script>window.__mgAvatarWant='lily';window.AvatarVisemes={prepare:()=>Promise.resolve(${JSON.stringify(cues)}),at:(cs,t)=>(cs.find(c=>t>=c.start&&t<c.end)||{value:'X'}).value};
-  const draw=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(im,...a){if(im.src&&im.src.includes('-mouths.webp'))window.pose=Math.round(a[0]/a[2])+Math.round(a[1]/a[3])*3;return draw.call(this,im,...a)};</script><script src="/js/mango-avatar.js"></script>`);return;
+  <script src="/js/avatar-visemes.js"></script>
+  <script>window.__mgAvatarWant='lily';window.AvatarVisemes.prepare=()=>Promise.resolve(${JSON.stringify(cues)});
+  const draw=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(im,...a){if(im.src&&im.src.includes('-mouths.webp')){window.pose=Math.round(a[0]/a[2])+Math.round(a[1]/a[3])*3;window.lastSprite='anchor';}if(im.src&&im.src.includes('-transitions.webp')){window.transitionSeen=true;window.lastSprite='transition';window.transitionTile=Math.round(a[0]/a[2])+Math.round(a[1]/a[3])*18;}return draw.call(this,im,...a)};</script><script src="/js/mango-avatar.js"></script>`);return;
  }
  try{const f=join(root,new URL(req.url,'http://local').pathname);res.setHeader('Content-Type',extname(f)==='.js'?'text/javascript':extname(f)==='.webp'?'image/webp':'image/png');res.end(readFileSync(f));}catch{res.statusCode=404;res.end();}
 });
@@ -46,7 +47,7 @@ try{
    a.pause();a.currentTime=.65;a.playbackRate=rate;await a.play();
   },{character,rate});
   await page.waitForFunction(()=>window.pose===6,{},{timeout:5000}); // F at .6-1 seconds, regardless of rate.
-  await page.evaluate(()=>a.pause());await page.waitForFunction(()=>window.pose===0);
+  await page.evaluate(()=>a.pause());await page.waitForFunction(()=>window.pose===0&&window.lastSprite==='anchor');
   await page.evaluate(async()=>{a.currentTime=.35;await a.play();});
   await page.waitForFunction(()=>window.pose===4);
   await page.evaluate(()=>MangoAvatar.plainStop());assert.equal(await page.evaluate(()=>window.pose),0);
@@ -54,6 +55,9 @@ try{
   await page.waitForFunction(()=>window.pose===7);
   await page.evaluate(async()=>{a.pause();a.currentTime=1.7;await a.play();});
   await page.waitForFunction(()=>window.pose===8);
+  await page.evaluate(async()=>{a.pause();window.transitionSeen=false;a.currentTime=.5;await a.play();});
+  await page.waitForFunction(()=>window.transitionSeen,{},{timeout:5000});
+  assert((await page.evaluate(()=>window.transitionTile))<288,'real canvas used a valid inbetween');
   await page.evaluate(()=>a.pause());pass++;
  }
  assert.deepEqual(errors,[]);console.log(`avatar-viseme-browser: PASS ${pass} / FAIL 0`);
