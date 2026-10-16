@@ -279,15 +279,15 @@
     // ── 음량 분석(Web Audio) — attach 로 오디오를 물릴 때 1회 그래프 생성 ──
     var actx=null, boundEl=null, analyser=null, lipData=null, audioFailed=false;
     var bindings = new WeakMap(), buffering = false, mouthCues=null, cueUrl='', preciseFaces={};
-    // Generated mouths registered onto the shipped face. G/H use conservative substitutes
-    // until F/V contact and tongue poses pass visual QA.
+    // Reviewed nine-pose anchors plus 288 optical-flow inbetweens per actor.
+    // The latter are transition shapes, not additional recognized phonemes.
     var PRECISION={lily:{extra:true,base:'/img/lily-closed.webp',x:250,y:294,w:144,h:122},
       noah:{extra:true,base:'/img/noah-closed.webp',x:244,y:364,w:154,h:130},
       emma:{extra:true,base:'/img/visemes/emma-v2-rest.webp',atlas:'/img/visemes/emma-v2-mouths.webp',x:183,y:282,w:146,h:126}};
     function precisionFace(){
       if(!PRECISION[curChar])return null;
       if(!preciseFaces[curChar]){
-        var p=PRECISION[curChar],base=new Image(),mouths=new Image();
+        var p=PRECISION[curChar],base=new Image(),mouths=new Image(),transitions=new Image();
         var load=function(im,url){return new Promise(function(resolve){
           var timer=setTimeout(function(){resolve(false);},8000);
           im.onload=function(){clearTimeout(timer);resolve(true);};
@@ -295,8 +295,11 @@
           im.src=url;
           if(im.complete && im.naturalWidth){clearTimeout(timer);resolve(true);}
         });};
-        var ready=Promise.all([load(base,p.base),load(mouths,p.atlas||('/img/visemes/'+curChar+'-mouths.webp'))]);
-        preciseFaces[curChar]={base:base,mouths:mouths,rect:p,ready:ready};
+        var ready=Promise.all([load(base,p.base),load(mouths,p.atlas||('/img/visemes/'+curChar+'-mouths.webp')),
+          load(transitions,'/img/visemes/'+curChar+'-transitions.webp')]);
+        preciseFaces[curChar]={base:base,mouths:mouths,transitions:transitions,rect:p,ready:ready};
+        // Bound decoded sprite memory when a student switches through all teachers.
+        Object.keys(preciseFaces).forEach(function(name){if(name!==curChar)delete preciseFaces[name];});
       }
       return preciseFaces[curChar];
     }
@@ -343,14 +346,19 @@
       var srcEl, vw, vh;
       var pf=precisionFace(), precise=pf && mouthCues && !clipActive;
       if(precise && pf.base.complete && pf.base.naturalWidth && pf.mouths.complete && pf.mouths.naturalWidth){
-        var pose=(!boundEl || boundEl.paused || boundEl.ended || buffering || !drawing) ? 'X' : window.AvatarVisemes.at(mouthCues,boundEl.currentTime);
+        var stopped=!boundEl || boundEl.paused || boundEl.ended || buffering || !drawing;
+        var sampled=(!stopped && window.AvatarVisemes.frame) ? window.AvatarVisemes.frame(mouthCues,boundEl.currentTime) : null;
+        var pose=stopped ? 'X' : sampled ? sampled.pose : window.AvatarVisemes.at(mouthCues,boundEl.currentTime);
         if(!pf.rect.extra){if(pose==='G')pose='B';if(pose==='H')pose='C';}
         var ix='XABCDEFGH'.indexOf(pose), r=pf.rect;
         var bw=pf.base.naturalWidth,bh=pf.base.naturalHeight;
         var bx=bw*cropRect.l,by=bh*cropRect.t,sw=bw*(cropRect.r-cropRect.l),sh=bh*(cropRect.b-cropRect.t);
         ctx.clearRect(0,0,canvas.width,canvas.height);
         ctx.drawImage(pf.base,bx,by,sw,sh,0,0,canvas.width,canvas.height);
-        ctx.drawImage(pf.mouths,(ix%3)*r.w,Math.floor(ix/3)*r.h,r.w,r.h,
+        var tile=sampled && sampled.tile,transition=sampled && tile>=0 && pf.transitions.complete && pf.transitions.naturalWidth;
+        var sprite=transition?pf.transitions:pf.mouths,columns=transition?18:3;
+        if(transition)ix=tile;
+        ctx.drawImage(sprite,(ix%columns)*r.w,Math.floor(ix/columns)*r.h,r.w,r.h,
           (r.x-bx)/sw*canvas.width,(r.y-by)/sh*canvas.height,r.w/sw*canvas.width,r.h/sh*canvas.height);
         return;
       }
@@ -520,6 +528,12 @@
                 if(boundEl!==audioEl || clipActive) return;
                 buffering=true; showTier('closed', true); fadeData=null; drawStill();
               });
+            });
+            // A seek while already playing need not emit another 'playing' event.
+            // Resume from the new audio position once that seek has usable data.
+            audioEl.addEventListener('seeked', function(){
+              if(boundEl!==audioEl || clipActive || audioEl.paused || audioEl.ended || audioEl.readyState<3)return;
+              buffering=false;window.MangoAvatar.plainStart();
             });
             ['pause','ended','emptied','error'].forEach(function(event){
               audioEl.addEventListener(event, function(){

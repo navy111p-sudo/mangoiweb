@@ -76,5 +76,28 @@
     while(low<=high){var mid=(low+high)>>1,c=cues[mid];if(time<c.start)high=mid-1;else if(time>=c.end)low=mid+1;else return c.value;}
     return 'X';
   }
-  window.AvatarVisemes={prepare:prepare,at:at,valid:valid,boot:boot};
+  // Pure audio-clock sampling: no wall-clock tween to drift after pause/seek/rate changes.
+  // Silence and bilabial closures remain exact. Other neighboring vowels/consonants
+  // share a short coarticulation window, bounded by both cue lengths.
+  function frame(cues,time){
+    var pose=at(cues,time),anchor={pose:pose,tile:-1};
+    if(pose==='X' || !cues)return anchor;
+    var lo=0,hi=cues.length-1,index=-1;
+    while(lo<=hi){var m=(lo+hi)>>1,c=cues[m];if(time<c.start)hi=m-1;else if(time>=c.end)lo=m+1;else{index=m;break;}}
+    if(index<0)return anchor;
+    function between(a,b){
+      if(!a||!b||a.value===b.value||a.value==='X'||b.value==='X'||b.value==='A'||Math.abs(a.end-b.start)>.002)return null;
+      var width=Math.min(.08,(a.end-a.start)*.4,(b.end-b.start)*.4);
+      var start=b.start-width/2,end=b.start+width/2;
+      // A = M/B/P: do not open lips before the closure has finished.
+      if(a.value==='A'){start=b.start;end=b.start+Math.min(.04,(b.end-b.start)*.25);}
+      if(time<=start||time>=end)return null;
+      var t=(time-start)/(end-start),step=Math.round(t*5);
+      if(step<=0||step>=5)return {pose:step<=0?a.value:b.value,tile:-1};
+      var from='XABCDEFGH'.indexOf(a.value),to='XABCDEFGH'.indexOf(b.value);
+      return {pose:pose,tile:(from*8+(to<from?to:to-1))*4+step-1};
+    }
+    return between(cues[index-1],cues[index])||between(cues[index],cues[index+1])||anchor;
+  }
+  window.AvatarVisemes={prepare:prepare,at:at,frame:frame,valid:valid,boot:boot};
 })();

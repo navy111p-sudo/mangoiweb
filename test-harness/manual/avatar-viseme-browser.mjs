@@ -12,8 +12,9 @@ const cues=[{start:0,end:.3,value:'A'},{start:.3,end:.6,value:'D'},{start:.6,end
 const server=http.createServer((req,res)=>{
  if(req.url==='/'){
   res.setHeader('Content-Type','text/html');res.end(`<div id="tavatar-wrap"></div><div id="tavatar-ring"></div><canvas id="tavatar-canvas"></canvas><video id="tavatar-video"></video>
-  <script>window.__mgAvatarWant='lily';window.AvatarVisemes={prepare:()=>Promise.resolve(${JSON.stringify(cues)}),at:(cs,t)=>(cs.find(c=>t>=c.start&&t<c.end)||{value:'X'}).value};
-  const draw=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(im,...a){if(im.src&&im.src.includes('-mouths.webp'))window.pose=Math.round(a[0]/a[2])+Math.round(a[1]/a[3])*3;return draw.call(this,im,...a)};</script><script src="/js/mango-avatar.js"></script>`);return;
+  <script src="/js/avatar-visemes.js"></script>
+  <script>window.__mgAvatarWant='lily';window.AvatarVisemes.prepare=()=>Promise.resolve(${JSON.stringify(cues)});
+  const draw=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(im,...a){if(im.src&&im.src.includes('-mouths.webp')){window.pose=Math.round(a[0]/a[2])+Math.round(a[1]/a[3])*3;window.lastSprite='anchor';}if(im.src&&im.src.includes('-transitions.webp')){window.transitionSeen=true;window.lastSprite='transition';window.transitionTile=Math.round(a[0]/a[2])+Math.round(a[1]/a[3])*18;}return draw.call(this,im,...a)};</script><script src="/js/mango-avatar.js"></script>`);return;
  }
  try{const f=join(root,new URL(req.url,'http://local').pathname);res.setHeader('Content-Type',extname(f)==='.js'?'text/javascript':extname(f)==='.webp'?'image/webp':'image/png');res.end(readFileSync(f));}catch{res.statusCode=404;res.end();}
 });
@@ -22,9 +23,10 @@ const browser=await pw.chromium.launch({executablePath:exe,headless:true,args:['
 let pass=0;
 try{
  const page=await browser.newPage();let errors=[];page.on('pageerror',e=>errors.push(e.message));
- let releaseAtlas,heldResolve;const held=new Promise(r=>heldResolve=r);
+ let releaseAtlas,heldResolve,delayFirstAtlas=true;const held=new Promise(r=>heldResolve=r);
  await page.route('**/img/visemes/lily-mouths.webp',async route=>{
-  await new Promise(resolve=>{releaseAtlas=resolve;heldResolve();});await route.continue();
+  if(delayFirstAtlas){delayFirstAtlas=false;await new Promise(resolve=>{releaseAtlas=resolve;heldResolve();});}
+  await route.continue();
  });
  await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:'domcontentloaded'});
  await held;
@@ -43,10 +45,14 @@ try{
     for(let i=0;i<n;i++)v.setInt16(44+i*2,Math.sin(i*2*Math.PI*220/44100)*3000,true);
     window.a=new Audio(URL.createObjectURL(new Blob([buf],{type:'audio/wav'})));MangoAvatar.attach(a);
    }
-   a.pause();a.currentTime=.65;a.playbackRate=rate;await a.play();
+   // Match the production playback contract: decode the selected actor's assets
+   // before starting a short cue window (CI runners can decode slower than local).
+   a.pause();await MangoAvatar.prepare(a);a.currentTime=.65;a.playbackRate=rate;await a.play();
   },{character,rate});
-  await page.waitForFunction(()=>window.pose===6,{},{timeout:5000}); // F at .6-1 seconds, regardless of rate.
-  await page.evaluate(()=>a.pause());await page.waitForFunction(()=>window.pose===0);
+  await page.waitForFunction(()=>window.pose===6&&window.lastSprite==='anchor',{},{timeout:5000}).catch(async error=>{
+   console.error('FAIL: anchor',character,rate,width,await page.evaluate(()=>({time:a.currentTime,paused:a.paused,ended:a.ended,seeking:a.seeking,ready:a.readyState,pose:window.pose,sprite:window.lastSprite,images:[...document.images].map(i=>({src:i.src,ready:i.complete}))})),errors);throw error;
+  }); // F at .6-1 seconds, regardless of rate.
+  await page.evaluate(()=>a.pause());await page.waitForFunction(()=>window.pose===0&&window.lastSprite==='anchor');
   await page.evaluate(async()=>{a.currentTime=.35;await a.play();});
   await page.waitForFunction(()=>window.pose===4);
   await page.evaluate(()=>MangoAvatar.plainStop());assert.equal(await page.evaluate(()=>window.pose),0);
@@ -54,7 +60,10 @@ try{
   await page.waitForFunction(()=>window.pose===7);
   await page.evaluate(async()=>{a.pause();a.currentTime=1.7;await a.play();});
   await page.waitForFunction(()=>window.pose===8);
-  await page.evaluate(()=>a.pause());pass++;
+  await page.evaluate(async()=>{a.pause();window.transitionSeen=false;a.currentTime=.5;await a.play();});
+  await page.waitForFunction(()=>window.transitionSeen,{},{timeout:5000});
+  assert((await page.evaluate(()=>window.transitionTile))<288,'real canvas used a valid inbetween');
+  await page.evaluate(()=>a.pause());pass++;console.log('PASS:',character,rate,width,'anchors + optical-flow transitions');
  }
  assert.deepEqual(errors,[]);console.log(`avatar-viseme-browser: PASS ${pass} / FAIL 0`);
 }finally{await browser.close();await new Promise(r=>server.close(r));}
