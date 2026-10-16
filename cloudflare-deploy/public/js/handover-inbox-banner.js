@@ -35,7 +35,7 @@
   // 배너 전체를 숨긴 채 줄만 바뀌면 안 보인다 — 등록 결과가 나오면 숨김 여부도 다시 정한다(Codex P1).
   function reshow(){render();if(last)host.hidden=box.hidden&&!renderWriter();}
   function pushOk(){return typeof Notification!=='undefined'&&'serviceWorker' in navigator&&'PushManager' in window;}
-  function pushWanted(){return !!(last&&last.writer&&last.writer.required&&last.me&&last.me.username&&pushOk());}
+  function pushWanted(){return !!(last&&((last.writer&&last.writer.required)||last.read_min_sec>0)&&last.me&&last.me.username&&pushOk());}
   function b64u8(b){var r=atob((b+'='.repeat((4-b.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/')),o=new Uint8Array(r.length);for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o;}
   async function pushSubscribe(){
     var r=await fetch('/api/push/vapid-public-key',{credentials:'same-origin'});if(!r.ok)throw Error('http');
@@ -67,6 +67,28 @@
     if(pushState==='fail')return line('bad',t('⚠️ 기기 알림 등록에 실패했습니다 — 결재함의 «알림 받기» 를 눌러 주세요','⚠️ Could not register device notifications — press «Notify me» in Approvals'),'/work#pushBtn',t('결재함 열기','Open Approvals'));
     return null;
   }
+  // ③ 확인 마감(다음 날 12시 · 토·일 제외)이 지난 보고가 있으면 확인할 때까지 화면을 덮는다. 서버가 «확인 의무자» 에게만 overdue_lock 을 준다.
+  //    못 읽으면(실패·401) 덮지 않는다 — 관리자 화면이 통째로 멈추는 것이 더 나쁘다.
+  var lock=null;
+  function paintLock(){
+    var items=!stopped&&last&&last.overdue_lock;
+    if(!items||!items.length){if(lock){lock.remove();lock=null;}return;}
+    if(!lock){lock=document.createElement('div');lock.id='handover-review-lock';lock.setAttribute('role','alertdialog');lock.setAttribute('aria-modal','true');
+      lock.style.cssText='position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:16px';
+      document.body.append(lock);}
+    var first=items[0],card=document.createElement('div');card.style.cssText='background:#fff;color:#101828;max-width:560px;width:100%;border-radius:14px;padding:22px 24px;font:17px/1.55 system-ui,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.35);max-height:90vh;overflow:auto';
+    var h=document.createElement('b');h.style.cssText='display:block;font-size:20px;color:#b42318;margin-bottom:8px';h.textContent=t('⏰ 확인 마감이 지난 매일보고 '+items.length+'건','⏰ '+items.length+' daily report(s) past the review deadline');
+    var p=document.createElement('p');p.style.margin='0 0 10px';p.textContent=t('마감은 제출 다음 날 낮 12시입니다(토·일은 빼고 월요일 12시). 모두 확인(또는 보완 요청)하면 이 화면이 풀립니다.','The deadline is 12:00 noon the day after submission (weekends skipped — Friday reports are due Monday noon). This screen unlocks once all are acknowledged or sent back.');
+    var ul=document.createElement('ul');ul.style.cssText='margin:0 0 14px;padding-left:20px;color:#344054';
+    items.slice(0,8).forEach(function(x){var li=document.createElement('li');li.textContent=(x.staff_name||'')+' · '+x.report_date+' · '+t(x.late_hours+'시간 지남',x.late_hours+'h late');ul.append(li);});
+    if(items.length>8){var more=document.createElement('li');more.textContent=t('외 '+(items.length-8)+'건','+'+(items.length-8)+' more');ul.append(more);}
+    var a=document.createElement('a');a.href='/daily-handover.html?date='+encodeURIComponent(first.report_date)+'&report='+first.id;a.textContent=t('지금 읽고 확인하기 →','Read and acknowledge now →');
+    a.style.cssText='display:inline-block;background:#1849a9;color:#fff;text-decoration:none;font-weight:700;padding:11px 18px;border-radius:10px';
+    card.append(h,p,ul,a);
+    if(pushState!=='on'){var hint=document.createElement('p');hint.style.cssText='margin:12px 0 0;font-size:14px;color:#475467';hint.textContent=t('🔔 휴대폰 알림을 켜 두면 마감 전에 알려 드립니다 — 결재함 «알림 받기».','🔔 Turn on phone notifications to be reminded before the deadline — «Notify me» in Approvals.');card.append(hint);}
+    lock.replaceChildren(card);
+  }
+  function reviewerLine(){return (last&&last.reviewer_overdue||[]).map(function(o){return t('⏰ '+o.name+' 확인 마감 지남 '+o.count+'건 · 최장 '+o.max_late_hours+'시간','⏰ '+o.name+' overdue '+o.count+' (max '+o.max_late_hours+'h)');}).join(' · ');}
   function render(){
     box.setAttribute('aria-label',t('받은 매일보고','Handover inbox'));link.textContent=t('보고 읽고 응답하기','Read and respond');appr.textContent=t('결재함','Approvals');
     sound.textContent=blocked?t('🔊 알람 소리 켜기','Enable alarm sound'):enabled()?t('🔊 소리 끄기','Mute sound'):t('🔇 소리 켜기','Enable sound');
@@ -76,8 +98,8 @@
     if(!last){if(failed)note.textContent=t('새 보고 확인이 지연됩니다. 보고함을 열어 주세요.','Unable to refresh. Open the inbox.');return;}
     title.textContent=t('매일보고 · 미응답 '+last.total+'건','Daily reports · '+last.total+' awaiting response');
     var alerts=eligible(),urgent=alerts.some(function(r){return r.payload.priority==='urgent'||(r.followup&&r.followup.warning_level>0);}),overdue=alerts.filter(function(r){return r.followup&&r.followup.due_at&&r.followup.due_at<Date.now();}).length;
-    box.classList.toggle('warning',urgent||overdue>0);
-    note.textContent=failed?t('최신 상태 확인 실패 · 보고함을 열어 확인해 주세요.','Refresh failed; open the inbox to verify.'):last.total?(overdue?t('🔴 기한 초과 '+overdue+'건 · ','Overdue '+overdue+' · '):'')+t('확인 완료·보완 요청·사유 있는 보류 중 하나로 응답해 주세요.','Acknowledge, request changes, or give a hold reason.'):t('받은 보고를 모두 확인했습니다.','All received reports acknowledged.');
+    var rl=reviewerLine();box.classList.toggle('warning',urgent||overdue>0||!!rl);
+    note.textContent=failed?t('최신 상태 확인 실패 · 보고함을 열어 확인해 주세요.','Refresh failed; open the inbox to verify.'):last.total?(overdue?t('🔴 기한 초과 '+overdue+'건 · ','Overdue '+overdue+' · '):'')+t('확인 완료·보완 요청·사유 있는 보류 중 하나로 응답해 주세요.','Acknowledge, request changes, or give a hold reason.'):t('받은 보고를 모두 확인했습니다.','All received reports acknowledged.');if(rl)note.textContent+=' '+rl;
     var count=mine.filter(function(r){return r.status==='submitted';}).length;
     sent.textContent=t('내가 보낸 보고 · 미응답 '+count+'건 (최근 30일)','My sent reports · '+count+' pending (last 30 days)');
     permission.replaceChildren();var a=document.createElement('a');a.href='/work#pushBtn';a.textContent=typeof Notification==='undefined'||Notification.permission!=='granted'?t('기기 알림 켜기','Enable device notifications'):t('기기 푸시 등록 확인','Check device push registration');permission.append(a);
@@ -114,12 +136,12 @@
     if(pending||stopped||document.hidden)return;pending=true;var c=new AbortController(),timer=setTimeout(function(){c.abort();},10000);
     try{
       var r=await fetch('/api/approval/handover/inbox',{credentials:'same-origin',cache:'no-store',signal:c.signal});
-      if(r.status===401||r.status===403){stopped=true;last=null;host.hidden=true;if(audio)audio.close().catch(function(){});return;}
+      if(r.status===401||r.status===403){stopped=true;last=null;host.hidden=true;paintLock();if(audio)audio.close().catch(function(){});return;}
       if(!r.ok)throw Error('unavailable');var j=await r.json();if(!j.ok)throw Error('unavailable');
       var m=await fetch('/api/approval/handover/mine',{credentials:'same-origin',cache:'no-store',signal:c.signal});if(!m.ok)throw Error('mine unavailable');var data=await m.json();if(!data.ok)throw Error('mine unavailable');mine=data.reports||[];
       var inbox=!!(j.reader_mode||j.total||mine.some(function(x){return x.status==='submitted';}));box.hidden=!inbox;
       var first=j.reports[0];link.href=first?'/daily-handover.html?date='+encodeURIComponent(first.report_date)+'&report='+first.id:'/daily-handover.html';
-      last=j;failed=false;autoPush();render();host.hidden=!inbox&&!renderWriter();ring();
+      last=j;failed=false;autoPush();render();paintLock();host.hidden=!inbox&&!renderWriter();ring();
     }catch(e){failed=true;render();}finally{clearTimeout(timer);pending=false;}
   }
   render();refresh();setInterval(refresh,60000);window.addEventListener('focus',refresh);window.addEventListener('online',refresh);window.addEventListener('storage',render);
