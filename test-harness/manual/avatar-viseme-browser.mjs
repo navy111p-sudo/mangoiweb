@@ -22,7 +22,16 @@ const browser=await pw.chromium.launch({executablePath:exe,headless:true,args:['
 let pass=0;
 try{
  const page=await browser.newPage();let errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto(`http://127.0.0.1:${server.address().port}/`);
+ let releaseAtlas,heldResolve;const held=new Promise(r=>heldResolve=r);
+ await page.route('**/img/visemes/lily-mouths.webp',async route=>{
+  await new Promise(resolve=>{releaseAtlas=resolve;heldResolve();});await route.continue();
+ });
+ await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:'domcontentloaded'});
+ await held;
+ await page.evaluate(()=>{window.assetsPrepared=false;const probe=new Audio('/probe.wav');MangoAvatar.prepare(probe).then(()=>window.assetsPrepared=true);});
+ assert.equal(await page.evaluate(()=>window.assetsPrepared),false,'speech preparation waits for delayed mouth textures');
+ releaseAtlas();await page.waitForFunction(()=>window.assetsPrepared);
+ console.log('PASS: delayed mouth atlas gates speech preparation');
  for(const width of [390,1280])for(const character of ['lily','noah','emma'])for(const rate of [.7,1,1.3]){
   await page.setViewportSize({width,height:800});
   await page.evaluate(async({character,rate})=>{

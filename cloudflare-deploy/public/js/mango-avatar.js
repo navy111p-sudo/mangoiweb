@@ -288,8 +288,15 @@
       if(!PRECISION[curChar])return null;
       if(!preciseFaces[curChar]){
         var p=PRECISION[curChar],base=new Image(),mouths=new Image();
-        base.src=p.base;mouths.src=p.atlas||('/img/visemes/'+curChar+'-mouths.webp');
-        preciseFaces[curChar]={base:base,mouths:mouths,rect:p};
+        var load=function(im,url){return new Promise(function(resolve){
+          var timer=setTimeout(function(){resolve(false);},8000);
+          im.onload=function(){clearTimeout(timer);resolve(true);};
+          im.onerror=function(){clearTimeout(timer);resolve(false);};
+          im.src=url;
+          if(im.complete && im.naturalWidth){clearTimeout(timer);resolve(true);}
+        });};
+        var ready=Promise.all([load(base,p.base),load(mouths,p.atlas||('/img/visemes/'+curChar+'-mouths.webp'))]);
+        preciseFaces[curChar]={base:base,mouths:mouths,rect:p,ready:ready};
       }
       return preciseFaces[curChar];
     }
@@ -528,7 +535,11 @@
           if(!audioEl.paused && !audioEl.ended) window.MangoAvatar.plainStart();
         }catch(e){ /* Preserve audible playback if Web Audio is unavailable. */ }
       },
-      prepare: function(audioEl){ if(boundEl!==audioEl)window.MangoAvatar.attach(audioEl);return prepareCues(audioEl); },
+      prepare: function(audioEl){
+        if(boundEl!==audioEl)window.MangoAvatar.attach(audioEl);
+        var pf=precisionFace();
+        return Promise.all([prepareCues(audioEl),pf ? pf.ready : Promise.resolve()]).then(function(results){return results[0];});
+      },
       // 캐릭터 전환 — 'emma'|'jake'|'lily'|'noah' (옛 'female'|'male' 도 받습니다).
       setCharacter: function(name){
         name = CHAR_ALIAS[name] || name;

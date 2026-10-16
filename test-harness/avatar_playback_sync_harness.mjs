@@ -17,7 +17,7 @@ class AudioContext {
  createMediaElementSource(el){assert(!el.sourced);el.sourced=true;sources++;return {connect(){}};}
 }
 const window={__mgAvatarWant:'lily',AudioContext};
-vm.runInNewContext(readFileSync(new URL('../cloudflare-deploy/public/js/mango-avatar.js',import.meta.url),'utf8'),{window,Image,Date,WeakMap,Uint8Array,Promise,
+vm.runInNewContext(readFileSync(new URL('../cloudflare-deploy/public/js/mango-avatar.js',import.meta.url),'utf8'),{window,Image,Date,WeakMap,Uint8Array,Promise,setTimeout,clearTimeout,
  document:{readyState:'complete',getElementById(id){return {'tavatar-video':video,'tavatar-canvas':canvas,'tavatar-wrap':wrap,'tavatar-ring':ring}[id];}},
  requestAnimationFrame(f){pending.set(++next,f);return next;},cancelAnimationFrame(id){pending.delete(id);}});
 await new Promise(queueMicrotask);
