@@ -67,7 +67,7 @@
     if(pushState==='fail')return line('bad',t('⚠️ 기기 알림 등록에 실패했습니다 — 결재함의 «알림 받기» 를 눌러 주세요','⚠️ Could not register device notifications — press «Notify me» in Approvals'),'/work#pushBtn',t('결재함 열기','Open Approvals'));
     return null;
   }
-  // ③ 확인 마감(다음 날 12시 · 토·일 제외)이 지난 보고가 있으면 확인할 때까지 화면을 덮는다. 서버가 «확인 의무자» 에게만 overdue_lock 을 준다.
+  // ③ 확인 마감(다음 근무일 12시 · 토·일·공휴일 제외)이 지난 보고가 있으면 확인할 때까지 화면을 덮는다. 서버가 «확인 의무자» 에게만 overdue_lock 을 준다.
   //    못 읽으면(실패·401) 덮지 않는다 — 관리자 화면이 통째로 멈추는 것이 더 나쁘다.
   var lock=null;
   function paintLock(){
@@ -78,7 +78,7 @@
       document.body.append(lock);}
     var first=items[0],card=document.createElement('div');card.style.cssText='background:#fff;color:#101828;max-width:560px;width:100%;border-radius:14px;padding:22px 24px;font:17px/1.55 system-ui,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.35);max-height:90vh;overflow:auto';
     var h=document.createElement('b');h.style.cssText='display:block;font-size:20px;color:#b42318;margin-bottom:8px';h.textContent=t('⏰ 확인 마감이 지난 매일보고 '+items.length+'건','⏰ '+items.length+' daily report(s) past the review deadline');
-    var p=document.createElement('p');p.style.margin='0 0 10px';p.textContent=t('마감은 제출 다음 날 낮 12시입니다(토·일은 빼고 월요일 12시). 모두 확인(또는 보완 요청)하면 이 화면이 풀립니다.','The deadline is 12:00 noon the day after submission (weekends skipped — Friday reports are due Monday noon). This screen unlocks once all are acknowledged or sent back.');
+    var p=document.createElement('p');p.style.margin='0 0 10px';p.textContent=t('마감은 제출 다음 날 낮 12시입니다(토·일·공휴일은 빼고 다음 근무일 12시). 모두 확인(또는 보완 요청)하면 이 화면이 풀립니다.','The deadline is 12:00 noon the day after submission (weekends and holidays skipped — due noon on the next working day). This screen unlocks once all are acknowledged or sent back.');
     var ul=document.createElement('ul');ul.style.cssText='margin:0 0 14px;padding-left:20px;color:#344054';
     items.slice(0,8).forEach(function(x){var li=document.createElement('li');li.textContent=(x.staff_name||'')+' · '+x.report_date+' · '+t(x.late_hours+'시간 지남',x.late_hours+'h late');ul.append(li);});
     if(items.length>8){var more=document.createElement('li');more.textContent=t('외 '+(items.length-8)+'건','+'+(items.length-8)+' more');ul.append(more);}
