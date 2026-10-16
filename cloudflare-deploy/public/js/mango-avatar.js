@@ -275,7 +275,29 @@
 
     // ── 음량 분석(Web Audio) — attach 로 오디오를 물릴 때 1회 그래프 생성 ──
     var actx=null, boundEl=null, analyser=null, lipData=null, audioFailed=false;
-    var bindings = new WeakMap(), buffering = false;
+    var bindings = new WeakMap(), buffering = false, mouthCues=null, cueUrl='', preciseFaces={};
+    // Generated mouths registered onto the shipped face. G/H use conservative substitutes
+    // until F/V contact and tongue poses pass visual QA.
+    var PRECISION={lily:{base:'/img/lily-closed.webp',x:250,y:294,w:144,h:122},
+      noah:{base:'/img/noah-closed.webp',x:244,y:364,w:154,h:130},
+      emma:{base:'/img/visemes/emma-base.png',x:173,y:284,w:152,h:126}};
+    function precisionFace(){
+      if(!PRECISION[curChar])return null;
+      if(!preciseFaces[curChar]){
+        var p=PRECISION[curChar],base=new Image(),mouths=new Image();
+        base.src=p.base;mouths.src='/img/visemes/'+curChar+'-mouths.webp';
+        preciseFaces[curChar]={base:base,mouths:mouths,rect:p};
+      }
+      return preciseFaces[curChar];
+    }
+    function prepareCues(el){
+      mouthCues=null;cueUrl=el.currentSrc||el.src||'';
+      var url=cueUrl;
+      if(!PRECISION[curChar] || !window.AvatarVisemes || !url)return;
+      window.AvatarVisemes.prepare(url).then(function(cues){
+        if(boundEl===el && cueUrl===url && (el.currentSrc||el.src||'')===url)mouthCues=cues;
+      }).catch(function(){});
+    }
     function ensureCtx(){
       if(actx) return true; if(audioFailed) return false;
       try{ var AC=window.AudioContext||window.webkitAudioContext; if(!AC) throw 0;
@@ -307,6 +329,19 @@
     var fadeData = null, fadeT0 = 0;
     function keyFrame(){
       var srcEl, vw, vh;
+      var pf=precisionFace(), precise=pf && mouthCues && !clipActive;
+      if(precise && pf.base.complete && pf.base.naturalWidth && pf.mouths.complete && pf.mouths.naturalWidth){
+        var pose=(!boundEl || boundEl.paused || boundEl.ended || buffering || !drawing) ? 'X' : window.AvatarVisemes.at(mouthCues,boundEl.currentTime);
+        if(pose==='G')pose='B';if(pose==='H')pose='C';
+        var ix='XABCDEFGH'.indexOf(pose), r=pf.rect;
+        var bw=pf.base.naturalWidth,bh=pf.base.naturalHeight;
+        var bx=bw*cropRect.l,by=bh*cropRect.t,sw=bw*(cropRect.r-cropRect.l),sh=bh*(cropRect.b-cropRect.t);
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(pf.base,bx,by,sw,sh,0,0,canvas.width,canvas.height);
+        ctx.drawImage(pf.mouths,(ix%3)*r.w,Math.floor(ix/3)*r.h,r.w,r.h,
+          (r.x-bx)/sw*canvas.width,(r.y-by)/sh*canvas.height,r.w/sw*canvas.width,r.h/sh*canvas.height);
+        return;
+      }
       if (imgFrames){
         srcEl = imgCur;
         if (!srcEl || !srcEl.complete || !srcEl.naturalWidth) return;   // 아직 안 받았으면 다음 프레임에
@@ -457,8 +492,10 @@
             binding={ source:src, analyser:tap };
             bindings.set(audioEl, binding);
             // Only the selected element may drive the face. Old audio events are ignored.
+            audioEl.addEventListener('loadeddata', function(){if(boundEl===audioEl)prepareCues(audioEl);});
             audioEl.addEventListener('playing', function(){
               if(boundEl!==audioEl || clipActive) return;
+              if((audioEl.currentSrc||audioEl.src||'')!==cueUrl || !mouthCues)prepareCues(audioEl);
               buffering=false; window.MangoAvatar.plainStart();
             });
             ['waiting','seeking'].forEach(function(event){
@@ -475,6 +512,7 @@
             });
           }
           boundEl=audioEl; analyser=binding.analyser; buffering=false;
+          prepareCues(audioEl);
           lipData=new Uint8Array(analyser.fftSize);
           if(actx.state==='suspended') actx.resume();
           if(!audioEl.paused && !audioEl.ended) window.MangoAvatar.plainStart();
