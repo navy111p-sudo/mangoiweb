@@ -74,6 +74,7 @@ import { nightlyCafe24Refresh } from './cafe24-sync';  // 🔄 카페24→D1 야
 import { handleSpaceMonsterApi } from './api-space-monster';  // 🛸 Space Monster Hunter 게임 API
 import { logWarmupFix } from './warmup-parent';            // 📝 학부모 화면용 «고쳐 준 표현» 기록 (2026-10-02 P4)
 import { authUidFromRequest } from './auth-token';          //    ↑ 본인 확인용(토큰 uid == 요청 user_id 일 때만 기록)
+import { retiredDomainResponse } from './retired-domain';    // 🚫 폐지 주소(test.mangoi.co.kr) → 안내문만 (2026-10-16)
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
@@ -226,6 +227,10 @@ const worker = {
   async handle(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
+
+    // 🚫 폐지된 옛 주소(test.mangoi.co.kr)는 사이트를 아예 안 보여 준다 — src/retired-domain.ts
+    const retired = retiredDomainResponse(url);
+    if (retired) return retired;
 
     // CORS preflight
     if (request.method === 'OPTIONS') {

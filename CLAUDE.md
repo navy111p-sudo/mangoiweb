@@ -60,6 +60,7 @@
     - ⚠️ **도메인이 어느 워커에 붙어 있는지는 코드에 없습니다** — `wrangler.toml` 에 `routes` 가
       한 줄도 없고 전부 Cloudflare 대시보드에서 관리합니다. 추측하지 말고
       **Workers & Pages > 해당 워커 > 도메인** 에서 눈으로 확인하세요
+  - 🚫 **(2026-10-16 사장님 지시) `test.mangoi.co.kr` 폐지** — 이 호스트로 오는 모든 요청은 홈페이지·API·화상수업 대신 「mangoi.ai 로 접속하세요」 안내문(410)만 받습니다(`src/retired-domain.ts`, 링크·리다이렉트 없음). 예외: 옛 앱 자가 업데이트용 `/app-version.json`·`/downloads/*.apk` 만 통과. 워치독 `PRIMARY`·`smoke-test.ps1` 기본 주소는 `mangoi.ai` 로 바꿨습니다. 되돌리려면 `RETIRED_HOSTS` 에서 빼고 배포. ⚠️ 아래 「죽은 주소가 아닙니다」 문단은 폐지 전 기록입니다
   - **`test.mangoi.co.kr` 은 죽은 주소가 아닙니다** — **먼저 붙인 커스텀 도메인**이라 아직 여러 곳에
     하드코딩돼 있습니다: `cloudflare-deploy/scripts/smoke-test.ps1` 의 기본 `BaseUrl`(=`deploy.ps1` 의
     배포 전/후 스모크 15종), `ops/mangoi-watchdog.sh`, 여러 하니스.
