@@ -1168,6 +1168,8 @@
       img.src = sc.posterSrc || '/img/write-scenes/' + sc.img + '.webp';
       renderPicMotion(sc);
       if (sceneMissionWords().length >= 3) { _missionWords = sceneMissionWords(); renderMission(); }
+      /* 🔗 그림을 바꾸면 «그림 주제» 도 새 그림을 따라간다(학생이 고른 다른 주제는 그대로). */
+      if (window.awOnPicChange) window.awOnPicChange(idx);
       if (window.refreshSentenceCoach) window.refreshSentenceCoach();
       /* 캐시에 이미 있으면 onload 가 안 오는 브라우저가 있어 보정 */
       if (img.complete && img.naturalWidth) img.classList.add('on');
@@ -1450,8 +1452,36 @@
         ['왜 그럴까요? 상상한 이유는 생각이라는 점이 드러나게 써 보세요.', 'Why might this happen? Make clear when a reason is your own idea.'],
         ['다음에는 무슨 일이 생길까요? 새로운 문장을 이어 보세요.', 'What might happen next? Continue with a new sentence.']
       ];
-      function scene() { return PIC_SCENES[_picIdx] || {}; }
+      /* 🔗 «지금 주제» 하나를 따른다 — 고른 주제(글감·내 경험)가 있으면 그것, 없으면 지금 보이는 그림.
+         ⛔ 그림(PIC_SCENES[_picIdx])을 직접 읽지 말 것 — 글감을 골라도 그림 문장만 나오던 사고(2026-10-16). */
+      const questionsTopic = [
+        ['무엇에 대해 쓰나요? 첫 문장을 직접 써 보세요.', 'What are you writing about? Write your first sentence.'],
+        ['언제·어디에서였나요? 시간이나 장소를 넣어 보세요.', 'When or where was it? Add a time or a place.'],
+        ['누구와 함께였나요? 함께한 사람을 넣어 보세요.', 'Who was with you? Add who was there.'],
+        ['그때 기분이 어땠나요? 느낌을 한 문장으로 써 보세요.', 'How did you feel? Write one sentence about it.'],
+        ['왜 그랬나요? because 를 넣어 이유를 써 보세요.', 'Why? Add a reason with because.'],
+        ['그다음에는 무슨 일이 있었나요? 문장을 이어 보세요.', 'What happened next? Continue with a new sentence.']
+      ];
+      function cur() {
+        try { if (window.awCurTopic) { const t = window.awCurTopic(); if (t) return t; } } catch(e){}
+        const sc = PIC_SCENES[_picIdx] || {};
+        return { kind: 'scene', sc: sc, ko: sc.ko || '', en: sc.en || '' };
+      }
+      function scene() { const t = cur(); return t.kind === 'scene' ? (t.sc || {}) : {}; }
+      function topicStart() {
+        const t = cur();
+        return String(t.starter || '').trim();
+      }
       function frame() {
+        const t = cur();
+        if (t.kind !== 'scene') {
+          const st = topicStart() || 'I think';
+          if (currentLevel === 'A1') return st + ' ____.';
+          if (currentLevel === 'A2') return st + ' ____ and ____.';
+          if (currentLevel === 'B1') return st + ' ____ because ____.';
+          if (currentLevel === 'B2') return st + ' ____, so ____.';
+          return st + ' ____; looking back, ____.';
+        }
         const example = scene().example || 'Someone is doing something.';
         const m = example.match(/^(.+?\s(?:is|are))\s/);
         const start = m ? m[1] : 'Someone is';
@@ -1462,12 +1492,16 @@
         return 'The scene suggests ____; one possible explanation is ____.';
       }
       function refresh() {
-        el('coachLevel').textContent = tr('선택한 수준: ', 'Your level: ') + currentLevel + tr(' · 틀은 힌트예요. 내 생각으로 바꿔 써도 좋아요.', ' · The frame is a hint. You can write your own idea.');
+        const t = cur();
+        const isScene = t.kind === 'scene';
+        el('coachLevel').textContent = tr('지금 주제: ', 'Topic: ') + (tr(t.ko, t.en) || '—') + ' · ' + tr('선택한 수준: ', 'Your level: ') + currentLevel + tr(' · 틀은 힌트예요. 내 생각으로 바꿔 써도 좋아요.', ' · The frame is a hint. You can write your own idea.');
         el('coachFrame').textContent = frame();
-        el('coachExample').textContent = tr('동작 예문: ', 'Action example: ') + (scene().example || scene().starter || '');
+        el('coachExample').textContent = isScene
+          ? tr('동작 예문: ', 'Action example: ') + (scene().example || scene().starter || '')
+          : tr('예문 힌트: ', 'Example hint: ') + (t.example || (topicStart() ? topicStart() + ' …' : ''));
         el('coachExample').hidden = !hint;
         el('coachHint').setAttribute('aria-expanded', String(hint));
-        el('coachQuestion').textContent = (step + 1) + '/6 · ' + tr(...questions[step]);
+        el('coachQuestion').textContent = (step + 1) + '/6 · ' + tr(...(isScene ? questions : questionsTopic)[step]);
       }
       window.refreshSentenceCoach = function() { hint = false; refresh(); };
       el('coachHint').onclick = function() { hint = !hint; refresh(); };
@@ -2236,11 +2270,38 @@
       body.innerHTML = rows.join('');
       wrap.style.display = '';
     }
+    /* 🔗 «지금 주제» 정본 — 학생이 고른 주제가 있으면 그것, 없으면 지금 보이는 그림.
+       문장 연습·브레인스토밍이 이 한 곳을 본다(2026-10-16 «그림·문장 연습·브레인스토밍 주제가 서로 다르다»). */
+    window.awCurTopic = function() {
+      if (_goTheme) {
+        if (_goTheme.set === 'scene') {
+          const i = PIC_SCENES.findIndex(x => 'pic:' + x.img === _goTheme.id);
+          const sc = PIC_SCENES[i] || {};
+          return { kind: 'scene', sc: sc, ko: sc.ko || _goTheme.ko, en: sc.en || _goTheme.en, id: _goTheme.id };
+        }
+        const w = ((_goTheme.q || {}).what) || {};
+        const ex = goIsEn(w.ph) ? String(w.ph).trim() : (goIsEn(_goTheme.open) ? String(_goTheme.open).trim() : '');
+        return { kind: _goTheme.set === 'topic' ? 'topic' : 'story', ko: _goTheme.ko, en: _goTheme.en,
+                 starter: w.starter || '', example: ex, id: _goTheme.id };
+      }
+      const sc = PIC_SCENES[_picIdx] || {};
+      return { kind: 'scene', sc: sc, ko: sc.ko || '', en: sc.en || '', id: sc.img ? 'pic:' + sc.img : '' };
+    };
+    /* 그림 주제로 쓰는 중에 그림을 바꾸면 주제도 새 그림으로 — 적은 답은 지우지 않고 «바꿨어요» 한 줄로 알린다.
+       ⛔ 글감·내 경험 주제는 건드리지 않는다(학생이 고른 주제가 이긴다). ⛔ 스크롤·포커스를 옮기지 않는다. */
+    window.awOnPicChange = function(idx) {
+      if (!_goTheme || _goTheme.set !== 'scene') return;
+      const t = goThemeFromScene(idx);
+      if (!t || t.id === _goTheme.id) return;
+      _goPrev = _goTheme; _goTheme = t;
+      renderGoThemes(); renderGoQuestions(); goSave();
+    };
     function goApplyTheme(t, toggle) {
       const prev = _goTheme;
       _goTheme = (toggle && _goTheme && t && _goTheme.id === t.id) ? null : t;   // 같은 것을 다시 누르면 접기
       _goPrev = (prev && _goTheme && prev.id !== _goTheme.id) ? prev : null;
       renderGoThemes(); renderGoQuestions(); goSave();
+      if (window.refreshSentenceCoach) window.refreshSentenceCoach();
       flowMark(1);
       if (_goTheme) {
         const fold = document.getElementById('awHelp'); if (fold && !fold.open) fold.open = true;
@@ -2351,9 +2412,15 @@
     };
 
     goRestore();
+    /* 🔗 새로고침 뒤에도 «그림 주제» 면 그 그림을 다시 띄운다 — 주제는 A 인데 화면 그림은 B 이던 어긋남. */
+    if (_goTheme && _goTheme.set === 'scene') {
+      const ri = PIC_SCENES.findIndex(x => 'pic:' + x.img === _goTheme.id);
+      if (ri >= 0 && ri !== _picIdx) { try { choosePic(ri); } catch(e){} }
+    }
     renderGoThemes();
     renderGoQuestions();
     renderGoMemo();
+    if (window.refreshSentenceCoach) window.refreshSentenceCoach();
     flowMark(0);
 
     loadHistory();
