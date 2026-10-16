@@ -140,7 +140,7 @@ for (const [w, h] of [[360, 640], [390, 844], [1280, 800]]) {
 {
   const { ctx, page } = await open(390, 844, 'en');
   const t = await page.evaluate(() => { const g = document.getElementById('awGuide'); return g ? g.innerText : ''; });
-  check('EN 화면은 영어 안내', /Pick a picture or topic/.test(t) && /AI feedback/.test(t), t.replace(/\s+/g, ' ').slice(0, 120));
+  check('EN 화면은 영어 안내', /STEP 1 Pick a picture/.test(t) && /STEP 2 Brainstorm/.test(t) && /STEP 3 Get AI feedback/.test(t), t.replace(/\s+/g, ' ').slice(0, 120));
   await ctx.close();
 }
 

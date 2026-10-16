@@ -44,8 +44,22 @@ ok(wrapAt > 0 && wrapAt < navAt && navAt < heroAt, '안내 줄은 본문 맨 위
 const labels = steps.map(s => (s.inner.match(/data-ko="([^"]+)" data-en="([^"]+)"/) || []).slice(1));
 ok(labels.length === 3 && labels.every(l => l.length === 2), '각 단계 글자에 data-ko/data-en 이 있다');
 const L = (i, j) => String(((labels[i] || [])[j]) || '');
-ok(/그림이나 주제 고르기/.test(L(0, 0)) && /질문에 답하기/.test(L(1, 0)) && /AI 첨삭 받기/.test(L(2, 0)), '한국어: 그림이나 주제 고르기 → 질문에 답하기 → AI 첨삭 받기');
-ok(/picture or topic/i.test(L(0, 1)) && /Answer/.test(L(1, 1)) && /AI feedback/.test(L(2, 1)), '영어 문구가 짝으로 있다');
+ok(/그림·주제 고르기/.test(L(0, 0)) && /브레인스토밍/.test(L(1, 0)) && /AI 첨삭 받기/.test(L(2, 0)), '한국어: 그림·주제 고르기 → 브레인스토밍 → AI 첨삭 받기');
+ok(/picture/i.test(L(0, 1)) && /Brainstorm/.test(L(1, 1)) && /AI feedback/.test(L(2, 1)), '영어 문구가 짝으로 있다');
+
+// 🔢 단계 번호 한 벌 (2026-10-16 선생님 피드백 «브레인스토밍이 STEP 2 인데 STEP 1 은 안 써 있다»)
+//   4단계 배너(#flowSteps)는 감춰져 있어서, 안내 줄의 STEP 1·2·3 이 화면에 보이는 «유일한» 번호다.
+//   그 번호가 실제 칸의 제목과 같아야 선생님이 «지금 2단계» 라고 말할 수 있다.
+ok([0, 1, 2].every(i => L(i, 0).startsWith('STEP ' + (i + 1) + ' ') && L(i, 1).startsWith('STEP ' + (i + 1) + ' ')), '안내 줄 세 단계가 한/영 모두 STEP 1·2·3 으로 시작한다');
+const spanKo = id => { const at = html.indexOf('id="' + id + '"'); return at < 0 ? '' : html.slice(at, at + 1600); };
+ok(/<span class="pic-badge">[^<]*<span data-ko="STEP 1 · [^"]*" data-en="STEP 1 · /.test(html), 'STEP 1 → 오늘의 그림 배지에도 STEP 1 이 있다(한/영)');
+ok(/data-ko="STEP 2 · 브레인스토밍[^"]*" data-en="STEP 2 · Brainstorming/.test(spanKo('goCard')), 'STEP 2 → 브레인스토밍 칸 제목이 STEP 2 다(한/영)');
+ok(/<label for="text" class="draft-label" data-ko="[^"]*STEP 3 · [^"]*" data-en="[^"]*STEP 3 · /.test(html), 'STEP 3 → 글쓰기 칸 제목이 STEP 3 이다(한/영)');
+// 짝: 글감 세 곳에 ①②③ 을 다시 붙이면 «② 오늘의 글감 = 2단계» 로 읽힌다
+const pickNote = (html.match(/<div class="pick-note" id="pickNote">([\s\S]*?)<\/div>/) || [])[1] || '';
+const topicLbl = (html.match(/<div class="topic-row" id="topicRow">\s*<span[^>]*>/) || [''])[0];
+ok(pickNote.length > 0 && !/[①②③]/.test(pickNote) && !/[①②③]/.test(topicLbl) && !/'[①②③] 🧠/.test(html), '짝: 글감 고르는 곳(그림·글감·내 경험)에는 ①②③ 번호가 없다 — 단계 번호와 안 겹친다');
+ok(!/data-ko="[①②③] 오늘의 그림/.test(html), '짝: 그림 배지가 «① 오늘의 그림» 으로 돌아가지 않았다');
 ok(steps.every(s => /^<span data-ko=/.test(s.inner.trim())), 'data-ko/data-en 은 버튼이 아니라 «글자만 담은 span» 에 단다');
 ok(!/<button[^>]*data-ko=/.test(nav), '짝: 버튼 자신에는 data-ko 를 달지 않는다(i18n 엔진이 본문을 갈아끼움)');
 ok(/class="awg-arrow" aria-hidden="true"/.test(nav), '화살표는 낭독기에서 감춘다');
