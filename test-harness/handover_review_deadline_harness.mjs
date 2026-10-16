@@ -44,6 +44,13 @@ try{
   ok('마감: 10/13 19:00 KST 제출 → 10/14 12:00 KST',reviewDueAt(T('2026-10-13T10:00:00Z'))===T('2026-10-14T03:00:00Z'));
   ok('마감: 10/13 23:59 KST 제출 → 10/14 12:00 KST',reviewDueAt(T('2026-10-13T14:59:00Z'))===T('2026-10-14T03:00:00Z'));
   ok('마감: 10/14 00:01 KST 제출 → 10/15 12:00 KST (KST 날짜 기준)',reviewDueAt(T('2026-10-13T15:01:00Z'))===T('2026-10-15T03:00:00Z'));
+  // 주말 제외(2026-10-16 대표님 지시) — 토·일이면 월요일 12시
+  ok('주말: 목 10/15 제출 → 금 10/16 12:00 (평일은 그대로)',reviewDueAt(T('2026-10-15T09:00:00Z'))===T('2026-10-16T03:00:00Z'));
+  ok('주말: 금 10/16 제출 → 월 10/19 12:00',reviewDueAt(T('2026-10-16T09:00:00Z'))===T('2026-10-19T03:00:00Z'));
+  ok('주말: 토 10/17 제출 → 월 10/19 12:00',reviewDueAt(T('2026-10-17T05:00:00Z'))===T('2026-10-19T03:00:00Z'));
+  ok('주말: 일 10/18 제출 → 월 10/19 12:00',reviewDueAt(T('2026-10-18T05:00:00Z'))===T('2026-10-19T03:00:00Z'));
+  ok('주말: 일 23:59 KST 제출 → 월 12:00 (KST 날짜 기준)',reviewDueAt(T('2026-10-18T14:59:00Z'))===T('2026-10-19T03:00:00Z'));
+  ok('주말: 월 00:01 KST 제출 → 화 12:00',reviewDueAt(T('2026-10-18T15:01:00Z'))===T('2026-10-20T03:00:00Z'));
   const karl=await send('mgr_karl','mgr_jjw','2026-10-13');
   const melca=await send('mgr_melca','admin','2026-10-13');       // 대표 앞 — 장지웅 잠금 대상 아님
   // 마감 전
@@ -101,6 +108,14 @@ try{
   ok('마감 조회가 실패하면 잠그지 않는다(null)',jj.ok===true&&jj.overdue_lock===null);
   jj=await api('/inbox',null,'mgr_jjw');
   ok('조회가 되면 다시 잠긴다',jj.overdue_lock.length===1&&jj.overdue_lock[0].id===k3.id);
+  // 금요일 보고는 주말 동안 안 잠기고 월 12시에 잠긴다
+  await api('/ack',{id:k3.id,version:k3.version},'admin');
+  now=T('2026-10-16T09:00:00Z');const fri=await send('mgr_karl','mgr_jjw','2026-10-16');
+  now=T('2026-10-18T10:00:00Z');jj=await api('/inbox',null,'mgr_jjw');
+  ok('금요일 보고: 일요일 저녁엔 안 잠긴다',jj.overdue_lock.length===0);
+  now=T('2026-10-19T02:59:00Z');ok('금요일 보고: 월 11:59 엔 안 잠긴다',(await api('/inbox',null,'mgr_jjw')).overdue_lock.length===0);
+  now=T('2026-10-19T03:01:00Z');jj=await api('/inbox',null,'mgr_jjw');
+  ok('금요일 보고: 월 12:01 에 잠긴다',jj.overdue_lock.length===1&&jj.overdue_lock[0].id===fri.id&&jj.overdue_lock[0].late_hours===0);
 }catch(e){fail++;console.log('  ❌ FAIL 실행 중 오류:',e&&e.stack);}
 {const i=source.indexOf('export async function runDailyHandoverSweep');const body=source.slice(i,source.indexOf('\n}\n',i));ok('15분 sweep 이 마감 알림을 부른다',i>0&&/await runReviewEscalation\(env\)/.test(body.replace(/\/\/.*$/gm,'')));}
 // 화면 배선 — 배너 잠금 · 확인 버튼 카운트다운 · 대표 표시
@@ -111,7 +126,7 @@ ok('잠금 화면에 닫기 버튼이 없다',!/handover-review-lock[\s\S]{0,200
 ok('401/403 이면 잠금을 걷는다',/stopped=true;last=null;host\.hidden=true;paintLock\(\)/.test(banner));
 ok('확인 의무자에게도 알림 권유',/last\.read_min_sec>0/.test(banner));
 ok('대표 줄(reviewer_overdue)을 배너에 쓴다',/reviewer_overdue/.test(banner));
-ok('관리자·매니저·결재 화면의 배너가 같은 코드',['admin.html','manager.html','work.html'].every(f=>f==='admin.html'?/handover-inbox-banner\.js\?v=6/.test(readFileSync('cloudflare-deploy/public/admin.html','utf8')):readFileSync('cloudflare-deploy/public/'+f,'utf8').includes(banner.trim())));
+ok('관리자·매니저·결재 화면의 배너가 같은 코드',['admin.html','manager.html','work.html'].every(f=>f==='admin.html'?/handover-inbox-banner\.js\?v=7/.test(readFileSync('cloudflare-deploy/public/admin.html','utf8')):readFileSync('cloudflare-deploy/public/'+f,'utf8').includes(banner.trim())));
 ok('확인 버튼이 N초 카운트다운',/function armReadGate/.test(page)&&/if\(readMinSec>0\)armReadGate\(r,ack\)/.test(page));
 ok('read_first 를 사람 말로 보여준다',/j\.error==='read_first'/.test(page));
 ok('대표 미확인 줄에 장지웅 마감 지남 표시',/overdueLine\(\)/.test(page)&&/reviewerOverdue=data\[1\]\.reviewer_overdue/.test(page));
