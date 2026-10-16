@@ -33,3 +33,10 @@ av.attach(b);b.paused=false;b.emit('playing');frame();a.emit('ended');assert(pen
 b.paused=true;b.emit('ended');assert.equal(pending.size,0);assert.match(lastImage,/closed/);
 av.attach(a);av.attach(b);assert.equal(sources,2);
 console.log('PASS: playback, buffering, resume, pause, cancel, end, stale events, rebind');
+// Video-only Jake keeps his identity but also follows audio-derived cue timing.
+let cue='A';window.AvatarVisemes={prepare:()=>Promise.resolve([{start:0,end:1,value:'A'}]),at:()=>cue};
+b.src='blob:test';av.setCharacter('jake');av.attach(b);await new Promise(queueMicrotask);
+b.paused=false;av.plainStart();frame();assert.equal(video.currentTime,3.2,'P/B/M uses closed Jake pose');
+cue='D';av.plainStart();frame();assert.equal(video.currentTime,3.5,'AH uses wide Jake pose');
+cue='A';frame();assert.equal(video.currentTime,3.2,'closure bypasses minimum video hold');av.plainStop();
+console.log('PASS: original video character follows cue timing and closes immediately');

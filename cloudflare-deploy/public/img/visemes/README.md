@@ -5,7 +5,7 @@ Generated with Higgsfield GPT Image 2.5, 2026-10-16, using the shipped portraits
 - Lily atlas job: ec4c2cec-6f04-4237-9349-86a9b8bf4ff9
 - Noah atlas job: 825bf0d1-010a-497b-a706-bd50066edf3c
 - Emma atlas job: b1bfb747-bdd5-48e5-bac7-ad41a5c3309c
-- Jake request 53c481db-b996-43f0-ad4f-1c7d41ba85b2 was rejected by the generation service. Its original assets remain in use.
+- Jake request 53c481db-b996-43f0-ad4f-1c7d41ba85b2 was rejected by the generation service. Its original assets remain in use; their three existing poses now use the audio cue clock. An additional built-in image editor also rejected the same identity-preserving request.
 
 Each atlas uses row-major X,A,B,C,D,E,F,G,H. Only a registered mouth ellipse changes; hair, eyes, clothing and transparency remain from the original portrait. `tools/build-viseme-poses.py` performs SIFT/RANSAC registration and composites only that ellipse. Full intermediate portraits are not shipped.
 

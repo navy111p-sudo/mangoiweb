@@ -293,7 +293,7 @@
     function prepareCues(el){
       mouthCues=null;cueUrl=el.currentSrc||el.src||'';
       var url=cueUrl;
-      if(!PRECISION[curChar] || !window.AvatarVisemes || !url)return;
+      if(!window.AvatarVisemes || !url)return;
       window.AvatarVisemes.prepare(url).then(function(cues){
         if(boundEl===el && cueUrl===url && (el.currentSrc||el.src||'')===url)mouthCues=cues;
       }).catch(function(){});
@@ -440,7 +440,12 @@
           if(idleTicks > 300){ doStop(); return; }         // 5초 넘게 안 멈춰지면 plainStop() 유실로 보고 안전 종료
         } else {
           idleTicks = 0;
-          showTier(tierFor(rmsLevel()));
+          if(mouthCues && window.AvatarVisemes){
+            // Existing three-pose characters still follow cue timing; no identity change.
+            var cue=window.AvatarVisemes.at(mouthCues,boundEl.currentTime);
+            var tier=(cue==='X'||cue==='A')?'closed':(cue==='D'?'wide':'medium');
+            showTier(tier,tier==='closed');
+          }else showTier(tierFor(rmsLevel()));
         }
       } else {
         // 🔇 분석 불가능한 음성(브라우저 speechSynthesis) — 실제 음량을 모르니 poses 대신
