@@ -11,6 +11,7 @@
 //     ③ 1200px 이상: 왼쪽(난이도·장면·그림)과 오른쪽(소개·쓰기 칸·첨삭 버튼)이 서로 안 겹친다,
 //        오른쪽 칸들이 위→아래 순서로 서로 안 겹친다, 그림 카드도 그 위의 장면 칸과 안 겹친다
 //     ④ 1200px 이상 + 높이 900 이상: 첨삭 버튼·그림 카드가 하단 «말로 쓰기» 바보다 위(스크롤 없이 보임)
+//     ④-b 1200px 이상(높이 무관 — 노트북 포함): 첫 화면에서 첨삭 버튼이 바 위에 보이고 눌린다(낮으면 바 위에 붙음). 큰 화면은 안 붙음.
 //     ⑤ 1200px 미만: 주요 칸의 위치가 «바꾸기 전» 과 같다(폰·태블릿은 손대지 않았다)
 //     ⑥ 첨삭 버튼으로 스크롤하면 그 가운데의 «맨 위» 가 그 버튼(가려지지 않음)
 //   조작 시나리오(넓은 화면에서): 🙋 도움 펼치기 · 미션 단어 숨김 · 쓰기 칸에 긴 글 · 다른 그림 · EN 전환
@@ -54,6 +55,9 @@ const POS_SEL = ['#awGuide', '.hero', '#levelRow', '.scene-picker', '#picCard', 
 
 async function measure(page) {
   return page.evaluate(({ FONT_SEL, POS_SEL }) => {
+    // 첨삭 버튼 묶음은 낮은 화면에서 바 위에 «붙는다»(sticky) — 순서·겹침은 «원래 자리» 로 잰다(붙은 모습은 ④-b 가 따로 잰다).
+    const sbx = document.getElementById('submitBtn').parentNode, prevPos = sbx.style.position; sbx.style.position = 'static';
+    try {
     const box = (s) => { const e = document.querySelector(s); if (!e) return null; const cs = getComputedStyle(e); if (cs.display === 'none') return null;
       const b = e.getBoundingClientRect(); return { l: b.left, t: b.top + scrollY, r: b.right, b: b.bottom + scrollY, w: b.width, h: b.height }; };
     const fonts = {}; for (const s of FONT_SEL) { const e = document.querySelector(s); fonts[s] = e ? getComputedStyle(e).fontSize : null; }
@@ -62,6 +66,7 @@ async function measure(page) {
     const left = ['.aw-how-btn', '#levelRow', '.scene-picker', '#picCard'].map((s) => [s, box(s)]).filter((x) => x[1] && x[1].h > 0);
     const mic = document.getElementById('dictationBar').getBoundingClientRect();
     return { fonts, pos, right, left, micTop: mic.top, inner: innerHeight, innerW: innerWidth, sw: document.documentElement.scrollWidth };
+    } finally { sbx.style.position = prevPos; }
   }, { FONT_SEL, POS_SEL });
 }
 
@@ -109,6 +114,16 @@ for (const [w, h] of sizes) {
   const { ctx, page } = await open(servers[0].url, w, h);
   const m = await measure(page);
   checkLayout(tag, m, w, h);
+  // 💻 노트북(2026-10-16): 1200px 이상이면 높이와 무관하게 첫 화면에서 첨삭 버튼이 «말로 쓰기» 바 위에 보이고 눌린다.
+  //    짝: 큰 화면(첫 화면에 다 들어감)에서는 붙지(sticky) 않는다 — 원래 자리 그대로.
+  if (w >= 1200) {
+    const st = await page.evaluate(() => { scrollTo(0, 0); const b = document.getElementById('submitBtn'), r = b.getBoundingClientRect();
+      const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return { b: r.bottom, t: r.top, bar: document.getElementById('dictationBar').getBoundingClientRect().top, hit: !!(el && b.contains(el)), stuck: b.parentNode.classList.contains('aw-stuck') }; });
+    ok(tag + ' 첫 화면에서 첨삭 버튼이 바 위에 보임', st.t >= 0 && st.b <= st.bar + 0.5, st.b + ' > ' + st.bar);
+    ok(tag + ' 첫 화면에서 첨삭 버튼이 눌림(맨 위)', st.hit);
+    if (w >= 1600 && h >= 900) ok(tag + ' 큰 화면은 붙지 않음(원래 자리)', !st.stuck);
+  }
   if (w >= 1200 && h >= 900) {
     const sb = m.pos['#submitBtn'], pc = m.pos['#picCard'];
     // 글자를 안 줄이므로 좁은 PC 는 다 못 넣을 수 있다 — 그때는 «최소 높이까지 줄였다» 가 정답(그 이상 줄이면 쓰기 칸·그림이 못 쓸 만큼 작아진다).
