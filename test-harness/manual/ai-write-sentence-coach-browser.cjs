@@ -4,7 +4,9 @@ const {chromium}=require('playwright');const fs=require('fs'),http=require('http
 const root=path.resolve('cloudflare-deploy/public');const types={'.html':'text/html; charset=utf-8','.js':'application/javascript','.webp':'image/webp','.mp4':'video/mp4','.css':'text/css'};
 const server=http.createServer((req,res)=>{const p=req.url.split('?')[0];if(p.startsWith('/api/')){res.setHeader('content-type','application/json');return res.end('{"ok":false}');}const f=path.join(root,p);if(fs.existsSync(f)&&fs.statSync(f).isFile()){res.setHeader('content-type',types[path.extname(p)]||'text/plain');return res.end(fs.readFileSync(f));}if(p.endsWith('.js'))return res.end('');res.writeHead(404).end();});
 (async()=>{await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch({headless:true, ...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH,args:['--no-sandbox']} : {})});try{
-const page=await browser.newPage({viewport:{width:390,height:1000}}); const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:'+server.address().port+'/ai-write.html');
+const page=await browser.newPage({viewport:{width:390,height:1000}}); const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(()=>{try{localStorage.setItem('mangoi_aiwrite_howto_v1','1')}catch(e){}});await page.goto('http://127.0.0.1:'+server.address().port+'/ai-write.html');
+// 첫 방문 «📖 사용 방법» 창은 본 것으로 표시 · 문장 코치는 10-08 부터 «🙋 도움이 필요해요»(#awHelp, 기본 닫힘) 안이라 학생처럼 눌러 연다
+await page.click('#awHelp > summary');await page.click('#sentenceCoach > summary');
 for(const [level,needle] of [['A1','is ____'],['A2','in ____'],['B1','because'],['B2','While'],['C1','suggests']]){await page.click('[data-level="'+level+'"]');assert((await page.locator('#coachFrame').textContent()).includes(needle));}
 await page.click('[data-level="A1"]');await page.click('#coachUseFrame');await page.click('#coachAdd');assert.equal(await page.inputValue('#text'),'');
 await page.fill('#coachSentence','아이가 케이크를 먹어요.');await page.click('#coachAdd');assert.equal(await page.inputValue('#text'),'');

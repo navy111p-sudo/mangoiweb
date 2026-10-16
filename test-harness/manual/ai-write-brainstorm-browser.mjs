@@ -61,6 +61,7 @@ const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbo
 for (const [label, w, h] of [['PC 1280', 1280, 900], ['휴대폰 390', 390, 844]]) {
   console.log('\n▶ ' + label);
   const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+  await ctx.addInitScript(() => { try { localStorage.setItem('mangoi_aiwrite_howto_v1', '1'); } catch (e) {} }); // 첫 방문 «📖 사용 방법» 창이 화면을 덮지 않게(본 것으로 표시) — onescreen 과 같은 방식
   await ctx.addInitScript(() => { try { localStorage.removeItem('mangoi_aiwrite_go_v1'); } catch (_) {} });
   // 포괄 스텁 «먼저» → 구체 스텁 «뒤»
   await ctx.route('**/api/**', (r) => r.fulfill({ contentType: 'application/json', body: '{"ok":false}' }));
@@ -69,6 +70,8 @@ for (const [label, w, h] of [['PC 1280', 1280, 900], ['휴대폰 390', 390, 844]
   const errs = [];
   page.on('pageerror', (e) => errs.push(String(e)));
   await page.goto(BASE + '/ai-write.html', { waitUntil: 'domcontentloaded' });
+  // 10-08 부터 글감·브레인스토밍은 «🙋 도움이 필요해요» 접이칸(#awHelp, 기본 닫힘) 안 — 학생처럼 눌러 연 뒤 잰다
+  await page.click('#awHelp > summary');
   await page.waitForSelector('#goThemes .go-theme', { timeout: 15000 });
 
   // ① 4단계 배너
