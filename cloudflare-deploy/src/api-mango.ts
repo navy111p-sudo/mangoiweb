@@ -4672,7 +4672,7 @@ ${numbered}`;
           let enrollRestored = 0;
           if (last.prev_enroll_ended_at != null) {
             let prevMap: Record<string, number | null> = {};
-            try { prevMap = JSON.parse(String(last.prev_enroll_ended_at)) || {}; } catch {}
+            try { prevMap = JSON.parse(String(last.prev_enroll_ended_at)) || {}; } catch (e) { console.warn('[extend-undo] prev_enroll_ended_at parse', (e as any)?.message); }
             for (const [eid, v] of Object.entries(prevMap)) {
               await env.DB.prepare(`UPDATE enrollments SET ended_at = ?, updated_at = ? WHERE id = ? AND student_user_id = ?`)
                 .bind(v == null ? null : Number(v), Date.now(), Number(eid), uid).run();
@@ -4722,7 +4722,7 @@ ${numbered}`;
           const mp: Record<string, number | null> = {};
           for (const r of (pe.results || [])) mp[String(r.id)] = r.ended_at == null ? null : Number(r.ended_at);
           prevEnrollJson = JSON.stringify(mp);
-        } catch {}
+        } catch (e) { console.warn('[extend] prev enrollments snapshot', (e as any)?.message); }
 
         // enrollments 도 함께 연장 (활성 행 1개) — KST 기준 종료시각 ms
         const newEndMs = new Date(newEnd + 'T23:59:59+09:00').getTime();
