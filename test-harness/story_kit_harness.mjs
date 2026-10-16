@@ -149,9 +149,13 @@ for (const B of BOOKS) {
   ok(g > hg && g < st && /if \(kitR && kitR\.grammar > 0\) \{.*showFix\(kitR, false\); return; \}/.test(wc), '원장님 의견 1: 문법이 틀리면 도장보다 «먼저» 고친 문장을 보이고 멈춘다');
   ok(/if \(kitR && kitR\.issues\.length\) showFix\(kitR, true\)/.test(wc), '(짝) 철자만 다르면 도장은 주고 확인만 권한다');
   ok(/if \(!window\.StoryKit \|\| !StoryKit\.review\) return null;/.test(code), '(짝) StoryKit 을 못 불러오면 예전처럼 그대로 완성');
+  // 2026-10-16 사장님: «고친 문장으로 바꾸기» 가 정답을 그대로 넣어 줘서 뺐다 — 학생이 직접 고쳐 다시 «완성하기» 로 도장.
+  ok(!/id="wapply"|WLISTEN|WFIX/.test(code), '«고친 문장으로 바꾸기» 자동 버튼이 없다 — 학생이 직접 고친다');
   const ws = block(code, "document.getElementById('wsay').addEventListener(");
-  ok(/if \(WLISTEN && s === WLISTEN\) \{[\s\S]*storyDone\('write'\)/.test(ws), '고친 문장으로 바꾼 뒤 «내 문장 듣기» 를 하면 도장');
-  ok(/WFIX = null; WLISTEN = null; (?:WSEQ\+\+; )?paintWrite\(\)/.test(code), '(짝) 직접 고치기 시작하면 «바꾸기·듣기 도장» 대기를 지운다');
+  ok(ws.length > 50 && !/storyDone\(/.test(ws), '(짝) «내 문장 듣기» 만으로는 도장이 안 나온다 — 다시 «완성하기» 를 통과해야');
+  const sf = block(code, 'function showFix(');
+  ok(/id="wredo"/.test(sf) && /직접 고친 뒤 다시 «완성하기»/.test(sf), '(짝) 고칠 곳이 있으면 «내가 다시 고쳐 보기» 와 «다시 완성하기» 안내는 그대로');
+  ok(/var lg = WLOG; WLOG = null;/.test(wc) && /lg \? lg\.original : mine0/.test(wc), '(짝) 직접 고쳐 다시 내도 처음 쓴 문장을 강사 기록에 남긴다');
 }
 
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);
