@@ -78,6 +78,9 @@ const ensure = oncePerIsolate(async (env: Env) => {
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS daily_handover_read_schedule (
       username TEXT PRIMARY KEY, weekdays TEXT NOT NULL DEFAULT '1,2,3,4,5',
       start_time TEXT NOT NULL DEFAULT '09:00', end_time TEXT NOT NULL DEFAULT '19:00', updated_at INTEGER NOT NULL)`),
+    // 회사 휴무일(대표님 지정) — 확인 마감 계산에서 빼는 날. 공휴일 표(holidays)와 따로 둔다(그쪽은 공식 공휴일 정본).
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS daily_handover_closed_days (
+      day TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', created_by TEXT, created_at INTEGER NOT NULL)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS daily_handover_read_alerts (
       report_id INTEGER NOT NULL, version INTEGER NOT NULL, next_at INTEGER NOT NULL,
       attempts INTEGER NOT NULL DEFAULT 0, push_state TEXT NOT NULL DEFAULT 'pending',
@@ -157,8 +160,9 @@ export async function reviewOverdue(env: Env, reviewer: string, now = Date.now()
     if (!rows.length) return [];
     // 공휴일 표를 못 읽으면 holidayLookup 이 «공휴일 없음» 을 준다 — 그때는 주말만 빼는 예전 동작(잠금을 안 거는 쪽이 아니다 — 알고 둔 한계).
     const kst = (ms: number) => new Date(ms + 9 * 3600000).toISOString().slice(0, 10);
-    const isH = await holidayLookup(env, kst(Number(rows[0].submitted_at)), shiftDay(kst(now), 70));
-    const due = (x: any) => reviewDueAt(x.submitted_at, d => isH(REVIEW_HOLIDAY_COUNTRY, d));
+    const from = kst(Number(rows[0].submitted_at)), to = shiftDay(kst(now), 70);
+    const isH = await holidayLookup(env, from, to), closed = await closedDays(env, from, to);
+    const due = (x: any) => reviewDueAt(x.submitted_at, d => isH(REVIEW_HOLIDAY_COUNTRY, d) || closed.has(d));
     return rows.filter(x => due(x) <= now)
       .map(x => ({ id: x.id, version: x.version, report_date: x.report_date, staff_name: x.staff_name,
         due_at: due(x), late_hours: Math.floor((now - due(x)) / 3600000) }));
@@ -210,6 +214,13 @@ async function holidayLookup(env: Env, from: string, to: string): Promise<(count
     const set = new Set((r.results || []).map((h: any) => String(h.country).toUpperCase() + ':' + h.date));
     return (country, day) => set.has(String(country).toUpperCase() + ':' + day);
   } catch { return () => false; }
+}
+// 회사 휴무일. 못 읽으면 빈 집합 — 주말·공휴일만 빼는 예전 동작으로 떨어진다(잠금을 «푸는» 쪽이 아니다 — 알고 둔 한계).
+async function closedDays(env: Env, from: string, to: string): Promise<Set<string>> {
+  try {
+    const r = await env.DB.prepare(`SELECT day FROM daily_handover_closed_days WHERE day>=? AND day<=?`).bind(from, to).all<any>();
+    return new Set((r.results || []).map((x: any) => String(x.day)));
+  } catch { console.warn('[daily-handover] closed days unavailable'); return new Set(); }
 }
 const shortName = (n: any, u: string) => String(n || u).replace(/\s*\(.*?\)\s*$/, '').trim() || u;
 /* 정본: 명단의 사람마다 «오늘 근무일인가» 와 «직전 근무일에 제출했나». 알림(sweep)과 화면(inbox·home)이 같은 답을 쓴다. */
@@ -595,6 +606,10 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
         default_recipient: members.find(m=>m.username==='mgr_jjw'&&m.username!==me)?.username || members.find(m=>m.username==='admin'&&m.username!==me)?.username || '',
         ai_available:!!env.AI, can_review_all:all, also_sees:INBOX_ALSO_SEES[me]||[], read_min_sec:REVIEW_ENFORCED.includes(me)?REVIEW_MIN_READ_SEC:0});
     }
+    if (request.method === 'GET' && route === '/closed-days') {
+      const r = await env.DB.prepare(`SELECT day,name FROM daily_handover_closed_days WHERE day>=? ORDER BY day ASC LIMIT 200`).bind(shiftDay(day,-60)).all<any>();
+      return reply({ok:true,days:r.results||[],can_edit:isExec(actor)});
+    }
     if (request.method !== 'POST') return reply({ok:false,error:'not_found'},404);
     if (Number(request.headers.get('Content-Length')) > 20000) return reply({ok:false,error:'too_large'},413);
     const raw = await request.text();
@@ -643,6 +658,15 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
         }
         return reply({ok:true,push});
       }
+      return reply({ok:true});
+    }
+    if (route === '/closed-days') {
+      // 회사 휴무일은 마감을 미루는 규칙이라 경영진만 바꾼다(확인 의무자가 스스로 미루지 못하게).
+      if (!isExec(actor)) return reply({ok:false,error:'forbidden'},403);
+      if (!validDay(b.day)) return reply({ok:false,error:'day'},400);
+      if (b.remove === true) await env.DB.prepare(`DELETE FROM daily_handover_closed_days WHERE day=?`).bind(b.day).run();
+      else await env.DB.prepare(`INSERT INTO daily_handover_closed_days(day,name,created_by,created_at) VALUES(?,?,?,?)
+        ON CONFLICT(day) DO UPDATE SET name=excluded.name,created_by=excluded.created_by`).bind(b.day,text(b.name,50),me,Date.now()).run();
       return reply({ok:true});
     }
     if(route==='/read-schedule'){

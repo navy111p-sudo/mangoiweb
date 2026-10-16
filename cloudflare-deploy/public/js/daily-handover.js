@@ -310,12 +310,18 @@
       try{var saved=JSON.parse(localStorage.getItem(storageKey())||'null');if(saved&&saved.version===version){populate(saved.payload);$('recipient').value=saved.recipient;$('save-status').textContent='이 기기의 임시 작성 내용을 복원했습니다. / Device draft restored.';}else{$('save-status').textContent=j.own?'저장된 보고를 불러왔습니다. / Saved report loaded.':'날짜·담당자가 자동 입력되었습니다. / Date and staff filled automatically.';}}catch(e){}
       if(j.schedule){$('schedule-enabled').checked=!!j.schedule.enabled;$('due-time').value=j.schedule.due_time;$('exempt-date').value=j.schedule.exempt_date;Array.from($('weekdays').querySelectorAll('input')).forEach(function(c){c.checked=j.schedule.weekdays.split(',').includes(c.value);});}
       if(j.read_schedule){$('read-start').value=j.read_schedule.start_time;$('read-end').value=j.read_schedule.end_time;Array.from($('read-weekdays').querySelectorAll('input')).forEach(function(c){c.checked=j.read_schedule.weekdays.split(',').includes(c.value);});}
-      sync();preview();reports=j.reports;paintList();await loadList();
+      sync();preview();reports=j.reports;paintList();await loadList();if(j.can_review_all)loadClosed();
       fields.forEach(function(k){$(k).disabled=false;});$('review').disabled=false;$('manual').disabled=false;$('save').disabled=originalSubmitted;$('voice-record').disabled=false;
     }catch(e){networkError(e);}
   }
   weeknames.forEach(function(name,i){var label=node('label',null,'check'),c=document.createElement('input');c.type='checkbox';c.value=String(i);c.checked=i>0&&i<6;label.append(c,document.createTextNode(name));$('read-weekdays').append(label);});
   $('read-save').onclick=async function(){var button=this;button.disabled=true;try{await call('/read-schedule',{weekdays:Array.from($('read-weekdays').querySelectorAll('input:checked')).map(function(c){return Number(c.value);}),start_time:$('read-start').value,end_time:$('read-end').value});$('read-status').textContent='저장 완료 / Saved';}catch(e){networkError(e);}finally{button.disabled=false;}};
+  // 🏢 회사 휴무일 — 경영진만 보이고 바꿉니다(서버도 경영진만 받습니다). 확인 마감에서 그날을 뺍니다.
+  async function loadClosed(){try{var j=await call('/closed-days');$('closed').hidden=!j.can_edit;if(!j.can_edit)return;var list=$('closed-list');list.textContent='';
+    if(!j.days.length)list.append(node('li','등록된 회사 휴무일이 없습니다. / No company closed days.'));
+    j.days.forEach(function(d){var li=node('li',d.day+(d.name?' · '+d.name:'')+' '),del=node('button','삭제 / Remove');del.type='button';del.onclick=async function(){del.disabled=true;try{await call('/closed-days',{day:d.day,remove:true});$('closed-status').textContent='삭제했습니다 / Removed';await loadClosed();}catch(e){networkError(e);del.disabled=false;}};li.append(del);list.append(li);});
+  }catch(e){$('closed').hidden=true;}}
+  $('closed-add').onclick=async function(){var button=this,day=$('closed-day').value;if(!/^\d{4}-\d{2}-\d{2}$/.test(day)){$('closed-status').textContent='날짜를 골라 주세요 / Pick a date';return;}button.disabled=true;try{await call('/closed-days',{day:day,name:$('closed-name').value});$('closed-status').textContent='추가했습니다 — 마감에서 빠집니다 / Added — skipped by the deadline';$('closed-name').value='';await loadClosed();}catch(e){networkError(e);}finally{button.disabled=false;}};
   setInterval(function(){if(me&&!document.hidden&&!busy&&!uploading)loadList().catch(function(){$('inbox-message').textContent='새 보고 확인 실패 · 새로고침해 주세요. / Refresh to check new reports.';});},60000);
   init();
 })();
