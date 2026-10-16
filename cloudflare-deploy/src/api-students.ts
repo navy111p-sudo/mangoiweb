@@ -13,6 +13,7 @@ import { authUidFromRequest as authUidGlobal, signUidToken, startSession, inspec
 import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { sendPlainSms } from './solapi-client';   // 🔑 비밀번호 재설정 SMS 인증 (2026-07-22)
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(홈 상담봇과 공유)
+import { createHandoff, redeemHandoff, HANDOFF_TTL_SEC } from './class-entry-handoff';   // 🚪 수업 입장 주소 옮기기(2026-10-16)
 import { isStudentHidden } from './student-override';   // 🧹 숨김 지정된 중복 계정은 로그인도 막는다
 import type { MangoEnv } from './api-mango';
 import { summarizeAttendance } from './attendance-truth';
@@ -735,11 +736,38 @@ ${MANGOI_KNOWLEDGE}`;
       return json({ ok: true, state: r.state, uid: r.uid });
     }
 
+    // ── POST /api/student/session-status {action:'handoff'} — 수업 입장 «주소 옮기기» 용 1회용 코드 ──
+    //   🚪 (2026-10-16) 옛 주소(test.mangoi.co.kr)에서 수업에 들어가려는 학생을 mangoi.ai 로 옮길 때
+    //      로그인이 끊기지 않게 합니다. 정본·이유: src/class-entry-handoff.ts
+    //   ℹ️ 새 경로를 만들지 않고 이미 등록된 경로의 «비어 있는 메서드(POST)» 를 씁니다
+    //      (src/index.ts 허용목록은 경로만 보고 메서드를 안 가립니다 — CLAUDE.md 2장 「새 API 추가」).
+    //   ⛔ 모르는 action 은 거절합니다 — 나중에 이 경로에 다른 뜻을 넣을 때 조용히 흘러 들어오지 않게.
+    if (method === 'POST' && path === '/api/student/session-status') {
+      const b: any = await request.json().catch(() => ({}));
+      if (String(b && b.action || '') !== 'handoff') return json({ ok: false, error: 'unknown_action' }, 400);
+      const authUid = await authUidGlobal(request, url, env);   // 위조·만료·밀려난 토큰이면 null
+      if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
+      const code = await createHandoff(env, authUid);
+      if (!code) return json({ ok: false, error: 'handoff_unavailable' }, 503);
+      const res = json({ ok: true, code, ttl_sec: HANDOFF_TTL_SEC });
+      res.headers.set('Cache-Control', 'private, no-store');
+      return res;
+    }
+
     if (method === 'POST' && path === '/api/student/login') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
       await ensureLoginTable();
       const b: any = await request.json().catch(() => ({}));
-      const uid = String(b.user_id || '').trim();
+      /* 🚪 (2026-10-16) 수업 입장 «주소 옮기기» — 옛 주소에서 받은 1회용 코드로 로그인합니다.
+         코드는 «검증된 토큰» 으로만 만들어지므로 비밀번호를 다시 묻지 않습니다(src/class-entry-handoff.ts).
+         ⚠️ 코드가 있는데 못 쓰면(만료·이미 씀) 아이디로 넘어가지 않고 그대로 거절합니다. */
+      const viaHandoff = b && b.handoff != null && b.handoff !== '';
+      let handoffUid = '';
+      if (viaHandoff) {
+        handoffUid = (await redeemHandoff(env, b.handoff)) || '';
+        if (!handoffUid) return json({ ok: false, error: 'handoff_invalid', message: '로그인 정보를 옮기지 못했어요. 다시 로그인해주세요. / Could not carry your login over. Please log in again.' }, 401);
+      }
+      const uid = viaHandoff ? handoffUid : String(b.user_id || '').trim();
       const pwd = String(b.password || '').trim();
       if (!uid) return json({ ok: false, error: 'user_id_required' }, 400);
 
@@ -769,8 +797,8 @@ ${MANGOI_KNOWLEDGE}`;
         return json({ ok: false, error: 'account_retired', message: '더 이상 사용하지 않는 계정입니다. 현재 사용 중인 아이디로 로그인해주세요.' }, 403);
       }
 
-      // 비밀번호 검증 — 설정된 경우만
-      if (stu.password_hash) {
+      // 비밀번호 검증 — 설정된 경우만 (넘겨받은 로그인은 이미 토큰으로 확인했으므로 건너뜀)
+      if (stu.password_hash && !viaHandoff) {
         if (!pwd) return json({ ok: false, error: 'password_required', message: '비밀번호를 입력해주세요.' }, 401);
         const h = await hashPwd(pwd);
         if (h !== stu.password_hash) return json({ ok: false, error: 'invalid_password', message: '비밀번호가 일치하지 않습니다.' }, 401);
