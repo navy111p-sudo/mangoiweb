@@ -19,7 +19,7 @@
   setInterval(clock, 1000);
   function begin() { if (started == null) started = Date.now(); }
   function payload() { return { work:$('work').value.trim(), no_issue:$('noissue').checked, issue:$('issue').value.trim(), no_open:$('noopen').checked, open:$('open').value.trim(), owner:$('owner').value, deadline:$('deadline').value, student:$('student').value.trim(), class_info:$('class').value.trim(), priority:$('priority').value, attachments:attachments.slice() }; }
-  function sync() { $('issue').hidden = $('noissue').checked; $('follow').hidden = $('noopen').checked; }
+  function sync() { $('issue').hidden = $('noissue').checked; $('follow').hidden = $('noopen').checked; var c=$('issue-count'); if(c){var n=$('issue').value.length,m=$('issue').maxLength>0?$('issue').maxLength:3000;c.hidden=$('issue').hidden;c.textContent=n.toLocaleString()+' / '+m.toLocaleString();c.style.color=n>=m?'#b42318':'';} }
   function row(label,value) { var n=node('div',null,'item'); n.append(node('b',label),node('span',value)); return n; }
   function staffName(username) { var a=members.find(function(m){return m.username===username;}); return a ? (a.name||a.username) : username; }
   function showPayload(target,d,date,name) {
