@@ -19,6 +19,8 @@
 //   ⑧ 우회 입력이 워크플로에 실제로 배선돼 있다
 //   ⑨ 종료코드 계약 — `--exit-on-hold` 면 보류=2, 없으면 «항상 0»(CI 가 죽으면 안 된다)
 //   ⑩ 로컬 `deploy.ps1` 도 같은 판정을 «불러서» 쓴다 (PowerShell 로 복제하지 않는다)
+//   ⑪ 「어느 회차가 깨웠나」를 기록한다 — REST 응답에 크론이 없어 이 줄 없이는
+//      «몰아 배포가 제 시각에 왔는가» 를 사후에 가릴 방법이 없다 (2026-10-16)
 //
 // ⚠️ ③을 «그 글자가 파일에 있나» 로 검사하면 안 된다 — 배포 요약 step 도 워커 주소를
 //    갖고 있어서 거짓 FAIL 이 난다. step 블록을 `- name:` 경계로 잘라 **그 안에서** 본다
@@ -352,6 +354,45 @@ const psPush = PS1.indexOf('git commit');
 const psDeploy = PS1.indexOf('wrangler deploy');
 ok('게이트가 git commit·배포보다 앞에 있다',
    psGate > 0 && (psPush < 0 || psGate < psPush) && (psDeploy < 0 || psGate < psDeploy));
+
+console.log('\n── ⑪ 「어느 회차가 깨웠나」를 기록한다 (2026-10-16) ──');
+/* 🔴 GitHub REST 응답에 크론이 한 글자도 없어서, «02:05 회차가 왔는가» 를 사후에 가릴
+      방법이 없었다. 실측(09-26~10-16, schedule 실행 100건)으로 말할 수 있었던 것은
+      «하루 5.0건이 온다»(다섯 회차가 다 발화) 와 «02:05~04:20 KST 도착이 20일간 0건»
+      까지이고, «어느 회차가 몇 시에 왔나» 는 추론이었다. 이 줄이 그것을 사실로 바꾼다.
+   ⚠️ 「그 글자가 파일에 있나」로 묻지 않는다 — env 로 넘어가고, 그 값을 «쓰는가» 를 본다. */
+const judgeBlock = (blocks.find(b => b.name === '수업 시간대 배포 보류 판정') || { body: '' }).body;
+ok('판정 step 을 읽어 냈다', judgeBlock.length > 0);
+ok('판정 step 에 github.event.schedule 이 env 로 넘어간다',
+   /SCHEDULE_CRON:\s*\$\{\{\s*github\.event\.schedule\s*\}\}/.test(judgeBlock));
+ok('판정 step 이 그 값을 로그에 남긴다',
+   /run:[\s\S]*SCHEDULE_CRON/.test(judgeBlock.replace(/SCHEDULE_CRON:\s*\$\{\{[^}]*\}\}/, '')));
+ok('배포 요약도 그 값을 쓴다 (로그를 열지 않고 보이게)',
+   /SCHEDULE_CRON:\s*\$\{\{\s*github\.event\.schedule\s*\}\}/.test(summaryBlock)
+   && /\$SCHEDULE_CRON|\$\{SCHEDULE_CRON/.test(summaryBlock));
+/* ✅ 짝 — «schedule 이 아닐 때는 조용하다». 없으면 push 실행마다 빈 줄이 붙는다.
+   ⚠️ 「그 가드가 블록 어딘가에 있나」로 묻지 않는다 — 요약에 두 곳이 있어 한 곳만
+      풀어도 통과한다(변이시험에서 실제로 밟았다). 줄마다 «그 echo 가 가드 «안» 인가» 로. */
+{
+    const lines = summaryBlock.split('\n');
+    let guards = 0, open = false;
+    for (const l of lines) {
+        if (/-n\s+"\$SCHEDULE_CRON"/.test(l)) open = true;
+        else if (/^\s*(fi|else|elif)\b/.test(l)) open = false;
+        if (/echo .*SCHEDULE_CRON/.test(l)) guards += open ? 1 : -99;
+    }
+    ok('schedule 이 아니면 요약에 그 줄을 안 넣는다 (짝)', guards > 0, `${guards}`);
+}
+/* ⛔ 커밋 메시지와 같은 이유 — run: 안에서 ${{ }} 로 펼치면 셸 주입이다. env 로만.
+   ⚠️ 「run: 뒤 N자 안에 있나」로 묻지 않는다 — 앞 step 의 run: 이 걸려 거짓 FAIL 이 난다
+      (실제로 밟았다). 그 식이 **나오는 줄마다** env 대입인지 본다. */
+{
+    const bad = YML.split('\n')
+        .filter(l => /\$\{\{\s*github\.event\.schedule\s*\}\}/.test(l))
+        .filter(l => !/^\s*SCHEDULE_CRON:\s*\$\{\{\s*github\.event\.schedule\s*\}\}\s*$/.test(l));
+    ok('크론 값은 env 로만 넘긴다 (run: 안에서 펼치지 않는다 — 셸 주입 방지)',
+       bad.length === 0, bad.join(' / '));
+}
 
 console.log(`\n  ${fail ? '❌' : '🎉'} ${pass} PASS / ${fail} FAIL`);
 process.exit(fail ? 1 : 0);
