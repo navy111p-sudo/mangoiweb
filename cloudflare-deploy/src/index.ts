@@ -74,6 +74,7 @@ import { nightlyCafe24Refresh } from './cafe24-sync';  // 🔄 카페24→D1 야
 import { handleSpaceMonsterApi } from './api-space-monster';  // 🛸 Space Monster Hunter 게임 API
 import { logWarmupFix } from './warmup-parent';            // 📝 학부모 화면용 «고쳐 준 표현» 기록 (2026-10-02 P4)
 import { authUidFromRequest } from './auth-token';          //    ↑ 본인 확인용(토큰 uid == 요청 user_id 일 때만 기록)
+import { retiredHostResponse } from './legacy-host-retire';  // 🚪 옛 주소 test.mangoi.co.kr 비활성화 (2026-10-16)
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
@@ -252,8 +253,8 @@ const worker = {
      *   이걸 안 하면 CLAUDE.md 의 「로그인했는데 또 로그인하래요」가 그대로 재현된다.
      *
      * [주의]
-     *   ⛔ test.mangoi.co.kr 은 절대 건드리지 않는다 — 앱 시작 URL·스모크 테스트·워치독이
-     *      그 주소를 붙박이로 쓴다. workers.dev·localhost 도 그대로 둔다(개발·진단용).
+     *   · test.mangoi.co.kr 은 2026-10-16 사장님 지시로 비활성화 — 리다이렉트가 아니라
+     *     안내 페이지로 막는다(src/legacy-host-retire.ts). workers.dev·localhost 는 그대로.
      *   ⛔ WebSocket 업그레이드는 리다이렉트하지 않는다 — 화상수업이 끊긴다.
      *   · OPTIONS(프리플라이트)는 위에서 이미 답했으므로 여기까지 오지 않는다.
      *   · GET/HEAD 는 301, 나머지는 308 을 쓴다. POST 를 301 로 보내면 클라이언트가
@@ -266,6 +267,10 @@ const worker = {
       const permanent = request.method === 'GET' || request.method === 'HEAD';
       return Response.redirect(canonical.toString(), permanent ? 301 : 308);
     }
+
+    // 🚪 옛 주소 test.mangoi.co.kr 비활성화 — 안내 페이지(옛 앱 업데이트 경로만 통과)
+    const retired = retiredHostResponse(url, request);
+    if (retired) return retired;
 
     if (path === '/api/student/speech-preferences') return handleSpeechPreferences(request, env);
 

@@ -8,7 +8,7 @@
 #   ⚠ 부작용 없는 호출만 사용할 것 (쓰기 API는 존재하지 않는 계정/무효 입력만)
 # ═══════════════════════════════════════════════════════════════════════
 param(
-    [string]$BaseUrl = "https://test.mangoi.co.kr"
+    [string]$BaseUrl = "https://mangoi.ai"   # 2026-10-16: test.mangoi.co.kr 비활성화
 )
 
 $UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) MangoiSmokeTest/1.0 Chrome/126"
