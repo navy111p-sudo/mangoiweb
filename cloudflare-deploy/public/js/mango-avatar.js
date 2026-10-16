@@ -275,6 +275,7 @@
 
     // ── 음량 분석(Web Audio) — attach 로 오디오를 물릴 때 1회 그래프 생성 ──
     var actx=null, boundEl=null, analyser=null, lipData=null, audioFailed=false;
+    var bindings = new WeakMap(), buffering = false;
     function ensureCtx(){
       if(actx) return true; if(audioFailed) return false;
       try{ var AC=window.AudioContext||window.webkitAudioContext; if(!AC) throw 0;
@@ -366,7 +367,7 @@
       return 'wide';
     }
     var lastSwitchAt = 0;
-    function showTier(tier){
+    function showTier(tier, immediate){
       if(tier === curTier || !curPoses) return;
       // 🔴 (2026-07-27 3차) setCharacter() 직후(video.load() 로 리로드 중) 는 readyState 가
       //   낮아 seek 이 조용히 씹힌다. 그런데도 curTier 를 먼저 확정해버려서, 나중에 영상이
@@ -381,13 +382,13 @@
         //    (v3 사고와 같은 자리 — 확정해버리면 다 받은 뒤에도 영영 안 바꾼다).
         var imN = imgFrames[tier];
         if(!imN || !imN.complete || !imN.naturalWidth) return;
-        if(now - lastSwitchAt < curHold) return;
+        if(!immediate && now - lastSwitchAt < curHold) return;
         try { fadeData = ctx.getImageData(0,0,canvas.width,canvas.height); fadeT0 = now; } catch(e){ fadeData = null; }
         curTier = tier; lastSwitchAt = now; imgCur = imN;
         return;
       }
       if(video.readyState < 2) return;
-      if(now - lastSwitchAt < curHold) return;
+      if(!immediate && now - lastSwitchAt < curHold) return;
       var t = curPoses[tier];
       if(typeof t !== 'number') return;
       // 🎞 전환 직전 화면을 스냅샷해서 keyFrame() 이 새 프레임과 부드럽게 섞도록 넘겨준다.
@@ -398,8 +399,8 @@
     function loop(){
       if(!drawing){ raf=0; return; }
       if(boundEl && analyser && !clipActive){
-        if(boundEl.paused || boundEl.ended){
-          showTier('closed');                              // 말 안 하는 중 → 다문 입 프레임에 고정
+        if(boundEl.paused || boundEl.ended || buffering){
+          showTier('closed', true);                        // 말 안 하는 중 → 다문 입 프레임에 고정
           idleTicks++;
           if(idleTicks > 300){ doStop(); return; }         // 5초 넘게 안 멈춰지면 plainStop() 유실로 보고 안전 종료
         } else {
@@ -430,7 +431,12 @@
     function startDraw(){ idleTicks=0; curTier=null; lastSwitchAt=0; fadeData=null; drawing=true; if(!raf) raf=requestAnimationFrame(loop); }
     function stopDraw(){ drawing=false; if(raf){ try{cancelAnimationFrame(raf);}catch(e){} raf=0; } }
     function drawStill(){ keyFrame(); }
-    function doStop(){ setSpeaking(false); stopDraw(); try{ video.pause(); }catch(e){} drawStill(); }
+    function doStop(){
+      setSpeaking(false); stopDraw();
+      // Cancellation must end on the closed pose, even inside the minimum hold window.
+      showTier('closed', true); fadeData=null;
+      try{ video.pause(); }catch(e){} drawStill();
+    }
     video.addEventListener('loadeddata', function(){ if(!drawing) drawStill(); });
     video.addEventListener('seeked',     function(){ if(!drawing) drawStill(); });
     mountCharacter(curChar);   // 🖼 이미지 캐릭터면 입모양 3장을 여기서 받기 시작한다(영상이면 옛 동작 그대로)
@@ -439,15 +445,40 @@
       // TTS 오디오(HTMLAudioElement)를 물려 음량 립싱크. 요소당 MediaElementSource 1회.
       //   소리 경로(destination) 연결 필수 — 안 하면 음소거됨.
       attach: function(audioEl){
-        if(!audioEl || audioEl===boundEl) return;
-        if(!ensureCtx()) return;                       // WebAudio 불가 → 연속 재생 폴백 유지
+        if(!audioEl) return;
+        if(!ensureCtx()) return;
         try{
-          var src=actx.createMediaElementSource(audioEl);
-          src.connect(actx.destination);               // 1) 소리 그대로 출력(필수)
-          src.connect(analyser);                       // 2) 분석 탭
-          boundEl=audioEl;
-          try{ if(actx.state==='suspended') actx.resume(); }catch(e){}
-        }catch(e){ /* 이미 물렸거나 실패 → 연속 재생 폴백 */ }
+          var binding = bindings.get(audioEl);
+          if(!binding){
+            var src=actx.createMediaElementSource(audioEl);
+            var tap=actx.createAnalyser(); tap.fftSize=512;
+            src.connect(actx.destination);
+            src.connect(tap);
+            binding={ source:src, analyser:tap };
+            bindings.set(audioEl, binding);
+            // Only the selected element may drive the face. Old audio events are ignored.
+            audioEl.addEventListener('playing', function(){
+              if(boundEl!==audioEl || clipActive) return;
+              buffering=false; window.MangoAvatar.plainStart();
+            });
+            ['waiting','seeking'].forEach(function(event){
+              audioEl.addEventListener(event, function(){
+                if(boundEl!==audioEl || clipActive) return;
+                buffering=true; showTier('closed', true); fadeData=null; drawStill();
+              });
+            });
+            ['pause','ended','emptied','error'].forEach(function(event){
+              audioEl.addEventListener(event, function(){
+                if(boundEl!==audioEl || clipActive) return;
+                buffering=false; doStop();
+              });
+            });
+          }
+          boundEl=audioEl; analyser=binding.analyser; buffering=false;
+          lipData=new Uint8Array(analyser.fftSize);
+          if(actx.state==='suspended') actx.resume();
+          if(!audioEl.paused && !audioEl.ended) window.MangoAvatar.plainStart();
+        }catch(e){ /* Preserve audible playback if Web Audio is unavailable. */ }
       },
       // 캐릭터 전환 — 'emma'|'jake'|'lily'|'noah' (옛 'female'|'male' 도 받습니다).
       setCharacter: function(name){
