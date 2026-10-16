@@ -2358,6 +2358,41 @@
     loadStats();
     loadLeaderboard();
   </script>
+  <script>
+  /* 🖥 PC 2단 배치 높이 맞춤 (2026-10-16) — 쓰기 칸·그림 높이를 «하단 말로 쓰기 바 바로 위» 까지로 맞춘다.
+     CSS 의 100vh 계산만으로는 폭이 좁은 PC(1200~1500px)에서 소개·미션 글이 두세 줄로 접혀 버튼이 바 밑으로 들어갔다(반복검사 실측).
+     ⛔ 글자 크기는 안 건드린다 — 높이만. 최소값(쓰기 칸 160 · 그림 300) 밑으로는 안 줄인다(그때는 스크롤).
+     ⛔ 상주 타이머·body class 관찰자 없음 — 창 크기 변경과 «오른쪽 칸들의 크기 변화»(ResizeObserver)에만 다시 잰다.
+        쓰기 칸·그림 자신은 관찰하지 않는다(자기 높이를 바꾸며 다시 깨어나는 순환 방지). 1200px 미만이면 인라인 높이를 지운다. */
+  (function () {
+    var mq = window.matchMedia ? window.matchMedia('(min-width: 1200px)') : null;
+    var ta = document.getElementById('text'), sc = document.getElementById('picScene');
+    var bar = document.getElementById('dictationBar'), sub = document.getElementById('submitBtn'), card = document.getElementById('picCard');
+    if (!mq || !ta || !sc || !bar || !sub || !card) return;
+    var queued = false;
+    function fit() {
+      queued = false;
+      if (!mq.matches) { ta.style.height = ''; sc.style.height = ''; return; }
+      // «첫 화면» 기준(스크롤과 무관): 바는 화면 아래에 붙어 있으니 innerHeight − 바 높이 − 8 까지가 첫 화면이다.
+      var y = window.pageYOffset || 0;
+      var limit = window.innerHeight - bar.getBoundingClientRect().height - 8;
+      var t = ta.getBoundingClientRect(), s = sub.getBoundingClientRect();
+      ta.style.height = Math.max(160, Math.min(420, Math.floor(t.height + (limit - (s.bottom + y))))) + 'px';
+      var p = sc.getBoundingClientRect(), c = card.getBoundingClientRect();
+      sc.style.height = Math.max(300, Math.min(720, Math.floor(p.height + (limit - (c.bottom + y))))) + 'px';
+    }
+    function later() { if (!queued) { queued = true; requestAnimationFrame(fit); } }
+    window.addEventListener('resize', later);
+    window.addEventListener('load', later);
+    if (window.ResizeObserver) {
+      var ro = new ResizeObserver(later);
+      ['awGuide', 'flowSteps', 'missionCard', 'awHelp', 'goMemo', 'draftHelp'].forEach(function (id) { var e = document.getElementById(id); if (e) ro.observe(e); });
+      var h = document.querySelector('.wrap > .hero'); if (h) ro.observe(h);
+      var cap = card.querySelector('.pic-cap'); if (cap) ro.observe(cap);
+    }
+    later();
+  })();
+  </script>
 <!-- BUILD:20260813015745 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
