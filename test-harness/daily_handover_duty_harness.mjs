@@ -204,7 +204,7 @@ async function prime(t) {
   r = draw(null);
   ok('응답 없으면 줄 없음(던지지 않음)', r.n === 0 && !r.err, JSON.stringify(r));
   ok('쓸 줄이 있으면 배너를 숨기지 않는다', /host\.hidden=!inbox&&!renderWriter\(\)/.test(js));
-  ok('admin.html 이 새 번호로 부른다', /handover-inbox-banner\.js\?v=6/.test(readFileSync('cloudflare-deploy/public/admin.html', 'utf8')));
+  ok('admin.html 이 새 번호로 부른다', /handover-inbox-banner\.js\?v=7/.test(readFileSync('cloudflare-deploy/public/admin.html', 'utf8')));
 
   // 🔔 기기 알림 자동 켜기 줄 — 상태별로 무엇을 말하는가(짝: 켜진 사람·명단 밖은 줄 없음)
   r = draw({ writer: { ...base, prev_missed: false, today_submitted: true } }, undefined, 'ask');
