@@ -540,6 +540,76 @@
   @media (min-width:1600px) and (min-height:900px) and (hover:hover) and (pointer:fine){
     .wus-box,.wus-nav-in{zoom:1.4}
   }
+  /* 🧩 A안 칩 압축형 (2026-10-16 사장님 «A안으로 warmup.html에 적용해줘»)
+     [왜] 설정이 약 3화면이라 «수준·말하기 방식» 을 못 보고 시작했다. 설정 하나를 칩 한 줄로 줄여
+       노트북 한 화면에 들어오게 한다.
+     ⚠️ DOM·id·data-속성·그리는 함수는 그대로 두고 «모양만» 바꾼다 — 하니스가 그 계약을 본다.
+     ⚠️ #wusMain 으로 범위를 좁힌다 — 수준 찾기(#wusProbe)의 답 버튼도 .wus-card 라
+        범위를 안 좁히면 그 화면까지 칩이 된다.
+     ⚠️ 설명(.wus-desc)은 감출 뿐 지우지 않는다 — 수준 설명은 #wusLvHint 한 줄이 대신 말한다.
+     ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요(subtitle_meaning_harness — CLAUDE.md 2장). */
+  #wusMain .wus-title{font-size:19px;margin:0 0 4px}
+  #wusMain .wus-lead{font-size:13px;line-height:1.45;margin-bottom:4px}
+  #wusMain .wus-sub{font-size:14px;margin:14px 0 6px}
+  #wusMain .wus-sub .wu-photo-icon{width:22px;height:22px}
+  #wusMain>.wus-hint,#wusMain #wusTalkSec>.wus-hint{display:none}
+  #wusMain .wus-grid{display:flex;flex-wrap:wrap;gap:6px}
+  #wusMain .wus-grid .wus-card{width:auto;padding:7px 13px;border-radius:999px}
+  #wusMain .wus-grid .wus-card .wus-name{font-size:14px;gap:5px}
+  #wusMain .wus-grid .wus-card .wus-desc,#wusMain .wus-grid .wus-card .wus-now{display:none}
+  #wusMain .wus-grid .wus-card .wu-photo-icon{width:20px;height:20px;border-radius:5px;float:none;margin:0}
+  #wusMain #wusAges .wus-card{min-height:0}
+  #wusMain .wus-two{gap:6px}
+  #wusMain .wus-twoc{padding:8px 10px;text-align:left}
+  #wusMain .wus-two-ic{display:inline-block;margin:0 6px 0 0;vertical-align:middle}
+  #wusMain .wus-two-ic .wu-photo-icon{width:26px;height:26px;border-radius:7px}
+  #wusMain .wus-two-nm{display:inline;font-size:14px;vertical-align:middle}
+  #wusMain .wus-two-nm .wus-now{display:none}
+  #wusMain .wus-twoc:not(.on) .wus-two-ds{display:none}
+  #wusMain .wus-two-ds{font-size:11.5px;margin-top:2px}
+  #wusMain .wus-find{display:inline-block;width:auto;margin:0 0 7px;padding:6px 12px;border-radius:999px}
+  #wusMain .wus-find .wus-name{font-size:13px}
+  #wusMain .wus-find .wus-desc{display:none}
+  #wusMain #wusLevels{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:5px}
+  #wusMain #wusLevels .wus-item{padding:7px 3px;border-radius:10px;text-align:center}
+  #wusMain #wusLevels .wus-name{display:block;font-size:12.5px;line-height:1.25;overflow-wrap:anywhere}
+  #wusMain #wusLevels .wus-lv,#wusMain #wusLevels .wus-desc,#wusMain #wusLevels .wus-now{display:none}
+  #wusMain #wusLevels .wus-cefr{display:block;margin-top:2px;font-size:11px;font-weight:700;color:var(--text2)}
+  .wus-lvhint{margin-top:7px;padding:7px 11px;border-radius:9px;background:rgba(0,0,0,.2);
+    font-size:12.5px;line-height:1.45;color:var(--text2)}
+  .wus-lvhint b{color:var(--text)}
+  .wus-lvhint[hidden]{display:none!important}
+  /* 하단 고정은 «시작 버튼 + 고른 것 한 줄» 하나로 합친다 — 교재 칸이 이제 첫 화면 안이라
+     «지금 교재» 줄이 같은 말을 두 번 하고 공간만 차지한다. 교재 상태는 #wusPickNow 가 말한다.
+     ⚠️ 감출 뿐 지우지 않는다(btsRenderBookNow·data-jump 배선은 그대로). */
+  #wusMain .wus-ctabar .wus-booknow{display:none!important}
+  #wusMain .wus-ctabar .wus-cta{padding:13px;font-size:17px;margin-top:10px}
+  #wusMain .wus-ctabar .wus-hint2{margin-top:5px}
+  /* 이름표는 왼쪽 · 칩은 오른쪽 (넓은 화면) — 모르는 새 칸은 저절로 «한 줄 전체» 를 차지한다. */
+  #wusMain .aidiff-chip,#wusMain .howto-chip{font-size:12.5px;padding:5px 11px}
+  #wusMain .wus-lead{display:none}
+  @media (min-width:561px){
+    .wus-box,.wus-nav-in{max-width:760px}
+    #wusMain{display:grid;grid-template-columns:minmax(0,12.5em) minmax(0,1fr);column-gap:12px;align-items:center}
+    #wusMain>*{grid-column:1/-1}
+    #wusMain>.wus-title{grid-column:1;white-space:nowrap}
+    #wusMain>.wus-title+.wus-lead+div{grid-column:2;justify-self:end;text-align:right!important}
+    #wusMain>.wus-sub{grid-column:1;margin:7px 0}
+    #wusMain>#wusLangs,#wusMain>#wusAges,#wusMain>#wusFind{grid-column:2;margin:7px 0}
+    #wusMain #wusFind{justify-self:start}
+    #wusMain #wusTwoSec,#wusMain #wusTalkSec{display:grid;grid-template-columns:minmax(0,12.5em) minmax(0,1fr);
+      column-gap:12px;align-items:center;margin:7px 0}
+    #wusMain #wusTwoSec>.wus-sub,#wusMain #wusTalkSec>.wus-sub{margin:0}
+    #wusMain #wusTwoSec[hidden]{display:none!important}
+  }
+  @media (max-width:560px){
+    #wusMain #wusLevels{grid-template-columns:repeat(4,minmax(0,1fr))}
+    #wusMain .wus-sub{margin:11px 0 5px}
+  }
+  /* 높이가 낮은 노트북에서는 확대를 끈다 — 확대하면 한 화면을 넘는다(실측 1366x657). */
+  @media (min-width:1100px) and (max-height:819px) and (hover:hover) and (pointer:fine){
+    .wus-box,.wus-nav-in{zoom:1}
+  }
 </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
 <script src="/js/mango-avatar.js?v=19" defer></script>
@@ -618,6 +688,9 @@
           <span class="wus-desc" data-ko="영어 문장 3개만 보면 끝나요. (약 30초)" data-en="Just look at 3 English sentences. (About 30 seconds)">영어 문장 3개만 보면 끝나요. (약 30초)</span>
         </button>
         <div class="wus-list" id="wusLevels"></div>
+        <!-- 🎚️ 고른 수준의 설명 한 줄 (2026-10-16 · A안 칩 압축형) — 칩에는 이름만 두고 설명은 여기서만.
+             글자는 renderSetup 이 LEVEL_CATALOG 에서 그린다(설명을 두 곳에 적지 않는다). -->
+        <div class="wus-lvhint" id="wusLvHint" hidden></div>
 
 
         <div class="wus-ctabar">
@@ -1848,6 +1921,17 @@ function renderSetup(){
         + '<span class="wus-desc">'+(isZh() ? (b.dz||b.d) : wuT(b.d, b.de||b.d))+'</span></button>';
     }).join('');
   }
+  /* 🎚️ A안(칩 압축형) — 칩에는 설명을 감추고, 고른 수준의 설명만 아래 한 줄로 보여 준다.
+     ⚠️ 못 찾으면 줄째 감춘다(빈 줄은 «고장» 으로 읽힌다). */
+  var lvh = document.getElementById('wusLvHint');
+  if(lvh){
+    var lvSel = LEVEL_CATALOG.filter(function(b){ return b.n === _warmLevel; })[0];
+    if(lvSel){
+      lvh.innerHTML = '<b>' + escapeHtml(wuT(lvSel.ko, lvSel.en||lvSel.ko)) + ' · ' + escapeHtml(lvSel.lv) + ' · ' + escapeHtml(lvSel.cefr) + '</b> — '
+        + escapeHtml(isZh() ? (lvSel.dz||lvSel.d) : wuT(lvSel.d, lvSel.de||lvSel.d));
+      lvh.hidden = false;
+    } else { lvh.textContent = ''; lvh.hidden = true; }
+  }
   /* 📘 오늘 배울 교재 — 중국어에는 BTS 가 없으므로 섹션째 감춘다.
      ⛔ 중국어 교재로 바꿔서 살리지 마세요 — BTS 는 영어 교재입니다(없는 것을 만들지 않습니다). */
   /* 📖 «오늘 배울 과»(#wusLessonSec)는 이 상자 «안» 에 있습니다 — 그래서 중국어에서 함께 감춰지고,
@@ -1877,6 +1961,13 @@ function renderSetup(){
     var parts = [];
     if(lvB) parts.push(wuT(lvB.ko, lvB.en||lvB.ko));
     if(agB) parts.push(ageName(agB));
+    /* 🧩 A안(2026-10-16) — 하단 고정 줄을 하나로 합치면서 «지금 교재» 줄(#wusBookNow)을 감췄으므로
+       교재 상태를 이 한 줄이 대신 말한다. 중국어는 교재 칸이 없어 넣지 않는다.
+       ⚠️ typeof 로 묻는 이유: 이 블록을 오려 내 돌리는 하니스에는 그 함수들이 없다. */
+    if(typeof isZh === 'function' && !isZh() && typeof btsBookOf === 'function'){
+      var bkB = (typeof _btsVol !== 'undefined' && _btsVol) ? btsBookOf(_btsVol) : null;
+      parts.push(bkB ? ((bkB.s === 'SIU' ? '📗 ' : '📘 ') + bookTitleOf(bkB)) : wuT('💬 자유 대화', '💬 Free talk'));
+    }
     pick.textContent = parts.length ? (wuT('고른 것: ', 'Selected: ') + parts.join(' · ')) : '';
     pick.hidden = !parts.length;
   }
