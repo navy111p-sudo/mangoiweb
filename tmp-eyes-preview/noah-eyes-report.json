@@ -8,18 +8,24 @@
  "poses": [
   {
    "source": "noah-half.png",
-   "inliers": 51,
+   "method": "nominal",
+   "ok": true,
+   "ring_err": {
+    "nominal": 2.38,
+    "sift": 89.68
+   },
+   "inliers": 53,
    "color_shift_bgr": [
-    -25.0,
-    -25.0,
-    -25.0
+    -1.0,
+    0.0,
+    -3.0
    ],
    "changed_pct_by_tenth": [
     0.0,
     0.0,
     0.0,
-    29.21,
-    1.44,
+    7.92,
+    0.07,
     0.0,
     0.0,
     0.0,
@@ -29,7 +35,13 @@
   },
   {
    "source": "noah-closed.png",
-   "inliers": 174,
+   "method": "sift",
+   "ok": true,
+   "ring_err": {
+    "nominal": 2.57,
+    "sift": 2.3
+   },
+   "inliers": 87,
    "color_shift_bgr": [
     -1.0,
     1.0,
@@ -39,7 +51,7 @@
     0.0,
     0.0,
     0.0,
-    8.66,
+    8.75,
     0.25,
     0.0,
     0.0,
@@ -50,18 +62,24 @@
   },
   {
    "source": "noah-brows.png",
+   "method": "nominal",
+   "ok": true,
+   "ring_err": {
+    "nominal": 9.4,
+    "sift": 165.32
+   },
    "inliers": 39,
    "color_shift_bgr": [
-    25.0,
-    25.0,
-    25.0
+    2.0,
+    7.0,
+    13.0
    ],
    "changed_pct_by_tenth": [
     0.0,
     0.0,
-    0.02,
-    30.33,
-    1.79,
+    0.0,
+    18.89,
+    0.05,
     0.0,
     0.0,
     0.0,
