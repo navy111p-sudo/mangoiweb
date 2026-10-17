@@ -10,7 +10,8 @@
  *   ③ 탭이 숨겨지면 멈추고(타이머 0개), 다시 보이면 다시 건다 · 캔버스가 빠지면 멈춘다
  *   ④ 눈썹: 크게 말할 때만, 말 첫마디 뒤에, 잠깐 — 조용히 말할 때는 안 올린다(짝)
  *      말이 끝나면(pause) 내린다 · 눈썹 중에는 깜빡이지 않는다
- *   ⑤ 눈 그림이 없는 캐릭터(emma)로 바꾸면 깜빡임 타이머·숨쉬기가 꺼진다(짝: lily 는 켜져 있었다)
+ *   ⑤ 눈 그림이 없는 캐릭터(영상 캐릭터 jake)로 바꾸면 깜빡임 타이머·숨쉬기가 꺼진다(짝: lily 는 켜져 있었다)
+ *   ⑤-2 (v11, 2026-10-18) emma·mei·long 도 «자기» 눈 그림으로 깜빡이고 숨쉬기가 켜진다
  *   ⑥ 눈 그림을 못 받으면 깜빡임만 없고 얼굴은 그대로 그린다(실패해도 빈 얼굴이 되지 않게)
  *   ⑦ 상주 setInterval 이 없다(주석을 벗긴 코드로 판정) · 움직임 줄이기 설정을 따른다
  */
@@ -245,16 +246,35 @@ ok(eyeDraws().length === 0 && draws.length >= 1, '말이 끝나면(pause) 올린
 
 /* ── ⑤ 눈 그림이 없는 캐릭터 ─────────────────────────────────────────── */
 console.log('\n■ ⑤ 눈 그림이 없는 캐릭터로 바꾸면 꺼진다');
-av.setCharacter('emma'); await flush();
-ok(!classes.has('mg-alive'), 'emma: 숨쉬기 클래스가 빠진다');
-ok(blinkTimers() === 0, `emma: 깜빡임 타이머가 없다 (${blinkTimers()})`);
+// 영상 캐릭터(jake)에는 눈 그림이 없다 — EYES 에 그 이름이 «정말 없는지» 를 전제로 둔다
+// (나중에 jake 에도 눈 그림을 넣으면 이 절은 다른 «눈 없는» 캐릭터로 옮겨야 합니다).
+ok(!!EYES && !EYES.jake, '(전제) jake 는 EYES 에 없다');
+av.setCharacter('jake'); await flush();
+ok(!classes.has('mg-alive'), 'jake: 숨쉬기 클래스가 빠진다');
+ok(blinkTimers() === 0, `jake: 깜빡임 타이머가 없다 (${blinkTimers()})`);
 draws = []; advance(20000);
-ok(eyeDraws().length === 0, 'emma: 시간이 지나도 눈 패치를 그리지 않는다');
+ok(eyeDraws().length === 0, 'jake: 시간이 지나도 눈 패치를 그리지 않는다');
 av.setCharacter('noah'); await flush();
 ok(classes.has('mg-alive') && blinkTimers() === 1, 'noah 로 돌아오면 다시 켜진다(짝)');
 draws = []; advance(6000);
 const nz = eyeDraws();
 ok(nz.length >= 1 && /noah-eyes\.webp$/.test(nz[0].src), `noah: 자기 눈 그림으로 깜빡인다 (${nz[0] ? nz[0].src : '없음'})`);
+
+/* ── ⑤-2 emma·mei·long 도 깜빡인다 (v11) ────────────────────────────── */
+console.log('\n■ ⑤-2 emma·mei·long 도 자기 눈 그림으로 깜빡인다');
+for (const name of ['emma', 'mei', 'long']) {
+  ok(!!EYES && !!EYES[name], `${name}: EYES 에 사각형이 있다`);
+  av.setCharacter('jake'); await flush();          // 한 번 «눈 없는» 상태로 만든 뒤 바꾼다(짝)
+  ok(!classes.has('mg-alive') && blinkTimers() === 0, `(전제) ${name} 로 바꾸기 전에는 꺼져 있다`);
+  av.setCharacter(name); await flush();
+  ok(classes.has('mg-alive'), `${name}: 숨쉬기 클래스가 붙는다`);
+  ok(blinkTimers() === 1, `${name}: 깜빡임 타이머가 정확히 1개다 (${blinkTimers()})`);
+  draws = []; advance(6000);
+  const ez = eyeDraws(), want = new RegExp('/' + name + '-eyes\\.webp$');
+  ok(ez.length >= 1 && ez.every(d => want.test(d.src)), `${name}: «자기» 눈 그림으로 깜빡인다 (${ez[0] ? ez[0].src : '없음'})`);
+  ok(ez.some(d => d.a[0] === EYES[name].w), `${name}: 감음(1칸)까지 간다`);
+  ok(ez.length >= 1 && ez[0].a[2] === EYES[name].w && ez[0].a[3] === EYES[name].h, `${name}: 눈 그림을 «그 캐릭터의» 사각형 크기로 잘라 온다`);
+}
 
 /* ── ⑥ 눈 그림을 못 받으면 ───────────────────────────────────────────── */
 console.log('\n■ ⑥ 눈 그림을 못 받으면 깜빡임만 없다');
