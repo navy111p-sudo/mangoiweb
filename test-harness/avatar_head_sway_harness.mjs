@@ -185,6 +185,20 @@ const W1 = world({ want: 'lily' });
 ok(W1.ranOk, '파일을 가짜 DOM 에서 실제로 실행했다');
 await flush();
 const { canvas, frame, pendingRaf, av } = W1;
+// 가짜 시계를 ms 만큼 돌린다 — 그 사이 때가 된 타이머를 순서대로 부르고, 걸린 rAF 를 한 번 돌린다.
+// 쉬는 루프는 «그린 뒤 타이머로 기다렸다가 rAF 를 한 번» 이라 타이머를 안 돌리면 멈춘 것처럼 보인다.
+let wakes = 0;
+const isSwayTimer = t => /swayTick/.test(String(t.fn));
+const swayPending = () => pendingRaf.size + timers.filter(isSwayTimer).length;
+function tick(ms) {
+  T += ms;
+  for (;;) {
+    timers.sort((x, y) => x.at - y.at || x.id - y.id);
+    const t = timers[0]; if (!t || t.at > T) break;
+    timers.shift(); try { t.fn(); } catch { /* 모듈 안 예외는 다른 절이 잡는다 */ }
+  }
+  wakes += pendingRaf.size; frame();
+}
 const vops = () => canvas.ctx.ops;
 // present() 한 번 = 화면 캔버스의 clearRect 하나로 시작한다 → 그 뒤 draw 묶음을 «한 장» 으로 본다.
 function lastPresent() {
@@ -221,7 +235,7 @@ ok(vops().filter(x => x.op === 'draw').every(d => d.gco !== 'lighter' || d.rot !
 console.log('\n■ ③ 크기 — 조금씩, 그러나 실제로 움직인다');
 let maxRot = 0, maxNod = 0, rots = new Set();
 for (let i = 0; i < 400; i++) {
-  T += 100; frame();
+  tick(100);
   const p = lastPresent(); if (p.length === 3) { maxRot = Math.max(maxRot, Math.abs(p[2].rot)); maxNod = Math.max(maxNod, Math.abs(p[2].sy - 1)); rots.add(p[2].rot.toFixed(5)); }
 }
 const deg = maxRot * 180 / Math.PI;
@@ -248,59 +262,68 @@ if (mask && HEAD) {
 
 /* ── ⑤ 쉬는 동안 ───────────────────────────────────────────────────── */
 console.log('\n■ ⑤ 쉬는 동안 — 초당 약 20번 · 숨으면 멈춤');
-let n0 = presents();
-for (let i = 0; i < 60; i++) { T += 16; frame(); }
-const perSec = (presents() - n0) / (60 * 16 / 1000);
+let n0 = presents(), w0 = wakes;
+const STEPS = 188;                                   // 16ms × 188 ≈ 3초 — 깜빡임 한 번이 끼어도 평균이 흔들리지 않게
+for (let i = 0; i < STEPS; i++) tick(16);
+const perSec = (presents() - n0) / (STEPS * 16 / 1000), wakeSec = (wakes - w0) / (STEPS * 16 / 1000);
 ok(perSec >= 15 && perSec <= 23, `60Hz 화면에서도 초당 ${perSec.toFixed(1)}번만 다시 그린다`, '매 프레임 그리면 폰 배터리를 씁니다');
-ok(pendingRaf.size === 1, `쉬는 동안 rAF 가 정확히 하나 걸려 있다 (${pendingRaf.size})`);
-W1.document.hidden = true; frame();
-ok(pendingRaf.size === 0, `탭이 숨으면 rAF 를 다시 걸지 않는다 (${pendingRaf.size})`);
-n0 = presents(); T += 500; frame();
+ok(wakeSec <= 23, `rAF 로 깨어나는 것도 초당 ${wakeSec.toFixed(1)}번뿐이다(그릴 때만)`, 'rAF 를 매 프레임 다시 걸면 그리지 않는 프레임에도 폰이 깨어납니다(초당 60번)');
+ok(swayPending() === 1, `쉬는 루프가 정확히 하나 걸려 있다 — rAF 또는 다음 그림 타이머 (${swayPending()})`);
+W1.document.hidden = true; tick(100); tick(100);
+ok(swayPending() === 0, `탭이 숨으면 rAF·타이머를 다시 걸지 않는다 (${swayPending()})`);
+n0 = presents(); tick(500);
 ok(presents() === n0, '숨은 동안에는 그리지 않는다');
 W1.document.hidden = false; (W1.listeners.visibilitychange || []).forEach(f => f());
-ok(pendingRaf.size === 1, `다시 보이면 다시 켜진다 (${pendingRaf.size})`);
+ok(swayPending() === 1, `다시 보이면 다시 켜진다 (${swayPending()})`);
 (W1.listeners.visibilitychange || []).forEach(f => f());
-ok(pendingRaf.size === 1, '여러 번 보여도 rAF 가 겹치지 않는다');
+ok(swayPending() === 1, '여러 번 보여도 쉬는 루프가 겹치지 않는다');
+tick(16); tick(16); (W1.listeners.visibilitychange || []).forEach(f => f());
+ok(swayPending() === 1, '(짝) 타이머로 기다리는 동안 다시 깨워도 겹치지 않는다');
 ok(!!W1.io.cb && W1.io.el === canvas, '(전제) 캔버스가 화면 안인지 지켜본다(IntersectionObserver)');
-W1.io.cb([{ isIntersecting: false }]); T += 100; frame();
-ok(pendingRaf.size === 0, '캔버스가 화면 밖이면 멈춘다');
+W1.io.cb([{ isIntersecting: false }]); tick(100); tick(100);
+ok(swayPending() === 0, '캔버스가 화면 밖이면 멈춘다');
 W1.io.cb([{ isIntersecting: true }]);
-ok(pendingRaf.size === 1, '화면 안으로 돌아오면 다시 켜진다');
-canvas.isConnected = false; T += 100; frame();
-ok(pendingRaf.size === 0, '캔버스가 문서에서 빠지면 멈춘다');
+ok(swayPending() === 1, '화면 안으로 돌아오면 다시 켜진다');
+canvas.isConnected = false; tick(100); tick(100);
+ok(swayPending() === 0, '캔버스가 문서에서 빠지면 멈춘다');
 canvas.isConnected = true; (W1.listeners.visibilitychange || []).forEach(f => f());
 W1.mq.matches = true; W1.mq.ls.forEach(f => f());
 P = lastPresent();
 ok(P.length === 1 && P[0].src === comp && P[0].rot === 0, '«움직임 줄이기» 를 켜면 그 자리에서 곧게 편 얼굴(comp 그대로)을 그린다');
-T += 100; frame();
-ok(pendingRaf.size === 0, '«움직임 줄이기» 동안은 쉬는 루프가 멈춘다');
+tick(100); tick(100);
+ok(swayPending() === 0, '«움직임 줄이기» 동안은 쉬는 루프가 멈춘다');
 W1.mq.matches = false; W1.mq.ls.forEach(f => f());
-T += 100; frame();
+tick(100);
 P = lastPresent();
-ok(pendingRaf.size === 1 && P.length === 3 && P[2].rot !== 0, '«움직임 줄이기» 를 끄면 다시 움직인다(짝)');
+ok(swayPending() === 1 && P.length === 3 && P[2].rot !== 0, '«움직임 줄이기» 를 끄면 다시 움직인다(짝)');
 
 /* ── ⑥ 말하는 동안 ─────────────────────────────────────────────────── */
 console.log('\n■ ⑥ 말하는 동안 — 루프는 하나 · 끝나면 쉬는 움직임으로');
 const a = new Media();
 av.attach(a); a.paused = false; a.emit('playing');
-let overlap = 0, talkMax = 0; n0 = presents();
+let overlap = 0, talkMax = 0, swayTimersInTalk = 0; n0 = presents(); const wt0 = wakes;
 for (let i = 0; i < 300; i++) {
-  T += 16; frame();
+  tick(16);
   if (pendingRaf.size !== 1) overlap++;
+  if (i > 10) swayTimersInTalk += timers.filter(isSwayTimer).length;
   const p = lastPresent(); if (p.length === 3) talkMax = Math.max(talkMax, Math.abs(p[2].rot));
 }
 ok(overlap === 0, `말하는 동안 rAF 가 하나뿐이다(쉬는 루프와 겹치지 않음 — 어긋난 프레임 ${overlap})`);
 ok(presents() - n0 >= 290, `말하는 동안은 매 프레임 그린다 (${presents() - n0}/300)`);
+ok(presents() - n0 <= 302 && wakes - wt0 <= 302, `말하는 동안 쉬는 루프가 따로 그리거나 깨우지 않는다 — 한 프레임에 한 장 (그림 ${presents() - n0} · 깨움 ${wakes - wt0} / 300)`,
+  '두 루프가 함께 돌면 같은 프레임에 두 번 그리고 폰이 두 배로 깨어납니다');
+ok(swayTimersInTalk === 0, `말하는 동안 쉬는 루프 타이머가 남아 있지 않다 (${swayTimersInTalk})`);
 ok(talkMax * 180 / Math.PI <= ROT_DEG * TALK + 1e-6, `말할 때도 최대 기울기 ≤ ${(ROT_DEG * TALK).toFixed(2)}° (${(talkMax * 180 / Math.PI).toFixed(3)}°)`);
 a.paused = true; a.emit('pause');
-ok(pendingRaf.size === 1, `말이 끝나면 쉬는 움직임이 다시 켜진다 (${pendingRaf.size})`);
+tick(16);
+ok(swayPending() === 1, `말이 끝나면 쉬는 움직임이 다시 켜진다 (${swayPending()})`);
 
 /* ── ⑨ 전환 섞기 ───────────────────────────────────────────────────── */
 console.log('\n■ ⑨ 전환 섞기 — 투명 그림은 캔버스 사본으로');
 av.setCharacter('mei'); await flush();
 const compOpsStart = comp.ctx.ops.length;
 av.plainStart();
-for (let i = 0; i < 40; i++) { T += 16; frame(); }
+for (let i = 0; i < 40; i++) tick(16);
 const cOps = comp.ctx.ops.slice(compOpsStart);
 ok(cOps.filter(o => o.op === 'get').length === 0, `mei: 입 모양을 바꿔도 getImageData 를 안 부른다 (${cOps.filter(o => o.op === 'get').length}회)`,
   '2배 comp 에서 픽셀 루프를 돌리면 폰에서 프레임이 끊깁니다');
@@ -315,25 +338,26 @@ av.plainStop();
 console.log('\n■ ⑦ 영상 캐릭터로 바꾸면 안 기운다');
 av.setCharacter('jake_classic'); await flush();
 ok(comp.width === 320 && comp.ctx.st.base === 1, `jake_classic: comp 가 1배(320)로 돌아간다 (${comp.width} · 배율 ${comp.ctx.st.base})`, '초록 지우기 픽셀 루프가 4배가 되지 않게');
-T += 200; frame();
-ok(pendingRaf.size === 0, 'jake_classic: 쉬는 움직임 루프가 멈춘다');
+tick(200); tick(200);
+ok(swayPending() === 0, 'jake_classic: 쉬는 움직임 루프가 멈춘다');
 W1.video.emit('loadeddata');
 P = lastPresent();
 ok(P.length === 1 && P[0].src === comp && P[0].rot === 0, 'jake_classic: comp 를 기울이지 않고 그대로 옮긴다');
 av.setCharacter('noah'); await flush();
-T += 200; frame();
+tick(200);
 P = lastPresent();
-ok(pendingRaf.size === 1 && P.length === 3 && P[2].rot !== 0 && comp.width === 640, 'noah 로 돌아오면 다시 기울고 comp 도 2배(짝)');
+ok(swayPending() === 1 && P.length === 3 && P[2].rot !== 0 && comp.width === 640, 'noah 로 돌아오면 다시 기울고 comp 도 2배(짝)');
 
 /* ── ⑩ 화면 밖 캔버스를 못 만들면 ───────────────────────────────────── */
 console.log('\n■ ⑩ 화면 밖 캔버스를 못 만들면 예전처럼');
+W1.document.hidden = true; tick(200); tick(200);   // W1 을 재워 둔다 — 타이머 줄을 같이 쓰므로
 const W2 = world({ offscreen: false, want: 'lily' });
 await flush();
 ok(W2.ranOk && W2.canvas.ctxOpts && W2.canvas.ctxOpts.willReadFrequently === true, '화면 캔버스를 예전처럼(픽셀 읽기용으로) 연다');
 W2.document.listeners = null; T += 6000; W2.frame();
 const d2 = W2.canvas.ctx.ops.filter(o => o.op === 'draw');
 ok(d2.length >= 1 && d2.every(o => o.rot === 0) && d2.some(o => /lily-closed/.test(o.src && o.src.src || '')), '얼굴을 화면에 바로 그리고 기울이지 않는다');
-ok(W2.pendingRaf.size === 0, '쉬는 움직임 루프가 아예 안 돈다');
+ok(W2.pendingRaf.size === 0 && timers.filter(isSwayTimer).length === 0, '쉬는 움직임 루프(rAF·타이머)가 아예 안 돈다');
 
 /* ── ⑪ 소스 규칙 ─────────────────────────────────────────────────────── */
 console.log('\n■ ⑪ 소스 규칙');

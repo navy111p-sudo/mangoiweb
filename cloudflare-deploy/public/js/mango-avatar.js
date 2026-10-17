@@ -122,7 +122,8 @@
        ⚙️ 얼굴은 먼저 화면 밖 캔버스(comp)에 그리고(입·눈은 예전과 똑같이), present() 가
           «몸 + 기운 머리» 를 화면 캔버스에 겹쳐 놓습니다. 겹치는 목 부분은 'lighter' 로 더해
           알파가 1 을 넘거나 비지 않습니다.
-       ⚠️ 쉬는 동안의 움직임은 rAF 를 «초당 약 20번» 만 씁니다 — 탭이 숨거나, 캔버스가 화면
+       ⚠️ 쉬는 동안의 움직임은 «초당 약 20번» 만 그리고, 그 사이는 타이머로 기다려 폰도 초당 약 20번만
+          깨웁니다(rAF 를 매 프레임 다시 걸면 60번). 탭이 숨거나, 캔버스가 화면
           밖이거나, «움직임 줄이기» 설정이면 멈춥니다. ⛔ setInterval 로 바꾸지 마세요.
        ⚠️ 화면 밖 캔버스를 못 만드는 환경(옛 브라우저·하니스의 가짜 DOM)에서는 예전처럼 화면
           캔버스에 바로 그리고 머리는 안 움직입니다(실패해도 얼굴은 그대로).
@@ -450,7 +451,7 @@
 
     var SWAY_ROT_DEG = 1.0, SWAY_NOD = 0.007, SWAY_TALK = 1.35, SWAY_IDLE_MS = 48;
     var swayPh = [Math.random()*6.283, Math.random()*6.283, Math.random()*6.283, Math.random()*6.283];
-    var swayAmp = 1, swayAmpAt = 0, swayRaf = 0, swayLastAt = 0, swayVis = true, swayMq = null;
+    var swayAmp = 1, swayAmpAt = 0, swayRaf = 0, swayTo = 0, swayLastAt = 0, swayVis = true, swayMq = null;
     var headCv = null, maskCv = null, maskFor = '', layersDirty = true;
     try{ swayMq = (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)')) || null; }catch(e){ swayMq = null; }
     function swayReduced(){ return !!(swayMq && swayMq.matches); }
@@ -535,14 +536,16 @@
     function swayWanted(){
       return !!(vctx && comp && HEAD[curChar] && !swayReduced() && swayVis && !document.hidden && canvas.isConnected !== false);
     }
+    //   ⚙️ 그린 뒤에는 다음 그림 때까지 «타이머» 로 기다렸다가 rAF 를 한 번 건다 — rAF 를 매 프레임 다시 걸면
+    //      그리는 것은 초당 20번이어도 폰이 초당 60번 깨어납니다. 걸려 있는 것은 언제나 둘 중 «하나»(swayRaf 또는 swayTo).
     function swayTick(){
       swayRaf = 0;
       if (drawing || !swayWanted()) return;          // 멈춘다 — swayKick 이 다시 켠다
-      var now = Date.now();
-      if (now - swayLastAt >= SWAY_IDLE_MS) { swayLastAt = now; present(); }
-      swayRaf = requestAnimationFrame(swayTick);
+      var now = Date.now(), wait = SWAY_IDLE_MS - (now - swayLastAt);
+      if (wait <= 4) { swayLastAt = now; present(); wait = SWAY_IDLE_MS; }
+      swayTo = setTimeout(function(){ swayTo = 0; if (!swayRaf && !drawing && swayWanted()) swayRaf = requestAnimationFrame(swayTick); }, wait);
     }
-    function swayKick(){ if (!swayRaf && !drawing && swayWanted()) swayRaf = requestAnimationFrame(swayTick); }
+    function swayKick(){ if (!swayRaf && !swayTo && !drawing && swayWanted()) swayRaf = requestAnimationFrame(swayTick); }
     try{
       if (swayMq){
         var onMq = function(){ present(); swayKick(); };
