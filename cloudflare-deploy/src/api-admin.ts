@@ -6512,7 +6512,10 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           const want = normDow(r.day_of_week);
           if (!want) continue;
           for (const d of weekDates) {
-            if (dateToDow[d] === want) {
+            /* ⏭ (2026-10-14) 정본 recurStartedOn — «그 주 하루만 빠진 날»(skip_dates)·«시작일 전»(starts_on)
+               에는 그리지 않는다. 학생 입장·강사 포털·오늘 수업은 이미 이 게이트를 지나는데 이 주간
+               캘린더만 빠져, 반복 수업을 그 주 하루만 옮기면 «원래 칸 + 보강 칸» 이 둘 다 보였다. */
+            if (dateToDow[d] === want && recurStartedOn(r, d)) {
               items.push({ ...base, date: d, start_date: weekStartISO, end_date: weekEndISO });
             }
           }
