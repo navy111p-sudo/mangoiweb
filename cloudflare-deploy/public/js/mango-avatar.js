@@ -106,6 +106,15 @@
        ⚠️ 사각형은 «그 캐릭터 초상화의 원본 px» 기준입니다 — emma 는 512x640(emma-v2-rest.webp),
           나머지는 640x800. 눈 그림은 «다문 입» 장에서 만들었습니다(입 3장의 눈 부위 차이 실측:
           emma 0 · mei 최대 9 · long 평균 6 — 그 위에 얹어도 이음매가 안 보이는 수준). */
+/* v12: (2026-10-18) Jake — ① 영상 seek 대신 «같은 얼굴에서 입만 다른» 6가지 입모양(아래 jake 줄)
+       ② 사장님 「Jake도 살아있는 것 처럼 눈을 깜박거리고 머리도 조금 움직이게」 — EYES.jake 를 더해
+          다른 친구들과 같은 깜빡임·눈썹·숨쉬기(어깨 기준 아주 작은 기울기)를 켭니다.
+       Jake 얼굴은 생성 서비스가 거절한 기록이 있어(visemes/README) 눈 그림도 원래 영상에서 만듭니다:
+       반감음 = 영상 3프레임 · 감음 = 100프레임(실제 깜빡임)을 rest(80)에 정렬해 «눈+눈썹 타원» 만 얹고,
+       영상에 눈썹을 올리는 순간이 없어(200프레임 실측 ±3px) 눈썹 칸만 rest 의 눈썹을 7px 끌어올렸습니다.
+       만드는 도구: tools/build-jake-poses.py (입·눈 모두 — 타원 밖은 rest 와 같다는 assert).
+       ⚠️ Jake 사각형은 512x496(jake-closed.webp) 기준입니다. 이제 눈 그림이 없는 것은 영상 폴백
+          (jake_classic·emma_classic)뿐입니다. */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -144,7 +153,16 @@
     emma_classic: { sources:[['/img/teacher-avatar.webm','video/webm'],['/img/teacher-avatar.mp4','video/mp4']],
             still:'/img/teacher-avatar.png', rect:{ l:67/512, t:40/512, r:445/512, b:1 },
             poses:{ closed:3.3, medium:0.2, wide:4.0 }, hold:200, fade:160 },
-    jake: { sources:[['/img/hero-avatar.mp4','video/mp4']],
+    /* 🦸 jake (2026-10-17 v12) — 「Jake 입이 전혀 움직이지 않아 · 자연스럽게 · 말과 입이 일치 · 6가지」.
+       영상 seek(v5 사고와 같은 경로)을 버리고 «같은 얼굴에서 입만 다른» 이미지로 바꿨습니다.
+       원래 hero-avatar.mp4 의 프레임만 씁니다(새 얼굴 생성 아님 — 생성 서비스가 이 얼굴을 거절한 기록이 visemes/README).
+       입모양 6가지: rest·spread(이)·teeth·open·wide(아)·round(오/우) → PRECISION.jake 아틀라스.
+       만드는 도구: tools/build-jake-poses.py (입 밖 픽셀은 rest 와 바이트 단위로 같음 — assert).
+       ⛔ 영상 줄로 되돌리지 마세요(jake_classic 은 폴백 전용). */
+    jake: { frames:{ closed:'/img/jake-closed.webp', medium:'/img/jake-mid.webp', wide:'/img/jake-wide.webp' },
+            still:'/img/jake-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
+            aspect:512/496, keyed:false, fallback:'jake_classic' },
+    jake_classic: { sources:[['/img/hero-avatar.mp4','video/mp4']],
             still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 },
             poses:{ closed:3.2, medium:7.1, wide:3.5 }, hold:200, fade:160 },
     // ?v=2 (2026-10-18): smile-line creases beside the mouth retouched (tools/remove-smile-folds.py).
@@ -154,7 +172,7 @@
             aspect:0.8, keyed:false, fallback:'emma_classic' },
     noah: { frames:{ closed:'/img/noah-closed.webp?v=2', medium:'/img/noah-mid.webp?v=2', wide:'/img/noah-wide.webp?v=2' },
             still:'/img/noah-closed.webp?v=2', rect:{ l:0, t:0, r:1, b:1 },
-            aspect:0.8, keyed:false, fallback:'jake' },
+            aspect:0.8, keyed:false, fallback:'jake_classic' },
     // 🀄 mei — 중국어 교사(2026-09-14). 웜업에서 «중국어» 를 고른 학생에게만 보입니다.
     //    ⛔ 영어 화면(ai-friend·speech-coach)의 표에는 넣지 마세요 — 그쪽은 아직 중국어가 없어서
     //       «중국인 얼굴이 영어로 말하는» 상태가 됩니다(웜업에 중국어가 붙은 것이 먼저입니다).
@@ -170,11 +188,11 @@
        ⛔ 세 장을 각각 따로 다시 뽑아 갈아 끼우지 마세요 — 그 순간 이 숫자가 무너집니다. */
     long: { frames:{ closed:'/img/long-closed.webp', medium:'/img/long-mid.webp', wide:'/img/long-wide.webp' },
             still:'/img/long-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
-            aspect:0.8, keyed:false, fallback:'jake' }
+            aspect:0.8, keyed:false, fallback:'jake_classic' }
   };
   // 옛 이름으로 부르는 코드가 남아 있어도 조용히 죽지 않게 — setCharacter 가 먼저 풀어 준다.
   // ⚠️ 화면이 새 이름으로만 부르도록 고쳤지만, 이 표를 지우면 옛 호출이 «아무 일도 안 일어남» 이 됩니다.
-  var CHAR_ALIAS = { female:'emma', male:'jake', female_classic:'emma_classic', male_classic:'jake' };
+  var CHAR_ALIAS = { female:'emma', male:'jake', female_classic:'emma_classic', male_classic:'jake_classic' };
   var BASE_W = 320;   // 캔버스 내부 해상도 기준 폭(캐릭터별 비율에 맞춰 높이만 재계산)
 
   function build(){
@@ -305,7 +323,10 @@
     // base/atlas/trans must carry the same ?v= as the CHARACTERS frames above (one retouch, one version).
     var PRECISION={lily:{extra:true,base:'/img/lily-closed.webp?v=2',atlas:'/img/visemes/lily-mouths.webp?v=2',trans:'/img/visemes/lily-transitions.webp?v=2',x:250,y:294,w:144,h:122},
       noah:{extra:true,base:'/img/noah-closed.webp?v=2',atlas:'/img/visemes/noah-mouths.webp?v=2',trans:'/img/visemes/noah-transitions.webp?v=2',x:244,y:364,w:154,h:130},
-      emma:{extra:true,base:'/img/visemes/emma-v2-rest.webp',atlas:'/img/visemes/emma-v2-mouths.webp',x:183,y:282,w:146,h:126}};
+      emma:{extra:true,base:'/img/visemes/emma-v2-rest.webp',atlas:'/img/visemes/emma-v2-mouths.webp',x:183,y:282,w:146,h:126},
+      // 🦸 Jake 6가지 입모양(9칸 XABCDEFGH 에 배치) — x,y,w,h 는 build-jake-poses.py 출력과 짝.
+      //    중간 모양 시트가 없어 transitions 는 못 받으면 그냥 9칸 앵커만 씁니다(keyFrame 이 확인).
+      jake:{extra:true,base:'/img/jake-closed.webp',atlas:'/img/visemes/jake-mouths.webp',transitions:false,x:188,y:304,w:136,h:92}};
     function precisionFace(){
       if(!PRECISION[curChar])return null;
       if(!preciseFaces[curChar]){
@@ -318,7 +339,7 @@
           if(im.complete && im.naturalWidth){clearTimeout(timer);resolve(true);}
         });};
         var ready=Promise.all([load(base,p.base),load(mouths,p.atlas||('/img/visemes/'+curChar+'-mouths.webp')),
-          load(transitions,p.trans||('/img/visemes/'+curChar+'-transitions.webp'))]);
+          p.transitions===false ? Promise.resolve(false) : load(transitions,p.trans||('/img/visemes/'+curChar+'-transitions.webp'))]);
         preciseFaces[curChar]={base:base,mouths:mouths,transitions:transitions,rect:p,ready:ready};
         // Bound decoded sprite memory when a student switches through all teachers.
         Object.keys(preciseFaces).forEach(function(name){if(name!==curChar)delete preciseFaces[name];});
@@ -326,10 +347,12 @@
       return preciseFaces[curChar];
     }
     // 👁 (v10) 눈 깜빡임·눈썹 — 사각형은 그 초상화의 원본 px 기준(build-eye-patches.py 의 rect).
-    //   emma 만 512x640(emma-v2-rest.webp), 나머지는 640x800.
+    //   emma 만 512x640(emma-v2-rest.webp), jake 는 512x496(jake-closed.webp — build-jake-poses.py 의 eyes.rect),
+    //   나머지는 640x800.
     //   eyeState: 0 원본 · 1 반감음 · 2 감음 · 3 눈썹 올림 (= 눈 그림의 칸 번호 + 1)
     var EYES={lily:{x:226,y:204,w:202,h:84},noah:{x:192,y:238,w:260,h:92},
-      emma:{x:151,y:174,w:213,h:80},mei:{x:206,y:220,w:236,h:84},long:{x:210,y:214,w:224,h:86}};
+      emma:{x:151,y:174,w:213,h:80},mei:{x:206,y:220,w:236,h:84},long:{x:210,y:214,w:224,h:86},
+      jake:{x:153,y:181,w:209,h:74}};
     var eyeImg=null, eyeOk=false, eyeFor='', eyeState=0, eyeTimer=0, browUntil=0, browNext=0, loudNow=false;
     function injectAliveCss(){
       try{
