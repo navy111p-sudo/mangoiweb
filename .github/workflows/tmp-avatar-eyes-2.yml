@@ -1,0 +1,88 @@
+# ⚠️ 임시 워크플로 — 병합하지 않습니다. 이 브랜치(tmp/avatar-eyes-261018)에서만 돕니다.
+# 작업 컨테이너의 프록시가 생성물 CDN(cloudfront)을 403 으로 막아, 러너에서 받아
+# tools/build-eye-patches.py 로 Emma·Mei·Long 눈/눈썹 아틀라스를 만들고 미리보기와 함께 커밋합니다.
+name: (임시) 아바타 눈 깜빡임 아틀라스 생성 2
+
+on:
+  push:
+    branches: [tmp/avatar-eyes-261018]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 도구 설치
+        run: pip install -q opencv-python-headless pillow numpy
+      - name: 생성 이미지 9장 받기
+        run: |
+          set -euo pipefail
+          B=https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k
+          mkdir -p raw
+          LIST="
+          emma-half:hf_20261017_160511_f959b724-c858-4b54-b3bf-4156dde2c0f7.png
+          emma-closed:hf_20261017_160510_d288956e-ee29-42ac-a045-fd19e9a9f8d7.png
+          emma-brows:hf_20261017_160509_7e9ab0c5-ba91-4c02-965a-9057099e9fa7.png
+          mei-half:hf_20261017_160510_89ef7b43-78c9-4661-b1db-50f9a9959cc1.png
+          mei-closed:hf_20261017_160510_34f82c5b-ca5c-48aa-bb9c-3fa19e31ccff.png
+          mei-brows:hf_20261017_160511_12a387c3-f611-4dd1-8961-afdeb9599e40.png
+          long-half:hf_20261017_160510_0f31cafd-fcaa-4006-a2fa-d52a90631af4.png
+          long-closed:hf_20261017_160510_39a04952-1aab-48bb-a13c-6681991d9338.png
+          long-brows:hf_20261017_160511_2c418d57-befd-4aff-84c6-52e66ed494e3.png
+          "
+          n=0
+          for row in $LIST; do
+            name="${row%%:*}"; src="${row##*:}"
+            curl -fsS -o "raw/$name.png" "$B/$src"; n=$((n+1))
+          done
+          echo "받은 장수: $n"; test "$n" -eq 9
+          python - <<'PY'
+          from PIL import Image; import glob
+          for f in sorted(glob.glob('raw/*.png')): print(f, Image.open(f).size)
+          PY
+      - name: 아틀라스 생성
+        run: |
+          set -euo pipefail
+          mkdir -p tmp-eyes-preview
+          P=cloudflare-deploy/public/img
+          python tools/build-eye-patches.py emma $P/visemes/emma-v2-rest.webp raw/emma-half.png raw/emma-closed.png raw/emma-brows.png tmp-eyes-preview
+          python tools/build-eye-patches.py mei  $P/mei-closed.webp  raw/mei-half.png  raw/mei-closed.png  raw/mei-brows.png  tmp-eyes-preview
+          python tools/build-eye-patches.py long $P/long-closed.webp raw/long-half.png raw/long-closed.png raw/long-brows.png tmp-eyes-preview
+          # 전체 얼굴 미리보기(원본 | 반감음 | 감음 | 눈썹) — 이음매를 눈으로 확인하려고
+          python - <<'PY'
+          from PIL import Image
+          import json
+          P='cloudflare-deploy/public/img'
+          for n,base_p in (('emma',P+'/visemes/emma-v2-rest.webp'),('mei',P+'/mei-closed.webp'),('long',P+'/long-closed.webp')):
+              base=Image.open(base_p).convert('RGBA'); W,H=base.size
+              atlas=Image.open(f'{P}/visemes/{n}-eyes.webp').convert('RGBA')
+              x,y,w,h=json.load(open(f'tmp-eyes-preview/{n}-eyes-report.json'))['rect']
+              frames=[base]
+              for i in range(3):
+                  f=base.copy(); f.alpha_composite(atlas.crop((i*w,0,i*w+w,h)),(x,y)); frames.append(f)
+              sheet=Image.new('RGB',(W*4,H),'white')
+              for i,f in enumerate(frames):
+                  bg=Image.new('RGBA',f.size,'white'); bg.alpha_composite(f); sheet.paste(bg.convert('RGB'),(W*i,0))
+              sheet.resize((W*2,H//2)).save(f'tmp-eyes-preview/{n}-face-sheet.jpg',quality=88)
+              # 눈 띠만 크게 — 원본/반감음/감음/눈썹을 위아래로
+              band=Image.new('RGB',(w*3,h*3*4),'white')
+              for i,f in enumerate(frames):
+                  bg=Image.new('RGBA',f.size,'white'); bg.alpha_composite(f)
+                  band.paste(bg.convert('RGB').crop((x-20,y-10,x+w+20,y+h+10)).resize((w*3,h*3)),(0,i*h*3))
+              band.save(f'tmp-eyes-preview/{n}-eye-band.jpg',quality=90)
+          PY
+          ls -la cloudflare-deploy/public/img/visemes/*-eyes.webp tmp-eyes-preview
+          cat tmp-eyes-preview/*-report.json
+      - name: 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add cloudflare-deploy/public/img/visemes/emma-eyes.webp cloudflare-deploy/public/img/visemes/mei-eyes.webp cloudflare-deploy/public/img/visemes/long-eyes.webp tmp-eyes-preview
+          git commit -m "chore(임시): Emma·Mei·Long 눈 깜빡임 아틀라스 + 미리보기 (CI 에서 생성)"
+          git push
