@@ -99,8 +99,13 @@
        가 만듭니다 — 입 패치와 같은 방식(정렬 뒤 «눈+눈썹 타원» 만 오려 얹기, 타원 밖은 원본 그대로).
        ⚠️ 눈 그림을 못 받으면 깜빡임만 없고 얼굴은 예전 그대로입니다(실패해도 빈 얼굴이 되지 않게).
        ⚠️ 깜빡임 타이머는 탭이 숨겨지면 멈추고(visibilitychange 로 다시 켬), 눈 그림이 없는
-          캐릭터(emma·jake·mei·long)에는 아예 걸지 않습니다. ⛔ setInterval 로 바꾸지 마세요.
-       ⚠️ EYES 의 사각형은 build-eye-patches.py 가 찍어 주는 rect 와 «같아야» 합니다. */
+          캐릭터(영상 캐릭터 jake 등)에는 아예 걸지 않습니다. ⛔ setInterval 로 바꾸지 마세요.
+       ⚠️ EYES 의 사각형은 build-eye-patches.py 가 찍어 주는 rect 와 «같아야» 합니다.
+   v11: (2026-10-18) 사장님 「Emma·Mei·Long 도 눈 깜빡이게 해줘」 — 같은 방식으로 눈 그림 3장을
+       만들어 EYES 에 더했습니다. 이제 눈 그림이 없는 것은 영상 캐릭터(jake·emma_classic)뿐입니다.
+       ⚠️ 사각형은 «그 캐릭터 초상화의 원본 px» 기준입니다 — emma 는 512x640(emma-v2-rest.webp),
+          나머지는 640x800. 눈 그림은 «다문 입» 장에서 만들었습니다(입 3장의 눈 부위 차이 실측:
+          emma 0 · mei 최대 9 · long 평균 6 — 그 위에 얹어도 이음매가 안 보이는 수준). */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -317,9 +322,11 @@
       }
       return preciseFaces[curChar];
     }
-    // 👁 (v10) 눈 깜빡임·눈썹 — 사각형은 640x800 초상화 기준(build-eye-patches.py 의 rect).
+    // 👁 (v10) 눈 깜빡임·눈썹 — 사각형은 그 초상화의 원본 px 기준(build-eye-patches.py 의 rect).
+    //   emma 만 512x640(emma-v2-rest.webp), 나머지는 640x800.
     //   eyeState: 0 원본 · 1 반감음 · 2 감음 · 3 눈썹 올림 (= 눈 그림의 칸 번호 + 1)
-    var EYES={lily:{x:226,y:204,w:202,h:84},noah:{x:192,y:238,w:260,h:92}};
+    var EYES={lily:{x:226,y:204,w:202,h:84},noah:{x:192,y:238,w:260,h:92},
+      emma:{x:151,y:174,w:213,h:80},mei:{x:206,y:220,w:236,h:84},long:{x:210,y:214,w:224,h:86}};
     var eyeImg=null, eyeOk=false, eyeFor='', eyeState=0, eyeTimer=0, browUntil=0, browNext=0, loudNow=false;
     function injectAliveCss(){
       try{
