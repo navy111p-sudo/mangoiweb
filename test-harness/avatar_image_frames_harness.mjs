@@ -88,7 +88,7 @@ if (CH) {
   }
 
   /* ③ 성인 얼굴 보존 — 폴백이자 playClip(teacher-say-*) 클립의 짝 */
-  ok(vidChars.includes(CH.emma.frames ? 'emma_classic' : 'emma') && vidChars.includes('jake'),
+  ok(vidChars.includes(CH.emma.frames ? 'emma_classic' : 'emma') && vidChars.includes(CH.jake.frames ? 'jake_classic' : 'jake'),
     '성인 얼굴(emma·jake)이 영상 캐릭터로 그대로 남아 있다',
     '⛔ 지우지 말 것 — Lily·Noah 의 폴백이고, playClip 의 립싱크 클립이 Emma 얼굴과 짝이다');
   ok(typeof (CH[CH.emma.frames ? 'emma_classic' : 'emma'] || {}).poses?.closed === 'number',
