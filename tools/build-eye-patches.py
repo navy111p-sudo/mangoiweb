@@ -9,8 +9,11 @@ import json,sys
 from pathlib import Path
 import cv2,numpy as np
 from PIL import Image
-# (cx,cy,rx,ry) per eye+brow, in the 640x800 portrait's pixels.
-ELLIPSES={'lily':[(276,246,44,36),(378,246,44,36)],'noah':[(252,284,54,40),(392,284,54,40)]}
+# (cx,cy,rx,ry) per eye+brow, in the base portrait's own pixels.
+ELLIPSES={'lily':[(276,246,44,36),(378,246,44,36)],'noah':[(252,284,54,40),(392,284,54,40)],
+  # emma's portrait is 512x640 (emma-v2-rest.webp); mei/long are 640x800 like lily/noah.
+  'emma':[(203,214,46,34),(312,214,46,34)],'mei':[(262,262,50,36),(386,262,50,36)],
+  'long':[(266,257,50,37),(378,257,50,37)]}
 PAD=6
 name,basepath=sys.argv[1:3];poses=sys.argv[3:6];preview=Path(sys.argv[6])
 ells=ELLIPSES[name];base=cv2.imread(basepath,cv2.IMREAD_COLOR);h,w=base.shape[:2]
