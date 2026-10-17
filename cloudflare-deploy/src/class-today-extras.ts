@@ -114,7 +114,18 @@ export function judgePayType(
 export type EvalBrief = {
   id: number; date: string; score: number | null; max: number | null;
   text: string; teacher: string | null;
+  /** 📬 (2026-10-14 «일일 보고 누락» 화면) 학부모에게 보냈나 · 학부모가 열었나.
+   *  칸 자체가 없는 옛 행이면 null(«모름») — ⛔ false(«안 열었다»)로 지어내지 않는다. */
+  notified: boolean | null; viewed: boolean | null; viewed_at: number | null;
 };
+
+/** 0/1 칸을 참·거짓으로 — «칸이 없는» 행만 «모름»(null).
+ *  ⚠️ 그 두 칸은 DEFAULT 없이 ALTER 로 붙어(api-lessons.ts) «아직 안 함» 이 NULL 로 저장된다
+ *     → 칸이 «있는데» NULL 이면 false 다(null 로 두면 미확인 학부모가 전부 «모름» 으로 빠진다). */
+function flagOf(r: any, key: string): boolean | null {
+  if (!r || typeof r !== 'object' || !(key in r)) return null;
+  return Number(r[key]) === 1;
+}
 
 /** 점수 만점 — 값이 5를 넘으면 100점 만점(AI 리포트), 아니면 5점 만점(1분 일지). */
 export function evalMaxOf(score: any): number | null {
@@ -136,6 +147,9 @@ export function briefEval(r: any): EvalBrief {
     max: hasScore ? evalMaxOf(n) : null,
     text: text.length > 90 ? text.slice(0, 89) + '…' : text,
     teacher: r?.teacher_name || null,
+    notified: flagOf(r, 'parent_notified'),
+    viewed: flagOf(r, 'viewed_by_parent'),
+    viewed_at: Number(r?.viewed_at) || null,
   };
 }
 

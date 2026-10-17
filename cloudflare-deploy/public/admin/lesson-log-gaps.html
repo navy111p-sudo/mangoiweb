@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<!-- 🌐 관리자 화면 언어 부팅 — defer 금지(첫 페인트 전에 window.adminLang 이 정해져야 함) -->
+<script src="/js/adm-lang-boot.js?v=6"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>일일 보고 누락 · 망고아이</title>
+<!--
+  📒 일일 보고 누락 목록 (2026-10-14 신설 — 사장님: 미작성 + 미확인(학부모 미열람) · 관리자 새 화면 · 기본 어제)
+  · 인증 — /admin/ 아래는 src/index.ts 의 isAdminPath 가 default-deny 라 자동으로 로그인이 걸립니다.
+  · 자료 — /api/admin/classes/today?date= (매니저 «오늘 수업» 과 같은 정본). 화면 코드는 /js/lesson-log-gaps.js.
+  · ⛔ /admin/ 밑에는 js·css 를 두지 마세요(로그인 게이트가 자산 요청까지 삼킵니다) — 그래서 JS 는 /js 루트에 있습니다.
+  · 색은 밝은 테마 실측값(카드 #ffffff · 글자 #101828 · 보조 #475467) — 다크 색을 넣지 마세요.
+-->
+<style>
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; padding: 20px; min-height: 100vh; font-size: 16px; color: #101828;
+    font-family: MangoiHanSC, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+    background: linear-gradient(#f3f6fb 0%, #e6ecf4 100%); background-attachment: fixed;
+  }
+  .llg-wrap { max-width: 1180px; margin: 0 auto; }
+  .llg-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-right: 90px; }
+  .llg-head h1 { margin: 0; font-size: 26px; font-weight: 900; }
+  .llg-back { color: #475467; text-decoration: none; font-size: 15px; }
+  .llg-sub { color: #475467; margin: 6px 0 16px; line-height: 1.5; }
+  .llg-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;
+    background: #ffffff; border: 1px solid #d0d5dd; border-radius: 12px; padding: 10px 12px; }
+  .llg-bar input[type=date] { font-size: 16px; padding: 6px 8px; border: 1px solid #cbd5e1;
+    border-radius: 8px; background: #ffffff; color: #101828; }
+  .llg-btn { font-size: 15px; padding: 7px 14px; border-radius: 8px; border: 1px solid #b45309;
+    background: #b45309; color: #ffffff; font-weight: 700; cursor: pointer; }
+  .llg-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 10px; margin-bottom: 12px; }
+  .llg-kpi { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+    background: #ffffff; border: 1px solid #d0d5dd; border-radius: 12px; padding: 10px 12px; cursor: pointer; color: #101828; }
+  .llg-kpi.llg-on { outline: 2px solid #b45309; outline-offset: -1px; }
+  .llg-n { font-size: 26px; font-weight: 900; line-height: 1.1; }
+  .llg-l { font-size: 14px; color: #475467; }
+  .llg-k-gap .llg-n { color: #b45309; }
+  .llg-k-miss .llg-n { color: #b42318; }
+  .llg-k-unread .llg-n { color: #6941c6; }
+  .llg-k-done .llg-n { color: #067647; }
+  .llg-extra { margin: 0 0 12px; padding-left: 20px; color: #475467; font-size: 14px; line-height: 1.6; }
+  .llg-note { background: #fffaeb; border: 1px solid #fedf89; color: #93370d; border-radius: 10px; padding: 9px 12px; margin: 0 0 12px; }
+  .llg-scroll { overflow-x: auto; background: #ffffff; border: 1px solid #d0d5dd; border-radius: 12px; }
+  .llg-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 15px; }
+  .llg-table th, .llg-table td { padding: 9px 12px; border-bottom: 1px solid #eaecf0; text-align: left;
+    vertical-align: top; white-space: nowrap; }
+  .llg-table th { background: #f9fafb; color: #475467; font-weight: 700; font-size: 14px; }
+  .llg-time { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .llg-dim { color: #667085; font-size: 13px; }
+  .llg-warn { color: #b42318; font-size: 13px; font-weight: 700; }
+  .llg-ok { color: #067647; font-weight: 700; }
+  .llg-tag { display: inline-block; font-size: 12px; padding: 1px 6px; border-radius: 6px;
+    border: 1px solid #b2ccff; background: #eff4ff; color: #1849a9; }
+  .llg-badge { display: inline-block; font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
+  .llg-missing { background: #fef3f2; color: #b42318; border-color: #fda29b; }
+  .llg-unread { background: #f4f3ff; color: #5925dc; border-color: #bdb4fe; }
+  .llg-done { background: #ecfdf3; color: #067647; border-color: #75e0a7; }
+  .llg-unknown { background: #f2f4f7; color: #344054; border-color: #d0d5dd; }
+  .llg-empty { background: #ffffff; border: 1px solid #d0d5dd; border-radius: 12px; padding: 18px; color: #475467; }
+  .llg-err { color: #b42318; font-weight: 700; }
+  @media (max-width: 640px) { body { padding: 12px; } .llg-head h1 { font-size: 21px; } }
+</style>
+</head>
+<body>
+<div class="llg-wrap">
+  <div class="llg-head">
+    <a class="llg-back" href="/admin.html">← Admin</a>
+    <h1 id="llg-title">일일 보고 누락 목록</h1>
+  </div>
+  <p class="llg-sub" id="llg-sub"></p>
+  <div class="llg-bar">
+    <label for="llg-date" id="llg-date-lab">날짜</label>
+    <input type="date" id="llg-date">
+    <button type="button" class="llg-btn" id="llg-load">보기</button>
+  </div>
+  <div id="llg-root"></div>
+</div>
+<script src="/js/lesson-log-gaps.js?v=1"></script>
+</body>
+</html>
