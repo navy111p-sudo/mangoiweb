@@ -1,0 +1,91 @@
+{
+ "rect": [
+  206,
+  220,
+  236,
+  84
+ ],
+ "poses": [
+  {
+   "source": "mei-half.png",
+   "method": "sift",
+   "ok": true,
+   "ring_err": {
+    "nominal": 2.04,
+    "sift": 1.92
+   },
+   "inliers": 56,
+   "color_shift_bgr": [
+    -1.0,
+    0.0,
+    -3.0
+   ],
+   "changed_pct_by_tenth": [
+    0.0,
+    0.0,
+    0.27,
+    4.03,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "source": "mei-closed.png",
+   "method": "sift",
+   "ok": true,
+   "ring_err": {
+    "nominal": 3.0,
+    "sift": 2.85
+   },
+   "inliers": 85,
+   "color_shift_bgr": [
+    0.0,
+    1.0,
+    -2.0
+   ],
+   "changed_pct_by_tenth": [
+    0.0,
+    0.0,
+    0.19,
+    6.92,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "source": "mei-brows.png",
+   "method": "nominal",
+   "ok": true,
+   "ring_err": {
+    "nominal": 3.28,
+    "sift": 164.66
+   },
+   "inliers": 72,
+   "color_shift_bgr": [
+    -1.0,
+    1.0,
+    -1.0
+   ],
+   "changed_pct_by_tenth": [
+    0.0,
+    0.0,
+    2.07,
+    6.49,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ ]
+}
