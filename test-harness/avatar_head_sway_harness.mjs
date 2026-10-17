@@ -22,6 +22,9 @@
  *   ⑫ 그림 미리 올리기: 입모양 그림을 다 받으면 «말할 때 쓰는 그 comp» 에 알파 1/255 로 한 번 그리고 곧바로
  *      화면에 옮긴다(GPU 업로드를 말 첫마디가 아니라 지금 한다) · prepare() 는 두 프레임 뒤에 끝난다 ·
  *      숨은 탭(rAF 없음)에서도 300ms 타이머로 끝난다(짝) · 화면 밖 캔버스가 없으면 아무것도 안 한다
+ *   ⑬ 입모양 그림 경로: 말 첫 장만 통째로, 그 뒤는 «입 칸·눈 칸» 만 지우고 줄여 둔 바탕 사본에서 같은 자리로
+ *      1:1 옮긴 뒤 입을 그린다 · 그 경로에서는 전환 섞기 사본을 안 뜬다(mei 는 뜬다 — 짝) ·
+ *      캐릭터가 바뀌면 다시 통째로 · 안 쓰는 사본은 1x1 로 비운다
  *
  * 실제 픽셀(몸이 한 픽셀도 안 바뀌는가 · 목에 틈이 없는가)은 브라우저 검사가 잽니다:
  *   test-harness/manual/avatar-head-sway-browser.mjs (자동으로 안 돕니다 — 사람이 부릅니다)
@@ -114,8 +117,8 @@ function makeCtx(cv) {
     translate() {}, rotate(r) { st.rot += r; }, scale(x, y) { st.sy *= y; },
     save() { st.stack.push({ gco: st.gco, rot: st.rot, sy: st.sy, alpha: st.alpha, base: st.base }); },
     restore() { const p = st.stack.pop(); if (p) Object.assign(st, p); },
-    clearRect() { ctx.ops.push({ op: 'clear', seq: ++SEQ }); },
-    drawImage(im, ...a) { ctx.ops.push({ op: 'draw', src: im, a, gco: st.gco, rot: st.rot, sy: st.sy, alpha: st.alpha, seq: ++SEQ }); },
+    clearRect(...a) { ctx.ops.push({ op: 'clear', a, base: st.base, seq: ++SEQ }); },
+    drawImage(im, ...a) { ctx.ops.push({ op: 'draw', src: im, a, gco: st.gco, rot: st.rot, sy: st.sy, alpha: st.alpha, base: st.base, seq: ++SEQ }); },
     createImageData(w, h) { return { width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }; },
     putImageData(d) { ctx.ops.push({ op: 'put' }); cv.__put = d; },
     getImageData(x, y, w, h) { ctx.ops.push({ op: 'get' }); return { data: new Uint8ClampedArray(w * h * 4) }; }
@@ -131,14 +134,18 @@ function makeCanvas(tag) {
   cv.getContext = (t, opt) => { cv.ctxOpts = opt; return cv.ctx; };
   return cv;
 }
+// ⑬ 이 «그림이 늦게 도착» 하는 경우를 만들려고 쓴다 — 고른 그림 n 장의 onload 를 붙잡아 두었다가 나중에 부른다.
+const HOLD = { re: null, n: 0, size: null, list: [] };
 class Image {
   constructor() { this.complete = false; this.naturalWidth = 0; this.naturalHeight = 0; }
   set src(v) {
     this._src = v;
-    queueMicrotask(() => {
+    const fire = (size) => {
       const emma = /emma-v2/.test(v);
-      this.complete = true; this.naturalWidth = emma ? 512 : 640; this.naturalHeight = emma ? 640 : 800; this.onload && this.onload();
-    });
+      this.complete = true; this.naturalWidth = size ? size[0] : emma ? 512 : 640; this.naturalHeight = size ? size[1] : emma ? 640 : 800; this.onload && this.onload();
+    };
+    if (HOLD.re && HOLD.n > 0 && HOLD.re.test(v)) { HOLD.n--; const size = HOLD.size; HOLD.list.push(() => fire(size)); return; }
+    queueMicrotask(() => fire(null));
   }
   get src() { return this._src; }
 }
@@ -154,7 +161,7 @@ class AudioContext {
   createMediaElementSource() { return { connect() {} }; }
 }
 
-function world({ offscreen = true, want = 'lily' } = {}) {
+function world({ offscreen = true, want = 'lily', visemes = null } = {}) {
   const canvas = makeCanvas('visible'); canvas.width = 320; canvas.height = 400;
   const video = new Media(), wrap = { classList: { toggle() {} } }, ring = { style: {}, getBoundingClientRect: () => ({ width: 320 }) };
   const heads = [], listeners = {};
@@ -172,6 +179,7 @@ function world({ offscreen = true, want = 'lily' } = {}) {
   };
   class IntersectionObserver { constructor(cb) { io.cb = cb; } observe(el) { io.el = el; } }
   const window = { __mgAvatarWant: want, AudioContext, matchMedia: () => mq };
+  if (visemes) window.AvatarVisemes = visemes;
   const FakeMath = Object.create(Math); FakeMath.random = () => 0.37;
   const FakeDate = { now: () => T };
   let ranOk = true;
@@ -454,6 +462,170 @@ console.log('\n■ ⑫ 입모양 그림을 말하기 «전에» 그 comp 로 올
   tick(2); await flush();
   ok(!early4 && d4, `rAF 가 안 도는 숨은 탭에서도 300ms 뒤 prepare 가 끝난다 (299ms ${early4} → 301ms ${d4})`,
     '타이머가 없으면 숨은 탭에서 prepare 가 영영 안 끝나 말을 못 합니다');
+}
+
+/* ── ⑬ 입모양 그림 경로 — 바뀌는 칸만 다시 그린다 ─────────────────────── */
+console.log('\n■ ⑬ 입모양 그림 경로 — 바뀌는 칸(입·눈)만, 줄여 둔 바탕 사본에서 1:1 로');
+{
+  // 입모양 표(cues)가 있어야 이 경로가 돈다 — 가짜 AvatarVisemes 로 열어 둔다(입모양은 시계로 바뀐다).
+  const POSES = ['A', 'D', 'F', 'C', 'B', 'E'];
+  const visemes = { prepare: () => Promise.resolve([{ start: 0, end: 99, value: 'A' }]), at: () => POSES[Math.floor(T / 120) % POSES.length] };
+  const c0 = created.length;
+  const W5 = world({ want: 'lily', visemes });
+  const g5 = created[c0 + 1];
+  const tickW = (W, ms) => {
+    T += ms;
+    for (;;) {
+      timers.sort((x, y) => x.at - y.at || x.id - y.id);
+      const t = timers[0]; if (!t || t.at > T) break;
+      timers.shift(); try { t.fn(); } catch { /* 다른 절이 잡는다 */ }
+    }
+    W.frame();
+  };
+  const nameOf = im => String(im && im.src || '').replace(/^.*\//, '').split('?')[0];
+  const isBaseBuild = (o, file) => o.op === 'draw' && nameOf(o.src) === file && o.a.length === 8 && o.a[6] === 640 && o.a[7] === 800;
+  const findBase = file => created.slice(c0).find(c => c !== g5 && c.ctx.ops.some(o => isBaseBuild(o, file)));
+  const speak = async (av, a, frames) => {
+    const from = g5.ctx.ops.length;
+    a.paused = false; a.emit('playing');
+    for (let i = 0; i < frames; i++) tickW(W5, 16);
+    a.paused = true; a.emit('pause'); tickW(W5, 16);
+    return g5.ctx.ops.slice(from);
+  };
+  const prep = async (av, a) => { const p = av.prepare(a); await flush(); W5.frame(); await flush(); W5.frame(); await flush(); await p; };
+  await flush();
+  ok(W5.ranOk && !!g5, '(전제) 입모양 표가 있는 세계를 띄웠다');
+  const a5 = new Media(); a5.src = '/lesson-a.mp3';
+  await prep(W5.av, a5);
+  const baseCv = findBase('lily-closed.webp');
+  ok(!!baseCv && baseCv.width === 640 && baseCv.height === 800, `lily: 줄인 얼굴 바탕 사본을 «말하기 전» 에 comp 크기로 만든다 (${baseCv ? baseCv.width + 'x' + baseCv.height : '없음'})`,
+    '말 첫마디에 만들면 그 프레임이 밀려 짧은 입모양을 놓칩니다');
+  ok(!!baseCv && g5.ctx.ops.some(o => o.op === 'draw' && o.src === baseCv && o.alpha > 0 && o.alpha < 0.01 && o.a[2] === 1),
+    '그 사본도 미리 올리기 때 comp 에 1픽셀로 한 번 옮겨 둔다');
+
+  const ops = await speak(W5.av, a5, 60);
+  const whole = ops.filter(o => o.op === 'clear' && o.base === 2 && o.a[0] === 0 && o.a[1] === 0 && o.a[2] === 320 && o.a[3] === 400);
+  const boxClear = ops.filter(o => o.op === 'clear' && o.base === 1);
+  const restore = ops.filter(o => o.op === 'draw' && o.src === baseCv && o.base === 1);
+  const mouths = ops.filter(o => o.op === 'draw' && nameOf(o.src) === 'lily-mouths.webp');
+  ok(mouths.length >= 55, `(전제) 말하는 동안 입모양을 프레임마다 그렸다 (${mouths.length}/60)`, '이 경로가 안 돌면 아래 검사가 아무것도 안 잽니다');
+  ok(whole.length === 1, `통째로 지우고 그리는 것은 말 첫 장 한 번뿐이다 (통째 지우기 ${whole.length}회 / ${mouths.length}장)`,
+    '매 프레임 2배 얼굴 전체를 다시 그리면 재생을 다시 시작하는 순간 메인 스레드가 멈춰(헤드리스 실측) 1.3배속의 짧은 입모양을 놓쳤습니다');
+  ok(ops.some(o => o.op === 'draw' && o.src === baseCv && o.base === 2 && o.a.length === 4 && o.a[2] === 320 && o.a[3] === 400),
+    '(짝) 그 첫 장은 사본을 통째로(320 좌표 × 2배 = 장치 픽셀 1:1) 깐다');
+  const EY = EYES && EYES.lily;
+  ok(restore.length >= 2 * (mouths.length - 1) && restore.length === boxClear.length,
+    `그 뒤 장마다 «입 칸·눈 칸» 둘만 지우고 다시 깐다 (다시 깔기 ${restore.length} · 칸 지우기 ${boxClear.length} · 장 ${mouths.length - 1})`);
+  ok(restore.every(o => o.a.length === 8 && o.a.every(Number.isInteger) && o.a[0] === o.a[4] && o.a[1] === o.a[5] && o.a[2] === o.a[6] && o.a[3] === o.a[7]),
+    '다시 깔기는 장치 픽셀 정수 사각형을 «같은 자리» 로 1:1 옮긴다(원본을 다시 줄여 그리지 않는다)',
+    '잘린 칸에 원본을 다시 줄여 그리면 배율이 정수가 아닌 얼굴(emma·jake)은 칸 안이 몇 단계(실측 최대 5/255) 달라집니다');
+  ok(boxClear.every((c, i) => restore[i] && c.a.join() === restore[i].a.slice(4).join() && c.seq < restore[i].seq),
+    '칸마다 «그 칸을 지운 뒤» 그 칸만 다시 깐다');
+  // 장 단위로 끊어 본다 — 입을 그린 자리에서 끊는다.
+  let bad = 0, order = 0, eyeMiss = 0, thin = 0, last = -1;
+  for (const m of mouths) {
+    const seg = ops.filter(o => o.seq > last && o.seq < m.seq); last = m.seq;
+    const rs = seg.filter(o => o.op === 'draw' && o.src === baseCv && o.base === 1);
+    if (!rs.length) continue;                                   // 첫 장(통째)
+    const d = m.a.slice(4).map(v => v * 2);                      // 입 그림이 놓인 자리(장치 픽셀)
+    const inside = rs.some(r => d[0] >= r.a[4] && d[1] >= r.a[5] && d[0] + d[2] <= r.a[4] + r.a[6] && d[1] + d[3] <= r.a[5] + r.a[7]);
+    if (!inside) bad++;
+    // 칸은 입 그림보다 사방 2px 넉넉해야 한다 — 딱 맞으면 반올림·부드럽게 그리기 가장자리가 앞 프레임에 남는다.
+    if (!rs.some(r => d[0] - r.a[4] >= 2 && d[1] - r.a[5] >= 2 && r.a[4] + r.a[6] - (d[0] + d[2]) >= 2 && r.a[5] + r.a[7] - (d[1] + d[3]) >= 2)) thin++;
+    if (!(m.base === 2 && rs.every(r => r.seq < m.seq))) order++;
+    if (EY && rs.length !== 2) eyeMiss++;
+  }
+  ok(bad === 0, `입 그림은 언제나 «다시 깐 칸» 안에 놓인다 (어긋난 장 ${bad})`, '칸 밖으로 나가면 앞 프레임 입이 겹쳐 남습니다');
+  ok(thin === 0, `다시 깐 칸은 입 그림보다 사방 2px 이상 넉넉하다 (모자란 장 ${thin})`,
+    '칸이 딱 맞으면 부드럽게 그린 입 가장자리 1px 이 다음 프레임에 지워지지 않고 남습니다');
+  ok(order === 0, `입은 다시 깐 «뒤» 에, 320 좌표(2배)로 그린다 — 통째로 그릴 때와 같은 상태 (어긋난 장 ${order})`,
+    '잘라 둔 채(clip) 입을 그리면 emma 처럼 칸 안이 1~2/255 달라졌습니다(브라우저 실측)');
+  ok(!EY || eyeMiss === 0, `눈 칸도 장마다 함께 다시 깐다 — 깜빡임 뒤 눈이 남지 않게 (빠진 장 ${eyeMiss})`);
+  const fadeSnaps = created.slice(c0).filter(c => c.ctx.ops.some(o => o.op === 'draw' && o.src === g5 && o.a.length === 2));
+  ok(fadeSnaps.length === 0, `입모양 그림 경로에서는 전환 섞기 사본(comp 통째 사본)을 안 뜬다 (${fadeSnaps.length}장)`,
+    '이 경로는 섞기를 안 쓰는데 입 단계가 바뀔 때마다 2배 comp 를 통째로 베끼고 있었습니다');
+
+  // 캐릭터가 바뀌면 다음 첫 장은 다시 통째로 · 사본도 그 얼굴로 다시 만든다.
+  W5.av.setCharacter('emma'); await flush();
+  const a6 = new Media(); a6.src = '/lesson-b.mp3';
+  await prep(W5.av, a6);
+  const opsE = await speak(W5.av, a6, 30);
+  const wholeE = opsE.filter(o => o.op === 'clear' && o.base === 2 && o.a[2] === 320 && o.a[3] === 400);
+  const baseE = findBase('emma-v2-rest.webp');
+  ok(baseE === baseCv, `emma: 같은 사본 캔버스를 다시 쓰고(새로 안 만든다) emma 얼굴로 다시 그린다`);
+  ok(wholeE.length === 1 && opsE.filter(o => o.op === 'draw' && o.src === baseCv && o.base === 1).length >= 2 * 28,
+    `emma: 첫 장만 통째로, 그 뒤는 칸만 (통째 ${wholeE.length} · 칸 다시 깔기 ${opsE.filter(o => o.op === 'draw' && o.src === baseCv && o.base === 1).length})`,
+    '앞 캐릭터 얼굴이 칸 밖에 남으면 두 얼굴이 섞입니다');
+
+  // 입모양 그림이 없는 캐릭터(mei) — 섞기를 쓰고(짝), 바탕 사본은 비운다(메모리).
+  W5.av.setCharacter('mei'); await flush();
+  const a7 = new Media(); a7.src = '/lesson-c.mp3';
+  await prep(W5.av, a7);
+  await speak(W5.av, a7, 30);
+  const fadeCv = created.slice(c0).find(c => c.ctx.ops.some(o => o.op === 'draw' && o.src === g5 && o.a.length === 2));
+  ok(!!fadeCv, '(짝) mei 는 입 단계가 바뀔 때 전환 섞기 사본을 뜬다 — 건너뛰기는 입모양 그림 경로에서만');
+  ok(!!baseCv && baseCv.width === 1 && baseCv.height === 1, `mei: 안 쓰는 바탕 사본은 1x1 로 비운다 (${baseCv ? baseCv.width + 'x' + baseCv.height : '없음'})`, '들고 있으면 2MB 를 그냥 씁니다');
+  W5.av.setCharacter('lily'); await flush();
+  const a8 = new Media(); a8.src = '/lesson-d.mp3';
+  await prep(W5.av, a8);
+  await speak(W5.av, a8, 10);
+  ok(!!fadeCv && fadeCv.width === 1 && fadeCv.height === 1 && !!baseCv && baseCv.width === 640,
+    `lily 로 돌아오면 섞기 사본은 비우고 바탕 사본을 다시 채운다 (섞기 ${fadeCv && fadeCv.width}x${fadeCv && fadeCv.height} · 바탕 ${baseCv && baseCv.width})`,
+    '두 사본을 함께 들고 있으면 메모리가 2MB 늘어납니다');
+
+  // 말하는 도중 «쉬는 얼굴» 그림이 늦게 도착하면 카드 크기를 다시 맞춘다(setAspect) — 그때 comp 가 지워진다.
+  // 같은 크기여도 지워지므로 다음 한 장은 반드시 통째로 다시 그려야 한다(칸만 깔면 얼굴이 빈다).
+  const lateSpeak = async (name, file, size, label) => {
+    HOLD.re = new RegExp(file); HOLD.n = 1; HOLD.size = size; HOLD.list.length = 0;
+    W5.av.setCharacter(name); await flush();
+    const held = HOLD.list.length;
+    HOLD.re = null; HOLD.n = 0;
+    const a = new Media(); a.src = '/lesson-' + name + '.mp3';
+    await prep(W5.av, a);
+    a.paused = false; a.emit('playing');
+    for (let i = 0; i < 12; i++) tickW(W5, 16);
+    const from = g5.ctx.ops.length;
+    const fire = HOLD.list.shift(); if (fire) fire();
+    for (let i = 0; i < 12; i++) tickW(W5, 16);
+    const after = g5.ctx.ops.slice(from);
+    a.paused = true; a.emit('pause'); tickW(W5, 16);
+    const h = W5.canvas.height;
+    const wholeN = after.filter(o => o.op === 'clear' && o.base === 2 && o.a[0] === 0 && o.a[1] === 0 && o.a[2] === 320 && o.a[3] === h).length;
+    const mouthN = after.filter(o => o.op === 'draw' && nameOf(o.src) === name + '-mouths.webp').length;
+    ok(held === 1 && mouthN >= 10, `(전제) ${label}: 쉬는 얼굴 그림을 붙잡아 두고 말하는 도중에 도착시켰다 (붙잡음 ${held} · 그 뒤 입 ${mouthN}장)`);
+    return { after, wholeN, h };
+  };
+  const L1 = await lateSpeak('noah', 'noah-closed', null, 'noah 같은 크기');
+  ok(L1.h === 400 && L1.wholeN === 1, `말하는 도중 카드 크기를 다시 맞추면(같은 크기여도) 다음 한 장은 통째로 다시 그린다 (통째 ${L1.wholeN}회)`,
+    'comp 를 다시 잡으면 내용이 지워집니다 — 칸만 다시 깔면 입·눈 칸 밖 얼굴이 통째로 빈 채로 남습니다');
+  W5.av.setCharacter('lily'); await flush(); tickW(W5, 16);
+  const L2 = await lateSpeak('noah', 'noah-closed', [640, 760], 'noah 크기 바뀜');
+  const bAfter = findBase('noah-closed.webp');
+  ok(L2.h === 380 && L2.wholeN === 1, `크기가 바뀌면 통째로 한 번 다시 그린다 (높이 ${L2.h} · 통째 ${L2.wholeN}회)`);
+  ok(!!bAfter && bAfter.width === 640 && bAfter.height === 760 && L2.after.some(o => o.op === 'draw' && o.src === bAfter && o.base === 2 && o.a[3] === 380),
+    `크기가 바뀌면 바탕 사본도 새 comp 크기로 다시 만들어 깐다 (${bAfter ? bAfter.width + 'x' + bAfter.height : '없음'})`,
+    '옛 크기 사본을 그대로 늘려 깔면 장치 픽셀 1:1 이 깨져 얼굴 전체가 한 번 더 흐려집니다');
+  HOLD.re = null; HOLD.n = 0; HOLD.list.length = 0;
+  W5.document.hidden = true; tickW(W5, 200);
+
+  // 화면 밖 캔버스를 못 만든 브라우저 — comp 없이 화면 캔버스에 바로 그린다. 입모양 경로가 죽지 않아야 한다.
+  {
+    const W6 = world({ offscreen: false, want: 'lily', visemes });
+    await flush();
+    const a = new Media(); a.src = '/lesson-x.mp3';
+    let err = null, mouthsN = 0;
+    try {
+      const p = W6.av.prepare(a); await flush(); W6.frame(); await flush(); W6.frame(); await flush(); await p;
+      const from = W6.canvas.ctx.ops.length;
+      a.paused = false; a.emit('playing');
+      for (let i = 0; i < 10; i++) tickW(W6, 16);
+      a.paused = true; a.emit('pause'); tickW(W6, 16);
+      mouthsN = W6.canvas.ctx.ops.slice(from).filter(o => o.op === 'draw' && nameOf(o.src) === 'lily-mouths.webp').length;
+    } catch (e) { err = e; }
+    ok(!err && mouthsN >= 8, `화면 밖 캔버스가 없어도 입모양을 화면 캔버스에 바로 그린다 (입 ${mouthsN}장${err ? ' · ' + err.message : ''})`,
+      '바탕 사본을 만들려고 comp.width 를 읽으면 그 프레임이 통째로 죽습니다');
+    W6.document.hidden = true; tickW(W6, 200);
+  }
 }
 
 /* ── ⑪ 소스 규칙 ─────────────────────────────────────────────────────── */

@@ -293,6 +293,7 @@
         try { ctx.setTransform(COMP_S, 0, 0, COMP_S, 0, 0); } catch(e){}
       }
       maskFor = '';      // 🎭 (v13) 크기가 바뀌면 머리 경계를 다시 만든다
+      preciseKey = '';   // ✂️ 다음 한 번은 얼굴을 통째로 그린다
       // CSS aspect-ratio 로 카드 높이를 자동 계산하려 했으나, 전환(transition) 시 실제
       // 레이아웃에 반영 안 되는 문제가 있어 폭(고정 CSS 값)을 읽어 높이를 직접 px 로 계산해 덮어쓴다.
       if (ring){
@@ -391,7 +392,8 @@
     //      미리 안 올림: 말 첫마디의 멈춤(>60ms) 16~42회 · 입모양 검사 3/14 실패
     //      미리 올림:    멈춤이 «캐릭터를 고르는 순간»(말하기 전)으로 옮겨 감 · 말하는 동안 >60ms 7회·최대 83ms
     //                    (원본은 전체 8회) · 입모양 검사 25/28 통과 — 실패 3회는 전부 1.3배속의 가장 짧은
-    //                    입모양(0.15초)이었고 원본은 38/38. 실제 폰 GPU 에서는 못 쟀습니다.
+    //                    입모양(0.15초)이었고 원본은 38/38. 그 3회는 아래 ✂️ (입·눈만 다시 깔기)로 없앴습니다.
+    //                    실제 폰 GPU 에서는 못 쟀습니다.
     //    ⛔ 1x1 같은 «작은» 캔버스에 그리면 소용없습니다 — 크롬은 128x129 보다 작은 캔버스를 GPU 로 안 그려
     //       업로드가 안 일어납니다(실측: 오히려 말 첫마디 멈춤이 200ms 까지). 다른 큰 캔버스도 안 됐습니다
     //       (실측 233ms) — «말할 때 쓰는 그 comp» 에 그려야 합니다.
@@ -405,7 +407,9 @@
       try {
         var a0 = ctx.globalAlpha; ctx.globalAlpha = 1/255;
         [face.base, face.mouths, face.transitions].forEach(function(im){ if (im.complete && im.naturalWidth) ctx.drawImage(im, 0, 0, 1, 1, 0, 0, 1, 1); });
-        ctx.globalAlpha = a0;
+        // ✂️ 줄인 얼굴 바탕 사본도 여기서 만들어 한 번 옮겨 둔다(말 첫마디에 만들면 그 프레임이 밀린다)
+        if (face.base.complete && face.base.naturalWidth) { var b0 = preciseBase(face, preciseCrop(face)); if (b0) ctx.drawImage(b0, 0, 0, 1, 1, 0, 0, 1, 1); }
+        ctx.globalAlpha = a0; preciseKey = '';
         present();
       } catch(e){ try{ ctx.globalAlpha = 1; }catch(_){} }
       return new Promise(function(res){
@@ -634,7 +638,7 @@
     function ensureIdle(){ if(IDLE) return; var c = CHARACTERS[curChar] || {};
       IDLE = video.currentSrc || (c.sources && c.sources[0] && c.sources[0][0]) || ''; }
     function preloadStill(url){
-      try{ var im=new Image(); im.onload=function(){ if(!drawing){ try{ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(im,0,0,canvas.width,canvas.height); }catch(e){} present(); } }; im.src=url; }catch(e){}
+      try{ var im=new Image(); im.onload=function(){ if(!drawing){ try{ preciseKey=''; ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(im,0,0,canvas.width,canvas.height); }catch(e){} present(); } }; im.src=url; }catch(e){}
     }
 
     // 초록 제거 크로마키: 초록 우세도(g - max(r,b)) 판정 + 가장자리 페더 + 스필 억제.
@@ -662,19 +666,86 @@
     }
     // 🎭 (v13) 얼굴을 comp 에 짜 맞춘 뒤 화면으로 옮긴다(머리 캐릭터면 그때 머리를 기울인다).
     function keyFrame(){ composeFrame(); present(); }
+    // ✂️ (v13) 입모양 캐릭터는 프레임마다 «바뀌는 곳»(입·눈 사각형)만 다시 깐다.
+    //    얼굴 전체(2배 comp = 640x800)를 매번 다시 그리면, 재생을 다시 시작하는 순간 메인 스레드가 밀려
+    //    1.3배속의 가장 짧은 입모양(0.15초)을 놓쳤습니다(아래 🔥 의 실패 3회).
+    //    [잰 것 — 2026-10-18, 헤드리스 크로미움 · CPU 4배 느리게]
+    //      말하는 동안 60ms 넘는 끊김(3회 측정): 통째로 그리기 3·6·4회 → 이 방식 3·2·0회
+    //      한 프레임 그리기 중앙값 1.2~1.3ms · 입모양 검사 25회 연속 실행(회당 18종) 모두 통과
+    //    ⚠️ 칸 안의 바탕은 원본을 다시 줄여 그리지 않고, 줄여 둔 사본(baseCv · comp 와 같은 크기)에서
+    //       장치 픽셀 정수 사각형을 1:1 로 옮깁니다(배율 1 · 잘라 그리기(clip) 없음).
+    //       잘라 그리기 안에서 원본을 다시 줄여 그리면 배율이 정수가 아닌 얼굴(emma·jake 1.25배)에서
+    //       GPU 표본이 달라져 최대 5/255, 잘라 그리기가 켜진 채 입을 그리면 emma 입이 ±2/255 달라졌습니다.
+    //       지금은 통째로 그린 것과 네 얼굴(lily·noah·emma·jake) 모두 0픽셀 차이(실측 2회).
+    //    ⚠️ 사각형은 2px 넉넉히 — 칸 밖은 앞 프레임 그대로라 이음매가 안 생깁니다.
+    //    ⚠️ 캐릭터·크기·배율·자르기가 바뀌거나 다른 경로가 comp 에 그리면 preciseKey 를 비워
+    //       다음 한 번은 통째로 그립니다(baseCv 는 자기 키로 따로 다시 만듭니다).
+    //    ⚠️ 메모리: 이 경로는 전환 섞기(fadeCv)를 안 쓰므로 그 사본을 비우고 baseCv 를 씁니다 —
+    //       다른 경로로 가면 반대로 baseCv 를 비웁니다(두 사본이 함께 커지지 않습니다).
+    var preciseKey = '', baseCv = null, baseKey = '';
+    // 입모양 그림 경로를 «지금» 쓰는가 — composeFrame 과 showTier 가 같은 판정을 쓴다.
+    function preciseReady(){
+      var pf = precisionFace();
+      return (pf && mouthCues && !clipActive && pf.base.complete && pf.base.naturalWidth &&
+              pf.mouths.complete && pf.mouths.naturalWidth) ? pf : null;
+    }
+    function preciseCrop(pf){
+      var bw = pf.base.naturalWidth, bh = pf.base.naturalHeight;
+      return { bx: bw*cropRect.l, by: bh*cropRect.t, sw: bw*(cropRect.r-cropRect.l), sh: bh*(cropRect.b-cropRect.t) };
+    }
+    // 줄인 얼굴 바탕 사본 — comp 와 같은 크기(장치 픽셀). 못 만들면 null(예전처럼 원본을 바로 그린다).
+    //    ⚠️ 화면 밖 캔버스를 못 만든 브라우저(comp 가 null — 화면 캔버스에 바로 그린다)도 null 로 —
+    //       여기서 comp.width 를 읽으면 그 프레임이 통째로 죽습니다.
+    function preciseBase(pf, c){
+      if (!comp) return null;
+      var key = curChar+'|'+comp.width+'x'+comp.height+'|'+c.bx+','+c.by+','+c.sw+','+c.sh;
+      if (baseCv && baseKey === key) return baseCv;
+      try {
+        if (!baseCv) baseCv = document.createElement('canvas');
+        if (baseCv.width !== comp.width || baseCv.height !== comp.height) { baseCv.width = comp.width; baseCv.height = comp.height; }
+        var bx2 = baseCv.getContext('2d');
+        bx2.clearRect(0, 0, baseCv.width, baseCv.height);
+        bx2.drawImage(pf.base, c.bx, c.by, c.sw, c.sh, 0, 0, baseCv.width, baseCv.height);
+        baseKey = key; return baseCv;
+      } catch(e){ baseKey = ''; return null; }
+    }
+    function releaseCv(cv){ if (cv && cv.width > 1) { cv.width = 1; cv.height = 1; } }   // 안 쓰는 사본은 비워 둔다(메모리)
+    // 바뀌는 칸(입·눈)만 줄여 둔 바탕 사본에서 1:1 로 다시 깐다 — 잘라 그리기(clip) 없이 장치 픽셀 사각형만 옮긴다.
+    function preciseRestore(base, r, bx, by, sw, sh){
+      try {
+        var cw = comp.width, ch = comp.height;
+        var boxes = [[r.x, r.y, r.w, r.h]], e = EYES[curChar];
+        if (e) boxes.push([e.x, e.y, e.w, e.h]);
+        ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+        for (var i = 0; i < boxes.length; i++){
+          var b = boxes[i];
+          var x0 = Math.max(0, Math.floor((b[0]-bx)/sw*cw) - 2), y0 = Math.max(0, Math.floor((b[1]-by)/sh*ch) - 2);
+          var x1 = Math.min(cw, Math.ceil((b[0]+b[2]-bx)/sw*cw) + 2), y1 = Math.min(ch, Math.ceil((b[1]+b[3]-by)/sh*ch) + 2);
+          if (x1 > x0 && y1 > y0) { ctx.clearRect(x0, y0, x1-x0, y1-y0); ctx.drawImage(base, x0, y0, x1-x0, y1-y0, x0, y0, x1-x0, y1-y0); }
+        }
+        ctx.restore();
+        return true;
+      } catch(err){ try { ctx.restore(); } catch(_){} return false; }
+    }
     function composeFrame(){
       var srcEl, vw, vh;
-      var pf=precisionFace(), precise=pf && mouthCues && !clipActive;
-      if(precise && pf.base.complete && pf.base.naturalWidth && pf.mouths.complete && pf.mouths.naturalWidth){
+      var pf=preciseReady();
+      if(pf){
         var stopped=!boundEl || boundEl.paused || boundEl.ended || buffering || !drawing;
         var sampled=(!stopped && window.AvatarVisemes.frame) ? window.AvatarVisemes.frame(mouthCues,boundEl.currentTime) : null;
         var pose=stopped ? 'X' : sampled ? sampled.pose : window.AvatarVisemes.at(mouthCues,boundEl.currentTime);
         if(!pf.rect.extra){if(pose==='G')pose='B';if(pose==='H')pose='C';}
         var ix='XABCDEFGH'.indexOf(pose), r=pf.rect;
-        var bw=pf.base.naturalWidth,bh=pf.base.naturalHeight;
-        var bx=bw*cropRect.l,by=bh*cropRect.t,sw=bw*(cropRect.r-cropRect.l),sh=bh*(cropRect.b-cropRect.t);
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        ctx.drawImage(pf.base,bx,by,sw,sh,0,0,canvas.width,canvas.height);
+        var c=preciseCrop(pf),bx=c.bx,by=c.by,sw=c.sw,sh=c.sh;
+        if(fadeData || (fadeCv && fadeCv.width > 1)){ fadeData=null; releaseCv(fadeCv); }   // 이 경로는 전환 섞기를 안 쓴다
+        var base=preciseBase(pf,c);
+        var pKey=curChar+'|'+canvas.width+'x'+canvas.height+'|'+COMP_S+'|'+bx+','+by+','+sw+','+sh;
+        var part=base && (pKey===preciseKey) && preciseRestore(base,r,bx,by,sw,sh);
+        if(!part){
+          preciseKey=base ? pKey : ''; ctx.clearRect(0,0,canvas.width,canvas.height);
+          if(base) ctx.drawImage(base,0,0,canvas.width,canvas.height);   // comp 배율이 걸려 있어 장치 픽셀 1:1
+          else ctx.drawImage(pf.base,bx,by,sw,sh,0,0,canvas.width,canvas.height);
+        }
         drawEyes(bx,by,sw,sh);
         var tile=sampled && sampled.tile,transition=sampled && tile>=0 && pf.transitions.complete && pf.transitions.naturalWidth;
         // Reviewed Noah wide-open/rest morphs double the teeth. Use the exact
@@ -687,6 +758,7 @@
           (r.x-bx)/sw*canvas.width,(r.y-by)/sh*canvas.height,r.w/sw*canvas.width,r.h/sh*canvas.height);
         return;
       }
+      preciseKey=''; if(baseKey){ baseKey=''; releaseCv(baseCv); }
       if (imgFrames){
         srcEl = imgCur;
         if (!srcEl || !srcEl.complete || !srcEl.naturalWidth) return;   // 아직 안 받았으면 다음 프레임에
@@ -776,7 +848,7 @@
         var imN = imgFrames[tier];
         if(!imN || !imN.complete || !imN.naturalWidth) return;
         if(!immediate && now - lastSwitchAt < curHold) return;
-        fadeSnap(now);
+        if(!preciseReady()) fadeSnap(now);   // ✂️ 입모양 그림 경로는 섞기를 안 쓴다 — comp 통째 사본(2배)을 안 뜬다
         curTier = tier; lastSwitchAt = now; imgCur = imN;
         return;
       }
