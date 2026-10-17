@@ -10,8 +10,11 @@
  *   ③ 탭이 숨겨지면 멈추고(타이머 0개), 다시 보이면 다시 건다 · 캔버스가 빠지면 멈춘다
  *   ④ 눈썹: 크게 말할 때만, 말 첫마디 뒤에, 잠깐 — 조용히 말할 때는 안 올린다(짝)
  *      말이 끝나면(pause) 내린다 · 눈썹 중에는 깜빡이지 않는다
- *   ⑤ 눈 그림이 없는 캐릭터(영상 캐릭터 jake)로 바꾸면 깜빡임 타이머·숨쉬기가 꺼진다(짝: lily 는 켜져 있었다)
+ *   ⑤ 눈 그림이 없는 캐릭터(영상 캐릭터 emma_classic)로 바꾸면 깜빡임 타이머·숨쉬기가 꺼진다(짝: lily 는 켜져 있었다)
  *   ⑤-2 (v11, 2026-10-18) emma·mei·long 도 «자기» 눈 그림으로 깜빡이고 숨쉬기가 켜진다
+ *   ⑤-3 (v12, 2026-10-18) 영상 캐릭터 jake 도 깜빡이고 숨쉰다 — 단 영상이 «멈춰 있고»(seek·재생 중 아님)
+ *        허용 포즈(closed·medium·첫 프레임)일 때만 눈을 얹는다(짝: 재생 중·seek 중·wide 포즈에는 안 얹는다)
+ *        · 눈썹 칸이 원본이라 눈썹 올림은 끈다(brow:false)
  *   ⑥ 눈 그림을 못 받으면 깜빡임만 없고 얼굴은 그대로 그린다(실패해도 빈 얼굴이 되지 않게)
  *   ⑦ 상주 setInterval 이 없다(주석을 벗긴 코드로 판정) · 움직임 줄이기 설정을 따른다
  */
@@ -27,7 +30,7 @@ let pass = 0, fail = 0;
 const ok = (c, m, extra) => { c ? (pass++, console.log('  ✅ ' + m)) : (fail++, console.log('  ❌ ' + m + (extra ? '\n       · ' + extra : ''))); };
 const statSafe = p => { try { return statSync(p); } catch { return null; } };
 
-console.log('■ 아바타 살아 있는 얼굴 (js/mango-avatar.js v10)');
+console.log('■ 아바타 살아 있는 얼굴 (js/mango-avatar.js v10~v12)');
 const AV = readFileSync(SRC_FILE, 'utf8');
 
 /* 주석 벗기기 — 글자를 훑으며 «블록주석 안인가 · 문자열 안인가» 를 함께 추적한다
@@ -246,14 +249,15 @@ ok(eyeDraws().length === 0 && draws.length >= 1, '말이 끝나면(pause) 올린
 
 /* ── ⑤ 눈 그림이 없는 캐릭터 ─────────────────────────────────────────── */
 console.log('\n■ ⑤ 눈 그림이 없는 캐릭터로 바꾸면 꺼진다');
-// 영상 캐릭터(jake)에는 눈 그림이 없다 — EYES 에 그 이름이 «정말 없는지» 를 전제로 둔다
-// (나중에 jake 에도 눈 그림을 넣으면 이 절은 다른 «눈 없는» 캐릭터로 옮겨야 합니다).
-ok(!!EYES && !EYES.jake, '(전제) jake 는 EYES 에 없다');
-av.setCharacter('jake'); await flush();
-ok(!classes.has('mg-alive'), 'jake: 숨쉬기 클래스가 빠진다');
-ok(blinkTimers() === 0, `jake: 깜빡임 타이머가 없다 (${blinkTimers()})`);
+// 옛 영상 캐릭터(emma_classic)에는 눈 그림이 없다 — EYES 에 그 이름이 «정말 없는지» 를 전제로 둔다
+// (v12 에서 jake 에 눈 그림이 생겨 이 절을 emma_classic 으로 옮겼습니다. 거기에도 넣으면 또 옮길 것).
+const NO_EYES = 'emma_classic';
+ok(!!EYES && !EYES[NO_EYES] && !!EYES.jake, `(전제) ${NO_EYES} 는 EYES 에 없고 jake 는 있다`);
+av.setCharacter(NO_EYES); await flush();
+ok(!classes.has('mg-alive'), `${NO_EYES}: 숨쉬기 클래스가 빠진다`);
+ok(blinkTimers() === 0, `${NO_EYES}: 깜빡임 타이머가 없다 (${blinkTimers()})`);
 draws = []; advance(20000);
-ok(eyeDraws().length === 0, 'jake: 시간이 지나도 눈 패치를 그리지 않는다');
+ok(eyeDraws().length === 0, `${NO_EYES}: 시간이 지나도 눈 패치를 그리지 않는다`);
 av.setCharacter('noah'); await flush();
 ok(classes.has('mg-alive') && blinkTimers() === 1, 'noah 로 돌아오면 다시 켜진다(짝)');
 draws = []; advance(6000);
@@ -264,7 +268,7 @@ ok(nz.length >= 1 && /noah-eyes\.webp$/.test(nz[0].src), `noah: 자기 눈 그�
 console.log('\n■ ⑤-2 emma·mei·long 도 자기 눈 그림으로 깜빡인다');
 for (const name of ['emma', 'mei', 'long']) {
   ok(!!EYES && !!EYES[name], `${name}: EYES 에 사각형이 있다`);
-  av.setCharacter('jake'); await flush();          // 한 번 «눈 없는» 상태로 만든 뒤 바꾼다(짝)
+  av.setCharacter(NO_EYES); await flush();         // 한 번 «눈 없는» 상태로 만든 뒤 바꾼다(짝)
   ok(!classes.has('mg-alive') && blinkTimers() === 0, `(전제) ${name} 로 바꾸기 전에는 꺼져 있다`);
   av.setCharacter(name); await flush();
   ok(classes.has('mg-alive'), `${name}: 숨쉬기 클래스가 붙는다`);
@@ -275,6 +279,56 @@ for (const name of ['emma', 'mei', 'long']) {
   ok(ez.some(d => d.a[0] === EYES[name].w), `${name}: 감음(1칸)까지 간다`);
   ok(ez.length >= 1 && ez[0].a[2] === EYES[name].w && ez[0].a[3] === EYES[name].h, `${name}: 눈 그림을 «그 캐릭터의» 사각형 크기로 잘라 온다`);
 }
+
+/* ── ⑤-3 영상 캐릭터 jake (v12) ────────────────────────────────────── */
+console.log('\n■ ⑤-3 jake(영상) — 멈춘 허용 포즈에서만 눈을 얹는다');
+video.videoWidth = 512; video.videoHeight = 512; video.paused = true; video.seeking = false; video.currentTime = 0;
+av.setCharacter(NO_EYES); await flush();
+av.setCharacter('jake'); await flush();
+ok(classes.has('mg-alive'), 'jake: 숨쉬기 클래스가 붙는다');
+ok(blinkTimers() === 1, `jake: 깜빡임 타이머가 정확히 1개다 (${blinkTimers()})`);
+draws = []; advance(2200 + R * 3800);
+const jz = eyeDraws();
+ok(jz.length === 1 && /\/jake-eyes\.webp$/.test(jz[0].src) && jz[0].a[0] === 0, `멈춘 첫 프레임(t=0)에서 «자기» 반감음(0칸)을 그린다 (${jz[0] ? jz[0].src + ' sx=' + jz[0].a[0] : '없음'})`);
+if (jz[0] && EYES && EYES.jake) {
+  // 영상 원본 512x512 · rect t=16/512 → 잘라 온 사각형 (0,16,512,496). 그 사각형 기준으로 눈 자리에 그려야 한다.
+  const [sx, sy, sw, sh, dx, dy, dw, dh] = jz[0].a, r = EYES.jake, W = canvas.width, H = canvas.height;
+  ok(sy === 0 && sw === r.w && sh === r.h, `jake: 그림에서 한 칸(${r.w}x${r.h})만 잘라 온다`);
+  ok(Math.abs(dx - r.x / 512 * W) < 0.01 && Math.abs(dy - (r.y - 16) / 496 * H) < 0.01 &&
+     Math.abs(dw - r.w / 512 * W) < 0.01 && Math.abs(dh - r.h / 496 * H) < 0.01,
+    `jake: 영상 원본 px 기준으로 눈 자리에 그린다 (dx=${dx.toFixed(1)}, dy=${dy.toFixed(1)}, ${dw.toFixed(1)}x${dh.toFixed(1)} / 캔버스 ${W}x${H})`);
+}
+advance(50);
+ok(lastEyeCol('jake') === 1, `jake: 50ms 뒤 «감음»(1칸) (${lastEyeCol('jake')})`);
+advance(1000);
+// 짝 ① 재생 중(음성합성 말하기 — 영상이 돈다)에는 얹지 않는다
+video.paused = false; draws = []; advance(6000);
+ok(draws.length >= 1 && eyeDraws().length === 0, `jake: 영상이 «재생 중» 이면 깜빡일 차례가 와도 눈을 얹지 않는다 (그림 ${draws.length} · 눈 ${eyeDraws().length})`);
+video.paused = true;
+// 짝 ② seek 중(포즈 전환이 아직 안 끝남)에는 얹지 않는다
+video.seeking = true; draws = []; advance(6000);
+ok(draws.length >= 1 && eyeDraws().length === 0, 'jake: seek 중이면 눈을 얹지 않는다');
+video.seeking = false;
+advance(1000);                     // 진행 중이던 깜빡임을 끝까지 보내 다음 «blink» 예약만 남긴다
+// 짝 ③ 말하는 중 wide 포즈(고개가 기운 순간)는 건너뛰고, closed 로 돌아오면 다시 얹는다
+parkBlinks();
+a.paused = false; a.emit('playing');
+LEVEL = 180; T += 3000; frame();
+ok(video.currentTime === 3.5, `(전제) 크게 말하면 wide 포즈(3.5초)로 멈춘다 (${video.currentTime})`);
+const jb = timers.find(t => t.fn.name === 'blink');
+ok(!!jb, '(전제) jake 깜빡임 타이머가 살아 있다');
+if (jb) jb.at = T + 1;
+advance(1); draws = []; frame();
+ok(draws.length >= 1 && eyeDraws().length === 0, 'jake: wide 포즈에서는 눈 감는 차례라도 눈을 얹지 않는다(고개가 기울어 어긋남)');
+LEVEL = 128; T += 300; draws = []; frame();
+ok(video.currentTime === 3.2, `(전제) 조용해지면 closed 포즈(3.2초)로 돌아온다 (${video.currentTime})`);
+ok(eyeDraws().length === 1 && /\/jake-eyes\.webp$/.test(eyeDraws()[0].src), 'jake: closed 포즈로 돌아오면 그 깜빡임을 얹는다(짝)');
+advance(1000); parkBlinks();
+// 눈썹 칸이 원본이라 jake 는 눈썹을 올리지 않는다 — 크게 오래 말한 뒤 closed 로 와도 2칸이 안 나온다
+LEVEL = 180; T += 5000; frame(); frame();
+LEVEL = 128; T += 300; draws = []; frame();
+ok(!eyeDraws().some(d => d.a[0] === 2 * EYES.jake.w), `jake: 눈썹 올림(2칸)을 쓰지 않는다 (brow:false)`);
+a.paused = true; a.emit('pause');
 
 /* ── ⑥ 눈 그림을 못 받으면 ───────────────────────────────────────────── */
 console.log('\n■ ⑥ 눈 그림을 못 받으면 깜빡임만 없다');

@@ -106,6 +106,15 @@
        ⚠️ 사각형은 «그 캐릭터 초상화의 원본 px» 기준입니다 — emma 는 512x640(emma-v2-rest.webp),
           나머지는 640x800. 눈 그림은 «다문 입» 장에서 만들었습니다(입 3장의 눈 부위 차이 실측:
           emma 0 · mei 최대 9 · long 평균 6 — 그 위에 얹어도 이음매가 안 보이는 수준). */
+/* v12: (2026-10-18) 사장님 「Jake 도 살아있는 것처럼 눈을 깜박거리고 머리도 조금 움직이게」 —
+       영상 캐릭터 Jake 에도 깜빡임·숨쉬기를 붙였습니다. 눈 그림은 «Jake 영상 자기 프레임» 에서
+       만들었습니다(새 얼굴을 생성하지 않음 — 생성 모델이 Jake 얼굴을 거절한 전력이 있고, 같은
+       사람이어야 하므로): 기준 f_081(3.2초, 다문 입 포즈) · 반감음 f_020 · 감음 f_016.
+       ⚠️ 영상은 «멈춰 있을 때만» 눈을 얹습니다(video.paused && !seeking) — 재생 중(음성합성
+          말하기)에는 영상 자신의 깜빡임이 이미 있고, 움직이는 프레임에 고정 패치를 얹으면 어긋납니다.
+       ⚠️ 'wide'(3.5초) 포즈는 고개가 약 1° 기울어 눈이 2~4px 어긋나므로(눈 부위 ECC 실측) 건너뜁니다
+          (eyeTiers). closed·medium·첫 프레임(t=0)은 1px 안쪽이라 그대로 얹습니다.
+       ⚠️ Jake 의 눈썹 칸은 원본 그대로입니다(올린 눈썹 그림이 없음) — brow:false 로 눈썹 올림을 끕니다. */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -329,7 +338,16 @@
     //   emma 만 512x640(emma-v2-rest.webp), 나머지는 640x800.
     //   eyeState: 0 원본 · 1 반감음 · 2 감음 · 3 눈썹 올림 (= 눈 그림의 칸 번호 + 1)
     var EYES={lily:{x:226,y:204,w:202,h:84},noah:{x:192,y:238,w:260,h:92},
-      emma:{x:151,y:174,w:213,h:80},mei:{x:206,y:220,w:236,h:84},long:{x:210,y:214,w:224,h:86}};
+      emma:{x:151,y:174,w:213,h:80},mei:{x:206,y:220,w:236,h:84},long:{x:210,y:214,w:224,h:86},
+      // jake 는 영상(512x512 원본 px). 멈춘 포즈 중 eyeTiers 에 적힌 것에서만 얹는다(v12).
+      // ⚠️ 이 표 안에 중첩 객체를 두지 마세요 — 하니스가 «한 겹» 짜리로 읽습니다(avatar_smile_folds).
+      jake:{x:160,y:207,w:194,h:66,brow:false,eyeTiers:' closed medium '}};
+    // 영상 캐릭터에 눈을 얹어도 되는 순간인가 — 멈춰 있고(seek·클립 중 아님) 허용된 포즈(또는 첫 프레임)일 때만.
+    function videoEyesOk(){
+      var e=EYES[curChar];
+      if(!e || !e.eyeTiers || clipActive || !video.paused || video.seeking) return false;
+      return curTier===null || e.eyeTiers.indexOf(' '+curTier+' ')>=0;
+    }
     var eyeImg=null, eyeOk=false, eyeFor='', eyeState=0, eyeTimer=0, browUntil=0, browNext=0, loudNow=false;
     function injectAliveCss(){
       try{
@@ -457,7 +475,7 @@
       //    (초록 영상은 불투명이라 지우든 안 지우든 결과가 같다)
       try { ctx.clearRect(0,0,canvas.width,canvas.height);
             ctx.drawImage(srcEl, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-            if (imgFrames) drawEyes(sx, sy, sw, sh); } catch(e){ return; }
+            if (imgFrames || videoEyesOk()) drawEyes(sx, sy, sw, sh); } catch(e){ return; }
       // 초록을 지울 필요도 없고(이미 투명) 섞을 것도 없으면 픽셀을 아예 만지지 않는다 —
       // getImageData/putImageData 가 폰에서 제일 비싼 구간이라 그만큼 가벼워진다.
       if (!keyedNow && !fadeData) return;
@@ -572,7 +590,7 @@
       // 👁 (v10) 눈썹 — 크게 벌린 입(강세) 순간에 가끔, 짧게. 깜빡이는 중에는 걸지 않는다.
       var nowB = Date.now();
       if(eyeState===3 && nowB>=browUntil) eyeState=0;
-      else if(loudNow && eyeOk && eyeState===0 && nowB>=browNext){
+      else if(loudNow && eyeOk && eyeState===0 && nowB>=browNext && EYES[curChar] && EYES[curChar].brow!==false){
         browNext = nowB + 3500 + Math.random()*4500;
         if(Math.random() < 0.55){ browUntil = nowB + 420 + Math.random()*260; eyeState=3; }
       }
