@@ -227,13 +227,20 @@
     if(!video || !canvas) return;
     // 🎭 (v13) 얼굴은 화면 밖 캔버스(comp)에 그리고 present() 가 화면 캔버스(vctx)로 옮긴다 —
     //    그 사이에서 머리만 기울인다. comp 를 못 만들면 예전처럼 화면 캔버스에 바로 그린다.
-    var ctx = null, vctx = null, comp = null;
-    try { comp = document.createElement('canvas'); ctx = comp.getContext('2d', { willReadFrequently:true }); } catch(e){ ctx = null; }
-    if (ctx && typeof ctx.drawImage === 'function') {
+    //    ⚠️ comp 는 «둘» 입니다 — 초록 지우기(getImageData)를 하는 영상 캐릭터는 픽셀 읽기용(compR),
+    //       투명 그림 캐릭터는 그리기 전용(compG). setAspect 가 캐릭터에 맞춰 고릅니다.
+    //       ⛔ 그림 캐릭터까지 픽셀 읽기용으로 두지 마세요 — 화면으로 옮길 때마다 통째로 다시 올려 보내
+    //          말하는 동안 프레임이 줄어 짧은 입모양을 놓칩니다(실측 — CPU 4배 제한 2초 발화:
+    //          main 90~93프레임 → 76~77, 그리기 전용으로 84~92).
+    var ctx = null, vctx = null, comp = null, compR = null, ctxR = null, compG = null, ctxG = null;
+    try { compR = document.createElement('canvas'); ctxR = compR.getContext('2d', { willReadFrequently:true }); } catch(e){ ctxR = null; }
+    try { compG = document.createElement('canvas'); ctxG = compG.getContext('2d'); } catch(e){ ctxG = null; }
+    if (!ctxG || typeof ctxG.drawImage !== 'function') { compG = compR; ctxG = ctxR; }   // 하나만 되면 그 하나로
+    if (ctxR && typeof ctxR.drawImage === 'function') {
       try { vctx = canvas.getContext('2d'); } catch(e){ vctx = null; }
     }
-    if (!vctx) { comp = null; vctx = null; ctx = canvas.getContext('2d', { willReadFrequently:true }); }
-    else { comp.width = canvas.width; comp.height = canvas.height; }
+    if (!vctx) { comp = compR = compG = null; ctxR = ctxG = null; vctx = null; ctx = canvas.getContext('2d', { willReadFrequently:true }); }
+    else { comp = compR; ctx = ctxR; comp.width = canvas.width; comp.height = canvas.height; }
     var raf = 0, drawing = false, IDLE = null, clipActive = false;
     // ⚠️ 2배는 «머리 캐릭터 + 투명 그림(keyed:false)» 만 — 초록 지우기(getImageData 픽셀 루프)를
     //    쓰는 영상 캐릭터는 1배 그대로(2배면 픽셀 일이 4배가 됩니다).
@@ -277,11 +284,15 @@
       //    기울일 때 한 번만 줄여야 흐려지지 않는다(1배로 짜고 기울이면 얼굴이 눈에 띄게 뿌예집니다).
       //    ⚠️ 이때 ctx 는 «320 기준 좌표» 그대로 쓰도록 배율을 걸어 둔다(그리는 코드는 그대로).
       if (comp) {
+        var kc = CHARACTERS[curChar], keyed = !(kc && kc.keyed === false);
+        comp = keyed ? compR : compG; ctx = keyed ? ctxR : ctxG;
+        var idleComp = keyed ? compG : compR;
+        if (idleComp && idleComp !== comp && idleComp.width > 1) { idleComp.width = 1; idleComp.height = 1; }   // 안 쓰는 쪽은 비워 둔다(메모리)
         COMP_S = compScaleFor(curChar);
         comp.width = canvas.width * COMP_S; comp.height = canvas.height * COMP_S;
         try { ctx.setTransform(COMP_S, 0, 0, COMP_S, 0, 0); } catch(e){}
       }
-      maskFor = ''; layersDirty = true;      // 🎭 (v13) 크기가 바뀌면 머리 경계·층을 다시 만든다
+      maskFor = '';      // 🎭 (v13) 크기가 바뀌면 머리 경계를 다시 만든다
       // CSS aspect-ratio 로 카드 높이를 자동 계산하려 했으나, 전환(transition) 시 실제
       // 레이아웃에 반영 안 되는 문제가 있어 폭(고정 CSS 값)을 읽어 높이를 직접 px 로 계산해 덮어쓴다.
       if (ring){
@@ -310,7 +321,7 @@
       var c = CHARACTERS[name]; if(!c) return;
       keyedNow = (c.keyed !== false);
       mountEyes(name);   // 👁 (v10) 눈 그림이 있는 캐릭터만 깜빡임·숨쉬기를 켠다(없으면 끈다)
-      maskFor = ''; layersDirty = true; swayKick();   // 🎭 (v13) 머리 움직임도 캐릭터를 따라간다
+      maskFor = ''; swayKick();   // 🎭 (v13) 머리 움직임도 캐릭터를 따라간다
       if (c.frames){ mountImages(name, c); return; }
       imgFrames = null; imgCur = null;
       try{
@@ -452,7 +463,7 @@
     var SWAY_ROT_DEG = 1.0, SWAY_NOD = 0.007, SWAY_TALK = 1.35, SWAY_IDLE_MS = 48;
     var swayPh = [Math.random()*6.283, Math.random()*6.283, Math.random()*6.283, Math.random()*6.283];
     var swayAmp = 1, swayAmpAt = 0, swayRaf = 0, swayTo = 0, swayLastAt = 0, swayVis = true, swayMq = null;
-    var headCv = null, maskCv = null, maskFor = '', layersDirty = true;
+    var headCv = null, maskCv = null, maskFor = '';
     try{ swayMq = (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)')) || null; }catch(e){ swayMq = null; }
     function swayReduced(){ return !!(swayMq && swayMq.matches); }
     function swayGeom(W, H){
@@ -490,41 +501,43 @@
         }
       }
       mx.putImageData(md, 0, 0);
-      maskFor = key; layersDirty = true;
+      maskFor = key;
       return true;
     }
-    // comp 에서 «머리 몫»(경계 위)만 오려 둔다 — 얼굴이 바뀔 때만 다시 만든다.
-    function swayLayers(W, H){
+    // 기운 머리 층(화면 크기) — comp(2배)를 «기울이면서» 한 번에 줄여 담고, 같은 각도의 경계로 오린다.
+    //   ⚠️ 머리 층을 2배로 들고 있으면 말하는 동안 프레임마다 2배 크기 그리기가 두 번 늘어
+    //      짧은 입모양을 놓칩니다(실측: CPU 4배 제한에서 한 프레임 중앙 0.7ms → 7~8ms, 입모양 검사 시간초과).
+    //      줄이기는 여기서 «한 번» 뿐이라 선명도는 그대로입니다.
+    function swayLayers(W, H, tilt){
       if (!swayMask(W, H)) return false;
-      if (!layersDirty && headCv) return true;
       if (!headCv) headCv = document.createElement('canvas');
-      var cw = comp.width, ch = comp.height;          // comp 와 같은 «2배» 크기로 들고 있는다
-      if (headCv.width !== cw || headCv.height !== ch){ headCv.width = cw; headCv.height = ch; }
+      if (headCv.width !== W || headCv.height !== H){ headCv.width = W; headCv.height = H; }
       var x = headCv.getContext('2d');
-      x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, cw, ch); x.drawImage(comp, 0, 0);
-      x.globalCompositeOperation = 'destination-in'; x.drawImage(maskCv, 0, 0, cw, ch);
-      x.globalCompositeOperation = 'source-over';
-      layersDirty = false;
+      x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, W, H);
+      tilt(x); x.drawImage(comp, 0, 0, W, H);
+      x.globalCompositeOperation = 'destination-in'; x.drawImage(maskCv, 0, 0, W, H);
+      x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over';
       return true;
     }
     // comp → 화면. 머리 캐릭터면 «몸 + 기운 머리», 아니면 그대로 옮긴다.
     //   ① 기운 경계(마스크)를 먼저 깔고 ② 'source-out' 으로 그 밖에만 comp(몸)를 두고
-    //   ③ 'lighter' 로 기운 머리를 더한다 — 몸 몫이 «기운» 경계의 나머지라서 목에서 알파가 정확히 1.
+    //   ③ 'lighter' 로 기운 머리 층(이미 기울여 오린 것)을 더한다 — 몸 몫이 «기운» 경계의 나머지라서
+    //      목에서 알파가 정확히 1.
     //   ⛔ 몸을 «기울기 전» 경계로 오려 두지 마세요: 머리가 옆으로 기울면 경계가 위아래로 어긋나
     //      목에 반투명한 띠(실측 알파 245/255)가 생깁니다.
     function present(){
       if (!vctx || !comp) return;
       var W = canvas.width, H = canvas.height, pose = null;
-      var tilt = function(){ vctx.translate(pose.px, pose.py); vctx.rotate(pose.rot); vctx.scale(1, pose.sy); vctx.translate(-pose.px, -pose.py); };
+      var tilt = function(c){ c.translate(pose.px, pose.py); c.rotate(pose.rot); c.scale(1, pose.sy); c.translate(-pose.px, -pose.py); };
       try {
         pose = swayPose(W, H);
         vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.globalCompositeOperation = 'source-over';
         vctx.clearRect(0, 0, W, H);
-        if (!pose || !swayLayers(W, H)) { vctx.drawImage(comp, 0, 0, W, H); return; }
-        tilt(); vctx.drawImage(maskCv, 0, 0, W, H);
+        if (!pose || !swayLayers(W, H, tilt)) { vctx.drawImage(comp, 0, 0, W, H); return; }
+        tilt(vctx); vctx.drawImage(maskCv, 0, 0, W, H);
         vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.globalCompositeOperation = 'source-out';
         vctx.drawImage(comp, 0, 0, W, H);
-        vctx.globalCompositeOperation = 'lighter'; tilt();
+        vctx.globalCompositeOperation = 'lighter';
         vctx.drawImage(headCv, 0, 0, W, H);
       } catch(e) {
         try { vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.globalCompositeOperation = 'source-over'; vctx.clearRect(0, 0, W, H); vctx.drawImage(comp, 0, 0, W, H); } catch(_){}
@@ -589,7 +602,7 @@
     function ensureIdle(){ if(IDLE) return; var c = CHARACTERS[curChar] || {};
       IDLE = video.currentSrc || (c.sources && c.sources[0] && c.sources[0][0]) || ''; }
     function preloadStill(url){
-      try{ var im=new Image(); im.onload=function(){ if(!drawing){ try{ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(im,0,0,canvas.width,canvas.height); }catch(e){} layersDirty=true; present(); } }; im.src=url; }catch(e){}
+      try{ var im=new Image(); im.onload=function(){ if(!drawing){ try{ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(im,0,0,canvas.width,canvas.height); }catch(e){} present(); } }; im.src=url; }catch(e){}
     }
 
     // 초록 제거 크로마키: 초록 우세도(g - max(r,b)) 판정 + 가장자리 페더 + 스필 억제.
@@ -616,7 +629,7 @@
       try { fadeData = ctx.getImageData(0,0,canvas.width,canvas.height); fadeT0 = now; } catch(e){ fadeData = null; }
     }
     // 🎭 (v13) 얼굴을 comp 에 짜 맞춘 뒤 화면으로 옮긴다(머리 캐릭터면 그때 머리를 기울인다).
-    function keyFrame(){ composeFrame(); layersDirty = true; present(); }
+    function keyFrame(){ composeFrame(); present(); }
     function composeFrame(){
       var srcEl, vw, vh;
       var pf=precisionFace(), precise=pf && mouthCues && !clipActive;

@@ -7,12 +7,15 @@
  *   ① HEAD 표: 그림 캐릭터가 다 있고, 머리 경계(y1)가 눈 칸·입 칸 «아래» 이며, 축이 눈 칸 안에 있고,
  *      원본 크기(w·h)가 실제 그림 파일과 같다 · 영상 캐릭터에는 없다
  *   ② 그리는 순서: 기운 경계 → 'source-out' 으로 몸 → 'lighter' 로 기운 머리 (몸은 안 기운다)
+ *      머리 층은 «화면 크기» 로, comp 를 경계와 «같은 각도» 로 기울여 담은 뒤 같은 각도의 경계로 오린다.
  *   ③ 크기: 최대 기울기 ≤ 1°(말할 때 ≤ 1.35°) · 실제로 움직인다(짝) · 끄덕임 ≤ 0.7%
  *   ④ 머리 경계 그림: 목 가운데에서는 y1 위 = 머리, y2 아래 = 몸 · 목 밖에서는 경계가 위로 올라간다
  *   ⑤ 쉬는 동안: 초당 약 20번만 그린다 · 탭이 숨으면/화면 밖이면/움직임 줄이기면 멈추고 다시 켜진다(짝)
  *   ⑥ 말하는 동안: 그리기 루프 하나만 돈다(rAF 가 겹치지 않는다) · 말이 끝나면 쉬는 움직임으로 돌아간다
  *   ⑦ 영상 캐릭터(jake_classic — 2026-10-18 부터 jake 는 그림 캐릭터)로 바꾸면 안 기운다 · 머리 캐릭터로 돌아오면 다시 켜진다(짝)
  *   ⑧ 2배 comp: 머리 캐릭터는 comp 가 640 폭(원본 그대로) · 영상 캐릭터는 320 폭
+ *      그리고 comp 가 «둘» 이다 — 그림 캐릭터는 그리기 전용(GPU), 초록 지우기 영상 캐릭터만 픽셀 읽기용.
+ *      안 쓰는 쪽은 1x1 로 비운다(메모리).
  *   ⑨ 전환 섞기: 투명 그림 캐릭터는 캔버스 사본으로 섞는다(getImageData 픽셀 루프 없이)
  *   ⑩ 화면 밖 캔버스를 못 만들면: 예전처럼 화면에 바로 그리고 안 기운다(실패해도 얼굴은 그대로)
  *   ⑪ 상주 setInterval 이 없다
@@ -207,11 +210,17 @@ function lastPresent() {
   return i < 0 ? [] : o.slice(i + 1).filter(x => x.op === 'draw');
 }
 const presents = () => vops().filter(x => x.op === 'clear').length;
-const comp = created[0];
+// 화면 밖 comp 는 둘이다 — created[0] = 픽셀 읽기용(초록 지우기 영상 캐릭터), created[1] = 그리기 전용(그림 캐릭터).
+const compR = created[0], compG = created[1];
+let comp = compG;   // 지금(lily) 쓰는 쪽 — 그림 캐릭터라 그리기 전용
 
 /* ── ⑧ 2배 comp ─────────────────────────────────────────────────────── */
 console.log('\n■ ⑧ 머리 캐릭터는 comp 를 원본 해상도(2배)로 짠다');
-ok(!!comp && comp.ctxOpts && comp.ctxOpts.willReadFrequently === true, '(전제) 화면 밖 캔버스(comp)를 만들었고 픽셀 읽기용으로 열었다');
+ok(!!compR && !!compG && compR !== compG, `(전제) 화면 밖 comp 를 둘 만들었다 (${created.length}개 중 앞 둘)`);
+ok(!!compR && compR.ctxOpts && compR.ctxOpts.willReadFrequently === true, '초록 지우기용 comp 는 픽셀 읽기용으로 연다(getImageData 를 매 프레임 부른다)');
+ok(!!compG && !(compG.ctxOpts && compG.ctxOpts.willReadFrequently), '그림 캐릭터용 comp 는 그리기 전용으로 연다 — 픽셀 읽기용이면 화면으로 옮길 때마다 올려 보내야 해 말하는 동안 프레임이 줄어듭니다',
+  '실측(CPU 4배 제한·2초 말하기): 그림 캐릭터 comp 를 픽셀 읽기용으로 두면 프레임 76~77 · 그리기 전용이면 83~91 (원본 90~93) — 입모양 검사가 짧은 G 를 놓쳤습니다');
+ok(!!compR && compR.width === 1 && compR.height === 1, `그림 캐릭터일 때 안 쓰는 픽셀 읽기용 comp 는 1x1 로 비운다 (${compR && compR.width}x${compR && compR.height})`, '두 장을 다 들고 있으면 메모리만 씁니다');
 ok(!(canvas.ctxOpts && canvas.ctxOpts.willReadFrequently), '화면 캔버스는 픽셀 읽기용으로 안 연다(그리기만 — 가볍게)');
 ok(comp && comp.width === 640 && comp.height === 800 && comp.ctx.st.base === 2,
   `lily: comp 가 640x800 이고 320 좌표 그대로 그리도록 2배가 걸렸다 (${comp && comp.width}x${comp && comp.height} · 배율 ${comp && comp.ctx.st.base})`,
@@ -221,22 +230,43 @@ ok(comp && comp.width === 640 && comp.height === 800 && comp.ctx.st.base === 2,
 console.log('\n■ ② 그리는 순서 — 기운 경계 → 몸(source-out) → 기운 머리(lighter)');
 T += 1000; frame();
 let P = lastPresent();
+// 머리 층(head) 을 «한 장» 만들 때의 그리기 — 마지막 clear 뒤의 draw 묶음.
+function headBuild(cv) {
+  const o = (cv && cv.ctx.ops) || []; let i = o.length - 1;
+  while (i >= 0 && o[i].op !== 'clear') i--;
+  return i < 0 ? [] : o.slice(i + 1).filter(x => x.op === 'draw');
+}
+const headCv = P.length === 3 ? P[2].src : null;
 ok(P.length === 3, `한 장에 drawImage 가 정확히 셋이다 (${P.length})`);
 if (P.length === 3) {
   ok(P[0].rot !== 0 && P[0].gco === 'source-over' && P[0].src !== comp, `① 기운 경계 그림을 먼저 깐다 (기울기 ${(P[0].rot * 180 / Math.PI).toFixed(3)}°)`);
   ok(P[1].src === comp && P[1].gco === 'source-out' && P[1].rot === 0 && P[1].sy === 1, '② 몸은 «안 기운» comp 를 경계 밖에만 둔다(source-out)', '몸이 기울면 어깨가 흔들립니다');
-  ok(P[2].src !== comp && P[2].src !== P[0].src && P[2].gco === 'lighter' && P[2].rot === P[0].rot && P[2].sy === P[0].sy,
-    '③ 머리는 경계와 «같은» 각도로 기울여 lighter 로 더한다', '각도가 다르면 목에 반투명한 띠가 생깁니다(브라우저 실측 알파 245/255)');
+  ok(P[2].src !== comp && P[2].src !== P[0].src && P[2].gco === 'lighter' && P[2].rot === 0 && P[2].sy === 1,
+    '③ 화면에는 «이미 기울여 오린» 머리 층을 그대로(안 기울이고) lighter 로 더한다', '여기서 또 기울이면 머리가 두 번 기웁니다');
   ok(P.every(d => d.a[2] === 320 && d.a[3] === 400), '세 장 다 화면 크기(320x400)로 그린다(2배 comp 를 줄여서)');
+  const HB = headBuild(headCv);
+  ok(HB.length === 2, `(전제) 머리 층을 한 장 만들 때 drawImage 가 둘이다 — comp 담기 + 경계로 오리기 (${HB.length})`);
+  if (HB.length === 2) {
+    ok(HB[0].src === comp && HB[0].gco === 'source-over' && HB[0].rot === P[0].rot && HB[0].sy === P[0].sy,
+      '③-1 머리 층에 comp 를 경계와 «같은» 각도로 기울여 담는다', '각도가 다르면 목에 반투명한 띠가 생깁니다(브라우저 실측 알파 245/255)');
+    ok(HB[1].src === P[0].src && HB[1].gco === 'destination-in' && HB[1].rot === P[0].rot && HB[1].sy === P[0].sy,
+      '③-2 같은 각도의 경계 그림으로 오린다(destination-in) — 머리 몫만 남는다');
+    ok(HB.every(d => d.a[2] === 320 && d.a[3] === 400), '③-3 머리 층도 화면 크기(320x400)로 담는다 — 2배 comp 를 기울이면서 «한 번» 줄인다');
+  }
+  ok(!!headCv && headCv.width === 320 && headCv.height === 400, `머리 층 캔버스는 화면 크기다 (${headCv && headCv.width}x${headCv && headCv.height})`,
+    '2배(640x800)로 들고 있으면 말하는 동안 프레임마다 2배 크기 그리기가 늘어 짧은 입모양을 놓칩니다');
 }
-ok(vops().filter(x => x.op === 'draw').every(d => d.gco !== 'lighter' || d.rot !== 0), '(짝) lighter 로 더하는 것은 «기운 머리» 뿐이다');
+ok(vops().filter(x => x.op === 'draw' && x.gco === 'lighter').every(d => d.src === headCv),
+  '(짝) 화면에 lighter 로 더하는 것은 «머리 층» 뿐이다');
+ok(headCv && headCv.ctx.ops.filter(x => x.op === 'draw' && x.src === comp).every(d => d.rot !== 0),
+  '(짝) 머리 층에 담는 comp 는 언제나 기울어 있다');
 
 /* ── ③ 크기 ─────────────────────────────────────────────────────────── */
 console.log('\n■ ③ 크기 — 조금씩, 그러나 실제로 움직인다');
 let maxRot = 0, maxNod = 0, rots = new Set();
 for (let i = 0; i < 400; i++) {
   tick(100);
-  const p = lastPresent(); if (p.length === 3) { maxRot = Math.max(maxRot, Math.abs(p[2].rot)); maxNod = Math.max(maxNod, Math.abs(p[2].sy - 1)); rots.add(p[2].rot.toFixed(5)); }
+  const p = lastPresent(); if (p.length === 3) { maxRot = Math.max(maxRot, Math.abs(p[0].rot)); maxNod = Math.max(maxNod, Math.abs(p[0].sy - 1)); rots.add(p[0].rot.toFixed(5)); }
 }
 const deg = maxRot * 180 / Math.PI;
 ok(deg <= ROT_DEG + 1e-6, `쉬는 동안 최대 기울기 ≤ ${ROT_DEG}° (${deg.toFixed(3)}°)`);
@@ -295,7 +325,7 @@ ok(swayPending() === 0, '«움직임 줄이기» 동안은 쉬는 루프가 멈�
 W1.mq.matches = false; W1.mq.ls.forEach(f => f());
 tick(100);
 P = lastPresent();
-ok(swayPending() === 1 && P.length === 3 && P[2].rot !== 0, '«움직임 줄이기» 를 끄면 다시 움직인다(짝)');
+ok(swayPending() === 1 && P.length === 3 && P[0].rot !== 0, '«움직임 줄이기» 를 끄면 다시 움직인다(짝)');
 
 /* ── ⑥ 말하는 동안 ─────────────────────────────────────────────────── */
 console.log('\n■ ⑥ 말하는 동안 — 루프는 하나 · 끝나면 쉬는 움직임으로');
@@ -306,7 +336,7 @@ for (let i = 0; i < 300; i++) {
   tick(16);
   if (pendingRaf.size !== 1) overlap++;
   if (i > 10) swayTimersInTalk += timers.filter(isSwayTimer).length;
-  const p = lastPresent(); if (p.length === 3) talkMax = Math.max(talkMax, Math.abs(p[2].rot));
+  const p = lastPresent(); if (p.length === 3) talkMax = Math.max(talkMax, Math.abs(p[0].rot));
 }
 ok(overlap === 0, `말하는 동안 rAF 가 하나뿐이다(쉬는 루프와 겹치지 않음 — 어긋난 프레임 ${overlap})`);
 ok(presents() - n0 >= 290, `말하는 동안은 매 프레임 그린다 (${presents() - n0}/300)`);
@@ -337,16 +367,20 @@ av.plainStop();
 /* ── ⑦ 영상 캐릭터 ─────────────────────────────────────────────────── */
 console.log('\n■ ⑦ 영상 캐릭터로 바꾸면 안 기운다');
 av.setCharacter('jake_classic'); await flush();
-ok(comp.width === 320 && comp.ctx.st.base === 1, `jake_classic: comp 가 1배(320)로 돌아간다 (${comp.width} · 배율 ${comp.ctx.st.base})`, '초록 지우기 픽셀 루프가 4배가 되지 않게');
+comp = compR;   // 초록 지우기 영상 캐릭터 → 픽셀 읽기용 comp
+ok(comp.width === 320 && comp.ctx.st.base === 1, `jake_classic: 픽셀 읽기용 comp 가 1배(320)로 쓰인다 (${comp.width} · 배율 ${comp.ctx.st.base})`, '초록 지우기 픽셀 루프가 4배가 되지 않게');
+ok(compG.width === 1 && compG.height === 1, `jake_classic: 안 쓰는 그림용 comp 는 1x1 로 비운다 (${compG.width}x${compG.height})`);
 tick(200); tick(200);
 ok(swayPending() === 0, 'jake_classic: 쉬는 움직임 루프가 멈춘다');
 W1.video.emit('loadeddata');
 P = lastPresent();
 ok(P.length === 1 && P[0].src === comp && P[0].rot === 0, 'jake_classic: comp 를 기울이지 않고 그대로 옮긴다');
 av.setCharacter('noah'); await flush();
+comp = compG;
 tick(200);
 P = lastPresent();
-ok(swayPending() === 1 && P.length === 3 && P[2].rot !== 0 && comp.width === 640, 'noah 로 돌아오면 다시 기울고 comp 도 2배(짝)');
+ok(swayPending() === 1 && P.length === 3 && P[0].rot !== 0 && P[1].src === compG && compG.width === 640 && compR.width === 1,
+  `noah 로 돌아오면 다시 기울고 그림용 comp 가 2배 · 픽셀 읽기용은 다시 비운다(짝) (그림용 ${compG.width} · 픽셀용 ${compR.width})`);
 
 /* ── ⑩ 화면 밖 캔버스를 못 만들면 ───────────────────────────────────── */
 console.log('\n■ ⑩ 화면 밖 캔버스를 못 만들면 예전처럼');
