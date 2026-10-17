@@ -1,0 +1,76 @@
+# ⚠️ 임시 워크플로 — 병합하지 않습니다. 이 브랜치(tmp/avatar-eyes-261017)에서만 돕니다.
+# 작업 컨테이너의 프록시가 생성물 CDN(cloudfront)을 403 으로 막아, 러너에서 받아
+# tools/build-eye-patches.py 로 눈/눈썹 아틀라스를 만들고 미리보기와 함께 커밋합니다.
+name: (임시) 아바타 눈 깜빡임 아틀라스 생성
+
+on:
+  push:
+    branches: [tmp/avatar-eyes-261017]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 도구 설치
+        run: pip install -q opencv-python-headless pillow numpy
+      - name: 생성 이미지 6장 받기
+        run: |
+          set -euo pipefail
+          B=https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k
+          mkdir -p raw
+          LIST="
+          lily-half:hf_20261017_092601_163d1697-1c10-4aee-abea-b461cc904051.png
+          lily-closed:hf_20261017_092601_0c8e873b-cc33-498c-acb8-55fcea695c46.png
+          lily-brows:hf_20261017_092602_af0583e5-eb2c-4ba1-a01d-5f7e7ac1e795.png
+          noah-half:hf_20261017_092600_ba26cb0f-eb99-47b5-a86c-f82f2f34609d.png
+          noah-closed:hf_20261017_092601_ac1c3061-28aa-4461-818e-8a4468e4ac5d.png
+          noah-brows:hf_20261017_092601_ea60c5ee-06c5-4aa9-b7b4-95cf8cdace9c.png
+          "
+          n=0
+          for row in $LIST; do
+            name="${row%%:*}"; src="${row##*:}"
+            curl -fsS -o "raw/$name.png" "$B/$src"; n=$((n+1))
+          done
+          echo "받은 장수: $n"; test "$n" -eq 6
+          python - <<'PY'
+          from PIL import Image; import glob
+          for f in sorted(glob.glob('raw/*.png')): print(f, Image.open(f).size)
+          PY
+      - name: 아틀라스 생성
+        run: |
+          set -euo pipefail
+          mkdir -p tmp-eyes-preview
+          python tools/build-eye-patches.py lily cloudflare-deploy/public/img/lily-closed.webp raw/lily-half.png raw/lily-closed.png raw/lily-brows.png tmp-eyes-preview
+          python tools/build-eye-patches.py noah cloudflare-deploy/public/img/noah-closed.webp raw/noah-half.png raw/noah-closed.png raw/noah-brows.png tmp-eyes-preview
+          # 전체 얼굴 미리보기(원본 | 반감음 | 감음 | 눈썹) — 이음매를 눈으로 확인하려고
+          python - <<'PY'
+          from PIL import Image
+          import json
+          for n in ('lily','noah'):
+              base=Image.open(f'cloudflare-deploy/public/img/{n}-closed.webp').convert('RGBA')
+              atlas=Image.open(f'cloudflare-deploy/public/img/visemes/{n}-eyes.webp').convert('RGBA')
+              x,y,w,h=json.load(open(f'tmp-eyes-preview/{n}-eyes-report.json'))['rect']
+              frames=[base]
+              for i in range(3):
+                  f=base.copy(); f.alpha_composite(atlas.crop((i*w,0,i*w+w,h)),(x,y)); frames.append(f)
+              sheet=Image.new('RGB',(640*4,800),'white')
+              for i,f in enumerate(frames):
+                  bg=Image.new('RGBA',f.size,'white'); bg.alpha_composite(f); sheet.paste(bg.convert('RGB'),(640*i,0))
+              sheet.resize((1280,400)).save(f'tmp-eyes-preview/{n}-face-sheet.jpg',quality=88)
+          PY
+          ls -la cloudflare-deploy/public/img/visemes/*-eyes.webp tmp-eyes-preview
+          cat tmp-eyes-preview/*-report.json
+      - name: 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add cloudflare-deploy/public/img/visemes/lily-eyes.webp cloudflare-deploy/public/img/visemes/noah-eyes.webp tmp-eyes-preview
+          git commit -m "chore(임시): 눈 깜빡임 아틀라스 + 미리보기 (CI 에서 생성)"
+          git push
