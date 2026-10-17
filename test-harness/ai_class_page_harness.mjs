@@ -110,7 +110,7 @@ const catV = (code.match(/\/data\/ai-class-catalog\.json\?v=([0-9a-f]+)/) || [])
 const catHash = (await import('node:crypto')).createHash('sha256').update(fs.readFileSync(OUT)).digest('hex').slice(0, 8);
 ok(catV === catHash, `catalog ?v=${catV} must equal its content hash ${catHash}`);
 for (const f of ['lily-closed', 'lily-mid', 'lily-wide']) {
-  ok(code.includes(`src="/img/${f}.webp"`), `page does not use /img/${f}.webp`);
+  ok(new RegExp(`src="/img/${f}\\.webp(\\?v=\\d+)?"`).test(code), `page does not use /img/${f}.webp`);
   ok(fs.existsSync(path.join(PUB, 'img', f + '.webp')), `/img/${f}.webp missing`);
 }
 ok(/\[hidden\]\{display:none!important\}/.test(code), '[hidden] rule missing');
