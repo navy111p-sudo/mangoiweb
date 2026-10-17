@@ -87,7 +87,34 @@
             closed↔mid  평균 차 0.43 · 바뀐 픽셀 0.33% · 세로 10칸 중 4·5칸만(입 부근)
             closed↔wide 평균 차 1.01 · 바뀐 픽셀 1.32% · 4·5·6칸만
           견줄 값(v8 실측): Lily 3.4~4.1 / 2.4~3.4% · Emma(사고) 10.8~15.3 / 11.4~18.3% 전 칸.
-       ⛔ 입모양 세 장을 «각각 따로» 다시 뽑아 넣지 마세요 — 그 순간 위 숫자가 무너집니다. */
+       ⛔ 입모양 세 장을 «각각 따로» 다시 뽑아 넣지 마세요 — 그 순간 위 숫자가 무너집니다.
+
+   v10: (2026-10-17) 사장님 「왜 눈과 다른 얼굴 표정은 아직도 그대로야」 — 입만 움직이고
+       눈·눈썹·고개는 처음부터 한 번도 안 움직였습니다(이 파일이 그리는 것은 «원본 초상화 +
+       입 패치» 뿐이었습니다). Lily·Noah 에 «살아 있는 얼굴» 셋을 더합니다:
+         ① 눈 깜빡임 — 2.2~6초마다 반감음→감음→반감음(가끔 두 번). 말하지 않을 때도.
+         ② 눈썹 올림 — 말하는 중 «크게 벌린 입»(D) 순간에 가끔 0.4~0.7초.
+         ③ 숨쉬기 — 캔버스에 CSS 애니메이션(아주 작은 확대·기울기, 어깨 기준). JS 비용 0.
+       눈 그림은 /img/visemes/<이름>-eyes.webp(반감음·감음·눈썹 3칸)이고 tools/build-eye-patches.py
+       가 만듭니다 — 입 패치와 같은 방식(정렬 뒤 «눈+눈썹 타원» 만 오려 얹기, 타원 밖은 원본 그대로).
+       ⚠️ 눈 그림을 못 받으면 깜빡임만 없고 얼굴은 예전 그대로입니다(실패해도 빈 얼굴이 되지 않게).
+       ⚠️ 깜빡임 타이머는 탭이 숨겨지면 멈추고(visibilitychange 로 다시 켬), 눈 그림이 없는
+          캐릭터(영상 캐릭터 jake 등)에는 아예 걸지 않습니다. ⛔ setInterval 로 바꾸지 마세요.
+       ⚠️ EYES 의 사각형은 build-eye-patches.py 가 찍어 주는 rect 와 «같아야» 합니다.
+   v11: (2026-10-18) 사장님 「Emma·Mei·Long 도 눈 깜빡이게 해줘」 — 같은 방식으로 눈 그림 3장을
+       만들어 EYES 에 더했습니다. 이제 눈 그림이 없는 것은 영상 캐릭터(jake·emma_classic)뿐입니다.
+       ⚠️ 사각형은 «그 캐릭터 초상화의 원본 px» 기준입니다 — emma 는 512x640(emma-v2-rest.webp),
+          나머지는 640x800. 눈 그림은 «다문 입» 장에서 만들었습니다(입 3장의 눈 부위 차이 실측:
+          emma 0 · mei 최대 9 · long 평균 6 — 그 위에 얹어도 이음매가 안 보이는 수준). */
+/* v12: (2026-10-18) Jake — ① 영상 seek 대신 «같은 얼굴에서 입만 다른» 6가지 입모양(아래 jake 줄)
+       ② 사장님 「Jake도 살아있는 것 처럼 눈을 깜박거리고 머리도 조금 움직이게」 — EYES.jake 를 더해
+          다른 친구들과 같은 깜빡임·눈썹·숨쉬기(어깨 기준 아주 작은 기울기)를 켭니다.
+       Jake 얼굴은 생성 서비스가 거절한 기록이 있어(visemes/README) 눈 그림도 원래 영상에서 만듭니다:
+       반감음 = 영상 3프레임 · 감음 = 100프레임(실제 깜빡임)을 rest(80)에 정렬해 «눈+눈썹 타원» 만 얹고,
+       영상에 눈썹을 올리는 순간이 없어(200프레임 실측 ±3px) 눈썹 칸만 rest 의 눈썹을 7px 끌어올렸습니다.
+       만드는 도구: tools/build-jake-poses.py (입·눈 모두 — 타원 밖은 rest 와 같다는 assert).
+       ⚠️ Jake 사각형은 512x496(jake-closed.webp) 기준입니다. 이제 눈 그림이 없는 것은 영상 폴백
+          (jake_classic·emma_classic)뿐입니다. */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -126,7 +153,7 @@
     emma_classic: { sources:[['/img/teacher-avatar.webm','video/webm'],['/img/teacher-avatar.mp4','video/mp4']],
             still:'/img/teacher-avatar.png', rect:{ l:67/512, t:40/512, r:445/512, b:1 },
             poses:{ closed:3.3, medium:0.2, wide:4.0 }, hold:200, fade:160 },
-    /* 🦸 jake (2026-10-17 v10) — 「Jake 입이 전혀 움직이지 않아 · 자연스럽게 · 말과 입이 일치 · 6가지」.
+    /* 🦸 jake (2026-10-17 v12) — 「Jake 입이 전혀 움직이지 않아 · 자연스럽게 · 말과 입이 일치 · 6가지」.
        영상 seek(v5 사고와 같은 경로)을 버리고 «같은 얼굴에서 입만 다른» 이미지로 바꿨습니다.
        원래 hero-avatar.mp4 의 프레임만 씁니다(새 얼굴 생성 아님 — 생성 서비스가 이 얼굴을 거절한 기록이 visemes/README).
        입모양 6가지: rest·spread(이)·teeth·open·wide(아)·round(오/우) → PRECISION.jake 아틀라스.
@@ -138,11 +165,13 @@
     jake_classic: { sources:[['/img/hero-avatar.mp4','video/mp4']],
             still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 },
             poses:{ closed:3.2, medium:7.1, wide:3.5 }, hold:200, fade:160 },
-    lily: { frames:{ closed:'/img/lily-closed.webp', medium:'/img/lily-mid.webp', wide:'/img/lily-wide.webp' },
-            still:'/img/lily-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
+    // ?v=2 (2026-10-18): smile-line creases beside the mouth retouched (tools/remove-smile-folds.py).
+    //   Media without ?v= is cached 7 days, so a retouched file needs a new address. Bump on every change.
+    lily: { frames:{ closed:'/img/lily-closed.webp?v=2', medium:'/img/lily-mid.webp?v=2', wide:'/img/lily-wide.webp?v=2' },
+            still:'/img/lily-closed.webp?v=2', rect:{ l:0, t:0, r:1, b:1 },
             aspect:0.8, keyed:false, fallback:'emma_classic' },
-    noah: { frames:{ closed:'/img/noah-closed.webp', medium:'/img/noah-mid.webp', wide:'/img/noah-wide.webp' },
-            still:'/img/noah-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
+    noah: { frames:{ closed:'/img/noah-closed.webp?v=2', medium:'/img/noah-mid.webp?v=2', wide:'/img/noah-wide.webp?v=2' },
+            still:'/img/noah-closed.webp?v=2', rect:{ l:0, t:0, r:1, b:1 },
             aspect:0.8, keyed:false, fallback:'jake_classic' },
     // 🀄 mei — 중국어 교사(2026-09-14). 웜업에서 «중국어» 를 고른 학생에게만 보입니다.
     //    ⛔ 영어 화면(ai-friend·speech-coach)의 표에는 넣지 마세요 — 그쪽은 아직 중국어가 없어서
@@ -235,6 +264,7 @@
     function mountCharacter(name){
       var c = CHARACTERS[name]; if(!c) return;
       keyedNow = (c.keyed !== false);
+      mountEyes(name);   // 👁 (v10) 눈 그림이 있는 캐릭터만 깜빡임·숨쉬기를 켠다(없으면 끈다)
       if (c.frames){ mountImages(name, c); return; }
       imgFrames = null; imgCur = null;
       try{
@@ -290,8 +320,9 @@
     var bindings = new WeakMap(), buffering = false, mouthCues=null, cueUrl='', preciseFaces={};
     // Reviewed nine-pose anchors plus 288 optical-flow inbetweens per actor.
     // The latter are transition shapes, not additional recognized phonemes.
-    var PRECISION={lily:{extra:true,base:'/img/lily-closed.webp',x:250,y:294,w:144,h:122},
-      noah:{extra:true,base:'/img/noah-closed.webp',x:244,y:364,w:154,h:130},
+    // base/atlas/trans must carry the same ?v= as the CHARACTERS frames above (one retouch, one version).
+    var PRECISION={lily:{extra:true,base:'/img/lily-closed.webp?v=2',atlas:'/img/visemes/lily-mouths.webp?v=2',trans:'/img/visemes/lily-transitions.webp?v=2',x:250,y:294,w:144,h:122},
+      noah:{extra:true,base:'/img/noah-closed.webp?v=2',atlas:'/img/visemes/noah-mouths.webp?v=2',trans:'/img/visemes/noah-transitions.webp?v=2',x:244,y:364,w:154,h:130},
       emma:{extra:true,base:'/img/visemes/emma-v2-rest.webp',atlas:'/img/visemes/emma-v2-mouths.webp',x:183,y:282,w:146,h:126},
       // 🦸 Jake 6가지 입모양(9칸 XABCDEFGH 에 배치) — x,y,w,h 는 build-jake-poses.py 출력과 짝.
       //    중간 모양 시트가 없어 transitions 는 못 받으면 그냥 9칸 앵커만 씁니다(keyFrame 이 확인).
@@ -308,13 +339,69 @@
           if(im.complete && im.naturalWidth){clearTimeout(timer);resolve(true);}
         });};
         var ready=Promise.all([load(base,p.base),load(mouths,p.atlas||('/img/visemes/'+curChar+'-mouths.webp')),
-          p.transitions===false ? Promise.resolve(false) : load(transitions,'/img/visemes/'+curChar+'-transitions.webp')]);
+          p.transitions===false ? Promise.resolve(false) : load(transitions,p.trans||('/img/visemes/'+curChar+'-transitions.webp'))]);
         preciseFaces[curChar]={base:base,mouths:mouths,transitions:transitions,rect:p,ready:ready};
         // Bound decoded sprite memory when a student switches through all teachers.
         Object.keys(preciseFaces).forEach(function(name){if(name!==curChar)delete preciseFaces[name];});
       }
       return preciseFaces[curChar];
     }
+    // 👁 (v10) 눈 깜빡임·눈썹 — 사각형은 그 초상화의 원본 px 기준(build-eye-patches.py 의 rect).
+    //   emma 만 512x640(emma-v2-rest.webp), jake 는 512x496(jake-closed.webp — build-jake-poses.py 의 eyes.rect),
+    //   나머지는 640x800.
+    //   eyeState: 0 원본 · 1 반감음 · 2 감음 · 3 눈썹 올림 (= 눈 그림의 칸 번호 + 1)
+    var EYES={lily:{x:226,y:204,w:202,h:84},noah:{x:192,y:238,w:260,h:92},
+      emma:{x:151,y:174,w:213,h:80},mei:{x:206,y:220,w:236,h:84},long:{x:210,y:214,w:224,h:86},
+      jake:{x:153,y:181,w:209,h:74}};
+    var eyeImg=null, eyeOk=false, eyeFor='', eyeState=0, eyeTimer=0, browUntil=0, browNext=0, loudNow=false;
+    function injectAliveCss(){
+      try{
+        if(document.getElementById('mg-alive-css')) return;
+        var st=document.createElement('style'); st.id='mg-alive-css';
+        st.textContent='#tavatar-canvas.mg-alive{transform-origin:50% 100%;animation:mgAliveBreath 5.2s ease-in-out infinite}'+
+          '@keyframes mgAliveBreath{0%,100%{transform:none}35%{transform:scale(1.007) rotate(-.25deg)}70%{transform:scale(1.003) rotate(.2deg)}}'+
+          '@media (prefers-reduced-motion:reduce){#tavatar-canvas.mg-alive{animation:none}}';
+        document.head.appendChild(st);
+      }catch(e){}
+    }
+    function mountEyes(name){
+      if(eyeTimer){ clearTimeout(eyeTimer); eyeTimer=0; }
+      eyeState=0; browUntil=0; eyeOk=false; eyeFor=name; eyeImg=null;
+      var on=!!EYES[name];
+      try{ canvas.classList.toggle('mg-alive', on); }catch(e){}
+      if(!on) return;
+      injectAliveCss();
+      var im=new Image(); eyeImg=im;
+      im.onload=function(){ if(eyeImg!==im) return; eyeOk=true; scheduleBlink(); };
+      im.onerror=function(){ if(eyeImg===im) eyeOk=false; };
+      im.src='/img/visemes/'+name+'-eyes.webp';
+    }
+    // 기본 얼굴을 그린 «바로 뒤» 에 부른다 — bx..sh 는 그 얼굴을 원본에서 잘라 온 사각형(원본 px).
+    function drawEyes(bx,by,sw,sh){
+      var e=EYES[curChar];
+      if(!eyeState || !eyeOk || !e || eyeFor!==curChar) return;
+      try{ ctx.drawImage(eyeImg,(eyeState-1)*e.w,0,e.w,e.h,
+        (e.x-bx)/sw*canvas.width,(e.y-by)/sh*canvas.height,e.w/sw*canvas.width,e.h/sh*canvas.height); }catch(err){}
+    }
+    function setEye(s){ if(eyeState===s) return; eyeState=s; if(!drawing) drawStill(); }
+    function scheduleBlink(){
+      if(eyeTimer || !eyeOk || !EYES[curChar]) return;
+      eyeTimer=setTimeout(blink, 2200+Math.random()*3800);
+    }
+    function blink(){
+      eyeTimer=0;
+      // 화면에서 빠졌거나 탭이 숨겨졌으면 여기서 멈춘다 — 다시 보이면 visibilitychange 가 켠다.
+      if(!eyeOk || !EYES[curChar] || !canvas.isConnected || document.hidden) return;
+      if(Date.now()<browUntil){ scheduleBlink(); return; }
+      var seq=[[1,50],[2,85],[1,65],[0,0]];
+      if(Math.random()<0.18) seq=[[1,50],[2,80],[1,60],[0,150],[1,50],[2,80],[1,60],[0,0]];
+      (function step(i){
+        setEye(seq[i][0]);
+        if(i+1<seq.length) eyeTimer=setTimeout(function(){ eyeTimer=0; step(i+1); }, seq[i][1]);
+        else scheduleBlink();
+      })(0);
+    }
+    try{ document.addEventListener('visibilitychange', function(){ if(!document.hidden) scheduleBlink(); }); }catch(e){}
     function prepareCues(el){
       var nextUrl=el.src||el.currentSrc||'';
       if(cueUrl!==nextUrl)mouthCues=null;cueUrl=nextUrl;
@@ -367,6 +454,7 @@
         var bx=bw*cropRect.l,by=bh*cropRect.t,sw=bw*(cropRect.r-cropRect.l),sh=bh*(cropRect.b-cropRect.t);
         ctx.clearRect(0,0,canvas.width,canvas.height);
         ctx.drawImage(pf.base,bx,by,sw,sh,0,0,canvas.width,canvas.height);
+        drawEyes(bx,by,sw,sh);
         var tile=sampled && sampled.tile,transition=sampled && tile>=0 && pf.transitions.complete && pf.transitions.naturalWidth;
         // Reviewed Noah wide-open/rest morphs double the teeth. Use the exact
         // phoneme anchor for these pairs until replacement artwork is available.
@@ -391,7 +479,8 @@
       // 🖼 배경이 이미 투명한 PNG 는 «겹쳐 그리면» 앞 입모양이 유령처럼 남는다 — 항상 지우고 그린다.
       //    (초록 영상은 불투명이라 지우든 안 지우든 결과가 같다)
       try { ctx.clearRect(0,0,canvas.width,canvas.height);
-            ctx.drawImage(srcEl, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height); } catch(e){ return; }
+            ctx.drawImage(srcEl, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+            if (imgFrames) drawEyes(sx, sy, sw, sh); } catch(e){ return; }
       // 초록을 지울 필요도 없고(이미 투명) 섞을 것도 없으면 픽셀을 아예 만지지 않는다 —
       // getImageData/putImageData 가 폰에서 제일 비싼 구간이라 그만큼 가벼워진다.
       if (!keyedNow && !fadeData) return;
@@ -472,6 +561,7 @@
       if(boundEl && analyser && !clipActive){
         if(boundEl.paused || boundEl.ended || buffering){
           showTier('closed', true);                        // 말 안 하는 중 → 다문 입 프레임에 고정
+          loudNow = false;
           idleTicks++;
           if(idleTicks > 300){ doStop(); return; }         // 5초 넘게 안 멈춰지면 plainStop() 유실로 보고 안전 종료
         } else {
@@ -480,13 +570,14 @@
             // Existing three-pose characters still follow cue timing; no identity change.
             var cue=window.AvatarVisemes.at(mouthCues,boundEl.currentTime);
             var tier=(cue==='X'||cue==='A')?'closed':(cue==='D'?'wide':'medium');
+            loudNow = (tier==='wide');
             showTier(tier,tier==='closed');
-          }else showTier(tierFor(rmsLevel()));
+          }else{ var lt=tierFor(rmsLevel()); loudNow = (lt==='wide'); showTier(lt); }
         }
       } else {
         // 🔇 분석 불가능한 음성(브라우저 speechSynthesis) — 실제 음량을 모르니 poses 대신
         //    기존처럼 루프를 계속 재생해 "말하는 느낌"만 흉내낸다.
-        idleTicks = 0;
+        idleTicks = 0; loudNow = false;
         if(imgFrames){
           // 🖼 이미지 캐릭터는 '재생' 이 없으므로 세 장을 일정 간격으로 번갈아 보여 준다.
           //    ⚠️ 간격은 그 캐릭터의 curHold 보다 «커야» 한다 — 작으면 showTier 가 매번
@@ -501,16 +592,26 @@
           if(video.paused){ try{ video.playbackRate=1; video.play(); }catch(e){} }
         }
       }
+      // 👁 (v10) 눈썹 — 크게 벌린 입(강세) 순간에 가끔, 짧게. 깜빡이는 중에는 걸지 않는다.
+      var nowB = Date.now();
+      if(eyeState===3 && nowB>=browUntil) eyeState=0;
+      else if(loudNow && eyeOk && eyeState===0 && nowB>=browNext){
+        browNext = nowB + 3500 + Math.random()*4500;
+        if(Math.random() < 0.55){ browUntil = nowB + 420 + Math.random()*260; eyeState=3; }
+      }
       keyFrame();
       raf=requestAnimationFrame(loop);
     }
-    function startDraw(){ idleTicks=0; curTier=null; lastSwitchAt=0; fadeData=null; drawing=true; if(!raf) raf=requestAnimationFrame(loop); }
+    function startDraw(){ idleTicks=0; curTier=null; lastSwitchAt=0; fadeData=null; drawing=true;
+      browNext=Date.now()+1200+Math.random()*1500;   // 말 첫마디부터 눈썹을 올리지 않는다
+      if(!raf) raf=requestAnimationFrame(loop); }
     function stopDraw(){ drawing=false; if(raf){ try{cancelAnimationFrame(raf);}catch(e){} raf=0; } }
     function drawStill(){ keyFrame(); }
     function doStop(){
       setSpeaking(false); stopDraw();
       // Cancellation must end on the closed pose, even inside the minimum hold window.
       showTier('closed', true); fadeData=null;
+      if(eyeState===3){ eyeState=0; browUntil=0; }       // 말이 끝나면 올린 눈썹도 내린다
       try{ video.pause(); }catch(e){} drawStill();
     }
     video.addEventListener('loadeddata', function(){ if(!drawing) drawStill(); });

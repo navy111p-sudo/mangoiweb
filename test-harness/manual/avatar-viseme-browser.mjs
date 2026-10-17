@@ -24,7 +24,7 @@ let pass=0;
 try{
  const page=await browser.newPage();let errors=[];page.on('pageerror',e=>errors.push(e.message));
  let releaseAtlas,heldResolve,delayFirstAtlas=true;const held=new Promise(r=>heldResolve=r);
- await page.route('**/img/visemes/lily-mouths.webp',async route=>{
+ await page.route('**/img/visemes/lily-mouths.webp*',async route=>{
   if(delayFirstAtlas){delayFirstAtlas=false;await new Promise(resolve=>{releaseAtlas=resolve;heldResolve();});}
   await route.continue();
  });

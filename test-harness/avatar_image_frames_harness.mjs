@@ -76,7 +76,7 @@ if (CH) {
        ⚠️ fallback 이 있다고 이 검사를 빼면 안 된다 — fallback 은 «런타임 사고» 대비이고
           이 검사는 «커밋에 파일을 빠뜨리는 것» 을 막는다. 둘은 다른 방어다. */
     for (const t of ['closed', 'medium', 'wide']) {
-      const rel = String(c.frames[t] || '').replace(/^\//, '');
+      const rel = String(c.frames[t] || '').replace(/^\//, '').replace(/\?.*$/, '');  // ?v= is a cache key, not a file
       const abs = join(PUB, rel);
       const st = statSafe(abs);
       ok(!!st, `${k}: ${t} 그림 파일이 저장소에 있다 (${rel})`,
