@@ -384,6 +384,36 @@
       // 🦸 Jake 6가지 입모양(9칸 XABCDEFGH 에 배치) — x,y,w,h 는 build-jake-poses.py 출력과 짝.
       //    중간 모양 시트가 없어 transitions 는 못 받으면 그냥 9칸 앵커만 씁니다(keyFrame 이 확인).
       jake:{extra:true,base:'/img/jake-closed.webp',atlas:'/img/visemes/jake-mouths.webp',transitions:false,x:188,y:304,w:136,h:92}};
+    // 🔥 (v13) 큰 입모양 그림(전환 시트는 2592x1952)을 «말하기 전에» 그 comp 로 한 번 올려 둔다.
+    //    그림 캐릭터 comp 는 그리기 전용(GPU)이라 그림을 «처음 그리는 순간» GPU 로 올리는데, 그 순간이
+    //    말 첫마디면 그 프레임들이 통째로 밀려 짧은 입모양을 놓칩니다.
+    //    [잰 것 — 2026-10-18, 헤드리스 크로미움(SwiftShader) · 캐릭터 셋 × 속도 셋 × 폭 둘]
+    //      미리 안 올림: 말 첫마디의 멈춤(>60ms) 16~42회 · 입모양 검사 3/14 실패
+    //      미리 올림:    멈춤이 «캐릭터를 고르는 순간»(말하기 전)으로 옮겨 감 · 말하는 동안 >60ms 7회·최대 83ms
+    //                    (원본은 전체 8회) · 입모양 검사 25/28 통과 — 실패 3회는 전부 1.3배속의 가장 짧은
+    //                    입모양(0.15초)이었고 원본은 38/38. 실제 폰 GPU 에서는 못 쟀습니다.
+    //    ⛔ 1x1 같은 «작은» 캔버스에 그리면 소용없습니다 — 크롬은 128x129 보다 작은 캔버스를 GPU 로 안 그려
+    //       업로드가 안 일어납니다(실측: 오히려 말 첫마디 멈춤이 200ms 까지). 다른 큰 캔버스도 안 됐습니다
+    //       (실측 233ms) — «말할 때 쓰는 그 comp» 에 그려야 합니다.
+    //    ⚠️ 알파 1/255 로 1픽셀만 그린다 — 눈에 안 보이고, 다음 composeFrame 이 어차피 다시 그린다.
+    //       곧바로 present() 로 comp 를 화면에 옮겨야 그 그리기가 실제로 실행됩니다(다음 «전체 지우기» 가
+    //       아직 안 그린 그리기를 버릴 수 있어서).
+    //    ⚠️ 두 프레임을 기다린 뒤 ready 를 넘긴다 — prepare() 의 약속(«그림이 준비됐다») 이 GPU 까지 포함되게.
+    //       숨은 탭은 rAF 가 안 돌아서 300ms 타이머가 대신 넘깁니다(안 그러면 prepare 가 영영 안 끝나 말을 못 합니다).
+    function warmFace(face, r){
+      if (!comp || !vctx || !ctx || preciseFaces[curChar] !== face) return r;
+      try {
+        var a0 = ctx.globalAlpha; ctx.globalAlpha = 1/255;
+        [face.base, face.mouths, face.transitions].forEach(function(im){ if (im.complete && im.naturalWidth) ctx.drawImage(im, 0, 0, 1, 1, 0, 0, 1, 1); });
+        ctx.globalAlpha = a0;
+        present();
+      } catch(e){ try{ ctx.globalAlpha = 1; }catch(_){} }
+      return new Promise(function(res){
+        var done = false, fin = function(){ if (!done){ done = true; res(r); } };
+        try { requestAnimationFrame(function warmWait(){ requestAnimationFrame(fin); }); } catch(e){}
+        setTimeout(fin, 300);
+      });
+    }
     function precisionFace(){
       if(!PRECISION[curChar])return null;
       if(!preciseFaces[curChar]){
@@ -395,9 +425,11 @@
           im.src=url;
           if(im.complete && im.naturalWidth){clearTimeout(timer);resolve(true);}
         });};
-        var ready=Promise.all([load(base,p.base),load(mouths,p.atlas||('/img/visemes/'+curChar+'-mouths.webp')),
-          p.transitions===false ? Promise.resolve(false) : load(transitions,p.trans||('/img/visemes/'+curChar+'-transitions.webp'))]);
-        preciseFaces[curChar]={base:base,mouths:mouths,transitions:transitions,rect:p,ready:ready};
+        var face={base:base,mouths:mouths,transitions:transitions,rect:p,ready:null};
+        face.ready=Promise.all([load(base,p.base),load(mouths,p.atlas||('/img/visemes/'+curChar+'-mouths.webp')),
+          p.transitions===false ? Promise.resolve(false) : load(transitions,p.trans||('/img/visemes/'+curChar+'-transitions.webp'))])
+          .then(function(r){ return warmFace(face, r); });
+        preciseFaces[curChar]=face;
         // Bound decoded sprite memory when a student switches through all teachers.
         Object.keys(preciseFaces).forEach(function(name){if(name!==curChar)delete preciseFaces[name];});
       }

@@ -19,6 +19,9 @@
  *   ⑨ 전환 섞기: 투명 그림 캐릭터는 캔버스 사본으로 섞는다(getImageData 픽셀 루프 없이)
  *   ⑩ 화면 밖 캔버스를 못 만들면: 예전처럼 화면에 바로 그리고 안 기운다(실패해도 얼굴은 그대로)
  *   ⑪ 상주 setInterval 이 없다
+ *   ⑫ 그림 미리 올리기: 입모양 그림을 다 받으면 «말할 때 쓰는 그 comp» 에 알파 1/255 로 한 번 그리고 곧바로
+ *      화면에 옮긴다(GPU 업로드를 말 첫마디가 아니라 지금 한다) · prepare() 는 두 프레임 뒤에 끝난다 ·
+ *      숨은 탭(rAF 없음)에서도 300ms 타이머로 끝난다(짝) · 화면 밖 캔버스가 없으면 아무것도 안 한다
  *
  * 실제 픽셀(몸이 한 픽셀도 안 바뀌는가 · 목에 틈이 없는가)은 브라우저 검사가 잽니다:
  *   test-harness/manual/avatar-head-sway-browser.mjs (자동으로 안 돕니다 — 사람이 부릅니다)
@@ -97,7 +100,7 @@ for (const [name, h] of Object.entries(HEAD || {})) {
 }
 
 /* ── 가짜 세계 ─────────────────────────────────────────────────────── */
-let T = 1_000_000, intervals = 0;
+let T = 1_000_000, intervals = 0, SEQ = 0;
 const timers = []; let tid = 0;
 const setTimeout_ = (fn, ms) => { const id = ++tid; timers.push({ id, at: T + (ms || 0), fn }); return id; };
 const clearTimeout_ = id => { const i = timers.findIndex(t => t.id === id); if (i >= 0) timers.splice(i, 1); };
@@ -111,8 +114,8 @@ function makeCtx(cv) {
     translate() {}, rotate(r) { st.rot += r; }, scale(x, y) { st.sy *= y; },
     save() { st.stack.push({ gco: st.gco, rot: st.rot, sy: st.sy, alpha: st.alpha, base: st.base }); },
     restore() { const p = st.stack.pop(); if (p) Object.assign(st, p); },
-    clearRect() { ctx.ops.push({ op: 'clear' }); },
-    drawImage(im, ...a) { ctx.ops.push({ op: 'draw', src: im, a, gco: st.gco, rot: st.rot, sy: st.sy, alpha: st.alpha }); },
+    clearRect() { ctx.ops.push({ op: 'clear', seq: ++SEQ }); },
+    drawImage(im, ...a) { ctx.ops.push({ op: 'draw', src: im, a, gco: st.gco, rot: st.rot, sy: st.sy, alpha: st.alpha, seq: ++SEQ }); },
     createImageData(w, h) { return { width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }; },
     putImageData(d) { ctx.ops.push({ op: 'put' }); cv.__put = d; },
     getImageData(x, y, w, h) { ctx.ops.push({ op: 'get' }); return { data: new Uint8ClampedArray(w * h * 4) }; }
@@ -192,7 +195,10 @@ const { canvas, frame, pendingRaf, av } = W1;
 // 쉬는 루프는 «그린 뒤 타이머로 기다렸다가 rAF 를 한 번» 이라 타이머를 안 돌리면 멈춘 것처럼 보인다.
 let wakes = 0;
 const isSwayTimer = t => /swayTick/.test(String(t.fn));
-const swayPending = () => pendingRaf.size + timers.filter(isSwayTimer).length;
+// rAF 중 «그리기 루프(loop)» 와 «쉬는 루프(swayTick)» 만 센다 — 그림 준비 대기(warmFace)의 두 프레임 rAF 는 그리지 않는다.
+const isLoopRaf = f => f && (f.name === 'swayTick' || f.name === 'loop');
+const loopRafs = () => [...pendingRaf.values()].filter(isLoopRaf).length;
+const swayPending = () => [...pendingRaf.values()].filter(f => f && f.name === 'swayTick').length + timers.filter(isSwayTimer).length;
 function tick(ms) {
   T += ms;
   for (;;) {
@@ -334,7 +340,7 @@ av.attach(a); a.paused = false; a.emit('playing');
 let overlap = 0, talkMax = 0, swayTimersInTalk = 0; n0 = presents(); const wt0 = wakes;
 for (let i = 0; i < 300; i++) {
   tick(16);
-  if (pendingRaf.size !== 1) overlap++;
+  if (loopRafs() !== 1) overlap++;
   if (i > 10) swayTimersInTalk += timers.filter(isSwayTimer).length;
   const p = lastPresent(); if (p.length === 3) talkMax = Math.max(talkMax, Math.abs(p[0].rot));
 }
@@ -392,6 +398,63 @@ W2.document.listeners = null; T += 6000; W2.frame();
 const d2 = W2.canvas.ctx.ops.filter(o => o.op === 'draw');
 ok(d2.length >= 1 && d2.every(o => o.rot === 0) && d2.some(o => /lily-closed/.test(o.src && o.src.src || '')), '얼굴을 화면에 바로 그리고 기울이지 않는다');
 ok(W2.pendingRaf.size === 0 && timers.filter(isSwayTimer).length === 0, '쉬는 움직임 루프(rAF·타이머)가 아예 안 돈다');
+{
+  const pr = W2.av.prepare(new Media()); let done = false; pr.then(() => { done = true; });
+  await flush();
+  ok(done, `화면 밖 캔버스가 없으면 그림 미리 올리기도 안 하고 prepare 가 바로 끝난다 (${done})`, '예전 동작 그대로 — 기다릴 이유가 없습니다');
+}
+
+/* ── ⑫ 그림 미리 올리기 ─────────────────────────────────────────────── */
+console.log('\n■ ⑫ 입모양 그림을 말하기 «전에» 그 comp 로 올려 둔다');
+{
+  // W1(lily) 부팅 때 이미 한 번 돌았다 — 그림용 comp 에 남은 «알파 1/255» 그리기를 본다.
+  const warm = compG.ctx.ops.filter(o => o.op === 'draw' && o.alpha > 0 && o.alpha < 0.01);
+  const names = warm.map(o => String(o.src && o.src.src || '').replace(/^.*\//, '').split('?')[0]);
+  ok(['lily-closed.webp', 'lily-mouths.webp', 'lily-transitions.webp'].every(n => names.includes(n)),
+    `lily: 바탕·입모양·전환 그림 셋을 그림용 comp 에 한 번씩 그린다 (${names.join(', ')})`,
+    '말할 때 쓰는 그 comp 에 그려야 GPU 로 올라갑니다 — 1x1 같은 작은 캔버스(크롬은 128x129 미만을 GPU 로 안 그림)나 다른 캔버스로는 효과가 없었습니다');
+  ok(warm.every(o => o.a.length === 8 && o.a[2] === 1 && o.a[3] === 1 && o.a[6] === 1 && o.a[7] === 1),
+    '1픽셀만 그린다(1x1 → 1x1) — 큰 그림을 통째로 다시 그리는 비용을 안 쓴다');
+  ok(warm.length > 0 && warm.every(o => o.alpha <= 1 / 255 + 1e-9), `눈에 안 보이는 알파로 그린다 (최대 ${Math.max(0, ...warm.map(o => o.alpha)).toFixed(4)})`,
+    '알파 1이면 그 한 점이 얼굴 위에 남습니다');
+  const lastWarm = Math.max(0, ...warm.map(o => o.seq));
+  const vAfter = canvas.ctx.ops.find(o => o.op === 'clear' && o.seq > lastWarm);
+  const gClear = compG.ctx.ops.find(o => o.op === 'clear' && o.seq > lastWarm);
+  ok(!!vAfter && vAfter.seq === lastWarm + 1 && (!gClear || vAfter.seq < gClear.seq), `그린 «곧바로» comp 를 화면에 옮긴다 — 그래야 다음 «전체 지우기» 전에 그 그리기가 실제로 실행된다 (그리기 ${lastWarm} → 화면 ${vAfter ? vAfter.seq : '없음'})`,
+    '안 옮기면 다음 composeFrame 의 clearRect 가 아직 실행 안 된 그리기를 버릴 수 있습니다');
+  ok(compG.ctx.st.alpha === 1, `그린 뒤 알파를 1로 되돌린다 (${compG.ctx.st.alpha})`, '안 되돌리면 얼굴이 통째로 투명해집니다');
+
+  // 새 세계(noah)에서 prepare() 가 «두 프레임 뒤» 에 끝나는지.
+  W1.document.hidden = true; tick(200);
+  const c0 = created.length;
+  const W3 = world({ want: 'noah' });
+  const g3 = created[c0 + 1];
+  await flush();
+  const pr3 = W3.av.prepare(new Media()); let d3 = false; pr3.then(() => { d3 = true; });
+  await flush();
+  ok(!d3, '그림을 받은 직후에는 prepare 가 아직 안 끝난다(올리는 중)');
+  // 프레임·타이머가 하나도 안 돈 지금 — 화면 옮기기는 미리 올리기 «자신» 이 한 것뿐이다.
+  const warm3 = g3 ? g3.ctx.ops.filter(o => o.op === 'draw' && o.alpha > 0 && o.alpha < 0.01) : [];
+  const last3 = Math.max(0, ...warm3.map(o => o.seq));
+  const v3 = W3.canvas.ctx.ops.find(o => o.op === 'clear' && o.seq > last3);
+  ok(warm3.length >= 3 && !!v3, `noah: 프레임이 돌기 전에도 미리 올린 뒤 화면에 한 번 옮긴다 (그리기 ${warm3.length}개 · 화면 ${v3 ? v3.seq : '없음'})`,
+    '옮기지 않으면 그 그리기가 다음 전체 지우기에 버려져 GPU 에 안 올라갑니다');
+  W3.frame(); await flush();
+  ok(!d3, '한 프레임 뒤에도 아직이다');
+  W3.frame(); await flush();
+  ok(d3, '두 프레임 뒤에 prepare 가 끝난다 — 말 첫마디보다 업로드가 먼저다');
+  // 숨은 탭: rAF 가 안 돈다 → 타이머가 넘긴다(짝).
+  const W4 = world({ want: 'emma' });
+  await flush();
+  const pr4 = W4.av.prepare(new Media()); let d4 = false; pr4.then(() => { d4 = true; });
+  await flush();
+  tick(299); await flush();
+  const early4 = d4;
+  W4.pendingRaf.clear();   // 숨은 탭 흉내 — rAF 는 영영 안 온다
+  tick(2); await flush();
+  ok(!early4 && d4, `rAF 가 안 도는 숨은 탭에서도 300ms 뒤 prepare 가 끝난다 (299ms ${early4} → 301ms ${d4})`,
+    '타이머가 없으면 숨은 탭에서 prepare 가 영영 안 끝나 말을 못 합니다');
+}
 
 /* ── ⑪ 소스 규칙 ─────────────────────────────────────────────────────── */
 console.log('\n■ ⑪ 소스 규칙');
