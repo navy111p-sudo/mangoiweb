@@ -1,0 +1,73 @@
+{
+ "rect": [
+  226,
+  204,
+  202,
+  84
+ ],
+ "poses": [
+  {
+   "source": "lily-half.png",
+   "inliers": 80,
+   "color_shift_bgr": [
+    -1.0,
+    0.0,
+    -3.0
+   ],
+   "changed_pct_by_tenth": [
+    0.0,
+    0.0,
+    0.31,
+    3.01,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "source": "lily-closed.png",
+   "inliers": 77,
+   "color_shift_bgr": [
+    -1.0,
+    0.0,
+    -2.0
+   ],
+   "changed_pct_by_tenth": [
+    0.0,
+    0.0,
+    0.31,
+    4.73,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "source": "lily-brows.png",
+   "inliers": 65,
+   "color_shift_bgr": [
+    -1.0,
+    0.0,
+    -1.0
+   ],
+   "changed_pct_by_tenth": [
+    0.0,
+    0.0,
+    3.64,
+    5.37,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ ]
+}

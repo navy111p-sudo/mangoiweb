@@ -1,0 +1,73 @@
+{
+ "rect": [
+  192,
+  238,
+  260,
+  92
+ ],
+ "poses": [
+  {
+   "source": "noah-half.png",
+   "inliers": 51,
+   "color_shift_bgr": [
+    -25.0,
+    -25.0,
+    -25.0
+   ],
+   "changed_pct_by_tenth": [
+    0.0,
+    0.0,
+    0.0,
+    29.21,
+    1.44,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "source": "noah-closed.png",
+   "inliers": 174,
+   "color_shift_bgr": [
+    -1.0,
+    1.0,
+    -1.0
+   ],
+   "changed_pct_by_tenth": [
+    0.0,
+    0.0,
+    0.0,
+    8.66,
+    0.25,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "source": "noah-brows.png",
+   "inliers": 39,
+   "color_shift_bgr": [
+    25.0,
+    25.0,
+    25.0
+   ],
+   "changed_pct_by_tenth": [
+    0.0,
+    0.0,
+    0.02,
+    30.33,
+    1.79,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ ]
+}
