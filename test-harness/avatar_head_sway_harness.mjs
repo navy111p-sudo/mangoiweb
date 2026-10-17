@@ -1,17 +1,17 @@
-/* 🎭 아바타 «머리만 살짝 움직이기» (js/mango-avatar.js v12, 2026-10-18)
+/* 🎭 아바타 «머리만 살짝 움직이기» (js/mango-avatar.js v13, 2026-10-18)
  *
- * 왜: 사장님 「머리도 살아있는 거처럼 조금 씩 움직이게 해줘」 — 그림 캐릭터 다섯(lily·noah·emma·mei·long)
+ * 왜: 사장님 「머리도 살아있는 거처럼 조금 씩 움직이게 해줘」 — 그림 캐릭터 여섯(lily·noah·emma·mei·long·jake)
  *     의 «머리만» 목 가운데를 축으로 아주 작게 기울고(최대 약 1°) 끄덕입니다. 몸(어깨)은 그대로입니다.
  *
  * 무엇을 보는가 — «글자가 있는가» 가 아니라 파일을 가짜 DOM·가짜 캔버스·가짜 시계로 «실제로 돌려» 봅니다.
- *   ① HEAD 표: 다섯 캐릭터가 다 있고, 머리 경계(y1)가 눈 칸·입 칸 «아래» 이며, 축이 눈 칸 안에 있고,
+ *   ① HEAD 표: 그림 캐릭터가 다 있고, 머리 경계(y1)가 눈 칸·입 칸 «아래» 이며, 축이 눈 칸 안에 있고,
  *      원본 크기(w·h)가 실제 그림 파일과 같다 · 영상 캐릭터에는 없다
  *   ② 그리는 순서: 기운 경계 → 'source-out' 으로 몸 → 'lighter' 로 기운 머리 (몸은 안 기운다)
  *   ③ 크기: 최대 기울기 ≤ 1°(말할 때 ≤ 1.35°) · 실제로 움직인다(짝) · 끄덕임 ≤ 0.7%
  *   ④ 머리 경계 그림: 목 가운데에서는 y1 위 = 머리, y2 아래 = 몸 · 목 밖에서는 경계가 위로 올라간다
  *   ⑤ 쉬는 동안: 초당 약 20번만 그린다 · 탭이 숨으면/화면 밖이면/움직임 줄이기면 멈추고 다시 켜진다(짝)
  *   ⑥ 말하는 동안: 그리기 루프 하나만 돈다(rAF 가 겹치지 않는다) · 말이 끝나면 쉬는 움직임으로 돌아간다
- *   ⑦ 영상 캐릭터(jake)로 바꾸면 안 기운다 · 머리 캐릭터로 돌아오면 다시 켜진다(짝)
+ *   ⑦ 영상 캐릭터(jake_classic — 2026-10-18 부터 jake 는 그림 캐릭터)로 바꾸면 안 기운다 · 머리 캐릭터로 돌아오면 다시 켜진다(짝)
  *   ⑧ 2배 comp: 머리 캐릭터는 comp 가 640 폭(원본 그대로) · 영상 캐릭터는 320 폭
  *   ⑨ 전환 섞기: 투명 그림 캐릭터는 캔버스 사본으로 섞는다(getImageData 픽셀 루프 없이)
  *   ⑩ 화면 밖 캔버스를 못 만들면: 예전처럼 화면에 바로 그리고 안 기운다(실패해도 얼굴은 그대로)
@@ -31,7 +31,7 @@ const SRC_FILE = process.env.AVATAR_SRC || join(PUB, 'js', 'mango-avatar.js');
 let pass = 0, fail = 0;
 const ok = (c, m, extra) => { c ? (pass++, console.log('  ✅ ' + m)) : (fail++, console.log('  ❌ ' + m + (extra ? '\n       · ' + extra : ''))); };
 
-console.log('■ 아바타 머리 움직임 (js/mango-avatar.js v12)');
+console.log('■ 아바타 머리 움직임 (js/mango-avatar.js v13)');
 const AV = readFileSync(SRC_FILE, 'utf8');
 
 function stripComments(t) {
@@ -75,7 +75,7 @@ function webpSize(buf) {
 }
 const imageChars = CH ? Object.keys(CH).filter(k => CH[k].frames) : [];
 const videoChars = CH ? Object.keys(CH).filter(k => CH[k].sources) : [];
-ok(imageChars.length >= 5 && videoChars.length >= 1, `(전제) 그림 캐릭터 ${imageChars.length} · 영상 캐릭터 ${videoChars.length}`);
+ok(imageChars.length >= 6 && videoChars.length >= 1, `(전제) 그림 캐릭터 ${imageChars.length} · 영상 캐릭터 ${videoChars.length}`);
 for (const k of imageChars) ok(!!(HEAD && HEAD[k]), `${k}: 그림 캐릭터라 HEAD 에 있다(머리가 움직인다)`, '빠지면 그 캐릭터만 조용히 안 움직입니다');
 for (const k of videoChars) ok(!(HEAD && HEAD[k]), `${k}: 영상 캐릭터라 HEAD 에 없다(영상 자체가 움직임)`);
 for (const [name, h] of Object.entries(HEAD || {})) {
@@ -313,13 +313,13 @@ av.plainStop();
 
 /* ── ⑦ 영상 캐릭터 ─────────────────────────────────────────────────── */
 console.log('\n■ ⑦ 영상 캐릭터로 바꾸면 안 기운다');
-av.setCharacter('jake'); await flush();
-ok(comp.width === 320 && comp.ctx.st.base === 1, `jake: comp 가 1배(320)로 돌아간다 (${comp.width} · 배율 ${comp.ctx.st.base})`, '초록 지우기 픽셀 루프가 4배가 되지 않게');
+av.setCharacter('jake_classic'); await flush();
+ok(comp.width === 320 && comp.ctx.st.base === 1, `jake_classic: comp 가 1배(320)로 돌아간다 (${comp.width} · 배율 ${comp.ctx.st.base})`, '초록 지우기 픽셀 루프가 4배가 되지 않게');
 T += 200; frame();
-ok(pendingRaf.size === 0, 'jake: 쉬는 움직임 루프가 멈춘다');
+ok(pendingRaf.size === 0, 'jake_classic: 쉬는 움직임 루프가 멈춘다');
 W1.video.emit('loadeddata');
 P = lastPresent();
-ok(P.length === 1 && P[0].src === comp && P[0].rot === 0, 'jake: comp 를 기울이지 않고 그대로 옮긴다');
+ok(P.length === 1 && P[0].src === comp && P[0].rot === 0, 'jake_classic: comp 를 기울이지 않고 그대로 옮긴다');
 av.setCharacter('noah'); await flush();
 T += 200; frame();
 P = lastPresent();

@@ -106,8 +106,17 @@
        ⚠️ 사각형은 «그 캐릭터 초상화의 원본 px» 기준입니다 — emma 는 512x640(emma-v2-rest.webp),
           나머지는 640x800. 눈 그림은 «다문 입» 장에서 만들었습니다(입 3장의 눈 부위 차이 실측:
           emma 0 · mei 최대 9 · long 평균 6 — 그 위에 얹어도 이음매가 안 보이는 수준). */
-/* v12: (2026-10-18) 사장님 「머리도 살아있는 거처럼 조금 씩 움직이게 해줘」 — 그림 캐릭터 다섯
-       (lily·noah·emma·mei·long)의 «머리만» 아주 작게 기울고(최대 약 1°) 끄덕입니다(0.7%).
+/* v12: (2026-10-18) Jake — ① 영상 seek 대신 «같은 얼굴에서 입만 다른» 6가지 입모양(아래 jake 줄)
+       ② 사장님 「Jake도 살아있는 것 처럼 눈을 깜박거리고 머리도 조금 움직이게」 — EYES.jake 를 더해
+          다른 친구들과 같은 깜빡임·눈썹·숨쉬기(어깨 기준 아주 작은 기울기)를 켭니다.
+       Jake 얼굴은 생성 서비스가 거절한 기록이 있어(visemes/README) 눈 그림도 원래 영상에서 만듭니다:
+       반감음 = 영상 3프레임 · 감음 = 100프레임(실제 깜빡임)을 rest(80)에 정렬해 «눈+눈썹 타원» 만 얹고,
+       영상에 눈썹을 올리는 순간이 없어(200프레임 실측 ±3px) 눈썹 칸만 rest 의 눈썹을 7px 끌어올렸습니다.
+       만드는 도구: tools/build-jake-poses.py (입·눈 모두 — 타원 밖은 rest 와 같다는 assert).
+       ⚠️ Jake 사각형은 512x496(jake-closed.webp) 기준입니다. 이제 눈 그림이 없는 것은 영상 폴백
+          (jake_classic·emma_classic)뿐입니다. */
+/* v13: (2026-10-18) 사장님 「머리도 살아있는 거처럼 조금 씩 움직이게 해줘」 — 그림 캐릭터 여섯
+       (lily·noah·emma·mei·long·jake)의 «머리만» 아주 작게 기울고(최대 약 1°) 끄덕입니다(0.7%).
        어깨·몸은 한 픽셀도 안 움직입니다 — 목에서 머리와 몸을 부드럽게 나누는 경계(HEAD 표)를
        두고, 그 위만 목 가운데를 축으로 돌립니다. 말하는 동안은 조금 더 크게(×1.35).
        ⚙️ 얼굴은 먼저 화면 밖 캔버스(comp)에 그리고(입·눈은 예전과 똑같이), present() 가
@@ -157,7 +166,16 @@
     emma_classic: { sources:[['/img/teacher-avatar.webm','video/webm'],['/img/teacher-avatar.mp4','video/mp4']],
             still:'/img/teacher-avatar.png', rect:{ l:67/512, t:40/512, r:445/512, b:1 },
             poses:{ closed:3.3, medium:0.2, wide:4.0 }, hold:200, fade:160 },
-    jake: { sources:[['/img/hero-avatar.mp4','video/mp4']],
+    /* 🦸 jake (2026-10-17 v12) — 「Jake 입이 전혀 움직이지 않아 · 자연스럽게 · 말과 입이 일치 · 6가지」.
+       영상 seek(v5 사고와 같은 경로)을 버리고 «같은 얼굴에서 입만 다른» 이미지로 바꿨습니다.
+       원래 hero-avatar.mp4 의 프레임만 씁니다(새 얼굴 생성 아님 — 생성 서비스가 이 얼굴을 거절한 기록이 visemes/README).
+       입모양 6가지: rest·spread(이)·teeth·open·wide(아)·round(오/우) → PRECISION.jake 아틀라스.
+       만드는 도구: tools/build-jake-poses.py (입 밖 픽셀은 rest 와 바이트 단위로 같음 — assert).
+       ⛔ 영상 줄로 되돌리지 마세요(jake_classic 은 폴백 전용). */
+    jake: { frames:{ closed:'/img/jake-closed.webp', medium:'/img/jake-mid.webp', wide:'/img/jake-wide.webp' },
+            still:'/img/jake-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
+            aspect:512/496, keyed:false, fallback:'jake_classic' },
+    jake_classic: { sources:[['/img/hero-avatar.mp4','video/mp4']],
             still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 },
             poses:{ closed:3.2, medium:7.1, wide:3.5 }, hold:200, fade:160 },
     // ?v=2 (2026-10-18): smile-line creases beside the mouth retouched (tools/remove-smile-folds.py).
@@ -167,7 +185,7 @@
             aspect:0.8, keyed:false, fallback:'emma_classic' },
     noah: { frames:{ closed:'/img/noah-closed.webp?v=2', medium:'/img/noah-mid.webp?v=2', wide:'/img/noah-wide.webp?v=2' },
             still:'/img/noah-closed.webp?v=2', rect:{ l:0, t:0, r:1, b:1 },
-            aspect:0.8, keyed:false, fallback:'jake' },
+            aspect:0.8, keyed:false, fallback:'jake_classic' },
     // 🀄 mei — 중국어 교사(2026-09-14). 웜업에서 «중국어» 를 고른 학생에게만 보입니다.
     //    ⛔ 영어 화면(ai-friend·speech-coach)의 표에는 넣지 마세요 — 그쪽은 아직 중국어가 없어서
     //       «중국인 얼굴이 영어로 말하는» 상태가 됩니다(웜업에 중국어가 붙은 것이 먼저입니다).
@@ -183,19 +201,22 @@
        ⛔ 세 장을 각각 따로 다시 뽑아 갈아 끼우지 마세요 — 그 순간 이 숫자가 무너집니다. */
     long: { frames:{ closed:'/img/long-closed.webp', medium:'/img/long-mid.webp', wide:'/img/long-wide.webp' },
             still:'/img/long-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
-            aspect:0.8, keyed:false, fallback:'jake' }
+            aspect:0.8, keyed:false, fallback:'jake_classic' }
   };
   // 옛 이름으로 부르는 코드가 남아 있어도 조용히 죽지 않게 — setCharacter 가 먼저 풀어 준다.
   // ⚠️ 화면이 새 이름으로만 부르도록 고쳤지만, 이 표를 지우면 옛 호출이 «아무 일도 안 일어남» 이 됩니다.
-  var CHAR_ALIAS = { female:'emma', male:'jake', female_classic:'emma_classic', male_classic:'jake' };
+  var CHAR_ALIAS = { female:'emma', male:'jake', female_classic:'emma_classic', male_classic:'jake_classic' };
   var BASE_W = 320;   // 캔버스 내부 해상도 기준 폭(캐릭터별 비율에 맞춰 높이만 재계산)
-  // 🎭 (v12) 머리 움직임 — 숫자는 그 초상화의 원본 px(emma 만 512x640, 나머지 640x800).
+  // 🎭 (v13) 머리 움직임 — 숫자는 그 초상화의 원본 px(emma 512x640 · jake 512x496 · 나머지 640x800).
   //   y1 위는 머리(전부 움직임) · y2 아래는 몸(그대로) · 그 사이는 부드럽게 섞는다.
   //   nw 는 목 반폭 — 그 밖에서는 경계를 (y2-y1) 만큼 위로 올려 어깨가 섞이지 않게 한다.
   //   ⚠️ y1 은 입 칸(PRECISION)·눈 칸(EYES)의 아래 끝보다 «아래» 여야 한다(하니스가 대조).
   var HEAD={lily:{x:327,y1:446,y2:488,nw:62,w:640,h:800},noah:{x:324,y1:500,y2:542,nw:118,w:640,h:800},
     emma:{x:257,y1:424,y2:464,nw:58,w:512,h:640},mei:{x:324,y1:468,y2:540,nw:62,w:640,h:800},
-    long:{x:322,y1:412,y2:456,nw:100,w:640,h:800}};
+    long:{x:322,y1:412,y2:456,nw:100,w:640,h:800},
+    // jake 는 만화 그림이라 목이 턱만큼 넓고 어깨가 턱 모서리 바로 밑에서 시작한다 — 경계를 턱 위(416)에
+    // 두면 턱 모서리 굵은 선이 띠에 걸리지만, 실제 기울기(≤1.35°)에서는 1~2px 라 겹쳐 보이지 않는다(6배 과장에서만 보임).
+    jake:{x:257,y1:416,y2:452,nw:100,w:512,h:496}};
 
   function build(){
     var video  = document.getElementById('tavatar-video');
@@ -203,7 +224,7 @@
     var wrap   = document.getElementById('tavatar-wrap');
     var ring   = document.getElementById('tavatar-ring');
     if(!video || !canvas) return;
-    // 🎭 (v12) 얼굴은 화면 밖 캔버스(comp)에 그리고 present() 가 화면 캔버스(vctx)로 옮긴다 —
+    // 🎭 (v13) 얼굴은 화면 밖 캔버스(comp)에 그리고 present() 가 화면 캔버스(vctx)로 옮긴다 —
     //    그 사이에서 머리만 기울인다. comp 를 못 만들면 예전처럼 화면 캔버스에 바로 그린다.
     var ctx = null, vctx = null, comp = null;
     try { comp = document.createElement('canvas'); ctx = comp.getContext('2d', { willReadFrequently:true }); } catch(e){ ctx = null; }
@@ -251,7 +272,7 @@
     function setAspect(aspect){
       if(!(aspect > 0)) return;
       canvas.width = BASE_W; canvas.height = Math.round(BASE_W / aspect);
-      // 🎭 (v12) 머리 캐릭터는 comp 를 «2배» 로 짠다 — 원본(640x800)의 잔털·속눈썹을 그대로 들고 있다가
+      // 🎭 (v13) 머리 캐릭터는 comp 를 «2배» 로 짠다 — 원본(640x800)의 잔털·속눈썹을 그대로 들고 있다가
       //    기울일 때 한 번만 줄여야 흐려지지 않는다(1배로 짜고 기울이면 얼굴이 눈에 띄게 뿌예집니다).
       //    ⚠️ 이때 ctx 는 «320 기준 좌표» 그대로 쓰도록 배율을 걸어 둔다(그리는 코드는 그대로).
       if (comp) {
@@ -259,7 +280,7 @@
         comp.width = canvas.width * COMP_S; comp.height = canvas.height * COMP_S;
         try { ctx.setTransform(COMP_S, 0, 0, COMP_S, 0, 0); } catch(e){}
       }
-      maskFor = ''; layersDirty = true;      // 🎭 (v12) 크기가 바뀌면 머리 경계·층을 다시 만든다
+      maskFor = ''; layersDirty = true;      // 🎭 (v13) 크기가 바뀌면 머리 경계·층을 다시 만든다
       // CSS aspect-ratio 로 카드 높이를 자동 계산하려 했으나, 전환(transition) 시 실제
       // 레이아웃에 반영 안 되는 문제가 있어 폭(고정 CSS 값)을 읽어 높이를 직접 px 로 계산해 덮어쓴다.
       if (ring){
@@ -288,7 +309,7 @@
       var c = CHARACTERS[name]; if(!c) return;
       keyedNow = (c.keyed !== false);
       mountEyes(name);   // 👁 (v10) 눈 그림이 있는 캐릭터만 깜빡임·숨쉬기를 켠다(없으면 끈다)
-      maskFor = ''; layersDirty = true; swayKick();   // 🎭 (v12) 머리 움직임도 캐릭터를 따라간다
+      maskFor = ''; layersDirty = true; swayKick();   // 🎭 (v13) 머리 움직임도 캐릭터를 따라간다
       if (c.frames){ mountImages(name, c); return; }
       imgFrames = null; imgCur = null;
       try{
@@ -347,7 +368,10 @@
     // base/atlas/trans must carry the same ?v= as the CHARACTERS frames above (one retouch, one version).
     var PRECISION={lily:{extra:true,base:'/img/lily-closed.webp?v=2',atlas:'/img/visemes/lily-mouths.webp?v=2',trans:'/img/visemes/lily-transitions.webp?v=2',x:250,y:294,w:144,h:122},
       noah:{extra:true,base:'/img/noah-closed.webp?v=2',atlas:'/img/visemes/noah-mouths.webp?v=2',trans:'/img/visemes/noah-transitions.webp?v=2',x:244,y:364,w:154,h:130},
-      emma:{extra:true,base:'/img/visemes/emma-v2-rest.webp',atlas:'/img/visemes/emma-v2-mouths.webp',x:183,y:282,w:146,h:126}};
+      emma:{extra:true,base:'/img/visemes/emma-v2-rest.webp',atlas:'/img/visemes/emma-v2-mouths.webp',x:183,y:282,w:146,h:126},
+      // 🦸 Jake 6가지 입모양(9칸 XABCDEFGH 에 배치) — x,y,w,h 는 build-jake-poses.py 출력과 짝.
+      //    중간 모양 시트가 없어 transitions 는 못 받으면 그냥 9칸 앵커만 씁니다(keyFrame 이 확인).
+      jake:{extra:true,base:'/img/jake-closed.webp',atlas:'/img/visemes/jake-mouths.webp',transitions:false,x:188,y:304,w:136,h:92}};
     function precisionFace(){
       if(!PRECISION[curChar])return null;
       if(!preciseFaces[curChar]){
@@ -360,7 +384,7 @@
           if(im.complete && im.naturalWidth){clearTimeout(timer);resolve(true);}
         });};
         var ready=Promise.all([load(base,p.base),load(mouths,p.atlas||('/img/visemes/'+curChar+'-mouths.webp')),
-          load(transitions,p.trans||('/img/visemes/'+curChar+'-transitions.webp'))]);
+          p.transitions===false ? Promise.resolve(false) : load(transitions,p.trans||('/img/visemes/'+curChar+'-transitions.webp'))]);
         preciseFaces[curChar]={base:base,mouths:mouths,transitions:transitions,rect:p,ready:ready};
         // Bound decoded sprite memory when a student switches through all teachers.
         Object.keys(preciseFaces).forEach(function(name){if(name!==curChar)delete preciseFaces[name];});
@@ -368,10 +392,12 @@
       return preciseFaces[curChar];
     }
     // 👁 (v10) 눈 깜빡임·눈썹 — 사각형은 그 초상화의 원본 px 기준(build-eye-patches.py 의 rect).
-    //   emma 만 512x640(emma-v2-rest.webp), 나머지는 640x800.
+    //   emma 만 512x640(emma-v2-rest.webp), jake 는 512x496(jake-closed.webp — build-jake-poses.py 의 eyes.rect),
+    //   나머지는 640x800.
     //   eyeState: 0 원본 · 1 반감음 · 2 감음 · 3 눈썹 올림 (= 눈 그림의 칸 번호 + 1)
     var EYES={lily:{x:226,y:204,w:202,h:84},noah:{x:192,y:238,w:260,h:92},
-      emma:{x:151,y:174,w:213,h:80},mei:{x:206,y:220,w:236,h:84},long:{x:210,y:214,w:224,h:86}};
+      emma:{x:151,y:174,w:213,h:80},mei:{x:206,y:220,w:236,h:84},long:{x:210,y:214,w:224,h:86},
+      jake:{x:153,y:181,w:209,h:74}};
     var eyeImg=null, eyeOk=false, eyeFor='', eyeState=0, eyeTimer=0, browUntil=0, browNext=0, loudNow=false;
     function injectAliveCss(){
       try{
@@ -570,7 +596,7 @@
     //   전환 직전 화면을 스냅샷(fadeData)해두고, 짧은 시간(FADE_MS) 동안 새 프레임과 섞어
     //   부드럽게 넘어가게 한다(showTier 에서 스냅샷을 남김).
     var fadeData = null, fadeT0 = 0, fadeCv = null;
-    // 🎞 (v12) 전환 직전 화면 남기기 — 투명 그림 캐릭터는 «캔버스 사본» 으로 남겨 drawImage 로 섞는다
+    // 🎞 (v13) 전환 직전 화면 남기기 — 투명 그림 캐릭터는 «캔버스 사본» 으로 남겨 drawImage 로 섞는다
     //    (픽셀 루프보다 훨씬 가볍고, comp 가 2배여도 비용이 그대로다). 초록 지우기를 하는 영상
     //    캐릭터는 예전처럼 픽셀(getImageData)로 남긴다 — 그쪽은 섞기를 픽셀 루프 안에서 한다.
     function fadeSnap(now){
@@ -586,7 +612,7 @@
       }
       try { fadeData = ctx.getImageData(0,0,canvas.width,canvas.height); fadeT0 = now; } catch(e){ fadeData = null; }
     }
-    // 🎭 (v12) 얼굴을 comp 에 짜 맞춘 뒤 화면으로 옮긴다(머리 캐릭터면 그때 머리를 기울인다).
+    // 🎭 (v13) 얼굴을 comp 에 짜 맞춘 뒤 화면으로 옮긴다(머리 캐릭터면 그때 머리를 기울인다).
     function keyFrame(){ composeFrame(); layersDirty = true; present(); }
     function composeFrame(){
       var srcEl, vw, vh;

@@ -37,10 +37,28 @@ av.attach(b);b.paused=false;b.emit('playing');frame();a.emit('ended');assert(pen
 b.paused=true;b.emit('ended');assert.equal(pending.size,0);assert.match(lastImage,/closed/);
 av.attach(a);av.attach(b);assert.equal(sources,2);
 console.log('PASS: playback, buffering, resume, pause, cancel, end, stale events, rebind');
-// Video-only Jake keeps his identity but also follows audio-derived cue timing.
+// Video characters (fallback jake_classic) still follow audio-derived cue timing.
+// 2026-10-17: Jake himself moved to six mouth-only images (see the block below).
 let cue='A';window.AvatarVisemes={prepare:()=>Promise.resolve([{start:0,end:1,value:'A'}]),at:()=>cue};
-b.src='blob:test';av.setCharacter('jake');av.attach(b);await new Promise(queueMicrotask);
+b.src='blob:test';av.setCharacter('jake_classic');av.attach(b);await new Promise(queueMicrotask);
 b.paused=false;av.plainStart();frame();assert.equal(video.currentTime,3.2,'P/B/M uses closed Jake pose');
 cue='D';av.plainStart();frame();assert.equal(video.currentTime,3.5,'AH uses wide Jake pose');
 cue='A';frame();assert.equal(video.currentTime,3.2,'closure bypasses minimum video hold');av.plainStop();
 console.log('PASS: original video character follows cue timing and closes immediately');
+
+// 2026-10-17 Jake: six mouth shapes from one atlas, drawn on the closed base — no video seek.
+{
+ const drawn=[];ctx.drawImage=(im,...r)=>{lastImage=im.src;drawn.push([im.src,r[0],r[1]]);};
+ const seekBefore=video.currentTime;
+ b.src='blob:jake';av.setCharacter('jake');av.attach(b);await new Promise(queueMicrotask);await new Promise(queueMicrotask);
+ b.paused=false;b.currentTime=0.5;
+ const cells={};
+ for(const c of 'XABCDEFGH'){cue=c;drawn.length=0;av.plainStart();frame();
+   const m=drawn.find(d=>/jake-mouths/.test(d[0]));assert(m,`cue ${c} draws a Jake mouth cell`);cells[c]=m[1]+','+m[2];
+   assert(drawn.some(d=>/jake-closed/.test(d[0])),`cue ${c} keeps the same base face`);}
+ const distinct=new Set(Object.values(cells)).size;
+ assert.equal(distinct,9,'nine atlas cells addressed');
+ assert.equal(video.currentTime,seekBefore,'Jake never seeks the video');
+ av.plainStop();
+ console.log('PASS: Jake uses 9-cell mouth atlas on one base face, no video seek');
+}
