@@ -106,6 +106,19 @@
        ⚠️ 사각형은 «그 캐릭터 초상화의 원본 px» 기준입니다 — emma 는 512x640(emma-v2-rest.webp),
           나머지는 640x800. 눈 그림은 «다문 입» 장에서 만들었습니다(입 3장의 눈 부위 차이 실측:
           emma 0 · mei 최대 9 · long 평균 6 — 그 위에 얹어도 이음매가 안 보이는 수준). */
+/* v12: (2026-10-18) 사장님 「머리도 살아있는 거처럼 조금 씩 움직이게 해줘」 — 그림 캐릭터 다섯
+       (lily·noah·emma·mei·long)의 «머리만» 아주 작게 기울고(최대 약 1°) 끄덕입니다(0.7%).
+       어깨·몸은 한 픽셀도 안 움직입니다 — 목에서 머리와 몸을 부드럽게 나누는 경계(HEAD 표)를
+       두고, 그 위만 목 가운데를 축으로 돌립니다. 말하는 동안은 조금 더 크게(×1.35).
+       ⚙️ 얼굴은 먼저 화면 밖 캔버스(comp)에 그리고(입·눈은 예전과 똑같이), present() 가
+          «몸 + 기운 머리» 를 화면 캔버스에 겹쳐 놓습니다. 겹치는 목 부분은 'lighter' 로 더해
+          알파가 1 을 넘거나 비지 않습니다.
+       ⚠️ 쉬는 동안의 움직임은 rAF 를 «초당 약 20번» 만 씁니다 — 탭이 숨거나, 캔버스가 화면
+          밖이거나, «움직임 줄이기» 설정이면 멈춥니다. ⛔ setInterval 로 바꾸지 마세요.
+       ⚠️ 화면 밖 캔버스를 못 만드는 환경(옛 브라우저·하니스의 가짜 DOM)에서는 예전처럼 화면
+          캔버스에 바로 그리고 머리는 안 움직입니다(실패해도 얼굴은 그대로).
+       ⚠️ HEAD 의 숫자는 «그 초상화의 원본 px» 입니다 — y1(여기부터 위는 머리) · y2(여기부터
+          아래는 몸) · nw(목 반폭 — 그 밖은 경계가 위로 올라가 어깨가 섞이지 않게) · x(축). */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -176,6 +189,13 @@
   // ⚠️ 화면이 새 이름으로만 부르도록 고쳤지만, 이 표를 지우면 옛 호출이 «아무 일도 안 일어남» 이 됩니다.
   var CHAR_ALIAS = { female:'emma', male:'jake', female_classic:'emma_classic', male_classic:'jake' };
   var BASE_W = 320;   // 캔버스 내부 해상도 기준 폭(캐릭터별 비율에 맞춰 높이만 재계산)
+  // 🎭 (v12) 머리 움직임 — 숫자는 그 초상화의 원본 px(emma 만 512x640, 나머지 640x800).
+  //   y1 위는 머리(전부 움직임) · y2 아래는 몸(그대로) · 그 사이는 부드럽게 섞는다.
+  //   nw 는 목 반폭 — 그 밖에서는 경계를 (y2-y1) 만큼 위로 올려 어깨가 섞이지 않게 한다.
+  //   ⚠️ y1 은 입 칸(PRECISION)·눈 칸(EYES)의 아래 끝보다 «아래» 여야 한다(하니스가 대조).
+  var HEAD={lily:{x:327,y1:446,y2:488,nw:62,w:640,h:800},noah:{x:324,y1:500,y2:542,nw:118,w:640,h:800},
+    emma:{x:257,y1:424,y2:464,nw:58,w:512,h:640},mei:{x:324,y1:468,y2:540,nw:62,w:640,h:800},
+    long:{x:322,y1:412,y2:456,nw:100,w:640,h:800}};
 
   function build(){
     var video  = document.getElementById('tavatar-video');
@@ -183,8 +203,20 @@
     var wrap   = document.getElementById('tavatar-wrap');
     var ring   = document.getElementById('tavatar-ring');
     if(!video || !canvas) return;
-    var ctx = canvas.getContext('2d', { willReadFrequently:true });
+    // 🎭 (v12) 얼굴은 화면 밖 캔버스(comp)에 그리고 present() 가 화면 캔버스(vctx)로 옮긴다 —
+    //    그 사이에서 머리만 기울인다. comp 를 못 만들면 예전처럼 화면 캔버스에 바로 그린다.
+    var ctx = null, vctx = null, comp = null;
+    try { comp = document.createElement('canvas'); ctx = comp.getContext('2d', { willReadFrequently:true }); } catch(e){ ctx = null; }
+    if (ctx && typeof ctx.drawImage === 'function') {
+      try { vctx = canvas.getContext('2d'); } catch(e){ vctx = null; }
+    }
+    if (!vctx) { comp = null; vctx = null; ctx = canvas.getContext('2d', { willReadFrequently:true }); }
+    else { comp.width = canvas.width; comp.height = canvas.height; }
     var raf = 0, drawing = false, IDLE = null, clipActive = false;
+    // ⚠️ 2배는 «머리 캐릭터 + 투명 그림(keyed:false)» 만 — 초록 지우기(getImageData 픽셀 루프)를
+    //    쓰는 영상 캐릭터는 1배 그대로(2배면 픽셀 일이 4배가 됩니다).
+    var COMP_S = 1;
+    function compScaleFor(name){ var c = CHARACTERS[name]; return (comp && HEAD[name] && c && c.keyed === false) ? 2 : 1; }
     /* 🕐 «모듈이 오기 전에 화면이 고른 얼굴» 을 이어받는다 (2026-09-14).
        이 파일은 defer 라 화면의 인라인 스크립트가 «먼저» 돕니다. 그때 화면은
        `window.MangoAvatar && MangoAvatar.setCharacter(...)` 를 부르는데 아직 이 객체가
@@ -219,6 +251,15 @@
     function setAspect(aspect){
       if(!(aspect > 0)) return;
       canvas.width = BASE_W; canvas.height = Math.round(BASE_W / aspect);
+      // 🎭 (v12) 머리 캐릭터는 comp 를 «2배» 로 짠다 — 원본(640x800)의 잔털·속눈썹을 그대로 들고 있다가
+      //    기울일 때 한 번만 줄여야 흐려지지 않는다(1배로 짜고 기울이면 얼굴이 눈에 띄게 뿌예집니다).
+      //    ⚠️ 이때 ctx 는 «320 기준 좌표» 그대로 쓰도록 배율을 걸어 둔다(그리는 코드는 그대로).
+      if (comp) {
+        COMP_S = compScaleFor(curChar);
+        comp.width = canvas.width * COMP_S; comp.height = canvas.height * COMP_S;
+        try { ctx.setTransform(COMP_S, 0, 0, COMP_S, 0, 0); } catch(e){}
+      }
+      maskFor = ''; layersDirty = true;      // 🎭 (v12) 크기가 바뀌면 머리 경계·층을 다시 만든다
       // CSS aspect-ratio 로 카드 높이를 자동 계산하려 했으나, 전환(transition) 시 실제
       // 레이아웃에 반영 안 되는 문제가 있어 폭(고정 CSS 값)을 읽어 높이를 직접 px 로 계산해 덮어쓴다.
       if (ring){
@@ -247,6 +288,7 @@
       var c = CHARACTERS[name]; if(!c) return;
       keyedNow = (c.keyed !== false);
       mountEyes(name);   // 👁 (v10) 눈 그림이 있는 캐릭터만 깜빡임·숨쉬기를 켠다(없으면 끈다)
+      maskFor = ''; layersDirty = true; swayKick();   // 🎭 (v12) 머리 움직임도 캐릭터를 따라간다
       if (c.frames){ mountImages(name, c); return; }
       imgFrames = null; imgCur = null;
       try{
@@ -378,7 +420,117 @@
         else scheduleBlink();
       })(0);
     }
-    try{ document.addEventListener('visibilitychange', function(){ if(!document.hidden) scheduleBlink(); }); }catch(e){}
+    try{ document.addEventListener('visibilitychange', function(){ if(!document.hidden){ scheduleBlink(); swayKick(); } }); }catch(e){}
+
+    var SWAY_ROT_DEG = 1.0, SWAY_NOD = 0.007, SWAY_TALK = 1.35, SWAY_IDLE_MS = 48;
+    var swayPh = [Math.random()*6.283, Math.random()*6.283, Math.random()*6.283, Math.random()*6.283];
+    var swayAmp = 1, swayAmpAt = 0, swayRaf = 0, swayLastAt = 0, swayVis = true, swayMq = null;
+    var headCv = null, maskCv = null, maskFor = '', layersDirty = true;
+    try{ swayMq = (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)')) || null; }catch(e){ swayMq = null; }
+    function swayReduced(){ return !!(swayMq && swayMq.matches); }
+    function swayGeom(W, H){
+      var h = HEAD[curChar], cr = cropRect; if(!h || !cr) return null;
+      var kx = W / (h.w * (cr.r - cr.l)), ky = H / (h.h * (cr.b - cr.t));
+      var y1 = (h.y1 - h.h*cr.t)*ky, y2 = (h.y2 - h.h*cr.t)*ky;
+      return { px:(h.x - h.w*cr.l)*kx, y1:y1, y2:y2, py:(y1 + y2)/2, nw:h.nw*kx, nw2:h.w*0.094*kx };
+    }
+    // 지금 이 순간의 자세 — 두 사인을 섞어 «같은 동작의 되풀이» 로 안 보이게 한다(위상은 접속마다 무작위).
+    function swayPose(W, H){
+      if (!HEAD[curChar] || swayReduced()) return null;
+      var g = swayGeom(W, H); if(!g) return null;
+      var now = Date.now(), t = now / 1000, P = 6.283185307;
+      var want = drawing ? SWAY_TALK : 1;
+      swayAmp = swayAmpAt ? swayAmp + (want - swayAmp) * Math.min(1, Math.max(0, now - swayAmpAt) / 700) : want;
+      swayAmpAt = now;
+      var rot = SWAY_ROT_DEG * (0.62*Math.sin(P*t/7.3 + swayPh[0]) + 0.38*Math.sin(P*t/4.1 + swayPh[1]));
+      var nod = SWAY_NOD * (0.6*Math.sin(P*t/5.6 + swayPh[2]) + 0.4*Math.sin(P*t/3.1 + swayPh[3]));
+      return { px:g.px, py:g.py, rot:rot * swayAmp * Math.PI / 180, sy:1 + nod * swayAmp };
+    }
+    // 머리 경계 그림(알파=머리 몫) — 캐릭터·크기가 바뀔 때만 한 번 만든다.
+    function swayMask(W, H){
+      var key = curChar + ':' + W + 'x' + H;
+      if (maskFor === key && maskCv) return true;
+      var g = swayGeom(W, H); if(!g) return false;
+      if (!maskCv) maskCv = document.createElement('canvas');
+      maskCv.width = W; maskCv.height = H;
+      var mx = maskCv.getContext('2d'), md = mx.createImageData(W, H), d = md.data, span = g.y2 - g.y1;
+      for (var x = 0; x < W; x++){
+        var s = (Math.abs(x + 0.5 - g.px) - g.nw) / g.nw2; s = s < 0 ? 0 : s > 1 ? 1 : s;
+        var lift = s*s*(3 - 2*s) * span, a = g.y1 - lift, b = g.y2 - lift;
+        for (var y = 0; y < H; y++){
+          var yy = y + 0.5, w = yy <= a ? 1 : yy >= b ? 0 : 1 - ((yy - a)/span)*((yy - a)/span)*(3 - 2*(yy - a)/span);
+          d[(y*W + x)*4 + 3] = Math.round(w * 255);
+        }
+      }
+      mx.putImageData(md, 0, 0);
+      maskFor = key; layersDirty = true;
+      return true;
+    }
+    // comp 에서 «머리 몫»(경계 위)만 오려 둔다 — 얼굴이 바뀔 때만 다시 만든다.
+    function swayLayers(W, H){
+      if (!swayMask(W, H)) return false;
+      if (!layersDirty && headCv) return true;
+      if (!headCv) headCv = document.createElement('canvas');
+      var cw = comp.width, ch = comp.height;          // comp 와 같은 «2배» 크기로 들고 있는다
+      if (headCv.width !== cw || headCv.height !== ch){ headCv.width = cw; headCv.height = ch; }
+      var x = headCv.getContext('2d');
+      x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, cw, ch); x.drawImage(comp, 0, 0);
+      x.globalCompositeOperation = 'destination-in'; x.drawImage(maskCv, 0, 0, cw, ch);
+      x.globalCompositeOperation = 'source-over';
+      layersDirty = false;
+      return true;
+    }
+    // comp → 화면. 머리 캐릭터면 «몸 + 기운 머리», 아니면 그대로 옮긴다.
+    //   ① 기운 경계(마스크)를 먼저 깔고 ② 'source-out' 으로 그 밖에만 comp(몸)를 두고
+    //   ③ 'lighter' 로 기운 머리를 더한다 — 몸 몫이 «기운» 경계의 나머지라서 목에서 알파가 정확히 1.
+    //   ⛔ 몸을 «기울기 전» 경계로 오려 두지 마세요: 머리가 옆으로 기울면 경계가 위아래로 어긋나
+    //      목에 반투명한 띠(실측 알파 245/255)가 생깁니다.
+    function present(){
+      if (!vctx || !comp) return;
+      var W = canvas.width, H = canvas.height, pose = null;
+      var tilt = function(){ vctx.translate(pose.px, pose.py); vctx.rotate(pose.rot); vctx.scale(1, pose.sy); vctx.translate(-pose.px, -pose.py); };
+      try {
+        pose = swayPose(W, H);
+        vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.globalCompositeOperation = 'source-over';
+        vctx.clearRect(0, 0, W, H);
+        if (!pose || !swayLayers(W, H)) { vctx.drawImage(comp, 0, 0, W, H); return; }
+        tilt(); vctx.drawImage(maskCv, 0, 0, W, H);
+        vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.globalCompositeOperation = 'source-out';
+        vctx.drawImage(comp, 0, 0, W, H);
+        vctx.globalCompositeOperation = 'lighter'; tilt();
+        vctx.drawImage(headCv, 0, 0, W, H);
+      } catch(e) {
+        try { vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.globalCompositeOperation = 'source-over'; vctx.clearRect(0, 0, W, H); vctx.drawImage(comp, 0, 0, W, H); } catch(_){}
+      } finally {
+        try { vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.globalCompositeOperation = 'source-over'; } catch(_){}
+      }
+    }
+    // 쉬는 동안의 움직임 — 말하는 중(drawing)에는 그리기 루프가 매 프레임 present() 를 부른다.
+    function swayWanted(){
+      return !!(vctx && comp && HEAD[curChar] && !swayReduced() && swayVis && !document.hidden && canvas.isConnected !== false);
+    }
+    function swayTick(){
+      swayRaf = 0;
+      if (drawing || !swayWanted()) return;          // 멈춘다 — swayKick 이 다시 켠다
+      var now = Date.now();
+      if (now - swayLastAt >= SWAY_IDLE_MS) { swayLastAt = now; present(); }
+      swayRaf = requestAnimationFrame(swayTick);
+    }
+    function swayKick(){ if (!swayRaf && !drawing && swayWanted()) swayRaf = requestAnimationFrame(swayTick); }
+    try{
+      if (swayMq){
+        var onMq = function(){ present(); swayKick(); };
+        if (swayMq.addEventListener) swayMq.addEventListener('change', onMq); else if (swayMq.addListener) swayMq.addListener(onMq);
+      }
+    }catch(e){}
+    try{
+      if (vctx && typeof IntersectionObserver === 'function'){
+        new IntersectionObserver(function(es){
+          var e = es && es[es.length - 1]; if (!e) return;
+          swayVis = !!e.isIntersecting; if (swayVis) swayKick();
+        }).observe(canvas);
+      }
+    }catch(e){}
     function prepareCues(el){
       var nextUrl=el.src||el.currentSrc||'';
       if(cueUrl!==nextUrl)mouthCues=null;cueUrl=nextUrl;
@@ -408,7 +560,7 @@
     function ensureIdle(){ if(IDLE) return; var c = CHARACTERS[curChar] || {};
       IDLE = video.currentSrc || (c.sources && c.sources[0] && c.sources[0][0]) || ''; }
     function preloadStill(url){
-      try{ var im=new Image(); im.onload=function(){ if(!drawing){ try{ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(im,0,0,canvas.width,canvas.height); }catch(e){} } }; im.src=url; }catch(e){}
+      try{ var im=new Image(); im.onload=function(){ if(!drawing){ try{ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(im,0,0,canvas.width,canvas.height); }catch(e){} layersDirty=true; present(); } }; im.src=url; }catch(e){}
     }
 
     // 초록 제거 크로마키: 초록 우세도(g - max(r,b)) 판정 + 가장자리 페더 + 스필 억제.
@@ -417,8 +569,26 @@
     // 🎞 (2026-07-27 4차) 입모양 단계가 바뀔 때 프레임이 뚝 끊겨 보이던 것을 완화 —
     //   전환 직전 화면을 스냅샷(fadeData)해두고, 짧은 시간(FADE_MS) 동안 새 프레임과 섞어
     //   부드럽게 넘어가게 한다(showTier 에서 스냅샷을 남김).
-    var fadeData = null, fadeT0 = 0;
-    function keyFrame(){
+    var fadeData = null, fadeT0 = 0, fadeCv = null;
+    // 🎞 (v12) 전환 직전 화면 남기기 — 투명 그림 캐릭터는 «캔버스 사본» 으로 남겨 drawImage 로 섞는다
+    //    (픽셀 루프보다 훨씬 가볍고, comp 가 2배여도 비용이 그대로다). 초록 지우기를 하는 영상
+    //    캐릭터는 예전처럼 픽셀(getImageData)로 남긴다 — 그쪽은 섞기를 픽셀 루프 안에서 한다.
+    function fadeSnap(now){
+      fadeData = null;
+      if (!keyedNow) {
+        try {
+          var src = ctx.canvas;
+          if (!fadeCv) fadeCv = document.createElement('canvas');
+          if (fadeCv.width !== src.width || fadeCv.height !== src.height) { fadeCv.width = src.width; fadeCv.height = src.height; }
+          var fx = fadeCv.getContext('2d'); fx.clearRect(0, 0, fadeCv.width, fadeCv.height); fx.drawImage(src, 0, 0);
+          fadeData = { cv: fadeCv, w: src.width, h: src.height }; fadeT0 = now; return;
+        } catch(e) { fadeData = null; }
+      }
+      try { fadeData = ctx.getImageData(0,0,canvas.width,canvas.height); fadeT0 = now; } catch(e){ fadeData = null; }
+    }
+    // 🎭 (v12) 얼굴을 comp 에 짜 맞춘 뒤 화면으로 옮긴다(머리 캐릭터면 그때 머리를 기울인다).
+    function keyFrame(){ composeFrame(); layersDirty = true; present(); }
+    function composeFrame(){
       var srcEl, vw, vh;
       var pf=precisionFace(), precise=pf && mouthCues && !clipActive;
       if(precise && pf.base.complete && pf.base.naturalWidth && pf.mouths.complete && pf.mouths.naturalWidth){
@@ -460,6 +630,18 @@
             if (imgFrames) drawEyes(sx, sy, sw, sh); } catch(e){ return; }
       // 초록을 지울 필요도 없고(이미 투명) 섞을 것도 없으면 픽셀을 아예 만지지 않는다 —
       // getImageData/putImageData 가 폰에서 제일 비싼 구간이라 그만큼 가벼워진다.
+      if (fadeData && fadeData.cv) {
+        // 앞 화면을 새 화면 «위에» (1-a) 만큼 얹는다 — 둘 다 불투명한 곳은 정확히 섞이고,
+        // 윤곽은 새 화면 것을 따른다(입 모양만 다른 세 장이라 윤곽이 같다).
+        var fa = (Date.now() - fadeT0) / curFade;
+        if (fa >= 1 || fadeData.w !== ctx.canvas.width || fadeData.h !== ctx.canvas.height) { fadeData = null; }
+        else {
+          try { ctx.save(); ctx.globalCompositeOperation = 'source-atop'; ctx.globalAlpha = 1 - fa;
+                ctx.drawImage(fadeData.cv, 0, 0, canvas.width, canvas.height); ctx.restore(); } catch(e){ fadeData = null; }
+        }
+        if (!keyedNow) return;
+        fadeData = null;
+      }
       if (!keyedNow && !fadeData) return;
       var im; try { im = ctx.getImageData(0,0,canvas.width,canvas.height); } catch(e){ return; }
       var d = im.data;
@@ -520,7 +702,7 @@
         var imN = imgFrames[tier];
         if(!imN || !imN.complete || !imN.naturalWidth) return;
         if(!immediate && now - lastSwitchAt < curHold) return;
-        try { fadeData = ctx.getImageData(0,0,canvas.width,canvas.height); fadeT0 = now; } catch(e){ fadeData = null; }
+        fadeSnap(now);
         curTier = tier; lastSwitchAt = now; imgCur = imN;
         return;
       }
@@ -529,7 +711,7 @@
       var t = curPoses[tier];
       if(typeof t !== 'number') return;
       // 🎞 전환 직전 화면을 스냅샷해서 keyFrame() 이 새 프레임과 부드럽게 섞도록 넘겨준다.
-      try { fadeData = ctx.getImageData(0,0,canvas.width,canvas.height); fadeT0 = now; } catch(e){ fadeData = null; }
+      fadeSnap(now);
       curTier = tier; lastSwitchAt = now;
       try{ if(!video.paused) video.pause(); video.currentTime = t; }catch(e){}
     }
@@ -582,7 +764,7 @@
     function startDraw(){ idleTicks=0; curTier=null; lastSwitchAt=0; fadeData=null; drawing=true;
       browNext=Date.now()+1200+Math.random()*1500;   // 말 첫마디부터 눈썹을 올리지 않는다
       if(!raf) raf=requestAnimationFrame(loop); }
-    function stopDraw(){ drawing=false; if(raf){ try{cancelAnimationFrame(raf);}catch(e){} raf=0; } }
+    function stopDraw(){ drawing=false; if(raf){ try{cancelAnimationFrame(raf);}catch(e){} raf=0; } swayKick(); }
     function drawStill(){ keyFrame(); }
     function doStop(){
       setSpeaking(false); stopDraw();
