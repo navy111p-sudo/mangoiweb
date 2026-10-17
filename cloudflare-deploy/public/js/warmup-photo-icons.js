@@ -5,7 +5,7 @@
   'use strict';
   var base = '/img/warmup-photos/';
   var faces = { emma:'/img/teacher-avatar.png', jake:'/img/hero-avatar.png',
-    lily:'/img/lily-closed.webp', noah:'/img/noah-closed.webp',
+    lily:'/img/lily-closed.webp?v=2', noah:'/img/noah-closed.webp?v=2',  // same address as mango-avatar.js
     mei:'/img/mei-closed.webp', long:'/img/long-closed.webp' };
   var icons = {
     '🧑‍🎓':'child', '🧑‍💼':'adult', '👩‍🏫':'mei', '👨‍🏫':'long',

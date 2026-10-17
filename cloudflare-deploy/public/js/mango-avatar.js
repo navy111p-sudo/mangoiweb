@@ -147,11 +147,13 @@
     jake: { sources:[['/img/hero-avatar.mp4','video/mp4']],
             still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 },
             poses:{ closed:3.2, medium:7.1, wide:3.5 }, hold:200, fade:160 },
-    lily: { frames:{ closed:'/img/lily-closed.webp', medium:'/img/lily-mid.webp', wide:'/img/lily-wide.webp' },
-            still:'/img/lily-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
+    // ?v=2 (2026-10-18): smile-line creases beside the mouth retouched (tools/remove-smile-folds.py).
+    //   Media without ?v= is cached 7 days, so a retouched file needs a new address. Bump on every change.
+    lily: { frames:{ closed:'/img/lily-closed.webp?v=2', medium:'/img/lily-mid.webp?v=2', wide:'/img/lily-wide.webp?v=2' },
+            still:'/img/lily-closed.webp?v=2', rect:{ l:0, t:0, r:1, b:1 },
             aspect:0.8, keyed:false, fallback:'emma_classic' },
-    noah: { frames:{ closed:'/img/noah-closed.webp', medium:'/img/noah-mid.webp', wide:'/img/noah-wide.webp' },
-            still:'/img/noah-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
+    noah: { frames:{ closed:'/img/noah-closed.webp?v=2', medium:'/img/noah-mid.webp?v=2', wide:'/img/noah-wide.webp?v=2' },
+            still:'/img/noah-closed.webp?v=2', rect:{ l:0, t:0, r:1, b:1 },
             aspect:0.8, keyed:false, fallback:'jake' },
     // 🀄 mei — 중국어 교사(2026-09-14). 웜업에서 «중국어» 를 고른 학생에게만 보입니다.
     //    ⛔ 영어 화면(ai-friend·speech-coach)의 표에는 넣지 마세요 — 그쪽은 아직 중국어가 없어서
@@ -300,8 +302,9 @@
     var bindings = new WeakMap(), buffering = false, mouthCues=null, cueUrl='', preciseFaces={};
     // Reviewed nine-pose anchors plus 288 optical-flow inbetweens per actor.
     // The latter are transition shapes, not additional recognized phonemes.
-    var PRECISION={lily:{extra:true,base:'/img/lily-closed.webp',x:250,y:294,w:144,h:122},
-      noah:{extra:true,base:'/img/noah-closed.webp',x:244,y:364,w:154,h:130},
+    // base/atlas/trans must carry the same ?v= as the CHARACTERS frames above (one retouch, one version).
+    var PRECISION={lily:{extra:true,base:'/img/lily-closed.webp?v=2',atlas:'/img/visemes/lily-mouths.webp?v=2',trans:'/img/visemes/lily-transitions.webp?v=2',x:250,y:294,w:144,h:122},
+      noah:{extra:true,base:'/img/noah-closed.webp?v=2',atlas:'/img/visemes/noah-mouths.webp?v=2',trans:'/img/visemes/noah-transitions.webp?v=2',x:244,y:364,w:154,h:130},
       emma:{extra:true,base:'/img/visemes/emma-v2-rest.webp',atlas:'/img/visemes/emma-v2-mouths.webp',x:183,y:282,w:146,h:126}};
     function precisionFace(){
       if(!PRECISION[curChar])return null;
@@ -315,7 +318,7 @@
           if(im.complete && im.naturalWidth){clearTimeout(timer);resolve(true);}
         });};
         var ready=Promise.all([load(base,p.base),load(mouths,p.atlas||('/img/visemes/'+curChar+'-mouths.webp')),
-          load(transitions,'/img/visemes/'+curChar+'-transitions.webp')]);
+          load(transitions,p.trans||('/img/visemes/'+curChar+'-transitions.webp'))]);
         preciseFaces[curChar]={base:base,mouths:mouths,transitions:transitions,rect:p,ready:ready};
         // Bound decoded sprite memory when a student switches through all teachers.
         Object.keys(preciseFaces).forEach(function(name){if(name!==curChar)delete preciseFaces[name];});
