@@ -488,7 +488,7 @@
       noah:{x0:192,x1:452,top:240,b0:263,b1:278,bot:300,D:8,fl:6,fr:8}};
     var browCv=null;
     function browProf(b,y){ if(y<=b.top||y>=b.bot) return 0; if(y<b.b0) return (y-b.top)/(b.b0-b.top); if(y<=b.b1) return 1; return (b.bot-y)/(b.bot-b.b1); }
-    // 눈썹 띠를 «위로 밀어 올려» 그린다 — 장치 px 한 줄마다 «조금 아래» 원본 줄을 가져온다(세로로만 휘기).
+    // 눈썹 띠를 «위로 밀어 올려» 그린다 — 토막마다 «조금 아래» 원본을 늘여 가져온다(세로로만 휘기).
     //   좌우 가장자리는 그라데이션으로 원래 얼굴과 섞는다(가장자리에 이음매가 안 생기게). 못 그리면 false.
     function browWarp(src,bx,by,sw,sh){
       var b=BROW_SMOOTH[curChar]; if(!b || !src) return false;
@@ -499,8 +499,15 @@
         if(!browCv) browCv=document.createElement('canvas');
         if(browCv.width!==w||browCv.height!==h){ browCv.width=w; browCv.height=h; }
         var t=browCv.getContext('2d'); t.setTransform(1,0,0,1,0,0); t.globalCompositeOperation='source-over'; t.clearRect(0,0,w,h);
-        var sx=bx+X0/kx, sW=w/kx, rowH=1/ky, lift=b.D*browLv;
-        for(var Y=0;Y<h;Y++){ var ys=by+(Y0+Y+0.5)/ky; t.drawImage(src,sx,ys+lift*browProf(b,ys)-rowH/2,sW,rowH,0,Y,w,1); }
+        // 높이 곡선(browProf)이 «세 토막 직선» 이라 원본→띠 대응도 세 토막 직선이다 —
+        //   한 줄씩(프레임당 ~100번) 그리지 않고 토막마다 한 번씩 «늘여» 그린다(3번). 모양은 같고 훨씬 가볍다.
+        //   (줄 단위로 그렸더니 CI 의 소프트웨어 그래픽에서 입모양 타이밍 검사가 늦어졌다 — 2026-10-18)
+        var sx=bx+X0/kx, sW=w/kx, lift=b.D*browLv, ys=[b.top,b.b0,b.b1,b.bot];
+        for(var k=0;k<3;k++){
+          var a0=ys[k], a1=ys[k+1]; if(!(a1>a0)) continue;
+          var s0=a0+lift*browProf(b,a0), s1=a1+lift*browProf(b,a1), d0=(a0-by)*ky-Y0, d1=(a1-by)*ky-Y0;
+          t.drawImage(src,sx,s0,sW,s1-s0,0,d0,w,d1-d0);
+        }
         var g=t.createLinearGradient(0,0,w,0);
         g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(Math.min(0.49,b.fl*kx/w),'rgba(0,0,0,1)');
         g.addColorStop(Math.max(0.51,1-b.fr*kx/w),'rgba(0,0,0,1)'); g.addColorStop(1,'rgba(0,0,0,0)');

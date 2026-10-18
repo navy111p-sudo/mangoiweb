@@ -266,8 +266,9 @@ const browLift = () => {
   if (!draws.some(d => d.im && d.im.rows)) return 0;          // 이번 프레임에 띠를 안 그렸다
   const cv = draws.filter(d => d.im && d.im.rows).pop().im, r = cv.rows;
   if (!r.length) return 0;
-  const step = r[0].sh; let m = 0;
-  for (const row of r) m = Math.max(m, row.sy - (r[0].sy + (row.dy - r[0].dy) * step));
+  // 첫 토막의 시작과 마지막 토막의 끝은 «안 휜» 자리(높이 0) — 그 둘로 «안 휘었을 때» 의 대응을 잡는다.
+  const z = r[r.length - 1], k = ((z.sy + z.sh) - r[0].sy) / ((z.dy + z.dh) - r[0].dy); let m = 0;
+  for (const row of r) m = Math.max(m, row.sy - (r[0].sy + (row.dy - r[0].dy) * k), (row.sy + row.sh) - (r[0].sy + (row.dy + row.dh - r[0].dy) * k));
   return m;
 };
 let ghost = 0;   // 올린 눈썹 그림(3칸)을 겹쳐 그린 횟수 — 0 이어야 한다
@@ -289,8 +290,8 @@ ok(firstUp > 0 && firstUp < peak * 0.5, `한 번에 바꿔 끼우지 않고 «�
 const rising = up.slice(0, up.indexOf(peak) + 1).filter(v => v > 0);
 ok(rising.length >= 3 && rising.every((v, i) => i === 0 || v >= rising[i - 1] - 1e-9), `올라가는 동안 높이가 줄지 않는다 (${rising.length}프레임에 걸쳐)`);
 const last = offs.length ? offs[offs.length - 1].rows : [];
-ok(last.length > 10 && last.every(r => r.src && /\/img\/lily-(closed|mid|wide)\.webp/.test(r.src)), `띠는 «원본 초상화»(그 순간의 lily 얼굴) 에서 줄마다 가져온다 (${last.length}줄)`);
-ok(last.every((r, i) => i === 0 || r.sy > last[i - 1].sy), '가져오는 원본 줄이 위에서 아래로 차례대로다 — 피부가 뒤집혀 접히지 않는다');
+ok(last.length >= 2 && last.length <= 3 && last.every(r => r.src && /\/img\/lily-(closed|mid|wide)\.webp/.test(r.src)), `띠는 «원본 초상화»(그 순간의 lily 얼굴) 에서 토막 몇 개로만 늘여 가져온다 (${last.length}토막 — 줄마다 그리면 느린 기기에서 프레임이 밀린다)`);
+ok(last.every(r => r.sh > 0 && r.dh > 0) && last.every((r, i) => i === 0 || (Math.abs(r.sy - (last[i - 1].sy + last[i - 1].sh)) < 1e-6 && Math.abs(r.dy - (last[i - 1].dy + last[i - 1].dh)) < 1e-6)), '토막이 위에서 아래로 빈틈·겹침 없이 이어진다 — 피부가 뒤집혀 접히거나 찢어지지 않는다');
 const bt = timers.find(t => t.fn.name === 'blink');
 ok(!!bt, '(전제) 깜빡임 타이머가 살아 있다');
 if (bt) bt.at = T + 10;                        // 눈썹을 올린 «그 사이» 에 깜빡임이 오게 한다
