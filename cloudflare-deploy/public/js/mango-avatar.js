@@ -143,11 +143,16 @@
             이마는 살짝 눌리고 · 눈썹은 통째로 올라가고 · 눈썹과 눈 사이 피부는 늘어납니다(진짜 눈썹처럼).
             ⛔ 올린 그림을 반투명으로 겹치지 마세요 — 높이가 0.35~0.6 일 때 «눈썹이 두 줄» 로 보였습니다
                (2026-10-18 크로미움 렌더로 확인 — 그래서 바꿨습니다).
-         ② 강세(크게 벌린 입이 «새로» 시작되는 순간)마다 1.4~4초 간격으로, 높이를 매번 다르게
+         ② 강세(크게 벌린 입이 «새로» 시작되는 순간)마다 1.4~4초 간격(80%)으로(→ v16 에서 1~2초·매번), 높이를 매번 다르게
             (보통 0.45~0.75 · 가끔 크게 0.85~1). 말 첫마디(0.5~1.4초)에도 한 번 걸 수 있습니다.
          ③ 말이 끝나면 «뚝» 이 아니라 짧게(최대 0.6초) 내려앉습니다(browSettle).
        ⚠️ 깜빡임 중에는 안 올리고, 올린 동안은 깜빡임을 미룹니다(그림 칸이 하나라 겹쳐 그릴 수 없음).
        ⛔ 다른 친구(emma·mei·long·jake)는 예전 동작 그대로입니다 — BROW_SMOOTH 에 한 줄 더하면 같이 바뀝니다. */
+/* v16: (2026-10-19) 사장님 「더 자주 올라가게」 — Lily·Noah 만 바꿉니다(높이 D 는 그대로):
+         ① 강세 간격 1.4~4초·80% → 1~2초·매번(browSpeak).
+         ② 눈썹이 올라가 있어 미룬 깜빡임을 «내려앉은 직후»(browUntil+0.12~0.52초) 다시 시도(blink) —
+            새로 2.2~6초를 기다리면 자주 올리는 동안 깜빡임이 크게 줄어듭니다(모의실험: 평균 5초 → 약 7초).
+       ⛔ ②를 다른 친구에게 넓히지 마세요 — 그 친구들은 v15 앞 동작 그대로라는 약속입니다(하니스 ⑤-2 짝 검사). */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -527,16 +532,16 @@
       if (browLv < 0.01 && want === 0) browLv = 0;
     }
     // 말하는 동안 매 프레임 — 강세가 «새로» 시작되는 순간에만, 간격을 두고, 높이를 매번 다르게 올린다.
+    //   (v16) 사장님 「더 자주 올라가게」 — 간격 1.4~4초·80% → 1~2초·매번. 높이(D)는 그대로입니다
+    //   (더 높이면 눈꺼풀 주름이 두 겹이 됩니다 — v15 에서 확인).
     function browSpeak(now){
       var onset = loudNow && !loudPrev; loudPrev = loudNow;
       if (onset && eyeOk && eyeState === 0 && now >= browNext && now >= browHold){
-        browNext = now + 1400 + Math.random()*2600;
-        if (Math.random() < 0.8){
-          var big = Math.random() < 0.3;
-          browAmp = big ? 0.85 + Math.random()*0.15 : 0.45 + Math.random()*0.3;
-          browHold = now + 160 + Math.random()*(big ? 420 : 300);
-          browUntil = browHold + 450;   // 내려앉는 동안도 깜빡임을 미룬다(blink() 가 본다)
-        }
+        browNext = now + 1000 + Math.random()*1000;
+        var big = Math.random() < 0.3;
+        browAmp = big ? 0.85 + Math.random()*0.15 : 0.45 + Math.random()*0.3;
+        browHold = now + 160 + Math.random()*(big ? 420 : 300);
+        browUntil = browHold + 450;   // 내려앉는 동안도 깜빡임을 미룬다(blink() 가 본다)
       }
       browStep(now);
     }
@@ -601,7 +606,12 @@
       eyeTimer=0;
       // 화면에서 빠졌거나 탭이 숨겨졌으면 여기서 멈춘다 — 다시 보이면 visibilitychange 가 켠다.
       if(!eyeOk || !EYES[curChar] || !canvas.isConnected || document.hidden) return;
-      if(Date.now()<browUntil){ scheduleBlink(); return; }
+      if(Date.now()<browUntil){
+        // (v16) Lily·Noah 는 눈썹을 자주 올리므로, 새로 2.2~6초를 기다리지 않고 «내려앉은 직후» 다시 시도한다
+        //   (안 그러면 말하는 동안 깜빡임이 평균 5초 → 7초, 길게는 20초 넘게 끊깁니다 — 모의실험).
+        if(browSmooth()){ eyeTimer=setTimeout(blink, browUntil-Date.now()+120+Math.random()*400); return; }
+        scheduleBlink(); return;
+      }
       var seq=[[1,50],[2,85],[1,65],[0,0]];
       if(Math.random()<0.18) seq=[[1,50],[2,80],[1,60],[0,150],[1,50],[2,80],[1,60],[0,0]];
       (function step(i){
