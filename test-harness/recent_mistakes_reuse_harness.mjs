@@ -116,7 +116,9 @@ check('병렬 조회에서 loadRecentMistakes(env.DB, uid, …) 를 부른다', 
 const destr = cf.slice(0, pa).match(/const \[([^\]]+)\]: any\[\] = $/m) || cf.slice(Math.max(0, pa - 200), pa).match(/const \[([^\]]+)\]/);
 const names = destr ? destr[1].split(',').map((s) => s.trim()) : [];
 const callsInAll = (cf.slice(pa, paEnd).match(/^\s{8}[A-Za-z]/gm) || []).length;
-const idx = names.length - 1;
+// 「맨 끝 자리」로 못 박지 않는다 — 병렬 조회는 늘어난다(2026-10-18 단어장 약점이 뒤에 붙음). 그 호출이 «몇 번째 줄인가» 로 찾는다.
+const callLines = cf.slice(pa, paEnd).match(/^\s{8}[A-Za-z].*$/gm) || [];
+const idx = callLines.findIndex((l) => /^\s*loadRecentMistakes\(/.test(l));
 check('구조분해 개수 == 병렬 조회 개수(그 자리의 값을 받는다)', names.length === callsInAll, { names, callsInAll });
 const fixVar = names[idx];
 check('그 값을 프롬프트 함수에 넘긴다', !!fixVar && new RegExp('recentMistakesPromptLine\\(' + fixVar + '\\b').test(cf), fixVar);
