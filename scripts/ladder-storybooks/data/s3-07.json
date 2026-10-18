@@ -1,0 +1,305 @@
+{
+  "id": "s3-07",
+  "breaks": [
+    1,
+    4,
+    3,
+    2
+  ],
+  "key": {
+    "P": 0,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «플라스틱 재활용은 길고 어려운 과정이다(주제)» 와 «그래서 플라스틱을 덜 쓰는 것이 재활용만큼 중요하다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (recycling plastic is a long and difficult process) and the conclusion (using less plastic is just as important as recycling it). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Recycling plastic"
+    },
+    {
+      "k": "Key fact",
+      "qko": "플라스틱은 어떤 단계를 거치나요?",
+      "qen": "What are the steps?",
+      "a": "Collect, sort, wash, cut, and melt"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "왜 플라스틱을 덜 써야 하나요?",
+      "qen": "Why should we use less plastic?",
+      "a": "Only a small part of plastic is recycled"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Recycling plastic is a long and ",
+      "ans": "difficult",
+      "opts": [
+        "difficult",
+        "quick",
+        "simple"
+      ]
+    },
+    {
+      "pre": " process. Used plastic is collected and ",
+      "ans": "sorted",
+      "opts": [
+        "sorted",
+        "burned",
+        "sold"
+      ]
+    },
+    {
+      "pre": " into types, then washed, cut, and ",
+      "ans": "melted",
+      "opts": [
+        "melted",
+        "painted",
+        "frozen"
+      ]
+    },
+    {
+      "pre": ". But many types of plastic cannot be ",
+      "ans": "mixed",
+      "opts": [
+        "mixed",
+        "seen",
+        "touched"
+      ]
+    },
+    {
+      "pre": " together, so only a small part is recycled. Using ",
+      "ans": "less",
+      "opts": [
+        "less",
+        "more",
+        "colorful"
+      ]
+    },
+    {
+      "pre": " plastic is just as important as recycling it.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "process",
+      "과정",
+      "it is actually a long and difficult <b>process</b>.",
+      "a set of steps to make or do something"
+    ],
+    [
+      "sort",
+      "분류하다",
+      "workers and machines <b>sort</b> the plastic into different types.",
+      "to put things into groups"
+    ],
+    [
+      "melted",
+      "녹은, 녹였다",
+      "Next, the plastic is washed, cut into small pieces, and <b>melted</b>.",
+      "made soft or liquid by heat"
+    ],
+    [
+      "products",
+      "제품",
+      "made into new <b>products</b>, such as bottles or clothing.",
+      "things that people make and use"
+    ],
+    [
+      "materials",
+      "재료",
+      "stuck to other <b>materials</b> is also hard to recycle.",
+      "things that objects are made of"
+    ],
+    [
+      "weaker",
+      "더 약한",
+      "plastic often becomes <b>weaker</b> each time it is recycled.",
+      "less strong"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why is only a small part of all plastic actually recycled?",
+      "qko": "왜 전체 플라스틱 중 실제로 재활용되는 것은 일부뿐인가요?",
+      "opts": [
+        "Because people do not take plastic to recycling centers at all",
+        "Because of problems like mixed types, dirty plastic, and weaker plastic",
+        "Because melted plastic cannot become new products"
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Because of these problems, only a small part of all plastic is actually recycled.",
+        "First, used plastic is collected and taken to a recycling center.",
+        "The melted plastic can then be made into new products, such as bottles or clothing.",
+        "There, workers and machines sort the plastic into different types."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«이런 문제들 때문에» 실제로 재활용되는 것은 일부뿐이라고 했어요. 그 문제는 바로 앞에 나온 섞을 수 없는 종류, 더러운 플라스틱, 약해지는 플라스틱이에요.",
+        "The text says «because of these problems» only a small part is recycled. The problems are the many types, dirty plastic, and plastic getting weaker."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In \"workers and machines sort the plastic into different types,\" what does \"sort\" mean?",
+      "qko": "«workers and machines sort the plastic into different types» 에서 «sort» 는 무슨 뜻인가요?",
+      "opts": [
+        "To put things into groups",
+        "To wash things with water",
+        "To throw things away"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "There, workers and machines sort the plastic into different types.",
+        "Plastic that is dirty with food or stuck to other materials is also hard to recycle.",
+        "Next, the plastic is washed, cut into small pieces, and melted.",
+        "That is why using less plastic is just as important as recycling it."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "플라스틱을 «여러 종류로(into different types)» 나눈다고 했으니, sort 는 종류별로 나누어 모은다는 뜻이에요.",
+        "The plastic is put «into different types», so «sort» means to put things into groups."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why does the text say using less plastic is important?",
+      "qko": "글에서 왜 플라스틱을 덜 쓰는 것이 중요하다고 하나요?",
+      "opts": [
+        "Because recycling is hard, so only a little plastic is recycled",
+        "Because plastic gets stronger each time it is recycled",
+        "Because there is only one type of plastic"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Because of these problems, only a small part of all plastic is actually recycled.",
+        "The melted plastic can then be made into new products, such as bottles or clothing.",
+        "That is why using less plastic is just as important as recycling it.",
+        "First, used plastic is collected and taken to a recycling center."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "문제가 많아서 재활용되는 플라스틱은 일부뿐이고, «그래서(That is why)» 덜 쓰는 것이 재활용만큼 중요하다고 했어요. 두 문장을 이어야 답이 나와요.",
+        "Only a small part is recycled because of the problems, and «that is why» using less plastic is just as important. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How can we use less plastic at school?",
+      "학교에서 플라스틱을 덜 쓰려면 어떻게 할까요?",
+      "Less Plastic at School"
+    ],
+    [
+      "B",
+      "What happens to plastic that ends up in the ocean?",
+      "바다로 간 플라스틱은 어떻게 될까요?",
+      "Plastic in the Ocean"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“We should <u>use our own water bottles</u> so that <u>we throw away less plastic</u>.”",
+    "slotKo": [
+      "해야 할 일",
+      "그 결과"
+    ],
+    "slotEn": [
+      "what to do",
+      "the result"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «해야 할 일 + 그러면 생기는 좋은 결과» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and the good result in English.",
+    "chips": [
+      {
+        "a": "bring a lunch box",
+        "b": "we use fewer plastic bags",
+        "label": "lunch box"
+      },
+      {
+        "a": "wash our yogurt cups",
+        "b": "they can be recycled",
+        "label": "wash"
+      },
+      {
+        "a": "turn off the lights",
+        "b": "we save energy",
+        "label": "lights"
+      }
+    ],
+    "aria": [
+      "what we should do",
+      "the result"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «누가 + 무엇을 할 수 있는지» 를 넣어 결과를 분명하게 써 보세요. (예: so that we can save energy)",
+    "moreEn": "One more step: after «so that», write who + what they can do. (e.g. so that we can save energy)"
+  },
+  "img": {
+    "cover": "Workers in safety vests sorting used plastic bottles on a moving conveyor belt inside a recycling center",
+    "scenes": {
+      "1": "A recycling truck collecting blue bins full of used plastic bottles and containers on a neighborhood street",
+      "2": "A pile of dirty plastic food containers with leftover food and stuck paper labels next to a recycling bin"
+    }
+  },
+  "alt": {
+    "1": "A truck collecting plastic for recycling",
+    "2": "Dirty plastic containers that are hard to recycle",
+    "cover": "Workers sorting plastic bottles at a recycling center"
+  }
+}

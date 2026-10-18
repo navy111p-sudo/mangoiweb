@@ -1,0 +1,305 @@
+{
+  "id": "s3-04",
+  "breaks": [
+    2,
+    2,
+    4,
+    2
+  ],
+  "key": {
+    "P": 0,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «지구의 물은 물의 순환 속에서 계속 움직인다(주제)» 와 «그래서 같은 물이 계속 다시 쓰인다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (water on Earth is always moving in the water cycle) and the conclusion (the same water is used again and again). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 대한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "The water cycle"
+    },
+    {
+      "k": "Key steps",
+      "qko": "어떤 단계가 있나요?",
+      "qen": "What are the steps?",
+      "a": "Evaporation, condensation, precipitation"
+    },
+    {
+      "k": "Result",
+      "qko": "결국 어떻게 되나요?",
+      "qen": "What is the result?",
+      "a": "The same water is used again and again"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "The sun heats water, and it turns into water ",
+      "ans": "vapor",
+      "opts": [
+        "vapor",
+        "juice",
+        "sand"
+      ]
+    },
+    {
+      "pre": ". This step is called ",
+      "ans": "evaporation",
+      "opts": [
+        "evaporation",
+        "pollination",
+        "eruption"
+      ]
+    },
+    {
+      "pre": ". In the cool sky, tiny drops gather and form ",
+      "ans": "clouds",
+      "opts": [
+        "clouds",
+        "rivers",
+        "mountains"
+      ]
+    },
+    {
+      "pre": ". When the drops get too ",
+      "ans": "heavy",
+      "opts": [
+        "heavy",
+        "small",
+        "hot"
+      ]
+    },
+    {
+      "pre": ", they fall as rain or snow. The water flows into rivers and ",
+      "ans": "oceans",
+      "opts": [
+        "oceans",
+        "clouds",
+        "trees"
+      ]
+    },
+    {
+      "pre": ", and the cycle starts again.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "cycle",
+      "순환",
+      "a never-ending journey called the water <b>cycle</b>",
+      "something that happens again and again in the same order"
+    ],
+    [
+      "invisible",
+      "눈에 보이지 않는",
+      "an <b>invisible</b> gas called water vapor",
+      "not able to be seen"
+    ],
+    [
+      "water vapor",
+      "수증기",
+      "an invisible gas called <b>water vapor</b>",
+      "water in the form of a gas"
+    ],
+    [
+      "evaporation",
+      "증발",
+      "This step is called <b>evaporation</b>.",
+      "when water changes into a gas"
+    ],
+    [
+      "condensation",
+      "응결",
+      "this step is called <b>condensation</b>",
+      "when gas changes back into drops of water"
+    ],
+    [
+      "precipitation",
+      "강수",
+      "This is called <b>precipitation</b>.",
+      "rain or snow that falls from the sky"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does water vapor turn back into tiny drops of water high in the sky?",
+      "qko": "하늘 높은 곳에서 수증기가 다시 작은 물방울로 바뀌는 이유는 무엇인가요?",
+      "opts": [
+        "Because the air is cool there",
+        "Because the sun is hotter there",
+        "Because the drops are already heavy"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "High in the sky, the air is cool, so the water vapor turns back into tiny drops of water.",
+        "First, the sun heats water in oceans, lakes, and rivers.",
+        "When the drops become too big and heavy, they fall as rain or snow.",
+        "The water then flows into rivers and oceans or soaks into the ground."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "하늘 높은 곳은 공기가 차가워서 수증기가 다시 작은 물방울로 바뀐다고 했어요.",
+        "High in the sky, the air is cool, so the water vapor turns back into tiny drops."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The water cycle is called a «never-ending» journey. What does «never-ending» mean?",
+      "qko": "물의 순환을 «never-ending» 여행이라고 했어요. «never-ending» 은 무슨 뜻인가요?",
+      "opts": [
+        "never stops",
+        "ends very quickly",
+        "happens only once"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Then the cycle starts all over again, so the same water is used again and again.",
+        "This step is called evaporation.",
+        "These drops gather together and form clouds, and this step is called condensation.",
+        "First, the sun heats water in oceans, lakes, and rivers."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "순환이 처음부터 다시 시작되어 같은 물이 계속 쓰인다고 했으니, «never-ending» 은 «끝나지 않는» 이라는 뜻이에요.",
+        "The cycle starts all over again and the same water is used again and again, so «never-ending» means it never stops."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How do clouds turn into rain or snow?",
+      "qko": "구름은 어떻게 비나 눈이 되나요?",
+      "opts": [
+        "Drops gather in clouds and fall when they become too big and heavy",
+        "The sun heats the clouds until they disappear",
+        "Clouds soak into the ground"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "These drops gather together and form clouds, and this step is called condensation.",
+        "The warm water turns into an invisible gas called water vapor and rises into the air.",
+        "When the drops become too big and heavy, they fall as rain or snow.",
+        "The water then flows into rivers and oceans or soaks into the ground."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "작은 물방울이 모여 구름이 되고, 물방울이 너무 크고 무거워지면 비나 눈으로 떨어져요. 두 문장을 이어야 알 수 있어요.",
+        "Tiny drops gather to form clouds, and when the drops become too big and heavy, they fall as rain or snow. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do plants add water to the air?",
+      "식물은 어떻게 공기에 물을 더할까?",
+      "Plants and Water Vapor"
+    ],
+    [
+      "B",
+      "Why is the ocean salty but rain is not?",
+      "왜 바닷물은 짜고 빗물은 짜지 않을까?",
+      "Salty Sea, Fresh Rain"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "함께 할 일",
+      "그 결과"
+    ],
+    "slotEn": [
+      "what we do",
+      "the result"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그 결과» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we can do together and the result in English.",
+    "aria": [
+      "what we do",
+      "the result"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «누가 + 무엇을» 넣어 결과를 분명하게 써 보세요. (예: so that we have clean water)",
+    "moreEn": "One more step: after «so that», write who + what to make the result clear. (e.g. so that we have clean water)",
+    "src": "“Let’s <u>save water at home</u> so that <u>we always have clean water</u>.”",
+    "chips": [
+      {
+        "a": "close the window",
+        "b": "the room stays warm",
+        "label": "window"
+      },
+      {
+        "a": "bring an umbrella",
+        "b": "we do not get wet",
+        "label": "umbrella"
+      },
+      {
+        "a": "clean our desks",
+        "b": "we can find our books",
+        "label": "desk"
+      }
+    ]
+  },
+  "img": {
+    "cover": "A river flowing into the sea under big white clouds, with green mountains and rain falling in the distance",
+    "scenes": {
+      "1": "Morning sunlight shining on a calm lake with thin mist rising from the water surface",
+      "2": "Dark gray rain clouds over a green field with heavy rain falling from them"
+    }
+  },
+  "alt": {
+    "1": "Mist rising from a lake in the sun",
+    "2": "Rain falling from dark clouds",
+    "cover": "A river, the sea, clouds, and rain"
+  }
+}

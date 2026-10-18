@@ -1,0 +1,304 @@
+{
+  "id": "s1-02",
+  "breaks": [
+    2,
+    3,
+    2
+  ],
+  "key": {
+    "P": 0,
+    "S": 6
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «비가 와서 밖에서 놀 수 없다(문제)» 와 «비 오는 날도 재미있을 수 있다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (it is raining, so Lily cannot play outside) and the lesson (rainy days can be fun too). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Lily and her brother Sam"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "It is raining, so Lily cannot play outside."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "They make a tent inside and have fun."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "It is raining, so Lily cannot play ",
+      "ans": "outside",
+      "opts": [
+        "outside",
+        "upstairs",
+        "alone"
+      ]
+    },
+    {
+      "pre": ". She feels ",
+      "ans": "sad",
+      "opts": [
+        "sad",
+        "proud",
+        "sleepy"
+      ]
+    },
+    {
+      "pre": ". Lily and Sam make a ",
+      "ans": "tent",
+      "opts": [
+        "tent",
+        "boat",
+        "cake"
+      ]
+    },
+    {
+      "pre": " with blankets and chairs. They read ",
+      "ans": "books",
+      "opts": [
+        "books",
+        "maps",
+        "letters"
+      ]
+    },
+    {
+      "pre": " with a flashlight and tell funny ",
+      "ans": "stories",
+      "opts": [
+        "stories",
+        "songs",
+        "secrets"
+      ]
+    },
+    {
+      "pre": ". Lily learns that rainy days can be fun too.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "window",
+      "창문",
+      "She feels sad and looks out the <b>window</b>.",
+      "a glass opening in a wall"
+    ],
+    [
+      "idea",
+      "좋은 생각",
+      "Then her brother Sam has an <b>idea</b>.",
+      "a new plan in your mind"
+    ],
+    [
+      "tent",
+      "텐트",
+      "They make a <b>tent</b> with blankets and chairs.",
+      "a small house made of cloth"
+    ],
+    [
+      "blankets",
+      "담요",
+      "They make a tent with <b>blankets</b> and chairs.",
+      "warm soft cloths you use on a bed"
+    ],
+    [
+      "flashlight",
+      "손전등",
+      "They read books in the tent with a <b>flashlight</b>.",
+      "a small light you hold in your hand"
+    ],
+    [
+      "snacks",
+      "간식",
+      "They eat <b>snacks</b> and tell funny stories.",
+      "small foods you eat between meals"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Lily feel sad?",
+      "qko": "릴리는 왜 슬퍼하나요?",
+      "opts": [
+        "She cannot play outside because of the rain.",
+        "She loses her favorite book.",
+        "Sam does not want to play with her."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "It is raining, and Lily cannot play outside.",
+        "They make a tent with blankets and chairs.",
+        "They eat snacks and tell funny stories.",
+        "Then her brother Sam has an idea."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "비가 와서 밖에서 놀 수 없기 때문이에요.",
+        "It is raining, so she cannot play outside."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Sam has an idea.\" What does \"idea\" mean here?",
+      "qko": "«Sam has an idea» 에서 «idea» 는 무슨 뜻일까요?",
+      "opts": [
+        "a new plan to do something",
+        "a big snack",
+        "a funny story"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Then her brother Sam has an idea.",
+        "It is raining, and Lily cannot play outside.",
+        "They eat snacks and tell funny stories.",
+        "Lily says, \"Rainy days can be fun too!\""
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«idea» 는 «좋은 생각, 새 계획» 이에요. 그 뒤에 샘과 릴리는 텐트를 만들어요.",
+        "\"Idea\" means a new plan. After this, they make a tent."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does the rainy day become fun?",
+      "qko": "비 오는 날이 어떻게 재미있어지나요?",
+      "opts": [
+        "They play inside in a tent.",
+        "The rain stops, and they go out.",
+        "Lily watches TV all day."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "They make a tent with blankets and chairs.",
+        "They read books in the tent with a flashlight.",
+        "It is raining, and Lily cannot play outside.",
+        "She feels sad and looks out the window."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "둘은 텐트를 만들고, 그 안에서 책을 읽어요. 집 안에서 놀아서 재미있어졌어요.",
+        "They make a tent and read books in it. Playing inside makes the day fun."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "The sun comes out, and Lily and Sam jump in puddles.",
+      "해가 나오고, 릴리와 샘이 물웅덩이에서 첨벙첨벙 논다.",
+      "Puddle Fun"
+    ],
+    [
+      "B",
+      "Lily shows the tent to her friends.",
+      "릴리가 친구들에게 텐트를 보여 준다.",
+      "The Tent Party"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "before",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "함께 할 일",
+      "그보다 나중에 일어날 일"
+    ],
+    "slotEn": [
+      "what to do",
+      "what happens later"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그보다 나중에 일어날 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what to do together and what happens later in English.",
+    "aria": [
+      "what to do",
+      "what happens later"
+    ],
+    "moreKo": "한 걸음 더: «before» 뒤에 «누가 + 무엇을» 넣어 써 보세요. (예: before Dad comes home)",
+    "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)",
+    "src": "“Let’s <u>make a tent</u> before <u>the rain stops</u>.”",
+    "chips": [
+      {
+        "a": "read a book",
+        "b": "we go to bed",
+        "label": "book"
+      },
+      {
+        "a": "clean our room",
+        "b": "Mom comes home",
+        "label": "clean"
+      },
+      {
+        "a": "wash our hands",
+        "b": "we eat lunch",
+        "label": "lunch"
+      }
+    ]
+  },
+  "img": {
+    "cover": "Lily, a girl with short black hair and a yellow sweater, and her older brother Sam, a boy with brown hair and a green shirt, sit inside a tent made of blankets over two chairs, reading a book with a flashlight, rain on the window behind them.",
+    "scenes": {
+      "1": "In the living room, Sam, a boy with brown hair and a green shirt, holds up a big blanket with a happy face, and Lily, a girl with short black hair and a yellow sweater, stands next to two chairs and watches.",
+      "2": "Lily, a girl with short black hair and a yellow sweater, and Sam, a boy with brown hair and a green shirt, sit in the blanket tent eating cookies and laughing, a flashlight lying on a pillow."
+    }
+  },
+  "alt": {
+    "1": "Sam holds up a blanket to make a tent.",
+    "2": "Lily and Sam eat snacks and laugh in the tent.",
+    "cover": "Lily and Sam read in a blanket tent on a rainy day."
+  }
+}

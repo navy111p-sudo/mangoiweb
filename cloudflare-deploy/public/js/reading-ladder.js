@@ -151,6 +151,17 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function byId(id) { for (var i = 0; i < PASSAGES.length; i++) if (PASSAGES[i].id === id) return PASSAGES[i]; return null; }
   function stageMeta(n) { return STAGES[n - 1]; }
+  // 🖼 글마다 같은 내용의 그림 동화책(story-<id>.html)이 있다. 도장 기록은 그 화면과 같은 키를 읽는다.
+  var BOOK_STAMPS = ['read', 'key', 'sum', 'words', 'infer', 'write'];
+  function bookStamps(id) {
+    var st = {};
+    try { st = JSON.parse(localStorage.getItem('story_' + id + '_stamps') || '{}') || {}; } catch (e) { st = {}; }
+    return BOOK_STAMPS.filter(function (k) { return !!st[k]; }).length;
+  }
+  function bookTag(id) {
+    var n = bookStamps(id);
+    return '<span class="rl-pic">🖼 ' + esc(n >= 6 ? T('그림책 완주', 'Book done') : n > 0 ? T('그림책 ', 'Book ') + n + '/6' : T('그림책', 'Picture book')) + '</span>';
+  }
 
   /* ── 🔊 듣기 — 기기 목소리(없으면 버튼을 안 그린다) ── */
   var canSpeak = !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
@@ -204,7 +215,7 @@
         var cs = cardStatus(p);
         return '<li><button type="button" class="rl-li' + (cs.done ? ' done' : '') + '" data-act="open" data-id="' + p.id + '">' +
           '<span class="rl-li-no">' + (i + 1) + '</span>' +
-          '<span class="rl-li-t">' + esc(p.title.en) + '<small>' + esc(p.title.ko) + '</small></span>' +
+          '<span class="rl-li-t">' + esc(p.title.en) + ' ' + bookTag(p.id) + '<small>' + esc(p.title.ko) + '</small></span>' +
           '<span class="rl-li-m">' + esc(L(p.topic)) + ' · ' + RLCore.wordCount(p) + T('단어', 'w') + '</span>' +
           '<span class="rl-li-s">' + esc(cs.text) + '</span></button></li>';
       }).join('');
@@ -271,7 +282,7 @@
       return '<button type="button" class="rl-card' + (done ? ' done' : '') + '" data-act="open" data-id="' + p.id + '">' +
         '<span class="rl-card-no">' + (stageList.indexOf(p) + 1) + '</span>' +
         '<span class="rl-card-b"><span class="rl-card-t">' + esc(p.title.en) + '</span>' +
-        '<span class="rl-card-k">' + esc(p.title.ko) + '</span>' +
+        '<span class="rl-card-k">' + esc(p.title.ko) + ' ' + bookTag(p.id) + '</span>' +
         '<span class="rl-card-m">' + esc(L(p.topic)) + ' · ' + RLCore.wordCount(p) + T('단어', ' words') + ' · ' + esc(p.genre === 'story' ? T('이야기', 'Story') : T('지식 글', 'Non-fiction')) + '</span>' +
         '<span class="rl-card-s">' + esc(status) + '</span></span></button>';
     }).join('');
@@ -387,6 +398,7 @@
         '<h2 id="rlTitle">' + esc(p.title.en) + '</h2><p class="rl-sub">' + esc(p.title.ko) + ' · ' + esc(L(p.topic)) + ' · ' + RLCore.wordCount(p) + T('단어', ' words') + '</p>' +
         '<div class="rl-bg">🧠 <b>' + esc(T('배경지식', 'Background')) + '</b> ' + esc(L(p.bg)) + '</div>' +
         '<div class="rl-row">' + (canSpeak ? '<button type="button" class="rl-btn" data-act="speak">🔊 ' + esc(T('듣기', 'Listen')) + '</button>' : '') +
+          '<a class="rl-btn rl-primary" href="/story-' + esc(p.id) + '.html">🖼 ' + esc(T('그림 동화책으로 읽기 (도장 6개 +10P · 하루 2권까지)', 'Read as a picture book (6 stamps = +10P · up to 2 books a day)')) + '</a>' +
           '<button type="button" class="rl-btn" data-act="ko" aria-pressed="' + view.showKo + '">🇰🇷 ' + esc(view.showKo ? T('해석 숨기기', 'Hide Korean') : T('해석 보기', 'Show Korean')) + '</button></div>' +
         passageHtml(p, !keyDone) + words +
       '</article>' + s1 + s2 + s3 + end;

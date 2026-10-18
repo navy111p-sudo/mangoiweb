@@ -1,0 +1,304 @@
+{
+  "id": "s1-06",
+  "breaks": [
+    3,
+    2,
+    2
+  ],
+  "key": {
+    "P": 1,
+    "S": 4
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «샘이 점심 도시락을 집에 두고 왔다(문제)» 와 «벤이 샌드위치 반쪽과 사과를 준다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (Sam forgot his lunch at home) and the solution (Ben gives him half of his sandwich and an apple). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Sam and his friend Ben"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Sam forgot his lunch at home."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Ben gives Sam half of his sandwich and an apple."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Sam forgot his lunch at ",
+      "ans": "home",
+      "opts": [
+        "home",
+        "school",
+        "work"
+      ]
+    },
+    {
+      "pre": ". His ",
+      "ans": "stomach",
+      "opts": [
+        "stomach",
+        "phone",
+        "dog"
+      ]
+    },
+    {
+      "pre": " makes a loud noise. His friend ",
+      "ans": "Ben",
+      "opts": [
+        "Ben",
+        "Max",
+        "Tom"
+      ]
+    },
+    {
+      "pre": " gives him half of his ",
+      "ans": "sandwich",
+      "opts": [
+        "sandwich",
+        "pizza",
+        "cookie"
+      ]
+    },
+    {
+      "pre": " and an apple. Sharing makes both friends feel ",
+      "ans": "good",
+      "opts": [
+        "good",
+        "sad",
+        "sleepy"
+      ]
+    },
+    {
+      "pre": ".",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "lunch",
+      "점심",
+      "At <b>lunch</b>, Sam opens his bag.",
+      "the meal in the middle of the day"
+    ],
+    [
+      "forgot",
+      "잊어버렸다",
+      "Oh no, he <b>forgot</b> his lunch at home!",
+      "did not remember"
+    ],
+    [
+      "stomach",
+      "배",
+      "His <b>stomach</b> makes a loud noise.",
+      "the part of your body where food goes"
+    ],
+    [
+      "noise",
+      "소리",
+      "His stomach makes a loud <b>noise</b>.",
+      "a sound"
+    ],
+    [
+      "half",
+      "반, 절반",
+      "Ben gives Sam <b>half</b> of his sandwich and an apple.",
+      "one of two same parts"
+    ],
+    [
+      "sharing",
+      "나눔",
+      "<b>Sharing</b> makes both friends feel good.",
+      "giving part of what you have to others"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Sam's stomach make a loud noise?",
+      "qko": "샘의 배에서 왜 큰 소리가 나나요?",
+      "opts": [
+        "He forgot his lunch, so he is hungry.",
+        "He ate too much.",
+        "He is laughing."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Oh no, he forgot his lunch at home!",
+        "\"Thank you, Ben!\" says Sam with a big smile.",
+        "Sharing makes both friends feel good.",
+        "At lunch, Sam opens his bag."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "샘은 도시락을 집에 두고 와서 먹을 것이 없어요. 그래서 배가 고파 꼬르륵 소리가 나요.",
+        "Sam forgot his lunch at home, so he has nothing to eat and is hungry."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Ben gives Sam half of his sandwich.\" What does \"half\" mean?",
+      "qko": "«half of his sandwich» 에서 «half» 는 무슨 뜻일까요?",
+      "opts": [
+        "one of two same parts",
+        "all of it",
+        "a very big piece"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Ben gives Sam half of his sandwich and an apple.",
+        "His stomach makes a loud noise.",
+        "His friend Ben sees his sad face.",
+        "Sharing makes both friends feel good."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«half» 는 «반» 이에요. 벤은 샌드위치를 둘로 나눠 한쪽을 줘요.",
+        "\"Half\" means one of two same parts. Ben gives one part of his sandwich."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How do we know Ben is a kind friend?",
+      "qko": "벤이 친절한 친구라는 것을 어떻게 알 수 있나요?",
+      "opts": [
+        "He sees Sam's sad face and shares his lunch.",
+        "He takes Sam's apple.",
+        "He laughs at Sam."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "His friend Ben sees his sad face.",
+        "Ben gives Sam half of his sandwich and an apple.",
+        "Oh no, he forgot his lunch at home!",
+        "\"Thank you, Ben!\" says Sam with a big smile."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "벤은 샘의 슬픈 얼굴을 보고, 자기 점심을 나누어 줘요. 두 문장을 이어야 알 수 있어요.",
+        "Ben sees Sam's sad face, and then he shares his lunch. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "The next day, Sam shares his cookies with Ben.",
+      "다음 날, 샘이 벤에게 쿠키를 나누어 준다.",
+      "Sam's Cookies"
+    ],
+    [
+      "B",
+      "Sam and Ben make lunch together.",
+      "샘과 벤이 함께 점심 도시락을 만든다.",
+      "Lunch Together"
+    ]
+  ],
+  "write": {
+    "pre": "I can’t",
+    "mid": "but I can",
+    "sep": ", ",
+    "slots": [
+      "vp",
+      "vp"
+    ],
+    "slotKo": [
+      "할 수 없는 일",
+      "대신 할 수 있는 일"
+    ],
+    "slotEn": [
+      "what I can’t do",
+      "what I can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «할 수 없는 일 + 대신 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you can’t do and what you can do instead in English.",
+    "aria": [
+      "what you can’t do",
+      "what you can do instead"
+    ],
+    "moreKo": "한 걸음 더: 두 칸 모두 «하는 일» 낱말로 시작하게 써 보세요. (예: play soccer, draw a picture)",
+    "moreEn": "One more step: start both blanks with an action word. (e.g. play soccer, draw a picture)",
+    "src": "“I can’t <u>eat my lunch</u>, but I can <u>share Ben’s sandwich</u>.”",
+    "chips": [
+      {
+        "a": "go outside",
+        "b": "read a book",
+        "label": "rain"
+      },
+      {
+        "a": "ride a bike",
+        "b": "run fast",
+        "label": "bike"
+      },
+      {
+        "a": "swim",
+        "b": "play in the sand",
+        "label": "beach"
+      }
+    ]
+  },
+  "img": {
+    "cover": "Ben, a boy with red hair and a green sweater, hands half a sandwich and an apple to Sam, a boy with short black hair and an orange shirt, at a school lunch table; both boys are smiling.",
+    "scenes": {
+      "1": "At a school lunch table, Sam, a boy with short black hair and an orange shirt, looks sadly into his empty bag, and Ben, a boy with red hair and a green sweater, looks at him and holds out half of his sandwich and an apple.",
+      "2": "Sam, a boy with short black hair and an orange shirt, smiles big while holding half a sandwich and an apple, sitting next to Ben, a boy with red hair and a green sweater; both friends eat together happily."
+    }
+  },
+  "alt": {
+    "1": "Ben sees Sam's sad face and gives him food.",
+    "2": "Sam and Ben eat lunch together and smile.",
+    "cover": "Ben shares his sandwich with Sam."
+  }
+}
