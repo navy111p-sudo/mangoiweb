@@ -355,11 +355,11 @@ var StoryCore = (function(){
     [["At last, he sees something red in the snow.","d"],["It is his mitten, and Sam is very happy!","S"]]
   ];
   var SUM = [
-    {"pre":"Sam plays in the ","ans":"snow","opts":["snow","sand","rain"]},
-    {"pre":" with his friends. When he goes home, he has only one ","ans":"mitten","opts":["mitten","shoe","hat"]},
+    {"pre":"Sam plays in the ","ans":"snow","opts":["sand","snow","rain"]},
+    {"pre":" with his friends. When he goes home, he has only one ","ans":"mitten","opts":["hat","mitten","shoe"]},
     {"pre":". His hand is ","ans":"cold","opts":["cold","warm","clean"]},
-    {"pre":", and he feels sad. The next morning, he goes back to ","ans":"look","opts":["look","sleep","eat"]},
-    {"pre":". At last, he sees something ","ans":"red","opts":["red","blue","green"]},
+    {"pre":", and he feels sad. The next morning, he goes back to ","ans":"look","opts":["eat","look","sleep"]},
+    {"pre":". At last, he sees something ","ans":"red","opts":["blue","green","red"]},
     {"pre":" in the snow. It is his mitten!","ans":null}
   ];
   var WORDS = [
@@ -372,9 +372,9 @@ var StoryCore = (function(){
   ];
   // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들
   var QS = [
-    {"type":["원인·결과","Cause & effect"],"q":"Why is Sam's hand cold?","qko":"샘의 손은 왜 차가운가요?","opts":["He has only one mitten.","He eats ice cream.","He plays in the rain."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["When he goes home, he has only one mitten.","Sam plays in the snow with his friends.","He looks under the trees and near the snowman.","It is his mitten, and Sam is very happy!"],"ev":[0],"why":["«When he goes home, he has only one mitten.» 장갑이 한 짝밖에 없어서 한 손이 차가워요.","He has only one mitten, so one hand is cold."]},
-    {"type":["문맥상 의미","Meaning in context"],"q":"\"At last, he sees something red in the snow.\" What does \"At last\" mean here?","qko":"«At last, he sees something red in the snow.» 에서 «At last» 는 무슨 뜻일까요?","opts":["after a long search","very quickly","before he looks"],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["He looks under the trees and near the snowman.","Sam plays in the snow with his friends.","When he goes home, he has only one mitten.","It is his mitten, and Sam is very happy!"],"ev":[0],"why":["«He looks under the trees and near the snowman.» 여기저기 오래 찾아본 뒤에 발견했으니, «마침내» 라는 뜻이에요.","He looks under the trees and near the snowman first, so at last means after a long search."]},
-    {"type":["단서 연결","Connecting clues"],"q":"What is the red thing in the snow?","qko":"눈 속의 빨간 것은 무엇인가요?","opts":["Sam's lost mitten","a red apple","a toy car"],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["At last, he sees something red in the snow.","It is his mitten, and Sam is very happy!","Sam plays in the snow with his friends.","The next morning, he goes back to look."],"ev":[0,1],"why":["눈 속에서 빨간 것을 보았고(«At last, he sees something red...»), 그것이 샘의 장갑이에요(«It is his mitten...»).","He sees something red, and it is his mitten."]}
+    {"type":["원인·결과","Cause & effect"],"q":"Why is Sam's hand cold?","qko":"샘의 손은 왜 차가운가요?","opts":["He eats ice cream.","He plays in the rain.","He has only one mitten."],"ans":2,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Sam plays in the snow with his friends.","It is his mitten, and Sam is very happy!","He looks under the trees and near the snowman.","When he goes home, he has only one mitten."],"ev":[3],"why":["«When he goes home, he has only one mitten.» 장갑이 한 짝밖에 없어서 한 손이 차가워요.","He has only one mitten, so one hand is cold."]},
+    {"type":["문맥상 의미","Meaning in context"],"q":"\"At last, he sees something red in the snow.\" What does \"At last\" mean here?","qko":"«At last, he sees something red in the snow.» 에서 «At last» 는 무슨 뜻일까요?","opts":["very quickly","after a long search","before he looks"],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["He looks under the trees and near the snowman.","When he goes home, he has only one mitten.","It is his mitten, and Sam is very happy!","Sam plays in the snow with his friends."],"ev":[0],"why":["«He looks under the trees and near the snowman.» 여기저기 오래 찾아본 뒤에 발견했으니, «마침내» 라는 뜻이에요.","He looks under the trees and near the snowman first, so at last means after a long search."]},
+    {"type":["단서 연결","Connecting clues"],"q":"What is the red thing in the snow?","qko":"눈 속의 빨간 것은 무엇인가요?","opts":["Sam's lost mitten","a red apple","a toy car"],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["At last, he sees something red in the snow.","The next morning, he goes back to look.","Sam plays in the snow with his friends.","It is his mitten, and Sam is very happy!"],"ev":[0,3],"why":["눈 속에서 빨간 것을 보았고(«At last, he sees something red...»), 그것이 샘의 장갑이에요(«It is his mitten...»).","He sees something red, and it is his mitten."]}
   ];
 
   var ENDS = [

@@ -356,10 +356,10 @@ var StoryCore = (function(){
   ];
   var SUM = [
     {"pre":"On Sunday, Lily and Dad make ","ans":"pancakes","opts":["pancakes","kites","cards"]},
-    {"pre":". Lily spills ","ans":"flour","opts":["flour","juice","paint"]},
-    {"pre":" on the floor. Dad ","ans":"laughs","opts":["laughs","cries","shouts"]},
-    {"pre":" and says, \"That's okay!\" They clean up ","ans":"together","opts":["together","alone","outside"]},
-    {"pre":" and cook the pancakes. Lily learns that small ","ans":"mistakes","opts":["mistakes","bugs","cars"]},
+    {"pre":". Lily spills ","ans":"flour","opts":["juice","paint","flour"]},
+    {"pre":" on the floor. Dad ","ans":"laughs","opts":["cries","shouts","laughs"]},
+    {"pre":" and says, \"That's okay!\" They clean up ","ans":"together","opts":["outside","alone","together"]},
+    {"pre":" and cook the pancakes. Lily learns that small ","ans":"mistakes","opts":["bugs","mistakes","cars"]},
     {"pre":" are okay.","ans":null}
   ];
   var WORDS = [
@@ -372,9 +372,9 @@ var StoryCore = (function(){
   ];
   // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들
   var QS = [
-    {"type":["원인·결과","Cause & effect"],"q":"Why is the kitchen white and messy?","qko":"부엌은 왜 하얗고 지저분해졌나요?","opts":["Dad paints the walls.","Lily spills flour on the floor.","It snows in the kitchen."],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Oops! She spills flour on the floor.","On Sunday, Lily and Dad make pancakes.","Dad laughs and says, \"That's okay!\"","The pancakes taste great, and Lily learns that small mistakes are okay."],"ev":[0],"why":["«Oops! She spills flour on the floor.» 릴리가 하얀 밀가루를 바닥에 쏟아서 부엌이 하얗고 지저분해졌어요.","Lily spills white flour on the floor, so the kitchen is white and messy."]},
-    {"type":["문맥상 의미","Meaning in context"],"q":"Dad says, \"That's okay!\" What does he mean?","qko":"아빠가 «That's okay!» 라고 말해요. 무슨 뜻일까요?","opts":["He is very angry.","The mess is not a big problem.","Lily must leave the kitchen."],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["They clean up together and cook the pancakes.","Lily mixes the eggs, milk, and flour.","Oops! She spills flour on the floor.","On Sunday, Lily and Dad make pancakes."],"ev":[0],"why":["«They clean up together and cook the pancakes.» 화내지 않고 함께 치우고 계속 요리했으니, 큰 문제가 아니라는 뜻이에요.","They clean up together and keep cooking, so the mess is not a big problem."]},
-    {"type":["단서 연결","Connecting clues"],"q":"How does Lily learn that small mistakes are okay?","qko":"릴리는 어떻게 작은 실수는 괜찮다는 것을 배우나요?","opts":["Dad says it is okay, and they clean up together.","Lily never makes a mess.","Dad cooks the pancakes alone."],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["Dad laughs and says, \"That's okay!\"","They clean up together and cook the pancakes.","On Sunday, Lily and Dad make pancakes.","Lily mixes the eggs, milk, and flour."],"ev":[0,1],"why":["아빠가 «괜찮아!» 라고 말하고(«Dad laughs and says...»), 둘이 함께 치웠어요(«They clean up together...»).","Dad says, \"That's okay!\" and they clean up together."]}
+    {"type":["원인·결과","Cause & effect"],"q":"Why is the kitchen white and messy?","qko":"부엌은 왜 하얗고 지저분해졌나요?","opts":["It snows in the kitchen.","Lily spills flour on the floor.","Dad paints the walls."],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Dad laughs and says, \"That's okay!\"","Oops! She spills flour on the floor.","The pancakes taste great, and Lily learns that small mistakes are okay.","On Sunday, Lily and Dad make pancakes."],"ev":[1],"why":["«Oops! She spills flour on the floor.» 릴리가 하얀 밀가루를 바닥에 쏟아서 부엌이 하얗고 지저분해졌어요.","Lily spills white flour on the floor, so the kitchen is white and messy."]},
+    {"type":["문맥상 의미","Meaning in context"],"q":"Dad says, \"That's okay!\" What does he mean?","qko":"아빠가 «That's okay!» 라고 말해요. 무슨 뜻일까요?","opts":["Lily must leave the kitchen.","He is very angry.","The mess is not a big problem."],"ans":2,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Lily mixes the eggs, milk, and flour.","On Sunday, Lily and Dad make pancakes.","They clean up together and cook the pancakes.","Oops! She spills flour on the floor."],"ev":[2],"why":["«They clean up together and cook the pancakes.» 화내지 않고 함께 치우고 계속 요리했으니, 큰 문제가 아니라는 뜻이에요.","They clean up together and keep cooking, so the mess is not a big problem."]},
+    {"type":["단서 연결","Connecting clues"],"q":"How does Lily learn that small mistakes are okay?","qko":"릴리는 어떻게 작은 실수는 괜찮다는 것을 배우나요?","opts":["Lily never makes a mess.","Dad cooks the pancakes alone.","Dad says it is okay, and they clean up together."],"ans":2,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["They clean up together and cook the pancakes.","Dad laughs and says, \"That's okay!\"","Lily mixes the eggs, milk, and flour.","On Sunday, Lily and Dad make pancakes."],"ev":[0,1],"why":["아빠가 «괜찮아!» 라고 말하고(«Dad laughs and says...»), 둘이 함께 치웠어요(«They clean up together...»).","Dad says, \"That's okay!\" and they clean up together."]}
   ];
 
   var ENDS = [

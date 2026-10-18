@@ -356,11 +356,11 @@ var StoryCore = (function(){
     [["He knocked on the ant's door and asked for help.","d"],["The ant shared some food, and the grasshopper learned that it is wise to prepare for the future.","S"]]
   ];
   var SUM = [
-    {"pre":"One hot summer, the ant saved ","ans":"food","opts":["food","toys","water"]},
-    {"pre":" for winter. The grasshopper played music and ","ans":"slept","opts":["slept","worked","cooked"]},
-    {"pre":" in the sun. When winter came, he was ","ans":"hungry","opts":["hungry","happy","busy"]},
-    {"pre":". The ant ","ans":"shared","opts":["shared","sold","hid"]},
-    {"pre":" some food, and he learned it is wise to ","ans":"prepare","opts":["prepare","forget","sleep"]},
+    {"pre":"One hot summer, the ant saved ","ans":"food","opts":["water","toys","food"]},
+    {"pre":" for winter. The grasshopper played music and ","ans":"slept","opts":["cooked","worked","slept"]},
+    {"pre":" in the sun. When winter came, he was ","ans":"hungry","opts":["busy","happy","hungry"]},
+    {"pre":". The ant ","ans":"shared","opts":["sold","shared","hid"]},
+    {"pre":" some food, and he learned it is wise to ","ans":"prepare","opts":["forget","prepare","sleep"]},
     {"pre":" for the future.","ans":null}
   ];
   var WORDS = [
@@ -373,9 +373,9 @@ var StoryCore = (function(){
   ];
   // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들
   var QS = [
-    {"type":["원인·결과","Cause & effect"],"q":"Why was the grasshopper hungry in winter?","qko":"베짱이는 왜 겨울에 배가 고팠나요?","opts":["He had no food at all.","The ant ate all his food.","He was sick in the snow."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["A grasshopper watched her and laughed.","The grasshopper was hungry because he had no food at all.","She carried seeds and grain to her home under the ground.","One hot summer, an ant worked hard every day."],"ev":[1],"why":["베짱이는 먹을 것이 하나도 없어서 배가 고팠다고 본문에 그대로 나와요. 개미가 음식을 먹었다거나 아팠다는 말은 없어요.","The text says he was hungry because he had no food at all. Nothing says the ant ate his food or that he was sick."]},
-    {"type":["문맥상 의미","Meaning in context"],"q":"The ant says, \"I am saving food for winter.\" What does \"saving\" mean here?","qko":"개미가 \"I am saving food for winter.\"라고 해요. 여기서 \"saving\"은 무슨 뜻인가요?","opts":["keeping food to use later","eating food right now","throwing food away"],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["\"Why do you work so hard?\" he asked. \"Come and sing with me!\"","\"I am saving food for winter,\" said the ant, and she kept working.","The grasshopper played music and slept in the sun all summer long.","A grasshopper watched her and laughed."],"ev":[1],"why":["«for winter(겨울을 위해)» 라는 말이 단서예요. 지금 먹는 것이 아니라 나중에 쓰려고 모아 두는 것이에요.","The words «for winter» are the clue. She is keeping the food to use later, not eating it now."]},
-    {"type":["단서 연결","Connecting clues"],"q":"Why did the ant have food to share in winter?","qko":"개미는 왜 겨울에 나누어 줄 음식이 있었나요?","opts":["She carried and saved food all summer.","The grasshopper gave her seeds.","She found food in the snow."],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["She carried seeds and grain to her home under the ground.","The grasshopper played music and slept in the sun all summer long.","\"I am saving food for winter,\" said the ant, and she kept working.","The grasshopper was hungry because he had no food at all."],"ev":[0,2],"why":["개미는 여름에 씨앗과 곡식을 집으로 나르고, 겨울을 위해 음식을 모았어요. 이 두 문장을 이으면 답이 나와요.","The ant carried seeds and grain home, and she saved food for winter. Put these two clues together to find the answer."]}
+    {"type":["원인·결과","Cause & effect"],"q":"Why was the grasshopper hungry in winter?","qko":"베짱이는 왜 겨울에 배가 고팠나요?","opts":["He had no food at all.","The ant ate all his food.","He was sick in the snow."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["A grasshopper watched her and laughed.","She carried seeds and grain to her home under the ground.","The grasshopper was hungry because he had no food at all.","One hot summer, an ant worked hard every day."],"ev":[2],"why":["베짱이는 먹을 것이 하나도 없어서 배가 고팠다고 본문에 그대로 나와요. 개미가 음식을 먹었다거나 아팠다는 말은 없어요.","The text says he was hungry because he had no food at all. Nothing says the ant ate his food or that he was sick."]},
+    {"type":["문맥상 의미","Meaning in context"],"q":"The ant says, \"I am saving food for winter.\" What does \"saving\" mean here?","qko":"개미가 \"I am saving food for winter.\"라고 해요. 여기서 \"saving\"은 무슨 뜻인가요?","opts":["throwing food away","eating food right now","keeping food to use later"],"ans":2,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["\"Why do you work so hard?\" he asked. \"Come and sing with me!\"","The grasshopper played music and slept in the sun all summer long.","\"I am saving food for winter,\" said the ant, and she kept working.","A grasshopper watched her and laughed."],"ev":[2],"why":["«for winter(겨울을 위해)» 라는 말이 단서예요. 지금 먹는 것이 아니라 나중에 쓰려고 모아 두는 것이에요.","The words «for winter» are the clue. She is keeping the food to use later, not eating it now."]},
+    {"type":["단서 연결","Connecting clues"],"q":"Why did the ant have food to share in winter?","qko":"개미는 왜 겨울에 나누어 줄 음식이 있었나요?","opts":["She found food in the snow.","The grasshopper gave her seeds.","She carried and saved food all summer."],"ans":2,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["\"I am saving food for winter,\" said the ant, and she kept working.","She carried seeds and grain to her home under the ground.","The grasshopper was hungry because he had no food at all.","The grasshopper played music and slept in the sun all summer long."],"ev":[0,1],"why":["개미는 여름에 씨앗과 곡식을 집으로 나르고, 겨울을 위해 음식을 모았어요. 이 두 문장을 이으면 답이 나와요.","The ant carried seeds and grain home, and she saved food for winter. Put these two clues together to find the answer."]}
   ];
 
   var ENDS = [

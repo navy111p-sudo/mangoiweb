@@ -355,8 +355,8 @@ var StoryCore = (function(){
     [["Jun smiles and says, \"Yes, I love soccer!\"","d"],["Now Jun has a new friend, and school is fun.","d"]]
   ];
   var SUM = [
-    {"pre":"It is Jun’s first day at a new ","ans":"school","opts":["school","park","store"]},
-    {"pre":". He feels ","ans":"shy","opts":["shy","angry","sleepy"]},
+    {"pre":"It is Jun’s first day at a new ","ans":"school","opts":["store","school","park"]},
+    {"pre":". He feels ","ans":"shy","opts":["sleepy","angry","shy"]},
     {"pre":" and sits ","ans":"alone","opts":["alone","outside","upstairs"]},
     {"pre":" at lunch. A girl named ","ans":"Mina","opts":["Mina","Lily","Grace"]},
     {"pre":" asks him about ","ans":"soccer","opts":["soccer","music","books"]},
@@ -372,9 +372,9 @@ var StoryCore = (function(){
   ];
   // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들
   var QS = [
-    {"type":["원인·결과","Cause & effect"],"q":"Why does Jun feel shy?","qko":"준은 왜 부끄러워하나요?","opts":["He does not know anyone.","He does not like soccer.","He is late for school."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["He does not know anyone, so he feels shy.","\"Hi! Do you like soccer?\" she asks.","Now Jun has a new friend, and school is fun.","At lunch, he sits alone."],"ev":[0],"why":["새 학교에 아는 사람이 없어서 부끄러워해요. «so» 앞이 이유예요.","He feels shy because he does not know anyone. The reason comes before \"so\"."]},
-    {"type":["문맥상 의미","Meaning in context"],"q":"\"At lunch, he sits alone.\" What does \"alone\" mean?","qko":"«he sits alone» 에서 «alone» 은 무슨 뜻일까요?","opts":["with no one next to him","with many friends","in the wrong seat"],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["At lunch, he sits alone.","It is Jun's first day at a new school.","Jun smiles and says, \"Yes, I love soccer!\"","Now Jun has a new friend, and school is fun."],"ev":[0],"why":["«alone» 은 «혼자» 예요. 준 옆에는 아무도 없어요.","\"Alone\" means with no one else. No one sits with Jun."]},
-    {"type":["단서 연결","Connecting clues"],"q":"How does Jun make a new friend?","qko":"준은 어떻게 새 친구를 사귀나요?","opts":["Mina sits next to him and asks about soccer.","Jun asks the teacher for help.","Jun plays soccer by himself."],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["A girl named Mina sits next to him.","\"Hi! Do you like soccer?\" she asks.","He does not know anyone, so he feels shy.","It is Jun's first day at a new school."],"ev":[0,1],"why":["미나가 옆에 앉고, 축구를 좋아하냐고 물어요. 두 문장을 이어야 알 수 있어요.","Mina sits next to Jun and asks if he likes soccer. You need both sentences."]}
+    {"type":["원인·결과","Cause & effect"],"q":"Why does Jun feel shy?","qko":"준은 왜 부끄러워하나요?","opts":["He does not know anyone.","He is late for school.","He does not like soccer."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["\"Hi! Do you like soccer?\" she asks.","At lunch, he sits alone.","He does not know anyone, so he feels shy.","Now Jun has a new friend, and school is fun."],"ev":[2],"why":["새 학교에 아는 사람이 없어서 부끄러워해요. «so» 앞이 이유예요.","He feels shy because he does not know anyone. The reason comes before \"so\"."]},
+    {"type":["문맥상 의미","Meaning in context"],"q":"\"At lunch, he sits alone.\" What does \"alone\" mean?","qko":"«he sits alone» 에서 «alone» 은 무슨 뜻일까요?","opts":["with many friends","with no one next to him","in the wrong seat"],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["It is Jun's first day at a new school.","At lunch, he sits alone.","Jun smiles and says, \"Yes, I love soccer!\"","Now Jun has a new friend, and school is fun."],"ev":[1],"why":["«alone» 은 «혼자» 예요. 준 옆에는 아무도 없어요.","\"Alone\" means with no one else. No one sits with Jun."]},
+    {"type":["단서 연결","Connecting clues"],"q":"How does Jun make a new friend?","qko":"준은 어떻게 새 친구를 사귀나요?","opts":["Jun plays soccer by himself.","Jun asks the teacher for help.","Mina sits next to him and asks about soccer."],"ans":2,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["\"Hi! Do you like soccer?\" she asks.","He does not know anyone, so he feels shy.","It is Jun's first day at a new school.","A girl named Mina sits next to him."],"ev":[0,3],"why":["미나가 옆에 앉고, 축구를 좋아하냐고 물어요. 두 문장을 이어야 알 수 있어요.","Mina sits next to Jun and asks if he likes soccer. You need both sentences."]}
   ];
 
   var ENDS = [

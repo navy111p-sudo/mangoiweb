@@ -355,10 +355,10 @@ var StoryCore = (function(){
     [["Dad brings a ladder and carefully gets the cat.","S"],["The cat purrs, and the children feel happy they helped.","d"]]
   ];
   var SUM = [
-    {"pre":"A little cat climbs up a tall ","ans":"tree","opts":["tree","house","hill"]},
-    {"pre":". Now it cannot come ","ans":"down","opts":["down","in","home"]},
-    {"pre":". Mina and Jun run to ","ans":"help","opts":["help","play","sleep"]},
-    {"pre":". They cannot reach it, so Mina's dad brings a ","ans":"ladder","opts":["ladder","ball","box"]},
+    {"pre":"A little cat climbs up a tall ","ans":"tree","opts":["hill","tree","house"]},
+    {"pre":". Now it cannot come ","ans":"down","opts":["in","home","down"]},
+    {"pre":". Mina and Jun run to ","ans":"help","opts":["play","sleep","help"]},
+    {"pre":". They cannot reach it, so Mina's dad brings a ","ans":"ladder","opts":["box","ladder","ball"]},
     {"pre":" and gets the cat. The cat purrs, and the children feel ","ans":"happy","opts":["happy","sad","angry"]},
     {"pre":" they helped.","ans":null}
   ];
@@ -372,9 +372,9 @@ var StoryCore = (function(){
   ];
   // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들
   var QS = [
-    {"type":["원인·결과","Cause & effect"],"q":"Why do Mina and Jun call Mina's dad?","qko":"미나와 준은 왜 미나의 아빠를 부르나요?","opts":["They are hungry.","They cannot reach the cat.","The cat is sleeping."],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["They cannot reach it, so they call Mina's dad.","A little cat climbs up a tall tree.","\"Meow, meow!\" it cries.","The cat purrs, and the children feel happy they helped."],"ev":[0],"why":["«They cannot reach it, so they call Mina's dad.» 손이 고양이에게 닿지 않아서 아빠를 불렀어요.","They cannot reach the cat, so they call Mina's dad."]},
-    {"type":["문맥상 의미","Meaning in context"],"q":"\"Dad brings a ladder and carefully gets the cat.\" What does \"carefully\" mean here?","qko":"«Dad brings a ladder and carefully gets the cat.» 에서 «carefully» 는 무슨 뜻일까요?","opts":["in a slow and safe way","in a fast and rough way","with a loud voice"],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["The cat purrs, and the children feel happy they helped.","Now it cannot come down.","Mina and Jun hear the cat and run to help.","A little cat climbs up a tall tree."],"ev":[0],"why":["«The cat purrs...» 고양이가 편안하게 가르랑거리니, 아빠가 다치지 않게 조심히 내려 주었다는 뜻이에요.","The cat purrs and is happy, so Dad gets it in a slow and safe way."]},
-    {"type":["단서 연결","Connecting clues"],"q":"How do we know the cat needs help?","qko":"고양이가 도움이 필요하다는 것을 어떻게 알 수 있나요?","opts":["It cannot come down, and it cries.","It is eating a fish.","It runs home fast."],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["Now it cannot come down.","\"Meow, meow!\" it cries.","Dad brings a ladder and carefully gets the cat.","The cat purrs, and the children feel happy they helped."],"ev":[0,1],"why":["«Now it cannot come down.» 내려올 수 없고, «\"Meow, meow!\" it cries.» 울고 있어서 도움이 필요하다는 것을 알 수 있어요.","It cannot come down, and it cries meow, meow."]}
+    {"type":["원인·결과","Cause & effect"],"q":"Why do Mina and Jun call Mina's dad?","qko":"미나와 준은 왜 미나의 아빠를 부르나요?","opts":["They cannot reach the cat.","They are hungry.","The cat is sleeping."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["A little cat climbs up a tall tree.","\"Meow, meow!\" it cries.","They cannot reach it, so they call Mina's dad.","The cat purrs, and the children feel happy they helped."],"ev":[2],"why":["«They cannot reach it, so they call Mina's dad.» 손이 고양이에게 닿지 않아서 아빠를 불렀어요.","They cannot reach the cat, so they call Mina's dad."]},
+    {"type":["문맥상 의미","Meaning in context"],"q":"\"Dad brings a ladder and carefully gets the cat.\" What does \"carefully\" mean here?","qko":"«Dad brings a ladder and carefully gets the cat.» 에서 «carefully» 는 무슨 뜻일까요?","opts":["in a fast and rough way","in a slow and safe way","with a loud voice"],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Mina and Jun hear the cat and run to help.","Now it cannot come down.","The cat purrs, and the children feel happy they helped.","A little cat climbs up a tall tree."],"ev":[2],"why":["«The cat purrs...» 고양이가 편안하게 가르랑거리니, 아빠가 다치지 않게 조심히 내려 주었다는 뜻이에요.","The cat purrs and is happy, so Dad gets it in a slow and safe way."]},
+    {"type":["단서 연결","Connecting clues"],"q":"How do we know the cat needs help?","qko":"고양이가 도움이 필요하다는 것을 어떻게 알 수 있나요?","opts":["It cannot come down, and it cries.","It is eating a fish.","It runs home fast."],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["Dad brings a ladder and carefully gets the cat.","\"Meow, meow!\" it cries.","Now it cannot come down.","The cat purrs, and the children feel happy they helped."],"ev":[1,2],"why":["«Now it cannot come down.» 내려올 수 없고, «\"Meow, meow!\" it cries.» 울고 있어서 도움이 필요하다는 것을 알 수 있어요.","It cannot come down, and it cries meow, meow."]}
   ];
 
   var ENDS = [

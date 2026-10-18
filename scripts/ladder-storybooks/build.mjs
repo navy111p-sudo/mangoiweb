@@ -72,6 +72,24 @@ export function makeTune(id, stage) {
   return { name: pick(NAMES) + ' ' + (minor ? 'Song' : 'Tune') + ' ' + id, bpm, beats: 4, wave: r() < 0.5 ? 'marimba' : 'musicbox', chords, melody };
 }
 
+// ── 🔀 보기 섞기 ─────────────────────────────────────────────────────────
+function permute(n, r) { const a = [...Array(n).keys()]; for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+export function mixChoices(id, d) {
+  for (let t = 0; t < 50; t++) {
+    const r = rngFrom('mix:' + id + ':' + t);
+    const sumOpts = d.sum.map((x) => (x.ans == null ? null : permute(x.opts.length, r).map((i) => x.opts[i])));
+    const qsMixed = d.qs.map((q) => {
+      const po = permute(q.opts.length, r), pe = permute(q.evs.length, r);
+      return { ...q, opts: po.map((i) => q.opts[i]), ans: po.indexOf(q.ans), evs: pe.map((i) => q.evs[i]), ev: q.ev.map((e) => pe.indexOf(e)).sort((a, b) => a - b) };
+    });
+    const sumPos = new Set(d.sum.map((x, i) => (x.ans == null ? -1 : sumOpts[i].indexOf(x.ans))).filter((v) => v >= 0));
+    const qPos = new Set(qsMixed.map((q) => q.ans));
+    const firstEv = qsMixed.every((q) => q.ev.includes(0));
+    if (sumPos.size >= 2 && qPos.size >= 2 && !firstEv) return { sumOpts, qsMixed };
+  }
+  throw new Error(id + ': 보기 섞기가 50번 안에 고르게 안 됨');
+}
+
 // ── ⑥ 바꿔 쓰기 틀 정규식 ───────────────────────────────────────────────
 function wordsRe(phrase) {
   return phrase.toLowerCase().split(/\s+/).map((w) => {
@@ -179,12 +197,15 @@ export function buildPage(tpl, p, d, no) {
   const roleOf = (i) => (i === d.key.P ? 'P' : i === d.key.S ? 'S' : 'd');
   const paras = []; let k = 0;
   d.breaks.forEach((n) => { const par = []; for (let j = 0; j < n; j++, k++) par.push([S[k], roleOf(k)]); paras.push(par); });
-  const sumArr = d.sum.map((x) => (x.ans == null ? { pre: x.pre, ans: null } : { pre: x.pre, ans: x.ans, opts: x.opts }));
+  // 보기·근거 후보 순서를 글마다 정해진 씨앗으로 섞는다 — 데이터는 정답을 대개 첫 칸에 적어 두므로 그대로 내면 «A 만 찍어도» 맞습니다.
+  // 한 권 안에서 정답 자리가 한 곳에 몰리면 씨앗을 바꿔 다시 섞습니다(같은 id 는 언제나 같은 순서).
+  const { sumOpts, qsMixed } = mixChoices(p.id, d);
+  const sumArr = d.sum.map((x, i) => (x.ans == null ? { pre: x.pre, ans: null } : { pre: x.pre, ans: x.ans, opts: sumOpts[i] }));
   const data = '  var STORY = [\n' + paras.map((par) => '    ' + J(par)).join(',\n') + '\n  ];\n' +
     '  var SUM = [\n' + sumArr.map((x) => '    ' + J(x)).join(',\n') + '\n  ];\n' +
     '  var WORDS = [\n' + d.words.map((x) => '    ' + J(x)).join(',\n') + '\n  ];\n' +
     '  // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들\n' +
-    '  var QS = [\n' + d.qs.map((q) => '    ' + J({ type: q.type, q: q.q, qko: q.qko, opts: q.opts, ans: q.ans, evq: q.evq, evs: q.evs, ev: q.ev, why: q.why })).join(',\n') + '\n  ];\n\n' +
+    '  var QS = [\n' + qsMixed.map((q) => '    ' + J({ type: q.type, q: q.q, qko: q.qko, opts: q.opts, ans: q.ans, evq: q.evq, evs: q.evs, ev: q.ev, why: q.why })).join(',\n') + '\n  ];\n\n' +
     '  var ENDS = [\n' + d.ends.map((x) => '    ' + J(x)).join(',\n') + '\n  ];';
   h = between(h, '  var STORY = [', "    [\"B\",\"Biscuit runs away with Grandma's new birthday hat.\",\"Biscuit 이 할머니의 새 생일 모자를 물고 도망가요.\",\"The Hat Thief\"]\n  ];", data, 'data block');
   const scenes = {};

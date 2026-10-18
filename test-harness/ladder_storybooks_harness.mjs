@@ -58,6 +58,7 @@ ok(files.length === L.passages.length && L.passages.length === 48, `데이터 ${
 ok(L.passages.every((p) => files.includes(p.id)), '사다리의 모든 글에 그림책 데이터가 있다');
 
 const tuneKeys = new Map(), titles = new Set(), ids = new Set();
+const allAns = [0, 0, 0], allSum = [0, 0, 0];
 for (const id of files) {
   const p = L.passages.find((x) => x.id === id);
   const d = JSON.parse(readFileSync(join(DATA_DIR, id + '.json'), 'utf8'));
@@ -106,6 +107,13 @@ for (const id of files) {
   const storyN = SENTS.map((s) => C.normQ(s[0]));
   bulk(tag + '근거 후보 문장이 본문에 «글자 그대로»', QS.flatMap((q) => q.evs), (e) => storyN.includes(C.normQ(e)) || e);
   ok(QS.map((q) => q.type[0]).join() === '원인·결과,문맥상 의미,단서 연결', tag + '세 유형');
+  // 정답 자리가 한쪽에 몰리면 «A 만 찍어도» 맞는다 (2026-10-18 데이터는 정답을 첫 칸에 적어 두고 생성기가 섞음)
+  const sumPos = SUM.filter((x) => x.ans).map((x) => x.opts.indexOf(x.ans));
+  ok(new Set(sumPos).size >= 2, tag + `요점정리 정답 자리가 고르다 (${sumPos.join(',')})`);
+  ok(new Set(QS.map((q) => q.ans)).size >= 2, tag + `근거 문항 정답 자리가 고르다 (${QS.map((q) => 'ABC'[q.ans]).join('')})`);
+  ok(!QS.every((q) => q.ev.includes(0)), tag + '근거 정답이 언제나 첫 후보에 있지 않다');
+  for (const q of QS) { allAns[q.ans]++; }
+  for (const x of sumPos) allSum[x]++;
   for (const [qi, q] of QS.entries()) {
     const subs = [[]]; for (let i = 0; i < 4; i++) subs.push([i]); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) if (i !== j) subs.push([i, j]);
     const cases = []; for (const a of [null, 0, 1, 2]) for (const e of subs) cases.push({ a, e });
@@ -146,6 +154,7 @@ for (const id of files) {
 console.log('\n══════ 사다리 배선 ══════');
 ok(/href="\/story-' \+ esc\(p\.id\) \+ '\.html"/.test(ladderJs), '사다리 읽기 화면에 «그림 동화책으로 읽기» 링크가 글 id 로');
 ok(/'story_' \+ id \+ '_stamps'/.test(ladderJs) && /bookTag\(p\.id\)/.test(ladderJs), '목록이 그림책 도장 수를 같은 저장칸에서 읽어 보여 준다');
+ok(Math.min(...allAns) >= 30 && Math.min(...allSum) >= 50, `전체 정답 자리 분포가 고르다 (근거 ${allAns.join('/')} · 요점 ${allSum.join('/')})`);
 const lv = (readFileSync(join(PUB, 'stories.html'), 'utf8').match(/reading-ladder\.js\?v=(\d+)/) || [])[1];
 ok(Number(lv) >= 3, `stories.html 이 reading-ladder.js 새 버전을 부른다 (v=${lv})`);
 const stageImg = files.map((id) => Number(id[1]));

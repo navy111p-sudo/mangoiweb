@@ -355,10 +355,10 @@ var StoryCore = (function(){
     [["\"Thank you, Ben!\" says Sam with a big smile.","d"],["Sharing makes both friends feel good.","d"]]
   ];
   var SUM = [
-    {"pre":"Sam forgot his lunch at ","ans":"home","opts":["home","school","work"]},
-    {"pre":". His ","ans":"stomach","opts":["stomach","phone","dog"]},
+    {"pre":"Sam forgot his lunch at ","ans":"home","opts":["work","home","school"]},
+    {"pre":". His ","ans":"stomach","opts":["phone","dog","stomach"]},
     {"pre":" makes a loud noise. His friend ","ans":"Ben","opts":["Ben","Max","Tom"]},
-    {"pre":" gives him half of his ","ans":"sandwich","opts":["sandwich","pizza","cookie"]},
+    {"pre":" gives him half of his ","ans":"sandwich","opts":["cookie","sandwich","pizza"]},
     {"pre":" and an apple. Sharing makes both friends feel ","ans":"good","opts":["good","sad","sleepy"]},
     {"pre":".","ans":null}
   ];
@@ -372,9 +372,9 @@ var StoryCore = (function(){
   ];
   // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들
   var QS = [
-    {"type":["원인·결과","Cause & effect"],"q":"Why does Sam's stomach make a loud noise?","qko":"샘의 배에서 왜 큰 소리가 나나요?","opts":["He forgot his lunch, so he is hungry.","He ate too much.","He is laughing."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Oh no, he forgot his lunch at home!","\"Thank you, Ben!\" says Sam with a big smile.","Sharing makes both friends feel good.","At lunch, Sam opens his bag."],"ev":[0],"why":["샘은 도시락을 집에 두고 와서 먹을 것이 없어요. 그래서 배가 고파 꼬르륵 소리가 나요.","Sam forgot his lunch at home, so he has nothing to eat and is hungry."]},
-    {"type":["문맥상 의미","Meaning in context"],"q":"\"Ben gives Sam half of his sandwich.\" What does \"half\" mean?","qko":"«half of his sandwich» 에서 «half» 는 무슨 뜻일까요?","opts":["one of two same parts","all of it","a very big piece"],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Ben gives Sam half of his sandwich and an apple.","His stomach makes a loud noise.","His friend Ben sees his sad face.","Sharing makes both friends feel good."],"ev":[0],"why":["«half» 는 «반» 이에요. 벤은 샌드위치를 둘로 나눠 한쪽을 줘요.","\"Half\" means one of two same parts. Ben gives one part of his sandwich."]},
-    {"type":["단서 연결","Connecting clues"],"q":"How do we know Ben is a kind friend?","qko":"벤이 친절한 친구라는 것을 어떻게 알 수 있나요?","opts":["He sees Sam's sad face and shares his lunch.","He takes Sam's apple.","He laughs at Sam."],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["His friend Ben sees his sad face.","Ben gives Sam half of his sandwich and an apple.","Oh no, he forgot his lunch at home!","\"Thank you, Ben!\" says Sam with a big smile."],"ev":[0,1],"why":["벤은 샘의 슬픈 얼굴을 보고, 자기 점심을 나누어 줘요. 두 문장을 이어야 알 수 있어요.","Ben sees Sam's sad face, and then he shares his lunch. You need both sentences."]}
+    {"type":["원인·결과","Cause & effect"],"q":"Why does Sam's stomach make a loud noise?","qko":"샘의 배에서 왜 큰 소리가 나나요?","opts":["He ate too much.","He is laughing.","He forgot his lunch, so he is hungry."],"ans":2,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["\"Thank you, Ben!\" says Sam with a big smile.","Sharing makes both friends feel good.","At lunch, Sam opens his bag.","Oh no, he forgot his lunch at home!"],"ev":[3],"why":["샘은 도시락을 집에 두고 와서 먹을 것이 없어요. 그래서 배가 고파 꼬르륵 소리가 나요.","Sam forgot his lunch at home, so he has nothing to eat and is hungry."]},
+    {"type":["문맥상 의미","Meaning in context"],"q":"\"Ben gives Sam half of his sandwich.\" What does \"half\" mean?","qko":"«half of his sandwich» 에서 «half» 는 무슨 뜻일까요?","opts":["one of two same parts","a very big piece","all of it"],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["His stomach makes a loud noise.","Sharing makes both friends feel good.","His friend Ben sees his sad face.","Ben gives Sam half of his sandwich and an apple."],"ev":[3],"why":["«half» 는 «반» 이에요. 벤은 샌드위치를 둘로 나눠 한쪽을 줘요.","\"Half\" means one of two same parts. Ben gives one part of his sandwich."]},
+    {"type":["단서 연결","Connecting clues"],"q":"How do we know Ben is a kind friend?","qko":"벤이 친절한 친구라는 것을 어떻게 알 수 있나요?","opts":["He takes Sam's apple.","He sees Sam's sad face and shares his lunch.","He laughs at Sam."],"ans":1,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["Oh no, he forgot his lunch at home!","His friend Ben sees his sad face.","\"Thank you, Ben!\" says Sam with a big smile.","Ben gives Sam half of his sandwich and an apple."],"ev":[1,3],"why":["벤은 샘의 슬픈 얼굴을 보고, 자기 점심을 나누어 줘요. 두 문장을 이어야 알 수 있어요.","Ben sees Sam's sad face, and then he shares his lunch. You need both sentences."]}
   ];
 
   var ENDS = [

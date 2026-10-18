@@ -355,11 +355,11 @@ var StoryCore = (function(){
     [["Max follows the smell all the way home.","S"],["His family hugs him, and Max is happy again.","d"]]
   ];
   var SUM = [
-    {"pre":"Max is a small brown ","ans":"puppy","opts":["puppy","kitten","bird"]},
-    {"pre":". He runs after a red ","ans":"ball","opts":["ball","cat","car"]},
-    {"pre":" and gets far from home. He feels ","ans":"scared","opts":["scared","proud","sleepy"]},
-    {"pre":". Then he smells his family’s ","ans":"dinner","opts":["dinner","flowers","soap"]},
-    {"pre":". He follows the smell all the way ","ans":"home","opts":["home","school","park"]},
+    {"pre":"Max is a small brown ","ans":"puppy","opts":["puppy","bird","kitten"]},
+    {"pre":". He runs after a red ","ans":"ball","opts":["ball","car","cat"]},
+    {"pre":" and gets far from home. He feels ","ans":"scared","opts":["sleepy","scared","proud"]},
+    {"pre":". Then he smells his family’s ","ans":"dinner","opts":["flowers","soap","dinner"]},
+    {"pre":". He follows the smell all the way ","ans":"home","opts":["school","park","home"]},
     {"pre":", and his family hugs him.","ans":null}
   ];
   var WORDS = [
@@ -372,9 +372,9 @@ var StoryCore = (function(){
   ];
   // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들
   var QS = [
-    {"type":["원인·결과","Cause & effect"],"q":"Why does Max feel scared?","qko":"맥스는 왜 무서워하나요?","opts":["He is far from home.","He sees a big cat.","He drops his red ball."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Soon he is far from home, and he feels scared.","Max is a small brown puppy.","His family hugs him, and Max is happy again.","Then he smells something good."],"ev":[0],"why":["맥스는 집에서 멀어져서 무서워해요. «far from home» 이 그 이유예요.","Max feels scared because he is far from home."]},
-    {"type":["문맥상 의미","Meaning in context"],"q":"\"Max follows the smell all the way home.\" What does \"all the way\" mean?","qko":"«all the way home» 에서 «all the way» 는 무슨 뜻일까요?","opts":["the whole way, until he gets home","only a little bit","the wrong way"],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Max follows the smell all the way home.","One day, he runs after a red ball.","It is the smell of his family's dinner!","His family hugs him, and Max is happy again."],"ev":[0],"why":["«all the way» 는 «끝까지 쭉» 이라는 뜻이에요. 맥스는 집에 닿을 때까지 냄새를 따라가요.","\"All the way\" means the whole way. Max follows the smell until he gets home."]},
-    {"type":["단서 연결","Connecting clues"],"q":"How does Max find his way home?","qko":"맥스는 어떻게 집을 찾아가나요?","opts":["He follows the smell of dinner.","His family calls his name.","He follows the red ball."],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["It is the smell of his family's dinner!","Max follows the smell all the way home.","One day, he runs after a red ball.","Max is a small brown puppy."],"ev":[0,1],"why":["저녁밥 냄새가 났고, 맥스는 그 냄새를 따라 집에 갔어요. 두 문장을 이어야 알 수 있어요.","He smells his family's dinner, and he follows that smell home. You need both sentences."]}
+    {"type":["원인·결과","Cause & effect"],"q":"Why does Max feel scared?","qko":"맥스는 왜 무서워하나요?","opts":["He drops his red ball.","He is far from home.","He sees a big cat."],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Max is a small brown puppy.","Then he smells something good.","His family hugs him, and Max is happy again.","Soon he is far from home, and he feels scared."],"ev":[3],"why":["맥스는 집에서 멀어져서 무서워해요. «far from home» 이 그 이유예요.","Max feels scared because he is far from home."]},
+    {"type":["문맥상 의미","Meaning in context"],"q":"\"Max follows the smell all the way home.\" What does \"all the way\" mean?","qko":"«all the way home» 에서 «all the way» 는 무슨 뜻일까요?","opts":["the whole way, until he gets home","only a little bit","the wrong way"],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["One day, he runs after a red ball.","His family hugs him, and Max is happy again.","Max follows the smell all the way home.","It is the smell of his family's dinner!"],"ev":[2],"why":["«all the way» 는 «끝까지 쭉» 이라는 뜻이에요. 맥스는 집에 닿을 때까지 냄새를 따라가요.","\"All the way\" means the whole way. Max follows the smell until he gets home."]},
+    {"type":["단서 연결","Connecting clues"],"q":"How does Max find his way home?","qko":"맥스는 어떻게 집을 찾아가나요?","opts":["He follows the red ball.","He follows the smell of dinner.","His family calls his name."],"ans":1,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["It is the smell of his family's dinner!","Max is a small brown puppy.","Max follows the smell all the way home.","One day, he runs after a red ball."],"ev":[0,2],"why":["저녁밥 냄새가 났고, 맥스는 그 냄새를 따라 집에 갔어요. 두 문장을 이어야 알 수 있어요.","He smells his family's dinner, and he follows that smell home. You need both sentences."]}
   ];
 
   var ENDS = [

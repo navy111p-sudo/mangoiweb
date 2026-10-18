@@ -355,11 +355,11 @@ var StoryCore = (function(){
     [["But Lily says, \"They want to be free.\"","P"],["Tom opens the jar, and the fireflies fly up to the stars.","S"]]
   ];
   var SUM = [
-    {"pre":"On a summer night, Tom and Lily go to the ","ans":"field","opts":["field","school","store"]},
-    {"pre":". Little ","ans":"lights","opts":["lights","cars","rocks"]},
-    {"pre":" fly in the dark. Tom catches some fireflies in a ","ans":"jar","opts":["jar","shoe","hat"]},
-    {"pre":". But Lily says, \"They want to be ","ans":"free","opts":["free","sleepy","hungry"]},
-    {"pre":".\" Tom opens the jar, and the fireflies fly up to the ","ans":"stars","opts":["stars","sea","ground"]},
+    {"pre":"On a summer night, Tom and Lily go to the ","ans":"field","opts":["school","field","store"]},
+    {"pre":". Little ","ans":"lights","opts":["cars","rocks","lights"]},
+    {"pre":" fly in the dark. Tom catches some fireflies in a ","ans":"jar","opts":["shoe","jar","hat"]},
+    {"pre":". But Lily says, \"They want to be ","ans":"free","opts":["hungry","free","sleepy"]},
+    {"pre":".\" Tom opens the jar, and the fireflies fly up to the ","ans":"stars","opts":["sea","stars","ground"]},
     {"pre":".","ans":null}
   ];
   var WORDS = [
@@ -372,9 +372,9 @@ var StoryCore = (function(){
   ];
   // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들
   var QS = [
-    {"type":["원인·결과","Cause & effect"],"q":"Why does the jar glow like a small lamp?","qko":"병은 왜 작은 등불처럼 빛나나요?","opts":["There are fireflies in it.","Tom puts a candle in it.","The moon is inside it."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Tom catches some fireflies in a jar.","On a summer night, Tom and Lily go to the field.","But Lily says, \"They want to be free.\"","Tom opens the jar, and the fireflies fly up to the stars."],"ev":[0],"why":["«Tom catches some fireflies in a jar.» 빛을 내는 반딧불이가 병 안에 있어서 병이 빛나요.","Tom catches fireflies in the jar, and fireflies make light."]},
-    {"type":["문맥상 의미","Meaning in context"],"q":"Lily says, \"They want to be free.\" What does \"free\" mean here?","qko":"릴리가 «They want to be free.» 라고 말해요. 여기서 «free» 는 무슨 뜻일까요?","opts":["able to fly where they want","very small","sleepy and tired"],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Tom opens the jar, and the fireflies fly up to the stars.","Little lights fly in the dark.","The jar glows like a small lamp.","On a summer night, Tom and Lily go to the field."],"ev":[0],"why":["«Tom opens the jar, and the fireflies fly up to the stars.» 병에서 나와 마음껏 날아가니, 자유롭다는 뜻이에요.","When Tom opens the jar, the fireflies fly up to the stars. Free means able to fly where they want."]},
-    {"type":["단서 연결","Connecting clues"],"q":"Why does Tom open the jar?","qko":"톰은 왜 병을 여나요?","opts":["Lily says the fireflies want to be free.","The jar is too heavy.","Tom wants more fireflies."],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["But Lily says, \"They want to be free.\"","Tom opens the jar, and the fireflies fly up to the stars.","Tom catches some fireflies in a jar.","The jar glows like a small lamp."],"ev":[0,1],"why":["릴리가 반딧불이는 자유롭고 싶어 한다고 말했고(«But Lily says...»), 그래서 톰이 병을 열었어요(«Tom opens the jar...»).","Lily says they want to be free, and then Tom opens the jar."]}
+    {"type":["원인·결과","Cause & effect"],"q":"Why does the jar glow like a small lamp?","qko":"병은 왜 작은 등불처럼 빛나나요?","opts":["Tom puts a candle in it.","There are fireflies in it.","The moon is inside it."],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Tom opens the jar, and the fireflies fly up to the stars.","On a summer night, Tom and Lily go to the field.","But Lily says, \"They want to be free.\"","Tom catches some fireflies in a jar."],"ev":[3],"why":["«Tom catches some fireflies in a jar.» 빛을 내는 반딧불이가 병 안에 있어서 병이 빛나요.","Tom catches fireflies in the jar, and fireflies make light."]},
+    {"type":["문맥상 의미","Meaning in context"],"q":"Lily says, \"They want to be free.\" What does \"free\" mean here?","qko":"릴리가 «They want to be free.» 라고 말해요. 여기서 «free» 는 무슨 뜻일까요?","opts":["very small","sleepy and tired","able to fly where they want"],"ans":2,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Little lights fly in the dark.","Tom opens the jar, and the fireflies fly up to the stars.","On a summer night, Tom and Lily go to the field.","The jar glows like a small lamp."],"ev":[1],"why":["«Tom opens the jar, and the fireflies fly up to the stars.» 병에서 나와 마음껏 날아가니, 자유롭다는 뜻이에요.","When Tom opens the jar, the fireflies fly up to the stars. Free means able to fly where they want."]},
+    {"type":["단서 연결","Connecting clues"],"q":"Why does Tom open the jar?","qko":"톰은 왜 병을 여나요?","opts":["Tom wants more fireflies.","Lily says the fireflies want to be free.","The jar is too heavy."],"ans":1,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["But Lily says, \"They want to be free.\"","Tom catches some fireflies in a jar.","The jar glows like a small lamp.","Tom opens the jar, and the fireflies fly up to the stars."],"ev":[0,3],"why":["릴리가 반딧불이는 자유롭고 싶어 한다고 말했고(«But Lily says...»), 그래서 톰이 병을 열었어요(«Tom opens the jar...»).","Lily says they want to be free, and then Tom opens the jar."]}
   ];
 
   var ENDS = [

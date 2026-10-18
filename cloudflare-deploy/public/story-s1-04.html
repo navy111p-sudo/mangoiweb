@@ -355,11 +355,11 @@ var StoryCore = (function(){
     [["At night, Grandma cooks soup with the fresh vegetables.","d"],["Tom thinks food from the garden tastes the best.","S"]]
   ];
   var SUM = [
-    {"pre":"Tom visits Grandma every ","ans":"summer","opts":["summer","winter","week"]},
-    {"pre":". They ","ans":"water","opts":["water","paint","sell"]},
-    {"pre":" the plants together. Tom pulls out ","ans":"weeds","opts":["weeds","flowers","trees"]},
-    {"pre":", and Grandma picks ","ans":"tomatoes","opts":["tomatoes","apples","bananas"]},
-    {"pre":". At night, she cooks ","ans":"soup","opts":["soup","cake","pizza"]},
+    {"pre":"Tom visits Grandma every ","ans":"summer","opts":["week","winter","summer"]},
+    {"pre":". They ","ans":"water","opts":["sell","paint","water"]},
+    {"pre":" the plants together. Tom pulls out ","ans":"weeds","opts":["trees","weeds","flowers"]},
+    {"pre":", and Grandma picks ","ans":"tomatoes","opts":["bananas","tomatoes","apples"]},
+    {"pre":". At night, she cooks ","ans":"soup","opts":["pizza","soup","cake"]},
     {"pre":" with the fresh vegetables. Tom thinks garden food tastes the best.","ans":null}
   ];
   var WORDS = [
@@ -372,9 +372,9 @@ var StoryCore = (function(){
   ];
   // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들
   var QS = [
-    {"type":["원인·결과","Cause & effect"],"q":"Grandma has a big vegetable garden. What can she do because of it?","qko":"할머니에게는 큰 채소밭이 있어요. 그 덕분에 할머니는 무엇을 할 수 있나요?","opts":["She cooks soup with fresh vegetables.","She buys vegetables at the store.","She sells tomatoes in the city."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["At night, Grandma cooks soup with the fresh vegetables.","Tom visits her every summer.","The carrots are orange, and the beans are long.","They water the plants together in the morning."],"ev":[0],"why":["할머니는 텃밭에서 난 신선한 채소로 수프를 끓여요.","She cooks soup with the fresh vegetables from her garden."]},
-    {"type":["문맥상 의미","Meaning in context"],"q":"\"They water the plants.\" What does \"water\" mean here?","qko":"«They water the plants» 에서 «water» 는 무슨 뜻일까요?","opts":["give water to the plants","drink water","swim in the water"],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["They water the plants together in the morning.","At night, Grandma cooks soup with the fresh vegetables.","Tom visits her every summer.","Tom thinks food from the garden tastes the best."],"ev":[0],"why":["여기서 «water» 는 «물» 이 아니라 «물을 주다» 예요. 식물에게 물을 줘요.","Here \"water\" means to give water to the plants."]},
-    {"type":["단서 연결","Connecting clues"],"q":"What do Tom and Grandma do in the garden?","qko":"톰과 할머니는 텃밭에서 무엇을 하나요?","opts":["They water plants, pull weeds, and pick tomatoes.","They plant trees and build a fence.","They play soccer and run."],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["They water the plants together in the morning.","Tom pulls out weeds, and Grandma picks tomatoes.","Tom thinks food from the garden tastes the best.","Grandma has a big vegetable garden."],"ev":[0,1],"why":["둘은 식물에 물을 주고, 톰은 잡초를 뽑고, 할머니는 토마토를 따요. 두 문장을 이어야 알 수 있어요.","They water the plants, Tom pulls weeds, and Grandma picks tomatoes. You need both sentences."]}
+    {"type":["원인·결과","Cause & effect"],"q":"Grandma has a big vegetable garden. What can she do because of it?","qko":"할머니에게는 큰 채소밭이 있어요. 그 덕분에 할머니는 무엇을 할 수 있나요?","opts":["She sells tomatoes in the city.","She cooks soup with fresh vegetables.","She buys vegetables at the store."],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["The carrots are orange, and the beans are long.","At night, Grandma cooks soup with the fresh vegetables.","They water the plants together in the morning.","Tom visits her every summer."],"ev":[1],"why":["할머니는 텃밭에서 난 신선한 채소로 수프를 끓여요.","She cooks soup with the fresh vegetables from her garden."]},
+    {"type":["문맥상 의미","Meaning in context"],"q":"\"They water the plants.\" What does \"water\" mean here?","qko":"«They water the plants» 에서 «water» 는 무슨 뜻일까요?","opts":["give water to the plants","drink water","swim in the water"],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["They water the plants together in the morning.","Tom thinks food from the garden tastes the best.","At night, Grandma cooks soup with the fresh vegetables.","Tom visits her every summer."],"ev":[0],"why":["여기서 «water» 는 «물» 이 아니라 «물을 주다» 예요. 식물에게 물을 줘요.","Here \"water\" means to give water to the plants."]},
+    {"type":["단서 연결","Connecting clues"],"q":"What do Tom and Grandma do in the garden?","qko":"톰과 할머니는 텃밭에서 무엇을 하나요?","opts":["They plant trees and build a fence.","They water plants, pull weeds, and pick tomatoes.","They play soccer and run."],"ans":1,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["Tom thinks food from the garden tastes the best.","They water the plants together in the morning.","Grandma has a big vegetable garden.","Tom pulls out weeds, and Grandma picks tomatoes."],"ev":[1,3],"why":["둘은 식물에 물을 주고, 톰은 잡초를 뽑고, 할머니는 토마토를 따요. 두 문장을 이어야 알 수 있어요.","They water the plants, Tom pulls weeds, and Grandma picks tomatoes. You need both sentences."]}
   ];
 
   var ENDS = [

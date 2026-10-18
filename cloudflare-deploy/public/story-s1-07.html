@@ -355,11 +355,11 @@ var StoryCore = (function(){
     [["It does not hurt at all!","d"],["Ella feels proud because she is brave.","S"]]
   ];
   var SUM = [
-    {"pre":"Ella has a dentist ","ans":"visit","opts":["visit","party","game"]},
-    {"pre":" today. She is ","ans":"scared","opts":["scared","hungry","sleepy"]},
-    {"pre":", and her hands shake. Mom holds her ","ans":"hand","opts":["hand","bag","book"]},
-    {"pre":". The dentist checks her ","ans":"teeth","opts":["teeth","shoes","hair"]},
-    {"pre":" gently. It does not hurt, and Ella feels ","ans":"proud","opts":["proud","angry","cold"]},
+    {"pre":"Ella has a dentist ","ans":"visit","opts":["game","visit","party"]},
+    {"pre":" today. She is ","ans":"scared","opts":["hungry","scared","sleepy"]},
+    {"pre":", and her hands shake. Mom holds her ","ans":"hand","opts":["bag","book","hand"]},
+    {"pre":". The dentist checks her ","ans":"teeth","opts":["shoes","teeth","hair"]},
+    {"pre":" gently. It does not hurt, and Ella feels ","ans":"proud","opts":["angry","proud","cold"]},
     {"pre":" because she is brave.","ans":null}
   ];
   var WORDS = [
@@ -372,9 +372,9 @@ var StoryCore = (function(){
   ];
   // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들
   var QS = [
-    {"type":["원인·결과","Cause & effect"],"q":"Why do Ella's hands shake?","qko":"엘라의 손은 왜 떨리나요?","opts":["She is cold.","She is scared.","She is very happy."],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["She is scared, and her hands shake.","Ella has a dentist visit today.","The dentist checks her teeth gently.","It does not hurt at all!"],"ev":[0],"why":["«She is scared, and her hands shake.» 에서 엘라가 무서워서 손이 떨린다는 것을 알 수 있어요.","The sentence says she is scared, and her hands shake."]},
-    {"type":["문맥상 의미","Meaning in context"],"q":"\"The dentist checks her teeth gently.\" What does \"gently\" mean here?","qko":"«The dentist checks her teeth gently.» 에서 «gently» 는 무슨 뜻일까요?","opts":["fast and hard","softly and carefully","very loudly"],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["It does not hurt at all!","Ella has a dentist visit today.","She is scared, and her hands shake.","Ella takes a deep breath and opens her mouth."],"ev":[0],"why":["«It does not hurt at all!» 하나도 아프지 않았으니, 의사 선생님이 살살 조심히 봐 주었다는 뜻이에요.","It does not hurt at all, so the dentist checks her teeth softly and carefully."]},
-    {"type":["단서 연결","Connecting clues"],"q":"Why does Ella feel proud at the end?","qko":"엘라는 마지막에 왜 뿌듯해하나요?","opts":["She is scared, but she is brave.","The dentist gives her a toy.","She does not go to the dentist."],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["She is scared, and her hands shake.","Ella feels proud because she is brave.","Ella has a dentist visit today.","The dentist checks her teeth gently."],"ev":[0,1],"why":["처음에는 무서웠지만(«She is scared...») 용기를 냈기 때문에 뿌듯해요(«Ella feels proud because she is brave.»).","She is scared at first, but she is brave, so she feels proud."]}
+    {"type":["원인·결과","Cause & effect"],"q":"Why do Ella's hands shake?","qko":"엘라의 손은 왜 떨리나요?","opts":["She is scared.","She is cold.","She is very happy."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["The dentist checks her teeth gently.","Ella has a dentist visit today.","She is scared, and her hands shake.","It does not hurt at all!"],"ev":[2],"why":["«She is scared, and her hands shake.» 에서 엘라가 무서워서 손이 떨린다는 것을 알 수 있어요.","The sentence says she is scared, and her hands shake."]},
+    {"type":["문맥상 의미","Meaning in context"],"q":"\"The dentist checks her teeth gently.\" What does \"gently\" mean here?","qko":"«The dentist checks her teeth gently.» 에서 «gently» 는 무슨 뜻일까요?","opts":["very loudly","softly and carefully","fast and hard"],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Ella has a dentist visit today.","It does not hurt at all!","Ella takes a deep breath and opens her mouth.","She is scared, and her hands shake."],"ev":[1],"why":["«It does not hurt at all!» 하나도 아프지 않았으니, 의사 선생님이 살살 조심히 봐 주었다는 뜻이에요.","It does not hurt at all, so the dentist checks her teeth softly and carefully."]},
+    {"type":["단서 연결","Connecting clues"],"q":"Why does Ella feel proud at the end?","qko":"엘라는 마지막에 왜 뿌듯해하나요?","opts":["She is scared, but she is brave.","She does not go to the dentist.","The dentist gives her a toy."],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["The dentist checks her teeth gently.","Ella has a dentist visit today.","She is scared, and her hands shake.","Ella feels proud because she is brave."],"ev":[2,3],"why":["처음에는 무서웠지만(«She is scared...») 용기를 냈기 때문에 뿌듯해요(«Ella feels proud because she is brave.»).","She is scared at first, but she is brave, so she feels proud."]}
   ];
 
   var ENDS = [

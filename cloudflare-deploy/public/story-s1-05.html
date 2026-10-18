@@ -356,10 +356,10 @@ var StoryCore = (function(){
   ];
   var SUM = [
     {"pre":"Today is Mom’s ","ans":"birthday","opts":["birthday","holiday","trip"]},
-    {"pre":". While Mom is at ","ans":"work","opts":["work","school","home"]},
+    {"pre":". While Mom is at ","ans":"work","opts":["home","school","work"]},
     {"pre":", Mina and Dad bake a ","ans":"cake","opts":["cake","pie","bread"]},
-    {"pre":". Mina draws a card with a big red ","ans":"heart","opts":["heart","star","flower"]},
-    {"pre":". They put ","ans":"balloons","opts":["balloons","flowers","lights"]},
+    {"pre":". Mina draws a card with a big red ","ans":"heart","opts":["heart","flower","star"]},
+    {"pre":". They put ","ans":"balloons","opts":["flowers","lights","balloons"]},
     {"pre":" all over the living room, and Mom cries happy tears.","ans":null}
   ];
   var WORDS = [
@@ -372,9 +372,9 @@ var StoryCore = (function(){
   ];
   // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들
   var QS = [
-    {"type":["원인·결과","Cause & effect"],"q":"Why does Mom cry?","qko":"엄마는 왜 눈물을 흘리나요?","opts":["She is very happy.","She is hurt.","She does not like the cake."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Mom laughs and cries happy tears.","When Mom comes home, they shout, \"Surprise!\"","While Mom is at work, they bake a cake.","Today is Mom's birthday."],"ev":[0],"why":["엄마는 «happy tears», 곧 기뻐서 눈물을 흘려요.","Mom cries \"happy tears.\" She is very happy."]},
-    {"type":["문맥상 의미","Meaning in context"],"q":"\"Mina and Dad want to surprise her.\" What does \"surprise\" mean here?","qko":"«want to surprise her» 에서 «surprise» 는 무슨 뜻일까요?","opts":["do something nice that she does not know about","make her angry","ask her for help"],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Mina and Dad want to surprise her.","Mina draws a card with a big red heart.","They put balloons all over the living room.","Mom laughs and cries happy tears."],"ev":[0],"why":["«surprise» 는 «엄마가 모르게 좋은 일을 준비해서 깜짝 놀라게 하다» 예요.","\"Surprise\" means to do something nice that she does not know about yet."]},
-    {"type":["단서 연결","Connecting clues"],"q":"How do Mina and Dad get ready for the surprise?","qko":"미나와 아빠는 깜짝 파티를 어떻게 준비하나요?","opts":["They bake a cake and put up balloons.","They buy a dog and a cat.","They go to a big restaurant."],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["While Mom is at work, they bake a cake.","They put balloons all over the living room.","Today is Mom's birthday.","Mom laughs and cries happy tears."],"ev":[0,1],"why":["둘은 케이크를 굽고, 거실에 풍선을 달아요. 두 문장을 이어야 알 수 있어요.","They bake a cake and put balloons all over the living room. You need both sentences."]}
+    {"type":["원인·결과","Cause & effect"],"q":"Why does Mom cry?","qko":"엄마는 왜 눈물을 흘리나요?","opts":["She is very happy.","She is hurt.","She does not like the cake."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Mom laughs and cries happy tears.","While Mom is at work, they bake a cake.","Today is Mom's birthday.","When Mom comes home, they shout, \"Surprise!\""],"ev":[0],"why":["엄마는 «happy tears», 곧 기뻐서 눈물을 흘려요.","Mom cries \"happy tears.\" She is very happy."]},
+    {"type":["문맥상 의미","Meaning in context"],"q":"\"Mina and Dad want to surprise her.\" What does \"surprise\" mean here?","qko":"«want to surprise her» 에서 «surprise» 는 무슨 뜻일까요?","opts":["make her angry","do something nice that she does not know about","ask her for help"],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Mom laughs and cries happy tears.","They put balloons all over the living room.","Mina and Dad want to surprise her.","Mina draws a card with a big red heart."],"ev":[2],"why":["«surprise» 는 «엄마가 모르게 좋은 일을 준비해서 깜짝 놀라게 하다» 예요.","\"Surprise\" means to do something nice that she does not know about yet."]},
+    {"type":["단서 연결","Connecting clues"],"q":"How do Mina and Dad get ready for the surprise?","qko":"미나와 아빠는 깜짝 파티를 어떻게 준비하나요?","opts":["They bake a cake and put up balloons.","They go to a big restaurant.","They buy a dog and a cat."],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["They put balloons all over the living room.","Today is Mom's birthday.","Mom laughs and cries happy tears.","While Mom is at work, they bake a cake."],"ev":[0,3],"why":["둘은 케이크를 굽고, 거실에 풍선을 달아요. 두 문장을 이어야 알 수 있어요.","They bake a cake and put balloons all over the living room. You need both sentences."]}
   ];
 
   var ENDS = [

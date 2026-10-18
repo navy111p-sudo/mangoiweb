@@ -356,10 +356,10 @@ var StoryCore = (function(){
   ];
   var SUM = [
     {"pre":"Hana plants a little ","ans":"seed","opts":["seed","rock","coin"]},
-    {"pre":" in a pot. She waters it every ","ans":"day","opts":["day","year","month"]},
-    {"pre":". Nothing happens for a week, but Mom says, \"Wait and ","ans":"see","opts":["see","run","cry"]},
+    {"pre":" in a pot. She waters it every ","ans":"day","opts":["month","year","day"]},
+    {"pre":". Nothing happens for a week, but Mom says, \"Wait and ","ans":"see","opts":["run","cry","see"]},
     {"pre":".\" Hana keeps ","ans":"watering","opts":["watering","kicking","hiding"]},
-    {"pre":" the pot. A few weeks later, a pretty yellow ","ans":"flower","opts":["flower","bird","cake"]},
+    {"pre":" the pot. A few weeks later, a pretty yellow ","ans":"flower","opts":["cake","bird","flower"]},
     {"pre":" opens!","ans":null}
   ];
   var WORDS = [
@@ -372,9 +372,9 @@ var StoryCore = (function(){
   ];
   // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들
   var QS = [
-    {"type":["원인·결과","Cause & effect"],"q":"Why does Hana want to give up?","qko":"하나는 왜 포기하고 싶어 하나요?","opts":["After one week, nothing happens.","Her flower is too big.","Mom tells her to stop."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["After one week, nothing happens.","Hana plants a little seed in a pot.","One morning, she sees a small green leaf.","A few weeks later, a pretty yellow flower opens!"],"ev":[0],"why":["«After one week, nothing happens.» 일주일이 지나도 아무것도 자라지 않아서 포기하고 싶었어요.","After one week, nothing happens, so Hana wants to give up."]},
-    {"type":["문맥상 의미","Meaning in context"],"q":"Mom says, \"Wait and see.\" What does she mean?","qko":"엄마가 «Wait and see.» 라고 말해요. 무슨 뜻일까요?","opts":["Stop watering the seed.","Be patient, and the seed will grow.","Throw the pot away."],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["A few weeks later, a pretty yellow flower opens!","Hana plants a little seed in a pot.","She waters it every day.","After one week, nothing happens."],"ev":[0],"why":["«A few weeks later, a pretty yellow flower opens!» 기다렸더니 꽃이 피었으니, 참고 기다리면 자란다는 뜻이에요.","A few weeks later, a flower opens, so Mom means be patient and the seed will grow."]},
-    {"type":["단서 연결","Connecting clues"],"q":"How does Hana's seed become a flower?","qko":"하나의 씨앗은 어떻게 꽃이 되나요?","opts":["She keeps watering it and waits.","She buys a new flower.","Mom paints a flower."],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["Hana wants to give up, but Mom says, \"Wait and see.\"","Hana keeps watering the pot.","Hana plants a little seed in a pot.","After one week, nothing happens."],"ev":[0,1],"why":["엄마가 기다려 보라고 했고(«...Mom says, \"Wait and see.\"»), 하나는 계속 물을 주었어요(«Hana keeps watering the pot.»).","Mom says to wait, and Hana keeps watering the pot."]}
+    {"type":["원인·결과","Cause & effect"],"q":"Why does Hana want to give up?","qko":"하나는 왜 포기하고 싶어 하나요?","opts":["Her flower is too big.","After one week, nothing happens.","Mom tells her to stop."],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["After one week, nothing happens.","One morning, she sees a small green leaf.","A few weeks later, a pretty yellow flower opens!","Hana plants a little seed in a pot."],"ev":[0],"why":["«After one week, nothing happens.» 일주일이 지나도 아무것도 자라지 않아서 포기하고 싶었어요.","After one week, nothing happens, so Hana wants to give up."]},
+    {"type":["문맥상 의미","Meaning in context"],"q":"Mom says, \"Wait and see.\" What does she mean?","qko":"엄마가 «Wait and see.» 라고 말해요. 무슨 뜻일까요?","opts":["Be patient, and the seed will grow.","Throw the pot away.","Stop watering the seed."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["A few weeks later, a pretty yellow flower opens!","She waters it every day.","Hana plants a little seed in a pot.","After one week, nothing happens."],"ev":[0],"why":["«A few weeks later, a pretty yellow flower opens!» 기다렸더니 꽃이 피었으니, 참고 기다리면 자란다는 뜻이에요.","A few weeks later, a flower opens, so Mom means be patient and the seed will grow."]},
+    {"type":["단서 연결","Connecting clues"],"q":"How does Hana's seed become a flower?","qko":"하나의 씨앗은 어떻게 꽃이 되나요?","opts":["Mom paints a flower.","She buys a new flower.","She keeps watering it and waits."],"ans":2,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["After one week, nothing happens.","Hana keeps watering the pot.","Hana wants to give up, but Mom says, \"Wait and see.\"","Hana plants a little seed in a pot."],"ev":[1,2],"why":["엄마가 기다려 보라고 했고(«...Mom says, \"Wait and see.\"»), 하나는 계속 물을 주었어요(«Hana keeps watering the pot.»).","Mom says to wait, and Hana keeps watering the pot."]}
   ];
 
   var ENDS = [

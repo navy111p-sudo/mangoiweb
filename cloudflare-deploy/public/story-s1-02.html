@@ -355,11 +355,11 @@ var StoryCore = (function(){
     [["They eat snacks and tell funny stories.","d"],["Lily says, \"Rainy days can be fun too!\"","S"]]
   ];
   var SUM = [
-    {"pre":"It is raining, so Lily cannot play ","ans":"outside","opts":["outside","upstairs","alone"]},
-    {"pre":". She feels ","ans":"sad","opts":["sad","proud","sleepy"]},
-    {"pre":". Lily and Sam make a ","ans":"tent","opts":["tent","boat","cake"]},
-    {"pre":" with blankets and chairs. They read ","ans":"books","opts":["books","maps","letters"]},
-    {"pre":" with a flashlight and tell funny ","ans":"stories","opts":["stories","songs","secrets"]},
+    {"pre":"It is raining, so Lily cannot play ","ans":"outside","opts":["upstairs","outside","alone"]},
+    {"pre":". She feels ","ans":"sad","opts":["sleepy","sad","proud"]},
+    {"pre":". Lily and Sam make a ","ans":"tent","opts":["boat","tent","cake"]},
+    {"pre":" with blankets and chairs. They read ","ans":"books","opts":["maps","letters","books"]},
+    {"pre":" with a flashlight and tell funny ","ans":"stories","opts":["songs","stories","secrets"]},
     {"pre":". Lily learns that rainy days can be fun too.","ans":null}
   ];
   var WORDS = [
@@ -372,9 +372,9 @@ var StoryCore = (function(){
   ];
   // 근거 찾기: ans = 정답 보기 번호, ev = 근거 후보 중 정답 번호들
   var QS = [
-    {"type":["원인·결과","Cause & effect"],"q":"Why does Lily feel sad?","qko":"릴리는 왜 슬퍼하나요?","opts":["She cannot play outside because of the rain.","She loses her favorite book.","Sam does not want to play with her."],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["It is raining, and Lily cannot play outside.","They make a tent with blankets and chairs.","They eat snacks and tell funny stories.","Then her brother Sam has an idea."],"ev":[0],"why":["비가 와서 밖에서 놀 수 없기 때문이에요.","It is raining, so she cannot play outside."]},
-    {"type":["문맥상 의미","Meaning in context"],"q":"\"Sam has an idea.\" What does \"idea\" mean here?","qko":"«Sam has an idea» 에서 «idea» 는 무슨 뜻일까요?","opts":["a new plan to do something","a big snack","a funny story"],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Then her brother Sam has an idea.","It is raining, and Lily cannot play outside.","They eat snacks and tell funny stories.","Lily says, \"Rainy days can be fun too!\""],"ev":[0],"why":["«idea» 는 «좋은 생각, 새 계획» 이에요. 그 뒤에 샘과 릴리는 텐트를 만들어요.","\"Idea\" means a new plan. After this, they make a tent."]},
-    {"type":["단서 연결","Connecting clues"],"q":"How does the rainy day become fun?","qko":"비 오는 날이 어떻게 재미있어지나요?","opts":["They play inside in a tent.","The rain stops, and they go out.","Lily watches TV all day."],"ans":0,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["They make a tent with blankets and chairs.","They read books in the tent with a flashlight.","It is raining, and Lily cannot play outside.","She feels sad and looks out the window."],"ev":[0,1],"why":["둘은 텐트를 만들고, 그 안에서 책을 읽어요. 집 안에서 놀아서 재미있어졌어요.","They make a tent and read books in it. Playing inside makes the day fun."]}
+    {"type":["원인·결과","Cause & effect"],"q":"Why does Lily feel sad?","qko":"릴리는 왜 슬퍼하나요?","opts":["Sam does not want to play with her.","She cannot play outside because of the rain.","She loses her favorite book."],"ans":1,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["They eat snacks and tell funny stories.","They make a tent with blankets and chairs.","Then her brother Sam has an idea.","It is raining, and Lily cannot play outside."],"ev":[3],"why":["비가 와서 밖에서 놀 수 없기 때문이에요.","It is raining, so she cannot play outside."]},
+    {"type":["문맥상 의미","Meaning in context"],"q":"\"Sam has an idea.\" What does \"idea\" mean here?","qko":"«Sam has an idea» 에서 «idea» 는 무슨 뜻일까요?","opts":["a new plan to do something","a funny story","a big snack"],"ans":0,"evq":["근거 문장 1개를 고르세요.","Choose 1 evidence sentence."],"evs":["Lily says, \"Rainy days can be fun too!\"","It is raining, and Lily cannot play outside.","They eat snacks and tell funny stories.","Then her brother Sam has an idea."],"ev":[3],"why":["«idea» 는 «좋은 생각, 새 계획» 이에요. 그 뒤에 샘과 릴리는 텐트를 만들어요.","\"Idea\" means a new plan. After this, they make a tent."]},
+    {"type":["단서 연결","Connecting clues"],"q":"How does the rainy day become fun?","qko":"비 오는 날이 어떻게 재미있어지나요?","opts":["Lily watches TV all day.","The rain stops, and they go out.","They play inside in a tent."],"ans":2,"evq":["근거 문장 2개를 고르세요.","Choose 2 evidence sentences."],"evs":["It is raining, and Lily cannot play outside.","She feels sad and looks out the window.","They make a tent with blankets and chairs.","They read books in the tent with a flashlight."],"ev":[2,3],"why":["둘은 텐트를 만들고, 그 안에서 책을 읽어요. 집 안에서 놀아서 재미있어졌어요.","They make a tent and read books in it. Playing inside makes the day fun."]}
   ];
 
   var ENDS = [
