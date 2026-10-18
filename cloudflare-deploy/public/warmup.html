@@ -1046,6 +1046,7 @@ function addMsg(text, who){
      ⚠️ 아이콘은 브랜드 캐릭터 그대로 둔다 — 얼굴은 왼쪽 큰 카드에 이미 있고, 여기까지
         사람 얼굴을 넣으면 말풍선마다 사진이 붙어 시끄러워진다. */
   var friendLabel = _friendLabelNow();
+  var msgWho = null; if(who==='ai'){ try{ msgWho = _voicePerson(); }catch(e){} }   // 🔁 다시 듣기용 — 이 말을 한 사람
   var whoHtml = who==='ai'
       ? '<span class="who"><img class="who-ava" src="/img/mango-char.png" alt="' + friendLabel + '">' + friendLabel + '</span>'
       : who==='me' ? '<span class="who"><img class="who-ava me" src="/img/me-avatar.svg" alt="나">나</span>' : '';
@@ -1061,6 +1062,7 @@ function addMsg(text, who){
     var rb = document.createElement('button');
     rb.className = 'replay-btn'; rb.type = 'button';
     rb.textContent = '🔊 다시 듣기';
+    rb.__who = msgWho;   // 🔁 다시 듣기는 이 사람 목소리로 (speak 이 btn.__who 를 읽는다)
     rb.onclick = function(){ speak(text, rb); };
     d.appendChild(document.createElement('br'));
     d.appendChild(rb);
@@ -1259,7 +1261,16 @@ function applyVoiceFace(){
   try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(m.char); }catch(e){}
 }
 // ⚠️ 브라우저 폴백 보이스 고르기(pickVoice)가 'male'|'female' 을 기대하므로 그 약속은 유지한다.
-function _voiceGender(){ return (VOICE_MODES[_voicePerson()] || VOICE_MODES.emma).g; }
+function _voiceGender(){ return (VOICE_MODES[_replayWho || _voicePerson()] || VOICE_MODES.emma).g; }
+/* 🔁 «다시 듣기» 는 그 말풍선을 «말한 사람» 의 목소리·얼굴로 읽는다 (2026-10-17 사장님 제보
+   「Lily 와 Noah 목소리가 처음과 다르게 변해」).
+   [왜] 예전에는 다시 듣기도 nextSpeaker() 를 탔다 — Noah 가 한 말을 Lily 로 바꾼 뒤 다시 들으면
+        Lily 목소리로, 「번갈아」면 «다음 차례» 의 목소리로 읽고 차례까지 넘겼다. 얼굴도 그 사람으로 바뀌어
+        말풍선 이름(Emma)과 얼굴(남자)이 어긋났다.
+   ⚠️ 이 값은 «그 다시 듣기 한 번» 동안만 산다 — 이름표·서버 프롬프트(_voicePerson)는 건드리지 않는다.
+   ⛔ 언어가 다른 사람(영어 말풍선을 중국어 화면에서 다시 듣기)이면 쓰지 않고 예전 경로로 간다. */
+var _replayWho = null;
+function _replayFits(p){ return !!(p && VOICE_MODES[p] && p !== 'mix' && !!VOICE_MODES[p].zh === isZh()); }
 function nextSpeaker(){
   var p = _voicePerson();
   applyVoiceFace();                                                        // 얼굴도 그 사람으로
@@ -2631,6 +2642,7 @@ function _zhDeepen(u){
 var _speakSeq=0;
 function _stopSpeak(){
   _speakSeq++;
+  try{ if(_replayWho){ _replayWho=null; applyVoiceFace(); } }catch(e){}   // 🔁 다시 듣기를 끊으면 얼굴도 원래대로
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
   try{ if(_ttsAudio){ _ttsAudio.onended=null; _ttsAudio.onerror=null; _ttsAudio.pause(); } }catch(e){}
   try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}   // 👩‍🏫 아바타 입 멈춤
@@ -2713,6 +2725,15 @@ function _ttsSpeak(text, spk, key, btn, seq, done, play, tryNo){
     })
     .then(function(o){
       if(seq!==_speakSeq) return;                 // 그 사이 다음 말이 시작됐다 — 물러난다
+      /* 🔁 서버가 «다른 화자» 로 대체해 왔으면(Aura-2 일시 실패 → Aura-1) 첫 번째는 재생하지 않고
+         한 번 더 묻는다 (2026-10-17 「Lily·Noah 목소리가 처음과 다르게 변해」).
+         [왜] 첫 문장 먼저 읽기·스트리밍 미리받기로 TTS 요청이 «동시에» 여러 개 나가면서
+              한 문장만 대체 목소리가 섞여 «중간에 다른 사람» 처럼 들렸다.
+         ⛔ 두 번째도 대체면 그대로 읽는다 — 소리가 아예 안 나는 것이 더 나쁘다. */
+      if(o.got && o.got!==spk && tryNo===0){
+        setTimeout(function(){ if(seq===_speakSeq) _ttsSpeak(text, spk, key, btn, seq, done, play, 1); }, 400);
+        return;
+      }
       var u=URL.createObjectURL(o.blob);
       // 서버가 다른 화자로 대체했으면 캐시하지 않는다(캐시하면 그 문장이 그 목소리로 굳는다).
       // 헤더가 없으면(옛 배포) 판정하지 않고 예전처럼 캐시한다 — 모르는 것을 단정하지 않는다.
@@ -2818,7 +2839,7 @@ function _speakChunks(chunks, spk, btn, done, play){
     if(pend[i]){
       pend[i].then(function(o){
         if(seq!==_speakSeq) return;
-        if(!o){ viaTts(); return; }
+        if(!o || (o.got && o.got!==spk)){ viaTts(); return; }   // 🔁 대체 목소리는 미리받기로 재생하지 않고 다시 묻는다
         if(!o.got || o.got===spk){ _ttsCache[k]=o.u; _ttsEng[k]=o.eng; }   // 남의 목소리는 캐시 안 함(_ttsSpeak 과 같은 규칙)
         play(o.u, o.eng, next, c);
       });
@@ -2873,6 +2894,7 @@ function speak(text, btn){
   text=_speechText(text); if(!text){ if(btn) btn.classList.remove('playing'); return; }
   _lastAiSpeak=text;
   _stopSpeak();
+  _replayWho = (btn && btn.__who && typeof _replayFits==='function' && _replayFits(btn.__who)) ? btn.__who : null;   // 🔁 _stopSpeak 이 비운 뒤에 세운다
   if(btn) _latCur=null;   // ⏱ 다시 듣기는 «대화 차례» 가 아니다 — 재지 않는다
   var _atSeq=_speakSeq; _autoHook('aiStart');   // ✨ AI 가 말하는 동안에는 자동으로 듣지 않는다
   if(btn) btn.classList.add('playing');
@@ -2885,6 +2907,8 @@ function speak(text, btn){
      이제 plainStart() 는 실제 재생이 막 시작되는 시점(아래 play() 안, _synthSpeak 안)
      에서만 부른다 — 워치독이 재는 무음 시간이 실제 재생 이후로만 좁혀진다. */
   var done=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}
+    /* 🔁 다시 듣기가 끝나면 얼굴을 «지금 고른 친구» 로 되돌린다 — 그 사이 다른 말이 시작됐으면 손대지 않는다 */
+    if(btn && _replayWho && _atSeq===_speakSeq){ _replayWho=null; try{ applyVoiceFace(); }catch(e){} }
     /* ✨ «끝까지 읽은» 대화 차례의 낭독만 알린다 — 다시 듣기(btn)·중간에 끊긴 낭독(_speakSeq 가 오름)은 제외 */
     if(!btn && _atSeq===_speakSeq) _autoHook('aiDone'); };
   /* ⚡ onEnd — 문장 나눠 읽기(아래 _speakChunks)에서 «이 조각이 끝나면 다음 조각» 을 넘긴다. 없으면 예전 done. */
@@ -2928,7 +2952,12 @@ function speak(text, btn){
     _zhDeepen(u).then(function(bu){ if(mySeq===_speakSeq) play0(bu, true, onEnd, say); },
                       function(){ if(mySeq!==_speakSeq) return; play0(u, false, onEnd, say); _zhDeepFailedOnce(); });
   };
-  var spk = nextSpeaker();                     // 🎙️ 선택된 목소리(번갈아 모드면 네 명 교대)
+  /* 🎙️ 선택된 목소리(번갈아 모드면 네 명 교대). 🔁 다시 듣기는 «그 말을 한 사람» — 차례를 넘기지 않는다. */
+  var spk;
+  if(_replayWho){
+    spk = VOICE_MODES[_replayWho].speaker;
+    try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(VOICE_MODES[_replayWho].char); }catch(e){}
+  } else spk = nextSpeaker();
   /* 🀄 중국어 «남자» 는 서버로 낼 수 없다 — 서버 zh 갈래는 구글 만다린 «한 목소리»(여성)이고
      speaker 를 아예 안 본다(src/api-games.ts 의 /api/voice/tts).
      그래서 ① 기기에 진짜 중국어 «남자» 음성이 있으면 그것으로 읽고(가장 자연스러움)
@@ -2990,7 +3019,7 @@ function _speakLive(L, spk, done, play){
     if(p){
       p.then(function(o){
         if(seq!==_speakSeq) return;
-        if(!o){ viaTts(); return; }
+        if(!o || (o.got && o.got!==spk)){ viaTts(); return; }   // 🔁 대체 목소리는 미리받기로 재생하지 않고 다시 묻는다
         if(!o.got || o.got===spk){ _ttsCache[k]=o.u; _ttsEng[k]=o.eng; }
         play(o.u, o.eng, next, c);
       });
