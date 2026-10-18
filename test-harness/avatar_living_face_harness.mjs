@@ -102,9 +102,11 @@ let T = 1_000_000, R = 0.5, LEVEL = 180, intervals = 0;
 const timers = []; let tid = 0;
 const setTimeout_ = (fn, ms) => { const id = ++tid; timers.push({ id, at: T + (ms || 0), fn }); return id; };
 const clearTimeout_ = id => { const i = timers.findIndex(t => t.id === id); if (i >= 0) timers.splice(i, 1); };
+let RUNAWAY = false;   // 같은 시각 타이머를 끝없이 다시 거는 코드가 있으면 하니스가 멎지 않고 «깔끔한 FAIL» 이 나게(⑦절)
 function advance(ms) {
-  const end = T + ms;
+  const end = T + ms; let n = 0;
   for (;;) {
+    if (++n > 200000) { RUNAWAY = true; break; }
     timers.sort((a, b) => a.at - b.at || a.id - b.id);
     const t = timers[0];
     if (!t || t.at > end) break;
@@ -298,9 +300,6 @@ if (bt) bt.at = T + 10;                        // 눈썹을 올린 «그 사이�
 advance(16); draws = []; frame();
 ok(eyeDraws().length === 0 && browLift() > 0, `눈썹을 올린 동안에는 깜빡임이 끼어들지 않는다`);
 ok(timers.some(t => t.fn.name === 'blink'), '끼어들지 못한 깜빡임은 버리지 않고 다시 예약한다');
-// (v16) 눈썹을 자주 올리므로, 미룬 깜빡임은 «내려앉은 직후» 다시 온다 — 새로 2.2~6초를 기다리면 말하는 동안 깜빡임이 크게 줄어든다.
-const reBlink = timers.find(t => t.fn.name === 'blink');
-ok(!!reBlink && reBlink.at - T < 2000, `미룬 깜빡임은 눈썹이 내려앉은 «직후» 다시 온다 (${reBlink ? ((reBlink.at - T) / 1000).toFixed(2) : '—'}초 뒤 — 전에는 2.2~6초 뒤)`);
 parkBlinks();
 const down = talk(60);                         // 계속 크게 말하지만 새 강세는 없다 — 잠깐 뒤 내려앉는다
 const mid = down.filter(v => v > 0.05 * D && v < peak * 0.9);
@@ -321,23 +320,55 @@ ok(settle.length >= 3 && settle[0] > 0 && settle[0] < browBefore, `말이 끝나
 ok(settle[settle.length - 1] === 0 && settle.length * 16 <= 640, `0.6초 안에 다 내려앉는다 (${settle.length * 16}ms)`);
 T += 2000; draws = []; frame();
 ok(pendingRaf.size === 0, '다 내려앉으면 따로 도는 그리기를 멈춘다(rAF 0개)');
-// (v16, 2026-10-18) 사장님 「더 자주 올라가게」 — 강세마다 1~2초 간격으로 «매번» 올린다(전에는 1.4~4초·80%).
-//   0.25초씩 크게/작게 번갈아 6초 말하게 하고, 눈썹이 «새로» 올라간 횟수와 그 사이 간격을 잰다.
-//   ⚠️ 횟수만 보면 «매 강세마다(0.5초마다)» 올리는 변이도 통과합니다 — 간격 하한(0.9초)을 짝으로 둡니다.
-draws = []; a.paused = false; a.emit('playing');
-const ups = []; let lowSince = true;
-for (let i = 0; i < 375; i++) {                 // 375 × 16ms = 6초
-  LEVEL = (Math.floor(i / 16) % 2 === 0) ? 180 : 128;
-  T += 16; draws = []; frame();
-  const v = browLift();
-  if (lowSince && v > 0.3 * D) { ups.push(T); lowSince = false; }
-  if (v < 0.1 * D) lowSince = true;
-}
+// (v16, 2026-10-19) 사장님 「더 자주 올라가게」 — 강세마다 1~2초 간격으로 «매번» 올린다(전에는 1.4~4초·80%).
+//   0.128초씩 크게/작게 번갈아(강세 0.256초마다) 6초 말하게 하고, 눈썹이 «새로» 올라가기 시작한 횟수와 간격을 잰다.
+//   ⚠️ 강세를 «촘촘히» 주는 이유 — 0.5초 간격으로 주면 눈썹이 다음 강세 전에 못 내려와 0.6초 간격 변이를
+//      원리상 못 가립니다(함정 대조 실측). 그래서 «다 내려왔나» 가 아니라 «다시 오르기 시작했나» 로 셉니다.
+//   ⚠️ 난수는 0.5 로 고정이라 «80% 조건» 이 늘 참입니다 — 난수 0.85 로 한 번 더 돌려 «그래도 올린다» 를 짝으로 둡니다.
+const speakPulses = () => {
+  draws = []; a.paused = false; a.emit('playing');
+  const ups = []; let armed = true, lo = Infinity, hi = 0;
+  for (let i = 0; i < 375; i++) {               // 375 × 16ms = 6초
+    LEVEL = (Math.floor(i / 8) % 2 === 0) ? 180 : 128;
+    T += 16; draws = []; frame();
+    const v = browLift();
+    if (armed) { lo = Math.min(lo, v); if (v > lo + 0.25 * D) { ups.push(T); armed = false; hi = v; } }
+    else { hi = Math.max(hi, v); if (v < hi - 0.15 * D) { armed = true; lo = v; } }
+  }
+  a.paused = true; a.emit('pause');
+  for (let i = 0; i < 60; i++) { T += 16; draws = []; frame(); }
+  return ups;
+};
+const ups = speakPulses();
 const gaps = ups.slice(1).map((t, i) => t - ups[i]);
-ok(ups.length >= 3, `강세가 이어지면 눈썹을 «자주» 올린다 — 6초에 ${ups.length}번 (간격 ${gaps.map(g => (g / 1000).toFixed(1) + '초').join(' · ') || '—'})`,
-  '전에는 1.4~4초 간격·80% 라 6초에 2번 안팎이었습니다');
-ok(gaps.length >= 1 && gaps.every(g => g >= 900), `그래도 강세마다(0.5초마다) 올리지는 않는다 — 간격이 0.9초 이상 (최소 ${gaps.length ? (Math.min(...gaps) / 1000).toFixed(2) : '—'}초)`,
+ok(ups.length >= 3, `강세가 이어지면 눈썹을 «자주» 올린다 — 6초에 ${ups.length}번 (간격 ${gaps.map(g => (g / 1000).toFixed(2) + '초').join(' · ') || '—'}, 가짜 시계·난수 0.5)`,
+  '전에는 1.4~4초 간격이라 6초에 2번 안팎이었습니다');
+ok(gaps.length >= 1 && gaps.every(g => g >= 950), `그래도 강세마다(0.26초마다) 올리지는 않는다 — 간격이 1초 안팎 이상 (최소 ${gaps.length ? (Math.min(...gaps) / 1000).toFixed(2) : '—'}초)`,
   '너무 자주 올리면 기계처럼 보입니다');
+R = 0.85; T += 3000;
+const ups85 = speakPulses();
+R = 0.5;
+ok(ups85.length >= 2, `난수가 0.8 을 넘어도 올린다 — «매번» (난수 0.85 에서 6초에 ${ups85.length}번)`, '«80% 만» 으로 되돌리면 이 난수에서는 한 번도 안 올립니다');
+// 미룬 깜빡임은 눈썹이 «내려앉은 직후» 다시 온다 — 그 시각에 눈썹이 다 내려와 있고, 실제로 눈을 그린다.
+//   ⚠️ «2초 안에 다시 예약했나» 만 보면 50ms 마다 졸라 대는 변이도 통과합니다 — 다시 온 그 순간의 눈썹 높이를 함께 봅니다.
+T += 3000; LEVEL = 128; draws = []; a.paused = false; a.emit('playing'); talk(90);
+LEVEL = 180; talk(18);
+ok(browLift() > 0.3 * D, '(전제) 다시 크게 말하자 눈썹이 올라가 있다');
+const bt2 = timers.find(t => t.fn.name === 'blink');
+if (bt2) bt2.at = T + 10;
+advance(16); draws = []; frame();
+const reBlink = timers.find(t => t.fn.name === 'blink');
+const reIn = reBlink ? reBlink.at - T : NaN;
+ok(!!reBlink && reIn < 2000, `미룬 깜빡임을 새로 2.2~6초 기다리지 않는다 (${reBlink ? (reIn / 1000).toFixed(2) : '—'}초 뒤 다시)`);
+let liftAt = NaN, sawEye = false;
+if (reBlink) {
+  const at = reBlink.at;
+  while (T + 16 < at) { advance(16); draws = []; frame(); }
+  liftAt = browLift();
+  for (let i = 0; i < 25 && !sawEye; i++) { advance(16); draws = []; frame(); sawEye = eyeDraws().length > 0; }
+}
+ok(liftAt < 0.1 * D, `다시 온 그 순간에는 눈썹이 이미 내려앉아 있다 (${Number.isFinite(liftAt) ? liftAt.toFixed(2) : '—'}px / 최대 ${D}px)`, '내려앉기 전에 다시 오면 또 미뤄질 뿐입니다');
+ok(sawEye, '다시 온 깜빡임이 실제로 눈을 그린다');
 a.paused = true; a.emit('pause');
 for (let i = 0; i < 60; i++) { T += 16; draws = []; frame(); }
 canvasOn = false;
@@ -375,6 +406,21 @@ for (const name of ['emma', 'mei', 'long', 'jake']) {
   ok(ez.length >= 1 && ez[0].a[2] === EYES[name].w && ez[0].a[3] === EYES[name].h, `${name}: 눈 그림을 «그 캐릭터의» 사각형 크기로 잘라 온다`);
 }
 
+// (v16) 짝 — 미룬 깜빡임을 «내려앉은 직후» 다시 거는 것은 Lily·Noah 만. Emma 는 예전처럼 새로 2.2~6초를 기다린다.
+//   (없으면 그 보정을 모든 친구로 넓히는 변이가 통과합니다 — 함정 대조 실측.)
+av.setCharacter('emma'); await flush();
+draws = []; a.paused = false; a.emit('playing'); LEVEL = 180;
+let emmaUp = false;
+for (let i = 0; i < 250 && !emmaUp; i++) { T += 16; draws = []; frame(); emmaUp = eyeDraws().some(d => d.a[0] === 2 * EYES.emma.w); }
+ok(emmaUp, '(전제) emma: 크게 말하는 동안 «올린 눈썹 칸» 을 그렸다');
+const eb = timers.find(t => t.fn.name === 'blink');
+if (eb) eb.at = T + 10;
+advance(16);
+const eRe = timers.find(t => t.fn.name === 'blink');
+ok(!!eRe && eRe.at - T >= 2200, `emma: 눈썹 때문에 미룬 깜빡임은 예전처럼 새로 2.2~6초 뒤 (${eRe ? ((eRe.at - T) / 1000).toFixed(2) : '—'}초 뒤)`);
+a.paused = true; a.emit('pause');
+for (let i = 0; i < 60; i++) { T += 16; draws = []; frame(); }
+
 /* ── ⑥ 눈 그림을 못 받으면 ───────────────────────────────────────────── */
 console.log('\n■ ⑥ 눈 그림을 못 받으면 깜빡임만 없다');
 FAIL_URLS.add('/img/visemes/lily-eyes.webp');
@@ -388,6 +434,7 @@ FAIL_URLS.clear();
 console.log('\n■ ⑦ 소스 규칙');
 ok(!/\bsetInterval\s*\(/.test(CODE) && intervals === 0, `상주 setInterval 이 없다(깜빡임은 setTimeout 하나를 이어 건다 — 실행 중 ${intervals}회)`);
 ok(/document\.hidden/.test(CODE) && /visibilitychange/.test(CODE), '숨겨진 탭에서는 멈추고 다시 보이면 켠다');
+ok(!RUNAWAY, '같은 시각에 타이머를 끝없이 다시 거는 곳이 없다');
 
 console.log(`\n${pass} PASS / ${fail} 실패`);
 process.exit(fail ? 1 : 0);
