@@ -76,6 +76,7 @@ import { handleSpaceMonsterApi } from './api-space-monster';  // 🛸 Space Mons
 import { logWarmupFix } from './warmup-parent';            // 📝 학부모 화면용 «고쳐 준 표현» 기록 (2026-10-02 P4)
 import { authUidFromRequest } from './auth-token';          //    ↑ 본인 확인용(토큰 uid == 요청 user_id 일 때만 기록)
 import { retiredDomainResponse } from './retired-domain';    // 🚫 폐지 주소(test.mangoi.co.kr) → 안내문만 (2026-10-16)
+import { kstTodayYmd, loadStreakTargets } from './daily-streak-targets';
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
@@ -3035,19 +3036,17 @@ async function sendDailyStreakPush(env: any): Promise<void> {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL, title TEXT NOT NULL, body TEXT, url TEXT, icon TEXT, badge TEXT, tag TEXT, queued_at INTEGER NOT NULL, fetched_at INTEGER);`);
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, user_id TEXT, username TEXT, role TEXT, joined_at INTEGER, left_at INTEGER, status TEXT, date TEXT);`);
 
-  const today = new Date().toISOString().slice(0, 10);
+  // 받을 사람은 정본 한 곳이 정합니다(학생 계정만 · 직원 제외 · 오늘(KST) 출석 계정 제외) — src/daily-streak-targets.ts
+  const today = kstTodayYmd();
   const now = Date.now();
-
-  // 오늘 출석한 user_id 들
-  const attRs = await env.DB.prepare(`SELECT DISTINCT user_id FROM attendance WHERE date = ?`).bind(today).all();
-  const attendedSet = new Set((attRs.results || []).map((r: any) => r.user_id));
-
-  // 활성 푸시 구독자 중 오늘 출석 안 한 사람
-  const subRs = await env.DB.prepare(`SELECT DISTINCT user_id, endpoint FROM push_subscriptions WHERE enabled = 1 AND user_id IS NOT NULL`).all();
-  const targets = ((subRs.results || []) as any[]).filter(s => !attendedSet.has(s.user_id));
+  const { targets, error: targetErr } = await loadStreakTargets(env.DB, today);
+  if (targetErr) {
+    console.warn('[daily-streak] target lookup failed — sending nothing:', targetErr);
+    return;
+  }
 
   if (!targets.length) {
-    console.log('[daily-streak] no targets (everyone attended or no subscribers)');
+    console.log('[daily-streak] no targets (no student subscribers left after filters)');
     return;
   }
 
