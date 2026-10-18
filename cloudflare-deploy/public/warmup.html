@@ -1006,6 +1006,7 @@ function wuToggleUiLang(){
 window.addEventListener('storage', function(ev){ if(ev && ev.key === 'mangoi_lang') wuApplyLang(); });
 // Every async warmup operation belongs to a generation. Leaving never restarts the mic.
 var _warmPaused=false, _warmEpoch=0, _warmControllers=[], _fixRepeatTimers=[], _warmMicCancel=null, _warmVoiceEpoch=0;
+var _repeatTarget=null;   // 🎤 «따라 말해 보기» 로 연 마이크의 목표 문장 — 다음 sendMsg 한 번이 채점에 쓴다(js/repeat-score.js)
 function warmupFetch(url, options){
   if(_warmPaused) return Promise.reject(new Error('warmup paused'));
   var c=new AbortController(); _warmControllers.push(c);
@@ -1025,6 +1026,7 @@ function pauseWarmup(){
   if(_warmMicCancel){_warmMicCancel();_warmMicCancel=null;}
   _warmVoiceEpoch++;
   _fixRepeatTimers.splice(0).forEach(clearInterval);
+  _repeatTarget=null;
   _micStopWanted=true;_micBase='';_micSess='';
   if(_recog){_recog.onstart=null;_recog.onresult=null;_recog.onend=null;_recog.onerror=null;try{_recog.abort();}catch(e){}}
   try{window.MangoiVoice&&MangoiVoice.cancel();}catch(e){}
@@ -4164,6 +4166,7 @@ function fixSpeakThenMic(btn, text){
   var openMic = function(){
     if(opened || _warmPaused || epoch!==_warmEpoch)return; opened = true;
     btn.disabled = false;
+    _repeatTarget = { text: text, epoch: epoch, at: Date.now() };   // 🎤 다음에 보내는 말을 이 문장과 맞춰 본다
     try{
       if(typeof _recognizing !== 'undefined' && _recognizing) return;   // 이미 듣는 중
       if(typeof toggleMic === 'function') toggleMic();
@@ -4325,6 +4328,11 @@ async function sendMsg(){
   _autoHook('sent');
   ansCardClear();                           // 💬 내가 말했으니 이전 «대답 보기» 는 걷는다
   fixCardClear();                           // ✏️ 이전 «교정 카드» 도 함께 걷는다
+  /* 🎤 «따라 말해 보기» 뒤에 보낸 말이면 낱말 단위로 채점해 보여 준다(js/repeat-score.js). 90초가 지났거나 다른 화면이면 안 잰다. */
+  var _rt=_repeatTarget; _repeatTarget=null;
+  if(_rt && _rt.epoch===epoch && Date.now()-_rt.at<90000 && window.MangoRepeatScore){
+    try{ var _rc=MangoRepeatScore.render(_rt.text, text, function(b){ fixSpeakThenMic(b, _rt.text); }); if(_rc) log.appendChild(_rc); }catch(e){}
+  }
   bumpCombo();                              // 🔥 한 마디마다 콤보 적립 + 고비마다 축하
   sending = true; document.getElementById('sendBtn').disabled = true;
   document.getElementById('wgState').textContent='AI 친구가 답변을 준비하고 있어요…';
@@ -4558,6 +4566,7 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <script defer src="/js/flow.js?v=23"></script>
 <!-- BUILD:20260813015745 -->
 <script src="/js/ux-track.js?v=1" defer></script>
+<script src="/js/repeat-score.js?v=1" defer></script><!-- 🎤 «따라 말해 보기» 채점 (2026-10-18) -->
 <script src="/js/warmup-auto-talk.js?v=7" defer></script><!-- ✨ 자동 말하기(베타) — 기본은 버튼 모드 -->
 <script src="/js/warmup-facetalk.js?v=2" defer></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 자동 말하기 엔진을 켜고 모양만 바꿈) -->
 <script src="/js/warmup-touch-bar.js?v=1" defer></script><!-- 📱 터치 기기 전용 아래 3칸 바(도움·말하기·글쓰기) — 2026-09-26 시안 4 -->

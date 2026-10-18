@@ -1196,11 +1196,13 @@
        'playing' 클래스를 떼는 계약이 이미 있다 — 그것을 신호로 쓴다.
        ⚠️ 소리가 꺼져 있으면 그 클래스가 아예 안 붙으므로 곧바로 마이크가 열린다(맞는 동작).
        ⚠️ 15초 안전망 — 신호를 놓쳐도 버튼이 영영 잠기지 않게 한다. */
+    var _repeatTarget = null;   // 🎤 «따라 말해 보기» 로 연 마이크의 목표 문장 — 다음 sendMsg 한 번이 채점에 쓴다(js/repeat-score.js)
     function fixSpeakThenMic(btn, text) {
       let opened = false;
       const openMic = function(){
         if (opened) return; opened = true;
         btn.disabled = false;
+        _repeatTarget = { text: text, at: Date.now() };
         try { if (!_recognizing) toggleMic(); } catch(e){}
       };
       btn.disabled = true;
@@ -1663,6 +1665,12 @@
       stmReset();
       try { input.dispatchEvent(new Event('mangoi:turn-sent')); } catch(e){}   // ⏹ 다음 답변에도 끼어들 수 있게
       appendMsg('user', msg);
+      /* 🎤 «따라 말해 보기» 뒤에 보낸 말이면 낱말 단위로 채점해 보여 준다(js/repeat-score.js). 90초가 지나면 안 잰다. */
+      { const _rt = _repeatTarget; _repeatTarget = null;
+        if (_rt && Date.now() - _rt.at < 90000 && window.MangoRepeatScore) {
+          try { const _rc = MangoRepeatScore.render(_rt.text, msg, function(b){ fixSpeakThenMic(b, _rt.text); });
+            if (_rc) { const _ch = document.getElementById('chat'); _ch.appendChild(_rc); _ch.scrollTop = _ch.scrollHeight; } } catch(e){}
+        } }
       sndPop();
       appendTyping();
       try {
@@ -2019,6 +2027,7 @@
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
+<script src="/js/repeat-score.js?v=1" defer></script><!-- 🎤 «따라 말해 보기» 채점 (2026-10-18) -->
 <script defer src="/js/flow.js?v=23"></script><!-- 🚀 다음으로 이동(MangoFlow) -->
 
 <!-- ══════════════════════════════════════════════════════════════
