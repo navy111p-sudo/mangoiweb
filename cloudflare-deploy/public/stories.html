@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>English Reading</title>
-<meta name="description" content="망고아이 A.i 동화책 모음 · 4권">
+<title>English Reading Ladder</title>
+<meta name="description" content="영어 독서 4단계 사다리 · 이야기 → 지식 글 · 핵심 찾기 반복 · 그림 동화책 4권">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@500;700;800&family=Noto+Sans+KR:wght@500;700&display=swap">
 <link rel="stylesheet" href="/css/mangoi-han.css">
@@ -13,13 +13,14 @@
 /* A.i 동화책 모음 — 학생 메뉴 «AI 학습 도구 › 📚 영어 독서» 이 여는 화면. 책 목록은 아래 BOOKS 한 곳이 정본. */
 :root{
   --paper:#fbf8f2; --page:#ffffff; --ink:#23262f; --soft:#5b6170; --line:#e4dccd; --chip:#f1ebdf; --ok:#1f7a4d;
+  --okbg:#e3f3ea; --no:#a33a2c; --nobg:#fbe8e4; --mark:#fff1b8; --accent:#1d6fa5;
   --display:'Fraunces',Georgia,serif;
   --body:'MangoiHanSC','Nunito','Noto Sans KR',system-ui,sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --paper:#17191f; --page:#20232b; --ink:#eceae4; --soft:#a9adb8; --line:#363a45; --chip:#2b2f39; --ok:#7fd3a6; color-scheme:dark}}
+  --paper:#17191f; --page:#20232b; --ink:#eceae4; --soft:#a9adb8; --line:#363a45; --chip:#2b2f39; --ok:#7fd3a6; --okbg:#1d3a2c; --no:#f2998c; --nobg:#40231f; --mark:#4a4116; --accent:#7cc0ea; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --paper:#17191f; --page:#20232b; --ink:#eceae4; --soft:#a9adb8; --line:#363a45; --chip:#2b2f39; --ok:#7fd3a6; color-scheme:dark}
+  --paper:#17191f; --page:#20232b; --ink:#eceae4; --soft:#a9adb8; --line:#363a45; --chip:#2b2f39; --ok:#7fd3a6; --okbg:#1d3a2c; --no:#f2998c; --nobg:#40231f; --mark:#4a4116; --accent:#7cc0ea; color-scheme:dark}
 *{box-sizing:border-box}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55}
 .wrap{max-width:980px;margin:0 auto;padding:22px 16px 48px}
@@ -44,6 +45,75 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,6vw,44px);lin
 .prog{font-size:13px;font-weight:700;color:var(--soft)}
 .prog.done{color:var(--ok)}
 .foot{margin-top:22px;font-size:13px;color:var(--soft)}
+/* ── 📚 4단계 독서 사다리(js/reading-ladder.js) — 단계 색은 데이터(--sc)가 준다 ── */
+.rl-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 14px}
+@media (max-width:640px){.rl-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.rl-tab{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:10px 12px;border:1px solid var(--line);border-top:5px solid var(--sc);border-radius:14px;background:var(--page);color:var(--ink);font:inherit;cursor:pointer;min-width:0}
+.rl-tab.on{box-shadow:0 0 0 2px var(--sc) inset;background:var(--chip)}
+.rl-tab-n{font-size:12px;font-weight:800;color:var(--soft)}
+.rl-tab-t{font-weight:800;font-size:15px;line-height:1.25}
+.rl-tab-g,.rl-tab-p{font-size:12px;color:var(--soft)}
+.rl-stagehead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border:1px solid var(--line);border-left:6px solid var(--sc);border-radius:14px;background:var(--page);margin-bottom:10px}
+.rl-stagehead span{color:var(--soft);font-size:14px}
+.rl-howto{font-size:13px;color:var(--soft);margin:0 0 12px}
+.rl-next{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:var(--okbg);color:var(--ink);font-weight:700;margin-bottom:10px}
+.rl-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:10px}
+.rl-card{display:flex;gap:10px;text-align:left;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--page);color:var(--ink);font:inherit;cursor:pointer;min-width:0}
+.rl-card:hover{border-color:var(--soft)}
+.rl-card.done{border-color:var(--ok)}
+.rl-card-no{flex:0 0 28px;height:28px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
+.rl-card-b{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rl-card-t{font-weight:800;line-height:1.25}
+.rl-card-k,.rl-card-m{font-size:13px;color:var(--soft)}
+.rl-card-s{font-size:13px;font-weight:700}
+.rl-card.done .rl-card-s{color:var(--ok)}
+.rl-h3{margin:22px 0 10px;font-size:17px}
+.rl-btn{display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:6px 14px;border:1px solid var(--line);border-radius:99px;background:var(--page);color:var(--ink);font:inherit;font-weight:800;font-size:14px;cursor:pointer;text-decoration:none}
+.rl-btn:hover{border-color:var(--soft)}
+.rl-btn.rl-primary{background:var(--accent);border-color:var(--accent);color:var(--page)}
+.rl-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.rl-badge{font-size:13px;font-weight:800;padding:4px 10px;border-radius:99px;border:1px solid var(--sc);color:var(--ink)}
+.rl-pos{margin-left:auto;font-size:13px;color:var(--soft);font-variant-numeric:tabular-nums}
+.rl-read{background:var(--page);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
+.rl-read h2{font-family:var(--display);font-size:clamp(22px,4.5vw,30px);line-height:1.2;margin:0 0 4px;text-wrap:balance}
+.rl-sub{margin:0 0 10px;color:var(--soft);font-size:14px}
+.rl-bg{background:var(--chip);border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:10px}
+.rl-row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.rl-text{font-size:18px;line-height:1.8;margin:12px 0}
+.rl-s{display:inline;padding:2px 3px;border-radius:6px;border:0;background:none;color:inherit;font:inherit;text-align:left}
+.rl-text.pick .rl-s{cursor:pointer;background:var(--chip);box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.rl-text.pick .rl-s:hover{background:var(--mark)}
+.rl-s.ok{background:var(--okbg)!important;box-shadow:inset 0 -2px 0 var(--ok)}
+.rl-s.no{background:var(--nobg)!important}
+.rl-ko{display:block;font-size:14px;color:var(--soft);line-height:1.5;margin:0 0 6px}
+.rl-text .rl-ko{font-size:14px}
+.rl-words{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+.rl-word{font-size:14px;padding:4px 10px;border-radius:99px;background:var(--chip)}
+.rl-chiplab{font-size:12px;font-weight:800;color:var(--soft);margin-right:4px}
+.rl-step{background:var(--page);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:12px}
+.rl-step.cur{border-color:var(--accent)}
+.rl-step h3{margin:0 0 6px;font-size:17px}
+.rl-q{margin:0 0 8px}
+.rl-opts{display:grid;gap:8px}
+.rl-opt{display:flex;flex-direction:column;gap:2px;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink);font:inherit;cursor:pointer}
+.rl-opt:hover:not([disabled]){border-color:var(--soft)}
+.rl-opt[disabled]{cursor:default}
+.rl-opt.ok{background:var(--okbg);border-color:var(--ok)}
+.rl-opt.no{background:var(--nobg);border-color:var(--no)}
+.rl-opt .rl-ko{margin:0}
+.rl-fb{margin:8px 0;font-size:15px}
+.rl-fb.ok{color:var(--ok);font-weight:700}
+.rl-fb.no{color:var(--no);font-weight:700}
+.rl-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 8px}
+.rl-chip{font-size:14px;padding:3px 10px;border-radius:99px;border:1px dashed var(--soft)}
+.rl-sum{width:100%;box-sizing:border-box;font:inherit;font-size:17px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink);resize:vertical}
+.rl-model{padding:10px 12px;border-radius:12px;background:var(--mark);font-weight:700}
+.rl-end{padding:14px 16px;border-radius:16px;background:var(--okbg);font-weight:800;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
+.rl-end.big{display:block;font-size:18px}
+.rl-end.big p{font-weight:600;font-size:15px}
+.rl-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.rl-btn:focus-visible,.rl-tab:focus-visible,.rl-card:focus-visible,.rl-opt:focus-visible,.rl-s:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
@@ -51,13 +121,16 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,6vw,44px);lin
   <div class="top">
     <a class="nav" id="backBtn" href="/" onclick="if(window.mangoiGoBack){event.preventDefault();window.mangoiGoBack();}">← <span data-ko="뒤로" data-en="Back">뒤로</span></a>
     <a class="nav" id="homeBtn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
-    <span class="tag" data-ko="망고아이 A.i 동화책 · 심화1" data-en="Mangoi A.i Storybooks · Advanced 1">망고아이 A.i 동화책 · 심화1</span>
+    <span class="tag" data-ko="4단계 독서 사다리 · 이야기 48편 + 그림 동화책 4권" data-en="4-step reading ladder · 48 texts + 4 picture books">4단계 독서 사다리 · 이야기 48편 + 그림 동화책 4권</span>
     <button type="button" class="lang" id="langBtn" aria-label="언어 전환 / Switch language">EN</button>
   </div>
   <h1 data-ko="📚 영어 독서" data-en="📚 English Reading">📚 영어 독서</h1>
-  <p class="lead" data-ko="읽고 듣고, 근거를 찾고, 내 이야기로 바꿔 써 보세요. 한 권에서 도장 6개를 모으면 +10P!" data-en="Read and listen, find the evidence, and make the story your own. Collect 6 stamps in a book for +10P!">읽고 듣고, 근거를 찾고, 내 이야기로 바꿔 써 보세요. 한 권에서 도장 6개를 모으면 +10P!</p>
-  <div class="grid" id="books"></div>
-  <p class="foot" data-ko="도장은 이 기기에 저장됩니다. 포인트는 하루 2권까지 받을 수 있어요." data-en="Stamps are saved on this device. You can earn points for up to 2 books a day.">도장은 이 기기에 저장됩니다. 포인트는 하루 2권까지 받을 수 있어요.</p>
+  <p class="lead" data-ko="쉬운 이야기부터 고1 지식 글까지 4단계. 한 편마다 «핵심 문장 → 중심 내용 → 영어 한 문장» 으로 핵심 찾기를 반복해요." data-en="Four steps from easy stories to high-school non-fiction. In every text, practice finding the main idea: key sentence → main idea → one English sentence.">쉬운 이야기부터 고1 지식 글까지 4단계. 한 편마다 «핵심 문장 → 중심 내용 → 영어 한 문장» 으로 핵심 찾기를 반복해요.</p>
+  <!-- 📚 4단계 사다리(js/reading-ladder.js 가 그린다). 그림 동화책 4권은 2단계 안에 함께 그린다. -->
+  <div id="rlApp"></div>
+  <!-- 사다리 스크립트를 못 받으면 예전처럼 그림 동화책 목록만 보인다(reading-ladder.js 가 돌면 이 칸을 감춘다). -->
+  <div id="booksWrap"><div class="grid" id="books"></div></div>
+  <p class="foot" data-ko="진행 기록·도장은 이 기기에 저장됩니다. 포인트는 그림 동화책만, 하루 2권까지 받을 수 있어요." data-en="Progress and stamps are saved on this device. Points are for picture books only, up to 2 books a day.">진행 기록·도장은 이 기기에 저장됩니다. 포인트는 그림 동화책만, 하루 2권까지 받을 수 있어요.</p>
 </div>
 <script>
 (function(){
@@ -82,9 +155,9 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,6vw,44px);lin
     try { st = JSON.parse(localStorage.getItem('story_' + id + '_stamps') || '{}') || {}; } catch(e){ st = {}; }
     return STAMPS.filter(function(k){ return !!st[k]; }).length;
   }
-  function render(){
+  function booksHtml(){
     var en = lang === 'en';
-    document.getElementById('books').innerHTML = BOOKS.map(function(b){
+    return BOOKS.map(function(b){
       var n = stampCount(b.id);
       var prog = n >= 6 ? (en ? '🎉 Finished (6/6)' : '🎉 완주 (6/6)')
                : n > 0 ? (en ? '🏅 Stamps ' + n + ' / 6' : '🏅 도장 ' + n + ' / 6')
@@ -97,11 +170,16 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,6vw,44px);lin
         '<span class="prog' + (n >= 6 ? ' done' : '') + '">' + prog + '</span></div></a>';
     }).join('');
   }
+  function render(){ document.getElementById('books').innerHTML = booksHtml(); }
+  // 📚 사다리(js/reading-ladder.js)가 2단계 안에 같은 책 목록을 그리고, 이 화면의 언어를 따른다.
+  window.__storyBooksHtml = booksHtml;
+  window.__storyLang = function(){ return lang; };
   function applyLang(){
     document.documentElement.lang = lang;
     document.querySelectorAll('[data-ko]').forEach(function(el){ el.textContent = el.getAttribute(lang === 'en' ? 'data-en' : 'data-ko'); });
     document.getElementById('langBtn').textContent = lang === 'en' ? 'KO' : 'EN';
     render();
+    try { window.dispatchEvent(new Event('story:lang')); } catch(e){}
   }
   document.getElementById('langBtn').addEventListener('click', function(){
     lang = lang === 'en' ? 'ko' : 'en';
@@ -113,5 +191,7 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,6vw,44px);lin
   applyLang();
 })();
 </script>
+<script src="/js/reading-ladder-data.js?v=1"></script>
+<script src="/js/reading-ladder.js?v=1"></script>
 </body>
 </html>
