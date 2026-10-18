@@ -11,7 +11,7 @@
    - **Noah 는 입꼬리가 칸 가장자리까지 닿아** 칸을 좌우로 넓힘: `x:244,w:154` → `x:214,w:214`. 넓힌 칸은 원래 칸 + 주변 바탕으로 다시 만듦. `build-viseme-transitions.py` 의 noah 크기도 함께.
    - 중간 입모양(transitions) 297장은 `build-viseme-transitions.py lily noah` 로 다시 만듦(opencv 필요).
 2. **얼굴 1.11배** — `CHARACTERS.lily/noah.rect = {l:.05,t:.02,r:.95,b:.92}`(폭·높이 같은 비율이라 카드 비율 0.8 유지). 화면 속 입 크기는 그대로, 얼굴만 커짐.
-3. 그림 주소 `?v=2 → ?v=3`(mango-avatar.js · ai-class.html · warmup-photo-icons.js), 스크립트 `?v=` 올림.
+3. 그림 주소 `?v=2 → ?v=3`(mango-avatar.js · warmup-photo-icons.js — ai-class.html 은 같은 날 #1602 로 Emma 가 되어 해당 없음), 스크립트 `?v=` 올림.
 
 ## 잰 것
 - 입 폭(픽셀): Lily 기본 64→58, 크게 벌림 83→75 · Noah 기본 101→92, 크게 벌림 111→100 (약 −9~10%).
