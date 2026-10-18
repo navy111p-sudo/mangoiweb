@@ -34,6 +34,11 @@ const CFG = readJson(join(ROOT, 'tools/smile-folds-roi.json'));
 const REP = readJson(join(ROOT, 'tools/smile-folds-report.json'));
 const TR = readJson(join(PUB, 'img/visemes/transitions.json'));
 const AV = readFileSync(join(PUB, 'js/mango-avatar.js'), 'utf8');
+// 2026-10-18: tools/shrink-mouth.py 가 이 도구의 출력을 «입력» 으로 받아 입을 줄였습니다(사슬).
+//   그래서 지금 파일은 «이 도구 출력» 이거나, «이 도구 출력을 입력으로 한 shrink-mouth 출력» 이어야 합니다.
+const MS = readJson(join(ROOT, 'tools/mouth-scale-report.json'));
+const chained = (a, rel, want) => { const f = MS && MS.actors && MS.actors[a] && MS.actors[a].files && MS.actors[a].files[rel];
+  return f && f.sourceSha256 === want ? f.sha256 : null; };
 
 console.log('⓪ 전제');
 ok(!!CFG && !!CFG.actors && !!CFG.params, 'tools/smile-folds-roi.json 을 읽었다');
@@ -56,7 +61,8 @@ for (const a of ACTORS) {
     ok(existsSync(abs), `${a}: ${rel} 이 있다`);
     if (!existsSync(abs)) continue;
     filesSeen++;
-    ok(sha(abs) === info.sha256, `${a}: ${rel} 이 도구가 만든 그대로다`,
+    const now = sha(abs);
+    ok(now === info.sha256 || now === chained(a, rel, info.sha256), `${a}: ${rel} 이 도구가 만든 그대로다(또는 그 출력을 입력으로 한 shrink-mouth 출력)`,
       '그림만 바꾸고 보고서를 안 갱신했거나 손으로 고쳤다 — python3 tools/remove-smile-folds.py 로 다시 만들 것');
     ok(info.sourceSha256 !== info.sha256, `${a}: ${rel} 이 원본과 다르다(실제로 고쳤다)`);
   }
@@ -167,7 +173,8 @@ for (const a of ACTORS) {
   if (EYES && EYES[a]) ok(Math.min(...ys) >= EYES[a].y + EYES[a].h,
     `${a}: ROI 맨 위(y=${Math.min(...ys)})가 눈 칸 아래(y=${EYES[a].y + EYES[a].h})다`, '눈 깜빡임 그림과 겹치면 눈가가 번쩍입니다');
   if (PREC && PREC[a]) {
-    const r = CFG.actors[a].rect, p = PREC[a];
+    const ms = MS && MS.actors && MS.actors[a];
+    const r = (ms && ms.rect) || CFG.actors[a].rect, p = PREC[a];   // shrink-mouth 가 칸을 넓혔으면 그 rect
     ok(r[0] === p.x && r[1] === p.y && r[2] === p.w && r[3] === p.h, `${a}: ROI 표 rect 가 PRECISION 과 같다`);
     ok(/\?v=\d+$/.test(p.base || '') && /\?v=\d+$/.test(p.atlas || '') && /\?v=\d+$/.test(p.trans || ''),
       `${a}: PRECISION 의 base·atlas·trans 가 모두 ?v= 를 단다`);

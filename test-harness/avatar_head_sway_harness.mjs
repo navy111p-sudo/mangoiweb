@@ -42,6 +42,10 @@ const ok = (c, m, extra) => { c ? (pass++, console.log('  ✅ ' + m)) : (fail++,
 
 console.log('■ 아바타 머리 움직임 (js/mango-avatar.js v13)');
 const AV = readFileSync(SRC_FILE, 'utf8');
+// 2026-10-18: lily·noah 는 얼굴을 확대해 잘라 보여 줍니다(CHARACTERS.rect) — 원본 px → 캔버스 px 는 그 rect 를 거쳐야 합니다.
+function charRect(name){ const m = AV.match(new RegExp("still:'/img/(?:visemes/)?" + name + "-closed\\.webp(?:\\?v=\\d+)?', rect:\\{ l:([\\d.]+), t:([\\d.]+), r:([\\d.]+), b:([\\d.]+) \\}"));
+  return m ? { l:+m[1], t:+m[2], r:+m[3], b:+m[4] } : { l:0, t:0, r:1, b:1 }; }
+
 
 function stripComments(t) {
   let out = '', i = 0, q = null;
@@ -293,9 +297,11 @@ console.log('\n■ ④ 머리 경계 그림 — 목 가운데·바깥');
 const mask = created.find(c => c.__put && c.__put.width === 320);
 ok(!!mask, '(전제) 머리 경계 그림(320 폭)을 만들었다');
 if (mask && HEAD) {
-  const d = mask.__put.data, h = HEAD.lily, k = 320 / h.w, px = Math.round(h.x * k);
+  const d = mask.__put.data, h = HEAD.lily, cr = charRect('lily');
+  const kx = 320 / (h.w * (cr.r - cr.l)), ky = 400 / (h.h * (cr.b - cr.t));
+  const px = Math.round((h.x - h.w * cr.l) * kx);
   const a = (x, y) => d[(y * 320 + x) * 4 + 3];
-  const Y1 = Math.floor(h.y1 * k), Y2 = Math.ceil(h.y2 * k);
+  const Y1 = Math.floor((h.y1 - h.h * cr.t) * ky), Y2 = Math.ceil((h.y2 - h.h * cr.t) * ky);
   ok(a(px, 10) === 255 && a(px, Y1 - 1) === 255, `목 가운데: y1 위는 «머리» (알파 ${a(px, Y1 - 1)})`);
   ok(a(px, Y2 + 1) === 0 && a(px, 399) === 0, `목 가운데: y2 아래는 «몸» (알파 ${a(px, Y2 + 1)})`);
   let mono = true; for (let y = 1; y < 400; y++) if (a(px, y) > a(px, y - 1)) mono = false;

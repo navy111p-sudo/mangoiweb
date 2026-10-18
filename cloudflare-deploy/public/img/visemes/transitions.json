@@ -9,15 +9,15 @@
       "tileWidth": 144,
       "tileHeight": 122,
       "transitionShapes": 288,
-      "bytes": 686566,
-      "sourceSha256": "b07a435dbab2d55c5db61084f531816b35bd16f7e37dab0cd47fafb611381bc8"
+      "bytes": 566568,
+      "sourceSha256": "d1b25cc9cafcf83462f793d1667627a194978eeaa2ad512ed594091d27cddaf2"
     },
     "noah": {
-      "tileWidth": 154,
+      "tileWidth": 214,
       "tileHeight": 130,
       "transitionShapes": 288,
-      "bytes": 730604,
-      "sourceSha256": "d7ae60076efc63ac76c01db44be266faa3abe836f3e645d3d53261add38f2e5e"
+      "bytes": 755986,
+      "sourceSha256": "fc4264612655ba745929d2b6031037cdd63649e754edad2647f7100f0976c092"
     },
     "emma": {
       "tileWidth": 146,
