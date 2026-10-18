@@ -459,9 +459,9 @@ select.pill{max-width:min(100%,280px)}
 
 <script>window.__mgAvatarWant = 'emma'; window.__mgAvatarBaseW = 512;</script>
 <script src="/js/avatar-visemes.js?v=4" defer></script>
-<script src="/js/mango-avatar.js?v=35" defer></script>
+<script src="/js/mango-avatar.js?v=36" defer></script>
 <script src="/js/tts-short-text.js?v=1"></script>
-<script src="/js/ai-class-engine.js?v=2"></script>
+<script src="/js/ai-class-engine.js?v=3"></script>
 <script src="/js/ai-class-music.js?v=2"></script>
 <script src="/js/mangoi-voice-input.js?v=5"></script>
 <script src="/js/voice-has-speech.js?v=1"></script>
@@ -777,6 +777,24 @@ select.pill{max-width:min(100%,280px)}
       if (tok === pauseTok || my !== seq) return;
     }
   }
+  /* 🎙️ (2026-10-18 사장님 「갑자기 남자 목소리」) 서버 음성이 실패해 기기 목소리로 읽을 때 목소리를 «고르지 않으면»
+     윈도우는 en-US 첫 목소리(Microsoft David = 남자)로 읽는다 — Emma 차례가 갑자기 남자 목소리가 된다.
+     성별 칸이 없으니 이름으로 고른다: 여자 차례는 여자 이름 → (모르면) 남자 이름이 아닌 영어 목소리. 남자 차례는 남자 이름.
+     ⚠️ 'female' 안에 'male' 이 들어 있으므로 여자 판정을 먼저 한다. 못 고르면 null(브라우저 기본 — 예전과 같음). */
+  var FEMALE_V = /female|zira|aria|jenny|samantha|karen|moira|tessa|victoria|susan|hazel|libby|sonia|serena|ava\b|allison|michelle|joanna|salli|kimberly|ivy|kendra|natasha|clara|emma|google us english|google uk english female/i;
+  var MALE_V = /\bmale\b|david|\bmark\b|guy|ryan|daniel|\balex\b|fred|george|james|christopher|eric|roger|andrew|brian|aaron|arthur|thomas|liam|google uk english male/i;
+  function voiceGender(v){ var n = String((v && v.name) || ''); return FEMALE_V.test(n) ? 'f' : MALE_V.test(n) ? 'm' : ''; }
+  function deviceVoice(g){
+    var all = []; try { all = speechSynthesis.getVoices() || []; } catch(e){ return null; }
+    var en = all.filter(function(v){ return /^en(-|_|$)/i.test(v.lang || ''); });
+    var us = function(v){ return /en[-_]US/i.test(v.lang || '') ? 0 : 1; };
+    var pick = function(list){ return list.slice().sort(function(a, b){ return us(a) - us(b); })[0] || null; };
+    var same = en.filter(function(v){ return voiceGender(v) === g; });
+    if (same.length) return pick(same);
+    if (g === 'f') return pick(en.filter(function(v){ return voiceGender(v) !== 'm'; }));
+    return null;
+  }
+  try { speechSynthesis.getVoices(); speechSynthesis.addEventListener('voiceschanged', function(){ try { speechSynthesis.getVoices(); } catch(e){} }); } catch(e){}
   function speakOnce(text, voice, rate){
     return new Promise(function(done){
       var finished = false, fin = function(){ if (finished) return; finished = true; if (ttsFin === fin) ttsFin = null; stopMouth(); done(); };
@@ -812,6 +830,7 @@ select.pill{max-width:min(100%,280px)}
       if (sound && 'speechSynthesis' in window) {
         try {
           var u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = rate * 0.92; u.pitch = voice === 'm' ? 0.8 : 1.05;
+          var dv = deviceVoice(voice === 'm' ? 'm' : 'f'); if (dv) { u.voice = dv; u.lang = dv.lang || 'en-US'; }
           u.onend = fin; u.onerror = fin; u.onboundary = function(e){ if (e.name === 'word' || e.name == null) mouthAtWord(wordIndexAt(text, e.charIndex || 0)); }; speechSynthesis.speak(u);
           setTimeout(fin, est + 4000);           // 엔진이 onend 를 안 주는 브라우저 대비
           return;
@@ -896,7 +915,7 @@ select.pill{max-width:min(100%,280px)}
       if (o.song) speeches.push({ song: o.song });
       if (o.speak) { speeches.push(o); if (o.speak.wow) { sfx(o.praise === 'praiseQuiz' || o.reply === 'ownTalk' || o.reply === 'own' || (streak > 0 && streak % 3 === 0) ? 'great' : 'ok'); wowPop(o.speak.wow); } }
       if (o.reply === 'findOk') sfx('find');
-      if (o.listen) listen(o.listen);
+      if (o.listen) listen(o.listen, o.hold);
       if (o.end) showEnd(o.end);
       if (o.stage != null) { if (o.stage > 1 && o.stage !== curStage && sound && MU && !FAST) MU.sting(); curStage = o.stage; setStage(o.stage); }
       if (o.praise) sticker(o.praise);
@@ -920,7 +939,7 @@ select.pill{max-width:min(100%,280px)}
       if (my !== seq) return;
       busy = false;
       if (MU) MU.bgm(st.phase === 'done' ? 'off' : 'talk');
-      if (speeches.some(function(s){ return s.replay; })) { setButtons(); armAuto(); armTalk(); return; }
+      if (speeches.some(function(s){ return s.replay; })) { holdMic = false; setButtons(); armAuto(); armTalk(); return; }   // 다시 듣기를 «누른» 것이니 마이크를 다시 켠다
       run({ type: 'spoken' });
     })();
   }
@@ -943,8 +962,10 @@ select.pill{max-width:min(100%,280px)}
     var box = $('simChoices'); box.replaceChildren();
     answerChoices(st && st.plan[st.i]).forEach(function(c){ var b = document.createElement('button'); b.type = 'button'; b.className = 'choice'; b.dataset.text = c; b.textContent = '💬 ' + c; box.append(b); });
   }
-  function listen(target){
-    lastListen = target;   // ✋ 질문에 답한 뒤 이 차례로 되돌아오기 위해
+  // 🤫 hold = 학생이 두 번 조용했다 — 마이크를 저절로 켜지 않고 «말하기» 를 누를 때까지 기다린다(엔진 s.hold)
+  var holdMic = false;
+  function listen(target, hold){
+    lastListen = target; holdMic = !!hold;   // ✋ 질문에 답한 뒤 이 차례로 되돌아오기 위해
     if (MU) MU.bgm('off');   // 🎵 학생 차례엔 배경음악을 끈다 — 음성인식이 음악을 말로 받아 적지 않게
     fillChoices();
     lastTarget = target === '*' ? '' : target;
@@ -957,6 +978,7 @@ select.pill{max-width:min(100%,280px)}
     if (lastMiss && lastMiss.i === st.i) missChip('빠진 낱말: ' + lastMiss.words.join(' '));   // 다시 말할 때도 무엇이 빠졌는지 보이게
     else lastMiss = null;
     $('micBtn').classList.add('listen');
+    if (holdMic) missChip('🎤 준비되면 «말하기» 를 눌러 따라 말해 보세요 — 선생님이 기다릴게요');
     armAuto(); armTalk();
   }
   function isFinding(){ var t = st && st.plan[st.i]; return !!(t && t.t === 'find' && st.phase === 'await' && !busy && !paused); }
@@ -970,7 +992,7 @@ select.pill{max-width:min(100%,280px)}
   // 자동 말하기 — 내 차례가 되면 마이크를 켜고, 말이 끝나면 그 말로 대답한다
   function talkNote(){ missChip('🎙 마이크를 쓸 수 없어요 — 주소창의 🔒 에서 마이크를 허락하거나, 아래에서 골라 보내 주세요'); fillChoices(); $('sim').hidden = false; }
   function armTalk(){
-    if (paused || !talk || auto || !st || st.phase !== 'await' || busy) return;
+    if (paused || !talk || auto || !st || st.phase !== 'await' || busy || holdMic) return;
     if (askRec || askTok % 2) return;   // ✋ 질문 마이크를 켜는 중·듣는 중이면 수업 마이크를 다시 켜지 않는다(크롬은 음성인식을 한 번에 하나만 돌린다)
     var t = st.plan[st.i]; if (!t || t.t === 'find') return;
     if (!SR || recBlocked) return talkNote();
@@ -1231,7 +1253,7 @@ select.pill{max-width:min(100%,280px)}
   function paintTalk(){ $('talkBtn').textContent = '🎙 자동 말하기: ' + (talk ? '켬' : '끔'); $('talkBtn').setAttribute('aria-pressed', talk ? 'true' : 'false'); }
   $('spdBtn').addEventListener('click', function(){ setSpd((spd + 1) % SPEEDS.length); });
   $('tSpd').addEventListener('click', function(e){ var b = e.target.closest && e.target.closest('button[data-spd]'); if (b) setSpd(+b.dataset.spd); });
-  $('talkBtn').addEventListener('click', function(){ talk = !talk; lsSet('aiClassTalk', talk ? '1' : '0'); paintTalk(); if (talk) { recBlocked = false; armTalk(); } else stopRec(); });
+  $('talkBtn').addEventListener('click', function(){ holdMic = false; talk = !talk; lsSet('aiClassTalk', talk ? '1' : '0'); paintTalk(); if (talk) { recBlocked = false; armTalk(); } else stopRec(); });
   paintSpd(); paintTalk();
   $('autoBtn').addEventListener('click', function(){
     if (!st) return;

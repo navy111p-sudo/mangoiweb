@@ -3,7 +3,10 @@
 //   게임화 포인트/배지는 api-points·api-games 의 export 헬퍼 사용.
 // ═══════════════════════════════════════════════════════════════════════
 import { loadActiveGoal, goalPromptLine } from './student-goal';   // 🗓 4주 목표(2026-10-10)
-import { loadRecentMistakes, recentMistakesPromptLine, logAiFriendFix } from './recent-mistakes';
+import { loadRecentMistakes, recentMistakesPromptLine, logAiFriendFix, loadRecentFixTags, carryRepeatTags } from './recent-mistakes';
+import { konglishFix, konglishPromptLine } from './konglish';   // 🇰🇷 콩글리시 대조표(2026-10-18 ⑦)
+import { decideLevelSuggestion, loadSuggestEvidence, recentlyAnswered, recordSuggestAnswer } from './level-suggest';   // 🎚 단계 제안(2026-10-18 ⑤)
+import { WEAK_WHERE, WEAK_ORDER, weakSince } from './weak-words';
 import { json } from './api-util';
 import { applyEmpathyGuard, FRIEND_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
 import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';
@@ -16,7 +19,7 @@ import { checkAdminSession } from './auth-admin';
 import { explainCorrection } from './correction-reason';   // 🔤 «왜 고쳤는지» 결정론 설명
 import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint, aiFriendStudentAsked,
          aiFriendTrimSentences, aiFriendNormalizeLevel,
-         AI_FRIEND_DEFAULT_LEVEL } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
+         AI_FRIEND_DEFAULT_LEVEL, AI_FRIEND_LEVELS } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
 import { resolveFriendName, wrongSelfName, askedOwnName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
 import { stripAddedKorean, hasAddedKorean } from './reply-korean';               // 🇰🇷 모델이 덧붙인 한국어 번역 제거 — 「뜻」 버튼 설계를 지킨다
 import { parseJsonBody } from './api-util';
@@ -645,7 +648,8 @@ Student text: """${text}"""`;
       const [recent, st, wk, turns, goalNow, pastFixes]: any[] = await Promise.all([
         env.DB.prepare(`SELECT role, content FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT 20`).bind(uid).all(),
         env.DB.prepare(`SELECT english_name, korean_name, textbook, level FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first().catch(() => null),
-        env.DB.prepare(`SELECT item, ko FROM game_progress WHERE user_id = ? AND lang = 'en' AND wrong_count > 0 AND wrong_count >= correct_count ORDER BY wrong_count DESC LIMIT 5`).bind(uid).all().catch(() => null),
+        // 🎯 약점 단어 — 정본 src/weak-words.ts(최근 60일 · 최근 먼저). 오래된 약점을 «요즘» 으로 말하지 않게.
+        env.DB.prepare(`SELECT item, ko FROM game_progress WHERE user_id = ? AND lang = 'en' AND ${WEAK_WHERE} ORDER BY ${WEAK_ORDER} LIMIT 5`).bind(uid, weakSince(Date.now())).all().catch(() => null),
         /* ✏️ 교정 게이트용 «몇 번째 턴인가» — 반드시 «단조 증가» 해야 한다.
            ⛔ history.length 로 세지 말 것: 위 조회가 LIMIT 20 이라 그 값은 곧 상한에 붙고,
               그러면 turnCount - lastShownTurn 이 영영 0 이 되어 교정이 통째로 멎는다
@@ -707,6 +711,8 @@ Student text: """${text}"""`;
       /* 🔁 (2026-10-18 개선안 1순위 ②) 지난번에 고쳐 준 표현을 «다시 맞게 써 볼 기회» 로.
          ⛔ «학생을 따라간다»·눈높이 규칙을 이기지 않게 «자연스러울 때만» (recentMistakesPromptLine 문구). */
       const mistakeCtx = recentMistakesPromptLine(pastFixes || [], !!lvSpec.plain);
+      // 🇰🇷 표에 있는 콩글리시를 썼으면 답장에서 자연스러운 말을 한 번 써 보이게(정본 konglish.ts)
+      const konglishCtx = konglishPromptLine(msg);
       /* 🎚 기초 단계(A1·A2)에서는 «길이를 늘리는 규칙» 을 끕니다.
          재미있는 사실 한 줄이 붙는 순간 3~5단어 문장은 지킬 수 없습니다 — 실측된 45단어짜리
          A1 답변이 정확히 그 모양이었습니다(칭찬+사실+설명+질문). 약점 단어 끼워 넣기도 같은 이유로
@@ -736,7 +742,7 @@ Student text: """${text}"""`;
         : '- Usually end with ONE short follow-up question — but when the student is telling you something they care about, react to THAT instead and let them keep going. Never ask two questions in one reply. Any question counts inside the sentence limit above.\n';
       const funFactRule = lvSpec.plain ? ''
         : '- Sprinkle in tiny fun facts kids enjoy when it fits — but the fact must be about whatever you are BOTH talking about right now. Never drag in a new subject just to share a fact.\n';
-      const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}${topicCtx}${goalCtx}${mistakeCtx}
+      const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}${topicCtx}${goalCtx}${mistakeCtx}${konglishCtx}
 Rules:
 - Your name is ${friendName}. If the student asks your name, say "${friendName}" — never invent a different name.
 - LEVEL — this is the MOST IMPORTANT rule. Obey it even if it means dropping something else you wanted to say. ${lvSpec.rule}${studentAsked ? ' (Exception for THIS reply only: you may use one extra sentence so that your answer fits. Keep every word limit above.)' : ''}
@@ -1147,7 +1153,9 @@ ${AI_FRIEND_CORRECTION_RULE}`;
       let showFix: any = null;
       let offerRepeat = false;
       try {
-        const verified = verifyWarmupFix(rawFix, msg);
+        /* 🇰🇷 모델이 고친 것이 없으면(뜻이 통해 넘어간 경우) 콩글리시 표로 한 번 더 본다.
+           ⛔ 모델의 교정이 있으면 그것이 먼저다 — 표는 «모델이 놓친 것» 만 받는다. */
+        const verified = verifyWarmupFix(rawFix, msg) || konglishFix(msg);
         /* ⚠️ 프롬프트가 「그 넷은 반드시 고쳐」로 바뀌면서 fix 생성이 잦아집니다 — 그러면
            «모델은 줬는데 우리가 버렸다» 가 주요 실패 모양이 됩니다(지어낸 교정·한글 섞임·
            낱말 안 겹침…). 평문·빈 응답에는 이미 로그가 있는데 이것만 없었습니다.
@@ -1175,6 +1183,9 @@ ${AI_FRIEND_CORRECTION_RULE}`;
                쓰기 쪽에만 로그가 있고 읽기 쪽에 없던 것을 함정 대조가 잡았습니다. */
             console.warn('[chat-friend] fix memo read failed:', e?.message || e);
           }
+          // 🇰🇷 최근 14일에 이미 고쳐 준 관사·복수·전치사는 «한 번 센 것» 으로 이어 받는다(정본 recent-mistakes.ts).
+          //    작은 실수일 때만 조회한다 — 큰 실수는 원래 바로 고친다.
+          if (verified && verified.severity !== 'major') memoIn = carryRepeatTags(memoIn, await loadRecentFixTags(env.DB, uid, Date.now()));
           const decided = decideWarmupFixShow(verified, memoIn, turnNo);
           showFix = decided.show;
           // 🔁 보여 준 교정은 남겨 다음 대화에서 다시 쓰게 한다(KV 메모는 6시간 «간격» 만 기억). 던지지 않는다.
@@ -1269,7 +1280,38 @@ ${AI_FRIEND_CORRECTION_RULE}`;
       // 🎮 HUD 초기 데이터(오늘/누적/스트릭/오늘의 단어) — 실패해도 히스토리는 정상 반환
       let gam: any = null;
       try { gam = await aiFriendGamSnapshot(uid); } catch {}
-      return json({ ok: true, items: rs.results || [], gam });
+      /* 🎚 (2026-10-18 개선안 2순위 ⑤) «한 단계 올려(내려) 볼까요?» — 제안만. 바꾸는 건 학생 버튼.
+         ⛔ 근거가 모자라거나·최근에 답했거나·조회가 실패하면 null(아무 말도 안 함). 정본 level-suggest.ts */
+      let levelSuggest: any = null;
+      try {
+        const lvQ = url.searchParams.get('level');
+        if (lvQ) {
+          const lv = aiFriendNormalizeLevel(lvQ);
+          const nowS = Date.now();
+          if (!(await recentlyAnswered(env.DB, uid, 'aifriend', nowS))) {
+            const ev = await loadSuggestEvidence(env.DB, uid, lv, nowS);
+            const targets: Record<string, number> = {};
+            for (const k of Object.keys(AI_FRIEND_LEVELS)) targets[k] = Number((AI_FRIEND_LEVELS as any)[k].maxWordsPerSentence) || 0;
+            levelSuggest = decideLevelSuggestion(lv, ev, targets);
+          }
+        }
+      } catch (e: any) { console.warn('[chat-history] level suggest skipped:', e?.message || e); }
+      return json({ ok: true, items: rs.results || [], gam, level_suggest: levelSuggest });
+    }
+
+    /* 🎚 단계 제안에 대한 학생의 답 기록 — 이미 등록된 경로의 «비어 있던 POST» 를 쓴다(src/index.ts 무수정).
+       ⛔ 모르는 action 은 거절한다(나중에 이 경로에 다른 뜻을 넣을 때 조용히 흘러 들어오지 않게). */
+    if (method === 'POST' && path === '/api/ai/chat-history') {
+      const b: any = await request.json().catch(() => ({}));
+      if (String(b.action || '') !== 'level_suggest') return json({ ok: false, error: 'unknown_action' }, 400);
+      const uid = String(b.uid || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const authUid = await authUidGlobal(request, url, env, b);
+      if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      const okRec = await recordSuggestAnswer(env.DB, uid, 'aifriend',
+        { from: b.from, to: b.to, decision: b.decision, evidence: b.evidence }, Date.now());
+      return okRec ? json({ ok: true }) : json({ ok: false, error: 'bad_answer' }, 400);
     }
 
     if (method === 'POST' && path === '/api/ai/chat-clear') {

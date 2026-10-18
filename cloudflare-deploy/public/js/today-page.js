@@ -90,8 +90,9 @@
     if (!cards.length || (DATA && DATA.sample)) { box.hidden = true; list.innerHTML = ''; return; }
     $('td-h-fix').textContent = T('📝 지난번에 틀린 문장 — 다시 말해 봐요', '📝 Sentences to fix — say them again');
     list.innerHTML = cards.map(function (c) {
-      var warm = c.source === 'warmup';
+      var warm = c.source === 'warmup', af = c.source === 'aifriend';
       var lab = warm ? T('웜업에서', 'From warm-up')
+              : af ? T('A.i 친구에서', 'From A.i friend')
                      : (c.lesson_title ? T('수업에서 · ', 'From class · ') + c.lesson_title : T('수업에서', 'From class'));
       var n = Number(c.practiced) || 0;
       var best = (c.best_accuracy == null || !isFinite(Number(c.best_accuracy))) ? null : Math.round(Number(c.best_accuracy));

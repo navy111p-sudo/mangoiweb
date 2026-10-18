@@ -10,6 +10,7 @@
  *   ③ 탭이 숨겨지면 멈추고(타이머 0개), 다시 보이면 다시 건다 · 캔버스가 빠지면 멈춘다
  *   ④ 눈썹: 크게 말할 때만, 말 첫마디 뒤에, 잠깐 — 조용히 말할 때는 안 올린다(짝)
  *      말이 끝나면(pause) 내린다 · 눈썹 중에는 깜빡이지 않는다
+ *      (v15) Lily·Noah 는 눈썹 띠를 여러 프레임에 걸쳐 «밀어 올렸다» 내린다(한 번에 바꿔 끼우거나 겹쳐 그리면 FAIL)
  *   ⑤ 눈 그림이 없는 캐릭터(영상 폴백 jake_classic)로 바꾸면 깜빡임 타이머·숨쉬기가 꺼진다(짝: lily 는 켜져 있었다)
  *   ⑤-2 (v11·v12, 2026-10-18) emma·mei·long·jake 도 «자기» 눈 그림으로 깜빡이고 숨쉬기가 켜진다
  *        jake 의 사각형은 tools/build-jake-poses.py(영상 프레임에서 만듦)의 EYE_ELL·EP·TOP 과 짝입니다.
@@ -136,7 +137,16 @@ class AudioContext {
   createMediaElementSource() { return { connect() {} }; }
 }
 let draws = [];
-const ctx = { clearRect() {}, drawImage(im, ...a) { draws.push({ src: im && im.src, a }); },
+let canvasOn = false; const offs = [];   // 눈썹 띠를 그리는 작업 캔버스 — 줄마다 «원본의 어느 줄» 을 가져왔는지 남긴다
+function fakeCanvas() {
+  const cv = { width: 0, height: 0, rows: [] };
+  cv.getContext = () => ({ canvas: cv, setTransform() {}, clearRect() { cv.rows = []; }, fillRect() {}, globalCompositeOperation: 'source-over',
+    createLinearGradient: () => ({ addColorStop() {} }),
+    drawImage(im, sx, sy, sw, sh, dx, dy, dw, dh) { cv.rows.push({ src: im && im.src, sx, sy, sw, sh, dx, dy, dw, dh }); } });
+  offs.push(cv); return cv;
+}
+const ctx = { globalAlpha: 1, clearRect() {}, drawImage(im, ...a) { draws.push({ src: im && im.src, im, a, alpha: this.globalAlpha }); },
+  save() {}, restore() {}, setTransform() {},
   getImageData() { return { data: new Uint8ClampedArray(4) }; }, putImageData() {} };
 const classes = new Set();
 const canvas = { width: 320, height: 400, style: {}, isConnected: true, getContext: () => ctx,
@@ -147,7 +157,8 @@ const heads = [], listeners = {};
 const document = {
   readyState: 'complete', hidden: false,
   head: { appendChild(st) { heads.push(st); } },
-  createElement: () => ({}),
+  // ④절부터만 «그릴 수 있는» 캔버스를 준다 — 처음부터 주면 화면 밖 캔버스(comp)가 생겨 ①~③절의 그리기 경로가 바뀝니다.
+  createElement: () => (canvasOn ? fakeCanvas() : {}),
   addEventListener(n, f) { (listeners[n] ||= []).push(f); },
   getElementById(id) {
     return { 'tavatar-video': video, 'tavatar-canvas': canvas, 'tavatar-wrap': wrap, 'tavatar-ring': ring }[id]
@@ -228,35 +239,86 @@ canvas.isConnected = true;
 (listeners.visibilitychange || []).forEach(f => f());
 
 /* ── ④ 눈썹 ─────────────────────────────────────────────────────────── */
-console.log('\n■ ④ 눈썹 — 크게 말할 때만');
+/* (v15, 2026-10-18) 사장님 「lily 랑 noah 가 눈썹도 말할 때 자연스럽게」 — Lily·Noah 는 «올린 눈썹 그림» 을
+   바꿔 끼우지 않고, 원본 얼굴의 눈썹 띠를 «밀어 올려» 그린다(줄마다 조금 아래 원본 줄을 가져온다).
+   높이는 몇 프레임에 걸쳐 오르고 내리며, 강세(크게 벌린 입이 «새로» 시작되는 순간)에 맞춰 건다.
+   ⚠️ «그림이 있는가» 가 아니라 «원본을 몇 px 끌어올렸는가» 를 프레임마다 잽니다 — 한 번에 바꿔 끼우면
+      «첫 높이 = 끝 높이» 라 아래 «부드럽게» 검사가 FAIL 합니다.
+   ⛔ 올린 그림을 반투명으로 겹치는 방식으로 되돌리지 마세요 — 중간 높이에서 «눈썹이 두 줄» 이 됩니다
+      (2026-10-18 크로미움 렌더 확인). 아래 «올린 눈썹 그림을 겹쳐 그리지 않는다» 가 그것을 막습니다. */
+console.log('\n■ ④ 눈썹 — Lily·Noah 는 눈썹 띠를 «밀어 올려» 부드럽게 (v15)');
+const BS = CODE.match(/var BROW_SMOOTH\s*=\s*(\{[^;]*\});/);
+let BROW = null; try { BROW = BS && new Function('return ' + BS[1])(); } catch { BROW = null; }
+ok(!!BROW && !!BROW.lily && !!BROW.noah, `눈썹 띠 표에 lily·noah 가 있다 (${BROW ? Object.keys(BROW).join(',') : '없음'})`);
+for (const [n, b] of Object.entries(BROW || {})) {
+  const e = EYES && EYES[n];
+  ok(!!e && b.x0 >= e.x && b.x1 <= e.x + e.w && b.top >= e.y - 2 && b.bot <= e.y + e.h + 2,
+    `${n}: 눈썹 띠가 EYES 상자 안이다 — 프레임마다 다시 까는 칸 밖으로 안 나간다`, '밖으로 나가면 앞 프레임의 올린 눈썹이 남습니다');
+  ok(b.top < b.b0 && b.b0 <= b.b1 && b.b1 < b.bot && b.D < 0.7 * (b.b0 - b.top) && b.D < 0.7 * (b.bot - b.b1),
+    `${n}: 띠의 경사가 완만하다 — 피부가 뒤집혀 접히지 않는다 (D=${b.D} · 위 ${b.b0 - b.top}px · 아래 ${b.bot - b.b1}px)`);
+}
+canvasOn = true;
 const a = new Media();
 // 이 절에서는 깜빡임을 멀리 미뤄 둔다 — 눈썹만 따로 재고, 겹칠 때는 일부러 당겨서 잰다.
 const parkBlinks = () => timers.forEach(t => { if (t.fn.name === 'blink') t.at = T + 1e9; });
+// 이번 프레임에 눈썹 띠를 몇 px 끌어올렸나(원본 px) — 줄 Y 의 «가져온 원본 줄» 이 «안 휘었을 때» 보다 얼마나 아래인가.
+const browLift = () => {
+  if (!draws.some(d => d.im && d.im.rows)) return 0;          // 이번 프레임에 띠를 안 그렸다
+  const cv = draws.filter(d => d.im && d.im.rows).pop().im, r = cv.rows;
+  if (!r.length) return 0;
+  // 첫 토막의 시작과 마지막 토막의 끝은 «안 휜» 자리(높이 0) — 그 둘로 «안 휘었을 때» 의 대응을 잡는다.
+  const z = r[r.length - 1], k = ((z.sy + z.sh) - r[0].sy) / ((z.dy + z.dh) - r[0].dy); let m = 0;
+  for (const row of r) m = Math.max(m, row.sy - (r[0].sy + (row.dy - r[0].dy) * k), (row.sy + row.sh) - (r[0].sy + (row.dy + row.dh - r[0].dy) * k));
+  return m;
+};
+let ghost = 0;   // 올린 눈썹 그림(3칸)을 겹쳐 그린 횟수 — 0 이어야 한다
+const talk = (n, ms = 16) => { const out = []; for (let i = 0; i < n; i++) { T += ms; draws = []; frame(); out.push(browLift());
+  ghost += eyeDraws().filter(d => d.a[0] / EYES.lily.w === 2).length; } return out; };
+const D = BROW && BROW.lily ? BROW.lily.D : 0;
 parkBlinks();
 av.attach(a); a.paused = false; a.emit('playing');
 LEVEL = 180; draws = [];
 frame();
-ok(eyeDraws().length === 0, '말 첫마디에는 눈썹을 올리지 않는다');
-T += 3000; draws = [];
-frame();
-ok(lastEyeCol('lily') === 2, `크게 말하는 중(1.2초 뒤)에는 눈썹(2칸)을 올린다 (${lastEyeCol('lily')})`);
+ok(browLift() === 0, '말 첫마디(첫 프레임)에는 눈썹을 올리지 않는다');
+LEVEL = 128; talk(90);                         // 조용한 1.4초 — 강세가 «새로» 시작될 자리를 만든다
+LEVEL = 180;
+const up = talk(18);                           // 큰 소리가 새로 시작 — 그 뒤 0.29초
+const firstUp = up.find(v => v > 0) || 0, peak = Math.max(...up);
+ok(peak > 0.3 * D && peak <= D + 1e-6, `강세가 새로 시작되면 눈썹을 밀어 올린다 (최고 ${peak.toFixed(2)}px / 최대 ${D}px)`);
+ok(firstUp > 0 && firstUp < peak * 0.5, `한 번에 바꿔 끼우지 않고 «부드럽게» 올라간다 (첫 프레임 ${firstUp.toFixed(2)}px → 최고 ${peak.toFixed(2)}px)`,
+  '한 번에 바꾸면 첫 프레임부터 최고 높이입니다');
+const rising = up.slice(0, up.indexOf(peak) + 1).filter(v => v > 0);
+ok(rising.length >= 3 && rising.every((v, i) => i === 0 || v >= rising[i - 1] - 1e-9), `올라가는 동안 높이가 줄지 않는다 (${rising.length}프레임에 걸쳐)`);
+const last = offs.length ? offs[offs.length - 1].rows : [];
+ok(last.length >= 2 && last.length <= 3 && last.every(r => r.src && /\/img\/lily-(closed|mid|wide)\.webp/.test(r.src)), `띠는 «원본 초상화»(그 순간의 lily 얼굴) 에서 토막 몇 개로만 늘여 가져온다 (${last.length}토막 — 줄마다 그리면 느린 기기에서 프레임이 밀린다)`);
+ok(last.every(r => r.sh > 0 && r.dh > 0) && last.every((r, i) => i === 0 || (Math.abs(r.sy - (last[i - 1].sy + last[i - 1].sh)) < 1e-6 && Math.abs(r.dy - (last[i - 1].dy + last[i - 1].dh)) < 1e-6)), '토막이 위에서 아래로 빈틈·겹침 없이 이어진다 — 피부가 뒤집혀 접히거나 찢어지지 않는다');
 const bt = timers.find(t => t.fn.name === 'blink');
 ok(!!bt, '(전제) 깜빡임 타이머가 살아 있다');
-if (bt) bt.at = T + 100;            // 눈썹을 올린 «그 사이» 에 깜빡임이 오게 한다
-advance(150); draws = []; frame();
-ok(lastEyeCol('lily') === 2, `눈썹을 올린 동안에는 깜빡임이 끼어들지 않는다 (${lastEyeCol('lily')})`);
+if (bt) bt.at = T + 10;                        // 눈썹을 올린 «그 사이» 에 깜빡임이 오게 한다
+advance(16); draws = []; frame();
+ok(eyeDraws().length === 0 && browLift() > 0, `눈썹을 올린 동안에는 깜빡임이 끼어들지 않는다`);
 ok(timers.some(t => t.fn.name === 'blink'), '끼어들지 못한 깜빡임은 버리지 않고 다시 예약한다');
 parkBlinks();
-T += 800; draws = []; frame();
-ok(eyeDraws().length === 0, `잠깐 뒤 눈썹을 내린다 (${eyeDraws().length})`);
+const down = talk(60);                         // 계속 크게 말하지만 새 강세는 없다 — 잠깐 뒤 내려앉는다
+const mid = down.filter(v => v > 0.05 * D && v < peak * 0.9);
+ok(mid.length >= 3, `내려올 때도 «뚝» 이 아니라 여러 프레임에 걸쳐 내려온다 (중간 높이 ${mid.length}프레임)`);
+ok(down[down.length - 1] === 0, `잠깐 뒤 눈썹을 다 내린다 (${down[down.length - 1]})`);
+ok(ghost === 0, `올린 눈썹 그림을 반투명으로 겹쳐 그리지 않는다 (${ghost}번)`, '겹치면 중간 높이에서 «눈썹이 두 줄» 로 보입니다');
 // 조용히 말할 때는 올리지 않는다(짝)
-LEVEL = 128; T += 20000; draws = []; frame(); frame();
-ok(eyeDraws().length === 0, '조용히(작은 소리) 말할 때는 시간이 지나도 눈썹을 올리지 않는다');
-// 말이 끝나면 올린 눈썹을 내린다
-LEVEL = 180; T += 20000; frame();
-ok(lastEyeCol('lily') === 2, '(전제) 다시 크게 말하자 눈썹이 올라갔다');
+LEVEL = 128; const quiet = talk(200);
+ok(quiet.every(v => v === 0), '조용히(작은 소리) 말할 때는 시간이 지나도 눈썹을 올리지 않는다');
+// 말이 끝나면 «뚝» 대신 짧게 내려앉는다
+T += 5000; LEVEL = 180; const up2 = talk(14);
+ok(Math.max(...up2) > 0.3 * D, '(전제) 다시 크게 말하자 눈썹이 올라갔다');
+const browBefore = up2[up2.length - 1];
 draws = []; a.paused = true; a.emit('pause');
-ok(eyeDraws().length === 0 && draws.length >= 1, '말이 끝나면(pause) 올린 눈썹을 내린 얼굴로 그린다');
+ok(draws.length >= 1, '말이 끝나면(pause) 얼굴을 다시 그린다');
+const settle = []; for (let i = 0; i < 60 && (settle.length === 0 || settle[settle.length - 1] > 0); i++) { T += 16; draws = []; frame(); settle.push(browLift()); }
+ok(settle.length >= 3 && settle[0] > 0 && settle[0] < browBefore, `말이 끝나면 «뚝» 이 아니라 짧게 내려앉는다 (${browBefore.toFixed(2)} → ${settle.map(v => v.toFixed(2)).slice(0, 4).join(' → ')}…px)`);
+ok(settle[settle.length - 1] === 0 && settle.length * 16 <= 640, `0.6초 안에 다 내려앉는다 (${settle.length * 16}ms)`);
+T += 2000; draws = []; frame();
+ok(pendingRaf.size === 0, '다 내려앉으면 따로 도는 그리기를 멈춘다(rAF 0개)');
+canvasOn = false;
 
 /* ── ⑤ 눈 그림이 없는 캐릭터 ─────────────────────────────────────────── */
 console.log('\n■ ⑤ 눈 그림이 없는 캐릭터로 바꾸면 꺼진다');

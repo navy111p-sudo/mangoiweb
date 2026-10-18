@@ -1,4 +1,5 @@
 import { WEEKLY_POSTPONE, prepareWeeklyPostpone } from './weekly-postpone';
+import { WEAK_WHERE, WEAK_ORDER, weakSince } from './weak-words';
 import { counselingRecipient, sendCounselingSms } from './counseling-send';
 // ═══════════════════════════════════════════════════════════════════════
 // 🛡️ api-admin.ts — 관리자 도메인 API (api-mango.ts 에서 분리)
@@ -8638,8 +8639,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
            FROM game_progress WHERE user_id = ? AND last_seen >= ?`, uid, since);
       const gameWeak = await fetchAll(
         `SELECT item, ko, wrong_count FROM game_progress
-          WHERE user_id = ? AND wrong_count > 0 AND wrong_count >= correct_count
-          ORDER BY wrong_count DESC LIMIT 5`, uid);
+          WHERE user_id = ? AND ${WEAK_WHERE}
+          ORDER BY ${WEAK_ORDER} LIMIT 5`, uid, weakSince(Date.now()));  // 정본 src/weak-words.ts
       // 🎤 스피치코치 발음/정확도/유창성 평균 (최근 10회)
       const coachAgg: any = await fetch1(
         `SELECT COUNT(*) AS n, AVG(pronunciation_score) AS p, AVG(accuracy_score) AS a, AVG(fluency_score) AS f FROM (

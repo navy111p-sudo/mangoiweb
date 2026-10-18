@@ -479,6 +479,10 @@
   function cur(s) { return s.plan[s.i]; }
 
   // 지금 단계를 «시작» 할 때 낼 효과
+  /* 🎙️ (2026-10-18 사장님 「A.i 선생님과 대화중 갑자기 남자 목소리가 나와」) 대화 차례(따라 말하기·질문·대답·다시 듣기)는
+     언제나 Emma 선생님 목소리다 — 교재 줄의 남자 역할 표시(l[1])는 «이야기 듣기(read)» 차례에서만 남자 목소리로 읽는다.
+     ⛔ 대화 중에 역할 목소리로 바꾸지 않는다(학생에게는 «선생님 목소리가 갑자기 바뀌었다» 로 들린다). */
+  function roleVoice(st, male) { return st && st.t === 'read' && male ? 'm' : 'f'; }
   function enter(s, out) {
     var st = cur(s);
     if (!st) { s.phase = 'done'; return; }
@@ -494,20 +498,20 @@
     if (st.t === 'cheer') { out.push({ speak: line('cheer', s) }); s.phase = 'teacher'; return; }
     if (st.t === 'song') { s.page = st.page; s.view = st.page; out.push({ page: st.page }, { speak: line('songIntro', s) }, { song: { lines: st.lines, page: st.page } }, { speak: line('songOk', s) }); s.phase = 'teacher'; return; }
     if (st.t === 'find') { s.fwrong = 0; s.page = st.page; s.view = st.page; out.push({ page: st.page }, { speak: line('find', s, { w: st.word }), find: st.word }); s.phase = 'teacher'; return; }
-    if (st.t === 'read') { out.push({ highlight: { page: st.page, line: st.line } }, { speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f' }); s.phase = 'teacher'; return; }
+    if (st.t === 'read') { out.push({ highlight: { page: st.page, line: st.line } }, { speak: { en: st.say, ko: '' }, voice: roleVoice(st, st.male) }); s.phase = 'teacher'; return; }
     if (st.t === 'repeat') {
-      s.tries = 0;
+      s.tries = 0; s.hold = 0;
       if (!st.prev) {
         if (s.page !== st.page) { s.page = st.page; s.view = st.page; out.push({ page: st.page }); }
         if (!st.quiz) out.push({ highlight: { page: st.page, line: st.line } });   // 질문은 정답 줄을 미리 짚지 않는다
       }
-      if (st.mode === 'warm') out.push({ speak: line('warm', s) }, { speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f', target: st.say, show: st.say });
-      else if (st.mode === 'qa') out.push({ speak: line('qa', s) }, { speak: { en: st.ask, ko: '' }, voice: st.askMale ? 'm' : 'f', target: st.say });
-      else if (st.mode === 'ask') out.push({ speak: line('quizAsk', s) }, { speak: { en: st.ask, ko: '' }, voice: st.askMale ? 'm' : 'f', target: st.say, show: st.ask });
+      if (st.mode === 'warm') out.push({ speak: line('warm', s) }, { speak: { en: st.say, ko: '' }, voice: roleVoice(st, st.male), target: st.say, show: st.say });
+      else if (st.mode === 'qa') out.push({ speak: line('qa', s) }, { speak: { en: st.ask, ko: '' }, voice: roleVoice(st, st.askMale), target: st.say });
+      else if (st.mode === 'ask') out.push({ speak: line('quizAsk', s) }, { speak: { en: st.ask, ko: '' }, voice: roleVoice(st, st.askMale), target: st.say, show: st.ask });
       else if (st.mode === 'blank') out.push({ speak: line('quizBlank', s) }, { speak: { en: st.spoken, ko: '' }, voice: 'f', target: st.say, show: st.shown });
-      else if (st.mode === 'swap') out.push({ speak: line('swap', s) }, { speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f', target: st.say });
+      else if (st.mode === 'swap') out.push({ speak: line('swap', s) }, { speak: { en: st.say, ko: '' }, voice: roleVoice(st, st.male), target: st.say });
       else if (st.mode === 'solo') out.push({ speak: line('solo', s), target: st.say });   // 선생님이 먼저 읽어 주지 않는다
-      else out.push({ speak: line(st.kind === 'word' ? 'word' : 'repeat', s) }, { speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f', target: st.say });
+      else out.push({ speak: line(st.kind === 'word' ? 'word' : 'repeat', s) }, { speak: { en: st.say, ko: '' }, voice: roleVoice(st, st.male), target: st.say });
       s.phase = 'teacher'; return;
     }
     if (st.t === 'wrap') {
@@ -540,7 +544,7 @@
         if (s.phase !== 'teacher') break;
         if (s.pend) { s.pend = 0; enter(s, out); break; }
         if (!st) break;
-        if (st.t === 'greet' || st.t === 'intro' || st.t === 'repeat' || st.t === 'find') { s.phase = 'await'; out.push({ listen: st.t === 'repeat' ? st.say : '*', find: st.t === 'find' ? st.word : undefined }); }
+        if (st.t === 'greet' || st.t === 'intro' || st.t === 'repeat' || st.t === 'find') { s.phase = 'await'; out.push({ listen: st.t === 'repeat' ? st.say : '*', find: st.t === 'find' ? st.word : undefined, hold: st.t === 'repeat' && s.hold ? 1 : undefined }); }
         else advance(s, out);
         break;
       case 'say':
@@ -567,6 +571,21 @@
           s.phase = 'teacher'; s.i++; s.pend = 1; break;
         }
         s.quietRun = ev.type === 'silence' ? (s.quietRun || 0) + 1 : 0;
+        /* 🤫 (2026-10-18 사장님 「따라 말하지도 않았는데 갑자기 선생님이 말하고 다른 페이지로 가」) 침묵은 «시도» 로 세지 않는다.
+           예전엔 마이크가 아무 말도 못 들은 것(no-speech)도 틀린 대답처럼 세어 세 번이면 다음으로 넘어갔다.
+           이제 침묵이면 선생님이 한 번 다시 들려주고, 두 번째부터는 마이크를 저절로 켜지 않고 학생이 누를 때까지 기다린다(s.hold).
+           ⛔ 침묵만으로 다음 문장·다음 쪽으로 넘어가지 않는다 — 넘어가는 것은 «말해 본 시도 3번» 이나 «넘어가기» 버튼뿐이다. */
+        if (ev.type === 'silence') {
+          s.hold = s.quietRun >= 2 ? 1 : 0;
+          out.push({ result: { score: 0, pass: false, text: st.say, said: '', missing: [], own: false } });
+          var qk = s.quietRun >= 2 ? 'checkIn' : 'quiet';
+          if (st.mode === 'blank') out.push({ speak: line(qk, s), reply: qk }, { speak: { en: st.spoken, ko: '' }, voice: 'f', rate: 0.85, target: st.say, show: st.shown });
+          else if (st.mode === 'ask') out.push({ speak: line(qk, s), reply: qk }, { speak: { en: st.ask, ko: '' }, voice: roleVoice(st, st.askMale), rate: 0.85, target: st.say, show: st.ask });
+          else out.push({ speak: line(qk, s), reply: qk }, { speak: { en: st.say, ko: '' }, voice: roleVoice(st, st.male), rate: 0.85, target: st.say });
+          s.phase = 'teacher';
+          break;
+        }
+        s.hold = 0;
         var sc = score(st.say, said), yn = st.personal ? yesNoOf(said) : '', miss = missingWords(st.say, said);
         // 빈칸 질문은 «빠진 낱말» 하나만 말해도 정답이다
         if (st.mode === 'blank' && st.blank && tokens(said).concat(looseTokens(said)).indexOf(st.blank) >= 0) { sc = Math.max(sc, 1); miss = []; }
@@ -578,18 +597,18 @@
         out.push({ result: { score: own || ownTalk ? 1 : sc, pass: own || ownTalk || sc >= PASS, text: st.say, said: said, missing: own || ownTalk ? [] : miss, own: own || ownTalk } });
         if (ownTalk) {
           s.stars++; s.streak = s.tries === 1 ? s.streak + 1 : 0; s.comeback = false;
-          out.push({ star: s.stars }, { speak: withWow(line('ownAnswer', s), s), reply: 'ownTalk', praise: 'praiseQuiz' }, { speak: line('bookSays', s) }, { speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f' });
+          out.push({ star: s.stars }, { speak: withWow(line('ownAnswer', s), s), reply: 'ownTalk', praise: 'praiseQuiz' }, { speak: line('bookSays', s) }, { speak: { en: st.say, ko: '' }, voice: roleVoice(st, st.male) });
           s.phase = 'teacher'; s.i++; s.pend = 1;
         } else if (own) {
           s.stars++; s.streak = s.tries === 1 ? s.streak + 1 : 0; s.comeback = false;
-          out.push({ star: s.stars }, { speak: withWow(line(yn === 'yes' ? 'personalYes' : 'personalNo', s), s), reply: 'own' }, { speak: line('bookSays', s) }, { speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f' });
+          out.push({ star: s.stars }, { speak: withWow(line(yn === 'yes' ? 'personalYes' : 'personalNo', s), s), reply: 'own' }, { speak: line('bookSays', s) }, { speak: { en: st.say, ko: '' }, voice: roleVoice(st, st.male) });
           s.phase = 'teacher'; s.i++; s.pend = 1;
         } else if (sc >= PASS) {
           s.stars++; s.streak = s.tries === 1 ? s.streak + 1 : 0;
           var pk = praiseKey(st, s, sc); s.comeback = false;
           out.push({ star: s.stars }, { speak: withWow(line(pk, s, { n: s.streak, w: String(st.say).replace(/[.!?,]+$/, '') }), s), praise: pk });
-          if (st.mode === 'swap' && st.answer) out.push({ speak: { en: st.answer, ko: '' }, voice: st.answerMale ? 'm' : 'f' });
-          if (st.mode === 'blank') out.push({ speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f', show: st.say });   // 맞힌 뒤 문장 전체를 한 번 들려준다
+          if (st.mode === 'swap' && st.answer) out.push({ speak: { en: st.answer, ko: '' }, voice: roleVoice(st, st.answerMale) });
+          if (st.mode === 'blank') out.push({ speak: { en: st.say, ko: '' }, voice: roleVoice(st, st.male), show: st.say });   // 맞힌 뒤 문장 전체를 한 번 들려준다
           if (miss.length && st.kind !== 'word') out.push({ speak: line('passMissing', s, { w: miss.join(' ') }), reply: 'passMissing' });
           s.phase = 'teacher'; s.i++; s.pend = 1;
         } else if (s.tries >= MAX_TRIES) {
@@ -603,9 +622,9 @@
           if (st.mode === 'blank' && s.tries === 1) {      // 빈칸: 첫 번째엔 정답을 말하지 않고 첫 글자만 알려 준다
             out.push({ speak: line('blankHint', s, { c: st.blank.charAt(0) }), reply: 'blankHint' }, { speak: { en: st.spoken, ko: '' }, voice: 'f', rate: 0.85, target: st.say, show: st.shown });
           } else if (st.mode === 'ask' && s.tries === 1) { // 질문: 한 번 더 묻는다(정답은 두 번째에 들려준다)
-            out.push({ speak: line(key, s, { w: miss.join(' ') }), reply: key }, { speak: { en: st.ask, ko: '' }, voice: st.askMale ? 'm' : 'f', rate: 0.85, target: st.say, show: st.ask });
+            out.push({ speak: line(key, s, { w: miss.join(' ') }), reply: key }, { speak: { en: st.ask, ko: '' }, voice: roleVoice(st, st.askMale), rate: 0.85, target: st.say, show: st.ask });
           } else
-          out.push({ speak: line(key, s, { w: miss.join(' ') }), reply: key }, { speak: { en: st.say, ko: '' }, voice: st.male ? 'm' : 'f', rate: s.tries >= 2 ? 0.7 : 0.85, target: st.say, bigText: s.tries >= 2 });
+          out.push({ speak: line(key, s, { w: miss.join(' ') }), reply: key }, { speak: { en: st.say, ko: '' }, voice: roleVoice(st, st.male), rate: s.tries >= 2 ? 0.7 : 0.85, target: st.say, bigText: s.tries >= 2 });
           s.phase = 'teacher';
         }
         break;
@@ -631,7 +650,7 @@
         s.phase = 'teacher'; s.i++; s.pend = 1;
         break;
       case 'replay':
-        if (s.phase === 'await' && st && st.t === 'repeat') out.push({ speak: { en: st.mode === 'qa' || st.mode === 'ask' ? st.ask : st.mode === 'blank' ? st.spoken : st.say, ko: '' }, voice: (st.mode === 'qa' || st.mode === 'ask' ? st.askMale : st.mode === 'blank' ? false : st.male) ? 'm' : 'f', rate: ev.slow ? 0.7 : 1, target: st.say, replay: true });
+        if (s.phase === 'await' && st && st.t === 'repeat') out.push({ speak: { en: st.mode === 'qa' || st.mode === 'ask' ? st.ask : st.mode === 'blank' ? st.spoken : st.say, ko: '' }, voice: roleVoice(st, st.mode === 'qa' || st.mode === 'ask' ? st.askMale : st.mode === 'blank' ? false : st.male), rate: ev.slow ? 0.7 : 1, target: st.say, replay: true });
         break;
       case 'browse':
         var p = Math.max(0, Math.min(s.pages - 1, ev.page | 0)); s.view = p; out.push({ view: p });

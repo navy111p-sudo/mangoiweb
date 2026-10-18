@@ -152,6 +152,40 @@ if (M) {
   ok('연습 표가 없으면 카드는 그대로·연습 «모름»', r3 && r3.cards && r3.cards[0].practiced === 0 && r3.sources.practice === false);
 }
 
+console.log('②-b A.i 친구 교정(ai_friend_fix_log) — 세 번째 재료 (2026-10-18 ⑧)');
+if (M) {
+  const run = (f) => { try { return f(); } catch (e) { return { __err: e.message }; } };
+  const now = 100 * 86400000;
+  // 순수 함수: 차례는 수업 > 웜업 > A.i 친구, 같은 문장은 한 장
+  const L = [{ created_at: 5, lesson_title: 'T', grammar_errors: JSON.stringify([{ original: 'He go', corrected: 'He goes.', reason: '' }]) }];
+  const W = [{ was: 'I go school', fixed: 'I went to school.', why_ko: '', lang: 'en', created_at: 4 }];
+  const A = [{ was: 'he go', fixed: 'He goes.', created_at: 9 }, { was: 'She have a cat', fixed: 'She has a cat.', created_at: 8 }];
+  const pc = run(() => M.pickFixCards(L, W, A)) || [];
+  ok('A.i 친구 교정도 카드가 된다', pc.some(c => c.source === 'aifriend' && c.to === 'She has a cat.'), JSON.stringify(pc));
+  ok('차례: 수업 → 웜업 → A.i 친구', pc.map(c => c.source).join(',') === 'lesson,warmup,aifriend', pc.map(c => c.source).join(','));
+  ok('같은 고친 문장이면 앞 재료(수업) 한 장만', pc.filter(c => /^he goes/i.test(c.to)).length === 1 && pc[0].source === 'lesson');
+  ok('짝: 세 번째 인자를 안 넘기면 예전 그대로(두 재료)', (run(() => M.pickFixCards(L, W)) || []).every(c => c.source !== 'aifriend'));
+  ok('영어가 아닌 고친 문장은 버린다(지어내지 않음)', (run(() => M.pickFixCards([], [], [{ was: 'x', fixed: '나는 학교에 갔다', created_at: 1 }])) || [1]).length === 0);
+  // 진짜 SQLite: 표 있음 — 본인·30일만
+  const db = new DatabaseSync(':memory:');
+  db.exec(`CREATE TABLE ai_friend_fix_log (id INTEGER PRIMARY KEY, user_id TEXT, was TEXT, fixed TEXT, tag TEXT, severity TEXT, day TEXT, created_at INTEGER);`);
+  const ins = db.prepare('INSERT INTO ai_friend_fix_log (user_id, was, fixed, tag, severity, day, created_at) VALUES (?,?,?,?,?,?,?)');
+  ins.run('kim', 'I eated pizza', 'I ate pizza.', 'past_tense', 'major', 'd', now - 3600000);
+  ins.run('Kim', 'She go', 'She goes.', 'sv_agreement', 'major', 'd', now - 3600000);
+  ins.run('kim', 'old', 'This is very old.', null, null, 'd', now - 40 * 86400000);
+  let ra = null; try { ra = await M.loadFixCards(d1(db), 'kim', now); } catch (e) { ra = { __err: e.message }; }
+  ok('표가 있으면 A.i 친구 카드가 나온다', ra && ra.cards && ra.cards.length === 1 && ra.cards[0].to === 'I ate pizza.' && ra.cards[0].source === 'aifriend', JSON.stringify(ra));
+  ok('남의 계정(Kim)·30일 넘은 것은 안 나온다', ra && ra.cards && !ra.cards.some(c => c.to === 'She goes.' || c.to === 'This is very old.'));
+  ok('그때 sources.aifriend = true', ra && ra.sources && ra.sources.aifriend === true);
+  // 표가 없으면 «모름» — 다른 재료는 그대로
+  const nw = new DatabaseSync(':memory:');
+  nw.exec(`CREATE TABLE warmup_fix_log (user_id TEXT, was TEXT, fixed TEXT, why_ko TEXT, lang TEXT, created_at INTEGER);`);
+  nw.prepare('INSERT INTO warmup_fix_log VALUES (?,?,?,?,?,?)').run('kim', 'I go school', 'I went to school.', '', 'en', now - 1000);
+  let rb = null; try { rb = await M.loadFixCards(d1(nw), 'kim', now); } catch (e) { rb = { __err: 'threw ' + e.message }; }
+  ok('A.i 친구 표가 없어도 던지지 않고 웜업 카드는 나온다', rb && rb.cards && rb.cards.length === 1 && rb.cards[0].source === 'warmup', JSON.stringify(rb));
+  ok('그때 sources.aifriend = false(0건과 다름)', rb && rb.sources && rb.sources.aifriend === false && rb.sources.warmup === true);
+}
+
 console.log('③ 서버 배선 — 게이트 «뒤» 갈래');
 {
   const s = rd(API_FILE);
@@ -272,6 +306,11 @@ console.log('⑤ 오늘의 A.i 학습 화면 — renderFix 를 가짜 DOM 으로
   const g = run({ ok: true, cards: [card], sources: { practice: false } }, { sample: false }, false);
   ok('연습 기록을 못 물어봤으면 «안 했다» 고 말하지 않는다', g['td-fix'].hidden === false && !g['td-fix-list'].innerHTML.includes('아직 연습 안 함') && !g['td-fix-list'].innerHTML.includes('class="pr'));
   ok('EN: 한국어 이유는 영어 화면에 안 그린다', !f['td-fix-list'].innerHTML.includes('과거형'));
+  const h = run({ ok: true, cards: [{ ...card, source: 'aifriend' }], sources: { practice: true } }, { sample: false }, false);
+  ok('A.i 친구 카드는 «A.i 친구에서» 라고 말한다', h['td-fix-list'].innerHTML.includes('A.i 친구에서') && !h['td-fix-list'].innerHTML.includes('웜업에서'));
+  const h2 = run({ ok: true, cards: [{ ...card, source: 'aifriend' }], sources: { practice: true } }, { sample: false }, true);
+  ok('EN: «From A.i friend»', h2['td-fix-list'].innerHTML.includes('From A.i friend'));
+  ok('짝: 웜업 카드는 여전히 «웜업에서»', a['td-fix-list'].innerHTML.includes('웜업에서') && !a['td-fix-list'].innerHTML.includes('A.i 친구에서'));
   // 배선 — 계획을 그린 «뒤» 에 카드를 부르는가(성공 갈래 안)
   const li = s.indexOf('function load(');
   const loadBody = li >= 0 ? bodyFrom(s, li) : '';
