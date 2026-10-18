@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 import { loadActiveGoal, goalPromptLine } from './student-goal';   // 🗓 4주 목표(2026-10-10)
 import { loadRecentMistakes, recentMistakesPromptLine, logAiFriendFix, loadRecentFixTags, carryRepeatTags } from './recent-mistakes';
+import { konglishFix, konglishPromptLine } from './konglish';   // 🇰🇷 콩글리시 대조표(2026-10-18 ⑦)
 import { WEAK_WHERE, WEAK_ORDER, weakSince } from './weak-words';
 import { json } from './api-util';
 import { applyEmpathyGuard, FRIEND_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
@@ -709,6 +710,8 @@ Student text: """${text}"""`;
       /* 🔁 (2026-10-18 개선안 1순위 ②) 지난번에 고쳐 준 표현을 «다시 맞게 써 볼 기회» 로.
          ⛔ «학생을 따라간다»·눈높이 규칙을 이기지 않게 «자연스러울 때만» (recentMistakesPromptLine 문구). */
       const mistakeCtx = recentMistakesPromptLine(pastFixes || [], !!lvSpec.plain);
+      // 🇰🇷 표에 있는 콩글리시를 썼으면 답장에서 자연스러운 말을 한 번 써 보이게(정본 konglish.ts)
+      const konglishCtx = konglishPromptLine(msg);
       /* 🎚 기초 단계(A1·A2)에서는 «길이를 늘리는 규칙» 을 끕니다.
          재미있는 사실 한 줄이 붙는 순간 3~5단어 문장은 지킬 수 없습니다 — 실측된 45단어짜리
          A1 답변이 정확히 그 모양이었습니다(칭찬+사실+설명+질문). 약점 단어 끼워 넣기도 같은 이유로
@@ -738,7 +741,7 @@ Student text: """${text}"""`;
         : '- Usually end with ONE short follow-up question — but when the student is telling you something they care about, react to THAT instead and let them keep going. Never ask two questions in one reply. Any question counts inside the sentence limit above.\n';
       const funFactRule = lvSpec.plain ? ''
         : '- Sprinkle in tiny fun facts kids enjoy when it fits — but the fact must be about whatever you are BOTH talking about right now. Never drag in a new subject just to share a fact.\n';
-      const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}${topicCtx}${goalCtx}${mistakeCtx}
+      const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}${topicCtx}${goalCtx}${mistakeCtx}${konglishCtx}
 Rules:
 - Your name is ${friendName}. If the student asks your name, say "${friendName}" — never invent a different name.
 - LEVEL — this is the MOST IMPORTANT rule. Obey it even if it means dropping something else you wanted to say. ${lvSpec.rule}${studentAsked ? ' (Exception for THIS reply only: you may use one extra sentence so that your answer fits. Keep every word limit above.)' : ''}
@@ -1149,7 +1152,9 @@ ${AI_FRIEND_CORRECTION_RULE}`;
       let showFix: any = null;
       let offerRepeat = false;
       try {
-        const verified = verifyWarmupFix(rawFix, msg);
+        /* 🇰🇷 모델이 고친 것이 없으면(뜻이 통해 넘어간 경우) 콩글리시 표로 한 번 더 본다.
+           ⛔ 모델의 교정이 있으면 그것이 먼저다 — 표는 «모델이 놓친 것» 만 받는다. */
+        const verified = verifyWarmupFix(rawFix, msg) || konglishFix(msg);
         /* ⚠️ 프롬프트가 「그 넷은 반드시 고쳐」로 바뀌면서 fix 생성이 잦아집니다 — 그러면
            «모델은 줬는데 우리가 버렸다» 가 주요 실패 모양이 됩니다(지어낸 교정·한글 섞임·
            낱말 안 겹침…). 평문·빈 응답에는 이미 로그가 있는데 이것만 없었습니다.

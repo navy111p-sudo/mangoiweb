@@ -42,6 +42,17 @@ if (M) {
   check('그릴 것이 없으면 빈 문자열', M.line([W('cat', [['k', 10]])], false) === '');
   check('단어는 이스케이프한다', !/<img/.test(M.line([{ word: "it's", phonemes: [{ p: 'ih', acc: 10 }] }], false)) && /it&#39;s/.test(M.line([{ word: "it's", phonemes: [{ p: 'ih', acc: 10 }] }], false)));
   check('팁 문구에 CJK 홑낫표가 없다(한자 글꼴 검사 함정)', !/[「」]/.test(MOD));
+  // 🇰🇷 붙은 자음 자리(2026-10-18 ⑦) — «말한다» 와 «말하지 않는다» 를 짝으로
+  const st = M.weakest([W('street', [['s', 40], ['t', 45], ['r', 85], ['iy', 90], ['t', 88]])]);
+  check('붙은 자음: street 의 s(40) → 자음 자리 팁', st && st.phoneme === 'cluster' && st.label === 's·t' && /«으»/.test(st.tipKo), st);
+  check('붙은 자음 짝: 철자에 자음이 안 붙으면(cat) 말하지 않는다', M.weakest([W('cat', [['k', 10], ['t', 12]])]) === null);
+  check('붙은 자음 짝: 앞뒤가 모음이면 말하지 않는다', M.weakest([W('stop', [['ah', 90], ['t', 20], ['aa', 90]])]) === null);
+  const st2 = M.weakest([W('street', [['s', 50], ['t', 70], ['r', 30], ['iy', 90]])]);
+  check('붙은 자음 짝: 표에 있는 소리(r)가 더 약하면 그 팁이 이긴다', st2 && st2.phoneme === 'r', st2);
+  check('붙은 자음: 충분한 점수(60)면 말하지 않는다', M.weakest([W('stop', [['s', 60], ['t', 90]])]) === null);
+  check('붙은 자음: IPA 기호도 읽는다(ɡ·l)', (M.weakest([W('glad', [['ɡ', 30], ['l', 90], ['æ', 90], ['d', 90]])]) || {}).label === 'g·l');
+  const stEn = M.line([W('street', [['s', 40], ['t', 45]])], true);
+  check('붙은 자음 영어 줄에는 한글이 없다', /street/.test(stEn) && !/[가-힣]/.test(stEn), stEn);
 }
 
 // ── 브라우저 SDK 경로: words 매핑을 오려 내 실제로 돌린다 ──
