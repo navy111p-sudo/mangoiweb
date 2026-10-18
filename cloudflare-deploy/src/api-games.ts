@@ -57,6 +57,17 @@ export function isCleanText(s: any): boolean {
   return t.indexOf(String.fromCharCode(0xFFFD)) === -1 && isKoreanGloss(t);
 }
 
+/** 📅 단어 간격 반복(SRS) 정본 — 플래시카드 복습(/api/vocab/review)과 단어 퀴즈(/api/vocab/quiz-submit)가 같이 쓴다.
+ *  정답이면 level+1(최대 7), 오답이면 0. 다음 복습까지 일수: 0=1, 1=2, 2=4, 3=7, 4=14, 5=30, 6=60, 7=120.
+ *  ⛔ 간격표를 다른 경로에 다시 적지 말 것 — 한쪽만 바뀌면 같은 단어가 경로마다 다른 날짜에 돌아온다. */
+export const VOCAB_SRS_INTERVALS = [1, 2, 4, 7, 14, 30, 60, 120];
+export function vocabSrsNext(level: any, correct: boolean, now: number): { level: number; days: number; next: number } {
+  const cur = Number.isFinite(Number(level)) ? Math.max(0, Math.min(7, Math.floor(Number(level)))) : 0;
+  const lv = correct ? Math.min(cur + 1, 7) : 0;
+  const days = VOCAB_SRS_INTERVALS[lv] || 1;
+  return { level: lv, days, next: now + days * 86400000 };
+}
+
 // ── 🔥 연속 출석(Streak) 그래프 DFS — 출결의 단일 권위(source of truth) ──────
 // attendance 의 날짜들을 (수업)<-[:NEXT_LESSON]-(이전수업) 연결 리스트로 간주하고,
 // 가장 최근 출석일(anchor)을 기점으로 하루씩 역방향으로 사슬을 타며
@@ -591,13 +602,10 @@ export async function handleGamesApi(
       if ((await resolveOwnerScope(request, url, env as any, String(row.user_id || ''), b)) === 'deny') {
         return json({ ok: false, error: 'auth_required' }, 401);
       }
-      // 간격 반복: 정답 시 level+1, 오답 시 level=0 으로 리셋
-      const newLevel = correct ? Math.min((row.level || 0) + 1, 7) : 0;
-      // 다음 복습 간격 (일): 0=1, 1=2, 2=4, 3=7, 4=14, 5=30, 6=60, 7=120 (망각곡선 기반)
-      const intervals = [1, 2, 4, 7, 14, 30, 60, 120];
-      const nextDays = intervals[newLevel] || 1;
+      // 간격 반복 — 정본 vocabSrsNext(정답 level+1 · 오답 0)
       const now = Date.now();
-      const next = now + nextDays * 86400000;
+      const srs = vocabSrsNext(row.level, correct, now);
+      const newLevel = srs.level, nextDays = srs.days, next = srs.next;
       await env.DB.prepare(`UPDATE vocabulary SET level = ?, next_review_at = ?, last_reviewed_at = ?, correct_count = correct_count + ?, wrong_count = wrong_count + ? WHERE id = ?`)
         .bind(newLevel, next, now, correct ? 1 : 0, correct ? 0 : 1, id).run();
       // 스트릭/미션/랭킹 계산용 이력 (실패해도 복습 자체는 성공)
@@ -1146,22 +1154,45 @@ Variety: mix of nouns, verbs, adjectives.`;
       const row: any = await env.DB.prepare(`SELECT user_id, correct_index, source_word FROM vocab_quizzes WHERE id = ?`).bind(quizId).first();
       if (!row) return json({ ok: false, error: 'quiz_not_found' }, 404);
       const isCorrect = row.correct_index === answer;
-      await env.DB.prepare(
-        `UPDATE vocab_quizzes SET completed = 1, user_answer = ?, is_correct = ?, completed_at = ? WHERE id = ?`
-      ).bind(answer, isCorrect ? 1 : 0, Date.now(), quizId).run();
-      // 정답/오답 카운트 갱신 + 복습 이력(vocab_review_log → 일일미션·스트릭·주간랭킹 공용)
+      /* 🔁 (2026-10-18) 같은 문제를 다시 제출해도 채점은 돌려주되, 기록·복습 일정은 «처음 한 번» 만 반영한다.
+         퀴즈는 출제할 때마다 새 행이라 정상 흐름은 한 번 제출이고, 되풀이 제출로 단어를 level 7 까지
+         밀어 올리는 길을 막는다.
+         ⚛️ 완료 표시·복습 이력·SRS 갱신을 «한 batch» 로 묶는다 — 따로 쓰면 완료만 남고 SRS 가 실패했을 때
+         재제출이 «이미 완료» 로 걸러져 그 답이 복습 일정에 영영 안 들어간다(Codex 리뷰 #1608).
+         뒤 두 문장은 `changes() > 0` 으로 «앞 문장이 실제로 바꿨을 때만» 돈다(처음 제출 판정의 사슬). */
+      let vr: any = null;
       if (row.source_word) {
         try {
-          await env.DB.prepare(isCorrect
-            ? `UPDATE vocabulary SET correct_count = correct_count + 1, last_reviewed_at = ? WHERE user_id = ? AND word = ?`
-            : `UPDATE vocabulary SET wrong_count = wrong_count + 1, last_reviewed_at = ? WHERE user_id = ? AND word = ?`
-          ).bind(Date.now(), row.user_id, row.source_word).run();
-        } catch {}
-        try {
-          const v: any = await env.DB.prepare(`SELECT id FROM vocabulary WHERE user_id = ? AND word = ?`).bind(row.user_id, row.source_word).first();
-          await env.DB.prepare(`INSERT INTO vocab_review_log (user_id, vocab_id, correct, reviewed_at) VALUES (?,?,?,?)`)
-            .bind(row.user_id, v?.id || null, isCorrect ? 1 : 0, Date.now()).run();
-        } catch {}
+          vr = await env.DB.prepare(`SELECT id, level FROM vocabulary WHERE user_id = ? AND word = ? LIMIT 1`).bind(row.user_id, row.source_word).first();
+        } catch (e: any) {
+          console.warn('[vocab quiz-submit] vocab lookup failed:', e?.message || e);
+          return json({ ok: false, error: 'submit_failed', retryable: true, correct: isCorrect, correct_index: row.correct_index }, 503);
+        }
+      }
+      const now = Date.now();
+      const stmts: any[] = [env.DB.prepare(
+        `UPDATE vocab_quizzes SET completed = 1, user_answer = ?, is_correct = ?, completed_at = ? WHERE id = ? AND COALESCE(completed, 0) = 0`
+      ).bind(answer, isCorrect ? 1 : 0, now, quizId)];
+      // 정답/오답 카운트 + 📅 복습 일정(SRS) 갱신 + 복습 이력(vocab_review_log → 일일미션·스트릭·주간랭킹 공용)
+      //   ⚠️ 2026-10-18 전에는 카운트만 올리고 next_review_at 을 안 건드려, 퀴즈에서 틀린 단어가 복습에 다시 안 나왔다.
+      if (row.source_word) {
+        stmts.push(env.DB.prepare(
+          `INSERT INTO vocab_review_log (user_id, vocab_id, correct, reviewed_at) SELECT ?, ?, ?, ? WHERE changes() > 0`
+        ).bind(row.user_id, vr?.id || null, isCorrect ? 1 : 0, now));
+        if (vr) {
+          const srs = vocabSrsNext(vr.level, isCorrect, now);
+          stmts.push(env.DB.prepare(isCorrect
+            ? `UPDATE vocabulary SET correct_count = correct_count + 1, level = ?, next_review_at = ?, last_reviewed_at = ? WHERE user_id = ? AND word = ? AND changes() > 0`
+            : `UPDATE vocabulary SET wrong_count = wrong_count + 1, level = ?, next_review_at = ?, last_reviewed_at = ? WHERE user_id = ? AND word = ? AND changes() > 0`
+          ).bind(srs.level, srs.next, now, row.user_id, row.source_word));
+        }
+      }
+      try {
+        await env.DB.batch(stmts);
+      } catch (e: any) {
+        // 아무것도 안 써졌으므로(batch = 한 트랜잭션) 다시 제출하면 처음 제출로 반영된다.
+        console.warn('[vocab quiz-submit] batch failed:', e?.message || e);
+        return json({ ok: false, error: 'submit_failed', retryable: true, correct: isCorrect, correct_index: row.correct_index }, 503);
       }
       return json({ ok: true, correct: isCorrect, correct_index: row.correct_index });
     }

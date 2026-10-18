@@ -12772,10 +12772,18 @@ LIMIT $limit`;
               정답을 통째로 받는」 길을 막는다. 셋 중 하나라도 풀면 그 창이 넓어진다.
               ⛔ 여기서 bank 를 통째로 넘기지 말고 반드시 그 함수를 지나게 할 것.
          ⚠️ 실패해도 채점 결과는 그대로 돌려준다 — 해설을 못 만들었다고 점수까지 잃으면 안 된다. */
-      let review: any[] = [];
-      try { review = buildLeveltestReview(CEFR_BANK, answers); }
-      catch (e: any) { console.warn('[leveltest] review skip:', e && e.message); review = []; }
-      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, review, application_id: appId, placement, track: trackInfo.track });
+      /* 🔒 (2026-10-18 사장님 결정) 정답·해설은 «토큰으로 확인된 로그인 학생» 에게만 싣는다.
+         [왜] 이 경로는 무인증 공개라 «전부 0번» 본문 한 번으로 정답키가 100% 복원됐다(위 주석 · 2026-09-22 실측).
+         비로그인은 점수·레벨만 받고 review 칸이 아예 없다 → 화면은 «로그인하면 해설» 안내만 그린다.
+         ⚠️ 막힌 것은 «익명 1회 호출» 뿐이다 — 아이디만 알면 로그인되는 계정이 대부분이라 완전한 차단은 아니다
+            (근본 해결은 문항은행을 늘리는 것). ⛔ 본문 uid 로 폴백하지 말 것(위 placement 와 같은 이유). */
+      const reviewLocked = !authedUid;
+      let review: any[] | undefined = undefined;
+      if (!reviewLocked) {
+        try { review = buildLeveltestReview(CEFR_BANK, answers); }
+        catch (e: any) { console.warn('[leveltest] review skip:', e && e.message); review = []; }
+      }
+      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, review, review_locked: reviewLocked, application_id: appId, placement, track: trackInfo.track });
     }
 
     // ─── 수강신청 ─────────────────────────────────────────────────────────
