@@ -68,11 +68,21 @@ function makeEnv(db) {
       bind: (...a) => { args = a; return api; },
       first: async () => st.get(...args) ?? null,
       all: async () => ({ results: st.all(...args) }),
-      run: async () => { const r = st.run(...args); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
+      run: async () => { if (db.__failOn && sql.includes(db.__failOn)) throw new Error('D1 transient'); const r = st.run(...args); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
+      __runSync: () => { const r = st.run(...args); return { meta: { changes: Number(r.changes) } }; },
+      __sql: sql,
     };
     return api;
   };
-  return { DB: { prepare: prep } };
+  // D1 batch = 한 트랜잭션 (하나라도 던지면 전부 되돌림). failOn: 그 SQL 조각이 든 문장에서 일부러 던진다.
+  const batch = async (stmts) => {
+    db.exec('BEGIN');
+    try {
+      const out = stmts.map((s) => { if (db.__failOn && s.__sql.includes(db.__failOn)) throw new Error('D1 transient'); return s.__runSync(); });
+      db.exec('COMMIT'); return out;
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
+  };
+  return { DB: { prepare: prep, batch } };
 }
 function freshDb() {
   const db = new DatabaseSync(':memory:');
@@ -127,6 +137,28 @@ if (route && vocabSrsNext) {
     check('세 번 제출해도 카운트는 1', v.correct_count === 1, v);
     check('복습 이력도 한 줄', Number(logs) === 1, logs);
     check('되풀이 제출에도 채점 결과는 돌려준다', r && r.__json && r.__json.correct === false, r);
+  }
+  { // SRS 저장이 한 번 실패하면 «완료» 도 안 남아, 다시 제출하면 처음 제출로 반영된다 (Codex #1608)
+    const db = freshDb();
+    db.__failOn = 'UPDATE vocabulary';
+    const r1 = await submit(db, 2);
+    const q1 = db.prepare(`SELECT completed FROM vocab_quizzes WHERE id=1`).get();
+    const logs1 = db.prepare(`SELECT COUNT(*) AS n FROM vocab_review_log`).get().n;
+    check('실패하면 ok:false + retryable 로 말한다', r1 && r1.__json && r1.__json.ok === false && r1.__json.retryable === true && r1.status === 503, r1);
+    check('실패하면 퀴즈가 «완료» 로 안 남는다', !q1.completed, q1);
+    check('실패하면 복습 이력도 안 남는다(한 트랜잭션)', Number(logs1) === 0, logs1);
+    db.__failOn = null;
+    const r2 = await submit(db, 2);
+    const v = db.prepare(`SELECT level, correct_count FROM vocabulary WHERE word='apple'`).get();
+    check('다시 제출하면 SRS 가 반영된다(level 4)', r2 && r2.__json && r2.__json.ok === true && v.level === 4 && v.correct_count === 1, { r2, v });
+  }
+  { // 짝: 단어가 단어장에 없어도 퀴즈 완료·이력은 남는다
+    const db = freshDb();
+    db.prepare(`DELETE FROM vocabulary`).run();
+    const r = await submit(db, 2);
+    const q = db.prepare(`SELECT completed FROM vocab_quizzes WHERE id=1`).get();
+    const logs = db.prepare(`SELECT COUNT(*) AS n FROM vocab_review_log`).get().n;
+    check('단어장에 없어도 ok:true · 완료 · 이력 1줄', r && r.__json && r.__json.ok === true && q.completed === 1 && Number(logs) === 1, { r, q, logs });
   }
 }
 

@@ -1156,30 +1156,43 @@ Variety: mix of nouns, verbs, adjectives.`;
       const isCorrect = row.correct_index === answer;
       /* 🔁 (2026-10-18) 같은 문제를 다시 제출해도 채점은 돌려주되, 기록·복습 일정은 «처음 한 번» 만 반영한다.
          퀴즈는 출제할 때마다 새 행이라 정상 흐름은 한 번 제출이고, 되풀이 제출로 단어를 level 7 까지
-         밀어 올리는 길을 막는다. 조건부 UPDATE 의 changes 로 «처음인가» 를 판정한다. */
-      const done: any = await env.DB.prepare(
+         밀어 올리는 길을 막는다.
+         ⚛️ 완료 표시·복습 이력·SRS 갱신을 «한 batch» 로 묶는다 — 따로 쓰면 완료만 남고 SRS 가 실패했을 때
+         재제출이 «이미 완료» 로 걸러져 그 답이 복습 일정에 영영 안 들어간다(Codex 리뷰 #1608).
+         뒤 두 문장은 `changes() > 0` 으로 «앞 문장이 실제로 바꿨을 때만» 돈다(처음 제출 판정의 사슬). */
+      let vr: any = null;
+      if (row.source_word) {
+        try {
+          vr = await env.DB.prepare(`SELECT id, level FROM vocabulary WHERE user_id = ? AND word = ? LIMIT 1`).bind(row.user_id, row.source_word).first();
+        } catch (e: any) {
+          console.warn('[vocab quiz-submit] vocab lookup failed:', e?.message || e);
+          return json({ ok: false, error: 'submit_failed', retryable: true, correct: isCorrect, correct_index: row.correct_index }, 503);
+        }
+      }
+      const now = Date.now();
+      const stmts: any[] = [env.DB.prepare(
         `UPDATE vocab_quizzes SET completed = 1, user_answer = ?, is_correct = ?, completed_at = ? WHERE id = ? AND COALESCE(completed, 0) = 0`
-      ).bind(answer, isCorrect ? 1 : 0, Date.now(), quizId).run();
-      const firstSubmit = Number(done?.meta?.changes ?? 1) > 0;   // changes 를 못 읽으면 예전처럼 반영
+      ).bind(answer, isCorrect ? 1 : 0, now, quizId)];
       // 정답/오답 카운트 + 📅 복습 일정(SRS) 갱신 + 복습 이력(vocab_review_log → 일일미션·스트릭·주간랭킹 공용)
       //   ⚠️ 2026-10-18 전에는 카운트만 올리고 next_review_at 을 안 건드려, 퀴즈에서 틀린 단어가 복습에 다시 안 나왔다.
-      if (row.source_word && firstSubmit) {
-        try {
-          const vr: any = await env.DB.prepare(`SELECT level FROM vocabulary WHERE user_id = ? AND word = ? LIMIT 1`).bind(row.user_id, row.source_word).first();
-          const now = Date.now();
-          if (vr) {
-            const srs = vocabSrsNext(vr.level, isCorrect, now);
-            await env.DB.prepare(isCorrect
-              ? `UPDATE vocabulary SET correct_count = correct_count + 1, level = ?, next_review_at = ?, last_reviewed_at = ? WHERE user_id = ? AND word = ?`
-              : `UPDATE vocabulary SET wrong_count = wrong_count + 1, level = ?, next_review_at = ?, last_reviewed_at = ? WHERE user_id = ? AND word = ?`
-            ).bind(srs.level, srs.next, now, row.user_id, row.source_word).run();
-          }
-        } catch (e: any) { console.warn('[vocab quiz-submit] srs update failed:', e?.message || e); }
-        try {
-          const v: any = await env.DB.prepare(`SELECT id FROM vocabulary WHERE user_id = ? AND word = ?`).bind(row.user_id, row.source_word).first();
-          await env.DB.prepare(`INSERT INTO vocab_review_log (user_id, vocab_id, correct, reviewed_at) VALUES (?,?,?,?)`)
-            .bind(row.user_id, v?.id || null, isCorrect ? 1 : 0, Date.now()).run();
-        } catch {}
+      if (row.source_word) {
+        stmts.push(env.DB.prepare(
+          `INSERT INTO vocab_review_log (user_id, vocab_id, correct, reviewed_at) SELECT ?, ?, ?, ? WHERE changes() > 0`
+        ).bind(row.user_id, vr?.id || null, isCorrect ? 1 : 0, now));
+        if (vr) {
+          const srs = vocabSrsNext(vr.level, isCorrect, now);
+          stmts.push(env.DB.prepare(isCorrect
+            ? `UPDATE vocabulary SET correct_count = correct_count + 1, level = ?, next_review_at = ?, last_reviewed_at = ? WHERE user_id = ? AND word = ? AND changes() > 0`
+            : `UPDATE vocabulary SET wrong_count = wrong_count + 1, level = ?, next_review_at = ?, last_reviewed_at = ? WHERE user_id = ? AND word = ? AND changes() > 0`
+          ).bind(srs.level, srs.next, now, row.user_id, row.source_word));
+        }
+      }
+      try {
+        await env.DB.batch(stmts);
+      } catch (e: any) {
+        // 아무것도 안 써졌으므로(batch = 한 트랜잭션) 다시 제출하면 처음 제출로 반영된다.
+        console.warn('[vocab quiz-submit] batch failed:', e?.message || e);
+        return json({ ok: false, error: 'submit_failed', retryable: true, correct: isCorrect, correct_index: row.correct_index }, 503);
       }
       return json({ ok: true, correct: isCorrect, correct_index: row.correct_index });
     }
