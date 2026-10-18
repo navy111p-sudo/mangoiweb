@@ -6,6 +6,7 @@
    글은 /js/reading-ladder-data.js 의 window.READING_LADDER 한 곳이 정본.
    한 편마다: 읽기(듣기·해석) → ① 핵심 문장 찾기 → ② 중심 내용 고르기 → ③ 핵심 한 줄 영작.
    «🔁 핵심 찾기 반복» 은 같은 단계 글 5편의 중심 내용만 빠르게 다시 묻는다.
+   📋 고르기 화면(C안 · 2026-10-18 사장님 「스크롤 없이 한 장에 · 드롭다운」): 툴바 드롭다운 + 왼쪽 목록 + 오른쪽 상세.
 
    ⛔ 정답을 맞혀야만 넘어가게 만들지 않는다 — 두 번 틀리면 «정답 보기» 가 열린다
       (CLAUDE.md 「정답을 맞혀야만 다음으로」: 못 푸는 학생이 갇힌다).
@@ -116,6 +117,33 @@
       list.forEach(function (p) { var r = (prog || {})[p.id]; ((r && r.m === 'ok') ? rest : weak).push(p); });
       function shuf(a) { var o = RLCore.seededOrder(a.length, seed + ':' + a.length); return o.map(function (i) { return a[i]; }); }
       return shuf(weak).concat(shuf(rest)).slice(0, RLCore.DRILL_SIZE);
+    },
+    // 📋 고르기 화면(C안 · 2026-10-18) — 글 상태 · 거르기·정렬 · 상세에 띄울 글. 화면은 이 셋을 «부르기만» 한다.
+    STATUSES: ['new', 'doing', 'done'],
+    SORTS: ['no', 'short', 'long'],
+    statusOf: function (r) {
+      if (RLCore.isDone(r)) return 'done';
+      return r && (r.k || r.m || r.s) ? 'doing' : 'new';
+    },
+    // 주제 → 상태 → 정렬. 모르는 주제는 안 거른다(filterByTopic) · 상태로 걸러 0편이면 그건 사실이라 빈 목록.
+    // 길이 정렬은 같은 길이면 원래 번호 순 — 다시 그릴 때마다 줄이 흔들리지 않게.
+    browse: function (passages, stage, prog, opt) {
+      opt = opt || {};
+      var base = passages.filter(function (p) { return p.stage === stage; });
+      var list = RLCore.filterByTopic(base, opt.topic);
+      if (RLCore.STATUSES.indexOf(opt.status) >= 0) list = list.filter(function (p) { return RLCore.statusOf((prog || {})[p.id]) === opt.status; });
+      var dir = opt.sort === 'short' ? 1 : opt.sort === 'long' ? -1 : 0;
+      if (!dir) return list;
+      return list.map(function (p) { return { p: p, w: RLCore.wordCount(p), i: base.indexOf(p) }; })
+        .sort(function (a, b) { return (a.w - b.w) * dir || a.i - b.i; })
+        .map(function (x) { return x.p; });
+    },
+    // 상세에 띄울 글 — 고른 글(그 단계 글일 때만) → 하던 글 → 새 글 → 첫 글.
+    pickActive: function (passages, stage, prog, selId) {
+      var list = passages.filter(function (p) { return p.stage === stage; });
+      var st = function (p) { return RLCore.statusOf((prog || {})[p.id]); };
+      for (var i = 0; i < list.length; i++) if (list[i].id === selId) return list[i];
+      return list.filter(function (p) { return st(p) === 'doing'; })[0] || list.filter(function (p) { return st(p) === 'new'; })[0] || list[0] || null;
     }
   };
   /* RL-CORE-END */
@@ -132,14 +160,12 @@
   var MAX_STAGE = STAGES.length;
 
   /* ── 저장(이 기기) — 막혀도 메모리로 계속 ── */
-  // layout: 'all' = 4단계 한눈에(처음 오면 이것) · 'stage' = 한 단계 자세히
-  var state = { stage: 1, prog: {}, layout: 'all' };
+  var state = { stage: 1, prog: {} };
   try {
     var saved = JSON.parse(localStorage.getItem(RLCore.STORE_KEY) || 'null');
     if (saved && typeof saved === 'object') {
       if (saved.prog && typeof saved.prog === 'object') state.prog = saved.prog;
       if (saved.stage >= 1 && saved.stage <= MAX_STAGE) state.stage = saved.stage;
-      if (saved.layout === 'stage' || saved.layout === 'all') state.layout = saved.layout;
     }
   } catch (e) {}
   function save() { try { localStorage.setItem(RLCore.STORE_KEY, JSON.stringify(state)); } catch (e) {} }
@@ -178,124 +204,180 @@
   }
 
   /* ── 화면 상태 ── */
-  var view = { mode: 'list', id: null, drill: null, topic: '', showKo: false, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
+  // view = 읽기·반복 연습의 그때그때 상태 · filt = 고르기 화면의 고른 글·거르기(글을 읽고 돌아와도 남는다)
+  var view = { mode: 'list', id: null, drill: null, showKo: false, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
+  var filt = { topic: '', status: '', sort: 'no', sel: null };
+  var FILTER_VALUES = { status: RLCore.STATUSES, sort: RLCore.SORTS };
+
+  // 다시 그려도 포커스가 같은 버튼에 남게(키보드로 고르는 학생) — data-act 와 그 값들로 «같은 버튼» 을 찾는다.
+  var FOCUS_ATTRS = ['data-act', 'data-id', 'data-stage', 'data-key', 'data-v', 'data-topic', 'data-o', 'data-i'];
+  function focusKey(el) {
+    if (!el || !el.getAttribute || !el.getAttribute('data-act') || !root.contains(el)) return null;
+    return FOCUS_ATTRS.map(function (a) { return el.getAttribute(a) || ''; }).join('|');
+  }
+  function restoreFocus(k) {
+    if (!k) return;
+    var els = root.querySelectorAll('[data-act]');
+    for (var i = 0; i < els.length; i++) {
+      if (focusKey(els[i]) !== k) continue;
+      var dd = els[i].closest ? els[i].closest('details:not([open])') : null;
+      var target = dd ? dd.querySelector('summary') : els[i];
+      try { target.focus({ preventScroll: true }); } catch (e) {}
+      return;
+    }
+  }
 
   function render() {
     stopSpeak();
-    if (view.mode === 'read') return renderReader();
-    if (view.mode === 'drill') return renderDrill();
-    renderList();
+    var fk = focusKey(document.activeElement);
+    // 고르기 화면만 «한 장에 꽉 차는» 배치 — 읽기·반복 연습은 예전처럼 아래로 스크롤.
+    // ⛔ toggle 에 force 를 준다(상태가 그대로면 class 속성을 다시 쓰지 않는다 — CLAUDE.md classList 항목).
+    document.documentElement.classList.toggle('rl-browse', view.mode === 'list');
+    renderOverall();
+    if (view.mode === 'read') renderReader();
+    else if (view.mode === 'drill') renderDrill();
+    else renderBrowse();
+    restoreFocus(fk);
   }
 
-  /* ════ 목록 ════ */
-  function cardStatus(p) {
-    var r = state.prog[p.id];
-    var done = RLCore.isDone(r);
-    var stepN = r ? ((r.k ? 1 : 0) + (r.m ? 1 : 0) + (r.s ? 1 : 0)) : 0;
-    return { done: done, text: done ? '✅ ' + T('핵심 찾기 완료', 'Done') : stepN ? '🟡 ' + T('진행 ' + stepN + ' / 3', 'In progress ' + stepN + ' / 3') : T('새 글', 'New') };
+  /* ════ 📋 고르기 화면 (C안 · 2026-10-18 사장님 「스크롤 없이 한 장에 · 드롭다운」) ════
+     툴바(단계 계단 · 단계/주제/상태/정렬 드롭다운 · 그림 동화책 4권 · 반복 연습) + 왼쪽 글 목록 + 오른쪽 «고른 글» 상세.
+     ⛔ 예전 «단계별 한눈에»(48편 긴 스크롤)·«한 단계 자세히» 두 보기는 이 한 화면으로 합쳤다.
+     거르기·정렬·상세에 띄울 글은 RL-CORE(browse · pickActive · statusOf)가 정본 — 여기서는 그리기만 한다. */
+  function svg(body, sw, cls) {
+    return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="' + (sw || 2) +
+      '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (cls ? ' class="' + cls + '"' : '') + '>' + body + '</svg>';
   }
-  function layoutSwitch() {
-    function b(k, ko, en) {
-      return '<button type="button" class="rl-seg' + (state.layout === k ? ' on' : '') + '" data-act="layout" data-layout="' + k + '" aria-pressed="' + (state.layout === k) + '">' + esc(T(ko, en)) + '</button>';
-    }
-    return '<div class="rl-segs" role="group" aria-label="' + esc(T('보기 방식', 'View')) + '">' +
-      b('all', '📋 단계별 한눈에', '📋 All steps') + b('stage', '📖 한 단계 자세히', '📖 One step') + '</div>';
+  var ICON = {
+    chev: svg('<path d="M6 9l6 6 6-6"/>', 2, 'rl-chev'),
+    check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 3.2),
+    play: svg('<path d="M7 5l12 7-12 7z" fill="currentColor"/>'),
+    book: svg('<path d="M4 5.5A2.5 2.5 0 016.5 3H20v15H6.5A2.5 2.5 0 004 20.5z"/><path d="M4 20.5V5.5M8 7h8"/>')
+  };
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function stLabel(s) { return s === 'done' ? T('완료', 'Done') : s === 'doing' ? T('하는 중', 'In progress') : T('새 글', 'New'); }
+  function statusIcon(s, label) {
+    var lab = label || stLabel(s);
+    return '<span class="rl-si ' + s + '" role="img" aria-label="' + esc(lab) + '" title="' + esc(lab) + '">' + (s === 'done' ? ICON.check : '') + '</span>';
   }
-  function progBar(st, color) {
-    var pct = st.total ? Math.round(st.done * 100 / st.total) : 0;
-    return '<span class="rl-pbar" style="--sc:' + color + '" role="img" aria-label="' + esc(T('완료 ' + st.done + ' / ' + st.total, 'Done ' + st.done + ' of ' + st.total)) + '"><i style="width:' + pct + '%"></i></span>';
+  function statusChip(s) { return '<span class="rl-stchip ' + s + '">' + (s === 'done' ? ICON.check : '') + esc(stLabel(s)) + '</span>'; }
+  function stageName(s) { return T(s.n + '단계 ', 'Step ' + s.n + ' ') + L(s.name); }
+
+  function renderOverall() {
+    var box = document.getElementById('rlOverall');
+    if (!box) return;
+    var done = PASSAGES.filter(function (p) { return RLCore.isDone(state.prog[p.id]); }).length;
+    var total = PASSAGES.length;
+    box.innerHTML = '<span>' + esc(T('전체 진도', 'Progress')) + '</span><b>' + done + ' / ' + total + '</b>' +
+      '<span class="rl-meter" role="img" aria-label="' + esc(T(total + '편 중 ' + done + '편 완료', done + ' of ' + total + ' done')) + '">' +
+      '<i style="width:' + (total ? Math.round(done * 100 / total) : 0) + '%"></i></span>';
   }
 
-  /* 📋 4단계 한눈에 — 단계마다 학년·CEFR·평균 단어·진행 + 글 목록(그림 동화책은 2단계 안에 «그림책» 표시) */
-  function renderOverview() {
-    var books = (window.__storyBookList && window.__storyBookList()) || [];
-    var secs = STAGES.map(function (s) {
-      var st = RLCore.stageStats(PASSAGES, s.n, state.prog);
-      var rows = PASSAGES.filter(function (p) { return p.stage === s.n; }).map(function (p, i) {
-        var cs = cardStatus(p);
-        return '<li><button type="button" class="rl-li' + (cs.done ? ' done' : '') + '" data-act="open" data-id="' + p.id + '">' +
-          '<span class="rl-li-no">' + (i + 1) + '</span>' +
-          '<span class="rl-li-t">' + esc(p.title.en) + ' ' + bookTag(p.id) + '<small>' + esc(p.title.ko) + '</small></span>' +
-          '<span class="rl-li-m">' + esc(L(p.topic)) + ' · ' + RLCore.wordCount(p) + T('단어', 'w') + '</span>' +
-          '<span class="rl-li-s">' + esc(cs.text) + '</span></button></li>';
-      }).join('');
-      var bookRows = s.n === 2 ? books.map(function (b) {
-        var prog = b.n >= 6 ? '🎉 ' + T('완주', 'Finished') : b.n > 0 ? '🏅 ' + b.n + ' / 6' : T('새 책', 'New');
-        return '<li><a class="rl-li rl-li-book' + (b.n >= 6 ? ' done' : '') + '" href="/story-' + esc(b.id) + '.html">' +
-          '<span class="rl-li-no">🖼</span>' +
-          '<span class="rl-li-t">' + esc(b.title) + ' <span class="rl-pic">' + esc(T('그림책', 'Picture book')) + '</span><small>' + esc(lang() === 'en' ? b.en : b.ko) + '</small></span>' +
-          '<span class="rl-li-m">' + esc(T('도장 6개 +10P', '6 stamps = +10P')) + '</span>' +
-          '<span class="rl-li-s">' + esc(prog) + '</span></a></li>';
-      }).join('') : '';
-      return '<section class="rl-sec" style="--sc:' + s.color + '" aria-labelledby="rlSec' + s.n + '">' +
-        '<div class="rl-sec-h"><div class="rl-sec-t">' +
-          '<span class="rl-sec-n">' + esc(T(s.n + '단계', 'Step ' + s.n)) + '</span>' +
-          '<h2 id="rlSec' + s.n + '">' + esc(L(s.name)) + '</h2>' +
-          '<span class="rl-sec-g">' + esc(L(s.grade)) + ' · ' + esc(s.cefr) + ' · ' + esc(T('평균 ' + RLCore.stageAvgWords(PASSAGES, s.n) + '단어', 'avg ' + RLCore.stageAvgWords(PASSAGES, s.n) + ' words')) +
-            ' · ' + esc(T((s.n <= 2 ? '이야기 ' : '지식 글 ') + st.total + '편' + (s.n === 2 && books.length ? ' + 그림책 ' + books.length + '권' : ''),
-                          st.total + (s.n <= 2 ? ' stories' : ' non-fiction texts') + (s.n === 2 && books.length ? ' + ' + books.length + ' picture books' : ''))) + '</span>' +
-          '<span class="rl-sec-d">' + esc(L(s.desc)) + '</span></div>' +
-          '<div class="rl-sec-p">' + progBar(st, s.color) + '<span>' + esc(T('완료 ' + st.done + ' / ' + st.total, 'Done ' + st.done + ' / ' + st.total)) + '</span>' +
-            '<button type="button" class="rl-btn rl-primary" data-act="stage" data-stage="' + s.n + '">' + esc(T('이 단계 공부하기 ▶', 'Study this step ▶')) + '</button></div></div>' +
-        '<ol class="rl-list">' + rows + bookRows + '</ol></section>';
-    }).join('');
-    var jump = '<nav class="rl-jump" aria-label="' + esc(T('단계 바로가기', 'Jump to a step')) + '">' + STAGES.map(function (s) {
-      var st = RLCore.stageStats(PASSAGES, s.n, state.prog);
-      return '<button type="button" class="rl-jbtn" style="--sc:' + s.color + '" data-act="jump" data-stage="' + s.n + '">' +
-        '<b>' + esc(T(s.n + '단계', 'Step ' + s.n)) + '</b> ' + esc(L(s.name)) + ' <span>' + st.done + '/' + st.total + '</span></button>';
-    }).join('') + '</nav>';
-    root.innerHTML = layoutSwitch() + jump +
-      '<p class="rl-howto">' + esc(T('단계를 고르거나 글 제목을 바로 눌러 시작하세요. 1단계부터 차례로 올라가면 가장 좋아요.',
-        'Pick a step or tap any title to start. Climbing from Step 1 works best.')) + '</p>' + secs;
+  // 드롭다운 — <details> 라 스크립트 없이도 열리고, Esc·바깥 누르기·다른 것 열기에 닫힌다(아래 조작).
+  function dd(label, curHtml, opts, cls) {
+    return '<details class="rl-dd' + (cls ? ' ' + cls : '') + '"><summary class="rl-dd-btn">' +
+      (label ? '<span class="rl-dd-lab">' + esc(label) + '</span>' : '') + curHtml + ICON.chev + '</summary>' +
+      '<div class="rl-dd-menu" role="menu">' + opts.join('') + '</div></details>';
+  }
+  function ddOpt(attrs, on, inner, hint) {
+    return '<button type="button" class="rl-dd-opt" role="menuitemradio" aria-checked="' + (on ? 'true' : 'false') + '" ' + attrs + '>' +
+      inner + (hint != null ? '<small>' + esc(hint) + '</small>' : '') + '</button>';
   }
 
-  function renderList() {
-    if (state.layout === 'all') return renderOverview();
-    var cur = state.stage;
-    var tabs = STAGES.map(function (s) {
-      var st = RLCore.stageStats(PASSAGES, s.n, state.prog);
-      return '<button type="button" class="rl-tab' + (s.n === cur ? ' on' : '') + '" style="--sc:' + s.color + '" data-act="stage" data-stage="' + s.n + '" aria-pressed="' + (s.n === cur) + '">' +
-        '<span class="rl-tab-n">' + esc(T(s.n + '단계', 'Step ' + s.n)) + '</span>' +
-        '<span class="rl-tab-t">' + esc(L(s.name)) + '</span>' +
-        '<span class="rl-tab-g">' + esc(L(s.grade)) + ' · ' + esc(s.cefr) + ' · ' + esc(T('평균 ' + RLCore.stageAvgWords(PASSAGES, s.n) + '단어', 'avg ' + RLCore.stageAvgWords(PASSAGES, s.n) + 'w')) + '</span>' +
-        '<span class="rl-tab-p">' + progBar(st, s.color) + esc(T('완료 ', 'Done ') + st.done + ' / ' + st.total) + '</span></button>';
-    }).join('');
+  function toolbarHtml(cur, stageList, shownN) {
     var meta = stageMeta(cur);
-    var st = RLCore.stageStats(PASSAGES, cur, state.prog);
-    var next = RLCore.recommendNext(PASSAGES, cur, state.prog, MAX_STAGE);
-    var nextBox = next ? '<div class="rl-next" role="status">🎉 ' + esc(T(
-        cur + '단계 글을 ' + st.done + '편 끝냈고 처음에 맞힌 비율이 ' + Math.round(st.firstRatio * 100) + '%예요. ' + (cur + 1) + '단계로 올라가 볼까요?',
-        'You finished ' + st.done + ' texts with ' + Math.round(st.firstRatio * 100) + '% right on the first try. Ready for Step ' + (cur + 1) + '?')) +
-        ' <button type="button" class="rl-btn rl-primary" data-act="stage" data-stage="' + (cur + 1) + '">' + esc(T((cur + 1) + '단계로 ▶', 'Go to Step ' + (cur + 1) + ' ▶')) + '</button></div>' : '';
-    var stageList = PASSAGES.filter(function (p) { return p.stage === cur; });
+    var stair = '<div class="rl-stair" role="group" aria-label="' + esc(T('단계', 'Step')) + '">' + STAGES.map(function (s) {
+      return '<button type="button" class="' + (s.n < cur ? 'past' : '') + '" style="--sc:' + s.color + '" data-act="stage" data-stage="' + s.n +
+        '" aria-pressed="' + (s.n === cur) + '" title="' + esc(stageName(s)) + '" aria-label="' + esc(stageName(s)) + '"></button>';
+    }).join('') + '</div>';
+    var stageDd = dd(T('단계', 'Step'), '<span class="rl-sw" style="--sc:' + meta.color + '"></span><span class="rl-dd-val">' + esc(stageName(meta)) + '</span>',
+      STAGES.map(function (s) {
+        var st = RLCore.stageStats(PASSAGES, s.n, state.prog);
+        return ddOpt('data-act="stage" data-stage="' + s.n + '"', s.n === cur,
+          '<span class="rl-sw" style="--sc:' + s.color + '"></span><span>' + esc(stageName(s)) + '<em>' + esc(L(s.grade) + ' · ' + s.cefr) + '</em></span>',
+          st.done + '/' + st.total);
+      }));
     var topics = RLCore.topicsOf(PASSAGES, cur);
-    var shown = RLCore.filterByTopic(stageList, view.topic);
-    var topicOn = shown !== stageList;
-    var chips = topics.length > 1 ? '<div class="rl-topics" role="group" aria-label="' + esc(T('주제로 거르기', 'Filter by topic')) + '">' +
-      '<button type="button" class="rl-tchip' + (topicOn ? '' : ' on') + '" data-act="topic" data-topic="" aria-pressed="' + !topicOn + '">' + esc(T('전체', 'All')) + ' ' + stageList.length + '</button>' +
-      topics.map(function (t) {
-        var on = topicOn && view.topic === t.key;
-        return '<button type="button" class="rl-tchip' + (on ? ' on' : '') + '" data-act="topic" data-topic="' + esc(t.key) + '" aria-pressed="' + on + '">' + esc(L(t.label)) + ' ' + t.count + '</button>';
-      }).join('') + '</div>' : '';
-    var cards = shown.map(function (p) {
-      var cs = cardStatus(p), done = cs.done, status = cs.text;
-      return '<button type="button" class="rl-card' + (done ? ' done' : '') + '" data-act="open" data-id="' + p.id + '">' +
-        '<span class="rl-card-no">' + (stageList.indexOf(p) + 1) + '</span>' +
-        '<span class="rl-card-b"><span class="rl-card-t">' + esc(p.title.en) + '</span>' +
-        '<span class="rl-card-k">' + esc(p.title.ko) + ' ' + bookTag(p.id) + '</span>' +
-        '<span class="rl-card-m">' + esc(L(p.topic)) + ' · ' + RLCore.wordCount(p) + T('단어', ' words') + ' · ' + esc(p.genre === 'story' ? T('이야기', 'Story') : T('지식 글', 'Non-fiction')) + '</span>' +
-        '<span class="rl-card-s">' + esc(status) + '</span></span></button>';
-    }).join('');
-    var books = (cur === 2 && !topicOn && window.__storyBooksHtml) ? '<h3 class="rl-h3">' + esc(T('🖼 그림 동화책 (2단계 · 도장 6개 +10P)', '🖼 Picture storybooks (Step 2 · 6 stamps = +10P)')) + '</h3><div class="grid">' + window.__storyBooksHtml() + '</div>' : '';
-    root.innerHTML = layoutSwitch() +
-      '<div class="rl-tabs" role="group" aria-label="' + esc(T('단계 고르기', 'Choose a step')) + '">' + tabs + '</div>' +
-      '<div class="rl-stagehead" style="--sc:' + meta.color + '">' +
-        '<div><b>' + esc(T(cur + '단계 · ', 'Step ' + cur + ' · ') + L(meta.name)) + '</b> <span>' + esc(L(meta.desc)) + '</span></div>' +
-        '<button type="button" class="rl-btn rl-primary" data-act="drill">🔁 ' + esc(T('핵심 찾기 반복 (' + RLCore.DRILL_SIZE + '문제)', 'Main-idea drill (' + RLCore.DRILL_SIZE + ')')) + '</button>' +
-      '</div>' + nextBox +
-      '<div class="rl-howto">' + esc(T('한 편마다: 📖 읽기 → ① 핵심 문장 찾기 → ② 중심 내용 고르기 → ③ 핵심을 영어 한 문장으로 쓰기',
-        'Each text: 📖 read → ① find the key sentence → ② choose the main idea → ③ write the main idea in one English sentence')) + '</div>' +
-      chips + '<div class="rl-cards">' + cards + '</div>' + books;
+    var curTopic = topics.filter(function (x) { return x.key === filt.topic; })[0] || null;
+    var topicDd = dd(T('주제', 'Topic'), '<span class="rl-dd-val">' + esc(curTopic ? L(curTopic.label) : T('전체', 'All')) + '</span>',
+      [ddOpt('data-act="topic" data-topic=""', !curTopic, '<span>' + esc(T('전체', 'All')) + '</span>', stageList.length)].concat(topics.map(function (x) {
+        return ddOpt('data-act="topic" data-topic="' + esc(x.key) + '"', curTopic === x, '<span>' + esc(L(x.label)) + '</span>', x.count);
+      })), 'rl-dd-cols');
+    var stOpts = [''].concat(RLCore.STATUSES);
+    var statusDd = dd(T('상태', 'Status'), '<span class="rl-dd-val">' + esc(filt.status ? stLabel(filt.status) : T('전체', 'All')) + '</span>',
+      stOpts.map(function (v) {
+        var n = RLCore.browse(PASSAGES, cur, state.prog, { topic: filt.topic, status: v }).length;
+        return ddOpt('data-act="filter" data-key="status" data-v="' + v + '"', filt.status === v, '<span>' + esc(v ? stLabel(v) : T('전체', 'All')) + '</span>', n);
+      }));
+    var sortLab = { no: T('번호순', 'By number'), short: T('짧은 글부터', 'Shortest first'), long: T('긴 글부터', 'Longest first') };
+    var sortDd = dd(T('정렬', 'Sort'), '<span class="rl-dd-val">' + esc(sortLab[filt.sort] || sortLab.no) + '</span>',
+      RLCore.SORTS.map(function (v) { return ddOpt('data-act="filter" data-key="sort" data-v="' + v + '"', filt.sort === v, '<span>' + esc(sortLab[v]) + '</span>'); }));
+    // 그림 동화책 4권(따로 만든 책) — 2단계에서만. 책은 각자 화면이라 고르면 바로 그 책으로 간다.
+    var books = (cur === 2 && window.__storyBookList && window.__storyBookList()) || [];
+    var booksDd = books.length ? dd('', ICON.book + '<span class="rl-dd-val">' + esc(T('그림 동화책 ' + books.length + '권', books.length + ' picture books')) + '</span>',
+      books.map(function (b) {
+        var s = b.n >= 6 ? 'done' : b.n > 0 ? 'doing' : 'new';
+        var prog = b.n >= 6 ? T('완주', 'Finished') : T('도장 ' + b.n + '/6', 'Stamps ' + b.n + '/6');
+        return '<a class="rl-dd-opt rl-dd-item" role="menuitem" href="/story-' + esc(b.id) + '.html">' + statusIcon(s, prog) +
+          '<span class="rl-dd-tx"><b>' + esc(b.title) + '</b><small>' + esc((lang() === 'en' ? b.en : b.ko) + ' · ' + prog) + '</small></span></a>';
+      }), 'rl-dd-right') : '';
+    var st = RLCore.stageStats(PASSAGES, cur, state.prog);
+    var next = RLCore.recommendNext(PASSAGES, cur, state.prog, MAX_STAGE) ? '<button type="button" class="rl-tb-btn rl-tb-next" data-act="stage" data-stage="' + (cur + 1) +
+      '" title="' + esc(T('처음에 맞힌 비율 ' + Math.round(st.firstRatio * 100) + '%', 'First-try correct ' + Math.round(st.firstRatio * 100) + '%')) + '">🎉 ' +
+      esc(T((cur + 1) + '단계로 올라가기', 'Go up to Step ' + (cur + 1))) + '</button>' : '';
+    return '<div class="rl-tb">' + stair + stageDd + topicDd + statusDd + sortDd + booksDd +
+      '<button type="button" class="rl-tb-btn" data-act="drill">🔁 ' + esc(T('핵심 찾기 반복', 'Main-idea drill')) + '</button>' + next +
+      '<span class="rl-count"><b>' + shownN + '</b> / ' + esc(T(stageList.length + '편', stageList.length + ' texts')) + '</span></div>';
+  }
+
+  function itemHtml(p, no, on) {
+    var s = RLCore.statusOf(state.prog[p.id]);
+    return '<button type="button" class="rl-item ' + s + (on ? ' sel' : '') + '" data-act="sel" data-id="' + esc(p.id) + '" aria-pressed="' + on + '">' +
+      '<span class="rl-no">' + pad2(no) + '</span>' +
+      '<span class="rl-tt"><b lang="en">' + esc(p.title.en) + '</b>' + (lang() === 'en' ? '' : '<span>' + esc(p.title.ko) + '</span>') + '</span>' +
+      '<span class="rl-topic">' + esc(L(p.topic)) + '</span>' +
+      '<span class="rl-wc">' + RLCore.wordCount(p) + esc(T('단어', 'w')) + '</span>' + statusIcon(s) + '</button>';
+  }
+
+  function detailHtml(p, stageList) {
+    if (!p) return '';
+    var meta = stageMeta(p.stage), r = state.prog[p.id] || {}, s = RLCore.statusOf(r);
+    var i = stageList.indexOf(p), st = RLCore.stageStats(PASSAGES, p.stage, state.prog);
+    var steps = [
+      [r.k, T('핵심 문장 찾기', 'Find the key sentence'), T('글에서 가장 중요한 한 문장을 눌러요.', 'Tap the one sentence that matters most.')],
+      [r.m, T('중심 내용 고르기', 'Choose the main idea'), T('글이 말하려는 것을 보기 4개에서 골라요.', 'Pick what the text is mainly about.')],
+      [r.s, T('영어 한 문장으로', 'One English sentence'), T('핵심을 영어 한 문장으로 써요.', 'Write the main idea in one English sentence.')]
+    ];
+    var cta = s === 'done' ? T('다시 읽기', 'Read again') : s === 'doing' ? T('이어서 하기', 'Continue') : T('읽기 시작', 'Start reading');
+    return '<article class="rl-detail" id="rlDetail" aria-live="polite">' +
+      '<div class="rl-hero"><span class="rl-hero-no" aria-hidden="true">' + pad2(i + 1) + '</span>' +
+        '<div class="rl-hero-top"><span class="rl-eyebrow">' + esc(stageName(meta) + T(' · ' + (i + 1) + '번', ' · No. ' + (i + 1))) + '</span>' + statusChip(s) + '</div>' +
+        '<h2 lang="en">' + esc(p.title.en) + '</h2>' + (lang() === 'en' ? '' : '<p class="rl-hero-ko">' + esc(p.title.ko) + '</p>') +
+        '<div class="rl-facts"><span>' + esc(L(p.topic)) + '</span><span>' + RLCore.wordCount(p) + esc(T('단어', ' words')) + '</span><span>' + esc(meta.cefr) +
+          '</span><span>' + esc(L(meta.grade)) + '</span><span>' + esc(p.genre === 'story' ? T('이야기', 'Story') : T('지식 글', 'Non-fiction')) + '</span>' + bookTag(p.id) + '</div>' +
+        '<p class="rl-hero-bg">🧠 ' + esc(L(p.bg)) + '</p></div>' +
+      '<div class="rl-how"><h3>' + esc(T('이렇게 읽어요', 'How it works')) + '</h3><ol>' + steps.map(function (x, n) {
+        return '<li class="' + (x[0] ? 'done' : '') + '"><span class="rl-hn">' + (x[0] ? ICON.check : n + 1) + '</span><b>' + esc(x[1]) + '</b><p>' + esc(x[2]) + '</p></li>';
+      }).join('') + '</ol></div>' +
+      '<div class="rl-foot"><div class="rl-prog"><span class="rl-dots" role="img" aria-label="' + esc(T('완료 ' + st.done + ' / ' + st.total, 'Done ' + st.done + ' of ' + st.total)) + '">' +
+        stageList.map(function (q) { return '<i class="' + RLCore.statusOf(state.prog[q.id]) + '"></i>'; }).join('') + '</span>' +
+        '<span>' + esc(T('완료 ' + st.done + ' / ' + st.total, 'Done ' + st.done + ' / ' + st.total)) + '</span></div>' +
+        '<div class="rl-acts"><button type="button" class="rl-ghost" data-act="step" data-v="-1"' + (i <= 0 ? ' disabled' : '') + '>' + esc(T('이전 글', 'Previous')) + '</button>' +
+          '<button type="button" class="rl-ghost" data-act="step" data-v="1"' + (i >= stageList.length - 1 ? ' disabled' : '') + '>' + esc(T('다음 글', 'Next')) + '</button>' +
+          '<a class="rl-ghost" href="/story-' + esc(p.id) + '.html">🖼 ' + esc(T('그림책', 'Picture book')) + '</a>' +
+          '<button type="button" class="rl-cta" data-act="open" data-id="' + esc(p.id) + '">' + ICON.play + esc(cta) + '</button></div></div>' +
+      '</article>';
+  }
+
+  function renderBrowse() {
+    var cur = state.stage, meta = stageMeta(cur);
+    var stageList = PASSAGES.filter(function (p) { return p.stage === cur; });
+    var shown = RLCore.browse(PASSAGES, cur, state.prog, filt);
+    var active = RLCore.pickActive(PASSAGES, cur, state.prog, filt.sel);
+    root.innerHTML = '<div class="rl-app" style="--sc:' + meta.color + '">' + toolbarHtml(cur, stageList, shown.length) +
+      '<div class="rl-split"><div class="rl-list">' + (shown.length ? shown.map(function (p) { return itemHtml(p, stageList.indexOf(p) + 1, p === active); }).join('') :
+        '<p class="rl-empty">' + esc(T('조건에 맞는 글이 없어요. 상태나 주제를 바꿔 보세요.', 'No texts match. Try another status or topic.')) + '</p>') + '</div>' +
+      detailHtml(active, stageList) + '</div></div>';
   }
 
   /* ════ 읽기 + 3단계 ════ */
@@ -313,7 +395,7 @@
 
   function renderReader() {
     var p = byId(view.id);
-    if (!p) { view.mode = 'list'; return renderList(); }
+    if (!p) { view.mode = 'list'; return renderBrowse(); }
     var r = state.prog[p.id] || {};
     var meta = stageMeta(p.stage);
     var keyDone = !!r.k;
@@ -443,7 +525,10 @@
 
   /* ════ 조작 ════ */
   function openPassage(id) {
-    view = { mode: 'read', id: id, drill: null, topic: view.topic, showKo: view.showKo, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
+    var op = byId(id);
+    // 읽고 돌아오면 그 글이 고른 글로 남는다(목록 위치를 잃지 않게)
+    if (op) { state.stage = op.stage; filt.sel = id; save(); }
+    view = { mode: 'read', id: id, drill: null, showKo: view.showKo, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
     render();
     try { root.scrollIntoView({ block: 'start' }); } catch (e) {}
   }
@@ -453,15 +538,30 @@
     if (!t || !root.contains(t)) return;
     var act = t.getAttribute('data-act');
     var p = view.id ? byId(view.id) : null;
-    if (act === 'stage') { state.stage = Number(t.getAttribute('data-stage')) || 1; state.layout = 'stage'; view.topic = ''; save(); view.mode = 'list'; render(); try { root.scrollIntoView({ block: 'start' }); } catch (e) {} return; }
-    if (act === 'layout') { state.layout = t.getAttribute('data-layout') === 'stage' ? 'stage' : 'all'; save(); view.mode = 'list'; render(); return; }
-    if (act === 'jump') {
-      var h = document.getElementById('rlSec' + t.getAttribute('data-stage'));
-      var sec = h && h.closest ? h.closest('.rl-sec') : null;
-      if (sec) { try { sec.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) { sec.scrollIntoView(); } }
+    if (act === 'stage') {
+      var n = Number(t.getAttribute('data-stage'));
+      if (n >= 1 && n <= MAX_STAGE && n !== state.stage) { state.stage = n; filt.sel = null; filt.topic = ''; }   // 주제는 단계마다 달라 비운다
+      save(); view.mode = 'list'; view.id = null; render(); return;
+    }
+    if (act === 'topic') { filt.topic = t.getAttribute('data-topic') || ''; render(); return; }
+    if (act === 'filter') {
+      var fk = t.getAttribute('data-key'), fv = t.getAttribute('data-v') || '';
+      if (FILTER_VALUES[fk] && (fv === '' || FILTER_VALUES[fk].indexOf(fv) >= 0)) filt[fk] = fv || (fk === 'sort' ? 'no' : '');
+      render(); return;
+    }
+    if (act === 'sel') {
+      filt.sel = t.getAttribute('data-id'); render();
+      // 폰에서는 상세가 목록 아래라, 고르면 상세로 옮겨 준다
+      var det = document.getElementById('rlDetail');
+      if (det && narrow()) { try { det.scrollIntoView({ block: 'start' }); } catch (e) {} }
       return;
     }
-    if (act === 'topic') { view.topic = t.getAttribute('data-topic') || ''; render(); return; }
+    if (act === 'step') {
+      var sl = PASSAGES.filter(function (x) { return x.stage === state.stage; });
+      var j = sl.indexOf(RLCore.pickActive(PASSAGES, state.stage, state.prog, filt.sel)) + (Number(t.getAttribute('data-v')) || 0);
+      if (j >= 0 && j < sl.length) filt.sel = sl[j].id;
+      render(); return;
+    }
     if (act === 'open') { openPassage(t.getAttribute('data-id')); return; }
     if (act === 'list') { view.mode = 'list'; view.id = null; render(); return; }
     if (act === 'ko') { view.showKo = !view.showKo; render(); return; }
@@ -472,7 +572,7 @@
     }
     if (act === 'drill') {
       var seed = new Date().toISOString().slice(0, 10) + ':' + state.stage + ':' + Math.floor(Date.now() / 60000);
-      view = { mode: 'drill', id: null, topic: view.topic, showKo: false, drill: { list: RLCore.pickDrill(PASSAGES, state.stage, state.prog, seed), i: 0, picked: null, wrong: 0, revealed: false, first: 0 } };
+      view = { mode: 'drill', id: null, showKo: false, drill: { list: RLCore.pickDrill(PASSAGES, state.stage, state.prog, seed), i: 0, picked: null, wrong: 0, revealed: false, first: 0 } };
       render(); return;
     }
     if (act === 'key' && p) {
@@ -519,6 +619,35 @@
   // 입력 중인 글은 다시 그려도 남게(언어 전환 등)
   root.addEventListener('input', function (ev) {
     if (ev.target && ev.target.id === 'rlSum' && view.id) { rec(view.id).sText = ev.target.value.slice(0, 300); save(); }
+  });
+
+  function narrow() { try { return window.matchMedia('(max-width: 820px)').matches; } catch (e) { return false; } }
+
+  // 드롭다운 — 바깥을 누르거나 다른 것을 열거나 Esc 면 닫는다
+  function closeDropdowns(keep) {
+    var open = root.querySelectorAll('details.rl-dd[open]');
+    for (var i = 0; i < open.length; i++) if (!keep || !open[i].contains(keep)) open[i].open = false;
+  }
+  document.addEventListener('click', function (ev) { closeDropdowns(ev.target); });
+  root.addEventListener('toggle', function (ev) { if (ev.target.open && ev.target.classList && ev.target.classList.contains('rl-dd')) closeDropdowns(ev.target); }, true);
+  root.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') {
+      var o = root.querySelector('details.rl-dd[open]');
+      if (o) { o.open = false; var sm = o.querySelector('summary'); if (sm) sm.focus(); }
+      return;
+    }
+    // ↑/↓ 로 글 목록을 옮겨 다닌다
+    if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp') return;
+    var it = ev.target.closest ? ev.target.closest('.rl-item') : null;
+    if (!it) return;
+    var items = root.querySelectorAll('.rl-item');
+    var idx = Array.prototype.indexOf.call(items, it) + (ev.key === 'ArrowDown' ? 1 : -1);
+    if (idx < 0 || idx >= items.length) return;
+    ev.preventDefault();
+    var id = items[idx].getAttribute('data-id');
+    filt.sel = id; render();
+    var nx = root.querySelector('.rl-item[data-id="' + id + '"]');
+    if (nx) { try { nx.focus(); } catch (e) {} }
   });
 
   window.addEventListener('story:lang', render);
