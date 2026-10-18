@@ -1,4 +1,5 @@
 import { handleSpeechPreferences } from './speech-preferences';
+import { loadRecentMistakes, recentMistakesPromptLine } from './recent-mistakes';   // 🔁 최근 교정 다시 쓰기(2026-10-18)
 import { readableKoreanVocabulary, hasForeignGloss } from './korean-vocab';
 /**
  * index.ts - Main Worker entry point
@@ -4281,6 +4282,22 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
           }
         }
       } catch {}
+    }
+    /* 🔁 (2026-10-18 개선안 1순위 ② · 사장님 승인 «웜업 쪽도 붙여줘») 최근 교정받은 표현을 다시 써 볼 기회.
+       정본 src/recent-mistakes.ts(AI 친구와 같은 함수) — 영어 대화만, 세션당 1회 조회 후 KV 30분 캐시.
+       ⛔ 던지지 않는다(실패하면 그냥 안 붙는다). 기초(1~2단계·미지정)는 1개만. */
+    if (ctxUserId && ctxLang !== 'zh') {
+      try {
+        const rkey = 'warmupmistake:' + sessionId + ':' + ctxUserId;
+        let past: any[] | null = null;
+        try { const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(rkey) : null; if (raw != null) past = JSON.parse(raw); } catch {}
+        if (!Array.isArray(past)) {
+          past = await loadRecentMistakes(env.DB, ctxUserId, Date.now());
+          try { if (env.SESSION_STATE) await env.SESSION_STATE.put(rkey, JSON.stringify(past), { expirationTtl: 1800 }); } catch {}
+        }
+        const line = recentMistakesPromptLine(past, ctxDifficulty <= 2);
+        if (line) sys += line;
+      } catch (e: any) { console.warn('[warmup] recent mistakes skipped:', e?.message || e); }
     }
     // 🔁 반복 방지: 직전에 했던 질문/문장을 그대로 다시 묻는 문제(한 문장 반복) 차단
     sys += ' [중요] 이전 대화에서 이미 했던 질문이나 문장을 그대로 반복하지 마. 매번 새로운 표현과 다른 각도의 질문으로 대화를 이어가.';

@@ -9,6 +9,7 @@ import { stripTypeScriptTypes } from 'node:module';
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const SRC = fs.readFileSync(process.env.RM_SRC || path.join(ROOT, 'cloudflare-deploy/src/recent-mistakes.ts'), 'utf8');
 const AI = fs.readFileSync(process.env.AI_SRC || path.join(ROOT, 'cloudflare-deploy/src/api-ai.ts'), 'utf8');
+const IDX = fs.readFileSync(process.env.IDX_SRC || path.join(ROOT, 'cloudflare-deploy/src/index.ts'), 'utf8');
 const WP = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/warmup-parent.ts'), 'utf8');
 let pass = 0, fail = 0;
 const check = (n, c, x) => { if (c) { pass++; console.log('  ✅ ' + n); } else { fail++; console.log('  ❌ FAIL ' + n + (x !== undefined ? ' ' + JSON.stringify(x) : '')); } };
@@ -129,6 +130,23 @@ const showAt = cf.indexOf('showFix = decided.show;');
 check('보여 준 교정을 기록한다(showFix 를 정한 뒤)', logAt > showAt && showAt > 0);
 check('기록은 showFix 가 있을 때만', /if \(showFix\) await logAiFriendFix\(env\.DB, uid, showFix,/.test(cf));
 check('warmup_fix_log 에 섞어 적지 않는다', !/INSERT[^`]*warmup_fix_log/.test(strip(SRC)));
+
+// ── 웜업(src/index.ts handleWarmupChat) 배선 ──
+const I = strip(IDX);
+const wStart = I.indexOf('async function handleWarmupChat(');
+const wEnd = wStart > 0 ? I.indexOf('\nasync function ', wStart + 10) : -1;
+const W = wStart > 0 ? I.slice(wStart, wEnd > 0 ? wEnd : undefined) : '';
+check('웜업 핸들러를 잘라 냈다(전제)', W.length > 1000);
+const ldAt = W.indexOf('loadRecentMistakes(env.DB, ctxUserId,');
+const msgAt = W.indexOf("const messages = [{ role: 'system', content: sys }]");
+check('웜업도 loadRecentMistakes(env.DB, ctxUserId, …) 를 부른다', ldAt > 0);
+check('메시지를 만들기 «전» 에 넣는다', ldAt > 0 && msgAt > ldAt);
+const wl = (W.match(/const (\w+) = recentMistakesPromptLine\(/) || [])[1];
+check('그 줄을 sys 에 더한다', !!wl && new RegExp('sys \\+= ' + wl + '\\b').test(W), wl);
+const gate = W.slice(Math.max(0, ldAt - 900), ldAt);
+check('영어 대화일 때만(중국어 제외)', /if \(ctxUserId && ctxLang !== 'zh'\)/.test(gate));
+check('세션당 캐시(KV)를 거친다', /warmupmistake:/.test(W) && /expirationTtl: 1800/.test(W.slice(ldAt, ldAt + 400)));
+check('웜업 조립이 try 로 감싸여 있다(던지지 않음)', /try \{[\s\S]{0,200}warmupmistake:/.test(gate + W.slice(ldAt, ldAt + 50)));
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) process.exit(1);
