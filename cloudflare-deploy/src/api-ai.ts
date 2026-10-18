@@ -5,6 +5,7 @@
 import { loadActiveGoal, goalPromptLine } from './student-goal';   // 🗓 4주 목표(2026-10-10)
 import { loadRecentMistakes, recentMistakesPromptLine, logAiFriendFix, loadRecentFixTags, carryRepeatTags } from './recent-mistakes';
 import { konglishFix, konglishPromptLine } from './konglish';   // 🇰🇷 콩글리시 대조표(2026-10-18 ⑦)
+import { decideLevelSuggestion, loadSuggestEvidence, recentlyAnswered, recordSuggestAnswer } from './level-suggest';   // 🎚 단계 제안(2026-10-18 ⑤)
 import { WEAK_WHERE, WEAK_ORDER, weakSince } from './weak-words';
 import { json } from './api-util';
 import { applyEmpathyGuard, FRIEND_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
@@ -18,7 +19,7 @@ import { checkAdminSession } from './auth-admin';
 import { explainCorrection } from './correction-reason';   // 🔤 «왜 고쳤는지» 결정론 설명
 import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint, aiFriendStudentAsked,
          aiFriendTrimSentences, aiFriendNormalizeLevel,
-         AI_FRIEND_DEFAULT_LEVEL } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
+         AI_FRIEND_DEFAULT_LEVEL, AI_FRIEND_LEVELS } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
 import { resolveFriendName, wrongSelfName, askedOwnName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
 import { stripAddedKorean, hasAddedKorean } from './reply-korean';               // 🇰🇷 모델이 덧붙인 한국어 번역 제거 — 「뜻」 버튼 설계를 지킨다
 import { parseJsonBody } from './api-util';
@@ -1279,7 +1280,38 @@ ${AI_FRIEND_CORRECTION_RULE}`;
       // 🎮 HUD 초기 데이터(오늘/누적/스트릭/오늘의 단어) — 실패해도 히스토리는 정상 반환
       let gam: any = null;
       try { gam = await aiFriendGamSnapshot(uid); } catch {}
-      return json({ ok: true, items: rs.results || [], gam });
+      /* 🎚 (2026-10-18 개선안 2순위 ⑤) «한 단계 올려(내려) 볼까요?» — 제안만. 바꾸는 건 학생 버튼.
+         ⛔ 근거가 모자라거나·최근에 답했거나·조회가 실패하면 null(아무 말도 안 함). 정본 level-suggest.ts */
+      let levelSuggest: any = null;
+      try {
+        const lvQ = url.searchParams.get('level');
+        if (lvQ) {
+          const lv = aiFriendNormalizeLevel(lvQ);
+          const nowS = Date.now();
+          if (!(await recentlyAnswered(env.DB, uid, 'aifriend', nowS))) {
+            const ev = await loadSuggestEvidence(env.DB, uid, lv, nowS);
+            const targets: Record<string, number> = {};
+            for (const k of Object.keys(AI_FRIEND_LEVELS)) targets[k] = Number((AI_FRIEND_LEVELS as any)[k].maxWordsPerSentence) || 0;
+            levelSuggest = decideLevelSuggestion(lv, ev, targets);
+          }
+        }
+      } catch (e: any) { console.warn('[chat-history] level suggest skipped:', e?.message || e); }
+      return json({ ok: true, items: rs.results || [], gam, level_suggest: levelSuggest });
+    }
+
+    /* 🎚 단계 제안에 대한 학생의 답 기록 — 이미 등록된 경로의 «비어 있던 POST» 를 쓴다(src/index.ts 무수정).
+       ⛔ 모르는 action 은 거절한다(나중에 이 경로에 다른 뜻을 넣을 때 조용히 흘러 들어오지 않게). */
+    if (method === 'POST' && path === '/api/ai/chat-history') {
+      const b: any = await request.json().catch(() => ({}));
+      if (String(b.action || '') !== 'level_suggest') return json({ ok: false, error: 'unknown_action' }, 400);
+      const uid = String(b.uid || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const authUid = await authUidGlobal(request, url, env, b);
+      if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      const okRec = await recordSuggestAnswer(env.DB, uid, 'aifriend',
+        { from: b.from, to: b.to, decision: b.decision, evidence: b.evidence }, Date.now());
+      return okRec ? json({ ok: true }) : json({ ok: false, error: 'bad_answer' }, 400);
     }
 
     if (method === 'POST' && path === '/api/ai/chat-clear') {

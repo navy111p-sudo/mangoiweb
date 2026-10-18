@@ -1869,7 +1869,7 @@
       const auth = await getAuth();
       if (!auth) { renderEmpty(); updateHUD(); return; }
       try {
-        const r = await fetch('/api/ai/chat-history?uid=' + encodeURIComponent(auth.uid), {
+        const r = await fetch('/api/ai/chat-history?uid=' + encodeURIComponent(auth.uid) + '&level=' + encodeURIComponent(currentLevel), {
           headers: { 'Authorization': 'Bearer ' + auth.token }
         });
         const d = await r.json();
@@ -1885,9 +1885,45 @@
         } else {
           renderEmpty();
         }
+        if (d.ok && d.level_suggest) showLevelSuggest(d.level_suggest, auth);   // 🎚 단계 제안(⑤)
       } catch(e){ renderEmpty(); }
       updateHUD();
       renderTopicBar();                              // 🗺 새로고침해도 고른 주제가 그대로 보이게
+    }
+    /* 🎚 (2026-10-18 개선안 2순위 ⑤) «한 단계 올려(내려) 볼까요?» — 서버가 근거가 있을 때만 준다(level-suggest.ts).
+       ⛔ 여기서 단계를 몰래 바꾸지 않는다 — 학생이 누를 때만, 그리고 그 길은 «기존 단계 버튼» 그대로다.
+       ⛔ 제안이 지금 단계와 어긋나면(그 사이 학생이 바꿨으면) 그리지 않는다. */
+    function showLevelSuggest(sg, auth) {
+      try {
+        if (!sg || sg.from !== currentLevel) return;
+        const btn = document.querySelector('.opt[data-level="' + String(sg.to).replace(/[^A-Za-z0-9]/g, '') + '"]');
+        const chat = document.getElementById('chat');
+        if (!btn || !chat || document.getElementById('lvSuggest')) return;
+        const en = isEn(), up = sg.dir === 'up';
+        const name = escapeHtml((btn.textContent || sg.to).trim());
+        const box = document.createElement('div');
+        box.id = 'lvSuggest';
+        box.setAttribute('role', 'status');
+        box.style.cssText = 'margin:8px 12px;padding:10px 12px;border-radius:12px;background:#fff7ed;border:1px solid #fdba74;color:#7c2d12;font-size:14px;line-height:1.45';
+        box.innerHTML = (up
+            ? (en ? '🎉 You have been doing great at this level. Try one step up?' : '🎉 이 단계는 잘하고 있어요. 한 단계 올려 볼까요?')
+            : (en ? '🙂 This level seems a bit hard right now. Try one step easier?' : '🙂 지금 단계가 조금 어려워 보여요. 한 단계 쉽게 해 볼까요?'))
+          + '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">'
+          + '<button type="button" data-a="accept" style="padding:6px 12px;border-radius:999px;border:0;background:#c2410c;color:#fff;font-weight:700">'
+          + (en ? 'Go to ' : '') + name + (en ? '' : ' 로 바꾸기') + '</button>'
+          + '<button type="button" data-a="dismiss" style="padding:6px 12px;border-radius:999px;border:1px solid #fdba74;background:#fff;color:#7c2d12">'
+          + (en ? 'Keep my level' : '그대로 할래요') + '</button></div>';
+        box.addEventListener('click', function (ev) {
+          const t = ev.target && ev.target.closest ? ev.target.closest('button[data-a]') : null;
+          if (!t) return;
+          const decision = t.getAttribute('data-a');
+          if (decision === 'accept') btn.click();          // 기존 단계 버튼 그대로 — 저장도 거기서
+          box.remove();
+          fetch('/api/ai/chat-history', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+            body: JSON.stringify({ action: 'level_suggest', uid: auth.uid, from: sg.from, to: sg.to, decision: decision, evidence: sg.evidence || {} }) }).catch(function(){});
+        });
+        chat.parentNode.insertBefore(box, chat);
+      } catch (e) {}
     }
     async function clearChat() {
       if (!confirm(isEn() ? 'Clear all messages?' : '대화 내용을 모두 지울까요?')) return;
