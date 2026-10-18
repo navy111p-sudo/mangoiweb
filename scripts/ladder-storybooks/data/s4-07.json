@@ -1,0 +1,305 @@
+{
+ "id": "s4-07",
+ "breaks": [
+  2,
+  4,
+  4,
+  3
+ ],
+ "key": {
+  "P": 1,
+  "S": 12
+ },
+ "roleNames": {
+  "P": {
+   "ko": "문제",
+   "en": "problem"
+  },
+  "S": {
+   "ko": "해결책",
+   "en": "solution"
+  }
+ },
+ "keyWhy": {
+  "ko": "핵심은 «도시 열섬 현상(문제)» 과 «녹지를 넓히는 것이 가장 효과적인 해결책(해결책)» 입니다. 초록색 문장이 정답이에요.",
+  "en": "The key ideas are the problem (the urban heat island effect) and the solution (expanding green spaces). The green sentences are the answers."
+ },
+ "boxes": [
+  {
+   "k": "Problem",
+   "qko": "어떤 문제가 있나요?",
+   "qen": "What is the problem?",
+   "a": "City centers are much warmer than the countryside"
+  },
+  {
+   "k": "Cause",
+   "qko": "왜 그런 일이 생기나요?",
+   "qen": "What causes it?",
+   "a": "Asphalt and concrete absorb heat, and there are few trees"
+  },
+  {
+   "k": "Solution",
+   "qko": "어떻게 해결할 수 있나요?",
+   "qen": "How can it be solved?",
+   "a": "Expand green spaces like parks, trees, and streams"
+  }
+ ],
+ "sumHowto": {
+  "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+  "en": "Look at the three boxes, then choose the right word for each blank."
+ },
+ "sum": [
+  {
+   "pre": "The center of a large city can be much ",
+   "ans": "warmer",
+   "opts": [
+    "warmer",
+    "colder",
+    "quieter"
+   ]
+  },
+  {
+   "pre": " than the countryside. Asphalt and concrete ",
+   "ans": "absorb",
+   "opts": [
+    "absorb",
+    "reflect",
+    "block"
+   ]
+  },
+  {
+   "pre": " sunlight and release the heat slowly at night. Plants cool the air by giving ",
+   "ans": "shade",
+   "opts": [
+    "shade",
+    "noise",
+    "smoke"
+   ]
+  },
+  {
+   "pre": " and releasing water vapor. Some cities plant trees and restore ",
+   "ans": "streams",
+   "opts": [
+    "streams",
+    "highways",
+    "factories"
+   ]
+  },
+  {
+   "pre": ". Expanding green spaces is one of the best ways to fight the ",
+   "ans": "heat",
+   "opts": [
+    "heat",
+    "rain",
+    "snow"
+   ]
+  },
+  {
+   "pre": " island effect.",
+   "ans": null
+  }
+ ],
+ "words": [
+  [
+   "phenomenon",
+   "현상",
+   "This <b>phenomenon</b> is known as the urban heat island effect.",
+   "something that happens and can be seen or studied"
+  ],
+  [
+   "absorb",
+   "흡수하다",
+   "dark rooftops that <b>absorb</b> sunlight during the day",
+   "to take in and hold something"
+  ],
+  [
+   "release",
+   "내보내다, 방출하다",
+   "These surfaces <b>release</b> the stored heat slowly",
+   "to let something go out"
+  ],
+  [
+   "surrounding",
+   "주변의, 둘러싼",
+   "a process that takes heat from the <b>surrounding</b> air",
+   "around a place or thing"
+  ],
+  [
+   "shade",
+   "그늘",
+   "Their leaves provide <b>shade</b>, preventing sunlight from reaching the ground.",
+   "a cooler, darker area out of the sun"
+  ],
+  [
+   "restore",
+   "복원하다",
+   "creating rooftop gardens, and <b>restoring</b> streams",
+   "to bring something back to how it was before"
+  ]
+ ],
+ "qs": [
+  {
+   "type": [
+    "원인·결과",
+    "Cause & effect"
+   ],
+   "q": "Why do cities stay warm even at night?",
+   "qko": "왜 도시는 밤에도 따뜻할까요?",
+   "opts": [
+    "Hard surfaces release the heat they stored slowly.",
+    "Warm wind blows in from the countryside at night.",
+    "Trees and plants give off heat after sunset."
+   ],
+   "ans": 0,
+   "evq": [
+    "근거 문장 1개를 고르세요.",
+    "Choose 1 evidence sentence."
+   ],
+   "evs": [
+    "Their leaves provide shade, preventing sunlight from reaching the ground.",
+    "These surfaces release the stored heat slowly, keeping cities warm even at night.",
+    "For this reason, parks are often noticeably cooler than the streets around them.",
+    "Cheonggyecheon in Seoul, a stream restored in 2005, is often cited as an example of this approach."
+   ],
+   "ev": [
+    1
+   ],
+   "why": [
+    "아스팔트와 콘크리트 같은 표면이 낮에 모은 열을 천천히 내보내기 때문이에요.",
+    "Surfaces like asphalt and concrete release their stored heat slowly, so cities stay warm at night."
+   ]
+  },
+  {
+   "type": [
+    "문맥상 의미",
+    "Meaning in context"
+   ],
+   "q": "In the sentence about Cheonggyecheon, what does \"this approach\" mean?",
+   "qko": "청계천 문장에서 «this approach(이런 방식)» 는 무엇을 뜻하나요?",
+   "opts": [
+    "using trees, gardens, and streams to cool a city",
+    "building more air conditioners in a city",
+    "moving people from cities to the countryside"
+   ],
+   "ans": 0,
+   "evq": [
+    "근거 문장 1개를 고르세요.",
+    "Choose 1 evidence sentence."
+   ],
+   "evs": [
+    "Heat from cars, factories, and air conditioners adds to the problem.",
+    "Some cities are planting street trees, creating rooftop gardens, and restoring streams to lower temperatures.",
+    "Cities are full of asphalt roads, concrete buildings, and dark rooftops that absorb sunlight during the day.",
+    "On a hot summer day, the center of a large city can feel much warmer than the countryside nearby."
+   ],
+   "ev": [
+    1
+   ],
+   "why": [
+    "바로 앞 문장에서 나무 심기, 옥상 정원, 하천 복원으로 기온을 낮춘다고 했어요. 그 방식이 «this approach» 예요.",
+    "The sentence before it lists planting trees, rooftop gardens, and restoring streams to lower temperatures. That is \"this approach.\""
+   ]
+  },
+  {
+   "type": [
+    "단서 연결",
+    "Connecting clues"
+   ],
+   "q": "Why are parks often cooler than the streets around them?",
+   "qko": "왜 공원은 주변 거리보다 더 시원할까요?",
+   "opts": [
+    "Leaves give shade and release water vapor that takes heat from the air.",
+    "Parks have more air conditioners than streets.",
+    "Parks have darker ground that holds the heat."
+   ],
+   "ans": 0,
+   "evq": [
+    "근거 문장 2개를 고르세요.",
+    "Choose 2 evidence sentences."
+   ],
+   "evs": [
+    "Their leaves provide shade, preventing sunlight from reaching the ground.",
+    "Heat from cars, factories, and air conditioners adds to the problem.",
+    "They also release water vapor through their leaves, a process that takes heat from the surrounding air.",
+    "Cities are full of asphalt roads, concrete buildings, and dark rooftops that absorb sunlight during the day."
+   ],
+   "ev": [
+    0,
+    2
+   ],
+   "why": [
+    "잎이 그늘을 만들고, 잎에서 나오는 수증기가 주변 공기의 열을 가져가기 때문이에요. 두 문장을 함께 봐야 해요.",
+    "Leaves provide shade, and the water vapor they release takes heat from the air. You need both sentences."
+   ]
+  }
+ ],
+ "ends": [
+  [
+   "A",
+   "Find out how rooftop gardens are built and cared for.",
+   "옥상 정원을 어떻게 만들고 가꾸는지 알아봐요.",
+   "Gardens on the Roof"
+  ],
+  [
+   "B",
+   "Learn how the Cheonggyecheon stream changed downtown Seoul.",
+   "청계천이 서울 도심을 어떻게 바꾸었는지 알아봐요.",
+   "A Stream in the City"
+  ]
+ ],
+ "write": {
+  "pre": "If",
+  "mid": "we can",
+  "sep": ", ",
+  "slots": [
+   "cl",
+   "vp"
+  ],
+  "slotKo": [
+   "조건",
+   "할 수 있는 일"
+  ],
+  "slotEn": [
+   "the condition",
+   "what we can do"
+  ],
+  "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «조건 + 그때 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+  "howtoEn": "Use the example as a pattern. Write a condition and what we can do then.",
+  "aria": [
+   "the condition",
+   "what we can do"
+  ],
+  "moreKo": "한 걸음 더: «If» 뒤에는 «누가 + 무엇을 하면» 을, «we can» 뒤에는 동사원형을 넣어 보세요. (예: If we sleep early, we can focus in class)",
+  "moreEn": "One more step: after «If», write who + what; after «we can», start with a base verb. (e.g. If we sleep early, we can focus in class)",
+  "src": "“If <u>cities plant more street trees</u>, we can <u>keep the streets cooler in summer</u>.”",
+  "chips": [
+   {
+    "a": "our school builds a rooftop garden",
+    "b": "cool the classrooms",
+    "label": "garden"
+   },
+   {
+    "a": "we turn off unused lights",
+    "b": "save energy",
+    "label": "lights"
+   },
+   {
+    "a": "we ride bikes to school",
+    "b": "reduce heat from cars",
+    "label": "bikes"
+   }
+  ]
+ },
+ "img": {
+  "cover": "A large green city park full of leafy trees next to tall concrete office buildings on a bright, hot summer day, people resting in the shade.",
+  "scenes": {
+   "1": "A wide asphalt road and concrete buildings with dark rooftops baking under strong midday sun, heat shimmer rising from the road surface.",
+   "3": "A restored shallow stream with stone walking paths and green plants running between tall buildings in downtown Seoul, people walking along the water."
+  }
+ },
+ "alt": {
+  "1": "An asphalt road and concrete buildings under hot sun",
+  "3": "A restored stream between city buildings",
+  "cover": "A green park beside tall city buildings in summer"
+ }
+}

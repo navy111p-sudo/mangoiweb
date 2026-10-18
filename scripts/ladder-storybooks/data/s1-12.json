@@ -1,0 +1,304 @@
+{
+  "id": "s1-12",
+  "breaks": [
+    3,
+    2,
+    2
+  ],
+  "key": {
+    "P": 5,
+    "S": 6
+  },
+  "roleNames": {
+    "P": {
+      "ko": "교훈",
+      "en": "lesson"
+    },
+    "S": {
+      "ko": "결말",
+      "en": "ending"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «반딧불이는 자유롭고 싶어 한다(교훈)» 와 «톰이 병을 열어 놓아준다(결말)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the lesson (the fireflies want to be free) and the ending (Tom opens the jar and lets them go). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Tom, Lily, fireflies"
+    },
+    {
+      "k": "Lesson",
+      "qko": "릴리는 무엇을 알려 주나요?",
+      "qen": "What does Lily say?",
+      "a": "The fireflies want to be free."
+    },
+    {
+      "k": "Ending",
+      "qko": "마지막에 어떻게 되나요?",
+      "qen": "What happens at the end?",
+      "a": "Tom opens the jar and lets them go."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "On a summer night, Tom and Lily go to the ",
+      "ans": "field",
+      "opts": [
+        "field",
+        "school",
+        "store"
+      ]
+    },
+    {
+      "pre": ". Little ",
+      "ans": "lights",
+      "opts": [
+        "lights",
+        "cars",
+        "rocks"
+      ]
+    },
+    {
+      "pre": " fly in the dark. Tom catches some fireflies in a ",
+      "ans": "jar",
+      "opts": [
+        "jar",
+        "shoe",
+        "hat"
+      ]
+    },
+    {
+      "pre": ". But Lily says, \"They want to be ",
+      "ans": "free",
+      "opts": [
+        "free",
+        "sleepy",
+        "hungry"
+      ]
+    },
+    {
+      "pre": ".\" Tom opens the jar, and the fireflies fly up to the ",
+      "ans": "stars",
+      "opts": [
+        "stars",
+        "sea",
+        "ground"
+      ]
+    },
+    {
+      "pre": ".",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "summer",
+      "여름",
+      "On a <b>summer</b> night, Tom and Lily go to the field.",
+      "the hot season of the year"
+    ],
+    [
+      "dark",
+      "어둠",
+      "Little lights fly in the <b>dark</b>.",
+      "a time or place with no light"
+    ],
+    [
+      "fireflies",
+      "반딧불이들",
+      "They are <b>fireflies</b>!",
+      "small bugs that make light"
+    ],
+    [
+      "jar",
+      "유리병",
+      "Tom catches some fireflies in a <b>jar</b>.",
+      "a glass bottle with a wide top"
+    ],
+    [
+      "glows",
+      "빛나다",
+      "The jar <b>glows</b> like a small lamp.",
+      "gives a soft light"
+    ],
+    [
+      "free",
+      "자유로운",
+      "But Lily says, \"They want to be <b>free</b>.\"",
+      "not kept inside something"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does the jar glow like a small lamp?",
+      "qko": "병은 왜 작은 등불처럼 빛나나요?",
+      "opts": [
+        "There are fireflies in it.",
+        "Tom puts a candle in it.",
+        "The moon is inside it."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Tom catches some fireflies in a jar.",
+        "On a summer night, Tom and Lily go to the field.",
+        "But Lily says, \"They want to be free.\"",
+        "Tom opens the jar, and the fireflies fly up to the stars."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«Tom catches some fireflies in a jar.» 빛을 내는 반딧불이가 병 안에 있어서 병이 빛나요.",
+        "Tom catches fireflies in the jar, and fireflies make light."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "Lily says, \"They want to be free.\" What does \"free\" mean here?",
+      "qko": "릴리가 «They want to be free.» 라고 말해요. 여기서 «free» 는 무슨 뜻일까요?",
+      "opts": [
+        "able to fly where they want",
+        "very small",
+        "sleepy and tired"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Tom opens the jar, and the fireflies fly up to the stars.",
+        "Little lights fly in the dark.",
+        "The jar glows like a small lamp.",
+        "On a summer night, Tom and Lily go to the field."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«Tom opens the jar, and the fireflies fly up to the stars.» 병에서 나와 마음껏 날아가니, 자유롭다는 뜻이에요.",
+        "When Tom opens the jar, the fireflies fly up to the stars. Free means able to fly where they want."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why does Tom open the jar?",
+      "qko": "톰은 왜 병을 여나요?",
+      "opts": [
+        "Lily says the fireflies want to be free.",
+        "The jar is too heavy.",
+        "Tom wants more fireflies."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "But Lily says, \"They want to be free.\"",
+        "Tom opens the jar, and the fireflies fly up to the stars.",
+        "Tom catches some fireflies in a jar.",
+        "The jar glows like a small lamp."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "릴리가 반딧불이는 자유롭고 싶어 한다고 말했고(«But Lily says...»), 그래서 톰이 병을 열었어요(«Tom opens the jar...»).",
+        "Lily says they want to be free, and then Tom opens the jar."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Tom and Lily watch the fireflies every summer night.",
+      "톰과 릴리는 여름밤마다 반딧불이를 구경한다.",
+      "Our Firefly Nights"
+    ],
+    [
+      "B",
+      "Tom and Lily draw pictures of fireflies and stars.",
+      "톰과 릴리는 반딧불이와 별 그림을 그린다.",
+      "Drawing the Night Sky"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "before",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>let the fireflies go</u> before <u>it gets late</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그 전에 일어날 일"
+    ],
+    "slotEn": [
+      "what to do",
+      "what happens next"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그 뒤에 일어날 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and what happens after it in English.",
+    "chips": [
+      {
+        "a": "brush our teeth",
+        "b": "we go to bed",
+        "label": "teeth"
+      },
+      {
+        "a": "put on our coats",
+        "b": "we go outside",
+        "label": "coats"
+      },
+      {
+        "a": "say thank you",
+        "b": "we leave",
+        "label": "thanks"
+      }
+    ],
+    "aria": [
+      "what to do",
+      "when"
+    ],
+    "moreKo": "한 걸음 더: «before» 뒤에 «누가 + 무엇을» 넣어 써 보세요. (예: before Dad comes home)",
+    "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)"
+  },
+  "img": {
+    "cover": "On a dark summer night in a grassy field, a boy with spiky black hair in an orange T-shirt and a girl with long braids in a white dress watch many tiny glowing fireflies rise toward the stars.",
+    "scenes": {
+      "1": "In a dark grassy field, a boy with spiky black hair in an orange T-shirt holds up a glass jar that glows with tiny fireflies, next to a girl with long braids in a white dress.",
+      "2": "A boy with spiky black hair in an orange T-shirt opens a glass jar, and tiny glowing fireflies fly out toward the starry sky, while a girl with long braids in a white dress smiles."
+    }
+  },
+  "alt": {
+    "1": "Tom holds a glowing jar of fireflies.",
+    "2": "Tom opens the jar and the fireflies fly away.",
+    "cover": "Tom and Lily watch fireflies fly up to the stars."
+  }
+}

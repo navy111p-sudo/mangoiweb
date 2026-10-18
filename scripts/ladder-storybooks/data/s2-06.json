@@ -1,0 +1,305 @@
+{
+  "id": "s2-06",
+  "breaks": [
+    2,
+    2,
+    2,
+    4
+  ],
+  "key": {
+    "P": 2,
+    "S": 6
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «고개를 들어 보니 반 친구들이 사라졌다(문제)» 와 «파란 제복을 입은 직원에게 도움을 요청했다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (Hana's class was gone) and the solution (she asked a woman in a blue uniform for help). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Hana, her teacher, a museum staff member"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Hana got lost from her class in the museum."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "She stayed calm and asked a staff member for help."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Hana looked at an old golden ",
+      "ans": "crown",
+      "opts": [
+        "crown",
+        "car",
+        "cake"
+      ]
+    },
+    {
+      "pre": " for a long time. When she looked up, her ",
+      "ans": "class",
+      "opts": [
+        "class",
+        "dog",
+        "bag"
+      ]
+    },
+    {
+      "pre": " was gone. She remembered to stay ",
+      "ans": "calm",
+      "opts": [
+        "calm",
+        "angry",
+        "hidden"
+      ]
+    },
+    {
+      "pre": " and ask a staff member. A woman in a blue ",
+      "ans": "uniform",
+      "opts": [
+        "uniform",
+        "raincoat",
+        "swimsuit"
+      ]
+    },
+    {
+      "pre": " called her teacher on the radio. Hana learned that staying calm and asking for ",
+      "ans": "help",
+      "opts": [
+        "help",
+        "money",
+        "candy"
+      ]
+    },
+    {
+      "pre": " is the best way to solve a problem.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "museum",
+      "박물관",
+      "Hana visited a big history <b>museum</b>.",
+      "a building where old or special things are shown"
+    ],
+    [
+      "crown",
+      "왕관",
+      "an old golden <b>crown</b>",
+      "a gold ring that a king or queen wears on the head"
+    ],
+    [
+      "calm",
+      "침착한",
+      "stay <b>calm</b> and ask a staff member",
+      "not worried or upset"
+    ],
+    [
+      "uniform",
+      "제복, 유니폼",
+      "a woman in a blue <b>uniform</b>",
+      "special clothes that workers wear"
+    ],
+    [
+      "breath",
+      "숨, 호흡",
+      "Hana took a deep <b>breath</b> and looked around.",
+      "the air you take into your body"
+    ],
+    [
+      "radio",
+      "무전기",
+      "called the teacher on her <b>radio</b>.",
+      "a small machine for talking to people far away"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Hana get lost from her class?",
+      "qko": "하나는 왜 반 친구들과 떨어지게 되었나요?",
+      "opts": [
+        "She stopped to look at a crown for a long time.",
+        "Her teacher told her to wait alone.",
+        "She ran away to play."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Hana took a deep breath and looked around.",
+        "She stopped to look at an old golden crown for a long time.",
+        "A few minutes later, her teacher came and gave her a big hug.",
+        "On a school trip, Hana visited a big history museum."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "하나는 금관을 보려고 멈춰 서서 한참 동안 바라보았어요. 그사이 반 친구들이 가 버렸어요. 선생님이 혼자 기다리라고 했다거나 하나가 도망쳤다는 말은 없어요.",
+        "Hana stopped to look at the crown for a long time, and her class moved on. Nothing says her teacher told her to wait or that she ran away."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The teacher said, \"ask a staff member.\" In this story, who is a staff member?",
+      "qko": "선생님이 \"ask a staff member.\"라고 했어요. 이 이야기에서 \"staff member\"는 누구인가요?",
+      "opts": [
+        "a person who works at the museum",
+        "a student in Hana's class",
+        "a visitor looking at the crown"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "When she looked up, her class was gone.",
+        "She saw a woman in a blue uniform and said, \"Excuse me, I lost my class.\"",
+        "A few minutes later, her teacher came and gave her a big hug.",
+        "She stopped to look at an old golden crown for a long time."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "하나가 도움을 청한 사람은 파란 제복을 입은 여자였어요. 제복은 박물관에서 일하는 사람이 입는 옷이에요.",
+        "Hana asked a woman in a blue uniform. Workers at the museum wear uniforms."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did Hana find her class again?",
+      "qko": "하나는 어떻게 반 친구들을 다시 찾았나요?",
+      "opts": [
+        "She asked a staff member, who called her teacher.",
+        "She looked at a map and walked back.",
+        "She waited at the door until school ended."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "The woman smiled and called the teacher on her radio.",
+        "Her heart beat fast, and she wanted to cry.",
+        "She saw a woman in a blue uniform and said, \"Excuse me, I lost my class.\"",
+        "She stopped to look at an old golden crown for a long time."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "하나는 파란 제복을 입은 직원에게 반을 잃어버렸다고 말했고, 직원은 무전기로 선생님을 불렀어요. 두 문장을 이으면 답이 나와요.",
+        "Hana told the woman in a blue uniform that she lost her class, and the woman called the teacher on her radio. Put these two clues together."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "On the next trip, Hana helps a lost little boy.",
+      "다음 체험학습에서 하나가 길 잃은 남자아이를 도와줘요.",
+      "Hana Helps"
+    ],
+    [
+      "B",
+      "Hana's class visits a big science museum.",
+      "하나의 반이 큰 과학관에 가요.",
+      "The Science Museum"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“We should <u>stay together on a trip</u> so that <u>nobody gets lost</u>.”",
+    "slotKo": [
+      "해야 할 일",
+      "그러면 어떻게 되는지"
+    ],
+    "slotEn": [
+      "what we should do",
+      "what will happen"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «해야 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and its purpose in English.",
+    "chips": [
+      {
+        "a": "hold hands when we cross the road",
+        "b": "we stay safe",
+        "label": "road"
+      },
+      {
+        "a": "bring water on a hot day",
+        "b": "we do not get thirsty",
+        "label": "water"
+      },
+      {
+        "a": "turn off the lights",
+        "b": "we save energy",
+        "label": "lights"
+      }
+    ],
+    "aria": [
+      "what we should do",
+      "so that what happens"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에는 «누가 + 무엇을 한다» 를 쓰세요. (예: so that we stay safe)",
+    "moreEn": "One more step: after «so that», write who + what happens. (e.g. so that we stay safe)"
+  },
+  "img": {
+    "cover": "Inside a big museum hall, a girl with shoulder-length black hair and a pink backpack talks to a smiling woman in a blue uniform who holds a small radio.",
+    "scenes": {
+      "1": "A girl with shoulder-length black hair and a pink backpack stands alone beside a glass case with a golden crown, looking around a big quiet museum hall with a worried face.",
+      "3": "In a museum hall, a woman teacher with glasses hugs the girl with shoulder-length black hair and a pink backpack, while a woman in a blue uniform with a small radio smiles nearby."
+    }
+  },
+  "alt": {
+    "1": "The girl is alone and worried near the crown.",
+    "3": "Her teacher hugs her as the museum worker smiles.",
+    "cover": "A girl asks a museum worker for help."
+  }
+}

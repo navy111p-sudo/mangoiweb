@@ -1,0 +1,304 @@
+{
+  "id": "s2-04",
+  "breaks": [
+    4,
+    3,
+    3
+  ],
+  "key": {
+    "P": 3,
+    "S": 7
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «옛 친구들이 보고 싶고 아주 외로웠다(문제)» 와 «동아리에 가서 소라를 만났다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (Jiho missed his old friends and felt lonely) and the solution (he went to the club and met Sora). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Jiho, his mom, Sora"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Jiho was new at school and felt lonely."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "He joined a drawing club and made friends."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Jiho moved to a new ",
+      "ans": "town",
+      "opts": [
+        "town",
+        "river",
+        "castle"
+      ]
+    },
+    {
+      "pre": ". He did not know anyone and felt ",
+      "ans": "lonely",
+      "opts": [
+        "lonely",
+        "proud",
+        "sleepy"
+      ]
+    },
+    {
+      "pre": ". One day, he saw a poster for a ",
+      "ans": "drawing",
+      "opts": [
+        "drawing",
+        "swimming",
+        "cooking"
+      ]
+    },
+    {
+      "pre": " club. He was ",
+      "ans": "nervous",
+      "opts": [
+        "nervous",
+        "angry",
+        "hungry"
+      ]
+    },
+    {
+      "pre": ", but he tried it. A girl named Sora showed him her comic book, and soon he had many ",
+      "ans": "friends",
+      "opts": [
+        "friends",
+        "books",
+        "pets"
+      ]
+    },
+    {
+      "pre": ". Trying something new helped him feel at home.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "lonely",
+      "외로운",
+      "He missed his old friends and felt very <b>lonely</b>.",
+      "sad because you are alone"
+    ],
+    [
+      "poster",
+      "포스터, 벽보",
+      "he saw a <b>poster</b> for a drawing club on the wall.",
+      "a big paper with words and pictures on a wall"
+    ],
+    [
+      "nervous",
+      "긴장한, 떨리는",
+      "he was <b>nervous</b> about joining.",
+      "a little afraid and worried"
+    ],
+    [
+      "missed",
+      "그리워했다",
+      "He <b>missed</b> his old friends",
+      "felt sad because someone was far away"
+    ],
+    [
+      "joining",
+      "들어가기, 가입하기",
+      "he was nervous about <b>joining</b>.",
+      "becoming part of a group"
+    ],
+    [
+      "favorite",
+      "가장 좋아하는",
+      "They talked about their <b>favorite</b> characters",
+      "liked the most"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Jiho feel lonely at first?",
+      "qko": "지호는 처음에 왜 외로웠나요?",
+      "opts": [
+        "He did not know anyone at his new school.",
+        "His mom was angry with him.",
+        "He did not like drawing."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "One day, he saw a poster for a drawing club on the wall.",
+        "He did not know anyone at his new school.",
+        "They talked about their favorite characters and laughed together.",
+        "His mom said, \"Just try it once. You might like it.\""
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "지호는 새 학교에 아는 사람이 아무도 없었어요. 엄마가 화를 냈다는 말은 없고, 지호는 그림 그리기를 아주 좋아했어요.",
+        "Jiho did not know anyone at his new school. His mom was not angry, and he loved drawing."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "Jiho learned that trying something new can help you \"feel at home.\" What does \"feel at home\" mean?",
+      "qko": "지호는 새로운 것에 도전하면 \"feel at home\"할 수 있다는 것을 배웠어요. \"feel at home\"은 무슨 뜻인가요?",
+      "opts": [
+        "feel comfortable and happy in a place",
+        "go back to your old house",
+        "stay in your room all day"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "At lunch, he ate alone and looked out the window.",
+        "They talked about their favorite characters and laughed together.",
+        "Jiho loved drawing, but he was nervous about joining.",
+        "He missed his old friends and felt very lonely."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "지호는 소라와 이야기하며 함께 웃었어요. 낯선 곳이 편안하고 즐거워졌다는 뜻이지, 옛집으로 돌아간다는 뜻이 아니에요.",
+        "Jiho talked and laughed with Sora. It means he felt comfortable and happy there, not that he went back to his old house."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did Jiho start to make friends?",
+      "qko": "지호는 어떻게 친구를 사귀기 시작했나요?",
+      "opts": [
+        "He went to the drawing club and talked with Sora.",
+        "He moved back to his old town.",
+        "His mom found friends for him."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "So he went to the club, and a girl named Sora showed him her comic book.",
+        "At lunch, he ate alone and looked out the window.",
+        "They talked about their favorite characters and laughed together.",
+        "He missed his old friends and felt very lonely."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "지호는 동아리에 가서 소라를 만났고, 둘은 좋아하는 캐릭터 이야기를 하며 함께 웃었어요. 두 문장을 이으면 답이 나와요.",
+        "Jiho went to the club and met Sora, and they talked and laughed together. Put these two clues together."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Jiho and Sora make a comic book together.",
+      "지호와 소라가 함께 만화책을 만들어요.",
+      "Our Comic Book"
+    ],
+    [
+      "B",
+      "A new student comes, and this time Jiho helps her.",
+      "새 학생이 오고, 이번에는 지호가 그 아이를 도와줘요.",
+      "Jiho Helps a New Friend"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "src": "“If <u>we join a club</u>, we can <u>make new friends</u>.”",
+    "slotKo": [
+      "만약 ~하면(상황)",
+      "할 수 있는 일"
+    ],
+    "slotEn": [
+      "a situation",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «어떤 상황 + 그때 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write a situation and what we can do then in English.",
+    "chips": [
+      {
+        "a": "it is sunny",
+        "b": "play outside",
+        "label": "sunny"
+      },
+      {
+        "a": "we finish our homework",
+        "b": "watch a movie",
+        "label": "homework"
+      },
+      {
+        "a": "we save our money",
+        "b": "buy a new ball",
+        "label": "save"
+      }
+    ],
+    "aria": [
+      "if what happens",
+      "what we can do"
+    ],
+    "moreKo": "한 걸음 더: «If» 뒤에는 «누가 + 무엇을» 을, «we can» 뒤에는 동사를 바로 쓰세요. (예: If it snows, we can make a snowman)",
+    "moreEn": "One more step: after «If», write who + what. After «we can», write a verb. (e.g. If it snows, we can make a snowman)"
+  },
+  "img": {
+    "cover": "A boy with short brown hair in a green hoodie and a girl with two braids sit at a table in an art room, laughing together over a comic book and drawing paper.",
+    "scenes": {
+      "1": "In a school hallway, a boy with short brown hair in a green hoodie looks at a poster with pictures of pencils and paintbrushes on the wall, holding his sketchbook close.",
+      "2": "In an art room, a girl with two braids shows her comic book to the boy with short brown hair in a green hoodie, and both of them are smiling."
+    }
+  },
+  "alt": {
+    "1": "A boy looks at a drawing club poster.",
+    "2": "A girl shows the boy her comic book.",
+    "cover": "Two children laugh over a comic book."
+  }
+}

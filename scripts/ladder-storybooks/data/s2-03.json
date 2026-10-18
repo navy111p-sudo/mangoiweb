@@ -1,0 +1,305 @@
+{
+  "id": "s2-03",
+  "breaks": [
+    3,
+    3,
+    2,
+    2
+  ],
+  "key": {
+    "P": 1,
+    "S": 6
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «다들 골을 넣고 싶어서 아무도 패스하지 않았다(문제)» 와 «패스하고 서로 말하는 것을 연습했다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (everyone wanted to score, so nobody passed) and the solution (they practiced passing and talking to each other). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Mina, her team, Coach Park"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Nobody passed the ball, so they lost."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "They practiced passing and talking to each other."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Every player on Mina's team wanted to ",
+      "ans": "score",
+      "opts": [
+        "score",
+        "sleep",
+        "eat"
+      ]
+    },
+    {
+      "pre": ", so nobody passed the ball, and the team ",
+      "ans": "lost",
+      "opts": [
+        "lost",
+        "won",
+        "sang"
+      ]
+    },
+    {
+      "pre": ". Coach Park said they did not play as one ",
+      "ans": "team",
+      "opts": [
+        "team",
+        "star",
+        "class"
+      ]
+    },
+    {
+      "pre": ". They practiced ",
+      "ans": "passing",
+      "opts": [
+        "passing",
+        "sleeping",
+        "shouting"
+      ]
+    },
+    {
+      "pre": " and won the next game. They learned that working ",
+      "ans": "together",
+      "opts": [
+        "together",
+        "alone",
+        "slowly"
+      ]
+    },
+    {
+      "pre": " is more important than being a star.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "score",
+      "골을 넣다",
+      "Every player wanted to <b>score</b>",
+      "to get a goal or a point"
+    ],
+    [
+      "passed",
+      "패스했다",
+      "nobody <b>passed</b> the ball.",
+      "kicked the ball to a teammate"
+    ],
+    [
+      "practiced",
+      "연습했다",
+      "they <b>practiced</b> passing and talking to each other on the field.",
+      "did something again and again to get better"
+    ],
+    [
+      "together",
+      "함께",
+      "working <b>together</b> is more important than being a star.",
+      "with each other"
+    ],
+    [
+      "coach",
+      "코치",
+      "<b>Coach</b> Park said",
+      "a person who trains a sports team"
+    ],
+    [
+      "open",
+      "비어 있는, 자유로운",
+      "Mina learned to look for <b>open</b> friends",
+      "free, with no other player close by"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Mina's team lose the first game?",
+      "qko": "미나의 팀은 왜 첫 경기에서 졌나요?",
+      "opts": [
+        "Nobody passed the ball.",
+        "It rained on the field.",
+        "They had only five players."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Mina's soccer team had a big game on Saturday.",
+        "The players sat on the grass and felt sad and angry.",
+        "Every player wanted to score, so nobody passed the ball.",
+        "In their next game, they passed well and won two to one."
+      ],
+      "ev": [
+        2
+      ],
+      "why": [
+        "모두 골을 넣고 싶어서 아무도 패스하지 않았다고 본문에 나와요. 비가 왔다거나 선수가 적었다는 말은 없어요.",
+        "The text says everyone wanted to score, so nobody passed. Nothing says it rained or that they had few players."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "Coach Park said, \"You played as eleven people, not as one team.\" What does he mean?",
+      "qko": "박 코치님이 \"You played as eleven people, not as one team.\"이라고 했어요. 무슨 뜻인가요?",
+      "opts": [
+        "Each player played alone, without helping the others.",
+        "There were too many players on the field.",
+        "The team needed eleven new players."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "At the end, the other team won by three goals.",
+        "Every player wanted to score, so nobody passed the ball.",
+        "Mina's soccer team had a big game on Saturday.",
+        "In their next game, they passed well and won two to one."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "모두 자기가 골을 넣으려고 패스를 안 했어요. 그래서 한 팀이 아니라 열한 명이 따로따로 뛰었다는 뜻이에요.",
+        "Everyone tried to score alone and nobody passed. So they played as eleven separate people, not as one team."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why did the team win the next game?",
+      "qko": "팀은 왜 다음 경기에서 이겼나요?",
+      "opts": [
+        "They practiced passing and then passed well.",
+        "The other team had a sick player.",
+        "Mina scored all the goals by herself."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "The next week, they practiced passing and talking to each other on the field.",
+        "The players sat on the grass and felt sad and angry.",
+        "In their next game, they passed well and won two to one.",
+        "They ran into each other and lost the ball again and again."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "선수들은 패스를 연습했고, 다음 경기에서 패스를 잘해서 이겼어요. 두 문장을 이으면 이긴 이유가 보여요.",
+        "They practiced passing, and in the next game they passed well and won. Put these two clues together."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Mina's team plays in a big final game.",
+      "미나의 팀이 큰 결승전에 나가요.",
+      "The Final Game"
+    ],
+    [
+      "B",
+      "A new player joins the team and wants to be the star.",
+      "새로 온 선수가 혼자 스타가 되고 싶어 해요.",
+      "The New Star"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>pass the ball</u> so that <u>everyone can play</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그러면 어떻게 되는지"
+    ],
+    "slotEn": [
+      "what to do together",
+      "what will happen"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write something to do together and its purpose in English.",
+    "chips": [
+      {
+        "a": "clean the room together",
+        "b": "we can finish fast",
+        "label": "clean"
+      },
+      {
+        "a": "share the crayons",
+        "b": "everyone can draw",
+        "label": "share"
+      },
+      {
+        "a": "take turns on the swing",
+        "b": "nobody has to wait long",
+        "label": "swing"
+      }
+    ],
+    "aria": [
+      "what to do",
+      "so that what happens"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에는 «누가 + 무엇을 할 수 있다» 를 쓰세요. (예: so that we can win)",
+    "moreEn": "One more step: after «so that», write who + what they can do. (e.g. so that we can win)"
+  },
+  "img": {
+    "cover": "On a soccer field, a girl with a black ponytail in a yellow soccer shirt passes the ball to a smiling teammate in yellow while other players in yellow run beside them.",
+    "scenes": {
+      "1": "Players in yellow soccer shirts sit sadly on the grass, including a girl with a black ponytail, while a man with a whistle and a blue cap talks to them.",
+      "3": "Players in yellow soccer shirts cheer and hug on the field after a game; the girl with a black ponytail smiles, and the man with a whistle and a blue cap claps."
+    }
+  },
+  "alt": {
+    "1": "The sad team sits on the grass with their coach.",
+    "3": "The team cheers after winning the game.",
+    "cover": "A girl passes the soccer ball to a teammate."
+  }
+}

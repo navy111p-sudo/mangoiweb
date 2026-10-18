@@ -1,0 +1,305 @@
+{
+  "id": "s3-09",
+  "breaks": [
+    2,
+    3,
+    2,
+    3
+  ],
+  "key": {
+    "P": 1,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «라이트 형제가 최초로 동력 비행기 비행에 성공했다(주제)» 와 «그 성공이 사람이 정말 날 수 있음을 보여 주었다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (the Wright brothers made the first successful powered airplane flight) and the conclusion (their success showed that people could really fly). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "The Wright brothers’ first flight"
+    },
+    {
+      "k": "Key fact",
+      "qko": "첫 비행은 어땠나요?",
+      "qen": "What happened on the first flight?",
+      "a": "Orville flew about 12 seconds in 1903"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "그 비행은 왜 중요한가요?",
+      "qen": "Why does it matter?",
+      "a": "It showed people could really fly"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "In 1903, Orville and Wilbur Wright made the first powered airplane ",
+      "ans": "flight",
+      "opts": [
+        "flight",
+        "race",
+        "map"
+      ]
+    },
+    {
+      "pre": ". Before that, they studied how ",
+      "ans": "birds",
+      "opts": [
+        "birds",
+        "fish",
+        "cars"
+      ]
+    },
+    {
+      "pre": " fly and tested many gliders. They built an airplane with an ",
+      "ans": "engine",
+      "opts": [
+        "engine",
+        "oven",
+        "umbrella"
+      ]
+    },
+    {
+      "pre": " and called it the Flyer. The first flight lasted only about 12 ",
+      "ans": "seconds",
+      "opts": [
+        "seconds",
+        "hours",
+        "days"
+      ]
+    },
+    {
+      "pre": ", but their ",
+      "ans": "success",
+      "opts": [
+        "success",
+        "mistake",
+        "shop"
+      ]
+    },
+    {
+      "pre": " showed the world that people could really fly.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "engine",
+      "엔진",
+      "they built an airplane with an <b>engine</b> and called it the Flyer.",
+      "a machine that makes something move"
+    ],
+    [
+      "tested",
+      "시험했다",
+      "They studied how birds fly and <b>tested</b> many gliders for several years.",
+      "tried something to see if it works"
+    ],
+    [
+      "gliders",
+      "글라이더",
+      "tested many <b>gliders</b> for several years.",
+      "light aircraft that fly without an engine"
+    ],
+    [
+      "wings",
+      "날개",
+      "to test the shapes of <b>wings</b>.",
+      "the flat parts that help a bird or plane fly"
+    ],
+    [
+      "lasted",
+      "계속되었다",
+      "the longest one <b>lasted</b> almost one minute.",
+      "went on for a length of time"
+    ],
+    [
+      "success",
+      "성공",
+      "Their <b>success</b> showed the world that people could really fly.",
+      "doing what you tried to do"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did the brothers build a small wind tunnel?",
+      "qko": "형제는 왜 작은 풍동(바람 터널)을 만들었나요?",
+      "opts": [
+        "To test the shapes of wings",
+        "To sell more bicycles in Ohio",
+        "To carry their airplane to Kitty Hawk"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "They also built a small wind tunnel to test the shapes of wings.",
+        "The brothers owned a bicycle shop in Ohio, and they loved to build machines.",
+        "Their first flight took place near Kitty Hawk, North Carolina.",
+        "Orville flew the plane for only about 12 seconds and traveled about 37 meters."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "날개 모양을 시험하려고 작은 풍동을 만들었다고 글에 그대로 나와요.",
+        "The text says they built a small wind tunnel to test the shapes of wings."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In \"the first successful powered airplane flight,\" what does \"powered\" mean?",
+      "qko": "«the first successful powered airplane flight» 에서 «powered» 는 무슨 뜻인가요?",
+      "opts": [
+        "Moved by an engine",
+        "Pulled by birds",
+        "Pushed by many people"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Finally, they built an airplane with an engine and called it the Flyer.",
+        "They studied how birds fly and tested many gliders for several years.",
+        "That day, they made four flights, and the longest one lasted almost one minute.",
+        "On December 17, 1903, two brothers changed the history of travel."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "형제는 «엔진이 달린» 비행기를 만들어 날았어요. 그래서 powered 는 엔진의 힘으로 움직인다는 뜻이에요.",
+        "The brothers built an airplane «with an engine», so «powered» means moved by an engine."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Which clues show that the brothers prepared for a long time before they flew?",
+      "qko": "형제가 날기 전에 오랫동안 준비했다는 단서는 무엇인가요?",
+      "opts": [
+        "They studied birds, tested gliders for years, and tested wing shapes",
+        "They flew for one hour on their very first try",
+        "They bought an airplane from another country"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "They studied how birds fly and tested many gliders for several years.",
+        "Orville flew the plane for only about 12 seconds and traveled about 37 meters.",
+        "They also built a small wind tunnel to test the shapes of wings.",
+        "Their first flight took place near Kitty Hawk, North Carolina."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "몇 년 동안 새를 연구하고 글라이더를 시험했으며, 날개 모양을 시험하려고 풍동까지 만들었다고 했어요. 두 문장을 이어야 해요.",
+        "They studied birds and tested gliders for several years, and they also built a wind tunnel to test wings. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Who was the first person to fly across the Atlantic Ocean?",
+      "대서양을 처음으로 건너 난 사람은 누구일까요?",
+      "Flying Across the Ocean"
+    ],
+    [
+      "B",
+      "How do big airplanes fly today?",
+      "오늘날 큰 비행기는 어떻게 날까요?",
+      "How Airplanes Fly Today"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“I want to <u>build a model airplane</u> because <u>I love to make machines</u>.”",
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what I want to do",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "chips": [
+      {
+        "a": "visit an air museum",
+        "b": "I want to see old airplanes",
+        "label": "museum"
+      },
+      {
+        "a": "learn how birds fly",
+        "b": "it looks so easy for them",
+        "label": "birds"
+      },
+      {
+        "a": "ride in a hot air balloon",
+        "b": "I want to see my town from the sky",
+        "label": "balloon"
+      }
+    ],
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because I love machines)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because I love machines)"
+  },
+  "img": {
+    "cover": "A realistic full-size reconstruction of the 1903 Wright Flyer, a wooden biplane with cloth wings, lifting just above the sand on a windy beach while a man runs beside one wing",
+    "scenes": {
+      "1": "An old-fashioned bicycle workshop with tools on the wall, a bicycle on a stand, and a wooden glider wing frame on the workbench",
+      "2": "A replica of the Wright Flyer with its small engine and two wooden propellers, resting on a wooden launch rail on sand dunes near the sea"
+    }
+  },
+  "alt": {
+    "1": "A bicycle workshop with a glider wing",
+    "2": "The Wright Flyer resting on the sand dunes",
+    "cover": "The Wright Flyer lifting off a sandy beach"
+  }
+}
