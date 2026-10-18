@@ -167,6 +167,21 @@ if (M) {
   ok('수업 리포트를 못 읽으면 카드 칸은 «모름» — 웜업 카드만으로 «2장» 이라 하지 않는다', r5.get('kim') && r5.get('kim').fix === null, JSON.stringify(r5.get('kim')));
   const r6 = await M.loadHandovers(d1(db, /warmup_fix_log/), ['kim'], now, dayStart);
   ok('짝: 웜업 교정을 못 읽어도 «모름»', !r6.get('kim') || r6.get('kim').fix === null);
+  // (2026-10-18 ⑧) A.i 친구 교정 — 표가 없으면 «0건», 있으면 카드에 섞이고 학생 화면과 같은 답
+  ok('A.i 친구 표가 아직 없어도(no such table) 카드 숫자는 그대로 말한다', k && k.fix && k.fix.total === 2);
+  db.exec(`CREATE TABLE ai_friend_fix_log (id INTEGER PRIMARY KEY, user_id TEXT, was TEXT, fixed TEXT, tag TEXT, severity TEXT, day TEXT, created_at INTEGER);`);
+  db.prepare('INSERT INTO ai_friend_fix_log (user_id, was, fixed, tag, severity, day, created_at) VALUES (?,?,?,?,?,?,?)').run('kim', 'I eated pizza', 'I ate pizza.', 'past_tense', 'major', 'd', now - DAY);
+  db.prepare('INSERT INTO ai_friend_fix_log (user_id, was, fixed, tag, severity, day, created_at) VALUES (?,?,?,?,?,?,?)').run('Kim', 'She go', 'She goes.', null, null, 'd', now - DAY);
+  const ra = await M.loadHandovers(d1(db), ['kim'], now, dayStart);
+  const fca = await FC.loadFixCards(d1(db), 'kim', now);
+  ok('A.i 친구 교정이 인수인계 카드에 들어간다(남의 계정은 안 섞임)', ra.get('kim') && ra.get('kim').fix && ra.get('kim').fix.total === 3, JSON.stringify(ra.get('kim') && ra.get('kim').fix));
+  ok('짝: 학생 화면과 같은 카드 수', ra.get('kim') && fca.cards.length === ra.get('kim').fix.total && fca.cards.some(c => c.source === 'aifriend'));
+  const dNet = { prepare(sql) { if (/ai_friend_fix_log/.test(sql)) throw new Error('D1_ERROR: network lost'); return d1(db).prepare(sql); } };
+  const rAf1 = await M.loadHandovers(dNet, ['kim'], now, dayStart);
+  const rAf2 = await M.loadHandovers(d1(db, /ai_friend_fix_log/), ['kim'], now, dayStart);
+  ok('짝: «no such table» 이면 0건으로 알고 숫자를 말한다', rAf2.get('kim') && rAf2.get('kim').fix && rAf2.get('kim').fix.total === 2);
+  ok('A.i 친구 표 조회가 «다른 이유로» 실패하면 카드 칸은 «모름»', rAf1.get('kim') && rAf1.get('kim').fix === null, JSON.stringify(rAf1.get('kim')));
+  db.exec('DROP TABLE ai_friend_fix_log');
   // (PR #1507 리뷰) 목표 없는 최근 기록이 한도를 채워도 60일 창의 목표를 찾는다
   const db3 = new DatabaseSync(':memory:');
   db3.exec(`CREATE TABLE ai_lesson_reports (student_uid TEXT, next_goals TEXT, grammar_errors TEXT, lesson_title TEXT, lesson_date TEXT, created_at INTEGER);
