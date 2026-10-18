@@ -672,6 +672,7 @@
         try { if (window.UXT) UXT.hit('ux:aifriend-voice-' + currentVoice); } catch(e){}
         syncAvatarToVoice();   // 👨 '남자'를 누르면 바로 슈퍼맨 얼굴로 바뀌게(다음 답변까지 기다리지 않고)
         syncFriendName();      // 🧑 헤더 이름도 같이 (Emma ↔ Jake)
+        try { efSyncFriend(friendOf(currentVoice)); } catch(e){}   // 📐 빈 화면 드롭다운도 같은 사람으로
       };
     });
 
@@ -732,6 +733,7 @@
       // 화면에 떠 있는 모든 친구 카드의 «지금 고른 것» 표시를 갱신 —
       // 빈 화면(첫 진입)의 카드는 정적 HTML 이라 이걸 안 하면 눌러도 테두리가 안 옮겨간다
       document.querySelectorAll('.friend-card[data-v]').forEach(c => c.classList.toggle('on', c.dataset.v === f.v));
+      try { efSyncFriend(f); } catch(e){}   // 📐 빈 화면 드롭다운·얼굴도 같은 사람으로
       try { if (window.UXT) UXT.hit('ux:aifriend-friend-' + f.v); } catch(e){}
       const p = document.getElementById('friendPicker');
       if (p) p.remove();
@@ -1564,10 +1566,17 @@
         /* ✨ 오늘의 단어 — 인사 바로 아래. 여기는 «칩이 들어올 빈 자리» 이고
            칩 자체는 wodSync() 가 옮겨 온다(새로 만들면 updateHUD 가 던진다). */
         + '<div class="wod-card" id="wodSlot"></div>'
-        + '<p style="color:var(--text2)">' + (en ? 'Who do you want to talk with?' : '오늘은 누구랑 이야기할까요?') + '</p>'
-        + friendCards()
-        + '<p style="color:var(--text2);margin-top:16px">' + (en ? 'Pick an adventure topic:' : '모험 주제를 골라볼까요?') + '</p>'
-        + '<div class="topics">' + cards + '</div>'
+        /* 📐 (2026-10-18 사장님 «한 장에 스크롤 없이 · 드롭다운으로» — A안)
+           친구 카드 5장 + 주제 카드 10장이 세로로 쌓여 빈 화면이 대화창보다 길었다(PC·폰 모두 스크롤).
+           → 둘을 «드롭다운 한 줄» 로 접는다. 고르는 순간 하는 일은 예전 카드와 «똑같다»
+             (친구 = setFriend(v,true) · 주제 = topicSend(i)). 판정·저장을 새로 만들지 않는다.
+           ⚠️ 그림 카드(topicCardHtml)는 지우지 않고 «그림으로 고르기» 접이칸 안에 남긴다 —
+              그림을 보고 고르는 아이가 있고, 카드 마크업 정본이 한 곳(topicCardHtml)이라는 약속도 그대로다.
+           ⚠️ 친구 카드(friendCards)는 대화 도중 «이름 눌러 친구 바꾸기»(showFriendPicker)가 계속 쓴다. */
+        + efPicksHtml(en)
+        /* 「그림 카드」 열기와 빠른 버튼 3개를 «한 줄» 에 둔다(.ef-foot) — 열면 카드가 그 줄 아래로 펼쳐진다. */
+        + '<div class="ef-foot"><details class="ef-more"><summary>' + (en ? '🖼 Topics by picture' : '🖼 그림으로 주제 고르기') + '</summary>'
+        + '<div class="topics">' + cards + '</div></details>'
         + '<div class="quick">'
         /* 🧑 이 버튼은 «학생이 AI 를 부르는» 말이라 이름이 들어간다 — 고른 친구로.
            바로 위 인사를 「Hi! I'm Lily」로 고쳐 놓고 여기만 Mango 면 한 화면이 두 이름을 말한다. */
@@ -1575,7 +1584,40 @@
         + friendOf(personNow()).name + '! 👋</button>'
         + '<button onclick="quickSend(\'Can you teach me a new word?\')">' + (en ? 'New word 📚' : '새 단어 📚') + '</button>'
         + '<button onclick="quickSend(\'Tell me a fun fact!\')">' + (en ? 'Fun fact 🌟' : '재미난 사실 🌟') + '</button>'
-        + '</div></div>';
+        + '</div></div></div>';
+    }
+    /* 📐 빈 화면의 «친구 ▾ · 주제 ▾» 한 줄 (2026-10-18 A안).
+       ⛔ 여기서 새 판정·저장을 만들지 않는다 — 친구는 setFriend, 주제는 topicSend 를 그대로 부른다.
+       ⚠️ 친구 옆 얼굴(#efFace)은 setFriend 가 함께 갱신한다(efSyncFriend). */
+    function efPicksHtml(en) {
+      const cur = friendOf(currentVoice);
+      const fOpts = FRIENDS.map(f => '<option value="' + f.v + '"' + (f.v === cur.v ? ' selected' : '') + '>'
+        + escapeHtml(f.emoji + ' ' + (en ? f.en : (f.name + ' · ' + f.ko)) + ' (' + (en ? f.d_en : f.d_ko) + ')')
+        + '</option>').join('');
+      const tOpts = '<option value="">' + (en ? '🗺 Choose a topic' : '🗺 주제 고르기') + '</option>'
+        + TOPICS.map((t, i) => '<option value="' + i + '">' + escapeHtml(t.e + ' ' + (en ? t.en : t.ko)) + '</option>').join('');
+      const face = cur.face
+        ? '<img class="ef-face" id="efFace" src="' + cur.face + '" alt="" width="36" height="36" decoding="async"'
+          + ' onerror="this.hidden=true">'
+        : '<img class="ef-face" id="efFace" alt="" width="36" height="36" hidden>';
+      return '<div class="ef-picks">'
+        + '<label class="ef-pick"><span class="ef-lab"><span class="ef-l">🧑 ' + (en ? 'Who do you want to talk with?' : '오늘은 누구랑 이야기할까요?') + '</span>'
+        + '<span class="ef-s">🧑 ' + (en ? 'Friend' : '친구') + '</span></span>'
+        + '<span class="ef-row">' + face
+        + '<select id="efFriend" aria-label="' + (en ? 'Friend' : '친구') + '" onchange="setFriend(this.value, true)">' + fOpts + '</select></span></label>'
+        + '<label class="ef-pick"><span class="ef-lab"><span class="ef-l">🗺 ' + (en ? 'Pick an adventure topic:' : '모험 주제를 골라볼까요?') + '</span>'
+        + '<span class="ef-s">🗺 ' + (en ? 'Topic' : '주제') + '</span></span>'
+        + '<span class="ef-row"><select id="efTopic" aria-label="' + (en ? 'Topic' : '주제') + '" onchange="if(this.value!==\'\')topicSend(+this.value)">' + tOpts + '</select></span></label>'
+        + '</div>';
+    }
+    function efSyncFriend(f) {
+      const s = document.getElementById('efFriend');
+      if (s && s.value !== f.v) s.value = f.v;
+      const im = document.getElementById('efFace');
+      if (im) {
+        if (f.face) { if (im.getAttribute('src') !== f.face) im.src = f.face; im.hidden = false; }
+        else im.hidden = true;
+      }
     }
     function topicSend(i) {
       const t = TOPICS[i];
@@ -2236,6 +2278,89 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
 
 /* ③ 대화창이 확실히 주인공이 되게 — 남는 높이를 모두 가져간다 */
 .chat{ flex:1 1 auto; min-height:0; }
+
+/* ④ 첫 화면 한 장에 — 2026-10-18 사장님 «스크롤 없애고 다 들어가게 · 드롭다운으로» (A안)
+   📐 고치기 전: 빈 화면이 마스코트 + 친구 카드 5장 + 주제 카드 10장 + 빠른 버튼을 세로로 쌓아
+      PC 1920x1080 에서도 대화창 안에서 스크롤해야 친구·주제가 다 보였다.
+   ✅ 친구·주제를 드롭다운 한 줄로, 마스코트는 작게(위에 강사 얼굴이 이미 크게 있다),
+      그림 카드는 접이칸 안으로. 대화창 높이·아바타 크기·헤더는 한 픽셀도 안 건드린다.
+   ⚠️ 이 화면은 어두운 테마 고정이라 select 에 color-scheme:dark 를 준다 —
+      안 주면 펼친 목록(option)이 흰 바탕에 흰 글자로 나오는 브라우저가 있다.
+   ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것(한자 폰트 검사) — « » 를 쓴다. */
+#chat .empty-state{ padding:8px 12px 10px; }
+#chat .empty-state .hero-mango{ width:46px; height:46px; margin:0 auto 4px; border-width:2px; animation:none; }
+#chat .empty-state h2{ margin:0 0 2px; }
+#chat .empty-state p{ margin:2px 0; }
+#chat .empty-state .wod-card{ margin:4px 0 6px; }
+.ef-picks{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;
+  max-width:640px; margin:6px auto 0; text-align:left; }
+.ef-pick{ display:flex; flex-direction:column; gap:5px; min-width:0; }
+.ef-lab{ font-size:12.5px; font-weight:800; color:var(--text2); white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; }
+.ef-s{ display:none; }
+.ef-row{ display:flex; align-items:center; gap:8px; min-width:0; flex:1 1 auto; }
+.ef-face{ width:36px; height:36px; flex:0 0 auto; border-radius:50%; object-fit:cover;
+  background:#fff; border:2px solid var(--gold); }
+.ef-picks select{ flex:1 1 auto; min-width:0; width:100%; min-height:42px; color-scheme:dark;
+  background:#14213b; color:#f1f5f9; border:1px solid rgba(251,191,36,0.45); border-radius:12px;
+  padding:8px 10px; font-size:14px; font-weight:700; font-family:inherit; cursor:pointer; }
+.ef-picks select:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+.ef-picks option{ background:#14213b; color:#f1f5f9; }
+/* 그림 열기 + 빠른 버튼 — 한 줄. 열면 카드 줄(.ef-more[open])이 맨 아래 한 줄을 통째로 쓴다. */
+.ef-foot{ display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px;
+  max-width:640px; margin:8px auto 0; }
+.ef-foot .quick{ display:contents; }
+.ef-more summary{ display:inline-flex; align-items:center; cursor:pointer; list-style:none;
+  font-size:12.5px; font-weight:700; color:var(--text2); padding:8px 12px; line-height:1.2;
+  border:1px solid rgba(255,255,255,0.18); border-radius:999px; }
+.ef-more summary::-webkit-details-marker{ display:none; }
+.ef-more[open]{ order:2; flex:0 0 100%; }
+.ef-more[open] summary{ color:var(--gold); border-color:rgba(251,191,36,0.5); }
+.ef-more .topics{ margin:10px auto 0; }
+@media (min-width:760px){
+  #chat .empty-state .hero-mango{ width:56px; height:56px; }
+  #chat .empty-state h2{ font-size:26px; }
+  #chat .empty-state p{ font-size:15.5px; }
+  .ef-lab{ font-size:14px; }
+  .ef-picks select{ font-size:16px; min-height:46px; }
+  .ef-face{ width:42px; height:42px; }
+}
+/* 세로가 짧은 화면(노트북 1366x650 등) — 📐 잰 것: 1366x650 에서 대화창이 237px 뿐이다.
+   마스코트·부제는 접고(바로 위에 강사 얼굴이 있다), 인사·차이·오늘의 단어를 한 줄에,
+   친구·주제는 짧은 라벨을 왼쪽에 붙인 한 줄로 둔다. */
+@media (max-height:760px){
+  #chat .empty-state{ padding-top:0; }
+  #chat .empty-state .hero-mango{ display:none; }
+  #chat .empty-state > p{ display:none; }
+  #chat .empty-state h2{ font-size:22px; display:inline-block; vertical-align:middle; margin:2px 6px; }
+  #chat .empty-state .aidiff-chip{ vertical-align:middle; margin:2px 4px; }
+  #chat .empty-state .wod-card{ display:inline-flex; vertical-align:middle; margin:2px 4px; }
+  .ef-pick{ flex-direction:row; align-items:center; gap:8px; }
+  .ef-l{ display:none; }
+  .ef-s{ display:inline; }
+  .ef-lab{ flex:0 0 auto; }
+  .ef-picks select{ min-height:40px; }
+  .ef-face{ width:34px; height:34px; }
+  .ef-foot{ margin-top:6px; }
+}
+/* 폰 — 왼쪽 가장자리 «메뉴» 손잡이(x 2~46px)가 세로 가운데에 떠 있어 그 밑으로 들어가면 가려진다.
+   ⚠️ AI 말풍선이 x=50 에서 시작하는 것과 같은 이유로 양쪽을 46px 비운다(가운데정렬이 안 틀어지게 «양쪽»).
+   친구·주제 드롭다운은 라벨 없이 나란히 — 고른 값(이모지+이름 / 주제 고르기)이 곧 라벨이다(aria-label 은 있다). */
+@media (max-width:520px){
+  #chat .empty-state{ padding:0 46px 8px; }
+  #chat .empty-state .hero-mango{ display:none; }
+  #chat .empty-state > p{ display:none; }
+  #chat .empty-state h2{ font-size:20px; display:block; margin:0 0 2px; }
+  #chat .empty-state .aidiff-chip{ font-size:12.5px; padding:5px 11px; white-space:nowrap; margin:2px auto; }
+  #chat .empty-state .wod-card{ display:flex; margin:4px 0 2px; }
+  .ef-picks{ gap:6px; margin-top:6px; }
+  .ef-lab{ display:none; }
+  .ef-face{ display:none; }
+  .ef-picks select{ font-size:13px; padding:7px 6px; min-height:40px; }
+  .ef-foot{ gap:6px; }
+  .ef-more summary{ padding:6px 10px; font-size:12px; }
+  #chat .empty-state .quick button{ padding:6px 10px; font-size:12px; }
+}
 
 /* 🚀 (2026-08-02) 하단 '다음 활동 고르기' — 입력줄 바로 아래 한 줄.
    높이를 최소로 쓰려고 알약형 얇은 버튼 하나만 둔다(입력줄과 같은 배경으로 이어 붙임).
