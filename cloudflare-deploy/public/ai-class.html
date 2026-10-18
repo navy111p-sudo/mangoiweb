@@ -119,11 +119,15 @@ select.pill{max-width:min(100%,280px)}
 .tile.t.speaking{border-color:var(--c-gold);box-shadow:0 0 0 3px rgba(245,194,75,.25)}
 .tile.t img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%}
 .tile.t .facebox{position:absolute;inset:0}
-.tile.t .facebox.breath{animation:breath 4.5s ease-in-out infinite}
-/* 입모양 3장을 겹쳐 두고 투명도로 섞는다 — 장을 갈아끼우면 «탁탁» 끊겨 보인다 */
-.tile.t img.fm{opacity:0;transition:opacity 90ms ease-out}
-.tile.t img.fm.on{opacity:1}
-@keyframes breath{50%{transform:scale(1.012) translateY(-1px)}}
+/* 🎓 (2026-10-18) 얼굴 = A.i 말하기·A.i 친구와 같은 공용 아바타(js/mango-avatar.js) — 소리에 맞춘 입모양·눈 깜빡임·눈썹·숨쉬기·머리 움직임.
+   캔버스를 칸에 꽉 채운다(object-fit 은 캔버스에도 먹는다). 높이는 모듈이 인라인으로 넣으므로 !important 로 덮는다.
+   #face 는 모듈을 못 받았을 때만 보이는 정지 사진(.av-off) — 평소엔 숨긴다(머리가 기울 때 밑에서 비치지 않게). */
+.tile.t #face{display:none}
+.tile.t .facebox.av-off #face{display:block}
+.tile.t .facebox.av-off #tavatar-wrap{display:none}
+#tavatar-wrap,#tavatar-ring{position:absolute;inset:0;width:100%!important;height:100%!important;margin:0;padding:0;border:0;background:none}
+#tavatar-canvas{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;object-position:center 20%}
+#tavatar-video{position:absolute;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none}
 .tspd{position:absolute;top:6px;right:6px;z-index:3;display:flex;align-items:center;gap:2px;background:rgba(6,9,15,.72);border:1px solid var(--c-line);border-radius:999px;padding:2px 3px}
 .tspd .lb{color:#cbd5e1;font-size:11px;padding:0 4px 0 3px}
 .tspd button{border:0;background:transparent;color:#e2e8f0;border-radius:999px;font:inherit;font-size:12px;line-height:1;padding:4px 6px;cursor:pointer;min-width:26px}
@@ -149,7 +153,7 @@ select.pill{max-width:min(100%,280px)}
 .sub{display:none!important}
 /* 선생님 칸을 «목까지» 보이게(2026-10-11 사장님). 세로 사진(640x800)을 가로로 긴 칸에 꽉 채우면 얼굴만 남아 목이 잘린다 —
    칸을 10:7 로 키우고 그림을 조금 아래로(25%) 맞춰 머리끝~목(원본 y≈86~543)이 들어오게. 폰·낮은 창은 그대로 */
-@media (min-width:761px) and (min-height:561px){.side>.tile.t{flex:0 0 auto;aspect-ratio:10/7;min-height:0}.tile.t img{object-position:center 25%}}
+@media (min-width:761px) and (min-height:561px){.side>.tile.t{flex:0 0 auto;aspect-ratio:10/7;min-height:0}.tile.t img,#tavatar-canvas{object-position:center 25%}}
 @media (min-width:761px){.side>.tile.t{order:-2}.side>.subw{order:-1;display:block;text-align:center}.side>.subw:empty{display:none}}
 /* 폰 가로·낮은 창: 자막이 칸을 밀어 얼굴이 납작해지지 않게(실측 4px) — 얼굴 최소 높이를 지키고 자막은 작게, 넘치면 그 안에서 굴린다 */
 @media (max-height:560px) and (min-width:600px){.side>.tile.t{min-height:96px}.side>.subw{font-size:12px;padding:4px 8px;max-height:72px;overflow-y:auto}.side{min-height:0;overflow-y:auto}}
@@ -372,7 +376,7 @@ select.pill{max-width:min(100%,280px)}
       </div>
       <div class="side">
         <div class="tile t" id="tTile">
-          <div class="facebox breath" id="faceBox"><img id="face" src="/img/visemes/emma-v2-rest.webp" alt="AI 선생님 Emma"><img class="fm" id="faceMid" src="/img/visemes/emma-v2-mid.webp" alt="" aria-hidden="true"><img class="fm" id="faceWide" src="/img/visemes/emma-v2-wide.webp" alt="" aria-hidden="true"></div>
+          <div class="facebox" id="faceBox"><img id="face" src="/img/visemes/emma-v2-rest.webp" alt="" aria-hidden="true"><div id="tavatar-wrap"><div id="tavatar-ring"><canvas id="tavatar-canvas" width="512" height="640" aria-label="AI 선생님 Emma"></canvas><video id="tavatar-video" muted loop playsinline preload="none" disablepictureinpicture crossorigin="anonymous"></video></div></div></div>
           <div class="sub" id="sub" hidden></div>
           <div class="tspd" id="tSpd" role="group" aria-label="선생님 말하기 속도"><span class="lb">속도</span><button type="button" data-spd="0" aria-label="아주 천천히" title="아주 천천히">🐌</button><button type="button" data-spd="1" aria-label="천천히" title="천천히">🐢</button><button type="button" data-spd="2" aria-label="보통" title="보통">🙂</button><button type="button" data-spd="3" aria-label="빠르게" title="빠르게">🐇</button></div>
           <span class="tag">Emma · A.i Teacher</span>
@@ -453,6 +457,9 @@ select.pill{max-width:min(100%,280px)}
 
 </div>
 
+<script>window.__mgAvatarWant = 'emma'; window.__mgAvatarBaseW = 512;</script>
+<script src="/js/avatar-visemes.js?v=4" defer></script>
+<script src="/js/mango-avatar.js?v=35" defer></script>
 <script src="/js/tts-short-text.js?v=1"></script>
 <script src="/js/ai-class-engine.js?v=2"></script>
 <script src="/js/ai-class-music.js?v=2"></script>
@@ -698,7 +705,23 @@ select.pill{max-width:min(100%,280px)}
     return plan;
   }
   var mouthTO = 0, mouthPlanNow = null, mouthPos = 0, mouthBoundary = false;
-  function setMouth(lv){ $('faceMid').classList.toggle('on', lv >= 1); $('faceWide').classList.toggle('on', lv >= 2); }
+  /* 🎓 (2026-10-18 사장님 「A.i 말하기·A.i 친구의 Emma 와 똑같이」) 얼굴 = 공용 아바타(js/mango-avatar.js).
+     서버 음성은 그 «소리» 에 물려(attach) 입모양이 실제 발음을 따르고, 눈 깜빡임·눈썹·숨쉬기·머리 움직임은 모듈이 한다.
+     소리를 분석할 수 없는 말하기(기기 목소리·소리 끔·물리기 실패)만 아래 글자 박자 계획이 입 단계를 알려 준다(mouth()). */
+  function AV(){ var m = window.MangoAvatar; return (m && typeof m.mouth === 'function') ? m : null; }
+  function setMouth(lv){ var m = AV(); if (m) try { m.mouth(lv >= 2 ? 'wide' : lv >= 1 ? 'medium' : 'closed'); } catch(e){} }
+  // 소리 엔진(AudioContext)은 사람이 누른 «그 순간» 만들어야 막히지 않는다 — 첫 터치·키에서 한 번 물린다.
+  //  ⚠️ 물리면 이 오디오의 소리는 Web Audio 를 거쳐 나간다(A.i 말하기와 같다). 못 물리면 예전처럼 그냥 재생한다.
+  var avBound = false;
+  function avBind(){
+    if (avBound) return true;
+    var m = AV(); if (!m || !window.Audio) return false;
+    if (!ttsAudio) ttsAudio = new Audio();
+    try { avBound = m.attach(ttsAudio) === true; } catch(e){ avBound = false; }
+    return avBound;
+  }
+  ['pointerdown', 'keydown', 'touchstart'].forEach(function(ev){ document.addEventListener(ev, function(){ avBind(); }, { capture: true, passive: true }); });
+  window.addEventListener('load', function(){ if (!AV()) $('faceBox').classList.add('av-off'); });   // 모듈을 못 받았으면 정지 사진이라도
   function mouthTick(){
     var p = mouthPlanNow; if (!p) return;
     while (mouthPos < p.length && p[mouthPos].word != null) mouthPos++;
@@ -715,7 +738,7 @@ select.pill{max-width:min(100%,280px)}
     for (var k = 0; k < p.length; k++) if (p[k].word === wi) { clearTimeout(mouthTO); mouthPos = k; mouthTick(); return; }
   }
   function startMouth(text, rate){ $('tTile').classList.add('speaking'); clearTimeout(mouthTO); mouthPlanNow = mouthPlan(text, rate); mouthPos = 0; mouthBoundary = false; mouthTick(); }
-  function stopMouth(){ clearTimeout(mouthTO); mouthPlanNow = null; setMouth(0); $('tTile').classList.remove('speaking'); }
+  function stopMouth(){ clearTimeout(mouthTO); mouthPlanNow = null; var m = AV(); if (m) try { m.mouth(null); m.plainStop(); } catch(e){} $('tTile').classList.remove('speaking'); }
   // 낱말 시작 위치(글자 번호) → 몇 번째 낱말인가
   function wordIndexAt(text, ch){ var n = -1, inW = false; for (var k = 0; k <= ch && k < text.length; k++) { var sp = /\s/.test(text[k]); if (!sp && !inW) n++; inW = !sp; } return Math.max(0, n); }
   /* 🎙️ (2026-10-18 사장님 「목소리도 Emma 목소리로」) 선생님 목소리 = A.i 말하기 Emma 와 같은 서버 화자(asteria).
@@ -734,7 +757,7 @@ select.pill{max-width:min(100%,280px)}
         if (got && got !== spk) delete ttsCache[key];
         return r.blob();
       })
-      .then(function(b){ return URL.createObjectURL(b); });
+      .then(function(b){ var u = URL.createObjectURL(b); try { if (window.AvatarVisemes) AvatarVisemes.prepare(u); } catch(e){} return u; });   // 입모양 표를 미리 만들어 둔다(재생 때 곧바로)
     ttsCache[key] = p;
     p.catch(function(){ delete ttsCache[key]; });
     return p;
@@ -768,10 +791,17 @@ select.pill{max-width:min(100%,280px)}
           if (voice === 'm' && pr < 0.9) pr = 0.9;   // 낮은 목소리를 늘이면 갈라진다(A.i 말하기 Jake 와 같은 규칙)
           a.onended = fin; a.onerror = function(){ if (!finished) { a.onended = a.onerror = null; synth(); } };
           a.src = u; a.playbackRate = pr;
-          var p = a.play();
-          startMouth(text, rate);
-          setTimeout(fin, Math.max(est * 2, 8000) + 6000);   // 끝 신호가 안 오는 브라우저 대비
-          if (p && p.catch) p.catch(function(){ if (!finished) { a.onended = a.onerror = null; stopMouth(); synth(); } });
+          avBind();
+          // 입모양 표가 준비되면 재생(A.i 말하기와 같은 순서) — 늦어도 1.2초만 기다린다(그 뒤엔 소리 크기로 입을 움직인다)
+          var m = avBound ? AV() : null;
+          var lip = (m && m.prepare) ? Promise.race([Promise.resolve(m.prepare(a)).catch(function(){}), new Promise(function(r){ setTimeout(r, 1200); })]) : Promise.resolve();
+          lip.then(function(){
+            if (finished || a.src !== u) return;
+            var p = a.play();
+            if (avBound) $('tTile').classList.add('speaking'); else startMouth(text, rate);   // 물렸으면 입은 모듈이 «소리» 를 따라 움직인다
+            setTimeout(fin, Math.max(est * 2, 8000) + 6000);   // 끝 신호가 안 오는 브라우저 대비
+            if (p && p.catch) p.catch(function(){ if (!finished) { a.onended = a.onerror = null; stopMouth(); synth(); } });
+          });
         }).catch(function(){ if (!finished) synth(); });
         return;
       }

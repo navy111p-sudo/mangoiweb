@@ -109,11 +109,26 @@ ok(/<script src="\/js\/ai-class-engine\.js\?v=\d+"><\/script>/.test(code), 'engi
 const catV = (code.match(/\/data\/ai-class-catalog\.json\?v=([0-9a-f]+)/) || [])[1];
 const catHash = (await import('node:crypto')).createHash('sha256').update(fs.readFileSync(OUT)).digest('hex').slice(0, 8);
 ok(catV === catHash, `catalog ?v=${catV} must equal its content hash ${catHash}`);
-// 2026-10-18 사장님 지시: 선생님 얼굴 = A.i 말하기의 Emma (mango-avatar.js 의 emma frames 와 같은 세 장)
-for (const f of ['emma-v2-rest', 'emma-v2-mid', 'emma-v2-wide']) {
-  ok(new RegExp(`src="/img/visemes/${f}\\.webp(\\?v=\\d+)?"`).test(code), `page does not use /img/visemes/${f}.webp`);
-  ok(fs.existsSync(path.join(PUB, 'img', 'visemes', f + '.webp')), `/img/visemes/${f}.webp missing`);
-  ok(fs.readFileSync(path.join(PUB, 'js', 'mango-avatar.js'), 'utf8').includes(`/img/visemes/${f}.webp`), `${f} is no longer the A.i speaking Emma frame`);
+// 2026-10-18 사장님 지시: 선생님 얼굴 = A.i 말하기의 Emma.
+//   처음엔 같은 세 장을 이 화면이 직접 켜고 껐는데, 같은 날 「A.i 말하기·A.i 친구와 똑같이 — 입모양과 단어 일치·눈 깜빡임·
+//   눈썹·머리 움직임」으로 공용 아바타(js/mango-avatar.js)를 그대로 쓰게 됐다 ⟹ «그 모듈을 싣고 emma 를 고르는가» 로 묻는다.
+{
+  const av = fs.readFileSync(path.join(PUB, 'js', 'mango-avatar.js'), 'utf8');
+  for (const f of ['emma-v2-rest', 'emma-v2-mid', 'emma-v2-wide']) {
+    ok(fs.existsSync(path.join(PUB, 'img', 'visemes', f + '.webp')), `/img/visemes/${f}.webp missing`);
+    ok(av.includes(`/img/visemes/${f}.webp`), `${f} is no longer the A.i speaking Emma frame`);
+  }
+  // 모듈·입모양 표 «같은 판» 을 A.i 말하기(warmup)와 함께 싣는가 — ?v= 가 갈리면 한쪽만 옛 파일을 본다
+  const wu = fs.readFileSync(path.join(PUB, 'warmup.html'), 'utf8');
+  for (const js of ['mango-avatar', 'avatar-visemes']) {
+    const re = new RegExp(`<script src="/js/${js}\\.js\\?v=(\\d+)" defer></script>`);
+    const mine = (code.match(re) || [])[1], theirs = (wu.match(re) || [])[1];
+    ok(!!mine && mine === theirs, `${js}.js must be loaded with the same ?v= as warmup (${mine} vs ${theirs})`);
+  }
+  ok(/window\.__mgAvatarWant = 'emma'/.test(code), 'page must pick the emma character');
+  ok(/<canvas id="tavatar-canvas"/.test(code) && /<video id="tavatar-video"/.test(code), 'avatar canvas/video markup missing');
+  ok(!/id="faceMid"|id="faceWide"/.test(code), 'old 3-image mouth layers still present');
+  ok(/src="\/img\/visemes\/emma-v2-rest\.webp"/.test(code), 'fallback still photo (emma rest) missing');
 }
 ok(!/lily-(closed|mid|wide)\.webp|Lily/.test(code), 'page still shows Lily');
 // 🎙️ (2026-10-18) 선생님 목소리 = A.i 말하기의 Emma(여) · Jake(남) 서버 화자 — 화면에 베끼지 않고 ai-friend.html 에서 읽어 대조
