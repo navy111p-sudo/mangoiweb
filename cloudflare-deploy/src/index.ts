@@ -2,6 +2,7 @@ import { handleSpeechPreferences } from './speech-preferences';
 import { loadRecentMistakes, recentMistakesPromptLine } from './recent-mistakes';   // 🔁 최근 교정 다시 쓰기(2026-10-18)
 import { loadVocabWeakRows, loadWeakWordsForWarmup, weakWordsPromptLine, weakWordsCallerOk, mergeWeakFirst, VOCAB_WEAK_GAME_MAX } from './vocab-weak';   // 🔁 틀린 낱말 다시 쓰기(2026-10-18)
 import { readableKoreanVocabulary, hasForeignGloss } from './korean-vocab';
+import { WEAK_WHERE, WEAK_ORDER, WEAK_OLDER_WHERE, WEAK_RECENT_DAYS, weakSince } from './weak-words';  // 🎯 게임 약점 단어 정본(최근 60일·최근 먼저)
 /**
  * index.ts - Main Worker entry point
  * Handles routing, API endpoints, and WebSocket upgrades
@@ -77,7 +78,6 @@ import { handleSpaceMonsterApi } from './api-space-monster';  // 🛸 Space Mons
 import { logWarmupFix } from './warmup-parent';            // 📝 학부모 화면용 «고쳐 준 표현» 기록 (2026-10-02 P4)
 import { authUidFromRequest } from './auth-token';          //    ↑ 본인 확인용(토큰 uid == 요청 user_id 일 때만 기록)
 import { retiredDomainResponse } from './retired-domain';    // 🚫 폐지 주소(test.mangoi.co.kr) → 안내문만 (2026-10-16)
-import { WEAK_WHERE, WEAK_ORDER, WEAK_OLDER_WHERE, WEAK_RECENT_DAYS, weakSince } from './weak-words';  // 🎯 게임 약점 단어 정본(최근 60일·최근 먼저)
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
