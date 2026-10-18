@@ -298,6 +298,9 @@ if (bt) bt.at = T + 10;                        // 눈썹을 올린 «그 사이�
 advance(16); draws = []; frame();
 ok(eyeDraws().length === 0 && browLift() > 0, `눈썹을 올린 동안에는 깜빡임이 끼어들지 않는다`);
 ok(timers.some(t => t.fn.name === 'blink'), '끼어들지 못한 깜빡임은 버리지 않고 다시 예약한다');
+// (v16) 눈썹을 자주 올리므로, 미룬 깜빡임은 «내려앉은 직후» 다시 온다 — 새로 2.2~6초를 기다리면 말하는 동안 깜빡임이 크게 줄어든다.
+const reBlink = timers.find(t => t.fn.name === 'blink');
+ok(!!reBlink && reBlink.at - T < 2000, `미룬 깜빡임은 눈썹이 내려앉은 «직후» 다시 온다 (${reBlink ? ((reBlink.at - T) / 1000).toFixed(2) : '—'}초 뒤 — 전에는 2.2~6초 뒤)`);
 parkBlinks();
 const down = talk(60);                         // 계속 크게 말하지만 새 강세는 없다 — 잠깐 뒤 내려앉는다
 const mid = down.filter(v => v > 0.05 * D && v < peak * 0.9);
@@ -318,6 +321,25 @@ ok(settle.length >= 3 && settle[0] > 0 && settle[0] < browBefore, `말이 끝나
 ok(settle[settle.length - 1] === 0 && settle.length * 16 <= 640, `0.6초 안에 다 내려앉는다 (${settle.length * 16}ms)`);
 T += 2000; draws = []; frame();
 ok(pendingRaf.size === 0, '다 내려앉으면 따로 도는 그리기를 멈춘다(rAF 0개)');
+// (v16, 2026-10-18) 사장님 「더 자주 올라가게」 — 강세마다 1~2초 간격으로 «매번» 올린다(전에는 1.4~4초·80%).
+//   0.25초씩 크게/작게 번갈아 6초 말하게 하고, 눈썹이 «새로» 올라간 횟수와 그 사이 간격을 잰다.
+//   ⚠️ 횟수만 보면 «매 강세마다(0.5초마다)» 올리는 변이도 통과합니다 — 간격 하한(0.9초)을 짝으로 둡니다.
+draws = []; a.paused = false; a.emit('playing');
+const ups = []; let lowSince = true;
+for (let i = 0; i < 375; i++) {                 // 375 × 16ms = 6초
+  LEVEL = (Math.floor(i / 16) % 2 === 0) ? 180 : 128;
+  T += 16; draws = []; frame();
+  const v = browLift();
+  if (lowSince && v > 0.3 * D) { ups.push(T); lowSince = false; }
+  if (v < 0.1 * D) lowSince = true;
+}
+const gaps = ups.slice(1).map((t, i) => t - ups[i]);
+ok(ups.length >= 3, `강세가 이어지면 눈썹을 «자주» 올린다 — 6초에 ${ups.length}번 (간격 ${gaps.map(g => (g / 1000).toFixed(1) + '초').join(' · ') || '—'})`,
+  '전에는 1.4~4초 간격·80% 라 6초에 2번 안팎이었습니다');
+ok(gaps.length >= 1 && gaps.every(g => g >= 900), `그래도 강세마다(0.5초마다) 올리지는 않는다 — 간격이 0.9초 이상 (최소 ${gaps.length ? (Math.min(...gaps) / 1000).toFixed(2) : '—'}초)`,
+  '너무 자주 올리면 기계처럼 보입니다');
+a.paused = true; a.emit('pause');
+for (let i = 0; i < 60; i++) { T += 16; draws = []; frame(); }
 canvasOn = false;
 
 /* ── ⑤ 눈 그림이 없는 캐릭터 ─────────────────────────────────────────── */
