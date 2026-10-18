@@ -579,7 +579,7 @@
       <div class="fstep on" data-step="1">
         <div class="fs-no">STEP 1</div>
         <div class="fs-t" data-ko="주제 &amp; 그림 고르기" data-en="Pick a topic &amp; picture">주제 &amp; 그림 고르기</div>
-        <div class="fs-d" data-ko="난이도(A1~C1)와 오늘의 장면" data-en="Level (A1–C1) and today's scene">난이도(A1~C1)와 오늘의 장면</div>
+        <div class="fs-d" data-ko="난이도(1~4단계)와 오늘의 장면" data-en="Level (Steps 1–4) and today's scene">난이도(1~4단계)와 오늘의 장면</div>
       </div>
       <div class="fstep" data-step="2">
         <div class="fs-no">STEP 2</div>
@@ -599,11 +599,13 @@
     </div>
 
     <div class="level-row" id="levelRow">
-      <button class="level-btn" data-level="A1">A1 입문</button>
-      <button class="level-btn" data-level="A2">A2 초급</button>
-      <button class="level-btn active" data-level="B1">B1 중급</button>
-      <button class="level-btn" data-level="B2">B2 중상급</button>
-      <button class="level-btn" data-level="C1">C1 고급</button>
+      <!-- 2026-10-18 사장님 지시 «3~4단계만» — 5단계(A1~C1)를 4단계로 줄였다(C1 없음 · 4단계 = 고1 수준).
+           data-level 값은 서버가 받는 CEFR 그대로라 첨삭 API 는 안 바뀐다. 고른 단계는 이 기기에 기억(mangoi_aiwrite_level).
+           ⛔ data-ko/data-en 은 글자만 담은 span 에(버튼에 달면 i18n 이 내용을 통째로 갈아끼운다). -->
+      <button class="level-btn active" data-level="A1"><span data-ko="1단계 · 쉬움" data-en="Step 1 · Easy">1단계 · 쉬움</span></button>
+      <button class="level-btn" data-level="A2"><span data-ko="2단계 · 이야기" data-en="Step 2 · Story">2단계 · 이야기</span></button>
+      <button class="level-btn" data-level="B1"><span data-ko="3단계 · 지식 글" data-en="Step 3 · Facts">3단계 · 지식 글</span></button>
+      <button class="level-btn" data-level="B2"><span data-ko="4단계 · 고1" data-en="Step 4 · Gr.10">4단계 · 고1</span></button>
     </div>
 
     <div class="topic-row scene-picker">
@@ -1442,12 +1444,17 @@
       document.body.classList.remove('book-open');
     };
 
-    let currentLevel = 'B1';
+    // 4단계(1=A1 · 2=A2 · 3=B1 · 4=B2). 처음엔 1단계, 고른 단계는 이 기기에 기억한다(실패해도 1단계로 동작).
+    const AW_LEVELS = ['A1', 'A2', 'B1', 'B2'];
+    let currentLevel = 'A1';
+    try { const sv = localStorage.getItem('mangoi_aiwrite_level'); if (AW_LEVELS.indexOf(sv) >= 0) currentLevel = sv; } catch (e) {}
     document.querySelectorAll('.level-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.level === currentLevel);
       btn.onclick = () => {
         document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentLevel = btn.dataset.level;
+        try { localStorage.setItem('mangoi_aiwrite_level', currentLevel); } catch (e) {}
         if (window.refreshSentenceCoach) window.refreshSentenceCoach();
       };
     });
