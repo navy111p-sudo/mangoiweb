@@ -9,7 +9,8 @@
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <!--
   🤖 A.i 선생님 화상수업 (2026-10-07 · 시범 — 2026-10-08 홈 드로어·사이드바·전체메뉴에 연결)
-  [무엇] 아바타 선생님 Lily 가 우리 교재(new BTS · new SIU, 443레슨)를 쪽마다 짚어 가며 읽어 주고,
+  [무엇] (2026-10-18 사장님 지시로 Lily → A.i 말하기의 Emma 얼굴·이름으로 교체 — 그림은 /img/visemes/emma-v2-*, A.i 말하기와 같은 세 장)
+  아바타 선생님 Emma 가 우리 교재(new BTS · new SIU, 443레슨)를 쪽마다 짚어 가며 읽어 주고,
         학생이 따라 말하면 결정론 엔진(/js/ai-class-engine.js)이 채점·칭찬·복습을 정한다.
   [데이터] 레슨 목록 = /data/ai-class-catalog.json (scripts/build-ai-class-catalog.mjs 로 만듦)
           문장 = /data/tb-say/<권>.json (수업 화면 «이 쪽 문장 듣기» 와 같은 정본 — 고를 때 그 권만 받음)
@@ -19,7 +20,7 @@
           마이크 음성인식은 브라우저 기능(웜업과 같음)이라 그 브라우저 제공자를 거친다.
   [이름] 로그인할 때 적은 이름(mangoi_logged_user.name)을 부른다 — 그 칸이 아이디와 같으면 쓰지 않는다.
   [재미 — 2026-10-10 사장님 지시] 본수업에 선생님 질문(❓ ask)·빈칸 퀴즈(✏️ blank) 레슨당 3개 ·
-        Hello Song 은 각 책 첫 레슨만 따라 말하기, 그 뒤는 노래(1절 Lily · 2절 내가) ·
+        Hello Song 은 각 책 첫 레슨만 따라 말하기, 그 뒤는 노래(1절 Emma · 2절 내가) ·
         시작 징글·단계 신호·배경음악(학생 차례엔 꺼짐)·정답 효과음·마무리 음악 = /js/ai-class-music.js ·
         선생님 배경 = 책마다 다른 실사(/img/aiclass-bg/bts-NN · siu-basic · siu-advance, 못 받으면 기본 스튜디오).
   ⛔ 상주 setInterval·body class MutationObserver 를 두지 않는다(수업 타이머는 수업 중에만 돈다).
@@ -177,7 +178,7 @@ select.pill{max-width:min(100%,280px)}
 .sim .row:empty{display:none}
 .sim .choice{border:1px solid #3b82f6;background:#13233f;color:#dbeafe;border-radius:16px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
 .res.miss{background:#3b2a0a;color:#fde68a}.res.own{background:#0f3b2a;color:#a7f3d0}
-/* ✋ 학생 질문 → Lily 즉답 (2026-10-08) */
+/* ✋ 학생 질문 → Emma 즉답 (2026-10-08) */
 .db.askq{background:#2a1f3d;border-color:#7c5cc4}
 .db.pause{background:#3a2e0e;border-color:#c99a2e}
 .db.pause.on{background:#14532d;border-color:#4ade80;animation:pulse 1.2s ease-in-out infinite}
@@ -340,10 +341,10 @@ select.pill{max-width:min(100%,280px)}
 </header>
 
 <section aria-label="수업">
-  <p class="muted">레슨을 고르고 «수업 시작»을 누르면 Lily 선생님이 교재를 읽어 줘요. 🎤 를 누르고 따라 말해 보세요. 마이크를 쓸 수 없으면 대답을 골라 보낼 수 있어요.</p>
+  <p class="muted">레슨을 고르고 «수업 시작»을 누르면 Emma 선생님이 교재를 읽어 줘요. 🎤 를 누르고 따라 말해 보세요. 마이크를 쓸 수 없으면 대답을 골라 보낼 수 있어요.</p>
   <div class="class" id="cls">
     <div class="cbar">
-      <span class="live"><i></i>LIVE · <span id="room">AI-BTS1-001</span> · Lily 선생님 + 나</span>
+      <span class="live"><i></i>LIVE · <span id="room">AI-BTS1-001</span> · Emma 선생님 + 나</span>
       <select class="pill" id="lessonSel" aria-label="레슨 고르기"></select>
       <span class="sp"></span>
       <span class="pill num" id="timer">00:00</span>
@@ -371,10 +372,10 @@ select.pill{max-width:min(100%,280px)}
       </div>
       <div class="side">
         <div class="tile t" id="tTile">
-          <div class="facebox breath" id="faceBox"><img id="face" src="/img/lily-closed.webp?v=3" alt="AI 선생님 Lily"><img class="fm" id="faceMid" src="/img/lily-mid.webp?v=3" alt="" aria-hidden="true"><img class="fm" id="faceWide" src="/img/lily-wide.webp?v=3" alt="" aria-hidden="true"></div>
+          <div class="facebox breath" id="faceBox"><img id="face" src="/img/visemes/emma-v2-rest.webp" alt="AI 선생님 Emma"><img class="fm" id="faceMid" src="/img/visemes/emma-v2-mid.webp" alt="" aria-hidden="true"><img class="fm" id="faceWide" src="/img/visemes/emma-v2-wide.webp" alt="" aria-hidden="true"></div>
           <div class="sub" id="sub" hidden></div>
           <div class="tspd" id="tSpd" role="group" aria-label="선생님 말하기 속도"><span class="lb">속도</span><button type="button" data-spd="0" aria-label="아주 천천히" title="아주 천천히">🐌</button><button type="button" data-spd="1" aria-label="천천히" title="천천히">🐢</button><button type="button" data-spd="2" aria-label="보통" title="보통">🙂</button><button type="button" data-spd="3" aria-label="빠르게" title="빠르게">🐇</button></div>
-          <span class="tag">Lily · A.i Teacher</span>
+          <span class="tag">Emma · A.i Teacher</span>
         </div>
         <div class="tile s" id="sTile">
           <video id="camVid" autoplay muted playsinline hidden></video>
@@ -425,12 +426,12 @@ select.pill{max-width:min(100%,280px)}
         <button class="ghost-btn" type="button" id="askClose">닫기</button>
       </div>
       <form class="row" id="askForm"><input id="askInput" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="예: apple 이 무슨 뜻이에요? / What does 'tired' mean?"><button class="big-btn" type="submit">물어보기</button></form>
-      <small class="muted" id="askNote" style="color:var(--c-dim)">말을 마치면 Lily 선생님이 바로 대답해 줘요. 수업은 대답이 끝나면 이어집니다.</small>
+      <small class="muted" id="askNote" style="color:var(--c-dim)">말을 마치면 Emma 선생님이 바로 대답해 줘요. 수업은 대답이 끝나면 이어집니다.</small>
     </div>
 
     <div class="over" id="startOv">
       <div class="card">
-        <h3>Lily 선생님과 수업</h3>
+        <h3>Emma 선생님과 수업</h3>
         <p style="color:var(--c-dim)">교재 한 레슨을 함께 읽고 따라 말해요. 어려운 문장은 끝에서 한 번 더 연습합니다.</p>
         <div class="namebox"><label for="nameIn">선생님이 불러 줄 이름</label><input id="nameIn" type="text" maxlength="20" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="" placeholder="예: 민서"><small id="namePrev"></small></div>
         <div class="row"><button class="big-btn" type="button" id="startBtn" disabled>▶ 수업 시작</button><button class="ghost-btn" type="button" id="startAuto" disabled>🤖 자동 데모로 보기</button></div>
@@ -595,7 +596,7 @@ select.pill{max-width:min(100%,280px)}
   }
   (function(){ var v = loginName(); if (v) $('nameIn').value = v; })();
   function curName(){ return nameOf($('nameIn').value); }
-  function namePrev(){ var n = curName(); $('namePrev').textContent = n.en === 'friend' ? '이름을 한글이나 영어로 적어 주세요 — 지금은 «friend» 로 불러요' : 'Lily 선생님이 «' + n.en + '» 라고 불러요 · 자막에는 «' + n.ko + '»'; }
+  function namePrev(){ var n = curName(); $('namePrev').textContent = n.en === 'friend' ? '이름을 한글이나 영어로 적어 주세요 — 지금은 «friend» 로 불러요' : 'Emma 선생님이 «' + n.en + '» 라고 불러요 · 자막에는 «' + n.ko + '»'; }
   $('nameIn').addEventListener('input', function(){ namePrev(); camPaint(); }); namePrev();
   // 맞혔을 때 축하 소리 — 소리 모듈(js/ai-class-music.js)이 브라우저에서 만든다. «소리 끔»이면 안 낸다
   //  ok = 통과 · great = 세 번 연속 통과·내 말로 대답·퀴즈 · find = 낱말 찾기 성공
@@ -717,7 +718,29 @@ select.pill{max-width:min(100%,280px)}
   function stopMouth(){ clearTimeout(mouthTO); mouthPlanNow = null; setMouth(0); $('tTile').classList.remove('speaking'); }
   // 낱말 시작 위치(글자 번호) → 몇 번째 낱말인가
   function wordIndexAt(text, ch){ var n = -1, inW = false; for (var k = 0; k <= ch && k < text.length; k++) { var sp = /\s/.test(text[k]); if (!sp && !inW) n++; inW = !sp; } return Math.max(0, n); }
-  function stopSpeech(){ try { speechSynthesis.cancel(); } catch(e){} stopMouth(); }
+  /* 🎙️ (2026-10-18 사장님 「목소리도 Emma 목소리로」) 선생님 목소리 = A.i 말하기 Emma 와 같은 서버 화자(asteria).
+     교재의 남자 역할 줄은 A.i 말하기 Jake 와 같은 odysseus. 서버가 실패하면 예전처럼 기기 목소리로 읽는다
+     (소리가 아예 안 나는 것이 더 나쁘다). ⛔ 서버가 «다른 화자» 로 대체한 음성은 캐시하지 않는다(그 문장이 남의 목소리로 굳는다). */
+  var TTS_SPK = { f: 'asteria', m: 'odysseus' };
+  var ttsCache = {}, ttsAudio = null, ttsFin = null;
+  function ttsUrl(text, voice){
+    var spk = TTS_SPK[voice] || TTS_SPK.f, key = spk + '|' + text;
+    if (ttsCache[key]) return ttsCache[key];
+    var p = fetch('/api/voice/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text, lang: 'en', speaker: spk }) })
+      .then(function(r){
+        var ct = r.headers.get('content-type') || '';
+        if (!r.ok || ct.indexOf('audio') < 0) throw new Error('tts ' + r.status);
+        var got = String(r.headers.get('X-TTS-Speaker') || '').toLowerCase();
+        if (got && got !== spk) delete ttsCache[key];
+        return r.blob();
+      })
+      .then(function(b){ return URL.createObjectURL(b); });
+    ttsCache[key] = p;
+    p.catch(function(){ delete ttsCache[key]; });
+    return p;
+  }
+  function ttsPrefetch(text, voice){ if (sound && !FAST && text) ttsUrl(text, voice).catch(function(){}); }
+  function stopSpeech(){ try { speechSynthesis.cancel(); } catch(e){} try { if (ttsAudio) { ttsAudio.onended = ttsAudio.onerror = null; ttsAudio.pause(); } } catch(e){} var f = ttsFin; ttsFin = null; if (f) f(); stopMouth(); }
   // ⏸ 멈춘 동안 기다린다 — 다시 누르면(또는 레슨이 바뀌면) 풀린다
   function waitRun(){ return paused ? new Promise(function(r){ pauseWait.push(r); }) : Promise.resolve(); }
   // 말하기 정본 — 멈추기가 문장 도중에 오면 그 문장을 «끊었다가» 계속할 때 처음부터 다시 읽는다
@@ -733,9 +756,28 @@ select.pill{max-width:min(100%,280px)}
   }
   function speakOnce(text, voice, rate){
     return new Promise(function(done){
-      var finished = false, fin = function(){ if (finished) return; finished = true; stopMouth(); done(); };
+      var finished = false, fin = function(){ if (finished) return; finished = true; if (ttsFin === fin) ttsFin = null; stopMouth(); done(); };
       rate = (rate || 1) * SPEEDS[spd][0];        // 사람이 고른 속도를 모든 말하기에 곱한다(입 모양도 같은 속도)
       var est = FAST ? 15 : Math.min(9000, 500 + text.split(' ').length * 380 / rate);
+      if (sound && !FAST && window.fetch && window.Audio) {
+        ttsFin = fin;
+        ttsUrl(text, voice).then(function(u){
+          if (finished) return;
+          if (!ttsAudio) ttsAudio = new Audio();
+          var a = ttsAudio, pr = rate * 0.92;
+          if (voice === 'm' && pr < 0.9) pr = 0.9;   // 낮은 목소리를 늘이면 갈라진다(A.i 말하기 Jake 와 같은 규칙)
+          a.onended = fin; a.onerror = function(){ if (!finished) { a.onended = a.onerror = null; synth(); } };
+          a.src = u; a.playbackRate = pr;
+          var p = a.play();
+          startMouth(text, rate);
+          setTimeout(fin, Math.max(est * 2, 8000) + 6000);   // 끝 신호가 안 오는 브라우저 대비
+          if (p && p.catch) p.catch(function(){ if (!finished) { a.onended = a.onerror = null; stopMouth(); synth(); } });
+        }).catch(function(){ if (!finished) synth(); });
+        return;
+      }
+      synth();
+      function synth(){
+      if (finished) return;
       startMouth(text, rate);
       if (sound && 'speechSynthesis' in window) {
         try {
@@ -746,6 +788,7 @@ select.pill{max-width:min(100%,280px)}
         } catch(e){}
       }
       setTimeout(fin, est);
+      }
     });
   }
   function showSub(sp){
@@ -786,13 +829,13 @@ select.pill{max-width:min(100%,280px)}
   // 🎵 배경음악 — 선생님 말(talk)엔 보통, 교재 문장 시범(model, 한국어 뜻이 없는 문장)엔 더 작게
   var bgmLast = 'talk';   // ⏸ 계속할 때 멈추기 직전의 음량으로 되돌린다
   function bgmFor(sp){ if (!MU || FAST || !sound) return; bgmLast = sp.speak && sp.speak.ko === '' ? 'model' : 'talk'; MU.bgm(bgmLast); }
-  // 🎵 Hello Song — 첫 레슨이 아니면 따라 말하기 대신 노래로(엔진이 정한다). 1절은 Lily 가 부르고 2절은 반주만 — 내가 부른다
+  // 🎵 Hello Song — 첫 레슨이 아니면 따라 말하기 대신 노래로(엔진이 정한다). 1절은 Emma 가 부르고 2절은 반주만 — 내가 부른다
   function songHL(pass, i){
     window.__songAt = pass < 0 ? null : [pass, i];
     $('lineChips').querySelectorAll('button').forEach(function(c, k){ c.classList.toggle('on', pass >= 0 && k === i); });   // 지금 부르는 줄(가사 강조)
     if (pass < 0) return;
     var t = st && st.plan[st.i], ln = t && t.lines ? t.lines[i] : '';
-    $('cap').querySelector('.k').textContent = pass === 0 ? '🎵 Lily 선생님이 불러요 — 들어 봐요' : '🎤 이번엔 내가 불러요! (반주에 맞춰)';
+    $('cap').querySelector('.k').textContent = pass === 0 ? '🎵 Emma 선생님이 불러요 — 들어 봐요' : '🎤 이번엔 내가 불러요! (반주에 맞춰)';
     $('capText').textContent = ln;
     setAsk(pass === 0 ? '🎵 노래 듣기' : '🎤 같이 불러요', ln);
   }
@@ -801,6 +844,7 @@ select.pill{max-width:min(100%,280px)}
     if (!lines.length) return;
     if (FAST || !MU) { for (var k = 0; k < lines.length; k++) { if (my !== seq) return; songHL(0, k); await speakRaw(lines[k], 'f', 1); } songHL(-1, -1); return; }
     bgmLast = 'off';   // 노래는 배경음악 없이 — 노래 도중 멈췄다 풀어도 수업 음악을 깔지 않는다
+    for (var q = 0; q < lines.length; q++) ttsPrefetch(lines[q], 'f');   // 노래 박자에 늦지 않게 미리 받아 둔다
     for (;;) {   // ⏸ 노래 도중 멈추면 노래를 끊고(stopAll), 계속하면 처음부터 다시 부른다
       await waitRun(); if (my !== seq) return;
       var tok = pauseTok;
@@ -985,7 +1029,7 @@ select.pill{max-width:min(100%,280px)}
   function showEnd(e){
     clearInterval(timerId);
     if (MU && sound && !FAST) MU.outro();   // 🎶 마무리 음악(약 30초, 서서히 줄어듦)
-    $('endTitle').textContent = 'Lily: You did it, ' + st.name + '!';
+    $('endTitle').textContent = 'Emma: You did it, ' + st.name + '!';
     $('endStars').textContent = '⭐ ' + e.stars + ' / ' + e.targets;
     var m = st.missed.slice(0, 5), box = $('endMissed'); box.replaceChildren();
     var h = document.createElement('div'); h.textContent = m.length ? '다시 연습할 문장 (오늘 복습 탭으로 갑니다)' : '다시 연습할 문장이 없어요!'; box.append(h);
@@ -994,7 +1038,7 @@ select.pill{max-width:min(100%,280px)}
     setTimeout(function(){ $('endOv').hidden = false; var b = $('againLesson'); try { b.scrollIntoView({block:'nearest'}); b.focus({preventScroll:true}); } catch (x) {} }, FAST ? 0 : 1800);
   }
 
-  /* ✋ 학생 질문 → Lily 즉답 (2026-10-08 사장님 지시 · 정본 서버 src/class-ask.ts)
+  /* ✋ 학생 질문 → Emma 즉답 (2026-10-08 사장님 지시 · 정본 서버 src/class-ask.ts)
      ⛔ 서버가 «못 만들었다» 고 하면 답인 척하는 문장을 지어내지 않습니다 — 사실대로 말하고 수업으로 돌아갑니다. */
   var ASK_MAX = 30;   // 한 수업(페이지 한 번 열기)에서 물을 수 있는 횟수 — 서버 하루 상한과 별개의 안전판
   function isStudentQuestion(text, target){
@@ -1078,7 +1122,7 @@ select.pill{max-width:min(100%,280px)}
     if (my !== seq || busy) { askBusy = false; setButtons(); if (busy) missChip('선생님 말이 끝나면 다시 물어봐 주세요'); return; }
     busy = true; setButtons();
     setAsk('✋ 내 질문', q);
-    var think = document.createElement('span'); think.className = 'res think'; think.textContent = '💭 Lily 선생님이 생각하는 중…'; $('ask').append(think);
+    var think = document.createElement('span'); think.className = 'res think'; think.textContent = '💭 Emma 선생님이 생각하는 중…'; $('ask').append(think);
     var d = null, http = 0, note = '';
     try {
       var ac = new AbortController(), to = setTimeout(function(){ ac.abort(); }, 15000);
@@ -1089,7 +1133,7 @@ select.pill{max-width:min(100%,280px)}
     if (my !== seq) { askBusy = false; return; }
     think.remove();
     if (d && d.ok === true && d.en) {
-      var a = document.createElement('span'); a.className = 'res q'; a.textContent = '💬 Lily: ' + d.en; $('ask').append(a);
+      var a = document.createElement('span'); a.className = 'res q'; a.textContent = '💬 Emma: ' + d.en; $('ask').append(a);
       showSub({ en: d.en, ko: d.ko || '' });
       await speakRaw(d.en, 'f', 1);
     } else {
@@ -1210,7 +1254,7 @@ select.pill{max-width:min(100%,280px)}
   $('followBtn').addEventListener('click', function(){ run({ type: 'follow' }); });
   $('capSay').addEventListener('click', function(){ if (busy || paused) return; var t = st && st.plan[st.i]; if (t && t.t === 'repeat' && (t.mode === 'warm' || t.mode === 'qa' || t.mode === 'swap')) return speakRaw(t.mode === 'qa' ? t.ask : t.say, (t.mode === 'qa' ? t.askMale : t.male) ? 'm' : 'f', 1); var cl = hl && unit.pages[hl.page] && unit.pages[hl.page].lines[hl.line]; if (cl) speakRaw(E.speakable(cl[0]), cl[1] ? 'm' : 'f', 1); });
   $('subBtn').addEventListener('click', function(){ subMode = (subMode + 1) % 3; this.textContent = '💬 자막: ' + ['끔','영+한','영어'][subMode]; if (!subMode) { $('sub').hidden = true; $('subW').replaceChildren(); } });
-  $('sndBtn').addEventListener('click', function(){ sound = !sound; this.textContent = sound ? '🔊 소리 켬' : '🔇 소리 끔'; if (MU) MU.setSound(sound); if (!sound) try { speechSynthesis.cancel(); } catch(e){} });
+  $('sndBtn').addEventListener('click', function(){ sound = !sound; this.textContent = sound ? '🔊 소리 켬' : '🔇 소리 끔'; if (MU) MU.setSound(sound); if (!sound) stopSpeech(); });
   function paintBgm(){ var on = !MU || MU.bgmOn(); $('bgmBtn').textContent = '🎵 배경음악: ' + (on ? '켬' : '끔'); $('bgmBtn').setAttribute('aria-pressed', on ? 'true' : 'false'); }
   $('bgmBtn').addEventListener('click', function(){ if (!MU) return; MU.setBgm(!MU.bgmOn()); paintBgm(); if (MU.bgmOn() && busy && sound && !paused) MU.bgm('talk'); });
   paintBgm();

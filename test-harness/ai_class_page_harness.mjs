@@ -109,9 +109,23 @@ ok(/<script src="\/js\/ai-class-engine\.js\?v=\d+"><\/script>/.test(code), 'engi
 const catV = (code.match(/\/data\/ai-class-catalog\.json\?v=([0-9a-f]+)/) || [])[1];
 const catHash = (await import('node:crypto')).createHash('sha256').update(fs.readFileSync(OUT)).digest('hex').slice(0, 8);
 ok(catV === catHash, `catalog ?v=${catV} must equal its content hash ${catHash}`);
-for (const f of ['lily-closed', 'lily-mid', 'lily-wide']) {
-  ok(new RegExp(`src="/img/${f}\\.webp(\\?v=\\d+)?"`).test(code), `page does not use /img/${f}.webp`);
-  ok(fs.existsSync(path.join(PUB, 'img', f + '.webp')), `/img/${f}.webp missing`);
+// 2026-10-18 사장님 지시: 선생님 얼굴 = A.i 말하기의 Emma (mango-avatar.js 의 emma frames 와 같은 세 장)
+for (const f of ['emma-v2-rest', 'emma-v2-mid', 'emma-v2-wide']) {
+  ok(new RegExp(`src="/img/visemes/${f}\\.webp(\\?v=\\d+)?"`).test(code), `page does not use /img/visemes/${f}.webp`);
+  ok(fs.existsSync(path.join(PUB, 'img', 'visemes', f + '.webp')), `/img/visemes/${f}.webp missing`);
+  ok(fs.readFileSync(path.join(PUB, 'js', 'mango-avatar.js'), 'utf8').includes(`/img/visemes/${f}.webp`), `${f} is no longer the A.i speaking Emma frame`);
+}
+ok(!/lily-(closed|mid|wide)\.webp|Lily/.test(code), 'page still shows Lily');
+// 🎙️ (2026-10-18) 선생님 목소리 = A.i 말하기의 Emma(여) · Jake(남) 서버 화자 — 화면에 베끼지 않고 ai-friend.html 에서 읽어 대조
+{
+  const af = fs.readFileSync(path.join(PUB, 'ai-friend.html'), 'utf8');
+  const spk = n => ((af.match(new RegExp(n + ":\\s*\\{\\s*speaker:'([a-z]+)'")) || [])[1]);
+  const m = code.match(/var TTS_SPK = \{ f: '([a-z]+)', m: '([a-z]+)' \}/);
+  ok(!!m && !!spk('emma') && !!spk('jake'), 'TTS_SPK / ai-friend PEOPLE speakers found');
+  ok(m && m[1] === spk('emma'), `teacher voice must be A.i speaking Emma's speaker (${m && m[1]} vs ${spk('emma')})`);
+  ok(m && m[2] === spk('jake'), `male-role voice must be A.i speaking Jake's speaker (${m && m[2]} vs ${spk('jake')})`);
+  ok(/fetch\('\/api\/voice\/tts'/.test(fnSrc('ttsUrl')) && /ttsUrl\(text, voice\)/.test(fnSrc('speakOnce')), 'speakOnce must use the server voice');
+  ok(/ttsAudio\.pause\(\)/.test(fnSrc('stopSpeech')), 'stopSpeech must stop the server audio');
 }
 ok(/\[hidden\]\{display:none!important\}/.test(code), '[hidden] rule missing');
 ok(/<meta name="robots" content="noindex">/.test(html), 'hidden page should be noindex');
@@ -350,6 +364,7 @@ for (const f of ['index.html', 'js/mg-sidebar.js', 'js/idx-allmenu.js']) {
     function speakOnce(t){ log.push('say:'+t); return new Promise(function(r){ env.cur=r; }); }
     ${/async function speakRaw\(/.test(html) ? 'async ' : ''}${fnSrc('speakRaw')}
     function songHL(){}
+    function ttsPrefetch(){}   // (2026-10-18) 노래 줄 서버 음성 미리 받기 — 여기서는 소리를 안 낸다
     var songSeq=0, MU={ song: async function(lines, sing){ var my=++songSeq; log.push('song'); for (var i=0;i<lines.length;i++){ if (my!==songSeq) return false; await sing(lines[i]); } return true; } };
     async ${ps}
     return { play: function(){ return playSong({lines:['L1','L2','L3']}, 0); },

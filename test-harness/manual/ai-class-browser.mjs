@@ -30,12 +30,19 @@ const IMG = JSON.stringify(CAT.map((u, i) => IMG_BOOKS.includes(u.book) ? i : -1
 // 4x3 PNG (회색) — 그림이 그려지는지(naturalWidth>0)만 본다
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAAEklEQVR4nGNgYGD4z8DAwMDAAAAOAAHqCAPXAAAAAElFTkSuQmCC', 'base64');
 let apiCalls = 0, rawCalls = 0;
+const ttsSpk = {};
+const WAV = (() => { const n = 4000, b = Buffer.alloc(44 + n * 2); b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(16000, 24); b.writeUInt32LE(32000, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(n * 2, 40); return b; })();
 const srv = http.createServer((q, r) => {
   const u = new URL(q.url, 'http://x');
   if (u.pathname === '/api/textbook-files') {
     apiCalls++; const book = u.searchParams.get('book');
     const items = Object.entries(NAMES).filter(([k]) => k.startsWith('[' + book + ']')).map(([k, id]) => ({ id, name: k, url: '/api/textbook-files/' + id + '/raw' }));
     r.writeHead(200, { 'Content-Type': 'application/json' }); return r.end(JSON.stringify({ ok: true, items }));
+  }
+  // 🎙️ (2026-10-18) 선생님 목소리 = 서버 TTS(Emma=asteria · 남자 역할=odysseus). 0.25초 무음 WAV 를 돌려주고 화자를 센다
+  if (u.pathname === '/api/voice/tts') {
+    let b = ''; q.on('data', c => b += c); q.on('end', () => { let spk = ''; try { spk = JSON.parse(b).speaker || ''; } catch {} ttsSpk[spk] = (ttsSpk[spk] || 0) + 1;
+      r.writeHead(200, { 'Content-Type': 'audio/wav', 'X-TTS-Speaker': spk }); r.end(WAV); }); return;
   }
   const raw = /^\/api\/textbook-files\/(\d+)\/raw$/.exec(u.pathname);
   if (raw) { rawCalls++; if (+raw[1] < 47000) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'Content-Type': 'image/png' }); return r.end(PNG); }
@@ -280,7 +287,8 @@ async function featOne(vp) {
   await ev(`document.getElementById('spdBtn').click()`); await ev(`document.getElementById('spdBtn').click()`);   // 0.75
   await go(vp, '&keep=1', '');
   ok(await ev(`window.__aiClass.speed`) === 0.75 && /아주 천천히/.test(await ev(`document.getElementById('spdBtn').textContent`)), `${tag}: speed not remembered`);
-  await ev(`(()=>{window.__rates=[];speechSynthesis.speak=function(u){window.__rates.push(u.rate);setTimeout(function(){u.onend&&u.onend()},5)};speechSynthesis.cancel=function(){};})()`);
+  // (2026-10-18) 선생님 목소리는 이제 서버 음성(<audio>) — 기기 목소리와 «서버 음성» 둘 다 속도를 잰다
+  await ev(`(()=>{window.__rates=[];speechSynthesis.speak=function(u){window.__rates.push(u.rate);setTimeout(function(){u.onend&&u.onend()},5)};speechSynthesis.cancel=function(){};(function(){if(window.__fa)return;window.__fa=1;var op=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(){var a=this;if(/^blob:/.test(a.src)){(window.__rates=window.__rates||[]).push(a.playbackRate);setTimeout(function(){a.onended&&a.onended()},5);return Promise.resolve();}return op.call(a);};})();})()`);
   await ev(`document.getElementById('startBtn').click()`);
   for (let i = 0; i < 100 && !(await ev('window.__rates.length')); i++) await sleep(20);
   const r0 = await ev('window.__rates[0]');
@@ -291,7 +299,7 @@ async function featOne(vp) {
   // ② 자동 말하기 + 가짜 음성인식: 마이크가 저절로 켜지고, 들은 말로 대답하며, 수업이 끝까지 간다(찾기는 눌러서)
   await go(vp, '&sr=fake', '');
   ok(!!(await ev(pickFindLesson)), `${tag}: no lesson with find+swap`);
-  await ev(`(()=>{window.__heard=0;new MutationObserver(m=>m.forEach(x=>x.addedNodes.forEach(n=>{if(n.classList&&n.classList.contains('heard'))window.__heard++}))).observe(document.getElementById('ask'),{childList:true});window.__stk=0;new MutationObserver(m=>m.forEach(x=>x.addedNodes.forEach(n=>{if(n.classList&&n.classList.contains('sticker'))window.__stk++}))).observe(document.getElementById('sTile'),{childList:true});speechSynthesis.speak=function(u){setTimeout(function(){u.onend&&u.onend()},3)};speechSynthesis.cancel=function(){};})()`);
+  await ev(`(()=>{window.__heard=0;new MutationObserver(m=>m.forEach(x=>x.addedNodes.forEach(n=>{if(n.classList&&n.classList.contains('heard'))window.__heard++}))).observe(document.getElementById('ask'),{childList:true});window.__stk=0;new MutationObserver(m=>m.forEach(x=>x.addedNodes.forEach(n=>{if(n.classList&&n.classList.contains('sticker'))window.__stk++}))).observe(document.getElementById('sTile'),{childList:true});speechSynthesis.speak=function(u){setTimeout(function(){u.onend&&u.onend()},3)};speechSynthesis.cancel=function(){};(function(){if(window.__fa)return;window.__fa=1;var op=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(){var a=this;if(/^blob:/.test(a.src)){(window.__rates=window.__rates||[]).push(a.playbackRate);setTimeout(function(){a.onended&&a.onended()},5);return Promise.resolve();}return op.call(a);};})();})()`);
   await ev(`document.getElementById('talkBtn').click()`);
   ok(/켬/.test(await ev(`document.getElementById('talkBtn').textContent`)), `${tag}: talk pill did not turn on`);
   await ev(`document.getElementById('startBtn').click()`);
@@ -454,7 +462,7 @@ async function srEndOne(vp) {
     await send('Emulation.setDeviceMetricsOverride', { width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.m });
     await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/ai-class.html?sr=${mode}&deftalk=1&r=${Date.now()}#fast` });
     for (let i = 0; i < 80; i++) { await sleep(60); try { if (await ev('!!(window.__aiClass && !document.getElementById("startBtn").disabled)')) break; } catch (e) { } }
-    await ev(`speechSynthesis.speak=function(u){setTimeout(function(){u.onend&&u.onend()},3)};speechSynthesis.cancel=function(){};`);
+    await ev(`speechSynthesis.speak=function(u){setTimeout(function(){u.onend&&u.onend()},3)};speechSynthesis.cancel=function(){};(function(){if(window.__fa)return;window.__fa=1;var op=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(){var a=this;if(/^blob:/.test(a.src)){(window.__rates=window.__rates||[]).push(a.playbackRate);setTimeout(function(){a.onended&&a.onended()},5);return Promise.resolve();}return op.call(a);};})();`);
     await ev(`document.getElementById('startBtn').click()`);
     for (let i = 0; i < 200; i++) { if (await ev(`(s=>!!s&&s.phase==='await'&&!window.__aiClass.busy)(window.__aiClass.state)`)) break; await sleep(20); }
   };
@@ -514,6 +522,9 @@ async function srEndOne(vp) {
     const cov = await ev(`[...document.querySelectorAll('.dock .db')].filter(b=>!__probe.top(b)).map(b=>{const r=b.getBoundingClientRect();const t=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return b.id+'<'+(t?t.tagName+'#'+t.id+'.'+t.className:'none')+' y'+Math.round(r.top)})`);
     ok(cov.length === 0, `${vp.n}: dock buttons covered ${cov}`);
   }
+  console.log('  (TTS 화자별 요청: ' + JSON.stringify(ttsSpk) + ')');
+  ok((ttsSpk.asteria || 0) > 0, `teacher voice is not Emma's server voice (asteria): ${JSON.stringify(ttsSpk)}`);
+  ok(Object.keys(ttsSpk).every(k => k === 'asteria' || k === 'odysseus'), `unexpected TTS speaker: ${JSON.stringify(ttsSpk)}`);
   ok(errors.length === 0, `console/page errors: ${[...new Set(errors)].slice(0, 5).join(' | ')}`);
   console.log(`api list ${apiCalls} · slide raw ${rawCalls}`);
   console.log(`browser runs ${runs} (${VPS.length} viewports × 4 lessons × ${REPS}) · avg ${Math.round(ms / Math.max(1, runs))}ms/run`);

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * ✋ class-ask.ts — A.i 선생님 수업(/ai-class.html)의 «학생 질문 → Lily 즉답» 정본
+ * ✋ class-ask.ts — A.i 선생님 수업(/ai-class.html)의 «학생 질문 → Emma 즉답» 정본
  *                  (2026-10-08, 사장님 「학생이 물어보면 바로 바로 아바타 선생님이 대답」
  *                   → B안(수업 전용 API) · 「누구나, 하루 상한」 선택)
  *
@@ -61,7 +61,7 @@ export function cleanAsk(b: any): { q: string; title: string; lines: string[]; n
 export function buildClassAskMessages(a: { q: string; title: string; lines: string[]; name: string }): Array<{ role: string; content: string }> {
   const page = a.lines.length ? a.lines.map((l) => '- ' + l).join('\n') : '(no text on this page)';
   const sys = [
-    'You are Lily, a warm, patient English teacher in a one-to-one video lesson with a Korean child.',
+    'You are Emma, a warm, patient English teacher in a one-to-one video lesson with a Korean child.',
     'The child just asked you a question in the middle of the lesson. Answer it right away.',
     'Lesson: ' + (a.title || 'English textbook lesson') + '.',
     'The textbook page on the screen right now:',
