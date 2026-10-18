@@ -138,8 +138,7 @@ const want = ['closed', 'mid', 'wide', 'mouths', 'transitions'];
 for (const a of ACTORS) for (const k of want)
   ok((perFile.get('js/mango-avatar.js') || new Set()).has(a + '-' + k), `mango-avatar.js 에서 ${a}-${k} 주소를 찾았다`,
     '찾는 정규식이 헛돌고 있습니다 — 아래 «?v= 없는 주소가 없다» 가 아무것도 안 봅니다');
-for (const k of ['closed', 'mid', 'wide'])
-  ok((perFile.get('ai-class.html') || new Set()).has('lily-' + k), `ai-class.html 에서 lily-${k} 주소를 찾았다`);
+// (2026-10-18) ai-class.html 의 선생님은 Emma 로 바뀌어 lily 그림을 안 씁니다 — 그 검사는 ai_class_page_harness 가 맡습니다
 for (const a of ACTORS)
   ok((perFile.get('js/warmup-photo-icons.js') || new Set()).has(a + '-closed'), `warmup-photo-icons.js 에서 ${a}-closed 주소를 찾았다`);
 console.log(`  (찾은 주소 ${refs}개 · 파일 ${perFile.size}개)`);
