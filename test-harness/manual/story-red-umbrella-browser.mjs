@@ -65,6 +65,7 @@ const SOLVER = `(function(){
   function top(el){ el.scrollIntoView({block:'center'}); /* 여러 줄로 감긴 문장은 상자 가운데가 줄 사이 빈칸이라 «첫 줄 조각» 을 잰다 */ const rs=el.getClientRects(); const r=rs.length?rs[0]:el.getBoundingClientRect(); const t=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2); lastTop=t?(t.tagName+'#'+t.id+'.'+String(t.className).slice(0,30)+'@'+Math.round(r.left)+','+Math.round(r.top)+' '+Math.round(r.width)+'x'+Math.round(r.height)):'null'; return !!t&&(t===el||el.contains(t)); }
   let blocked=[]; let ok_lock=null;
   window.__lockSeen=()=>ok_lock;
+  let first_key_hidden=null, first_q_hidden=[]; window.__thinkAgain=()=>({k:first_key_hidden,q:first_q_hidden});
   function click(el,name){ if(!el){ blocked.push('없음:'+name); return; } if(!top(el)) blocked.push('가림:'+name+'←'+lastTop); el.click(); }
   window.__earnCalls=0; const _f=window.fetch; window.fetch=function(u,o){ if(String(u).indexOf('/api/points/earn-by-rule')>=0) window.__earnCalls++; return _f.apply(this,arguments); };
   window.__solve = async function(monkey){
@@ -74,7 +75,10 @@ const SOLVER = `(function(){
     window.speechSynthesis && speechSynthesis.cancel();
     // ② 핵심문장: (원숭이) 먼저 틀린 것 → 다시
     click($('#pickMode'),'고르기');
-    if(monkey){ click(ss[0],'틀린문장'); click(ss[1],'틀린문장2'); click($('#checkKey'),'확인'); click($('#pickMode'),'다시고르기'); }
+    // 2026-10-18: 첫 번에 틀리면 정답을 안 보여 주고 고르기를 다시 켠다 → 고른 두 문장을 눌러 지우고 다시 고른다
+    if(monkey){ click(ss[0],'틀린문장'); click(ss[1],'틀린문장2'); click($('#checkKey'),'확인');
+      first_key_hidden = $$('#text .s.good').length===0 && $$('#text .s.pick').length===2;
+      click(ss[0],'틀린문장지우기'); click(ss[1],'틀린문장2지우기'); }
     const P=ss.find(s=>s.dataset.role==='P'), S=ss.find(s=>s.dataset.role==='S');
     click(P,'P'); click(S,'S'); click($('#checkKey'),'정답확인');
     // ③ 요점정리
@@ -101,6 +105,9 @@ const SOLVER = `(function(){
       for(let k=0;k<need;k++) click($$('.evb',card())[k],'Q'+qi+'근거'+k);
       click($('[data-check]',card()),'Q'+qi+'확인');
       if($('.fb.ok',card())) continue;
+      // 2026-10-18: 첫 번 틀림은 정답·해설을 숨긴다 → 한 번 더 «정답 확인» 해야 초록색이 보인다
+      first_q_hidden.push($$('.right',card()).length===0 && !!$('[data-check]',card()));
+      click($('[data-check]',card()),'Q'+qi+'두번째확인');
       const ans=$$('.opt',card()).findIndex(o=>o.classList.contains('right'));
       const evs=$$('.evb',card()).map((e,i)=>e.classList.contains('right')?i:-1).filter(i=>i>=0);
       click($('[data-retry]',card()),'Q'+qi+'다시');
@@ -135,6 +142,11 @@ async function runOne(vp, lang, mode, monkey, tag) {
   const blocked = await ev(`__solve(${monkey})`);
   ok(blocked.length === 0, `${tag}: 누를 것이 가려지거나 없음 ${JSON.stringify(blocked).slice(0, 200)}`);
   ok(await ev('window.__lockSeen()') === true, `${tag}: 게임 전에는 낱말 뜻이 가려져 있었다`);
+  if (monkey) {
+    const ta = await ev('window.__thinkAgain()');
+    ok(ta && ta.k === true, `${tag}: ② 첫 번 틀림에는 정답(초록)을 안 보여 주고 고른 문장을 남긴다`);
+    ok(ta && ta.q.length > 0 && ta.q.every(Boolean), `${tag}: ⑤ 첫 번 틀림에는 정답·근거를 안 보여 주고 다시 확인할 수 있다 (${ta && ta.q.length}문항)`);
+  }
   ok(await ev('document.querySelectorAll("#words .w .ko").length>=6 && !document.querySelector("#words .ko-lock")'), `${tag}: 게임을 끝내자 뜻이 열렸다`);
   await sleep(400);
   const st = await ev('JSON.stringify(Object.keys(window.StoryFun.state()).sort())');

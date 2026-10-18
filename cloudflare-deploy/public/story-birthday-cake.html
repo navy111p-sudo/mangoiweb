@@ -488,7 +488,7 @@ var StoryCore = (function(){
     if (pm) pm.innerHTML = picking ? t('✔ 고르기 끝','✔ Done choosing') : t('✏️ 고르기 시작','✏️ Start choosing');
     pickNote();   // 고른 문장(pick)은 그대로 둔다 — «✔ 고르기 끝» 과 같게(정답 확인에 쓰임)
   }
-  window.__storyPickOff = function(){ setPicking(false); spans.forEach(function(s){ s.classList.remove('pick','good','miss'); }); keyFb.innerHTML = ''; };   // «처음부터 다시» 만 고른 것까지 지움 — 2026-10-14: «정답 확인» 뒤(버튼 «다시 고르기»·초록/빨강 색)도 늘 처음 상태로
+  window.__storyPickOff = function(){ setPicking(false); keyTries = 0; spans.forEach(function(s){ s.classList.remove('pick','good','miss'); }); keyFb.innerHTML = ''; };   // «처음부터 다시» 만 고른 것까지 지움 — 2026-10-14: «정답 확인» 뒤(버튼 «다시 고르기»·초록/빨강 색)도 늘 처음 상태로
   // «처음부터 다시»(도장 초기화)가 낱말 게임과 가린 뜻도 처음 상태로 되돌린다
   window.__storyWordsReset = function(){ wordsOpen = false; WQS = { list: StoryCore.wordQuiz(WORDS, (Date.now() & 0xffff) || 5, WQ_POOL), i: 0, combo: 0, best: 0, tries: 0, picked: null, over: false }; renderWords(); renderWQ(); };
   document.getElementById('pickMode').addEventListener('click', function(){
@@ -498,10 +498,21 @@ var StoryCore = (function(){
     keyFb.innerHTML = picking ? '<div class="fb ok"><p>' + t('이제 본문 문장을 누르면 노란색으로 칠해집니다.','Tap sentences in the story to highlight them.') + '</p></div>' : '';
     if (picking) document.getElementById('story').scrollIntoView({behavior:'smooth', block:'start'});
   });
+  // 2026-10-18 사장님 의견: 첫 번에 틀리면 정답(초록/빨강)을 바로 보여 주지 않고 «한 번 더 생각» 할 기회를 준다.
+  //   두 번째 «정답 확인» 에서도 틀려야 정답을 보여 준다. «처음부터 다시»·정답 공개 뒤에는 다시 0 으로.
+  var keyTries = 0;
   document.getElementById('checkKey').addEventListener('click', function(){
     var picked = Array.prototype.slice.call(document.querySelectorAll('.s.pick'));
     if (picked.length < 2) { flash(t('먼저 «고르기 시작» 을 누르고 본문에서 문장 2개를 골라 주세요.','Press “Start choosing” and pick 2 sentences first.'), false); return; }
     var gk = StoryCore.gradeKey(picked.map(function(s){ return s.dataset.role; })), hit = gk.hit;
+    if (!gk.full && keyTries === 0) {   // 첫 번 틀림 — 고른 문장은 그대로 두고, 고르기를 다시 켜서 바꿔 고르게 한다
+      keyTries = 1; picking = true; pickNote();
+      document.getElementById('pickMode').innerHTML = t('✔ 고르기 끝','✔ Done choosing');
+      flash(t('2개 중 ' + hit + '개 맞았어요. 한 번 더 생각해 보세요! 이야기의 «문제» 와 «해결» 을 말하는 문장을 찾아 바꿔 고른 뒤 «정답 확인» 을 다시 누르세요.',
+              hit + ' of 2 right. Think once more! Find the sentences that tell the problem and the solution, change your pick, then press Check again.'), false);
+      return;
+    }
+    keyTries = 0;
     spans.forEach(function(s){ if (s.dataset.role !== 'd') s.classList.add('good'); });
     picked.forEach(function(s){ if (s.dataset.role === 'd') s.classList.add('miss'); });
     picking = false; pickNote();
@@ -583,7 +594,7 @@ var StoryCore = (function(){
   }
 
   // ---- evidence inference ----
-  var QST = QS.map(function(){ return { a:null, e:[], done:false, res:null }; });
+  var QST = QS.map(function(){ return { a:null, e:[], done:false, res:null, tries:0 }; });
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function renderQs(){
     var box = document.getElementById('qs');
@@ -599,7 +610,7 @@ var StoryCore = (function(){
         return '<button type="button" class="' + cls + '" data-q="' + qi + '" data-e="' + ei + '" aria-pressed="' + picked + '"' + (st.done ? ' disabled' : '') + '>' + esc(e) + '</button>';
       }).join('');
       var fb = '';
-      if (st.res) fb = '<div class="fb ' + (st.res.full ? 'ok' : 'no') + '"><p>' + st.res.msg + '</p><p>' + q.why[0] /* 원장님 의견 3: 근거 설명은 한국어 고정 */ + '</p>' +
+      if (st.res) fb = '<div class="fb ' + (st.res.full ? 'ok' : 'no') + '"><p>' + st.res.msg + '</p>' + (st.done ? '<p>' + q.why[0] /* 원장님 의견 3: 근거 설명은 한국어 고정 */ + '</p>' : '') +   /* 2026-10-18: 해설은 정답을 공개한 뒤에만(먼저 보이면 답이 새요) */
         (st.done ? '<div class="btns"><button type="button" class="b ghost" data-show="' + qi + '">' + t('본문에서 근거 보기','Show evidence in the story') + '</button>' +
           (st.res.full ? '' : '<button type="button" class="b ghost" data-retry="' + qi + '">' + t('다시 풀기','Try again') + '</button>') + '</div>' : '') + '</div>';
       return '<div class="qcard"><div class="qtype">Q' + (qi + 1) + ' · ' + t(q.type[0], q.type[1]) + '</div>' +
@@ -625,6 +636,13 @@ var StoryCore = (function(){
       if (gq.status === 'need_a') { st.res = { full:false, msg:t('먼저 1단계에서 답을 골라 주세요.','Choose an answer in step 1 first.') }; renderQs(); return; }
       if (gq.status === 'need_e') { st.res = { full:false, msg:t('2단계에서 근거 문장을 ' + q.ev.length + '개 골라 주세요.','Choose ' + q.ev.length + ' evidence sentence(s) in step 2.') }; renderQs(); return; }
       var aOk = gq.aOk, eOk = gq.eOk;
+      if (!(aOk && eOk) && !st.tries) {   // 2026-10-18: 첫 번 틀림은 정답·해설을 숨기고 한 번 더 생각하게 한다(고른 것은 그대로)
+        st.tries = 1;
+        st.res = { full:false, msg: aOk ? t('답은 맞았어요. 그런데 근거 문장이 아직 아니에요. 본문을 다시 읽고 근거를 바꿔 고른 뒤 «정답 확인» 을 한 번 더 누르세요.','The answer is right, but the evidence is not yet. Read the story again, change the evidence, and press Check once more.')
+          : eOk ? t('근거는 맞았는데 답이 아직 아니에요. 그 근거가 말하는 답을 다시 골라 보세요.','The evidence is right, but the answer is not yet. Choose the answer that the evidence supports.')
+          : t('아직 정답이 아니에요. 본문을 다시 읽고 답과 근거를 한 번 더 생각해 보세요.','Not yet. Read the story again and think once more about the answer and the evidence.') };
+        renderQs(); return;
+      }
       st.done = true;
       st.res = { full: aOk && eOk, msg: aOk && eOk ? t('정답! 답도 근거도 맞았어요.','Correct! Both the answer and the evidence are right.')
         : aOk ? t('답은 맞았어요. 근거 문장을 다시 살펴보세요 — 초록색이 근거입니다.','The answer is right, but check the evidence. Green shows the evidence.')
