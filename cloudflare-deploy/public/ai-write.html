@@ -368,6 +368,12 @@
       border-radius: 18px; padding: 18px 20px; margin-bottom: 16px; }
     .go-title { font-size: 17.5px; font-weight: 900; color: #bae6fd; }
     .go-sub { font-size: 13.5px; color: var(--text2); margin: 6px 0 12px; line-height: 1.55; }
+    /* ✏️ 문장 연습의 확장 질문 — 입력칸 위에 큰 글씨로 */
+    .coach-q-box { margin: 14px 0 6px; padding: 12px 14px; border-radius: 12px;
+      background: rgba(15,23,42,0.62); border: 1px solid rgba(251,191,36,0.42); }
+    .coach-q { margin: 0 0 10px; font-size: 16.5px; font-weight: 800; line-height: 1.5; color: var(--text); }
+    .coach-q .coach-q-n { display: inline-block; margin-right: 4px; padding: 1px 9px; border-radius: 99px;
+      background: var(--gold); color: #1a1a1a; font-size: 13.5px; font-weight: 900; vertical-align: 1px; }
     .go-themes-row { display: flex; gap: 8px; flex-wrap: wrap; }
     /* 지금 주제 표시줄 — 그림·글감에서 넘어온 주제를 여기서 말해 준다 */
     .go-cur { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 11px;
@@ -647,10 +653,13 @@
       <button type="button" class="topic-chip" id="coachUseFrame" data-ko="이 문장 틀로 시작" data-en="Start with this frame">이 문장 틀로 시작</button>
       <button type="button" class="topic-chip" id="coachHint" aria-expanded="false" data-ko="예문 힌트 보기" data-en="Show example hint">예문 힌트 보기</button>
       <p id="coachExample" hidden></p>
+      <!-- 확장 질문 — 입력칸 «위» 에 크게 둔다(아래 작게 있어 못 찾았다는 2026-10-18 제보). -->
+      <div class="coach-q-box">
+        <p id="coachQuestion" aria-live="polite" class="coach-q"></p>
+        <button type="button" class="topic-chip" id="coachNext" data-ko="다음 확장 질문 →" data-en="Next expansion question →">다음 확장 질문 →</button>
+      </div>
       <label for="coachSentence" class="go-sub" style="display:block;margin-top:12px" data-ko="연습용 칸 — 완성하면 ‘내 글 끝에 추가’를 누르세요" data-en="Practice only — finish, then choose Append to my writing">연습용 칸 — 완성하면 ‘내 글 끝에 추가’를 누르세요</label>
       <textarea id="coachSentence" rows="3" maxlength="500" style="width:100%;min-height:90px;box-sizing:border-box" placeholder="A boy is ..."></textarea>
-      <p id="coachQuestion" aria-live="polite" class="go-sub"></p>
-      <button type="button" class="topic-chip" id="coachNext" data-ko="다음 확장 질문" data-en="Next expansion question">다음 확장 질문</button>
       <button type="button" class="topic-chip" id="coachFromDraft" data-ko="내 글의 마지막 문장 가져오기" data-en="Bring in my last sentence">내 글의 마지막 문장 가져오기</button>
       <button type="button" class="topic-chip" id="coachAdd" data-ko="내 글 끝에 추가" data-en="Append to my writing">내 글 끝에 추가</button>
       <p id="coachStatus" role="status" class="go-sub"></p>
@@ -1506,7 +1515,9 @@
           : tr('예문 힌트: ', 'Example hint: ') + (t.example || (topicStart() ? topicStart() + ' …' : ''));
         el('coachExample').hidden = !hint;
         el('coachHint').setAttribute('aria-expanded', String(hint));
-        el('coachQuestion').textContent = (step + 1) + '/6 · ' + tr(...(isScene ? questions : questionsTopic)[step]);
+        const qEl = el('coachQuestion'); qEl.textContent = '';
+        const qn = document.createElement('span'); qn.className = 'coach-q-n'; qn.textContent = (step + 1) + '/6';
+        qEl.appendChild(qn); qEl.appendChild(document.createTextNode(' ' + tr(...(isScene ? questions : questionsTopic)[step])));
       }
       window.refreshSentenceCoach = function() { hint = false; refresh(); };
       el('coachHint').onclick = function() { hint = !hint; refresh(); };
