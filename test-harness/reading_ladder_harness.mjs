@@ -100,6 +100,17 @@ if (C) {
   ok(st1.slice(-2).every((p) => dr.slice(0, 2).includes(p)), '아직 처음에 못 맞힌 글이 먼저 나온다');
   ok(new Set(dr.map((p) => p.id)).size === dr.length, '반복 연습에 같은 글이 두 번 안 나온다');
   ok(C.isDone({ k: 'ok', m: 'retry', s: 'shown' }) && !C.isDone({ k: 'ok', m: 'ok' }), '완료 = 세 단계 모두(정답 보기 포함)');
+  // 📋 단계별 한눈에 · 주제 거르기 (2026-10-18)
+  ok([1, 2, 3, 4].every((n) => C.stageAvgWords(P, n) === Math.round(A[n - 1])), '평균 단어 수가 데이터에서 잰 값과 같다(' + [1, 2, 3, 4].map((n) => C.stageAvgWords(P, n)).join('·') + ')');
+  ok(C.stageAvgWords(P, 9) === 0, '없는 단계의 평균은 0(나누기 0 아님)');
+  const tp1 = C.topicsOf(P, 1);
+  ok(tp1.length >= 2 && tp1.reduce((a, t) => a + t.count, 0) === st1.length, '주제 목록의 개수 합 = 그 단계 글 수');
+  ok(tp1.every((t) => P.some((p) => p.stage === 1 && p.topic.ko === t.key)) && !tp1.some((t) => P.filter((p) => p.stage !== 1).some((p) => p.topic.ko === t.key) && !st1.some((p) => p.topic.ko === t.key)), '주제 목록은 그 단계 글에서만 나온다');
+  const big = tp1.slice().sort((x, y) => y.count - x.count)[0];
+  const f1 = C.filterByTopic(st1, big.key);
+  ok(f1.length === big.count && f1.every((p) => p.topic.ko === big.key), `주제 «${big.key}» 를 고르면 그 글 ${big.count}편만 남는다`);
+  ok(C.filterByTopic(st1, '') === st1, '주제를 안 고르면 그대로(짝)');
+  ok(C.filterByTopic(st1, '없는주제') === st1, '모르는 주제면 거르지 않는다(빈 목록을 «글이 없다» 로 보이지 않게)');
 }
 
 console.log('\n③ 배선');
@@ -108,6 +119,11 @@ ok(/window\.__storyLang\s*=/.test(HTML) && /window\.__storyBooksHtml\s*=/.test(H
 ok(/dispatchEvent\(new Event\('story:lang'\)\)/.test(HTML) && /addEventListener\('story:lang'/.test(JS_SRC), '언어를 바꾸면 사다리도 다시 그린다');
 ok(/class="rl-tab[^\n]*data-act="stage" data-stage=/.test(JS_SRC), '단계 탭이 실제로 눌린다(data-act="stage" — 빠지면 탭이 무동작)');
 ok(/id="rlApp"/.test(HTML) && /id="booksWrap"/.test(HTML), '사다리 칸과 예비 책 목록 칸이 있다');
+ok(/data-act="layout" data-layout="/.test(JS_SRC) && /if \(act === 'layout'\)/.test(JS_SRC), '보기 방식(단계별 한눈에/한 단계) 버튼이 실제로 눌린다');
+ok(/if \(state\.layout === 'all'\) return renderOverview\(\);/.test(JS_SRC) && /layout: 'all'/.test(JS_SRC), '처음 오면 «단계별 한눈에» 가 보인다');
+ok(/data-act="jump" data-stage="/.test(JS_SRC) && /if \(act === 'jump'\)/.test(JS_SRC) && /closest\('\.rl-sec'\)/.test(JS_SRC), '«단계 바로가기» 가 그 단계 구역으로 옮겨 간다');
+ok(/data-act="topic" data-topic="/.test(JS_SRC) && /if \(act === 'topic'\)/.test(JS_SRC), '주제 칩이 실제로 눌린다');
+ok(/window\.__storyBookList\s*=/.test(HTML) && /__storyBookList\(\)/.test(JS_SRC), '그림책이 «한눈에» 2단계 안에도 그려진다(책 목록을 넘겨 받음)');
 ok(/WRONG_BEFORE_REVEAL:\s*2/.test(JS_SRC) && (JS_SRC.match(/data-act="(keyreveal|mainreveal|dreveal)"/g) || []).length === 3, '두 번 틀리면 «정답 보기» 가 세 곳(핵심 문장·중심 내용·반복 연습)에 열린다');
 ok(/data-act="sumshow"/.test(JS_SRC), '영작은 «모범 문장 보기» 로 넘어갈 수 있다(갇히지 않음)');
 const noFetch = JS_SRC.replace(/\/\*[\s\S]*?\*\//g, '');

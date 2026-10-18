@@ -86,6 +86,29 @@
       var st = RLCore.stageStats(passages, stage, prog);
       return st.total > 0 && st.done >= Math.ceil(st.total * RLCore.NEXT_DONE_RATIO) && st.firstRatio >= RLCore.NEXT_FIRST_TRY;
     },
+    // 단계 평균 단어 수(반올림) — 목록·전체 보기가 같은 값을 쓴다.
+    stageAvgWords: function (passages, stage) {
+      var list = passages.filter(function (p) { return p.stage === stage; });
+      if (!list.length) return 0;
+      return Math.round(list.reduce(function (a, p) { return a + RLCore.wordCount(p); }, 0) / list.length);
+    },
+    // 그 단계 주제 목록 — 처음 나온 순서 · 개수 함께 (주제 거르기 칩).
+    topicsOf: function (passages, stage) {
+      var seen = {}, out = [];
+      passages.forEach(function (p) {
+        if (p.stage !== stage || !p.topic) return;
+        var k = p.topic.ko;
+        if (!seen[k]) { seen[k] = { key: k, label: p.topic, count: 0 }; out.push(seen[k]); }
+        seen[k].count++;
+      });
+      return out;
+    },
+    // 주제 거르기 — 모르는 주제(다른 단계에서 넘어온 값)면 거르지 않는다(빈 목록이 «글이 없다» 로 읽히지 않게).
+    filterByTopic: function (list, topic) {
+      if (!topic) return list;
+      var f = list.filter(function (p) { return p.topic && p.topic.ko === topic; });
+      return f.length ? f : list;
+    },
     // 반복 연습 5편 — 아직 «처음에 맞히지» 못한 글을 먼저, 그다음 나머지(같은 날은 같은 순서).
     pickDrill: function (passages, stage, prog, seed) {
       var list = passages.filter(function (p) { return p.stage === stage; });
@@ -109,12 +132,14 @@
   var MAX_STAGE = STAGES.length;
 
   /* ── 저장(이 기기) — 막혀도 메모리로 계속 ── */
-  var state = { stage: 1, prog: {} };
+  // layout: 'all' = 4단계 한눈에(처음 오면 이것) · 'stage' = 한 단계 자세히
+  var state = { stage: 1, prog: {}, layout: 'all' };
   try {
     var saved = JSON.parse(localStorage.getItem(RLCore.STORE_KEY) || 'null');
     if (saved && typeof saved === 'object') {
       if (saved.prog && typeof saved.prog === 'object') state.prog = saved.prog;
       if (saved.stage >= 1 && saved.stage <= MAX_STAGE) state.stage = saved.stage;
+      if (saved.layout === 'stage' || saved.layout === 'all') state.layout = saved.layout;
     }
   } catch (e) {}
   function save() { try { localStorage.setItem(RLCore.STORE_KEY, JSON.stringify(state)); } catch (e) {} }
@@ -142,7 +167,7 @@
   }
 
   /* ── 화면 상태 ── */
-  var view = { mode: 'list', id: null, drill: null, showKo: false, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
+  var view = { mode: 'list', id: null, drill: null, topic: '', showKo: false, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
 
   function render() {
     stopSpeak();
@@ -152,15 +177,77 @@
   }
 
   /* ════ 목록 ════ */
+  function cardStatus(p) {
+    var r = state.prog[p.id];
+    var done = RLCore.isDone(r);
+    var stepN = r ? ((r.k ? 1 : 0) + (r.m ? 1 : 0) + (r.s ? 1 : 0)) : 0;
+    return { done: done, text: done ? '✅ ' + T('핵심 찾기 완료', 'Done') : stepN ? '🟡 ' + T('진행 ' + stepN + ' / 3', 'In progress ' + stepN + ' / 3') : T('새 글', 'New') };
+  }
+  function layoutSwitch() {
+    function b(k, ko, en) {
+      return '<button type="button" class="rl-seg' + (state.layout === k ? ' on' : '') + '" data-act="layout" data-layout="' + k + '" aria-pressed="' + (state.layout === k) + '">' + esc(T(ko, en)) + '</button>';
+    }
+    return '<div class="rl-segs" role="group" aria-label="' + esc(T('보기 방식', 'View')) + '">' +
+      b('all', '📋 단계별 한눈에', '📋 All steps') + b('stage', '📖 한 단계 자세히', '📖 One step') + '</div>';
+  }
+  function progBar(st, color) {
+    var pct = st.total ? Math.round(st.done * 100 / st.total) : 0;
+    return '<span class="rl-pbar" style="--sc:' + color + '" role="img" aria-label="' + esc(T('완료 ' + st.done + ' / ' + st.total, 'Done ' + st.done + ' of ' + st.total)) + '"><i style="width:' + pct + '%"></i></span>';
+  }
+
+  /* 📋 4단계 한눈에 — 단계마다 학년·CEFR·평균 단어·진행 + 글 목록(그림 동화책은 2단계 안에 «그림책» 표시) */
+  function renderOverview() {
+    var books = (window.__storyBookList && window.__storyBookList()) || [];
+    var secs = STAGES.map(function (s) {
+      var st = RLCore.stageStats(PASSAGES, s.n, state.prog);
+      var rows = PASSAGES.filter(function (p) { return p.stage === s.n; }).map(function (p, i) {
+        var cs = cardStatus(p);
+        return '<li><button type="button" class="rl-li' + (cs.done ? ' done' : '') + '" data-act="open" data-id="' + p.id + '">' +
+          '<span class="rl-li-no">' + (i + 1) + '</span>' +
+          '<span class="rl-li-t">' + esc(p.title.en) + '<small>' + esc(p.title.ko) + '</small></span>' +
+          '<span class="rl-li-m">' + esc(L(p.topic)) + ' · ' + RLCore.wordCount(p) + T('단어', 'w') + '</span>' +
+          '<span class="rl-li-s">' + esc(cs.text) + '</span></button></li>';
+      }).join('');
+      var bookRows = s.n === 2 ? books.map(function (b) {
+        var prog = b.n >= 6 ? '🎉 ' + T('완주', 'Finished') : b.n > 0 ? '🏅 ' + b.n + ' / 6' : T('새 책', 'New');
+        return '<li><a class="rl-li rl-li-book' + (b.n >= 6 ? ' done' : '') + '" href="/story-' + esc(b.id) + '.html">' +
+          '<span class="rl-li-no">🖼</span>' +
+          '<span class="rl-li-t">' + esc(b.title) + ' <span class="rl-pic">' + esc(T('그림책', 'Picture book')) + '</span><small>' + esc(lang() === 'en' ? b.en : b.ko) + '</small></span>' +
+          '<span class="rl-li-m">' + esc(T('도장 6개 +10P', '6 stamps = +10P')) + '</span>' +
+          '<span class="rl-li-s">' + esc(prog) + '</span></a></li>';
+      }).join('') : '';
+      return '<section class="rl-sec" style="--sc:' + s.color + '" aria-labelledby="rlSec' + s.n + '">' +
+        '<div class="rl-sec-h"><div class="rl-sec-t">' +
+          '<span class="rl-sec-n">' + esc(T(s.n + '단계', 'Step ' + s.n)) + '</span>' +
+          '<h2 id="rlSec' + s.n + '">' + esc(L(s.name)) + '</h2>' +
+          '<span class="rl-sec-g">' + esc(L(s.grade)) + ' · ' + esc(s.cefr) + ' · ' + esc(T('평균 ' + RLCore.stageAvgWords(PASSAGES, s.n) + '단어', 'avg ' + RLCore.stageAvgWords(PASSAGES, s.n) + ' words')) +
+            ' · ' + esc(T((s.n <= 2 ? '이야기 ' : '지식 글 ') + st.total + '편' + (s.n === 2 && books.length ? ' + 그림책 ' + books.length + '권' : ''),
+                          st.total + (s.n <= 2 ? ' stories' : ' non-fiction texts') + (s.n === 2 && books.length ? ' + ' + books.length + ' picture books' : ''))) + '</span>' +
+          '<span class="rl-sec-d">' + esc(L(s.desc)) + '</span></div>' +
+          '<div class="rl-sec-p">' + progBar(st, s.color) + '<span>' + esc(T('완료 ' + st.done + ' / ' + st.total, 'Done ' + st.done + ' / ' + st.total)) + '</span>' +
+            '<button type="button" class="rl-btn rl-primary" data-act="stage" data-stage="' + s.n + '">' + esc(T('이 단계 공부하기 ▶', 'Study this step ▶')) + '</button></div></div>' +
+        '<ol class="rl-list">' + rows + bookRows + '</ol></section>';
+    }).join('');
+    var jump = '<nav class="rl-jump" aria-label="' + esc(T('단계 바로가기', 'Jump to a step')) + '">' + STAGES.map(function (s) {
+      var st = RLCore.stageStats(PASSAGES, s.n, state.prog);
+      return '<button type="button" class="rl-jbtn" style="--sc:' + s.color + '" data-act="jump" data-stage="' + s.n + '">' +
+        '<b>' + esc(T(s.n + '단계', 'Step ' + s.n)) + '</b> ' + esc(L(s.name)) + ' <span>' + st.done + '/' + st.total + '</span></button>';
+    }).join('') + '</nav>';
+    root.innerHTML = layoutSwitch() + jump +
+      '<p class="rl-howto">' + esc(T('단계를 고르거나 글 제목을 바로 눌러 시작하세요. 1단계부터 차례로 올라가면 가장 좋아요.',
+        'Pick a step or tap any title to start. Climbing from Step 1 works best.')) + '</p>' + secs;
+  }
+
   function renderList() {
+    if (state.layout === 'all') return renderOverview();
     var cur = state.stage;
     var tabs = STAGES.map(function (s) {
       var st = RLCore.stageStats(PASSAGES, s.n, state.prog);
       return '<button type="button" class="rl-tab' + (s.n === cur ? ' on' : '') + '" style="--sc:' + s.color + '" data-act="stage" data-stage="' + s.n + '" aria-pressed="' + (s.n === cur) + '">' +
         '<span class="rl-tab-n">' + esc(T(s.n + '단계', 'Step ' + s.n)) + '</span>' +
         '<span class="rl-tab-t">' + esc(L(s.name)) + '</span>' +
-        '<span class="rl-tab-g">' + esc(L(s.grade)) + ' · ' + esc(s.cefr) + '</span>' +
-        '<span class="rl-tab-p">' + esc(T('완료 ', 'Done ') + st.done + ' / ' + st.total) + '</span></button>';
+        '<span class="rl-tab-g">' + esc(L(s.grade)) + ' · ' + esc(s.cefr) + ' · ' + esc(T('평균 ' + RLCore.stageAvgWords(PASSAGES, s.n) + '단어', 'avg ' + RLCore.stageAvgWords(PASSAGES, s.n) + 'w')) + '</span>' +
+        '<span class="rl-tab-p">' + progBar(st, s.color) + esc(T('완료 ', 'Done ') + st.done + ' / ' + st.total) + '</span></button>';
     }).join('');
     var meta = stageMeta(cur);
     var st = RLCore.stageStats(PASSAGES, cur, state.prog);
@@ -169,20 +256,27 @@
         cur + '단계 글을 ' + st.done + '편 끝냈고 처음에 맞힌 비율이 ' + Math.round(st.firstRatio * 100) + '%예요. ' + (cur + 1) + '단계로 올라가 볼까요?',
         'You finished ' + st.done + ' texts with ' + Math.round(st.firstRatio * 100) + '% right on the first try. Ready for Step ' + (cur + 1) + '?')) +
         ' <button type="button" class="rl-btn rl-primary" data-act="stage" data-stage="' + (cur + 1) + '">' + esc(T((cur + 1) + '단계로 ▶', 'Go to Step ' + (cur + 1) + ' ▶')) + '</button></div>' : '';
-    var cards = PASSAGES.filter(function (p) { return p.stage === cur; }).map(function (p, i) {
-      var r = state.prog[p.id];
-      var done = RLCore.isDone(r);
-      var stepN = r ? ((r.k ? 1 : 0) + (r.m ? 1 : 0) + (r.s ? 1 : 0)) : 0;
-      var status = done ? '✅ ' + T('핵심 찾기 완료', 'Done') : stepN ? '🟡 ' + T('진행 ' + stepN + ' / 3', 'In progress ' + stepN + ' / 3') : T('새 글', 'New');
+    var stageList = PASSAGES.filter(function (p) { return p.stage === cur; });
+    var topics = RLCore.topicsOf(PASSAGES, cur);
+    var shown = RLCore.filterByTopic(stageList, view.topic);
+    var topicOn = shown !== stageList;
+    var chips = topics.length > 1 ? '<div class="rl-topics" role="group" aria-label="' + esc(T('주제로 거르기', 'Filter by topic')) + '">' +
+      '<button type="button" class="rl-tchip' + (topicOn ? '' : ' on') + '" data-act="topic" data-topic="" aria-pressed="' + !topicOn + '">' + esc(T('전체', 'All')) + ' ' + stageList.length + '</button>' +
+      topics.map(function (t) {
+        var on = topicOn && view.topic === t.key;
+        return '<button type="button" class="rl-tchip' + (on ? ' on' : '') + '" data-act="topic" data-topic="' + esc(t.key) + '" aria-pressed="' + on + '">' + esc(L(t.label)) + ' ' + t.count + '</button>';
+      }).join('') + '</div>' : '';
+    var cards = shown.map(function (p) {
+      var cs = cardStatus(p), done = cs.done, status = cs.text;
       return '<button type="button" class="rl-card' + (done ? ' done' : '') + '" data-act="open" data-id="' + p.id + '">' +
-        '<span class="rl-card-no">' + (i + 1) + '</span>' +
+        '<span class="rl-card-no">' + (stageList.indexOf(p) + 1) + '</span>' +
         '<span class="rl-card-b"><span class="rl-card-t">' + esc(p.title.en) + '</span>' +
         '<span class="rl-card-k">' + esc(p.title.ko) + '</span>' +
         '<span class="rl-card-m">' + esc(L(p.topic)) + ' · ' + RLCore.wordCount(p) + T('단어', ' words') + ' · ' + esc(p.genre === 'story' ? T('이야기', 'Story') : T('지식 글', 'Non-fiction')) + '</span>' +
         '<span class="rl-card-s">' + esc(status) + '</span></span></button>';
     }).join('');
-    var books = (cur === 2 && window.__storyBooksHtml) ? '<h3 class="rl-h3">' + esc(T('🖼 그림 동화책 (2단계 · 도장 6개 +10P)', '🖼 Picture storybooks (Step 2 · 6 stamps = +10P)')) + '</h3><div class="grid">' + window.__storyBooksHtml() + '</div>' : '';
-    root.innerHTML =
+    var books = (cur === 2 && !topicOn && window.__storyBooksHtml) ? '<h3 class="rl-h3">' + esc(T('🖼 그림 동화책 (2단계 · 도장 6개 +10P)', '🖼 Picture storybooks (Step 2 · 6 stamps = +10P)')) + '</h3><div class="grid">' + window.__storyBooksHtml() + '</div>' : '';
+    root.innerHTML = layoutSwitch() +
       '<div class="rl-tabs" role="group" aria-label="' + esc(T('단계 고르기', 'Choose a step')) + '">' + tabs + '</div>' +
       '<div class="rl-stagehead" style="--sc:' + meta.color + '">' +
         '<div><b>' + esc(T(cur + '단계 · ', 'Step ' + cur + ' · ') + L(meta.name)) + '</b> <span>' + esc(L(meta.desc)) + '</span></div>' +
@@ -190,7 +284,7 @@
       '</div>' + nextBox +
       '<div class="rl-howto">' + esc(T('한 편마다: 📖 읽기 → ① 핵심 문장 찾기 → ② 중심 내용 고르기 → ③ 핵심을 영어 한 문장으로 쓰기',
         'Each text: 📖 read → ① find the key sentence → ② choose the main idea → ③ write the main idea in one English sentence')) + '</div>' +
-      '<div class="rl-cards">' + cards + '</div>' + books;
+      chips + '<div class="rl-cards">' + cards + '</div>' + books;
   }
 
   /* ════ 읽기 + 3단계 ════ */
@@ -337,7 +431,7 @@
 
   /* ════ 조작 ════ */
   function openPassage(id) {
-    view = { mode: 'read', id: id, drill: null, showKo: view.showKo, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
+    view = { mode: 'read', id: id, drill: null, topic: view.topic, showKo: view.showKo, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
     render();
     try { root.scrollIntoView({ block: 'start' }); } catch (e) {}
   }
@@ -347,7 +441,15 @@
     if (!t || !root.contains(t)) return;
     var act = t.getAttribute('data-act');
     var p = view.id ? byId(view.id) : null;
-    if (act === 'stage') { state.stage = Number(t.getAttribute('data-stage')) || 1; save(); view.mode = 'list'; render(); return; }
+    if (act === 'stage') { state.stage = Number(t.getAttribute('data-stage')) || 1; state.layout = 'stage'; view.topic = ''; save(); view.mode = 'list'; render(); try { root.scrollIntoView({ block: 'start' }); } catch (e) {} return; }
+    if (act === 'layout') { state.layout = t.getAttribute('data-layout') === 'stage' ? 'stage' : 'all'; save(); view.mode = 'list'; render(); return; }
+    if (act === 'jump') {
+      var h = document.getElementById('rlSec' + t.getAttribute('data-stage'));
+      var sec = h && h.closest ? h.closest('.rl-sec') : null;
+      if (sec) { try { sec.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) { sec.scrollIntoView(); } }
+      return;
+    }
+    if (act === 'topic') { view.topic = t.getAttribute('data-topic') || ''; render(); return; }
     if (act === 'open') { openPassage(t.getAttribute('data-id')); return; }
     if (act === 'list') { view.mode = 'list'; view.id = null; render(); return; }
     if (act === 'ko') { view.showKo = !view.showKo; render(); return; }
@@ -358,7 +460,7 @@
     }
     if (act === 'drill') {
       var seed = new Date().toISOString().slice(0, 10) + ':' + state.stage + ':' + Math.floor(Date.now() / 60000);
-      view = { mode: 'drill', id: null, showKo: false, drill: { list: RLCore.pickDrill(PASSAGES, state.stage, state.prog, seed), i: 0, picked: null, wrong: 0, revealed: false, first: 0 } };
+      view = { mode: 'drill', id: null, topic: view.topic, showKo: false, drill: { list: RLCore.pickDrill(PASSAGES, state.stage, state.prog, seed), i: 0, picked: null, wrong: 0, revealed: false, first: 0 } };
       render(); return;
     }
     if (act === 'key' && p) {
