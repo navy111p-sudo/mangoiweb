@@ -453,6 +453,98 @@
     .wus-booknow{bottom:53px;font-size:13px;padding:10px 12px}
     .wus-two-nm{font-size:14px} .wus-two-ds{font-size:11.5px} .wus-twoc{padding:12px 8px}
   }
+  /* 🖥️ PC 3단계 카드 (B안 · 2026-10-18). 폰·좁은 창은 아래 규칙이 하나도 안 걸린다.
+     ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요(한자 폰트 하니스). */
+  .wus-pcsel,.wus-pcnote{display:none}
+  .wus-pc3[hidden]{display:none!important}
+  @media (min-width:1100px) and (min-height:620px){
+    .wu-setup{padding:16px 28px 22px}
+    .wus-nav{margin:-16px -28px 12px;padding:9px 28px}
+    .wus-nav-in,.wus-box{max-width:1480px}
+    .wus-navbtn{font-size:15.5px;padding:9px 16px}
+    .wus-title{font-size:30px;margin:4px 0 4px}
+    .wus-title .mango-inline{width:46px;height:auto}
+    .wus-lead{font-size:15px;color:var(--text2)}
+    .wus-lead br{display:none}
+    .wus-lead>span+br+span::before{content:' '}
+    .aidiff-chip,.howto-chip{font-size:14px!important}
+    /* 머리 — 설명 문장은 접고(카드가 대신 말한다) 도움말 칩은 제목 줄 오른쪽에 */
+    .wus-lead{display:none}
+    #wusMain>div[style*="text-align:center"]{display:flex;justify-content:flex-end;gap:8px;margin:-50px 0 0 auto;width:max-content;max-width:60%}
+    .wus-pc3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:22px}
+    .wus-pcc .wus-now{position:absolute;top:8px;right:8px;margin:0}
+    #wusPcB1 .wus-card,#wusPcB3 .wus-twoc{position:relative}
+    .wus-pcc{background:rgba(10,20,48,.55);border:1px solid rgba(148,163,184,.22);border-radius:24px;
+      padding:22px 24px 22px;box-shadow:0 18px 40px -22px rgba(0,0,0,.7);min-width:0}
+    .wus-pch{display:flex;align-items:center;gap:11px;font-size:23px;font-weight:900;letter-spacing:-.3px;margin-bottom:16px}
+    .wus-pcn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:36px;height:36px;
+      border-radius:50%;background:var(--accent);color:#04283a;font-size:18px;font-weight:900}
+    .wus-pcb .wus-hint{display:none}
+    .wus-pcb .wus-sub{font-size:15px;font-weight:800;color:var(--text2);margin:16px 0 7px}
+    #wusPcB1 #wusGLang>.wus-sub,#wusPcB3 #wusTwoSec>.wus-sub{display:none}
+    #wusPcB2 #wusGAge>.wus-sub{margin-top:0}
+    /* 1 · 언어 — 큰 타일 */
+    #wusPcB1 #wusLangs{grid-template-columns:1fr 1fr;gap:12px}
+    #wusPcB1 #wusLangs .wus-card{text-align:center;padding:16px 10px;border-width:2px;border-radius:18px}
+    #wusPcB1 #wusLangs .wus-name{flex-direction:column;justify-content:center;gap:8px;font-size:19px}
+    #wusPcB1 #wusLangs .wu-photo-icon{width:42px;height:42px;margin:0}
+    #wusPcB1 #wusLangs .wus-desc{display:none}
+    /* 1 · 말하는 방법 — 두 칸 */
+    #wusPcB1 #wusTalkBtns{grid-template-columns:1fr 1fr;gap:8px}
+    #wusPcB1 #wusTalkBtns .wus-card{text-align:center;padding:14px 8px}
+    #wusPcB1 #wusTalkBtns .wus-name{justify-content:center;font-size:16px}
+    #wusPcB1 #wusTalkBtns .wus-desc{display:none}
+    /* 2 · 나이대·수준 — 드롭다운 */
+    #wusPcB2 #wusAges,#wusPcB2 #wusLevels{display:none}
+    #wusPcB2 .wus-pcsel{display:block;width:100%;appearance:none;-webkit-appearance:none;cursor:pointer;
+      font-family:inherit;font-size:18px;font-weight:800;color:#f8fafc;border-radius:14px;padding:12px 44px 12px 16px;
+      border:1px solid rgba(148,163,184,.4);
+      background:#0f1c3f url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%237dd3fc' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 16px center}
+    #wusPcB2 .wus-pcsel:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
+    #wusPcB2 .wus-pcsel option{background:#0f1c3f;color:#f8fafc}
+    #wusPcB2 .wus-pcnote{display:block;margin-top:6px;font-size:14px;line-height:1.45;color:var(--text2)}
+    #wusPcB2 .wus-find{margin:14px 0 0;padding:10px 14px}
+    #wusPcB2 .wus-find .wus-name{font-size:16px}
+    #wusPcB2 .wus-find .wus-desc{font-size:13.5px}
+    /* 3 · 무엇을 — 큰 타일 + 교재 목록은 카드 안에서만 굴린다 */
+    #wusPcB3 .wus-two{gap:12px}
+    #wusPcB3 .wus-twoc{padding:16px 10px;border-width:2px;border-radius:18px}
+    #wusPcB3 .wus-two-nm{font-size:19px;margin-top:6px}
+    #wusPcB3 .wus-two-ds{font-size:13.5px}
+    #wuSetup #wusPcB3 .wus-two-ic .wu-photo-icon{width:64px;height:64px}
+    #wusPcB3 #wusBooksSec{margin-top:14px;max-height:calc(100vh - 760px);min-height:130px;overflow-y:auto;padding-right:4px}
+    #wusPcB3 #wusBooksSec .wus-item{padding:8px 12px;border-radius:12px}
+    #wusPcB3 #wusBooksSec .wus-name{font-size:15px}
+    #wusPcB3 #wusBooksSec .wus-desc{font-size:12.5px;margin-top:1px}
+    #wusPcB3 #wusBooksSec .wus-list{gap:6px}
+    #wusPcB3 .wus-two-ds{line-height:1.35}
+    /* 교재 목록이 펼쳐지면 두 타일의 그림을 접어 목록에 자리를 준다 */
+    #wusPcB3:has(#wusBooksSec:not([hidden])) .wus-two-ic{display:none}
+    #wusPcB3:has(#wusBooksSec:not([hidden])) .wus-twoc{padding:12px 10px}
+    /* 시작 — 가운데 큰 초록 버튼 */
+    .wus-ctabar{position:static;max-width:760px;margin:20px auto 0;padding:0;background:none}
+    .wus-ctabar .wus-booknow{display:none!important}
+    .wus-ctabar .wus-cta{padding:18px;font-size:23px;border-radius:18px;
+      background:linear-gradient(135deg,#22c55e,#16a34a);box-shadow:0 14px 30px -10px rgba(22,163,74,.85)}
+    .wus-ctabar .wus-hint2{font-size:14px;margin-top:10px;color:#93c5fd}
+  }
+  @media (min-width:1100px) and (min-height:620px) and (max-height:820px){
+    .wus-lead{display:none}
+    .wus-pc3{margin-top:14px} .wus-pcc{padding:18px 20px} .wus-pch{margin-bottom:12px;font-size:21px}
+    #wusPcB1 #wusLangs .wus-card,#wusPcB3 .wus-twoc{padding:13px 8px}
+    #wuSetup #wusPcB3 .wus-two-ic .wu-photo-icon{width:48px;height:48px}
+    .wus-pcb .wus-sub{margin:12px 0 6px}
+    .wus-ctabar{margin-top:12px} .wus-ctabar .wus-cta{padding:14px;font-size:21px}
+    .wus-pc3{margin-top:10px} .wus-pcc{padding:16px 18px}
+    #wusPcB3 #wusBooksSec{max-height:120px;min-height:0}
+    #wusPcB1 #wusLangs .wu-photo-icon{width:34px;height:34px}
+    #wusPcB1 #wusTalkBtns .wus-card{padding:10px 8px}
+    #wusPcB2 .wus-pcsel{padding:10px 44px 10px 14px;font-size:17px}
+    #wusPcB2 .wus-find{margin-top:10px;padding:8px 12px}
+    .wus-pcn{width:32px;height:32px;font-size:16px}
+    .wus-title{font-size:26px;margin:0}
+    .wus-ctabar .wus-hint2{margin-top:6px}
+  }
   /* 🧑‍🎓 ⋮ 메뉴 안 «연령대» 버튼 — 목소리 버튼과 같은 모양(2열) */
   .age-btns{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
   .age-btns button{appearance:none;-webkit-appearance:none;cursor:pointer;font-family:inherit;
@@ -576,9 +668,12 @@
              ⚠️ 이 줄을 맨 위에 두는 이유: 아래 두 축(수준 설명·수준 찾기)의 «뜻» 이 언어에 따라
                 달라진다(영어는 낱말 수, 중국어는 글자 수). 언어를 나중에 고르게 하면 방금 읽은
                 설명이 말없이 바뀐다. -->
+        <span id="wusPcHome" hidden></span>
+        <div id="wusGLang">
         <div class="wus-sub" data-ko="🗣️ 무슨 말로 이야기할까요?" data-en="🗣️ Which language will you speak?">🗣️ 무슨 말로 이야기할까요?</div>
         <div class="wus-hint" data-ko="고른 언어로 AI 가 말하고, 마이크도 그 말을 듣습니다." data-en="The AI speaks in this language, and the mic listens for it.">고른 언어로 AI 가 말하고, 마이크도 그 말을 듣습니다.</div>
         <div class="wus-grid" id="wusLangs"></div>
+        </div>
 
         <!-- 📘💬 두 갈래로 시작 (2026-09-16 · 시안 3안, 사장님 선택)
              [왜] 교재 칸이 수준 목록 «아래» 라 실측 top 이 PC 1380px · 폰 1577px 로 첫 화면 밖이었다.
@@ -608,17 +703,35 @@
           </div>
         </div>
 
+        <div id="wusGAge">
         <div class="wus-sub" data-ko="🧑‍🎓 누가 연습하나요?" data-en="🧑‍🎓 Who is practicing?">🧑‍🎓 누가 연습하나요?</div>
         <div class="wus-hint" data-ko="고른 나이대에 맞춰 이야기 소재와 말투가 달라져요. (영어 수준과는 별개예요)" data-en="Topics and tone follow the age group you pick. (Separate from English level.)">고른 나이대에 맞춰 이야기 소재와 말투가 달라져요. (영어 수준과는 별개예요)</div>
         <div class="wus-grid" id="wusAges"></div>
+        <!-- 🖥️ PC(B안) 전용 드롭다운 — 고르면 위 숨은 버튼을 «대신 눌러» 기존 처리 그대로 탄다 -->
+        <select id="wusAgeSel" class="wus-pcsel" aria-label="나이대"></select>
+        <div class="wus-pcnote" id="wusAgeNote"></div>
+        </div>
 
+        <div id="wusGLevel">
         <div class="wus-sub" data-ko="🎚️ 대화 수준" data-en="🎚️ Conversation level">🎚️ 대화 수준</div>
         <div class="wus-hint" data-ko="고른 수준에 맞춰 AI가 쓰는 단어와 문장 길이가 달라져요." data-en="The AI's words and sentence length follow the level you pick.">고른 수준에 맞춰 AI가 쓰는 단어와 문장 길이가 달라져요.</div>
+        <select id="wusLevelSel" class="wus-pcsel" aria-label="대화 수준"></select>
+        <div class="wus-pcnote" id="wusLevelNote"></div>
         <button type="button" class="wus-find" id="wusFind">
           <span class="wus-name" data-ko="🎯 내 수준 찾아줄까요?" data-en="🎯 Find my level?">🎯 내 수준 찾아줄까요?</span>
           <span class="wus-desc" data-ko="영어 문장 3개만 보면 끝나요. (약 30초)" data-en="Just look at 3 English sentences. (About 30 seconds)">영어 문장 3개만 보면 끝나요. (약 30초)</span>
         </button>
         <div class="wus-list" id="wusLevels"></div>
+        </div>
+
+        <!-- 🖥️ PC 3단계 카드(B안, 2026-10-18 사장님 «PC 에서 스크롤 없이 한 화면»).
+             넓은 화면에서만 wusPcLayout() 이 위 묶음들을 이 카드 안으로 «옮기고», 좁아지면 원래 자리로 되돌린다.
+             ⛔ 폰 화면 순서를 바꾸지 않으려고 마크업은 그대로 두고 옮기기만 한다. -->
+        <div class="wus-pc3" id="wusPc3" hidden>
+          <div class="wus-pcc"><div class="wus-pch"><span class="wus-pcn">1</span><span data-ko="무슨 말로?" data-en="Which language?">무슨 말로?</span></div><div class="wus-pcb" id="wusPcB1"></div></div>
+          <div class="wus-pcc"><div class="wus-pch"><span class="wus-pcn">2</span><span data-ko="누가, 어느 수준?" data-en="Who, and what level?">누가, 어느 수준?</span></div><div class="wus-pcb" id="wusPcB2"></div></div>
+          <div class="wus-pcc"><div class="wus-pch"><span class="wus-pcn">3</span><span data-ko="무엇을 이야기할까?" data-en="What to talk about?">무엇을 이야기할까?</span></div><div class="wus-pcb" id="wusPcB3"></div></div>
+        </div>
 
 
         <div class="wus-ctabar">
@@ -1875,6 +1988,8 @@ function renderSetup(){
   /* 🔒 «펼친 순간» 의 수준으로 정렬한다 — 넘기지 않으면 수준을 고를 때마다 위쪽이 흔들린다. */
   if(bks && !isZh()) bks.innerHTML = btsListHtml(btsSortLevel(), true);
   renderTwoWay();
+  wusPcSync();          // 🖥️ PC 드롭다운 값·설명을 지금 상태로
+  wusPcLayout();        // 🖥️ PC 면 3단계 카드로 옮긴다(자동 말하기 칸이 늦게 생겨도 여기서 따라옴)
   btsRenderBookNow();   // 📘 시작 버튼 위 «지금 교재» 줄 — 언어 전환·첫 그리기에서 함께
   var cta = document.getElementById('wusStart');
   if(cta) cta.textContent = _warmStarted ? wuT('✅ 이 설정으로 계속하기', '✅ Continue with these settings') : wuT('🚀 이 설정으로 말하기 연습 시작하기', '🚀 Start speaking practice');
@@ -1955,6 +2070,52 @@ function setupGoBack(){
 function closeSetup(){
   var box = setupEl(); if(box) box.hidden = true;
 }
+/* 🖥️ PC 3단계 카드(B안, 2026-10-18) — 넓은 화면에서만 설정 묶음을 카드 안으로 옮긴다.
+   ⛔ 마크업 순서를 바꾸지 않는다 — 폰 화면은 예전 순서 그대로여야 한다(교재 칸이 언어 바로 다음, 2026-09-16).
+   ⛔ 판정·저장을 새로 만들지 않는다 — 드롭다운은 숨은 버튼을 «대신 눌러» 기존 위임 처리를 그대로 탄다.
+   ⛔ 상주 타이머·MutationObserver 를 두지 않는다 — renderSetup·창 크기 변화 때만 맞춘다. */
+var WUS_PC_MQ = (window.matchMedia ? window.matchMedia('(min-width:1100px) and (min-height:620px)') : null);
+function wusPcOn(){ return !!(WUS_PC_MQ && WUS_PC_MQ.matches); }
+function wusPcLayout(){
+  var pc3 = document.getElementById('wusPc3'), home = document.getElementById('wusPcHome');
+  if(!pc3 || !home) return;
+  var g = function(id){ return document.getElementById(id); };
+  var talk = g('wusTalkSec'), cta = document.querySelector('#wuSetup .wus-ctabar');
+  var plan = [['wusPcB1',['wusGLang','wusTalkSec']],['wusPcB2',['wusGAge','wusGLevel']],['wusPcB3',['wusTwoSec','wusBooksSec']]];
+  if(wusPcOn()){
+    pc3.hidden = false;
+    plan.forEach(function(c){ var box = g(c[0]); c[1].forEach(function(id){ var el = g(id); if(box && el && el.parentNode !== box) box.appendChild(el); }); });
+  } else {
+    pc3.hidden = true;
+    ['wusGLang','wusTwoSec','wusBooksSec','wusGAge','wusGLevel'].forEach(function(id){ var el = g(id); if(el && pc3.contains(el)) home.parentNode.insertBefore(el, home); });
+    if(talk && cta && pc3.contains(talk)) cta.parentNode.insertBefore(talk, cta);
+  }
+}
+function wusPcSync(){
+  var as = document.getElementById('wusAgeSel'), ls = document.getElementById('wusLevelSel');
+  var esc = function(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;'); };
+  if(as){
+    as.innerHTML = AGE_CATALOG.map(function(a){ return '<option value="'+a.id+'"'+(a.id===_warmAge?' selected':'')+'>'+esc(ageName(a))+'</option>'; }).join('');
+    as.setAttribute('aria-label', wuT('나이대','Age group'));
+    var an = document.getElementById('wusAgeNote'); if(an) an.textContent = ageDesc(ageInfo(_warmAge));
+  }
+  if(ls){
+    var cur = null;
+    ls.innerHTML = LEVEL_CATALOG.map(function(b){ if(b.n === _warmLevel) cur = b;
+      return '<option value="'+b.n+'"'+(b.n===_warmLevel?' selected':'')+'>'+esc(wuT(b.ko, b.en||b.ko)+' · '+b.cefr+'  ('+b.lv+')')+'</option>'; }).join('');
+    ls.setAttribute('aria-label', wuT('대화 수준','Conversation level'));
+    var ln = document.getElementById('wusLevelNote');
+    if(ln) ln.textContent = cur ? (isZh() ? (cur.dz||cur.d) : wuT(cur.d, cur.de||cur.d)) : '';
+  }
+}
+(function wirePcSelects(){
+  var press = function(sel){ var b = document.querySelector(sel); if(b) b.click(); };
+  var as = document.getElementById('wusAgeSel'), ls = document.getElementById('wusLevelSel');
+  if(as) as.addEventListener('change', function(){ press('#wusAges [data-age="'+as.value+'"]'); wusPcSync(); });
+  if(ls) ls.addEventListener('change', function(){ press('#wusLevels [data-lvl="'+ls.value+'"]'); });
+  if(WUS_PC_MQ){ var on = function(){ wusPcLayout(); }; if(WUS_PC_MQ.addEventListener) WUS_PC_MQ.addEventListener('change', on); else if(WUS_PC_MQ.addListener) WUS_PC_MQ.addListener(on); }
+  document.addEventListener('DOMContentLoaded', function(){ wusPcLayout(); });
+})();
 /* 목록은 다시 그려지므로 «위임» 으로 한 번만 배선한다(그릴 때마다 리스너를 달면 새는 자리) */
 (function wireSetup(){
   var box = setupEl(); if(!box) return;

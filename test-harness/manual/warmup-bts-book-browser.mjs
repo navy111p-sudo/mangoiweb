@@ -345,11 +345,15 @@ for (const [vw, vh, wlabel] of [[1920,1040,'PC'], [390,844,'폰'], [1280,720,'�
   r = await evaluate(`(function(){
     var q=function(x){return document.querySelector(x)};
     var R=function(el){var b=el.getBoundingClientRect();return{t:Math.round(b.top),b:Math.round(b.bottom),w:Math.round(b.width),l:Math.round(b.left)};};
-    var bn=q('#wusBookNow'), st=q('#wusStart');
+    /* 2026-10-18 — PC(1100px↑·620↑)는 «3단계 카드(B안)» 라 하단 줄이 숨고, 그 일(«지금은 자유 대화» 를 말하고
+       누르면 교재로 간다)을 3번 카드의 «두 갈래» 칸이 첫 화면 안에서 맡습니다. 그때는 그 칸을 잽니다. */
+    var pc=q('#wusPc3'), pcB=!!pc && !pc.hidden && getComputedStyle(pc).display!=='none';
+    var bn=pcB ? q('#wusTwoWay [data-way="free"]') : q('#wusBookNow'), st=q('#wusStart');
     if(!bn||!st) return JSON.stringify({err:'no-el'});
     var rb=R(bn), rs=R(st);
     var top=document.elementFromPoint(Math.round(rb.l+rb.w/2), Math.round((rb.t+rb.b)/2));
-    return JSON.stringify({ hidden:bn.hidden, h:Math.round(rb.b-rb.t), text:(bn.textContent||'').trim(),
+    return JSON.stringify({ pcB:pcB, hidden:bn.hidden, h:Math.round(rb.b-rb.t), text:(bn.textContent||'').trim(),
+      nowFree: pcB ? !!(bn.classList.contains('on') || bn.querySelector('.wus-now')) : null,
       inFirst: rb.b<=innerHeight && rb.t>=0, gap: rs.t-rb.b, overlaps: rb.b>rs.t,
       isMine: !!(top && bn.contains(top)), booksHidden: q('#wusBooksSec').hidden,
       booksTop: Math.round(q('#wusBooksSec').getBoundingClientRect().top), view:innerHeight });
@@ -369,6 +373,7 @@ for (const [vw, vh, wlabel] of [[1920,1040,'PC'], [390,844,'폰'], [1280,720,'�
   t(`⑩ [${wlabel}] 시작 버튼과 겹치지 않는다`, d.overlaps === false && d.gap >= 0, d);
   t(`⑩ [${wlabel}] 그 자리에서 맨 위가 그 줄이다(눌린다)`, d.isMine === true, d);
   t(`⑩ [${wlabel}] 안 골랐으면 «자유 대화» 라고 말한다`, /자유 대화/.test(d.text||''), d.text);
+  if (d.pcB) t(`⑩ [${wlabel}] PC 카드 — 「자유 대화」 칸에 «지금» 표시가 있다(짝)`, d.nowFree === true, d);
 
   await evaluate("document.getElementById('wusBookNow').click()");
   await sleep(800);

@@ -1,7 +1,7 @@
-// ✋ A.i 선생님 수업 — «학생 질문 → Lily 즉답» 브라우저 검사 (CDP 직접) · 2026-10-08
+// ✋ A.i 선생님 수업 — «학생 질문 → Emma 즉답» 브라우저 검사 (CDP 직접) · 2026-10-08
 // ⚠️ 자동으로 안 돕니다(manual/) — 사람이 부릅니다:  node test-harness/manual/ai-class-ask-browser.mjs
 // 서버(/api/ai/class-ask)는 가짜로 흉내 냅니다 — 성공 · 실패(503) · 하루 상한(429) 세 가지.
-// 보는 것: 버튼·창이 보이고 눌린다 · 물으면 Lily 가 답하고 수업 차례로 돌아온다 · 말로 한 질문도 가로챈다 ·
+// 보는 것: 버튼·창이 보이고 눌린다 · 물으면 Emma 가 답하고 수업 차례로 돌아온다 · 말로 한 질문도 가로챈다 ·
 //          (짝) 따라 말한 대답은 서버로 안 간다 · 실패·상한은 사실대로 말하고 답을 지어내지 않는다.
 import { spawn } from 'child_process';
 import http from 'http';
@@ -71,18 +71,18 @@ async function scenario(vp) {
   ok(boxVis, `${tag}: 질문 입력칸이 보이고 맨 위다`);
   MODE = 'ok'; asks = [];
   await ev(`(()=>{document.getElementById('askInput').value='happy 가 무슨 뜻이에요?';document.getElementById('askForm').requestSubmit();})()`);
-  ok(await waitFor(`window.__askLog.some(t=>/Lily: Happy means/.test(t))`), `${tag}: Lily 의 대답이 화면에 나온다`);
+  ok(await waitFor(`window.__askLog.some(t=>/Emma: Happy means/.test(t))`), `${tag}: Emma 의 대답이 화면에 나온다`);
   ok(asks.length === 1 && /happy/.test(asks[0].q || '') && Array.isArray(asks[0].lines), `${tag}: 질문과 지금 교재 쪽 문장을 함께 보낸다 ${JSON.stringify(asks[0] || {}).slice(0, 120)}`);
   ok(await ev(`/기분이 좋다/.test(document.getElementById('sub').textContent)`), `${tag}: 한국어 자막이 붙는다`);
-  ok(await waitFor(`(()=>{const a=window.__aiClass;return !a.busy&&a.state.phase==='await'&&!/Lily:/.test(document.getElementById('ask').textContent)})()`, 6000), `${tag}: 대답 뒤 하던 차례로 돌아온다`);
+  ok(await waitFor(`(()=>{const a=window.__aiClass;return !a.busy&&a.state.phase==='await'&&!/Emma:/.test(document.getElementById('ask').textContent)})()`, 6000), `${tag}: 대답 뒤 하던 차례로 돌아온다`);
   ok((await ev(`window.__aiClass.state.i`)) === i0, `${tag}: 질문으로 수업 차례가 넘어가지 않았다`);
   ok(await ev(`document.getElementById('askBox').hidden`), `${tag}: 물은 뒤 질문 창은 닫힌다`);
   // ② 말로 한 질문(마이크 대신 창으로 같은 길) — 가로채서 서버로
   asks = []; await ev('window.__askLog=[]');
   await ev(`(()=>{document.getElementById('simInput').value='What does tired mean';document.getElementById('simForm').requestSubmit();})()`);
-  ok(await waitFor(`window.__askLog.some(t=>/Lily:/.test(t))`), `${tag}: 영어로 말한 질문도 Lily 가 답한다`);
+  ok(await waitFor(`window.__askLog.some(t=>/Emma:/.test(t))`), `${tag}: 영어로 말한 질문도 Emma 가 답한다`);
   ok(asks.length === 1 && /tired/.test(asks[0].q), `${tag}: 말한 질문이 서버로 갔다`);
-  await waitFor(awaitExpr + `&&!/Lily:/.test(document.getElementById('ask').textContent)`, 6000);
+  await waitFor(awaitExpr + `&&!/Emma:/.test(document.getElementById('ask').textContent)`, 6000);
   ok((await ev(`window.__aiClass.state.i`)) === i0, `${tag}: (짝) 질문은 수업 대답으로 세지 않는다`);
   // ③ (짝) 따라 말한 대답은 서버로 안 간다
   asks = [];
@@ -99,7 +99,7 @@ async function scenario(vp) {
     ok(await waitFor(`${re}.test(document.getElementById('ask').textContent)`), `${tag}: ${m} — 사실대로 말한다`);
     ok(await waitFor(`(()=>{const a=window.__aiClass;return !a.busy&&a.state.phase==='await'&&!a.state.askBusy})()`, 6000), `${tag}: ${m} — 수업으로 돌아온다`);
     await sleep(300);
-    ok(!(await ev(`window.__askLog.some(t=>/Lily:/.test(t))`)), `${tag}: ${m} — (짝) 답을 지어내지 않는다`);
+    ok(!(await ev(`window.__askLog.some(t=>/Emma:/.test(t))`)), `${tag}: ${m} — (짝) 답을 지어내지 않는다`);
     ok(await ev(`${re}.test(document.getElementById('ask').textContent)&&/🎤/.test(document.getElementById('ask').textContent)`), `${tag}: ${m} — 수업 차례로 돌아온 뒤에도 안내가 남는다`);
   }
   ok(await ev('document.documentElement.scrollWidth <= innerWidth'), `${tag}: 가로 넘침 없음`);
