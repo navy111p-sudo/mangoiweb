@@ -30,12 +30,19 @@ const IMG = JSON.stringify(CAT.map((u, i) => IMG_BOOKS.includes(u.book) ? i : -1
 // 4x3 PNG (회색) — 그림이 그려지는지(naturalWidth>0)만 본다
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAAEklEQVR4nGNgYGD4z8DAwMDAAAAOAAHqCAPXAAAAAElFTkSuQmCC', 'base64');
 let apiCalls = 0, rawCalls = 0;
+const ttsSpk = {};
+const WAV = (() => { const n = 4000, b = Buffer.alloc(44 + n * 2); b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(16000, 24); b.writeUInt32LE(32000, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(n * 2, 40); return b; })();
 const srv = http.createServer((q, r) => {
   const u = new URL(q.url, 'http://x');
   if (u.pathname === '/api/textbook-files') {
     apiCalls++; const book = u.searchParams.get('book');
     const items = Object.entries(NAMES).filter(([k]) => k.startsWith('[' + book + ']')).map(([k, id]) => ({ id, name: k, url: '/api/textbook-files/' + id + '/raw' }));
     r.writeHead(200, { 'Content-Type': 'application/json' }); return r.end(JSON.stringify({ ok: true, items }));
+  }
+  // 🎙️ (2026-10-18) 선생님 목소리 = 서버 TTS(Emma=asteria · 남자 역할=odysseus). 0.25초 무음 WAV 를 돌려주고 화자를 센다
+  if (u.pathname === '/api/voice/tts') {
+    let b = ''; q.on('data', c => b += c); q.on('end', () => { let spk = ''; try { spk = JSON.parse(b).speaker || ''; } catch {} ttsSpk[spk] = (ttsSpk[spk] || 0) + 1;
+      r.writeHead(200, { 'Content-Type': 'audio/wav', 'X-TTS-Speaker': spk }); r.end(WAV); }); return;
   }
   const raw = /^\/api\/textbook-files\/(\d+)\/raw$/.exec(u.pathname);
   if (raw) { rawCalls++; if (+raw[1] < 47000) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'Content-Type': 'image/png' }); return r.end(PNG); }
@@ -514,6 +521,9 @@ async function srEndOne(vp) {
     const cov = await ev(`[...document.querySelectorAll('.dock .db')].filter(b=>!__probe.top(b)).map(b=>{const r=b.getBoundingClientRect();const t=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return b.id+'<'+(t?t.tagName+'#'+t.id+'.'+t.className:'none')+' y'+Math.round(r.top)})`);
     ok(cov.length === 0, `${vp.n}: dock buttons covered ${cov}`);
   }
+  console.log('  (TTS 화자별 요청: ' + JSON.stringify(ttsSpk) + ')');
+  ok((ttsSpk.asteria || 0) > 0, `teacher voice is not Emma's server voice (asteria): ${JSON.stringify(ttsSpk)}`);
+  ok(Object.keys(ttsSpk).every(k => k === 'asteria' || k === 'odysseus'), `unexpected TTS speaker: ${JSON.stringify(ttsSpk)}`);
   ok(errors.length === 0, `console/page errors: ${[...new Set(errors)].slice(0, 5).join(' | ')}`);
   console.log(`api list ${apiCalls} · slide raw ${rawCalls}`);
   console.log(`browser runs ${runs} (${VPS.length} viewports × 4 lessons × ${REPS}) · avg ${Math.round(ms / Math.max(1, runs))}ms/run`);
