@@ -16,8 +16,14 @@ export const WEAK_RECENT_DAYS = 60;
 
 const SEEN = 'COALESCE(last_seen, updated_at, 0)';
 
+/** 판정 자체(창 없이) — 아래 두 조각이 함께 쓴다. ⛔ 밖에서 이것만 따로 쓰지 말 것(창이 빠진다). */
+const WEAK_CORE = `wrong_count > 0 AND wrong_count >= correct_count`;
+
 /** WHERE 에 덧붙일 조각 — 바인드 1개(weakSince 값)를 받는다. */
-export const WEAK_WHERE = `wrong_count > 0 AND wrong_count >= correct_count AND ${SEEN} >= ?`;
+export const WEAK_WHERE = `${WEAK_CORE} AND ${SEEN} >= ?`;
+
+/** «창 밖으로 빠진» 약점 — 화면이 「그보다 오래된 약점 N개는 뺐다」를 말할 때만 센다(바인드 1개). */
+export const WEAK_OLDER_WHERE = `${WEAK_CORE} AND ${SEEN} < ?`;
 
 /** ORDER BY 조각(앞에 ORDER BY 를 붙이지 않는다). */
 export const WEAK_ORDER = `${SEEN} DESC, (wrong_count - correct_count) DESC, wrong_count DESC`;

@@ -113,10 +113,18 @@ function loadReport(){
       var langName = LANG==='zh'?'중국어':'영어';
       if(!weak.length){
         summary.innerHTML='';
-        content.innerHTML='<div class="empty"><div class="big">🎉</div><b>'+escapeHtml(uid)+'</b> 학생은 '+langName+' 게임에서<br>아직 약점으로 잡힌 단어가 없어요!<br><span style="font-size:13px;color:#64748b">(게임을 더 하면 자주 틀리는 단어가 여기 모여요)</span></div>';
+        // 「없다」와 「오래돼서 뺐다」는 다른 사실 — 서버가 창 밖 옛 약점 수(older)를 알려 준다(모르면 null).
+        var olderN = (typeof d.older === 'number') ? d.older : null, winD = d.window_days || 60;
+        var olderLine = (olderN && olderN > 0)
+          ? '<br><span style="font-size:13px;color:#fbbf24">최근 '+winD+'일 기준이에요 — 그보다 오래된 약점 '+olderN+'개는 뺐어요.<br>Last '+winD+' days only — '+olderN+' older weak word(s) left out.</span>'
+          : '';
+        content.innerHTML='<div class="empty"><div class="big">🎉</div><b>'+escapeHtml(uid)+'</b> 학생은 '+langName+' 게임에서<br>최근 '+winD+'일 동안 약점으로 잡힌 단어가 없어요!<br><span style="font-size:13px;color:#64748b">(게임을 더 하면 자주 틀리는 단어가 여기 모여요)</span>'+olderLine+'</div>';
         return;
       }
-      summary.innerHTML='<b>'+escapeHtml(uid)+'</b> 학생 · '+langName+' 약점 단어 <b>'+weak.length+'</b>개 (자주 틀린 순). 🔊 를 눌러 원어민 발음을 함께 지도하세요.';
+      var winD2 = d.window_days || 60, olderN2 = (typeof d.older === 'number') ? d.older : null;
+      summary.innerHTML='<b>'+escapeHtml(uid)+'</b> 학생 · '+langName+' 약점 단어 <b>'+weak.length+'</b>개 (최근 '+winD2+'일 · 최근에 틀린 순'
+        + (olderN2 && olderN2 > 0 ? ' · 그보다 오래된 '+olderN2+'개 제외' : '') + '). 🔊 를 눌러 원어민 발음을 함께 지도하세요.'
+        + '<br><span style="font-size:12px;color:var(--text2)">Last '+winD2+' days · most recent first'+(olderN2 && olderN2 > 0 ? ' · '+olderN2+' older left out' : '')+'</span>';
       content.innerHTML = '<div class="grid">' + weak.map(function(w){
         var hz = escapeHtml(w.item);
         var pron = (w.pron_count>0)
