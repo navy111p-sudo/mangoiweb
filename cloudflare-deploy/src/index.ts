@@ -1,5 +1,6 @@
 import { handleSpeechPreferences } from './speech-preferences';
 import { loadRecentMistakes, recentMistakesPromptLine } from './recent-mistakes';   // 🔁 최근 교정 다시 쓰기(2026-10-18)
+import { loadVocabWeakRows, loadWeakWordsForWarmup, weakWordsPromptLine, weakWordsCallerOk, mergeWeakFirst, VOCAB_WEAK_GAME_MAX } from './vocab-weak';   // 🔁 틀린 낱말 다시 쓰기(2026-10-18)
 import { readableKoreanVocabulary, hasForeignGloss } from './korean-vocab';
 /**
  * index.ts - Main Worker entry point
@@ -3490,9 +3491,14 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
     const words: Array<{ en: string; ko: string }> = [];
     try {
       if (userId) {
+        /* 🔁 (2026-10-18) 단어장에서 틀린 낱말을 «먼저» 담는다 — 정본 src/vocab-weak.ts.
+           [왜] 단어가 30개를 넘으면 오래전에 넣은 약점 낱말이 «최근 30개» 밖으로 밀린다(구조상 — 오늘 대상 학생은 10~17개라 아직 해당 없음).
+           ⚠️ 개수는 /api/games/weak 의 vocab_weak 와 같은 VOCAB_WEAK_GAME_MAX — 허브가 그 낱말을 이 목록에서 찾는다. */
+        const weakRows = await loadVocabWeakRows(env.DB, userId, Date.now(), VOCAB_WEAK_GAME_MAX);
         const rs = await env.DB.prepare(`SELECT word, korean FROM vocabulary WHERE user_id = ? ORDER BY id DESC LIMIT 30`).bind(userId).all();
+        const vrows = mergeWeakFirst<any>(weakRows, ((rs.results as any[]) || []), 38, (r: any) => String(r.word || '').trim());
         const seenW = new Set<string>();
-        for (const row of await readableKoreanVocabulary(((rs.results as any[]) || []), env.AI)) {
+        for (const row of await readableKoreanVocabulary(vrows, env.AI)) {
           const en = String((row as any).word || '').trim();
           const ko = String((row as any).korean || '').trim();
           // 단어장에 병음·한자를 적어 둔 학생이 있어도 «영어» 게임에는 내보내지 않는다
@@ -4003,6 +4009,13 @@ async function handleUxTrack(request: Request, env: Env): Promise<Response> {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
 }
+/** 🔁 (2026-10-18) 단어장 약점을 읽어도 되는 «본인» 인가 — 토큰 uid 또는 같은 이름의 관리자 세션(정확일치, 정본 weakWordsCallerOk).
+ *  웜업·/api/games/weak 가 함께 쓴다(⛔ 한 곳에 판정을 다시 적지 말 것). 확인 중 무엇이 실패해도 false — 던지지 않는다. */
+async function vocabWeakCallerVerified(request: Request, env: Env, uid: string, body?: any): Promise<boolean> {
+  if (!uid) return false;
+  try { if (weakWordsCallerOk(uid, await authUidFromRequest(request, new URL(request.url), env, body), null)) return true; } catch {}
+  try { const ses: any = await checkAdminSession(request, env as any); return weakWordsCallerOk(uid, null, ses && ses.ok ? ses.username : null); } catch { return false; }
+}
 async function handleGamesWeak(request: Request, env: Env): Promise<Response> {
   try {
     const u = new URL(request.url);
@@ -4031,7 +4044,18 @@ async function handleGamesWeak(request: Request, env: Env): Promise<Response> {
       item: r.item, ko: r.ko || '', wrong: r.wrong_count || 0, correct: r.correct_count || 0,
       pron_best: r.pron_best || 0, pron_count: r.pron_count || 0
     }));
-    return new Response(JSON.stringify({ ok: true, lang, weak, window_days: WEAK_RECENT_DAYS, older }), { status: 200, headers: _MS_JSON });
+    /* 🔁 (2026-10-18) 단어장에서 틀린 낱말 — 정본 src/vocab-weak.ts. 게임 허브가 «자기 단어 목록에 있는 것만» 복습 큐에 넣는다.
+       ⛔ weak 배열에 섞지 않는다 — 교사용 게임 리포트(game-report.html)가 그 배열을 «게임에서 틀린 단어» 로 그린다.
+       ⛔ 본인 확인이 될 때만 싣는다 — 이 경로는 user_id 만으로 답하는데, 단어장의 «틀린 기록» 은
+          /api/vocab/list 에서도 본인에게만 보인다(gateVocabOwner). 모르면 빈 배열(게임은 예전처럼 돈다).
+       ⚠️ 낱말 글자는 /api/games/vocab 과 «같은 다듬기»(trim · 영어 30자)여야 허브가 정확일치로 찾는다. */
+    let vocabWeak: Array<{ item: string }> = [];
+    if (lang === 'en' && await vocabWeakCallerVerified(request, env, userId)) {
+      vocabWeak = mergeWeakFirst<string>(
+        (await loadVocabWeakRows(env.DB, userId, Date.now(), VOCAB_WEAK_GAME_MAX)).map((r) => String(r.word || '').trim()).filter((w) => isEnglishText(w, 30)),
+        [], VOCAB_WEAK_GAME_MAX, (w) => w).map((item) => ({ item }));
+    }
+    return new Response(JSON.stringify({ ok: true, lang, weak, window_days: WEAK_RECENT_DAYS, older, vocab_weak: vocabWeak }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
@@ -4309,6 +4333,25 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         const line = recentMistakesPromptLine(past, ctxDifficulty <= 2);
         if (line) sys += line;
       } catch (e: any) { console.warn('[warmup] recent mistakes skipped:', e?.message || e); }
+    }
+    /* 🔁 (2026-10-18 · 사장님 승인 «약점 낱말 넣기») 단어장·게임에서 틀린 낱말을 대화에 «가끔 하나만» 섞어 쓰게.
+       정본 src/vocab-weak.ts — 영어 대화만, 조회 결과는 KV 30분 캐시. 기초(1~2단계·미지정)는 1개만.
+       ⛔ user_id 는 화면이 보내는 값이다 — 본인 확인을 «캐시를 읽기 전에» 매번 한다(캐시만 맞추면 남의 낱말이 붙지 않게).
+       ⛔ 던지지 않는다(실패하면 그냥 안 붙는다). */
+    if (ctxUserId && ctxLang !== 'zh') {
+      try {
+        if (await vocabWeakCallerVerified(request, env, ctxUserId, body)) {
+          const vkey = 'warmupweakword:' + sessionId + ':' + ctxUserId;
+          let words: any[] | null = null;
+          try { const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(vkey) : null; if (raw != null) words = JSON.parse(raw); } catch {}
+          if (!Array.isArray(words)) {
+            words = await loadWeakWordsForWarmup(env.DB, ctxUserId, Date.now());
+            try { if (env.SESSION_STATE) await env.SESSION_STATE.put(vkey, JSON.stringify(words), { expirationTtl: 1800 }); } catch {}
+          }
+          const wline = weakWordsPromptLine(words, ctxDifficulty <= 2);
+          if (wline) sys += wline;
+        }
+      } catch (e: any) { console.warn('[warmup] weak words skipped:', e?.message || e); }
     }
     // 🔁 반복 방지: 직전에 했던 질문/문장을 그대로 다시 묻는 문제(한 문장 반복) 차단
     sys += ' [중요] 이전 대화에서 이미 했던 질문이나 문장을 그대로 반복하지 마. 매번 새로운 표현과 다른 각도의 질문으로 대화를 이어가.';

@@ -1005,19 +1005,33 @@ document.addEventListener('visibilitychange', function(){ if(document.visibility
 
 /* ── 🧠 서버 약점 단어로 복습 큐 시딩: 다른 기기에서 틀린 단어도 이어서 복습 ── */
 var _seededMiss = false;
+/* 🔁 2026-10-18 단어장 약점: 목록에 있는 것만(⛔지어 넣지 않음)·본인 토큰 — docs/작업기록/261018_약점낱말_웜업게임.md */
+var _serverWeak = null;
+function _applyServerWeak(){
+  var d=_serverWeak; if(!d) return;
+  (d.weak||[]).forEach(function(w){
+    var id=w&&w.item; if(!id) return;
+    var inW=_GAME_WORDS.find(function(x){ return x.en===id; });
+    var inV=_GAME_VOCAB.find(function(x){ return x.en===id; });
+    if(inW){ if(!_missQueue.some(function(x){ return x.id===id&&x.kind==='word'; })) _missQueue.push({kind:'word',id:id,item:inW}); }
+    else if(inV){ if(!_missQueue.some(function(x){ return x.id===id&&x.kind==='sent'; })) _missQueue.push({kind:'sent',id:id,item:inV}); }
+  });
+  if(GAME_LANG!=='en') return;
+  (d.vocab_weak||[]).forEach(function(w){
+    var id=w&&w.item; if(!id) return;
+    var inW=_GAME_WORDS.find(function(x){ return x.en===id; });
+    if(inW && !_missQueue.some(function(x){ return x.id===id&&x.kind==='word'; })) _missQueue.push({kind:'word',id:id,item:inW});
+  });
+}
 function _seedMissFromServer(){
-  if(_seededMiss) return; var uid=_gameUid(); if(!uid) return; _seededMiss=true;
-  fetch('/api/games/weak?user_id='+encodeURIComponent(uid)+'&lang='+GAME_LANG+'&limit=20')
+  if(_seededMiss) return; var uid=_gameUid(); if(!uid) return; _seededMiss=true; _serverWeak=null;
+  var lang=GAME_LANG, tk=''; try{ tk=localStorage.getItem('mango_token')||''; }catch(_){}
+  fetch('/api/games/weak?user_id='+encodeURIComponent(uid)+'&lang='+lang+'&limit=20', tk?{headers:{Authorization:'Bearer '+tk}}:{})
     .then(function(r){ return r.ok?r.json():null; })
     .then(function(d){
       if(!d||!d.ok||!d.weak) return;
-      d.weak.forEach(function(w){
-        var id=w.item; if(!id) return;
-        var inW=_GAME_WORDS.find(function(x){ return x.en===id; });
-        var inV=_GAME_VOCAB.find(function(x){ return x.en===id; });
-        if(inW){ if(!_missQueue.some(function(x){ return x.id===id&&x.kind==='word'; })) _missQueue.push({kind:'word',id:id,item:inW}); }
-        else if(inV){ if(!_missQueue.some(function(x){ return x.id===id&&x.kind==='sent'; })) _missQueue.push({kind:'sent',id:id,item:inV}); }
-      });
+      if(lang!==GAME_LANG) return;   // 그사이 언어가 바뀜
+      _serverWeak=d; _applyServerWeak();
     }).catch(function(){});
 }
 // 어휘가 로드된 뒤(교재/약점) 시딩 — 언어별로 1회
@@ -1637,6 +1651,7 @@ if (window.MangoiGameVocab){
     if(GAME_LANG !== 'en') return;   // 중국어 모드에서는 영어 학생 맞춤 어휘로 덮어쓰지 않음
     if(d.sentences.length >= 3){ _GAME_VOCAB.length = 0; d.sentences.forEach(function(s){ _GAME_VOCAB.push(s); }); }
     if(d.words.length >= 6){ _GAME_WORDS.length = 0; d.words.forEach(function(w){ _GAME_WORDS.push(w); }); }
+    try{ _applyServerWeak(); }catch(_){}
     var el = document.getElementById('vocab-src-badge');
     if(el && (d.textbook || d.level)){
       el.textContent = '📚 ' + (d.textbook || '') + (d.level ? ' · ' + d.level : '') + ' 맞춤 출제 중';
