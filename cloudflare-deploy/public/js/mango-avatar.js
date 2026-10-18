@@ -135,6 +135,19 @@
          ② mouth(tier) — 소리를 분석할 수 없는 말하기(브라우저 음성합성·소리 끔)에서 화면이 «글자 박자» 로 입을 정함.
             물린 오디오가 멈춰 있어도 그 동안은 «다문 입» 으로 굳히지 않습니다. plainStop() 이 풉니다.
          ③ attach() 가 물렸는지 true/false 를 돌려줌(전에는 undefined — 옛 화면은 반환값을 안 씁니다). */
+/* v15: (2026-10-18) 사장님 「lily 랑 noah 가 눈썹도 말할 때 자연스럽게 움직이게」 — 예전 눈썹은
+       «올린 그림» 을 0.4~0.7초 «통째로 교체» 했다가 원래대로 «뚝» 돌아가고(중간이 없음), 3.5~8초에 한 번
+       55% 확률이라 말하는 동안 거의 안 움직였습니다. Lily·Noah(BROW_SMOOTH)만 바꿉니다:
+         ① 높이(browLv 0~1)를 시간에 따라 부드럽게 — 올릴 때 약 0.1초, 내릴 때 약 0.25초(지수 감쇠).
+            «올린 눈썹 그림» 을 겹치지 않고, 원본 얼굴의 눈썹 띠를 «위로 밀어 올려» 그립니다(BROW_SMOOTH 의 띠):
+            이마는 살짝 눌리고 · 눈썹은 통째로 올라가고 · 눈썹과 눈 사이 피부는 늘어납니다(진짜 눈썹처럼).
+            ⛔ 올린 그림을 반투명으로 겹치지 마세요 — 높이가 0.35~0.6 일 때 «눈썹이 두 줄» 로 보였습니다
+               (2026-10-18 크로미움 렌더로 확인 — 그래서 바꿨습니다).
+         ② 강세(크게 벌린 입이 «새로» 시작되는 순간)마다 1.4~4초 간격으로, 높이를 매번 다르게
+            (보통 0.45~0.75 · 가끔 크게 0.85~1). 말 첫마디(0.5~1.4초)에도 한 번 걸 수 있습니다.
+         ③ 말이 끝나면 «뚝» 이 아니라 짧게(최대 0.6초) 내려앉습니다(browSettle).
+       ⚠️ 깜빡임 중에는 안 올리고, 올린 동안은 깜빡임을 미룹니다(그림 칸이 하나라 겹쳐 그릴 수 없음).
+       ⛔ 다른 친구(emma·mei·long·jake)는 예전 동작 그대로입니다 — BROW_SMOOTH 에 한 줄 더하면 같이 바뀝니다. */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -464,6 +477,86 @@
       emma:{x:151,y:174,w:213,h:80},mei:{x:206,y:220,w:236,h:84},long:{x:210,y:214,w:224,h:86},
       jake:{x:153,y:181,w:209,h:74}};
     var eyeImg=null, eyeOk=false, eyeFor='', eyeState=0, eyeTimer=0, browUntil=0, browNext=0, loudNow=false;
+    // 🤨 (v15) 부드러운 눈썹 — 이 표의 캐릭터만. browLv 는 지금 높이(0~1), browAmp 는 이번 강세의 목표 높이,
+    //   browHold 는 그 높이를 지키는 끝 시각, browAt 은 마지막으로 높이를 계산한 시각, loudPrev 는 앞 프레임의 강세.
+    //   표의 숫자는 그 초상화의 원본 px(640x800) — x0..x1 가로 범위(EYES 상자 안), top 여기부터 위는 안 움직임,
+    //   b0..b1 눈썹(통째로 D 만큼 올라감), bot 여기부터 아래(눈)는 안 움직임, fl·fr 좌우 가장자리 부드럽게 섞는 폭.
+    //   ⚠️ D 는 (b0-top)·(bot-b1) 보다 충분히 작아야 합니다 — 크면 피부가 뒤집혀 접힙니다(하니스가 봅니다).
+    //   ⚠️ 띠는 EYES 상자 «안» 이어야 합니다 — 프레임마다 다시 까는 칸(preciseRestore)이 그 상자뿐이라
+    //      밖으로 나가면 앞 프레임의 눈썹이 남습니다.
+    var BROW_SMOOTH={lily:{x0:226,x1:428,top:205,b0:229,b1:241,bot:262,D:7,fl:12,fr:14},
+      noah:{x0:192,x1:452,top:240,b0:263,b1:278,bot:300,D:8,fl:6,fr:8}};
+    var browCv=null;
+    function browProf(b,y){ if(y<=b.top||y>=b.bot) return 0; if(y<b.b0) return (y-b.top)/(b.b0-b.top); if(y<=b.b1) return 1; return (b.bot-y)/(b.bot-b.b1); }
+    // 눈썹 띠를 «위로 밀어 올려» 그린다 — 토막마다 «조금 아래» 원본을 늘여 가져온다(세로로만 휘기).
+    //   좌우 가장자리는 그라데이션으로 원래 얼굴과 섞는다(가장자리에 이음매가 안 생기게). 못 그리면 false.
+    function browWarp(src,bx,by,sw,sh){
+      var b=BROW_SMOOTH[curChar]; if(!b || !src) return false;
+      try{
+        var tc=ctx.canvas||canvas, W=tc.width, H=tc.height, kx=W/sw, ky=H/sh;
+        var X0=Math.floor((b.x0-bx)*kx), X1=Math.ceil((b.x1-bx)*kx), Y0=Math.floor((b.top-by)*ky), Y1=Math.ceil((b.bot-by)*ky);
+        var w=X1-X0, h=Y1-Y0; if(w<=0||h<=0) return false;
+        if(!browCv) browCv=document.createElement('canvas');
+        if(browCv.width!==w||browCv.height!==h){ browCv.width=w; browCv.height=h; }
+        var t=browCv.getContext('2d'); t.setTransform(1,0,0,1,0,0); t.globalCompositeOperation='source-over'; t.clearRect(0,0,w,h);
+        // 높이 곡선(browProf)이 «세 토막 직선» 이라 원본→띠 대응도 세 토막 직선이다 —
+        //   한 줄씩(프레임당 ~100번) 그리지 않고 토막마다 한 번씩 «늘여» 그린다(3번). 모양은 같고 훨씬 가볍다.
+        //   (줄 단위로 그렸더니 CI 의 소프트웨어 그래픽에서 입모양 타이밍 검사가 늦어졌다 — 2026-10-18)
+        var sx=bx+X0/kx, sW=w/kx, lift=b.D*browLv, ys=[b.top,b.b0,b.b1,b.bot];
+        for(var k=0;k<3;k++){
+          var a0=ys[k], a1=ys[k+1]; if(!(a1>a0)) continue;
+          var s0=a0+lift*browProf(b,a0), s1=a1+lift*browProf(b,a1), d0=(a0-by)*ky-Y0, d1=(a1-by)*ky-Y0;
+          t.drawImage(src,sx,s0,sW,s1-s0,0,d0,w,d1-d0);
+        }
+        var g=t.createLinearGradient(0,0,w,0);
+        g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(Math.min(0.49,b.fl*kx/w),'rgba(0,0,0,1)');
+        g.addColorStop(Math.max(0.51,1-b.fr*kx/w),'rgba(0,0,0,1)'); g.addColorStop(1,'rgba(0,0,0,0)');
+        t.globalCompositeOperation='destination-in'; t.fillStyle=g; t.fillRect(0,0,w,h); t.globalCompositeOperation='source-over';
+        ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(browCv,X0,Y0); ctx.restore();
+        return true;
+      }catch(err){ try{ ctx.restore(); }catch(_){} return false; }
+    }
+    var browLv=0, browAmp=0, browHold=0, browAt=0, loudPrev=false, browRaf=0;
+    function browSmooth(){ return !!BROW_SMOOTH[curChar]; }   // (EYES 가 없으면 drawEyes 가 먼저 돌아간다)
+    // 지금 시각의 높이로 한 걸음 — 올릴 때 빠르게(τ 70ms), 내릴 때 느리게(τ 170ms).
+    function browStep(now){
+      var dt = browAt ? Math.min(1000, Math.max(0, now - browAt)) : 16; browAt = now;
+      var want = now < browHold ? browAmp : 0;
+      var tau = want > browLv ? 70 : 170;
+      browLv += (want - browLv) * (1 - Math.exp(-dt / tau));
+      if (browLv < 0.01 && want === 0) browLv = 0;
+    }
+    // 말하는 동안 매 프레임 — 강세가 «새로» 시작되는 순간에만, 간격을 두고, 높이를 매번 다르게 올린다.
+    function browSpeak(now){
+      var onset = loudNow && !loudPrev; loudPrev = loudNow;
+      if (onset && eyeOk && eyeState === 0 && now >= browNext && now >= browHold){
+        browNext = now + 1400 + Math.random()*2600;
+        if (Math.random() < 0.8){
+          var big = Math.random() < 0.3;
+          browAmp = big ? 0.85 + Math.random()*0.15 : 0.45 + Math.random()*0.3;
+          browHold = now + 160 + Math.random()*(big ? 420 : 300);
+          browUntil = browHold + 450;   // 내려앉는 동안도 깜빡임을 미룬다(blink() 가 본다)
+        }
+      }
+      browStep(now);
+    }
+    // 말이 끝난 뒤 짧게 내려앉기 — 그리기 루프가 멈췄으므로 따로 몇 프레임만 그린다(최대 0.6초).
+    function browSettle(){
+      if (browRaf) return;
+      browHold = 0;
+      if (!browLv) return;
+      var t0 = Date.now();
+      var tick = function(){
+        browRaf = 0;
+        if (drawing) return;                         // 다시 말하기 시작하면 그리기 루프가 이어받는다
+        var now = Date.now();
+        if (document.hidden || now - t0 > 600) browLv = 0; else browStep(now);
+        keyFrame();
+        if (browLv > 0) browRaf = requestAnimationFrame(tick);
+      };
+      browAt = t0;
+      browRaf = requestAnimationFrame(tick);
+    }
     function injectAliveCss(){
       try{
         if(document.getElementById('mg-alive-css')) return;
@@ -477,6 +570,8 @@
     function mountEyes(name){
       if(eyeTimer){ clearTimeout(eyeTimer); eyeTimer=0; }
       eyeState=0; browUntil=0; eyeOk=false; eyeFor=name; eyeImg=null;
+      browLv=0; browAmp=0; browHold=0; browAt=0; loudPrev=false;   // 🤨 (v15) 캐릭터가 바뀌면 눈썹도 처음부터
+      if(browRaf){ try{ cancelAnimationFrame(browRaf); }catch(e){} browRaf=0; }   // 앞 친구의 «내려앉기» 가 새 얼굴을 그리지 않게
       var on=!!EYES[name];
       try{ canvas.classList.toggle('mg-alive', on); }catch(e){}
       if(!on) return;
@@ -487,9 +582,13 @@
       im.src='/img/visemes/'+name+'-eyes.webp';
     }
     // 기본 얼굴을 그린 «바로 뒤» 에 부른다 — bx..sh 는 그 얼굴을 원본에서 잘라 온 사각형(원본 px).
-    function drawEyes(bx,by,sw,sh){
+    //   src: 그 얼굴의 원본 초상화(눈썹 띠를 밀어 올릴 때 쓴다).
+    function drawEyes(bx,by,sw,sh,src){
       var e=EYES[curChar];
-      if(!eyeState || !eyeOk || !e || eyeFor!==curChar) return;
+      if(!eyeOk || !e || eyeFor!==curChar) return;
+      // 🤨 (v15) 부드러운 눈썹 — 깜빡임(1·2)이 아니면 «올린 눈썹 그림» 대신 눈썹 띠를 지금 높이만큼 밀어 올린다.
+      if(browSmooth() && eyeState!==1 && eyeState!==2){ if(browLv > 0.01) browWarp(src,bx,by,sw,sh); return; }
+      if(!eyeState) return;
       try{ ctx.drawImage(eyeImg,(eyeState-1)*e.w,0,e.w,e.h,
         (e.x-bx)/sw*canvas.width,(e.y-by)/sh*canvas.height,e.w/sw*canvas.width,e.h/sh*canvas.height); }catch(err){}
     }
@@ -764,7 +863,7 @@
           if(base) ctx.drawImage(base,0,0,canvas.width,canvas.height);   // comp 배율이 걸려 있어 장치 픽셀 1:1
           else ctx.drawImage(pf.base,bx,by,sw,sh,0,0,canvas.width,canvas.height);
         }
-        drawEyes(bx,by,sw,sh);
+        drawEyes(bx,by,sw,sh,pf.base);
         var tile=sampled && sampled.tile,transition=sampled && tile>=0 && pf.transitions.complete && pf.transitions.naturalWidth;
         // Reviewed Noah wide-open/rest morphs double the teeth. Use the exact
         // phoneme anchor for these pairs until replacement artwork is available.
@@ -791,7 +890,7 @@
       //    (초록 영상은 불투명이라 지우든 안 지우든 결과가 같다)
       try { ctx.clearRect(0,0,canvas.width,canvas.height);
             ctx.drawImage(srcEl, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-            if (imgFrames) drawEyes(sx, sy, sw, sh); } catch(e){ return; }
+            if (imgFrames) drawEyes(sx, sy, sw, sh, srcEl); } catch(e){ return; }
       // 초록을 지울 필요도 없고(이미 투명) 섞을 것도 없으면 픽셀을 아예 만지지 않는다 —
       // getImageData/putImageData 가 폰에서 제일 비싼 구간이라 그만큼 가벼워진다.
       if (fadeData && fadeData.cv) {
@@ -924,7 +1023,8 @@
       }
       // 👁 (v10) 눈썹 — 크게 벌린 입(강세) 순간에 가끔, 짧게. 깜빡이는 중에는 걸지 않는다.
       var nowB = Date.now();
-      if(eyeState===3 && nowB>=browUntil) eyeState=0;
+      if(browSmooth()) browSpeak(nowB);   // 🤨 (v15) Lily·Noah — 강세마다 부드럽게(위 browSpeak)
+      else if(eyeState===3 && nowB>=browUntil) eyeState=0;
       else if(loudNow && eyeOk && eyeState===0 && nowB>=browNext){
         browNext = nowB + 3500 + Math.random()*4500;
         if(Math.random() < 0.55){ browUntil = nowB + 420 + Math.random()*260; eyeState=3; }
@@ -934,6 +1034,8 @@
     }
     function startDraw(){ idleTicks=0; curTier=null; lastSwitchAt=0; fadeData=null; drawing=true;
       browNext=Date.now()+1200+Math.random()*1500;   // 말 첫마디부터 눈썹을 올리지 않는다
+      if(browSmooth()){ browNext=Date.now()+500+Math.random()*900; loudPrev=false; browAt=0; }   // 🤨 (v15) 첫마디 무렵에도 한 번
+      if(browRaf){ try{ cancelAnimationFrame(browRaf); }catch(e){} browRaf=0; }
       if(!raf) raf=requestAnimationFrame(loop); }
     function stopDraw(){ drawing=false; if(raf){ try{cancelAnimationFrame(raf);}catch(e){} raf=0; } swayKick(); }
     function drawStill(){ keyFrame(); }
@@ -944,6 +1046,7 @@
       showTier('closed', true); fadeData=null;
       if(eyeState===3){ eyeState=0; browUntil=0; }       // 말이 끝나면 올린 눈썹도 내린다
       try{ video.pause(); }catch(e){} drawStill();
+      if(browSmooth()) browSettle();                     // 🤨 (v15) «뚝» 대신 짧게 내려앉는다
     }
     video.addEventListener('loadeddata', function(){ if(!drawing) drawStill(); });
     video.addEventListener('seeked',     function(){ if(!drawing) drawStill(); });
