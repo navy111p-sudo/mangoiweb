@@ -590,6 +590,13 @@
     var wrap = $('ai-review-wrap'), box = $('ai-review'), cnt = $('ai-review-n'), tip = $('ai-review-tip');
     if (!wrap || !box) return;
     var list = d && d.review;
+    /* 🔒 (2026-10-18) 비로그인 응답에는 정답·해설이 없다(서버 review_locked) — 왜 없는지 사실대로 말한다. */
+    if (d && d.review_locked === true && !Array.isArray(list)) {
+      wrap.classList.remove('hidden');
+      if (cnt) cnt.textContent = '';
+      box.innerHTML = '<div class="rvall">🔒 로그인하면 틀린 문제의 정답과 해설을 볼 수 있어요.<br><span style="color:#cbd5e1;font-weight:600;font-size:12.5px">Log in to see the answers and explanations for the questions you missed.</span></div>';
+      return;
+    }
     if (!Array.isArray(list)) return;              // 서버가 안 보냄 → 지어내지 않는다
     wrap.classList.remove('hidden');
 

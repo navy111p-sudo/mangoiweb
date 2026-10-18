@@ -1,6 +1,7 @@
 // 2026-10-18 — 두 가지를 «실제로 돌려» 확인합니다.
 //   A. 단어 퀴즈(/api/vocab/quiz-submit) 결과가 복습 일정(SRS: level·next_review_at)에 반영되는가
 //      + 같은 퀴즈를 되풀이 제출해도 기록은 처음 한 번만 반영되는가 (짝: 처음 제출은 반영된다)
+//   C. 레벨테스트 정답·해설은 «토큰으로 확인된 로그인» 일 때만 싣는가 (짝: 로그인이면 싣는다 · 화면이 이유를 말한다)
 //   B. 웜업 «몇 번째 턴» 이 히스토리 상한(21)에 붙지 않고 세션별로 계속 늘어나는가
 //      (짝: 카운터가 없거나 KV 가 없으면 예전 계산 그대로)
 // 정본 함수·라우트·블록은 소스에서 오려 내 진짜 SQLite / 가짜 KV 로 돌립니다(하니스에 숫자를 베끼지 않음).
@@ -159,6 +160,50 @@ if (turnFn) {
   const bad = { SESSION_STATE: { get: async () => { throw new Error('kv down'); }, put: async () => {} } };
   let tBad = null; try { tBad = await turnFn(bad, hist(3), 's4'); } catch (e) { tBad = 'threw'; }
   check('KV 가 실패해도 던지지 않고 예전 계산(4)', tBad === 4, tBad);
+}
+
+// ── C. 레벨테스트 정답·해설 잠금 ──
+console.log('\n[ C. 레벨테스트 정답·해설은 로그인 학생만 ]');
+const ADMIN = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/api-admin.ts'), 'utf8');
+const cStart = ADMIN.indexOf('const reviewLocked = !authedUid;');
+const cEnd = cStart >= 0 ? ADMIN.indexOf('return json({ ok: true, ai_score', cStart) : -1;
+const cSrc = cStart >= 0 && cEnd > cStart ? ADMIN.slice(cStart, cEnd) : '';
+check('잠금 블록을 오려 냈다(전제)', cSrc.length > 0);
+const retLine = cEnd > 0 ? ADMIN.slice(cEnd, ADMIN.indexOf('\n', cEnd)) : '';
+check('응답에 review_locked 를 싣는다', /review_locked:\s*reviewLocked/.test(retLine), retLine.slice(0, 160));
+let lockFn = null;
+try { lockFn = new Function('authedUid', 'buildLeveltestReview', 'CEFR_BANK', 'answers', stripTypeScriptTypes(cSrc) + '\nreturn { review, reviewLocked };'); }
+catch (e) { check('잠금 블록 컴파일', false, e.message); }
+if (lockFn) {
+  const fake = () => [{ id: 'a1_1', answer: 2 }];
+  let anon = null, authed = null;
+  try { anon = lockFn(null, fake, [], { a1_1: 0 }); authed = lockFn('kid1', fake, [], { a1_1: 0 }); } catch (e) { check('잠금 블록 실행', false, e.message); }
+  if (anon && authed) {
+    check('비로그인이면 review 를 싣지 않는다', anon.review === undefined, anon);
+    check('비로그인이면 review_locked = true', anon.reviewLocked === true, anon);
+    check('짝: 로그인이면 정본 결과를 싣는다', Array.isArray(authed.review) && authed.review.length === 1, authed);
+    check('짝: 로그인이면 review_locked = false', authed.reviewLocked === false, authed);
+    let thrown = null; try { thrown = lockFn('kid1', () => { throw new Error('x'); }, [], {}); } catch (e) { thrown = 'threw'; }
+    check('해설 만들기가 실패해도 던지지 않는다(빈 배열)', thrown && Array.isArray(thrown.review) && thrown.review.length === 0, thrown);
+  }
+}
+const HTML = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/public/level-test-ai.html'), 'utf8');
+const rvAt = HTML.indexOf('function renderReview(');
+const rvBody = rvAt >= 0 ? braceBlock(HTML, rvAt) : '';
+check('화면 renderReview 를 오려 냈다(전제)', rvBody.length > 100);
+let rv = null;
+try { rv = new Function('$', 'questions', 'esc', rvBody + '\nreturn renderReview;'); } catch (e) { check('화면 함수 컴파일', false, e.message); }
+if (rv) {
+  const mk = () => { const c = new Set(['hidden']); return { innerHTML: '', textContent: '', classList: { add: (x) => c.add(x), remove: (x) => c.delete(x), contains: (x) => c.has(x) } }; };
+  const nodes = { 'ai-review-wrap': mk(), 'ai-review': mk(), 'ai-review-n': mk(), 'ai-review-tip': mk() };
+  const fn = rv((id) => nodes[id], [], (x) => String(x));
+  fn({ ok: true, correct: 3, total: 24, review_locked: true });
+  check('잠긴 응답이면 상자를 열고 «로그인하면 해설» 이라 말한다', !nodes['ai-review-wrap'].classList.contains('hidden') && /로그인하면/.test(nodes['ai-review'].innerHTML), nodes['ai-review'].innerHTML.slice(0, 80));
+  check('영어 안내도 함께', /Log in to see/.test(nodes['ai-review'].innerHTML));
+  check('잠긴 응답에 «전부 맞혔다» 라고 말하지 않는다', !/전부 맞혔/.test(nodes['ai-review'].innerHTML));
+  const n2 = { 'ai-review-wrap': mk(), 'ai-review': mk(), 'ai-review-n': mk(), 'ai-review-tip': mk() };
+  rv((id) => n2[id], [], (x) => String(x))({ ok: true, correct: 3, total: 24 });
+  check('짝: review 도 잠금도 없는 옛 응답에는 아무것도 안 그린다', n2['ai-review-wrap'].classList.contains('hidden') && n2['ai-review'].innerHTML === '');
 }
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
