@@ -4526,7 +4526,18 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
       if (env.SESSION_STATE) await env.SESSION_STATE.put(hkey, JSON.stringify(updated), { expirationTtl: 6 * 3600 });
     } catch {}
 
-    const turnCount = Math.floor(history.length / 2) + 1;
+    /* 🔢 (2026-10-18) «몇 번째 턴인가» 는 단조 증가해야 한다 — 히스토리는 WARMUP_MAX_TURNS 로 잘려
+       history 로만 세면 21에 붙어 교정 게이트(turnCount - lastShownTurn)가 영영 0 이 된다.
+       세션별 카운터를 KV 에 두고, 없거나 못 읽으면 예전 계산 그대로(fail-open). */
+    let turnCount = Math.floor(history.length / 2) + 1;
+    try {
+      if (env.SESSION_STATE) {
+        const tkey = 'warmupturn:' + sessionId;
+        const prev = Number(await env.SESSION_STATE.get(tkey));
+        if (Number.isFinite(prev) && prev > 0) turnCount = Math.max(turnCount, prev + 1);
+        await env.SESSION_STATE.put(tkey, String(turnCount), { expirationTtl: 6 * 3600 });
+      }
+    } catch (e: any) { console.warn('[warmup] turn counter skipped:', e?.message || e); }
 
     /* ✏️ 교정 카드 (2026-09-08) — 모델이 준 fix 를 «믿지 않고» 검증한 뒤, 보여 줄지까지 정한다.
        ⛔ 매 턴 고치지 않는다. 2026-09-03 AI 영어친구에서 「주제를 벗어나지 마」를 세 겹으로
