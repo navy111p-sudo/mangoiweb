@@ -134,6 +134,48 @@ export async function loadRecentMistakes(db: any, uid: any, nowMs: number, max: 
   return out;
 }
 
+/* 🇰🇷 한국인 학습자가 «되풀이하는» 작은 실수 (2026-10-18, 개선안 2순위 ⑦)
+   관사·복수·전치사는 일부러 «작은 실수(minor)» 로 두어, 한 대화 안에서 «두 번째» 일 때만 고친다
+   (warmup-correction.ts decideWarmupFixShow — 매 턴 고치면 말문이 막힌다).
+   그런데 그 «두 번째» 를 세는 메모는 6시간짜리 KV 라 «매일 같은 관사를 빠뜨리는» 학생은
+   날마다 첫 번째로 세어져 거의 안 고쳐졌다. 최근 14일 기록에서 그 종류를 «이미 한 번 고쳐 준 것» 으로
+   이어 받아, 새 대화의 첫 실수부터 바로 고친다.
+   ⛔ 이 목록에 word_choice·other 를 넣지 마세요 — 범위가 넓어 «매번 교정» 이 됩니다.
+   ⛔ 연달아 고치지 않는 간격(WARMUP_FIX_GAP_TURNS)은 그대로 걸립니다 — «세는 것» 만 이어 받습니다. */
+export const KOREAN_REPEAT_TAGS = ['article', 'plural', 'preposition'] as const;
+
+/** 최근 RECENT_MISTAKE_DAYS 안에 «보여 준» 교정 종류별 횟수. 던지지 않는다(못 읽으면 {}). */
+export async function loadRecentFixTags(db: any, uid: any, nowMs: number): Promise<Record<string, number>> {
+  const u = _t(uid, 100);
+  const out: Record<string, number> = {};
+  if (!db || !u) return out;
+  const since = nowMs - RECENT_MISTAKE_DAYS * DAY_MS;
+  const pull = async (sql: string) => {
+    try {
+      const rs: any = await db.prepare(sql).bind(u, since).all();
+      for (const r of ((rs && rs.results) || [])) {
+        const t = _t(r.tag, 40);
+        if (t) out[t] = (out[t] || 0) + (Number(r.n) || 0);
+      }
+    } catch { /* 표가 아직 없음 = 그 재료만 «모름» */ }
+  };
+  await pull(`SELECT tag, COUNT(*) AS n FROM warmup_fix_log
+               WHERE user_id = ? AND created_at >= ? AND COALESCE(lang, 'en') = 'en' GROUP BY tag`);
+  await pull(`SELECT tag, COUNT(*) AS n FROM ${AIFRIEND_FIX_TABLE}
+               WHERE user_id = ? AND created_at >= ? GROUP BY tag`);
+  return out;
+}
+
+/** 메모에 «최근에 이미 고쳐 준 한국인 반복 실수» 를 한 번 센 것으로 얹는다. 원본은 안 바꾼다. */
+export function carryRepeatTags(memoIn: any, hist: Record<string, number> | null | undefined): any {
+  const memo: any = { ...(memoIn || {}) };
+  memo.tags = { ...((memoIn && memoIn.tags) || {}) };
+  for (const t of KOREAN_REPEAT_TAGS) {
+    if (hist && Number(hist[t]) > 0) memo.tags[t] = Math.max(Number(memo.tags[t]) || 0, 1);
+  }
+  return memo;
+}
+
 /** 시스템 프롬프트에 붙일 한 덩어리(앞에 줄바꿈 포함). 없으면 '' */
 export function recentMistakesPromptLine(list: RecentMistake[] | null | undefined, plain: boolean): string {
   const items = (list || []).slice(0, plain ? RECENT_MISTAKE_MAX_PLAIN : RECENT_MISTAKE_MAX);

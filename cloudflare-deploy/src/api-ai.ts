@@ -3,7 +3,8 @@
 //   게임화 포인트/배지는 api-points·api-games 의 export 헬퍼 사용.
 // ═══════════════════════════════════════════════════════════════════════
 import { loadActiveGoal, goalPromptLine } from './student-goal';   // 🗓 4주 목표(2026-10-10)
-import { loadRecentMistakes, recentMistakesPromptLine, logAiFriendFix } from './recent-mistakes';
+import { loadRecentMistakes, recentMistakesPromptLine, logAiFriendFix, loadRecentFixTags, carryRepeatTags } from './recent-mistakes';
+import { WEAK_WHERE, WEAK_ORDER, weakSince } from './weak-words';
 import { json } from './api-util';
 import { applyEmpathyGuard, FRIEND_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
 import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';
@@ -645,7 +646,8 @@ Student text: """${text}"""`;
       const [recent, st, wk, turns, goalNow, pastFixes]: any[] = await Promise.all([
         env.DB.prepare(`SELECT role, content FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT 20`).bind(uid).all(),
         env.DB.prepare(`SELECT english_name, korean_name, textbook, level FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first().catch(() => null),
-        env.DB.prepare(`SELECT item, ko FROM game_progress WHERE user_id = ? AND lang = 'en' AND wrong_count > 0 AND wrong_count >= correct_count ORDER BY wrong_count DESC LIMIT 5`).bind(uid).all().catch(() => null),
+        // 🎯 약점 단어 — 정본 src/weak-words.ts(최근 60일 · 최근 먼저). 오래된 약점을 «요즘» 으로 말하지 않게.
+        env.DB.prepare(`SELECT item, ko FROM game_progress WHERE user_id = ? AND lang = 'en' AND ${WEAK_WHERE} ORDER BY ${WEAK_ORDER} LIMIT 5`).bind(uid, weakSince(Date.now())).all().catch(() => null),
         /* ✏️ 교정 게이트용 «몇 번째 턴인가» — 반드시 «단조 증가» 해야 한다.
            ⛔ history.length 로 세지 말 것: 위 조회가 LIMIT 20 이라 그 값은 곧 상한에 붙고,
               그러면 turnCount - lastShownTurn 이 영영 0 이 되어 교정이 통째로 멎는다
@@ -1175,6 +1177,9 @@ ${AI_FRIEND_CORRECTION_RULE}`;
                쓰기 쪽에만 로그가 있고 읽기 쪽에 없던 것을 함정 대조가 잡았습니다. */
             console.warn('[chat-friend] fix memo read failed:', e?.message || e);
           }
+          // 🇰🇷 최근 14일에 이미 고쳐 준 관사·복수·전치사는 «한 번 센 것» 으로 이어 받는다(정본 recent-mistakes.ts).
+          //    작은 실수일 때만 조회한다 — 큰 실수는 원래 바로 고친다.
+          if (verified && verified.severity !== 'major') memoIn = carryRepeatTags(memoIn, await loadRecentFixTags(env.DB, uid, Date.now()));
           const decided = decideWarmupFixShow(verified, memoIn, turnNo);
           showFix = decided.show;
           // 🔁 보여 준 교정은 남겨 다음 대화에서 다시 쓰게 한다(KV 메모는 6시간 «간격» 만 기억). 던지지 않는다.
