@@ -11,7 +11,7 @@
  *     · «단어장 약점은 따로 싣는다» ↔ «게임 기록 배열(교사 리포트가 그리는 것)에는 안 섞인다»
  *
  *   변이 — test-harness/manual/vocab-weak-mutations.mjs 가 소스 사본을 고쳐 이 하니스를 다시 돌린다(사람이 부름).
- *     2026-10-18 실측: 그 목록 23종 전부 실제 FAIL(조건 뒤집기·경계값·«weak 배열에 push» 포함). 목록 밖의 변이는 재지 않았다.
+ *     2026-10-18 실측: 그 목록 39종 전부 실제 FAIL(조건 뒤집기·경계값·«weak 배열에 push»·본인 확인 주석 처리 포함). 목록 밖의 변이는 재지 않았다.
  *   ⚠️ 처음 판은 함정 대조에 셋이 뚫렸다 — weak 를 인자로 «주입» 해 그 배열을 만드는 줄을 안 봤고(지금은 함수 통째로 돌림),
  *      기초 경계를 난이도 1 하나로만 쟀고(지금은 0·1·2·3), 캐시가 본인 확인보다 먼저 읽혔다(지금은 확인이 먼저).
  */
@@ -28,6 +28,7 @@ const EO = R('cloudflare-deploy/src/english-only.ts', 'VW_EO');
 const IDX = R('cloudflare-deploy/src/index.ts', 'VW_IDX');
 const HUB = R('cloudflare-deploy/public/student-games.html', 'VW_HUB');
 const AI = R('cloudflare-deploy/src/api-ai.ts', 'VW_AI');
+const LV = R('cloudflare-deploy/src/ai-friend-level.ts', 'VW_LV');
 
 let pass = 0, fail = 0;
 const check = (n, c, x) => { if (c) { pass++; console.log('  ✅ ' + n); } else { fail++; console.log('  ❌ FAIL ' + n + (x !== undefined ? ' ' + JSON.stringify(x) : '')); } };
@@ -53,7 +54,7 @@ const noImports = (t) => t.replace(/^import[^\n]*\n/gm, '').replace(/^export\s+/
 let V = null, isEnglishText = null;
 try {
   V = new Function(stripTypeScriptTypes(noImports(WW) + '\n' + noImports(MOD)) +
-    '\nreturn { VOCAB_WEAK_GAME_MAX, VOCAB_WEAK_WHERE, VOCAB_WEAK_ORDER, WEAK_WORDS_MAX, WEAK_WORDS_MAX_BEGINNER, cleanWeakWord, cleanWeakKo, friendWeakList, mergeWeakFirst, loadVocabWeakRows, loadWeakWordsForWarmup, weakWordsPromptLine, weakWordsCallerOk, WEAK_WHERE, WEAK_ORDER, weakSince };')();
+    '\nreturn { VOCAB_WEAK_GAME_MAX, VOCAB_WEAK_WHERE, VOCAB_WEAK_ORDER, WEAK_WORDS_MAX, WEAK_WORDS_MAX_BEGINNER, cleanWeakWord, cleanWeakKo, friendWeakList, VOCAB_WEAK_FRIEND_MAX, mergeWeakFirst, loadVocabWeakRows, loadWeakWordsForWarmup, weakWordsPromptLine, weakWordsCallerOk, WEAK_WHERE, WEAK_ORDER, weakSince };')();
   isEnglishText = new Function(stripTypeScriptTypes(noImports(EO)) + '\nreturn isEnglishText;')();
 } catch (e) { check('정본 실행', false, e.message); }
 check('전제: 정본(vocab-weak + weak-words + english-only)을 실제로 실행했다', !!V && typeof isEnglishText === 'function');
@@ -368,7 +369,13 @@ console.log('\n── ⑨ A.i 친구 — 단어장 약점을 «낱말 (뜻)» �
 {
   const VR = [{ word: 'apple', korean: '사과' }, { word: 'lem"on', korean: '레"몬' }, { word: '사과나무', korean: '' }, { word: 'I like to eat a big red apple', korean: '' }, { word: 'kiwi', korean: '아주 긴 뜻 '.repeat(5) }];
   const GR = [{ item: 'Apple', ko: '사과' }, { item: 'tiger', ko: '호랑이' }, { item: 'I like cats', ko: '' }, { item: 'zebra', ko: '' }];
-  const fl = V.friendWeakList(VR, GR, 5);
+  let fl = [], flGame = null, flNull = null, flMany = [];
+  try {
+    fl = V.friendWeakList(VR, GR, 5);
+    flGame = V.friendWeakList([], GR.slice(0, 2), 5);
+    flNull = V.friendWeakList(null, null);
+    flMany = V.friendWeakList(['wa', 'wb', 'wc', 'wd', 'we'].map((w) => ({ word: w, korean: '' })), GR, 5);
+  } catch (e) { check('⑨ friendWeakList 실행(던지지 않음)', false, e.message); }
   check('⑨ 단어장 약점이 먼저, 뜻을 괄호로', fl[0] === 'apple (사과)', fl);
   check('⑨ 따옴표는 떼어 프롬프트를 깨지 않는다', fl.includes('lemon (레몬)'), fl);
   check('⑨ 단어장의 한글·문장은 버린다', !fl.some((x) => /사과나무|big red/.test(x)), fl);
@@ -376,53 +383,71 @@ console.log('\n── ⑨ A.i 친구 — 단어장 약점을 «낱말 (뜻)» �
   check('⑨ 짝: 게임 약점은 예전 그대로(문장도 남김) 뒤에 이어 붙는다', fl.includes('tiger (호랑이)') && fl.includes('I like cats'), fl);
   check('⑨ 대소문자만 다른 같은 낱말은 한 번만(단어장 쪽을 남김)', fl.filter((x) => /^apple/i.test(x)).length === 1, fl);
   check('⑨ 최대 5개', fl.length === 5 && !fl.includes('zebra'), fl);
-  check('⑨ 짝: 단어장이 비면 게임 약점만(예전과 같은 글자)', JSON.stringify(V.friendWeakList([], GR.slice(0, 2), 5)) === JSON.stringify(['Apple (사과)', 'tiger (호랑이)']));
-  check('⑨ 둘 다 비면 빈 목록 · null 이어도 던지지 않음', V.friendWeakList(null, null).length === 0);
+  check('⑨ 단어장 약점은 최대 3칸 — 게임 약점 2칸은 남는다', flMany.filter((x) => /^w[a-e]$/.test(x)).length === 3 && flMany.includes('tiger (호랑이)'), flMany);
+  check('⑨ 짝: 단어장 칸 상한은 정본 상수(3)', V.VOCAB_WEAK_FRIEND_MAX === 3);
+  check('⑨ 짝: 단어장이 비면 게임 약점만(예전과 같은 글자)', JSON.stringify(flGame) === JSON.stringify(['Apple (사과)', 'tiger (호랑이)']), flGame);
+  check('⑨ 둘 다 비면 빈 목록 · null 이어도 던지지 않음', Array.isArray(flNull) && flNull.length === 0, flNull);
 
-  // 배선 ① — Promise.all 을 오려 내 가짜 부품으로 실제로 돌린다
-  const pa = AI.indexOf('const [recent, st, wk');
+  // 배선 ① — chat-friend 첫머리(본인 확인)부터 병렬 조회까지 오려 내 가짜 요청으로 «실제로» 돌린다
+  const cfA = AI.indexOf("path === '/api/ai/chat-friend'");
+  const hA = cfA < 0 ? -1 : AI.indexOf('const latT0 = Date.now();', cfA);
+  const pa = hA < 0 ? -1 : AI.indexOf('const [recent, st, wk', hA);
   const paEnd = pa < 0 ? -1 : AI.indexOf(']);', pa);
-  const paSrc = pa >= 0 && paEnd > pa ? AI.slice(pa, paEnd + 3) : '';
-  const names = ((paSrc.match(/^const \[([^\]]+)\]/) || [])[1] || '').split(',').map((x) => x.trim()).filter(Boolean);
-  check('전제: A.i 친구의 Promise.all 을 오려 냈다', !!paSrc && names.length >= 7, names);
+  const headSrc = hA >= 0 && paEnd > pa ? AI.slice(hA, paEnd + 3) : '';
+  const names = ((AI.slice(Math.max(pa, 0)).match(/^const \[([^\]]+)\]/) || [])[1] || '').split(',').map((x) => x.trim()).filter(Boolean);
+  check('전제: chat-friend 첫머리부터 병렬 조회까지 오려 냈다', headSrc.includes('authUidGlobal') && names.length >= 7, names);
   const VMARK = [{ word: 'apple', korean: '사과' }];
-  const calls = [];
-  let got = null;
-  try {
+  async function runHead(authUid) {
+    const calls = [];
     const fakeDb = { prepare: () => ({ bind: () => ({ all: async () => ({ results: [{ item: 'tiger', ko: '호랑이' }] }), first: async () => null }) }) };
-    const fn = new Function('return (async function(env, uid, WEAK_WHERE, WEAK_ORDER, weakSince, loadActiveGoal, loadRecentMistakes, loadVocabWeakRows){ ' +
-      stripTypeScriptTypes(paSrc) + ' return { ' + names.join(', ') + ' }; })')();
-    got = await fn({ DB: fakeDb }, 'Kim01', 'WW', 'WO', () => 0, async () => null, async () => ['RECENT'],
-      async (...a) => { calls.push(a); return VMARK; });
-  } catch (e) { check('⑨ 배선 실행', false, e.message); }
-  const vwName = got ? names.find((n) => got[n] === VMARK) : null;
-  check('⑨ 단어장 약점을 «요청 uid» 로 한 번 읽는다(최대 5)', calls.length === 1 && calls[0][1] === 'Kim01' && calls[0][3] === 5, calls.map((c) => c.slice(1)));
+    let out;
+    try {
+      // 함수로 «먼저» 감싼 뒤 타입을 지운다 — stripTypeScriptTypes 는 모듈로 읽어 맨 위 return 을 거절한다
+      const body = stripTypeScriptTypes('async function __h(request, url, env, ensureChatSchema, authUidGlobal, json, aiFriendNormalizeLevel, WEAK_WHERE, WEAK_ORDER, weakSince, loadActiveGoal, loadRecentMistakes, loadVocabWeakRows){\n' +
+        headSrc + '\nreturn { __reached: true, ' + names.join(', ') + ' }; }');
+      const fn = new Function(body + '\nreturn __h;')();
+      out = await fn({ json: async () => ({ uid: 'Kim01', msg: 'hi' }) }, new URL('https://mangoi.ai/api/ai/chat-friend'), { DB: fakeDb },
+        async () => {}, async () => authUid, (o, st) => ({ __json: o, __status: st || 200 }), (l) => l,
+        'WW', 'WO', () => 0, async () => null, async () => ['RECENT'], async (...a) => { calls.push(a); return VMARK; });
+    } catch (e) { out = { __threw: e.message }; }
+    return { out, calls, fakeDb };
+  }
+  const self = await runHead('Kim01');
+  const vwName = self.out && self.out.__reached ? names.find((n) => self.out[n] === VMARK) : null;
+  const c0 = self.calls[0] || [];
+  check('⑨ 본인이면 단어장 약점을 한 번 읽는다 — 그 DB · 요청 uid · 지금 시각 · 5개', self.calls.length === 1 && c0[0] === self.fakeDb && c0[1] === 'Kim01' && typeof c0[2] === 'number' && Math.abs(c0[2] - Date.now()) < 60000 && c0[3] === 5, { out: self.out && self.out.__threw, args: c0.slice(1) });
   check('⑨ 그 결과가 이름 있는 변수로 받아진다', !!vwName, names);
+  const other = await runHead('lee02');
+  check('⑨ 짝: 토큰이 남의 uid 면 403 이고 단어장을 안 읽는다', other.out && other.out.__status === 403 && other.calls.length === 0, { out: other.out, n: other.calls.length });
+  const none = await runHead(null);
+  check('⑨ 짝: 토큰이 없으면 401 이고 단어장을 안 읽는다', none.out && none.out.__status === 401 && none.calls.length === 0, { out: none.out, n: none.calls.length });
 
-  // 배선 ② — 프롬프트 조각(stuCtx)을 오려 내 실제로 돌린다
+  // 배선 ② — 프롬프트 조각(stuCtx)을 오려 내 «진짜 눈높이 규격» 으로 돌린다
+  let L = null;
+  try { L = new Function(stripTypeScriptTypes(noImports(LV)) + '\nreturn { aiFriendLevelSpec };')(); } catch (e) { check('⑨ 눈높이 정본 실행', false, e.message); }
+  check('전제: 기초 경계 — S3 은 plain, S4 는 아니다(정본 ai-friend-level.ts)', !!L && L.aiFriendLevelSpec('S3').plain === true && L.aiFriendLevelSpec('S4').plain === false);
   const sA = AI.indexOf("let stuCtx = '';");
   const CATCH = '} catch { /* 개인화 실패 무시 */ }';
   const sB = sA < 0 ? -1 : AI.indexOf(CATCH, sA);
   const stuSrc = sA >= 0 && sB > sA ? AI.slice(sA, sB + CATCH.length) : '';
   check('전제: stuCtx 조각을 오려 냈다', stuSrc.includes('friendWeakList'));
-  const usesVw = vwName && new RegExp('friendWeakList\\(\\s*' + vwName + '\\b').test(stuSrc);
-  check('⑨ 프롬프트가 «그 변수» 를 friendWeakList 에 넘긴다', !!usesVw, vwName);
-  const stu = (st, wk, vw, plain) => {
+  const spy = [];
+  const stu = (st, wk, vw, lv) => {
     try {
-      return new Function('st', 'wk', vwName || '__none', 'lvSpec', 'friendWeakList', 'return (function(){ ' + stripTypeScriptTypes(stuSrc) + ' return stuCtx; })();')(st, wk, vw, { plain }, V.friendWeakList);
+      return new Function('st', 'wk', vwName || '__none', 'lvSpec', 'friendWeakList', 'return (function(){ ' + stripTypeScriptTypes(stuSrc) + ' return stuCtx; })();')(
+        st, wk, vw, L ? L.aiFriendLevelSpec(lv) : { plain: false }, (...a) => { spy.push(a); return V.friendWeakList(...a); });
     } catch (e) { return 'THREW:' + e.message; }
   };
   const GWK = { results: [{ item: 'tiger', ko: '호랑이' }] };
-  const c4 = stu({ english_name: 'Kim' }, GWK, VMARK, false);
-  check('⑨ 기초가 아니면 단어장 약점이 먼저 프롬프트에 실린다', /got wrong in their word book, games or quizzes: apple \(사과\), tiger \(호랑이\)\./.test(c4), c4);
-  const c1 = stu({ english_name: 'Kim' }, GWK, VMARK, true);
-  check('⑨ 짝: 기초(S1~S3)에는 예전처럼 약점 줄을 안 넣는다', !/got wrong/.test(c1) && /Their name is "Kim"/.test(c1), c1);
-  const c0 = stu(null, GWK, [], false);
-  check('⑨ 짝: 단어장이 비면 게임 약점만(예전과 같음)', /: tiger \(호랑이\)\./.test(c0), c0);
-  const cu = stu(null, null, undefined, false);
-  check('⑨ 조회가 비거나 실패해도 던지지 않는다(약점 줄 없음)', !/THREW/.test(cu) && !/got wrong/.test(cu), cu);
-  const ia = AI.indexOf("if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);");
-  check('⑨ 본인 확인(토큰 uid == 요청 uid)이 단어장 조회보다 먼저다', ia > 0 && pa > ia, { ia, pa });
+  const s4 = stu({ english_name: 'Kim' }, GWK, VMARK, 'S4');
+  check('⑨ S4(기초가 아님)면 단어장 약점이 먼저 프롬프트에 실린다', /got wrong in their word book, games or quizzes: apple \(사과\), tiger \(호랑이\)\./.test(s4), s4);
+  check('⑨ 프롬프트가 «받은 그 변수» 를 friendWeakList 에 넘기고 상한은 5', spy.length > 0 && spy[0][0] === VMARK && (spy[0][2] === undefined ? 5 : spy[0][2]) === 5 && (spy[0][3] === undefined ? 3 : spy[0][3]) === 3, spy.map((a) => [a[0] === VMARK, a[2], a[3]]));
+  const s3 = stu({ english_name: 'Kim' }, GWK, VMARK, 'S3');
+  check('⑨ 짝: S3(기초)에는 예전처럼 약점 줄을 안 넣는다 — 이름 줄은 그대로', !/got wrong/.test(s3) && /Their name is "Kim"/.test(s3), s3);
+  const sg = stu(null, GWK, [], 'S4');
+  check('⑨ 짝: 단어장이 비면 게임 약점만(예전과 같음)', /: tiger \(호랑이\)\./.test(sg), sg);
+  const su = stu({ english_name: 'Kim' }, null, undefined, 'S4');
+  check('⑨ 조회가 비거나 실패해도 개인화가 통째로 죽지 않는다(이름 줄은 남고 약점 줄은 없음)', !/THREW/.test(su) && /Their name is "Kim"/.test(su) && !/got wrong/.test(su), su);
 }
 
 done();

@@ -51,6 +51,14 @@ const M = [
   ['친구: 받는 변수 자리 바꾸기', 'AI', 'goalNow, pastFixes, vw]', 'goalNow, vw, pastFixes]'],
   ['친구: 프롬프트에 넘기지 않기', 'AI', 'friendWeakList(vw || [],', 'friendWeakList([],'],
   ['친구: 기초 게이트 삭제', 'AI', 'if (weak.length && !lvSpec.plain)', 'if (weak.length)'],
+  // ↓ 함정 대조(2026-10-18)가 «글자로 묻는 본인 확인 검사는 주석 처리로 뚫린다» 고 잡은 뒤 더한 것
+  ['친구: 본인 확인 줄을 주석 처리', 'AI', "if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);\n\n      // 🐢 (2026-07-27)", "// if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);\n\n      // 🐢 (2026-07-27)"],
+  ['친구: 본인 확인을 if (false) 로 죽이기', 'AI', "if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);\n\n      // 🐢 (2026-07-27)", "if (false) if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);\n\n      // 🐢 (2026-07-27)"],
+  ['친구: 다른 DB 로 읽기', 'AI', 'loadVocabWeakRows(env.DB, uid, Date.now(), 5),', 'loadVocabWeakRows(null, uid, Date.now(), 5),'],
+  ['친구: 60일 창을 0 시각으로', 'AI', 'loadVocabWeakRows(env.DB, uid, Date.now(), 5),', 'loadVocabWeakRows(env.DB, uid, 0, 5),'],
+  ['친구: 상한 5 → 99', 'AI', 'friendWeakList(vw || [], (wk?.results as any[]) || [], 5)', 'friendWeakList(vw || [], (wk?.results as any[]) || [], 99)'],
+  ['친구: 단어장 3칸 상한 무시', 'MOD', '.filter((x) => x.item).slice(0, vocabMax);', '.filter((x) => x.item);'],
+  ['친구: null 이면 던지게', 'MOD', '(vocabRows || []).map(', '(vocabRows).map('],
 ];
 
 let caught = 0, missed = 0, skipped = 0;
