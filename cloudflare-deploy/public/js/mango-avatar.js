@@ -129,10 +129,16 @@
           캔버스에 바로 그리고 머리는 안 움직입니다(실패해도 얼굴은 그대로).
        ⚠️ HEAD 의 숫자는 «그 초상화의 원본 px» 입니다 — y1(여기부터 위는 머리) · y2(여기부터
           아래는 몸) · nw(목 반폭 — 그 밖은 경계가 위로 올라가 어깨가 섞이지 않게) · x(축). */
+/* v14: (2026-10-18) 사장님 「A.i 선생님도 A.i 말하기·A.i 친구의 Emma 와 똑같이 — 입모양과 단어 일치·눈 깜빡임·
+       눈썹·머리 움직임」 — ai-class.html 이 이 모듈을 그대로 씁니다. 그래서 셋을 더했습니다(옛 화면은 그대로):
+         ① window.__mgAvatarBaseW — 큰 칸에 그리는 화면이 캔버스 폭을 정함(기본 320).
+         ② mouth(tier) — 소리를 분석할 수 없는 말하기(브라우저 음성합성·소리 끔)에서 화면이 «글자 박자» 로 입을 정함.
+            물린 오디오가 멈춰 있어도 그 동안은 «다문 입» 으로 굳히지 않습니다. plainStop() 이 풉니다.
+         ③ attach() 가 물렸는지 true/false 를 돌려줌(전에는 undefined — 옛 화면은 반환값을 안 씁니다). */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
-    window.MangoAvatar = { plainStart:noop, plainStop:noop, attach:noop, prepare:function(){return Promise.resolve(null);}, setCharacter:noop,
+    window.MangoAvatar = { plainStart:noop, plainStop:noop, attach:noop, mouth:noop, prepare:function(){return Promise.resolve(null);}, setCharacter:noop,
       playClip:function(){ return Promise.reject(new Error('avatar_not_ready')); } };
   }
 
@@ -214,6 +220,9 @@
   // ⚠️ 화면이 새 이름으로만 부르도록 고쳤지만, 이 표를 지우면 옛 호출이 «아무 일도 안 일어남» 이 됩니다.
   var CHAR_ALIAS = { female:'emma', male:'jake', female_classic:'emma_classic', male_classic:'jake_classic' };
   var BASE_W = 320;   // 캔버스 내부 해상도 기준 폭(캐릭터별 비율에 맞춰 높이만 재계산)
+  // 🖥 (v14) 얼굴을 크게 그리는 화면(A.i 선생님 칸)은 320 이면 늘어나 흐립니다 — 화면이 window.__mgAvatarBaseW 로
+  //    폭을 정할 수 있습니다(200~800). 안 세우는 화면은 예전 그대로 320.
+  try { var bwWant = +window.__mgAvatarBaseW; if (bwWant >= 200 && bwWant <= 800) BASE_W = Math.round(bwWant); } catch(e){}
   // 🎭 (v13) 머리 움직임 — 숫자는 그 초상화의 원본 px(emma 512x640 · jake 512x496 · 나머지 640x800).
   //   y1 위는 머리(전부 움직임) · y2 아래는 몸(그대로) · 그 사이는 부드럽게 섞는다.
   //   nw 는 목 반폭 — 그 밖에서는 경계를 (y2-y1) 만큼 위로 올려 어깨가 섞이지 않게 한다.
@@ -738,8 +747,9 @@
       var pf=preciseReady();
       if(pf){
         var stopped=!boundEl || boundEl.paused || boundEl.ended || buffering || !drawing;
-        var sampled=(!stopped && window.AvatarVisemes.frame) ? window.AvatarVisemes.frame(mouthCues,boundEl.currentTime) : null;
-        var pose=stopped ? 'X' : sampled ? sampled.pose : window.AvatarVisemes.at(mouthCues,boundEl.currentTime);
+        var ext=(extTier && drawing) ? EXT_POSE[extTier] : null;   // 🗣 (v14) 화면이 직접 정한 입(소리를 분석할 수 없는 말하기)
+        var sampled=(!ext && !stopped && window.AvatarVisemes.frame) ? window.AvatarVisemes.frame(mouthCues,boundEl.currentTime) : null;
+        var pose=ext ? ext : stopped ? 'X' : sampled ? sampled.pose : window.AvatarVisemes.at(mouthCues,boundEl.currentTime);
         if(!pf.rect.extra){if(pose==='G')pose='B';if(pose==='H')pose='C';}
         var ix='XABCDEFGH'.indexOf(pose), r=pf.rect;
         var c=preciseCrop(pf),bx=c.bx,by=c.by,sw=c.sw,sh=c.sh;
@@ -838,6 +848,10 @@
       return 'wide';
     }
     var lastSwitchAt = 0;
+    // 🗣 (v14) 화면이 «직접» 정한 입 단계 — 소리를 분석할 수 없는 말하기(브라우저 음성합성·소리 끔)에서
+    //    화면이 글자 박자대로 입을 움직이게 한다(mouth()). null 이면 예전 그대로(소리·입모양 표가 정한다).
+    //    ⚠️ 이 값이 있으면 물린 오디오가 멈춰 있어도 «다문 입» 으로 굳히지 않는다 — 그 오디오는 지금 말하는 소리가 아니다.
+    var extTier = null, EXT_POSE = { closed:'X', medium:'C', wide:'D' };
     function showTier(tier, immediate){
       if(tier === curTier || !curPoses) return;
       // 🔴 (2026-07-27 3차) setCharacter() 직후(video.load() 로 리로드 중) 는 readyState 가
@@ -869,7 +883,10 @@
     }
     function loop(){
       if(!drawing){ raf=0; return; }
-      if(boundEl && analyser && !clipActive){
+      if(extTier && !clipActive){
+        idleTicks = 0; loudNow = (extTier === 'wide');
+        showTier(extTier, extTier === 'closed');
+      } else if(boundEl && analyser && !clipActive){
         if(boundEl.paused || boundEl.ended || buffering){
           showTier('closed', true);                        // 말 안 하는 중 → 다문 입 프레임에 고정
           loudNow = false;
@@ -919,6 +936,7 @@
     function stopDraw(){ drawing=false; if(raf){ try{cancelAnimationFrame(raf);}catch(e){} raf=0; } swayKick(); }
     function drawStill(){ keyFrame(); }
     function doStop(){
+      extTier = null;
       setSpeaking(false); stopDraw();
       // Cancellation must end on the closed pose, even inside the minimum hold window.
       showTier('closed', true); fadeData=null;
@@ -932,9 +950,10 @@
     window.MangoAvatar = {
       // TTS 오디오(HTMLAudioElement)를 물려 음량 립싱크. 요소당 MediaElementSource 1회.
       //   소리 경로(destination) 연결 필수 — 안 하면 음소거됨.
+      // (v14) 물렸으면 true — 못 물렸으면(Web Audio 없음 등) false 를 돌려줘 화면이 «글자 박자» 로 대신 움직이게 한다.
       attach: function(audioEl){
-        if(!audioEl) return;
-        if(!ensureCtx()) return;
+        if(!audioEl) return false;
+        if(!ensureCtx()) return false;
         try{
           var binding = bindings.get(audioEl);
           if(!binding){
@@ -975,7 +994,8 @@
           lipData=new Uint8Array(analyser.fftSize);
           if(actx.state==='suspended') actx.resume();
           if(!audioEl.paused && !audioEl.ended) window.MangoAvatar.plainStart();
-        }catch(e){ /* Preserve audible playback if Web Audio is unavailable. */ }
+          return true;
+        }catch(e){ /* Preserve audible playback if Web Audio is unavailable. */ return false; }
       },
       prepare: function(audioEl){
         if(boundEl!==audioEl)window.MangoAvatar.attach(audioEl);
@@ -993,6 +1013,13 @@
       // 말하기 시작: 그리기 루프 시작(오디오가 물려 재생 중이면 자동으로 음량 립싱크)
       plainStart: function(){ ensureIdle(); setSpeaking(true); try{ if(actx&&actx.state==='suspended') actx.resume(); }catch(e){} startDraw(); },
       plainStop:  function(){ doStop(); },
+      // 🗣 (v14) 입 단계를 화면이 직접 정한다 — 'closed'|'medium'|'wide'. 그 밖의 값(null)이면 손을 뗀다.
+      //    처음 부르면 그리기를 켠다(말하기 시작). 끝낼 때는 plainStop() 을 부른다.
+      mouth: function(t){
+        var k = (t === 'closed' || t === 'medium' || t === 'wide') ? t : null;
+        extTier = k;
+        if(k && !drawing){ ensureIdle(); setSpeaking(true); startDraw(); }
+      },
       // 미리 만든 립싱크 클립 재생(음성코치 전용) → 캔버스 키잉. 끝나면 idle 복귀.
       playClip: function(id){
         return new Promise(function(resolve, reject){
