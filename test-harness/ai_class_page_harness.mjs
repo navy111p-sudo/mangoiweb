@@ -109,10 +109,13 @@ ok(/<script src="\/js\/ai-class-engine\.js\?v=\d+"><\/script>/.test(code), 'engi
 const catV = (code.match(/\/data\/ai-class-catalog\.json\?v=([0-9a-f]+)/) || [])[1];
 const catHash = (await import('node:crypto')).createHash('sha256').update(fs.readFileSync(OUT)).digest('hex').slice(0, 8);
 ok(catV === catHash, `catalog ?v=${catV} must equal its content hash ${catHash}`);
-for (const f of ['lily-closed', 'lily-mid', 'lily-wide']) {
-  ok(new RegExp(`src="/img/${f}\\.webp(\\?v=\\d+)?"`).test(code), `page does not use /img/${f}.webp`);
-  ok(fs.existsSync(path.join(PUB, 'img', f + '.webp')), `/img/${f}.webp missing`);
+// 2026-10-18 사장님 지시: 선생님 얼굴 = A.i 말하기의 Emma (mango-avatar.js 의 emma frames 와 같은 세 장)
+for (const f of ['emma-v2-rest', 'emma-v2-mid', 'emma-v2-wide']) {
+  ok(new RegExp(`src="/img/visemes/${f}\\.webp(\\?v=\\d+)?"`).test(code), `page does not use /img/visemes/${f}.webp`);
+  ok(fs.existsSync(path.join(PUB, 'img', 'visemes', f + '.webp')), `/img/visemes/${f}.webp missing`);
+  ok(fs.readFileSync(path.join(PUB, 'js', 'mango-avatar.js'), 'utf8').includes(`/img/visemes/${f}.webp`), `${f} is no longer the A.i speaking Emma frame`);
 }
+ok(!/lily-(closed|mid|wide)\.webp|Lily/.test(code), 'page still shows Lily');
 ok(/\[hidden\]\{display:none!important\}/.test(code), '[hidden] rule missing');
 ok(/<meta name="robots" content="noindex">/.test(html), 'hidden page should be noindex');
 // 카메라는 내 화면에서만 — 어디로도 보내지 않는다
