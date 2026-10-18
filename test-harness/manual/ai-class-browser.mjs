@@ -287,7 +287,8 @@ async function featOne(vp) {
   await ev(`document.getElementById('spdBtn').click()`); await ev(`document.getElementById('spdBtn').click()`);   // 0.75
   await go(vp, '&keep=1', '');
   ok(await ev(`window.__aiClass.speed`) === 0.75 && /아주 천천히/.test(await ev(`document.getElementById('spdBtn').textContent`)), `${tag}: speed not remembered`);
-  await ev(`(()=>{window.__rates=[];speechSynthesis.speak=function(u){window.__rates.push(u.rate);setTimeout(function(){u.onend&&u.onend()},5)};speechSynthesis.cancel=function(){};})()`);
+  // (2026-10-18) 선생님 목소리는 이제 서버 음성(<audio>) — 기기 목소리와 «서버 음성» 둘 다 속도를 잰다
+  await ev(`(()=>{window.__rates=[];speechSynthesis.speak=function(u){window.__rates.push(u.rate);setTimeout(function(){u.onend&&u.onend()},5)};speechSynthesis.cancel=function(){};(function(){if(window.__fa)return;window.__fa=1;var op=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(){var a=this;if(/^blob:/.test(a.src)){(window.__rates=window.__rates||[]).push(a.playbackRate);setTimeout(function(){a.onended&&a.onended()},5);return Promise.resolve();}return op.call(a);};})();})()`);
   await ev(`document.getElementById('startBtn').click()`);
   for (let i = 0; i < 100 && !(await ev('window.__rates.length')); i++) await sleep(20);
   const r0 = await ev('window.__rates[0]');
@@ -298,7 +299,7 @@ async function featOne(vp) {
   // ② 자동 말하기 + 가짜 음성인식: 마이크가 저절로 켜지고, 들은 말로 대답하며, 수업이 끝까지 간다(찾기는 눌러서)
   await go(vp, '&sr=fake', '');
   ok(!!(await ev(pickFindLesson)), `${tag}: no lesson with find+swap`);
-  await ev(`(()=>{window.__heard=0;new MutationObserver(m=>m.forEach(x=>x.addedNodes.forEach(n=>{if(n.classList&&n.classList.contains('heard'))window.__heard++}))).observe(document.getElementById('ask'),{childList:true});window.__stk=0;new MutationObserver(m=>m.forEach(x=>x.addedNodes.forEach(n=>{if(n.classList&&n.classList.contains('sticker'))window.__stk++}))).observe(document.getElementById('sTile'),{childList:true});speechSynthesis.speak=function(u){setTimeout(function(){u.onend&&u.onend()},3)};speechSynthesis.cancel=function(){};})()`);
+  await ev(`(()=>{window.__heard=0;new MutationObserver(m=>m.forEach(x=>x.addedNodes.forEach(n=>{if(n.classList&&n.classList.contains('heard'))window.__heard++}))).observe(document.getElementById('ask'),{childList:true});window.__stk=0;new MutationObserver(m=>m.forEach(x=>x.addedNodes.forEach(n=>{if(n.classList&&n.classList.contains('sticker'))window.__stk++}))).observe(document.getElementById('sTile'),{childList:true});speechSynthesis.speak=function(u){setTimeout(function(){u.onend&&u.onend()},3)};speechSynthesis.cancel=function(){};(function(){if(window.__fa)return;window.__fa=1;var op=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(){var a=this;if(/^blob:/.test(a.src)){(window.__rates=window.__rates||[]).push(a.playbackRate);setTimeout(function(){a.onended&&a.onended()},5);return Promise.resolve();}return op.call(a);};})();})()`);
   await ev(`document.getElementById('talkBtn').click()`);
   ok(/켬/.test(await ev(`document.getElementById('talkBtn').textContent`)), `${tag}: talk pill did not turn on`);
   await ev(`document.getElementById('startBtn').click()`);
@@ -461,7 +462,7 @@ async function srEndOne(vp) {
     await send('Emulation.setDeviceMetricsOverride', { width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.m });
     await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/ai-class.html?sr=${mode}&deftalk=1&r=${Date.now()}#fast` });
     for (let i = 0; i < 80; i++) { await sleep(60); try { if (await ev('!!(window.__aiClass && !document.getElementById("startBtn").disabled)')) break; } catch (e) { } }
-    await ev(`speechSynthesis.speak=function(u){setTimeout(function(){u.onend&&u.onend()},3)};speechSynthesis.cancel=function(){};`);
+    await ev(`speechSynthesis.speak=function(u){setTimeout(function(){u.onend&&u.onend()},3)};speechSynthesis.cancel=function(){};(function(){if(window.__fa)return;window.__fa=1;var op=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(){var a=this;if(/^blob:/.test(a.src)){(window.__rates=window.__rates||[]).push(a.playbackRate);setTimeout(function(){a.onended&&a.onended()},5);return Promise.resolve();}return op.call(a);};})();`);
     await ev(`document.getElementById('startBtn').click()`);
     for (let i = 0; i < 200; i++) { if (await ev(`(s=>!!s&&s.phase==='await'&&!window.__aiClass.busy)(window.__aiClass.state)`)) break; await sleep(20); }
   };
