@@ -68,6 +68,42 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,6vw,44px);lin
 .rl-card-s{font-size:13px;font-weight:700}
 .rl-card.done .rl-card-s{color:var(--ok)}
 .rl-h3{margin:22px 0 10px;font-size:17px}
+/* 📋 보기 방식 · 단계별 한눈에 · 주제 거르기 */
+.rl-segs{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:99px;background:var(--page);margin:0 0 12px;flex-wrap:wrap}
+.rl-seg{min-height:38px;padding:6px 14px;border:0;border-radius:99px;background:none;color:var(--soft);font:inherit;font-weight:800;font-size:14px;cursor:pointer}
+.rl-seg.on{background:var(--accent);color:var(--page)}
+.rl-pbar{display:inline-block;vertical-align:middle;width:72px;height:8px;border-radius:99px;background:var(--chip);overflow:hidden;margin-right:6px}
+.rl-pbar i{display:block;height:100%;background:var(--sc)}
+.rl-sec{background:var(--page);border:1px solid var(--line);border-top:6px solid var(--sc);border-radius:16px;padding:14px 16px;margin-bottom:16px}
+.rl-sec-h{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 16px;align-items:flex-start;margin-bottom:10px}
+.rl-sec-t{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 320px}
+.rl-sec-n{font-size:12px;font-weight:800;color:var(--soft)}
+.rl-sec h2{margin:0;font-family:var(--display);font-size:clamp(20px,4vw,26px);line-height:1.2}
+.rl-sec-g{font-size:13px;font-weight:700;color:var(--ink)}
+.rl-sec-d{font-size:13px;color:var(--soft)}
+.rl-sec-p{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;color:var(--soft)}
+.rl-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr));gap:6px}
+.rl-li{display:grid;grid-template-columns:32px minmax(0,1fr) auto;grid-template-areas:"no t s" "no m s";gap:0 10px;align-items:center;width:100%;text-align:left;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink);font:inherit;text-decoration:none;cursor:pointer;min-width:0}
+.rl-li:hover{border-color:var(--soft)}
+.rl-li:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.rl-li.done{border-color:var(--ok)}
+.rl-li-no{grid-area:no;width:28px;height:28px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
+.rl-li-t{grid-area:t;font-weight:800;line-height:1.3;min-width:0}
+.rl-li-t small{display:block;font-weight:600;font-size:13px;color:var(--soft)}
+.rl-li-m{grid-area:m;font-size:12px;color:var(--soft)}
+.rl-li-s{grid-area:s;font-size:12px;font-weight:700;white-space:nowrap}
+.rl-li.done .rl-li-s{color:var(--ok)}
+.rl-pic{display:inline-block;font-size:11px;font-weight:800;padding:1px 8px;border-radius:99px;border:1px solid var(--sc);vertical-align:2px}
+.rl-jump{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 10px}
+@media (max-width:640px){.rl-jump{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.rl-jbtn{min-height:40px;padding:6px 10px;border:1px solid var(--line);border-left:5px solid var(--sc);border-radius:12px;background:var(--page);color:var(--ink);font:inherit;font-size:13px;text-align:left;cursor:pointer;min-width:0}
+.rl-jbtn span{color:var(--soft);font-variant-numeric:tabular-nums}
+.rl-jbtn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.rl-sec{scroll-margin-top:12px}
+.rl-topics{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.rl-tchip{min-height:34px;padding:4px 12px;border:1px solid var(--line);border-radius:99px;background:var(--page);color:var(--ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.rl-tchip.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;background:var(--chip)}
+.rl-seg:focus-visible,.rl-tchip:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .rl-btn{display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:6px 14px;border:1px solid var(--line);border-radius:99px;background:var(--page);color:var(--ink);font:inherit;font-weight:800;font-size:14px;cursor:pointer;text-decoration:none}
 .rl-btn:hover{border-color:var(--soft)}
 .rl-btn.rl-primary{background:var(--accent);border-color:var(--accent);color:var(--page)}
@@ -173,6 +209,8 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,6vw,44px);lin
   function render(){ document.getElementById('books').innerHTML = booksHtml(); }
   // 📚 사다리(js/reading-ladder.js)가 2단계 안에 같은 책 목록을 그리고, 이 화면의 언어를 따른다.
   window.__storyBooksHtml = booksHtml;
+  // 📋 «단계별 한눈에» 가 2단계 안에 그림책을 한 줄씩 그릴 때 쓴다(도장 수 n 포함).
+  window.__storyBookList = function(){ return BOOKS.map(function(b){ return { id:b.id, no:b.no, title:b.title, ko:b.ko, en:b.en, n:stampCount(b.id) }; }); };
   window.__storyLang = function(){ return lang; };
   function applyLang(){
     document.documentElement.lang = lang;
@@ -192,6 +230,6 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,6vw,44px);lin
 })();
 </script>
 <script src="/js/reading-ladder-data.js?v=1"></script>
-<script src="/js/reading-ladder.js?v=1"></script>
+<script src="/js/reading-ladder.js?v=2"></script>
 </body>
 </html>
