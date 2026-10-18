@@ -7,6 +7,7 @@ import { loadRecentMistakes, recentMistakesPromptLine, logAiFriendFix, loadRecen
 import { konglishFix, konglishPromptLine } from './konglish';   // 🇰🇷 콩글리시 대조표(2026-10-18 ⑦)
 import { decideLevelSuggestion, loadSuggestEvidence, recentlyAnswered, recordSuggestAnswer } from './level-suggest';   // 🎚 단계 제안(2026-10-18 ⑤)
 import { WEAK_WHERE, WEAK_ORDER, weakSince } from './weak-words';
+import { loadVocabWeakRows, friendWeakList } from './vocab-weak';   // 🔁 단어장에서 틀린 낱말(2026-10-18 ⑥)
 import { json } from './api-util';
 import { applyEmpathyGuard, FRIEND_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
 import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';
@@ -645,7 +646,7 @@ Student text: """${text}"""`;
       // 🐢 (2026-07-27) 응답 지연 최소화 — 서로 무관한 조회들을 순서대로 기다리지 않고 한꺼번에 보낸다.
       //   (gamSnapshot 은 "오늘 몇 번째 대화인가"를 이번 메시지가 기록된 뒤에 세야 정확해서
       //   여기서 같이 시작하지 않는다 — 채팅 로그 저장 이후에 계산한다.)
-      const [recent, st, wk, turns, goalNow, pastFixes]: any[] = await Promise.all([
+      const [recent, st, wk, turns, goalNow, pastFixes, vw]: any[] = await Promise.all([
         env.DB.prepare(`SELECT role, content FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT 20`).bind(uid).all(),
         env.DB.prepare(`SELECT english_name, korean_name, textbook, level FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first().catch(() => null),
         // 🎯 약점 단어 — 정본 src/weak-words.ts(최근 60일 · 최근 먼저). 오래된 약점을 «요즘» 으로 말하지 않게.
@@ -662,6 +663,8 @@ Student text: """${text}"""`;
         loadActiveGoal(env.DB, uid, Date.now()),
         // 🔁 최근 교정받은 표현(웜업·AI 친구) — 던지지 않는다(없으면 []). 정본 src/recent-mistakes.ts
         loadRecentMistakes(env.DB, uid, Date.now()),
+        // 🔁 단어장에서 틀린 낱말 — 웜업·게임과 같은 정본(src/vocab-weak.ts). 던지지 않는다(없으면 []).
+        loadVocabWeakRows(env.DB, uid, Date.now(), 5),
       ]);
       const history = (recent.results || []).reverse();
 
@@ -684,11 +687,12 @@ Student text: """${text}"""`;
       try {
         const sname = String(st?.english_name || st?.korean_name || '').trim().slice(0, 40);
         const textbook = String(st?.textbook || '').trim().slice(0, 60);
-        const weak = (((wk?.results as any[]) || []).map((r: any) => (r.ko ? `${r.item} (${r.ko})` : String(r.item))).filter(Boolean)).slice(0, 5);
+        // 단어장 약점 먼저, 게임 약점 다음 — 합치기·정리 정본 friendWeakList(src/vocab-weak.ts)
+        const weak = friendWeakList(vw || [], (wk?.results as any[]) || [], 5);
         const parts: string[] = [];
         if (sname) parts.push(`Their name is "${sname}" — greet or cheer them by name sometimes.`);
         if (textbook) parts.push(`They study the textbook "${textbook}" — occasionally relate the chat to what they learn there.`);
-        if (weak.length && !lvSpec.plain) parts.push(`Words they recently got wrong in games/quizzes: ${weak.join(', ')}. Once in a while, weave ONE of these words naturally into your reply or question (never quiz the whole list at once). Cheer loudly when they use one correctly.`);
+        if (weak.length && !lvSpec.plain) parts.push(`Words they recently got wrong in their word book, games or quizzes: ${weak.join(', ')}. Once in a while, weave ONE of these words naturally into your reply or question (never quiz the whole list at once). Cheer loudly when they use one correctly.`);
         if (parts.length) stuCtx = `\nAbout THIS student (use naturally in conversation — never recite this list):\n- ${parts.join('\n- ')}`;
       } catch { /* 개인화 실패 무시 */ }
 

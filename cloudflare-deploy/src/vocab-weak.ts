@@ -25,6 +25,8 @@
 //     · /api/games/weak  — vocab_weak 칸으로 따로 실어 게임 허브가 복습 큐에 넣는다.
 //       ⛔ weak(게임 기록) 배열에는 섞지 않는다 — 교사용 게임 리포트가 그 배열을
 //          «게임에서 자주 틀린 단어» 로 그린다(출처를 거짓으로 말하게 된다).
+//     · A.i 친구(api-ai.ts chat-friend) — 단어장 약점 + 게임 약점을 «낱말 (뜻)» 으로 합쳐 프롬프트에(friendWeakList).
+//       그 경로는 원래부터 토큰 uid == 요청 uid 일 때만 돈다(그 확인을 지나서 부른다). 기초(S1~S3)는 원래대로 안 넣는다.
 //     ⛔ 웜업·games/weak 둘 다 «본인 확인»(토큰 uid 또는 같은 이름의 관리자 세션)이 될 때만 읽는다.
 //        user_id 는 화면이 보내는 값이고, 단어장의 «틀린 기록» 은 /api/vocab/list 에서도 본인에게만 보인다(gateVocabOwner).
 //        판정은 index.ts 의 vocabWeakCallerVerified 하나 — 캐시를 읽기 «전» 에 매번 묻는다.
@@ -100,6 +102,20 @@ export async function loadWeakWordsForWarmup(db: any, uid: string, nowMs: number
     game = ((rs && rs.results) || []).map((r: any) => cleanWeakWord(r.item)).filter(Boolean);
   } catch { game = []; }   // 표가 아직 없는 DB 등 — 단어장 쪽만 쓴다
   return mergeWeakFirst(vocab, game, WEAK_WORDS_MAX, (w) => w);
+}
+
+/** 뜻(한국어) 정리 — 따옴표·줄바꿈을 떼고, 30자를 넘으면 뜻은 빼고 낱말만 쓴다(''). */
+export function cleanWeakKo(raw: any): string {
+  const s = String(raw == null ? '' : raw).replace(/["\\`]/g, '').replace(/\s+/g, ' ').trim();
+  return s.length > 30 ? '' : s;
+}
+
+/** A.i 친구 프롬프트용 «낱말 (뜻)» 목록 — 단어장 약점 먼저, 게임 약점 다음, 대소문자 무시 중복 제거, 최대 max 개.
+ *  ⛔ 단어장 낱말은 cleanWeakWord 를 지난 것만(한글·문장·따옴표). 게임 약점은 예전 그대로(이미 lang='en' · 정본 WEAK_WHERE). */
+export function friendWeakList(vocabRows: any[], gameRows: any[], max = 5): string[] {
+  const v = (vocabRows || []).map((r: any) => ({ item: cleanWeakWord(r && r.word), ko: cleanWeakKo(r && r.korean) })).filter((x) => x.item);
+  const g = (gameRows || []).map((r: any) => ({ item: String((r && r.item) || ''), ko: String((r && r.ko) || '') })).filter((x) => x.item);
+  return mergeWeakFirst(v, g, max, (x) => x.item).map((x) => (x.ko ? `${x.item} (${x.ko})` : x.item));
 }
 
 /** 웜업 시스템 프롬프트에 붙일 한 줄 — 없으면 ''. 기초는 1개만. */

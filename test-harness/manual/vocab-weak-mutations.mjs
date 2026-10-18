@@ -14,8 +14,8 @@ import { execFileSync } from 'node:child_process';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 const HARNESS = path.join(ROOT, 'test-harness/vocab_weak_reuse_harness.mjs');
-const F = { MOD: 'cloudflare-deploy/src/vocab-weak.ts', IDX: 'cloudflare-deploy/src/index.ts', HUB: 'cloudflare-deploy/public/student-games.html' };
-const ENV = { MOD: 'VW_MOD', IDX: 'VW_IDX', HUB: 'VW_HUB' };
+const F = { MOD: 'cloudflare-deploy/src/vocab-weak.ts', IDX: 'cloudflare-deploy/src/index.ts', HUB: 'cloudflare-deploy/public/student-games.html', AI: 'cloudflare-deploy/src/api-ai.ts' };
+const ENV = { MOD: 'VW_MOD', IDX: 'VW_IDX', HUB: 'VW_HUB', AI: 'VW_AI' };
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'vw-mut-'));
 
 const M = [
@@ -42,6 +42,15 @@ const M = [
   ['허브: 언어 바뀜 가드 삭제', 'HUB', '      if(lang!==GAME_LANG) return;', '      '],
   ['허브: 다시 시딩할 때 옛 응답 비우기 삭제', 'HUB', '_seededMiss=true; _serverWeak=null;', '_seededMiss=true;'],
   ['허브: 토큰을 안 싣기', 'HUB', "tk?{headers:{Authorization:'Bearer '+tk}}:{})", '{})'],
+  ['친구: 게임 약점을 먼저(순서 뒤집기)', 'MOD', 'mergeWeakFirst(v, g, max', 'mergeWeakFirst(g, v, max'],
+  ['친구: 단어장 낱말을 정리 없이', 'MOD', 'item: cleanWeakWord(r && r.word)', "item: String((r && r.word) || '')"],
+  ['친구: 단어장 뜻을 빼기', 'MOD', 'ko: cleanWeakKo(r && r.korean)', "ko: ''"],
+  ['친구: 뜻 길이 상한 뒤집기', 'MOD', "return s.length > 30 ? '' : s;", "return s.length <= 30 ? '' : s;"],
+  ['친구: 단어장 조회를 빼기', 'AI', 'loadVocabWeakRows(env.DB, uid, Date.now(), 5),', 'Promise.resolve([]),'],
+  ['친구: 다른 uid 로 읽기', 'AI', 'loadVocabWeakRows(env.DB, uid, Date.now(), 5),', 'loadVocabWeakRows(env.DB, uid.toLowerCase(), Date.now(), 5),'],
+  ['친구: 받는 변수 자리 바꾸기', 'AI', 'goalNow, pastFixes, vw]', 'goalNow, vw, pastFixes]'],
+  ['친구: 프롬프트에 넘기지 않기', 'AI', 'friendWeakList(vw || [],', 'friendWeakList([],'],
+  ['친구: 기초 게이트 삭제', 'AI', 'if (weak.length && !lvSpec.plain)', 'if (weak.length)'],
 ];
 
 let caught = 0, missed = 0, skipped = 0;
