@@ -21,7 +21,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'cloudflare-deploy/public/img/visemes'
 ACTORS = {'lily': (144, 122, 'lily-mouths.webp'),
-          'noah': (154, 130, 'noah-mouths.webp'),
+          'noah': (214, 130, 'noah-mouths.webp'),
           'emma': (146, 126, 'emma-v2-mouths.webp')}
 STEPS, COLS = 4, 18
 

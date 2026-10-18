@@ -30,6 +30,10 @@ const statSafe = p => { try { return statSync(p); } catch { return null; } };
 
 console.log('■ 아바타 살아 있는 얼굴 (js/mango-avatar.js v10)');
 const AV = readFileSync(SRC_FILE, 'utf8');
+// 2026-10-18: lily·noah 는 얼굴을 확대해 잘라 보여 줍니다(CHARACTERS.rect) — 원본 px → 캔버스 px 는 그 rect 를 거쳐야 합니다.
+function charRect(name){ const m = AV.match(new RegExp("still:'/img/(?:visemes/)?" + name + "-closed\\.webp(?:\\?v=\\d+)?', rect:\\{ l:([\\d.]+), t:([\\d.]+), r:([\\d.]+), b:([\\d.]+) \\}"));
+  return m ? { l:+m[1], t:+m[2], r:+m[3], b:+m[4] } : { l:0, t:0, r:1, b:1 }; }
+
 
 /* 주석 벗기기 — 글자를 훑으며 «블록주석 안인가 · 문자열 안인가» 를 함께 추적한다
    (정규식 한 줄로 지우면 문자열 속 '/*' 에 파일이 통째로 먹힌다 — CLAUDE.md 2장). */
@@ -184,9 +188,9 @@ const e1 = eyeDraws();
 ok(e1.length === 1 && e1[0].a[0] === 0, `시각이 되면 «반감음»(0칸)을 그린다 (sx=${e1[0] ? e1[0].a[0] : '없음'})`);
 if (e1[0] && EYES) {
   const [sx, sy, sw, sh, dx, dy, dw, dh] = e1[0].a, r = EYES.lily;
-  const k = 320 / 640;
+  const cr = charRect('lily'), k = 320 / (640 * (cr.r - cr.l)), ox = 640 * cr.l, oy = 800 * cr.t;
   ok(sy === 0 && sw === r.w && sh === r.h, `그림에서 한 칸(${r.w}x${r.h})만 잘라 온다`);
-  ok(Math.abs(dx - r.x * k) < 0.01 && Math.abs(dy - r.y * k) < 0.01 && Math.abs(dw - r.w * k) < 0.01 && Math.abs(dh - r.h * k) < 0.01,
+  ok(Math.abs(dx - (r.x - ox) * k) < 0.01 && Math.abs(dy - (r.y - oy) * k) < 0.01 && Math.abs(dw - r.w * k) < 0.01 && Math.abs(dh - r.h * k) < 0.01,
     `초상화의 눈 자리에 그린다 (dx=${dx}, dy=${dy}, ${dw}x${dh})`);
 }
 ok(draws.length >= 2 && !/-eyes\.webp$/.test(draws[0].src || ''), '눈보다 얼굴(원본)을 «먼저» 그린다', '순서가 바뀌면 얼굴이 눈을 덮습니다');

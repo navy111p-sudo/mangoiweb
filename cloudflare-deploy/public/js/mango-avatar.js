@@ -160,6 +160,11 @@
   //      전환이 와서 두 얼굴이 계속 겹쳐 보입니다(고치기 전 Emma 가 그 상태였습니다: 130 > 90).
   //   ℹ️ 기본값은 그 반대(fade 130 > hold 90)이고 Lily·Noah 가 그대로인데 «그게 정상» 입니다 —
   //      그쪽은 한 번에 바뀌는 픽셀이 2~3% 뿐이라 겹쳐도 안 보입니다. 고치지 마세요.
+  /* 🔍 얼굴 확대 rect (2026-10-18) — Lily·Noah 「입이 얼굴에 비해 크다 · 얼굴을 더 크게 · 자연스럽게」.
+     얼굴을 약 1.11배 크게 보이게 잘라 보여 주고, 입은 tools/shrink-mouth.py 가 그림에서 0.9배로 줄였다
+     ⟹ 화면 속 입 크기는 그대로 · 얼굴만 커져 비례가 맞는다. 폭·높이를 같은 비율로 잘라 카드 비율(0.8)은 그대로.
+     ⚠️ 값은 표 «안» 에 직접 적습니다(하니스가 CHARACTERS 리터럴만 떼어 평가 — 상수 이름이면 죽습니다).
+     ⛔ 다른 친구(emma·jake·mei·long)에는 쓰지 마세요 — 그쪽은 입을 안 줄였습니다(사장님: 「lily와 noah가 문제」). */
   var CHARACTERS = {
     // 2026-10-16: user authorized a new Emma identity with registered mouth-only poses.
     emma: { frames:{closed:'/img/visemes/emma-v2-rest.webp',medium:'/img/visemes/emma-v2-mid.webp',wide:'/img/visemes/emma-v2-wide.webp'},
@@ -180,12 +185,13 @@
             still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 },
             poses:{ closed:3.2, medium:7.1, wide:3.5 }, hold:200, fade:160 },
     // ?v=2 (2026-10-18): smile-line creases beside the mouth retouched (tools/remove-smile-folds.py).
+    // ?v=3 (2026-10-18): mouth shrunk to 0.9x relative to the face (tools/shrink-mouth.py) · Noah's patch rect widened.
     //   Media without ?v= is cached 7 days, so a retouched file needs a new address. Bump on every change.
-    lily: { frames:{ closed:'/img/lily-closed.webp?v=2', medium:'/img/lily-mid.webp?v=2', wide:'/img/lily-wide.webp?v=2' },
-            still:'/img/lily-closed.webp?v=2', rect:{ l:0, t:0, r:1, b:1 },
+    lily: { frames:{ closed:'/img/lily-closed.webp?v=3', medium:'/img/lily-mid.webp?v=3', wide:'/img/lily-wide.webp?v=3' },
+            still:'/img/lily-closed.webp?v=3', rect:{ l:0.05, t:0.02, r:0.95, b:0.92 },
             aspect:0.8, keyed:false, fallback:'emma_classic' },
-    noah: { frames:{ closed:'/img/noah-closed.webp?v=2', medium:'/img/noah-mid.webp?v=2', wide:'/img/noah-wide.webp?v=2' },
-            still:'/img/noah-closed.webp?v=2', rect:{ l:0, t:0, r:1, b:1 },
+    noah: { frames:{ closed:'/img/noah-closed.webp?v=3', medium:'/img/noah-mid.webp?v=3', wide:'/img/noah-wide.webp?v=3' },
+            still:'/img/noah-closed.webp?v=3', rect:{ l:0.05, t:0.02, r:0.95, b:0.92 },
             aspect:0.8, keyed:false, fallback:'jake_classic' },
     // 🀄 mei — 중국어 교사(2026-09-14). 웜업에서 «중국어» 를 고른 학생에게만 보입니다.
     //    ⛔ 영어 화면(ai-friend·speech-coach)의 표에는 넣지 마세요 — 그쪽은 아직 중국어가 없어서
@@ -379,8 +385,8 @@
     // Reviewed nine-pose anchors plus 288 optical-flow inbetweens per actor.
     // The latter are transition shapes, not additional recognized phonemes.
     // base/atlas/trans must carry the same ?v= as the CHARACTERS frames above (one retouch, one version).
-    var PRECISION={lily:{extra:true,base:'/img/lily-closed.webp?v=2',atlas:'/img/visemes/lily-mouths.webp?v=2',trans:'/img/visemes/lily-transitions.webp?v=2',x:250,y:294,w:144,h:122},
-      noah:{extra:true,base:'/img/noah-closed.webp?v=2',atlas:'/img/visemes/noah-mouths.webp?v=2',trans:'/img/visemes/noah-transitions.webp?v=2',x:244,y:364,w:154,h:130},
+    var PRECISION={lily:{extra:true,base:'/img/lily-closed.webp?v=3',atlas:'/img/visemes/lily-mouths.webp?v=3',trans:'/img/visemes/lily-transitions.webp?v=3',x:250,y:294,w:144,h:122},
+      noah:{extra:true,base:'/img/noah-closed.webp?v=3',atlas:'/img/visemes/noah-mouths.webp?v=3',trans:'/img/visemes/noah-transitions.webp?v=3',x:214,y:364,w:214,h:130},
       emma:{extra:true,base:'/img/visemes/emma-v2-rest.webp',atlas:'/img/visemes/emma-v2-mouths.webp',x:183,y:282,w:146,h:126},
       // 🦸 Jake 6가지 입모양(9칸 XABCDEFGH 에 배치) — x,y,w,h 는 build-jake-poses.py 출력과 짝.
       //    중간 모양 시트가 없어 transitions 는 못 받으면 그냥 9칸 앵커만 씁니다(keyFrame 이 확인).
