@@ -10,8 +10,9 @@
  *   ③ 탭이 숨겨지면 멈추고(타이머 0개), 다시 보이면 다시 건다 · 캔버스가 빠지면 멈춘다
  *   ④ 눈썹: 크게 말할 때만, 말 첫마디 뒤에, 잠깐 — 조용히 말할 때는 안 올린다(짝)
  *      말이 끝나면(pause) 내린다 · 눈썹 중에는 깜빡이지 않는다
- *   ⑤ 눈 그림이 없는 캐릭터(영상 캐릭터 jake)로 바꾸면 깜빡임 타이머·숨쉬기가 꺼진다(짝: lily 는 켜져 있었다)
- *   ⑤-2 (v11, 2026-10-18) emma·mei·long 도 «자기» 눈 그림으로 깜빡이고 숨쉬기가 켜진다
+ *   ⑤ 눈 그림이 없는 캐릭터(영상 폴백 jake_classic)로 바꾸면 깜빡임 타이머·숨쉬기가 꺼진다(짝: lily 는 켜져 있었다)
+ *   ⑤-2 (v11·v12, 2026-10-18) emma·mei·long·jake 도 «자기» 눈 그림으로 깜빡이고 숨쉬기가 켜진다
+ *        jake 의 사각형은 tools/build-jake-poses.py(영상 프레임에서 만듦)의 EYE_ELL·EP·TOP 과 짝입니다.
  *   ⑥ 눈 그림을 못 받으면 깜빡임만 없고 얼굴은 그대로 그린다(실패해도 빈 얼굴이 되지 않게)
  *   ⑦ 상주 setInterval 이 없다(주석을 벗긴 코드로 판정) · 움직임 줄이기 설정을 따른다
  */
@@ -65,6 +66,15 @@ const pyEll = PY.match(/ELLIPSES=(\{[^\n]*\})/), pyPad = PY.match(/\nPAD=(\d+)/)
 let ELL = null;
 try { ELL = pyEll && new Function('return ' + pyEll[1].replace(/\(/g, '[').replace(/\)/g, ']'))(); } catch { ELL = null; }
 ok(!!ELL && !!pyPad, 'build-eye-patches.py 의 타원 표와 PAD 를 읽었다');
+// 🦸 jake 는 생성 이미지가 아니라 원래 영상에서 만든다 — 생성기가 다르다(build-jake-poses.py, 512x496 = 위 16px 잘림).
+const JPY = readFileSync(join(ROOT, 'tools', 'build-jake-poses.py'), 'utf8');
+const jEll = JPY.match(/\nEYE_ELL = (\[[^\n]*\])/), jPad = JPY.match(/\nEP = (\d+)/), jTop = JPY.match(/\nTOP = (\d+)/);
+let JELL = null;
+try { JELL = jEll && new Function('return ' + jEll[1].replace(/\(/g, '[').replace(/\)/g, ']'))(); } catch { JELL = null; }
+ok(!!JELL && JELL.length === 2 && !!jPad && !!jTop, 'build-jake-poses.py 의 눈 타원·EP·TOP 을 읽었다');
+const genFor = name => name === 'jake'
+  ? { ells: JELL && JELL.map(([cx, cy, rx, ry]) => [cx, cy - (jTop ? +jTop[1] : 0), rx, ry]), pad: jPad ? +jPad[1] : 0 }
+  : { ells: ELL && ELL[name], pad: pyPad ? +pyPad[1] : 0 };
 for (const [name, r] of Object.entries(EYES || {})) {
   const f = join(PUB, 'img', 'visemes', `${name}-eyes.webp`), st = statSafe(f);
   ok(!!st, `${name}: 눈 그림이 저장소에 있다 (img/visemes/${name}-eyes.webp)`, '표에만 적고 파일을 커밋에 안 담으면 조용히 깜빡임이 없어집니다');
@@ -72,7 +82,7 @@ for (const [name, r] of Object.entries(EYES || {})) {
   ok(st.size <= 300 * 1024, `${name}: 눈 그림이 300KB 이하다 (${Math.round(st.size / 1024)}KB)`);
   const wh = webpSize(readFileSync(f));
   ok(!!wh && wh[0] === r.w * 3 && wh[1] === r.h, `${name}: 그림 크기 = EYES 사각형 × 3칸 (${wh ? wh.join('x') : '?'} = ${r.w * 3}x${r.h})`);
-  const ells = ELL && ELL[name], pad = pyPad ? +pyPad[1] : 0;
+  const { ells, pad } = genFor(name);
   if (ells) {
     const x0 = Math.min(...ells.map(e => e[0] - e[2])) - pad, y0 = Math.min(...ells.map(e => e[1] - e[3])) - pad;
     const x1 = Math.max(...ells.map(e => e[0] + e[2])) + pad, y1 = Math.max(...ells.map(e => e[1] + e[3])) + pad;
@@ -246,14 +256,15 @@ ok(eyeDraws().length === 0 && draws.length >= 1, '말이 끝나면(pause) 올린
 
 /* ── ⑤ 눈 그림이 없는 캐릭터 ─────────────────────────────────────────── */
 console.log('\n■ ⑤ 눈 그림이 없는 캐릭터로 바꾸면 꺼진다');
-// 영상 캐릭터(jake)에는 눈 그림이 없다 — EYES 에 그 이름이 «정말 없는지» 를 전제로 둔다
-// (나중에 jake 에도 눈 그림을 넣으면 이 절은 다른 «눈 없는» 캐릭터로 옮겨야 합니다).
-ok(!!EYES && !EYES.jake, '(전제) jake 는 EYES 에 없다');
-av.setCharacter('jake'); await flush();
-ok(!classes.has('mg-alive'), 'jake: 숨쉬기 클래스가 빠진다');
-ok(blinkTimers() === 0, `jake: 깜빡임 타이머가 없다 (${blinkTimers()})`);
+// 영상 폴백(jake_classic)에는 눈 그림이 없다 — EYES 에 그 이름이 «정말 없는지» 를 전제로 둔다.
+// (v12 에서 jake 가 눈 그림을 얻어 «눈 없는» 자리를 영상 폴백으로 옮겼습니다. 폴백까지 눈을 넣으면 이 절을 또 옮기세요.)
+const NOEYE = 'jake_classic';
+ok(!!EYES && !EYES[NOEYE] && new RegExp('\\b' + NOEYE + '\\s*:\\s*\\{\\s*sources').test(CODE), `(전제) ${NOEYE} 는 영상 캐릭터이고 EYES 에 없다`);
+av.setCharacter(NOEYE); await flush();
+ok(!classes.has('mg-alive'), `${NOEYE}: 숨쉬기 클래스가 빠진다`);
+ok(blinkTimers() === 0, `${NOEYE}: 깜빡임 타이머가 없다 (${blinkTimers()})`);
 draws = []; advance(20000);
-ok(eyeDraws().length === 0, 'jake: 시간이 지나도 눈 패치를 그리지 않는다');
+ok(eyeDraws().length === 0, `${NOEYE}: 시간이 지나도 눈 패치를 그리지 않는다`);
 av.setCharacter('noah'); await flush();
 ok(classes.has('mg-alive') && blinkTimers() === 1, 'noah 로 돌아오면 다시 켜진다(짝)');
 draws = []; advance(6000);
@@ -261,10 +272,10 @@ const nz = eyeDraws();
 ok(nz.length >= 1 && /noah-eyes\.webp$/.test(nz[0].src), `noah: 자기 눈 그림으로 깜빡인다 (${nz[0] ? nz[0].src : '없음'})`);
 
 /* ── ⑤-2 emma·mei·long 도 깜빡인다 (v11) ────────────────────────────── */
-console.log('\n■ ⑤-2 emma·mei·long 도 자기 눈 그림으로 깜빡인다');
-for (const name of ['emma', 'mei', 'long']) {
+console.log('\n■ ⑤-2 emma·mei·long·jake 도 자기 눈 그림으로 깜빡인다');
+for (const name of ['emma', 'mei', 'long', 'jake']) {
   ok(!!EYES && !!EYES[name], `${name}: EYES 에 사각형이 있다`);
-  av.setCharacter('jake'); await flush();          // 한 번 «눈 없는» 상태로 만든 뒤 바꾼다(짝)
+  av.setCharacter(NOEYE); await flush();          // 한 번 «눈 없는» 상태로 만든 뒤 바꾼다(짝)
   ok(!classes.has('mg-alive') && blinkTimers() === 0, `(전제) ${name} 로 바꾸기 전에는 꺼져 있다`);
   av.setCharacter(name); await flush();
   ok(classes.has('mg-alive'), `${name}: 숨쉬기 클래스가 붙는다`);

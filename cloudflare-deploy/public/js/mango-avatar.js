@@ -106,6 +106,29 @@
        ⚠️ 사각형은 «그 캐릭터 초상화의 원본 px» 기준입니다 — emma 는 512x640(emma-v2-rest.webp),
           나머지는 640x800. 눈 그림은 «다문 입» 장에서 만들었습니다(입 3장의 눈 부위 차이 실측:
           emma 0 · mei 최대 9 · long 평균 6 — 그 위에 얹어도 이음매가 안 보이는 수준). */
+/* v12: (2026-10-18) Jake — ① 영상 seek 대신 «같은 얼굴에서 입만 다른» 6가지 입모양(아래 jake 줄)
+       ② 사장님 「Jake도 살아있는 것 처럼 눈을 깜박거리고 머리도 조금 움직이게」 — EYES.jake 를 더해
+          다른 친구들과 같은 깜빡임·눈썹·숨쉬기(어깨 기준 아주 작은 기울기)를 켭니다.
+       Jake 얼굴은 생성 서비스가 거절한 기록이 있어(visemes/README) 눈 그림도 원래 영상에서 만듭니다:
+       반감음 = 영상 3프레임 · 감음 = 100프레임(실제 깜빡임)을 rest(80)에 정렬해 «눈+눈썹 타원» 만 얹고,
+       영상에 눈썹을 올리는 순간이 없어(200프레임 실측 ±3px) 눈썹 칸만 rest 의 눈썹을 7px 끌어올렸습니다.
+       만드는 도구: tools/build-jake-poses.py (입·눈 모두 — 타원 밖은 rest 와 같다는 assert).
+       ⚠️ Jake 사각형은 512x496(jake-closed.webp) 기준입니다. 이제 눈 그림이 없는 것은 영상 폴백
+          (jake_classic·emma_classic)뿐입니다. */
+/* v13: (2026-10-18) 사장님 「머리도 살아있는 거처럼 조금 씩 움직이게 해줘」 — 그림 캐릭터 여섯
+       (lily·noah·emma·mei·long·jake)의 «머리만» 아주 작게 기울고(최대 약 1°) 끄덕입니다(0.7%).
+       어깨·몸은 한 픽셀도 안 움직입니다 — 목에서 머리와 몸을 부드럽게 나누는 경계(HEAD 표)를
+       두고, 그 위만 목 가운데를 축으로 돌립니다. 말하는 동안은 조금 더 크게(×1.35).
+       ⚙️ 얼굴은 먼저 화면 밖 캔버스(comp)에 그리고(입·눈은 예전과 똑같이), present() 가
+          «몸 + 기운 머리» 를 화면 캔버스에 겹쳐 놓습니다. 겹치는 목 부분은 'lighter' 로 더해
+          알파가 1 을 넘거나 비지 않습니다.
+       ⚠️ 쉬는 동안의 움직임은 «초당 약 20번» 만 그리고, 그 사이는 타이머로 기다려 폰도 초당 약 20번만
+          깨웁니다(rAF 를 매 프레임 다시 걸면 60번). 탭이 숨거나, 캔버스가 화면
+          밖이거나, «움직임 줄이기» 설정이면 멈춥니다. ⛔ setInterval 로 바꾸지 마세요.
+       ⚠️ 화면 밖 캔버스를 못 만드는 환경(옛 브라우저·하니스의 가짜 DOM)에서는 예전처럼 화면
+          캔버스에 바로 그리고 머리는 안 움직입니다(실패해도 얼굴은 그대로).
+       ⚠️ HEAD 의 숫자는 «그 초상화의 원본 px» 입니다 — y1(여기부터 위는 머리) · y2(여기부터
+          아래는 몸) · nw(목 반폭 — 그 밖은 경계가 위로 올라가 어깨가 섞이지 않게) · x(축). */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -144,7 +167,16 @@
     emma_classic: { sources:[['/img/teacher-avatar.webm','video/webm'],['/img/teacher-avatar.mp4','video/mp4']],
             still:'/img/teacher-avatar.png', rect:{ l:67/512, t:40/512, r:445/512, b:1 },
             poses:{ closed:3.3, medium:0.2, wide:4.0 }, hold:200, fade:160 },
-    jake: { sources:[['/img/hero-avatar.mp4','video/mp4']],
+    /* 🦸 jake (2026-10-17 v12) — 「Jake 입이 전혀 움직이지 않아 · 자연스럽게 · 말과 입이 일치 · 6가지」.
+       영상 seek(v5 사고와 같은 경로)을 버리고 «같은 얼굴에서 입만 다른» 이미지로 바꿨습니다.
+       원래 hero-avatar.mp4 의 프레임만 씁니다(새 얼굴 생성 아님 — 생성 서비스가 이 얼굴을 거절한 기록이 visemes/README).
+       입모양 6가지: rest·spread(이)·teeth·open·wide(아)·round(오/우) → PRECISION.jake 아틀라스.
+       만드는 도구: tools/build-jake-poses.py (입 밖 픽셀은 rest 와 바이트 단위로 같음 — assert).
+       ⛔ 영상 줄로 되돌리지 마세요(jake_classic 은 폴백 전용). */
+    jake: { frames:{ closed:'/img/jake-closed.webp', medium:'/img/jake-mid.webp', wide:'/img/jake-wide.webp' },
+            still:'/img/jake-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
+            aspect:512/496, keyed:false, fallback:'jake_classic' },
+    jake_classic: { sources:[['/img/hero-avatar.mp4','video/mp4']],
             still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 },
             poses:{ closed:3.2, medium:7.1, wide:3.5 }, hold:200, fade:160 },
     // ?v=2 (2026-10-18): smile-line creases beside the mouth retouched (tools/remove-smile-folds.py).
@@ -154,7 +186,7 @@
             aspect:0.8, keyed:false, fallback:'emma_classic' },
     noah: { frames:{ closed:'/img/noah-closed.webp?v=2', medium:'/img/noah-mid.webp?v=2', wide:'/img/noah-wide.webp?v=2' },
             still:'/img/noah-closed.webp?v=2', rect:{ l:0, t:0, r:1, b:1 },
-            aspect:0.8, keyed:false, fallback:'jake' },
+            aspect:0.8, keyed:false, fallback:'jake_classic' },
     // 🀄 mei — 중국어 교사(2026-09-14). 웜업에서 «중국어» 를 고른 학생에게만 보입니다.
     //    ⛔ 영어 화면(ai-friend·speech-coach)의 표에는 넣지 마세요 — 그쪽은 아직 중국어가 없어서
     //       «중국인 얼굴이 영어로 말하는» 상태가 됩니다(웜업에 중국어가 붙은 것이 먼저입니다).
@@ -170,12 +202,22 @@
        ⛔ 세 장을 각각 따로 다시 뽑아 갈아 끼우지 마세요 — 그 순간 이 숫자가 무너집니다. */
     long: { frames:{ closed:'/img/long-closed.webp', medium:'/img/long-mid.webp', wide:'/img/long-wide.webp' },
             still:'/img/long-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
-            aspect:0.8, keyed:false, fallback:'jake' }
+            aspect:0.8, keyed:false, fallback:'jake_classic' }
   };
   // 옛 이름으로 부르는 코드가 남아 있어도 조용히 죽지 않게 — setCharacter 가 먼저 풀어 준다.
   // ⚠️ 화면이 새 이름으로만 부르도록 고쳤지만, 이 표를 지우면 옛 호출이 «아무 일도 안 일어남» 이 됩니다.
-  var CHAR_ALIAS = { female:'emma', male:'jake', female_classic:'emma_classic', male_classic:'jake' };
+  var CHAR_ALIAS = { female:'emma', male:'jake', female_classic:'emma_classic', male_classic:'jake_classic' };
   var BASE_W = 320;   // 캔버스 내부 해상도 기준 폭(캐릭터별 비율에 맞춰 높이만 재계산)
+  // 🎭 (v13) 머리 움직임 — 숫자는 그 초상화의 원본 px(emma 512x640 · jake 512x496 · 나머지 640x800).
+  //   y1 위는 머리(전부 움직임) · y2 아래는 몸(그대로) · 그 사이는 부드럽게 섞는다.
+  //   nw 는 목 반폭 — 그 밖에서는 경계를 (y2-y1) 만큼 위로 올려 어깨가 섞이지 않게 한다.
+  //   ⚠️ y1 은 입 칸(PRECISION)·눈 칸(EYES)의 아래 끝보다 «아래» 여야 한다(하니스가 대조).
+  var HEAD={lily:{x:327,y1:446,y2:488,nw:62,w:640,h:800},noah:{x:324,y1:500,y2:542,nw:118,w:640,h:800},
+    emma:{x:257,y1:424,y2:464,nw:58,w:512,h:640},mei:{x:324,y1:468,y2:540,nw:62,w:640,h:800},
+    long:{x:322,y1:412,y2:456,nw:100,w:640,h:800},
+    // jake 는 만화 그림이라 목이 턱만큼 넓고 어깨가 턱 모서리 바로 밑에서 시작한다 — 경계를 턱 위(416)에
+    // 두면 턱 모서리 굵은 선이 띠에 걸리지만, 실제 기울기(≤1.35°)에서는 1~2px 라 겹쳐 보이지 않는다(6배 과장에서만 보임).
+    jake:{x:257,y1:416,y2:452,nw:100,w:512,h:496}};
 
   function build(){
     var video  = document.getElementById('tavatar-video');
@@ -183,8 +225,27 @@
     var wrap   = document.getElementById('tavatar-wrap');
     var ring   = document.getElementById('tavatar-ring');
     if(!video || !canvas) return;
-    var ctx = canvas.getContext('2d', { willReadFrequently:true });
+    // 🎭 (v13) 얼굴은 화면 밖 캔버스(comp)에 그리고 present() 가 화면 캔버스(vctx)로 옮긴다 —
+    //    그 사이에서 머리만 기울인다. comp 를 못 만들면 예전처럼 화면 캔버스에 바로 그린다.
+    //    ⚠️ comp 는 «둘» 입니다 — 초록 지우기(getImageData)를 하는 영상 캐릭터는 픽셀 읽기용(compR),
+    //       투명 그림 캐릭터는 그리기 전용(compG). setAspect 가 캐릭터에 맞춰 고릅니다.
+    //       ⛔ 그림 캐릭터까지 픽셀 읽기용으로 두지 마세요 — 화면으로 옮길 때마다 통째로 다시 올려 보내
+    //          말하는 동안 프레임이 줄어 짧은 입모양을 놓칩니다(실측 — CPU 4배 제한 2초 발화:
+    //          main 90~93프레임 → 76~77, 그리기 전용으로 84~92).
+    var ctx = null, vctx = null, comp = null, compR = null, ctxR = null, compG = null, ctxG = null;
+    try { compR = document.createElement('canvas'); ctxR = compR.getContext('2d', { willReadFrequently:true }); } catch(e){ ctxR = null; }
+    try { compG = document.createElement('canvas'); ctxG = compG.getContext('2d'); } catch(e){ ctxG = null; }
+    if (!ctxG || typeof ctxG.drawImage !== 'function') { compG = compR; ctxG = ctxR; }   // 하나만 되면 그 하나로
+    if (ctxR && typeof ctxR.drawImage === 'function') {
+      try { vctx = canvas.getContext('2d'); } catch(e){ vctx = null; }
+    }
+    if (!vctx) { comp = compR = compG = null; ctxR = ctxG = null; vctx = null; ctx = canvas.getContext('2d', { willReadFrequently:true }); }
+    else { comp = compR; ctx = ctxR; comp.width = canvas.width; comp.height = canvas.height; }
     var raf = 0, drawing = false, IDLE = null, clipActive = false;
+    // ⚠️ 2배는 «머리 캐릭터 + 투명 그림(keyed:false)» 만 — 초록 지우기(getImageData 픽셀 루프)를
+    //    쓰는 영상 캐릭터는 1배 그대로(2배면 픽셀 일이 4배가 됩니다).
+    var COMP_S = 1;
+    function compScaleFor(name){ var c = CHARACTERS[name]; return (comp && HEAD[name] && c && c.keyed === false) ? 2 : 1; }
     /* 🕐 «모듈이 오기 전에 화면이 고른 얼굴» 을 이어받는다 (2026-09-14).
        이 파일은 defer 라 화면의 인라인 스크립트가 «먼저» 돕니다. 그때 화면은
        `window.MangoAvatar && MangoAvatar.setCharacter(...)` 를 부르는데 아직 이 객체가
@@ -219,6 +280,20 @@
     function setAspect(aspect){
       if(!(aspect > 0)) return;
       canvas.width = BASE_W; canvas.height = Math.round(BASE_W / aspect);
+      // 🎭 (v13) 머리 캐릭터는 comp 를 «2배» 로 짠다 — 원본(640x800)의 잔털·속눈썹을 그대로 들고 있다가
+      //    기울일 때 한 번만 줄여야 흐려지지 않는다(1배로 짜고 기울이면 얼굴이 눈에 띄게 뿌예집니다).
+      //    ⚠️ 이때 ctx 는 «320 기준 좌표» 그대로 쓰도록 배율을 걸어 둔다(그리는 코드는 그대로).
+      if (comp) {
+        var kc = CHARACTERS[curChar], keyed = !(kc && kc.keyed === false);
+        comp = keyed ? compR : compG; ctx = keyed ? ctxR : ctxG;
+        var idleComp = keyed ? compG : compR;
+        if (idleComp && idleComp !== comp && idleComp.width > 1) { idleComp.width = 1; idleComp.height = 1; }   // 안 쓰는 쪽은 비워 둔다(메모리)
+        COMP_S = compScaleFor(curChar);
+        comp.width = canvas.width * COMP_S; comp.height = canvas.height * COMP_S;
+        try { ctx.setTransform(COMP_S, 0, 0, COMP_S, 0, 0); } catch(e){}
+      }
+      maskFor = '';      // 🎭 (v13) 크기가 바뀌면 머리 경계를 다시 만든다
+      preciseKey = '';   // ✂️ 다음 한 번은 얼굴을 통째로 그린다
       // CSS aspect-ratio 로 카드 높이를 자동 계산하려 했으나, 전환(transition) 시 실제
       // 레이아웃에 반영 안 되는 문제가 있어 폭(고정 CSS 값)을 읽어 높이를 직접 px 로 계산해 덮어쓴다.
       if (ring){
@@ -247,6 +322,7 @@
       var c = CHARACTERS[name]; if(!c) return;
       keyedNow = (c.keyed !== false);
       mountEyes(name);   // 👁 (v10) 눈 그림이 있는 캐릭터만 깜빡임·숨쉬기를 켠다(없으면 끈다)
+      maskFor = ''; swayKick();   // 🎭 (v13) 머리 움직임도 캐릭터를 따라간다
       if (c.frames){ mountImages(name, c); return; }
       imgFrames = null; imgCur = null;
       try{
@@ -305,7 +381,43 @@
     // base/atlas/trans must carry the same ?v= as the CHARACTERS frames above (one retouch, one version).
     var PRECISION={lily:{extra:true,base:'/img/lily-closed.webp?v=2',atlas:'/img/visemes/lily-mouths.webp?v=2',trans:'/img/visemes/lily-transitions.webp?v=2',x:250,y:294,w:144,h:122},
       noah:{extra:true,base:'/img/noah-closed.webp?v=2',atlas:'/img/visemes/noah-mouths.webp?v=2',trans:'/img/visemes/noah-transitions.webp?v=2',x:244,y:364,w:154,h:130},
-      emma:{extra:true,base:'/img/visemes/emma-v2-rest.webp',atlas:'/img/visemes/emma-v2-mouths.webp',x:183,y:282,w:146,h:126}};
+      emma:{extra:true,base:'/img/visemes/emma-v2-rest.webp',atlas:'/img/visemes/emma-v2-mouths.webp',x:183,y:282,w:146,h:126},
+      // 🦸 Jake 6가지 입모양(9칸 XABCDEFGH 에 배치) — x,y,w,h 는 build-jake-poses.py 출력과 짝.
+      //    중간 모양 시트가 없어 transitions 는 못 받으면 그냥 9칸 앵커만 씁니다(keyFrame 이 확인).
+      jake:{extra:true,base:'/img/jake-closed.webp',atlas:'/img/visemes/jake-mouths.webp',transitions:false,x:188,y:304,w:136,h:92}};
+    // 🔥 (v13) 큰 입모양 그림(전환 시트는 2592x1952)을 «말하기 전에» 그 comp 로 한 번 올려 둔다.
+    //    그림 캐릭터 comp 는 그리기 전용(GPU)이라 그림을 «처음 그리는 순간» GPU 로 올리는데, 그 순간이
+    //    말 첫마디면 그 프레임들이 통째로 밀려 짧은 입모양을 놓칩니다.
+    //    [잰 것 — 2026-10-18, 헤드리스 크로미움(SwiftShader) · 캐릭터 셋 × 속도 셋 × 폭 둘]
+    //      미리 안 올림: 말 첫마디의 멈춤(>60ms) 16~42회 · 입모양 검사 3/14 실패
+    //      미리 올림:    멈춤이 «캐릭터를 고르는 순간»(말하기 전)으로 옮겨 감 · 말하는 동안 >60ms 7회·최대 83ms
+    //                    (원본은 전체 8회) · 입모양 검사 25/28 통과 — 실패 3회는 전부 1.3배속의 가장 짧은
+    //                    입모양(0.15초)이었고 원본은 38/38. 그 3회는 아래 ✂️ (입·눈만 다시 깔기)로 없앴습니다.
+    //                    실제 폰 GPU 에서는 못 쟀습니다.
+    //    ⛔ 1x1 같은 «작은» 캔버스에 그리면 소용없습니다 — 크롬은 128x129 보다 작은 캔버스를 GPU 로 안 그려
+    //       업로드가 안 일어납니다(실측: 오히려 말 첫마디 멈춤이 200ms 까지). 다른 큰 캔버스도 안 됐습니다
+    //       (실측 233ms) — «말할 때 쓰는 그 comp» 에 그려야 합니다.
+    //    ⚠️ 알파 1/255 로 1픽셀만 그린다 — 눈에 안 보이고, 다음 composeFrame 이 어차피 다시 그린다.
+    //       곧바로 present() 로 comp 를 화면에 옮겨야 그 그리기가 실제로 실행됩니다(다음 «전체 지우기» 가
+    //       아직 안 그린 그리기를 버릴 수 있어서).
+    //    ⚠️ 두 프레임을 기다린 뒤 ready 를 넘긴다 — prepare() 의 약속(«그림이 준비됐다») 이 GPU 까지 포함되게.
+    //       숨은 탭은 rAF 가 안 돌아서 300ms 타이머가 대신 넘깁니다(안 그러면 prepare 가 영영 안 끝나 말을 못 합니다).
+    function warmFace(face, r){
+      if (!comp || !vctx || !ctx || preciseFaces[curChar] !== face) return r;
+      try {
+        var a0 = ctx.globalAlpha; ctx.globalAlpha = 1/255;
+        [face.base, face.mouths, face.transitions].forEach(function(im){ if (im.complete && im.naturalWidth) ctx.drawImage(im, 0, 0, 1, 1, 0, 0, 1, 1); });
+        // ✂️ 줄인 얼굴 바탕 사본도 여기서 만들어 한 번 옮겨 둔다(말 첫마디에 만들면 그 프레임이 밀린다)
+        if (face.base.complete && face.base.naturalWidth) { var b0 = preciseBase(face, preciseCrop(face)); if (b0) ctx.drawImage(b0, 0, 0, 1, 1, 0, 0, 1, 1); }
+        ctx.globalAlpha = a0; preciseKey = '';
+        present();
+      } catch(e){ try{ ctx.globalAlpha = 1; }catch(_){} }
+      return new Promise(function(res){
+        var done = false, fin = function(){ if (!done){ done = true; res(r); } };
+        try { requestAnimationFrame(function warmWait(){ requestAnimationFrame(fin); }); } catch(e){}
+        setTimeout(fin, 300);
+      });
+    }
     function precisionFace(){
       if(!PRECISION[curChar])return null;
       if(!preciseFaces[curChar]){
@@ -317,19 +429,23 @@
           im.src=url;
           if(im.complete && im.naturalWidth){clearTimeout(timer);resolve(true);}
         });};
-        var ready=Promise.all([load(base,p.base),load(mouths,p.atlas||('/img/visemes/'+curChar+'-mouths.webp')),
-          load(transitions,p.trans||('/img/visemes/'+curChar+'-transitions.webp'))]);
-        preciseFaces[curChar]={base:base,mouths:mouths,transitions:transitions,rect:p,ready:ready};
+        var face={base:base,mouths:mouths,transitions:transitions,rect:p,ready:null};
+        face.ready=Promise.all([load(base,p.base),load(mouths,p.atlas||('/img/visemes/'+curChar+'-mouths.webp')),
+          p.transitions===false ? Promise.resolve(false) : load(transitions,p.trans||('/img/visemes/'+curChar+'-transitions.webp'))])
+          .then(function(r){ return warmFace(face, r); });
+        preciseFaces[curChar]=face;
         // Bound decoded sprite memory when a student switches through all teachers.
         Object.keys(preciseFaces).forEach(function(name){if(name!==curChar)delete preciseFaces[name];});
       }
       return preciseFaces[curChar];
     }
     // 👁 (v10) 눈 깜빡임·눈썹 — 사각형은 그 초상화의 원본 px 기준(build-eye-patches.py 의 rect).
-    //   emma 만 512x640(emma-v2-rest.webp), 나머지는 640x800.
+    //   emma 만 512x640(emma-v2-rest.webp), jake 는 512x496(jake-closed.webp — build-jake-poses.py 의 eyes.rect),
+    //   나머지는 640x800.
     //   eyeState: 0 원본 · 1 반감음 · 2 감음 · 3 눈썹 올림 (= 눈 그림의 칸 번호 + 1)
     var EYES={lily:{x:226,y:204,w:202,h:84},noah:{x:192,y:238,w:260,h:92},
-      emma:{x:151,y:174,w:213,h:80},mei:{x:206,y:220,w:236,h:84},long:{x:210,y:214,w:224,h:86}};
+      emma:{x:151,y:174,w:213,h:80},mei:{x:206,y:220,w:236,h:84},long:{x:210,y:214,w:224,h:86},
+      jake:{x:153,y:181,w:209,h:74}};
     var eyeImg=null, eyeOk=false, eyeFor='', eyeState=0, eyeTimer=0, browUntil=0, browNext=0, loudNow=false;
     function injectAliveCss(){
       try{
@@ -378,7 +494,121 @@
         else scheduleBlink();
       })(0);
     }
-    try{ document.addEventListener('visibilitychange', function(){ if(!document.hidden) scheduleBlink(); }); }catch(e){}
+    try{ document.addEventListener('visibilitychange', function(){ if(!document.hidden){ scheduleBlink(); swayKick(); } }); }catch(e){}
+
+    var SWAY_ROT_DEG = 1.0, SWAY_NOD = 0.007, SWAY_TALK = 1.35, SWAY_IDLE_MS = 48;
+    var swayPh = [Math.random()*6.283, Math.random()*6.283, Math.random()*6.283, Math.random()*6.283];
+    var swayAmp = 1, swayAmpAt = 0, swayRaf = 0, swayTo = 0, swayLastAt = 0, swayVis = true, swayMq = null;
+    var headCv = null, maskCv = null, maskFor = '';
+    try{ swayMq = (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)')) || null; }catch(e){ swayMq = null; }
+    function swayReduced(){ return !!(swayMq && swayMq.matches); }
+    function swayGeom(W, H){
+      var h = HEAD[curChar], cr = cropRect; if(!h || !cr) return null;
+      var kx = W / (h.w * (cr.r - cr.l)), ky = H / (h.h * (cr.b - cr.t));
+      var y1 = (h.y1 - h.h*cr.t)*ky, y2 = (h.y2 - h.h*cr.t)*ky;
+      return { px:(h.x - h.w*cr.l)*kx, y1:y1, y2:y2, py:(y1 + y2)/2, nw:h.nw*kx, nw2:h.w*0.094*kx };
+    }
+    // 지금 이 순간의 자세 — 두 사인을 섞어 «같은 동작의 되풀이» 로 안 보이게 한다(위상은 접속마다 무작위).
+    function swayPose(W, H){
+      if (!HEAD[curChar] || swayReduced()) return null;
+      var g = swayGeom(W, H); if(!g) return null;
+      var now = Date.now(), t = now / 1000, P = 6.283185307;
+      var want = drawing ? SWAY_TALK : 1;
+      swayAmp = swayAmpAt ? swayAmp + (want - swayAmp) * Math.min(1, Math.max(0, now - swayAmpAt) / 700) : want;
+      swayAmpAt = now;
+      var rot = SWAY_ROT_DEG * (0.62*Math.sin(P*t/7.3 + swayPh[0]) + 0.38*Math.sin(P*t/4.1 + swayPh[1]));
+      var nod = SWAY_NOD * (0.6*Math.sin(P*t/5.6 + swayPh[2]) + 0.4*Math.sin(P*t/3.1 + swayPh[3]));
+      return { px:g.px, py:g.py, rot:rot * swayAmp * Math.PI / 180, sy:1 + nod * swayAmp };
+    }
+    // 머리 경계 그림(알파=머리 몫) — 캐릭터·크기가 바뀔 때만 한 번 만든다.
+    function swayMask(W, H){
+      var key = curChar + ':' + W + 'x' + H;
+      if (maskFor === key && maskCv) return true;
+      var g = swayGeom(W, H); if(!g) return false;
+      if (!maskCv) maskCv = document.createElement('canvas');
+      maskCv.width = W; maskCv.height = H;
+      var mx = maskCv.getContext('2d'), md = mx.createImageData(W, H), d = md.data, span = g.y2 - g.y1;
+      for (var x = 0; x < W; x++){
+        var s = (Math.abs(x + 0.5 - g.px) - g.nw) / g.nw2; s = s < 0 ? 0 : s > 1 ? 1 : s;
+        var lift = s*s*(3 - 2*s) * span, a = g.y1 - lift, b = g.y2 - lift;
+        for (var y = 0; y < H; y++){
+          var yy = y + 0.5, w = yy <= a ? 1 : yy >= b ? 0 : 1 - ((yy - a)/span)*((yy - a)/span)*(3 - 2*(yy - a)/span);
+          d[(y*W + x)*4 + 3] = Math.round(w * 255);
+        }
+      }
+      mx.putImageData(md, 0, 0);
+      maskFor = key;
+      return true;
+    }
+    // 기운 머리 층(화면 크기) — comp(2배)를 «기울이면서» 한 번에 줄여 담고, 같은 각도의 경계로 오린다.
+    //   ⚠️ 머리 층을 2배로 들고 있으면 말하는 동안 프레임마다 2배 크기 그리기가 두 번 늘어
+    //      짧은 입모양을 놓칩니다(실측: CPU 4배 제한에서 한 프레임 중앙 0.7ms → 7~8ms, 입모양 검사 시간초과).
+    //      줄이기는 여기서 «한 번» 뿐이라 선명도는 그대로입니다.
+    function swayLayers(W, H, tilt){
+      if (!swayMask(W, H)) return false;
+      if (!headCv) headCv = document.createElement('canvas');
+      if (headCv.width !== W || headCv.height !== H){ headCv.width = W; headCv.height = H; }
+      var x = headCv.getContext('2d');
+      x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, W, H);
+      tilt(x); x.drawImage(comp, 0, 0, W, H);
+      x.globalCompositeOperation = 'destination-in'; x.drawImage(maskCv, 0, 0, W, H);
+      x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over';
+      return true;
+    }
+    // comp → 화면. 머리 캐릭터면 «몸 + 기운 머리», 아니면 그대로 옮긴다.
+    //   ① 기운 경계(마스크)를 먼저 깔고 ② 'source-out' 으로 그 밖에만 comp(몸)를 두고
+    //   ③ 'lighter' 로 기운 머리 층(이미 기울여 오린 것)을 더한다 — 몸 몫이 «기운» 경계의 나머지라서
+    //      목에서 알파가 정확히 1.
+    //   ⛔ 몸을 «기울기 전» 경계로 오려 두지 마세요: 머리가 옆으로 기울면 경계가 위아래로 어긋나
+    //      목에 반투명한 띠(실측 알파 245/255)가 생깁니다.
+    function present(){
+      if (!vctx || !comp) return;
+      var W = canvas.width, H = canvas.height, pose = null;
+      var tilt = function(c){ c.translate(pose.px, pose.py); c.rotate(pose.rot); c.scale(1, pose.sy); c.translate(-pose.px, -pose.py); };
+      try {
+        pose = swayPose(W, H);
+        vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.globalCompositeOperation = 'source-over';
+        vctx.clearRect(0, 0, W, H);
+        if (!pose || !swayLayers(W, H, tilt)) { vctx.drawImage(comp, 0, 0, W, H); return; }
+        tilt(vctx); vctx.drawImage(maskCv, 0, 0, W, H);
+        vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.globalCompositeOperation = 'source-out';
+        vctx.drawImage(comp, 0, 0, W, H);
+        vctx.globalCompositeOperation = 'lighter';
+        vctx.drawImage(headCv, 0, 0, W, H);
+      } catch(e) {
+        try { vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.globalCompositeOperation = 'source-over'; vctx.clearRect(0, 0, W, H); vctx.drawImage(comp, 0, 0, W, H); } catch(_){}
+      } finally {
+        try { vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.globalCompositeOperation = 'source-over'; } catch(_){}
+      }
+    }
+    // 쉬는 동안의 움직임 — 말하는 중(drawing)에는 그리기 루프가 매 프레임 present() 를 부른다.
+    function swayWanted(){
+      return !!(vctx && comp && HEAD[curChar] && !swayReduced() && swayVis && !document.hidden && canvas.isConnected !== false);
+    }
+    //   ⚙️ 그린 뒤에는 다음 그림 때까지 «타이머» 로 기다렸다가 rAF 를 한 번 건다 — rAF 를 매 프레임 다시 걸면
+    //      그리는 것은 초당 20번이어도 폰이 초당 60번 깨어납니다. 걸려 있는 것은 언제나 둘 중 «하나»(swayRaf 또는 swayTo).
+    function swayTick(){
+      swayRaf = 0;
+      if (drawing || !swayWanted()) return;          // 멈춘다 — swayKick 이 다시 켠다
+      var now = Date.now(), wait = SWAY_IDLE_MS - (now - swayLastAt);
+      if (wait <= 4) { swayLastAt = now; present(); wait = SWAY_IDLE_MS; }
+      swayTo = setTimeout(function(){ swayTo = 0; if (!swayRaf && !drawing && swayWanted()) swayRaf = requestAnimationFrame(swayTick); }, wait);
+    }
+    function swayKick(){ if (!swayRaf && !swayTo && !drawing && swayWanted()) swayRaf = requestAnimationFrame(swayTick); }
+    try{
+      if (swayMq){
+        var onMq = function(){ present(); swayKick(); };
+        if (swayMq.addEventListener) swayMq.addEventListener('change', onMq); else if (swayMq.addListener) swayMq.addListener(onMq);
+      }
+    }catch(e){}
+    try{
+      if (vctx && typeof IntersectionObserver === 'function'){
+        new IntersectionObserver(function(es){
+          var e = es && es[es.length - 1]; if (!e) return;
+          swayVis = !!e.isIntersecting; if (swayVis) swayKick();
+        }).observe(canvas);
+      }
+    }catch(e){}
     function prepareCues(el){
       var nextUrl=el.src||el.currentSrc||'';
       if(cueUrl!==nextUrl)mouthCues=null;cueUrl=nextUrl;
@@ -408,7 +638,7 @@
     function ensureIdle(){ if(IDLE) return; var c = CHARACTERS[curChar] || {};
       IDLE = video.currentSrc || (c.sources && c.sources[0] && c.sources[0][0]) || ''; }
     function preloadStill(url){
-      try{ var im=new Image(); im.onload=function(){ if(!drawing){ try{ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(im,0,0,canvas.width,canvas.height); }catch(e){} } }; im.src=url; }catch(e){}
+      try{ var im=new Image(); im.onload=function(){ if(!drawing){ try{ preciseKey=''; ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(im,0,0,canvas.width,canvas.height); }catch(e){} present(); } }; im.src=url; }catch(e){}
     }
 
     // 초록 제거 크로마키: 초록 우세도(g - max(r,b)) 판정 + 가장자리 페더 + 스필 억제.
@@ -417,20 +647,105 @@
     // 🎞 (2026-07-27 4차) 입모양 단계가 바뀔 때 프레임이 뚝 끊겨 보이던 것을 완화 —
     //   전환 직전 화면을 스냅샷(fadeData)해두고, 짧은 시간(FADE_MS) 동안 새 프레임과 섞어
     //   부드럽게 넘어가게 한다(showTier 에서 스냅샷을 남김).
-    var fadeData = null, fadeT0 = 0;
-    function keyFrame(){
+    var fadeData = null, fadeT0 = 0, fadeCv = null;
+    // 🎞 (v13) 전환 직전 화면 남기기 — 투명 그림 캐릭터는 «캔버스 사본» 으로 남겨 drawImage 로 섞는다
+    //    (픽셀 루프보다 훨씬 가볍고, comp 가 2배여도 비용이 그대로다). 초록 지우기를 하는 영상
+    //    캐릭터는 예전처럼 픽셀(getImageData)로 남긴다 — 그쪽은 섞기를 픽셀 루프 안에서 한다.
+    function fadeSnap(now){
+      fadeData = null;
+      if (!keyedNow) {
+        try {
+          var src = ctx.canvas;
+          if (!fadeCv) fadeCv = document.createElement('canvas');
+          if (fadeCv.width !== src.width || fadeCv.height !== src.height) { fadeCv.width = src.width; fadeCv.height = src.height; }
+          var fx = fadeCv.getContext('2d'); fx.clearRect(0, 0, fadeCv.width, fadeCv.height); fx.drawImage(src, 0, 0);
+          fadeData = { cv: fadeCv, w: src.width, h: src.height }; fadeT0 = now; return;
+        } catch(e) { fadeData = null; }
+      }
+      try { fadeData = ctx.getImageData(0,0,canvas.width,canvas.height); fadeT0 = now; } catch(e){ fadeData = null; }
+    }
+    // 🎭 (v13) 얼굴을 comp 에 짜 맞춘 뒤 화면으로 옮긴다(머리 캐릭터면 그때 머리를 기울인다).
+    function keyFrame(){ composeFrame(); present(); }
+    // ✂️ (v13) 입모양 캐릭터는 프레임마다 «바뀌는 곳»(입·눈 사각형)만 다시 깐다.
+    //    얼굴 전체(2배 comp = 640x800)를 매번 다시 그리면, 재생을 다시 시작하는 순간 메인 스레드가 밀려
+    //    1.3배속의 가장 짧은 입모양(0.15초)을 놓쳤습니다(아래 🔥 의 실패 3회).
+    //    [잰 것 — 2026-10-18, 헤드리스 크로미움 · CPU 4배 느리게]
+    //      말하는 동안 60ms 넘는 끊김(3회 측정): 통째로 그리기 3·6·4회 → 이 방식 3·2·0회
+    //      한 프레임 그리기 중앙값 1.2~1.3ms · 입모양 검사 25회 연속 실행(회당 18종) 모두 통과
+    //    ⚠️ 칸 안의 바탕은 원본을 다시 줄여 그리지 않고, 줄여 둔 사본(baseCv · comp 와 같은 크기)에서
+    //       장치 픽셀 정수 사각형을 1:1 로 옮깁니다(배율 1 · 잘라 그리기(clip) 없음).
+    //       잘라 그리기 안에서 원본을 다시 줄여 그리면 배율이 정수가 아닌 얼굴(emma·jake 1.25배)에서
+    //       GPU 표본이 달라져 최대 5/255, 잘라 그리기가 켜진 채 입을 그리면 emma 입이 ±2/255 달라졌습니다.
+    //       지금은 통째로 그린 것과 네 얼굴(lily·noah·emma·jake) 모두 0픽셀 차이(실측 2회).
+    //    ⚠️ 사각형은 2px 넉넉히 — 칸 밖은 앞 프레임 그대로라 이음매가 안 생깁니다.
+    //    ⚠️ 캐릭터·크기·배율·자르기가 바뀌거나 다른 경로가 comp 에 그리면 preciseKey 를 비워
+    //       다음 한 번은 통째로 그립니다(baseCv 는 자기 키로 따로 다시 만듭니다).
+    //    ⚠️ 메모리: 이 경로는 전환 섞기(fadeCv)를 안 쓰므로 그 사본을 비우고 baseCv 를 씁니다 —
+    //       다른 경로로 가면 반대로 baseCv 를 비웁니다(두 사본이 함께 커지지 않습니다).
+    var preciseKey = '', baseCv = null, baseKey = '';
+    // 입모양 그림 경로를 «지금» 쓰는가 — composeFrame 과 showTier 가 같은 판정을 쓴다.
+    function preciseReady(){
+      var pf = precisionFace();
+      return (pf && mouthCues && !clipActive && pf.base.complete && pf.base.naturalWidth &&
+              pf.mouths.complete && pf.mouths.naturalWidth) ? pf : null;
+    }
+    function preciseCrop(pf){
+      var bw = pf.base.naturalWidth, bh = pf.base.naturalHeight;
+      return { bx: bw*cropRect.l, by: bh*cropRect.t, sw: bw*(cropRect.r-cropRect.l), sh: bh*(cropRect.b-cropRect.t) };
+    }
+    // 줄인 얼굴 바탕 사본 — comp 와 같은 크기(장치 픽셀). 못 만들면 null(예전처럼 원본을 바로 그린다).
+    //    ⚠️ 화면 밖 캔버스를 못 만든 브라우저(comp 가 null — 화면 캔버스에 바로 그린다)도 null 로 —
+    //       여기서 comp.width 를 읽으면 그 프레임이 통째로 죽습니다.
+    function preciseBase(pf, c){
+      if (!comp) return null;
+      var key = curChar+'|'+comp.width+'x'+comp.height+'|'+c.bx+','+c.by+','+c.sw+','+c.sh;
+      if (baseCv && baseKey === key) return baseCv;
+      try {
+        if (!baseCv) baseCv = document.createElement('canvas');
+        if (baseCv.width !== comp.width || baseCv.height !== comp.height) { baseCv.width = comp.width; baseCv.height = comp.height; }
+        var bx2 = baseCv.getContext('2d');
+        bx2.clearRect(0, 0, baseCv.width, baseCv.height);
+        bx2.drawImage(pf.base, c.bx, c.by, c.sw, c.sh, 0, 0, baseCv.width, baseCv.height);
+        baseKey = key; return baseCv;
+      } catch(e){ baseKey = ''; return null; }
+    }
+    function releaseCv(cv){ if (cv && cv.width > 1) { cv.width = 1; cv.height = 1; } }   // 안 쓰는 사본은 비워 둔다(메모리)
+    // 바뀌는 칸(입·눈)만 줄여 둔 바탕 사본에서 1:1 로 다시 깐다 — 잘라 그리기(clip) 없이 장치 픽셀 사각형만 옮긴다.
+    function preciseRestore(base, r, bx, by, sw, sh){
+      try {
+        var cw = comp.width, ch = comp.height;
+        var boxes = [[r.x, r.y, r.w, r.h]], e = EYES[curChar];
+        if (e) boxes.push([e.x, e.y, e.w, e.h]);
+        ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+        for (var i = 0; i < boxes.length; i++){
+          var b = boxes[i];
+          var x0 = Math.max(0, Math.floor((b[0]-bx)/sw*cw) - 2), y0 = Math.max(0, Math.floor((b[1]-by)/sh*ch) - 2);
+          var x1 = Math.min(cw, Math.ceil((b[0]+b[2]-bx)/sw*cw) + 2), y1 = Math.min(ch, Math.ceil((b[1]+b[3]-by)/sh*ch) + 2);
+          if (x1 > x0 && y1 > y0) { ctx.clearRect(x0, y0, x1-x0, y1-y0); ctx.drawImage(base, x0, y0, x1-x0, y1-y0, x0, y0, x1-x0, y1-y0); }
+        }
+        ctx.restore();
+        return true;
+      } catch(err){ try { ctx.restore(); } catch(_){} return false; }
+    }
+    function composeFrame(){
       var srcEl, vw, vh;
-      var pf=precisionFace(), precise=pf && mouthCues && !clipActive;
-      if(precise && pf.base.complete && pf.base.naturalWidth && pf.mouths.complete && pf.mouths.naturalWidth){
+      var pf=preciseReady();
+      if(pf){
         var stopped=!boundEl || boundEl.paused || boundEl.ended || buffering || !drawing;
         var sampled=(!stopped && window.AvatarVisemes.frame) ? window.AvatarVisemes.frame(mouthCues,boundEl.currentTime) : null;
         var pose=stopped ? 'X' : sampled ? sampled.pose : window.AvatarVisemes.at(mouthCues,boundEl.currentTime);
         if(!pf.rect.extra){if(pose==='G')pose='B';if(pose==='H')pose='C';}
         var ix='XABCDEFGH'.indexOf(pose), r=pf.rect;
-        var bw=pf.base.naturalWidth,bh=pf.base.naturalHeight;
-        var bx=bw*cropRect.l,by=bh*cropRect.t,sw=bw*(cropRect.r-cropRect.l),sh=bh*(cropRect.b-cropRect.t);
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        ctx.drawImage(pf.base,bx,by,sw,sh,0,0,canvas.width,canvas.height);
+        var c=preciseCrop(pf),bx=c.bx,by=c.by,sw=c.sw,sh=c.sh;
+        if(fadeData || (fadeCv && fadeCv.width > 1)){ fadeData=null; releaseCv(fadeCv); }   // 이 경로는 전환 섞기를 안 쓴다
+        var base=preciseBase(pf,c);
+        var pKey=curChar+'|'+canvas.width+'x'+canvas.height+'|'+COMP_S+'|'+bx+','+by+','+sw+','+sh;
+        var part=base && (pKey===preciseKey) && preciseRestore(base,r,bx,by,sw,sh);
+        if(!part){
+          preciseKey=base ? pKey : ''; ctx.clearRect(0,0,canvas.width,canvas.height);
+          if(base) ctx.drawImage(base,0,0,canvas.width,canvas.height);   // comp 배율이 걸려 있어 장치 픽셀 1:1
+          else ctx.drawImage(pf.base,bx,by,sw,sh,0,0,canvas.width,canvas.height);
+        }
         drawEyes(bx,by,sw,sh);
         var tile=sampled && sampled.tile,transition=sampled && tile>=0 && pf.transitions.complete && pf.transitions.naturalWidth;
         // Reviewed Noah wide-open/rest morphs double the teeth. Use the exact
@@ -443,6 +758,7 @@
           (r.x-bx)/sw*canvas.width,(r.y-by)/sh*canvas.height,r.w/sw*canvas.width,r.h/sh*canvas.height);
         return;
       }
+      preciseKey=''; if(baseKey){ baseKey=''; releaseCv(baseCv); }
       if (imgFrames){
         srcEl = imgCur;
         if (!srcEl || !srcEl.complete || !srcEl.naturalWidth) return;   // 아직 안 받았으면 다음 프레임에
@@ -460,6 +776,18 @@
             if (imgFrames) drawEyes(sx, sy, sw, sh); } catch(e){ return; }
       // 초록을 지울 필요도 없고(이미 투명) 섞을 것도 없으면 픽셀을 아예 만지지 않는다 —
       // getImageData/putImageData 가 폰에서 제일 비싼 구간이라 그만큼 가벼워진다.
+      if (fadeData && fadeData.cv) {
+        // 앞 화면을 새 화면 «위에» (1-a) 만큼 얹는다 — 둘 다 불투명한 곳은 정확히 섞이고,
+        // 윤곽은 새 화면 것을 따른다(입 모양만 다른 세 장이라 윤곽이 같다).
+        var fa = (Date.now() - fadeT0) / curFade;
+        if (fa >= 1 || fadeData.w !== ctx.canvas.width || fadeData.h !== ctx.canvas.height) { fadeData = null; }
+        else {
+          try { ctx.save(); ctx.globalCompositeOperation = 'source-atop'; ctx.globalAlpha = 1 - fa;
+                ctx.drawImage(fadeData.cv, 0, 0, canvas.width, canvas.height); ctx.restore(); } catch(e){ fadeData = null; }
+        }
+        if (!keyedNow) return;
+        fadeData = null;
+      }
       if (!keyedNow && !fadeData) return;
       var im; try { im = ctx.getImageData(0,0,canvas.width,canvas.height); } catch(e){ return; }
       var d = im.data;
@@ -520,7 +848,7 @@
         var imN = imgFrames[tier];
         if(!imN || !imN.complete || !imN.naturalWidth) return;
         if(!immediate && now - lastSwitchAt < curHold) return;
-        try { fadeData = ctx.getImageData(0,0,canvas.width,canvas.height); fadeT0 = now; } catch(e){ fadeData = null; }
+        if(!preciseReady()) fadeSnap(now);   // ✂️ 입모양 그림 경로는 섞기를 안 쓴다 — comp 통째 사본(2배)을 안 뜬다
         curTier = tier; lastSwitchAt = now; imgCur = imN;
         return;
       }
@@ -529,7 +857,7 @@
       var t = curPoses[tier];
       if(typeof t !== 'number') return;
       // 🎞 전환 직전 화면을 스냅샷해서 keyFrame() 이 새 프레임과 부드럽게 섞도록 넘겨준다.
-      try { fadeData = ctx.getImageData(0,0,canvas.width,canvas.height); fadeT0 = now; } catch(e){ fadeData = null; }
+      fadeSnap(now);
       curTier = tier; lastSwitchAt = now;
       try{ if(!video.paused) video.pause(); video.currentTime = t; }catch(e){}
     }
@@ -582,7 +910,7 @@
     function startDraw(){ idleTicks=0; curTier=null; lastSwitchAt=0; fadeData=null; drawing=true;
       browNext=Date.now()+1200+Math.random()*1500;   // 말 첫마디부터 눈썹을 올리지 않는다
       if(!raf) raf=requestAnimationFrame(loop); }
-    function stopDraw(){ drawing=false; if(raf){ try{cancelAnimationFrame(raf);}catch(e){} raf=0; } }
+    function stopDraw(){ drawing=false; if(raf){ try{cancelAnimationFrame(raf);}catch(e){} raf=0; } swayKick(); }
     function drawStill(){ keyFrame(); }
     function doStop(){
       setSpeaking(false); stopDraw();
