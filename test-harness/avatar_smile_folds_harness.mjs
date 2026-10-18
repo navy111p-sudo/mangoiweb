@@ -37,8 +37,11 @@ const AV = readFileSync(join(PUB, 'js/mango-avatar.js'), 'utf8');
 // 2026-10-18: tools/shrink-mouth.py 가 이 도구의 출력을 «입력» 으로 받아 입을 줄였습니다(사슬).
 //   그래서 지금 파일은 «이 도구 출력» 이거나, «이 도구 출력을 입력으로 한 shrink-mouth 출력» 이어야 합니다.
 const MS = readJson(join(ROOT, 'tools/mouth-scale-report.json'));
-const chained = (a, rel, want) => { const f = MS && MS.actors && MS.actors[a] && MS.actors[a].files && MS.actors[a].files[rel];
+// 2026-10-18: tools/clean-o-mouths.py 가 shrink-mouth 출력(입모양 묶음)을 다시 입력으로 받았습니다(사슬 한 칸 더).
+const OC = readJson(join(ROOT, 'tools/o-mouth-clean-report.json'));
+const link = (R, a, rel, want) => { const f = R && R.actors && R.actors[a] && R.actors[a].files && R.actors[a].files[rel];
   return f && f.sourceSha256 === want ? f.sha256 : null; };
+const chained = (a, rel, want) => { const m = link(MS, a, rel, want); return m ? (link(OC, a, rel, m) || m) : null; };
 
 console.log('⓪ 전제');
 ok(!!CFG && !!CFG.actors && !!CFG.params, 'tools/smile-folds-roi.json 을 읽었다');
