@@ -2,6 +2,7 @@
 // 📄 api-reports.ts — 월간 학습 보고서(MR)·월간 AI 레포트(MAR) (20차 분리)
 //   runMonthlyReports 는 index.ts 크론이 import 해서 매월 자동 실행.
 // ═══════════════════════════════════════════════════════════════════════
+import { loadSpeakingPace } from './speaking-pace';   // 🗣️ 따라 읽기 말속도(2026-10-18)
 import { json, parseJsonBody } from './api-util';
 import { resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정(소유자/관리자 인증 일원화)
 import { sendKakaoAlimtalk, getSolapiMode } from './solapi-client';
@@ -263,6 +264,9 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
     evalRows = (evals.results || []) as any[];
   } catch {}
   try { voiceStats = await env.DB.prepare(`SELECT COUNT(*) AS n, AVG(accuracy_score) AS acc, AVG(pronunciation_score) AS pron, AVG(fluency_score) AS flu, MAX(accuracy_score) AS best FROM voice_coaching WHERE student_uid = ? AND created_at >= ? AND created_at < ?`).bind(uid, start, end).first(); } catch {}
+  /* 🗣️ 따라 읽기 말속도 — 이번 기간 + «바로 앞의 같은 길이 기간». 정본 src/speaking-pace.ts(던지지 않음, 모르면 null). */
+  const paceNow = await loadSpeakingPace(env.DB, uid, start, end);
+  const pacePrev = await loadSpeakingPace(env.DB, uid, start - (end - start), start);
   const evalAvg = evalRows.length ? Math.round((evalRows.reduce((s, r) => s + (r.score_overall || 0), 0) / evalRows.length) * 10) / 10 : 0;
 
   // 📋 AI 학습 활동 — 단어장(vocab_review_log) + 복습퀴즈(review_quiz_results) 실사용 횟수만 합산.
@@ -430,6 +434,10 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
       avg_pronunciation: Math.round(voiceStats?.pron || 0),
       avg_fluency: Math.round(voiceStats?.flu || 0),
       best: voiceStats?.best || 0,
+      // 분당 낱말(따라 읽기) — 표본이 모자라면 null. ⛔ «대화 WPM» 으로 부르지 않는다(speaking-pace.ts).
+      pace_wpm: paceNow ? paceNow.wpm : null,
+      pace_samples: paceNow ? paceNow.samples : 0,
+      prev_pace_wpm: pacePrev ? pacePrev.wpm : null,
     },
     judgment,
     scene_words: sceneWords,
