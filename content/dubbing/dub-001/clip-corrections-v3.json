@@ -1,0 +1,36 @@
+{
+  "approvedFace": "clip 2 front frame (darker-face variant), image reference not supplied",
+  "reuse": [
+    2,
+    3,
+    4,
+    5,
+    9,
+    11,
+    12,
+    14,
+    15
+  ],
+  "regenerate": [
+    1,
+    7,
+    6,
+    16,
+    8
+  ],
+  "refine": [
+    10,
+    13
+  ],
+  "removeBrokenText": [
+    2
+  ],
+  "rules": [
+    "Jun/Mina faces must match clip 2",
+    "Jun wears blue hoodie in every clip",
+    "Rex height fixed at 130cm",
+    "teacher must be woman wearing pink cardigan",
+    "no malformed classroom wall text"
+  ],
+  "status": "pending_reference_and_visual_qc"
+}
