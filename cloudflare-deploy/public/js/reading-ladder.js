@@ -296,7 +296,7 @@
         return ddOpt('data-act="stage" data-stage="' + s.n + '"', s.n === cur,
           '<span class="rl-sw" style="--sc:' + s.color + '"></span><span>' + esc(stageName(s)) + '<em>' + esc(L(s.grade) + ' · ' + s.cefr) + '</em></span>',
           st.done + '/' + st.total);
-      }));
+      }), 'rl-dd-stage');
     var topics = RLCore.topicsOf(PASSAGES, cur);
     var curTopic = topics.filter(function (x) { return x.key === filt.topic; })[0] || null;
     var topicDd = dd(T('주제', 'Topic'), '<span class="rl-dd-val">' + esc(curTopic ? L(curTopic.label) : T('전체', 'All')) + '</span>',
@@ -311,7 +311,7 @@
       }));
     var sortLab = { no: T('번호순', 'By number'), short: T('짧은 글부터', 'Shortest first'), long: T('긴 글부터', 'Longest first') };
     var sortDd = dd(T('정렬', 'Sort'), '<span class="rl-dd-val">' + esc(sortLab[filt.sort] || sortLab.no) + '</span>',
-      RLCore.SORTS.map(function (v) { return ddOpt('data-act="filter" data-key="sort" data-v="' + v + '"', filt.sort === v, '<span>' + esc(sortLab[v]) + '</span>'); }));
+      RLCore.SORTS.map(function (v) { return ddOpt('data-act="filter" data-key="sort" data-v="' + v + '"', filt.sort === v, '<span>' + esc(sortLab[v]) + '</span>'); }), 'rl-dd-sort');
     // 그림 동화책 4권(따로 만든 책) — 2단계에서만. 책은 각자 화면이라 고르면 바로 그 책으로 간다.
     var books = (cur === 2 && window.__storyBookList && window.__storyBookList()) || [];
     var booksDd = books.length ? dd('', ICON.book + '<span class="rl-dd-val">' + esc(T('그림 동화책 ' + books.length + '권', books.length + ' picture books')) + '</span>',
@@ -339,6 +339,14 @@
       '<span class="rl-wc">' + RLCore.wordCount(p) + esc(T('단어', 'w')) + '</span>' + statusIcon(s) + '</button>';
   }
 
+  // 이전·다음 글 — 넓은 창은 글자, 좁은 창(stories.html CSS)은 화살표만 보인다. 글자는 화면에서만 감추고
+  // 낭독기 이름으로 남긴다(aria-label 로 덮지 않음 — 보이는 말과 이름이 어긋나지 않게).
+  function stepBtn(dir, off, label) {
+    return '<button type="button" class="rl-ghost rl-pn" data-act="step" data-v="' + dir + '"' + (off ? ' disabled' : '') + ' title="' + esc(label) + '">' +
+      (dir < 0 ? '<span class="rl-garr" aria-hidden="true">‹</span>' : '') + '<span class="rl-gtx">' + esc(label) + '</span>' +
+      (dir > 0 ? '<span class="rl-garr" aria-hidden="true">›</span>' : '') + '</button>';
+  }
+
   function detailHtml(p, stageList) {
     if (!p) return '';
     var meta = stageMeta(p.stage), r = state.prog[p.id] || {}, s = RLCore.statusOf(r);
@@ -362,8 +370,7 @@
       '<div class="rl-foot"><div class="rl-prog"><span class="rl-dots" role="img" aria-label="' + esc(T('완료 ' + st.done + ' / ' + st.total, 'Done ' + st.done + ' of ' + st.total)) + '">' +
         stageList.map(function (q) { return '<i class="' + RLCore.statusOf(state.prog[q.id]) + '"></i>'; }).join('') + '</span>' +
         '<span>' + esc(T('완료 ' + st.done + ' / ' + st.total, 'Done ' + st.done + ' / ' + st.total)) + '</span></div>' +
-        '<div class="rl-acts"><button type="button" class="rl-ghost" data-act="step" data-v="-1"' + (i <= 0 ? ' disabled' : '') + '>' + esc(T('이전 글', 'Previous')) + '</button>' +
-          '<button type="button" class="rl-ghost" data-act="step" data-v="1"' + (i >= stageList.length - 1 ? ' disabled' : '') + '>' + esc(T('다음 글', 'Next')) + '</button>' +
+        '<div class="rl-acts">' + stepBtn(-1, i <= 0, T('이전 글', 'Previous')) + stepBtn(1, i >= stageList.length - 1, T('다음 글', 'Next')) +
           '<a class="rl-ghost" href="/story-' + esc(p.id) + '.html">🖼 ' + esc(T('그림책', 'Picture book')) + '</a>' +
           '<button type="button" class="rl-cta" data-act="open" data-id="' + esc(p.id) + '">' + ICON.play + esc(cta) + '</button></div></div>' +
       '</article>';
