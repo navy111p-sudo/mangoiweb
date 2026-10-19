@@ -54,8 +54,11 @@ const ladderJs = readFileSync(join(PUB, 'js', 'reading-ladder.js'), 'utf8');
 
 const files = readdirSync(DATA_DIR).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort();
 console.log('\n══════ 전제 ══════');
-ok(files.length === L.passages.length && L.passages.length === 48, `데이터 ${files.length}개 == 사다리 글 ${L.passages.length}편 (48)`);
-ok(L.passages.every((p) => files.includes(p.id)), '사다리의 모든 글에 그림책 데이터가 있다');
+// 📌 2026-10-19 사다리 글을 176편으로 늘렸다 — 그림책은 처음 48편에만 있고, 새 글은 데이터에 book:false 로 표시한다.
+const BOOKED = L.passages.filter((p) => p.book !== false);
+ok(files.length === BOOKED.length && BOOKED.length === 48, `그림책 데이터 ${files.length}개 == 그림책 있는 사다리 글 ${BOOKED.length}편 (48)`);
+ok(BOOKED.every((p) => files.includes(p.id)), '그림책이 있다고 된 글에는 모두 그림책 데이터가 있다');
+ok(L.passages.filter((p) => p.book === false).every((p) => !files.includes(p.id) && !existsSync(join(ROOT, 'cloudflare-deploy', 'public', 'story-' + p.id + '.html'))), 'book:false 인 글에는 그림책 데이터·페이지가 없다(짝 — 표시와 실제가 어긋나지 않게)');
 
 const tuneKeys = new Map(), titles = new Set(), ids = new Set();
 const allAns = [0, 0, 0], allSum = [0, 0, 0];
@@ -153,7 +156,7 @@ for (const id of files) {
 
 console.log('\n══════ 사다리 배선 ══════');
 ok(/href="\/story-' \+ esc\(p\.id\) \+ '\.html"/.test(ladderJs), '사다리 읽기 화면에 «그림 동화책으로 읽기» 링크가 글 id 로');
-ok(/'story_' \+ id \+ '_stamps'/.test(ladderJs) && /bookTag\(p\.id\)/.test(ladderJs), '목록이 그림책 도장 수를 같은 저장칸에서 읽어 보여 준다');
+ok(/'story_' \+ id \+ '_stamps'/.test(ladderJs) && /bookTag\(p\)/.test(ladderJs) && /function hasBook\(p\) \{ return !!p && p\.book !== false; \}/.test(ladderJs), '목록이 그림책 도장 수를 같은 저장칸에서 읽어 보여 준다');
 ok(Math.min(...allAns) >= 30 && Math.min(...allSum) >= 50, `전체 정답 자리 분포가 고르다 (근거 ${allAns.join('/')} · 요점 ${allSum.join('/')})`);
 const lv = (readFileSync(join(PUB, 'stories.html'), 'utf8').match(/reading-ladder\.js\?v=(\d+)/) || [])[1];
 ok(Number(lv) >= 3, `stories.html 이 reading-ladder.js 새 버전을 부른다 (v=${lv})`);
