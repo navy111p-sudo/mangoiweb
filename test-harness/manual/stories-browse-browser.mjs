@@ -12,6 +12,12 @@
 //   ⑦ 영어 — EN 에서는 우리말 제목이 빠진다 (짝) KO 에는 있다
 //   ⑧ 글자 대비 — 밝은·어두운 모드에서 주요 글자가 WCAG 기준 이상(반투명 층은 합성해서 잰다)
 //   ⑨ JS 오류 0
+//   ⑩ 실제 노트북 «창» 높이(2026-10-19) — 1366×768 화면은 창이 약 640px, 1280×720 은 약 600px 이다.
+//      그 창에서도 12편이 목록 안쪽 스크롤 없이 다 보인다 · 4단계 48편 전부 제목칸이 안 잘리고 «읽기 시작» 이 «맨 위»
+//      태블릿 1024×768 · 낮은 노트북 1024×600 · EN 900×600·960×640 에서도 48편 전부 목록·상세 칸 안쪽 스크롤이 없다
+//   ⑪ 좁은 창(821~1100) 압축 — 도구 줄 한 줄 · 이전·다음 글은 화살표(이름은 낭독기에 남음) · 계단·«단계»«정렬» 이름표·편수는 감춤
+//      (짝) 넓은 창에서는 전부 그대로 보이고, «주제»·«상태» 이름표는 좁은 창에서도 남는다
+//      (짝) 버튼 줄은 한 장 고정일 때만 상세 칸 바닥에 붙고(sticky) 폰 390 에서는 붙지 않는다
 //   ⚠️ 자동으로 안 돕니다 — 사람이 부릅니다:  node test-harness/manual/stories-browse-browser.mjs
 //   STORIES_SRC=<고친 public 폴더> 로 변이시험을 합니다(저장소 파일은 건드리지 마세요).
 //   서버는 python http.server 로 띄우고, /api/** 는 가짜 응답이라 D1 에 아무것도 안 씁니다.
@@ -66,6 +72,7 @@ async function openPage({ w, h, lang = 'ko', scheme = 'light', seed = SEED }) {
   return { ctx, page, errs };
 }
 
+const T2 = (lang, ko, en) => (lang === 'en' ? en : ko);
 const dd = (page, i) => page.locator('details.rl-dd').nth(i);
 const openDd = (page) => page.evaluate(() => [...document.querySelectorAll('details.rl-dd')].map((d) => d.open));
 const ids = (page) => page.evaluate(() => [...document.querySelectorAll('.rl-item')].map((x) => x.getAttribute('data-id')));
@@ -286,6 +293,134 @@ try {
     // 성공해도 값을 찍는다 — 보고서에 숫자를 옮겨 적을 때 이 줄을 보세요(CLAUDE.md 「문턱만 보는데 값을 적을 때」)
     if (low) console.log(`  · ${scheme} 가장 낮은 대비: ${low.s} ${low.cr}:1 (필요 ${low.need})`);
     ok(errs.length === 0, `${scheme} JS 오류 0`, errs.join(' | '));
+    await ctx.close();
+  }
+
+  // ── ⑩ 실제 노트북 창 높이 ─────────────────────────────────────────
+  //   ⚠️ 화면 크기(1366×768)가 아니라 «창» 크기(주소창·탭·작업표시줄을 뺀 값)로 잰다 — 2026-10-19 에
+  //      1280×720 으로만 재서 통과했는데 실제 창(1280×600)에서는 목록이 안쪽 스크롤되고 제목이 잘렸다.
+  console.log('▶ ⑩ 실제 노트북 창 높이');
+  for (const [w, h] of [[1366, 640], [1280, 650], [1280, 600]]) {
+    const { ctx, page, errs } = await openPage({ w, h });
+    const tag = `${w}x${h}`;
+    const m = await page.evaluate(() => {
+      const L = document.querySelector('.rl-list');
+      return { browse: document.documentElement.classList.contains('rl-browse'), sh: document.documentElement.scrollHeight, ih: innerHeight,
+        list: L ? [L.scrollHeight, L.clientHeight] : null, items: document.querySelectorAll('.rl-item').length,
+        lastIn: (() => { const it = [...document.querySelectorAll('.rl-item')].pop(); if (!it) return false; const r = it.getBoundingClientRect(), lr = L.getBoundingClientRect(); return r.bottom <= Math.min(innerHeight, lr.bottom) + 1; })() };
+    });
+    ok(m.browse, `${tag} 한 장 고정(rl-browse)이다`);
+    ok(m.sh <= m.ih + 1, `${tag} 페이지 세로 스크롤 없음`, `${m.sh} > ${m.ih}`);
+    ok(m.items === 12, `${tag} 12편이 목록에 다 있다`, m.items);
+    ok(m.list && m.list[0] <= m.list[1] + 1, `${tag} 목록 안쪽 스크롤 없음(12편이 한 번에 보인다)`, m.list && m.list.join('/'));
+    ok(m.lastIn, `${tag} 마지막 글(12번)이 목록 칸 안에 보인다`);
+    ok(errs.length === 0, `${tag} JS 오류 0`, errs.join(' | '));
+    await ctx.close();
+  }
+  //   4단계 × 12편 전부 — 제목칸이 안 잘리고 «읽기 시작» 이 맨 위. 가장 빡빡한 두 창(KO 1280×600 · EN 900×600)에서 잰다.
+  //   fit=true 인 창은 «목록·상세 칸 안쪽 스크롤 없음» 까지 잰다:
+  //     1024×768(태블릿 가로) — «이렇게 읽어요» 3칸을 세로로 쌓으면 상세가 넘친다(2026-10-19 실측)
+  //     1024×600(낮은 노트북) — 좁고 낮은 창에서 설명 줄을 접지 않으면 상세가 넘친다
+  //     EN 900×600 · 960×640 — 영어 버튼 글자가 길어 버튼 줄이 3줄, 도구 줄이 2줄로 접혀 넘쳤다(2026-10-19 두 번째 수리 전)
+  //   ⚠️ 821~899 폭(예: 840×600)은 아직 조금 넘친다 — 재지 않는다(알고 둔 한계. 태블릿 세로는 820 이하라 쌓는 화면)
+  for (const [w, h, lang, fit] of [[1280, 600, 'ko', true], [1280, 600, 'en', true], [900, 600, 'en', true], [960, 640, 'en', true], [1024, 768, 'ko', true], [1024, 600, 'ko', true]]) {
+    let n = 0, heroCut = [], ctaBad = [], footOut = [], notBrowse = 0, over = [];
+    let sticky = null;
+    for (let stage = 1; stage <= 4; stage++) {
+      const { ctx, page, errs } = await openPage({ w, h, lang, seed: { stage, prog: {} } });
+      const list = await ids(page);
+      ok(list.length === 12, `${w}x${h} ${lang} ${stage}단계 12편`, list.length);
+      for (const id of list) {
+        await page.evaluate((id) => { const b = document.querySelector('.rl-item[data-id="' + id + '"]'); if (b) b.click(); }, id);
+        await page.waitForTimeout(30);
+        const m = await page.evaluate(() => {
+          const D = document.querySelector('.rl-detail'), hero = D && D.querySelector('.rl-hero');
+          const hr = hero ? hero.getBoundingClientRect() : null;
+          // 제목칸 «안» 의 글자(h2·우리말 제목·사실 줄·배경)가 제목칸 상자 밖으로 나가면 overflow:hidden 에 잘린 것
+          const cut = !hero || [...hero.querySelectorAll('h2,.rl-hero-ko,.rl-facts,.rl-hero-bg')].some((e) => { const r = e.getBoundingClientRect(); return r.height < 2 || r.top < hr.top - 1 || r.bottom > hr.bottom + 1; });
+          const cta = D && D.querySelector('.rl-cta'); const r = cta ? cta.getBoundingClientRect() : null;
+          const hit = r && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          const foot = D && D.querySelector('.rl-foot'); const fr = foot && foot.getBoundingClientRect(), dr = D && D.getBoundingClientRect();
+          const L = document.querySelector('.rl-list');
+          return { browse: document.documentElement.classList.contains('rl-browse'), cut,
+            over: (L && L.scrollHeight > L.clientHeight + 1 ? 'list ' + L.scrollHeight + '/' + L.clientHeight + ' ' : '') + (D && D.scrollHeight > D.clientHeight + 1 ? 'detail ' + D.scrollHeight + '/' + D.clientHeight : ''),
+            cta: !!r && r.bottom <= innerHeight + 1 && r.top >= 0 && !!hit && cta.contains(hit),
+            footIn: !!fr && fr.bottom <= dr.bottom + 1 && fr.top >= dr.top - 1,
+            pos: foot ? getComputedStyle(foot).position : null };
+        });
+        n++;
+        if (!m.browse) notBrowse++;
+        if (m.cut) heroCut.push(id);
+        if (!m.cta) ctaBad.push(id);
+        if (!m.footIn) footOut.push(id);
+        if (m.over) over.push(id + ' ' + m.over.trim());
+        if (sticky === null) sticky = m.pos;
+      }
+      ok(errs.length === 0, `${w}x${h} ${lang} ${stage}단계 JS 오류 0`, errs.join(' | '));
+      await ctx.close();
+    }
+    const tag = `${w}x${h} ${lang}`;
+    ok(n === 48, `${tag} 전제: 4단계 48편을 다 눌러 봤다`, n);
+    ok(notBrowse === 0, `${tag} 48편 내내 한 장 고정이다`, notBrowse);
+    ok(heroCut.length === 0, `${tag} 48편 전부 제목칸이 안 잘린다`, heroCut.join(','));
+    ok(ctaBad.length === 0, `${tag} 48편 전부 «읽기 시작» 이 화면 안 «맨 위»`, ctaBad.join(','));
+    ok(footOut.length === 0, `${tag} 48편 전부 버튼 줄이 상세 칸 안에 보인다`, footOut.join(','));
+    ok(sticky === 'sticky', `${tag} 버튼 줄이 상세 칸 바닥에 붙어 있다(sticky)`, sticky);
+    if (fit) ok(over.length === 0, `${tag} 48편 전부 목록·상세 칸 안쪽 스크롤 없음`, over.slice(0, 4).join(' | '));
+    console.log(`  · ${tag}: 48편 · 제목 잘림 ${heroCut.length} · 버튼 가려짐 ${ctaBad.length} · 안쪽 스크롤 ${over.length}${fit ? '' : '(재기만 함)'}`);
+  }
+  {
+    // (짝) 폰 — 쌓는 화면에서는 버튼 줄을 바닥에 붙이지 않는다(붙이면 페이지 스크롤 내내 떠다닌다)
+    const { ctx, page, errs } = await openPage({ w: 390, h: 844 });
+    const pos = await page.evaluate(() => { const f = document.querySelector('.rl-foot'); return f ? getComputedStyle(f).position : null; });
+    ok(pos === 'static', '(짝) 390 에서는 버튼 줄이 sticky 가 아니다', pos);
+    ok(errs.length === 0, '390(⑩) JS 오류 0', errs.join(' | '));
+    await ctx.close();
+  }
+
+  // ── ⑪ 좁은 창 압축(도구 줄 · 이전/다음 글) ───────────────────────────
+  console.log('▶ ⑪ 좁은 창 압축');
+  const tbProbe = (page) => page.evaluate(() => {
+    const vis = (e) => !!e && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 2;
+    const tb = document.querySelector('.rl-tb');
+    const lab = (cls) => vis(document.querySelector('.rl-dd.' + cls + ' .rl-dd-lab'));
+    const plainLabs = [...document.querySelectorAll('.rl-dd:not(.rl-dd-stage):not(.rl-dd-sort) .rl-dd-lab')].map(vis);
+    const pn = [...document.querySelectorAll('.rl-detail [data-act="step"]')];
+    const acts = document.querySelector('.rl-acts');
+    return { tbH: Math.round(tb.getBoundingClientRect().height), stair: vis(document.querySelector('.rl-tb>.rl-stair')),
+      stageLab: lab('rl-dd-stage'), sortLab: lab('rl-dd-sort'), plainLabs, count: vis(document.querySelector('.rl-tb>.rl-count')),
+      pnN: pn.length, arrowVis: pn.map((b) => vis(b.querySelector('.rl-garr'))), textVis: pn.map((b) => { const t = b.querySelector('.rl-gtx'); return !!t && t.getBoundingClientRect().width > 4; }),
+      pnW: pn.map((b) => Math.round(b.getBoundingClientRect().width)), actsH: acts ? Math.round(acts.getBoundingClientRect().height) : null };
+  });
+  for (const [w, h, lang, stage, narrow] of [[900, 600, 'en', 2, true], [900, 600, 'ko', 2, true], [1024, 768, 'en', 1, true], [1280, 720, 'en', 2, false], [1440, 860, 'ko', 2, false]]) {
+    const { ctx, page, errs } = await openPage({ w, h, lang, seed: { stage, prog: {} } });
+    const tag = `${w}x${h} ${lang} ${stage}단계`;
+    const m = await tbProbe(page);
+    ok(m.pnN === 2, `${tag} 전제: 이전·다음 글 버튼 2개`, m.pnN);
+    ok(m.tbH <= 40, `${tag} 도구 줄이 한 줄이다`, m.tbH);
+    ok(m.actsH !== null && m.actsH <= 44, `${tag} 버튼 줄(이전·다음·그림책·읽기 시작)이 한 줄이다`, m.actsH);
+    ok(m.plainLabs.length >= 2 && m.plainLabs.every(Boolean), `${tag} «주제»·«상태» 이름표는 보인다`, JSON.stringify(m.plainLabs));
+    // 버튼의 «이름» 은 접혀도 남아야 한다 — 낭독기·음성조작이 그 말로 부른다(접근성 트리로 잰다)
+    const nm = { prev: await page.getByRole('button', { name: T2(lang, '이전 글', 'Previous'), exact: true }).count(), next: await page.getByRole('button', { name: T2(lang, '다음 글', 'Next'), exact: true }).count() };
+    ok(nm.prev === 1 && nm.next === 1, `${tag} 이전·다음 글 버튼 이름이 그대로다(접근성 트리)`, JSON.stringify(nm));
+    if (narrow) {
+      ok(!m.stair, `${tag} 계단 그림은 감춘다(«단계» 드롭다운과 같은 일)`);
+      ok(!m.stageLab && !m.sortLab, `${tag} «단계»·«정렬» 이름표는 감춘다`, JSON.stringify([m.stageLab, m.sortLab]));
+      ok(!m.count, `${tag} 편수 숫자는 감춘다`);
+      ok(m.arrowVis.every(Boolean) && m.textVis.every((x) => !x), `${tag} 이전·다음 글은 화살표만 보인다`, JSON.stringify([m.arrowVis, m.textVis]));
+      ok(m.pnW.every((x) => x <= 44), `${tag} 화살표 버튼은 동그란 40px 이다(다른 규칙의 여백이 안 붙음)`, m.pnW.join(','));
+    } else {
+      ok(m.stair && m.stageLab && m.sortLab && m.count, `(짝) ${tag} 넓은 창에서는 계단·이름표·편수가 그대로 보인다`, JSON.stringify([m.stair, m.stageLab, m.sortLab, m.count]));
+      ok(m.arrowVis.every((x) => !x) && m.textVis.every(Boolean), `(짝) ${tag} 넓은 창에서는 이전·다음 글이 글자로 보인다`, JSON.stringify([m.arrowVis, m.textVis]));
+    }
+    // 화살표 버튼을 실제로 눌러 본다 — 좁아져도 «다음 글» 이 일한다
+    const before = await selId(page);
+    if (await safeClick(page.locator('.rl-detail [data-act="step"][data-v="1"]'), `${tag} 다음 글(화살표)`)) {
+      await page.waitForTimeout(150);
+      const after = await selId(page);
+      ok(!!before && !!after && before !== after, `${tag} 다음 글 버튼을 누르면 다른 글이 골라진다`, `${before} → ${after}`);
+    }
+    ok(errs.length === 0, `${tag} JS 오류 0`, errs.join(' | '));
     await ctx.close();
   }
 } finally {
