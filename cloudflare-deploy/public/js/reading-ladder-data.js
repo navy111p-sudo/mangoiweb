@@ -1,5 +1,5 @@
 /* 📚 영어 독서 사다리 — 글 정본 (2026-10-18). 화면: /stories.html · 엔진: /js/reading-ladder.js
-   단계 4개 · 1·2단계 48편 · 3단계 38편 · 4단계 42편(2026-10-19 확장 — 13번부터는 그림책 없음: book:false). 한 편 = 문장별 영어·우리말 · 핵심 문장 번호(key) · 중심 내용 보기 4개(answer 는 정답 번호 — 화면이 섞음)
+   단계 4개 · 1·2단계 48편 · 3단계 38편 · 4단계 42편(2026-10-19 확장 · 2026-10-19 176편 모두 그림 동화책 /story-<id>.html 이 있다 — 그림책이 없는 글이 생기면 book:false 를 달 것). 한 편 = 문장별 영어·우리말 · 핵심 문장 번호(key) · 중심 내용 보기 4개(answer 는 정답 번호 — 화면이 섞음)
    · 오늘의 낱말 3개 · 핵심 한 줄 영작(summary.ko → summary.en, keywords 3개).
    ⚠️ 고치면 이 파일을 부르는 stories.html 의 ?v= 를 올리고 reading_ladder_harness 를 돌리세요. */
 window.READING_LADDER = {
@@ -1278,7 +1278,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-13",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Alien in My Backyard",
     "ko": "우리 집 마당의 외계인"
@@ -1391,7 +1390,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-14",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Rocket to the Moon",
     "ko": "달까지 로켓 타고"
@@ -1504,7 +1502,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-15",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Dinosaur Egg",
     "ko": "공룡 알"
@@ -1617,7 +1614,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-16",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "My Robot Ate My Homework",
     "ko": "로봇이 내 숙제를 먹었어"
@@ -1730,7 +1726,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-17",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Secret Treasure Map",
     "ko": "비밀 보물 지도"
@@ -1839,7 +1834,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-18",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Monster Under My Bed",
     "ko": "침대 밑 괴물"
@@ -1952,7 +1946,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-19",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Little Dragon Who Sneezed Fire",
     "ko": "재채기로 불을 뿜은 아기 용"
@@ -2065,7 +2058,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-20",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Super Sam Saves the Day",
     "ko": "슈퍼 샘이 해냈다"
@@ -2178,7 +2170,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-21",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Talking Cat",
     "ko": "말하는 고양이"
@@ -2287,7 +2278,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-22",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Lost on Planet Zog",
     "ko": "조그 행성에서 길을 잃다"
@@ -2396,7 +2386,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-23",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Magic Pencil",
     "ko": "요술 연필"
@@ -2505,7 +2494,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-24",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Pirate Pete and the Giant Octopus",
     "ko": "해적 피트와 거대 문어"
@@ -2614,7 +2602,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-25",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Ghost Who Was Afraid of the Dark",
     "ko": "어둠을 무서워한 유령"
@@ -2727,7 +2714,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-26",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Mission to Mars",
     "ko": "화성 탐사 작전"
@@ -2836,7 +2822,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-27",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Invisible Boy",
     "ko": "투명 인간이 된 톰"
@@ -2949,7 +2934,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-28",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "T. rex Goes to School",
     "ko": "학교에 온 티라노"
@@ -3058,7 +3042,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-29",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Haunted House",
     "ko": "귀신의 집"
@@ -3171,7 +3154,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-30",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Mermaid's Lost Pearl",
     "ko": "인어의 잃어버린 진주"
@@ -3280,7 +3262,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-31",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Robot Dog to the Rescue",
     "ko": "로봇 강아지 출동"
@@ -3389,7 +3370,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-32",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Shrinking Potion",
     "ko": "작아지는 물약"
@@ -3502,7 +3482,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-33",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Space Pizza Delivery",
     "ko": "우주 피자 배달"
@@ -3611,7 +3590,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-34",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Volcano Island",
     "ko": "화산섬 탈출"
@@ -3724,7 +3702,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-35",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Ninja Cat",
     "ko": "닌자 고양이"
@@ -3837,7 +3814,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-36",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Time Machine",
     "ko": "타임머신"
@@ -3946,7 +3922,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-37",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Snow Monster",
     "ko": "눈 괴물"
@@ -4055,7 +4030,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-38",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Alien at the Zoo",
     "ko": "동물원에 간 외계인"
@@ -4164,7 +4138,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-39",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Giant's Shoe",
     "ko": "거인의 신발"
@@ -4273,7 +4246,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-40",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Whale in the Net",
     "ko": "그물에 걸린 고래"
@@ -4382,7 +4354,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-41",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Wizard's Mistake",
     "ko": "꼬마 마법사의 실수"
@@ -4495,7 +4466,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-42",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Jungle Rescue",
     "ko": "정글 구출 작전"
@@ -4604,7 +4574,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-43",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Moon Rabbit",
     "ko": "달토끼"
@@ -4713,7 +4682,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-44",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Super Grandma",
     "ko": "슈퍼 할머니"
@@ -4826,7 +4794,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-45",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Dinosaurs Dance at Night",
     "ko": "밤에 춤추는 공룡 뼈"
@@ -4939,7 +4906,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-46",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Alien Who Loved Kimchi",
     "ko": "김치를 사랑한 외계인"
@@ -5048,7 +5014,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-47",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Dragon Egg Race",
     "ko": "용 알 달리기 대회"
@@ -5157,7 +5122,6 @@ window.READING_LADDER = {
    "stage": 1,
    "id": "s1-48",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Captain Kim and the Comet",
     "ko": "김 선장과 혜성"
@@ -6614,7 +6578,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-13",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Signal from Space",
     "ko": "우주에서 온 신호"
@@ -6739,7 +6702,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-14",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Escape from the Sinking Ship",
     "ko": "침몰하는 배에서 탈출"
@@ -6864,7 +6826,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-15",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Robot That Learned to Lie",
     "ko": "거짓말을 배운 로봇"
@@ -6989,7 +6950,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-16",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Detective Mina and the Missing Diamond",
     "ko": "탐정 미나와 사라진 다이아몬드"
@@ -7114,7 +7074,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-17",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Last Dragon of Jeju",
     "ko": "제주의 마지막 용"
@@ -7239,7 +7198,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-18",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Trapped in the Video Game",
     "ko": "게임 속에 갇히다"
@@ -7364,7 +7322,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-19",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Secret of the Pyramid",
     "ko": "피라미드의 비밀"
@@ -7489,7 +7446,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-20",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Space Station Emergency",
     "ko": "우주 정거장 비상사태"
@@ -7614,7 +7570,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-21",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Boy Who Talked to Whales",
     "ko": "고래와 이야기한 소년"
@@ -7739,7 +7694,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-22",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Haunted Library",
     "ko": "유령 도서관"
@@ -7864,7 +7818,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-23",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Time-Travel Watch",
     "ko": "시간 여행 시계"
@@ -7989,7 +7942,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-24",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Lost in the Amazon",
     "ko": "아마존에서 길을 잃다"
@@ -8114,7 +8066,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-25",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Alien Exchange Student",
     "ko": "외계인 전학생"
@@ -8239,7 +8190,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-26",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Invisible Thief",
     "ko": "보이지 않는 도둑"
@@ -8368,7 +8318,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-27",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Mission: Save the Coral Reef",
     "ko": "산호초 구조 작전"
@@ -8493,7 +8442,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-28",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Dinosaur Island",
     "ko": "공룡 섬"
@@ -8618,7 +8566,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-29",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Mirror World",
     "ko": "거울 속 세상"
@@ -8743,7 +8690,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-30",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Mountain Rescue Dog",
     "ko": "산악 구조견"
@@ -8868,7 +8814,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-31",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Moon Base Mystery",
     "ko": "달 기지 미스터리"
@@ -8997,7 +8942,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-32",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Pirate's Riddle",
     "ko": "해적의 수수께끼"
@@ -9126,7 +9070,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-33",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Girl Who Could Freeze Time",
     "ko": "시간을 멈추는 소녀"
@@ -9255,7 +9198,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-34",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Volcano Scientist",
     "ko": "화산 과학자"
@@ -9380,7 +9322,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-35",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Robot Soccer Championship",
     "ko": "로봇 축구 대회"
@@ -9509,7 +9450,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-36",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Ghost Ship",
     "ko": "유령선"
@@ -9638,7 +9578,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-37",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Journey Inside the Body",
     "ko": "몸속 여행"
@@ -9763,7 +9702,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-38",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Desert Treasure",
     "ko": "사막의 보물"
@@ -9888,7 +9826,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-39",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Message in a Bottle",
     "ko": "병 속의 편지"
@@ -10013,7 +9950,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-40",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Weather Machine",
     "ko": "날씨 기계"
@@ -10138,7 +10074,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-41",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "Ninja School",
     "ko": "닌자 학교"
@@ -10263,7 +10198,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-42",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Black Hole Shortcut",
     "ko": "블랙홀 지름길"
@@ -10384,7 +10318,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-43",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Dream Thief",
     "ko": "꿈 도둑"
@@ -10509,7 +10442,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-44",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Last Tree on Mars",
     "ko": "화성의 마지막 나무"
@@ -10630,7 +10562,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-45",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Great Museum Heist",
     "ko": "박물관 대도난 사건"
@@ -10751,7 +10682,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-46",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Tiger of Mount Baekdu",
     "ko": "백두산 호랑이"
@@ -10872,7 +10802,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-47",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Secret Door in the School",
     "ko": "학교의 비밀 문"
@@ -10997,7 +10926,6 @@ window.READING_LADDER = {
    "stage": 2,
    "id": "s2-48",
    "genre": "story",
-   "book": false,
    "title": {
     "en": "The Day the Aliens Came",
     "ko": "외계인이 온 날"
@@ -12466,7 +12394,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-13",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "How a Fishing Net Became a Book",
     "ko": "고기잡이 그물이 책이 되기까지"
@@ -12591,7 +12518,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-14",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Can You Buy a Snack with a Chicken?",
     "ko": "닭으로 과자를 살 수 있을까?"
@@ -12716,7 +12642,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-15",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Surviving the Driest Places on Earth",
     "ko": "지구에서 가장 메마른 곳에서 살아남기"
@@ -12837,7 +12762,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-16",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Doctor, the Milkmaid, and the Cow",
     "ko": "의사와 우유 짜는 소녀와 소"
@@ -12958,7 +12882,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-17",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "When the Whole World Lights Up",
     "ko": "온 세상이 빛나는 밤"
@@ -13079,7 +13002,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-18",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Why Can't a Robot Fold Your T-Shirt?",
     "ko": "로봇은 왜 티셔츠를 못 갤까?"
@@ -13204,7 +13126,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-19",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Woman Who Solved the Butterfly Mystery",
     "ko": "나비의 비밀을 푼 여인"
@@ -13333,7 +13254,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-20",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Water, Water Everywhere",
     "ko": "사방이 물인데"
@@ -13462,7 +13382,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-21",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Doctor Who Followed the Blood",
     "ko": "피의 길을 따라간 의사"
@@ -13587,7 +13506,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-22",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Wall That Took 2,000 Years",
     "ko": "2,000년 동안 쌓은 성벽"
@@ -13716,7 +13634,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-23",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Phone That Changed Everything",
     "ko": "모든 것을 바꾼 휴대폰"
@@ -13837,7 +13754,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-24",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Wolves of Yellowstone",
     "ko": "옐로스톤의 늑대들"
@@ -13962,7 +13878,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-25",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Alarm on the Way to the Moon",
     "ko": "달에 내리기 직전의 경보"
@@ -14087,7 +14002,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-26",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Girl Who Saved a Beach",
     "ko": "해변을 구한 소녀"
@@ -14208,7 +14122,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-27",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Are We Alone in the Universe?",
     "ko": "우주에 우리뿐일까?"
@@ -14337,7 +14250,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-28",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "How Did the Dinosaurs Disappear?",
     "ko": "공룡은 왜 사라졌을까?"
@@ -14474,7 +14386,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-29",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Deepest Place on Earth",
     "ko": "지구에서 가장 깊은 곳"
@@ -14607,7 +14518,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-30",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Animals That Glow in the Dark",
     "ko": "어둠 속에서 빛나는 동물"
@@ -14744,7 +14654,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-31",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "How Do Astronauts Live in Space?",
     "ko": "우주 비행사는 어떻게 살까?"
@@ -14873,7 +14782,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-32",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Secrets of the Mummies",
     "ko": "미라의 비밀"
@@ -15006,7 +14914,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-33",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Lightning: Nature's Electricity",
     "ko": "번개, 자연의 전기"
@@ -15131,7 +15038,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-34",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Tardigrades: The Toughest Animals",
     "ko": "물곰, 가장 강한 동물"
@@ -15256,7 +15162,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-35",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "How Video Games Are Made",
     "ko": "게임은 어떻게 만들어질까"
@@ -15385,7 +15290,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-36",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Secret Life of Octopuses",
     "ko": "문어의 비밀스러운 삶"
@@ -15518,7 +15422,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-37",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Black Holes Explained",
     "ko": "블랙홀 이야기"
@@ -15647,7 +15550,6 @@ window.READING_LADDER = {
    "stage": 3,
    "id": "s3-38",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Super Senses of Animals",
     "ko": "동물의 초감각"
@@ -17208,7 +17110,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-13",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Why Your Brain Loves Bad Habits",
     "ko": "뇌는 왜 나쁜 습관을 좋아할까"
@@ -17353,7 +17254,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-14",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Is the Chatbot Really Thinking?",
     "ko": "챗봇은 정말 생각할까?"
@@ -17498,7 +17398,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-15",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Road That Connected the World",
     "ko": "세계를 이은 길"
@@ -17647,7 +17546,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-16",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Hidden Price of Every Choice",
     "ko": "모든 선택에 숨은 가격"
@@ -17796,7 +17694,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-17",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Tiny Partners Living Inside You",
     "ko": "내 몸속의 작은 동반자들"
@@ -17953,7 +17850,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-18",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Does Your Language Shape Your Mind?",
     "ko": "언어가 생각을 바꿀까?"
@@ -18106,7 +18002,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-19",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Day Two Satellites Crashed",
     "ko": "두 위성이 충돌한 날"
@@ -18255,7 +18150,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-20",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Real Price of Your Coffee",
     "ko": "커피 한 잔의 진짜 가격"
@@ -18396,7 +18290,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-21",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Your Brain's Night Shift",
     "ko": "뇌의 야간 근무"
@@ -18545,7 +18438,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-22",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Editing the Code of Life",
     "ko": "생명의 설계도를 고치다"
@@ -18690,7 +18582,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-23",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Comeback of the Electric Car",
     "ko": "전기차의 귀환"
@@ -18835,7 +18726,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-24",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "A World Without Bees?",
     "ko": "벌이 사라진 세상?"
@@ -18984,7 +18874,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-25",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Thirsty Blue Planet",
     "ko": "목마른 푸른 행성"
@@ -19125,7 +19014,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-26",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Why Is Everything Getting More Expensive?",
     "ko": "왜 모든 게 비싸질까?"
@@ -19266,7 +19154,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-27",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Age of Exploration: Two Sides of History",
     "ko": "대항해 시대: 역사의 두 얼굴"
@@ -19407,7 +19294,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-28",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Mold That Saved Millions",
     "ko": "수백만 명을 구한 곰팡이"
@@ -19564,7 +19450,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-29",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Don't Click Share Yet!",
     "ko": "아직 공유하지 마세요!"
@@ -19717,7 +19602,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-30",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Life on Mars?",
     "ko": "화성에 생명이 있을까?"
@@ -19862,7 +19746,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-31",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Search for Alien Life",
     "ko": "외계 생명체 탐사"
@@ -20019,7 +19902,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-32",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Could We Bring Back Dinosaurs?",
     "ko": "공룡을 되살릴 수 있을까?"
@@ -20172,7 +20054,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-33",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Science of Dreams",
     "ko": "꿈의 과학"
@@ -20325,7 +20206,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-34",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Living on Mars: Dream or Plan?",
     "ko": "화성 이주, 꿈일까 계획일까?"
@@ -20466,7 +20346,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-35",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Robots That Learn",
     "ko": "스스로 배우는 로봇"
@@ -20619,7 +20498,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-36",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Mystery of Dark Matter",
     "ko": "암흑 물질의 수수께끼"
@@ -20764,7 +20642,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-37",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "How Pandemics Spread",
     "ko": "전염병은 어떻게 퍼질까"
@@ -20917,7 +20794,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-38",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "The Ocean's Twilight Zone",
     "ko": "바다의 박명대"
@@ -21066,7 +20942,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-39",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Can Money Buy Happiness?",
     "ko": "돈으로 행복을 살 수 있을까?"
@@ -21215,7 +21090,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-40",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Music and the Brain",
     "ko": "음악과 뇌"
@@ -21364,7 +21238,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-41",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Self-Driving Cars and Trust",
     "ko": "자율 주행차와 신뢰"
@@ -21517,7 +21390,6 @@ window.READING_LADDER = {
    "stage": 4,
    "id": "s4-42",
    "genre": "info",
-   "book": false,
    "title": {
     "en": "Earth in 2100",
     "ko": "2100년의 지구"
