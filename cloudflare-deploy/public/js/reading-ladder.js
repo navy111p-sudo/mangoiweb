@@ -184,8 +184,11 @@
     try { st = JSON.parse(localStorage.getItem('story_' + id + '_stamps') || '{}') || {}; } catch (e) { st = {}; }
     return BOOK_STAMPS.filter(function (k) { return !!st[k]; }).length;
   }
-  function bookTag(id) {
-    var n = bookStamps(id);
+  // 그림책은 처음 48편에만 있다 — 나중에 더한 글(데이터에 book:false)은 그림책 표시·버튼을 그리지 않는다(없는 페이지로 보내지 않게).
+  function hasBook(p) { return !!p && p.book !== false; }
+  function bookTag(p) {
+    if (!hasBook(p)) return '';
+    var n = bookStamps(p.id);
     return '<span class="rl-pic">🖼 ' + esc(n >= 6 ? T('그림책 완주', 'Book done') : n > 0 ? T('그림책 ', 'Book ') + n + '/6' : T('그림책', 'Picture book')) + '</span>';
   }
 
@@ -362,16 +365,16 @@
         '<div class="rl-hero-top"><span class="rl-eyebrow">' + esc(stageName(meta) + T(' · ' + (i + 1) + '번', ' · No. ' + (i + 1))) + '</span>' + statusChip(s) + '</div>' +
         '<h2 lang="en">' + esc(p.title.en) + '</h2>' + (lang() === 'en' ? '' : '<p class="rl-hero-ko">' + esc(p.title.ko) + '</p>') +
         '<div class="rl-facts"><span>' + esc(L(p.topic)) + '</span><span>' + RLCore.wordCount(p) + esc(T('단어', ' words')) + '</span><span>' + esc(meta.cefr) +
-          '</span><span>' + esc(L(meta.grade)) + '</span><span>' + esc(p.genre === 'story' ? T('이야기', 'Story') : T('지식 글', 'Non-fiction')) + '</span>' + bookTag(p.id) + '</div>' +
+          '</span><span>' + esc(L(meta.grade)) + '</span><span>' + esc(p.genre === 'story' ? T('이야기', 'Story') : T('지식 글', 'Non-fiction')) + '</span>' + bookTag(p) + '</div>' +
         '<p class="rl-hero-bg">🧠 ' + esc(L(p.bg)) + '</p></div>' +
       '<div class="rl-how"><h3>' + esc(T('이렇게 읽어요', 'How it works')) + '</h3><ol>' + steps.map(function (x, n) {
         return '<li class="' + (x[0] ? 'done' : '') + '"><span class="rl-hn">' + (x[0] ? ICON.check : n + 1) + '</span><b>' + esc(x[1]) + '</b><p>' + esc(x[2]) + '</p></li>';
       }).join('') + '</ol></div>' +
-      '<div class="rl-foot"><div class="rl-prog"><span class="rl-dots" role="img" aria-label="' + esc(T('완료 ' + st.done + ' / ' + st.total, 'Done ' + st.done + ' of ' + st.total)) + '">' +
+      '<div class="rl-foot"><div class="rl-prog"><span class="rl-dots' + (stageList.length > 12 ? ' rl-many' : '') + '" role="img" aria-label="' + esc(T('완료 ' + st.done + ' / ' + st.total, 'Done ' + st.done + ' of ' + st.total)) + '">' +
         stageList.map(function (q) { return '<i class="' + RLCore.statusOf(state.prog[q.id]) + '"></i>'; }).join('') + '</span>' +
         '<span>' + esc(T('완료 ' + st.done + ' / ' + st.total, 'Done ' + st.done + ' / ' + st.total)) + '</span></div>' +
         '<div class="rl-acts">' + stepBtn(-1, i <= 0, T('이전 글', 'Previous')) + stepBtn(1, i >= stageList.length - 1, T('다음 글', 'Next')) +
-          '<a class="rl-ghost" href="/story-' + esc(p.id) + '.html">🖼 ' + esc(T('그림책', 'Picture book')) + '</a>' +
+          (hasBook(p) ? '<a class="rl-ghost" href="/story-' + esc(p.id) + '.html">🖼 ' + esc(T('그림책', 'Picture book')) + '</a>' : '') +
           '<button type="button" class="rl-cta" data-act="open" data-id="' + esc(p.id) + '">' + ICON.play + esc(cta) + '</button></div></div>' +
       '</article>';
   }
@@ -381,10 +384,27 @@
     var stageList = PASSAGES.filter(function (p) { return p.stage === cur; });
     var shown = RLCore.browse(PASSAGES, cur, state.prog, filt);
     var active = RLCore.pickActive(PASSAGES, cur, state.prog, filt.sel);
+    // 목록이 길면(rl-long) 다시 그릴 때 칸 스크롤이 0으로 돌아가 «고른 글» 이 목록 밖으로 사라진다 —
+    // 같은 단계면 옛 위치를 되살리고, 고른 줄이 칸 밖이면 «칸 안에서만» 보이게 맞춘다(⛔ 페이지 스크롤은 안 건드림).
+    var oldList = root.querySelector('.rl-list');
+    var oldTop = (oldList && listStage === cur) ? (oldList.scrollTop || 0) : 0;
+    listStage = cur;
     root.innerHTML = '<div class="rl-app" style="--sc:' + meta.color + '">' + toolbarHtml(cur, stageList, shown.length) +
-      '<div class="rl-split"><div class="rl-list">' + (shown.length ? shown.map(function (p) { return itemHtml(p, stageList.indexOf(p) + 1, p === active); }).join('') :
+      '<div class="rl-split"><div class="rl-list' + (shown.length > 12 ? ' rl-long' : '') + '">' + (shown.length ? shown.map(function (p) { return itemHtml(p, stageList.indexOf(p) + 1, p === active); }).join('') :
         '<p class="rl-empty">' + esc(T('조건에 맞는 글이 없어요. 상태나 주제를 바꿔 보세요.', 'No texts match. Try another status or topic.')) + '</p>') + '</div>' +
       detailHtml(active, stageList) + '</div></div>';
+    keepListPlace(root.querySelector('.rl-list'), oldTop);
+  }
+
+  var listStage = null;   // 목록을 마지막으로 그린 단계 — 단계가 바뀌면 맨 위부터
+  function keepListPlace(list, top) {
+    if (!list || typeof list.getBoundingClientRect !== 'function') return;
+    list.scrollTop = top || 0;
+    var sel = list.querySelector && list.querySelector('.rl-item.sel');
+    if (!sel || typeof sel.getBoundingClientRect !== 'function' || list.scrollHeight <= list.clientHeight) return;
+    var lr = list.getBoundingClientRect(), sr = sel.getBoundingClientRect();
+    if (sr.top < lr.top) list.scrollTop += sr.top - lr.top;
+    else if (sr.bottom > lr.bottom) list.scrollTop += sr.bottom - lr.bottom;
   }
 
   /* ════ 읽기 + 3단계 ════ */
@@ -487,7 +507,7 @@
         '<h2 id="rlTitle">' + esc(p.title.en) + '</h2><p class="rl-sub">' + esc(p.title.ko) + ' · ' + esc(L(p.topic)) + ' · ' + RLCore.wordCount(p) + T('단어', ' words') + '</p>' +
         '<div class="rl-bg">🧠 <b>' + esc(T('배경지식', 'Background')) + '</b> ' + esc(L(p.bg)) + '</div>' +
         '<div class="rl-row">' + (canSpeak ? '<button type="button" class="rl-btn" data-act="speak">🔊 ' + esc(T('듣기', 'Listen')) + '</button>' : '') +
-          '<a class="rl-btn rl-primary" href="/story-' + esc(p.id) + '.html">🖼 ' + esc(T('그림 동화책으로 읽기 (도장 6개 +10P · 하루 2권까지)', 'Read as a picture book (6 stamps = +10P · up to 2 books a day)')) + '</a>' +
+          (hasBook(p) ? '<a class="rl-btn rl-primary" href="/story-' + esc(p.id) + '.html">🖼 ' + esc(T('그림 동화책으로 읽기 (도장 6개 +10P · 하루 2권까지)', 'Read as a picture book (6 stamps = +10P · up to 2 books a day)')) + '</a>' : '') +
           '<button type="button" class="rl-btn" data-act="ko" aria-pressed="' + view.showKo + '">🇰🇷 ' + esc(view.showKo ? T('해석 숨기기', 'Hide Korean') : T('해석 보기', 'Show Korean')) + '</button></div>' +
         passageHtml(p, !keyDone) + words +
       '</article>' + s1 + s2 + s3 + end;
