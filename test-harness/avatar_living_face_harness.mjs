@@ -308,10 +308,24 @@ advance(16); draws = []; frame();
 ok(eyeDraws().length === 0 && browLift() > 0, `눈썹을 올린 동안에는 깜빡임이 끼어들지 않는다`);
 ok(timers.some(t => t.fn.name === 'blink'), '끼어들지 못한 깜빡임은 버리지 않고 다시 예약한다');
 parkBlinks();
+// (v18, 2026-10-19) 사장님 「눈썹 조금 더 자연스럽게 내려오게」 — 내려오는 곡선이 «천천히 시작 · 가운데 빠름 · 살며시 착지» 인가.
+//   전에는 지수 감쇠라 «첫 프레임이 가장 많이» 떨어졌습니다(툭). 프레임마다 떨어진 양을 재어 가장 많이 떨어진 곳이
+//   처음·끝이 아니라 가운데인지, 처음·끝 걸음이 가장 큰 걸음의 절반보다 작은지 봅니다.
+const easeCheck = (vals, label) => {
+  // 마지막 «0 으로 끊기» 한 걸음은 뺀다 — 높이가 0.01 아래면 띠를 안 그리므로(drawEyes) 0.1px 안쪽에서 0 이 됩니다(눈에 안 보임).
+  let tail = vals.slice(); while (tail.length >= 2 && tail[tail.length - 1] === 0 && tail[tail.length - 2] === 0) tail.pop();
+  if (tail.length >= 2 && tail[tail.length - 1] === 0 && tail[tail.length - 2] <= 0.02 * D) tail.pop();
+  const steps = tail.slice(1).map((v, i) => tail[i] - v).filter(d => d > 1e-9);
+  const big = Math.max(...steps), at = steps.indexOf(big);
+  ok(steps.length >= 6 && steps[0] < 0.5 * big && steps[steps.length - 1] < 0.5 * big && at > 0 && at < steps.length - 1,
+    `${label}: 천천히 떨어지기 시작해 가운데서 가장 빠르고 살며시 내려앉는다 (걸음 ${steps.length}개 · 첫 ${steps[0] ? steps[0].toFixed(3) : '—'} · 가장 큰 ${Number.isFinite(big) ? big.toFixed(3) : '—'}(${at + 1}번째) · 끝 ${steps.length ? steps[steps.length - 1].toFixed(3) : '—'}px)`,
+    '지수 감쇠로 되돌리면 첫 걸음이 가장 큽니다 — 툭 떨어지는 느낌');
+};
 const down = talk(60);                         // 계속 크게 말하지만 새 강세는 없다 — 잠깐 뒤 내려앉는다
 const mid = down.filter(v => v > 0.05 * D && v < peak * 0.9);
 ok(mid.length >= 3, `내려올 때도 «뚝» 이 아니라 여러 프레임에 걸쳐 내려온다 (중간 높이 ${mid.length}프레임)`);
 ok(down[down.length - 1] === 0, `잠깐 뒤 눈썹을 다 내린다 (${down[down.length - 1]})`);
+{ const top = Math.max(...down), i0 = down.lastIndexOf(top); easeCheck(down.slice(i0), '말하는 도중(지키기가 끝난 뒤)'); }
 ok(ghost === 0, `올린 눈썹 그림을 반투명으로 겹쳐 그리지 않는다 (${ghost}번)`, '겹치면 중간 높이에서 «눈썹이 두 줄» 로 보입니다');
 // 조용히 말할 때는 올리지 않는다(짝)
 LEVEL = 128; const quiet = talk(200);
@@ -324,9 +338,22 @@ draws = []; a.paused = true; a.emit('pause');
 ok(draws.length >= 1, '말이 끝나면(pause) 얼굴을 다시 그린다');
 const settle = []; for (let i = 0; i < 60 && (settle.length === 0 || settle[settle.length - 1] > 0); i++) { T += 16; draws = []; frame(); settle.push(browLift()); }
 ok(settle.length >= 3 && settle[0] > 0 && settle[0] < browBefore, `말이 끝나면 «뚝» 이 아니라 짧게 내려앉는다 (${browBefore.toFixed(2)} → ${settle.map(v => v.toFixed(2)).slice(0, 4).join(' → ')}…px)`);
-ok(settle[settle.length - 1] === 0 && settle.length * 16 <= 640, `0.6초 안에 다 내려앉는다 (${settle.length * 16}ms)`);
+ok(settle[settle.length - 1] === 0 && settle.length * 16 <= 752, `0.75초 안에 다 내려앉는다 (${settle.length * 16}ms)`);
+easeCheck([browBefore, ...settle], '말이 끝난 뒤');
+ok(settle.length * 16 >= 448, `(v18) 서두르지 않고 천천히 내려온다 — 0.45초 이상 (${settle.length * 16}ms)`, '0.2~0.3초로 줄이면 다시 «툭» 에 가깝습니다');
 T += 2000; draws = []; frame();
 ok(pendingRaf.size === 0, '다 내려앉으면 따로 도는 그리기를 멈춘다(rAF 0개)');
+// (v18) 시계가 «뒤로» 가도(시간 동기화 등) 올라간 채 멈추지 않는다 — 내려오는 진행을 절대 시각으로 재므로,
+//   뒤로 가면 그 순간부터 다시 잽니다. ⚠️ 이 검사가 없으면 «p < 0 이면 0» 으로 되돌려도 아무도 모릅니다(함정 대조 실측).
+T += 5000; draws = []; a.paused = false; a.emit('playing'); LEVEL = 128; talk(90); LEVEL = 180; talk(14);
+ok(browLift() > 0.3 * D, '(전제) 다시 크게 말하자 눈썹이 올라갔다');
+draws = []; a.paused = true; a.emit('pause');
+for (let i = 0; i < 6; i++) { T += 16; draws = []; frame(); }
+T -= 10000;
+const back = []; for (let i = 0; i < 80 && (back.length === 0 || back[back.length - 1] > 0); i++) { T += 16; draws = []; frame(); back.push(browLift()); }
+ok(back[back.length - 1] === 0 && back.length * 16 <= 752, `시계가 10초 뒤로 가도 0.75초 안에 다 내려앉는다 (${back.length * 16}ms · 마지막 ${back[back.length - 1].toFixed(2)}px)`);
+T += 2000; draws = []; frame();
+ok(pendingRaf.size === 0, '시계가 뒤로 간 뒤에도 따로 도는 그리기를 멈춘다(rAF 0개)');
 // (v16, 2026-10-19) 사장님 「더 자주 올라가게」 — 강세마다 1~2초 간격으로 «매번» 올린다(전에는 1.4~4초·80%).
 //   0.128초씩 크게/작게 번갈아(강세 0.256초마다) 6초 말하게 하고, 눈썹이 «새로» 올라가기 시작한 횟수와 간격을 잰다.
 //   ⚠️ 강세를 «촘촘히» 주는 이유 — 0.5초 간격으로 주면 눈썹이 다음 강세 전에 못 내려와 0.6초 간격 변이를
@@ -376,6 +403,24 @@ if (reBlink) {
 }
 ok(liftAt < 0.1 * D, `다시 온 그 순간에는 눈썹이 이미 내려앉아 있다 (${Number.isFinite(liftAt) ? liftAt.toFixed(2) : '—'}px / 최대 ${D}px)`, '내려앉기 전에 다시 오면 또 미뤄질 뿐입니다');
 ok(sawEye, '다시 온 깜빡임이 실제로 눈을 그린다');
+// (v18) 가장 높이 올리고(난수 0 → 큰 강세 0.85) 재시도 여유가 가장 짧을 때(+0.12초)도 «완전히» 내려온 뒤 깜빡인다.
+//   ⚠️ 난수 0.5 만 보면 재시도 여유(+0.32초)가 내려오기 남은 시간을 늘 덮어 줘서, 깜빡임 미루기를 옛 «+0.45초» 로
+//      되돌려도 통과합니다(함정 대조 실측). 그러면 다 내려오기 전에 눈 그림이 덮어 눈썹이 «뚝» 내려갑니다.
+{
+  a.paused = true; a.emit('pause');
+  for (let i = 0; i < 60; i++) { advance(16); draws = []; frame(); }   // 앞의 깜빡임(눈 감기 단계)을 끝까지 돌려 눈을 뜬 상태로
+  R = 0; T += 3000; parkBlinks(); LEVEL = 128; draws = []; a.paused = false; a.emit('playing'); talk(90);
+  LEVEL = 180; talk(12);
+  ok(browLift() > 0.5 * D, `(전제) 난수 0 — 크게 올라갔다 (${browLift().toFixed(2)}px)`);
+  const b3 = timers.find(t => t.fn.name === 'blink'); if (b3) b3.at = T + 10;
+  advance(16); draws = []; frame();
+  const rb = timers.find(t => t.fn.name === 'blink');
+  let l0 = NaN;
+  if (rb) { while (T + 16 < rb.at) { advance(16); draws = []; frame(); } l0 = browLift(); }
+  R = 0.5;
+  ok(l0 === 0, `가장 높이·가장 빨리 다시 와도 그 순간 눈썹이 완전히 내려와 있다 (${Number.isFinite(l0) ? l0.toFixed(2) : '—'}px)`,
+    '깜빡임 미루기를 내려오기 시간보다 짧게 잡으면 눈 그림이 덜 내려온 눈썹을 덮습니다');
+}
 a.paused = true; a.emit('pause');
 for (let i = 0; i < 60; i++) { T += 16; draws = []; frame(); }
 canvasOn = false;

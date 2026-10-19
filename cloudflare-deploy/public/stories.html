@@ -157,6 +157,7 @@ html.rl-browse .foot{flex:none;margin:8px 0 0;font-size:12px}
 .rl-ghost{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:99px;background:var(--page);color:var(--ink);font:inherit;font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer;text-decoration:none}
 .rl-ghost:hover:not(:disabled){border-color:var(--line2)}
 .rl-ghost:disabled{opacity:.45;cursor:default}
+.rl-garr{display:none;font-size:20px;line-height:1}
 .rl-cta{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 22px;border:0;border-radius:99px;background:var(--sc-strong);color:#fff;font:inherit;font-size:14px;font-weight:800;white-space:nowrap;cursor:pointer}
 .rl-cta:hover{filter:brightness(1.08)}
 .rl-cta svg{width:12px;height:12px}
@@ -192,8 +193,22 @@ html.rl-browse .foot{flex:none;margin:8px 0 0;font-size:12px}
   .rl-detail{gap:6px}
   .rl-hero{padding:14px 18px;gap:6px}
   .rl-hero h2{font-size:clamp(20px,2.1vw,28px)}
+  .rl-how{gap:5px}
   .rl-how li{padding:8px 10px;gap:3px}
   .rl-how p{font-size:12px;line-height:1.35}
+}
+/* 좁은 창(821~1100, 한 장 고정)에서 줄이 접히지 않게(2026-10-19 실측 — EN 900×600 은 도구 줄 2줄 · 버튼 줄 3줄이라 칸이 넘쳤다):
+   ① 도구 줄: 계단 그림은 «단계» 드롭다운과 같은 일을 하므로 감춘다 · «단계»·«정렬» 이름표는 값만으로 뜻이 서므로 감춘다
+      (⛔ «주제»·«상태» 이름표는 남긴다 — 둘 다 값이 «전체» 라 이름이 없으면 무엇의 전체인지 모른다)
+      · «N / 12편» 숫자도 감춘다 — 거른 결과는 목록 줄 수로 보이고, 그것까지 두면 EN 2단계(그림 동화책 드롭다운)가 다시 두 줄이 된다
+   ② 이전·다음 글은 화살표만 — 글자는 화면에서만 감추고 낭독기 이름으로 남긴다(display:none 이면 글자 이름이 사라지고 title 한 겹에만 기댄다) */
+@media (min-width:821px) and (max-width:1100px) and (min-height:561px){
+  .rl-tb>.rl-stair{display:none}
+  .rl-dd-stage .rl-dd-lab,.rl-dd-sort .rl-dd-lab{display:none}
+  .rl-tb>.rl-count{display:none}
+  .rl-pn{position:relative;width:40px;padding:0;justify-content:center}
+  .rl-pn .rl-garr{display:inline}
+  .rl-pn .rl-gtx{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 }
 /* 좁고 낮은 창(예: 900~1100 × 600~719)에서는 3칸의 설명 줄을 접는다 — 단계 이름은 남고, 읽기 화면이 단계마다 다시 설명한다 */
 @media (min-width:821px) and (max-width:1100px) and (min-height:561px) and (max-height:719px){
@@ -359,6 +374,6 @@ html.rl-browse .foot{flex:none;margin:8px 0 0;font-size:12px}
 })();
 </script>
 <script src="/js/reading-ladder-data.js?v=1"></script>
-<script src="/js/reading-ladder.js?v=4"></script>
+<script src="/js/reading-ladder.js?v=5"></script>
 </body>
 </html>
