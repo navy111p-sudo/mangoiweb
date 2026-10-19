@@ -1,0 +1,81 @@
+# ⛔ 임시 — main 에 올리지 않습니다. A.i영화더빙 1편 클립 16개 분석(프레임·받아쓰기·길이).
+name: tmp dub001 analyze
+on:
+  push:
+    branches: [tmp/dub001-analyze-261020]
+permissions:
+  contents: write
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: tools
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+          pip install -q faster-whisper==1.0.3
+      - name: download
+        run: |
+          mkdir -p /tmp/c
+          B=https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k
+          cat > /tmp/list.txt <<'L'
+          01 hf_20261019_151211_f2ced3b5-a388-4554-bc6f-39e49e31bf4e
+          02 hf_20261019_151212_fb39992b-d7c3-42c2-bc86-f0aacbdd9820
+          03 hf_20261019_151244_81eae87a-9d33-4bc9-8609-90dcaaeeb268
+          04 hf_20261019_151211_f5e9872e-62d1-4438-be8c-8218eb4c055c
+          05 hf_20261019_151211_71a40801-4a36-4a88-898e-95fa8e2f7d83
+          06 hf_20261019_151211_e2625ee8-c365-4a5c-9324-b1a20a22ac2e
+          07 hf_20261019_154531_bbf32f7d-3de8-4926-bb5e-6a6c8768f271
+          08 hf_20261019_154532_e346b824-232b-43cf-a3fb-d18dd5e39ec3
+          09 hf_20261019_154531_dedf2934-86c0-4987-8ef2-ebd899064375
+          10 hf_20261019_154532_0a180db5-27a4-434b-becb-0051d3248b2e
+          11 hf_20261019_154532_80b8f287-a1e4-4ece-beca-6d15f48b4700
+          12 hf_20261019_154533_fc8b259a-c519-4950-9002-ea22c9997f39
+          13 hf_20261019_154546_c635f2c2-e4aa-45a1-8d7c-d52a48062247
+          14 hf_20261019_154546_3a5547a6-f810-4243-9da3-1ad03b8abdae
+          15 hf_20261019_154546_4d600697-835a-4dc8-bbee-83b61630154b
+          16 hf_20261019_154547_d2546004-00fe-45ab-8d31-0f20bc5e7d6a
+          L
+          sed -i 's/^ *//' /tmp/list.txt
+          printf '\n' >> /tmp/list.txt
+          n=0
+          while read -r N F; do
+            [ -z "$N" ] && continue
+            curl -sSfL --retry 3 -o /tmp/c/$N.mp4 "$B/$F.mp4" && n=$((n+1))
+          done < /tmp/list.txt
+          echo "downloaded $n"; ls -la /tmp/c
+      - name: frames + probe
+        run: |
+          mkdir -p analysis/sheets analysis/clip02
+          for f in /tmp/c/*.mp4; do
+            N=$(basename $f .mp4)
+            ffprobe -v error -show_entries format=duration,size:stream=codec_name,width,height,r_frame_rate -of json $f > analysis/probe-$N.json
+            ffmpeg -v error -y -i $f -vf "fps=1/2,scale=480:-2,tile=4x2" -frames:v 1 -q:v 4 analysis/sheets/sheet-$N.jpg
+          done
+          ffmpeg -v error -y -i /tmp/c/02.mp4 -vf fps=1 -q:v 2 analysis/clip02/f%02d.jpg
+      - name: transcribe
+        run: |
+          cat > /tmp/tr.py <<'PY'
+          import json, glob, os
+          from faster_whisper import WhisperModel
+          m = WhisperModel("medium", device="cpu", compute_type="int8")
+          out = {}
+          for f in sorted(glob.glob('/tmp/c/*.mp4')):
+              n = os.path.basename(f)[:2]
+              segs, info = m.transcribe(f, word_timestamps=True, vad_filter=False, beam_size=5)
+              out[n] = {"lang": info.language, "lang_p": round(info.language_probability, 3),
+                        "segments": [{"s": round(s.start, 2), "e": round(s.end, 2), "t": s.text.strip(),
+                                      "nsp": round(s.no_speech_prob, 3)} for s in segs]}
+              print(n, out[n]["lang"], [x["t"] for x in out[n]["segments"]])
+          json.dump(out, open('analysis/transcript.json', 'w'), ensure_ascii=False, indent=1)
+          PY
+          python3 /tmp/tr.py
+      - name: silence
+        run: |
+          for f in /tmp/c/*.mp4; do N=$(basename $f .mp4); echo "== $N"; ffmpeg -v info -i $f -af silencedetect=n=-35dB:d=0.4 -f null - 2>&1 | grep -oE 'silence_(start|end): [0-9.]+' | tr '\n' ' '; echo; done > analysis/silence.txt
+          du -sh analysis
+      - name: commit
+        run: |
+          git config user.name "dub-analyze-bot"; git config user.email "noreply@anthropic.com"
+          git add analysis && git commit -m "analysis: dub001 16 clips" && git push
