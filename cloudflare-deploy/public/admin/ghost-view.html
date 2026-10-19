@@ -342,6 +342,8 @@
     .btn-ghost { background:rgba(255,255,255,0.08); color:var(--text); border:1px solid rgba(255,255,255,0.18); }
     .btn-primary { background:linear-gradient(135deg,#8b5cf6,#7c3aed); color:#fff; }
     .btn-gold { background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a; }
+    /* 🚪 보이게 입장 — 참관(보라)과 색을 가른다. 관리자 화면 직접 입장(주황)과 같은 계열 */
+    .btn-enter { background:linear-gradient(135deg,#c2410c,#9a3412); color:#fff; }
     .btn-record { background:rgba(239,68,68,0.18); color:#fca5a5; border:1px solid rgba(239,68,68,0.45); }
     .btn-record.recording { background:linear-gradient(135deg,#ef4444,#b91c1c); color:#fff; border-color:transparent; animation:recPulse 1.2s infinite; }
     @keyframes recPulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.55)} 50%{box-shadow:0 0 0 6px rgba(239,68,68,0)} }
@@ -571,6 +573,7 @@
       <button class="btn-lang" onclick="window.toggleLang && window.toggleLang()">🌐 <span class="lang-label-sync">EN</span></button>
       <button class="btn btn-ghost" onclick="ghdRefresh()">🔄 <span data-ko="새로고침" data-en="Refresh">새로고침</span></button>
       <button class="btn btn-gold" onclick="ghdAiSummary()">🤖 <span data-ko="AI 요약" data-en="AI Summary">AI 요약</span></button>
+      <button type="button" id="ghd-join-visible" class="btn btn-enter" onclick="ghdJoinVisible()" data-ko-title="학생·강사에게 보이는 실제 참가자로 입장합니다 (카메라는 꺼진 채로 시작)" data-en-title="Join as a real participant — students and the teacher see you (camera starts off)" title="학생·강사에게 보이는 실제 참가자로 입장합니다 (카메라는 꺼진 채로 시작)">🚪 <span data-ko="보이게 입장" data-en="Join (visible)">보이게 입장</span></button>
       <button class="btn btn-emergency" onclick="ghdEmergency()" title="긴급 강제 종료">🚨 <span data-ko="긴급" data-en="Emergency">긴급</span></button>
       <button class="btn btn-end" onclick="ghdEndObservation()">⏹ <span data-ko="참관 종료" data-en="End">참관 종료</span></button>
     </div>
@@ -628,6 +631,10 @@
                장애로 읽히므로, 실제로 영상이 나오는 화면(/?observe=)으로 가는 문을 함께 둔다. -->
           <button type="button" id="ghd-open-live" class="btn btn-primary" style="margin-top:10px" onclick="ghdOpenLive()">🎥
             <span data-ko="라이브 화면 열기 (새 창)" data-en="Open live video (new tab)">라이브 화면 열기 (새 창)</span>
+          </button>
+          <!-- 🚪 (2026-10-20) 관찰 중에 «보이게» 들어가는 문 — 위 버튼(안 보이는 참관)과 짝으로 둔다. -->
+          <button type="button" id="ghd-join-visible-2" class="btn btn-enter" style="margin-top:8px" onclick="ghdJoinVisible()">🚪
+            <span data-ko="학생에게 보이게 입장 (새 창)" data-en="Join visibly (new tab)">학생에게 보이게 입장 (새 창)</span>
           </button>
         </div>
       </div>
@@ -1148,6 +1155,30 @@
       }
       ghdOpenTab(url);
     };
+    /* 🚪 (2026-10-20 매니저 질문 «is there an option where the manager can be seen during the observation?»)
+       참관은 «투명 유령»(학생·강사에게 안 보임)이라 그 상태로는 보이게 바꿀 수 없다 — 보이려면
+       «실제 참가자» 로 새로 들어가야 한다. 관리자 화면의 직접 입장(adm-today-classes.js tcEnterClass ·
+       adm-s1.js ghEnterRoom)·매니저 화면 taJoin 과 같은 주소·같은 확인이다.
+       카메라는 꺼진 채로 시작한다(vc-observe-guard.js 가 &vc_cam=off 를 처리).
+       ⛔ 지금 주소(?room_id=…)를 물려받지 말고 필요한 파라미터만 조립한다(CLAUDE.md 2장).
+       ⚠️ 라이브 참관 창(/?observe=)을 열어 둔 채 들어가면 그 창이 내 목소리까지 다시 틀어
+          스피커 → 마이크로 울린다 — 그래서 확인창이 «먼저 닫으라» 고 말한다. */
+    window.ghdJoinVisible = function (room) {
+      room = room || roomId;
+      if (!room) return;
+      var en = ghdEn();
+      var msg = en
+        ? ('Join class "' + room + '" as a participant?\n\n'
+          + '· NOT observation — students and the teacher see and hear you.\n'
+          + '· Camera starts OFF ([Camera] button turns it on).\n'
+          + '· If a live observation tab is open, close it first (the sound would echo).')
+        : ('수업 "' + room + '" 에 보이게 입장할까요?\n\n'
+          + '· 참관이 아니라 실제 참가자입니다 — 학생·강사가 보고 듣습니다.\n'
+          + '· 카메라는 꺼진 채로 입장합니다([카메라] 버튼으로 켜기).\n'
+          + '· 라이브 관찰 창을 열어 두었다면 먼저 닫아 주세요(소리가 울립니다).');
+      if (!confirm(msg)) return;
+      ghdOpenTab(location.origin + '/?vc_autojoin=1&vc_cam=off&vc_role=teacher&vc_room=' + encodeURIComponent(room));
+    };
     /* 고른 수업으로 이동. mode='live' 면 실제 영상 화면, 아니면 이 화면(메타·채팅·참가자).
        ⚠️ 어느 쪽이든 참관 기록을 먼저 남긴다 — 학생 사생활 정책상 참관은 모두 남아야 한다.
           기록이 실패해도 이동은 막지 않는다(실제 영상 화면은 그 대신 observe-denied 로 거절된다). */
@@ -1177,7 +1208,11 @@
         + (en ? 'Live video' : '라이브 화면') + '</button>'
         + '<button type="button" class="btn btn-ghost" style="font-size:11.5px;padding:5px 10px"'
         + ' onclick="ghdPick(this.dataset.room,\'meta\')" data-room="' + ra + '">👁 '
-        + (en ? 'Chat / members' : '채팅·참가자') + '</button>';
+        + (en ? 'Chat / members' : '채팅·참가자') + '</button>'
+        /* 🚪 (2026-10-20) 고르는 자리에서도 «보이게» 들어갈 수 있게 — 위 ghdJoinVisible 과 같은 확인 */
+        + '<button type="button" class="btn btn-enter" style="font-size:11.5px;padding:5px 10px;margin-left:5px"'
+        + ' onclick="ghdJoinVisible(this.dataset.room)" data-room="' + ra + '">🚪 '
+        + (en ? 'Join (visible)' : '보이게 입장') + '</button>';
     }
     function ghdPickRow(inner) {
       return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 4px;'
@@ -1304,7 +1339,7 @@
          ⚠️ 작성자 CSS 의 .btn 에는 !important 가 없어 인라인 display 로 이긴다.
             [hidden] 은 쓰지 않는다 — 작성자 CSS 가 display 를 정하면 그것이 이긴다(CLAUDE.md 2장). */
       try {
-        document.querySelectorAll('.header-actions .btn-record, .header-actions .btn-gold, .header-actions .btn-emergency, .header-actions .btn-end')
+        document.querySelectorAll('.header-actions .btn-record, .header-actions .btn-gold, .header-actions .btn-enter, .header-actions .btn-emergency, .header-actions .btn-end')
           .forEach(function (b) { b.style.display = 'none'; });
       } catch (e) { /* 무시 */ }
       var rm = document.getElementById('ghd-room');
