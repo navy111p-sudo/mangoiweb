@@ -420,7 +420,7 @@ var StoryCore = (function(){
   function stop(){ try { if (synth) synth.cancel(); } catch(e){} playing = false; sumSeq = (sumSeq || 0) + 1; try { spans.forEach(function(s){ s.classList.remove('reading'); }); } catch(e){} }
 
   // ---- story ----
-  var SCENES = {"1":["img/story/s4-37-s1.webp","Tiny droplets spraying from a sneeze"],"3":["img/story/s4-37-s3.webp","Children washing their hands with soap"]};
+  var SCENES = {"1":["img/story/s4-37-s1.webp?v=2","A boy sneezing into his elbow so germs do not spread"],"3":["img/story/s4-37-s3.webp","Children washing their hands with soap"]};
   var box = document.getElementById('text'), spans = [], picking = false, playing = false;
   STORY.forEach(function(par, pi){
     if (SCENES[pi]) { var f = document.createElement('figure'); f.className = 'scene'; f.innerHTML = '<img loading="lazy" width="1024" height="688" alt="' + SCENES[pi][1] + '" src="' + SCENES[pi][0] + '">'; box.appendChild(f); }
