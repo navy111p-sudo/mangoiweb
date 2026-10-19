@@ -1,0 +1,80 @@
+{
+  "episode": "dub-001",
+  "_readme": [
+    "이 파일이 «검수·배포 상태표» 입니다. 화면(/ai-dubbing.html)은 여기서 qaApproved 가 true 이고 영상·배경음·캐릭터 음성이 모두 «/…» 경로로 적힌 장면만 엽니다.",
+    "고친 뒤에는 node scripts/build-dub-manifest.mjs dub-001 을 돌려 cloudflare-deploy/public/data/dubbing/dub-001.json 을 다시 만드세요(안 돌리면 test-harness/dubbing_episode_harness.mjs 가 FAIL).",
+    "⛔ http·https 주소(생성 서비스 주소)는 적지 마세요 — 빌드가 거절합니다. 우리 저장소·CDN 으로 옮긴 뒤 «/…» 경로로 적습니다.",
+    "linesSynced 는 «대사 시작·끝 시각을 실제 영상·입 모양에 맞춰 확정했다» 는 표시입니다. 지금 시각은 6장면 x 40초 기준 초안입니다."
+  ],
+  "qaApproved": false,
+  "approvedBy": null,
+  "approvedAt": null,
+  "scenes": [
+    {
+      "no": 1,
+      "qaApproved": false,
+      "linesSynced": false,
+      "sourceClips": [],
+      "durationSec": null,
+      "video": null,
+      "thumb": null,
+      "bgm": null,
+      "voices": {}
+    },
+    {
+      "no": 2,
+      "qaApproved": false,
+      "linesSynced": false,
+      "sourceClips": [],
+      "durationSec": null,
+      "video": null,
+      "thumb": null,
+      "bgm": null,
+      "voices": {}
+    },
+    {
+      "no": 3,
+      "qaApproved": false,
+      "linesSynced": false,
+      "sourceClips": [],
+      "durationSec": null,
+      "video": null,
+      "thumb": null,
+      "bgm": null,
+      "voices": {}
+    },
+    {
+      "no": 4,
+      "qaApproved": false,
+      "linesSynced": false,
+      "sourceClips": [],
+      "durationSec": null,
+      "video": null,
+      "thumb": null,
+      "bgm": null,
+      "voices": {}
+    },
+    {
+      "no": 5,
+      "qaApproved": false,
+      "linesSynced": false,
+      "sourceClips": [],
+      "durationSec": null,
+      "video": null,
+      "thumb": null,
+      "bgm": null,
+      "voices": {}
+    },
+    {
+      "no": 6,
+      "qaApproved": false,
+      "linesSynced": false,
+      "sourceClips": [],
+      "durationSec": null,
+      "video": null,
+      "thumb": null,
+      "bgm": null,
+      "voices": {}
+    }
+  ]
+}

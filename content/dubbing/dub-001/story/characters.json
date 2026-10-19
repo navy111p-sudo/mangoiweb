@@ -1,0 +1,38 @@
+{
+  "dino": {
+    "id": "dino",
+    "name": {
+      "en": "Dino",
+      "ko": "디노"
+    },
+    "visual": "Friendly baby green T-rex, amber eyes, blue backpack",
+    "voice": "Young expressive cheerful American English voice"
+  },
+  "mina": {
+    "id": "mina",
+    "name": {
+      "en": "Mina",
+      "ko": "미나"
+    },
+    "visual": "Korean schoolgirl with two ponytails and mint sweater",
+    "voice": "Warm confident American English childlike voice"
+  },
+  "leo": {
+    "id": "leo",
+    "name": {
+      "en": "Leo",
+      "ko": "레오"
+    },
+    "visual": "Korean schoolboy short brown hair yellow hoodie",
+    "voice": "Playful energetic American English childlike voice"
+  },
+  "robo": {
+    "id": "robo",
+    "name": {
+      "en": "Robo",
+      "ko": "로보"
+    },
+    "visual": "Small round white and orange helper robot with teal eyes",
+    "voice": "Gentle clear American English robotic voice"
+  }
+}

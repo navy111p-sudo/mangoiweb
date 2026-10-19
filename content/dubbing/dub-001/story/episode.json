@@ -1,0 +1,493 @@
+{
+  "id": "dub-001",
+  "title": {
+    "en": "Dino Comes to School",
+    "ko": "공룡이 우리 반에 전학 왔다!"
+  },
+  "level": 1,
+  "poster": "poster.webp",
+  "playable": [
+    "dino",
+    "mina"
+  ],
+  "scenes": [
+    {
+      "no": 1,
+      "label": {
+        "en": "A New Student",
+        "ko": "새 전학생"
+      },
+      "arc": "ki",
+      "durationSec": 40,
+      "video": "scene-1/video.mp4",
+      "preview": "scene-1/preview.mp4",
+      "thumb": "scene-1/thumb.webp",
+      "bgm": "scene-1/bgm.wav",
+      "voices": {
+        "dino": "scene-1/voice-dino.wav",
+        "leo": "scene-1/voice-leo.wav",
+        "mina": "scene-1/voice-mina.wav"
+      },
+      "lines": [
+        {
+          "id": "s1-l1",
+          "speaker": "mina",
+          "en": "Who is at the door?",
+          "ko": "문 앞에 누구지?",
+          "start": 3,
+          "end": 7.8,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s1-l2",
+          "speaker": "leo",
+          "en": "Wow! A little dinosaur!",
+          "ko": "와! 작은 공룡이야!",
+          "start": 9,
+          "end": 13.8,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s1-l3",
+          "speaker": "dino",
+          "en": "Hi! My name is Dino.",
+          "ko": "안녕! 내 이름은 디노야.",
+          "start": 15,
+          "end": 19.8,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s1-l4",
+          "speaker": "mina",
+          "en": "Welcome to our class, Dino!",
+          "ko": "우리 반에 온 걸 환영해, 디노!",
+          "start": 21,
+          "end": 25.8,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s1-l5",
+          "speaker": "dino",
+          "en": "Can I sit here?",
+          "ko": "여기 앉아도 돼?",
+          "start": 27,
+          "end": 31.8,
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s1-l6",
+          "speaker": "leo",
+          "en": "Yes! Sit next to me.",
+          "ko": "응! 내 옆에 앉아.",
+          "start": 33,
+          "end": 37.8,
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 2,
+      "label": {
+        "en": "The Funny Sneeze",
+        "ko": "우당탕 재채기"
+      },
+      "arc": "seung",
+      "durationSec": 40,
+      "video": "scene-2/video.mp4",
+      "preview": "scene-2/preview.mp4",
+      "thumb": "scene-2/thumb.webp",
+      "bgm": "scene-2/bgm.wav",
+      "voices": {
+        "dino": "scene-2/voice-dino.wav",
+        "leo": "scene-2/voice-leo.wav",
+        "mina": "scene-2/voice-mina.wav"
+      },
+      "lines": [
+        {
+          "id": "s2-l1",
+          "speaker": "leo",
+          "en": "Do you like our school?",
+          "ko": "우리 학교 마음에 들어?",
+          "start": 3,
+          "end": 7.8,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s2-l2",
+          "speaker": "dino",
+          "en": "Yes! But my nose feels funny.",
+          "ko": "응! 그런데 코가 간질간질해.",
+          "start": 9,
+          "end": 13.8,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s2-l3",
+          "speaker": "mina",
+          "en": "Oh no! Are you okay?",
+          "ko": "어머! 괜찮아?",
+          "start": 15,
+          "end": 19.8,
+          "emotion": "scared",
+          "scored": true
+        },
+        {
+          "id": "s2-l4",
+          "speaker": "dino",
+          "en": "I think I will sneeze!",
+          "ko": "나 재채기할 것 같아!",
+          "start": 21,
+          "end": 25.8,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s2-l5",
+          "speaker": "leo",
+          "en": "Look! The books are flying!",
+          "ko": "봐! 책들이 날아가!",
+          "start": 27,
+          "end": 31.8,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s2-l6",
+          "speaker": "mina",
+          "en": "Everybody, catch the books!",
+          "ko": "모두 책을 잡아!",
+          "start": 33,
+          "end": 37.8,
+          "emotion": "surprised",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 3,
+      "label": {
+        "en": "A Door in Time",
+        "ko": "시간의 문"
+      },
+      "arc": "seung",
+      "durationSec": 40,
+      "video": "scene-3/video.mp4",
+      "preview": "scene-3/preview.mp4",
+      "thumb": "scene-3/thumb.webp",
+      "bgm": "scene-3/bgm.wav",
+      "voices": {
+        "dino": "scene-3/voice-dino.wav",
+        "leo": "scene-3/voice-leo.wav",
+        "mina": "scene-3/voice-mina.wav"
+      },
+      "lines": [
+        {
+          "id": "s3-l1",
+          "speaker": "mina",
+          "en": "What is that bright light?",
+          "ko": "저 밝은 빛은 뭐지?",
+          "start": 3,
+          "end": 7.8,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s3-l2",
+          "speaker": "dino",
+          "en": "I see a strange blue light!",
+          "ko": "이상한 파란 빛이 보여!",
+          "start": 9,
+          "end": 13.8,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s3-l3",
+          "speaker": "leo",
+          "en": "Is it safe to go near?",
+          "ko": "가까이 가도 안전해?",
+          "start": 15,
+          "end": 19.8,
+          "emotion": "scared",
+          "scored": true
+        },
+        {
+          "id": "s3-l4",
+          "speaker": "dino",
+          "en": "My family may be there!",
+          "ko": "우리 가족이 저기 있을지도 몰라!",
+          "start": 21,
+          "end": 25.8,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s3-l5",
+          "speaker": "mina",
+          "en": "Wait! We need a plan.",
+          "ko": "잠깐! 계획이 필요해.",
+          "start": 27,
+          "end": 31.8,
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s3-l6",
+          "speaker": "dino",
+          "en": "Let us find my family!",
+          "ko": "우리 가족을 찾아보자!",
+          "start": 33,
+          "end": 37.8,
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 4,
+      "label": {
+        "en": "The Giant Shadow",
+        "ko": "커다란 그림자의 비밀"
+      },
+      "arc": "jeon",
+      "durationSec": 40,
+      "video": "scene-4/video.mp4",
+      "preview": "scene-4/preview.mp4",
+      "thumb": "scene-4/thumb.webp",
+      "bgm": "scene-4/bgm.wav",
+      "voices": {
+        "dino": "scene-4/voice-dino.wav",
+        "mina": "scene-4/voice-mina.wav"
+      },
+      "lines": [
+        {
+          "id": "s4-l1",
+          "speaker": "mina",
+          "en": "A giant dinosaur is coming!",
+          "ko": "거대한 공룡이 오고 있어!",
+          "start": 3,
+          "end": 7.8,
+          "emotion": "scared",
+          "scored": true
+        },
+        {
+          "id": "s4-l2",
+          "speaker": "dino",
+          "en": "Wait! I know that sound!",
+          "ko": "잠깐! 저 소리 알아!",
+          "start": 9,
+          "end": 13.8,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s4-l3",
+          "speaker": "mina",
+          "en": "Is it a scary monster?",
+          "ko": "무서운 괴물이야?",
+          "start": 15,
+          "end": 19.8,
+          "emotion": "scared",
+          "scored": true
+        },
+        {
+          "id": "s4-l4",
+          "speaker": "dino",
+          "en": "No! That is my mom!",
+          "ko": "아니! 우리 엄마야!",
+          "start": 21,
+          "end": 25.8,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s4-l5",
+          "speaker": "dino",
+          "en": "My mom is really big!",
+          "ko": "우리 엄마는 정말 커!",
+          "start": 27,
+          "end": 31.8,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s4-l6",
+          "speaker": "mina",
+          "en": "She looks worried about you.",
+          "ko": "널 걱정하시는 것 같아.",
+          "start": 33,
+          "end": 37.8,
+          "emotion": "sad",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 5,
+      "label": {
+        "en": "The Brave Goodbye",
+        "ko": "용감한 작별 인사"
+      },
+      "arc": "jeon",
+      "durationSec": 40,
+      "video": "scene-5/video.mp4",
+      "preview": "scene-5/preview.mp4",
+      "thumb": "scene-5/thumb.webp",
+      "bgm": "scene-5/bgm.wav",
+      "voices": {
+        "dino": "scene-5/voice-dino.wav",
+        "mina": "scene-5/voice-mina.wav"
+      },
+      "lines": [
+        {
+          "id": "s5-l1",
+          "speaker": "mina",
+          "en": "Dino, your mom is waiting.",
+          "ko": "디노, 엄마가 기다리셔.",
+          "start": 3,
+          "end": 7.8,
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s5-l2",
+          "speaker": "dino",
+          "en": "But I love my new friends.",
+          "ko": "하지만 새 친구들이 좋아.",
+          "start": 9,
+          "end": 13.8,
+          "emotion": "sad",
+          "scored": true
+        },
+        {
+          "id": "s5-l3",
+          "speaker": "mina",
+          "en": "We can visit you again!",
+          "ko": "우리가 다시 만나러 갈게!",
+          "start": 15,
+          "end": 19.8,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s5-l4",
+          "speaker": "dino",
+          "en": "The time door is closing!",
+          "ko": "시간의 문이 닫히고 있어!",
+          "start": 21,
+          "end": 25.8,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s5-l5",
+          "speaker": "dino",
+          "en": "Thank you, my dear friends!",
+          "ko": "고마워, 소중한 친구들아!",
+          "start": 27,
+          "end": 31.8,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s5-l6",
+          "speaker": "mina",
+          "en": "Goodbye, Dino! See you soon!",
+          "ko": "잘 가, 디노! 또 만나!",
+          "start": 33,
+          "end": 37.8,
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 6,
+      "label": {
+        "en": "One More Surprise",
+        "ko": "마지막 깜짝 선물"
+      },
+      "arc": "gyeol",
+      "durationSec": 40,
+      "video": "scene-6/video.mp4",
+      "preview": "scene-6/preview.mp4",
+      "thumb": "scene-6/thumb.webp",
+      "bgm": "scene-6/bgm.wav",
+      "voices": {
+        "dino": "scene-6/voice-dino.wav",
+        "leo": "scene-6/voice-leo.wav",
+        "mina": "scene-6/voice-mina.wav"
+      },
+      "lines": [
+        {
+          "id": "s6-l1",
+          "speaker": "dino",
+          "en": "I have a surprise for you!",
+          "ko": "너희에게 깜짝 선물이 있어!",
+          "start": 3,
+          "end": 7.8,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s6-l2",
+          "speaker": "mina",
+          "en": "I miss our funny friend.",
+          "ko": "우리 재미있는 친구가 보고 싶어.",
+          "start": 9,
+          "end": 13.8,
+          "emotion": "sad",
+          "scored": true
+        },
+        {
+          "id": "s6-l3",
+          "speaker": "mina",
+          "en": "Look! I got a message!",
+          "ko": "봐! 메시지가 왔어!",
+          "start": 15,
+          "end": 19.8,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s6-l4",
+          "speaker": "dino",
+          "en": "Hello! I am back again!",
+          "ko": "안녕! 나 다시 왔어!",
+          "start": 21,
+          "end": 25.8,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s6-l5",
+          "speaker": "leo",
+          "en": "Dino! What is in your bag?",
+          "ko": "디노! 가방 안에 뭐가 있어?",
+          "start": 27,
+          "end": 31.8,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s6-l6",
+          "speaker": "dino",
+          "en": "My baby sister! Say hello!",
+          "ko": "내 여동생이야! 인사해!",
+          "start": 33,
+          "end": 37.8,
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    }
+  ]
+}

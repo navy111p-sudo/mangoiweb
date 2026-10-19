@@ -1,0 +1,446 @@
+{
+  "episode": "dub-001",
+  "measuredAt": "2026-10-20",
+  "measuredBy": "Claude (ffprobe·ffmpeg volumedetect·faster-whisper small/large-v3, 2초 간격 8프레임 눈 검토)",
+  "notes": [
+    "전부 1280x720·24fps·15.04초·AAC 스테레오 소리 포함 — 무음 영상이 아니다.",
+    "asr* 칸은 기계 받아쓰기 추정이다. 두 모델 결과가 서로 다를 수 있고, 사람이 들어 확인해야 확정이다.",
+    "lookedLike 은 2초 간격 8프레임을 눈으로 본 요약이다(영상 전체를 본 것이 아니다).",
+    "assignedScene 은 아직 아무도 정하지 않았다(null). 6장면 x 40초 대본과 15초 클립 16개의 대응은 사람이 정할 일이다.",
+    "sourceUrl 은 생성 서비스 주소라 영구 보관이 아니다 — 화면에서는 쓰지 않는다(우리 저장소로 옮긴 뒤 release.json 에 /… 경로로 적는다)."
+  ],
+  "clips": [
+    {
+      "clip": 1,
+      "batch": "first-6",
+      "jobId": null,
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151211_f2ced3b5-a388-4554-bc6f-39e49e31bf4e.mp4",
+      "bytes": 13397800,
+      "md5": "bb73411a92e32c177924ab0f95fca713",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -32.4,
+        "asrSmall": [
+          "가위바위보 (ko)"
+        ],
+        "asrLargeV3": [
+          "다이바 (ko)"
+        ]
+      },
+      "lookedLike": "교실 문으로 디노(초록·주황 가시·파란 가방) 등장 → 파란 후드 남자아이·겨자색 옷 여자아이가 손 흔들며 웃음",
+      "assignedScene": null,
+      "qa": "pending"
+    },
+    {
+      "clip": 2,
+      "batch": "first-6",
+      "jobId": null,
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151212_fb39992b-d7c3-42c2-bc86-f0aacbdd9820.mp4",
+      "bytes": 13223532,
+      "md5": "1a121a1789c6b2cc5b05251b9ef5ade3",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -29.0,
+        "asrSmall": [],
+        "asrLargeV3": [
+          "What is that?"
+        ]
+      },
+      "lookedLike": "칠판에 파란 빛 → 둥근 포털이 열리고 공책이 날아감. 아이 둘과 디노가 놀람(디노·아이들 생김새가 1번과 다름)",
+      "assignedScene": null,
+      "qa": "pending"
+    },
+    {
+      "clip": 3,
+      "batch": "first-6",
+      "jobId": null,
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151244_81eae87a-9d33-4bc9-8609-90dcaaeeb268.mp4",
+      "bytes": 19668167,
+      "md5": "dc27fc27c62106e8c450ba999a4f49f3",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -26.4,
+        "asrSmall": [
+          "I",
+          "Wait, oh"
+        ],
+        "asrLargeV3": [
+          "Wait.",
+          "Oh."
+        ]
+      },
+      "lookedLike": "포털 앞 아이 둘 + 아주 작은 디노 → 정글로 이동 → 아기 트리케라톱스와 만남",
+      "assignedScene": null,
+      "qa": "pending"
+    },
+    {
+      "clip": 4,
+      "batch": "first-6",
+      "jobId": null,
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151211_f5e9872e-62d1-4438-be8c-8218eb4c055c.mp4",
+      "bytes": 11964007,
+      "md5": "b2a7fac834acac24d8bdb1e91e300cb4",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -24.4,
+        "asrSmall": [],
+        "asrLargeV3": []
+      },
+      "lookedLike": "폭포 앞 정글. 아기 트리케라톱스 → 큰 갈색 공룡(코에 나비)이 다가옴",
+      "assignedScene": null,
+      "qa": "pending"
+    },
+    {
+      "clip": 5,
+      "batch": "first-6",
+      "jobId": null,
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151211_71a40801-4a36-4a88-898e-95fa8e2f7d83.mp4",
+      "bytes": 22907896,
+      "md5": "479b3e5176c37563edef4ff4fe26ee00",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -29.8,
+        "asrSmall": [],
+        "asrLargeV3": [
+          "Er, ti, a, o, ho, e, u, u, u, u, e."
+        ]
+      },
+      "lookedLike": "냇가 징검돌에서 디노·아기 트리케라톱스와 놀기 → 큰 트리케라톱스 등장",
+      "assignedScene": null,
+      "qa": "pending"
+    },
+    {
+      "clip": 6,
+      "batch": "first-6",
+      "jobId": null,
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151211_e2625ee8-c365-4a5c-9324-b1a20a22ac2e.mp4",
+      "bytes": 16450125,
+      "md5": "0b385681b49f72d4b427c6e840f88417",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -25.3,
+        "asrSmall": [
+          "Why don't Sam Joon-laur here?",
+          "Yeah!",
+          "No, oh, oh.",
+          "Ha ha ha ha!"
+        ],
+        "asrLargeV3": [
+          "What are you, Sam June Laura here?"
+        ]
+      },
+      "lookedLike": "파란 포털로 교실 복귀·하이파이브 → 정장 차림 남자 선생님이 무지개색 알을 들고 들어옴",
+      "assignedScene": null,
+      "qa": "pending"
+    },
+    {
+      "clip": 7,
+      "batch": "extension-10",
+      "jobId": "bbf32f7d-3de8-4926-bb5e-6a6c8768f271",
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_154531_bbf32f7d-3de8-4926-bb5e-6a6c8768f271.mp4",
+      "bytes": 10458061,
+      "md5": "98f4c759a3ca2bc86a50bc93495e73d7",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -28.8,
+        "asrSmall": [
+          "Come sit with us."
+        ]
+      },
+      "lookedLike": "교실 자리 — 디노가 남자아이 옆에 앉고 여자아이가 손 흔듦",
+      "assignedScene": null,
+      "qa": "pending"
+    },
+    {
+      "clip": 8,
+      "batch": "extension-10",
+      "jobId": "e346b824-232b-43cf-a3fb-d18dd5e39ec3",
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_154532_e346b824-232b-43cf-a3fb-d18dd5e39ec3.mp4",
+      "bytes": 13272389,
+      "md5": "a3a62b6723f8a68091690a088d270c27",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -38.1,
+        "asrSmall": [
+          "Huh? What is this?"
+        ]
+      },
+      "lookedLike": "책상 위 작은 디노(가방) → 손에 든 빛나는 원판에서 빛이 터짐",
+      "assignedScene": null,
+      "qa": "pending"
+    },
+    {
+      "clip": 9,
+      "batch": "extension-10",
+      "jobId": "dedf2934-86c0-4987-8ef2-ebd899064375",
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_154531_dedf2934-86c0-4987-8ef2-ebd899064375.mp4",
+      "bytes": 13160622,
+      "md5": "3bda5ed200faeb89e95c3ee20a3c4504",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -25.2,
+        "asrSmall": []
+      },
+      "lookedLike": "빛나는 지구본, 책이 날아다님, 아이들 손 잡기 → 주황색 포털",
+      "assignedScene": null,
+      "qa": "pending"
+    },
+    {
+      "clip": 10,
+      "batch": "extension-10",
+      "jobId": "0a180db5-27a4-434b-becb-0051d3248b2e",
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_154532_0a180db5-27a4-434b-becb-0051d3248b2e.mp4",
+      "bytes": 18995276,
+      "md5": "6a420039aaabf715bb490ea9b3ef14f3",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -40.0,
+        "asrSmall": [
+          "Look here!",
+          "I see them!"
+        ]
+      },
+      "lookedLike": "정글 발자국 따라가기, 쌍안경 든 남자아이·메모장 든 여자아이",
+      "assignedScene": null,
+      "qa": "pending"
+    },
+    {
+      "clip": 11,
+      "batch": "extension-10",
+      "jobId": "80b8f287-a1e4-4ece-beca-6d15f48b4700",
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_154532_80b8f287-a1e4-4ece-beca-6d15f48b4700.mp4",
+      "bytes": 19598219,
+      "md5": "9013010bc51420cd9768ddbefebe2929",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -37.6,
+        "asrSmall": [
+          "Here, have a snack. It's okay now."
+        ]
+      },
+      "lookedLike": "수풀에서 아기 트리케라톱스 발견, 함께 쓰다듬기",
+      "assignedScene": null,
+      "qa": "pending"
+    },
+    {
+      "clip": 12,
+      "batch": "extension-10",
+      "jobId": "fc8b259a-c519-4950-9002-ea22c9997f39",
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_154533_fc8b259a-c519-4950-9002-ea22c9997f39.mp4",
+      "bytes": 19773338,
+      "md5": "f8d40d6415986f1c2081ee8bbb0c7e23",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -34.2,
+        "asrSmall": [
+          "Oh",
+          "Help me we can help you let's go find it"
+        ]
+      },
+      "lookedLike": "화산·호수가 보이는 물가 — 뒷모습으로 대화",
+      "assignedScene": null,
+      "qa": "pending"
+    },
+    {
+      "clip": 13,
+      "batch": "extension-10",
+      "jobId": "c635f2c2-e4aa-45a1-8d7c-d52a48062247",
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_154546_c635f2c2-e4aa-45a1-8d7c-d52a48062247.mp4",
+      "bytes": 21977863,
+      "md5": "75525e9a9db1750576a738507de4c084",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -29.1,
+        "asrSmall": [
+          "이거 괜찮아 (ko)",
+          "내가 좀 미끄러졌다 (ko)",
+          "괜찮아 다 왔어 (ko)"
+        ]
+      },
+      "lookedLike": "냇가 징검돌 건너기(5번과 비슷한 장면)",
+      "assignedScene": null,
+      "qa": "pending"
+    },
+    {
+      "clip": 14,
+      "batch": "extension-10",
+      "jobId": "3a5547a6-f810-4243-9da3-1ad03b8abdae",
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_154546_3a5547a6-f810-4243-9da3-1ad03b8abdae.mp4",
+      "bytes": 18305553,
+      "md5": "7d08949d4aa63889fe322ddddd845ce6",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -31.6,
+        "asrSmall": []
+      },
+      "lookedLike": "트리케라톱스 가족과 길 걷기 → 큰 브라키오사우루스 머리",
+      "assignedScene": null,
+      "qa": "pending"
+    },
+    {
+      "clip": 15,
+      "batch": "extension-10",
+      "jobId": "4d600697-835a-4dc8-bbee-83b61630154b",
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_154546_4d600697-835a-4dc8-bbee-83b61630154b.mp4",
+      "bytes": 16430070,
+      "md5": "a67223e64b2928438a5e501ef947759f",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -24.1,
+        "asrSmall": [
+          "아, 진짜. (ko)"
+        ]
+      },
+      "lookedLike": "아기 트리케라톱스가 큰 트리케라톱스에게 달려감, 아이들 박수",
+      "assignedScene": null,
+      "qa": "pending"
+    },
+    {
+      "clip": 16,
+      "batch": "extension-10",
+      "jobId": "d2546004-00fe-45ab-8d31-0f20bc5e7d6a",
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_154547_d2546004-00fe-45ab-8d31-0f20bc5e7d6a.mp4",
+      "bytes": 16340484,
+      "md5": "115f52fe3ac88e9bc0a407fd9ef5e0d0",
+      "durationSec": 15.042,
+      "video": {
+        "codec": "h264",
+        "width": 1280,
+        "height": 720,
+        "fps": "24/1"
+      },
+      "embeddedAudio": {
+        "present": true,
+        "codec": "aac",
+        "meanVolumeDb": -27.3,
+        "asrSmall": [
+          "Yeah!",
+          "Look at this little surprise!"
+        ]
+      },
+      "lookedLike": "파란 포털로 교실 복귀 → 선생님이 알을 들고 옴(6번과 비슷한 장면)",
+      "assignedScene": null,
+      "qa": "pending"
+    }
+  ]
+}

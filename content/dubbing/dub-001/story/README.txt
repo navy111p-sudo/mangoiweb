@@ -1,0 +1,1 @@
+mangoi.ai dub-001 PREPRODUCTION ONLY. Includes episode.json, characters.json, STORYBOARD.md. No video/audio/poster assets yet. episode.json paths are future target deliverables. Not ready for app ingestion.

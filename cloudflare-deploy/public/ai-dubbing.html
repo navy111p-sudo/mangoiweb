@@ -15,6 +15,8 @@
   영상·대본은 GPT 가 만들고(연동 약속: docs 의 «A.i영화더빙 화면 연동 설명서»), 이 화면은 그것을 받아 그린다.
   ⚠️ 지금은 영상이 아직 없어 장면 6칸을 «준비 중» 으로만 그린다 — 눌러도 아무 데도 안 가게 링크가 아닌 칸으로 둔다
      (없는 영상으로 보내면 «눌렀는데 아무것도 안 나온다» 가 된다).
+  🔗 2026-10-20 연결 준비: js/ai-dubbing.js 가 /data/dubbing/dub-001.json 을 읽어 «검수 통과» 장면만 미리 보기 버튼으로 바꾼다.
+     검수 표(content/dubbing/dub-001/release.json)가 전부 false 인 동안에는 이 화면이 한 글자도 안 바뀐다.
 -->
 <style>
   :root{--bg:#0e131c;--card:#161c28;--line:#2a3344;--text:#e8ecf3;--text2:#b4bdcc;--gold:#f5b83d}
@@ -44,6 +46,39 @@
   .final{min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:999px;background:#3a3020;color:#c9b88a;
     font-size:15px;font-weight:800;border:1px solid rgba(245,184,61,.35)}
   .motto{margin:0;text-align:center;font-size:15px;font-weight:800;color:var(--gold)}
+  /* ── 검수를 통과한 장면만 js/ai-dubbing.js 가 «준비 중» 칸을 아래 버튼으로 바꾼다 (검수 전에는 아무것도 안 바뀐다) ── */
+  [hidden]{display:none!important}
+  button.scene{font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%}
+  .scene.is-ready{border-color:rgba(245,184,61,.55)}
+  .scene.is-ready:hover,.scene.is-ready:focus-visible{border-color:var(--gold);background:#1b2232;outline:none}
+  .scene.is-ready .thumb{border-style:solid;border-color:var(--line);overflow:hidden;color:var(--gold);font-weight:800}
+  .scene.is-ready .thumb img{display:block;width:100%;height:100%;object-fit:cover}
+  body.dub-open{overflow:hidden}
+  .dub-player{position:fixed;inset:0;z-index:100002;display:flex;padding:16px;background:rgba(5,8,14,.84);overflow-y:auto}
+  .dub-panel{width:min(920px,100%);margin:auto;display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:16px;
+    background:var(--card);border:1px solid var(--line)}
+  .dub-head{display:flex;align-items:center;gap:10px}
+  .dub-head h3{margin:0;font-size:16px;font-weight:900;flex:1 1 auto;min-width:0}
+  .dub-x{flex:none;width:40px;height:40px;border-radius:999px;border:1px solid var(--line);background:#0b1018;color:var(--text);
+    font-size:18px;line-height:1;cursor:pointer;overflow:hidden}
+  .dub-stage{position:relative;border-radius:12px;overflow:hidden;background:#000}
+  .dub-stage video{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#000}
+  .dub-sub{position:absolute;left:0;right:0;bottom:0;padding:18px 14px 12px;text-align:center;pointer-events:none;
+    background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.8))}
+  .dub-sub:empty{display:none}
+  .dub-who{display:block;font-size:12.5px;color:var(--gold)}
+  .dub-en{display:block;font-size:18px;font-weight:800;color:#fff}
+  .dub-ko{display:block;font-size:13.5px;color:#d5dbe6}
+  .dub-bar{display:flex;flex-wrap:wrap;gap:8px}
+  .dub-bar button{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:#0b1018;color:var(--text);
+    font:inherit;font-size:14px;font-weight:800;cursor:pointer}
+  .dub-bar .dub-play{background:var(--gold);border-color:var(--gold);color:#1a1300}
+  .dub-bar .dub-rec[disabled]{cursor:not-allowed;background:transparent;border-style:dashed;color:var(--text2)}
+  @media (max-width:640px){
+    .dub-player{padding:8px}
+    .dub-en{font-size:15px}
+    .dub-bar button{flex:1 1 100%}
+  }
   @media (max-width:640px){
     .scenes{grid-template-columns:1fr}
     .scene{flex-direction:row;align-items:center}
@@ -87,5 +122,6 @@
 </main>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
+<script defer src="/js/ai-dubbing.js?v=1"></script>
 </body>
 </html>
