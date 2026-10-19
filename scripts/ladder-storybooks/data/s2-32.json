@@ -1,0 +1,305 @@
+{
+  "id": "s2-32",
+  "breaks": [
+    3,
+    3,
+    4,
+    4
+  ],
+  "key": {
+    "P": 2,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «얼굴과 두 손은 있지만 팔다리는 없는 것은 무엇일까?(문제)» 와 «진짜 보물은 친구와 함께한 모험이다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the riddle about something with a face and two hands) and the lesson (the real treasure is the adventure shared with a friend). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Leo, Dana"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "They had to solve a pirate's riddle to find the treasure."
+    },
+    {
+      "k": "Lesson",
+      "qko": "무엇을 배웠나요?",
+      "qen": "What is the lesson?",
+      "a": "The real treasure is an adventure shared with a friend."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Leo and Dana found an old ",
+      "ans": "bottle",
+      "opts": [
+        "bottle",
+        "shoe",
+        "map"
+      ]
+    },
+    {
+      "pre": " with a pirate's ",
+      "ans": "riddle",
+      "opts": [
+        "riddle",
+        "song",
+        "cake"
+      ]
+    },
+    {
+      "pre": " inside. They looked for clues, and a big old ",
+      "ans": "clock",
+      "opts": [
+        "clock",
+        "ship",
+        "tree"
+      ]
+    },
+    {
+      "pre": " on a tower gave them the answer. Behind it, they found a box with no ",
+      "ans": "gold",
+      "opts": [
+        "gold",
+        "paper",
+        "wood"
+      ]
+    },
+    {
+      "pre": ", only a letter. It said the real treasure was the ",
+      "ans": "adventure",
+      "opts": [
+        "adventure",
+        "money",
+        "map"
+      ]
+    },
+    {
+      "pre": " they shared as friends.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "riddle",
+      "수수께끼",
+      "Answer my <b>riddle</b>, and my treasure is yours.",
+      "a question that is like a fun puzzle"
+    ],
+    [
+      "treasure",
+      "보물",
+      "The real <b>treasure</b> is the adventure you shared with a friend.",
+      "gold or other very valuable things"
+    ],
+    [
+      "guessed",
+      "짐작해서 말했다",
+      "\"A monster?\" Dana <b>guessed</b>.",
+      "gave an answer without being sure"
+    ],
+    [
+      "clues",
+      "단서들",
+      "They walked through town, looking for <b>clues</b>.",
+      "small facts that help you find an answer"
+    ],
+    [
+      "tower",
+      "탑",
+      "There, on the <b>tower</b>, was a big old clock!",
+      "a tall, narrow building"
+    ],
+    [
+      "adventure",
+      "모험",
+      "the <b>adventure</b> you shared with a friend",
+      "an exciting trip or experience"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "How did Leo suddenly find the answer to the riddle?",
+      "qko": "레오는 어떻게 갑자기 수수께끼의 답을 알게 되었나요?",
+      "opts": [
+        "He looked up and saw a big old clock on the tower.",
+        "Dana told him the answer.",
+        "He found the answer inside the bottle."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "\"A monster?\" Dana guessed. \"A robot?\" Leo said.",
+        "There, on the tower, was a big old clock!",
+        "Inside was a pirate's note: \"Answer my riddle, and my treasure is yours.\"",
+        "Inside, there was no gold, only a letter."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "레오가 고개를 들어 탑 위의 커다란 낡은 시계를 보았어요. 시계에는 얼굴(문자판)과 두 손(바늘)이 있어서 답을 알게 되었어요. 다나가 답을 알려 줬다는 말은 없어요.",
+        "Leo looked up and saw a big old clock on the tower. A clock has a face and two hands, so he knew the answer. Dana did not tell him."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The riddle says, \"I have a face and two hands.\" What are the \"hands\" of a clock?",
+      "qko": "수수께끼에 \"I have a face and two hands.\"라고 나와요. 시계의 \"hands\"는 무엇인가요?",
+      "opts": [
+        "the long and short pointers that show the time",
+        "the hands of a person who holds the clock",
+        "the bells inside the tower"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Leo and Dana found an old bottle on the beach.",
+        "Neither answer felt right.",
+        "\"A clock has a face and two hands!\" he shouted.",
+        "Leo and Dana laughed, because it was true."
+      ],
+      "ev": [
+        2
+      ],
+      "why": [
+        "레오가 «시계에는 얼굴과 두 손이 있다!» 라고 외쳤어요. 시계의 «손» 은 사람 손이 아니라 시간을 가리키는 바늘을 뜻해요.",
+        "Leo shouted, «A clock has a face and two hands!» A clock's hands are not real hands. They are the pointers that show the time."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why did Leo and Dana laugh at the end?",
+      "qko": "레오와 다나는 마지막에 왜 웃었나요?",
+      "opts": [
+        "There was no gold, but they agreed their adventure was the real treasure.",
+        "They found a box full of gold.",
+        "The pirate came back and told a joke."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Inside, there was no gold, only a letter.",
+        "They thought and thought.",
+        "The letter said, \"The real treasure is the adventure you shared with a friend.\"",
+        "They walked through town, looking for clues."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "상자 안에는 금이 없고 편지만 있었고, 편지에는 진짜 보물은 친구와 함께한 모험이라고 쓰여 있었어요. 두 친구는 그 말이 맞다고 생각해서 웃었어요.",
+        "There was no gold, only a letter, and it said the real treasure was the adventure they shared. They laughed because they knew it was true."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Leo and Dana write their own riddle and hide it for other kids.",
+      "레오와 다나가 직접 수수께끼를 만들어 다른 아이들을 위해 숨겨요.",
+      "Our Own Riddle"
+    ],
+    [
+      "B",
+      "A new bottle washes up with a map to a small island.",
+      "작은 섬으로 가는 지도가 든 새 병이 바닷가로 떠밀려 와요.",
+      "The Island Map"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "src": "“I think <u>the real treasure is friendship</u> because <u>Leo and Dana had fun together</u>.”",
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "chips": [
+      {
+        "a": "my friend is kind",
+        "b": "she shares her snacks",
+        "label": "kind"
+      },
+      {
+        "a": "this puzzle is hard",
+        "b": "it has many pieces",
+        "label": "puzzle"
+      },
+      {
+        "a": "our dog is happy",
+        "b": "he is wagging his tail",
+        "label": "dog"
+      }
+    ],
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because they solved it together)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because they solved it together)"
+  },
+  "img": {
+    "cover": "In a sunny old town square, a boy with curly brown hair in a yellow T-shirt and blue shorts points up and shouts at a big old clock with a round white face, two black hands, and dots instead of numbers on a tall stone tower, while a girl with two long red braids in a green striped dress holds an old green bottle and looks up in surprise, and pigeons fly away from the ringing bell.",
+    "scenes": {
+      "1": "On a sandy beach with gentle waves, a girl with two long red braids in a green striped dress and a boy with curly brown hair in a yellow T-shirt and blue shorts sit next to an old green bottle and a rolled-up yellow paper and scratch their heads, with thought bubbles above them showing a silly green monster and a boxy silver robot.",
+      "3": "Inside a dusty clock tower full of big turning gears, a boy with curly brown hair in a yellow T-shirt and blue shorts and a girl with two long red braids in a green striped dress kneel and open a small wooden box that holds only a folded paper, and both of them are laughing."
+    }
+  },
+  "alt": {
+    "1": "Leo and Dana think hard about the riddle on the beach.",
+    "3": "Leo and Dana laugh at the box behind the clock.",
+    "cover": "Leo points at a big clock on a tower while Dana holds the bottle."
+  }
+}

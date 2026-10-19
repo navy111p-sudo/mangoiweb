@@ -1,0 +1,305 @@
+{
+  "id": "s4-22",
+  "breaks": [
+    4,
+    6,
+    5,
+    3
+  ],
+  "key": {
+    "P": 6,
+    "S": 17
+  },
+  "roleNames": {
+    "P": {
+      "ko": "장점",
+      "en": "strength"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «크리스퍼는 예전 방법보다 더 빠르고 싸고 훨씬 정확하다(장점)» 와 «유전자 편집은 병을 고칠 수 있는 강력한 도구지만 분명한 윤리 규칙에 따라 신중하게 써야 한다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the strength (CRISPR is faster, cheaper, and far more precise than older methods) and the conclusion (gene editing is a powerful tool, but it must be used carefully with clear ethical rules). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Gene editing with the tool called CRISPR"
+    },
+    {
+      "k": "Benefit",
+      "qko": "유전자 편집으로 무엇을 할 수 있나요?",
+      "qen": "What can gene editing do?",
+      "a": "Help crops resist disease and treat illnesses like sickle cell disease"
+    },
+    {
+      "k": "Concern",
+      "qko": "어떤 걱정이 있나요?",
+      "qen": "What are the concerns?",
+      "a": "Cuts in the wrong place, changes passed to future generations, and unfair access"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Every living cell contains DNA, a long molecule that carries the ",
+      "ans": "genetic",
+      "opts": [
+        "genetic",
+        "musical",
+        "secret"
+      ]
+    },
+    {
+      "pre": " code. CRISPR is a tool that can cut DNA at a chosen ",
+      "ans": "spot",
+      "opts": [
+        "spot",
+        "speed",
+        "price"
+      ]
+    },
+    {
+      "pre": ", and it is faster, cheaper, and more ",
+      "ans": "precise",
+      "opts": [
+        "precise",
+        "colorful",
+        "noisy"
+      ]
+    },
+    {
+      "pre": " than older methods. A treatment for sickle cell disease has already been approved. However, editing human ",
+      "ans": "embryos",
+      "opts": [
+        "embryos",
+        "crops",
+        "rocks"
+      ]
+    },
+    {
+      "pre": " is strongly debated, because those changes would be passed on to future ",
+      "ans": "generations",
+      "opts": [
+        "generations",
+        "computers",
+        "seasons"
+      ]
+    },
+    {
+      "pre": ". Therefore, gene editing must be used carefully and with clear ethical rules.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "molecule",
+      "분자",
+      "DNA, a long <b>molecule</b> that carries the genetic code",
+      "a very small unit of a substance, made of atoms"
+    ],
+    [
+      "precise",
+      "정확한",
+      "CRISPR is faster, cheaper, and far more <b>precise</b>",
+      "exact and correct in every detail"
+    ],
+    [
+      "embryos",
+      "배아들",
+      "The biggest debate concerns editing human <b>embryos</b>",
+      "living things in the very first stage of growth before birth"
+    ],
+    [
+      "generations",
+      "세대",
+      "those changes would be passed on to future <b>generations</b>",
+      "groups of people born around the same time"
+    ],
+    [
+      "criticized",
+      "비판했다",
+      "researchers around the world strongly <b>criticized</b> the experiment",
+      "said that something was wrong or bad"
+    ],
+    [
+      "approved",
+      "승인된",
+      "the first CRISPR-based treatment for sickle cell disease, a painful blood disorder, was <b>approved</b> in the United Kingdom and the United States",
+      "officially accepted as safe to use"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why do many countries strictly limit changes to human embryos?",
+      "qko": "많은 나라가 사람 배아를 바꾸는 일을 엄격하게 제한하는 이유는 무엇인가요?",
+      "opts": [
+        "Because those changes would be passed on to future generations",
+        "Because CRISPR cannot cut DNA at all",
+        "Because embryos are too small to study"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The biggest debate concerns editing human embryos, because those changes would be passed on to future generations.",
+        "Since then, the technology has been used to develop crops that resist disease and to study illnesses in the lab.",
+        "Compared with older methods, CRISPR is faster, cheaper, and far more precise.",
+        "Sometimes a tiny error in this code causes serious diseases."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "본문에 배아를 편집하면 그 변화가 다음 세대로 전해지기 때문에 가장 큰 논쟁거리라고 나와요. 그래서 많은 나라가 엄격하게 제한하거나 금지해요.",
+        "Changes to human embryos would be passed on to future generations, which is why this is the biggest debate."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what are \"off-target effects\"?",
+      "qko": "글에서 «off-target effects» 는 무엇인가요?",
+      "opts": [
+        "Cuts made in the wrong place, which could cause new health problems",
+        "Treatments that cost too much for most people",
+        "Crops that resist disease very well"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Cuts in the wrong place, known as off-target effects, could cause new health problems.",
+        "In 2012, researchers including Jennifer Doudna and Emmanuelle Charpentier showed how a tool called CRISPR-Cas9 could cut DNA at a chosen spot.",
+        "Compared with older methods, CRISPR is faster, cheaper, and far more precise.",
+        "Sometimes a tiny error in this code causes serious diseases."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "본문에서 잘못된 곳을 자르는 것을 «off-target effects» 라고 한다고 해요. 원하지 않은 엉뚱한 곳을 자르면 새로운 건강 문제가 생길 수 있어요.",
+        "The text says cuts in the wrong place are known as off-target effects, and they could cause new health problems."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why was the 2018 experiment in China so strongly criticized?",
+      "qko": "2018년 중국의 실험은 왜 그렇게 강하게 비판받았나요?",
+      "opts": [
+        "He edited the genes of twin babies, and embryo changes pass to future generations",
+        "He used an old method that was slower than CRISPR",
+        "He refused to share his results with other scientists"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "In 2018, a scientist in China announced that he had edited the genes of twin babies, and researchers around the world strongly criticized the experiment.",
+        "The biggest debate concerns editing human embryos, because those changes would be passed on to future generations.",
+        "For their work, Doudna and Charpentier received the Nobel Prize in Chemistry in 2020.",
+        "Since then, the technology has been used to develop crops that resist disease and to study illnesses in the lab."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "중국의 한 과학자가 쌍둥이 아기의 유전자를 편집했다고 발표했는데, 배아의 변화는 다음 세대로 전해지기 때문에 가장 큰 논쟁거리예요. 두 단서를 이어 보면 왜 세계의 연구자들이 강하게 비판했는지 알 수 있어요.",
+        "A scientist edited the genes of twin babies, and changes to embryos would be passed on to future generations. Together, these clues explain the strong criticism."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do bacteria use CRISPR to fight viruses?",
+      "세균은 크리스퍼로 바이러스와 어떻게 싸울까?",
+      "The Bacteria Defense"
+    ],
+    [
+      "B",
+      "How did gene editing help patients with sickle cell disease?",
+      "유전자 편집은 겸상 적혈구병 환자들을 어떻게 도왔을까?",
+      "A New Hope for Patients"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "우리가 해야 할 일",
+      "그렇게 하면 생기는 결과"
+    ],
+    "slotEn": [
+      "what we should do",
+      "the result we want"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «해야 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and the result you want in English.",
+    "aria": [
+      "what we should do",
+      "the result"
+    ],
+    "src": "“We should <u>use gene editing with clear ethical rules</u> so that <u>it cures diseases without causing new harm</u>.”",
+    "chips": [
+      {
+        "a": "check the facts before sharing science news",
+        "b": "our friends get correct information",
+        "label": "news"
+      },
+      {
+        "a": "follow the safety rules in the science lab",
+        "b": "no one gets hurt during experiments",
+        "label": "lab"
+      },
+      {
+        "a": "ask questions about new technology",
+        "b": "we understand both its good and bad sides",
+        "label": "questions"
+      }
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «좋은 점은 살리고 위험은 줄이는 결과» 를 써 보세요. (예: so that new medicine is safe for everyone)",
+    "moreEn": "One more step: after «so that», write a result that keeps the good and lowers the risk. (e.g. so that new medicine is safe for everyone)"
+  },
+  "img": {
+    "cover": "A scientist in blue gloves using a fine pipette to place a tiny drop into a small tube in a modern genetics lab, a glowing twisted DNA double-helix model standing on the bench beside them",
+    "scenes": {
+      "1": "Rows of healthy young green crop plants growing in a bright research greenhouse, a researcher in a lab coat seen from behind checking the leaves",
+      "3": "A group of scientists and doctors seen from behind sitting around a long meeting table in a quiet conference room, discussing seriously with closed folders in front of them"
+    }
+  },
+  "alt": {
+    "1": "Healthy crop plants in a research greenhouse",
+    "3": "Scientists discussing rules around a table",
+    "cover": "A scientist working beside a glowing DNA model"
+  }
+}

@@ -1,0 +1,305 @@
+{
+  "id": "s2-18",
+  "breaks": [
+    2,
+    3,
+    3,
+    5
+  ],
+  "key": {
+    "P": 6,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «마지막 단계의 용 보스가 너무 강했다(문제)» 와 «침착한 마음이 댄의 가장 큰 힘이었다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the dragon boss at the last level was too strong) and the lesson (a calm mind was Dan's best power). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Dan, the dragon boss"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Dan was trapped in a game, and the dragon boss was too strong."
+    },
+    {
+      "k": "Lesson",
+      "qko": "무엇을 배웠나요?",
+      "qen": "What is the lesson?",
+      "a": "A calm mind is the best power."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Dan was pulled inside his video ",
+      "ans": "game",
+      "opts": [
+        "game",
+        "movie",
+        "book"
+      ]
+    },
+    {
+      "pre": ". At the last level, the dragon boss was too ",
+      "ans": "strong",
+      "opts": [
+        "strong",
+        "small",
+        "slow"
+      ]
+    },
+    {
+      "pre": ". Dan remembered his mom's words: rest helps you ",
+      "ans": "think",
+      "opts": [
+        "think",
+        "sleep",
+        "eat"
+      ]
+    },
+    {
+      "pre": ". He looked carefully and saw that the dragon always looked ",
+      "ans": "left",
+      "opts": [
+        "left",
+        "up",
+        "down"
+      ]
+    },
+    {
+      "pre": " before it breathed fire. Dan moved right and won. A calm ",
+      "ans": "mind",
+      "opts": [
+        "mind",
+        "sword",
+        "bridge"
+      ]
+    },
+    {
+      "pre": " was his best power.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "screen",
+      "화면",
+      "One night, the <b>screen</b> flashed, and Dan was pulled inside!",
+      "the flat part of a TV or computer where you see pictures"
+    ],
+    [
+      "appeared",
+      "나타났다",
+      "A message <b>appeared</b> in the sky",
+      "came into sight"
+    ],
+    [
+      "level",
+      "단계",
+      "But at the last <b>level</b>, the dragon boss was too strong.",
+      "one part or stage of a game"
+    ],
+    [
+      "carefully",
+      "자세히, 주의 깊게",
+      "and looked <b>carefully</b> at the dragon.",
+      "with a lot of attention"
+    ],
+    [
+      "battle",
+      "싸움, 전투",
+      "Dan moved right just in time and won the <b>battle</b>.",
+      "a fight between two sides"
+    ],
+    [
+      "calm",
+      "침착한",
+      "A <b>calm</b> mind was his best power.",
+      "quiet and not worried"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Dan sit down and take a deep breath?",
+      "qko": "댄은 왜 앉아서 숨을 깊이 쉬었나요?",
+      "opts": [
+        "He remembered that rest helps you think.",
+        "He wanted to go to sleep.",
+        "The game told him to stop playing."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Dan fought monsters and crossed a bridge of fire.",
+        "Then he remembered his mom's words: \"Rest helps you think.\"",
+        "He played every night until very late.",
+        "Dan moved right just in time and won the battle."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "댄은 «쉬어야 생각이 잘 난단다»라는 엄마 말씀을 떠올리고 앉아서 숨을 깊이 쉬었어요. 잠을 자려고 한 것이 아니에요.",
+        "Dan remembered his mom's words, «Rest helps you think,» so he sat down and took a deep breath. He did not want to sleep."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The story says, \"Dan moved right just in time.\" What does \"just in time\" mean here?",
+      "qko": "\"Dan moved right just in time.\"이라는 문장이 있어요. 여기서 \"just in time\"은 무슨 뜻인가요?",
+      "opts": [
+        "at the last possible moment",
+        "much too late",
+        "very slowly"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "It always looked left before it breathed fire!",
+        "He played every night until very late.",
+        "Dan had one life left, and he was tired.",
+        "One night, the screen flashed, and Dan was pulled inside!"
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "용은 불을 뿜기 직전에 항상 왼쪽을 보았어요. 댄은 불이 오기 바로 직전에 오른쪽으로 피했어요. «just in time»은 «아슬아슬하게 딱 맞춰»라는 뜻이에요.",
+        "The dragon always looked left right before it breathed fire, and Dan moved right just before the fire came. «Just in time» means at the last possible moment."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why did Dan move to the right?",
+      "qko": "댄은 왜 오른쪽으로 움직였나요?",
+      "opts": [
+        "The dragon always looked left before it breathed fire.",
+        "A monster was standing on the left.",
+        "The message in the sky told him to."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "He sat down, took a deep breath, and looked carefully at the dragon.",
+        "A message appeared in the sky: \"Finish the game to go home.\"",
+        "It always looked left before it breathed fire!",
+        "Dan fought monsters and crossed a bridge of fire."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "댄은 용을 자세히 살펴보았고, 용이 불을 뿜기 전에 항상 왼쪽을 본다는 것을 알아냈어요. 그래서 반대쪽인 오른쪽으로 피했어요.",
+        "Dan looked carefully at the dragon and found that it always looked left before it breathed fire. So he moved the other way, to the right."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Dan's little sister gets pulled into the game, and Dan helps her.",
+      "댄의 여동생이 게임 속으로 빨려 들어가고, 댄이 동생을 도와줘요.",
+      "Rescue in Castle Quest"
+    ],
+    [
+      "B",
+      "Dan makes his own board game about the castle.",
+      "댄이 성을 주제로 자기만의 보드게임을 만들어요.",
+      "Dan's Castle Game"
+    ]
+  ],
+  "write": {
+    "pre": "I can’t",
+    "mid": "but I can",
+    "sep": ", ",
+    "slots": [
+      "vp",
+      "vp"
+    ],
+    "src": "“I can’t <u>beat the dragon with power</u>, but I can <u>watch it carefully and think</u>.”",
+    "slotKo": [
+      "못 하는 일",
+      "대신 할 수 있는 일"
+    ],
+    "slotEn": [
+      "what I can't do",
+      "what I can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «못 하는 일 + 대신 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you can't do and what you can do instead in English.",
+    "chips": [
+      {
+        "a": "lift the heavy box alone",
+        "b": "ask my friend for help",
+        "label": "box"
+      },
+      {
+        "a": "finish my homework tonight",
+        "b": "do it early tomorrow",
+        "label": "homework"
+      },
+      {
+        "a": "run as fast as my brother",
+        "b": "run longer without stopping",
+        "label": "run"
+      }
+    ],
+    "aria": [
+      "what you can't do",
+      "what you can do"
+    ],
+    "moreKo": "한 걸음 더: «but I can» 뒤에 «동사 + 어떻게» 를 넣어 보세요. (예: but I can try a different way)",
+    "moreEn": "One more step: after «but I can», write a verb + how. (e.g. but I can try a different way)"
+  },
+  "img": {
+    "cover": "In a huge stone castle hall, a ten-year-old boy with messy brown hair, freckles, a green hoodie and red sneakers jumps to the right just in time, as a big purple dragon with orange spikes on its back and round yellow eyes turns its head to the left and puffs a cloud of orange fire at the empty floor.",
+    "scenes": {
+      "1": "In a dark bedroom late at night, a ten-year-old boy with messy brown hair, freckles, a green hoodie and red sneakers is pulled toward a flashing computer screen in a swirl of bright blue light, and his game controller flies out of his hands.",
+      "3": "Inside the castle, a ten-year-old boy with messy brown hair, freckles, a green hoodie and red sneakers sits on the floor behind a stone pillar, takes a deep breath and carefully watches a big purple dragon with orange spikes on its back and round yellow eyes, which looks to the left before it breathes fire."
+    }
+  },
+  "alt": {
+    "1": "A boy is pulled into a glowing computer screen.",
+    "3": "A boy sits calmly and watches the dragon carefully.",
+    "cover": "A boy jumps right as a purple dragon breathes fire to the left."
+  }
+}

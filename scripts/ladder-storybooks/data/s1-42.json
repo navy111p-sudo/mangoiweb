@@ -1,0 +1,304 @@
+{
+  "id": "s1-42",
+  "breaks": [
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 0,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «타라가 정글에서 길을 잃었다(문제)» 와 «똑똑한 앵무새가 타라가 돌아오도록 도와주었다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (Tara is lost in the jungle) and the solution (a clever parrot helps her find her way back). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Tara and a red parrot"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Tara is lost in the jungle, and she is hot, tired, and scared."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "A red parrot says \"Follow me!\" and leads her back to her camp."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Tara is lost in the ",
+      "ans": "jungle",
+      "opts": [
+        "jungle",
+        "city",
+        "desert"
+      ]
+    },
+    {
+      "pre": ". She is hot, tired, and ",
+      "ans": "scared",
+      "opts": [
+        "scared",
+        "proud",
+        "cold"
+      ]
+    },
+    {
+      "pre": ". Then a red ",
+      "ans": "parrot",
+      "opts": [
+        "parrot",
+        "monkey",
+        "frog"
+      ]
+    },
+    {
+      "pre": " says, \"Follow me!\" Tara follows it over a ",
+      "ans": "river",
+      "opts": [
+        "river",
+        "road",
+        "wall"
+      ]
+    },
+    {
+      "pre": " and soon finds her ",
+      "ans": "camp",
+      "opts": [
+        "camp",
+        "school",
+        "house"
+      ]
+    },
+    {
+      "pre": ". The clever parrot helped her find her way back.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "jungle",
+      "정글",
+      "Tara is lost in the <b>jungle</b>.",
+      "a hot forest with many tall trees and plants"
+    ],
+    [
+      "strange",
+      "낯선",
+      "Tall trees are everywhere, and <b>strange</b> birds call.",
+      "new and not usual"
+    ],
+    [
+      "parrot",
+      "앵무새",
+      "Then a red <b>parrot</b> lands on a branch.",
+      "a colorful bird that can say words"
+    ],
+    [
+      "follows",
+      "따라가다",
+      "Tara <b>follows</b> the parrot over a river and under big leaves.",
+      "goes after someone"
+    ],
+    [
+      "camp",
+      "캠프, 야영지",
+      "It is her <b>camp</b>!",
+      "a place with tents where people stay outside"
+    ],
+    [
+      "clever",
+      "똑똑한",
+      "A <b>clever</b> parrot helped Tara find her way back.",
+      "smart and quick to learn"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Tara follow the parrot?",
+      "qko": "타라는 왜 앵무새를 따라가나요?",
+      "opts": [
+        "The parrot has her hat.",
+        "The parrot says, \"Follow me!\"",
+        "She wants to catch the parrot."
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Tall trees are everywhere, and strange birds call.",
+        "Soon she hears voices.",
+        "It is her camp!",
+        "\"Follow me! Follow me!\" it says."
+      ],
+      "ev": [
+        3
+      ],
+      "why": [
+        "앵무새가 «따라와! 따라와!» 하고 말해요. 그래서 타라가 앵무새를 따라가요.",
+        "The parrot says, \"Follow me! Follow me!\" So Tara follows it."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Soon she hears voices.\" What does \"voices\" mean here?",
+      "qko": "여기서 «voices» 는 무슨 뜻일까요?",
+      "opts": [
+        "the sounds of people talking",
+        "the sound of rain",
+        "the sound of a river"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Tall trees are everywhere, and strange birds call.",
+        "Then a red parrot lands on a branch.",
+        "It is her camp!",
+        "She is hot, tired, and scared."
+      ],
+      "ev": [
+        2
+      ],
+      "why": [
+        "바로 뒤에 «It is her camp!» 가 나와요. 캠프에 있는 사람들이 말하는 소리라는 뜻이에요.",
+        "The next sentence says it is her camp. \"Voices\" are the sounds of people talking at the camp."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does Tara find her camp?",
+      "qko": "타라는 어떻게 캠프를 찾나요?",
+      "opts": [
+        "She climbs a tall tree and looks around.",
+        "She calls her mom on the phone.",
+        "She follows the parrot, and then she hears voices."
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Tall trees are everywhere, and strange birds call.",
+        "Tara follows the parrot over a river and under big leaves.",
+        "Tara is lost in the jungle.",
+        "Soon she hears voices."
+      ],
+      "ev": [
+        1,
+        3
+      ],
+      "why": [
+        "타라가 앵무새를 따라가다가, 곧 사람들 목소리를 들어요. 두 문장을 이어야 알 수 있어요.",
+        "Tara follows the parrot, and soon she hears voices. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Tara gives the red parrot some fruit to say thank you.",
+      "타라가 고맙다는 뜻으로 빨간 앵무새에게 과일을 준다.",
+      "A Thank-You Gift"
+    ],
+    [
+      "B",
+      "The parrot teaches Tara the names of jungle animals.",
+      "앵무새가 타라에게 정글 동물들의 이름을 알려 준다.",
+      "Jungle Lessons"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "src": "“I think <u>the parrot is clever</u> because <u>it knows the way</u>.”",
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "chips": [
+      {
+        "a": "my bird is clever",
+        "b": "it can say hello",
+        "label": "bird"
+      },
+      {
+        "a": "the jungle is hot",
+        "b": "the sun is very strong",
+        "label": "jungle"
+      },
+      {
+        "a": "my friend is tired",
+        "b": "she is yawning",
+        "label": "friend"
+      }
+    ],
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
+  },
+  "img": {
+    "cover": "In a green jungle full of huge leaves, Tara, a girl with a long brown braid, a green explorer hat, a khaki shirt and brown boots, hops across round stepping stones over a small river, following a bright red parrot with blue wing tips that flies just ahead of her.",
+    "scenes": {
+      "1": "Deep in the jungle, Tara, a girl with a long brown braid, a green explorer hat, a khaki shirt and brown boots, sits tired on a tree root and looks up with hope at a bright red parrot with blue wing tips that lands on a branch above her and flaps its wings.",
+      "2": "At a jungle camp with green tents and a small campfire, Tara, a girl with a long brown braid, a green explorer hat, a khaki shirt and brown boots, runs out from under big leaves toward smiling grown-ups waving at her, while a bright red parrot with blue wing tips sits proudly on her shoulder."
+    }
+  },
+  "alt": {
+    "1": "A red parrot lands on a branch above tired Tara.",
+    "2": "Tara runs back to her camp with the parrot.",
+    "cover": "Tara follows a red parrot across a jungle river."
+  }
+}

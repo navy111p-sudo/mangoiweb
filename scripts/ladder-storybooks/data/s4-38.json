@@ -1,0 +1,305 @@
+{
+  "id": "s4-38",
+  "breaks": [
+    6,
+    4,
+    6,
+    3
+  ],
+  "key": {
+    "P": 13,
+    "S": 18
+  },
+  "roleNames": {
+    "P": {
+      "ko": "핵심 사실",
+      "en": "key fact"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «박명대는 지구의 기후를 조절하는 데에도 도움을 준다(핵심 사실)» 과 «박명대를 지키는 일은 바다 생물뿐 아니라 지구의 미래에도 중요할 수 있다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the key fact (the twilight zone also helps to control Earth’s climate) and the conclusion (protecting the twilight zone may be important not only for ocean life but also for the future of our planet). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "The ocean’s twilight zone, about 200 to 1,000 meters deep"
+    },
+    {
+      "k": "Key fact",
+      "qko": "박명대 동물들은 매일 무엇을 하나요?",
+      "qen": "What do its animals do every day?",
+      "a": "They swim up to feed at night and return to the deep before sunrise"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "왜 중요한가요?",
+      "qen": "Why does it matter?",
+      "a": "It carries carbon downward and helps control Earth’s climate"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "The twilight zone is a dim ocean layer where it is too dark for ",
+      "ans": "plants",
+      "opts": [
+        "plants",
+        "fish",
+        "jellyfish"
+      ]
+    },
+    {
+      "pre": " to grow, yet it is full of ",
+      "ans": "life",
+      "opts": [
+        "life",
+        "plastic",
+        "noise"
+      ]
+    },
+    {
+      "pre": ". Some of its animals produce their own ",
+      "ans": "light",
+      "opts": [
+        "light",
+        "ice",
+        "rocks"
+      ]
+    },
+    {
+      "pre": ". Every night, huge numbers of animals swim up toward the surface to ",
+      "ans": "feed",
+      "opts": [
+        "feed",
+        "sleep",
+        "play"
+      ]
+    },
+    {
+      "pre": ", and when they return to the deep, they carry ",
+      "ans": "carbon",
+      "opts": [
+        "carbon",
+        "sunlight",
+        "sand"
+      ]
+    },
+    {
+      "pre": " downward, helping to control Earth's climate.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "mysterious",
+      "신비로운",
+      "a dim and <b>mysterious</b> world",
+      "strange and not well understood"
+    ],
+    [
+      "bioluminescence",
+      "생물 발광",
+      "a skill called <b>bioluminescence</b>",
+      "light that living things make in their own bodies"
+    ],
+    [
+      "predators",
+      "포식자",
+      "to find food, attract partners, or confuse <b>predators</b>",
+      "animals that hunt and eat other animals"
+    ],
+    [
+      "remarkable",
+      "놀라운, 주목할 만한",
+      "One of the most <b>remarkable</b> events on the planet happens here every day.",
+      "unusual and surprising in a way that is worth noticing"
+    ],
+    [
+      "migration",
+      "이동, 이주",
+      "the largest animal <b>migration</b> on Earth",
+      "the movement of many animals from one place to another"
+    ],
+    [
+      "ecosystem",
+      "생태계",
+      "this could harm the <b>ecosystem</b> before we fully understand it",
+      "all the living things in an area and how they depend on each other"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why is it too dark for plants to grow in the twilight zone?",
+      "qko": "박명대는 왜 식물이 자라기에 너무 어두울까요?",
+      "opts": [
+        "Because only a small amount of sunlight reaches it",
+        "Because the water there is too cold for plants",
+        "Because animals eat all the plants at night"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Others produce their own light, a skill called bioluminescence, to find food, attract partners, or confuse predators.",
+        "Only a small amount of sunlight reaches this layer, so it is too dark for plants to grow.",
+        "Surprisingly, the twilight zone also helps to control Earth's climate.",
+        "Suddenly, tiny sparks of light flash past the window."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "햇빛이 아주 조금만 이 층까지 닿기 때문에, 식물이 자라기에는 너무 어두워요.",
+        "Only a small amount of sunlight reaches this layer, so it is too dark for plants to grow."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does 'diel vertical migration' mean?",
+      "qko": "글에서 'diel vertical migration(일주기 수직 이동)' 은 무슨 뜻인가요?",
+      "opts": [
+        "A trip that fish take to warmer oceans once a year",
+        "Animals moving up to the surface at night and back down before sunrise every day",
+        "Light that animals make inside their own bodies"
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "At night, enormous numbers of animals swim up toward the surface to feed, and before sunrise they return to the darkness to hide from predators.",
+        "It stretches from about 200 to 1,000 meters below the surface.",
+        "Others produce their own light, a skill called bioluminescence, to find food, attract partners, or confuse predators.",
+        "Some companies are interested in catching twilight-zone fish to make fish meal, and researchers worry that this could harm the ecosystem before we fully understand it."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "바로 앞 문장에서 동물들이 밤에 수면 쪽으로 올라왔다가 해 뜨기 전에 어둠 속으로 돌아간다고 했어요. 그 «매일의 위아래 이동» 을 가리키는 말이에요.",
+        "The sentence before says animals swim up at night and return to the darkness before sunrise. This daily up-and-down movement is diel vertical migration."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why might catching too many twilight-zone fish also be bad for Earth's climate?",
+      "qko": "박명대 물고기를 너무 많이 잡으면 왜 지구의 기후에도 나쁠 수 있나요?",
+      "opts": [
+        "Because the fish give off greenhouse gases at the surface",
+        "Because the fish keep the ocean water warm",
+        "Because fewer animals would carry carbon down into the deep"
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "When its animals eat near the surface and then return to the deep, they carry carbon downward, where some of it can stay for a long time.",
+        "Many of its animals are small fish, shrimp, and jellyfish that have unusual features.",
+        "Some companies are interested in catching twilight-zone fish to make fish meal, and researchers worry that this could harm the ecosystem before we fully understand it.",
+        "Below the bright, sunny surface of the ocean lies a dim and mysterious world."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "박명대 동물들은 탄소를 깊은 바다로 옮기는데, 물고기를 많이 잡으면 이 생태계가 망가질 수 있어요. 두 문장을 합치면 탄소를 옮기는 동물이 줄어든다는 걸 알 수 있어요.",
+        "Twilight-zone animals carry carbon down to the deep, and fishing could harm this ecosystem. Together, they suggest fewer animals would carry carbon downward."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do deep-sea animals make their own light?",
+      "깊은 바다 동물은 어떻게 스스로 빛을 낼까?",
+      "Living Lights"
+    ],
+    [
+      "B",
+      "How do scientists explore the deep ocean?",
+      "과학자들은 깊은 바다를 어떻게 탐사할까?",
+      "Journey to the Deep"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "우리가 해야 할 일",
+      "그렇게 하면 생기는 결과"
+    ],
+    "slotEn": [
+      "what we should do",
+      "the result we want"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «해야 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and the result you want in English.",
+    "aria": [
+      "what we should do",
+      "the result"
+    ],
+    "src": "“We should <u>study the twilight zone before fishing there</u> so that <u>we do not harm its ecosystem</u>.”",
+    "chips": [
+      {
+        "a": "learn about a pet before we get one",
+        "b": "we can take good care of it",
+        "label": "pet"
+      },
+      {
+        "a": "read the rules before a new game",
+        "b": "everyone plays fairly",
+        "label": "game"
+      },
+      {
+        "a": "check the weather before a hike",
+        "b": "we bring the right clothes",
+        "label": "hike"
+      }
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «누가 + 무엇을» 넣어 목적을 분명하게 써 보세요. (예: so that sea animals have a safe home)",
+    "moreEn": "One more step: after «so that», write who + what to make the purpose clear. (e.g. so that sea animals have a safe home)"
+  },
+  "img": {
+    "cover": "A deep-sea lanternfish with large silver eyes and rows of tiny glowing blue light spots along its belly, swimming through pitch-dark water",
+    "scenes": {
+      "1": "In dark blue water, a see-through jellyfish glowing with bright blue and green light, with a few small silver fish with huge eyes and a bright red shrimp drifting nearby",
+      "2": "A dense cloud of countless small silvery fish and pink shrimp rising through dark blue water toward a faint glow of moonlight at the ocean surface far above"
+    }
+  },
+  "alt": {
+    "1": "A glowing jellyfish, fish, and shrimp in deep water",
+    "2": "Many small sea animals rising toward the moonlit surface",
+    "cover": "A lanternfish with glowing spots in the dark sea"
+  }
+}

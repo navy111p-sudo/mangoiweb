@@ -1,0 +1,304 @@
+{
+  "id": "s1-39",
+  "breaks": [
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 2,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "처음 생각",
+      "en": "first thought"
+    },
+    "S": {
+      "ko": "진짜 이유",
+      "en": "real reason"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «모두 거인을 무서워한다(처음 생각)» 와 «무서운 거인은 그냥 신발을 찾고 있었다(진짜 이유)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the first thought (everyone is scared of the giant) and the real reason (the giant was just looking for his shoe). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "the kids and a giant"
+    },
+    {
+      "k": "First thought",
+      "qko": "처음에 모두 어떤 마음이었나요?",
+      "qen": "How does everyone feel at first?",
+      "a": "Everyone is scared of the giant."
+    },
+    {
+      "k": "Real reason",
+      "qko": "거인은 왜 왔나요?",
+      "qen": "Why did the giant come?",
+      "a": "The giant was just looking for his lost shoe."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "One morning, there is a giant ",
+      "ans": "shoe",
+      "opts": [
+        "shoe",
+        "cake",
+        "car"
+      ]
+    },
+    {
+      "pre": " in the park. It is as big as a ",
+      "ans": "bus",
+      "opts": [
+        "bus",
+        "cup",
+        "pencil"
+      ]
+    },
+    {
+      "pre": ". Everyone is ",
+      "ans": "scared",
+      "opts": [
+        "scared",
+        "sleepy",
+        "bored"
+      ]
+    },
+    {
+      "pre": ". Then a giant comes in, hopping on one ",
+      "ans": "foot",
+      "opts": [
+        "foot",
+        "hand",
+        "wheel"
+      ]
+    },
+    {
+      "pre": ". He is looking for his shoe, so the kids ",
+      "ans": "push",
+      "opts": [
+        "push",
+        "kick",
+        "hide"
+      ]
+    },
+    {
+      "pre": " the shoe to him. The giant smiles and gives them a ride!",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "giant",
+      "거인",
+      "The scary <b>giant</b> was just looking for his shoe!",
+      "a very, very big person in stories"
+    ],
+    [
+      "scared",
+      "무서워하는",
+      "Everyone is <b>scared</b>.",
+      "afraid"
+    ],
+    [
+      "hopping",
+      "깡충깡충 뛰는",
+      "A giant comes in, <b>hopping</b> on one foot.",
+      "jumping on one foot"
+    ],
+    [
+      "sad",
+      "슬픈",
+      "\"Have you seen my shoe?\" he asks in a <b>sad</b> voice.",
+      "feeling unhappy"
+    ],
+    [
+      "push",
+      "밀다",
+      "The kids <b>push</b> and push the shoe to him.",
+      "to move something away from you with your hands"
+    ],
+    [
+      "shoulders",
+      "어깨",
+      "The giant smiles and gives them a ride on his <b>shoulders</b>.",
+      "the top parts of your body next to your neck"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does the giant come in hopping on one foot?",
+      "qko": "거인은 왜 한 발로 깡충깡충 뛰며 들어오나요?",
+      "opts": [
+        "He is playing a game.",
+        "He lost one of his shoes.",
+        "He has a big, heavy bag."
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "It is as big as a bus.",
+        "Everyone is scared. Where is the giant?",
+        "\"Have you seen my shoe?\" he asks in a sad voice.",
+        "The giant smiles and gives them a ride on his shoulders."
+      ],
+      "ev": [
+        2
+      ],
+      "why": [
+        "거인이 «내 신발 못 봤니?» 하고 물어요. 신발 한 짝을 잃어버려서 한 발로 뛰어요.",
+        "The giant asks, \"Have you seen my shoe?\" He lost one shoe, so he hops on one foot."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"The kids push and push the shoe to him.\" What does \"push and push\" show?",
+      "qko": "«push and push» 는 무엇을 보여 주나요?",
+      "opts": [
+        "The kids push very hard, again and again.",
+        "The kids push only one time.",
+        "The kids push the giant away."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Everyone is scared. Where is the giant?",
+        "It is as big as a bus.",
+        "Then the ground shakes. Boom, boom!",
+        "The scary giant was just looking for his shoe!"
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "신발이 버스만큼 커요. 그래서 아이들이 «밀고 또 밀어야» 했어요. 여러 번 힘껏 밀었다는 뜻이에요.",
+        "The shoe is as big as a bus. \"Push and push\" means they push hard again and again."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why was the giant not really scary?",
+      "qko": "거인은 왜 사실 무섭지 않았나요?",
+      "opts": [
+        "He was very small, like a mouse.",
+        "He was asleep all day.",
+        "He was looking for his shoe, and he was kind to the kids."
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "\"Have you seen my shoe?\" he asks in a sad voice.",
+        "Then the ground shakes. Boom, boom!",
+        "It is as big as a bus.",
+        "The giant smiles and gives them a ride on his shoulders."
+      ],
+      "ev": [
+        0,
+        3
+      ],
+      "why": [
+        "거인은 슬픈 목소리로 신발을 찾았고, 신발을 받자 웃으며 아이들을 어깨에 태워 줬어요. 두 문장을 이어야 알 수 있어요.",
+        "The giant was sadly looking for his shoe, and he smiled and gave the kids a ride. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "The giant comes back to play with the kids every Sunday.",
+      "거인이 일요일마다 아이들과 놀러 온다.",
+      "Sunday with the Giant"
+    ],
+    [
+      "B",
+      "The kids make a giant pair of socks for the giant.",
+      "아이들이 거인에게 커다란 양말 한 켤레를 만들어 준다.",
+      "Socks for the Giant"
+    ]
+  ],
+  "write": {
+    "pre": "I can’t",
+    "mid": "but I can",
+    "sep": ", ",
+    "slots": [
+      "vp",
+      "vp"
+    ],
+    "src": "“I can’t <u>lift the big shoe</u>, but I can <u>push it with my friends</u>.”",
+    "slotKo": [
+      "할 수 없는 일",
+      "대신 할 수 있는 일"
+    ],
+    "slotEn": [
+      "what I can’t do",
+      "what I can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «할 수 없는 일 + 대신 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you can’t do and what you can do instead in English.",
+    "chips": [
+      {
+        "a": "carry the big table",
+        "b": "help Mom with the chairs",
+        "label": "table"
+      },
+      {
+        "a": "reach the top shelf",
+        "b": "stand on a step",
+        "label": "shelf"
+      },
+      {
+        "a": "play the piano",
+        "b": "sing a song",
+        "label": "music"
+      }
+    ],
+    "aria": [
+      "what you can’t do",
+      "what you can do instead"
+    ],
+    "moreKo": "한 걸음 더: 두 칸 모두 «하는 일» 낱말로 시작하게 써 보세요. (예: play soccer, draw a picture)",
+    "moreEn": "One more step: start both blanks with an action word. (e.g. play soccer, draw a picture)"
+  },
+  "img": {
+    "cover": "In a sunny park, a giant with messy brown hair, a big round nose, blue overalls and a yellow T-shirt stands tall in two huge red sneakers and smiles, as a girl with two orange pigtails in a pink dress and a boy with short black hair in a green T-shirt ride on his shoulders, laughing and waving.",
+    "scenes": {
+      "1": "At the edge of a park, a giant with messy brown hair, a big round nose, blue overalls and a yellow T-shirt hops on one foot with one red sneaker and one white sock, looking sad, while a girl with two orange pigtails in a pink dress and a boy with short black hair in a green T-shirt peek out from behind a huge red sneaker as big as a bus.",
+      "2": "On the grass of the park, a girl with two orange pigtails in a pink dress, a boy with short black hair in a green T-shirt and other kids push a huge red sneaker as big as a bus toward a giant with messy brown hair, a big round nose, blue overalls and a yellow T-shirt, who sits on the ground with one white sock and smiles."
+    }
+  },
+  "alt": {
+    "1": "A sad giant hops on one foot next to his huge shoe.",
+    "2": "The kids push the giant shoe to the giant.",
+    "cover": "The happy giant gives two kids a ride on his shoulders."
+  }
+}

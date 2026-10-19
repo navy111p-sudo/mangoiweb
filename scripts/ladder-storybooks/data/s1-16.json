@@ -1,0 +1,304 @@
+{
+  "id": "s1-16",
+  "breaks": [
+    3,
+    4,
+    3
+  ],
+  "key": {
+    "P": 6,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «로봇이 숙제를 먹어 버렸다(문제)» 와 «새 칩으로 로봇을 고친다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (my robot ate my homework) and the solution (I fix him with a new chip). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Me and my robot Beep"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Beep eats my math homework."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "I fix Beep with a new chip, and now he helps me."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "I build a ",
+      "ans": "robot",
+      "opts": [
+        "robot",
+        "house",
+        "kite"
+      ]
+    },
+    {
+      "pre": " named Beep. One night, I finish my math ",
+      "ans": "homework",
+      "opts": [
+        "homework",
+        "dinner",
+        "game"
+      ]
+    },
+    {
+      "pre": ". In the morning, it is ",
+      "ans": "gone",
+      "opts": [
+        "gone",
+        "new",
+        "wet"
+      ]
+    },
+    {
+      "pre": "! Beep burps, and a piece of ",
+      "ans": "paper",
+      "opts": [
+        "paper",
+        "cake",
+        "wood"
+      ]
+    },
+    {
+      "pre": " comes out of his mouth. I fix him with a new ",
+      "ans": "chip",
+      "opts": [
+        "chip",
+        "hat",
+        "shoe"
+      ]
+    },
+    {
+      "pre": ", and now Beep helps me with my homework.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "build",
+      "만들다",
+      "I <b>build</b> a robot named Beep.",
+      "to make something by putting parts together"
+    ],
+    [
+      "homework",
+      "숙제",
+      "One night, I finish my math <b>homework</b>.",
+      "school work you do at home"
+    ],
+    [
+      "gone",
+      "없어진",
+      "In the morning, it is <b>gone</b>!",
+      "not there anymore"
+    ],
+    [
+      "burp",
+      "트림하다",
+      "I look at Beep. Beep <b>burps</b>.",
+      "to let air come up and out of your mouth"
+    ],
+    [
+      "paper",
+      "종이",
+      "A little piece of <b>paper</b> comes out of his mouth!",
+      "a thin sheet you write on"
+    ],
+    [
+      "fix",
+      "고치다",
+      "I <b>fix</b> him with a new chip.",
+      "to make something work again"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why is my homework gone in the morning?",
+      "qko": "아침에 숙제는 왜 없어졌나요?",
+      "opts": [
+        "My robot ate it.",
+        "Mom put it in my bag.",
+        "The wind blew it away."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "My robot ate my homework!",
+        "Beep can clean my room and sing songs.",
+        "One night, I finish my math homework.",
+        "Now Beep helps me with my homework instead."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«My robot ate my homework!» 로봇 삐프가 숙제를 먹어 버려서 없어졌어요.",
+        "My robot ate my homework, so it is gone."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Now Beep helps me with my homework instead.\" What does \"instead\" mean here?",
+      "qko": "«Now Beep helps me with my homework instead.» 에서 «instead» 는 무슨 뜻일까요?",
+      "opts": [
+        "in place of eating it",
+        "after dinner",
+        "very fast"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "\"Beep, robots do not eat paper!\" I say.",
+        "I build a robot named Beep.",
+        "One night, I finish my math homework.",
+        "I look at Beep. Beep burps."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«\"Beep, robots do not eat paper!\" I say.» 로봇은 종이를 먹으면 안 돼요. 그래서 삐프는 숙제를 먹는 «대신» 도와줘요.",
+        "Robots do not eat paper. So now Beep helps with my homework and does not eat it."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How do I know Beep ate my homework?",
+      "qko": "삐프가 숙제를 먹었다는 것을 어떻게 알 수 있나요?",
+      "opts": [
+        "Beep burps, and paper comes out of his mouth.",
+        "Beep tells me in a song.",
+        "I see Beep eat it at night."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "I look at Beep. Beep burps.",
+        "A little piece of paper comes out of his mouth!",
+        "Beep can clean my room and sing songs.",
+        "I fix him with a new chip."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "삐프가 트림을 하고(«I look at Beep. Beep burps.»), 입에서 종이 조각이 나와요(«A little piece of paper comes out of his mouth!»). 두 단서를 이으면 삐프가 숙제를 먹었다는 걸 알 수 있어요.",
+        "Beep burps, and a piece of paper comes out of his mouth. Put the two clues together."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Beep learns to cook dinner for my family.",
+      "삐프가 우리 가족을 위해 저녁 요리를 배운다.",
+      "Beep the Cook"
+    ],
+    [
+      "B",
+      "I take Beep to school for show and tell.",
+      "나는 삐프를 학교 발표 시간에 데려간다.",
+      "Beep Goes to School"
+    ]
+  ],
+  "write": {
+    "pre": "I can’t",
+    "mid": "but I can",
+    "sep": ", ",
+    "slots": [
+      "vp",
+      "vp"
+    ],
+    "slotKo": [
+      "할 수 없는 일",
+      "대신 할 수 있는 일"
+    ],
+    "slotEn": [
+      "what I can’t do",
+      "what I can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «할 수 없는 일 + 대신 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you can’t do and what you can do instead in English.",
+    "aria": [
+      "what you can’t do",
+      "what you can do instead"
+    ],
+    "moreKo": "한 걸음 더: 두 칸 모두 «하는 일» 낱말로 시작하게 써 보세요. (예: play soccer, draw a picture)",
+    "moreEn": "One more step: start both blanks with an action word. (e.g. play soccer, draw a picture)",
+    "src": "“I can’t <u>find my homework</u>, but I can <u>fix my robot</u>.”",
+    "chips": [
+      {
+        "a": "fly",
+        "b": "jump high",
+        "label": "jump"
+      },
+      {
+        "a": "cook dinner",
+        "b": "set the table",
+        "label": "dinner"
+      },
+      {
+        "a": "draw a robot",
+        "b": "build one with blocks",
+        "label": "blocks"
+      }
+    ]
+  },
+  "img": {
+    "cover": "At night in a cozy bedroom lit by moonlight, a small round silver robot with a square head, blue light-up eyes and short springy arms tiptoes to the desk and happily munches on a sheet of white paper, while a girl with two puffy pigtails and round red glasses in purple star pajamas sleeps in bed with a smile.",
+    "scenes": {
+      "1": "In a bright bedroom in the morning, a small round silver robot with a square head, blue light-up eyes and short springy arms burps and a little crumpled piece of white paper pops out of its mouth, while a girl with two puffy pigtails and round red glasses in purple star pajamas holds an empty folder and stares with her mouth wide open.",
+      "2": "At a desk by the window, a girl with two puffy pigtails and round red glasses in purple star pajamas smiles and writes in an open notebook, while a small round silver robot with a square head, blue light-up eyes and short springy arms, with a shiny new green chip on its chest, holds out a pencil to help her."
+    }
+  },
+  "alt": {
+    "1": "Paper pops out of Beep’s mouth.",
+    "2": "Beep helps the girl with her homework.",
+    "cover": "Beep the robot munches on paper at night."
+  }
+}

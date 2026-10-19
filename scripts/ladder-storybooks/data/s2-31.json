@@ -1,0 +1,305 @@
+{
+  "id": "s2-31",
+  "breaks": [
+    4,
+    4,
+    4,
+    2
+  ],
+  "key": {
+    "P": 1,
+    "S": 13
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «달 기지의 산소가 줄어들고 있었다(문제)» 와 «귀 기울여 집중하면 큰 문제도 풀 수 있다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the oxygen on the Moon base was going down) and the lesson (paying close attention can solve even the biggest problems). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Hana, the adults, the commander"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The oxygen on the Moon base was going down."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Hana found a tiny hole and covered it with a patch."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "In 2080, Hana lived on a base on the ",
+      "ans": "Moon",
+      "opts": [
+        "Moon",
+        "Mars",
+        "Earth"
+      ]
+    },
+    {
+      "pre": ". One morning, the ",
+      "ans": "oxygen",
+      "opts": [
+        "oxygen",
+        "water",
+        "food"
+      ]
+    },
+    {
+      "pre": " level started going down. Hana searched every room and found a tiny ",
+      "ans": "hole",
+      "opts": [
+        "hole",
+        "door",
+        "robot"
+      ]
+    },
+    {
+      "pre": " behind the tomato plants. She pressed a ",
+      "ans": "patch",
+      "opts": [
+        "patch",
+        "plant",
+        "book"
+      ]
+    },
+    {
+      "pre": " over it, and the air was safe again. Paying close ",
+      "ans": "attention",
+      "opts": [
+        "attention",
+        "money",
+        "time"
+      ]
+    },
+    {
+      "pre": " can solve even big problems.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "oxygen",
+      "산소",
+      "\"<b>Oxygen</b> level normal.\"",
+      "the gas in the air that we need to breathe"
+    ],
+    [
+      "warning",
+      "경고",
+      "the base computer gave a <b>warning</b>",
+      "words that tell you something bad may happen"
+    ],
+    [
+      "greenhouse",
+      "온실",
+      "In the <b>greenhouse</b>, she heard a quiet hiss.",
+      "a glass room where plants grow"
+    ],
+    [
+      "escaping",
+      "새어 나가는",
+      "Air was <b>escaping</b> into space.",
+      "getting out of a place"
+    ],
+    [
+      "patch",
+      "덧대는 조각(패치)",
+      "Hana grabbed a <b>patch</b> from the emergency kit",
+      "a small piece used to cover a hole"
+    ],
+    [
+      "attention",
+      "주의, 집중",
+      "Paying close <b>attention</b> can solve even the biggest problems.",
+      "careful watching or listening"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why was the air on the base getting thinner?",
+      "qko": "기지의 공기는 왜 점점 옅어졌나요?",
+      "opts": [
+        "Air was escaping into space through a hole.",
+        "The oxygen tanks were empty.",
+        "The tomato plants used all the air."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Everyone checked the tanks, but they looked fine.",
+        "Air was escaping into space.",
+        "She walked through every room, listening carefully.",
+        "The commander gave Hana a gold star for her space suit."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "벽의 작은 구멍으로 공기가 우주로 새어 나가고 있었어요. 산소 탱크는 괜찮아 보였다고 나와 있으니 탱크가 비었다는 것은 틀려요.",
+        "Air was escaping into space through the tiny hole. The text says the tanks looked fine, so they were not empty."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the greenhouse, Hana heard \"a quiet hiss.\" What is a hiss here?",
+      "qko": "하나는 온실에서 \"a quiet hiss\"를 들었어요. 여기서 hiss는 무엇인가요?",
+      "opts": [
+        "a soft sound of air rushing out",
+        "a loud song from the computer",
+        "the sound of tomatoes falling"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "In the year 2080, eleven-year-old Hana lived on a base on the Moon.",
+        "The adults were busy, so Hana decided to search the base herself.",
+        "The hissing stopped.",
+        "The commander gave Hana a gold star for her space suit."
+      ],
+      "ev": [
+        2
+      ],
+      "why": [
+        "하나가 구멍을 막자 그 소리가 멈췄어요. 그러니 hiss는 구멍으로 공기가 빠져나가는 작은 «쉬익» 소리예요.",
+        "When Hana covered the hole, the hissing stopped. So the hiss was the soft sound of air rushing out."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did Hana find the problem when the tanks looked fine?",
+      "qko": "탱크가 멀쩡해 보였는데, 하나는 어떻게 문제를 찾아냈나요?",
+      "opts": [
+        "She listened carefully in every room until she heard the hiss.",
+        "The commander told her where the hole was.",
+        "The computer showed her a map of the hole."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "She walked through every room, listening carefully.",
+        "One morning, the base computer gave a warning: \"Oxygen is going down.\"",
+        "In the greenhouse, she heard a quiet hiss.",
+        "Soon, the computer said, \"Oxygen level normal.\""
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "하나는 모든 방을 다니며 귀를 기울였고, 온실에서 작은 «쉬익» 소리를 들었어요. 이 두 문장을 이으면 답이 나와요.",
+        "Hana walked through every room listening carefully, and she heard a quiet hiss in the greenhouse. Put these two clues together."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Hana trains to become a Moon base engineer.",
+      "하나가 달 기지 기술자가 되려고 훈련해요.",
+      "Hana the Engineer"
+    ],
+    [
+      "B",
+      "A meteor shower comes, and Hana helps keep the base safe.",
+      "유성우가 쏟아지고, 하나가 기지를 안전하게 지키는 데 힘을 보태요.",
+      "The Meteor Night"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“It is important to <u>listen carefully</u> because <u>small sounds can be big clues</u>.”",
+    "slotKo": [
+      "중요한 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "an important thing to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write an important thing to do and your reason in English.",
+    "chips": [
+      {
+        "a": "check my bag before school",
+        "b": "I can forget my books",
+        "label": "bag"
+      },
+      {
+        "a": "drink water every day",
+        "b": "our body needs it",
+        "label": "water"
+      },
+      {
+        "a": "look both ways",
+        "b": "cars can come fast",
+        "label": "road"
+      }
+    ],
+    "aria": [
+      "what is important to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «It is important to» 뒤에는 동사(listen, check, look)를 바로 쓰고, «because» 뒤에는 «누가 + 무엇을» 을 쓰세요.",
+    "moreEn": "One more step: after «It is important to», write a verb (listen, check, look). After «because», write who + what."
+  },
+  "img": {
+    "cover": "Inside a glass greenhouse on the Moon, an eleven-year-old girl with a short black ponytail in a white space suit with orange stripes kneels behind rows of red tomato plants and presses a round gray patch over a tiny hole in the metal wall, while the tomato leaves bend toward the hole and the gray Moon ground and the blue Earth shine through the glass roof.",
+    "scenes": {
+      "1": "In a round metal hallway of the Moon base, an eleven-year-old girl with a short black ponytail in a white space suit with orange stripes walks on tiptoe with one hand cupped behind her ear, while busy adults in blue uniforms look at blinking control panels behind her.",
+      "3": "In the bright main room of the Moon base, a smiling commander with gray hair in a blue uniform sticks a shiny gold star on the chest of an eleven-year-old girl with a short black ponytail in a white space suit with orange stripes, while other base workers clap and the blue Earth glows in a big round window."
+    }
+  },
+  "alt": {
+    "1": "Hana listens carefully as she walks through the base.",
+    "3": "The commander gives Hana a gold star.",
+    "cover": "Hana covers a hole in the wall of the Moon greenhouse."
+  }
+}

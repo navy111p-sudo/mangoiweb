@@ -1,0 +1,304 @@
+{
+  "id": "s1-35",
+  "breaks": [
+    4,
+    3,
+    3
+  ],
+  "key": {
+    "P": 3,
+    "S": 7
+  },
+  "roleNames": {
+    "P": {
+      "ko": "비밀",
+      "en": "secret"
+    },
+    "S": {
+      "ko": "착한 행동",
+      "en": "kind act"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «모모는 닌자 고양이다(비밀)» 와 «배고픈 생쥐에게 치즈를 나눠 준다(착한 행동)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the secret (Momo is a ninja cat) and the kind act (Momo shares the cheese with the hungry mouse). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Momo the cat and a hungry mouse"
+    },
+    {
+      "k": "Secret",
+      "qko": "모모의 비밀은 무엇인가요?",
+      "qen": "What is Momo's secret?",
+      "a": "At night, Momo puts on a black mask and is a ninja cat."
+    },
+    {
+      "k": "Kind act",
+      "qko": "모모는 어떤 착한 일을 하나요?",
+      "qen": "What kind thing does Momo do?",
+      "a": "She stops the mouse, but she shares the cheese because it is hungry."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "By day, Momo is a lazy cat who sleeps on the ",
+      "ans": "sofa",
+      "opts": [
+        "sofa",
+        "roof",
+        "boat"
+      ]
+    },
+    {
+      "pre": ". At night, she puts on a black ",
+      "ans": "mask",
+      "opts": [
+        "mask",
+        "hat",
+        "shoe"
+      ]
+    },
+    {
+      "pre": " and is a ninja cat! One night, a mouse steals ",
+      "ans": "cheese",
+      "opts": [
+        "cheese",
+        "milk",
+        "fish"
+      ]
+    },
+    {
+      "pre": ". Momo stops the mouse, but it is very ",
+      "ans": "hungry",
+      "opts": [
+        "hungry",
+        "big",
+        "happy"
+      ]
+    },
+    {
+      "pre": ", so Momo ",
+      "ans": "shares",
+      "opts": [
+        "shares",
+        "eats",
+        "hides"
+      ]
+    },
+    {
+      "pre": " the cheese. Nobody knows her secret!",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "lazy",
+      "게으른",
+      "By day, Momo is a <b>lazy</b> house cat.",
+      "not wanting to work or move"
+    ],
+    [
+      "mask",
+      "복면",
+      "But at night, she puts on a black <b>mask</b>.",
+      "a cover for your face"
+    ],
+    [
+      "ninja",
+      "닌자",
+      "Momo is a <b>ninja</b> cat!",
+      "someone who moves very fast and very quietly"
+    ],
+    [
+      "steals",
+      "훔치다",
+      "One night, a mouse <b>steals</b> cheese from the kitchen.",
+      "takes something that is not yours"
+    ],
+    [
+      "shares",
+      "나눠 주다",
+      "The mouse is very hungry, so Momo <b>shares</b> the cheese.",
+      "gives part of what you have to others"
+    ],
+    [
+      "secret",
+      "비밀",
+      "Nobody knows her <b>secret</b>!",
+      "something other people do not know"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Momo share the cheese with the mouse?",
+      "qko": "모모는 왜 생쥐와 치즈를 나눠 먹나요?",
+      "opts": [
+        "Momo does not like cheese.",
+        "The mouse is very hungry.",
+        "The mouse is her brother."
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "One night, a mouse steals cheese from the kitchen.",
+        "She sleeps on the sofa all day.",
+        "The mouse is very hungry, so Momo shares the cheese.",
+        "Momo is a ninja cat!"
+      ],
+      "ev": [
+        2
+      ],
+      "why": [
+        "생쥐가 너무 배고파 보여서 모모가 치즈를 나눠 줘요. «so» 앞이 이유예요.",
+        "The mouse is very hungry, so Momo shares the cheese."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"By day, Momo is a lazy house cat.\" What does \"By day\" mean?",
+      "qko": "«By day» 는 무슨 뜻일까요?",
+      "opts": [
+        "in the daytime",
+        "at night",
+        "every year"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "She stops the mouse at the door.",
+        "But at night, she puts on a black mask.",
+        "Nobody knows her secret!",
+        "The mouse is very hungry, so Momo shares the cheese."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "바로 뒤에 «But at night» 이 나와요. 밤과 반대인 «By day» 는 낮 동안이라는 뜻이에요.",
+        "The story says \"But at night\" next. \"By day\" is the opposite: in the daytime."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why does nobody know Momo's secret?",
+      "qko": "왜 아무도 모모의 비밀을 모르나요?",
+      "opts": [
+        "She tells everyone about it.",
+        "The mouse takes her mask away.",
+        "She is a ninja at night and sleeps on the sofa in the morning."
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "But at night, she puts on a black mask.",
+        "One night, a mouse steals cheese from the kitchen.",
+        "She stops the mouse at the door.",
+        "In the morning, Momo is asleep on the sofa again."
+      ],
+      "ev": [
+        0,
+        3
+      ],
+      "why": [
+        "모모는 밤에만 복면을 쓰고, 아침이면 다시 소파에서 자요. 그래서 아무도 몰라요. 두 문장을 이어야 알 수 있어요.",
+        "Momo is a ninja only at night, and in the morning she is asleep on the sofa again. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Momo and the mouse become secret ninja partners.",
+      "모모와 생쥐가 비밀 닌자 짝꿍이 된다.",
+      "Two Ninja Friends"
+    ],
+    [
+      "B",
+      "Momo finds a lost kitten in the dark street.",
+      "모모가 깜깜한 골목에서 길 잃은 아기 고양이를 찾는다.",
+      "The Lost Kitten"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "src": "“I think <u>Momo is kind</u> because <u>she shares the cheese</u>.”",
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "chips": [
+      {
+        "a": "my cat is lazy",
+        "b": "she sleeps all day",
+        "label": "cat"
+      },
+      {
+        "a": "my friend is kind",
+        "b": "she shares her snack",
+        "label": "friend"
+      },
+      {
+        "a": "Dad is tired",
+        "b": "he is yawning",
+        "label": "Dad"
+      }
+    ],
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
+  },
+  "img": {
+    "cover": "In a moonlit kitchen, Momo, a fluffy gray cat with white paws and big green eyes, wears a black mask over her eyes and leaps high over the kitchen table in one silent jump, while a small brown mouse with big round ears runs toward the door holding a yellow piece of cheese.",
+    "scenes": {
+      "1": "At the kitchen door at night, Momo, a fluffy gray cat with white paws and big green eyes, wearing a black mask over her eyes, lands softly in front of a small brown mouse with big round ears, who stops in surprise with a yellow piece of cheese in its arms.",
+      "2": "By the kitchen door at night, Momo, a fluffy gray cat with white paws and big green eyes, wearing a black mask over her eyes, sits next to a small brown mouse with big round ears, and they nibble pieces of yellow cheese together from a small plate, both looking happy."
+    }
+  },
+  "alt": {
+    "1": "Momo stops the mouse at the door.",
+    "2": "Momo shares the cheese with the hungry mouse.",
+    "cover": "Momo the ninja cat jumps over the table at night."
+  }
+}

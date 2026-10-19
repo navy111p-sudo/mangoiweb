@@ -184,7 +184,7 @@
     try { st = JSON.parse(localStorage.getItem('story_' + id + '_stamps') || '{}') || {}; } catch (e) { st = {}; }
     return BOOK_STAMPS.filter(function (k) { return !!st[k]; }).length;
   }
-  // 그림책은 처음 48편에만 있다 — 나중에 더한 글(데이터에 book:false)은 그림책 표시·버튼을 그리지 않는다(없는 페이지로 보내지 않게).
+  // 2026-10-19 부터 176편 모두 그림책이 있다. 그림책이 없는 글(데이터에 book:false)이 생기면 그림책 표시·버튼을 그리지 않는다(없는 페이지로 보내지 않게).
   function hasBook(p) { return !!p && p.book !== false; }
   function bookTag(p) {
     if (!hasBook(p)) return '';

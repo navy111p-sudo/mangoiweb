@@ -1,4 +1,4 @@
-/* 📚 영어 독서 사다리 48편 → 그림 동화책 페이지 생성기 (2026-10-18 사장님 «이런 방식으로 모두 만들어줘»)
+/* 📚 영어 독서 사다리 전편(2026-10-18 48편 → 2026-10-19 176편) → 그림 동화책 페이지 생성기 (2026-10-18 사장님 «이런 방식으로 모두 만들어줘»)
    틀: cloudflare-deploy/public/story-birthday-cake.html (2권 — WRITE_PAT 로 일반화된 판). 그 파일은 손대지 않습니다.
    글: public/js/reading-ladder-data.js 의 sentences[].en «그대로» (단계별 수준 유지) · 활동 재료: scripts/ladder-storybooks/data/<id>.json
    결과: public/story-<id>.html (예: story-s1-01.html)
@@ -218,7 +218,8 @@ export function buildPage(tpl, p, d, no) {
   h = between(h, '        (cw.more ? \'<p>\' + t("한 걸음 더:', '(e.g. because he is smiling)") + \'</p>\' : \'\')',
     `        (cw.more ? '<p>' + t(${J(w.moreKo)},${J(w.moreEn)}) + '</p>' : '')`, 'cw.more');
   h = between(h, '  var TUNE = {"name":"Party Kitchen"', '};', `  var TUNE = ${J(makeTune(p.id, p.stage))};`, 'TUNE');
-  if (/Birthday|Biscuit|Grandma Rose|birthday-cake|Party Kitchen/.test(h)) throw new Error(p.id + ': 2권 흔적이 남음');
+  // 틀 흔적은 «틀 제목 전체» 로 본다 — 낱말 «Birthday» 하나로 보면 생일 이야기(s1-15·s3-17)를 틀 흔적으로 잘못 잡는다(2026-10-19).
+  if (/Missing Birthday Cake|Biscuit|Grandma Rose|birthday-cake|Party Kitchen/.test(h)) throw new Error(p.id + ': 2권 흔적이 남음');
   return h;
 }
 

@@ -1,0 +1,305 @@
+{
+  "id": "s3-20",
+  "breaks": [
+    4,
+    4,
+    4,
+    2
+  ],
+  "key": {
+    "P": 4,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "질문",
+      "en": "question"
+    },
+    "S": {
+      "ko": "답",
+      "en": "answer"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «바다의 그 많은 소금은 어디서 올까?(질문)» 와 «강이 소금을 계속 실어 오지만 물만 떠나기 때문에 바다는 짜다(답)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the question (where does all the salt come from?) and the answer (the ocean is salty because rivers keep bringing salt in, but only water leaves). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Why the ocean is salty"
+    },
+    {
+      "k": "Key fact",
+      "qko": "바다의 소금은 어디서 오나요?",
+      "qen": "Where does the salt come from?",
+      "a": "Rain breaks down rocks, and rivers carry salt to the sea"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "왜 바닷물을 마시면 안 되나요?",
+      "qen": "Why must you not drink seawater?",
+      "a": "It makes you thirstier, so sailors carry fresh water"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Seawater is so salty that drinking it would make you ",
+      "ans": "thirstier",
+      "opts": [
+        "thirstier",
+        "stronger",
+        "happier"
+      ]
+    },
+    {
+      "pre": ". Much of the salt comes from ",
+      "ans": "rocks",
+      "opts": [
+        "rocks",
+        "fish",
+        "clouds"
+      ]
+    },
+    {
+      "pre": " on land. Rainwater slowly breaks down rocks, and rivers carry tiny bits of ",
+      "ans": "minerals",
+      "opts": [
+        "minerals",
+        "sugar",
+        "plastic"
+      ]
+    },
+    {
+      "pre": ", including salt, to the sea. In the ocean, the sun heats the water until it ",
+      "ans": "evaporates",
+      "opts": [
+        "evaporates",
+        "freezes",
+        "sinks"
+      ]
+    },
+    {
+      "pre": ", but the salt stays behind. So the ocean is salty because rivers keep bringing salt in, but only ",
+      "ans": "water",
+      "opts": [
+        "water",
+        "salt",
+        "sand"
+      ]
+    },
+    {
+      "pre": " leaves.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "surrounded",
+      "둘러싸인",
+      "you are <b>surrounded</b> by water",
+      "having something all around you"
+    ],
+    [
+      "acidic",
+      "산성의",
+      "Rainwater is slightly <b>acidic</b>",
+      "having acid in it, which can slowly wear things away"
+    ],
+    [
+      "minerals",
+      "광물, 무기물",
+      "picks up tiny bits of <b>minerals</b>",
+      "natural materials found in rocks and soil"
+    ],
+    [
+      "flowing",
+      "흐르는",
+      "holds only a tiny amount of salt and keeps <b>flowing</b>",
+      "moving along smoothly, like water in a river"
+    ],
+    [
+      "evaporates",
+      "증발하다",
+      "the sun heats the water until it <b>evaporates</b>",
+      "turns from a liquid into a gas"
+    ],
+    [
+      "fresh",
+      "(물이) 짜지 않은, 민물의",
+      "sailors carry <b>fresh</b> water on long trips",
+      "not salty"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why would drinking seawater make you thirstier?",
+      "qko": "바닷물을 마시면 오히려 더 목이 마른 이유는 무엇인가요?",
+      "opts": [
+        "Because your body would need even more water to get rid of the salt",
+        "Because seawater is too cold to drink",
+        "Because seawater has no minerals in it"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Seawater is so salty that your body would need even more water to get rid of the salt, so you would become thirstier.",
+        "You are thirsty, and you are surrounded by water.",
+        "Rivers carry these minerals, including salt, all the way to the sea.",
+        "That is why sailors carry fresh water on long trips."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "바닷물은 너무 짜서 몸이 소금을 없애려면 물이 더 필요하고, 그래서 더 목이 마르게 된다고 했어요.",
+        "Seawater is so salty that your body would need even more water to get rid of the salt, so you would become thirstier."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In \"but the salt stays behind,\" what does \"stays behind\" mean?",
+      "qko": "«but the salt stays behind» 에서 «stays behind» 는 무슨 뜻인가요?",
+      "opts": [
+        "remains in the same place when something else leaves",
+        "floats up into the sky",
+        "turns into rain"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "In the ocean, the sun heats the water until it evaporates, or turns into gas, but the salt stays behind.",
+        "Much of it comes from rocks on land.",
+        "The answer is that river water holds only a tiny amount of salt and keeps flowing.",
+        "That is why sailors carry fresh water on long trips."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "물은 증발해서 기체로 떠나지만 소금은 «남는다» 고 했어요. «stays behind» 는 다른 것이 떠나도 그 자리에 남는다는 뜻이에요.",
+        "The water evaporates and leaves as gas, but the salt «stays behind», which means it remains where it is."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does salt from rocks on land get into the sea?",
+      "qko": "땅 위 암석의 소금은 어떻게 바다로 들어가나요?",
+      "opts": [
+        "Rain breaks down rocks and picks up minerals, and rivers carry them to the sea",
+        "Fish carry rocks from the land into the sea",
+        "The wind blows salt from the sky into the water"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Rainwater is slightly acidic, so it slowly breaks down rocks and picks up tiny bits of minerals.",
+        "But you must not drink it.",
+        "Rivers carry these minerals, including salt, all the way to the sea.",
+        "After millions of years, the salt has built up until about 3.5 percent of seawater's weight is salt."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "약한 산성인 빗물이 암석을 부수며 광물을 모으고, 강이 소금을 포함한 이 광물을 바다까지 실어 간다고 했어요. 두 문장을 이어야 해요.",
+        "Slightly acidic rainwater breaks down rocks and picks up minerals, and rivers carry these minerals, including salt, to the sea. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Why is the Dead Sea so salty that people can float on it?",
+      "사해는 왜 사람이 둥둥 뜰 만큼 짤까요?",
+      "Floating in the Dead Sea"
+    ],
+    [
+      "B",
+      "How do people make salt from seawater?",
+      "사람들은 바닷물로 소금을 어떻게 만들까요?",
+      "From Sea to Salt"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>carry fresh water on our trip</u> so that <u>we never feel too thirsty</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그 결과"
+    ],
+    "slotEn": [
+      "what we do",
+      "the result"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그 결과» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we can do together and the result in English.",
+    "chips": [
+      {
+        "a": "bring water bottles to the park",
+        "b": "we can play longer",
+        "label": "water"
+      },
+      {
+        "a": "wear sunscreen at the beach",
+        "b": "our skin does not burn",
+        "label": "beach"
+      },
+      {
+        "a": "clean up the river bank",
+        "b": "the river stays clean",
+        "label": "river"
+      }
+    ],
+    "aria": [
+      "what we do",
+      "the result"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «누가 + 무엇을» 넣어 결과를 분명하게 써 보세요. (예: so that we stay healthy)",
+    "moreEn": "One more step: after «so that», write who + what to make the result clear. (e.g. so that we stay healthy)"
+  },
+  "img": {
+    "cover": "A small wooden raft floating alone on a wide blue ocean under a hot sun, with sparkling waves stretching all the way to the horizon",
+    "scenes": {
+      "1": "A clear mountain river rushing over smooth gray rocks and pebbles, winding through a green valley toward the distant sea",
+      "2": "Shallow seaside salt ponds where the water has dried up, leaving sparkling white salt crystals raked into neat piles"
+    }
+  },
+  "alt": {
+    "1": "A river flowing over rocks",
+    "2": "White salt left behind in drying ponds",
+    "cover": "A raft on the open ocean"
+  }
+}

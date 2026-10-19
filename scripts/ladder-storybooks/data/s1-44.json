@@ -1,0 +1,304 @@
+{
+  "id": "s1-44",
+  "breaks": [
+    3,
+    3,
+    4
+  ],
+  "key": {
+    "P": 2,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "비밀",
+      "en": "secret"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «고양이가 높은 기둥 꼭대기에 올라간다(문제)» 와 «우리 할머니는 비밀 슈퍼히어로다(비밀)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (our cat climbs to the top of a tall pole) and the secret (Grandma is a secret superhero). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Grandma, me, and our cat"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Our cat climbs to the top of a tall pole."
+    },
+    {
+      "k": "Secret",
+      "qko": "어떤 비밀이 있었나요?",
+      "qen": "What is the secret?",
+      "a": "Grandma flies up and saves the cat. She is a secret superhero!"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "My grandma looks like a normal grandma, but she has a ",
+      "ans": "secret",
+      "opts": [
+        "secret",
+        "pet",
+        "car"
+      ]
+    },
+    {
+      "pre": ". One day, our cat climbs to the top of a tall ",
+      "ans": "pole",
+      "opts": [
+        "pole",
+        "bed",
+        "box"
+      ]
+    },
+    {
+      "pre": ". Grandma takes off her ",
+      "ans": "glasses",
+      "opts": [
+        "glasses",
+        "shoes",
+        "hat"
+      ]
+    },
+    {
+      "pre": ". She flies up and catches the ",
+      "ans": "cat",
+      "opts": [
+        "cat",
+        "ball",
+        "bird"
+      ]
+    },
+    {
+      "pre": ". She is a secret ",
+      "ans": "superhero",
+      "opts": [
+        "superhero",
+        "teacher",
+        "doctor"
+      ]
+    },
+    {
+      "pre": ", but I must not tell anyone.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "secret",
+      "비밀",
+      "But she has a <b>secret</b>.",
+      "something you do not tell other people"
+    ],
+    [
+      "pole",
+      "기둥",
+      "One day, our cat climbs to the top of a tall <b>pole</b>.",
+      "a long, thin stick that stands up"
+    ],
+    [
+      "glasses",
+      "안경",
+      "Grandma takes off her <b>glasses</b>.",
+      "things you wear on your eyes to see better"
+    ],
+    [
+      "lands",
+      "내려앉다",
+      "She catches the cat and <b>lands</b> softly.",
+      "comes down to the ground"
+    ],
+    [
+      "superhero",
+      "슈퍼히어로",
+      "My grandma is a secret <b>superhero</b>!",
+      "a person with special powers who helps people"
+    ],
+    [
+      "knitting",
+      "뜨개질",
+      "Then she goes back to her <b>knitting</b>.",
+      "making clothes from yarn"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Grandma fly up into the sky?",
+      "qko": "할머니는 왜 하늘로 날아오르나요?",
+      "opts": [
+        "Our cat is at the top of a tall pole.",
+        "She wants to see the clouds.",
+        "Her glasses fall into the sky."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "One day, our cat climbs to the top of a tall pole.",
+        "My grandma looks like a normal grandma.",
+        "Then she goes back to her knitting.",
+        "\"Grandma, you are a superhero!\" I shout."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "고양이가 높은 기둥 꼭대기에 올라가서, 할머니가 날아올라 구해 줘요.",
+        "Our cat climbs to the top of a tall pole, so Grandma flies up to save it."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"My grandma is a secret superhero!\" What does \"secret\" mean here?",
+      "qko": "«secret superhero» 에서 «secret» 은 무슨 뜻일까요?",
+      "opts": [
+        "Everyone in town knows it.",
+        "It is very old.",
+        "Other people do not know it."
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Grandma takes off her glasses.",
+        "She catches the cat and lands softly.",
+        "My grandma looks like a normal grandma.",
+        "She winks. \"Shh! Do not tell anyone.\""
+      ],
+      "ev": [
+        3
+      ],
+      "why": [
+        "할머니가 «아무한테도 말하지 마» 라고 해요. «secret» 은 다른 사람은 모르는 것이라는 뜻이에요.",
+        "Grandma says, \"Do not tell anyone.\" A secret is something other people do not know."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How do we know Grandma is not a normal grandma?",
+      "qko": "할머니가 평범한 할머니가 아니라는 것을 어떻게 알 수 있나요?",
+      "opts": [
+        "She knits a big red scarf.",
+        "She flies into the sky and catches the cat.",
+        "She climbs the pole with a ladder."
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "My grandma looks like a normal grandma.",
+        "Whoosh! She flies up into the sky!",
+        "She catches the cat and lands softly.",
+        "Then she goes back to her knitting."
+      ],
+      "ev": [
+        1,
+        2
+      ],
+      "why": [
+        "할머니가 하늘로 날아오르고(«She flies up into the sky!»), 고양이를 잡고 내려와요. 두 문장을 이어야 알 수 있어요.",
+        "Grandma flies up into the sky, and she catches the cat. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Grandma teaches me how to fly in secret.",
+      "할머니가 몰래 나에게 나는 법을 가르쳐 준다.",
+      "Flying Lessons with Grandma"
+    ],
+    [
+      "B",
+      "Super Grandma helps a lost puppy find its home.",
+      "슈퍼 할머니가 길 잃은 강아지의 집을 찾아 준다.",
+      "Super Grandma Saves the Day"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "src": "“I think <u>my grandma is brave</u> because <u>she saves our cat</u>.”",
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "chips": [
+      {
+        "a": "my dad is strong",
+        "b": "he can carry me",
+        "label": "dad"
+      },
+      {
+        "a": "my sister is funny",
+        "b": "she makes me laugh",
+        "label": "sister"
+      },
+      {
+        "a": "my cat is smart",
+        "b": "it opens the door",
+        "label": "cat"
+      }
+    ],
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
+  },
+  "img": {
+    "cover": "High in the blue sky above a quiet neighborhood, Grandma, a small old woman with curly gray hair in a bun, wearing a purple cardigan and a long green skirt, flies like a superhero with one arm stretched forward, holding a fluffy orange cat with white paws safely in her other arm, while a young girl with a short black bob in a red T-shirt cheers from the ground.",
+    "scenes": {
+      "1": "In a backyard next to a very tall wooden pole with a fluffy orange cat with white paws sitting at the very top, Grandma, a small old woman with curly gray hair in a bun, wearing a purple cardigan and a long green skirt, takes off her round glasses and starts to lift off the ground, as a young girl with a short black bob in a red T-shirt stares with her mouth open.",
+      "2": "In a cozy living room, Grandma, a small old woman with curly gray hair in a bun, wearing a purple cardigan and a long green skirt, sits in an armchair with a ball of red yarn and her knitting, winking and holding a finger to her lips, while a young girl with a short black bob in a red T-shirt points at her in surprise and a fluffy orange cat with white paws naps on her lap."
+    }
+  },
+  "alt": {
+    "1": "Grandma takes off her glasses next to the tall pole.",
+    "2": "Grandma winks and goes back to her knitting.",
+    "cover": "Grandma flies in the sky holding the cat."
+  }
+}

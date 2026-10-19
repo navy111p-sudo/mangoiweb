@@ -1,0 +1,304 @@
+{
+  "id": "s1-47",
+  "breaks": [
+    2,
+    3,
+    4
+  ],
+  "key": {
+    "P": 3,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "결말",
+      "en": "ending"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «알이 깨지고 아기 용이 튀어나온다(문제)» 와 «벤이 새 용 친구와 함께 경주에서 이긴다(결말)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the egg cracks and a baby dragon pops out) and the ending (Ben wins the race with his new dragon friend). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Ben and a baby dragon"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Ben's egg cracks, and a baby dragon pops out. Ben thinks he will lose."
+    },
+    {
+      "k": "Ending",
+      "qko": "마지막에 어떻게 되나요?",
+      "qen": "What happens at the end?",
+      "a": "The baby dragon flies Ben to the castle, and Ben wins the race."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "In the kingdom, kids must carry an egg to the ",
+      "ans": "castle",
+      "opts": [
+        "castle",
+        "beach",
+        "school"
+      ]
+    },
+    {
+      "pre": " without breaking it. Ben runs fast, but his egg ",
+      "ans": "cracks",
+      "opts": [
+        "cracks",
+        "sings",
+        "grows"
+      ]
+    },
+    {
+      "pre": ", and a baby ",
+      "ans": "dragon",
+      "opts": [
+        "dragon",
+        "duck",
+        "cat"
+      ]
+    },
+    {
+      "pre": " pops out. The dragon flaps its little ",
+      "ans": "wings",
+      "opts": [
+        "wings",
+        "feet",
+        "ears"
+      ]
+    },
+    {
+      "pre": " and flies Ben over everyone. They land at the castle ",
+      "ans": "first",
+      "opts": [
+        "first",
+        "last",
+        "late"
+      ]
+    },
+    {
+      "pre": ". Ben wins the race with his new friend!",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "kingdom",
+      "왕국",
+      "Every year, the <b>kingdom</b> has a dragon egg race.",
+      "a land that has a king or queen"
+    ],
+    [
+      "race",
+      "경주",
+      "Every year, the kingdom has a dragon egg <b>race</b>.",
+      "a game to see who is the fastest"
+    ],
+    [
+      "castle",
+      "성",
+      "Kids must carry an egg to the <b>castle</b> without breaking it.",
+      "a big, strong building where a king lives"
+    ],
+    [
+      "shake",
+      "흔들리다",
+      "Ben runs fast, but his egg starts to <b>shake</b>.",
+      "to move quickly from side to side"
+    ],
+    [
+      "wings",
+      "날개",
+      "But the baby dragon flaps its little <b>wings</b>.",
+      "the parts of a bird or dragon used to fly"
+    ],
+    [
+      "first",
+      "가장 먼저",
+      "They land at the castle <b>first</b>.",
+      "before everyone else"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Ben say, \"I will lose!\"?",
+      "qko": "벤은 왜 «난 질 거야!» 하고 말하나요?",
+      "opts": [
+        "He falls down on the road.",
+        "His egg cracks open.",
+        "The castle is too far away."
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Every year, the kingdom has a dragon egg race.",
+        "But the baby dragon flaps its little wings.",
+        "Crack! A baby dragon pops out!",
+        "They land at the castle first."
+      ],
+      "ev": [
+        2
+      ],
+      "why": [
+        "알이 «Crack!» 깨지고 아기 용이 튀어나와요. 알을 깨뜨리면 안 되는데 깨져서 질 거라고 생각해요.",
+        "The egg cracks, and a baby dragon pops out. The egg must not break, so Ben thinks he will lose."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"But the baby dragon flaps its little wings.\" What does \"flaps\" mean?",
+      "qko": "«flaps its little wings» 에서 «flaps» 는 무슨 뜻일까요?",
+      "opts": [
+        "moves its wings up and down",
+        "closes its eyes",
+        "folds its wings away"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Every year, the kingdom has a dragon egg race.",
+        "It picks Ben up and flies over everyone!",
+        "\"Oh no! I will lose!\" Ben cries.",
+        "Ben wins the race with his new dragon friend!"
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "아기 용이 날개를 «flaps» 한 뒤 하늘을 날아요. 날개를 위아래로 파닥인다는 뜻이에요.",
+        "After the dragon flaps its wings, it flies. \"Flaps\" means moves its wings up and down."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does Ben win the race even with a broken egg?",
+      "qko": "알이 깨졌는데도 벤은 어떻게 경주에서 이기나요?",
+      "opts": [
+        "Ben finds a new egg and runs faster.",
+        "The other kids stop to help him.",
+        "The baby dragon flies him to the castle first."
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "It picks Ben up and flies over everyone!",
+        "Every year, the kingdom has a dragon egg race.",
+        "\"Oh no! I will lose!\" Ben cries.",
+        "They land at the castle first."
+      ],
+      "ev": [
+        0,
+        3
+      ],
+      "why": [
+        "아기 용이 벤을 들어 올려 날아가고(«It picks Ben up...»), 둘이 제일 먼저 성에 도착해요. 두 문장을 이어야 알 수 있어요.",
+        "The baby dragon picks Ben up and flies, and they land at the castle first. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Ben and the baby dragon fly around to see the whole kingdom.",
+      "벤과 아기 용이 함께 날아서 왕국 곳곳을 구경한다.",
+      "A Flight over the Kingdom"
+    ],
+    [
+      "B",
+      "The baby dragon goes to school with Ben.",
+      "아기 용이 벤과 함께 학교에 간다.",
+      "A Dragon at School"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "src": "“I think <u>the baby dragon is a good friend</u> because <u>it helps Ben win</u>.”",
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "chips": [
+      {
+        "a": "my friend is kind",
+        "b": "she shares her pencils",
+        "label": "friend"
+      },
+      {
+        "a": "it is fun to run",
+        "b": "I feel fast",
+        "label": "run"
+      },
+      {
+        "a": "my dog is happy",
+        "b": "it jumps a lot",
+        "label": "dog"
+      }
+    ],
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
+  },
+  "img": {
+    "cover": "Above a dirt road full of running children holding eggs, a small purple baby dragon with big round eyes, tiny gold horns and little light-blue wings flaps hard and carries Ben, a boy with messy red hair and freckles, wearing a green tunic and brown boots, through the air toward a big stone castle, and Ben laughs with his arms wide open.",
+    "scenes": {
+      "1": "On a road to the castle, Ben, a boy with messy red hair and freckles, wearing a green tunic and brown boots, stops running and stares at the cracked egg in his hands, as a small purple baby dragon with big round eyes, tiny gold horns and little light-blue wings pops its head out of the shell.",
+      "2": "In front of a big stone castle gate, a small purple baby dragon with big round eyes, tiny gold horns and little light-blue wings lands with Ben, a boy with messy red hair and freckles, wearing a green tunic and brown boots, and Ben hugs the dragon as the other children arrive behind them and clap."
+    }
+  },
+  "alt": {
+    "1": "A baby dragon pops out of Ben's egg.",
+    "2": "Ben and the baby dragon land at the castle first.",
+    "cover": "The baby dragon carries Ben over the race."
+  }
+}

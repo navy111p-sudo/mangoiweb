@@ -1,0 +1,305 @@
+{
+  "id": "s2-16",
+  "breaks": [
+    3,
+    4,
+    3,
+    3
+  ],
+  "key": {
+    "P": 0,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «박물관 파티 날 밤 블루 스타 다이아몬드가 사라졌다(문제)» 와 «미나가 작은 것까지 잘 살펴서 사건을 해결했다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the Blue Star diamond disappeared on the night of the museum party) and the solution (Mina solved the case by noticing small details). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Mina, the museum guard, the police"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The famous diamond disappeared at the museum party."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Mina noticed small clues and found out the guard hid it."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "At a museum party, the famous Blue Star ",
+      "ans": "diamond",
+      "opts": [
+        "diamond",
+        "painting",
+        "crown"
+      ]
+    },
+    {
+      "pre": " disappeared. Mina noticed wet ",
+      "ans": "mud",
+      "opts": [
+        "mud",
+        "paint",
+        "ice"
+      ]
+    },
+    {
+      "pre": " on the floor and the guard's dirty, wet ",
+      "ans": "shoes",
+      "opts": [
+        "shoes",
+        "hands",
+        "hat"
+      ]
+    },
+    {
+      "pre": ". The garden had just been watered, so the guard's story was not ",
+      "ans": "true",
+      "opts": [
+        "true",
+        "long",
+        "funny"
+      ]
+    },
+    {
+      "pre": ". He had hidden the diamond under a ",
+      "ans": "flowerpot",
+      "opts": [
+        "flowerpot",
+        "bench",
+        "bed"
+      ]
+    },
+    {
+      "pre": " in the garden, and Mina solved the case.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "guard",
+      "경비원",
+      "Everyone looked at the <b>guard</b>.",
+      "a person whose job is to keep a place safe"
+    ],
+    [
+      "clues",
+      "단서들",
+      "She noticed three <b>clues</b>.",
+      "things that help you find the answer to a mystery"
+    ],
+    [
+      "noticed",
+      "알아차렸다",
+      "Mina solved the case because she <b>noticed</b> small details.",
+      "saw or found something"
+    ],
+    [
+      "disappeared",
+      "사라졌다",
+      "the famous Blue Star diamond <b>disappeared</b>!",
+      "went away and could not be seen"
+    ],
+    [
+      "hidden",
+      "숨겨 두었다",
+      "He had <b>hidden</b> the diamond under a flowerpot in the garden!",
+      "put somewhere that people cannot find"
+    ],
+    [
+      "watered",
+      "물을 주었다",
+      "the museum garden had just been <b>watered</b> that evening.",
+      "gave water to plants"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did the guard's face turn red?",
+      "qko": "경비원의 얼굴은 왜 빨개졌나요?",
+      "opts": [
+        "Mina found out that he was not telling the truth.",
+        "The museum was very hot.",
+        "Everyone clapped for him."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Eleven-year-old Mina took out her notebook.",
+        "\"Why were you in the garden if you were here all night?\" Mina asked.",
+        "The police found it, and everyone clapped for Mina.",
+        "On the night of the museum party, the famous Blue Star diamond disappeared!"
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "미나가 «밤새 여기 계셨다면 왜 정원에 가셨나요?» 하고 물어서 경비원의 거짓말이 드러났어요. 그래서 얼굴이 빨개졌어요. 박물관이 더웠다는 말은 없어요.",
+        "Mina asked why he was in the garden if he was here all night, so his lie came out. That is why his face turned red. Nothing says the museum was hot."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The story says, \"Mina solved the case.\" What does \"case\" mean here?",
+      "qko": "\"Mina solved the case.\"라는 문장이 있어요. 여기서 \"case\"는 무슨 뜻인가요?",
+      "opts": [
+        "a mystery that needs to be solved",
+        "a box for keeping things",
+        "a party at the museum"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "On the night of the museum party, the famous Blue Star diamond disappeared!",
+        "Third, the museum garden had just been watered that evening.",
+        "The guard's face turned red.",
+        "Eleven-year-old Mina took out her notebook."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«case»는 여기서 상자가 아니라, 다이아몬드가 사라진 «사건»을 뜻해요. 미나가 풀어낸 수수께끼가 바로 그 사건이에요.",
+        "Here «case» does not mean a box. It means the mystery of the missing diamond that Mina solved."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did Mina know the guard had been in the garden?",
+      "qko": "미나는 경비원이 정원에 갔었다는 것을 어떻게 알았나요?",
+      "opts": [
+        "His shoes were wet, and the garden had just been watered.",
+        "She saw him on the museum camera.",
+        "The police told her the answer."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Second, the guard's shoes were dirty and wet.",
+        "The guard said, \"I was here all night. Nobody came near the glass box.\"",
+        "Third, the museum garden had just been watered that evening.",
+        "The police found it, and everyone clapped for Mina."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "경비원의 신발이 더럽고 젖어 있었고, 정원에는 그날 저녁 막 물을 주었어요. 두 단서를 이으면 경비원이 정원에 갔었다는 걸 알 수 있어요.",
+        "The guard's shoes were dirty and wet, and the garden had just been watered that evening. Put these two clues together to see that he had been in the garden."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Mina gets a call to solve a new mystery at the zoo.",
+      "미나에게 동물원의 새 수수께끼를 풀어 달라는 전화가 와요.",
+      "The Zoo Mystery"
+    ],
+    [
+      "B",
+      "The museum asks Mina to help keep the diamond safe.",
+      "박물관이 미나에게 다이아몬드를 안전하게 지키는 일을 도와 달라고 해요.",
+      "Mina the Museum Helper"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "src": "“I think <u>Mina is a great detective</u> because <u>she notices small details</u>.”",
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "chips": [
+      {
+        "a": "my sister is a good cook",
+        "b": "her soup is always yummy",
+        "label": "cook"
+      },
+      {
+        "a": "our class will win the game",
+        "b": "we practiced every day",
+        "label": "game"
+      },
+      {
+        "a": "my dog is hungry",
+        "b": "he is sitting by his bowl",
+        "label": "dog"
+      }
+    ],
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because she asks smart questions)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because she asks smart questions)"
+  },
+  "img": {
+    "cover": "In a grand museum hall at night, an eleven-year-old Korean girl with a short black bob, a red headband, a brown checked coat and a small notebook points at the muddy, wet shoes of a tall museum guard in a navy blue uniform and cap, while party guests in fancy clothes gasp beside an empty glass box on a stand.",
+    "scenes": {
+      "1": "An eleven-year-old Korean girl with a short black bob, a red headband, a brown checked coat and a small notebook kneels on the shiny museum floor and draws in her small notebook next to a patch of wet brown mud near the empty glass box, while a tall museum guard in a navy blue uniform and cap stands nearby in dirty, wet shoes.",
+      "3": "In the museum garden at night, a police officer lifts a flowerpot to show a sparkling blue diamond underneath, while an eleven-year-old Korean girl with a short black bob, a red headband, a brown checked coat and a small notebook smiles, party guests clap, and a tall museum guard in a navy blue uniform and cap looks down with a red face."
+    }
+  },
+  "alt": {
+    "1": "A girl studies wet mud on the museum floor.",
+    "3": "A police officer finds the blue diamond under a flowerpot.",
+    "cover": "A girl points at the guard's muddy shoes next to an empty glass box."
+  }
+}
