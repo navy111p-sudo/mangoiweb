@@ -98,13 +98,14 @@ let route = null;
 try {
   const body = stripTypeScriptTypes('async function x(){\n' + qsBlk + '\n}');
   const inner = body.slice(body.indexOf('{') + 1, body.lastIndexOf('}'));
-  route = new AsyncFunction('env', 'request', 'ensureMicroLearnSchema', 'vocabSrsNext', 'json',
+  // 🔐 (2026-10-19) 라우트가 본인 확인(vocabWriteDenied)을 부른다 — 여기서는 «통과» 로 두고 SRS 만 본다(게이트 자체는 vocab_write_owner_gate_harness).
+  route = new AsyncFunction('env', 'request', 'ensureMicroLearnSchema', 'vocabSrsNext', 'json', 'url', 'vocabWriteDenied',
     `const method='POST', path='/api/vocab/quiz-submit';\n${inner}\nreturn null;`);
 } catch (e) { check('라우트 컴파일', false, e.message); }
 const json = (o, s) => ({ __json: o, status: s || 200 });
 async function submit(db, answer) {
   const request = { json: async () => ({ quiz_id: 1, answer }) };
-  try { return await route(makeEnv(db), request, async () => {}, vocabSrsNext, json); }
+  try { return await route(makeEnv(db), request, async () => {}, vocabSrsNext, json, new URL('https://mangoi.ai/api/vocab/quiz-submit'), async () => null); }
   catch (e) { return { __err: e.message }; }
 }
 if (route && vocabSrsNext) {

@@ -1,0 +1,35 @@
+<!-- 2026-10-19 눈썹 높이(D) 비교 렌더 — mango-avatar.js 의 browWarp 와 같은 세 토막 워프를 «최대 높이(browLv=1)» 로 그립니다.
+     실행: chrome --headless --screenshot=out.png --window-size=2000,800 --virtual-time-budget=3000 'file://<이 파일>?mag=1.6#0,8,10,12'
+     (#뒤 = 비교할 D 목록 · mag = 확대 배율). ⚠️ BROW_SMOOTH 의 띠 좌표가 바뀌면 아래 B 도 함께 고치세요. -->
+<!doctype html><meta charset=utf-8><body style="margin:0;background:#fff;font:14px sans-serif">
+<div id=out></div>
+<script>
+var B={lily:{x0:226,x1:428,top:205,b0:229,b1:241,bot:262,fl:12,fr:14},
+  noah:{x0:192,x1:452,top:240,b0:263,b1:278,bot:300,fl:6,fr:8}};
+var DS=(location.hash.slice(1)||'0,7,9,10,11,12').split(',').map(Number);
+var MAG=+(new URLSearchParams(location.search).get('mag')||3);
+function prof(b,y){ if(y<=b.top||y>=b.bot) return 0; if(y<b.b0) return (y-b.top)/(b.b0-b.top); if(y<=b.b1) return 1; return (b.bot-y)/(b.bot-b.b1); }
+function face(img,b,D){
+  var c=document.createElement('canvas'); c.width=640; c.height=800; var ctx=c.getContext('2d');
+  ctx.drawImage(img,0,0);
+  if(D>0){
+    var X0=b.x0,X1=b.x1,Y0=b.top,Y1=b.bot,w=X1-X0,h=Y1-Y0;
+    var t=document.createElement('canvas'); t.width=w; t.height=h; var tc=t.getContext('2d');
+    var ys=[b.top,b.b0,b.b1,b.bot];
+    for(var k=0;k<3;k++){var a0=ys[k],a1=ys[k+1];var s0=a0+D*prof(b,a0),s1=a1+D*prof(b,a1);tc.drawImage(img,X0,s0,w,s1-s0,0,a0-Y0,w,a1-a0);}
+    var g=tc.createLinearGradient(0,0,w,0);
+    g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(Math.min(.49,b.fl/w),'rgba(0,0,0,1)');g.addColorStop(Math.max(.51,1-b.fr/w),'rgba(0,0,0,1)');g.addColorStop(1,'rgba(0,0,0,0)');
+    tc.globalCompositeOperation='destination-in';tc.fillStyle=g;tc.fillRect(0,0,w,h);
+    ctx.drawImage(t,X0,Y0);
+  }
+  return c;
+}
+var names=['lily','noah'],done=0;
+names.forEach(function(n){var im=new Image();im.onload=function(){
+  var b=B[n];var row=document.createElement('div');row.style.cssText='display:flex;gap:6px;margin:4px';
+  DS.forEach(function(D){var f=face(im,b,D);var cx=b.x0-14,cy=b.top-40,cw=b.x1-b.x0+28,ch=b.bot-b.top+90;
+    var o=document.createElement('canvas');o.width=cw*MAG;o.height=ch*MAG;var oc=o.getContext('2d');oc.imageSmoothingQuality='high';oc.drawImage(f,cx,cy,cw,ch,0,0,cw*MAG,ch*MAG);
+    var wrap=document.createElement('div');wrap.innerHTML='<div>'+n+' D='+D+'</div>';wrap.appendChild(o);row.appendChild(wrap);});
+  document.getElementById('out').appendChild(row);
+};im.src='../../../cloudflare-deploy/public/img/'+n+'-closed.webp';});
+</script>
