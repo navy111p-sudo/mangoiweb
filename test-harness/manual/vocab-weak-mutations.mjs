@@ -26,8 +26,10 @@ const M = [
   ['관리자 이름 비교 삭제', 'MOD', 'if (sesUsername != null && String(sesUsername) === u) return true;', 'if (sesUsername != null) return true;'],
   ['기초 1개 ↔ 3개 맞바꾸기', 'MOD', 'const max = beginner ? WEAK_WORDS_MAX_BEGINNER : WEAK_WORDS_MAX;', 'const max = beginner ? WEAK_WORDS_MAX : WEAK_WORDS_MAX_BEGINNER;'],
   ['기초 경계 <= 2 → === 1', 'IDX', 'weakWordsPromptLine(words, ctxDifficulty <= 2)', 'weakWordsPromptLine(words, ctxDifficulty === 1)'],
-  ['웜업 본인 확인 게이트 삭제', 'IDX', 'if (await vocabWeakCallerVerified(request, env, ctxUserId, body)) {', 'if (true) {'],
-  ['웜업 zh 건너뛰기 삭제', 'IDX', "if (ctxUserId && ctxLang !== 'zh') {\n      try {\n        if (await vocabWeakCallerVerified", "if (ctxUserId && true) {\n      try {\n        if (await vocabWeakCallerVerified"],
+  // ↓ 2026-10-19 — 웜업 «최근 실수» 블록도 같은 게이트·같은 zh 줄을 쓰게 되어 짧은 앵커가 두 곳에 걸린다.
+  //   «약점 낱말» 블록에만 있는 다음 줄(vkey = 'warmupweakword:')까지 앵커로 써서 정확히 한 곳을 고른다.
+  ['웜업 본인 확인 게이트 삭제', 'IDX', "if (await vocabWeakCallerVerified(request, env, ctxUserId, body)) {\n          const vkey = 'warmupweakword:'", "if (true) {\n          const vkey = 'warmupweakword:'"],
+  ['웜업 zh 건너뛰기 삭제', 'IDX', "if (ctxUserId && ctxLang !== 'zh') {\n      try {\n        if (await vocabWeakCallerVerified(request, env, ctxUserId, body)) {\n          const vkey = ", "if (ctxUserId && true) {\n      try {\n        if (await vocabWeakCallerVerified(request, env, ctxUserId, body)) {\n          const vkey = "],
   ['본인 확인: 토큰 쪽 결과를 늘 참으로', 'IDX', "try { if (weakWordsCallerOk(uid, await authUidFromRequest(request, new URL(request.url), env, body), null)) return true; } catch {}", "try { await authUidFromRequest(request, new URL(request.url), env, body); return true; } catch {}"],
   ['본인 확인: 실패를 true 로', 'IDX', "ses.username : null); } catch { return false; }\n}", "ses.username : null); } catch { return true; }\n}"],
   ['games/vocab 약점 먼저 빼기', 'IDX', 'mergeWeakFirst<any>(weakRows, ', 'mergeWeakFirst<any>([], '],

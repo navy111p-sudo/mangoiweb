@@ -4309,18 +4309,22 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     }
     /* 🔁 (2026-10-18 개선안 1순위 ② · 사장님 승인 «웜업 쪽도 붙여줘») 최근 교정받은 표현을 다시 써 볼 기회.
        정본 src/recent-mistakes.ts(AI 친구와 같은 함수) — 영어 대화만, 세션당 1회 조회 후 KV 30분 캐시.
-       ⛔ 던지지 않는다(실패하면 그냥 안 붙는다). 기초(1~2단계·미지정)는 1개만. */
+       ⛔ 던지지 않는다(실패하면 그냥 안 붙는다). 기초(1~2단계·미지정)는 1개만.
+       🔐 (2026-10-19 · 사장님 승인) user_id 는 화면이 보내는 값이라, 본인 확인(약점 낱말과 같은 vocabWeakCallerVerified)을
+          «캐시를 읽기 전에» 매번 한다 — 남의 아이디를 보내 그 학생의 교정 문장이 프롬프트에 실리지 않게. 확인이 안 되면 그냥 안 붙는다. */
     if (ctxUserId && ctxLang !== 'zh') {
       try {
-        const rkey = 'warmupmistake:' + sessionId + ':' + ctxUserId;
-        let past: any[] | null = null;
-        try { const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(rkey) : null; if (raw != null) past = JSON.parse(raw); } catch {}
-        if (!Array.isArray(past)) {
-          past = await loadRecentMistakes(env.DB, ctxUserId, Date.now());
-          try { if (env.SESSION_STATE) await env.SESSION_STATE.put(rkey, JSON.stringify(past), { expirationTtl: 1800 }); } catch {}
+        if (await vocabWeakCallerVerified(request, env, ctxUserId, body)) {
+          const rkey = 'warmupmistake:' + sessionId + ':' + ctxUserId;
+          let past: any[] | null = null;
+          try { const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(rkey) : null; if (raw != null) past = JSON.parse(raw); } catch {}
+          if (!Array.isArray(past)) {
+            past = await loadRecentMistakes(env.DB, ctxUserId, Date.now());
+            try { if (env.SESSION_STATE) await env.SESSION_STATE.put(rkey, JSON.stringify(past), { expirationTtl: 1800 }); } catch {}
+          }
+          const line = recentMistakesPromptLine(past, ctxDifficulty <= 2);
+          if (line) sys += line;
         }
-        const line = recentMistakesPromptLine(past, ctxDifficulty <= 2);
-        if (line) sys += line;
       } catch (e: any) { console.warn('[warmup] recent mistakes skipped:', e?.message || e); }
     }
     /* 🔁 (2026-10-18 · 사장님 승인 «약점 낱말 넣기») 단어장·게임에서 틀린 낱말을 대화에 «가끔 하나만» 섞어 쓰게.
