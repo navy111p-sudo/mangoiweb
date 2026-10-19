@@ -1,0 +1,304 @@
+{
+  "id": "s1-31",
+  "breaks": [
+    2,
+    3,
+    4
+  ],
+  "key": {
+    "P": 2,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «남동생이 공원에서 길을 잃는다(문제)» 와 «스파키가 동생을 찾았다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (my little brother is lost in the park) and the solution (Sparky finds him). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "I, my little brother, Grandpa, and Sparky the robot dog"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "My little brother is lost in the park, and we cannot find him."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Sparky smells the hat and finds my brother by the pond."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Grandpa gives me a robot ",
+      "ans": "dog",
+      "opts": [
+        "dog",
+        "cat",
+        "bird"
+      ]
+    },
+    {
+      "pre": " named Sparky. One day, my little brother is lost in the ",
+      "ans": "park",
+      "opts": [
+        "park",
+        "school",
+        "store"
+      ]
+    },
+    {
+      "pre": ". I give Sparky my brother's ",
+      "ans": "hat",
+      "opts": [
+        "hat",
+        "ball",
+        "book"
+      ]
+    },
+    {
+      "pre": ". Sparky uses his ",
+      "ans": "nose",
+      "opts": [
+        "nose",
+        "eyes",
+        "ears"
+      ]
+    },
+    {
+      "pre": " and finds my brother by the ",
+      "ans": "pond",
+      "opts": [
+        "pond",
+        "road",
+        "house"
+      ]
+    },
+    {
+      "pre": ". Sparky is a real hero!",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "robot",
+      "로봇",
+      "Grandpa gives me a <b>robot</b> dog named Sparky.",
+      "a machine that can move and do jobs"
+    ],
+    [
+      "bark",
+      "짖다",
+      "Sparky can <b>bark</b>, run, and find things with his nose.",
+      "to make the loud sound a dog makes"
+    ],
+    [
+      "lost",
+      "길을 잃은",
+      "One day, my little brother is <b>lost</b> in the park.",
+      "not able to find the way"
+    ],
+    [
+      "everywhere",
+      "여기저기",
+      "We look <b>everywhere</b>, but we cannot find him.",
+      "in all places"
+    ],
+    [
+      "pond",
+      "연못",
+      "There is my brother, sitting by the <b>pond</b>!",
+      "a small area of water"
+    ],
+    [
+      "hero",
+      "영웅",
+      "He is a real <b>hero</b>!",
+      "someone who does a brave or good thing to help"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does the family need Sparky's help?",
+      "qko": "왜 스파키의 도움이 필요했나요?",
+      "opts": [
+        "Sparky is very hungry.",
+        "They cannot find the little brother.",
+        "Grandpa is lost in the park."
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Grandpa gives me a robot dog named Sparky.",
+        "Sparky runs into the trees.",
+        "We look everywhere, but we cannot find him.",
+        "Sparky found my brother. He is a real hero!"
+      ],
+      "ev": [
+        2
+      ],
+      "why": [
+        "여기저기 찾아봐도 동생을 찾을 수 없었어요. 그래서 스파키의 도움이 필요했어요.",
+        "They look everywhere, but they cannot find the brother. So they need Sparky."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Sniff, sniff! Beep, beep!\" What is Sparky doing here?",
+      "qko": "«Sniff, sniff! Beep, beep!» 에서 스파키는 무엇을 하고 있나요?",
+      "opts": [
+        "smelling the hat to find the brother",
+        "sleeping under a tree",
+        "eating his dinner"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "One day, my little brother is lost in the park.",
+        "I give Sparky my brother's hat.",
+        "There is my brother, sitting by the pond!",
+        "Grandpa gives me a robot dog named Sparky."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "바로 앞에서 스파키가 동생 모자를 받았어요. «Sniff, sniff!» 는 모자 냄새를 맡는 소리예요.",
+        "Sparky just got the brother's hat. \"Sniff, sniff!\" is the sound of Sparky smelling it."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does Sparky find the little brother?",
+      "qko": "스파키는 어떻게 동생을 찾나요?",
+      "opts": [
+        "He hears the brother singing.",
+        "Grandpa shows him the way.",
+        "He smells the hat and runs into the trees."
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "I give Sparky my brother's hat.",
+        "We look everywhere, but we cannot find him.",
+        "Grandpa gives me a robot dog named Sparky.",
+        "Sparky runs into the trees."
+      ],
+      "ev": [
+        0,
+        3
+      ],
+      "why": [
+        "스파키가 동생 모자 냄새를 맡고, 나무 사이로 달려가요. 두 문장을 이어야 알 수 있어요.",
+        "Sparky gets the brother's hat, and then he runs into the trees. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Sparky helps find Grandpa's lost glasses.",
+      "스파키가 할아버지의 잃어버린 안경을 찾아 준다.",
+      "Sparky Finds the Glasses"
+    ],
+    [
+      "B",
+      "Sparky and my brother play hide-and-seek in the park.",
+      "스파키와 동생이 공원에서 숨바꼭질을 한다.",
+      "Hide-and-Seek with Sparky"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "src": "“I think <u>Sparky is a hero</u> because <u>he finds my brother</u>.”",
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "chips": [
+      {
+        "a": "my dog is smart",
+        "b": "he finds his ball",
+        "label": "dog"
+      },
+      {
+        "a": "Grandpa is kind",
+        "b": "he gives me a gift",
+        "label": "Grandpa"
+      },
+      {
+        "a": "my brother is tired",
+        "b": "he is yawning",
+        "label": "brother"
+      }
+    ],
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
+  },
+  "img": {
+    "cover": "In a sunny park, Sparky, a shiny silver robot dog with round blue glowing eyes, short metal legs and a red collar, leaps out from between tall trees toward a pond, where a little boy with curly brown hair in a green striped shirt sits on the grass and turns around with a big surprised smile, while a girl with a long black ponytail in a purple jacket runs behind, holding a blue baseball cap.",
+    "scenes": {
+      "1": "In a big park with benches and bushes, a girl with a long black ponytail in a purple jacket kneels down and holds a blue baseball cap up to the nose of Sparky, a shiny silver robot dog with round blue glowing eyes, short metal legs and a red collar, while an old man with white hair and glasses looks under a bench with a worried face.",
+      "2": "By a pond with lily pads, Sparky, a shiny silver robot dog with round blue glowing eyes, short metal legs and a red collar, stands proudly as a little boy with curly brown hair in a green striped shirt hugs him, and a girl with a long black ponytail in a purple jacket runs out of the trees with open arms."
+    }
+  },
+  "alt": {
+    "1": "The girl lets Sparky smell her brother's hat.",
+    "2": "The little brother hugs Sparky by the pond.",
+    "cover": "Sparky the robot dog finds the little brother by the pond."
+  }
+}

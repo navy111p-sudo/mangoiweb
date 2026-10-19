@@ -1,0 +1,305 @@
+{
+  "id": "s4-29",
+  "breaks": [
+    5,
+    7,
+    5,
+    3
+  ],
+  "key": {
+    "P": 3,
+    "S": 19
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «가짜 뉴스는 진짜 뉴스인 것처럼 꾸민 거짓이거나 오해를 부르는 정보이다(주제)» 와 «정보가 넘치는 세상에서 가장 중요한 능력은 뉴스를 빨리 찾는 것이 아니라 꼼꼼히 판단하는 것이다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (fake news is false or misleading information presented as real news) and the conclusion (the most important skill is not finding news quickly but judging it carefully). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Fake news and how it spreads"
+    },
+    {
+      "k": "Problem",
+      "qko": "어떤 문제가 있나요?",
+      "qen": "What is the problem?",
+      "a": "False stories spread faster and reach more people than true ones"
+    },
+    {
+      "k": "Solution",
+      "qko": "우리는 어떻게 해야 하나요?",
+      "qen": "What should we do?",
+      "a": "Think critically and check a story before sharing it"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Fake news is false or ",
+      "ans": "misleading",
+      "opts": [
+        "misleading",
+        "accurate",
+        "official"
+      ]
+    },
+    {
+      "pre": " information that looks like real news. It spreads fast because surprising and ",
+      "ans": "emotional",
+      "opts": [
+        "emotional",
+        "boring",
+        "short"
+      ]
+    },
+    {
+      "pre": " stories grab our attention, and we tend to believe what we already ",
+      "ans": "think",
+      "opts": [
+        "think",
+        "doubt",
+        "ignore"
+      ]
+    },
+    {
+      "pre": ". To avoid being fooled, we need critical ",
+      "ans": "thinking",
+      "opts": [
+        "thinking",
+        "speed",
+        "luck"
+      ]
+    },
+    {
+      "pre": ". In a world full of information, judging news ",
+      "ans": "carefully",
+      "opts": [
+        "carefully",
+        "quickly",
+        "rarely"
+      ]
+    },
+    {
+      "pre": " is the most important skill.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "misleading",
+      "오해를 부르는, 잘못 이끄는",
+      "Fake news is false or <b>misleading</b> information",
+      "giving a wrong idea, even if not completely false"
+    ],
+    [
+      "influence",
+      "영향을 주다",
+      "to make money from clicks or to <b>influence</b> opinions",
+      "to change how someone thinks or acts"
+    ],
+    [
+      "bias",
+      "편향, 치우침",
+      "a habit called confirmation <b>bias</b>",
+      "a habit of favoring one side or idea unfairly"
+    ],
+    [
+      "realistic",
+      "진짜 같은, 사실적인",
+      "AI tools can now create <b>realistic</b> fake images, voices, and videos",
+      "looking or seeming real"
+    ],
+    [
+      "critical",
+      "비판적인",
+      "<b>Critical</b> thinking means questioning information instead of accepting it immediately.",
+      "carefully judging whether something is true or good"
+    ],
+    [
+      "headline",
+      "(기사) 제목",
+      "Be especially careful when a <b>headline</b> makes you very angry or excited",
+      "the title of a news story, printed in large letters"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why should we be especially careful when a headline makes us very angry or excited?",
+      "qko": "헤드라인이 우리를 몹시 화나게 하거나 들뜨게 할 때 왜 특히 조심해야 하나요?",
+      "opts": [
+        "Because strong emotions can stop us from thinking clearly",
+        "Because angry headlines are always written by bots",
+        "Because exciting stories are usually very old"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Some is created on purpose to make money from clicks or to influence opinions, while some spreads simply because people make mistakes.",
+        "Be especially careful when a headline makes you very angry or excited, since strong emotions can stop us from thinking clearly.",
+        "AI tools can now create realistic fake images, voices, and videos, sometimes called deepfakes.",
+        "Look carefully at the date, because old stories are often shared as if they were new."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "강한 감정은 우리가 분명하게 생각하지 못하게 막을 수 있기 때문이에요. 그래서 감정이 크게 흔들릴 때 더 조심해야 해요.",
+        "Strong emotions can stop us from thinking clearly, so we need to be extra careful."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does 'confirmation bias' mean?",
+      "qko": "글에서 'confirmation bias(확증 편향)' 은 무슨 뜻인가요?",
+      "opts": [
+        "Checking a story with trusted news organizations",
+        "Sharing a story only after checking its date",
+        "Tending to believe information that matches what we already think"
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Critical thinking means questioning information instead of accepting it immediately.",
+        "Fake news is false or misleading information presented as if it were real news.",
+        "Another reason is that we tend to believe information that matches what we already think, a habit called confirmation bias.",
+        "Before sharing a story, check who published it and whether trusted news organizations are reporting the same thing."
+      ],
+      "ev": [
+        2
+      ],
+      "why": [
+        "이미 생각하고 있는 것과 맞는 정보를 믿는 습관을 confirmation bias 라고 부른다고 나와요.",
+        "The text says it is the habit of believing information that matches what we already think."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Putting the two findings of the 2018 MIT study together, what can we learn?",
+      "qko": "2018년 MIT 연구의 두 가지 결과를 합치면 무엇을 알 수 있나요?",
+      "opts": [
+        "True news spreads faster, and bots spread most false stories",
+        "False news spreads faster, and people themselves are mainly responsible for spreading it",
+        "Twitter users never share stories they have not checked"
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "A large 2018 study of Twitter by researchers at MIT found that false news stories spread faster and reached more people than true ones.",
+        "AI tools can now create realistic fake images, voices, and videos, sometimes called deepfakes.",
+        "Surprisingly, the same study found that people, not automated bots, were mainly responsible for spreading the false stories faster.",
+        "Within minutes, thousands of people have shared it."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "한 결과는 거짓 뉴스가 진짜 뉴스보다 더 빨리, 더 많은 사람에게 퍼진다는 것이고, 다른 결과는 그것을 주로 퍼뜨린 것이 자동 봇이 아니라 사람이라는 것이에요. 둘을 합치면 우리의 선택이 중요하다는 걸 알 수 있어요.",
+        "One finding is that false news spreads faster and reaches more people; the other is that people, not bots, mainly spread it. Together they show that our own choices matter."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do fact-checkers find out whether a story is true?",
+      "팩트체커들은 어떻게 기사가 사실인지 확인할까?",
+      "Inside a Fact-Checking Team"
+    ],
+    [
+      "B",
+      "How can we spot a deepfake video?",
+      "딥페이크 영상은 어떻게 알아볼 수 있을까?",
+      "Spotting a Deepfake"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "우리가 해야 할 일",
+      "그렇게 하면 생기는 결과"
+    ],
+    "slotEn": [
+      "what we should do",
+      "the result we want"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «해야 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and the result you want in English.",
+    "aria": [
+      "what we should do",
+      "the result"
+    ],
+    "src": "“We should <u>check who published a story before sharing it</u> so that <u>false news does not spread through us</u>.”",
+    "chips": [
+      {
+        "a": "read the whole article, not just the headline",
+        "b": "we understand the real story",
+        "label": "article"
+      },
+      {
+        "a": "ask a teacher about a strange rumor",
+        "b": "we know whether it is true",
+        "label": "rumor"
+      },
+      {
+        "a": "wait a minute before posting when we feel angry",
+        "b": "we do not say something we regret",
+        "label": "posting"
+      }
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «누가 + 무엇을» 넣어 결과를 분명하게 써 보세요. (예: so that my friends get the right information)",
+    "moreEn": "One more step: after «so that», write who + what to make the result clear. (e.g. so that my friends get the right information)"
+  },
+  "img": {
+    "cover": "Close-up of a teenager's hand holding a smartphone on a crowded subway train, thumb paused just above the glowing screen, while behind them a row of passengers all stare down at their own lit-up phones",
+    "scenes": {
+      "1": "A busy city square at night where dozens of people stand still looking at their glowing phones, several with wide eyes and hands over their mouths in surprise, one woman turning her screen toward a friend",
+      "2": "A teenager sitting at a desk with a smartphone in one hand and a laptop open beside it, leaning forward with a thoughtful frown to compare two similar blurry photos on the two screens, a notebook and pen ready on the desk"
+    }
+  },
+  "alt": {
+    "1": "People in a city square reacting to their phones",
+    "2": "A student comparing two photos on a phone and a laptop",
+    "cover": "A teenager's thumb paused over a phone on a crowded subway"
+  }
+}

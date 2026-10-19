@@ -1,0 +1,305 @@
+{
+  "id": "s3-17",
+  "breaks": [
+    3,
+    4,
+    3,
+    2
+  ],
+  "key": {
+    "P": 3,
+    "S": 11
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «빛으로 밤을 기념하는 곳은 한국만이 아니다(주제)» 와 «빛의 축제는 모두 희망이라는 한 가지 메시지를 나눈다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (Korea is not the only place where people celebrate the night with light) and the conclusion (festivals of light all share one message of hope). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Festivals of light around the world"
+    },
+    {
+      "k": "Key fact",
+      "qko": "여러 나라에서는 어떻게 빛을 밝히나요?",
+      "qen": "How do different countries use light?",
+      "a": "Lanterns, clay lamps, candles, and floating baskets"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "사람들에게 빛은 어떤 뜻이었나요?",
+      "qen": "What did light mean to people?",
+      "a": "Warmth, safety, and hope"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "In Seoul, thousands of glowing ",
+      "ans": "lanterns",
+      "opts": [
+        "lanterns",
+        "balloons",
+        "kites"
+      ]
+    },
+    {
+      "pre": " float past people during Yeondeunghoe. In India, families light small clay oil ",
+      "ans": "lamps",
+      "opts": [
+        "lamps",
+        "flowers",
+        "dolls"
+      ]
+    },
+    {
+      "pre": " for Diwali, and in Thailand, people float little baskets with candles on ",
+      "ans": "rivers",
+      "opts": [
+        "rivers",
+        "roofs",
+        "trees"
+      ]
+    },
+    {
+      "pre": ". Many of these festivals happen in autumn or winter, when the nights are ",
+      "ans": "longest",
+      "opts": [
+        "longest",
+        "shortest",
+        "hottest"
+      ]
+    },
+    {
+      "pre": ". Although their customs are different, all these festivals share one message: ",
+      "ans": "hope",
+      "opts": [
+        "hope",
+        "fear",
+        "danger"
+      ]
+    },
+    {
+      "pre": " can shine even in the darkest times.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "glowing",
+      "빛나는",
+      "thousands of <b>glowing</b> lanterns float past you",
+      "giving out a soft, steady light"
+    ],
+    [
+      "celebrate",
+      "기념하다, 축하하다",
+      "people <b>celebrate</b> the night with light",
+      "to do something special for an important day"
+    ],
+    [
+      "clue",
+      "단서, 힌트",
+      "Here is a <b>clue</b>",
+      "a piece of information that helps you find an answer"
+    ],
+    [
+      "darkness",
+      "어둠",
+      "For thousands of years, <b>darkness</b> meant cold, danger, and fear",
+      "a time or place with no light"
+    ],
+    [
+      "customs",
+      "풍습",
+      "Although their <b>customs</b> are different",
+      "the usual ways people in a group do things"
+    ],
+    [
+      "message",
+      "메시지, 전하려는 뜻",
+      "festivals of light all share one <b>message</b>",
+      "an idea that someone wants to tell others"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did people long ago love light so much?",
+      "qko": "옛날 사람들이 빛을 그토록 좋아한 이유는 무엇인가요?",
+      "opts": [
+        "Because darkness meant cold and danger, while light meant warmth and safety",
+        "Because light helped them grow rice faster",
+        "Because they wanted to scare away elephants"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "For thousands of years, darkness meant cold, danger, and fear, while light meant warmth, safety, and hope.",
+        "This is Yeondeunghoe, the Lotus Lantern Festival held before Buddha's Birthday.",
+        "Jewish families light one more candle each night for the eight nights of Hanukkah.",
+        "People in very different places came to the same idea without ever meeting each other."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "수천 년 동안 어둠은 추위·위험·두려움을, 빛은 따뜻함·안전·희망을 뜻했다고 했어요.",
+        "For thousands of years, darkness meant cold, danger, and fear, while light meant warmth, safety, and hope."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In \"People in very different places came to the same idea,\" what does \"came to\" mean?",
+      "qko": "«People in very different places came to the same idea» 에서 «came to» 는 무슨 뜻인가요?",
+      "opts": [
+        "thought of or reached",
+        "traveled to visit",
+        "argued about"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "People in very different places came to the same idea without ever meeting each other.",
+        "But Korea is not the only place where people celebrate the night with light.",
+        "Why do so many different cultures love festivals of light?",
+        "Suddenly, thousands of glowing lanterns float past you, shaped like lotus flowers, dragons, and elephants."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "서로 만난 적도 없는데 같은 생각을 하게 되었다고 했어요. 그러니 «came to» 는 어떤 생각에 «이르다, 떠올리게 되다» 라는 뜻이에요.",
+        "They never met, but they all had the same idea, so «came to» means they thought of or reached that idea."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why do many light festivals happen when the nights are longest?",
+      "qko": "많은 빛 축제가 밤이 가장 긴 때에 열리는 이유는 무엇인가요?",
+      "opts": [
+        "Because people want light and hope during long, dark nights",
+        "Because lanterns are cheaper in winter",
+        "Because rivers are warmer in winter"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Here is a clue: many of these festivals happen in autumn or winter, when the nights are longest.",
+        "In India, families light rows of small clay oil lamps for Diwali.",
+        "For thousands of years, darkness meant cold, danger, and fear, while light meant warmth, safety, and hope.",
+        "This is Yeondeunghoe, the Lotus Lantern Festival held before Buddha's Birthday."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "많은 빛 축제가 밤이 가장 긴 가을이나 겨울에 열리고, 사람들에게 빛은 따뜻함과 안전과 희망을 뜻했어요. 두 문장을 이으면 긴 밤에 빛이 더 필요했다는 걸 알 수 있어요.",
+        "Many light festivals happen when the nights are longest, and light meant warmth, safety, and hope. Together, they show people wanted light most during long, dark nights."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do people make lotus lanterns by hand?",
+      "연꽃 등은 어떻게 손으로 만들까요?",
+      "Making a Lotus Lantern"
+    ],
+    [
+      "B",
+      "How do people around the world welcome the new year?",
+      "세계 사람들은 새해를 어떻게 맞이할까요?",
+      "New Year Around the World"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“I want to <u>see the Lotus Lantern Festival</u> because <u>thousands of lanterns light up the night</u>.”",
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what you want to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "chips": [
+      {
+        "a": "make a paper lantern",
+        "b": "it looks pretty at night",
+        "label": "lantern"
+      },
+      {
+        "a": "visit a festival with my family",
+        "b": "we can enjoy it together",
+        "label": "festival"
+      },
+      {
+        "a": "learn about other cultures",
+        "b": "every country has special days",
+        "label": "culture"
+      }
+    ],
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because the lanterns are beautiful)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because the lanterns are beautiful)"
+  },
+  "img": {
+    "cover": "A night parade on a wide city street in Seoul, where thousands of glowing paper lanterns shaped like lotus flowers and dragons float past smiling crowds",
+    "scenes": {
+      "1": "Rows of small clay oil lamps with tiny bright flames glowing on the stone steps of a house in India during Diwali, with colorful flower petals around them",
+      "2": "Little round floating baskets made of banana leaves and flowers, each holding a lit candle, drifting on a dark river at night during Loy Krathong"
+    }
+  },
+  "alt": {
+    "1": "Clay oil lamps glowing for Diwali",
+    "2": "Candle baskets floating on a river",
+    "cover": "Lotus lanterns in a night parade"
+  }
+}

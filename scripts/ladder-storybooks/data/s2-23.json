@@ -1,0 +1,305 @@
+{
+  "id": "s2-23",
+  "breaks": [
+    3,
+    3,
+    4,
+    3
+  ],
+  "key": {
+    "P": 5,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "이유",
+      "en": "reason"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «많은 백성이 한자를 읽지 못해서 왕이 모두를 위한 쉬운 글자를 만들고 싶어 했다(이유)» 와 «한글은 모두를 위해 사랑으로 만든 선물이었다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the reason (many people could not read Chinese characters, so the king wanted easy letters for everyone) and the lesson (Hangeul was a gift made with love for everyone). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Hayun, King Sejong"
+    },
+    {
+      "k": "Event",
+      "qko": "무슨 일이 일어났나요?",
+      "qen": "What happened?",
+      "a": "Hayun traveled back to 1443 and saw King Sejong making Hangeul."
+    },
+    {
+      "k": "Lesson",
+      "qko": "무엇을 배웠나요?",
+      "qen": "What is the lesson?",
+      "a": "Hangeul was a gift made with love for everyone."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Hayun turned the knob of an old gold ",
+      "ans": "watch",
+      "opts": [
+        "watch",
+        "ring",
+        "key"
+      ]
+    },
+    {
+      "pre": " and traveled to a ",
+      "ans": "palace",
+      "opts": [
+        "palace",
+        "school",
+        "farm"
+      ]
+    },
+    {
+      "pre": " in 1443. King Sejong looked very ",
+      "ans": "tired",
+      "opts": [
+        "tired",
+        "angry",
+        "scared"
+      ]
+    },
+    {
+      "pre": ". Many people could not read Chinese characters, so he made easy ",
+      "ans": "letters",
+      "opts": [
+        "letters",
+        "games",
+        "roads"
+      ]
+    },
+    {
+      "pre": " for everyone. Hayun learned that Hangeul was a ",
+      "ans": "gift",
+      "opts": [
+        "gift",
+        "rule",
+        "secret"
+      ]
+    },
+    {
+      "pre": " made with love for everyone.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "palace",
+      "궁궐",
+      "Suddenly, she was standing in a <b>palace</b> in the year 1443!",
+      "a very big house where a king lives"
+    ],
+    [
+      "letters",
+      "글자",
+      "They were the first Hangeul <b>letters</b>!",
+      "signs that we use to write words"
+    ],
+    [
+      "gift",
+      "선물",
+      "Hangeul was a <b>gift</b> made with love for everyone.",
+      "something you give to someone with love"
+    ],
+    [
+      "knob",
+      "손잡이",
+      "She turned its <b>knob</b>",
+      "a small round handle that you turn"
+    ],
+    [
+      "drawer",
+      "서랍",
+      "Hayun found an old gold watch in Grandpa's <b>drawer</b>.",
+      "a box in a desk that slides in and out"
+    ],
+    [
+      "millions",
+      "수백만, 아주 많은 수",
+      "Your letters will help <b>millions</b> of people!",
+      "a very, very large number"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did King Sejong want to make new letters?",
+      "qko": "세종대왕은 왜 새 글자를 만들고 싶어 했나요?",
+      "opts": [
+        "Many people could not read Chinese characters.",
+        "He wanted a secret code for the palace.",
+        "Hayun asked him to make them."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "A kind man in a red robe was writing strange shapes on paper.",
+        "\"Many people cannot read Chinese characters,\" he said. \"I want easy letters for everyone.\"",
+        "The king smiled, and then everything went white.",
+        "Hayun found an old gold watch in Grandpa's drawer."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "왕은 «많은 백성이 한자를 읽지 못한단다. 모두를 위한 쉬운 글자를 만들고 싶구나»라고 말했어요. 비밀 암호나 하윤이의 부탁 이야기는 없어요.",
+        "The king said many people could not read Chinese characters, and he wanted easy letters for everyone. Nothing says it was a secret code or that Hayun asked him."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The story says, \"Just then, the watch shook. It was taking her home!\" What does \"taking her home\" mean here?",
+      "qko": "\"Just then, the watch shook. It was taking her home!\"라는 문장이 있어요. 여기서 \"taking her home\"은 무슨 뜻인가요?",
+      "opts": [
+        "bringing her back to her own time and room",
+        "taking her to the king's house",
+        "making her stay in the palace"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Hayun was back in her room.",
+        "Suddenly, she was standing in a palace in the year 1443!",
+        "It was King Sejong, and he looked very tired.",
+        "Hayun looked at the shapes. They were the first Hangeul letters!"
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "곧이어 «하윤이는 자기 방으로 돌아와 있었다»라고 나와요. 시계가 하윤이를 원래 시간, 자기 방으로 데려간 거예요.",
+        "Right after, the story says, «Hayun was back in her room.» The watch brought her back to her own time and her own room."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "What were the strange shapes the king was writing?",
+      "qko": "왕이 종이에 쓰던 이상한 모양은 무엇이었나요?",
+      "opts": [
+        "They were the first Hangeul letters.",
+        "They were pictures of the palace.",
+        "They were numbers for a math test."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "A kind man in a red robe was writing strange shapes on paper.",
+        "She turned its knob, and the room began to spin.",
+        "Hayun looked at the shapes. They were the first Hangeul letters!",
+        "Now, when she writes Hangeul, she remembers the tired king."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "왕은 종이에 이상한 모양을 쓰고 있었고, 하윤이가 보니 그것이 처음 만들어진 한글이었어요. 두 문장을 이으면 답이 나와요.",
+        "The king was writing strange shapes on paper, and Hayun saw they were the first Hangeul letters. Put these two sentences together to find the answer."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Hayun turns the knob again and visits another time in history.",
+      "하윤이가 손잡이를 다시 돌려 역사 속 다른 시대로 가요.",
+      "Another Trip in Time"
+    ],
+    [
+      "B",
+      "Hayun teaches her little brother to write his first Hangeul letters.",
+      "하윤이가 남동생에게 처음으로 한글 쓰는 법을 가르쳐 줘요.",
+      "My Brother's First Letters"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“I want to <u>meet King Sejong</u> because <u>he made Hangeul for everyone</u>.”",
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what you want to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "chips": [
+      {
+        "a": "visit Jeju Island",
+        "b": "I want to see the sea",
+        "label": "Jeju"
+      },
+      {
+        "a": "learn to swim",
+        "b": "it looks like fun",
+        "label": "swim"
+      },
+      {
+        "a": "bake cookies with Grandma",
+        "b": "she makes the best cookies",
+        "label": "cookies"
+      }
+    ],
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «I want to» 뒤에는 동사(meet, visit)를 바로 쓰고, «because» 뒤에는 «누가 + 무엇을» 을 쓰세요.",
+    "moreEn": "One more step: after «I want to», write a verb (meet, visit). After «because», write who + what."
+  },
+  "img": {
+    "cover": "In a candlelit palace room long ago, a nine-year-old Korean girl with long straight black hair, a pink hairband and a light blue sweater stands beside a low wooden desk holding a glowing old gold watch, while a kind man with a short black beard, a long red royal robe with a round gold dragon pattern on the chest and a black royal hat smiles at her and holds a brush over a sheet of blank paper.",
+    "scenes": {
+      "1": "In a quiet palace room at night, a nine-year-old Korean girl with long straight black hair, a pink hairband and a light blue sweater peeks out from behind a painted wooden screen at a kind man with a short black beard, a long red royal robe with a round gold dragon pattern on the chest and a black royal hat, who sits at a low desk with stacks of blank paper and rubs his tired eyes by the light of a single candle.",
+      "3": "Back in her cozy bedroom at night, a nine-year-old Korean girl with long straight black hair, a pink hairband and a light blue sweater sits at her desk with a pencil and a closed notebook, smiling softly, while the old gold watch lies beside her desk lamp."
+    }
+  },
+  "alt": {
+    "1": "A girl peeks at a tired king working by candlelight.",
+    "3": "The girl smiles at her desk at home with the gold watch nearby.",
+    "cover": "A girl with a glowing watch meets a kind king in a palace."
+  }
+}

@@ -1,0 +1,304 @@
+{
+  "id": "s1-32",
+  "breaks": [
+    4,
+    2,
+    4
+  ],
+  "key": {
+    "P": 3,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «맥스가 개미만큼 작아진다(문제)» 와 «마지막 한 방울을 마시고 다시 커진다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (Max becomes as small as an ant) and the solution (he drinks the last drop and is big again). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Max, a friendly ant, a bee, and a spider"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Max drinks from a tiny bottle and becomes as small as an ant."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "An ant takes him back to the bottle, and he drinks the last drop to be big again."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Max finds a tiny ",
+      "ans": "bottle",
+      "opts": [
+        "bottle",
+        "box",
+        "ball"
+      ]
+    },
+    {
+      "pre": " in the garden. He takes one sip and becomes very ",
+      "ans": "small",
+      "opts": [
+        "small",
+        "tall",
+        "strong"
+      ]
+    },
+    {
+      "pre": ". The grass looks like a ",
+      "ans": "forest",
+      "opts": [
+        "forest",
+        "river",
+        "house"
+      ]
+    },
+    {
+      "pre": ". A friendly ",
+      "ans": "ant",
+      "opts": [
+        "ant",
+        "spider",
+        "bee"
+      ]
+    },
+    {
+      "pre": " gives him a ride back to the bottle. Max drinks the last drop and becomes ",
+      "ans": "big",
+      "opts": [
+        "big",
+        "sleepy",
+        "green"
+      ]
+    },
+    {
+      "pre": " again. Now he is always kind to ants.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "bottle",
+      "병",
+      "Max finds a tiny <b>bottle</b> in the garden.",
+      "a container for drinks"
+    ],
+    [
+      "sip",
+      "한 모금",
+      "Max takes one <b>sip</b>.",
+      "a very small drink"
+    ],
+    [
+      "ant",
+      "개미",
+      "Whoosh! He is as small as an <b>ant</b>!",
+      "a very small bug that lives in a big group"
+    ],
+    [
+      "forest",
+      "숲",
+      "The grass looks like a <b>forest</b>.",
+      "a big place with many trees"
+    ],
+    [
+      "friendly",
+      "친절한",
+      "Then a <b>friendly</b> ant gives him a ride.",
+      "nice and kind to others"
+    ],
+    [
+      "drop",
+      "방울",
+      "Max drinks the last <b>drop</b>",
+      "a very small amount of water or drink"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does the grass look like a forest?",
+      "qko": "풀은 왜 숲처럼 보이나요?",
+      "opts": [
+        "Max is as small as an ant.",
+        "The grass grows very tall in one day.",
+        "Max is sleeping and dreaming."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Whoosh! He is as small as an ant!",
+        "Max finds a tiny bottle in the garden.",
+        "Then a friendly ant gives him a ride.",
+        "Now Max is always kind to ants."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "맥스가 개미만큼 작아졌어요. 그래서 풀이 숲처럼 커 보여요.",
+        "Max is as small as an ant, so the grass looks as big as a forest."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Then a friendly ant gives him a ride.\" What does \"gives him a ride\" mean?",
+      "qko": "«gives him a ride» 는 무슨 뜻일까요?",
+      "opts": [
+        "gives him a toy car",
+        "runs away from him",
+        "carries him on its back"
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "A big bee flies by, and a spider looks at him!",
+        "Max takes one sip.",
+        "The grass looks like a forest.",
+        "They go back to the bottle."
+      ],
+      "ev": [
+        3
+      ],
+      "why": [
+        "개미와 맥스가 함께 병이 있는 곳으로 가요. «gives him a ride» 는 맥스를 태워서 데려다준다는 뜻이에요.",
+        "The ant and Max go back to the bottle together. \"Gives him a ride\" means the ant carries him."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does Max become big again?",
+      "qko": "맥스는 어떻게 다시 커지나요?",
+      "opts": [
+        "The bee gives him magic.",
+        "He goes back to the bottle and drinks the last drop.",
+        "He sleeps in the grass all night."
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "A big bee flies by, and a spider looks at him!",
+        "They go back to the bottle.",
+        "Max drinks the last drop, and pop! He is big again.",
+        "Max finds a tiny bottle in the garden."
+      ],
+      "ev": [
+        1,
+        2
+      ],
+      "why": [
+        "개미와 함께 병으로 돌아가서, 마지막 한 방울을 마셔요. 두 문장을 이어야 알 수 있어요.",
+        "They go back to the bottle, and Max drinks the last drop. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Max finds a growing potion and becomes as tall as a tree.",
+      "맥스가 커지는 물약을 찾아 나무만큼 커진다.",
+      "The Growing Potion"
+    ],
+    [
+      "B",
+      "Max visits the ants' home under the ground.",
+      "맥스가 땅속 개미집에 놀러 간다.",
+      "Max Visits the Ants"
+    ]
+  ],
+  "write": {
+    "pre": "I can’t",
+    "mid": "but I can",
+    "sep": ", ",
+    "slots": [
+      "vp",
+      "vp"
+    ],
+    "src": "“I can’t <u>walk through the tall grass</u>, but I can <u>ride on an ant</u>.”",
+    "slotKo": [
+      "할 수 없는 일",
+      "대신 할 수 있는 일"
+    ],
+    "slotEn": [
+      "what I can’t do",
+      "what I can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «할 수 없는 일 + 대신 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you can’t do and what you can do instead in English.",
+    "chips": [
+      {
+        "a": "reach the top shelf",
+        "b": "ask Dad for help",
+        "label": "shelf"
+      },
+      {
+        "a": "lift the big box",
+        "b": "carry the small bag",
+        "label": "box"
+      },
+      {
+        "a": "swim in deep water",
+        "b": "play in the pool",
+        "label": "pool"
+      }
+    ],
+    "aria": [
+      "what you can’t do",
+      "what you can do instead"
+    ],
+    "moreKo": "한 걸음 더: 두 칸 모두 «하는 일» 낱말로 시작하게 써 보세요. (예: play soccer, draw a picture)",
+    "moreEn": "One more step: start both blanks with an action word. (e.g. play soccer, draw a picture)"
+  },
+  "img": {
+    "cover": "Tiny Max, a boy with short spiky orange hair, freckles, a blue T-shirt and green shorts, rides on the back of a big friendly black ant through grass blades as tall as trees, while a huge fuzzy bee flies overhead and a tiny glass bottle with a cork stands in the distance.",
+    "scenes": {
+      "1": "Tiny Max, a boy with short spiky orange hair, freckles, a blue T-shirt and green shorts, stands among grass blades as tall as trees and looks up with wide eyes at a giant fuzzy bee flying by, while a curious brown spider looks at him from a leaf.",
+      "2": "In a sunny garden, Max, a boy with short spiky orange hair, freckles, a blue T-shirt and green shorts, is back to his normal size and kneels on the grass, smiling and waving gently at a friendly black ant on his fingertip, with a tiny empty glass bottle with a cork beside his knee."
+    }
+  },
+  "alt": {
+    "1": "Tiny Max sees a giant bee and a spider.",
+    "2": "Max is big again and waves to the ant.",
+    "cover": "Tiny Max rides on a friendly ant through tall grass."
+  }
+}

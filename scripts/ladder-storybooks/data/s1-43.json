@@ -1,0 +1,304 @@
+{
+  "id": "s1-43",
+  "breaks": [
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 3,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "사건",
+      "en": "event"
+    },
+    "S": {
+      "ko": "결말",
+      "en": "ending"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «하얀 토끼가 달빛을 타고 내려온다(사건)» 와 «지우가 매일 밤 달토끼에게 손을 흔든다(결말)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the event (a white rabbit jumps down on a moonbeam) and the ending (Jiwoo waves to the Moon rabbit every night). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Jiwoo, Grandma, and the Moon rabbit"
+    },
+    {
+      "k": "Event",
+      "qko": "무슨 일이 일어났나요?",
+      "qen": "What happens?",
+      "a": "A white rabbit jumps down from the Moon on a moonbeam."
+    },
+    {
+      "k": "Ending",
+      "qko": "마지막에 어떻게 되나요?",
+      "qen": "What happens at the end?",
+      "a": "They eat rice cakes together, and now Jiwoo waves to the rabbit every night."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Grandma says a ",
+      "ans": "rabbit",
+      "opts": [
+        "rabbit",
+        "tiger",
+        "fish"
+      ]
+    },
+    {
+      "pre": " lives on the Moon. That night, it jumps down on a ",
+      "ans": "moonbeam",
+      "opts": [
+        "moonbeam",
+        "rainbow",
+        "ladder"
+      ]
+    },
+    {
+      "pre": "! It gives Jiwoo a sweet rice ",
+      "ans": "cake",
+      "opts": [
+        "cake",
+        "shoe",
+        "stone"
+      ]
+    },
+    {
+      "pre": ". They eat and ",
+      "ans": "talk",
+      "opts": [
+        "talk",
+        "fight",
+        "cry"
+      ]
+    },
+    {
+      "pre": " until the sky gets light. Then the rabbit hops back to the Moon, and now Jiwoo ",
+      "ans": "waves",
+      "opts": [
+        "waves",
+        "sings",
+        "yells"
+      ]
+    },
+    {
+      "pre": " to it every night.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "rabbit",
+      "토끼",
+      "Grandma says a <b>rabbit</b> lives on the Moon.",
+      "a small animal with long ears"
+    ],
+    [
+      "rice cakes",
+      "떡",
+      "\"It makes <b>rice cakes</b> all night,\" she says.",
+      "soft, sweet Korean food made from rice"
+    ],
+    [
+      "moonbeam",
+      "달빛",
+      "Suddenly, a white rabbit jumps down on a <b>moonbeam</b>!",
+      "a line of light from the Moon"
+    ],
+    [
+      "sweet",
+      "달콤한",
+      "It is <b>sweet</b> and soft.",
+      "tasting like sugar"
+    ],
+    [
+      "hops",
+      "깡충 뛰어가다",
+      "Then the rabbit <b>hops</b> back up to the Moon.",
+      "jumps with small, quick jumps"
+    ],
+    [
+      "waves",
+      "손을 흔들다",
+      "Now Jiwoo <b>waves</b> to the Moon rabbit every night.",
+      "moves a hand to say hello or goodbye"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Jiwoo like the rice cake?",
+      "qko": "지우는 왜 떡이 좋았을까요?",
+      "opts": [
+        "It is very hot.",
+        "It is sweet and soft.",
+        "It is big and hard."
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Grandma says a rabbit lives on the Moon.",
+        "That night, Jiwoo looks at the full Moon.",
+        "Jiwoo takes one. It is sweet and soft.",
+        "Then the rabbit hops back up to the Moon."
+      ],
+      "ev": [
+        2
+      ],
+      "why": [
+        "떡이 «sweet and soft», 달콤하고 말랑해서 좋아요.",
+        "The rice cake is sweet and soft, so Jiwoo likes it."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"They eat rice cakes and talk until the sky gets light.\" What does \"until the sky gets light\" mean?",
+      "qko": "«until the sky gets light» 는 무슨 뜻일까요?",
+      "opts": [
+        "until the morning comes",
+        "until it starts to rain",
+        "for only one minute"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "\"It makes rice cakes all night,\" she says.",
+        "They eat rice cakes and talk until the sky gets light.",
+        "\"Would you like a rice cake?\" it asks.",
+        "Now Jiwoo waves to the Moon rabbit every night."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "«the sky gets light» 는 하늘이 밝아진다는 뜻이에요. 밤새 이야기하다가 아침이 될 때까지라는 말이에요.",
+        "\"The sky gets light\" means the morning comes. They talk all night until morning."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How do we know Grandma's story is true?",
+      "qko": "할머니 이야기가 진짜라는 것을 어떻게 알 수 있나요?",
+      "opts": [
+        "Grandma shows Jiwoo a photo of the Moon.",
+        "Jiwoo flies to the Moon in a rocket.",
+        "A rabbit comes down and gives Jiwoo a rice cake."
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "\"It makes rice cakes all night,\" she says.",
+        "That night, Jiwoo looks at the full Moon.",
+        "Then the rabbit hops back up to the Moon.",
+        "\"Would you like a rice cake?\" it asks."
+      ],
+      "ev": [
+        0,
+        3
+      ],
+      "why": [
+        "할머니는 토끼가 떡을 만든다고 했어요(«It makes rice cakes...»). 정말로 토끼가 «떡 먹을래?» 하고 물어요. 두 문장을 이어야 알 수 있어요.",
+        "Grandma says the rabbit makes rice cakes, and the rabbit really offers Jiwoo a rice cake. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Jiwoo visits the Moon and helps the rabbit make rice cakes.",
+      "지우가 달에 가서 토끼와 함께 떡을 만든다.",
+      "Rice Cakes on the Moon"
+    ],
+    [
+      "B",
+      "Jiwoo makes a rice cake for the Moon rabbit.",
+      "지우가 달토끼를 위해 떡을 만든다.",
+      "A Gift for the Moon Rabbit"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“I want to <u>meet the Moon rabbit</u> because <u>it makes sweet rice cakes</u>.”",
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what you want to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "chips": [
+      {
+        "a": "go to the park",
+        "b": "the weather is nice",
+        "label": "park"
+      },
+      {
+        "a": "eat ice cream",
+        "b": "it is very hot",
+        "label": "ice cream"
+      },
+      {
+        "a": "read a new book",
+        "b": "I like stories",
+        "label": "book"
+      }
+    ],
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because my friends like it)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because my friends like it)"
+  },
+  "img": {
+    "cover": "On a quiet night under a huge full Moon, a small fluffy white rabbit with long ears, pink cheeks and a tiny blue scarf slides down a glowing silver moonbeam toward a garden, and Jiwoo, a girl with two short black braids, wearing yellow pajamas with white stars, looks up from the garden with wide, happy eyes.",
+    "scenes": {
+      "1": "In a moonlit garden, a small fluffy white rabbit with long ears, pink cheeks and a tiny blue scarf holds out a plate of round white rice cakes, and Jiwoo, a girl with two short black braids, wearing yellow pajamas with white stars, reaches out to take one with a big smile.",
+      "2": "As the sky turns pink at dawn, a small fluffy white rabbit with long ears, pink cheeks and a tiny blue scarf hops up a fading moonbeam toward the pale Moon, and Jiwoo, a girl with two short black braids, wearing yellow pajamas with white stars, waves goodbye from the garden."
+    }
+  },
+  "alt": {
+    "1": "The rabbit gives Jiwoo a rice cake.",
+    "2": "Jiwoo waves as the rabbit hops back to the Moon.",
+    "cover": "The Moon rabbit slides down a moonbeam to Jiwoo."
+  }
+}

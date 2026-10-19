@@ -1,0 +1,305 @@
+{
+  "id": "s3-38",
+  "breaks": [
+    3,
+    3,
+    2,
+    5
+  ],
+  "key": {
+    "P": 0,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «어떤 동물은 초능력처럼 보이는 감각을 가졌다(주제)» 와 «동물의 감각은 저마다 사는 방식에 꼭 알맞다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (some animals have senses that seem like superpowers) and the conclusion (every animal’s senses are perfectly suited to the way it lives). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Animals with amazing senses"
+    },
+    {
+      "k": "Key fact",
+      "qko": "어떤 동물이 특별한 감각을 가졌나요?",
+      "qen": "Which animals have super senses?",
+      "a": "Dogs, bats, birds, snakes, and the platypus"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "이 감각은 동물에게 왜 중요한가요?",
+      "qen": "Why do these senses matter?",
+      "a": "Each sense fits the way the animal lives"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Some animals have senses that seem like ",
+      "ans": "superpowers",
+      "opts": [
+        "superpowers",
+        "mistakes",
+        "problems"
+      ]
+    },
+    {
+      "pre": ". Trained dogs can smell so well that they find lost ",
+      "ans": "people",
+      "opts": [
+        "people",
+        "coins",
+        "socks"
+      ]
+    },
+    {
+      "pre": " in snow or fallen buildings. Bats catch insects in the dark by listening for ",
+      "ans": "echoes",
+      "opts": [
+        "echoes",
+        "music",
+        "wind"
+      ]
+    },
+    {
+      "pre": ". Snakes such as pythons can sense ",
+      "ans": "heat",
+      "opts": [
+        "heat",
+        "rain",
+        "salt"
+      ]
+    },
+    {
+      "pre": ", and the platypus can detect tiny electric ",
+      "ans": "signals",
+      "opts": [
+        "signals",
+        "lights",
+        "songs"
+      ]
+    },
+    {
+      "pre": " made by its prey. Every animal’s senses are suited to the way it lives.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "senses",
+      "감각",
+      "Humans have five <b>senses</b>",
+      "the natural powers to see, hear, smell, taste, and touch"
+    ],
+    [
+      "trained",
+      "훈련받은",
+      "That is why <b>trained</b> dogs can find lost people",
+      "taught to do a special job"
+    ],
+    [
+      "echoes",
+      "메아리, 반사되어 돌아오는 소리",
+      "listen for the <b>echoes</b> that bounce back",
+      "sounds that come back after hitting something"
+    ],
+    [
+      "magnetic",
+      "자기의(자석의 힘을 가진)",
+      "Many birds can sense Earth's <b>magnetic</b> field",
+      "having the pulling power of a magnet"
+    ],
+    [
+      "detect",
+      "감지하다",
+      "It can <b>detect</b> the tiny electric signals made by the muscles of its prey.",
+      "to notice something that is hard to see or hear"
+    ],
+    [
+      "prey",
+      "먹잇감",
+      "made by the muscles of its <b>prey</b>",
+      "an animal that is hunted and eaten by another animal"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why can trained dogs find lost people in snow or fallen buildings?",
+      "qko": "훈련받은 개는 왜 눈 속이나 무너진 건물에서 사람을 찾아낼 수 있나요?",
+      "opts": [
+        "Because their sense of smell is thousands of times better than ours",
+        "Because they can see in complete darkness",
+        "Because they can sense heat like pythons"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Dogs, for example, have a sense of smell that is thousands of times better than ours.",
+        "Bats can fly and catch tiny insects in complete darkness by using sound.",
+        "Snakes such as pythons can sense heat, so they can find warm animals in the dark.",
+        "Scientists study these senses to design new technology, such as sonar and better sensors."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "개의 후각은 사람보다 수천 배나 뛰어나요. «That is why» 는 바로 앞 문장에 그 이유가 있다는 신호예요.",
+        "Dogs have a sense of smell thousands of times better than ours. «That is why» tells you the reason is in the sentence before."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In “This skill is called echolocation,” what does “echolocation” mean?",
+      "qko": "«This skill is called echolocation» 에서 «echolocation» 은 무슨 뜻인가요?",
+      "opts": [
+        "finding things by making sounds and listening for echoes",
+        "finding things by smelling the air",
+        "finding things by sensing their heat"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "They make high-pitched calls and listen for the echoes that bounce back.",
+        "Dogs, for example, have a sense of smell that is thousands of times better than ours.",
+        "Snakes such as pythons can sense heat, so they can find warm animals in the dark.",
+        "It can detect the tiny electric signals made by the muscles of its prey."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "바로 앞 문장에서 박쥐는 높은 소리를 내고 되돌아오는 메아리를 듣는다고 했어요. «This skill» 은 바로 그 방법을 가리켜요.",
+        "The sentence before says bats make high-pitched calls and listen for the echoes that bounce back. «This skill» means that way of finding things."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How can the platypus hunt underwater with its eyes, ears, and nose closed?",
+      "qko": "오리너구리는 눈, 귀, 코를 닫고도 물속에서 어떻게 사냥할 수 있나요?",
+      "opts": [
+        "It uses its bill to sense the tiny electric signals made by its prey’s muscles",
+        "It listens for echoes like a bat",
+        "It follows smells in the water like a dog"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "It can detect the tiny electric signals made by the muscles of its prey.",
+        "It closes its eyes, ears, and nose underwater and hunts with its bill alone.",
+        "They make high-pitched calls and listen for the echoes that bounce back.",
+        "Many birds can sense Earth's magnetic field, which helps them travel thousands of kilometers."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "오리너구리는 먹잇감의 근육이 만드는 아주 약한 전기 신호를 감지할 수 있고, 물속에서는 부리 하나만으로 사냥해요. 두 문장을 이으면 부리로 전기 신호를 느낀다는 것을 알 수 있어요.",
+        "The platypus can detect tiny electric signals from its prey’s muscles, and it hunts with its bill alone. Together, these show it senses the signals with its bill."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do sharks sense tiny electric signals in the water?",
+      "상어는 물속의 아주 약한 전기 신호를 어떻게 느낄까?",
+      "The Shark’s Secret Sense"
+    ],
+    [
+      "B",
+      "How does sonar on a ship work like a bat?",
+      "배의 음파 탐지기는 어떻게 박쥐처럼 작동할까?",
+      "Seeing with Sound"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“I want to <u>study animal senses</u> because <u>they can help us design new technology</u>.”",
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what you want to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "chips": [
+      {
+        "a": "learn to play the guitar",
+        "b": "music makes me happy",
+        "label": "guitar"
+      },
+      {
+        "a": "visit the zoo this weekend",
+        "b": "I love watching animals",
+        "label": "zoo"
+      },
+      {
+        "a": "join the science club",
+        "b": "experiments are exciting",
+        "label": "science club"
+      }
+    ],
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because bats can fly in the dark)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because bats can fly in the dark)"
+  },
+  "img": {
+    "cover": "A bat flying through the dark night sky with its wings spread wide and its mouth open, chasing a small pale moth",
+    "scenes": {
+      "2": "A flock of geese flying in a long V shape high above rivers and fields at sunrise",
+      "3": "A platypus swimming underwater with its eyes closed, its flat duck-like bill searching along a pebbly riverbed"
+    }
+  },
+  "alt": {
+    "2": "Geese flying in a V shape over fields",
+    "3": "A platypus hunting underwater with its bill",
+    "cover": "A bat chasing a moth at night"
+  }
+}

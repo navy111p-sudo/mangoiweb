@@ -1,0 +1,305 @@
+{
+  "id": "s2-45",
+  "breaks": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 0,
+    "S": 11
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «블루 스타 다이아몬드가 박물관에서 사라졌다(문제)» 와 «좋은 탐정은 첫 짐작이 아니라 단서를 따라간다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the Blue Star diamond was gone from the museum) and the lesson (good detectives follow the clues, not their first guess). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Minho, the guard, the director, Smokey the cat"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The Blue Star diamond disappeared from the locked museum."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Minho followed the small footprints and found the cat with the diamond."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "The Blue Star ",
+      "ans": "diamond",
+      "opts": [
+        "diamond",
+        "painting",
+        "bell"
+      ]
+    },
+    {
+      "pre": " was gone from the museum. Everyone thought the ",
+      "ans": "director",
+      "opts": [
+        "director",
+        "guard",
+        "cook"
+      ]
+    },
+    {
+      "pre": " took it, because he loved ",
+      "ans": "fish",
+      "opts": [
+        "fish",
+        "music",
+        "cake"
+      ]
+    },
+    {
+      "pre": ". But Minho saw that the footprints were too small for a ",
+      "ans": "person",
+      "opts": [
+        "person",
+        "cat",
+        "mouse"
+      ]
+    },
+    {
+      "pre": ". They led to an air vent, where Smokey the gray ",
+      "ans": "cat",
+      "opts": [
+        "cat",
+        "dog",
+        "bird"
+      ]
+    },
+    {
+      "pre": " was lying on the diamond. Good detectives follow the clues.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "famous",
+      "유명한",
+      "the <b>famous</b> Blue Star diamond",
+      "known by many people"
+    ],
+    [
+      "locked",
+      "잠긴",
+      "The doors were <b>locked</b>, and the alarm never rang.",
+      "closed with a key so no one can open it"
+    ],
+    [
+      "detective",
+      "탐정",
+      "Young <b>detective</b> Minho looked around.",
+      "a person who finds out who did something wrong"
+    ],
+    [
+      "vent",
+      "환기구",
+      "they lead to the air <b>vent</b>",
+      "a hole that lets air in and out of a room"
+    ],
+    [
+      "pile",
+      "더미",
+      "She was lying on a <b>pile</b> of shiny things",
+      "many things put on top of each other"
+    ],
+    [
+      "guess",
+      "짐작",
+      "Good detectives follow the clues, not their first <b>guess</b>.",
+      "an answer you give when you are not sure"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did everyone look at the director?",
+      "qko": "모두가 왜 관장을 쳐다보았나요?",
+      "opts": [
+        "The guard said only the director had a key, and he loved fish.",
+        "The director was holding the diamond.",
+        "The director had wet footprints on his shoes."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The doors were locked, and the alarm never rang.",
+        "The guard said, \"Only the director has a key, and he loves fish!\"",
+        "He opened the vent, and two shining eyes looked back at him.",
+        "Minho smiled. \"Good detectives follow the clues, not their first guess.\""
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "경비원이 «관장님만 열쇠가 있고, 관장님은 생선을 좋아해요!» 라고 말했어요. 그래서 모두가 관장을 의심했어요. 관장이 다이아몬드를 들고 있었다는 말은 없어요.",
+        "The guard said only the director had a key and that he loved fish. So everyone thought he took it. He was not holding the diamond."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "Minho says, \"Good detectives follow the clues, not their first guess.\" What was everyone's first guess?",
+      "qko": "민호가 \"Good detectives follow the clues, not their first guess.\"라고 해요. 여기서 사람들의 «첫 짐작(first guess)» 은 무엇이었나요?",
+      "opts": [
+        "that the director took the diamond",
+        "that the cat took the diamond",
+        "that the guard lost the key"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "It was Smokey, the museum's gray cat!",
+        "Everyone looked at the director, and his face turned red.",
+        "On Monday morning, the famous Blue Star diamond was gone from the city museum.",
+        "He found three clues: small wet footprints, a long gray hair, and a tiny piece of fish."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "모두가 관장을 쳐다보았어요. 사람들은 처음에 관장이 다이아몬드를 가져갔다고 짐작했어요. 하지만 진짜는 고양이였어요.",
+        "Everyone looked at the director. Their first guess was that the director took the diamond, but it was really the cat."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Which clues showed that the cat took the diamond?",
+      "qko": "어떤 단서들이 고양이가 다이아몬드를 가져갔다는 것을 보여 주었나요?",
+      "opts": [
+        "the small footprints and the long gray hair",
+        "the director's key and his red face",
+        "the alarm and the locked doors"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "He found three clues: small wet footprints, a long gray hair, and a tiny piece of fish.",
+        "The guard said, \"Only the director has a key, and he loves fish!\"",
+        "It was Smokey, the museum's gray cat!",
+        "The doors were locked, and the alarm never rang."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "민호는 작은 젖은 발자국과 긴 회색 털을 찾았어요. 그리고 범인은 박물관의 회색 고양이 스모키였어요. 두 문장을 이으면 단서가 고양이를 가리킨다는 것을 알 수 있어요.",
+        "Minho found small wet footprints and a long gray hair. The thief was Smokey, the gray cat. These clues point to the cat."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Minho solves a new case at the zoo.",
+      "민호가 동물원에서 새 사건을 풀어요.",
+      "The Zoo Mystery"
+    ],
+    [
+      "B",
+      "The museum gives Smokey a cozy bed of her own.",
+      "박물관이 스모키에게 아늑한 침대를 마련해 줘요.",
+      "Smokey's New Bed"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "src": "“I think <u>Smokey took the diamond</u> because <u>she likes shiny things</u>.”",
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "chips": [
+      {
+        "a": "my cat is sleepy",
+        "b": "she is yawning",
+        "label": "cat"
+      },
+      {
+        "a": "it is going to snow",
+        "b": "the sky is gray and cold",
+        "label": "snow"
+      },
+      {
+        "a": "my brother ate the cookie",
+        "b": "he has crumbs on his face",
+        "label": "cookie"
+      }
+    ],
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because the footprints are small)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because the footprints are small)"
+  },
+  "img": {
+    "cover": "In a quiet museum hall, a boy with neat black hair in a brown checked coat and a red scarf, holding a magnifying glass opens a metal air vent low on the wall, and inside a fluffy gray cat with long fur lies on a pile of keys, coins, and a big sparkling blue diamond, while a guard in a blue uniform and a bald director in a gray suit stare with their mouths open.",
+    "scenes": {
+      "1": "On the shiny museum floor, a boy with neat black hair in a brown checked coat and a red scarf, holding a magnifying glass kneels beside small wet footprints, a long gray hair, and a tiny piece of fish, while a guard in a blue uniform points at a bald director in a gray suit whose face turns red.",
+      "2": "In the museum hall, a boy with neat black hair in a brown checked coat and a red scarf, holding a magnifying glass follows a line of small wet footprints across the floor to a metal air vent low on the wall, where two friendly shining eyes glow in the dark."
+    }
+  },
+  "alt": {
+    "1": "Minho looks at the clues on the floor.",
+    "2": "Two shining eyes look out from the air vent.",
+    "cover": "Minho finds the cat lying on the diamond."
+  }
+}

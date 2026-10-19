@@ -1,0 +1,305 @@
+{
+  "id": "s2-35",
+  "breaks": [
+    4,
+    3,
+    4,
+    3
+  ],
+  "key": {
+    "P": 5,
+    "S": 13
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «키커의 왼쪽 바퀴가 부러졌다(문제)» 와 «똑똑한 협동은 크기와 속도도 이길 수 있다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (Kicker's left wheel broke) and the lesson (smart teamwork can beat size and speed). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Jiho, his team, Kicker the robot"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Kicker's wheel broke, and the team was losing three to zero."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "They changed the program so Kicker stayed in the middle and passed."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Jiho's team built a small soccer ",
+      "ans": "robot",
+      "opts": [
+        "robot",
+        "ball",
+        "car"
+      ]
+    },
+    {
+      "pre": " named Kicker. In the final, Team Titan was winning, and Kicker's ",
+      "ans": "wheel",
+      "opts": [
+        "wheel",
+        "eye",
+        "arm"
+      ]
+    },
+    {
+      "pre": " broke. Jiho changed the ",
+      "ans": "program",
+      "opts": [
+        "program",
+        "team",
+        "field"
+      ]
+    },
+    {
+      "pre": " so Kicker could stay in the middle and ",
+      "ans": "pass",
+      "opts": [
+        "pass",
+        "run",
+        "sleep"
+      ]
+    },
+    {
+      "pre": " the ball. They won four to three and learned that smart ",
+      "ans": "teamwork",
+      "opts": [
+        "teamwork",
+        "size",
+        "speed"
+      ]
+    },
+    {
+      "pre": " can beat size and speed.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "perfectly",
+      "완벽하게",
+      "it could pass the ball <b>perfectly</b>.",
+      "with no mistakes at all"
+    ],
+    [
+      "give up",
+      "포기하다",
+      "Jiho's team wanted to <b>give up</b>.",
+      "to stop trying"
+    ],
+    [
+      "program",
+      "프로그램",
+      "They changed the <b>program</b>",
+      "a set of orders that tells a robot what to do"
+    ],
+    [
+      "confused",
+      "헷갈리게 했다",
+      "Their teamwork <b>confused</b> Titan's big robot.",
+      "made someone not understand what is happening"
+    ],
+    [
+      "championship",
+      "선수권 대회",
+      "Jiho's team won the <b>championship</b>.",
+      "a big contest to find the best team"
+    ],
+    [
+      "teamwork",
+      "협동",
+      "smart <b>teamwork</b> can beat size and speed.",
+      "working well together as a group"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Jiho's team want to give up?",
+      "qko": "지호네 팀은 왜 포기하고 싶어 했나요?",
+      "opts": [
+        "They were losing, and Kicker's wheel broke.",
+        "Kicker scored too many goals.",
+        "Team Titan left the game."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Kicker was small, but it could pass the ball perfectly.",
+        "Then a big problem happened: Kicker's left wheel broke!",
+        "Jiho's team won the championship.",
+        "Pass, pass, goal!"
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "전반전에 0대 3으로 지고 있었는데, 키커의 왼쪽 바퀴까지 부러졌어요. 그래서 팀원들이 포기하고 싶어 했어요.",
+        "They were losing three to zero, and then Kicker's left wheel broke. That is why the team wanted to give up."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Their teamwork confused Titan's big robot.\" What does \"confused\" mean here?",
+      "qko": "\"Their teamwork confused Titan's big robot.\"이라고 나와요. 여기서 \"confused\"는 무슨 뜻인가요?",
+      "opts": [
+        "made the robot not know where the ball would go",
+        "made the robot run faster",
+        "made the robot stronger"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "They changed the program so Kicker stayed in the middle and passed to the other robots.",
+        "Titan's robot was huge, fast, and very strong.",
+        "In the last minute, the score was four to three!",
+        "Jiho and his team built a soccer robot named Kicker for the school championship."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "키커가 가운데에서 다른 로봇들에게 계속 패스했어요. 공이 이리저리 움직이니까 큰 로봇은 공이 어디로 갈지 몰라 헷갈렸어요.",
+        "Kicker stayed in the middle and kept passing to the other robots. The ball moved so much that the big robot did not know where it would go."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why could Kicker still help the team after its wheel broke?",
+      "qko": "바퀴가 부러진 뒤에도 키커가 팀을 도울 수 있었던 이유는 무엇인가요?",
+      "opts": [
+        "It could still pass well, so they changed the program to use passing.",
+        "Team Titan gave them a new wheel.",
+        "Kicker became bigger than Titan's robot."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Kicker was small, but it could pass the ball perfectly.",
+        "By halftime, Team Titan was winning three to zero.",
+        "They changed the program so Kicker stayed in the middle and passed to the other robots.",
+        "Titan's robot was huge, fast, and very strong."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "키커는 작지만 패스를 완벽하게 할 수 있었어요. 그래서 팀은 키커가 가운데에 머물며 패스하도록 프로그램을 바꿨어요. 두 문장을 이으면 답이 나와요.",
+        "Kicker was small but could pass perfectly. So the team changed the program to keep Kicker in the middle and pass. Put these two clues together."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Jiho's team fixes Kicker and plays a friendly match with Team Titan.",
+      "지호네 팀이 키커를 고치고 타이탄 팀과 친선 경기를 해요.",
+      "The Friendly Match"
+    ],
+    [
+      "B",
+      "Jiho's team goes to a robot contest in another country.",
+      "지호네 팀이 다른 나라에서 열리는 로봇 대회에 나가요.",
+      "Kicker Goes Abroad"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "src": "“If <u>we work together</u>, we can <u>beat a stronger team</u>.”",
+    "slotKo": [
+      "만약 ~하면(상황)",
+      "할 수 있는 일"
+    ],
+    "slotEn": [
+      "a situation",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «어떤 상황 + 그때 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write a situation and what we can do then in English.",
+    "chips": [
+      {
+        "a": "we practice every day",
+        "b": "play better at the next game",
+        "label": "practice"
+      },
+      {
+        "a": "it stops raining",
+        "b": "play soccer outside",
+        "label": "rain"
+      },
+      {
+        "a": "we share our ideas",
+        "b": "make a great poster",
+        "label": "ideas"
+      }
+    ],
+    "aria": [
+      "if what happens",
+      "what we can do"
+    ],
+    "moreKo": "한 걸음 더: «If» 뒤에는 «누가 + 무엇을» 을, «we can» 뒤에는 동사를 바로 쓰세요. (예: If we pass the ball, we can score a goal)",
+    "moreEn": "One more step: after «If», write who + what. After «we can», write a verb. (e.g. If we pass the ball, we can score a goal)"
+  },
+  "img": {
+    "cover": "On a small green robot soccer field in a school gym, a small round white robot with one green light eye and little black wheels sits in the middle and passes a ball to two other little robots, while a huge shiny red robot spins in confused circles, and a boy with spiky black hair and black glasses in a blue team T-shirt jumps and cheers behind the field.",
+    "scenes": {
+      "1": "On a small green robot soccer field, a small round white robot with one green light eye and little black wheels tilts to one side with one of its wheels lying beside it, while a boy with spiky black hair and black glasses in a blue team T-shirt and his teammates kneel next to it with worried faces and a huge shiny red robot stands tall nearby.",
+      "3": "In a school gym with colorful streamers, a boy with spiky black hair and black glasses in a blue team T-shirt lifts a big gold trophy with his teammates, while a small round white robot with one green light eye and little black wheels sits proudly on the table beside them and a huge shiny red robot claps its big metal hands."
+    }
+  },
+  "alt": {
+    "1": "Jiho's team looks at Kicker's broken wheel.",
+    "3": "Jiho's team holds up the gold trophy.",
+    "cover": "Kicker passes the ball while the big red robot spins."
+  }
+}

@@ -1,0 +1,304 @@
+{
+  "id": "s2-42",
+  "breaks": [
+    4,
+    3,
+    5
+  ],
+  "key": {
+    "P": 5,
+    "S": 11
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «블랙홀이 우주선을 끌어당겼다(문제)» 와 «용감한 선택에는 똑똑한 팀워크가 필요하다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the black hole was pulling the ship in) and the lesson (brave choices need smart teamwork). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Captain Aria, Pip the robot"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The black hole began pulling their ship in."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Pip found the perfect angle, and the ship swung away fast."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Captain Aria and her robot Pip were bringing ",
+      "ans": "medicine",
+      "opts": [
+        "medicine",
+        "toys",
+        "candy"
+      ]
+    },
+    {
+      "pre": " to a sick town. To save two weeks, they flew near a black ",
+      "ans": "hole",
+      "opts": [
+        "hole",
+        "cloud",
+        "sun"
+      ]
+    },
+    {
+      "pre": ". The ship began to ",
+      "ans": "shake",
+      "opts": [
+        "shake",
+        "sing",
+        "sleep"
+      ]
+    },
+    {
+      "pre": ", but Pip found the perfect angle, and the ship shot away. They reached ",
+      "ans": "Earth",
+      "opts": [
+        "Earth",
+        "Mars",
+        "Jupiter"
+      ]
+    },
+    {
+      "pre": " just in time, and the town got better. Aria said brave choices need smart ",
+      "ans": "teamwork",
+      "opts": [
+        "teamwork",
+        "luck",
+        "money"
+      ]
+    },
+    {
+      "pre": ", and Pip's lights blinked happily.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "medicine",
+      "약",
+      "with <b>medicine</b> for a sick town",
+      "something that helps sick people get better"
+    ],
+    [
+      "shortcut",
+      "지름길",
+      "\"There is a <b>shortcut</b>,\" said Pip.",
+      "a quicker way to get somewhere"
+    ],
+    [
+      "dangerous",
+      "위험한",
+      "Aria knew it was <b>dangerous</b>, but the town needed the medicine fast.",
+      "likely to hurt you or cause trouble"
+    ],
+    [
+      "escape",
+      "빠져나오다",
+      "Even light could not <b>escape</b> from it.",
+      "to get away from a place"
+    ],
+    [
+      "angle",
+      "각도",
+      "Pip found the perfect <b>angle</b>.",
+      "the direction or slant of a line"
+    ],
+    [
+      "edge",
+      "가장자리",
+      "The ship swung around the <b>edge</b> of the black hole",
+      "the outside part or line of something"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Aria take the dangerous shortcut?",
+      "qko": "아리아는 왜 위험한 지름길로 갔나요?",
+      "opts": [
+        "The town needed the medicine fast.",
+        "She wanted to see a black hole for fun.",
+        "Pip was afraid of the long trip."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Aria knew it was dangerous, but the town needed the medicine fast.",
+        "The trip would take three more weeks.",
+        "Even light could not escape from it.",
+        "They reached Earth just in time, and the people of the town got better."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "아리아는 위험하다는 것을 알았지만, 마을에 약이 빨리 필요했어요. 재미로 블랙홀을 보려고 했다는 말은 없어요.",
+        "Aria knew it was dangerous, but the town needed the medicine fast. She did not go there for fun."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The text says, \"Even light could not escape from it.\" What does this tell us about the black hole?",
+      "qko": "\"Even light could not escape from it.\"라고 나와요. 이 말은 블랙홀에 대해 무엇을 알려 주나요?",
+      "opts": [
+        "Its pull is so strong that nothing gets away easily.",
+        "It is full of bright lights.",
+        "It is a quiet and safe place to rest."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Captain Aria and her robot, Pip, were flying home to Earth with medicine for a sick town.",
+        "Pip found the perfect angle.",
+        "The black hole was pulling them in!",
+        "The trip would take three more weeks."
+      ],
+      "ev": [
+        2
+      ],
+      "why": [
+        "블랙홀이 우주선을 끌어당기고 있었어요. 빛조차 빠져나오지 못할 만큼 끌어당기는 힘이 아주 세다는 뜻이에요.",
+        "The black hole was pulling the ship in. Its pull is so strong that even light cannot get away."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did the ship get away from the black hole?",
+      "qko": "우주선은 어떻게 블랙홀에서 빠져나왔나요?",
+      "opts": [
+        "Aria used full engine power, and Pip found the perfect angle.",
+        "They waited until the black hole went away.",
+        "Another ship pulled them out."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "\"Engines at full power!\" shouted Aria.",
+        "As they got closer, the ship began to shake.",
+        "Pip found the perfect angle.",
+        "\"There is a shortcut,\" said Pip. \"We can fly near that black hole and save two weeks.\""
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "아리아는 엔진을 최대로 켜라고 외쳤고, 핍은 딱 맞는 각도를 찾았어요. 둘이 힘을 합쳐서 빠져나왔어요.",
+        "Aria shouted for full engine power, and Pip found the perfect angle. They got away by working together."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Aria and Pip deliver medicine to a town on the Moon.",
+      "아리아와 핍이 달에 있는 마을에 약을 전해요.",
+      "Moon Delivery"
+    ],
+    [
+      "B",
+      "Pip learns to fly the ship all by itself.",
+      "핍이 혼자서 우주선을 조종하는 법을 배워요.",
+      "Pip the Pilot"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“We should <u>work together</u> so that <u>we can do hard things</u>.”",
+    "slotKo": [
+      "해야 할 일",
+      "그러면 어떻게 되는지"
+    ],
+    "slotEn": [
+      "what we should do",
+      "what will happen"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «해야 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and its purpose in English.",
+    "chips": [
+      {
+        "a": "listen to each other",
+        "b": "everyone feels heard",
+        "label": "listen"
+      },
+      {
+        "a": "make a plan first",
+        "b": "we do not get lost",
+        "label": "plan"
+      },
+      {
+        "a": "help the new student",
+        "b": "she feels welcome",
+        "label": "friend"
+      }
+    ],
+    "aria": [
+      "what we should do",
+      "so that what happens"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에는 «누가 + 무엇을 한다» 를 쓰세요. (예: so that we finish on time)",
+    "moreEn": "One more step: after «so that», write who + what happens. (e.g. so that we finish on time)"
+  },
+  "img": {
+    "cover": "A small white spaceship swings around the glowing orange edge of a huge swirling black hole, and through the front window a young woman pilot with short silver hair in a red flight suit grips the controls while a round little robot with a dome head and blue blinking lights points ahead with one metal arm.",
+    "scenes": {
+      "1": "Inside the shaking cockpit of a small white spaceship, a young woman pilot with short silver hair in a red flight suit holds the controls tightly and a round little robot with a dome head and blue blinking lights holds on to a seat, while a cup and a pencil float in the air and a huge swirling black hole fills the front window.",
+      "2": "On green grass beside a small white spaceship in a sunny town on Earth, a young woman pilot with short silver hair in a red flight suit hands a white medicine box to a smiling family, while a round little robot with a dome head and blue blinking lights carries a stack of boxes and its blue lights blink happily."
+    }
+  },
+  "alt": {
+    "1": "The cockpit shakes as the black hole pulls the ship.",
+    "2": "Aria gives the medicine to a family on Earth.",
+    "cover": "The spaceship swings around the edge of the black hole."
+  }
+}

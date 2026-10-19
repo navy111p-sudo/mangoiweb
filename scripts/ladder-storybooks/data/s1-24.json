@@ -1,0 +1,304 @@
+{
+  "id": "s1-24",
+  "breaks": [
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 2,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «커다란 문어가 배를 붙잡았다(문제)» 와 «싸우는 것보다 친절한 것이 낫다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (a giant octopus holds the ship) and the lesson (being kind is better than fighting). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Pirate Pete, his pirates, and a giant octopus"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "A giant octopus holds the ship, and the pirates are scared."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Pete gives the hungry octopus a big bag of fish, and it lets go."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Pirate Pete sails his ship across the ",
+      "ans": "sea",
+      "opts": [
+        "sea",
+        "road",
+        "sky"
+      ]
+    },
+    {
+      "pre": ". Suddenly, a giant ",
+      "ans": "octopus",
+      "opts": [
+        "octopus",
+        "whale",
+        "shark"
+      ]
+    },
+    {
+      "pre": " holds the ship. The octopus looks sad and ",
+      "ans": "hungry",
+      "opts": [
+        "hungry",
+        "angry",
+        "sleepy"
+      ]
+    },
+    {
+      "pre": ". Pete gives it a big bag of ",
+      "ans": "fish",
+      "opts": [
+        "fish",
+        "gold",
+        "rocks"
+      ]
+    },
+    {
+      "pre": ". The octopus ",
+      "ans": "smiles",
+      "opts": [
+        "smiles",
+        "cries",
+        "sleeps"
+      ]
+    },
+    {
+      "pre": " and lets go of the ship. Being kind is better than fighting.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "giant",
+      "거대한",
+      "A <b>giant</b> octopus holds it with eight long arms!",
+      "very, very big"
+    ],
+    [
+      "octopus",
+      "문어",
+      "A giant <b>octopus</b> holds it with eight long arms!",
+      "a sea animal with eight long arms"
+    ],
+    [
+      "fear",
+      "두려움",
+      "The pirates shake with <b>fear</b>.",
+      "the feeling of being scared"
+    ],
+    [
+      "hungry",
+      "배고픈",
+      "He looks at the octopus. It looks sad and <b>hungry</b>.",
+      "wanting to eat food"
+    ],
+    [
+      "let go",
+      "놓아주다",
+      "The octopus smiles and <b>lets go</b> of the ship.",
+      "to stop holding something"
+    ],
+    [
+      "kind",
+      "친절한",
+      "Being <b>kind</b> is better than fighting.",
+      "nice and good to others"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does the ship stop?",
+      "qko": "배는 왜 멈추나요?",
+      "opts": [
+        "A giant octopus holds it.",
+        "The ship hits a big rock.",
+        "Pete wants to go fishing."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "A giant octopus holds it with eight long arms!",
+        "Pirate Pete sails his ship across the sea.",
+        "The pirates shake with fear.",
+        "Pete gives it a big bag of fish."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«A giant octopus holds it with eight long arms!» 커다란 문어가 여덟 개의 긴 다리로 배를 붙잡아서 배가 멈춰요.",
+        "A giant octopus holds the ship with eight long arms, so the ship stops."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"The pirates shake with fear.\" What does \"shake with fear\" mean?",
+      "qko": "«The pirates shake with fear.» 에서 «shake with fear» 는 무슨 뜻일까요?",
+      "opts": [
+        "their bodies move because they are very scared",
+        "they dance because they are happy",
+        "they are cold from the rain"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "But Pete is not scared.",
+        "Suddenly, the ship stops.",
+        "He looks at the octopus. It looks sad and hungry.",
+        "The octopus smiles and lets go of the ship."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«But Pete is not scared.» «하지만» 피트는 무섭지 않아요. 그러니 다른 해적들은 무서워서 몸이 떨린다는 뜻이에요.",
+        "\"But Pete is not scared.\" This tells us the other pirates are scared, so their bodies shake."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why does the octopus let go of the ship?",
+      "qko": "문어는 왜 배를 놓아주나요?",
+      "opts": [
+        "It is hungry, and Pete gives it fish.",
+        "The pirates shout at it very loudly.",
+        "It is afraid of the pirates."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "He looks at the octopus. It looks sad and hungry.",
+        "Pete gives it a big bag of fish.",
+        "The pirates shake with fear.",
+        "Suddenly, the ship stops."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "문어는 슬프고 배고파 보였고(«He looks at the octopus. It looks sad and hungry.»), 피트가 물고기 한 자루를 주었어요(«Pete gives it a big bag of fish.»). 배가 부른 문어는 웃으며 배를 놓아줘요. 두 문장을 이어야 알 수 있어요.",
+        "The octopus is sad and hungry, and Pete gives it a big bag of fish. So it smiles and lets go. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "The octopus becomes Pete’s friend and helps push the ship.",
+      "문어가 피트의 친구가 되어 배를 밀어 준다.",
+      "The Octopus Helper"
+    ],
+    [
+      "B",
+      "Pete and the pirates find a treasure map in the sea.",
+      "피트와 해적들이 바다에서 보물 지도를 찾는다.",
+      "The Treasure Map"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)",
+    "src": "“I think <u>Pete is kind</u> because <u>he gives the octopus fish</u>.”",
+    "chips": [
+      {
+        "a": "my teacher is kind",
+        "b": "she helps me read",
+        "label": "teacher"
+      },
+      {
+        "a": "my brother is hungry",
+        "b": "he eats a lot",
+        "label": "brother"
+      },
+      {
+        "a": "sharing is good",
+        "b": "it makes friends happy",
+        "label": "share"
+      }
+    ]
+  },
+  "img": {
+    "cover": "On the blue sea, a giant pink octopus with big round eyes and long curly arms wraps its long arms around a wooden pirate ship with white sails, and a man with a curly black beard, a red bandana, a blue and white striped shirt and a gold earring stands at the front of the ship smiling and holding out a big sack of fish to it.",
+    "scenes": {
+      "1": "On the deck of a wooden pirate ship with white sails, a group of pirates in striped shirts hide behind barrels and shake with wide eyes, while a man with a curly black beard, a red bandana, a blue and white striped shirt and a gold earring calmly looks up at a giant pink octopus with big round eyes and long curly arms, which has droopy eyes and a sad, hungry face.",
+      "2": "On the sunny blue sea, a man with a curly black beard, a red bandana, a blue and white striped shirt and a gold earring hands a big sack of fish to a giant pink octopus with big round eyes and long curly arms, which smiles happily and lets go of a wooden pirate ship with white sails as the pirates cheer."
+    }
+  },
+  "alt": {
+    "1": "The pirates hide while Pete looks at the sad octopus.",
+    "2": "The happy octopus lets go of the ship.",
+    "cover": "Pete offers fish to the giant octopus holding his ship."
+  }
+}

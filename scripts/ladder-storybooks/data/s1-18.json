@@ -1,0 +1,304 @@
+{
+  "id": "s1-18",
+  "breaks": [
+    4,
+    3,
+    3
+  ],
+  "key": {
+    "P": 2,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "처음 생각",
+      "en": "first thought"
+    },
+    "S": {
+      "ko": "반전",
+      "en": "twist"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «침대 밑에 괴물이 있다고 생각한다(처음 생각)» 와 «무서운 괴물은 그냥 우리 고양이였다(반전)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the first thought (I think it is a monster) and the twist (the monster was just my cat). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Me and my kitten Coco"
+    },
+    {
+      "k": "First thought",
+      "qko": "처음에는 무엇이라고 생각했나요?",
+      "qen": "What do I think at first?",
+      "a": "I think a monster is under my bed."
+    },
+    {
+      "k": "Twist",
+      "qko": "사실은 무엇이었나요?",
+      "qen": "What is it really?",
+      "a": "It is my kitten, Coco, playing with my sock."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Every night, I hear a ",
+      "ans": "noise",
+      "opts": [
+        "noise",
+        "song",
+        "bell"
+      ]
+    },
+    {
+      "pre": " under my bed. I think it is a ",
+      "ans": "monster",
+      "opts": [
+        "monster",
+        "robot",
+        "bird"
+      ]
+    },
+    {
+      "pre": ". Tonight, I want to be ",
+      "ans": "brave",
+      "opts": [
+        "brave",
+        "sleepy",
+        "hungry"
+      ]
+    },
+    {
+      "pre": ", so I look under the bed with my ",
+      "ans": "flashlight",
+      "opts": [
+        "flashlight",
+        "book",
+        "spoon"
+      ]
+    },
+    {
+      "pre": ". It is my kitten, Coco! She is playing with my ",
+      "ans": "sock",
+      "opts": [
+        "sock",
+        "hat",
+        "cup"
+      ]
+    },
+    {
+      "pre": ". The scary monster was just my cat!",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "noise",
+      "소리",
+      "Every night, I hear a <b>noise</b> under my bed.",
+      "a sound"
+    ],
+    [
+      "monster",
+      "괴물",
+      "\"It is a <b>monster</b>!\" I think.",
+      "a big, scary creature in stories"
+    ],
+    [
+      "hide",
+      "숨다",
+      "I <b>hide</b> under my blanket.",
+      "to go where no one can see you"
+    ],
+    [
+      "brave",
+      "용감한",
+      "Tonight, I want to be <b>brave</b>.",
+      "not afraid"
+    ],
+    [
+      "kitten",
+      "아기 고양이",
+      "It is my <b>kitten</b>, Coco!",
+      "a baby cat"
+    ],
+    [
+      "scary",
+      "무서운",
+      "The <b>scary</b> monster was just my cat!",
+      "making you feel afraid"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why do I hide under my blanket?",
+      "qko": "나는 왜 이불 속에 숨나요?",
+      "opts": [
+        "I think a monster is under my bed.",
+        "I am very cold.",
+        "I want to play a game."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "\"It is a monster!\" I think.",
+        "Tonight, I want to be brave.",
+        "She is playing with my sock.",
+        "I take my flashlight and look under the bed."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«\"It is a monster!\" I think.» 괴물이라고 생각해서 무서워 이불 속에 숨어요.",
+        "I think it is a monster, so I am scared and I hide."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Tonight, I want to be brave.\" What does \"brave\" mean here?",
+      "qko": "«I want to be brave.» 에서 «brave» 는 무슨 뜻일까요?",
+      "opts": [
+        "not afraid to do something scary",
+        "very sleepy",
+        "very hungry"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "I take my flashlight and look under the bed.",
+        "Every night, I hear a noise under my bed.",
+        "I hide under my blanket.",
+        "The scary monster was just my cat!"
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«I take my flashlight and look under the bed.» 무서운데도 침대 밑을 들여다봐요. 그것이 «용감하다»는 뜻이에요.",
+        "I look under the bed even when I am scared. That is being brave."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "What makes the noise under my bed?",
+      "qko": "침대 밑에서 나는 소리는 무엇 때문이었나요?",
+      "opts": [
+        "My kitten, Coco, playing with my sock.",
+        "A big monster with two eyes.",
+        "My dad fixing the bed."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "But it is not a monster. It is my kitten, Coco!",
+        "She is playing with my sock.",
+        "\"It is a monster!\" I think.",
+        "Two big eyes look back at me!"
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "괴물이 아니라 고양이 코코였고(«But it is not a monster. It is my kitten, Coco!»), 코코가 양말을 가지고 놀고 있었어요(«She is playing with my sock.»). 두 단서를 이어야 소리의 정체를 알 수 있어요.",
+        "It is my kitten Coco, and she is playing with my sock. Put the two clues together."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Coco sleeps on my bed every night now.",
+      "이제 코코는 매일 밤 내 침대 위에서 잔다.",
+      "Coco on My Bed"
+    ],
+    [
+      "B",
+      "I hear a new noise in the closet.",
+      "옷장에서 새로운 소리가 들린다.",
+      "The Noise in the Closet"
+    ]
+  ],
+  "write": {
+    "pre": "I can’t",
+    "mid": "but I can",
+    "sep": ", ",
+    "slots": [
+      "vp",
+      "vp"
+    ],
+    "slotKo": [
+      "할 수 없는 일",
+      "대신 할 수 있는 일"
+    ],
+    "slotEn": [
+      "what I can’t do",
+      "what I can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «할 수 없는 일 + 대신 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you can’t do and what you can do instead in English.",
+    "aria": [
+      "what you can’t do",
+      "what you can do instead"
+    ],
+    "moreKo": "한 걸음 더: 두 칸 모두 «하는 일» 낱말로 시작하게 써 보세요. (예: play soccer, draw a picture)",
+    "moreEn": "One more step: start both blanks with an action word. (e.g. play soccer, draw a picture)",
+    "src": "“I can’t <u>see in the dark</u>, but I can <u>use my flashlight</u>.”",
+    "chips": [
+      {
+        "a": "reach the cookies",
+        "b": "ask Mom for help",
+        "label": "cookies"
+      },
+      {
+        "a": "ride a big bike",
+        "b": "ride my scooter",
+        "label": "bike"
+      },
+      {
+        "a": "tie my shoes",
+        "b": "put on my boots",
+        "label": "shoes"
+      }
+    ]
+  },
+  "img": {
+    "cover": "In a dark bedroom, a boy with short spiky red hair in green dinosaur pajamas lies on the floor and shines a flashlight under his bed, where a fluffy gray kitten with big yellow eyes and white paws blinks in the bright light with a long striped sock in its paws.",
+    "scenes": {
+      "1": "In a dark bedroom, a boy with short spiky red hair in green dinosaur pajamas kneels by his bed holding a flashlight, looking nervous but brave, as two big round glowing eyes shine back at him from the shadow under the bed.",
+      "2": "Sitting on the bedroom floor, a boy with short spiky red hair in green dinosaur pajamas laughs and holds a fluffy gray kitten with big yellow eyes and white paws, which tugs playfully at a long striped sock."
+    }
+  },
+  "alt": {
+    "1": "Two big eyes shine under the bed.",
+    "2": "The boy laughs with his kitten and a sock.",
+    "cover": "A boy finds his kitten under the bed with a flashlight."
+  }
+}

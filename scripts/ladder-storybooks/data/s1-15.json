@@ -1,0 +1,304 @@
+{
+  "id": "s1-15",
+  "breaks": [
+    4,
+    3,
+    3
+  ],
+  "key": {
+    "P": 3,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "놀라운 일",
+      "en": "surprise"
+    },
+    "S": {
+      "ko": "결말",
+      "en": "ending"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «알에서 아기 공룡이 나온다(놀라운 일)» 와 «알 덕분에 동네에서 가장 큰 친구가 생겼다(결말)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the surprise (a baby dinosaur comes out of the egg) and the ending (Jay gets the biggest friend in town). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Jay and a baby dinosaur"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The dinosaur grows so big that its head hits the ceiling."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Jay takes it to the big dinosaur park and visits it every Sunday."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Jay finds a big spotted ",
+      "ans": "egg",
+      "opts": [
+        "egg",
+        "ball",
+        "hat"
+      ]
+    },
+    {
+      "pre": " in the woods. He keeps it ",
+      "ans": "warm",
+      "opts": [
+        "warm",
+        "wet",
+        "cold"
+      ]
+    },
+    {
+      "pre": ". A baby ",
+      "ans": "dinosaur",
+      "opts": [
+        "dinosaur",
+        "duck",
+        "cat"
+      ]
+    },
+    {
+      "pre": " comes out! It grows bigger and bigger, and soon its head hits the ",
+      "ans": "ceiling",
+      "opts": [
+        "ceiling",
+        "floor",
+        "window"
+      ]
+    },
+    {
+      "pre": ". Jay takes it to the big dinosaur ",
+      "ans": "park",
+      "opts": [
+        "park",
+        "school",
+        "store"
+      ]
+    },
+    {
+      "pre": ", and now it is his big friend.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "spotted",
+      "점박이의",
+      "Jay finds a big <b>spotted</b> egg in the woods.",
+      "covered with small dots"
+    ],
+    [
+      "woods",
+      "숲",
+      "Jay finds a big spotted egg in the <b>woods</b>.",
+      "a place with many trees"
+    ],
+    [
+      "warm",
+      "따뜻한",
+      "He takes it home and keeps it <b>warm</b>.",
+      "a little hot, not cold"
+    ],
+    [
+      "dinosaur",
+      "공룡",
+      "A baby <b>dinosaur</b> comes out!",
+      "a big animal that lived long ago"
+    ],
+    [
+      "grow",
+      "자라다",
+      "Every day, it <b>grows</b> bigger and bigger.",
+      "to get bigger"
+    ],
+    [
+      "ceiling",
+      "천장",
+      "Soon its head hits the <b>ceiling</b>!",
+      "the top part of a room"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Jay take the dinosaur to the park?",
+      "qko": "제이는 왜 공룡을 공원에 데려가나요?",
+      "opts": [
+        "It grows too big for his house.",
+        "It does not like broccoli.",
+        "It wants to find its mom."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Soon its head hits the ceiling!",
+        "It eats all of Jay's broccoli.",
+        "Jay finds a big spotted egg in the woods.",
+        "Now he visits his dino friend every Sunday."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«Soon its head hits the ceiling!» 공룡이 너무 커져서 머리가 천장에 닿아요. 집이 너무 작아진 거예요.",
+        "Its head hits the ceiling. The dinosaur is too big for the house."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"That night, the egg goes crack, crack!\" What does \"crack\" mean here?",
+      "qko": "«the egg goes crack, crack!» 에서 «crack» 은 무슨 뜻일까요?",
+      "opts": [
+        "the egg breaks open",
+        "the egg rolls away",
+        "the egg gets cold"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "A baby dinosaur comes out!",
+        "He takes it home and keeps it warm.",
+        "Every day, it grows bigger and bigger.",
+        "Jay takes it to the big dinosaur park."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«A baby dinosaur comes out!» 바로 다음에 아기 공룡이 나와요. 그러니 «crack» 은 알이 쩍 갈라지는 소리예요.",
+        "Right after the crack, a baby dinosaur comes out. So the egg breaks open."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Where and when does Jay see his dino friend now?",
+      "qko": "제이는 이제 언제, 어디에서 공룡 친구를 만나나요?",
+      "opts": [
+        "at the big dinosaur park every Sunday",
+        "in his bedroom every night",
+        "at school every Monday"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Jay takes it to the big dinosaur park.",
+        "Now he visits his dino friend every Sunday.",
+        "That night, the egg goes crack, crack!",
+        "It eats all of Jay's broccoli."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "공룡은 공룡 공원에 있고(«Jay takes it to the big dinosaur park.»), 제이는 일요일마다 만나러 가요(«Now he visits his dino friend every Sunday.»). 두 문장을 이어야 «어디»와 «언제»를 모두 알 수 있어요.",
+        "The dinosaur is at the park, and Jay visits it every Sunday. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "The dinosaur comes to Jay’s birthday party at the park.",
+      "공룡이 공원에서 열린 제이의 생일 파티에 온다.",
+      "A Dino Birthday"
+    ],
+    [
+      "B",
+      "Jay finds another egg in the woods.",
+      "제이가 숲에서 알을 하나 더 찾는다.",
+      "Another Egg!"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)",
+    "src": "“I think <u>Jay is a good friend</u> because <u>he visits the dinosaur every Sunday</u>.”",
+    "chips": [
+      {
+        "a": "my dog is happy",
+        "b": "he wags his tail",
+        "label": "dog"
+      },
+      {
+        "a": "my plant is growing",
+        "b": "it gets taller every day",
+        "label": "plant"
+      },
+      {
+        "a": "Grandpa is kind",
+        "b": "he reads to me",
+        "label": "Grandpa"
+      }
+    ]
+  },
+  "img": {
+    "cover": "At night in a cozy bedroom, a boy with short curly black hair in a yellow T-shirt and blue shorts kneels by a soft blanket with wide happy eyes as a big spotted egg cracks open, and a friendly green dinosaur with orange spots on its back and a round nose, still a tiny baby, pokes its head out of the shell.",
+    "scenes": {
+      "1": "In a living room with an empty broccoli bowl tipped over on the floor, a friendly green dinosaur with orange spots on its back and a round nose, now very tall, bumps its head on the ceiling and blinks in surprise, while a boy with short curly black hair in a yellow T-shirt and blue shorts covers his mouth and laughs.",
+      "2": "In a big sunny dinosaur park with tall trees and a blue pond, a boy with short curly black hair in a yellow T-shirt and blue shorts hugs the leg of a friendly green dinosaur with orange spots on its back and a round nose, now huge, and the dinosaur bends its long neck down to smile at him."
+    }
+  },
+  "alt": {
+    "1": "The tall dinosaur bumps its head on the ceiling.",
+    "2": "Jay hugs his huge dinosaur friend at the park.",
+    "cover": "A baby dinosaur hatches from a spotted egg."
+  }
+}
