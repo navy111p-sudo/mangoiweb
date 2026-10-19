@@ -165,6 +165,41 @@ ok(/else renderBrowse\(\);/.test(noCmt) && !/renderOverview|state\.layout|data-a
   '옛 두 보기(한눈에·한 단계)·바로가기는 고르기 화면 하나로 합쳤다(되살아나지 않음 — 2026-10-18 C안)');
 ok(/document\.documentElement\.classList\.toggle\('rl-browse', view\.mode === 'list'\)/.test(noCmt), '«한 장에 꽉 차는» 배치는 고르기 화면에서만 · toggle 에 force(같으면 class 를 다시 안 씀)');
 ok(/html\.rl-browse #rlApp\{/.test(HTML) && /@media \(max-width:820px\),\(max-height:560px\)\{[\s\S]{0,120}html\.rl-browse[^{]*\{height:auto\}/.test(HTML), '좁거나 낮은 화면에서는 한 장 고정을 풀고 아래로 쌓는다');
+{ // 한 줄 맞추기(fitRows)는 «쌓는 배치» 에서 손을 뗀다 — 그 판정(JS STACKED_MQ)과 CSS 의 쌓는 배치 미디어쿼리가 «같은 글자» 여야 한다.
+  //   CSS 만 바뀌면 쌓는 배치인데도 줄이기가 돌거나(이름이 괜히 짧아짐), 한 장 배치인데 손을 뗀다(줄이 접혀 넘침) — 둘 다 조용하다(2026-10-19 함정 대조).
+  const mqJs = (JS_SRC.match(/var STACKED_MQ = '([^']+)'/) || [])[1];
+  const mqCss = (HTML.match(/@media ([^{]+)\{\s*html\.rl-browse,html\.rl-browse body,html\.rl-browse \.wrap\{height:auto\}/) || [])[1];
+  const norm = (s) => String(s || '').replace(/\s+/g, '');
+  const okd = (c, m, d) => ok(c, c || !d ? m : m + ' — ' + d);
+  okd(!!mqJs && !!mqCss, '전제: JS 의 STACKED_MQ 와 CSS 의 쌓는 배치 미디어쿼리를 둘 다 찾았다', JSON.stringify([mqJs, mqCss]));
+  okd(!!mqJs && norm(mqJs) === norm(mqCss), 'JS STACKED_MQ 가 CSS 의 쌓는 배치 미디어쿼리와 같은 글자다', JSON.stringify([mqJs, mqCss]));
+  // (짝) 그 상수를 «실제로 쓰는가» — 글자만 대조하면 판정 줄을 false 로 바꾸거나 다른 글자로 갈아 끼워도 통과한다
+  //   (2026-10-19 함정 대조 실측: 둘 다 PASS 134 / FAIL 0). fitRows 몸통을 중괄호 짝으로 잘라 그 안에서 묻는다.
+  const fi = noCmt.indexOf('function fitRows()');
+  let fitBody = '';
+  if (fi >= 0) { const o = noCmt.indexOf('{', fi); let d = 0, k = o; for (; k < noCmt.length; k++) { if (noCmt[k] === '{') d++; else if (noCmt[k] === '}' && --d === 0) break; } fitBody = noCmt.slice(o, k + 1); }
+  okd(fitBody.length > 0, '전제: fitRows 몸통을 잘라 냈다', fitBody.length);
+  okd(/var allowed = !window\.matchMedia\(STACKED_MQ\)\.matches;/.test(fitBody), 'fitRows 가 STACKED_MQ 로 «쌓는 배치인가» 를 실제로 묻는다', fitBody.slice(0, 160));
+  const uses = (fitBody.match(/\(([^()]*), allowed\)|\(allowed\)/g) || []).length;
+  okd(/fitTitle\(allowed\);/.test(fitBody) && /fitRow\(root\.querySelector\('\.rl-tb'\), TB_LEVELS, allowed\)/.test(fitBody) && /fitRow\(root\.querySelector\('\.rl-acts'\), ACT_LEVELS, allowed\)/.test(fitBody),
+    '제목·도구 줄·버튼 줄 셋 다 그 판정(allowed)을 받는다', uses);
+  // fitTitle 도 쌓는 배치에서는 «재기 전에» 손을 뗀다. ⚠️ 이 줄은 지금은 결과로 안 드러난다(쌓는 배치는 제목이 nowrap·clip 이 아니라
+  //   «잘림» 이 안 생기고 rl-noflow 규칙도 한 장 배치 안에만 있다 — 2026-10-19 변이 실측: 줄을 지워도 브라우저 검사 613/0). 그래서 글자로 지킨다.
+  const ti = noCmt.indexOf('function fitTitle(allowed)');
+  let titleBody = '';
+  if (ti >= 0) { const o = noCmt.indexOf('{', ti); let d = 0, k = o; for (; k < noCmt.length; k++) { if (noCmt[k] === '{') d++; else if (noCmt[k] === '}' && --d === 0) break; } titleBody = noCmt.slice(o, k + 1); }
+  const ga = titleBody.indexOf('if (!allowed) return;'), gm = titleBody.indexOf('createRange');
+  okd(ga > 0 && gm > ga && titleBody.indexOf("classList.remove('rl-noflow')") < ga,
+    'fitTitle 은 rl-noflow 를 먼저 지우고, 쌓는 배치면 재기 전에 돌아간다', JSON.stringify([ga, gm]));
+  // 제목 맞추기 — 잘릴 때만 «읽는 순서» 를 감춘다. 감추는 CSS 가 «한 장 배치» 안에 있어야 쌓는 배치에서 남지 않는다
+  const sb = HTML.indexOf('@media (min-width:821px) and (min-height:561px){'), se = sb >= 0 ? HTML.indexOf('\n}', sb) : -1;
+  okd(sb >= 0 && se > sb && /html\.rl-browse \.top\.rl-noflow \.flow\{display:none\}/.test(HTML.slice(sb, se)),
+    '«제목이 잘리면 읽는 순서를 감춘다» 규칙이 한 장 배치 안에 있다', sb);
+  // (짝) 한 장 배치(버튼 줄 sticky)는 그 쿼리의 «정확한 반대» 다 — 경계가 1px 이라도 어긋나면 «쌓지도 않고 붙이지도 않는» 창이 생긴다
+  const mW = norm(mqJs).match(/max-width:(\d+)px/), mH = norm(mqJs).match(/max-height:(\d+)px/);
+  okd(!!mW && !!mH && new RegExp('@media \\(min-width:' + (+mW[1] + 1) + 'px\\) and \\(min-height:' + (+mH[1] + 1) + 'px\\)\\{\\s*\\.rl-foot\\{position:sticky').test(HTML),
+    '(짝) 한 장 배치(버튼 줄 sticky)의 경계가 쌓는 배치의 정확한 반대다(+1px)', JSON.stringify([mW && mW[1], mH && mH[1]]));
+}
 ok(/data-act="topic" data-topic="/.test(JS_SRC) && /if \(act === 'topic'\)/.test(JS_SRC), '주제 드롭다운이 실제로 눌린다');
 ok(/window\.__storyBookList\s*=/.test(HTML) && /__storyBookList\(\)/.test(JS_SRC), '그림 동화책 4권이 2단계 툴바 드롭다운에 그려진다(책 목록을 넘겨 받음)');
 ok(/WRONG_BEFORE_REVEAL:\s*2/.test(JS_SRC) && (JS_SRC.match(/data-act="(keyreveal|mainreveal|dreveal)"/g) || []).length === 3, '두 번 틀리면 «정답 보기» 가 세 곳(핵심 문장·중심 내용·반복 연습)에 열린다');
