@@ -153,6 +153,10 @@ html.rl-browse .foot{flex:none;margin:8px 0 0;font-size:12px}
 .rl-dots i{height:8px;border-radius:3px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
 .rl-dots i.done{background:var(--ok);box-shadow:none}
 .rl-dots i.doing{background:var(--doing);box-shadow:none}
+/* 한 단계가 12편을 넘으면(2026-10-19 확장) 줄은 내용 높이로 쌓고 목록 칸 안에서 스크롤 · 진도 점은 작게 두 줄 */
+.rl-list.rl-long{grid-template-rows:none;grid-auto-rows:minmax(38px,auto)}
+.rl-dots.rl-many{grid-template-columns:repeat(24,1fr);gap:2px;width:168px}
+.rl-dots.rl-many i{height:5px;border-radius:2px}
 .rl-acts{display:flex;gap:8px;flex-wrap:wrap}
 .rl-ghost{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:99px;background:var(--page);color:var(--ink);font:inherit;font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer;text-decoration:none}
 .rl-ghost:hover:not(:disabled){border-color:var(--line2)}
@@ -197,7 +201,8 @@ html.rl-browse .foot{flex:none;margin:8px 0 0;font-size:12px}
   /* ③ 머리줄은 한 줄 — 영어에서 진도 숫자가 두 자리가 되면(«12 / 48») 머리줄이 접혀 목록이 넘쳤다
      (2026-10-19 진짜 구글 글꼴로 실측: 821~841·1181~1244 창에서 접힘 · 821×600 목록 23px 넘침).
      줄어드는 것은 부제(태그) 하나뿐 — 남는 자리만큼 보이고 끝을 «…» 로 줄인다. 넓은 창은 자리가 있어 그대로다.
-     제목(h1): 가장 빠듯한 1181 영어 창에서 제목 칸 여유가 1.75px 뿐이다(옆 칸까지는 17.75px — 2026-10-19 실측).
+     제목(h1): 176편이 되며 진도가 «N / 176» 세 자리라 영어 1181~1186 창은 제목이 칸보다 길어 아래 fitTitle 이 실제로 감추고,
+     1187 에서 «읽는 순서» 가 처음 보일 때 제목 칸 여유가 0.25px 뿐이다(2026-10-19 실측 — 48편 때는 1181 에서 1.75px).
      그래서 제목이 «실제로» 칸보다 길어지면(기기마다 글꼴 폭이 조금 다르다) reading-ladder.js(fitTitle)가 .top 에
      rl-noflow 를 붙여 «읽는 순서 1-2-3» 칸을 감춘다(1180 이하 창과 같은 모습) — 제목이 온전히 보인다.
      «…» 는 그래도 모자랄 때의 마지막 안전장치: 옆 «읽는 순서» 위로 넘쳐 겹치는 대신 줄인다
@@ -345,7 +350,7 @@ html.rl-browse .foot{flex:none;margin:8px 0 0;font-size:12px}
         <path d="M31 32.5h3M30 24.5h2.5M28.5 16.5h2M27 8.5h2" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
       </svg>
       <div><h1 data-ko="영어 독서" data-en="English Reading">영어 독서</h1>
-        <span class="tag" data-ko="4단계 독서 사다리 · 이야기 48편 + 그림 동화책 4권" data-en="4-step reading ladder · 48 texts + 4 picture books">4단계 독서 사다리 · 이야기 48편 + 그림 동화책 4권</span></div>
+        <span class="tag" data-ko="4단계 독서 사다리 · 이야기 176편 + 그림 동화책 4권" data-en="4-step reading ladder · 176 texts + 4 picture books">4단계 독서 사다리 · 이야기 176편 + 그림 동화책 4권</span></div>
     </div>
     <ol class="flow" aria-label="읽는 순서 / Reading steps">
       <li><span class="fn">1</span><span data-ko="핵심 문장" data-en="Key sentence">핵심 문장</span></li>
@@ -422,7 +427,7 @@ html.rl-browse .foot{flex:none;margin:8px 0 0;font-size:12px}
   applyLang();
 })();
 </script>
-<script src="/js/reading-ladder-data.js?v=1"></script>
+<script src="/js/reading-ladder-data.js?v=2"></script>
 <script src="/js/reading-ladder.js?v=8"></script>
 </body>
 </html>

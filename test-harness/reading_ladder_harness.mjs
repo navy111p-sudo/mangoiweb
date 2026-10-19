@@ -183,6 +183,14 @@ ok(/html\.rl-browse #rlApp\{/.test(HTML) && /@media \(max-width:820px\),\(max-he
   const uses = (fitBody.match(/\(([^()]*), allowed\)|\(allowed\)/g) || []).length;
   okd(/fitTitle\(allowed\);/.test(fitBody) && /fitRow\(root\.querySelector\('\.rl-tb'\), TB_LEVELS, allowed\)/.test(fitBody) && /fitRow\(root\.querySelector\('\.rl-acts'\), ACT_LEVELS, allowed\)/.test(fitBody),
     '제목·도구 줄·버튼 줄 셋 다 그 판정(allowed)을 받는다', uses);
+  // fitTitle 도 쌓는 배치에서는 «재기 전에» 손을 뗀다. ⚠️ 이 줄은 지금은 결과로 안 드러난다(쌓는 배치는 제목이 nowrap·clip 이 아니라
+  //   «잘림» 이 안 생기고 rl-noflow 규칙도 한 장 배치 안에만 있다 — 2026-10-19 변이 실측: 줄을 지워도 브라우저 검사 613/0). 그래서 글자로 지킨다.
+  const ti = noCmt.indexOf('function fitTitle(allowed)');
+  let titleBody = '';
+  if (ti >= 0) { const o = noCmt.indexOf('{', ti); let d = 0, k = o; for (; k < noCmt.length; k++) { if (noCmt[k] === '{') d++; else if (noCmt[k] === '}' && --d === 0) break; } titleBody = noCmt.slice(o, k + 1); }
+  const ga = titleBody.indexOf('if (!allowed) return;'), gm = titleBody.indexOf('createRange');
+  okd(ga > 0 && gm > ga && titleBody.indexOf("classList.remove('rl-noflow')") < ga,
+    'fitTitle 은 rl-noflow 를 먼저 지우고, 쌓는 배치면 재기 전에 돌아간다', JSON.stringify([ga, gm]));
   // 제목 맞추기 — 잘릴 때만 «읽는 순서» 를 감춘다. 감추는 CSS 가 «한 장 배치» 안에 있어야 쌓는 배치에서 남지 않는다
   const sb = HTML.indexOf('@media (min-width:821px) and (min-height:561px){'), se = sb >= 0 ? HTML.indexOf('\n}', sb) : -1;
   okd(sb >= 0 && se > sb && /html\.rl-browse \.top\.rl-noflow \.flow\{display:none\}/.test(HTML.slice(sb, se)),
@@ -280,7 +288,8 @@ if (C && P.length) {
   ok(/class="rl-app"/.test(e.html()) && /class="rl-split"/.test(e.html()) && /class="rl-tb"/.test(e.html()), '툴바 + 목록/상세 두 칸을 그린다');
   ok(sameIds(e.items().map((x) => x.id), idsOf(1)), `1단계 글 ${idsOf(1).length}편이 번호순으로 목록에 있다`);
   ok(e.detail() === titleOf(idsOf(1)[0]) && e.items().filter((x) => x.sel).length === 1 && e.items()[0].sel, '기록이 없으면 첫 글이 상세에 뜨고 목록에서 한 줄만 «고름»');
-  ok(/전체 진도<\/span><b>0 \/ 48<\/b>/.test(e.overall.innerHTML), '머리글에 전체 진도 0 / 48');
+  // 📌 2026-10-19 글을 늘리며(단계당 12편 → 1·2단계 48편 등) 총 편수를 데이터에서 센다 — «48» 로 못 박지 않는다.
+  ok(new RegExp('전체 진도</span><b>0 / ' + P.length + '</b>').test(e.overall.innerHTML), `머리글에 전체 진도 0 / ${P.length}`);
   ok([1, 2, 3, 4].every((n) => (e.html().match(new RegExp('data-act="stage" data-stage="' + n + '"', 'g')) || []).length >= 2), '단계 1~4 를 계단과 드롭다운 두 곳에서 고를 수 있다');
   ok((e.html().match(/aria-pressed="true"[^>]*title="1단계/g) || []).length === 1 && !/aria-pressed="true"[^>]*title="[234]단계/.test(e.html()), '계단은 지금 단계 하나만 눌림 표시');
   ok(!/rl-dd-item/.test(e.html()), '1단계에는 그림 동화책 드롭다운이 없다(짝)');
@@ -309,7 +318,7 @@ if (C && P.length) {
   const e2 = makeEnv({ store: { [RL_KEY]: JSON.stringify({ stage: 1, prog: { [s1[0]]: FULL, [s1[1]]: { k: 'ok' } } }) } });
   ok(e2.detail() === titleOf(s1[1]), '기록이 있으면 «하는 중» 글이 먼저 상세에 뜬다');
   ok(/data-act="open" data-id="[^"]+"[^>]*>[\s\S]{0,400}?이어서 하기/.test(e2.html()) && /<li class="done"><span class="rl-hn">/.test(e2.html()), '하는 중이면 «이어서 하기» · 끝낸 단계엔 ✓');
-  ok(/전체 진도<\/span><b>1 \/ 48<\/b>/.test(e2.overall.innerHTML), '전체 진도가 끝낸 글 수를 센다(1 / 48)');
+  ok(new RegExp('전체 진도</span><b>1 / ' + P.length + '</b>').test(e2.overall.innerHTML), `전체 진도가 끝낸 글 수를 센다(1 / ${P.length})`);
   e2.click({ 'data-act': 'filter', 'data-key': 'status', 'data-v': 'done' });
   ok(sameIds(e2.items().map((x) => x.id), [s1[0]]) && e2.items()[0].status === 'done', '상태 «완료» → 끝낸 글만');
   e2.click({ 'data-act': 'filter', 'data-key': 'status', 'data-v': 'new' });
@@ -337,6 +346,25 @@ if (C && P.length) {
   e2.click({ 'data-act': 'sel', 'data-id': s1[0] });
   e2.click({ 'data-act': 'step', 'data-v': -1 });
   ok(e2.detail() === titleOf(s1[0]) && /data-act="step" data-v="-1" disabled/.test(e2.html()), '첫 글에서는 «이전 글» 이 꺼져 있고 눌러도 그대로');
+
+  // ── 그림책이 없는 글(book:false) — 그림책 표시·버튼을 그리지 않는다 · 있는 글은 그대로(짝) ──
+  const noBook = P.find((p) => p.stage === 1 && p.book === false);
+  if (noBook) {
+    e2.click({ 'data-act': 'sel', 'data-id': noBook.id });
+    ok(e2.detail() === noBook.title.en && !new RegExp('href="/story-' + noBook.id + '\\.html"').test(e2.html()) && !/class="rl-pic"/.test(e2.html()), `그림책 없는 글(${noBook.id})은 상세에 🖼 표시·버튼이 없다`);
+    e2.click({ 'data-act': 'open', 'data-id': noBook.id });
+    ok(/data-act="key" data-i="/.test(e2.html()) && !/href="\/story-/.test(e2.html()), '그 글의 읽기 화면에도 그림 동화책 버튼이 없다');
+    e2.click({ 'data-act': 'list' });
+  }
+  e2.click({ 'data-act': 'sel', 'data-id': s1[0] });
+  ok(new RegExp('href="/story-' + s1[0] + '\\.html"').test(e2.html()) && /class="rl-pic"/.test(e2.html()), '그림책 있는 글은 상세에 🖼 버튼이 그대로 있다(짝)');
+  ok(P.filter((p) => p.book !== false).length >= 48 && P.filter((p) => p.book === false).every((p) => !/^s[1-4]-(0\d|1[0-2])$/.test(p.id)), '처음 48편(그림책 있는 글)은 그대로 · book:false 는 새로 더한 글에만');
+  // 12편이 넘는 단계는 목록 줄을 내용 높이로 쌓는다(12줄 배치를 그대로 쓰면 줄이 짓눌린다) · 12편 이하 상황은 그대로(짝)
+  ok((idsOf(1).length > 12) === /class="rl-list rl-long"/.test(e2.html()), '12편이 넘는 단계면 목록에 rl-long 이 붙는다');
+  e2.click({ 'data-act': 'filter', 'data-key': 'status', 'data-v': 'done' });
+  ok(/class="rl-list"/.test(e2.html()) && !/rl-long/.test(e2.html()), '거른 결과가 12편 이하면 rl-long 이 없다(짝)');
+  e2.click({ 'data-act': 'filter', 'data-key': 'status', 'data-v': '' });
+  ok(/\.rl-list\.rl-long\{grid-template-rows:none;grid-auto-rows:/.test(HTML), 'stories.html 에 rl-long 배치 규칙이 있다');
 
   // ── 읽기 ↔ 목록 ──
   e2.click({ 'data-act': 'open', 'data-id': s1[6] });
