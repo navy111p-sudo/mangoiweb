@@ -46,6 +46,7 @@
     'today':'/today.html',
     'ai-class':'/ai-class.html',   // 🎓 2026-10-08 사장님 「메뉴에도 연결해줘」 — 홈 드로어와 같은 자리(오늘의 A.i 학습 바로 아래)
     'stories':'/stories.html',   // 📚 2026-10-13 영어 독서(A.i 동화책 4권 목록) — 홈 드로어와 같은 자리(A.i 선생님 수업 바로 아래)
+    'ai-dubbing':'/ai-dubbing.html',   // 🎬 2026-10-19 A.i 더빙동영상(영상 대사 직접 더빙 10편) — 영어 독서 바로 아래
     'judgment':'/judgment.html',
     'ai-friend':'/ai-friend.html',
     'ai-write':'/ai-write.html',
@@ -65,7 +66,7 @@
     { ko:'수업',          en:'Classes',        go:['booking','precheck','warmup','leveltest'] },
     /* 2026-09-12 — 홈 드로어의 «AI 학습 도구» 차례를 그대로 따른다.
        ⛔ 웜업(warmup)은 옮기지 않았다 — 아래 «수업» 그룹에 그대로 둔다(배치 변경 최소화). */
-    { ko:'학습 도구',     en:'Learning Tools', go:['today','ai-class','stories','judgment','speech','ai-friend','ai-write','review-quiz','review-quiz-cn','micro-quiz','vocab','student-game','points-shop'] },
+    { ko:'학습 도구',     en:'Learning Tools', go:['today','ai-class','stories','ai-dubbing','judgment','speech','ai-friend','ai-write','review-quiz','review-quiz-cn','micro-quiz','vocab','student-game','points-shop'] },
     { ko:'결제 · 문의',   en:'Billing & Help', go:['payment','refund','inquiry','faq'] }
   ];
   // 그룹에 넣지 않고 맨 위/맨 아래에 그대로 두는 것 (성격이 달라 분류가 어색한 항목)
@@ -96,6 +97,7 @@
     { go:'today',       cls:'mg-hl mg-s3', ko:'📅 오늘의 A.i 학습',   en:'📅 Today\'s AI Plan' },
     { go:'ai-class',    cls:'mg-hl mg-s3', ko:'🎓 A.i 선생님 수업',   en:'🎓 A.i Teacher Class' },
     { go:'stories',     cls:'mg-hl mg-s3', ko:'📚 영어 독서',        en:'📚 English Reading' },
+    { go:'ai-dubbing',  cls:'mg-hl mg-s3', ko:'🎬 A.i 더빙동영상',    en:'🎬 A.i Dubbing Video' },
     { go:'judgment',    cls:'mg-hl mg-s2', ko:'🧠 판단력 훈련',       en:'🧠 Decision Training' },
     { go:'ai-friend',   cls:'',            ko:'🤖 AI 친구 대화',      en:'🤖 AI Friend Chat' },
     { go:'ai-write',    cls:'',            ko:'✍️ AI 글쓰기',         en:'✍️ AI Writing' },
