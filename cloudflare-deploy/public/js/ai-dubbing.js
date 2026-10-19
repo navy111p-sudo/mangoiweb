@@ -106,11 +106,11 @@
     if (!list || list.length < 2) { panel.hidden = true; return; }
     var cur = episodeId(), h = '';
     list.forEach(function (e) {
-      var on = e.id === cur, ready = e.status === 'ready';
+      var ready = e.status === 'ready', on = ready && e.id === cur;
       var inner = '<span class="ep-no">' + L(e.no + '편', 'Ep. ' + e.no) + '</span>'
         + '<span class="ep-t">' + L(e.title.ko, e.title.en) + '</span>'
         + '<span class="ep-s">' + (on ? L('지금 이 이야기', 'Now playing') : ready ? L('▶ 열기', '▶ Open') : L('준비 중', 'Coming soon')) + '</span>';
-      var bg = e.poster ? ' style="background-image:linear-gradient(rgba(10,14,22,.35),rgba(10,14,22,.85)),url(\'' + esc(e.poster) + '\')"' : '';
+      var bg = e.poster && /^[A-Za-z0-9_\-.\/:]+$/.test(e.poster) ? ' style="background-image:linear-gradient(rgba(10,14,22,.35),rgba(10,14,22,.85)),url(\'' + esc(e.poster) + '\')"' : '';
       if (ready && !on) h += '<a class="ep" href="?ep=' + encodeURIComponent(e.id) + '"' + bg + '>' + inner + '</a>';
       else h += '<div class="ep' + (on ? ' cur' : ' off') + '"' + (on ? ' aria-current="true"' : ' aria-disabled="true"') + bg + '>' + inner + '</div>';
     });
@@ -289,10 +289,11 @@
       })
       .catch(function () { return null; });
   }
-  /* 미리 받아 두기 — 장면을 시작하면 그 장면 원어민 대사를 뒤에서 받아 둔다(차례 사이 멈춤을 줄인다) */
-  function prefetchScene(sc) {
+  /* 미리 받아 두기 — 장면을 시작하면 그 장면 원어민 대사를 뒤에서 받아 둔다(차례 사이 멈춤을 줄인다).
+   * «먼저 들어 보기» 가 켜져 있으면 학생 대사도 들려주므로 함께 받아 둔다. */
+  function prefetchScene(sc, withStudents) {
     var muted = C.mutedCharacters(S.cast);
-    sc.lines.forEach(function (l) { if (!muted[l.speaker]) getTts(l.en, C.ttsSpeakerFor(S.ep, l.speaker)); });
+    sc.lines.forEach(function (l) { if (withStudents || !muted[l.speaker]) getTts(l.en, C.ttsSpeakerFor(S.ep, l.speaker)); });
   }
 
   function playUrl(run, url, maxMs, noRec) {
@@ -309,8 +310,9 @@
       var p = a.play(); if (p && p.catch) p.catch(fin);
     });
   }
-  /* TTS 를 못 받았을 때 마지막 폴백 — 기기 목소리(완성 영상에는 안 담긴다) */
-  function speakDevice(run, text, maxMs) {
+  /* TTS 를 못 받았을 때 마지막 폴백 — 기기 목소리(완성 영상에는 안 담긴다).
+   * noRec(«먼저 들어 보기») 이면 원래 영상에 안 넣는 소리라 «담기지 않았어요» 표시를 남기지 않는다. */
+  function speakDevice(run, text, maxMs, noRec) {
     return new Promise(function (resolve) {
       if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) { setTimeout(resolve, 600); return; }
       var done = false;
@@ -320,16 +322,17 @@
       try {
         var u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.95;
         u.onend = fin; u.onerror = fin; speechSynthesis.speak(u);
-        run.deviceVoiceUsed = true;
+        if (!noRec) run.deviceVoiceUsed = true;
       } catch (e) { fin(); }
     });
   }
-  function speakNative(run, line, noRec) {
+  /* cancelled() 가 참이면(받는 사이에 «넘어가기») 받은 소리를 재생하지 않는다. */
+  function speakNative(run, line, noRec, cancelled) {
     var words = line.en.split(/\s+/).length;
     var maxMs = Math.max(4000, words * 700 + 3000);
     return getTts(line.en, C.ttsSpeakerFor(S.ep, line.speaker)).then(function (url) {
-      if (run.aborted) return;
-      return url ? playUrl(run, url, maxMs, noRec) : speakDevice(run, line.en, maxMs);
+      if (run.aborted || (cancelled && cancelled())) return;
+      return url ? playUrl(run, url, maxMs, noRec) : speakDevice(run, line.en, maxMs, noRec);
     });
   }
 
@@ -665,8 +668,9 @@
     setButtons('native');
     setTurn('👂 ' + T('먼저 들어 보세요', 'Listen first'));
     pauseMovie(run.movie, true);
-    run.skipNow = function () { run.wakers.splice(0).forEach(function (w) { try { w(); } catch (e) {} }); };
-    return speakNative(run, it.line, true).then(function () {
+    var skipped = false;
+    run.skipNow = function () { skipped = true; run.wakers.splice(0).forEach(function (w) { try { w(); } catch (e) {} }); };
+    return speakNative(run, it.line, true, function () { return skipped; }).then(function () {
       run.skipNow = null;
       pauseMovie(run.movie, false);
       return sleep(250, run);
@@ -823,7 +827,7 @@
     var v = $('dub-video');
     setNote(''); clearLine(run); setTurn('');
     setProg(T('장면 ' + sc.no + ' 불러오는 중…', 'Loading scene ' + sc.no + '…'));
-    if (sc.voiceMode === 'tts') prefetchScene(sc);
+    if (sc.voiceMode === 'tts') prefetchScene(sc, run.listenFirst);
     setVideoAudio(v, sc.videoAudio === 'clean');
     v.loop = sc.timing !== 'synced';
     if (sc.poster) v.poster = sc.poster; else v.removeAttribute('poster');
