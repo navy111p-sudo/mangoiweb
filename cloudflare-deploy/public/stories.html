@@ -197,13 +197,18 @@ html.rl-browse .foot{flex:none;margin:8px 0 0;font-size:12px}
   /* ③ 머리줄은 한 줄 — 영어에서 진도 숫자가 두 자리가 되면(«12 / 48») 머리줄이 접혀 목록이 넘쳤다
      (2026-10-19 진짜 구글 글꼴로 실측: 821~841·1181~1244 창에서 접힘 · 821×600 목록 23px 넘침).
      줄어드는 것은 부제(태그) 하나뿐 — 남는 자리만큼 보이고 끝을 «…» 로 줄인다. 넓은 창은 자리가 있어 그대로다.
-     제목(h1)은 안전장치: 지금 창들에서는 안 줄어들지만(가장 빠듯한 1181 영어도 옆 칸까지 18px), 글꼴이 바뀌어 칸이 모자라면
-     옆 «읽는 순서» 위로 넘쳐 겹치는 대신 «…» 로 줄인다(overflow-x:clip — 세로는 그대로라 글자 아랫부분이 안 잘린다). */
+     제목(h1): 가장 빠듯한 1181 영어 창에서 제목 칸 여유가 1.75px 뿐이다(옆 칸까지는 17.75px — 2026-10-19 실측).
+     그래서 제목이 «실제로» 칸보다 길어지면(기기마다 글꼴 폭이 조금 다르다) reading-ladder.js(fitTitle)가 .top 에
+     rl-noflow 를 붙여 «읽는 순서 1-2-3» 칸을 감춘다(1180 이하 창과 같은 모습) — 제목이 온전히 보인다.
+     «…» 는 그래도 모자랄 때의 마지막 안전장치: 옆 «읽는 순서» 위로 넘쳐 겹치는 대신 줄인다
+     (overflow-x:clip — 세로는 그대로라 글자 아랫부분이 안 잘린다). */
   html.rl-browse .top{flex-wrap:nowrap}
   html.rl-browse .brand{flex:0 1 auto}
   html.rl-browse .brand>div{min-width:0}
   html.rl-browse .brand h1{white-space:nowrap;overflow-x:clip;text-overflow:ellipsis}
   html.rl-browse .tag{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  html.rl-browse .top.rl-noflow .flow{display:none}
+  html.rl-browse .top.rl-noflow .brand{margin-right:auto}
 }
 @media (min-width:821px) and (min-height:561px) and (max-height:719px){
   .rl-list{grid-template-rows:repeat(12,minmax(32px,1fr));gap:2px;padding:4px}
@@ -418,6 +423,6 @@ html.rl-browse .foot{flex:none;margin:8px 0 0;font-size:12px}
 })();
 </script>
 <script src="/js/reading-ladder-data.js?v=1"></script>
-<script src="/js/reading-ladder.js?v=7"></script>
+<script src="/js/reading-ladder.js?v=8"></script>
 </body>
 </html>

@@ -25,8 +25,10 @@
 //   ⑬ 한 줄 맞추기(2026-10-19) — «N단계로 올라가기» 가 뜨면 도구 줄이 다시 두 줄로 접혔다(2단계 · 아이패드 가로 · 900~1100 창).
 //      줄이 «실제로 넘칠 때만» js(fitRows)가 «N/12편» → 계단 → 긴 이름 → 단계 이름 순으로 줄여 한 줄로 만든다
 //      · 줄인 이름도 낭독기 이름은 그대로(접근성 트리) · 그림책 버튼은 🖼 만 · 머리줄도 한 줄(부제만 «…»)
-//      (짝) 넓은 창은 아무것도 안 줄인다 · 아래로 쌓는 창(800 폭)은 안 건드린다 · 창 크기를 바꾸면 다시 잰다
-//      · 머리줄: 제목이 안 잘리고 옆 칸과 안 겹친다((짝) 제목을 일부러 길게 하면 겹치지 않고 «…» 로 줄어든다)
+//      (짝) 넓은 창은 아무것도 안 줄인다 · 아래로 쌓는 창(800 폭 · 900×540 높이)은 안 건드린다 · 창 크기를 바꾸면 다시 잰다
+//      · 머리줄: 제목이 안 잘리고 옆 칸과 안 겹친다 — «잘렸나» 는 반올림하지 않는다(«…» 는 0.3px 에서도 그려진다)
+//        제목이 0.2px 만 넘쳐도 «읽는 순서» 를 감춰 제목을 온전히 보인다((짝) 다시 들어가면 되돌린다 · 넓은 창은 안 감춘다)
+//        ((짝) 그래도 모자랄 만큼 긴 제목은 겹치지 않고 «…» 로 줄어든다)
 //      · 짧은 이름은 모두 긴 이름 안에 이어서 든다(음성조작 — WCAG 2.5.3. «4 books» 는 «4 picture books» 안에 이어서 안 들어 «Books» 로 바꿈)
 //   ⚠️ 자동으로 안 돕니다 — 사람이 부릅니다:  node test-harness/manual/stories-browse-browser.mjs
 //   STORIES_SRC=<고친 public 폴더> 로 변이시험을 합니다(저장소 파일은 건드리지 마세요).
@@ -485,7 +487,9 @@ try {
     const L = document.querySelector('.rl-list'), D = document.querySelector('.rl-detail'), top = document.querySelector('.top');
     // 머리줄은 nowrap 이라 «한 줄인가» 는 늘 참이다 — 그래서 «제목이 잘렸나·옆 칸과 겹치나·줄이 넘치나» 를 따로 잰다(2026-10-19 함정 대조)
     const h1 = document.querySelector('.brand h1'), rg = document.createRange(); rg.selectNodeContents(h1);
-    const h1Cut = Math.round(rg.getBoundingClientRect().right - h1.getBoundingClientRect().right);
+    //   ⚠️ 반올림하지 않는다 — «…» 는 0.3px 만 모자라도 그려지는데 Math.round 는 0.3·0.9·1.4px 을 0·1 로 만들어 통과시켰다(2026-10-19 함정 대조)
+    const h1Cut = +(rg.getBoundingClientRect().right - h1.getBoundingClientRect().right).toFixed(3);
+    const fl = document.querySelector('.flow'), flowShown = !!fl && fl.getBoundingClientRect().width > 2, noflow = top.classList.contains('rl-noflow');
     const kids = [...top.children].filter((k) => k.getBoundingClientRect().width > 0);
     let topOv = 0;
     for (let i = 0; i + 1 < kids.length; i++) { const a = kids[i].getBoundingClientRect(), c = kids[i + 1].getBoundingClientRect(); if (Math.abs(a.top - c.top) < 20) topOv = Math.max(topOv, Math.round(a.right - c.left)); }
@@ -493,14 +497,14 @@ try {
     // 제목 «글자» 가 제 칸(brand) 밖으로 나가 옆 칸 위에 얹히는가 — 칸끼리는 안 겹쳐도 글자는 넘칠 수 있다
     //   (clip 이 없으면 글자는 칸을 넘어 그려지므로 «글자 끝» 을, clip 이 있으면 «칸 끝» 을 본다)
     const visR = getComputedStyle(h1).overflowX === 'visible' ? rg.getBoundingClientRect().right : Math.min(rg.getBoundingClientRect().right, h1.getBoundingClientRect().right);
-    const h1Spill = Math.round(visR - brandR);
+    const h1Spill = +(visR - brandR).toFixed(3);
     // 짧은 이름은 긴 이름 «안» 에 이어서 든 낱말이어야 한다(대소문자만 무시) — 음성조작으로 보이는 이름을 부르면 찾아지게(WCAG 2.5.3)
     const badNames = [...document.querySelectorAll('[class^="rl-abbr"]')].map((a) => {
       const f = a.previousElementSibling; const ft = f && /^rl-full/.test(f.className) ? f.textContent.toLowerCase() : null;
       return ft !== null && ft.includes(a.textContent.toLowerCase()) ? null : (f ? f.textContent : '?') + ' ⊅ ' + a.textContent;
     }).filter(Boolean);
     return { tbCls: tb.className.split(/\s+/), acCls: acts ? acts.className.split(/\s+/) : [], tbOne: one(tb), acOne: one(acts), topOne: one(top),
-      h1Cut, h1Spill, topOv, topSw: top.scrollWidth - top.clientWidth, badNames,
+      h1Cut, h1Spill, topOv, topSw: top.scrollWidth - top.clientWidth, badNames, flowShown, noflow,
       next: !!nx, nextFull: seen(nx, '.rl-full'), nextAbbr: seen(nx, '.rl-abbr'), drillFull: seen(dr, '.rl-full'), drillAbbr: seen(dr, '.rl-abbr'),
       ghW: gh ? Math.round(gh.getBoundingClientRect().width) : null, ghH: gh ? Math.round(gh.getBoundingClientRect().height) : null, L: L.scrollHeight - L.clientHeight, D: D.scrollHeight - D.clientHeight };
   });
@@ -516,7 +520,7 @@ try {
     ok(m.tbOne, `${tag} 도구 줄이 한 줄이다`, cut(m).join(' '));
     ok(m.acOne, `${tag} 버튼 줄이 한 줄이다`);
     ok(m.topOne, `${tag} 머리줄이 한 줄이다`);
-    ok(m.h1Cut <= 1 && m.h1Spill <= 1 && m.topOv <= 0 && m.topSw <= 0, `${tag} 머리줄: 제목이 안 잘리고 제 칸 밖으로 안 나가며 옆 칸과 안 겹치고 줄이 안 넘친다`, JSON.stringify([m.h1Cut, m.h1Spill, m.topOv, m.topSw]));
+    ok(m.h1Cut <= 0.01 && m.h1Spill <= 0.05 && m.topOv <= 0 && m.topSw <= 0, `${tag} 머리줄: 제목이 안 잘리고 제 칸 밖으로 안 나가며 옆 칸과 안 겹치고 줄이 안 넘친다`, JSON.stringify([m.h1Cut, m.h1Spill, m.topOv, m.topSw]));
     ok(m.badNames.length === 0, `${tag} 짧은 이름은 모두 긴 이름 안에 이어서 든다(음성조작 — WCAG 2.5.3)`, m.badNames.join(' | '));
     ok(m.L <= 0 && m.D <= 0, `${tag} 목록·상세 칸 안쪽 스크롤이 없다`, `L${m.L} D${m.D}`);
     // 줄여도 낭독기 이름은 긴 이름 그대로 — 짧은 이름은 aria-hidden 이라 이름에 두 번 끼지 않는다
@@ -528,6 +532,7 @@ try {
     }
     if (want === 'wide') {
       ok(cut(m).length === 0 && m.nextFull && !m.nextAbbr && m.drillFull && !m.drillAbbr, `(짝) ${tag} 넓은 창은 아무것도 안 줄인다 — 긴 이름이 보인다`, cut(m).join(' '));
+      ok(!m.noflow && m.flowShown, `(짝) ${tag} 제목에 자리가 넉넉하면 «읽는 순서» 를 감추지 않는다`, JSON.stringify([m.noflow, m.flowShown]));
     } else if (m.tbCls.includes('rl-short')) {
       ok(!m.nextFull && m.nextAbbr && !m.drillFull && m.drillAbbr, `${tag} 줄인 줄은 짧은 이름만 보인다(긴 이름은 화면에서만 감춤)`, JSON.stringify([m.nextFull, m.nextAbbr, m.drillFull, m.drillAbbr]));
     }
@@ -546,6 +551,14 @@ try {
     ok(cut(m).length === 0 && !m.acCls.includes('rl-short'), '(짝) 800×1000(쌓는 배치)은 도구 줄·버튼 줄을 줄이지 않는다', cut(m).concat(m.acCls).join(' '));
     await ctx.close();
   }
+  { // (짝) «높이» 로 쌓는 창(900×540)도 줄이지 않는다 — STACKED_MQ 의 높이 조건이 빠지면(폭만 보면) 여기서 도구 줄이 줄어든다
+    //   2단계 «올라가기» 가 뜬 상태라 그 조건이 빠지면 실제로 넘쳐 줄이기가 돈다(이 검사가 그 상황에 닿는다)
+    const { ctx, page } = await openPage({ w: 900, h: 540, lang: 'en', seed: allDone(2) });
+    const m = await fitProbe(page);
+    ok(m.next, '전제: 900×540 에 «3단계로 올라가기» 가 떠 있다');
+    ok(cut(m).length === 0 && !m.acCls.includes('rl-short') && !m.noflow, '(짝) 900×540(높이로 쌓는 배치)은 도구 줄·버튼 줄·제목을 건드리지 않는다', cut(m).concat(m.acCls, [m.noflow]).join(' '));
+    await ctx.close();
+  }
   { // 그림책 버튼 — 840×600 EN 은 버튼 줄이 넘쳐 🖼 만 남는다 · 이름은 «Picture book»
     const { ctx, page } = await openPage({ w: 840, h: 600, lang: 'en', seed: { stage: 1, prog: {} } });
     const m = await fitProbe(page);
@@ -556,13 +569,29 @@ try {
     ok(m.topOne && m.L <= 0 && m.D <= 0, '840×600 EN 머리줄 한 줄 · 안쪽 스크롤 없음', `L${m.L} D${m.D}`);
     await ctx.close();
   }
-  { // (짝) 제목이 칸보다 길어지는 날(글꼴이 다르거나 이름이 바뀜) — 옆 «읽는 순서» 위로 넘쳐 겹치지 않고 «…» 로 줄어든다
-    //   지금 창들에서는 제목이 안 줄어드므로(위 검사) 이 안전장치는 제목을 일부러 길게 해야만 일한다
+  { // 제목 맞추기 — 1181 영어 창은 제목 칸 여유가 1.75px 뿐이다. 기기마다 글꼴 폭이 조금 달라 제목이 칸보다 «조금» 길어지면
+    //   «…» 가 0.3px 에서도 그려진다(2026-10-19 함정 대조 실측). 그래서 «실제로 잘릴 때만» 옆 «읽는 순서» 를 감춰 제목에 자리를 준다.
+    //   글꼴 폭을 바꿀 수는 없으니 letter-spacing 으로 «0.2px 남짓 넘치는» 상황을 만든다(15글자 × 0.13px).
+    const refit = (page) => page.evaluate(() => new Promise((r) => { window.dispatchEvent(new Event('resize')); requestAnimationFrame(() => requestAnimationFrame(r)); }));
     const { ctx, page } = await openPage({ w: 1181, h: 740, lang: 'en', seed: allDone(2) });
-    await page.evaluate(() => { document.querySelector('.brand h1').textContent = 'English Reading Ladder for Every Learner'; });
-    const m = await fitProbe(page);
-    ok(m.h1Cut > 1, '전제: 제목을 길게 하면 칸이 모자라 잘린다(이 검사가 그 상황에 닿는다)', m.h1Cut);
-    ok(m.h1Spill <= 1 && m.topOv <= 0 && m.topSw <= 0, '(짝) 긴 제목은 옆 칸 위로 넘치지 않고 «…» 로 줄어든다', JSON.stringify([m.h1Spill, m.topOv, m.topSw]));
+    const base = await fitProbe(page);
+    await page.evaluate(() => { const st = document.createElement('style'); st.id = 'h1ls'; st.textContent = '.brand h1{letter-spacing:.13px}'; document.head.appendChild(st); });
+    const pre = await fitProbe(page);
+    ok(pre.h1Cut > 0.01 && pre.h1Cut < 1, '전제: 제목이 칸보다 1px 안쪽만큼 길어졌다(반올림하면 «안 잘림» 으로 읽히던 크기 — 이 검사가 그 상황에 닿는다)', pre.h1Cut);
+    await refit(page);
+    const a = await fitProbe(page);
+    ok(a.noflow && !a.flowShown, '제목이 조금이라도 잘리면 «읽는 순서» 를 감춘다', JSON.stringify([a.noflow, a.flowShown]));
+    ok(a.h1Cut <= 0.01 && a.h1Spill <= 0.05 && a.topOv <= 0 && a.topSw <= 0 && a.topOne, '그러면 제목이 «…» 없이 온전히 보이고 머리줄은 한 줄 그대로다', JSON.stringify([a.h1Cut, a.h1Spill, a.topOv, a.topSw, a.topOne]));
+    await page.evaluate(() => { document.getElementById('h1ls').remove(); });
+    await refit(page);
+    const b = await fitProbe(page);
+    ok(b.noflow === base.noflow && b.flowShown === base.flowShown && b.h1Cut <= 0.01, '(짝) 제목이 다시 들어가면 «읽는 순서» 를 되돌린다(처음 모습과 같다)', JSON.stringify([base.noflow, b.noflow, b.flowShown, b.h1Cut]));
+    // (짝) 읽는 순서를 감춰도 모자랄 만큼 길면 — 옆 칸 위로 넘쳐 겹치지 않고 «…» 로 줄어든다(마지막 안전장치)
+    await page.evaluate(() => { document.querySelector('.brand h1').textContent = 'English Reading Ladder for Every Learner in Every Classroom Today'; });
+    await refit(page);
+    const c = await fitProbe(page);
+    ok(c.h1Cut > 1 && c.noflow, '전제: 읽는 순서를 감춰도 잘릴 만큼 긴 제목이다(이 검사가 그 상황에 닿는다)', JSON.stringify([c.h1Cut, c.noflow]));
+    ok(c.h1Spill <= 0.05 && c.topOv <= 0 && c.topSw <= 0, '(짝) 아주 긴 제목은 옆 칸 위로 넘치지 않고 «…» 로 줄어든다', JSON.stringify([c.h1Spill, c.topOv, c.topSw]));
     const to = await page.evaluate(() => getComputedStyle(document.querySelector('.brand h1')).textOverflow);
     ok(to === 'ellipsis', '(짝) 줄어든 제목은 끝이 «…» 다', to);
     await ctx.close();

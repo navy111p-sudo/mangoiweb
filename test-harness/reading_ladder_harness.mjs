@@ -170,11 +170,26 @@ ok(/html\.rl-browse #rlApp\{/.test(HTML) && /@media \(max-width:820px\),\(max-he
   const mqJs = (JS_SRC.match(/var STACKED_MQ = '([^']+)'/) || [])[1];
   const mqCss = (HTML.match(/@media ([^{]+)\{\s*html\.rl-browse,html\.rl-browse body,html\.rl-browse \.wrap\{height:auto\}/) || [])[1];
   const norm = (s) => String(s || '').replace(/\s+/g, '');
-  ok(!!mqJs && !!mqCss, '전제: JS 의 STACKED_MQ 와 CSS 의 쌓는 배치 미디어쿼리를 둘 다 찾았다', JSON.stringify([mqJs, mqCss]));
-  ok(!!mqJs && norm(mqJs) === norm(mqCss), 'JS STACKED_MQ 가 CSS 의 쌓는 배치 미디어쿼리와 같은 글자다', JSON.stringify([mqJs, mqCss]));
+  const okd = (c, m, d) => ok(c, c || !d ? m : m + ' — ' + d);
+  okd(!!mqJs && !!mqCss, '전제: JS 의 STACKED_MQ 와 CSS 의 쌓는 배치 미디어쿼리를 둘 다 찾았다', JSON.stringify([mqJs, mqCss]));
+  okd(!!mqJs && norm(mqJs) === norm(mqCss), 'JS STACKED_MQ 가 CSS 의 쌓는 배치 미디어쿼리와 같은 글자다', JSON.stringify([mqJs, mqCss]));
+  // (짝) 그 상수를 «실제로 쓰는가» — 글자만 대조하면 판정 줄을 false 로 바꾸거나 다른 글자로 갈아 끼워도 통과한다
+  //   (2026-10-19 함정 대조 실측: 둘 다 PASS 134 / FAIL 0). fitRows 몸통을 중괄호 짝으로 잘라 그 안에서 묻는다.
+  const fi = noCmt.indexOf('function fitRows()');
+  let fitBody = '';
+  if (fi >= 0) { const o = noCmt.indexOf('{', fi); let d = 0, k = o; for (; k < noCmt.length; k++) { if (noCmt[k] === '{') d++; else if (noCmt[k] === '}' && --d === 0) break; } fitBody = noCmt.slice(o, k + 1); }
+  okd(fitBody.length > 0, '전제: fitRows 몸통을 잘라 냈다', fitBody.length);
+  okd(/var allowed = !window\.matchMedia\(STACKED_MQ\)\.matches;/.test(fitBody), 'fitRows 가 STACKED_MQ 로 «쌓는 배치인가» 를 실제로 묻는다', fitBody.slice(0, 160));
+  const uses = (fitBody.match(/\(([^()]*), allowed\)|\(allowed\)/g) || []).length;
+  okd(/fitTitle\(allowed\);/.test(fitBody) && /fitRow\(root\.querySelector\('\.rl-tb'\), TB_LEVELS, allowed\)/.test(fitBody) && /fitRow\(root\.querySelector\('\.rl-acts'\), ACT_LEVELS, allowed\)/.test(fitBody),
+    '제목·도구 줄·버튼 줄 셋 다 그 판정(allowed)을 받는다', uses);
+  // 제목 맞추기 — 잘릴 때만 «읽는 순서» 를 감춘다. 감추는 CSS 가 «한 장 배치» 안에 있어야 쌓는 배치에서 남지 않는다
+  const sb = HTML.indexOf('@media (min-width:821px) and (min-height:561px){'), se = sb >= 0 ? HTML.indexOf('\n}', sb) : -1;
+  okd(sb >= 0 && se > sb && /html\.rl-browse \.top\.rl-noflow \.flow\{display:none\}/.test(HTML.slice(sb, se)),
+    '«제목이 잘리면 읽는 순서를 감춘다» 규칙이 한 장 배치 안에 있다', sb);
   // (짝) 한 장 배치(버튼 줄 sticky)는 그 쿼리의 «정확한 반대» 다 — 경계가 1px 이라도 어긋나면 «쌓지도 않고 붙이지도 않는» 창이 생긴다
   const mW = norm(mqJs).match(/max-width:(\d+)px/), mH = norm(mqJs).match(/max-height:(\d+)px/);
-  ok(!!mW && !!mH && new RegExp('@media \\(min-width:' + (+mW[1] + 1) + 'px\\) and \\(min-height:' + (+mH[1] + 1) + 'px\\)\\{\\s*\\.rl-foot\\{position:sticky').test(HTML),
+  okd(!!mW && !!mH && new RegExp('@media \\(min-width:' + (+mW[1] + 1) + 'px\\) and \\(min-height:' + (+mH[1] + 1) + 'px\\)\\{\\s*\\.rl-foot\\{position:sticky').test(HTML),
     '(짝) 한 장 배치(버튼 줄 sticky)의 경계가 쌓는 배치의 정확한 반대다(+1px)', JSON.stringify([mW && mW[1], mH && mH[1]]));
 }
 ok(/data-act="topic" data-topic="/.test(JS_SRC) && /if \(act === 'topic'\)/.test(JS_SRC), '주제 드롭다운이 실제로 눌린다');

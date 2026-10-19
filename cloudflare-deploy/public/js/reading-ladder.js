@@ -424,9 +424,22 @@
     for (i = 0; i < levels.length; i++) { el.classList.add(levels[i]); if (oneRow(el)) return; }
     for (i = 0; i < levels.length; i++) el.classList.remove(levels[i]);
   }
+  /* 머리줄 제목 — 1181 영어 창에서 제목 칸 여유가 1.75px 뿐이다(2026-10-19 함정 대조 실측). stories.html 의 «…» 안전장치는
+     0.3px 만 모자라도 «English Readi…» 로 그린다 ⟹ 기기마다 글꼴 폭이 조금만 달라도 제목이 잘린다.
+     그래서 «실제로 잘릴 때만» 옆 «읽는 순서 1-2-3» 칸을 감춰 제목에 자리를 준다(1180 이하 창과 같은 모습).
+     ⚠️ 글자 끝은 Range 로 잰다 — «…» 가 그려져도 Range 는 글자 전체의 끝을 준다. 반올림하지 않는다(0.3px 도 «…» 가 된다). */
+  function fitTitle(allowed) {
+    var top = document.querySelector('header.top'), h1 = top && top.querySelector('.brand h1');
+    if (!h1) return;
+    top.classList.remove('rl-noflow');
+    if (!allowed) return;
+    var rg = document.createRange(); rg.selectNodeContents(h1);
+    if (rg.getBoundingClientRect().right - h1.getBoundingClientRect().right > 0.01) top.classList.add('rl-noflow');
+  }
   function fitRows() {
     try {
       var allowed = !window.matchMedia(STACKED_MQ).matches;
+      fitTitle(allowed);
       fitRow(root.querySelector('.rl-tb'), TB_LEVELS, allowed);
       fitRow(root.querySelector('.rl-acts'), ACT_LEVELS, allowed);
     } catch (e) {}
