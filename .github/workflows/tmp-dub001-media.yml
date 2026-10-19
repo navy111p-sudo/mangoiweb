@@ -1,0 +1,67 @@
+# ⛔ 임시 — main 에 올리지 않습니다. A.i영화더빙 1편 클립 16개를 받아 우리 서버용으로 다시 인코딩.
+# (프록시가 외부 CDN 을 막을 때를 대비해 CI 러너가 받고, 결과 파일만 작업 브랜치로 가져갑니다.)
+name: tmp dub001 media
+on:
+  push:
+    branches: [tmp/dub001-media-261020]
+permissions:
+  contents: write
+jobs:
+  media:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+      - name: download
+        run: |
+          mkdir -p /tmp/c
+          B=https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k
+          cat > /tmp/list.txt <<'L'
+          01 hf_20261019_151211_f2ced3b5-a388-4554-bc6f-39e49e31bf4e
+          02 hf_20261019_151212_fb39992b-d7c3-42c2-bc86-f0aacbdd9820
+          03 hf_20261019_151244_81eae87a-9d33-4bc9-8609-90dcaaeeb268
+          04 hf_20261019_151211_f5e9872e-62d1-4438-be8c-8218eb4c055c
+          05 hf_20261019_151211_71a40801-4a36-4a88-898e-95fa8e2f7d83
+          06 hf_20261019_151211_e2625ee8-c365-4a5c-9324-b1a20a22ac2e
+          07 hf_20261019_154531_bbf32f7d-3de8-4926-bb5e-6a6c8768f271
+          08 hf_20261019_154532_e346b824-232b-43cf-a3fb-d18dd5e39ec3
+          09 hf_20261019_154531_dedf2934-86c0-4987-8ef2-ebd899064375
+          10 hf_20261019_154532_0a180db5-27a4-434b-becb-0051d3248b2e
+          11 hf_20261019_154532_80b8f287-a1e4-4ece-beca-6d15f48b4700
+          12 hf_20261019_154533_fc8b259a-c519-4950-9002-ea22c9997f39
+          13 hf_20261019_154546_c635f2c2-e4aa-45a1-8d7c-d52a48062247
+          14 hf_20261019_154546_3a5547a6-f810-4243-9da3-1ad03b8abdae
+          15 hf_20261019_154546_4d600697-835a-4dc8-bbee-83b61630154b
+          16 hf_20261019_154547_d2546004-00fe-45ab-8d31-0f20bc5e7d6a
+          L
+          sed -i 's/^ *//' /tmp/list.txt
+          printf '\n' >> /tmp/list.txt
+          n=0
+          while read -r N F; do
+            [ -z "$N" ] && continue
+            curl -sSfL --retry 3 -o /tmp/c/$N.mp4 "$B/$F.mp4" && n=$((n+1))
+          done < /tmp/list.txt
+          echo "downloaded $n (목록 $(grep -c . /tmp/list.txt))"
+          [ "$n" = "16" ] || { echo "::error::16개를 다 받지 못했습니다"; exit 1; }
+      - name: encode
+        run: |
+          O=cloudflare-deploy/public/media/dubbing/dub-001
+          mkdir -p $O media-extra
+          for f in /tmp/c/*.mp4; do
+            N=$(basename $f .mp4)
+            # 영상: 원본 소리(생성기가 넣은 대본 밖 목소리)는 빼고, 끌어서 보기 좋게 키프레임 2초마다
+            ffmpeg -v error -y -i $f -an -c:v libx264 -preset slow -crf 26 -profile:v high -pix_fmt yuv420p \
+              -g 48 -keyint_min 48 -sc_threshold 0 -movflags +faststart $O/clip-$N.mp4
+            ffmpeg -v error -y -ss 1.5 -i $f -frames:v 1 -vf scale=640:-2 -q:v 4 $O/poster-$N.jpg
+            # 원본 소리는 검토용으로만(이 임시 브랜치에만 남김)
+            ffmpeg -v error -y -i $f -vn -c:a aac -b:a 64k media-extra/audio-$N.m4a
+          done
+          ls -la $O; du -sh $O
+          for f in $O/clip-*.mp4; do s=$(stat -c %s $f); [ $s -lt 26214400 ] || { echo "::error::$f 25MiB 초과"; exit 1; }; done
+      - name: commit
+        run: |
+          git config user.name "dub-media-bot"; git config user.email "noreply@anthropic.com"
+          git add cloudflare-deploy/public/media/dubbing/dub-001 media-extra
+          git commit -m "media: dub-001 clips 16 (re-encoded, audio stripped)" && git push
