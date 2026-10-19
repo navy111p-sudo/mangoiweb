@@ -18,6 +18,10 @@
 //   ⑪ 좁은 창(821~1100) 압축 — 도구 줄 한 줄 · 이전·다음 글은 화살표(이름은 낭독기에 남음) · 계단·«단계»«정렬» 이름표·편수는 감춤
 //      (짝) 넓은 창에서는 전부 그대로 보이고, «주제»·«상태» 이름표는 좁은 창에서도 남는다
 //      (짝) 버튼 줄은 한 장 고정일 때만 상세 칸 바닥에 붙고(sticky) 폰 390 에서는 붙지 않는다
+//   ⑫ 한 줄 맞추기(2026-10-19) — «N단계로 올라가기» 가 뜨면 도구 줄이 다시 두 줄로 접혔다(2단계 · 아이패드 가로 · 900~1100 창).
+//      줄이 «실제로 넘칠 때만» js(fitRows)가 «N/12편» → 계단 → 긴 이름 → 단계 이름 순으로 줄여 한 줄로 만든다
+//      · 줄인 이름도 낭독기 이름은 그대로(접근성 트리) · 그림책 버튼은 🖼 만 · 머리줄도 한 줄(부제만 «…»)
+//      (짝) 넓은 창은 아무것도 안 줄인다 · 아래로 쌓는 창(800 폭)은 안 건드린다 · 창 크기를 바꾸면 다시 잰다
 //   ⚠️ 자동으로 안 돕니다 — 사람이 부릅니다:  node test-harness/manual/stories-browse-browser.mjs
 //   STORIES_SRC=<고친 public 폴더> 로 변이시험을 합니다(저장소 파일은 건드리지 마세요).
 //   서버는 python http.server 로 띄우고, /api/** 는 가짜 응답이라 D1 에 아무것도 안 씁니다.
@@ -36,7 +40,8 @@ if (!pw) { console.log('playwright 없음 — 건너뜀'); process.exit(0); }
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const PUB = process.env.STORIES_SRC || resolve(ROOT, 'cloudflare-deploy/public');
-const PORT = 8600 + Math.floor(Math.random() * 150);
+// STORIES_PORT — 변이시험처럼 여러 벌을 동시에 돌릴 때 포트가 겹치지 않게(겹치면 남의 사본을 재거나 도중에 연결이 끊김)
+const PORT = Number(process.env.STORIES_PORT) || 8600 + Math.floor(Math.random() * 150);
 const srv = spawn('python3', ['-m', 'http.server', String(PORT), '--bind', '127.0.0.1'], { cwd: PUB, stdio: 'ignore' });
 await new Promise((r) => setTimeout(r, 900));
 
@@ -421,6 +426,81 @@ try {
       ok(!!before && !!after && before !== after, `${tag} 다음 글 버튼을 누르면 다른 글이 골라진다`, `${before} → ${after}`);
     }
     ok(errs.length === 0, `${tag} JS 오류 0`, errs.join(' | '));
+    await ctx.close();
+  }
+
+  // ── ⑫ 한 줄 맞추기 («N단계로 올라가기» · 좁은 창 · 머리줄) ─────────────
+  console.log('▶ ⑫ 한 줄 맞추기');
+  const allDone = (stage) => { const prog = {}; for (let i = 1; i <= 12; i++) prog['s' + stage + '-' + String(i).padStart(2, '0')] = { k: 'ok', m: 'ok', s: 'great' }; return { stage, prog }; };
+  const LV = ['rl-nocount', 'rl-nostair', 'rl-short', 'rl-tiny'];
+  const fitProbe = (page) => page.evaluate(() => {
+    const one = (el) => { if (!el) return null; let h = 0; for (const k of el.children) h = Math.max(h, k.getBoundingClientRect().height); return el.getBoundingClientRect().height <= h + 2; };
+    const tb = document.querySelector('.rl-tb'), acts = document.querySelector('.rl-acts');
+    const seen = (b, sel) => { const e = b && b.querySelector(sel); return !!e && e.getBoundingClientRect().width > 2; };
+    const nx = document.querySelector('.rl-tb-next'), dr = document.querySelector('.rl-tb [data-act="drill"]'), gh = document.querySelector('.rl-acts a.rl-ghost');
+    const L = document.querySelector('.rl-list'), D = document.querySelector('.rl-detail'), top = document.querySelector('.top');
+    return { tbCls: tb.className.split(/\s+/), acCls: acts ? acts.className.split(/\s+/) : [], tbOne: one(tb), acOne: one(acts), topOne: one(top),
+      next: !!nx, nextFull: seen(nx, '.rl-full'), nextAbbr: seen(nx, '.rl-abbr'), drillFull: seen(dr, '.rl-full'), drillAbbr: seen(dr, '.rl-abbr'),
+      ghW: gh ? Math.round(gh.getBoundingClientRect().width) : null, ghH: gh ? Math.round(gh.getBoundingClientRect().height) : null, L: L.scrollHeight - L.clientHeight, D: D.scrollHeight - D.clientHeight };
+  });
+  const cut = (m) => LV.filter((c) => m.tbCls.includes(c));
+  // 다섯째 칸: 'wide' = 아무것도 안 줄임(짝) · 'lean' = 숫자·계단만 감추고 이름은 그대로(필요한 만큼만 줄이는가)
+  //   ⚠ 'lean' 은 영어로만 — 한국어는 1180 에서 아무것도 안 줄여도 한 줄이라 «감춘 것이 있다» 가 거짓 기대가 됨(실측)
+  for (const [w, h, lang, stage, want] of [[900, 600, 'en', 2], [960, 640, 'ko', 2], [1024, 690, 'en', 2], [1133, 744, 'en', 2, 'lean'], [1180, 740, 'en', 2, 'lean'],
+    [1194, 760, 'en', 2, 'lean'], [834, 1100, 'en', 2], [834, 1100, 'en', 1], [1280, 600, 'ko', 3], [1440, 860, 'en', 2, 'wide'], [1920, 940, 'ko', 2, 'wide']]) {
+    const { ctx, page, errs } = await openPage({ w, h, lang, seed: allDone(stage) });
+    const tag = `${w}x${h} ${lang} ${stage}단계 «올라가기» 있음`;
+    const m = await fitProbe(page);
+    ok(m.next, `${tag} 전제: «${stage + 1}단계로 올라가기» 버튼이 떠 있다`);
+    ok(m.tbOne, `${tag} 도구 줄이 한 줄이다`, cut(m).join(' '));
+    ok(m.acOne, `${tag} 버튼 줄이 한 줄이다`);
+    ok(m.topOne, `${tag} 머리줄이 한 줄이다`);
+    ok(m.L <= 0 && m.D <= 0, `${tag} 목록·상세 칸 안쪽 스크롤이 없다`, `L${m.L} D${m.D}`);
+    // 줄여도 낭독기 이름은 긴 이름 그대로 — 짧은 이름은 aria-hidden 이라 이름에 두 번 끼지 않는다
+    const nmDrill = await page.getByRole('button', { name: '🔁 ' + T2(lang, '핵심 찾기 반복', 'Main-idea drill'), exact: true }).count();
+    const nmNext = await page.getByRole('button', { name: '🎉 ' + T2(lang, (stage + 1) + '단계로 올라가기', 'Go up to Step ' + (stage + 1)), exact: true }).count();
+    ok(nmDrill === 1 && nmNext === 1, `${tag} 반복·올라가기 버튼 이름이 긴 이름 그대로다(접근성 트리)`, JSON.stringify([nmDrill, nmNext]));
+    if (want === 'lean') {
+      ok(!m.tbCls.includes('rl-short') && m.nextFull && m.drillFull && cut(m).length > 0, `${tag} 숫자·계단만 감추면 한 줄이라 이름은 줄이지 않는다(필요한 만큼만)`, cut(m).join(' '));
+    }
+    if (want === 'wide') {
+      ok(cut(m).length === 0 && m.nextFull && !m.nextAbbr && m.drillFull && !m.drillAbbr, `(짝) ${tag} 넓은 창은 아무것도 안 줄인다 — 긴 이름이 보인다`, cut(m).join(' '));
+    } else if (m.tbCls.includes('rl-short')) {
+      ok(!m.nextFull && m.nextAbbr && !m.drillFull && m.drillAbbr, `${tag} 줄인 줄은 짧은 이름만 보인다(긴 이름은 화면에서만 감춤)`, JSON.stringify([m.nextFull, m.nextAbbr, m.drillFull, m.drillAbbr]));
+    }
+    // 줄인 채로도 «올라가기» 가 일한다
+    if (await safeClick(page.locator('.rl-tb-next'), `${tag} 올라가기`)) {
+      await page.waitForTimeout(150);
+      const st = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem('reading_ladder_v1')).stage; } catch (e) { return null; } });
+      ok(st === stage + 1, `${tag} 누르면 ${stage + 1}단계로 올라간다`, st);
+    }
+    ok(errs.length === 0, `${tag} JS 오류 0`, errs.join(' | '));
+    await ctx.close();
+  }
+  { // (짝) 아래로 쌓는 창(폭 800)은 줄이지 않는다 — 그 배치는 원래 줄이 접히고 페이지가 스크롤한다
+    const { ctx, page } = await openPage({ w: 800, h: 1000, lang: 'en', seed: { stage: 1, prog: {} } });
+    const m = await fitProbe(page);
+    ok(cut(m).length === 0 && !m.acCls.includes('rl-short'), '(짝) 800×1000(쌓는 배치)은 도구 줄·버튼 줄을 줄이지 않는다', cut(m).concat(m.acCls).join(' '));
+    await ctx.close();
+  }
+  { // 그림책 버튼 — 840×600 EN 은 버튼 줄이 넘쳐 🖼 만 남는다 · 이름은 «Picture book»
+    const { ctx, page } = await openPage({ w: 840, h: 600, lang: 'en', seed: { stage: 1, prog: {} } });
+    const m = await fitProbe(page);
+    // «동그라미» 는 폭 = 높이로 잰다 — «44px 이하» 로만 물으면 동그라미 CSS 를 지워도(43×40, 🖼 가 한쪽으로 쏠림) 통과했다(변이 실측)
+    ok(m.acCls.includes('rl-short') && m.acOne && m.ghW !== null && m.ghW <= 44 && Math.abs(m.ghW - m.ghH) <= 1, '840×600 EN 버튼 줄이 한 줄 · 그림책은 🖼 동그라미', JSON.stringify([m.acCls, m.acOne, m.ghW, m.ghH]));
+    const nm = await page.getByRole('link', { name: '🖼 Picture book', exact: true }).count();
+    ok(nm === 1, '840×600 EN 그림책 버튼 이름은 «Picture book» 그대로(접근성 트리)', nm);
+    ok(m.topOne && m.L <= 0 && m.D <= 0, '840×600 EN 머리줄 한 줄 · 안쪽 스크롤 없음', `L${m.L} D${m.D}`);
+    await ctx.close();
+  }
+  { // 창 크기를 바꾸면 다시 잰다 — 넓게 열었다 좁히면 줄이고, 다시 넓히면 되돌린다
+    const { ctx, page } = await openPage({ w: 1440, h: 860, lang: 'en', seed: allDone(2) });
+    const a = await fitProbe(page);
+    await page.setViewportSize({ width: 1024, height: 690 }); await page.waitForTimeout(300);
+    const b = await fitProbe(page);
+    await page.setViewportSize({ width: 1440, height: 860 }); await page.waitForTimeout(300);
+    const c = await fitProbe(page);
+    ok(cut(a).length === 0 && b.tbCls.includes('rl-short') && b.tbOne && cut(c).length === 0, '창을 좁히면 줄이고(한 줄) 다시 넓히면 되돌린다', JSON.stringify([cut(a), cut(b), b.tbOne, cut(c)]));
     await ctx.close();
   }
 } finally {

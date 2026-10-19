@@ -284,13 +284,23 @@
       inner + (hint != null ? '<small>' + esc(hint) + '</small>' : '') + '</button>';
   }
 
+  /* 이름 두 벌 — 평소엔 긴 이름, 그 줄이 «한 줄을 넘칠 때만»(.rl-short · 아래 fitRows) 짧은 이름을 보인다.
+     긴 이름은 그때도 화면에서만 감추고 낭독기 이름으로 남긴다(.rl-full) — 짧은 이름은 aria-hidden 이고 긴 이름 안에 든 낱말이다.
+     short 가 비면 줄일 때 아이콘만 남는다(그림책 🖼 — title 로 이름을 함께 둔다).
+     lv '2' 는 맨 마지막 단계(.rl-tiny)에서만 줄인다 — «단계» 드롭다운의 단계 이름(펼치면 목록에 다 보인다). */
+  function twoNames(full, short, lv) {
+    var k = lv || '';
+    return '<span class="rl-full' + k + '">' + esc(full) + '</span>' + (short ? '<span class="rl-abbr' + k + '" aria-hidden="true">' + esc(short) + '</span>' : '');
+  }
+
   function toolbarHtml(cur, stageList, shownN) {
     var meta = stageMeta(cur);
     var stair = '<div class="rl-stair" role="group" aria-label="' + esc(T('단계', 'Step')) + '">' + STAGES.map(function (s) {
       return '<button type="button" class="' + (s.n < cur ? 'past' : '') + '" style="--sc:' + s.color + '" data-act="stage" data-stage="' + s.n +
         '" aria-pressed="' + (s.n === cur) + '" title="' + esc(stageName(s)) + '" aria-label="' + esc(stageName(s)) + '"></button>';
     }).join('') + '</div>';
-    var stageDd = dd(T('단계', 'Step'), '<span class="rl-sw" style="--sc:' + meta.color + '"></span><span class="rl-dd-val">' + esc(stageName(meta)) + '</span>',
+    var stageDd = dd(T('단계', 'Step'), '<span class="rl-sw" style="--sc:' + meta.color + '"></span><span class="rl-dd-val">' +
+      twoNames(stageName(meta), T(meta.n + '단계', 'Step ' + meta.n), '2') + '</span>',
       STAGES.map(function (s) {
         var st = RLCore.stageStats(PASSAGES, s.n, state.prog);
         return ddOpt('data-act="stage" data-stage="' + s.n + '"', s.n === cur,
@@ -314,7 +324,8 @@
       RLCore.SORTS.map(function (v) { return ddOpt('data-act="filter" data-key="sort" data-v="' + v + '"', filt.sort === v, '<span>' + esc(sortLab[v]) + '</span>'); }), 'rl-dd-sort');
     // 그림 동화책 4권(따로 만든 책) — 2단계에서만. 책은 각자 화면이라 고르면 바로 그 책으로 간다.
     var books = (cur === 2 && window.__storyBookList && window.__storyBookList()) || [];
-    var booksDd = books.length ? dd('', ICON.book + '<span class="rl-dd-val">' + esc(T('그림 동화책 ' + books.length + '권', books.length + ' picture books')) + '</span>',
+    var booksDd = books.length ? dd('', ICON.book + '<span class="rl-dd-val">' + twoNames(T('그림 동화책 ' + books.length + '권', books.length + ' picture books'),
+      T('동화책 ' + books.length + '권', books.length + ' books')) + '</span>',
       books.map(function (b) {
         var s = b.n >= 6 ? 'done' : b.n > 0 ? 'doing' : 'new';
         var prog = b.n >= 6 ? T('완주', 'Finished') : T('도장 ' + b.n + '/6', 'Stamps ' + b.n + '/6');
@@ -323,10 +334,11 @@
       }), 'rl-dd-right') : '';
     var st = RLCore.stageStats(PASSAGES, cur, state.prog);
     var next = RLCore.recommendNext(PASSAGES, cur, state.prog, MAX_STAGE) ? '<button type="button" class="rl-tb-btn rl-tb-next" data-act="stage" data-stage="' + (cur + 1) +
-      '" title="' + esc(T('처음에 맞힌 비율 ' + Math.round(st.firstRatio * 100) + '%', 'First-try correct ' + Math.round(st.firstRatio * 100) + '%')) + '">🎉 ' +
-      esc(T((cur + 1) + '단계로 올라가기', 'Go up to Step ' + (cur + 1))) + '</button>' : '';
+      '" title="' + esc(T('처음에 맞힌 비율 ' + Math.round(st.firstRatio * 100) + '%', 'First-try correct ' + Math.round(st.firstRatio * 100) + '%')) + '"><span>🎉 ' +
+      twoNames(T((cur + 1) + '단계로 올라가기', 'Go up to Step ' + (cur + 1)), T((cur + 1) + '단계로', 'Step ' + (cur + 1))) + '</span></button>' : '';
     return '<div class="rl-tb">' + stair + stageDd + topicDd + statusDd + sortDd + booksDd +
-      '<button type="button" class="rl-tb-btn" data-act="drill">🔁 ' + esc(T('핵심 찾기 반복', 'Main-idea drill')) + '</button>' + next +
+      '<button type="button" class="rl-tb-btn" data-act="drill" title="' + esc(T('핵심 찾기 반복', 'Main-idea drill')) + '"><span>🔁 ' +
+        twoNames(T('핵심 찾기 반복', 'Main-idea drill'), T('반복', 'Drill')) + '</span></button>' + next +
       '<span class="rl-count"><b>' + shownN + '</b> / ' + esc(T(stageList.length + '편', stageList.length + ' texts')) + '</span></div>';
   }
 
@@ -371,7 +383,7 @@
         stageList.map(function (q) { return '<i class="' + RLCore.statusOf(state.prog[q.id]) + '"></i>'; }).join('') + '</span>' +
         '<span>' + esc(T('완료 ' + st.done + ' / ' + st.total, 'Done ' + st.done + ' / ' + st.total)) + '</span></div>' +
         '<div class="rl-acts">' + stepBtn(-1, i <= 0, T('이전 글', 'Previous')) + stepBtn(1, i >= stageList.length - 1, T('다음 글', 'Next')) +
-          '<a class="rl-ghost" href="/story-' + esc(p.id) + '.html">🖼 ' + esc(T('그림책', 'Picture book')) + '</a>' +
+          '<a class="rl-ghost" href="/story-' + esc(p.id) + '.html" title="' + esc(T('그림책', 'Picture book')) + '"><span>🖼 ' + twoNames(T('그림책', 'Picture book'), '') + '</span></a>' +
           '<button type="button" class="rl-cta" data-act="open" data-id="' + esc(p.id) + '">' + ICON.play + esc(cta) + '</button></div></div>' +
       '</article>';
   }
@@ -385,7 +397,45 @@
       '<div class="rl-split"><div class="rl-list">' + (shown.length ? shown.map(function (p) { return itemHtml(p, stageList.indexOf(p) + 1, p === active); }).join('') :
         '<p class="rl-empty">' + esc(T('조건에 맞는 글이 없어요. 상태나 주제를 바꿔 보세요.', 'No texts match. Try another status or topic.')) + '</p>') + '</div>' +
       detailHtml(active, stageList) + '</div></div>';
+    fitRows();
   }
+
+  /* ════ 한 줄 맞추기 (2026-10-19) — «N단계로 올라가기» 가 뜨거나 창이 좁으면 도구 줄·버튼 줄이 두 줄로 접혀 한 장이 넘친다.
+     그 줄이 실제로 넘칠 때에만 단계적으로 줄인다: «N / 12편» 숫자 → 계단 그림(둘 다 다른 칸과 같은 정보) → 긴 이름을 짧은 이름으로
+     → 마지막으로 단계 이름(«2단계 조금 긴 이야기» → «2단계»).
+     ⛔ 다 줄여도 한 줄이 안 되면 아무것도 안 줄인다(어차피 두 줄이면 이름이 긴 편이 낫다).
+     ⛔ 폰·낮은 창(아래로 쌓는 배치)에서는 건드리지 않는다 — 그 배치는 원래 줄이 접히고 페이지가 스크롤한다.
+        STACKED_MQ 는 stories.html 의 쌓는 배치 미디어쿼리와 «같은 글자» 여야 한다(하니스가 대조).
+     글꼴이 늦게 와 폭이 바뀌거나 창 크기가 바뀌면 다시 잰다(상주 타이머·관찰자 없이 — 그 일이 있을 때만). */
+  var STACKED_MQ = '(max-width:820px),(max-height:560px)';
+  var TB_LEVELS = ['rl-nocount', 'rl-nostair', 'rl-short', 'rl-tiny'], ACT_LEVELS = ['rl-short'];
+  function oneRow(el) {
+    var h = 0, k = el.children;
+    for (var i = 0; i < k.length; i++) { var b = k[i].getBoundingClientRect().height; if (b > h) h = b; }
+    return el.getBoundingClientRect().height <= h + 2;
+  }
+  function fitRow(el, levels, allowed) {
+    if (!el) return;
+    var i;
+    for (i = 0; i < levels.length; i++) el.classList.remove(levels[i]);
+    if (!allowed || oneRow(el)) return;
+    for (i = 0; i < levels.length; i++) { el.classList.add(levels[i]); if (oneRow(el)) return; }
+    for (i = 0; i < levels.length; i++) el.classList.remove(levels[i]);
+  }
+  function fitRows() {
+    try {
+      var allowed = !window.matchMedia(STACKED_MQ).matches;
+      fitRow(root.querySelector('.rl-tb'), TB_LEVELS, allowed);
+      fitRow(root.querySelector('.rl-acts'), ACT_LEVELS, allowed);
+    } catch (e) {}
+  }
+  var fitQ = 0;
+  function queueFit() {
+    if (fitQ || typeof requestAnimationFrame !== 'function') return;
+    fitQ = requestAnimationFrame(function () { fitQ = 0; if (view.mode === 'list') fitRows(); });
+  }
+  window.addEventListener('resize', queueFit);
+  try { if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', queueFit); } catch (e) {}
 
   /* ════ 읽기 + 3단계 ════ */
   function passageHtml(p, pickable) {
