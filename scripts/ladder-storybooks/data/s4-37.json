@@ -293,12 +293,15 @@
   "img": {
     "cover": "A crowded international airport hall with travelers pulling suitcases in every direction, large windows behind them showing airplanes parked on the runway",
     "scenes": {
-      "1": "A close-up of a person sneezing, a fine cloud of tiny droplets sparkling in a beam of sunlight against a dark background",
+      "1": "On a sunny school playground, a smiling boy turns his head away from his friends and covers a sneeze with the bend of his elbow, while his friends nearby give a thumbs-up, trees and a colorful jungle gym in the background",
       "3": "Children standing at a row of school sinks washing their hands with thick white soap foam, water running from the taps"
+    },
+    "ver": {
+      "1": 2
     }
   },
   "alt": {
-    "1": "Tiny droplets spraying from a sneeze",
+    "1": "A boy sneezing into his elbow so germs do not spread",
     "3": "Children washing their hands with soap",
     "cover": "Travelers with suitcases in a busy airport"
   }
