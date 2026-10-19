@@ -1,4 +1,4 @@
-# 영어 독서 사다리 48편 → 그림 동화책 페이지 데이터 (한 편 = `data/<id>.json`)
+# 영어 독서 사다리 전편(176편) → 그림 동화책 페이지 데이터 (한 편 = `data/<id>.json`)
 
 글(본문)은 **`cloudflare-deploy/public/js/reading-ladder-data.js` 의 `sentences[].en` 을 그대로** 씁니다 —
 여기에는 본문을 다시 적지 않고 «문단 나누기·역할·활동 재료» 만 적습니다. 본문을 고치거나 문장을 더하지 마세요.
@@ -87,6 +87,6 @@
 
 ## ⚠️ 틀(2권)과 묶여 있습니다
 `build.mjs` 는 `cloudflare-deploy/public/story-birthday-cake.html` 을 틀로 읽고, `test-harness/ladder_storybooks_harness.mjs` 는
-«생성기 결과 == 지금 페이지» 를 48권 모두 대조합니다. 그래서 **2권 파일을 고치면 48권 페이지도 다시 만들어야** 합니다:
+«생성기 결과 == 지금 페이지» 를 그림책 전부(176권) 대조합니다. 그래서 **2권 파일을 고치면 전 권 페이지도 다시 만들어야** 합니다:
 `node scripts/ladder-storybooks/build.mjs` (안 하면 무관한 PR 에서 하니스가 빨간불이 됩니다).
 포인트는 기존 규칙 `story_read`(10P · 하루 2회)를 4권과 함께 나눠 씁니다.
