@@ -384,10 +384,27 @@
     var stageList = PASSAGES.filter(function (p) { return p.stage === cur; });
     var shown = RLCore.browse(PASSAGES, cur, state.prog, filt);
     var active = RLCore.pickActive(PASSAGES, cur, state.prog, filt.sel);
+    // 목록이 길면(rl-long) 다시 그릴 때 칸 스크롤이 0으로 돌아가 «고른 글» 이 목록 밖으로 사라진다 —
+    // 같은 단계면 옛 위치를 되살리고, 고른 줄이 칸 밖이면 «칸 안에서만» 보이게 맞춘다(⛔ 페이지 스크롤은 안 건드림).
+    var oldList = root.querySelector('.rl-list');
+    var oldTop = (oldList && listStage === cur) ? (oldList.scrollTop || 0) : 0;
+    listStage = cur;
     root.innerHTML = '<div class="rl-app" style="--sc:' + meta.color + '">' + toolbarHtml(cur, stageList, shown.length) +
       '<div class="rl-split"><div class="rl-list' + (shown.length > 12 ? ' rl-long' : '') + '">' + (shown.length ? shown.map(function (p) { return itemHtml(p, stageList.indexOf(p) + 1, p === active); }).join('') :
         '<p class="rl-empty">' + esc(T('조건에 맞는 글이 없어요. 상태나 주제를 바꿔 보세요.', 'No texts match. Try another status or topic.')) + '</p>') + '</div>' +
       detailHtml(active, stageList) + '</div></div>';
+    keepListPlace(root.querySelector('.rl-list'), oldTop);
+  }
+
+  var listStage = null;   // 목록을 마지막으로 그린 단계 — 단계가 바뀌면 맨 위부터
+  function keepListPlace(list, top) {
+    if (!list || typeof list.getBoundingClientRect !== 'function') return;
+    list.scrollTop = top || 0;
+    var sel = list.querySelector && list.querySelector('.rl-item.sel');
+    if (!sel || typeof sel.getBoundingClientRect !== 'function' || list.scrollHeight <= list.clientHeight) return;
+    var lr = list.getBoundingClientRect(), sr = sel.getBoundingClientRect();
+    if (sr.top < lr.top) list.scrollTop += sr.top - lr.top;
+    else if (sr.bottom > lr.bottom) list.scrollTop += sr.bottom - lr.bottom;
   }
 
   /* ════ 읽기 + 3단계 ════ */
