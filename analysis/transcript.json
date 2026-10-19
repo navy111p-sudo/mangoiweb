@@ -1,0 +1,215 @@
+{
+ "01": {
+  "lang": "ko",
+  "lang_p": 0.73,
+  "segments": [
+   {
+    "s": 0.0,
+    "e": 4.08,
+    "t": "나의 마음을 담아야 할 것이다.",
+    "nsp": 0.113
+   },
+   {
+    "s": 4.62,
+    "e": 15.02,
+    "t": "나의 마음을 담아야 할 것이다.",
+    "nsp": 0.113
+   }
+  ]
+ },
+ "02": {
+  "lang": "en",
+  "lang_p": 0.537,
+  "segments": []
+ },
+ "03": {
+  "lang": "en",
+  "lang_p": 0.38,
+  "segments": [
+   {
+    "s": 0.0,
+    "e": 11.06,
+    "t": "Thanks for watching!",
+    "nsp": 0.385
+   }
+  ]
+ },
+ "04": {
+  "lang": "en",
+  "lang_p": 0.326,
+  "segments": [
+   {
+    "s": 12.0,
+    "e": 14.82,
+    "t": "Thank you for watching!",
+    "nsp": 0.722
+   }
+  ]
+ },
+ "05": {
+  "lang": "en",
+  "lang_p": 0.386,
+  "segments": [
+   {
+    "s": 0.0,
+    "e": 2.08,
+    "t": "Oh",
+    "nsp": 0.712
+   }
+  ]
+ },
+ "06": {
+  "lang": "en",
+  "lang_p": 0.857,
+  "segments": [
+   {
+    "s": 0.0,
+    "e": 2.34,
+    "t": "What?",
+    "nsp": 0.265
+   },
+   {
+    "s": 3.02,
+    "e": 4.56,
+    "t": "Samjoon Laura here?",
+    "nsp": 0.265
+   },
+   {
+    "s": 7.64,
+    "e": 9.22,
+    "t": "No, oh, oh.",
+    "nsp": 0.265
+   }
+  ]
+ },
+ "07": {
+  "lang": "en",
+  "lang_p": 0.908,
+  "segments": [
+   {
+    "s": 0.0,
+    "e": 2.16,
+    "t": "Come sit with us.",
+    "nsp": 0.13
+   }
+  ]
+ },
+ "08": {
+  "lang": "en",
+  "lang_p": 0.945,
+  "segments": [
+   {
+    "s": 5.1,
+    "e": 8.6,
+    "t": "Oh, what is this?",
+    "nsp": 0.145
+   }
+  ]
+ },
+ "09": {
+  "lang": "zh",
+  "lang_p": 0.309,
+  "segments": [
+   {
+    "s": 13.62,
+    "e": 15.02,
+    "t": "中文字幕组",
+    "nsp": 0.79
+   }
+  ]
+ },
+ "10": {
+  "lang": "en",
+  "lang_p": 0.954,
+  "segments": [
+   {
+    "s": 7.48,
+    "e": 14.46,
+    "t": "look here I see them",
+    "nsp": 0.069
+   }
+  ]
+ },
+ "11": {
+  "lang": "en",
+  "lang_p": 0.941,
+  "segments": [
+   {
+    "s": 7.76,
+    "e": 9.68,
+    "t": "Here, have a snack.",
+    "nsp": 0.152
+   },
+   {
+    "s": 10.76,
+    "e": 12.02,
+    "t": "It's okay now.",
+    "nsp": 0.152
+   }
+  ]
+ },
+ "12": {
+  "lang": "en",
+  "lang_p": 0.953,
+  "segments": [
+   {
+    "s": 8.18,
+    "e": 14.8,
+    "t": "Help me! We can help you! Let's go find it!",
+    "nsp": 0.05
+   }
+  ]
+ },
+ "13": {
+  "lang": "ko",
+  "lang_p": 0.989,
+  "segments": [
+   {
+    "s": 1.94,
+    "e": 3.76,
+    "t": "이거 괜찮아",
+    "nsp": 0.051
+   },
+   {
+    "s": 10.0,
+    "e": 12.0,
+    "t": "하하하 내가 좀 미끄러졌다",
+    "nsp": 0.051
+   },
+   {
+    "s": 14.0,
+    "e": 15.02,
+    "t": "괜찮아 다 왔어",
+    "nsp": 0.051
+   }
+  ]
+ },
+ "14": {
+  "lang": "ja",
+  "lang_p": 0.369,
+  "segments": []
+ },
+ "15": {
+  "lang": "ko",
+  "lang_p": 0.553,
+  "segments": []
+ },
+ "16": {
+  "lang": "en",
+  "lang_p": 0.879,
+  "segments": [
+   {
+    "s": 0.0,
+    "e": 0.8,
+    "t": "Oh",
+    "nsp": 0.379
+   },
+   {
+    "s": 11.4,
+    "e": 13.74,
+    "t": "Look at this little surprise",
+    "nsp": 0.379
+   }
+  ]
+ }
+}
