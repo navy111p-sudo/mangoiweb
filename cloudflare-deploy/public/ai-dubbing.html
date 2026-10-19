@@ -10,15 +10,17 @@
 <meta name="theme-color" content="#0e131c" />
 <script src="/js/mango-i18n.js" defer></script>
 <!--
-  🎬 A.i영화더빙 (2026-10-20 사장님 「A.i영화더빙 메뉴도 사이드바에 넣어줘」)
-  애니메이션 6장면(기승전결)을 보고 고른 캐릭터의 대사를 학생 목소리로 더빙하는 화면.
-  영상·대본은 GPT 가 만들고(연동 약속: docs 의 «A.i영화더빙 화면 연동 설명서»), 이 화면은 그것을 받아 그린다.
-  ⚠️ 지금은 영상이 아직 없어 장면 6칸을 «준비 중» 으로만 그린다 — 눌러도 아무 데도 안 가게 링크가 아닌 칸으로 둔다
-     (없는 영상으로 보내면 «눌렀는데 아무것도 안 나온다» 가 된다).
+  🎬 A.i영화더빙 (2026-10-20 사장님 「A.i영화더빙 메뉴도 사이드바에 넣어줘」 → 같은 날 플레이어 연결)
+  애니메이션을 보고 고른 캐릭터의 대사를 학생 목소리로 더빙하는 화면.
+  역할 분담: 영상·캐릭터·대본·원어민 음성 = ChatGPT / 이 화면(재생·캐릭터별 음소거·녹음·발음평가·완성영상) = Claude.
+  연동 약속(정본): docs/A.i영화더빙_화면연동_설명서.md — 이 화면은 /data/dubbing/<에피소드>.json 하나만 읽는다.
+  ⚠️ 판정(대사 배정·음소거·시각 검사)은 /js/ai-dubbing-core.js 한 곳. 화면 코드에 다시 적지 말 것.
+  ⚠️ 매니페스트를 못 읽으면 아래 «준비 중» 칸이 그대로 남는다(눌러도 아무 데도 안 가게 — 없는 영상으로 보내지 않는다).
 -->
 <style>
-  :root{--bg:#0e131c;--card:#161c28;--line:#2a3344;--text:#e8ecf3;--text2:#b4bdcc;--gold:#f5b83d}
+  :root{--bg:#0e131c;--card:#161c28;--line:#2a3344;--text:#e8ecf3;--text2:#b4bdcc;--gold:#f5b83d;--mint:#34d399;--red:#f87171}
   *{box-sizing:border-box}
+  [hidden]{display:none !important}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
     font-family:MangoiHanSC,'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;line-height:1.55}
   .top{display:flex;align-items:center;gap:12px;padding:14px 18px 14px 64px;min-height:56px;background:rgba(22,28,40,.96);
@@ -34,6 +36,8 @@
   .feat span{font-size:12.5px;color:var(--text2)}
   .notice{padding:14px 16px;border-radius:14px;background:rgba(245,184,61,.1);border:1px solid rgba(245,184,61,.45);font-size:14px}
   .notice b{color:var(--gold)}
+  .notice.err{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.5)}
+  .notice.err b{color:var(--red)}
   .now{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:16px;background:linear-gradient(135deg,#1f2a3f,#2a2238);
     border:1px solid rgba(245,184,61,.6);color:var(--text);text-decoration:none}
   .now:hover{border-color:var(--gold)}
@@ -43,21 +47,80 @@
   .now-sub{font-size:13.5px;color:var(--text2)}
   .now-go{font-size:28px;color:var(--gold);flex:none}
   h2{margin:0;font-size:18px;font-weight:800}
+  .hint{margin:4px 0 0;font-size:13px;color:var(--text2)}
+  .panel{padding:14px;border-radius:16px;background:var(--card);border:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+  /* « 누가 연기할까요 » */
+  .cnts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .cnt,.chip,.btn{font:inherit;cursor:pointer;border-radius:999px;border:1px solid var(--line);background:#1d2433;color:var(--text);min-height:40px}
+  .cnt{width:44px;font-weight:800}
+  .cnt[aria-pressed="true"],.chip[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#1a1205}
+  .stu{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-radius:12px;background:#121826;border:1px solid var(--line)}
+  .stu-no{width:28px;height:28px;flex:none;border-radius:50%;background:#2a3344;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px}
+  .stu-name{font:inherit;width:9.5em;max-width:40vw;padding:8px 10px;border-radius:10px;border:1px solid #3b4659;background:#0b1018;color:var(--text)}
+  .stu-me{font-size:12px;color:var(--mint)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{padding:0 14px;font-size:14px;font-weight:700}
+  .mutesum{font-size:13.5px;color:var(--text2)}
+  .mutesum b{color:var(--text)}
+  /* « 장면 고르기 » */
   .scenes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
   .scene{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:14px;background:var(--card);border:1px solid var(--line)}
   .thumb{aspect-ratio:16/9;border-radius:10px;border:1px dashed #3b4659;background:#0b1018;display:flex;align-items:center;
-    justify-content:center;font-size:13px;color:#9aa4b5}
+    justify-content:center;font-size:13px;color:#9aa4b5;text-align:center;padding:4px}
+  .thumb.on{border-style:solid;font-size:24px;letter-spacing:4px}
   .tag{align-self:flex-start;padding:4px 12px;border-radius:999px;color:#fff;font-size:13.5px;font-weight:800}
   .s1{background:#2366c9}.s2{background:#6a3fc8}.s3{background:#22803f}.s4{background:#c25e12}.s5{background:#c22f2f}.s6{background:#3f4cc2}
+  .scene .meta{font-size:12.5px;color:var(--text2)}
+  .btn{padding:0 16px;font-weight:800;font-size:14px}
+  .btn.go{background:#2563eb;border-color:#2563eb;color:#fff}
+  .btn.ok{background:#059669;border-color:#059669;color:#fff}
+  .btn.warn{background:#7c2d12;border-color:#9a3412;color:#fff}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .opt{display:flex;align-items:center;gap:6px;font-size:14px}
+  .opt input{width:18px;height:18px}
+  /* « 플레이어 » */
+  .stage{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;border:1px solid var(--line)}
+  .stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+  .sub{position:absolute;left:4%;right:4%;bottom:4%;padding:8px 12px;border-radius:12px;background:rgba(5,8,14,.78);text-align:center}
+  .sub .who{display:block;font-size:13px;font-weight:800;color:var(--gold)}
+  .sub .en{display:block;font-size:clamp(16px,3.2vw,26px);font-weight:900;line-height:1.3}
+  .sub .ko{display:block;font-size:clamp(12px,2.2vw,16px);color:#cbd5e1}
+  .sub.me{outline:3px solid var(--mint)}
+  .sub.me .who{color:var(--mint)}
+  .stage-note{position:absolute;left:3%;top:3%;padding:4px 10px;border-radius:999px;background:rgba(5,8,14,.75);font-size:12.5px;color:#fde68a}
+  .turn{position:absolute;left:50%;top:10%;transform:translateX(-50%);padding:8px 16px;border-radius:999px;background:rgba(5,150,105,.92);
+    color:#fff;font-weight:900;font-size:clamp(14px,2.6vw,20px);white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+  .meter{height:10px;border-radius:999px;background:#0b1018;border:1px solid var(--line);overflow:hidden}
+  .meter i{display:block;height:100%;width:0%;background:linear-gradient(90deg,#34d399,#fbbf24);transition:width .05s linear}
+  .prog{font-size:13px;color:var(--text2)}
+  /* « 결과 » */
+  .sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:8px}
+  .sumc{padding:10px;border-radius:12px;background:#121826;border:1px solid var(--line)}
+  .sumc b{font-size:15px}
+  .sumc .big{font-size:26px;font-weight:900;color:var(--gold)}
+  .lines{display:flex;flex-direction:column;gap:6px}
+  .ln{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:#121826;border:1px solid var(--line);font-size:13.5px}
+  .ln .said{color:var(--text2);font-size:12.5px}
+  .ln .sc{font-weight:900;min-width:3.5em;text-align:right}
+  .movies{display:flex;flex-direction:column;gap:10px}
+  .mv{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:12px;background:#121826;border:1px solid var(--line)}
+  .mv video{width:100%;border-radius:10px;background:#000}
+  .mv a{color:#93c5fd;font-weight:800}
   .final{min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:999px;background:#3a3020;color:#c9b88a;
     font-size:15px;font-weight:800;border:1px solid rgba(245,184,61,.35)}
+  button.final{width:100%;font:inherit;font-weight:800;cursor:pointer}
+  button.final:disabled{cursor:not-allowed;opacity:.7}
   .motto{margin:0;text-align:center;font-size:15px;font-weight:800;color:var(--gold)}
   @media (max-width:640px){
     .scenes{grid-template-columns:1fr}
-    .scene{flex-direction:row;align-items:center}
+    .scene{flex-direction:row;align-items:center;flex-wrap:wrap}
     .thumb{width:96px;flex:none;font-size:11px}
+    .thumb.on{font-size:16px;letter-spacing:1px}
     .feat span{display:none}
     .feat b{font-size:13px;word-break:keep-all}
+    .ln{grid-template-columns:1fr auto}
+    .ln .who{grid-column:1/-1}
   }
 </style>
 </head>
@@ -77,7 +140,15 @@
     <div class="feat"><b data-ko="▶ 완성 영상 다시 보기!" data-en="▶ Watch your movie!">▶ 완성 영상 다시 보기!</b><span data-ko="내 목소리 영화를 감상해요" data-en="Enjoy the movie with your voice">내 목소리 영화를 감상해요</span></div>
   </section>
 
-  <div class="notice" role="status"><b data-ko="준비 중이에요" data-en="Coming soon">준비 중이에요</b> · <span data-ko="첫 번째 더빙 이야기를 만들고 있어요. 영상이 올라오면 이곳에서 장면을 골라 바로 더빙할 수 있어요." data-en="We are making the first dubbing story. When the videos are ready, you can pick a scene here and start dubbing.">첫 번째 더빙 이야기를 만들고 있어요. 영상이 올라오면 이곳에서 장면을 골라 바로 더빙할 수 있어요.</span></div>
+  <div class="notice" id="dub-status" role="status"><b data-ko="준비 중이에요" data-en="Coming soon">준비 중이에요</b> · <span data-ko="첫 번째 더빙 이야기를 만들고 있어요. 영상이 올라오면 이곳에서 장면을 골라 바로 더빙할 수 있어요." data-en="We are making the first dubbing story. When the videos are ready, you can pick a scene here and start dubbing.">첫 번째 더빙 이야기를 만들고 있어요. 영상이 올라오면 이곳에서 장면을 골라 바로 더빙할 수 있어요.</span></div>
+
+  <section class="panel" id="dub-cast-panel" aria-label="누가 연기할까요" hidden>
+    <div>
+      <h2><span data-ko="1. 누가 연기할까요?" data-en="1. Who will act?">1. 누가 연기할까요?</span></h2>
+      <p class="hint"><span data-ko="1~5명이 함께 할 수 있어요. 학생이 고른 캐릭터는 원어민 목소리가 꺼지고 학생이 말해요. 같은 캐릭터를 여러 명이 고르면 그 캐릭터 대사를 번갈아 말해요." data-en="1 to 5 students can play together. The characters students pick are muted so the students speak. If several students pick the same character, they take turns with its lines.">1~5명이 함께 할 수 있어요. 학생이 고른 캐릭터는 원어민 목소리가 꺼지고 학생이 말해요. 같은 캐릭터를 여러 명이 고르면 그 캐릭터 대사를 번갈아 말해요.</span></p>
+    </div>
+    <div id="dub-cast"></div>
+  </section>
 
   <!-- 🎬 (2026-10-19 사장님 「이거 … A.i 더빙동영상에 넣어줘」) 지금 바로 해 볼 수 있는 더빙 10편.
        6장면 영화(dub-001)가 열리기 전에도 이 메뉴에서 더빙을 해 볼 수 있게 별도 화면으로 잇는다 — 이 화면의 마크업은 그대로 둔다. -->
@@ -89,8 +160,8 @@
   </a>
 
   <section aria-label="이야기 6장면">
-    <h2 style="margin-bottom:10px"><span data-ko="이야기 6장면" data-en="Six scenes">이야기 6장면</span></h2>
-    <div class="scenes">
+    <h2 style="margin-bottom:10px"><span data-ko="2. 장면 고르기" data-en="2. Pick a scene">2. 장면 고르기</span></h2>
+    <div class="scenes" id="dub-scenes">
       <div class="scene" aria-disabled="true"><div class="thumb" data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</div><span class="tag s1" data-ko="1. 신나는 모험의 시작!" data-en="1. The adventure begins!">1. 신나는 모험의 시작!</span></div>
       <div class="scene" aria-disabled="true"><div class="thumb" data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</div><span class="tag s2" data-ko="2. 예상치 못한 위기!" data-en="2. An unexpected danger!">2. 예상치 못한 위기!</span></div>
       <div class="scene" aria-disabled="true"><div class="thumb" data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</div><span class="tag s3" data-ko="3. 친구들과 함께하는 모험!" data-en="3. Adventure with friends!">3. 친구들과 함께하는 모험!</span></div>
@@ -98,12 +169,47 @@
       <div class="scene" aria-disabled="true"><div class="thumb" data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</div><span class="tag s5" data-ko="5. 최후의 대결!" data-en="5. The final battle!">5. 최후의 대결!</span></div>
       <div class="scene" aria-disabled="true"><div class="thumb" data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</div><span class="tag s6" data-ko="6. 감동의 해피엔딩!" data-en="6. A happy ending!">6. 감동의 해피엔딩!</span></div>
     </div>
+    <div class="row" id="dub-all-row" style="margin-top:10px" hidden>
+      <button type="button" class="btn go" id="dub-all"><span data-ko="▶ 처음부터 끝까지 더빙" data-en="▶ Dub the whole story">▶ 처음부터 끝까지 더빙</span></button>
+      <label class="opt"><input type="checkbox" id="dub-make-movie" checked> <span data-ko="완성 영상 만들기" data-en="Make my movie">완성 영상 만들기</span></label>
+    </div>
   </section>
 
-  <div class="final" aria-disabled="true"><span data-ko="▶ 완성 영상 보기 (영상이 올라오면 열려요)" data-en="▶ Watch the finished movie (opens when videos are ready)">▶ 완성 영상 보기 (영상이 올라오면 열려요)</span></div>
+  <section class="panel" id="dub-player" aria-label="더빙" hidden>
+    <div class="stage" id="dub-stage">
+      <video id="dub-video" playsinline muted preload="auto" crossorigin="anonymous"></video>
+      <div class="stage-note" id="dub-stage-note" hidden></div>
+      <div class="turn" id="dub-turn" hidden></div>
+      <div class="sub" id="dub-sub" hidden><span class="who" id="dub-sub-who"></span><span class="en" id="dub-sub-en"></span><span class="ko" id="dub-sub-ko"></span></div>
+    </div>
+    <div class="meter" aria-hidden="true"><i id="dub-meter"></i></div>
+    <div class="row">
+      <button type="button" class="btn ok" id="dub-done" disabled><span data-ko="✅ 다 말했어요" data-en="✅ I'm done">✅ 다 말했어요</span></button>
+      <button type="button" class="btn" id="dub-skip" disabled><span data-ko="⏭ 넘어가기" data-en="⏭ Skip">⏭ 넘어가기</span></button>
+      <button type="button" class="btn warn" id="dub-stop"><span data-ko="⏹ 그만하기" data-en="⏹ Stop">⏹ 그만하기</span></button>
+      <span class="prog" id="dub-prog"></span>
+    </div>
+  </section>
+
+  <section class="panel" id="dub-results" aria-label="평가 결과" hidden>
+    <h2><span data-ko="⭐ AI 발음 평가" data-en="⭐ AI pronunciation check">⭐ AI 발음 평가</span></h2>
+    <div class="sum" id="dub-sum"></div>
+    <div class="lines" id="dub-lines"></div>
+  </section>
+
+  <section class="panel" id="dub-movies-panel" aria-label="완성 영상" hidden>
+    <h2><span data-ko="▶ 완성 영상" data-en="▶ My movie">▶ 완성 영상</span></h2>
+    <p class="hint"><span data-ko="이 기기에만 있어요 — «저장» 을 눌러 내려받아 두세요(새로고침하면 사라져요)." data-en="It is only on this device — tap Save to download it (it disappears when you reload).">이 기기에만 있어요 — «저장» 을 눌러 내려받아 두세요(새로고침하면 사라져요).</span></p>
+    <div class="movies" id="dub-movies"></div>
+  </section>
+
+  <button type="button" class="final" id="dub-final" disabled><span data-ko="▶ 완성 영상 보기 (더빙을 마치면 열려요)" data-en="▶ Watch the finished movie (opens after you dub)">▶ 완성 영상 보기 (더빙을 마치면 열려요)</span></button>
   <p class="motto"><span data-ko="재미가 의지를 이깁니다!" data-en="Fun beats willpower!">재미가 의지를 이깁니다!</span></p>
 </main>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
+<script defer src="/js/speech-azure.js?v=2"></script>
+<script defer src="/js/ai-dubbing-core.js?v=1"></script>
+<script defer src="/js/ai-dubbing.js?v=1"></script>
 </body>
 </html>
