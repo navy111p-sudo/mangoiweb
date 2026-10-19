@@ -290,8 +290,8 @@
     return '<div style="margin-top:10px;border-top:1px dashed rgba(148,163,184,0.35);padding-top:8px">'
       + '<b style="font-size:12.5px;color:#94a3b8">' + (en ? '📅 Booked classes for this moment' : '📅 예약 기준 지금 수업') + '</b>'
       + '<div style="font-size:11.5px;color:#64748b;margin:2px 0 6px">'
-      + (en ? '«enrolment» classes have a Mango-i room, so you can observe even before anyone joins. «cafe24» classes do not go through a Mango-i room — «no connection record» is normal there.'
-            : '«수강신청» 수업은 망고아이 방이 있어 아무도 안 들어와도 참관할 수 있습니다. «카페24» 수업은 망고아이 방을 거치지 않아 참관 버튼이 없고, «접속 기록 없음» 이 정상입니다.')
+      + (en ? '«enrolment» classes have a Mango-i room, so you can observe (hidden) or enter (visible) even before anyone joins. «cafe24» classes do not go through a Mango-i room — «no connection record» is normal there.'
+            : '«수강신청» 수업은 망고아이 방이 있어 아무도 안 들어와도 참관(안 보임)·직접 입장(보임)할 수 있습니다. «카페24» 수업은 망고아이 방을 거치지 않아 버튼이 없고, «접속 기록 없음» 이 정상입니다.')
       + '</div>'
       + list.map(function(c){
           const ph = c.phase === 'soon' ? (en ? 'Starts soon' : '곧 시작')
@@ -303,6 +303,15 @@
           const obsBtn = obsRoom
             ? ' <button type="button" class="gh-act gh-act-quick" onclick="ghQuickObserve(decodeURIComponent(\'' + encodeURIComponent(obsRoom) + '\'))">'
               + (en ? '👁 Observe now' : '👁 바로 참관') + '</button>'
+            : '';
+          /* 🚪 (2026-10-19 사장님 지시) 직접 입장(보임) — 위쪽 «화상방» 표와 같은 버튼·같은 함수.
+             그 표는 누가 접속해야 뜨므로, 아무도 없을 때(수업 시작 직전) 학생에게 보이며 들어갈 길이 없었다.
+             ⛔ 참관과 같은 방(obsRoom)일 때만 — 방이 없는 카페24 줄에 달면 빈 방 번호로 들어간다. */
+          const enterBtn = obsRoom
+            ? ' <button type="button" class="gh-act gh-act-enter" onclick="ghEnterRoom(decodeURIComponent(\'' + encodeURIComponent(obsRoom) + '\'))" '
+              + 'title="' + (en ? 'Join as a real participant — students see you (camera starts off)'
+                                 : '실제 참가자로 입장 — 학생에게 보입니다 (카메라는 꺼진 채로 시작)') + '">'
+              + (en ? '🚪 Enter (visible)' : '🚪 직접 입장(보임)') + '</button>'
             : '';
           const src = c.observable
             ? ' <span style="color:#c4b5fd;font-weight:700">' + (en ? 'enrolment' : '수강신청') + '</span>'
@@ -316,7 +325,7 @@
             + (c.connected
                 ? ' <span style="color:#86efac;font-weight:700">✅ ' + (en ? 'Connected' : '접속 확인') + '</span>'
                 : ' <span style="color:#fbbf24">' + (en ? 'No connection record' : '접속 기록 없음') + '</span>')
-            + obsBtn
+            + obsBtn + enterBtn
             + '</div>';
         }).join('')
       + '</div>';
