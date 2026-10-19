@@ -153,6 +153,10 @@ html.rl-browse .foot{flex:none;margin:8px 0 0;font-size:12px}
 .rl-dots i{height:8px;border-radius:3px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
 .rl-dots i.done{background:var(--ok);box-shadow:none}
 .rl-dots i.doing{background:var(--doing);box-shadow:none}
+/* 한 단계가 12편을 넘으면(2026-10-19 확장) 줄은 내용 높이로 쌓고 목록 칸 안에서 스크롤 · 진도 점은 작게 두 줄 */
+.rl-list.rl-long{grid-template-rows:none;grid-auto-rows:minmax(38px,auto)}
+.rl-dots.rl-many{grid-template-columns:repeat(24,1fr);gap:2px;width:168px}
+.rl-dots.rl-many i{height:5px;border-radius:2px}
 .rl-acts{display:flex;gap:8px;flex-wrap:wrap}
 .rl-ghost{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:99px;background:var(--page);color:var(--ink);font:inherit;font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer;text-decoration:none}
 .rl-ghost:hover:not(:disabled){border-color:var(--line2)}
@@ -373,7 +377,7 @@ html.rl-browse .foot{flex:none;margin:8px 0 0;font-size:12px}
   applyLang();
 })();
 </script>
-<script src="/js/reading-ladder-data.js?v=1"></script>
-<script src="/js/reading-ladder.js?v=5"></script>
+<script src="/js/reading-ladder-data.js?v=2"></script>
+<script src="/js/reading-ladder.js?v=6"></script>
 </body>
 </html>
