@@ -1,0 +1,68 @@
+{
+  "id": "dub-001",
+  "brand": "mangoi.ai",
+  "title": {
+    "ko": "공룡이 우리 반에 전학 왔다!",
+    "en": "The Dinosaur Who Joined Our Class"
+  },
+  "status": "six_15_second_clips_generated_not_qa_approved",
+  "totalVideoDurationSec": 90,
+  "targetEpisodeDurationSec": 240,
+  "scenes": [
+    {
+      "no": 1,
+      "durationSec": 15,
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151211_f2ced3b5-a388-4554-bc6f-39e49e31bf4e.mp4",
+      "videoAssetStatus": "remote_generation_only",
+      "voiceStemsStatus": "missing",
+      "dubReady": false
+    },
+    {
+      "no": 2,
+      "durationSec": 15,
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151212_fb39992b-d7c3-42c2-bc86-f0aacbdd9820.mp4",
+      "videoAssetStatus": "remote_generation_only",
+      "voiceStemsStatus": "missing",
+      "dubReady": false
+    },
+    {
+      "no": 3,
+      "durationSec": 15,
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151244_81eae87a-9d33-4bc9-8609-90dcaaeeb268.mp4",
+      "videoAssetStatus": "remote_generation_only",
+      "voiceStemsStatus": "missing",
+      "dubReady": false
+    },
+    {
+      "no": 4,
+      "durationSec": 15,
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151211_f5e9872e-62d1-4438-be8c-8218eb4c055c.mp4",
+      "videoAssetStatus": "remote_generation_only",
+      "voiceStemsStatus": "missing",
+      "dubReady": false
+    },
+    {
+      "no": 5,
+      "durationSec": 15,
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151211_71a40801-4a36-4a88-898e-95fa8e2f7d83.mp4",
+      "videoAssetStatus": "remote_generation_only",
+      "voiceStemsStatus": "missing",
+      "dubReady": false
+    },
+    {
+      "no": 6,
+      "durationSec": 15,
+      "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151211_e2625ee8-c365-4a5c-9324-b1a20a22ac2e.mp4",
+      "videoAssetStatus": "remote_generation_only",
+      "voiceStemsStatus": "missing",
+      "dubReady": false
+    }
+  ],
+  "integrationNotes": [
+    "Do not claim this is the final 4-minute episode.",
+    "Do not publish without rights, audio stem, dialogue timing and visual QA.",
+    "Keep character voices, BGM and SFX separate.",
+    "The existing Claude screen owns the player; do not overwrite it.",
+    "Brand spelling is mangoi.ai, not Mango-i."
+  ]
+}
