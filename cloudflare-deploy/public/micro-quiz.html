@@ -529,7 +529,7 @@ function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } ca
       try {
         const r = await fetch('/api/vocab/auto-generate', {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ uid: getUid(), level: curLevel, topic: curTopic, count: 10 })
+          body: JSON.stringify({ uid: getUid(), token: __mgTok(), level: curLevel, topic: curTopic, count: 10 })
         });
         const d = await r.json();
         if (d.ok && d.added > 0) {
@@ -541,7 +541,7 @@ function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } ca
           alert(tt('이미 비슷한 단어들이 단어장에 있어요. 다른 레벨이나 주제를 시도해보세요!', 'You already have similar words. Try a different level or topic!'));
           btn.disabled = false; btn.innerHTML = tt('🤖 AI가 단어 10개 만들어주기','🤖 Let AI generate 10 words');
         } else {
-          alert(tt('생성 실패: ', 'Generation failed: ') + (d.error || 'unknown') + tt('\n다시 시도해주세요.', '\nPlease try again.'));
+          alert(tt('생성 실패: ', 'Generation failed: ') + (tt(d.message, d.message_en || d.message) || d.error || 'unknown') + tt('\n다시 시도해주세요.', '\nPlease try again.'));
           btn.disabled = false; btn.innerHTML = tt('🤖 AI가 단어 10개 만들어주기','🤖 Let AI generate 10 words');
         }
       } catch(e) {
@@ -556,7 +556,7 @@ function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } ca
       try {
         const r = await fetch('/api/vocab/gen-quiz', {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ uid: getUid(), count: 5, source: curSource })
+          body: JSON.stringify({ uid: getUid(), token: __mgTok(), count: 5, source: curSource })
         });
         const d = await r.json();
         if (!d.ok) {
@@ -701,7 +701,7 @@ function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } ca
     function recordProgress(Q, isCorrect) {
       // 서버 숙련도 기록: 정답이면 서버 정답 index, 오답이면 다른 index 로 번역 제출(유형 무관 일관 기록)
       var serverAns = isCorrect ? Q.serverCorrect : (Q.serverCorrect === 0 ? 1 : 0);
-      try { fetch('/api/vocab/quiz-submit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id: Q.serverId, answer: serverAns }) }); } catch(e) {}
+      try { fetch('/api/vocab/quiz-submit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id: Q.serverId, answer: serverAns, token: __mgTok() }) }); } catch(e) {}   // 🔐 서버가 그 퀴즈 주인인지 본다(2026-10-19)
     }
 
     /* ── 🎤 말하기 문제: 녹음 → Whisper 전사 → 단어 일치 판정 (2회 시도 + 건너뛰기)

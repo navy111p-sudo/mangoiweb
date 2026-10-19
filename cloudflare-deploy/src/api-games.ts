@@ -68,6 +68,20 @@ export function vocabSrsNext(level: any, correct: boolean, now: number): { level
   return { level: lv, days, next: now + days * 86400000 };
 }
 
+/** 🔐 (2026-10-19) 단어장 «쓰기» 본인 확인 — 남이 다른 학생의 단어장에 낱말·오답을 심지 못하게.
+ *  그 오답(«단어장 약점»)은 웜업 대화·A.i 친구 프롬프트와 게임 복습 큐에 그대로 실린다(src/vocab-weak.ts).
+ *  판정은 /api/vocab/review·reward·DELETE 와 같은 resolveOwnerScope 하나 — 게스트(guest*)는 통과,
+ *  관리자·교사 세션은 통과, 그 밖에는 서명 토큰 uid 가 «그 단어장 주인» 과 같아야 한다.
+ *  막히면 401 응답, 통과면 null. ⛔ 판정을 라우트마다 다시 적지 말 것(한쪽만 느슨해진다). */
+export async function vocabWriteDenied(request: Request, url: URL, env: any, ownerUid: string, body?: any): Promise<Response | null> {
+  if ((await resolveOwnerScope(request, url, env, String(ownerUid || ''), body)) !== 'deny') return null;
+  return json({
+    ok: false, error: 'auth_required',
+    message: '🔑 로그인 정보가 만료됐어요. 다시 로그인한 뒤 해 주세요.',
+    message_en: '🔑 Your login has expired. Please log in again.',
+  }, 401);
+}
+
 // ── 🔥 연속 출석(Streak) 그래프 DFS — 출결의 단일 권위(source of truth) ──────
 // attendance 의 날짜들을 (수업)<-[:NEXT_LESSON]-(이전수업) 연결 리스트로 간주하고,
 // 가장 최근 출석일(anchor)을 기점으로 하루씩 역방향으로 사슬을 타며
@@ -395,6 +409,7 @@ export async function handleGamesApi(
       const userId = String(b.user_id || '').trim();
       const word = String(b.word || '').trim();
       if (!userId || !word) return json({ ok: false, error: 'user_id_and_word_required' }, 400);
+      { const deny = await vocabWriteDenied(request, url, env, userId, b); if (deny) return deny; }   // 🔐 AI 호출(비용) 전에
       let korean = String(b.korean || '').trim();
       let example = String(b.example || '').trim();
       // AI 가 한국어/예문 자동 생성 (옵션)
@@ -503,6 +518,7 @@ export async function handleGamesApi(
       const userId = String(b.user_id || '').trim();
       const raw: any[] = Array.isArray(b.items) ? b.items.slice(0, 60) : [];
       if (!userId || !raw.length) return json({ ok: false, error: 'user_id_and_items_required' }, 400);
+      { const deny = await vocabWriteDenied(request, url, env, userId, b); if (deny) return deny; }
       // 정규화 + 배치 내 중복 제거
       const seen = new Set<string>();
       const items: { word: string; korean: string; example: string }[] = [];
@@ -830,6 +846,7 @@ export async function handleGamesApi(
       const userId = String(b.user_id || b.uid || '').trim();
       const word = String(b.word || '').trim();
       if (!userId || !word) return json({ ok: false, error: 'uid_and_word_required' }, 400);
+      { const deny = await vocabWriteDenied(request, url, env, userId, b); if (deny) return deny; }   // 🔐 AI 호출(비용) 전에
 
       let korean = '', example = '', synonyms: any[] = [];
       if (env.AI) {
@@ -890,6 +907,7 @@ export async function handleGamesApi(
       const topic = String(b.topic || '').trim(); // 선택: 'school', 'food', 'travel' 등
       const count = Math.min(30, Math.max(5, Number(b.count) || 10));
       if (!userId) return json({ ok: false, error: 'uid_required' }, 400);
+      { const deny = await vocabWriteDenied(request, url, env, userId, b); if (deny) return deny; }   // 🔐 AI 호출(비용) 전에
       if (!env.AI) return json({ ok: false, error: 'AI_binding_missing' }, 503);
 
       // 기존 단어 (중복 방지)
@@ -1028,6 +1046,8 @@ Variety: mix of nouns, verbs, adjectives.`;
       const count = Math.min(20, Math.max(1, Number(b.count) || 5));
       const source = String(b.source || 'mywords').trim();
       if (!userId) return json({ ok: false, error: 'uid_required' }, 400);
+      // 🔐 그 학생 단어장으로 문제를 만든다 = 단어장을 «읽는» 것이기도 하다(/api/vocab/list 와 같은 본인 확인 — 단 게스트 체험 시간 제한은 안 건다).
+      { const deny = await vocabWriteDenied(request, url, env, userId, b); if (deny) return deny; }
 
       let words: any[] = [];
       let band = '';
@@ -1153,6 +1173,9 @@ Variety: mix of nouns, verbs, adjectives.`;
       if (!quizId || isNaN(answer)) return json({ ok: false, error: 'quiz_id_and_answer_required' }, 400);
       const row: any = await env.DB.prepare(`SELECT user_id, correct_index, source_word FROM vocab_quizzes WHERE id = ?`).bind(quizId).first();
       if (!row) return json({ ok: false, error: 'quiz_not_found' }, 404);
+      /* 🔐 (2026-10-19) 그 퀴즈의 «주인» 인지 — 정수 quiz_id 를 훑으며 남의 단어에 오답을 찍으면
+         그 낱말이 «단어장 약점» 이 되어 그 학생의 웜업·A.i 친구 대화에 실린다. 정답(correct_index)도 이 뒤에서만 돌려준다. */
+      { const deny = await vocabWriteDenied(request, url, env, String(row.user_id || ''), b); if (deny) return deny; }
       const isCorrect = row.correct_index === answer;
       /* 🔁 (2026-10-18) 같은 문제를 다시 제출해도 채점은 돌려주되, 기록·복습 일정은 «처음 한 번» 만 반영한다.
          퀴즈는 출제할 때마다 새 행이라 정상 흐름은 한 번 제출이고, 되풀이 제출로 단어를 level 7 까지
