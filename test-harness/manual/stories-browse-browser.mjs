@@ -15,6 +15,10 @@
 //   ⑩ 실제 노트북 «창» 높이(2026-10-19) — 1366×768 화면은 창이 약 640px, 1280×720 은 약 600px 이다.
 //      그 창에서도 12편이 목록 안쪽 스크롤 없이 다 보인다 · 4단계 48편 전부 제목칸이 안 잘리고 «읽기 시작» 이 «맨 위»
 //      태블릿 1024×768 · 낮은 노트북 1024×600 · EN 900×600·960×640 에서도 48편 전부 목록·상세 칸 안쪽 스크롤이 없다
+//   ⑫ 큰 PC 화면(2026-10-19 사장님 「글자가 너무 작아서 보기 힘들어」) — 1920×920 창·2880×1380(크롬 67% 축소한 1920 화면)에서
+//      .wrap 이 커지고(zoom) 목록 제목이 실제로 17px 이상 · 진짜 마우스로 글을 골라 «읽기 시작» 을 누르면 읽기 화면이 열리고
+//      읽기 본문도 22px 이상 · 가로 스크롤 0 (짝) 노트북 1440×860·1366×640 은 zoom 1 그대로
+//      (48편 «안쪽 스크롤 없음·제목 안 잘림·읽기 시작 맨 위» 는 ⑩ 의 창 목록에 1920×920·2880×1380 을 넣어 함께 잰다)
 //   ⑪ 좁은 창(821~1100) 압축 — 도구 줄 한 줄 · 이전·다음 글은 화살표(이름은 낭독기에 남음) · 계단·«단계»«정렬» 이름표·편수는 감춤
 //      (짝) 넓은 창에서는 전부 그대로 보이고, «주제»·«상태» 이름표는 좁은 창에서도 남는다
 //      (짝) 버튼 줄은 한 장 고정일 때만 상세 칸 바닥에 붙고(sticky) 폰 390 에서는 붙지 않는다
@@ -323,7 +327,7 @@ try {
   //     1024×600(낮은 노트북) — 좁고 낮은 창에서 설명 줄을 접지 않으면 상세가 넘친다
   //     EN 900×600 · 960×640 — 영어 버튼 글자가 길어 버튼 줄이 3줄, 도구 줄이 2줄로 접혀 넘쳤다(2026-10-19 두 번째 수리 전)
   //   ⚠️ 821~899 폭(예: 840×600)은 아직 조금 넘친다 — 재지 않는다(알고 둔 한계. 태블릿 세로는 820 이하라 쌓는 화면)
-  for (const [w, h, lang, fit] of [[1280, 600, 'ko', true], [1280, 600, 'en', true], [900, 600, 'en', true], [960, 640, 'en', true], [1024, 768, 'ko', true], [1024, 600, 'ko', true]]) {
+  for (const [w, h, lang, fit] of [[1280, 600, 'ko', true], [1280, 600, 'en', true], [900, 600, 'en', true], [960, 640, 'en', true], [1024, 768, 'ko', true], [1024, 600, 'ko', true], [1920, 920, 'ko', true], [2880, 1380, 'en', true]]) {
     let n = 0, heroCut = [], ctaBad = [], footOut = [], notBrowse = 0, over = [];
     let sticky = null;
     for (let stage = 1; stage <= 4; stage++) {
@@ -375,6 +379,43 @@ try {
     const pos = await page.evaluate(() => { const f = document.querySelector('.rl-foot'); return f ? getComputedStyle(f).position : null; });
     ok(pos === 'static', '(짝) 390 에서는 버튼 줄이 sticky 가 아니다', pos);
     ok(errs.length === 0, '390(⑩) JS 오류 0', errs.join(' | '));
+    await ctx.close();
+  }
+
+  // ── ⑫ 큰 PC 화면 ──────────────────────────────────────────────────
+  console.log('▶ ⑫ 큰 PC 화면');
+  const zProbe = (page) => page.evaluate(() => {
+    const W = document.querySelector('.wrap'), z = parseFloat(getComputedStyle(W).zoom) || 1;
+    const px = (sel) => { const e = document.querySelector(sel); return e ? +(parseFloat(getComputedStyle(e).fontSize) * z).toFixed(1) : 0; };
+    return { z, browse: document.documentElement.classList.contains('rl-browse'), title: px('.rl-tt b'), text: px('.rl-text'),
+      hs: document.documentElement.scrollWidth > innerWidth };
+  });
+  for (const [w, h, lang] of [[1920, 920, 'ko'], [2880, 1380, 'en']]) {
+    const { ctx, page, errs } = await openPage({ w, h, lang, seed: { stage: 1, prog: {} } });
+    const tag = `${w}x${h} ${lang}`;
+    const a = await zProbe(page);
+    ok(a.browse && a.z > 1, `${tag} 고르기 화면이 커진다(zoom)`, a.z);
+    ok(a.title >= 17, `${tag} 목록 제목 글자가 실제로 17px 이상`, a.title);
+    ok(!a.hs, `${tag} 가로 스크롤 없음`);
+    // 진짜 마우스로 3번째 글 → «읽기 시작» — zoom 뒤에도 누른 자리가 그 버튼이다
+    const it = await page.locator('.rl-item').nth(2).boundingBox();
+    await page.mouse.click(it.x + it.width / 2, it.y + it.height / 2); await page.waitForTimeout(150);
+    const want = await page.locator('.rl-item').nth(2).getAttribute('data-id');
+    ok(await selId(page) === want, `${tag} 마우스로 누른 글이 골라진다`, await selId(page));
+    const c = await page.locator('.rl-detail .rl-cta').boundingBox();
+    await page.mouse.click(c.x + c.width / 2, c.y + c.height / 2); await page.waitForTimeout(400);
+    const r = await zProbe(page);
+    ok(!r.browse && r.text > 0, `${tag} «읽기 시작» 을 마우스로 누르면 읽기 화면이 열린다`, JSON.stringify(r));
+    ok(r.z > 1 && r.text >= 22, `${tag} 읽기 본문도 커진다(22px 이상)`, `z ${r.z} · ${r.text}px`);
+    ok(!r.hs, `${tag} 읽기 화면 가로 스크롤 없음`);
+    ok(errs.length === 0, `${tag} JS 오류 0`, errs.join(' | '));
+    await ctx.close();
+  }
+  for (const [w, h] of [[1440, 860], [1366, 640]]) {
+    const { ctx, page, errs } = await openPage({ w, h, seed: { stage: 1, prog: {} } });
+    const a = await zProbe(page);
+    ok(a.z === 1, `(짝) ${w}x${h} 노트북 창은 zoom 1 그대로(노트북 맞춤을 안 건드린다)`, a.z);
+    ok(errs.length === 0, `${w}x${h}(⑫) JS 오류 0`, errs.join(' | '));
     await ctx.close();
   }
 
