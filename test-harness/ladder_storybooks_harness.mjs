@@ -149,7 +149,8 @@ for (const id of files) {
   ok(SC && Object.keys(SC).every((k) => Number(k) > 0 && Number(k) < STORY.length), tag + '장면 그림이 문단 사이');
   ok(!!TUNE && TUNE.melody.reduce((a, b) => a + b[1], 0) === TUNE.chords.length * TUNE.beats, tag + '배경음악 멜로디 박자 == 반주 박자');
   if (TUNE) { const k = JSON.stringify([TUNE.chords, TUNE.melody]); ok(!tuneKeys.has(k), tag + `배경음악이 다른 권과 다르다${tuneKeys.has(k) ? ' (' + tuneKeys.get(k) + ' 와 같음)' : ''}`); tuneKeys.set(k, id); }
-  ok(!/Birthday|Biscuit|Grandma Rose|birthday-cake|Party Kitchen|Red Umbrella/.test(html), tag + '틀(2권)·1권 흔적이 없다');
+  // 틀 흔적은 «틀 제목 전체» 로 본다 — 낱말 «Birthday» 하나면 생일 이야기 본문(s1-15·s3-17)에 걸린다(2026-10-19).
+  ok(!/Missing Birthday Cake|Biscuit|Grandma Rose|birthday-cake|Party Kitchen|Red Umbrella/.test(html), tag + '틀(2권)·1권 흔적이 없다');
   ok(map.includes(`href="/story-${id}.html"`), tag + '사이트 구성표에 등록');
   const strip = html.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<style[\s\S]*?<\/style>/g, '');
   const kos = [...strip.matchAll(/data-ko="([^"]*)" data-en="([^"]*)"/g)];

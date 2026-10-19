@@ -218,7 +218,8 @@ export function buildPage(tpl, p, d, no) {
   h = between(h, '        (cw.more ? \'<p>\' + t("한 걸음 더:', '(e.g. because he is smiling)") + \'</p>\' : \'\')',
     `        (cw.more ? '<p>' + t(${J(w.moreKo)},${J(w.moreEn)}) + '</p>' : '')`, 'cw.more');
   h = between(h, '  var TUNE = {"name":"Party Kitchen"', '};', `  var TUNE = ${J(makeTune(p.id, p.stage))};`, 'TUNE');
-  if (/Birthday|Biscuit|Grandma Rose|birthday-cake|Party Kitchen/.test(h)) throw new Error(p.id + ': 2권 흔적이 남음');
+  // 틀 흔적은 «틀 제목 전체» 로 본다 — 낱말 «Birthday» 하나로 보면 생일 이야기(s1-15·s3-17)를 틀 흔적으로 잘못 잡는다(2026-10-19).
+  if (/Missing Birthday Cake|Biscuit|Grandma Rose|birthday-cake|Party Kitchen/.test(h)) throw new Error(p.id + ': 2권 흔적이 남음');
   return h;
 }
 
