@@ -8,7 +8,8 @@
 //   재는 것(화면 크기마다):
 //     ① 가로 넘침 없음(scrollWidth <= innerWidth)
 //     ② 글자 크기가 «바꾸기 전»(BASE_PUB 의 같은 파일)과 같다 — 지시가 «글자 크기는 그대로» 였다
-//     ③ 1200px 이상: 왼쪽(난이도·장면·그림)과 오른쪽(소개·쓰기 칸·첨삭 버튼)이 서로 안 겹친다,
+//     ③ 1200px 이상: 왼쪽(난이도·장면·그림·브레인스토밍)과 오른쪽(소개·쓰기 칸·첨삭 버튼)이 서로 안 겹친다,
+//        📅 (2026-10-19 사장님 지시) 브레인스토밍(#goCard)은 그림 «바로 아래» 라 왼쪽 칸 목록에 함께 둔다(선생님 칸 #wtPanel 은 학생에게 안 보여 빠진다),
 //        오른쪽 칸들이 위→아래 순서로 서로 안 겹친다, 그림 카드도 그 위의 장면 칸과 안 겹친다
 //     ④ 1200px 이상 + 높이 900 이상: 첨삭 버튼·그림 카드가 하단 «말로 쓰기» 바보다 위(스크롤 없이 보임)
 //     ④-b 1200px 이상(높이 무관 — 노트북 포함): 첫 화면에서 첨삭 버튼이 바 위에 보이고 눌린다(낮으면 바 위에 붙음). 큰 화면은 안 붙음.
@@ -63,7 +64,7 @@ async function measure(page) {
     const fonts = {}; for (const s of FONT_SEL) { const e = document.querySelector(s); fonts[s] = e ? getComputedStyle(e).fontSize : null; }
     const pos = {}; for (const s of POS_SEL) pos[s] = box(s);
     const right = ['#awGuide', '.hero', '#missionCard', '#awHelp', '#goMemo', '.draft-label', '#draftHelp', '#text', '#charCount', '#submitBtn'].map((s) => [s, box(s)]).filter((x) => x[1] && x[1].h > 0);
-    const left = ['.aw-how-btn', '#levelRow', '.scene-picker', '#picCard'].map((s) => [s, box(s)]).filter((x) => x[1] && x[1].h > 0);
+    const left = ['.aw-how-btn', '#levelRow', '.scene-picker', '#picCard', '#wtPanel', '#goCard'].map((s) => [s, box(s)]).filter((x) => x[1] && x[1].h > 0);
     const mic = document.getElementById('dictationBar').getBoundingClientRect();
     return { fonts, pos, right, left, micTop: mic.top, inner: innerHeight, innerW: innerWidth, sw: document.documentElement.scrollWidth };
     } finally { sbx.style.position = prevPos; }
