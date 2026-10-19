@@ -76,6 +76,21 @@
     textarea::placeholder { font-size: 17.5px; color: #64748b; }
     textarea:focus { outline: 0; border-color: var(--gold); box-shadow: 0 0 0 4px rgba(251,191,36,0.18); }
     .char-count { text-align: right; font-size: 14px; color: var(--text2); margin-top: 7px; }
+    /* ✍️ v2 보완 (2026-10-19) — 첨삭 결과 안의 «몇 차 첨삭» 줄 · «6하원칙 확인» 상자 */
+    .aw-round { margin: 0 0 12px; padding: 9px 13px; border-radius: 10px; font-size: 14px; font-weight: 800;
+      background: rgba(16,185,129,0.10); border: 1px solid rgba(16,185,129,0.35); color: #d1fae5; }
+    .aw-round .aw-len { display: block; font-size: 13px; font-weight: 700; color: var(--text2); margin-top: 3px; }
+    .aw-wh { margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: rgba(251,191,36,0.07);
+      border: 1px solid rgba(251,191,36,0.30); }
+    .aw-wh-h { font-size: 14.5px; font-weight: 900; color: var(--gold); margin-bottom: 4px; }
+    .aw-wh-sub { font-size: 12.5px; color: var(--text2); margin-bottom: 8px; }
+    .aw-wh-row { font-size: 13.5px; color: var(--text); line-height: 1.55; padding: 5px 0;
+      border-top: 1px dashed rgba(148,163,184,0.22); }
+    .aw-wh-row b { color: #fde68a; }
+    .aw-wh-row.miss { color: #fcd34d; }
+    .aw-wh-note { font-size: 11.5px; color: var(--text2); margin-top: 6px; }
+    .aw-result-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; padding-top: 14px;
+      border-top: 1px solid rgba(148,163,184,0.18); }
     .submit-btn { display: block; width: 100%; padding: 24px; margin: 16px 0;
       background: linear-gradient(135deg, #10b981, #059669); color: #fff;
       border: 0; border-radius: 18px; font-size: 22px; font-weight: 900; cursor: pointer;
@@ -994,12 +1009,200 @@
     ];
     /* 🎲 (2026-10-19) «오늘의 글감» 칩 줄(shuffleTopics · #topicRow)은 지웠다 — 글감은 위 «🎬 장면·글감 선택» 목록 하나에서 고른다(awBuildPicker).
        TOPICS 목록은 그대로 두고 그 목록의 «🎲 오늘의 글감» 묶음으로 쓴다. */
-    function updateCharCount() {
-      const n = (document.getElementById('text').value || '').length;
-      const el = document.getElementById('charCount');
-      el.textContent = n + ' / 2000';
-      el.style.color = n > 2000 ? 'var(--red)' : 'var(--text2)';
+    /* ═══ ✍️ v2 보완 (2026-10-19) — 단어 수 목표 · 초안 자동 저장 · 6하원칙 확인 · 고쳐서 다시 첨삭 ═══
+       ① 단어 수 목표 — 글자 수(/2000) 대신 «영어 단어 몇 개 · 단계별 목표» 를 보여 준다. 글자 수는 1800자를 넘을 때만.
+          ⚠️ 목표는 «권장» 이다 — 넘거나 모자라도 첨삭은 그대로 받는다(막지 않는다).
+       ② 초안 자동 저장 — 쓰는 글을 이 기기에 0.6초마다 남겨, 새로고침·전화·앱 전환 뒤에도 되살린다.
+          ⛔ 다른 계정(공용 PC)의 글은 안 되살린다 · 하루가 지난 글도 안 되살린다(브레인스토밍 메모와 같은 규칙).
+          ⛔ 처음 화면을 그릴 때는 저장하지 않는다 — 그러면 되살리지 않은 남의 초안을 «빈 칸» 으로 덮어 지운다.
+       ③ 6하원칙 확인 — 첨삭 결과 아래에 «브레인스토밍 메모가 글에 들어갔는지» 를 낱말 비교로 보여 준다.
+          ⛔ AI 판정이 아니다 — 같은 낱말이 있는지만 본다. 한글 메모는 비교할 수 없으니 «스스로 확인» 이라고 말한다(지어내지 않는다).
+       ④ 고쳐서 다시 첨삭 — 같은 글을 고쳐 다시 받으면 «2차 첨삭 · 지난번 72점 → 이번 85점» 을 보여 준다.
+          «같은 글» = 지난 글의 낱말 40% 이상이 이번 글에도 있음. 완전히 같은 글이면 다시 받기 전에 한 번 묻는다. */
+    const AW_WORD_GOAL = { A1: [20, 40], A2: [40, 80], B1: [80, 150], B2: [120, 200] };
+    const AW_DRAFT_KEY = 'mangoi_aiwrite_draft_v1';
+    const AW_DAY_MS = 86400000;
+    /* 목표 줄 색 — 이 줄은 페이지 그라데이션 «위» 에 바로 있다. 2026-10-19 픽셀 실측(그 자리 가장 밝은 배경 rgb(26,47,107)):
+       기본 #a3b3d1 5.97 · 초록 #10b981 4.98(아슬) → #34d399 6.57 · 빨강 #ef4444 3.36(미달) → #fca5a5 6.65. */
+    const AW_OK_COLOR = '#34d399', AW_OVER_COLOR = '#fca5a5';
+    const AW_STOP = new Set(('the and but for with from that this these those there here then than very too also just really '
+      + 'were are is am been be being have has had did does do can could will would not yes all some any about into over '
+      + 'you your his her him she they them their our its it\'s i\'m was first because felt feel feeling happened happen '
+      + 'see saw can\'t don\'t didn\'t what when where who why how one two').split(' '));
+    function awLangEn() { try { return !!(window.getLang && window.getLang() === 'en'); } catch (e) { return false; } }
+    function awTr(ko, en) { return awLangEn() ? en : ko; }
+    // 영어 단어만 센다(한글·숫자 기호는 «단어» 로 안 센다 — 첨삭은 영어 글을 본다)
+    function awWords(s) { return String(s || '').toLowerCase().match(/[a-z]+(?:['’-][a-z]+)*/g) || []; }
+    function awWordCount(s) { return awWords(s).length; }
+    function awGoal(lv) { return AW_WORD_GOAL[lv] || AW_WORD_GOAL.A1; }
+    // 지금 단계 — currentLevel 은 아래(단계 버튼)에서 let 으로 선언된다. 그보다 먼저 불리면(TDZ) 1단계로 본다.
+    function awLevel() { try { return currentLevel; } catch (e) { return 'A1'; } }
+    // 글자 수 줄 — «N단어 · 목표 lo~hi». 한 줄로 유지한다(PC 2단 높이 맞춤이 이 줄의 아래 끝을 잰다).
+    function awCountLine(text, lv) {
+      const n = awWordCount(text), len = String(text || '').length, g = awGoal(lv);
+      let ko, en, color = 'var(--text2)';
+      if (n >= g[0] && n <= g[1]) { ko = `✅ ${n}단어 · 목표 달성 (${g[0]}~${g[1]}단어)`; en = `✅ ${n} words · goal reached (${g[0]}–${g[1]})`; color = AW_OK_COLOR; }
+      else if (n > g[1]) { ko = `👍 ${n}단어 · 목표(${g[0]}~${g[1]}단어)보다 길어요`; en = `👍 ${n} words · longer than the goal (${g[0]}–${g[1]})`; color = AW_OK_COLOR; }
+      else if (n > 0) { ko = `✏️ ${n}단어 · 목표 ${g[0]}~${g[1]}단어 (${g[0] - n}단어 더!)`; en = `✏️ ${n} words · goal ${g[0]}–${g[1]} (${g[0] - n} more!)`; }
+      else { ko = `✏️ 0단어 · 목표 ${g[0]}~${g[1]}단어`; en = `✏️ 0 words · goal ${g[0]}–${g[1]}`; }
+      if (len > 1800) { ko += ` · ${len}/2000자`; en += ` · ${len}/2000 chars`; if (len > 2000) color = AW_OVER_COLOR; }
+      return { text: awTr(ko, en), color };
     }
+    // 화면만 다시 그린다(저장 안 함) — 단계·언어를 바꿨을 때, 처음 열 때
+    function awRenderCount() {
+      const el = document.getElementById('charCount'), ta = document.getElementById('text');
+      if (!el || !ta) return;
+      const c = awCountLine(ta.value, awLevel());
+      el.textContent = c.text;
+      el.style.color = c.color;
+    }
+    // 글이 바뀌면 부른다(입력·말로 쓰기·뼈대 넣기·리셋 등 #text 를 바꾸는 모든 곳이 이것을 부른다)
+    function updateCharCount() {
+      awRenderCount();
+      awDraftSaveSoon();
+    }
+
+    // ② 초안 자동 저장 ───────────────────────────────────────────
+    let _awDraftTimer = 0;
+    function awDraftSaveSoon() { clearTimeout(_awDraftTimer); _awDraftTimer = setTimeout(awDraftSave, 600); }
+    function awDraftSave() {
+      clearTimeout(_awDraftTimer);
+      try {
+        const t = (document.getElementById('text') || {}).value || '';
+        const uid = getUid();
+        if (!t.trim()) {
+          // 빈 칸이면 «내» 초안만 지운다(공용 PC 에서 남의 초안을 지우지 않는다)
+          const old = JSON.parse(localStorage.getItem(AW_DRAFT_KEY) || 'null');
+          if (old && old.u === uid) localStorage.removeItem(AW_DRAFT_KEY);
+          return;
+        }
+        localStorage.setItem(AW_DRAFT_KEY, JSON.stringify({ u: uid, t: t.slice(0, 4000), ts: Date.now() }));
+      } catch (e) {}
+    }
+    function awDraftForget() {
+      clearTimeout(_awDraftTimer);
+      try {
+        const old = JSON.parse(localStorage.getItem(AW_DRAFT_KEY) || 'null');
+        if (!old || old.u === getUid()) localStorage.removeItem(AW_DRAFT_KEY);
+      } catch (e) {}
+    }
+    // 처음 열 때 한 번 — 칸이 비어 있고, 같은 계정이고, 하루 안에 쓴 글일 때만 되살린다. 되살렸으면 true.
+    function awDraftRestore() {
+      try {
+        const ta = document.getElementById('text');
+        if (!ta || ta.value.trim()) return false;
+        const d = JSON.parse(localStorage.getItem(AW_DRAFT_KEY) || 'null');
+        if (!d || typeof d.t !== 'string' || !d.t.trim() || !d.ts) return false;
+        if (d.u !== getUid()) return false;
+        if (Date.now() - d.ts > AW_DAY_MS) { localStorage.removeItem(AW_DRAFT_KEY); return false; }
+        ta.value = d.t;
+        const hm = new Date(d.ts).toTimeString().slice(0, 5);
+        showToast(awTr(`💾 ${hm}에 쓰던 글을 되살렸어요. 새로 쓰려면 «🔄 새로» 를 누르세요.`,
+                       `💾 Restored your writing from ${hm}. Press «🔄 Reset» to start over.`));
+        return true;
+      } catch (e) { return false; }
+    }
+    // 앱 전환·탭 닫기 직전에는 기다리지 않고 바로 남긴다(0.6초 안에 친 글이 사라지지 않게)
+    window.addEventListener('pagehide', () => { if (_awDraftTimer) awDraftSave(); });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && _awDraftTimer) awDraftSave(); });
+
+    // ③ 6하원칙 확인 ─────────────────────────────────────────────
+    // 낱말 끝(-s · -es · -ed · -ing · -ly)을 떼고 견준다 — «park / parks», «play / played / playing» 을 같은 말로.
+    function awStem(w) { const s = w.replace(/(ing|ed|es|s|ly)$/, ''); return s.length >= 3 ? s : w; }
+    function awContentWords(s) {
+      const out = [];
+      awWords(s).forEach(w => { if (w.length >= 3 && !AW_STOP.has(w) && out.indexOf(w) < 0) out.push(w); });
+      return out;
+    }
+    // 제출할 때 찍어 둔 {질문들 · 메모 · 글} 로 «메모가 글에 들어갔는가» 를 줄마다 판정한다(순수 함수 — 하니스가 직접 돌린다).
+    function awWhCheck(qs, answers, text) {
+      const have = new Set(awWords(text).map(awStem));
+      const rows = [], empty = [];
+      (qs || []).forEach(q => {
+        const a = String((answers || {})[q.k] || '').trim();
+        const lbKo = String(q.ko || '').split(' — ')[0], lbEn = String(q.en || q.ko || '').split(' — ')[0];
+        if (!a) { empty.push({ ko: lbKo, en: lbEn }); return; }
+        if (!goIsEn(a)) { rows.push({ q, a, kind: 'ko', lbKo, lbEn }); return; }
+        const cw = awContentWords(a);
+        if (!cw.length) { rows.push({ q, a, kind: 'self', lbKo, lbEn }); return; }
+        const miss = cw.filter(w => !have.has(awStem(w)));
+        rows.push({ q, a, kind: miss.length < cw.length ? 'ok' : 'miss', miss, lbKo, lbEn });
+      });
+      return { rows, empty, ok: rows.filter(r => r.kind === 'ok').length, checkable: rows.filter(r => r.kind === 'ok' || r.kind === 'miss').length };
+    }
+    function awWhCheckHtml(snap) {
+      if (!snap) return '';
+      const r = awWhCheck(snap.qs, snap.answers, snap.text);
+      if (!r.rows.length) return '';      // 브레인스토밍을 안 썼으면 상자를 안 그린다(선택 기능)
+      const sp = (ko, en) => `<span data-ko="${escapeHtml(ko)}" data-en="${escapeHtml(en)}">${escapeHtml(awTr(ko, en))}</span>`;
+      const rowHtml = x => {
+        const qa = `«${x.a.length > 60 ? x.a.slice(0, 60) + '…' : x.a}»`;
+        if (x.kind === 'ok') return `<div class="aw-wh-row">✅ <b>${escapeHtml(awTr(x.lbKo, x.lbEn))}</b> ${sp('메모 ' + qa + ' 가 글에 들어갔어요.', 'Your note ' + qa + ' is in your writing.')}</div>`;
+        if (x.kind === 'miss') return `<div class="aw-wh-row miss">🔸 <b>${escapeHtml(awTr(x.lbKo, x.lbEn))}</b> ${sp('메모의 «' + x.miss.slice(0, 3).join(', ') + '» 가 글에 안 보여요 — 다른 말로 썼다면 괜찮아요.', '«' + x.miss.slice(0, 3).join(', ') + '» from your note is not in your writing — fine if you said it another way.')}</div>`;
+        if (x.kind === 'ko') return `<div class="aw-wh-row">📝 <b>${escapeHtml(awTr(x.lbKo, x.lbEn))}</b> ${sp('한글 메모 ' + qa + ' — 영어로 글에 넣었는지 스스로 확인해 보세요.', 'Korean note ' + qa + ' — check yourself that you wrote it in English.')}</div>`;
+        return `<div class="aw-wh-row">📝 <b>${escapeHtml(awTr(x.lbKo, x.lbEn))}</b> ${sp('메모 ' + qa + ' — 글에 들어갔는지 스스로 확인해 보세요.', 'Note ' + qa + ' — check yourself that it is in your writing.')}</div>`;
+      };
+      const sub = r.checkable
+        ? sp(`영어 메모 ${r.checkable}개 중 ${r.ok}개가 글에 보여요.`, `${r.ok} of ${r.checkable} English notes appear in your writing.`)
+        : sp('한글 메모는 직접 비교할 수 없어요 — 아래를 보며 스스로 확인해요.', 'Korean notes cannot be compared — check them yourself below.');
+      const empty = r.empty.length
+        ? `<div class="aw-wh-row">➕ ${sp('메모를 안 쓴 질문: ' + r.empty.map(e => e.ko).join(' · ') + ' — 다음 글에서 써 봐도 좋아요(선택).',
+                                          'Questions without notes: ' + r.empty.map(e => e.en).join(' · ') + ' — try them next time (optional).')}</div>` : '';
+      return `<div class="aw-wh" id="awWhCheck">
+          <div class="aw-wh-h">🧭 ${sp('6하원칙 확인 — 내 브레인스토밍 메모 ↔ 내 글', '5W1H check — my brainstorming notes ↔ my writing')}</div>
+          <div class="aw-wh-sub">${sub}</div>
+          ${r.rows.map(rowHtml).join('')}${empty}
+          <div class="aw-wh-note">${sp('※ 같은 낱말이 있는지만 비교했어요 (AI 판정 아님).', '※ Only checks for the same words (not an AI judgement).')}</div>
+        </div>`;
+    }
+
+    // ④ 고쳐서 다시 첨삭 ─────────────────────────────────────────
+    let _awPrev = null;        // 바로 앞 첨삭 { text, score, round }
+    let _awRoundNow = null;    // 이번 결과의 { round, prevScore, score, words, level }
+    let _awSubmitSnap = null;  // 제출할 때 찍은 { qs, answers, text, level } — 6하원칙 확인에 쓴다
+    const awNorm = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    // 지난 글의 낱말 40% 이상이 이번 글에도 있으면 «같은 글을 고친 것» 으로 본다(지난 글이 3낱말 미만이면 판단 안 함).
+    function awSameWriting(now, prev) {
+      const A = new Set(awWords(now)), B = new Set(awWords(prev));
+      if (B.size < 3) return false;
+      let hit = 0; B.forEach(w => { if (A.has(w)) hit++; });
+      return hit / B.size >= 0.4;
+    }
+    function awNoteRound(text, score, level) {
+      const same = !!_awPrev && awSameWriting(text, _awPrev.text);
+      const round = same ? _awPrev.round + 1 : 1;
+      _awRoundNow = { round, prevScore: same ? _awPrev.score : null, score, words: awWordCount(text), level };
+      _awPrev = { text, score, round };
+      return _awRoundNow;
+    }
+    function awRoundHtml(info) {
+      if (!info) return '';
+      const sp = (ko, en) => `<span data-ko="${escapeHtml(ko)}" data-en="${escapeHtml(en)}">${escapeHtml(awTr(ko, en))}</span>`;
+      const g = awGoal(info.level), w = info.words;
+      const lenKo = w < g[0] ? `📏 이번 글 ${w}단어 · 목표 ${g[0]}~${g[1]}단어 (${g[0] - w}단어 더 쓰면 좋아요)` : `📏 이번 글 ${w}단어 · 목표 ${g[0]}~${g[1]}단어 ✅`;
+      const lenEn = w < g[0] ? `📏 ${w} words this time · goal ${g[0]}–${g[1]} (try ${g[0] - w} more)` : `📏 ${w} words this time · goal ${g[0]}–${g[1]} ✅`;
+      let head = '';
+      if (info.round >= 2 && info.prevScore != null) {
+        const dlt = info.score - info.prevScore;
+        const sKo = dlt > 0 ? `(+${dlt}) 🎉` : dlt < 0 ? `(${dlt}) · 점수는 글 길이·문장에 따라 달라져요` : '(같음)';
+        const sEn = dlt > 0 ? `(+${dlt}) 🎉` : dlt < 0 ? `(${dlt}) · scores change with length and sentences` : '(same)';
+        head = sp(`🔁 ${info.round}차 첨삭 · 지난번 ${info.prevScore}점 → 이번 ${info.score}점 ${sKo}`,
+                  `🔁 Round ${info.round} · last ${info.prevScore} → now ${info.score} ${sEn}`);
+      } else {
+        head = sp('✍️ 1차 첨삭 — 아래를 보고 고쳐서 다시 받으면 점수 변화를 보여 드려요', '✍️ Round 1 — fix your writing and submit again to see your progress');
+      }
+      return `<div class="aw-round" id="awRound">${head}<span class="aw-len">${sp(lenKo, lenEn)}</span></div>`;
+    }
+    // «✏️ 고쳐서 다시 첨삭» — 결과는 그대로 두고 쓰기 칸으로 돌아간다
+    window.awReviseAgain = function () {
+      const ta = document.getElementById('text');
+      if (!ta) return;
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+      ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showToast(awTr('✏️ 아래 첨삭을 보며 내 글을 고친 뒤 «AI 첨삭 받기» 를 다시 누르세요.',
+                     '✏️ Fix your writing using the feedback, then press «Get AI Correction» again.'));
+    };
 
     // ═══ 📚 오늘의 미션 단어 — 교재/레벨 맞춤(/api/games/vocab), 없으면 레벨별 내장 폴백 ═══
     const FALLBACK_MISSION = {
@@ -1540,6 +1743,7 @@
         btn.classList.add('active');
         currentLevel = btn.dataset.level;
         try { localStorage.setItem('mangoi_aiwrite_level', currentLevel); } catch (e) {}
+        awRenderCount();      // 📏 단계마다 단어 수 목표가 다르다
         if (window.refreshSentenceCoach) window.refreshSentenceCoach();
       };
     });
@@ -1666,6 +1870,12 @@
       const text = (textEl.value || '').trim();
       if (text.length < 3) { alert('3글자 이상 입력하세요.'); return; }
       if (text.length > 2000) { alert('2000자 이내로 입력하세요.'); return; }
+      // 🔁 방금 첨삭받은 글과 «똑같으면» 한 번 묻는다 — 고치지 않고 다시 받으면 같은 첨삭이 온다
+      if (_awPrev && awNorm(text) === awNorm(_awPrev.text) &&
+          !confirm(awTr('지난번 첨삭과 똑같은 글이에요. 첨삭을 보고 고친 뒤 받으면 점수 변화를 볼 수 있어요.\n그래도 다시 받을까요?',
+                        'This is the same text as last time. Fix it using the feedback to see your progress.\nSubmit again anyway?'))) return;
+      awDraftSave();                         // 💾 보내기 전에 지금 글을 바로 남긴다(실패해도 글은 남게)
+      _awSubmitSnap = { qs: goQuestions(), answers: Object.assign({}, _goAnswers), text, level: currentLevel };
       const btn = document.getElementById('submitBtn');
       _lastDraft = text;                     // 📄 한 장 출력의 «내 초안» — 교정 전 원문
       btn.disabled = true; btn.innerHTML = '⏳ AI 분석 중… (5~15초)';
@@ -1687,6 +1897,7 @@
           return;
         }
         if (d && d.ok) {
+          awNoteRound(text, Number(d.score) || 0, currentLevel);   // 🔁 몇 차 첨삭인지 · 지난 점수
           renderResult(d);
           await loadHistory();
         } else {
@@ -1739,6 +1950,7 @@
               <div style="font-size:14px;font-weight:800;color:${color}">${sc>=85?'훌륭해요! 🎉':sc>=70?'좋아요 💪':'더 연습해보세요 🌱'}</div>
             </div>
           </div>
+          ${awRoundHtml(_awRoundNow)}
           ${replyHtml}
           <div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">✅ 수정된 문장</div>
           <div class="corrected">${escapeHtml(d.corrected)}</div>
@@ -1758,12 +1970,15 @@
             </div>
           </details>
           <div class="tip">💬 ${escapeHtml(d.tip || '')}</div>
-          <div style="display:flex;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid rgba(148,163,184,0.18)">
-            <button onclick="resetForm()" style="flex:1;padding:12px;background:linear-gradient(135deg,var(--gold),#f59e0b);color:#1a1a1a;border:0;border-radius:10px;font-weight:800;cursor:pointer;font-size:14px;font-family:inherit">🔄 <span data-ko="새 글 작성하기" data-en="Write New">새 글 작성하기</span></button>
+          ${awWhCheckHtml(_awSubmitSnap)}
+          <div class="aw-result-acts">
+            <button onclick="awReviseAgain()" id="awReviseBtn" style="flex:1 1 220px;padding:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:10px;font-weight:800;cursor:pointer;font-size:14px;font-family:inherit">✏️ <span data-ko="내 글 고쳐서 다시 첨삭" data-en="Fix my writing & resubmit">내 글 고쳐서 다시 첨삭</span></button>
+            <button onclick="resetForm()" style="flex:1 1 160px;padding:12px;background:linear-gradient(135deg,var(--gold),#f59e0b);color:#1a1a1a;border:0;border-radius:10px;font-weight:800;cursor:pointer;font-size:14px;font-family:inherit">🔄 <span data-ko="새 글 작성하기" data-en="Write New">새 글 작성하기</span></button>
             <button onclick="openSheet()" style="padding:12px 18px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:10px;font-weight:800;cursor:pointer;font-size:13px;font-family:inherit">🖨 <span data-ko="한 장으로 출력 (초안·첨삭·완성본)" data-en="Print one page (draft·feedback·final)">한 장으로 출력 (초안·첨삭·완성본)</span></button>
             <button onclick="document.getElementById('histList').scrollIntoView({behavior:'smooth'})" style="padding:12px 18px;background:rgba(255,255,255,0.08);color:var(--text);border:1px solid rgba(255,255,255,0.18);border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;font-family:inherit">📜 <span data-ko="기록 보기" data-en="History">기록 보기</span></button>
           </div>
         </div>`;
+      try { window.applyI18n && window.applyI18n(document.getElementById('resultBox')); } catch(e){}
       // ✏️ 고쳐쓰기 미션 대상 문장 기억 + 📄 한 장 출력용 결과 보관
       _lastCorrected = rwTarget;
       _lastResult = d;
@@ -1900,7 +2115,9 @@
     window.resetForm = function(){
       stopDictation();
       document.getElementById('text').value = '';
-      updateCharCount();
+      awDraftForget();                       // 💾 새 글 — 저장해 둔 초안도 지운다
+      awRenderCount();
+      _awPrev = null; _awRoundNow = null; _awSubmitSnap = null;   // 🔁 새 글은 다시 1차부터
       document.getElementById('resultBox').style.display = 'none';
       document.getElementById('resultBox').innerHTML = '';
       document.getElementById('text').focus();
@@ -2759,12 +2976,13 @@
       }
     }
     ['mangoi:lang-changed'].forEach(ev => {
-      window.addEventListener(ev, () => { awBuildPicker(); renderGoThemes(); if (_wtCan) wtRenderPanel(); });
+      window.addEventListener(ev, () => { awBuildPicker(); renderGoThemes(); if (_wtCan) wtRenderPanel(); awRenderCount(); });
+      document.addEventListener(ev, () => awRenderCount());
     });
     /* 🌐 이 스크립트는 공용 i18n 엔진(mango-i18n.js, defer)보다 «먼저» 돈다 — 그때는 getLang 이 없어 늘 한국어로 그린다.
        data-ko/data-en 으로 못 고치는 글자(목록 «묶음 이름»·지금 주제 줄·선생님 칸)는 엔진이 실린 뒤 한 번 다시 그린다
        (2026-10-19 브라우저 실측: 영어로 저장된 학생이 처음 열면 묶음 이름만 한국어였다 — 🌐 를 눌러야 고쳐졌다). */
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { try { awBuildPicker(); renderGoThemes(); if (_wtCan) wtRenderPanel(); } catch (e) {} }, { once: true });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { try { awBuildPicker(); renderGoThemes(); if (_wtCan) wtRenderPanel(); awRenderCount(); } catch (e) {} }, { once: true });
     /* ⏭ 예전 동작 보존 — 질문 없이 «시작 문장 한 줄» 만 넣고 바로 쓰기.
        그림·글감 칩이 원래 하던 일이 이것이라, 없애지 않고 여기로 옮겨 두었다. */
     window.goSkipToWrite = function() {
@@ -2877,6 +3095,8 @@
     renderGoMemo();
     if (window.refreshSentenceCoach) window.refreshSentenceCoach();
     flowMark(0);
+    if (awDraftRestore()) flowMark(2);   // 💾 쓰던 글이 있으면 되살린다(같은 계정 · 하루 안)
+    awRenderCount();                       // 📏 단어 수 목표 줄 — 처음 그릴 때는 저장하지 않는다
     wtLoad();
 
     loadHistory();

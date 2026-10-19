@@ -302,6 +302,28 @@ html.rl-browse .foot{flex:none;margin:8px 0 0;font-size:12px}
 .rl-end.big p{font-weight:600;font-size:15px}
 .rl-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .rl-btn:focus-visible,.rl-opt:focus-visible,.rl-s:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+/* 🖥 큰 PC 화면은 통째로 키운다(2026-10-19 사장님 «글자가 너무 작아서 보기 힘들어 · PC 화면에 맞게 크게»).
+   글자·버튼·칸을 같은 비율로 키워야 위의 배치가 안 깨지므로 .wrap 에 zoom 을 건다 — 동화책 4편(story-*.html)과 같은 방식.
+   ① 읽기·반복 연습(아래로 스크롤): 폭만 본다 — 980px 칸 × zoom 이 화면 폭의 80% 안.
+   ② 고르기 화면(html.rl-browse · 한 장 고정): 폭과 «높이» 를 함께 본다 — zoom 뒤 남는 칸이 1260×700 보다 작으면
+      목록이 안쪽 스크롤되고(2026-10-19 실측: 높이 640 에서 12편이 35px 넘침) 영어 머리줄이 두 줄로 접히므로, 둘 다 맞는 가장 큰 단계를 쓴다.
+   ⚠️ 1600px 아래(노트북 1366×640 · 1440×860 · 1280×600)는 어느 단계에도 안 걸린다 — 위의 노트북 맞춤을 그대로 둔다.
+   ⚠️ 미디어쿼리는 «실제 창» 을 보므로 남는 칸이 위의 경계(1180·720)보다 커야 위 규칙들과 말이 맞는다 — 그래서 1260×700. */
+@media (min-width:1400px){html:not(.rl-browse) .wrap{zoom:1.1}}
+@media (min-width:1600px){html:not(.rl-browse) .wrap{zoom:1.2}}
+@media (min-width:1900px){html:not(.rl-browse) .wrap{zoom:1.3}}
+@media (min-width:2300px){html:not(.rl-browse) .wrap{zoom:1.6}}
+@media (min-width:2800px){html:not(.rl-browse) .wrap{zoom:1.9}}
+@media (min-width:3400px){html:not(.rl-browse) .wrap{zoom:2.3}}
+@media (min-width:1600px) and (min-height:840px){html.rl-browse .wrap{zoom:1.2}}
+@media (min-width:1640px) and (min-height:910px){html.rl-browse .wrap{zoom:1.3}}
+@media (min-width:1765px) and (min-height:980px){html.rl-browse .wrap{zoom:1.4}}
+@media (min-width:1890px) and (min-height:1050px){html.rl-browse .wrap{zoom:1.5}}
+@media (min-width:2080px) and (min-height:1155px){html.rl-browse .wrap{zoom:1.65}}
+@media (min-width:2270px) and (min-height:1260px){html.rl-browse .wrap{zoom:1.8}}
+@media (min-width:2520px) and (min-height:1400px){html.rl-browse .wrap{zoom:2}}
+@media (min-width:2835px) and (min-height:1575px){html.rl-browse .wrap{zoom:2.25}}
+@media (min-width:3150px) and (min-height:1750px){html.rl-browse .wrap{zoom:2.5}}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 </style>
 </head>

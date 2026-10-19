@@ -362,5 +362,34 @@ if (C && P.length) {
   ok(e.errors.length === 0 && e2.errors.length === 0 && e3.errors.length === 0, '모든 조작에서 오류가 없었다' + ([].concat(e.errors, e2.errors, e3.errors)[0] ? ' — ' + [].concat(e.errors, e2.errors, e3.errors)[0] : ''));
 }
 
+console.log('\n⑤ 큰 PC 화면 zoom 단계(2026-10-19 「글자가 너무 작아」)');
+{
+  const okd = (c, m, d) => ok(c, c || !d ? m : m + ' — ' + d);
+  // 단계를 CSS 에서 읽어 «실제 창 × 그 단계» 를 칸 크기로 바꿔 본다 — 숫자를 하니스에 베끼지 않는다.
+  const css = HTML.replace(/\/\*[\s\S]*?\*\//g, '');
+  const tiers = (re) => [...css.matchAll(re)].map((m) => ({ w: +m[1], h: m[2] ? +m[2] : 0, z: +m[3] }));
+  const B = tiers(/@media \(min-width:(\d+)px\) and \(min-height:(\d+)px\)\{html\.rl-browse \.wrap\{zoom:([\d.]+)\}\}/g);
+  const R = tiers(/@media \(min-width:(\d+)px\)()\{html:not\(\.rl-browse\) \.wrap\{zoom:([\d.]+)\}\}/g);
+  okd(B.length >= 3 && R.length >= 3, `전제: 고르기 ${B.length}단계 · 읽기 ${R.length}단계를 읽었다`);
+  const zoomSel = [...css.matchAll(/([^{}]*)\{[^{}]*\bzoom:/g)].map((m) => m[1].trim());
+  okd(zoomSel.length === B.length + R.length && zoomSel.every((s) => s === 'html.rl-browse .wrap' || s === 'html:not(.rl-browse) .wrap'),
+    'zoom 은 위 두 갈래에만 있다(읽기 단계가 한 장 고정 화면에 새면 높이를 안 봐 목록이 넘친다)', zoomSel.filter((s) => s !== 'html.rl-browse .wrap' && s !== 'html:not(.rl-browse) .wrap').join(' | '));
+  okd(B.every((t) => t.w >= 1600) && R.every((t) => t.w >= 1400), '노트북(1366·1440 폭)에는 안 걸린다 — 노트북 맞춤을 그대로 둔다');
+  // 같은 특이도라 «뒤에 적힌 것» 이 이긴다 — 실제 창마다 이기는 단계를 골라 남는 칸을 잰다
+  const eff = (list, W, H) => { let z = 1; for (const t of list) if (W >= t.w && H >= t.h) z = t.z; return z; };
+  let badB = [], badR = [], lessB = 0;
+  for (let W = 1200; W <= 4000; W += 20) for (let H = 560; H <= 2400; H += 20) {
+    const z = eff(B, W, H);
+    if (z > 1 && (W / z < 1260 || H / z < 700)) badB.push(`${W}x${H} z${z}`);
+    const best = Math.max(1, ...B.filter((t) => W >= t.w && H >= t.h).map((t) => t.z));
+    if (z < best) lessB++;
+  }
+  for (let W = 1200; W <= 4000; W += 20) { const z = eff(R, W, 0); if (z > 1 && 980 * z > W * 0.8) badR.push(`${W} z${z}`); }
+  okd(badB.length === 0, '고르기 화면: 어느 창에서든 zoom 뒤 남는 칸이 1260×700 이상(48편이 안쪽 스크롤 없이 들어가는 크기 — 2026-10-19 실측)', badB.slice(0, 3).join(' | '));
+  okd(lessB === 0, '고르기 화면: 단계가 작은 것부터 적혀 «맞는 것 중 가장 큰 단계» 가 이긴다', lessB);
+  okd(badR.length === 0, '읽기 화면: 980px 칸 × zoom 이 창 폭의 80% 안이다(양옆 여백이 남고 가로 스크롤이 없다)', badR.slice(0, 3).join(' | '));
+  okd(eff(B, 1920, 920) >= 1.25 && eff(B, 1366, 640) === 1 && eff(B, 1440, 860) === 1, '(짝) 1920×920 창은 커지고 · 노트북 창은 그대로', [eff(B, 1920, 920), eff(B, 1366, 640), eff(B, 1440, 860)].join(','));
+}
+
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);
 if (FAIL) process.exit(1);
