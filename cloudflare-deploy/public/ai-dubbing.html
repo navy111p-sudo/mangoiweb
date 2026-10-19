@@ -38,6 +38,14 @@
   .notice b{color:var(--gold)}
   .notice.err{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.5)}
   .notice.err b{color:var(--red)}
+  .now{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:16px;background:linear-gradient(135deg,#1f2a3f,#2a2238);
+    border:1px solid rgba(245,184,61,.6);color:var(--text);text-decoration:none}
+  .now:hover{border-color:var(--gold)}
+  .now-ic{font-size:30px;flex:none}
+  .now-tx{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+  .now-tx b{font-size:16px;color:var(--gold)}
+  .now-sub{font-size:13.5px;color:var(--text2)}
+  .now-go{font-size:28px;color:var(--gold);flex:none}
   h2{margin:0;font-size:18px;font-weight:800}
   .hint{margin:4px 0 0;font-size:13px;color:var(--text2)}
   .panel{padding:14px;border-radius:16px;background:var(--card);border:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
@@ -141,6 +149,15 @@
     </div>
     <div id="dub-cast"></div>
   </section>
+
+  <!-- 🎬 (2026-10-19 사장님 「이거 … A.i 더빙동영상에 넣어줘」) 지금 바로 해 볼 수 있는 더빙 10편.
+       6장면 영화(dub-001)가 열리기 전에도 이 메뉴에서 더빙을 해 볼 수 있게 별도 화면으로 잇는다 — 이 화면의 마크업은 그대로 둔다. -->
+  <a class="now" href="/ai-dubbing-studio.html">
+    <span class="now-ic" aria-hidden="true">🎬</span>
+    <span class="now-tx"><b data-ko="지금 바로 해 보기 · 키키와 토토 더빙 10편" data-en="Try it now · Kiki &amp; Toto, 10 dubbing episodes">지금 바로 해 보기 · 키키와 토토 더빙 10편</b>
+    <span class="now-sub" data-ko="상대 대사는 들리고 내 차례엔 소리가 꺼져요. 내 목소리로 녹음해 더빙 영상까지 만들어요." data-en="Hear the other parts, then speak your lines when the sound goes quiet. Record your voice and make your own dub video.">상대 대사는 들리고 내 차례엔 소리가 꺼져요. 내 목소리로 녹음해 더빙 영상까지 만들어요.</span></span>
+    <span class="now-go" aria-hidden="true">›</span>
+  </a>
 
   <section aria-label="이야기 6장면">
     <h2 style="margin-bottom:10px"><span data-ko="2. 장면 고르기" data-en="2. Pick a scene">2. 장면 고르기</span></h2>

@@ -209,7 +209,9 @@ export function buildPage(tpl, p, d, no) {
     '  var ENDS = [\n' + d.ends.map((x) => '    ' + J(x)).join(',\n') + '\n  ];';
   h = between(h, '  var STORY = [', "    [\"B\",\"Biscuit runs away with Grandma's new birthday hat.\",\"Biscuit 이 할머니의 새 생일 모자를 물고 도망가요.\",\"The Hat Thief\"]\n  ];", data, 'data block');
   const scenes = {};
-  Object.keys(d.img.scenes).forEach((pi) => { scenes[pi] = [`img/story/${p.id}-s${pi}.webp`, esc(d.alt[pi])]; });
+  // 그림을 같은 이름으로 갈아 끼우면 브라우저가 옛 그림을 7일 들고 있다(미디어 Cache-Control) — 데이터의 img.ver[장면] 으로 ?v= 를 붙인다(2026-10-19 s4-37).
+  const ver = d.img.ver || {};
+  Object.keys(d.img.scenes).forEach((pi) => { scenes[pi] = [`img/story/${p.id}-s${pi}.webp` + (ver[pi] ? `?v=${ver[pi]}` : ''), esc(d.alt[pi])]; });
   h = between(h, '  var SCENES = {"4":["img/story/birthday-cake-s4.webp"', ']};', `  var SCENES = ${J(scenes)};`, 'SCENES');
   h = once(h, "이야기의 «문제» 와 «해결» 을 말하는 문장을 찾아 바꿔 고른 뒤", `${what[0]}의 «${rP.ko}» 와 «${rS.ko}» 을 말하는 문장을 찾아 바꿔 고른 뒤`, 'key retry ko');
   h = once(h, "Find the sentences that tell the problem and the solution, change your pick", `Find the sentences that tell the ${rP.en} and the ${rS.en}, change your pick`, 'key retry en');
