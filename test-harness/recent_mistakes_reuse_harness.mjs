@@ -150,5 +150,66 @@ check('영어 대화일 때만(중국어 제외)', /if \(ctxUserId && ctxLang !=
 check('세션당 캐시(KV)를 거친다', /warmupmistake:/.test(W) && /expirationTtl: 1800/.test(W.slice(ldAt, ldAt + 400)));
 check('웜업 조립이 try 로 감싸여 있다(던지지 않음)', /try \{[\s\S]{0,200}warmupmistake:/.test(gate + W.slice(ldAt, ldAt + 50)));
 
+
+// ── 🔐 (2026-10-19) 웜업 «최근 실수» 블록 본인 확인 — 블록을 오려 내 가짜 부품으로 «실제로» 돌린다 ──
+//   짝: «본인이면 붙는다» ↔ «남·토큰 없음이면 안 붙고 DB·캐시도 안 건드린다» · «캐시가 있어도 본인 확인이 먼저»
+function blockBefore(src, opener, anchor) {
+  const a = src.indexOf(anchor);
+  if (a < 0) return '';
+  const i = src.lastIndexOf(opener, a);
+  if (i < 0) return '';
+  const b = src.indexOf('{', i + opener.length - 1);
+  let d = 0;
+  for (let k = b; k < src.length; k++) {
+    if (src[k] === '{') d++;
+    else if (src[k] === '}') { d--; if (d === 0) return src.slice(i, k + 1); }
+  }
+  return '';
+}
+const rblk = blockBefore(IDX, "if (ctxUserId && ctxLang !== 'zh') {", "'warmupmistake:'");
+check('전제: 웜업 «최근 실수» 블록을 오려 냈다', rblk.length > 200 && rblk.includes('loadRecentMistakes(env.DB, ctxUserId'), rblk.length);
+check('웜업 «최근 실수» 는 판정을 다시 적지 않고 정본 vocabWeakCallerVerified 를 부른다',
+  /vocabWeakCallerVerified\(request, env, ctxUserId, body\)/.test(rblk) && !/weakWordsCallerOk|authUidFromRequest|checkAdminSession/.test(rblk));
+check('본인 확인이 캐시를 읽기 «전» 이다', rblk.indexOf('vocabWeakCallerVerified') > 0 && rblk.indexOf('vocabWeakCallerVerified') < rblk.indexOf('SESSION_STATE.get'));
+let runRm = null;
+try {
+  const ts = `async function __rm(ctxUserId: any, ctxLang: any, sessionId: any, env: any, request: any, body: any, ctxDifficulty: any,
+    vocabWeakCallerVerified: any, loadRecentMistakes: any, recentMistakesPromptLine: any, console: any) {
+    let sys = ''; ${rblk}; return sys; }`;
+  runRm = new Function(stripTypeScriptTypes(ts) + '\nreturn __rm;')();
+} catch (e) { check('웜업 «최근 실수» 블록 실행 준비', false, e.message); }
+const PAST = [{ wrong: 'I go to school yesterday', fixed: 'I went to school yesterday', at: Date.now() }];
+function rmKv() { const m = new Map(); return { m, get: async (k) => (m.has(k) ? m.get(k) : null), put: async (k, v) => { m.set(k, v); } }; }
+async function rmCase({ uid = 'kim01', lang = 'en', who = 'kim01', verifyThrows = false, store = rmKv(), sid = 's1', diff = 5, body = { user_id: 'kim01', t: 1 } } = {}) {
+  const seen = { verify: [], load: [] };
+  const verify = async (req, env, u, b) => { seen.verify.push({ u, b }); if (verifyThrows) throw new Error('verify boom'); return who === u; };
+  const load = async (db, u) => { seen.load.push(u); return PAST; };
+  let sys = '', threw = false;
+  try { sys = await runRm(uid, lang, sid, { DB: {}, SESSION_STATE: store }, { url: 'https://x.test/api/warmup/chat' }, body, diff, verify, load, M.recentMistakesPromptLine, { warn() {} }); }
+  catch (e) { threw = true; }
+  return { sys, threw, seen, store };
+}
+if (runRm && M) {
+  const own = await rmCase();
+  check('본인이면 교정 문장이 프롬프트에 붙는다', /I went to school yesterday/.test(own.sys) && own.seen.load[0] === 'kim01', own.sys);
+  check('판정에 «화면이 보낸 아이디» 와 요청 본문을 그대로 넘긴다', own.seen.verify.length === 1 && own.seen.verify[0].u === 'kim01' && own.seen.verify[0].b && own.seen.verify[0].b.t === 1, own.seen.verify);
+  const other = await rmCase({ who: 'lee02' });
+  check('짝: 본인이 아니면 안 붙는다', other.sys === '', other.sys);
+  check('짝: 본인이 아니면 교정 기록을 읽지도 않는다', other.seen.load.length === 0, other.seen.load);
+  check('짝: 본인이 아니면 캐시를 만들지 않는다', other.store.m.size === 0, [...other.store.m.keys()]);
+  const store = rmKv();
+  await rmCase({ store });
+  check('전제: 본인 요청이 캐시를 만든다(세션+학생 칸)', [...store.m.keys()].join() === 'warmupmistake:s1:kim01', [...store.m.keys()]);
+  const cachedOther = await rmCase({ who: 'lee02', store });
+  check('캐시가 있어도 본인 확인이 안 되면 안 붙는다(캐시 칸만 맞춰 남의 문장을 못 붙임)', cachedOther.sys === '', cachedOther.sys);
+  const cachedOwn = await rmCase({ store });
+  check('짝: 본인이면 두 번째는 캐시에서 읽는다(기록 조회 0회)', /I went to school yesterday/.test(cachedOwn.sys) && cachedOwn.seen.load.length === 0, cachedOwn.seen);
+  const zh = await rmCase({ lang: 'zh' });
+  check('중국어 대화는 판정도 조회도 안 한다(예전 그대로)', zh.sys === '' && zh.seen.verify.length === 0 && zh.seen.load.length === 0, zh.seen);
+  const thr = await rmCase({ verifyThrows: true });
+  check('본인 확인이 던져도 대화는 안 깨진다(안 붙을 뿐)', !thr.threw && thr.sys === '', thr);
+  const blank = await rmCase({ uid: '' });
+  check('아이디가 비면 판정을 부르지 않는다', blank.sys === '' && blank.seen.verify.length === 0, blank.seen);
+}
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) process.exit(1);
