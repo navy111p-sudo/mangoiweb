@@ -1,8 +1,10 @@
 // -*- coding: utf-8 -*-
-// AI 영작 — «글감은 셋 중 하나만» 안내와 «바뀐 주제» 알림 (2026-10-05).
-//   ① 그림 ② 오늘의 글감 ③ 내 경험 주제 가 모두 STEP 2 «지금 주제» 하나로 모이고,
-//   (화면에서는 2026-10-16 부터 이 셋에 ①②③ 을 안 붙인다 — 단계 번호와 겹침. 여기 번호는 검사 순서일 뿐)
-//   다른 곳에서 다시 고르면 «앞서 고른 X 대신 바꿨어요» 가 뜨는지 실제 화면에서 봅니다.
+// AI 영작 — 글감 고르는 곳 «하나» 와 «바뀐 주제» 알림 (2026-10-05 → 2026-10-19 경계 옮김).
+//   📅 2026-10-19 사장님 지시 «글감이 두세 군데 있는 것보다 한 군데에서 오늘의 글감을 고르는 게 좋다» —
+//      예전엔 그림 · 🎲 글감 칩 · 🧠 경험 칩 세 곳에 «셋 중 하나만» 안내(#pickNote)를 붙였는데, 지금은 «🎬 장면·글감 선택» 목록 하나다.
+//      그래서 «안내가 읽히는가» 는 «고르는 곳이 하나이고 그 이름표가 읽히는가» 로 옮겼다(⛔ 안내·칩을 되살리는 쪽으로 되돌리지 말 것).
+//   지키는 것은 그대로: 그림·오늘의 글감·내 경험 이 모두 STEP 2 «지금 주제» 하나로 모이고,
+//   다른 것으로 다시 고르면 «앞서 고른 X 대신 바꿨어요» 가 뜨는지 실제 화면에서 봅니다.
 //   자동으로 안 돕니다 — 사람이 부릅니다:
 //       PW_DIR=/tmp/pw node test-harness/manual/ai-write-pick-one-browser.mjs
 import { createServer } from 'node:http';
@@ -47,8 +49,7 @@ async function open(w, h, lang) {
   const page = await ctx.newPage();
   await page.goto(BASE + '/' + PAGE + '?_nc=' + Date.now(), { waitUntil: 'load' });
   await page.waitForTimeout(600);
-  // 10-08 부터 글감·브레인스토밍은 «🙋 도움이 필요해요» 접이칸(#awHelp, 기본 닫힘) 안 — 학생처럼 눌러 연 뒤 잰다
-  await page.click('#awHelp > summary'); await page.waitForTimeout(200);
+  // (2026-10-19) 브레인스토밍은 «도움» 접이칸 밖 · 그림 바로 아래라 펼칠 것이 없다
   return { ctx, page };
 }
 
@@ -71,41 +72,43 @@ for (const [w, h] of [[360, 640], [390, 844], [1280, 800]]) {
   console.log(`── ${w}×${h}`);
   for (const lang of ['ko', 'en']) {
     const { ctx, page } = await open(w, h, lang);
-    const note = await page.evaluate((src) => {
-      const lum = eval(src); const n = document.getElementById('pickNote');
-      if (!n) return null; const r = n.getBoundingClientRect();
-      return { h: r.height, w: r.width, text: n.innerText, crB: lum(n.querySelector('b')), crS: lum(n.querySelector('span')),
+    const row = await page.evaluate((src) => {
+      const lum = eval(src); const lb = document.querySelector('.scene-picker label'), pc = document.getElementById('picChoice');
+      if (!lb || !pc) return null; const r = pc.getBoundingClientRect();
+      return { n: document.querySelectorAll('#picChoice').length, old: !!document.getElementById('pickNote') || !!document.getElementById('topicRow') || !!document.querySelector('#goThemes .go-theme'),
+               h: r.height, text: lb.innerText, cr: lum(lb), groups: [...pc.querySelectorAll('optgroup')].map(o => o.label),
                over: document.documentElement.scrollWidth > innerWidth };
     }, LUM);
-    check(`[${lang}] 안내 상자가 그려진다`, !!note && note.h > 20, note && ('높이 ' + Math.round(note.h)));
-    check(`[${lang}] 안내 글자가 읽힌다(4.5:1)`, !!note && note.crB >= 4.5 && note.crS >= 4.5, note && (note.crB.toFixed(2) + ' / ' + note.crS.toFixed(2)));
-    check(`[${lang}] 가로로 넘치지 않는다`, !!note && !note.over);
-    check(`[${lang}] 안내가 그 언어로 말한다`, !!note && (lang === 'ko' ? /하나만/.test(note.text) : /just «one»/.test(note.text)), note && note.text.slice(0, 40));
+    check(`[${lang}] 글감 고르는 곳은 하나다(옛 안내·칩 줄 없음)`, !!row && row.n === 1 && !row.old);
+    check(`[${lang}] 고르는 칸이 그려진다`, !!row && row.h > 20, row && ('높이 ' + Math.round(row.h)));
+    check(`[${lang}] 이름표가 읽힌다(4.5:1)`, !!row && row.cr >= 4.5, row && row.cr.toFixed(2));
+    check(`[${lang}] 가로로 넘치지 않는다`, !!row && !row.over);
+    check(`[${lang}] 이름표·묶음이 그 언어로 말한다`, !!row && (lang === 'ko' ? (/장면·글감 선택/.test(row.text) && /그림 장면/.test(row.groups.join())) : (/Pick a scene or topic/.test(row.text) && /Picture scenes/.test(row.groups.join()))), row && (row.text + ' | ' + row.groups.join(',')));
     if (lang === 'en') { await ctx.close(); continue; }
-    // ① 그림 → 지금 주제
-    await page.click('.pic-btn.go'); await page.waitForTimeout(500);
-    const s1 = await page.evaluate(() => ({ src: (document.querySelector('.go-cur-src') || {}).textContent || '',
-      t: (document.querySelector('.go-cur-t') || {}).textContent || '', swap: !!document.querySelector('.go-cur-swap'),
-      lbl: (document.querySelector('.go-pick-lbl') || {}).textContent || '' }));
-    check('① 그림을 고르면 «오늘의 그림» 이 지금 주제', s1.src === '오늘의 그림', s1.src);
-    check('처음 고를 때는 «바꿨어요» 가 안 뜬다(짝)', !s1.swap);
-    check('③ 라벨이 칩 위에 있다', /내 경험/.test(s1.lbl), s1.lbl);
+    const cur = () => page.evaluate((lumSrc) => { const lum = eval(lumSrc); const sw = document.querySelector('.go-cur-swap');
+      return { src: (document.querySelector('.go-cur-src') || {}).textContent || '', t: (document.querySelector('.go-cur-t') || {}).textContent || '',
+               swap: sw ? sw.textContent : '', cr: sw ? lum(sw) : 0 }; }, LUM);
+    // ① 처음 = 그림이 지금 주제 · «바꿨어요» 는 아직 없다
+    const s1 = await cur();
+    check('① 처음엔 «오늘의 그림» 이 지금 주제', s1.src === '오늘의 그림', s1.src);
+    check('처음에는 «바꿨어요» 가 안 뜬다(짝)', !s1.swap);
     const picName = s1.t.replace(/^지금 주제:\s*/, '');
-    // ② 글감 칩 → 바뀜 알림
-    await page.click('#topicRow .topic-chip'); await page.waitForTimeout(500);
-    const s2 = await page.evaluate((lumSrc) => { const lum = eval(lumSrc); const sw = document.querySelector('.go-cur-swap');
-      return { src: (document.querySelector('.go-cur-src') || {}).textContent || '', swap: sw ? sw.textContent : '', cr: sw ? lum(sw) : 0 }; }, LUM);
-    check('② 글감을 고르면 «오늘의 글감» 으로 바뀐다', s2.src === '오늘의 글감', s2.src);
+    // ② 목록에서 오늘의 글감 → 바뀜 알림
+    await page.selectOption('#picChoice', 'topic:0'); await page.waitForTimeout(500);
+    const s2 = await cur();
+    check('② 오늘의 글감을 고르면 «오늘의 글감» 으로 바뀐다', s2.src === '오늘의 글감', s2.src);
     check('바꾸면 «앞서 고른 그림 대신» 이라고 말한다', s2.swap.indexOf(picName) >= 0 && /대신/.test(s2.swap), s2.swap);
     check('바뀜 알림이 읽힌다(4.5:1)', s2.cr >= 4.5, s2.cr.toFixed(2));
-    // ③ 경험 칩 → 다시 알림, 같은 칩 다시 누르면 접힘
-    await page.click('#goThemes .go-theme'); await page.waitForTimeout(500);
-    const s3 = await page.evaluate(() => ({ src: (document.querySelector('.go-cur-src') || {}).textContent || '', swap: (document.querySelector('.go-cur-swap') || {}).textContent || '' }));
-    check('③ 경험 주제를 고르면 «이야기 주제» 로 바뀐다', s3.src === '이야기 주제', s3.src);
+    // ③ 내 경험 → 다시 알림
+    const story = await page.evaluate(() => { const o = [...document.querySelectorAll('#picChoice option')].find(x => /^story:/.test(x.value)); return o ? o.value : ''; });
+    await page.selectOption('#picChoice', story); await page.waitForTimeout(500);
+    const s3 = await cur();
+    check('③ 내 경험을 고르면 «이야기 주제» 로 바뀐다', s3.src === '이야기 주제', s3.src);
     check('③ 으로 바꿔도 알림이 뜬다', /대신/.test(s3.swap), s3.swap);
-    await page.click('#goThemes .go-theme.on'); await page.waitForTimeout(400);
-    const s4 = await page.evaluate(() => ({ cur: !!document.querySelector('.go-cur'), swap: !!document.querySelector('.go-cur-swap') }));
-    check('같은 칩을 다시 누르면 주제가 접히고 알림도 사라진다', !s4.cur && !s4.swap);
+    // ④ «🎬 다른 글감 고르기» 는 그 목록 하나로 데려간다(새 고르는 곳을 만들지 않는다)
+    await page.click('.go-cur-x'); await page.waitForTimeout(500);
+    const s4 = await page.evaluate(() => ({ focus: document.activeElement && document.activeElement.id, top: document.getElementById('picChoice').getBoundingClientRect().top, ih: innerHeight }));
+    check('«다른 글감 고르기» 를 누르면 그 목록으로 간다', s4.focus === 'picChoice' && s4.top >= 0 && s4.top < s4.ih, JSON.stringify(s4));
     await ctx.close();
   }
 }

@@ -1,6 +1,7 @@
 // AI 영작 — 그림 속 미션 단어 · 도움 접기 · 사용 방법(사진+화살표) 감시 (2026-10-08 선생님 피드백)
 //  ① 미션 단어가 «그 그림에 실제로 보이는» 낱말이다 — 모든 그림에 3개씩, 그림을 바꾸면 따라 바뀐다
-//  ② 첫 화면은 «그림 보고 쓰기» 만: 브레인스토밍·문장연습·다른 글감은 «도움이 필요해요» 안에 접혀 있다(지우지 않음)
+//  ② 첫 화면은 «그림 보고 쓰기» 중심: (2026-10-19 사장님 지시) 브레인스토밍은 그림 «바로 아래» 로 나왔고 글감은 «장면·글감 선택» 하나로 합쳤다.
+//     «도움이 필요해요» 안에는 문장 연습만 접혀 있다(2026-10-08 에는 브레인스토밍·글감까지 접어 두었다 — 그 경계를 옮겼다)
 //  ③ 📖 사용 방법 버튼·설명서 사진 5장이 실재하고, 버튼이 공용 칩에 가리는 머리줄에 있지 않다
 //  ④ 서버가 복수형(candles)도 «미션 단어를 썼다» 로 센다
 import fs from 'node:fs';
@@ -45,14 +46,21 @@ ok(/sceneMissionWords\(\)/.test(bodyAt(html, rpAt)), '그림을 바꾸면(render
 ok(/img\.src = plain/.test(bodyAt(html, rpAt)), '움직이는 그림 첫 장면이 깨지면 원래 그림으로 한 번 더 받는다');
 
 console.log('② 도움 접기');
-const help = html.slice(html.indexOf('<details class="aw-help" id="awHelp">'), html.indexOf('</details>', html.indexOf('id="goCard"')));
-ok(help.includes('id="goCard"') && help.includes('id="sentenceCoach"') && help.includes('id="topicRow"') && help.includes('id="pickNote"'), '브레인스토밍·문장연습·글감·안내가 «도움» 안에 있다(지우지 않았다)');
+// 📅 (2026-10-19) 옛 검사는 «브레인스토밍·문장연습·글감·안내가 도움 안에 있다» 였다 — 사장님 지시로 브레인스토밍이 그림 밑으로 나와서 옮겨 적는다.
+//    지키는 것: 문장 연습은 여전히 접혀 있고(지우지 않음) · 브레인스토밍은 «도움» 밖 · 그림 바로 아래 · 글감 고르는 곳은 도움 안에 없다.
+const helpAt = html.indexOf('<details class="aw-help" id="awHelp">');
+const help = helpAt < 0 ? '' : html.slice(helpAt, html.indexOf('id="goMemo"', helpAt));
+ok(help.length > 0 && help.includes('id="sentenceCoach"'), '문장 연습은 «도움» 안에 접혀 있다(지우지 않았다)');
+ok(help.length > 0 && !help.includes('id="goCard"') && !help.includes('id="picChoice"') && !help.includes('id="topicRow"') && !help.includes('id="pickNote"'), '(짝) 브레인스토밍·글감 고르는 곳은 «도움» 안에 숨어 있지 않다');
 ok(!/<details class="aw-help"[^>]*\bopen\b/.test(html), '«도움» 은 처음에 접혀 있다');
 const pos = id => html.indexOf('id="' + id + '"');
 ok(pos('picCard') < pos('missionCard') && pos('missionCard') < pos('awHelp') && pos('awHelp') < pos('text'), '순서: 그림 → 미션 단어 → 도움 → 글쓰기 칸');
+ok(pos('picChoice') > 0 && pos('picChoice') < pos('picCard') && pos('picCard') < pos('goCard') && pos('goCard') < pos('missionCard'), '순서: 장면·글감 선택 → 그림 → 브레인스토밍(그림 바로 아래) → 미션 단어');
 ok(/id="flowSteps" hidden/.test(html) && /\.flow-steps\[hidden\][^{]*\{ display: none !important/.test(html), '4단계 줄은 감춰지고 [hidden] 이 실제로 먹는다');
 const gaAt = html.indexOf('function goApplyTheme(');
-ok(/awHelp[\s\S]{0,80}open = true/.test(bodyAt(html, gaAt)), '브레인스토밍으로 갈 때 접힌 «도움» 을 먼저 편다');
+// 📅 (2026-10-19) 옛 검사 «브레인스토밍으로 갈 때 접힌 도움을 먼저 편다» — 브레인스토밍이 도움 밖으로 나와 펼 필요가 없어졌다.
+const gaBody = gaAt < 0 ? '' : bodyAt(html, gaAt);
+ok(gaBody.length > 0 && /goCard/.test(gaBody) && !/awHelp/.test(gaBody), '브레인스토밍으로 갈 때 «도움» 을 펴지 않고 그림 밑 브레인스토밍으로 바로 간다');
 
 console.log('③ 사용 방법');
 const topBar = html.slice(html.indexOf('<div class="top">'), html.indexOf('<div class="wrap">'));

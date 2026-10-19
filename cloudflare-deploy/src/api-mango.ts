@@ -79,6 +79,7 @@ import { loadSchedSummaryMap, loadSchedSummaryOne, EMPTY_SCHED_SUMMARY } from '.
 import { isPostponedOccurrence } from './class-postponed';  // ⏸ 연기된 회차 판정 정본(2026-10-01)
 import { resolveStudentTwins, pickTwinSessions } from './student-alias';  // 👥 카페24 쌍둥이 계정(X ↔ mangoai_X) — 학생 «내 수업» 찾기(2026-10-02 lby01)
 import { isUsableKoMeaning, stripJamoRuns } from './learn-meaning-check';  // 🧹 «뜻» 카드에 'ㅋㅋㅋㅋ' 가 나가지 않게(2026-10-02)
+import { handleWriteTopicsApi } from './write-topics';  // ✏️ 선생님 글감(AI 영작 «오늘의 글감» — 2026-10-19)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -206,6 +207,11 @@ export async function handleMangoApi(
   // (sendPushToUser → api-notify.ts 로 승격 — admin 5회차)
 
   try {
+    // ===== ✏️ 선생님 글감 — 경로 판정·권한·비용 게이트는 전부 write-topics.ts 정본 (2026-10-19) =====
+    if (path === '/api/class/write-topics' || path.startsWith('/api/class/write-topics/')) {
+      const rWt = await handleWriteTopicsApi(request, url, env as any);
+      if (rWt) return rWt;
+    }
     // ===== 📶 화상수업 회선품질 로깅 (fire-and-forget, 통화 경로와 무관) — 강사별 인터넷 품질 파악 =====
     if (path === '/api/vc/quality-log' && method === 'POST') {
       try {
