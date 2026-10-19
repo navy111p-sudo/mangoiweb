@@ -168,8 +168,18 @@ function blockBefore(src, opener, anchor) {
 }
 const rblk = blockBefore(IDX, "if (ctxUserId && ctxLang !== 'zh') {", "'warmupmistake:'");
 check('전제: 웜업 «최근 실수» 블록을 오려 냈다', rblk.length > 200 && rblk.includes('loadRecentMistakes(env.DB, ctxUserId'), rblk.length);
+// 부정 검사는 주석을 벗긴 사본으로(블록 안 설명 주석에 그 이름이 들어가도 거짓 FAIL 이 안 나게) — 블록 하나만 벗긴다
 check('웜업 «최근 실수» 는 판정을 다시 적지 않고 정본 vocabWeakCallerVerified 를 부른다',
-  /vocabWeakCallerVerified\(request, env, ctxUserId, body\)/.test(rblk) && !/weakWordsCallerOk|authUidFromRequest|checkAdminSession/.test(rblk));
+  /vocabWeakCallerVerified\(request, env, ctxUserId, body\)/.test(rblk) && !/weakWordsCallerOk|authUidFromRequest|checkAdminSession/.test(strip(rblk)));
+// 사각지대 막기: 블록을 «첫 앵커» 로 고르므로, 가드 없는 옛 블록이 «뒤» 에 한 벌 더 붙으면 위 실행 검사는 앞의 것만 본다.
+//   → 핸들러 안에서 조회·줄 만들기 호출이 «정확히 한 번» 이고 그 한 번이 가드 블록 안인지 짝으로 본다.
+const hrS = IDX.indexOf('async function handleWarmupChat(');
+const hrE = hrS > 0 ? IDX.indexOf('\nasync function ', hrS + 10) : -1;
+const HR = hrS > 0 ? strip(IDX.slice(hrS, hrE > 0 ? hrE : undefined)) : '';
+const RB = strip(rblk);
+const nLoad = HR.split('loadRecentMistakes(').length - 1, nLine = HR.split('recentMistakesPromptLine(').length - 1;
+check('웜업 핸들러에서 최근 실수 조회·줄 만들기는 각각 정확히 한 번(가드 밖 옛 블록이 없다)', nLoad === 1 && nLine === 1, { nLoad, nLine });
+check('그 한 번이 본인 확인 블록 «안» 이다', RB.includes('loadRecentMistakes(') && RB.includes('recentMistakesPromptLine('));
 check('본인 확인이 캐시를 읽기 «전» 이다', rblk.indexOf('vocabWeakCallerVerified') > 0 && rblk.indexOf('vocabWeakCallerVerified') < rblk.indexOf('SESSION_STATE.get'));
 let runRm = null;
 try {
@@ -178,7 +188,8 @@ try {
     let sys = ''; ${rblk}; return sys; }`;
   runRm = new Function(stripTypeScriptTypes(ts) + '\nreturn __rm;')();
 } catch (e) { check('웜업 «최근 실수» 블록 실행 준비', false, e.message); }
-const PAST = [{ wrong: 'I go to school yesterday', fixed: 'I went to school yesterday', at: Date.now() }];
+// 정본 RecentMistake 모양 그대로({ was, fixed, at })
+const PAST = [{ was: 'I go to school yesterday', fixed: 'I went to school yesterday', at: Date.now() }];
 function rmKv() { const m = new Map(); return { m, get: async (k) => (m.has(k) ? m.get(k) : null), put: async (k, v) => { m.set(k, v); } }; }
 async function rmCase({ uid = 'kim01', lang = 'en', who = 'kim01', verifyThrows = false, store = rmKv(), sid = 's1', diff = 5, body = { user_id: 'kim01', t: 1 } } = {}) {
   const seen = { verify: [], load: [] };
@@ -192,6 +203,7 @@ async function rmCase({ uid = 'kim01', lang = 'en', who = 'kim01', verifyThrows 
 if (runRm && M) {
   const own = await rmCase();
   check('본인이면 교정 문장이 프롬프트에 붙는다', /I went to school yesterday/.test(own.sys) && own.seen.load[0] === 'kim01', own.sys);
+  check('붙은 줄에 옛 실수·고친 꼴이 둘 다 제대로 찍힌다(undefined 없음)', /they said "I go to school yesterday"/.test(own.sys) && !/undefined/.test(own.sys), own.sys);
   check('판정에 «화면이 보낸 아이디» 와 요청 본문을 그대로 넘긴다', own.seen.verify.length === 1 && own.seen.verify[0].u === 'kim01' && own.seen.verify[0].b && own.seen.verify[0].b.t === 1, own.seen.verify);
   const other = await rmCase({ who: 'lee02' });
   check('짝: 본인이 아니면 안 붙는다', other.sys === '', other.sys);
