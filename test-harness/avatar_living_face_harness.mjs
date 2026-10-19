@@ -258,6 +258,12 @@ for (const [n, b] of Object.entries(BROW || {})) {
     `${n}: 눈썹 띠가 EYES 상자 안이다 — 프레임마다 다시 까는 칸 밖으로 안 나간다`, '밖으로 나가면 앞 프레임의 올린 눈썹이 남습니다');
   ok(b.top < b.b0 && b.b0 <= b.b1 && b.b1 < b.bot && b.D < 0.7 * (b.b0 - b.top) && b.D < 0.7 * (b.bot - b.b1),
     `${n}: 띠의 경사가 완만하다 — 피부가 뒤집혀 접히지 않는다 (D=${b.D} · 위 ${b.b0 - b.top}px · 아래 ${b.bot - b.b1}px)`);
+  // (v17, 2026-10-19) 눈썹 아래 피부(b1..bot)가 늘어나는 배율 — 크로미움으로 D 8~12 를 그려 보니
+  //   배율 2.2 이상(D 12)부터 윗눈꺼풀이 번지고 주름이 두 겹으로 보였다. 그래서 «2배 이하» 를 지킨다.
+  const stretch = (b.bot - b.b1) / (b.bot - b.b1 - b.D);
+  ok(b.D > 0 && stretch <= 2,
+    `${n}: 눈썹 아래 피부가 2배 넘게 늘어나지 않는다 (D=${b.D} · 배율 ${stretch.toFixed(2)})`,
+    'D 를 더 키우면 윗눈꺼풀 주름이 두 겹으로 보입니다 — 렌더부터 다시 보세요');
 }
 canvasOn = true;
 const a = new Media();
