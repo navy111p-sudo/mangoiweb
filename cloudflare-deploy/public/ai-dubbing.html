@@ -34,6 +34,14 @@
   .feat span{font-size:12.5px;color:var(--text2)}
   .notice{padding:14px 16px;border-radius:14px;background:rgba(245,184,61,.1);border:1px solid rgba(245,184,61,.45);font-size:14px}
   .notice b{color:var(--gold)}
+  .now{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:16px;background:linear-gradient(135deg,#1f2a3f,#2a2238);
+    border:1px solid rgba(245,184,61,.6);color:var(--text);text-decoration:none}
+  .now:hover{border-color:var(--gold)}
+  .now-ic{font-size:30px;flex:none}
+  .now-tx{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+  .now-tx b{font-size:16px;color:var(--gold)}
+  .now-sub{font-size:13.5px;color:var(--text2)}
+  .now-go{font-size:28px;color:var(--gold);flex:none}
   h2{margin:0;font-size:18px;font-weight:800}
   .scenes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
   .scene{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:14px;background:var(--card);border:1px solid var(--line)}
@@ -70,6 +78,15 @@
   </section>
 
   <div class="notice" role="status"><b data-ko="준비 중이에요" data-en="Coming soon">준비 중이에요</b> · <span data-ko="첫 번째 더빙 이야기를 만들고 있어요. 영상이 올라오면 이곳에서 장면을 골라 바로 더빙할 수 있어요." data-en="We are making the first dubbing story. When the videos are ready, you can pick a scene here and start dubbing.">첫 번째 더빙 이야기를 만들고 있어요. 영상이 올라오면 이곳에서 장면을 골라 바로 더빙할 수 있어요.</span></div>
+
+  <!-- 🎬 (2026-10-19 사장님 「이거 … A.i 더빙동영상에 넣어줘」) 지금 바로 해 볼 수 있는 더빙 10편.
+       6장면 영화(dub-001)가 열리기 전에도 이 메뉴에서 더빙을 해 볼 수 있게 별도 화면으로 잇는다 — 이 화면의 마크업은 그대로 둔다. -->
+  <a class="now" href="/ai-dubbing-studio.html">
+    <span class="now-ic" aria-hidden="true">🎬</span>
+    <span class="now-tx"><b data-ko="지금 바로 해 보기 · 키키와 토토 더빙 10편" data-en="Try it now · Kiki &amp; Toto, 10 dubbing episodes">지금 바로 해 보기 · 키키와 토토 더빙 10편</b>
+    <span class="now-sub" data-ko="상대 대사는 들리고 내 차례엔 소리가 꺼져요. 내 목소리로 녹음해 더빙 영상까지 만들어요." data-en="Hear the other parts, then speak your lines when the sound goes quiet. Record your voice and make your own dub video.">상대 대사는 들리고 내 차례엔 소리가 꺼져요. 내 목소리로 녹음해 더빙 영상까지 만들어요.</span></span>
+    <span class="now-go" aria-hidden="true">›</span>
+  </a>
 
   <section aria-label="이야기 6장면">
     <h2 style="margin-bottom:10px"><span data-ko="이야기 6장면" data-en="Six scenes">이야기 6장면</span></h2>
