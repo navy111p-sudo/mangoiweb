@@ -12,6 +12,10 @@
 //   ⑦ 영어 — EN 에서는 우리말 제목이 빠진다 (짝) KO 에는 있다
 //   ⑧ 글자 대비 — 밝은·어두운 모드에서 주요 글자가 WCAG 기준 이상(반투명 층은 합성해서 잰다)
 //   ⑨ JS 오류 0
+//   ⑩ 실제 노트북 «창» 높이(2026-10-19) — 1366×768 화면은 창이 약 640px, 1280×720 은 약 600px 이다.
+//      그 창에서도 12편이 목록 안쪽 스크롤 없이 다 보인다 · 4단계 48편 전부 제목칸이 안 잘리고 «읽기 시작» 이 «맨 위»
+//      태블릿 1024×768 · 낮은 노트북 1024×600 에서는 48편 전부 목록·상세 칸 안쪽 스크롤도 없다
+//      (짝) 버튼 줄은 한 장 고정일 때만 상세 칸 바닥에 붙고(sticky) 폰 390 에서는 붙지 않는다
 //   ⚠️ 자동으로 안 돕니다 — 사람이 부릅니다:  node test-harness/manual/stories-browse-browser.mjs
 //   STORIES_SRC=<고친 public 폴더> 로 변이시험을 합니다(저장소 파일은 건드리지 마세요).
 //   서버는 python http.server 로 띄우고, /api/** 는 가짜 응답이라 D1 에 아무것도 안 씁니다.
@@ -286,6 +290,87 @@ try {
     // 성공해도 값을 찍는다 — 보고서에 숫자를 옮겨 적을 때 이 줄을 보세요(CLAUDE.md 「문턱만 보는데 값을 적을 때」)
     if (low) console.log(`  · ${scheme} 가장 낮은 대비: ${low.s} ${low.cr}:1 (필요 ${low.need})`);
     ok(errs.length === 0, `${scheme} JS 오류 0`, errs.join(' | '));
+    await ctx.close();
+  }
+
+  // ── ⑩ 실제 노트북 창 높이 ─────────────────────────────────────────
+  //   ⚠️ 화면 크기(1366×768)가 아니라 «창» 크기(주소창·탭·작업표시줄을 뺀 값)로 잰다 — 2026-10-19 에
+  //      1280×720 으로만 재서 통과했는데 실제 창(1280×600)에서는 목록이 안쪽 스크롤되고 제목이 잘렸다.
+  console.log('▶ ⑩ 실제 노트북 창 높이');
+  for (const [w, h] of [[1366, 640], [1280, 650], [1280, 600]]) {
+    const { ctx, page, errs } = await openPage({ w, h });
+    const tag = `${w}x${h}`;
+    const m = await page.evaluate(() => {
+      const L = document.querySelector('.rl-list');
+      return { browse: document.documentElement.classList.contains('rl-browse'), sh: document.documentElement.scrollHeight, ih: innerHeight,
+        list: L ? [L.scrollHeight, L.clientHeight] : null, items: document.querySelectorAll('.rl-item').length,
+        lastIn: (() => { const it = [...document.querySelectorAll('.rl-item')].pop(); if (!it) return false; const r = it.getBoundingClientRect(), lr = L.getBoundingClientRect(); return r.bottom <= Math.min(innerHeight, lr.bottom) + 1; })() };
+    });
+    ok(m.browse, `${tag} 한 장 고정(rl-browse)이다`);
+    ok(m.sh <= m.ih + 1, `${tag} 페이지 세로 스크롤 없음`, `${m.sh} > ${m.ih}`);
+    ok(m.items === 12, `${tag} 12편이 목록에 다 있다`, m.items);
+    ok(m.list && m.list[0] <= m.list[1] + 1, `${tag} 목록 안쪽 스크롤 없음(12편이 한 번에 보인다)`, m.list && m.list.join('/'));
+    ok(m.lastIn, `${tag} 마지막 글(12번)이 목록 칸 안에 보인다`);
+    ok(errs.length === 0, `${tag} JS 오류 0`, errs.join(' | '));
+    await ctx.close();
+  }
+  //   4단계 × 12편 전부 — 제목칸이 안 잘리고 «읽기 시작» 이 맨 위. 가장 빡빡한 두 창(KO 1280×600 · EN 900×600)에서 잰다.
+  //   fit=true 인 창은 «목록·상세 칸 안쪽 스크롤 없음» 까지 잰다:
+  //     1024×768(태블릿 가로) — «이렇게 읽어요» 3칸을 세로로 쌓으면 상세가 넘친다(2026-10-19 실측)
+  //     1024×600(낮은 노트북) — 좁고 낮은 창에서 설명 줄을 접지 않으면 상세가 넘친다
+  //   ⚠️ EN 900×600 은 도구 줄이 두 줄로 접혀 상세가 원래 조금 넘친다 — 거기서는 «버튼이 보이는가» 만 묻는다(알고 둔 한계)
+  for (const [w, h, lang, fit] of [[1280, 600, 'ko', true], [900, 600, 'en', false], [1024, 768, 'ko', true], [1024, 600, 'ko', true]]) {
+    let n = 0, heroCut = [], ctaBad = [], footOut = [], notBrowse = 0, over = [];
+    let sticky = null;
+    for (let stage = 1; stage <= 4; stage++) {
+      const { ctx, page, errs } = await openPage({ w, h, lang, seed: { stage, prog: {} } });
+      const list = await ids(page);
+      ok(list.length === 12, `${w}x${h} ${lang} ${stage}단계 12편`, list.length);
+      for (const id of list) {
+        await page.evaluate((id) => { const b = document.querySelector('.rl-item[data-id="' + id + '"]'); if (b) b.click(); }, id);
+        await page.waitForTimeout(30);
+        const m = await page.evaluate(() => {
+          const D = document.querySelector('.rl-detail'), hero = D && D.querySelector('.rl-hero');
+          const hr = hero ? hero.getBoundingClientRect() : null;
+          // 제목칸 «안» 의 글자(h2·우리말 제목·사실 줄·배경)가 제목칸 상자 밖으로 나가면 overflow:hidden 에 잘린 것
+          const cut = !hero || [...hero.querySelectorAll('h2,.rl-hero-ko,.rl-facts,.rl-hero-bg')].some((e) => { const r = e.getBoundingClientRect(); return r.height < 2 || r.top < hr.top - 1 || r.bottom > hr.bottom + 1; });
+          const cta = D && D.querySelector('.rl-cta'); const r = cta ? cta.getBoundingClientRect() : null;
+          const hit = r && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          const foot = D && D.querySelector('.rl-foot'); const fr = foot && foot.getBoundingClientRect(), dr = D && D.getBoundingClientRect();
+          const L = document.querySelector('.rl-list');
+          return { browse: document.documentElement.classList.contains('rl-browse'), cut,
+            over: (L && L.scrollHeight > L.clientHeight + 1 ? 'list ' + L.scrollHeight + '/' + L.clientHeight + ' ' : '') + (D && D.scrollHeight > D.clientHeight + 1 ? 'detail ' + D.scrollHeight + '/' + D.clientHeight : ''),
+            cta: !!r && r.bottom <= innerHeight + 1 && r.top >= 0 && !!hit && cta.contains(hit),
+            footIn: !!fr && fr.bottom <= dr.bottom + 1 && fr.top >= dr.top - 1,
+            pos: foot ? getComputedStyle(foot).position : null };
+        });
+        n++;
+        if (!m.browse) notBrowse++;
+        if (m.cut) heroCut.push(id);
+        if (!m.cta) ctaBad.push(id);
+        if (!m.footIn) footOut.push(id);
+        if (m.over) over.push(id + ' ' + m.over.trim());
+        if (sticky === null) sticky = m.pos;
+      }
+      ok(errs.length === 0, `${w}x${h} ${lang} ${stage}단계 JS 오류 0`, errs.join(' | '));
+      await ctx.close();
+    }
+    const tag = `${w}x${h} ${lang}`;
+    ok(n === 48, `${tag} 전제: 4단계 48편을 다 눌러 봤다`, n);
+    ok(notBrowse === 0, `${tag} 48편 내내 한 장 고정이다`, notBrowse);
+    ok(heroCut.length === 0, `${tag} 48편 전부 제목칸이 안 잘린다`, heroCut.join(','));
+    ok(ctaBad.length === 0, `${tag} 48편 전부 «읽기 시작» 이 화면 안 «맨 위»`, ctaBad.join(','));
+    ok(footOut.length === 0, `${tag} 48편 전부 버튼 줄이 상세 칸 안에 보인다`, footOut.join(','));
+    ok(sticky === 'sticky', `${tag} 버튼 줄이 상세 칸 바닥에 붙어 있다(sticky)`, sticky);
+    if (fit) ok(over.length === 0, `${tag} 48편 전부 목록·상세 칸 안쪽 스크롤 없음`, over.slice(0, 4).join(' | '));
+    console.log(`  · ${tag}: 48편 · 제목 잘림 ${heroCut.length} · 버튼 가려짐 ${ctaBad.length} · 안쪽 스크롤 ${over.length}${fit ? '' : '(재기만 함)'}`);
+  }
+  {
+    // (짝) 폰 — 쌓는 화면에서는 버튼 줄을 바닥에 붙이지 않는다(붙이면 페이지 스크롤 내내 떠다닌다)
+    const { ctx, page, errs } = await openPage({ w: 390, h: 844 });
+    const pos = await page.evaluate(() => { const f = document.querySelector('.rl-foot'); return f ? getComputedStyle(f).position : null; });
+    ok(pos === 'static', '(짝) 390 에서는 버튼 줄이 sticky 가 아니다', pos);
+    ok(errs.length === 0, '390(⑩) JS 오류 0', errs.join(' | '));
     await ctx.close();
   }
 } finally {
