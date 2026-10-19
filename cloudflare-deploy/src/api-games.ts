@@ -1046,7 +1046,7 @@ Variety: mix of nouns, verbs, adjectives.`;
       const count = Math.min(20, Math.max(1, Number(b.count) || 5));
       const source = String(b.source || 'mywords').trim();
       if (!userId) return json({ ok: false, error: 'uid_required' }, 400);
-      // 🔐 그 학생 단어장으로 문제를 만든다 = 단어장을 «읽는» 것이기도 하다(/api/vocab/list 와 같은 수준으로).
+      // 🔐 그 학생 단어장으로 문제를 만든다 = 단어장을 «읽는» 것이기도 하다(/api/vocab/list 와 같은 본인 확인 — 단 게스트 체험 시간 제한은 안 건다).
       { const deny = await vocabWriteDenied(request, url, env, userId, b); if (deny) return deny; }
 
       let words: any[] = [];

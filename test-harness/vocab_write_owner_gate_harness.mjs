@@ -52,8 +52,19 @@ function braceBlock(src, start) {
   return '';
 }
 /** 주석을 벗긴 사본(부정 검사용) — 문자열 안의 // 는 안 건드린다 */
+/* 주석 벗기기 — 문자열·템플릿·«정규식 리터럴» 안의 따옴표·슬래시는 건너뛴다.
+   ⚠️ (2026-10-19 함정 대조) 정규식 리터럴을 모르면 /[&<>"']/g 의 따옴표를 문자열 시작으로 읽어
+   그 뒤 주석이 «안 벗겨져», 토큰 줄을 주석 처리하고 새 줄을 넣는 변이가 통과했다. 아래 «전제» 줄이 그것을 지킨다. */
 function stripComments(src) {
   let out = '', q = null, line = false, block = false;
+  const prevSig = () => { let k = out.length - 1; while (k >= 0 && /\s/.test(out[k])) k--; return k; };
+  const regexCanStart = () => {
+    const k = prevSig();
+    if (k < 0) return true;
+    if ('(,=:[!&|?{};+-*%<>~^'.includes(out[k])) return true;
+    const w = out.slice(Math.max(0, k - 9), k + 1).match(/[A-Za-z_$]+$/);
+    return !!w && /^(return|typeof|case|in|of|void|delete|throw|new|else|do)$/.test(w[0]);
+  };
   for (let i = 0; i < src.length; i++) {
     const c = src[i], n = src[i + 1];
     if (line) { if (c === '\n') { line = false; out += c; } continue; }
@@ -61,6 +72,16 @@ function stripComments(src) {
     if (q) { out += c; if (c === '\\') { out += n; i++; continue; } if (c === q) q = null; continue; }
     if (c === '/' && n === '/') { line = true; i++; continue; }
     if (c === '/' && n === '*') { block = true; i++; continue; }
+    if (c === '/' && regexCanStart()) {
+      // 정규식 리터럴 — 끝 «/» 까지 그대로 옮긴다(문자 클래스 안의 «/» 는 끝이 아님)
+      let j = i + 1, cls = false;
+      for (; j < src.length && src[j] !== '\n'; j++) {
+        if (src[j] === '\\') { j++; continue; }
+        if (src[j] === '[') cls = true; else if (src[j] === ']') cls = false;
+        else if (src[j] === '/' && !cls) break;
+      }
+      if (j < src.length && src[j] === '/') { out += src.slice(i, j + 1); i = j; continue; }
+    }
     if (c === '"' || c === "'" || c === '`') q = c;
     out += c;
   }
@@ -214,28 +235,36 @@ console.log('\n── ③ 전수 — /api/vocab/* POST 중 단어장·퀴즈에 
 // ─────────────────────────────────────────────────────────────
 console.log('\n── ④ 화면 — 퀴즈 화면이 토큰을 싣는다 ──');
 {
-  // 각 fetch 호출의 본문 객체를 괄호 짝으로 잘라 «token: __mgTok()» 이 들어 있는지
-  function bodyOfFetch(src, urlLit) {
-    const a = src.indexOf(`fetch('${urlLit}'`);
-    if (a < 0) return null;
-    const b = src.indexOf('JSON.stringify(', a);
-    if (b < 0 || b - a > 400) return null;
-    let depth = 0;
-    for (let i = b + 'JSON.stringify'.length; i < src.length; i++) {
-      if (src[i] === '(') depth++;
-      else if (src[i] === ')') { depth--; if (depth === 0) return src.slice(b, i + 1); }
+  // 각 fetch 호출의 본문 객체를 괄호 짝으로 잘라 «token: __mgTok()» 이 들어 있는지 — 같은 주소를 부르는 «모든» 자리를 본다
+  function bodiesOfFetch(src, urlLit) {
+    const outs = [];
+    let a = -1;
+    while ((a = src.indexOf(`fetch('${urlLit}'`, a + 1)) >= 0) {
+      const b = src.indexOf('JSON.stringify(', a);
+      if (b < 0 || b - a > 400) { outs.push(null); continue; }
+      let depth = 0, got = null;
+      for (let i = b + 'JSON.stringify'.length; i < src.length; i++) {
+        if (src[i] === '(') depth++;
+        else if (src[i] === ')') { depth--; if (depth === 0) { got = src.slice(b, i + 1); break; } }
+      }
+      outs.push(got);
     }
-    return null;
+    return outs;
   }
   const mq = stripComments(MQ);
-  for (const u of ['/api/vocab/auto-generate', '/api/vocab/gen-quiz', '/api/vocab/quiz-submit']) {
-    const bo = bodyOfFetch(mq, u);
-    check(`micro-quiz: ${u} 본문에 token: __mgTok()`, !!bo && /\btoken:\s*__mgTok\(\)/.test(bo), bo);
-  }
   const voc = stripComments(VOC);
-  for (const u of ['/api/vocab/add', '/api/vocab/bulk-add']) {
-    const bo = bodyOfFetch(voc, u);
-    check(`vocab: ${u} 본문에 token: __mgTok() (원래부터)`, !!bo && /\btoken:\s*__mgTok\(\)/.test(bo), bo);
+  // 전제 — 벗기기가 «주석만» 지웠는가(코드는 남기고). 이 줄이 빨간불이면 아래 토큰 검사는 주석 처리된 옛 줄을 보고 있을 수 있다.
+  check('전제: micro-quiz 의 알려진 꼬리 주석이 벗겨졌다', !mq.includes('서버가 그 퀴즈 주인인지 본다') && MQ.includes('서버가 그 퀴즈 주인인지 본다'));
+  check('전제: micro-quiz 의 코드(퀴즈 제출 fetch·escHtml 정규식)는 남았다', mq.includes("fetch('/api/vocab/quiz-submit'") && /replace\(\/\[&<>"']\/g/.test(mq));
+  check('전제: vocab 의 알려진 블록 주석이 벗겨졌다', !voc.includes('서버 안내 문구를 지금 언어로') && VOC.includes('서버 안내 문구를 지금 언어로'));
+  check('전제: vocab 의 코드(_vocMsg)는 남았다', voc.includes('function _vocMsg('));
+  for (const [u, min] of [['/api/vocab/auto-generate', 1], ['/api/vocab/gen-quiz', 1], ['/api/vocab/quiz-submit', 1]]) {
+    const bs = bodiesOfFetch(mq, u);
+    check(`micro-quiz: ${u} 를 부르는 자리 ${bs.length}곳 전부 본문에 token: __mgTok()`, bs.length >= min && bs.every((bo) => !!bo && /\btoken:\s*__mgTok\(\)/.test(bo)), bs);
+  }
+  for (const [u, min] of [['/api/vocab/add', 2], ['/api/vocab/bulk-add', 1]]) {
+    const bs = bodiesOfFetch(voc, u);
+    check(`vocab: ${u} 를 부르는 자리 ${bs.length}곳 전부 본문에 token: __mgTok() (원래부터)`, bs.length >= min && bs.every((bo) => !!bo && /\btoken:\s*__mgTok\(\)/.test(bo)), bs);
   }
   // 퀴즈 제출 함수를 오려 내 가짜 fetch·localStorage 로 실제로 돌린다
   const rA = MQ.indexOf('function recordProgress(');

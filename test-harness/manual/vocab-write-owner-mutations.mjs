@@ -34,8 +34,8 @@ const M = [
   // ⚠️ «AI 바인딩 확인 뒤로» 옮기는 변이는 등가입니다 — 바인딩이 없으면 어느 쪽이든 쓰기·비용이 0 이고 오류 코드만 달라집니다(2026-10-19 실측 안 잡힘).
   //    대신 «DB 를 먼저 읽고 나서 막는» 변이로 «막히면 아무것도 안 건드린다» 를 잽니다.
   ['auto-generate 게이트를 기존 단어 조회 뒤로', 'G', GATE + "   // 🔐 AI 호출(비용) 전에\n      if (!env.AI) return json({ ok: false, error: 'AI_binding_missing' }, 503);\n\n      // 기존 단어 (중복 방지)\n      const existRs: any = await env.DB.prepare(`SELECT word FROM vocabulary WHERE user_id = ?`).bind(userId).all();", "if (!env.AI) return json({ ok: false, error: 'AI_binding_missing' }, 503);\n\n      // 기존 단어 (중복 방지)\n      const existRs: any = await env.DB.prepare(`SELECT word FROM vocabulary WHERE user_id = ?`).bind(userId).all();\n      " + GATE],
-  ['gen-quiz 게이트 삭제', 'G', '단어장을 «읽는» 것이기도 하다(/api/vocab/list 와 같은 수준으로).\n      ' + GATE, '단어장을 «읽는» 것이기도 하다(/api/vocab/list 와 같은 수준으로).\n'],
-  ['gen-quiz 게이트를 if (false) 로', 'G', '단어장을 «읽는» 것이기도 하다(/api/vocab/list 와 같은 수준으로).\n      { const deny', '단어장을 «읽는» 것이기도 하다(/api/vocab/list 와 같은 수준으로).\n      if (false) { const deny'],
+  ['gen-quiz 게이트 삭제', 'G', '단어장을 «읽는» 것이기도 하다(/api/vocab/list 와 같은 본인 확인 — 단 게스트 체험 시간 제한은 안 건다).\n      ' + GATE, '단어장을 «읽는» 것이기도 하다(/api/vocab/list 와 같은 본인 확인 — 단 게스트 체험 시간 제한은 안 건다).\n'],
+  ['gen-quiz 게이트를 if (false) 로', 'G', '단어장을 «읽는» 것이기도 하다(/api/vocab/list 와 같은 본인 확인 — 단 게스트 체험 시간 제한은 안 건다).\n      { const deny', '단어장을 «읽는» 것이기도 하다(/api/vocab/list 와 같은 본인 확인 — 단 게스트 체험 시간 제한은 안 건다).\n      if (false) { const deny'],
   ['quiz-submit 게이트 삭제', 'G', "{ const deny = await vocabWriteDenied(request, url, env, String(row.user_id || ''), b); if (deny) return deny; }", ''],
   ['quiz-submit: 퀴즈 주인 대신 본문 user_id 로', 'G', "vocabWriteDenied(request, url, env, String(row.user_id || ''), b)", "vocabWriteDenied(request, url, env, String(b.user_id || row.user_id || ''), b)"],
   ['quiz-submit: 응답을 무시(부르기만)', 'G', "String(row.user_id || ''), b); if (deny) return deny; }", "String(row.user_id || ''), b); }"],
@@ -48,6 +48,11 @@ const M = [
   ['vocab: 언어 고르기 뒤집기', 'V', "((_isEn() && d.message_en) || d.message || '')", "((!_isEn() && d.message_en) || d.message || '')"],
   ['vocab: 영어 안내 안 쓰기', 'V', "((_isEn() && d.message_en) || d.message || '')", "(d.message || '')"],
   ['vocab: 추가 실패를 오류 코드로', 'V', '    if (!d.ok) throw new Error(_vocMsg(d) || d.error);\n', '    if (!d.ok) throw new Error(d.error);\n'],
+  // ↓ 함정 대조(2026-10-19)가 «토큰 줄을 주석으로 남기고 새 줄을 넣으면 통과» 를 실측한 뒤 더한 것(주석 벗기기가 정규식 리터럴을 몰랐음)
+  ['micro-quiz: auto-generate 토큰 줄을 주석 처리 + 새 줄', 'MQ', "          body: JSON.stringify({ uid: getUid(), token: __mgTok(), level: curLevel, topic: curTopic, count: 10 })", "          // body: JSON.stringify({ uid: getUid(), token: __mgTok(), level: curLevel, topic: curTopic, count: 10 })\n          body: JSON.stringify({ uid: getUid(), level: curLevel, topic: curTopic, count: 10 })"],
+  ['micro-quiz: gen-quiz 토큰 줄을 주석 처리 + 새 줄', 'MQ', "          body: JSON.stringify({ uid: getUid(), token: __mgTok(), count: 5, source: curSource })", "          // body: JSON.stringify({ uid: getUid(), token: __mgTok(), count: 5, source: curSource })\n          body: JSON.stringify({ uid: getUid(), count: 5, source: curSource })"],
+  ['vocab: 추가 실패 줄을 주석 처리 + 옛 줄', 'V', '    if (!d.ok) throw new Error(_vocMsg(d) || d.error);\n', '    // if (!d.ok) throw new Error(_vocMsg(d) || d.error);\n    if (!d.ok) throw new Error(d.error);\n'],
+  ['vocab: 두 번째 /api/vocab/add 토큰 빼기', 'V', "body: JSON.stringify({ user_id: UID, token: __mgTok(), word, korean: ko }) });", "body: JSON.stringify({ user_id: UID, word, korean: ko }) });"],
   ['vocab: 미리보기 안내 빼기', 'V', "if (d.error === 'auth_required') alert(_vocMsg(d) ||", "if (false) alert(_vocMsg(d) ||"],
 ];
 
