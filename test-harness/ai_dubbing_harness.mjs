@@ -20,7 +20,7 @@
 //        (검사가 헛돌지 않는다는 유일한 증거. 원본은 0건이어야 한다 — 전제 검사)
 //
 //   실행: node test-harness/ai_dubbing_harness.mjs
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
@@ -88,6 +88,10 @@ function runChecks(C, report) {
   ck('①-2 시각이 맞고 음성 파일이 다 있으면 synced + stems', !!s1 && s1.timing === 'synced' && s1.voiceMode === 'stems', s1 && [s1.timing, s1.voiceMode]);
   ck('①-3 상대경로는 baseUrl 로 이어 붙인다', !!s1 && s1.video === 'https://cdn.example/ep/v/s1.mp4' && s1.voices.dino === 'https://cdn.example/ep/a/dino-1.wav', s1 && s1.video);
   ck('①-4 절대 URL·루트 경로는 그대로', C.resolveUrl('https://x.y/a.mp4', 'https://b/') === 'https://x.y/a.mp4' && C.resolveUrl('/data/a.mp4', 'https://b/') === '/data/a.mp4');
+  // 장면 미리보기 그림(thumb) — 선택 칸. 있으면 영상과 같은 규칙으로 이어 붙이고, 없으면 '' (화면은 이모지로)
+  const withThumb = C.normalizeEpisode(manifest(null, { thumb: 't/s1.webp' }));
+  ck('①-8 thumb 상대경로도 baseUrl 로 이어 붙인다', withThumb.episode.scenes[0].thumb === 'https://cdn.example/ep/t/s1.webp', withThumb.episode.scenes[0].thumb);
+  ck('①-9 «짝» — thumb 가 없으면 빈 값(지어내지 않는다) · 문제로 세지 않는다', !!s1 && s1.thumb === '' && n1.problems.length === 0, s1 && s1.thumb);
 
   // ③ 시각을 믿어도 되는가
   const overlap = C.normalizeEpisode(manifest(null, { lines: [
@@ -206,6 +210,13 @@ if (epRaw) {
   check('⑥-8 영어 대사에 한글·한자가 없다', sc.every((s) => s.lines.every((l) => !/[가-힣ㄱ-ㅎ一-鿿]/.test(l.en))));
   check('⑥-9 상태는 «preview» — 완성본이라고 말하지 않는다', n.episode.status === 'preview');
   check('⑥-10 캐릭터마다 TTS 화자가 정해져 있다', Object.keys(n.episode.characters).every((k) => !!n.episode.characters[k].ttsSpeaker));
+  // 미리보기 그림 — 표에 적어 놓고 파일을 커밋에 안 담으면 화면은 «조용히» 이모지로 떨어진다(CLAUDE.md 아바타 얼굴 건과 같은 뿌리)
+  const thumbs = sc.map((s) => s.thumb);
+  check('⑥-11 장면마다 미리보기 그림 주소가 있고 서로 다르다', thumbs.every((t) => /^\/img\/dubbing\/[a-z0-9-]+\.webp(\?v=\d+)?$/.test(t)) && new Set(thumbs).size === sc.length, thumbs);
+  const thumbFiles = thumbs.map((t) => join(PUB, t.replace(/^\//, '').replace(/\?.*$/, '')));
+  check('⑥-12 미리보기 그림 파일이 저장소에 실제로 있다', thumbFiles.every((f) => existsSync(f)), thumbFiles.filter((f) => !existsSync(f)));
+  check('⑥-13 미리보기 그림은 장당 100KB 이하(카드 6장이 첫 화면에 함께 뜬다)', thumbFiles.every((f) => !existsSync(f) || statSync(f).size <= 100 * 1024),
+    thumbFiles.map((f) => existsSync(f) ? statSync(f).size : -1));
 }
 
 /* ⑦ 화면 배선 */
@@ -233,6 +244,23 @@ check('⑦-12 <style> 안에 CJK 홑낫표가 없다', !/[「」]/.test(styleBlo
 check('⑦-13 화면에 보이는 글자에 CJK 홑낫표가 없다', !/[「」]/.test(html.replace(/<!--[\s\S]*?-->/g, '').replace(/<script[\s\S]*?<\/script>/g, '')));
 check('⑦-14 사이트 구성표에 화면이 있다', /ai-dubbing\.html/.test(rd(join(PUB, 'admin', 'site-structure-map.html'))));
 for (const f of ['js/ai-dubbing-core.js', 'js/ai-dubbing.js', 'data/dubbing/dub-001.json']) check('⑦-15 파일 실재: ' + f, existsSync(join(PUB, f)));
+/* 장면 카드 미리보기 그림 — renderScenes 몸통을 중괄호 짝으로 잘라 그 안에서 묻는다(파일 전체로 물으면 딴 함수에 걸린다) */
+const rsBody = (() => {
+  const i = playerCode.indexOf('function renderScenes(');
+  if (i < 0) return '';
+  const o = playerCode.indexOf('{', i);
+  let d = 0;
+  for (let k = o; k < playerCode.length; k++) {
+    if (playerCode[k] === '{') d++;
+    else if (playerCode[k] === '}') { d--; if (d === 0) return playerCode.slice(o, k + 1); }
+  }
+  return '';
+})();
+check('⑦-16 전제: renderScenes 몸통을 잘라 냈다', rsBody.length > 200, rsBody.length);
+check('⑦-17 미리보기 그림은 thumb 가 «있을 때만» 그린다(없으면 예전 이모지 카드)', /sc\.thumb\s*\?\s*'<img /.test(rsBody) && /sc\.thumb\s*\?\s*' img'\s*:\s*''/.test(rsBody));
+check('⑦-18 그림 주소는 이스케이프해서 넣는다', /src="'\s*\+\s*esc\(sc\.thumb\)/.test(rsBody));
+check('⑦-19 그림을 못 받으면(error) 그림을 걷고 이모지 카드로 되돌린다', /addEventListener\('error'/.test(rsBody) && /classList\.remove\('img'\)/.test(rsBody));
+check('⑦-20 CSS — 그림 카드 규칙이 있다(꽉 채움 · 칩)', /\.thumb\.img img\{[^}]*object-fit:cover/.test(html) && /\.thumb\.img \.who\{/.test(html));
 
 /* ⑧ 변이시험 */
 console.log('\n── ⑧ 변이시험 (원본 0건이어야 한다 — 전제)');
@@ -248,6 +276,8 @@ const MUTANTS = [
   ['명단: 상한 제거', 'else if (cast.length > MAX_STUDENTS) out.push(\'too_many_students\');', ''],
   ['요약: 건너뜀을 안 셈', "else if (r.status === 'no_speech' || r.status === 'skipped') s.skipped += 1;", ''],
   ['녹음: 상한 제거', 'return Math.min(12, Math.max(4,', 'return Math.min(99, Math.max(4,'],
+  ['미리보기: thumb 버림', 'thumb: resolveUrl(s.thumb, baseUrl),', "thumb: '',"],
+  ['미리보기: baseUrl 무시', 'thumb: resolveUrl(s.thumb, baseUrl),', 'thumb: String(s.thumb || \'\'),'],
 ];
 for (const [name, from, to] of MUTANTS) {
   if (CORE_SRC.indexOf(from) < 0) { check('⑧ 변이 «' + name + '» — 치환 앵커가 소스에 있다', false, from.slice(0, 60)); continue; }

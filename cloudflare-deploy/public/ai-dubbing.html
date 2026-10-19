@@ -68,6 +68,12 @@
   .thumb{aspect-ratio:16/9;border-radius:10px;border:1px dashed #3b4659;background:#0b1018;display:flex;align-items:center;
     justify-content:center;font-size:13px;color:#9aa4b5;text-align:center;padding:4px}
   .thumb.on{border-style:solid;font-size:24px;letter-spacing:4px}
+  /* 미리보기 그림이 있는 카드 — 그림을 꽉 채우고 등장 캐릭터는 왼쪽 아래 칩으로 */
+  .thumb.img{position:relative;overflow:hidden;padding:0;border-style:solid}
+  .thumb.img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  .thumb.img .who{position:absolute;left:6px;bottom:6px;padding:2px 8px;border-radius:999px;background:rgba(5,8,14,.72);
+    font-size:15px;letter-spacing:2px;line-height:1.4}
+  .thumb.img .soon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(5,8,14,.62);color:#e2e8f0}
   .tag{align-self:flex-start;padding:4px 12px;border-radius:999px;color:#fff;font-size:13.5px;font-weight:800}
   .s1{background:#2366c9}.s2{background:#6a3fc8}.s3{background:#22803f}.s4{background:#c25e12}.s5{background:#c22f2f}.s6{background:#3f4cc2}
   .scene .meta{font-size:12.5px;color:var(--text2)}
@@ -117,6 +123,8 @@
     .scene{flex-direction:row;align-items:center;flex-wrap:wrap}
     .thumb{width:96px;flex:none;font-size:11px}
     .thumb.on{font-size:16px;letter-spacing:1px}
+    .thumb.img{width:128px}
+    .thumb.img .who{left:4px;bottom:4px;padding:0 4px;font-size:10px;letter-spacing:0}
     .feat span{display:none}
     .feat b{font-size:13px;word-break:keep-all}
     .ln{grid-template-columns:1fr auto}
@@ -209,7 +217,7 @@
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script defer src="/js/speech-azure.js?v=2"></script>
-<script defer src="/js/ai-dubbing-core.js?v=1"></script>
-<script defer src="/js/ai-dubbing.js?v=1"></script>
+<script defer src="/js/ai-dubbing-core.js?v=2"></script>
+<script defer src="/js/ai-dubbing.js?v=2"></script>
 </body>
 </html>

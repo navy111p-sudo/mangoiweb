@@ -171,8 +171,11 @@
       sc.lines.forEach(function (l) { who[l.speaker] = true; });
       var emo = Object.keys(who).map(function (cid) { return S.ep.characters[cid].emoji; }).join('');
       var playable = !!(sc.video && sc.lines.length);
+      // 미리보기 그림이 있으면 깔고 등장 캐릭터는 아래 칩으로. 그림을 못 받으면(아래 error) 예전처럼 이모지만.
+      var thumbIn = (sc.thumb ? '<img src="' + esc(sc.thumb) + '" alt="" width="640" height="360" loading="lazy" decoding="async">' : '')
+        + (playable ? '<span class="who">' + esc(emo) + '</span>' : '<span class="soon">' + L('영상 준비 중', 'Video coming') + '</span>');
       h += '<div class="scene">'
-        + '<div class="thumb' + (playable ? ' on' : '') + '">' + (playable ? esc(emo) : L('영상 준비 중', 'Video coming')) + '</div>'
+        + '<div class="thumb' + (playable ? ' on' : '') + (sc.thumb ? ' img' : '') + '">' + thumbIn + '</div>'
         + '<span class="tag s' + ((i % 6) + 1) + '">' + L(sc.no + '. ' + sc.label.ko, sc.no + '. ' + sc.label.en) + '</span>'
         + '<span class="meta">' + L('대사 ' + sc.lines.length + '줄', sc.lines.length + ' lines') + ' · '
         + (sc.timing === 'synced' ? L('영상에 맞춰 진행', 'synced to video') : L('차례대로 진행', 'turn by turn')) + '</span>'
@@ -180,6 +183,13 @@
         + '</div>';
     });
     box.innerHTML = h;
+    Array.prototype.forEach.call(box.querySelectorAll('.thumb img'), function (im) {
+      im.addEventListener('error', function () {
+        var t = im.parentNode;
+        if (t) t.classList.remove('img');
+        if (im.parentNode) im.parentNode.removeChild(im);
+      });
+    });
   }
 
   function renderStatus() {

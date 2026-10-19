@@ -104,6 +104,7 @@
         no: no,
         label: pair(s.label, 'Scene ' + no),
         video: video,
+        thumb: resolveUrl(s.thumb, baseUrl),   // 장면 고르기 카드의 미리보기 그림(선택). 없으면 '' → 화면은 이모지로 그린다
         durationSec: dur,
         bgm: resolveUrl(s.bgm, baseUrl),
         voices: voices,
