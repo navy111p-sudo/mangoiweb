@@ -286,6 +286,8 @@
 
   /* 이름 두 벌 — 평소엔 긴 이름, 그 줄이 «한 줄을 넘칠 때만»(.rl-short · 아래 fitRows) 짧은 이름을 보인다.
      긴 이름은 그때도 화면에서만 감추고 낭독기 이름으로 남긴다(.rl-full) — 짧은 이름은 aria-hidden 이고 긴 이름 안에 든 낱말이다.
+     짧은 이름은 긴 이름 «안» 에 «이어서» 든 낱말이어야 한다(대소문자만 무시) — 음성조작으로 보이는 이름을 부르면 찾아지게(WCAG 2.5.3).
+     그래서 영어 그림 동화책은 «4 books» 가 아니라 «Books»(«4 picture books» 안에 «4 books» 는 이어서 들지 않는다 — 2026-10-19 함정 대조).
      short 가 비면 줄일 때 아이콘만 남는다(그림책 🖼 — title 로 이름을 함께 둔다).
      lv '2' 는 맨 마지막 단계(.rl-tiny)에서만 줄인다 — «단계» 드롭다운의 단계 이름(펼치면 목록에 다 보인다). */
   function twoNames(full, short, lv) {
@@ -325,7 +327,7 @@
     // 그림 동화책 4권(따로 만든 책) — 2단계에서만. 책은 각자 화면이라 고르면 바로 그 책으로 간다.
     var books = (cur === 2 && window.__storyBookList && window.__storyBookList()) || [];
     var booksDd = books.length ? dd('', ICON.book + '<span class="rl-dd-val">' + twoNames(T('그림 동화책 ' + books.length + '권', books.length + ' picture books'),
-      T('동화책 ' + books.length + '권', books.length + ' books')) + '</span>',
+      T('동화책 ' + books.length + '권', 'Books')) + '</span>',
       books.map(function (b) {
         var s = b.n >= 6 ? 'done' : b.n > 0 ? 'doing' : 'new';
         var prog = b.n >= 6 ? T('완주', 'Finished') : T('도장 ' + b.n + '/6', 'Stamps ' + b.n + '/6');
@@ -405,7 +407,7 @@
      → 마지막으로 단계 이름(«2단계 조금 긴 이야기» → «2단계»).
      ⛔ 다 줄여도 한 줄이 안 되면 아무것도 안 줄인다(어차피 두 줄이면 이름이 긴 편이 낫다).
      ⛔ 폰·낮은 창(아래로 쌓는 배치)에서는 건드리지 않는다 — 그 배치는 원래 줄이 접히고 페이지가 스크롤한다.
-        STACKED_MQ 는 stories.html 의 쌓는 배치 미디어쿼리와 «같은 글자» 여야 한다(하니스가 대조).
+        STACKED_MQ 는 stories.html 의 쌓는 배치 미디어쿼리와 «같은 글자» 여야 한다(reading_ladder_harness ③ 이 두 글자를 대조한다).
      글꼴이 늦게 와 폭이 바뀌거나 창 크기가 바뀌면 다시 잰다(상주 타이머·관찰자 없이 — 그 일이 있을 때만). */
   var STACKED_MQ = '(max-width:820px),(max-height:560px)';
   var TB_LEVELS = ['rl-nocount', 'rl-nostair', 'rl-short', 'rl-tiny'], ACT_LEVELS = ['rl-short'];

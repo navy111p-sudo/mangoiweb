@@ -14,7 +14,7 @@
 //   ⑨ JS 오류 0
 //   ⑩ 실제 노트북 «창» 높이(2026-10-19) — 1366×768 화면은 창이 약 640px, 1280×720 은 약 600px 이다.
 //      그 창에서도 12편이 목록 안쪽 스크롤 없이 다 보인다 · 4단계 48편 전부 제목칸이 안 잘리고 «읽기 시작» 이 «맨 위»
-//      태블릿 1024×768 · 낮은 노트북 1024×600 · EN 900×600·960×640 에서도 48편 전부 목록·상세 칸 안쪽 스크롤이 없다
+//      태블릿 1024×768 · 낮은 노트북 1024×600 · EN 900×600·960×640 · KO 821·840×600 · EN 840×600·1101×640 에서도 48편 전부 목록·상세 칸 안쪽 스크롤이 없다
 //   ⑪ 좁은 창(821~1100) 압축 — 도구 줄 한 줄 · 이전·다음 글은 화살표(이름은 낭독기에 남음) · 계단·«단계»«정렬» 이름표·편수는 감춤
 //      (짝) 넓은 창에서는 전부 그대로 보이고, «주제»·«상태» 이름표는 좁은 창에서도 남는다
 //      (짝) 버튼 줄은 한 장 고정일 때만 상세 칸 바닥에 붙고(sticky) 폰 390 에서는 붙지 않는다
@@ -22,6 +22,8 @@
 //      줄이 «실제로 넘칠 때만» js(fitRows)가 «N/12편» → 계단 → 긴 이름 → 단계 이름 순으로 줄여 한 줄로 만든다
 //      · 줄인 이름도 낭독기 이름은 그대로(접근성 트리) · 그림책 버튼은 🖼 만 · 머리줄도 한 줄(부제만 «…»)
 //      (짝) 넓은 창은 아무것도 안 줄인다 · 아래로 쌓는 창(800 폭)은 안 건드린다 · 창 크기를 바꾸면 다시 잰다
+//      · 머리줄: 제목이 안 잘리고 옆 칸과 안 겹친다((짝) 제목을 일부러 길게 하면 겹치지 않고 «…» 로 줄어든다)
+//      · 짧은 이름은 모두 긴 이름 안에 이어서 든다(음성조작 — WCAG 2.5.3. «4 books» 는 «4 picture books» 안에 이어서 안 들어 «Books» 로 바꿈)
 //   ⚠️ 자동으로 안 돕니다 — 사람이 부릅니다:  node test-harness/manual/stories-browse-browser.mjs
 //   STORIES_SRC=<고친 public 폴더> 로 변이시험을 합니다(저장소 파일은 건드리지 마세요).
 //   서버는 python http.server 로 띄우고, /api/** 는 가짜 응답이라 D1 에 아무것도 안 씁니다.
@@ -327,8 +329,9 @@ try {
   //     1024×768(태블릿 가로) — «이렇게 읽어요» 3칸을 세로로 쌓으면 상세가 넘친다(2026-10-19 실측)
   //     1024×600(낮은 노트북) — 좁고 낮은 창에서 설명 줄을 접지 않으면 상세가 넘친다
   //     EN 900×600 · 960×640 — 영어 버튼 글자가 길어 버튼 줄이 3줄, 도구 줄이 2줄로 접혀 넘쳤다(2026-10-19 두 번째 수리 전)
-  //   ⚠️ 821~899 폭(예: 840×600)은 아직 조금 넘친다 — 재지 않는다(알고 둔 한계. 태블릿 세로는 820 이하라 쌓는 화면)
-  for (const [w, h, lang, fit] of [[1280, 600, 'ko', true], [1280, 600, 'en', true], [900, 600, 'en', true], [960, 640, 'en', true], [1024, 768, 'ko', true], [1024, 600, 'ko', true]]) {
+  //     KO 821·840×600 · EN 1101×640 — 3칸·제목칸 여백이 커서 상세가 7px·2px 넘쳤다(2026-10-19 진짜 구글 글꼴로 재고 여백을 조여 0 으로)
+  for (const [w, h, lang, fit] of [[1280, 600, 'ko', true], [1280, 600, 'en', true], [900, 600, 'en', true], [960, 640, 'en', true], [1024, 768, 'ko', true], [1024, 600, 'ko', true],
+    [821, 600, 'ko', true], [840, 600, 'ko', true], [840, 600, 'en', true], [1101, 640, 'en', true]]) {
     let n = 0, heroCut = [], ctaBad = [], footOut = [], notBrowse = 0, over = [];
     let sticky = null;
     for (let stage = 1; stage <= 4; stage++) {
@@ -439,14 +442,31 @@ try {
     const seen = (b, sel) => { const e = b && b.querySelector(sel); return !!e && e.getBoundingClientRect().width > 2; };
     const nx = document.querySelector('.rl-tb-next'), dr = document.querySelector('.rl-tb [data-act="drill"]'), gh = document.querySelector('.rl-acts a.rl-ghost');
     const L = document.querySelector('.rl-list'), D = document.querySelector('.rl-detail'), top = document.querySelector('.top');
+    // 머리줄은 nowrap 이라 «한 줄인가» 는 늘 참이다 — 그래서 «제목이 잘렸나·옆 칸과 겹치나·줄이 넘치나» 를 따로 잰다(2026-10-19 함정 대조)
+    const h1 = document.querySelector('.brand h1'), rg = document.createRange(); rg.selectNodeContents(h1);
+    const h1Cut = Math.round(rg.getBoundingClientRect().right - h1.getBoundingClientRect().right);
+    const kids = [...top.children].filter((k) => k.getBoundingClientRect().width > 0);
+    let topOv = 0;
+    for (let i = 0; i + 1 < kids.length; i++) { const a = kids[i].getBoundingClientRect(), c = kids[i + 1].getBoundingClientRect(); if (Math.abs(a.top - c.top) < 20) topOv = Math.max(topOv, Math.round(a.right - c.left)); }
+    const brandR = document.querySelector('.brand').getBoundingClientRect().right;
+    // 제목 «글자» 가 제 칸(brand) 밖으로 나가 옆 칸 위에 얹히는가 — 칸끼리는 안 겹쳐도 글자는 넘칠 수 있다
+    //   (clip 이 없으면 글자는 칸을 넘어 그려지므로 «글자 끝» 을, clip 이 있으면 «칸 끝» 을 본다)
+    const visR = getComputedStyle(h1).overflowX === 'visible' ? rg.getBoundingClientRect().right : Math.min(rg.getBoundingClientRect().right, h1.getBoundingClientRect().right);
+    const h1Spill = Math.round(visR - brandR);
+    // 짧은 이름은 긴 이름 «안» 에 이어서 든 낱말이어야 한다(대소문자만 무시) — 음성조작으로 보이는 이름을 부르면 찾아지게(WCAG 2.5.3)
+    const badNames = [...document.querySelectorAll('[class^="rl-abbr"]')].map((a) => {
+      const f = a.previousElementSibling; const ft = f && /^rl-full/.test(f.className) ? f.textContent.toLowerCase() : null;
+      return ft !== null && ft.includes(a.textContent.toLowerCase()) ? null : (f ? f.textContent : '?') + ' ⊅ ' + a.textContent;
+    }).filter(Boolean);
     return { tbCls: tb.className.split(/\s+/), acCls: acts ? acts.className.split(/\s+/) : [], tbOne: one(tb), acOne: one(acts), topOne: one(top),
+      h1Cut, h1Spill, topOv, topSw: top.scrollWidth - top.clientWidth, badNames,
       next: !!nx, nextFull: seen(nx, '.rl-full'), nextAbbr: seen(nx, '.rl-abbr'), drillFull: seen(dr, '.rl-full'), drillAbbr: seen(dr, '.rl-abbr'),
       ghW: gh ? Math.round(gh.getBoundingClientRect().width) : null, ghH: gh ? Math.round(gh.getBoundingClientRect().height) : null, L: L.scrollHeight - L.clientHeight, D: D.scrollHeight - D.clientHeight };
   });
   const cut = (m) => LV.filter((c) => m.tbCls.includes(c));
   // 다섯째 칸: 'wide' = 아무것도 안 줄임(짝) · 'lean' = 숫자·계단만 감추고 이름은 그대로(필요한 만큼만 줄이는가)
   //   ⚠ 'lean' 은 영어로만 — 한국어는 1180 에서 아무것도 안 줄여도 한 줄이라 «감춘 것이 있다» 가 거짓 기대가 됨(실측)
-  for (const [w, h, lang, stage, want] of [[900, 600, 'en', 2], [960, 640, 'ko', 2], [1024, 690, 'en', 2], [1133, 744, 'en', 2, 'lean'], [1180, 740, 'en', 2, 'lean'],
+  for (const [w, h, lang, stage, want] of [[900, 600, 'en', 2], [960, 640, 'ko', 2], [1024, 690, 'en', 2], [1133, 744, 'en', 2, 'lean'], [1180, 740, 'en', 2, 'lean'], [1181, 740, 'en', 2],
     [1194, 760, 'en', 2, 'lean'], [834, 1100, 'en', 2], [834, 1100, 'en', 1], [1280, 600, 'ko', 3], [1440, 860, 'en', 2, 'wide'], [1920, 940, 'ko', 2, 'wide']]) {
     const { ctx, page, errs } = await openPage({ w, h, lang, seed: allDone(stage) });
     const tag = `${w}x${h} ${lang} ${stage}단계 «올라가기» 있음`;
@@ -455,6 +475,8 @@ try {
     ok(m.tbOne, `${tag} 도구 줄이 한 줄이다`, cut(m).join(' '));
     ok(m.acOne, `${tag} 버튼 줄이 한 줄이다`);
     ok(m.topOne, `${tag} 머리줄이 한 줄이다`);
+    ok(m.h1Cut <= 1 && m.h1Spill <= 1 && m.topOv <= 0 && m.topSw <= 0, `${tag} 머리줄: 제목이 안 잘리고 제 칸 밖으로 안 나가며 옆 칸과 안 겹치고 줄이 안 넘친다`, JSON.stringify([m.h1Cut, m.h1Spill, m.topOv, m.topSw]));
+    ok(m.badNames.length === 0, `${tag} 짧은 이름은 모두 긴 이름 안에 이어서 든다(음성조작 — WCAG 2.5.3)`, m.badNames.join(' | '));
     ok(m.L <= 0 && m.D <= 0, `${tag} 목록·상세 칸 안쪽 스크롤이 없다`, `L${m.L} D${m.D}`);
     // 줄여도 낭독기 이름은 긴 이름 그대로 — 짧은 이름은 aria-hidden 이라 이름에 두 번 끼지 않는다
     const nmDrill = await page.getByRole('button', { name: '🔁 ' + T2(lang, '핵심 찾기 반복', 'Main-idea drill'), exact: true }).count();
@@ -491,6 +513,17 @@ try {
     const nm = await page.getByRole('link', { name: '🖼 Picture book', exact: true }).count();
     ok(nm === 1, '840×600 EN 그림책 버튼 이름은 «Picture book» 그대로(접근성 트리)', nm);
     ok(m.topOne && m.L <= 0 && m.D <= 0, '840×600 EN 머리줄 한 줄 · 안쪽 스크롤 없음', `L${m.L} D${m.D}`);
+    await ctx.close();
+  }
+  { // (짝) 제목이 칸보다 길어지는 날(글꼴이 다르거나 이름이 바뀜) — 옆 «읽는 순서» 위로 넘쳐 겹치지 않고 «…» 로 줄어든다
+    //   지금 창들에서는 제목이 안 줄어드므로(위 검사) 이 안전장치는 제목을 일부러 길게 해야만 일한다
+    const { ctx, page } = await openPage({ w: 1181, h: 740, lang: 'en', seed: allDone(2) });
+    await page.evaluate(() => { document.querySelector('.brand h1').textContent = 'English Reading Ladder for Every Learner'; });
+    const m = await fitProbe(page);
+    ok(m.h1Cut > 1, '전제: 제목을 길게 하면 칸이 모자라 잘린다(이 검사가 그 상황에 닿는다)', m.h1Cut);
+    ok(m.h1Spill <= 1 && m.topOv <= 0 && m.topSw <= 0, '(짝) 긴 제목은 옆 칸 위로 넘치지 않고 «…» 로 줄어든다', JSON.stringify([m.h1Spill, m.topOv, m.topSw]));
+    const to = await page.evaluate(() => getComputedStyle(document.querySelector('.brand h1')).textOverflow);
+    ok(to === 'ellipsis', '(짝) 줄어든 제목은 끝이 «…» 다', to);
     await ctx.close();
   }
   { // 창 크기를 바꾸면 다시 잰다 — 넓게 열었다 좁히면 줄이고, 다시 넓히면 되돌린다
