@@ -1,0 +1,141 @@
+{
+  "status": "pending-confirm",
+  "assets": [
+    {
+      "scene": 1,
+      "kind": "bgm",
+      "media_id": "abd02ca6-f872-43ca-9040-9b95f50d8203",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/abd02ca6-f872-43ca-9040-9b95f50d8203.mp3"
+    },
+    {
+      "scene": 1,
+      "kind": "voice",
+      "who": "maya",
+      "media_id": "6589f672-9b47-4735-bc45-48dd4b045d32",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/6589f672-9b47-4735-bc45-48dd4b045d32.mp3"
+    },
+    {
+      "scene": 1,
+      "kind": "voice",
+      "who": "kai",
+      "media_id": "0caee12c-0e85-4f34-b3eb-a15c3e48ea16",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/0caee12c-0e85-4f34-b3eb-a15c3e48ea16.mp3"
+    },
+    {
+      "scene": 1,
+      "kind": "voice",
+      "who": "emma",
+      "media_id": "5dd15022-fd4f-4f8e-9a2f-101c02df91a7",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/5dd15022-fd4f-4f8e-9a2f-101c02df91a7.mp3"
+    },
+    {
+      "scene": 1,
+      "kind": "voice",
+      "who": "pip",
+      "media_id": "52b79423-8cf6-48f4-87fc-a850b0c451e8",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/52b79423-8cf6-48f4-87fc-a850b0c451e8.mp3"
+    },
+    {
+      "scene": 2,
+      "kind": "bgm",
+      "media_id": "9e21ce27-f3ad-45dc-b23e-ba2d90feabfc",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/9e21ce27-f3ad-45dc-b23e-ba2d90feabfc.mp3"
+    },
+    {
+      "scene": 2,
+      "kind": "voice",
+      "who": "maya",
+      "media_id": "58c37490-2640-42b3-9523-d48c6694062a",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/58c37490-2640-42b3-9523-d48c6694062a.mp3"
+    },
+    {
+      "scene": 2,
+      "kind": "voice",
+      "who": "kai",
+      "media_id": "34d9e508-850c-430b-ab87-e6a3361df4bf",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/34d9e508-850c-430b-ab87-e6a3361df4bf.mp3"
+    },
+    {
+      "scene": 2,
+      "kind": "voice",
+      "who": "emma",
+      "media_id": "fef47879-ee7e-4d9e-89c0-858a83ae7944",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/fef47879-ee7e-4d9e-89c0-858a83ae7944.mp3"
+    },
+    {
+      "scene": 2,
+      "kind": "voice",
+      "who": "pip",
+      "media_id": "715ea5c0-16ad-46a5-bf41-93e4323c0045",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/715ea5c0-16ad-46a5-bf41-93e4323c0045.mp3"
+    },
+    {
+      "scene": 3,
+      "kind": "bgm",
+      "media_id": "aa8603b3-4fa0-41b3-8b02-90dc5053c5b3",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/aa8603b3-4fa0-41b3-8b02-90dc5053c5b3.mp3"
+    },
+    {
+      "scene": 3,
+      "kind": "voice",
+      "who": "maya",
+      "media_id": "e3e9db46-7c00-48c4-b913-328ee6c760cd",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/e3e9db46-7c00-48c4-b913-328ee6c760cd.mp3"
+    },
+    {
+      "scene": 3,
+      "kind": "voice",
+      "who": "kai",
+      "media_id": "b22d11a8-a59a-4baa-96a1-59d64e285f3a",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/b22d11a8-a59a-4baa-96a1-59d64e285f3a.mp3"
+    },
+    {
+      "scene": 3,
+      "kind": "voice",
+      "who": "emma",
+      "media_id": "d2e25732-224b-43e6-a34b-d87d2eb96611",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/d2e25732-224b-43e6-a34b-d87d2eb96611.mp3"
+    },
+    {
+      "scene": 3,
+      "kind": "voice",
+      "who": "pip",
+      "media_id": "22987e6b-a89f-4055-922f-6093c16e40d8",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/22987e6b-a89f-4055-922f-6093c16e40d8.mp3"
+    },
+    {
+      "scene": 4,
+      "kind": "bgm",
+      "media_id": "a9e0321c-6798-4f0f-97d5-4fa99f50cb6b",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/a9e0321c-6798-4f0f-97d5-4fa99f50cb6b.mp3"
+    },
+    {
+      "scene": 4,
+      "kind": "voice",
+      "who": "maya",
+      "media_id": "b7992712-e357-47b1-a650-d0935974d217",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/b7992712-e357-47b1-a650-d0935974d217.mp3"
+    },
+    {
+      "scene": 4,
+      "kind": "voice",
+      "who": "kai",
+      "media_id": "038891d4-1b0a-4753-9387-f10e75994969",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/038891d4-1b0a-4753-9387-f10e75994969.mp3"
+    },
+    {
+      "scene": 4,
+      "kind": "voice",
+      "who": "emma",
+      "media_id": "bf9090c0-d473-4a2b-904d-943feb22544e",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/bf9090c0-d473-4a2b-904d-943feb22544e.mp3"
+    },
+    {
+      "scene": 4,
+      "kind": "voice",
+      "who": "pip",
+      "media_id": "f32bd03e-8d38-4cf4-8851-c44936b00173",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/f32bd03e-8d38-4cf4-8851-c44936b00173.mp3"
+    }
+  ]
+}
