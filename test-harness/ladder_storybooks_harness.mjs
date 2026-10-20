@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   📚 영어 독서 사다리 그림 동화책 48편 감시 — 2026-10-18 신설
-      public/story-s1-01.html … story-s4-12.html (생성기 scripts/ladder-storybooks/build.mjs)
+   📚 영어 독서 사다리 그림 동화책 감시 — 2026-10-18 신설(48편) · 2026-10-19 176편 전부로 늘림
+      public/story-s1-01.html … story-s4-42.html (생성기 scripts/ladder-storybooks/build.mjs)
 
    story_books_harness(2~4권)와 같은 방식으로 권마다
      ① 생성기 결과가 지금 데이터와 같은가(손으로 고친 페이지·안 돌린 생성기를 잡음)
@@ -54,9 +54,11 @@ const ladderJs = readFileSync(join(PUB, 'js', 'reading-ladder.js'), 'utf8');
 
 const files = readdirSync(DATA_DIR).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort();
 console.log('\n══════ 전제 ══════');
-// 📌 2026-10-19 사다리 글을 176편으로 늘렸다 — 그림책은 처음 48편에만 있고, 새 글은 데이터에 book:false 로 표시한다.
+// 📌 2026-10-19 사다리 글을 176편으로 늘렸고, 같은 날 176편 «전부» 에 그림 동화책을 만들었다(book:false 0편).
+//    그림책이 없는 글이 다시 생기면 그 글에 book:false 를 달면 된다 — 아래 짝 검사가 «표시와 실제» 를 맞춰 본다.
+//    ⛔ 숫자(176)를 못 박지 마세요 — 사다리 글이 늘면 정당하게 늘어납니다. 물어야 할 것은 «데이터 = 그림책 있는 글» 입니다.
 const BOOKED = L.passages.filter((p) => p.book !== false);
-ok(files.length === BOOKED.length && BOOKED.length === 48, `그림책 데이터 ${files.length}개 == 그림책 있는 사다리 글 ${BOOKED.length}편 (48)`);
+ok(files.length === BOOKED.length && BOOKED.length > 48, `그림책 데이터 ${files.length}개 == 그림책 있는 사다리 글 ${BOOKED.length}편 (48편보다 많다)`);
 ok(BOOKED.every((p) => files.includes(p.id)), '그림책이 있다고 된 글에는 모두 그림책 데이터가 있다');
 ok(L.passages.filter((p) => p.book === false).every((p) => !files.includes(p.id) && !existsSync(join(ROOT, 'cloudflare-deploy', 'public', 'story-' + p.id + '.html'))), 'book:false 인 글에는 그림책 데이터·페이지가 없다(짝 — 표시와 실제가 어긋나지 않게)');
 
@@ -147,7 +149,8 @@ for (const id of files) {
   ok(SC && Object.keys(SC).every((k) => Number(k) > 0 && Number(k) < STORY.length), tag + '장면 그림이 문단 사이');
   ok(!!TUNE && TUNE.melody.reduce((a, b) => a + b[1], 0) === TUNE.chords.length * TUNE.beats, tag + '배경음악 멜로디 박자 == 반주 박자');
   if (TUNE) { const k = JSON.stringify([TUNE.chords, TUNE.melody]); ok(!tuneKeys.has(k), tag + `배경음악이 다른 권과 다르다${tuneKeys.has(k) ? ' (' + tuneKeys.get(k) + ' 와 같음)' : ''}`); tuneKeys.set(k, id); }
-  ok(!/Birthday|Biscuit|Grandma Rose|birthday-cake|Party Kitchen|Red Umbrella/.test(html), tag + '틀(2권)·1권 흔적이 없다');
+  // 틀 흔적은 «틀 제목 전체» 로 본다 — 낱말 «Birthday» 하나면 생일 이야기 본문(s1-15·s3-17)에 걸린다(2026-10-19).
+  ok(!/Missing Birthday Cake|Biscuit|Grandma Rose|birthday-cake|Party Kitchen|Red Umbrella/.test(html), tag + '틀(2권)·1권 흔적이 없다');
   ok(map.includes(`href="/story-${id}.html"`), tag + '사이트 구성표에 등록');
   const strip = html.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<style[\s\S]*?<\/style>/g, '');
   const kos = [...strip.matchAll(/data-ko="([^"]*)" data-en="([^"]*)"/g)];
@@ -161,7 +164,9 @@ ok(Math.min(...allAns) >= 30 && Math.min(...allSum) >= 50, `전체 정답 자리
 const lv = (readFileSync(join(PUB, 'stories.html'), 'utf8').match(/reading-ladder\.js\?v=(\d+)/) || [])[1];
 ok(Number(lv) >= 3, `stories.html 이 reading-ladder.js 새 버전을 부른다 (v=${lv})`);
 const stageImg = files.map((id) => Number(id[1]));
-ok(stageImg.filter((s) => s <= 2).length === 24 && stageImg.filter((s) => s >= 3).length === 24, '1~2단계 24권(그림) · 3~4단계 24권(실사)');
+const want12 = BOOKED.filter((p) => p.stage <= 2).length, want34 = BOOKED.filter((p) => p.stage >= 3).length;
+ok(stageImg.filter((s) => s <= 2).length === want12 && stageImg.filter((s) => s >= 3).length === want34 && want12 > 24 && want34 > 24,
+  `1~2단계 ${want12}권(그림) · 3~4단계 ${want34}권(실사) — 단계별로 빠진 권이 없다`);
 
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}  (조합 ${CASES}개)`);
 process.exit(FAIL ? 1 : 0);

@@ -1,0 +1,305 @@
+{
+  "id": "s3-31",
+  "breaks": [
+    4,
+    3,
+    5,
+    2
+  ],
+  "key": {
+    "P": 3,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «무게를 느끼지 못하는 상태가 일상생활을 아주 다르게 만든다(주제)» 와 «우주 생활은 신나지만 꼼꼼한 계획과 노력이 필요하다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (weightlessness makes everyday life very different) and the conclusion (life in space is exciting but requires careful planning and hard work). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "How astronauts live in space"
+    },
+    {
+      "k": "Key fact",
+      "qko": "우주 생활은 왜 지구와 다른가요?",
+      "qen": "Why is life in space different?",
+      "a": "Astronauts feel weightless, so things float"
+    },
+    {
+      "k": "Health",
+      "qko": "우주 비행사는 어떻게 건강을 지키나요?",
+      "qen": "How do astronauts stay healthy?",
+      "a": "They exercise for about two hours a day"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "On the International Space Station, astronauts feel ",
+      "ans": "weightless",
+      "opts": [
+        "weightless",
+        "heavy",
+        "sleepy"
+      ]
+    },
+    {
+      "pre": ", so water floats in wobbly balls. They drink from pouches with ",
+      "ans": "straws",
+      "opts": [
+        "straws",
+        "cups",
+        "bowls"
+      ]
+    },
+    {
+      "pre": ". Without gravity, muscles and bones grow ",
+      "ans": "weaker",
+      "opts": [
+        "weaker",
+        "stronger",
+        "heavier"
+      ]
+    },
+    {
+      "pre": ", so astronauts ",
+      "ans": "exercise",
+      "opts": [
+        "exercise",
+        "sleep",
+        "cook"
+      ]
+    },
+    {
+      "pre": " for about two hours every day. They even grow a little ",
+      "ans": "taller",
+      "opts": [
+        "taller",
+        "shorter",
+        "wider"
+      ]
+    },
+    {
+      "pre": " in space because their spines stretch out.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "weightless",
+      "무게를 느끼지 않는",
+      "so they feel <b>weightless</b>",
+      "feeling as if you have no weight"
+    ],
+    [
+      "drift",
+      "둥둥 떠다니다",
+      "so they do not <b>drift</b> around",
+      "to move slowly through air or water without control"
+    ],
+    [
+      "tricky",
+      "까다로운",
+      "Even using the toilet is <b>tricky</b>",
+      "difficult and needing care"
+    ],
+    [
+      "gravity",
+      "중력",
+      "Living without <b>gravity</b> is also hard on the body.",
+      "the force that pulls things toward the ground"
+    ],
+    [
+      "exercise",
+      "운동하다",
+      "astronauts <b>exercise</b> for about two hours every day",
+      "to move your body to stay strong and healthy"
+    ],
+    [
+      "requires",
+      "필요로 하다",
+      "it <b>requires</b> careful planning and hard work",
+      "needs"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why do muscles and bones grow weaker in space?",
+      "qko": "우주에서는 왜 근육과 뼈가 약해지나요?",
+      "opts": [
+        "Because they do not have to work against gravity",
+        "Because astronauts eat food from special packages",
+        "Because astronauts sleep in sleeping bags"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Muscles and bones grow weaker because they do not have to work against gravity.",
+        "To stay healthy, astronauts exercise for about two hours every day.",
+        "They drink from pouches with straws, and many foods come in special packages.",
+        "Astronauts sleep in sleeping bags tied to the wall so they do not drift around."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "근육과 뼈가 중력을 이겨 내며 일할 필요가 없어서 약해진다고 했어요. 그래서 우주 비행사는 매일 운동해요.",
+        "Muscles and bones grow weaker because they do not have to work against gravity. That is why astronauts exercise every day."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In “so they do not drift around,” what does “drift” mean?",
+      "qko": "«so they do not drift around» 에서 «drift» 는 무슨 뜻인가요?",
+      "opts": [
+        "move slowly without control",
+        "fall quickly to the floor",
+        "sleep very deeply"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The water would not fall; it would float in wobbly balls.",
+        "To stay healthy, astronauts exercise for about two hours every day.",
+        "They return to their normal height after coming back to Earth.",
+        "Every experiment they do helps prepare for longer trips, perhaps someday to Mars."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "우주에서는 물도 떨어지지 않고 둥둥 떠다닌다고 했어요. 침낭을 벽에 묶는 것도 몸이 떠다니지 않게 하려는 거예요. 그러니 «drift» 는 «저절로 둥둥 떠다니다» 는 뜻이에요.",
+        "In space, water does not fall but floats. Sleeping bags are tied to the wall so astronauts do not float away. «Drift» means to move slowly without control."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "What happens to an astronaut’s height in space and after coming home?",
+      "qko": "우주에 있을 때와 지구로 돌아온 뒤, 우주 비행사의 키는 어떻게 되나요?",
+      "opts": [
+        "They grow a little taller in space, then return to their normal height on Earth",
+        "They grow shorter in space and stay short forever",
+        "Their height never changes at all"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Surprisingly, astronauts grow a little taller in space, because their spines stretch out.",
+        "They return to their normal height after coming back to Earth.",
+        "Muscles and bones grow weaker because they do not have to work against gravity.",
+        "Astronauts on the International Space Station are always falling around Earth, so they feel weightless."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "우주에서는 척추가 늘어나서 키가 조금 커지고, 지구로 돌아오면 원래 키로 돌아간다고 했어요. 두 문장을 함께 봐야 해요.",
+        "Their spines stretch out in space, so they grow a little taller, and they return to their normal height after coming back to Earth. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "What kinds of food do astronauts eat in space?",
+      "우주 비행사는 우주에서 어떤 음식을 먹을까?",
+      "Space Food"
+    ],
+    [
+      "B",
+      "What would a long trip to Mars be like?",
+      "화성까지 가는 긴 여행은 어떨까?",
+      "The Road to Mars"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“We should <u>exercise every day</u> so that <u>our muscles and bones stay strong</u>.”",
+    "slotKo": [
+      "해야 할 일",
+      "그 결과"
+    ],
+    "slotEn": [
+      "what we should do",
+      "the result"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «우리가 해야 할 일 + 그 결과» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and the result in English.",
+    "chips": [
+      {
+        "a": "go to bed early",
+        "b": "we feel fresh in the morning",
+        "label": "sleep"
+      },
+      {
+        "a": "eat more vegetables",
+        "b": "our bodies stay healthy",
+        "label": "vegetables"
+      },
+      {
+        "a": "plan our weekend",
+        "b": "we have time for fun",
+        "label": "plan"
+      }
+    ],
+    "aria": [
+      "what we should do",
+      "the result"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «누가 + 무엇을 할 수 있다» 를 넣어 결과를 분명하게 써 보세요. (예: so that we can run faster)",
+    "moreEn": "One more step: after «so that», write who + can + what to make the result clear. (e.g. so that we can run faster)"
+  },
+  "img": {
+    "cover": "An astronaut in a white spacesuit with a gold visor floating outside a space station, with the curve of the blue Earth and white clouds far below",
+    "scenes": {
+      "1": "Inside a space station cabin, a sleeping bag strapped upright to the wall, with silver drink pouches with straws and a round, wobbly ball of water floating in the air",
+      "2": "An astronaut in a T-shirt and shorts running on a treadmill inside a space station, held down by elastic straps over the shoulders, seen from the side"
+    }
+  },
+  "alt": {
+    "1": "A sleeping bag on the wall and floating drink pouches",
+    "2": "An astronaut running on a treadmill with straps",
+    "cover": "An astronaut floating above the Earth"
+  }
+}

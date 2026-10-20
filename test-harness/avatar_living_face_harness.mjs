@@ -423,6 +423,58 @@ ok(sawEye, '다시 온 깜빡임이 실제로 눈을 그린다');
 }
 a.paused = true; a.emit('pause');
 for (let i = 0; i < 60; i++) { T += 16; draws = []; frame(); }
+
+/* ── ④-2 입모양 큐(진짜 TTS 경로) ───────────────────────────────────── */
+/* (v19, 2026-10-19) 사장님 「왜 아직도 noah랑 lily 눈썹이 안움직여」 — 웜업·영어친구의 서버 TTS 는 입모양 큐(Rhubarb)를
+   받아 그 큐로 입을 움직입니다. 그 경로에서 눈썹 방아쇠가 'D'(가장 크게 벌린 입) 큐뿐이었는데, 진짜 음성 실측에서
+   'D' 는 답 하나에 0.1~0.34초뿐이라 눈썹이 한 답에 0~2번(한국어는 0번)만 올라갔습니다. 위 ④ 는 음량(RMS) 경로만
+   시험해서 이것을 원리상 못 봤습니다 — 그래서 여기서는 «소리는 조용한데(LEVEL 128) 큐만 있는» 상태로 잽니다.
+   ⚠️ 큐에 'D' 를 «하나도» 넣지 않습니다 — 넣으면 옛 방아쇠로도 올라가 이 절이 헛돕니다.
+   짝: ⓐ 열린 모음(C·E)이 없는 큐(A·B·F·X)면 한 번도 안 올린다 ⓑ Emma(옛 눈썹)는 'D' 없는 큐에서 예전처럼 안 올린다. */
+console.log('\n■ ④-2 입모양 큐 경로에서도 눈썹을 올린다 (v19 — 실제 TTS 는 이 경로)');
+const mkCues = (seq, step = 0.13, total = 7) => { const out = []; let t = 0, i = 0; while (t < total) { out.push({ start: +t.toFixed(3), end: +(t + step).toFixed(3), value: seq[i % seq.length] }); t += step; i++; } return out; };
+const atCue = (cues, time) => { for (const c of cues) if (time >= c.start && time < c.end) return c.value; return 'X'; };
+let CUES = [];
+window.AvatarVisemes = { prepare: () => Promise.resolve(CUES), at: atCue, frame: () => null };
+const cueTalk = async (name, seq) => {
+  av.setCharacter(name); await flush();
+  parkBlinks();
+  CUES = mkCues(seq);
+  const el = new Media(); el.src = '/audio/cue-' + name + '-' + seq.join('') + '.mp3'; el.currentTime = 0;
+  av.prepare(el); await flush();
+  LEVEL = 128;                                   // 소리(RMS)는 조용 — 큐만 보고 움직이는지 잰다
+  T += 2000; draws = []; el.paused = false; el.emit('playing');
+  const ups = []; let armed = true, lo = Infinity, hi = 0, browUp = 0;
+  for (let i = 0; i < 375; i++) {               // 375 × 16ms = 6초
+    T += 16; el.currentTime += 0.016; draws = []; frame();
+    const v = browLift();
+    if (armed) { lo = Math.min(lo, v); if (v > lo + 0.25 * D) { ups.push(T); armed = false; hi = v; } }
+    else { hi = Math.max(hi, v); if (v < hi - 0.15 * D) { armed = true; lo = v; } }
+    if (EYES[name] && eyeDraws().some(d => d.a[0] === 2 * EYES[name].w)) browUp++;
+  }
+  el.paused = true; el.emit('pause');
+  for (let i = 0; i < 60; i++) { T += 16; draws = []; frame(); }
+  return { ups, browUp, cued: !!CUES.length };
+};
+const OPEN = ['B', 'C', 'B', 'A', 'E', 'B', 'X'];   // 'D' 없음 — 실제 음성처럼 C·E 가 자주 나온다
+const cueLily = await cueTalk('lily', OPEN);
+const cueGaps = cueLily.ups.slice(1).map((t, i) => t - cueLily.ups[i]);
+ok(!OPEN.includes('D') && cueLily.cued, "(전제) 큐에 'D'(크게 벌린 입)가 하나도 없고, 소리는 조용하다(LEVEL 128)");
+ok(cueLily.ups.length >= 3, `lily: 큐 경로에서 열린 모음(C·E)마다 눈썹을 올린다 — 6초에 ${cueLily.ups.length}번 (간격 ${cueGaps.map(g => (g / 1000).toFixed(2) + '초').join(' · ') || '—'})`,
+  "'D' 큐만 보면 이 큐에서는 한 번도 안 올라갑니다(실제 TTS 답 하나에 0~2번 — 2026-10-19 실측)");
+ok(cueGaps.length >= 1 && cueGaps.every(g => g >= 950), `큐 경로에서도 간격은 1초 안팎 이상 (최소 ${cueGaps.length ? (Math.min(...cueGaps) / 1000).toFixed(2) : '—'}초)`);
+const cueNoah = await cueTalk('noah', OPEN);
+ok(cueNoah.ups.length >= 3, `noah: 큐 경로에서도 올린다 — 6초에 ${cueNoah.ups.length}번`);
+const shut = await cueTalk('lily', ['B', 'A', 'F', 'X', 'B']);
+ok(shut.ups.length === 0, `짝: 열린 모음이 없는 큐(A·B·F·X)에서는 한 번도 안 올린다 (${shut.ups.length}번)`, '«아무 큐에나 올리기» 로 넓히면 이 짝이 FAIL 합니다');
+const cueEmma = await cueTalk('emma', OPEN);
+ok(cueEmma.browUp === 0, `짝: emma(옛 눈썹)는 'D' 없는 큐에서 예전처럼 올린 눈썹 칸을 안 그린다 (${cueEmma.browUp}프레임)`,
+  '옛 캐릭터까지 새 방아쇠로 바꾸면 Emma·Jake 눈썹이 훨씬 자주 튑니다');
+const cueEmmaD = await cueTalk('emma', ['B', 'D', 'B', 'A', 'D', 'B', 'X']);
+ok(cueEmmaD.browUp > 0, `(전제) emma: 'D' 가 있는 큐에서는 예전처럼 올린 눈썹 칸을 그린다 (${cueEmmaD.browUp}프레임)`,
+  '이것이 없으면 위 «emma 는 안 그린다» 가 «emma 눈썹이 아예 안 도는» 것과 구별되지 않습니다');
+delete window.AvatarVisemes;
+av.setCharacter('lily'); await flush(); av.attach(a);
 canvasOn = false;
 
 /* ── ⑤ 눈 그림이 없는 캐릭터 ─────────────────────────────────────────── */

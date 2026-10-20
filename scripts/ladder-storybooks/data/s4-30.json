@@ -1,0 +1,305 @@
+{
+  "id": "s4-30",
+  "breaks": [
+    4,
+    3,
+    5,
+    6
+  ],
+  "key": {
+    "P": 3,
+    "S": 14
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «화성에 도시는 없지만, 생명이 있는지는 아직 열린 질문이다(주제)» 와 «지금까지 화성에서 과거든 현재든 생명의 확실한 증거는 발견되지 않았다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (there are no cities on Mars, but the question of life is still open) and the conclusion (so far, no clear evidence of life on Mars, past or present, has been found). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Whether life ever existed on Mars"
+    },
+    {
+      "k": "Key fact",
+      "qko": "과학자들은 무엇을 알아냈나요?",
+      "qen": "What have scientists found?",
+      "a": "Mars was once warmer and wetter, with rivers and lakes"
+    },
+    {
+      "k": "Answer so far",
+      "qko": "지금까지 알아낸 답은 무엇인가요?",
+      "qen": "What is the answer so far?",
+      "a": "No clear evidence of life has been found yet"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Mars is now a cold and ",
+      "ans": "harsh",
+      "opts": [
+        "harsh",
+        "crowded",
+        "green"
+      ]
+    },
+    {
+      "pre": " planet, but long ago it was probably warmer and ",
+      "ans": "wetter",
+      "opts": [
+        "wetter",
+        "drier",
+        "colder"
+      ]
+    },
+    {
+      "pre": ", with rivers and lakes. Rovers have also found organic ",
+      "ans": "molecules",
+      "opts": [
+        "molecules",
+        "cities",
+        "canals"
+      ]
+    },
+    {
+      "pre": ", but these can also form without ",
+      "ans": "life",
+      "opts": [
+        "life",
+        "carbon",
+        "atoms"
+      ]
+    },
+    {
+      "pre": ". So far, no clear ",
+      "ans": "evidence",
+      "opts": [
+        "evidence",
+        "weather",
+        "rovers"
+      ]
+    },
+    {
+      "pre": " of life on Mars has been found, so scientists hope to study rock samples back on Earth.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "harsh",
+      "혹독한, 가혹한",
+      "Modern Mars is a <b>harsh</b> place.",
+      "very difficult and unpleasant to live in"
+    ],
+    [
+      "atmosphere",
+      "대기",
+      "its thin <b>atmosphere</b> is mostly carbon dioxide",
+      "the layer of gases around a planet"
+    ],
+    [
+      "radiation",
+      "방사선",
+      "its surface receives strong <b>radiation</b> from space",
+      "dangerous energy that travels in invisible rays"
+    ],
+    [
+      "minerals",
+      "광물",
+      "have found rocks and <b>minerals</b> that form in water",
+      "natural solid substances found in rocks and the ground"
+    ],
+    [
+      "microbes",
+      "미생물",
+      "simple life, such as <b>microbes</b>, might once have existed there",
+      "living things too small to see without a microscope"
+    ],
+    [
+      "organic",
+      "유기의(탄소를 바탕으로 한)",
+      "Rovers have also detected <b>organic</b> molecules",
+      "made of carbon and often linked to living things"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why are scientists hopeful that simple life might once have existed on Mars?",
+      "qko": "과학자들은 왜 화성에 한때 단순한 생명이 있었을지도 모른다고 기대하나요?",
+      "opts": [
+        "Because Martians once built canals there",
+        "Because Mars once had liquid water, which all life on Earth needs",
+        "Because Mars has a thick atmosphere today"
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "It is extremely cold, its thin atmosphere is mostly carbon dioxide, and its surface receives strong radiation from space.",
+        "Since all life on Earth needs liquid water, these discoveries make scientists hopeful that simple life, such as microbes, might once have existed there.",
+        "But here is the important point: organic molecules can also form without life.",
+        "Whatever the result, the search will teach us how life begins and whether Earth is unique."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "지구의 모든 생명은 액체 상태의 물이 필요한데, 화성에 한때 물이 있었다는 발견이 나왔기 때문이에요.",
+        "All life on Earth needs liquid water, and discoveries show that Mars once had water."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does 'the question of life is still open' mean?",
+      "qko": "글에서 'the question of life is still open(생명의 문제는 아직 열려 있다)' 는 무슨 뜻인가요?",
+      "opts": [
+        "No one knows yet whether life ever existed on Mars",
+        "Scientists have proved that Mars never had life",
+        "People can now travel to Mars freely"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "In 1877, the Italian astronomer Giovanni Schiaparelli described long lines on Mars that he called 'canali,' meaning channels.",
+        "So far, no clear evidence of life on Mars, past or present, has been found.",
+        "Liquid water cannot stay on the surface for long.",
+        "Perseverance landed in 2021 in Jezero Crater, a place that scientists believe once held a lake."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "지금까지 화성에서 과거든 현재든 생명의 확실한 증거가 발견되지 않았다고 해요. 그러니 아직 답이 정해지지 않았다는 뜻이에요.",
+        "No clear evidence of life on Mars, past or present, has been found, so the answer is not decided yet."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why can't scientists say that the organic molecules prove there was life on Mars?",
+      "qko": "과학자들은 왜 유기 분자만으로 화성에 생명이 있었다고 말할 수 없나요?",
+      "opts": [
+        "Because the rovers destroyed the molecules",
+        "Because organic molecules are not carbon-based",
+        "Because organic molecules can be linked to life but can also form without it"
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Rovers have also detected organic molecules, which are carbon-based chemicals that can be connected to life.",
+        "Robotic rovers such as NASA's Curiosity and Perseverance have found rocks and minerals that form in water.",
+        "But here is the important point: organic molecules can also form without life.",
+        "Perseverance has already collected samples in sealed tubes for a possible future mission."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "유기 분자는 생명과 연결될 수 있는 탄소 기반 화학 물질이지만, 생명 없이도 만들어질 수 있어요. 두 문장을 함께 봐야 해요.",
+        "Organic molecules can be connected to life, but they can also form without life. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How will rock samples from Mars be brought back to Earth?",
+      "화성의 암석 표본은 어떻게 지구로 가져올까?",
+      "Bringing Mars Home"
+    ],
+    [
+      "B",
+      "What would it be like for people to live on Mars?",
+      "사람이 화성에서 산다면 어떤 모습일까?",
+      "A Home on the Red Planet"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "slotKo": [
+      "조건(만약 ~하면)",
+      "할 수 있는 일"
+    ],
+    "slotEn": [
+      "a condition",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «어떤 조건 + 그때 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own condition and what we can do in English.",
+    "aria": [
+      "the condition",
+      "what we can do"
+    ],
+    "src": "“If <u>scientists study Martian rocks on Earth</u>, we can <u>learn whether life ever existed there</u>.”",
+    "chips": [
+      {
+        "a": "we look at pond water under a microscope",
+        "b": "see tiny living things",
+        "label": "pond"
+      },
+      {
+        "a": "we visit a science museum",
+        "b": "touch a real meteorite",
+        "label": "museum"
+      },
+      {
+        "a": "we go stargazing on a clear night",
+        "b": "find Mars as a red dot",
+        "label": "stars"
+      }
+    ],
+    "moreKo": "한 걸음 더: «If» 뒤에는 «누가 + 무엇을 하면» 을, «we can» 뒤에는 동사원형을 넣어 보세요. (예: If we use a telescope, we can see craters on the Moon)",
+    "moreEn": "One more step: after «If», write who + what; after «we can», start with a base verb. (e.g. If we use a telescope, we can see craters on the Moon)"
+  },
+  "img": {
+    "cover": "The rusty red surface of Mars stretching to the horizon under a hazy butterscotch sky, scattered dark rocks in the foreground and a six-wheeled robotic rover with a tall camera mast leaving fresh wheel tracks in the dust",
+    "scenes": {
+      "2": "Seen from above, the dry floor of a huge Martian crater with a fan-shaped pattern of ancient riverbeds spreading out where a river once flowed into a lake, layered pale rock and dark sand dunes all around",
+      "3": "A rover's robotic arm drilling a neat round core out of a pale rock on Mars, while a few slim, sealed metal sample tubes lie in a row on the red ground nearby"
+    }
+  },
+  "alt": {
+    "2": "An old river delta on the floor of a Martian crater",
+    "3": "A rover drilling rock beside sealed sample tubes on Mars",
+    "cover": "A robotic rover crossing the red surface of Mars"
+  }
+}

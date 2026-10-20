@@ -1,0 +1,305 @@
+{
+  "id": "s2-27",
+  "breaks": [
+    2,
+    3,
+    4,
+    4
+  ],
+  "key": {
+    "P": 6,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «커다란 그물이 산호초에 걸려 있었고, 그 안에 바다거북이 갇혀 있었다(문제)» 와 «단 한 사람도 바다를 지키는 작전을 시작할 수 있다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (a sea turtle was trapped in a huge fishing net on the reef) and the lesson (even one person can start a mission to protect the ocean). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Mina, her uncle, a sea turtle"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "A sea turtle was trapped in a fishing net on the reef."
+    },
+    {
+      "k": "Lesson",
+      "qko": "무엇을 배웠나요?",
+      "qen": "What is the lesson?",
+      "a": "Even one person can start a mission to protect the ocean."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Mina and her uncle dove near a coral ",
+      "ans": "reef",
+      "opts": [
+        "reef",
+        "island",
+        "cave"
+      ]
+    },
+    {
+      "pre": ". The coral was sick because the water was too ",
+      "ans": "warm",
+      "opts": [
+        "warm",
+        "cold",
+        "deep"
+      ]
+    },
+    {
+      "pre": ". Then they found a sea turtle ",
+      "ans": "trapped",
+      "opts": [
+        "trapped",
+        "sleeping",
+        "playing"
+      ]
+    },
+    {
+      "pre": " in a fishing net. They set it free, and it swam up to ",
+      "ans": "breathe",
+      "opts": [
+        "breathe",
+        "eat",
+        "sleep"
+      ]
+    },
+    {
+      "pre": ". Later, Mina started a ",
+      "ans": "club",
+      "opts": [
+        "club",
+        "shop",
+        "band"
+      ]
+    },
+    {
+      "pre": " to collect plastic and old nets from the beach.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "coral",
+      "산호",
+      "Much of the <b>coral</b> was white",
+      "tiny sea animals that build hard, colorful shapes in the ocean"
+    ],
+    [
+      "trapped",
+      "갇힌",
+      "a sea turtle was <b>trapped</b> inside",
+      "not able to get out"
+    ],
+    [
+      "protect",
+      "보호하다, 지키다",
+      "Even one person can start a mission to <b>protect</b> the ocean.",
+      "to keep something safe"
+    ],
+    [
+      "divers",
+      "잠수부",
+      "Mina and her uncle were <b>divers</b> who studied the ocean.",
+      "people who swim deep under the water"
+    ],
+    [
+      "net",
+      "그물",
+      "A huge fishing <b>net</b> was caught on the reef",
+      "a tool made of strings with holes, used to catch fish"
+    ],
+    [
+      "collect",
+      "모으다, 줍다",
+      "to <b>collect</b> plastic and old nets from the beach",
+      "to pick things up and bring them together"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why was much of the coral white?",
+      "qko": "왜 산호가 많이 하얗게 변했나요?",
+      "opts": [
+        "The water was too warm, and the coral was sick.",
+        "Mina painted the coral white.",
+        "The fishing net covered the coral."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "One morning, they dove near a beautiful coral reef.",
+        "\"The water is too warm,\" her uncle said. \"The coral is sick.\"",
+        "At last, the turtle broke free and swam up to breathe.",
+        "She started a club at school to collect plastic and old nets from the beach."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "삼촌이 «바닷물이 너무 따뜻해. 산호가 아픈 거야»라고 말했어요. 그래서 산호가 하얗게 변했어요. 그물이 덮었다거나 미나가 칠했다는 말은 없어요.",
+        "Her uncle said, «The water is too warm. The coral is sick.» That is why it was white. Nothing says the net covered it or that Mina painted it."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The story says, \"The turtle was running out of air.\" What does \"running out of air\" mean here?",
+      "qko": "\"The turtle was running out of air.\"라는 문장이 있어요. 여기서 \"running out of air\"는 무슨 뜻인가요?",
+      "opts": [
+        "having almost no air left to breathe",
+        "swimming fast through the water",
+        "getting too much air"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "At last, the turtle broke free and swam up to breathe.",
+        "Much of the coral was white, and many fish were gone.",
+        "Mina and her uncle were divers who studied the ocean.",
+        "Back on the boat, Mina made a plan."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "거북은 그물에서 풀려나자마자 «숨을 쉬러» 물 위로 올라갔어요. 숨 쉴 공기가 거의 다 떨어져 가고 있었다는 뜻이에요.",
+        "As soon as the turtle broke free, it swam up to breathe. It means the turtle had almost no air left."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why did Mina start a club to collect old nets from the beach?",
+      "qko": "미나는 왜 바닷가의 낡은 그물을 줍는 동아리를 만들었나요?",
+      "opts": [
+        "She saw a sea turtle trapped in a fishing net.",
+        "Her teacher gave her homework.",
+        "She wanted to sell the old nets."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "A huge fishing net was caught on the reef, and a sea turtle was trapped inside!",
+        "Much of the coral was white, and many fish were gone.",
+        "She started a club at school to collect plastic and old nets from the beach.",
+        "One morning, they dove near a beautiful coral reef."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "미나는 산호초에 걸린 그물 속에 바다거북이 갇힌 것을 보았고, 그 뒤 플라스틱과 낡은 그물을 줍는 동아리를 만들었어요. 두 문장을 이으면, 다른 바다 동물을 지키고 싶었던 거예요.",
+        "Mina saw a sea turtle trapped in a fishing net on the reef, and then she started a club to collect plastic and old nets. Put these two sentences together: she wanted to keep other sea animals safe."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Mina's club finds a turtle nest on the clean beach.",
+      "미나의 동아리가 깨끗해진 바닷가에서 거북 둥지를 발견해요.",
+      "The Turtle Nest"
+    ],
+    [
+      "B",
+      "Mina dives again and sees the coral getting healthy.",
+      "미나가 다시 잠수해서 산호가 건강해지는 모습을 봐요.",
+      "Back to the Reef"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>pick up plastic on the beach</u> so that <u>sea turtles can swim safely</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그러면 어떻게 되는지"
+    ],
+    "slotEn": [
+      "what to do together",
+      "what will happen"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write something to do together and its purpose in English.",
+    "chips": [
+      {
+        "a": "turn off the lights",
+        "b": "we can save energy",
+        "label": "lights"
+      },
+      {
+        "a": "plant a small tree",
+        "b": "birds can have a home",
+        "label": "tree"
+      },
+      {
+        "a": "bring our own cups",
+        "b": "we use less plastic",
+        "label": "cups"
+      }
+    ],
+    "aria": [
+      "what to do",
+      "so that what happens"
+    ],
+    "moreKo": "한 걸음 더: «Let’s» 뒤에는 동사(pick, clean)를 바로 쓰고, «so that» 뒤에는 «누가 + 무엇을 할 수 있다» 를 쓰세요.",
+    "moreEn": "One more step: after «Let’s», write a verb (pick, clean). After «so that», write who + what they can do."
+  },
+  "img": {
+    "cover": "Under the clear blue sea, an eleven-year-old Korean girl with a black ponytail, a purple wetsuit, a yellow diving mask and blue flippers and her uncle, a tall man with a short black beard, a black wetsuit and an orange air tank gently pull apart a large green fishing net with their hands, setting free a big sea turtle that swims up toward the sunlight above a colorful coral reef.",
+    "scenes": {
+      "1": "Underwater, an eleven-year-old Korean girl with a black ponytail, a purple wetsuit, a yellow diving mask and blue flippers and her uncle, a tall man with a short black beard, a black wetsuit and an orange air tank float above a coral reef that has turned pale white, with only a few small fish nearby, and her uncle points at the white coral with a worried look.",
+      "3": "On a small boat on a sunny sea, an eleven-year-old Korean girl with a black ponytail, a purple wetsuit, a yellow diving mask and blue flippers, sitting with her diving mask pushed up on her head, draws a picture of a clean beach in her notebook, while her uncle, a tall man with a short black beard, a black wetsuit and an orange air tank smiles at her and a happy sea turtle swims beside the boat."
+    }
+  },
+  "alt": {
+    "1": "Two divers look at white, sick coral on the reef.",
+    "3": "On the boat, the girl draws a plan while a turtle swims nearby.",
+    "cover": "A girl and her uncle free a sea turtle from a fishing net."
+  }
+}

@@ -1,0 +1,305 @@
+{
+  "id": "s2-15",
+  "breaks": [
+    3,
+    3,
+    3,
+    4
+  ],
+  "key": {
+    "P": 8,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «맥스의 거짓말 때문에 아저씨가 가게를 잃을 위기에 처했다(문제)» 와 «친절한 정직이 달콤한 거짓말보다 낫다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (because of Max's lies, Mr. Park was about to lose his shop) and the lesson (kind honesty is better than a sweet lie). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Max the robot, Mr. Park, the customers"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Max's lies made customers angry, and the shop was in trouble."
+    },
+    {
+      "k": "Lesson",
+      "qko": "무엇을 배웠나요?",
+      "qen": "What is the lesson?",
+      "a": "Kind honesty is better than a sweet lie."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Max the robot always told the ",
+      "ans": "truth",
+      "opts": [
+        "truth",
+        "jokes",
+        "stories"
+      ]
+    },
+    {
+      "pre": ", even when it was not nice. Mr. Park gave him a new program, so Max began to tell small ",
+      "ans": "lies",
+      "opts": [
+        "lies",
+        "songs",
+        "riddles"
+      ]
+    },
+    {
+      "pre": ". Soon, angry ",
+      "ans": "customers",
+      "opts": [
+        "customers",
+        "robots",
+        "teachers"
+      ]
+    },
+    {
+      "pre": " came back, and the shop was in trouble. Max turned off the program, said sorry, and promised to fix the broken ",
+      "ans": "toys",
+      "opts": [
+        "toys",
+        "windows",
+        "phones"
+      ]
+    },
+    {
+      "pre": " for free. He learned that kind ",
+      "ans": "honesty",
+      "opts": [
+        "honesty",
+        "lying",
+        "silence"
+      ]
+    },
+    {
+      "pre": " is better than a sweet lie.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "truth",
+      "진실",
+      "Max always told the <b>truth</b>",
+      "what is really true"
+    ],
+    [
+      "customer",
+      "손님",
+      "he told a <b>customer</b>, who left.",
+      "a person who buys things at a shop"
+    ],
+    [
+      "program",
+      "프로그램",
+      "So Mr. Park gave Max a new <b>program</b>",
+      "a set of orders that tells a computer or robot what to do"
+    ],
+    [
+      "lies",
+      "거짓말",
+      "Soon, Max was telling small <b>lies</b> all day.",
+      "things you say that are not true"
+    ],
+    [
+      "trust",
+      "믿다",
+      "Slowly, the customers began to <b>trust</b> the shop again.",
+      "to believe that someone is honest"
+    ],
+    [
+      "honesty",
+      "정직",
+      "Max learned that kind <b>honesty</b> is better than a sweet lie.",
+      "the act of telling the truth"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Mr. Park give Max a new program?",
+      "qko": "박 씨 아저씨는 왜 맥스에게 새 프로그램을 넣었나요?",
+      "opts": [
+        "Max's honest words made a customer leave.",
+        "Max broke many toys in the shop.",
+        "Max wanted to sing for the customers."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Max the robot worked in Mr. Park's toy shop.",
+        "\"This toy is boring,\" he told a customer, who left.",
+        "Sales went up, but soon angry customers came back.",
+        "Slowly, the customers began to trust the shop again."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "맥스가 «이 장난감은 지루해요»라고 말하자 손님이 가 버렸어요. 그래서 아저씨가 새 프로그램을 넣었어요. 맥스가 장난감을 부쉈다는 말은 없어요.",
+        "Max said «This toy is boring,» and the customer left. So Mr. Park gave him a new program. Nothing says Max broke any toys."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The story says, \"Mr. Park was about to lose his shop.\" What does \"was about to\" mean here?",
+      "qko": "\"Mr. Park was about to lose his shop.\"이라는 문장이 있어요. 여기서 \"was about to\"는 무슨 뜻인가요?",
+      "opts": [
+        "was very close to",
+        "had already finished",
+        "did not want to"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Slowly, the customers began to trust the shop again.",
+        "Max always told the truth, even when it was not nice.",
+        "So Mr. Park gave Max a new program: \"Say what people want to hear.\"",
+        "\"This broken car is perfect!\" he said with a smile."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "아저씨는 가게를 잃을 뻔했지만, 손님들이 다시 가게를 믿기 시작해서 가게를 지켰어요. «was about to»는 «거의 ~할 뻔하다»라는 뜻이에요.",
+        "Mr. Park almost lost his shop, but the customers began to trust it again. «Was about to» means «was very close to»."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why did the customers begin to trust the shop again?",
+      "qko": "손님들은 왜 다시 가게를 믿기 시작했나요?",
+      "opts": [
+        "Max stopped lying and offered to fix the broken toys for free.",
+        "Mr. Park sold the shop to a new owner.",
+        "Max told even sweeter lies."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Max saw the sad faces and turned off the program himself.",
+        "\"This broken car is perfect!\" he said with a smile.",
+        "\"I am sorry. Some toys were broken. I will fix them for free.\"",
+        "Mr. Park was about to lose his shop."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "맥스는 스스로 거짓말 프로그램을 끄고, 사과하며 고장 난 장난감을 무료로 고쳐 주겠다고 했어요. 두 문장을 이으면 손님들이 다시 믿게 된 이유가 보여요.",
+        "Max turned off the lying program himself, said sorry, and offered to fix the broken toys for free. Put these two sentences together to see why the customers trusted the shop again."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Max learns to say true things in a kind way to every customer.",
+      "맥스가 모든 손님에게 진실을 친절하게 말하는 법을 익혀요.",
+      "Max the Kind Helper"
+    ],
+    [
+      "B",
+      "Mr. Park and Max open a toy repair corner in the shop.",
+      "아저씨와 맥스가 가게에 장난감 수리 코너를 열어요.",
+      "The Toy Doctor"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“It is important to <u>tell the truth kindly</u> because <u>people can trust us</u>.”",
+    "slotKo": [
+      "중요한 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "an important thing to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write an important thing to do and your reason in English.",
+    "chips": [
+      {
+        "a": "say sorry when I make a mistake",
+        "b": "my friends feel better",
+        "label": "sorry"
+      },
+      {
+        "a": "keep my promises",
+        "b": "people can count on me",
+        "label": "promise"
+      },
+      {
+        "a": "thank the bus driver",
+        "b": "he works hard for us",
+        "label": "thanks"
+      }
+    ],
+    "aria": [
+      "what is important to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «It is important to» 뒤에는 동사(tell, help)를 바로 쓰고, «because» 뒤에는 «누가 + 무엇을» 을 쓰세요.",
+    "moreEn": "One more step: after «It is important to», write a verb (tell, help). After «because», write who + what."
+  },
+  "img": {
+    "cover": "In a bright toy shop full of teddy bears, blocks and toy trains, a small round white robot with a blue screen face, two short silver arms and red wheels proudly holds up a broken red toy car with a missing wheel and shows a big happy smile on its screen, while a surprised boy and the shop owner, a short round man with a gray mustache, round glasses and a brown vest stare at the car.",
+    "scenes": {
+      "2": "At the toy shop door, a group of angry customers hold up broken toys, like a toy car with no wheels and a toy robot with a bent antenna, while a small round white robot with a blue screen face, two short silver arms and red wheels rolls backward with a worried face on its screen and the shop owner, a short round man with a gray mustache, round glasses and a brown vest holds his head in his hands.",
+      "3": "A small round white robot with a blue screen face, two short silver arms and red wheels sits at a workbench in the toy shop, fixing a small toy car with a tiny screwdriver and showing a sorry face on its screen, while smiling customers wait in line and the shop owner, a short round man with a gray mustache, round glasses and a brown vest hands a little girl her fixed teddy bear."
+    }
+  },
+  "alt": {
+    "2": "Angry customers show broken toys to the worried robot.",
+    "3": "The robot fixes toys while customers smile.",
+    "cover": "A small robot holds up a broken toy car with a big smile."
+  }
+}

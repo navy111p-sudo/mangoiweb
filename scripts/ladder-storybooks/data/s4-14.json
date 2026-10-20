@@ -1,0 +1,305 @@
+{
+  "id": "s4-14",
+  "breaks": [
+    3,
+    6,
+    5,
+    4
+  ],
+  "key": {
+    "P": 8,
+    "S": 14
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주장",
+      "en": "claim"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «어떤 사람들은 기계가 생각하기 시작했다고 말한다(주장)» 와 «대화 시험을 통과해도 진짜 이해가 아니라 영리한 흉내일 수 있다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the claim (some people argue that machines are beginning to think) and the conclusion (passing a conversation test might show clever imitation rather than real understanding). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Whether machines can really think"
+    },
+    {
+      "k": "Key fact",
+      "qko": "튜링 테스트는 어떻게 진행되나요?",
+      "qen": "How does the Turing test work?",
+      "a": "A judge chats with a person and a machine and tries to tell them apart"
+    },
+    {
+      "k": "Other side",
+      "qko": "반대하는 사람들은 무엇이라고 말하나요?",
+      "qen": "What do the critics say?",
+      "a": "Computers may handle symbols without understanding their meaning"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Alan Turing suggested a practical ",
+      "ans": "test",
+      "opts": [
+        "test",
+        "robot",
+        "law"
+      ]
+    },
+    {
+      "pre": " to ask whether machines can think. If a judge cannot tell the machine from a ",
+      "ans": "person",
+      "opts": [
+        "person",
+        "robot",
+        "book"
+      ]
+    },
+    {
+      "pre": ", the machine passes. Today, AI chatbots can write ",
+      "ans": "fluent",
+      "opts": [
+        "fluent",
+        "silent",
+        "secret"
+      ]
+    },
+    {
+      "pre": " answers, so some people say machines think. However, the Chinese Room shows that following rules is not the same as ",
+      "ans": "understanding",
+      "opts": [
+        "understanding",
+        "writing",
+        "sleeping"
+      ]
+    },
+    {
+      "pre": ". Passing the test might show clever ",
+      "ans": "imitation",
+      "opts": [
+        "imitation",
+        "invention",
+        "emotion"
+      ]
+    },
+    {
+      "pre": " rather than real thinking, so the debate is still open.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "imitation",
+      "흉내, 모방",
+      "passing a conversation test might show clever <b>imitation</b> rather than real understanding",
+      "copying how someone or something acts"
+    ],
+    [
+      "philosopher",
+      "철학자",
+      "The <b>philosopher</b> John Searle described a famous thought experiment called the Chinese Room.",
+      "a person who studies big questions about life, the mind, and truth"
+    ],
+    [
+      "fluent",
+      "유창한",
+      "AI chatbots trained on huge amounts of text can write <b>fluent</b> answers on almost any topic",
+      "smooth and natural, without mistakes"
+    ],
+    [
+      "define",
+      "정의하다",
+      "Because \"thinking\" is hard to <b>define</b>, he suggested a practical test instead.",
+      "to explain exactly what a word means"
+    ],
+    [
+      "reliably",
+      "확실하게, 믿을 만하게",
+      "If the judge cannot <b>reliably</b> tell which one is the machine, the machine is said to pass.",
+      "in a way that is correct again and again"
+    ],
+    [
+      "symbols",
+      "기호",
+      "they handle <b>symbols</b> but may not understand meaning",
+      "signs or marks that stand for something"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Turing suggest a practical test instead of defining \"thinking\"?",
+      "qko": "튜링은 왜 «생각» 을 정의하는 대신 실제로 해 볼 수 있는 시험을 제안했나요?",
+      "opts": [
+        "Because \"thinking\" is hard to define",
+        "Because computers already understood every language",
+        "Because the judge was not allowed to use a computer"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Because \"thinking\" is hard to define, he suggested a practical test instead.",
+        "For decades, computers performed poorly at this kind of open conversation.",
+        "The debate is still open, partly because scientists do not fully understand how human thinking works either.",
+        "Others strongly disagree."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "본문에 «생각» 은 정의하기 어려워서 그 대신 실용적인 시험을 제안했다고 나와요.",
+        "The text says that because \"thinking\" is hard to define, he suggested a practical test instead."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the Turing test, what does it mean for a machine to \"pass\"?",
+      "qko": "튜링 테스트에서 기계가 «pass(통과)» 한다는 것은 무슨 뜻인가요?",
+      "opts": [
+        "The judge cannot reliably tell the machine from the person",
+        "The machine answers every question correctly",
+        "The machine learns Chinese with a rule book"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "If the judge cannot reliably tell which one is the machine, the machine is said to pass.",
+        "For decades, computers performed poorly at this kind of open conversation.",
+        "By following the rules, the person can answer Chinese questions correctly without understanding a single word.",
+        "If you chat with someone online and cannot tell whether it is a person or a computer, is the computer thinking?"
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "판정하는 사람이 둘 중 어느 쪽이 기계인지 확실히 구별하지 못하면 기계가 «통과했다» 고 말해요.",
+        "If the judge cannot reliably tell which one is the machine, the machine is said to pass."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why does Searle think a chatbot might not really understand?",
+      "qko": "설은 왜 챗봇이 정말로 이해하는 것은 아닐 수 있다고 생각하나요?",
+      "opts": [
+        "Like the person in the room, it follows rules for symbols without knowing what they mean",
+        "It types too slowly to hold a real conversation",
+        "It was trained on too little text to answer questions"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "By following the rules, the person can answer Chinese questions correctly without understanding a single word.",
+        "Searle argued that computers are like this person: they handle symbols but may not understand meaning.",
+        "Today, however, AI chatbots trained on huge amounts of text can write fluent answers on almost any topic.",
+        "Because \"thinking\" is hard to define, he suggested a practical test instead."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "방 안의 사람은 규칙만 따라서 중국어 질문에 맞게 답하지만 단어 하나도 이해하지 못해요. 설은 컴퓨터도 이 사람처럼 기호만 다룰 뿐 뜻은 이해하지 못할 수 있다고 했어요. 두 문장을 이어 봐야 해요.",
+        "The person in the room answers correctly by following rules without understanding a word. Searle argued that computers are like this person: they handle symbols but may not understand meaning."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How did codebreakers crack secret messages in World War II?",
+      "제2차 세계 대전의 암호 해독가들은 어떻게 비밀 메시지를 풀었을까?",
+      "Breaking Secret Codes"
+    ],
+    [
+      "B",
+      "How can we check whether facts from an AI chatbot are true?",
+      "AI 챗봇이 알려 준 사실이 맞는지 어떻게 확인할까?",
+      "Fact-Checking AI"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "중요한 일",
+      "그것이 중요한 이유"
+    ],
+    "slotEn": [
+      "an important action",
+      "the reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write an important action and your reason in English.",
+    "aria": [
+      "the important action",
+      "why it is important"
+    ],
+    "src": "“It is important to <u>check the facts a chatbot gives us</u> because <u>a machine that sounds human may not truly understand</u>.”",
+    "chips": [
+      {
+        "a": "write our own first draft before asking AI",
+        "b": "we learn more when we think for ourselves",
+        "label": "draft"
+      },
+      {
+        "a": "ask a teacher when an answer seems strange",
+        "b": "online answers can be wrong",
+        "label": "teacher"
+      },
+      {
+        "a": "compare two sources for a report",
+        "b": "one website may have mistakes",
+        "label": "sources"
+      }
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «무엇이 + 어떤 문제가 될 수 있는지» 를 넣어 이유를 분명하게 써 보세요. (예: because a chatbot can make up facts)",
+    "moreEn": "One more step: after «because», write what could go wrong. (e.g. because a chatbot can make up facts)"
+  },
+  "img": {
+    "cover": "A teenager at a laptop in a dim room, leaning toward the softly glowing screen with a thoughtful face lit by its light, one hand resting on the keyboard",
+    "scenes": {
+      "1": "A person in 1950s clothing seen from behind, typing at an old teleprinter terminal in a wood-paneled room, while through a glass window a large vintage computer cabinet of switches and blinking lights fills the next room",
+      "2": "A person sitting alone at a small desk in a closed, plain room, looking puzzled at a thick closed book, while a blank white card slides in through a narrow slot in the door"
+    }
+  },
+  "alt": {
+    "1": "A person typing at an old computer terminal",
+    "2": "A person in a closed room using a thick rule book",
+    "cover": "A student chatting with an AI chatbot on a laptop"
+  }
+}

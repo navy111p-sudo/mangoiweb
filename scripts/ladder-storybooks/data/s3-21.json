@@ -1,0 +1,305 @@
+{
+  "id": "s3-21",
+  "breaks": [
+    2,
+    3,
+    3,
+    5
+  ],
+  "key": {
+    "P": 5,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "발견",
+      "en": "discovery"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «같은 피가 몸속을 빙글빙글 계속 돈다(발견)» 와 «심장은 같은 피를 끝없는 여행에 내보내는 지칠 줄 모르는 펌프다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the discovery (the same blood travels around the body again and again in a circle) and the conclusion (the heart is a tireless pump that sends the same blood on an endless journey). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "William Harvey and the heart"
+    },
+    {
+      "k": "Key fact",
+      "qko": "하비는 무엇을 발견했나요?",
+      "qen": "What did Harvey discover?",
+      "a": "The same blood travels around the body in a circle"
+    },
+    {
+      "k": "How it works",
+      "qko": "심장은 피를 어떻게 보내나요?",
+      "qen": "How does the heart move blood?",
+      "a": "The right side sends it to the lungs; the left side sends it to the body"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "For a thousand years, doctors believed the body made new ",
+      "ans": "blood",
+      "opts": [
+        "blood",
+        "bones",
+        "hair"
+      ]
+    },
+    {
+      "pre": " every day. William Harvey ",
+      "ans": "calculated",
+      "opts": [
+        "calculated",
+        "painted",
+        "forgot"
+      ]
+    },
+    {
+      "pre": " how much blood the heart pushes out with each beat, and the amount was far too large. In 1628, he announced that the same blood travels around the body in a ",
+      "ans": "circle",
+      "opts": [
+        "circle",
+        "line",
+        "bag"
+      ]
+    },
+    {
+      "pre": ". The heart is a ",
+      "ans": "muscle",
+      "opts": [
+        "muscle",
+        "bone",
+        "stone"
+      ]
+    },
+    {
+      "pre": " about the size of your fist. Its right side sends blood to the lungs to pick up ",
+      "ans": "oxygen",
+      "opts": [
+        "oxygen",
+        "salt",
+        "smoke"
+      ]
+    },
+    {
+      "pre": ", and its left side pumps it to the rest of the body.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "calculated",
+      "계산했다",
+      "He <b>calculated</b> how much blood the heart pushes out",
+      "worked out an amount by using numbers"
+    ],
+    [
+      "announced",
+      "발표했다",
+      "Harvey <b>announced</b> his answer",
+      "told everyone something important"
+    ],
+    [
+      "muscle",
+      "근육",
+      "It is a <b>muscle</b> about the size of your fist",
+      "a part of the body that tightens and relaxes to move things"
+    ],
+    [
+      "chambers",
+      "방(심방·심실)",
+      "it has four <b>chambers</b>",
+      "rooms or spaces inside something"
+    ],
+    [
+      "valves",
+      "판막",
+      "Small doors called <b>valves</b> keep the blood moving one way",
+      "parts that open and close to control the flow of a liquid"
+    ],
+    [
+      "tireless",
+      "지칠 줄 모르는",
+      "the heart is a <b>tireless</b> pump",
+      "never getting tired"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Harvey think the old idea about blood did not make sense?",
+      "qko": "하비가 피에 대한 옛 생각이 말이 안 된다고 본 이유는 무엇인가요?",
+      "opts": [
+        "Because the heart pushes out far too much blood for the body to make in one day",
+        "Because he saw that the heart stops at night",
+        "Because blood is used up like fuel in a car"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The amount was far too large for the body to make in a single day.",
+        "For more than a thousand years, doctors believed that the body made new blood every day and used it up like fuel.",
+        "It is a muscle about the size of your fist, and it has four chambers.",
+        "Your heart beats about 100,000 times a day without ever taking a break."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "하비가 계산해 보니, 심장이 내보내는 피의 양이 몸이 하루 만에 만들기에는 너무 많았다고 했어요.",
+        "Harvey found that the amount of blood the heart pushes out was far too large for the body to make in a single day."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In \"without ever taking a break,\" what does \"taking a break\" mean?",
+      "qko": "«without ever taking a break» 에서 «taking a break» 는 무슨 뜻인가요?",
+      "opts": [
+        "stopping to rest",
+        "breaking into pieces",
+        "working faster"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Your heart beats about 100,000 times a day without ever taking a break.",
+        "The heart is the pump that makes this possible.",
+        "The right side sends blood to the lungs to pick up oxygen.",
+        "An English doctor named William Harvey thought this idea did not make sense."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "심장은 하루에 약 10만 번이나 뛰면서 한 번도 «쉬지 않는다» 고 했어요. «take a break» 는 잠깐 멈추고 쉬는 거예요.",
+        "The heart beats about 100,000 times a day and never stops, so «taking a break» means stopping to rest."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does the heart send blood to the lungs and to the body?",
+      "qko": "심장은 피를 폐와 온몸으로 어떻게 보내나요?",
+      "opts": [
+        "The right side sends blood to the lungs for oxygen, and the left side pumps it to the body",
+        "Both sides send blood only to the brain",
+        "The lungs pump blood back into the stomach"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "The right side sends blood to the lungs to pick up oxygen.",
+        "He calculated how much blood the heart pushes out with each beat.",
+        "The left side then pumps that oxygen-rich blood to the rest of the body.",
+        "Your heart beats about 100,000 times a day without ever taking a break."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "오른쪽은 피를 폐로 보내 산소를 얻게 하고, 왼쪽은 그 산소가 풍부한 피를 온몸으로 보낸다고 했어요. 두 문장을 함께 봐야 해요.",
+        "The right side sends blood to the lungs to pick up oxygen, and the left side pumps that oxygen-rich blood to the rest of the body. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How can exercise make our hearts stronger?",
+      "운동은 어떻게 우리 심장을 튼튼하게 할까요?",
+      "A Strong Heart"
+    ],
+    [
+      "B",
+      "How do our lungs bring oxygen into our bodies?",
+      "우리 폐는 어떻게 몸속에 산소를 들여올까요?",
+      "Inside Your Lungs"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“It is important to <u>take care of our hearts</u> because <u>they work all day without a break</u>.”",
+    "slotKo": [
+      "중요한 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what is important",
+      "why"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write something important and the reason in English.",
+    "chips": [
+      {
+        "a": "eat healthy food",
+        "b": "it gives our bodies energy",
+        "label": "food"
+      },
+      {
+        "a": "play outside every day",
+        "b": "moving keeps us strong",
+        "label": "exercise"
+      },
+      {
+        "a": "go to bed early",
+        "b": "our bodies need rest",
+        "label": "sleep"
+      }
+    ],
+    "aria": [
+      "what is important",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because our hearts never rest)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because our hearts never rest)"
+  },
+  "img": {
+    "cover": "A doctor, seen from the side, gently holding a stethoscope to the back of a smiling child wearing a yellow T-shirt in a bright clinic room to listen to the heartbeat",
+    "scenes": {
+      "1": "An old wooden desk in a 1600s study with a brass balance scale, glass flasks of red-tinted water, and a burning candle",
+      "2": "A realistic plastic model of a human heart on a classroom table, opened in the middle to show its four chambers, with red and blue tubes on top"
+    }
+  },
+  "alt": {
+    "1": "An old desk with a scale and glass flasks",
+    "2": "A model of the heart’s four chambers",
+    "cover": "A doctor listening to a child’s heartbeat"
+  }
+}

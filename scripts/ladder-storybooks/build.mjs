@@ -1,4 +1,4 @@
-/* 📚 영어 독서 사다리 48편 → 그림 동화책 페이지 생성기 (2026-10-18 사장님 «이런 방식으로 모두 만들어줘»)
+/* 📚 영어 독서 사다리 전편(2026-10-18 48편 → 2026-10-19 176편) → 그림 동화책 페이지 생성기 (2026-10-18 사장님 «이런 방식으로 모두 만들어줘»)
    틀: cloudflare-deploy/public/story-birthday-cake.html (2권 — WRITE_PAT 로 일반화된 판). 그 파일은 손대지 않습니다.
    글: public/js/reading-ladder-data.js 의 sentences[].en «그대로» (단계별 수준 유지) · 활동 재료: scripts/ladder-storybooks/data/<id>.json
    결과: public/story-<id>.html (예: story-s1-01.html)
@@ -209,7 +209,9 @@ export function buildPage(tpl, p, d, no) {
     '  var ENDS = [\n' + d.ends.map((x) => '    ' + J(x)).join(',\n') + '\n  ];';
   h = between(h, '  var STORY = [', "    [\"B\",\"Biscuit runs away with Grandma's new birthday hat.\",\"Biscuit 이 할머니의 새 생일 모자를 물고 도망가요.\",\"The Hat Thief\"]\n  ];", data, 'data block');
   const scenes = {};
-  Object.keys(d.img.scenes).forEach((pi) => { scenes[pi] = [`img/story/${p.id}-s${pi}.webp`, esc(d.alt[pi])]; });
+  // 그림을 같은 이름으로 갈아 끼우면 브라우저가 옛 그림을 7일 들고 있다(미디어 Cache-Control) — 데이터의 img.ver[장면] 으로 ?v= 를 붙인다(2026-10-19 s4-37).
+  const ver = d.img.ver || {};
+  Object.keys(d.img.scenes).forEach((pi) => { scenes[pi] = [`img/story/${p.id}-s${pi}.webp` + (ver[pi] ? `?v=${ver[pi]}` : ''), esc(d.alt[pi])]; });
   h = between(h, '  var SCENES = {"4":["img/story/birthday-cake-s4.webp"', ']};', `  var SCENES = ${J(scenes)};`, 'SCENES');
   h = once(h, "이야기의 «문제» 와 «해결» 을 말하는 문장을 찾아 바꿔 고른 뒤", `${what[0]}의 «${rP.ko}» 와 «${rS.ko}» 을 말하는 문장을 찾아 바꿔 고른 뒤`, 'key retry ko');
   h = once(h, "Find the sentences that tell the problem and the solution, change your pick", `Find the sentences that tell the ${rP.en} and the ${rS.en}, change your pick`, 'key retry en');
@@ -218,7 +220,8 @@ export function buildPage(tpl, p, d, no) {
   h = between(h, '        (cw.more ? \'<p>\' + t("한 걸음 더:', '(e.g. because he is smiling)") + \'</p>\' : \'\')',
     `        (cw.more ? '<p>' + t(${J(w.moreKo)},${J(w.moreEn)}) + '</p>' : '')`, 'cw.more');
   h = between(h, '  var TUNE = {"name":"Party Kitchen"', '};', `  var TUNE = ${J(makeTune(p.id, p.stage))};`, 'TUNE');
-  if (/Birthday|Biscuit|Grandma Rose|birthday-cake|Party Kitchen/.test(h)) throw new Error(p.id + ': 2권 흔적이 남음');
+  // 틀 흔적은 «틀 제목 전체» 로 본다 — 낱말 «Birthday» 하나로 보면 생일 이야기(s1-15·s3-17)를 틀 흔적으로 잘못 잡는다(2026-10-19).
+  if (/Missing Birthday Cake|Biscuit|Grandma Rose|birthday-cake|Party Kitchen/.test(h)) throw new Error(p.id + ': 2권 흔적이 남음');
   return h;
 }
 

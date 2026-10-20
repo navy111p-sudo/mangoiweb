@@ -1,0 +1,305 @@
+{
+  "id": "s4-41",
+  "breaks": [
+    5,
+    6,
+    5,
+    4
+  ],
+  "key": {
+    "P": 11,
+    "S": 19
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «자율 주행차에는 신뢰라는 큰 과제가 있다(문제)» 와 «자율 주행차는 기술이 안전하다고 증명되고 사람들이 그것을 믿게 될 때에만 성공한다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (there is a big challenge: trust) and the conclusion (self-driving cars will only succeed if the technology proves safe and people come to trust it). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Self-driving cars and whether people can trust them"
+    },
+    {
+      "k": "Benefit",
+      "qko": "어떤 좋은 점이 있나요?",
+      "qen": "What are the benefits?",
+      "a": "Fewer crashes from human error, and more freedom for elderly and disabled people"
+    },
+    {
+      "k": "Challenge",
+      "qko": "어떤 어려움이 있나요?",
+      "qen": "What is the challenge?",
+      "a": "Unusual situations, unclear responsibility, and hackers make trust difficult"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Self-driving cars use cameras, radar, and other ",
+      "ans": "sensors",
+      "opts": [
+        "sensors",
+        "passengers",
+        "flags"
+      ]
+    },
+    {
+      "pre": " to understand the road. Supporters say they could save lives, because human ",
+      "ans": "error",
+      "opts": [
+        "error",
+        "kindness",
+        "music"
+      ]
+    },
+    {
+      "pre": " plays a role in most crashes. However, a big challenge is ",
+      "ans": "trust",
+      "opts": [
+        "trust",
+        "fuel",
+        "color"
+      ]
+    },
+    {
+      "pre": ": the cars can be confused by unusual situations, and it is unclear who is ",
+      "ans": "responsible",
+      "opts": [
+        "responsible",
+        "hungry",
+        "famous"
+      ]
+    },
+    {
+      "pre": " when an accident happens. Most countries are introducing the technology step by step, with strict ",
+      "ans": "testing",
+      "opts": [
+        "testing",
+        "advertising",
+        "racing"
+      ]
+    },
+    {
+      "pre": ". These cars will succeed only if they prove safe and people trust them.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "autonomous",
+      "자율의, 스스로 움직이는",
+      "also called <b>autonomous</b> vehicles",
+      "able to work or move without human control"
+    ],
+    [
+      "sensors",
+      "센서, 감지기",
+      "use cameras, radar, and other <b>sensors</b>",
+      "devices that notice light, sound, movement, or heat"
+    ],
+    [
+      "distraction",
+      "주의 산만",
+      "human error, such as <b>distraction</b> or tiredness",
+      "something that takes your attention away"
+    ],
+    [
+      "independently",
+      "혼자 힘으로, 독립적으로",
+      "help elderly people and people with disabilities travel <b>independently</b>",
+      "without needing help from others"
+    ],
+    [
+      "unexpectedly",
+      "예상치 못하게",
+      "a person behaving <b>unexpectedly</b>",
+      "in a way that surprises people"
+    ],
+    [
+      "automation",
+      "자동화",
+      "levels of <b>automation</b> from zero",
+      "using machines to do work without people"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why might a computer drive more safely than a tired person?",
+      "qko": "컴퓨터가 지친 사람보다 왜 더 안전하게 운전할 수 있나요?",
+      "opts": [
+        "Because a computer never gets sleepy, angry, or distracted",
+        "Because a computer always drives faster",
+        "Because a computer can never be confused"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Computer programs then decide when to speed up, slow down, or turn.",
+        "A computer never gets sleepy, angry, or distracted by a phone.",
+        "Self-driving systems can still be confused by unusual situations, such as heavy snow, road construction, or a person behaving unexpectedly.",
+        "Not a single car finished, and the best one traveled only about 12 kilometers."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "컴퓨터는 졸리거나 화가 나거나 휴대폰 때문에 한눈을 팔지 않아요. 그래서 지친 사람보다 더 안전하게 운전할 수 있다고 봐요.",
+        "A computer never gets sleepy, angry, or distracted by a phone, so it may drive more safely."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what do 'levels of automation' describe?",
+      "qko": "글에서 'levels of automation(자동화 단계)' 는 무엇을 나타내나요?",
+      "opts": [
+        "How fast a car can drive on the highway",
+        "How much of the driving a car can do by itself",
+        "How many sensors a car carries"
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "These cars use cameras, radar, and other sensors to understand the road around them.",
+        "Engineers often describe levels of automation from zero, meaning no automation, to five, meaning the car can drive itself everywhere.",
+        "Just one year later, five cars completed the course.",
+        "When an accident does happen, it is also unclear who should be responsible: the passenger, the car company, or the software designer."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "엔지니어들은 자동화 단계를 «0(자동화 없음)» 부터 «5(어디서나 스스로 운전)» 까지로 설명해요. 차가 운전을 얼마나 스스로 하는지를 나타내요.",
+        "Engineers describe levels from zero (no automation) to five (the car drives itself everywhere). They show how much the car drives by itself."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why is it hard for people to trust self-driving cars?",
+      "qko": "사람들이 자율 주행차를 믿기 어려운 이유는 무엇인가요?",
+      "opts": [
+        "They are too slow and cannot turn corners",
+        "They never use computer programs",
+        "They can be confused in unusual situations, and it is unclear who is responsible after an accident"
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Self-driving systems can still be confused by unusual situations, such as heavy snow, road construction, or a person behaving unexpectedly.",
+        "Supporters argue that self-driving cars could save many lives.",
+        "When an accident does happen, it is also unclear who should be responsible: the passenger, the car company, or the software designer.",
+        "Imagine getting into a car, telling it where to go, and reading a book while it drives you there."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "자율 주행 시스템은 폭설이나 도로 공사 같은 낯선 상황에서 헷갈릴 수 있고, 사고가 나면 누가 책임져야 하는지도 분명하지 않아요. 두 문장을 함께 봐야 해요.",
+        "The systems can be confused by unusual situations, and it is unclear who is responsible after an accident. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Who should be responsible when a self-driving car crashes?",
+      "자율 주행차가 사고를 내면 누가 책임져야 할까?",
+      "Who Is to Blame?"
+    ],
+    [
+      "B",
+      "How do self-driving cars see the road in snow or rain?",
+      "자율 주행차는 눈이나 비 속에서 어떻게 도로를 볼까?",
+      "Driving Through Bad Weather"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "우리가 해야 할 일",
+      "그렇게 하면 생기는 결과"
+    ],
+    "slotEn": [
+      "what we should do",
+      "the result we want"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «해야 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and the result you want in English.",
+    "aria": [
+      "what we should do",
+      "the result"
+    ],
+    "src": "“We should <u>test self-driving cars carefully</u> so that <u>people can trust them on the road</u>.”",
+    "chips": [
+      {
+        "a": "wear helmets when we ride bikes",
+        "b": "we stay safe on the road",
+        "label": "helmet"
+      },
+      {
+        "a": "put our phones away while crossing the street",
+        "b": "we notice the cars around us",
+        "label": "crossing"
+      },
+      {
+        "a": "practice a fire drill at school",
+        "b": "everyone knows what to do",
+        "label": "drill"
+      }
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «누가 + 무엇을 할 수 있게» 를 넣어 목적을 분명하게 써 보세요. (예: so that older people can travel safely)",
+    "moreEn": "One more step: after «so that», write who + what they can do to make the purpose clear. (e.g. so that older people can travel safely)"
+  },
+  "img": {
+    "cover": "A white self-driving car with a spinning sensor dome on its roof and small cameras on its sides driving along a city street at dusk, the driver's seat empty and a passenger relaxing in the back seat",
+    "scenes": {
+      "1": "Close-up of the roof of a self-driving car crowded with a round spinning laser sensor and several small black camera lenses, parked on a sunny street",
+      "2": "A self-driving test car stopped on a snowy road where orange traffic cones and a worker in a bright safety vest block one lane, fresh snow covering the painted road lines"
+    }
+  },
+  "alt": {
+    "1": "Sensors and cameras on a self-driving car's roof",
+    "2": "A self-driving car stopped at a snowy road construction site",
+    "cover": "A self-driving car with an empty driver's seat"
+  }
+}

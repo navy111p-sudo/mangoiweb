@@ -1,0 +1,305 @@
+{
+  "id": "s2-34",
+  "breaks": [
+    3,
+    4,
+    2,
+    4
+  ],
+  "key": {
+    "P": 6,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «마을 이장이 윤 박사의 경고를 믿지 않았다(문제)» 와 «과학을 믿은 것이 옳았다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the village leader did not believe Dr. Yoon) and the lesson (it was right to trust the science). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Dr. Yoon, the village leader, the families"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The leader did not believe that the volcano would erupt."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Dr. Yoon showed her data, and everyone left in time."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Dr. Yoon studied ",
+      "ans": "volcanoes",
+      "opts": [
+        "volcanoes",
+        "oceans",
+        "stars"
+      ]
+    },
+    {
+      "pre": ". Her machines showed small ",
+      "ans": "earthquakes",
+      "opts": [
+        "earthquakes",
+        "flowers",
+        "clouds"
+      ]
+    },
+    {
+      "pre": " near Mount Fira every day. The village leader did not ",
+      "ans": "believe",
+      "opts": [
+        "believe",
+        "know",
+        "thank"
+      ]
+    },
+    {
+      "pre": " her, but she showed him her ",
+      "ans": "data",
+      "opts": [
+        "data",
+        "toys",
+        "photos"
+      ]
+    },
+    {
+      "pre": " and asked everyone to leave. When the volcano erupted, nobody was ",
+      "ans": "hurt",
+      "opts": [
+        "hurt",
+        "safe",
+        "late"
+      ]
+    },
+    {
+      "pre": ", because everyone had left in time.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "volcanoes",
+      "화산들",
+      "Dr. Yoon was a scientist who studied <b>volcanoes</b>.",
+      "mountains that can send out fire and hot rock"
+    ],
+    [
+      "earthquakes",
+      "지진들",
+      "her machines showed small <b>earthquakes</b> every day.",
+      "times when the ground shakes"
+    ],
+    [
+      "erupt",
+      "(화산이) 폭발하다",
+      "\"The volcano may <b>erupt</b> soon,\"",
+      "to suddenly explode and send out fire and ash"
+    ],
+    [
+      "data",
+      "자료",
+      "She showed him her <b>data</b>",
+      "facts and numbers you collect"
+    ],
+    [
+      "just in case",
+      "혹시 모르니까",
+      "asked the families to leave <b>just in case</b>.",
+      "to be safe if something happens"
+    ],
+    [
+      "lava",
+      "용암",
+      "Hot <b>lava</b> flowed down toward the empty village.",
+      "hot melted rock from a volcano"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why was nobody hurt when the volcano erupted?",
+      "qko": "화산이 폭발했을 때 왜 아무도 다치지 않았나요?",
+      "opts": [
+        "Everyone had left the village in time.",
+        "Everyone hid inside their houses.",
+        "The volcano was too small to hurt anyone."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Because everyone had left in time, nobody was hurt.",
+        "For many years, the volcano was quiet.",
+        "Dr. Yoon did not give up.",
+        "She lived in a small village near a big mountain called Mount Fira."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "모두가 제때 마을을 떠나서 아무도 다치지 않았다고 나와 있어요. 집 안에 숨었다는 말은 없고, 마을은 비어 있었어요.",
+        "The text says nobody was hurt because everyone had left in time. Nobody hid in their houses. The village was empty."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "Dr. Yoon asked the families to leave \"just in case.\" What does \"just in case\" mean here?",
+      "qko": "윤 박사는 가족들에게 \"just in case\" 떠나 달라고 했어요. 여기서 \"just in case\"는 무슨 뜻인가요?",
+      "opts": [
+        "to be safe, because the volcano might erupt",
+        "because the village was too crowded",
+        "only for one hour, just for fun"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "For many years, the volcano was quiet.",
+        "\"The volcano may erupt soon,\" she told the village leader.",
+        "Hot lava flowed down toward the empty village.",
+        "Dr. Yoon was a scientist who studied volcanoes."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "윤 박사는 «화산이 곧 폭발할지도 몰라요» 라고 했어요. 확실하지는 않아도 혹시 모를 위험에 대비해 안전하게 떠나라는 뜻이에요.",
+        "Dr. Yoon said the volcano «may erupt soon». She was not sure, but leaving was the safe choice in case it happened."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did Dr. Yoon know the volcano might erupt?",
+      "qko": "윤 박사는 화산이 폭발할지도 모른다는 것을 어떻게 알았나요?",
+      "opts": [
+        "Her machines showed small earthquakes, and the ground was getting warmer.",
+        "The village leader told her it would erupt.",
+        "She saw a cloud of ash a week before."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "But one week, her machines showed small earthquakes every day.",
+        "But he did not believe her. \"It has been quiet for a hundred years,\" he said.",
+        "The ground near the top was also getting warmer.",
+        "Two days later, a huge cloud of ash burst from the mountain!"
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "윤 박사의 기계에 매일 작은 지진이 나타났고, 산꼭대기 근처 땅도 점점 따뜻해졌어요. 이 두 단서를 이어서 폭발을 미리 알았어요.",
+        "Her machines showed small earthquakes every day, and the ground near the top was getting warmer. She put these two clues together."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Dr. Yoon teaches the village kids how to read her machines.",
+      "윤 박사가 마을 아이들에게 기계 읽는 법을 가르쳐 줘요.",
+      "Little Scientists"
+    ],
+    [
+      "B",
+      "The village builds a new, safer home far from the volcano.",
+      "마을 사람들이 화산에서 멀리 떨어진 곳에 더 안전한 새 마을을 지어요.",
+      "A Safer Village"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“We should <u>listen to scientists</u> so that <u>we stay safe</u>.”",
+    "slotKo": [
+      "해야 할 일",
+      "그러면 어떻게 되는지"
+    ],
+    "slotEn": [
+      "what we should do",
+      "what will happen"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «해야 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and its purpose in English.",
+    "chips": [
+      {
+        "a": "wear a helmet on a bike",
+        "b": "our heads stay safe",
+        "label": "helmet"
+      },
+      {
+        "a": "practice fire drills",
+        "b": "we know where to go",
+        "label": "drill"
+      },
+      {
+        "a": "wash our hands before lunch",
+        "b": "we do not get sick",
+        "label": "hands"
+      }
+    ],
+    "aria": [
+      "what we should do",
+      "so that what happens"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에는 «누가 + 무엇을 한다» 를 쓰세요. (예: so that everyone is safe)",
+    "moreEn": "One more step: after «so that», write who + what happens. (e.g. so that everyone is safe)"
+  },
+  "img": {
+    "cover": "On a safe green hill far away, a woman with a short gray bob and round glasses in an orange vest over a white lab coat stands with a tall man with a white beard in a brown hat and many families with backpacks, and they all watch a huge gray cloud of ash burst from a big mountain while glowing orange lava flows down toward a small empty village of red-roofed houses.",
+    "scenes": {
+      "1": "In a small wooden lab at the foot of a big quiet mountain, a woman with a short gray bob and round glasses in an orange vest over a white lab coat leans close to a machine whose screen shows a jumpy zigzag line, while a cup of tea on the table shakes a little.",
+      "2": "In the middle of a small village with red-roofed houses, a woman with a short gray bob and round glasses in an orange vest over a white lab coat holds up a big chart full of zigzag lines to a tall man with a white beard in a brown hat, who looks at it with wide eyes, while families with backpacks and suitcases walk away down the road."
+    }
+  },
+  "alt": {
+    "1": "Dr. Yoon sees small earthquakes on her machine.",
+    "2": "Dr. Yoon shows her data as families leave the village.",
+    "cover": "Everyone watches the volcano erupt from a safe hill."
+  }
+}

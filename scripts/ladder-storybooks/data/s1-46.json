@@ -1,0 +1,304 @@
+{
+  "id": "s1-46",
+  "breaks": [
+    2,
+    3,
+    4
+  ],
+  "key": {
+    "P": 1,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "결말",
+      "en": "ending"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «글롭은 무척 배가 고프다(문제)» 와 «이제 김치는 글롭이 우주에서 제일 좋아하는 음식이다(결말)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (Glorp is very hungry) and the ending (kimchi is now his favorite food in the universe). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Glorp the alien and a kind grandma"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Glorp is very hungry, but the hamburger and the ice cream are not good for him."
+    },
+    {
+      "k": "Ending",
+      "qko": "마지막에 어떻게 되나요?",
+      "qen": "What happens at the end?",
+      "a": "He loves kimchi, and now it is his favorite food."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "An alien named Glorp lands in Seoul. He is very ",
+      "ans": "hungry",
+      "opts": [
+        "hungry",
+        "sleepy",
+        "happy"
+      ]
+    },
+    {
+      "pre": ". The hamburger is too soft, and the ice cream is too ",
+      "ans": "cold",
+      "opts": [
+        "cold",
+        "sweet",
+        "big"
+      ]
+    },
+    {
+      "pre": ". Then a grandma gives him some ",
+      "ans": "kimchi",
+      "opts": [
+        "kimchi",
+        "pizza",
+        "candy"
+      ]
+    },
+    {
+      "pre": ". It is hot, but he eats three bowls of ",
+      "ans": "rice",
+      "opts": [
+        "rice",
+        "soup",
+        "milk"
+      ]
+    },
+    {
+      "pre": " with kimchi. Now kimchi is his ",
+      "ans": "favorite",
+      "opts": [
+        "favorite",
+        "worst",
+        "oldest"
+      ]
+    },
+    {
+      "pre": " food in the universe!",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "alien",
+      "외계인",
+      "An <b>alien</b> named Glorp lands in Seoul.",
+      "a living thing from another planet"
+    ],
+    [
+      "hungry",
+      "배고픈",
+      "He is very <b>hungry</b>.",
+      "wanting to eat food"
+    ],
+    [
+      "bite",
+      "한 입",
+      "Glorp takes a <b>bite</b>.",
+      "a small piece you take with your teeth"
+    ],
+    [
+      "bowls",
+      "그릇",
+      "He eats three <b>bowls</b> of rice with kimchi.",
+      "round dishes for food like rice or soup"
+    ],
+    [
+      "favorite",
+      "가장 좋아하는",
+      "Now kimchi is his <b>favorite</b> food in the universe!",
+      "the one you like the most"
+    ],
+    [
+      "universe",
+      "우주",
+      "Now kimchi is his favorite food in the <b>universe</b>!",
+      "all of space and everything in it"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Glorp's face turn red?",
+      "qko": "글롭의 얼굴은 왜 빨개지나요?",
+      "opts": [
+        "He is very angry.",
+        "The kimchi is very hot.",
+        "The ice cream is too cold."
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "He is very hungry.",
+        "He tries ice cream. \"Too cold!\"",
+        "He eats three bowls of rice with kimchi.",
+        "\"Hot! Hot! But so good!\""
+      ],
+      "ev": [
+        3
+      ],
+      "why": [
+        "글롭이 김치를 먹고 «Hot! Hot!» 하고 말해요. 김치가 매워서 얼굴이 빨개져요.",
+        "Glorp says, \"Hot! Hot!\" The kimchi is spicy, so his face turns red."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Now kimchi is his favorite food in the universe!\" What does \"favorite\" mean?",
+      "qko": "«favorite food» 에서 «favorite» 은 무슨 뜻일까요?",
+      "opts": [
+        "the one he likes the most",
+        "the one he likes the least",
+        "a food he never eats"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "He tries a hamburger. \"Too soft!\"",
+        "An alien named Glorp lands in Seoul.",
+        "He eats three bowls of rice with kimchi.",
+        "Then a grandma gives him some kimchi."
+      ],
+      "ev": [
+        2
+      ],
+      "why": [
+        "글롭은 김치와 밥을 세 그릇이나 먹어요. 그만큼 좋아해요. «favorite» 은 가장 좋아하는 것이라는 뜻이에요.",
+        "Glorp eats three bowls of rice with kimchi. He likes it so much. \"Favorite\" means the one he likes the most."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why does Glorp like kimchi more than the hamburger?",
+      "qko": "글롭은 왜 햄버거보다 김치를 더 좋아하나요?",
+      "opts": [
+        "Kimchi is soft and cold.",
+        "The grandma tells him to eat it.",
+        "The hamburger is too soft, but kimchi is so good."
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "An alien named Glorp lands in Seoul.",
+        "He tries a hamburger. \"Too soft!\"",
+        "Then a grandma gives him some kimchi.",
+        "\"Hot! Hot! But so good!\""
+      ],
+      "ev": [
+        1,
+        3
+      ],
+      "why": [
+        "햄버거는 «Too soft!» 너무 물렁했어요. 김치는 «But so good!» 정말 맛있어요. 두 문장을 이어야 알 수 있어요.",
+        "The hamburger is \"too soft,\" but kimchi is \"so good.\" You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Glorp takes kimchi home to his planet for his family.",
+      "글롭이 가족을 위해 김치를 자기 별로 가져간다.",
+      "Kimchi in Space"
+    ],
+    [
+      "B",
+      "Glorp learns how to make kimchi with the grandma.",
+      "글롭이 할머니와 함께 김치 만드는 법을 배운다.",
+      "Making Kimchi with Grandma"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“I want to <u>try kimchi</u> because <u>it is hot but so good</u>.”",
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what you want to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "chips": [
+      {
+        "a": "visit my grandma",
+        "b": "I miss her",
+        "label": "grandma"
+      },
+      {
+        "a": "play soccer",
+        "b": "it is fun",
+        "label": "soccer"
+      },
+      {
+        "a": "eat noodles",
+        "b": "I am hungry",
+        "label": "noodles"
+      }
+    ],
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because my friends like it)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because my friends like it)"
+  },
+  "img": {
+    "cover": "In a cozy Korean kitchen, Glorp, a small round green alien with three eyes on short stalks and a silver suit, has a bright red face and puffs of steam above his head after a bite of kimchi from his chopsticks, while a kind grandma with short white curly hair, a pink apron and round glasses laughs and holds a big bowl of kimchi.",
+    "scenes": {
+      "1": "Close-up at a small wooden table: Glorp, a small round green alien with three eyes on short stalks and a silver suit, makes a funny face and pushes away a hamburger and a melting ice cream cone with both hands, while the hands of a kind grandma with a pink apron slide a bowl of bright red kimchi toward him.",
+      "2": "Close-up: Glorp, a small round green alien with three eyes on short stalks and a silver suit, holds a spoonful of rice and kimchi with a huge happy smile, next to a tall stack of three empty rice bowls, while a kind grandma with short white curly hair, a pink apron and round glasses claps her hands with joy beside him."
+    }
+  },
+  "alt": {
+    "1": "The grandma gives Glorp some kimchi.",
+    "2": "Glorp eats three bowls of rice with kimchi.",
+    "cover": "Glorp's face turns red after eating kimchi."
+  }
+}

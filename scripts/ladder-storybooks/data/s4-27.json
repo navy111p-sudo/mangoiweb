@@ -1,0 +1,305 @@
+{
+  "id": "s4-27",
+  "breaks": [
+    4,
+    6,
+    5,
+    2
+  ],
+  "key": {
+    "P": 10,
+    "S": 15
+  },
+  "roleNames": {
+    "P": {
+      "ko": "어두운 면",
+      "en": "dark side"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «그러나 대항해 시대에는 어두운 면이 있었다(어두운 면)» 와 «대항해 시대는 새로운 연결과 함께 큰 고통도 가져오며 세계를 영원히 바꾸었다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the dark side (the Age of Exploration had a darker side) and the conclusion (it changed the world forever, bringing new connections but also great suffering). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "The Age of Exploration and its two sides"
+    },
+    {
+      "k": "Bright side",
+      "qko": "어떤 새로운 연결이 생겼나요?",
+      "qen": "What new connections were made?",
+      "a": "Plants, animals, and ideas moved between continents"
+    },
+    {
+      "k": "Dark side",
+      "qko": "어떤 고통이 있었나요?",
+      "qen": "What suffering did it cause?",
+      "a": "Conquest, deadly diseases, and the slave trade"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "From the 1400s to the 1600s, European sailors crossed oceans in search of new trade ",
+      "ans": "routes",
+      "opts": [
+        "routes",
+        "games",
+        "schools"
+      ]
+    },
+    {
+      "pre": ", gold, and spices. Inventions such as the magnetic ",
+      "ans": "compass",
+      "opts": [
+        "compass",
+        "camera",
+        "phone"
+      ]
+    },
+    {
+      "pre": " made these long voyages possible. The journeys connected continents, and foods such as ",
+      "ans": "potatoes",
+      "opts": [
+        "potatoes",
+        "hamburgers",
+        "cookies"
+      ]
+    },
+    {
+      "pre": ", corn, and chili peppers spread across the world. However, for the Indigenous peoples of the Americas, the voyages brought conquest and deadly ",
+      "ans": "diseases",
+      "opts": [
+        "diseases",
+        "festivals",
+        "inventions"
+      ]
+    },
+    {
+      "pre": " such as smallpox. Remembering both sides helps us understand history more ",
+      "ans": "honestly",
+      "opts": [
+        "honestly",
+        "quickly",
+        "loudly"
+      ]
+    },
+    {
+      "pre": " and ask who gets to tell the story.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "voyage",
+      "항해",
+      "His <b>voyage</b> was part of a period from the 1400s to the 1600s",
+      "a long journey by sea"
+    ],
+    [
+      "immunity",
+      "면역",
+      "Diseases such as smallpox, to which they had no <b>immunity</b>, killed a very large share of the population.",
+      "the body's ability to fight off a disease"
+    ],
+    [
+      "conquest",
+      "정복",
+      "the arrival of Europeans brought <b>conquest</b>, forced labor, and the loss of land",
+      "taking control of a land or people by force"
+    ],
+    [
+      "expedition",
+      "원정, 탐험대",
+      "a Spanish <b>expedition</b> first led by Ferdinand Magellan completed the first voyage around the world",
+      "a long trip by a group of people to explore a place"
+    ],
+    [
+      "ingredient",
+      "재료",
+      "chili peppers eventually became a key <b>ingredient</b> in Korean food",
+      "one of the foods used to make a dish"
+    ],
+    [
+      "Indigenous",
+      "원주민의, 토착의",
+      "For the <b>Indigenous</b> peoples of the Americas",
+      "belonging to the people who lived in a place first"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did smallpox kill a very large share of the Indigenous population?",
+      "qko": "천연두는 왜 원주민 인구의 아주 많은 수를 죽게 했나요?",
+      "opts": [
+        "They had no immunity to the disease",
+        "Smallpox came from eating chili peppers",
+        "European ships were too small to carry doctors"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Diseases such as smallpox, to which they had no immunity, killed a very large share of the population.",
+        "For the Indigenous peoples of the Americas, the arrival of Europeans brought conquest, forced labor, and the loss of land.",
+        "Plants, animals, and ideas moved between the Americas, Europe, Africa, and Asia in what historians call the Columbian Exchange.",
+        "The magnetic compass showed direction, and new ships called caravels could sail well against the wind."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "본문에 원주민들은 천연두 같은 병에 대한 면역이 없어서 아주 많은 사람이 목숨을 잃었다고 나와요.",
+        "The text says they had no immunity to diseases such as smallpox, so a very large share of the population died."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does \"a darker side\" mean?",
+      "qko": "글에서 «a darker side(더 어두운 면)» 는 무슨 뜻인가요?",
+      "opts": [
+        "The harmful and painful results of the voyages",
+        "The night side of the Earth that sailors could not see",
+        "The dark color of the new sailing ships"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "For the Indigenous peoples of the Americas, the arrival of Europeans brought conquest, forced labor, and the loss of land.",
+        "These journeys connected continents as never before.",
+        "Several inventions made these long voyages possible.",
+        "His voyage was part of a period from the 1400s to the 1600s that is often called the Age of Exploration."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«darker side» 는 나쁘고 고통스러운 결과를 뜻해요. 바로 다음 문장에서 정복, 강제 노동, 땅을 잃은 일을 말해요.",
+        "A darker side means harmful results. The next sentence describes conquest, forced labor, and the loss of land."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did chili peppers become part of Korean food?",
+      "qko": "고추는 어떻게 한국 음식의 재료가 되었나요?",
+      "opts": [
+        "Plants moved between continents in the Columbian Exchange, and chili peppers spread to Korea",
+        "Columbus brought chili peppers from Spain to Korea himself",
+        "Chili peppers first grew in Korea and then spread to the Americas"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Plants, animals, and ideas moved between the Americas, Europe, Africa, and Asia in what historians call the Columbian Exchange.",
+        "Potatoes, corn, and chili peppers spread across the world, and chili peppers eventually became a key ingredient in Korean food.",
+        "During this time, European sailors crossed oceans in search of new trade routes, gold, and spices such as pepper and cinnamon.",
+        "European powers also expanded the Atlantic slave trade, forcing millions of Africans across the ocean."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "식물, 동물, 생각이 대륙 사이를 오간 콜럼버스 교환으로 고추가 전 세계로 퍼졌고, 결국 한국 음식의 중요한 재료가 되었어요. 두 문장을 이어 봐야 해요.",
+        "In the Columbian Exchange, plants moved between continents. Chili peppers spread across the world and became a key ingredient in Korean food."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How did sailors find their way across the ocean without GPS?",
+      "GPS 없이 선원들은 어떻게 바다에서 길을 찾았을까?",
+      "Navigating by the Stars"
+    ],
+    [
+      "B",
+      "When did chili peppers arrive in Korea, and how did kimchi change?",
+      "고추는 언제 한국에 들어왔고, 김치는 어떻게 바뀌었을까?",
+      "The Story of Red Kimchi"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "중요한 일",
+      "그것이 중요한 이유"
+    ],
+    "slotEn": [
+      "an important action",
+      "the reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write an important action and your reason in English.",
+    "aria": [
+      "the important action",
+      "why it is important"
+    ],
+    "src": "“It is important to <u>remember both sides of history</u> because <u>it helps us understand the past more honestly</u>.”",
+    "chips": [
+      {
+        "a": "listen to both friends after an argument",
+        "b": "each person may see it differently",
+        "label": "friends"
+      },
+      {
+        "a": "read more than one book about a topic",
+        "b": "one writer may tell only one side",
+        "label": "books"
+      },
+      {
+        "a": "ask our grandparents about the past",
+        "b": "they remember things our textbooks leave out",
+        "label": "family"
+      }
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누구의 이야기를 + 왜 들어야 하는지» 를 넣어 이유를 분명하게 써 보세요. (예: because every side has its own story)",
+    "moreEn": "One more step: after «because», write whose story we should hear and why. (e.g. because every side has its own story)"
+  },
+  "img": {
+    "cover": "Three fifteenth-century wooden sailing ships with large square sails crossing a vast deep-blue ocean under towering clouds",
+    "scenes": {
+      "1": "An antique brass magnetic compass resting on the wooden rail of an old sailing ship, coiled ropes and the open sea behind it",
+      "2": "A wooden sailing ship anchored off a quiet tropical island at sunset, with palm trees and the thatched-roof homes of the people who already lived there along the shore"
+    }
+  },
+  "alt": {
+    "1": "An antique compass on a ship’s rail",
+    "2": "A ship anchored near an island village",
+    "cover": "Old sailing ships crossing the ocean"
+  }
+}

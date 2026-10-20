@@ -1,0 +1,305 @@
+{
+  "id": "s3-37",
+  "breaks": [
+    2,
+    4,
+    5,
+    3
+  ],
+  "key": {
+    "P": 4,
+    "S": 13
+  },
+  "roleNames": {
+    "P": {
+      "ko": "핵심 특징",
+      "en": "key feature"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «너무 가까이 다가간 것은 빛까지도 빨려 들어가 다시는 나오지 못한다(핵심 특징)» 와 «블랙홀은 과학자들이 중력, 공간, 시간을 이해하도록 돕는다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the key feature (anything that gets too close, even light, is pulled in and can never come out) and the conclusion (black holes help scientists understand gravity, space, and time). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "What black holes are and how we find them"
+    },
+    {
+      "k": "Key fact",
+      "qko": "블랙홀의 가장 큰 특징은 무엇인가요?",
+      "qen": "What is special about a black hole?",
+      "a": "Its gravity is so strong that even light cannot escape"
+    },
+    {
+      "k": "How we know",
+      "qko": "과학자들은 블랙홀을 어떻게 찾나요?",
+      "qen": "How do scientists find them?",
+      "a": "They watch how stars and hot gas move"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "A black hole can form when a huge ",
+      "ans": "star",
+      "opts": [
+        "star",
+        "planet",
+        "moon"
+      ]
+    },
+    {
+      "pre": " runs out of fuel and collapses. Its ",
+      "ans": "gravity",
+      "opts": [
+        "gravity",
+        "heat",
+        "sound"
+      ]
+    },
+    {
+      "pre": " becomes so strong that even light cannot escape, so black holes are ",
+      "ans": "invisible",
+      "opts": [
+        "invisible",
+        "bright",
+        "colorful"
+      ]
+    },
+    {
+      "pre": ". Scientists find them by watching how stars and hot ",
+      "ans": "gas",
+      "opts": [
+        "gas",
+        "ice",
+        "water"
+      ]
+    },
+    {
+      "pre": " move around them. In 2019, scientists shared the first ",
+      "ans": "picture",
+      "opts": [
+        "picture",
+        "sound",
+        "map"
+      ]
+    },
+    {
+      "pre": " of a black hole’s shadow.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "fuel",
+      "연료",
+      "when a huge star runs out of <b>fuel</b>",
+      "something that is burned to make energy"
+    ],
+    [
+      "collapses",
+      "무너져 내리다",
+      "runs out of fuel and <b>collapses</b> into a tiny space",
+      "falls in on itself suddenly"
+    ],
+    [
+      "gravity",
+      "중력",
+      "its <b>gravity</b> becomes incredibly strong",
+      "the force that pulls things toward each other"
+    ],
+    [
+      "invisible",
+      "보이지 않는",
+      "black holes are <b>invisible</b>",
+      "impossible to see"
+    ],
+    [
+      "swirling",
+      "소용돌이치는",
+      "Hot gas <b>swirling</b> around a black hole",
+      "moving around and around quickly in circles"
+    ],
+    [
+      "linked",
+      "연결했다",
+      "they <b>linked</b> telescopes around the world",
+      "joined things together"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does a black hole’s gravity become incredibly strong?",
+      "qko": "블랙홀의 중력은 왜 엄청나게 강해지나요?",
+      "opts": [
+        "Because so much mass is packed so tightly",
+        "Because hot gas shines brightly around it",
+        "Because it is very close to the Earth"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Because so much mass is packed so tightly, its gravity becomes incredibly strong.",
+        "Hot gas swirling around a black hole also shines brightly before it falls in.",
+        "Do not worry, though; it is much too far away to pull us in.",
+        "What if there were a place in space where even light could not escape?"
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "아주 많은 질량이 아주 좁은 곳에 빽빽하게 모여 있어서 중력이 엄청나게 강해진다고 했어요. 우리 은하의 블랙홀은 지구에서 아주 멀리 있어요.",
+        "So much mass is packed so tightly that its gravity becomes incredibly strong. The black hole in our galaxy is much too far away to pull us in."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In “stars and gas move around an empty-looking area,” what does “empty-looking” mean?",
+      "qko": "«stars and gas move around an empty-looking area» 에서 «empty-looking» 은 무슨 뜻인가요?",
+      "opts": [
+        "seeming to have nothing there",
+        "full of bright stars",
+        "covered with hot, shining gas"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Since no light comes out, black holes are invisible.",
+        "In 2019, scientists shared the first picture of a black hole's shadow.",
+        "That place is real, and it is called a black hole.",
+        "Do not worry, though; it is much too far away to pull us in."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "블랙홀에서는 빛이 나오지 않아서 보이지 않는다고 했어요. 그래서 블랙홀이 있는 곳은 «아무것도 없는 것처럼 보이는» 곳이에요. 실제로 비어 있는 것은 아니에요.",
+        "No light comes out of a black hole, so it is invisible. The area only looks empty; it is not really empty."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How can scientists find a black hole if they cannot see it?",
+      "qko": "블랙홀은 보이지 않는데, 과학자들은 어떻게 블랙홀을 찾을 수 있나요?",
+      "opts": [
+        "They watch how stars and gas move around it, and they see hot gas shine before it falls in",
+        "They fly a spaceship into it and look around",
+        "They listen to it with their own ears"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "They watch how stars and gas move around an empty-looking area.",
+        "Hot gas swirling around a black hole also shines brightly before it falls in.",
+        "Anything that gets too close, including light, is pulled in and can never come out.",
+        "There is even a giant black hole at the center of our own Milky Way galaxy."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "과학자들은 아무것도 없어 보이는 곳 주위에서 별과 가스가 어떻게 움직이는지 살펴봐요. 또 블랙홀 주위를 도는 뜨거운 가스는 빨려 들어가기 전에 밝게 빛나요. 두 문장이 두 가지 단서예요.",
+        "Scientists watch how stars and gas move around an empty-looking area, and hot gas swirling around a black hole shines brightly before it falls in. These are two clues."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How are stars born, and how do they die?",
+      "별은 어떻게 태어나고, 어떻게 사라질까?",
+      "The Life of a Star"
+    ],
+    [
+      "B",
+      "How did telescopes around the world work together like one giant telescope?",
+      "세계 곳곳의 망원경은 어떻게 하나의 거대한 망원경처럼 힘을 합쳤을까?",
+      "A Telescope as Big as Earth"
+    ]
+  ],
+  "write": {
+    "pre": "I can’t",
+    "mid": "but I can",
+    "sep": ", ",
+    "slots": [
+      "vp",
+      "vp"
+    ],
+    "src": "“I can’t <u>see a black hole with my eyes</u>, but I can <u>learn about it from space pictures</u>.”",
+    "slotKo": [
+      "할 수 없는 일",
+      "대신 할 수 있는 일"
+    ],
+    "slotEn": [
+      "what I can’t do",
+      "what I can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «할 수 없는 일 + 대신 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you can’t do and what you can do instead in English.",
+    "chips": [
+      {
+        "a": "go to the Moon",
+        "b": "look at it with a telescope",
+        "label": "Moon"
+      },
+      {
+        "a": "play soccer in the rain",
+        "b": "practice kicking indoors",
+        "label": "soccer"
+      },
+      {
+        "a": "stay up all night",
+        "b": "watch the stars before bedtime",
+        "label": "stars"
+      }
+    ],
+    "aria": [
+      "what you can’t do",
+      "what you can do instead"
+    ],
+    "moreKo": "한 걸음 더: 두 칸 모두 «하는 일» 낱말(동사)로 시작하게 써 보세요. (예: visit a planetarium, read a space book)",
+    "moreEn": "One more step: start both blanks with an action word. (e.g. visit a planetarium, read a space book)"
+  },
+  "img": {
+    "cover": "A black hole in space: a perfectly black circle surrounded by a bright, glowing ring of swirling orange and yellow hot gas, with stars scattered across the dark background",
+    "scenes": {
+      "1": "A giant glowing red star in space, far bigger than the Sun, surrounded by drifting clouds of gas against a field of distant stars",
+      "2": "Several huge radio telescope dishes on a high, dry mountain plateau at night, all pointing at the same spot in a sky full of stars"
+    }
+  },
+  "alt": {
+    "1": "A giant red star in space",
+    "2": "Radio telescopes pointing at the night sky",
+    "cover": "A black hole with a glowing ring of hot gas"
+  }
+}

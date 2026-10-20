@@ -1,0 +1,305 @@
+{
+  "id": "s4-25",
+  "breaks": [
+    3,
+    6,
+    5,
+    3
+  ],
+  "key": {
+    "P": 5,
+    "S": 16
+  },
+  "roleNames": {
+    "P": {
+      "ko": "원인",
+      "en": "cause"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «기후 변화가 물 문제를 더 어렵게 만들고 있다(원인)» 와 «물 부족은 심각하지만 똑똑한 기술과 아껴 쓰는 습관으로 이 귀한 자원을 지킬 수 있다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the cause (climate change is making the water problem harder) and the conclusion (water scarcity is serious, but smart technology and careful use can help). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Problem",
+      "qko": "무엇이 문제인가요?",
+      "qen": "What is the problem?",
+      "a": "Billions of people cannot get enough clean water"
+    },
+    {
+      "k": "Cause",
+      "qko": "물 문제는 왜 더 심해지나요?",
+      "qen": "Why is the problem getting harder?",
+      "a": "Rising temperatures, shrinking glaciers, and a growing population"
+    },
+    {
+      "k": "Solution",
+      "qko": "어떤 해결책이 있나요?",
+      "qen": "What solutions are there?",
+      "a": "Recycling wastewater, desalination, drip irrigation, and saving water"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Only about 3 percent of Earth's water is ",
+      "ans": "fresh",
+      "opts": [
+        "fresh",
+        "salty",
+        "warm"
+      ]
+    },
+    {
+      "pre": ", and most of that is locked in ice or deep underground. Climate change makes the problem harder, because more water ",
+      "ans": "evaporates",
+      "opts": [
+        "evaporates",
+        "freezes",
+        "sings"
+      ]
+    },
+    {
+      "pre": " and droughts become longer. Some dry countries recycle wastewater or use ",
+      "ans": "desalination",
+      "opts": [
+        "desalination",
+        "decoration",
+        "education"
+      ]
+    },
+    {
+      "pre": " to remove salt from seawater. Drip irrigation delivers water directly to plant ",
+      "ans": "roots",
+      "opts": [
+        "roots",
+        "flowers",
+        "leaves"
+      ]
+    },
+    {
+      "pre": ", and everyday actions such as fixing ",
+      "ans": "leaks",
+      "opts": [
+        "leaks",
+        "windows",
+        "songs"
+      ]
+    },
+    {
+      "pre": " also help protect this precious resource.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "scarcity",
+      "부족, 희소성",
+      "Water <b>scarcity</b> means that there is not enough clean water to meet people's needs.",
+      "a lack of something people need"
+    ],
+    [
+      "droughts",
+      "가뭄",
+      "<b>droughts</b> in some regions become longer and more severe",
+      "long periods with little or no rain"
+    ],
+    [
+      "desalination",
+      "해수 담수화",
+      "uses <b>desalination</b>, which removes salt from seawater",
+      "taking the salt out of seawater so people can use it"
+    ],
+    [
+      "irrigation",
+      "관개, 물 대기",
+      "Drip <b>irrigation</b>, a method that delivers water directly to plant roots, can greatly reduce waste on farms.",
+      "bringing water to crops through pipes or channels"
+    ],
+    [
+      "evaporates",
+      "증발하다",
+      "more water <b>evaporates</b> from soil and lakes",
+      "turns from liquid into gas"
+    ],
+    [
+      "glaciers",
+      "빙하",
+      "Mountain <b>glaciers</b>, which slowly release water to rivers in summer, are shrinking in many parts of the world.",
+      "huge masses of ice that move very slowly"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why are droughts becoming longer and more severe in some regions?",
+      "qko": "어떤 지역에서 가뭄이 더 길고 심해지는 이유는 무엇인가요?",
+      "opts": [
+        "Rising temperatures make more water evaporate from soil and lakes",
+        "People are building too many treatment plants",
+        "Drip irrigation sends too much water to farms"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "As temperatures rise, more water evaporates from soil and lakes, and droughts in some regions become longer and more severe.",
+        "At the same time, the global population keeps growing, and farming already uses about 70 percent of the fresh water people take from rivers and underground sources.",
+        "It can happen because water is physically limited, or because there is no money to build pipes, wells, and treatment plants.",
+        "Drip irrigation, a method that delivers water directly to plant roots, can greatly reduce waste on farms."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "본문에 기온이 오르면서 흙과 호수에서 물이 더 많이 증발하고, 어떤 지역의 가뭄은 더 길고 심해진다고 나와요.",
+        "The text says that as temperatures rise, more water evaporates from soil and lakes, and droughts become longer and more severe."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does \"the future is not fixed\" mean?",
+      "qko": "글에서 «the future is not fixed» 는 무슨 뜻인가요?",
+      "opts": [
+        "The future can still change, because people are finding solutions",
+        "The future has already been decided and cannot change",
+        "Broken water pipes can never be repaired"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Some dry countries have found creative solutions.",
+        "Climate change is making the problem harder.",
+        "These technologies cost money and energy, so they are not easy for every country.",
+        "The answer is that only about 3 percent of Earth's water is fresh, and most of that is locked in ice or deep underground."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«fixed» 는 여기서 «정해진, 바뀌지 않는» 이라는 뜻이에요. 바로 다음 문장에서 몇몇 건조한 나라들이 창의적인 해결책을 찾았다고 하니, 미래는 바꿀 수 있다는 뜻이에요.",
+        "Here \"fixed\" means already decided. The next sentence says some dry countries have found creative solutions, so the future can change."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why can not every country easily use technologies like desalination?",
+      "qko": "왜 모든 나라가 해수 담수화 같은 기술을 쉽게 쓸 수는 없나요?",
+      "opts": [
+        "These technologies cost a lot of money and energy",
+        "Seawater has no salt in most countries",
+        "Desalination works only in rainy countries"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Israel, for example, recycles most of its wastewater for farming and uses desalination, which removes salt from seawater.",
+        "These technologies cost money and energy, so they are not easy for every country.",
+        "Drip irrigation, a method that delivers water directly to plant roots, can greatly reduce waste on farms.",
+        "Earth is often called the blue planet, yet billions of people struggle to get enough clean water."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "이스라엘은 바닷물에서 소금을 빼는 해수 담수화를 쓰지만, 이런 기술은 돈과 에너지가 많이 들어서 모든 나라가 쉽게 쓸 수는 없어요. 두 문장을 이어 봐야 해요.",
+        "Israel uses desalination to remove salt from seawater, but these technologies cost money and energy, so they are not easy for every country."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How does Singapore turn used water into safe drinking water?",
+      "싱가포르는 쓴 물을 어떻게 다시 마실 수 있는 물로 만들까?",
+      "Water That Comes Back"
+    ],
+    [
+      "B",
+      "How much water does it take to grow our food?",
+      "우리가 먹는 음식을 기르는 데 물이 얼마나 들까?",
+      "The Hidden Water in Food"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "중요한 일",
+      "그것이 중요한 이유"
+    ],
+    "slotEn": [
+      "an important action",
+      "the reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write an important action and your reason in English.",
+    "aria": [
+      "the important action",
+      "why it is important"
+    ],
+    "src": "“It is important to <u>fix water leaks quickly</u> because <u>only a small part of Earth’s water is fresh</u>.”",
+    "chips": [
+      {
+        "a": "turn off the tap while brushing our teeth",
+        "b": "clean water is precious",
+        "label": "tap"
+      },
+      {
+        "a": "finish the food on our plates",
+        "b": "growing food uses a lot of water",
+        "label": "food"
+      },
+      {
+        "a": "take shorter showers",
+        "b": "many places do not have enough water",
+        "label": "shower"
+      }
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 본문에서 배운 사실을 넣어 이유를 분명하게 써 보세요. (예: because farming uses about 70 percent of fresh water)",
+    "moreEn": "One more step: after «because», use a fact from the text. (e.g. because farming uses about 70 percent of fresh water)"
+  },
+  "img": {
+    "cover": "A cracked, dry lakebed stretching into the distance under a blazing sun, a lone wooden rowboat resting on the dry ground where water used to be",
+    "scenes": {
+      "1": "A shrinking mountain glacier with bare gray rock exposed below the ice and a thin stream of meltwater running down the valley",
+      "2": "Thin drip irrigation tubes running along neat rows of young green plants on a dry farm, small drops of water falling right beside each plant"
+    }
+  },
+  "alt": {
+    "1": "A shrinking glacier above a rocky valley",
+    "2": "Drip irrigation watering rows of young plants",
+    "cover": "A cracked dry lakebed with a stranded boat"
+  }
+}

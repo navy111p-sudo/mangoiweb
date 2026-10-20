@@ -1,0 +1,304 @@
+{
+  "id": "s1-23",
+  "breaks": [
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 2,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "요술",
+      "en": "magic"
+    },
+    "S": {
+      "ko": "결말",
+      "en": "ending"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «엘라가 그리는 것마다 살아 움직인다(요술)» 와 «이제 엘라는 좋은 것만 그린다(결말)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the magic (everything Ella draws comes to life) and the ending (now Ella draws only nice things). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Magic",
+      "qko": "어떤 요술이 있나요?",
+      "qen": "What is the magic?",
+      "a": "Everything Ella draws with the gold pencil comes to life."
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Ella draws a big lion by mistake, and everyone runs."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Ella draws a big cage around the lion."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Ella finds a gold pencil. Everything she ",
+      "ans": "draws",
+      "opts": [
+        "draws",
+        "eats",
+        "reads"
+      ]
+    },
+    {
+      "pre": " comes to life! She draws a ",
+      "ans": "cake",
+      "opts": [
+        "cake",
+        "car",
+        "tree"
+      ]
+    },
+    {
+      "pre": " and eats it. Then she draws a big ",
+      "ans": "lion",
+      "opts": [
+        "lion",
+        "dog",
+        "fish"
+      ]
+    },
+    {
+      "pre": " by mistake, and everyone ",
+      "ans": "runs",
+      "opts": [
+        "runs",
+        "sings",
+        "sleeps"
+      ]
+    },
+    {
+      "pre": ". Ella draws a ",
+      "ans": "cage",
+      "opts": [
+        "cage",
+        "hat",
+        "bed"
+      ]
+    },
+    {
+      "pre": " around the lion. Now she draws only nice things.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "gold",
+      "금색",
+      "Ella finds a <b>gold</b> pencil on the way to school.",
+      "a shiny yellow color, like a gold ring"
+    ],
+    [
+      "draw",
+      "그리다",
+      "She <b>draws</b> a cat, and the cat jumps off the paper!",
+      "to make a picture with a pencil"
+    ],
+    [
+      "come to life",
+      "살아 움직이다",
+      "Everything she draws <b>comes to life</b>!",
+      "to start to move like a real living thing"
+    ],
+    [
+      "by mistake",
+      "실수로",
+      "Then she draws a big lion <b>by mistake</b>.",
+      "not on purpose"
+    ],
+    [
+      "cage",
+      "(동물) 우리",
+      "She draws a big <b>cage</b> around the lion.",
+      "a box with bars to keep an animal inside"
+    ],
+    [
+      "magic",
+      "마법의",
+      "Now Ella draws only nice things with her <b>magic</b> pencil.",
+      "able to do things that are not possible in real life"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does everyone run?",
+      "qko": "사람들은 왜 모두 도망가나요?",
+      "opts": [
+        "Ella draws a big lion by mistake.",
+        "Ella draws a cake.",
+        "It starts to rain."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Then she draws a big lion by mistake.",
+        "She draws a cake. Yum! She can eat it.",
+        "Ella finds a gold pencil on the way to school.",
+        "Now Ella draws only nice things with her magic pencil."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«Then she draws a big lion by mistake.» 실수로 큰 사자를 그려서 사자가 살아났어요. 그래서 모두 도망가요.",
+        "Ella draws a big lion by mistake, and it comes to life. So everyone runs."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"She draws a big lion by mistake.\" What does \"by mistake\" mean?",
+      "qko": "«She draws a big lion by mistake.» 에서 «by mistake» 는 무슨 뜻일까요?",
+      "opts": [
+        "not on purpose",
+        "very carefully",
+        "with a friend"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Now Ella draws only nice things with her magic pencil.",
+        "She draws a cat, and the cat jumps off the paper!",
+        "Everything she draws comes to life!",
+        "She draws a cake. Yum! She can eat it."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«Now Ella draws only nice things with her magic pencil.» 엘라는 무서운 사자를 그리고 싶지 않았어요. 그래서 이제 좋은 것만 그려요. «by mistake» 는 «일부러가 아니라 실수로» 라는 뜻이에요.",
+        "Ella did not want a scary lion, so now she draws only nice things. \"By mistake\" means not on purpose."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does Ella stop the lion?",
+      "qko": "엘라는 어떻게 사자를 막나요?",
+      "opts": [
+        "She draws a cage, and it becomes a real cage around the lion.",
+        "She runs home and hides.",
+        "She gives the lion some cake."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "She draws a big cage around the lion. Phew!",
+        "Everything she draws comes to life!",
+        "Ella finds a gold pencil on the way to school.",
+        "\"ROAR!\" Everyone runs!"
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "엘라가 사자 둘레에 우리를 그리고(«She draws a big cage around the lion. Phew!»), 그린 것은 모두 살아나니까(«Everything she draws comes to life!») 진짜 우리가 사자를 가둬요. 두 문장을 이어야 알 수 있어요.",
+        "Ella draws a big cage around the lion, and everything she draws comes to life. So a real cage stops the lion. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Ella draws a rainbow, and the whole class rides on it.",
+      "엘라가 무지개를 그리고, 반 친구들이 모두 그 위를 탄다.",
+      "The Rainbow Ride"
+    ],
+    [
+      "B",
+      "Ella loses the gold pencil, and a new friend finds it.",
+      "엘라가 금색 연필을 잃어버리고, 새 친구가 그것을 줍는다.",
+      "Who Has the Pencil?"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what you want to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because my friend likes it)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because my friend likes it)",
+    "src": "“I want to <u>draw a cake</u> because <u>I can eat it</u>.”",
+    "chips": [
+      {
+        "a": "draw a puppy",
+        "b": "I love dogs",
+        "label": "puppy"
+      },
+      {
+        "a": "paint my room blue",
+        "b": "blue is my favorite color",
+        "label": "blue"
+      },
+      {
+        "a": "make a card for Mom",
+        "b": "she is kind to me",
+        "label": "card"
+      }
+    ]
+  },
+  "img": {
+    "cover": "In a bright classroom, a girl with curly brown hair in a purple beret and a blue dress with white socks draws with a shiny gold pencil on a big sheet of paper, and a big fluffy lion with a golden mane and a round friendly face leaps out of the paper with its mouth wide open, while her classmates run around in a funny panic.",
+    "scenes": {
+      "1": "Close-up: a girl with curly brown hair in a purple beret and a blue dress happily takes a big bite of a slice of real chocolate cake with a shiny gold pencil in her other hand, chocolate on her cheek, while just behind her shoulder the big round friendly face of a fluffy lion with a golden mane pops out of her drawing paper with its mouth wide open.",
+      "2": "In a bright classroom, a girl with curly brown hair in a purple beret and a blue dress with white socks draws fast with a shiny gold pencil, and a big drawn cage appears around a big fluffy lion with a golden mane and a round friendly face, who sits inside looking surprised, while her classmates peek out from behind their desks and smile."
+    }
+  },
+  "alt": {
+    "1": "Ella eats her cake as a lion appears.",
+    "2": "Ella draws a cage around the lion.",
+    "cover": "A lion jumps out of Ella’s drawing."
+  }
+}

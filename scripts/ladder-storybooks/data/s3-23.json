@@ -1,0 +1,305 @@
+{
+  "id": "s3-23",
+  "breaks": [
+    3,
+    4,
+    3,
+    2
+  ],
+  "key": {
+    "P": 4,
+    "S": 11
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «스마트폰은 우리가 사는 방식을 바꿔 놓았다(주제)» 와 «스마트폰은 강력한 도구지만, 휘둘리지 말고 우리가 다스려야 한다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (smartphones changed the way we live) and the conclusion (a smartphone is a powerful tool, but we should control it instead of letting it control us). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "How smartphones changed our lives"
+    },
+    {
+      "k": "Key fact",
+      "qko": "스마트폰으로 무엇을 할 수 있나요?",
+      "qen": "What can we do with smartphones?",
+      "a": "Video call, pay for things, and find our way"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "우리는 스마트폰을 어떻게 써야 하나요?",
+      "qen": "How should we use smartphones?",
+      "a": "Control our phones, not let them control us"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "In 2007, a small device with a touch ",
+      "ans": "screen",
+      "opts": [
+        "screen",
+        "keyboard",
+        "button"
+      ]
+    },
+    {
+      "pre": " was shown on a stage. Smartphones soon spread around the world and changed the way we ",
+      "ans": "live",
+      "opts": [
+        "live",
+        "cook",
+        "swim"
+      ]
+    },
+    {
+      "pre": ". Today they are millions of times more ",
+      "ans": "powerful",
+      "opts": [
+        "powerful",
+        "heavy",
+        "colorful"
+      ]
+    },
+    {
+      "pre": " than the computer that guided Apollo 11 to the Moon. But using a phone late at night can make it harder to fall ",
+      "ans": "asleep",
+      "opts": [
+        "asleep",
+        "down",
+        "ill"
+      ]
+    },
+    {
+      "pre": ". Experts suggest turning off ",
+      "ans": "notifications",
+      "opts": [
+        "notifications",
+        "flashlights",
+        "fans"
+      ]
+    },
+    {
+      "pre": ", and we should control our phones instead of letting them control us.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "device",
+      "기기, 장치",
+      "holding a small black <b>device</b>",
+      "a machine or tool made for a special job"
+    ],
+    [
+      "doubted",
+      "의심했다",
+      "Some experts <b>doubted</b> the idea",
+      "did not believe something would work"
+    ],
+    [
+      "powerful",
+      "강력한",
+      "millions of times more <b>powerful</b>",
+      "very strong; able to do a lot"
+    ],
+    [
+      "alert",
+      "정신이 말똥말똥한, 깨어 있는",
+      "the bright screen keeps the brain <b>alert</b>",
+      "awake and paying attention"
+    ],
+    [
+      "habits",
+      "습관",
+      "Experts suggest simple <b>habits</b>",
+      "things you do often, almost without thinking"
+    ],
+    [
+      "notifications",
+      "알림",
+      "turning off <b>notifications</b>",
+      "messages on a phone that tell you something new has happened"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why can using a phone late at night make it harder to fall asleep?",
+      "qko": "밤늦게 휴대폰을 쓰면 잠들기 어려운 이유는 무엇인가요?",
+      "opts": [
+        "Because the bright screen keeps the brain alert",
+        "Because phones are too heavy to hold in bed",
+        "Because notifications make the room cold"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Using a phone late at night can make it harder to fall asleep, because the bright screen keeps the brain alert.",
+        "It had no keyboard, only a touch screen.",
+        "Many people check their phones dozens of times a day, even during meals with their families.",
+        "We can video call friends on the other side of the world, pay for things, and find our way in a new city."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "밤늦게 휴대폰을 쓰면 밝은 화면 때문에 뇌가 깨어 있게 되어 잠들기 어려워진다고 했어요.",
+        "The bright screen keeps the brain alert, so it is harder to fall asleep."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In \"a phone, a music player, and an internet computer, all in one,\" what does \"all in one\" mean?",
+      "qko": "«a phone, a music player, and an internet computer, all in one» 에서 «all in one» 은 무슨 뜻인가요?",
+      "opts": [
+        "combined in a single thing",
+        "sold one at a time",
+        "only one of them worked"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "It was a phone, a music player, and an internet computer, all in one.",
+        "Some experts doubted the idea, but the iPhone and other smartphones soon spread around the world.",
+        "Here is a surprising fact: a modern smartphone is millions of times more powerful than the computer that guided Apollo 11 to the Moon.",
+        "Experts suggest simple habits, like turning off notifications and keeping phones out of the bedroom at night."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "전화기, 음악 플레이어, 인터넷 컴퓨터가 작은 기기 «하나»에 다 들어 있다는 뜻이에요. «all in one» 은 여러 가지가 하나로 합쳐졌다는 말이에요.",
+        "A phone, a music player, and an internet computer were in one small device, so «all in one» means combined in a single thing."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "What new problems has the power of smartphones brought?",
+      "qko": "스마트폰의 힘은 어떤 새로운 문제를 가져왔나요?",
+      "opts": [
+        "People check phones even during family meals, and late-night phone use makes sleep harder",
+        "Phones can no longer make video calls",
+        "Smartphones are weaker than old computers"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Many people check their phones dozens of times a day, even during meals with their families.",
+        "We can video call friends on the other side of the world, pay for things, and find our way in a new city.",
+        "Using a phone late at night can make it harder to fall asleep, because the bright screen keeps the brain alert.",
+        "Here is a surprising fact: a modern smartphone is millions of times more powerful than the computer that guided Apollo 11 to the Moon."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "많은 사람이 가족과 밥을 먹는 중에도 휴대폰을 확인하고, 밤늦게 휴대폰을 쓰면 잠들기 어려워진다고 했어요. 두 가지 문제를 함께 봐야 해요.",
+        "Many people check their phones even during family meals, and using a phone late at night makes it harder to fall asleep. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How can families make healthy rules for using phones?",
+      "가족이 함께 지킬 건강한 휴대폰 규칙은 어떻게 만들 수 있을까요?",
+      "Family Phone Rules"
+    ],
+    [
+      "B",
+      "How did people talk to faraway friends before phones?",
+      "휴대폰이 없던 시절에는 멀리 있는 친구와 어떻게 이야기했을까요?",
+      "Before the Telephone"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“We should <u>keep our phones out of the bedroom</u> so that <u>we can fall asleep easily</u>.”",
+    "slotKo": [
+      "해야 할 일",
+      "그 결과"
+    ],
+    "slotEn": [
+      "what we should do",
+      "the result"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «우리가 해야 할 일 + 그 결과» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and the result in English.",
+    "chips": [
+      {
+        "a": "turn off games after dinner",
+        "b": "we can finish our homework",
+        "label": "homework"
+      },
+      {
+        "a": "put our phones away at meals",
+        "b": "we can talk with our family",
+        "label": "meals"
+      },
+      {
+        "a": "take breaks from screens",
+        "b": "our eyes can rest",
+        "label": "eyes"
+      }
+    ],
+    "aria": [
+      "what we should do",
+      "the result"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «누가 + 무엇을 할 수 있다» 를 넣어 결과를 분명하게 써 보세요. (예: so that we can talk more at dinner)",
+    "moreEn": "One more step: after «so that», write who + what they can do to make the result clear. (e.g. so that we can talk more at dinner)"
+  },
+  "img": {
+    "cover": "A modern smartphone with a dark screen lying on a wooden table beside an old rotary telephone and a chunky flip phone, showing how phones have changed",
+    "scenes": {
+      "1": "A girl holding a smartphone and waving happily during a video call with her smiling grandmother, whose face fills the phone screen",
+      "2": "A family sitting at a dinner table with plates of food while two of them stare at glowing phones instead of talking"
+    }
+  },
+  "alt": {
+    "1": "A video call with grandma",
+    "2": "A family dinner with phones out",
+    "cover": "Old phones next to a smartphone"
+  }
+}

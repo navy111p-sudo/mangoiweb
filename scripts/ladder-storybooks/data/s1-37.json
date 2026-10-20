@@ -1,0 +1,304 @@
+{
+  "id": "s1-37",
+  "breaks": [
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 1,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "반전",
+      "en": "twist"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «민호가 눈 속에서 길을 잃는다(문제)» 와 «눈 괴물은 무섭지 않고 다정했다(반전)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (Minho gets lost in the snow) and the twist (the snow monster was kind, not scary). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Minho, a snow monster, and Minho's family"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Minho skis too far and gets lost in the snow."
+    },
+    {
+      "k": "Twist",
+      "qko": "어떤 반전이 있나요?",
+      "qen": "What is the surprise?",
+      "a": "The huge monster is kind and carries Minho to his family."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Minho skis too far and gets ",
+      "ans": "lost",
+      "opts": [
+        "lost",
+        "hot",
+        "small"
+      ]
+    },
+    {
+      "pre": " in the snow. It gets dark and very ",
+      "ans": "cold",
+      "opts": [
+        "cold",
+        "sunny",
+        "noisy"
+      ]
+    },
+    {
+      "pre": ". A huge white ",
+      "ans": "monster",
+      "opts": [
+        "monster",
+        "bear",
+        "car"
+      ]
+    },
+    {
+      "pre": " comes out of the trees. Minho is scared, but the monster is ",
+      "ans": "kind",
+      "opts": [
+        "kind",
+        "angry",
+        "hungry"
+      ]
+    },
+    {
+      "pre": ". It carries Minho down the mountain to his ",
+      "ans": "family",
+      "opts": [
+        "family",
+        "school",
+        "cave"
+      ]
+    },
+    {
+      "pre": ".",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "skiing",
+      "스키 타기",
+      "Minho is <b>skiing</b> on a snowy mountain.",
+      "moving on snow with long boards on your feet"
+    ],
+    [
+      "lost",
+      "길을 잃은",
+      "He skis too far and gets <b>lost</b> in the snow.",
+      "not able to find the way"
+    ],
+    [
+      "footprints",
+      "발자국",
+      "Then he sees big <b>footprints</b> in the snow.",
+      "marks that feet make on the ground"
+    ],
+    [
+      "huge",
+      "거대한",
+      "A <b>huge</b> white monster comes out of the trees!",
+      "very, very big"
+    ],
+    [
+      "carries",
+      "안고 가다",
+      "It <b>carries</b> Minho down the mountain to his family.",
+      "holds something and takes it to another place"
+    ],
+    [
+      "scary",
+      "무서운",
+      "The snow monster was kind, not <b>scary</b>!",
+      "making you feel afraid"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Minho get lost?",
+      "qko": "민호는 왜 길을 잃나요?",
+      "opts": [
+        "He falls asleep in the snow.",
+        "His family leaves him.",
+        "He skis too far."
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "It gets dark and very cold.",
+        "He skis too far and gets lost in the snow.",
+        "Then he sees big footprints in the snow.",
+        "Minho closes his eyes."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "민호가 너무 멀리까지 스키를 타서 눈 속에서 길을 잃어요.",
+        "Minho skis too far, so he gets lost in the snow."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"The snow monster was kind, not scary!\" What does \"kind, not scary\" mean?",
+      "qko": "«kind, not scary» 는 무슨 뜻일까요?",
+      "opts": [
+        "The monster is angry and loud.",
+        "The monster is nice and wants to help.",
+        "The monster is small and weak."
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "But the monster says, \"Are you cold? Come with me.\"",
+        "A huge white monster comes out of the trees!",
+        "Minho is skiing on a snowy mountain.",
+        "It gets dark and very cold."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "괴물이 «춥니? 나랑 같이 가자.» 하고 걱정해 줘요. «kind, not scary» 는 무섭지 않고 다정하다는 뜻이에요.",
+        "The monster asks if Minho is cold and wants to help. \"Kind, not scary\" means nice and helpful, not frightening."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does Minho get back to his family?",
+      "qko": "민호는 어떻게 가족에게 돌아가나요?",
+      "opts": [
+        "The kind monster carries him down the mountain.",
+        "He skis home by himself.",
+        "His dad finds him with a light."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "But the monster says, \"Are you cold? Come with me.\"",
+        "Then he sees big footprints in the snow.",
+        "It carries Minho down the mountain to his family.",
+        "Minho closes his eyes."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "괴물이 «나랑 같이 가자» 하고, 민호를 안고 가족에게 데려다줘요. 두 문장을 이어야 알 수 있어요.",
+        "The monster says \"Come with me,\" and then it carries Minho to his family. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Minho visits the snow monster with a warm scarf.",
+      "민호가 따뜻한 목도리를 들고 눈 괴물을 찾아간다.",
+      "A Gift for the Snow Monster"
+    ],
+    [
+      "B",
+      "The snow monster teaches Minho how to make a snowman.",
+      "눈 괴물이 민호에게 눈사람 만드는 법을 알려 준다.",
+      "Building a Snowman"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "src": "“I think <u>the monster is kind</u> because <u>it helps Minho</u>.”",
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "chips": [
+      {
+        "a": "it is very cold",
+        "b": "I can see my breath",
+        "label": "cold"
+      },
+      {
+        "a": "my teacher is kind",
+        "b": "she helps me",
+        "label": "teacher"
+      },
+      {
+        "a": "the dog is friendly",
+        "b": "it wags its tail",
+        "label": "dog"
+      }
+    ],
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
+  },
+  "img": {
+    "cover": "On a snowy mountain at dusk, a huge fluffy white snow monster with soft round fur, small kind black eyes and a gentle smile walks down between snowy pine trees, carefully carrying Minho, a boy with short black hair, a red ski jacket, a blue knitted hat and orange goggles on his forehead, in its big arms, and Minho holds his skis and looks up at it in wonder.",
+    "scenes": {
+      "1": "In a dark snowy forest, Minho, a boy with short black hair, a red ski jacket, a blue knitted hat and orange goggles on his forehead, squeezes his eyes shut next to giant footprints in the snow, as a huge fluffy white snow monster with soft round fur, small kind black eyes and a gentle smile steps out from behind the pine trees.",
+      "2": "At the bottom of the snowy mountain near a warmly lit cabin, a huge fluffy white snow monster with soft round fur, small kind black eyes and a gentle smile gently sets down Minho, a boy with short black hair, a red ski jacket, a blue knitted hat and orange goggles on his forehead, and his mom and dad run toward him with open arms."
+    }
+  },
+  "alt": {
+    "1": "Minho closes his eyes as the snow monster comes out.",
+    "2": "The snow monster brings Minho to his family.",
+    "cover": "A kind snow monster carries Minho down the mountain."
+  }
+}
