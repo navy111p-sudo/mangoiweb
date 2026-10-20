@@ -115,6 +115,34 @@ async function ensureSchema(env: Env): Promise<void> {
       created_at INTEGER NOT NULL,
       created_by TEXT
     )`);
+    // ➕ (2026-10-20 사장님 «하루라도 쓰면 그달 1개월분 · 무조건 선불 · 결제 후에 연다») 이미 결제한 달의 «월 중간 추가».
+    //    본 청구서(paid)는 회계 기록이라 명세를 안 바꾼다 — 추가분은 별도 묶음(addon)으로 결제하고 그 학생만 연다.
+    //    status: pending(결제 대기) → paid · void(같은 청구서에 새 추가 결제를 만들면 옛 대기분은 무효 — 이중 결제 방지)
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_billing_addons (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoice_id INTEGER NOT NULL,
+      shop_name TEXT NOT NULL,
+      billing_month TEXT NOT NULL,
+      rate_krw INTEGER NOT NULL,
+      student_count INTEGER NOT NULL,
+      free_count INTEGER NOT NULL DEFAULT 0,
+      amount_krw INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      order_id TEXT,
+      created_at INTEGER NOT NULL,
+      created_by TEXT,
+      paid_at INTEGER
+    )`);
+    await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_ai_billing_addons_inv ON ai_billing_addons(invoice_id, status)`);
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_billing_addon_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      addon_id INTEGER NOT NULL,
+      invoice_id INTEGER NOT NULL,
+      student_user_id TEXT NOT NULL,
+      student_name TEXT,
+      UNIQUE(addon_id, student_user_id)
+    )`);
+    await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_ai_billing_addon_items_inv ON ai_billing_addon_items(invoice_id)`);
     return true;
   }, false);
   // 💰 (2026-09-24) 청구서마다 «생성 시점의 공급가 규칙» 을 JSON 으로 박아 둔다 — 나중에 표를
