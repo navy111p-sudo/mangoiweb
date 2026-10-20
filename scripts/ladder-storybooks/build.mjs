@@ -162,8 +162,10 @@ export function buildPage(tpl, p, d, no) {
   const sep = w.sep === ' ' ? ' ' : w.sep;
   h = once(h, '<p class="pat-frame">I think <span class="slot" data-ko="내 생각" data-en="my idea">내 생각</span> because <span class="slot" data-ko="그렇게 생각한 이유" data-en="my reason">그렇게 생각한 이유</span>.</p>',
     `<p class="pat-frame">${esc(w.pre)} <span class="slot" data-ko="${esc(w.slotKo[0])}" data-en="${esc(w.slotEn[0])}">${esc(w.slotKo[0])}</span>${sep === ' ' ? ' ' : esc(sep)}${esc(w.mid)} <span class="slot" data-ko="${esc(w.slotKo[1])}" data-en="${esc(w.slotEn[1])}">${esc(w.slotKo[1])}</span>.</p>`, 'pat-frame');
-  const chips = w.chips.map((c) => `      <button type="button" class="chip" data-a="${esc(c.a)}" data-b="${esc(c.b)}">${esc(c.label)}</button>`).join('\n');
-  h = between(h, '      <button type="button" class="chip" data-a="it will rain"', '>happy</button>', chips, 'chips');
+  // 예시 문장 — 2026-10-20 사장님 «예시 넣어 보기» 버튼을 뺐습니다(눌러 넣고 그대로 «완성하기» 하면 스스로 생각해 쓰지 않음).
+  //   화면에 버튼으로 그리지 않고, 철자 점검의 «아는 낱말» 목록(WRITE_EX)과 입력칸 회색 글씨(placeholder)에만 씁니다.
+  h = once(h, 'var WRITE_EX = [["it will rain","the sky is dark"],["my brother is hungry","he is looking in the fridge"],["Mom is happy","she is singing"]];',
+    `var WRITE_EX = ${J(w.chips.map((c) => [c.a, c.b]))};`, 'WRITE_EX');
   h = once(h, '<span class="wfix">I think</span>', `<span class="wfix">${esc(w.pre)}</span>`, 'wfix pre');
   h = once(h, 'placeholder="it will rain" aria-label="what you think"', `placeholder="${esc(w.chips[0].a)}" aria-label="${esc(w.aria[0])}"`, 'wa');
   h = once(h, '<span class="wfix">because</span>', `<span class="wfix">${sep === ' ' ? '' : esc(sep.trim())}${sep === ' ' ? '' : ' '}${esc(w.mid)}</span>`, 'wfix mid');

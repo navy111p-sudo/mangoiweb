@@ -116,11 +116,11 @@ for (const B of BOOKS) {
 
   // ④ 바꿔 쓰기 — 그 권의 틀
   ok(WP.pre === B.pre && WP.mid === B.mid && WP.sep === B.sep, `틀: «${B.pre} ___${B.sep === ', ' ? ',' : ''} ${B.mid} ___.»`);
-  const chips = [...html.matchAll(/class="chip" data-a="([^"]+)" data-b="([^"]+)"/g)].map((m) => [m[1], m[2]]);
-  ok(chips.length === 3, `예시 칩 3개 (${chips.length})`);
+  const chips = JSON.parse((html.match(/var WRITE_EX = (\[.*?\]);\n/) || [0, '[]'])[1])   // 2026-10-20 버튼 줄을 뺀 뒤 예시 문장은 이 목록에만(철자 점검 «아는 낱말»);
+  ok(chips.length === 3, `예시 문장 3개(WRITE_EX) (${chips.length})`);
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const shape = new RegExp('^' + esc(B.pre) + ' [^ ,].*' + esc(B.sep + B.mid) + ' [^ ].*\\.$');
-  bulk('예시 칩은 모두 «완성» 되고 틀 모양 그대로', chips, ([a, b]) => { const r = C.checkWrite(a, b); return (r.ok && shape.test(r.sentence)) || r.sentence; });
+  bulk('예시 문장은 모두 «완성» 되고 틀 모양 그대로', chips, ([a, b]) => { const r = C.checkWrite(a, b); return (r.ok && shape.test(r.sentence)) || r.sentence; });
   const A = ['play outside', '  eat   lunch. ', B.pre + ' go home', B.pre.replace('’', "'") + ' read a book', 'call Grandma!', 'Sing, '];
   const Bv = ['the sun is out', B.mid + ' it is late', (B.sep === ', ' ? ', ' : '') + B.mid + ' ride a bike', 'Mom is happy.', 'we can rest', 'Dad laughs'];
   const cases = []; for (const a of A) for (const b of Bv) cases.push([a, b]);

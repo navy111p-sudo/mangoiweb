@@ -1,7 +1,7 @@
 // 📖 A.i 동화책 «The Red Umbrella» — 샌드박스(헤드리스 크로미움) 검사 · 2026-10-09
 // ⚠️ 자동으로 안 돕니다(manual/) — 사람이 부릅니다:
 //      REPS=4 node test-harness/manual/story-red-umbrella-browser.mjs
-// 실제 화면을 «사람처럼» 끝까지 누릅니다: 읽기 → 핵심문장 → 요점정리 → 낱말 게임 → 근거 찾기 → 바꿔 쓰기
+// 실제 화면을 «사람처럼» 끝까지 누릅니다: 읽기(끝까지 들어야 도장 — 소리는 가짜) → 핵심문장 → 요점정리 → 낱말 게임 → 근거 찾기 → 바꿔 쓰기
 //   → 도장 6개 → 포인트 요청(서버는 가짜: 성공·상한·로그인필요·서버오류→다시받기·연결끊김) → 축하.
 // 화면 4종 × 한/영 × 서버 응답 5종 × REPS 회 + 일부러 틀리고 다시 푸는 «원숭이» 회차.
 // 실패하면 종료코드 1.
@@ -56,6 +56,16 @@ const ok = (c, m) => { if (c) pass++; else { fail++; if (fails.length < 60) fail
 
 const VPS = [{ n: 'phone 390x844', w: 390, h: 844, m: true }, { n: 'small 360x640', w: 360, h: 640, m: true }, { n: 'tablet 768x1024', w: 768, h: 1024, m: true }, { n: 'pc 1440x900', w: 1440, h: 900, m: false }];
 const MODES = ['ok', 'cap', 'login', 'err-then-ok', 'drop'];
+// 소리 읽기는 가짜 — 헤드리스는 소리를 못 내 onend 가 안 올 수 있습니다. 한 문장을 «끝까지» 읽은 것처럼 곧 onend 를 보내고,
+//   멈추면(cancel) 크롬처럼 그 문장에도 onend 를 보냅니다(«끝까지 들음» 으로 세면 안 되는 경우 — 페이지가 번호로 막아야 함).
+const FAKE_TTS = `(function(){
+  var cur = null;
+  var fake = { speaking:false, pending:false, paused:false, onvoiceschanged:null, getVoices:function(){ return []; },
+    speak:function(u){ cur = u; setTimeout(function(){ if (cur === u) { cur = null; if (u.onend) u.onend({}); } }, 8); },
+    cancel:function(){ var c = cur; cur = null; if (c && c.onend) setTimeout(function(){ c.onend({}); }, 0); },
+    pause:function(){}, resume:function(){} };
+  try { Object.defineProperty(window, 'speechSynthesis', { value: fake, configurable: true }); } catch(e){}
+})();`;
 
 // 페이지 안에서 «사람처럼» 푸는 도구 — 정답은 화면의 데이터가 아니라 «눌러서 나온 결과» 로 확인합니다.
 const SOLVER = `(function(){
@@ -70,9 +80,12 @@ const SOLVER = `(function(){
   window.__earnCalls=0; const _f=window.fetch; window.fetch=function(u,o){ if(String(u).indexOf('/api/points/earn-by-rule')>=0) window.__earnCalls++; return _f.apply(this,arguments); };
   window.__solve = async function(monkey){
     blocked=[];
-    // ① 읽기: 문장 5개 눌러 듣기
-    const ss=$$('#text .s'); for(let i=0;i<5;i++) click(ss[i],'문장'+i);
-    window.speechSynthesis && speechSynthesis.cancel();
+    // ① 읽기(2026-10-20 «끝까지 들어야 도장»): 문장 5개만 끝까지 들으면 아직 도장 아님 → «처음부터 듣기» 로 끝까지 → 도장
+    const ss=$$('#text .s'); for(let i=0;i<5;i++){ click(ss[i],'문장'+i); await sleep(40); }
+    window.__readEarly={ stamped: !!window.StoryFun.state().read, prog: ($('#readProg')||{}).textContent||'', n: ss.length };
+    click($('#readAll'),'처음부터 듣기');
+    for(let i=0;i<600 && !window.StoryFun.state().read;i++) await sleep(20);
+    window.__readDone={ stamped: !!window.StoryFun.state().read, prog: ($('#readProg')||{}).textContent||'' };
     // ② 핵심문장: (원숭이) 먼저 틀린 것 → 다시
     click($('#pickMode'),'고르기');
     // 2026-10-18: 첫 번에 틀리면 정답을 안 보여 주고 고르기를 다시 켠다 → 고른 두 문장을 눌러 지우고 다시 고른다
@@ -115,9 +128,11 @@ const SOLVER = `(function(){
       evs.forEach(i=>click($$('.evb',card())[i],'Q'+qi+'정답근거'));
       click($('[data-check]',card()),'Q'+qi+'재확인');
     }
-    // ⑥ 바꿔 쓰기: (원숭이) 한글 먼저 → 거절 → 예시 칩
+    // ⑥ 바꿔 쓰기: (원숭이) 한글 먼저 → 거절 → 직접 영어로 씀(2026-10-20 «예시 넣어 보기» 버튼은 뺐음 — 칸의 회색 안내를 그대로 쳐 봄)
+    window.__noChip = $$('#mywrite .chip').length===0 && !$('#mywrite .ex-row');
     if(monkey){ $('#wa').value='숙제하기'; $('#wb').value='저녁'; $('#wa').dispatchEvent(new Event('input')); click($('#wcheck'),'한글완성'); }
-    click($$('#mywrite .chip')[1],'칩'); click($('#wcheck'),'완성');
+    $('#wa').value=$('#wa').placeholder; $('#wb').value=$('#wb').placeholder; $('#wa').dispatchEvent(new Event('input')); $('#wb').dispatchEvent(new Event('input'));
+    click($('#wcheck'),'완성');
     return blocked;
   };
 })()`;
@@ -142,6 +157,10 @@ async function runOne(vp, lang, mode, monkey, tag) {
   const blocked = await ev(`__solve(${monkey})`);
   ok(blocked.length === 0, `${tag}: 누를 것이 가려지거나 없음 ${JSON.stringify(blocked).slice(0, 200)}`);
   ok(await ev('window.__lockSeen()') === true, `${tag}: 게임 전에는 낱말 뜻이 가려져 있었다`);
+  const re = await ev('window.__readEarly'), rd = await ev('window.__readDone');
+  ok(re && re.n > 5 && re.stamped === false && /5 \/ /.test(re.prog), `${tag}: ① 문장 5개만 들으면 아직 도장 아님 «${re && re.prog}»`);
+  ok(rd && rd.stamped === true && /✅/.test(rd.prog), `${tag}: ① «처음부터 듣기» 로 끝까지 들으면 도장 «${rd && rd.prog}»`);
+  ok(await ev('window.__noChip') === true, `${tag}: ⑥ «예시 넣어 보기» 버튼 줄이 없다`);
   if (monkey) {
     const ta = await ev('window.__thinkAgain()');
     ok(ta && ta.k === true, `${tag}: ② 첫 번 틀림에는 정답(초록)을 안 보여 주고 고른 문장을 남긴다`);
@@ -188,6 +207,7 @@ async function runOne(vp, lang, mode, monkey, tag) {
     if (d.method === 'Runtime.exceptionThrown') consoleErr.push(d.params.exceptionDetails?.exception?.description || 'exception'); };
   await new Promise((r) => ws.onopen = r);
   await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable'); await send('Network.setCacheDisabled', { cacheDisabled: true });
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: FAKE_TTS });
   let runs = 0;
   for (let rep = 0; rep < REPS; rep++) for (const vp of VPS) for (const lang of ['ko'])  /* EN 버튼은 2026-10-13 원장님 의견으로 빠짐 — 한국어 고정 */ for (const mode of MODES) {
     if (process.env.ONLY && !(vp.n + '/' + lang + '/' + mode).includes(process.env.ONLY)) continue;

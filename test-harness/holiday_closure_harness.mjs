@@ -177,7 +177,10 @@ if (o) {
   ok('로비(게이트 꺼짐·남은 수업 있음): 공용방 안내를 공휴일 안내로 바꾸는 줄은 그대로', /window\.__vcHolidayMsg = _jd\.holiday && _jd\.holiday\.alert;/.test(lobby) && /if \(_hm\) alert\(_hm \+/.test(js));
   const ix = readFileSync(join(ROOT, 'cloudflare-deploy/public/index.html'), 'utf8');
   const th = readFileSync(join(ROOT, 'cloudflare-deploy/public/teacher.html'), 'utf8');
-  ok('idx-main.js ?v= 를 두 곳 다 올렸다', /idx-main\.js\?v=66/.test(ix) && /idx-main\.js\?v=66/.test(th));
+  /* (2026-10-20) «정확히 66» 이 아니라 «66 이상 + 두 곳이 같은 번호» — 뒤 수리가 번호를 올리면 보장은 그대로인데 검사만 깨졌다 */
+  const vIx = Number((ix.match(/idx-main\.js\?v=(\d+)/) || [])[1]);
+  const vTh = Number((th.match(/idx-main\.js\?v=(\d+)/) || [])[1]);
+  ok('idx-main.js ?v= 를 두 곳 다 올렸다', vIx >= 66 && vIx === vTh);
 }
 
 // ── ⑧ (2026-10-09 후속) 관제탑(지금 수업)·급여 — 휴강 수업을 빼고 0 원으로 ─────────────────────────
