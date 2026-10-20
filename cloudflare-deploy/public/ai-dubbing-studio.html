@@ -653,7 +653,17 @@ const state = {
     if (!EPISODES[state.ep]) state.ep = 0;
   } catch (e) { /* 저장소 없음: 기본값 사용 */ }
   try { const g = localStorage.getItem('mangoi_lang'); if (g === 'ko' || g === 'en') state.lang = g; } catch (e) { /* 무시 */ }
+  const qi = epFromQuery(location.search); // 주소로 고른 편이 저장값을 이긴다
+  if (qi >= 0) state.ep = qi;
 })();
+/* 🔗 ?ep=<id> 로 열면 그 편으로 시작한다(2026-10-20 — A.i영화더빙 화면의 «키키와 토토» 카드가 이 주소로 보낸다).
+   모르는 id·이상한 글자는 무시(-1) → 저장된 편·첫 편 그대로. */
+function epFromQuery(search) {
+  const m = /[?&]ep=([A-Za-z0-9_-]{1,24})(?:[&#]|$)/.exec(String(search || ''));
+  if (!m) return -1;
+  const id = m[1].toLowerCase();
+  return EPISODES.findIndex((e) => e.id === id);
+}
 function savePrefs() {
   try {
     const { lang, ep, mode, speed, subKo, hideMine, echo, autoNext, bgm } = state;
