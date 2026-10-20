@@ -44,18 +44,46 @@
       if (w.length > 3 && /s$/.test(w) && !/ss$/.test(w)) return w.slice(0, -1);
       return w;
     },
-    checkSummary: function (text, keywords) {
-      var have = {};
-      RLCore.words(text).forEach(function (w) { have[RLCore.stem(w)] = 1; });
-      var hit = [], miss = [];
+    // ③ 은 «우리말 요약을 보고 내 말로» 쓰는 응용 단계다(2026-10-20 사장님 「베껴쓰기 아닌가요?」).
+    // 핵심어만 세던 시절에는 위 글 문장을 그대로 붙여도 176편 중 94편이 통과했다 → 두 가지를 통과로 안 본다:
+    //   'copy' — 본문 한 문장과 낱말이 COPY_RATIO 이상 겹치고, 모범 문장보다 그 본문 문장에 더 가까울 때
+    //            (s4-11 처럼 모범 문장 자체가 본문과 0.9 겹치는 글이 있어 «모범 문장보다 가까운가» 를 함께 본다)
+    //   'list' — 힌트 낱말(+관사)만 늘어놓았을 때(«puppy smell home» 도 예전엔 만점이었다)
+    // ⛔ 통과 문턱을 올리지 않는다(1단계에 «핵심어 3개 전부» 를 강제하면 못 쓰는 학생이 갇힌다) — 막힌 학생은 «모범 문장 보기» 로 나간다.
+    COPY_RATIO: 0.8,
+    stemSet: function (text) {
+      var s = {};
+      RLCore.words(text).forEach(function (w) { s[RLCore.stem(w)] = 1; });
+      return s;
+    },
+    // 두 글의 낱말 겹침 — 짧은 쪽 기준이 아니라 «양쪽 모두에서» 겹친 비율의 작은 값(한쪽이 다른 쪽을 거의 다 담을 때만 높다).
+    overlap: function (a, b) {
+      var A = RLCore.stemSet(a), B = RLCore.stemSet(b), na = 0, nb = 0, both = 0, k;
+      for (k in A) { na++; if (B[k]) both++; }
+      for (k in B) nb++;
+      return na && nb ? Math.min(both / na, both / nb) : 0;
+    },
+    copiedFrom: function (text, sentences, model) {
+      var best = 0;
+      (sentences || []).forEach(function (s) { best = Math.max(best, RLCore.overlap(text, s)); });
+      return best >= RLCore.COPY_RATIO && best > (model ? RLCore.overlap(text, model) : 0);
+    },
+    checkSummary: function (text, keywords, src) {
+      var have = RLCore.stemSet(text);
+      var hit = [], miss = [], kwStem = {};
       (keywords || []).forEach(function (k) {
         var parts = RLCore.words(k);
+        parts.forEach(function (w) { kwStem[RLCore.stem(w)] = 1; });
         var ok = parts.length > 0 && parts.every(function (w) { return have[RLCore.stem(w)]; });
         (ok ? hit : miss).push(k);
       });
       var hasKorean = /[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(String(text || ''));
       var n = RLCore.words(text).length;
-      var verdict = hasKorean ? 'korean' : n < 3 ? 'short' : hit.length === (keywords || []).length ? 'great' : hit.length >= 2 ? 'good' : 'try';
+      var other = 0, w;
+      for (w in have) if (!kwStem[w] && !/^(a|an|the|and)$/.test(w)) other++;
+      var copied = !!(src && RLCore.copiedFrom(text, src.sentences, src.model));
+      var verdict = hasKorean ? 'korean' : n < 3 ? 'short' : copied ? 'copy' : (hit.length && !other) ? 'list' :
+        hit.length === (keywords || []).length ? 'great' : hit.length >= 2 ? 'good' : 'try';
       return { hit: hit, miss: miss, verdict: verdict, total: (keywords || []).length };
     },
     // 결정론적 섞기(같은 글은 같은 순서) — 보기 순서가 다시 그릴 때마다 바뀌면 «방금 고른 자리» 가 움직인다.
@@ -357,7 +385,7 @@
     var steps = [
       [r.k, T('핵심 문장 찾기', 'Find the key sentence'), T('글에서 가장 중요한 한 문장을 눌러요.', 'Tap the one sentence that matters most.')],
       [r.m, T('중심 내용 고르기', 'Choose the main idea'), T('글이 말하려는 것을 보기 4개에서 골라요.', 'Pick what the text is mainly about.')],
-      [r.s, T('영어 한 문장으로', 'One English sentence'), T('핵심을 영어 한 문장으로 써요.', 'Write the main idea in one English sentence.')]
+      [r.s, T('영어 한 문장으로', 'One English sentence'), T('핵심을 베끼지 말고 내 말로, 영어 한 문장에 써요.', 'Write the main idea in your own words, in one English sentence.')]
     ];
     var cta = s === 'done' ? T('다시 읽기', 'Read again') : s === 'doing' ? T('이어서 하기', 'Continue') : T('읽기 시작', 'Start reading');
     return '<article class="rl-detail" id="rlDetail" aria-live="polite">' +
@@ -474,12 +502,14 @@
           good: T('좋아요! 핵심어 ' + res.hit.length + '개가 들어갔어요. 빠진 말: ', 'Good! ' + res.hit.length + ' key words are in. Missing: ') + res.miss.join(', '),
           try: T('핵심어가 조금 부족해요. 아래 힌트 낱말을 넣어 다시 써 볼까요?', 'A few key words are missing. Try again with the hint words.'),
           short: T('세 낱말 이상 영어로 써 주세요.', 'Please write at least three English words.'),
-          korean: T('영어로만 써 주세요. (우리말은 위 해석에서 볼 수 있어요)', 'Please write in English only.')
+          korean: T('영어로만 써 주세요. (우리말은 위 해석에서 볼 수 있어요)', 'Please write in English only.'),
+          copy: T('위 글의 문장을 거의 그대로 옮겨 썼어요. 우리말 뜻을 보고 내 말로 바꿔 써 볼까요? (어려우면 «모범 문장 보기»)', 'This is almost the same as a sentence in the text. Try saying it in your own words. (Stuck? Tap “Show model sentence”.)'),
+          list: T('힌트 낱말만 늘어놓았어요. 낱말을 이어서 문장으로 써 주세요. (누가 + 무엇을 했다)', 'You only listed the hint words. Please join them into a sentence.')
         }[res.verdict];
         fb = '<p class="rl-fb ' + (res.verdict === 'great' || res.verdict === 'good' ? 'ok' : 'no') + '">' + esc(msg) + '</p>';
       }
       s3 = '<section class="rl-step' + (sumDone ? ' fin' : ' cur') + '"><h3>③ ' + esc(T('핵심을 영어 한 문장으로', 'Write the main idea in one sentence')) + (sumDone ? ' ✅' : '') + '</h3>' +
-        '<p class="rl-q">' + esc(T('이 우리말을 영어로 써 보세요: ', 'Write this in English: ')) + '<b>' + esc(p.summary.ko) + '</b></p>' +
+        '<p class="rl-q">' + esc(T('위 문장을 베끼지 말고, 이 우리말을 내 말로 영어로 써 보세요: ', 'Do not copy from the text. Write this in your own English words: ')) + '<b>' + esc(p.summary.ko) + '</b></p>' +
         '<div class="rl-chips"><span class="rl-chiplab">' + esc(T('힌트 낱말', 'Hint words')) + '</span>' +
         p.summary.keywords.map(function (k) { return '<span class="rl-chip">' + esc(k) + '</span>'; }).join('') + '</div>' +
         '<label class="rl-sr" for="rlSum">' + esc(T('내 영어 문장', 'My sentence')) + '</label>' +
@@ -621,7 +651,7 @@
     if (act === 'sumcheck' && p) {
       var ta = document.getElementById('rlSum');
       var txt = ta ? ta.value : '';
-      var res = RLCore.checkSummary(txt, p.summary.keywords);
+      var res = RLCore.checkSummary(txt, p.summary.keywords, { sentences: p.sentences.map(function (s) { return s.en; }), model: p.summary.en });
       view.sumResult = res;
       var r = rec(p.id); r.sText = txt.slice(0, 300);
       if (res.verdict === 'great' || res.verdict === 'good') r.s = res.verdict;
