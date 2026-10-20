@@ -1149,7 +1149,7 @@
     cast.addEventListener('input', onCastInput);
     $('dub-scenes').addEventListener('click', function (e) {
       var b = e.target.closest('button[data-scene]');
-      if (b && !b.disabled) { S.sel = Number(b.getAttribute('data-scene')); startRun([S.sel]); return; }
+      if (b && !b.disabled) { pickScene(Number(b.getAttribute('data-scene'))); startRun([S.sel]); return; }
       var p = e.target.closest('button[data-pick]');
       if (p && !p.disabled) pickScene(Number(p.getAttribute('data-pick')));
     });
