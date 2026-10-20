@@ -634,8 +634,8 @@
   }
 </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/avatar-visemes.js?v=4" defer></script>
-<script src="/js/mango-avatar.js?v=40" defer></script>
+<script src="/js/avatar-visemes.js?v=5" defer></script>
+<script src="/js/mango-avatar.js?v=41" defer></script>
 <script src="/js/game-track.js?v=4" defer></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
@@ -2962,10 +2962,22 @@ function _ttsPrefetch(text, spk){
       if(!r.ok || ct.indexOf('audio')<0) return null;
       var got=''; try{ got=String(r.headers.get('X-TTS-Speaker')||'').toLowerCase(); }catch(e){}
       var eng=''; try{ eng=String(r.headers.get('X-TTS-Engine')||'').toLowerCase(); }catch(e){}
-      return r.blob().then(function(b){ return { u:URL.createObjectURL(b), got:got, eng:eng }; });
+      return r.blob().then(function(b){
+        var u=URL.createObjectURL(b);
+        /* ⚡ (2026-10-20 「대답을 더 빠르게」) 받는 즉시 입모양 분석을 시작해 둔다 — 앞 조각이 재생되는 동안 끝나
+           차례가 오면 정확한 입모양으로 곧바로 읽는다. ⛔ 중국어 남자(굵게 굽는 판)는 재생 소리가 달라 건너뛴다. */
+        try{ if(!_zhMaleWanted() && window.AvatarVisemes && AvatarVisemes.prepare) AvatarVisemes.prepare(u); }catch(e4){}
+        return { u:u, got:got, eng:eng };
+      });
     })
     .catch(function(){ return null; });
 }
+/* ⚡ (2026-10-20) 입모양 분석기(모델 37.8MB, 기기에 한 번 받으면 1년 캐시)를 화면이 열릴 때 미리 켠다 —
+   연령·수준을 고르는 동안 준비돼 첫 인사부터 정확한 입모양이 나오게. 재생은 이것을 기다리지 않는다
+   (mango-avatar.js v20 — 분석은 250ms 까지만 기다림). 이미 켜져 있으면 아무 일도 안 한다. */
+window.addEventListener('load', function(){
+  setTimeout(function(){ try{ window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); }catch(e){} }, 1000);
+});
 /* 🎙️ 영어 «남자» 목소리(Jake·Noah)는 너무 늘이지 않는다 (2026-10-02 피드백 「제이크랑 노아는 보이스가 어색함」).
    «보통» 이 0.8배라 브라우저가 소리를 늘여 재생하는데, 이 늘이기는 낮은 남자 목소리에서 «뚜벅뚜벅» 끊김이
    크게 난다(RATE_STEPS 주석의 그 맞바꿈). 그래서 남자는 0.9배보다 더 늘이지 않고, 모자란 느림은

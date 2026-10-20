@@ -349,8 +349,8 @@
     @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
   </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/avatar-visemes.js?v=4" defer></script>
-<script src="/js/mango-avatar.js?v=40" defer></script>
+<script src="/js/avatar-visemes.js?v=5" defer></script>
+<script src="/js/mango-avatar.js?v=41" defer></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 
 <style>
@@ -1246,7 +1246,16 @@
     function stmSpeak(sen) {
       if (!isSoundOn()) return;
       var my = _stmGen;
+      var later = _stmSpoke;
       _stmSpoke = true;
+      /* ⚡ (2026-10-20 사장님 「A.i 친구 대답을 더 빠르게」) 둘째 문장부터는 «차례가 오기 전에» 소리를 미리 받는다 —
+         예전에는 앞 문장이 끝난 «뒤에야» 요청해 문장 사이마다 음성 합성 시간만큼 조용했다.
+         같은 문장을 재생할 때는 받아 둔 것(또는 받는 중인 요청)을 그대로 쓴다(game-tts 의 inflight).
+         ⛔ '번갈아' 모드는 미리 받지 않는다 — 문장마다 화자가 바뀌어(speakerFor) 다른 목소리를 받게 된다.
+         ⛔ 첫 문장은 미리 받지 않는다 — 곧바로 speakText 가 요청한다. */
+      if (later && currentVoice !== 'mix' && _ttsLangSet && window.MangoiTTS && MangoiTTS.prefetch) {
+        try { MangoiTTS.prefetch(sen, (PEOPLE[currentVoice] || PEOPLE.emma).speaker); } catch(e){}
+      }
       _stmChain = _stmChain.then(function(){
         return new Promise(function(res){
           if (my !== _stmGen) return res();          // 새 턴이 시작됐으면 버립니다
@@ -1399,6 +1408,9 @@
         return;
       }
       if (_whisperOn) { MangoiVoice.stop(); return; }     // ⏹ — 지금까지 녹음분으로 전사
+      /* ⚡ (2026-10-20) 입모양 분석기를 «지금» 켜 둔다 — 듣고·전사하고·AI 가 답을 만드는 동안 함께 준비된다.
+         예전에는 첫 대답을 «재생하려는 순간» 에야 켜서(모델 37.8MB) 첫 대답 입모양이 늦었다. 이미 켜져 있으면 아무 일도 안 한다. */
+      try { window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); } catch(e){}
       const micSeq = ++_friendMicSeq;
       let heard = false, voiceError = '';
       _whisperOn = true; _recognizing = true; updateMicUI();
@@ -2054,7 +2066,7 @@
   .cele-banner .cb-sub{font-size:16px}
 }
 </style>
-<script defer src="/js/game-tts.js?v=7"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크). v6: 서버 실패 시 400ms 뒤 한 번 더 물어본 뒤에만 기기 목소리로 — 「목소리가 계속 변해」 -->
+<script defer src="/js/game-tts.js?v=8"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크). v6: 서버 실패 시 400ms 뒤 한 번 더 물어본 뒤에만 기기 목소리로 — 「목소리가 계속 변해」 -->
 <script defer src="/js/mangoi-voice-input.js?v=5"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
 <script defer src="/js/aifriend-auto-talk.js?v=1"></script>

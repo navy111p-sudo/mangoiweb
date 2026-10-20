@@ -142,6 +142,19 @@ function monthAdd(period: string, n: number): string {
 }
 function isValidMonth(s: string): boolean { return /^\d{4}-\d{2}$/.test(s); }
 
+/** 📅 (2026-10-20 사장님 «이번 달에 다음 달 수업을 먼저 결제 — 10월 말까지 11월 결제») 선결제 마감.
+ *  billing_month(= 이용하는 달)의 «바로 전 달 말일» 이 결제 마감이다. 화면은 날짜를 계산하지 않고
+ *  이 값을 그린다(판정을 화면에 복제하면 한쪽만 고쳐진다).
+ *  days_left 는 KST 오늘 기준(0 = 오늘이 마감 · 음수 = 지남). 형식이 틀리면 «모름»(null). */
+export function prepayDue(billingMonth: string, nowMs: number = Date.now()): { due_date: string; days_left: number | null } {
+  if (!isValidMonth(billingMonth)) return { due_date: '', days_left: null };
+  const [y, m] = billingMonth.split('-').map(Number);
+  const due = Date.UTC(y, m - 1, 0);   // 이용 달 1일의 전날 = 전 달 말일 (UTC 날짜 산술 — 시간대와 무관)
+  const k = new Date(nowMs + 9 * 3600 * 1000);
+  const today = Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate());
+  return { due_date: new Date(due).toISOString().slice(0, 10), days_left: Math.round((due - today) / 86400000) };
+}
+
 /** 🔒 (2026-09-11 사장님 결정) 이 shop_name 에 «쓰기»(청구서 생성/보강·개별 포함·제외 토글·
  *  결제 주문 생성)를 할 수 있는가 — 본사와 그 대리점 본인 계정뿐이다. 지사는 못 한다
  *  (지사는 «보기» 만 — 그건 아래 shopAllowed() 가 맡는다. GET /invoice·/history 는
@@ -523,6 +536,53 @@ async function readCronRun(env: Env): Promise<Record<string, any> | null> {
   }, null);
 }
 
+/**
+ * ✋ 명세 줄 포함/제외 + «A.i 단독 신청» 명단 — 한 명(invoice/item)·여러 명(invoice/items) 경로가 같은 정본을 쓴다.
+ *   · user_set=1 — «학원 확인» 표시. 이 줄은 이제 «인원 다시 확인» 의 자동 분류가 다시 안 건드린다.
+ *   · 화상반 줄('live')은 표시를 그대로 두고, 나머지는 체크가 곧 신청이므로 'ai'/'none' 으로 맞춘다.
+ *   · 체크가 곧 «A.i 단독 신청» 이다 — 다음 달 청구서가 이 명단을 이어받는다.
+ *   🔒 (2026-10-20) 명단은 «그 청구서 명세에 실제로 있는 학생» 에게만 쓴다. 예전 한 명 경로는 아무 아이디나
+ *      받아 ai_billing_optin 에 넣거나 지웠다 — 학원이 «다른 학원 학생» 을 신청시키거나(그 학원에 청구가 붙음)
+ *      신청을 지울 수 있었다(그 학원 청구가 빠짐). 명세는 그 학원 명부로만 만들어지므로 이것으로 충분하다.
+ *   ⚠️ 명단 쓰기가 실패하면 이번 청구서 체크는 그대로 두되 optin_saved=false 로 알린다(조용히 넘기지 않는다).
+ */
+async function setItemsIncluded(env: Env, invoiceId: number, shopName: string, uids: string[], included: 0 | 1, actor: string):
+    Promise<{ ok: boolean; changed: string[]; unknown: string[]; optin_saved: boolean }> {
+  let known: Array<{ student_user_id: string }>;
+  try {
+    known = (await env.DB.prepare(`SELECT student_user_id FROM ai_billing_invoice_items WHERE invoice_id = ?`)
+      .bind(invoiceId).all<{ student_user_id: string }>()).results || [];
+  } catch { return { ok: false, changed: [], unknown: [], optin_saved: false }; }
+  const exact = new Map<string, string>();
+  for (const r of known) if (r && r.student_user_id) exact.set(String(r.student_user_id), String(r.student_user_id));
+  const targets: string[] = [], unknown: string[] = [];
+  for (const u of uids) { if (exact.has(u)) { if (!targets.includes(u)) targets.push(u); } else unknown.push(u); }
+  if (!targets.length) return { ok: true, changed: [], unknown, optin_saved: true };
+  try {
+    const st = env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ?, user_set = 1,
+        track = CASE WHEN track = 'live' THEN track WHEN ? = 1 THEN 'ai' ELSE 'none' END
+      WHERE invoice_id = ? AND student_user_id = ?`);
+    for (let i = 0; i < targets.length; i += 80) await env.DB.batch(targets.slice(i, i + 80).map(u => st.bind(included, included, invoiceId, u)));
+  } catch (_) {
+    // track·user_set 칸이 없는 DB(ALTER 실패) — 옛 UPDATE 로 떨어진다.
+    try {
+      const st = env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ? WHERE invoice_id = ? AND student_user_id = ?`);
+      for (let i = 0; i < targets.length; i += 80) await env.DB.batch(targets.slice(i, i + 80).map(u => st.bind(included, invoiceId, u)));
+    } catch { return { ok: false, changed: [], unknown, optin_saved: false }; }
+  }
+  const optinSaved = await safe(async () => {
+    const st = included
+      ? env.DB.prepare(`INSERT INTO ai_billing_optin (uid_lc, user_id, shop_name, created_at, created_by) VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(uid_lc) DO UPDATE SET user_id = excluded.user_id, shop_name = excluded.shop_name`)
+      : env.DB.prepare(`DELETE FROM ai_billing_optin WHERE uid_lc = ?`);
+    const now = Date.now();
+    const rows = targets.map(u => included ? st.bind(u.toLowerCase(), u, shopName, now, actor) : st.bind(u.toLowerCase()));
+    for (let i = 0; i < rows.length; i += 80) await env.DB.batch(rows.slice(i, i + 80));
+    return true;
+  }, false);
+  return { ok: true, changed: targets, unknown, optin_saved: optinSaved };
+}
+
 /** api-pay.ts 의 activateEnrollment() 가 MGB- 주문을 보면 이걸 부른다 — 결제 확정 뒤 1회. */
 export async function activateB2bAiInvoicePayment(env: Env, orderId: string, amount: number, when: number): Promise<void> {
   await ensureSchema(env);
@@ -690,7 +750,8 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (!isValidMonth(month)) return err('month 는 YYYY-MM 형식이어야 합니다');
     // 🔌 자동 청구가 꺼져 있으면(테스트 기간) 청구서도 미리보기도 보여 주지 않는다 — 학원 화면은 안내만 그린다.
     const enabled = await billingEnabled(env);
-    if (!enabled) return json({ ok: true, billing_enabled: false, exists: false, shop_name: shopName, billing_month: month });
+    const due = prepayDue(month);   // 📅 선결제 마감(이용 달의 전 달 말일) — 세 응답 모두에 싣는다
+    if (!enabled) return json({ ok: true, billing_enabled: false, exists: false, shop_name: shopName, billing_month: month, ...due });
 
     const inv = await env.DB.prepare(
       `SELECT id, shop_name, franchise, billing_month, rate_krw, price_rule, status, generated_at, paid_at, order_id
@@ -702,7 +763,7 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
       if (!roster.ok) return err('live_check_failed: 화상반 학생을 확인하지 못해 미리보기를 만들 수 없습니다', 503);
       const pr = aiPrice(roster.rows.length, await customRateFor(env, shopName));
       return json({
-        ok: true, billing_enabled: true, exists: false, shop_name: shopName, billing_month: month,
+        ok: true, billing_enabled: true, exists: false, shop_name: shopName, billing_month: month, ...due,
         rate_krw: pr.rate, preview_count: roster.rows.length, preview_total: pr.total,
         live_excluded: roster.live_excluded, idle_count: (roster.idle_rows || []).length, ...priceFields(pr),
       });
@@ -717,7 +778,7 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     const pr = invoiceAmount(inv, includedCount);
     const { price_rule: _pr, ...invOut } = inv;
     return json({
-      ok: true, billing_enabled: true, exists: true, invoice: {
+      ok: true, billing_enabled: true, exists: true, ...due, invoice: {
         ...invOut, item_count: items.length, included_count: includedCount,
         rate_krw: pr.rate, total_krw: pr.total, ...priceFields(pr),
       },
@@ -751,31 +812,30 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (!inv) return err('invoice not found', 404);
     if (!(await writeAllowed(env, request, inv.shop_name))) return err('forbidden', 403);
     if (inv.status !== 'draft') return err('결제 완료된 청구서는 명세를 바꿀 수 없습니다', 409);
-    // user_set=1 — «학원 확인» 표시. 이 줄은 이제 «인원 다시 확인» 의 자동 분류가 다시 안 건드린다.
-    try {
-      // 화상반 줄('live')은 표시를 그대로 두고, 나머지는 체크가 곧 신청이므로 'ai'/'none' 으로 맞춘다.
-      await env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ?, user_set = 1,
-          track = CASE WHEN track = 'live' THEN track WHEN ? = 1 THEN 'ai' ELSE 'none' END
-        WHERE invoice_id = ? AND student_user_id = ?`)
-        .bind(included, included, invoiceId, studentUid).run();
-    } catch (_) {
-      await env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ? WHERE invoice_id = ? AND student_user_id = ?`)
-        .bind(included, invoiceId, studentUid).run();
-    }
-    // ✋ 학원의 체크가 곧 «A.i 단독 신청» 이다 — 다음 달 청구서가 이 명단을 이어받는다.
-    //    명단 쓰기가 실패하면 이번 청구서 체크는 그대로 두되 화면이 알 수 있게 알린다(조용히 넘기지 않는다).
-    const optinSaved = await safe(async () => {
-      if (included) {
-        await env.DB.prepare(
-          `INSERT INTO ai_billing_optin (uid_lc, user_id, shop_name, created_at, created_by) VALUES (?, ?, ?, ?, ?)
-           ON CONFLICT(uid_lc) DO UPDATE SET user_id = excluded.user_id, shop_name = excluded.shop_name`
-        ).bind(studentUid.toLowerCase(), studentUid, inv.shop_name, Date.now(), scope.label || 'admin').run();
-      } else {
-        await env.DB.prepare(`DELETE FROM ai_billing_optin WHERE uid_lc = ?`).bind(studentUid.toLowerCase()).run();
-      }
-      return true;
-    }, false);
-    return json({ ok: true, invoice_id: invoiceId, student_user_id: studentUid, included: !!included, optin_saved: optinSaved });
+    const r = await setItemsIncluded(env, invoiceId, inv.shop_name, [studentUid], included as 0 | 1, scope.label || 'admin');
+    if (!r.ok) return err('save failed', 500);
+    if (!r.changed.length) return err('not_in_invoice: 이 청구서 명세에 없는 학생입니다', 404);
+    return json({ ok: true, invoice_id: invoiceId, student_user_id: studentUid, included: !!included, optin_saved: r.optin_saved });
+  }
+
+  // ── POST /invoice/items {invoice_id, student_user_ids: [...], included: 0|1} : 여러 명 한꺼번에 (2026-10-20) ──
+  //    «AI 컨텐츠 결제» 화면의 «모두 선택 / 모두 해제» — 한 명씩 수십 번 부르지 않게 한다.
+  //    판정·명단 쓰기는 한 명 경로와 같은 정본(setItemsIncluded). 명세에 없는 아이디는 건드리지 않고 돌려준다.
+  if (p === 'invoice/items' && method === 'POST') {
+    const b = await parseJsonBody(request) || {};
+    const invoiceId = Number(b?.invoice_id);
+    const raw = Array.isArray(b?.student_user_ids) ? b.student_user_ids : [];
+    const uids = raw.map((x: any) => String(x || '').trim()).filter((x: string) => !!x);
+    const included = b?.included ? 1 : 0;
+    if (!invoiceId || !uids.length) return err('invoice_id, student_user_ids required');
+    if (uids.length > 1000) return err('too_many: 한 번에 1,000명까지입니다');
+    const inv = await env.DB.prepare(`SELECT id, shop_name, status FROM ai_billing_invoices WHERE id = ?`).bind(invoiceId).first<any>();
+    if (!inv) return err('invoice not found', 404);
+    if (!(await writeAllowed(env, request, inv.shop_name))) return err('forbidden', 403);
+    if (inv.status !== 'draft') return err('결제 완료된 청구서는 명세를 바꿀 수 없습니다', 409);
+    const r = await setItemsIncluded(env, invoiceId, inv.shop_name, uids, included as 0 | 1, scope.label || 'admin');
+    if (!r.ok) return err('save failed', 500);
+    return json({ ok: true, invoice_id: invoiceId, included: !!included, changed: r.changed.length, unknown: r.unknown.length, optin_saved: r.optin_saved });
   }
 
   // ── GET /history?shop_name=&limit= : 지난 청구서 목록 ──
@@ -838,7 +898,7 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     ]) { try { await env.DB.prepare(ddl).run(); } catch (_) {} }
     const rnd = Array.from(crypto.getRandomValues(new Uint8Array(6))).map(b2 => b2.toString(16).padStart(2, '0')).join('');
     const orderId = `MGB-${invoiceId}-${Date.now().toString(36).toUpperCase()}-${rnd}`;
-    const orderName = `AI 사용료 · ${inv.shop_name} · ${inv.billing_month} (${includedCount}명)`;
+    const orderName = `AI 컨텐츠 · ${inv.shop_name} · ${inv.billing_month} 이용분 (${includedCount}명)`;
     try {
       await env.DB.prepare(
         `INSERT INTO payment_orders (order_id, uid, program, amount, status, method, payer_name, student_name, created_at)

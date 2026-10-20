@@ -155,6 +155,52 @@ html.dark .kpi-arrow{color:#7c8899}
 .row.ta-s b{flex:none}
 .ta-mode{cursor:pointer;display:inline-block;margin-left:6px;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700;border:1px solid #cbd5e1;background:#fff;color:#344054}
 .muted{color:#7a8794;font-size:13px}
+/* 🤖 AI 컨텐츠 결제 카드 (2026-10-20) — 학생을 골라 다음 달 이용분을 한 번에 결제한다. 흰 카드 위 색만 쓴다. */
+.aib-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 2px}
+.aib-title{font-size:16px;font-weight:800;color:#16202c}
+.aib-due{font-size:13px;font-weight:800;border-radius:999px;padding:4px 12px;border:1px solid #b9cbe4;background:#eef4ff;color:#1d4ed8;white-space:nowrap}
+.aib-due.warn{border-color:#f5d79a;background:#fff4dc;color:#b45309}
+.aib-due.over{border-color:#f2c1c1;background:#fdecec;color:#b91c1c}
+.aib-policy{font-size:12.5px;margin:4px 0 10px}
+.aib-box{border-radius:10px;padding:12px 14px;background:#f4f6f9;color:#344054;font-size:13.5px;line-height:1.5}
+.aib-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:6px 0 8px}
+.aib-kpi{border:1px solid #eaeef2;border-radius:10px;padding:8px 10px;min-width:0}
+.aib-kpi span{display:block;font-size:12px;color:#5b6876}
+.aib-kpi b{display:block;font-size:18px;font-weight:800;color:#16202c;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aib-kpi-on{border-color:#f5d79a;background:#fffaf0}
+.aib-kpi-on b{color:#b45309}
+.aib-q{margin:6px 0 4px}
+.aib-grp{border:1px solid #eaeef2;border-radius:10px;padding:6px 10px 8px;margin:8px 0}
+.aib-grp > summary{list-style:none;cursor:pointer}
+.aib-grp > summary::-webkit-details-marker{display:none}
+.aib-gh{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:4px 0 6px}
+.aib-gh b{font-size:14px;color:#16202c}
+.aib-cnt{font-weight:700;color:#5b6876;font-size:13px}
+.aib-sub{font-size:12px;margin-top:2px}
+.aib-shown{font-size:12px}
+.aib-row{display:flex;align-items:center;gap:10px;padding:7px 2px;border-top:1px solid #f1f4f7;cursor:pointer;min-height:40px}
+.aib-row input{width:20px;height:20px;flex:none;accent-color:#f59e0b}
+.aib-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;color:#16202c}
+.aib-uid{font-size:12px}
+.aib-tags{display:flex;gap:4px;flex:none}
+.aib-tag{font-size:11px;border-radius:999px;padding:1px 7px;background:#f1f4f7;color:#475467;white-space:nowrap}
+.aib-btn{border:1px solid #d7dee6;border-radius:8px;background:#fff;color:#2c3a48;font-size:14px;font-weight:700;padding:8px 12px;min-height:40px;cursor:pointer;font-family:inherit}
+.aib-btn:disabled{opacity:.55;cursor:default}
+.aib-btn-sm{font-size:12.5px;min-height:34px;padding:5px 10px;flex:none;white-space:nowrap}
+.aib-btn-main{border:0;background:#f59e0b;color:#1f1300;font-size:15px;font-weight:800}
+.aib-btn-ghost{background:#eef1f5}
+.aib-paybar{position:sticky;bottom:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;padding:10px 0 4px;background:#fff;border-top:1px solid #eaeef2}
+.aib-paysum{flex:1;min-width:140px}
+.aib-paysum span{display:block;font-size:12px}
+.aib-paysum b{font-size:20px;font-weight:800;color:#b45309;font-variant-numeric:tabular-nums}
+.aib-paid{border-radius:10px;padding:12px 14px;margin:6px 0 8px;background:#e8f7ee;color:#15803d;font-weight:800;font-size:15px}
+.aib-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.aib-chip{font-size:12.5px;border-radius:999px;padding:3px 10px;background:#f1f4f7;color:#344054}
+@media (max-width:520px){ .aib-kpi b{font-size:15px} .aib-tags{display:none} }
+/* 📱 폰에는 아래 고정 바(#tabbar ≈61px)가 있다 — 결제 바가 그 밑에 깔리지 않게 그만큼 띄운다. */
+@media (max-width:700px){ .aib-paybar{bottom:calc(61px + env(safe-area-inset-bottom,0px));z-index:41} }
+/* 🎬 시연 계정의 「시연용 예시 데이터」 표시(오른쪽 아래)가 결제 버튼을 덮지 않게 */
+body:has(#demoBadge) .aib-paybar{padding-bottom:34px}
 /* 💳 수업료 결제 카드 (2026-10-07) — 흰 카드 위에서 읽히는 색만 쓴다(#b45309 대비 5.0 · #15803d · #b91c1c) */
 .tui-pay{display:block;width:100%;margin-top:8px;min-height:44px;border:0;border-radius:10px;background:#f59e0b;color:#1f1300;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit}
 .tui-pay:disabled{opacity:.55;cursor:default}
@@ -358,6 +404,21 @@ html.dark .fq-hol{background:#3a2c12;border-color:#6e5423;color:#f0c893}
 html.dark #off{background:#3a2c12;border-color:#6e5423;color:#f0c893}
 html.dark .hqhead{color:#95a2b0;border-top-color:#2b343e}
 html.dark .tag{background:#28313d;color:#aeb9c5}
+html.dark .aib-title,html.dark .aib-gh b,html.dark .aib-nm,html.dark .aib-kpi b{color:#e8eef4}
+html.dark .aib-kpi,html.dark .aib-grp{border-color:#2f3944}
+html.dark .aib-kpi span,html.dark .aib-cnt{color:#95a2b0}
+html.dark .aib-kpi-on{background:#2a2312;border-color:#6e5423}
+html.dark .aib-kpi-on b,html.dark .aib-paysum b{color:#fbbf24}
+html.dark .aib-row{border-top-color:#242d37}
+html.dark .aib-box{background:#20272f;color:#c9d3dd}
+html.dark .aib-tag,html.dark .aib-chip{background:#28313d;color:#aeb9c5}
+html.dark .aib-btn{background:#28313d;color:#d3dbe4;border-color:#39434f}
+html.dark .aib-btn-main{background:#f59e0b;color:#1f1300;border:0}
+html.dark .aib-paybar{background:#1a2129;border-top-color:#2b343e}
+html.dark .aib-paid{background:#12301f;color:#7ee2a8}
+html.dark .aib-due{background:#16233a;border-color:#2d4a7a;color:#9cc0ff}
+html.dark .aib-due.warn{background:#3a2c12;border-color:#6e5423;color:#f0c893}
+html.dark .aib-due.over{background:#3a201e;border-color:#7a3a35;color:#f1a49e}
 html.dark .tag.hot{background:#3a201e;color:#f1a49e}
 html.dark .cal7 i{background:#28313d;color:#aeb9c5}
 html.dark .cal7 i.on{background:#3b82f6;color:#fff}
@@ -637,6 +698,22 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 
   var AI_TOOLS = ['judgment','warmup','friend','write','speech','review','vocab','micro'];
 
+  // 🤖 (2026-10-20) AI 컨텐츠 결제 예시 — 다음 달 이용분. 화상반(live_ai)은 A.i 포함이라 체크 해제, A.i 단독은 체크, 나머지는 «신청 안 함».
+  var AIB = { id: 9101, made: false, month: (function(m){ var y = +m.slice(0, 4), mo = +m.slice(5, 7) + 1; if (mo > 12) { mo = 1; y++; } return y + '-' + (mo < 10 ? '0' : '') + mo; })(MONTH),
+    items: STUDENTS.map(function(s){ var tr = s.track === 'live_ai' ? 'live' : (s.track === 'ai_only' ? 'ai' : 'none');
+      return { student_user_id: s.user_id, student_name: s.name, included: tr === 'ai' ? 1 : 0, added_manually: 0, track: tr, user_set: 0 }; }) };
+  function aibDue(){
+    var y = +AIB.month.slice(0, 4), m = +AIB.month.slice(5, 7), due = Date.UTC(y, m - 1, 0);
+    var k = new Date(Date.now() + 9 * 3600e3), today = Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate());
+    return { due_date: new Date(due).toISOString().slice(0, 10), days_left: Math.round((due - today) / 86400000) };
+  }
+  function aibPrice(n){
+    var rate = n > 70 ? 4500 : n > 50 ? 5500 : n > 20 ? 6500 : 7500, bill = Math.max(n, 20), min = n < 20;
+    return { total: n > 0 ? rate * bill : 0, f: { applied_rate_krw: rate, billable_count: bill, min_applied: min && n > 0,
+      price_note_ko: '(예시) ' + n + '명 → ' + (n > 20 ? '구간 단가 ' : '20명 이하 단가 ') + rate.toLocaleString() + '원/명' + (min && n > 0 ? ' · 최소 20명분 청구' : ''),
+      price_note_en: '(sample) ' + n + ' students → ' + rate.toLocaleString() + ' KRW each' + (min && n > 0 ? ' · minimum 20 billed' : '') } };
+  }
+
   function handler(path, method, init){
     var q = path.split('?'), p = q[0], qs = q[1] || '';
     method = String(method || 'GET').toUpperCase();
@@ -650,6 +727,17 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       }
       // 💳 (2026-10-07) 시연 계정의 수업료 결제는 «결제창을 열지 않는다» — 진짜 토스 주문·D1 기록이 생기면 안 된다.
       if (p === '/api/admin/ai-billing/tuition/checkout') return function(){ return { ok: false, error: 'demo' }; };
+      // 🤖 (2026-10-20) AI 컨텐츠 결제 — 시연 계정은 체크·일괄 선택을 «이 화면 안에서만» 바꾸고 결제창은 열지 않는다.
+      if (p === '/api/admin/ai-billing/invoice/generate') return function(){ AIB.made = true; return { ok: true, invoice_id: AIB.id, added: 0, created: true }; };
+      if (p === '/api/admin/ai-billing/invoice/item' || p === '/api/admin/ai-billing/invoice/items') {
+        var ab = {}; try { ab = JSON.parse(init && init.body || '{}'); } catch (e) {}
+        return function(){
+          var want = ab.student_user_ids || [ab.student_user_id], n = 0;
+          AIB.items.forEach(function(it){ if (want.indexOf(it.student_user_id) >= 0) { it.included = ab.included ? 1 : 0; it.user_set = 1; if (it.track !== 'live') it.track = ab.included ? 'ai' : 'none'; n++; } });
+          return { ok: true, changed: n, included: !!ab.included, optin_saved: true };
+        };
+      }
+      if (p === '/api/admin/ai-billing/invoice/checkout') return function(){ return { ok: false, error: 'demo' }; };
       return null;
     }
     switch (p) {
@@ -732,6 +820,25 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
           ],
           next_preview: { due_krw: 1200000, explain_ko: ['다음 달 예정 수업 80회 × 15,000원'], explain_en: ['Next month: 80 classes × 15,000'], lines: [] },
           autopay: null };
+      };
+      // 🤖 (2026-10-20) AI 컨텐츠 결제 — 다음 달 이용분 예시. 단가 설명은 서버 공급가 표(20명 이하 7,500원 · 최소 20명분)를 흉내 낸 «예시» 다.
+      case '/api/admin/ai-billing/invoice': return function(){
+        var due = aibDue();
+        if (!AIB.made) {
+          var a0 = AIB.items.filter(function(it){ return it.track === 'ai'; }).length;
+          var p0 = aibPrice(a0);
+          return Object.assign({ ok: true, billing_enabled: true, exists: false, shop_name: SHOPS[0].name, billing_month: AIB.month, preview_count: a0,
+            preview_total: p0.total, live_excluded: AIB.items.filter(function(it){ return it.track === 'live'; }).length,
+            idle_count: AIB.items.filter(function(it){ return it.track === 'none'; }).length }, p0.f, due);
+        }
+        var inc = AIB.items.filter(function(it){ return it.included; }).length, pr = aibPrice(inc);
+        return Object.assign({ ok: true, billing_enabled: true, exists: true, invoice: Object.assign({ id: AIB.id, shop_name: SHOPS[0].name, billing_month: AIB.month, status: 'draft',
+          item_count: AIB.items.length, included_count: inc, total_krw: pr.total, rate_krw: pr.f.applied_rate_krw }, pr.f),
+          items: AIB.items.slice().sort(function(a, b){ return a.student_name < b.student_name ? -1 : 1; }) }, due);
+      };
+      case '/api/admin/ai-billing/history': return function(){
+        var pm = (function(m){ var y = +m.slice(0, 4), mo = +m.slice(5, 7) - 1; if (mo < 1) { mo = 12; y--; } return y + '-' + (mo < 10 ? '0' : '') + mo; })(AIB.month);
+        return { ok: true, shop_name: SHOPS[0].name, rows: [{ id: 8801, billing_month: pm, status: 'paid', included_count: 6, rate_krw: 7500, total_krw: 150000 }] };
       };
       case '/api/admin/omnisearch': return function(){
         var m = /q=([^&]*)/.exec(qs), w = m ? decodeURIComponent(m[1]).trim() : '';
@@ -821,8 +928,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="sgrp">
     <button type="button" onclick="sideGo('c-trend')"><span class="ic">📊</span><span data-en="30-day trend" data-ko="30일 추이">30-day trend</span></button>
     <button type="button" id="sideSettle" onclick="sideGo('c-settle')"><span class="ic">💰</span><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></button>
-    <button type="button" id="sideTuition" onclick="sideGo('c-tuition')" hidden><span class="ic">💳</span><span data-en="Tuition payment" data-ko="수업료 결제">Tuition payment</span></button>
-    <button type="button" id="sideAibill" onclick="sideGo('c-aibill')" hidden><span class="ic">🧾</span><span data-en="AI usage invoice" data-ko="AI 사용료 청구서">AI usage invoice</span></button>
+    <button type="button" id="sideTuition" onclick="sideGo('c-tuition')" hidden><span class="ic">💳</span><span data-en="Video class tuition" data-ko="화상영어 수업료 결제">Video class tuition</span></button>
+    <button type="button" id="sideAibill" onclick="sideGo('c-aibill')" hidden><span class="ic">🤖</span><span data-en="A.i content payment" data-ko="AI 컨텐츠 결제">A.i content payment</span></button>
   </div>
   <div class="sgrp-h" data-en="Operations" data-ko="운영관리">Operations</div>
   <div class="sgrp">
@@ -1285,12 +1392,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        서버(b2b-tuition-load.ts)가 학원을 로그인 스코프로 고정하므로 남의 청구서를 볼·낼 방법이 없다.
        ⛔ 이 화면은 금액을 계산하지 않는다 — 서버가 준 숫자·문장만 그린다. -->
   <details class="card" id="c-tuition" ontoggle="if(this.open)loadTuition()" hidden>
-      <summary><span data-en="Tuition payment" data-ko="수업료 결제">Tuition payment</span></summary>
+      <summary><span data-en="Video class tuition" data-ko="화상영어 수업료 결제">Video class tuition</span></summary>
       <div id="tuiBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
+  <!-- 🤖 (2026-10-20 사장님 「'AI 컨텐츠 결제' 메뉴를 만들고 대리점이 소속 학생을 일괄 결제」) 옛 «AI 사용료 청구서» 를
+       같은 서버(ai-billing.ts)·같은 청구서 위에서 다시 꾸민 것이다 — 새 결제 흐름을 따로 만들지 않았다(두 벌이면 화면마다 답이 달라진다).
+       이번 달 말일까지 다음 달 이용분을 학생별로 골라 한 번에 낸다. -->
   <details class="card" id="c-aibill" ontoggle="if(this.open)loadAiBill()" hidden>
-      <summary><span data-en="AI usage invoice" data-ko="AI 사용료 청구서">AI usage invoice</span></summary>
+      <summary><span data-en="A.i content payment" data-ko="AI 컨텐츠 결제">A.i content payment</span></summary>
       <div id="aibillBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
@@ -2319,18 +2429,22 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // 🏢 (2026-09-10) B2B 대리점 AI 사용료 청구서 — scope.type==='agency' 일 때만 보인다.
+  // 🤖 (2026-09-10 신설 · 2026-10-20 «AI 컨텐츠 결제» 로 재구성) B2B 대리점 A.i 컨텐츠 선결제 — scope.type==='agency' 일 때만 보인다.
+  //   정책(2026-10-20 사장님): 이번 달 말일까지 «다음 달 이용분» 을 학생별로 골라 대리점이 한 번에 결제한다.
   //   금액은 절대 이 화면이 계산해서 보내지 않는다 — 서버(ai-billing.ts)가 그 순간의
   //   A.i 단독 신청 인원(2026-09-25 — 신청한 학생만)의 인원 구간 공급가(ai-billing-price.ts)로 다시 계산해 결제창을 연다
-  //   (클라이언트 값은 표시용일 뿐). 캐시 키 'aibill3'(2026-09-25 — 옛 «재원 − 화상반» 예상 금액 캐시가 되살아나지 않게) · 'aibill2'(2026-09-24) — 옛 형식(재원 × 10,000원) 캐시가
-  //   조회 실패 때 되살아나 옛 금액을 보여 주지 않게 키를 바꿨다.
+  //   (클라이언트 값은 표시용일 뿐). 마감일도 서버(prepayDue)가 정한다.
+  //   ⛔ 돈 화면이라 localStorage 캐시를 쓰지 않는다(2026-10-20 — 옛 캐시 키 aibill3·aibillHist3 은 더 이상 안 읽는다).
   // ══════════════════════════════════════════════════════════════════════════
   window.loadAiBill = function(){
     var el = document.getElementById('aibillBody');
+    el.className = 'empty';
     el.textContent = T('Loading...', '불러오는 중...');
+    /* 💳 (2026-10-20) 돈 화면이라 캐시(localStorage)를 쓰지 않는다 — «옛 명세·옛 상태(미결제)» 를 보여 주면
+       이미 낸 것을 또 내게 된다(수업료 결제 카드와 같은 규칙). 실패하면 실패라고 말한다. */
     Promise.all([
-      get('/api/admin/ai-billing/invoice', 'aibill3'),
-      get('/api/admin/ai-billing/history', 'aibillHist3'),
+      get('/api/admin/ai-billing/invoice'),
+      get('/api/admin/ai-billing/history'),
     ]).then(function(r){ D.aibill = r[0]; D.aibillHist = r[1]; paintAiBill(); })
       .catch(function(e){ failBox(el, e); });
   };
@@ -2339,7 +2453,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     fetch('/api/admin/ai-billing/invoice/generate', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: '{}'
     }).then(function(r){ return r.json(); }).then(function(j){
-      if (!j || !j.ok) { alert(T('Could not create the invoice.', '청구서를 만들지 못했습니다.')); return; }
+      if (!j || !j.ok) { alert(T('Could not load the student list.', '학생 명단을 불러오지 못했습니다.') + (j && j.error ? ' (' + j.error + ')' : '')); return; }
       D.aibill = null; loadAiBill();
     }).catch(function(){ alert(T('Network error.', '네트워크 오류가 발생했습니다.')); })
       .then(function(){ if (btn) btn.disabled = false; });
@@ -2355,15 +2469,62 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     }).catch(function(){ cb.checked = !cb.checked; alert(T('Network error.', '네트워크 오류가 발생했습니다.')); })
       .then(function(){ cb.disabled = false; });
   };
+  /* ✅ (2026-10-20) 묶음 선택·해제 — «지금 화면에 보이는» 줄만(검색으로 거른 결과). 한 번의 요청(invoice/items).
+     ⚠️ 결제 대상이 바뀌는 조작이라 몇 명이 바뀌는지 먼저 묻는다. 금액은 서버가 다시 계산해 돌려준다. */
+  window.aiBillBulk = function(btn, group, included){
+    var j = D.aibill; if (!j || !j.exists || !j.invoice) return;
+    var uids = [];
+    document.querySelectorAll('#aibillBody .aib-row[data-g="' + group + '"]').forEach(function(r){
+      if (r.style.display !== 'none') uids.push(r.getAttribute('data-uid'));
+    });
+    if (!uids.length) return;
+    var ask = included
+      ? T(uids.length + ' student(s) will be added to this payment. The amount will be recalculated. Continue?', uids.length + '명을 결제 대상에 넣을까요? 결제 금액은 다시 계산됩니다.')
+      : T(uids.length + ' student(s) will be removed from this payment. Continue?', uids.length + '명을 결제 대상에서 뺄까요?');
+    if (!window.confirm(ask)) return;
+    if (btn) btn.disabled = true;
+    fetch('/api/admin/ai-billing/invoice/items', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoice_id: j.invoice.id, student_user_ids: uids, included: included ? 1 : 0 })
+    }).then(function(r){ return r.json().catch(function(){ return {}; }); }).then(function(o){
+      if (!o || o.ok !== true) { alert(T('Could not save.', '저장하지 못했습니다.') + (o && o.error ? ' (' + o.error + ')' : '')); return; }
+      if (o.optin_saved === false) alert(T('Saved for this payment, but the sign-up list could not be updated. Please try once more.', '이번 결제에는 반영됐지만 신청 명단 저장에 실패했습니다. 한 번 더 눌러 주세요.'));
+      D.aibill = null; loadAiBill();
+    }).catch(function(){ alert(T('Network error.', '네트워크 오류가 발생했습니다.')); })
+      .then(function(){ if (btn) btn.disabled = false; });
+  };
+  /* 🔍 이름·아이디로 찾기 — 화면에 그린 줄을 감추기만 한다(서버 요청 없음). 다시 그려도 검색어가 남게 D.aibQ 에 둔다. */
+  window.aiBillFilter = function(v){
+    D.aibQ = String(v || '');
+    var q = D.aibQ.trim().toLowerCase();
+    var shown = { a: 0, b: 0, c: 0 };
+    document.querySelectorAll('#aibillBody .aib-row').forEach(function(r){
+      var hit = !q || (r.getAttribute('data-n') || '').indexOf(q) >= 0;
+      r.style.display = hit ? '' : 'none';
+      if (hit) shown[r.getAttribute('data-g')]++;
+    });
+    ['a', 'b', 'c'].forEach(function(g){
+      var n = document.getElementById('aibN' + g);
+      if (n) n.textContent = q ? T(shown[g] + ' shown', shown[g] + '명 보임') : '';
+    });
+  };
   window.aiBillPay = function(btn){
     var j = D.aibill;
     if (!j || !j.exists || !j.invoice) return;
+    var inv = j.invoice;
+    if (!window.confirm(T('Pay ' + won(inv.total_krw) + ' for ' + n0(inv.included_count) + ' student(s) — A.i content for ' + aibMonth(inv.billing_month) + '?',
+                          aibMonth(inv.billing_month) + ' 이용분 ' + n0(inv.included_count) + '명 · ' + won(inv.total_krw) + '원을 결제할까요?'))) return;
     if (btn) btn.disabled = true;
     fetch('/api/admin/ai-billing/invoice/checkout', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ invoice_id: j.invoice.id })
-    }).then(function(r){ return r.json(); }).then(async function(o){
-      if (!o || !o.ok) { alert((o && o.error) || T('Could not start payment.', '결제를 시작하지 못했습니다.')); if (btn) btn.disabled = false; return; }
+      body: JSON.stringify({ invoice_id: inv.id })
+    }).then(function(r){ return r.json().catch(function(){ return {}; }); }).then(async function(o){
+      // «성공이라고 말했는가» 로 가른다(ok === true + 주문번호).
+      if (!o || o.ok !== true || !o.order_id) {
+        alert(o && o.error === 'demo' ? T('This is a demo account — the payment window does not open. (Sample data)', '시연용 계정이라 실제 결제창은 열리지 않습니다. (예시 데이터)')
+          : ((o && o.error) || T('Could not start payment.', '결제를 시작하지 못했습니다.')));
+        if (btn) btn.disabled = false; return;
+      }
       // 서버가 준 키만 쓴다(/api/pay/config — 개인 결제창과 같은 정본, 테스트/실결제 전환이 여기서 자동 반영된다).
       var ck = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
       try {
@@ -2381,12 +2542,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         } catch (e) { alert(T('Could not load the payment module.', '결제 모듈을 불러오지 못했습니다.')); if (btn) btn.disabled = false; return; }
       }
       try {
-        var tp = window.TossPayments(ck);
-        await tp.requestPayment('카드', {
+        // 💳 (2026-10-20) 결제가 끝나면 이 화면으로 돌아온다(수업료 결제와 같은 방식) — 확정은 서버(/api/pay/confirm).
+        var back = location.origin + location.pathname;
+        await window.TossPayments(ck).requestPayment('카드', {
           amount: o.amount, orderId: o.order_id, orderName: o.order_name,
-          customerName: (document.getElementById('scopeName') || {}).textContent || j.invoice.shop_name,
-          successUrl: location.origin + '/payment-success.html',
-          failUrl: location.origin + '/payment-fail.html',
+          customerName: (document.getElementById('scopeName') || {}).textContent || inv.shop_name,
+          successUrl: back + '?aib_paid=1', failUrl: back + '?aib_fail=1'
         });
       } catch (e) {
         if (e && e.code !== 'USER_CANCEL') alert(T('Could not open the payment window: ', '결제창을 열 수 없습니다: ') + (e.message || 'unknown'));
@@ -2394,14 +2555,56 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       if (btn) btn.disabled = false;
     }).catch(function(){ alert(T('Network error.', '네트워크 오류가 발생했습니다.')); if (btn) btn.disabled = false; });
   };
+  // 토스에서 돌아왔을 때 — 확정은 서버(/api/pay/confirm)가 한다. 이 화면은 결과만 말하고 카드를 연다.
+  (function(){
+    var qs; try { qs = new URLSearchParams(location.search); } catch (e) { return; }
+    var paid = qs.get('aib_paid') === '1', failed = qs.get('aib_fail') === '1';
+    if (!paid && !failed) return;
+    var clean = function(){ try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {} };
+    var show = function(ok, text){
+      D.aibMsg = { ok: ok, text: text };
+      var card = document.getElementById('c-aibill');
+      if (card) { card.hidden = false; D.aibill = null; if (card.open) loadAiBill(); else window.openCard('c-aibill'); }
+    };
+    if (failed) { clean(); show(false, T('Payment was not completed: ', '결제가 완료되지 않았습니다: ') + (qs.get('message') || qs.get('code') || '')); return; }
+    if (!qs.get('paymentKey') || !qs.get('orderId')) { clean(); show(false, T('Payment details are missing.', '결제 정보가 확인되지 않았습니다.')); return; }
+    fetch('/api/pay/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentKey: qs.get('paymentKey'), orderId: qs.get('orderId'), amount: Number(qs.get('amount')) }) })
+      .then(function(r){ return r.json().catch(function(){ return {}; }); })
+      .then(function(r){
+        clean();
+        if (r && r.ok === true) show(true, '✅ ' + T('Paid — the selected students can use A.i content next month.', '결제가 완료됐습니다. 선택한 학생들의 다음 달 A.i 컨텐츠 이용이 확정됐습니다.'));
+        else show(false, T('Payment confirmation failed: ', '결제 확인에 실패했습니다: ') + ((r && (r.message || r.error)) || ''));
+      })
+      .catch(function(){ clean(); show(false, T('Network error while confirming the payment. If your card was charged, it will be cancelled automatically.', '네트워크 오류로 결제 확인에 실패했습니다. 카드에서 빠져나갔다면 자동 취소됩니다.')); });
+  })();
   /* 💰 (2026-09-24) 적용 단가·최소 청구·경계 보정 설명은 서버(ai-billing-price.ts)가 만든 글자를 그대로 그린다.
      ⛔ 이 화면에서 인원 × 단가를 계산하지 말 것(구간·최소 20명분이 있어 반드시 틀린다).
-     ⛔ 지사 커미션(branch_commission_krw)은 이 카드(학원 계정 전용)에 그리지 않는다 — 본사·지사 사이 금액이다. */
-  function aiBillPriceRows(o){
+     ⛔ 지사 커미션은 이 카드(학원 계정 전용)에 그리지 않는다 — 본사·지사 사이 금액이다. */
+  function aiBillPriceRows(o, noRate){
     var note = T(o.price_note_en || '', o.price_note_ko || '');
-    var h = '<div class="row"><span>' + T('Rate', '단가') + '</span><b>' + won(o.applied_rate_krw != null ? o.applied_rate_krw : o.rate_krw) + T('/student', '/명') + '</b></div>';
-    if (o.min_applied) h += '<div class="row"><span>' + T('Billed as', '청구 인원') + '</span><b>' + n0(o.billable_count) + T(' (minimum)', '명 (최소 청구)') + '</b></div>';
-    if (note) h += '<div class="muted" style="font-size:11.5px;margin:2px 0 6px">' + esc(note) + '</div>';
+    var h = noRate ? '' : '<div class="row"><span>' + T('Price per student', '1인 단가') + '</span><b class="num" style="text-align:right">' + won(o.applied_rate_krw != null ? o.applied_rate_krw : o.rate_krw) + T(' KRW', '원') + '</b></div>';
+    if (o.min_applied) h += '<div class="row"><span>' + T('Billed as', '청구 인원') + '</span><b class="num" style="text-align:right">' + n0(o.billable_count) + T(' (minimum)', '명 (최소 청구)') + '</b></div>';
+    if (note) h += '<div class="muted" style="font-size:12px;margin:2px 0 6px">' + esc(note) + '</div>';
+    return h;
+  }
+  function aibMonth(ym){ return T(String(ym || ''), Number(String(ym || '').slice(5, 7)) + '월'); }
+  function aibDay(d){ if (!d) return ''; return T(String(d), Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일'); }
+  /* 📅 결제 마감 띠 — 날짜는 서버(prepayDue)가 정한다. 이 화면은 «그리기만» 한다. 모르면(서버가 안 줌) 띠를 안 그린다. */
+  function aibDueBar(j, month, paid){
+    var h = '<div class="aib-head"><div class="aib-title">🤖 ' + esc(T('A.i content for ' + aibMonth(month), aibMonth(month) + ' 이용분 A.i 컨텐츠')) + '</div>';
+    if (j.due_date && !paid) {
+      var dl = Number(j.days_left), cls = 'aib-due', tail = '';
+      if (isFinite(dl)) {
+        if (dl < 0) { cls += ' over'; tail = T(' · overdue', ' · 마감 지남'); }
+        else if (dl === 0) { cls += ' warn'; tail = T(' · today', ' · 오늘 마감'); }
+        else { if (dl <= 5) cls += ' warn'; tail = ' · D-' + dl; }
+      }
+      h += '<div class="' + cls + '">' + esc(T('Pay by ' + aibDay(j.due_date), '결제 마감 ' + aibDay(j.due_date))) + esc(tail) + '</div>';
+    }
+    h += '</div>';
+    h += '<p class="muted aib-policy">' + T('Pay for next month’s A.i content by the end of this month, choosing students one by one. Video-class students get A.i with their tuition, so you do not pay for them here.',
+      '다음 달에 쓸 A.i 컨텐츠는 이번 달 말일까지 학생을 골라 미리 결제합니다. 화상영어 수업을 듣는 학생은 A.i 가 수업료에 포함돼 여기서 따로 결제하지 않습니다.') + '</p>';
     return h;
   }
   function paintAiBill(){
@@ -2409,64 +2612,89 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var el = document.getElementById('aibillBody');
     el.className = '';
     var html = '';
-    /* 🔌 (2026-09-25) 자동 청구가 꺼져 있으면(테스트 기간) 청구서·예상 금액을 그리지 않는다 — 서버가 billing_enabled:false 로 말해 준다.
+    var month = (j.invoice && j.invoice.billing_month) || j.billing_month;
+    if (D.aibMsg) html += '<p class="tui-msg ' + (D.aibMsg.ok ? 'ok' : 'bad') + '">' + esc(D.aibMsg.text) + '</p>';
+    /* 🔌 (2026-09-25) 자동 청구가 꺼져 있으면(테스트 기간) 명세·금액을 그리지 않는다 — 서버가 billing_enabled:false 로 말해 준다.
        ⛔ 여기서 금액을 추정해 그리지 말 것 — 신청하지 않은 학생에게 청구하는 것처럼 보인다. */
     if (j.billing_enabled === false) {
-      html += '<p class="muted">' + T('Test period — A.i usage fees are not billed yet. Video-class students always get A.i for free.', '지금은 테스트 기간이라 A.i 사용료를 청구하지 않습니다. 화상반 학생은 A.i 가 언제나 무료로 포함됩니다.') + '</p>';
+      html += aibDueBar(j, month, false);
+      html += '<div class="aib-box">⏳ ' + T('Head office has not opened A.i content payment yet (test period). Once it is open, you will choose students and pay for them here in one go.',
+        '본사가 아직 A.i 컨텐츠 결제를 열지 않았습니다(테스트 기간). 결제가 열리면 이 화면에서 학생을 골라 한 번에 결제합니다.') + '</div>';
     } else if (!j.exists) {
-      html += '<p class="muted">' + T('This month’s invoice has not been created yet.', '아직 이번 청구서가 만들어지지 않았습니다.') + '</p>'
-        + '<div class="row"><span>' + T('Billing month', '청구 대상 월') + '</span><b>' + esc(j.billing_month) + '</b></div>'
-        + '<div class="row"><span>' + T('A.i-only sign-ups now (preview)', '지금 A.i 단독 신청 인원 (예상)') + '</span><b>' + n0(j.preview_count) + T('', '명') + '</b></div>'
-        + (j.live_excluded ? '<div class="row"><span class="muted">' + T('Video-class students (A.i included, not billed)', '화상반 학생 (A.i 포함 · 청구 안 함)') + '</span><span class="muted">' + n0(j.live_excluded) + T('', '명') + '</span></div>' : '')
-        + (j.idle_count ? '<div class="row"><span class="muted">' + T('Not signed up (not billed)', '신청 안 함 (청구 안 함)') + '</span><span class="muted">' + n0(j.idle_count) + T('', '명') + '</span></div>' : '')
-        + '<p class="muted" style="font-size:11.5px">' + T('To sign a student up for A.i only, create the invoice and check that student.', 'A.i 단독 학생은 청구서를 만든 뒤 명단에서 체크하면 신청됩니다.') + '</p>'
+      html += aibDueBar(j, month, false);
+      html += '<div class="aib-kpis">'
+        + '<div class="aib-kpi"><span>' + T('Signed up for A.i', 'A.i 이용 신청') + '</span><b>' + n0(j.preview_count) + T('', '명') + '</b></div>'
+        + '<div class="aib-kpi"><span>' + T('Not signed up', '아직 신청 안 함') + '</span><b>' + n0(j.idle_count) + T('', '명') + '</b></div>'
+        + '<div class="aib-kpi"><span>' + T('Video class (included)', '화상영어 (포함)') + '</span><b>' + n0(j.live_excluded) + T('', '명') + '</b></div>'
+        + '</div>'
         + aiBillPriceRows(j)
-        + '<div class="row"><span>' + T('Estimated total', '예상 총액') + '</span><b>' + won(j.preview_total) + '</b></div>'
-        + '<button type="button" class="btn-primary" onclick="aiBillGenerate(this)" style="margin-top:10px">' + T('Create invoice', '청구서 만들기') + '</button>';
+        + '<div class="row"><span>' + T('Estimated total', '예상 결제 금액') + '</span><b class="num" style="text-align:right">' + won(j.preview_total) + T(' KRW', '원') + '</b></div>'
+        + '<button type="button" class="aib-btn aib-btn-main" onclick="aiBillGenerate(this)">📋 ' + T('Load my students and choose', '우리 학원 학생 불러와서 고르기') + '</button>'
+        + '<p class="muted" style="font-size:12px">' + T('This only loads the list — nothing is paid until you press the pay button.', '명단만 불러옵니다 — 결제하기를 누르기 전에는 아무것도 결제되지 않습니다.') + '</p>';
     } else {
       var inv = j.invoice, items = j.items || [];
       var paid = inv.status === 'paid';
-      html += '<div class="row"><span>' + T('Billing month', '청구 대상 월') + '</span><b>' + esc(inv.billing_month) + '</b></div>'
-        + '<div class="row"><span>' + T('Included students', '포함 인원') + '</span><b>' + n0(inv.included_count) + T('', '명') + '</b></div>'
-        + aiBillPriceRows(inv)
-        + '<div class="row"><span>' + T('Total', '총액') + '</span><b>' + won(inv.total_krw) + '</b></div>';
+      html += aibDueBar(j, inv.billing_month, paid);
       if (paid) {
-        html += '<div class="row" style="color:#4ade80"><span>' + T('Status', '상태') + '</span><b>✅ ' + T('Paid', '결제 완료') + '</b></div>';
+        var inc = items.filter(function(it){ return Number(it.included) === 1; });
+        html += '<div class="aib-paid">✅ ' + esc(T('Paid — ' + n0(inc.length) + ' student(s) · ' + won(inv.total_krw) + ' KRW', '결제 완료 — ' + n0(inc.length) + '명 · ' + won(inv.total_krw) + '원'))
+          + (inv.paid_at ? '<div class="muted" style="font-size:12px;margin-top:2px">' + esc(T('Paid on ', '결제일 ')) + esc(new Date(Number(inv.paid_at) + 9 * 3600e3).toISOString().slice(0, 10)) + '</div>' : '') + '</div>'
+          + aiBillPriceRows(inv)
+          + '<div class="aib-chips">' + inc.map(function(it){ return '<span class="aib-chip">' + esc(it.student_name || it.student_user_id) + '</span>'; }).join('') + '</div>'
+          + '<p class="muted" style="font-size:12px">' + T('The list is fixed once paid. To add a student, please contact head office.', '결제한 명단은 바뀌지 않습니다. 학생을 더 넣어야 하면 본사로 문의해 주세요.') + '</p>';
       } else {
-        /* 🎯 (2026-09-24 추천안 ① «자동 분류 + 학원 확인») 화상반으로 판정된 학원생(track='live')도 명세에 보이되
-           체크가 풀린 채 아래쪽에 모인다 — 판정이 틀렸으면 학원이 체크해 청구에 넣는다(그 뒤 자동이 안 건드림).
-           ⛔ 이 화면은 판정하지 않는다 — 서버가 준 track·user_set 을 그리기만 한다. */
-        var aiIt = items.filter(function(it){ return it.track !== 'live' && it.track !== 'none'; });
-        var lvIt = items.filter(function(it){ return it.track === 'live'; });
-        var noIt = items.filter(function(it){ return it.track === 'none'; });   // 신청 안 함 — 체크하면 A.i 단독 신청(2026-09-25)
+        /* 🎯 (2026-09-24 «자동 분류 + 학원 확인» · 2026-10-20 화면 재구성) 세 무리로 나눠 그린다 — 판정은 서버가 준 track·included 그대로.
+             a = 결제 대상(체크됨) · b = 아직 신청 안 함(체크 안 됨, 화상반 아님) · c = 화상반(A.i 포함 · 체크 안 됨)
+           ⛔ 이 화면은 판정하지 않는다. 화상반이 틀렸으면 학원이 체크해 결제 대상에 넣는다(user_set — 그 뒤 자동이 안 건드림). */
+        var aiIt = items.filter(function(it){ return Number(it.included) === 1; });
+        var noIt = items.filter(function(it){ return Number(it.included) !== 1 && it.track !== 'live'; });
+        var lvIt = items.filter(function(it){ return Number(it.included) !== 1 && it.track === 'live'; });
+        var grp = { a: aiIt, b: noIt, c: lvIt };
         var itemRow = function(it){
+          var g = Number(it.included) === 1 ? 'a' : (it.track === 'live' ? 'c' : 'b');
           var tag = '';
-          if (it.track === 'live') tag = ' <span class="muted" style="font-size:11px">📹 ' + T('video class · A.i included', '화상반 · A.i 포함') + '</span>';
-          if (Number(it.user_set) === 1) tag += ' <span class="muted" style="font-size:11px">✔ ' + T('confirmed by academy', '학원 확인') + '</span>';
-          return '<label class="row" style="cursor:pointer"><span>' + esc(it.student_name || it.student_user_id)
-            + (it.added_manually ? ' <span class="muted">(' + T('added', '추가') + ')</span>' : '') + tag + '</span>'
-            + '<input type="checkbox" ' + (it.included ? 'checked' : '') + ' onchange="aiBillToggleItem(this,' + inv.id + ',\'' + esc(it.student_user_id) + '\')"></label>';
+          if (it.track === 'live') tag += '<span class="aib-tag">📹 ' + T('video class', '화상영어') + '</span>';
+          if (Number(it.user_set) === 1) tag += '<span class="aib-tag">✔ ' + T('confirmed by academy', '학원 확인') + '</span>';
+          if (it.added_manually) tag += '<span class="aib-tag">' + T('new', '새로 추가') + '</span>';
+          var nm = it.student_name || it.student_user_id;
+          return '<label class="aib-row" data-g="' + g + '" data-uid="' + esc(it.student_user_id) + '" data-n="' + esc(String(nm + ' ' + it.student_user_id).toLowerCase()) + '">'
+            + '<input type="checkbox" ' + (Number(it.included) === 1 ? 'checked' : '') + ' onchange="aiBillToggleItem(this,' + inv.id + ',\'' + esc(it.student_user_id) + '\')">'
+            + '<span class="aib-nm">' + esc(nm) + ' <span class="muted aib-uid">' + esc(it.student_user_id) + '</span></span>'
+            + '<span class="aib-tags">' + tag + '</span></label>';
         };
-        html += '<div class="list" style="margin-top:8px;max-height:280px;overflow:auto">' + aiIt.map(itemRow).join('')
-          + (noIt.length ? '<div class="muted" style="font-size:11.5px;margin:8px 0 2px">✋ ' + T('Not signed up (' + noIt.length + ') — not billed. Check a student to sign them up for A.i only.', '신청 안 함 ' + noIt.length + '명 — 청구하지 않습니다. A.i 단독으로 쓰는 학생만 체크해 신청해 주세요.') + '</div>' + noIt.map(itemRow).join('') : '')
-          + (lvIt.length ? '<div class="muted" style="font-size:11.5px;margin:8px 0 2px">📹 ' + T('Video-class students (' + lvIt.length + ') — A.i is included in their tuition, so they are not billed. Check a student only if this is wrong.', '화상반 학생 ' + lvIt.length + '명 — 화상영어에 A.i 가 포함돼 청구하지 않습니다. 판정이 틀린 학생만 체크해 주세요.') + '</div>' + lvIt.map(itemRow).join('') : '')
+        var grpHead = function(g, title, sub, btnLbl, inc){
+          return '<div class="aib-gh"><div><b>' + title + ' <span class="aib-cnt">' + n0(grp[g].length) + T('', '명') + '</span></b> <span class="muted aib-shown" id="aibN' + g + '"></span>'
+            + (sub ? '<div class="muted aib-sub">' + sub + '</div>' : '') + '</div>'
+            + (grp[g].length && btnLbl ? '<button type="button" class="aib-btn aib-btn-sm" onclick="aiBillBulk(this,\'' + g + '\',' + (inc ? 1 : 0) + ')">' + btnLbl + '</button>' : '') + '</div>';
+        };
+        html += '<div class="aib-kpis">'
+          + '<div class="aib-kpi aib-kpi-on"><span>' + T('Students to pay for', '결제할 학생') + '</span><b>' + n0(inv.included_count) + T('', '명') + '</b></div>'
+          + '<div class="aib-kpi"><span>' + T('Price per student', '1인 단가') + '</span><b>' + won(inv.applied_rate_krw != null ? inv.applied_rate_krw : inv.rate_krw) + T('', '원') + '</b></div>'
+          + '<div class="aib-kpi aib-kpi-on"><span>' + T('Amount to pay', '결제 금액') + '</span><b>' + won(inv.total_krw) + T('', '원') + '</b></div>'
           + '</div>'
-        + '<div style="display:flex;gap:8px;margin-top:10px">'
-        + '<button type="button" class="btn-ghost" onclick="aiBillGenerate(this)">' + T('Check for new students', '인원 다시 확인') + '</button>'
-        + '<button type="button" class="btn-primary" onclick="aiBillPay(this)"' + (inv.included_count > 0 ? '' : ' disabled') + '>' + T('Pay now', '결제하기') + '</button>'
-        + '</div>'
-        + '<p class="muted" style="font-size:11px;margin-top:6px">' + T('Uncheck a student who has withdrawn from the academy — they will be removed before payment.', '학원을 퇴원한 학생은 체크를 풀어 주세요 — 결제 전에 명단에서 빠집니다.') + '</p>';
+          + aiBillPriceRows(inv, true)   // 1인 단가는 바로 위 칸에 있다 — 두 번 쓰지 않는다
+          + '<input type="search" class="aib-q" placeholder="' + esc(T('Find by name or ID', '이름 · 아이디로 찾기')) + '" value="' + esc(D.aibQ || '') + '" oninput="aiBillFilter(this.value)">'
+          + '<div class="aib-grp">' + grpHead('a', '✅ ' + T('Paying for A.i content', '결제 대상 (A.i 컨텐츠 이용)'), '', T('Unselect all shown', '보이는 학생 모두 빼기'), false)
+          + (aiIt.length ? aiIt.map(itemRow).join('') : '<p class="muted aib-sub">' + T('No student selected yet. Check students below.', '아직 고른 학생이 없습니다. 아래에서 체크해 주세요.') + '</p>') + '</div>'
+          + (noIt.length ? '<div class="aib-grp">' + grpHead('b', '✋ ' + T('Not signed up', '아직 신청 안 한 학생'), T('Not paid. Check a student who will use A.i content next month.', '결제하지 않습니다. 다음 달 A.i 컨텐츠를 쓸 학생만 체크해 주세요.'), T('Select all shown', '보이는 학생 모두 선택'), true)
+            + noIt.map(itemRow).join('') + '</div>' : '')
+          + (lvIt.length ? '<details class="aib-grp"' + (D.aibQ ? ' open' : '') + '><summary>' + grpHead('c', '📹 ' + T('Video-class students', '화상영어 수업 학생'), T('A.i is included in their tuition — not paid here. Check only if this is wrong.', 'A.i 가 수업료에 포함돼 여기서 결제하지 않습니다. 판정이 틀린 학생만 체크해 주세요.'), '', true) + '</summary>'
+            + lvIt.map(itemRow).join('') + '</details>' : '')
+          + '<div class="aib-paybar"><div class="aib-paysum"><span class="muted">' + T('Total', '합계') + ' · ' + n0(inv.included_count) + T(' student(s)', '명') + '</span><b>' + won(inv.total_krw) + T(' KRW', '원') + '</b></div>'
+          + '<button type="button" class="aib-btn aib-btn-ghost" onclick="aiBillGenerate(this)" title="' + esc(T('Add students who joined after the list was made', '명단을 만든 뒤 들어온 학생을 더합니다')) + '">🔄 ' + T('Refresh list', '명단 다시 확인') + '</button>'
+          + '<button type="button" class="aib-btn aib-btn-main" onclick="aiBillPay(this)"' + (inv.included_count > 0 ? '' : ' disabled') + '>💳 ' + T('Pay ' + won(inv.total_krw) + ' KRW', won(inv.total_krw) + '원 결제하기') + '</button></div>'
+          + '<p class="muted" style="font-size:12px;margin-top:6px">' + T('Uncheck students who have left the academy — they are removed before payment.', '학원을 그만둔 학생은 체크를 풀어 주세요 — 결제 전에 명단에서 빠집니다.') + '</p>';
       }
     }
-    var hist = (D.aibillHist && D.aibillHist.rows) || [];
+    var hist = ((D.aibillHist && D.aibillHist.rows) || []).filter(function(h){ return h.status === 'paid'; });
     if (hist.length) {
-      html += '<div class="row" style="margin-top:14px;border-top:1px solid rgba(148,163,184,0.2);padding-top:10px"><b>' + T('Past invoices', '지난 청구서') + '</b></div>'
+      html += '<div class="row" style="margin-top:14px"><b>' + T('Past payments', '지난 결제') + '</b></div>'
         + hist.slice(0, 12).map(function(h){
-            var badge = h.status === 'paid' ? '✅' : '⏳';
-            return '<div class="row"><span>' + esc(h.billing_month) + '</span><span class="muted">' + n0(h.included_count) + T('students', '명') + '</span><b>' + won(h.total_krw) + '</b><span>' + badge + '</span></div>';
+            return '<div class="row"><span>' + esc(aibMonth(h.billing_month)) + T('', ' 이용분') + '</span><span class="muted">' + n0(h.included_count) + T(' students', '명') + '</span><b class="num" style="text-align:right">' + won(h.total_krw) + '</b><span>✅</span></div>';
           }).join('');
     }
     el.innerHTML = html;
+    if (D.aibQ) window.aiBillFilter(D.aibQ);
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -3070,7 +3298,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       // 🚪 입장 — 망고아이 방이 있는 줄만(강사 대체용). 확인 문구는 관리자 화면과 같다
       var act = r.join_open
         ? '<a class="tag" href="#" onclick="return taJoin(this)" data-room="' + esc(r.room_id || '') + '" data-who="' + who + '">'
-          + esc(T('Join', '입장')) + '</a>'
+          + esc(T('🚪 Join (visible)', '🚪 입장(보임)')) + '</a>'
           /* 💬 (2026-10-08 매니저 질문 «where can we message the student if the teacher has a technical problem?»)
              관찰(고스트) 창의 «받는 사람» 에서 그 학생을 고르면 학생 화면에만 메시지가 뜬다(관찰자는 학생에게 안 보임).
              「지금 진행 중인 수업」 카드에만 있던 길을 이 줄에도 둔다 — 같은 화면(ghost-view.html), 같은 권한.
@@ -3426,9 +3654,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var who = a.getAttribute('data-who') || '';
     if (!room) return false;
     if (!confirm(T('Join this class as a real participant?\n\nRoom: ' + room + '\nStudent: ' + who
-                   + '\n\nNOT observation — students and the teacher see you. Camera starts OFF.',
+                   + '\n\nNOT observation — students and the teacher see you. Camera starts OFF.'
+                   + '\nIf a live observation tab is open, close it first (the sound would echo).',
                    '이 수업에 실제 참가자로 입장할까요?\n\n강의실: ' + room + '\n학생: ' + who
-                   + '\n\n※ 참관이 아닙니다. 학생·강사에게 보입니다. 카메라는 꺼진 채로 시작합니다.'))) return false;
+                   + '\n\n※ 참관이 아닙니다. 학생·강사에게 보입니다. 카메라는 꺼진 채로 시작합니다.'
+                   + '\n※ 라이브 관찰 창을 열어 두었다면 먼저 닫아 주세요(소리가 울립니다).'))) return false;
     var url = location.origin + '/?vc_autojoin=1&vc_cam=off&vc_role=teacher&vc_room=' + encodeURIComponent(room);
     var w = null;
     /* 🔴 2026-09-02: 'noopener' 를 기능 문자열로 주면 «탭은 열리는데 반환값이 null» 이라(표준) 반환값 판정이 늘 «막힘» 이 된다. 빼고 w.opener=null 로 같은 보호를 건다. */
@@ -3499,7 +3729,14 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
               `?room=` 로 보내면 방 번호가 빈 채로 열려 «관찰을 눌렀는데 아무 수업도 없다» 가 된다
               (제보 문서 「Observer Issue in All Menu Dashboard」와 같은 뿌리). */
            + '<a class="tag" target="_blank" rel="noopener" href="/admin/ghost-view.html?room_id=' + encodeURIComponent(id) + '">'
-           +   esc(T('Observe', '관찰')) + '</a></div>';
+           +   esc(T('👁 Observe (hidden)', '👁 관찰(안 보임)')) + '</a>'
+           /* 🚪 (2026-10-20 매니저 질문 «is there an option where the manager can be seen during the observation?»)
+              관찰은 학생·강사에게 안 보인다 — 보이게 들어가려면 실제 참가자로 입장해야 한다.
+              「오늘 수업」 줄의 입장과 같은 taJoin(같은 확인 · 카메라 꺼짐)을 이 줄에도 둔다.
+              ⚠️ 방 번호가 없으면 주지 않는다(빈 방으로 들어간다). */
+           + (id ? ' <a class="tag" href="#" onclick="return taJoin(this)" data-room="' + esc(id) + '" data-who="' + esc(who || '-') + '">'
+                 + esc(T('🚪 Join (visible)', '🚪 입장(보임)')) + '</a>' : '')
+           + '</div>';
     }, T('No class is running right now.', '지금 진행 중인 수업이 없습니다.'));
   }
 
@@ -3617,7 +3854,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (D.settle) paintSettle();
     // 🤖 (2026-09-22) 여기서도 같은 짝을 맞춘다 — #aiuBody 도 data-ko/data-en 이 달린 «그릇»이다.
     if (D.aiusage) window.paintAiUsage();
-    // 🏢 AI 사용료 청구서도 짝을 맞춘다 — #aibillBody 는 data-ko/data-en 이 달린 «그릇» 이라
+    // 🤖 AI 컨텐츠 결제도 짝을 맞춘다 — #aibillBody 는 data-ko/data-en 이 달린 «그릇» 이라
     //    applyLang() 이 textContent 를 통째로 갈아끼운다. 여기서 다시 안 그리면 🌐 한 번에
     //    명세·인원 체크박스·「결제하기」가 「펼치면 불러옵니다.」로 지워지고, <details> 가 이미
     //    열려 있어 ontoggle 도 재발화하지 않아 되돌릴 방법이 없다(CLAUDE.md 2장 「그릇에 달았더니

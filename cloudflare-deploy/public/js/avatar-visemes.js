@@ -1,26 +1,38 @@
 /* Audio-derived mouth cues. Does not change voice or upload audio.
-   Callers await preparation before playing; failures retain amplitude animation. */
+   Playback no longer waits for analysis (MangoAvatar.prepare caps the wait); late cues
+   attach mid-clip by the audio clock. Failures retain amplitude animation.
+   ⚡ 2026-10-20 「A.i 말하기·A.i 친구 대답을 더 빠르게」 — 실측(크로미움): 3초 문장 분석 2.3초,
+      6초 문장 5.1초, 첫 부팅 5~6초(+모델 37.8MB 다운로드). 예전에는 이것이 끝나야 소리가 났다.
+   ⚡ 분석은 «한 줄로 차례대로» 최대 MAX_PENDING 개까지 받는다(예전: 바쁘면 즉시 null) —
+      미리 받은 다음 문장을 앞 문장이 재생되는 동안 분석해 두려는 것이다.
+      ⛔ 동시에 돌리지 마세요 — 작업별 타이머가 앞 작업 시간까지 세어 워커를 죽입니다. */
 (function(){
   'use strict';
   var worker=null, ready=false, failed=false, next=0, decode=null;
   var waiting=new Map(), cache=new Map(), jobs=new Map(), readyResolve, bootTimer;
   var readyPromise=new Promise(function(resolve){readyResolve=resolve;});
-  var MAX_SECONDS=45, MAX_CACHE=12;
+  var MAX_SECONDS=45, MAX_CACHE=12, MAX_PENDING=3, STALE_MS=20000, tail=Promise.resolve();
+  function fail(){
+    failed=true;ready=false;clearTimeout(bootTimer);readyResolve(false);if(worker){worker.terminate();worker=null;}
+    waiting.forEach(function(j){clearTimeout(j.timer);j.resolve(null);});waiting.clear();
+  }
   function boot(){
     if(worker || failed || !window.Worker) return;
     try{
-      worker=new Worker('/js/avatar-viseme-worker.js?v=1');
+      worker=new Worker('/js/avatar-viseme-worker.js?v=2');
       worker.onmessage=function(e){
         var m=e.data;
         if(m.type==='ready'){ready=true;clearTimeout(bootTimer);readyResolve(true);return;}
+        if(m.type==='boot_failed'){fail();return;}
         var job=waiting.get(m.id); if(!job) return;
         waiting.delete(m.id);clearTimeout(job.timer);
         job.resolve(m.type==='result' ? valid(m.cues) : null);
       };
-      worker.onerror=function(){failed=true;ready=false;clearTimeout(bootTimer);readyResolve(false);worker.terminate();worker=null;
-        waiting.forEach(function(j){clearTimeout(j.timer);j.resolve(null);});waiting.clear();};
+      // 엔진을 못 받아도(CDN 차단·끊김) 음량 입모양으로 넘어가므로 «처리한 오류» — 페이지 오류로 올리지 않는다
+      worker.onerror=function(e){if(e&&e.preventDefault)e.preventDefault();fail();};
       worker.postMessage({type:'init'});
-      bootTimer=setTimeout(function(){if(!ready){failed=true;worker.terminate();worker=null;readyResolve(false);}},30000);
+      // ⏳ 재생이 부팅을 기다리지 않으므로 느린 회선도 끝까지 받아 캐시되게 넉넉히(예전 30초 — 그 안에 못 받으면 매 방문 처음부터 다시 받았다)
+      bootTimer=setTimeout(function(){if(!ready)fail();},180000);
     }catch(e){failed=true;readyResolve(false);}
   }
   function valid(cues){
@@ -53,7 +65,8 @@
       for(var i=0;i<mono.length;i++)pcm[i]=Math.round(Math.max(-1,Math.min(1,mono[i]))*32767);
       return await new Promise(function(resolve){
         var id=++next;
-        var timer=setTimeout(function(){waiting.delete(id);failed=true;ready=false;worker.terminate();worker=null;resolve(null);},12000);
+        // 분석은 실시간에 가까운 속도라(실측 6초 문장 5.1초) 긴 문장에 12초 고정이면 멀쩡한 워커가 죽는다
+        var timer=setTimeout(function(){waiting.delete(id);failed=true;ready=false;if(worker)worker.terminate();worker=null;resolve(null);},Math.max(12000,Math.round(audio.duration*2500)+4000));
         waiting.set(id,{resolve:resolve,timer:timer});worker.postMessage({type:'analyze',id:id,pcm:pcm},[pcm.buffer]);
       });
     }catch(e){return null;}
@@ -62,13 +75,16 @@
     boot();if(!url || failed || !worker)return Promise.resolve(null);
     if(cache.has(url))return Promise.resolve(cache.get(url));
     if(jobs.has(url))return jobs.get(url);
-    // One bounded analysis at a time; no unbounded backlog during rapid replies.
-    if(jobs.size)return Promise.resolve(null);
-    var p=readyPromise.then(function(ok){return ok ? analyze(url) : null;}).then(function(cues){
+    // One analysis at a time, in order; a short bounded queue (no unbounded backlog during rapid replies).
+    if(jobs.size>=MAX_PENDING)return Promise.resolve(null);
+    var queuedAt=Date.now();
+    // 차례가 왔을 때 이미 오래된 소리(부팅을 오래 기다린 것)는 건너뛴다 — 지금 말하는 문장이 밀리지 않게.
+    var p=tail.then(function(){return readyPromise;}).then(function(ok){return ok && !failed && Date.now()-queuedAt<STALE_MS ? analyze(url) : null;}).then(function(cues){
       jobs.delete(url);
       if(cues){if(cache.size>=MAX_CACHE)cache.delete(cache.keys().next().value);cache.set(url,cues);}
       return cues;
-    });jobs.set(url,p);return p;
+    },function(){jobs.delete(url);return null;});
+    tail=p;jobs.set(url,p);return p;
   }
   function at(cues,time){
     if(!cues || !Number.isFinite(time))return 'X';
