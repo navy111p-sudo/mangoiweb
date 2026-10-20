@@ -360,6 +360,7 @@ const worker = {
             || path === '/teacher' || path === '/teacher/' || path === '/teacher.html'
             || path === '/manager' || path === '/manager/' || path === '/manager.html'
             || path === '/branch' || path === '/branch/' || path === '/branch.html'
+            || path === '/agency' || path === '/agency/' || path === '/agency.html'
             || path === '/work' || path === '/work/' || path === '/work.html'
             || path === '/sales' || path === '/sales/' || path === '/sales.html') {
           const next = encodeURIComponent(path + url.search);
@@ -2298,6 +2299,18 @@ const worker = {
       const mNotMod = htmlEtag304(request, '/manager.html', env, mHeaders);
       if (mNotMod) return mNotMod;
       return new Response(mResp.body, { status: mResp.status, headers: mHeaders });
+    }
+
+    // 🤝 /agency — 대리점 전용 주소(2026-10-20 사장님 지시: /manager 는 본사 관리자 화면).
+    //   화면은 manager.html 을 그대로 쓴다(권한·API 동일). 주소만 갈린다. ETag 키도 같은 파일.
+    if (path === '/agency' || path === '/agency/' || path === '/agency.html') {
+      const r = new Request(new URL('/manager.html' + url.search, request.url).toString(), request);
+      const aResp = await env.ASSETS.fetch(r);
+      const aHeaders = new Headers(aResp.headers);
+      aHeaders.set('Cache-Control', 'no-cache');
+      const aNotMod = htmlEtag304(request, '/manager.html', env, aHeaders);
+      if (aNotMod) return aNotMod;
+      return new Response(aResp.body, { status: aResp.status, headers: aHeaders });
     }
 
     // 🏢 /branch — 지사장 전용(2026-09-23). /manager 와 같은 이유로 확장자 없는 주소를 직접 잇고 ETag 를 붙인다.
@@ -6047,8 +6060,9 @@ async function managerPortalRedirect(
 ): Promise<Response | null> {
   const isManagerPage = (path === '/manager' || path === '/manager/' || path === '/manager.html');
   const isBranchPage  = (path === '/branch' || path === '/branch/' || path === '/branch.html');
+  const isAgencyPage  = (path === '/agency' || path === '/agency/' || path === '/agency.html');
   const isAdminHome   = (path === '/admin' || path === '/admin/' || path === '/admin.html');
-  if (!isManagerPage && !isAdminHome && !isBranchPage) return null;
+  if (!isManagerPage && !isAdminHome && !isBranchPage && !isAgencyPage) return null;
   if (url.searchParams.get('full') === '1') return null;      // 탈출구
 
   let sc: { type: string };
@@ -6063,15 +6077,21 @@ async function managerPortalRedirect(
   /* 🏢 (2026-09-23 사장님 지시) 지사장(scope=branch)은 /manager 가 아니라 /branch 를 쓴다.
      /manager 는 대리점·지사본사·필리핀 매니저가 그대로 쓴다 — 거기 화면을 바꾸지 않으려고 화면을 나눴다.
      ⚠️ 권한은 그대로다(두 화면이 같은 API 를 부른다). 착지 화면만 갈린다. ?full=1 탈출구는 위에서 그대로. */
-  if (sc.type === 'branch' && (isAdminHome || isManagerPage)) {
+  if (sc.type === 'branch' && (isAdminHome || isManagerPage || isAgencyPage)) {
     return Response.redirect(new URL('/branch', request.url).toString(), 302);
   }
-  // 지사장이 아닌 조직 계정(대리점·지사본사)이 /branch 를 열었다 → 자기 화면(/manager)으로
-  if (isBranchPage && isOrg && sc.type !== 'branch') {
+  /* 🤝 (2026-10-20 사장님 지시) 대리점(scope=agency)은 /agency. /manager 는 본사 관리자 화면이다.
+     화면은 같은 manager.html 이라 권한·기능은 그대로다. 옛 /manager 북마크·결제 복귀(?tui_paid=1)가
+     깨지지 않게 쿼리를 그대로 들고 옮긴다. */
+  if (sc.type === 'agency' && (isAdminHome || isManagerPage || isBranchPage)) {
+    return Response.redirect(new URL('/agency' + url.search, request.url).toString(), 302);
+  }
+  // 그 밖의 조직 계정(지사본사)이 /branch·/agency 를 열었다 → 자기 화면(/manager)으로
+  if ((isBranchPage || isAgencyPage) && isOrg && sc.type !== 'branch' && sc.type !== 'agency') {
     return Response.redirect(new URL('/manager', request.url).toString(), 302);
   }
 
-  // 지사·대리점이 관리자 첫 화면을 열었다 → 경량 포털로
+  // 지사본사가 관리자 첫 화면을 열었다 → 경량 포털로
   if (isOrg && isAdminHome) {
     return Response.redirect(new URL('/manager', request.url).toString(), 302);
   }
@@ -6097,7 +6117,7 @@ async function managerPortalRedirect(
   // 조직 계정이 아닌 사람이 /manager 를 열었다 → 각자의 화면으로 돌려보낸다.
   //   본사(hq·staff)는 그대로 통과시킨다 — 강사 포털과 같은 이유로, 같은 정보를
   //   가볍게 보는 창을 하나 더 갖는 것뿐이다(권한 변화 없음).
-  if ((isManagerPage || isBranchPage) && !isOrg) {
+  if ((isManagerPage || isBranchPage || isAgencyPage) && !isOrg) {
     let actor: { ok: boolean; isTeacher: boolean; role: string };
     try {
       actor = await getAdminActor(request, env as any);
@@ -6110,6 +6130,10 @@ async function managerPortalRedirect(
     }
     if (actor.role !== 'hq' && actor.role !== 'staff') {
       return Response.redirect(new URL('/admin.html?full=1', request.url).toString(), 302);
+    }
+    // 본사가 대리점 주소(/agency)를 열었다 → 본사 화면(/manager)으로
+    if (isAgencyPage) {
+      return Response.redirect(new URL('/manager' + url.search, request.url).toString(), 302);
     }
   }
   return null;
@@ -6140,6 +6164,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/manager' || path === '/manager/' || path === '/manager.html') return true;
   // 🏢 지사장 전용 화면 (2026-09-23 사장님 지시) — /manager 와 같은 규칙. 역할 분기는 managerPortalRedirect().
   if (path === '/branch' || path === '/branch/' || path === '/branch.html') return true;
+  // 🤝 대리점 전용 주소 (2026-10-20) — 화면은 manager.html. 역할 분기는 managerPortalRedirect().
+  if (path === '/agency' || path === '/agency/' || path === '/agency.html') return true;
 
   // 🧾 결재 전용 초경량 화면 (2026-08-16) — 회사 지출 내역이 담긴다. 로그인 필수.
   //   위 두 포털과 같은 규칙이다. 역할 분기는 하지 않는다 —
