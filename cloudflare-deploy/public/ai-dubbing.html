@@ -16,9 +16,15 @@
   연동 약속(정본): docs/A.i영화더빙_화면연동_설명서.md — 이 화면은 /data/dubbing/<에피소드>.json 하나만 읽는다.
   ⚠️ 판정(대사 배정·음소거·시각 검사)은 /js/ai-dubbing-core.js 한 곳. 화면 코드에 다시 적지 말 것.
   ⚠️ 매니페스트를 못 읽으면 아래 «준비 중» 칸이 그대로 남는다(눌러도 아무 데도 안 가게 — 없는 영상으로 보내지 않는다).
+
+  🧭 배치 (2026-10-20 사장님 「두 장르가 한 화면에서 잘 보이게」 → 시안 4종 중 B안)
+  소개 카드 → 장르 카드 2개(모험 3D 애니 6편 × 에피소드 6 · 키키와 토토 10편) → 왼쪽 «작품·에피소드 고르기» / 오른쪽 «누가 연기할까요?».
+  폰(860px 이하)은 한 줄로 쌓고, 출연 설정은 아래 고정 바 → 바텀시트로 연다.
+  ⛔ 키키와 토토는 전용 스튜디오(/ai-dubbing-studio.html?ep=<id>)에서 더빙한다 — 여기서는 «고르기» 만 한다(재생 기능을 두 벌 만들지 않는다).
 -->
 <style>
-  :root{--bg:#0e131c;--card:#161c28;--line:#2a3344;--text:#e8ecf3;--text2:#b4bdcc;--gold:#f5b83d;--mint:#34d399;--red:#f87171}
+  :root{--bg:#0e131c;--card:#161c28;--line:#2a3344;--text:#e8ecf3;--text2:#b4bdcc;--gold:#f5b83d;--mint:#34d399;--red:#f87171;
+    --adv:#9b8cff;--adv-bg:#2b2452;--kt:#3ddc97;--kt-bg:#12382d}
   *{box-sizing:border-box}
   [hidden]{display:none !important}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
@@ -26,71 +32,142 @@
   .top{display:flex;align-items:center;gap:12px;padding:14px 18px 14px 64px;min-height:56px;background:rgba(22,28,40,.96);
     position:sticky;top:0;z-index:50;border-bottom:1px solid var(--line)}
   .top h1{margin:0;font-size:17px;font-weight:900}
-  .wrap{max-width:980px;margin:0 auto;padding:18px 16px 40px;display:flex;flex-direction:column;gap:18px}
-  .intro{margin:0;font-size:15px;color:var(--text2)}
-  .poster{display:block;width:100%;height:auto;aspect-ratio:1672/941;border-radius:16px;border:1px solid var(--line);background:#0b1018}
-  .feats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-  .feat{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border-radius:14px;background:var(--card);
-    border:1px solid var(--line);text-align:center}
-  .feat b{font-size:14px}
-  .feat span{font-size:12.5px;color:var(--text2)}
-  .notice{padding:14px 16px;border-radius:14px;background:rgba(245,184,61,.1);border:1px solid rgba(245,184,61,.45);font-size:14px}
+  .wrap{max-width:1200px;margin:0 auto;padding:16px 16px 40px;display:flex;flex-direction:column;gap:16px}
+  h2{margin:0;font-size:17px;font-weight:800}
+  .hint{margin:4px 0 0;font-size:13px;color:var(--text2)}
+  .panel{padding:14px;border-radius:16px;background:var(--card);border:1px solid var(--line);display:flex;flex-direction:column;gap:12px;min-width:0}
+
+  /* « 소개 카드 » */
+  .hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:center;padding:18px 20px;border-radius:18px;
+    background:linear-gradient(135deg,#1f2a3f,#2a2238);border:1px solid var(--line)}
+  .hero-brand{margin:0;font-size:13px;font-weight:800;color:var(--gold)}
+  .hero-h{margin:4px 0 2px;font-size:clamp(19px,2.4vw,25px);font-weight:900;line-height:1.3;word-break:keep-all}
+  .intro{margin:0;font-size:14.5px;color:var(--text2)}
+  .pills{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0;padding:0;list-style:none}
+  .pill{display:flex;flex-direction:column;gap:1px;padding:8px 14px;border-radius:14px;background:rgba(14,19,28,.55);border:1px solid var(--line)}
+  .pill b{font-size:13.5px}
+  .pill span{font-size:12px;color:var(--text2)}
+  .poster{display:block;width:300px;height:auto;aspect-ratio:1672/941;border-radius:14px;border:1px solid var(--line);background:#0b1018}
+
+  /* « 장르 카드 2개 » — 두 장르가 언제나 한눈에 보이게 */
+  .genres{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .genre{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"ic tx num" "mini mini mini";
+    gap:10px 14px;align-items:center;padding:14px 16px;border-radius:18px;border:2px solid var(--line);background:var(--card);
+    color:var(--text);font:inherit;text-align:left;cursor:pointer}
+  .genre.adv{--acc:var(--adv);--tile:var(--adv-bg)}
+  .genre.kt{--acc:var(--kt);--tile:var(--kt-bg)}
+  .genre:hover{border-color:var(--acc)}
+  .genre[aria-pressed="true"]{border-color:var(--acc);background:linear-gradient(135deg,var(--tile),var(--card) 72%)}
+  .genre:disabled{cursor:not-allowed;opacity:.6}
+  .g-ic{grid-area:ic;width:52px;height:52px;border-radius:14px;background:var(--tile);display:flex;align-items:center;justify-content:center;font-size:28px}
+  .g-tx{grid-area:tx;display:flex;flex-direction:column;gap:2px;min-width:0}
+  .g-tx b{font-size:17px;font-weight:900}
+  .g-sub{font-size:13px;color:var(--text2)}
+  .g-num{grid-area:num;display:flex;flex-direction:column;align-items:flex-end;line-height:1.15}
+  .g-num b{font-size:30px;font-weight:900;color:var(--acc)}
+  .g-num small{font-size:12px;color:var(--text2);white-space:nowrap}
+  .g-mini{grid-area:mini;display:flex;gap:5px;flex-wrap:wrap}
+  .mn{min-width:26px;height:22px;padding:0 5px;border-radius:7px;border:1px solid var(--line);font-size:12px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;color:var(--text2)}
+  .mn.on{background:var(--tile);border-color:var(--acc);color:var(--text)}
+  .mn.cur{background:var(--acc);border-color:var(--acc);color:#0e131c}
+  .g-sel{position:absolute;top:-11px;right:14px;padding:2px 10px;border-radius:999px;background:var(--acc);color:#0e131c;font-size:12px;font-weight:900;display:none}
+  .genre[aria-pressed="true"] .g-sel{display:block}
+
+  /* « 왼쪽 고르기 · 오른쪽 출연 설정 » */
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) clamp(300px,30vw,360px);gap:16px;align-items:start}
+  .col-main{display:flex;flex-direction:column;gap:14px;min-width:0}
+  .col-side{position:sticky;top:68px;max-height:calc(100vh - 80px);overflow-y:auto;display:flex;flex-direction:column;gap:12px;min-width:0}
+  .sheet-head{display:none}
+  .notice{padding:12px 14px;border-radius:14px;background:rgba(245,184,61,.1);border:1px solid rgba(245,184,61,.45);font-size:13.5px}
   .notice b{color:var(--gold)}
   .notice.err{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.5)}
   .notice.err b{color:var(--red)}
-  .now{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:16px;background:linear-gradient(135deg,#1f2a3f,#2a2238);
-    border:1px solid rgba(245,184,61,.6);color:var(--text);text-decoration:none}
-  .now:hover{border-color:var(--gold)}
-  .now-ic{font-size:30px;flex:none}
-  .now-tx{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
-  .now-tx b{font-size:16px;color:var(--gold)}
-  .now-sub{font-size:13.5px;color:var(--text2)}
-  .now-go{font-size:28px;color:var(--gold);flex:none}
-  h2{margin:0;font-size:18px;font-weight:800}
-  .hint{margin:4px 0 0;font-size:13px;color:var(--text2)}
-  .panel{padding:14px;border-radius:16px;background:var(--card);border:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+
+  /* « 1. 작품 고르기 » — 6편 */
+  .eps{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:10px}
+  .ep{position:relative;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;aspect-ratio:3/4;padding:9px;border-radius:14px;
+    border:1px solid var(--line);background:#121826;background-size:cover;background-position:center;color:var(--text);text-decoration:none;overflow:hidden}
+  a.ep:hover{border-color:var(--adv)}
+  .ep.cur{border:2px solid var(--adv);box-shadow:0 0 0 3px rgba(155,140,255,.2)}
+  .ep.off{opacity:.62}
+  .ep-big{position:absolute;top:30px;left:10px;font-size:36px;font-weight:900;line-height:1;color:rgba(155,140,255,.32)}
+  .ep-badge{position:absolute;top:7px;right:7px;padding:1px 7px;border-radius:999px;background:rgba(5,8,14,.78);font-size:11px;font-weight:800;color:#ddd6fe}
+  .ep-no{font-size:12px;font-weight:900;color:#c4b5fd}
+  .ep-t{font-size:13px;font-weight:800;line-height:1.3;word-break:keep-all}
+  .ep-s{font-size:11.5px;color:var(--text2);word-break:keep-all}
+
+  /* « 2. 에피소드 고르기 » — 작품 안의 6개 */
+  .scenes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .scene{display:flex;flex-direction:column;gap:8px;padding:8px;border-radius:14px;background:#121826;border:2px solid var(--line);min-width:0}
+  .scene.sel{border-color:var(--adv);background:linear-gradient(180deg,var(--adv-bg),#121826 62%)}
+  .pick{display:flex;flex-direction:column;gap:6px;width:100%;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+  .pick:disabled{cursor:not-allowed}
+  .pick:focus-visible,.ktep:focus-visible,.genre:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+  .thumb{position:relative;aspect-ratio:16/9;border-radius:10px;border:1px dashed #3b4659;background:#0b1018;display:flex;align-items:center;
+    justify-content:center;font-size:13px;color:#9aa4b5;text-align:center;padding:4px;overflow:hidden}
+  .thumb.on{border-style:solid;font-size:22px;letter-spacing:3px}
+  .thumb.pic{background-size:cover;background-position:center;align-items:flex-end;justify-content:flex-end;padding:6px}
+  .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .thumb .epn{position:absolute;top:6px;left:6px;padding:1px 8px;border-radius:999px;background:rgba(5,8,14,.8);font-size:11.5px;font-weight:900;color:#ddd6fe;letter-spacing:0}
+  .thumb .emo{position:relative;font-size:15px;letter-spacing:2px;padding:2px 8px;border-radius:999px;background:rgba(5,8,14,.72)}
+  .tag{align-self:flex-start;padding:3px 11px;border-radius:999px;color:#fff;font-size:13px;font-weight:800;line-height:1.35}
+  .s1{background:#2366c9}.s2{background:#6a3fc8}.s3{background:#22803f}.s4{background:#c25e12}.s5{background:#c22f2f}.s6{background:#3f4cc2}
+  .scene .meta{font-size:12px;color:var(--text2)}
+  .selmark{display:none;font-size:12px;font-weight:900;color:#c4b5fd}
+  .scene.sel .selmark{display:inline}
+
+  /* « 키키와 토토 10편 » */
+  .kts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  /* ⚠️ 이름이 .kt 이면 장르 카드(.genre.kt)가 이 규칙을 물려받아 세로로 무너진다 — 그래서 .ktep */
+  .ktep{display:flex;flex-direction:column;gap:5px;padding:8px;border-radius:14px;background:#121826;border:2px solid var(--line);
+    color:var(--text);font:inherit;text-align:left;cursor:pointer;min-width:0}
+  .ktep:hover{border-color:var(--kt)}
+  .ktep[aria-pressed="true"]{border-color:var(--kt);background:linear-gradient(180deg,var(--kt-bg),#121826 62%)}
+  .ktep .thumb{border-style:solid}
+  .ktep .thumb .epn{color:#a7f3d0}
+  .kt-lv{font-size:11.5px;font-weight:900;color:var(--kt)}
+  .kt-t{font-size:13.5px;font-weight:800;line-height:1.3;word-break:keep-all}
+
+  /* « 오른쪽 칸 » */
+  .pick-sum{display:flex;gap:10px;align-items:center;padding:10px;border-radius:12px;background:#121826;border:1px solid var(--line)}
+  .pick-sum .ps-img{flex:none;width:76px;aspect-ratio:16/9;border-radius:8px;background:#0b1018 center/cover no-repeat;border:1px solid var(--line)}
+  .ps-tx{display:flex;flex-direction:column;gap:1px;min-width:0;font-size:12.5px;color:var(--text2)}
+  .ps-tx b{font-size:14px;color:var(--text);line-height:1.3;word-break:keep-all}
+  .kt-big{width:100%;aspect-ratio:16/9;border-radius:12px;border:1px solid var(--line);background:#0b1018 center/cover no-repeat}
+  .kt-desc{margin:0;font-size:13.5px;color:var(--text2)}
+  .kt-cast{margin:0;font-size:13.5px}
+  .kt-cast b{color:var(--kt)}
+
   /* « 누가 연기할까요 » */
-  .cnts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .cnts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;align-items:center;font-size:14px}
+  .cnts > span{grid-column:1/-1;font-weight:800}
   .cnt,.chip,.btn{font:inherit;cursor:pointer;border-radius:999px;border:1px solid var(--line);background:#1d2433;color:var(--text);min-height:40px}
-  .cnt{width:44px;font-weight:800}
+  .cnt{width:100%;font-weight:800}
   .cnt[aria-pressed="true"],.chip[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#1a1205}
   .stu{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-radius:12px;background:#121826;border:1px solid var(--line)}
   .stu-no{width:28px;height:28px;flex:none;border-radius:50%;background:#2a3344;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px}
-  .stu-name{font:inherit;width:9.5em;max-width:40vw;padding:8px 10px;border-radius:10px;border:1px solid #3b4659;background:#0b1018;color:var(--text)}
+  .stu-name{font:inherit;width:9.5em;max-width:60%;padding:8px 10px;border-radius:10px;border:1px solid #3b4659;background:#0b1018;color:var(--text)}
   .stu-me{font-size:12px;color:var(--mint)}
-  .chips{display:flex;gap:6px;flex-wrap:wrap}
-  .chip{padding:0 14px;font-size:14px;font-weight:700}
-  .mutesum{font-size:13.5px;color:var(--text2)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;width:100%}
+  .chip{padding:0 13px;font-size:14px;font-weight:700}
+  .mutesum{font-size:13px;color:var(--text2)}
   .mutesum b{color:var(--text)}
-  /* « 장면 고르기 » */
-  .scenes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-  .scene{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:14px;background:var(--card);border:1px solid var(--line)}
-  .thumb{aspect-ratio:16/9;border-radius:10px;border:1px dashed #3b4659;background:#0b1018;display:flex;align-items:center;
-    justify-content:center;font-size:13px;color:#9aa4b5;text-align:center;padding:4px}
-  .thumb.on{border-style:solid;font-size:24px;letter-spacing:4px}
-  .thumb.pic{background-size:cover;background-position:center;align-items:flex-end;justify-content:flex-end;padding:6px}
-  .thumb.pic .emo{font-size:17px;letter-spacing:2px;padding:2px 8px;border-radius:999px;background:rgba(5,8,14,.72)}
-  /* « 이야기 고르기(1·2·3편) » */
-  .eps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-  .ep{display:flex;flex-direction:column;justify-content:flex-end;gap:4px;min-height:104px;padding:12px;border-radius:14px;
-    border:1px solid var(--line);background:#121826;background-size:cover;background-position:center;color:var(--text);text-decoration:none}
-  a.ep:hover{border-color:var(--gold)}
-  .ep.cur{border:2px solid var(--gold)}
-  .ep.off{opacity:.7}
-  .ep-no{font-size:12.5px;font-weight:800;color:var(--gold)}
-  .ep-t{font-size:15px;font-weight:800;line-height:1.3}
-  .ep-s{font-size:12.5px;color:var(--text2)}
-  .tag{align-self:flex-start;padding:4px 12px;border-radius:999px;color:#fff;font-size:13.5px;font-weight:800}
-  .s1{background:#2366c9}.s2{background:#6a3fc8}.s3{background:#22803f}.s4{background:#c25e12}.s5{background:#c22f2f}.s6{background:#3f4cc2}
-  .scene .meta{font-size:12.5px;color:var(--text2)}
-  .btn{padding:0 16px;font-weight:800;font-size:14px}
+  .btn{padding:0 16px;font-weight:800;font-size:14px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
   .btn.go{background:#2563eb;border-color:#2563eb;color:#fff}
   .btn.ok{background:#059669;border-color:#059669;color:#fff}
   .btn.warn{background:#7c2d12;border-color:#9a3412;color:#fff}
+  .btn.big{width:100%;min-height:50px;font-size:15.5px;font-weight:900}
+  .btn.cta{background:#ffb020;border-color:#ffb020;color:#1a1200}
+  .btn.kt-go{background:var(--kt);border-color:var(--kt);color:#062016}
   .btn:disabled{opacity:.45;cursor:not-allowed}
   .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-  .opt{display:flex;align-items:center;gap:6px;font-size:14px}
-  .opt input{width:18px;height:18px}
+  .opts{display:flex;flex-direction:column;gap:6px}
+  .opt{display:flex;align-items:center;gap:8px;font-size:13.5px}
+  .opt input{width:18px;height:18px;flex:none}
+  .flow{margin:0;font-size:12.5px;color:var(--text2);text-align:center}
+  .who-sp{display:flex;flex-direction:column;gap:4px;font-size:13px}
+
   /* « 플레이어 » */
   .stage{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;border:1px solid var(--line)}
   .stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
@@ -123,19 +200,61 @@
     font-size:15px;font-weight:800;border:1px solid rgba(245,184,61,.35)}
   button.final{width:100%;font:inherit;font-weight:800;cursor:pointer}
   button.final:disabled{cursor:not-allowed;opacity:.7}
-  .motto{margin:0;text-align:center;font-size:15px;font-weight:800;color:var(--gold)}
-  @media (max-width:640px){
-    .eps{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .ep{min-height:84px}
-    .scenes{grid-template-columns:1fr}
-    .scene{flex-direction:row;align-items:center;flex-wrap:wrap}
-    .thumb{width:96px;flex:none;font-size:11px}
-    .thumb.on{font-size:16px;letter-spacing:1px}
-    .feat span{display:none}
-    .feat b{font-size:13px;word-break:keep-all}
+
+  /* « 폰 아래 고정 바 · 바텀시트 » — 넓은 화면에서는 안 보인다 */
+  .mbar{display:none}
+  .sheet-bg{display:none}
+
+  @media (max-width:1100px){
+    .scenes{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+  @media (max-width:860px){
+    .wrap{padding:12px 12px calc(96px + env(safe-area-inset-bottom))}
+    .hero{grid-template-columns:1fr;padding:14px 14px 12px}
+    .poster{display:none}
+    .pills{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-right:-14px;padding-right:14px}
+    .pills::-webkit-scrollbar{display:none}
+    .pill{flex:none}
+    .genres{gap:8px}
+    .genre{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"ic tx" "num num";gap:6px 10px;padding:11px 12px;border-radius:16px}
+    .g-ic{width:40px;height:40px;font-size:22px;border-radius:12px}
+    .g-tx b{font-size:15px;word-break:keep-all}
+    .g-sub,.g-mini{display:none}
+    .g-num{flex-direction:row;align-items:baseline;gap:6px}
+    .g-num b{font-size:22px}
+    .layout{grid-template-columns:1fr}
+    .col-side{position:static;max-height:none;overflow:visible}
+    .eps{display:flex;overflow-x:auto;gap:8px;scroll-snap-type:x mandatory;padding-bottom:4px}
+    .ep{flex:0 0 116px;scroll-snap-align:start}
+    .kts{grid-template-columns:repeat(2,minmax(0,1fr))}
+    /* 출연 설정 = 바텀시트 */
+    #dub-side{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:70;max-height:88vh;max-height:88svh;overflow-y:auto;gap:0;
+      padding:0 12px calc(12px + env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--line);border-radius:18px 18px 0 0;
+      box-shadow:0 -14px 40px rgba(0,0,0,.55);transform:translateY(105%);visibility:hidden;transition:transform .22s ease,visibility 0s linear .22s}
+    #dub-side.open{transform:none;visibility:visible;transition:transform .22s ease}
+    #dub-side .panel{border:0;padding:6px 2px 4px;background:none}
+    .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:0;z-index:1;padding:12px 2px 8px;background:var(--bg)}
+    .sheet-head b{font-size:15px}
+    .sheet-bg{display:block;position:fixed;inset:0;z-index:65;border:0;padding:0;background:rgba(0,0,0,.55);cursor:pointer}
+    .mbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;align-items:center;gap:10px;
+      padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(22,28,40,.97);border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(0,0,0,.4)}
+    .mbar-img{flex:none;width:58px;aspect-ratio:16/9;border-radius:8px;background:#0b1018 center/cover no-repeat;border:1px solid var(--line)}
+    .mbar-tx{display:flex;flex-direction:column;min-width:0;flex:1;font-size:12px;color:var(--text2);line-height:1.35}
+    .mbar-tx b{font-size:13.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mbar-tx span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mbar .btn{flex:none;min-height:44px;padding:0 14px}
+    body.dub-running .mbar{display:none}
+    body.dub-sheet-open #mg-drawer-tab{visibility:hidden}
+  }
+  @media (max-width:560px){
+    .scenes{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .scene{padding:7px}
+    .tag{font-size:12px;padding:2px 9px}
+    .scene .btn{min-height:38px;font-size:13px;padding:0 10px}
     .ln{grid-template-columns:1fr auto}
     .ln .who{grid-column:1/-1}
   }
+  @media (prefers-reduced-motion:reduce){ #dub-side,#dub-side.open{transition:none} }
 </style>
 </head>
 <body>
@@ -143,58 +262,40 @@
   <h1><span data-ko="🎬 A.i영화더빙" data-en="🎬 A.i Movie Dubbing">🎬 A.i영화더빙</span></h1>
 </header>
 <main class="wrap">
-  <p class="intro"><span data-ko="애니메이션 속 주인공이 되어 내 목소리로 영어 대사를 더빙해요." data-en="Become the hero of an animation and dub the English lines in your own voice.">애니메이션 속 주인공이 되어 내 목소리로 영어 대사를 더빙해요.</span></p>
-
-  <!-- 포스터는 «같은 이름으로» 갈아 끼우므로 ?v= 를 올린다(이미지 7일 캐시) — 2: 로고 mangoi.ai·«망고에이아이» (2026-10-19) -->
-  <img class="poster" src="/img/dubbing/poster.webp?v=2" width="1672" height="941" alt="A.i영화더빙 — 모험의 시작부터 해피엔딩까지 6장면 / A.i Movie Dubbing — six scenes from the start of the adventure to the happy ending">
-
-  <section class="feats" aria-label="학습 방법">
-    <div class="feat"><b data-ko="🎤 직접 더빙하고!" data-en="🎤 Dub it yourself!">🎤 직접 더빙하고!</b><span data-ko="캐릭터를 골라 대사를 말해요" data-en="Pick a character and say the lines">캐릭터를 골라 대사를 말해요</span></div>
-    <div class="feat"><b data-ko="⭐ AI가 평가하고!" data-en="⭐ AI gives feedback!">⭐ AI가 평가하고!</b><span data-ko="발음과 말하기를 알려줘요" data-en="Pronunciation and speaking tips">발음과 말하기를 알려줘요</span></div>
-    <div class="feat"><b data-ko="▶ 완성 영상 다시 보기!" data-en="▶ Watch your movie!">▶ 완성 영상 다시 보기!</b><span data-ko="내 목소리 영화를 감상해요" data-en="Enjoy the movie with your voice">내 목소리 영화를 감상해요</span></div>
-  </section>
-
-  <section class="panel" id="dub-eps-panel" aria-label="이야기 고르기" hidden>
-    <h2><span data-ko="이야기 고르기" data-en="Pick a story">이야기 고르기</span></h2>
-    <div class="eps" id="dub-eps"></div>
-  </section>
-
-  <div class="notice" id="dub-status" role="status"><b data-ko="준비 중이에요" data-en="Coming soon">준비 중이에요</b> · <span data-ko="첫 번째 더빙 이야기를 만들고 있어요. 영상이 올라오면 이곳에서 장면을 골라 바로 더빙할 수 있어요." data-en="We are making the first dubbing story. When the videos are ready, you can pick a scene here and start dubbing.">첫 번째 더빙 이야기를 만들고 있어요. 영상이 올라오면 이곳에서 장면을 골라 바로 더빙할 수 있어요.</span></div>
-
-  <section class="panel" id="dub-cast-panel" aria-label="누가 연기할까요" hidden>
+  <section class="hero" aria-label="A.i영화더빙 소개">
     <div>
-      <h2><span data-ko="1. 누가 연기할까요?" data-en="1. Who will act?">1. 누가 연기할까요?</span></h2>
-      <p class="hint"><span data-ko="1~5명이 함께 할 수 있어요. 학생이 고른 캐릭터는 원어민 목소리가 꺼지고 학생이 말해요. 같은 캐릭터를 여러 명이 고르면 그 캐릭터 대사를 번갈아 말해요." data-en="1 to 5 students can play together. The characters students pick are muted so the students speak. If several students pick the same character, they take turns with its lines.">1~5명이 함께 할 수 있어요. 학생이 고른 캐릭터는 원어민 목소리가 꺼지고 학생이 말해요. 같은 캐릭터를 여러 명이 고르면 그 캐릭터 대사를 번갈아 말해요.</span></p>
+      <p class="hero-brand">mangoi.ai · <span data-ko="재미가 의지를 이깁니다!" data-en="Fun beats willpower!">재미가 의지를 이깁니다!</span></p>
+      <h2 class="hero-h"><span data-ko="망고아이와 함께 애니메이션 속 주인공이 되어보세요!" data-en="Become the hero of an animation with Mangoi!">망고아이와 함께 애니메이션 속 주인공이 되어보세요!</span></h2>
+      <p class="intro"><span data-ko="애니메이션 속 주인공이 되어 내 목소리로 영어 대사를 더빙해요." data-en="Become the hero of an animation and dub the English lines in your own voice.">애니메이션 속 주인공이 되어 내 목소리로 영어 대사를 더빙해요.</span></p>
+      <ul class="pills" aria-label="학습 방법">
+        <li class="pill"><b data-ko="🎤 직접 더빙하고!" data-en="🎤 Dub it yourself!">🎤 직접 더빙하고!</b><span data-ko="캐릭터를 골라 대사를 말해요" data-en="Pick a character and say the lines">캐릭터를 골라 대사를 말해요</span></li>
+        <li class="pill"><b data-ko="⭐ AI가 평가하고!" data-en="⭐ AI gives feedback!">⭐ AI가 평가하고!</b><span data-ko="발음과 말하기를 알려줘요" data-en="Pronunciation and speaking tips">발음과 말하기를 알려줘요</span></li>
+        <li class="pill"><b data-ko="▶ 완성 영상 다시 보기!" data-en="▶ Watch your movie!">▶ 완성 영상 다시 보기!</b><span data-ko="내 목소리 영화를 감상해요" data-en="Enjoy the movie with your voice">내 목소리 영화를 감상해요</span></li>
+      </ul>
     </div>
-    <div id="dub-cast"></div>
+    <!-- 포스터는 «같은 이름으로» 갈아 끼우므로 ?v= 를 올린다(이미지 7일 캐시) — 2: 로고 mangoi.ai·«망고에이아이» (2026-10-19) -->
+    <img class="poster" src="/img/dubbing/poster.webp?v=2" width="1672" height="941" alt="A.i영화더빙 — 모험의 시작부터 해피엔딩까지 / A.i Movie Dubbing — from the start of the adventure to the happy ending">
   </section>
 
-  <!-- 🎬 (2026-10-19 사장님 「이거 … A.i 더빙동영상에 넣어줘」) 지금 바로 해 볼 수 있는 더빙 10편.
-       6장면 영화(dub-001)가 열리기 전에도 이 메뉴에서 더빙을 해 볼 수 있게 별도 화면으로 잇는다 — 이 화면의 마크업은 그대로 둔다. -->
-  <a class="now" href="/ai-dubbing-studio.html">
-    <span class="now-ic" aria-hidden="true">🎬</span>
-    <span class="now-tx"><b data-ko="지금 바로 해 보기 · 키키와 토토 더빙 10편" data-en="Try it now · Kiki &amp; Toto, 10 dubbing episodes">지금 바로 해 보기 · 키키와 토토 더빙 10편</b>
-    <span class="now-sub" data-ko="상대 대사는 들리고 내 차례엔 소리가 꺼져요. 내 목소리로 녹음해 더빙 영상까지 만들어요." data-en="Hear the other parts, then speak your lines when the sound goes quiet. Record your voice and make your own dub video.">상대 대사는 들리고 내 차례엔 소리가 꺼져요. 내 목소리로 녹음해 더빙 영상까지 만들어요.</span></span>
-    <span class="now-go" aria-hidden="true">›</span>
-  </a>
-
-  <section aria-label="이야기 6장면">
-    <h2 style="margin-bottom:10px"><span data-ko="2. 장면 고르기" data-en="2. Pick a scene">2. 장면 고르기</span></h2>
-    <div class="scenes" id="dub-scenes">
-      <div class="scene" aria-disabled="true"><div class="thumb" data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</div><span class="tag s1" data-ko="1. 신나는 모험의 시작!" data-en="1. The adventure begins!">1. 신나는 모험의 시작!</span></div>
-      <div class="scene" aria-disabled="true"><div class="thumb" data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</div><span class="tag s2" data-ko="2. 예상치 못한 위기!" data-en="2. An unexpected danger!">2. 예상치 못한 위기!</span></div>
-      <div class="scene" aria-disabled="true"><div class="thumb" data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</div><span class="tag s3" data-ko="3. 친구들과 함께하는 모험!" data-en="3. Adventure with friends!">3. 친구들과 함께하는 모험!</span></div>
-      <div class="scene" aria-disabled="true"><div class="thumb" data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</div><span class="tag s4" data-ko="4. 뜻밖의 반전!" data-en="4. A surprise twist!">4. 뜻밖의 반전!</span></div>
-      <div class="scene" aria-disabled="true"><div class="thumb" data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</div><span class="tag s5" data-ko="5. 최후의 대결!" data-en="5. The final battle!">5. 최후의 대결!</span></div>
-      <div class="scene" aria-disabled="true"><div class="thumb" data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</div><span class="tag s6" data-ko="6. 감동의 해피엔딩!" data-en="6. A happy ending!">6. 감동의 해피엔딩!</span></div>
-    </div>
-    <div class="row" id="dub-all-row" style="margin-top:10px" hidden>
-      <button type="button" class="btn go" id="dub-all"><span data-ko="▶ 처음부터 끝까지 더빙" data-en="▶ Dub the whole story">▶ 처음부터 끝까지 더빙</span></button>
-      <label class="opt"><input type="checkbox" id="dub-make-movie" checked> <span data-ko="완성 영상 만들기" data-en="Make my movie">완성 영상 만들기</span></label>
-      <label class="opt"><input type="checkbox" id="dub-listen-first" checked> <span data-ko="👂 내 대사도 먼저 듣고 따라 말하기(연습)" data-en="👂 Hear my lines first, then repeat (practice)">👂 내 대사도 먼저 듣고 따라 말하기(연습)</span></label>
-    </div>
+  <!-- 장르 2개 — 언제나 둘 다 보인다. 고른 장르만 아래에 펼친다(js/ai-dubbing.js renderGenres) -->
+  <section class="genres" id="dub-genres" aria-label="장르 고르기">
+    <button type="button" class="genre adv" data-genre="adv" aria-pressed="true" aria-controls="dub-adv">
+      <span class="g-ic" aria-hidden="true">🦖</span>
+      <span class="g-tx"><b data-ko="모험 3D 애니" data-en="3D Adventure">모험 3D 애니</b><span class="g-sub" data-ko="3D 애니메이션 6편 · 작품마다 에피소드 6개" data-en="6 animated films · 6 episodes each">3D 애니메이션 6편 · 작품마다 에피소드 6개</span></span>
+      <span class="g-num"><b>6</b><small data-ko="편 × 에피소드 6" data-en="films × 6 episodes">편 × 에피소드 6</small></span>
+      <span class="g-mini" id="dub-g-adv-mini" aria-hidden="true"><span class="mn">1</span><span class="mn">2</span><span class="mn">3</span><span class="mn">4</span><span class="mn">5</span><span class="mn">6</span></span>
+      <span class="g-sel" data-ko="선택됨" data-en="Selected">선택됨</span>
+    </button>
+    <button type="button" class="genre kt" data-genre="kt" aria-pressed="false" aria-controls="dub-kt">
+      <span class="g-ic" aria-hidden="true">🐱</span>
+      <span class="g-tx"><b data-ko="키키와 토토 더빙" data-en="Kiki &amp; Toto Dubbing">키키와 토토 더빙</b><span class="g-sub" data-ko="상대 대사는 들리고, 내 차례엔 소리가 꺼져요" data-en="Hear the other parts — your lines go quiet">상대 대사는 들리고, 내 차례엔 소리가 꺼져요</span></span>
+      <span class="g-num"><b>10</b><small data-ko="편" data-en="episodes">편</small></span>
+      <span class="g-mini" id="dub-g-kt-mini" aria-hidden="true"></span>
+      <span class="g-sel" data-ko="선택됨" data-en="Selected">선택됨</span>
+    </button>
   </section>
 
+  <!-- 더빙 중·결과·완성 영상은 장르 칸 «위» 에 넓게 — 끝나면 바로 보이게 -->
   <section class="panel" id="dub-player" aria-label="더빙" hidden>
     <div class="stage" id="dub-stage">
       <video id="dub-video" playsinline muted preload="auto" crossorigin="anonymous"></video>
@@ -223,13 +324,95 @@
     <div class="movies" id="dub-movies"></div>
   </section>
 
+  <!-- ── 모험 3D 애니 ─────────────────────────────────────────── -->
+  <div class="layout" id="dub-adv">
+    <div class="col-main">
+      <section class="panel" id="dub-eps-panel" aria-label="작품 고르기" hidden>
+        <div>
+          <h2><span data-ko="1. 작품 고르기" data-en="1. Pick a film">1. 작품 고르기</span></h2>
+          <p class="hint"><span data-ko="3D 애니메이션 6편 — 작품마다 에피소드 6개가 있어요." data-en="6 animated films — each has 6 episodes.">3D 애니메이션 6편 — 작품마다 에피소드 6개가 있어요.</span></p>
+        </div>
+        <div class="eps" id="dub-eps"></div>
+      </section>
+
+      <div class="notice" id="dub-status" role="status"><b data-ko="준비 중이에요" data-en="Coming soon">준비 중이에요</b> · <span data-ko="더빙 이야기를 불러오고 있어요. 영상이 올라오면 이곳에서 에피소드를 골라 바로 더빙할 수 있어요." data-en="Loading the dubbing stories. When the videos are ready, you can pick an episode here and start dubbing.">더빙 이야기를 불러오고 있어요. 영상이 올라오면 이곳에서 에피소드를 골라 바로 더빙할 수 있어요.</span></div>
+
+      <section class="panel" aria-label="에피소드 고르기">
+        <div>
+          <h2><span data-ko="2. 에피소드 고르기" data-en="2. Pick an episode">2. 에피소드 고르기</span></h2>
+          <p class="hint"><span data-ko="에피소드를 누르면 오른쪽에서 출연 설정을 하고 시작해요." data-en="Tap an episode, then set the cast on the right and start.">에피소드를 누르면 오른쪽에서 출연 설정을 하고 시작해요.</span></p>
+        </div>
+        <div class="scenes" id="dub-scenes">
+          <div class="scene" aria-disabled="true"><span class="thumb"><span class="epn">EP 1</span><span data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</span></span><span class="tag s1" data-ko="1. 신나는 모험의 시작!" data-en="1. The adventure begins!">1. 신나는 모험의 시작!</span></div>
+          <div class="scene" aria-disabled="true"><span class="thumb"><span class="epn">EP 2</span><span data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</span></span><span class="tag s2" data-ko="2. 예상치 못한 위기!" data-en="2. An unexpected danger!">2. 예상치 못한 위기!</span></div>
+          <div class="scene" aria-disabled="true"><span class="thumb"><span class="epn">EP 3</span><span data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</span></span><span class="tag s3" data-ko="3. 친구들과 함께하는 모험!" data-en="3. Adventure with friends!">3. 친구들과 함께하는 모험!</span></div>
+          <div class="scene" aria-disabled="true"><span class="thumb"><span class="epn">EP 4</span><span data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</span></span><span class="tag s4" data-ko="4. 뜻밖의 반전!" data-en="4. A surprise twist!">4. 뜻밖의 반전!</span></div>
+          <div class="scene" aria-disabled="true"><span class="thumb"><span class="epn">EP 5</span><span data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</span></span><span class="tag s5" data-ko="5. 최후의 대결!" data-en="5. The final battle!">5. 최후의 대결!</span></div>
+          <div class="scene" aria-disabled="true"><span class="thumb"><span class="epn">EP 6</span><span data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</span></span><span class="tag s6" data-ko="6. 감동의 해피엔딩!" data-en="6. A happy ending!">6. 감동의 해피엔딩!</span></div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="col-side" id="dub-side" aria-label="출연 설정">
+      <div class="sheet-head">
+        <b data-ko="🎭 출연 설정" data-en="🎭 Cast setup">🎭 출연 설정</b>
+        <button type="button" class="btn" id="dub-side-close"><span data-ko="✕ 닫기" data-en="✕ Close">✕ 닫기</span></button>
+      </div>
+      <section class="panel" id="dub-cast-panel" aria-label="누가 연기할까요" hidden>
+        <div>
+          <h2><span data-ko="3. 누가 연기할까요?" data-en="3. Who will act?">3. 누가 연기할까요?</span></h2>
+          <p class="hint"><span data-ko="1~5명이 함께 할 수 있어요. 학생이 고른 캐릭터는 원어민 목소리가 꺼지고 학생이 말해요. 같은 캐릭터를 여러 명이 고르면 그 캐릭터 대사를 번갈아 말해요." data-en="1 to 5 students can play together. The characters students pick are muted so the students speak. If several students pick the same character, they take turns with its lines.">1~5명이 함께 할 수 있어요. 학생이 고른 캐릭터는 원어민 목소리가 꺼지고 학생이 말해요. 같은 캐릭터를 여러 명이 고르면 그 캐릭터 대사를 번갈아 말해요.</span></p>
+        </div>
+        <div class="pick-sum" id="dub-pick-sum"></div>
+        <div id="dub-cast"></div>
+        <div class="opts" id="dub-all-row" hidden>
+          <label class="opt"><input type="checkbox" id="dub-make-movie" checked> <span data-ko="완성 영상 만들기" data-en="Make my movie">완성 영상 만들기</span></label>
+          <label class="opt"><input type="checkbox" id="dub-listen-first" checked> <span data-ko="👂 내 대사도 먼저 듣고 따라 말하기(연습)" data-en="👂 Hear my lines first, then repeat (practice)">👂 내 대사도 먼저 듣고 따라 말하기(연습)</span></label>
+          <button type="button" class="btn big cta" id="dub-start" disabled><span data-ko="▶ 이 에피소드 더빙 시작" data-en="▶ Dub this episode">▶ 이 에피소드 더빙 시작</span></button>
+          <button type="button" class="btn go" id="dub-all"><span data-ko="▶ 처음부터 끝까지 이어서 더빙" data-en="▶ Dub all episodes in a row">▶ 처음부터 끝까지 이어서 더빙</span></button>
+          <p class="flow"><span data-ko="더빙이 끝나면 AI 평가 → 완성 영상 다시 보기로 이어져요." data-en="After dubbing: AI feedback → watch your movie.">더빙이 끝나면 AI 평가 → 완성 영상 다시 보기로 이어져요.</span></p>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <!-- ── 키키와 토토 10편 ────────────────────────────────────── -->
+  <div class="layout" id="dub-kt" hidden>
+    <div class="col-main">
+      <section class="panel" aria-label="키키와 토토 에피소드 고르기">
+        <div>
+          <h2><span data-ko="1. 에피소드 고르기" data-en="1. Pick an episode">1. 에피소드 고르기</span></h2>
+          <p class="hint"><span data-ko="키키와 토토 10편 — 상대 대사는 들리고 내 차례엔 소리가 꺼져요." data-en="Kiki &amp; Toto, 10 episodes — hear the other parts, then your lines go quiet.">키키와 토토 10편 — 상대 대사는 들리고 내 차례엔 소리가 꺼져요.</span></p>
+        </div>
+        <div class="kts" id="dub-kt-list"></div>
+      </section>
+    </div>
+    <aside class="col-side" aria-label="키키와 토토 더빙 시작">
+      <section class="panel" id="dub-kt-side">
+        <h2><span data-ko="2. 더빙 스튜디오로 가기" data-en="2. Go to the dubbing studio">2. 더빙 스튜디오로 가기</span></h2>
+        <div id="dub-kt-sum"></div>
+        <p class="hint"><span data-ko="역할 고르기와 연습·실전 모드는 더빙 스튜디오에서 골라요. 내 목소리로 녹음해 더빙 영상까지 만들어요." data-en="Pick your role and practice or real mode in the studio. Record your voice and make your own dub video.">역할 고르기와 연습·실전 모드는 더빙 스튜디오에서 골라요. 내 목소리로 녹음해 더빙 영상까지 만들어요.</span></p>
+        <a class="btn big kt-go" id="dub-kt-go" href="/ai-dubbing-studio.html"><span data-ko="▶ 이 에피소드 더빙 시작" data-en="▶ Dub this episode">▶ 이 에피소드 더빙 시작</span></a>
+      </section>
+    </aside>
+  </div>
+
   <button type="button" class="final" id="dub-final" disabled><span data-ko="▶ 완성 영상 보기 (더빙을 마치면 열려요)" data-en="▶ Watch the finished movie (opens after you dub)">▶ 완성 영상 보기 (더빙을 마치면 열려요)</span></button>
-  <p class="motto"><span data-ko="재미가 의지를 이깁니다!" data-en="Fun beats willpower!">재미가 의지를 이깁니다!</span></p>
 </main>
+
+<!-- 폰 전용: 지금 고른 것 + 출연 설정 열기(모험) / 바로 시작(키키와 토토) -->
+<div class="mbar" id="dub-mbar">
+  <span class="mbar-img" id="dub-mbar-img" aria-hidden="true"></span>
+  <span class="mbar-tx"><b id="dub-mbar-t1"></b><span id="dub-mbar-t2"></span></span>
+  <button type="button" class="btn cta" id="dub-mbar-cast" aria-controls="dub-side"><span data-ko="🎭 출연 설정" data-en="🎭 Cast">🎭 출연 설정</span></button>
+  <a class="btn kt-go" id="dub-mbar-kt" href="/ai-dubbing-studio.html" hidden><span data-ko="▶ 더빙 시작" data-en="▶ Start">▶ 더빙 시작</span></a>
+</div>
+<button type="button" class="sheet-bg" id="dub-sheet-bg" hidden aria-label="출연 설정 닫기" data-ko-aria="출연 설정 닫기" data-en-aria="Close cast setup"></button>
+
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script defer src="/js/speech-azure.js?v=2"></script>
 <script defer src="/js/ai-dubbing-core.js?v=2"></script>
-<script defer src="/js/ai-dubbing.js?v=2"></script>
+<script defer src="/js/ai-dubbing.js?v=3"></script>
 </body>
 </html>
