@@ -128,9 +128,9 @@ console.log('\n[ ③ 근거 찾기 — 답 × 근거 조합 전부 ]');
 
 console.log('\n[ ④ 바꿔 쓰기 — Let’s ___ before ___ ]');
 {
-  const chips = [...html.matchAll(/class="chip" data-a="([^"]+)" data-b="([^"]+)"/g)].map((m) => [m[1], m[2]]);
-  ok(chips.length === 3, `예시 칩 3개 (${chips.length})`);
-  bulk('예시 칩은 모두 «완성» 된다', chips, ([a, b]) => C.checkWrite(a, b).ok === true);
+  const chips = JSON.parse((html.match(/var WRITE_EX = (\[.*?\]);\n/) || [0, '[]'])[1])   // 2026-10-20 버튼 줄을 뺀 뒤 예시 문장은 이 목록에만(철자 점검 «아는 낱말»);
+  ok(chips.length === 3, `예시 문장 3개(WRITE_EX) (${chips.length})`);
+  bulk('예시 문장은 모두 «완성» 된다', chips, ([a, b]) => C.checkWrite(a, b).ok === true);
   const A = ['finish our homework', ' clean   my room. ', 'Let’s go home', "let's eat lunch", 'read a book!', 'feed the cat', 'call Grandma', 'brush our teeth'];
   const B = ['dinner is ready', 'Mom comes home', 'before it gets dark', 'the bell rings', 'school starts.', 'Dad gets angry', 'the movie begins', 'bedtime'];
   const cases = []; for (const a of A) for (const b of B) cases.push([a, b]);

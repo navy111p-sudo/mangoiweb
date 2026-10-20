@@ -50,7 +50,7 @@
     "slotKo": ["내 생각","그렇게 생각한 이유"], "slotEn": ["my idea","my reason"],
     "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
     "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
-    "chips": [ {"a":"it will rain","b":"the sky is dark","label":"rain"}, {…}, {…} ],   // 정확히 3개, 학생 생활 예시
+    "chips": [ {"a":"it will rain","b":"the sky is dark","label":"rain"}, {…}, {…} ],   // 정확히 3개, 학생 생활 예시 — 2026-10-20 부터 버튼으로 안 그림(철자 점검 «아는 낱말»·첫 칸 placeholder 에만 씀)
     "aria": ["what you think","why"],
     "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)",
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
