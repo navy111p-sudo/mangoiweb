@@ -286,6 +286,17 @@ for (const epId of ['dub-001', 'dub-003']) {
   try { raw = JSON.parse(rd(join(PUB, 'data', 'dubbing', epId + '.json'))); } catch (e) { raw = null; }
   check('⑥-9b ' + epId + ' 는 아직 시각 provisional · 상태 preview (완성본이 아니다)', !!raw && raw.timing === 'provisional' && raw.status === 'preview', raw && [raw.timing, raw.status]);
 }
+/* ⑥-9c 3편 영상은 2026-10-20 에 «그림 미리보기» → «움직이는 AI 애니메이션» 으로 «같은 이름» 을 갈아 끼웠다.
+   미디어는 7일 캐시라 ?v=2 이상이 없으면 본 사람에게 옛 그림 영상이 남고, 안내(note)가 아직 «그림이 움직이는 미리보기» 라고 하면 거짓이다.
+   ⚠️ 또 갈아 끼우면 번호를 «올린다»(?v= 주소는 1년 immutable) — 이 검사는 «2 이상» 만 본다. */
+{
+  let r3 = null;
+  try { r3 = JSON.parse(rd(join(PUB, 'data', 'dubbing', 'dub-003.json'))); } catch (e) { r3 = null; }
+  const vids = r3 && Array.isArray(r3.scenes) ? r3.scenes.map((s) => String(s.video || '')) : [];
+  check('⑥-9c dub-003 장면 영상 6개 전부 ?v=2 이상(같은 이름 교체 — 캐시 우회)', vids.length === 6 && vids.every((v) => { const m = /\?v=(\d+)$/.exec(v); return !!m && Number(m[1]) >= 2; }), vids);
+  const noteTxt = r3 && r3.note ? String(r3.note.ko || '') + ' ' + String(r3.note.en || '') : '';
+  check('⑥-9d dub-003 안내가 영상을 «그림이 움직이는 미리보기» 라고 하지 않는다(이제 움직이는 영상)', !!r3 && !/장면 그림|moving scene pictures/i.test(noteTxt), noteTxt);
+}
 
 /* 이야기 목록 — 준비된 편은 매니페스트가 실재해야 한다(눌렀는데 빈 화면 금지) */
 console.log('\n── ⑥-b 이야기 목록(index.json)');

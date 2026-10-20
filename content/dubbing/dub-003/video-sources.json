@@ -1,0 +1,210 @@
+{
+ "id": "dub-003",
+ "brand": "mangoi.ai",
+ "generatedOn": "2026-10-20",
+ "model": "kling3_0 (mode std, sound off, 16:9)",
+ "creditsSpent": 360,
+ "characterSheetJob": "077a2aaf-9d80-41ee-a89b-073ae7248a55",
+ "how": "장면 그림 12장(GPT Image 2.5, 캐릭터 시트 기준)을 시작·끝 프레임으로 장면마다 A→A 10초 + A→B 15초 + B 15초. ffmpeg concat 후 1280x720·24fps·H.264 CRF 25 로 다시 구움(원본 클립이 15초에 약 22MB라 그대로 이으면 25MiB 한도 초과).",
+ "note": "sourceUrl 은 생성기 CDN 이라 영구 보관이 보장되지 않습니다 — 실제 서비스는 우리 서버 사본만 씁니다(매니페스트에 이 주소를 넣지 마세요).",
+ "scenes": [
+  {
+   "no": 1,
+   "label": "정글에 왔어요",
+   "output": "cloudflare-deploy/public/media/dubbing/dub-003/scene-1.mp4?v=2",
+   "clips": [
+    {
+     "clip": "11",
+     "durationSec": 10,
+     "frames": "A→A",
+     "startImageJob": "172847d5-f067-4525-9441-2fad1a4fb62c",
+     "jobId": "fac538bf-8081-48c4-b9ad-aa481844e6df",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143343_fac538bf-8081-48c4-b9ad-aa481844e6df.mp4",
+     "endImageJob": "172847d5-f067-4525-9441-2fad1a4fb62c"
+    },
+    {
+     "clip": "12",
+     "durationSec": 15,
+     "frames": "A→B",
+     "startImageJob": "172847d5-f067-4525-9441-2fad1a4fb62c",
+     "jobId": "dbd7693c-5e65-4add-ae3e-2031c5a956e3",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143306_dbd7693c-5e65-4add-ae3e-2031c5a956e3.mp4",
+     "endImageJob": "ddba1c1f-1cce-4e27-8fa2-4d6c042b353d"
+    },
+    {
+     "clip": "13",
+     "durationSec": 15,
+     "frames": "B",
+     "startImageJob": "ddba1c1f-1cce-4e27-8fa2-4d6c042b353d",
+     "jobId": "83a87265-748f-4aa4-858e-e8ff2666973a",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143306_83a87265-748f-4aa4-858e-e8ff2666973a.mp4"
+    }
+   ]
+  },
+  {
+   "no": 2,
+   "label": "넝쿨 타고 휙!",
+   "output": "cloudflare-deploy/public/media/dubbing/dub-003/scene-2.mp4?v=2",
+   "clips": [
+    {
+     "clip": "21",
+     "durationSec": 10,
+     "frames": "A→A",
+     "startImageJob": "dbba2a4b-b7ad-48b6-804a-fb0f46f476dc",
+     "jobId": "81cb8561-8c95-4d92-9528-9f63c78160a6",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143342_81cb8561-8c95-4d92-9528-9f63c78160a6.mp4",
+     "endImageJob": "dbba2a4b-b7ad-48b6-804a-fb0f46f476dc"
+    },
+    {
+     "clip": "22",
+     "durationSec": 15,
+     "frames": "A→B",
+     "startImageJob": "dbba2a4b-b7ad-48b6-804a-fb0f46f476dc",
+     "jobId": "c9c1da16-3695-4ed1-a832-f073073ae91a",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143306_c9c1da16-3695-4ed1-a832-f073073ae91a.mp4",
+     "endImageJob": "b0e5b6c2-fdf8-46e4-8f25-d6d4d42f77e2"
+    },
+    {
+     "clip": "23",
+     "durationSec": 15,
+     "frames": "B",
+     "startImageJob": "b0e5b6c2-fdf8-46e4-8f25-d6d4d42f77e2",
+     "jobId": "eb9ee164-86e3-4436-83dc-f934a6199efd",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143306_eb9ee164-86e3-4436-83dc-f934a6199efd.mp4"
+    }
+   ]
+  },
+  {
+   "no": 3,
+   "label": "커다란 재규어",
+   "output": "cloudflare-deploy/public/media/dubbing/dub-003/scene-3.mp4?v=2",
+   "clips": [
+    {
+     "clip": "31",
+     "durationSec": 10,
+     "frames": "A→A",
+     "startImageJob": "87529dfe-2d2b-403f-8417-0e28ff0dbf46",
+     "jobId": "cd8561ac-796d-4993-a4ed-cf8ad59e9bd2",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143342_cd8561ac-796d-4993-a4ed-cf8ad59e9bd2.mp4",
+     "endImageJob": "87529dfe-2d2b-403f-8417-0e28ff0dbf46"
+    },
+    {
+     "clip": "32",
+     "durationSec": 15,
+     "frames": "A→B",
+     "startImageJob": "87529dfe-2d2b-403f-8417-0e28ff0dbf46",
+     "jobId": "99884b84-a8db-4d85-9e8a-f76447cb7be3",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143306_99884b84-a8db-4d85-9e8a-f76447cb7be3.mp4",
+     "endImageJob": "57df9ea1-a138-4671-88c8-b11fdf09752c"
+    },
+    {
+     "clip": "33",
+     "durationSec": 15,
+     "frames": "B",
+     "startImageJob": "57df9ea1-a138-4671-88c8-b11fdf09752c",
+     "jobId": "5d1aa5a1-ee5d-45b3-8c0b-d8cb26f598de",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143306_5d1aa5a1-ee5d-45b3-8c0b-d8cb26f598de.mp4"
+    }
+   ]
+  },
+  {
+   "no": 4,
+   "label": "가시를 빼 줘요",
+   "output": "cloudflare-deploy/public/media/dubbing/dub-003/scene-4.mp4?v=2",
+   "clips": [
+    {
+     "clip": "41",
+     "durationSec": 10,
+     "frames": "A→A",
+     "startImageJob": "40a49c27-32c2-4380-a1eb-92267ec3ca47",
+     "jobId": "e23974c6-3532-444e-8d61-4494b39408c8",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143342_e23974c6-3532-444e-8d61-4494b39408c8.mp4",
+     "endImageJob": "40a49c27-32c2-4380-a1eb-92267ec3ca47"
+    },
+    {
+     "clip": "42",
+     "durationSec": 15,
+     "frames": "A→B",
+     "startImageJob": "40a49c27-32c2-4380-a1eb-92267ec3ca47",
+     "jobId": "9e689d1f-e751-4d7c-9c38-071cc44767b8",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143306_9e689d1f-e751-4d7c-9c38-071cc44767b8.mp4",
+     "endImageJob": "a9faa6d9-31fa-4699-b7e9-a2216ce15858"
+    },
+    {
+     "clip": "43",
+     "durationSec": 15,
+     "frames": "B",
+     "startImageJob": "a9faa6d9-31fa-4699-b7e9-a2216ce15858",
+     "jobId": "d56e52f2-ba87-427d-a50e-1c760ccac721",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143341_d56e52f2-ba87-427d-a50e-1c760ccac721.mp4"
+    }
+   ]
+  },
+  {
+   "no": 5,
+   "label": "끊어진 다리",
+   "output": "cloudflare-deploy/public/media/dubbing/dub-003/scene-5.mp4?v=2",
+   "clips": [
+    {
+     "clip": "51",
+     "durationSec": 10,
+     "frames": "A→A",
+     "startImageJob": "8e568ff5-b15c-41ca-ae97-e3ef9090272a",
+     "jobId": "63afa626-3319-479e-8b29-8b71c65ebbf3",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143342_63afa626-3319-479e-8b29-8b71c65ebbf3.mp4",
+     "endImageJob": "8e568ff5-b15c-41ca-ae97-e3ef9090272a"
+    },
+    {
+     "clip": "52",
+     "durationSec": 15,
+     "frames": "A→B",
+     "startImageJob": "8e568ff5-b15c-41ca-ae97-e3ef9090272a",
+     "jobId": "5ecc29be-eb38-4956-9386-15e591d84853",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143342_5ecc29be-eb38-4956-9386-15e591d84853.mp4",
+     "endImageJob": "714de50c-0018-49c4-b9f4-ecfdcb5b3aad"
+    },
+    {
+     "clip": "53",
+     "durationSec": 15,
+     "frames": "B",
+     "startImageJob": "714de50c-0018-49c4-b9f4-ecfdcb5b3aad",
+     "jobId": "28e65ec4-5c8d-4b3d-ba9c-71c58e62ca38",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143342_28e65ec4-5c8d-4b3d-ba9c-71c58e62ca38.mp4"
+    }
+   ]
+  },
+  {
+   "no": 6,
+   "label": "우리는 친구!",
+   "output": "cloudflare-deploy/public/media/dubbing/dub-003/scene-6.mp4?v=2",
+   "clips": [
+    {
+     "clip": "61",
+     "durationSec": 10,
+     "frames": "A→A",
+     "startImageJob": "af5bd4ab-62ec-45fe-b497-787f6b88f57c",
+     "jobId": "c5d5bb30-a48c-4e29-b28c-3092a731e3ff",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143342_c5d5bb30-a48c-4e29-b28c-3092a731e3ff.mp4",
+     "endImageJob": "af5bd4ab-62ec-45fe-b497-787f6b88f57c"
+    },
+    {
+     "clip": "62",
+     "durationSec": 15,
+     "frames": "A→B",
+     "startImageJob": "af5bd4ab-62ec-45fe-b497-787f6b88f57c",
+     "jobId": "8fbcdc7b-27ac-4be7-9b9d-ebc34ba92c64",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143341_8fbcdc7b-27ac-4be7-9b9d-ebc34ba92c64.mp4",
+     "endImageJob": "2189d453-1491-4309-96c0-92dafa333d61"
+    },
+    {
+     "clip": "63",
+     "durationSec": 15,
+     "frames": "B",
+     "startImageJob": "2189d453-1491-4309-96c0-92dafa333d61",
+     "jobId": "75785909-2d91-4e55-a313-20054336d5fc",
+     "sourceUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_143341_75785909-2d91-4e55-a313-20054336d5fc.mp4"
+    }
+   ]
+  }
+ ]
+}
