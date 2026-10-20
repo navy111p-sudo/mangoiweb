@@ -83,6 +83,35 @@ if (C) {
   ok(C.checkSummary('puppy', kw).verdict === 'short', '세 낱말 미만 → short');
   ok(C.checkSummary('homework is homeless', ['home']).hit.length === 0, '낱말 «안» 에 든 글자는 안 센다(homework ≠ home)');
   bulk('모범 문장을 그대로 쓰면 «great» (채점이 자기 답을 떨어뜨리지 않음)', P, (p) => C.checkSummary(p.summary.en, p.summary.keywords).verdict === 'great' || C.checkSummary(p.summary.en, p.summary.keywords).miss.join(','));
+  // ③ 베껴쓰기 막기(2026-10-20) — «막힌다» 와 «안 막힌다» 를 짝으로(한쪽만 보면 «전부 막기»·«전부 통과» 가 통과한다)
+  const SRC = (p) => ({ sentences: p.sentences.map((s) => s.en), model: p.summary.en });
+  const PASS = (v) => v === 'great' || v === 'good';
+  bulk('본문 핵심 문장을 그대로 옮기면 «copy»(통과 아님)', P, (p) => C.checkSummary(p.sentences[p.key].en, p.summary.keywords, SRC(p)).verdict === 'copy' || 'passed');
+  bulk('본문 어느 문장을 옮겨도 통과하지 않는다', P, (p) => p.sentences.every((s) => !PASS(C.checkSummary(s.en, p.summary.keywords, SRC(p)).verdict)) || 'leak');
+  bulk('첫 낱말만 바꾼 옮겨쓰기도 통과하지 않는다', P, (p) => { const w = p.sentences[p.key].en.split(' '); w[0] = 'One'; return !PASS(C.checkSummary(w.join(' '), p.summary.keywords, SRC(p)).verdict) || 'passed'; });
+  bulk('(짝) 본문을 함께 넘겨도 모범 문장은 «great»', P, (p) => C.checkSummary(p.summary.en, p.summary.keywords, SRC(p)).verdict === 'great' || C.checkSummary(p.summary.en, p.summary.keywords, SRC(p)).verdict);
+  bulk('(짝) 모범 문장을 조금 고친 내 말은 안 막힌다(첫 낱말 바꾸기·관사 빼기·끝에 덧붙이기)', P, (p) => {
+    const m = p.summary.en.replace(/\.$/, '').split(' ');
+    return [['My'].concat(m.slice(1)).join(' ') + '.', m.filter((w) => !/^(a|an|the)$/i.test(w)).join(' ') + '.', p.summary.en.replace(/\.$/, '') + ' in the end.']
+      .every((t) => PASS(C.checkSummary(t, p.summary.keywords, SRC(p)).verdict)) || 'blocked';
+  });
+  const s411 = P.find((p) => p.id === 's4-11');
+  ok(!s411 || (Math.max(...s411.sentences.map((s) => C.overlap(s411.summary.en, s.en))) >= C.COPY_RATIO && C.checkSummary(s411.summary.en, s411.summary.keywords, SRC(s411)).verdict === 'great'),
+    's4-11: 모범 문장이 본문과 COPY_RATIO 넘게 겹쳐도 모범 문장은 안 막힌다(«모범보다 본문에 더 가까운가» 를 함께 본다)');
+  bulk('힌트 낱말만 늘어놓으면 «list»(통과 아님)', P, (p) => C.checkSummary(p.summary.keywords.join(' '), p.summary.keywords, SRC(p)).verdict === 'list' || 'passed');
+  ok(C.checkSummary('the puppy, the home and the found', kw).verdict === 'list', '관사·and 만 섞어도 «list»');
+  ok(C.checkSummary('The puppy found its way home.', kw).verdict === 'great', '(짝) 다른 낱말이 하나라도 들어간 문장은 그대로 «great»');
+  ok(C.checkSummary('Max follows the smell all the way home.', ['puppy', 'smell', 'home']).verdict === 'good', '(짝) 본문을 안 넘기는 옛 호출은 예전 판정 그대로');
+  // 배선 — 확인하기 버튼이 본문·모범 문장을 «실제로» 넘기는가(호출식을 오려 내 돌린다)
+  const callM = JS_SRC.match(/RLCore\.checkSummary\(txt, p\.summary\.keywords,([\s\S]*?)\);\n/);
+  ok(!!callM, '확인하기의 채점 호출을 찾았다(3번째 인자 있음)');
+  if (callM) {
+    let arg = null;
+    try { arg = new Function('p', 'return (' + callM[1] + ');')(P[0]); } catch (e) { console.log('  인자 평가 실패: ' + e.message); }
+    ok(!!arg && Array.isArray(arg.sentences) && arg.sentences.length === P[0].sentences.length && arg.sentences[P[0].key] === P[0].sentences[P[0].key].en && arg.model === P[0].summary.en,
+      '확인하기가 본문 문장 전부와 모범 문장을 넘긴다');
+  }
+  ok(/\bcopy: T\('[^']*내 말로[^']*', '[^']*own words/.test(JS_SRC) && /\blist: T\('[^']*문장으로[^']*', '[^']*sentence/.test(JS_SRC), '«copy»·«list» 안내 문구가 한/영 모두 있다');
   const o1 = C.seededOrder(4, 's1-01'), o2 = C.seededOrder(4, 's1-01');
   ok(JSON.stringify(o1) === JSON.stringify(o2) && [...o1].sort().join() === '0,1,2,3', '섞기: 같은 글은 같은 순서 · 0~3 하나씩');
   const firstPos = new Set(P.map((p) => C.seededOrder(4, p.id).indexOf(p.main.answer)));
