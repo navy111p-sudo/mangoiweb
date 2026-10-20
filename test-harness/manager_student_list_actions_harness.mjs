@@ -57,7 +57,11 @@ console.log('\n①③ 오늘 수업 줄');
 {
   const i = MGR.indexOf("      var resch = '';");
   const j = MGR.indexOf('/* 📋 (2026-09-23 매니저 요청)', i);
-  const src = i > 0 && j > i ? MGR.slice(i, j) : '';
+  /* 📅 (2026-10-20) 연기·변경 칩 판정은 taMovePill 한 곳 — resch 블록과 함께 오려 넣는다(간단히 보기도 같은 함수). */
+  const pk = MGR.indexOf('  function taMovePill(r){');
+  const pill = pk > 0 ? MGR.slice(pk, MGR.indexOf('\n  }\n', pk) + 4) : '';
+  ok('전제: taMovePill 을 오려 냈다', /data-ta=/.test(pill));
+  const src = i > 0 && j > i ? pill + MGR.slice(i, j) : '';
   ok('전제: resch 블록을 오려 냈다', src.length > 100);
   let g = null;
   try { g = new Function('r', 'esc', 'T', 'var act="";' + src + ' return resch;'); } catch (e) { ok('만들 수 있다', false, e.message); }
@@ -67,6 +71,17 @@ console.log('\n①③ 오늘 수업 줄');
     ok('짝: 매주 반복 줄에 바로 옮기는 data-ta 는 주지 않는다', !/data-ta=/.test(w));
     ok('짝: 학생 아이디가 없으면 글자만', !/data-calpin/.test(g({ schedule_id: 8, can_move: false }, esc, T)));
     ok('짝: 날짜 지정 줄은 그대로 📅 연기·변경(data-ta)', /data-ta="7"/.test(g({ schedule_id: 7, can_move: true }, esc, T)));
+  }
+  /* 📅 (2026-10-20 문의 «오늘 수업은 아직 모든 시간표에 이동 버튼이 없다») 기본 «간단히 보기» 에도 같은 칩 */
+  const si = MGR.indexOf('      if (simple) {');
+  const simpleSrc = si > 0 ? MGR.slice(si, MGR.indexOf('\n      }\n', si) + 8) : '';
+  let sg = null;
+  try { sg = new Function('r', 'esc', 'T', 'var t="",simple=true;' + pill + simpleSrc + ' return "";'); } catch (e) { ok('간단히 보기 줄을 만들 수 있다', false, e.message); }
+  if (sg) {
+    ok('간단히 보기: 날짜 지정 줄에 📅 연기·변경(data-ta)', /data-ta="7"/.test(sg({ schedule_id: 7, can_move: true }, esc, T)));
+    ok('짝: 간단히 보기도 매주 반복 줄(can_split 아님)에는 안 준다', !/data-ta=/.test(sg({ schedule_id: 8, can_move: false }, esc, T)));
+    ok('짝: 간단히 보기도 카페24 줄(schedule_id 없음)에는 안 준다', !/data-ta=/.test(sg({ source: 'cafe24', schedule_id: null, can_move: false }, esc, T)));
+    ok('짝: 본사 매주 반복(can_split)에는 준다', /data-ta="9"/.test(sg({ schedule_id: 9, can_move: false, can_split: true }, esc, T)));
   }
   const a = MGR.indexOf('      var act = r.join_open');
   const b = MGR.indexOf(';', MGR.indexOf("        : '';", a));

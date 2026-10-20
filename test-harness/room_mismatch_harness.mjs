@@ -147,7 +147,17 @@ try {
   ok('다음 갱신에 0건이면 지운다', !d5.els['rooms-mismatch-alert']);
   const d6 = mkDom(); run(d6.doc, [{ ...r[0], student_name: '<img src=x>' }], false);
   ok('이름을 이스케이프한다', !/<img/.test(d6.els['rooms-mismatch-alert'].innerHTML));
+  /* 👁🚪 (2026-10-20 제안) 줄마다 «학생 방» 참관·입장 버튼 — 가리키는 방은 «학생이 있는 방» 이어야 한다 */
+  const h1 = box.innerHTML, sr = String(r[0].student_room);
+  ok('학생 방 참관 버튼(data-mm-act=observe → 학생 방)', h1.indexOf('data-mm-act="observe" data-mm-room="' + sr + '"') >= 0 && /학생 방 참관/.test(h1));
+  ok('학생 방 입장(보임) 버튼(data-mm-act=enter → 학생 방)', h1.indexOf('data-mm-act="enter" data-mm-room="' + sr + '"') >= 0 && /학생 방 입장\(보임\)/.test(h1));
+  ok('짝: 버튼이 선생님 방을 가리키지 않는다', h1.indexOf('data-mm-room="' + r[0].expected_room + '"') < 0);
+  ok('영어 화면 버튼도 영어로', /Observe student room/.test(d2.els['rooms-mismatch-alert'].innerHTML));
+  const d7 = mkDom(); run(d7.doc, [{ ...r[0], student_room: '' }], false);
+  ok('짝: 학생 방을 모르면 버튼을 안 준다', !/data-mm-act/.test(d7.els['rooms-mismatch-alert'].innerHTML));
 } catch (e) { ok('화면 실행: ' + e.message, false); }
+ok('클릭 배선: [data-mm-act] → observeRoom / ghEnterRoom', /closest\('#rooms-mismatch-alert \[data-mm-act\]'\)/.test(CORE)
+   && /=== 'observe'\) observeRoom\(room\)/.test(CORE) && /window\.ghEnterRoom\(room\)/.test(CORE));
 ok('loadActiveRooms 가 서버 칸을 넘긴다', /mism = Array\.isArray\(cj\.room_mismatch\) \? cj\.room_mismatch : null/.test(CORE) && /_renderRoomMismatch\(mism, _L\);/.test(CORE));
 
 console.log('⑦ 관제탑 — monitor-wall.js renderUrgent (가짜 DOM 으로 실행)');
