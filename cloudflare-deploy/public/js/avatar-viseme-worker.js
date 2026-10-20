@@ -17,6 +17,11 @@ function init(){
   })();
   return ready;
 }
+/* 엔진 파일을 못 받으면(CDN 차단·끊김) 엔진의 fetchRemotePackage 가 아무도 기다리지 않는 promise 로
+   거절돼 «처리 안 된 오류» 가 된다. 여기서 받아 부모에게 알린다 — 부모는 음량 입모양으로 넘어간다. */
+function bootFailed(e){e.preventDefault();self.postMessage({type:'boot_failed'});}
+self.addEventListener('error',bootFailed);
+self.addEventListener('unhandledrejection',bootFailed);
 self.onmessage=async function(event){
   var m=event.data;
   try{

@@ -175,6 +175,10 @@
          소리를 모르는 흉내 입(speechSynthesis)은 크게 벌어지는 차례에, 화면이 정한 입(mouth())은 입이 열리는 순간에.
        ⛔ loudNow 는 그대로 둡니다 — Emma·Jake·Mei·Long 의 옛 눈썹(칸 바꾸기)이 그것을 씁니다(그쪽은 «가끔» 이 맞습니다).
        ⛔ 횟수를 늘리려고 browNext(1~2초)를 줄이지 마세요 — 횟수는 v16 에서 정했고, 이번에 고친 것은 «방아쇠가 안 당겨지던» 것입니다. */
+/* v20: (2026-10-20) 사장님 「A.i 말하기와 A.i 친구들 대답 속도, 반응과 대답을 더 빠르게」 — prepare() 가
+         입모양 분석(Rhubarb)이 «끝날 때까지» 소리를 막고 있었습니다(문장마다 약 0.8배 길이 · 첫 회는 부팅 최대 30초).
+         이제 CUE_WAIT_MS(250ms)까지만 기다리고 소리를 냅니다. 분석이 늦게 끝나면 그 순간부터 정확한 입모양으로 바뀝니다.
+       ⛔ 상한을 지우지 마세요 — 지우면 매 문장 앞의 조용한 시간이 그대로 되돌아옵니다. */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -433,6 +437,7 @@
     // ── 음량 분석(Web Audio) — attach 로 오디오를 물릴 때 1회 그래프 생성 ──
     var actx=null, boundEl=null, analyser=null, lipData=null, audioFailed=false;
     var bindings = new WeakMap(), buffering = false, mouthCues=null, cueUrl='', preciseFaces={};
+    var CUE_WAIT_MS = 250;   // ⚡ 재생 전 입모양 분석을 기다리는 상한(아래 prepare)
     // Reviewed nine-pose anchors plus 288 optical-flow inbetweens per actor.
     // The latter are transition shapes, not additional recognized phonemes.
     // base/atlas/trans must carry the same ?v= as the CHARACTERS frames above (one retouch, one version).
@@ -1168,10 +1173,18 @@
           return true;
         }catch(e){ /* Preserve audible playback if Web Audio is unavailable. */ return false; }
       },
+      /* ⚡ (2026-10-20 사장님 「A.i 말하기·A.i 친구 반응과 대답을 더 빠르게」)
+         입모양 분석은 «CUE_WAIT_MS 까지만» 기다린다. 예전에는 분석이 끝나야 소리가 났다 —
+         실측(크로미움): 3초 문장 2.3초 · 6초 문장 5.1초 · 첫 부팅 5~6초(+모델 37.8MB 다운로드,
+         최대 30초). 그만큼 매 문장 «조용한 시간» 이었다.
+         늦게 끝난 분석도 버리지 않는다 — prepareCues 가 «같은 소리면» 그 자리에서 꽂고,
+         입은 오디오 시계로 표본을 잡으므로 그 순간부터 정확해진다. 그 전에는 음량 립싱크(v2)다.
+         ⛔ 얼굴 그림 준비(pf.ready — 캐릭터마다 처음 한 번)는 그대로 기다린다(빈 얼굴로 말하지 않게). */
       prepare: function(audioEl){
         if(boundEl!==audioEl)window.MangoAvatar.attach(audioEl);
         var pf=precisionFace();
-        return Promise.all([prepareCues(audioEl),pf ? pf.ready : Promise.resolve()]).then(function(results){return results[0];});
+        var cues=prepareCues(audioEl), capped=new Promise(function(res){ setTimeout(function(){ res(null); }, CUE_WAIT_MS); });
+        return Promise.all([Promise.race([cues,capped]),pf ? pf.ready : Promise.resolve()]).then(function(results){return results[0];});
       },
       // 캐릭터 전환 — 'emma'|'jake'|'lily'|'noah' (옛 'female'|'male' 도 받습니다).
       setCharacter: function(name){
