@@ -1,0 +1,1058 @@
+{
+  "id": "dub-004",
+  "productionStatus": "preproduction_blocked",
+  "runtimeSec": 240,
+  "sceneCount": 6,
+  "lineCount": 60,
+  "castLock": {
+    "kai": "East Asian boy; short black hair; green/teal hoodie per latest user image. Preserve exact visual reference.",
+    "emma": "White girl; blonde hair; pink/coral top per latest user image. Preserve exact visual reference.",
+    "maya": "Black girl; two puff buns; yellow hoodie per latest user image libfile_b6494c0eacb48191bc6cc32ff6033cf3. Preserve actual reference clothes; previous astronaut jacket description superseded.",
+    "pip": "Small purple/lavender alien with tentacle antennae per latest user image. Preserve actual reference shape; never green or a spacesuit redesign.",
+    "momo": "NEW DESIGN PROPOSAL, not yet approved: compact friendly robot; rounded ivory shell, navy joints, amber rectangular face screen, one teal chest light, small navy captain hat. Hinged mouth/LED mouth shapes, articulated hands; no animal ears, fur or beak. Ship engineer rescuing sailors."
+  },
+  "continuity": {
+    "sourcePR": 1668,
+    "sourceSHA": "5b5bd5f678f0216bbf1ec2b97797fa9a8c3d5dae",
+    "verified": "Latest EP02 episode.json read from PR head: s6-l4 Pip says I will visit again!; s6-l8 introduces a new friend in a moving egg. EP04 starts on a later visit, does not identify that egg or introduce a sixth character.",
+    "unverified": "Cartoon v2 video/audio pixels and phoneme sync not inspected in this environment; latest QA declares REVIEW_ONLY, all 24 stems non-silent at file level. No new download of formerly blocked assets attempted."
+  },
+  "visualStyle": "Original stylized family feature-quality 3D animation, rounded shapes, rich readable expressions, physical acting and articulated gestures, warm cinematic light. Maintain identity at each cut. No photoreal drift, slideshow, pan/zoom substitute, or copied franchise characters.",
+  "referenceRequirements": [
+    "Latest user supplied four-character image libfile_b6494c0eacb48191bc6cc32ff6033cf3 is visual authority; parent/media agent inspected pixels. External upload consent pending at last message. Existing EP02 Four Cast is provenance, not authority to override the new image.",
+    "Approve new Momo front/side/three-quarter reference and expression/viseme sheet.",
+    "Latest user robot instruction supersedes promotional cat/penguin scene. No animal character included."
+  ],
+  "budget": {
+    "approval": "2026-10-20 user approved proceeding after recharge; parent assigns media agent, initial video cap 360 credits; this integration agent must not spend or generate. Additional reference/audio/music costs require specific prior approval.",
+    "provider": "Higgsfield",
+    "model": "kling3_0_turbo",
+    "resolution": "720p",
+    "aspectRatio": "16:9",
+    "quotedOn": "2026-10-20",
+    "clipDurationSec": 10,
+    "clipCount": 24,
+    "creditsPerClip": 15,
+    "initialVideoCredits": 360,
+    "exclusions": [
+      "reference image work",
+      "5-second proof clip",
+      "regeneration",
+      "voice production",
+      "lip sync correction",
+      "music and SFX",
+      "storage or upload"
+    ],
+    "alternativeFromParent": "Parent reports available balance 3869.72, NOT authorized spend cap. Media agent owns all generation; cap remains initial video 360."
+  },
+  "audioDelivery": {
+    "sampleRate": 48000,
+    "sceneLengthSec": 40,
+    "stemsPerScene": [
+      "voice-kai.wav",
+      "voice-emma.wav",
+      "voice-maya.wav",
+      "voice-pip.wav",
+      "voice-momo.wav",
+      "music.wav",
+      "sfx.wav",
+      "bgm.wav"
+    ],
+    "engineMapping": "bgm.wav = music + SFX only, never dialogue; scene.voices maps all five voices. Selected voice muting leaves bgm untouched. Keep original music and SFX for edits.",
+    "ducking": "Target speech around -16 LUFS; reduce music by about 10 dB and competing SFX by about 6 dB while any dialogue is active, with 80ms attack/350ms release; refine by listening, not fixed gain alone. Overall true peak <= -1 dBTP. No sudden stingers, harsh alarms or jump-scare transients.",
+    "voiceIdentity": "Five fixed approved voice IDs across every scene; provisional engine TTS labels are not confirmed continuity with EP02 actual voice files. Confirm EP02 voices before final synthesis.",
+    "music": "Buoyant nautical adventure motif with pizzicato strings, light drums and warm brass. Gentle pulse builds during wind/teamwork; reveal opens into warm chords; triumphant lighthouse motif then tender hopeful ending. No vocals.",
+    "silentLineGate": "Inspect every line interval in every role stem, especially last-scene Pip; file existence alone is insufficient."
+  },
+  "scenes": [
+    {
+      "no": 1,
+      "durationSec": 40,
+      "shots": [
+        {
+          "id": "s1-shot1",
+          "start": 0,
+          "end": 10,
+          "action": "Harbor wide: Pip returns to visit Kai, Emma and Maya as promised at the end of EP02; they greet him warmly, then turn toward a flashing offshore signal. Only these four and later Momo appear.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s1-l1",
+            "s1-l2"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s1-shot2",
+          "start": 10,
+          "end": 20,
+          "action": "Close reactions: Emma points, Maya leans forward; the ship flag shows a friendly robot emblem, not a skull.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s1-l2",
+            "s1-l3",
+            "s1-l4",
+            "s1-l5"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s1-shot3",
+          "start": 20,
+          "end": 30,
+          "action": "Momo lowers a gangplank and waves with an articulated hand; warm smile becomes concerned LED brows.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s1-l5",
+            "s1-l6",
+            "s1-l7"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s1-shot4",
+          "start": 30,
+          "end": 40,
+          "action": "Pip tilts three antennae toward a softly chiming chest; Momo cradles it carefully, avoiding a sinister reveal.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s1-l8",
+            "s1-l9",
+            "s1-l10"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        }
+      ],
+      "sfx": [
+        "soft harbor waves",
+        "rope creak",
+        "distant signal chime",
+        "gentle servo wave"
+      ],
+      "dialogueWindows": [
+        {
+          "speaker": "kai",
+          "start": 0.8389791666666667,
+          "end": 2.693979166666667,
+          "startFrame48k": 40271,
+          "endFrame48k": 129311,
+          "lineId": "s1-l1",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "emma",
+          "start": 6.549625,
+          "end": 10.654625,
+          "startFrame48k": 314382,
+          "endFrame48k": 511422,
+          "lineId": "s1-l2",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "maya",
+          "start": 11.393604166666666,
+          "end": 13.558604166666667,
+          "startFrame48k": 546893,
+          "endFrame48k": 650813,
+          "lineId": "s1-l3",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "pip",
+          "start": 14.9874375,
+          "end": 17.4374375,
+          "startFrame48k": 719397,
+          "endFrame48k": 836997,
+          "lineId": "s1-l4",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "momo",
+          "start": 18.726416666666665,
+          "end": 22.341416666666667,
+          "startFrame48k": 898868,
+          "endFrame48k": 1072388,
+          "lineId": "s1-l5",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "kai",
+          "start": 24.15525,
+          "end": 25.810270833333334,
+          "startFrame48k": 1159452,
+          "endFrame48k": 1238893,
+          "lineId": "s1-l6",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "emma",
+          "start": 26.894229166666666,
+          "end": 29.279229166666667,
+          "startFrame48k": 1290923,
+          "endFrame48k": 1405403,
+          "lineId": "s1-l7",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "maya",
+          "start": 30.018208333333334,
+          "end": 31.813208333333332,
+          "startFrame48k": 1440874,
+          "endFrame48k": 1527034,
+          "lineId": "s1-l8",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "pip",
+          "start": 33.447041666666664,
+          "end": 35.4170625,
+          "startFrame48k": 1605458,
+          "endFrame48k": 1700019,
+          "lineId": "s1-l9",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "momo",
+          "start": 36.18602083333333,
+          "end": 38.27102083333333,
+          "startFrame48k": 1736929,
+          "endFrame48k": 1837009,
+          "lineId": "s1-l10",
+          "status": "actual voice metadata; not verified video sync"
+        }
+      ]
+    },
+    {
+      "no": 2,
+      "durationSec": 40,
+      "shots": [
+        {
+          "id": "s2-shot1",
+          "start": 0,
+          "end": 10,
+          "action": "Maya and Emma crouch beside the glowing chest; blinking reflections move across their faces.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s2-l1",
+            "s2-l2",
+            "s2-l3"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s2-shot2",
+          "start": 10,
+          "end": 20,
+          "action": "Kai hesitates and asks about the treasure; Momo pauses with lowered LED brows; Pip raises an open palm.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s2-l4",
+            "s2-l5"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s2-shot3",
+          "start": 20,
+          "end": 30,
+          "action": "Maya follows Momo’s pointing hand to an unlit lighthouse; camera reveals safe shore beyond.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s2-l6",
+            "s2-l7",
+            "s2-l8"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s2-shot4",
+          "start": 30,
+          "end": 40,
+          "action": "Emma unfolds the chart; Kai relaxes and listens; the crystal glow briefly dims and everyone exchanges concerned looks.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s2-l9",
+            "s2-l10"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        }
+      ],
+      "sfx": [
+        "wooden footsteps",
+        "chest resonance",
+        "paper chart flutter",
+        "fading crystal pulse"
+      ],
+      "dialogueWindows": [
+        {
+          "speaker": "emma",
+          "start": 1.1321041666666667,
+          "end": 2.8171458333333335,
+          "startFrame48k": 54341,
+          "endFrame48k": 135223,
+          "lineId": "s2-l1",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "momo",
+          "start": 4.164208333333334,
+          "end": 6.704208333333334,
+          "startFrame48k": 199882,
+          "endFrame48k": 321802,
+          "lineId": "s2-l2",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "kai",
+          "start": 8.1963125,
+          "end": 9.7313125,
+          "startFrame48k": 393423,
+          "endFrame48k": 467103,
+          "lineId": "s2-l3",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "pip",
+          "start": 12.378854166666667,
+          "end": 15.078854166666666,
+          "startFrame48k": 594185,
+          "endFrame48k": 723785,
+          "lineId": "s2-l4",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "maya",
+          "start": 16.410958333333333,
+          "end": 19.270958333333333,
+          "startFrame48k": 787726,
+          "endFrame48k": 925006,
+          "lineId": "s2-l5",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "emma",
+          "start": 21.4535,
+          "end": 23.1935,
+          "startFrame48k": 1029768,
+          "endFrame48k": 1113288,
+          "lineId": "s2-l6",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "momo",
+          "start": 24.225604166666667,
+          "end": 26.205604166666667,
+          "startFrame48k": 1162829,
+          "endFrame48k": 1257869,
+          "lineId": "s2-l7",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "kai",
+          "start": 27.237708333333334,
+          "end": 29.187708333333333,
+          "startFrame48k": 1307410,
+          "endFrame48k": 1401010,
+          "lineId": "s2-l8",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "pip",
+          "start": 31.42025,
+          "end": 33.48525,
+          "startFrame48k": 1508172,
+          "endFrame48k": 1607292,
+          "lineId": "s2-l9",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "maya",
+          "start": 34.517354166666664,
+          "end": 37.017354166666664,
+          "startFrame48k": 1656833,
+          "endFrame48k": 1776833,
+          "lineId": "s2-l10",
+          "status": "actual voice metadata; not verified video sync"
+        }
+      ]
+    },
+    {
+      "no": 3,
+      "durationSec": 40,
+      "shots": [
+        {
+          "id": "s3-shot1",
+          "start": 0,
+          "end": 10,
+          "action": "A gust fills the sail; Momo grips the wheel; the children brace their feet behind the rail.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s3-l1",
+            "s3-l2",
+            "s3-l3",
+            "s3-l4"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s3-shot2",
+          "start": 10,
+          "end": 20,
+          "action": "Kai holds a low safe rope while Emma checks the chart; close-up concentrated brows and deliberate hand motion.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s3-l4",
+            "s3-l5"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s3-shot3",
+          "start": 20,
+          "end": 30,
+          "action": "Maya and Pip secure the chest together; Momo gently catches Kai’s hat with his free hand, comic relieved smiles.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s3-l5",
+            "s3-l6",
+            "s3-l7",
+            "s3-l8"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s3-shot4",
+          "start": 30,
+          "end": 40,
+          "action": "They coordinate a turn; spray remains outside the railing; sun breaks through clouds as faces brighten.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s3-l8",
+            "s3-l9",
+            "s3-l10"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        }
+      ],
+      "sfx": [
+        "sail flap",
+        "controlled wind swell",
+        "rope tension",
+        "soft hat catch pop"
+      ],
+      "dialogueWindows": [
+        {
+          "speaker": "momo",
+          "start": 0.6449791666666667,
+          "end": 3.6099791666666667,
+          "startFrame48k": 30959,
+          "endFrame48k": 173279,
+          "lineId": "s3-l1",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "kai",
+          "start": 4.189958333333333,
+          "end": 5.539958333333334,
+          "startFrame48k": 201118,
+          "endFrame48k": 265918,
+          "lineId": "s3-l2",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "emma",
+          "start": 6.7349375,
+          "end": 8.2449375,
+          "startFrame48k": 323277,
+          "endFrame48k": 395757,
+          "lineId": "s3-l3",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "maya",
+          "start": 9.664916666666667,
+          "end": 14.324916666666667,
+          "startFrame48k": 463916,
+          "endFrame48k": 687596,
+          "lineId": "s3-l4",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "pip",
+          "start": 15.209895833333333,
+          "end": 20.038020833333334,
+          "startFrame48k": 730075,
+          "endFrame48k": 961825,
+          "lineId": "s3-l5",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "momo",
+          "start": 21.139875,
+          "end": 23.874875,
+          "startFrame48k": 1014714,
+          "endFrame48k": 1145994,
+          "lineId": "s3-l6",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "kai",
+          "start": 24.419854166666667,
+          "end": 27.854854166666666,
+          "startFrame48k": 1172153,
+          "endFrame48k": 1337033,
+          "lineId": "s3-l7",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "emma",
+          "start": 28.399833333333333,
+          "end": 30.419833333333333,
+          "startFrame48k": 1363192,
+          "endFrame48k": 1460152,
+          "lineId": "s3-l8",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "maya",
+          "start": 31.3498125,
+          "end": 33.7148125,
+          "startFrame48k": 1504791,
+          "endFrame48k": 1618311,
+          "lineId": "s3-l9",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "pip",
+          "start": 34.259791666666665,
+          "end": 38.7698125,
+          "startFrame48k": 1644470,
+          "endFrame48k": 1860951,
+          "lineId": "s3-l10",
+          "status": "actual voice metadata; not verified video sync"
+        }
+      ]
+    },
+    {
+      "no": 4,
+      "durationSec": 40,
+      "shots": [
+        {
+          "id": "s4-shot1",
+          "start": 0,
+          "end": 10,
+          "action": "Maya asks gently; Momo unlocks the chest with his own tool finger, no weapons.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s4-l1",
+            "s4-l2",
+            "s4-l3"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s4-shot2",
+          "start": 10,
+          "end": 20,
+          "action": "The lid opens to a star crystal, not gold; the children lean back in surprise then lean closer.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s4-l3",
+            "s4-l4",
+            "s4-l5"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s4-shot3",
+          "start": 20,
+          "end": 30,
+          "action": "Pip recognizes the star pattern; Momo displays a simple lighthouse icon and stranded boats on his screen.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s4-l6",
+            "s4-l7",
+            "s4-l8"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s4-shot4",
+          "start": 30,
+          "end": 40,
+          "action": "Emma apologizes; Kai offers a hand; Momo’s worried LED face becomes a broad warm smile.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s4-l8",
+            "s4-l9",
+            "s4-l10"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        }
+      ],
+      "sfx": [
+        "soft latch click",
+        "crystal shimmer",
+        "friendly robot display beeps",
+        "warm reveal sparkle"
+      ],
+      "dialogueWindows": [
+        {
+          "speaker": "maya",
+          "start": 0.86425,
+          "end": 3.17925,
+          "startFrame48k": 41484,
+          "endFrame48k": 152604,
+          "lineId": "s4-l1",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "momo",
+          "start": 4.6285,
+          "end": 6.5485,
+          "startFrame48k": 222168,
+          "endFrame48k": 314328,
+          "lineId": "s4-l2",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "emma",
+          "start": 7.39275,
+          "end": 10.80775,
+          "startFrame48k": 354852,
+          "endFrame48k": 518772,
+          "lineId": "s4-l3",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "kai",
+          "start": 12.886541666666666,
+          "end": 14.841541666666666,
+          "startFrame48k": 618554,
+          "endFrame48k": 712394,
+          "lineId": "s4-l4",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "pip",
+          "start": 15.650791666666667,
+          "end": 18.355791666666665,
+          "startFrame48k": 751238,
+          "endFrame48k": 881078,
+          "lineId": "s4-l5",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "maya",
+          "start": 20.144583333333333,
+          "end": 22.2264375,
+          "startFrame48k": 966940,
+          "endFrame48k": 1066869,
+          "lineId": "s4-l6",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "momo",
+          "start": 23.908833333333334,
+          "end": 27.183854166666666,
+          "startFrame48k": 1147624,
+          "endFrame48k": 1304825,
+          "lineId": "s4-l7",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "emma",
+          "start": 27.948104166666667,
+          "end": 30.733125,
+          "startFrame48k": 1341509,
+          "endFrame48k": 1475190,
+          "lineId": "s4-l8",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "kai",
+          "start": 32.441895833333334,
+          "end": 34.03189583333333,
+          "startFrame48k": 1557211,
+          "endFrame48k": 1633531,
+          "lineId": "s4-l9",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "pip",
+          "start": 35.20614583333333,
+          "end": 37.58614583333333,
+          "startFrame48k": 1689895,
+          "endFrame48k": 1804135,
+          "lineId": "s4-l10",
+          "status": "actual voice metadata; not verified video sync"
+        }
+      ]
+    },
+    {
+      "no": 5,
+      "durationSec": 40,
+      "shots": [
+        {
+          "id": "s5-shot1",
+          "start": 0,
+          "end": 10,
+          "action": "Inside the lighthouse, Pip guides the crystal into a padded socket; camera shows clear hand placement.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s5-l1",
+            "s5-l2",
+            "s5-l3",
+            "s5-l4"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s5-shot2",
+          "start": 10,
+          "end": 20,
+          "action": "Maya turns the handle; Kai steadies a short ladder with both feet on the floor; Emma aligns the star pattern.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s5-l4",
+            "s5-l5",
+            "s5-l6"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s5-shot3",
+          "start": 20,
+          "end": 30,
+          "action": "Momo opens the shutters; Pip activates the crystal; expressive anticipation changes to delight.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s5-l6",
+            "s5-l7",
+            "s5-l8"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s5-shot4",
+          "start": 30,
+          "end": 40,
+          "action": "A broad warm beam sweeps the sea; tiny boats follow a safe route; all five celebrate with clear readable faces.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s5-l9",
+            "s5-l10"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        }
+      ],
+      "sfx": [
+        "turning crank",
+        "socket click",
+        "shutter glide",
+        "rising lighthouse hum"
+      ],
+      "dialogueWindows": [
+        {
+          "speaker": "pip",
+          "start": 0.7265625,
+          "end": 2.6565625,
+          "startFrame48k": 34875,
+          "endFrame48k": 127515,
+          "lineId": "s5-l1",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "maya",
+          "start": 3.353125,
+          "end": 5.748125,
+          "startFrame48k": 160950,
+          "endFrame48k": 275910,
+          "lineId": "s5-l2",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "kai",
+          "start": 6.9796875,
+          "end": 8.404708333333334,
+          "startFrame48k": 335025,
+          "endFrame48k": 403426,
+          "lineId": "s5-l3",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "emma",
+          "start": 9.5444375,
+          "end": 13.2194375,
+          "startFrame48k": 458133,
+          "endFrame48k": 634533,
+          "lineId": "s5-l4",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "momo",
+          "start": 13.846,
+          "end": 15.346,
+          "startFrame48k": 664608,
+          "endFrame48k": 736608,
+          "lineId": "s5-l5",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "pip",
+          "start": 16.485729166666665,
+          "end": 20.74075,
+          "startFrame48k": 791315,
+          "endFrame48k": 995556,
+          "lineId": "s5-l6",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "maya",
+          "start": 22.112291666666668,
+          "end": 26.652291666666667,
+          "startFrame48k": 1061390,
+          "endFrame48k": 1279310,
+          "lineId": "s5-l7",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "kai",
+          "start": 27.738854166666666,
+          "end": 29.118875,
+          "startFrame48k": 1331465,
+          "endFrame48k": 1397706,
+          "lineId": "s5-l8",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "emma",
+          "start": 30.258604166666668,
+          "end": 34.93360416666667,
+          "startFrame48k": 1452413,
+          "endFrame48k": 1676813,
+          "lineId": "s5-l9",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "momo",
+          "start": 35.56016666666667,
+          "end": 37.8101875,
+          "startFrame48k": 1706888,
+          "endFrame48k": 1814889,
+          "lineId": "s5-l10",
+          "status": "actual voice metadata; not verified video sync"
+        }
+      ]
+    },
+    {
+      "no": 6,
+      "durationSec": 40,
+      "shots": [
+        {
+          "id": "s6-shot1",
+          "start": 0,
+          "end": 10,
+          "action": "Returning boats dock offscreen; harbor bells confirm the rescue; only the five leads appear and share relieved smiles.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s6-l1",
+            "s6-l2",
+            "s6-l3",
+            "s6-l4"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s6-shot2",
+          "start": 10,
+          "end": 20,
+          "action": "Kai retrieves his hat from Momo and gives thanks; Momo tips his hat with gentle mechanical timing.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s6-l4",
+            "s6-l5",
+            "s6-l6"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s6-shot3",
+          "start": 20,
+          "end": 30,
+          "action": "Emma arranges the team photo; Maya notices a compass glow; Pip turns with delighted surprise.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s6-l7",
+            "s6-l8"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        },
+        {
+          "id": "s6-shot4",
+          "start": 30,
+          "end": 40,
+          "action": "Five friends gather around the compass; Momo waves them onward; sunset hopeful hold, no threat or cliff-edge peril.",
+          "expressionDirection": "Use scene dialogue emotions; hold speaker face clearly during each line; non-speakers react silently; verify mouth motion against actual recorded phonemes.",
+          "dialogueIds": [
+            "s6-l9",
+            "s6-l10"
+          ],
+          "timingNote": "10-second visual shot boundary is a draft; preserve full utterance across cuts or revise cuts. Never truncate audio."
+        }
+      ],
+      "sfx": [
+        "soft harbor celebration",
+        "camera click",
+        "compass chime",
+        "gentle robot servo"
+      ],
+      "dialogueWindows": [
+        {
+          "speaker": "emma",
+          "start": 0.4995,
+          "end": 2.7095,
+          "startFrame48k": 23976,
+          "endFrame48k": 130056,
+          "lineId": "s6-l1",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "kai",
+          "start": 3.899,
+          "end": 5.449,
+          "startFrame48k": 187152,
+          "endFrame48k": 261552,
+          "lineId": "s6-l2",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "maya",
+          "start": 6.2985,
+          "end": 8.3685,
+          "startFrame48k": 302328,
+          "endFrame48k": 401688,
+          "lineId": "s6-l3",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "momo",
+          "start": 9.854354166666667,
+          "end": 12.049375,
+          "startFrame48k": 473009,
+          "endFrame48k": 578370,
+          "lineId": "s6-l4",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "pip",
+          "start": 13.253854166666667,
+          "end": 16.088854166666668,
+          "startFrame48k": 636185,
+          "endFrame48k": 772265,
+          "lineId": "s6-l5",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "emma",
+          "start": 16.809708333333333,
+          "end": 19.234708333333334,
+          "startFrame48k": 806866,
+          "endFrame48k": 923266,
+          "lineId": "s6-l6",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "kai",
+          "start": 20.209208333333333,
+          "end": 23.774229166666668,
+          "startFrame48k": 970042,
+          "endFrame48k": 1141163,
+          "lineId": "s6-l7",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "maya",
+          "start": 24.608708333333333,
+          "end": 29.553708333333333,
+          "startFrame48k": 1181218,
+          "endFrame48k": 1418578,
+          "lineId": "s6-l8",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "momo",
+          "start": 30.1095625,
+          "end": 34.7445625,
+          "startFrame48k": 1445259,
+          "endFrame48k": 1667739,
+          "lineId": "s6-l9",
+          "status": "actual voice metadata; not verified video sync"
+        },
+        {
+          "speaker": "pip",
+          "start": 35.1440625,
+          "end": 38.57375,
+          "startFrame48k": 1686915,
+          "endFrame48k": 1851540,
+          "lineId": "s6-l10",
+          "status": "actual voice metadata; not verified video sync"
+        }
+      ]
+    }
+  ],
+  "timingSource": "voices/draft-scene-mix/timing-proposal-v1.json",
+  "timingSourceVersion": "actual-voice-timing-draft-v1",
+  "timingStatus": "audio metadata only; provisional video timing, no media QA",
+  "shotBoundaryReviewRequired": [
+    {
+      "lineId": "s1-l2",
+      "cutSec": 10,
+      "scene": 1
+    },
+    {
+      "lineId": "s1-l5",
+      "cutSec": 20,
+      "scene": 1
+    },
+    {
+      "lineId": "s3-l4",
+      "cutSec": 10,
+      "scene": 3
+    },
+    {
+      "lineId": "s3-l5",
+      "cutSec": 20,
+      "scene": 3
+    },
+    {
+      "lineId": "s3-l8",
+      "cutSec": 30,
+      "scene": 3
+    },
+    {
+      "lineId": "s4-l3",
+      "cutSec": 10,
+      "scene": 4
+    },
+    {
+      "lineId": "s4-l8",
+      "cutSec": 30,
+      "scene": 4
+    },
+    {
+      "lineId": "s5-l4",
+      "cutSec": 10,
+      "scene": 5
+    },
+    {
+      "lineId": "s5-l6",
+      "cutSec": 20,
+      "scene": 5
+    },
+    {
+      "lineId": "s6-l4",
+      "cutSec": 10,
+      "scene": 6
+    }
+  ]
+}

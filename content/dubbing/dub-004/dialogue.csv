@@ -1,0 +1,61 @@
+scene,id,speaker,start_audio_metadata,end_audio_metadata,en,ko,emotion
+1,s1-l1,kai,0.8389791666666667,2.693979166666667,"Pip, you came back again!","핍, 네가 다시 놀러 왔구나!",relieved
+1,s1-l2,emma,6.549625,10.654625,Look! A ship needs help!,봐! 배가 도움을 요청해!,alert
+1,s1-l3,maya,11.393604166666666,13.558604166666667,That flag has a robot!,저 깃발에 로봇이 있어!,curious
+1,s1-l4,pip,14.9874375,17.4374375,My signal comes from there.,내 신호가 저기서 와.,focused
+1,s1-l5,momo,18.726416666666665,22.341416666666667,"Welcome aboard, my brave friends!","용감한 친구들, 승선을 환영해!",welcoming
+1,s1-l6,kai,24.15525,25.810270833333334,Where is that robot going?,저 로봇은 어디로 가?,curious
+1,s1-l7,emma,26.894229166666666,29.279229166666667,His screen shows a worried face.,화면에 걱정스러운 얼굴이 보여.,concerned
+1,s1-l8,maya,30.018208333333334,31.813208333333332,Let us follow him together.,우리 함께 따라가 보자.,determined
+1,s1-l9,pip,33.447041666666664,35.4170625,I can hear something ringing.,뭔가 울리는 소리가 들려.,curious
+1,s1-l10,momo,36.18602083333333,38.27102083333333,Please keep that chest safe.,저 상자를 안전하게 지켜 줘.,earnest
+2,s2-l1,emma,1.1321041666666667,2.8171458333333335,Why is the chest glowing?,왜 상자가 빛나는 거지?,curious
+2,s2-l2,momo,4.164208333333334,6.704208333333334,It holds something very precious.,아주 소중한 것이 들어 있어.,gentle
+2,s2-l3,kai,8.1963125,9.7313125,Did you take that treasure?,저 보물을 가져온 거야?,uncertain
+2,s2-l4,pip,12.378854166666667,15.078854166666666,Wait! Let us ask first.,잠깐! 먼저 물어보자.,calm
+2,s2-l5,maya,16.410958333333333,19.270958333333333,Momo is pointing toward the shore.,모모가 해안을 가리키고 있어.,observant
+2,s2-l6,emma,21.4535,23.1935,There is a dark lighthouse!,불 꺼진 등대가 있어!,surprised
+2,s2-l7,momo,24.225604166666667,26.205604166666667,We must reach it before sunset.,해 지기 전에 도착해야 해.,urgent
+2,s2-l8,kai,27.237708333333334,29.187708333333333,I think I misunderstood you.,내가 모모를 오해한 것 같아.,thoughtful
+2,s2-l9,pip,31.42025,33.48525,The light is getting weaker.,빛이 점점 약해지고 있어.,concerned
+2,s2-l10,maya,34.517354166666664,37.017354166666664,Then we must work together.,그럼 우리가 힘을 합쳐야 해.,determined
+3,s3-l1,momo,0.6449791666666667,3.6099791666666667,Hold tight! The wind is changing!,꽉 잡아! 바람이 바뀌고 있어!,alert
+3,s3-l2,kai,4.189958333333333,5.539958333333334,I can hold this rope.,내가 이 밧줄을 잡을게.,determined
+3,s3-l3,emma,6.7349375,8.2449375,I will check the map.,내가 지도를 확인할게.,focused
+3,s3-l4,maya,9.664916666666667,14.324916666666667,"Pip, help me secure the chest.","핍, 상자 고정하는 걸 도와줘.",focused
+3,s3-l5,pip,15.209895833333333,20.038020833333334,"Together! One, two, three, pull!","함께! 하나, 둘, 셋, 당겨!",energetic
+3,s3-l6,momo,21.139875,23.874875,Great teamwork! Keep your feet steady.,멋진 협동이야! 발을 단단히 디뎌.,encouraging
+3,s3-l7,kai,24.419854166666667,27.854854166666666,Momo just caught my hat!,모모가 내 모자를 잡았어!,delighted
+3,s3-l8,emma,28.399833333333333,30.419833333333333,The safe path is this way.,안전한 길은 이쪽이야.,confident
+3,s3-l9,maya,31.3498125,33.7148125,The chest is safe now.,이제 상자는 안전해.,relieved
+3,s3-l10,pip,34.259791666666665,38.7698125,Look! The clouds are opening!,봐! 구름이 걷히고 있어!,hopeful
+4,s4-l1,maya,0.86425,3.17925,Please show us your treasure.,보물을 우리에게 보여 줘.,curious
+4,s4-l2,momo,4.6285,6.5485,It is the lighthouse heart.,등대의 심장이란다.,warm
+4,s4-l3,emma,7.39275,10.80775,"A light, not gold coins!",금화가 아니라 빛이었어!,amazed
+4,s4-l4,kai,12.886541666666666,14.841541666666666,You were rescuing the lost sailors!,길 잃은 선원들을 구하고 있었구나!,realizing
+4,s4-l5,pip,15.650791666666667,18.355791666666665,This crystal uses star energy.,이 수정은 별 에너지를 써.,recognizing
+4,s4-l6,maya,20.144583333333333,22.2264375,That is why you called us!,그래서 우리를 부른 거구나!,realizing
+4,s4-l7,momo,23.908833333333334,27.183854166666666,Yes! Their boats need this light.,그래! 배들에게 이 빛이 필요해.,earnest
+4,s4-l8,emma,27.948104166666667,30.733125,Sorry we judged your pirate flag.,해적 깃발만 보고 판단해서 미안해.,apologetic
+4,s4-l9,kai,32.441895833333334,34.03189583333333,Let us bring everyone home.,모두 집으로 돌아오게 하자.,determined
+4,s4-l10,pip,35.20614583333333,37.58614583333333,I can help it shine again.,내가 다시 빛나게 도울 수 있어.,hopeful
+5,s5-l1,pip,0.7265625,2.6565625,Place the crystal right here.,수정을 바로 여기에 놓아 줘.,focused
+5,s5-l2,maya,3.353125,5.748125,I will turn this handle.,내가 이 손잡이를 돌릴게.,determined
+5,s5-l3,kai,6.9796875,8.404708333333334,I will hold the ladder.,내가 사다리를 잡고 있을게.,careful
+5,s5-l4,emma,9.5444375,13.2194375,The stars show us the pattern.,별들이 무늬를 알려 주고 있어.,excited
+5,s5-l5,momo,13.846,15.346,I will open the shutters.,내가 창문 덮개를 열게.,focused
+5,s5-l6,pip,16.485729166666665,20.74075,Ready? Let our light shine!,준비됐지? 우리의 빛을 밝혀 보자!,excited
+5,s5-l7,maya,22.112291666666668,26.652291666666667,It works! Look at the sea!,됐다! 바다를 봐!,joyful
+5,s5-l8,kai,27.738854166666666,29.118875,The boats are coming home!,배들이 집으로 돌아오고 있어!,joyful
+5,s5-l9,emma,30.258604166666668,34.93360416666667,Every sailor can see the way.,선원 모두 길을 볼 수 있어.,relieved
+5,s5-l10,momo,35.56016666666667,37.8101875,You are all true treasure!,너희 모두가 진짜 보물이야!,grateful
+6,s6-l1,emma,0.4995,2.7095,The sailors are safely home again.,선원들이 다시 안전하게 돌아왔어.,warm
+6,s6-l2,kai,3.899,5.449,Thank you for saving my hat!,내 모자를 구해 줘서 고마워!,playful
+6,s6-l3,maya,6.2985,8.3685,We should always listen first.,우린 언제나 먼저 들어야 해.,thoughtful
+6,s6-l4,momo,9.854354166666667,12.049375,A kind heart is real treasure.,다정한 마음이 진짜 보물이란다.,warm
+6,s6-l5,pip,13.253854166666667,16.088854166666668,Our team makes every light brighter.,우리 팀은 모든 빛을 더 밝게 해.,proud
+6,s6-l6,emma,16.809708333333333,19.234708333333334,Let us take a picture!,우리 함께 사진 찍자!,cheerful
+6,s6-l7,kai,20.209208333333333,23.774229166666668,"Everyone say, shiny treasure chest!","모두 말해 봐, 반짝이는 보물 상자!",playful
+6,s6-l8,maya,24.608708333333333,29.553708333333333,Wait! The compass is glowing again.,잠깐! 나침반이 다시 빛나.,surprised
+6,s6-l9,momo,30.1095625,34.7445625,Another adventure is calling you.,또 다른 모험이 너희를 부르네.,hopeful
+6,s6-l10,pip,35.1440625,38.57375,"Whatever comes, we stay together!",무슨 일이 와도 우린 함께야!,confident
