@@ -41,7 +41,6 @@ const check = (name, ok, extra) => {
 const CORE_PATH = join(PUB, 'js', 'ai-dubbing-core.js');
 const PLAYER_PATH = join(PUB, 'js', 'ai-dubbing.js');
 const HTML_PATH = join(PUB, 'ai-dubbing.html');
-const EP_PATH = join(PUB, 'data', 'dubbing', 'dub-001.json');
 const CORE_SRC = rd(CORE_PATH);
 const PLAYER_SRC_RAW = process.env.PLAYER_SRC ? rd(process.env.PLAYER_SRC) : rd(PLAYER_PATH);
 
@@ -203,59 +202,89 @@ console.log('🎬 ai_dubbing_harness');
 const CORE = loadCore(CORE_SRC);
 const baseFails = runChecks(CORE, true);
 
-/* ⑥ 지금 실린 에피소드 */
-console.log('\n── ⑥ dub-001.json');
-let epRaw = null;
-try { epRaw = JSON.parse(rd(EP_PATH)); } catch (e) { epRaw = null; }
-check('⑥-1 dub-001.json 이 JSON 으로 읽힌다', !!epRaw);
-if (epRaw) {
+/* ⑥ 지금 실린 에피소드 — index.json 에서 ready 인 편을 «전부» 같은 규격으로 본다(1편·3편 …).
+   ⛔ 편 이름을 여기 손으로 늘어놓지 않는다 — 새 편을 ready 로 바꾸는 순간 저절로 같은 검사를 받는다.
+   시각이 provisional 인 편에만 «차례 모드·preview» 를 묻는다(나중에 완성본(synced)이 와도 거짓 FAIL 이 안 나게). */
+let readyIds = [];
+try { readyIds = CORE.normalizeIndex(JSON.parse(rd(join(PUB, 'data', 'dubbing', 'index.json')))).filter((e) => e.status === 'ready').map((e) => e.id); } catch (e) { readyIds = []; }
+check('⑥-0 전제 — 목록에서 ready 인 편을 읽었고 1편·3편이 들어 있다', readyIds.indexOf('dub-001') >= 0 && readyIds.indexOf('dub-003') >= 0, readyIds);
+let checkedEps = 0;
+for (const epId of readyIds) {
+  if (!/^[a-z0-9-]+$/.test(epId)) continue;
+  const P = epId + ' ';
+  console.log('\n── ⑥ ' + epId + '.json');
+  let epRaw = null;
+  try { epRaw = JSON.parse(rd(join(PUB, 'data', 'dubbing', epId + '.json'))); } catch (e) { epRaw = null; }
+  check('⑥-1 ' + P + 'JSON 으로 읽힌다', !!epRaw);
+  if (!epRaw) continue;
+  checkedEps++;
   const n = CORE.normalizeEpisode(epRaw, { baseUrl: '/data/dubbing/' });
-  check('⑥-2 재생 가능(ok) · 문제 0', n.ok && n.problems.length === 0, n.problems);
+  check('⑥-2 ' + P + '재생 가능(ok) · 문제 0', n.ok && n.problems.length === 0, n.problems);
   const sc = n.episode.scenes;
-  check('⑥-3 6장면', sc.length === 6, sc.length);
-  check('⑥-4 시각이 «provisional» 이라 전부 차례 모드 + TTS (40초 기준 시각을 15초 영상에 지어내 맞추지 않는다)',
-    epRaw.timing !== 'synced' && sc.every((s) => s.timing === 'turn' && s.voiceMode === 'tts'));
-  check('⑥-5 원본 영상 소리는 전부 끈다(생성기 목소리가 섞여 있음 — 실측)', sc.every((s) => s.videoAudio === 'mute'));
+  check('⑥-3 ' + P + '6장면', sc.length === 6, sc.length);
+  /* ⛔ if 로 감싸지 않는다 — 감싸면 시각을 «synced» 로 바꾸는 한 줄에 아래 두 검사가 «소리 없이» 빠진다(함정 대조 2026-10-20).
+     «A 면 B» 를 늘 도는 검사(!A || B)로 두고, 1·3편이 아직 provisional 이라는 사실은 ⑥-9b 가 따로 못 박는다. */
+  check('⑥-4 ' + P + '시각이 «provisional» 이면 전부 차례 모드 + TTS (없는 시각을 지어내 맞추지 않는다)',
+    epRaw.timing === 'synced' || sc.every((s) => s.timing === 'turn' && s.voiceMode === 'tts'));
+  check('⑥-4b ' + P + '시각이 «synced» 라고 적었으면 장면이 실제로 전부 맞춤 모드로 읽힌다(시각이 틀려 차례 모드로 떨어지지 않았다)',
+    epRaw.timing !== 'synced' || sc.every((s) => s.timing === 'synced'));
+  check('⑥-9 ' + P + '시각이 «provisional» 이면 상태는 «preview» — 완성본이라고 말하지 않는다', epRaw.timing === 'synced' || n.episode.status === 'preview');
+  check('⑥-5 ' + P + 'AI 목소리(tts)로 내는 장면은 원본 영상 소리를 끈다(생성기 목소리가 섞임)', sc.every((s) => s.voiceMode !== 'tts' || s.videoAudio === 'mute'));
   /* 영상·대표 그림은 우리 서버 파일 — 남의 CDN 주소는 만료되면 사라지고(중국 회선도 막힘) 완성 영상 캔버스를 «오염» 시킨다 */
-  const local = (u) => join(PUB, String(u || '').replace(/^\/+/, ''));
-  check('⑥-6 영상은 우리 서버 경로(/media/dubbing/dub-001/)이고 장면마다 다르다',
-    sc.every((s) => /^\/media\/dubbing\/dub-001\/[a-z0-9-]+\.mp4$/.test(s.video)) && new Set(sc.map((s) => s.video)).size === 6, sc.map((s) => s.video));
-  check('⑥-6b 영상 파일이 저장소에 실재하고 25MiB 미만(Workers 정적자산 한도)',
+  /* ?v=N 은 «같은 이름으로 갈아 끼운 영상» 의 캐시 우회(미디어 7일 캐시) — 파일을 찾을 때는 뗀다 */
+  const local = (u) => join(PUB, String(u || '').replace(/[?#].*$/, '').replace(/^\/+/, ''));
+  const mediaRe = new RegExp('^/media/dubbing/' + epId + '/[a-z0-9-]+\\.mp4(\\?v=\\d+)?$');
+  check('⑥-6 ' + P + '영상은 우리 서버 경로(/media/dubbing/' + epId + '/)이고 장면마다 다르다',
+    sc.every((s) => mediaRe.test(s.video)) && new Set(sc.map((s) => local(s.video))).size === 6, sc.map((s) => s.video));
+  /* ↑ «다르다» 는 ?v= 를 뗀 «파일» 로 센다 — 안 떼면 같은 영상에 ?v=2 만 붙인 둘을 «다르다» 로 센다(함정 대조 2026-10-20) */
+  check('⑥-6b ' + P + '영상 파일이 저장소에 실재하고 25MiB 미만(Workers 정적자산 한도)',
     sc.every((s) => existsSync(local(s.video)) && statSync(local(s.video)).size < 25 * 1024 * 1024));
-  check('⑥-6c 장면 대표 그림이 실재한다', sc.every((s) => s.poster && existsSync(local(s.poster))), sc.map((s) => s.poster));
-  check('⑥-6d 매니페스트에 남의 CDN 주소가 없다', !/cloudfront\.net|higgsfield/i.test(JSON.stringify(epRaw)));
-  check('⑥-7 장면마다 학생이 고를 수 있는 캐릭터의 대사가 있다(고를 게 없으면 학생은 할 일이 없다)',
+  check('⑥-6c ' + P + '장면 대표 그림이 실재한다', sc.every((s) => s.poster && existsSync(local(s.poster))), sc.map((s) => s.poster));
+  check('⑥-6d ' + P + '매니페스트에 남의 CDN 주소가 없다', !/cloudfront\.net|higgsfield/i.test(JSON.stringify(epRaw)));
+  check('⑥-7 ' + P + '장면마다 학생이 고를 수 있는 캐릭터의 대사가 있다(고를 게 없으면 학생은 할 일이 없다)',
     sc.every((s) => s.lines.some((l) => n.episode.playable.indexOf(l.speaker) >= 0)));
-  check('⑥-8 영어 대사에 한글·한자가 없다', sc.every((s) => s.lines.every((l) => !/[가-힣ㄱ-ㅎ一-鿿]/.test(l.en))));
-  check('⑥-9 상태는 «preview» — 완성본이라고 말하지 않는다', n.episode.status === 'preview');
-  check('⑥-10 캐릭터마다 TTS 화자가 정해져 있다', Object.keys(n.episode.characters).every((k) => !!n.episode.characters[k].ttsSpeaker));
+  check('⑥-8 ' + P + '영어 대사에 한글·한자가 없다', sc.every((s) => s.lines.every((l) => !/[가-힣ㄱ-ㅎ一-鿿]/.test(l.en))));
+  check('⑥-10 ' + P + '캐릭터마다 TTS 화자가 정해져 있다', Object.keys(n.episode.characters).every((k) => !!n.episode.characters[k].ttsSpeaker));
 
   /* 대사 규격 — 짧은 영어(3~8단어) · 장면마다 캐릭터당 2줄 이상 · 1/2/3역 선택 */
   const allLines = sc.reduce((a, s) => a.concat(s.lines), []);
   const words = (t) => (t.match(/[A-Za-z']+/g) || []).length;
-  check('⑥-11 대사는 36줄', allLines.length === 36, allLines.length);
-  check('⑥-12 모든 대사가 3~8단어', allLines.every((l) => words(l.en) >= 3 && words(l.en) <= 8), allLines.filter((l) => words(l.en) < 3 || words(l.en) > 8).map((l) => l.id));
-  check('⑥-13 고를 수 있는 캐릭터는 3명 — 1·2·3명이 역을 나눌 수 있다', n.episode.playable.length === 3);
-  check('⑥-14 장면마다 고를 수 있는 캐릭터가 «각각» 2줄 이상 말한다(어느 역을 골라도 할 일이 있다)',
+  check('⑥-11 ' + P + '대사는 36줄', allLines.length === 36, allLines.length);
+  check('⑥-12 ' + P + '모든 대사가 3~8단어', allLines.every((l) => words(l.en) >= 3 && words(l.en) <= 8), allLines.filter((l) => words(l.en) < 3 || words(l.en) > 8).map((l) => l.id));
+  check('⑥-13 ' + P + '고를 수 있는 캐릭터는 3명 — 1·2·3명이 역을 나눌 수 있다', n.episode.playable.length === 3);
+  check('⑥-14 ' + P + '장면마다 고를 수 있는 캐릭터가 «각각» 2줄 이상 말한다(어느 역을 골라도 할 일이 있다)',
     sc.every((s) => n.episode.playable.every((cid) => s.lines.filter((l) => l.speaker === cid).length >= 2)));
-  check('⑥-15 대사마다 한국어 뜻이 있다', allLines.every((l) => !!l.ko));
+  check('⑥-15 ' + P + '대사마다 한국어 뜻이 있다', allLines.every((l) => !!l.ko));
+  check('⑥-15b ' + P + '대사 id 가 겹치지 않는다', new Set(allLines.map((l) => l.id)).size === allLines.length);
 
   /* 캐릭터 목소리는 서로 달라야 한다 — 서버가 Aura-2 → Aura-1 로 떨어져도(그 표를 소스에서 읽는다) */
   const games = rd(join(ROOT, 'cloudflare-deploy', 'src', 'api-games.ts'));
   const a1m = /const AURA1 = new Set\(\[([^\]]+)\]\)/.exec(games);
+  const a2m = /const AURA2 = new Set\(\[([^\]]+)\]\)/.exec(games);
   const subm = /const AURA1_SUB[^{]*\{([\s\S]*?)\};/.exec(games);
   const maleM = /const AURA2_MALE = new Set\(\[([^\]]+)\]\)/.exec(games);
-  check('⑥-16 전제 — 서버의 목소리 대체표를 읽었다', !!(a1m && subm && maleM));
-  if (a1m && subm && maleM) {
+  check('⑥-16 ' + P + '전제 — 서버의 목소리 표를 읽었다', !!(a1m && a2m && subm && maleM));
+  if (a1m && a2m && subm && maleM) {
     const A1 = new Set(a1m[1].match(/[a-z]+/g));
+    const A2 = new Set(a2m[1].match(/[a-z]+/g));
     const MALE = new Set(maleM[1].match(/[a-z]+/g));
     const SUB = {};
     subm[1].replace(/\/\/[^\n]*/g, '').replace(/([a-z]+)\s*:\s*'([a-z]+)'/g, (_, k, v) => { SUB[k] = v; return ''; });
     const fb = (spk) => (A1.has(spk) ? spk : (SUB[spk] || (MALE.has(spk) ? 'orion' : 'luna')));
     const spk = Object.keys(n.episode.characters).map((k) => n.episode.characters[k].ttsSpeaker);
-    check('⑥-17 캐릭터 목소리가 서로 다르다', new Set(spk).size === spk.length, spk);
-    check('⑥-18 Aura-1 로 떨어져도 서로 다르다', new Set(spk.map(fb)).size === spk.length, spk.map(fb));
+    /* 서버는 목록 밖 이름을 «asteria»(여자 기본값)로 바꾼다 — 그러면 남자아이도 여자 목소리가 된다 */
+    check('⑥-16b ' + P + '화자 이름이 서버의 Aura-2 목록에 있다(밖이면 asteria 로 바뀜)', spk.every((x) => A2.has(x)), spk.filter((x) => !A2.has(x)));
+    check('⑥-17 ' + P + '캐릭터 목소리가 서로 다르다', new Set(spk).size === spk.length, spk);
+    check('⑥-18 ' + P + 'Aura-1 로 떨어져도 서로 다르다', new Set(spk.map(fb)).size === spk.length, spk.map(fb));
   }
+}
+check('⑥-z 전제 — 실제로 2편 이상을 검사했다(목록이 비어 검사가 통째로 사라지지 않게)', checkedEps >= 2, checkedEps);
+/* ⑥-9b 지금 사실을 못 박는다 — 1편·3편은 아직 «영상에 맞춘 대사 시각» 이 없다(설명서 6-1·6-1b).
+   ⚠️ 진짜 완성본(대사 시각 + 원어민 음성)으로 올리는 날 이 줄을 «함께» 고친다 — 그 전에 누가 timing 만 'synced' 로 바꾸면 여기서 걸린다. */
+for (const epId of ['dub-001', 'dub-003']) {
+  let raw = null;
+  try { raw = JSON.parse(rd(join(PUB, 'data', 'dubbing', epId + '.json'))); } catch (e) { raw = null; }
+  check('⑥-9b ' + epId + ' 는 아직 시각 provisional · 상태 preview (완성본이 아니다)', !!raw && raw.timing === 'provisional' && raw.status === 'preview', raw && [raw.timing, raw.status]);
 }
 
 /* 이야기 목록 — 준비된 편은 매니페스트가 실재해야 한다(눌렀는데 빈 화면 금지) */
@@ -297,7 +326,7 @@ const styleBlocks = (html.match(/<style[\s\S]*?<\/style>/g) || []).join('\n');
 check('⑦-12 <style> 안에 CJK 홑낫표가 없다', !/[「」]/.test(styleBlocks));
 check('⑦-13 화면에 보이는 글자에 CJK 홑낫표가 없다', !/[「」]/.test(html.replace(/<!--[\s\S]*?-->/g, '').replace(/<script[\s\S]*?<\/script>/g, '')));
 check('⑦-14 사이트 구성표에 화면이 있다', /ai-dubbing\.html/.test(rd(join(PUB, 'admin', 'site-structure-map.html'))));
-for (const f of ['js/ai-dubbing-core.js', 'js/ai-dubbing.js', 'data/dubbing/dub-001.json', 'data/dubbing/index.json']) check('⑦-15 파일 실재: ' + f, existsSync(join(PUB, f)));
+for (const f of ['js/ai-dubbing-core.js', 'js/ai-dubbing.js', 'data/dubbing/dub-001.json', 'data/dubbing/dub-003.json', 'data/dubbing/index.json']) check('⑦-15 파일 실재: ' + f, existsSync(join(PUB, f)));
 /* 👂 먼저 들어 보기 — 그 소리는 완성 영상에 넣지 않는다(학생 목소리만 남아야 한다) */
 const lfBody = (() => { const i = playerCode.indexOf('function listenFirst('); if (i < 0) return ''; const j = playerCode.indexOf('function studentTurn(', i); return j > i ? playerCode.slice(i, j) : ''; })();
 check('⑦-16 «먼저 들어 보기» 함수가 있고 옵션으로 켜고 끈다', !!lfBody && /if \(!run\.listenFirst\) return/.test(lfBody) && /listenFirst: !!\(\$\('dub-listen-first'\)/.test(playerCode));
