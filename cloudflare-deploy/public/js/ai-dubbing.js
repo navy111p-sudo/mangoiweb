@@ -912,6 +912,7 @@
 
   function playTurns(run, sc) {
     var items = C.assignLines(sc, S.cast, run.counters);
+    if (run.listenOnly) items = items.map(function (it) { return { line: it.line, performer: { type: 'native' } }; });
     var i = 0;
     function next() {
       if (run.aborted || i >= items.length) return Promise.resolve();
@@ -934,7 +935,8 @@
   function playSynced(run, sc) {
     var v = $('dub-video');
     var items = C.assignLines(sc, S.cast, run.counters);
-    var muted = C.mutedCharacters(S.cast);
+    if (run.listenOnly) items = items.map(function (it) { return { line: it.line, performer: { type: 'native' } }; });
+    var muted = run.listenOnly ? {} : C.mutedCharacters(S.cast);
     var tracks = [];
     function addTrack(url, kind, cid, gain) {
       var a = new Audio(); a.crossOrigin = 'anonymous'; a.preload = 'auto'; a.src = url;
@@ -1018,7 +1020,7 @@
     var v = $('dub-video');
     setNote(''); clearLine(run); setTurn('');
     setProg(T('에피소드 ' + sc.no + ' 불러오는 중…', 'Loading episode ' + sc.no + '…'));
-    if (sc.voiceMode === 'tts') prefetchScene(sc, run.listenFirst);
+    if (sc.voiceMode === 'tts') prefetchScene(sc, run.listenFirst || run.listenOnly);
     setVideoAudio(v, sc.videoAudio === 'clean');
     v.loop = sc.timing !== 'synced';
     if (sc.poster) v.poster = sc.poster; else v.removeAttribute('poster');
@@ -1039,7 +1041,7 @@
 
   function setRunning(on) {
     $('dub-player').hidden = !on;                    // 결과·완성 영상은 따로 된 칸에 남는다
-    Array.prototype.forEach.call(document.querySelectorAll('#dub-scenes button, #dub-all, #dub-start, #dub-genres button, #dub-cast button, #dub-cast input, #dub-make-movie, #dub-listen-first'), function (b) { b.disabled = on; });
+    Array.prototype.forEach.call(document.querySelectorAll('#dub-scenes button, #dub-all, #dub-start, #dub-genres button, #dub-cast button, #dub-cast input, #dub-make-movie, #dub-listen-first, #dub-listen-all'), function (b) { b.disabled = on; });
     $('dub-stop').disabled = !on;
     document.body.classList.toggle('dub-running', !!on);   // 폰 아래 바는 더빙 중엔 숨긴다(플레이어 버튼을 가리지 않게)
     if (!on) {
@@ -1049,13 +1051,15 @@
     }
   }
 
-  function startRun(sceneIdxs) {
+  function startRun(sceneIdxs, options) {
     if (S.run || !S.ep) return;
-    var probs = C.castProblems(S.cast, S.ep);
+    var listenOnly = !!(options && options.listenOnly);
+    var probs = listenOnly ? [] : C.castProblems(S.cast, S.ep);
     if (probs.length) { alert(T('학생마다 캐릭터를 골라 주세요.', 'Please pick a character for each student.')); return; }
     ensureMix();                                     // ⚠️ 클릭 안에서 만들어야 소리가 난다(자동재생 정책)
     var run = { aborted: false, counters: {}, wakers: [], sub: null, mic: null, movie: null, tracks: [], deviceVoiceUsed: false,
-      listenFirst: !!($('dub-listen-first') && $('dub-listen-first').checked) };
+      listenOnly: listenOnly,
+      listenFirst: !listenOnly && !!($('dub-listen-first') && $('dub-listen-first').checked) };
     S.run = run;
     closeSheet();
     setRunning(true);
@@ -1063,10 +1067,10 @@
     var title = sceneIdxs.length > 1
       ? T('처음부터 끝까지', 'Whole story')
       : T('에피소드 ' + S.ep.scenes[sceneIdxs[0]].no + ' · ' + S.ep.scenes[sceneIdxs[0]].label.ko, 'Episode ' + S.ep.scenes[sceneIdxs[0]].no + ' · ' + S.ep.scenes[sceneIdxs[0]].label.en);
-    openMic(run).catch(function () {
+    (listenOnly ? Promise.resolve() : openMic(run).catch(function () {
       throw new Error('mic');
-    }).then(function () {
-      if ($('dub-make-movie') && $('dub-make-movie').checked) run.movie = startMovie(run);
+    })).then(function () {
+      if (!listenOnly && $('dub-make-movie') && $('dub-make-movie').checked) run.movie = startMovie(run);
       var k = 0;
       function nextScene() {
         if (run.aborted || k >= sceneIdxs.length) return Promise.resolve();
@@ -1152,6 +1156,11 @@
       if (b && !b.disabled) { S.sel = Number(b.getAttribute('data-scene')); startRun([S.sel]); return; }
       var p = e.target.closest('button[data-pick]');
       if (p && !p.disabled) pickScene(Number(p.getAttribute('data-pick')));
+    });
+    $('dub-listen-all').addEventListener('click', function () {
+      var all = [];
+      S.ep.scenes.forEach(function (sc, i) { if (sc.video && sc.lines.length) all.push(i); });
+      if (all.length) startRun(all, { listenOnly: true });
     });
     $('dub-start').addEventListener('click', function () { if (scenePlayable(S.sel)) startRun([S.sel]); });
     $('dub-all').addEventListener('click', function () {
