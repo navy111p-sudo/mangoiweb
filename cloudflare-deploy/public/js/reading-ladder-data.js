@@ -1,5 +1,5 @@
 /* 📚 영어 독서 사다리 — 글 정본 (2026-10-18). 화면: /stories.html · 엔진: /js/reading-ladder.js
-   단계 4개 · 1·2단계 48편 · 3단계 42편(2026-10-20 마법학교 시리즈 소설 1~4권 s3-39~42 추가) · 4단계 42편(2026-10-19 확장 · 2026-10-19 176편 모두 그림 동화책 /story-<id>.html 이 있다 — 그림책이 없는 글이 생기면 book:false 를 달 것). 한 편 = 문장별 영어·우리말 · 핵심 문장 번호(key) · 중심 내용 보기 4개(answer 는 정답 번호 — 화면이 섞음)
+   단계 4개 · 1·2단계 48편 · 3단계 42편(2026-10-20 마법학교 시리즈 소설 1~4권 s3-39~42 추가 · 주제 «소설») · 4단계 42편(2026-10-19 확장 · 2026-10-19 176편 모두 그림 동화책 /story-<id>.html 이 있다 — 그림책이 없는 글이 생기면 book:false 를 달 것). 한 편 = 문장별 영어·우리말 · 핵심 문장 번호(key) · 중심 내용 보기 4개(answer 는 정답 번호 — 화면이 섞음)
    · 오늘의 낱말 3개 · 핵심 한 줄 영작(summary.ko → summary.en, keywords 3개).
    ⚠️ 고치면 이 파일을 부르는 stories.html 의 ?v= 를 올리고 reading_ladder_harness 를 돌리세요. */
 window.READING_LADDER = {
@@ -15679,8 +15679,8 @@ window.READING_LADDER = {
     "ko": "마법학교 1: 안개 속 목소리"
    },
    "topic": {
-    "en": "Fantasy",
-    "ko": "판타지"
+    "en": "Novel",
+    "ko": "소설"
    },
    "bg": {
     "en": "Since long ago, people have told scary stories about voices in the fog that lead travelers the wrong way.",
@@ -15799,8 +15799,8 @@ window.READING_LADDER = {
     "ko": "마법학교 2: 열세 번째 종소리"
    },
    "topic": {
-    "en": "Fantasy",
-    "ko": "판타지"
+    "en": "Novel",
+    "ko": "소설"
    },
    "bg": {
     "en": "Many old castles have stories about strange sounds at night, but most of these sounds come from wind, old wood, or animals.",
@@ -15919,8 +15919,8 @@ window.READING_LADDER = {
     "ko": "마법학교 3: 잃어버린 이름"
    },
    "topic": {
-    "en": "Fantasy",
-    "ko": "판타지"
+    "en": "Novel",
+    "ko": "소설"
    },
    "bg": {
     "en": "In many old stories, a person's true name has special power, and saying it out loud can break a magic spell.",
@@ -16039,8 +16039,8 @@ window.READING_LADDER = {
     "ko": "마법학교 4: 마지막 기차"
    },
    "topic": {
-    "en": "Fantasy",
-    "ko": "판타지"
+    "en": "Novel",
+    "ko": "소설"
    },
    "bg": {
     "en": "In the past, a train ticket was a small piece of paper with the passenger's name or seat, and a conductor checked it on the train.",
