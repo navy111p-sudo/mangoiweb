@@ -523,5 +523,123 @@ for (const [name, from, to] of PLAYER_MUTANTS) {
   check('⑨ 변이 «' + name + '» 를 넣으면 실제로 FAIL 이 난다', fails.length > 0, fails.length ? fails.slice(0, 2) : '안 잡힘');
 }
 
+
+/* ───────────────────────────────────────────────────────────────────────
+ * ⑩ 키키와 토토 «고르기 목록»(ai-dubbing.js KT_EPISODES) ↔ 정본(ai-dubbing-studio.html EPISODES·CAST)
+ *    2026-10-20 B안 — A.i영화더빙 화면이 키키와 토토 10편을 «고르기만» 하고 스튜디오(?ep=<id>)로 보낸다.
+ *    목록은 스튜디오 데이터의 «사본» 이라, 한쪽만 고치면 화면이 없는 편·틀린 제목을 보여 준다(에러 없음).
+ *    ⛔ 기대값을 여기 손으로 적지 않는다 — 두 소스에서 «읽어» 서로 대조한다.
+ * ─────────────────────────────────────────────────────────────────────── */
+const STUDIO_PATH = join(PUB, 'ai-dubbing-studio.html');
+const STUDIO_SRC = process.env.STUDIO_SRC ? rd(process.env.STUDIO_SRC) : rd(STUDIO_PATH);
+/** 따옴표 안을 건너뛰며 여는 괄호의 짝을 찾아 그 리터럴을 돌려준다. */
+function literalAt(src, decl) {
+  const i = src.indexOf(decl);
+  if (i < 0) return null;
+  const open = src.indexOf(decl.trim().endsWith('[') ? '[' : '{', i + decl.length - 1);
+  const pair = { '[': ']', '{': '}' };
+  const stack = [];
+  let q = null;
+  for (let k = open; k < src.length; k++) {
+    const c = src[k];
+    if (q) { if (c === '\\') { k++; continue; } if (c === q) q = null; continue; }
+    if (c === '"' || c === "'" || c === '`') { q = c; continue; }
+    if (c === '/' && src[k + 1] === '/') { k = src.indexOf('\n', k); if (k < 0) return null; continue; }
+    if (c === '/' && src[k + 1] === '*') { k = src.indexOf('*/', k + 2) + 1; if (k <= 0) return null; continue; }
+    if (c === '[' || c === '{') stack.push(pair[c]);
+    else if (c === ']' || c === '}') { if (stack.pop() !== c) return null; if (!stack.length) return src.slice(open, k + 1); }
+  }
+  return null;
+}
+const evalLit = (lit) => vm.runInNewContext('(' + lit + ')', {});
+/** 목록 ↔ 정본 대조. 실패한 항목 이름을 돌려준다(변이시험에 다시 쓴다). */
+function ktMirrorFails(playerSrc, studioSrc, report) {
+  const fails = [];
+  const t = (name, ok, extra) => { if (!ok) fails.push(name); if (report) check(name, ok, extra); };
+  let EP = null, CAST = null, KT = null, KC = null;
+  try { EP = evalLit(literalAt(studioSrc, 'const EPISODES = [')); } catch (e) { EP = null; }
+  try { CAST = evalLit(literalAt(studioSrc, 'const CAST = {')); } catch (e) { CAST = null; }
+  try { KT = evalLit(literalAt(playerSrc, 'var KT_EPISODES = [')); } catch (e) { KT = null; }
+  try { KC = evalLit(literalAt(playerSrc, 'var KT_CAST = {')); } catch (e) { KC = null; }
+  t('⑩-0 정본 EPISODES·CAST 와 목록 KT_EPISODES·KT_CAST 를 소스에서 읽었다(전제)',
+    Array.isArray(EP) && EP.length > 0 && CAST && Array.isArray(KT) && KC, [Array.isArray(EP), !!CAST, Array.isArray(KT), !!KC]);
+  if (!(Array.isArray(EP) && CAST && Array.isArray(KT) && KC)) return fails;
+  const castOf = (ep) => Object.keys(CAST).filter((id) => (ep.lines || []).some((l) => l.who === id));
+  t('⑩-1 편 수가 같다', KT.length === EP.length, [KT.length, EP.length]);
+  t('⑩-2 편 id·순서가 같다', JSON.stringify(KT.map((e) => e.id)) === JSON.stringify(EP.map((e) => e.id)), KT.map((e) => e.id).join(','));
+  const bad = [];
+  EP.forEach((e, i) => {
+    const k = KT[i] || {};
+    if (k.level !== e.level) bad.push(e.id + ':level');
+    if (!k.title || k.title.ko !== e.title.ko || k.title.en !== e.title.en) bad.push(e.id + ':title');
+    if (!k.desc || k.desc.ko !== e.desc.ko || k.desc.en !== e.desc.en) bad.push(e.id + ':desc');
+    if (JSON.stringify(k.cast) !== JSON.stringify(castOf(e))) bad.push(e.id + ':cast');
+  });
+  t('⑩-3 편마다 레벨·제목(ko/en)·설명(ko/en)·출연이 정본과 같다', bad.length === 0, bad.slice(0, 6));
+  const cb = Object.keys(CAST).filter((id) => !KC[id] || KC[id].ko !== CAST[id].name.ko || KC[id].en !== CAST[id].name.en);
+  t('⑩-4 출연 이름표(KT_CAST)가 정본 CAST 이름과 같다', cb.length === 0 && Object.keys(KC).length === Object.keys(CAST).length, cb);
+  return fails;
+}
+const ktFails0 = ktMirrorFails(PLAYER_SRC_RAW, STUDIO_SRC, true);
+check('⑩-v0 원본은 ⑩ 을 전부 통과한다(전제)', ktFails0.length === 0, ktFails0);
+const KT_MUTANTS = [
+  ['목록 제목 한 글자 다름', "title: { ko: '소풍 가는 날', en: 'Picnic Day' }", "title: { ko: '소풍 가는 날', en: 'Picnic Days' }"],
+  ['목록 레벨 다름', "{ id: 'bday', level: 2,", "{ id: 'bday', level: 3,"],
+  ['목록 출연 빠짐', "{ id: 'picnic', level: 1,", "{ id: 'picnic', level: 1, castX: 0,"],
+];
+for (const [name, from, to] of KT_MUTANTS) {
+  if (PLAYER_SRC_RAW.indexOf(from) < 0) { check('⑩ 변이 «' + name + '» — 치환 앵커가 소스에 있다', false, from.slice(0, 60)); continue; }
+  let src = PLAYER_SRC_RAW.replace(from, to);
+  if (name === '목록 출연 빠짐') src = src.replace(/(\{ id: 'picnic'[^\n]*?cast: )\[[^\]]*\]/, "$1['kiki', 'toto']");
+  const f = ktMirrorFails(src, STUDIO_SRC, false);
+  check('⑩ 변이 «' + name + '» 를 넣으면 실제로 FAIL 이 난다', f.length > 0, f.length ? f : '안 잡힘');
+}
+{ // 정본 쪽만 고치면(편을 하나 더 넣으면) 목록이 낡았다고 잡는가
+  const from = "const EPISODES = [";
+  const f = ktMirrorFails(PLAYER_SRC_RAW, STUDIO_SRC.replace(from, from + "\n  { id: 'newep', level: 1, title: { en: 'X', ko: 'X' }, desc: { en: 'X', ko: 'X' }, lines: [{ who: 'kiki', en: 'Hi', ko: '안녕' }] },"), false);
+  check('⑩ 변이 «정본에만 편 추가» 를 넣으면 실제로 FAIL 이 난다', f.length > 0, f.length ? f : '안 잡힘');
+}
+
+/* ⑩-5 장르 고르기(pickGenre)·스튜디오 딥링크(epFromQuery) — 경계값을 실제로 돌린다 */
+function fnAt(src, head) {
+  const i = src.indexOf(head);
+  if (i < 0) return null;
+  const body = literalAt(src.slice(i), head.slice(0, head.indexOf('{') + 1));
+  return body ? src.slice(i, i + head.indexOf('{')) + body : null;
+}
+{
+  const pg = fnAt(PLAYER_SRC_RAW, 'function pickGenre(search, saved) {');
+  let pick = null;
+  try { pick = vm.runInNewContext('(' + pg + ')', {}); } catch (e) { pick = null; }
+  check('⑩-5 pickGenre 를 소스에서 오려 냈다(전제)', typeof pick === 'function');
+  if (typeof pick === 'function') {
+    const cases = [
+      ['?g=kt', '', 'kt'], ['?g=adv', 'kt', 'adv'], ['?x=1&g=kt#a', '', 'kt'],
+      ['?ep=dub-003', 'kt', 'adv'],      // 모험 애니 딥링크가 저장된 «키키와 토토» 보다 이긴다
+      ['', 'kt', 'kt'], ['', '', 'adv'], ['', 'zz', 'adv'], ['?g=zz', 'kt', 'kt'], [null, undefined, 'adv'],
+    ];
+    const bad = cases.filter(([q, s, want]) => pick(q, s) !== want).map(([q, s, want]) => JSON.stringify([q, s]) + '→' + pick(q, s) + '≠' + want);
+    check('⑩-6 pickGenre: ?g= > ?ep=(모험) > 저장값 > 모험 기본', bad.length === 0, bad);
+  }
+  const eq = fnAt(STUDIO_SRC, 'function epFromQuery(search) {');
+  let EP = null; try { EP = evalLit(literalAt(STUDIO_SRC, 'const EPISODES = [')); } catch (e) { EP = null; }
+  let ef = null;
+  try { ef = vm.runInNewContext('(' + eq + ')', { EPISODES: EP }); } catch (e) { ef = null; }
+  check('⑩-7 epFromQuery 를 스튜디오 소스에서 오려 냈다(전제)', typeof ef === 'function' && Array.isArray(EP));
+  if (typeof ef === 'function' && Array.isArray(EP)) {
+    const idx = (id) => EP.findIndex((e) => e.id === id);
+    const cases = [
+      ['?ep=chu', idx('chu')], ['?ep=CHU', idx('chu')], ['?x=1&ep=show', idx('show')], ['?ep=chu#top', idx('chu')],
+      ['?ep=nope', -1], ['?step=chu', -1], ['', -1], [null, -1], ['?ep=<script>', -1], ['?ep=' + 'a'.repeat(30), -1],
+    ];
+    const bad = cases.filter(([q, want]) => ef(q) !== want).map(([q, want]) => JSON.stringify(q) + '→' + ef(q) + '≠' + want);
+    check('⑩-8 epFromQuery: 아는 id 만 그 편으로, 모르는 값은 -1(저장된 편 그대로)', bad.length === 0 && idx('chu') > 0, bad);
+    // 배선 — loadPrefs 가 그 결과로 시작 편을 정하는가(0 은 첫 편이라 정당한 값)
+    // ⚠️ 줄 끝 주석이 끼어 있어도 되게 — 주석을 벗긴 사본으로 본다
+    const noCmt = STUDIO_SRC.replace(/\/\/[^\n]*/g, '');
+    check('⑩-9 스튜디오가 시작할 때 ?ep= 를 읽어 그 편으로 연다', /const qi = epFromQuery\(location\.search\);\s*if \(qi >= 0\) state\.ep = qi;/.test(noCmt));
+  }
+}
+
 console.log(`\n🎬 ai_dubbing_harness — PASS ${PASS} / FAIL ${FAIL}`);
 process.exit(FAIL ? 1 : 0);

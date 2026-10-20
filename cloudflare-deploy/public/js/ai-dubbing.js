@@ -24,6 +24,25 @@
   var CAST_KEY = 'mangoi_dub_cast_v1';
   var SPEECH_RMS = 0.03;           // 이보다 크면 «말하고 있다»
   var SILENCE_STOP_MS = 1300;      // 말한 뒤 이만큼 조용하면 그 대사는 끝난 것으로 본다
+  var GENRE_KEY = 'mangoi_dub_genre_v1';   // 마지막으로 본 장르(이 기기만 — 편의 기억)
+  var KT_KEY = 'mangoi_dub_kt_v1';         // 마지막으로 고른 키키와 토토 에피소드 id
+
+  /* 🐱 키키와 토토 10편 — 더빙은 전용 스튜디오(/ai-dubbing-studio.html?ep=<id>)가 한다. 여기는 «고르기» 용 목록뿐.
+   * ⚠️ 정본은 ai-dubbing-studio.html 의 EPISODES·CAST 다. 편·제목·레벨·출연을 바꾸면 «둘 다» 고칠 것 —
+   *    test-harness/ai_dubbing_harness.mjs ⑩ 이 두 곳이 같은 말을 하는지 대조한다(한쪽만 고치면 FAIL). */
+  var KT_CAST = { kiki: { ko: '키키', en: 'Kiki' }, toto: { ko: '토토', en: 'Toto' }, mom: { ko: '엄마', en: 'Mom' }, lulu: { ko: '룰루', en: 'Lulu' } };
+  var KT_EPISODES = [
+    { id: 'picnic', level: 1, title: { ko: '소풍 가는 날', en: 'Picnic Day' }, desc: { ko: '짧은 문장 · 부탁하고 고마워하기', en: 'Short sentences · asking and thanking' }, cast: ['kiki', 'toto', 'mom'] },
+    { id: 'teddy', level: 1, title: { ko: '테디는 어디 있지?', en: 'Where Is Teddy?' }, desc: { ko: '짧은 문장 · 잃어버린 인형 찾기', en: 'Short sentences · finding a lost toy' }, cast: ['kiki', 'toto', 'mom'] },
+    { id: 'bday', level: 2, title: { ko: '토토의 깜짝 생일 파티', en: "Toto's Birthday Surprise" }, desc: { ko: '감정 표현과 비밀 작전 · 셋이 5~6줄씩 발표', en: 'Feelings and secrets · 3 friends, 5–6 lines each' }, cast: ['kiki', 'toto', 'mom'] },
+    { id: 'show', level: 3, title: { ko: '학교 장기자랑 대소동', en: 'The Big Talent Show Mix-Up' }, desc: { ko: '긴 문장 · 4명 발표 · 웃긴 반전과 용기 내기', en: 'Longer sentences · 4 friends · a funny twist and courage' }, cast: ['kiki', 'toto', 'mom', 'lulu'] },
+    { id: 'treasure', level: 3, title: { ko: '비 오는 날의 보물지도', en: 'The Rainy Day Treasure Map' }, desc: { ko: '위치·방향 표현 · next to, behind, turn left · 아이 3명 4줄씩', en: 'Directions and places · next to, behind, turn left · 3 kids 4 lines each' }, cast: ['kiki', 'toto', 'mom', 'lulu'] },
+    { id: 'xmas', level: 3, title: { ko: '크리스마스 발표회의 반짝이는 별', en: 'The Shining Christmas Star' }, desc: { ko: '크리스마스 특별편 · 협동과 용기 · 4명 발표', en: 'Christmas special · teamwork and courage · 4 friends' }, cast: ['kiki', 'toto', 'mom', 'lulu'] },
+    { id: 'hallo', level: 3, title: { ko: '할로윈 밤의 수상한 그림자', en: 'The Spooky Halloween Shadow' }, desc: { ko: '할로윈 특별편 · 분장, 용기, 웃긴 반전 · 4명 발표', en: 'Halloween special · costumes, courage and a funny twist · 4 friends' }, cast: ['kiki', 'toto', 'mom', 'lulu'] },
+    { id: 'seol', level: 3, title: { ko: '신나는 설날 대작전', en: 'Our Exciting Seollal' }, desc: { ko: '설날 특별편 · 한복·세배·떡국·윷놀이를 영어로 · 4명 발표', en: 'Korean New Year special · hanbok, sebae, tteokguk, yut-nori · 4 friends' }, cast: ['kiki', 'toto', 'mom', 'lulu'] },
+    { id: 'chu', level: 3, title: { ko: '보름달 아래 추석 소원', en: 'A Full Moon Wish on Chuseok' }, desc: { ko: '추석 특별편 · 송편·보름달 소원·강강술래를 영어로 · 4명 발표', en: 'Chuseok special · songpyeon, full moon wishes, ganggangsullae · 4 friends' }, cast: ['kiki', 'toto', 'mom', 'lulu'] },
+    { id: 'kids', level: 3, title: { ko: '어린이날의 특별한 선물', en: "A Special Gift on Children's Day" }, desc: { ko: '어린이날 특별편 · 나눔과 감사, 어버이날 카네이션 · 4명 발표', en: "Children's Day special · sharing, gratitude and Parents' Day · 4 friends" }, cast: ['kiki', 'toto', 'mom', 'lulu'] },
+  ];
 
   var S = {
     ep: null, problems: [],
@@ -32,6 +51,10 @@
     results: [],       // [{ key, sceneNo, line, studentIdx, status, spoken, score, tier, words, err }]
     movies: [],        // [{ title, url, mime, size }]
     index: [],         // 이야기 목록(1·2·3편) — loadIndex
+    genre: 'adv',      // 'adv'(모험 3D 애니) | 'kt'(키키와 토토)
+    sel: -1,           // 고른 에피소드(= 매니페스트의 장면 순번)
+    ktSel: 0,          // 고른 키키와 토토 에피소드(KT_EPISODES 순번)
+    loadErr: false,
   };
   window.__dub = { S: S };   // 브라우저 검사용(개인정보 없음)
 
@@ -100,6 +123,7 @@
       .then(function (raw) { return C.normalizeIndex(raw); })
       .catch(function () { return []; });
   }
+  /* 작품 카드(B안 «1. 작품 고르기») — 세로 포스터 · «에피소드 6» · 상태. 대표 그림이 없는(준비 중) 편은 큰 번호로 채운다. */
   function renderEpisodes(list) {
     var box = $('dub-eps'), panel = $('dub-eps-panel');
     if (!box || !panel) return;
@@ -107,15 +131,170 @@
     var cur = episodeId(), h = '';
     list.forEach(function (e) {
       var ready = e.status === 'ready', on = ready && e.id === cur;
-      var inner = '<span class="ep-no">' + L(e.no + '편', 'Ep. ' + e.no) + '</span>'
+      var pic = !!(e.poster && /^[A-Za-z0-9_\-.\/:]+$/.test(e.poster));
+      var inner = (pic ? '' : '<span class="ep-big" aria-hidden="true">' + esc(e.no) + '</span>')
+        + '<span class="ep-badge">' + L('에피소드 6', '6 episodes') + '</span>'
+        + '<span class="ep-no">' + L(e.no + '편', 'Film ' + e.no) + '</span>'
         + '<span class="ep-t">' + L(e.title.ko, e.title.en) + '</span>'
-        + '<span class="ep-s">' + (on ? L('지금 이 이야기', 'Now playing') : ready ? L('▶ 열기', '▶ Open') : L('준비 중', 'Coming soon')) + '</span>';
-      var bg = e.poster && /^[A-Za-z0-9_\-.\/:]+$/.test(e.poster) ? ' style="background-image:linear-gradient(rgba(10,14,22,.35),rgba(10,14,22,.85)),url(\'' + esc(e.poster) + '\')"' : '';
+        + '<span class="ep-s">' + (on ? L('✓ 지금 이 이야기', '✓ Now playing') : ready ? L('▶ 열기', '▶ Open') : L('준비 중', 'Coming soon')) + '</span>';
+      var bg = pic ? ' style="background-image:linear-gradient(rgba(10,14,22,.1),rgba(10,14,22,.92) 68%),url(\'' + esc(e.poster) + '\')"' : '';
       if (ready && !on) h += '<a class="ep" href="?ep=' + encodeURIComponent(e.id) + '"' + bg + '>' + inner + '</a>';
       else h += '<div class="ep' + (on ? ' cur' : ' off') + '"' + (on ? ' aria-current="true"' : ' aria-disabled="true"') + bg + '>' + inner + '</div>';
     });
     box.innerHTML = h;
     panel.hidden = false;
+  }
+
+  /* ── 장르(B안) ──────────────────────────────────────────────────────────
+   * 두 장르 카드는 언제나 함께 보이고, 고른 장르만 아래에 펼친다.
+   * 고르는 순서: 주소 ?g=kt|adv > 주소 ?ep=(모험 편 링크) > 이 기기에 기억한 값 > 모험. */
+  function pickGenre(search, saved) {
+    var q = String(search || '');
+    var m = /[?&]g=(adv|kt)(?:[&#]|$)/.exec(q);
+    if (m) return m[1];
+    if (/[?&]ep=/.test(q)) return 'adv';
+    return saved === 'kt' ? 'kt' : 'adv';
+  }
+  function readPref(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function writePref(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function setGenre(g, save) {
+    S.genre = g === 'kt' ? 'kt' : 'adv';
+    Array.prototype.forEach.call(document.querySelectorAll('#dub-genres .genre'), function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-genre') === S.genre));
+    });
+    if ($('dub-adv')) $('dub-adv').hidden = S.genre !== 'adv';
+    if ($('dub-kt')) $('dub-kt').hidden = S.genre !== 'kt';
+    if (S.genre === 'kt') renderKT();
+    closeSheet();
+    renderMbar();
+    if (save) writePref(GENRE_KEY, S.genre);
+  }
+  /* 장르 카드 아래 작은 번호 칸 — 모험은 목록(index.json)의 준비 상태, 키키와 토토는 10편 */
+  function renderGenreMini() {
+    var adv = $('dub-g-adv-mini'), kt = $('dub-g-kt-mini');
+    if (adv && S.index && S.index.length) {
+      var cur = episodeId();
+      adv.innerHTML = S.index.map(function (e) {
+        var ready = e.status === 'ready';
+        return '<span class="mn' + (ready ? ' on' : '') + (ready && e.id === cur ? ' cur' : '') + '">' + esc(e.no) + '</span>';
+      }).join('');
+    }
+    if (kt) {
+      kt.innerHTML = KT_EPISODES.map(function (e, i) {
+        return '<span class="mn on' + (i === S.ktSel ? ' cur' : '') + '">' + (i + 1) + '</span>';
+      }).join('');
+    }
+  }
+
+  /* ── 키키와 토토 10편 ─────────────────────────────────────────────────── */
+  function ktIndexOf(id) {
+    for (var i = 0; i < KT_EPISODES.length; i++) if (KT_EPISODES[i].id === id) return i;
+    return 0;
+  }
+  function ktImg(e) { return '/media/dubbing/' + e.id + '-key.jpg'; }
+  function ktHref(e) { return '/ai-dubbing-studio.html?ep=' + encodeURIComponent(e.id); }
+  function ktCastL(e) {
+    return e.cast.map(function (c) { var n = KT_CAST[c] || { ko: c, en: c }; return L(n.ko, n.en); }).join(' · ');
+  }
+  function renderKT() {
+    var box = $('dub-kt-list');
+    if (!box) return;
+    box.innerHTML = KT_EPISODES.map(function (e, i) {
+      var on = i === S.ktSel;
+      return '<button type="button" class="ktep" data-kt="' + i + '" aria-pressed="' + on + '">'
+        + '<span class="thumb"><img src="' + esc(ktImg(e)) + '" alt="" loading="lazy" decoding="async"><span class="epn">EP ' + (i + 1) + '</span></span>'
+        + '<span class="kt-lv">Lv.' + e.level + '</span>'
+        + '<span class="kt-t">' + L(e.title.ko, e.title.en) + '</span>'
+        + '</button>';
+    }).join('');
+    renderKtSum();
+  }
+  function renderKtSum() {
+    var e = KT_EPISODES[S.ktSel] || KT_EPISODES[0];
+    var sum = $('dub-kt-sum'), go = $('dub-kt-go');
+    if (sum) {
+      sum.innerHTML = '<div class="kt-big" style="background-image:url(\'' + esc(ktImg(e)) + '\')"></div>'
+        + '<p class="kt-cast"><b>EP ' + (S.ktSel + 1) + ' · Lv.' + e.level + '</b> ' + L(e.title.ko, e.title.en) + '</p>'
+        + '<p class="kt-desc">' + L(e.desc.ko, e.desc.en) + '</p>'
+        + '<p class="kt-desc">🎭 ' + ktCastL(e) + '</p>';
+    }
+    if (go) go.setAttribute('href', ktHref(e));
+    renderGenreMini();
+    renderMbar();
+  }
+
+  /* ── 고른 에피소드(모험) ────────────────────────────────────────────── */
+  function scenePlayable(i) { var sc = S.ep && S.ep.scenes[i]; return !!(sc && sc.video && sc.lines.length); }
+  function firstPlayable() {
+    for (var i = 0; S.ep && i < S.ep.scenes.length; i++) if (scenePlayable(i)) return i;
+    return -1;
+  }
+  function filmInfo() {   // 지금 편의 짧은 이름 — 목록(index.json)에 있으면 그것, 없으면 매니페스트 제목
+    var id = S.ep ? S.ep.id : episodeId(), hit = null;
+    (S.index || []).forEach(function (e) { if (e.id === id) hit = e; });
+    if (hit) return { no: hit.no, title: hit.title };
+    return { no: null, title: S.ep ? S.ep.title : { ko: '', en: '' } };
+  }
+  function renderPickSum() {
+    var box = $('dub-pick-sum'), start = $('dub-start');
+    var sc = S.ep && S.sel >= 0 ? S.ep.scenes[S.sel] : null;
+    if (start) start.disabled = !!S.run || !scenePlayable(S.sel);
+    if (!box) return;
+    if (!sc) { box.hidden = true; return; }
+    var f = filmInfo();
+    box.hidden = false;
+    box.innerHTML = '<span class="ps-img"' + (sc.poster ? ' style="background-image:url(\'' + esc(sc.poster) + '\')"' : '') + '></span>'
+      + '<span class="ps-tx">' + (f.no ? L(f.no + '편 · ' + f.title.ko, 'Film ' + f.no + ' · ' + f.title.en) : L(f.title.ko, f.title.en))
+      + '<b>EP ' + sc.no + ' · ' + L(sc.label.ko, sc.label.en) + '</b></span>';
+  }
+
+  /* ── 폰: 아래 고정 바 · 바텀시트 ──────────────────────────────────────── */
+  function isNarrow() { try { return window.matchMedia('(max-width: 860px)').matches; } catch (e) { return false; } }
+  function openSheet() {
+    var side = $('dub-side');
+    if (!side || S.genre !== 'adv') return;
+    if (!isNarrow()) { side.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    side.classList.add('open');
+    // 공용 «메뉴» 손잡이(왼쪽 가운데)가 시트 글자를 덮지 않게 — 바뀔 때만 쓴다(body class 관찰자 깨우지 않기)
+    if (!document.body.classList.contains('dub-sheet-open')) document.body.classList.add('dub-sheet-open');
+    if ($('dub-sheet-bg')) $('dub-sheet-bg').hidden = false;
+    var c = $('dub-side-close'); if (c) { try { c.focus({ preventScroll: true }); } catch (e) {} }
+  }
+  function closeSheet() {
+    var side = $('dub-side');
+    if (!side || !side.classList.contains('open')) return;
+    side.classList.remove('open');
+    if (document.body.classList.contains('dub-sheet-open')) document.body.classList.remove('dub-sheet-open');
+    if ($('dub-sheet-bg')) $('dub-sheet-bg').hidden = true;
+    var b = $('dub-mbar-cast'); if (b && isNarrow()) { try { b.focus({ preventScroll: true }); } catch (e) {} }
+  }
+  function renderMbar() {
+    var img = $('dub-mbar-img'), t1 = $('dub-mbar-t1'), t2 = $('dub-mbar-t2'), castBtn = $('dub-mbar-cast'), ktA = $('dub-mbar-kt');
+    if (!img || !t1 || !t2 || !castBtn || !ktA) return;
+    var pic = '', a = '', b = '';
+    if (S.genre === 'kt') {
+      var e = KT_EPISODES[S.ktSel] || KT_EPISODES[0];
+      pic = ktImg(e);
+      a = 'EP ' + (S.ktSel + 1) + ' · ' + T(e.title.ko, e.title.en);
+      b = 'Lv.' + e.level + ' · ' + T('키키와 토토', 'Kiki & Toto');
+      ktA.setAttribute('href', ktHref(e));
+    } else {
+      var sc = S.ep && S.sel >= 0 ? S.ep.scenes[S.sel] : null;
+      if (sc) {
+        var f = filmInfo();
+        pic = sc.poster || '';
+        a = 'EP ' + sc.no + ' · ' + T(sc.label.ko, sc.label.en);
+        b = (f.no ? T(f.no + '편 · ', 'Film ' + f.no + ' · ') : '') + T('학생 ' + S.cast.length + '명', S.cast.length + (S.cast.length === 1 ? ' student' : ' students'));
+      } else {
+        a = S.loadErr ? T('더빙 이야기를 불러오지 못했어요', 'Could not load the story') : T('불러오는 중…', 'Loading…');
+      }
+    }
+    img.style.backgroundImage = pic && /^[A-Za-z0-9_\-.\/:]+$/.test(pic) ? "url('" + pic + "')" : '';
+    t1.textContent = a;
+    t2.textContent = b;
+    castBtn.hidden = S.genre === 'kt';
+    castBtn.disabled = !S.ep || !!S.run;
+    ktA.hidden = S.genre !== 'kt';
   }
 
   /* ── 학생 명단 ─────────────────────────────────────────────────────────── */
@@ -180,7 +359,7 @@
       var idx = Number(b.getAttribute('data-i')), cid = b.getAttribute('data-c');
       if (S.cast[idx] && S.ep.playable.indexOf(cid) >= 0) S.cast[idx].character = cid;
     } else return;
-    saveCast(); renderCast();
+    saveCast(); renderCast(); renderMbar();
   }
   function onCastInput(e) {
     var el = e.target;
@@ -190,26 +369,38 @@
   }
 
   /* ── 장면 목록 ─────────────────────────────────────────────────────────── */
+  /* 에피소드 카드(B안 «2. 에피소드 고르기») — 카드를 누르면 «고르기»(오른쪽 칸에 반영),
+   * 카드 아래 «▶ 바로 더빙»(data-scene) 은 곧바로 시작한다. */
   function renderScenes() {
     var box = $('dub-scenes');
     if (!box || !S.ep) return;
+    if (!scenePlayable(S.sel)) S.sel = firstPlayable();
     var h = '';
     S.ep.scenes.forEach(function (sc, i) {
       var who = {};
       sc.lines.forEach(function (l) { who[l.speaker] = true; });
       var emo = Object.keys(who).map(function (cid) { return S.ep.characters[cid].emoji; }).join('');
-      var playable = !!(sc.video && sc.lines.length);
-      h += '<div class="scene">'
-        + '<div class="thumb' + (playable ? ' on' : '') + (playable && sc.poster ? ' pic' : '') + '"'
+      var playable = scenePlayable(i), sel = playable && i === S.sel;
+      h += '<div class="scene' + (sel ? ' sel' : '') + '">'
+        + '<button type="button" class="pick" data-pick="' + i + '" aria-pressed="' + sel + '"' + (playable ? '' : ' disabled') + '>'
+        + '<span class="thumb' + (playable ? ' on' : '') + (playable && sc.poster ? ' pic' : '') + '"'
         + (playable && sc.poster ? ' style="background-image:url(\'' + esc(sc.poster) + '\')"' : '') + '>'
-        + (playable ? '<span class="emo">' + esc(emo) + '</span>' : L('영상 준비 중', 'Video coming')) + '</div>'
+        + '<span class="epn">EP ' + esc(sc.no) + '</span>'
+        + (playable ? '<span class="emo">' + esc(emo) + '</span>' : L('영상 준비 중', 'Video coming')) + '</span>'
         + '<span class="tag s' + ((i % 6) + 1) + '">' + L(sc.no + '. ' + sc.label.ko, sc.no + '. ' + sc.label.en) + '</span>'
         + '<span class="meta">' + L('대사 ' + sc.lines.length + '줄', sc.lines.length + ' lines') + ' · '
-        + (sc.timing === 'synced' ? L('영상에 맞춰 진행', 'synced to video') : L('차례대로 진행', 'turn by turn')) + '</span>'
-        + '<button type="button" class="btn go" data-scene="' + i + '"' + (playable ? '' : ' disabled') + '>' + L('▶ 이 장면 더빙', '▶ Dub this scene') + '</button>'
+        + (sc.timing === 'synced' ? L('영상에 맞춰 진행', 'synced to video') : L('차례대로 진행', 'turn by turn'))
+        + ' <span class="selmark">' + L('✓ 골랐어요', '✓ Picked') + '</span></span>'
+        + '</button>'
+        + '<button type="button" class="btn go" data-scene="' + i + '"' + (playable ? '' : ' disabled') + '>' + L('▶ 바로 더빙', '▶ Dub now') + '</button>'
         + '</div>';
     });
     box.innerHTML = h;
+  }
+  function pickScene(i) {
+    if (S.run || !scenePlayable(i)) return;
+    S.sel = i;
+    renderScenes(); renderPickSum(); renderMbar();
   }
 
   function renderStatus() {
@@ -725,7 +916,7 @@
     function next() {
       if (run.aborted || i >= items.length) return Promise.resolve();
       var it = items[i++];
-      setProg(T('장면 ' + sc.no + ' · ' + i + ' / ' + items.length + ' 줄', 'Scene ' + sc.no + ' · line ' + i + ' / ' + items.length));
+      setProg(T('에피소드 ' + sc.no + ' · ' + i + ' / ' + items.length + ' 줄', 'Episode ' + sc.no + ' · line ' + i + ' / ' + items.length));
       showLine(run, it.line, it.performer);
       var p;
       if (it.performer.type === 'student') p = studentTurn(run, sc, it);
@@ -826,7 +1017,7 @@
   function playScene(run, sc) {
     var v = $('dub-video');
     setNote(''); clearLine(run); setTurn('');
-    setProg(T('장면 ' + sc.no + ' 불러오는 중…', 'Loading scene ' + sc.no + '…'));
+    setProg(T('에피소드 ' + sc.no + ' 불러오는 중…', 'Loading episode ' + sc.no + '…'));
     if (sc.voiceMode === 'tts') prefetchScene(sc, run.listenFirst);
     setVideoAudio(v, sc.videoAudio === 'clean');
     v.loop = sc.timing !== 'synced';
@@ -848,9 +1039,14 @@
 
   function setRunning(on) {
     $('dub-player').hidden = !on;                    // 결과·완성 영상은 따로 된 칸에 남는다
-    Array.prototype.forEach.call(document.querySelectorAll('#dub-scenes button, #dub-all, #dub-cast button, #dub-cast input, #dub-make-movie, #dub-listen-first'), function (b) { b.disabled = on; });
+    Array.prototype.forEach.call(document.querySelectorAll('#dub-scenes button, #dub-all, #dub-start, #dub-genres button, #dub-cast button, #dub-cast input, #dub-make-movie, #dub-listen-first'), function (b) { b.disabled = on; });
     $('dub-stop').disabled = !on;
-    if (!on) { setButtons('idle'); setProg(''); }
+    document.body.classList.toggle('dub-running', !!on);   // 폰 아래 바는 더빙 중엔 숨긴다(플레이어 버튼을 가리지 않게)
+    if (!on) {
+      setButtons('idle'); setProg('');
+      if (S.ep && !S.run) { renderScenes(); renderPickSum(); }   // 위에서 «전부 켜기» 한 것을 «재생할 수 있는 것만» 으로 되돌린다
+      renderMbar();
+    }
   }
 
   function startRun(sceneIdxs) {
@@ -861,11 +1057,12 @@
     var run = { aborted: false, counters: {}, wakers: [], sub: null, mic: null, movie: null, tracks: [], deviceVoiceUsed: false,
       listenFirst: !!($('dub-listen-first') && $('dub-listen-first').checked) };
     S.run = run;
+    closeSheet();
     setRunning(true);
     $('dub-player').scrollIntoView({ behavior: 'smooth', block: 'start' });
     var title = sceneIdxs.length > 1
       ? T('처음부터 끝까지', 'Whole story')
-      : T('장면 ' + S.ep.scenes[sceneIdxs[0]].no + ' · ' + S.ep.scenes[sceneIdxs[0]].label.ko, 'Scene ' + S.ep.scenes[sceneIdxs[0]].no + ' · ' + S.ep.scenes[sceneIdxs[0]].label.en);
+      : T('에피소드 ' + S.ep.scenes[sceneIdxs[0]].no + ' · ' + S.ep.scenes[sceneIdxs[0]].label.ko, 'Episode ' + S.ep.scenes[sceneIdxs[0]].no + ' · ' + S.ep.scenes[sceneIdxs[0]].label.en);
     openMic(run).catch(function () {
       throw new Error('mic');
     }).then(function () {
@@ -905,14 +1102,58 @@
   }
 
   /* ── 시작 ─────────────────────────────────────────────────────────────── */
+  /* 장르·키키와 토토·폰 바텀시트 — 모험 편(매니페스트)을 못 읽어도 돌아야 하는 것들 */
+  function wireStatic() {
+    var g = $('dub-genres');
+    if (g) g.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-genre]');
+      if (b && !b.disabled && !S.run) setGenre(b.getAttribute('data-genre'), true);
+    });
+    var kt = $('dub-kt-list');
+    if (kt) kt.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-kt]');
+      if (!b) return;
+      var i = Number(b.getAttribute('data-kt'));
+      if (!KT_EPISODES[i]) return;
+      S.ktSel = i; writePref(KT_KEY, KT_EPISODES[i].id);
+      Array.prototype.forEach.call(kt.querySelectorAll('button[data-kt]'), function (x) {
+        x.setAttribute('aria-pressed', String(x === b));
+      });
+      renderKtSum();
+    });
+    if ($('dub-mbar-cast')) $('dub-mbar-cast').addEventListener('click', openSheet);
+    if ($('dub-sheet-bg')) $('dub-sheet-bg').addEventListener('click', closeSheet);
+    if ($('dub-side-close')) $('dub-side-close').addEventListener('click', closeSheet);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
+    try {
+      var mq = window.matchMedia('(max-width: 860px)');
+      var onMq = function () { if (!mq.matches) closeSheet(); };
+      if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq);
+    } catch (e) {}
+    var redraw = function () {
+      renderEpisodes(S.index); renderGenreMini();
+      if (S.genre === 'kt') renderKT();
+      if (S.ep) {
+        renderStatus();
+        if (!S.run) { renderCast(); renderScenes(); }
+        renderPickSum(); renderResults(); renderMovies();
+      } else if (S.loadErr) renderLoadError();
+      renderMbar();
+    };
+    window.addEventListener('mangoi:lang-changed', redraw);
+    document.addEventListener('mangoi:lang-changed', redraw);
+  }
   function wire() {
     var cast = $('dub-cast');
     cast.addEventListener('click', onCastClick);
     cast.addEventListener('input', onCastInput);
     $('dub-scenes').addEventListener('click', function (e) {
       var b = e.target.closest('button[data-scene]');
-      if (b && !b.disabled) startRun([Number(b.getAttribute('data-scene'))]);
+      if (b && !b.disabled) { S.sel = Number(b.getAttribute('data-scene')); startRun([S.sel]); return; }
+      var p = e.target.closest('button[data-pick]');
+      if (p && !p.disabled) pickScene(Number(p.getAttribute('data-pick')));
     });
+    $('dub-start').addEventListener('click', function () { if (scenePlayable(S.sel)) startRun([S.sel]); });
     $('dub-all').addEventListener('click', function () {
       var all = [];
       S.ep.scenes.forEach(function (sc, i) { if (sc.video && sc.lines.length) all.push(i); });
@@ -922,22 +1163,27 @@
     $('dub-skip').addEventListener('click', function () { if (S.run && S.run.skipNow) S.run.skipNow(); });
     $('dub-stop').addEventListener('click', stopRun);
     $('dub-final').addEventListener('click', function () { var p = $('dub-movies-panel'); if (p && !p.hidden) p.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
-    var redraw = function () { renderEpisodes(S.index); if (!S.ep) return; renderStatus(); if (!S.run) { renderCast(); renderScenes(); } renderResults(); renderMovies(); };
-    window.addEventListener('mangoi:lang-changed', redraw);
-    document.addEventListener('mangoi:lang-changed', redraw);
   }
 
   function boot() {
-    loadIndex().then(function (list) { S.index = list; renderEpisodes(list); });
+    S.ktSel = ktIndexOf(readPref(KT_KEY));
+    wireStatic();
+    setGenre(pickGenre(location.search, readPref(GENRE_KEY)), false);
+    renderGenreMini();
+    loadIndex().then(function (list) { S.index = list; renderEpisodes(list); renderGenreMini(); renderPickSum(); renderMbar(); });
     loadEpisode().then(function () {
       loadCast();
-      renderStatus(); renderCast(); renderScenes();
+      S.sel = firstPlayable();
+      renderStatus(); renderCast(); renderScenes(); renderPickSum();
       $('dub-cast-panel').hidden = false;
       $('dub-all-row').hidden = false;
       wire();
+      renderMbar();
     }).catch(function (e) {
       console.warn('[ai-dubbing] 불러오기 실패', e);
+      S.loadErr = true;
       renderLoadError();
+      renderMbar();
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
