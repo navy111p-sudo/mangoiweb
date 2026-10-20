@@ -1,5 +1,5 @@
 /* 📚 영어 독서 사다리 — 글 정본 (2026-10-18). 화면: /stories.html · 엔진: /js/reading-ladder.js
-   단계 4개 · 1·2단계 48편 · 3단계 38편 · 4단계 42편(2026-10-19 확장 · 2026-10-19 176편 모두 그림 동화책 /story-<id>.html 이 있다 — 그림책이 없는 글이 생기면 book:false 를 달 것). 한 편 = 문장별 영어·우리말 · 핵심 문장 번호(key) · 중심 내용 보기 4개(answer 는 정답 번호 — 화면이 섞음)
+   단계 4개 · 1·2단계 48편 · 3단계 42편(2026-10-20 마법학교 시리즈 소설 1~4권 s3-39~42 추가) · 4단계 42편(2026-10-19 확장 · 2026-10-19 176편 모두 그림 동화책 /story-<id>.html 이 있다 — 그림책이 없는 글이 생기면 book:false 를 달 것). 한 편 = 문장별 영어·우리말 · 핵심 문장 번호(key) · 중심 내용 보기 4개(answer 는 정답 번호 — 화면이 섞음)
    · 오늘의 낱말 3개 · 핵심 한 줄 영작(summary.ko → summary.en, keywords 3개).
    ⚠️ 고치면 이 파일을 부르는 stories.html 의 ?v= 를 올리고 reading_ladder_harness 를 돌리세요. */
 window.READING_LADDER = {
@@ -15667,6 +15667,486 @@ window.READING_LADDER = {
      "animals",
      "special",
      "senses"
+    ]
+   }
+  },
+  {
+   "stage": 3,
+   "id": "s3-39",
+   "genre": "story",
+   "title": {
+    "en": "The Magic School 1: The Voice in the Fog",
+    "ko": "마법학교 1: 안개 속 목소리"
+   },
+   "topic": {
+    "en": "Fantasy",
+    "ko": "판타지"
+   },
+   "bg": {
+    "en": "Since long ago, people have told scary stories about voices in the fog that lead travelers the wrong way.",
+    "ko": "옛날부터 사람들은 안개 속 목소리가 나그네를 엉뚱한 길로 이끈다는 무서운 이야기를 전해 왔다."
+   },
+   "sentences": [
+    {
+     "en": "Just before midnight, four new students stepped off the last train onto an empty platform.",
+     "ko": "자정 직전, 네 명의 신입생이 마지막 기차에서 내려 텅 빈 승강장에 섰다."
+    },
+    {
+     "en": "Theo and Mira held glass lanterns of whisperleaf, a plant that glows only when it hears the truth.",
+     "ko": "테오와 미라는 진실을 들을 때만 빛나는 식물인 속삭임잎이 든 유리 등불을 들고 있었다."
+    },
+    {
+     "en": "Suddenly, a cold fog rolled off the black lake and swallowed the stone path.",
+     "ko": "갑자기 차가운 안개가 검은 호수에서 밀려와 돌길을 삼켜 버렸다."
+    },
+    {
+     "en": "One by one, the lamps went out, and the train disappeared behind them without a sound.",
+     "ko": "가로등이 하나씩 꺼졌고, 기차는 아무 소리도 없이 그들 뒤에서 사라졌다."
+    },
+    {
+     "en": "Then a kind voice, just like a teacher's, called from the fog, \"Follow me, children. The school is this way.\"",
+     "ko": "그때 선생님 같은 다정한 목소리가 안개 속에서 불렀다. \"얘들아, 나를 따라오렴. 학교는 이쪽이란다.\""
+    },
+    {
+     "en": "Juno stepped toward the voice, but Pip, Ivy's blue bird, screamed and pulled at her scarf.",
+     "ko": "주노가 목소리 쪽으로 다가가자, 아이비의 파란 새 핍이 비명을 지르며 주노의 목도리를 잡아당겼다."
+    },
+    {
+     "en": "At the same moment, Mira's lantern turned dark, as if a cold hand had covered it.",
+     "ko": "바로 그때, 마치 차가운 손이 덮은 것처럼 미라의 등불이 어두워졌다."
+    },
+    {
+     "en": "\"The voice is lying,\" Theo whispered, and his heart pounded in the silence.",
+     "ko": "\"저 목소리는 거짓말을 하고 있어.\" 테오가 속삭였고, 고요 속에서 그의 심장이 쿵쾅거렸다."
+    },
+    {
+     "en": "So the friends walked the other way, watching the lanterns carefully with every step.",
+     "ko": "그래서 친구들은 한 걸음 한 걸음 등불을 주의 깊게 지켜보며 반대쪽으로 걸었다."
+    },
+    {
+     "en": "At last, the castle gate appeared through the fog, and the headmistress was standing there with a lamp.",
+     "ko": "마침내 안개 사이로 성의 정문이 나타났고, 교장 선생님이 등불을 들고 그곳에 서 있었다."
+    },
+    {
+     "en": "\"Brave students do not follow every voice; they follow the truth,\" she said with a smile.",
+     "ko": "\"용감한 학생은 아무 목소리나 따라가지 않는단다. 진실을 따라가지.\" 교장 선생님이 미소 지으며 말했다."
+    },
+    {
+     "en": "Then her smile faded. \"But who called you here? I have not left the castle all night.\"",
+     "ko": "그러다 그녀의 미소가 사라졌다. \"그런데 누가 너희를 불렀니? 나는 밤새 성을 떠난 적이 없단다.\""
+    }
+   ],
+   "key": 10,
+   "keyWhy": {
+    "en": "This sentence tells the lesson of the whole story: the friends were safe because they followed the truth, not the voice.",
+    "ko": "친구들이 목소리가 아니라 진실을 따라가서 무사할 수 있었다는, 이야기 전체의 교훈을 알려 주는 문장이기 때문이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "The friends stayed safe in the fog by trusting the truth, not a strange voice.",
+      "ko": "친구들은 낯선 목소리가 아니라 진실을 믿어서 안개 속에서 무사했다."
+     },
+     {
+      "en": "Whisperleaf is a plant that glows when it hears the truth.",
+      "ko": "속삭임잎은 진실을 들을 때 빛나는 식물이다."
+     },
+     {
+      "en": "The friends followed the kind voice and found the school quickly.",
+      "ko": "친구들은 다정한 목소리를 따라가 학교를 금방 찾았다."
+     },
+     {
+      "en": "Many trains stop at platforms late at night.",
+      "ko": "많은 기차가 밤늦게 승강장에 멈춘다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The story shows how the friends stayed safe by trusting the truth. Whisperleaf is a small detail, the third option is the opposite of the story, and the last one is too broad.",
+     "ko": "이야기는 친구들이 진실을 믿어 무사할 수 있었던 과정을 보여 준다. 속삭임잎은 작은 세부 내용이고, 세 번째는 이야기와 반대이며, 마지막은 너무 넓다."
+    }
+   },
+   "words": [
+    {
+     "en": "lantern",
+     "ko": "등불"
+    },
+    {
+     "en": "fog",
+     "ko": "안개"
+    },
+    {
+     "en": "truth",
+     "ko": "진실"
+    }
+   ],
+   "summary": {
+    "ko": "친구들은 안개 속 낯선 목소리 대신 진실에 빛나는 등불을 따라가 무사히 학교에 도착했다.",
+    "en": "The friends followed their lanterns instead of the strange voice and safely reached the school.",
+    "keywords": [
+     "voice",
+     "lanterns",
+     "school"
+    ]
+   }
+  },
+  {
+   "stage": 3,
+   "id": "s3-40",
+   "genre": "story",
+   "title": {
+    "en": "The Magic School 2: The Thirteenth Bell",
+    "ko": "마법학교 2: 열세 번째 종소리"
+   },
+   "topic": {
+    "en": "Fantasy",
+    "ko": "판타지"
+   },
+   "bg": {
+    "en": "Many old castles have stories about strange sounds at night, but most of these sounds come from wind, old wood, or animals.",
+    "ko": "많은 옛 성에는 밤의 이상한 소리에 관한 이야기가 있지만, 그 소리는 대부분 바람, 낡은 나무, 동물에게서 나온다."
+   },
+   "sentences": [
+    {
+     "en": "On their first night inside Thornmere Academy, the four friends could not sleep.",
+     "ko": "쏜미어 마법학교에서 보내는 첫날 밤, 네 친구는 잠을 이룰 수 없었다."
+    },
+    {
+     "en": "The old castle creaked, and the eyes in the paintings seemed to follow them down the hall.",
+     "ko": "낡은 성은 삐걱거렸고, 그림 속 눈들이 복도를 걷는 그들을 따라오는 것 같았다."
+    },
+    {
+     "en": "At midnight, the great bell rang twelve times, and then, strangely, it rang once more.",
+     "ko": "자정에 큰 종이 열두 번 울리더니, 이상하게도 한 번 더 울렸다."
+    },
+    {
+     "en": "Suddenly, a door that had not been there before slowly opened at the end of the hall.",
+     "ko": "갑자기 복도 끝에서 전에는 없던 문 하나가 천천히 열렸다."
+    },
+    {
+     "en": "Cold air came up from a narrow staircase, and something below was scratching at the stones.",
+     "ko": "좁은 계단에서 차가운 공기가 올라왔고, 아래에서 무언가가 돌을 긁고 있었다."
+    },
+    {
+     "en": "Ivy's hands shook, but Juno lifted her wand and said, \"If we run away, we will never know the truth.\"",
+     "ko": "아이비의 손이 떨렸지만, 주노는 지팡이를 들며 말했다. \"우리가 도망치면, 진실은 영영 알 수 없을 거야.\""
+    },
+    {
+     "en": "Step by step, they went down together, holding their breath.",
+     "ko": "그들은 숨을 죽인 채 한 걸음 한 걸음 함께 내려갔다."
+    },
+    {
+     "en": "At the bottom, they found a small gray cat with its tail caught under a heavy old book.",
+     "ko": "맨 아래에서 그들은 무거운 낡은 책에 꼬리가 낀 작은 회색 고양이를 발견했다."
+    },
+    {
+     "en": "Theo freed the cat, and it purred and followed them back to their room.",
+     "ko": "테오가 고양이를 풀어 주자, 고양이는 가르랑거리며 그들을 따라 방으로 돌아왔다."
+    },
+    {
+     "en": "The next morning, the headmistress smiled and said, \"Fear often becomes small when you look at it closely.\"",
+     "ko": "다음 날 아침, 교장 선생님이 미소 지으며 말했다. \"두려움은 가까이 들여다보면 작아지는 경우가 많단다.\""
+    },
+    {
+     "en": "But when she saw the cat on Mira's bed, her face turned white.",
+     "ko": "하지만 미라의 침대 위에 있는 고양이를 보자, 교장 선생님의 얼굴이 하얗게 질렸다."
+    },
+    {
+     "en": "\"That cat belonged to a student who disappeared from this castle a hundred years ago.\"",
+     "ko": "\"저 고양이는 100년 전에 이 성에서 사라진 학생의 고양이란다.\""
+    }
+   ],
+   "key": 9,
+   "keyWhy": {
+    "en": "This sentence tells the lesson of the whole story: fear becomes smaller when you face it and look closely.",
+    "ko": "두려움은 마주하고 자세히 들여다보면 작아진다는, 이야기 전체의 교훈을 알려 주는 문장이기 때문이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "The friends faced their fear together and found that the scary sound came from a trapped cat.",
+      "ko": "친구들은 함께 두려움에 맞섰고, 무서운 소리가 갇힌 고양이에게서 났다는 것을 알게 되었다."
+     },
+     {
+      "en": "The great bell of the castle rings at midnight.",
+      "ko": "성의 큰 종은 자정에 울린다."
+     },
+     {
+      "en": "The friends ran away from the strange door and never went back.",
+      "ko": "친구들은 이상한 문에서 도망쳐 다시는 가지 않았다."
+     },
+     {
+      "en": "Old castles have many paintings on their walls.",
+      "ko": "옛 성의 벽에는 그림이 많다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The story shows how the friends faced their fear and found the truth. The bell is a small detail, the third option is the opposite of the story, and the last one is too broad.",
+     "ko": "이야기는 친구들이 두려움에 맞서 진실을 알아낸 과정을 보여 준다. 종은 작은 세부 내용이고, 세 번째는 이야기와 반대이며, 마지막은 너무 넓다."
+    }
+   },
+   "words": [
+    {
+     "en": "staircase",
+     "ko": "계단"
+    },
+    {
+     "en": "scratching",
+     "ko": "긁는 소리"
+    },
+    {
+     "en": "fear",
+     "ko": "두려움"
+    }
+   ],
+   "summary": {
+    "ko": "친구들은 함께 무서운 계단을 내려가 두려움에 맞섰고, 소리의 정체가 갇힌 고양이라는 것을 알아냈다.",
+    "en": "The friends faced their fear together and found that the scary sound was a trapped cat.",
+    "keywords": [
+     "fear",
+     "together",
+     "cat"
+    ]
+   }
+  },
+  {
+   "stage": 3,
+   "id": "s3-41",
+   "genre": "story",
+   "title": {
+    "en": "The Magic School 3: The Lost Name",
+    "ko": "마법학교 3: 잃어버린 이름"
+   },
+   "topic": {
+    "en": "Fantasy",
+    "ko": "판타지"
+   },
+   "bg": {
+    "en": "In many old stories, a person's true name has special power, and saying it out loud can break a magic spell.",
+    "ko": "많은 옛이야기에서 사람의 진짜 이름에는 특별한 힘이 있어서, 그 이름을 소리 내어 부르면 마법 주문이 풀린다."
+   },
+   "sentences": [
+    {
+     "en": "A week later, the thirteenth bell rang again, and this time the whole castle shook.",
+     "ko": "일주일 뒤, 열세 번째 종이 다시 울렸고, 이번에는 성 전체가 흔들렸다."
+    },
+    {
+     "en": "Thick fog crept under the doors, and a voice whispered every student's name in the dark.",
+     "ko": "짙은 안개가 문 아래로 스며들었고, 어둠 속에서 한 목소리가 모든 학생의 이름을 속삭였다."
+    },
+    {
+     "en": "Then the fog took the shape of a tall, thin shadow with empty eyes.",
+     "ko": "그러더니 안개가 텅 빈 눈을 가진 키 크고 마른 그림자 모양으로 변했다."
+    },
+    {
+     "en": "The gray cat ran straight to it, and to everyone's surprise, Mira's whisperleaf began to glow.",
+     "ko": "회색 고양이가 곧장 그림자에게 달려갔고, 모두가 놀랍게도 미라의 속삭임잎이 빛나기 시작했다."
+    },
+    {
+     "en": "\"I was a student here long ago,\" the shadow said. \"I called you in the fog because I was lost and lonely.\"",
+     "ko": "\"나는 오래전 이곳의 학생이었어.\" 그림자가 말했다. \"길을 잃고 외로워서 안개 속에서 너희를 불렀던 거야.\""
+    },
+    {
+     "en": "Juno realized that the shadow was not evil at all; it had simply forgotten its own name.",
+     "ko": "주노는 그림자가 전혀 나쁜 존재가 아니라, 그저 자기 이름을 잊어버렸을 뿐이라는 것을 깨달았다."
+    },
+    {
+     "en": "So the friends opened the heavy book from under the stairs, the one that had trapped the cat.",
+     "ko": "그래서 친구들은 계단 아래에서 가져온, 고양이를 가두었던 바로 그 무거운 책을 펼쳤다."
+    },
+    {
+     "en": "On a yellow page, next to a drawing of the gray cat, they found the name Elric.",
+     "ko": "누렇게 바랜 한 페이지, 회색 고양이 그림 옆에서 그들은 «엘릭» 이라는 이름을 찾았다."
+    },
+    {
+     "en": "When they read it out loud, the shadow became a smiling boy made of silver light.",
+     "ko": "그들이 그 이름을 소리 내어 읽자, 그림자는 은빛으로 빛나는 웃는 소년으로 변했다."
+    },
+    {
+     "en": "Just then, the headmistress ran into the hall, and tears filled her eyes.",
+     "ko": "바로 그때 교장 선생님이 복도로 달려왔고, 그녀의 눈에 눈물이 가득 고였다."
+    },
+    {
+     "en": "\"Elric,\" she whispered, \"my little brother, I have been waiting for you for a hundred years.\"",
+     "ko": "\"엘릭.\" 교장 선생님이 속삭였다. \"내 남동생아, 100년 동안 너를 기다렸단다.\""
+    },
+    {
+     "en": "Theo understood at last: scary things sometimes only need someone brave enough to understand them.",
+     "ko": "테오는 마침내 깨달았다. 무서운 것도 때로는 그것을 이해해 줄 만큼 용감한 누군가가 필요할 뿐이라는 것을."
+    }
+   ],
+   "key": 11,
+   "keyWhy": {
+    "en": "This sentence tells the lesson of the whole story: scary things can change when someone bravely tries to understand them.",
+    "ko": "무서운 것도 누군가 용기 내어 이해하려 하면 달라질 수 있다는, 이야기 전체의 교훈을 알려 주는 문장이기 때문이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "The friends saved the lonely shadow by understanding it and finding its lost name.",
+      "ko": "친구들은 외로운 그림자를 이해하고 잃어버린 이름을 찾아 주어 그를 구했다."
+     },
+     {
+      "en": "The thirteenth bell made the whole castle shake.",
+      "ko": "열세 번째 종소리에 성 전체가 흔들렸다."
+     },
+     {
+      "en": "The friends fought the evil shadow and sent it back into the lake.",
+      "ko": "친구들은 나쁜 그림자와 싸워 그것을 호수로 돌려보냈다."
+     },
+     {
+      "en": "Every school keeps a book of its students' names.",
+      "ko": "모든 학교에는 학생들의 이름이 적힌 책이 있다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The story shows how the friends understood the shadow and gave its name back. The bell is a small detail, the third option is the opposite of the story, and the last one is too broad.",
+     "ko": "이야기는 친구들이 그림자를 이해하고 이름을 되찾아 준 과정을 보여 준다. 종은 작은 세부 내용이고, 세 번째는 이야기와 반대이며, 마지막은 너무 넓다."
+    }
+   },
+   "words": [
+    {
+     "en": "shadow",
+     "ko": "그림자"
+    },
+    {
+     "en": "lonely",
+     "ko": "외로운"
+    },
+    {
+     "en": "realized",
+     "ko": "깨달았다"
+    }
+   ],
+   "summary": {
+    "ko": "친구들은 무서운 그림자가 외로운 옛 학생이라는 것을 이해하고, 잃어버린 이름을 찾아 주어 그를 구했다.",
+    "en": "The friends understood that the scary shadow was a lonely old student and saved him by finding his lost name.",
+    "keywords": [
+     "shadow",
+     "lonely",
+     "name"
+    ]
+   }
+  },
+  {
+   "stage": 3,
+   "id": "s3-42",
+   "genre": "story",
+   "title": {
+    "en": "The Magic School 4: The Last Train",
+    "ko": "마법학교 4: 마지막 기차"
+   },
+   "topic": {
+    "en": "Fantasy",
+    "ko": "판타지"
+   },
+   "bg": {
+    "en": "In the past, a train ticket was a small piece of paper with the passenger's name or seat, and a conductor checked it on the train.",
+    "ko": "옛날 기차표는 승객의 이름이나 자리가 적힌 작은 종이였고, 기차 안에서 차장이 그 표를 확인했다."
+   },
+   "sentences": [
+    {
+     "en": "After Elric came back, his silver light grew weaker every day.",
+     "ko": "엘릭이 돌아온 뒤, 그의 은빛은 날마다 약해졌다."
+    },
+    {
+     "en": "\"He must ride the midnight train tonight, or he will turn back into fog,\" the headmistress said sadly.",
+     "ko": "\"오늘 밤 자정 기차를 타지 않으면, 그 아이는 다시 안개가 되고 말 거야.\" 교장 선생님이 슬프게 말했다."
+    },
+    {
+     "en": "At midnight, the green train arrived, but its windows were black and no one was inside.",
+     "ko": "자정에 초록 기차가 도착했지만, 창문은 새까맸고 안에는 아무도 없었다."
+    },
+    {
+     "en": "A tall conductor with no face stepped down and said, \"Only one passenger may get on.\"",
+     "ko": "얼굴이 없는 키 큰 차장이 내려와 말했다. \"손님은 한 명만 탈 수 있다.\""
+    },
+    {
+     "en": "Mira lifted her lantern, and the whisperleaf went dark at once.",
+     "ko": "미라가 등불을 들어 올리자, 속삭임잎이 곧바로 어두워졌다."
+    },
+    {
+     "en": "\"He is lying! He wants to take Elric back into the lake,\" Theo shouted.",
+     "ko": "\"저 차장은 거짓말을 하고 있어! 엘릭을 다시 호수로 데려가려는 거야!\" 테오가 소리쳤다."
+    },
+    {
+     "en": "The conductor roared, and cold fog wrapped around Elric like chains.",
+     "ko": "차장이 으르렁거리자, 차가운 안개가 사슬처럼 엘릭을 휘감았다."
+    },
+    {
+     "en": "So the friends held hands and joined all their lights: truth, courage, and kindness.",
+     "ko": "그래서 친구들은 손을 맞잡고 진실, 용기, 친절이라는 자신들의 모든 빛을 하나로 모았다."
+    },
+    {
+     "en": "The bright light broke the chains, and the faceless conductor melted into the water.",
+     "ko": "밝은 빛이 사슬을 끊었고, 얼굴 없는 차장은 물속으로 녹아 사라졌다."
+    },
+    {
+     "en": "Then a real conductor, an old man with a gentle smile, appeared and checked two tickets.",
+     "ko": "그러자 진짜 차장인 다정한 미소의 할아버지가 나타나 표 두 장을 확인했다."
+    },
+    {
+     "en": "One ticket said \"Elric\", and the other said \"Oriel\", the headmistress's own name.",
+     "ko": "한 장에는 «엘릭», 다른 한 장에는 교장 선생님 자신의 이름인 «오리엘» 이 적혀 있었다."
+    },
+    {
+     "en": "\"I missed this train a hundred years ago,\" she said, \"but it is never too late to keep a promise.\"",
+     "ko": "\"나는 100년 전에 이 기차를 놓쳤단다.\" 교장 선생님이 말했다. \"하지만 약속을 지키기에 너무 늦은 때란 없지.\""
+    }
+   ],
+   "key": 11,
+   "keyWhy": {
+    "en": "This sentence tells the lesson of the whole story: the headmistress finally kept the promise she made long ago.",
+    "ko": "교장 선생님이 오래전 약속을 마침내 지켰다는, 이야기 전체의 교훈을 알려 주는 문장이기 때문이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "The friends saved Elric from the fog, and the headmistress finally kept her old promise.",
+      "ko": "친구들은 안개에게서 엘릭을 구했고, 교장 선생님은 마침내 오래된 약속을 지켰다."
+     },
+     {
+      "en": "The green train had black windows at midnight.",
+      "ko": "자정의 초록 기차는 창문이 새까맸다."
+     },
+     {
+      "en": "The faceless conductor was kind and helped Elric get on the train.",
+      "ko": "얼굴 없는 차장은 친절했고 엘릭이 기차에 타도록 도와주었다."
+     },
+     {
+      "en": "Trains are the best way to travel at night.",
+      "ko": "기차는 밤에 여행하는 가장 좋은 방법이다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The story shows how the friends saved Elric and how the headmistress kept her promise. The black windows are a small detail, the third option is the opposite of the story, and the last one is too broad.",
+     "ko": "이야기는 친구들이 엘릭을 구하고 교장 선생님이 약속을 지킨 과정을 보여 준다. 검은 창문은 작은 세부 내용이고, 세 번째는 이야기와 반대이며, 마지막은 너무 넓다."
+    }
+   },
+   "words": [
+    {
+     "en": "passenger",
+     "ko": "승객"
+    },
+    {
+     "en": "ticket",
+     "ko": "표"
+    },
+    {
+     "en": "promise",
+     "ko": "약속"
+    }
+   ],
+   "summary": {
+    "ko": "친구들은 빛을 모아 엘릭을 안개에게서 구했고, 교장 선생님은 100년 전 약속대로 엘릭과 함께 기차에 올랐다.",
+    "en": "The friends saved Elric from the fog, and the headmistress kept her promise and rode the train with him.",
+    "keywords": [
+     "Elric",
+     "train",
+     "promise"
     ]
    }
   },

@@ -1,0 +1,305 @@
+{
+  "id": "s3-41",
+  "breaks": [
+    2,
+    3,
+    4,
+    3
+  ],
+  "key": {
+    "P": 2,
+    "S": 6
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «안개가 텅 빈 눈의 그림자로 변했다(문제)» 와 «친구들이 고양이를 가두었던 그 책을 펼쳤다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the fog became a shadow with empty eyes) and the solution (the friends opened the heavy book that had trapped the cat). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "The four friends, the gray cat, a shadow and the headmistress"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "A shadow made of fog came into the castle and called every student's name."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "The friends understood it was lonely and found its lost name."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "The thirteenth bell rang again, and a shadow made of ",
+      "ans": "fog",
+      "opts": [
+        "fog",
+        "fire",
+        "glass"
+      ]
+    },
+    {
+      "pre": " came into the castle. Mira's lantern glowed, so the shadow was telling the ",
+      "ans": "truth",
+      "opts": [
+        "truth",
+        "joke",
+        "song"
+      ]
+    },
+    {
+      "pre": ". It was a lonely student who had forgotten his own ",
+      "ans": "name",
+      "opts": [
+        "name",
+        "shoes",
+        "book"
+      ]
+    },
+    {
+      "pre": ". The friends found the name ",
+      "ans": "Elric",
+      "opts": [
+        "Elric",
+        "Pip",
+        "Theo"
+      ]
+    },
+    {
+      "pre": " in the heavy old book, and the shadow became a ",
+      "ans": "smiling",
+      "opts": [
+        "smiling",
+        "crying",
+        "sleeping"
+      ]
+    },
+    {
+      "pre": " boy of silver light. He was the headmistress's little brother.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "shadow",
+      "그림자",
+      "a tall, thin <b>shadow</b> with empty eyes",
+      "a dark shape made when something blocks the light"
+    ],
+    [
+      "surprise",
+      "놀라움",
+      "to everyone's <b>surprise</b>, Mira's whisperleaf began to glow",
+      "the feeling you have when something you did not expect happens"
+    ],
+    [
+      "lonely",
+      "외로운",
+      "I was lost and <b>lonely</b>",
+      "sad because you are alone"
+    ],
+    [
+      "realize",
+      "깨닫다",
+      "Juno <b>realized</b> that the shadow was not evil at all",
+      "to suddenly understand something"
+    ],
+    [
+      "evil",
+      "나쁜, 사악한",
+      "the shadow was not <b>evil</b> at all",
+      "very bad and wanting to hurt others"
+    ],
+    [
+      "understand",
+      "이해하다",
+      "someone brave enough to <b>understand</b> them",
+      "to know why something happens or how someone feels"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did the friends believe the shadow this time?",
+      "qko": "이번에는 친구들이 그림자의 말을 믿은 이유는 무엇인가요?",
+      "opts": [
+        "Because Mira's whisperleaf began to glow",
+        "Because the shadow looked kind",
+        "Because the headmistress told them to"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The gray cat ran straight to it, and to everyone's surprise, Mira's whisperleaf began to glow.",
+        "Thick fog crept under the doors, and a voice whispered every student's name in the dark.",
+        "Just then, the headmistress ran into the hall, and tears filled her eyes.",
+        "Then the fog took the shape of a tall, thin shadow with empty eyes."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "1권에서 배운 것처럼 속삭임잎은 진실을 들을 때만 빛나요. 그림자가 말할 때 «미라의 속삭임잎이 빛나기 시작했다» 고 했으니, 이번에는 진실이었어요.",
+        "As we learned in Book 1, whisperleaf glows only for the truth. «Mira's whisperleaf began to glow», so this time the shadow was telling the truth."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In «the shadow was not evil at all,» what does «evil» mean?",
+      "qko": "«the shadow was not evil at all» 에서 «evil» 은 무슨 뜻인가요?",
+      "opts": [
+        "very bad and wanting to hurt others",
+        "very tired",
+        "very old"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "\"I was a student here long ago,\" the shadow said. \"I called you in the fog because I was lost and lonely.\"",
+        "A week later, the thirteenth bell rang again, and this time the whole castle shook.",
+        "When they read it out loud, the shadow became a smiling boy made of silver light.",
+        "So the friends opened the heavy book from under the stairs, the one that had trapped the cat."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "그림자는 해치려던 것이 아니라 «길을 잃고 외로워서» 아이들을 불렀어요. 그러니 «not evil» 은 «남을 해치려는 나쁜 존재가 아니다» 라는 뜻이에요.",
+        "The shadow called them because it was «lost and lonely», not to hurt them. So «evil» means very bad and wanting to hurt others."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Who was Elric, and why had the headmistress waited so long?",
+      "qko": "엘릭은 누구였고, 교장 선생님은 왜 그렇게 오래 기다렸나요?",
+      "opts": [
+        "He was her little brother, a student lost a hundred years ago",
+        "He was a new teacher who came late",
+        "He was the owner of the green train"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "\"I was a student here long ago,\" the shadow said. \"I called you in the fog because I was lost and lonely.\"",
+        "\"Elric,\" she whispered, \"my little brother, I have been waiting for you for a hundred years.\"",
+        "Theo understood at last: scary things sometimes only need someone brave enough to understand them.",
+        "A week later, the thirteenth bell rang again, and this time the whole castle shook."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "그림자는 «오래전 이곳의 학생» 이었고, 교장 선생님은 그를 «내 남동생» 이라 부르며 «100년 동안 기다렸다» 고 했어요. 두 문장을 이어야 알 수 있어요.",
+        "The shadow «was a student here long ago», and the headmistress called him «my little brother» and «waited for a hundred years». You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "What will Elric do now that he is free?",
+      "자유를 되찾은 엘릭은 이제 무엇을 할까?",
+      "Elric's New Day"
+    ],
+    [
+      "B",
+      "What new adventure will the four friends have next?",
+      "네 친구에게 다음에는 어떤 모험이 기다리고 있을까?",
+      "The Next Adventure"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“It is important to <u>listen to others</u> because <u>everyone has a story</u>.”",
+    "slotKo": [
+      "중요한 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what is important",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what is important and your reason in English.",
+    "chips": [
+      {
+        "a": "listen to others",
+        "b": "everyone has a story",
+        "label": "others"
+      },
+      {
+        "a": "be kind to new students",
+        "b": "they may feel lonely",
+        "label": "students"
+      },
+      {
+        "a": "learn people's names",
+        "b": "it shows we care",
+        "label": "names"
+      }
+    ],
+    "aria": [
+      "what is important",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because friends help each other)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because friends help each other)"
+  },
+  "img": {
+    "cover": "Cold fog rises into a tall shadow figure with glowing eyes in a dark castle hall.",
+    "scenes": {
+      "1": "An old book with a drawing of a cat glows under a lantern and a wand.",
+      "3": "A silver boy made of light stands before the headmistress as the friends watch."
+    }
+  },
+  "alt": {
+    "cover": "Cold fog rises into a tall shadow figure with glowing eyes in a dark castle hall.",
+    "1": "An old book with a drawing of a cat glows under a lantern and a wand.",
+    "3": "A silver boy made of light stands before the headmistress as the friends watch."
+  }
+}
