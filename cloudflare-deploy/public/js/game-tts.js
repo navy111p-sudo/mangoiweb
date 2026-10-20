@@ -100,12 +100,15 @@
   }
 
   /* ── 클라우드 원어민 TTS ── */
-  function ckey(text){ return curLang + '|' + (curSpeaker||'') + '|' + text; }   // 언어·화자별 캐시 키
-  function fetchTTS(text){
-    var key = ckey(text), want = curSpeaker || '';   // 키·요청 화자는 «지금» 값으로 고정
+  function spk(w){ return (w===undefined ? curSpeaker : w) || ''; }   // 넘긴 화자, 없으면 «지금» 화자
+  function ckey(text, w){ return curLang + '|' + spk(w) + '|' + text; }   // 언어·화자별 캐시 키
+  var inflight={};   // 받는 중인 같은 문장은 요청을 함께 쓴다
+  function fetchTTS(text, w){
+    var key = ckey(text, w), want = spk(w);   // 키·요청 화자는 «지금» 값으로 고정
+    if(inflight[key]) return inflight[key];
     var body = { text:text, lang:curLang };
-    if (curSpeaker) body.speaker = curSpeaker;
-    return fetch(TTS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+    if (want) body.speaker = want;
+    var p = fetch(TTS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
       .then(function(r){
         var ct=r.headers.get('content-type')||'';
         if(!r.ok || ct.indexOf('audio')<0){
@@ -117,19 +120,17 @@
       })
       .then(function(o){
         var u=URL.createObjectURL(o.blob);
-        /* 🎙️ 서버가 «다른 화자» 로 대체한 음성은 캐시하지 않는다.
-           Aura-2 가 한 번 흔들리면 서버는 Aura-1 로 떨어지는데 화자가 바뀐다
-           (Noah aries → orion). 그것을 요청 화자 키로 캐시하면 그 문장은
-           세션 내내 남의 목소리로 굳는다 — 서버 R2 캐시가 «실제로 쓴 화자» 키만
-           쓰는 것과 같은 이유다(2026-08-31). 헤더가 없으면(옛 배포·중국어 경로)
-           판정하지 않고 예전처럼 캐시한다 — 모르는 것을 단정하지 않는다. */
+        /* 🎙️ 서버가 «다른 화자» 로 대체한 음성은 캐시 안 함(남의 목소리로 굳음). 헤더가 없으면 예전처럼 캐시. */
         if(!want || !o.got || o.got===want) cache[key]=u;
+        try{ window.AvatarVisemes && AvatarVisemes.prepare(u); }catch(_){}   // 입모양 미리 분석
         return u;
       });
+    var clr=function(){ if(inflight[key]===p) delete inflight[key]; };
+    p.then(clr,clr); return inflight[key]=p;
   }
-  function prefetch(text){
-    text=stripEmoji(text); if(!text || cache[ckey(text)]) return;
-    fetchTTS(text).catch(function(){});
+  function prefetch(text, w){   // w: 화자(선택)
+    text=stripEmoji(text); if(w) w=String(w).toLowerCase(); if(!text || cache[ckey(text, w)]) return;
+    fetchTTS(text, w).catch(function(){});
   }
   function playUrl(u, rate, onend){
     try{
