@@ -52,7 +52,7 @@ import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸�
 import { KCP_TRANSFER_CYPHER_RE, KCP_REVENUE_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 / 「케이씨피」 = 매출 인정 — 판정 정본
 import { c24ExpenseDrop, C24_HANGUL_CYPHER_RE, C24_LETTER_CYPHER_RE } from './c24-expense-filter';  // 🧾 카페24 지출결의 중 «우리 것이 아닌» 건(한글 결재·특정 결재라인) 제외 — 판정 정본
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance, ensureCenterOverrideTables, ensureFranchiseOverrideTable } from './cafe24-sync';
-import { buildMangoiClassesNow, mergeClassesNow, dropHolidayClosed, EXEMPT_BY_NAME, cafe24HolidayTeacher, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
+import { buildMangoiClassesNow, mergeClassesNow, dropMirroredCafe24, dropHolidayClosed, EXEMPT_BY_NAME, cafe24HolidayTeacher, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
 import { findRoomMismatches } from './room-mismatch';   // 🚨 «같은 수업인데 서로 다른 방» 감시(2026-10-07 delaware)
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
@@ -3784,6 +3784,23 @@ export async function handleAdminApi(
         ).bind(dateStr, ..._ctStu.binds).all();
         c24Rows = (rs.results || []) as any[];
       } catch (e: any) { console.warn('[classes/today] cafe24 rows:', e?.message); }
+      /* 🪞 (2026-10-20) 미러 줄이 있는 카페24 수업은 «복사본» 이라 뺀다 — 정본 dropMirroredCafe24(classes-now.ts).
+         날짜·상태를 안 가리고 그 수업번호의 미러 줄을 찾는다(옮겼거나 취소한 줄도 «망고아이가 정본»).
+         ⚠️ 청크 하나라도 실패하면 selectInChunks 가 던져 집합이 빈 채로 남는다 = 아무것도 안 뺀다
+            (예전처럼 두 줄 — 수업이 사라지는 쪽보다 낫다). */
+      let c24MirroredHidden = 0;
+      if (c24Rows.length) {
+        const _c24Ids = Array.from(new Set(c24Rows.map(r => String(r.room_id || '').replace(/^c24-/, '')).filter(Boolean)));
+        const _mirrored = new Set<string>();
+        try {
+          const mr = await selectInChunks<any>(env.DB, _c24Ids.map(id => 'c24:' + id),
+            (ph) => `SELECT notes FROM class_schedules WHERE source LIKE 'c24-mirror%' AND notes IN (${ph})`);
+          for (const m of mr) { const id = String(m.notes || '').replace(/^c24:/, ''); if (id) _mirrored.add(id); }
+        } catch (e: any) { console.warn('[classes/today] mirrored ids:', e?.message); }
+        const _drop = dropMirroredCafe24(c24Rows, _mirrored);
+        c24Rows = _drop.kept;
+        c24MirroredHidden = _drop.hidden;
+      }
 
       if (c24Rows.length) {
         const tmap = await loadCafe24TeacherMap(env as any, c24Rows.map(r => r.teacher_uid));
@@ -3853,6 +3870,8 @@ export async function handleAdminApi(
         counts: {
           mangoi: sessions.length - c24Count,
           cafe24: c24Count,
+          // 🪞 미러 줄이 있어 뺀 카페24 «복사본» 수(위 dropMirroredCafe24) — 숫자가 줄어든 이유를 사람이 볼 수 있게
+          cafe24_mirrored_hidden: c24MirroredHidden,
           joinable: sessions.filter(x => x.join_open).length,
           holiday: sessions.filter(x => x.holiday).length,
         },
