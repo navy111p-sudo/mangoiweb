@@ -3070,7 +3070,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       // 🚪 입장 — 망고아이 방이 있는 줄만(강사 대체용). 확인 문구는 관리자 화면과 같다
       var act = r.join_open
         ? '<a class="tag" href="#" onclick="return taJoin(this)" data-room="' + esc(r.room_id || '') + '" data-who="' + who + '">'
-          + esc(T('Join', '입장')) + '</a>'
+          + esc(T('🚪 Join (visible)', '🚪 입장(보임)')) + '</a>'
           /* 💬 (2026-10-08 매니저 질문 «where can we message the student if the teacher has a technical problem?»)
              관찰(고스트) 창의 «받는 사람» 에서 그 학생을 고르면 학생 화면에만 메시지가 뜬다(관찰자는 학생에게 안 보임).
              「지금 진행 중인 수업」 카드에만 있던 길을 이 줄에도 둔다 — 같은 화면(ghost-view.html), 같은 권한.
@@ -3426,9 +3426,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var who = a.getAttribute('data-who') || '';
     if (!room) return false;
     if (!confirm(T('Join this class as a real participant?\n\nRoom: ' + room + '\nStudent: ' + who
-                   + '\n\nNOT observation — students and the teacher see you. Camera starts OFF.',
+                   + '\n\nNOT observation — students and the teacher see you. Camera starts OFF.'
+                   + '\nIf a live observation tab is open, close it first (the sound would echo).',
                    '이 수업에 실제 참가자로 입장할까요?\n\n강의실: ' + room + '\n학생: ' + who
-                   + '\n\n※ 참관이 아닙니다. 학생·강사에게 보입니다. 카메라는 꺼진 채로 시작합니다.'))) return false;
+                   + '\n\n※ 참관이 아닙니다. 학생·강사에게 보입니다. 카메라는 꺼진 채로 시작합니다.'
+                   + '\n※ 라이브 관찰 창을 열어 두었다면 먼저 닫아 주세요(소리가 울립니다).'))) return false;
     var url = location.origin + '/?vc_autojoin=1&vc_cam=off&vc_role=teacher&vc_room=' + encodeURIComponent(room);
     var w = null;
     /* 🔴 2026-09-02: 'noopener' 를 기능 문자열로 주면 «탭은 열리는데 반환값이 null» 이라(표준) 반환값 판정이 늘 «막힘» 이 된다. 빼고 w.opener=null 로 같은 보호를 건다. */
@@ -3499,7 +3501,14 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
               `?room=` 로 보내면 방 번호가 빈 채로 열려 «관찰을 눌렀는데 아무 수업도 없다» 가 된다
               (제보 문서 「Observer Issue in All Menu Dashboard」와 같은 뿌리). */
            + '<a class="tag" target="_blank" rel="noopener" href="/admin/ghost-view.html?room_id=' + encodeURIComponent(id) + '">'
-           +   esc(T('Observe', '관찰')) + '</a></div>';
+           +   esc(T('👁 Observe (hidden)', '👁 관찰(안 보임)')) + '</a>'
+           /* 🚪 (2026-10-20 매니저 질문 «is there an option where the manager can be seen during the observation?»)
+              관찰은 학생·강사에게 안 보인다 — 보이게 들어가려면 실제 참가자로 입장해야 한다.
+              「오늘 수업」 줄의 입장과 같은 taJoin(같은 확인 · 카메라 꺼짐)을 이 줄에도 둔다.
+              ⚠️ 방 번호가 없으면 주지 않는다(빈 방으로 들어간다). */
+           + (id ? ' <a class="tag" href="#" onclick="return taJoin(this)" data-room="' + esc(id) + '" data-who="' + esc(who || '-') + '">'
+                 + esc(T('🚪 Join (visible)', '🚪 입장(보임)')) + '</a>' : '')
+           + '</div>';
     }, T('No class is running right now.', '지금 진행 중인 수업이 없습니다.'));
   }
 
