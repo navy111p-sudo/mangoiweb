@@ -68,6 +68,18 @@
   .thumb{aspect-ratio:16/9;border-radius:10px;border:1px dashed #3b4659;background:#0b1018;display:flex;align-items:center;
     justify-content:center;font-size:13px;color:#9aa4b5;text-align:center;padding:4px}
   .thumb.on{border-style:solid;font-size:24px;letter-spacing:4px}
+  .thumb.pic{background-size:cover;background-position:center;align-items:flex-end;justify-content:flex-end;padding:6px}
+  .thumb.pic .emo{font-size:17px;letter-spacing:2px;padding:2px 8px;border-radius:999px;background:rgba(5,8,14,.72)}
+  /* « 이야기 고르기(1·2·3편) » */
+  .eps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .ep{display:flex;flex-direction:column;justify-content:flex-end;gap:4px;min-height:104px;padding:12px;border-radius:14px;
+    border:1px solid var(--line);background:#121826;background-size:cover;background-position:center;color:var(--text);text-decoration:none}
+  a.ep:hover{border-color:var(--gold)}
+  .ep.cur{border:2px solid var(--gold)}
+  .ep.off{opacity:.7}
+  .ep-no{font-size:12.5px;font-weight:800;color:var(--gold)}
+  .ep-t{font-size:15px;font-weight:800;line-height:1.3}
+  .ep-s{font-size:12.5px;color:var(--text2)}
   .tag{align-self:flex-start;padding:4px 12px;border-radius:999px;color:#fff;font-size:13.5px;font-weight:800}
   .s1{background:#2366c9}.s2{background:#6a3fc8}.s3{background:#22803f}.s4{background:#c25e12}.s5{background:#c22f2f}.s6{background:#3f4cc2}
   .scene .meta{font-size:12.5px;color:var(--text2)}
@@ -113,6 +125,8 @@
   button.final:disabled{cursor:not-allowed;opacity:.7}
   .motto{margin:0;text-align:center;font-size:15px;font-weight:800;color:var(--gold)}
   @media (max-width:640px){
+    .eps{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .ep{min-height:84px}
     .scenes{grid-template-columns:1fr}
     .scene{flex-direction:row;align-items:center;flex-wrap:wrap}
     .thumb{width:96px;flex:none;font-size:11px}
@@ -138,6 +152,11 @@
     <div class="feat"><b data-ko="🎤 직접 더빙하고!" data-en="🎤 Dub it yourself!">🎤 직접 더빙하고!</b><span data-ko="캐릭터를 골라 대사를 말해요" data-en="Pick a character and say the lines">캐릭터를 골라 대사를 말해요</span></div>
     <div class="feat"><b data-ko="⭐ AI가 평가하고!" data-en="⭐ AI gives feedback!">⭐ AI가 평가하고!</b><span data-ko="발음과 말하기를 알려줘요" data-en="Pronunciation and speaking tips">발음과 말하기를 알려줘요</span></div>
     <div class="feat"><b data-ko="▶ 완성 영상 다시 보기!" data-en="▶ Watch your movie!">▶ 완성 영상 다시 보기!</b><span data-ko="내 목소리 영화를 감상해요" data-en="Enjoy the movie with your voice">내 목소리 영화를 감상해요</span></div>
+  </section>
+
+  <section class="panel" id="dub-eps-panel" aria-label="이야기 고르기" hidden>
+    <h2><span data-ko="이야기 고르기" data-en="Pick a story">이야기 고르기</span></h2>
+    <div class="eps" id="dub-eps"></div>
   </section>
 
   <div class="notice" id="dub-status" role="status"><b data-ko="준비 중이에요" data-en="Coming soon">준비 중이에요</b> · <span data-ko="첫 번째 더빙 이야기를 만들고 있어요. 영상이 올라오면 이곳에서 장면을 골라 바로 더빙할 수 있어요." data-en="We are making the first dubbing story. When the videos are ready, you can pick a scene here and start dubbing.">첫 번째 더빙 이야기를 만들고 있어요. 영상이 올라오면 이곳에서 장면을 골라 바로 더빙할 수 있어요.</span></div>
@@ -172,6 +191,7 @@
     <div class="row" id="dub-all-row" style="margin-top:10px" hidden>
       <button type="button" class="btn go" id="dub-all"><span data-ko="▶ 처음부터 끝까지 더빙" data-en="▶ Dub the whole story">▶ 처음부터 끝까지 더빙</span></button>
       <label class="opt"><input type="checkbox" id="dub-make-movie" checked> <span data-ko="완성 영상 만들기" data-en="Make my movie">완성 영상 만들기</span></label>
+      <label class="opt"><input type="checkbox" id="dub-listen-first" checked> <span data-ko="👂 내 대사도 먼저 듣고 따라 말하기(연습)" data-en="👂 Hear my lines first, then repeat (practice)">👂 내 대사도 먼저 듣고 따라 말하기(연습)</span></label>
     </div>
   </section>
 
@@ -209,7 +229,7 @@
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script defer src="/js/speech-azure.js?v=2"></script>
-<script defer src="/js/ai-dubbing-core.js?v=1"></script>
-<script defer src="/js/ai-dubbing.js?v=1"></script>
+<script defer src="/js/ai-dubbing-core.js?v=2"></script>
+<script defer src="/js/ai-dubbing.js?v=2"></script>
 </body>
 </html>
