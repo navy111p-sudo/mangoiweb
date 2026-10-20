@@ -1,26 +1,26 @@
 {
-  "_comment": "A.i영화더빙 dub-001 매니페스트(미리보기). 정본 연동 규격: docs/A.i영화더빙_화면연동_설명서.md. 대사·캐릭터는 ChatGPT episode.json(ZIP) 그대로, 영상은 PR #1653 의 15초 클립 6개. 대사 시각은 40초 장면 기준이라 아직 영상과 안 맞음 → timing=provisional(차례 모드). 원어민 음성 파일·BGM 은 아직 없음 → TTS 대체.",
+  "_comment": "A.i영화더빙 dub-001 (1편). 연동 규격: docs/A.i영화더빙_화면연동_설명서.md. 영상 = 15초 클립 16개를 6장면(1·7 / 8·2·9 / 3·10·4 / 11·13·14 / 12·5·15 / 16·6)으로 이어 붙여 우리 서버(/media/dubbing/dub-001/)에 둠 — 원본 소리(생성기 목소리)는 뺐다. 대사 36줄 = 장면 6 × 캐릭터 3 × 2줄, 3~8단어. 입 모양 시각은 없음 → timing=provisional(차례 모드). 원어민 음성 파일은 아직 없어 캐릭터별 AI 목소리(TTS)로 낸다. 장면마다 아이 얼굴이 조금씩 다른 것은 그대로 둔다(2026-10-19 사장님 결정).",
   "id": "dub-001",
   "title": {
-    "en": "Dino Comes to School",
-    "ko": "공룡이 우리 반에 전학 왔다!"
+    "en": "The Adventure Begins! — Rex Comes to School",
+    "ko": "신나는 모험의 시작! — 공룡 렉스가 우리 반에 왔어요"
   },
   "level": 1,
   "status": "preview",
   "timing": "provisional",
   "note": {
-    "ko": "미리보기예요 — 영상과 대사가 아직 맞춰지지 않았고, 원어민 목소리는 임시 AI 음성이에요.",
-    "en": "Preview — the video and lines are not matched yet, and native voices are temporary AI voices."
+    "ko": "원어민 목소리는 임시 AI 음성이에요 · 대사는 장면 순서대로 차례차례 나와요",
+    "en": "Native voices are temporary AI voices · lines come one by one in scene order"
   },
   "characters": {
-    "dino": {
-      "id": "dino",
+    "jun": {
+      "id": "jun",
       "name": {
-        "en": "Dino",
-        "ko": "디노"
+        "en": "Jun",
+        "ko": "준"
       },
-      "emoji": "🦖",
-      "ttsSpeaker": "aries"
+      "emoji": "👦",
+      "ttsSpeaker": "apollo"
     },
     "mina": {
       "id": "mina",
@@ -31,101 +31,82 @@
       "emoji": "👧",
       "ttsSpeaker": "thalia"
     },
-    "leo": {
-      "id": "leo",
+    "rex": {
+      "id": "rex",
       "name": {
-        "en": "Leo",
-        "ko": "레오"
+        "en": "Rex",
+        "ko": "렉스"
       },
-      "emoji": "👦",
-      "ttsSpeaker": "apollo"
-    },
-    "robo": {
-      "id": "robo",
-      "name": {
-        "en": "Robo",
-        "ko": "로보"
-      },
-      "emoji": "🤖",
-      "ttsSpeaker": "orion"
+      "emoji": "🦖",
+      "ttsSpeaker": "arcas"
     }
   },
   "playable": [
-    "dino",
-    "mina"
+    "jun",
+    "mina",
+    "rex"
   ],
   "scenes": [
     {
       "no": 1,
       "label": {
-        "en": "A New Student",
-        "ko": "새 전학생"
+        "en": "A New Friend",
+        "ko": "새 친구 렉스"
       },
       "arc": "ki",
-      "video": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151211_f2ced3b5-a388-4554-bc6f-39e49e31bf4e.mp4",
-      "durationSec": 15,
+      "video": "/media/dubbing/dub-001/scene-1.mp4",
+      "poster": "/media/dubbing/dub-001/scene-1.jpg",
+      "durationSec": 30,
       "videoAudio": "mute",
       "bgm": null,
       "voices": {},
       "lines": [
         {
           "id": "s1-l1",
-          "speaker": "mina",
-          "en": "Who is at the door?",
-          "ko": "문 앞에 누구지?",
-          "start": 3,
-          "end": 7.8,
-          "emotion": "surprised",
+          "speaker": "jun",
+          "en": "Hi! Are you our new friend?",
+          "ko": "안녕! 네가 새 친구니?",
+          "emotion": "excited",
           "scored": true
         },
         {
           "id": "s1-l2",
-          "speaker": "leo",
-          "en": "Wow! A little dinosaur!",
-          "ko": "와! 작은 공룡이야!",
-          "start": 9,
-          "end": 13.8,
-          "emotion": "surprised",
+          "speaker": "rex",
+          "en": "Yes! My name is Rex.",
+          "ko": "응! 내 이름은 렉스야.",
+          "emotion": "shy",
           "scored": true
         },
         {
           "id": "s1-l3",
-          "speaker": "dino",
-          "en": "Hi! My name is Dino.",
-          "ko": "안녕! 내 이름은 디노야.",
-          "start": 15,
-          "end": 19.8,
+          "speaker": "mina",
+          "en": "Welcome to our class, Rex!",
+          "ko": "우리 반에 온 걸 환영해, 렉스!",
           "emotion": "happy",
           "scored": true
         },
         {
           "id": "s1-l4",
-          "speaker": "mina",
-          "en": "Welcome to our class, Dino!",
-          "ko": "우리 반에 온 걸 환영해, 디노!",
-          "start": 21,
-          "end": 25.8,
-          "emotion": "happy",
+          "speaker": "rex",
+          "en": "Oops! Sorry about your papers.",
+          "ko": "앗! 종이 날려서 미안해.",
+          "emotion": "embarrassed",
           "scored": true
         },
         {
           "id": "s1-l5",
-          "speaker": "dino",
-          "en": "Can I sit here?",
-          "ko": "여기 앉아도 돼?",
-          "start": 27,
-          "end": 31.8,
-          "emotion": "calm",
+          "speaker": "jun",
+          "en": "It's okay. Come sit with us.",
+          "ko": "괜찮아. 우리랑 같이 앉자.",
+          "emotion": "kind",
           "scored": true
         },
         {
           "id": "s1-l6",
-          "speaker": "leo",
-          "en": "Yes! Sit next to me.",
-          "ko": "응! 내 옆에 앉아.",
-          "start": 33,
-          "end": 37.8,
-          "emotion": "happy",
+          "speaker": "mina",
+          "en": "We can be best friends!",
+          "ko": "우리 단짝 친구 하자!",
+          "emotion": "cheerful",
           "scored": true
         }
       ]
@@ -133,74 +114,63 @@
     {
       "no": 2,
       "label": {
-        "en": "The Funny Sneeze",
-        "ko": "우당탕 재채기"
+        "en": "The Magic Compass",
+        "ko": "반짝이는 나침반"
       },
       "arc": "seung",
-      "video": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151212_fb39992b-d7c3-42c2-bc86-f0aacbdd9820.mp4",
-      "durationSec": 15,
+      "video": "/media/dubbing/dub-001/scene-2.mp4",
+      "poster": "/media/dubbing/dub-001/scene-2.jpg",
+      "durationSec": 45,
       "videoAudio": "mute",
       "bgm": null,
       "voices": {},
       "lines": [
         {
           "id": "s2-l1",
-          "speaker": "leo",
-          "en": "Do you like our school?",
-          "ko": "우리 학교 마음에 들어?",
-          "start": 3,
-          "end": 7.8,
-          "emotion": "happy",
+          "speaker": "mina",
+          "en": "Rex, what is in your bag?",
+          "ko": "렉스, 가방에 뭐가 들었어?",
+          "emotion": "curious",
           "scored": true
         },
         {
           "id": "s2-l2",
-          "speaker": "dino",
-          "en": "Yes! But my nose feels funny.",
-          "ko": "응! 그런데 코가 간질간질해.",
-          "start": 9,
-          "end": 13.8,
-          "emotion": "surprised",
+          "speaker": "rex",
+          "en": "It's my magic compass!",
+          "ko": "내 마법 나침반이야!",
+          "emotion": "proud",
           "scored": true
         },
         {
           "id": "s2-l3",
-          "speaker": "mina",
-          "en": "Oh no! Are you okay?",
-          "ko": "어머! 괜찮아?",
-          "start": 15,
-          "end": 19.8,
-          "emotion": "scared",
+          "speaker": "jun",
+          "en": "Look! The board is glowing!",
+          "ko": "봐! 칠판이 빛나!",
+          "emotion": "surprised",
           "scored": true
         },
         {
           "id": "s2-l4",
-          "speaker": "dino",
-          "en": "I think I will sneeze!",
-          "ko": "나 재채기할 것 같아!",
-          "start": 21,
-          "end": 25.8,
-          "emotion": "surprised",
+          "speaker": "mina",
+          "en": "Whoa! The books are flying!",
+          "ko": "우와! 책이 날아다녀!",
+          "emotion": "amazed",
           "scored": true
         },
         {
           "id": "s2-l5",
-          "speaker": "leo",
-          "en": "Look! The books are flying!",
-          "ko": "봐! 책들이 날아가!",
-          "start": 27,
-          "end": 31.8,
-          "emotion": "surprised",
+          "speaker": "rex",
+          "en": "Hold hands! Let's go together!",
+          "ko": "손 잡아! 같이 가자!",
+          "emotion": "excited",
           "scored": true
         },
         {
           "id": "s2-l6",
-          "speaker": "mina",
-          "en": "Everybody, catch the books!",
-          "ko": "모두 책을 잡아!",
-          "start": 33,
-          "end": 37.8,
-          "emotion": "surprised",
+          "speaker": "jun",
+          "en": "Ready? One, two, three!",
+          "ko": "준비됐지? 하나, 둘, 셋!",
+          "emotion": "brave",
           "scored": true
         }
       ]
@@ -208,74 +178,63 @@
     {
       "no": 3,
       "label": {
-        "en": "A Door in Time",
-        "ko": "시간의 문"
+        "en": "Into the Dino Jungle",
+        "ko": "공룡 숲으로"
       },
       "arc": "seung",
-      "video": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151244_81eae87a-9d33-4bc9-8609-90dcaaeeb268.mp4",
-      "durationSec": 15,
+      "video": "/media/dubbing/dub-001/scene-3.mp4",
+      "poster": "/media/dubbing/dub-001/scene-3.jpg",
+      "durationSec": 45,
       "videoAudio": "mute",
       "bgm": null,
       "voices": {},
       "lines": [
         {
           "id": "s3-l1",
-          "speaker": "mina",
-          "en": "What is that bright light?",
-          "ko": "저 밝은 빛은 뭐지?",
-          "start": 3,
-          "end": 7.8,
-          "emotion": "surprised",
+          "speaker": "jun",
+          "en": "Wow! It's a dinosaur jungle!",
+          "ko": "우와! 공룡 숲이야!",
+          "emotion": "amazed",
           "scored": true
         },
         {
           "id": "s3-l2",
-          "speaker": "dino",
-          "en": "I see a strange blue light!",
-          "ko": "이상한 파란 빛이 보여!",
-          "start": 9,
-          "end": 13.8,
-          "emotion": "surprised",
+          "speaker": "rex",
+          "en": "This is my home!",
+          "ko": "여기가 우리 집이야!",
+          "emotion": "happy",
           "scored": true
         },
         {
           "id": "s3-l3",
-          "speaker": "leo",
-          "en": "Is it safe to go near?",
-          "ko": "가까이 가도 안전해?",
-          "start": 15,
-          "end": 19.8,
-          "emotion": "scared",
+          "speaker": "mina",
+          "en": "Look! Big footprints here!",
+          "ko": "봐! 여기 큰 발자국이 있어!",
+          "emotion": "curious",
           "scored": true
         },
         {
           "id": "s3-l4",
-          "speaker": "dino",
-          "en": "My family may be there!",
-          "ko": "우리 가족이 저기 있을지도 몰라!",
-          "start": 21,
-          "end": 25.8,
-          "emotion": "happy",
+          "speaker": "jun",
+          "en": "I see them with my binoculars.",
+          "ko": "쌍안경으로 보여.",
+          "emotion": "excited",
           "scored": true
         },
         {
           "id": "s3-l5",
           "speaker": "mina",
-          "en": "Wait! We need a plan.",
-          "ko": "잠깐! 계획이 필요해.",
-          "start": 27,
-          "end": 31.8,
-          "emotion": "calm",
+          "en": "I will draw everything I see.",
+          "ko": "본 걸 전부 그릴 거야.",
+          "emotion": "focused",
           "scored": true
         },
         {
           "id": "s3-l6",
-          "speaker": "dino",
-          "en": "Let us find my family!",
-          "ko": "우리 가족을 찾아보자!",
-          "start": 33,
-          "end": 37.8,
-          "emotion": "happy",
+          "speaker": "rex",
+          "en": "Shh! A big friend is coming.",
+          "ko": "쉿! 큰 친구가 와.",
+          "emotion": "whisper",
           "scored": true
         }
       ]
@@ -283,12 +242,13 @@
     {
       "no": 4,
       "label": {
-        "en": "The Giant Shadow",
-        "ko": "커다란 그림자의 비밀"
+        "en": "Helping the Baby Dino",
+        "ko": "아기 공룡을 도와요"
       },
       "arc": "jeon",
-      "video": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151211_f5e9872e-62d1-4438-be8c-8218eb4c055c.mp4",
-      "durationSec": 15,
+      "video": "/media/dubbing/dub-001/scene-4.mp4",
+      "poster": "/media/dubbing/dub-001/scene-4.jpg",
+      "durationSec": 45,
       "videoAudio": "mute",
       "bgm": null,
       "voices": {},
@@ -296,61 +256,49 @@
         {
           "id": "s4-l1",
           "speaker": "mina",
-          "en": "A giant dinosaur is coming!",
-          "ko": "거대한 공룡이 오고 있어!",
-          "start": 3,
-          "end": 7.8,
-          "emotion": "scared",
+          "en": "Oh no! The baby is crying.",
+          "ko": "어머! 아기 공룡이 울어.",
+          "emotion": "worried",
           "scored": true
         },
         {
           "id": "s4-l2",
-          "speaker": "dino",
-          "en": "Wait! I know that sound!",
-          "ko": "잠깐! 저 소리 알아!",
-          "start": 9,
-          "end": 13.8,
-          "emotion": "surprised",
+          "speaker": "rex",
+          "en": "Don't cry. We are here.",
+          "ko": "울지 마. 우리가 있잖아.",
+          "emotion": "gentle",
           "scored": true
         },
         {
           "id": "s4-l3",
-          "speaker": "mina",
-          "en": "Is it a scary monster?",
-          "ko": "무서운 괴물이야?",
-          "start": 15,
-          "end": 19.8,
-          "emotion": "scared",
+          "speaker": "jun",
+          "en": "Are you lost, little one?",
+          "ko": "길을 잃었니, 꼬마야?",
+          "emotion": "kind",
           "scored": true
         },
         {
           "id": "s4-l4",
-          "speaker": "dino",
-          "en": "No! That is my mom!",
-          "ko": "아니! 우리 엄마야!",
-          "start": 21,
-          "end": 25.8,
-          "emotion": "happy",
+          "speaker": "mina",
+          "en": "Let's find your mom together!",
+          "ko": "같이 엄마를 찾아 보자!",
+          "emotion": "determined",
           "scored": true
         },
         {
           "id": "s4-l5",
-          "speaker": "dino",
-          "en": "My mom is really big!",
-          "ko": "우리 엄마는 정말 커!",
-          "start": 27,
-          "end": 31.8,
-          "emotion": "happy",
+          "speaker": "jun",
+          "en": "Careful! The rocks are slippery!",
+          "ko": "조심해! 돌이 미끄러워!",
+          "emotion": "alarmed",
           "scored": true
         },
         {
           "id": "s4-l6",
-          "speaker": "mina",
-          "en": "She looks worried about you.",
-          "ko": "널 걱정하시는 것 같아.",
-          "start": 33,
-          "end": 37.8,
-          "emotion": "sad",
+          "speaker": "rex",
+          "en": "Hop, hop! Follow me!",
+          "ko": "깡충, 깡충! 나를 따라와!",
+          "emotion": "cheerful",
           "scored": true
         }
       ]
@@ -358,74 +306,63 @@
     {
       "no": 5,
       "label": {
-        "en": "The Brave Goodbye",
-        "ko": "용감한 작별 인사"
+        "en": "Finding Mom",
+        "ko": "엄마를 찾았어요"
       },
       "arc": "jeon",
-      "video": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151211_71a40801-4a36-4a88-898e-95fa8e2f7d83.mp4",
-      "durationSec": 15,
+      "video": "/media/dubbing/dub-001/scene-5.mp4",
+      "poster": "/media/dubbing/dub-001/scene-5.jpg",
+      "durationSec": 45,
       "videoAudio": "mute",
       "bgm": null,
       "voices": {},
       "lines": [
         {
           "id": "s5-l1",
-          "speaker": "mina",
-          "en": "Dino, your mom is waiting.",
-          "ko": "디노, 엄마가 기다리셔.",
-          "start": 3,
-          "end": 7.8,
-          "emotion": "calm",
+          "speaker": "jun",
+          "en": "Which way should we go?",
+          "ko": "어느 쪽으로 가야 하지?",
+          "emotion": "puzzled",
           "scored": true
         },
         {
           "id": "s5-l2",
-          "speaker": "dino",
-          "en": "But I love my new friends.",
-          "ko": "하지만 새 친구들이 좋아.",
-          "start": 9,
-          "end": 13.8,
-          "emotion": "sad",
+          "speaker": "rex",
+          "en": "My map says this way!",
+          "ko": "내 지도에는 이쪽이래!",
+          "emotion": "confident",
           "scored": true
         },
         {
           "id": "s5-l3",
           "speaker": "mina",
-          "en": "We can visit you again!",
-          "ko": "우리가 다시 만나러 갈게!",
-          "start": 15,
-          "end": 19.8,
-          "emotion": "happy",
+          "en": "Listen! I hear something big!",
+          "ko": "들어 봐! 뭔가 큰 소리가 나!",
+          "emotion": "alert",
           "scored": true
         },
         {
           "id": "s5-l4",
-          "speaker": "dino",
-          "en": "The time door is closing!",
-          "ko": "시간의 문이 닫히고 있어!",
-          "start": 21,
-          "end": 25.8,
-          "emotion": "surprised",
+          "speaker": "jun",
+          "en": "Look! It's the baby's mom!",
+          "ko": "봐! 아기 공룡의 엄마야!",
+          "emotion": "excited",
           "scored": true
         },
         {
           "id": "s5-l5",
-          "speaker": "dino",
-          "en": "Thank you, my dear friends!",
-          "ko": "고마워, 소중한 친구들아!",
-          "start": 27,
-          "end": 31.8,
-          "emotion": "happy",
+          "speaker": "rex",
+          "en": "Go on, little one. Run!",
+          "ko": "어서 가, 꼬마야. 달려!",
+          "emotion": "warm",
           "scored": true
         },
         {
           "id": "s5-l6",
           "speaker": "mina",
-          "en": "Goodbye, Dino! See you soon!",
-          "ko": "잘 가, 디노! 또 만나!",
-          "start": 33,
-          "end": 37.8,
-          "emotion": "happy",
+          "en": "Yay! They are together again!",
+          "ko": "야호! 다시 함께야!",
+          "emotion": "joyful",
           "scored": true
         }
       ]
@@ -433,74 +370,63 @@
     {
       "no": 6,
       "label": {
-        "en": "One More Surprise",
-        "ko": "마지막 깜짝 선물"
+        "en": "A Surprise at School",
+        "ko": "교실로 돌아와 깜짝 선물"
       },
       "arc": "gyeol",
-      "video": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261019_151211_e2625ee8-c365-4a5c-9324-b1a20a22ac2e.mp4",
-      "durationSec": 15,
+      "video": "/media/dubbing/dub-001/scene-6.mp4",
+      "poster": "/media/dubbing/dub-001/scene-6.jpg",
+      "durationSec": 30,
       "videoAudio": "mute",
       "bgm": null,
       "voices": {},
       "lines": [
         {
           "id": "s6-l1",
-          "speaker": "dino",
-          "en": "I have a surprise for you!",
-          "ko": "너희에게 깜짝 선물이 있어!",
-          "start": 3,
-          "end": 7.8,
-          "emotion": "happy",
+          "speaker": "jun",
+          "en": "We're back in our classroom!",
+          "ko": "우리 교실로 돌아왔어!",
+          "emotion": "relieved",
           "scored": true
         },
         {
           "id": "s6-l2",
-          "speaker": "mina",
-          "en": "I miss our funny friend.",
-          "ko": "우리 재미있는 친구가 보고 싶어.",
-          "start": 9,
-          "end": 13.8,
-          "emotion": "sad",
+          "speaker": "rex",
+          "en": "That was the best adventure!",
+          "ko": "최고의 모험이었어!",
+          "emotion": "happy",
           "scored": true
         },
         {
           "id": "s6-l3",
           "speaker": "mina",
-          "en": "Look! I got a message!",
-          "ko": "봐! 메시지가 왔어!",
-          "start": 15,
-          "end": 19.8,
-          "emotion": "surprised",
+          "en": "High five, everyone!",
+          "ko": "다 같이 하이파이브!",
+          "emotion": "excited",
           "scored": true
         },
         {
           "id": "s6-l4",
-          "speaker": "dino",
-          "en": "Hello! I am back again!",
-          "ko": "안녕! 나 다시 왔어!",
-          "start": 21,
-          "end": 25.8,
-          "emotion": "happy",
+          "speaker": "jun",
+          "en": "Look! Our teacher has something.",
+          "ko": "봐! 선생님이 뭘 들고 계셔.",
+          "emotion": "curious",
           "scored": true
         },
         {
           "id": "s6-l5",
-          "speaker": "leo",
-          "en": "Dino! What is in your bag?",
-          "ko": "디노! 가방 안에 뭐가 있어?",
-          "start": 27,
-          "end": 31.8,
+          "speaker": "rex",
+          "en": "Wow! A rainbow dino egg!",
+          "ko": "우와! 무지개 공룡 알이야!",
           "emotion": "surprised",
           "scored": true
         },
         {
           "id": "s6-l6",
-          "speaker": "dino",
-          "en": "My baby sister! Say hello!",
-          "ko": "내 여동생이야! 인사해!",
-          "start": 33,
-          "end": 37.8,
-          "emotion": "happy",
+          "speaker": "mina",
+          "en": "A new friend is coming soon!",
+          "ko": "곧 새 친구가 태어날 거야!",
+          "emotion": "hopeful",
           "scored": true
         }
       ]

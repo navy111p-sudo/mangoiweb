@@ -104,6 +104,7 @@
         no: no,
         label: pair(s.label, 'Scene ' + no),
         video: video,
+        poster: resolveUrl(s.poster, baseUrl),   // 장면 카드·영상 첫 화면(없으면 빈 값 — 화면이 이모지로 대신 그린다)
         durationSec: dur,
         bgm: resolveUrl(s.bgm, baseUrl),
         voices: voices,
@@ -230,6 +231,29 @@
     });
   }
 
+  /* 이야기 목록(data/dubbing/index.json) — 1·2·3편 고르기.
+   * → [{ id, no, title{ko,en}, status: 'ready'|'coming', poster }]
+   *   ⛔ 모르는 status 는 'coming'(못 여는 쪽)으로 — 준비 안 된 편이 «열리는» 쪽으로 새면 빈 화면이 뜬다. */
+  function normalizeIndex(raw) {
+    var list = (raw && Array.isArray(raw.episodes)) ? raw.episodes : [];
+    var seen = {}, out = [];
+    list.forEach(function (e, i) {
+      e = e || {};
+      var id = trim(e.id).toLowerCase();
+      if (!/^[a-z0-9-]{1,40}$/.test(id) || seen[id]) return;
+      seen[id] = true;
+      out.push({
+        id: id,
+        no: isNum(e.no) ? e.no : i + 1,
+        title: pair(e.title, id),
+        status: trim(e.status).toLowerCase() === 'ready' ? 'ready' : 'coming',
+        poster: resolveUrl(e.poster, ''),
+      });
+    });
+    out.sort(function (a, b) { return a.no - b.no; });
+    return out;
+  }
+
   /* 원어민 대신 쓰는 TTS 화자 — 매니페스트에 없으면 성별 모름이라 무난한 기본값 */
   function ttsSpeakerFor(episode, charId) {
     var c = episode && episode.characters[charId];
@@ -240,6 +264,7 @@
     MAX_STUDENTS: MAX_STUDENTS,
     resolveUrl: resolveUrl,
     normalizeEpisode: normalizeEpisode,
+    normalizeIndex: normalizeIndex,
     sceneTimingValid: sceneTimingValid,
     sceneHasAllStems: sceneHasAllStems,
     castProblems: castProblems,
