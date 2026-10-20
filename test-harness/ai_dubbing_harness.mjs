@@ -222,18 +222,21 @@ for (const epId of readyIds) {
   check('⑥-2 ' + P + '재생 가능(ok) · 문제 0', n.ok && n.problems.length === 0, n.problems);
   const sc = n.episode.scenes;
   check('⑥-3 ' + P + '6장면', sc.length === 6, sc.length);
-  if (epRaw.timing !== 'synced') {
-    check('⑥-4 ' + P + '시각이 «provisional» 이라 전부 차례 모드 + TTS (없는 시각을 지어내 맞추지 않는다)',
-      sc.every((s) => s.timing === 'turn' && s.voiceMode === 'tts'));
-    check('⑥-9 ' + P + '상태는 «preview» — 완성본이라고 말하지 않는다', n.episode.status === 'preview');
-  }
+  /* ⛔ if 로 감싸지 않는다 — 감싸면 시각을 «synced» 로 바꾸는 한 줄에 아래 두 검사가 «소리 없이» 빠진다(함정 대조 2026-10-20).
+     «A 면 B» 를 늘 도는 검사(!A || B)로 두고, 1·3편이 아직 provisional 이라는 사실은 ⑥-9b 가 따로 못 박는다. */
+  check('⑥-4 ' + P + '시각이 «provisional» 이면 전부 차례 모드 + TTS (없는 시각을 지어내 맞추지 않는다)',
+    epRaw.timing === 'synced' || sc.every((s) => s.timing === 'turn' && s.voiceMode === 'tts'));
+  check('⑥-4b ' + P + '시각이 «synced» 라고 적었으면 장면이 실제로 전부 맞춤 모드로 읽힌다(시각이 틀려 차례 모드로 떨어지지 않았다)',
+    epRaw.timing !== 'synced' || sc.every((s) => s.timing === 'synced'));
+  check('⑥-9 ' + P + '시각이 «provisional» 이면 상태는 «preview» — 완성본이라고 말하지 않는다', epRaw.timing === 'synced' || n.episode.status === 'preview');
   check('⑥-5 ' + P + 'AI 목소리(tts)로 내는 장면은 원본 영상 소리를 끈다(생성기 목소리가 섞임)', sc.every((s) => s.voiceMode !== 'tts' || s.videoAudio === 'mute'));
   /* 영상·대표 그림은 우리 서버 파일 — 남의 CDN 주소는 만료되면 사라지고(중국 회선도 막힘) 완성 영상 캔버스를 «오염» 시킨다 */
   /* ?v=N 은 «같은 이름으로 갈아 끼운 영상» 의 캐시 우회(미디어 7일 캐시) — 파일을 찾을 때는 뗀다 */
   const local = (u) => join(PUB, String(u || '').replace(/[?#].*$/, '').replace(/^\/+/, ''));
   const mediaRe = new RegExp('^/media/dubbing/' + epId + '/[a-z0-9-]+\\.mp4(\\?v=\\d+)?$');
   check('⑥-6 ' + P + '영상은 우리 서버 경로(/media/dubbing/' + epId + '/)이고 장면마다 다르다',
-    sc.every((s) => mediaRe.test(s.video)) && new Set(sc.map((s) => s.video)).size === 6, sc.map((s) => s.video));
+    sc.every((s) => mediaRe.test(s.video)) && new Set(sc.map((s) => local(s.video))).size === 6, sc.map((s) => s.video));
+  /* ↑ «다르다» 는 ?v= 를 뗀 «파일» 로 센다 — 안 떼면 같은 영상에 ?v=2 만 붙인 둘을 «다르다» 로 센다(함정 대조 2026-10-20) */
   check('⑥-6b ' + P + '영상 파일이 저장소에 실재하고 25MiB 미만(Workers 정적자산 한도)',
     sc.every((s) => existsSync(local(s.video)) && statSync(local(s.video)).size < 25 * 1024 * 1024));
   check('⑥-6c ' + P + '장면 대표 그림이 실재한다', sc.every((s) => s.poster && existsSync(local(s.poster))), sc.map((s) => s.poster));
@@ -276,6 +279,13 @@ for (const epId of readyIds) {
   }
 }
 check('⑥-z 전제 — 실제로 2편 이상을 검사했다(목록이 비어 검사가 통째로 사라지지 않게)', checkedEps >= 2, checkedEps);
+/* ⑥-9b 지금 사실을 못 박는다 — 1편·3편은 아직 «영상에 맞춘 대사 시각» 이 없다(설명서 6-1·6-1b).
+   ⚠️ 진짜 완성본(대사 시각 + 원어민 음성)으로 올리는 날 이 줄을 «함께» 고친다 — 그 전에 누가 timing 만 'synced' 로 바꾸면 여기서 걸린다. */
+for (const epId of ['dub-001', 'dub-003']) {
+  let raw = null;
+  try { raw = JSON.parse(rd(join(PUB, 'data', 'dubbing', epId + '.json'))); } catch (e) { raw = null; }
+  check('⑥-9b ' + epId + ' 는 아직 시각 provisional · 상태 preview (완성본이 아니다)', !!raw && raw.timing === 'provisional' && raw.status === 'preview', raw && [raw.timing, raw.status]);
+}
 
 /* 이야기 목록 — 준비된 편은 매니페스트가 실재해야 한다(눌렀는데 빈 화면 금지) */
 console.log('\n── ⑥-b 이야기 목록(index.json)');
