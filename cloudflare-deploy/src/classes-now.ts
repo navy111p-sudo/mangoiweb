@@ -176,6 +176,24 @@ export function mergeClassesNow(c24: ClassesNowRow[], mangoi: ClassesNowRow[]): 
     .sort((a, b) => (a.start_ms - b.start_ms) || String(a.room_id).localeCompare(String(b.room_id)));
 }
 
+/** 🪞 (2026-10-20 매니저 「today's class, still not all schedule have move button」)
+ *  매니저 「오늘 수업」(classes/today) 은 망고아이 줄과 카페24 줄을 그냥 이어 붙였다 —
+ *  미러가 만든 줄(notes `c24:<수업번호>`)과 그 원본(`c24-<수업번호>`)이 **두 줄로** 나갔다.
+ *  [잰 것 — 2026-10-19 운영 D1] 카페24 120줄 중 100줄이 이미 미러 줄이 있는 «복사본» 이었고,
+ *  그 복사본에는 «LMS 수업 — 카페24에서 변경» 이 붙어 «Move 가 없다» 로 보였다.
+ *  ✅ 카페24 줄 중 «미러 줄이 있는 수업» 을 뺀다 — `mergeClassesNow` 와 같은 규칙.
+ *  ⚠️ `mirrored` 는 날짜·상태를 안 가리고 모은 수업번호다 — 사람이 다른 날로 옮겼거나
+ *     취소한 미러 줄이어도 그 원본은 이미 «망고아이가 정본» 이라 다시 보이면 안 된다.
+ *  ⚠️ 조회가 실패해 `mirrored` 가 비면 아무것도 안 뺀다(예전처럼 두 줄 — 수업이 사라지는 쪽보다 낫다). */
+export function dropMirroredCafe24<T extends { room_id?: any }>(c24: T[], mirrored: Set<string>): { kept: T[]; hidden: number } {
+  if (!mirrored.size) return { kept: c24.slice(), hidden: 0 };
+  const kept = c24.filter(r => {
+    const m = /^c24-(.+)$/.exec(String(r.room_id || ''));
+    return !(m && mirrored.has(m[1]));
+  });
+  return { kept, hidden: c24.length - kept.length };
+}
+
 /** 🎌 (2026-10-09) 공휴일 휴강으로 «열리지 않는» 수업을 뺀다 — 합친(merge) «뒤» 의 목록에 쓴다.
  *  · 망고아이·카페24 줄 둘 다 본다(카페24 는 2026-10-09 사장님 「카페24 수업도 관제탑에서 휴강 반영」).
  *  · 날짜는 그 수업의 KST 날짜(자정 근처면 어제·내일일 수 있다).
