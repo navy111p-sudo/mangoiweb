@@ -74,6 +74,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 .stage { position: relative; border-radius: var(--r); overflow: hidden; background: var(--stage-frame); border: 6px solid var(--stage-frame); aspect-ratio: 16 / 9; max-width: 100%; }
 .stage svg { display: block; width: 100%; height: 100%; }
 .stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #05090B; }
+.stage .vid-fade { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
 .ai-badge { position: absolute; bottom: 10px; right: 10px; padding: 3px 9px; border-radius: 6px; background: rgba(10,16,19,.72); color: #CFE9EA; font: 500 11px var(--font-mono); letter-spacing: .06em; }
 .onair { position: absolute; top: 10px; left: 10px; display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px;
   background: rgba(10,16,19,.72); color: #9AA9AE; font: 500 12px var(--font-mono); letter-spacing: .12em; }
@@ -184,6 +185,7 @@ body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { 
 @keyframes kenburns { from { transform: scale(1); } to { transform: scale(1.08) translate(-1.5%, -1%); } }
 @media (prefers-reduced-motion: reduce) {
   .char.talking .bob, .char.talking .mouth, .onair.live i, .turn.waiting .done-btn, .stage video.kenburns { animation: none; }
+  .stage .vid-fade { transition: none !important; }
 }
 </style>
 </head>
@@ -205,6 +207,7 @@ body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { 
     <div class="stage">
       <svg id="scene" viewBox="0 0 640 360" role="img" aria-label="Scene"></svg>
       <video id="vid" muted playsinline preload="auto" hidden></video>
+      <canvas id="vid-fade" class="vid-fade" aria-hidden="true"></canvas>
       <div class="ai-badge" id="ai-badge" hidden>AI VIDEO · HIGGSFIELD</div>
       <div class="recbar" id="recbar" hidden><span>● <span data-i18n="exporting">더빙 영상 만드는 중</span></span><button type="button" id="btn-export-cancel" data-i18n="cancel">취소</button></div>
       <canvas id="export-canvas" width="960" height="540" hidden></canvas>
@@ -676,11 +679,16 @@ const $ = (id) => document.getElementById(id);
 
 /* 에피소드 미디어 경로 (영상 클립 + 캐릭터 음성). media가 없으면 SVG + 브라우저 음성으로 대체 */
 const pad2 = (n) => String(n).padStart(2, '0');
+/* 같은 이름으로 갈아 끼운 음성 — 미디어는 7일 캐시라 ?v= 를 붙여야 옛 소리가 안 남는다.
+   2026-10-20: 대본에 없는 웅얼거림이 섞여 있던 3개를 잘라 냄(받아쓰기로 확인). 또 바꾸면 번호를 올릴 것. */
+const VOICE_V = { 'bday-01': 2, 'show-12': 2, 'treasure-04': 2 };
 const mediaFor = (i) => {
   const ep = episode(), base = ep.media;
   if (!base) return null;
   const hasClip = !ep.clipLines || ep.clipLines.includes(i + 1); // clipLines: 영상이 있는 대사 번호(1부터)
-  return { clip: hasClip ? `${base}${pad2(i + 1)}.mp4` : null, voice: `${base}${pad2(i + 1)}.mp3` };
+  const key = base.split('/').pop() + pad2(i + 1);
+  const v = VOICE_V[key] ? `?v=${VOICE_V[key]}` : '';
+  return { clip: hasClip ? `${base}${pad2(i + 1)}.mp4` : null, voice: `${base}${pad2(i + 1)}.mp3${v}` };
 };
 const posterFor = (ep) => (ep.media ? `${ep.media}key.jpg` : '');
 /* 대사별 정지 장면 그림 (없으면 에피소드 대표 그림) */
@@ -810,36 +818,138 @@ function renderScene() {
   $('ai-badge').hidden = !hasMedia;
   const vid = $('vid');
   vid.hidden = !hasMedia;
+  releaseClips(ep.media); // 다른 에피소드 영상은 놓는다
   if (hasMedia) {
     vid.poster = posterFor(ep);
     lines().forEach((_, i) => audioFor(i));
+    prefetchClip(0); prefetchClip(1);
   } else {
-    vid.removeAttribute('src'); vid.load();
+    vid.removeAttribute('src'); delete vid.dataset.clip; vid.load();
   }
 }
 
-/* 영상 클립: 대사가 진행되는 동안 반복 재생, 끝나면 멈춤 */
-function showClip(i, autoplay) {
+/* 영상 클립 — 2026-10-20 사장님 「소리와 화면이 일치하지 않는다」로 다시 짰다.
+   ① 음성은 에피소드를 열 때 미리 받는데 영상은 대사마다 그때 받아서, 소리가 먼저 나가고 화면이 늦게 따라왔다
+      → 다음 대사 영상을 미리 받아 두고(blob), 영상이 «움직이기 시작한 뒤» 에 소리를 낸다.
+   ② 영상(3·5초)을 대사가 끝날 때까지 «반복» 해서, 대사가 길면 말하는 도중 첫 장면으로 튀어 돌아갔다(148줄 중 62줄),
+      짧으면 움직이다 중간에 멈췄다(44줄) → 반복하지 않고 대사 길이에 맞춰 빠르기만 바꿔 «한 번» 튼다.
+   ③ 클립마다 같은 첫 장면에서 시작해 대사가 바뀔 때마다 화면이 툭 끊겼다 → 앞 장면을 0.3초 겹쳐 넘긴다. */
+const CLIP_RATE_MIN = 0.6, CLIP_RATE_MAX = 2; // 이보다 느리면 뚝뚝 끊기고 빠르면 우스꽝스럽다 — 넘치면 마지막 장면에서 멈춘다
+const CLIP_WAIT_MS = 1500; // 영상이 이만큼 안 오면 소리부터 낸다(수업이 멈추는 것보다 낫다)
+const clipBlobs = new Map(); // 영상 주소 → Promise<blob 주소 | null>
+function prefetchClip(i) {
+  const m = i >= 0 && i < lines().length ? mediaFor(i) : null;
+  if (!m || !m.clip || clipBlobs.has(m.clip)) return;
+  clipBlobs.set(m.clip, fetch(m.clip)
+    .then((r) => (r.ok ? r.blob() : null))
+    .then((b) => (b ? URL.createObjectURL(b) : null))
+    .catch(() => null));
+}
+/* keepPrefix 로 시작하지 않는 영상을 놓는다. 화면에 걸린 영상을 먼저 걷어낸다 — 걸린 채 놓으면 오류가 나 그림 무대로 넘어간다 */
+function releaseClips(keepPrefix) {
+  const keep = (u) => Boolean(keepPrefix) && u.startsWith(keepPrefix);
+  const vid = $('vid');
+  if (vid.dataset.clip && !keep(vid.dataset.clip)) { vid.removeAttribute('src'); delete vid.dataset.clip; vid.load(); }
+  clipBlobs.forEach((p, u) => {
+    if (keep(u)) return;
+    clipBlobs.delete(u);
+    p.then((b) => { if (b) URL.revokeObjectURL(b); });
+  });
+}
+/* 영상이 소리가 나는 동안(speechSec) 딱 한 번 돌게 하는 빠르기 */
+function clipRate(clipSec, speechSec, fallback) {
+  if (!(clipSec > 0) || !(speechSec > 0) || !Number.isFinite(clipSec) || !Number.isFinite(speechSec)) return fallback;
+  return Math.min(CLIP_RATE_MAX, Math.max(CLIP_RATE_MIN, clipSec / speechSec));
+}
+const withTimeout = (p, ms) => Promise.race([p, new Promise((r) => setTimeout(() => r(null), Math.max(0, ms)))]);
+/* 영상이 type 이벤트를 내거나 오류·시간초과면 끝나는 약속 */
+function whenVid(vid, type, ms, start) {
+  return new Promise((resolve) => {
+    let done = false;
+    const fin = () => {
+      if (done) return;
+      done = true; clearTimeout(t);
+      vid.removeEventListener(type, fin); vid.removeEventListener('error', fin);
+      resolve();
+    };
+    const t = setTimeout(fin, Math.max(0, ms));
+    vid.addEventListener(type, fin);
+    vid.addEventListener('error', fin);
+    if (start) start(fin);
+  });
+}
+/* 장면 넘김: 지금 장면을 붙잡아 두고(holdFrame) 새 영상이 움직이면 걷는다(fadeFrame) */
+function holdFrame() {
+  const vid = $('vid'), cv = $('vid-fade');
+  if (vid.hidden || vid.readyState < 2 || !vid.videoWidth) return;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  if (!W || !H) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  const s = Math.max(cv.width / vid.videoWidth, cv.height / vid.videoHeight); // object-fit: cover 와 같은 자르기
+  const dw = vid.videoWidth * s, dh = vid.videoHeight * s;
+  try { cv.getContext('2d').drawImage(vid, (cv.width - dw) / 2, (cv.height - dh) / 2, dw, dh); } catch (e) { return; }
+  cv.style.transition = 'none'; cv.style.opacity = '1';
+}
+function fadeFrame() {
+  const cv = $('vid-fade');
+  if (cv.style.opacity !== '1') return;
+  void cv.offsetWidth; // 리플로우로 전환 다시 걸기
+  cv.style.transition = 'opacity .3s ease'; cv.style.opacity = '0';
+}
+let clipSeq = 0;
+/* 대사 i 의 영상을 건다. autoplay 면 «실제로 움직이기 시작한 뒤» 에 끝나는 약속을 돌려준다(최대 CLIP_WAIT_MS).
+   speechSec: 이 대사 소리가 나는 시간(초) — 영상 빠르기를 거기에 맞춘다. 안 주면 이 대사 음성 길이로 잰다
+   (음성을 아직 다 안 받았으면 잠깐 기다린다 — 어림값으로 맞추면 첫 대사에서 영상이 0.6초 더 움직였다) */
+async function showClip(i, autoplay, speechSec) {
   const m = mediaFor(i);
   if (!m) return;
+  const seq = ++clipSeq;
+  const t0 = performance.now();
+  const left = () => CLIP_WAIT_MS - (performance.now() - t0);
   const vid = $('vid');
   vid.poster = stillFor(i);
   if (!m.clip) { // 영상이 없는 대사: 그림을 천천히 확대(켄 번스 효과)
-    if (vid.getAttribute('src')) { vid.removeAttribute('src'); vid.load(); }
+    if (vid.getAttribute('src')) { vid.removeAttribute('src'); delete vid.dataset.clip; vid.load(); }
     vid.classList.toggle('kenburns', autoplay);
+    fadeFrame();
     return;
   }
   vid.classList.remove('kenburns');
-  if (!vid.src.endsWith(m.clip)) vid.src = m.clip;
-  vid.loop = true;
-  vid.playbackRate = state.speed;
-  if (autoplay) { vid.currentTime = 0; vid.play().catch(() => {}); }
-  else vid.pause();
+  vid.loop = false;
+  const changed = vid.dataset.clip !== m.clip;
+  if (changed) {
+    prefetchClip(i);
+    const blob = await withTimeout(clipBlobs.get(m.clip), left());
+    if (seq !== clipSeq) return;
+    if (autoplay) holdFrame();
+    vid.dataset.clip = m.clip;
+    vid.src = blob || m.clip; // 미리 못 받았으면 원래 주소로(예전과 같음)
+  }
+  if (!autoplay) { vid.pause(); fadeFrame(); return; }
+  if (!changed && vid.currentTime > 0.05) holdFrame(); // 같은 영상을 처음부터 다시 틀 때도 툭 끊기지 않게
+  if (vid.readyState < 1) await whenVid(vid, 'loadedmetadata', left());
+  if (seq !== clipSeq) return;
+  let sp = speechSec;
+  if (!(sp > 0)) {
+    const a = audioFor(i);
+    if (a && !(a.duration > 0)) await whenVid(a, 'loadedmetadata', left());
+    if (seq !== clipSeq) return;
+    sp = lineSec(lines()[i], i) / state.speed;
+  }
+  vid.playbackRate = clipRate(vid.duration, sp, state.speed);
+  try { vid.currentTime = 0; } catch (e) { /* 아직 못 감는 상태 */ }
+  const wasPlaying = !vid.paused && !vid.ended; // 이미 돌고 있으면 'playing' 이 다시 안 온다
+  await whenVid(vid, 'playing', Math.max(300, left()), (fin) => { vid.play().catch(fin); if (wasPlaying) fin(); });
+  if (seq !== clipSeq) return;
+  fadeFrame();
 }
 function pauseClip() {
   if (!episode().media) return;
+  clipSeq++; // 아직 영상을 기다리던 showClip 은 여기서 손을 뗀다(멈춘 뒤에 영상이 저절로 움직이지 않게)
   $('vid').pause();
   $('vid').classList.remove('kenburns');
+  fadeFrame();
 }
 function setTalking(who, myTurn = false) {
   document.querySelectorAll('.char').forEach((g) => g.classList.remove('talking', 'myturn'));
@@ -1107,7 +1217,10 @@ function speakTTS(line, run, fin) {
 
 function startTurn(line, i, run, kind, done) {
   setTalking(line.who, true);
-  showClip(i, true); // 내가 말하는 동안 캐릭터 입이 움직임 (소리는 없음)
+  // 내가 말하는 동안 캐릭터 입이 움직임(소리는 없음) — 영상이 움직이기 시작하면 차례 막대를 시작한다
+  showClip(i, true).then(() => { if (run === runId) beginTurn(line, i, run, kind, done); });
+}
+function beginTurn(line, i, run, kind, done) {
   $('onair').classList.add('live');
   const box = $('turn');
   box.hidden = false;
@@ -1140,17 +1253,23 @@ function runLine(i) {
   const line = lines()[i];
   const mine = isMine(line);
   const useMyVoice = mine && state.mode === 'review' && recFor(i);
+  prefetchClip(i + 1); prefetchClip(i + 2); // 다음 대사 영상을 미리 받아 둔다
   if (mine && !useMyVoice && state.mode !== 'practice') {
     startTurn(line, i, run, 'turn', () => advance(run)); // 더빙 / 녹음 없는 내 더빙: 음소거 차례
     return;
   }
   setTalking(line.who);
-  showClip(i, true);
-  (useMyVoice ? speakMine : speak)(line, i, run, () => {
-    setTalking(null);
-    pauseClip();
-    if (state.mode === 'practice' && isMine(line) && state.echo) startTurn(line, i, run, 'echo', () => advance(run));
-    else { duck(false); later(() => advance(run), 350); }
+  const myDur = useMyVoice ? recFor(i).audio.duration : NaN;
+  const speechSec = Number.isFinite(myDur) && myDur > 0 ? myDur : undefined; // 원어민 음성은 showClip 이 다 받은 길이로 잰다
+  // 영상이 움직이기 시작한 «뒤» 에 소리를 낸다 — 먼저 내면 소리가 화면보다 앞선다
+  showClip(i, true, speechSec).then(() => {
+    if (run !== runId) return;
+    (useMyVoice ? speakMine : speak)(line, i, run, () => {
+      setTalking(null);
+      pauseClip();
+      if (state.mode === 'practice' && isMine(line) && state.echo) startTurn(line, i, run, 'echo', () => advance(run));
+      else { duck(false); later(() => advance(run), 350); }
+    });
   });
 }
 function advance(run) {
@@ -1487,6 +1606,7 @@ function renderAll() {
 $('vid').addEventListener('error', () => {
   if (!$('vid').getAttribute('src')) return; // 정지 그림 장면은 오류 아님
   $('vid').hidden = true; $('ai-badge').hidden = true; $('scene').hidden = false;
+  const cv = $('vid-fade'); cv.style.transition = 'none'; cv.style.opacity = '0'; // 붙잡아 둔 장면이 그림 무대를 덮지 않게
 });
 
 /* 역할 돌아가며 바꾸기: 고른 역할마다 이 에피소드의 다음 캐릭터로 이동 (예: 키키 → 토토 → 엄마 → 룰루 → 키키) */
