@@ -31,6 +31,7 @@
     run: null,         // 지금 도는 더빙 한 판
     results: [],       // [{ key, sceneNo, line, studentIdx, status, spoken, score, tier, words, err }]
     movies: [],        // [{ title, url, mime, size }]
+    index: [],         // 이야기 목록(1·2·3편) — loadIndex
   };
   window.__dub = { S: S };   // 브라우저 검사용(개인정보 없음)
 
@@ -88,6 +89,33 @@
         if (!res.ok) throw new Error('manifest_unplayable');
         S.ep = res.episode;
       });
+  }
+
+  /* ── 이야기 고르기(1·2·3편) ─────────────────────────────────────────────
+   * 목록 = data/dubbing/index.json. 못 읽어도 지금 편은 그대로 돈다(목록 칸만 숨김).
+   * 준비된 편은 ?ep= 주소로 연다(새로고침해도·링크로 보내도 같은 편). 준비 중인 편은 눌리지 않는다. */
+  function loadIndex() {
+    return fetch('/data/dubbing/index.json', { cache: 'no-cache' })
+      .then(function (r) { if (!r.ok) throw new Error('http_' + r.status); return r.json(); })
+      .then(function (raw) { return C.normalizeIndex(raw); })
+      .catch(function () { return []; });
+  }
+  function renderEpisodes(list) {
+    var box = $('dub-eps'), panel = $('dub-eps-panel');
+    if (!box || !panel) return;
+    if (!list || list.length < 2) { panel.hidden = true; return; }
+    var cur = episodeId(), h = '';
+    list.forEach(function (e) {
+      var ready = e.status === 'ready', on = ready && e.id === cur;
+      var inner = '<span class="ep-no">' + L(e.no + '편', 'Ep. ' + e.no) + '</span>'
+        + '<span class="ep-t">' + L(e.title.ko, e.title.en) + '</span>'
+        + '<span class="ep-s">' + (on ? L('지금 이 이야기', 'Now playing') : ready ? L('▶ 열기', '▶ Open') : L('준비 중', 'Coming soon')) + '</span>';
+      var bg = e.poster && /^[A-Za-z0-9_\-.\/:]+$/.test(e.poster) ? ' style="background-image:linear-gradient(rgba(10,14,22,.35),rgba(10,14,22,.85)),url(\'' + esc(e.poster) + '\')"' : '';
+      if (ready && !on) h += '<a class="ep" href="?ep=' + encodeURIComponent(e.id) + '"' + bg + '>' + inner + '</a>';
+      else h += '<div class="ep' + (on ? ' cur' : ' off') + '"' + (on ? ' aria-current="true"' : ' aria-disabled="true"') + bg + '>' + inner + '</div>';
+    });
+    box.innerHTML = h;
+    panel.hidden = false;
   }
 
   /* ── 학생 명단 ─────────────────────────────────────────────────────────── */
@@ -172,7 +200,9 @@
       var emo = Object.keys(who).map(function (cid) { return S.ep.characters[cid].emoji; }).join('');
       var playable = !!(sc.video && sc.lines.length);
       h += '<div class="scene">'
-        + '<div class="thumb' + (playable ? ' on' : '') + '">' + (playable ? esc(emo) : L('영상 준비 중', 'Video coming')) + '</div>'
+        + '<div class="thumb' + (playable ? ' on' : '') + (playable && sc.poster ? ' pic' : '') + '"'
+        + (playable && sc.poster ? ' style="background-image:url(\'' + esc(sc.poster) + '\')"' : '') + '>'
+        + (playable ? '<span class="emo">' + esc(emo) + '</span>' : L('영상 준비 중', 'Video coming')) + '</div>'
         + '<span class="tag s' + ((i % 6) + 1) + '">' + L(sc.no + '. ' + sc.label.ko, sc.no + '. ' + sc.label.en) + '</span>'
         + '<span class="meta">' + L('대사 ' + sc.lines.length + '줄', sc.lines.length + ' lines') + ' · '
         + (sc.timing === 'synced' ? L('영상에 맞춰 진행', 'synced to video') : L('차례대로 진행', 'turn by turn')) + '</span>'
@@ -221,13 +251,14 @@
       return MIX;
     } catch (e) { return null; }
   }
-  /* 미디어 요소를 섞개에 잇는다. 끊으려면 돌려준 함수를 부른다. */
-  function routeEl(el, gainVal) {
+  /* 미디어 요소를 섞개에 잇는다. 끊으려면 돌려준 함수를 부른다.
+   * noRec=true 면 스피커로만 보낸다 — «먼저 들어 보기» 소리가 완성 영상에 섞이지 않게. */
+  function routeEl(el, gainVal, noRec) {
     if (!MIX) return { gain: null, cut: function () {} };
     try {
       var src = MIX.ctx.createMediaElementSource(el);
       var g = MIX.ctx.createGain(); g.gain.value = gainVal == null ? 1 : gainVal;
-      src.connect(g); g.connect(MIX.out); if (MIX.rec) g.connect(MIX.rec);
+      src.connect(g); g.connect(MIX.out); if (MIX.rec && !noRec) g.connect(MIX.rec);
       return { gain: g, cut: function () { try { src.disconnect(); g.disconnect(); } catch (e) {} } };
     } catch (e) { return { gain: null, cut: function () {} }; }
   }
@@ -258,18 +289,19 @@
       })
       .catch(function () { return null; });
   }
-  /* 미리 받아 두기 — 장면을 시작하면 그 장면 원어민 대사를 뒤에서 받아 둔다(차례 사이 멈춤을 줄인다) */
-  function prefetchScene(sc) {
+  /* 미리 받아 두기 — 장면을 시작하면 그 장면 원어민 대사를 뒤에서 받아 둔다(차례 사이 멈춤을 줄인다).
+   * «먼저 들어 보기» 가 켜져 있으면 학생 대사도 들려주므로 함께 받아 둔다. */
+  function prefetchScene(sc, withStudents) {
     var muted = C.mutedCharacters(S.cast);
-    sc.lines.forEach(function (l) { if (!muted[l.speaker]) getTts(l.en, C.ttsSpeakerFor(S.ep, l.speaker)); });
+    sc.lines.forEach(function (l) { if (withStudents || !muted[l.speaker]) getTts(l.en, C.ttsSpeakerFor(S.ep, l.speaker)); });
   }
 
-  function playUrl(run, url, maxMs) {
+  function playUrl(run, url, maxMs, noRec) {
     return new Promise(function (resolve) {
       var a = new Audio();
       a.preload = 'auto';
       a.src = url;
-      var route = routeEl(a, 1);
+      var route = routeEl(a, 1, noRec);
       var done = false;
       function fin() { if (done) return; done = true; clearTimeout(t); try { a.pause(); } catch (e) {} route.cut(); resolve(); }
       var t = setTimeout(fin, maxMs);
@@ -278,8 +310,9 @@
       var p = a.play(); if (p && p.catch) p.catch(fin);
     });
   }
-  /* TTS 를 못 받았을 때 마지막 폴백 — 기기 목소리(완성 영상에는 안 담긴다) */
-  function speakDevice(run, text, maxMs) {
+  /* TTS 를 못 받았을 때 마지막 폴백 — 기기 목소리(완성 영상에는 안 담긴다).
+   * noRec(«먼저 들어 보기») 이면 원래 영상에 안 넣는 소리라 «담기지 않았어요» 표시를 남기지 않는다. */
+  function speakDevice(run, text, maxMs, noRec) {
     return new Promise(function (resolve) {
       if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) { setTimeout(resolve, 600); return; }
       var done = false;
@@ -289,16 +322,17 @@
       try {
         var u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.95;
         u.onend = fin; u.onerror = fin; speechSynthesis.speak(u);
-        run.deviceVoiceUsed = true;
+        if (!noRec) run.deviceVoiceUsed = true;
       } catch (e) { fin(); }
     });
   }
-  function speakNative(run, line) {
+  /* cancelled() 가 참이면(받는 사이에 «넘어가기») 받은 소리를 재생하지 않는다. */
+  function speakNative(run, line, noRec, cancelled) {
     var words = line.en.split(/\s+/).length;
     var maxMs = Math.max(4000, words * 700 + 3000);
     return getTts(line.en, C.ttsSpeakerFor(S.ep, line.speaker)).then(function (url) {
-      if (run.aborted) return;
-      return url ? playUrl(run, url, maxMs) : speakDevice(run, line.en, maxMs);
+      if (run.aborted || (cancelled && cancelled())) return;
+      return url ? playUrl(run, url, maxMs, noRec) : speakDevice(run, line.en, maxMs, noRec);
     });
   }
 
@@ -560,16 +594,27 @@
       var t0 = Date.now();
       (function go() {
         if (!mv.rec || mv.rec.state !== 'inactive' || mv.stopped) return;
-        if (mv.hasFrame || mv.tainted || Date.now() - t0 > 4000) { try { mv.rec.start(1000); } catch (e) {} return; }
+        if (mv.hasFrame || mv.tainted || Date.now() - t0 > 4000) { try { mv.rec.start(1000); if (mv.held) mv.rec.pause(); } catch (e) {} return; }
         mv.startTimer = setTimeout(go, 100);
       })();
       return mv;
     } catch (e) { clearInterval(mv.timer); return null; }
   }
+  /* «먼저 들어 보기» 동안 완성 영상 녹화를 잠깐 멈춘다(그 구간이 완성 영상에 빈칸·원어민 소리로 남지 않게).
+   * 녹화가 아직 시작 전이면 «멈춰 둬야 함» 만 적어 두고, 시작하는 순간 바로 멈춘다(mv.held). */
+  function pauseMovie(mv, on) {
+    if (!mv || !mv.rec) return;
+    mv.held = !!on;
+    try {
+      if (on && mv.rec.state === 'recording') mv.rec.pause();
+      else if (!on && mv.rec.state === 'paused') mv.rec.resume();
+    } catch (e) {}
+  }
   function stopMovie(mv) {
     if (!mv) return Promise.resolve(null);
     clearInterval(mv.timer); clearTimeout(mv.startTimer); mv.stopped = true;
     if (!mv.rec || mv.rec.state === 'inactive') return Promise.resolve(null);
+    pauseMovie(mv, false);
     return new Promise(function (res) {
       mv.rec.onstop = function () {
         if (!mv.chunks.length) { res(null); return; }
@@ -614,12 +659,33 @@
   }
 
   /* 학생 한 줄(차례 모드) — 준비 신호 → 마이크 → 말이 끝나면(조용 1.3초)·최대 시간·«다 말했어요» 중 먼저 오는 것에서 끝 */
+  /* 👂 먼저 들어 보기(연습) — 학생 대사도 원어민 목소리로 한 번 들려준 뒤 따라 말하게 한다.
+   * 흐름: 듣기 → 따라 말하기(=더빙, 채점) → 완성 영상. 끄면 듣지 않고 바로 더빙한다(실전).
+   * ⛔ 이 소리는 완성 영상에 넣지 않는다(noRec + 녹화 잠깐 멈춤) — 영화에는 학생 목소리만 남아야 한다.
+   * «넘어가기» 는 듣기만 건너뛰고 말하기로 간다. */
+  function listenFirst(run, it) {
+    if (!run.listenFirst) return Promise.resolve();
+    setButtons('native');
+    setTurn('👂 ' + T('먼저 들어 보세요', 'Listen first'));
+    pauseMovie(run.movie, true);
+    var skipped = false;
+    run.skipNow = function () { skipped = true; run.wakers.splice(0).forEach(function (w) { try { w(); } catch (e) {} }); };
+    return speakNative(run, it.line, true, function () { return skipped; }).then(function () {
+      run.skipNow = null;
+      pauseMovie(run.movie, false);
+      return sleep(250, run);
+    });
+  }
+
   function studentTurn(run, sc, it) {
     var idx = it.performer.idx;
     var res = { key: sc.no + ':' + it.line.id + ':' + Date.now(), sceneNo: sc.no, line: it.line, studentIdx: idx, status: 'queued' };
-    setButtons('student');
-    setTurn('🎤 ' + studentName(idx) + T(' 차례예요!', "'s turn!"));
-    return sleep(700, run).then(function () {
+    return listenFirst(run, it).then(function () {
+      if (run.aborted) return;
+      setButtons('student');
+      setTurn('🎤 ' + studentName(idx) + T(' 차례예요!', "'s turn!"));
+      return sleep(700, run);
+    }).then(function () {
       if (run.aborted) return;
       var cap = startCapture(run);
       var maxMs = C.recordWindowSec(it.line, 'turn') * 1000;
@@ -761,15 +827,16 @@
     var v = $('dub-video');
     setNote(''); clearLine(run); setTurn('');
     setProg(T('장면 ' + sc.no + ' 불러오는 중…', 'Loading scene ' + sc.no + '…'));
-    if (sc.voiceMode === 'tts') prefetchScene(sc);
+    if (sc.voiceMode === 'tts') prefetchScene(sc, run.listenFirst);
     setVideoAudio(v, sc.videoAudio === 'clean');
     v.loop = sc.timing !== 'synced';
+    if (sc.poster) v.poster = sc.poster; else v.removeAttribute('poster');
     v.src = sc.video;
     try { v.load(); } catch (e) {}
     return waitVideo(v, 10000).then(function (ok) {
       if (run.aborted) return;
       if (!ok) setNote(T('영상을 불러오지 못했어요 — 대사만 진행해요', 'Could not load the video — lines only'));
-      else if (S.ep.status !== 'final') setNote(T('미리보기 · 영상과 대사가 아직 안 맞아요', 'Preview · video and lines not matched yet'));
+      else if (S.ep.status !== 'final') setNote(S.ep.note.ko ? T(S.ep.note.ko, S.ep.note.en) : T('미리보기예요', 'Preview'));
       if (sc.timing === 'synced') return playSynced(run, sc);
       var p = v.play(); if (p && p.catch) p.catch(function () {});
       return playTurns(run, sc);
@@ -781,7 +848,7 @@
 
   function setRunning(on) {
     $('dub-player').hidden = !on;                    // 결과·완성 영상은 따로 된 칸에 남는다
-    Array.prototype.forEach.call(document.querySelectorAll('#dub-scenes button, #dub-all, #dub-cast button, #dub-cast input, #dub-make-movie'), function (b) { b.disabled = on; });
+    Array.prototype.forEach.call(document.querySelectorAll('#dub-scenes button, #dub-all, #dub-cast button, #dub-cast input, #dub-make-movie, #dub-listen-first'), function (b) { b.disabled = on; });
     $('dub-stop').disabled = !on;
     if (!on) { setButtons('idle'); setProg(''); }
   }
@@ -791,7 +858,8 @@
     var probs = C.castProblems(S.cast, S.ep);
     if (probs.length) { alert(T('학생마다 캐릭터를 골라 주세요.', 'Please pick a character for each student.')); return; }
     ensureMix();                                     // ⚠️ 클릭 안에서 만들어야 소리가 난다(자동재생 정책)
-    var run = { aborted: false, counters: {}, wakers: [], sub: null, mic: null, movie: null, tracks: [], deviceVoiceUsed: false };
+    var run = { aborted: false, counters: {}, wakers: [], sub: null, mic: null, movie: null, tracks: [], deviceVoiceUsed: false,
+      listenFirst: !!($('dub-listen-first') && $('dub-listen-first').checked) };
     S.run = run;
     setRunning(true);
     $('dub-player').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -854,12 +922,13 @@
     $('dub-skip').addEventListener('click', function () { if (S.run && S.run.skipNow) S.run.skipNow(); });
     $('dub-stop').addEventListener('click', stopRun);
     $('dub-final').addEventListener('click', function () { var p = $('dub-movies-panel'); if (p && !p.hidden) p.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
-    var redraw = function () { if (!S.ep) return; renderStatus(); if (!S.run) { renderCast(); renderScenes(); } renderResults(); renderMovies(); };
+    var redraw = function () { renderEpisodes(S.index); if (!S.ep) return; renderStatus(); if (!S.run) { renderCast(); renderScenes(); } renderResults(); renderMovies(); };
     window.addEventListener('mangoi:lang-changed', redraw);
     document.addEventListener('mangoi:lang-changed', redraw);
   }
 
   function boot() {
+    loadIndex().then(function (list) { S.index = list; renderEpisodes(list); });
     loadEpisode().then(function () {
       loadCast();
       renderStatus(); renderCast(); renderScenes();
