@@ -1,5 +1,5 @@
 {
-  "_comment": "REVIEW ONLY: same learning workflow as dub-003 (provisional turn-by-turn TTS). 6 3D videos are generated but do not yet have approved cast consistency; do NOT enable ready in index.json or deploy.",
+  "_comment": "REVIEW / STAGING ONLY — New 3D cartoon retake v3, compatible with dub-003 turn-by-turn dubbing. Production publication remains blocked pending voice, lips, costumes, browser mic/recording QA and permanent R2 upload. Do not mark index ready until sign-off.",
   "id": "dub-002",
   "title": {
     "ko": "예상치 못한 위기! — 우주 대모험",
@@ -9,8 +9,8 @@
   "status": "preview",
   "timing": "provisional",
   "note": {
-    "ko": "학습 기능 검수용입니다. 캐릭터 얼굴·화풍은 수정 중이며 최종 영상이 아닙니다.",
-    "en": "Learning-mode preview. Character appearance and animation style are being corrected; video is not final."
+    "ko": "3D 수정본 학습 검수용입니다. 얼굴·입 모양·녹음 최종 검수 전이며 정식 공개 전입니다.",
+    "en": "3D updated review. Final character, lip-sync, and recording QA pending before launch."
   },
   "characters": {
     "maya": {
@@ -64,7 +64,7 @@
         "en": "A Signal from Space"
       },
       "arc": "ki",
-      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/b180e6ac-28b4-458f-ac5b-fa3088c03673.mp4",
+      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/83a55a1d-55f2-493b-88b4-2d9495b38613.mp4",
       "poster": null,
       "durationSec": 45,
       "videoAudio": "clean",
@@ -144,7 +144,7 @@
         "en": "The Secret Spaceship"
       },
       "arc": "seung",
-      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/38e41382-d454-47f8-b1bd-a9e1b883fee6.mp4",
+      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/9d31f4a8-0a3a-43a0-a340-6829399eef35.mp4",
       "poster": null,
       "durationSec": 45,
       "videoAudio": "clean",
@@ -224,7 +224,7 @@
         "en": "The Broken Controls"
       },
       "arc": "seung",
-      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/3489a9c9-8e0a-4afa-8ce6-f1b949c8d7c5.mp4",
+      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/c0cb620a-eeea-4740-b41c-9d9b9f997b05.mp4",
       "poster": null,
       "durationSec": 45,
       "videoAudio": "clean",
@@ -304,7 +304,7 @@
         "en": "Pip's Secret"
       },
       "arc": "jeon",
-      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/189712ab-87b9-4ad6-84c0-4cef96342eed.mp4",
+      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/25081e3d-ed63-472f-88f5-f7c723c0076a.mp4",
       "poster": null,
       "durationSec": 30,
       "videoAudio": "clean",
@@ -384,7 +384,7 @@
         "en": "Escape the Vortex"
       },
       "arc": "jeon",
-      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/d296a3fe-960b-4be7-8723-21e653d51f15.mp4",
+      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/8cfcf032-fd52-4536-8b75-86e9de40d50d.mp4",
       "poster": null,
       "durationSec": 45,
       "videoAudio": "clean",
@@ -464,7 +464,7 @@
         "en": "Back to Earth"
       },
       "arc": "gyeol",
-      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/193c363c-8b1a-4e8b-828e-87eb633fce96.mp4",
+      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/de3f3217-a544-4b81-98d1-e4b5b23a2102.mp4",
       "poster": null,
       "durationSec": 30,
       "videoAudio": "clean",
