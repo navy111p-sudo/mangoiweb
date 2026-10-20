@@ -416,7 +416,15 @@ sec('[⑩] 자동 분류 + 학원 확인 — 명세 줄 track·user_set');
   check('배선: 생성·보강이 syncItemTracks 를 부르고 화상반 명단을 넘긴다', /syncItemTracks\(env, invoiceId, rosterR\.live_rows/.test(gen));
   check('배선: 명부가 비어도 분류 동기화까지 간다 (옛 조기 return 제거)', !/if \(!roster\.length\) return/.test(gen));
   const item = billCode.slice(billCode.indexOf("p === 'invoice/item'"), billCode.indexOf("p === 'history'"));
-  check('배선: 학원이 체크를 바꾸면 user_set=1 (학원 확인)', /included = \?, user_set = 1/.test(item));
+  /* (2026-10-20) 한 명·여러 명 경로가 같은 정본(setItemsIncluded)을 쓰게 바뀌었다 — «SQL 이 그 라우트 안에 있는가»(식 모양)
+     대신 «정본이 user_set=1 을 쓰는가» + «두 라우트가 그 정본을 부르는가» 로 묻는다. */
+  const setInc = fnDecl(billCode, 'setItemsIncluded');
+  check('배선: 학원이 체크를 바꾸면 user_set=1 (학원 확인) — 정본 setItemsIncluded', /included = \?, user_set = 1/.test(setInc));
+  check('배선: 한 명 경로(invoice/item)가 정본을 부른다', /setItemsIncluded\(env, invoiceId, inv\.shop_name, \[studentUid\]/.test(item));
+  const items2 = billCode.slice(billCode.indexOf("p === 'invoice/items'"), billCode.indexOf("p === 'history'"));
+  check('배선: 여러 명 경로(invoice/items)가 쓰기 권한·draft 를 보고 정본을 부른다',
+    /writeAllowed\(env, request, inv\.shop_name\)/.test(items2) && /inv\.status !== 'draft'/.test(items2) && /setItemsIncluded\(env, invoiceId, inv\.shop_name, uids/.test(items2));
+  check('(짝) setItemsIncluded 선언은 정확히 하나', (billCode.match(/function setItemsIncluded\(/g) || []).length === 1);
   check('배선: 명세 GET 이 track·user_set 을 싣는다', /SELECT id, student_user_id, student_name, included, added_manually, track, COALESCE\(user_set,0\)/.test(billCode));
   for (const f of ['branch.html', 'manager.html']) {
     const h = stripComments(readFileSync(join(PUB, f), 'utf8'));
@@ -513,6 +521,77 @@ sec('[⑪] 월 자동 청구 결과 기록 — 실패가 보이는가');
   }
   check('배선: 불러오기·언어 전환 때 renderCron 을 부른다', /renderCron\(d\.last_cron\)/.test(admSrc) && /renderCron\(LAST_CRON\)/.test(admSrc));
   check('admin.html 이 adm-ai-billing.js ?v=3 이상을 부른다', /adm-ai-billing\.js\?v=([3-9]|\d\d)/.test(readFileSync(join(PUB, 'admin.html'), 'utf8')));
+}
+
+/* ══ ⑫ (2026-10-20) AI 컨텐츠 결제 — 명단 쓰기는 «그 청구서 명세에 있는 학생» 에게만 · 선결제 마감 ══════════
+   setItemsIncluded 를 오려 진짜 SQLite 로 돌린다. «넣는다» 옆에 «명세에 없는 아이디(다른 학원 학생)는 안 건드린다» 를 짝으로
+   — 예전 한 명 경로는 아무 아이디나 받아 ai_billing_optin 에 넣거나 지웠다(다른 학원 청구가 붙거나 빠짐). */
+sec('[⑫] AI 컨텐츠 결제 — 명세에 있는 학생만 · 선결제 마감');
+{
+  let setFn = null;
+  try {
+    setFn = new Function('safe', stripTypeScriptTypes(fnDecl(billSrc, 'setItemsIncluded')) + '\nreturn setItemsIncluded;')(
+      async (fn, fb) => { try { return await fn(); } catch { return fb; } });
+  } catch (e) { check('setItemsIncluded 실행 준비', false, e.message); }
+  check('setItemsIncluded 를 오려 냈다 (전제)', typeof setFn === 'function');
+  if (setFn && DatabaseSync) {
+    const d = new DatabaseSync(':memory:');
+    d.exec(`CREATE TABLE ai_billing_invoice_items (id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_id INTEGER NOT NULL, student_user_id TEXT NOT NULL,
+      student_name TEXT, included INTEGER NOT NULL DEFAULT 1, added_manually INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL,
+      track TEXT, user_set INTEGER NOT NULL DEFAULT 0, UNIQUE(invoice_id, student_user_id));
+      CREATE TABLE ai_billing_optin (uid_lc TEXT PRIMARY KEY, user_id TEXT NOT NULL, shop_name TEXT, created_at INTEGER NOT NULL, created_by TEXT);`);
+    const ins = d.prepare('INSERT INTO ai_billing_invoice_items (invoice_id,student_user_id,student_name,included,created_at,track,user_set) VALUES (?,?,?,?,0,?,0)');
+    ins.run(1, 'Kid1', 'K1', 0, 'none'); ins.run(1, 'kid2', 'K2', 0, 'none'); ins.run(1, 'vid', 'V', 0, 'live');
+    ins.run(2, 'other', 'O', 1, 'ai');   // 다른 학원 청구서의 학생
+    d.prepare('INSERT INTO ai_billing_optin VALUES (?,?,?,0,?)').run('other', 'other', '남의학원', 'x');
+    const mk = (sql) => { const st = d.prepare(sql); const bound = (a) => ({ _st: st, _a: a,
+      all: async () => ({ results: st.all(...a) }), run: async () => { const r = st.run(...a); return { meta: { changes: Number(r.changes) } }; } });
+      return { bind: (...a) => bound(a) }; };
+    const env = { DB: { prepare: mk, batch: async (arr) => arr.map((b) => { const r = b._st.run(...b._a); return { meta: { changes: Number(r.changes) } }; }) } };
+    const opt = () => d.prepare('SELECT uid_lc FROM ai_billing_optin ORDER BY uid_lc').all().map(r => r.uid_lc).join(',');
+    const row = (inv, u) => d.prepare('SELECT included, track, user_set FROM ai_billing_invoice_items WHERE invoice_id=? AND student_user_id=?').get(inv, u) || {};
+    let r1; try { r1 = await setFn(env, 1, '우리학원', ['Kid1', 'kid2', 'other', 'ghost'], 1, 'agency'); } catch (e) { r1 = { err: e.message }; }
+    check('여러 명을 한 번에 넣는다 — 명세에 있는 둘만 바뀐다', r1 && r1.ok === true && r1.changed.length === 2 && row(1, 'Kid1').included === 1 && row(1, 'kid2').included === 1, JSON.stringify(r1));
+    check('넣은 줄은 user_set=1 · track=ai (학원 확인)', row(1, 'Kid1').user_set === 1 && row(1, 'Kid1').track === 'ai', JSON.stringify(row(1, 'Kid1')));
+    check('명세에 없는 아이디는 «모름» 으로 돌려준다', r1 && r1.unknown && r1.unknown.length === 2, JSON.stringify(r1));
+    check('(짝) 다른 학원 학생의 명세 줄은 안 건드린다', row(2, 'other').included === 1);
+    check('신청 명단: 넣은 둘만 들어가고(소문자) 다른 학원 신청은 그대로', opt() === 'kid1,kid2,other', opt());
+    let r2; try { r2 = await setFn(env, 1, '우리학원', ['other'], 0, 'agency'); } catch (e) { r2 = { err: e.message }; }
+    check('(짝) 명세에 없는 학생을 «빼기» 로 보내도 그 학원 신청이 안 지워진다', r2 && r2.changed.length === 0 && opt().includes('other'), JSON.stringify(r2) + ' ' + opt());
+    let r3; try { r3 = await setFn(env, 1, '우리학원', ['vid'], 1, 'agency'); } catch (e) { r3 = { err: e.message }; }
+    check('화상반 줄을 학원이 넣으면 포함되고 track 표시는 live 그대로', r3 && r3.ok && row(1, 'vid').included === 1 && row(1, 'vid').track === 'live', JSON.stringify(row(1, 'vid')));
+    let r4; try { r4 = await setFn(env, 1, '우리학원', ['Kid1'], 0, 'agency'); } catch (e) { r4 = { err: e.message }; }
+    check('빼면 명세에서 빠지고 신청 명단에서도 빠진다', r4 && r4.ok && row(1, 'Kid1').included === 0 && !opt().split(',').includes('kid1'), opt());
+  }
+  // 선결제 마감 — 이용 달의 «전 달 말일». 시각은 KST.
+  let due = null;
+  try { due = new Function(stripTypeScriptTypes(fnDecl(billSrc, 'prepayDue').replace(/^export\s+/, '')).replace('isValidMonth(billingMonth)', '/^\\d{4}-\\d{2}$/.test(billingMonth)') + '\nreturn prepayDue;')(); }
+  catch (e) { check('prepayDue 실행 준비', false, e.message); }
+  check('prepayDue 를 오려 냈다 (전제)', typeof due === 'function');
+  if (due) {
+    const at = (iso) => Date.parse(iso);
+    const a = due('2026-11', at('2026-10-20T00:30:00+09:00'));
+    check('11월 이용분 → 마감 10월 31일 · D-11 (KST)', a.due_date === '2026-10-31' && a.days_left === 11, JSON.stringify(a));
+    const b = due('2027-01', at('2026-12-31T23:59:00+09:00'));
+    check('1월 이용분 → 마감 12월 31일 · 오늘(0)', b.due_date === '2026-12-31' && b.days_left === 0, JSON.stringify(b));
+    const c = due('2026-03', at('2026-03-02T09:00:00+09:00'));
+    check('3월 이용분 → 마감 2월 28일 · 지남(음수)', c.due_date === '2026-02-28' && c.days_left < 0, JSON.stringify(c));
+    const e2 = due('2026/11', Date.now());
+    check('(짝) 형식이 틀리면 «모름»(지어내지 않는다)', e2.due_date === '' && e2.days_left === null, JSON.stringify(e2));
+    const k = due('2026-11', at('2026-10-31T23:30:00+09:00'));
+    check('KST 기준 — UTC 로는 31일 14:30 이어도 «오늘 마감»(0)', k.days_left === 0, JSON.stringify(k));
+  }
+  const invGet = billCode.slice(billCode.indexOf("p === 'invoice' && method === 'GET'"), billCode.indexOf("p === 'invoice/generate'"));
+  check('배선: /invoice 응답 셋 모두 마감(...due)을 싣는다', (invGet.match(/\.\.\.due/g) || []).length === 3);
+  // 화면 — 마감은 서버 값을 그린다 · 결제 금액을 화면이 계산하지 않는다 · 돈 화면 캐시 없음
+  const mgr = stripComments(readFileSync(join(PUB, 'manager.html'), 'utf8'));
+  const due2 = fnDecl(mgr, 'aibDueBar');
+  check('manager.html: 마감 띠는 서버의 due_date·days_left 를 그린다 (Date 계산 없음)', /j\.due_date/.test(due2) && /j\.days_left/.test(due2) && !/new Date\(/.test(due2));
+  const load = mgr.slice(mgr.indexOf('window.loadAiBill = function'), mgr.indexOf('window.aiBillGenerate'));
+  check('manager.html: AI 컨텐츠 결제는 localStorage 캐시 키를 쓰지 않는다', /get\('\/api\/admin\/ai-billing\/invoice'\)/.test(load) && /get\('\/api\/admin\/ai-billing\/history'\)/.test(load));
+  const bulk = mgr.slice(mgr.indexOf('window.aiBillBulk = function'), mgr.indexOf('window.aiBillFilter'));
+  check('manager.html: 일괄 선택은 invoice/items 를 한 번 부르고 먼저 묻는다', /\/api\/admin\/ai-billing\/invoice\/items/.test(bulk) && /window\.confirm\(/.test(bulk));
+  check('manager.html: 메뉴 이름 — «화상영어 수업료 결제» · «AI 컨텐츠 결제»', /data-ko="화상영어 수업료 결제"/.test(mgr) && /data-ko="AI 컨텐츠 결제"/.test(mgr) && !/data-ko="AI 사용료 청구서"/.test(mgr) && !/data-ko="수업료 결제"/.test(mgr));
 }
 
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);
