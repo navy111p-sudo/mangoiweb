@@ -154,5 +154,36 @@ try {
 const secMixed = mixed && !mixed.err ? schedSection(mixed.html) : '';
 ok(!!onclickOf(rowOf(secMixed, 'Yuchan Kim'), 'ghEnterRoom'), '⑧ 화상방 표가 있는 화면에서도 예약 줄에 붙는다(두 갈래 모두)');
 
+/* ── 4. 방 번호에 작은따옴표(') 가 있어도 버튼이 «눌러도 아무 일 없음» 이 되지 않는다 ──
+   encodeURIComponent 는 ' 를 «안» 인코딩한다 → onclick 안의 '…' 문자열을 닫아
+   SyntaxError 로 그 줄 버튼이 통째로 죽는다(2026-10-19 퍼즈로 발견 — 변이 319건 FAIL).
+   방 번호는 /api/active-rooms 의 ?roomId= 가 서버 검증 없이 흘러와 ' 가 실재할 수 있다.
+   ⛔ «그 글자가 있는가» 가 아니라 **실제로 눌러** 그 줄의 방으로 들어가는지 본다. */
+const QUOTE_ENROL = { start_kst: '20:00', end_kst: '20:20', phase: 'soon', observable: true,
+  room_id: "class-2099'-20261019", student_name: 'Quote Kid', teacher_name: 'CINDY', connected: false };
+let q = null;
+try { q = await render([], { classes: [QUOTE_ENROL] }); } catch (e) { q = { err: e.message }; }
+const secQ = q && !q.err ? schedSection(q.html) : '';
+const rQ = rowOf(secQ, 'Quote Kid');
+const enterQ = onclickOf(rQ, 'ghEnterRoom');
+ok(!!enterQ, '⑨ 전제: 작은따옴표 방의 예약 줄에 직접 입장 버튼이 그려졌다', q && q.err);
+const urlQ = await press(q, enterQ);
+ok(urlQ === 'https://mangoi.ai/?vc_autojoin=1&vc_cam=off&vc_role=teacher&vc_room=' + encodeURIComponent("class-2099'-20261019"),
+  '⑨-a 눌러도 JS 에러 없이 그 줄의 방(따옴표 포함) 그대로 연다', '열린 주소: ' + urlQ);
+const obsQ = await press(q, onclickOf(rQ, 'ghQuickObserve'));
+ok(obsQ === 'https://mangoi.ai/?observe=' + encodeURIComponent("class-2099'-20261019"),
+  '⑨-b 짝 — 같은 줄 «바로 참관» 도 따옴표 방으로 에러 없이 연다', '열린 주소: ' + obsQ);
+/* 위쪽 화상방 표도 같은 보호를 받는지(ridAttr 경로) */
+let qm = null;
+try { qm = await render([{ roomId: "meet-9'9", userCount: 1, users: [{ username: 'A', role: 'teacher' }] }], { classes: [] }); }
+catch (e) { qm = { err: e.message }; }
+const secQm = qm && !qm.err ? schedSection(qm.html) : (qm && qm.err ? '' : '');
+const rowQm = qm && !qm.err ? (qm.html.split('<tr').find(r => r.includes("meet-9")) ? '<tr' + qm.html.split('<tr').find(r => r.includes('meet-9')) : '') : '';
+const enterQm = onclickOf(rowQm, 'ghEnterRoom');
+ok(!!enterQm, '⑨-c 전제: 화상방 표에 따옴표 방이 그려졌다', qm && qm.err);
+const urlQm = await press(qm, enterQm);
+ok(urlQm === 'https://mangoi.ai/?vc_autojoin=1&vc_cam=off&vc_role=teacher&vc_room=' + encodeURIComponent("meet-9'9"),
+  '⑨-d 위쪽 표 버튼도 따옴표 방을 에러 없이 연다(ridAttr)', '열린 주소: ' + urlQm);
+
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) process.exit(1);
