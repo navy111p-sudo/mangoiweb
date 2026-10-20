@@ -1,0 +1,541 @@
+{
+  "_comment": "REVIEW / STAGING ONLY — New 3D cartoon retake v3, compatible with dub-003 turn-by-turn dubbing. Production publication remains blocked pending voice, lips, costumes, browser mic/recording QA and permanent R2 upload. Do not mark index ready until sign-off.",
+  "id": "dub-002",
+  "title": {
+    "ko": "예상치 못한 위기! — 우주 대모험",
+    "en": "The Unexpected Space Emergency!"
+  },
+  "level": 1,
+  "status": "preview",
+  "timing": "provisional",
+  "note": {
+    "ko": "3D 수정본 학습 검수용입니다. 얼굴·입 모양·녹음 최종 검수 전이며 정식 공개 전입니다.",
+    "en": "3D updated review. Final character, lip-sync, and recording QA pending before launch."
+  },
+  "characters": {
+    "maya": {
+      "id": "maya",
+      "name": {
+        "ko": "마야",
+        "en": "Maya"
+      },
+      "emoji": "👧🏾",
+      "ttsSpeaker": "andromeda"
+    },
+    "kai": {
+      "id": "kai",
+      "name": {
+        "ko": "카이",
+        "en": "Kai"
+      },
+      "emoji": "👦🏻",
+      "ttsSpeaker": "apollo"
+    },
+    "emma": {
+      "id": "emma",
+      "name": {
+        "ko": "에마",
+        "en": "Emma"
+      },
+      "emoji": "👧🏼",
+      "ttsSpeaker": "thalia"
+    },
+    "pip": {
+      "id": "pip",
+      "name": {
+        "ko": "핍",
+        "en": "Pip"
+      },
+      "emoji": "👽",
+      "ttsSpeaker": "aurora"
+    }
+  },
+  "playable": [
+    "maya",
+    "kai",
+    "emma",
+    "pip"
+  ],
+  "scenes": [
+    {
+      "no": 1,
+      "label": {
+        "ko": "우주에서 온 신호",
+        "en": "A Signal from Space"
+      },
+      "arc": "ki",
+      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/83a55a1d-55f2-493b-88b4-2d9495b38613.mp4",
+      "poster": null,
+      "durationSec": 45,
+      "videoAudio": "clean",
+      "bgm": null,
+      "voices": {},
+      "lines": [
+        {
+          "id": "s1-l1",
+          "speaker": "maya",
+          "en": "What is that light?",
+          "ko": "저 빛은 뭐지?",
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s1-l2",
+          "speaker": "kai",
+          "en": "It came from outside!",
+          "ko": "밖에서 왔어!",
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s1-l3",
+          "speaker": "emma",
+          "en": "Look! A little spaceship!",
+          "ko": "봐! 작은 우주선이야!",
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s1-l4",
+          "speaker": "pip",
+          "en": "Hello! Please help me!",
+          "ko": "안녕! 도와줘!",
+          "emotion": "scared",
+          "scored": true
+        },
+        {
+          "id": "s1-l5",
+          "speaker": "maya",
+          "en": "Are you okay, friend?",
+          "ko": "친구야, 괜찮아?",
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s1-l6",
+          "speaker": "kai",
+          "en": "We can help you!",
+          "ko": "우리가 도와줄게!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s1-l7",
+          "speaker": "emma",
+          "en": "Tell us your name!",
+          "ko": "이름을 알려줘!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s1-l8",
+          "speaker": "pip",
+          "en": "My name is Pip!",
+          "ko": "내 이름은 핍이야!",
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 2,
+      "label": {
+        "ko": "비밀 우주선",
+        "en": "The Secret Spaceship"
+      },
+      "arc": "seung",
+      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/9d31f4a8-0a3a-43a0-a340-6829399eef35.mp4",
+      "poster": null,
+      "durationSec": 45,
+      "videoAudio": "clean",
+      "bgm": null,
+      "voices": {},
+      "lines": [
+        {
+          "id": "s2-l1",
+          "speaker": "maya",
+          "en": "Wow! This ship is huge!",
+          "ko": "와! 우주선이 정말 커!",
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s2-l2",
+          "speaker": "kai",
+          "en": "Look at the stars!",
+          "ko": "별들을 봐!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s2-l3",
+          "speaker": "emma",
+          "en": "Everyone, buckle up!",
+          "ko": "모두 안전띠 매!",
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s2-l4",
+          "speaker": "pip",
+          "en": "Welcome to my ship!",
+          "ko": "내 우주선에 온 걸 환영해!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s2-l5",
+          "speaker": "maya",
+          "en": "Can I fly it?",
+          "ko": "내가 조종해도 돼?",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s2-l6",
+          "speaker": "kai",
+          "en": "I will read the map!",
+          "ko": "내가 지도를 볼게!",
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s2-l7",
+          "speaker": "emma",
+          "en": "Let's go together!",
+          "ko": "함께 가자!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s2-l8",
+          "speaker": "pip",
+          "en": "Ready? Let's fly!",
+          "ko": "준비됐지? 날아가자!",
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 3,
+      "label": {
+        "ko": "고장 난 조종장치",
+        "en": "The Broken Controls"
+      },
+      "arc": "seung",
+      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/c0cb620a-eeea-4740-b41c-9d9b9f997b05.mp4",
+      "poster": null,
+      "durationSec": 45,
+      "videoAudio": "clean",
+      "bgm": null,
+      "voices": {},
+      "lines": [
+        {
+          "id": "s3-l1",
+          "speaker": "maya",
+          "en": "Why are we turning?",
+          "ko": "왜 돌고 있지?",
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s3-l2",
+          "speaker": "kai",
+          "en": "The map looks wrong!",
+          "ko": "지도가 이상해!",
+          "emotion": "scared",
+          "scored": true
+        },
+        {
+          "id": "s3-l3",
+          "speaker": "emma",
+          "en": "I see a loose wire!",
+          "ko": "선이 빠져 있어!",
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s3-l4",
+          "speaker": "pip",
+          "en": "Oh no! Help me!",
+          "ko": "이런! 도와줘!",
+          "emotion": "scared",
+          "scored": true
+        },
+        {
+          "id": "s3-l5",
+          "speaker": "maya",
+          "en": "Stay calm, everyone!",
+          "ko": "모두 침착해!",
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s3-l6",
+          "speaker": "kai",
+          "en": "I have an idea!",
+          "ko": "좋은 생각이 있어!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s3-l7",
+          "speaker": "emma",
+          "en": "Let's fix it now!",
+          "ko": "지금 고치자!",
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s3-l8",
+          "speaker": "pip",
+          "en": "We can do this!",
+          "ko": "우린 할 수 있어!",
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 4,
+      "label": {
+        "ko": "외계인의 비밀",
+        "en": "Pip's Secret"
+      },
+      "arc": "jeon",
+      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/25081e3d-ed63-472f-88f5-f7c723c0076a.mp4",
+      "poster": null,
+      "durationSec": 30,
+      "videoAudio": "clean",
+      "bgm": null,
+      "voices": {},
+      "lines": [
+        {
+          "id": "s4-l1",
+          "speaker": "maya",
+          "en": "What is that planet?",
+          "ko": "저 행성은 뭐야?",
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s4-l2",
+          "speaker": "kai",
+          "en": "It looks so beautiful!",
+          "ko": "정말 아름다워 보여!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s4-l3",
+          "speaker": "emma",
+          "en": "Pip, is that home?",
+          "ko": "핍, 저기가 네 집이야?",
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s4-l4",
+          "speaker": "pip",
+          "en": "Yes. I miss home.",
+          "ko": "응. 집이 그리워.",
+          "emotion": "sad",
+          "scored": true
+        },
+        {
+          "id": "s4-l5",
+          "speaker": "maya",
+          "en": "We are your friends!",
+          "ko": "우린 네 친구야!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s4-l6",
+          "speaker": "kai",
+          "en": "You are not alone!",
+          "ko": "넌 혼자가 아니야!",
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s4-l7",
+          "speaker": "emma",
+          "en": "We will help you!",
+          "ko": "우리가 도와줄게!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s4-l8",
+          "speaker": "pip",
+          "en": "Thank you, my friends!",
+          "ko": "고마워, 친구들아!",
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 5,
+      "label": {
+        "ko": "우주 대탈출",
+        "en": "Escape the Vortex"
+      },
+      "arc": "jeon",
+      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/8cfcf032-fd52-4536-8b75-86e9de40d50d.mp4",
+      "poster": null,
+      "durationSec": 45,
+      "videoAudio": "clean",
+      "bgm": null,
+      "voices": {},
+      "lines": [
+        {
+          "id": "s5-l1",
+          "speaker": "maya",
+          "en": "Turn left, Kai!",
+          "ko": "카이, 왼쪽으로 돌려!",
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s5-l2",
+          "speaker": "kai",
+          "en": "I found the wire!",
+          "ko": "선을 찾았어!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s5-l3",
+          "speaker": "emma",
+          "en": "The light is green!",
+          "ko": "불빛이 초록색이야!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s5-l4",
+          "speaker": "pip",
+          "en": "Press the blue button!",
+          "ko": "파란 버튼을 눌러!",
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s5-l5",
+          "speaker": "maya",
+          "en": "We are almost safe!",
+          "ko": "거의 안전해졌어!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s5-l6",
+          "speaker": "kai",
+          "en": "Hold on, everybody!",
+          "ko": "모두 꽉 잡아!",
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s5-l7",
+          "speaker": "emma",
+          "en": "Look! We did it!",
+          "ko": "봐! 우리가 해냈어!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s5-l8",
+          "speaker": "pip",
+          "en": "You saved my ship!",
+          "ko": "내 우주선을 구해줬어!",
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 6,
+      "label": {
+        "ko": "지구로 돌아오다",
+        "en": "Back to Earth"
+      },
+      "arc": "gyeol",
+      "video": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/de3f3217-a544-4b81-98d1-e4b5b23a2102.mp4",
+      "poster": null,
+      "durationSec": 30,
+      "videoAudio": "clean",
+      "bgm": null,
+      "voices": {},
+      "lines": [
+        {
+          "id": "s6-l1",
+          "speaker": "maya",
+          "en": "Welcome back to Earth!",
+          "ko": "지구에 돌아온 걸 환영해!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s6-l2",
+          "speaker": "kai",
+          "en": "That was amazing!",
+          "ko": "정말 대단했어!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s6-l3",
+          "speaker": "emma",
+          "en": "We will miss you!",
+          "ko": "우린 네가 그리울 거야!",
+          "emotion": "sad",
+          "scored": true
+        },
+        {
+          "id": "s6-l4",
+          "speaker": "pip",
+          "en": "I will visit again!",
+          "ko": "다시 놀러 올게!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s6-l5",
+          "speaker": "maya",
+          "en": "What's inside this box?",
+          "ko": "이 상자 안에 뭐가 있지?",
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s6-l6",
+          "speaker": "kai",
+          "en": "Is that an egg?",
+          "ko": "저거 알이야?",
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s6-l7",
+          "speaker": "emma",
+          "en": "Look! It is moving!",
+          "ko": "봐! 움직이고 있어!",
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s6-l8",
+          "speaker": "pip",
+          "en": "Surprise! A new friend!",
+          "ko": "깜짝 선물이야! 새 친구야!",
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    }
+  ]
+}
