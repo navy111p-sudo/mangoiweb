@@ -12,22 +12,27 @@
   var waiting=new Map(), cache=new Map(), jobs=new Map(), readyResolve, bootTimer;
   var readyPromise=new Promise(function(resolve){readyResolve=resolve;});
   var MAX_SECONDS=45, MAX_CACHE=12, MAX_PENDING=3, STALE_MS=20000, tail=Promise.resolve();
+  function fail(){
+    failed=true;ready=false;clearTimeout(bootTimer);readyResolve(false);if(worker){worker.terminate();worker=null;}
+    waiting.forEach(function(j){clearTimeout(j.timer);j.resolve(null);});waiting.clear();
+  }
   function boot(){
     if(worker || failed || !window.Worker) return;
     try{
-      worker=new Worker('/js/avatar-viseme-worker.js?v=1');
+      worker=new Worker('/js/avatar-viseme-worker.js?v=2');
       worker.onmessage=function(e){
         var m=e.data;
         if(m.type==='ready'){ready=true;clearTimeout(bootTimer);readyResolve(true);return;}
+        if(m.type==='boot_failed'){fail();return;}
         var job=waiting.get(m.id); if(!job) return;
         waiting.delete(m.id);clearTimeout(job.timer);
         job.resolve(m.type==='result' ? valid(m.cues) : null);
       };
-      worker.onerror=function(){failed=true;ready=false;clearTimeout(bootTimer);readyResolve(false);worker.terminate();worker=null;
-        waiting.forEach(function(j){clearTimeout(j.timer);j.resolve(null);});waiting.clear();};
+      // 엔진을 못 받아도(CDN 차단·끊김) 음량 입모양으로 넘어가므로 «처리한 오류» — 페이지 오류로 올리지 않는다
+      worker.onerror=function(e){if(e&&e.preventDefault)e.preventDefault();fail();};
       worker.postMessage({type:'init'});
       // ⏳ 재생이 부팅을 기다리지 않으므로 느린 회선도 끝까지 받아 캐시되게 넉넉히(예전 30초 — 그 안에 못 받으면 매 방문 처음부터 다시 받았다)
-      bootTimer=setTimeout(function(){if(!ready){failed=true;worker.terminate();worker=null;readyResolve(false);}},180000);
+      bootTimer=setTimeout(function(){if(!ready)fail();},180000);
     }catch(e){failed=true;readyResolve(false);}
   }
   function valid(cues){
