@@ -202,12 +202,32 @@ console.log('🎬 ai_dubbing_harness');
 const CORE = loadCore(CORE_SRC);
 const baseFails = runChecks(CORE, true);
 
+/* ⑥-14 «어느 역을 골라도 할 일이 있다» — 장면마다 학생이 고를 수 있는 캐릭터의 몫.
+   · 손님(characters 에는 있지만 playable 이 아닌 캐릭터)이 말하지 않는 장면은 예전 그대로 «각자 2줄 이상»(0-1 사장님 기준).
+   · 손님이 말하는 장면(6편 위스커스 선장)은 남은 줄을 공평하게 — 각자 max(1, min(2, floor((장면 줄 − 손님 줄) / 고를 수 있는 수))) 줄 이상.
+   · 손님은 장면 대사의 절반을 넘지 않는다(넘으면 학생은 구경만 한다).
+   돌려주는 값 = 어긋난 곳 목록(빈 배열이면 통과). 함수로 둔 것은 아래 ⑥-14m 이 망가뜨린 사본을 같은 판정에 넣어 보기 위해서다. */
+function shareProblems(ep) {
+  const out = [];
+  ep.scenes.forEach((s) => {
+    const n = s.lines.length;
+    const guest = s.lines.filter((l) => ep.playable.indexOf(l.speaker) < 0).length;
+    const need = guest === 0 ? 2 : Math.max(1, Math.min(2, Math.floor((n - guest) / ep.playable.length)));
+    ep.playable.forEach((cid) => {
+      const have = s.lines.filter((l) => l.speaker === cid).length;
+      if (have < need) out.push('scene' + s.no + ':' + cid + ':' + have + '<' + need);
+    });
+    if (guest * 2 > n) out.push('scene' + s.no + ':guest_over_half:' + guest + '/' + n);
+  });
+  return out;
+}
+
 /* ⑥ 지금 실린 에피소드 — index.json 에서 ready 인 편을 «전부» 같은 규격으로 본다(1편·3편 …).
    ⛔ 편 이름을 여기 손으로 늘어놓지 않는다 — 새 편을 ready 로 바꾸는 순간 저절로 같은 검사를 받는다.
    시각이 provisional 인 편에만 «차례 모드·preview» 를 묻는다(나중에 완성본(synced)이 와도 거짓 FAIL 이 안 나게). */
 let readyIds = [];
 try { readyIds = CORE.normalizeIndex(JSON.parse(rd(join(PUB, 'data', 'dubbing', 'index.json')))).filter((e) => e.status === 'ready').map((e) => e.id); } catch (e) { readyIds = []; }
-check('⑥-0 전제 — 목록에서 ready 인 편을 읽었고 1편·3편이 들어 있다', readyIds.indexOf('dub-001') >= 0 && readyIds.indexOf('dub-003') >= 0, readyIds);
+check('⑥-0 전제 — 목록에서 ready 인 편을 읽었고 1편·3편·5편이 들어 있다', readyIds.indexOf('dub-001') >= 0 && readyIds.indexOf('dub-003') >= 0 && readyIds.indexOf('dub-005') >= 0, readyIds);
 let checkedEps = 0;
 for (const epId of readyIds) {
   if (!/^[a-z0-9-]+$/.test(epId)) continue;
@@ -241,6 +261,13 @@ for (const epId of readyIds) {
     sc.every((s) => existsSync(local(s.video)) && statSync(local(s.video)).size < 25 * 1024 * 1024));
   check('⑥-6c ' + P + '장면 대표 그림이 실재한다', sc.every((s) => s.poster && existsSync(local(s.poster))), sc.map((s) => s.poster));
   check('⑥-6d ' + P + '매니페스트에 남의 CDN 주소가 없다', !/cloudfront\.net|higgsfield/i.test(JSON.stringify(epRaw)));
+  /* 캐릭터별 음성 파일·배경음악도 영상과 같은 규칙 — 우리 서버의 그 편 폴더에 실재 (없는 1·3편은 빈 목록이라 저절로 통과) */
+  const audioRe = new RegExp('^/media/dubbing/' + epId + '/[a-z0-9-]+\\.(mp3|wav)(\\?v=\\d+)?$');
+  const audioUrls = sc.reduce((a, s) => a.concat(Object.keys(s.voices).map((k) => s.voices[k]), s.bgm ? [s.bgm] : []), []);
+  check('⑥-19 ' + P + '캐릭터별 음성 파일·배경음악은 우리 서버 경로이고 저장소에 실재(25MiB 미만)',
+    audioUrls.every((u) => audioRe.test(u) && existsSync(local(u)) && statSync(local(u)).size < 25 * 1024 * 1024), audioUrls.filter((u) => !audioRe.test(u) || !existsSync(local(u))));
+  check('⑥-19b ' + P + '시각이 synced 인데 음성 파일을 적은 장면은 말하는 캐릭터 «전원» 것이 있다(하나만 빠져도 그 장면이 임시 AI 목소리로 떨어진다)',
+    epRaw.timing !== 'synced' || sc.every((s) => Object.keys(s.voices).length === 0 || s.voiceMode === 'stems'), sc.filter((s) => Object.keys(s.voices).length && s.voiceMode !== 'stems').map((s) => s.no));
   check('⑥-7 ' + P + '장면마다 학생이 고를 수 있는 캐릭터의 대사가 있다(고를 게 없으면 학생은 할 일이 없다)',
     sc.every((s) => s.lines.some((l) => n.episode.playable.indexOf(l.speaker) >= 0)));
   check('⑥-8 ' + P + '영어 대사에 한글·한자가 없다', sc.every((s) => s.lines.every((l) => !/[가-힣ㄱ-ㅎ一-鿿]/.test(l.en))));
@@ -252,8 +279,8 @@ for (const epId of readyIds) {
   check('⑥-11 ' + P + '대사는 36줄', allLines.length === 36, allLines.length);
   check('⑥-12 ' + P + '모든 대사가 3~8단어', allLines.every((l) => words(l.en) >= 3 && words(l.en) <= 8), allLines.filter((l) => words(l.en) < 3 || words(l.en) > 8).map((l) => l.id));
   check('⑥-13 ' + P + '고를 수 있는 캐릭터는 3명 — 1·2·3명이 역을 나눌 수 있다', n.episode.playable.length === 3);
-  check('⑥-14 ' + P + '장면마다 고를 수 있는 캐릭터가 «각각» 2줄 이상 말한다(어느 역을 골라도 할 일이 있다)',
-    sc.every((s) => n.episode.playable.every((cid) => s.lines.filter((l) => l.speaker === cid).length >= 2)));
+  check('⑥-14 ' + P + '장면마다 고를 수 있는 캐릭터가 «각각» 2줄 이상 말한다(손님이 말하는 장면은 남은 줄을 공평하게 · 손님은 절반 이하) — 어느 역을 골라도 할 일이 있다',
+    shareProblems(n.episode).length === 0, shareProblems(n.episode));
   check('⑥-15 ' + P + '대사마다 한국어 뜻이 있다', allLines.every((l) => !!l.ko));
   check('⑥-15b ' + P + '대사 id 가 겹치지 않는다', new Set(allLines.map((l) => l.id)).size === allLines.length);
 
@@ -279,9 +306,9 @@ for (const epId of readyIds) {
   }
 }
 check('⑥-z 전제 — 실제로 2편 이상을 검사했다(목록이 비어 검사가 통째로 사라지지 않게)', checkedEps >= 2, checkedEps);
-/* ⑥-9b 지금 사실을 못 박는다 — 1편·3편은 아직 «영상에 맞춘 대사 시각» 이 없다(설명서 6-1·6-1b).
+/* ⑥-9b 지금 사실을 못 박는다 — 1편·3편·5편은 아직 «영상에 맞춘 대사 시각» 이 없다(설명서 6-1·6-1b).
    ⚠️ 진짜 완성본(대사 시각 + 원어민 음성)으로 올리는 날 이 줄을 «함께» 고친다 — 그 전에 누가 timing 만 'synced' 로 바꾸면 여기서 걸린다. */
-for (const epId of ['dub-001', 'dub-003']) {
+for (const epId of ['dub-001', 'dub-003', 'dub-005']) {
   let raw = null;
   try { raw = JSON.parse(rd(join(PUB, 'data', 'dubbing', epId + '.json'))); } catch (e) { raw = null; }
   check('⑥-9b ' + epId + ' 는 아직 시각 provisional · 상태 preview (완성본이 아니다)', !!raw && raw.timing === 'provisional' && raw.status === 'preview', raw && [raw.timing, raw.status]);
@@ -311,6 +338,40 @@ if (idxRaw) {
   }));
   check('⑥-b4 1편(dub-001)은 ready', eps.some((e) => e.id === 'dub-001' && e.status === 'ready'));
   check('⑥-b5 대표 그림이 있으면 실재한다', eps.every((e) => !e.poster || existsSync(join(PUB, e.poster.replace(/^\/+/, '')))));
+}
+
+/* ⑥-c 6편(dub-006) — 처음으로 «동기 + 음성 파일» 로 도는 편. 그 사실을 못 박고, ⑥-14 의 «손님» 규칙이 실제로 헛돌지 않는지 망가뜨려 본다. */
+console.log('\n── ⑥-c 6편(dub-006) · ⑥-14 손님 규칙 변이');
+{
+  let raw6 = null, raw1 = null;
+  try { raw6 = JSON.parse(rd(join(PUB, 'data', 'dubbing', 'dub-006.json'))); } catch (e) { raw6 = null; }
+  try { raw1 = JSON.parse(rd(join(PUB, 'data', 'dubbing', 'dub-001.json'))); } catch (e) { raw1 = null; }
+  check('⑥-c0 전제 — 6편이 목록에서 ready 이고 매니페스트를 읽었다', readyIds.indexOf('dub-006') >= 0 && !!raw6 && !!raw1);
+  if (raw6 && raw1) {
+    const n6 = CORE.normalizeEpisode(raw6, { baseUrl: '/data/dubbing/' });
+    check('⑥-c1 6편은 시각 synced · 상태 final · 여섯 장면 전부 «동기 + 음성 파일» (음성 파일 하나만 빠져도 여기서 걸린다)',
+      raw6.timing === 'synced' && n6.episode.status === 'final' && n6.episode.scenes.length === 6 && n6.episode.scenes.every((s) => s.timing === 'synced' && s.voiceMode === 'stems'),
+      n6.episode.scenes.map((s) => s.no + ':' + s.timing + '/' + s.voiceMode));
+    const guests6 = Object.keys(n6.episode.characters).filter((k) => n6.episode.playable.indexOf(k) < 0);
+    check('⑥-c2 6편의 손님은 위스커스 선장 하나이고 학생은 고를 수 없다', guests6.length === 1 && guests6[0] === 'whiskers', guests6);
+    check('⑥-c3 짝 — 지금 6편은 손님 규칙을 통과한다', shareProblems(n6.episode).length === 0, shareProblems(n6.episode));
+    const mut = (raw, edit) => { const c = JSON.parse(JSON.stringify(raw)); edit(c); return shareProblems(CORE.normalizeEpisode(c, { baseUrl: '/data/dubbing/' }).episode); };
+    const sceneOf = (c, no) => c.scenes.find((s) => s.no === no);
+    const lineOf = (s, cid) => s.lines.find((l) => l.speaker === cid);
+    // 손님 장면에서 아이 한 명의 하나뿐인 줄을 손님에게 넘기면 → 그 아이는 그 장면에서 할 일이 없다
+    check('⑥-14m1 변이 «손님 장면에서 아이 몫을 0 으로» → 실제로 걸린다',
+      mut(raw6, (c) => { lineOf(sceneOf(c, 4), 'zibi').speaker = 'whiskers'; }).some((p) => /^scene4:zibi:0</.test(p)));
+    // 손님 줄이 장면의 절반을 넘으면 → 걸린다
+    check('⑥-14m2 변이 «손님이 장면의 절반 넘게» → 실제로 걸린다',
+      mut(raw6, (c) => { lineOf(sceneOf(c, 5), 'mateo').speaker = 'whiskers'; lineOf(sceneOf(c, 5), 'zibi').speaker = 'whiskers'; }).some((p) => /^scene5:guest_over_half/.test(p)));
+    // 손님이 없는 장면은 예전 그대로 «각자 2줄» — 1편에서 한 줄을 다른 아이에게 넘기면 걸린다(규칙을 넓히다 옛 기준이 풀리지 않았는지)
+    const s1 = raw1.scenes[0], first = s1.lines[0].speaker, other = raw1.playable.find((x) => x !== first);
+    check('⑥-14m3 변이 «손님 없는 장면에서 2줄 → 1줄» → 실제로 걸린다(옛 기준 그대로)',
+      mut(raw1, (c) => { c.scenes[0].lines[0].speaker = other; }).some((p) => p.indexOf('scene' + s1.no + ':' + first + ':1<2') === 0));
+    // 손님을 «고를 수 있는 역» 으로 바꾸면 → 1~3장면에서 그 역은 할 일이 없다(그래서 손님으로 둔다)
+    check('⑥-14m4 변이 «손님을 고를 수 있는 역으로» → 실제로 걸린다',
+      mut(raw6, (c) => { c.playable = c.playable.concat(['whiskers']); }).some((p) => /^scene1:whiskers:0</.test(p)));
+  }
 }
 
 /* ⑦ 화면 배선 */

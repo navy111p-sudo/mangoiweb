@@ -5,7 +5,7 @@
     { "id": "dub-002", "no": 2, "title": { "ko": "예상치 못한 위기!", "en": "An Unexpected Danger!" }, "status": "coming" },
     { "id": "dub-003", "no": 3, "title": { "ko": "친구들과 함께하는 모험!", "en": "Adventure with Friends!" }, "status": "ready", "poster": "/media/dubbing/dub-003/scene-1.jpg" },
     { "id": "dub-004", "no": 4, "title": { "ko": "뜻밖의 반전!", "en": "A Surprise Twist!" }, "status": "coming" },
-    { "id": "dub-005", "no": 5, "title": { "ko": "최후의 대결!", "en": "The Final Battle!" }, "status": "coming" },
-    { "id": "dub-006", "no": 6, "title": { "ko": "감동의 해피엔딩!", "en": "A Happy Ending!" }, "status": "coming" }
+    { "id": "dub-005", "no": 5, "title": { "ko": "최후의 대결!", "en": "The Final Battle!" }, "status": "ready", "poster": "/media/dubbing/dub-005/scene-1.jpg" },
+    { "id": "dub-006", "no": 6, "title": { "ko": "감동의 해피엔딩!", "en": "A Happy Ending!" }, "status": "ready", "poster": "/media/dubbing/dub-006/scene-1.jpg" }
   ]
 }
