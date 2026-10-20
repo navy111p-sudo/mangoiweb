@@ -227,7 +227,7 @@ function shareProblems(ep) {
    시각이 provisional 인 편에만 «차례 모드·preview» 를 묻는다(나중에 완성본(synced)이 와도 거짓 FAIL 이 안 나게). */
 let readyIds = [];
 try { readyIds = CORE.normalizeIndex(JSON.parse(rd(join(PUB, 'data', 'dubbing', 'index.json')))).filter((e) => e.status === 'ready').map((e) => e.id); } catch (e) { readyIds = []; }
-check('⑥-0 전제 — 목록에서 ready 인 편을 읽었고 1편·3편이 들어 있다', readyIds.indexOf('dub-001') >= 0 && readyIds.indexOf('dub-003') >= 0, readyIds);
+check('⑥-0 전제 — 목록에서 ready 인 편을 읽었고 1편·3편·5편이 들어 있다', readyIds.indexOf('dub-001') >= 0 && readyIds.indexOf('dub-003') >= 0 && readyIds.indexOf('dub-005') >= 0, readyIds);
 let checkedEps = 0;
 for (const epId of readyIds) {
   if (!/^[a-z0-9-]+$/.test(epId)) continue;
@@ -306,9 +306,9 @@ for (const epId of readyIds) {
   }
 }
 check('⑥-z 전제 — 실제로 2편 이상을 검사했다(목록이 비어 검사가 통째로 사라지지 않게)', checkedEps >= 2, checkedEps);
-/* ⑥-9b 지금 사실을 못 박는다 — 1편·3편은 아직 «영상에 맞춘 대사 시각» 이 없다(설명서 6-1·6-1b).
+/* ⑥-9b 지금 사실을 못 박는다 — 1편·3편·5편은 아직 «영상에 맞춘 대사 시각» 이 없다(설명서 6-1·6-1b).
    ⚠️ 진짜 완성본(대사 시각 + 원어민 음성)으로 올리는 날 이 줄을 «함께» 고친다 — 그 전에 누가 timing 만 'synced' 로 바꾸면 여기서 걸린다. */
-for (const epId of ['dub-001', 'dub-003']) {
+for (const epId of ['dub-001', 'dub-003', 'dub-005']) {
   let raw = null;
   try { raw = JSON.parse(rd(join(PUB, 'data', 'dubbing', epId + '.json'))); } catch (e) { raw = null; }
   check('⑥-9b ' + epId + ' 는 아직 시각 provisional · 상태 preview (완성본이 아니다)', !!raw && raw.timing === 'provisional' && raw.status === 'preview', raw && [raw.timing, raw.status]);
