@@ -270,7 +270,8 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
         console.log('[WebSocket] 재연결 후 대기 메시지 재전송:', q.length + '건');
     }
     const _origOnOpenFlush = onOpen;
-    onOpen = function(sock){ try { flushQueue(); } catch(e){} if (_origOnOpenFlush) _origOnOpenFlush(sock); };
+    // 🔴 (2026-10-20) 원래 onOpen(=join-room) «뒤에» 보낸다 — 앞이면 서버가 «아직 입장 전» 으로 보고 pdf-share 를 조용히 버린다
+    onOpen = function(sock){ try { if (_origOnOpenFlush) _origOnOpenFlush(sock); } finally { try { flushQueue(); } catch(e){} } };
 
     // 외부에서 사용할 수 있는 인터페이스 반환
     return {
