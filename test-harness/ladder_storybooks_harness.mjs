@@ -133,10 +133,10 @@ for (const id of files) {
 
   // ④ 바꿔 쓰기
   ok(WP.pre === d.write.pre && WP.mid === d.write.mid && WP.sep === d.write.sep, tag + `틀 «${WP.pre} ___${WP.sep === ', ' ? ',' : ''} ${WP.mid} ___.»`);
-  const chips = [...html.matchAll(/class="chip" data-a="([^"]+)" data-b="([^"]+)"/g)].map((m) => [m[1], m[2]]);
+  const chips = JSON.parse((html.match(/var WRITE_EX = (\[.*?\]);\n/) || [0, '[]'])[1])   // 2026-10-20 버튼 줄을 뺀 뒤 예시 문장은 이 목록에만(철자 점검 «아는 낱말»);
   const shape = new RegExp('^' + reEsc(WP.pre) + ' [^ ,].*' + reEsc(WP.sep + WP.mid) + ' [^ ].*\\.$');
-  ok(chips.length === 3, tag + '예시 칩 3개');
-  bulk(tag + '예시 칩이 틀 모양으로 완성', chips, ([a, b]) => { const r = C.checkWrite(a, b); return (r.ok && shape.test(r.sentence)) || r.sentence; });
+  ok(chips.length === 3, tag + '예시 문장 3개(WRITE_EX)');
+  bulk(tag + '예시 문장이 틀 모양으로 완성', chips, ([a, b]) => { const r = C.checkWrite(a, b); return (r.ok && shape.test(r.sentence)) || r.sentence; });
   bulk(tag + '(짝) 빈칸·한글은 완성 안 됨', [['', 'x'], ['x', ''], ['숙제 하기', 'dinner'], ['go', '엄마 오기']], ([a, b]) => C.checkWrite(a, b).ok === false);
 
   // ⑤ 낱말·그림·음악
