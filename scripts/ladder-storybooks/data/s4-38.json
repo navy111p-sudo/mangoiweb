@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what to make the purpose clear. (e.g. so that sea animals have a safe home)"
   },
   "img": {
+    "style": "photo",
     "cover": "A deep-sea lanternfish with large silver eyes and rows of tiny glowing blue light spots along its belly, swimming through pitch-dark water",
     "scenes": {
       "1": "In dark blue water, a see-through jellyfish glowing with bright blue and green light, with a few small silver fish with huge eyes and a bright red shrimp drifting nearby",
       "2": "A dense cloud of countless small silvery fish and pink shrimp rising through dark blue water toward a faint glow of moonlight at the ocean surface far above"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

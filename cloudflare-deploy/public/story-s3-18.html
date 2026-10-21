@@ -106,6 +106,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
   <header>
     <h1>Why Can&#39;t a Robot Fold Your T-Shirt?</h1>
     <div class="meta">
+      <span class="art-style" data-style="cg3d" data-ko="🎬 3D 애니메이션" data-en="🎬 3D animation">🎬 3D 애니메이션</span>
       <span>Step 3 · No. 18</span>
       <span data-ko="약 189단어" data-en="about 189 words">약 189단어</span>
       <span data-ko="15~20분" data-en="15–20 min">15~20분</span>
@@ -115,7 +116,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
 
   <div class="stampboard" id="stampBoard" aria-live="polite"></div>
 
-  <figure class="pic cover"><img src="img/story/s3-18-cover.webp" alt="A robot arm trying to fold a T-shirt" width="1024" height="688"></figure>
+  <figure class="pic cover"><img src="img/story/s3-18-cover.webp?v=2" alt="A robot arm trying to fold a T-shirt" width="1024" height="688"></figure>
 
   <section class="page story" id="story">
     <h2><span data-ko="① 읽고 듣기" data-en="① Read &amp; listen">① 읽고 듣기</span> <small id="ttsNote"></small></h2>
@@ -205,7 +206,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
   </section>
 
   <p class="note rev" data-ko="이 글는 망고아이 «영어 독서» 3단계 쉬운 지식 글 글입니다. 영어 독서 목록의 같은 글과 본문이 같고, 여기서는 그림책처럼 6가지 활동(읽고 듣기·핵심 문장·요점정리·낱말 게임·근거 찾기·바꿔 쓰기)으로 공부합니다." data-en="This text is from Mangoi English Reading, Step 3 Easy non-fiction. The text is the same as in the reading list; here you study it with 6 storybook activities.">이 글는 망고아이 «영어 독서» 3단계 쉬운 지식 글 글입니다. 영어 독서 목록의 같은 글과 본문이 같고, 여기서는 그림책처럼 6가지 활동(읽고 듣기·핵심 문장·요점정리·낱말 게임·근거 찾기·바꿔 쓰기)으로 공부합니다.</p>
-  <p class="note" data-ko="사진은 이 글을 위해 Higgsfield AI 로 새로 만든 실사 이미지입니다(실제 촬영 사진이 아닙니다)." data-en="The photo-style images were newly made for this text with Higgsfield AI (they are not real photographs).">사진은 이 글을 위해 Higgsfield AI 로 새로 만든 실사 이미지입니다(실제 촬영 사진이 아닙니다).</p>
+  <p class="note" data-ko="삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그린 3D 애니메이션 화풍입니다." data-en="The illustrations were newly made for this story with Higgsfield AI in the 3D animation style.">삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그린 3D 애니메이션 화풍입니다.</p>
 </div>
 
 <style>
@@ -417,7 +418,7 @@ var StoryCore = (function(){
   function stop(){ playing = false; sumSeq = (sumSeq || 0) + 1; if (RT) RT.cancel(); try { if (synth) synth.cancel(); } catch(e){} try { spans.forEach(function(s){ s.classList.remove('reading'); }); } catch(e){} }   // 표시·번호를 먼저 내리고 멈춤 — 멈출 때 onend 가 곧바로 와도 다음 문장으로 안 넘어가고, 멈춘 문장은 «끝까지 들음» 으로 안 셈
 
   // ---- story ----
-  var SCENES = {"1":["img/story/s3-18-s1.webp","A robot vacuum cleaning a living room"],"3":["img/story/s3-18-s3.webp","Robot arms practicing with soft towels"]};
+  var SCENES = {"1":["img/story/s3-18-s1.webp?v=2","A robot vacuum cleaning a living room"],"3":["img/story/s3-18-s3.webp?v=2","Robot arms practicing with soft towels"]};
   var box = document.getElementById('text'), spans = [], picking = false, playing = false;
   STORY.forEach(function(par, pi){
     if (SCENES[pi]) { var f = document.createElement('figure'); f.className = 'scene'; f.innerHTML = '<img loading="lazy" width="1024" height="688" alt="' + SCENES[pi][1] + '" src="' + SCENES[pi][0] + '">'; box.appendChild(f); }

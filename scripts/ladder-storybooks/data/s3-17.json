@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because the lanterns are beautiful)"
   },
   "img": {
+    "style": "papercut",
     "cover": "A night parade on a wide city street in Seoul, where thousands of glowing paper lanterns shaped like lotus flowers and dragons float past smiling crowds",
     "scenes": {
       "1": "Rows of small clay oil lamps with tiny bright flames glowing on the stone steps of a house in India during Diwali, with colorful flower petals around them",
       "2": "Little round floating baskets made of banana leaves and flowers, each holding a lit candle, drifting on a dark river at night during Loy Krathong"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

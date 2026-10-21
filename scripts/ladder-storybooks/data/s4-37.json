@@ -291,13 +291,16 @@
     "moreEn": "One more step: after «because», write who or what + what happens to make your reason clear. (e.g. because germs spread quickly in a classroom)"
   },
   "img": {
+    "style": "editorial",
     "cover": "A crowded international airport hall with travelers pulling suitcases in every direction, large windows behind them showing airplanes parked on the runway",
     "scenes": {
       "1": "On a sunny school playground, a smiling boy turns his head away from his friends and covers a sneeze with the bend of his elbow, while his friends nearby give a thumbs-up, trees and a colorful jungle gym in the background",
       "3": "Children standing at a row of school sinks washing their hands with thick white soap foam, water running from the taps"
     },
     "ver": {
-      "1": 2
+      "cover": 2,
+      "1": 3,
+      "3": 2
     }
   },
   "alt": {

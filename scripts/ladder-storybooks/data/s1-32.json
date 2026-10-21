@@ -290,10 +290,16 @@
     "moreEn": "One more step: start both blanks with an action word. (e.g. play soccer, draw a picture)"
   },
   "img": {
+    "style": "anime",
     "cover": "Tiny Max, a boy with short spiky orange hair, freckles, a blue T-shirt and green shorts, rides on the back of a big friendly black ant through grass blades as tall as trees, while a huge fuzzy bee flies overhead and a tiny glass bottle with a cork stands in the distance.",
     "scenes": {
       "1": "Tiny Max, a boy with short spiky orange hair, freckles, a blue T-shirt and green shorts, stands among grass blades as tall as trees and looks up with wide eyes at a giant fuzzy bee flying by, while a curious brown spider looks at him from a leaf.",
       "2": "In a sunny garden, Max, a boy with short spiky orange hair, freckles, a blue T-shirt and green shorts, is back to his normal size and kneels on the grass, smiling and waving gently at a friendly black ant on his fingertip, with a tiny empty glass bottle with a cork beside his knee."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

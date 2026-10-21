@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because our hearts never rest)"
   },
   "img": {
+    "style": "vintage",
     "cover": "A doctor, seen from the side, gently holding a stethoscope to the back of a smiling child wearing a yellow T-shirt in a bright clinic room to listen to the heartbeat",
     "scenes": {
       "1": "An old wooden desk in a 1600s study with a brass balance scale, glass flasks of red-tinted water, and a burning candle",
       "2": "A realistic plastic model of a human heart on a classroom table, opened in the middle to show its four chambers, with red and blue tubes on top"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

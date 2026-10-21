@@ -3,6 +3,7 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { styleFitsStage } from './styles.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -99,6 +100,7 @@ export function validate(d, p) {
   E(Array.isArray(w.chips) && w.chips.length === 3 && w.chips.every((c) => en(c.a) && en(c.b) && en(c.label) && !/[.!?]$/.test(c.a) && !/[.!?]$/.test(c.b)), 'write.chips 3개(끝 마침표 없이)');
   E(Array.isArray(w.aria) && w.aria.length === 2 && w.aria.every(en), 'write.aria');
   const img = d.img || {};
+  E(styleFitsStage(img.style, p.stage), 'img.style 화풍이 연령 단계에 맞아야 함');
   const keys = Object.keys(img.scenes || {});
   E(en(img.cover) && keys.length === 2 && keys.every((x) => /^\d+$/.test(x) && +x >= 1 && +x < paras) && keys.every((x) => en(img.scenes[x])), 'img cover + 장면 2(문단 1..끝)');
   const alt = d.alt || {};

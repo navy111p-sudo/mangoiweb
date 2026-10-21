@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "cg3d",
     "cover": "On red, rocky Mars, a young man with short brown hair in a white space suit with orange stripes and a clear round helmet hurries toward a round white dome base with a blinking green light as a huge swirling wall of red dust rolls in behind him, and the green light on the base blinks to guide him home.",
     "scenes": {
       "1": "On red, rocky Mars, a young man with short brown hair in a white space suit with orange stripes and a clear round helmet drives a six-wheeled silver rover over the rocks as a giant cloud of swirling red dust rushes toward him and fills the sky.",
       "2": "At the open door of a round white dome base with a blinking green light, a young man with short brown hair in a white space suit with orange stripes and a clear round helmet jumps inside just in time and gives a happy thumbs up, while the red dust storm swirls behind him."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

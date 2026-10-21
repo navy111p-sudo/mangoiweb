@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what to make the result clear. (e.g. so that we stay healthy)"
   },
   "img": {
+    "style": "photo",
     "cover": "A small wooden raft floating alone on a wide blue ocean under a hot sun, with sparkling waves stretching all the way to the horizon",
     "scenes": {
       "1": "A clear mountain river rushing over smooth gray rocks and pebbles, winding through a green valley toward the distant sea",
       "2": "Shallow seaside salt ponds where the water has dried up, leaving sparkling white salt crystals raked into neat piles"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

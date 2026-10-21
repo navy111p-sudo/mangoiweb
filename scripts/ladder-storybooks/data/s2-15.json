@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «It is important to», write a verb (tell, help). After «because», write who + what."
   },
   "img": {
+    "style": "webtoon",
     "cover": "In a bright toy shop full of teddy bears, blocks and toy trains, a small round white robot with a blue screen face, two short silver arms and red wheels proudly holds up a broken red toy car with a missing wheel and shows a big happy smile on its screen, while a surprised boy and the shop owner, a short round man with a gray mustache, round glasses and a brown vest stare at the car.",
     "scenes": {
       "2": "At the toy shop door, a group of angry customers hold up broken toys, like a toy car with no wheels and a toy robot with a bent antenna, while a small round white robot with a blue screen face, two short silver arms and red wheels rolls backward with a worried face on its screen and the shop owner, a short round man with a gray mustache, round glasses and a brown vest holds his head in his hands.",
       "3": "A small round white robot with a blue screen face, two short silver arms and red wheels sits at a workbench in the toy shop, fixing a small toy car with a tiny screwdriver and showing a sorry face on its screen, while smiling customers wait in line and the shop owner, a short round man with a gray mustache, round glasses and a brown vest hands a little girl her fixed teddy bear."
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
     }
   },
   "alt": {

@@ -291,10 +291,16 @@
     "moreEn": "One more step: start both blanks with an action word. (e.g. cook dinner, wash the dishes)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "A white robotic arm with a two-finger gripper trying to fold a crumpled blue T-shirt on a lab table, while a child beside it folds a T-shirt neatly",
     "scenes": {
       "1": "A round robot vacuum cleaner gliding across a wooden living room floor past a sofa and a rug, with a small green light glowing on top",
       "3": "Two robotic arms in a bright kitchen carefully practicing how to pick up soft towels and place them in a laundry basket"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

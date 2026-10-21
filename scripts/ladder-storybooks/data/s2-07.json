@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + can + what. (e.g. so that we can win)"
   },
   "img": {
+    "style": "comic",
     "cover": "A boy with short black hair and a green T-shirt stands at a school science fair table next to a small brown clay volcano model, holding a cup of vinegar, with other project tables behind him.",
     "scenes": {
       "1": "At a science fair table, the boy with short black hair and a green T-shirt looks down with a red face as only a few tiny bubbles come out of his brown clay volcano, while two adult judges with clipboards watch.",
       "3": "At a kitchen table at home, the boy with short black hair and a green T-shirt smiles widely as white bubbles pour over the top of his brown clay volcano, with a box of baking soda and a bottle of vinegar beside it."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

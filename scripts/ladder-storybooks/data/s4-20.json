@@ -292,10 +292,16 @@
     "moreEn": "One more step: after «we can», write who we can help and how. (e.g. help children in coffee-growing towns go to school)"
   },
   "img": {
+    "style": "photo",
     "cover": "A coffee farmer’s weathered hands holding a heap of ripe red coffee cherries freshly picked from green coffee plants on a hillside farm",
     "scenes": {
       "1": "Small farmers on a steep green mountainside picking ripe red coffee cherries into woven baskets among rows of coffee bushes",
       "2": "Smiling children drinking from a new clean-water tap at a small rural school in a coffee-growing village"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

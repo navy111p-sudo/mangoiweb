@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "clay",
     "cover": "In a dark, cozy attic at night, a small round white ghost with big black eyes, rosy cheeks and a wavy tail floats in the middle and smiles as dozens of glowing yellow fireflies dance around him and light up the room.",
     "scenes": {
       "1": "In a dark attic at night, a small round white ghost with big black eyes, rosy cheeks and a wavy tail shivers next to a candle that has just blown out with a thin curl of smoke, and he peeks at tiny glowing lights outside the round window.",
       "2": "Outside an old house under a starry sky, a small round white ghost with big black eyes, rosy cheeks and a wavy tail floats by the open attic window and smiles as a swirl of glowing fireflies dances around him and lights up the night."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

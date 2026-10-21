@@ -106,6 +106,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
   <header>
     <h1>Water, Water Everywhere</h1>
     <div class="meta">
+      <span class="art-style" data-style="photo" data-ko="📷 실사" data-en="📷 Photo-real">📷 실사</span>
       <span>Step 3 · No. 20</span>
       <span data-ko="약 188단어" data-en="about 188 words">약 188단어</span>
       <span data-ko="15~20분" data-en="15–20 min">15~20분</span>
@@ -115,7 +116,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
 
   <div class="stampboard" id="stampBoard" aria-live="polite"></div>
 
-  <figure class="pic cover"><img src="img/story/s3-20-cover.webp" alt="A raft on the open ocean" width="1024" height="688"></figure>
+  <figure class="pic cover"><img src="img/story/s3-20-cover.webp?v=2" alt="A raft on the open ocean" width="1024" height="688"></figure>
 
   <section class="page story" id="story">
     <h2><span data-ko="① 읽고 듣기" data-en="① Read &amp; listen">① 읽고 듣기</span> <small id="ttsNote"></small></h2>
@@ -417,7 +418,7 @@ var StoryCore = (function(){
   function stop(){ playing = false; sumSeq = (sumSeq || 0) + 1; if (RT) RT.cancel(); try { if (synth) synth.cancel(); } catch(e){} try { spans.forEach(function(s){ s.classList.remove('reading'); }); } catch(e){} }   // 표시·번호를 먼저 내리고 멈춤 — 멈출 때 onend 가 곧바로 와도 다음 문장으로 안 넘어가고, 멈춘 문장은 «끝까지 들음» 으로 안 셈
 
   // ---- story ----
-  var SCENES = {"1":["img/story/s3-20-s1.webp","A river flowing over rocks"],"2":["img/story/s3-20-s2.webp","White salt left behind in drying ponds"]};
+  var SCENES = {"1":["img/story/s3-20-s1.webp?v=2","A river flowing over rocks"],"2":["img/story/s3-20-s2.webp?v=2","White salt left behind in drying ponds"]};
   var box = document.getElementById('text'), spans = [], picking = false, playing = false;
   STORY.forEach(function(par, pi){
     if (SCENES[pi]) { var f = document.createElement('figure'); f.className = 'scene'; f.innerHTML = '<img loading="lazy" width="1024" height="688" alt="' + SCENES[pi][1] + '" src="' + SCENES[pi][0] + '">'; box.appendChild(f); }

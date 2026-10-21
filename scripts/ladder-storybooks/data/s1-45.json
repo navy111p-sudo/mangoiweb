@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)"
   },
   "img": {
+    "style": "clay",
     "cover": "In a dark museum hall lit by moonlight from tall windows, a girl with long brown hair in a ponytail, wearing green pajamas with yellow moons, dances happily with a tall long-neck dinosaur skeleton made of smooth cream-colored bones, with a friendly grin, while other dinosaur skeletons twirl around them.",
     "scenes": {
       "1": "At midnight in the museum's dinosaur hall, big dinosaur skeletons start to move and dance, and a tall long-neck dinosaur skeleton made of smooth cream-colored bones, with a friendly grin, bends its long neck down toward a girl with long brown hair in a ponytail, wearing green pajamas with yellow moons, who peeks in from the doorway with wide eyes.",
       "2": "In the bright morning, the dinosaur skeletons stand still on their platforms, including a tall long-neck dinosaur skeleton made of smooth cream-colored bones, with a friendly grin, and a girl with long brown hair in a ponytail, wearing green pajamas with yellow moons, stares in surprise at a tiny bone in her open hand next to her pajama pocket."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

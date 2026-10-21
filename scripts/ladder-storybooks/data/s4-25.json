@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», use a fact from the text. (e.g. because farming uses about 70 percent of fresh water)"
   },
   "img": {
+    "style": "photo",
     "cover": "A cracked, dry lakebed stretching into the distance under a blazing sun, a lone wooden rowboat resting on the dry ground where water used to be",
     "scenes": {
       "1": "A shrinking mountain glacier with bare gray rock exposed below the ice and a thin stream of meltwater running down the valley",
       "2": "Thin drip irrigation tubes running along neat rows of young green plants on a dry farm, small drops of water falling right beside each plant"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

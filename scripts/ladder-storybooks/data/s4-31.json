@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write what + what can happen to make your reason clear. (e.g. because one test can give a wrong result)"
   },
   "img": {
+    "style": "photo",
     "cover": "A giant white radio telescope dish tilted up toward a star-filled night sky, the glowing band of the Milky Way arching above it and a small lit control building at its base",
     "scenes": {
       "1": "Dozens of identical white radio dishes standing in long rows across a flat desert plain at sunset, all tilted toward the same part of the sky",
       "2": "The cracked, bluish-white icy surface of a frozen moon crossed by long reddish-brown streaks, with the huge striped orange and cream disk of Jupiter rising in the black sky above"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

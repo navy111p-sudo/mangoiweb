@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "webtoon",
     "cover": "Inside an old wooden house, the lights suddenly turn on, and a girl with long black hair in a ponytail and a yellow raincoat and her two friends jump in surprise as her smiling family pops out with colorful balloons and a big birthday cake with glowing candles.",
     "scenes": {
       "1": "In a dark old house, a girl with long black hair in a ponytail and a yellow raincoat and her two friends huddle together with wide eyes as the creaky front door swings open by itself, and shadowy shapes tiptoe down the dark hallway.",
       "2": "In a bright living room full of colorful balloons, a girl with long black hair in a ponytail and a yellow raincoat laughs and covers her mouth with her hands as her mom and dad hold out a big birthday cake with glowing candles, and her two friends cheer."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

@@ -16,6 +16,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadLadder, validate, DATA_DIR } from '../scripts/ladder-storybooks/validate.mjs';
 import { buildPage } from '../scripts/ladder-storybooks/build.mjs';
+import { STYLES } from '../scripts/ladder-storybooks/styles.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PUB = join(ROOT, 'cloudflare-deploy', 'public');
@@ -51,6 +52,13 @@ const pts = readFileSync(join(SRC, 'api-points.ts'), 'utf8');
 const seed = pts.match(/VALUES \('story_read','[^']+',(\d+),(\d+),(\d+),1,/);
 const map = readFileSync(join(PUB, 'admin', 'site-structure-map.html'), 'utf8');
 const ladderJs = readFileSync(join(PUB, 'js', 'reading-ladder.js'), 'utf8');
+const artWindow = {};
+new Function('window', readFileSync(join(PUB, 'js', 'reading-ladder-art.js'), 'utf8'))(artWindow);
+const artCatalog = artWindow.READING_LADDER_ART;
+ok(Object.keys(artCatalog.books).length === L.passages.filter(p => p.book !== false).length, '화풍 목록이 모든 그림책과 일치한다');
+for (const [key, style] of Object.entries(STYLES)) {
+  ok(artCatalog.styles[key]?.ko === style.ko && artCatalog.styles[key]?.en === style.en, key + ' 한/영 화풍 표시가 정본과 같다');
+}
 
 const files = readdirSync(DATA_DIR).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort();
 console.log('\n══════ 전제 ══════');
@@ -69,12 +77,22 @@ for (const id of files) {
   const d = JSON.parse(readFileSync(join(DATA_DIR, id + '.json'), 'utf8'));
   const tag = id + ' ';
   const errs = validate(d, p);
+  ok(artCatalog.books[id] === d.img.style, tag + '목록과 그림책의 화풍이 같다');
+  if (p.stage >= 3) {
+    const babyStyle = structuredClone(d); babyStyle.img.style = 'clay';
+    ok(validate(babyStyle, p).some(e => e.includes('화풍')), tag + '청소년 단계의 유아 화풍을 거부한다');
+  }
   ok(errs.length === 0, tag + '데이터 검사(validate.mjs)' + (errs.length ? ': ' + errs.slice(0, 3).join(' / ') : ''));
   if (!p || errs.length) continue;
   const file = join(PUB, `story-${id}.html`);
   ok(existsSync(file), tag + '페이지가 있다');
   if (!existsSync(file)) continue;
   const html = readFileSync(file, 'utf8');
+  ok(html.includes('data-style="' + d.img.style + '"'), tag + '화풍 배지가 있다');
+  for (const key of ['cover', ...Object.keys(d.img.scenes)]) {
+    const asset = id + '-' + (key === 'cover' ? key : 's' + key) + '.webp?v=' + d.img.ver[key];
+    ok(Number.isInteger(d.img.ver[key]) && html.includes(asset), tag + key + ' 그림 캐시 버전이 데이터와 같다');
+  }
   const no = L.passages.filter((x) => x.stage === p.stage).indexOf(p) + 1;
   // ① 생성기 결과 == 지금 파일 (BUILD 스탬프 줄은 배포가 박으므로 뺀다)
   const unstamp = (h) => h.replace(/\n?<!-- BUILD:[^>]*-->/g, '');
@@ -166,7 +184,7 @@ ok(Number(lv) >= 3, `stories.html 이 reading-ladder.js 새 버전을 부른다 
 const stageImg = files.map((id) => Number(id[1]));
 const want12 = BOOKED.filter((p) => p.stage <= 2).length, want34 = BOOKED.filter((p) => p.stage >= 3).length;
 ok(stageImg.filter((s) => s <= 2).length === want12 && stageImg.filter((s) => s >= 3).length === want34 && want12 > 24 && want34 > 24,
-  `1~2단계 ${want12}권(그림) · 3~4단계 ${want34}권(실사) — 단계별로 빠진 권이 없다`);
+  `1~2단계 ${want12}권 · 3~4단계 ${want34}권 — 단계별로 빠진 권이 없다`);
 
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}  (조합 ${CASES}개)`);
 process.exit(FAIL ? 1 : 0);

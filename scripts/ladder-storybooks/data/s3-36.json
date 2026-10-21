@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», use a fact from the text to make your reason clear. (e.g. because they can change color in a second)"
   },
   "img": {
+    "style": "photo",
     "cover": "An octopus on a rocky sea floor with its long curling arms spread out, half of its body reddish brown and the other half already turned the gray, bumpy color of the rocks around it",
     "scenes": {
       "1": "An octopus wrapped around a clear glass jar in an aquarium tank, twisting the lid with its suckers to reach a small crab inside",
       "2": "An octopus jetting away through blue water, leaving behind a thick cloud of dark ink"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

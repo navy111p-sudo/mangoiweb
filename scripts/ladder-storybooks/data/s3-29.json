@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «If», write who + what they do to make the condition clear. (e.g. If we use a strong light)"
   },
   "img": {
+    "style": "photo",
     "cover": "A small round steel diving vessel with thick windows and bright lamps sinking through deep blue ocean water, the last faint sunlight fading far above it",
     "scenes": {
       "1": "The pitch-black bottom of a deep ocean trench lit only by a narrow beam of light, showing soft gray mud and tiny white specks drifting through the dark water",
       "2": "Close-up of many tiny pale shrimp-like creatures crowding on the muddy deep-sea floor in the light of an underwater camera"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

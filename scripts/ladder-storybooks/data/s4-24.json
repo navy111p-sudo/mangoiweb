@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write how it helps the bees. (e.g. so that bees have flowers all summer)"
   },
   "img": {
+    "style": "photo",
     "cover": "A honeybee covered in yellow pollen grains landing on a blooming pink apple blossom, close-up in bright spring sunlight",
     "scenes": {
       "1": "Rows of white wooden beehives standing between flowering almond trees in a large orchard in spring, bees flying around the hives",
       "3": "Students planting colorful flowers in a garden bed beside their school building on a sunny day, bees visiting the blossoms"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

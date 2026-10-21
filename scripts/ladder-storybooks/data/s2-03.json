@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what they can do. (e.g. so that we can win)"
   },
   "img": {
+    "style": "anime",
     "cover": "On a soccer field, a girl with a black ponytail in a yellow soccer shirt passes the ball to a smiling teammate in yellow while other players in yellow run beside them.",
     "scenes": {
       "1": "Players in yellow soccer shirts sit sadly on the grass, including a girl with a black ponytail, while a man with a whistle and a blue cap talks to them.",
       "3": "Players in yellow soccer shirts cheer and hug on the field after a game; the girl with a black ponytail smiles, and the man with a whistle and a blue cap claps."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {
