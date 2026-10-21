@@ -13,6 +13,7 @@
  *  ⚠️ 이 모듈은 다른 도메인을 import 하지 않는다(단방향). api-pay.ts 가 여기로 위임한다.
  *  ⚠️ 돈·수업 데이터를 다루므로: 모든 생성은 멱등, 이중 예약은 3중 차단, 실패는 격리.
  */
+import { tossClientKey } from './toss-keys';   // 🔑 키 판정 정본 — 의존성 없는 파일이라 «다른 도메인 import 안 함» 원칙의 예외가 아님
 import { json, parseJsonBody } from './api-util';
 import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
@@ -2165,7 +2166,7 @@ export async function createEnrollOrder(env: any, uid: string, p: any, kind: 'ne
   }
   return json({
     ok: true, kind, orderId, amount: q.amount, orderName,
-    clientKey: env.TOSS_CLIENT_KEY || 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq',
+    clientKey: tossClientKey(env).key,   // 🔑 (2026-10-21) /api/pay/config 와 같은 판정 — 금고에 «키가 아닌 값»이 들어가도 깨진 키로 결제창을 열지 않음
     summary: {
       teacher: tName, days: p.days, times: p.times, minutes: p.minutes, sessions: q.sessions,
       first_date: dates[0], last_date: dates[dates.length - 1], discount: q.discountRate,

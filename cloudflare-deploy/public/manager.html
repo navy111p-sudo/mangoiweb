@@ -2526,11 +2526,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         if (btn) btn.disabled = false; return;
       }
       // 서버가 준 키만 쓴다(/api/pay/config — 개인 결제창과 같은 정본, 테스트/실결제 전환이 여기서 자동 반영된다).
-      var ck = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
+      var ck = '', cfgBad = false;
       try {
         var cfg = await fetch('/api/pay/config').then(function(r){ return r.json(); });
         if (cfg && cfg.ok && cfg.clientKey) ck = cfg.clientKey;
       } catch (e) {}
+      /* 🔑 (2026-10-21) 설정을 못 받았거나 키가 서로 어긋나면 «연습 키로 몰래 열지» 않고 멈춘다 —
+         실결제로 바꾼 뒤 연습 키로 열면 카드는 연습 결제창에 들어가고 서버 승인은 실패한다(돈은 안 빠지지만 «결제가 안 된다» 만 남는다). */
+      if (cfg && cfg.key_mismatch) cfgBad = true;
+      if (!ck || cfgBad) { alert(cfgBad ? T('Payment keys are misconfigured. Please contact HQ.', '결제 키 설정이 어긋나 있습니다. 본사에 알려 주세요.') : T('Could not load payment settings. Please try again in a moment.', '결제 설정을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')); if (btn) btn.disabled = false; return; }
       if (!window.TossPayments) {
         try {
           await new Promise(function(resolve, reject){
@@ -2789,8 +2793,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
           : T('Could not start payment.', '결제를 시작하지 못했습니다.') + (o && o.error ? ' (' + o.error + ')' : '');
         alert(why); done(); if (o && o.error === 'demo') return; D.tuition = null; loadTuition(); return;
       }
-      var ck = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
+      var ck = '', cfgBad = false;
       try { var cfg = await fetch('/api/pay/config').then(function(r){ return r.json(); }); if (cfg && cfg.ok && cfg.clientKey) ck = cfg.clientKey; } catch (e) {}
+      /* 🔑 (2026-10-21) 설정을 못 받았거나 키가 서로 어긋나면 «연습 키로 몰래 열지» 않고 멈춘다 —
+         실결제로 바꾼 뒤 연습 키로 열면 카드는 연습 결제창에 들어가고 서버 승인은 실패한다(돈은 안 빠지지만 «결제가 안 된다» 만 남는다). */
+      if (cfg && cfg.key_mismatch) cfgBad = true;
+      if (!ck || cfgBad) { alert(cfgBad ? T('Payment keys are misconfigured. Please contact HQ.', '결제 키 설정이 어긋나 있습니다. 본사에 알려 주세요.') : T('Could not load payment settings. Please try again in a moment.', '결제 설정을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')); done(); return; }
       if (!window.TossPayments) {
         try {
           await new Promise(function(resolve, reject){
