@@ -212,6 +212,17 @@
             { ko: '💲 수업료 배율',      en: '💲 Price rates',     id: 'rates' },
             { ko: '🔔 자동 문자',        en: '🔔 Auto messages',   id: 'sweeps' }
           ] },
+        /* 📒 (2026-10-14) 일일 보고 누락 — 끝난 수업의 1분 수업일지 미작성·학부모 미확인.
+           🔐 강사는 classes/today 가 403, 지사·대리점은 서버가 일지를 안 실어(eval_hidden) 판단할 수 없다 → 감춘다(서버와 짝). */
+        { ko: '일일 보고 누락', en: 'Missing daily logs', href: '/admin/lesson-log-gaps.html',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '📒 어제 끝난 수업 중 수업일지 미작성 · 학부모 미확인',
+          tipEn: '📒 Yesterday\'s finished classes: log not written / parent not opened',
+          /* ⚠️ secs 의 id 는 lesson-log-gaps.html 에 진짜로 있어야 한다(sidebar_three_level_harness 가 파일을 열어 대조). */
+          secs: [
+            { ko: '📅 날짜 고르기',   en: '📅 Pick a date',   id: 'llg-date' },
+            { ko: '📋 누락 목록',     en: '📋 The list',      id: 'llg-root' }
+          ] },
         { ko: '레벨테스트',      en: 'Level test',     cards: ['card-level-tests', 'card-leveltest'] },
         { ko: '상담 예약',       en: 'Counseling',     cards: ['card-counseling-booking'] },
         { ko: '학부모 소통',     en: 'Parents',        cards: ['card-parent-digest', 'card-parent-faq-bot'] },
