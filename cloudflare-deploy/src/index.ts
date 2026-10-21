@@ -1,3 +1,4 @@
+import { handleSeedShares } from './seed-shares';
 import { handleSpeechPreferences } from './speech-preferences';
 import { loadRecentMistakes, recentMistakesPromptLine } from './recent-mistakes';   // 🔁 최근 교정 다시 쓰기(2026-10-18)
 import { loadVocabWeakRows, loadWeakWordsForWarmup, weakWordsPromptLine, weakWordsCallerOk, mergeWeakFirst, VOCAB_WEAK_GAME_MAX } from './vocab-weak';   // 🔁 틀린 낱말 다시 쓰기(2026-10-18)
@@ -273,6 +274,8 @@ const worker = {
       const permanent = request.method === 'GET' || request.method === 'HEAD';
       return Response.redirect(canonical.toString(), permanent ? 301 : 308);
     }
+
+    if (path === '/api/seed-shares' || path.startsWith('/api/seed-shares/') || path.startsWith('/s/')) return handleSeedShares(request, env);
 
     if (path === '/api/student/speech-preferences') return handleSpeechPreferences(request, env);
 
