@@ -276,9 +276,10 @@ for (const epId of readyIds) {
   /* 대사 규격 — 짧은 영어(3~8단어) · 장면마다 캐릭터당 2줄 이상 · 1/2/3역 선택 */
   const allLines = sc.reduce((a, s) => a.concat(s.lines), []);
   const words = (t) => (t.match(/[A-Za-z']+/g) || []).length;
-  check('⑥-11 ' + P + '대사는 36줄', allLines.length === 36, allLines.length);
+  /* 줄 수 = 고를 수 있는 캐릭터 수 × 2줄 × 장면 수 (1·3·5·6편 3명 = 36줄, 4편 5명 = 60줄) — 2026-10-21 4편 5명 편성으로 «36 고정» 을 일반화 */
+  check('⑥-11 ' + P + '대사는 «고를 수 있는 캐릭터 × 2 × 장면 수» 줄', allLines.length === n.episode.playable.length * 2 * sc.length, allLines.length);
   check('⑥-12 ' + P + '모든 대사가 3~8단어', allLines.every((l) => words(l.en) >= 3 && words(l.en) <= 8), allLines.filter((l) => words(l.en) < 3 || words(l.en) > 8).map((l) => l.id));
-  check('⑥-13 ' + P + '고를 수 있는 캐릭터는 3명 — 1·2·3명이 역을 나눌 수 있다', n.episode.playable.length === 3);
+  check('⑥-13 ' + P + '고를 수 있는 캐릭터는 3~' + CORE.MAX_STUDENTS + '명(MAX_STUDENTS) — 1명부터 그 수까지 역을 나눌 수 있다', n.episode.playable.length >= 3 && n.episode.playable.length <= CORE.MAX_STUDENTS, n.episode.playable.length);
   check('⑥-14 ' + P + '장면마다 고를 수 있는 캐릭터가 «각각» 2줄 이상 말한다(손님이 말하는 장면은 남은 줄을 공평하게 · 손님은 절반 이하) — 어느 역을 골라도 할 일이 있다',
     shareProblems(n.episode).length === 0, shareProblems(n.episode));
   check('⑥-15 ' + P + '대사마다 한국어 뜻이 있다', allLines.every((l) => !!l.ko));
