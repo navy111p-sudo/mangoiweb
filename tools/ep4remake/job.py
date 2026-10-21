@@ -34,7 +34,11 @@ def asr():
     for idx, url, speaker, text in rows:
         p = f'/tmp/v/{idx}.wav'
         urllib.request.urlretrieve(url, p)
-        segs, _ = model.transcribe(p, language='en', beam_size=5, word_timestamps=True,
+        pcm = subprocess.run(['ffmpeg', '-v', 'error', '-i', p, '-ac', '1', '-ar', '16000', '-f', 's16le', '-'],
+                             check=True, capture_output=True).stdout
+        import numpy as np
+        audio = np.frombuffer(pcm, np.int16).astype(np.float32) / 32768.0
+        segs, _ = model.transcribe(audio, language='en', beam_size=5, word_timestamps=True,
                                    initial_prompt=None, vad_filter=False)
         words = []
         for s in segs:
