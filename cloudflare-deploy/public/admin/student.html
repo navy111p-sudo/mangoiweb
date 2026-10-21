@@ -647,7 +647,7 @@
           </div>
           <div class="form-actions" style="gap:8px;display:flex;flex-wrap:wrap">
             <button class="btn-add" onclick="endClassesPreview()" data-ko="🔍 내릴 수업 보기" data-en="🔍 Preview classes">🔍 내릴 수업 보기</button>
-            <button class="btn-add" id="endRunBtn" onclick="endClassesRun()" disabled data-ko="⛔ 종료 실행" data-en="⛔ End these classes">⛔ 종료 실행</button>
+            <button class="btn-add" id="endRunBtn" onclick="endClassesRun()" data-ko="⛔ 종료 실행" data-en="⛔ End these classes">⛔ 종료 실행</button>
           </div>
           <div id="endPreviewBox" style="margin-top:10px;font-size:12.5px;color:#344054"></div>
           <div id="endUndoBox" style="margin-top:10px;font-size:12.5px;color:#344054"></div>
@@ -2374,14 +2374,19 @@ function renderExtension(){
       const items = (j && j.ok && j.items) || [];
       const box = $('extHistoryBox');
       if (items.length === 0) { box.innerHTML = '<div class="empty">'+(_lang==='en'?'No extensions yet.':'연장 이력이 없습니다.')+'</div>'; return; }
-      box.innerHTML = '<table class="list"><thead><tr><th>'+(_lang==='en'?'When':'일시')+'</th><th>'+(_lang==='en'?'Prev':'이전')+'</th><th>'+(_lang==='en'?'New':'신규')+'</th><th>'+(_lang==='en'?'Months':'개월')+'</th><th>'+(_lang==='en'?'Reason':'사유')+'</th><th>'+(_lang==='en'?'By':'처리자')+'</th></tr></thead><tbody>'+
-        items.map(e => `<tr>
+      // ↩ (2026-10-16) «가장 최근의, 아직 안 되돌린» 연장에만 되돌리기 버튼 — 서버도 같은 규칙으로 막는다.
+      const latest = items.find(e => !e.undone_at);
+      const en = _lang==='en';
+      box.innerHTML = '<table class="list"><thead><tr><th>'+(en?'When':'일시')+'</th><th>'+(en?'Prev':'이전')+'</th><th>'+(en?'New':'신규')+'</th><th>'+(en?'Months':'개월')+'</th><th>'+(en?'Reason':'사유')+'</th><th>'+(en?'By':'처리자')+'</th><th>'+(en?'Undo':'되돌리기')+'</th></tr></thead><tbody>'+
+        items.map(e => `<tr${e.undone_at?' style="opacity:.55"':''}>
           <td>${fmtDate(e.created_at)}</td>
           <td>${esc(e.prev_end_date)||'—'}</td>
           <td>${esc(e.new_end_date)}</td>
           <td>${e.months_added||'—'}</td>
           <td>${esc(e.reason)||'—'}</td>
           <td>${esc(e.created_by)||'—'}</td>
+          <td>${e.undone_at ? (en?'Undone ':'되돌림 ')+fmtDate(e.undone_at)
+            : (latest && latest.id===e.id ? '<button class="btn-mini" onclick="undoExtension('+Number(e.id)+')">'+(en?'↩ Undo':'↩ 되돌리기')+'</button>' : '—')}</td>
         </tr>`).join('')+'</tbody></table>';
     })
     .catch(()=>{});
@@ -2418,7 +2423,7 @@ window.endClassesPreview = async function(){
   /* ⛔ 지난 날짜부터는 내리지 않는다 — 지난 수업을 취소로 바꾸면 결석·급여 근거가 바뀌고, 되돌리기(restore)도 지난 날짜는 거절한다. */
   if (from < _endKstToday()) from = _endKstToday();
   $('endFromDate').value = from;
-  _endPlan = []; if (btn) btn.disabled = true;
+  _endPlan = [];
   box.textContent = en ? 'Loading…' : '불러오는 중…';
   try {
     var r = await fetch('/api/admin/class-schedules?user_id=' + encodeURIComponent(uid) + '&limit=500', { credentials:'include' });
@@ -2452,14 +2457,19 @@ window.endClassesPreview = async function(){
       ? 'If this student has another account (e.g. «' + esc(_endTwinUid()) + '»), end the classes there too. If the class is also booked in Cafe24, end it in Cafe24 as well.'
       : '이 학생에게 다른 계정(예: «' + esc(_endTwinUid()) + '»)이 있다면 그 계정에서도 종료하세요. 카페24에도 수업이 잡혀 있으면 카페24에서도 종료해야 합니다.') + '</div>';
     box.innerHTML = html;
-    if (btn) btn.disabled = !dated.length;
+    return dated.length;
   } catch (e) {
     box.textContent = (en ? '⚠️ Could not load classes: ' : '⚠️ 수업 목록을 불러오지 못했습니다: ') + (e.message || e);
   }
 };
 window.endClassesRun = async function(){
   var en = _endEn(), box = $('endPreviewBox'), btn = $('endRunBtn');
-  if (!_endPlan.length) return;
+  /* (2026-10-16) 예전엔 «미리보기» 전에는 버튼이 회색으로 잠겨 «눌러도 아무 일 없음» 으로 보였다.
+     이제 미리보기를 안 했으면 여기서 먼저 목록을 불러와 보여 준 뒤 확인을 받는다. */
+  if (!_endPlan.length) {
+    await window.endClassesPreview();
+    if (!_endPlan.length) return;   // 내릴 수업이 없거나 불러오지 못함 — 이유는 미리보기 칸에 적혀 있다
+  }
   if (!confirm(en ? 'End ' + _endPlan.length + ' class(es)? You can undo right after.' : _endPlan.length + '건의 수업을 종료할까요? 바로 아래에서 되돌릴 수 있습니다.')) return;
   if (btn) btn.disabled = true;
   var reason = ($('endReason').value || '').trim() || (en ? 'End classes (student page)' : '수업 종료 (학생 상세)');
@@ -2476,6 +2486,7 @@ window.endClassesRun = async function(){
   }
   if (done.length) _endSaveBatch({ at: Date.now(), items: done });
   _endPlan = [];
+  if (btn) btn.disabled = false;
   box.innerHTML = '<b>' + (en ? '✅ Ended ' + done.length + ' class(es).' : '✅ ' + done.length + '건 종료했습니다.') + '</b>'
     + (fail ? ' <span style="color:#b91c1c">' + (en ? fail + ' failed — try again.' : fail + '건 실패 — 다시 시도하세요.') + '</span>' : '');
   renderEndUndo();
@@ -2504,6 +2515,26 @@ window.endClassesUndo = async function(){
   $('endPreviewBox').textContent = msg;
   try { if (typeof loadAiSchedules === 'function') loadAiSchedules(); } catch (_) {}
   try { if (typeof loadDStudentSchedule === 'function') loadDStudentSchedule(); } catch (_) {}
+};
+
+window.undoExtension = async function(id) {
+  const en = _lang==='en';
+  if (!confirm(en ? 'Undo this extension? The end date goes back to the previous value.' : '이 연장을 되돌릴까요? 종료일이 이전 값으로 돌아갑니다.')) return;
+  try {
+    const r = await fetch('/api/admin/student/'+encodeURIComponent(uid)+'/extend', {
+      method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'undo', id })
+    });
+    const j = await r.json().catch(()=>({}));
+    if (r.ok && j.ok) {
+      toast((en ? 'Undone — end date: ' : '되돌림 완료 — 종료일: ') + (j.restored_end_date || '—'));
+      await loadFull();
+    } else {
+      const W = en ? { not_latest:'only the most recent extension can be undone', nothing_to_undo:'nothing to undo' }
+                   : { not_latest:'가장 최근 연장만 되돌릴 수 있습니다', nothing_to_undo:'되돌릴 연장이 없습니다' };
+      toast(t('saveFailed') + ': ' + (W[j.error] || j.error || r.status), true);
+    }
+  } catch (e) { toast(t('netError'), true); }
 };
 
 window.extendBy = async function(months) {

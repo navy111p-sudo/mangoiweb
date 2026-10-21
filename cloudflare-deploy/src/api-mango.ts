@@ -4657,6 +4657,39 @@ ${numbered}`;
         const uid = decodeURIComponent(m[1]);
         const b = await parseJsonBody(request);
         if (!b) return invalidBody(['months or new_end_date']);
+        // (2026-10-16) 되돌리기용 칸 — 지연 ALTER(있으면 조용히 실패).
+        try { await env.DB.exec(`ALTER TABLE student_extensions ADD COLUMN prev_enroll_ended_at TEXT`); } catch {}
+        try { await env.DB.exec(`ALTER TABLE student_extensions ADD COLUMN undone_at INTEGER`); } catch {}
+
+        /* ↩ (2026-10-16 매니저 요청) 실수로 누른 연장 되돌리기 — body { action:'undo', id }.
+           «가장 최근의, 아직 안 되돌린» 연장 하나만 되돌린다(중간 것을 되돌리면 뒤 연장의 기준이 어긋난다).
+           ⛔ 이력 행은 지우지 않고 undone_at 만 찍는다(감사 기록 보존).
+           ⚠️ 2026-10-16 전에 한 연장은 enrollments.ended_at 의 이전 값이 기록돼 있지 않아 그쪽은 손대지 않는다. */
+        if (b.action === 'undo') {
+          const last = await env.DB.prepare(
+            `SELECT id, prev_end_date, prev_enroll_ended_at FROM student_extensions
+             WHERE user_id = ? AND undone_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 1`
+          ).bind(uid).first<any>();
+          if (!last) return json({ ok: false, error: 'nothing_to_undo' }, 404);
+          if (Number(b.id) !== Number(last.id)) return json({ ok: false, error: 'not_latest' }, 409);
+          await env.DB.prepare(
+            `UPDATE students_erp SET end_date = ?, updated_at = ? WHERE ${ERP_BY_UID}`
+          ).bind(last.prev_end_date || null, Date.now(), ...erpUidBinds(uid)).run();
+          let enrollRestored = 0;
+          if (last.prev_enroll_ended_at != null) {
+            let prevMap: Record<string, number | null> = {};
+            try { prevMap = JSON.parse(String(last.prev_enroll_ended_at)) || {}; } catch (e) { console.warn('[extend-undo] prev_enroll_ended_at parse', (e as any)?.message); }
+            for (const [eid, v] of Object.entries(prevMap)) {
+              await env.DB.prepare(`UPDATE enrollments SET ended_at = ?, updated_at = ? WHERE id = ? AND student_user_id = ?`)
+                .bind(v == null ? null : Number(v), Date.now(), Number(eid), uid).run();
+              enrollRestored++;
+            }
+          }
+          await env.DB.prepare(`UPDATE student_extensions SET undone_at = ? WHERE id = ? AND undone_at IS NULL`)
+            .bind(Date.now(), last.id).run();
+          return json({ ok: true, undone_id: last.id, restored_end_date: last.prev_end_date || null,
+                        enroll_restored: enrollRestored, enroll_unknown: last.prev_enroll_ended_at == null });
+        }
 
         // 현재 end_date 조회
         const cur = await env.DB.prepare(
@@ -4686,6 +4719,17 @@ ${numbered}`;
            WHERE ${ERP_BY_UID}`
         ).bind(newEnd, Date.now(), ...erpUidBinds(uid)).run();
 
+        // 되돌리기용: 바꾸기 전 enrollments.ended_at 을 기억해 둔다 ({id: ended_at}).
+        let prevEnrollJson: string | null = null;
+        try {
+          const pe = await env.DB.prepare(
+            `SELECT id, ended_at FROM enrollments WHERE student_user_id = ? AND (status = 'pending' OR status = 'confirmed' OR status IS NULL)`
+          ).bind(uid).all<any>();
+          const mp: Record<string, number | null> = {};
+          for (const r of (pe.results || [])) mp[String(r.id)] = r.ended_at == null ? null : Number(r.ended_at);
+          prevEnrollJson = JSON.stringify(mp);
+        } catch (e) { console.warn('[extend] prev enrollments snapshot', (e as any)?.message); }
+
         // enrollments 도 함께 연장 (활성 행 1개) — KST 기준 종료시각 ms
         const newEndMs = new Date(newEnd + 'T23:59:59+09:00').getTime();
         await env.DB.prepare(
@@ -4695,8 +4739,8 @@ ${numbered}`;
 
         // 연장 로그 기록
         await env.DB.prepare(
-          `INSERT INTO student_extensions (user_id, prev_end_date, new_end_date, months_added, reason, created_by, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO student_extensions (user_id, prev_end_date, new_end_date, months_added, reason, created_by, created_at, prev_enroll_ended_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
           uid,
           cur?.end_date || null,
@@ -4704,7 +4748,8 @@ ${numbered}`;
           months || null,
           b.reason || null,
           b.created_by || 'admin',
-          Date.now()
+          Date.now(),
+          prevEnrollJson
         ).run();
 
         return json({
