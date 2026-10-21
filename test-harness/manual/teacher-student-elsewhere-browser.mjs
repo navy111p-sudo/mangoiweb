@@ -72,8 +72,16 @@ function makeClass(over) {
   }, over || {});
 }
 const S = { cls: makeClass(), lang: 'ko', portalHits: 0, nav: [], scope: 'hq' };
+function fixtureWeek() {
+  const monday = new Date(KST_TODAY + 'T00:00:00Z');
+  monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+  return { start: monday.toISOString().slice(0, 10), days: Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday); d.setUTCDate(d.getUTCDate() + i);
+    return { date: d.toISOString().slice(0, 10), classes: [] };
+  }) };
+}
 function portalPayload() {
-  return { ok: true, now: Date.now(), today: KST_TODAY,
+  return { ok: true, now: Date.now(), today: KST_TODAY, week: fixtureWeek(),
     me: { name: 'Kaye', username: 'mangoi_001', lang: S.lang },
     classes: [S.cls], upcoming: [], notices: [], resources: [], rating: {} };
 }
