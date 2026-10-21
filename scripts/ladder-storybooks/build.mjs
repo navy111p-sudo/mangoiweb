@@ -10,6 +10,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadLadder, validate, DATA_DIR } from './validate.mjs';
 import { STYLES } from './styles.mjs';
+import { buildGallery } from './gallery.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -251,4 +252,6 @@ if (process.argv[1] && process.argv[1].endsWith('build.mjs')) {
   const books = Object.fromEntries(files.map((id) => [id, JSON.parse(readFileSync(join(DATA_DIR, id + '.json'), 'utf8')).img.style]));
   const styles = Object.fromEntries(Object.entries(STYLES).map(([key, value]) => [key, {ko: value.ko, en: value.en, emoji: value.emoji}]));
   writeFileSync(join(PUB, 'js', 'reading-ladder-art.js'), '/* Generated from the picture-book style canon. */\nwindow.READING_LADDER_ART=' + J({books, styles}) + ';\n');
+  const galleryData = Object.fromEntries(files.map(id => [id, JSON.parse(readFileSync(join(DATA_DIR, id + '.json'), 'utf8'))]));
+  writeFileSync(join(PUB, 'story-cover-gallery.html'), buildGallery(L.passages, galleryData));
 }
