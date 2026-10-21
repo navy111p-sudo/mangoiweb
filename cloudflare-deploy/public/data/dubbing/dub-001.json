@@ -8,6 +8,7 @@
   "level": 1,
   "status": "preview",
   "timing": "provisional",
+  "palette": "adventure",
   "note": {
     "ko": "원어민 목소리는 임시 AI 음성이에요 · 대사는 장면 순서대로 차례차례 나와요",
     "en": "Native voices are temporary AI voices · lines come one by one in scene order"
@@ -54,6 +55,26 @@
         "ko": "새 친구 렉스"
       },
       "arc": "ki",
+      "mood": "bright",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "chime"
+        },
+        {
+          "line": 2,
+          "name": "stomp"
+        },
+        {
+          "line": 4,
+          "name": "whoosh"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "sparkle"
+        }
+      ],
       "video": "/media/dubbing/dub-001/scene-1.mp4",
       "poster": "/media/dubbing/dub-001/scene-1.jpg",
       "durationSec": 30,
@@ -118,6 +139,26 @@
         "ko": "반짝이는 나침반"
       },
       "arc": "seung",
+      "mood": "wonder",
+      "sfx": [
+        {
+          "line": 2,
+          "name": "magic"
+        },
+        {
+          "line": 3,
+          "name": "sparkle"
+        },
+        {
+          "line": 4,
+          "name": "whoosh"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "magic"
+        }
+      ],
       "video": "/media/dubbing/dub-001/scene-2.mp4",
       "poster": "/media/dubbing/dub-001/scene-2.jpg",
       "durationSec": 45,
@@ -182,6 +223,33 @@
         "ko": "공룡 숲으로"
       },
       "arc": "seung",
+      "mood": "wonder",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "birds"
+        },
+        {
+          "line": 3,
+          "name": "rustle"
+        },
+        {
+          "line": 6,
+          "name": "heartbeat",
+          "gain": 0.8
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "stomp"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "roar",
+          "gain": 0.8
+        }
+      ],
       "video": "/media/dubbing/dub-001/scene-3.mp4",
       "poster": "/media/dubbing/dub-001/scene-3.jpg",
       "durationSec": 45,
@@ -246,6 +314,27 @@
         "ko": "아기 공룡을 도와요"
       },
       "arc": "jeon",
+      "mood": "sad",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "squeak"
+        },
+        {
+          "line": 4,
+          "when": "after",
+          "mood": "tense"
+        },
+        {
+          "line": 5,
+          "name": "rumble",
+          "gain": 0.8
+        },
+        {
+          "line": 6,
+          "name": "boing"
+        }
+      ],
       "video": "/media/dubbing/dub-001/scene-4.mp4",
       "poster": "/media/dubbing/dub-001/scene-4.jpg",
       "durationSec": 45,
@@ -310,6 +399,28 @@
         "ko": "엄마를 찾았어요"
       },
       "arc": "jeon",
+      "mood": "tense",
+      "sfx": [
+        {
+          "line": 3,
+          "when": "after",
+          "name": "stomp"
+        },
+        {
+          "line": 4,
+          "name": "roar"
+        },
+        {
+          "line": 4,
+          "when": "after",
+          "mood": "warm"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "tada"
+        }
+      ],
       "video": "/media/dubbing/dub-001/scene-5.mp4",
       "poster": "/media/dubbing/dub-001/scene-5.jpg",
       "durationSec": 45,
@@ -374,6 +485,26 @@
         "ko": "교실로 돌아와 깜짝 선물"
       },
       "arc": "gyeol",
+      "mood": "triumph",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "magic"
+        },
+        {
+          "line": 3,
+          "when": "after",
+          "name": "clap"
+        },
+        {
+          "line": 5,
+          "name": "sparkle"
+        },
+        {
+          "at": "end",
+          "name": "fanfare"
+        }
+      ],
       "video": "/media/dubbing/dub-001/scene-6.mp4",
       "poster": "/media/dubbing/dub-001/scene-6.jpg",
       "durationSec": 30,

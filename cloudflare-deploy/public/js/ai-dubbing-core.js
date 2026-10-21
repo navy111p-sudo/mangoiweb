@@ -41,6 +41,82 @@
     return { ko: s, en: s };
   }
 
+  /* 🎵 소리 이름 목록(정본) — 화면 엔진(js/ai-dubbing-sound.js)의 목록과 «같은 말» 을 해야 한다(하니스 ⑪ 대조).
+   * 매니페스트(선택): episode.palette · scene.mood · scene.sfx[] — 규격은 docs/A.i영화더빙_화면연동_설명서.md 1-5절.
+   * ⚠️ 모르는 이름은 problems 에 적고 그 신호만 버린다(재생은 그대로 — 소리 하나 때문에 장면을 막지 않는다). */
+  var SOUND_MOODS = ['bright', 'wonder', 'mystery', 'tense', 'action', 'sad', 'warm', 'triumph', 'calm'];
+  var SOUND_PALETTES = ['adventure', 'space', 'jungle', 'sea', 'robot', 'cinematic'];
+  var SOUND_SFX = ['stomp', 'boing', 'sparkle', 'magic', 'whoosh', 'birds', 'roar', 'squeak', 'rumble', 'tada', 'clap',
+    'fanfare', 'beep', 'engine', 'rocket', 'alarm', 'zap', 'powerup', 'crack', 'swing', 'rustle', 'drumroll', 'purr',
+    'creak', 'crash', 'cheer', 'waves', 'horn', 'chime', 'wind', 'camera', 'heartbeat', 'thunder', 'pop'];
+  /* 기승전결(arc) → 분위기 기본값. mood 를 밝히면 그것이 이긴다 */
+  var ARC_MOOD = { ki: 'bright', seung: 'wonder', jeon: 'tense', gyeol: 'triumph' };
+
+  /* 효과음 신호 하나 = { slot:'start'|'end'|'line'|'time', line(0부터)|null, when:'before'|'after', t|null, name, mood, gain }
+   * 매니페스트에서 line 은 «1부터»(사람이 세는 번호 — id 의 l1 과 같다), 정리하면 0부터. */
+  function normCues(raw, no, nLines, problems) {
+    var out = [];
+    (Array.isArray(raw) ? raw : []).forEach(function (c, k) {
+      c = c || {};
+      var tag = 'scene' + no + ':sfx' + (k + 1);
+      var name = trim(c.name).toLowerCase(), mood = trim(c.mood).toLowerCase();
+      if (name && SOUND_SFX.indexOf(name) < 0) { problems.push(tag + ':unknown_sfx:' + name); return; }
+      if (mood && SOUND_MOODS.indexOf(mood) < 0) { problems.push(tag + ':unknown_mood:' + mood); return; }
+      if (!name && !mood) { problems.push(tag + ':empty'); return; }
+      var cue = { slot: '', line: null, when: 'before', t: null, name: name, mood: mood,
+        gain: isNum(c.gain) ? Math.max(0.1, Math.min(1.5, c.gain)) : 1 };
+      var at = trim(c.at).toLowerCase();
+      if (at === 'start' || at === 'end') cue.slot = at;
+      else if (isNum(c.line)) {
+        if (c.line < 1 || c.line > nLines || Math.floor(c.line) !== c.line) { problems.push(tag + ':bad_line'); return; }
+        cue.slot = 'line'; cue.line = c.line - 1;
+        cue.when = trim(c.when).toLowerCase() === 'after' ? 'after' : 'before';
+      } else if (isNum(c.t) && c.t >= 0) { cue.slot = 'time'; cue.t = c.t; }
+      else { problems.push(tag + ':no_slot'); return; }
+      out.push(cue);
+    });
+    return out;
+  }
+
+  /* 그 자리에서 울릴 신호들 — slot 'start'|'end' 또는 ('line', 대사번호, 'before'|'after') */
+  function sceneCues(sc, slot, lineIdx, when) {
+    return ((sc && sc.sfx) || []).filter(function (c) {
+      if (c.slot !== slot) return false;
+      if (slot === 'line') return c.line === lineIdx && c.when === (when || 'before');
+      return true;
+    });
+  }
+  /* 동기(synced) 장면에서 그 신호가 울릴 «영상 시각(초)» — 알 수 없으면 null */
+  function cueTime(sc, cue) {
+    if (!sc || !cue) return null;
+    if (cue.slot === 'time') return cue.t;
+    if (cue.slot === 'start') return 0;
+    if (cue.slot === 'end') {
+      if (isNum(sc.durationSec)) return Math.max(0, sc.durationSec - 0.6);
+      var last = sc.lines[sc.lines.length - 1];
+      return last && isNum(last.end) ? last.end + 0.3 : null;
+    }
+    if (cue.slot === 'line') {
+      var l = sc.lines[cue.line];
+      if (!l) return null;
+      var v = cue.when === 'after' ? l.end : l.start;
+      return isNum(v) ? (cue.when === 'after' ? v : Math.max(0, v - 0.15)) : null;
+    }
+    return null;
+  }
+
+  /* 동기(synced) 장면에서 «영상 시각» 이 정해지는 신호들 — [{ cue, at }] 시각 순(같은 시각은 적힌 순서).
+   * 시각을 알 수 없는 신호(차례 모드의 'time' 등)는 빠진다. 더빙·먼저 보기가 같은 이 목록으로 울린다. */
+  function timedCues(sc) {
+    var out = [];
+    ((sc && sc.sfx) || []).forEach(function (c, k) {
+      var at = cueTime(sc, c);
+      if (at != null) out.push({ cue: c, at: at, k: k });
+    });
+    out.sort(function (a, b) { return (a.at - b.at) || (a.k - b.k); });
+    return out.map(function (x) { return { cue: x.cue, at: x.at }; });
+  }
+
   /* 에피소드 매니페스트를 검사·정리한다.
    * → { ok, episode, problems[] }  — problems 가 있어도 «재생할 수 있는 만큼» 은 돌려준다.
    *   ok=false 는 «한 장면도 재생할 수 없다» 는 뜻이다. */
@@ -100,9 +176,15 @@
         var u = resolveUrl(rv[k], baseUrl);
         if (chars[cid] && u) voices[cid] = u;
       });
+      var arc = trim(s.arc).toLowerCase();
+      var mood = trim(s.mood).toLowerCase();
+      if (mood && SOUND_MOODS.indexOf(mood) < 0) { problems.push('scene' + no + ':unknown_mood:' + mood); mood = ''; }
       scenes.push({
         no: no,
         label: pair(s.label, 'Scene ' + no),
+        arc: ARC_MOOD[arc] ? arc : '',
+        mood: mood || ARC_MOOD[arc] || 'bright',          // 배경음악 분위기(장면 bgm 파일이 있으면 그 파일이 이긴다)
+        sfx: normCues(s.sfx, no, lines.length, problems),  // 효과음·분위기 바꾸기 신호
         video: video,
         poster: resolveUrl(s.poster, baseUrl),   // 장면 카드·영상 첫 화면(없으면 빈 값 — 화면이 이모지로 대신 그린다)
         durationSec: dur,
@@ -121,6 +203,9 @@
       sc.voiceMode = (sc.timing === 'synced' && sceneHasAllStems(sc)) ? 'stems' : 'tts';
     });
 
+    var palette = trim(raw.palette).toLowerCase();
+    if (palette && SOUND_PALETTES.indexOf(palette) < 0) { problems.push('unknown_palette:' + palette); palette = ''; }
+    palette = palette || 'adventure';
     var playableScenes = scenes.filter(function (s) { return s.video && s.lines.length; });
     var episode = {
       id: trim(raw.id) || 'episode',
@@ -128,6 +213,7 @@
       status: trim(raw.status) || 'preview',
       level: isNum(raw.level) ? raw.level : null,
       note: pair(raw.note, ''),
+      palette: palette,
       characters: chars,
       playable: playable,
       timingDeclared: timingDeclared,
@@ -274,6 +360,12 @@
     lineIndexAt: lineIndexAt,
     summarize: summarize,
     ttsSpeakerFor: ttsSpeakerFor,
+    SOUND_MOODS: SOUND_MOODS,
+    SOUND_PALETTES: SOUND_PALETTES,
+    SOUND_SFX: SOUND_SFX,
+    sceneCues: sceneCues,
+    cueTime: cueTime,
+    timedCues: timedCues,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.MangoiDubCore = api;

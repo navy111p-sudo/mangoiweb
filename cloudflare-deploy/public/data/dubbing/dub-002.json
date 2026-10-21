@@ -8,6 +8,7 @@
   "level": 1,
   "status": "preview",
   "timing": "provisional",
+  "palette": "space",
   "note": {
     "ko": "원어민 목소리는 임시 AI 음성이에요 · 대사는 장면 순서대로 차례차례 나와요",
     "en": "Native voices are temporary AI voices · lines come one by one in scene order"
@@ -64,6 +65,30 @@
         "en": "A Signal from Space"
       },
       "arc": "ki",
+      "mood": "mystery",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "beep"
+        },
+        {
+          "line": 1,
+          "name": "sparkle"
+        },
+        {
+          "line": 3,
+          "name": "engine"
+        },
+        {
+          "line": 4,
+          "name": "beep"
+        },
+        {
+          "line": 8,
+          "when": "after",
+          "name": "chime"
+        }
+      ],
       "video": "/media/dubbing/dub-002/scene-1.mp4",
       "poster": "/media/dubbing/dub-002/scene-1.jpg",
       "durationSec": 45,
@@ -144,6 +169,28 @@
         "en": "The Secret Spaceship"
       },
       "arc": "seung",
+      "mood": "wonder",
+      "sfx": [
+        {
+          "line": 1,
+          "name": "magic"
+        },
+        {
+          "line": 3,
+          "when": "after",
+          "name": "beep"
+        },
+        {
+          "line": 8,
+          "when": "after",
+          "name": "rocket"
+        },
+        {
+          "line": 8,
+          "when": "after",
+          "mood": "action"
+        }
+      ],
       "video": "/media/dubbing/dub-002/scene-2.mp4",
       "poster": "/media/dubbing/dub-002/scene-2.jpg",
       "durationSec": 45,
@@ -224,6 +271,26 @@
         "en": "The Broken Controls"
       },
       "arc": "seung",
+      "mood": "tense",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "alarm"
+        },
+        {
+          "line": 3,
+          "name": "zap"
+        },
+        {
+          "line": 4,
+          "name": "alarm"
+        },
+        {
+          "line": 8,
+          "when": "after",
+          "name": "powerup"
+        }
+      ],
       "video": "/media/dubbing/dub-002/scene-3.mp4",
       "poster": "/media/dubbing/dub-002/scene-3.jpg",
       "durationSec": 45,
@@ -304,6 +371,23 @@
         "en": "Pip's Secret"
       },
       "arc": "jeon",
+      "mood": "sad",
+      "sfx": [
+        {
+          "line": 1,
+          "name": "sparkle"
+        },
+        {
+          "line": 4,
+          "when": "after",
+          "mood": "warm"
+        },
+        {
+          "line": 8,
+          "when": "after",
+          "name": "chime"
+        }
+      ],
       "video": "/media/dubbing/dub-002/scene-4.mp4",
       "poster": "/media/dubbing/dub-002/scene-4.jpg",
       "durationSec": 30,
@@ -384,6 +468,46 @@
         "en": "Escape the Vortex"
       },
       "arc": "jeon",
+      "mood": "action",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "wind"
+        },
+        {
+          "at": "start",
+          "name": "alarm",
+          "gain": 0.6
+        },
+        {
+          "line": 2,
+          "when": "after",
+          "name": "zap"
+        },
+        {
+          "line": 3,
+          "when": "after",
+          "name": "beep"
+        },
+        {
+          "line": 4,
+          "when": "after",
+          "name": "powerup"
+        },
+        {
+          "line": 6,
+          "name": "rumble"
+        },
+        {
+          "line": 7,
+          "mood": "triumph"
+        },
+        {
+          "line": 8,
+          "when": "after",
+          "name": "tada"
+        }
+      ],
       "video": "/media/dubbing/dub-002/scene-5.mp4",
       "poster": "/media/dubbing/dub-002/scene-5.jpg",
       "durationSec": 45,
@@ -464,6 +588,26 @@
         "en": "Back to Earth"
       },
       "arc": "gyeol",
+      "mood": "triumph",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "whoosh"
+        },
+        {
+          "line": 5,
+          "name": "pop"
+        },
+        {
+          "line": 7,
+          "name": "crack"
+        },
+        {
+          "line": 8,
+          "when": "after",
+          "name": "fanfare"
+        }
+      ],
       "video": "/media/dubbing/dub-002/scene-6.mp4",
       "poster": "/media/dubbing/dub-002/scene-6.jpg",
       "durationSec": 30,
