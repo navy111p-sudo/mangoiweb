@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», use a fact from the text to make your reason clear. (e.g. because the sea pulls back before a tsunami)"
   },
   "img": {
+    "style": "webtoon",
     "cover": "A tropical beach lined with palm trees where the sea has pulled far back from the shore, leaving wide shining wet sand, rocks and seaweed exposed, while a long white wall of water rises on the horizon under a pale sky",
     "scenes": {
       "1": "A family seen from behind hurrying up a sandy path away from the beach toward palm trees and higher ground, the father waving his arm to call other tourists to follow, with the sea pulled far back in the distance",
       "3": "A classroom earthquake drill: students crouching under sturdy wooden desks, covering their heads with one arm and holding on to the desk legs with the other hand"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

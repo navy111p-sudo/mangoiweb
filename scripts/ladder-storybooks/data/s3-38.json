@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because bats can fly in the dark)"
   },
   "img": {
+    "style": "photo",
     "cover": "A bat flying through the dark night sky with its wings spread wide and its mouth open, chasing a small pale moth",
     "scenes": {
       "2": "A flock of geese flying in a long V shape high above rivers and fields at sunrise",
       "3": "A platypus swimming underwater with its eyes closed, its flat duck-like bill searching along a pebbly riverbed"
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
     }
   },
   "alt": {

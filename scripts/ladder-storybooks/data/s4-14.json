@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write what could go wrong. (e.g. because a chatbot can make up facts)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "A teenager at a laptop in a dim room, leaning toward the softly glowing screen with a thoughtful face lit by its light, one hand resting on the keyboard",
     "scenes": {
       "1": "A person in 1950s clothing seen from behind, typing at an old teleprinter terminal in a wood-paneled room, while through a glass window a large vintage computer cabinet of switches and blinking lights fills the next room",
       "2": "A person sitting alone at a small desk in a closed, plain room, looking puzzled at a thick closed book, while a blank white card slides in through a narrow slot in the door"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

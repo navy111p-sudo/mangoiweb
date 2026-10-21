@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «It is important to», write a verb (wash, listen). After «because», write who + what."
   },
   "img": {
+    "style": "brick",
     "cover": "A round silver robot with blue light eyes stands at a kitchen sink washing a tall pile of dishes, while a girl with a short black bob and a red sweater laughs beside it.",
     "scenes": {
       "1": "A round silver robot with blue light eyes takes clean plates out of an open cupboard and puts them into a soapy sink, while a girl with a short black bob in a red sweater looks surprised.",
       "2": "Heavy rain falls outside a house; a wet orange cat sits by the closed front door, and the round silver robot with blue light eyes watches through the window."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

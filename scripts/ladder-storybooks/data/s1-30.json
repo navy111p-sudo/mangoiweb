@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "fairytale",
     "cover": "Deep under the clear blue sea, a girl with short curly brown hair in a red long-sleeved swim shirt, blue swim shorts and yellow goggles opens a giant clam and finds a glowing white pearl, while a little mermaid with long wavy purple hair, a pink ruffled top and a sparkly teal fish tail claps with joy beside her among bright corals and little fish.",
     "scenes": {
       "1": "In the shallow blue water near a sunny beach, a little mermaid with long wavy purple hair, a pink ruffled top and a sparkly teal fish tail sits on a rock with tears in her eyes and holds out her empty hands, and a girl with short curly brown hair in a red long-sleeved swim shirt, blue swim shorts and yellow goggles takes a big breath and dives down under the water.",
       "2": "Under the clear blue sea, a girl with short curly brown hair in a red long-sleeved swim shirt, blue swim shorts and yellow goggles hands a glowing white pearl from a big open clam to a little mermaid with long wavy purple hair, a pink ruffled top and a sparkly teal fish tail, who smiles and waves goodbye as she swims home."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

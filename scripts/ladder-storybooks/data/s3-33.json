@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what to make the result clear. (e.g. so that everyone stays safe)"
   },
   "img": {
+    "style": "photo",
     "cover": "A bright, branching bolt of lightning striking down from dark purple storm clouds over a wide open field at night, lighting up the grass below",
     "scenes": {
       "1": "A towering dark storm cloud with a flat, spreading top rising high over flat farmland, with a jagged bolt of lightning linking the bottom of the cloud to the ground",
       "2": "A child seen from behind standing safely indoors at a rain-streaked window, counting on her fingers as a flash of lightning lights up distant hills"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

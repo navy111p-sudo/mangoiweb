@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «but I can», write a verb + how. (e.g. but I can try a different way)"
   },
   "img": {
+    "style": "pixel",
     "cover": "In a huge stone castle hall, a ten-year-old boy with messy brown hair, freckles, a green hoodie and red sneakers jumps to the right just in time, as a big purple dragon with orange spikes on its back and round yellow eyes turns its head to the left and puffs a cloud of orange fire at the empty floor.",
     "scenes": {
       "1": "In a dark bedroom late at night, a ten-year-old boy with messy brown hair, freckles, a green hoodie and red sneakers is pulled toward a flashing computer screen in a swirl of bright blue light, and his game controller flies out of his hands.",
       "3": "Inside the castle, a ten-year-old boy with messy brown hair, freckles, a green hoodie and red sneakers sits on the floor behind a stone pillar, takes a deep breath and carefully watches a big purple dragon with orange spikes on its back and round yellow eyes, which looks to the left before it breathes fire."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

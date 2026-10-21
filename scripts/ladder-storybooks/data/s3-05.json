@@ -291,15 +291,21 @@
     ]
   },
   "img": {
-    "cover": "The large golden statue of King Sejong the Great seated on a throne in Gwanghwamun Square in Seoul under a blue sky",
+    "style": "minhwa",
+    "cover": "King Sejong the Great of Joseon in a red royal robe embroidered with a golden dragon, sitting at a low wooden desk in his palace study with two scholars in blue robes, looking kindly at blank rice paper, brushes and an ink stone, a painted screen of mountains and pine trees behind them",
     "scenes": {
       "1": "A traditional writing brush, an ink stone, and blank rice paper on a low wooden desk in a Joseon-era style room",
       "3": "Korean elementary school students in a bright classroom writing in their notebooks while a teacher walks between the desks, seen from a distance"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {
     "1": "An old brush and ink stone on a desk",
     "3": "Students writing in a classroom",
-    "cover": "The statue of King Sejong in Seoul"
+    "cover": "King Sejong with scholars at a palace desk"
   }
 }

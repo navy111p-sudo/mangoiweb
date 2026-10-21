@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because friends help each other)"
   },
   "img": {
+    "style": "anime",
     "cover": "A faceless conductor steps down from a green steam train with black windows on a foggy platform at midnight.",
     "scenes": {
       "1": "Four students hold hands and join their lights to break chains of fog around a silver boy.",
       "3": "A kind old conductor checks two tickets as the headmistress and a silver boy board the train."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

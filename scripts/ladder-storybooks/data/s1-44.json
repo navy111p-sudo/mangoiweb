@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
   },
   "img": {
+    "style": "comic",
     "cover": "High in the blue sky above a quiet neighborhood, Grandma, a small old woman with curly gray hair in a bun, wearing a purple cardigan and a long green skirt, flies like a superhero with one arm stretched forward, holding a fluffy orange cat with white paws safely in her other arm, while a young girl with a short black bob in a red T-shirt cheers from the ground.",
     "scenes": {
       "1": "In a backyard next to a very tall wooden pole with a fluffy orange cat with white paws sitting at the very top, Grandma, a small old woman with curly gray hair in a bun, wearing a purple cardigan and a long green skirt, takes off her round glasses and starts to lift off the ground, as a young girl with a short black bob in a red T-shirt stares with her mouth open.",
       "2": "In a cozy living room, Grandma, a small old woman with curly gray hair in a bun, wearing a purple cardigan and a long green skirt, sits in an armchair with a ball of red yarn and her knitting, winking and holding a finger to her lips, while a young girl with a short black bob in a red T-shirt points at her in surprise and a fluffy orange cat with white paws naps on her lap."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

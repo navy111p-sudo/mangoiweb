@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «before», write who + what. (e.g. before the bell rings)"
   },
   "img": {
+    "style": "flat",
     "cover": "Inside a school gym full of swirling snow, a girl with a curly brown ponytail and big safety goggles on her head in a green lab coat crawls toward a big boxy machine made of an old fan, a fridge part, and colorful wires, while laughing students slide across the snowy floor and three judges at a long table are covered in snow like snowmen.",
     "scenes": {
       "2": "In the snowy school gym, a girl with a curly brown ponytail and big safety goggles on her head in a green lab coat kneels in deep snow behind a big boxy machine made of an old fan, a fridge part, and colorful wires, opens a small back door, and points at one loose red wire among the colorful wires, while snowflakes swirl around her.",
       "3": "In the school gym, warm golden light shines from a big boxy machine made of an old fan, a fridge part, and colorful wires, the snow melts into shiny puddles, smiling students shake snow off their clothes, and a girl with a curly brown ponytail and big safety goggles on her head in a green lab coat sits beside the machine with a big relieved smile."
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
     }
   },
   "alt": {

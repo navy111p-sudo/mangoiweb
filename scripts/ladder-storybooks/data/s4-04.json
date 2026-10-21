@@ -292,10 +292,16 @@
     "moreEn": "One more step: after «because», write who could do what to make your reason clear. (e.g. because scientists could share their work)"
   },
   "img": {
-    "cover": "A museum reconstruction of a wooden fifteenth-century hand printing press in a dim workshop, with stacks of blank paper and a tray of small metal type pieces nearby",
+    "style": "vintage",
+    "cover": "A wooden fifteenth-century hand printing press in a busy candlelit workshop, two printers pulling its long lever, stacks of blank paper and a tray of small metal type pieces nearby",
     "scenes": {
       "1": "A close-up of a printer’s hands arranging tiny metal type pieces in a wooden tray on a workbench, seen at an angle so no letters can be read",
-      "2": "A historical reenactment of townspeople in fifteenth-century European clothing gathered in a cobblestone market square, some holding small closed leather-bound books"
+      "2": "Townspeople in fifteenth-century European clothing gathered in a cobblestone market square, some holding small closed leather-bound books"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

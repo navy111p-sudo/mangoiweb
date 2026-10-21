@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "cg3d",
     "cover": "On the gray Moon under a black starry sky with the small blue Earth far away, a young girl with a black ponytail in a white space suit with a red stripe and a clear round helmet jumps very high with both arms up and a big smile, leaving deep footprints in the dust below, next to a tall red and white rocket.",
     "scenes": {
       "1": "On the gray dusty Moon, a young girl with a black ponytail in a white space suit with a red stripe and a clear round helmet kneels and holds up a sparkling shiny rock with wide happy eyes, while a tall red and white rocket stands behind her and the small blue Earth glows in the black sky.",
       "2": "Inside a tall red and white rocket with a blinking red warning light on the control panel, a young girl with a black ponytail in a white space suit with a red stripe and a clear round helmet grips the controls with a brave face as the rocket zooms through space toward the big blue Earth."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», use a fact from the text to make your reason clear. (e.g. because early versions are often not fun)"
   },
   "img": {
+    "style": "pixel",
     "cover": "A team of game makers in a bright studio, seen from behind, gathered around large computer screens that show a colorful 3D game world with a hero leaping across a deep canyon",
     "scenes": {
       "1": "A digital artist’s desk with a drawing tablet and pen, a large monitor showing a gray 3D model of a game character being shaped, and paper sketches of characters pinned to the wall",
       "2": "Two game testers wearing headphones, seen from the side, playing a game with controllers in front of several screens in a quiet office"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

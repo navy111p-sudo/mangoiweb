@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «I want to», write a verb (eat, sleep, visit). After «because», write who + what."
   },
   "img": {
+    "style": "cg3d",
     "cover": "Inside a glowing pink tunnel inside a human body, a tiny yellow submarine with round windows races away from three huge fluffy white blobs, and through the windows a girl with a long black ponytail in a purple jumpsuit grips the steering wheel while a little boy with a round bowl haircut in a matching purple jumpsuit shouts with his mouth wide open.",
     "scenes": {
       "1": "Inside a glowing pink tunnel, round red discs that look like little red plates float past a tiny yellow submarine with round windows, where a girl with a long black ponytail in a purple jumpsuit and a little boy with a round bowl haircut in a matching purple jumpsuit press their faces to the glass in wonder.",
       "3": "In a bright lab, a girl with a long black ponytail in a purple jumpsuit smiles and points to a simple drawing of a smiling white blob chasing a little green germ on a board while a little boy with a round bowl haircut in a matching purple jumpsuit sits on the floor, still shaking, and a man with messy white hair in a long white lab coat laughs next to a tiny yellow submarine with round windows on a silver tray."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

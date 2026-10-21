@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because I love machines)"
   },
   "img": {
-    "cover": "A realistic full-size reconstruction of the 1903 Wright Flyer, a wooden biplane with cloth wings, lifting just above the sand on a windy beach while a man runs beside one wing",
+    "style": "vintage",
+    "cover": "The 1903 Wright Flyer, a wooden biplane with cloth wings, lifting just above the sand on a windy beach while a man in a cap and suit runs beside one wing",
     "scenes": {
       "1": "An old-fashioned bicycle workshop with tools on the wall, a bicycle on a stand, and a wooden glider wing frame on the workbench",
-      "2": "A replica of the Wright Flyer with its small engine and two wooden propellers, resting on a wooden launch rail on sand dunes near the sea"
+      "2": "The Wright Flyer with its small engine and two wooden propellers, resting on a wooden launch rail on sand dunes near the sea"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

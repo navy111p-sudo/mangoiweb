@@ -291,10 +291,16 @@
     ]
   },
   "img": {
+    "style": "papercut",
     "cover": "A river flowing into the sea under big white clouds, with green mountains and rain falling in the distance",
     "scenes": {
       "1": "Morning sunlight shining on a calm lake with thin mist rising from the water surface",
       "2": "Dark gray rain clouds over a green field with heavy rain falling from them"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

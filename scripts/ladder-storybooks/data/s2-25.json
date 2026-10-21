@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «If», write who + what they do. After «we can», start with a verb. (e.g. we can play together)"
   },
   "img": {
+    "style": "flat",
     "cover": "In a dark classroom with the lights out, a ten-year-old alien girl with light blue skin, short silver hair, big purple eyes and a yellow school sweater glows softly like a lamp and lights up the room, while her classmates follow her light toward the open door with relieved faces.",
     "scenes": {
       "1": "In a bright classroom, a ten-year-old alien girl with light blue skin, short silver hair, big purple eyes and a yellow school sweater floats a little above her chair at a desk by herself and happily chews on a yellow pencil, while classmates at the other desks stare at her in surprise.",
       "3": "In a sunny school lunchroom, a ten-year-old alien girl with light blue skin, short silver hair, big purple eyes and a yellow school sweater sits at a long table crowded with smiling classmates who squeeze in to sit next to her and share their lunches."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

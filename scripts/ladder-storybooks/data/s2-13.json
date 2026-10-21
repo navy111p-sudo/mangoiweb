@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because it has no friends)"
   },
   "img": {
+    "style": "brick",
     "cover": "At night in a messy garage, a ten-year-old Korean boy with short spiky black hair, round black glasses, a yellow hoodie and blue jeans and his older sister, a twelve-year-old Korean girl with a long black ponytail, a purple T-shirt and gray overalls lean over a homemade radio with blinking lights and a tall wire antenna, smiling and talking into a small microphone; through the open garage door, a sky full of stars shows a tiny purple planet where a small round green alien kid with big shiny black eyes, two short antennae and a little orange scarf waves back.",
     "scenes": {
       "1": "Late at night in the garage, a ten-year-old Korean boy with short spiky black hair, round black glasses, a yellow hoodie and blue jeans and his older sister, a twelve-year-old Korean girl with a long black ponytail, a purple T-shirt and gray overalls sit by a homemade radio with blinking lights; she draws rows of small dots and short lines in a notebook while he points through the window at a bright full Moon.",
       "2": "A split picture: on the left, in the dark garage, a ten-year-old Korean boy with short spiky black hair, round black glasses, a yellow hoodie and blue jeans hides behind his older sister, a twelve-year-old Korean girl with a long black ponytail, a purple T-shirt and gray overalls with wide scared eyes while the homemade radio glows; on the right, far away on a tiny purple planet, a small round green alien kid with big shiny black eyes, two short antennae and a little orange scarf sits alone on a rock, holding a little radio and looking sad."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

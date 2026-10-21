@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
   },
   "img": {
+    "style": "papercut",
     "cover": "In a green jungle full of huge leaves, Tara, a girl with a long brown braid, a green explorer hat, a khaki shirt and brown boots, hops across round stepping stones over a small river, following a bright red parrot with blue wing tips that flies just ahead of her.",
     "scenes": {
       "1": "Deep in the jungle, Tara, a girl with a long brown braid, a green explorer hat, a khaki shirt and brown boots, sits tired on a tree root and looks up with hope at a bright red parrot with blue wing tips that lands on a branch above her and flaps its wings.",
       "2": "At a jungle camp with green tents and a small campfire, Tara, a girl with a long brown braid, a green explorer hat, a khaki shirt and brown boots, runs out from under big leaves toward smiling grown-ups waving at her, while a bright red parrot with blue wing tips sits proudly on her shoulder."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

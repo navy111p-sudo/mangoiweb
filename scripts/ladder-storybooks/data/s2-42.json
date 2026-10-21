@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «so that», write who + what happens. (e.g. so that we finish on time)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "A small white spaceship swings around the glowing orange edge of a huge swirling black hole, and through the front window a young woman pilot with short silver hair in a red flight suit grips the controls while a round little robot with a dome head and blue blinking lights points ahead with one metal arm.",
     "scenes": {
       "1": "Inside the shaking cockpit of a small white spaceship, a young woman pilot with short silver hair in a red flight suit holds the controls tightly and a round little robot with a dome head and blue blinking lights holds on to a seat, while a cup and a pencil float in the air and a huge swirling black hole fills the front window.",
       "2": "On green grass beside a small white spaceship in a sunny town on Earth, a young woman pilot with short silver hair in a red flight suit hands a white medicine box to a smiling family, while a round little robot with a dome head and blue blinking lights carries a stack of boxes and its blue lights blink happily."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

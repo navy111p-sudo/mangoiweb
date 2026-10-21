@@ -292,10 +292,16 @@
     "moreEn": "One more step: after «If», write who + what; after «we can», start with a base verb. (e.g. If our school recycles paper, we can save many trees)"
   },
   "img": {
+    "style": "photo",
     "cover": "An elderly grandparent and two young children sitting together on a grassy hillside at sunset, looking out over a valley where rows of solar panels and tall white wind turbines stand among green forests",
     "scenes": {
       "1": "Thick grey smoke pouring from the tall chimneys of a coal power plant into a hazy orange sky, a long line of cars and trucks on a highway in front of it",
       "2": "Seawater flooding a coastal street lined with palm trees during a storm, waves crashing over a sea wall and parked cars standing in deep water"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

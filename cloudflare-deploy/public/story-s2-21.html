@@ -106,6 +106,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
   <header>
     <h1>The Boy Who Talked to Whales</h1>
     <div class="meta">
+      <span class="art-style" data-style="papercut" data-ko="✂️ 종이 공예" data-en="✂️ Paper cut">✂️ 종이 공예</span>
       <span>Step 2 · No. 21</span>
       <span data-ko="약 131단어" data-en="about 131 words">약 131단어</span>
       <span data-ko="10~15분" data-en="10–15 min">10~15분</span>
@@ -115,7 +116,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
 
   <div class="stampboard" id="stampBoard" aria-live="polite"></div>
 
-  <figure class="pic cover"><img src="img/story/s2-21-cover.webp" alt="A boy sings on the rocks as a gray whale rises from the sea." width="1024" height="688"></figure>
+  <figure class="pic cover"><img src="img/story/s2-21-cover.webp?v=2" alt="A boy sings on the rocks as a gray whale rises from the sea." width="1024" height="688"></figure>
 
   <section class="page story" id="story">
     <h2><span data-ko="① 읽고 듣기" data-en="① Read &amp; listen">① 읽고 듣기</span> <small id="ttsNote"></small></h2>
@@ -205,7 +206,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
   </section>
 
   <p class="note rev" data-ko="이 이야기는 망고아이 «영어 독서» 2단계 조금 긴 이야기 글입니다. 영어 독서 목록의 같은 글과 본문이 같고, 여기서는 그림책처럼 6가지 활동(읽고 듣기·핵심 문장·요점정리·낱말 게임·근거 찾기·바꿔 쓰기)으로 공부합니다." data-en="This story is from Mangoi English Reading, Step 2 Longer stories. The text is the same as in the reading list; here you study it with 6 storybook activities.">이 이야기는 망고아이 «영어 독서» 2단계 조금 긴 이야기 글입니다. 영어 독서 목록의 같은 글과 본문이 같고, 여기서는 그림책처럼 6가지 활동(읽고 듣기·핵심 문장·요점정리·낱말 게임·근거 찾기·바꿔 쓰기)으로 공부합니다.</p>
-  <p class="note" data-ko="삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그렸습니다." data-en="The illustrations were newly made for this story with Higgsfield AI.">삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그렸습니다.</p>
+  <p class="note" data-ko="삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그린 종이 공예 화풍입니다." data-en="The illustrations were newly made for this story with Higgsfield AI in the Paper cut style.">삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그린 종이 공예 화풍입니다.</p>
 </div>
 
 <style>
@@ -417,7 +418,7 @@ var StoryCore = (function(){
   function stop(){ playing = false; sumSeq = (sumSeq || 0) + 1; if (RT) RT.cancel(); try { if (synth) synth.cancel(); } catch(e){} try { spans.forEach(function(s){ s.classList.remove('reading'); }); } catch(e){} }   // 표시·번호를 먼저 내리고 멈춤 — 멈출 때 onend 가 곧바로 와도 다음 문장으로 안 넘어가고, 멈춘 문장은 «끝까지 들음» 으로 안 셈
 
   // ---- story ----
-  var SCENES = {"2":["img/story/s2-21-s2.webp","A boy sees storm clouds as the whale swims fast."],"3":["img/story/s2-21-s3.webp","A boy shouts at the harbor to call the boats back."]};
+  var SCENES = {"2":["img/story/s2-21-s2.webp?v=2","A boy sees storm clouds as the whale swims fast."],"3":["img/story/s2-21-s3.webp?v=2","A boy shouts at the harbor to call the boats back."]};
   var box = document.getElementById('text'), spans = [], picking = false, playing = false;
   STORY.forEach(function(par, pi){
     if (SCENES[pi]) { var f = document.createElement('figure'); f.className = 'scene'; f.innerHTML = '<img loading="lazy" width="1024" height="688" alt="' + SCENES[pi][1] + '" src="' + SCENES[pi][0] + '">'; box.appendChild(f); }

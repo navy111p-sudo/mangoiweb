@@ -16,6 +16,11 @@
    ═══════════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
+  function artBadge(p) {
+    var catalog = window.READING_LADDER_ART;
+    var style = catalog && catalog.styles[catalog.books[p.id]];
+    return style ? '<span class="rl-art">' + esc(style.emoji + ' ' + L(style)) + '</span>' : '';
+  }
 
   /* RL-CORE-START — DOM 없음. 하니스가 이 블록만 오려 내 실행한다. */
   var RLCore = {
@@ -365,7 +370,7 @@
         '<div class="rl-hero-top"><span class="rl-eyebrow">' + esc(stageName(meta) + T(' · ' + (i + 1) + '번', ' · No. ' + (i + 1))) + '</span>' + statusChip(s) + '</div>' +
         '<h2 lang="en">' + esc(p.title.en) + '</h2>' + (lang() === 'en' ? '' : '<p class="rl-hero-ko">' + esc(p.title.ko) + '</p>') +
         '<div class="rl-facts"><span>' + esc(L(p.topic)) + '</span><span>' + RLCore.wordCount(p) + esc(T('단어', ' words')) + '</span><span>' + esc(meta.cefr) +
-          '</span><span>' + esc(L(meta.grade)) + '</span><span>' + esc(p.genre === 'story' ? T('이야기', 'Story') : T('지식 글', 'Non-fiction')) + '</span>' + bookTag(p) + '</div>' +
+          '</span><span>' + esc(L(meta.grade)) + '</span><span>' + esc(p.genre === 'story' ? T('이야기', 'Story') : T('지식 글', 'Non-fiction')) + '</span>' + bookTag(p) + artBadge(p) + '</div>' +
         '<p class="rl-hero-bg">🧠 ' + esc(L(p.bg)) + '</p></div>' +
       '<div class="rl-how"><h3>' + esc(T('이렇게 읽어요', 'How it works')) + '</h3><ol>' + steps.map(function (x, n) {
         return '<li class="' + (x[0] ? 'done' : '') + '"><span class="rl-hn">' + (x[0] ? ICON.check : n + 1) + '</span><b>' + esc(x[1]) + '</b><p>' + esc(x[2]) + '</p></li>';

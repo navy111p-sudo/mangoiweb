@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «If», write who + what they do to make the condition clear. (e.g. If we keep the moss wet)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "A tardigrade seen through a microscope: a plump, see-through creature with eight stubby legs tipped with tiny claws, crawling along a bright green strand of moss",
     "scenes": {
       "1": "A close-up of soft green moss covered in tiny water drops, growing on an old stone wall beside a neighborhood sidewalk",
       "2": "A microscope view of a dried tardigrade curled up into a tiny wrinkled barrel-shaped ball, resting on a dry brown piece of moss"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

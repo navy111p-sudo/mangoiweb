@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "flat",
     "cover": "On a sunny school playground at recess, a big friendly green T. rex with tiny short arms and a wide happy smile gives a girl with two curly puffballs of hair in an orange T-shirt and jean overalls and three laughing classmates a ride on his back, while other kids cheer and wave.",
     "scenes": {
       "1": "In a bright classroom, a big friendly green T. rex with tiny short arms and a wide happy smile sits on the floor among small desks and holds a big pencil with the tip of his tail, while a girl with two curly puffballs of hair in an orange T-shirt and jean overalls helps guide the pencil across a giant sheet of paper, making a big wobbly line.",
       "2": "In a sunny school lunchroom, a big friendly green T. rex with tiny short arms and a wide happy smile happily munches a tall stack of sandwiches at a long table, while a girl with two curly puffballs of hair in an orange T-shirt and jean overalls and her classmates laugh and count them on their fingers."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

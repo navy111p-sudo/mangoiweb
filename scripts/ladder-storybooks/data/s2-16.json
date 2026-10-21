@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because she asks smart questions)"
   },
   "img": {
+    "style": "comic",
     "cover": "In a grand museum hall at night, an eleven-year-old Korean girl with a short black bob, a red headband, a brown checked coat and a small notebook points at the muddy, wet shoes of a tall museum guard in a navy blue uniform and cap, while party guests in fancy clothes gasp beside an empty glass box on a stand.",
     "scenes": {
       "1": "An eleven-year-old Korean girl with a short black bob, a red headband, a brown checked coat and a small notebook kneels on the shiny museum floor and draws in her small notebook next to a patch of wet brown mud near the empty glass box, while a tall museum guard in a navy blue uniform and cap stands nearby in dirty, wet shoes.",
       "3": "In the museum garden at night, a police officer lifts a flowerpot to show a sparkling blue diamond underneath, while an eleven-year-old Korean girl with a short black bob, a red headband, a brown checked coat and a small notebook smiles, party guests clap, and a tall museum guard in a navy blue uniform and cap looks down with a red face."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

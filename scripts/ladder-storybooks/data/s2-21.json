@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «I want to», write a verb (sing, visit, learn). After «because», write who + what."
   },
   "img": {
+    "style": "papercut",
     "cover": "On dark rocks by the sea at sunset, a nine-year-old Korean boy with neat short black hair, a navy blue raincoat, rolled-up gray pants and yellow rubber boots sings with his hands cupped around his mouth, while a huge gray whale with white spots on its back and kind dark eyes rises out of the waves nearby and sprays a tall fountain of water into the orange sky.",
     "scenes": {
       "2": "At dusk, a nine-year-old Korean boy with neat short black hair, a navy blue raincoat, rolled-up gray pants and yellow rubber boots stands on the rocks and stares at huge dark storm clouds rolling over the sea, while a huge gray whale with white spots on its back and kind dark eyes swims in fast circles nearby and small fishing boats look like tiny dots far away.",
       "3": "At the busy harbor under a dark, windy sky, a nine-year-old Korean boy with neat short black hair, a navy blue raincoat, rolled-up gray pants and yellow rubber boots shouts with all his might, and villagers in raincoats hurry to a radio in a small wooden hut as the fishing boats sail back home."
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
     }
   },
   "alt": {
