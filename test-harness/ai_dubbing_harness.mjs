@@ -334,6 +334,16 @@ for (const epId of ['dub-003']) {
   const noteTxt = r3 && r3.note ? String(r3.note.ko || '') + ' ' + String(r3.note.en || '') : '';
   check('⑥-9d dub-003 안내가 영상을 «그림이 움직이는 미리보기» 라고 하지 않는다(이제 움직이는 영상)', !!r3 && !/장면 그림|moving scene pictures/i.test(noteTxt), noteTxt);
 }
+/* ⑥-9e 4편은 2026-10-21 에 «대사 한 줄마다 그 캐릭터 한 명만 나오는 클로즈업» 으로 영상·대표 그림·캐릭터 음성 42개를 «같은 이름» 으로 갈아 끼웠다.
+   미디어 7일 캐시라 ?v=2 이상이 없으면 본 사람에게 옛 영상(말하지 않는 캐릭터의 입이 움직이던 판)이 남고, 새 Emma 대사 끝 시각이 옛 음성 위에 놓인다.
+   ⚠️ 또 갈아 끼우면 번호를 «올린다»(?v= 주소는 1년 immutable). 이야기 목록(index.json) 대표 그림에는 붙이지 않는다 — 목록 화면이 ?·= 가 든 주소를 그림으로 안 쓴다. */
+{
+  let r4 = null;
+  try { r4 = JSON.parse(rd(join(PUB, 'data', 'dubbing', 'dub-004.json'))); } catch (e) { r4 = null; }
+  const vOf4 = (u) => { const m = /\?v=(\d+)$/.exec(String(u || '')); return m ? Number(m[1]) : 0; };
+  const urls4 = r4 && Array.isArray(r4.scenes) ? r4.scenes.flatMap((s) => [s.video, s.poster].concat(Object.values(s.voices || {}))) : [];
+  check('⑥-9e dub-004 장면 영상·대표 그림·캐릭터 음성 42개 전부 ?v=2 이상(같은 이름 교체 — 캐시 우회)', urls4.length === 42 && urls4.every((u) => vOf4(u) >= 2), urls4.filter((u) => vOf4(u) < 2));
+}
 
 /* 이야기 목록 — 준비된 편은 매니페스트가 실재해야 한다(눌렀는데 빈 화면 금지) */
 console.log('\n── ⑥-b 이야기 목록(index.json)');
