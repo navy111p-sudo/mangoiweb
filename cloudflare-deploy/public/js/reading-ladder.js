@@ -455,7 +455,7 @@
           if (mainDone && oi === p.main.answer) cls += ' ok';
           else if (view.mainPicked === oi) cls += ' no';
           return '<button type="button" class="' + cls + '" data-act="main" data-o="' + oi + '"' + (mainDone ? ' disabled' : '') + '>' +
-            '<span class="rl-en">' + esc(o.en) + '</span>' + (view.showKo || p.stage <= 2 ? '<span class="rl-ko">' + esc(o.ko) + '</span>' : '') + '</button>';
+            '<span class="rl-en">' + esc(o.en) + '</span></button>'; // 보기엔 우리말 해석을 붙이지 않는다(2026-10-21 — 아이들이 영어 대신 해석만 읽음)
         }).join('') + '</div>';
       if (!mainDone && view.mainPicked != null) s2 += '<p class="rl-fb no">' + esc(T('아쉬워요. 그 보기는 글의 «일부» 이거나 글과 달라요. 다시 골라 봐요.', 'Not quite. That choice is only a detail or does not match. Try again.')) + '</p>';
       if (!mainDone && view.mainWrong >= RLCore.WRONG_BEFORE_REVEAL) s2 += '<button type="button" class="rl-btn" data-act="mainreveal">' + esc(T('정답 보기', 'Show the answer')) + '</button>';
@@ -541,7 +541,7 @@
           if (answered && oi === p.main.answer) cls += ' ok';
           else if (d.picked === oi && oi !== p.main.answer) cls += ' no';
           return '<button type="button" class="' + cls + '" data-act="dmain" data-o="' + oi + '"' + (answered ? ' disabled' : '') + '><span class="rl-en">' + esc(o.en) + '</span>' +
-            (view.showKo || p.stage <= 2 ? '<span class="rl-ko">' + esc(o.ko) + '</span>' : '') + '</button>';
+            '</button>'; // 보기엔 해석 없음(위와 같음)
         }).join('') + '</div>' +
         (answered ? '<p class="rl-fb ok">' + esc(L(p.main.why)) + '</p><p class="rl-fb">🔑 ' + esc(T('핵심 문장: ', 'Key sentence: ')) + esc(p.sentences[p.key].en) + '</p>' +
           '<button type="button" class="rl-btn rl-primary" data-act="dnext">' + esc(T('다음 ▶', 'Next ▶')) + '</button>' :

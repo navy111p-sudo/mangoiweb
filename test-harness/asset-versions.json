@@ -910,6 +910,7 @@
   "/js/ai-dubbing.js?v=1": "e5e37d91926c00be",
   "/js/ai-dubbing.js?v=2": "96f4786369faaec5",
   "/js/ai-dubbing.js?v=3": "61fcf122c96adc5f",
+  "/js/ai-dubbing.js?v=4": "6e123e5eee94abe4",
   "/js/aifriend-auto-talk.js?v=1": "ef43198f0455075a",
   "/js/aifriend-facetalk.js?v=1": "97c3e2b0d6d2cba0",
   "/js/aifriend-facetalk.js?v=2": "444f5ad64eb9f6bc",
@@ -1507,6 +1508,7 @@
   "/js/reading-ladder.js?v=6": "f32efae0a26962a4",
   "/js/reading-ladder.js?v=7": "411c9b300ef530f3",
   "/js/reading-ladder.js?v=8": "02c388dcb6918321",
+  "/js/reading-ladder.js?v=9": "da123392e4481db4",
   "/js/repeat-score.js?v=1": "3288cce043918f66",
   "/js/scene-curriculum.js?v=10": "c94ae02cd33e1530",
   "/js/scene-curriculum.js?v=11": "24cbfb8335208184",
@@ -1649,6 +1651,5 @@
   "/video-call/js/recorder.js?v=3": "57388328ad0b58f7",
   "/video-call/js/webrtc.js?v=20260805c": "7cadf5632b7bc206",
   "/video-call/js/webrtc.js?v=20260805d": "8ab78fa3a1291105",
-  "/video-call/js/whiteboard.js?v=20260805c": "97c63a2d61546afd",
-  "/js/ai-dubbing.js?v=4": "6e123e5eee94abe4"
+  "/video-call/js/whiteboard.js?v=20260805c": "97c63a2d61546afd"
 }
