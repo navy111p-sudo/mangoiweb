@@ -98,7 +98,7 @@
           "name": "chime"
         }
       ],
-      "video": "/media/dubbing/dub-004/scene-1.mp4",
+      "video": "/media/dubbing/dub-004/scene-1.mp4?v=2",
       "durationSec": 40,
       "videoAudio": "mute",
       "bgm": null,
@@ -241,7 +241,7 @@
           "name": "chime"
         }
       ],
-      "video": "/media/dubbing/dub-004/scene-2.mp4",
+      "video": "/media/dubbing/dub-004/scene-2.mp4?v=2",
       "durationSec": 40,
       "videoAudio": "mute",
       "bgm": null,
@@ -388,7 +388,7 @@
           "name": "sparkle"
         }
       ],
-      "video": "/media/dubbing/dub-004/scene-3.mp4",
+      "video": "/media/dubbing/dub-004/scene-3.mp4?v=2",
       "durationSec": 40,
       "videoAudio": "mute",
       "bgm": null,
@@ -534,7 +534,7 @@
           "name": "chime"
         }
       ],
-      "video": "/media/dubbing/dub-004/scene-4.mp4?v=2",
+      "video": "/media/dubbing/dub-004/scene-4.mp4?v=3",
       "durationSec": 40,
       "videoAudio": "mute",
       "bgm": null,
@@ -693,7 +693,7 @@
           "name": "horn"
         }
       ],
-      "video": "/media/dubbing/dub-004/scene-5.mp4?v=2",
+      "video": "/media/dubbing/dub-004/scene-5.mp4?v=3",
       "durationSec": 40,
       "videoAudio": "mute",
       "bgm": null,
@@ -836,7 +836,7 @@
           "name": "fanfare"
         }
       ],
-      "video": "/media/dubbing/dub-004/scene-6.mp4?v=2",
+      "video": "/media/dubbing/dub-004/scene-6.mp4?v=3",
       "durationSec": 40,
       "videoAudio": "mute",
       "bgm": null,
