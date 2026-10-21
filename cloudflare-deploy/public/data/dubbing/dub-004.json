@@ -107,7 +107,7 @@
         "emma": "/media/dubbing/dub-004/scene-1-emma.mp3",
         "maya": "/media/dubbing/dub-004/scene-1-maya.mp3",
         "pip": "/media/dubbing/dub-004/scene-1-pip.mp3",
-        "momo": "/media/dubbing/dub-004/scene-1-momo.mp3"
+        "momo": "/media/dubbing/dub-004/scene-1-momo.mp3?v=2"
       },
       "lines": [
         {
@@ -397,7 +397,7 @@
         "emma": "/media/dubbing/dub-004/scene-3-emma.mp3",
         "maya": "/media/dubbing/dub-004/scene-3-maya.mp3",
         "pip": "/media/dubbing/dub-004/scene-3-pip.mp3",
-        "momo": "/media/dubbing/dub-004/scene-3-momo.mp3"
+        "momo": "/media/dubbing/dub-004/scene-3-momo.mp3?v=2"
       },
       "lines": [
         {
@@ -952,5 +952,5 @@
       "poster": "/media/dubbing/dub-004/scene-6.jpg"
     }
   ],
-  "_comment": "A.i영화더빙 dub-004 (4편 «뜻밖의 반전!» — 등대의 별 수정). 영상 = AI 영상 생성기(wan2_7)로 실제 대사 음성에 입모양을 맞춘 10초 안팎 클립 4개를 이어 장면마다 40초(2026-10-21 합성, tools: 임시 브랜치 ep4-media-build). 역할별 음성 scene-N-<역>.mp3 = 입모양을 만든 그 장면 음성에서 그 역의 대사 구간만 남긴 것(40초, 나머지 무음) — 실제 음성 구간이 전부 대사 창 안에 드는 것을 확인. 배경음악·효과음은 아직 없음(bgm null — 1·3편과 같음). 갈아 끼울 때는 ?v= 를 붙이세요(미디어 7일 캐시)."
+  "_comment": "A.i영화더빙 dub-004 (4편 «뜻밖의 반전!» — 등대의 별 수정). 영상 = AI 영상 생성기(wan2_7)로 실제 대사 음성에 입모양을 맞춘 10초 안팎 클립 4개를 이어 장면마다 40초(2026-10-21 합성, tools: 임시 브랜치 ep4-media-build). 역할별 음성 scene-N-<역>.mp3 = 입모양을 만든 그 장면 음성에서 그 역의 대사 구간만 남긴 것(40초, 나머지 무음) — 실제 음성 구간이 전부 대사 창 안에 드는 것을 확인. 배경음악·효과음은 아직 없음(bgm null — 1·3편과 같음). 갈아 끼울 때는 ?v= 를 붙이세요(미디어 7일 캐시). 2026-10-21: 모모 s1-l10·s3-l6 두 줄만 음높이가 다른 줄보다 반음 4~5개 높아(CREPE 188·183Hz 대 나머지 119~151Hz) Praat PSOLA 로 내림 — 길이·타이밍 그대로(scene-1·3-momo.mp3?v=2)."
 }
