@@ -27,6 +27,7 @@ import { selectInChunks } from './d1-chunk';
 import { enrichClassesToday } from './class-today-extras';   // 📋 오늘 수업 일곱 칸(관리자·매니저와 같은 정본)
 import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { applyRoomOverrides } from './class-room-override';   // 🚪 「오늘은 이 방으로」 — 학생 쪽과 같은 답을 받는다
+import { applyStudentElsewhere } from './teacher-student-elsewhere';   // 🚪 «학생이 다른 방에 있어요»(2026-10-21) — 방을 갈아 끼운 «뒤» 에 본다
 import { loadHoldRanges, heldOnFor } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25) — 강사에게 «기다리지 말라» 를 알린다
 import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
@@ -873,6 +874,12 @@ export async function handleTeacherApi(
      ⚠️ 이 자리여야 한다 — 아래 노쇼·녹화 조회가 `room_id` 로 돌므로 **그 전에** 갈아 끼운다.
      ⚠️ 던지지 않는다(fail-open) — 지정이 안 걸리면 예약방 그대로다. 정본 src/class-room-override.ts */
   await applyRoomOverrides(env.DB, classes, ymd);
+
+  /* 🚪 (2026-10-21 필리핀 강사 요청 — BODA 처럼 «학생 방에 직접 들어가기») 학생이 지금 «이 수업 방이
+     아닌» 방에 접속해 있으면 그 사실을 싣는다 → teacher.html 이 빨간 줄 + 「학생 방으로 들어가기」를 그린다.
+     ⚠️ 방을 갈아 끼운 «뒤» 여야 한다 — 지정된 회의방에 제대로 있는 학생을 «다른 방» 으로 오판한다.
+     ⚠️ 던지지 않는다(fail-open). 배너(?only=next)는 건너뛴다. 정본 src/teacher-student-elsewhere.ts */
+  if (!onlyNext) await applyStudentElsewhere(env.DB, classes, now);
 
   /* ⏸ (2026-09-25 사장님 결정) 연속 결석으로 «보류» 된 학생의 수업 — 강사는 방에서 기다리지 않고
      필리핀 매니저에게 계속 다니는지 확인한다(보류 기간 강사비 0%). 정본 src/absence-hold.ts.

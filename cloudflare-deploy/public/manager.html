@@ -368,6 +368,13 @@ html.dark .ta-open{background:#24344f;color:#9dbdf5}
 /* 링크도 칩과 똑같이 보이게 — 버튼과 나란히 서므로 세로 정렬을 맞춘다 */
 .qbar .qlink{display:inline-flex;align-items:center;text-decoration:none;line-height:1.2}
 .qbar button:active,.qbar .qlink:active{background:#eef1f5}
+/* 🗼 (2026-10-21 사장님 「잘 보이는 곳에 — 관리자들이 잘 찾게」) Class Monitor = 수업 관제탑(BODA 의 관찰 화면 자리).
+   한눈에 보이게 진한 보라 + 흰 글자(대비 7.1). 본사(hq)일 때만 보인다(IS_HQ — 그 화면 API 대부분이 본사 전용).
+   ⚠️ 선택자를 한 칸 더 세게 — .qbar .qlink·.tbtn·html.dark 규칙이 배경을 덮는다. */
+.qbar .qlink.qmon,.tbtn.tbtn-mon{background:#6d28d9;border-color:#6d28d9;color:#fff;font-weight:800}
+.qbar .qlink.qmon:active,.tbtn.tbtn-mon:active{background:#5b21b6}
+html.dark .qbar .qlink.qmon,html.dark .tbtn.tbtn-mon{background:#6d28d9;border-color:#8b5cf6;color:#fff}
+.mon-open{display:inline-block;margin:0 0 10px;padding:9px 14px;min-height:44px;border-radius:9px;background:#6d28d9;color:#fff;font-weight:800;font-size:14px;text-decoration:none}
 
 /* 🌗 어두운 화면 (2026-08-14) — 버튼(#mode)으로만 전환. 시간대 자동전환 없음
    (admin.html 의 낮/밤 자동전환은 2026-07-18 사장님 요청으로 뺀 것 — 여기서 되살리지 않는다).
@@ -939,6 +946,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div id="sideHq" hidden>
     <div class="sgrp-h" data-en="HQ managers" data-ko="본사 매니저 전용">HQ managers</div>
     <div class="sgrp">
+      <a href="/admin/monitor-wall.html" target="_blank" rel="noopener"><span class="ic">🗼</span><span data-en="Class Monitor (all live classes)" data-ko="수업 관제탑 (전체 현황)">Class Monitor (all live classes)</span></a>
       <button type="button" onclick="sideGo('c-payroll')"><span class="ic">💴</span><span data-en="Teacher payroll" data-ko="교사 급여">Teacher payroll</span></button>
       <button type="button" onclick="sideGo('c-leave')"><span class="ic">🌴</span><span data-en="Teacher time off" data-ko="강사 휴가 · 근무불가">Teacher time off</span></button>
       <button type="button" onclick="sideGo('c-live')"><span class="ic">🔴</span><span data-en="Classes running now" data-ko="지금 진행 중인 수업">Classes running now</span></button>
@@ -1124,6 +1132,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
            평소엔 숨겨 두고 scope 가 hq 일 때만 켠다(지사·대리점은 강사 화면을 쓰지 않는다). -->
       <a class="tbtn" id="toTeacher" href="/teacher" hidden
          data-en="My classes" data-ko="내 수업">My classes</a>
+      <!-- 🗼 (2026-10-21) Class Monitor(수업 관제탑) — 지금 열린 수업을 한 표로: 참관·입장·순회 참관.
+           폰에서는 글자를 접고 🗼 만 남긴다(.lbl). 본사일 때만 보인다(아래 IS_HQ). -->
+      <a class="tbtn tbtn-mon" id="toMonitorTop" href="/admin/monitor-wall.html" target="_blank" rel="noopener" hidden
+         title="Class Monitor — every live class in one table">🗼 <span class="lbl" data-en="Class Monitor" data-ko="수업 관제탑">Class Monitor</span></a>
       <!-- 🧾 (2026-08-16) 결재함 — 이 화면에는 결재가 **한 줄도 없었다**(grep approval = 0).
            그래서 매니저는 결재 한 건 올리려고 여기를 나가 강사 화면(192KB)을 받아야 했다.
            이제 한 번 눌러 전용 경량 화면 /work 로 간다. 대기 건수는 첫 페인트 «뒤»에 채운다
@@ -1166,6 +1178,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        펼치는 순간 각 카드의 기존 지연로딩(ontoggle)이 값을 받는다 — 로직 중복 0. -->
   <div class="qlbl" data-en="Quick access" data-ko="자주 쓰는 기능">Quick access</div>
   <div class="qbar">
+    <!-- 🗼 (2026-10-21) 맨 앞 — «관리자들이 잘 찾게». 새 탭으로 연다(이 화면의 할 일은 그대로 둔다). -->
+    <a id="toMonitor" class="qlink qmon" href="/admin/monitor-wall.html" target="_blank" rel="noopener" hidden>🗼 <span data-en="Class Monitor (all live classes)" data-ko="수업 관제탑 (전체 현황)">Class Monitor (all live classes)</span></a>
     <button type="button" onclick="openCard('c-search')"><span data-en="Search" data-ko="통합 검색">Search</span></button>
     <button type="button" id="qWait" onclick="openCard('c-wait')"><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
     <button type="button" onclick="openCard('c-students')"><span data-en="My students" data-ko="학생 명부">My students</span></button>
@@ -1464,6 +1478,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 
     <details class="card" id="c-live" ontoggle="if(this.open)loadLive()">
       <summary><span data-en="Classes running now" data-ko="지금 진행 중인 수업">Classes running now</span></summary>
+      <a class="mon-open" href="/admin/monitor-wall.html" target="_blank" rel="noopener">🗼 <span data-en="Open Class Monitor — observe · enter · rotate (new tab)" data-ko="수업 관제탑 열기 — 참관 · 입장 · 순회 참관 (새 탭)">Open Class Monitor — observe · enter · rotate (new tab)</span></a>
       <div id="liveBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
     </details>
 
@@ -1848,6 +1863,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     ['toWork', 'tbWork'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = _orgAcct; });
     var _sHq = document.getElementById('sideHq');
     if (_sHq) _sHq.hidden = !IS_HQ;
+    // 🗼 Class Monitor 입구 두 곳 — 본사일 때만(그 화면의 알림·참관·회선 API 가 지사·대리점에 403). 모르면 감춘 채.
+    ['toMonitor', 'toMonitorTop'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = !IS_HQ; });
     if (sc.type === 'hq') {
       document.getElementById('hqCards').hidden = false;
       // 🧑‍🏫 본사 매니저는 커버수업·레벨테스트를 직접 하기도 한다 → 「내 수업」 버튼을 켠다.
