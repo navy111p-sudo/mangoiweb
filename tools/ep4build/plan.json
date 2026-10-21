@@ -1,0 +1,576 @@
+{
+ "scenes": [
+  {
+   "scene": 1,
+   "shots": [
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_214349_eab4820c-31d4-4815-a6e7-4bdbc1e002aa.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/0af875d2-4cc5-4a08-800e-28dcb721ff86.mp3",
+     "dur": 11
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_214824_830d56e8-c4b4-4d09-b925-856a3ff0a98b.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/378c9d11-5292-469f-a68f-bf5af64f7631.mp3",
+     "dur": 12
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_214824_933fd12c-2fbc-4e6f-ab53-71e0d6314725.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/35c6417a-6b44-49c5-be2a-cb7d955d8bac.mp3",
+     "dur": 9
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_214823_622b854c-764f-41e3-b27a-400e5ef0a1bb.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/0d91bb94-792f-45a1-ba14-36a605f14128.mp3",
+     "dur": 8
+    }
+   ]
+  },
+  {
+   "scene": 2,
+   "shots": [
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215106_5e781186-f2d1-4f6e-b827-a28b9c3b30f1.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/26e9f532-e258-468d-91ef-1f79c89db157.mp3",
+     "dur": 10
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215107_0fc9f44e-263b-45a0-97d2-3217430007cb.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/00a295c6-afe2-4846-81db-c3a98055941b.mp3",
+     "dur": 10
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215107_4b7eee0d-b567-4245-92f9-05a0e846978b.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/e860363b-b5ec-4911-944e-719a3ec4e9b6.mp3",
+     "dur": 10
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215555_6480b6c2-0dee-4a5b-aad8-f64776febb9f.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/1a8ee1a1-5ae4-4585-a5c8-7a63c53565aa.mp3",
+     "dur": 10
+    }
+   ]
+  },
+  {
+   "scene": 3,
+   "shots": [
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215107_94db304e-6950-44e3-a5ae-680d342d21bb.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/92e54282-4ea6-44d1-b35d-0253978fa973.mp3",
+     "dur": 9
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215120_7113e4c3-0358-4e00-a9bc-1f7673729079.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/457b7ca8-0dff-48ed-9e47-0c644e466d6a.mp3",
+     "dur": 12
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215107_5227310d-7bad-4940-ac18-88560f2c8cff.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/c3bdd91e-fa30-4eab-97ca-67cbabae71aa.mp3",
+     "dur": 10
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215107_ef001d89-a603-46d3-9ef5-7737a637ca1e.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/d1685edf-be2c-47e4-b18b-18d5825fe585.mp3",
+     "dur": 9
+    }
+   ]
+  },
+  {
+   "scene": 4,
+   "shots": [
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215107_69848b89-d77c-4d65-83dc-a4f91699d32d.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/b8042952-af71-4a4b-87f6-b7b939f22b59.mp3",
+     "dur": 11
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215107_d45e3f73-e2f6-4041-865a-c79223fb01a9.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/f78b77f4-07e9-4c0f-a683-0b68308b9601.mp3",
+     "dur": 9
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215107_fe8e743d-3043-49c7-a313-d4a0bb23cc6e.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/369f6697-4614-4899-8c88-94ca059f2f38.mp3",
+     "dur": 11
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215120_0182f33e-4c2b-4987-94b2-66177c456f47.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/60f0b514-8870-4309-ac78-7bb5fba21899.mp3",
+     "dur": 9
+    }
+   ]
+  },
+  {
+   "scene": 5,
+   "shots": [
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215150_9ebcdbab-16cd-48df-9c5a-50f5fd0ae33c.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/bdd51c8c-1a13-4ff3-a22c-ff66bdad77e0.mp3",
+     "dur": 9
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215150_36806512-971d-455e-a69c-32c74ec17e21.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/265c4e8d-190d-45a9-876a-8511f88a7a78.mp3",
+     "dur": 12
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215618_33187c3a-1a56-4094-b427-523d5412e840.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/2602d0fb-83ec-45b1-b036-4474c8e7c4da.mp3",
+     "dur": 9
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215150_c018b956-a01b-4911-82e2-e8436da20a6c.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/9e9cc4fe-c06b-42c1-ae65-8c8df55fbcd6.mp3",
+     "dur": 10
+    }
+   ]
+  },
+  {
+   "scene": 6,
+   "shots": [
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215150_3fe1350f-8a56-41f0-b001-1c883abdbcd2.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/3eeae07c-df66-40f2-ac49-b7c3a8bb9e16.mp3",
+     "dur": 9
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215150_144303fc-aee3-4a90-906f-35e70fe7b618.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/19e5af87-c3c5-4cab-8795-91c0d0b1d1b4.mp3",
+     "dur": 11
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215150_21da4aa8-f411-4e00-a2d5-4177fb768b65.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/8ab95ee8-a3a3-48a5-9056-8ab8ae1598fa.mp3",
+     "dur": 10
+    },
+    {
+     "clip": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_215150_309cbda1-0474-4864-97e8-a0d6d6d29914.mp4",
+     "audio": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/222fbf46-e22c-4894-8ff8-61056f7d15ea.mp3",
+     "dur": 10
+    }
+   ]
+  }
+ ],
+ "lines": [
+  {
+   "id": "s1-l1",
+   "scene": 1,
+   "speaker": "kai",
+   "start": 0.8389791666666667,
+   "end": 2.693979166666667
+  },
+  {
+   "id": "s1-l2",
+   "scene": 1,
+   "speaker": "emma",
+   "start": 6.549625,
+   "end": 10.654625
+  },
+  {
+   "id": "s1-l3",
+   "scene": 1,
+   "speaker": "maya",
+   "start": 11.393604166666666,
+   "end": 13.558604166666667
+  },
+  {
+   "id": "s1-l4",
+   "scene": 1,
+   "speaker": "pip",
+   "start": 14.9874375,
+   "end": 17.4374375
+  },
+  {
+   "id": "s1-l5",
+   "scene": 1,
+   "speaker": "momo",
+   "start": 18.726416666666665,
+   "end": 22.341416666666667
+  },
+  {
+   "id": "s1-l6",
+   "scene": 1,
+   "speaker": "kai",
+   "start": 24.15525,
+   "end": 25.810270833333334
+  },
+  {
+   "id": "s1-l7",
+   "scene": 1,
+   "speaker": "emma",
+   "start": 26.894229166666666,
+   "end": 29.279229166666667
+  },
+  {
+   "id": "s1-l8",
+   "scene": 1,
+   "speaker": "maya",
+   "start": 30.018208333333334,
+   "end": 31.813208333333332
+  },
+  {
+   "id": "s1-l9",
+   "scene": 1,
+   "speaker": "pip",
+   "start": 33.447041666666664,
+   "end": 35.4170625
+  },
+  {
+   "id": "s1-l10",
+   "scene": 1,
+   "speaker": "momo",
+   "start": 36.18602083333333,
+   "end": 38.27102083333333
+  },
+  {
+   "id": "s2-l1",
+   "scene": 2,
+   "speaker": "emma",
+   "start": 1.1321041666666667,
+   "end": 2.8171458333333335
+  },
+  {
+   "id": "s2-l2",
+   "scene": 2,
+   "speaker": "momo",
+   "start": 4.164208333333334,
+   "end": 6.704208333333334
+  },
+  {
+   "id": "s2-l3",
+   "scene": 2,
+   "speaker": "kai",
+   "start": 8.1963125,
+   "end": 9.7313125
+  },
+  {
+   "id": "s2-l4",
+   "scene": 2,
+   "speaker": "pip",
+   "start": 12.378854166666667,
+   "end": 15.078854166666666
+  },
+  {
+   "id": "s2-l5",
+   "scene": 2,
+   "speaker": "maya",
+   "start": 16.410958333333333,
+   "end": 19.270958333333333
+  },
+  {
+   "id": "s2-l6",
+   "scene": 2,
+   "speaker": "emma",
+   "start": 21.4535,
+   "end": 23.1935
+  },
+  {
+   "id": "s2-l7",
+   "scene": 2,
+   "speaker": "momo",
+   "start": 24.225604166666667,
+   "end": 26.205604166666667
+  },
+  {
+   "id": "s2-l8",
+   "scene": 2,
+   "speaker": "kai",
+   "start": 27.237708333333334,
+   "end": 29.187708333333333
+  },
+  {
+   "id": "s2-l9",
+   "scene": 2,
+   "speaker": "pip",
+   "start": 31.42025,
+   "end": 33.48525
+  },
+  {
+   "id": "s2-l10",
+   "scene": 2,
+   "speaker": "maya",
+   "start": 34.517354166666664,
+   "end": 37.017354166666664
+  },
+  {
+   "id": "s3-l1",
+   "scene": 3,
+   "speaker": "momo",
+   "start": 0.6449791666666667,
+   "end": 3.6099791666666667
+  },
+  {
+   "id": "s3-l2",
+   "scene": 3,
+   "speaker": "kai",
+   "start": 4.189958333333333,
+   "end": 5.539958333333334
+  },
+  {
+   "id": "s3-l3",
+   "scene": 3,
+   "speaker": "emma",
+   "start": 6.7349375,
+   "end": 8.2449375
+  },
+  {
+   "id": "s3-l4",
+   "scene": 3,
+   "speaker": "maya",
+   "start": 9.664916666666667,
+   "end": 14.324916666666667
+  },
+  {
+   "id": "s3-l5",
+   "scene": 3,
+   "speaker": "pip",
+   "start": 15.209895833333333,
+   "end": 20.038020833333334
+  },
+  {
+   "id": "s3-l6",
+   "scene": 3,
+   "speaker": "momo",
+   "start": 21.139875,
+   "end": 23.874875
+  },
+  {
+   "id": "s3-l7",
+   "scene": 3,
+   "speaker": "kai",
+   "start": 24.419854166666667,
+   "end": 27.854854166666666
+  },
+  {
+   "id": "s3-l8",
+   "scene": 3,
+   "speaker": "emma",
+   "start": 28.399833333333333,
+   "end": 30.419833333333333
+  },
+  {
+   "id": "s3-l9",
+   "scene": 3,
+   "speaker": "maya",
+   "start": 31.3498125,
+   "end": 33.7148125
+  },
+  {
+   "id": "s3-l10",
+   "scene": 3,
+   "speaker": "pip",
+   "start": 34.259791666666665,
+   "end": 38.7698125
+  },
+  {
+   "id": "s4-l1",
+   "scene": 4,
+   "speaker": "maya",
+   "start": 0.86425,
+   "end": 3.17925
+  },
+  {
+   "id": "s4-l2",
+   "scene": 4,
+   "speaker": "momo",
+   "start": 4.6285,
+   "end": 6.5485
+  },
+  {
+   "id": "s4-l3",
+   "scene": 4,
+   "speaker": "emma",
+   "start": 7.39275,
+   "end": 10.80775
+  },
+  {
+   "id": "s4-l4",
+   "scene": 4,
+   "speaker": "kai",
+   "start": 12.886541666666666,
+   "end": 14.841541666666666
+  },
+  {
+   "id": "s4-l5",
+   "scene": 4,
+   "speaker": "pip",
+   "start": 15.650791666666667,
+   "end": 18.355791666666665
+  },
+  {
+   "id": "s4-l6",
+   "scene": 4,
+   "speaker": "maya",
+   "start": 20.144583333333333,
+   "end": 22.2264375
+  },
+  {
+   "id": "s4-l7",
+   "scene": 4,
+   "speaker": "momo",
+   "start": 23.908833333333334,
+   "end": 27.183854166666666
+  },
+  {
+   "id": "s4-l8",
+   "scene": 4,
+   "speaker": "emma",
+   "start": 27.948104166666667,
+   "end": 30.733125
+  },
+  {
+   "id": "s4-l9",
+   "scene": 4,
+   "speaker": "kai",
+   "start": 32.441895833333334,
+   "end": 34.03189583333333
+  },
+  {
+   "id": "s4-l10",
+   "scene": 4,
+   "speaker": "pip",
+   "start": 35.20614583333333,
+   "end": 37.58614583333333
+  },
+  {
+   "id": "s5-l1",
+   "scene": 5,
+   "speaker": "pip",
+   "start": 0.7265625,
+   "end": 2.6565625
+  },
+  {
+   "id": "s5-l2",
+   "scene": 5,
+   "speaker": "maya",
+   "start": 3.353125,
+   "end": 5.748125
+  },
+  {
+   "id": "s5-l3",
+   "scene": 5,
+   "speaker": "kai",
+   "start": 6.9796875,
+   "end": 8.404708333333334
+  },
+  {
+   "id": "s5-l4",
+   "scene": 5,
+   "speaker": "emma",
+   "start": 9.5444375,
+   "end": 13.2194375
+  },
+  {
+   "id": "s5-l5",
+   "scene": 5,
+   "speaker": "momo",
+   "start": 13.846,
+   "end": 15.346
+  },
+  {
+   "id": "s5-l6",
+   "scene": 5,
+   "speaker": "pip",
+   "start": 16.485729166666665,
+   "end": 20.74075
+  },
+  {
+   "id": "s5-l7",
+   "scene": 5,
+   "speaker": "maya",
+   "start": 22.112291666666668,
+   "end": 26.652291666666667
+  },
+  {
+   "id": "s5-l8",
+   "scene": 5,
+   "speaker": "kai",
+   "start": 27.738854166666666,
+   "end": 29.118875
+  },
+  {
+   "id": "s5-l9",
+   "scene": 5,
+   "speaker": "emma",
+   "start": 30.258604166666668,
+   "end": 34.93360416666667
+  },
+  {
+   "id": "s5-l10",
+   "scene": 5,
+   "speaker": "momo",
+   "start": 35.56016666666667,
+   "end": 37.8101875
+  },
+  {
+   "id": "s6-l1",
+   "scene": 6,
+   "speaker": "emma",
+   "start": 0.4995,
+   "end": 2.7095
+  },
+  {
+   "id": "s6-l2",
+   "scene": 6,
+   "speaker": "kai",
+   "start": 3.899,
+   "end": 5.449
+  },
+  {
+   "id": "s6-l3",
+   "scene": 6,
+   "speaker": "maya",
+   "start": 6.2985,
+   "end": 8.3685
+  },
+  {
+   "id": "s6-l4",
+   "scene": 6,
+   "speaker": "momo",
+   "start": 9.854354166666667,
+   "end": 12.049375
+  },
+  {
+   "id": "s6-l5",
+   "scene": 6,
+   "speaker": "pip",
+   "start": 13.253854166666667,
+   "end": 16.088854166666668
+  },
+  {
+   "id": "s6-l6",
+   "scene": 6,
+   "speaker": "emma",
+   "start": 16.809708333333333,
+   "end": 19.234708333333334
+  },
+  {
+   "id": "s6-l7",
+   "scene": 6,
+   "speaker": "kai",
+   "start": 20.209208333333333,
+   "end": 23.774229166666668
+  },
+  {
+   "id": "s6-l8",
+   "scene": 6,
+   "speaker": "maya",
+   "start": 24.608708333333333,
+   "end": 29.553708333333333
+  },
+  {
+   "id": "s6-l9",
+   "scene": 6,
+   "speaker": "momo",
+   "start": 30.1095625,
+   "end": 34.7445625
+  },
+  {
+   "id": "s6-l10",
+   "scene": 6,
+   "speaker": "pip",
+   "start": 35.1440625,
+   "end": 38.57375
+  }
+ ]
+}
