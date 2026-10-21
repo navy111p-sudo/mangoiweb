@@ -1328,7 +1328,7 @@
   }
   /* 📱 아이폰(사파리)은 소리 나는 미디어 요소를 «사람이 누른 그 순간» 에 한 번 깨워야 나중에 코드로 틀 수 있다.
    * «먼저 보기» 의 첫 목소리는 제목 카드(2.2초)·TTS 받기 «뒤» 라 그때 새로 만든 Audio 는 막혀 조용히 넘어간다
-   * (음악·효과음만 나고 원어민 목소리가 빠짐 — 더빙은 마이크가 켜져 있어 이 제한이 풀려 티가 안 났다).
+   * (음악·효과음만 나고 원어민 목소리가 빠짐 — 더빙에서 티가 안 난 것은 마이크가 켜져 있어서로 «추정», 재지 않았다).
    * 그래서 클릭 안에서 요소 몇 개를 미리 깨워 두고(W_POOL) 감상이 그것을 빌려 쓰고 돌려준다(kit.Audio / kit.release).
    * 한 번 깨운 요소는 src 를 바꿔도 계속 쓸 수 있다. 풀이 비면 예전처럼 새로 만든다(아이폰 밖에서는 그대로 된다).
    * ⚠️ 판단 근거는 사파리의 알려진 정책이고 이 환경에서는 아이폰으로 재 보지 못했다 — 진짜 아이폰에서 들어 봐야 확정. */
@@ -1349,7 +1349,7 @@
       wakeEl(a);
       W_POOL.push(a);
     }
-    var v = $('dub-video');                          // 영상도 소리가 날 수 있다(videoAudio 'clean') — 같은 이유로 깨운다
+    var v = $('dub-video');                          // 영상도 소리가 날 수 있다(videoAudio 'clean') — load() 만으로 풀리는지가 가장 불확실(아이폰 미확인)
     if (v && !v.__dubWoke) { v.__dubWoke = true; try { v.load(); } catch (e) {} }
     if (!W_SYNTH_WOKE && window.speechSynthesis && window.SpeechSynthesisUtterance) {   // 기기 목소리(서버 TTS 실패 때)도 첫 마디는 클릭 안이어야 한다
       W_SYNTH_WOKE = true;
@@ -1360,6 +1360,7 @@
     var a = W_POOL.pop();
     if (!a) return new Audio();
     a.__dubIdle = false; a.onended = null; a.onerror = null; a.crossOrigin = null;
+    a.muted = false;                                 // 섞개가 없을 때 배경음악 끔(setBgmLevel)이 남긴 음소거가 다음 목소리로 넘어가지 않게
     try { a.pause(); } catch (e) {}
     return a;
   }
