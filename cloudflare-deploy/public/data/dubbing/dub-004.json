@@ -1,0 +1,803 @@
+{
+  "id": "dub-004",
+  "title": {
+    "ko": "뜻밖의 반전!",
+    "en": "A Surprise Twist!"
+  },
+  "level": 1,
+  "status": "final",
+  "timing": "synced",
+  "note": {
+    "ko": "캐릭터 목소리는 영상의 입모양에 맞춰 만든 AI 음성이에요 · 다섯 명이 역할을 나눌 수 있어요",
+    "en": "Character voices are AI voices matched to the mouths in the video · up to five students can share the roles"
+  },
+  "characters": {
+    "kai": {
+      "id": "kai",
+      "name": {
+        "en": "Kai",
+        "ko": "카이"
+      },
+      "emoji": "👦",
+      "ttsSpeaker": "apollo"
+    },
+    "emma": {
+      "id": "emma",
+      "name": {
+        "en": "Emma",
+        "ko": "엠마"
+      },
+      "emoji": "👧",
+      "ttsSpeaker": "thalia"
+    },
+    "maya": {
+      "id": "maya",
+      "name": {
+        "en": "Maya",
+        "ko": "마야"
+      },
+      "emoji": "👧🏿",
+      "ttsSpeaker": "asteria"
+    },
+    "pip": {
+      "id": "pip",
+      "name": {
+        "en": "Pip",
+        "ko": "핍"
+      },
+      "emoji": "👽",
+      "ttsSpeaker": "orion"
+    },
+    "momo": {
+      "id": "momo",
+      "name": {
+        "en": "Momo",
+        "ko": "모모"
+      },
+      "emoji": "🤖",
+      "ttsSpeaker": "arcas"
+    }
+  },
+  "playable": [
+    "kai",
+    "emma",
+    "maya",
+    "pip",
+    "momo"
+  ],
+  "scenes": [
+    {
+      "no": 1,
+      "label": {
+        "en": "A Signal from the Sea",
+        "ko": "바다에서 온 신호"
+      },
+      "arc": "ki",
+      "video": "/media/dubbing/dub-004/scene-1.mp4",
+      "durationSec": 40,
+      "videoAudio": "mute",
+      "bgm": null,
+      "voices": {
+        "kai": "/media/dubbing/dub-004/scene-1-kai.mp3",
+        "emma": "/media/dubbing/dub-004/scene-1-emma.mp3",
+        "maya": "/media/dubbing/dub-004/scene-1-maya.mp3",
+        "pip": "/media/dubbing/dub-004/scene-1-pip.mp3",
+        "momo": "/media/dubbing/dub-004/scene-1-momo.mp3"
+      },
+      "lines": [
+        {
+          "id": "s1-l1",
+          "speaker": "kai",
+          "en": "Pip, you came back again!",
+          "ko": "핍, 네가 다시 놀러 왔구나!",
+          "emotion": "relieved",
+          "scored": true,
+          "start": 0.8389791666666667,
+          "end": 2.693979166666667
+        },
+        {
+          "id": "s1-l2",
+          "speaker": "emma",
+          "en": "Look! A ship needs help!",
+          "ko": "봐! 배가 도움을 요청해!",
+          "emotion": "alert",
+          "scored": true,
+          "start": 6.549625,
+          "end": 10.654625
+        },
+        {
+          "id": "s1-l3",
+          "speaker": "maya",
+          "en": "That flag has a robot!",
+          "ko": "저 깃발에 로봇이 있어!",
+          "emotion": "curious",
+          "scored": true,
+          "start": 11.393604166666666,
+          "end": 13.558604166666667
+        },
+        {
+          "id": "s1-l4",
+          "speaker": "pip",
+          "en": "My signal comes from there.",
+          "ko": "내 신호가 저기서 와.",
+          "emotion": "focused",
+          "scored": true,
+          "start": 14.9874375,
+          "end": 17.4374375
+        },
+        {
+          "id": "s1-l5",
+          "speaker": "momo",
+          "en": "Welcome aboard, my brave friends!",
+          "ko": "용감한 친구들, 승선을 환영해!",
+          "emotion": "welcoming",
+          "scored": true,
+          "start": 18.726416666666665,
+          "end": 22.341416666666667
+        },
+        {
+          "id": "s1-l6",
+          "speaker": "kai",
+          "en": "Where is that robot going?",
+          "ko": "저 로봇은 어디로 가?",
+          "emotion": "curious",
+          "scored": true,
+          "start": 24.15525,
+          "end": 25.810270833333334
+        },
+        {
+          "id": "s1-l7",
+          "speaker": "emma",
+          "en": "His screen shows a worried face.",
+          "ko": "화면에 걱정스러운 얼굴이 보여.",
+          "emotion": "concerned",
+          "scored": true,
+          "start": 26.894229166666666,
+          "end": 29.279229166666667
+        },
+        {
+          "id": "s1-l8",
+          "speaker": "maya",
+          "en": "Let us follow him together.",
+          "ko": "우리 함께 따라가 보자.",
+          "emotion": "determined",
+          "scored": true,
+          "start": 30.018208333333334,
+          "end": 31.813208333333332
+        },
+        {
+          "id": "s1-l9",
+          "speaker": "pip",
+          "en": "I can hear something ringing.",
+          "ko": "뭔가 울리는 소리가 들려.",
+          "emotion": "curious",
+          "scored": true,
+          "start": 33.447041666666664,
+          "end": 35.4170625
+        },
+        {
+          "id": "s1-l10",
+          "speaker": "momo",
+          "en": "Please keep that chest safe.",
+          "ko": "저 상자를 안전하게 지켜 줘.",
+          "emotion": "earnest",
+          "scored": true,
+          "start": 36.18602083333333,
+          "end": 38.27102083333333
+        }
+      ],
+      "poster": "/media/dubbing/dub-004/scene-1.jpg"
+    },
+    {
+      "no": 2,
+      "label": {
+        "en": "The Mysterious Chest",
+        "ko": "수상한 보물 상자"
+      },
+      "arc": "seung",
+      "video": "/media/dubbing/dub-004/scene-2.mp4",
+      "durationSec": 40,
+      "videoAudio": "mute",
+      "bgm": null,
+      "voices": {
+        "kai": "/media/dubbing/dub-004/scene-2-kai.mp3",
+        "emma": "/media/dubbing/dub-004/scene-2-emma.mp3",
+        "maya": "/media/dubbing/dub-004/scene-2-maya.mp3",
+        "pip": "/media/dubbing/dub-004/scene-2-pip.mp3",
+        "momo": "/media/dubbing/dub-004/scene-2-momo.mp3"
+      },
+      "lines": [
+        {
+          "id": "s2-l1",
+          "speaker": "emma",
+          "en": "Why is the chest glowing?",
+          "ko": "왜 상자가 빛나는 거지?",
+          "emotion": "curious",
+          "scored": true,
+          "start": 1.1321041666666667,
+          "end": 2.8171458333333335
+        },
+        {
+          "id": "s2-l2",
+          "speaker": "momo",
+          "en": "It holds something very precious.",
+          "ko": "아주 소중한 것이 들어 있어.",
+          "emotion": "gentle",
+          "scored": true,
+          "start": 4.164208333333334,
+          "end": 6.704208333333334
+        },
+        {
+          "id": "s2-l3",
+          "speaker": "kai",
+          "en": "Did you take that treasure?",
+          "ko": "저 보물을 가져온 거야?",
+          "emotion": "uncertain",
+          "scored": true,
+          "start": 8.1963125,
+          "end": 9.7313125
+        },
+        {
+          "id": "s2-l4",
+          "speaker": "pip",
+          "en": "Wait! Let us ask first.",
+          "ko": "잠깐! 먼저 물어보자.",
+          "emotion": "calm",
+          "scored": true,
+          "start": 12.378854166666667,
+          "end": 15.078854166666666
+        },
+        {
+          "id": "s2-l5",
+          "speaker": "maya",
+          "en": "Momo is pointing toward the shore.",
+          "ko": "모모가 해안을 가리키고 있어.",
+          "emotion": "observant",
+          "scored": true,
+          "start": 16.410958333333333,
+          "end": 19.270958333333333
+        },
+        {
+          "id": "s2-l6",
+          "speaker": "emma",
+          "en": "There is a dark lighthouse!",
+          "ko": "불 꺼진 등대가 있어!",
+          "emotion": "surprised",
+          "scored": true,
+          "start": 21.4535,
+          "end": 23.1935
+        },
+        {
+          "id": "s2-l7",
+          "speaker": "momo",
+          "en": "We must reach it before sunset.",
+          "ko": "해 지기 전에 도착해야 해.",
+          "emotion": "urgent",
+          "scored": true,
+          "start": 24.225604166666667,
+          "end": 26.205604166666667
+        },
+        {
+          "id": "s2-l8",
+          "speaker": "kai",
+          "en": "I think I misunderstood you.",
+          "ko": "내가 모모를 오해한 것 같아.",
+          "emotion": "thoughtful",
+          "scored": true,
+          "start": 27.237708333333334,
+          "end": 29.187708333333333
+        },
+        {
+          "id": "s2-l9",
+          "speaker": "pip",
+          "en": "The light is getting weaker.",
+          "ko": "빛이 점점 약해지고 있어.",
+          "emotion": "concerned",
+          "scored": true,
+          "start": 31.42025,
+          "end": 33.48525
+        },
+        {
+          "id": "s2-l10",
+          "speaker": "maya",
+          "en": "Then we must work together.",
+          "ko": "그럼 우리가 힘을 합쳐야 해.",
+          "emotion": "determined",
+          "scored": true,
+          "start": 34.517354166666664,
+          "end": 37.017354166666664
+        }
+      ],
+      "poster": "/media/dubbing/dub-004/scene-2.jpg"
+    },
+    {
+      "no": 3,
+      "label": {
+        "en": "A Turn in the Wind",
+        "ko": "갑자기 바뀐 바람"
+      },
+      "arc": "seung",
+      "video": "/media/dubbing/dub-004/scene-3.mp4",
+      "durationSec": 40,
+      "videoAudio": "mute",
+      "bgm": null,
+      "voices": {
+        "kai": "/media/dubbing/dub-004/scene-3-kai.mp3",
+        "emma": "/media/dubbing/dub-004/scene-3-emma.mp3",
+        "maya": "/media/dubbing/dub-004/scene-3-maya.mp3",
+        "pip": "/media/dubbing/dub-004/scene-3-pip.mp3",
+        "momo": "/media/dubbing/dub-004/scene-3-momo.mp3"
+      },
+      "lines": [
+        {
+          "id": "s3-l1",
+          "speaker": "momo",
+          "en": "Hold tight! The wind is changing!",
+          "ko": "꽉 잡아! 바람이 바뀌고 있어!",
+          "emotion": "alert",
+          "scored": true,
+          "start": 0.6449791666666667,
+          "end": 3.6099791666666667
+        },
+        {
+          "id": "s3-l2",
+          "speaker": "kai",
+          "en": "I can hold this rope.",
+          "ko": "내가 이 밧줄을 잡을게.",
+          "emotion": "determined",
+          "scored": true,
+          "start": 4.189958333333333,
+          "end": 5.539958333333334
+        },
+        {
+          "id": "s3-l3",
+          "speaker": "emma",
+          "en": "I will check the map.",
+          "ko": "내가 지도를 확인할게.",
+          "emotion": "focused",
+          "scored": true,
+          "start": 6.7349375,
+          "end": 8.2449375
+        },
+        {
+          "id": "s3-l4",
+          "speaker": "maya",
+          "en": "Pip, help me secure the chest.",
+          "ko": "핍, 상자 고정하는 걸 도와줘.",
+          "emotion": "focused",
+          "scored": true,
+          "start": 9.664916666666667,
+          "end": 14.324916666666667
+        },
+        {
+          "id": "s3-l5",
+          "speaker": "pip",
+          "en": "Together! One, two, three, pull!",
+          "ko": "함께! 하나, 둘, 셋, 당겨!",
+          "emotion": "energetic",
+          "scored": true,
+          "start": 15.209895833333333,
+          "end": 20.038020833333334
+        },
+        {
+          "id": "s3-l6",
+          "speaker": "momo",
+          "en": "Great teamwork! Keep your feet steady.",
+          "ko": "멋진 협동이야! 발을 단단히 디뎌.",
+          "emotion": "encouraging",
+          "scored": true,
+          "start": 21.139875,
+          "end": 23.874875
+        },
+        {
+          "id": "s3-l7",
+          "speaker": "kai",
+          "en": "Momo just caught my hat!",
+          "ko": "모모가 내 모자를 잡았어!",
+          "emotion": "delighted",
+          "scored": true,
+          "start": 24.419854166666667,
+          "end": 27.854854166666666
+        },
+        {
+          "id": "s3-l8",
+          "speaker": "emma",
+          "en": "The safe path is this way.",
+          "ko": "안전한 길은 이쪽이야.",
+          "emotion": "confident",
+          "scored": true,
+          "start": 28.399833333333333,
+          "end": 30.419833333333333
+        },
+        {
+          "id": "s3-l9",
+          "speaker": "maya",
+          "en": "The chest is safe now.",
+          "ko": "이제 상자는 안전해.",
+          "emotion": "relieved",
+          "scored": true,
+          "start": 31.3498125,
+          "end": 33.7148125
+        },
+        {
+          "id": "s3-l10",
+          "speaker": "pip",
+          "en": "Look! The clouds are opening!",
+          "ko": "봐! 구름이 걷히고 있어!",
+          "emotion": "hopeful",
+          "scored": true,
+          "start": 34.259791666666665,
+          "end": 38.7698125
+        }
+      ],
+      "poster": "/media/dubbing/dub-004/scene-3.jpg"
+    },
+    {
+      "no": 4,
+      "label": {
+        "en": "The Surprise Inside",
+        "ko": "상자 속 뜻밖의 반전"
+      },
+      "arc": "jeon",
+      "video": "/media/dubbing/dub-004/scene-4.mp4",
+      "durationSec": 40,
+      "videoAudio": "mute",
+      "bgm": null,
+      "voices": {
+        "kai": "/media/dubbing/dub-004/scene-4-kai.mp3",
+        "emma": "/media/dubbing/dub-004/scene-4-emma.mp3",
+        "maya": "/media/dubbing/dub-004/scene-4-maya.mp3",
+        "pip": "/media/dubbing/dub-004/scene-4-pip.mp3",
+        "momo": "/media/dubbing/dub-004/scene-4-momo.mp3"
+      },
+      "lines": [
+        {
+          "id": "s4-l1",
+          "speaker": "maya",
+          "en": "Please show us your treasure.",
+          "ko": "보물을 우리에게 보여 줘.",
+          "emotion": "curious",
+          "scored": true,
+          "start": 0.86425,
+          "end": 3.17925
+        },
+        {
+          "id": "s4-l2",
+          "speaker": "momo",
+          "en": "It is the lighthouse heart.",
+          "ko": "등대의 심장이란다.",
+          "emotion": "warm",
+          "scored": true,
+          "start": 4.6285,
+          "end": 6.5485
+        },
+        {
+          "id": "s4-l3",
+          "speaker": "emma",
+          "en": "A light, not gold coins!",
+          "ko": "금화가 아니라 빛이었어!",
+          "emotion": "amazed",
+          "scored": true,
+          "start": 7.39275,
+          "end": 10.80775
+        },
+        {
+          "id": "s4-l4",
+          "speaker": "kai",
+          "en": "You were rescuing the lost sailors!",
+          "ko": "길 잃은 선원들을 구하고 있었구나!",
+          "emotion": "realizing",
+          "scored": true,
+          "start": 12.886541666666666,
+          "end": 14.841541666666666
+        },
+        {
+          "id": "s4-l5",
+          "speaker": "pip",
+          "en": "This crystal uses star energy.",
+          "ko": "이 수정은 별 에너지를 써.",
+          "emotion": "recognizing",
+          "scored": true,
+          "start": 15.650791666666667,
+          "end": 18.355791666666665
+        },
+        {
+          "id": "s4-l6",
+          "speaker": "maya",
+          "en": "That is why you called us!",
+          "ko": "그래서 우리를 부른 거구나!",
+          "emotion": "realizing",
+          "scored": true,
+          "start": 20.144583333333333,
+          "end": 22.2264375
+        },
+        {
+          "id": "s4-l7",
+          "speaker": "momo",
+          "en": "Yes! Their boats need this light.",
+          "ko": "그래! 배들에게 이 빛이 필요해.",
+          "emotion": "earnest",
+          "scored": true,
+          "start": 23.908833333333334,
+          "end": 27.183854166666666
+        },
+        {
+          "id": "s4-l8",
+          "speaker": "emma",
+          "en": "Sorry we judged your pirate flag.",
+          "ko": "해적 깃발만 보고 판단해서 미안해.",
+          "emotion": "apologetic",
+          "scored": true,
+          "start": 27.948104166666667,
+          "end": 30.733125
+        },
+        {
+          "id": "s4-l9",
+          "speaker": "kai",
+          "en": "Let us bring everyone home.",
+          "ko": "모두 집으로 돌아오게 하자.",
+          "emotion": "determined",
+          "scored": true,
+          "start": 32.441895833333334,
+          "end": 34.03189583333333
+        },
+        {
+          "id": "s4-l10",
+          "speaker": "pip",
+          "en": "I can help it shine again.",
+          "ko": "내가 다시 빛나게 도울 수 있어.",
+          "emotion": "hopeful",
+          "scored": true,
+          "start": 35.20614583333333,
+          "end": 37.58614583333333
+        }
+      ],
+      "poster": "/media/dubbing/dub-004/scene-4.jpg"
+    },
+    {
+      "no": 5,
+      "label": {
+        "en": "Light the Way Home",
+        "ko": "집으로 가는 빛"
+      },
+      "arc": "jeon",
+      "video": "/media/dubbing/dub-004/scene-5.mp4",
+      "durationSec": 40,
+      "videoAudio": "mute",
+      "bgm": null,
+      "voices": {
+        "kai": "/media/dubbing/dub-004/scene-5-kai.mp3",
+        "emma": "/media/dubbing/dub-004/scene-5-emma.mp3",
+        "maya": "/media/dubbing/dub-004/scene-5-maya.mp3",
+        "pip": "/media/dubbing/dub-004/scene-5-pip.mp3",
+        "momo": "/media/dubbing/dub-004/scene-5-momo.mp3"
+      },
+      "lines": [
+        {
+          "id": "s5-l1",
+          "speaker": "pip",
+          "en": "Place the crystal right here.",
+          "ko": "수정을 바로 여기에 놓아 줘.",
+          "emotion": "focused",
+          "scored": true,
+          "start": 0.7265625,
+          "end": 2.6565625
+        },
+        {
+          "id": "s5-l2",
+          "speaker": "maya",
+          "en": "I will turn this handle.",
+          "ko": "내가 이 손잡이를 돌릴게.",
+          "emotion": "determined",
+          "scored": true,
+          "start": 3.353125,
+          "end": 5.748125
+        },
+        {
+          "id": "s5-l3",
+          "speaker": "kai",
+          "en": "I will hold the ladder.",
+          "ko": "내가 사다리를 잡고 있을게.",
+          "emotion": "careful",
+          "scored": true,
+          "start": 6.9796875,
+          "end": 8.404708333333334
+        },
+        {
+          "id": "s5-l4",
+          "speaker": "emma",
+          "en": "The stars show us the pattern.",
+          "ko": "별들이 무늬를 알려 주고 있어.",
+          "emotion": "excited",
+          "scored": true,
+          "start": 9.5444375,
+          "end": 13.2194375
+        },
+        {
+          "id": "s5-l5",
+          "speaker": "momo",
+          "en": "I will open the shutters.",
+          "ko": "내가 창문 덮개를 열게.",
+          "emotion": "focused",
+          "scored": true,
+          "start": 13.846,
+          "end": 15.346
+        },
+        {
+          "id": "s5-l6",
+          "speaker": "pip",
+          "en": "Ready? Let our light shine!",
+          "ko": "준비됐지? 우리의 빛을 밝혀 보자!",
+          "emotion": "excited",
+          "scored": true,
+          "start": 16.485729166666665,
+          "end": 20.74075
+        },
+        {
+          "id": "s5-l7",
+          "speaker": "maya",
+          "en": "It works! Look at the sea!",
+          "ko": "됐다! 바다를 봐!",
+          "emotion": "joyful",
+          "scored": true,
+          "start": 22.112291666666668,
+          "end": 26.652291666666667
+        },
+        {
+          "id": "s5-l8",
+          "speaker": "kai",
+          "en": "The boats are coming home!",
+          "ko": "배들이 집으로 돌아오고 있어!",
+          "emotion": "joyful",
+          "scored": true,
+          "start": 27.738854166666666,
+          "end": 29.118875
+        },
+        {
+          "id": "s5-l9",
+          "speaker": "emma",
+          "en": "Every sailor can see the way.",
+          "ko": "선원 모두 길을 볼 수 있어.",
+          "emotion": "relieved",
+          "scored": true,
+          "start": 30.258604166666668,
+          "end": 34.93360416666667
+        },
+        {
+          "id": "s5-l10",
+          "speaker": "momo",
+          "en": "You are all true treasure!",
+          "ko": "너희 모두가 진짜 보물이야!",
+          "emotion": "grateful",
+          "scored": true,
+          "start": 35.56016666666667,
+          "end": 37.8101875
+        }
+      ],
+      "poster": "/media/dubbing/dub-004/scene-5.jpg"
+    },
+    {
+      "no": 6,
+      "label": {
+        "en": "A Crew of Friends",
+        "ko": "친구가 된 선원들"
+      },
+      "arc": "gyeol",
+      "video": "/media/dubbing/dub-004/scene-6.mp4",
+      "durationSec": 40,
+      "videoAudio": "mute",
+      "bgm": null,
+      "voices": {
+        "kai": "/media/dubbing/dub-004/scene-6-kai.mp3",
+        "emma": "/media/dubbing/dub-004/scene-6-emma.mp3",
+        "maya": "/media/dubbing/dub-004/scene-6-maya.mp3",
+        "pip": "/media/dubbing/dub-004/scene-6-pip.mp3",
+        "momo": "/media/dubbing/dub-004/scene-6-momo.mp3"
+      },
+      "lines": [
+        {
+          "id": "s6-l1",
+          "speaker": "emma",
+          "en": "The sailors are safely home again.",
+          "ko": "선원들이 다시 안전하게 돌아왔어.",
+          "emotion": "warm",
+          "scored": true,
+          "start": 0.4995,
+          "end": 2.7095
+        },
+        {
+          "id": "s6-l2",
+          "speaker": "kai",
+          "en": "Thank you for saving my hat!",
+          "ko": "내 모자를 구해 줘서 고마워!",
+          "emotion": "playful",
+          "scored": true,
+          "start": 3.899,
+          "end": 5.449
+        },
+        {
+          "id": "s6-l3",
+          "speaker": "maya",
+          "en": "We should always listen first.",
+          "ko": "우린 언제나 먼저 들어야 해.",
+          "emotion": "thoughtful",
+          "scored": true,
+          "start": 6.2985,
+          "end": 8.3685
+        },
+        {
+          "id": "s6-l4",
+          "speaker": "momo",
+          "en": "A kind heart is real treasure.",
+          "ko": "다정한 마음이 진짜 보물이란다.",
+          "emotion": "warm",
+          "scored": true,
+          "start": 9.854354166666667,
+          "end": 12.049375
+        },
+        {
+          "id": "s6-l5",
+          "speaker": "pip",
+          "en": "Our team makes every light brighter.",
+          "ko": "우리 팀은 모든 빛을 더 밝게 해.",
+          "emotion": "proud",
+          "scored": true,
+          "start": 13.253854166666667,
+          "end": 16.088854166666668
+        },
+        {
+          "id": "s6-l6",
+          "speaker": "emma",
+          "en": "Let us take a picture!",
+          "ko": "우리 함께 사진 찍자!",
+          "emotion": "cheerful",
+          "scored": true,
+          "start": 16.809708333333333,
+          "end": 19.234708333333334
+        },
+        {
+          "id": "s6-l7",
+          "speaker": "kai",
+          "en": "Everyone say, shiny treasure chest!",
+          "ko": "모두 말해 봐, 반짝이는 보물 상자!",
+          "emotion": "playful",
+          "scored": true,
+          "start": 20.209208333333333,
+          "end": 23.774229166666668
+        },
+        {
+          "id": "s6-l8",
+          "speaker": "maya",
+          "en": "Wait! The compass is glowing again.",
+          "ko": "잠깐! 나침반이 다시 빛나.",
+          "emotion": "surprised",
+          "scored": true,
+          "start": 24.608708333333333,
+          "end": 29.553708333333333
+        },
+        {
+          "id": "s6-l9",
+          "speaker": "momo",
+          "en": "Another adventure is calling you.",
+          "ko": "또 다른 모험이 너희를 부르네.",
+          "emotion": "hopeful",
+          "scored": true,
+          "start": 30.1095625,
+          "end": 34.7445625
+        },
+        {
+          "id": "s6-l10",
+          "speaker": "pip",
+          "en": "Whatever comes, we stay together!",
+          "ko": "무슨 일이 와도 우린 함께야!",
+          "emotion": "confident",
+          "scored": true,
+          "start": 35.1440625,
+          "end": 38.57375
+        }
+      ],
+      "poster": "/media/dubbing/dub-004/scene-6.jpg"
+    }
+  ],
+  "_comment": "A.i영화더빙 dub-004 (4편 «뜻밖의 반전!» — 등대의 별 수정). 영상 = AI 영상 생성기(wan2_7)로 실제 대사 음성에 입모양을 맞춘 10초 안팎 클립 4개를 이어 장면마다 40초(2026-10-21 합성, tools: 임시 브랜치 ep4-media-build). 역할별 음성 scene-N-<역>.mp3 = 입모양을 만든 그 장면 음성에서 그 역의 대사 구간만 남긴 것(40초, 나머지 무음) — 실제 음성 구간이 전부 대사 창 안에 드는 것을 확인. 배경음악·효과음은 아직 없음(bgm null — 1·3편과 같음). 갈아 끼울 때는 ?v= 를 붙이세요(미디어 7일 캐시)."
+}
