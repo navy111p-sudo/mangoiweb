@@ -223,8 +223,8 @@
   function render(){
     if (hoverGrid) { pendingRender = true; return; }   /* 다음 틱에 그린다 */
     pendingRender = false;
-    document.title = L('수업 관제탑 — 망고아이', 'Class Control Tower — Mangoi');
-    $('hd-title').textContent = L('🗼 수업 관제탑', '🗼 Class Control Tower');
+    document.title = L('수업 관제탑 — 망고아이', 'Class Monitor — Mangoi');
+    $('hd-title').textContent = L('🗼 수업 관제탑', '🗼 Class Monitor');
     $('hd-note').textContent = pollMs()
       ? L('자동 갱신 · 탭을 내려놓으면 일시정지', 'Auto refresh · pauses when tab is hidden')
       : L('자동 갱신 꺼짐 — 🔄 로 새로고침', 'Auto refresh off - use 🔄');

@@ -174,6 +174,14 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 /* ↩ 지난 수업(이전 강사·이전 일지) 접이식 — 펼치기 전엔 한 줄. hover 확대 금지 규칙대로
    강조는 색만. summary 의 기본 ▶ 마커는 남겨 둔다(펼칠 수 있다는 유일한 신호다). */
 .cls-prev{margin-top:3px;font-size:12.5px}
+/* 🚪 (2026-10-21) «학생이 다른 방에 있어요» — 서버가 student_elsewhere 를 줄 때만 그린다(src/teacher-student-elsewhere.ts).
+   «한눈에 보이게»(사장님) — 줄 왼쪽 빨간 띠 + 빨간 상자 + 큰 버튼. 짧은 글이라 flex 로 감싸지 않는다(낱글자 쪼개짐).
+   대비(실측 계산): 제목 #991b1b / #fef2f2 ≈ 7.6 · 설명 #7f1d1d ≈ 9.6 · 버튼 흰 글자 / #b91c1c ≈ 6.5 */
+.cls.cls-away-row{border-left:4px solid #dc2626;padding-left:10px;background:linear-gradient(90deg,rgba(254,226,226,.55),rgba(254,226,226,0) 60%)}
+.cls-away{display:block;margin-top:8px;padding:10px 12px;border:2px solid #dc2626;background:#fef2f2;border-radius:10px;color:#991b1b;font-size:14.5px;font-weight:800;line-height:1.45}
+.cls-away .away-sub{display:block;margin-top:3px;font-size:12.5px;font-weight:600;color:#7f1d1d}
+.cls-away .away-room{font-size:12px;font-weight:700;overflow-wrap:anywhere}
+.cls-away .btn-away{display:inline-block;margin-top:8px;min-height:44px;padding:10px 16px;border:0;border-radius:9px;background:#b91c1c;color:#fff;font-size:15px;font-weight:800;cursor:pointer}
 /* 📋 (2026-09-23) 관리자·매니저 「오늘 수업」과 같은 칸 — 짧은 글이라 flex 로 감싸지 않는다(낱글자 쪼개짐) */
 .cls-extra{margin-top:3px;font-size:12px;line-height:1.55;color:#475467}
 .cls-extra b{font-weight:700;color:#344054}
@@ -417,6 +425,9 @@ html[data-t="dark"] .cls{border-top-color:#2b3541}
 html[data-t="dark"] .cls-time,
 html[data-t="dark"] .cls-name{color:#e6ecf2}
 html[data-t="dark"] .cls-prev summary{color:#8fa7ff}
+html[data-t="dark"] .cls.cls-away-row{background:linear-gradient(90deg,rgba(220,38,38,.16),rgba(220,38,38,0) 60%);border-left-color:#f87171}
+html[data-t="dark"] .cls-away{background:#3a1416;border-color:#f87171;color:#fecaca}
+html[data-t="dark"] .cls-away .away-sub{color:#fca5a5}
 html[data-t="dark"] .cls-prev-body{background:#1b2330;color:#c9d4e0}
 html[data-t="dark"] .cls-prev-score{color:#e0b463}
 html[data-t="dark"] .cls-hand{background:#16233a;border-left-color:#60a5fa;color:#c9d4e0}
@@ -1976,7 +1987,9 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
            + ':' + (Array.isArray(sc.week_days) ? sc.week_days.map(function (x) { return x ? 1 : 0; }).join('') : '')
            // 🚪 (2026-09-29) 방 번호·길이도 넣는다 — 안 넣으면 「오늘은 다른 방으로」·일정 이동으로
            //    room_id 가 바뀌어도 «바뀐 게 없다» 로 보고 다시 안 그려, [수업 입장] 이 옛 방으로 간다.
-           + ':' + (sc.room_id || '') + ':' + (sc.duration_min || '') + ':' + (sc.close_at_ts || '') + ',';
+           + ':' + (sc.room_id || '') + ':' + (sc.duration_min || '') + ':' + (sc.close_at_ts || '')
+           // 🚪 (2026-10-21) «학생이 다른 방에» 도 넣는다 — 안 넣으면 학생이 옮겨 가도 빨간 상자가 남거나 안 뜬다.
+           + ':' + (sc.student_elsewhere ? sc.student_elsewhere.room + '#' + sc.student_elsewhere.others + (sc.student_elsewhere.via_twin ? 'T' : '') : '') + ',';
     }
     if (sig === lastSig) return;
     lastSig = sig;
@@ -2177,7 +2190,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
           + '</div></details>';
       }
 
-      h += '<div class="cls">'
+      h += '<div class="cls' + (c.student_elsewhere ? ' cls-away-row' : '') + '">'
         +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
         +   '<div class="cls-main">'
         +     '<div class="cls-name">' + stuLabelHtml(c, T('(name not set)','(이름 미등록)'))
@@ -2193,6 +2206,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         +     preqHtml(c)
         +     handoverHtml(c)
         +     prevHtml
+        +     awayHtml(c, i)
         +   '</div>'
         +   '<div class="cls-act">';
 
@@ -2302,6 +2316,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     for (var j=0;j<b.length;j++) b[j].onclick = function(){ joinClass(list[+this.getAttribute('data-join')]); };
     var rs = box.querySelectorAll('[data-roomset]');
     for (var q=0;q<rs.length;q++) rs[q].onclick = function(){ openRoomOverride(freshClass(list[+this.getAttribute('data-roomset')])); };
+    var aw = box.querySelectorAll('[data-away]');
+    for (var w=0;w<aw.length;w++) aw[w].onclick = function(){ goStudentRoom(list[+this.getAttribute('data-away')]); };
     var e = box.querySelectorAll('[data-eval]');
     for (var k=0;k<e.length;k++) e[k].onclick = function(){ openEval(freshClass(list[+this.getAttribute('data-eval')])); };
     // ✍ 이미 쓴 일지 열기 — 학부모가 받는 eval.html 그대로.
@@ -2872,6 +2888,54 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     // vc_name 의 '교사 ' 접두사는 기존 규약 — /api/class/verify-room 이 이 형태를 전제로 판정한다.
     var nm = '교사 ' + ((DATA && DATA.me && DATA.me.name) || 'Teacher');
     location.href = '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent(c.room_id)
+                  + '&vc_name=' + encodeURIComponent(nm);
+  }
+
+  /* 🚪 (2026-10-21 필리핀 강사 요청 — BODA 처럼 «학생 방에 직접 들어가기») 학생이 이 수업 방이 아닌
+     방에 접속해 있을 때만 서버가 student_elsewhere 를 준다(src/teacher-student-elsewhere.ts).
+     ⛔ 없는 것을 지어내지 않는다 — 그 칸이 없으면 아무것도 안 그린다.
+     ⛔ 수업 관찰(투명 참관)이 아니다 — 강사가 «보이는 참가자» 로 그 방에 들어간다(매니저의 관찰은 그대로).
+     ⚠️ 그 방에 학생 말고 다른 사람이 있으면(다른 수업일 수 있다) 누르는 순간 한 번 더 묻는다. */
+  function awayRoomLabel(a){
+    var k = a && a.room_kind;
+    if (k === 'public') return T('the shared waiting room', '공용 대기방');
+    if (k === 'meeting') return T('a meeting room', '회의방');
+    if (k === 'class') return T('another class room', '다른 수업 방');
+    return T('another room', '다른 방');
+  }
+  function awayHtml(c, i){
+    var a = c && c.student_elsewhere;
+    if (!a || !a.room) return '';
+    var sub = T('Now in ', '지금 있는 곳: ') + awayRoomLabel(a)
+      + ' <span class="away-room">(' + esc(a.room) + ')</span>';
+    if (a.via_twin) sub += ' · ' + esc(T('signed in with the student\'s other account', '학생의 다른 계정으로 접속'));
+    if (a.others > 0) sub += ' · ' + esc(T(a.others + ' other ' + (a.others === 1 ? 'person' : 'people') + ' in that room',
+                                              '그 방에 ' + a.others + '명이 더 있어요'));
+    return '<div class="cls-away" role="alert">'
+      +   '⚠ ' + esc(T('The student is in a different room', '학생이 다른 방에 있어요'))
+      +   '<span class="away-sub">' + sub + '</span>'
+      +   '<button class="btn-away" type="button" data-away="' + i + '">'
+      +     esc(T('🚪 Go to the student\'s room', '🚪 학생 방으로 들어가기')) + '</button>'
+      + '</div>';
+  }
+  function goStudentRoom(c){
+    c = freshClass(c);
+    var a = c && c.student_elsewhere;
+    if (!a || !a.room){
+      // 그사이 학생이 이 수업 방으로 왔다 — 옛 방으로 보내지 않고 사실을 말한다.
+      if (window.confirm(T('The student is no longer in another room. Enter this class room?',
+                           '학생이 이제 다른 방에 없어요. 이 수업 방으로 들어갈까요?'))) joinClass(c);
+      return;
+    }
+    var msg = T('You will enter the room where the student is now: ' + a.room + '.',
+                '학생이 지금 있는 방(' + a.room + ')으로 들어갑니다.');
+    if (a.others > 0) msg += '\n\n' + T('⚠ ' + a.others + ' other ' + (a.others === 1 ? 'person is' : 'people are')
+                                         + ' in that room — it may be another class.',
+                                       '⚠ 그 방에는 학생 말고 ' + a.others + '명이 더 있어요 — 다른 수업일 수 있어요.');
+    msg += '\n\n' + T('The student will see you. Go in?', '학생에게 선생님이 보입니다. 들어갈까요?');
+    if (!window.confirm(msg)) return;
+    var nm = '교사 ' + ((DATA && DATA.me && DATA.me.name) || 'Teacher');
+    location.href = '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent(a.room)
                   + '&vc_name=' + encodeURIComponent(nm);
   }
 
