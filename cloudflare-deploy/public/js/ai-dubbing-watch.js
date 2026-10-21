@@ -92,7 +92,8 @@
       if (run.paused) return;
       try { var p = el.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {}
     }
-    function stopEl(run, el) { try { el.pause(); } catch (e) {} drop(run.media, el); drop(run.held, el); }
+    /* kit.release — 화면이 빌려준 소리 요소(아이폰용으로 클릭 때 미리 깨워 둔 것)를 돌려받는다. 없으면 아무 일도 안 한다 */
+    function stopEl(run, el) { try { el.pause(); } catch (e) {} drop(run.media, el); drop(run.held, el); if (kit.release) { try { kit.release(el); } catch (e) {} } }
 
     /* ── 소리 ─────────────────────────────────────────────────────────── */
     function maxMsFor(line) { return Math.max(4000, String(line.en).split(/\s+/).length * 700 + 3000); }

@@ -237,6 +237,10 @@ check('④-6 동기 장면 자막이 영상 시각에 맞춰 뜬다', await unti
 await A.page.click('#dub-w-stop');
 check('④-7 그만 보기 → 닫힘 · 소리 파일 정리', await until(A.page, () => !window.__dub.S.watching, null, 8000)
   && await A.page.evaluate(() => window.__probe.audios.filter((a) => /\.mp3/.test(a.src) && !a.paused).length === 0));
+/* 📱 아이폰용 풀 — 클릭 때 깨워 둔 요소를 «돌려 쓴다»(②~④ 내내 목소리 수십 번·동기 장면 5개를 틀어도 새로 안 만든다).
+ * ⚠️ 이 크로미움은 «한 번 누르면 그 뒤로 다 허용» 이라 아이폰의 «요소마다» 제한은 여기서 재현이 안 된다 — 풀이 «돈다» 까지만 본다 */
+const POOL = await A.page.evaluate(() => ({ made: window.__probe.audios.length, pooled: window.__probe.audios.filter((a) => a.__dubPool).length }));
+check('④-8 목소리 요소를 «돌려 쓴다» — 새로 만든 Audio 가 풀 크기(8)를 넘지 않는다 · 전부 클릭 때 깨운 것', POOL.made > 0 && POOL.made <= 8 && POOL.pooled === POOL.made, POOL);
 
 /* ── ⑤ 6편(배경음악 파일 + 동기) ────────────────────────────────────────── */
 console.log('\n── ⑤ 6편 — 배경음악 파일 · «🎵 배경음악» 끄기가 파일에도 걸린다');

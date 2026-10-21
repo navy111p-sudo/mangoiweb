@@ -468,7 +468,9 @@
   function routeEl(el, gainVal, noRec) {
     if (!MIX) return { gain: null, cut: function () {} };
     try {
-      var src = MIX.ctx.createMediaElementSource(el);
+      /* ⚠️ 요소 하나는 섞개에 «한 번만» 이을 수 있다 — 돌려 쓰는 요소(아래 소리 요소 풀)는 처음 만든 소스를 다시 쓴다.
+       * 다시 만들려 하면 예외가 나고, 앞서 끊어 둔 소스만 남아 그 요소가 영영 무음이 된다. */
+      var src = el.__dubSrc || (el.__dubSrc = MIX.ctx.createMediaElementSource(el));
       var g = MIX.ctx.createGain(); g.gain.value = gainVal == null ? 1 : gainVal;
       src.connect(g); g.connect(MIX.out); if (MIX.rec && !noRec) g.connect(MIX.rec);
       return { gain: g, cut: function () { try { src.disconnect(); g.disconnect(); } catch (e) {} } };
@@ -1324,13 +1326,57 @@
     var d = $('dub-w-done');
     if (finished && d && !d.hidden) d.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
+  /* 📱 아이폰(사파리)은 소리 나는 미디어 요소를 «사람이 누른 그 순간» 에 한 번 깨워야 나중에 코드로 틀 수 있다.
+   * «먼저 보기» 의 첫 목소리는 제목 카드(2.2초)·TTS 받기 «뒤» 라 그때 새로 만든 Audio 는 막혀 조용히 넘어간다
+   * (음악·효과음만 나고 원어민 목소리가 빠짐 — 더빙은 마이크가 켜져 있어 이 제한이 풀려 티가 안 났다).
+   * 그래서 클릭 안에서 요소 몇 개를 미리 깨워 두고(W_POOL) 감상이 그것을 빌려 쓰고 돌려준다(kit.Audio / kit.release).
+   * 한 번 깨운 요소는 src 를 바꿔도 계속 쓸 수 있다. 풀이 비면 예전처럼 새로 만든다(아이폰 밖에서는 그대로 된다).
+   * ⚠️ 판단 근거는 사파리의 알려진 정책이고 이 환경에서는 아이폰으로 재 보지 못했다 — 진짜 아이폰에서 들어 봐야 확정. */
+  var W_SILENT = 'data:audio/wav;base64,UklGRnQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
+  var W_POOL = [], W_POOL_MADE = 0, W_POOL_MAX = 8, W_SYNTH_WOKE = false;   // 동기 장면이 한 번에 쓰는 소리 최대 5개(배경음악+목소리)
+  function wakeEl(el) {
+    try { el.load(); } catch (e) {}
+    try {
+      var p = el.play();
+      /* 무음을 틀었다 곧바로 멈춘다 — 그 사이 빌려 가서 진짜 소리를 틀었으면 건드리지 않는다 */
+      if (p && p.then) p.then(function () { if (el.__dubIdle) { try { el.pause(); } catch (e) {} } }, function () {});
+    } catch (e) {}
+  }
+  function primeWatchAudio() {
+    while (W_POOL_MADE < W_POOL_MAX) {
+      var a = new Audio(); W_POOL_MADE++;
+      a.__dubPool = true; a.__dubIdle = true; a.preload = 'auto'; a.src = W_SILENT;
+      wakeEl(a);
+      W_POOL.push(a);
+    }
+    var v = $('dub-video');                          // 영상도 소리가 날 수 있다(videoAudio 'clean') — 같은 이유로 깨운다
+    if (v && !v.__dubWoke) { v.__dubWoke = true; try { v.load(); } catch (e) {} }
+    if (!W_SYNTH_WOKE && window.speechSynthesis && window.SpeechSynthesisUtterance) {   // 기기 목소리(서버 TTS 실패 때)도 첫 마디는 클릭 안이어야 한다
+      W_SYNTH_WOKE = true;
+      try { var u = new SpeechSynthesisUtterance(' '); u.volume = 0; window.speechSynthesis.speak(u); } catch (e) {}
+    }
+  }
+  function borrowAudio() {
+    var a = W_POOL.pop();
+    if (!a) return new Audio();
+    a.__dubIdle = false; a.onended = null; a.onerror = null; a.crossOrigin = null;
+    try { a.pause(); } catch (e) {}
+    return a;
+  }
+  function returnAudio(el) {
+    if (!el || !el.__dubPool || el.__dubIdle) return;   // 영상·풀 밖 요소는 손대지 않는다 · 두 번 돌려받지 않는다
+    el.__dubIdle = true; el.onended = null; el.onerror = null;
+    try { el.pause(); } catch (e) {}
+    W_POOL.push(el);
+  }
   function watcher() {
     if (WATCH) return WATCH;
     if (!window.MangoiDubWatch) return null;
     WATCH = window.MangoiDubWatch.create({
       C: C,
       sound: snd,
-      Audio: window.Audio,
+      Audio: borrowAudio,                            // new kit.Audio() 로 불려도 빌려준 요소가 나간다(함수가 객체를 돌려주면 new 는 그것을 쓴다)
+      release: returnAudio,
       /* ⚠️ noRec — 감상 소리는 완성 영상 갈래에 잇지 않는다. 배경음악 파일은 «🎵 배경음악» 설정을 따른다(routeBgm) */
       route: function (el, kind) { return kind === 'bgm' ? routeBgm(el, true) : routeEl(el, 1, true); },
       synth: window.speechSynthesis || null,
@@ -1356,6 +1402,7 @@
     var w = watcher();
     if (!w) return;
     ensureMix();                                     // ⚠️ 클릭 안에서 깨워야 소리가 난다(자동재생 정책)
+    primeWatchAudio();                               // 📱 같은 이유 — 목소리 요소도 클릭 안에서 깨워 둔다
     applySndPrefs();
     S.watching = true; S.wItems = items; W_DONE = null;
     closeSheet();
@@ -1383,6 +1430,7 @@
     var films = readyFilms();
     if (films.length < 2) { watchFilm(); return; }
     ensureMix();                                     // ⚠️ 받기 «전» 에 — 클릭이 끝나기 전에 소리를 깨워 둔다
+    primeWatchAudio();                               // 📱 startWatch 는 받은 «뒤» 라 클릭 밖이다 — 여기서 미리
     W_LOADING = true; renderWatchPanel();
     Promise.all(films.map(function (f) { return loadEpFor(f.id); })).then(function (eps) {
       W_LOADING = false;

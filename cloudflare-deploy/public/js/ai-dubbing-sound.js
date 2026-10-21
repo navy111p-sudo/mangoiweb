@@ -79,7 +79,7 @@
     }
 
     var st = { palette: PALETTES.adventure, mood: null, cfg: null, on: false, musicOn: true, sfxOn: true,
-      timer: null, next: 0, step: 0, paused: false, level: 0.3, duck: 1, disposed: false };
+      timer: null, next: 0, step: 0, paused: false, level: 0.3, duck: 1, disposed: false, live: [] };
     var MUSIC_LEVEL = 0.3;
 
     /* ── 소리 조각 ── */
@@ -201,7 +201,8 @@
         g.gain.value = (vol != null && isFinite(vol)) ? Math.max(0.05, Math.min(1.5, vol)) : 1;
         g.connect(sfxBus);
         r(ctx.currentTime + 0.02, g);
-        setTimeout(function () { try { g.disconnect(); } catch (e) {} }, 4000);
+        st.live.push(g);                    // 멈춤이 «지금 울리는» 효과음까지 끊을 수 있게 들고 있는다(4초 뒤 정리)
+        setTimeout(function () { var i = st.live.indexOf(g); if (i >= 0) st.live.splice(i, 1); try { g.disconnect(); } catch (e) {} }, 4000);
         return true;
       } catch (e) { return false; }
     }
@@ -305,6 +306,9 @@
       st.paused = true;
       if (st.timer) { clearTimeout(st.timer); st.timer = null; }
       ramp(musicBus.gain, 0, 0.2);
+      /* 이미 울리는 효과음(파도·천둥 등 몇 초짜리)도 끊는다 — 안 끊으면 «멈춤» 인데 효과음만 계속 들린다.
+       * 그 소리의 이득을 0 으로 내리고 목록에서 뺀다(이어 갈 때 남은 꼬리가 되살아나지 않게). 새 타이머는 안 만든다. */
+      st.live.splice(0).forEach(function (g) { ramp(g.gain, 0, 0.12); });
     }
     function resume() {
       if (!st.paused) return;
