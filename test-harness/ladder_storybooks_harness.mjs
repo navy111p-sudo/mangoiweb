@@ -87,7 +87,7 @@ for (const id of files) {
   const file = join(PUB, `story-${id}.html`);
   ok(existsSync(file), tag + '페이지가 있다');
   if (!existsSync(file)) continue;
-  const html = readFileSync(file, 'utf8');
+  const html = readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
   ok(html.includes('data-style="' + d.img.style + '"'), tag + '화풍 배지가 있다');
   for (const key of ['cover', ...Object.keys(d.img.scenes)]) {
     const asset = id + '-' + (key === 'cover' ? key : 's' + key) + '.webp?v=' + d.img.ver[key];
