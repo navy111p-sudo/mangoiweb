@@ -540,6 +540,11 @@
          계속 false 를 반환하게 하기 위한 안전핀일 뿐, "값이 오길 기다린다"는 뜻이 아니다.
 
      ▶ 카카오페이/토스 실제 값을 넣는 방법: 위 PAY_INFO 의 해당 값을 바꾸기만 하면 된다. */
+  /* 🏦 (2026-10-21 사장님 지시) 가상계좌는 «아직 안 씀» — 토스 계약(dc_mangoi6ldo)에 가상계좌가 없다
+     (카드·계좌이체만 계약). 진짜 키로 바꾸는 날 가상계좌를 고른 학부모만 결제가 실패하므로 버튼을 감춘다.
+     ⛔ 코드는 지우지 않는다 — 토스에 가상계좌를 추가 신청해 승인되면 이 한 줄을 true 로 바꾸고 ?v= 를 올린다.
+     막는 자리 넷: 버튼 감춤 · 준비 판정 · «가상계좌로 결제하기» 추천 · 발급 함수 첫 줄. */
+  const VIRTUAL_ACCOUNT_ON = false;
   const PAY_PLACEHOLDERS = {
     account_no:   ['110-555-123456'],
     kakaopay_url: ['https://qr.kakaopay.com/Ej86dkamx'],
@@ -555,7 +560,7 @@
      (보낸 곳이 없는데 "결제 완료"를 접수하면 장부만 더럽혀진다) */
   function payMethodReady(method) {
     if (method === 'card') return true;                       // PG 결제창이 처리
-    if (method === 'virtual') return true;                     // 🏦 (2026-07-30) 정식 PG 가상계좌 연동 완료
+    if (method === 'virtual') return VIRTUAL_ACCOUNT_ON;       // 🏦 (2026-10-21) 계약 전이라 꺼 둠 — VIRTUAL_ACCOUNT_ON
     if (method === 'kakao')  return payDestReady('kakaopay_url');
     if (method === 'toss')   return payDestReady('toss_id');
     /* 🔴 (2026-07-30) 장지웅 부장님 Q2: "실제 입금 계좌는 넣지 않고, 각 고객 앞으로 발행되는
@@ -601,6 +606,7 @@
   }
   // 안내 패널의 "가상계좌로 결제하기" 버튼 → 실제 가상계좌 method-card 를 대신 눌러준다.
   window.paySwitchMethod = function(method){
+    if (method === 'virtual' && !VIRTUAL_ACCOUNT_ON) return;
     const card = document.querySelector(`.method-card[data-method="${method}"]`);
     if (card) card.click();
   };
@@ -684,6 +690,7 @@
      ⚠️ Toss SDK 파라미터 이름(cashReceipt 등)은 문서 기준으로 작성 — 브라우저 팝업으로 직접
         눌러보는 최종 확인은 못 했다(테스트 PG 라 실패해도 실제 청구는 없음). */
   async function executeVirtualAccountPayment(amount, payer, orderId, programLabel) {
+    if (!VIRTUAL_ACCOUNT_ON) return;
     let order;
     try {
       var _u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
@@ -789,7 +796,7 @@
     } else if (method === 'toss' && !payDestReady('toss_id')) {
       c.innerHTML = payNotReadyPanel('토스 송금');
     } else if ((method === 'bank' || method === 'cash' || method === 'naver') && !payDestReady('account_no')) {
-      c.innerHTML = payNotReadyPanel(method === 'naver' ? '네이버페이 송금' : '계좌이체', /* recommendVirtual */ true);
+      c.innerHTML = payNotReadyPanel(method === 'naver' ? '네이버페이 송금' : '계좌이체', /* recommendVirtual */ VIRTUAL_ACCOUNT_ON);
     } else if (method === 'kakao') {
       c.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
@@ -1322,6 +1329,10 @@
   // 결제수단 카드 클릭
   const submitBtn = document.getElementById('payment-submit');
   document.querySelectorAll('.method-card').forEach(card => {
+    if (card.dataset.method === 'virtual' && !VIRTUAL_ACCOUNT_ON) {
+      card.style.setProperty('display', 'none', 'important');   // 🏦 가상계좌 감춤 (VIRTUAL_ACCOUNT_ON)
+      return;
+    }
     card.addEventListener('click', () => {
       document.querySelectorAll('.method-card.selected').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
