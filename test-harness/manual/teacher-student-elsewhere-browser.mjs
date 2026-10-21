@@ -134,7 +134,6 @@ listeners.push(async (m) => {
   const u = new URL(request.url);
   try {
     if (u.searchParams.has('vc_room') && resourceType === 'Document') {
-      S.asked = await evaluate('window.__asked.slice()');
       S.nav.push(request.url);
       return await send('Fetch.fulfillRequest', { requestId, responseCode: 200,
         responseHeaders: [{ name: 'Content-Type', value: 'text/html; charset=utf-8' }],
@@ -155,6 +154,8 @@ listeners.push(async (m) => {
 
 await send('Page.enable');
 await send('Runtime.enable');
+await send('Runtime.addBinding', { name: '__recordConfirm' });
+listeners.push((m) => { if (m.method === 'Runtime.bindingCalled' && m.params.name === '__recordConfirm') S.asked.push(m.params.payload); });
 await send('Network.enable');
 await send('Network.setBypassServiceWorker', { bypass: true });
 await send('Network.setCacheDisabled', { cacheDisabled: true });
@@ -165,7 +166,7 @@ await send('Page.addScriptToEvaluateOnNewDocument', { source:
   "(function(){var q=new URLSearchParams(location.search);" +
   "try{localStorage.setItem('mangoi_teacher_theme',q.get('_t')==='dark'?'dark':'light');localStorage.removeItem('mangoi_teacher_portal_v1');}catch(e){}" +
   "window.__asked=[];window.__confirmAnswer=q.get('_c')!=='no';" +
-  "window.confirm=function(m){window.__asked.push(String(m));return window.__confirmAnswer;};" +
+  "window.confirm=function(m){window.__asked.push(String(m));window.__recordConfirm(String(m));return window.__confirmAnswer;};" +
   "window.prompt=function(){return null;};window.alert=function(){};})();" });
 
 async function setViewport(w, h, mobile) {
