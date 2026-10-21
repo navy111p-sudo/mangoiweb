@@ -151,6 +151,8 @@ html.dark .kpi-arrow{color:#7c8899}
 .row .num{font-variant-numeric:tabular-nums;font-weight:700}
 /* 📋 (2026-10-07 사장님 «시간·이름·아이디·강사명만») 「오늘 전체 수업」 간단히 보기 — 한 줄 네 칸 */
 .row.ta-s{display:grid;grid-template-columns:52px minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr);gap:8px;flex-wrap:nowrap}
+/* 📅 (2026-10-20) 간단히 보기에도 «연기·변경» — 다섯째 칸(옮길 수 없는 줄은 빈 칸) */
+.row.ta-s.ta-s5{grid-template-columns:52px minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr) auto}
 .row.ta-s>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row.ta-s b{flex:none}
 .ta-mode{cursor:pointer;display:inline-block;margin-left:6px;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700;border:1px solid #cbd5e1;background:#fff;color:#344054}
@@ -3194,6 +3196,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     return el.value;
   }
 
+  /* 📅 (2026-10-20 문의 «오늘 수업은 아직 모든 시간표에 이동 버튼이 없다») «연기·변경» 버튼을 줄지의 정본 — 간단히·자세히 둘 다 여기만 본다.
+     판정은 서버가 준 schedule_id·can_move·can_split 그대로(아래 «자세히» 주석의 이유 — 카페24 줄은 schedule_id 가 없고,
+     매주 반복 줄은 can_split 이 아니면 안 준다). */
+  function taMovePill(r){
+    if (!r || !r.schedule_id) return '';
+    if (r.can_move === false && r.can_split !== true) return '';
+    return '<span class="tag ta-open" role="button" tabindex="0" data-ta="' + esc(r.schedule_id) + '">'
+         + esc(T('📅 Move', '📅 연기·변경')) + '</span>';
+  }
   /* 📋 (2026-10-07 사장님) 기본은 «간단히»(시간·이름·아이디·강사). 연기·입장·평가 등은 «자세히» 에 그대로 있다.
      ⛔ 자세히 보기를 없애지 말 것 — 매니저 요청(연기·변경·교재 배정·캘린더)이 전부 그쪽에 있다.
      저장은 이 기기 편의(localStorage) — 못 읽으면 간단히. */
@@ -3275,10 +3286,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var t = esc(r.start_time || '');
       var who = esc(r.student_name || r.student_uid || '-');
       if (simple) {
-        return '<div class="row ta-s"><b>' + t + '</b><span>' + esc(r.student_name || '—') + '</span>'
+        return '<div class="row ta-s ta-s5"><b>' + t + '</b><span>' + esc(r.student_name || '—') + '</span>'
           + '<span class="muted">' + esc(r.student_uid || '—') + '</span>'
           + (r.teacher_name ? '<span>' + esc(r.teacher_name) + '</span>'
-             : '<span style="color:#b45309;font-weight:800">' + esc(T('unassigned', '미배정')) + '</span>') + '</div>';
+             : '<span style="color:#b45309;font-weight:800">' + esc(T('unassigned', '미배정')) + '</span>')
+          + '<span>' + taMovePill(r) + '</span></div>';
       }
       /* ⚠️ 강사 미배정은 매니저가 가장 먼저 봐야 하는 줄이다 — 회색(.muted) 안에 넣으면
          부모 색에 묻혀 «그냥 한 줄» 로 보인다(2026-08-25 브라우저 실측에서 잡음). 상자를 갈라 둔다. */
@@ -3365,8 +3377,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
             + esc(T('📅 Weekly — move a date in calendar (not timetable)', '📅 매주 반복 — 캘린더에서 날짜별로')) + '</span>'
           : '<span class="tag">' + esc(T('weekly — use timetable', '매주 반복 — 시간표에서')) + '</span>';
       } else if (r.schedule_id) {
-        resch = '<span class="tag ta-open" role="button" tabindex="0" data-ta="' + esc(r.schedule_id) + '">'
-              + esc(T('📅 Move', '📅 연기·변경')) + '</span>';
+        resch = taMovePill(r);
       }
       /* 📋 (2026-09-23 매니저 요청) 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결 — admin.html 「오늘 수업」 표와
          **같은 API·같은 칸**(서버 정본 src/class-today-extras.ts). 모르면 «—». 색이 아니라 글자·이모지로 뜻을 전한다. */

@@ -1847,7 +1847,29 @@ function _ensureRoomEnhCss(){
    예약방에는 누군가(대개 선생님)가 접속 중인 수업. 둘 다 «접속» 으로 보여 어느 표에도 안 드러나던 사고다.
    ⚠️ 글자색은 인라인 !important — admin-inline-c.css 가 카드 안 글자를 #101828 !important 로 덮는다.
    ⛔ list 가 null(서버가 그 칸을 안 줌·옛 서버)이면 아무것도 그리지 않는다(0건을 «정상» 이라 말하지 않음). */
+/* 👁🚪 (2026-10-20 제안 «학생과 교사가 다른 방에 있으면 관찰자가 학생 방으로 들어갈 곳») 경고 줄마다 «학생 방» 버튼 두 개.
+   새 기능이 아니라 이미 있는 두 입구를 그대로 부른다 — 숨은 참관 observeRoom(감사 기록·observe_sig 포함),
+   보이게 입장 ghEnterRoom(adm-s1.js, 확인창·카메라 꺼짐). ⚠️ onclick 문자열 대신 data-* + 위임 —
+   방 번호에 따옴표가 섞이면 onclick 이 깨진다(adm-s1 v=15 와 같은 함정). */
+document.addEventListener('click', function (e) {
+  const b = e.target && e.target.closest ? e.target.closest('#rooms-mismatch-alert [data-mm-act]') : null;
+  if (!b) return;
+  e.preventDefault();
+  const room = b.getAttribute('data-mm-room') || '';
+  if (!room) return;
+  if (b.getAttribute('data-mm-act') === 'observe') observeRoom(room);
+  else if (typeof window.ghEnterRoom === 'function') window.ghEnterRoom(room);
+});
 function _renderRoomMismatch(list, _L) {
+  function _mismatchBtns(room, _L) {
+    if (!room) return '';
+    const r = _esc(String(room));
+    const st = 'margin-left:6px;padding:2px 8px;border-radius:99px;font-size:11.5px;font-weight:700;cursor:pointer;';
+    return ' <button type="button" data-mm-act="observe" data-mm-room="' + r + '" style="' + st + 'border:1px solid #c4b5fd;background-color:#f5f3ff;color:#5b21b6 !important">'
+         + (_L ? '👁 Observe student room' : '👁 학생 방 참관') + '</button>'
+         + ' <button type="button" data-mm-act="enter" data-mm-room="' + r + '" style="' + st + 'border:1px solid #fdba74;background-color:#fff7ed;color:#9a3412 !important">'
+         + (_L ? '🚪 Enter student room (visible)' : '🚪 학생 방 입장(보임)') + '</button>';
+  }
   try {
     const sum = document.getElementById('rooms-now-summary');
     if (!sum || !sum.parentNode) return;
@@ -1867,7 +1889,7 @@ function _renderRoomMismatch(list, _L) {
         + _esc(String(m.start_kst || '')) + ' ' + who + ' — '
         + (_L ? 'student in ' : '학생은 ') + '<b style="color:#7f1d1d !important">' + _esc(String(m.student_room || '')) + '</b>'
         + (_L ? ', ' + t + ' waiting in ' : ', ' + t + '은 ') + '<b style="color:#7f1d1d !important">' + _esc(String(m.expected_room || '')) + '</b>'
-        + (_L ? '' : ' 에서 대기') + tw + '</div>';
+        + (_L ? '' : ' 에서 대기') + tw + _mismatchBtns(m.student_room, _L) + '</div>';
     }).join('');
     box.innerHTML = '<div style="font-weight:800;font-size:13.5px;color:#991b1b !important;margin-bottom:4px">' + head + '</div>' + rows
       + '<div style="font-size:12px;color:#7f1d1d !important;margin-top:4px">'

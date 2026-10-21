@@ -372,7 +372,8 @@ const HTML = rd(resolve(PUB, 'admin.html'));
   ok(colspans.length >= 4 && colspans.every(c => c === nCol), `빈 줄 colspan 이 전부 같은 수 (${colspans.join(',')})`);
   ok(/data-sort-key="lastpay_at"/.test(T) && /data-sort-key="next_class_at"[^>]*data-sort-default-dir="asc"/.test(T), '두 칸이 정렬된다(다음 수업은 가까운 순)');
   ok(/data-ko="최근 결제" data-en="Last paid"/.test(T) && /data-ko="다음 수업" data-en="Next class"/.test(T), '머리글 KO/EN');
-  ok(/adm-core\.js\?v=2610133-smpaynext/.test(HTML), 'adm-core.js 의 ?v= 를 올렸다');
+  /* ?v= 는 뒤 작업이 계속 올린다 — «이 번호 이상» 으로 본다(정확히 그 번호로 못 박으면 다음 수정이 빨간불) */
+  ok(Number((HTML.match(/adm-core\.js\?v=(\d+)/) || [])[1] || 0) >= 2610133, 'adm-core.js 의 ?v= 를 올렸다');
   ok(/\['최근결제일'/.test(CORE) && /\['다음수업'/.test(CORE), 'CSV 에도 실린다');
 }
 
