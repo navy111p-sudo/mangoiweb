@@ -7,6 +7,7 @@
   "level": 1,
   "status": "final",
   "timing": "synced",
+  "palette": "sea",
   "note": {
     "ko": "캐릭터 목소리는 영상의 입모양에 맞춰 만든 AI 음성이에요 · 다섯 명이 역할을 나눌 수 있어요",
     "en": "Character voices are AI voices matched to the mouths in the video · up to five students can share the roles"
@@ -73,6 +74,30 @@
         "ko": "바다에서 온 신호"
       },
       "arc": "ki",
+      "mood": "wonder",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "waves"
+        },
+        {
+          "line": 2,
+          "name": "horn"
+        },
+        {
+          "line": 4,
+          "name": "beep"
+        },
+        {
+          "line": 5,
+          "when": "after",
+          "name": "creak"
+        },
+        {
+          "line": 9,
+          "name": "chime"
+        }
+      ],
       "video": "/media/dubbing/dub-004/scene-1.mp4",
       "durationSec": 40,
       "videoAudio": "mute",
@@ -195,6 +220,27 @@
         "ko": "수상한 보물 상자"
       },
       "arc": "seung",
+      "mood": "mystery",
+      "sfx": [
+        {
+          "line": 1,
+          "name": "magic"
+        },
+        {
+          "line": 3,
+          "name": "heartbeat",
+          "gain": 0.7
+        },
+        {
+          "line": 6,
+          "name": "wind"
+        },
+        {
+          "line": 10,
+          "when": "after",
+          "name": "chime"
+        }
+      ],
       "video": "/media/dubbing/dub-004/scene-2.mp4",
       "durationSec": 40,
       "videoAudio": "mute",
@@ -317,6 +363,31 @@
         "ko": "갑자기 바뀐 바람"
       },
       "arc": "seung",
+      "mood": "action",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "wind"
+        },
+        {
+          "line": 1,
+          "name": "thunder",
+          "gain": 0.7
+        },
+        {
+          "line": 5,
+          "when": "after",
+          "name": "creak"
+        },
+        {
+          "line": 7,
+          "name": "whoosh"
+        },
+        {
+          "line": 10,
+          "name": "sparkle"
+        }
+      ],
       "video": "/media/dubbing/dub-004/scene-3.mp4",
       "durationSec": 40,
       "videoAudio": "mute",
@@ -439,6 +510,30 @@
         "ko": "상자 속 뜻밖의 반전"
       },
       "arc": "jeon",
+      "mood": "mystery",
+      "sfx": [
+        {
+          "line": 1,
+          "name": "creak"
+        },
+        {
+          "line": 2,
+          "name": "magic"
+        },
+        {
+          "line": 3,
+          "mood": "warm"
+        },
+        {
+          "line": 5,
+          "name": "sparkle"
+        },
+        {
+          "line": 10,
+          "when": "after",
+          "name": "chime"
+        }
+      ],
       "video": "/media/dubbing/dub-004/scene-4.mp4",
       "durationSec": 40,
       "videoAudio": "mute",
@@ -561,6 +656,43 @@
         "ko": "집으로 가는 빛"
       },
       "arc": "jeon",
+      "mood": "tense",
+      "sfx": [
+        {
+          "line": 1,
+          "when": "after",
+          "name": "pop"
+        },
+        {
+          "line": 2,
+          "when": "after",
+          "name": "creak"
+        },
+        {
+          "line": 5,
+          "when": "after",
+          "name": "creak"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "magic"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "mood": "triumph"
+        },
+        {
+          "line": 7,
+          "name": "tada"
+        },
+        {
+          "line": 8,
+          "when": "after",
+          "name": "horn"
+        }
+      ],
       "video": "/media/dubbing/dub-004/scene-5.mp4",
       "durationSec": 40,
       "videoAudio": "mute",
@@ -683,6 +815,27 @@
         "ko": "친구가 된 선원들"
       },
       "arc": "gyeol",
+      "mood": "triumph",
+      "sfx": [
+        {
+          "line": 1,
+          "name": "cheer",
+          "gain": 0.7
+        },
+        {
+          "line": 7,
+          "when": "after",
+          "name": "camera"
+        },
+        {
+          "line": 8,
+          "name": "magic"
+        },
+        {
+          "at": "end",
+          "name": "fanfare"
+        }
+      ],
       "video": "/media/dubbing/dub-004/scene-6.mp4",
       "durationSec": 40,
       "videoAudio": "mute",

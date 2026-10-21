@@ -13,6 +13,8 @@
  * ⚠️ 채점 순서는 speech-coach.html 과 같다: 전사(Whisper) → Azure 음소평가(브라우저 SDK) → /api/voice/coach.
  *    ⛔ /api/voice/transcribe 에 prompt(정답 문장)를 보내지 말 것 — 2026-07-29 «전부 100점» 사고.
  * ⚠️ 완성 영상은 이 기기에만 만든다(서버 저장 API 는 아직 없다 — 새 API 는 src/index.ts 승인이 필요).
+ * 🎵 배경음악·효과음은 js/ai-dubbing-sound.js(브라우저 합성)가, 👀 «먼저 보기»(감상) 순서는 js/ai-dubbing-watch.js 가 맡는다.
+ *    여기는 재료(섞개·영상·자막·TTS)를 넘기고 그리기만 한다 — 감상 순서를 여기에 다시 적지 말 것.
  */
 (function () {
   'use strict';
@@ -26,6 +28,9 @@
   var SILENCE_STOP_MS = 1300;      // 말한 뒤 이만큼 조용하면 그 대사는 끝난 것으로 본다
   var GENRE_KEY = 'mangoi_dub_genre_v1';   // 마지막으로 본 장르(이 기기만 — 편의 기억)
   var KT_KEY = 'mangoi_dub_kt_v1';         // 마지막으로 고른 키키와 토토 에피소드 id
+  var SEEN_KEY = 'mangoi_dub_seen_v1';     // 끝까지 본 에피소드 { 편id: [에피소드 번호…] } (이 기기만 — 편의 기억)
+  var SND_KEY = 'mangoi_dub_snd_v1';       // 소리 설정 { music, sfx, ko } (이 기기만)
+  var DUCK_NATIVE = 0.35, DUCK_STUDENT = 0.15;   // 대사 동안 합성 음악 크기 — 학생 차례는 마이크에 덜 들어가게 더 줄인다
 
   /* 🐱 키키와 토토 10편 — 더빙은 전용 스튜디오(/ai-dubbing-studio.html?ep=<id>)가 한다. 여기는 «고르기» 용 목록뿐.
    * ⚠️ 정본은 ai-dubbing-studio.html 의 EPISODES·CAST 다. 편·제목·레벨·출연을 바꾸면 «둘 다» 고칠 것 —
@@ -55,8 +60,13 @@
     sel: -1,           // 고른 에피소드(= 매니페스트의 장면 순번)
     ktSel: 0,          // 고른 키키와 토토 에피소드(KT_EPISODES 순번)
     loadErr: false,
+    watching: false,   // 👀 먼저 보기 중(더빙과 동시에 돌지 않는다)
+    wNow: null,        // 지금 보는 항목 { i, n, it } — 진행 표시용
+    wItems: null,      // 지금 보는 묶음(끝나면 «더빙하러 가기» 가 지금 편의 첫 장면을 고른다)
+    epCache: {},       // «모든 작품 이어 보기» 로 읽은 다른 편 매니페스트(정본 normalizeEpisode 결과)
   };
-  window.__dub = { S: S };   // 브라우저 검사용(개인정보 없음)
+  /* 브라우저 검사용(개인정보 없음) — 섞개·소리 엔진·먼저 보기 진행기를 «읽기만» 한다 */
+  window.__dub = { S: S, mix: function () { return MIX; }, watch: function () { return WATCH; } };
 
   /* ── 글자 ─────────────────────────────────────────────────────────────── */
   function isEn() { try { return !!(window.getLang && window.getLang() === 'en'); } catch (e) { return false; } }
@@ -224,21 +234,24 @@
   }
 
   /* ── 고른 에피소드(모험) ────────────────────────────────────────────── */
-  function scenePlayable(i) { var sc = S.ep && S.ep.scenes[i]; return !!(sc && sc.video && sc.lines.length); }
+  function playableIn(ep, i) { var sc = ep && ep.scenes[i]; return !!(sc && sc.video && sc.lines.length); }
+  function scenePlayable(i) { return playableIn(S.ep, i); }
+  function playableIdxs(ep) { var out = []; (ep ? ep.scenes : []).forEach(function (sc, i) { if (playableIn(ep, i)) out.push(i); }); return out; }
   function firstPlayable() {
     for (var i = 0; S.ep && i < S.ep.scenes.length; i++) if (scenePlayable(i)) return i;
     return -1;
   }
-  function filmInfo() {   // 지금 편의 짧은 이름 — 목록(index.json)에 있으면 그것, 없으면 매니페스트 제목
-    var id = S.ep ? S.ep.id : episodeId(), hit = null;
-    (S.index || []).forEach(function (e) { if (e.id === id) hit = e; });
+  function filmOf(ep) {   // 그 편의 짧은 이름 — 목록(index.json)에 있으면 그것, 없으면 매니페스트 제목
+    var hit = null;
+    (S.index || []).forEach(function (e) { if (e.id === ep.id) hit = e; });
     if (hit) return { no: hit.no, title: hit.title };
-    return { no: null, title: S.ep ? S.ep.title : { ko: '', en: '' } };
+    return { no: null, title: ep.title || { ko: '', en: '' } };
   }
+  function filmInfo() { return filmOf(S.ep || { id: episodeId(), title: { ko: '', en: '' } }); }
   function renderPickSum() {
     var box = $('dub-pick-sum'), start = $('dub-start');
     var sc = S.ep && S.sel >= 0 ? S.ep.scenes[S.sel] : null;
-    if (start) start.disabled = !!S.run || !scenePlayable(S.sel);
+    if (start) start.disabled = !!S.run || S.watching || !scenePlayable(S.sel);
     if (!box) return;
     if (!sc) { box.hidden = true; return; }
     var f = filmInfo();
@@ -246,6 +259,7 @@
     box.innerHTML = '<span class="ps-img"' + (sc.poster ? ' style="background-image:url(\'' + esc(sc.poster) + '\')"' : '') + '></span>'
       + '<span class="ps-tx">' + (f.no ? L(f.no + '편 · ' + f.title.ko, 'Film ' + f.no + ' · ' + f.title.en) : L(f.title.ko, f.title.en))
       + '<b>EP ' + sc.no + ' · ' + L(sc.label.ko, sc.label.en) + '</b></span>';
+    renderNudge();
   }
 
   /* ── 폰: 아래 고정 바 · 바텀시트 ──────────────────────────────────────── */
@@ -293,7 +307,7 @@
     t1.textContent = a;
     t2.textContent = b;
     castBtn.hidden = S.genre === 'kt';
-    castBtn.disabled = !S.ep || !!S.run;
+    castBtn.disabled = !S.ep || !!S.run || S.watching;
     ktA.hidden = S.genre !== 'kt';
   }
 
@@ -347,7 +361,7 @@
   }
 
   function onCastClick(e) {
-    if (S.run) return;
+    if (S.run || S.watching) return;
     var b = e.target.closest('button');
     if (!b) return;
     if (b.classList.contains('cnt')) {
@@ -375,6 +389,7 @@
     var box = $('dub-scenes');
     if (!box || !S.ep) return;
     if (!scenePlayable(S.sel)) S.sel = firstPlayable();
+    var busy = !!(S.run || S.watching);   // 더빙·먼저 보기 중에 다시 그려도(언어 바꿈·«봤어요») 잠금이 풀리지 않게
     var h = '';
     S.ep.scenes.forEach(function (sc, i) {
       var who = {};
@@ -382,7 +397,7 @@
       var emo = Object.keys(who).map(function (cid) { return S.ep.characters[cid].emoji; }).join('');
       var playable = scenePlayable(i), sel = playable && i === S.sel;
       h += '<div class="scene' + (sel ? ' sel' : '') + '">'
-        + '<button type="button" class="pick" data-pick="' + i + '" aria-pressed="' + sel + '"' + (playable ? '' : ' disabled') + '>'
+        + '<button type="button" class="pick" data-pick="' + i + '" aria-pressed="' + sel + '"' + (playable && !busy ? '' : ' disabled') + '>'
         + '<span class="thumb' + (playable ? ' on' : '') + (playable && sc.poster ? ' pic' : '') + '"'
         + (playable && sc.poster ? ' style="background-image:url(\'' + esc(sc.poster) + '\')"' : '') + '>'
         + '<span class="epn">EP ' + esc(sc.no) + '</span>'
@@ -390,15 +405,18 @@
         + '<span class="tag s' + ((i % 6) + 1) + '">' + L(sc.no + '. ' + sc.label.ko, sc.no + '. ' + sc.label.en) + '</span>'
         + '<span class="meta">' + L('대사 ' + sc.lines.length + '줄', sc.lines.length + ' lines') + ' · '
         + (sc.timing === 'synced' ? L('영상에 맞춰 진행', 'synced to video') : L('차례대로 진행', 'turn by turn'))
-        + ' <span class="selmark">' + L('✓ 골랐어요', '✓ Picked') + '</span></span>'
+        + ' <span class="selmark">' + L('✓ 골랐어요', '✓ Picked') + '</span>'
+        + (playable && isSeen(S.ep.id, sc.no) ? ' <span class="seenmark">' + L('👀 봤어요', '👀 Watched') + '</span>' : '') + '</span>'
         + '</button>'
-        + '<button type="button" class="btn go" data-scene="' + i + '"' + (playable ? '' : ' disabled') + '>' + L('▶ 바로 더빙', '▶ Dub now') + '</button>'
-        + '</div>';
+        + '<div class="acts">'
+        + '<button type="button" class="btn wbtn" data-watch="' + i + '"' + (playable && !busy ? '' : ' disabled') + '>' + L('👀 보기', '👀 Watch') + '</button>'
+        + '<button type="button" class="btn go" data-scene="' + i + '"' + (playable && !busy ? '' : ' disabled') + '>' + L('▶ 바로 더빙', '▶ Dub now') + '</button>'
+        + '</div></div>';
     });
     box.innerHTML = h;
   }
   function pickScene(i) {
-    if (S.run || !scenePlayable(i)) return;
+    if (S.run || S.watching || !scenePlayable(i)) return;
     S.sel = i;
     renderScenes(); renderPickSum(); renderMbar();
   }
@@ -437,8 +455,11 @@
       var ctx = new AC();
       var out = ctx.createGain(); out.connect(ctx.destination);
       var rec = ctx.createMediaStreamDestination ? ctx.createMediaStreamDestination() : null;
-      MIX = { ctx: ctx, out: out, rec: rec };
+      MIX = { ctx: ctx, out: out, rec: rec, snd: null };
+      /* 🎵 배경음악·효과음 — 스피커와 완성 영상 갈래 둘 다에 잇는다(완성 영상에도 음악이 들어간다) */
+      if (window.MangoiDubSound) { try { MIX.snd = window.MangoiDubSound.create(ctx, [out, rec]); } catch (e) { MIX.snd = null; } }
       try { ctx.resume(); } catch (e) {}
+      applySndPrefs();
       return MIX;
     } catch (e) { return null; }
   }
@@ -454,8 +475,39 @@
     } catch (e) { return { gain: null, cut: function () {} }; }
   }
 
+  /* ── 🎵 배경음악·효과음 — 더빙과 «먼저 보기» 가 같이 쓴다 ─────────────────
+   * 판정(어느 장면에 어느 분위기·어느 대사 앞뒤에 무슨 효과음)은 정본 core(sceneCues·timedCues). 여기는 울리기만. */
+  function snd() { return MIX && MIX.snd; }
+  function sndDuck(v) { var e = snd(); if (e) e.duck(v); }
+  function sndCues(sc, slot, k, when) { var e = snd(); if (!e) return; C.sceneCues(sc, slot, k, when).forEach(function (c) { e.cue(c); }); }
+  function sndEnter(ep, sc) { var e = snd(); if (e) e.enterScene(ep.palette, sc.mood, !!sc.bgm); }
+  function sndStop(sec) { var e = snd(); if (e) { e.stopMusic(sec); e.duck(1); } }
+  /* 장면 배경음악 «파일»(sc.bgm) — «🎵 배경음악» 을 끄면 파일도 끈다(합성 음악만 끄면 6편은 그대로 들린다) */
+  var BGM_ROUTES = [];
+  function setBgmLevel(h) { var on = sndPrefs().music; if (h.r.gain) h.r.gain.gain.value = on ? 1 : 0; else h.el.muted = !on; }
+  function routeBgm(el, noRec) {
+    var r = routeEl(el, 1, noRec), h = { r: r, el: el };
+    BGM_ROUTES.push(h);
+    setBgmLevel(h);
+    return { gain: r.gain, cut: function () { var i = BGM_ROUTES.indexOf(h); if (i >= 0) BGM_ROUTES.splice(i, 1); r.cut(); } };
+  }
+  function sndPrefs() {
+    var p = null;
+    try { p = JSON.parse(localStorage.getItem(SND_KEY) || 'null'); } catch (e) { p = null; }
+    p = p && typeof p === 'object' ? p : {};
+    return { music: p.music !== false, sfx: p.sfx !== false, ko: p.ko !== false };
+  }
+  function saveSndPrefs(p) { try { localStorage.setItem(SND_KEY, JSON.stringify(p)); } catch (e) {} }
+  function applySndPrefs() {
+    var p = sndPrefs(), e = snd();
+    if (e) e.setEnabled(p.music, p.sfx);
+    BGM_ROUTES.forEach(setBgmLevel);
+    var st = $('dub-stage'); if (st) st.classList.toggle('noko', !p.ko);
+    ['music', 'sfx', 'ko'].forEach(function (k) { var b = $('dub-snd-' + k); if (b) b.checked = p[k]; });
+  }
+
   /* 원어민 대사 TTS — 서버 /api/voice/tts(영어 화자 지정). 같은 문장은 다시 받지 않는다. */
-  var TTS_CACHE = {};
+  var TTS_CACHE = {}, TTS_WAIT = {};
   function fetchTtsOnce(text, speaker) {
     return fetch('/api/voice/tts', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -472,13 +524,17 @@
   function getTts(text, speaker) {
     var key = speaker + '|' + text;
     if (TTS_CACHE[key]) return Promise.resolve(TTS_CACHE[key]);
-    return fetchTtsOnce(text, speaker)
+    if (TTS_WAIT[key]) return TTS_WAIT[key];          // 받는 중이면 같이 기다린다(미리 받기와 겹쳐도 요청은 한 번)
+    var p = fetchTtsOnce(text, speaker)
       .catch(function () { return new Promise(function (r) { setTimeout(r, 400); }).then(function () { return fetchTtsOnce(text, speaker); }); })
       .then(function (res) {
         if (res.sameVoice) TTS_CACHE[key] = res.url;   // ⛔ 다른 화자로 대체된 음성은 캐시하지 않는다(그 문장이 굳는다)
         return res.url;
       })
-      .catch(function () { return null; });
+      .catch(function () { return null; })
+      .then(function (url) { delete TTS_WAIT[key]; return url; });
+    TTS_WAIT[key] = p;
+    return p;
   }
   /* 미리 받아 두기 — 장면을 시작하면 그 장면 원어민 대사를 뒤에서 받아 둔다(차례 사이 멈춤을 줄인다).
    * «먼저 들어 보기» 가 켜져 있으면 학생 대사도 들려주므로 함께 받아 둔다. */
@@ -911,23 +967,30 @@
   }
 
   function playTurns(run, sc) {
-    var items = C.assignLines(sc, S.cast, run.counters);
+    var items = C.assignLines(sc, S.cast, run.counters);   // 대사 순서 그대로 — k 가 곧 정본 효과음의 대사 번호
     var i = 0;
+    sndCues(sc, 'start');
     function next() {
       if (run.aborted || i >= items.length) return Promise.resolve();
-      var it = items[i++];
+      var k = i++, it = items[k];
       setProg(T('에피소드 ' + sc.no + ' · ' + i + ' / ' + items.length + ' 줄', 'Episode ' + sc.no + ' · line ' + i + ' / ' + items.length));
+      sndCues(sc, 'line', k, 'before');
       showLine(run, it.line, it.performer);
       var p;
-      if (it.performer.type === 'student') p = studentTurn(run, sc, it);
+      if (it.performer.type === 'student') { sndDuck(DUCK_STUDENT); p = studentTurn(run, sc, it); }
       else {
         setButtons('native');
+        sndDuck(DUCK_NATIVE);
         run.skipNow = function () { run.wakers.splice(0).forEach(function (w) { try { w(); } catch (e) {} }); };
         p = speakNative(run, it.line).then(function () { run.skipNow = null; });
       }
-      return p.then(function () { return sleep(350, run); }).then(next);
+      return p.then(function () {
+        sndDuck(1);
+        if (!run.aborted) sndCues(sc, 'line', k, 'after');
+        return sleep(350, run);
+      }).then(next);
     }
-    return next();
+    return next().then(function () { if (!run.aborted) sndCues(sc, 'end'); });
   }
 
   /* 동기 모드 — 영상·BGM·캐릭터 음성이 함께 흐르고, 학생 캐릭터 음성만 0. 학생 대사 구간에 마이크를 연다. */
@@ -938,8 +1001,8 @@
     var tracks = [];
     function addTrack(url, kind, cid, gain) {
       var a = new Audio(); a.crossOrigin = 'anonymous'; a.preload = 'auto'; a.src = url;
-      var route = routeEl(a, gain);
-      if (!route.gain) a.muted = gain === 0;           // 섞개가 없으면 요소 음소거로라도 끈다
+      var route = kind === 'bgm' ? routeBgm(a) : routeEl(a, gain);   // 배경음악 파일은 «🎵 배경음악» 설정을 따른다
+      if (!route.gain && kind !== 'bgm') a.muted = gain === 0;   // 섞개가 없으면 요소 음소거로라도 끈다
       tracks.push({ el: a, kind: kind, cid: cid, route: route, gain: gain });
     }
     if (sc.bgm) addTrack(sc.bgm, 'bgm', null, 1);
@@ -962,6 +1025,7 @@
       return new Promise(function (resolve) {
         var caps = {}, shown = -2, ended = false;
         var limit = sc.durationSec || 0;
+        var cues = C.timedCues(sc), fired = {};     // 🎵 효과음 — 영상 시각(정본 timedCues)에 맞춰 한 번씩
         var tick = setInterval(function () {
           if (run.aborted) { finish(); return; }
           var t = v.currentTime || 0;
@@ -969,9 +1033,14 @@
           var li = C.lineIndexAt(sc.lines, t);
           if (li !== shown) {
             shown = li;
-            if (li < 0) { clearLine(run); setTurn(''); }
-            else { showLine(run, items[li].line, items[li].performer); setTurn(items[li].performer.type === 'student' ? '🎤 ' + studentName(items[li].performer.idx) : ''); }
+            if (li < 0) { clearLine(run); setTurn(''); sndDuck(1); }
+            else {
+              showLine(run, items[li].line, items[li].performer);
+              setTurn(items[li].performer.type === 'student' ? '🎤 ' + studentName(items[li].performer.idx) : '');
+              sndDuck(items[li].performer.type === 'student' ? DUCK_STUDENT : DUCK_NATIVE);
+            }
           }
+          cues.forEach(function (x, k) { if (!fired[k] && t >= x.at) { fired[k] = true; var e = snd(); if (e) e.cue(x.cue); } });
           items.forEach(function (it, k) {
             if (it.performer.type !== 'student') return;
             var l = it.line, cap = caps[k];
@@ -996,7 +1065,7 @@
           Object.keys(caps).forEach(function (k) { if (!caps[k].closed) closeCap(k); });
           tracks.forEach(function (tr) { try { tr.el.pause(); } catch (e) {} tr.route.cut(); });
           run.tracks = [];
-          clearLine(run); setTurn('');
+          clearLine(run); setTurn(''); sndDuck(1);
           resolve();
         }
         run.skipNow = function () { try { v.currentTime = Math.max(0, (v.duration || limit || 0) - 0.05); } catch (e) {} finish(); };
@@ -1014,16 +1083,22 @@
     if (VID_ROUTE && VID_ROUTE.gain) VID_ROUTE.gain.gain.value = clean ? 1 : 0;
   }
 
-  function playScene(run, sc) {
-    var v = $('dub-video');
-    setNote(''); clearLine(run); setTurn('');
-    setProg(T('에피소드 ' + sc.no + ' 불러오는 중…', 'Loading episode ' + sc.no + '…'));
-    if (sc.voiceMode === 'tts') prefetchScene(sc, run.listenFirst);
+  /* 장면 영상 불러오기 — 더빙과 «먼저 보기» 가 같이 쓴다(원본 소리는 정본 videoAudio 대로) */
+  function loadSceneVideo(v, sc) {
     setVideoAudio(v, sc.videoAudio === 'clean');
     v.loop = sc.timing !== 'synced';
     if (sc.poster) v.poster = sc.poster; else v.removeAttribute('poster');
     v.src = sc.video;
     try { v.load(); } catch (e) {}
+  }
+
+  function playScene(run, sc) {
+    var v = $('dub-video');
+    setNote(''); clearLine(run); setTurn('');
+    setProg(T('에피소드 ' + sc.no + ' 불러오는 중…', 'Loading episode ' + sc.no + '…'));
+    if (sc.voiceMode === 'tts') prefetchScene(sc, run.listenFirst);
+    loadSceneVideo(v, sc);
+    sndEnter(S.ep, sc);                              // 🎵 작품 악기 색 + 장면 분위기(배경음악 파일이 있으면 그 파일이 이긴다)
     return waitVideo(v, 10000).then(function (ok) {
       if (run.aborted) return;
       if (!ok) setNote(T('영상을 불러오지 못했어요 — 대사만 진행해요', 'Could not load the video — lines only'));
@@ -1037,20 +1112,32 @@
     });
   }
 
+  /* 무대 아래 조작 줄 — 더빙(다 말했어요·넘어가기) / 먼저 보기(멈춤·이전·다음) / 닫힘 */
+  function setPlayerMode(mode) {
+    $('dub-player').hidden = mode === 'off';         // 결과·완성 영상은 따로 된 칸에 남는다
+    if ($('dub-d-row')) $('dub-d-row').hidden = mode !== 'dub';
+    if ($('dub-meter-wrap')) $('dub-meter-wrap').hidden = mode !== 'dub';
+    if ($('dub-w-row')) $('dub-w-row').hidden = mode !== 'watch';
+    if (mode !== 'watch' && $('dub-tcard')) $('dub-tcard').hidden = true;
+  }
+  /* 더빙·먼저 보기 중에는 고르기·출연 설정을 잠근다(둘이 동시에 돌지 않게) */
+  var LOCK_SEL = '#dub-scenes button, #dub-all, #dub-start, #dub-genres button, #dub-cast button, #dub-cast input, #dub-make-movie, #dub-listen-first, #dub-w-film, #dub-w-all, #dub-nudge button';
+  function lockUi(on) { Array.prototype.forEach.call(document.querySelectorAll(LOCK_SEL), function (b) { b.disabled = on; }); }
   function setRunning(on) {
-    $('dub-player').hidden = !on;                    // 결과·완성 영상은 따로 된 칸에 남는다
-    Array.prototype.forEach.call(document.querySelectorAll('#dub-scenes button, #dub-all, #dub-start, #dub-genres button, #dub-cast button, #dub-cast input, #dub-make-movie, #dub-listen-first'), function (b) { b.disabled = on; });
+    setPlayerMode(on ? 'dub' : 'off');
+    lockUi(on);
     $('dub-stop').disabled = !on;
     document.body.classList.toggle('dub-running', !!on);   // 폰 아래 바는 더빙 중엔 숨긴다(플레이어 버튼을 가리지 않게)
     if (!on) {
       setButtons('idle'); setProg('');
       if (S.ep && !S.run) { renderScenes(); renderPickSum(); }   // 위에서 «전부 켜기» 한 것을 «재생할 수 있는 것만» 으로 되돌린다
+      renderWatchPanel();
       renderMbar();
     }
   }
 
   function startRun(sceneIdxs) {
-    if (S.run || !S.ep) return;
+    if (S.run || S.watching || !S.ep) return;
     var probs = C.castProblems(S.cast, S.ep);
     if (probs.length) { alert(T('학생마다 캐릭터를 골라 주세요.', 'Please pick a character for each student.')); return; }
     ensureMix();                                     // ⚠️ 클릭 안에서 만들어야 소리가 난다(자동재생 정책)
@@ -1088,6 +1175,7 @@
       });
     }).then(function () {
       S.run = null;
+      sndStop(0.8);
       setRunning(false);
       renderResults();
     });
@@ -1099,6 +1187,220 @@
     run.wakers.splice(0).forEach(function (w) { try { w(); } catch (e) {} });
     try { $('dub-video').pause(); } catch (e) {}
     try { speechSynthesis.cancel(); } catch (e) {}
+    sndStop(0.3);
+  }
+
+  /* ── 👀 먼저 보기(감상) ────────────────────────────────────────────────
+   * 순서·멈춤·이전/다음·«봤어요» 판정은 정본 js/ai-dubbing-watch.js. 여기는 재료(kit)와 화면만 맡는다.
+   * ⛔ 더빙과 동시에 돌지 않는다(S.run ↔ S.watching). 마이크·녹음·채점 없음.
+   * ⚠️ 감상 소리는 «녹화 갈래 없이» 잇는다(noRec) — 다음에 만드는 완성 영상에 섞이지 않게.
+   * ⚠️ «봤어요» 는 이 기기에만 남는다(localStorage — 편의 기억). 못 읽으면 «안 봄» 으로 본다. */
+  function seenMap() {
+    var m = null;
+    try { m = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); } catch (e) { m = null; }
+    return m && typeof m === 'object' && !Array.isArray(m) ? m : {};
+  }
+  function isSeen(epId, no) { var a = seenMap()[epId]; return Array.isArray(a) && a.indexOf(no) >= 0; }
+  function markSeen(epId, no) {
+    if (!EP_ID_RE.test(String(epId)) || typeof no !== 'number' || !isFinite(no)) return;
+    var m = seenMap(), a = Array.isArray(m[epId]) ? m[epId].filter(function (x) { return typeof x === 'number'; }) : [];
+    if (a.indexOf(no) >= 0) return;
+    a.push(no); a.sort(function (x, y) { return x - y; });
+    m[epId] = a;
+    try { localStorage.setItem(SEEN_KEY, JSON.stringify(m)); } catch (e) {}
+  }
+  function readyFilms() { return (S.index || []).filter(function (e) { return e.status === 'ready'; }); }
+
+  var WATCH = null;       // 정본 진행기(처음 쓸 때 만든다)
+  var W_DONE = null;      // 방금 «끝까지» 본 묶음 { items } — 「더빙하러 가기」 안내
+  var W_LOADING = false;  // «모든 작품 이어 보기» 가 다른 편 매니페스트를 받는 중
+  function renderWatchPanel() {
+    var panel = $('dub-watch-panel');
+    if (!panel) return;
+    if (!S.ep) { panel.hidden = true; return; }
+    panel.hidden = false;
+    var busy = !!(S.run || S.watching), idxs = playableIdxs(S.ep), seenN = 0;
+    var dots = idxs.map(function (i) {
+      var sc = S.ep.scenes[i], on = isSeen(S.ep.id, sc.no);
+      if (on) seenN++;
+      return '<span class="wd' + (on ? ' on' : '') + '">' + (on ? '✓ ' : '') + 'EP ' + esc(sc.no) + '</span>';
+    }).join('');
+    var seen = $('dub-w-seen');
+    if (seen) seen.innerHTML = idxs.length ? L('본 에피소드', 'Watched') + ' <b>' + seenN + ' / ' + idxs.length + '</b>' + dots : '';
+    var film = $('dub-w-film');
+    if (film) {
+      film.disabled = busy || W_LOADING || !idxs.length;
+      film.innerHTML = L('▶ 이 작품 에피소드 ' + idxs.length + '개 이어 보기', '▶ Watch all ' + idxs.length + ' episodes of this film');
+    }
+    var all = $('dub-w-all'), films = readyFilms();
+    if (all) {
+      all.hidden = films.length < 2;
+      all.disabled = busy || W_LOADING;
+      all.innerHTML = W_LOADING ? L('⏳ 불러오는 중…', '⏳ Loading…')
+        : L('🎞 모든 작품 이어 보기 (' + films.length + '편)', '🎞 Watch every film (' + films.length + ')');
+    }
+    var done = $('dub-w-done');
+    if (done) {
+      done.hidden = !(W_DONE && !busy);
+      done.innerHTML = done.hidden ? ''
+        : '<span>' + L('👏 끝까지 다 봤어요! 이제 직접 더빙해 볼까요?', '👏 You watched it all! Ready to dub it yourself?') + '</span> '
+          + '<button type="button" class="btn go" data-act="dub">' + L('🎤 더빙하러 가기', '🎤 Go dub') + '</button>';
+    }
+  }
+  /* 고른 에피소드를 아직 안 봤으면 «먼저 보기» 를 권한다(막지는 않는다 — 바로 더빙해도 된다) */
+  function renderNudge() {
+    var box = $('dub-nudge');
+    if (!box) return;
+    var sc = S.ep && S.sel >= 0 ? S.ep.scenes[S.sel] : null;
+    if (!sc || !scenePlayable(S.sel)) { box.hidden = true; box.innerHTML = ''; return; }
+    box.hidden = false;
+    if (isSeen(S.ep.id, sc.no)) {
+      box.className = 'nudge ok';
+      box.innerHTML = '<span>' + L('👀 이 에피소드는 봤어요 — 이제 더빙해 봐요!', '👀 You watched this one — now try dubbing it!') + '</span>';
+    } else {
+      box.className = 'nudge';
+      box.innerHTML = '<span>' + L('처음이라면 원어민 목소리로 먼저 한 번 보고 더빙하면 훨씬 쉬워요.', 'New to this one? Watch it once with native voices first — dubbing gets much easier.') + '</span>'
+        + '<button type="button" class="btn wbtn" data-watch="' + S.sel + '"' + (S.run || S.watching ? ' disabled' : '') + '>' + L('👀 먼저 보기', '👀 Watch first') + '</button>';
+    }
+  }
+  function renderWProg() {
+    var p = $('dub-w-prog'), w = S.wNow;
+    if (!p) return;
+    if (!w) { p.textContent = ''; return; }
+    var f = filmOf(w.it.ep), sc = w.it.ep.scenes[w.it.scIdx];
+    p.textContent = (w.i + 1) + ' / ' + w.n + ' · ' + (f.no ? T(f.no + '편 · ', 'Film ' + f.no + ' · ') : '') + 'EP ' + sc.no;
+  }
+  /* 감상 자막 — 학생 차례가 없으니 «🎤 누구» 없이 캐릭터만. 편이 바뀌어도(모든 작품) 그 편의 캐릭터로 */
+  function wShowLine(ep, line) {
+    var box = $('dub-sub');
+    if (!box) return;
+    var c = ep.characters[line.speaker];
+    box.hidden = false;
+    box.classList.remove('me');
+    $('dub-sub-who').textContent = c ? c.emoji + ' ' + T(c.name.ko, c.name.en) : line.speaker;
+    $('dub-sub-en').textContent = line.en;
+    $('dub-sub-ko').textContent = line.ko || '';
+  }
+  function wClearLine() { var b = $('dub-sub'); if (b) b.hidden = true; }
+  function wCard(item) {
+    var box = $('dub-tcard');
+    if (!box) return;
+    if (!item) { box.hidden = true; return; }
+    var k = $('dub-tc-k'), t = $('dub-tc-t'), s = $('dub-tc-s');
+    if (item.end) {
+      k.textContent = '🎬 ' + T('끝', 'The end');
+      t.textContent = T('다 봤어요!', 'All done!');
+      s.textContent = T('이제 더빙해 볼까요? 🎤', 'Ready to dub? 🎤');
+    } else {
+      var sc = item.ep.scenes[item.scIdx], f = filmOf(item.ep);
+      k.textContent = (f.no ? T(f.no + '편 · ', 'Film ' + f.no + ' · ') : '') + T(f.title.ko, f.title.en);
+      t.textContent = 'EP ' + sc.no;
+      s.textContent = T(sc.label.ko, sc.label.en);
+    }
+    box.hidden = false;
+  }
+  function wOnPause(p) {
+    var b = $('dub-w-pause');
+    if (b) b.innerHTML = p ? L('▶ 이어 보기', '▶ Resume') : L('⏸ 멈춤', '⏸ Pause');
+  }
+  function wOnItem(i, n, it) {
+    S.wNow = { i: i, n: n, it: it };
+    renderWProg();
+    if ($('dub-w-prev')) $('dub-w-prev').disabled = i === 0;
+  }
+  function wOnEnd(finished) {
+    var items = S.wItems || [];
+    S.watching = false; S.wNow = null; S.wItems = null;
+    W_DONE = finished ? { items: items } : null;
+    try { $('dub-video').pause(); } catch (e) {}
+    setNote('');
+    setPlayerMode('off');
+    lockUi(false);
+    document.body.classList.toggle('dub-running', false);
+    wOnPause(false); renderWProg();
+    if (S.ep) { renderScenes(); renderPickSum(); }
+    renderWatchPanel();
+    renderMbar();
+    var d = $('dub-w-done');
+    if (finished && d && !d.hidden) d.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  function watcher() {
+    if (WATCH) return WATCH;
+    if (!window.MangoiDubWatch) return null;
+    WATCH = window.MangoiDubWatch.create({
+      C: C,
+      sound: snd,
+      Audio: window.Audio,
+      /* ⚠️ noRec — 감상 소리는 완성 영상 갈래에 잇지 않는다. 배경음악 파일은 «🎵 배경음악» 설정을 따른다(routeBgm) */
+      route: function (el, kind) { return kind === 'bgm' ? routeBgm(el, true) : routeEl(el, 1, true); },
+      synth: window.speechSynthesis || null,
+      Utter: window.SpeechSynthesisUtterance || null,
+      tts: getTts,
+      video: function () { return $('dub-video'); },
+      prepVideo: loadSceneVideo,
+      waitVideo: waitVideo,
+      showLine: wShowLine,
+      clearLine: wClearLine,
+      card: wCard,
+      note: function (k) { setNote(k === 'video' ? T('영상을 불러오지 못했어요 — 목소리만 들려줘요', 'Could not load the video — voices only') : ''); },
+      onPause: wOnPause,
+      onItem: wOnItem,
+      onSeen: function (epId, no) { markSeen(epId, no); if (S.ep && epId === S.ep.id) { renderWatchPanel(); renderScenes(); renderNudge(); } },
+      onEnd: wOnEnd,
+    });
+    return WATCH;
+  }
+  function sceneItems(ep, idxs) { return idxs.map(function (i, k) { return { ep: ep, scIdx: i, first: k === 0 }; }); }
+  function startWatch(items) {
+    if (S.run || S.watching || !items || !items.length) return;
+    var w = watcher();
+    if (!w) return;
+    ensureMix();                                     // ⚠️ 클릭 안에서 깨워야 소리가 난다(자동재생 정책)
+    applySndPrefs();
+    S.watching = true; S.wItems = items; W_DONE = null;
+    closeSheet();
+    setPlayerMode('watch');
+    lockUi(true);
+    document.body.classList.toggle('dub-running', true);
+    setTurn(''); setNote(''); wOnPause(false);
+    renderWatchPanel(); renderNudge(); renderMbar();
+    $('dub-player').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    w.start(items);
+  }
+  function watchScene(i) { if (S.ep && scenePlayable(i)) startWatch(sceneItems(S.ep, [i])); }
+  function watchFilm() { var idxs = S.ep ? playableIdxs(S.ep) : []; if (idxs.length) startWatch(sceneItems(S.ep, idxs)); }
+  /* 다른 편 매니페스트 — 정본 normalizeEpisode 를 지나야 쓴다. 못 읽은 편은 건너뛴다(감상을 통째로 막지 않는다) */
+  function loadEpFor(id) {
+    if (S.ep && id === S.ep.id) return Promise.resolve(S.ep);
+    if (S.epCache[id]) return Promise.resolve(S.epCache[id]);
+    return fetch('/data/dubbing/' + id + '.json', { cache: 'no-cache' })
+      .then(function (r) { if (!r.ok) throw new Error('http_' + r.status); return r.json(); })
+      .then(function (raw) { var res = C.normalizeEpisode(raw); if (!res.ok) throw new Error('manifest_unplayable'); S.epCache[id] = res.episode; return res.episode; })
+      .catch(function (e) { console.warn('[ai-dubbing] 감상용 편을 못 읽음', id, e); return null; });
+  }
+  function watchAll() {
+    if (S.run || S.watching || W_LOADING) return;
+    var films = readyFilms();
+    if (films.length < 2) { watchFilm(); return; }
+    ensureMix();                                     // ⚠️ 받기 «전» 에 — 클릭이 끝나기 전에 소리를 깨워 둔다
+    W_LOADING = true; renderWatchPanel();
+    Promise.all(films.map(function (f) { return loadEpFor(f.id); })).then(function (eps) {
+      W_LOADING = false;
+      var items = [];
+      eps.forEach(function (ep) { if (ep) items = items.concat(sceneItems(ep, playableIdxs(ep))); });
+      renderWatchPanel();
+      if (items.length) startWatch(items);
+      else alert(T('영상을 불러오지 못했어요. 잠시 뒤 다시 해 주세요.', 'Could not load the videos. Please try again in a moment.'));
+    });
+  }
+  /* 「🎤 더빙하러 가기」 — 방금 본 묶음에서 «지금 편» 의 첫 장면을 골라 출연 설정으로 */
+  function goDub() {
+    var items = (W_DONE && W_DONE.items) || [], hit = null;
+    items.forEach(function (it) { if (!hit && S.ep && it.ep.id === S.ep.id) hit = it; });
+    W_DONE = null;
+    if (hit) pickScene(hit.scIdx);
+    renderWatchPanel();
+    openSheet();
   }
 
   /* ── 시작 ─────────────────────────────────────────────────────────────── */
@@ -1135,19 +1437,27 @@
       if (S.genre === 'kt') renderKT();
       if (S.ep) {
         renderStatus();
-        if (!S.run) { renderCast(); renderScenes(); }
+        if (!S.run) { if (!S.watching) renderCast(); renderScenes(); }
         renderPickSum(); renderResults(); renderMovies();
+        renderWatchPanel(); renderWProg();
       } else if (S.loadErr) renderLoadError();
       renderMbar();
     };
     window.addEventListener('mangoi:lang-changed', redraw);
     document.addEventListener('mangoi:lang-changed', redraw);
+    /* 🎵 배경음악 · 💥 효과음 · 한글 자막 — 더빙과 먼저 보기가 같이 쓴다(이 기기에 기억) */
+    ['music', 'sfx', 'ko'].forEach(function (k) {
+      var b = $('dub-snd-' + k);
+      if (b) b.addEventListener('change', function () { var p = sndPrefs(); p[k] = !!b.checked; saveSndPrefs(p); applySndPrefs(); });
+    });
   }
   function wire() {
     var cast = $('dub-cast');
     cast.addEventListener('click', onCastClick);
     cast.addEventListener('input', onCastInput);
     $('dub-scenes').addEventListener('click', function (e) {
+      var w = e.target.closest('button[data-watch]');
+      if (w && !w.disabled) { var wi = Number(w.getAttribute('data-watch')); pickScene(wi); watchScene(wi); return; }
       var b = e.target.closest('button[data-scene]');
       if (b && !b.disabled) { pickScene(Number(b.getAttribute('data-scene'))); startRun([S.sel]); return; }
       var p = e.target.closest('button[data-pick]');
@@ -1163,18 +1473,31 @@
     $('dub-skip').addEventListener('click', function () { if (S.run && S.run.skipNow) S.run.skipNow(); });
     $('dub-stop').addEventListener('click', stopRun);
     $('dub-final').addEventListener('click', function () { var p = $('dub-movies-panel'); if (p && !p.hidden) p.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+    /* 👀 먼저 보기 */
+    if ($('dub-nudge')) $('dub-nudge').addEventListener('click', function (e) {
+      var w = e.target.closest('button[data-watch]');
+      if (w && !w.disabled) watchScene(Number(w.getAttribute('data-watch')));
+    });
+    if ($('dub-w-film')) $('dub-w-film').addEventListener('click', function () { watchFilm(); });
+    if ($('dub-w-all')) $('dub-w-all').addEventListener('click', function () { watchAll(); });
+    if ($('dub-w-done')) $('dub-w-done').addEventListener('click', function (e) { if (e.target.closest('button[data-act="dub"]')) goDub(); });
+    if ($('dub-w-prev')) $('dub-w-prev').addEventListener('click', function () { if (WATCH && S.watching) WATCH.prev(); });
+    if ($('dub-w-next')) $('dub-w-next').addEventListener('click', function () { if (WATCH && S.watching) WATCH.next(); });
+    if ($('dub-w-pause')) $('dub-w-pause').addEventListener('click', function () { if (WATCH && S.watching) WATCH.togglePause(); });
+    if ($('dub-w-stop')) $('dub-w-stop').addEventListener('click', function () { if (WATCH && S.watching) WATCH.stop(); });
   }
 
   function boot() {
     S.ktSel = ktIndexOf(readPref(KT_KEY));
     wireStatic();
+    applySndPrefs();                                 // 체크 칸·«한글 자막» 끔을 기억한 대로(소리 엔진은 첫 클릭에 만든다)
     setGenre(pickGenre(location.search, readPref(GENRE_KEY)), false);
     renderGenreMini();
-    loadIndex().then(function (list) { S.index = list; renderEpisodes(list); renderGenreMini(); renderPickSum(); renderMbar(); });
+    loadIndex().then(function (list) { S.index = list; renderEpisodes(list); renderGenreMini(); renderPickSum(); renderWatchPanel(); renderMbar(); });
     loadEpisode().then(function () {
       loadCast();
       S.sel = firstPlayable();
-      renderStatus(); renderCast(); renderScenes(); renderPickSum();
+      renderStatus(); renderCast(); renderScenes(); renderPickSum(); renderWatchPanel();
       $('dub-cast-panel').hidden = false;
       $('dub-all-row').hidden = false;
       wire();

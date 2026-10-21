@@ -8,6 +8,7 @@
   "level": 1,
   "status": "preview",
   "timing": "provisional",
+  "palette": "robot",
   "note": {
     "ko": "원어민 목소리는 임시 AI 음성이에요 · 대사는 장면 순서대로 차례차례 나와요",
     "en": "Native voices are temporary AI voices · lines come one by one in scene order"
@@ -54,6 +55,26 @@
         "en": "A Box in the Science Room"
       },
       "arc": "ki",
+      "mood": "mystery",
+      "sfx": [
+        {
+          "line": 2,
+          "when": "after",
+          "name": "creak"
+        },
+        {
+          "line": 3,
+          "name": "powerup"
+        },
+        {
+          "line": 3,
+          "mood": "bright"
+        },
+        {
+          "line": 4,
+          "name": "sparkle"
+        }
+      ],
       "video": "/media/dubbing/dub-005/scene-1.mp4",
       "poster": "/media/dubbing/dub-005/scene-1.jpg",
       "durationSec": 20.42,
@@ -118,6 +139,28 @@
         "en": "Learning Words"
       },
       "arc": "seung",
+      "mood": "bright",
+      "sfx": [
+        {
+          "line": 2,
+          "when": "after",
+          "name": "beep"
+        },
+        {
+          "line": 4,
+          "when": "after",
+          "name": "boing"
+        },
+        {
+          "line": 6,
+          "name": "whoosh"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "sparkle"
+        }
+      ],
       "video": "/media/dubbing/dub-005/scene-2.mp4",
       "poster": "/media/dubbing/dub-005/scene-2.jpg",
       "durationSec": 20.42,
@@ -182,6 +225,27 @@
         "en": "Too Many Names"
       },
       "arc": "seung",
+      "mood": "warm",
+      "sfx": [
+        {
+          "line": 2,
+          "name": "sparkle"
+        },
+        {
+          "line": 3,
+          "when": "after",
+          "name": "beep"
+        },
+        {
+          "line": 5,
+          "name": "squeak"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "chime"
+        }
+      ],
       "video": "/media/dubbing/dub-005/scene-3.mp4",
       "poster": "/media/dubbing/dub-005/scene-3.jpg",
       "durationSec": 20.79,
@@ -246,6 +310,32 @@
         "en": "The Robot Race Challenge"
       },
       "arc": "jeon",
+      "mood": "tense",
+      "sfx": [
+        {
+          "line": 1,
+          "name": "stomp"
+        },
+        {
+          "line": 2,
+          "when": "after",
+          "name": "engine"
+        },
+        {
+          "line": 5,
+          "name": "heartbeat"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "whoosh"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "mood": "action"
+        }
+      ],
       "video": "/media/dubbing/dub-005/scene-4.mp4",
       "poster": "/media/dubbing/dub-005/scene-4.jpg",
       "durationSec": 21.58,
@@ -310,6 +400,38 @@
         "en": "The Final Race"
       },
       "arc": "jeon",
+      "mood": "action",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "engine"
+        },
+        {
+          "line": 4,
+          "when": "after",
+          "name": "powerup"
+        },
+        {
+          "line": 5,
+          "name": "thunder",
+          "gain": 0.8
+        },
+        {
+          "line": 5,
+          "when": "after",
+          "name": "zap"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "tada"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "mood": "triumph"
+        }
+      ],
       "video": "/media/dubbing/dub-005/scene-5.mp4",
       "poster": "/media/dubbing/dub-005/scene-5.jpg",
       "durationSec": 24.54,
@@ -374,6 +496,27 @@
         "en": "My Name Is Bolt!"
       },
       "arc": "gyeol",
+      "mood": "triumph",
+      "sfx": [
+        {
+          "line": 1,
+          "name": "sparkle"
+        },
+        {
+          "line": 2,
+          "when": "after",
+          "name": "cheer"
+        },
+        {
+          "line": 5,
+          "when": "after",
+          "name": "clap"
+        },
+        {
+          "at": "end",
+          "name": "fanfare"
+        }
+      ],
       "video": "/media/dubbing/dub-005/scene-6.mp4",
       "poster": "/media/dubbing/dub-005/scene-6.jpg",
       "durationSec": 20.42,

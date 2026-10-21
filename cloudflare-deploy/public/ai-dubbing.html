@@ -201,6 +201,36 @@
   button.final{width:100%;font:inherit;font-weight:800;cursor:pointer}
   button.final:disabled{cursor:not-allowed;opacity:.7}
 
+  /* « 먼저 보기 » — 더빙 전에 원어민 목소리·배경음악·효과음으로 감상 */
+  .watch{background:linear-gradient(135deg,#1c2b3d,#161c28 70%);border-color:#2f4a63}
+  .w-head{display:flex;gap:12px;align-items:flex-start}
+  .w-ic{flex:none;width:46px;height:46px;border-radius:14px;background:#123049;display:flex;align-items:center;justify-content:center;font-size:24px}
+  .w-seen{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--text2)}
+  .w-seen b{color:var(--text)}
+  .wd{min-width:30px;height:24px;padding:0 6px;border-radius:8px;border:1px solid var(--line);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;color:var(--text2)}
+  .wd.on{background:#0e5132;border-color:var(--mint);color:#d1fae5}
+  .w-btns{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:8px}
+  .btn.wgo{background:#0ea5e9;border-color:#0ea5e9;color:#04121c}
+  .snd{display:flex;gap:6px 16px;flex-wrap:wrap}
+  .w-done{margin:0;padding:10px 12px;border-radius:12px;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.45);font-size:13.5px;
+    display:flex;gap:8px 12px;flex-wrap:wrap;align-items:center}
+  .w-done b{color:var(--mint)}
+  .w-done .btn{min-height:38px}
+  .acts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px}
+  .btn.wbtn{background:#123049;border-color:#2f4a63;color:#e0f2fe;padding:0 12px}
+  .seenmark{font-size:12px;font-weight:900;color:var(--mint)}
+  .nudge{padding:10px 12px;border-radius:12px;font-size:13px;display:flex;flex-direction:column;gap:8px;
+    background:rgba(14,165,233,.1);border:1px solid rgba(14,165,233,.45)}
+  .nudge.ok{background:rgba(52,211,153,.1);border-color:rgba(52,211,153,.45)}
+  .nudge .btn{min-height:38px;align-self:flex-start}
+  .tcard{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px;text-align:center;
+    background:radial-gradient(circle at 50% 40%,rgba(30,58,90,.94),rgba(5,8,14,.96))}
+  .tc-k{font-size:clamp(12px,2vw,15px);font-weight:800;color:#93c5fd}
+  .tc-t{font-size:clamp(22px,5vw,44px);font-weight:900;line-height:1.15;color:var(--gold)}
+  .tc-s{font-size:clamp(14px,2.6vw,22px);font-weight:800;word-break:keep-all}
+  .stage.noko .sub .ko{display:none}
+  .wrow .btn{min-width:84px}
+
   /* « 폰 아래 고정 바 · 바텀시트 » — 넓은 화면에서는 안 보인다 */
   .mbar{display:none}
   .sheet-bg{display:none}
@@ -253,6 +283,9 @@
     .scene .btn{min-height:38px;font-size:13px;padding:0 10px}
     .ln{grid-template-columns:1fr auto}
     .ln .who{grid-column:1/-1}
+    .acts{grid-template-columns:1fr}
+    .w-btns{grid-template-columns:1fr}
+    .wrow .btn{min-width:0;flex:1 1 40%}
   }
   @media (prefers-reduced-motion:reduce){ #dub-side,#dub-side.open{transition:none} }
 </style>
@@ -268,6 +301,7 @@
       <h2 class="hero-h"><span data-ko="망고아이와 함께 애니메이션 속 주인공이 되어보세요!" data-en="Become the hero of an animation with Mangoi!">망고아이와 함께 애니메이션 속 주인공이 되어보세요!</span></h2>
       <p class="intro"><span data-ko="애니메이션 속 주인공이 되어 내 목소리로 영어 대사를 더빙해요." data-en="Become the hero of an animation and dub the English lines in your own voice.">애니메이션 속 주인공이 되어 내 목소리로 영어 대사를 더빙해요.</span></p>
       <ul class="pills" aria-label="학습 방법">
+        <li class="pill"><b data-ko="👀 먼저 보고!" data-en="👀 Watch first!">👀 먼저 보고!</b><span data-ko="원어민 목소리·음악·효과음으로 감상해요" data-en="Native voices, music and sound effects">원어민 목소리·음악·효과음으로 감상해요</span></li>
         <li class="pill"><b data-ko="🎤 직접 더빙하고!" data-en="🎤 Dub it yourself!">🎤 직접 더빙하고!</b><span data-ko="캐릭터를 골라 대사를 말해요" data-en="Pick a character and say the lines">캐릭터를 골라 대사를 말해요</span></li>
         <li class="pill"><b data-ko="⭐ AI가 평가하고!" data-en="⭐ AI gives feedback!">⭐ AI가 평가하고!</b><span data-ko="발음과 말하기를 알려줘요" data-en="Pronunciation and speaking tips">발음과 말하기를 알려줘요</span></li>
         <li class="pill"><b data-ko="▶ 완성 영상 다시 보기!" data-en="▶ Watch your movie!">▶ 완성 영상 다시 보기!</b><span data-ko="내 목소리 영화를 감상해요" data-en="Enjoy the movie with your voice">내 목소리 영화를 감상해요</span></li>
@@ -301,14 +335,23 @@
       <video id="dub-video" playsinline muted preload="auto" crossorigin="anonymous"></video>
       <div class="stage-note" id="dub-stage-note" hidden></div>
       <div class="turn" id="dub-turn" hidden></div>
+      <div class="tcard" id="dub-tcard" hidden><span class="tc-k" id="dub-tc-k"></span><b class="tc-t" id="dub-tc-t"></b><span class="tc-s" id="dub-tc-s"></span></div>
       <div class="sub" id="dub-sub" hidden><span class="who" id="dub-sub-who"></span><span class="en" id="dub-sub-en"></span><span class="ko" id="dub-sub-ko"></span></div>
     </div>
-    <div class="meter" aria-hidden="true"><i id="dub-meter"></i></div>
-    <div class="row">
+    <div class="meter" id="dub-meter-wrap" aria-hidden="true"><i id="dub-meter"></i></div>
+    <div class="row" id="dub-d-row">
       <button type="button" class="btn ok" id="dub-done" disabled><span data-ko="✅ 다 말했어요" data-en="✅ I'm done">✅ 다 말했어요</span></button>
       <button type="button" class="btn" id="dub-skip" disabled><span data-ko="⏭ 넘어가기" data-en="⏭ Skip">⏭ 넘어가기</span></button>
       <button type="button" class="btn warn" id="dub-stop"><span data-ko="⏹ 그만하기" data-en="⏹ Stop">⏹ 그만하기</span></button>
       <span class="prog" id="dub-prog"></span>
+    </div>
+    <!-- 👀 먼저 보기 조작 — 감상할 때만 보인다(js/ai-dubbing.js setPlayerMode) -->
+    <div class="row wrow" id="dub-w-row" hidden>
+      <button type="button" class="btn" id="dub-w-prev"><span data-ko="⏮ 이전" data-en="⏮ Back">⏮ 이전</span></button>
+      <button type="button" class="btn ok" id="dub-w-pause"><span data-ko="⏸ 멈춤" data-en="⏸ Pause">⏸ 멈춤</span></button>
+      <button type="button" class="btn" id="dub-w-next"><span data-ko="⏭ 다음" data-en="⏭ Next">⏭ 다음</span></button>
+      <button type="button" class="btn warn" id="dub-w-stop"><span data-ko="⏹ 그만 보기" data-en="⏹ Stop">⏹ 그만 보기</span></button>
+      <span class="prog" id="dub-w-prog"></span>
     </div>
   </section>
 
@@ -336,6 +379,30 @@
       </section>
 
       <div class="notice" id="dub-status" role="status"><b data-ko="준비 중이에요" data-en="Coming soon">준비 중이에요</b> · <span data-ko="더빙 이야기를 불러오고 있어요. 영상이 올라오면 이곳에서 에피소드를 골라 바로 더빙할 수 있어요." data-en="Loading the dubbing stories. When the videos are ready, you can pick an episode here and start dubbing.">더빙 이야기를 불러오고 있어요. 영상이 올라오면 이곳에서 에피소드를 골라 바로 더빙할 수 있어요.</span></div>
+
+      <!-- 👀 먼저 보기 (2026-10-21 사장님 「먼저 보고 익숙해진 다음 더빙연습을 해야 교육 효과가 극대화된다」)
+           원어민 목소리 + 배경음악 + 효과음으로 에피소드를 «그대로» 본다 — 마이크·녹음·채점 없음.
+           순서 정본은 js/ai-dubbing-watch.js, 소리는 js/ai-dubbing-sound.js, 이 칸을 그리는 것은 js/ai-dubbing.js renderWatchPanel. -->
+      <section class="panel watch" id="dub-watch-panel" aria-label="먼저 보기" hidden>
+        <div class="w-head">
+          <span class="w-ic" aria-hidden="true">👀</span>
+          <div>
+            <h2><span data-ko="먼저 보기 — 원어민 목소리로 감상해요" data-en="Watch first — with native voices">먼저 보기 — 원어민 목소리로 감상해요</span></h2>
+            <p class="hint"><span data-ko="배경음악과 효과음까지 넣어 처음부터 끝까지 봐요. 먼저 보고 익숙해진 다음 더빙하면 훨씬 쉬워요." data-en="Watch from start to finish with music and sound effects. It is much easier to dub after you have watched it first.">배경음악과 효과음까지 넣어 처음부터 끝까지 봐요. 먼저 보고 익숙해진 다음 더빙하면 훨씬 쉬워요.</span></p>
+          </div>
+        </div>
+        <div class="w-seen" id="dub-w-seen"></div>
+        <div class="w-btns">
+          <button type="button" class="btn big wgo" id="dub-w-film"><span data-ko="▶ 이 작품 에피소드 6개 이어 보기" data-en="▶ Watch all 6 episodes of this film">▶ 이 작품 에피소드 6개 이어 보기</span></button>
+          <button type="button" class="btn big" id="dub-w-all"><span data-ko="🎞 모든 작품 이어 보기" data-en="🎞 Watch every film">🎞 모든 작품 이어 보기</span></button>
+        </div>
+        <div class="snd" role="group" aria-label="소리 설정" data-ko-aria="소리 설정" data-en-aria="Sound settings">
+          <label class="opt"><input type="checkbox" id="dub-snd-music" checked> <span data-ko="🎵 배경음악" data-en="🎵 Music">🎵 배경음악</span></label>
+          <label class="opt"><input type="checkbox" id="dub-snd-sfx" checked> <span data-ko="💥 효과음" data-en="💥 Sound effects">💥 효과음</span></label>
+          <label class="opt"><input type="checkbox" id="dub-snd-ko" checked> <span data-ko="한글 자막" data-en="Korean subtitles">한글 자막</span></label>
+        </div>
+        <p class="w-done" id="dub-w-done" hidden></p>
+      </section>
 
       <section class="panel" aria-label="에피소드 고르기">
         <div>
@@ -365,6 +432,7 @@
         </div>
         <div class="pick-sum" id="dub-pick-sum"></div>
         <div id="dub-cast"></div>
+        <div class="nudge" id="dub-nudge" hidden></div>
         <div class="opts" id="dub-all-row" hidden>
           <label class="opt"><input type="checkbox" id="dub-make-movie" checked> <span data-ko="완성 영상 만들기" data-en="Make my movie">완성 영상 만들기</span></label>
           <label class="opt"><input type="checkbox" id="dub-listen-first" checked> <span data-ko="👂 내 대사도 먼저 듣고 따라 말하기(연습)" data-en="👂 Hear my lines first, then repeat (practice)">👂 내 대사도 먼저 듣고 따라 말하기(연습)</span></label>
@@ -412,7 +480,9 @@
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script defer src="/js/speech-azure.js?v=2"></script>
-<script defer src="/js/ai-dubbing-core.js?v=2"></script>
-<script defer src="/js/ai-dubbing.js?v=4"></script>
+<script defer src="/js/ai-dubbing-core.js?v=3"></script>
+<script defer src="/js/ai-dubbing-sound.js?v=1"></script>
+<script defer src="/js/ai-dubbing-watch.js?v=1"></script>
+<script defer src="/js/ai-dubbing.js?v=5"></script>
 </body>
 </html>

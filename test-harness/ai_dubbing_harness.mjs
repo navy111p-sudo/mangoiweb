@@ -20,6 +20,9 @@
 //     ⑦ 화면이 정본을 싣고 «판정을 복제하지 않는다» · 전사에 prompt 를 안 보낸다
 //     ⑧ 변이시험 — 정본을 일부러 망가뜨린 사본으로 같은 검사를 돌려 «실제로 FAIL» 이 나는지
 //        (검사가 헛돌지 않는다는 유일한 증거. 원본은 0건이어야 한다 — 전제 검사)
+//     ⑪ 배경음악·효과음 엔진(ai-dubbing-sound.js)을 가짜 AudioContext 로 «전부 실제로» 울리고,
+//        «먼저 보기» 진행기(ai-dubbing-watch.js)를 가짜 화면으로 끝까지·다음·그만·멈춤·이전·동기 장면까지 돌린다
+//        + 화면 배선(싣는 순서 · 감상 소리는 완성 영상에 안 담김 · «봤어요» 는 진행기만 적음) + 변이시험
 //
 //   실행: node test-harness/ai_dubbing_harness.mjs
 import { readFileSync, existsSync, statSync } from 'node:fs';
@@ -399,7 +402,7 @@ const styleBlocks = (html.match(/<style[\s\S]*?<\/style>/g) || []).join('\n');
 check('⑦-12 <style> 안에 CJK 홑낫표가 없다', !/[「」]/.test(styleBlocks));
 check('⑦-13 화면에 보이는 글자에 CJK 홑낫표가 없다', !/[「」]/.test(html.replace(/<!--[\s\S]*?-->/g, '').replace(/<script[\s\S]*?<\/script>/g, '')));
 check('⑦-14 사이트 구성표에 화면이 있다', /ai-dubbing\.html/.test(rd(join(PUB, 'admin', 'site-structure-map.html'))));
-for (const f of ['js/ai-dubbing-core.js', 'js/ai-dubbing.js', 'data/dubbing/dub-001.json', 'data/dubbing/dub-003.json', 'data/dubbing/index.json']) check('⑦-15 파일 실재: ' + f, existsSync(join(PUB, f)));
+for (const f of ['js/ai-dubbing-core.js', 'js/ai-dubbing-sound.js', 'js/ai-dubbing-watch.js', 'js/ai-dubbing.js', 'data/dubbing/dub-001.json', 'data/dubbing/dub-002.json', 'data/dubbing/dub-003.json', 'data/dubbing/dub-004.json', 'data/dubbing/dub-005.json', 'data/dubbing/dub-006.json', 'data/dubbing/index.json']) check('⑦-15 파일 실재: ' + f, existsSync(join(PUB, f)));
 /* 👂 먼저 들어 보기 — 그 소리는 완성 영상에 넣지 않는다(학생 목소리만 남아야 한다) */
 const lfBody = (() => { const i = playerCode.indexOf('function listenFirst('); if (i < 0) return ''; const j = playerCode.indexOf('function studentTurn(', i); return j > i ? playerCode.slice(i, j) : ''; })();
 check('⑦-16 «먼저 들어 보기» 함수가 있고 옵션으로 켜고 끈다', !!lfBody && /if \(!run\.listenFirst\) return/.test(lfBody) && /listenFirst: !!\(\$\('dub-listen-first'\)/.test(playerCode));
@@ -712,6 +715,487 @@ function fnAt(src, head) {
     const noCmt = STUDIO_SRC.replace(/\/\/[^\n]*/g, '');
     check('⑩-9 스튜디오가 시작할 때 ?ep= 를 읽어 그 편으로 연다', /const qi = epFromQuery\(location\.search\);\s*if \(qi >= 0\) state\.ep = qi;/.test(noCmt));
   }
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+ * ⑪ 🎵 배경음악·효과음 엔진(js/ai-dubbing-sound.js) + 👀 «먼저 보기» 진행기(js/ai-dubbing-watch.js)
+ *    · 엔진의 이름 목록이 정본(core SOUND_*)과 «같은 말» 을 하는가
+ *    · 가짜 AudioContext(값이 NaN·0 으로 지수 램프 등 «실제 브라우저가 던지는 것» 은 기록하고 던진다)에서
+ *      효과음 34가지·분위기 9가지·악기 색 6가지를 «전부 실제로» 울려 본다 — 엔진이 try/catch 로 삼켜도 기록이 남는다
+ *    · 매니페스트 6편의 신호가 «실제로 울릴 수 있는 자리» 에만 있는가(차례 장면에 «시각» 신호 없음 · 동기 장면은 전부 시각이 정해짐)
+ *    · 진행기를 가짜 화면(kit)으로 돌린다 — 끝까지 / 다음 / 그만 / 멈춤(카드·대사 중) / 이전 / 동기 장면 / 기기 목소리 / 새 판
+ *    · 화면 배선 — 싣는 순서 · 감상 소리는 완성 영상 갈래에 안 잇는다(noRec) · «봤어요» 는 진행기만 적는다 · 더빙과 동시에 안 돈다
+ *    · 변이시험 — 엔진·진행기·화면을 일부러 망가뜨린 사본으로 «실제로 FAIL» 이 나는지
+ * ─────────────────────────────────────────────────────────────────────── */
+console.log('\n── ⑪ 배경음악·효과음 엔진 · 먼저 보기 진행기');
+const SOUND_PATH = join(PUB, 'js', 'ai-dubbing-sound.js');
+const WATCH_PATH = join(PUB, 'js', 'ai-dubbing-watch.js');
+const SOUND_SRC = rd(SOUND_PATH);
+const WATCH_SRC = rd(WATCH_PATH);
+
+/* 가짜 타이머(엔진 전용) — 음악 박자를 «시간을 흘려서» 돌린다 */
+function fakeTimers() {
+  let seq = 0; const q = new Map();
+  return {
+    setTimeout(fn, ms) { const id = ++seq; q.set(id, fn); return id; },
+    clearTimeout(id) { q.delete(id); },
+    pending() { return q.size; },
+    runAll() { const list = [...q.entries()]; q.clear(); list.forEach(([, fn]) => { fn(); }); return list.length; },
+    clear() { q.clear(); },
+  };
+}
+/* 가짜 AudioContext — 실제 브라우저가 RangeError 를 던지는 값(비유한값·지수 램프 0·음수 시각·모르는 파형)은 errors 에 남기고 던진다 */
+function fakeCtx() {
+  const ctx = { currentTime: 0, sampleRate: 8000, made: 0, started: 0, errors: [] };
+  const err = (m) => { ctx.errors.push(m); throw new RangeError(m); };
+  const fin = (v, what) => { if (typeof v !== 'number' || !isFinite(v)) err(what + ':' + v); };
+  function param(v) {
+    const p = {
+      _v: v,
+      get value() { return this._v; }, set value(x) { fin(x, 'value='); this._v = x; },
+      setValueAtTime(x, t) { fin(x, 'setValueAtTime'); fin(t, 'setValueAtTime.t'); if (t < 0) err('setValueAtTime.t<0'); return p; },
+      linearRampToValueAtTime(x, t) { fin(x, 'linearRamp'); fin(t, 'linearRamp.t'); return p; },
+      exponentialRampToValueAtTime(x, t) { fin(x, 'expRamp'); fin(t, 'expRamp.t'); if (x === 0) err('expRamp→0'); return p; },
+      cancelScheduledValues(t) { fin(t, 'cancel.t'); return p; },
+    };
+    return p;
+  }
+  const node = (extra) => { ctx.made++; return Object.assign({ connect(d) { if (!d) err('connect(없음)'); return d; }, disconnect() {} }, extra); };
+  const WAVES = ['sine', 'square', 'sawtooth', 'triangle'];
+  const FILTERS = ['lowpass', 'highpass', 'bandpass', 'lowshelf', 'highshelf', 'peaking', 'notch', 'allpass'];
+  ctx.destination = node({});
+  ctx.createGain = () => node({ gain: param(1) });
+  ctx.createOscillator = () => {
+    let type = 'sine';
+    return node({ frequency: param(440),
+      get type() { return type; }, set type(x) { if (WAVES.indexOf(x) < 0) err('osc.type:' + x); type = x; },
+      start(t) { fin(t == null ? 0 : t, 'osc.start'); ctx.started++; }, stop(t) { fin(t == null ? 0 : t, 'osc.stop'); } });
+  };
+  ctx.createBiquadFilter = () => {
+    let type = 'lowpass';
+    return node({ frequency: param(350), Q: param(1),
+      get type() { return type; }, set type(x) { if (FILTERS.indexOf(x) < 0) err('filter.type:' + x); type = x; } });
+  };
+  ctx.createDynamicsCompressor = () => node({ threshold: param(-24), ratio: param(12) });
+  ctx.createDelay = (max) => node({ delayTime: param(0) });
+  ctx.createBuffer = (ch, n, sr) => { fin(n, 'buffer.n'); return { getChannelData() { return new Float32Array(n); } }; };
+  ctx.createBufferSource = () => node({ buffer: null, loop: false,
+    start(t, off) { fin(t == null ? 0 : t, 'src.start'); fin(off == null ? 0 : off, 'src.offset'); ctx.started++; }, stop(t) { fin(t == null ? 0 : t, 'src.stop'); } });
+  return ctx;
+}
+function loadSound(src, T) {
+  const sb = { module: { exports: {} }, setTimeout: T.setTimeout, clearTimeout: T.clearTimeout, console };
+  sb.window = undefined;
+  vm.createContext(sb);
+  vm.runInContext(src, sb, { filename: 'ai-dubbing-sound.js' });
+  return sb.module.exports;
+}
+
+function soundChecks(src, verbose) {
+  const fails = [];
+  const t = (name, ok, extra) => { if (!ok) fails.push(name); if (verbose) check(name, ok, extra); };
+  const T = fakeTimers();
+  let S = null;
+  try { S = loadSound(src, T); } catch (e) { S = null; }
+  t('⑪-0 소리 엔진을 불러왔다(전제)', !!(S && typeof S.create === 'function'));
+  if (!S || typeof S.create !== 'function') return fails;
+  const same = (a, b) => Array.isArray(a) && Array.isArray(b) && JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+  t('⑪-1 분위기 목록이 정본(core SOUND_MOODS)과 같다', same(S.MOODS, CORE.SOUND_MOODS), S.MOODS);
+  t('⑪-2 악기 색 목록이 정본(core SOUND_PALETTES)과 같다', same(S.PALETTES, CORE.SOUND_PALETTES), S.PALETTES);
+  t('⑪-3 효과음 목록이 정본(core SOUND_SFX)과 같다', same(S.SFX, CORE.SOUND_SFX), S.SFX && S.SFX.length);
+  t('⑪-3b 정본 목록이 비어 있지 않다(전제 — 비면 아래가 전부 헛돈다)', CORE.SOUND_SFX.length >= 30 && CORE.SOUND_MOODS.length >= 9 && CORE.SOUND_PALETTES.length >= 6);
+  /* A. 효과음 전부 */
+  const ctx = fakeCtx();
+  let eng = null;
+  try { eng = S.create(ctx, [ctx.destination, null]); } catch (e) { eng = null; }
+  t('⑪-4 엔진을 만들었다(완성영상 갈래 없이도)', !!eng);
+  if (!eng) return fails;
+  const badSfx = [], silent = [];
+  CORE.SOUND_SFX.forEach((n) => {
+    const s0 = ctx.started;
+    let ok = false;
+    try { ok = eng.sfx(n, 0.8); } catch (e) { ok = false; }
+    if (!ok) badSfx.push(n); else if (ctx.started === s0) silent.push(n);
+  });
+  t('⑪-5 효과음 ' + CORE.SOUND_SFX.length + '가지가 전부 «실제로» 울린다(true · 소리 조각이 시작됨 · 브라우저가 던질 값 0건)',
+    badSfx.length === 0 && silent.length === 0 && ctx.errors.length === 0, { badSfx, silent, errors: ctx.errors.slice(0, 3) });
+  t('⑪-6 모르는 효과음은 조용히 false(던지지 않는다)', eng.sfx('nope') === false && eng.sfx('') === false);
+  /* B. 분위기 × 악기 색 전부 — 시간을 흘려 박자 타이머를 실제로 돌린다 */
+  const moodBad = [];
+  CORE.SOUND_PALETTES.forEach((pal) => {
+    CORE.SOUND_MOODS.forEach((m) => {
+      T.clear();
+      const c = fakeCtx();
+      let e = null, ok = false;
+      try { e = S.create(c, [c.destination]); ok = e.setPalette(pal) && e.music(m); } catch (x) { ok = false; }
+      if (!e || !ok) { moodBad.push(pal + '/' + m + ':start'); return; }
+      const s0 = c.started;
+      for (let k = 0; k < 40; k++) { c.currentTime += 0.06; try { T.runAll(); } catch (x) {} }
+      const st = e.state();
+      if (!(st.on && st.timer && st.mood === m)) moodBad.push(pal + '/' + m + ':state');
+      else if (c.started <= s0) moodBad.push(pal + '/' + m + ':silent');
+      else if (c.errors.length) moodBad.push(pal + '/' + m + ':' + c.errors[0]);
+    });
+  });
+  t('⑪-7 분위기 ' + CORE.SOUND_MOODS.length + ' × 악기 색 ' + CORE.SOUND_PALETTES.length + ' 전부 음악이 «흘러간다»(박자 타이머가 살아 있고 음이 계속 시작됨 · 오류 0)', moodBad.length === 0, moodBad.slice(0, 4));
+  /* C. 멈춤·이어 가기·끄기 */
+  T.clear();
+  const c2 = fakeCtx();
+  const e2 = S.create(c2, [c2.destination]);
+  e2.music('bright');
+  for (let k = 0; k < 5; k++) { c2.currentTime += 0.06; T.runAll(); }
+  e2.pause();
+  const stP = e2.state();
+  t('⑪-8 pause() — 멈춤 표시 + 박자 타이머가 «그 자리에서» 꺼진다', stP.paused === true && stP.timer === false, stP);
+  const sP = c2.started;
+  for (let k = 0; k < 10; k++) { c2.currentTime += 0.06; T.runAll(); }
+  t('⑪-9 멈춘 동안 음이 하나도 시작되지 않는다', c2.started === sP, c2.started - sP);
+  t('⑪-10 멈춘 동안 효과음도 안 울린다(false)', e2.sfx('pop') === false);
+  e2.resume();
+  const stR = e2.state();
+  for (let k = 0; k < 10; k++) { c2.currentTime += 0.06; T.runAll(); }
+  t('⑪-11 resume() — 타이머가 다시 살고 음이 다시 시작된다', stR.paused === false && stR.timer === true && c2.started > sP, stR);
+  e2.stopMusic(0.1);
+  t('⑪-12 stopMusic() — on·타이머 둘 다 꺼진다', e2.state().on === false && e2.state().timer === false);
+  T.runAll(); T.runAll();
+  t('⑪-13 음악을 끈 뒤 남는 타이머가 없다(상주 타이머 금지)', T.pending() === 0, T.pending());
+  /* D. 켜고 끄기 설정 */
+  e2.setEnabled(true, false);
+  t('⑪-14 효과음 끄기 — sfx 가 false(음악 설정은 그대로)', e2.sfx('pop') === false && e2.state().musicOn === true && e2.state().sfxOn === false);
+  e2.setEnabled(false, true);
+  t('⑪-15 음악 끄기 — 효과음은 다시 울리고(true) 음악은 안 흐른다', e2.sfx('pop') === true && e2.state().musicOn === false && e2.state().on === false);
+  const okRemember = e2.music('tense');
+  t('⑪-16 음악이 꺼져 있으면 분위기는 «기억만» 한다(켜지지 않음)', okRemember === true && e2.state().on === false && e2.state().mood === 'tense' && e2.state().timer === false);
+  e2.setEnabled(true, true);
+  t('⑪-17 다시 켜면 기억한 분위기로 흐른다', e2.state().on === true && e2.state().mood === 'tense' && e2.state().timer === true, e2.state());
+  /* E. 장면 들어가기 — 배경음악 «파일» 이 있으면 합성 음악을 끈다 */
+  const okEnter = e2.enterScene('space', 'mystery', false);
+  t('⑪-18 enterScene(악기 색, 분위기) — 그 분위기로 바꾼다', okEnter === true && e2.state().mood === 'mystery');
+  for (let k = 0; k < 10; k++) { c2.currentTime += 0.06; T.runAll(); }
+  const okFile = e2.enterScene('jungle', 'wonder', true);
+  t('⑪-19 enterScene(…, 배경음악 파일 있음) — 합성 음악을 끈다(on·타이머 꺼짐 · 분위기 비움)', okFile === false && e2.state().on === false && e2.state().timer === false && e2.state().mood === null, e2.state());
+  /* F. 신호·대사 줄이기·모르는 이름 */
+  t('⑪-20 cue({name}) 는 효과음, cue({mood}) 는 분위기 바꾸기', e2.cue({ name: 'pop' }) === true && e2.cue({ mood: 'calm' }) === true && e2.state().mood === 'calm');
+  t('⑪-21 빈 신호 · 모르는 분위기 · 모르는 악기 색은 false', e2.cue({}) === false && e2.cue(null) === false && e2.music('nope') === false && e2.setPalette('nope') === false);
+  e2.duck(0.35); const dk = e2.state().duck; e2.duck();
+  t('⑪-22 duck(0.35) → 대사 동안 줄이고 duck() → 1 로 되돌린다', dk === 0.35 && e2.state().duck === 1);
+  e2.dispose();
+  t('⑪-23 dispose() 뒤에는 아무것도 안 울린다', e2.sfx('pop') === false && e2.music('bright') === false && e2.cue({ name: 'pop' }) === false);
+  t('⑪-24 위 모든 조작에서 브라우저가 던질 값이 0건', c2.errors.length === 0, c2.errors.slice(0, 3));
+  return fails;
+}
+const soundFails0 = soundChecks(SOUND_SRC, true);
+check('⑪-v0 원본 엔진은 ⑪ 엔진 검사를 전부 통과한다(전제)', soundFails0.length === 0, soundFails0);
+
+/* ── 매니페스트 6편의 소리 신호 ── */
+{
+  const badEp = [];
+  let total = 0;
+  const pals = new Set();
+  for (const n of [1, 2, 3, 4, 5, 6]) {
+    const f = join(PUB, 'data', 'dubbing', 'dub-00' + n + '.json');
+    if (!existsSync(f)) { badEp.push('dub-00' + n + ':파일없음'); continue; }
+    let raw = null;
+    try { raw = JSON.parse(rd(f)); } catch (e) { badEp.push('dub-00' + n + ':JSON'); continue; }
+    const r = CORE.normalizeEpisode(raw);
+    const ep = r.episode;
+    const soundProbs = r.problems.filter((p) => /unknown_(sfx|mood|palette)|:sfx\d+:/.test(p));
+    if (soundProbs.length) badEp.push(ep.id + ':' + soundProbs[0]);
+    if (!raw.palette || CORE.SOUND_PALETTES.indexOf(String(raw.palette)) < 0) badEp.push(ep.id + ':palette');
+    pals.add(ep.palette);
+    ep.scenes.forEach((sc) => {
+      total += sc.sfx.length;
+      if (sc.sfx.length < 3) badEp.push(ep.id + '#' + sc.no + ':신호<3');
+      if (CORE.SOUND_MOODS.indexOf(sc.mood) < 0) badEp.push(ep.id + '#' + sc.no + ':mood');
+      sc.sfx.forEach((c) => {
+        if (c.name && CORE.SOUND_SFX.indexOf(c.name) < 0) badEp.push(ep.id + '#' + sc.no + ':sfx:' + c.name);
+        if (c.mood && CORE.SOUND_MOODS.indexOf(c.mood) < 0) badEp.push(ep.id + '#' + sc.no + ':cuemood:' + c.mood);
+      });
+      if (sc.timing === 'turn' && sc.sfx.some((c) => c.slot === 'time')) badEp.push(ep.id + '#' + sc.no + ':차례장면에_시각신호');
+      if (sc.timing === 'synced' && CORE.timedCues(sc).length !== sc.sfx.length) badEp.push(ep.id + '#' + sc.no + ':동기장면_시각미정');
+    });
+  }
+  check('⑪-M1 매니페스트 6편 — 소리 문제 0 · 작품 악기 색을 밝힘 · 장면마다 신호 3개 이상 · 모든 이름이 정본 목록 안', badEp.length === 0, badEp.slice(0, 5));
+  check('⑪-M2 신호가 «실제로 울릴 자리» 에만 있다(차례 장면엔 시각 신호 없음 · 동기 장면은 전부 영상 시각이 정해짐)', !badEp.some((b) => /차례장면|동기장면/.test(b)));
+  check('⑪-M3 6편이 합쳐 신호 150개 이상 · 악기 색 6가지를 고루 쓴다', total >= 150 && pals.size === 6, { total, pals: [...pals] });
+}
+
+/* ── 진행기(watch)를 가짜 화면으로 돌린다 ── */
+function loadWatch(src) {
+  const sb = { module: { exports: {} }, setTimeout, clearTimeout, setInterval, clearInterval, console };
+  sb.window = undefined;
+  vm.createContext(sb);
+  vm.runInContext(src, sb, { filename: 'ai-dubbing-watch.js' });
+  return sb.module.exports;
+}
+const W_SPEED = 200;   // 가짜 영상은 실제 시간의 200배로 흐른다(20초 장면 = 0.1초)
+class WMedia {
+  constructor(dur) { this.paused = true; this._base = 0; this._at = 0; this.duration = dur; this.readyState = 4; }
+  get ended() { return this.currentTime >= this.duration - 0.001; }
+  get currentTime() { return this.paused ? this._base : Math.min(this.duration, this._base + (Date.now() - this._at) / 1000 * W_SPEED); }
+  set currentTime(v) { this._base = v; this._at = Date.now(); }
+  play() { if (this.paused) { this._at = Date.now(); this.paused = false; } return Promise.resolve(); }
+  pause() { if (!this.paused) { this._base = this.currentTime; this.paused = true; } }
+  addEventListener() {}
+}
+function watchWorld(W, o) {
+  o = o || {};
+  const w = { log: [], eng: [], audios: [], routes: [], utters: [] };
+  const eng = {
+    cue(c) { w.eng.push(['cue', c]); return true; }, sfx(n) { w.eng.push(['sfx', n]); return true; }, duck(v) { w.eng.push(['duck', v]); },
+    enterScene(p, m, b) { w.eng.push(['enter', p, m, b]); return true; }, pause() { w.eng.push(['pause']); }, resume() { w.eng.push(['resume']); },
+    stopMusic() { w.eng.push(['stop']); },
+  };
+  const clipMs = o.clipMs || 15;
+  class FAudio {
+    constructor() { this.paused = true; this.readyState = 4; this.currentTime = 0; this.duration = 0.5; w.audios.push(this); }
+    play() { this.paused = false; clearTimeout(this._t); this._t = setTimeout(() => { this.paused = true; if (this.onended) this.onended(); }, clipMs); return Promise.resolve(); }
+    pause() { this.paused = true; clearTimeout(this._t); }
+    addEventListener() {}
+  }
+  function U(text) { this.text = text; }
+  const synth = { speak(u) { w.utters.push(u.text); setTimeout(() => { if (u.onend) u.onend(); }, 10); }, cancel() {}, pause() {}, resume() {} };
+  const video = new WMedia(1);
+  w.video = video;
+  w.kit = {
+    C: CORE, opt: { cardMs: o.cardMs || 10, gapMs: 5, endMs: 5, tickMs: 5, stallMs: 400, videoMs: 100 },
+    sound: () => eng, Audio: FAudio,
+    route: (a, kind) => { w.routes.push(kind); return { cut() {} }; },
+    synth, Utter: U,
+    tts: (text, spk) => Promise.resolve(o.ttsFail ? null : 'blob:' + spk + ':' + text.length),
+    video: () => video,
+    prepVideo: (v, sc) => { v.pause(); v.duration = sc.durationSec || 1; v.currentTime = 0; },
+    waitVideo: () => Promise.resolve(true),
+    showLine: (ep, l) => w.log.push(['line', l.en]), clearLine: () => w.log.push(['clear']),
+    card: (it) => w.log.push(['card', it ? (it.end ? 'END' : it.ep.id + '#' + it.scIdx) : null]),
+    note: () => {}, onPause: (b) => w.log.push(['pause', b]), onItem: (i, n) => w.log.push(['item', i, n]),
+    onSeen: (id, no) => w.log.push(['seen', id, no]), onEnd: (f) => w.log.push(['end', f]),
+  };
+  w.runner = W.create(w.kit);
+  w.lines = () => w.log.filter((x) => x[0] === 'line').length;
+  w.seen = () => w.log.filter((x) => x[0] === 'seen').map((x) => x[2]);
+  w.items = () => w.log.filter((x) => x[0] === 'item').map((x) => x[1]);
+  w.ends = () => w.log.filter((x) => x[0] === 'end').map((x) => x[1]);
+  return w;
+}
+const wsleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const wwithin = (p, ms) => Promise.race([Promise.resolve(p).then((v) => ({ v })), wsleep(ms).then(() => ({ timeout: true }))]);
+const epOf = (n) => CORE.normalizeEpisode(JSON.parse(rd(join(PUB, 'data', 'dubbing', 'dub-00' + n + '.json')))).episode;
+const WEP1 = epOf(1), WEP4 = epOf(4), WEP6 = epOf(6);
+
+async function watchChecks(src, verbose) {
+  const fails = [];
+  const t = (name, ok, extra) => { if (!ok) fails.push(name); if (verbose) check(name, ok, extra); };
+  let W = null;
+  try { W = loadWatch(src); } catch (e) { W = null; }
+  t('⑪-W0 진행기를 불러왔다(전제)', !!(W && typeof W.create === 'function'));
+  if (!W || typeof W.create !== 'function') return fails;
+  const two = () => [{ ep: WEP1, scIdx: 0, first: true }, { ep: WEP1, scIdx: 1, first: false }];
+  const nLines = WEP1.scenes[0].lines.length + WEP1.scenes[1].lines.length;
+  const nCues = WEP1.scenes[0].sfx.length + WEP1.scenes[1].sfx.length;
+  /* W1 끝까지 */
+  {
+    const w = watchWorld(W);
+    const r = await wwithin(w.runner.start(two()), 4000);
+    const cues = w.eng.filter((x) => x[0] === 'cue').length;
+    const ducks = w.eng.filter((x) => x[0] === 'duck').map((x) => x[1]);
+    t('⑪-W1 끝까지 보면 finished=true · 두 장면 모두 «봤어요» · 마지막에 onEnd(true)', !r.timeout && r.v === true && JSON.stringify(w.seen()) === '[1,2]' && JSON.stringify(w.ends()) === '[true]', { r, seen: w.seen(), ends: w.ends() });
+    t('⑪-W2 대사가 전부 자막에 나온다 · 끝 카드(END) · 끝 팡파르', w.lines() === nLines && w.log.some((x) => x[0] === 'card' && x[1] === 'END') && w.eng.some((x) => x[0] === 'sfx' && x[1] === 'fanfare'), { lines: w.lines(), want: nLines });
+    t('⑪-W3 매니페스트의 효과음 신호가 «전부» 울린다(장면 처음·대사 앞뒤·끝)', cues === nCues, { cues, want: nCues });
+    t('⑪-W4 장면마다 작품 악기 색 + 장면 분위기로 들어간다 · 대사 동안 음악을 줄였다가 되돌린다', w.eng.some((x) => x[0] === 'enter' && x[1] === WEP1.palette && x[2] === WEP1.scenes[0].mood && x[3] === false) && ducks.indexOf(0.35) >= 0 && ducks[ducks.length - 1] === 1);
+    t('⑪-W5 끝나면 진행 상태가 비고 음악을 끈다', w.runner.state().running === false && w.eng.some((x) => x[0] === 'stop'));
+  }
+  /* W2 다음 — 넘긴 장면은 «봤어요» 가 아니다 */
+  {
+    const w = watchWorld(W);
+    const p = w.runner.start(two());
+    await wsleep(30); w.runner.next();
+    const r = await wwithin(p, 4000);
+    t('⑪-W6 «다음» 으로 넘긴 장면은 «봤어요» 를 안 적는다(끝까지 본 다음 장면만 적음)', !r.timeout && JSON.stringify(w.items()) === '[0,1]' && JSON.stringify(w.seen()) === '[2]', { items: w.items(), seen: w.seen() });
+  }
+  /* W3 그만 */
+  {
+    const w = watchWorld(W);
+    const p = w.runner.start(two());
+    await wsleep(30); w.runner.stop();
+    const r = await wwithin(p, 4000);
+    t('⑪-W7 «그만» — finished=false · «봤어요» 0 · onEnd(false) · 진행 상태 비움', !r.timeout && r.v === false && w.seen().length === 0 && JSON.stringify(w.ends()) === '[false]' && w.runner.state().running === false, { r, seen: w.seen(), ends: w.ends() });
+  }
+  /* W4 멈춤 — 제목 카드에서 */
+  {
+    const w = watchWorld(W, { cardMs: 60 });
+    const p = w.runner.start([{ ep: WEP1, scIdx: 0, first: true }]);
+    w.runner.pause();
+    const stP = w.runner.state();
+    await wsleep(220);
+    const cardsGone = w.log.filter((x) => x[0] === 'card' && x[1] === null).length;
+    t('⑪-W8 카드에서 멈추면 카드 시간이 «멈춘다»(220ms 지나도 장면으로 안 넘어감 · 대사 0)', stP.paused === true && cardsGone === 0 && w.lines() === 0, { cardsGone, lines: w.lines() });
+    t('⑪-W9 멈춤을 화면·소리 엔진에 알린다(onPause(true) · engine.pause)', w.log.some((x) => x[0] === 'pause' && x[1] === true) && w.eng.some((x) => x[0] === 'pause'));
+    w.runner.resume();
+    const r = await wwithin(p, 4000);
+    t('⑪-W10 이어 가면 끝까지 간다 · onPause(false) · engine.resume', !r.timeout && r.v === true && JSON.stringify(w.seen()) === '[1]' && w.log.some((x) => x[0] === 'pause' && x[1] === false) && w.eng.some((x) => x[0] === 'resume'), { r, seen: w.seen() });
+  }
+  /* W5 멈춤 — 대사 중 */
+  {
+    const w = watchWorld(W, { clipMs: 60 });
+    const p = w.runner.start([{ ep: WEP1, scIdx: 0, first: true }]);
+    for (let k = 0; k < 100 && w.lines() === 0; k++) await wsleep(3);
+    await wsleep(10);
+    w.runner.pause();
+    const n1 = w.lines();
+    const playingAtPause = w.audios.filter((a) => !a.paused).length + (w.video.paused ? 0 : 1);
+    await wsleep(150);
+    const n2 = w.lines();
+    const playingLater = w.audios.filter((a) => !a.paused).length + (w.video.paused ? 0 : 1);
+    t('⑪-W11 대사 중 멈추면 목소리·영상이 «그 자리에서» 멈추고(재생 중 0) 다음 대사로 안 넘어간다', n1 >= 1 && n1 === n2 && playingAtPause === 0 && playingLater === 0, { n1, n2, playingAtPause, playingLater });
+    w.runner.resume();
+    const r = await wwithin(p, 5000);
+    t('⑪-W12 이어 가면 남은 대사까지 끝난다', !r.timeout && r.v === true && w.lines() === WEP1.scenes[0].lines.length, { r, lines: w.lines() });
+  }
+  /* W6 이전 */
+  {
+    const w = watchWorld(W);
+    const p = w.runner.start(two());
+    let did = false;
+    const iv = setInterval(() => { if (!did && w.runner.state().idx === 1) { did = true; setTimeout(() => w.runner.prev(), 15); } }, 3);
+    const r = await wwithin(p, 6000);
+    clearInterval(iv);
+    t('⑪-W13 «이전» 은 한 장면 앞으로 돌아간다(0 → 1 → 0 → 1)', !r.timeout && r.v === true && JSON.stringify(w.items()) === '[0,1,0,1]', { items: w.items() });
+  }
+  /* W7 동기 장면 — 배경음악 파일 + 캐릭터 음성 (dub-006) */
+  {
+    const w = watchWorld(W);
+    const sc = WEP6.scenes[0];
+    const r = await wwithin(w.runner.start([{ ep: WEP6, scIdx: 0, first: true }]), 5000);
+    const nVoice = Object.keys(sc.voices).length;
+    const kinds = { bgm: w.routes.filter((k) => k === 'bgm').length, voice: w.routes.filter((k) => k === 'voice').length };
+    const cues = w.eng.filter((x) => x[0] === 'cue').length;
+    t('⑪-W14 동기 장면(dub-006) — 배경음악 파일은 «bgm» 갈래, 캐릭터 음성은 «전부» voice 갈래(아무도 음소거 안 함)', !!sc.bgm && kinds.bgm === 1 && kinds.voice === nVoice && nVoice >= 3, kinds);
+    t('⑪-W15 동기 장면 — 합성 음악은 끄고 들어간다(배경음악 파일 있음=true) · 영상 시각 신호가 전부 울린다', w.eng.some((x) => x[0] === 'enter' && x[3] === true) && cues === CORE.timedCues(sc).length, { cues, want: CORE.timedCues(sc).length });
+    t('⑪-W16 동기 장면을 끝까지 보면 «봤어요» · 자막이 나온다', !r.timeout && r.v === true && JSON.stringify(w.seen()) === '[' + sc.no + ']' && w.lines() >= 1, { r, seen: w.seen(), lines: w.lines() });
+  }
+  /* W8 동기 장면 — 배경음악 파일 없이 캐릭터 음성만 (dub-004) */
+  {
+    const w = watchWorld(W);
+    const sc = WEP4.scenes[0];
+    const r = await wwithin(w.runner.start([{ ep: WEP4, scIdx: 0, first: true }]), 6000);
+    t('⑪-W17 동기 장면(dub-004, 배경음악 파일 없음) — bgm 갈래 0 · voice 갈래 = 캐릭터 수 · 합성 음악을 «켜고» 들어간다', !r.timeout && r.v === true && w.routes.filter((k) => k === 'bgm').length === 0 && w.routes.filter((k) => k === 'voice').length === Object.keys(sc.voices).length && w.eng.some((x) => x[0] === 'enter' && x[3] === false), { routes: w.routes });
+  }
+  /* W9 서버 목소리 실패 → 기기 목소리 */
+  {
+    const w = watchWorld(W, { ttsFail: true });
+    const r = await wwithin(w.runner.start([{ ep: WEP1, scIdx: 0, first: true }]), 4000);
+    t('⑪-W18 서버 목소리를 못 받으면 기기 목소리로 «그 대사를» 읽는다(대사 수 = 읽은 수)', !r.timeout && r.v === true && w.utters.length === WEP1.scenes[0].lines.length && w.utters[0] === WEP1.scenes[0].lines[0].en, { utters: w.utters.length });
+  }
+  /* W10 도중에 새 판 */
+  {
+    const w = watchWorld(W);
+    const p1 = w.runner.start(two());
+    await wsleep(20);
+    const p2 = w.runner.start([{ ep: WEP1, scIdx: 1, first: true }]);
+    const [r1, r2] = await Promise.all([wwithin(p1, 4000), wwithin(p2, 4000)]);
+    t('⑪-W19 도중에 새 판을 시작하면 옛 판은 조용히 끝나고(onEnd 1번 = 새 판) 새 판이 끝까지 간다', !r1.timeout && !r2.timeout && r2.v === true && JSON.stringify(w.ends()) === '[true]', { ends: w.ends() });
+  }
+  /* W11 빈 목록 */
+  {
+    const w = watchWorld(W);
+    const r = await wwithin(w.runner.start([{ ep: WEP1, scIdx: 99 }, null]), 1000);
+    t('⑪-W20 재생할 장면이 없으면 곧바로 끝난다(onEnd(false) · 끝 카드 없음)', !r.timeout && r.v === false && JSON.stringify(w.ends()) === '[false]' && !w.log.some((x) => x[0] === 'card' && x[1] === 'END'), { r, ends: w.ends() });
+  }
+  t('⑪-W21 진행기는 마이크·녹음을 쓰지 않는다(getUserMedia·MediaRecorder 0)', !/getUserMedia|MediaRecorder/.test(stripJs(src)));
+  return fails;
+}
+const watchFails0 = await watchChecks(WATCH_SRC, true);
+check('⑪-Wv0 원본 진행기는 ⑪ 진행기 검사를 전부 통과한다(전제)', watchFails0.length === 0, watchFails0);
+
+/* ── 화면 배선(ai-dubbing.js · ai-dubbing.html) ── */
+function playerWatchChecks(psrc, hsrc, verbose) {
+  const fails = [];
+  const t = (name, ok, extra) => { if (!ok) fails.push(name); if (verbose) check(name, ok, extra); };
+  const pc = stripJs(psrc);
+  const iC = hsrc.indexOf('/js/ai-dubbing-core.js?v='), iS = hsrc.indexOf('/js/ai-dubbing-sound.js?v='), iW = hsrc.indexOf('/js/ai-dubbing-watch.js?v='), iP = hsrc.indexOf('/js/ai-dubbing.js?v=');
+  t('⑪-P1 싣는 순서: 정본(core) → 소리 엔진 → 진행기 → 화면', iC > 0 && iS > iC && iW > iS && iP > iW, { iC, iS, iW, iP });
+  const wBody = cutFn(psrc, 'watcher');
+  t('⑪-P2 진행기를 오려 냈다(전제)', !!wBody && /MangoiDubWatch\.create\(/.test(wBody));
+  t('⑪-P3 감상 소리는 완성 영상 갈래에 안 잇는다 — 배경음악은 routeBgm(el, true), 목소리는 routeEl(el, 1, true)', /kind === 'bgm' \? routeBgm\(el, true\) : routeEl\(el, 1, true\)/.test(wBody));
+  const seenCalls = (pc.match(/markSeen\(/g) || []).length - (pc.match(/function markSeen\(/g) || []).length;
+  t('⑪-P4 «봤어요» 는 진행기의 onSeen 한 곳에서만 적는다', seenCalls === 1 && /onSeen: function \(epId, no\) \{ markSeen\(epId, no\);/.test(wBody), seenCalls);
+  const sw = cutFn(psrc, 'startWatch'), sr = cutFn(psrc, 'startRun');
+  t('⑪-P5 더빙과 감상은 동시에 안 돈다(startWatch·startRun 둘 다 S.run·S.watching 을 본다)', /if \(S\.run \|\| S\.watching/.test(sw) && /if \(S\.run \|\| S\.watching/.test(sr));
+  const sceneH = (() => { const i = pc.indexOf("$('dub-scenes').addEventListener('click'"); return i < 0 ? '' : pc.slice(i, pc.indexOf('});', i)); })();
+  const iWatch = sceneH.indexOf("closest('button[data-watch]')"), iScene = sceneH.indexOf("closest('button[data-scene]')");
+  t('⑪-P6 장면 목록에서 «👀 보기»(data-watch) 를 장면 고르기(data-scene) 보다 «먼저» 판정한다', iWatch > 0 && iScene > iWatch && /watchScene\(wi\); return;/.test(sceneH), { iWatch, iScene });
+  t('⑪-P7 소리 엔진은 섞개 위에 «스피커·완성영상» 두 갈래로 만든다 · 설정(음악·효과음)을 엔진에 건다', /MangoiDubSound\.create\(ctx, \[out, rec\]\)/.test(pc) && /e\.setEnabled\(p\.music, p\.sfx\)/.test(pc));
+  /* P8 «배경음악 끄기» 가 배경음악 «파일» 에도 걸린다 — setBgmLevel 을 실제로 돌린다 */
+  const sbl = cutFn(psrc, 'setBgmLevel');
+  let lvl = null;
+  try { lvl = new Function('sndPrefs', sbl + '\n;return setBgmLevel;'); } catch (e) { lvl = null; }
+  let okLvl = false;
+  if (lvl) {
+    const run = (music, withGain) => { const h = { r: withGain ? { gain: { gain: { value: 0.5 } } } : {}, el: { muted: false } }; lvl(() => ({ music }))(h); return withGain ? h.r.gain.gain.value : (h.el.muted ? 'muted' : 'on'); };
+    okLvl = run(false, true) === 0 && run(true, true) === 1 && run(false, false) === 'muted' && run(true, false) === 'on';
+  }
+  t('⑪-P8 «🎵 배경음악» 끄기가 배경음악 파일에도 걸린다(꺼짐=0/음소거 · 켜짐=1/소리)', okLvl);
+  return fails;
+}
+const pwFails0 = playerWatchChecks(PLAYER_SRC_RAW, html, true);
+check('⑪-Pv0 원본 화면은 ⑪ 배선 검사를 전부 통과한다(전제)', pwFails0.length === 0, pwFails0);
+
+/* ── ⑪ 변이시험 ── */
+const SOUND_MUTANTS = [
+  ['효과음 끄기 무시', 'if (st.disposed || !st.sfxOn || st.paused) return false;', 'if (st.disposed) return false;'],
+  ['멈춰도 박자 타이머 안 끔', 'st.paused = true;\n      if (st.timer) { clearTimeout(st.timer); st.timer = null; }', 'st.paused = true;'],
+  ['배경음악 파일이 있어도 합성 음악 유지', 'if (hasBgmFile) { st.mood = null; if (st.on) stopMusic(0.6); return false; }', 'if (hasBgmFile) { return false; }'],
+  ['효과음 레시피 하나 빠짐(pop)', "pop: function (t, S) { tone(S, 'sine', 600, 180, t, 0.09, 0.4); },", ''],
+  ['지수 램프를 0 으로(브라우저가 던짐)', 'g.gain.exponentialRampToValueAtTime(0.0001, t0 + Math.max(a + 0.01, dur));', 'g.gain.exponentialRampToValueAtTime(0, t0 + Math.max(a + 0.01, dur));'],
+  ['이름 목록 어긋남(pop 빠짐)', "'thunder', 'pop'];\n\n  function mtof", "'thunder'];\n\n  function mtof"],
+  ['박자 타이머 다시 안 검(음악이 한 번만 울림)', '      st.timer = setTimeout(tick, 60);', ''],
+];
+for (const [name, from, to] of SOUND_MUTANTS) {
+  if (SOUND_SRC.indexOf(from) < 0) { check('⑪ 엔진 변이 «' + name + '» — 치환 앵커가 소스에 있다', false, from.slice(0, 60)); continue; }
+  let f;
+  try { f = soundChecks(SOUND_SRC.replace(from, to), false); } catch (e) { f = ['crash:' + String(e && e.message).slice(0, 60)]; }
+  check('⑪ 엔진 변이 «' + name + '» 를 넣으면 실제로 FAIL 이 난다', f.length > 0, f.length ? f.slice(0, 2) : '안 잡힘');
+}
+const WATCH_MUTANTS = [
+  ['넘긴 장면도 «봤어요»', 'if (completed && kit.onSeen)', 'if (kit.onSeen)'],
+  ['동기: 캐릭터 음성 빠뜨림', "Object.keys(sc.voices || {}).forEach(function (cid) { addTrack(sc.voices[cid], 'voice'); });", ''],
+  ['동기: 배경음악을 목소리 갈래로', "if (sc.bgm) addTrack(sc.bgm, 'bgm');", "if (sc.bgm) addTrack(sc.bgm, 'voice');"],
+  ['멈춤: 타이머 안 붙잡음', 'run.timers.forEach(function (t) { if (t.id) { clearTimeout(t.id); t.id = null; t.left = Math.max(0, t.left - (now() - t.at)); } });', ''],
+  ['멈춤: 소리·영상 안 멈춤', 'run.held.forEach(function (m) { try { m.pause(); } catch (e) {} });', ''],
+  ['멈춤: 소리 엔진 안 멈춤', 'if (run.synthOn && kit.synth) { try { kit.synth.pause(); } catch (e) {} }\n      var s = snd(); if (s) s.pause();', 'if (run.synthOn && kit.synth) { try { kit.synth.pause(); } catch (e) {} }'],
+  ['끝: 화면에 안 알림', 'if (kit.onEnd) kit.onEnd(!!finished);', ''],
+  ['효과음: 대사 뒤 신호 빠짐', "fire(sc, 'line', k, 'after');", ''],
+  ['이전: 무시', "run.idx = j === 'prev' ? Math.max(0, run.idx - 1) : run.idx + 1;", 'run.idx = run.idx + 1;'],
+  ['기기 목소리 폴백 없음', 'return url ? playClip(run, url, maxMsFor(line)) : speakDevice(run, line.en, maxMsFor(line));', 'return url ? playClip(run, url, maxMsFor(line)) : undefined;'],
+  ['새 판이 옛 판 화면을 건드림', 'if (cur !== run) return finished;', ''],
+];
+/* 진행기 변이는 실제 시간이 걸린다(한 판 약 3초) — 서로 독립인 가짜 세계라 «동시에» 돌린다 */
+const watchMutRes = await Promise.all(WATCH_MUTANTS.map(async ([name, from, to]) => {
+  if (WATCH_SRC.indexOf(from) < 0) return [name, null];
+  try { return [name, await watchChecks(WATCH_SRC.replace(from, to), false)]; } catch (e) { return [name, ['crash:' + String(e && e.message).slice(0, 60)]]; }
+}));
+for (const [name, f] of watchMutRes) {
+  if (f === null) { check('⑪ 진행기 변이 «' + name + '» — 치환 앵커가 소스에 있다', false); continue; }
+  check('⑪ 진행기 변이 «' + name + '» 를 넣으면 실제로 FAIL 이 난다', f.length > 0, f.length ? f.slice(0, 2) : '안 잡힘');
+}
+const PW_MUTANTS = [
+  ['감상 소리를 완성 영상에도 잇기(noRec 빠짐)', 'kind === \'bgm\' ? routeBgm(el, true) : routeEl(el, 1, true)', 'kind === \'bgm\' ? routeBgm(el) : routeEl(el, 1)'],
+  ['«봤어요» 배선 끊김', 'onSeen: function (epId, no) { markSeen(epId, no);', 'onSeen: function (epId, no) {'],
+  ['더빙 중에도 감상 시작', 'if (S.run || S.watching || !items || !items.length) return;', 'if (S.watching || !items || !items.length) return;'],
+  ['«👀 보기» 판정 삭제', "if (w && !w.disabled) { var wi = Number(w.getAttribute('data-watch')); pickScene(wi); watchScene(wi); return; }", ''],
+  ['배경음악 끄기가 파일엔 안 걸림', 'var on = sndPrefs().music; if (h.r.gain) h.r.gain.gain.value = on ? 1 : 0; else h.el.muted = !on;', 'if (h.r.gain) h.r.gain.gain.value = 1;'],
+];
+for (const [name, from, to] of PW_MUTANTS) {
+  if (PLAYER_SRC_RAW.indexOf(from) < 0) { check('⑪ 화면 변이 «' + name + '» — 치환 앵커가 소스에 있다', false, from.slice(0, 60)); continue; }
+  let f;
+  try { f = playerWatchChecks(PLAYER_SRC_RAW.replace(from, to), html, false); } catch (e) { f = ['crash:' + String(e && e.message).slice(0, 60)]; }
+  check('⑪ 화면 변이 «' + name + '» 를 넣으면 실제로 FAIL 이 난다', f.length > 0, f.length ? f.slice(0, 2) : '안 잡힘');
+}
+{
+  const hBad = html.replace('/js/ai-dubbing-watch.js?v=', '/js/__moved__.js?v=') + '\n<script defer src="/js/ai-dubbing-watch.js?v=1"></script>';
+  const f = playerWatchChecks(PLAYER_SRC_RAW, hBad, false);
+  check('⑪ 화면 변이 «진행기를 화면 뒤에 싣기» 를 넣으면 실제로 FAIL 이 난다', f.length > 0, f.length ? f.slice(0, 2) : '안 잡힘');
 }
 
 console.log(`\n🎬 ai_dubbing_harness — PASS ${PASS} / FAIL ${FAIL}`);
