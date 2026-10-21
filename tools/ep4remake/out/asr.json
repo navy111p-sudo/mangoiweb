@@ -1,0 +1,2480 @@
+{
+ "101": {
+  "speaker": "kai",
+  "ref": "Pip, you came back again!",
+  "hyp": "Pip, you came back again.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.68,
+    "Pip,"
+   ],
+   [
+    1.04,
+    1.16,
+    "you"
+   ],
+   [
+    1.16,
+    1.52,
+    "came"
+   ],
+   [
+    1.52,
+    1.96,
+    "back"
+   ],
+   [
+    1.96,
+    2.42,
+    "again."
+   ]
+  ]
+ },
+ "102": {
+  "speaker": "emma",
+  "ref": "Look! A ship needs help!",
+  "hyp": "Look! A ship needs help!",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.76,
+    "Look!"
+   ],
+   [
+    1.52,
+    1.7,
+    "A"
+   ],
+   [
+    1.7,
+    2.02,
+    "ship"
+   ],
+   [
+    2.02,
+    2.4,
+    "needs"
+   ],
+   [
+    2.4,
+    2.74,
+    "help!"
+   ]
+  ]
+ },
+ "103": {
+  "speaker": "maya",
+  "ref": "That flag has a robot!",
+  "hyp": "That flag has a robot.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.68,
+    "That"
+   ],
+   [
+    0.68,
+    1.14,
+    "flag"
+   ],
+   [
+    1.14,
+    1.48,
+    "has"
+   ],
+   [
+    1.48,
+    1.68,
+    "a"
+   ],
+   [
+    1.68,
+    2.16,
+    "robot."
+   ]
+  ]
+ },
+ "104": {
+  "speaker": "pip",
+  "ref": "My signal comes from there.",
+  "hyp": "My signal comes from there.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    1.16,
+    2.04,
+    "My"
+   ],
+   [
+    2.04,
+    2.54,
+    "signal"
+   ],
+   [
+    2.54,
+    3.0,
+    "comes"
+   ],
+   [
+    3.0,
+    3.28,
+    "from"
+   ],
+   [
+    3.28,
+    3.7,
+    "there."
+   ]
+  ]
+ },
+ "105": {
+  "speaker": "momo",
+  "ref": "Welcome aboard, my brave friends!",
+  "hyp": "Welcome aboard, my brave friends.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.24,
+    "Welcome"
+   ],
+   [
+    0.24,
+    0.76,
+    "aboard,"
+   ],
+   [
+    0.94,
+    1.04,
+    "my"
+   ],
+   [
+    1.04,
+    1.42,
+    "brave"
+   ],
+   [
+    1.42,
+    1.9,
+    "friends."
+   ]
+  ]
+ },
+ "106": {
+  "speaker": "kai",
+  "ref": "Where is that robot going?",
+  "hyp": "Where is that robot going?",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.82,
+    "Where"
+   ],
+   [
+    0.82,
+    1.12,
+    "is"
+   ],
+   [
+    1.12,
+    1.34,
+    "that"
+   ],
+   [
+    1.34,
+    1.82,
+    "robot"
+   ],
+   [
+    1.82,
+    2.26,
+    "going?"
+   ]
+  ]
+ },
+ "107": {
+  "speaker": "emma",
+  "ref": "His screen shows a worried face.",
+  "hyp": "His screen shows a worried face.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.44,
+    "His"
+   ],
+   [
+    0.44,
+    0.78,
+    "screen"
+   ],
+   [
+    0.78,
+    1.18,
+    "shows"
+   ],
+   [
+    1.18,
+    1.36,
+    "a"
+   ],
+   [
+    1.36,
+    1.64,
+    "worried"
+   ],
+   [
+    1.64,
+    2.16,
+    "face."
+   ]
+  ]
+ },
+ "108": {
+  "speaker": "maya",
+  "ref": "Let us follow him together.",
+  "hyp": "Let us follow him together.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.7,
+    "Let"
+   ],
+   [
+    0.7,
+    1.08,
+    "us"
+   ],
+   [
+    1.08,
+    1.44,
+    "follow"
+   ],
+   [
+    1.44,
+    1.72,
+    "him"
+   ],
+   [
+    1.72,
+    2.2,
+    "together."
+   ]
+  ]
+ },
+ "109": {
+  "speaker": "pip",
+  "ref": "I can hear something ringing.",
+  "hyp": "I can hear something ringing!",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.42,
+    "I"
+   ],
+   [
+    0.42,
+    0.58,
+    "can"
+   ],
+   [
+    0.58,
+    0.8,
+    "hear"
+   ],
+   [
+    0.8,
+    1.22,
+    "something"
+   ],
+   [
+    1.22,
+    1.58,
+    "ringing!"
+   ]
+  ]
+ },
+ "110": {
+  "speaker": "momo",
+  "ref": "Please keep that chest safe.",
+  "hyp": "Please keep that chest safe.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.5,
+    "Please"
+   ],
+   [
+    0.5,
+    0.8,
+    "keep"
+   ],
+   [
+    0.8,
+    1.02,
+    "that"
+   ],
+   [
+    1.02,
+    1.3,
+    "chest"
+   ],
+   [
+    1.3,
+    1.64,
+    "safe."
+   ]
+  ]
+ },
+ "201": {
+  "speaker": "emma",
+  "ref": "Why is the chest glowing?",
+  "hyp": "Why is the chest glowing?",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.7,
+    "Why"
+   ],
+   [
+    0.7,
+    0.96,
+    "is"
+   ],
+   [
+    0.96,
+    1.1,
+    "the"
+   ],
+   [
+    1.1,
+    1.44,
+    "chest"
+   ],
+   [
+    1.44,
+    1.94,
+    "glowing?"
+   ]
+  ]
+ },
+ "202": {
+  "speaker": "momo",
+  "ref": "It holds something very precious.",
+  "hyp": "It holds something very precious.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.36,
+    "It"
+   ],
+   [
+    0.36,
+    0.74,
+    "holds"
+   ],
+   [
+    0.74,
+    1.14,
+    "something"
+   ],
+   [
+    1.14,
+    1.58,
+    "very"
+   ],
+   [
+    1.58,
+    2.08,
+    "precious."
+   ]
+  ]
+ },
+ "203": {
+  "speaker": "kai",
+  "ref": "Did you take that treasure?",
+  "hyp": "Did you take that treasure?",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.6,
+    "Did"
+   ],
+   [
+    0.6,
+    0.74,
+    "you"
+   ],
+   [
+    0.74,
+    0.98,
+    "take"
+   ],
+   [
+    0.98,
+    1.2,
+    "that"
+   ],
+   [
+    1.2,
+    1.54,
+    "treasure?"
+   ]
+  ]
+ },
+ "204": {
+  "speaker": "pip",
+  "ref": "Wait! Let us ask first.",
+  "hyp": "Wait! Let us ask first.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    1.52,
+    "Wait!"
+   ],
+   [
+    2.2,
+    2.68,
+    "Let"
+   ],
+   [
+    2.68,
+    2.9,
+    "us"
+   ],
+   [
+    2.9,
+    3.28,
+    "ask"
+   ],
+   [
+    3.28,
+    3.78,
+    "first."
+   ]
+  ]
+ },
+ "205": {
+  "speaker": "maya",
+  "ref": "Momo is pointing toward the shore.",
+  "hyp": "Momo is pointing toward the shore.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    1.06,
+    "Momo"
+   ],
+   [
+    1.06,
+    1.3,
+    "is"
+   ],
+   [
+    1.3,
+    1.78,
+    "pointing"
+   ],
+   [
+    1.78,
+    2.32,
+    "toward"
+   ],
+   [
+    2.32,
+    2.54,
+    "the"
+   ],
+   [
+    2.54,
+    2.92,
+    "shore."
+   ]
+  ]
+ },
+ "206": {
+  "speaker": "emma",
+  "ref": "There is a dark lighthouse!",
+  "hyp": "There is a dark lighthouse.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.62,
+    "There"
+   ],
+   [
+    0.62,
+    0.78,
+    "is"
+   ],
+   [
+    0.78,
+    0.98,
+    "a"
+   ],
+   [
+    0.98,
+    1.26,
+    "dark"
+   ],
+   [
+    1.26,
+    1.78,
+    "lighthouse."
+   ]
+  ]
+ },
+ "207": {
+  "speaker": "momo",
+  "ref": "We must reach it before sunset.",
+  "hyp": "We must reach it before sunset.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.36,
+    "We"
+   ],
+   [
+    0.36,
+    0.6,
+    "must"
+   ],
+   [
+    0.6,
+    0.96,
+    "reach"
+   ],
+   [
+    0.96,
+    1.18,
+    "it"
+   ],
+   [
+    1.18,
+    1.46,
+    "before"
+   ],
+   [
+    1.46,
+    1.94,
+    "sunset."
+   ]
+  ]
+ },
+ "208": {
+  "speaker": "kai",
+  "ref": "I think I misunderstood you.",
+  "hyp": "I think I misunderstood you.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.56,
+    "I"
+   ],
+   [
+    0.56,
+    0.78,
+    "think"
+   ],
+   [
+    0.78,
+    0.98,
+    "I"
+   ],
+   [
+    0.98,
+    1.38,
+    "misunderstood"
+   ],
+   [
+    1.38,
+    1.9,
+    "you."
+   ]
+  ]
+ },
+ "209": {
+  "speaker": "pip",
+  "ref": "The light is getting weaker.",
+  "hyp": "The light is getting weaker.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.66,
+    "The"
+   ],
+   [
+    0.66,
+    1.02,
+    "light"
+   ],
+   [
+    1.02,
+    1.3,
+    "is"
+   ],
+   [
+    1.3,
+    1.58,
+    "getting"
+   ],
+   [
+    1.58,
+    2.1,
+    "weaker."
+   ]
+  ]
+ },
+ "210": {
+  "speaker": "maya",
+  "ref": "Then we must work together.",
+  "hyp": "Then we must work together.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.68,
+    "Then"
+   ],
+   [
+    0.68,
+    0.94,
+    "we"
+   ],
+   [
+    0.94,
+    1.28,
+    "must"
+   ],
+   [
+    1.28,
+    1.7,
+    "work"
+   ],
+   [
+    1.7,
+    2.28,
+    "together."
+   ]
+  ]
+ },
+ "301": {
+  "speaker": "momo",
+  "ref": "Hold tight! The wind is changing!",
+  "hyp": "Hold tight, the wind is changing.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.64,
+    "Hold"
+   ],
+   [
+    0.64,
+    1.02,
+    "tight,"
+   ],
+   [
+    1.54,
+    1.66,
+    "the"
+   ],
+   [
+    1.66,
+    1.9,
+    "wind"
+   ],
+   [
+    1.9,
+    2.16,
+    "is"
+   ],
+   [
+    2.16,
+    2.56,
+    "changing."
+   ]
+  ]
+ },
+ "302": {
+  "speaker": "kai",
+  "ref": "I can hold this rope.",
+  "hyp": "Plored for, harmed. I can hold this rope.",
+  "recall": 1.0,
+  "precision": 0.625,
+  "missing": [],
+  "extra": [
+   "plored",
+   "for",
+   "harmed"
+  ],
+  "words": [
+   [
+    0.0,
+    0.72,
+    "Plored"
+   ],
+   [
+    0.72,
+    1.0,
+    "for,"
+   ],
+   [
+    1.02,
+    1.4,
+    "harmed."
+   ],
+   [
+    2.24,
+    2.34,
+    "I"
+   ],
+   [
+    2.34,
+    2.52,
+    "can"
+   ],
+   [
+    2.52,
+    2.76,
+    "hold"
+   ],
+   [
+    2.76,
+    2.94,
+    "this"
+   ],
+   [
+    2.94,
+    3.24,
+    "rope."
+   ]
+  ]
+ },
+ "303": {
+  "speaker": "emma",
+  "ref": "I will check the map.",
+  "hyp": "I will check the map.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.6,
+    "I"
+   ],
+   [
+    0.6,
+    0.76,
+    "will"
+   ],
+   [
+    0.76,
+    1.02,
+    "check"
+   ],
+   [
+    1.02,
+    1.22,
+    "the"
+   ],
+   [
+    1.22,
+    1.52,
+    "map."
+   ]
+  ]
+ },
+ "304": {
+  "speaker": "maya",
+  "ref": "Pip, help me secure the chest.",
+  "hyp": "Pip, help me secure the chest.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.72,
+    "Pip,"
+   ],
+   [
+    1.66,
+    1.84,
+    "help"
+   ],
+   [
+    1.84,
+    2.14,
+    "me"
+   ],
+   [
+    2.14,
+    2.78,
+    "secure"
+   ],
+   [
+    2.78,
+    3.38,
+    "the"
+   ],
+   [
+    3.38,
+    3.88,
+    "chest."
+   ]
+  ]
+ },
+ "305": {
+  "speaker": "pip",
+  "ref": "Together! One, two, three, pull!",
+  "hyp": "Together! One, two, three, pull!",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.98,
+    "Together!"
+   ],
+   [
+    1.8,
+    2.02,
+    "One,"
+   ],
+   [
+    2.38,
+    2.48,
+    "two,"
+   ],
+   [
+    2.82,
+    3.0,
+    "three,"
+   ],
+   [
+    3.34,
+    3.58,
+    "pull!"
+   ]
+  ]
+ },
+ "306": {
+  "speaker": "momo",
+  "ref": "Great teamwork! Keep your feet steady.",
+  "hyp": "Great teamwork. Keep your feet steady.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    1.02,
+    "Great"
+   ],
+   [
+    1.02,
+    1.64,
+    "teamwork."
+   ],
+   [
+    2.7,
+    2.82,
+    "Keep"
+   ],
+   [
+    2.82,
+    3.06,
+    "your"
+   ],
+   [
+    3.06,
+    3.34,
+    "feet"
+   ],
+   [
+    3.34,
+    3.82,
+    "steady."
+   ]
+  ]
+ },
+ "307": {
+  "speaker": "kai",
+  "ref": "Momo just caught my hat!",
+  "hyp": "Momo just caught my hat.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    1.18,
+    "Momo"
+   ],
+   [
+    1.18,
+    1.6,
+    "just"
+   ],
+   [
+    1.6,
+    1.9,
+    "caught"
+   ],
+   [
+    1.9,
+    2.16,
+    "my"
+   ],
+   [
+    2.16,
+    2.54,
+    "hat."
+   ]
+  ]
+ },
+ "308": {
+  "speaker": "emma",
+  "ref": "The safe path is this way.",
+  "hyp": "The safe path is this way.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.64,
+    "The"
+   ],
+   [
+    0.64,
+    0.94,
+    "safe"
+   ],
+   [
+    0.94,
+    1.32,
+    "path"
+   ],
+   [
+    1.32,
+    1.62,
+    "is"
+   ],
+   [
+    1.62,
+    1.86,
+    "this"
+   ],
+   [
+    1.86,
+    2.28,
+    "way."
+   ]
+  ]
+ },
+ "309": {
+  "speaker": "maya",
+  "ref": "The chest is safe now.",
+  "hyp": "The chest is safe now.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.62,
+    "The"
+   ],
+   [
+    0.62,
+    1.0,
+    "chest"
+   ],
+   [
+    1.0,
+    1.3,
+    "is"
+   ],
+   [
+    1.3,
+    1.6,
+    "safe"
+   ],
+   [
+    1.6,
+    2.02,
+    "now."
+   ]
+  ]
+ },
+ "310": {
+  "speaker": "pip",
+  "ref": "Look! The clouds are opening!",
+  "hyp": "Look! The clouds are opening!",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.94,
+    "Look!"
+   ],
+   [
+    1.56,
+    1.72,
+    "The"
+   ],
+   [
+    1.72,
+    2.24,
+    "clouds"
+   ],
+   [
+    2.24,
+    2.52,
+    "are"
+   ],
+   [
+    2.52,
+    3.02,
+    "opening!"
+   ]
+  ]
+ },
+ "401": {
+  "speaker": "maya",
+  "ref": "Please show us your treasure.",
+  "hyp": "Please, show us your treasure.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.82,
+    "Please,"
+   ],
+   [
+    1.36,
+    1.54,
+    "show"
+   ],
+   [
+    1.54,
+    1.76,
+    "us"
+   ],
+   [
+    1.76,
+    1.94,
+    "your"
+   ],
+   [
+    1.94,
+    2.36,
+    "treasure."
+   ]
+  ]
+ },
+ "402": {
+  "speaker": "momo",
+  "ref": "It is the lighthouse heart.",
+  "hyp": "It is the lighthouse heart.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.58,
+    "It"
+   ],
+   [
+    0.58,
+    0.74,
+    "is"
+   ],
+   [
+    0.74,
+    0.94,
+    "the"
+   ],
+   [
+    0.94,
+    1.32,
+    "lighthouse"
+   ],
+   [
+    1.32,
+    1.72,
+    "heart."
+   ]
+  ]
+ },
+ "403": {
+  "speaker": "emma",
+  "ref": "A light, not gold coins!",
+  "hyp": "A light, not gold. Coins.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.64,
+    "A"
+   ],
+   [
+    0.64,
+    1.04,
+    "light,"
+   ],
+   [
+    1.36,
+    1.62,
+    "not"
+   ],
+   [
+    1.62,
+    2.1,
+    "gold."
+   ],
+   [
+    2.7,
+    3.06,
+    "Coins."
+   ]
+  ]
+ },
+ "404": {
+  "speaker": "kai",
+  "ref": "You were rescuing the lost sailors!",
+  "hyp": "You were rescuing the lost sailors.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.62,
+    "You"
+   ],
+   [
+    0.62,
+    0.84,
+    "were"
+   ],
+   [
+    0.84,
+    1.38,
+    "rescuing"
+   ],
+   [
+    1.38,
+    1.66,
+    "the"
+   ],
+   [
+    1.66,
+    2.04,
+    "lost"
+   ],
+   [
+    2.04,
+    2.6,
+    "sailors."
+   ]
+  ]
+ },
+ "405": {
+  "speaker": "pip",
+  "ref": "This crystal uses star energy.",
+  "hyp": "This crystal uses star energy!",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.7,
+    "This"
+   ],
+   [
+    0.7,
+    1.26,
+    "crystal"
+   ],
+   [
+    1.26,
+    1.84,
+    "uses"
+   ],
+   [
+    1.84,
+    2.44,
+    "star"
+   ],
+   [
+    2.44,
+    3.02,
+    "energy!"
+   ]
+  ]
+ },
+ "406": {
+  "speaker": "maya",
+  "ref": "That is why you called us!",
+  "hyp": "That is why you called us.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.78,
+    "That"
+   ],
+   [
+    0.78,
+    1.16,
+    "is"
+   ],
+   [
+    1.16,
+    1.54,
+    "why"
+   ],
+   [
+    1.54,
+    1.8,
+    "you"
+   ],
+   [
+    1.8,
+    2.22,
+    "called"
+   ],
+   [
+    2.22,
+    2.62,
+    "us."
+   ]
+  ]
+ },
+ "407": {
+  "speaker": "momo",
+  "ref": "Yes! Their boats need this light.",
+  "hyp": "Yes, their boats need this light.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    1.04,
+    "Yes,"
+   ],
+   [
+    2.12,
+    2.34,
+    "their"
+   ],
+   [
+    2.34,
+    2.88,
+    "boats"
+   ],
+   [
+    2.88,
+    3.6,
+    "need"
+   ],
+   [
+    3.6,
+    3.94,
+    "this"
+   ],
+   [
+    3.94,
+    4.3,
+    "light."
+   ]
+  ]
+ },
+ "408": {
+  "speaker": "emma",
+  "ref": "Sorry we judged your pirate flag.",
+  "hyp": "Sorry we judged your pirate flag.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    1.08,
+    1.76,
+    "Sorry"
+   ],
+   [
+    1.76,
+    2.02,
+    "we"
+   ],
+   [
+    2.02,
+    2.32,
+    "judged"
+   ],
+   [
+    2.32,
+    2.48,
+    "your"
+   ],
+   [
+    2.48,
+    2.82,
+    "pirate"
+   ],
+   [
+    2.82,
+    3.28,
+    "flag."
+   ]
+  ]
+ },
+ "409": {
+  "speaker": "kai",
+  "ref": "Let us bring everyone home.",
+  "hyp": "Let us bring everyone home.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.62,
+    "Let"
+   ],
+   [
+    0.62,
+    0.76,
+    "us"
+   ],
+   [
+    0.76,
+    1.0,
+    "bring"
+   ],
+   [
+    1.0,
+    1.44,
+    "everyone"
+   ],
+   [
+    1.44,
+    1.82,
+    "home."
+   ]
+  ]
+ },
+ "410": {
+  "speaker": "pip",
+  "ref": "I can help it shine again.",
+  "hyp": "I can help it shine again!",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.66,
+    "I"
+   ],
+   [
+    0.66,
+    0.9,
+    "can"
+   ],
+   [
+    0.9,
+    1.22,
+    "help"
+   ],
+   [
+    1.22,
+    1.44,
+    "it"
+   ],
+   [
+    1.44,
+    1.82,
+    "shine"
+   ],
+   [
+    1.82,
+    2.34,
+    "again!"
+   ]
+  ]
+ },
+ "501": {
+  "speaker": "pip",
+  "ref": "Place the crystal right here.",
+  "hyp": "Place the crystal right here.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    2.0,
+    "Place"
+   ],
+   [
+    2.0,
+    2.26,
+    "the"
+   ],
+   [
+    2.26,
+    2.72,
+    "crystal"
+   ],
+   [
+    2.72,
+    3.16,
+    "right"
+   ],
+   [
+    3.16,
+    3.72,
+    "here."
+   ]
+  ]
+ },
+ "502": {
+  "speaker": "maya",
+  "ref": "I will turn this handle.",
+  "hyp": "I will turn this handle.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.62,
+    "I"
+   ],
+   [
+    0.62,
+    0.78,
+    "will"
+   ],
+   [
+    0.78,
+    1.12,
+    "turn"
+   ],
+   [
+    1.12,
+    1.44,
+    "this"
+   ],
+   [
+    1.44,
+    1.92,
+    "handle."
+   ]
+  ]
+ },
+ "503": {
+  "speaker": "kai",
+  "ref": "I will hold the ladder.",
+  "hyp": "I will hold the ladder.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.66,
+    "I"
+   ],
+   [
+    0.66,
+    0.86,
+    "will"
+   ],
+   [
+    0.86,
+    1.1,
+    "hold"
+   ],
+   [
+    1.1,
+    1.32,
+    "the"
+   ],
+   [
+    1.32,
+    1.6,
+    "ladder."
+   ]
+  ]
+ },
+ "504": {
+  "speaker": "emma",
+  "ref": "The stars show us the pattern.",
+  "hyp": "The stars show us the pattern.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.64,
+    "The"
+   ],
+   [
+    0.64,
+    1.12,
+    "stars"
+   ],
+   [
+    1.12,
+    1.48,
+    "show"
+   ],
+   [
+    1.48,
+    1.82,
+    "us"
+   ],
+   [
+    1.82,
+    2.06,
+    "the"
+   ],
+   [
+    2.06,
+    2.46,
+    "pattern."
+   ]
+  ]
+ },
+ "505": {
+  "speaker": "momo",
+  "ref": "I will open the shutters.",
+  "hyp": "I will open the shutter.",
+  "recall": 0.8,
+  "precision": 0.8,
+  "missing": [
+   "shutters"
+  ],
+  "extra": [
+   "shutter"
+  ],
+  "words": [
+   [
+    0.98,
+    1.52,
+    "I"
+   ],
+   [
+    1.52,
+    1.68,
+    "will"
+   ],
+   [
+    1.68,
+    1.96,
+    "open"
+   ],
+   [
+    1.96,
+    2.16,
+    "the"
+   ],
+   [
+    2.16,
+    2.42,
+    "shutter."
+   ]
+  ]
+ },
+ "506": {
+  "speaker": "pip",
+  "ref": "Ready? Let our light shine!",
+  "hyp": "Ready? Let our light shine!",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.8,
+    "Ready?"
+   ],
+   [
+    1.58,
+    1.96,
+    "Let"
+   ],
+   [
+    1.96,
+    2.2,
+    "our"
+   ],
+   [
+    2.2,
+    2.48,
+    "light"
+   ],
+   [
+    2.48,
+    3.08,
+    "shine!"
+   ]
+  ]
+ },
+ "507": {
+  "speaker": "maya",
+  "ref": "It works! Look at the sea!",
+  "hyp": "It works. Look at the sea.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    1.48,
+    "It"
+   ],
+   [
+    1.48,
+    2.0,
+    "works."
+   ],
+   [
+    2.8,
+    2.96,
+    "Look"
+   ],
+   [
+    2.96,
+    3.2,
+    "at"
+   ],
+   [
+    3.2,
+    3.36,
+    "the"
+   ],
+   [
+    3.36,
+    3.72,
+    "sea."
+   ]
+  ]
+ },
+ "508": {
+  "speaker": "kai",
+  "ref": "The boats are coming home!",
+  "hyp": "The boats are coming home.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.6,
+    "The"
+   ],
+   [
+    0.6,
+    0.94,
+    "boats"
+   ],
+   [
+    0.94,
+    1.14,
+    "are"
+   ],
+   [
+    1.14,
+    1.4,
+    "coming"
+   ],
+   [
+    1.4,
+    1.76,
+    "home."
+   ]
+  ]
+ },
+ "509": {
+  "speaker": "emma",
+  "ref": "Every sailor can see the way.",
+  "hyp": "Every sailor can see the way.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    1.08,
+    1.84,
+    "Every"
+   ],
+   [
+    1.84,
+    2.36,
+    "sailor"
+   ],
+   [
+    2.36,
+    2.76,
+    "can"
+   ],
+   [
+    2.76,
+    3.06,
+    "see"
+   ],
+   [
+    3.06,
+    3.24,
+    "the"
+   ],
+   [
+    3.24,
+    3.56,
+    "way."
+   ]
+  ]
+ },
+ "510": {
+  "speaker": "momo",
+  "ref": "You are all true treasure!",
+  "hyp": "You are all true treasure.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.48,
+    "You"
+   ],
+   [
+    0.48,
+    0.74,
+    "are"
+   ],
+   [
+    0.74,
+    1.28,
+    "all"
+   ],
+   [
+    1.28,
+    2.04,
+    "true"
+   ],
+   [
+    2.04,
+    2.9,
+    "treasure."
+   ]
+  ]
+ },
+ "601": {
+  "speaker": "emma",
+  "ref": "The sailors are safely home again.",
+  "hyp": "The sailors are safely home again.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.38,
+    "The"
+   ],
+   [
+    0.38,
+    0.82,
+    "sailors"
+   ],
+   [
+    0.82,
+    1.14,
+    "are"
+   ],
+   [
+    1.14,
+    1.54,
+    "safely"
+   ],
+   [
+    1.54,
+    1.86,
+    "home"
+   ],
+   [
+    1.86,
+    2.26,
+    "again."
+   ]
+  ]
+ },
+ "602": {
+  "speaker": "kai",
+  "ref": "Thank you for saving my hat!",
+  "hyp": "Thank you for saving my hat.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.68,
+    "Thank"
+   ],
+   [
+    0.68,
+    0.88,
+    "you"
+   ],
+   [
+    0.88,
+    1.02,
+    "for"
+   ],
+   [
+    1.02,
+    1.38,
+    "saving"
+   ],
+   [
+    1.38,
+    1.64,
+    "my"
+   ],
+   [
+    1.64,
+    1.98,
+    "hat."
+   ]
+  ]
+ },
+ "603": {
+  "speaker": "maya",
+  "ref": "We should always listen first.",
+  "hyp": "We should always listen first.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.68,
+    "We"
+   ],
+   [
+    0.68,
+    0.92,
+    "should"
+   ],
+   [
+    0.92,
+    1.4,
+    "always"
+   ],
+   [
+    1.4,
+    1.84,
+    "listen"
+   ],
+   [
+    1.84,
+    2.38,
+    "first."
+   ]
+  ]
+ },
+ "604": {
+  "speaker": "momo",
+  "ref": "A kind heart is real treasure.",
+  "hyp": "A kind heart is real treasure.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.6,
+    "A"
+   ],
+   [
+    0.6,
+    1.02,
+    "kind"
+   ],
+   [
+    1.02,
+    1.4,
+    "heart"
+   ],
+   [
+    1.4,
+    2.52,
+    "is"
+   ],
+   [
+    2.52,
+    2.96,
+    "real"
+   ],
+   [
+    2.96,
+    3.5,
+    "treasure."
+   ]
+  ]
+ },
+ "605": {
+  "speaker": "pip",
+  "ref": "Our team makes every light brighter.",
+  "hyp": "Our team makes every light brighter.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.36,
+    "Our"
+   ],
+   [
+    0.36,
+    0.74,
+    "team"
+   ],
+   [
+    0.74,
+    1.18,
+    "makes"
+   ],
+   [
+    1.18,
+    1.54,
+    "every"
+   ],
+   [
+    1.54,
+    1.86,
+    "light"
+   ],
+   [
+    1.86,
+    2.26,
+    "brighter."
+   ]
+  ]
+ },
+ "606": {
+  "speaker": "emma",
+  "ref": "Let us take a picture!",
+  "hyp": "Let us take a picture.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.56,
+    "Let"
+   ],
+   [
+    0.56,
+    0.76,
+    "us"
+   ],
+   [
+    0.76,
+    1.0,
+    "take"
+   ],
+   [
+    1.0,
+    1.2,
+    "a"
+   ],
+   [
+    1.2,
+    1.6,
+    "picture."
+   ]
+  ]
+ },
+ "607": {
+  "speaker": "kai",
+  "ref": "Everyone say, shiny treasure chest!",
+  "hyp": "Everyone say, shiny treasure chest.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.98,
+    "Everyone"
+   ],
+   [
+    0.98,
+    1.56,
+    "say,"
+   ],
+   [
+    2.3,
+    2.66,
+    "shiny"
+   ],
+   [
+    2.66,
+    3.28,
+    "treasure"
+   ],
+   [
+    3.28,
+    3.72,
+    "chest."
+   ]
+  ]
+ },
+ "608": {
+  "speaker": "maya",
+  "ref": "Wait! The compass is glowing again.",
+  "hyp": "Wait. Wait. The compass is glowing again.",
+  "recall": 1.0,
+  "precision": 0.857,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.8,
+    "Wait."
+   ],
+   [
+    1.58,
+    2.0,
+    "Wait."
+   ],
+   [
+    2.66,
+    2.78,
+    "The"
+   ],
+   [
+    2.78,
+    3.24,
+    "compass"
+   ],
+   [
+    3.24,
+    3.58,
+    "is"
+   ],
+   [
+    3.58,
+    3.98,
+    "glowing"
+   ],
+   [
+    3.98,
+    4.38,
+    "again."
+   ]
+  ]
+ },
+ "609": {
+  "speaker": "momo",
+  "ref": "Another adventure is calling you.",
+  "hyp": "Another adventure is calling you.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.62,
+    "Another"
+   ],
+   [
+    0.62,
+    1.12,
+    "adventure"
+   ],
+   [
+    1.12,
+    1.4,
+    "is"
+   ],
+   [
+    1.4,
+    1.7,
+    "calling"
+   ],
+   [
+    1.7,
+    1.98,
+    "you."
+   ]
+  ]
+ },
+ "610": {
+  "speaker": "pip",
+  "ref": "Whatever comes, we stay together!",
+  "hyp": "Whatever comes, we stay together.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.82,
+    "Whatever"
+   ],
+   [
+    0.82,
+    1.46,
+    "comes,"
+   ],
+   [
+    1.94,
+    2.08,
+    "we"
+   ],
+   [
+    2.08,
+    2.48,
+    "stay"
+   ],
+   [
+    2.48,
+    3.18,
+    "together."
+   ]
+  ]
+ },
+ "1110": {
+  "speaker": "momo",
+  "ref": "Please keep that chest safe.",
+  "hyp": "Please keep that chest safe.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.84,
+    "Please"
+   ],
+   [
+    0.84,
+    1.6,
+    "keep"
+   ],
+   [
+    1.6,
+    1.88,
+    "that"
+   ],
+   [
+    1.88,
+    2.54,
+    "chest"
+   ],
+   [
+    2.54,
+    3.26,
+    "safe."
+   ]
+  ]
+ },
+ "1206": {
+  "speaker": "emma",
+  "ref": "There is a dark lighthouse!",
+  "hyp": "There is a dark lighthouse.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.62,
+    "There"
+   ],
+   [
+    0.62,
+    0.8,
+    "is"
+   ],
+   [
+    0.8,
+    0.96,
+    "a"
+   ],
+   [
+    0.96,
+    1.22,
+    "dark"
+   ],
+   [
+    1.22,
+    1.74,
+    "lighthouse."
+   ]
+  ]
+ },
+ "1207": {
+  "speaker": "momo",
+  "ref": "We must reach it before sunset.",
+  "hyp": "We must reach it before sunset.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.58,
+    "We"
+   ],
+   [
+    0.58,
+    0.9,
+    "must"
+   ],
+   [
+    0.9,
+    1.24,
+    "reach"
+   ],
+   [
+    1.24,
+    1.44,
+    "it"
+   ],
+   [
+    1.44,
+    1.74,
+    "before"
+   ],
+   [
+    1.74,
+    2.34,
+    "sunset."
+   ]
+  ]
+ },
+ "1306": {
+  "speaker": "momo",
+  "ref": "Great teamwork! Keep your feet steady.",
+  "hyp": "great teamwork. Keep your feet steady.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.26,
+    "great"
+   ],
+   [
+    0.26,
+    0.86,
+    "teamwork."
+   ],
+   [
+    1.46,
+    1.56,
+    "Keep"
+   ],
+   [
+    1.56,
+    1.78,
+    "your"
+   ],
+   [
+    1.78,
+    1.98,
+    "feet"
+   ],
+   [
+    1.98,
+    2.36,
+    "steady."
+   ]
+  ]
+ },
+ "1505": {
+  "speaker": "momo",
+  "ref": "I will open the shutters.",
+  "hyp": "I will open the shutters.",
+  "recall": 1.0,
+  "precision": 1.0,
+  "missing": [],
+  "extra": [],
+  "words": [
+   [
+    0.0,
+    0.38,
+    "I"
+   ],
+   [
+    0.38,
+    0.56,
+    "will"
+   ],
+   [
+    0.56,
+    0.9,
+    "open"
+   ],
+   [
+    0.9,
+    1.12,
+    "the"
+   ],
+   [
+    1.12,
+    1.62,
+    "shutters."
+   ]
+  ]
+ }
+}
