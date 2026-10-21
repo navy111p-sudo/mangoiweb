@@ -134,6 +134,7 @@ listeners.push(async (m) => {
   const u = new URL(request.url);
   try {
     if (u.searchParams.has('vc_room') && resourceType === 'Document') {
+      S.asked = await evaluate('window.__asked.slice()');
       S.nav.push(request.url);
       return await send('Fetch.fulfillRequest', { requestId, responseCode: 200,
         responseHeaders: [{ name: 'Content-Type', value: 'text/html; charset=utf-8' }],
@@ -171,7 +172,7 @@ async function setViewport(w, h, mobile) {
   await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: !!mobile });
 }
 async function openTeacher(opts) {
-  S.nav = []; pageErrors.length = 0;
+  S.nav = []; S.asked = []; pageErrors.length = 0;
   const q = '?_nc=' + Date.now() + '&_t=' + (opts && opts.dark ? 'dark' : 'light') + '&_c=' + (opts && opts.confirmNo ? 'no' : 'yes');
   await send('Page.navigate', { url: BASE + '/teacher.html' + q });
   for (let i = 0; i < 80; i++) {
@@ -238,7 +239,7 @@ try {
   ok('① 누르기 전엔 아무 데도 안 갔다', S.nav.length === 0);
   ok('① 버튼을 눌렀다', await clickAway());
   for (let i = 0; i < 40 && !S.nav.length; i++) await sleep(100);
-  const asked1 = await evaluate('window.__asked.slice()').catch(() => []);
+  const asked1 = S.asked;
   const nav1 = S.nav[0] ? new URL(S.nav[0]) : null;
   ok('① 한 번 물었다(학생에게 선생님이 보입니다)', Array.isArray(asked1) && asked1.length === 1 && /학생에게 선생님이 보입니다/.test(asked1[0]), asked1 && asked1[0]);
   ok('① 학생 방으로 강사로 들어간다', !!nav1 && nav1.searchParams.get('vc_room') === ROOM_OF.class && nav1.searchParams.get('vc_role') === 'teacher', S.nav[0]);
@@ -268,7 +269,7 @@ try {
   ok('④ 다시 갱신', await refreshPortal());
   ok('④ 학생이 제자리로 오니 상자가 사라졌다', (await boxInfo()) === null);
   S.cls = makeClass({ student_elsewhere: { room: ROOM_OF.meeting, room_kind: 'meeting', others: 2, via_twin: false, seen_at: Date.now() } });
-  ok('④ 준비(그사이 제자리)', await openTeacher());
+  ok('④ 준비(그사이 제자리)', await openTeacher({ confirmNo: true }));
   S.cls = makeClass();          // 서버는 이제 칸을 안 준다 — 화면은 옛 상자를 들고 있다
   await clickAway();             // goStudentRoom → freshClass 는 아직 옛 DATA … 갱신 뒤에 누르는 경우를 본다
   await sleep(300);
@@ -359,7 +360,7 @@ try {
         if(!a||!b)return null;var lb=document.getElementById('scopeLbl');
         function vis(e){var r=e.getBoundingClientRect();return getComputedStyle(e).display!=='none'&&r.width>0&&r.height>0;}
         return {top:vis(a),q:vis(b),lbl:lb?lb.textContent:'',href:a.getAttribute('href'),tgt:a.getAttribute('target')};})()`).catch(() => null);
-      if (st && st.lbl) break;
+      if (st && st.lbl && !/Loading|불러오는/.test(st.lbl)) break;
     }
     ok('⑧ ' + sc + ' 화면이 범위를 그렸다', !!st && !!st.lbl, st && st.lbl);
     const want = sc === 'hq';
