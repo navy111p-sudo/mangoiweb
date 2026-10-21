@@ -61,7 +61,10 @@ const avg = (n) => { const l = P.filter((p) => p.stage === n); return l.reduce((
 const A = [1, 2, 3, 4].map(avg);
 console.log('     평균 단어 수: ' + A.map((x, i) => (i + 1) + '단계 ' + Math.round(x)).join(' · '));
 ok(A[0] < A[1] && A[1] <= A[2] + 15 && A[2] < A[3], '단계가 올라갈수록 글이 길어진다');
-ok(P.filter((p) => p.stage <= 2).every((p) => p.genre === 'story') && P.filter((p) => p.stage >= 3).every((p) => p.genre === 'info'), '1·2단계는 이야기, 3·4단계는 지식 글');
+// 2026-10-20 사장님 지시 — 3단계에 소설 시리즈 «마법학교»(s3-39~42)만 이야기로 둔다. 예외는 이 목록 하나뿐(넓히지 말 것).
+const STORY_IN_UPPER = new Set(['s3-39', 's3-40', 's3-41', 's3-42']);
+ok(P.filter((p) => p.stage <= 2).every((p) => p.genre === 'story') && P.filter((p) => p.stage >= 3).every((p) => p.genre === (STORY_IN_UPPER.has(p.id) ? 'story' : 'info')), '1·2단계는 이야기, 3·4단계는 지식 글(예외: 3단계 소설 시리즈 마법학교 4편)');
+ok([...STORY_IN_UPPER].every((id) => P.some((p) => p.id === id && p.stage === 3)), '(짝) 예외 목록의 글이 실제로 3단계에 있다');
 const s4mid = P.filter((p) => p.stage === 4 && p.key > 0).length;
 ok(s4mid >= 4, `4단계는 핵심 문장이 첫 문장이 아닌 글이 4편 이상 (${s4mid}편 — 수능형 대의파악)`);
 

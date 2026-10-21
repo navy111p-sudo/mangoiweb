@@ -1,0 +1,306 @@
+{
+  "id": "s3-39",
+  "breaks": [
+    2,
+    3,
+    4,
+    3
+  ],
+  "key": {
+    "P": 4,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «선생님 같은 목소리가 안개 속에서 아이들을 불렀다(문제)» 와 «친구들이 등불을 지켜보며 반대쪽으로 걸었다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (a voice like a teacher's called the children from the fog) and the solution (the friends walked the other way, watching their lanterns). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Theo, Mira, Juno, Ivy and Pip the bird"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "In the fog, a voice like a teacher's tried to lead them the wrong way."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "They followed the lanterns that glow only for the truth."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Just before midnight, four new students arrived at an empty ",
+      "ans": "platform",
+      "opts": [
+        "platform",
+        "kitchen",
+        "beach"
+      ]
+    },
+    {
+      "pre": ". A cold ",
+      "ans": "fog",
+      "opts": [
+        "fog",
+        "wind",
+        "snow"
+      ]
+    },
+    {
+      "pre": " swallowed the path, and a kind voice told them to ",
+      "ans": "follow",
+      "opts": [
+        "follow",
+        "forget",
+        "feed"
+      ]
+    },
+    {
+      "pre": " it. But Mira's lantern turned ",
+      "ans": "dark",
+      "opts": [
+        "dark",
+        "green",
+        "hot"
+      ]
+    },
+    {
+      "pre": ", so the friends knew the voice was ",
+      "ans": "lying",
+      "opts": [
+        "lying",
+        "singing",
+        "crying"
+      ]
+    },
+    {
+      "pre": ". They reached the gate safely, but the headmistress had never left the castle.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "lantern",
+      "등불",
+      "held glass <b>lanterns</b> of whisperleaf",
+      "a light in a glass or metal case that you can carry"
+    ],
+    [
+      "fog",
+      "안개",
+      "a cold <b>fog</b> rolled off the black lake",
+      "a thick cloud near the ground that makes it hard to see"
+    ],
+    [
+      "swallow",
+      "삼키다, 완전히 덮다",
+      "a cold fog rolled off the black lake and <b>swallowed</b> the stone path",
+      "to cover something completely so it cannot be seen"
+    ],
+    [
+      "whisper",
+      "속삭이다",
+      "\"The voice is lying,\" Theo <b>whispered</b>",
+      "to speak very quietly"
+    ],
+    [
+      "truth",
+      "진실",
+      "they follow the <b>truth</b>",
+      "what is real and correct, not a lie"
+    ],
+    [
+      "fade",
+      "희미해지다, 사라지다",
+      "Then her smile <b>faded</b>",
+      "to slowly become less bright or disappear"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Mira's lantern turn dark?",
+      "qko": "미라의 등불이 어두워진 이유는 무엇인가요?",
+      "opts": [
+        "The voice in the fog was lying",
+        "The fog was too cold for the plant",
+        "Mira forgot to light it"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Theo and Mira held glass lanterns of whisperleaf, a plant that glows only when it hears the truth.",
+        "\"The voice is lying,\" Theo whispered, and his heart pounded in the silence.",
+        "Just before midnight, four new students stepped off the last train onto an empty platform.",
+        "At last, the castle gate appeared through the fog, and the headmistress was standing there with a lamp."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "속삭임잎은 진실을 들을 때만 빛나요. 그런데 테오가 «저 목소리는 거짓말을 하고 있어» 라고 했지요. 두 문장을 이어야 알 수 있어요.",
+        "Whisperleaf glows only when it hears the truth, and Theo said the voice was lying. You need both sentences."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In «a cold fog … swallowed the stone path,» what does «swallowed» mean?",
+      "qko": "«a cold fog … swallowed the stone path» 에서 «swallowed» 는 무슨 뜻인가요?",
+      "opts": [
+        "covered the path so it could not be seen",
+        "ate the path as food",
+        "made the path wider"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "At last, the castle gate appeared through the fog, and the headmistress was standing there with a lamp.",
+        "Just before midnight, four new students stepped off the last train onto an empty platform.",
+        "Juno stepped toward the voice, but Pip, Ivy's blue bird, screamed and pulled at her scarf.",
+        "So the friends walked the other way, watching the lanterns carefully with every step."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "나중에 «안개 사이로 정문이 나타났다» 고 했어요. 안개가 그동안 모든 것을 가려 보이지 않게 했다는 뜻이지요. 그러니 «swallowed» 는 길을 «완전히 덮어 가렸다» 는 뜻이에요.",
+        "Later, the castle gate «appeared through the fog», so the fog had been hiding everything. «Swallowed» means it covered the path so it could not be seen."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "What is surprising about the voice in the fog?",
+      "qko": "안개 속 목소리에 대해 놀라운 점은 무엇인가요?",
+      "opts": [
+        "It sounded like a teacher, but the headmistress never left the castle",
+        "It was the headmistress who called them",
+        "It was Pip the blue bird"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Then a kind voice, just like a teacher's, called from the fog, \"Follow me, children. The school is this way.\"",
+        "Then her smile faded. \"But who called you here? I have not left the castle all night.\"",
+        "At the same moment, Mira's lantern turned dark, as if a cold hand had covered it.",
+        "Suddenly, a cold fog rolled off the black lake and swallowed the stone path."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "목소리는 «선생님 같은» 다정한 목소리였어요. 그런데 교장 선생님은 «밤새 성을 떠난 적이 없다» 고 했지요. 그럼 그 목소리는 누구였을까요? 두 문장을 이어야 알 수 있어요.",
+        "The voice sounded «just like a teacher's», but the headmistress «has not left the castle all night». So who was it? You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Who, or what, was the voice in the fog?",
+      "안개 속 목소리의 정체는 누구, 아니 무엇이었을까?",
+      "The Voice in the Fog"
+    ],
+    [
+      "B",
+      "What will happen on the friends' first night inside the castle?",
+      "성 안에서 보내는 첫날 밤, 네 친구에게 무슨 일이 생길까?",
+      "The First Night in the Castle"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“It is important to <u>listen to the truth</u> because <u>not every voice is kind</u>.”",
+    "slotKo": [
+      "중요한 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what is important",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what is important and your reason in English.",
+    "chips": [
+      {
+        "a": "listen to the truth",
+        "b": "not every voice is kind",
+        "label": "truth"
+      },
+      {
+        "a": "check the facts",
+        "b": "some stories are not true",
+        "label": "facts"
+      },
+      {
+        "a": "stay with my friends",
+        "b": "we are safer together",
+        "label": "friends"
+      }
+    ],
+    "aria": [
+      "what is important",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because friends help each other)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because friends help each other)"
+  },
+  "img": {
+    "cover": "Four students walk past a green steam train toward a dark castle on a hill at midnight.",
+    "scenes": {
+      "1": "Two students hold glowing glass lanterns as cold fog rises from the lake.",
+      "3": "A girl with a blue bird on her shoulder lifts a glowing staff in the fog."
+    }
+  },
+  "alt": {
+    "cover": "Four students walk past a green steam train toward a dark castle on a hill at midnight.",
+    "1": "Two students hold glowing glass lanterns as cold fog rises from the lake.",
+    "3": "A girl with a blue bird on her shoulder lifts a glowing staff in the fog."
+  }
+}

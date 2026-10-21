@@ -1,0 +1,306 @@
+{
+  "id": "s3-40",
+  "breaks": [
+    2,
+    3,
+    4,
+    3
+  ],
+  "key": {
+    "P": 3,
+    "S": 6
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «전에는 없던 문이 천천히 열렸다(문제)» 와 «친구들이 함께 한 걸음씩 내려갔다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (a door that had not been there before slowly opened) and the solution (the friends went down together, step by step). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Theo, Mira, Juno, Ivy and a gray cat"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "A strange door opened, and something was scratching in the dark below."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "They went down together and found a trapped cat."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "On their first night in the castle, the great bell rang ",
+      "ans": "thirteen",
+      "opts": [
+        "thirteen",
+        "two",
+        "seven"
+      ]
+    },
+    {
+      "pre": " times. A strange ",
+      "ans": "door",
+      "opts": [
+        "door",
+        "window",
+        "bed"
+      ]
+    },
+    {
+      "pre": " opened, and something was ",
+      "ans": "scratching",
+      "opts": [
+        "scratching",
+        "singing",
+        "sleeping"
+      ]
+    },
+    {
+      "pre": " below. The friends went down ",
+      "ans": "together",
+      "opts": [
+        "together",
+        "alone",
+        "never"
+      ]
+    },
+    {
+      "pre": " and found a small gray ",
+      "ans": "cat",
+      "opts": [
+        "cat",
+        "dog",
+        "owl"
+      ]
+    },
+    {
+      "pre": ". But the cat belonged to a student who disappeared a hundred years ago.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "creak",
+      "삐걱거리다",
+      "The old castle <b>creaked</b>",
+      "to make a long, high sound like an old door or old wood"
+    ],
+    [
+      "staircase",
+      "계단",
+      "Cold air came up from a narrow <b>staircase</b>",
+      "a set of steps inside a building"
+    ],
+    [
+      "scratch",
+      "긁다",
+      "something below was <b>scratching</b> at the stones",
+      "to rub something with sharp nails or claws"
+    ],
+    [
+      "breath",
+      "숨",
+      "they went down together, holding their <b>breath</b>",
+      "the air that goes in and out of your body"
+    ],
+    [
+      "purr",
+      "가르랑거리다",
+      "it <b>purred</b> and followed them back to their room",
+      "to make a soft, low sound like a happy cat"
+    ],
+    [
+      "fear",
+      "두려움",
+      "<b>Fear</b> often becomes small when you look at it closely",
+      "the feeling you have when you think something bad will happen"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did the friends hear scratching below the stairs?",
+      "qko": "친구들이 계단 아래에서 긁는 소리를 들은 이유는 무엇인가요?",
+      "opts": [
+        "A cat was stuck under a heavy book",
+        "A ghost was trying to come up",
+        "The wind was pushing the door"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Cold air came up from a narrow staircase, and something below was scratching at the stones.",
+        "At the bottom, they found a small gray cat with its tail caught under a heavy old book.",
+        "The old castle creaked, and the eyes in the paintings seemed to follow them down the hall.",
+        "Ivy's hands shook, but Juno lifted her wand and said, \"If we run away, we will never know the truth.\""
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "아래에서 «무언가가 돌을 긁고» 있었고, 내려가 보니 «책에 꼬리가 낀 고양이» 가 있었어요. 두 문장을 이어야 알 수 있어요.",
+        "Something below «was scratching at the stones», and at the bottom there was «a cat with its tail caught under a heavy old book». You need both sentences."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In «holding their breath,» how did the friends feel?",
+      "qko": "«holding their breath» 에서 친구들은 어떤 기분이었나요?",
+      "opts": [
+        "nervous and scared",
+        "bored and sleepy",
+        "angry at each other"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Ivy's hands shook, but Juno lifted her wand and said, \"If we run away, we will never know the truth.\"",
+        "Theo freed the cat, and it purred and followed them back to their room.",
+        "The next morning, the headmistress smiled and said, \"Fear often becomes small when you look at it closely.\"",
+        "On their first night inside Thornmere Academy, the four friends could not sleep."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "바로 앞에서 «아이비의 손이 떨렸다» 고 했어요. 무서워서 숨도 제대로 못 쉬었다는 뜻이에요. 그러니 친구들은 «긴장하고 무서웠어요».",
+        "Just before, «Ivy's hands shook». They were so scared that they could hardly breathe, so they felt nervous and scared."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why was the headmistress shocked when she saw the cat?",
+      "qko": "교장 선생님이 고양이를 보고 깜짝 놀란 이유는 무엇인가요?",
+      "opts": [
+        "The cat belonged to a student who disappeared long ago",
+        "She does not like cats in bedrooms",
+        "The cat broke the old bell"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "But when she saw the cat on Mira's bed, her face turned white.",
+        "\"That cat belonged to a student who disappeared from this castle a hundred years ago.\"",
+        "At midnight, the great bell rang twelve times, and then, strangely, it rang once more.",
+        "Step by step, they went down together, holding their breath."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "고양이를 보자 교장 선생님의 «얼굴이 하얗게 질렸고», 그 고양이는 «100년 전 사라진 학생의 고양이» 였어요. 두 문장을 이어야 알 수 있어요.",
+        "Her «face turned white» when she saw the cat, because it «belonged to a student who disappeared a hundred years ago». You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Why did the great bell ring thirteen times?",
+      "큰 종은 왜 열세 번 울렸을까?",
+      "The Secret of the Bell"
+    ],
+    [
+      "B",
+      "Who was the student who disappeared a hundred years ago?",
+      "100년 전에 사라진 학생은 누구였을까?",
+      "The Lost Student"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“It is important to <u>face our fears</u> because <u>they often become smaller</u>.”",
+    "slotKo": [
+      "중요한 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what is important",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what is important and your reason in English.",
+    "chips": [
+      {
+        "a": "face our fears",
+        "b": "they often become smaller",
+        "label": "fears"
+      },
+      {
+        "a": "ask for help",
+        "b": "friends can make us brave",
+        "label": "help"
+      },
+      {
+        "a": "turn on a light",
+        "b": "we can see what is really there",
+        "label": "light"
+      }
+    ],
+    "aria": [
+      "what is important",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because friends help each other)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because friends help each other)"
+  },
+  "img": {
+    "cover": "Four students stand in a candlelit castle hallway in front of an open door to a dark staircase.",
+    "scenes": {
+      "1": "A huge bronze bell swings in a dark bell tower under the moon.",
+      "3": "A small gray cat with silver eyes sleeps on a bed while the headmistress looks shocked."
+    }
+  },
+  "alt": {
+    "cover": "Four students stand in a candlelit castle hallway in front of an open door to a dark staircase.",
+    "1": "A huge bronze bell swings in a dark bell tower under the moon.",
+    "3": "A small gray cat with silver eyes sleeps on a bed while the headmistress looks shocked."
+  }
+}
