@@ -310,9 +310,10 @@ for (const epId of readyIds) {
   }
 }
 check('⑥-z 전제 — 실제로 2편 이상을 검사했다(목록이 비어 검사가 통째로 사라지지 않게)', checkedEps >= 2, checkedEps);
-/* ⑥-9b 지금 사실을 못 박는다 — 1편·3편·5편은 아직 «영상에 맞춘 대사 시각» 이 없다(설명서 6-1·6-1b).
-   ⚠️ 진짜 완성본(대사 시각 + 원어민 음성)으로 올리는 날 이 줄을 «함께» 고친다 — 그 전에 누가 timing 만 'synced' 로 바꾸면 여기서 걸린다. */
-for (const epId of ['dub-001', 'dub-003', 'dub-005']) {
+/* ⑥-9b 지금 사실을 못 박는다 — 1편·3편은 아직 «영상에 맞춘 대사 시각» 이 없다(설명서 6-1·6-1b).
+   ⚠️ 진짜 완성본(대사 시각 + 원어민 음성)으로 올리는 날 이 줄을 «함께» 고친다 — 그 전에 누가 timing 만 'synced' 로 바꾸면 여기서 걸린다.
+   (5편은 2026-10-21 에 원래 대본·시각 + 캐릭터별 음성 파일로 완성본이 되어 이 목록에서 빠지고 ⑥-d 가 본다.) */
+for (const epId of ['dub-001', 'dub-003']) {
   let raw = null;
   try { raw = JSON.parse(rd(join(PUB, 'data', 'dubbing', epId + '.json'))); } catch (e) { raw = null; }
   check('⑥-9b ' + epId + ' 는 아직 시각 provisional · 상태 preview (완성본이 아니다)', !!raw && raw.timing === 'provisional' && raw.status === 'preview', raw && [raw.timing, raw.status]);
@@ -375,6 +376,45 @@ console.log('\n── ⑥-c 6편(dub-006) · ⑥-14 손님 규칙 변이');
     // 손님을 «고를 수 있는 역» 으로 바꾸면 → 1~3장면에서 그 역은 할 일이 없다(그래서 손님으로 둔다)
     check('⑥-14m4 변이 «손님을 고를 수 있는 역으로» → 실제로 걸린다',
       mut(raw6, (c) => { c.playable = c.playable.concat(['whiskers']); }).some((p) => /^scene1:whiskers:0</.test(p)));
+  }
+}
+
+/* ⑥-d 5편(dub-005) — 2026-10-21 «원래 대본·시각 + 캐릭터별 음성 파일» 로 되돌린 편.
+   사고: 영상(아티팩트)은 아마라·지호·프리야·볼트·맥스가 말하는 대본으로 입모양이 만들어졌는데, 사이트 판이 아마라·맥스의 대사를
+   지호·프리야에게 넘기고 시각을 버려(차례 모드) 영상 속 아마라가 입을 움직일 때 지호(남자 TTS) 목소리가 났다(사장님 제보).
+   ⟹ 영상이 바뀌지 않는 한 «누가 몇 번째 줄을 말하는가» 는 영상이 정한 사실이라 여기 못 박는다(대본을 바꾸려면 영상부터 다시). */
+console.log('\n── ⑥-d 5편(dub-005) · 원래 대본 + 음성 파일');
+{
+  let raw5 = null;
+  try { raw5 = JSON.parse(rd(join(PUB, 'data', 'dubbing', 'dub-005.json'))); } catch (e) { raw5 = null; }
+  check('⑥-d0 전제 — 5편이 목록에서 ready 이고 매니페스트를 읽었다', readyIds.indexOf('dub-005') >= 0 && !!raw5);
+  if (raw5) {
+    const n5 = CORE.normalizeEpisode(raw5, { baseUrl: '/data/dubbing/' });
+    const sc5 = n5.episode.scenes;
+    check('⑥-d1 5편은 시각 synced · 상태 final · 여섯 장면 전부 «동기 + 음성 파일» (음성 파일 하나만 빠져도 여기서 걸린다)',
+      raw5.timing === 'synced' && n5.episode.status === 'final' && sc5.length === 6 && sc5.every((s) => s.timing === 'synced' && s.voiceMode === 'stems'),
+      sc5.map((s) => s.no + ':' + s.timing + '/' + s.voiceMode));
+    const guests5 = Object.keys(n5.episode.characters).filter((k) => n5.episode.playable.indexOf(k) < 0).sort();
+    check('⑥-d2 5편의 고를 수 있는 역은 아마라·지호·프리야, 손님은 볼트·맥스(늘 원래 목소리)',
+      n5.episode.playable.slice().sort().join(',') === 'amara,jiho,priya' && guests5.join(',') === 'bolt,max', [n5.episode.playable, guests5]);
+    /* 영상이 정한 «말하는 차례» — 아티팩트 5편 episode.json 그대로. 이 순서가 바뀌었으면 입과 목소리가 다시 어긋난다. */
+    const VIDEO_SPEAKERS = [
+      'amara,jiho,bolt,priya,amara,bolt',
+      'priya,bolt,jiho,bolt,amara,bolt',
+      'jiho,priya,bolt,amara,bolt,jiho',
+      'amara,max,jiho,max,bolt,priya',
+      'max,jiho,amara,bolt,jiho,priya',
+      'bolt,amara,bolt,jiho,bolt,priya',
+    ];
+    check('⑥-d3 장면마다 «누가 몇 번째 줄을 말하는가» 가 영상(입모양)이 만들어진 대본과 같다',
+      sc5.length === 6 && sc5.every((s, i) => s.lines.map((l) => l.speaker).join(',') === VIDEO_SPEAKERS[i]),
+      sc5.map((s) => s.lines.map((l) => l.speaker).join(',')));
+    check('⑥-d4 장면마다 음성 파일은 «그 장면에서 말하는 캐릭터» 것만 있다(남는 파일·빠진 파일 없음)',
+      sc5.every((s) => Object.keys(s.voices).sort().join(',') === Array.from(new Set(s.lines.map((l) => l.speaker))).sort().join(',')
+        && Object.keys(s.voices).every((k) => s.voices[k].indexOf('/scene-' + s.no + '-' + k + '.mp3') > 0)),
+      sc5.map((s) => s.no + ':' + Object.keys(s.voices).join('/')));
+    const note5 = String((raw5.note && raw5.note.ko) || '') + ' ' + String((raw5.note && raw5.note.en) || '');
+    check('⑥-d5 5편 안내가 «임시 AI 음성 · 차례차례» 라고 하지 않는다(이제 입모양에 맞춘 음성 파일)', !/임시|차례차례|temporary|one by one/i.test(note5), note5);
   }
 }
 
