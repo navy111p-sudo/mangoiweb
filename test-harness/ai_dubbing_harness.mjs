@@ -23,6 +23,10 @@
 //     ⑪ 배경음악·효과음 엔진(ai-dubbing-sound.js)을 가짜 AudioContext 로 «전부 실제로» 울리고,
 //        «먼저 보기» 진행기(ai-dubbing-watch.js)를 가짜 화면으로 끝까지·다음·그만·멈춤·이전·동기 장면까지 돌린다
 //        + 화면 배선(싣는 순서 · 감상 소리는 완성 영상에 안 담김 · «봤어요» 는 진행기만 적음) + 변이시험
+//     ⑫ 동기 장면에서 캐릭터 목소리가 영상을 «따라가는» 박자(정본 clockFollower, 2026-10-21 4편 제보)
+//        — 영상이 받는 중(버퍼링)이면 목소리도 같이 서고, 다시 움직이면 그 시각에서 같이 출발한다.
+//          정본을 가짜 요소로 실제로 돌리고(변이 11종) 두 화면이 «조건 없이» 부르는지 박자 안에서 본다(변이 6종).
+//          진행기 가짜 세계에서도 영상을 실제로 세워 본다(⑪-W23~W27 · 변이 3종).
 //
 //   실행: node test-harness/ai_dubbing_harness.mjs
 import { readFileSync, existsSync, statSync } from 'node:fs';
@@ -992,9 +996,9 @@ function watchWorld(W, o) {
   };
   const clipMs = o.clipMs || 15;
   class FAudio {
-    constructor() { this.paused = true; this.readyState = 4; this.currentTime = 0; this.duration = 0.5; w.audios.push(this); }
+    constructor() { this.paused = true; this.readyState = 4; this.currentTime = 0; this.duration = 0.5; this.pauses = 0; w.audios.push(this); }
     play() { this.paused = false; clearTimeout(this._t); this._t = setTimeout(() => { this.paused = true; if (this.onended) this.onended(); }, clipMs); return Promise.resolve(); }
-    pause() { this.paused = true; clearTimeout(this._t); }
+    pause() { this.paused = true; this.pauses++; clearTimeout(this._t); }
     addEventListener() {}
   }
   function U(text) { this.text = text; }
@@ -1151,6 +1155,36 @@ async function watchChecks(src, verbose) {
     const r = await wwithin(w.runner.start([{ ep: WEP1, scIdx: 99 }, null]), 1000);
     t('⑪-W20 재생할 장면이 없으면 곧바로 끝난다(onEnd(false) · 끝 카드 없음)', !r.timeout && r.v === false && JSON.stringify(w.ends()) === '[false]' && !w.log.some((x) => x[0] === 'card' && x[1] === 'END'), { r, ends: w.ends() });
   }
+  /* W12 동기 장면 — 영상이 «받는 중»(버퍼링)으로 서면 목소리도 같이 서고, 다시 움직이면 같은 시각에서 같이 출발한다
+     (2026-10-21 4편 제보 «다른 목소리가 들린다·입과 안 맞는다» — 옛 코드는 0.3초 넘게 벌어질 때 되감기만 하고 목소리를 안 세웠다).
+     «짝» — 영상이 안 서면 목소리는 장면 끝 정리 때 한 번만 멈춘다(«언제나 세우기» 도 통과하지 못하게). */
+  {
+    const runStall = async (stall) => {
+      const w = watchWorld(W, { clipMs: 60000 });
+      const p = w.runner.start([{ ep: WEP4, scIdx: 0, first: true }]);
+      const out = { w, reached: false, heldAll: null, resumedAll: null, nearT: null, stallT: null };
+      for (let i = 0; i < 600 && !out.reached; i++) { if (!w.video.paused && w.video.currentTime > 5) out.reached = true; else await wsleep(2); }
+      const voices = () => w.audios.slice();
+      if (out.reached && stall) {
+        w.video.pause(); out.stallT = w.video.currentTime;
+        await wsleep(60);
+        out.heldAll = voices().length > 0 && voices().every((a) => a.paused);
+        w.video.play();
+        await wsleep(25);
+        out.resumedAll = voices().every((a) => !a.paused);
+        out.nearT = voices().every((a) => a.currentTime >= out.stallT - 0.01 && a.currentTime <= out.stallT + 3);
+      }
+      out.r = await wwithin(p, 6000);
+      out.pauses = voices().map((a) => a.pauses);
+      return out;
+    };
+    const [s1, s0] = await Promise.all([runStall(true), runStall(false)]);
+    t('⑪-W23 동기 장면(dub-004) — 영상이 서면(버퍼링) 캐릭터 목소리도 «전부» 같이 선다', s1.reached && s1.heldAll === true, { reached: s1.reached, heldAll: s1.heldAll, n: s1.w.audios.length });
+    t('⑪-W24 영상이 다시 움직이면 목소리도 «전부» 다시 나오고, 영상이 섰던 시각에서 이어진다', s1.resumedAll === true && s1.nearT === true, { resumed: s1.resumedAll, near: s1.nearT, stallT: s1.stallT, at: s1.w.audios.map((a) => a.currentTime) });
+    t('⑪-W25 버퍼링이 지나간 뒤에도 장면은 끝까지 간다(«봤어요»)', !s1.r.timeout && s1.r.v === true, s1.r);
+    t('⑪-W26 «짝» — 영상이 안 서면 목소리는 장면 끝 정리 때 한 번만 멈춘다(도중에 세우지 않는다)', s0.reached && !s0.r.timeout && s0.r.v === true && s0.pauses.length > 0 && s0.pauses.every((n) => n === 1), { pauses: s0.pauses, r: s0.r });
+    t('⑪-W27 버퍼링 한 번이면 목소리는 «두 번» 멈춘다(버퍼링 1 + 정리 1) — 되감기·멈춤이 되풀이되지 않는다', s1.pauses.length > 0 && s1.pauses.every((n) => n === 2), { pauses: s1.pauses });
+  }
   t('⑪-W21 진행기는 마이크·녹음을 쓰지 않는다(getUserMedia·MediaRecorder 0)', !/getUserMedia|MediaRecorder/.test(stripJs(src)));
   return fails;
 }
@@ -1293,6 +1327,9 @@ for (const [name, from, to] of SOUND_MUTANTS) {
 const WATCH_MUTANTS = [
   ['넘긴 장면도 «봤어요»', 'if (completed && kit.onSeen)', 'if (kit.onSeen)'],
   ['동기: 캐릭터 음성 빠뜨림', "Object.keys(sc.voices || {}).forEach(function (cid) { addTrack(sc.voices[cid], 'voice'); });", ''],
+  ['동기: 목소리 따라가기 삭제', 'follow.step(t, els, clock);', ''],
+  ['동기: 옛 0.3초 되감기로 되돌림', 'follow.step(t, els, clock);', "tracks.forEach(function (tr) { if (tr.el !== clock && !tr.el.paused && Math.abs(tr.el.currentTime - t) > 0.3) { try { tr.el.currentTime = t; } catch (e) {} } });"],
+  ['[조건 뒤집기] 목소리 따라가기를 if (false) 로', 'follow.step(t, els, clock);', 'if (false) follow.step(t, els, clock);'],
   ['동기: 배경음악을 목소리 갈래로', "if (sc.bgm) addTrack(sc.bgm, 'bgm');", "if (sc.bgm) addTrack(sc.bgm, 'voice');"],
   ['멈춤: 타이머 안 붙잡음', 'run.timers.forEach(function (t) { if (t.id) { clearTimeout(t.id); t.id = null; t.left = Math.max(0, t.left - (now() - t.at)); } });', ''],
   ['멈춤: 소리·영상 안 멈춤', 'run.held.forEach(function (m) { try { m.pause(); } catch (e) {} });', ''],
@@ -1345,6 +1382,145 @@ for (const [name, from, to] of PW_MUTANTS) {
   const hBad = html.replace('/js/ai-dubbing-watch.js?v=', '/js/__moved__.js?v=') + '\n<script defer src="/js/ai-dubbing-watch.js?v=1"></script>';
   const f = playerWatchChecks(PLAYER_SRC_RAW, hBad, false);
   check('⑪ 화면 변이 «진행기를 화면 뒤에 싣기» 를 넣으면 실제로 FAIL 이 난다', f.length > 0, f.length ? f.slice(0, 2) : '안 잡힘');
+}
+
+
+/* ── ⑫ 목소리가 영상을 따라가는 박자(정본 clockFollower) — 2026-10-21 4편 «다른 목소리가 들린다·입과 안 맞는다» ──
+   옛 코드는 0.3초 넘게 벌어질 때 되감기만 했다 — 영상이 받는 중(버퍼링)이면 목소리만 앞서 가고,
+   되감기가 되풀이되어 같은 소리가 겹쳐 들렸다. 정본을 가짜 소리 요소·가짜 시계로 «실제로» 돌린다. */
+class FEl {
+  constructor(t, paused) { this._t = t || 0; this.paused = !!paused; this.seeks = 0; this.plays = 0; this.pauses = 0; }
+  get currentTime() { return this._t; }
+  set currentTime(v) { this._t = v; this.seeks++; }
+  play() { this.paused = false; this.plays++; return Promise.resolve(); }
+  pause() { this.paused = true; this.pauses++; }
+}
+function followerChecks(core, verbose) {
+  const fails = [];
+  const t = (name, ok, extra) => { if (!ok) fails.push(name); if (verbose) check(name, ok, extra); };
+  const mk = core && core.clockFollower;
+  t('⑫-0 정본이 clockFollower 를 내보낸다(전제)', typeof mk === 'function');
+  if (typeof mk !== 'function') return fails;
+  try {
+    /* A — 평소: 0.2초 넘게 벌어질 때만 되감고, 되감은 뒤 1초는 다시 안 감는다 */
+    let ms = 0;
+    const f = mk({ now: () => ms });
+    const c = new FEl(0, false), a = new FEl(0, false), b = new FEl(0, true);
+    f.step(0, [c, a, b], c);
+    ms = 100; a._t = 0.25; f.step(0.1, [c, a, b], c);
+    t('⑫-1 0.2초 이내로 벌어지면 되감지 않는다(되감기 반복 = 끊김)', a.seeks === 0, { seeks: a.seeks });
+    ms = 200; a._t = 0.8; f.step(0.2, [c, a, b], c);
+    t('⑫-2 0.2초보다 벌어지면 영상 시각으로 되감는다', a.seeks === 1 && a.currentTime === 0.2, { seeks: a.seeks, at: a.currentTime });
+    ms = 600; a._t = 1.6; f.step(0.6, [c, a, b], c);
+    t('⑫-3 되감은 뒤 1초 안에는 다시 되감지 않는다', a.seeks === 1, { seeks: a.seeks });
+    ms = 1300; a._t = 2.6; f.step(1.3, [c, a, b], c);
+    t('⑫-4 1초가 지나면 다시 되감는다', a.seeks === 2 && a.currentTime === 1.3, { seeks: a.seeks, at: a.currentTime });
+    t('⑫-5 시계 요소(영상이 없을 때의 첫 소리)는 건드리지 않는다', c.seeks === 0 && c.pauses === 0 && c.plays === 0, { c });
+    t('⑫-6 처음부터 멈춰 있던 요소(자동재생 막힘 등)는 되감지도 깨우지도 않는다', b.seeks === 0 && b.plays === 0 && b.paused === true, { b });
+
+    /* B — 영상이 받는 중(버퍼링): 2박자 동안 안 움직이면 목소리도 같이 세우고, 다시 움직이면 그 시각에서 같이 출발 */
+    ms = 0;
+    const g = mk({ now: () => ms });
+    const c2 = new FEl(1, false), v1 = new FEl(1, false), v2 = new FEl(1, false), q = new FEl(1, true);
+    const els = [c2, v1, v2, q];
+    const r0 = g.step(1.0, els, c2);
+    const r1 = g.step(1.0, els, c2);
+    t('⑫-7 한 박자 멈춤은 봐준다(목소리를 바로 세우지 않는다)', r0 === 'ok' && r1 === 'ok' && !v1.paused && !v2.paused, { r0, r1 });
+    const r2 = g.step(1.0, els, c2);
+    t('⑫-8 두 박자 동안 영상이 안 움직이면 목소리를 «전부» 같이 세운다', r2 === 'hold' && v1.paused && v2.paused && v1.pauses === 1 && v2.pauses === 1 && g.holding() === true, { r2, v1: v1.pauses, v2: v2.pauses });
+    t('⑫-9 세울 때도 시계 요소·처음부터 멈춰 있던 요소는 건드리지 않는다', c2.pauses === 0 && q.pauses === 0 && q.plays === 0, { c2: c2.pauses, q: q.pauses });
+    const r3 = g.step(1.0, els, c2);
+    t('⑫-10 세운 채 기다리는 동안은 다시 세우지 않는다(멈춤을 되풀이하지 않는다)', r3 === 'held' && v1.pauses === 1, { r3, pauses: v1.pauses });
+    v1.play();
+    const r4 = g.step(1.0, els, c2);
+    t('⑫-11 기다리는 동안 누가 다시 틀어도 영상이 안 움직이면 다시 세운다', r4 === 'held' && v1.paused === true, { r4, paused: v1.paused });
+    const p0 = v1.plays, p20 = v2.plays;
+    const r5 = g.step(1.5, els, c2);
+    t('⑫-12 영상이 다시 움직이면 목소리를 «그 시각» 으로 맞춰 «같이» 다시 출발시킨다', r5 === 'resume' && !v1.paused && !v2.paused && v1.currentTime === 1.5 && v2.currentTime === 1.5 && v1.plays === p0 + 1 && v2.plays === p20 + 1 && g.holding() === false, { r5, v1: [v1.paused, v1.currentTime], v2: [v2.paused, v2.currentTime] });
+    t('⑫-13 다시 출발할 때도 처음부터 멈춰 있던 요소는 깨우지 않는다', q.paused === true && q.plays === 0, { q });
+
+    /* C — «짝»: 영상이 계속 움직이면 한 번도 안 세운다 */
+    const h = mk({ now: () => 0 });
+    const c3 = new FEl(0, false), w1 = new FEl(0, false);
+    for (let i = 0; i < 40; i++) { w1._t = i * 0.1; h.step(i * 0.1, [c3, w1], c3); }
+    t('⑫-14 «짝» — 영상이 계속 움직이면 목소리를 한 번도 세우지 않는다', w1.pauses === 0 && w1.paused === false && h.holding() === false, { pauses: w1.pauses });
+
+    /* D — 빈 값에도 안 죽는다 */
+    let crashed = false;
+    try { const k = mk(); k.step(undefined, null, null); k.step(1, [null, undefined], null); k.step(1, [null], null); k.step(1, [null], null); } catch (e) { crashed = true; }
+    t('⑫-15 시각·요소가 비어도 던지지 않는다(박자가 죽으면 자막·효과음도 함께 멈춘다)', !crashed);
+  } catch (e) {
+    t('⑫-x 정본을 돌리다 예외가 났다', false, String(e && e.message).slice(0, 80));
+  }
+  return fails;
+}
+const followFails0 = followerChecks(CORE, true);
+check('⑫-v0 원본 정본은 ⑫ 검사를 전부 통과한다(전제)', followFails0.length === 0, followFails0);
+const FOLLOW_MUTANTS = [
+  ['버퍼링 때 안 세움', "          try { el.pause(); } catch (e) {}\n          held.push(el);", ''],
+  ['다시 출발할 때 시각을 안 맞춤', 'held.splice(0).forEach(function (el) { seek(el, t); play(el); });', 'held.splice(0).forEach(function (el) { play(el); });'],
+  ['다시 출발할 때 안 틂', 'held.splice(0).forEach(function (el) { seek(el, t); play(el); });', 'held.splice(0).forEach(function (el) { seek(el, t); });'],
+  ['[조건 뒤집기] 움직임 판정을 거꾸로', 'var moved = last === null || t > last + 0.01;', 'var moved = !(last === null || t > last + 0.01);'],
+  ['되감기 쉬는 시간 없음', ' || coolingDown(el)) return;', ') return;'],
+  ['조금만 벌어져도 되감음', 'if (Math.abs((el.currentTime || 0) - t) > DRIFT) seek(el, t);', 'if (Math.abs((el.currentTime || 0) - t) > 0) seek(el, t);'],
+  ['버퍼링 때 시계 요소까지 세움', "          if (!el || el === clockEl || el.paused) return;\n          try { el.pause(); } catch (e) {}", "          if (!el || el.paused) return;\n          try { el.pause(); } catch (e) {}"],
+  ['처음부터 멈춰 있던 요소까지 붙잡음', "          if (!el || el === clockEl || el.paused) return;\n          try { el.pause(); } catch (e) {}", "          if (!el || el === clockEl) return;\n          try { el.pause(); } catch (e) {}"],
+  ['기다리는 동안 다시 세우지 않음', "if (held.length) { held.forEach(function (el) { if (!el.paused) { try { el.pause(); } catch (e) {} } }); return 'held'; }", "if (held.length) return 'held';"],
+  ['한 박자 멈춤도 못 봐줌', 'var STILL = isNum(opt.stillTicks) ? opt.stillTicks : 2;', 'var STILL = isNum(opt.stillTicks) ? opt.stillTicks : 0;'],
+  ['[조건 뒤집기] 쉬는 시간 판정을 언제나 거짓으로', 'return nowFn() - seeks[i].at < COOL;', 'return false && nowFn() - seeks[i].at < COOL;'],
+];
+for (const [name, from, to] of FOLLOW_MUTANTS) {
+  if (CORE_SRC.indexOf(from) < 0) { check('⑫ 변이 «' + name + '» — 치환 앵커가 소스에 있다', false, from.slice(0, 60)); continue; }
+  let f;
+  try { f = followerChecks(loadCore(CORE_SRC.replace(from, to)), false); } catch (e) { f = ['crash:' + String(e && e.message).slice(0, 60)]; }
+  check('⑫ 변이 «' + name + '» 를 넣으면 실제로 FAIL 이 난다', f.length > 0, f.length ? f.slice(0, 2) : '안 잡힘');
+}
+
+/* ⑫-w 두 화면(먼저 보기 진행기 · 더빙 화면)이 «정본을 부르고» 판정을 복제하지 않는다.
+   화면의 동기 박자(setInterval)를 중괄호 짝으로 오려 내 그 «안» 에서 묻는다 — 파일 어딘가에 있는 것으로는 부족하다.
+   ⚠️ «if (false) follow.step(…)» 처럼 조건으로 죽이면 글자는 남는다 → 그 호출이 «문장의 시작» 인지(앞 글자가 ; { } 인지)까지 본다. */
+function followWireChecks(watchSrc, playerSrc, verbose) {
+  const fails = [];
+  const t = (name, ok, extra) => { if (!ok) fails.push(name); if (verbose) check(name, ok, extra); };
+  const stmtStart = (body, call) => {
+    const code = stripJs(body);
+    const i = code.indexOf(call);
+    if (i < 0) return false;
+    const before = code.slice(0, i).replace(/\s+$/, '');
+    return /[;{}]$/.test(before);
+  };
+  const cases = [
+    ['먼저 보기(ai-dubbing-watch.js)', watchSrc, 'var timer = setInterval(function () {', 'follow.step(t, els, clock);'],
+    ['더빙 화면(ai-dubbing.js)', playerSrc, 'var tick = setInterval(function () {', 'follow.step(t, els, v);'],
+  ];
+  for (const [label, src, head, call] of cases) {
+    const code = stripJs(src);
+    const body = literalAt(src, head);
+    t('⑫-w1 ' + label + ' — 동기 박자(setInterval)를 오려 냈다(전제)', !!body);
+    t('⑫-w2 ' + label + ' — 정본 C.clockFollower 로 따라가기를 만든다', /var follow = C\.clockFollower\(/.test(code));
+    t('⑫-w3 ' + label + ' — 따라갈 요소 = 캐릭터 음성 요소 전부', /els = tracks\.map\(function \(tr\) \{ return tr\.el; \}\)/.test(code));
+    t('⑫-w4 ' + label + ' — 박자 «안» 에서 «조건 없이» 따라가기를 부른다', !!body && stmtStart(body, call), body ? stripJs(body).slice(0, 160) : null);
+    t('⑫-w5 ' + label + ' — 옛 0.3초 되감기(판정 복제)가 남아 있지 않다', !/currentTime\s*-\s*t\)\s*>/.test(code));
+  }
+  return fails;
+}
+const wireFails0 = followWireChecks(WATCH_SRC, PLAYER_SRC_RAW, true);
+check('⑫-wv0 원본 화면은 ⑫-w 검사를 전부 통과한다(전제)', wireFails0.length === 0, wireFails0);
+const OLD_RESYNC_PLAYER = 'tracks.forEach(function (tr) { if (!tr.el.paused && Math.abs(tr.el.currentTime - t) > 0.3) { try { tr.el.currentTime = t; } catch (e) {} } });';
+const WIRE_MUTANTS = [
+  ['player', '더빙 화면: 따라가기 삭제', 'follow.step(t, els, v);', ''],
+  ['player', '더빙 화면: 옛 0.3초 되감기로 되돌림', 'follow.step(t, els, v);', OLD_RESYNC_PLAYER],
+  ['player', '[조건 뒤집기] 더빙 화면: if (false) 로', 'follow.step(t, els, v);', 'if (false) follow.step(t, els, v);'],
+  ['player', '[조건 뒤집기] 더빙 화면: false && 로', 'follow.step(t, els, v);', 'false && follow.step(t, els, v);'],
+  ['player', '더빙 화면: 정본 대신 빈 객체', 'var follow = C.clockFollower(), els', 'var follow = { step: function () {} }, els'],
+  ['watch', '먼저 보기: 정본 대신 빈 객체', 'var follow = C.clockFollower({ now: now }), els', 'var follow = { step: function () {} }, els'],
+];
+for (const [which, name, from, to] of WIRE_MUTANTS) {
+  const src = which === 'player' ? PLAYER_SRC_RAW : WATCH_SRC;
+  if (src.indexOf(from) < 0) { check('⑫-w 변이 «' + name + '» — 치환 앵커가 소스에 있다', false, from.slice(0, 60)); continue; }
+  const m = src.replace(from, to);
+  const f = which === 'player' ? followWireChecks(WATCH_SRC, m, false) : followWireChecks(m, PLAYER_SRC_RAW, false);
+  check('⑫-w 변이 «' + name + '» 를 넣으면 실제로 FAIL 이 난다', f.length > 0, f.length ? f.slice(0, 2) : '안 잡힘');
 }
 
 console.log(`\n🎬 ai_dubbing_harness — PASS ${PASS} / FAIL ${FAIL}`);

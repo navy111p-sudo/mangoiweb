@@ -1028,10 +1028,12 @@
         var caps = {}, shown = -2, ended = false;
         var limit = sc.durationSec || 0;
         var cues = C.timedCues(sc), fired = {};     // 🎵 효과음 — 영상 시각(정본 timedCues)에 맞춰 한 번씩
+        /* 목소리가 영상을 따라가게 — 영상이 받는 중(버퍼링)이면 같이 서고, 다시 움직이면 같은 시각에서 같이 출발(정본 core) */
+        var follow = C.clockFollower(), els = tracks.map(function (tr) { return tr.el; });
         var tick = setInterval(function () {
           if (run.aborted) { finish(); return; }
           var t = v.currentTime || 0;
-          tracks.forEach(function (tr) { if (!tr.el.paused && Math.abs(tr.el.currentTime - t) > 0.3) { try { tr.el.currentTime = t; } catch (e) {} } });
+          follow.step(t, els, v);
           var li = C.lineIndexAt(sc.lines, t);
           if (li !== shown) {
             shown = li;

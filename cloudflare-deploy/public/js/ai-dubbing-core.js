@@ -301,6 +301,59 @@
     return -1;
   }
 
+  /* 동기 모드 박자 — 캐릭터 음성 파일들이 «시계»(영상)를 따라가게. 박자(약 0.1초)마다 step(t, 소리요소들, 시계요소) 를 부른다.
+   *  · 시계가 stillTicks 박자 동안 안 움직이면(영상이 받는 중·버퍼링) 목소리도 «같이» 세운다 — 안 세우면 목소리만 앞서 가
+   *    입모양과 어긋나고, 되감기가 되풀이되어 같은 소리가 겹쳐 들린다(2026-10-21 4편 제보).
+   *  · 시계가 다시 움직이면 그 시각으로 맞춰 «같이» 출발한다.
+   *  · 평소에는 drift(초)보다 벌어질 때만 되감고, 한 요소를 되감은 뒤 cooldownMs 동안은 다시 안 감는다(되감기 반복 = 끊김).
+   *  ⚠️ 시계 요소(영상이 없을 때의 첫 소리 파일)는 건드리지 않는다. 처음부터 멈춰 있던 요소(자동재생 막힘 등)는 세우지도 깨우지도 않는다.
+   *  돌려주는 값: 'ok' | 'hold'(이번에 세움) | 'held'(세운 채 기다림) | 'resume'(다시 출발) */
+  function clockFollower(opt) {
+    opt = opt || {};
+    var DRIFT = isNum(opt.drift) ? opt.drift : 0.2;
+    var STILL = isNum(opt.stillTicks) ? opt.stillTicks : 2;
+    var COOL = isNum(opt.cooldownMs) ? opt.cooldownMs : 1000;
+    var nowFn = opt.now || function () { return Date.now(); };
+    var last = null, still = 0, held = [], seeks = [];
+    function play(el) { try { var p = el.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {} }
+    function seek(el, t) {
+      try { el.currentTime = t; } catch (e) {}
+      for (var i = 0; i < seeks.length; i++) if (seeks[i].el === el) { seeks[i].at = nowFn(); return; }
+      seeks.push({ el: el, at: nowFn() });
+    }
+    function coolingDown(el) {
+      for (var i = 0; i < seeks.length; i++) if (seeks[i].el === el) return nowFn() - seeks[i].at < COOL;
+      return false;
+    }
+    function step(t, els, clockEl) {
+      t = isNum(t) ? t : 0;
+      var moved = last === null || t > last + 0.01;
+      last = t;
+      still = moved ? 0 : still + 1;
+      if (!moved) {
+        /* 세운 채 기다리는 동안 누가(일시정지 해제 등) 다시 틀어도, 영상이 안 움직이면 다시 세운다 */
+        if (held.length) { held.forEach(function (el) { if (!el.paused) { try { el.pause(); } catch (e) {} } }); return 'held'; }
+        if (still < STILL) return 'ok';
+        (els || []).forEach(function (el) {
+          if (!el || el === clockEl || el.paused) return;
+          try { el.pause(); } catch (e) {}
+          held.push(el);
+        });
+        return held.length ? 'hold' : 'ok';
+      }
+      if (held.length) {
+        held.splice(0).forEach(function (el) { seek(el, t); play(el); });
+        return 'resume';
+      }
+      (els || []).forEach(function (el) {
+        if (!el || el === clockEl || el.paused || coolingDown(el)) return;
+        if (Math.abs((el.currentTime || 0) - t) > DRIFT) seek(el, t);
+      });
+      return 'ok';
+    }
+    return { step: step, holding: function () { return held.length > 0; } };
+  }
+
   /* 학생별 점수 요약 — results = [{ studentIdx, score:{overall,...}|null, status }] */
   function summarize(results, cast) {
     var by = (cast || []).map(function (c, i) { return { idx: i, name: c.name, character: c.character, n: 0, scored: 0, sum: 0, skipped: 0 }; });
@@ -358,6 +411,7 @@
     assignLines: assignLines,
     recordWindowSec: recordWindowSec,
     lineIndexAt: lineIndexAt,
+    clockFollower: clockFollower,
     summarize: summarize,
     ttsSpeakerFor: ttsSpeakerFor,
     SOUND_MOODS: SOUND_MOODS,

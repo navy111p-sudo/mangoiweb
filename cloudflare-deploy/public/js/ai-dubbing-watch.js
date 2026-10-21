@@ -203,10 +203,12 @@
           if (v && videoOk) playEl(run, v);
           tracks.forEach(function (t) { playEl(run, t.el); });
           var shown = -2, last = -1, lastAt = now();
+          /* 목소리가 영상을 따라가게 — 영상이 받는 중(버퍼링)이면 같이 서고, 다시 움직이면 같은 시각에서 같이 출발(정본 core) */
+          var follow = C.clockFollower({ now: now }), els = tracks.map(function (tr) { return tr.el; });
           var timer = setInterval(function () {
             if (run.paused) { lastAt = now(); return; }
             var t = (clock && clock.currentTime) || 0;
-            tracks.forEach(function (tr) { if (tr.el !== clock && !tr.el.paused && Math.abs(tr.el.currentTime - t) > 0.3) { try { tr.el.currentTime = t; } catch (e) {} } });
+            follow.step(t, els, clock);
             var li = C.lineIndexAt(sc.lines, t);
             if (li !== shown) {
               shown = li;
