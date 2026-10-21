@@ -31,7 +31,8 @@ let PASS = 0, FAIL = 0, CASES = 0;
 const ok = (c, m) => { if (c) { PASS++; } else { FAIL++; console.log('  ❌ ' + m); } };
 const okv = (c, m) => { if (c) { PASS++; console.log('  ✅ ' + m); } else { FAIL++; console.log('  ❌ ' + m); } };
 
-const FILES = readdirSync(PUB).filter((f) => /^story-.+\.html$/.test(f)).sort();
+// 표지 갤러리는 목록 화면이며 읽기·도장 활동은 없다. 별도 gallery 하니스가 검사한다.
+const FILES = readdirSync(PUB).filter((f) => /^story-.+\.html$/.test(f) && f !== 'story-cover-gallery.html').sort();
 const START = '  // ---- speech ----';
 const END = "  document.getElementById('stopAll').addEventListener('click', stop);";
 
