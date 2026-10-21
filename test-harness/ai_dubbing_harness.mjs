@@ -737,10 +737,12 @@ const WATCH_SRC = rd(WATCH_PATH);
 function fakeTimers() {
   let seq = 0; const q = new Map();
   return {
-    setTimeout(fn, ms) { const id = ++seq; q.set(id, fn); return id; },
+    setTimeout(fn, ms) { const id = ++seq; q.set(id, { fn, ms: Number(ms) || 0 }); return id; },
     clearTimeout(id) { q.delete(id); },
     pending() { return q.size; },
-    runAll() { const list = [...q.entries()]; q.clear(); list.forEach(([, fn]) => { fn(); }); return list.length; },
+    runAll() { const list = [...q.entries()]; q.clear(); list.forEach(([, x]) => { x.fn(); }); return list.length; },
+    /* lim 밀리초 «이하» 로 걸린 것만 — 멈춘 뒤 곧바로 끊는가(4초짜리 정리 타이머가 대신 끊어 주는 것과 가르려고) */
+    runUpTo(lim) { const list = [...q.entries()].filter(([, x]) => x.ms <= lim); list.forEach(([id]) => q.delete(id)); list.forEach(([, x]) => { x.fn(); }); return list.length; },
     clear() { q.clear(); },
   };
 }
@@ -754,17 +756,18 @@ function fakeCtx() {
       _v: v,
       get value() { return this._v; }, set value(x) { fin(x, 'value='); this._v = x; },
       setValueAtTime(x, t) { fin(x, 'setValueAtTime'); fin(t, 'setValueAtTime.t'); if (t < 0) err('setValueAtTime.t<0'); return p; },
-      linearRampToValueAtTime(x, t) { fin(x, 'linearRamp'); fin(t, 'linearRamp.t'); return p; },
+      linearRampToValueAtTime(x, t) { fin(x, 'linearRamp'); fin(t, 'linearRamp.t'); p.lastLinear = x; return p; },
       exponentialRampToValueAtTime(x, t) { fin(x, 'expRamp'); fin(t, 'expRamp.t'); if (x === 0) err('expRamp→0'); return p; },
       cancelScheduledValues(t) { fin(t, 'cancel.t'); return p; },
     };
     return p;
   }
-  const node = (extra) => { ctx.made++; return Object.assign({ connect(d) { if (!d) err('connect(없음)'); return d; }, disconnect() {} }, extra); };
+  const node = (extra) => { ctx.made++; return Object.assign({ connect(d) { if (!d) err('connect(없음)'); return d; }, disconnect() { this.disc = true; } }, extra); };
   const WAVES = ['sine', 'square', 'sawtooth', 'triangle'];
   const FILTERS = ['lowpass', 'highpass', 'bandpass', 'lowshelf', 'highshelf', 'peaking', 'notch', 'allpass'];
   ctx.destination = node({});
-  ctx.createGain = () => node({ gain: param(1) });
+  ctx.gains = [];
+  ctx.createGain = () => { const g = node({ gain: param(1) }); ctx.gains.push(g); return g; };
   ctx.createOscillator = () => {
     let type = 'sine';
     return node({ frequency: param(440),
@@ -882,6 +885,36 @@ function soundChecks(src, verbose) {
   e2.dispose();
   t('⑪-23 dispose() 뒤에는 아무것도 안 울린다', e2.sfx('pop') === false && e2.music('bright') === false && e2.cue({ name: 'pop' }) === false);
   t('⑪-24 위 모든 조작에서 브라우저가 던질 값이 0건', c2.errors.length === 0, c2.errors.slice(0, 3));
+  /* D. 울리고 있는 효과음 — 멈춤·효과음 끄기에서 «그 자리에서» 끊긴다(2026-10-21 Codex 리뷰 P2).
+   *    효과음 한 번 = sfx() 가 처음 만드는 gain 하나(그 아래 조각들이 거기로 모인다). 그 gain 을 보고 판정한다. */
+  T.clear();
+  const c3 = fakeCtx();
+  const e3 = S.create(c3, [c3.destination]);
+  const fx = (name) => { const k = c3.gains.length; const ok = e3.sfx(name); return { ok, g: c3.gains[k] }; };
+  /* (짝) 멈추지 않으면 끊지 않는다 — 제 길이대로 울리고 4초 뒤에야 정리된다 */
+  const keep = fx('waves');
+  const keepCut = keep.g && (keep.g.gain.lastLinear === 0 || keep.g.disc === true);
+  t('⑪-25 (짝) 그냥 울린 효과음은 끊지 않는다(줄이기·끊기 0 · 울리는 중 1)', keep.ok === true && !!keep.g && !keepCut && e3.state().sfxLive === 1, { live: e3.state().sfxLive, ramp: keep.g && keep.g.gain.lastLinear, disc: keep.g && keep.g.disc });
+  T.runAll();
+  t('⑪-26 다 울린 효과음은 정리된다(타이머 뒤 끊김 · 울리는 중 0)', keep.g && keep.g.disc === true && e3.state().sfxLive === 0, { live: e3.state().sfxLive });
+  const th = fx('thunder');
+  e3.pause();
+  const cutNow = th.g && th.g.gain.lastLinear === 0;
+  T.runUpTo(500);                                   // ⚠️ runAll 이면 4초짜리 정리 타이머가 대신 끊어 «곧 끊김» 을 못 가른다
+  const discSoon = th.g && th.g.disc === true;
+  T.runAll();
+  t('⑪-27 멈추면 울리던 효과음(천둥)을 «그 자리에서» 줄여 끊는다(0으로 줄임 · 0.5초 안에 연결 끊김 · 울리는 중 0)', th.ok === true && cutNow && discSoon && e3.state().sfxLive === 0, { cutNow, discSoon, live: e3.state().sfxLive });
+  e3.resume();
+  t('⑪-28 이어 가도 끊은 효과음을 되살리지 않는다(울리는 중 0)', e3.state().sfxLive === 0);
+  const rb = fx('rumble');
+  e3.setEnabled(true, false);
+  const offCut = rb.g && rb.g.gain.lastLinear === 0;
+  t('⑪-29 «💥 효과음» 을 끄면 울리던 효과음도 끊긴다', rb.ok === true && offCut && e3.state().sfxLive === 0, { offCut, live: e3.state().sfxLive });
+  e3.setEnabled(true, true);
+  const ds = fx('waves');
+  e3.dispose();
+  t('⑪-30 치우면(dispose) 울리던 효과음도 끊긴다', ds.ok === true && ds.g && ds.g.gain.lastLinear === 0 && e3.state().sfxLive === 0);
+  t('⑪-31 D 의 조작에서 브라우저가 던질 값이 0건', c3.errors.length === 0, c3.errors.slice(0, 3));
   return fails;
 }
 const soundFails0 = soundChecks(SOUND_SRC, true);
@@ -940,7 +973,7 @@ class WMedia {
 }
 function watchWorld(W, o) {
   o = o || {};
-  const w = { log: [], eng: [], audios: [], routes: [], utters: [] };
+  const w = { log: [], eng: [], audios: [], routes: [], utters: [], released: [] };
   const eng = {
     cue(c) { w.eng.push(['cue', c]); return true; }, sfx(n) { w.eng.push(['sfx', n]); return true; }, duck(v) { w.eng.push(['duck', v]); },
     enterScene(p, m, b) { w.eng.push(['enter', p, m, b]); return true; }, pause() { w.eng.push(['pause']); }, resume() { w.eng.push(['resume']); },
@@ -960,7 +993,9 @@ function watchWorld(W, o) {
   w.kit = {
     C: CORE, opt: { cardMs: o.cardMs || 10, gapMs: 5, endMs: 5, tickMs: 5, stallMs: 400, videoMs: 100 },
     sound: () => eng, Audio: FAudio,
-    route: (a, kind) => { w.routes.push(kind); return { cut() {} }; },
+    route: (a, kind) => { w.routes.push(kind); return { cut() { a.__cut = true; } }; },
+    /* 🍎 반납 — «그때» 멈춰 있었나·섞개에서 끊겼나를 적어 둔다 */
+    release: (a) => { w.released.push({ a, paused: a.paused, cut: !!a.__cut }); },
     synth, Utter: U,
     tts: (text, spk) => Promise.resolve(o.ttsFail ? null : 'blob:' + spk + ':' + text.length),
     video: () => video,
@@ -976,6 +1011,12 @@ function watchWorld(W, o) {
   w.seen = () => w.log.filter((x) => x[0] === 'seen').map((x) => x[2]);
   w.items = () => w.log.filter((x) => x[0] === 'item').map((x) => x[1]);
   w.ends = () => w.log.filter((x) => x[0] === 'end').map((x) => x[1]);
+  /* 만든 소리 요소가 «전부·한 번씩» 돌아왔고, 돌아올 때 멈춰 있었고 섞개에서 끊겨 있었나 */
+  w.relOk = () => {
+    const once = new Set(w.released.map((r) => r.a)).size === w.released.length;
+    return w.audios.length > 0 && w.released.length === w.audios.length && once && w.released.every((r) => r.paused && r.cut);
+  };
+  w.relInfo = () => ({ made: w.audios.length, released: w.released.length, bad: w.released.filter((r) => !r.paused || !r.cut).length });
   return w;
 }
 const wsleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -1004,6 +1045,7 @@ async function watchChecks(src, verbose) {
     t('⑪-W3 매니페스트의 효과음 신호가 «전부» 울린다(장면 처음·대사 앞뒤·끝)', cues === nCues, { cues, want: nCues });
     t('⑪-W4 장면마다 작품 악기 색 + 장면 분위기로 들어간다 · 대사 동안 음악을 줄였다가 되돌린다', w.eng.some((x) => x[0] === 'enter' && x[1] === WEP1.palette && x[2] === WEP1.scenes[0].mood && x[3] === false) && ducks.indexOf(0.35) >= 0 && ducks[ducks.length - 1] === 1);
     t('⑪-W5 끝나면 진행 상태가 비고 음악을 끈다', w.runner.state().running === false && w.eng.some((x) => x[0] === 'stop'));
+    t('⑪-W22 🍎 대사마다 빌린 목소리 요소를 «전부·한 번씩» 돌려준다(멈추고 섞개에서 끊은 뒤)', w.relOk(), w.relInfo());
   }
   /* W2 다음 — 넘긴 장면은 «봤어요» 가 아니다 */
   {
@@ -1020,6 +1062,7 @@ async function watchChecks(src, verbose) {
     await wsleep(30); w.runner.stop();
     const r = await wwithin(p, 4000);
     t('⑪-W7 «그만» — finished=false · «봤어요» 0 · onEnd(false) · 진행 상태 비움', !r.timeout && r.v === false && w.seen().length === 0 && JSON.stringify(w.ends()) === '[false]' && w.runner.state().running === false, { r, seen: w.seen(), ends: w.ends() });
+    t('⑪-W23 🍎 도중에 «그만» 해도 울리던 목소리 요소까지 돌려준다', w.relOk(), w.relInfo());
   }
   /* W4 멈춤 — 제목 카드에서 */
   {
@@ -1073,6 +1116,7 @@ async function watchChecks(src, verbose) {
     t('⑪-W14 동기 장면(dub-006) — 배경음악 파일은 «bgm» 갈래, 캐릭터 음성은 «전부» voice 갈래(아무도 음소거 안 함)', !!sc.bgm && kinds.bgm === 1 && kinds.voice === nVoice && nVoice >= 3, kinds);
     t('⑪-W15 동기 장면 — 합성 음악은 끄고 들어간다(배경음악 파일 있음=true) · 영상 시각 신호가 전부 울린다', w.eng.some((x) => x[0] === 'enter' && x[3] === true) && cues === CORE.timedCues(sc).length, { cues, want: CORE.timedCues(sc).length });
     t('⑪-W16 동기 장면을 끝까지 보면 «봤어요» · 자막이 나온다', !r.timeout && r.v === true && JSON.stringify(w.seen()) === '[' + sc.no + ']' && w.lines() >= 1, { r, seen: w.seen(), lines: w.lines() });
+    t('⑪-W24 🍎 동기 장면의 배경음악·캐릭터 음성 요소도 «전부·한 번씩» 돌려준다', w.relOk() && w.audios.length === nVoice + 1, w.relInfo());
   }
   /* W8 동기 장면 — 배경음악 파일 없이 캐릭터 음성만 (dub-004) */
   {
@@ -1136,6 +1180,96 @@ function playerWatchChecks(psrc, hsrc, verbose) {
     okLvl = run(false, true) === 0 && run(true, true) === 1 && run(false, false) === 'muted' && run(true, false) === 'on';
   }
   t('⑪-P8 «🎵 배경음악» 끄기가 배경음악 파일에도 걸린다(꺼짐=0/음소거 · 켜짐=1/소리)', okLvl);
+  /* P9~ 🍎 «먼저 보기» 소리 요소 묶음(2026-10-21 Codex 리뷰 P1) — 아이폰은 소리 나는 요소마다 «누른 그 순간» 허락이 필요하다.
+   *   묶음 함수 셋을 오려 내 가짜 Audio·가짜 기기 목소리로 «실제로» 돌린다. ⚠️ 이 컨테이너에는 사파리가 없다 —
+   *   여기서 재는 것은 «누른 순간에 틀어 두고·그것을 빌려 쓰고·돌려받는가» 까지다(진짜 아이폰 소리는 사람이 확인). */
+  const fPrime = cutFn(psrc, 'primeWatchAudio'), fTake = cutFn(psrc, 'takeWatchAudio'), fRel = cutFn(psrc, 'releaseWatchAudio');
+  const poolVars = (psrc.match(/var W_POOL = \[\][^\n]*\n\s*var SILENT_WAV = '[^']*';/) || [''])[0];
+  t('⑪-P9 묶음 함수 셋·변수를 오려 냈다(전제)', !!fPrime && !!fTake && !!fRel && !!poolVars);
+  let mk = null;
+  try { mk = new Function('Audio', 'window', poolVars + '\n' + fPrime + '\n' + fTake + '\n' + fRel + '\n;return { prime: primeWatchAudio, take: takeWatchAudio, release: releaseWatchAudio, pool: function () { return W_POOL; } };'); } catch (e) { mk = null; }
+  let poolOk = { made: false };
+  if (mk) {
+    try {
+      /* play() 은 «나중에» 결판나는 약속(then 을 붙잡아 둔다) — 허락·거절·빌려 간 뒤 결판을 순서대로 재현한다 */
+      const all = [];
+      class PA {
+        constructor() { this.paused = true; this.plays = []; this.pauses = 0; this.attrs = {}; all.push(this); }
+        play() { const me = this, rec = { src: me.src }; me.plays.push(rec); me.paused = false; return { then(ok, no) { rec.ok = ok; rec.no = no; } }; }
+        pause() { this.paused = true; this.pauses++; }
+        removeAttribute(k) { delete this.attrs[k]; }
+      }
+      const spoken = [];
+      const win = { speechSynthesis: { speak(u) { spoken.push(u); } }, SpeechSynthesisUtterance: function (x) { this.text = x; } };
+      const P = mk(PA, win);
+      P.prime();
+      const pool = P.pool();
+      poolOk = { made: true };
+      poolOk.size = pool.length;
+      poolOk.allPlayedSilent = pool.length > 0 && pool.every((a) => a.__dubPool === true && a.plays.length === 1 && /^data:audio\/wav;base64,/.test(a.plays[0].src));
+      poolOk.synthOnce = spoken.length === 1 && spoken[0].volume === 0;
+      pool.forEach((a) => a.plays[0].ok && a.plays[0].ok());          // 허락받음 → 무음을 멈춘다
+      poolOk.pausedAfterPrime = pool.every((a) => a.paused === true);
+      P.prime();
+      poolOk.idempotent = pool.every((a) => a.plays.length === 1) && spoken.length === 1;
+      const got = [];
+      for (let k = 0; k < pool.length; k++) got.push(P.take());
+      const extra = P.take();
+      poolOk.lendsAllDistinct = new Set(got).size === pool.length && got.every((a) => pool.indexOf(a) >= 0 && a.__dubBusy === true);
+      poolOk.overflowFresh = pool.indexOf(extra) < 0 && !extra.__dubPool;
+      P.release(got[2]);
+      P.release(extra);                                               // 묶음 밖 요소 반납은 아무 일도 안 한다
+      const again = P.take();
+      poolOk.reuse = again === got[2] && P.pool().length === pool.length;
+      /* 거절(NotAllowedError) → 다음 클릭에 다시 / 빌려 간 뒤 생긴 AbortError → 허락은 그대로 */
+      const P2 = mk(PA, win);
+      P2.prime();
+      const q = P2.pool();
+      q[0].plays[0].no({ name: 'NotAllowedError' });
+      q[1].plays[0].no({ name: 'AbortError' });
+      P2.prime();
+      poolOk.retryOnDenied = q[0].plays.length === 2 && q[1].plays.length === 1;
+      /* 허락 약속이 «빌려 간 뒤» 에 풀려도 그 요소를 멈추지 않는다(대사가 막 나오려는 참이다) */
+      const P3 = mk(PA, win);
+      P3.prime();
+      const r3 = P3.pool();
+      const lent = P3.take();
+      const pausesBefore = lent.pauses;
+      lent.paused = false;                                            // 감상이 그 요소로 대사를 틀기 시작했다
+      lent.plays[0].ok();
+      poolOk.noPauseWhenLent = lent === r3[0] && lent.paused === false && lent.pauses === pausesBefore;
+    } catch (e) { poolOk.err = String(e && e.message).slice(0, 80); }
+  }
+  t('⑪-P10 🍎 누른 순간 묶음 ' + 'W_POOL_N 개를 «무음으로 한 번씩» 틀어 허락받는다 · 기기 목소리도 소리 0 으로 한 번 깨운다', poolOk.size >= 4 && poolOk.allPlayedSilent && poolOk.synthOnce && poolOk.pausedAfterPrime, poolOk);
+  t('⑪-P11 다시 눌러도 허락받은 요소는 또 틀지 않는다(기기 목소리도 한 번만)', poolOk.idempotent === true, poolOk);
+  t('⑪-P12 빌려줄 때 «하나에 한 사람» — 다 빌려 가면 새 요소(묶음 밖)를 준다', poolOk.lendsAllDistinct === true && poolOk.overflowFresh === true, poolOk);
+  t('⑪-P13 돌려받은 요소를 다음에 다시 빌려준다 · 묶음 밖 요소 반납은 무시', poolOk.reuse === true, poolOk);
+  t('⑪-P14 허락이 «거절» 되면 다음 클릭에 다시 해 본다 — 빌려 가서 생긴 중단(AbortError)은 거절이 아니다', poolOk.retryOnDenied === true, poolOk);
+  t('⑪-P15 허락 약속이 빌려 간 «뒤» 에 풀려도 그 요소를 멈추지 않는다', poolOk.noPauseWhenLent === true, poolOk);
+  /* P16 섞개 연결 — 같은 요소를 다시 써도 소스는 한 번만 만든다(두 번째는 브라우저가 던진다) */
+  const fRoute = cutFn(psrc, 'routeEl');
+  let srcMade = -1, routesOk = false;
+  try {
+    const R = new Function('MIX', fRoute + '\n;return routeEl;');
+    let made = 0;
+    const node = () => ({ connect() {}, disconnect() {}, gain: { value: 1 } });
+    const MIXF = { ctx: { createMediaElementSource(el) { if (el.__srcMade) throw new Error('InvalidStateError: already connected'); el.__srcMade = true; made++; return node(); }, createGain: node }, out: node(), rec: node() };
+    const routeEl = R(MIXF);
+    const el = {};
+    const r1 = routeEl(el, 1, true); r1.cut();
+    const r2 = routeEl(el, 1, true); r2.cut();
+    const r3 = routeEl({}, 1, true);
+    srcMade = made;
+    routesOk = !!(r1.gain && r2.gain && r3.gain);
+  } catch (e) { srcMade = -2; }
+  t('⑪-P16 🍎 같은 요소를 두 번 이어도 소스는 한 번만 만든다(두 번째도 섞개에 이어짐)', srcMade === 2 && routesOk, { srcMade, routesOk });
+  /* P17 배선 — «누른 그 순간» 에 부르는가(받은 뒤가 아니라) · 감상이 묶음에서 빌리고 돌려주는가 */
+  const swS = stripJs(cutFn(psrc, 'startWatch')), waS = stripJs(cutFn(psrc, 'watchAll')), wbS = stripJs(wBody);
+  const iEnsure = swS.indexOf('ensureMix()'), iPrime = swS.indexOf('primeWatchAudio()'), iStart = swS.indexOf('w.start(');
+  t('⑪-P17 startWatch — 섞개를 깨운 바로 뒤, 감상을 시작하기 «전» 에 묶음을 허락받는다', iEnsure > 0 && iPrime > iEnsure && iStart > iPrime, { iEnsure, iPrime, iStart });
+  const aPrime = waS.indexOf('primeWatchAudio()'), aFetch = waS.indexOf('Promise.all(');
+  t('⑪-P18 «모든 작품 이어 보기» — 편을 받기(Promise) «전», 클릭 안에서 허락받는다', aPrime > 0 && aFetch > aPrime, { aPrime, aFetch });
+  t('⑪-P19 감상의 소리 요소는 묶음에서 빌리고(kit.Audio) 다 쓰면 돌려받는다(kit.release)', /Audio: function \(\) \{ return takeWatchAudio\(\); \}/.test(wbS) && /release: releaseWatchAudio/.test(wbS));
   return fails;
 }
 const pwFails0 = playerWatchChecks(PLAYER_SRC_RAW, html, true);
@@ -1150,6 +1284,12 @@ const SOUND_MUTANTS = [
   ['지수 램프를 0 으로(브라우저가 던짐)', 'g.gain.exponentialRampToValueAtTime(0.0001, t0 + Math.max(a + 0.01, dur));', 'g.gain.exponentialRampToValueAtTime(0, t0 + Math.max(a + 0.01, dur));'],
   ['이름 목록 어긋남(pop 빠짐)', "'thunder', 'pop'];\n\n  function mtof", "'thunder'];\n\n  function mtof"],
   ['박자 타이머 다시 안 검(음악이 한 번만 울림)', '      st.timer = setTimeout(tick, 60);', ''],
+  ['멈춰도 울리는 효과음 안 끊음', 'ramp(musicBus.gain, 0, 0.2);\n      cutSfx();', 'ramp(musicBus.gain, 0, 0.2);'],
+  ['울리는 효과음을 붙잡지 않음', '        live.push(g);\n', ''],
+  ['끊을 때 줄이지 않음(소리 그대로)', 'list.forEach(function (g) { ramp(g.gain, 0, 0.06); });', ''],
+  ['효과음 끄기가 울리는 것은 안 끊음', '      if (!st.sfxOn) cutSfx();\n', ''],
+  ['치울 때 효과음 안 끊음', 'stopMusic(0.2); cutSfx(); st.disposed = true;', 'stopMusic(0.2); st.disposed = true;'],
+  ['끊은 효과음 연결을 안 풀음', 'if (list.length) setTimeout(function () { list.forEach(function (g) { try { g.disconnect(); } catch (e) {} }); }, 120);', ''],
 ];
 for (const [name, from, to] of SOUND_MUTANTS) {
   if (SOUND_SRC.indexOf(from) < 0) { check('⑪ 엔진 변이 «' + name + '» — 치환 앵커가 소스에 있다', false, from.slice(0, 60)); continue; }
@@ -1169,6 +1309,9 @@ const WATCH_MUTANTS = [
   ['이전: 무시', "run.idx = j === 'prev' ? Math.max(0, run.idx - 1) : run.idx + 1;", 'run.idx = run.idx + 1;'],
   ['기기 목소리 폴백 없음', 'return url ? playClip(run, url, maxMsFor(line)) : speakDevice(run, line.en, maxMsFor(line));', 'return url ? playClip(run, url, maxMsFor(line)) : undefined;'],
   ['새 판이 옛 판 화면을 건드림', 'if (cur !== run) return finished;', ''],
+  ['목소리 요소를 안 돌려줌(묶음이 바닥남)', 'stopEl(run, a); try { route.cut(); } catch (e) {} release(a); };', 'stopEl(run, a); try { route.cut(); } catch (e) {} };'],
+  ['동기 장면 소리 요소를 안 돌려줌', "try { t.route.cut(); } catch (e) {} release(t.el); }); tracks = []; }", "try { t.route.cut(); } catch (e) {} }); tracks = []; }"],
+  ['멈추기 전에 돌려줌(아직 울리는 요소를 남이 빌려 감)', 'return function () { cancel(run, t); stopEl(run, a); try { route.cut(); } catch (e) {} release(a); };', 'return function () { cancel(run, t); release(a); stopEl(run, a); try { route.cut(); } catch (e) {} };'],
 ];
 /* 진행기 변이는 실제 시간이 걸린다(한 판 약 3초) — 서로 독립인 가짜 세계라 «동시에» 돌린다 */
 const watchMutRes = await Promise.all(WATCH_MUTANTS.map(async ([name, from, to]) => {
@@ -1185,6 +1328,16 @@ const PW_MUTANTS = [
   ['더빙 중에도 감상 시작', 'if (S.run || S.watching || !items || !items.length) return;', 'if (S.watching || !items || !items.length) return;'],
   ['«👀 보기» 판정 삭제', "if (w && !w.disabled) { var wi = Number(w.getAttribute('data-watch')); pickScene(wi); watchScene(wi); return; }", ''],
   ['배경음악 끄기가 파일엔 안 걸림', 'var on = sndPrefs().music; if (h.r.gain) h.r.gain.gain.value = on ? 1 : 0; else h.el.muted = !on;', 'if (h.r.gain) h.r.gain.gain.value = 1;'],
+  ['🍎 장면 보기에서 허락받기 빠짐', "    primeWatchAudio();                               // 🍎 같은 이유", "    //                                               // 🍎 같은 이유"],
+  ['🍎 모든 작품 이어 보기에서 허락받기 빠짐', "    primeWatchAudio();                               // 🍎 startWatch 는", "    //                                               // 🍎 startWatch 는"],
+  ['🍎 진행기에 묶음 대신 새 Audio', 'Audio: function () { return takeWatchAudio(); },', 'Audio: window.Audio,'],
+  ['🍎 돌려받기 배선 끊김', '      release: releaseWatchAudio,\n', ''],
+  ['한 요소에 소스를 두 번 만듦(다시 쓰면 던짐)', 'el.__dubSrc || (el.__dubSrc = MIX.ctx.createMediaElementSource(el))', 'MIX.ctx.createMediaElementSource(el)'],
+  ['🍎 허락받을 때 실제로 안 틂', '        var p = a.play();', '        var p = null;'],
+  ['🍎 빌려 간 요소를 또 빌려줌', '      if (a.__dubBusy) continue;\n', ''],
+  ['🍎 거절돼도 다시 시도 안 함', "function (e) { if (e && e.name === 'NotAllowedError') a.__dubPrimed = false; });", 'function (e) {});'],
+  ['🍎 빌려 간 뒤에도 허락 틀기가 멈춰 버림', 'if (!a.__dubBusy) { try { a.pause(); } catch (e) {} }', 'try { a.pause(); } catch (e) {}'],
+  ['🍎 기기 목소리 허락받기 빠짐', 'u.volume = 0; window.speechSynthesis.speak(u);', 'u.volume = 0;'],
 ];
 for (const [name, from, to] of PW_MUTANTS) {
   if (PLAYER_SRC_RAW.indexOf(from) < 0) { check('⑪ 화면 변이 «' + name + '» — 치환 앵커가 소스에 있다', false, from.slice(0, 60)); continue; }

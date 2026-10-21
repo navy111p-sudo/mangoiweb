@@ -6,6 +6,8 @@
  *   create(kit) → { start(items), stop(), pause(), resume(), togglePause(), next(), prev(), state() }
  *   items = [{ ep, scIdx, first }]   ep = MangoiDubCore.normalizeEpisode 결과 · first = 그 작품의 첫 장면(제목 카드 소리)
  *   kit.route(audio, kind) — kind 'voice' | 'bgm'. 화면이 섞개에 «녹화 갈래 없이» 잇는다(감상 소리는 완성 영상에 안 들어간다).
+ *   kit.release(audio) — 다 쓴 소리 요소를 화면에 돌려준다(있으면). 🍎 아이폰은 소리 나는 요소마다 «누른 그 순간» 허락이
+ *     필요해서, 화면이 «보기» 를 누를 때 미리 허락받은 요소를 kit.Audio 로 빌려주고 여기서 돌려받아 다시 쓴다.
  *
  * 장면 두 가지(정본 core 가 정한 timing 그대로):
  *   · turn   — 영상은 배경으로 돌고, 대사를 차례로 원어민 목소리(TTS)로 들려준다. 효과음은 대사 앞뒤·장면 처음·끝.
@@ -93,6 +95,8 @@
       try { var p = el.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {}
     }
     function stopEl(run, el) { try { el.pause(); } catch (e) {} drop(run.media, el); drop(run.held, el); }
+    /* 다 쓴 소리 요소를 화면에 돌려준다 — ⚠️ 멈추고(stopEl) 섞개에서 끊은(route.cut) «뒤» 에만 */
+    function release(el) { if (kit.release) { try { kit.release(el); } catch (e) {} } }
 
     /* ── 소리 ─────────────────────────────────────────────────────────── */
     function maxMsFor(line) { return Math.max(4000, String(line.en).split(/\s+/).length * 700 + 3000); }
@@ -104,7 +108,7 @@
         var t = ptimer(run, maxMs, fin);
         a.onended = function () { fin(); }; a.onerror = function () { fin(); };
         playEl(run, a);
-        return function () { cancel(run, t); stopEl(run, a); try { route.cut(); } catch (e) {} };
+        return function () { cancel(run, t); stopEl(run, a); try { route.cut(); } catch (e) {} release(a); };
       });
     }
     function speakDevice(run, text, maxMs) {
@@ -180,7 +184,7 @@
       }
       if (sc.bgm) addTrack(sc.bgm, 'bgm');
       Object.keys(sc.voices || {}).forEach(function (cid) { addTrack(sc.voices[cid], 'voice'); });   // 먼저 보기 = 아무도 음소거하지 않는다
-      function dropTracks() { tracks.forEach(function (t) { stopEl(run, t.el); try { t.route.cut(); } catch (e) {} }); }
+      function dropTracks() { tracks.forEach(function (t) { stopEl(run, t.el); try { t.route.cut(); } catch (e) {} release(t.el); }); tracks = []; }
       var ready = Promise.all(tracks.map(function (t) {
         return new Promise(function (r) {
           if (t.el.readyState >= 3) { r(); return; }

@@ -9,7 +9,7 @@
  *     engine.sfx('roar')            효과음 한 번
  *     engine.cue(신호)              매니페스트 신호 하나(분위기 바꾸기·효과음)
  *     engine.enterScene(악기색, 분위기, 배경음악파일있음)   장면에 들어갈 때(파일이 있으면 합성 음악을 끈다)
- *     engine.setEnabled(음악, 효과음) / pause() / resume() / dispose()
+ *     engine.setEnabled(음악, 효과음) / pause() / resume() / dispose()   (멈춤·효과음 끄기·치우기는 울리는 효과음도 끊는다)
  *
  * ⚠️ 이름 목록(MOODS·PALETTES·SFX)은 정본(js/ai-dubbing-core.js 의 SOUND_*)과 «같은 말» 을 해야 한다 —
  *    test-harness/ai_dubbing_harness.mjs ⑪ 이 두 목록을 대조하고, 효과음·분위기를 «전부 실제로» 울려 본다.
@@ -192,6 +192,9 @@
       pop: function (t, S) { tone(S, 'sine', 600, 180, t, 0.09, 0.4); },
     };
 
+    /* 지금 울리고 있는 효과음(한 번 울릴 때마다의 갈래). 멈춤·효과음 끄기·치우기에서 «그 자리에서» 끊으려고 붙잡아 둔다 —
+     * 파도·천둥·우르릉은 몇 초짜리라, 안 끊으면 «멈춤» 을 눌러도 끝까지 울린다(2026-10-21 Codex 리뷰 지적). */
+    var live = [];
     function sfx(name, vol) {
       if (st.disposed || !st.sfxOn || st.paused) return false;
       var r = RECIPES[name];
@@ -201,9 +204,17 @@
         g.gain.value = (vol != null && isFinite(vol)) ? Math.max(0.05, Math.min(1.5, vol)) : 1;
         g.connect(sfxBus);
         r(ctx.currentTime + 0.02, g);
-        setTimeout(function () { try { g.disconnect(); } catch (e) {} }, 4000);
+        live.push(g);
+        setTimeout(function () { var i = live.indexOf(g); if (i >= 0) live.splice(i, 1); try { g.disconnect(); } catch (e) {} }, 4000);
         return true;
       } catch (e) { return false; }
+    }
+    /* 울리는 효과음을 짧게 줄여 끊는다(뚝 끊으면 «딱» 소리가 난다). ⛔ 이어 가기에서 되살리지 않는다 — 한 번짜리 소리다 */
+    function cutSfx() {
+      var list = live.splice(0);
+      list.forEach(function (g) { ramp(g.gain, 0, 0.06); });
+      if (list.length) setTimeout(function () { list.forEach(function (g) { try { g.disconnect(); } catch (e) {} }); }, 120);
+      return list.length;
     }
 
     /* ── 음악(박자 맞춰 미리 예약 — 0.25초 앞까지) ── */
@@ -294,6 +305,7 @@
     function setPalette(name) { var p = PALETTES[name]; if (p) { st.palette = p; applyEcho(); } return !!p; }
     function setEnabled(musicOn, sfxOn) {
       st.sfxOn = sfxOn !== false;
+      if (!st.sfxOn) cutSfx();
       var m = musicOn !== false;
       if (m === st.musicOn) return;
       st.musicOn = m;
@@ -305,6 +317,7 @@
       st.paused = true;
       if (st.timer) { clearTimeout(st.timer); st.timer = null; }
       ramp(musicBus.gain, 0, 0.2);
+      cutSfx();
     }
     function resume() {
       if (!st.paused) return;
@@ -312,10 +325,10 @@
       if (st.on && st.musicOn) { st.next = ctx.currentTime + 0.06; ramp(musicBus.gain, MUSIC_LEVEL, 0.5); if (!st.timer) tick(); }
     }
     function dispose() {
-      stopMusic(0.2); st.disposed = true;
+      stopMusic(0.2); cutSfx(); st.disposed = true;
       setTimeout(function () { try { master.disconnect(); } catch (e) {} }, 400);
     }
-    function state() { return { on: st.on, mood: st.mood, paused: st.paused, musicOn: st.musicOn, sfxOn: st.sfxOn, duck: st.duck, timer: !!st.timer }; }
+    function state() { return { on: st.on, mood: st.mood, paused: st.paused, musicOn: st.musicOn, sfxOn: st.sfxOn, duck: st.duck, timer: !!st.timer, sfxLive: live.length }; }
     /* 매니페스트 신호 하나(정본 sceneCues·timedCues 가 돌려준 것) — 분위기 바꾸기·효과음 */
     function cue(c) {
       if (!c || st.disposed) return false;
