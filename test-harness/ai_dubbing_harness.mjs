@@ -14,7 +14,7 @@
 //     ③ 시각이 «synced» 라고 밝혀도 겹치거나 영상보다 길면 차례 모드로 «떨어진다»
 //     ④ 학생 캐릭터 음성 파일이 하나라도 빠지면 TTS 로 간다(빈 소리로 재생하지 않는다)
 //     ⑤ 원본 영상 소리는 «clean» 이라고 밝힌 장면만 켠다(AI 생성기가 넣은 엉뚱한 목소리 차단)
-//     ⑥ 지금 실린 dub-001.json 이 실제로 돈다(6장면 · 차례 모드 · 영상은 우리 서버 파일이 실재)
+//     ⑥ 지금 실린 편(index.json 의 ready 전부)이 실제로 돈다(6장면 · 차례/동기 모드 · 영상은 우리 서버 파일이 실재)
 //        + 대사 규격(2026-10-20 GPT 2편 기준): 36줄 · 장면마다 캐릭터당 2줄 이상 · 3~8단어 · 1/2/3역 선택
 //        + 캐릭터 목소리가 서로 다르다(서버가 Aura-1 로 떨어져도) · 이야기 목록(index.json)
 //     ⑦ 화면이 정본을 싣고 «판정을 복제하지 않는다» · 전사에 prompt 를 안 보낸다
@@ -310,10 +310,11 @@ for (const epId of readyIds) {
   }
 }
 check('⑥-z 전제 — 실제로 2편 이상을 검사했다(목록이 비어 검사가 통째로 사라지지 않게)', checkedEps >= 2, checkedEps);
-/* ⑥-9b 지금 사실을 못 박는다 — 1편·3편은 아직 «영상에 맞춘 대사 시각» 이 없다(설명서 6-1·6-1b).
+/* ⑥-9b 지금 사실을 못 박는다 — 3편은 아직 «영상에 맞춘 대사 시각» 이 없다(설명서 6-1b).
    ⚠️ 진짜 완성본(대사 시각 + 원어민 음성)으로 올리는 날 이 줄을 «함께» 고친다 — 그 전에 누가 timing 만 'synced' 로 바꾸면 여기서 걸린다.
-   (5편은 2026-10-21 에 원래 대본·시각 + 캐릭터별 음성 파일로 완성본이 되어 이 목록에서 빠지고 ⑥-d 가 본다.) */
-for (const epId of ['dub-001', 'dub-003']) {
+   (5편은 2026-10-21 에 원래 대본·시각 + 캐릭터별 음성 파일로 완성본이 되어 이 목록에서 빠지고 ⑥-d 가 본다.
+    1편도 같은 날 «영상에서 잰 입 구간 + 캐릭터별 음성 파일» 로 완성본이 되어 빠지고 ⑥-e 가 본다.) */
+for (const epId of ['dub-003']) {
   let raw = null;
   try { raw = JSON.parse(rd(join(PUB, 'data', 'dubbing', epId + '.json'))); } catch (e) { raw = null; }
   check('⑥-9b ' + epId + ' 는 아직 시각 provisional · 상태 preview (완성본이 아니다)', !!raw && raw.timing === 'provisional' && raw.status === 'preview', raw && [raw.timing, raw.status]);
@@ -415,6 +416,72 @@ console.log('\n── ⑥-d 5편(dub-005) · 원래 대본 + 음성 파일');
       sc5.map((s) => s.no + ':' + Object.keys(s.voices).join('/')));
     const note5 = String((raw5.note && raw5.note.ko) || '') + ' ' + String((raw5.note && raw5.note.en) || '');
     check('⑥-d5 5편 안내가 «임시 AI 음성 · 차례차례» 라고 하지 않는다(이제 입모양에 맞춘 음성 파일)', !/임시|차례차례|temporary|one by one/i.test(note5), note5);
+  }
+}
+
+/* ⑥-e 1편(dub-001) — 2026-10-21 «영상에서 잰 입 구간 + 캐릭터별 음성 파일» 로 완성본이 된 편.
+   사고: 차례 모드(시각 없음)라 대사가 영상 속 입과 상관없이 나왔고, 3~6장면 클립 순서가 이야기와 어긋나(«긴목 공룡과 친구» 가 «아기 공룡 발견» 보다 먼저,
+   6장면 첫머리에 포털 도착이 한 번 더) «장면·말·입이 안 맞고 들쭉날쭉» 했다(사장님 제보). 그래서 클립을 이야기 순서로 다시 잇고(3·10·11 / 12·13·14 / 4·5·15 / 6·16),
+   대사를 입이 움직이는 구간에 놓았다 ⟹ «누가 몇 번째 줄을 말하는가» 는 이제 영상(입 구간)이 정한 사실이라 여기 못 박는다. */
+console.log('\n── ⑥-e 1편(dub-001) · 입 구간 시각 + 음성 파일');
+{
+  let rawE = null;
+  try { rawE = JSON.parse(rd(join(PUB, 'data', 'dubbing', 'dub-001.json'))); } catch (e) { rawE = null; }
+  check('⑥-e0 전제 — 1편이 목록에서 ready 이고 매니페스트를 읽었다', readyIds.indexOf('dub-001') >= 0 && !!rawE);
+  if (rawE) {
+    const nE = CORE.normalizeEpisode(rawE, { baseUrl: '/data/dubbing/' });
+    const scE = nE.episode.scenes;
+    check('⑥-e1 1편은 시각 synced · 상태 final · 여섯 장면 전부 «동기 + 음성 파일» (음성 파일 하나만 빠지거나 시각 하나만 틀려도 여기서 걸린다)',
+      rawE.timing === 'synced' && nE.episode.status === 'final' && scE.length === 6 && scE.every((s) => s.timing === 'synced' && s.voiceMode === 'stems'),
+      scE.map((s) => s.no + ':' + s.timing + '/' + s.voiceMode));
+    const guestsE = Object.keys(nE.episode.characters).filter((k) => nE.episode.playable.indexOf(k) < 0).sort();
+    check('⑥-e2 1편의 고를 수 있는 역은 준·미나·렉스, 손님은 교장 선생님 하나(6장면 마지막 줄 — 영상 속 남자 선생님)',
+      nE.episode.playable.slice().sort().join(',') === 'jun,mina,rex' && guestsE.join(',') === 'principal', [nE.episode.playable, guestsE]);
+    /* 영상(입이 움직이는 구간)에 맞춘 «말하는 차례». 이 순서가 바뀌면 그 줄의 목소리가 다른 아이 입에서 나온다. */
+    const VIDEO_SPEAKERS_1 = [
+      'jun,mina,rex,rex,jun,mina',
+      'jun,mina,rex,mina,jun,rex',
+      'mina,jun,rex,jun,mina,rex',
+      'rex,jun,mina,jun,mina,rex',
+      'jun,rex,rex,jun,mina,mina',
+      'rex,jun,rex,mina,jun,principal',
+    ];
+    const orderOk = (scenes) => scenes.length === 6 && scenes.every((s, i) => s.lines.map((l) => l.speaker).join(',') === VIDEO_SPEAKERS_1[i]);
+    check('⑥-e3 장면마다 «누가 몇 번째 줄을 말하는가» 가 영상에서 잰 입 구간과 같다', orderOk(scE), scE.map((s) => s.lines.map((l) => l.speaker).join(',')));
+    check('⑥-e4 장면마다 음성 파일은 «그 장면에서 말하는 캐릭터» 것만 있다(남는 파일·빠진 파일 없음)',
+      scE.every((s) => Object.keys(s.voices).sort().join(',') === Array.from(new Set(s.lines.map((l) => l.speaker))).sort().join(',')
+        && Object.keys(s.voices).every((k) => s.voices[k].indexOf('/scene-' + s.no + '-' + k + '.mp3') > 0)),
+      scE.map((s) => s.no + ':' + Object.keys(s.voices).join('/')));
+    const noteE = String((rawE.note && rawE.note.ko) || '') + ' ' + String((rawE.note && rawE.note.en) || '');
+    check('⑥-e5 1편 안내가 «임시 AI 음성 · 차례차례» 라고 하지 않는다(이제 입 구간에 맞춘 음성 파일)', !/임시|차례차례|temporary|one by one/i.test(noteE), noteE);
+    /* 3~6장면 영상·대표 그림은 «같은 이름» 으로 갈아 끼웠다(클립 순서를 바꿈) — 미디어 7일 캐시라 ?v=2 이상이 없으면 본 사람에게 옛 영상이 남고
+       새 대사 시각이 옛 영상 위에 놓여 입이 다시 어긋난다. ⚠️ 또 갈아 끼우면 번호를 «올린다»(?v= 주소는 1년 immutable). */
+    const vOf = (u) => { const m = /\?v=(\d+)$/.exec(String(u || '')); return m ? Number(m[1]) : 0; };
+    check('⑥-e6 1편 3~6장면 영상·대표 그림은 ?v=2 이상(같은 이름 교체 — 캐시 우회)',
+      [3, 4, 5, 6].every((no) => { const r = rawE.scenes.find((x) => x.no === no); return !!r && vOf(r.video) >= 2 && vOf(r.poster) >= 2; }),
+      rawE.scenes.map((x) => x.no + ':' + x.video + ' ' + x.poster));
+    /* 음성 파일 길이 ≥ 장면 길이 — 짧으면 그 뒤 대사가 소리 없이 지나간다. MP3 첫 프레임의 비트레이트로 길이를 어림한다(CBR). */
+    const mp3Sec = (file) => {
+      const b = readFileSync(file); let i = 0;
+      if (b.slice(0, 3).toString() === 'ID3') i = 10 + ((b[6] & 0x7f) << 21 | (b[7] & 0x7f) << 14 | (b[8] & 0x7f) << 7 | (b[9] & 0x7f));
+      while (i < b.length - 4 && !(b[i] === 0xff && (b[i + 1] & 0xe0) === 0xe0)) i++;
+      const KBPS = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0];
+      const kbps = (b[i + 1] & 0x18) === 0x18 && (b[i + 1] & 0x06) === 0x02 ? KBPS[b[i + 2] >> 4] : 0; // MPEG1 Layer III 만
+      return kbps ? (b.length - i) * 8 / (kbps * 1000) : NaN;
+    };
+    const short = [];
+    scE.forEach((s) => Object.keys(s.voices).forEach((k) => {
+      const f = join(PUB, s.voices[k].replace(/[?#].*$/, '').replace(/^\/+/, ''));
+      let sec = NaN; try { sec = mp3Sec(f); } catch (e) { sec = NaN; }
+      if (!(sec >= s.durationSec - 0.5)) short.push(s.no + ':' + k + ':' + (Number.isFinite(sec) ? sec.toFixed(2) : 'NaN') + '<' + s.durationSec);
+    }));
+    check('⑥-e7 장면마다 음성 파일이 장면 길이만큼 있다(짧으면 뒤 대사가 소리 없이 지나간다)', short.length === 0, short);
+    /* 짝 — 위 검사가 헛돌지 않는지 망가뜨려 본다 */
+    const mutE = (edit) => { const c = JSON.parse(JSON.stringify(rawE)); edit(c); return CORE.normalizeEpisode(c, { baseUrl: '/data/dubbing/' }).episode.scenes; };
+    check('⑥-e3m 변이 «3장면 두 줄의 화자 맞바꿈» → ⑥-e3 식이 실제로 걸린다',
+      !orderOk(mutE((c) => { const l = c.scenes[2].lines; const t = l[0].speaker; l[0].speaker = l[1].speaker; l[1].speaker = t; })));
+    check('⑥-e1m 변이 «6장면 교장 선생님 음성 파일 빼기» → «동기 + 음성 파일» 이 실제로 풀린다(⑥-e1 이 걸린다)',
+      mutE((c) => { delete c.scenes[5].voices.principal; })[5].voiceMode !== 'stems');
   }
 }
 
@@ -1027,7 +1094,9 @@ function watchWorld(W, o) {
 const wsleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const wwithin = (p, ms) => Promise.race([Promise.resolve(p).then((v) => ({ v })), wsleep(ms).then(() => ({ timeout: true }))]);
 const epOf = (n) => CORE.normalizeEpisode(JSON.parse(rd(join(PUB, 'data', 'dubbing', 'dub-00' + n + '.json')))).episode;
-const WEP1 = epOf(1), WEP4 = epOf(4), WEP6 = epOf(6);
+/* WEPT = «차례 모드 + 임시 TTS» 표본. 원래 1편이었는데 1편이 2026-10-21 에 «동기 + 음성 파일» 완성본이 되어 3편(아직 provisional — ⑥-9b 가 못 박음)으로 옮겼다.
+   ⛔ 동기 편을 여기 넣지 마세요 — 서버 목소리 실패 → 기기 목소리(⑪-W18) 같은 «차례 모드» 검사가 헛돌거나 거짓 FAIL 이 납니다(⑪-Wt 가 전제로 막습니다). */
+const WEPT = epOf(3), WEP4 = epOf(4), WEP6 = epOf(6);
 
 async function watchChecks(src, verbose) {
   const fails = [];
@@ -1036,9 +1105,10 @@ async function watchChecks(src, verbose) {
   try { W = loadWatch(src); } catch (e) { W = null; }
   t('⑪-W0 진행기를 불러왔다(전제)', !!(W && typeof W.create === 'function'));
   if (!W || typeof W.create !== 'function') return fails;
-  const two = () => [{ ep: WEP1, scIdx: 0, first: true }, { ep: WEP1, scIdx: 1, first: false }];
-  const nLines = WEP1.scenes[0].lines.length + WEP1.scenes[1].lines.length;
-  const nCues = WEP1.scenes[0].sfx.length + WEP1.scenes[1].sfx.length;
+  t('⑪-Wt 차례 모드 표본(WEPT)은 실제로 전부 «차례 모드 + TTS» 다(전제 — 동기 편이 들어오면 아래 차례 모드 검사가 뜻을 잃는다)', WEPT.scenes.length >= 2 && WEPT.scenes.every((s) => s.timing === 'turn' && s.voiceMode === 'tts'), WEPT.scenes.map((s) => s.timing + '/' + s.voiceMode));
+  const two = () => [{ ep: WEPT, scIdx: 0, first: true }, { ep: WEPT, scIdx: 1, first: false }];
+  const nLines = WEPT.scenes[0].lines.length + WEPT.scenes[1].lines.length;
+  const nCues = WEPT.scenes[0].sfx.length + WEPT.scenes[1].sfx.length;
   /* W1 끝까지 */
   {
     const w = watchWorld(W);
@@ -1048,7 +1118,7 @@ async function watchChecks(src, verbose) {
     t('⑪-W1 끝까지 보면 finished=true · 두 장면 모두 «봤어요» · 마지막에 onEnd(true)', !r.timeout && r.v === true && JSON.stringify(w.seen()) === '[1,2]' && JSON.stringify(w.ends()) === '[true]', { r, seen: w.seen(), ends: w.ends() });
     t('⑪-W2 대사가 전부 자막에 나온다 · 끝 카드(END) · 끝 팡파르', w.lines() === nLines && w.log.some((x) => x[0] === 'card' && x[1] === 'END') && w.eng.some((x) => x[0] === 'sfx' && x[1] === 'fanfare'), { lines: w.lines(), want: nLines });
     t('⑪-W3 매니페스트의 효과음 신호가 «전부» 울린다(장면 처음·대사 앞뒤·끝)', cues === nCues, { cues, want: nCues });
-    t('⑪-W4 장면마다 작품 악기 색 + 장면 분위기로 들어간다 · 대사 동안 음악을 줄였다가 되돌린다', w.eng.some((x) => x[0] === 'enter' && x[1] === WEP1.palette && x[2] === WEP1.scenes[0].mood && x[3] === false) && ducks.indexOf(0.35) >= 0 && ducks[ducks.length - 1] === 1);
+    t('⑪-W4 장면마다 작품 악기 색 + 장면 분위기로 들어간다 · 대사 동안 음악을 줄였다가 되돌린다', w.eng.some((x) => x[0] === 'enter' && x[1] === WEPT.palette && x[2] === WEPT.scenes[0].mood && x[3] === false) && ducks.indexOf(0.35) >= 0 && ducks[ducks.length - 1] === 1);
     t('⑪-W5 끝나면 진행 상태가 비고 음악을 끈다', w.runner.state().running === false && w.eng.some((x) => x[0] === 'stop'));
     t('⑪-W22a 끝까지 보면 빌린 목소리 요소를 «전부 · 한 번씩 · 멈춘 채» 돌려준다(kit.release)', w.audios.length > 0 && w.returnedAll(), { audios: w.audios.length, released: w.released.length });
   }
@@ -1072,7 +1142,7 @@ async function watchChecks(src, verbose) {
   /* W4 멈춤 — 제목 카드에서 */
   {
     const w = watchWorld(W, { cardMs: 60 });
-    const p = w.runner.start([{ ep: WEP1, scIdx: 0, first: true }]);
+    const p = w.runner.start([{ ep: WEPT, scIdx: 0, first: true }]);
     w.runner.pause();
     const stP = w.runner.state();
     await wsleep(220);
@@ -1086,7 +1156,7 @@ async function watchChecks(src, verbose) {
   /* W5 멈춤 — 대사 중 */
   {
     const w = watchWorld(W, { clipMs: 60 });
-    const p = w.runner.start([{ ep: WEP1, scIdx: 0, first: true }]);
+    const p = w.runner.start([{ ep: WEPT, scIdx: 0, first: true }]);
     for (let k = 0; k < 100 && w.lines() === 0; k++) await wsleep(3);
     await wsleep(10);
     w.runner.pause();
@@ -1098,7 +1168,7 @@ async function watchChecks(src, verbose) {
     t('⑪-W11 대사 중 멈추면 목소리·영상이 «그 자리에서» 멈추고(재생 중 0) 다음 대사로 안 넘어간다', n1 >= 1 && n1 === n2 && playingAtPause === 0 && playingLater === 0, { n1, n2, playingAtPause, playingLater });
     w.runner.resume();
     const r = await wwithin(p, 5000);
-    t('⑪-W12 이어 가면 남은 대사까지 끝난다', !r.timeout && r.v === true && w.lines() === WEP1.scenes[0].lines.length, { r, lines: w.lines() });
+    t('⑪-W12 이어 가면 남은 대사까지 끝난다', !r.timeout && r.v === true && w.lines() === WEPT.scenes[0].lines.length, { r, lines: w.lines() });
   }
   /* W6 이전 */
   {
@@ -1133,22 +1203,22 @@ async function watchChecks(src, verbose) {
   /* W9 서버 목소리 실패 → 기기 목소리 */
   {
     const w = watchWorld(W, { ttsFail: true });
-    const r = await wwithin(w.runner.start([{ ep: WEP1, scIdx: 0, first: true }]), 4000);
-    t('⑪-W18 서버 목소리를 못 받으면 기기 목소리로 «그 대사를» 읽는다(대사 수 = 읽은 수)', !r.timeout && r.v === true && w.utters.length === WEP1.scenes[0].lines.length && w.utters[0] === WEP1.scenes[0].lines[0].en, { utters: w.utters.length });
+    const r = await wwithin(w.runner.start([{ ep: WEPT, scIdx: 0, first: true }]), 4000);
+    t('⑪-W18 서버 목소리를 못 받으면 기기 목소리로 «그 대사를» 읽는다(대사 수 = 읽은 수)', !r.timeout && r.v === true && w.utters.length === WEPT.scenes[0].lines.length && w.utters[0] === WEPT.scenes[0].lines[0].en, { utters: w.utters.length });
   }
   /* W10 도중에 새 판 */
   {
     const w = watchWorld(W);
     const p1 = w.runner.start(two());
     await wsleep(20);
-    const p2 = w.runner.start([{ ep: WEP1, scIdx: 1, first: true }]);
+    const p2 = w.runner.start([{ ep: WEPT, scIdx: 1, first: true }]);
     const [r1, r2] = await Promise.all([wwithin(p1, 4000), wwithin(p2, 4000)]);
     t('⑪-W19 도중에 새 판을 시작하면 옛 판은 조용히 끝나고(onEnd 1번 = 새 판) 새 판이 끝까지 간다', !r1.timeout && !r2.timeout && r2.v === true && JSON.stringify(w.ends()) === '[true]', { ends: w.ends() });
   }
   /* W11 빈 목록 */
   {
     const w = watchWorld(W);
-    const r = await wwithin(w.runner.start([{ ep: WEP1, scIdx: 99 }, null]), 1000);
+    const r = await wwithin(w.runner.start([{ ep: WEPT, scIdx: 99 }, null]), 1000);
     t('⑪-W20 재생할 장면이 없으면 곧바로 끝난다(onEnd(false) · 끝 카드 없음)', !r.timeout && r.v === false && JSON.stringify(w.ends()) === '[false]' && !w.log.some((x) => x[0] === 'card' && x[1] === 'END'), { r, ends: w.ends() });
   }
   t('⑪-W21 진행기는 마이크·녹음을 쓰지 않는다(getUserMedia·MediaRecorder 0)', !/getUserMedia|MediaRecorder/.test(stripJs(src)));
