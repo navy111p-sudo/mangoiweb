@@ -236,7 +236,6 @@ body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { 
         <button type="button" class="chip-btn" id="btn-myplay" data-i18n="myVoice">내 목소리</button>
       </div>
     </div>
-    <input type="file" id="rec-input" accept="audio/*" capture="user" hidden>
 
     <div class="transport">
       <button type="button" class="tbtn" id="btn-restart" data-i18n-aria="restart"><svg viewBox="0 0 24 24"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg></button>
@@ -597,7 +596,13 @@ const T = {
     rotate: '↻ 역할 돌아가며 바꾸기', roleHelp: '친구끼리 발표할 때는 두 명 이상을 고르세요. 고른 역할은 모두 음소거되고 나머지만 원어민 목소리로 나와요.',
     review: '내 더빙', helpReview: '상대 대사는 원래 목소리로, 내 대사는 내가 녹음한 목소리로 이어서 들려줘요.',
     recTitle: '내 녹음', recCount: (n, m) => `${n} / ${m}개 녹음`,
-    recHelp: '내 대사에서 "녹음하기"를 누르세요. 휴대폰은 녹음 앱이 열리고, 컴퓨터는 녹음 파일을 고르면 돼요. 녹음은 이 기기에만 저장돼요.',
+    recHelp: '내 대사에서 "녹음하기"를 누르세요. 마이크 접근을 허용하면 바로 녹음돼요. 마치려면 “녹음 완료”를 누르세요. 녹음은 이 기기에만 저장돼요.',
+    stopRecording: '녹음 완료', micWaiting: '마이크 연결 중…',
+    micRecording: '녹음 중입니다. 말을 마치면 녹음 완료를 누르세요.',
+    micUnsupported: '마이크 녹음을 지원하는 최신 브라우저에서 HTTPS 주소로 열어 주세요.',
+    micDenied: '마이크 권한을 허용한 뒤 다시 녹음하기를 눌러 주세요.',
+    micMissing: '마이크를 찾을 수 없어요. 연결을 확인해 주세요.',
+    micFailed: '녹음하지 못했어요. 마이크를 확인하고 다시 시도해 주세요.',
     record: '녹음하기', reRecord: '다시 녹음', myVoice: '내 목소리', reviewPlay: '내 더빙 감상', exportVideo: '더빙 영상 저장',
     clearAll: '녹음 지우기', clearAsk: '이 에피소드의 녹음을 모두 지울까요?', clearYes: '지우기', cancel: '취소',
     exporting: '더빙 영상 만드는 중', exportReady: '영상이 준비됐어요.', exportSaved: '영상을 내려받았어요. 다운로드 폴더를 확인하세요.',
@@ -626,7 +631,13 @@ const T = {
     rotate: '↻ Rotate roles', roleHelp: 'For a group performance, pick two or more roles. Every picked role is muted, and only the rest use native-speaker voices.',
     review: 'My dub', helpReview: 'Plays the other parts in their voices and your lines in your recorded voice.',
     recTitle: 'My recordings', recCount: (n, m) => `${n} / ${m} recorded`,
-    recHelp: 'Tap "Record" on your lines. Phones open the voice recorder; on a computer, choose a recorded file. Recordings stay on this device.',
+    recHelp: 'Tap "Record" on your lines. Allow microphone access to start recording. Tap “Finish recording” to save. Recordings stay on this device.',
+    stopRecording: 'Finish recording', micWaiting: 'Connecting microphone…',
+    micRecording: 'Recording. Tap Finish recording when you are done.',
+    micUnsupported: 'Open this HTTPS page in a current browser supporting microphone recording.',
+    micDenied: 'Allow microphone access, then tap Record again.',
+    micMissing: 'No microphone found. Check your connection.',
+    micFailed: 'Recording failed. Check your microphone and try again.',
     record: 'Record', reRecord: 'Record again', myVoice: 'My voice', reviewPlay: 'Play my dub', exportVideo: 'Save dub video',
     clearAll: 'Clear recordings', clearAsk: 'Delete all recordings for this episode?', clearYes: 'Delete', cancel: 'Cancel',
     exporting: 'Making your dub video', exportReady: 'Your video is ready.', exportSaved: 'Downloaded. Check your Downloads folder.',
@@ -940,26 +951,77 @@ function canPlay(blob) {
   });
 }
 
-let pendingRecIdx = null;
-function pickRecording(i) {
-  pendingRecIdx = i;
-  const input = $('rec-input');
-  input.value = '';
-  input.click();
+// Each session owns its destination key, including while permission is pending.
+let micSession = null;
+function recordingLabel(i) {
+  if (micSession && micSession.key === recKey(i)) {
+    return t(micSession.recorder ? 'stopRecording' : 'micWaiting');
+  }
+  return t(recFor(i) ? 'reRecord' : 'record');
 }
-async function onRecordingPicked() {
-  const file = $('rec-input').files?.[0];
-  const i = pendingRecIdx;
-  pendingRecIdx = null;
-  if (!file || i == null) return;
-  if (!(await canPlay(file))) { setStatus(t('recBad')); return; }
-  const key = recKey(i);
-  setRec(key, file);
-  dbWrite((s) => s.put(file, key));
-  setStatus(t('recSaved'));
-  renderRecUI(); renderCues(); renderCurrent();
+function stopMicRecording(discard = false) {
+  const session = micSession;
+  if (!session) return;
+  session.discard = session.discard || discard;
+  if (!session.stopping && session.recorder && session.recorder.state !== 'inactive') {
+    session.stopping = true;
+    session.recorder.stop();
+  } else if (!session.recorder) micSession = null;
+  if (discard) micSession = null;
+  if (session.stream) session.stream.getTracks().forEach(track => track.stop());
 }
+async function pickRecording(i) {
+  if (micSession) { stopMicRecording(); renderRecUI(); renderCues(); return; }
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    setStatus(t('micUnsupported')); return;
+  }
+  pause();
+  state.idx = i;
+  const session = { key: recKey(i), recorder: null, stream: null, discard: false };
+  micSession = session;
+  setStatus(t('micWaiting')); renderCurrent(); renderCues();
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (micSession !== session || session.discard) {
+      stream.getTracks().forEach(track => track.stop()); return;
+    }
+    session.stream = stream;
+    const recorder = new MediaRecorder(stream);
+    session.recorder = recorder;
+    const chunks = [];
+    recorder.ondataavailable = event => { if (event.data?.size) chunks.push(event.data); };
+    recorder.onerror = () => {
+      session.discard = true;
+      stopMicRecording();
+      if (micSession === session) micSession = null;
+      setStatus(t('micFailed')); renderRecUI(); renderCues();
+    };
+    recorder.onstop = () => {
+      stream.getTracks().forEach(track => track.stop());
+      if (micSession === session) micSession = null;
+      if (!session.discard) {
+        const blob = new Blob(chunks, { type: recorder.mimeType || chunks[0]?.type || 'audio/webm' });
+        if (blob.size) {
+          setRec(session.key, blob);
+          dbWrite(store => store.put(blob, session.key));
+          setStatus(t('recSaved'));
+        } else setStatus(t('micFailed'));
+      }
+      renderRecUI(); renderCues();
+    };
+    recorder.start();
+    setStatus(t('micRecording')); renderRecUI(); renderCues();
+  } catch (error) {
+    if (session.stream) session.stream.getTracks().forEach(track => track.stop());
+    if (micSession !== session) return;
+    micSession = null;
+    setStatus(t(error.name === 'NotAllowedError' ? 'micDenied' : error.name === 'NotFoundError' ? 'micMissing' : 'micFailed'));
+    renderRecUI(); renderCues();
+  }
+}
+window.addEventListener('pagehide', () => stopMicRecording(true));
 function playMyVoice(i) {
+  stopMicRecording();
   const r = recFor(i);
   if (!r) return;
   pause();
@@ -1170,6 +1232,7 @@ function advance(run) {
   else finishEpisode();
 }
 function play() {
+  stopMicRecording();
   if (!state.roles.size) return;
   if (state.finished) state.idx = 0;
   state.playing = true; state.single = false;
@@ -1185,6 +1248,7 @@ function pause() {
   renderTransport();
 }
 function jump(i, keepPlaying = state.playing) {
+  stopMicRecording();
   const n = lines().length;
   state.idx = Math.max(0, Math.min(n - 1, i));
   state.finished = false;
@@ -1194,6 +1258,7 @@ function jump(i, keepPlaying = state.playing) {
   renderTransport();
 }
 function repeatLine() {
+  stopMicRecording();
   if (!state.roles.size) return;
   state.playing = true; state.single = true;
   runLine(state.idx);
@@ -1239,6 +1304,7 @@ function pickMime() {
 }
 
 function startExport() {
+  if (micSession) { setStatus(t('micRecording')); return; }
   if (!canExport()) { setStatus(t('exportFail')); return; }
   const ctx = audioCtx();
   ctx.resume();
@@ -1321,6 +1387,7 @@ function finishExport(save) {
   if (rec.state !== 'inactive') rec.stop();
 }
 function resetEpisode() {
+  stopMicRecording(true);
   state.playing = false; state.finished = false; state.idx = 0;
   stopAll();
   stopMusic();
@@ -1412,10 +1479,11 @@ function cueRecButtons(i) {
   const add = (label, cls, fn) => {
     const b = document.createElement('button');
     b.type = 'button'; b.textContent = label; if (cls) b.className = cls;
+    b.disabled = Boolean(micSession && micSession.key !== recKey(i));
     b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
     box.appendChild(b);
   };
-  add((has ? '● ' : '🎤 ') + t(has ? 'reRecord' : 'record'), has ? 'has' : '', () => pickRecording(i));
+  add((has ? '● ' : '🎤 ') + recordingLabel(i), has ? 'has' : '', () => pickRecording(i));
   if (has) add('▶ ' + t('myVoice'), 'has', () => playMyVoice(i));
   return box;
 }
@@ -1433,7 +1501,8 @@ function renderRecUI() {
   $('cap-actions').hidden = !showCap;
   if (showCap) {
     const has = Boolean(recFor(state.idx));
-    $('btn-rec-label').textContent = t(has ? 'reRecord' : 'record');
+    $('btn-rec-label').textContent = recordingLabel(state.idx);
+    $('btn-rec').disabled = Boolean(micSession && micSession.key !== recKey(state.idx));
     $('btn-myplay').hidden = !has;
   }
 }
@@ -1508,7 +1577,6 @@ $('btn-rotate').addEventListener('click', () => {
 });
 
 /* 녹음 */
-$('rec-input').addEventListener('change', onRecordingPicked);
 $('btn-rec').addEventListener('click', () => pickRecording(state.idx));
 $('btn-myplay').addEventListener('click', () => playMyVoice(state.idx));
 $('btn-review').addEventListener('click', () => {
@@ -1520,6 +1588,7 @@ $('btn-export-cancel').addEventListener('click', pause);
 $('btn-clear').addEventListener('click', () => { $('clear-confirm').hidden = false; });
 $('btn-clear-no').addEventListener('click', () => { $('clear-confirm').hidden = true; });
 $('btn-clear-yes').addEventListener('click', () => {
+  stopMicRecording(true);
   lines().forEach((_, i) => deleteRec(recKey(i)));
   $('clear-confirm').hidden = true;
   setStatus(t('cleared'));
