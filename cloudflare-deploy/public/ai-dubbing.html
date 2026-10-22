@@ -229,6 +229,8 @@
   .tc-t{font-size:clamp(22px,5vw,44px);font-weight:900;line-height:1.15;color:var(--gold)}
   .tc-s{font-size:clamp(14px,2.6vw,22px);font-weight:800;word-break:keep-all}
   .stage.noko .sub .ko{display:none}
+  .sub .en:empty,.sub .ko:empty{display:none}
+  #dub-script-mode{font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:#14213a;color:#fff;max-width:100%}
   .wrow .btn{min-width:84px}
 
   /* « 폰 아래 고정 바 · 바텀시트 » — 넓은 화면에서는 안 보인다 */
@@ -435,7 +437,14 @@
         <div class="nudge" id="dub-nudge" hidden></div>
         <div class="opts" id="dub-all-row" hidden>
           <label class="opt"><input type="checkbox" id="dub-make-movie" checked> <span data-ko="완성 영상 만들기" data-en="Make my movie">완성 영상 만들기</span></label>
-          <label class="opt"><input type="checkbox" id="dub-listen-first" checked> <span data-ko="👂 내 대사도 먼저 듣고 따라 말하기(연습)" data-en="👂 Hear my lines first, then repeat (practice)">👂 내 대사도 먼저 듣고 따라 말하기(연습)</span></label>
+          <label class="opt" for="dub-script-mode"><span data-ko="더빙 대사 표시" data-en="Dubbing script">더빙 대사 표시</span>
+            <select id="dub-script-mode">
+              <option value="en" data-ko="영어 대사 보기" data-en="English lines">영어 대사 보기</option>
+              <option value="ko" data-ko="한글 해석만 보기" data-en="Korean translation only">한글 해석만 보기</option>
+              <option value="none" data-ko="대사 없이 하기" data-en="No script">대사 없이 하기</option>
+            </select>
+          </label>
+          <p class="hint"><span data-ko="연습은 에피소드의 먼저 보기를 눌러 모든 배역의 음성을 들어보세요. 더빙에서는 고른 배역의 원어민 음성만 꺼지고 직접 녹음해요. 대사 표시 선택은 완성 영상에도 적용돼요." data-en="Practice with Watch to hear every role. When dubbing, only your selected roles are muted for you to record. Your script choice also applies to the finished movie.">연습은 에피소드의 먼저 보기를 눌러 모든 배역의 음성을 들어보세요. 더빙에서는 고른 배역의 원어민 음성만 꺼지고 직접 녹음해요. 대사 표시 선택은 완성 영상에도 적용돼요.</span></p>
           <button type="button" class="btn big cta" id="dub-start" disabled><span data-ko="▶ 이 에피소드 더빙 시작" data-en="▶ Dub this episode">▶ 이 에피소드 더빙 시작</span></button>
           <button type="button" class="btn go" id="dub-all"><span data-ko="▶ 처음부터 끝까지 이어서 더빙" data-en="▶ Dub all episodes in a row">▶ 처음부터 끝까지 이어서 더빙</span></button>
           <p class="flow"><span data-ko="더빙이 끝나면 AI 평가 → 완성 영상 다시 보기로 이어져요." data-en="After dubbing: AI feedback → watch your movie.">더빙이 끝나면 AI 평가 → 완성 영상 다시 보기로 이어져요.</span></p>
@@ -483,6 +492,6 @@
 <script defer src="/js/ai-dubbing-core.js?v=4"></script>
 <script defer src="/js/ai-dubbing-sound.js?v=2"></script>
 <script defer src="/js/ai-dubbing-watch.js?v=3"></script>
-<script defer src="/js/ai-dubbing.js?v=8"></script>
+<script defer src="/js/ai-dubbing.js?v=9"></script>
 </body>
 </html>

@@ -167,7 +167,7 @@ if (C) {
 }
 
 console.log('\n③ 배선');
-ok(/<script src="\/js\/reading-ladder-data\.js\?v=\d+"><\/script>\s*<script src="\/js\/reading-ladder-art\.js\?v=\d+"><\/script>\s*<script src="\/js\/reading-ladder\.js\?v=\d+"><\/script>/.test(HTML), 'stories.html 이 데이터 → 화풍 → 엔진 순서로 싣는다');
+ok(/<script src="\/js\/reading-ladder-data\.js\?v=\d+"><\/script>\s*<script src="\/js\/reading-ladder-art\.js\?v=\d+"><\/script>\s*<script src="\/js\/story-audio\.js\?v=\d+"><\/script>\s*<script src="\/js\/reading-ladder\.js\?v=\d+"><\/script>/.test(HTML), 'stories.html 이 데이터 → 화풍 → 서버 음성 → 엔진 순서로 싣는다');
 ok(/window\.__storyLang\s*=/.test(HTML) && /window\.__storyBooksHtml\s*=/.test(HTML), 'stories.html 이 언어·그림 동화책 목록을 넘겨 준다');
 ok(/dispatchEvent\(new Event\('story:lang'\)\)/.test(HTML) && /addEventListener\('story:lang'/.test(JS_SRC), '언어를 바꾸면 사다리도 다시 그린다');
 ok((JS_SRC.match(/data-act="stage" data-stage="/g) || []).length >= 3 && /if \(act === 'stage'\)/.test(JS_SRC), '단계 계단·단계 드롭다운·«올라가기» 가 모두 data-act="stage" 로 눌린다(빠지면 무동작)');

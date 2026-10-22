@@ -33,7 +33,7 @@ const okv = (c, m) => { if (c) { PASS++; console.log('  ✅ ' + m); } else { FAI
 
 // 표지 갤러리는 목록 화면이며 읽기·도장 활동은 없다. 별도 gallery 하니스가 검사한다.
 const FILES = readdirSync(PUB).filter((f) => /^story-.+\.html$/.test(f) && f !== 'story-cover-gallery.html').sort();
-const START = '  // ---- speech ----';
+const START = '  // ---- speech: server MP3 works without installed English voices ----';
 const END = "  document.getElementById('stopAll').addEventListener('click', stop);";
 
 /** 대괄호 짝으로 리터럴을 오려 냄(문자열 안 괄호는 건너뜀). */
@@ -85,9 +85,16 @@ function boot(block, STORY, opts = {}) {
     createElement: (tag) => el(tag), createTextNode: (text) => ({ text }),
     querySelectorAll: (sel) => (sel === '.s.pick' ? spansOf().filter((s) => s.classList.contains('pick')) : []),
   };
-  const synth = opts.noSynth ? null : fakeSynth();
+  const synth = fakeSynth();
   const st = opts.state || {};
-  const window = { speechSynthesis: synth, StoryFun: { state: () => st } };
+  const window = { speechSynthesis: opts.noSynth ? null : synth, StoryFun: { state: () => st },
+    // Simulated media backend; actual StoryAudio cancellation/error behavior is
+    // covered separately by story_audio_stress_harness and the browser sandbox.
+    StoryAudio: {
+      speak(text, rate, onend) { if (!opts.audioFailure) synth.speak({ text, onend }); },
+      stop() { synth.cancel(); },
+    },
+  };
   const done = [];
   function SpeechSynthesisUtterance(text) { this.text = text; this.onend = null; }
   let spansRef = null;
@@ -183,9 +190,15 @@ function scenarios(block, STORY) {
     b.window.__storyReadReset && b.window.__storyReadReset();   // 표시를 한 번 그리게
     return /이미 받았어요/.test(b.prog()) || b.prog();
   });
-  T('소리를 못 내는 브라우저는 예전처럼 «처음부터 듣기» 로 도장', () => {
+  T('기기 음성 없는 브라우저도 서버 음성을 끝까지 들어야 도장', () => {
     const b = boot(block, STORY, { noSynth: true }); b.readAll();
+    if (b.readDone() !== 0) return 'stamped before audio ended';
+    for (let i = 0; i < N; i++) b.end();
     return b.readDone() === 1 || 'done ' + b.readDone();
+  });
+  T('서버 음성 실패를 읽기 완료로 세지 않음', () => {
+    const b = boot(block, STORY, { noSynth: true, audioFailure: true }); b.readAll();
+    return b.readDone() === 0 && b.api.RT().count() === 0 || 'false completion';
   });
   return bad;
 }
@@ -240,7 +253,7 @@ if (templateBlock) {
     ['문장 누르기가 끝을 안 기다림(누르면 바로 셈)', 'say(sp.textContent, function(){ RT.heardTo(at, g); });', 'say(sp.textContent); RT.heardTo(at, g);'],
     ['초기화가 안 지움', 'reset: function(){ heard = {}; n = 0; gen++; onChange(); }', 'reset: function(){ onChange(); }'],
     ['처음부터 듣기 끝에 무조건 도장(옛 코드)', 'if (i >= spans.length) { playing = false; return; }', "if (i >= spans.length) { playing = false; storyDone('read'); return; }"],
-    ['stop() 이 표시를 늦게 내림(멈춘 뒤 다음 문장을 읽음)', 'function stop(){ playing = false; sumSeq = (sumSeq || 0) + 1; if (RT) RT.cancel(); try { if (synth) synth.cancel(); } catch(e){}', 'function stop(){ sumSeq = (sumSeq || 0) + 1; if (RT) RT.cancel(); try { if (synth) synth.cancel(); } catch(e){} playing = false;'],
+    ['stop() 이 표시를 늦게 내림(멈춘 뒤 다음 문장을 읽음)', 'function stop(){ playing = false; sumSeq = (sumSeq || 0) + 1; if (RT) RT.cancel(); window.StoryAudio.stop();', 'function stop(){ sumSeq = (sumSeq || 0) + 1; if (RT) RT.cancel(); window.StoryAudio.stop(); playing = false;'],
   ];
   for (const [name, from, to] of MUT) {
     const n = templateBlock.split(from).length - 1;
