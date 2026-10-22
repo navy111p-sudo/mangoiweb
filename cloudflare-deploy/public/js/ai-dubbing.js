@@ -504,7 +504,7 @@
     var p = sndPrefs(), e = snd();
     if (e) e.setEnabled(p.music, p.sfx);
     BGM_ROUTES.forEach(setBgmLevel);
-    var st = $('dub-stage'); if (st) st.classList.toggle('noko', !p.ko);
+    var st = $('dub-stage'); if (st) st.classList.toggle('noko', S.watching && !p.ko);
     ['music', 'sfx', 'ko'].forEach(function (k) { var b = $('dub-snd-' + k); if (b) b.checked = p[k]; });
   }
 
@@ -817,7 +817,7 @@
       g.fillStyle = '#000'; g.fillRect(0, 0, cv.width, cv.height);
       if (mv.hasFrame) g.drawImage(frame, 0, 0);
       var sub = run.sub;
-      if (sub && sub.en) {
+      if (sub && (sub.en || sub.ko)) {
         g.fillStyle = 'rgba(5,8,14,.78)';
         g.fillRect(40, cv.height - 128, cv.width - 80, 104);
         g.textAlign = 'center';
@@ -825,8 +825,8 @@
         g.font = 'bold 20px MangoiHanSC,"Noto Sans KR",sans-serif';
         g.fillText(sub.who || '', cv.width / 2, cv.height - 98);
         g.fillStyle = '#fff'; g.font = 'bold 30px MangoiHanSC,"Noto Sans KR",sans-serif';
-        g.fillText(sub.en, cv.width / 2, cv.height - 62, cv.width - 110);
-        if (sub.ko) { g.fillStyle = '#cbd5e1'; g.font = '18px MangoiHanSC,"Noto Sans KR",sans-serif'; g.fillText(sub.ko, cv.width / 2, cv.height - 34, cv.width - 110); }
+        g.fillText(sub.en || sub.ko, cv.width / 2, cv.height - 62, cv.width - 110);
+        if (sub.en && sub.ko) { g.fillStyle = '#cbd5e1'; g.font = '18px MangoiHanSC,"Noto Sans KR",sans-serif'; g.fillText(sub.ko, cv.width / 2, cv.height - 34, cv.width - 110); }
       }
       g.textAlign = 'right'; g.fillStyle = 'rgba(255,255,255,.65)'; g.font = 'bold 16px MangoiHanSC,"Noto Sans KR",sans-serif';
       g.fillText('mangoi.ai', cv.width - 18, 28);
@@ -843,27 +843,16 @@
       var t0 = Date.now();
       (function go() {
         if (!mv.rec || mv.rec.state !== 'inactive' || mv.stopped) return;
-        if (mv.hasFrame || mv.tainted || Date.now() - t0 > 4000) { try { mv.rec.start(1000); if (mv.held) mv.rec.pause(); } catch (e) {} return; }
+        if (mv.hasFrame || mv.tainted || Date.now() - t0 > 4000) { try { mv.rec.start(1000); } catch (e) {} return; }
         mv.startTimer = setTimeout(go, 100);
       })();
       return mv;
     } catch (e) { clearInterval(mv.timer); return null; }
   }
-  /* «먼저 들어 보기» 동안 완성 영상 녹화를 잠깐 멈춘다(그 구간이 완성 영상에 빈칸·원어민 소리로 남지 않게).
-   * 녹화가 아직 시작 전이면 «멈춰 둬야 함» 만 적어 두고, 시작하는 순간 바로 멈춘다(mv.held). */
-  function pauseMovie(mv, on) {
-    if (!mv || !mv.rec) return;
-    mv.held = !!on;
-    try {
-      if (on && mv.rec.state === 'recording') mv.rec.pause();
-      else if (!on && mv.rec.state === 'paused') mv.rec.resume();
-    } catch (e) {}
-  }
   function stopMovie(mv) {
     if (!mv) return Promise.resolve(null);
     clearInterval(mv.timer); clearTimeout(mv.startTimer); mv.stopped = true;
     if (!mv.rec || mv.rec.state === 'inactive') return Promise.resolve(null);
-    pauseMovie(mv, false);
     return new Promise(function (res) {
       mv.rec.onstop = function () {
         if (!mv.chunks.length) { res(null); return; }
@@ -875,17 +864,27 @@
   }
 
   /* ── 무대(화면 위 자막·차례 안내) ──────────────────────────────────────── */
+  // Practice uses wShowLine with both languages. Dubbing snapshots this choice per run.
+  function scriptMode() {
+    var el = $('dub-script-mode'), mode = el && el.value;
+    return mode === 'ko' || mode === 'none' ? mode : 'en';
+  }
+  function dubbingText(line, mode) {
+    return { en: mode === 'en' ? line.en : '', ko: mode === 'ko' ? (line.ko || '') : '' };
+  }
   function showLine(run, line, performer) {
     var student = performer.type === 'student';
     var who = (S.ep.characters[line.speaker].emoji + ' ' + charName(line.speaker))
       + (student ? ' — 🎤 ' + studentName(performer.idx) : '');
-    run.sub = { who: who, en: line.en, ko: line.ko, student: student };
+    var text = dubbingText(line, run.scriptMode);
+    run.sub = { who: who, en: text.en, ko: text.ko, student: student };
     var box = $('dub-sub');
     box.hidden = false;
     box.classList.toggle('me', student);
+    $('dub-stage').classList.remove('noko');
     $('dub-sub-who').textContent = who;
-    $('dub-sub-en').textContent = line.en;
-    $('dub-sub-ko').textContent = line.ko || '';
+    $('dub-sub-en').textContent = text.en;
+    $('dub-sub-ko').textContent = text.ko;
   }
   function clearLine(run) { run.sub = null; var b = $('dub-sub'); if (b) b.hidden = true; }
   function setTurn(text) { var t = $('dub-turn'); if (!t) return; t.hidden = !text; t.textContent = text || ''; }
@@ -908,28 +907,10 @@
   }
 
   /* 학생 한 줄(차례 모드) — 준비 신호 → 마이크 → 말이 끝나면(조용 1.3초)·최대 시간·«다 말했어요» 중 먼저 오는 것에서 끝 */
-  /* 👂 먼저 들어 보기(연습) — 학생 대사도 원어민 목소리로 한 번 들려준 뒤 따라 말하게 한다.
-   * 흐름: 듣기 → 따라 말하기(=더빙, 채점) → 완성 영상. 끄면 듣지 않고 바로 더빙한다(실전).
-   * ⛔ 이 소리는 완성 영상에 넣지 않는다(noRec + 녹화 잠깐 멈춤) — 영화에는 학생 목소리만 남아야 한다.
-   * «넘어가기» 는 듣기만 건너뛰고 말하기로 간다. */
-  function listenFirst(run, it) {
-    if (!run.listenFirst) return Promise.resolve();
-    setButtons('native');
-    setTurn('👂 ' + T('먼저 들어 보세요', 'Listen first'));
-    pauseMovie(run.movie, true);
-    var skipped = false;
-    run.skipNow = function () { skipped = true; run.wakers.splice(0).forEach(function (w) { try { w(); } catch (e) {} }); };
-    return speakNative(run, it.line, true, function () { return skipped; }).then(function () {
-      run.skipNow = null;
-      pauseMovie(run.movie, false);
-      return sleep(250, run);
-    });
-  }
-
   function studentTurn(run, sc, it) {
     var idx = it.performer.idx;
     var res = { key: sc.no + ':' + it.line.id + ':' + Date.now(), sceneNo: sc.no, line: it.line, studentIdx: idx, status: 'queued' };
-    return listenFirst(run, it).then(function () {
+    return Promise.resolve().then(function () {
       if (run.aborted) return;
       setButtons('student');
       setTurn('🎤 ' + studentName(idx) + T(' 차례예요!', "'s turn!"));
@@ -1100,7 +1081,7 @@
     var v = $('dub-video');
     setNote(''); clearLine(run); setTurn('');
     setProg(T('에피소드 ' + sc.no + ' 불러오는 중…', 'Loading episode ' + sc.no + '…'));
-    if (sc.voiceMode === 'tts') prefetchScene(sc, run.listenFirst);
+    if (sc.voiceMode === 'tts') prefetchScene(sc, false);
     loadSceneVideo(v, sc);
     sndEnter(S.ep, sc);                              // 🎵 작품 악기 색 + 장면 분위기(배경음악 파일이 있으면 그 파일이 이긴다)
     return waitVideo(v, 10000).then(function (ok) {
@@ -1125,7 +1106,7 @@
     if (mode !== 'watch' && $('dub-tcard')) $('dub-tcard').hidden = true;
   }
   /* 더빙·먼저 보기 중에는 고르기·출연 설정을 잠근다(둘이 동시에 돌지 않게) */
-  var LOCK_SEL = '#dub-scenes button, #dub-all, #dub-start, #dub-genres button, #dub-cast button, #dub-cast input, #dub-make-movie, #dub-listen-first, #dub-w-film, #dub-w-all, #dub-nudge button';
+  var LOCK_SEL = '#dub-scenes button, #dub-all, #dub-start, #dub-genres button, #dub-cast button, #dub-cast input, #dub-make-movie, #dub-script-mode, #dub-w-film, #dub-w-all, #dub-nudge button';
   function lockUi(on) { Array.prototype.forEach.call(document.querySelectorAll(LOCK_SEL), function (b) { b.disabled = on; }); }
   function setRunning(on) {
     setPlayerMode(on ? 'dub' : 'off');
@@ -1146,7 +1127,7 @@
     if (probs.length) { alert(T('학생마다 캐릭터를 골라 주세요.', 'Please pick a character for each student.')); return; }
     ensureMix();                                     // ⚠️ 클릭 안에서 만들어야 소리가 난다(자동재생 정책)
     var run = { aborted: false, counters: {}, wakers: [], sub: null, mic: null, movie: null, tracks: [], deviceVoiceUsed: false,
-      listenFirst: !!($('dub-listen-first') && $('dub-listen-first').checked) };
+      scriptMode: scriptMode() };
     S.run = run;
     closeSheet();
     setRunning(true);
@@ -1282,6 +1263,7 @@
     box.hidden = false;
     box.classList.remove('me');
     $('dub-sub-who').textContent = c ? c.emoji + ' ' + T(c.name.ko, c.name.en) : line.speaker;
+    $('dub-stage').classList.toggle('noko', !sndPrefs().ko);
     $('dub-sub-en').textContent = line.en;
     $('dub-sub-ko').textContent = line.ko || '';
   }
