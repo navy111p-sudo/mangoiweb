@@ -403,11 +403,11 @@ console.log('\n⑤ 큰 PC 화면 zoom 단계(2026-10-19 「글자가 너무 작�
 }
 
 // 🇰🇷 중심 내용 보기에는 우리말 해석을 붙이지 않는다(2026-10-21 사장님 — 아이들이 영어 대신 해석만 읽음).
-//    본문 문장의 «해석 보기» 토글(s.ko)은 그대로 둔다(짝).
+//    2026-10-22: 본문 해석 토글도 제거한다.
 {
   const code = JS_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
   ok(!/esc\(o\.ko\)/.test(code), '중심 내용 보기(본 읽기·반복 연습)에 우리말 해석(o.ko)을 그리지 않는다');
-  ok(/view\.showKo \? '<span class="rl-ko">' \+ esc\(s\.ko\)/.test(code), '(짝) 본문 문장의 «해석 보기» 는 그대로 남아 있다');
+  ok(!/showKo|data-act="ko"|esc\(s\.ko\)/.test(code), '본문 읽기와 반복 연습에 해석 버튼·본문 해석이 없다');
 }
 
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);
