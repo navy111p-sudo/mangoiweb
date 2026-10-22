@@ -163,6 +163,7 @@
   .btn:disabled{opacity:.45;cursor:not-allowed}
   .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .opts{display:flex;flex-direction:column;gap:6px}
+  #dub-mode{max-width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);font:inherit}
   .opt{display:flex;align-items:center;gap:8px;font-size:13.5px}
   .opt input{width:18px;height:18px;flex:none}
   .flow{margin:0;font-size:12.5px;color:var(--text2);text-align:center}
@@ -340,6 +341,7 @@
     </div>
     <div class="meter" id="dub-meter-wrap" aria-hidden="true"><i id="dub-meter"></i></div>
     <div class="row" id="dub-d-row">
+      <label class="opt" id="dub-live-korean-option" hidden><input type="checkbox" id="dub-live-korean"> <span data-ko="한국어 자막 켜기" data-en="Show Korean subtitles">한국어 자막 켜기</span></label>
       <button type="button" class="btn ok" id="dub-done" disabled><span data-ko="✅ 다 말했어요" data-en="✅ I'm done">✅ 다 말했어요</span></button>
       <button type="button" class="btn" id="dub-skip" disabled><span data-ko="⏭ 넘어가기" data-en="⏭ Skip">⏭ 넘어가기</span></button>
       <button type="button" class="btn warn" id="dub-stop"><span data-ko="⏹ 그만하기" data-en="⏹ Stop">⏹ 그만하기</span></button>
@@ -407,7 +409,7 @@
       <section class="panel" aria-label="에피소드 고르기">
         <div>
           <h2><span data-ko="2. 에피소드 고르기" data-en="2. Pick an episode">2. 에피소드 고르기</span></h2>
-          <p class="hint"><span data-ko="에피소드를 누르면 오른쪽에서 출연 설정을 하고 시작해요." data-en="Tap an episode, then set the cast on the right and start.">에피소드를 누르면 오른쪽에서 출연 설정을 하고 시작해요.</span></p>
+          <p class="hint"><span data-ko="에피소드를 고른 뒤 ‘역할 정하러 가기’를 눌러요. 3번에서 모둠의 역할과 연습·발표를 정해요." data-en="Pick an episode and choose roles. In step 3, assign your group’s parts and choose practice or presentation.">에피소드를 고른 뒤 ‘역할 정하러 가기’를 눌러요. 3번에서 모둠의 역할과 연습·발표를 정해요.</span></p>
         </div>
         <div class="scenes" id="dub-scenes">
           <div class="scene" aria-disabled="true"><span class="thumb"><span class="epn">EP 1</span><span data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</span></span><span class="tag s1" data-ko="1. 신나는 모험의 시작!" data-en="1. The adventure begins!">1. 신나는 모험의 시작!</span></div>
@@ -428,15 +430,22 @@
       <section class="panel" id="dub-cast-panel" aria-label="누가 연기할까요" hidden>
         <div>
           <h2><span data-ko="3. 누가 연기할까요?" data-en="3. Who will act?">3. 누가 연기할까요?</span></h2>
-          <p class="hint"><span data-ko="1~5명이 함께 할 수 있어요. 학생이 고른 캐릭터는 원어민 목소리가 꺼지고 학생이 말해요. 같은 캐릭터를 여러 명이 고르면 그 캐릭터 대사를 번갈아 말해요." data-en="1 to 5 students can play together. The characters students pick are muted so the students speak. If several students pick the same character, they take turns with its lines.">1~5명이 함께 할 수 있어요. 학생이 고른 캐릭터는 원어민 목소리가 꺼지고 학생이 말해요. 같은 캐릭터를 여러 명이 고르면 그 캐릭터 대사를 번갈아 말해요.</span></p>
+          <p class="hint"><span data-ko="모둠 1~5명이 한 컴퓨터와 마이크를 함께 사용해요. 각자 이름과 역할을 정하고, 같은 영상을 보며 자기 차례에 말해요. 맡은 역할의 원어민 목소리는 꺼져요. 같은 역할을 고르면 대사를 번갈아 말해요. 모둠의 목소리는 하나의 완성 영상에 담겨요." data-en="1 to 5 students share one computer and microphone. Set each student’s name and role, watch the same video and speak on your turn. Native voices for your roles are muted. Students sharing a role take turns. Your group’s voices are recorded in one movie.">모둠 1~5명이 한 컴퓨터와 마이크를 함께 사용해요. 각자 이름과 역할을 정하고, 같은 영상을 보며 자기 차례에 말해요. 맡은 역할의 원어민 목소리는 꺼져요. 같은 역할을 고르면 대사를 번갈아 말해요. 모둠의 목소리는 하나의 완성 영상에 담겨요.</span></p>
         </div>
         <div class="pick-sum" id="dub-pick-sum"></div>
         <div id="dub-cast"></div>
         <div class="nudge" id="dub-nudge" hidden></div>
         <div class="opts" id="dub-all-row" hidden>
+          <label class="opt" for="dub-mode"><span data-ko="진행 방식" data-en="Mode">진행 방식</span>
+            <select id="dub-mode">
+              <option value="practice" data-ko="연습 — 영어·한국어 자막" data-en="Practice — English and Korean subtitles">연습 — 영어·한국어 자막</option>
+              <option value="presentation" data-ko="발표 더빙 — 기본 자막 없음" data-en="Presentation dubbing — no subtitles by default">발표 더빙 — 기본 자막 없음</option>
+            </select>
+          </label>
+          <label class="opt" id="dub-korean-option" hidden><input type="checkbox" id="dub-korean"> <span data-ko="한국어 자막 켜기" data-en="Show Korean subtitles">한국어 자막 켜기</span></label>
           <label class="opt"><input type="checkbox" id="dub-make-movie" checked> <span data-ko="완성 영상 만들기" data-en="Make my movie">완성 영상 만들기</span></label>
-          <label class="opt"><input type="checkbox" id="dub-listen-first" checked> <span data-ko="👂 내 대사도 먼저 듣고 따라 말하기(연습)" data-en="👂 Hear my lines first, then repeat (practice)">👂 내 대사도 먼저 듣고 따라 말하기(연습)</span></label>
-          <button type="button" class="btn big cta" id="dub-start" disabled><span data-ko="▶ 이 에피소드 더빙 시작" data-en="▶ Dub this episode">▶ 이 에피소드 더빙 시작</span></button>
+          <label class="opt" id="dub-listen-option"><input type="checkbox" id="dub-listen-first" checked> <span data-ko="👂 내 대사도 먼저 듣고 따라 말하기(연습)" data-en="👂 Hear my lines first, then repeat (practice)">👂 내 대사도 먼저 듣고 따라 말하기(연습)</span></label>
+          <button type="button" class="btn big cta" id="dub-start" disabled><span data-ko="▶ 연습 시작" data-en="▶ Start practice">▶ 연습 시작</span></button>
           <button type="button" class="btn go" id="dub-all"><span data-ko="▶ 처음부터 끝까지 이어서 더빙" data-en="▶ Dub all episodes in a row">▶ 처음부터 끝까지 이어서 더빙</span></button>
           <p class="flow"><span data-ko="더빙이 끝나면 AI 평가 → 완성 영상 다시 보기로 이어져요." data-en="After dubbing: AI feedback → watch your movie.">더빙이 끝나면 AI 평가 → 완성 영상 다시 보기로 이어져요.</span></p>
         </div>
@@ -483,6 +492,6 @@
 <script defer src="/js/ai-dubbing-core.js?v=4"></script>
 <script defer src="/js/ai-dubbing-sound.js?v=2"></script>
 <script defer src="/js/ai-dubbing-watch.js?v=3"></script>
-<script defer src="/js/ai-dubbing.js?v=8"></script>
+<script defer src="/js/ai-dubbing.js?v=9"></script>
 </body>
 </html>
