@@ -483,7 +483,10 @@
         }[res.verdict];
         fb = '<p class="rl-fb ' + (res.verdict === 'great' || res.verdict === 'good' ? 'ok' : 'no') + '">' + esc(msg) + '</p>';
       }
-      s3 = '<section class="rl-step' + (sumDone ? ' fin' : ' cur') + '"><h3>③ ' + esc(T('핵심을 영어 한 문장으로', 'Write the main idea in one sentence')) + (sumDone ? ' ✅' : '') + '</h3>' +
+      s3 = '<section class="rl-step' + (sumDone ? ' fin' : ' cur') + '"><h3>③ ' + esc(T('핵심문장 응용해서 쓰기', 'Adapt the key sentence')) + (sumDone ? ' ✅' : '') + '</h3>' +
+        '<p class="rl-q">' + esc(T('핵심문장의 구조와 시제는 그대로 두고, 표시된 요소 하나만 바꿔 써 보세요.', 'Keep the sentence structure and tense. Change only the indicated element.')) + '</p>' +
+        '<p class="rl-q">' + esc(T('핵심문장: ', 'Key sentence: ')) + '<span class="rl-en">' + esc(p.sentences[p.key].en) + '</span></p>' +
+        '<p class="rl-q">' + esc(T('바꿀 표현: ', 'Change: ')) + '<b>' + esc(p.summary.change.from) + ' → ' + esc(p.summary.change.to) + '</b></p>' +
         '<p class="rl-q">' + esc(T('이 우리말을 영어로 써 보세요: ', 'Write this in English: ')) + '<b>' + esc(p.summary.ko) + '</b></p>' +
         '<div class="rl-chips"><span class="rl-chiplab">' + esc(T('힌트 낱말', 'Hint words')) + '</span>' +
         p.summary.keywords.map(function (k) { return '<span class="rl-chip">' + esc(k) + '</span>'; }).join('') + '</div>' +
