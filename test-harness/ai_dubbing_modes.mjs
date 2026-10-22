@@ -2,6 +2,8 @@
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+const core = createRequire(import.meta.url)('../cloudflare-deploy/public/js/ai-dubbing-core.js');
 const source = readFileSync(new URL('../cloudflare-deploy/public/js/ai-dubbing.js', import.meta.url), 'utf8');
 const elements = new Map();
 const el = id => {
@@ -16,13 +18,14 @@ const context2d = { fillRect() {}, drawImage() {}, getImageData() {}, fillText(t
 class Recorder { constructor() { this.state = 'inactive'; } start() { this.state = 'recording'; } }
 const document = { readyState: 'loading', addEventListener() {}, getElementById: el,
   createElement: () => ({ getContext: () => context2d, captureStream: () => ({ addTrack() {} }) }) };
-const window = { MangoiDubCore: {}, MediaRecorder: Recorder };
-const sandbox = { window, document, MediaRecorder: Recorder, localStorage: { getItem: () => '{"ko":false}' },
+const window = { MangoiDubCore: core, MediaRecorder: Recorder };
+class Audio { constructor() { this.readyState = 3; this.muted = false; } }
+const sandbox = { window, document, Audio, MediaRecorder: Recorder, localStorage: { getItem: () => '{"ko":false}' },
   console, setInterval() {}, clearInterval() {}, setTimeout() {}, clearTimeout() {} };
 vm.createContext(sandbox);
 vm.runInContext(source.replace(/\}\)\(\);\s*$/, `
   window.test = { S: S, scriptMode: scriptMode, showLine: showLine, wShowLine: wShowLine,
-    startMovie: startMovie, stopMovie: stopMovie, setMix: function(m) { MIX = m; } };
+    startMovie: startMovie, stopMovie: stopMovie, playSynced: playSynced, setMix: function(m) { MIX = m; } };
 })();`), sandbox);
 const api = window.test;
 api.S.ep = { characters: { mina: { emoji: 'M', name: { ko: '미나', en: 'Mina' } } } };
@@ -50,4 +53,22 @@ for (const mode of ['en', 'ko', 'none']) {
 el('dub-script-mode').value = 'invalid';
 assert.equal(api.scriptMode(), 'en');
 assert.ok(!source.includes('listenFirst'), 'dubbing cannot preview selected native lines');
-console.log('PASS: 3 script modes, movie captions, practice reset, invalid setting fallback, native preview removed');
+const scene = { lines: [line], voices: { mina: '/mina.mp3', jun: '/jun.mp3' } };
+for (const mixed of [false, true]) {
+  api.setMix(mixed ? { out: {}, ctx: {
+    createGain: () => ({ gain: {}, connect() {} }), createMediaElementSource: () => ({ connect() {} })
+  }} : null);
+  // Abort after track construction, before playback/timers. Inspect the real routing code.
+  const run = { aborted: true, counters: {} };
+  await api.playSynced(run, scene);
+  const mina = run.tracks.find(t => t.cid === 'mina');
+  const jun = run.tracks.find(t => t.cid === 'jun');
+  if (mixed) {
+    assert.equal(mina.route.gain.gain.value, 0, 'Mina muted in speaker/movie mixer');
+    assert.equal(jun.route.gain.gain.value, 1, 'partner audible in speaker/movie mixer');
+  } else {
+    assert.equal(mina.el.muted, true, 'Mina muted without Web Audio');
+    assert.equal(jun.el.muted, false, 'partner audible without Web Audio');
+  }
+}
+console.log('PASS: 3 script modes, movie captions, practice reset, native preview removed, selected/partner voice routing with and without mixer');
