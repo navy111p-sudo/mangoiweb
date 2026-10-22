@@ -6,7 +6,9 @@
 <style>/* 📐 화면 비율 통일 (2026-08-14 피드백 ①) — 이 화면은 «외부 리소스 0개» 계약이라
    공용 /css/mangoi-layout.css 를 링크하지 않고 같은 규칙만 인라인으로 둔다.
    스크롤바 자리를 항상 비워 두면 페이지를 옮길 때 본문 폭이 15px 튀지 않는다. */
-html{scrollbar-gutter:stable;-webkit-text-size-adjust:100%;text-size-adjust:100%}</style>
+html{scrollbar-gutter:stable;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+.cls-time{font-size:15px;max-width:200px;line-height:1.5;overflow-wrap:anywhere}.wk-i{border-top:1px solid #e2e8f0;padding:8px 0}.wk-record{flex-basis:100%;font-size:12px}.wk-record a{color:inherit;text-decoration:underline}
+</style>
 <style>@font-face{font-family:'MangoiHanSC';src:url('/fonts/mangoi-han-sc.woff2') format('woff2');font-weight:100 900;font-display:swap;unicode-range:U+2E80-2EFF,U+3000-303F,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+FF00-FFEF,U+0100-017F,U+01CD-01DC;}</style>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -525,6 +527,35 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
      이 화면의 설계 계약 1번은 «외부 리소스 0개» 이고, 지연 350ms 회선에서 요청 하나는
      첫 화면 0.83초 중 약 0.4초다. 얻는 것(타이머 1개 절약)보다 잃는 것이 컸다.
      같은 효과는 본문 아래쪽 setInterval 옆에 4줄로 넣었다. -->
+<script>
+/* Class display: KST wall times only; never change stored schedule values. */
+(function(){
+  var key='mangoi.classTimeFormat', mode='12';
+  try { mode=localStorage.getItem(key)==='24'?'24':'12'; } catch(e){}
+  function time(value){
+    var m=String(value||'').match(/^(\d{1,2}):(\d{2})/);
+    if(!m || +m[1]>23 || +m[2]>59) return value||'—';
+    var h=+m[1]; return mode==='24'?('0'+h).slice(-2)+':'+m[2]:(h%12||12)+':'+m[2]+(h<12?'am':'pm');
+  }
+  function range(c){
+    var start=c.start_time||c.start||'', m=String(start).match(/^(\d{1,2}):(\d{2})/);
+    var duration=Number(c.duration_min);
+    if(!(duration>0) && c.end_ts>c.start_ts) duration=(c.end_ts-c.start_ts)/60000;
+    if(!m || !(duration>0)) return time(start);
+    var end=+m[1]*60 + +m[2]+duration, next=end>=1440?' (+1d)':'';
+    end=((end%1440)+1440)%1440;
+    return time(start)+' – '+time(Math.floor(end/60)+':'+('0'+end%60).slice(-2))+next+' · '+duration+' min';
+  }
+  function sync(){ document.querySelectorAll('[data-class-time-format]').forEach(function(s){s.value=mode;}); }
+  function changed(){sync();window.dispatchEvent(new Event('class-time-format'));}
+  window.MangoiClassDisplay={time:time,range:range,mode:function(){return mode;}};
+  document.addEventListener('change',function(e){if(!e.target.matches('[data-class-time-format]')) return;
+    mode=e.target.value==='24'?'24':'12';try{localStorage.setItem(key,mode);}catch(x){} changed();
+  });
+  window.addEventListener('storage',function(e){if(e.key===key){mode=e.newValue==='24'?'24':'12';changed();}});
+  document.addEventListener('DOMContentLoaded',sync);
+})();
+</script>
 </head>
 <body>
 <div class="wrap">
@@ -540,7 +571,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       <a class="tbtn" id="to-manager" href="/manager" hidden
          data-en="Manager view" data-ko="매니저 화면">Manager view</a>
       <a class="tbtn" id="home" href="/" aria-label="Home"><span aria-hidden="true">🏠</span><span class="lbl" data-en="Home" data-ko="홈">Home</span></a>
-      <button class="tbtn" id="lang" type="button">한국어</button>
+      <label class="class-time-choice" style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px"><span data-ko="한국 시간 (KST)" data-en="Korea time (KST)">Korea time (KST)</span><select data-class-time-format aria-label="Time format / 시간 표시" style="font:inherit;min-height:44px;padding:6px;border:1px solid #94a3b8;border-radius:8px;background:#fff;color:#16202c"><option value="12" data-ko="오전·오후 (2:00pm)" data-en="AM/PM (2:00pm)">AM/PM (2:00pm)</option><option value="24" data-ko="24시간 (14:00)" data-en="24-hour (14:00)">24-hour (14:00)</option></select></label>
+<button class="tbtn" id="lang" type="button">한국어</button>
       <!-- 🌙 다크 모드 (요청 24번) — 라벨은 '지금 누르면 무엇이 되는지'로 쓴다.
            밝은 모드일 때 「🌙 Dark」, 어두울 때 「☀ Light」. 상태가 아니라 결과를 적어야
            한 번에 이해된다. 글자는 좁은 폰에서 접힌다(.lbl). -->
@@ -1369,7 +1401,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     // 수업 시각은 서버가 KST 벽시계로 계산해 보낸다. 강사 단말은 필리핀(UTC+8)이라
     // 현지 시각으로 그리면 1시간이 어긋난다 → 한국 시각으로 고정 표기한다.
     var d = new Date(ts + 9*3600*1000);
-    return ('0'+d.getUTCHours()).slice(-2) + ':' + ('0'+d.getUTCMinutes()).slice(-2);
+    return MangoiClassDisplay.time(('0'+d.getUTCHours()).slice(-2) + ':' + ('0'+d.getUTCMinutes()).slice(-2));
   }
 
   // ⏳ 남은 시간 표기 — "294 min" 처럼 큰 분 숫자는 강사가 머릿속으로 나눠야 한다.
@@ -1566,7 +1598,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     for (var i=0;i<list.length;i++){
       var c = list[i];
       h += '<div class="cls">'
-        +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
+        +   '<div class="cls-time">' + esc(MangoiClassDisplay.range(c)) + '</div>'
         +   '<div class="cls-main">'
         +     '<div class="cls-name">' + esc(c.teacher_name || T('(no teacher)','(강사 미지정)'))
         +       (pill ? ' <span class="pill ' + pill + '">' + esc(pill === 'p-live' ? T('NOW','진행중') : T('Soon','예정')) + '</span>' : '')
@@ -1648,6 +1680,16 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   function validWeek(w, start){
     return !!(w && w.start === start && Array.isArray(w.days) && w.days.length === 7);
   }
+  function weekRecordHtml(it){
+    if(it.kind!=='class') return '';
+    var state=it.holiday_name?'holiday':it.class_state==='postponed'?'postponed':it.attendance&&it.attendance.state;
+    var labels={attended:['Attended','출석'],late:['Late','지각'],absent:['Absent','결석'],postponed:['Postponed','연기'],holiday:['Holiday','휴강'],waiting:['Waiting','입장 대기'],not_yet:['Upcoming','예정'],unknown:['Check needed','확인 필요'],cafe24:['No attendance record','출결 기록 없음']};
+    var label=labels[state] || ['Check needed','확인 필요'];
+    var ev=it.today_eval;
+    return '<span class="wk-record">'+esc(T(label[0],label[1]))+(it.teacher_changed?' · '+esc(T('Teacher changed','강사 변경')):'')+'</span>'
+      + '<span class="wk-record">'+(ev&&ev.id?'<a href="/eval.html?id='+encodeURIComponent(ev.id)+'" target="_blank" rel="noopener">'+esc(T('Class report · Open','수업 보고서 · 보기'))+'</a>':esc(it.report_loaded===false?T('Report unavailable','보고서 확인 불가'):T('Report: not written','보고서: 미작성')))+'</span>';
+  }
+  window.addEventListener('class-time-format',function(){lastSig=null;if(DATA) render(DATA);});
   function renderWeek(w){
     var card = document.getElementById('c-week'), box = document.getElementById('week');
     if (!card || !box || !w || !w.days) return;
@@ -1672,10 +1714,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         ? d.items.map(function(it){
             var dim = (it.kind !== 'class');
             return '<div class="wk-i"' + (dim ? ' style="opacity:.55"' : '') + '>'
-              + '<b>' + esc(it.start_time) + '</b>'
+              + '<b>' + esc(MangoiClassDisplay.range(it)) + '</b>'
               + '<span>' + stuLabelHtml(it, dim ? T('(slot taken)','(점유 슬롯)') : T('(name not set)','(이름 미등록)')) + '</span>'
               + kindPill(it).replace(/^ /, '')
-              + '<span class="wk-none">' + it.duration_min + T(' min','분') + '</span>'
+              + weekRecordHtml(it)
               + '</div>';
           }).join('')
         : '<div class="wk-none">' + T('No classes','수업 없음') + '</div>';
@@ -1764,7 +1806,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       if (u.textbook) meta.push(esc(u.textbook));
       meta.push(u.duration_min + T(' min', '분'));
       return '<div class="cls">'
-        + '<div class="cls-time">' + esc(u.start_time) + '</div>'
+        + '<div class="cls-time">' + esc(MangoiClassDisplay.range(u)) + '</div>'
         + '<div class="cls-main">'
         +   '<div class="cls-name">' + stuLabelHtml(u, T('(name not set)','(이름 미등록)'))
         +     kindPill(u)
@@ -1955,7 +1997,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     //   저사양 폰에서 DOM 재생성 + 리플로우가 일어나 화면이 한 번씩 '움찔'한다.
     //   실제로 바뀌는 건 (수업 상태 · 남은 분) 뿐이므로 그것만 지문으로 만들어 비교하고,
     //   같으면 아무것도 하지 않는다. 대부분의 tick 은 여기서 끝난다.
-    var sig = LANG + '|';
+    var sig = MangoiClassDisplay.mode() + LANG + '|';
     for (var s=0;s<list.length;s++){
       var sc = list[s];
       var st = (t > sc.close_at_ts) ? 'done'
@@ -2088,7 +2130,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       if (c.kind && c.kind !== 'class'){
         var isLms = (c.kind === 'lms');
         h += '<div class="cls cls-info">'
-          +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
+          +   '<div class="cls-time">' + esc(MangoiClassDisplay.range(c)) + '</div>'
           +   '<div class="cls-main">'
           +     '<div class="cls-name">'
           +       (isLms ? esc(T('Teaching on the old LMS', '옛 LMS 수업 중'))
@@ -2112,7 +2154,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
          ⛔ 입장·일지 버튼은 주지 않는다 — 취소된 수업에 들어갈 방은 없다. */
       if (c.class_state === 'cancelled'){
         h += '<div class="cls cls-cancel">'
-          +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
+          +   '<div class="cls-time">' + esc(MangoiClassDisplay.range(c)) + '</div>'
           +   '<div class="cls-main">'
           +     '<div class="cls-name">' + stuLabelHtml(c, T('(name not set)','(이름 미등록)'))
           +       stPill(c, live, done, open)
@@ -2130,7 +2172,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
          서버가 다시 'scheduled' 로 내려줘 버튼이 저절로 돌아온다(다음 갱신 때). */
       if (c.class_state === 'postponed'){
         h += '<div class="cls cls-postponed">'
-          +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
+          +   '<div class="cls-time">' + esc(MangoiClassDisplay.range(c)) + '</div>'
           +   '<div class="cls-main">'
           +     '<div class="cls-name">' + stuLabelHtml(c, T('(name not set)','(이름 미등록)'))
           +       stPill(c, live, done, open)
@@ -2155,7 +2197,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
          학생이 실제로 들어온 회차는 급여에서도 보류로 보지 않는다(src/absence-hold.ts). */
       if (c.absence_hold){
         h += '<div class="cls cls-hold">'
-          +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
+          +   '<div class="cls-time">' + esc(MangoiClassDisplay.range(c)) + '</div>'
           +   '<div class="cls-main">'
           +     '<div class="cls-name">' + stuLabelHtml(c, T('(name not set)','(이름 미등록)'))
           +       ' <span class="pill p-hold">' + esc(T('ON HOLD','보류')) + '</span>'
@@ -2191,7 +2233,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       }
 
       h += '<div class="cls' + (c.student_elsewhere ? ' cls-away-row' : '') + '">'
-        +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
+        +   '<div class="cls-time">' + esc(MangoiClassDisplay.range(c)) + '</div>'
         +   '<div class="cls-main">'
         +     '<div class="cls-name">' + stuLabelHtml(c, T('(name not set)','(이름 미등록)'))
         /* 🧪 (2026-08-06) 레벨테스트는 응대가 다르다 — 처음 만나는 학생이고, 보호자가 옆에 있고,
@@ -4150,7 +4192,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
                   : T('NEXT CLASS', '다음 수업');
 
     document.getElementById('nu-who').textContent =
-      pick.start_time + '  ' + stuLabelText(pick, T('(name not set)', '(이름 미등록)'));
+      MangoiClassDisplay.range(pick) + '  ' + stuLabelText(pick, T('(name not set)', '(이름 미등록)'));
 
     document.getElementById('nu-count').textContent =
       live ? T('NOW', '진행중')

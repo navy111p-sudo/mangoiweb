@@ -150,7 +150,7 @@ html.dark .kpi-arrow{color:#7c8899}
 .row b{min-width:0;flex:1}
 .row .num{font-variant-numeric:tabular-nums;font-weight:700}
 /* 📋 (2026-10-07 사장님 «시간·이름·아이디·강사명만») 「오늘 전체 수업」 간단히 보기 — 한 줄 네 칸 */
-.row.ta-s{display:grid;grid-template-columns:52px minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr);gap:8px;flex-wrap:nowrap}
+.row.ta-s{display:grid;grid-template-columns:minmax(115px,1fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr);gap:8px;flex-wrap:nowrap}
 .row.ta-s>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row.ta-s b{flex:none}
 .ta-mode{cursor:pointer;display:inline-block;margin-left:6px;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700;border:1px solid #cbd5e1;background:#fff;color:#344054}
@@ -549,6 +549,35 @@ html.dark .grouphead{color:#fbbf24}
 html.dark .evq-open{color:#93c5fd}
 </style>
 <script src="/js/admin-daily-manual.js?v=2" defer></script>
+<script>
+/* Class display: KST wall times only; never change stored schedule values. */
+(function(){
+  var key='mangoi.classTimeFormat', mode='12';
+  try { mode=localStorage.getItem(key)==='24'?'24':'12'; } catch(e){}
+  function time(value){
+    var m=String(value||'').match(/^(\d{1,2}):(\d{2})/);
+    if(!m || +m[1]>23 || +m[2]>59) return value||'—';
+    var h=+m[1]; return mode==='24'?('0'+h).slice(-2)+':'+m[2]:(h%12||12)+':'+m[2]+(h<12?'am':'pm');
+  }
+  function range(c){
+    var start=c.start_time||c.start||'', m=String(start).match(/^(\d{1,2}):(\d{2})/);
+    var duration=Number(c.duration_min);
+    if(!(duration>0) && c.end_ts>c.start_ts) duration=(c.end_ts-c.start_ts)/60000;
+    if(!m || !(duration>0)) return time(start);
+    var end=+m[1]*60 + +m[2]+duration, next=end>=1440?' (+1d)':'';
+    end=((end%1440)+1440)%1440;
+    return time(start)+' – '+time(Math.floor(end/60)+':'+('0'+end%60).slice(-2))+next+' · '+duration+' min';
+  }
+  function sync(){ document.querySelectorAll('[data-class-time-format]').forEach(function(s){s.value=mode;}); }
+  function changed(){sync();window.dispatchEvent(new Event('class-time-format'));}
+  window.MangoiClassDisplay={time:time,range:range,mode:function(){return mode;}};
+  document.addEventListener('change',function(e){if(!e.target.matches('[data-class-time-format]')) return;
+    mode=e.target.value==='24'?'24':'12';try{localStorage.setItem(key,mode);}catch(x){} changed();
+  });
+  window.addEventListener('storage',function(e){if(e.key===key){mode=e.newValue==='24'?'24':'12';changed();}});
+  document.addEventListener('DOMContentLoaded',sync);
+})();
+</script>
 </head>
 <body>
 <script>
@@ -1142,7 +1171,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
            (아래 loadApprovalBadge — 첫 화면 API 2회 계약을 깨지 않는다). -->
       <a class="tbtn" id="toWork" href="/work"><span data-en="Approvals" data-ko="결재함">Approvals</span><span id="apprN"></span></a>
       <a class="tbtn" href="/"><span data-en="Home" data-ko="홈">Home</span></a>
-      <button class="tbtn" id="lang" onclick="toggleLang()">KO</button>
+      <label class="class-time-choice" style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px"><span data-ko="한국 시간 (KST)" data-en="Korea time (KST)">Korea time (KST)</span><select data-class-time-format aria-label="Time format / 시간 표시" style="font:inherit;min-height:44px;padding:6px;border:1px solid #94a3b8;border-radius:8px;background:#fff;color:#16202c"><option value="12" data-ko="오전·오후 (2:00pm)" data-en="AM/PM (2:00pm)">AM/PM (2:00pm)</option><option value="24" data-ko="24시간 (14:00)" data-en="24-hour (14:00)">24-hour (14:00)</option></select></label>
+<button class="tbtn" id="lang" onclick="toggleLang()">KO</button>
       <button class="tbtn" id="mode" onclick="toggleMode()"><span id="modeLbl" data-en="Dark" data-ko="어둡게">Dark</span></button>
       <button class="tbtn" onclick="reloadAll()"><span data-en="Refresh" data-ko="새로고침">Refresh</span></button>
       <!-- 🚪 (2026-08-21) 예전엔 죽은 경로로 보내 세션이 안 끊겼다 — 아래 onclick 참고. -->
@@ -3289,7 +3319,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
                 + (c.joinable ? ' · 입장가능 ' + c.joinable + '건' : '')))
       + '<a href="#" class="ta-mode" onclick="return taToggleDetail()">' + esc(simple ? T('Show details', '자세히 보기') : T('Simple view', '간단히 보기')) + '</a></div>';
     hqRows('todayAllBody', rows, function(r){
-      var t = esc(r.start_time || '');
+      var t = esc(MangoiClassDisplay.range(r));
       var who = esc(r.student_name || r.student_uid || '-');
       if (simple) {
         return '<div class="row ta-s"><b>' + t + '</b><span>' + esc(r.student_name || '—') + '</span>'
@@ -3593,6 +3623,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   }
   /* ⚠️ 위임 리스너다 — hqRows() 가 innerHTML 만 갈아치우고 이 상자 자신은 남으므로 한 번만 건다.
      (줄마다 걸면 다시 그릴 때마다 쌓인다 — bindBookPins 와 같은 사정.) */
+  window.addEventListener('class-time-format',function(){paintTodayAll();});
   var _taBound = false;
   /* 📅 수업 캘린더 창 — 학생 상세의 스케줄 탭을 그대로 띄운다(admin.html 과 같은 화면 — 달력을 두 벌 만들지 않는다).
      ⚠️ 누른 뒤에만 iframe 을 만든다 — 첫 화면 요청은 그대로 0개(계약 1번).

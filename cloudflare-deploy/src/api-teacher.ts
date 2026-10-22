@@ -1,3 +1,4 @@
+import { attachCalendarRecords } from './calendar-records';
 // ────────────────────────────────────────────────────────────────────────────
 // 🇵🇭 강사 전용 초경량 포털 API — /api/teacher/portal
 //
@@ -399,7 +400,7 @@ export async function handleTeacherApi(
     const _soSel = startsOnSel(await ensureStartsOnColumn(env), 'cs');   // 📅 매주 반복의 시작일
     // 교재·레벨은 students_erp 에서 — 스키마 드리프트가 있는 테이블이라 실패하면 조인 없이 재시도.
     const sqlJoin =
-      `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
+      `SELECT cs.id, cs.teacher_id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
               cs.duration_min, cs.notes, cs.class_type, cs.source, cs.status AS sched_status${_soSel},
               se.level AS level, se.textbook AS textbook,
               se.english_name AS student_en, se.eval_band AS eval_band,
@@ -408,7 +409,7 @@ export async function handleTeacherApi(
          LEFT JOIN students_erp se ON se.user_id = cs.user_id
         WHERE ${whereSql}`;
     const sqlPlain =
-      `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
+      `SELECT cs.id, cs.teacher_id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
               cs.duration_min, cs.notes, cs.class_type, cs.source, cs.status AS sched_status${_soSel}
          FROM class_schedules cs WHERE ${whereSql}`;
     let rows: any;
@@ -486,10 +487,9 @@ export async function handleTeacherApi(
          (앞의 upcoming 목록에는 일부러 안 넣었다 — 거기는 «특별한 한 건» 을 띄우는 자리다) */
       // 🗓 취소된 수업은 «오늘 목록» 에만 회색으로 남긴다 — 시간표·앞으로 7일에는 넣지 않는다.
       const _cancelled = String(s.sched_status || '') === 'cancelled';
-      /* ⏸ (2026-10-01) 연기된 회차 — 취소처럼 시간표·앞으로 7일에는 안 넣고, 오늘 목록에만
-         «연기됨» 으로 남기며 입장을 닫는다(학생 쪽 sessions/today 는 아예 안 보낸다). 정본 class-postponed.ts */
+      /* Postponed occurrences remain visible in the weekly calendar, without join actions. */
       const _postponed = isPostponedOccurrence(s);
-      if (_cancelled || _postponed) { /* 주간표 채우기 건너뜀 */ } else
+      if (_cancelled) { /* cancelled schedules stay out of the timetable */ } else
       for (let wi = 0; wi < 7; wi++) {
         const hit = s.scheduled_date
           ? (String(s.scheduled_date).slice(0, 10) === weekDays[wi].date)
@@ -498,6 +498,14 @@ export async function handleTeacherApi(
         const [wh, wm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
         weekDays[wi].items.push({
           id: s.id,
+          schedule_id: s.id,
+          teacher_id: s.teacher_id,
+          date: weekDays[wi].date,
+          class_date: weekDays[wi].date,
+          room_id: 'class-' + s.id + '-' + weekDays[wi].date.replace(/-/g, ''),
+          start_ts: Date.parse(weekDays[wi].date + 'T' + pad(wh || 0) + ':' + pad(wm || 0) + ':00+09:00'),
+          class_state: _postponed ? 'postponed' : undefined,
+          status: _postponed ? 'postponed' : (weekDays[wi].date > todayStr ? 'early' : 'done'),
           start_time: `${pad(wh || 0)}:${pad(wm || 0)}`,
           duration_min: Number(s.duration_min) || 30,
           student_uid: studentUidOf(s),
@@ -905,6 +913,29 @@ export async function handleTeacherApi(
     for (const c of classes) if (!c.teacher_name && _rosterName) c.teacher_name = _rosterName;
     // 📅 이번 주 7칸(2026-09-23) — 관리자와 같은 규칙의 요일 파서를 넘긴다(평가는 안 넘김 = 그대로 숨김)
     try { await enrichClassesToday(env as any, classes, todayStr, now, { dowMatches }); } catch (e: any) { console.warn('[teacher-portal] extras:', e?.message); }
+  }
+
+  if (!onlyNext) {
+    for (const day of weekDays) {
+      const real = day.items.filter((it: any) => it.kind === 'class');
+      if (!real.length) continue;
+      const holiday = day.is_today ? _holiday : await loadHolidayClosure(env.DB, day.date);
+      for (const it of real) if (it.class_state !== 'postponed' && isHolidayClosedFor(holiday, it.teacher_id)) {
+        it.status = 'holiday'; it.holiday_name = holiday.name;
+      }
+      // Today's authoritative room and attendance fields win over the schedule projection.
+      for (const it of real) {
+        const today = day.is_today && classes.find((c: any) => String(c.schedule_id) === String(it.schedule_id));
+        if (today) Object.assign(it, { room_id: today.room_id, status: today.status, class_state: today.class_state,
+          attendance: today.attendance, today_eval: today.today_eval });
+      }
+      if (day.date < todayStr && real.length) {
+        try { await enrichClassesToday(env as any, real, day.date, now, { evals: false, attendanceOnly: true }); }
+        catch { /* records stay unknown */ }
+      }
+      if (day.date > todayStr) for (const it of real) it.attendance = { state: it.holiday_name ? 'holiday' : it.class_state === 'postponed' ? 'postponed' : 'not_yet' };
+    }
+    await attachCalendarRecords(env, weekDays.flatMap((d: any) => d.items.filter((it: any) => it.kind === 'class')));
   }
 
   /* 🚫 노쇼 — 끝난 수업 중 «누군가 안 온» 기록이 있으면 라벨을 no_show 로 올린다.
