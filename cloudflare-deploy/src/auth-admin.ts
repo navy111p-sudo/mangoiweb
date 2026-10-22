@@ -683,7 +683,7 @@ export async function issueAdminSession(
   const homePath =
     isTeacher ? '/teacher'
     : rr.role === 'branch' ? '/branch'   // 🏢 2026-09-23 지사장 전용 화면
-    : rr.role === 'agency' ? '/manager'
+    : rr.role === 'agency' ? '/agency'   // 🤝 2026-10-20 대리점 전용 주소(화면은 manager.html)
     : PH_MANAGERS.indexOf(acctUser) >= 0 ? '/manager'
     : '/admin.html';
 
