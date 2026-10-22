@@ -35,5 +35,10 @@ const items=[1,2].map(id=>({schedule_id:id,student_uid:'a',date:'2026-10-22',roo
 await mod.attachCalendarRecords({},items);
 assert.equal(items[0].today_eval.id,22);assert.equal(items[1].today_eval.id,23);
 assert.equal(items[0].teacher_changed,true);assert.equal(items[1].teacher_changed,false);
+rows.splice(0,rows.length,{id:24,student_uid:'a',room_id:null,created_at:Date.parse('2026-10-22T17:00:00+09:00')});
+await mod.attachCalendarRecords({},items);
+assert.equal(items[0].today_eval,null);assert.equal(items[1].today_eval,null);
+assert.equal(items[0].report_loaded,false,'roomless report cannot be assigned to either of two classes');
+await mod.attachCalendarRecords({},[items[0]]);assert.equal(items[0].today_eval.id,24);
 fail=true;await mod.attachCalendarRecords({},items);assert.equal(items[0].report_loaded,false);assert.equal(items[0].today_eval,null);
 console.log('PASS: three formatters, AM/PM boundaries, durations, midnight, storage, per-room reports, teacher changes, unavailable records');

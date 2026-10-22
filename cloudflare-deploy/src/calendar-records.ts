@@ -1,4 +1,4 @@
-import { briefEval, pickEvals } from './class-today-extras';
+import { kstYmd, pickEvals } from './class-today-extras';
 import { selectInChunks } from './d1-chunk';
 
 /** Optional calendar metadata. Never turn an unread record into an absence or a missing report. */
@@ -8,14 +8,19 @@ export async function attachCalendarRecords(env: any, items: any[]): Promise<voi
   const uids = [...new Set(items.map(i => String(i.student_uid || '').trim()).filter(Boolean))];
   try {
     const rows = await selectInChunks<any>(env.DB, uids, ph =>
-      `SELECT id, student_uid, room_id, created_at, lesson_date FROM student_evaluations WHERE student_uid IN (${ph})`);
+      `SELECT id, student_uid, room_id, created_at FROM student_evaluations WHERE student_uid IN (${ph})`);
     rows.sort((a, b) => Number(b.created_at) - Number(a.created_at));
     for (const it of items) {
       const date = it.date || it.class_date;
       const candidates = rows.filter(r => String(r.student_uid) === String(it.student_uid));
-      const { today } = pickEvals(candidates, it.room_id || '', date, Date.parse(date + 'T00:00:00+09:00'));
-      it.today_eval = today ? { id: briefEval(today).id } : null;
-      it.report_loaded = true;
+      const occurrences = items.filter(other => String(other.student_uid) === String(it.student_uid)
+        && (other.date || other.class_date) === date);
+      const ambiguous = occurrences.length > 1 && candidates.some(r => !String(r.room_id || '').trim()
+        && Number(r.created_at) > 0 && kstYmd(Number(r.created_at)) === date);
+      const safe = occurrences.length > 1 ? candidates.filter(r => String(r.room_id || '').trim()) : candidates;
+      const { today } = pickEvals(safe, it.room_id || '', date, Date.parse(date + 'T00:00:00+09:00'));
+      it.today_eval = today ? { id: Number(today.id) || 0 } : null;
+      it.report_loaded = !!today || !ambiguous;
     }
   } catch (e) { console.warn('[calendar] reports unavailable'); }
   try {
