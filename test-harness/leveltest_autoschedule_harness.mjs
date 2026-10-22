@@ -159,8 +159,9 @@ check('반복 수업도 넣는다 (여기는 «내 시간표» 다)', /dowMatche
 check('일회성 수업도 넣는다', /String\(s\.scheduled_date\)\.slice\(0, 10\) === weekDays\[wi\]\.date/.test(tapi));
 check('🔑 D1 을 다시 조회하지 않는다 (같은 rows 를 펼치기만)',
   /같은 rows 를 요일로 펼치기만/.test(tapi));
-check('레벨테스트 표시가 주간에도 실린다',
-  /weekDays\[wi\]\.items\.push\([\s\S]{0,700}?is_level_test:/.test(tapi));
+const weekPushStart = tapi.indexOf('weekDays[wi].items.push({');
+const weekPush = tapi.slice(weekPushStart, tapi.indexOf('\n        });', weekPushStart));
+check('레벨테스트 표시가 주간에도 실린다', /is_level_test:/.test(weekPush));
 check('오늘 칸을 표시한다', /is_today: date === todayStr/.test(tapi));
 check('화면에 «내 주간 스케줄» 카드가 있다', /id="c-week"/.test(thtml));
 check('그리는 함수가 있다', /function renderWeek\(w\)/.test(thtml));

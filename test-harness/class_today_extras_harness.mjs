@@ -349,7 +349,7 @@ ok('강사 포털: 조건 없이 try 로 감싼다', /\n[ \t]*try \{ await enric
   }
 }
 ok('강사 포털: 배너(?only=next)는 건너뛴다', /if \(!onlyNext\) \{[\s\S]{0,700}enrichClassesToday/.test(tea));
-const th2 = readFileSync(join(PUB, 'teacher.html'), 'utf8');
+const th2 = readFileSync(join(PUB, 'teacher.html'), 'utf8').replace(/\r\n/g, '\n');
 /* (2026-10-01) 두 번째 인자 wi(「✍ 지금 쓰기」 줄 번호)가 붙어도 찾는다 — 시그니처 «모양» 을 못 박지 않는다 */
 const fi = th2.search(/function extrasHtml\(c(?:,\s*\w+)?\)\{/);
 let body = '';

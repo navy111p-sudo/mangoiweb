@@ -45,6 +45,8 @@ function environment(instant = '2026-10-04T15:05:00Z', cache = null) {
     localStorage: { getItem: k => cacheStore.get(k) || null, setItem: (k,v) => cacheStore.set(k,v) },
     document: { hidden: false, getElementById: element, addEventListener: (k,cb) => listeners[k] = cb },
     navigator: { onLine: true }, location: {},
+    window: { addEventListener: (k,cb) => listeners[k] = cb },
+    MangoiClassDisplay: { range: it => it.start_time },
     fetch: url => new Promise((resolve,reject) => requests.push({ url, resolve, reject })),
     modalOpen: () => false, stopSec() {}, setLangFrom() {}, applyLang() {}, translateContent() {}, loadMonthStats() {}, loadApprovals() {}, loadOutage() {},
     renderAlsoAccount() {}, renderClasses() {}, renderUpcoming() {}, renderNotices() {}, renderResources() {}, renderManager() {}, paintClassCount() {}, paintNewBadge() {},

@@ -1,3 +1,4 @@
+import { attachCalendarRecords } from './calendar-records';
 import { WEEKLY_POSTPONE, readWeeklyPostponePlan } from './weekly-postpone';
 import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg, holidayEntryAlert } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { autoApproveStudentPostpone } from './student-auto-postpone';  // ⏩ 학생 무료 연기 자동 승인(2026-10-06)
@@ -4015,6 +4016,10 @@ ${numbered}`;
         if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) ym = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
         await ensureAttendanceAccountUid(env as any);   // 출석을 «계정» 으로도 찾기 위한 칸·인덱스 보장(멱등)
         const out: any = await buildStudentLedger(env as any, uidL, ym);
+        if (out.ok && url.searchParams.get('calendar') === '1') {
+          for (const it of out.items || []) it.student_uid = uidL;
+          await attachCalendarRecords(env, out.items || []);
+        }
         return json(out, out.ok ? 200 : 500);
       }
       const mv = path.match(/^\/api\/admin\/student\/([^\/]+)\/leaves$/);

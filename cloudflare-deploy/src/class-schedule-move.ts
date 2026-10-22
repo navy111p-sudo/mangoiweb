@@ -149,7 +149,7 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
         .bind(dest.teacher_id ?? null,dest.scheduled_date ?? null,dest.day_of_week ?? null,dest.start_time,dest.duration_min ?? null,dest.source ?? null,dest.status ?? null,now,row.id));
       statements.push(env.DB.prepare(`INSERT INTO class_audit_log (action,schedule_id,teacher_name,student_name,lesson_date,lesson_time,actor,actor_role,source,detail,created_at) VALUES ('reschedule',?,?,?,?,?,?,?,'ui',?,?)`)
         .bind(row.id,names.get(String(row.teacher_id)) || null,row.student_name || null,row.scheduled_date || null,row.start_time || null,actor.name || actor.username || '관리자',actor.isTeacher?'teacher':'admin',
-          JSON.stringify({ids,scheduled_date:dest.scheduled_date,day_of_week:dest.day_of_week,start_time:dest.start_time,teacher_id:dest.teacher_id}),now));
+          JSON.stringify({ids,scheduled_date:dest.scheduled_date,day_of_week:dest.day_of_week,start_time:dest.start_time,teacher_id:dest.teacher_id,teacher_changed:!same(dest.teacher_id,row.teacher_id)}),now));
     }
     statements.push(env.DB.prepare(`DELETE FROM schedule_move_guard WHERE token=?`).bind(token));
     const results = await env.DB.batch(statements);
