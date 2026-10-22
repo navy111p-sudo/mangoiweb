@@ -60,14 +60,14 @@
       },
       "arc": "ki",
       "mood": "wonder",
-      "durationSec": 60,
-      "video": "/media/dubbing/dub-007/scene-1.mp4",
-      "poster": "/media/dubbing/dub-007/scene-1.jpg",
+      "durationSec": 61,
+      "video": "/media/dubbing/dub-007/scene-1.mp4?v=2",
+      "poster": "/media/dubbing/dub-007/scene-1.jpg?v=2",
       "videoAudio": "mute",
       "voices": {
-        "luna": "/media/dubbing/dub-007/scene-1-luna.mp3",
-        "nova": "/media/dubbing/dub-007/scene-1-nova.mp3",
-        "zio": "/media/dubbing/dub-007/scene-1-zio.mp3"
+        "luna": "/media/dubbing/dub-007/scene-1-luna.mp3?v=2",
+        "nova": "/media/dubbing/dub-007/scene-1-nova.mp3?v=2",
+        "zio": "/media/dubbing/dub-007/scene-1-zio.mp3?v=2"
       },
       "lines": [
         {
@@ -121,23 +121,22 @@
       ],
       "sfx": [
         {
-          "at": "start",
+          "t": 2,
           "name": "engine",
-          "gain": 0.55
+          "gain": 0.18
         },
         {
-          "line": 4,
-          "when": "after",
+          "t": 50.5,
           "name": "beep",
-          "gain": 0.55
+          "gain": 0.25
         },
         {
-          "at": "end",
+          "t": 56.2,
           "name": "alarm",
-          "gain": 0.55
+          "gain": 0.18
         }
       ],
-      "bgm": "/media/dubbing/dub-007/scene-1-bgm.mp3"
+      "bgm": "/media/dubbing/dub-007/scene-1-bgm.mp3?v=2"
     },
     {
       "no": 2,
@@ -147,14 +146,14 @@
       },
       "arc": "seung",
       "mood": "tense",
-      "durationSec": 60,
-      "video": "/media/dubbing/dub-007/scene-2.mp4",
-      "poster": "/media/dubbing/dub-007/scene-2.jpg",
+      "durationSec": 61,
+      "video": "/media/dubbing/dub-007/scene-2.mp4?v=2",
+      "poster": "/media/dubbing/dub-007/scene-2.jpg?v=2",
       "videoAudio": "mute",
       "voices": {
-        "nova": "/media/dubbing/dub-007/scene-2-nova.mp3",
-        "zio": "/media/dubbing/dub-007/scene-2-zio.mp3",
-        "luna": "/media/dubbing/dub-007/scene-2-luna.mp3"
+        "luna": "/media/dubbing/dub-007/scene-2-luna.mp3?v=2",
+        "nova": "/media/dubbing/dub-007/scene-2-nova.mp3?v=2",
+        "zio": "/media/dubbing/dub-007/scene-2-zio.mp3?v=2"
       },
       "lines": [
         {
@@ -208,23 +207,22 @@
       ],
       "sfx": [
         {
-          "at": "start",
+          "t": 2.2,
           "name": "alarm",
-          "gain": 0.55
+          "gain": 0.18
         },
         {
-          "line": 4,
-          "when": "after",
-          "name": "whoosh",
-          "gain": 0.55
+          "t": 4.1,
+          "name": "zap",
+          "gain": 0.16
         },
         {
-          "at": "end",
+          "t": 58.6,
           "name": "whoosh",
-          "gain": 0.55
+          "gain": 0.25
         }
       ],
-      "bgm": "/media/dubbing/dub-007/scene-2-bgm.mp3"
+      "bgm": "/media/dubbing/dub-007/scene-2-bgm.mp3?v=2"
     },
     {
       "no": 3,
@@ -234,14 +232,14 @@
       },
       "arc": "jeon",
       "mood": "tense",
-      "durationSec": 60,
-      "video": "/media/dubbing/dub-007/scene-3.mp4",
-      "poster": "/media/dubbing/dub-007/scene-3.jpg",
+      "durationSec": 61,
+      "video": "/media/dubbing/dub-007/scene-3.mp4?v=2",
+      "poster": "/media/dubbing/dub-007/scene-3.jpg?v=2",
       "videoAudio": "mute",
       "voices": {
-        "luna": "/media/dubbing/dub-007/scene-3-luna.mp3",
-        "nova": "/media/dubbing/dub-007/scene-3-nova.mp3",
-        "zio": "/media/dubbing/dub-007/scene-3-zio.mp3"
+        "luna": "/media/dubbing/dub-007/scene-3-luna.mp3?v=2",
+        "nova": "/media/dubbing/dub-007/scene-3-nova.mp3?v=2",
+        "zio": "/media/dubbing/dub-007/scene-3-zio.mp3?v=2"
       },
       "lines": [
         {
@@ -295,23 +293,22 @@
       ],
       "sfx": [
         {
-          "at": "start",
+          "t": 2.3,
           "name": "heartbeat",
-          "gain": 0.55
+          "gain": 0.16
         },
         {
-          "line": 4,
-          "when": "after",
+          "t": 28,
           "name": "beep",
-          "gain": 0.55
+          "gain": 0.2
         },
         {
-          "at": "end",
+          "t": 49.6,
           "name": "rumble",
-          "gain": 0.55
+          "gain": 0.18
         }
       ],
-      "bgm": "/media/dubbing/dub-007/scene-3-bgm.mp3"
+      "bgm": "/media/dubbing/dub-007/scene-3-bgm.mp3?v=2"
     },
     {
       "no": 4,
@@ -321,14 +318,14 @@
       },
       "arc": "jeon",
       "mood": "mystery",
-      "durationSec": 60,
-      "video": "/media/dubbing/dub-007/scene-4.mp4",
-      "poster": "/media/dubbing/dub-007/scene-4.jpg",
+      "durationSec": 61,
+      "video": "/media/dubbing/dub-007/scene-4.mp4?v=2",
+      "poster": "/media/dubbing/dub-007/scene-4.jpg?v=2",
       "videoAudio": "mute",
       "voices": {
-        "luna": "/media/dubbing/dub-007/scene-4-luna.mp3",
-        "zio": "/media/dubbing/dub-007/scene-4-zio.mp3",
-        "nova": "/media/dubbing/dub-007/scene-4-nova.mp3"
+        "luna": "/media/dubbing/dub-007/scene-4-luna.mp3?v=2",
+        "zio": "/media/dubbing/dub-007/scene-4-zio.mp3?v=2",
+        "nova": "/media/dubbing/dub-007/scene-4-nova.mp3?v=2"
       },
       "lines": [
         {
@@ -382,23 +379,27 @@
       ],
       "sfx": [
         {
-          "at": "start",
+          "t": 2.3,
+          "name": "whoosh",
+          "gain": 0.2
+        },
+        {
+          "t": 17.1,
           "name": "chime",
-          "gain": 0.55
+          "gain": 0.2
         },
         {
-          "line": 4,
-          "when": "after",
+          "t": 36,
+          "name": "beep",
+          "gain": 0.2
+        },
+        {
+          "t": 50.1,
           "name": "sparkle",
-          "gain": 0.55
-        },
-        {
-          "at": "end",
-          "name": "powerup",
-          "gain": 0.55
+          "gain": 0.15
         }
       ],
-      "bgm": "/media/dubbing/dub-007/scene-4-bgm.mp3"
+      "bgm": "/media/dubbing/dub-007/scene-4-bgm.mp3?v=2"
     },
     {
       "no": 5,
@@ -408,14 +409,14 @@
       },
       "arc": "jeon",
       "mood": "action",
-      "durationSec": 60,
-      "video": "/media/dubbing/dub-007/scene-5.mp4",
-      "poster": "/media/dubbing/dub-007/scene-5.jpg",
+      "durationSec": 61,
+      "video": "/media/dubbing/dub-007/scene-5.mp4?v=2",
+      "poster": "/media/dubbing/dub-007/scene-5.jpg?v=2",
       "videoAudio": "mute",
       "voices": {
-        "luna": "/media/dubbing/dub-007/scene-5-luna.mp3",
-        "nova": "/media/dubbing/dub-007/scene-5-nova.mp3",
-        "zio": "/media/dubbing/dub-007/scene-5-zio.mp3"
+        "luna": "/media/dubbing/dub-007/scene-5-luna.mp3?v=2",
+        "nova": "/media/dubbing/dub-007/scene-5-nova.mp3?v=2",
+        "zio": "/media/dubbing/dub-007/scene-5-zio.mp3?v=2"
       },
       "lines": [
         {
@@ -469,23 +470,22 @@
       ],
       "sfx": [
         {
-          "at": "start",
+          "t": 2.1,
           "name": "alarm",
-          "gain": 0.55
+          "gain": 0.18
         },
         {
-          "line": 4,
-          "when": "after",
+          "t": 25.45,
           "name": "zap",
-          "gain": 0.55
+          "gain": 0.12
         },
         {
-          "at": "end",
+          "t": 57.25,
           "name": "powerup",
-          "gain": 0.55
+          "gain": 0.18
         }
       ],
-      "bgm": "/media/dubbing/dub-007/scene-5-bgm.mp3"
+      "bgm": "/media/dubbing/dub-007/scene-5-bgm.mp3?v=2"
     },
     {
       "no": 6,
@@ -495,15 +495,15 @@
       },
       "arc": "gyeol",
       "mood": "triumph",
-      "durationSec": 60,
-      "video": "/media/dubbing/dub-007/scene-6.mp4",
-      "poster": "/media/dubbing/dub-007/scene-6.jpg",
+      "durationSec": 61,
+      "video": "/media/dubbing/dub-007/scene-6.mp4?v=2",
+      "poster": "/media/dubbing/dub-007/scene-6.jpg?v=2",
       "videoAudio": "mute",
       "voices": {
-        "luna": "/media/dubbing/dub-007/scene-6-luna.mp3",
-        "nora": "/media/dubbing/dub-007/scene-6-nora.mp3",
-        "zio": "/media/dubbing/dub-007/scene-6-zio.mp3",
-        "nova": "/media/dubbing/dub-007/scene-6-nova.mp3"
+        "luna": "/media/dubbing/dub-007/scene-6-luna.mp3?v=2",
+        "zio": "/media/dubbing/dub-007/scene-6-zio.mp3?v=2",
+        "nova": "/media/dubbing/dub-007/scene-6-nova.mp3?v=2",
+        "nora": "/media/dubbing/dub-007/scene-6-nora.mp3?v=2"
       },
       "lines": [
         {
@@ -557,29 +557,29 @@
       ],
       "sfx": [
         {
-          "at": "start",
+          "t": 17.3,
+          "name": "engine",
+          "gain": 0.17
+        },
+        {
+          "t": 30.8,
           "name": "rocket",
-          "gain": 0.55
+          "gain": 0.2
         },
         {
-          "line": 4,
-          "when": "after",
+          "t": 50.2,
           "name": "chime",
-          "gain": 0.55
-        },
-        {
-          "at": "end",
-          "name": "fanfare",
-          "gain": 0.55
+          "gain": 0.18
         }
       ],
-      "bgm": "/media/dubbing/dub-007/scene-6-bgm.mp3"
+      "bgm": "/media/dubbing/dub-007/scene-6-bgm.mp3?v=2"
     }
   ],
   "_production": {
     "edit": "Six approximately one-minute episodes; animated action with cinematic still inserts",
-    "dialogue": "Original generated English voices retained; isolated with UVR MDX-Net and timed to their source video",
+    "dialogue": "Original generated English voices retained; six dialogue close-ups regenerated with Wan 2.7 using the original separated audio as waveform reference, then composited on the original clock.",
     "music": "Original instrumental space score and synthetic effects; no speech in background tracks",
-    "guest": "The visible ground controller delivering the final greeting is Mom Nora, not Nova."
+    "guest": "The visible ground controller delivering the final greeting is Mom Nora, not Nova.",
+    "review": "Revision 2: 61 seconds per episode, isolated speaker framing, baked BGM dialogue ducking, timed low-gain SFX rendered from the same app sound recipes; media cache version 2."
   }
 }
