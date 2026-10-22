@@ -405,6 +405,8 @@
   .mgsu-grp .btns .mgsu-btn,.mgsu-act .btns .mgsu-btn{flex:1;padding:10px 12px}
   .mgsu-fold > summary{text-align:center;border:1px solid #cbd5e1;border-radius:8px;padding:10px}
 }
+.mgs-in .tm{white-space:normal;flex-basis:100%;line-height:1.3}.mgs-record{display:block;flex:0 0 100%;white-space:normal;font-size:10px;line-height:1.35}.mgs-record a{color:inherit;text-decoration:underline}.mgs-ev.mgs-m .mgs-in{padding:6px;gap:3px}.mgs-ev.mgs-w:not(.mgs-m){overflow:auto}.mgs-record:empty{display:none}
+#d-sched-calendar>div{min-width:980px}.mgs-ev.mgs-m .mgs-in{font-size:12px;line-height:1.4}.mgs-ev.mgs-m .mgs-in .f{display:inline}.mgs-ev.mgs-m .mgs-in .s{display:none}.mgs-record{font-size:11px}.mgs-att{background:#f1f5f9;color:#334155;border-radius:4px;padding:2px 4px;margin-top:3px}.mgs-att[data-state="done"]{background:#dcfce7;color:#14532d}.mgs-att[data-state="student_absent"],.mgs-att[data-state="late_postpone"]{background:#fee2e2;color:#991b1b}.mgs-att[data-state="postponed"]{background:#fef3c7;color:#78350f}.mgsu-record-detail .mgs-record{font-size:13px;margin:5px 0}
 </style>
 <link rel="stylesheet" href="/css/admin-readability.css?v=4"><!-- 가독성 보강 -->
 <style id="pc-scale">
@@ -418,6 +420,35 @@
   html.mg-embed #mangoi-back-btn{ display:none !important; }
 </style>
 <link rel="stylesheet" href="/css/adm-light-theme.css?v=2"><!-- ☀️ 관리자 밝은 테마 통일 (2026-07-23) -->
+<script>
+/* Class display: KST wall times only; never change stored schedule values. */
+(function(){
+  var key='mangoi.classTimeFormat', mode='12';
+  try { mode=localStorage.getItem(key)==='24'?'24':'12'; } catch(e){}
+  function time(value){
+    var m=String(value||'').match(/^(\d{1,2}):(\d{2})/);
+    if(!m || +m[1]>23 || +m[2]>59) return value||'—';
+    var h=+m[1]; return mode==='24'?('0'+h).slice(-2)+':'+m[2]:(h%12||12)+':'+m[2]+(h<12?'am':'pm');
+  }
+  function range(c){
+    var start=c.start_time||c.start||'', m=String(start).match(/^(\d{1,2}):(\d{2})/);
+    var duration=Number(c.duration_min);
+    if(!(duration>0) && c.end_ts>c.start_ts) duration=(c.end_ts-c.start_ts)/60000;
+    if(!m || !(duration>0)) return time(start);
+    var end=+m[1]*60 + +m[2]+duration, next=end>=1440?' (+1d)':'';
+    end=((end%1440)+1440)%1440;
+    return time(start)+' – '+time(Math.floor(end/60)+':'+('0'+end%60).slice(-2))+next+' · '+duration+' min';
+  }
+  function sync(){ document.querySelectorAll('[data-class-time-format]').forEach(function(s){s.value=mode;}); }
+  function changed(){sync();window.dispatchEvent(new Event('class-time-format'));}
+  window.MangoiClassDisplay={time:time,range:range,mode:function(){return mode;}};
+  document.addEventListener('change',function(e){if(!e.target.matches('[data-class-time-format]')) return;
+    mode=e.target.value==='24'?'24':'12';try{localStorage.setItem(key,mode);}catch(x){} changed();
+  });
+  window.addEventListener('storage',function(e){if(e.key===key){mode=e.newValue==='24'?'24':'12';changed();}});
+  document.addEventListener('DOMContentLoaded',sync);
+})();
+</script>
 </head>
 <body>
 
@@ -608,7 +639,9 @@
         <!-- 🔕 (2026-09-21 사장님 지시) 「신청만 있고 실제 수업이 없는」 수강신청은 캘린더에 안 그린다.
              ⛔ 이 줄을 지우지 말 것 — 감추기만 하면 「신청서와 수업이 어긋났다」를 아무도 못 본다. -->
         <div id="d-sched-ghost-note" style="display:none;margin-bottom:6px;padding:7px 11px;border:1px solid #94a3b8;background:#f1f5f9;border-radius:8px;font-size:11.5px;color:#475467;line-height:1.5"></div>
-        <div id="d-sched-calendar" style="background:#fff;border-radius:10px;border:1px solid #475569;overflow:auto;max-height:65vh"></div>
+        <label class="class-time-choice" style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px"><span data-ko="한국 시간 (KST)" data-en="Korea time (KST)">Korea time (KST)</span><select data-class-time-format aria-label="Time format / 시간 표시" style="font:inherit;min-height:44px;padding:6px;border:1px solid #94a3b8;border-radius:8px;background:#fff;color:#16202c"><option value="12" data-ko="오전·오후 (2:00pm)" data-en="AM/PM (2:00pm)">AM/PM (2:00pm)</option><option value="24" data-ko="24시간 (14:00)" data-en="24-hour (14:00)">24-hour (14:00)</option></select></label>
+<button type="button" onclick="mgsRecords.clear();renderDSchedule()" style="min-height:44px;margin:6px;padding:6px 12px;border:1px solid #94a3b8;border-radius:8px;background:#fff;color:#16202c" data-ko="출결·보고서 새로고침" data-en="Refresh attendance / reports">Refresh attendance / reports</button>
+<div id="d-sched-calendar" style="background:#fff;border-radius:10px;border:1px solid #475569;overflow:auto;max-height:65vh"></div>
         <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:11px;color:#94a3b8">
           <!-- 🗓 (2026-09-25) 범례를 새 카드(진한 색)에 맞췄다. 옅은 칸은 «수강신청서» 기준 카드(다른 레이어)라 따로 한 줄로 둔다. -->
           <span><span class="mgs-ev mgs-regular" style="display:inline-block;width:14px;height:14px;vertical-align:middle;cursor:default"></span> <span data-ko="정규수업" data-en="Regular">정규수업</span></span>
@@ -3237,6 +3270,7 @@ $('langBtn').addEventListener('click', toggleLang);
 applyLangAttrs();
 
 // 🥭 Phase 39 — 학생 상세보기 스케줄 탭 (주간/월간 캘린더)
+window.addEventListener('class-time-format',function(){renderDSchedule();});
 const _dSchedState = { view: 'week', weekStart: null, year: 0, month: 0, enrollments: [], aiSchedules: [], aiOk: false };
 
 (function initSchedTab() {
@@ -3249,6 +3283,7 @@ const _dSchedState = { view: 'week', weekStart: null, year: 0, month: 0, enrollm
 })();
 
 async function loadDStudentSchedule() {
+  if (mgsRecords) mgsRecords.clear();
   // 학생의 enrollments + AI 등록 class_schedules 동시 fetch
   const uidEl = document.getElementById('d-sched-uid');
   const uid = (typeof DRILL_UID !== 'undefined' && DRILL_UID) ||
@@ -3426,10 +3461,10 @@ function mgsSchCls(sch) { var t = sch && sch.class_type; return 'mgs-ev mgs-' + 
 /* (2026-10-08 사장님 «아직 안 되어 있는 곳에 강사 이름») 카드에 담당 강사를 함께 그린다.
    이름 판정은 아래 목록(«등록된 수업 스케줄»)과 같은 teacherLabel() — ⛔ 여기서 다시 조립하지 말 것
    (AI 배정 행의 «남의 이름» 방어가 그 함수 안에 있다). 좁으면 출처 이름표보다 강사를 먼저 남긴다. */
-function mgsSchInner(sch, colors, hhmm) {
+function mgsSchInner(sch, colors, hhmm, date) {
   var t = sch && sch.class_type;
   return '<div class="mgs-in"><span class="f">' + colors.name + '</span><span class="s">' + (MGS_AI_SHORT[t] || MGS_AI_SHORT.regular) +
-    '</span><span class="tm">' + hhmm + '</span><span class="tc">' + teacherLabel(sch) + '</span><span class="src">' + mgsSrcLabel(sch) + '</span></div>';
+    '</span><span class="tm">' + esc(MangoiClassDisplay.range(sch)) + '</span><span class="tc">' + teacherLabel(sch) + '</span><span class="src">' + mgsSrcLabel(sch) + '</span>' + mgsRecordHtml(sch,date) + '</div>';
 }
 function mgsAiColors(sch) { return MGS_AI_COLORS[sch && sch.class_type] || MGS_AI_COLORS.regular; }
 /* 🏷 (2026-09-24 사장님 「내가 직접 등록했는데 왜 AI 등록이지?」) 이 레이어는 class_schedules «전부» 다.
@@ -3491,7 +3526,31 @@ function mgsHolPills(list) {
   return list.map(h => '<div data-mgs-hol="' + h.country + '" style="margin-top:2px;padding:1px 4px;border-radius:3px;font-size:10px;font-weight:700;line-height:1.3;color:' + (h.country === 'PH' ? '#1e40af' : '#fff') + ';background:' + (h.country === 'PH' ? '#dbeafe' : '#dc2626') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + esc((h.country === 'PH' ? ((typeof _lang!=='undefined'&&(typeof _lang!=='undefined'&&_lang==='en')) ? 'PH holiday' : '필리핀 공휴일') : ((typeof _lang!=='undefined'&&(typeof _lang!=='undefined'&&_lang==='en')) ? 'KR holiday' : '한국 공휴일')) + ' — ' + h.name) + '">' + (h.country === 'PH' ? 'PH ' : '') + esc(h.name) + '</div>').join('');
 }
 
+
+var mgsRecords=new Map();
+function mgsLoadRecords(){
+  var st=_dSchedState, dates=st.view==='week'?[st.weekStart,new Date(st.weekStart.getFullYear(),st.weekStart.getMonth(),st.weekStart.getDate()+6)]:[new Date(st.year,st.month,1)];
+  var uid=new URLSearchParams(location.search).get('uid')||'';
+  dates.forEach(function(d){var month=mgsYmd(d).slice(0,7),key=uid+'|'+month;if(mgsRecords.has(key))return;
+    mgsRecords.set(key,{loading:true});
+    fetch('/api/admin/student/'+encodeURIComponent(uid)+'/session-ledger?calendar=1&month='+month,{credentials:'include',cache:'no-store'})
+      .then(function(r){if(!r.ok)throw Error('read');return r.json();}).then(function(j){if(!j.ok)throw Error('read');mgsRecords.set(key,j);renderDSchedule();})
+      .catch(function(){mgsRecords.set(key,{failed:true});renderDSchedule();});
+  });
+}
+function mgsRecordHtml(sch,date){
+  var en=typeof _lang!=='undefined' && _lang==='en', uid=new URLSearchParams(location.search).get('uid')||'',data=mgsRecords.get(uid+'|'+date.slice(0,7));
+  var it=data&&data.items&&data.items.find(function(i){return String(i.schedule_id)===String(sch.id)&&i.date===date;});
+  var status=sch.status==='postponed'?(en?'Postponed':'연기'):it?(en?it.label_en:it.label_ko):en?'Check needed':'확인 필요';
+  if(!data||data.loading)status=en?'Loading records…':'기록 불러오는 중…';
+  var report=it&&it.today_eval;
+  return '<span class="mgs-record mgs-att" data-state="'+esc(sch.status==='postponed'?'postponed':it&&it.state||'unknown')+'">'+esc(status)+(it&&it.teacher_changed?' · '+(en?'Teacher changed':'강사 변경'):'')+'</span>'
+    +'<span class="mgs-record">'+(report&&report.id?'<a href="/eval.html?id='+encodeURIComponent(report.id)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">'+(en?'Report · Open':'보고서 · 보기')+'</a>':(!it||it.report_loaded===false?(en?'Report unavailable':'보고서 확인 불가'):(en?'Report: not written':'보고서: 미작성')))+'</span>';
+}
+
+
 function renderDSchedule() {
+  mgsLoadRecords();
   if (_dSchedState.view === 'week') return renderDSchedWeek();
   return renderDSchedMonth();
 }
@@ -3533,7 +3592,7 @@ function renderDSchedWeek() {
   });
   slots.forEach(s => {
     const isHour = s.m === 0; const isHalf = s.m === 30;
-    html += '<div style="grid-column:1;font-size:10px;color:#64748b;text-align:right;padding:0 6px;line-height:' + ROW_H + 'px;' + (isHour?'border-top:1px solid #cbd5e1;font-weight:700':'') + '">' + (isHour?String(s.h).padStart(2,'0')+':00':'') + '</div>';
+    html += '<div style="grid-column:1;font-size:10px;color:#64748b;text-align:right;padding:0 6px;line-height:' + ROW_H + 'px;' + (isHour?'border-top:1px solid #cbd5e1;font-weight:700':'') + '">' + (isHour?MangoiClassDisplay.time(String(s.h).padStart(2,'0')+':00'):'') + '</div>';
     for (let i = 0; i < 7; i++) {
       const bt = isHour ? '1px solid #cbd5e1' : (isHalf ? '1px dashed #e2e8f0' : 'none');
       html += '<div style="grid-column:' + (i+2) + ';border-right:1px solid #f1f5f9;border-top:' + bt + '"></div>';
@@ -3610,7 +3669,7 @@ function renderDSchedWeek() {
       const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
       const when = sch.scheduled_date ? (sch.scheduled_date + ' ') : '';
       html += '<div class="' + mgsSchCls(sch) + ' mgs-w" style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;z-index:3" data-mgs-sch="1" data-mgs-move="' + mgsYmd(days[i]) + '|' + sch.id + '" role="button" tabindex="0" title="' + mgsSrcLabel(sch) + ' / ' + colors.name + ' / ' + teacherLabel(sch) + ' / ' + when + sch.start_time + (sch.status==='postponed'?' / 연기':'') + '">' +
-        mgsSchInner(sch, colors, sch.start_time) + '</div>';
+        mgsSchInner(sch, colors, sch.start_time, mgsYmd(days[i])) + '</div>';
     }
   }
   html += '</div>';
@@ -3681,7 +3740,7 @@ function renderDSchedMonth() {
         const ac = mgsAiColors(sch);
         const at = mgsSchedTime(sch);
         const aWhen = at ? (String(at.hh).padStart(2,'0') + ':' + String(at.mm).padStart(2,'0')) : (sch.start_time || '');
-        html += '<div class="' + mgsSchCls(sch) + ' mgs-m mgs-w" data-mgs-sch="1" data-mgs-move="' + mgsYmd(c.date) + '|' + sch.id + '" role="button" tabindex="0" title="' + mgsSrcLabel(sch) + ' / ' + ac.name + ' / ' + teacherLabel(sch) + ' / ' + (sch.scheduled_date ? sch.scheduled_date + ' ' : ((typeof _lang!=='undefined'&&_lang==='en')?'Weekly ':'매주 ')) + aWhen + (sch.status==='postponed'?((typeof _lang!=='undefined'&&_lang==='en')?' / Postponed':' / 연기'):'') + '">' + mgsSchInner(sch, ac, aWhen) + '</div>';
+        html += '<div class="' + mgsSchCls(sch) + ' mgs-m mgs-w" data-mgs-sch="1" data-mgs-move="' + mgsYmd(c.date) + '|' + sch.id + '" role="button" tabindex="0" title="' + mgsSrcLabel(sch) + ' / ' + ac.name + ' / ' + teacherLabel(sch) + ' / ' + (sch.scheduled_date ? sch.scheduled_date + ' ' : ((typeof _lang!=='undefined'&&_lang==='en')?'Weekly ':'매주 ')) + aWhen + (sch.status==='postponed'?((typeof _lang!=='undefined'&&_lang==='en')?' / Postponed':' / 연기'):'') + '">' + mgsSchInner(sch, ac, aWhen, mgsYmd(c.date)) + '</div>';
       }
     }
     html += '</div>';
@@ -4002,7 +4061,7 @@ function mgsuRender() {
       var cls = 'mgsu-chip' + (o.ymd === todayYmd ? ' today' : '') + (hol ? ' hol' : '') + (post ? ' post' : '') + (past ? ' past' : '') + (_mgsuSel === key ? ' sel' : '');
       var tag = (o.sch.class_type && o.sch.class_type !== 'regular') ? '<span class="ty" style="background:' + ty.bg + ';color:' + ty.fg + '">' + esc(en ? ty.en : ty.ko) + '</span>' : '';
       return '<button type="button" role="listitem" class="' + cls + '" data-mgsu-occ="' + esc(key) + '">' + tag
-        + (o.ymd === todayYmd ? (en ? 'Today ' : '오늘 ') : '') + esc(mgsuMd(o) + ' ' + o.hm)
+        + (o.ymd === todayYmd ? (en ? 'Today ' : '오늘 ') : '') + esc(mgsuMd(o) + ' ' + MangoiClassDisplay.range(sch))
         + '<span class="tch">' + teacherLabel(o.sch) + '</span>'   /* (2026-10-06 «날짜 칩에도 교사 이름») teacherLabel 은 이미 이스케이프된 값 · ⛔ class 'ty' 금지(종류 글자 판정과 섞임) */
         + (hol ? ' · ' + esc(hol) : '') + (post ? (en ? ' · postponed' : ' · 연기됨') : '') + '</button>';
     }).join('') + '</div>'
@@ -4028,6 +4087,7 @@ function mgsuOpenAct(key) {
   var dated = !!String(sch.scheduled_date || '').slice(0, 10);
   var ended = mgsuEnded(o, Date.now());
   var head = '<span class="w">' + esc(mgsuMd(o) + ' ' + o.hm) + '</span>' + mgsuTch(sch) + ' <span class="mgsu-ty" style="background:' + ty.bg + ';color:' + ty.fg + '">' + esc(en ? ty.fullEn : ty.full) + '</span>';
+  head += '<div class="mgsu-record-detail">' + mgsRecordHtml(sch,ymd) + '</div>';
   if (mgsuMkLabel(sch)) head += ' <span class="mgsu-ty" style="background:#fff4e0;color:#92400e">' + esc(en ? 'Postponement make-up' : mgsuMkLabel(sch)) + '</span>';
   if (ended) {
     act.innerHTML = '<div class="mgsu-act">' + head + '<div class="n">' + (en ? 'This class has already ended.' : '이미 끝난 수업입니다.') + '</div></div>';

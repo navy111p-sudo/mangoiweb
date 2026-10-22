@@ -237,6 +237,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
 .wfix-why{margin:0;padding-left:18px;font-family:var(--ko);font-size:14px;display:grid;gap:3px}
 .wfix-note{font-family:var(--ko);font-size:13px;color:var(--soft)}
 </style>
+<script src="/js/story-audio.js?v=1"></script>
 <script src="/js/story-kit.js?v=2"></script>
 <script defer src="/js/story-dict.js?v=1"></script>
 <script>
@@ -396,26 +397,11 @@ var StoryCore = (function(){
     applyLang();
   });
 
-  // ---- speech ----
-  var synth = window.speechSynthesis || null, voice = null, curUtter = null;
-  function pickVoice(){
-    if (!synth) return;
-    var v = synth.getVoices().filter(function(x){ return /^en(-|_)/i.test(x.lang); });
-    voice = v.find(function(x){ return /en-US/i.test(x.lang); }) || v[0] || null;
-  }
-  if (synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
-  else document.getElementById('ttsNote').textContent = '(이 브라우저는 소리 읽기를 지원하지 않아요)';
+  // ---- speech: server MP3 works without installed English voices ----
   function say(text, onend){
-    if (!synth) { if (onend) onend(); return; }
-    try {
-      var u = new SpeechSynthesisUtterance(text.replace(/[“”"]/g,''));
-      u.lang = 'en-US'; u.rate = (window.__ttsRate || 0.88); if (voice) u.voice = voice;
-      u.onend = function(){ if (onend) onend(); };
-      curUtter = u;   // 참조를 붙잡아 둬야 onend 가 옵니다(크롬은 참조 없는 소리 객체를 치움) — «끝까지 들었나» 가 onend 에 달림
-      synth.speak(u);
-    } catch(e){ if (onend) onend(); }
+    window.StoryAudio.speak(text, window.__ttsRate || 0.88, onend);
   }
-  function stop(){ playing = false; sumSeq = (sumSeq || 0) + 1; if (RT) RT.cancel(); try { if (synth) synth.cancel(); } catch(e){} try { spans.forEach(function(s){ s.classList.remove('reading'); }); } catch(e){} }   // 표시·번호를 먼저 내리고 멈춤 — 멈출 때 onend 가 곧바로 와도 다음 문장으로 안 넘어가고, 멈춘 문장은 «끝까지 들음» 으로 안 셈
+  function stop(){ playing = false; sumSeq = (sumSeq || 0) + 1; if (RT) RT.cancel(); window.StoryAudio.stop(); try { spans.forEach(function(s){ s.classList.remove('reading'); }); } catch(e){} }
 
   // ---- story ----
   var SCENES = {"1":["img/story/s2-44-s1.webp?v=2","Leo looks sadly at the dry brown leaves."],"3":["img/story/s2-44-s3.webp?v=2","The tree is green again with a tiny flower."]};
@@ -869,7 +855,7 @@ var StoryCore = (function(){
   var beatAcc = 0;  // 멜로디 진행(박 단위)
   function schedule(){
     if (!ctx) return;
-    var talk = false; try { talk = !!(window.speechSynthesis && speechSynthesis.speaking); } catch(e){}
+    var talk = false; try { talk = window.StoryAudio.isSpeaking(); } catch(e){}
     master.gain.setTargetAtTime(on ? (talk ? DUCK : VOL) : 0, ctx.currentTime, 0.25);
     while (nextT < ctx.currentTime + 0.4) {
       // 반주: 한 박마다

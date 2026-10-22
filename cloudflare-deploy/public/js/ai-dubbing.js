@@ -384,7 +384,7 @@
 
   /* ── 장면 목록 ─────────────────────────────────────────────────────────── */
   /* 에피소드 카드(B안 «2. 에피소드 고르기») — 카드를 누르면 «고르기»(오른쪽 칸에 반영),
-   * 카드 아래 data-scene 버튼은 역할 설정으로 이동한다. 시작은 3번에서만 한다. */
+   * 카드 아래 data-scene 버튼은 3번 역할 설정으로 이동한다. */
   function renderScenes() {
     var box = $('dub-scenes');
     if (!box || !S.ep) return;
@@ -504,7 +504,7 @@
     var p = sndPrefs(), e = snd();
     if (e) e.setEnabled(p.music, p.sfx);
     BGM_ROUTES.forEach(setBgmLevel);
-    var st = $('dub-stage'); if (st) st.classList.toggle('noko', !S.run && !p.ko);
+    var st = $('dub-stage'); if (st) st.classList.toggle('noko', S.watching && !p.ko);
     ['music', 'sfx', 'ko'].forEach(function (k) { var b = $('dub-snd-' + k); if (b) b.checked = p[k]; });
   }
 
@@ -816,7 +816,7 @@
       }
       g.fillStyle = '#000'; g.fillRect(0, 0, cv.width, cv.height);
       if (mv.hasFrame) g.drawImage(frame, 0, 0);
-      var sub = run.sub && subtitleFor(run, run.sub);
+      var sub = run.sub;
       if (sub && (sub.en || sub.ko)) {
         g.fillStyle = 'rgba(5,8,14,.78)';
         g.fillRect(40, cv.height - 128, cv.width - 80, 104);
@@ -825,8 +825,8 @@
         g.font = 'bold 20px MangoiHanSC,"Noto Sans KR",sans-serif';
         g.fillText(sub.who || '', cv.width / 2, cv.height - 98);
         g.fillStyle = '#fff'; g.font = 'bold 30px MangoiHanSC,"Noto Sans KR",sans-serif';
-        g.fillText(sub.en, cv.width / 2, cv.height - 62, cv.width - 110);
-        if (sub.ko) { g.fillStyle = '#cbd5e1'; g.font = '18px MangoiHanSC,"Noto Sans KR",sans-serif'; g.fillText(sub.ko, cv.width / 2, cv.height - 34, cv.width - 110); }
+        g.fillText(sub.en || sub.ko, cv.width / 2, cv.height - 62, cv.width - 110);
+        if (sub.en && sub.ko) { g.fillStyle = '#cbd5e1'; g.font = '18px MangoiHanSC,"Noto Sans KR",sans-serif'; g.fillText(sub.ko, cv.width / 2, cv.height - 34, cv.width - 110); }
       }
       g.textAlign = 'right'; g.fillStyle = 'rgba(255,255,255,.65)'; g.font = 'bold 16px MangoiHanSC,"Noto Sans KR",sans-serif';
       g.fillText('mangoi.ai', cv.width - 18, 28);
@@ -843,27 +843,16 @@
       var t0 = Date.now();
       (function go() {
         if (!mv.rec || mv.rec.state !== 'inactive' || mv.stopped) return;
-        if (mv.hasFrame || mv.tainted || Date.now() - t0 > 4000) { try { mv.rec.start(1000); if (mv.held) mv.rec.pause(); } catch (e) {} return; }
+        if (mv.hasFrame || mv.tainted || Date.now() - t0 > 4000) { try { mv.rec.start(1000); } catch (e) {} return; }
         mv.startTimer = setTimeout(go, 100);
       })();
       return mv;
     } catch (e) { clearInterval(mv.timer); return null; }
   }
-  /* «먼저 들어 보기» 동안 완성 영상 녹화를 잠깐 멈춘다(그 구간이 완성 영상에 빈칸·원어민 소리로 남지 않게).
-   * 녹화가 아직 시작 전이면 «멈춰 둬야 함» 만 적어 두고, 시작하는 순간 바로 멈춘다(mv.held). */
-  function pauseMovie(mv, on) {
-    if (!mv || !mv.rec) return;
-    mv.held = !!on;
-    try {
-      if (on && mv.rec.state === 'recording') mv.rec.pause();
-      else if (!on && mv.rec.state === 'paused') mv.rec.resume();
-    } catch (e) {}
-  }
   function stopMovie(mv) {
     if (!mv) return Promise.resolve(null);
     clearInterval(mv.timer); clearTimeout(mv.startTimer); mv.stopped = true;
     if (!mv.rec || mv.rec.state === 'inactive') return Promise.resolve(null);
-    pauseMovie(mv, false);
     return new Promise(function (res) {
       mv.rec.onstop = function () {
         if (!mv.chunks.length) { res(null); return; }
@@ -875,24 +864,16 @@
   }
 
   /* ── 무대(화면 위 자막·차례 안내) ──────────────────────────────────────── */
-  // 화면과 저장 영상이 같은 설정을 쓴다. 발표의 영어 대사는 DOM에도 넣지 않는다.
-  function subtitleFor(run, line) {
-    var practice = run.mode === 'practice';
-    return { who: line.who, student: line.student,
-      en: practice ? line.en : '', ko: practice || run.korean ? (line.ko || '') : '' };
+  // Practice is bilingual; presentation has no captions unless Korean is enabled.
+  function scriptMode() {
+    if (!$('dub-mode') || $('dub-mode').value !== 'presentation') return 'both';
+    return $('dub-korean') && $('dub-korean').checked ? 'ko' : 'none';
   }
-  function renderRunSubtitle(run) {
-    var sub = run.sub && subtitleFor(run, run.sub), box = $('dub-sub');
-    box.hidden = !sub || !(sub.en || sub.ko);
-    box.classList.toggle('me', !!(sub && sub.student));
-    $('dub-sub-who').textContent = sub ? sub.who : '';
-    $('dub-sub-en').textContent = sub ? sub.en : '';
-    $('dub-sub-en').hidden = !sub || !sub.en;
-    $('dub-sub-ko').textContent = sub ? sub.ko : '';
+  function dubbingText(line, mode) {
+    return { en: mode === 'en' || mode === 'both' ? line.en : '', ko: mode === 'ko' || mode === 'both' ? (line.ko || '') : '' };
   }
   function updateDubMode() {
-    var practice = $('dub-mode').value === 'practice';
-    $('dub-listen-option').hidden = !practice;
+    var practice = $('dub-mode').value !== 'presentation';
     $('dub-korean-option').hidden = practice;
     $('dub-start').innerHTML = practice ? L('▶ 연습 시작', '▶ Start practice') : L('🎤 발표 더빙 시작', '🎤 Start presentation dubbing');
   }
@@ -900,10 +881,19 @@
     var student = performer.type === 'student';
     var who = (S.ep.characters[line.speaker].emoji + ' ' + charName(line.speaker))
       + (student ? ' — 🎤 ' + studentName(performer.idx) : '');
-    run.sub = { who: who, en: line.en, ko: line.ko, student: student };
-    renderRunSubtitle(run);
+    var text = dubbingText(line, run.scriptMode);
+    run.currentLine = line; run.currentPerformer = performer;
+    run.sub = { who: who, en: text.en, ko: text.ko, student: student };
+    var box = $('dub-sub');
+    box.hidden = !(text.en || text.ko);
+    box.classList.toggle('me', student);
+    $('dub-stage').classList.remove('noko');
+    $('dub-sub-who').textContent = who;
+    $('dub-sub-en').textContent = text.en;
+    $('dub-sub-en').hidden = !text.en;
+    $('dub-sub-ko').textContent = text.ko;
   }
-  function clearLine(run) { run.sub = null; var b = $('dub-sub'); if (b) b.hidden = true; }
+  function clearLine(run) { run.sub = null; run.currentLine = null; run.currentPerformer = null; var b = $('dub-sub'); if (b) b.hidden = true; }
   function setTurn(text) { var t = $('dub-turn'); if (!t) return; t.hidden = !text; t.textContent = text || ''; }
   function setNote(text) { var n = $('dub-stage-note'); if (!n) return; n.hidden = !text; n.textContent = text || ''; }
   function setProg(text) { var p = $('dub-prog'); if (p) p.textContent = text || ''; }
@@ -924,28 +914,10 @@
   }
 
   /* 학생 한 줄(차례 모드) — 준비 신호 → 마이크 → 말이 끝나면(조용 1.3초)·최대 시간·«다 말했어요» 중 먼저 오는 것에서 끝 */
-  /* 👂 먼저 들어 보기(연습) — 학생 대사도 원어민 목소리로 한 번 들려준 뒤 따라 말하게 한다.
-   * 흐름: 듣기 → 따라 말하기(=더빙, 채점) → 완성 영상. 끄면 듣지 않고 바로 더빙한다(실전).
-   * ⛔ 이 소리는 완성 영상에 넣지 않는다(noRec + 녹화 잠깐 멈춤) — 영화에는 학생 목소리만 남아야 한다.
-   * «넘어가기» 는 듣기만 건너뛰고 말하기로 간다. */
-  function listenFirst(run, it) {
-    if (!run.listenFirst) return Promise.resolve();
-    setButtons('native');
-    setTurn('👂 ' + T('먼저 들어 보세요', 'Listen first'));
-    pauseMovie(run.movie, true);
-    var skipped = false;
-    run.skipNow = function () { skipped = true; run.wakers.splice(0).forEach(function (w) { try { w(); } catch (e) {} }); };
-    return speakNative(run, it.line, true, function () { return skipped; }).then(function () {
-      run.skipNow = null;
-      pauseMovie(run.movie, false);
-      return sleep(250, run);
-    });
-  }
-
   function studentTurn(run, sc, it) {
     var idx = it.performer.idx;
     var res = { key: sc.no + ':' + it.line.id + ':' + Date.now(), sceneNo: sc.no, line: it.line, studentIdx: idx, status: 'queued' };
-    return listenFirst(run, it).then(function () {
+    return Promise.resolve().then(function () {
       if (run.aborted) return;
       setButtons('student');
       setTurn('🎤 ' + studentName(idx) + ' · ' + charName(it.line.speaker) + T(' 차례예요!', "'s turn!"));
@@ -1116,7 +1088,7 @@
     var v = $('dub-video');
     setNote(''); clearLine(run); setTurn('');
     setProg(T('에피소드 ' + sc.no + ' 불러오는 중…', 'Loading episode ' + sc.no + '…'));
-    if (sc.voiceMode === 'tts') prefetchScene(sc, run.listenFirst);
+    if (sc.voiceMode === 'tts') prefetchScene(sc, false);
     loadSceneVideo(v, sc);
     sndEnter(S.ep, sc);                              // 🎵 작품 악기 색 + 장면 분위기(배경음악 파일이 있으면 그 파일이 이긴다)
     return waitVideo(v, 10000).then(function (ok) {
@@ -1142,7 +1114,7 @@
     if (mode !== 'watch' && $('dub-tcard')) $('dub-tcard').hidden = true;
   }
   /* 더빙·먼저 보기 중에는 고르기·출연 설정을 잠근다(둘이 동시에 돌지 않게) */
-  var LOCK_SEL = '#dub-scenes button, #dub-all, #dub-start, #dub-genres button, #dub-cast button, #dub-cast input, #dub-make-movie, #dub-listen-first, #dub-mode, #dub-korean, #dub-w-film, #dub-w-all, #dub-nudge button';
+  var LOCK_SEL = '#dub-scenes button, #dub-all, #dub-start, #dub-genres button, #dub-cast button, #dub-cast input, #dub-make-movie, #dub-mode, #dub-korean, #dub-w-film, #dub-w-all, #dub-nudge button';
   function lockUi(on) { Array.prototype.forEach.call(document.querySelectorAll(LOCK_SEL), function (b) { b.disabled = on; }); }
   function setRunning(on) {
     setPlayerMode(on ? 'dub' : 'off');
@@ -1163,15 +1135,14 @@
     var probs = C.castProblems(S.cast, S.ep);
     if (probs.length) { alert(T('학생마다 캐릭터를 골라 주세요.', 'Please pick a character for each student.')); return; }
     ensureMix();                                     // ⚠️ 클릭 안에서 만들어야 소리가 난다(자동재생 정책)
-    var mode = $('dub-mode').value === 'presentation' ? 'presentation' : 'practice';
     var run = { aborted: false, counters: {}, wakers: [], sub: null, mic: null, movie: null, tracks: [], deviceVoiceUsed: false,
-      mode: mode, korean: !!$('dub-korean').checked,
-      listenFirst: mode === 'practice' && !!($('dub-listen-first') && $('dub-listen-first').checked) };
+      mode: $('dub-mode').value === 'presentation' ? 'presentation' : 'practice',
+      scriptMode: scriptMode() };
     S.run = run;
-    renderResults();
-    $('dub-live-korean').checked = run.korean;
+    $('dub-live-korean').checked = run.scriptMode === 'ko';
     applySndPrefs();
-    renderRunSubtitle(run);
+    renderResults();
+    clearLine(run);
     closeSheet();
     setRunning(true);
     $('dub-player').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1306,8 +1277,9 @@
     box.hidden = false;
     box.classList.remove('me');
     $('dub-sub-who').textContent = c ? c.emoji + ' ' + T(c.name.ko, c.name.en) : line.speaker;
-    $('dub-sub-en').hidden = false;
+    $('dub-stage').classList.toggle('noko', !sndPrefs().ko);
     $('dub-sub-en').textContent = line.en;
+    $('dub-sub-en').hidden = false;
     $('dub-sub-ko').textContent = line.ko || '';
   }
   function wClearLine() { var b = $('dub-sub'); if (b) b.hidden = true; }
@@ -1544,9 +1516,9 @@
     $('dub-mode').addEventListener('change', updateDubMode);
     $('dub-live-korean').addEventListener('change', function () {
       if (!S.run || S.run.mode !== 'presentation') return;
-      S.run.korean = !!this.checked;
-      $('dub-korean').checked = S.run.korean;
-      renderRunSubtitle(S.run);
+      S.run.scriptMode = this.checked ? 'ko' : 'none';
+      $('dub-korean').checked = !!this.checked;
+      if (S.run.currentLine) showLine(S.run, S.run.currentLine, S.run.currentPerformer);
     });
     updateDubMode();
     $('dub-all').addEventListener('click', function () {

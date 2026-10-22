@@ -514,13 +514,11 @@ check('⑦-12 <style> 안에 CJK 홑낫표가 없다', !/[「」]/.test(styleBlo
 check('⑦-13 화면에 보이는 글자에 CJK 홑낫표가 없다', !/[「」]/.test(html.replace(/<!--[\s\S]*?-->/g, '').replace(/<script[\s\S]*?<\/script>/g, '')));
 check('⑦-14 사이트 구성표에 화면이 있다', /ai-dubbing\.html/.test(rd(join(PUB, 'admin', 'site-structure-map.html'))));
 for (const f of ['js/ai-dubbing-core.js', 'js/ai-dubbing-sound.js', 'js/ai-dubbing-watch.js', 'js/ai-dubbing.js', 'data/dubbing/dub-001.json', 'data/dubbing/dub-002.json', 'data/dubbing/dub-003.json', 'data/dubbing/dub-004.json', 'data/dubbing/dub-005.json', 'data/dubbing/dub-006.json', 'data/dubbing/index.json']) check('⑦-15 파일 실재: ' + f, existsSync(join(PUB, f)));
-/* 👂 먼저 들어 보기 — 그 소리는 완성 영상에 넣지 않는다(학생 목소리만 남아야 한다) */
-const lfBody = (() => { const i = playerCode.indexOf('function listenFirst('); if (i < 0) return ''; const j = playerCode.indexOf('function studentTurn(', i); return j > i ? playerCode.slice(i, j) : ''; })();
-check('⑦-16 «먼저 들어 보기» 함수가 있고 연습에서만 옵션으로 켜고 끈다', !!lfBody && /if \(!run\.listenFirst\) return/.test(lfBody) && /listenFirst: mode === 'practice' && !!\(\$\('dub-listen-first'\)/.test(playerCode));
-check('⑦-17 «먼저 들어 보기» 소리는 녹화 갈래에 안 잇는다(noRec) + 그동안 녹화를 멈춘다(실제 동작은 ⑨에서 돌려 본다)', /speakNative\(run, it\.line, true\b/.test(lfBody) && /pauseMovie\(run\.movie, true\)/.test(lfBody) && /pauseMovie\(run\.movie, false\)/.test(lfBody) && /if \(MIX\.rec && !noRec\) g\.connect\(MIX\.rec\)/.test(playerCode));
-check('⑦-18 «짝» — 원어민 차례(학생이 안 고른 캐릭터)는 완성 영상에 담긴다(noRec 없이 부른다)', /p = speakNative\(run, it\.line\)\.then/.test(playerCode));
-check('⑦-19 학생 차례는 «먼저 들어 보기» 를 지난 뒤 녹음한다', (() => { const i = playerCode.indexOf('return listenFirst(run, it)'), j = playerCode.indexOf('var cap = startCapture(run);'); return i > 0 && j > i; })());
-check('⑦-20 화면에 «먼저 들어 보기» 칸과 «이야기 고르기» 칸이 있다', /id="dub-listen-first"/.test(html) && /id="dub-eps"/.test(html) && /id="dub-eps-panel"/.test(html));
+check('⑦-16 더빙에는 먼저 듣고 따라 말하기 옵션이 없다', !/dub-listen-first|listenFirst/.test(playerCode) && !/dub-listen-first/.test(html));
+check('⑦-17 학생 차례에 원어민을 재생하지 않는다', !/speakNative|playUrl|speakDevice/.test(cutFn(playerCode, 'studentTurn')));
+check('⑦-18 상대 배역 음성은 재생하고 녹화한다', /p = speakNative\(run, it\.line\)\.then/.test(playerCode));
+check('⑦-19 더빙 대사 표시를 시작할 때 고정한다', /scriptMode: scriptMode\(\)/.test(playerCode));
+check('⑦-20 연습·발표와 한국어 자막 선택 및 이야기 고르기가 있다', ['practice', 'presentation'].every(v => html.includes('value="' + v + '"')) && /id="dub-korean"/.test(html) && /id="dub-eps"/.test(html));
 check('⑦-21 이야기 목록은 정본(normalizeIndex)으로 읽는다 · 준비 중인 편은 링크가 아니다', /C\.normalizeIndex\(/.test(playerCode) && /if \(ready && !on\) h \+= '<a class="ep"/.test(playerCode));
 check('⑦-22 미리보기 안내는 매니페스트가 밝힌 글(note)을 쓴다 — «영상과 대사가 안 맞아요» 를 고정으로 말하지 않는다', !/영상과 대사가 아직 안 맞아요/.test(playerCode) && /S\.ep\.note\.ko/.test(playerCode));
 
@@ -577,34 +575,9 @@ async function runPlayerChecks(src, verbose) {
   const tick = () => new Promise((r) => setTimeout(r, 0));
   /* 변이가 «끝나지 않는 약속» 을 만들면 하니스가 멈춘다 — 300ms 로 자른다(그것도 FAIL 로 센다) */
   const within = (p, ms) => Promise.race([Promise.resolve(p).then(() => 'ok'), new Promise((r) => setTimeout(() => r('timeout'), ms || 300))]);
-  /* A. listenFirst */
-  const lfSrc = cutFn(src, 'listenFirst');
-  t('⑨-0 listenFirst 를 오려 냈다(전제)', !!lfSrc);
-  const mkLF = make(['speakNative', 'pauseMovie', 'setButtons', 'setTurn', 'T', 'sleep'], lfSrc, 'listenFirst');
-  if (mkLF) {
-    try {
-      const log = []; let resolveSpeak = null, gotCancelled = null, gotNoRec = null;
-      const speak = (run, line, noRec, cancelled) => { log.push('speak'); gotNoRec = noRec; gotCancelled = cancelled; return new Promise((r) => { resolveSpeak = r; }); };
-      const pause = (mv, on) => log.push('pause:' + on);
-      const LF = mkLF(speak, pause, () => {}, () => {}, (a) => a, () => Promise.resolve());
-      const off = { listenFirst: false, wakers: [], movie: {} };
-      const w0 = await within(LF(off, { line: { en: 'Hi there friend', speaker: 'rex' } }));
-      t('⑨-1 «먼저 들어 보기» 를 끄면 원어민 소리를 안 낸다(짝)', w0 === 'ok' && log.length === 0, [w0, log]);
-      log.length = 0;
-      const run = { listenFirst: true, wakers: [], movie: {} };
-      const p = LF(run, { line: { en: 'Hi there friend', speaker: 'rex' } });
-      await tick();
-      t('⑨-2 켜면 원어민 소리를 낸다', log.includes('speak'), log);
-      t('⑨-3 소리 «앞에서» 녹화를 멈춘다', log.indexOf('pause:true') >= 0 && log.indexOf('pause:true') < log.indexOf('speak'), log);
-      t('⑨-4 그 소리는 녹화 갈래에 안 잇는다(noRec=true)', gotNoRec === true, gotNoRec);
-      t('⑨-5 받는 사이 «넘어가기» 전에는 취소가 아니다', typeof gotCancelled === 'function' && gotCancelled() === false);
-      if (run.skipNow) run.skipNow();
-      t('⑨-6 받는 사이 «넘어가기» 를 누르면 취소로 본다(받은 뒤 재생 안 함)', typeof gotCancelled === 'function' && gotCancelled() === true);
-      if (resolveSpeak) resolveSpeak();
-      await within(p);
-      t('⑨-7 듣기가 끝나면 녹화를 «다시» 켠다(짝 — 안 켜면 완성 영상이 그 뒤로 빈다)', log.indexOf('pause:false') > log.indexOf('speak'), log);
-    } catch (e) { t('⑨-1~7 listenFirst 실행', false, String(e && e.message)); }
-  } else t('⑨-1~7 listenFirst 를 함수로 만들 수 있다', false);
+  /* A. Dubbing never previews the selected role's native line. */
+  t('⑨-0 학생 대사는 원어민 재생 없이 녹음한다', !/listenFirst|speakNative|speakDevice|playUrl/.test(cutFn(src, 'studentTurn')));
+  t('⑨-1 연습은 독립 먼저 보기에서 제공한다', !/listenFirst:/.test(src));
   /* B. speakNative — 받는 사이 취소면 재생 안 함 · noRec 을 기기 목소리에도 넘김 */
   const snSrc = cutFn(src, 'speakNative');
   const mkSN = make(['getTts', 'playUrl', 'speakDevice', 'C', 'S'], snSrc, 'speakNative');
@@ -636,24 +609,6 @@ async function runPlayerChecks(src, verbose) {
       t('⑨-12 «짝» — 원어민 차례의 기기 목소리는 그 표시를 남긴다', r2.deviceVoiceUsed === true);
     } catch (e) { t('⑨-11~12 speakDevice 실행', false, String(e && e.message)); }
   } else t('⑨-11~12 speakDevice 를 함수로 만들 수 있다', false);
-  /* D. pauseMovie — 시작 전이면 «멈춰 둬야 함» 만 적는다 · 녹화 중이면 멈추고 다시 켠다 */
-  const pmSrc = cutFn(src, 'pauseMovie');
-  const mkPM = make([], pmSrc, 'pauseMovie');
-  if (mkPM) {
-    try {
-      const PM = mkPM();
-      const rec = { state: 'recording', pause() { this.state = 'paused'; }, resume() { this.state = 'recording'; } };
-      const mv = { rec };
-      PM(mv, true);
-      t('⑨-13 녹화 중이면 멈춘다', rec.state === 'paused' && mv.held === true, [rec.state, mv.held]);
-      PM(mv, false);
-      t('⑨-14 듣기가 끝나면 다시 녹화한다', rec.state === 'recording' && mv.held === false, [rec.state, mv.held]);
-      const mv2 = { rec: { state: 'inactive', pause() { this.state = 'paused'; }, resume() {} } };
-      PM(mv2, true);
-      t('⑨-15 녹화가 아직 시작 전이면 «멈춰 둬야 함» 을 적어 둔다(늦게 시작해도 바로 멈추게)', mv2.held === true && mv2.rec.state === 'inactive');
-    } catch (e) { t('⑨-13~15 pauseMovie 실행', false, String(e && e.message)); }
-  } else t('⑨-13~15 pauseMovie 를 함수로 만들 수 있다', false);
-  t('⑨-16 녹화가 늦게 시작되면 «멈춰 둬야 함» 을 보고 곧바로 멈춘다', /mv\.rec\.start\(1000\); if \(mv\.held\) mv\.rec\.pause\(\);/.test(stripJs(src)));
   /* E. prefetchScene — 듣기가 켜져 있으면 학생 대사도 미리 받는다(받는 사이 멈춤·넘어가기 무반응을 줄인다) */
   const pfSrc = cutFn(src, 'prefetchScene');
   const mkPF = make(['C', 'S', 'getTts'], pfSrc, 'prefetchScene');
@@ -668,7 +623,7 @@ async function runPlayerChecks(src, verbose) {
       t('⑨-18 듣기가 켜져 있으면 학생 대사도 미리 받는다', got.includes('Student line') && got.includes('Native line'), got);
     } catch (e) { t('⑨-17~18 prefetchScene 실행', false, String(e && e.message)); }
   } else t('⑨-17~18 prefetchScene 을 함수로 만들 수 있다', false);
-  t('⑨-19 장면을 시작할 때 «먼저 들어 보기» 설정으로 미리 받는다', /prefetchScene\(sc, run\.listenFirst\)/.test(stripJs(src)));
+  t('⑨-19 더빙에서는 상대 배역의 음성만 미리 받는다', /prefetchScene\(sc, false\)/.test(stripJs(src)));
   /* F. renderEpisodes — 준비 중인 편을 주소로 직접 열어도 «지금 이 이야기» 라고 하지 않는다 */
   const reSrc = cutFn(src, 'renderEpisodes');
   const mkRE = make(['$', 'episodeId', 'L', 'esc'], reSrc, 'renderEpisodes');
@@ -691,14 +646,9 @@ async function runPlayerChecks(src, verbose) {
 const playerFails0 = await runPlayerChecks(PLAYER_SRC_RAW, true);
 check('⑨-v0 원본 플레이어는 ⑨ 를 전부 통과한다(전제)', playerFails0.length === 0, playerFails0);
 const PLAYER_MUTANTS = [
-  ['듣기: 조건 뒤집기', 'if (!run.listenFirst) return Promise.resolve();', 'if (run.listenFirst) return Promise.resolve();'],
-  ['듣기: 녹화 다시 켜기 빠짐', '      run.skipNow = null;\n      pauseMovie(run.movie, false);', '      run.skipNow = null;'],
-  ['듣기: noRec 빼기', 'speakNative(run, it.line, true, function', 'speakNative(run, it.line, false, function'],
-  ['듣기: 넘어가기 표시 안 함', 'run.skipNow = function () { skipped = true;', 'run.skipNow = function () {'],
   ['넘어가기: 받는 중 취소 무시', 'if (run.aborted || (cancelled && cancelled())) return;', 'if (run.aborted) return;'],
   ['기기 목소리: 듣기에도 «안 담겼어요»', 'if (!noRec) run.deviceVoiceUsed = true;', 'run.deviceVoiceUsed = true;'],
   ['기기 목소리: noRec 안 넘김', 'speakDevice(run, line.en, maxMs, noRec)', 'speakDevice(run, line.en, maxMs)'],
-  ['녹화: held 안 적음', 'mv.held = !!on;', ''],
   ['미리 받기: 학생 줄 안 받음', 'withStudents || !muted[l.speaker]', '!muted[l.speaker]'],
   ['목록: 준비 중도 지금 이야기', 'on = ready && e.id === cur', 'on = e.id === cur'],
 ];

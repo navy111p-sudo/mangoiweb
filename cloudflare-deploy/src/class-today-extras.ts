@@ -198,7 +198,7 @@ export function isNoRoomRow(s: any): boolean {
 /** opts.evals=false — 평가 내용을 싣지 않는다(지사·대리점. 2026-09-23 사장님 지시).
  *  ⚠️ 기본값은 true(강사 포털·본사). 부르는 쪽이 «숨길 사람» 을 정한다. */
 export async function enrichClassesToday(env: any, sessions: any[], dateStr: string, nowMs: number,
-  opts: { evals?: boolean; dowMatches?: (raw: any, target: number) => boolean } = {}): Promise<void> {
+  opts: { evals?: boolean; attendanceOnly?: boolean; dowMatches?: (raw: any, target: number) => boolean } = {}): Promise<void> {
   const withEvals = opts.evals !== false;
   for (const s of sessions) {
     s.class_date = dateStr;
@@ -271,6 +271,7 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
     s.attendance = judgeStudentAttendance('mangoi', Number(s.start_ts) || 0, String(s.status || ''), first, unidentified);
   }
 
+  if (opts.attendanceOnly) return;
   // ③ 결제 유형
   try {
     const centerTypes = new Map<string, string | null>();
