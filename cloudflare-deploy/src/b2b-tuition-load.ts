@@ -31,6 +31,7 @@ import { LEDGER_STATES, type LedgerState } from './session-ledger';
 import { enrollAdminHqOnly, ENROLL_BASE_WEEKLY1 } from './enroll-ops';
 import { SITE_ORIGIN } from './site-url';
 import { ensureScheduleChangeRequestTable } from './student-schedule-request';
+import { ensureB2bClaimColumns } from './b2b-pay-guard';   // 🔒 대리점 청구서 이중결제 선점 칸 (2026-10-22)
 import {
   sessionUnitPrice, chargeFor, computeInvoice, balanceAlert, reminderStepToday, reminderText, overdueLevel,
   dueDateOf, diagnoseCounts, parseTheirCounts, postponeIsFree, monthAdd, isValidMonth, addDays,
@@ -511,9 +512,19 @@ export async function activateB2bTuitionPayment(env: Env, orderId: string, amoun
   const ins: any = await safe(async () => await env.DB.prepare(`INSERT OR IGNORE INTO b2b_wallet_entries (shop_name, kind, amount, memo, ref, created_by, created_at) VALUES (?, 'invoice_paid', ?, ?, ?, ?, ?)`)
     .bind(inv.shop_name, Math.round(amount), `${inv.month} ${inv.kind === 'topup' ? '보충' : '정기'} 청구서 #${inv.id} 결제`, orderId, by, when).run(), null);
   if (!ins || !(ins.meta?.changes > 0)) return true;   // 이미 반영됨
-  const paid = Number(inv.paid_krw || 0) + Math.round(amount);
-  const status = paid >= Number(inv.due_krw) ? 'paid' : 'partial';
-  await safe(async () => { await env.DB.prepare(`UPDATE b2b_tuition_invoices SET paid_krw = ?, status = ?, paid_at = ?, order_id = ?, updated_at = ? WHERE id = ?`).bind(paid, status, when, orderId, Date.now(), inv.id).run(); return true; }, false);
+  /* 🔒 (2026-10-22) 낸 돈은 «DB 안에서» 더한다 — 두 결제가 동시에 확정되면 둘 다 옛 paid_krw 를 읽어
+     한쪽 금액이 사라졌다. 거둔(void) 청구서에 늦게 들어온 돈은 충전금에만 남기고 상태는 안 바꾼다. */
+  const amt = Math.round(amount);
+  await ensureB2bClaimColumns(env);   // 아래 UPDATE 가 선점 칸을 지운다 — 칸이 없으면 UPDATE 통째로 죽어 낸 돈이 안 적힌다
+  await safe(async () => { await env.DB.prepare(
+    `UPDATE b2b_tuition_invoices SET paid_krw = paid_krw + ?,
+        status = CASE WHEN status = 'void' THEN status WHEN paid_krw + ? >= due_krw THEN 'paid' ELSE 'partial' END,
+        paid_at = ?, order_id = ?,
+        confirming_order = CASE WHEN confirming_order = ? THEN NULL ELSE confirming_order END, updated_at = ?
+      WHERE id = ?`).bind(amt, amt, when, orderId, orderId, Date.now(), inv.id).run(); return true; }, false);
+  const after: any = await safe(async () => await env.DB.prepare(`SELECT status, paid_krw, due_krw FROM b2b_tuition_invoices WHERE id = ?`).bind(inv.id).first(), null);
+  const status = after?.status || '?';
+  if (after && Number(after.paid_krw) > Number(after.due_krw)) console.error('[b2b-tuition] ⚠️ 청구액보다 많이 결제됨 — 이중결제 확인 필요', orderId, 'invoice=', inv.id, after);
   await logAction(env, 'paid', inv.shop_name, { invoice: inv.id, amount, status, by });
   return true;
 }
