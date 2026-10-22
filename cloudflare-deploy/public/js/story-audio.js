@@ -55,7 +55,7 @@
       if (mine !== seq) return;
       clearTimeout(timer);
       if (index >= parts.length) { busy = false; if (onend) onend(); return; }
-      var part = parts[index++], settled = false;
+      var part = parts[index++], settled = false, playAttempt = 0;
       function ended() { if (settled || mine !== seq) return; settled = true; clearTimeout(timer); next(); }
       function fallback() {
         if (settled || mine !== seq) return;
@@ -83,9 +83,12 @@
       }
       function play() {
         if (settled || mine !== seq) return;
+        var attempt = ++playAttempt;
+        clearTimeout(timer);
         message(''); busy = true;
         timer = setTimeout(fallback, 20000);
-        try { var pending = audio.play(); if (pending && pending.catch) pending.catch(rejected); } catch (error) { rejected(error); }
+        function rejectCurrent(error) { if (attempt === playAttempt) rejected(error); }
+        try { var pending = audio.play(); if (pending && pending.catch) pending.catch(rejectCurrent); } catch (error) { rejectCurrent(error); }
       }
       try {
         if (!audio) audio = new window.Audio();

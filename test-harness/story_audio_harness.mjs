@@ -2,20 +2,25 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
 const source = readFileSync('cloudflare-deploy/public/js/story-audio.js', 'utf8');
-function setup({ voices = [], blocked = false } = {}) {
+export function setup({ voices = [], blocked = false, deferred = false } = {}) {
   const media = [], timers = new Map(), notices = [];
   let id = 0;
   class Audio {
     constructor() { media.push(this); this.duration = 3; this.calls = 0; }
-    play() { this.calls++; return blocked ? Promise.reject({ name: 'NotAllowedError' }) : Promise.resolve(); }
+    play() {
+      this.calls++;
+      if (deferred) return new Promise((resolve, reject) => { (this.pending ||= []).push({ resolve, reject }); });
+      return blocked ? Promise.reject({ name: 'NotAllowedError' }) : Promise.resolve();
+    }
     pause() {} load() {} removeAttribute() {}
   }
   const synth = { getVoices: () => voices, speak(u) { this.current = u; }, cancel() {} };
-  const window = { Audio, addEventListener() {} };
+  const events = {};
+  const window = { Audio, addEventListener(name, fn) { events[name] = fn; } };
   if (voices.length) Object.assign(window, { speechSynthesis: synth, SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } } });
   const document = { createElement: () => ({ style: {}, setAttribute() {}, appendChild(child) { this.child = child; } }), body: { appendChild(x) { notices.push(x); } } };
   vm.runInNewContext(source, { window, document, setTimeout(fn) { timers.set(++id, fn); return id; }, clearTimeout(n) { timers.delete(n); } });
-  return { api: window.StoryAudio, media, synth, timers, notices };
+  return { api: window.StoryAudio, media, synth, timers, notices, events };
 }
 {
   const { api, media } = setup(); let ended = 0;
