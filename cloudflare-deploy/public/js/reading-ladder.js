@@ -213,7 +213,7 @@
 
   /* ── 화면 상태 ── */
   // view = 읽기·반복 연습의 그때그때 상태 · filt = 고르기 화면의 고른 글·거르기(글을 읽고 돌아와도 남는다)
-  var view = { mode: 'list', id: null, drill: null, showKo: false, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
+  var view = { mode: 'list', id: null, drill: null, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
   var filt = { topic: '', status: '', sort: 'no', sel: null };
   var FILTER_VALUES = { status: RLCore.STATUSES, sort: RLCore.SORTS };
 
@@ -419,7 +419,7 @@
       var cls = 'rl-s';
       if (view.keyPicked === i) cls += (i === p.key ? ' ok' : ' no');
       if ((r.k && i === p.key) || (view.keyPicked === i && i === p.key)) cls += ' ok';
-      var inner = '<span class="rl-en">' + esc(s.en) + '</span>' + (view.showKo ? '<span class="rl-ko">' + esc(s.ko) + '</span>' : '');
+      var inner = '<span class="rl-en">' + esc(s.en) + '</span>';
       return pickable ? '<button type="button" class="' + cls + '" data-act="key" data-i="' + i + '">' + inner + '</button> '
                       : '<span class="' + cls + '">' + inner + '</span> ';
     }).join('') + '</div>';
@@ -479,7 +479,7 @@
           good: T('좋아요! 핵심어 ' + res.hit.length + '개가 들어갔어요. 빠진 말: ', 'Good! ' + res.hit.length + ' key words are in. Missing: ') + res.miss.join(', '),
           try: T('핵심어가 조금 부족해요. 아래 힌트 낱말을 넣어 다시 써 볼까요?', 'A few key words are missing. Try again with the hint words.'),
           short: T('세 낱말 이상 영어로 써 주세요.', 'Please write at least three English words.'),
-          korean: T('영어로만 써 주세요. (우리말은 위 해석에서 볼 수 있어요)', 'Please write in English only.')
+          korean: T('영어로만 써 주세요.', 'Please write in English only.')
         }[res.verdict];
         fb = '<p class="rl-fb ' + (res.verdict === 'great' || res.verdict === 'good' ? 'ok' : 'no') + '">' + esc(msg) + '</p>';
       }
@@ -513,7 +513,7 @@
         '<div class="rl-bg">🧠 <b>' + esc(T('배경지식', 'Background')) + '</b> ' + esc(L(p.bg)) + '</div>' +
         '<div class="rl-row">' + (canSpeak ? '<button type="button" class="rl-btn" data-act="speak">🔊 ' + esc(T('듣기', 'Listen')) + '</button>' : '') +
           (hasBook(p) ? '<a class="rl-btn rl-primary" href="/story-' + esc(p.id) + '.html">🖼 ' + esc(T('그림 동화책으로 읽기 (도장 6개 +10P · 하루 2권까지)', 'Read as a picture book (6 stamps = +10P · up to 2 books a day)')) + '</a>' : '') +
-          '<button type="button" class="rl-btn" data-act="ko" aria-pressed="' + view.showKo + '">🇰🇷 ' + esc(view.showKo ? T('해석 숨기기', 'Hide Korean') : T('해석 보기', 'Show Korean')) + '</button></div>' +
+          '</div>' +
         passageHtml(p, !keyDone) + words +
       '</article>' + s1 + s2 + s3 + end;
   }
@@ -538,7 +538,7 @@
         '<span class="rl-pos">' + (d.i + 1) + ' / ' + d.list.length + '</span></div>' +
       '<article class="rl-read"><h2>' + esc(p.title.en) + '</h2>' +
         '<div class="rl-row">' + (canSpeak ? '<button type="button" class="rl-btn" data-act="speak">🔊 ' + esc(T('듣기', 'Listen')) + '</button>' : '') +
-        '<button type="button" class="rl-btn" data-act="ko" aria-pressed="' + view.showKo + '">🇰🇷 ' + esc(view.showKo ? T('해석 숨기기', 'Hide Korean') : T('해석 보기', 'Show Korean')) + '</button></div>' +
+          '</div>' +
         passageHtml(p, false) + '</article>' +
       '<section class="rl-step cur"><h3>' + esc(T('중심 내용은?', 'Main idea?')) + '</h3><div class="rl-opts">' +
         order.map(function (oi) {
@@ -560,7 +560,7 @@
     var op = byId(id);
     // 읽고 돌아오면 그 글이 고른 글로 남는다(목록 위치를 잃지 않게)
     if (op) { state.stage = op.stage; filt.sel = id; save(); }
-    view = { mode: 'read', id: id, drill: null, showKo: view.showKo, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
+    view = { mode: 'read', id: id, drill: null, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
     render();
     try { root.scrollIntoView({ block: 'start' }); } catch (e) {}
   }
@@ -596,7 +596,6 @@
     }
     if (act === 'open') { openPassage(t.getAttribute('data-id')); return; }
     if (act === 'list') { view.mode = 'list'; view.id = null; render(); return; }
-    if (act === 'ko') { view.showKo = !view.showKo; render(); return; }
     if (act === 'speak') {
       var sp = view.mode === 'drill' ? view.drill.list[view.drill.i] : p;
       if (sp) speak(sp.sentences.map(function (s) { return s.en; }).join(' '), sp.stage);
@@ -604,7 +603,7 @@
     }
     if (act === 'drill') {
       var seed = new Date().toISOString().slice(0, 10) + ':' + state.stage + ':' + Math.floor(Date.now() / 60000);
-      view = { mode: 'drill', id: null, showKo: false, drill: { list: RLCore.pickDrill(PASSAGES, state.stage, state.prog, seed), i: 0, picked: null, wrong: 0, revealed: false, first: 0 } };
+      view = { mode: 'drill', id: null, drill: { list: RLCore.pickDrill(PASSAGES, state.stage, state.prog, seed), i: 0, picked: null, wrong: 0, revealed: false, first: 0 } };
       render(); return;
     }
     if (act === 'key' && p) {
