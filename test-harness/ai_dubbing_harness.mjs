@@ -518,7 +518,7 @@ check('⑦-16 더빙에는 먼저 듣고 따라 말하기 옵션이 없다', !/d
 check('⑦-17 학생 차례에 원어민을 재생하지 않는다', !/speakNative|playUrl|speakDevice/.test(cutFn(playerCode, 'studentTurn')));
 check('⑦-18 상대 배역 음성은 재생하고 녹화한다', /p = speakNative\(run, it\.line\)\.then/.test(playerCode));
 check('⑦-19 더빙 대사 표시를 시작할 때 고정한다', /scriptMode: scriptMode\(\)/.test(playerCode));
-check('⑦-20 대사 표시 세 가지와 이야기 고르기가 있다', ['en', 'ko', 'none'].every(v => html.includes('value="' + v + '"')) && /id="dub-script-mode"/.test(html) && /id="dub-eps"/.test(html));
+check('⑦-20 연습·발표와 한국어 자막 선택 및 이야기 고르기가 있다', ['practice', 'presentation'].every(v => html.includes('value="' + v + '"')) && /id="dub-korean"/.test(html) && /id="dub-eps"/.test(html));
 check('⑦-21 이야기 목록은 정본(normalizeIndex)으로 읽는다 · 준비 중인 편은 링크가 아니다', /C\.normalizeIndex\(/.test(playerCode) && /if \(ready && !on\) h \+= '<a class="ep"/.test(playerCode));
 check('⑦-22 미리보기 안내는 매니페스트가 밝힌 글(note)을 쓴다 — «영상과 대사가 안 맞아요» 를 고정으로 말하지 않는다', !/영상과 대사가 아직 안 맞아요/.test(playerCode) && /S\.ep\.note\.ko/.test(playerCode));
 

@@ -35,23 +35,25 @@ api.setMix({ rec: { stream: { getAudioTracks: () => [] } } });
 el('dub-video').readyState = 2;
 el('dub-video').videoWidth = 960;
 el('dub-video').videoHeight = 540;
-for (const mode of ['en', 'ko', 'none']) {
-  el('dub-script-mode').value = mode;
+for (const mode of ['both', 'ko', 'none']) {
+  el('dub-mode').value = mode === 'both' ? 'practice' : 'presentation';
+  el('dub-korean').checked = mode === 'ko';
   const run = { scriptMode: api.scriptMode() };
   api.showLine(run, line, { type: 'student', idx: 0 });
-  assert.equal(el('dub-sub-en').textContent, mode === 'en' ? line.en : '');
-  assert.equal(el('dub-sub-ko').textContent, mode === 'ko' ? line.ko : '');
+  assert.equal(el('dub-sub-en').textContent, mode === 'both' ? line.en : '');
+  assert.equal(el('dub-sub-ko').textContent, mode === 'ko' || mode === 'both' ? line.ko : '');
+  assert.equal(el('dub-sub').hidden, mode === 'none');
   assert.equal(el('dub-stage').classList.flags.has('noko'), false, 'Korean-only ignores practice subtitle preference');
   drawn.length = 0;
   assert.ok(api.startMovie(run));
-  assert.equal(drawn.includes(line.en), mode === 'en', 'movie English');
-  assert.equal(drawn.includes(line.ko), mode === 'ko', 'movie Korean');
+  assert.equal(drawn.includes(line.en), mode === 'both', 'movie English');
+  assert.equal(drawn.includes(line.ko), mode === 'ko' || mode === 'both', 'movie Korean');
   api.wShowLine(api.S.ep, line);
   assert.equal(el('dub-sub-en').textContent, line.en, 'practice always shows English');
   assert.equal(el('dub-sub-ko').textContent, line.ko, 'practice restores translation');
 }
-el('dub-script-mode').value = 'invalid';
-assert.equal(api.scriptMode(), 'en');
+el('dub-mode').value = 'invalid';
+assert.equal(api.scriptMode(), 'both');
 assert.ok(!source.includes('listenFirst'), 'dubbing cannot preview selected native lines');
 const scene = { lines: [line], voices: { mina: '/mina.mp3', jun: '/jun.mp3' } };
 for (const mixed of [false, true]) {
