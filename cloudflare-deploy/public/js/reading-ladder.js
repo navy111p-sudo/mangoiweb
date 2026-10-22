@@ -197,18 +197,11 @@
     return '<span class="rl-pic">🖼 ' + esc(n >= 6 ? T('그림책 완주', 'Book done') : n > 0 ? T('그림책 ', 'Book ') + n + '/6' : T('그림책', 'Picture book')) + '</span>';
   }
 
-  /* ── 🔊 듣기 — 기기 목소리(없으면 버튼을 안 그린다) ── */
-  var canSpeak = !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
-  function stopSpeak() { try { if (canSpeak) window.speechSynthesis.cancel(); } catch (e) {} }
+  /* ── English server audio, including devices without speechSynthesis ── */
+  var canSpeak = !!window.StoryAudio;
+  function stopSpeak() { if (window.StoryAudio) window.StoryAudio.stop(); }
   function speak(text, stage) {
-    if (!canSpeak) return;
-    stopSpeak();
-    try {
-      var u = new SpeechSynthesisUtterance(text);
-      u.lang = 'en-US';
-      u.rate = stage <= 1 ? 0.8 : stage === 2 ? 0.88 : 0.95;
-      window.speechSynthesis.speak(u);
-    } catch (e) {}
+    if (window.StoryAudio) window.StoryAudio.speak(text, stage <= 1 ? 0.8 : stage === 2 ? 0.88 : 0.95);
   }
 
   /* ── 화면 상태 ── */
