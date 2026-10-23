@@ -141,6 +141,17 @@
     var box = $('dub-eps'), panel = $('dub-eps-panel');
     if (!box || !panel) return;
     if (!list || list.length < 2) { panel.hidden = true; return; }
+    var selector = $('dub-home-film');
+    if (selector) {
+      selector.replaceChildren();
+      list.forEach(function (film) {
+        var option = document.createElement('option'); option.value = film.id;
+        option.textContent = T(film.title.ko, film.title.en); option.disabled = film.status !== 'ready';
+        selector.appendChild(option);
+      });
+      selector.value = episodeId(); selector.disabled = !!(S.run || S.watching);
+      selector.onchange = function () { if (!(S.run || S.watching) && EP_ID_RE.test(selector.value)) location.href = '?ep=' + encodeURIComponent(selector.value); };
+    }
     var cur = episodeId(), h = '';
     list.forEach(function (e) {
       var ready = e.status === 'ready', on = ready && e.id === cur;
@@ -1213,7 +1224,7 @@
     if (mode !== 'watch' && $('dub-tcard')) $('dub-tcard').hidden = true;
   }
   /* 더빙·먼저 보기 중에는 고르기·출연 설정을 잠근다(둘이 동시에 돌지 않게) */
-  var LOCK_SEL = '#dub-scenes button, #dub-all, #dub-start, #dub-genres button, #dub-cast button, #dub-cast input, #dub-group-name, #dub-make-movie, #dub-mode, #dub-korean, #dub-w-film, #dub-w-all, #dub-nudge button, #dub-quick-start, #dub-quick-resume, #dub-quick-library, #dub-library button, #dub-practice-go';
+  var LOCK_SEL = '#dub-home-film, #dub-home-scene, #dub-home-mode, #dub-scenes button, #dub-all, #dub-start, #dub-genres button, #dub-cast button, #dub-cast input, #dub-group-name, #dub-make-movie, #dub-mode, #dub-korean, #dub-w-film, #dub-w-all, #dub-nudge button, #dub-quick-start, #dub-quick-resume, #dub-quick-library, #dub-library button, #dub-practice-go';
   function lockUi(on) { Array.prototype.forEach.call(document.querySelectorAll(LOCK_SEL), function (b) { b.disabled = on; }); }
   function setRunning(on) {
     setPlayerMode(on ? 'dub' : 'off');
@@ -1706,7 +1717,7 @@
   function boot() {
     if (HOME) HOME.init({
       episode: function () { return S.ep; }, busy: function () { return !!(S.run || S.watching); },
-      shortStart: function (i) { setGenre('adv', true); pickScene(i); $('dub-mode').value = 'practice'; updateDubMode(); openSheet(); },
+      shortStart: function (i, mode) { setGenre('adv', true); pickScene(i); $('dub-mode').value = mode === 'presentation' ? 'presentation' : 'practice'; updateDubMode(); openSheet(); },
       restore: restorePractice, moviesChanged: renderMovies,
       accountChanged: function () {
         stopRun(); if (WATCH && S.watching) WATCH.stop(); QUEUE = []; S.results = []; S.resume = null;
