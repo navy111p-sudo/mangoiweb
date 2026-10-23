@@ -26,7 +26,17 @@
   function render() {
     var b = $('dub-quick-start'), note = $('dub-quick-detail'), ep = adapter && adapter.episode();
     if (!b) return;
-    var i = ep ? shortScene(ep) : -1;
+    var picker = $('dub-home-scene');
+    if (picker && ep && picker.getAttribute('data-episode') !== ep.id) {
+      picker.replaceChildren();
+      ep.scenes.forEach(function (sc, index) {
+        var option = node('option', '', 'EP. ' + sc.no + ' · ' + pair(sc.label));
+        option.value = String(index); option.disabled = !sc.video || !sc.lines.length; picker.append(option);
+      });
+      picker.value = String(shortScene(ep)); picker.setAttribute('data-episode', ep.id);
+    }
+    if (picker) picker.disabled = !ep || adapter.busy();
+    var i = ep ? (picker ? Number(picker.value) : shortScene(ep)) : -1;
     b.disabled = !ep || i < 0 || adapter.busy();
     if ($('dub-library-start')) $('dub-library-start').disabled = b.disabled;
     if (note && ep) {
@@ -46,14 +56,16 @@
   }
   function startShort() {
     if (!adapter || !adapter.episode() || adapter.busy()) return;
-    var i = shortScene(adapter.episode());
-    if (i >= 0) adapter.shortStart(i);
+    var picker = $('dub-home-scene');
+    var i = picker ? Number(picker.value) : shortScene(adapter.episode());
+    if (i >= 0) adapter.shortStart(i, $('dub-home-mode') ? $('dub-home-mode').value : 'practice');
   }
   function openLibrary(nextView) {
     if (adapter && adapter.busy()) return;
     view = nextView === 'drafts' ? 'drafts' : 'movies';
     var panel = $('dub-library'); if (!panel) return;
     panel.hidden = false;
+    if ($('dub-library-fold')) $('dub-library-fold').open = true;
     Array.prototype.forEach.call(panel.querySelectorAll('[data-library-view]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-library-view') === view)); });
     panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return refresh();
@@ -222,11 +234,15 @@
     if ($('dub-quick-resume')) $('dub-quick-resume').addEventListener('click', function () { openLibrary('drafts'); });
     if ($('dub-quick-library')) $('dub-quick-library').addEventListener('click', function () { openLibrary('movies'); });
     if ($('dub-library-refresh')) $('dub-library-refresh').addEventListener('click', refresh);
-    if ($('dub-library-close')) $('dub-library-close').addEventListener('click', function () { $('dub-library').hidden = true; ++generation; clearItems(); });
+    if ($('dub-library-close')) $('dub-library-close').addEventListener('click', function () { if ($('dub-library-fold')) $('dub-library-fold').open = false; else $('dub-library').hidden = true; ++generation; clearItems(); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-library-view]'), function (b) { b.addEventListener('click', function () { openLibrary(b.getAttribute('data-library-view')); }); });
     L.onAccountChange(function () { ++generation; clearItems(); status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
     window.addEventListener('mangoi:lang-changed', function () { render(); if ($('dub-library') && !$('dub-library').hidden) refresh(); });
     window.addEventListener('pagehide', releaseUrls);
+    if ($('dub-home-scene')) $('dub-home-scene').addEventListener('change', render);
+    if ($('dub-library-fold')) $('dub-library-fold').addEventListener('toggle', function () {
+      if (this.open) refresh(); else { ++generation; clearItems(); }
+    });
     render();
   }
   window.MangoiDubHome = { init: init, ready: ready, render: render, checkpoint: checkpoint, saveMovie: saveMovie, practice: practice, openLibrary: openLibrary, movieFilename: movieFilename };
