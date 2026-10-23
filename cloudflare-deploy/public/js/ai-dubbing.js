@@ -267,7 +267,7 @@
   function openSheet() {
     var side = $('dub-side');
     if (!side || S.genre !== 'adv') return;
-    if (!isNarrow()) { side.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    side.scrollTop = 0;
     side.classList.add('open');
     // 공용 «메뉴» 손잡이(왼쪽 가운데)가 시트 글자를 덮지 않게 — 바뀔 때만 쓴다(body class 관찰자 깨우지 않기)
     if (!document.body.classList.contains('dub-sheet-open')) document.body.classList.add('dub-sheet-open');
@@ -410,7 +410,7 @@
         + '</button>'
         + '<div class="acts">'
         + '<button type="button" class="btn wbtn" data-watch="' + i + '"' + (playable && !busy ? '' : ' disabled') + '>' + L('👀 보기', '👀 Watch') + '</button>'
-        + '<button type="button" class="btn go" data-scene="' + i + '"' + (playable && !busy ? '' : ' disabled') + '>' + L('역할 정하러 가기', 'Choose roles') + '</button>'
+        + '<button type="button" class="btn go" data-scene="' + i + '" aria-controls="dub-side"' + (playable && !busy ? '' : ' disabled') + '>' + L('더빙', 'Dub') + '</button>'
         + '</div></div>';
     });
     box.innerHTML = h;

@@ -236,6 +236,12 @@
   /* « 폰 아래 고정 바 · 바텀시트 » — 넓은 화면에서는 안 보인다 */
   .mbar{display:none}
   .sheet-bg{display:none}
+  @media (min-width:861px){
+    #dub-side.open{position:fixed;top:80px;right:24px;bottom:24px;width:min(440px,calc(100vw - 48px));max-height:none;z-index:70;padding:16px;background:var(--bg);border:1px solid var(--line);border-radius:20px;box-shadow:0 12px 48px #0008}
+    #dub-side.open .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:0;z-index:1;background:var(--bg);padding-bottom:12px}
+    body.dub-sheet-open .sheet-bg{display:block;position:fixed;inset:0;z-index:65;border:0;background:rgba(0,0,0,.55);cursor:pointer}
+    body.dub-sheet-open #mg-drawer-tab{visibility:hidden}
+  }
 
   @media (max-width:1100px){
     .scenes{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -410,7 +416,7 @@
       <section class="panel" aria-label="에피소드 고르기">
         <div>
           <h2><span data-ko="2. 에피소드 고르기" data-en="2. Pick an episode">2. 에피소드 고르기</span></h2>
-          <p class="hint"><span data-ko="에피소드를 고른 뒤 ‘역할 정하러 가기’를 눌러요. 3번에서 모둠의 역할과 연습·발표를 정해요." data-en="Pick an episode and choose roles. In step 3, assign your group’s parts and choose practice or presentation.">에피소드를 고른 뒤 ‘역할 정하러 가기’를 눌러요. 3번에서 모둠의 역할과 연습·발표를 정해요.</span></p>
+          <p class="hint"><span data-ko="에피소드를 고른 뒤 ‘더빙’을 눌러요. 열리는 출연 설정에서 모둠의 역할과 연습·발표를 정해요." data-en="Pick an episode and press Dub. In cast setup, assign your group’s parts and choose practice or presentation.">에피소드를 고른 뒤 ‘더빙’을 눌러요. 열리는 출연 설정에서 모둠의 역할과 연습·발표를 정해요.</span></p>
         </div>
         <div class="scenes" id="dub-scenes">
           <div class="scene" aria-disabled="true"><span class="thumb"><span class="epn">EP 1</span><span data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</span></span><span class="tag s1" data-ko="1. 신나는 모험의 시작!" data-en="1. The adventure begins!">1. 신나는 모험의 시작!</span></div>
@@ -493,6 +499,6 @@
 <script defer src="/js/ai-dubbing-core.js?v=4"></script>
 <script defer src="/js/ai-dubbing-sound.js?v=2"></script>
 <script defer src="/js/ai-dubbing-watch.js?v=3"></script>
-<script defer src="/js/ai-dubbing.js?v=10"></script>
+<script defer src="/js/ai-dubbing.js?v=11"></script>
 </body>
 </html>
