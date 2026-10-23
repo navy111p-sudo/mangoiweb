@@ -663,6 +663,13 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       </div>
       <div class="nu-c" id="nu-count"></div>
     </div>
+    <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0">
+      <span data-en="Time order" data-ko="시간 정렬">Time order</span>
+      <select id="class-time-sort" style="font:inherit;padding:8px;border:1px solid #94a3b8;border-radius:8px;background:var(--card,#fff);color:inherit">
+        <option value="asc" data-en="Earliest first" data-ko="오름차순 (빠른 시간부터)">Earliest first</option>
+        <option value="desc" data-en="Latest first" data-ko="내림차순 (늦은 시간부터)">Latest first</option>
+      </select>
+    </label>
     <div id="classes"></div>
   </div>
 
@@ -1919,7 +1926,30 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
          + '<small>' + esc(sub.join(' · ')) + '</small></div></div>';
   }
 
+  var classTimeSort = 'asc';
+  try { if (localStorage.getItem('mangoi_teacher_time_sort') === 'desc') classTimeSort = 'desc'; } catch (e) {}
+  var classTimeSortSelect = document.getElementById('class-time-sort');
+  classTimeSortSelect.value = classTimeSort;
+  classTimeSortSelect.addEventListener('change', function () {
+    classTimeSort = this.value === 'desc' ? 'desc' : 'asc';
+    try { localStorage.setItem('mangoi_teacher_time_sort', classTimeSort); } catch (e) {}
+    lastSig = null;
+    if (DATA) renderClasses(DATA.classes || []);
+  });
+  // Sort a copy; row actions retain the same class objects, regardless of status.
+  function sortClassesByTime(list, direction){
+    return list.map(function(c, i){ return { c: c, i: i }; }).sort(function(a, b){
+      var x = Number(a.c.start_ts), y = Number(b.c.start_ts);
+      var ax = a.c.start_ts != null && a.c.start_ts !== '' && isFinite(x);
+      var by = b.c.start_ts != null && b.c.start_ts !== '' && isFinite(y);
+      if (!ax) return by ? 1 : a.i - b.i;
+      if (!by) return -1;
+      return (direction === 'desc' ? y - x : x - y) || a.i - b.i;
+    }).map(function(row){ return row.c; });
+  }
+
   function renderClasses(list){
+    list = sortClassesByTime(list, classTimeSort);
     var box = document.getElementById('classes');
     document.getElementById('c-classes').hidden = false;
     renderNextUp(list);   // ⏳ 다음 수업 스트립은 지문 검사 바깥 — 1초마다 따로 갱신된다
@@ -1997,7 +2027,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     //   저사양 폰에서 DOM 재생성 + 리플로우가 일어나 화면이 한 번씩 '움찔'한다.
     //   실제로 바뀌는 건 (수업 상태 · 남은 분) 뿐이므로 그것만 지문으로 만들어 비교하고,
     //   같으면 아무것도 하지 않는다. 대부분의 tick 은 여기서 끝난다.
-    var sig = LANG + '|';
+    var sig = LANG + '|' + classTimeSort + '|';
     for (var s=0;s<list.length;s++){
       var sc = list[s];
       var st = (t > sc.close_at_ts) ? 'done'
