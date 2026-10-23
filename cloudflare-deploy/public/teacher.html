@@ -149,6 +149,12 @@ html[data-t="dark"] .pwform input{background:#1b2330;border-color:#2c3949;color:
 .wk-nav button{flex:1;padding:8px 6px;border:1px solid #d7dee6;background:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;color:#334}
 .wk-nav button.on{background:#2563eb;border-color:#2563eb;color:#fff}
 /* 📅 날짜 바로 이동 (요청 ⑥) — 한 줄, 터치 최소 44px. 좁은 폰에서 줄바꿈되게 wrap. */
+
+.portal-filters{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.portal-filters label{display:flex;flex-direction:column;gap:4px;font-size:13px;flex:1;min-width:140px}
+.portal-filters input,.portal-filters select,.wk-jump select{min-height:44px;padding:8px;border:1px solid #c9d2dc;border-radius:8px;font:inherit;background:#fff;color:#16202c;max-width:100%}
+html[data-t="dark"] .portal-filters input,html[data-t="dark"] .portal-filters select,html[data-t="dark"] .wk-jump select{background:#1b2330;color:#c9d4e0;border-color:#2c3949}
+
 .wk-jump{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 10px}
 .wk-jump label{font-size:12.5px;font-weight:700;color:#6b7783}
 .wk-jump input[type="date"]{flex:1;min-width:150px;min-height:44px;padding:8px 10px;border:1px solid #d7dee6;border-radius:8px;font-size:15px;font-family:inherit;color:#334;background:#fff}
@@ -653,6 +659,14 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
             data-en="Show AI drafts" data-ko="AI 초안 보기">Show AI drafts</button>
   </div>
 
+
+  <div class="card" id="portal-tools">
+    <div class="portal-filters">
+      <label><span data-en="Student name / ID" data-ko="학생 이름 / ID">Student name / ID</span><input id="portal-search" type="search" autocomplete="off"></label>
+      <label><span data-en="Academy" data-ko="학원">Academy</span><select id="portal-academy"><option value="">All</option></select></label>
+      <label><span data-en="Time order" data-ko="시간 정렬">Time order</span><select id="portal-sort"><option value="asc" data-en="Earliest first" data-ko="오름차순">Earliest first</option><option value="desc" data-en="Latest first" data-ko="내림차순">Latest first</option></select></label>
+    </div>
+  </div>
   <div class="card" id="c-classes" hidden>
     <h2><span id="cls-title" data-en="Today's Classes" data-ko="오늘의 수업">Today's Classes</span> <small id="cls-count"></small><span id="cls-new"></span></h2>
     <!-- ⏳ 다음 수업 한 건만 크게 (요청 2번). 남은 수업이 없으면 통째로 숨는다. -->
@@ -692,6 +706,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     <div class="wk-jump">
       <label for="wk-date" data-en="Jump to date" data-ko="날짜로 이동">날짜로 이동</label>
       <input type="date" id="wk-date">
+      <select id="wk-year" aria-label="Year"></select><select id="wk-month" aria-label="Month"></select><select id="wk-day" aria-label="Day"></select>
       <button type="button" id="wk-go" data-en="Go" data-ko="이동">이동</button>
     </div>
     <div id="wk-error" class="warnline" role="status" hidden data-en="Could not load the selected week. The last loaded week is still shown. Tap Refresh to retry." data-ko="선택한 주를 불러오지 못했습니다. 마지막으로 불러온 주를 그대로 표시합니다. 새로고침을 눌러 다시 시도해 주세요.">Could not load the selected week. The last loaded week is still shown. Tap Refresh to retry.</div>
@@ -1707,16 +1722,19 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     // 날짜 칸을 지금 보고 있는 주의 시작일로 맞춘다 — 다음에 달력을 열면 «여기»에서 시작한다.
     var dtIn = document.getElementById('wk-date');
     if (dtIn && w.start) dtIn.value = w.start;
+    syncDateMenus(w.start);
     var DOW = EN() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
     box.innerHTML = w.days.map(function(d){
       var head = d.date.slice(5) + ' (' + DOW[d.dow] + ')' + (d.is_today ? (EN() ? ' · today' : ' · 오늘') : '');
-      var body = (d.items && d.items.length)
-        ? d.items.map(function(it){
+      var visibleItems = portalRows(d.items || []);
+      var body = visibleItems.length
+        ? visibleItems.map(function(it){
             var dim = (it.kind !== 'class');
             return '<div class="wk-i"' + (dim ? ' style="opacity:.55"' : '') + '>'
               + '<b>' + esc(MangoiClassDisplay.range(it)) + '</b>'
               + '<span>' + stuLabelHtml(it, dim ? T('(slot taken)','(점유 슬롯)') : T('(name not set)','(이름 미등록)')) + '</span>'
               + kindPill(it).replace(/^ /, '')
+              + portalContact(it)
               + weekRecordHtml(it)
               + '</div>';
           }).join('')
@@ -1725,7 +1743,18 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     }).join('');
   }
   /* 주 이동 버튼 — 한 번만 배선한다(다시 그릴 때마다 리스너가 쌓이면 클릭 한 번에 여러 번 나간다) */
+  function syncDateMenus(value){
+    var parts=value.split('-').map(Number), y=document.getElementById('wk-year'),m=document.getElementById('wk-month'),d=document.getElementById('wk-day');
+    function options(el,lo,hi,selected){var h='';for(var n=lo;n<=hi;n++){h+='<option value="'+n+'">'+n+'</option>';}el.innerHTML=h;el.value=selected;}
+    options(y,parts[0]-5,parts[0]+5,parts[0]);options(m,1,12,parts[1]);options(d,1,new Date(Date.UTC(parts[0],parts[1],0)).getUTCDate(),parts[2]);
+  }
   function bindWeekNav(){
+    ['wk-year','wk-month','wk-day'].forEach(function(id){var el=document.getElementById(id);if(el && !el._wkBound){el._wkBound=true;el.addEventListener('change',function(){
+      var year=+document.getElementById('wk-year').value,month=+document.getElementById('wk-month').value,day=+document.getElementById('wk-day').value;
+      day=Math.min(day,new Date(Date.UTC(year,month,0)).getUTCDate());
+      loadWeekOf(year+'-'+('0'+month).slice(-2)+'-'+('0'+day).slice(-2));
+    });}});
+
     [['wk-prev',-1],['wk-this',0],['wk-next',1]].forEach(function(pair){
       var b = document.getElementById(pair[0]);
       if (b && !b._wkBound){ b._wkBound = true; b.addEventListener('click', function(){ loadWeek(pair[1]); }); }
@@ -1847,7 +1876,6 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     };
     var sl = T(c.sched_label_en, c.sched_label_ko);
     var row1 = [esc(c.class_date || ''),
-      '<b>' + esc(T('Pay', '결제')) + '</b> ' + esc(c.pay_type === 'B2B' || c.pay_type === 'B2C' ? c.pay_type : D),
       '<b>' + esc(T('Schedule', '일정')) + '</b> ' + esc(sl || D),
       '<b>' + esc(T('Instructor in', '강사 입장')) + '</b> ' + esc(teTxt),
       '<b>' + esc(T('Student', '학생 출결')) + '</b> ' + esc(atTxt)];
@@ -1919,10 +1947,50 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
          + '<small>' + esc(sub.join(' · ')) + '</small></div></div>';
   }
 
+  function portalRows(rows){
+    var query = String((document.getElementById('portal-search') || {}).value || '').trim().toLowerCase();
+    var academy = String((document.getElementById('portal-academy') || {}).value || '');
+    var direction = (document.getElementById('portal-sort') || {}).value === 'desc' ? -1 : 1;
+    return (rows || []).filter(function(c){
+      return (!query || [stuName(c),stuUid(c),c.student_name_en].join(' ').toLowerCase().indexOf(query) >= 0)
+        && (!academy || c.academy === academy);
+    }).slice().sort(function(a,b){ return direction * (String(a.start_time || '').localeCompare(String(b.start_time || ''))); });
+  }
+  function portalContact(c){
+    return '<div class="cls-meta">' + esc(T('Academy','학원')) + ': ' + esc(c.academy || '—')
+      + ' · ' + esc(T('Contact','연락처')) + ': ' + esc(c.student_phone || '—')
+      + ' <button type="button" class="tbtn" data-student-calendar="'+esc(stuUid(c))+'">'+esc(T('Calendar','캘린더'))+'</button></div>';
+  }
+  document.addEventListener('click',function(e){
+    var button=e.target.closest && e.target.closest('[data-student-calendar]');if(!button)return;
+    document.getElementById('portal-search').value=button.getAttribute('data-student-calendar');portalRefresh();
+    document.getElementById('c-week').scrollIntoView({block:'start'});
+  });
+  function portalRefresh(){
+    lastSig = null;
+    if(DATA){ renderClasses(DATA.classes || []); if(DATA.week) renderWeek(DATA.week); }
+  }
+  ['portal-search','portal-academy','portal-sort'].forEach(function(id){
+    document.getElementById(id).addEventListener(id === 'portal-search' ? 'input' : 'change',portalRefresh);
+  });
+  function portalAcademies(){
+    var el=document.getElementById('portal-academy'), selected=el.value, names={};
+    var rows=(DATA && DATA.classes || []).slice();
+    ((DATA && DATA.week && DATA.week.days) || []).forEach(function(d){rows=rows.concat(d.items || []);});
+    rows.forEach(function(c){if(c.academy) names[c.academy]=true;});
+    if(selected) names[selected]=true;
+    el.innerHTML='<option value="">'+esc(T('All academies','전체 학원'))+'</option>'+Object.keys(names).sort().map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
+    el.value=selected;
+  }
   function renderClasses(list){
+    portalAcademies();
+    var unfiltered = list;
+    list = portalRows(list);
+    if(unfiltered.length && !list.length){document.getElementById('c-classes').hidden=false;document.getElementById('classes').innerHTML='<div class="empty">'+esc(T('No matching classes','검색 결과가 없습니다'))+'</div>';renderNextUp(unfiltered);lastSig=null;return;}
+
     var box = document.getElementById('classes');
     document.getElementById('c-classes').hidden = false;
-    renderNextUp(list);   // ⏳ 다음 수업 스트립은 지문 검사 바깥 — 1초마다 따로 갱신된다
+    renderNextUp(unfiltered);   // ⏳ 다음 수업 스트립은 지문 검사 바깥 — 1초마다 따로 갱신된다
     if (!list.length){
       // 지문에 언어·역할을 넣는다 — 넣지 않으면 언어를 바꿔도 이 문장만 옛 언어로 남는다.
       //   신원 상태(정상/연결안됨/헷갈림)도 넣는다 — 본사가 계정을 고쳐 새로고침했는데
@@ -1997,7 +2065,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     //   저사양 폰에서 DOM 재생성 + 리플로우가 일어나 화면이 한 번씩 '움찔'한다.
     //   실제로 바뀌는 건 (수업 상태 · 남은 분) 뿐이므로 그것만 지문으로 만들어 비교하고,
     //   같으면 아무것도 하지 않는다. 대부분의 tick 은 여기서 끝난다.
-    var sig = LANG + '|';
+    var sig = LANG + '|' + JSON.stringify(list.map(function(c){return [c.student_phone,c.academy,c.prev_lesson];})) + '|';
     for (var s=0;s<list.length;s++){
       var sc = list[s];
       var st = (t > sc.close_at_ts) ? 'done'
@@ -2222,7 +2290,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         var pv = c.prev_lesson;
         var ptxt = EN() ? (pv.note_en || pv.note_ko || '') : (pv.note_ko || pv.note_en || '');
         prevHtml = '<details class="cls-prev"><summary>↩ '
-          + esc(T('Last class','지난 수업'))
+          + esc(T('Summary / Previous teacher','수업 요약 / 이전 교사'))
           + esc((pv.date ? ' · ' + pv.date : '')
               + (pv.teacher_name ? ' · ' + pv.teacher_name : ''))
           + '</summary><div class="cls-prev-body">'
@@ -2243,6 +2311,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         +       stPill(c, live, done, open)
         +     '</div>'
         +     '<div class="cls-meta">' + meta.join(' &middot; ') + '</div>'
+        +     portalContact(c)
         +     extrasHtml(c, (live || done) ? i : -1)
         +     goalHtml(c)
         +     preqHtml(c)
@@ -2320,7 +2389,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
          ⚠️ [수업 입장] 과 **줄을 나눠** 둔다 — 2026-08-08 에 [연기] 를 뺀 이유가 «바로 옆이라
             잘못 누른다» 였다. 같은 실수를 반복하지 않는다(작은 글씨 · 아래 줄).
          정본·주의사항은 src/class-room-override.ts. */
-      if (c.schedule_id) {
+      if (IS_MGR && c.schedule_id) {
         h += '<div style="margin-top:6px;display:flex;justify-content:flex-end">'
           +  '<button type="button" data-roomset="' + i + '" '
           +    'style="background:transparent;border:1px solid rgba(148,163,184,.45);color:#94a3b8;'
@@ -4409,4 +4478,3 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
 </script>
 </body>
 </html>
-

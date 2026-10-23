@@ -971,6 +971,23 @@ export async function handleTeacherApi(
     }
   } catch { /* 노쇼 표시가 없어도 목록은 정상 */ }
 
+  // Enrich only rows already authorized by the teacher schedule query. Never accept a client student ID.
+  if (!onlyNext) try {
+    const visible = [...classes, ...weekDays.flatMap((d: any) => d.items)];
+    const uids = [...new Set(visible.filter((c: any) => c.kind === 'class' && c.student_uid).map((c: any) => String(c.student_uid)))];
+    if (uids.length) {
+      const records = await selectInChunks<any>(env.DB, uids,
+        (ph) => `SELECT * FROM students_erp WHERE user_id IN (${ph})`, { swallowErrors: true });
+      const byUid = new Map(records.map((r: any) => [String(r.user_id), r]));
+      for (const c of visible as any[]) {
+        const r: any = byUid.get(String(c.student_uid || ''));
+        if (!r) continue;
+        c.academy = String(r.shop_name || '').trim() || null;
+        c.student_phone = String(r.phone || r.parent_phone || '').trim() || null;
+      }
+    }
+  } catch { /* Missing contact details must never prevent class entry. */ }
+
   /* ✍ 일지 배지 + 학생별 «지난 수업» (2026-08-27 마이마이 8/26 ①②)
    *
    *  (a) eval_written — 이 수업 방(room_id)에 일지가 이미 있으면 표시한다.
