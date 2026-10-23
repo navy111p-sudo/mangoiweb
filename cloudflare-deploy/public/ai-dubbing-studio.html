@@ -968,7 +968,9 @@ function stopMicRecording(discard = false) {
     session.recorder.stop();
   } else if (!session.recorder) micSession = null;
   if (discard) micSession = null;
-  if (session.stream) session.stream.getTracks().forEach(track => track.stop());
+  // stop() flushes asynchronously. Keep the input alive until recorder.onstop
+  // releases it, so short recordings cannot lose their final audio packets.
+  if (session.stream && !session.stopping) session.stream.getTracks().forEach(track => track.stop());
 }
 async function pickRecording(i) {
   if (micSession) { stopMicRecording(); renderRecUI(); renderCues(); return; }

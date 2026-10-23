@@ -61,4 +61,13 @@ assert.throws(() => testDestination(finish.replace('MIX.bus.disconnect(dest)', '
   vm.runInContext(fn, c); c.finishEpisode(); c.exp.recorder = {}; timers.forEach(fn => fn());
   assert.equal(calls.length, 0, 'old end-of-episode timer must not finish a replacement export');
 }
-console.log('PASS studio export: destination ownership, late data, double clicks, stale completion/status/filename, stale finish timer; original-disconnect mutation detected');
+{
+  const code = html.slice(html.indexOf('function stopMicRecording('), html.indexOf('async function pickRecording('));
+  let stopped = false, requested = false;
+  const session = { stopping: false, discard: false, stream: { getTracks: () => [{ stop() { stopped = true; } }] },
+    recorder: { state: 'recording', stop() { requested = true; this.state = 'inactive'; } } };
+  const c = { micSession: session }; vm.createContext(c); vm.runInContext(code, c);
+  c.stopMicRecording(); assert.equal(requested, true); assert.equal(stopped, false, 'input stays live until recorder flushes');
+  session.stream.getTracks().forEach(t => t.stop()); assert.equal(stopped, true);
+}
+console.log('PASS studio export and recording: session ownership, late data, double clicks, stale callbacks, microphone flush; original-disconnect mutation detected');
