@@ -20,11 +20,14 @@
   function render() {
     var b = $('dub-quick-start'), note = $('dub-quick-detail'), ep = adapter && adapter.episode();
     if (!b) return;
-    b.disabled = !ep || adapter.busy();
+    var i = ep ? shortScene(ep) : -1;
+    b.disabled = !ep || i < 0 || adapter.busy();
+    if ($('dub-library-start')) $('dub-library-start').disabled = b.disabled;
     if (note && ep) {
-      var i = shortScene(ep), sc = ep.scenes[i];
-      note.textContent = sc ? t('지금 작품의 EP ' + sc.no + ' · 전체 대사 ' + sc.lines.length + '줄', 'This film, EP ' + sc.no + ' · ' + sc.lines.length + ' script lines')
-        + (sc.durationSec ? ' · ' + Math.round(sc.durationSec) + t('초 영상', ' sec video') : '') : t('작품을 준비하고 있어요', 'Loading the film');
+      var sc = ep.scenes[i];
+      note.textContent = sc ? t('모험 애니 · 장면 ' + sc.no, 'Adventure · Scene ' + sc.no)
+        + (sc.durationSec ? ' · ' + Math.round(sc.durationSec) + t('초 영상', ' sec video') : '')
+        + t(' · 전체 대사 ' + sc.lines.length + '줄', ' · ' + sc.lines.length + ' script lines') : t('연습할 영상을 준비하고 있어요', 'Getting a scene ready');
     }
   }
   function shortScene(ep) {
@@ -34,6 +37,11 @@
       return da && db ? da - db || a.i - b.i : a.sc.lines.length - b.sc.lines.length || a.i - b.i;
     });
     return choices.length ? choices[0].i : -1;
+  }
+  function startShort() {
+    if (!adapter || !adapter.episode() || adapter.busy()) return;
+    var i = shortScene(adapter.episode());
+    if (i >= 0) adapter.shortStart(i);
   }
   function openLibrary(nextView) {
     if (adapter && adapter.busy()) return;
@@ -47,6 +55,7 @@
   async function refresh() {
     var owner = L.identity(), ticket = ++generation, kind = view;
     clearItems(); status(t('내 보관함을 불러오는 중…', 'Loading your library…'));
+    if ($('dub-library-empty')) $('dub-library-empty').hidden = true;
     var remote = kind === 'movies' ? L.listMovies() : L.listDrafts();
     var local = kind === 'movies' ? L.listLocalMovies() : L.listLocalDrafts();
     var results = await Promise.allSettled([remote, local]);
@@ -71,20 +80,24 @@
     var box = $('dub-library-items');
     if (!box) return;
     items.forEach(function (item) { box.append(kind === 'movies' ? movieCard(item, owner) : draftCard(item, owner)); });
+    var empty = $('dub-library-empty'), emptyTitle = $('dub-empty-title');
+    // A failed account request does not mean the account has no work.
+    if (empty) empty.hidden = !!items.length || (!response && owner !== 'guest');
+    if (emptyTitle) emptyTitle.textContent = kind === 'movies' ? t('아직 내 영상이 없어요', 'No videos yet') : t('이어할 연습이 없어요', 'No saved practice yet');
     if (!response) status(message(results[0].reason) + (items.length ? t(' 이 기기에 남은 항목을 보여드려요.', ' Showing items saved on this device.') : ''));
-    else if (!items.length) status(kind === 'movies' ? t('아직 보관한 작품이 없어요. 한 장면을 더빙하면 이곳에 모여요.', 'No saved movies yet. Dub a scene to start your collection.') : t('이어할 연습이 없어요. 짧은 더빙부터 시작해 보세요.', 'No saved practice yet. Start with a short scene.'));
-    else status(kind === 'movies' ? t('내 계정에 보관한 작품은 로그인한 기기에서 다시 볼 수 있어요.', 'Account-saved movies can be reopened on your signed-in devices.') : t('연습을 선택하면 저장한 역할과 진행 위치를 불러와요.', 'Choose a practice to restore its roles and progress.'));
+    else if (!items.length) status(kind === 'movies' ? t('아직 보관한 영상이 없어요. 짧은 더빙부터 시작해 보세요.', 'No saved videos yet. Start with a short scene.') : t('하던 연습을 저장하면 이곳에서 계속할 수 있어요.', 'Save your practice to continue it here.'));
+    else status(kind === 'movies' ? t('보고 싶은 영상의 ‘영상 보기’를 누르세요.', 'Choose Watch video to open a recording.') : t('계속하고 싶은 연습의 ‘이 연습 이어하기’를 누르세요.', 'Choose Continue this practice to pick up where you left off.'));
   }
   function movieCard(movie, owner) {
     var card = node('article', 'dub-library-card');
-    card.append(node('span', 'dub-library-badge' + (movie.local ? ' local' : ''), movie.local ? t('이 기기에 보관 · 계정 미저장', 'On this device · not synced') : t('내 계정에 보관됨', 'Saved to your account')));
+    card.append(node('span', 'dub-library-badge' + (movie.local ? ' local' : ''), movie.local ? t('이 기기에만 저장됨', 'Saved on this device only') : t('내 계정에 저장됨', 'Saved to my account')));
     card.append(node('h3', '', movie.title));
-    card.append(node('p', '', date(movie.createdAt) + ' · ' + (movie.engine === 'studio' ? t('키키와 토토', 'Kiki & Toto') : t('모험 3D 애니', '3D Adventure')) + (movie.interrupted ? t(' · 중간 녹음', ' · Partial recording') : '')));
+    card.append(node('p', '', date(movie.createdAt) + ' · ' + (movie.engine === 'studio' ? t('키키와 토토', 'Kiki & Toto') : t('모험 3D 애니', '3D Adventure')) + (movie.interrupted ? t(' · 중간에 멈춘 녹음', ' · Recording stopped partway') : '')));
     var player = node('video'); player.controls = true; player.playsInline = true; player.preload = 'metadata'; player.hidden = true; card.append(player);
     var actions = node('div', 'row'), download = node('a', 'btn', t('파일 내려받기', 'Download'));
     download.hidden = true; download.download = 'mangoi-dubbing.' + (/mp4/.test(movie.mime || movie.blob && movie.blob.type) ? 'mp4' : 'webm');
     var error = node('p', 'dub-save-note'); error.setAttribute('role', 'status');
-    var play = button(t('작품 열기', 'Open movie'), async function () {
+    var play = button(t('영상 보기', 'Watch video'), async function () {
       play.disabled = true; error.textContent = t('영상을 불러오는 중…', 'Loading the movie…');
       try {
         var blob = movie.blob || await L.getMovie(movie.id);
@@ -95,7 +108,7 @@
       finally { play.disabled = false; }
     }, 'go');
     actions.append(play, download);
-    if (movie.local && L.hasAccount()) actions.append(button(t('계정에 다시 저장', 'Retry account save'), async function (e) {
+    if (movie.local && L.hasAccount()) actions.append(button(t('내 계정에도 저장하기', 'Save to my account'), async function (e) {
       if (!owned(owner)) return;
       var b = e.currentTarget; b.disabled = true;
       try { await L.saveMovie(movie.blob, { clientId: movie.id, engine: movie.engine, episodeId: movie.episodeId, title: movie.title, interrupted: !!movie.interrupted, durationMs: movie.durationMs || 0 }); if (owned(owner)) refresh(); }
@@ -113,12 +126,12 @@
   }
   function draftCard(draft, owner) {
     var card = node('article', 'dub-library-card');
-    card.append(node('span', 'dub-library-badge' + (draft.local ? ' local' : ''), draft.local ? t('이 기기의 연습', 'Practice on this device') : t('계정에 저장한 연습', 'Saved practice')));
+    card.append(node('span', 'dub-library-badge' + (draft.local ? ' local' : ''), draft.local ? t('이 기기에만 저장된 연습', 'Practice on this device only') : t('내 계정에 저장된 연습', 'Practice saved to my account')));
     card.append(node('h3', '', draft.title));
     card.append(node('p', '', date(draft.updatedAt)));
-    card.append(node('p', '', draft.engine === 'studio' ? t('녹음한 대사는 유지하고, 남은 대사를 이어서 연습해요.', 'Keep your recorded lines and continue the remaining ones.') : t('저장한 장면부터 새 영상으로 이어 녹음해요. 이전 영상은 별도로 보관돼요.', 'Resume from the saved scene in a new recording. Earlier videos are kept separately.')));
+    card.append(node('p', '', draft.engine === 'studio' ? t('녹음한 대사는 그대로 두고, 남은 대사를 이어서 녹음해요.', 'Keep your recorded lines and record the remaining ones.') : t('이 장면부터 새 영상으로 녹음해요. 이전 영상은 ‘내 영상’에 남아요.', 'Record a new video from this scene. Your earlier video stays in My videos.')));
     var actions = node('div', 'row');
-    actions.append(button(t('연습 불러오기', 'Resume practice'), function () { if (owned(owner)) resume(draft.id, draft); }, 'go'));
+    actions.append(button(t('이 연습 이어하기', 'Continue this practice'), function () { if (owned(owner)) resume(draft.id, draft); }, 'go'));
     actions.append(button(t('연습 기록 삭제', 'Delete practice'), async function () {
       if (!owned(owner) || !confirm(t('이 연습 기록과 연결된 대사 녹음을 삭제할까요? 완성 작품은 보관함에 남아요.', 'Delete this practice and its linked line recordings? Finished movies remain in your library.'))) return;
       try {
@@ -146,7 +159,7 @@
       if (draft.engine !== 'main') throw new Error('invalid_draft');
       if (!adapter.episode() || adapter.episode().id !== draft.episodeId) { location.href = '/ai-dubbing.html?ep=' + encodeURIComponent(draft.episodeId) + '&resume=' + encodeURIComponent(draft.id); return; }
       if (!adapter.restore(draft.state)) throw new Error('invalid_draft');
-      var note = $('dub-resume-note'); if (note) { note.hidden = false; note.textContent = t('저장한 역할과 장면을 불러왔어요. ‘이어 녹음 시작’을 누르면 이 장면부터 새 영상으로 녹음해요. 이전 영상은 내 작품 보관함에 남아요.', 'Your saved roles and scene are ready. Continue recording from this scene into a new video. Earlier videos remain in your library.'); }
+      var note = $('dub-resume-note'); if (note) { note.hidden = false; note.textContent = t('하던 연습을 불러왔어요. ‘이어 녹음 시작’을 누르면 이 장면부터 새 영상으로 녹음해요. 이전 영상은 ‘내 영상’에 남아요.', 'Your practice is ready. Continue recording from this scene into a new video. Earlier videos stay in My videos.'); }
       status(t('연습을 불러왔어요. 역할을 확인하고 시작해 주세요.', 'Practice restored. Check your roles, then start.'));
     } catch (e) { if (owned(owner)) { await openLibrary('drafts'); if (owned(owner)) status(t('연습을 불러오지 못했어요. ', 'Could not restore the practice. ') + message(e)); } }
   }
@@ -197,7 +210,9 @@
   }
   function init(value) {
     adapter = value;
-    if ($('dub-quick-start')) $('dub-quick-start').addEventListener('click', function () { if (adapter.episode() && !adapter.busy()) adapter.shortStart(shortScene(adapter.episode())); });
+    if ($('dub-menu')) $('dub-menu').addEventListener('click', function () { if (typeof window.mgDrawerToggle === 'function') window.mgDrawerToggle(); });
+    if ($('dub-quick-start')) $('dub-quick-start').addEventListener('click', startShort);
+    if ($('dub-library-start')) $('dub-library-start').addEventListener('click', startShort);
     if ($('dub-quick-resume')) $('dub-quick-resume').addEventListener('click', function () { openLibrary('drafts'); });
     if ($('dub-quick-library')) $('dub-quick-library').addEventListener('click', function () { openLibrary('movies'); });
     if ($('dub-library-refresh')) $('dub-library-refresh').addEventListener('click', refresh);

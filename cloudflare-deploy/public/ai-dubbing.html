@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
-<link rel="stylesheet" href="/css/ai-dubbing-home.css?v=1">
+<link rel="stylesheet" href="/css/ai-dubbing-home.css?v=2">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>🎬 A.i영화더빙 — mangoi.ai</title>
 <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
@@ -301,46 +301,56 @@
 </head>
 <body>
 <header class="top">
-  <h1><span data-ko="🎬 A.i영화더빙" data-en="🎬 A.i Movie Dubbing">🎬 A.i영화더빙</span></h1>
+  <h1><span data-ko="🎬 A.i영화더빙" data-en="🎬 A.i Dubbing">🎬 A.i영화더빙</span></h1>
 </header>
 <main class="wrap">
-  <section class="hero" aria-label="A.i영화더빙 소개">
+  <section class="hero dub-intro" aria-label="A.i영화더빙 소개">
     <div>
-      <p class="hero-brand">mangoi.ai · <span data-ko="재미가 의지를 이깁니다!" data-en="Fun beats willpower!">재미가 의지를 이깁니다!</span></p>
-      <h2 class="hero-h"><span data-ko="망고아이와 함께 애니메이션 속 주인공이 되어보세요!" data-en="Become the hero of an animation with Mangoi!">망고아이와 함께 애니메이션 속 주인공이 되어보세요!</span></h2>
-      <p class="intro"><span data-ko="애니메이션 속 주인공이 되어 내 목소리로 영어 대사를 더빙해요." data-en="Become the hero of an animation and dub the English lines in your own voice.">애니메이션 속 주인공이 되어 내 목소리로 영어 대사를 더빙해요.</span></p>
-      <ul class="pills" aria-label="학습 방법">
-        <li class="pill"><b data-ko="👀 먼저 보고!" data-en="👀 Watch first!">👀 먼저 보고!</b><span data-ko="원어민 목소리·음악·효과음으로 감상해요" data-en="Native voices, music and sound effects">원어민 목소리·음악·효과음으로 감상해요</span></li>
-        <li class="pill"><b data-ko="🎤 직접 더빙하고!" data-en="🎤 Dub it yourself!">🎤 직접 더빙하고!</b><span data-ko="캐릭터를 골라 대사를 말해요" data-en="Pick a character and say the lines">캐릭터를 골라 대사를 말해요</span></li>
-        <li class="pill"><b data-ko="⭐ AI가 평가하고!" data-en="⭐ AI gives feedback!">⭐ AI가 평가하고!</b><span data-ko="발음과 말하기를 알려줘요" data-en="Pronunciation and speaking tips">발음과 말하기를 알려줘요</span></li>
-        <li class="pill"><b data-ko="▶ 완성 영상 다시 보기!" data-en="▶ Watch your movie!">▶ 완성 영상 다시 보기!</b><span data-ko="내 목소리 영화를 감상해요" data-en="Enjoy the movie with your voice">내 목소리 영화를 감상해요</span></li>
-      </ul>
+      <div class="dub-intro-top">
+        <p class="hero-brand">mangoi.ai · <span data-ko="재미가 의지를 이깁니다!" data-en="Fun beats willpower!">재미가 의지를 이깁니다!</span></p>
+        <button type="button" class="dub-mobile-menu" id="dub-menu" aria-controls="mg-drawer" data-ko-aria="전체 메뉴 열기" data-en-aria="Open the main menu" aria-label="전체 메뉴 열기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span data-ko="메뉴" data-en="Menu">메뉴</span></button>
+      </div>
+      <h2 class="hero-h"><span data-ko="내 목소리로 만드는 영어 영화" data-en="An English movie with your voice">내 목소리로 만드는 영어 영화</span></h2>
+      <p class="intro"><span data-ko="캐릭터를 골라 영어 대사를 녹음해 보세요." data-en="Choose a character and record the English lines.">캐릭터를 골라 영어 대사를 녹음해 보세요.</span></p>
     </div>
     <!-- 포스터는 «같은 이름으로» 갈아 끼우므로 ?v= 를 올린다(이미지 7일 캐시) — 2: 로고 mangoi.ai·«망고에이아이» (2026-10-19) -->
     <img class="poster" src="/img/dubbing/poster.webp?v=2" width="1672" height="941" alt="A.i영화더빙 — 모험의 시작부터 해피엔딩까지 / A.i Movie Dubbing — from the start of the adventure to the happy ending">
   </section>
 
   <section class="panel dub-home" aria-labelledby="dub-home-title">
-    <div>
-      <h2 id="dub-home-title" data-ko="한 장면부터, 내 목소리로 시작해요" data-en="Start with one scene, in your own voice">한 장면부터, 내 목소리로 시작해요</h2>
-      <p class="hint" data-ko="처음이라면 짧은 더빙부터. 하던 연습과 완성 작품도 이곳에서 다시 열어요." data-en="Try a short scene first. Reopen your practice and finished movies here, too.">처음이라면 짧은 더빙부터. 하던 연습과 완성 작품도 이곳에서 다시 열어요.</p>
+    <div class="dub-home-heading">
+      <span class="dub-eyebrow" data-ko="처음이라면 여기부터" data-en="New here? Start here">처음이라면 여기부터</span>
+      <h2 id="dub-home-title" data-ko="짧은 한 장면으로 시작해요" data-en="Start with one short scene">짧은 한 장면으로 시작해요</h2>
     </div>
     <div class="dub-home-actions">
-      <button type="button" class="dub-home-action primary" id="dub-quick-start" disabled><b data-ko="▶ 오늘의 짧은 더빙" data-en="▶ Try a short scene">▶ 오늘의 짧은 더빙</b><small id="dub-quick-detail" data-ko="짧은 장면을 고르고 역할을 확인해요" data-en="Pick a short scene, then check your role">짧은 장면을 고르고 역할을 확인해요</small></button>
-      <button type="button" class="dub-home-action" id="dub-quick-resume"><b data-ko="지난 연습 이어하기" data-en="Resume your practice">지난 연습 이어하기</b><small data-ko="저장한 역할과 진행 위치를 불러와요" data-en="Restore your saved roles and progress">저장한 역할과 진행 위치를 불러와요</small></button>
-      <button type="button" class="dub-home-action" id="dub-quick-library"><b data-ko="내 작품 보기" data-en="My movie library">내 작품 보기</b><small data-ko="다시 보고, 내려받고, 오래 보관해요" data-en="Watch again, download and keep your work">다시 보고, 내려받고, 오래 보관해요</small></button>
+      <button type="button" class="dub-home-action primary" id="dub-quick-start" disabled>
+        <span class="dub-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M8 5v14l11-7z"/></svg></span>
+        <span class="dub-action-copy"><b data-ko="짧은 더빙 시작" data-en="Record a short scene">짧은 더빙 시작</b><small id="dub-quick-detail" data-ko="모험 애니메이션 한 장면을 준비하고 있어요" data-en="Getting a short adventure scene ready">모험 애니메이션 한 장면을 준비하고 있어요</small><span class="dub-action-next" data-ko="다음: 내 역할 고르기 →" data-en="Next: choose your role →">다음: 내 역할 고르기 →</span></span>
+      </button>
+      <button type="button" class="dub-home-action resume" id="dub-quick-resume"><span class="dub-action-copy"><b data-ko="하던 연습 계속하기" data-en="Continue practising">하던 연습 계속하기</b><small data-ko="녹음하던 곳부터 이어 해요" data-en="Pick up your saved practice">녹음하던 곳부터 이어 해요</small></span><span class="dub-action-arrow" aria-hidden="true">→</span></button>
+      <button type="button" class="dub-home-action library" id="dub-quick-library"><span class="dub-action-copy"><b data-ko="내 영상 보기" data-en="My videos">내 영상 보기</b><small data-ko="다시 보고, 파일로 받아요" data-en="Watch and download your videos">다시 보고, 파일로 받아요</small></span><span class="dub-action-arrow" aria-hidden="true">→</span></button>
     </div>
-    <ol class="dub-steps"><li><b>1</b><span data-ko="먼저 보기" data-en="Watch first">먼저 보기</span></li><li><b>2</b><span data-ko="역할 고르고 말하기" data-en="Pick a role and speak">역할 고르고 말하기</span></li><li><b>3</b><span data-ko="작품 보관 · 회화 연습" data-en="Save your movie · practise a conversation">작품 보관 · 회화 연습</span></li></ol>
+    <div class="dub-how">
+      <p class="dub-how-label" data-ko="이 순서로 연습하면 쉬워요" data-en="An easy way to practise">이 순서로 연습하면 쉬워요</p>
+      <ol class="dub-steps"><li><b>1</b><span data-ko="영상 먼저 보기" data-en="Watch the scene">영상 먼저 보기</span></li><li><b>2</b><span data-ko="내 목소리로 더빙" data-en="Record your voice">내 목소리로 더빙</span></li><li><b>3</b><span data-ko="내 영상 다시 보기" data-en="Watch your video">내 영상 다시 보기</span></li></ol>
+    </div>
   </section>
 
   <section class="panel dub-library" id="dub-library" aria-labelledby="dub-library-title" hidden>
-    <div class="dub-library-heading"><h2 id="dub-library-title" data-ko="나의 더빙 보관함" data-en="My dubbing library">나의 더빙 보관함</h2><button type="button" class="btn" id="dub-library-close"><span data-ko="닫기" data-en="Close">닫기</span></button></div>
-    <div class="dub-library-tabs"><button type="button" class="btn" data-library-view="movies" aria-pressed="true"><span data-ko="완성 작품" data-en="Movies">완성 작품</span></button><button type="button" class="btn" data-library-view="drafts" aria-pressed="false"><span data-ko="저장한 연습" data-en="Practice">저장한 연습</span></button><button type="button" class="btn" id="dub-library-refresh"><span data-ko="새로 불러오기" data-en="Refresh">새로 불러오기</span></button></div>
-    <p class="hint" data-ko="작품은 내 계정에서만 열려요. 계정당 영상 20편·연습 12개까지, 영상 한 편은 64MB까지 보관할 수 있어요." data-en="Your work is private to your account. Keep up to 20 movies and 12 practices; each movie can be up to 64 MB.">작품은 내 계정에서만 열려요. 계정당 영상 20편·연습 12개까지, 영상 한 편은 64MB까지 보관할 수 있어요.</p>
+    <div class="dub-library-heading"><h2 id="dub-library-title" data-ko="내 영상과 연습" data-en="My videos and practice">내 영상과 연습</h2><button type="button" class="btn" id="dub-library-close"><span data-ko="닫기" data-en="Close">닫기</span></button></div>
+    <div class="dub-library-tabs"><button type="button" class="btn" data-library-view="movies" aria-pressed="true"><span data-ko="내 영상" data-en="My videos">내 영상</span></button><button type="button" class="btn" data-library-view="drafts" aria-pressed="false"><span data-ko="이어할 연습" data-en="Saved practice">이어할 연습</span></button><button type="button" class="btn" id="dub-library-refresh"><span data-ko="새로고침" data-en="Refresh">새로고침</span></button></div>
     <p class="dub-library-status" id="dub-library-status" role="status" aria-live="polite"></p>
+    <div class="dub-library-empty" id="dub-library-empty" hidden>
+      <svg class="dub-empty-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="6" y="10" width="36" height="28" rx="6"/><path d="m20 17 11 7-11 7z"/></svg>
+      <h3 id="dub-empty-title" data-ko="아직 내 영상이 없어요" data-en="No videos yet">아직 내 영상이 없어요</h3>
+      <p data-ko="짧은 한 장면부터 연습해 볼까요?" data-en="Try recording one short scene.">짧은 한 장면부터 연습해 볼까요?</p>
+      <button type="button" class="btn go" id="dub-library-start" disabled><span data-ko="짧은 더빙 시작" data-en="Record a short scene">짧은 더빙 시작</span></button>
+    </div>
     <div class="dub-library-items" id="dub-library-items"></div>
+    <details class="dub-explain dub-storage-info"><summary data-ko="영상은 어디에 저장되나요?" data-en="Where are my videos saved?">영상은 어디에 저장되나요?</summary><p class="hint" data-ko="‘내 계정에 저장됨’이라고 표시된 영상은 로그인한 다른 기기에서도 볼 수 있어요. ‘이 기기에만 저장됨’은 지금 쓰는 브라우저에만 남아 있어요. 계정당 영상 20개·연습 12개, 영상 하나당 64MB까지 보관해요." data-en="Videos marked ‘Saved to my account’ are available on your other signed-in devices. ‘Saved on this device only’ means the video stays in this browser. Each account can keep 20 videos and 12 practices, with up to 64 MB per video.">‘내 계정에 저장됨’이라고 표시된 영상은 로그인한 다른 기기에서도 볼 수 있어요. ‘이 기기에만 저장됨’은 지금 쓰는 브라우저에만 남아 있어요. 계정당 영상 20개·연습 12개, 영상 하나당 64MB까지 보관해요.</p></details>
   </section>
 
+  <div class="dub-browse-heading"><h2 data-ko="다른 영상도 골라볼까요?" data-en="Choose another video">다른 영상도 골라볼까요?</h2><p class="hint" data-ko="아래에서 이야기를 고르고, 보고 싶은 장면을 눌러요." data-en="Choose a story below, then pick a scene.">아래에서 이야기를 고르고, 보고 싶은 장면을 눌러요.</p></div>
   <!-- 장르 2개 — 언제나 둘 다 보인다. 고른 장르만 아래에 펼친다(js/ai-dubbing.js renderGenres) -->
   <section class="genres" id="dub-genres" aria-label="장르 고르기">
     <button type="button" class="genre adv" data-genre="adv" aria-pressed="true" aria-controls="dub-adv">
@@ -394,25 +404,25 @@
   </section>
 
   <section class="panel" id="dub-movies-panel" aria-label="완성 영상" hidden>
-    <h2><span data-ko="▶ 완성 영상" data-en="▶ My movie">▶ 완성 영상</span></h2>
+    <h2><span data-ko="내 목소리로 만든 영상" data-en="Videos with my voice">내 목소리로 만든 영상</span></h2>
     <p class="hint"><span data-ko="로그인하면 내 계정에 자동 보관해요. 영상 아래 저장 상태를 확인하고, 파일로도 내려받을 수 있어요." data-en="When signed in, movies save to your account automatically. Check each movie’s save status; you can also download a copy.">로그인하면 내 계정에 자동 보관해요. 영상 아래 저장 상태를 확인하고, 파일로도 내려받을 수 있어요.</span></p>
     <div class="movies" id="dub-movies"></div>
   </section>
 
   <section class="panel dub-next" id="dub-next" aria-labelledby="dub-next-title" hidden>
-    <h2 id="dub-next-title" data-ko="방금 말한 표현, 대화에서도 써볼까요?" data-en="Try your lines in a real conversation">방금 말한 표현, 대화에서도 써볼까요?</h2>
-    <p class="hint" data-ko="녹음한 대사로 AI 친구와 새로운 일상 상황을 연습해요. 다음 수업에서 선생님과도 말해 보세요." data-en="Practise a new everyday situation with your AI friend using the lines you recorded. Try them with your teacher next lesson, too.">녹음한 대사로 AI 친구와 새로운 일상 상황을 연습해요. 다음 수업에서 선생님과도 말해 보세요.</p>
+    <h2 id="dub-next-title" data-ko="이제 AI 친구와 말해 볼까요?" data-en="Now try talking with your AI friend">이제 AI 친구와 말해 볼까요?</h2>
+    <p class="hint" data-ko="방금 녹음한 문장으로 대화해요. 다음 수업에서 선생님과도 써보세요." data-en="Use the lines you just recorded in a conversation. Try them with your teacher next lesson, too.">방금 녹음한 문장으로 대화해요. 다음 수업에서 선생님과도 써보세요.</p>
     <ul class="dub-next-lines" id="dub-next-lines"></ul>
-    <div class="row"><button type="button" class="btn ok" id="dub-practice-go"><span data-ko="이 표현으로 AI 회화 연습" data-en="Practise these lines with AI">이 표현으로 AI 회화 연습</span></button></div>
+    <div class="row"><button type="button" class="btn ok" id="dub-practice-go"><span data-ko="이 문장으로 AI 친구와 대화하기" data-en="Use these lines with my AI friend">이 문장으로 AI 친구와 대화하기</span></button></div>
     <p class="hint" id="dub-practice-status" role="status"></p>
   </section>
 
   <!-- ── 모험 3D 애니 ─────────────────────────────────────────── -->
   <div class="layout" id="dub-adv">
     <div class="col-main">
-      <section class="panel" id="dub-eps-panel" aria-label="작품 고르기" hidden>
+      <section class="panel" id="dub-eps-panel" aria-label="이야기 고르기" hidden>
         <div>
-          <h2><span data-ko="1. 작품 고르기" data-en="1. Pick a film">1. 작품 고르기</span></h2>
+          <h2><span data-ko="이야기 고르기" data-en="Choose a story">이야기 고르기</span></h2>
           <p class="hint"><span data-ko="3D 애니메이션 7편 — 작품마다 에피소드 6개가 있어요." data-en="7 animated films — each has 6 episodes.">3D 애니메이션 7편 — 작품마다 에피소드 6개가 있어요.</span></p>
         </div>
         <div class="eps" id="dub-eps"></div>
@@ -444,10 +454,10 @@
         <p class="w-done" id="dub-w-done" hidden></p>
       </section>
 
-      <section class="panel" aria-label="에피소드 고르기">
+      <section class="panel" aria-label="장면 고르기">
         <div>
-          <h2><span data-ko="2. 에피소드 고르기" data-en="2. Pick an episode">2. 에피소드 고르기</span></h2>
-          <p class="hint"><span data-ko="에피소드를 고른 뒤 ‘더빙’을 눌러요. 열리는 출연 설정에서 모둠의 역할과 연습·발표를 정해요." data-en="Pick an episode and press Dub. In cast setup, assign your group’s parts and choose practice or presentation.">에피소드를 고른 뒤 ‘더빙’을 눌러요. 열리는 출연 설정에서 모둠의 역할과 연습·발표를 정해요.</span></p>
+          <h2><span data-ko="장면 고르기" data-en="Choose a scene">장면 고르기</span></h2>
+          <p class="hint"><span data-ko="‘보기’로 영상을 보고, ‘더빙’을 눌러 내 역할을 골라요." data-en="Press Watch to see the video, then Dub to choose your role.">‘보기’로 영상을 보고, ‘더빙’을 눌러 내 역할을 골라요.</span></p>
         </div>
         <div class="scenes" id="dub-scenes">
           <div class="scene" aria-disabled="true"><span class="thumb"><span class="epn">EP 1</span><span data-ko="영상 준비 중" data-en="Video coming">영상 준비 중</span></span><span class="tag s1" data-ko="1. 신나는 모험의 시작!" data-en="1. The adventure begins!">1. 신나는 모험의 시작!</span></div>
@@ -460,15 +470,15 @@
       </section>
     </div>
 
-    <aside class="col-side" id="dub-side" aria-label="출연 설정">
+    <aside class="col-side" id="dub-side" aria-label="내 역할 고르기">
       <div class="sheet-head">
-        <b data-ko="🎭 출연 설정" data-en="🎭 Cast setup">🎭 출연 설정</b>
+        <b data-ko="내 역할 고르기" data-en="Choose my role">내 역할 고르기</b>
         <button type="button" class="btn" id="dub-side-close"><span data-ko="✕ 닫기" data-en="✕ Close">✕ 닫기</span></button>
       </div>
       <section class="panel" id="dub-cast-panel" aria-label="누가 연기할까요" hidden>
         <div>
-          <h2><span data-ko="3. 누가 연기할까요?" data-en="3. Who will act?">3. 누가 연기할까요?</span></h2>
-          <p class="hint"><span data-ko="모둠 1~5명이 한 컴퓨터와 마이크를 함께 사용해요. 각자 이름과 역할을 정하고, 같은 영상을 보며 자기 차례에 말해요. 맡은 역할의 원어민 목소리는 꺼져요. 같은 역할을 고르면 대사를 번갈아 말해요. 모둠의 목소리는 하나의 완성 영상에 담겨요." data-en="1 to 5 students share one computer and microphone. Set each student’s name and role, watch the same video and speak on your turn. Native voices for your roles are muted. Students sharing a role take turns. Your group’s voices are recorded in one movie.">모둠 1~5명이 한 컴퓨터와 마이크를 함께 사용해요. 각자 이름과 역할을 정하고, 같은 영상을 보며 자기 차례에 말해요. 맡은 역할의 원어민 목소리는 꺼져요. 같은 역할을 고르면 대사를 번갈아 말해요. 모둠의 목소리는 하나의 완성 영상에 담겨요.</span></p>
+          <h2><span data-ko="어떤 캐릭터가 될까요?" data-en="Which character will you be?">어떤 캐릭터가 될까요?</span></h2>
+          <p class="hint"><span data-ko="캐릭터를 고른 뒤, 내 차례에 영어 대사를 말하면 돼요." data-en="Choose a character, then say the English lines when it is your turn.">캐릭터를 고른 뒤, 내 차례에 영어 대사를 말하면 돼요.</span></p>
         </div>
         <div class="pick-sum" id="dub-pick-sum"></div>
         <div class="dub-resume-note" id="dub-resume-note" hidden></div>
@@ -476,16 +486,15 @@
         <div class="nudge" id="dub-nudge" hidden></div>
         <div class="opts" id="dub-all-row" hidden>
           <label class="opt"><input type="checkbox" id="dub-make-movie" checked> <span data-ko="완성 영상 만들기" data-en="Make my movie">완성 영상 만들기</span></label>
-          <label class="opt" for="dub-mode"><span data-ko="진행 방식" data-en="Mode">진행 방식</span>
+          <label class="opt" for="dub-mode"><span data-ko="연습 방법" data-en="How to practise">연습 방법</span>
             <select id="dub-mode">
-              <option value="practice" data-ko="연습 — 영어·한국어 자막" data-en="Practice — English and Korean subtitles">연습 — 영어·한국어 자막</option>
-              <option value="presentation" data-ko="발표 더빙 — 기본 자막 없음" data-en="Presentation dubbing — no subtitles by default">발표 더빙 — 기본 자막 없음</option>
+              <option value="practice" data-ko="자막 보며 연습 (추천)" data-en="Practise with subtitles (recommended)">자막 보며 연습 (추천)</option>
+              <option value="presentation" data-ko="자막 없이 발표" data-en="Perform without subtitles">자막 없이 발표</option>
             </select>
           </label>
           <label class="opt" id="dub-korean-option" hidden><input type="checkbox" id="dub-korean"> <span data-ko="한국어 자막 켜기" data-en="Show Korean subtitles">한국어 자막 켜기</span></label>
-          <p class="hint"><span data-ko="원어민 목소리는 먼저 보기에서 들어보세요. 연습은 영어·한국어 자막을 보며, 발표는 자막 없이 해요. 발표 중 한국어 자막만 켤 수 있어요. 자막 설정은 완성 영상에도 적용돼요." data-en="Hear native voices with Watch first. Practice shows English and Korean; presentation starts without subtitles. You can enable Korean during presentation. The same captions are saved in your movie.">원어민 목소리는 먼저 보기에서 들어보세요. 연습은 영어·한국어 자막을 보며, 발표는 자막 없이 해요. 발표 중 한국어 자막만 켤 수 있어요. 자막 설정은 완성 영상에도 적용돼요.</span></p>
-          <button type="button" class="btn big cta" id="dub-start" disabled><span data-ko="▶ 연습 시작" data-en="▶ Start practice">▶ 연습 시작</span></button>
-          <button type="button" class="btn go" id="dub-all"><span data-ko="▶ 처음부터 끝까지 이어서 더빙" data-en="▶ Dub all episodes in a row">▶ 처음부터 끝까지 이어서 더빙</span></button>
+          <button type="button" class="btn big cta" id="dub-start" disabled><span data-ko="내 목소리로 녹음 시작" data-en="Start recording my voice">내 목소리로 녹음 시작</span></button>
+          <details class="dub-explain"><summary data-ko="친구와 함께 하기 · 자세한 안내" data-en="Record with friends · More help">친구와 함께 하기 · 자세한 안내</summary><p class="hint"><span data-ko="1~5명이 한 컴퓨터와 마이크를 함께 써요. 각자 이름과 캐릭터를 고르고 자기 차례에 말해요. 같은 캐릭터를 고르면 번갈아 말하고, 목소리는 한 영상에 담겨요." data-en="Up to 5 students share one computer and microphone. Choose each student’s name and character, then take turns. Students with the same character alternate lines. All voices go into one video.">1~5명이 한 컴퓨터와 마이크를 함께 써요. 각자 이름과 캐릭터를 고르고 자기 차례에 말해요. 같은 캐릭터를 고르면 번갈아 말하고, 목소리는 한 영상에 담겨요.</span></p><p class="hint"><span data-ko="연습은 영어·한국어 자막을 함께 봐요. 발표는 자막 없이 시작하고, 한국어 자막만 켤 수 있어요. 선택한 자막은 녹음 영상에도 들어가요." data-en="Practice shows English and Korean subtitles. Presentation starts without subtitles, with an option to show Korean. Your chosen subtitles are included in the recording.">연습은 영어·한국어 자막을 함께 봐요. 발표는 자막 없이 시작하고, 한국어 자막만 켤 수 있어요. 선택한 자막은 녹음 영상에도 들어가요.</span></p><button type="button" class="btn go" id="dub-all"><span data-ko="모든 장면 이어서 더빙하기" data-en="Record all scenes in a row">모든 장면 이어서 더빙하기</span></button></details>
           <p class="flow"><span data-ko="더빙이 끝나면 AI 평가 → 완성 영상 다시 보기로 이어져요." data-en="After dubbing: AI feedback → watch your movie.">더빙이 끝나면 AI 평가 → 완성 영상 다시 보기로 이어져요.</span></p>
         </div>
       </section>
@@ -497,7 +506,7 @@
     <div class="col-main">
       <section class="panel" aria-label="키키와 토토 에피소드 고르기">
         <div>
-          <h2><span data-ko="1. 에피소드 고르기" data-en="1. Pick an episode">1. 에피소드 고르기</span></h2>
+          <h2><span data-ko="이야기 고르기" data-en="Choose a story">이야기 고르기</span></h2>
           <p class="hint"><span data-ko="키키와 토토 10편 — 상대 대사는 들리고 내 차례엔 소리가 꺼져요." data-en="Kiki &amp; Toto, 10 episodes — hear the other parts, then your lines go quiet.">키키와 토토 10편 — 상대 대사는 들리고 내 차례엔 소리가 꺼져요.</span></p>
         </div>
         <div class="kts" id="dub-kt-list"></div>
@@ -505,9 +514,9 @@
     </div>
     <aside class="col-side" aria-label="키키와 토토 더빙 시작">
       <section class="panel" id="dub-kt-side">
-        <h2><span data-ko="2. 더빙 스튜디오로 가기" data-en="2. Go to the dubbing studio">2. 더빙 스튜디오로 가기</span></h2>
+        <h2><span data-ko="이 이야기로 더빙하기" data-en="Dub this story">이 이야기로 더빙하기</span></h2>
         <div id="dub-kt-sum"></div>
-        <p class="hint"><span data-ko="역할 고르기와 연습·실전 모드는 더빙 스튜디오에서 골라요. 내 목소리로 녹음해 더빙 영상까지 만들어요." data-en="Pick your role and practice or real mode in the studio. Record your voice and make your own dub video.">역할 고르기와 연습·실전 모드는 더빙 스튜디오에서 골라요. 내 목소리로 녹음해 더빙 영상까지 만들어요.</span></p>
+        <p class="hint"><span data-ko="다음 화면에서 캐릭터를 고르고, 대사를 한 줄씩 녹음해요." data-en="On the next screen, choose a character and record one line at a time.">다음 화면에서 캐릭터를 고르고, 대사를 한 줄씩 녹음해요.</span></p>
         <a class="btn big kt-go" id="dub-kt-go" href="/ai-dubbing-studio.html"><span data-ko="▶ 이 에피소드 더빙 시작" data-en="▶ Dub this episode">▶ 이 에피소드 더빙 시작</span></a>
       </section>
     </aside>
@@ -520,10 +529,10 @@
 <div class="mbar" id="dub-mbar">
   <span class="mbar-img" id="dub-mbar-img" aria-hidden="true"></span>
   <span class="mbar-tx"><b id="dub-mbar-t1"></b><span id="dub-mbar-t2"></span></span>
-  <button type="button" class="btn cta" id="dub-mbar-cast" aria-controls="dub-side"><span data-ko="🎭 출연 설정" data-en="🎭 Cast">🎭 출연 설정</span></button>
+  <button type="button" class="btn cta" id="dub-mbar-cast" aria-controls="dub-side"><span data-ko="내 역할 고르기" data-en="Choose my role">내 역할 고르기</span></button>
   <a class="btn kt-go" id="dub-mbar-kt" href="/ai-dubbing-studio.html" hidden><span data-ko="▶ 더빙 시작" data-en="▶ Start">▶ 더빙 시작</span></a>
 </div>
-<button type="button" class="sheet-bg" id="dub-sheet-bg" hidden aria-label="출연 설정 닫기" data-ko-aria="출연 설정 닫기" data-en-aria="Close cast setup"></button>
+<button type="button" class="sheet-bg" id="dub-sheet-bg" hidden aria-label="역할 선택 닫기" data-ko-aria="역할 선택 닫기" data-en-aria="Close role selection"></button>
 
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
@@ -533,7 +542,7 @@
 <script defer src="/js/ai-dubbing-watch.js?v=3"></script>
 <script defer src="/js/ai-dubbing-library.js?v=2"></script>
 <script defer src="/js/ai-dubbing-practice.js?v=1"></script>
-<script defer src="/js/ai-dubbing-home.js?v=1"></script>
-<script defer src="/js/ai-dubbing.js?v=13"></script>
+<script defer src="/js/ai-dubbing-home.js?v=2"></script>
+<script defer src="/js/ai-dubbing.js?v=14"></script>
 </body>
 </html>

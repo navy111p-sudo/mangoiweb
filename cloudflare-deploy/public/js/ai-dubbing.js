@@ -335,9 +335,9 @@
     var box = $('dub-cast');
     if (!box || !S.ep) return;
     var meIdx = acctUid() ? 0 : -1;
-    var h = '<div class="cnts">' + L('몇 명이 하나요?', 'How many students?');
+    var h = '<div class="cnts">' + L('누가 함께 하나요?', 'Who is joining?');
     for (var n = 1; n <= C.MAX_STUDENTS; n++) {
-      h += ' <button type="button" class="cnt" data-n="' + n + '" aria-pressed="' + (S.cast.length === n) + '">' + n + '</button>';
+      h += ' <button type="button" class="cnt" data-n="' + n + '" aria-pressed="' + (S.cast.length === n) + '">' + (n === 1 ? L('혼자', 'Just me') : L(n + '명', String(n))) + '</button>';
     }
     h += '</div>';
     S.cast.forEach(function (c, i) {
@@ -359,8 +359,8 @@
       if (!speaks) return;
       (muted[cid] ? mutedL : nativeL).push(esc(S.ep.characters[cid].emoji) + ' ' + charL(cid));
     });
-    h += '<div class="mutesum">🔇 ' + L('학생이 말해요(원어민 목소리 끔):', 'Students speak (native voice off):') + ' <b>' + (mutedL.join(', ') || '—') + '</b>'
-      + '<br>🔊 ' + L('원어민이 말해요:', 'Native voice:') + ' <b>' + (nativeL.join(', ') || '—') + '</b></div>';
+    h += '<details class="dub-explain"><summary>' + L('누가 어떤 대사를 말하나요?', 'Who says each line?') + '</summary><div class="mutesum">' + L('직접 말할 캐릭터:', 'Characters you will voice:') + ' <b>' + (mutedL.join(', ') || '—') + '</b>'
+      + '<br>' + L('원어민 목소리로 듣는 캐릭터:', 'Characters with native voices:') + ' <b>' + (nativeL.join(', ') || '—') + '</b></div></details>';
     box.innerHTML = h;
   }
 
@@ -893,7 +893,7 @@
   function updateDubMode() {
     var practice = $('dub-mode').value !== 'presentation';
     $('dub-korean-option').hidden = practice;
-    $('dub-start').innerHTML = S.resume ? L('▶ 이어 녹음 시작', '▶ Continue recording') : practice ? L('▶ 연습 시작', '▶ Start practice') : L('🎤 발표 더빙 시작', '🎤 Start presentation dubbing');
+    $('dub-start').innerHTML = S.resume ? L('▶ 이어 녹음 시작', '▶ Continue recording') : practice ? L('내 목소리로 녹음 시작', 'Start recording my voice') : L('자막 없이 발표 녹음', 'Record without subtitles');
   }
   function showLine(run, line, performer) {
     var student = performer.type === 'student';

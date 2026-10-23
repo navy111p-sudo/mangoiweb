@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>A.i 더빙동영상</title>
+<title>키키와 토토 더빙 — mangoi.ai</title>
 <meta name="description" content="A.i 더빙동영상(🎬 A.i영화더빙 메뉴 안) · 영상 속 캐릭터 대사를 내가 직접 더빙하는 영어 말하기 연습 · 10편">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -55,7 +55,7 @@ body {
   padding-block: 18px 32px;
 }
 button { font: inherit; color: inherit; cursor: pointer; }
-button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 
 /* ---------- Header ---------- */
 .top { max-width: 1180px; margin: 0 auto 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
@@ -64,6 +64,21 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 .lang { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); padding: 3px; }
 .lang button { border: 0; background: none; padding: 5px 14px; border-radius: 999px; font-weight: 800; font-size: 13px; letter-spacing: .04em; color: var(--muted); }
 .lang button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+/* A short, linked route through the existing role, recording and movie controls. */
+.studio-guide { max-width: 1180px; margin: 0 auto 18px; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.studio-guide a { display: flex; align-items: center; gap: 12px; height: 100%; min-height: 86px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); color: var(--ink); text-decoration: none; }
+.studio-guide a:hover { border-color: var(--accent); background: var(--bg); }
+.studio-step { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 32px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 16px; font-weight: 800; }
+.studio-guide strong { display: block; font-size: 16px; line-height: 1.45; }
+.studio-guide small { display: block; margin-top: 3px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+#studio-setup, #studio-script, #studio-movie { scroll-margin-top: 20px; }
+.studio-options { border-top: 1px solid var(--line); padding-top: 12px; }
+.studio-options summary { min-height: 44px; padding-block: 10px; cursor: pointer; color: var(--muted); font-size: 14px; font-weight: 800; }
+.studio-options[open] summary { margin-bottom: 10px; }
+.studio-options .field + .field { margin-top: 16px; }
+.studio-play-help { padding: 11px 14px; border-left: 3px solid var(--accent); background: var(--surface); border-radius: 0 10px 10px 0; }
+.studio-movie-actions .btn.primary { flex: 1 1 180px; }
 
 /* ---------- Main grid ---------- */
 .grid { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; align-items: start; }
@@ -123,17 +138,17 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 .panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 14px; }
 .field { display: grid; gap: 7px; }
-.label { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.label { font-size: 14px; font-weight: 800; color: var(--muted); }
 .seg { display: flex; flex-wrap: wrap; gap: 6px; }
 .seg button { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 7px 12px; font-weight: 700; font-size: 14px; }
 .seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .seg.roles button[aria-pressed="true"] { background: var(--mine); border-color: var(--mine); color: var(--surface); }
-.help { margin: 0; font-size: 13px; color: var(--muted); }
+.help { margin: 0; font-size: 14px; line-height: 1.65; color: var(--muted); }
 .checks { display: grid; gap: 8px; }
 .checks label { display: flex; gap: 9px; align-items: center; font-size: 14px; cursor: pointer; }
 .checks input { width: 18px; height: 18px; accent-color: var(--accent); }
 
-.cue-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.cue-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .cue-head h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 20px; }
 .cue-head span { font: 500 12px var(--font-mono); color: var(--muted); }
 .cues { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 460px; overflow-y: auto; }
@@ -154,7 +169,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 .chip-btn.solid { background: var(--mine); color: var(--surface); }
 .chip-btn .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .cue-rec { grid-column: 2; display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
-.cue-rec button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
+.cue-rec button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 12px; font-size: 14px; font-weight: 700; }
 .cue-rec button.has { color: var(--accent); border-color: var(--accent); }
 .meter { height: 8px; background: var(--bg); border-radius: 99px; overflow: hidden; }
 .meter span { display: block; height: 100%; width: 0; background: var(--mine); border-radius: 99px; transition: width .3s; }
@@ -168,6 +183,17 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 .studio-save .row .btn { min-height: 44px; text-decoration: none; display: inline-flex; align-items: center; }
 .studio-save .status[data-state="saved"] { color: var(--accent); }
 .studio-save .status[data-state="error"] { color: var(--rec); }
+.btn, .tbtn, .seg button, .chip-btn, .cue-rec button, .lang button, .done-btn { min-height: 44px; }
+.status { line-height: 1.65; font-size: 14px; }
+@media (max-width: 600px) {
+  .studio-guide { grid-template-columns: minmax(0, 1fr); gap: 7px; }
+  .studio-guide a { min-height: 66px; padding: 10px 12px; }
+  .studio-guide strong { font-size: 15px; }
+  .studio-guide small { margin-top: 1px; }
+  .studio-save .row .btn { flex: 1 1 140px; justify-content: center; }
+  .brand h1 { font-size: 25px; }
+  .cue-rec button { padding-inline: 10px; }
+}
 .recbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; padding: 5px 6px 5px 12px; border-radius: 999px; background: rgba(224,68,74,.92); color: #fff; font-weight: 800; font-size: 13px; white-space: nowrap; }
 .recbar button { border: 0; border-radius: 999px; padding: 4px 10px; background: #fff; color: #16252C; font-weight: 800; font-size: 12px; }
 body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { pointer-events: none; opacity: .5; }
@@ -195,14 +221,20 @@ body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { 
 
 <header class="top">
   <div class="brand">
-    <h1 data-i18n="title">A.i 더빙동영상</h1>
-    <p data-i18n="sub">상대 대사는 들리고, 내 대사 차례엔 소리가 꺼져요</p>
+    <h1 data-i18n="title">키키와 토토 더빙</h1>
+    <p data-i18n="sub">캐릭터를 고르고, 내 목소리로 영어 영화를 만들어요.</p>
   </div>
   <div class="lang" role="group" aria-label="Language">
     <button type="button" id="lang-ko" data-lang="ko">KO</button>
     <button type="button" id="lang-en" data-lang="en">EN</button>
   </div>
 </header>
+
+<ol class="studio-guide" aria-label="더빙하는 순서" data-i18n-aria="guideLabel">
+  <li><a href="#studio-setup"><span class="studio-step" aria-hidden="true">1</span><span><strong data-i18n="guideRole">역할 고르기</strong><small data-i18n="guideRoleHelp">내가 연기할 캐릭터를 골라요.</small></span></a></li>
+  <li><a href="#studio-script"><span class="studio-step" aria-hidden="true">2</span><span><strong data-i18n="guideRecord">대사 녹음하기</strong><small data-i18n="guideRecordHelp">내 대사 옆 ‘녹음하기’를 눌러요.</small></span></a></li>
+  <li><a href="#studio-movie"><span class="studio-step" aria-hidden="true">3</span><span><strong data-i18n="guideMovie">내 영상 만들기</strong><small data-i18n="guideMovieHelp">녹음한 목소리를 영상에 넣어요.</small></span></a></li>
+</ol>
 
 <main class="grid">
   <section class="stage-col">
@@ -237,7 +269,7 @@ body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { 
       <p class="cap-ko" id="cap-ko"></p>
       <div class="cap-actions" id="cap-actions" hidden>
         <button type="button" class="chip-btn solid" id="btn-rec"><i class="dot"></i><span id="btn-rec-label"></span></button>
-        <button type="button" class="chip-btn" id="btn-myplay" data-i18n="myVoice">내 목소리</button>
+        <button type="button" class="chip-btn" id="btn-myplay" data-i18n="myVoice">내 목소리 듣기</button>
       </div>
     </div>
 
@@ -249,30 +281,32 @@ body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { 
       <button type="button" class="tbtn" id="btn-repeat"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg><span data-i18n="repeat">이 대사 다시</span></button>
       <span class="counter" id="counter"></span>
     </div>
+    <p class="help studio-play-help" data-i18n="playHelp">먼저 재생해서 들어보세요. 내 목소리를 저장하려면 대사 옆 ‘녹음하기’를 눌러요.</p>
     <p class="notice" id="notice" hidden></p>
     <section class="card studio-save" aria-label="연습 보관">
-      <div class="cue-head"><h2 data-i18n="continueTitle">내 연습 이어가기</h2></div>
-      <p class="help" data-i18n="continueHelp">끝낸 녹음은 남겨 두고, 마지막 대사부터 다시 연습해요.</p>
+      <div class="cue-head"><h2 data-i18n="continueTitle">저장한 연습과 내 영상</h2></div>
+      <p class="help" data-i18n="continueHelp">전에 녹음한 대사를 불러와 나머지를 이어서 녹음해요.</p>
       <div class="row">
-        <button type="button" class="btn primary" id="btn-resume" data-i18n="resumePractice">저장된 연습 불러오기</button>
-        <button type="button" class="btn" id="btn-save-practice" data-i18n="savePractice">연습 저장</button>
-        <a class="btn" href="/ai-dubbing.html?library=movies" data-i18n="myWorks">내 작품 보기</a>
+        <button type="button" class="btn" id="btn-resume" data-i18n="resumePractice">하던 연습 계속하기</button>
+        <button type="button" class="btn" id="btn-save-practice" data-i18n="savePractice">여기까지 저장하기</button>
+        <a class="btn" href="/ai-dubbing.html?library=movies" data-i18n="myWorks">내 영상 보기</a>
       </div>
       <p class="status" id="studio-save-status" role="status" aria-live="polite"></p>
       <button type="button" class="btn" id="btn-movie-retry" data-i18n="retryMovie" hidden>완성 영상 다시 저장</button>
-      <button type="button" class="btn" id="btn-conversation" data-i18n="conversation" disabled>녹음한 표현으로 회화 연습</button>
+      <button type="button" class="btn" id="btn-conversation" data-i18n="conversation" disabled>이 문장으로 AI 친구와 대화하기</button>
     </section>
   </section>
 
   <aside class="panel">
-    <div class="card">
+    <div class="card" id="studio-setup">
+      <div class="cue-head"><h2 data-i18n="setupTitle">1. 이야기와 역할 고르기</h2></div>
       <div class="field">
-        <span class="label" data-i18n="episode">에피소드</span>
+        <span class="label" data-i18n="episode">어떤 이야기로 할까요?</span>
         <div class="seg" id="seg-ep"></div>
         <p class="help" id="ep-help"></p>
       </div>
       <div class="field">
-        <span class="label" data-i18n="role">내 역할</span>
+        <span class="label" data-i18n="role">누구의 목소리가 될까요?</span>
         <div class="seg roles" id="seg-role"></div>
         <div class="row">
           <button type="button" class="btn" id="btn-rotate" data-i18n="rotate">↻ 역할 돌아가며 바꾸기</button>
@@ -280,38 +314,50 @@ body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { 
         <p class="help" data-i18n="roleHelp"></p>
       </div>
       <div class="field">
-        <span class="label" data-i18n="mode">모드</span>
+        <span class="label" data-i18n="mode">어떻게 연습할까요?</span>
         <div class="seg" id="seg-mode"></div>
         <p class="help" id="mode-help"></p>
       </div>
-      <div class="field">
-        <span class="label" data-i18n="speed">속도</span>
-        <div class="seg" id="seg-speed"></div>
-      </div>
-      <div class="field">
-        <span class="label" data-i18n="options">옵션</span>
-        <div class="checks">
-          <label><input type="checkbox" id="opt-bgm"><span data-i18n="bgm">배경음악</span></label>
-          <label><input type="checkbox" id="opt-ko"><span data-i18n="subKo">한국어 해석 보기</span></label>
-          <label><input type="checkbox" id="opt-hide"><span data-i18n="hideMine">내 대사 가리기 (암기 연습)</span></label>
-          <label><input type="checkbox" id="opt-echo"><span data-i18n="echo">연습 모드: 내 대사 듣고 따라 말하기</span></label>
-          <label><input type="checkbox" id="opt-auto"><span data-i18n="autoNext">내 차례 시간이 끝나면 자동으로 넘기기</span></label>
+      <details class="studio-options">
+        <summary data-i18n="moreOptions">속도·자막·배경음악 조절</summary>
+        <div class="field">
+          <span class="label" data-i18n="speed">말하는 속도</span>
+          <div class="seg" id="seg-speed"></div>
         </div>
-      </div>
+        <div class="field">
+          <span class="label" data-i18n="options">소리와 자막 설정</span>
+          <div class="checks">
+            <label><input type="checkbox" id="opt-bgm"><span data-i18n="bgm">배경음악</span></label>
+            <label><input type="checkbox" id="opt-ko"><span data-i18n="subKo">한국어 해석 보기</span></label>
+            <label><input type="checkbox" id="opt-hide"><span data-i18n="hideMine">내 대사 가리기 (암기 연습)</span></label>
+            <label><input type="checkbox" id="opt-echo"><span data-i18n="echo">따라 말하기 전에 내 대사 먼저 듣기</span></label>
+            <label><input type="checkbox" id="opt-auto"><span data-i18n="autoNext">내 차례 시간이 끝나면 자동으로 넘기기</span></label>
+          </div>
+        </div>
+      </details>
     </div>
 
-    <div class="card">
+    <div class="card" id="studio-script">
       <div class="cue-head">
-        <h2 data-i18n="recTitle">내 녹음</h2>
+        <h2 data-i18n="cueSheet">2. 내 대사 녹음하기</h2>
+        <span id="cue-meta"></span>
+      </div>
+      <p class="help" data-i18n="recordGuide">‘내 대사’ 표시를 찾아 녹음해 보세요. 말을 마치면 같은 버튼의 ‘녹음 완료’를 눌러요.</p>
+      <ol class="cues" id="cues"></ol>
+    </div>
+
+    <div class="card" id="studio-movie">
+      <div class="cue-head">
+        <h2 data-i18n="recTitle">3. 내 영상 만들기</h2>
         <span id="rec-count"></span>
       </div>
       <div class="meter"><span id="rec-fill"></span></div>
       <p class="help" data-i18n="recHelp"></p>
-      <div class="row">
-        <button type="button" class="btn primary" id="btn-review" data-i18n="reviewPlay">내 더빙 감상</button>
-        <button type="button" class="btn" id="btn-export" data-i18n="exportVideo" hidden>더빙 영상 저장</button>
-        <button type="button" class="btn danger" id="btn-clear" data-i18n="clearAll">녹음 지우기</button>
+      <div class="row studio-movie-actions">
+        <button type="button" class="btn" id="btn-review" data-i18n="reviewPlay">녹음 먼저 들어보기</button>
+        <button type="button" class="btn primary" id="btn-export" data-i18n="exportVideo" hidden>내 영상 만들고 저장하기</button>
       </div>
+      <div class="row"><button type="button" class="btn danger" id="btn-clear" data-i18n="clearAll">이 이야기 녹음 모두 지우기</button></div>
       <div class="row" id="clear-confirm" hidden>
         <span class="status" data-i18n="clearAsk"></span>
         <button type="button" class="btn danger" id="btn-clear-yes" data-i18n="clearYes">지우기</button>
@@ -320,13 +366,6 @@ body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { 
       <p class="status" id="rec-status" aria-live="polite"></p>
     </div>
 
-    <div class="card">
-      <div class="cue-head">
-        <h2 data-i18n="cueSheet">대본</h2>
-        <span id="cue-meta"></span>
-      </div>
-      <ol class="cues" id="cues"></ol>
-    </div>
   </aside>
 </main>
 
@@ -593,15 +632,21 @@ const EPISODES = [
    ========================================================= */
 const T = {
   ko: {
-    title: 'A.i 더빙동영상', sub: '상대 대사는 들리고, 내 대사 차례엔 소리가 꺼져요',
-    episode: '에피소드', role: '내 역할', mode: '모드', speed: '속도', options: '옵션',
-    practice: '연습', dub: '더빙',
-    helpPractice: '모든 대사가 소리로 나와요. 내 대사를 듣고 따라 연습해요.',
+    title: '키키와 토토 더빙', sub: '캐릭터를 고르고, 내 목소리로 영어 영화를 만들어요.',
+    guideLabel: '더빙하는 순서', guideRole: '역할 고르기', guideRoleHelp: '내가 연기할 캐릭터를 골라요.',
+    guideRecord: '대사 녹음하기', guideRecordHelp: '내 대사 옆 ‘녹음하기’를 눌러요.',
+    guideMovie: '내 영상 만들기', guideMovieHelp: '녹음한 목소리를 영상에 넣어요.',
+    setupTitle: '1. 이야기와 역할 고르기', moreOptions: '속도·자막·배경음악 조절',
+    playHelp: '먼저 재생해서 들어보세요. 내 목소리를 저장하려면 대사 옆 ‘녹음하기’를 눌러요.',
+    recordGuide: '‘내 대사’ 표시를 찾아 녹음해 보세요. 말을 마치면 같은 버튼의 ‘녹음 완료’를 눌러요.',
+    episode: '어떤 이야기로 할까요?', role: '누구의 목소리가 될까요?', mode: '어떻게 연습할까요?', speed: '말하는 속도', options: '소리와 자막 설정',
+    practice: '듣고 따라 말하기', dub: '직접 더빙하기',
+    helpPractice: '처음이라면 먼저 대사를 듣고 따라 말해보세요. 모든 캐릭터의 목소리가 나와요.',
     helpDub: '상대 대사만 나와요. 내 대사 차례엔 음소거되고 내가 직접 말해요.',
     subKo: '한국어 해석 보기', hideMine: '내 대사 가리기 (암기 연습)',
-    echo: '연습 모드: 내 대사 듣고 따라 말하기', autoNext: '내 차례 시간이 끝나면 자동으로 넘기기',
+    echo: '따라 말하기 전에 내 대사 먼저 듣기', autoNext: '내 차례 시간이 끝나면 자동으로 넘기기',
     play: '재생', pause: '일시정지', restart: '처음부터', prev: '이전 대사', next: '다음 대사', repeat: '이 대사 다시',
-    cueSheet: '대본', myLine: '내 대사', me: '나',
+    cueSheet: '2. 내 대사 녹음하기', myLine: '내 대사', me: '나',
     yourTurn: '내 차례! 말하세요', echoTurn: '따라 말해보세요', done: '다 말했어요',
     finishTitle: '더빙 완료!', finishBody: (n) => `내 대사 ${n}개를 해냈어요. 박수 짝짝짝!`,
     again: '다시 하기', changeRole: '역할 바꾸기',
@@ -611,46 +656,52 @@ const T = {
     lines: (n, m) => `${n}줄 · 내 대사 ${m}줄`,
     sample: '모든 캐릭터와 대본은 자체 제작이고, 영상과 캐릭터 음성은 Higgsfield AI로 만들었어요. 저작권 걱정 없이 수업에 쓸 수 있습니다.',
     bgm: '배경음악 (대사 나올 땐 작게)', series: '키키와 토토 시리즈',
-    rotate: '↻ 역할 돌아가며 바꾸기', roleHelp: '친구끼리 발표할 때는 두 명 이상을 고르세요. 고른 역할은 모두 음소거되고 나머지만 원어민 목소리로 나와요.',
-    review: '내 더빙', helpReview: '상대 대사는 원래 목소리로, 내 대사는 내가 녹음한 목소리로 이어서 들려줘요.',
-    recTitle: '내 녹음', recCount: (n, m) => `${n} / ${m}개 녹음`,
-    recHelp: '내 대사에서 “녹음하기”를 누르고, 마치면 “녹음 완료”를 누르세요. 로그인하면 계정에도 자동 보관해요. 저장 완료 표시를 확인해 주세요.',
+    rotate: '↻ 역할 돌아가며 바꾸기', roleHelp: '혼자라면 캐릭터 한 명을 고르세요. 친구와 함께라면 여러 명을 고를 수 있어요.',
+    review: '내 녹음으로 보기', helpReview: '상대 대사는 원래 목소리로, 내 대사는 내가 녹음한 목소리로 이어서 들려줘요.',
+    recTitle: '3. 내 영상 만들기', recCount: (n, m) => `${n} / ${m}개 녹음`,
+    recHelp: '먼저 내 목소리를 들어보고, 마음에 들면 영상으로 저장해요. 로그인하면 내 계정에도 보관해요. 저장 완료 표시를 확인해 주세요.',
     stopRecording: '녹음 완료', micWaiting: '마이크 연결 중…',
     micRecording: '녹음 중입니다. 말을 마치면 녹음 완료를 누르세요.',
     micUnsupported: '마이크 녹음을 지원하는 최신 브라우저에서 HTTPS 주소로 열어 주세요.',
     micDenied: '마이크 권한을 허용한 뒤 다시 녹음하기를 눌러 주세요.',
     micMissing: '마이크를 찾을 수 없어요. 연결을 확인해 주세요.',
     micFailed: '녹음하지 못했어요. 마이크를 확인하고 다시 시도해 주세요.',
-    record: '녹음하기', reRecord: '다시 녹음', myVoice: '내 목소리', reviewPlay: '내 더빙 감상', exportVideo: '더빙 영상 저장',
-    clearAll: '녹음 지우기', clearAsk: '이 에피소드의 녹음을 모두 지울까요?', clearYes: '지우기', cancel: '취소',
+    record: '녹음하기', reRecord: '다시 녹음', myVoice: '내 목소리 듣기', reviewPlay: '녹음 먼저 들어보기', exportVideo: '내 영상 만들고 저장하기',
+    clearAll: '이 이야기 녹음 모두 지우기', clearAsk: '이 에피소드의 녹음을 모두 지울까요?', clearYes: '지우기', cancel: '취소',
     exporting: '더빙 영상 만드는 중', exportReady: '영상이 준비됐어요.', exportSaved: '영상을 내려받았어요. 다운로드 폴더를 확인하세요.',
     exportDeclined: '저장을 취소했어요.', exportFail: '이 기기에서는 영상 저장을 할 수 없어요.', exportCanceled: '영상 만들기를 멈췄어요.',
     recSaved: '녹음을 저장했어요.', recBad: '소리 파일을 열 수 없어요. 다른 파일로 다시 해 주세요.', cleared: '녹음을 모두 지웠어요.',
-    continueTitle: '내 연습 이어가기', continueHelp: '끝낸 녹음은 남겨 두고, 마지막 대사부터 다시 연습해요.',
-    resumePractice: '저장된 연습 불러오기', savePractice: '연습 저장', myWorks: '내 작품 보기',
-    conversation: '녹음한 표현으로 회화 연습', retryMovie: '완성 영상 다시 저장',
+    continueTitle: '저장한 연습과 내 영상', continueHelp: '전에 녹음한 대사를 불러와 나머지를 이어서 녹음해요.',
+    resumePractice: '하던 연습 계속하기', savePractice: '여기까지 저장하기', myWorks: '내 영상 보기',
+    conversation: '이 문장으로 AI 친구와 대화하기', retryMovie: '완성 영상 다시 저장',
     savingAccount: '계정에 저장하는 중이에요…', savedAccount: '계정에 저장했어요. 다른 기기에서도 이어할 수 있어요.',
     guestPractice: '로그인하면 계정에 보관할 수 있어요. 지금은 이 기기의 녹음을 이어서 연습해요.',
     savedDevice: '이 기기에 연습을 저장했어요.', recMemory: '기기에 저장하지 못했어요. 이 창을 닫기 전에 녹음을 내려받아 주세요.',
     localKept: '이 기기의 녹음은 그대로 남아 있어요.', loadingPractice: '저장된 대사와 녹음을 불러오는 중이에요…',
     resumedPractice: '연습을 불러왔어요. 이 기기에서 새로 녹음한 대사는 그대로 두었어요.',
-    noPractice: '아직 저장된 연습이 없어요. 대사를 녹음하거나 연습 저장을 눌러 주세요.',
+    noPractice: '아직 저장된 연습이 없어요. 대사를 녹음하거나 ‘여기까지 저장하기’를 눌러 주세요.',
     partialResume: '일부 녹음을 불러오지 못했어요. 연결을 확인한 뒤 다시 불러와 주세요.',
     practiceUnavailable: '회화 연습을 열지 못했어요. 잠시 후 다시 눌러 주세요.',
-    movieSaved: '완성 영상을 계정의 내 작품에 보관했어요.', downloadVoice: '녹음 내려받기',
+    movieSaved: '영상을 내 계정에 저장했어요. ‘내 영상 보기’에서 다시 볼 수 있어요.', downloadVoice: '녹음 내려받기',
     practiceDeleted: '연습 기록과 대사 녹음을 삭제했어요. 새로 녹음해서 시작할 수 있어요.',
     deletingPractice: '연습 기록과 대사 녹음을 삭제하는 중이에요…', practiceDeleteFailed: '이 기기의 연습을 모두 삭제하지 못했어요. 보관함에서 삭제를 다시 눌러 주세요.',
   },
   en: {
-    title: 'A.i Dubbing Video', sub: 'Hear the other parts. Your lines go silent so you can speak.',
-    episode: 'Episode', role: 'My role', mode: 'Mode', speed: 'Speed', options: 'Options',
-    practice: 'Practice', dub: 'Dub',
-    helpPractice: 'Every line is read aloud. Listen to your lines and repeat them.',
+    title: 'Kiki & Toto Dubbing', sub: 'Pick a character and make an English movie with your voice.',
+    guideLabel: 'How to make your dub', guideRole: 'Pick a role', guideRoleHelp: 'Choose the character you want to play.',
+    guideRecord: 'Record your lines', guideRecordHelp: 'Tap Record beside your lines.',
+    guideMovie: 'Make your movie', guideMovieHelp: 'Add your recorded voice to the video.',
+    setupTitle: '1. Pick a story and role', moreOptions: 'Speed, subtitles and music',
+    playHelp: 'Press Play to listen first. To save your voice, tap Record beside a line.',
+    recordGuide: 'Find MY LINE and tap Record. When you finish speaking, tap Finish recording on the same button.',
+    episode: 'Which story?', role: 'Who will you play?', mode: 'How will you practise?', speed: 'Speaking speed', options: 'Sound and subtitles',
+    practice: 'Listen and repeat', dub: 'Speak my part',
+    helpPractice: 'New here? Listen and repeat first. You will hear every character’s voice.',
     helpDub: 'Only the other parts are read aloud. Your lines are muted and you speak them.',
     subKo: 'Show Korean translation', hideMine: 'Hide my lines (memory practice)',
-    echo: 'Practice mode: repeat after my line', autoNext: 'Move on automatically when my time is up',
+    echo: 'Hear my line before repeating it', autoNext: 'Move on automatically when my time is up',
     play: 'Play', pause: 'Pause', restart: 'Start over', prev: 'Previous line', next: 'Next line', repeat: 'Repeat line',
-    cueSheet: 'Script', myLine: 'MY LINE', me: 'ME',
+    cueSheet: '2. Record your lines', myLine: 'MY LINE', me: 'ME',
     yourTurn: 'Your turn! Speak now', echoTurn: 'Now you say it', done: "I'm done",
     finishTitle: 'Dub complete!', finishBody: (n) => `You performed ${n} lines. Great job!`,
     again: 'Play again', changeRole: 'Change role',
@@ -660,35 +711,35 @@ const T = {
     lines: (n, m) => `${n} lines · ${m} mine`,
     sample: 'All characters and scripts are our own, with video and character voices made in Higgsfield AI, so classes can use them freely.',
     bgm: 'Background music (softer during lines)', series: 'Kiki & Toto series',
-    rotate: '↻ Rotate roles', roleHelp: 'For a group performance, pick two or more roles. Every picked role is muted, and only the rest use native-speaker voices.',
-    review: 'My dub', helpReview: 'Plays the other parts in their voices and your lines in your recorded voice.',
-    recTitle: 'My recordings', recCount: (n, m) => `${n} / ${m} recorded`,
-    recHelp: 'Tap Record on your lines, then Finish recording. When signed in, recordings also save to your account. Check the saved status.',
+    rotate: '↻ Rotate roles', roleHelp: 'On your own? Choose one character. With friends? You can choose more than one.',
+    review: 'Play my recordings', helpReview: 'Plays the other parts in their voices and your lines in your recorded voice.',
+    recTitle: '3. Make your movie', recCount: (n, m) => `${n} / ${m} recorded`,
+    recHelp: 'Listen to your voice first, then save it as a movie. When signed in, it also saves to your account. Check the saved status.',
     stopRecording: 'Finish recording', micWaiting: 'Connecting microphone…',
     micRecording: 'Recording. Tap Finish recording when you are done.',
     micUnsupported: 'Open this HTTPS page in a current browser supporting microphone recording.',
     micDenied: 'Allow microphone access, then tap Record again.',
     micMissing: 'No microphone found. Check your connection.',
     micFailed: 'Recording failed. Check your microphone and try again.',
-    record: 'Record', reRecord: 'Record again', myVoice: 'My voice', reviewPlay: 'Play my dub', exportVideo: 'Save dub video',
-    clearAll: 'Clear recordings', clearAsk: 'Delete all recordings for this episode?', clearYes: 'Delete', cancel: 'Cancel',
+    record: 'Record', reRecord: 'Record again', myVoice: 'Hear my voice', reviewPlay: 'Listen to my recordings', exportVideo: 'Make and save my movie',
+    clearAll: 'Delete this story’s recordings', clearAsk: 'Delete all recordings for this episode?', clearYes: 'Delete', cancel: 'Cancel',
     exporting: 'Making your dub video', exportReady: 'Your video is ready.', exportSaved: 'Downloaded. Check your Downloads folder.',
     exportDeclined: 'Save canceled.', exportFail: 'This device can’t save videos.', exportCanceled: 'Stopped making the video.',
     recSaved: 'Recording saved.', recBad: 'That sound file can’t be played. Try another file.', cleared: 'All recordings deleted.',
-    continueTitle: 'Continue my practice', continueHelp: 'Keep your recorded lines and continue from your last line.',
-    resumePractice: 'Load saved practice', savePractice: 'Save practice', myWorks: 'My works',
-    conversation: 'Practise these lines in a conversation', retryMovie: 'Retry saving the movie',
+    continueTitle: 'Saved practice and movies', continueHelp: 'Load your recorded lines and continue recording the rest.',
+    resumePractice: 'Continue my practice', savePractice: 'Save my progress', myWorks: 'My videos',
+    conversation: 'Chat with my AI friend using these lines', retryMovie: 'Retry saving the movie',
     savingAccount: 'Saving to your account…', savedAccount: 'Saved to your account. You can continue on another device.',
     guestPractice: 'Sign in to save to your account. You can continue recordings on this device now.',
     savedDevice: 'Practice saved on this device.', recMemory: 'Could not save on this device. Download your recording before closing this page.',
     localKept: 'Your recordings remain on this device.', loadingPractice: 'Loading your saved lines and recordings…',
     resumedPractice: 'Practice loaded. New recordings on this device were kept.',
-    noPractice: 'No saved practice yet. Record a line or press Save practice.',
+    noPractice: 'No saved practice yet. Record a line or tap Save my progress.',
     partialResume: 'Some recordings could not be loaded. Check your connection and load again.',
     practiceUnavailable: 'Could not open the conversation. Please try again.',
-    movieSaved: 'The finished movie is saved in My works.', downloadVoice: 'Download recording',
+    movieSaved: 'Your movie is saved to your account. Open My videos to watch it again.', downloadVoice: 'Download recording',
     practiceDeleted: 'Practice and line recordings deleted. You can start a new recording.',
-    deletingPractice: 'Deleting the practice and line recordings…', practiceDeleteFailed: 'Could not finish removing this device’s practice. Retry deleting it in My works.',
+    deletingPractice: 'Deleting the practice and line recordings…', practiceDeleteFailed: 'Could not finish removing this device’s practice. Open Saved practice and retry deleting it.',
   },
 };
 

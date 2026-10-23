@@ -133,6 +133,7 @@ try {
   // Stop a whole-story take at the second scene and restore the boundary after reload.
   await page.locator('#dub-quick-start').click();
   await page.locator('#dub-mode').selectOption('presentation');
+  await page.locator('#dub-all').locator('..').locator('summary').click();
   await page.locator('#dub-all').click();
   await page.waitForFunction(() => window.__dub.S.run?.nextIndex === 1, { timeout: 45000 });
   await page.locator('#dub-stop').click();
@@ -156,12 +157,12 @@ try {
   await page.getByRole('heading', { name: '재시도 테스트', exact: true }).waitFor();
   failMovies = false;
   const fallbackCard = page.locator('.dub-library-card').filter({ has: page.getByRole('heading', { name: '재시도 테스트', exact: true }) });
-  await fallbackCard.getByRole('button', { name: '계정에 다시 저장', exact: true }).click();
-  await page.waitForFunction(() => [...document.querySelectorAll('.dub-library-card')].some(c => c.querySelector('h3')?.textContent === '재시도 테스트' && c.querySelector('.dub-library-badge')?.textContent === '내 계정에 보관됨'));
+  await fallbackCard.getByRole('button', { name: '내 계정에도 저장하기', exact: true }).click();
+  await page.waitForFunction(() => [...document.querySelectorAll('.dub-library-card')].some(c => c.querySelector('h3')?.textContent === '재시도 테스트' && c.querySelector('.dub-library-badge')?.textContent === '내 계정에 저장됨'));
   check('retry after reload synchronizes the original pending movie', true);
   await account('browser-b');
   await page.locator('#dub-quick-library').click();
-  await page.waitForFunction(() => document.getElementById('dub-library-status').textContent.includes('아직 보관한'));
+  await page.locator('#dub-library-empty').waitFor({ state: 'visible' });
   check('account switch hides every previous account movie', await page.locator('.dub-library-card').count() === 0);
   await account('browser-a');
 
@@ -188,7 +189,7 @@ try {
   check('studio line recordings survive reload and resume link', await page.locator('#rec-count').textContent().then(t => t.includes('2')));
   await snapshot('desktop-studio');
   await page.locator('#btn-export').click();
-  await page.waitForFunction(() => document.getElementById('studio-save-status').textContent.includes('완성 영상을 계정의 내 작품에 보관'), null, { timeout: 120000 });
+  await page.waitForFunction(() => document.getElementById('studio-save-status').textContent.includes('영상을 내 계정에 저장했어요'), null, { timeout: 120000 });
   const studioMovie = await page.evaluate(async () => (await MangoiDubLibrary.listMovies()).movies.find(m => m.engine === 'studio'));
   check('studio exports a real complete video into the account library', studioMovie && studioMovie.size > 2000 && !studioMovie.interrupted);
   failDubbing = true;
