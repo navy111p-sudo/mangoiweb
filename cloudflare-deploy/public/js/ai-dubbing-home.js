@@ -2,7 +2,7 @@
  * existing player; this module never starts a microphone on page load. */
 (function () {
   'use strict';
-  var L = window.MangoiDubLibrary, adapter, view = 'movies', generation = 0, urls = [];
+  var L = window.MangoiDubLibrary, adapter, view = 'movies', generation = 0, urls = [], catalogue = null;
   if (!L) return;
   var $ = function (id) { return document.getElementById(id); };
   function en() { try { return window.getLang && window.getLang() === 'en'; } catch (_) { return false; } }
@@ -22,6 +22,47 @@
   }
   function button(text, action, cls) { var b = node('button', 'btn ' + (cls || ''), text); b.type = 'button'; b.addEventListener('click', action); return b; }
   function date(value) { var d = new Date(value); return isNaN(d.getTime()) ? '' : d.toLocaleString(en() ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+  function movieGroup(movie) {
+    var match = /^(.*?) · (?=에피소드 \d|Episode \d|처음부터 끝까지|Whole story)/.exec(String(movie.title || ''));
+    return match ? match[1].trim() : '';
+  }
+  function searchKey(value) { return String(value || '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase(); }
+  function drawCatalogue() {
+    var c = catalogue;
+    if (!c || !owned(c.owner) || c.kind !== view) return;
+    clearItems();
+    var box = $('dub-library-items'); if (!box) return;
+    var query = c.kind === 'movies' && $('dub-library-search') ? searchKey($('dub-library-search').value) : '';
+    var shown = c.items.filter(function (item) { return !query || searchKey(movieGroup(item) || t('모둠 이름 없음', 'No group name')).indexOf(query) >= 0; });
+    var grouped = c.kind === 'movies' && $('dub-library-layout') && $('dub-library-layout').value === 'groups';
+    box.classList.toggle('grouped', !!grouped);
+    if (grouped) {
+      var groups = new Map();
+      shown.forEach(function (item) { var name = movieGroup(item), key = searchKey(name); if (!groups.has(key)) groups.set(key, { name: name, items: [] }); groups.get(key).items.push(item); });
+      Array.from(groups.values()).sort(function (a, b) { return a.name && b.name ? a.name.localeCompare(b.name, en() ? 'en' : 'ko', { numeric: true }) : a.name ? -1 : b.name ? 1 : 0; }).forEach(function (group) {
+        var section = node('section', 'dub-library-group');
+        section.append(node('h3', 'dub-library-group-title', (group.name || t('모둠 이름 없음', 'No group name')) + ' · ' + group.items.length + t('개 영상', ' videos')));
+        var grid = node('div', 'dub-library-items');
+        group.items.forEach(function (item) { grid.append(movieCard(item, c.owner)); });
+        section.append(grid); box.append(section);
+      });
+    } else shown.forEach(function (item) { box.append(c.kind === 'movies' ? movieCard(item, c.owner) : draftCard(item, c.owner)); });
+    if (c.items.length && !shown.length) {
+      var none = node('div', 'dub-library-no-match');
+      none.append(node('p', '', t('이 모둠 이름으로 찾은 영상이 없어요.', 'No videos match this group name.')));
+      none.append(button(t('검색 지우기', 'Clear search'), function () { $('dub-library-search').value = ''; drawCatalogue(); $('dub-library-search').focus(); }));
+      box.append(none);
+    }
+    var empty = $('dub-library-empty'), emptyTitle = $('dub-empty-title');
+    if (empty) empty.hidden = !!c.items.length || (!c.response && c.owner !== 'guest');
+    if (emptyTitle) emptyTitle.textContent = c.kind === 'movies' ? t('아직 내 영상이 없어요', 'No videos yet') : t('이어할 연습이 없어요', 'No saved practice yet');
+    var text;
+    if (!c.response) text = message(c.error) + (c.items.length ? t(' 이 기기에 남은 항목을 보여드려요.', ' Showing items saved on this device.') : '');
+    else if (!c.items.length) text = c.kind === 'movies' ? t('아직 보관한 영상이 없어요. 짧은 더빙부터 시작해 보세요.', 'No saved videos yet. Start with a short scene.') : t('하던 연습을 저장하면 이곳에서 계속할 수 있어요.', 'Save your practice to continue it here.');
+    else text = c.kind === 'movies' ? t('보고 싶은 영상의 ‘영상 보기’를 누르세요.', 'Choose Watch video to open a recording.') : t('계속하고 싶은 연습의 ‘이 연습 이어하기’를 누르세요.', 'Choose Continue this practice to pick up where you left off.');
+    if (c.kind === 'movies' && c.items.length) text += ' · ' + shown.length + ' / ' + c.items.length + t('개 영상', ' videos');
+    status(text);
+  }
 
   function render() {
     var b = $('dub-quick-start'), note = $('dub-quick-detail'), ep = adapter && adapter.episode();
@@ -60,6 +101,8 @@
   }
   async function refresh() {
     var owner = L.identity(), ticket = ++generation, kind = view;
+    catalogue = null;
+    if ($('dub-library-filters')) $('dub-library-filters').hidden = kind !== 'movies';
     clearItems(); status(t('내 보관함을 불러오는 중…', 'Loading your library…'));
     if ($('dub-library-empty')) $('dub-library-empty').hidden = true;
     var remote = kind === 'movies' ? L.listMovies() : L.listDrafts();
@@ -83,16 +126,8 @@
       }
     });
     items.sort(function (a, b) { return new Date(b.createdAt || b.updatedAt).getTime() - new Date(a.createdAt || a.updatedAt).getTime(); });
-    var box = $('dub-library-items');
-    if (!box) return;
-    items.forEach(function (item) { box.append(kind === 'movies' ? movieCard(item, owner) : draftCard(item, owner)); });
-    var empty = $('dub-library-empty'), emptyTitle = $('dub-empty-title');
-    // A failed account request does not mean the account has no work.
-    if (empty) empty.hidden = !!items.length || (!response && owner !== 'guest');
-    if (emptyTitle) emptyTitle.textContent = kind === 'movies' ? t('아직 내 영상이 없어요', 'No videos yet') : t('이어할 연습이 없어요', 'No saved practice yet');
-    if (!response) status(message(results[0].reason) + (items.length ? t(' 이 기기에 남은 항목을 보여드려요.', ' Showing items saved on this device.') : ''));
-    else if (!items.length) status(kind === 'movies' ? t('아직 보관한 영상이 없어요. 짧은 더빙부터 시작해 보세요.', 'No saved videos yet. Start with a short scene.') : t('하던 연습을 저장하면 이곳에서 계속할 수 있어요.', 'Save your practice to continue it here.'));
-    else status(kind === 'movies' ? t('보고 싶은 영상의 ‘영상 보기’를 누르세요.', 'Choose Watch video to open a recording.') : t('계속하고 싶은 연습의 ‘이 연습 이어하기’를 누르세요.', 'Choose Continue this practice to pick up where you left off.'));
+    catalogue = { owner: owner, kind: kind, items: items, response: response, error: results[0].reason };
+    drawCatalogue();
   }
   function movieCard(movie, owner) {
     var card = node('article', 'dub-library-card');
@@ -222,9 +257,11 @@
     if ($('dub-quick-resume')) $('dub-quick-resume').addEventListener('click', function () { openLibrary('drafts'); });
     if ($('dub-quick-library')) $('dub-quick-library').addEventListener('click', function () { openLibrary('movies'); });
     if ($('dub-library-refresh')) $('dub-library-refresh').addEventListener('click', refresh);
-    if ($('dub-library-close')) $('dub-library-close').addEventListener('click', function () { $('dub-library').hidden = true; ++generation; clearItems(); });
+    if ($('dub-library-search')) $('dub-library-search').addEventListener('input', drawCatalogue);
+    if ($('dub-library-layout')) $('dub-library-layout').addEventListener('change', drawCatalogue);
+    if ($('dub-library-close')) $('dub-library-close').addEventListener('click', function () { $('dub-library').hidden = true; ++generation; catalogue = null; clearItems(); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-library-view]'), function (b) { b.addEventListener('click', function () { openLibrary(b.getAttribute('data-library-view')); }); });
-    L.onAccountChange(function () { ++generation; clearItems(); status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
+    L.onAccountChange(function () { ++generation; catalogue = null; clearItems(); if ($('dub-library-search')) $('dub-library-search').value = ''; status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
     window.addEventListener('mangoi:lang-changed', function () { render(); if ($('dub-library') && !$('dub-library').hidden) refresh(); });
     window.addEventListener('pagehide', releaseUrls);
     render();
