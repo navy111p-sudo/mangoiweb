@@ -1,3 +1,4 @@
+import { recordTeacherRoomPresence } from './teacher-room-presence';
 import { attachCalendarRecords } from './calendar-records';
 import { WEEKLY_POSTPONE, readWeeklyPostponePlan } from './weekly-postpone';
 import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg, holidayEntryAlert } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
@@ -679,6 +680,7 @@ export async function handleMangoApi(
       try { await recordHostRoomNamespace(env as any, request.headers.get('Host')); } catch {}
       // 🔐 비교 대상은 «계정»(account_uid) — user_id 는 기기 식별자라 토큰과 영영 안 맞는다(2026-09-04, 헬퍼 주석).
       if (!(await _attnSoftAuthOk(b.account_uid, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      await recordTeacherRoomPresence(env, request, b, 'join');
       const now = Date.now();
       const date = today(now);
       // 📣 오늘 처음 보는 (room_id, date) 조합이면 "수업 시작" 알림 큐에 적재
@@ -811,6 +813,7 @@ export async function handleMangoApi(
       // 🔐 소프트 인증(위 join 과 동일): 자격증명 있는데 남의 «계정» 이면 위조 거부, 없으면 통과(결석버그 방어 유지).
       //    ⛔ userId(=b.user_id) 를 넘기지 말 것 — 기기 식별자라 로그인 학생이 전부 403 이 된다(2026-09-04, 헬퍼 주석).
       if (!(await _attnSoftAuthOk(b.account_uid, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      await recordTeacherRoomPresence(env, request, b, 'heartbeat');
       const role = (b.role === 'teacher') ? 'teacher' : 'student';
 
       // 입장 시각: 클라이언트가 보낸 timestamp(ms 또는 ISO 문자열)를 신뢰하되,
@@ -984,6 +987,7 @@ export async function handleMangoApi(
     if (path === '/api/attendance/leave' && method === 'POST') {
       const b = await parseJsonBody(request);
       if (!b || !b.room_id || !b.user_id) return invalidBody(['room_id', 'user_id']);
+      await recordTeacherRoomPresence(env, request, b, 'leave');
       const now = Date.now();
       // 가장 최근 미종료 row 업데이트
       // 📡 M1 — 정상 퇴장이면 left_at 과 last_seen_at 이 같아진다.
@@ -1051,6 +1055,7 @@ export async function handleMangoApi(
     if (path === '/api/speaking-time' && method === 'POST') {
       const b = await parseJsonBody(request);
       if (!b || !b.room_id || !b.user_id) return invalidBody(['room_id', 'user_id']);
+      await recordTeacherRoomPresence(env, request, b, 'heartbeat');
       const now = Date.now();
       // 📡 M1 — 이 엔드포인트가 서버 시각 하트비트의 본체다(클라이언트가 30초마다 호출).
       //   total_active_ms / total_session_ms 는 클라이언트가 자체 누적한 값이라
@@ -5857,5 +5862,6 @@ ${numbered}`;
     return json({ ok: false, error: e?.message || 'mango_api_unhandled' }, 500);
   }
 }
+
 
 
