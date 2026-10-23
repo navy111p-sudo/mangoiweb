@@ -15,3 +15,17 @@ elements['portal-academy'].value='A';assert.equal(ctx.portalRows(rows).length,2)
 assert.equal(rows[0].student_uid,'abc');
 for(const m of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) new vm.Script(m[1]);
 console.log('PASS: chronological hold/postponed ordering, reverse ordering, ID/name/academy search, source identity, inline syntax');
+// Contact data remains in the live response, never in persistent or migrated caches.
+const cache=new Map();const live={today:'2026-10-23',classes:[{student_phone:'010-secret'}],week:{days:[{items:[{student_phone:'010-week'}]}]}};
+Object.assign(ctx,{localStorage:{getItem:k=>cache.get(k),setItem:(k,v)=>cache.set(k,v)},CK:'portal',SKEW:0,todayKST:()=> '2026-10-23'});
+vm.runInContext(html.slice(html.indexOf('  function saveCache('),html.indexOf('  // ── 첫 화면',html.indexOf('  function saveCache('))),ctx);
+ctx.saveCache(live);assert(!cache.get('portal').includes('010-'));assert.equal(live.classes[0].student_phone,'010-secret');
+cache.set('portal',JSON.stringify({today:'2000-01-01',classes:[{student_phone:'legacy-secret'}]}));
+vm.runInContext(html.slice(html.indexOf('  function paintCached('),html.indexOf('  function saveCache(')),ctx);
+assert.equal(ctx.paintCached(),false);assert(!cache.get('portal').includes('legacy-secret'));
+ctx.T=x=>x;ctx.esc=x=>String(x);ctx.DATA={classes:[],week:{days:[]}};
+vm.runInContext(html.slice(html.indexOf('  function portalAcademies('),html.indexOf('  var classTimeSort',html.indexOf('  function portalAcademies('))),ctx);
+ctx.portalAcademies({days:[{items:[{academy:'New academy'}]}]});assert(elements['portal-academy'].innerHTML.includes('New academy'));
+vm.runInContext(html.slice(html.indexOf('  function portalContact('),html.indexOf("  document.addEventListener('click'",html.indexOf('  function portalContact('))),ctx);
+assert.equal(ctx.portalContact({kind:'lms',student_uid:''}),'');assert.equal(ctx.portalContact({kind:'sample',student_uid:''}),'');
+console.log('PASS: live contacts stay out of saved cache, old cache scrubbed, new-week academy options, placeholder rows have no contact buttons');
