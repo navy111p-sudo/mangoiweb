@@ -1462,7 +1462,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
 
   function paintCached(){
     try {
-      var c = JSON.parse(localStorage.getItem(CK) || 'null');
+      var raw = localStorage.getItem(CK) || 'null';
+      var c = JSON.parse(raw, function(key,value){ return key === 'student_phone' ? undefined : value; });
+      // Remove contact fields left by an older build, including expired caches.
+      if (raw.indexOf('"student_phone"') >= 0) localStorage.setItem(CK, JSON.stringify(c));
       if (!c || c.today !== todayKST()) return false;
       // 시계 오차는 단말 고유값이라 지난번 값을 그대로 쓰는 게 0 보다 정확하다.
       SKEW = Number(c._skew) || 0;
@@ -1481,7 +1484,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   function saveCache(d){
     try {
       d._skew = SKEW;
-      localStorage.setItem(CK, JSON.stringify(d));
+      localStorage.setItem(CK, JSON.stringify(d, function(key,value){ return key === 'student_phone' ? undefined : value; }));
     } catch (e) { /* 용량 초과 등은 무시 — 캐시는 있으면 좋은 것일 뿐 */ }
   }
 
@@ -1716,6 +1719,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   function renderWeek(w){
     var card = document.getElementById('c-week'), box = document.getElementById('week');
     if (!card || !box || !w || !w.days) return;
+    portalAcademies(w);
     card.hidden = false;
     card.setAttribute('aria-busy', 'false');
     bindWeekNav();
@@ -1969,6 +1973,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     }).slice().sort(function(a,b){ return direction * (String(a.start_time || '').localeCompare(String(b.start_time || ''))); });
   }
   function portalContact(c){
+    if (!c || c.kind && c.kind !== 'class' || !stuUid(c)) return '';
     return '<div class="cls-meta">' + esc(T('Academy','학원')) + ': ' + esc(c.academy || '—')
       + ' · ' + esc(T('Contact','연락처')) + ': ' + esc(c.student_phone || '—')
       + ' <button type="button" class="tbtn" data-student-calendar="'+esc(stuUid(c))+'">'+esc(T('Calendar','캘린더'))+'</button></div>';
@@ -1985,10 +1990,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   ['portal-search','portal-academy'].forEach(function(id){
     document.getElementById(id).addEventListener(id === 'portal-search' ? 'input' : 'change',portalRefresh);
   });
-  function portalAcademies(){
+  function portalAcademies(week){
     var el=document.getElementById('portal-academy'), selected=el.value, names={};
     var rows=(DATA && DATA.classes || []).slice();
-    ((DATA && DATA.week && DATA.week.days) || []).forEach(function(d){rows=rows.concat(d.items || []);});
+    ((week && week.days) || (DATA && DATA.week && DATA.week.days) || []).forEach(function(d){rows=rows.concat(d.items || []);});
     rows.forEach(function(c){if(c.academy) names[c.academy]=true;});
     if(selected) names[selected]=true;
     el.innerHTML='<option value="">'+esc(T('All academies','전체 학원'))+'</option>'+Object.keys(names).sort().map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
