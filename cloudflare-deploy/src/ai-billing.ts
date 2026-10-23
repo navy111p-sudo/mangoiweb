@@ -592,11 +592,23 @@ export async function activateB2bAiInvoicePayment(env: Env, orderId: string, amo
   const inv = await safe(async () => env.DB.prepare(
     `SELECT id, shop_name, billing_month, status FROM ai_billing_invoices WHERE id = ?`
   ).bind(invoiceId).first<{ id: number; shop_name: string; billing_month: string; status: string }>(), null);
-  if (!inv || inv.status === 'paid') return;   // 멱등 — confirm·webhook 경합해도 두 번 활성화하지 않는다
+  if (!inv) { console.error('[ai-billing] 결제됐는데 청구서가 없음', orderId); return; }
+  if (inv.status === 'paid') {
+    // 다른 주문이 이미 이 청구서를 결제했다 = 돈이 두 번 들어왔다. 이용권은 다시 만들지 않고, 크게 남긴다
+    //   (결제 점검 findB2bDoublePaid 가 잡아 사장님께 알린다 — b2b-pay-guard.ts).
+    console.error('[ai-billing] ⚠️ 이미 결제된 청구서에 또 결제가 들어옴 — 환불 확인 필요', orderId, 'invoice=', invoiceId);
+    return;
+  }
 
-  await env.DB.prepare(
+  /* 🔒 (2026-10-22) «이긴 쪽만» 이용권을 만든다 — 두 확정이 동시에 와도 위 검사를 둘 다 통과할 수 있어서,
+     이 UPDATE 가 실제로 바꾼 쪽(changes=1)만 아래로 내려간다. 예전에는 결과를 안 봐서 수강 기록이 두 벌 생겼다. */
+  const won: any = await env.DB.prepare(
     `UPDATE ai_billing_invoices SET status='paid', paid_at=?, order_id=? WHERE id = ? AND status <> 'paid'`
   ).bind(when, orderId, invoiceId).run();
+  if (!(Number(won?.meta?.changes || 0) > 0)) {
+    console.error('[ai-billing] ⚠️ 동시 확정에서 진 결제 — 청구서는 다른 주문이 결제함(환불 확인 필요)', orderId, 'invoice=', invoiceId);
+    return;
+  }
 
   const items = await safe(async () => (await env.DB.prepare(
     `SELECT student_user_id, student_name FROM ai_billing_invoice_items WHERE invoice_id = ? AND included = 1`
