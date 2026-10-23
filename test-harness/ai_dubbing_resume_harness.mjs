@@ -172,7 +172,7 @@ test('a stale local gallery retry cannot copy account A’s voice into account B
   w.ctx.MangoiDubHome.openLibrary('movies');await tick();
   const cards=w.el('dub-library-items').children;assert.equal(cards.length,1);
   const buttons=[];const walk=e=>{e.children.forEach(c=>{if(c.tagName==='button')buttons.push(c);walk(c);});};walk(cards[0]);
-  const retry=buttons.find(b=>b.textContent==='계정에 다시 저장');assert.ok(retry);
+  const retry=buttons.find(b=>b.textContent==='내 계정에도 저장하기');assert.ok(retry);
   w.changeOwner('student:bob',false);await retry.fire('click');
   assert.equal(w.saved.length,0,'Check the captured gallery owner before calling saveMovie');
 });
