@@ -19,11 +19,13 @@ await Promise.all(Array.from({length:process.env.CANCEL_ONLY==='1'?1:4},(_,worke
 const ctx=await browser.newContext({viewport:{width,height:900},permissions:['microphone'],serviceWorkers:'block',acceptDownloads:true});await ctx.route('**/*',route=>new URL(route.request().url()).origin==='http://127.0.0.1:8901'?route.continue():route.abort());const page=await ctx.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss();});let count=0;
 try{
 await page.goto('http://127.0.0.1:8901/ai-dubbing-studio.html?ep='+t.id);await page.waitForFunction(id=>typeof episode==='function'&&episode().id===id,t.id);
+await page.waitForFunction(()=>typeof studioReady==='undefined'||(studioReady&&!studioLoading));
 const roles=await page.evaluate(()=>castOf(episode()));for(let i=0;i<roles.length;i++){const b=page.locator('#seg-role button').nth(i);if((await b.getAttribute('aria-pressed')==='true')!==(roles[i]===t.role))await b.click();}
 await page.locator('#seg-speed button').last().click();await page.locator('#seg-mode button').nth(1).click();
 const mine=await page.evaluate(()=>lines().map((l,i)=>isMine(l)?i:-1).filter(i=>i>=0));assert.ok(mine.length);
 async function capture(i,move=false){for(const ms of [800,1800]){const oldUrl=await page.evaluate(i=>recFor(i)?.url||'',i),b=()=>page.locator('#cues .cue').nth(i).locator('.cue-rec button').first();await b().click();await page.waitForFunction(()=>micSession?.recorder?.state==='recording');await page.waitForTimeout(ms);if(move)await page.locator('#btn-next').click();else await b().click();count++;await page.waitForFunction(([i,u])=>!micSession&&((recFor(i)&&recFor(i).url!==u)||document.getElementById('rec-status').textContent===t('micFailed')),[i,oldUrl]);if(await page.evaluate(([i,u])=>!!recFor(i)&&recFor(i).url!==u&&recFor(i).blob.size>0,[i,oldUrl]))return;}throw new Error('microphone produced no playable recording after retry');}
 for(const i of mine)await capture(i);
+await page.waitForFunction(()=>typeof pendingStudioEdits==='undefined'||[...pendingStudioEdits.values()].every(e=>e.localSaved!==false));
 await page.reload();await page.waitForFunction(n=>lines().filter((l,i)=>isMine(l)&&recFor(i)).length===n,mine.length);assert.equal(await page.evaluate(()=>state.roles.size),1);
 if(t.rep===4||t.rep===5)await capture(mine[0],t.rep===5);
 let downloadsSeen=0;page.on('download',()=>downloadsSeen++);
