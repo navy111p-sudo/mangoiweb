@@ -363,7 +363,7 @@ if (run) {
   const h1 = call({ class_date: '2026-09-23', pay_type: 'B2C', sched_label_en: '2/wk',
     teacher_entry: { state: 'late', at: 1, late_min: 7 }, attendance: { state: 'absent' },
     last_eval: { date: '2026-09-20', score: 4, max: 5, text: 'Good' }, today_eval: null });
-  ok('teacher.html: 일곱 칸을 실제로 그린다', /2026-09-23/.test(h1) && /B2C/.test(h1) && /2\/wk/.test(h1) && /7 min late/.test(h1)
+  ok('teacher.html: 요청한 정보만 표시하고 결제유형은 제외한다', /2026-09-23/.test(h1) && !/B2C/.test(h1) && /2\/wk/.test(h1) && /7 min late/.test(h1)
      && /Absent/.test(h1) && /Last feedback/.test(h1) && /Today's feedback/.test(h1), h1);
   ok('teacher.html: 옛 응답(칸 없음)에는 아무것도 안 그린다(짝)', call({ start_time: '14:00' }) === '');
   const h2 = call({ class_date: 'x', prev_lesson: { date: 'y' }, attendance: null });

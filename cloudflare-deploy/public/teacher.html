@@ -2065,7 +2065,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     //   저사양 폰에서 DOM 재생성 + 리플로우가 일어나 화면이 한 번씩 '움찔'한다.
     //   실제로 바뀌는 건 (수업 상태 · 남은 분) 뿐이므로 그것만 지문으로 만들어 비교하고,
     //   같으면 아무것도 하지 않는다. 대부분의 tick 은 여기서 끝난다.
-    var sig = LANG + '|' + JSON.stringify(list.map(function(c){return [c.student_phone,c.academy,c.prev_lesson];})) + '|';
+    var sig = LANG + '|';
     for (var s=0;s<list.length;s++){
       var sc = list[s];
       var st = (t > sc.close_at_ts) ? 'done'
@@ -2078,6 +2078,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       sig += sc.schedule_id + ':' + (sc.kind || 'class') + ':' + st + ':' + (sc.class_state || '')
            + ':' + (sc.no_show_role || '') + ':' + sc.start_time + ':' + stuName(sc) + ':' + stuUid(sc)
            + ':' + (sc.level || '') + ':' + (sc.textbook || '')
+           + ':' + (sc.student_phone || '') + ':' + (sc.academy || '') + ':' + JSON.stringify(sc.prev_lesson || null)
            // ✍ 일지 배지·지난수업 도착도 지문에 넣는다 — 안 넣으면 캐시를 먼저 그린 뒤
            //    서버 응답이 와도 «바뀐 게 없다» 로 보고 배지가 영영 안 뜬다.
            + ':' + (sc.eval_written ? 'E' : '') + (sc.prev_lesson ? 'P' : '')
