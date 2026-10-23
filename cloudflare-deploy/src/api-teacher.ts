@@ -1,6 +1,6 @@
 import { attachTeacherPreviousLessons } from './teacher-previous-lessons';
 import { attachCalendarRecords } from './calendar-records';
-import { loadTeacherStudentHistory, validHistoryDate } from './teacher-student-history';
+import { dropTeacherCafe24Duplicates } from './teacher-cafe24-duplicates';
 // ────────────────────────────────────────────────────────────────────────────
 // 🇵🇭 강사 전용 초경량 포털 API — /api/teacher/portal
 //
@@ -37,6 +37,7 @@ import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holi
 import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인계 카드(2026-10-10)
 import { loadActiveGoals, setStudentGoal, goalByKey, GOALS } from './student-goal';   // 🗓 4주 목표(2026-10-10)
 import { loadParentRequests, markParentRequestDone } from './parent-request';   // 👪 학부모 요청 반영(2026-10-10)
+import { loadTeacherStudentHistory, validHistoryDate } from './teacher-student-history';
 
 interface TeacherEnv {
   DB: D1Database;
@@ -394,6 +395,7 @@ export async function handleTeacherApi(
   } catch (e) { console.warn('[teacher-portal] substitution overlay:', (e as any)?.message); }
 
   const classes: any[] = [];
+  let cafe24DedupeSchedules: any[] = [];
   // 📅 앞으로 7일 안의 일회성 수업 — 선언은 여기(반환문과 같은 스코프). 채우는 건 아래 루프.
   const upcoming: any[] = [];
 
@@ -451,6 +453,7 @@ export async function handleTeacherApi(
     catch { try { rows = await env.DB.prepare(sqlPlain).bind(...bindsAll).all<any>(); } catch { rows = { results: [] }; } }
     // 🪪 이름 칸이 비었거나 «아이디 그대로» 면 명부(students_erp)의 이름으로 채운다 — resolveStudentName 참고.
     for (const r of (rows.results || [])) r.student_name = resolveStudentName(r);
+    cafe24DedupeSchedules = rows.results || [];
 
     /* ⏰ 입장 시간창 — 강사는 학생보다 **먼저(또는 같이)** 열려야 한다.
        (2026-08-02) 예전엔 값이 셋으로 갈라져 있었다: 학생 10분 / 마이페이지 30분 / 이 화면 5분.
@@ -864,8 +867,10 @@ export async function handleTeacherApi(
       try { lmsRs = await env.DB.prepare(lmsSqlJoin).bind(sinceDate, todayStr, ...cafe24Tids).all<any>(); }
       catch { lmsRs = await env.DB.prepare(lmsSqlPlain).bind(sinceDate, todayStr, ...cafe24Tids).all<any>(); }
 
+      // Keep Mangoi schedules and their room/attendance fields; hide only duplicate LMS rows.
+      const lmsVisible = dropTeacherCafe24Duplicates(lmsRs.results || [], cafe24DedupeSchedules, classes, dowMatches);
       const seen = new Set(classes.map((c: any) => String(c.room_id)));
-      for (const r of (lmsRs.results || [])) {
+      for (const r of lmsVisible.kept) {
         const rid = String(r.room_id || '');
         if (!rid || seen.has(rid)) continue;        // 예약표에서 이미 온 수업과 겹치지 않게
         seen.add(rid);
