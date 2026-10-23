@@ -20,11 +20,22 @@ interface TeacherClass {
   status?: string;
   class_state?: string;
 }
+interface TeacherCafe24Row {
+  user_id?: string | null;
+  joined_at?: number | string | null;
+  room_id?: string | null;
+  left_at?: number | string | null;
+  username?: string | null;
+  student_en?: string | null;
+  level?: string | null;
+  textbook?: string | null;
+  eval_band?: string | null;
+}
 
 /** Use only schedules already scoped to the authenticated teacher. No writes or new queries.
  * Compare history independently of the selected calendar week; never match student names.
  */
-export function dropTeacherCafe24Duplicates<T extends { user_id?: unknown; joined_at?: unknown }>(
+export function dropTeacherCafe24Duplicates<T extends TeacherCafe24Row>(
   lms: T[], schedules: TeacherSchedule[], todayClasses: TeacherClass[],
   dowMatches: (raw: unknown, dow: number) => boolean,
 ): { kept: T[]; hidden: number } {
