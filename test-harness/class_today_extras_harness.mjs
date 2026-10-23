@@ -17,9 +17,11 @@ const ok = (name, cond, info) => { if (cond) { pass++; console.log('  ✅ ' + na
 console.log('A. 정본을 실제로 돌린다');
 const tmp = mkdtempSync(join(tmpdir(), 'cte-'));
 const fix = (s) => s.replace(/from '\.\/([\w-]+)'/g, "from './$1.ts'");
-for (const f of ['class-today-extras', 'no-show-truth', 'd1-chunk', 'student-schedule-summary', 'attendance-uid']) {
+for (const f of ['class-today-extras', 'no-show-truth', 'd1-chunk', 'student-schedule-summary', 'attendance-uid', 'teacher-room-presence']) {
   writeFileSync(join(tmp, f + '.ts'), fix(readFileSync(join(SRC, f + '.ts'), 'utf8')));
 }
+// Recording auth is exercised separately by teacher_room_presence_harness.cjs.
+writeFileSync(join(tmp, 'auth-admin.ts'), 'export async function getAdminActor() { throw new Error("unexpected auth in read-only enrichment"); }');
 // 요일 정본(api-admin.ts admDowMatches)을 «그대로» 오려 와 주입한다 — 하니스에 규칙을 베끼지 않는다.
 {
   const apiSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
@@ -231,7 +233,7 @@ ok('관리자 표: th 수 = 한 줄의 td 수', th === td && th >= 15, { th, td 
 // ↕ (2026-09-28) 머리글 정렬 — 거른 «뒤» 의 줄을 정렬해 그리는가 · 날짜는 start_ts 숫자로 비교하는가
 ok('관리자 표: 그리는 줄이 tcSorted(rows) 를 지난다', /\+ tcSorted\(rows\)\.map\(/.test(adm));
 ok('관리자 표: 날짜 정렬은 글자가 아니라 start_ts', /case 'date': return isFinite\(ts\)/.test(adm));
-for (const k of ['s.class_date', 'xPay(s.pay_type)', 'xSched(s)', 'xTeacherEntry(s.teacher_entry)', 'xAttendance(s.attendance)', 'xEval(s.last_eval', 'xEval(s.today_eval']) {
+for (const k of ['s.class_date', 'xPay(s.pay_type)', 'xSched(s)', 'xTeacherConnection(s)', 'xAttendance(s.attendance)', 'xEval(s.last_eval', 'xEval(s.today_eval']) {
   ok('관리자 표가 ' + k + ' 를 그린다', tb.includes(k));
 }
 // 📅 수업 캘린더 칸 (C안) — xCal 을 오려 내 «실제로» 그려 본다
@@ -389,3 +391,4 @@ ok('teacher.html 다시그리기 지문에 이번 주 7칸이 들어 있다', /s
 ok('teacher.html 다시그리기 지문에 출결·강사입장이 들어 있다', /sc\.attendance \? sc\.attendance\.state/.test(th2) && /sc\.teacher_entry \? sc\.teacher_entry\.state/.test(th2));
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
+

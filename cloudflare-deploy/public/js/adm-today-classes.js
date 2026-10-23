@@ -64,6 +64,72 @@
     if (e.state === 'cafe24') return xSmall(T('카페24 · 기록 없음', 'cafe24 · n/a'), ';color:#92400e');
     return xSmall(T('확인 불가', 'unknown'), ';color:#6b7280');
   }
+  var _presenceExpiry = null;
+  function xTeacherConnection(s) {
+    var p = s.teacher_connection;
+    if (!p) return xTeacherEntry(s.teacher_entry);
+    var rows = p.sessions || [];
+    var now = Date.now();
+    var state = p.state;
+    // Expire a cached green badge locally. No background API polling or permanent interval.
+    var fresh = rows.filter(function (r) { return r.left_at == null && now >= Number(r.last_seen_at) && now - Number(r.last_seen_at) <= 75000; });
+    if (['same', 'other', 'multiple'].indexOf(state) >= 0) {
+      var validUntil = Number(p.valid_until) || Math.min.apply(null, rows.map(function (r) { return Number(r.last_seen_at) + 75000; }));
+      if (!Number.isFinite(validUntil) || now > validUntil) state = 'stale';
+      else if (!_presenceExpiry) {
+        _presenceExpiry = setTimeout(function () { _presenceExpiry = null; if (_rows.length) render(); }, Math.max(1, validUntil + 1 - now));
+      }
+    }
+    var labels = {
+      same: ['🟢 예정 교실 연결 확인', '🟢 Expected room confirmed', '#067647', '#ecfdf3'],
+      other: ['🟠 다른 교실 연결 확인', '🟠 Other room confirmed', '#9a3412', '#fff7ed'],
+      multiple: ['🟠 여러 교실 연결 확인', '🟠 Multiple rooms confirmed', '#9a3412', '#fff7ed'],
+      stale: ['🟡 연결 확인 지연', '🟡 Connection check overdue', '#854d0e', '#fefce8'],
+      left: ['⚪ 퇴장 기록', '⚪ Left room', '#475467', '#f2f4f7'],
+      none: ['⚪ 확인된 입장 기록 없음', '⚪ No verified entry', '#475467', '#f2f4f7'],
+      unlinked: ['⚠ 교사 계정 연결 필요', '⚠ Link teacher account', '#854d0e', '#fefce8'],
+      unavailable: ['⚠ 접속 조회 실패', '⚠ Connection lookup failed', '#b42318', '#fef3f2'],
+      external: ['카페24 · 입장 확인 불가', 'Cafe24 · entry unavailable', '#475467', '#f2f4f7'],
+      history: ['📋 해당 날짜 접속 기록', '📋 Connection history', '#475467', '#f2f4f7']
+    };
+    var label = labels[state] || labels.unavailable;
+    var accounts = (p.accounts || []).join(', ');
+    var activeRooms = fresh.map(function (r) { return r.room_id; }).filter(function (r, i, a) { return a.indexOf(r) === i; });
+    var text = '<div style="font-size:14px!important;font-weight:800!important;color:' + label[2] + '!important">' + T(label[0], label[1]) + '</div>'
+      + '<div style="font-size:12px!important;overflow-wrap:anywhere;margin-top:4px">' + esc(accounts || T('계정 확인 불가', 'Account unavailable')) + '</div>'
+      + '<div style="font-size:12px!important;overflow-wrap:anywhere">' + esc(activeRooms.join(', ') || p.expected_room || s.room_id || '') + '</div>';
+    var detail = '<p>' + T('예정 교실: ', 'Expected room: ') + '<b>' + esc(p.expected_room || s.room_id || '—') + '</b></p>'
+      + '<p>' + T('조회 시각: ', 'Checked: ') + esc(presenceTime(p.checked_at)) + '</p>'
+      + '<p>' + T('출석 체크와 별도입니다. 최근 서버 연결 확인이며, 영상·음성 수신을 보장하지 않습니다. 새 기록은 배포 후부터 쌓입니다.', 'Separate from attendance. Recent server activity does not guarantee video/audio delivery. Verified receipts start after deployment.') + '</p>';
+    if (!rows.length) detail += '<p>' + T('확인된 기록이 없다고 미입장·결석으로 단정하지 않습니다.', 'Missing verified receipts do not prove absence.') + '</p>';
+    rows.forEach(function (r) {
+      var current = r.left_at != null ? T('퇴장', 'Left') : now - Number(r.last_seen_at) <= 75000 && now >= Number(r.last_seen_at) ? T('최근 연결', 'Recent activity') : T('확인 지연', 'Overdue');
+      detail += '<div style="border-top:1px solid #d0d5dd;padding:8px 0;overflow-wrap:anywhere">'
+        + '<b>' + esc(r.account_uid) + ' · ' + esc(r.room_id) + '</b><br>'
+        + esc(r.host) + ' · ' + current + '<br>'
+        + T(r.entry_kind === 'join' ? '입장 요청 확인: ' : '최초 연결 확인: ', r.entry_kind === 'join' ? 'Entry receipt: ' : 'First receipt: ') + esc(presenceTime(r.joined_at)) + '<br>'
+        + T('최근 연결: ', 'Last activity: ') + esc(presenceTime(r.last_seen_at))
+        + (r.left_at != null ? '<br>' + T('퇴장: ', 'Left: ') + esc(presenceTime(r.left_at)) : '') + '</div>';
+    });
+    if (p.truncated) detail += '<p>' + T('최근 기록 30건 표시', 'Showing the latest 30 receipts') + '</p>';
+    detail += '<button type="button" onclick="tcLoadToday()">' + T('접속 상태 새로고침', 'Refresh connection status') + '</button> '
+      + '<button type="button" data-room="' + esc(p.expected_room || s.room_id || '') + '" onclick="tcCopyPresenceRoom(this)">' + T('예정 교실 링크 복사', 'Copy expected room link') + '</button>';
+    return '<div style="min-width:190px;max-width:250px;line-height:1.5;padding:9px;border-radius:8px;background-color:' + label[3] + '!important">' + text
+      + '<details style="margin-top:5px"><summary style="cursor:pointer;font-size:13px!important;font-weight:700!important">' + T('상세 보기', 'Details') + '</summary>'
+      + '<div style="font-size:12px!important;max-height:320px;overflow:auto;white-space:normal">' + detail + '</div></details></div>';
+  }
+  function presenceTime(ms) {
+    if (!Number(ms)) return '—';
+    return new Date(Number(ms)).toLocaleString(isEn() ? 'en-GB' : 'ko-KR', { timeZone: 'Asia/Seoul', hour12: false }) + ' KST';
+  }
+  window.tcCopyPresenceRoom = function (button) {
+    var room = button.getAttribute('data-room');
+    if (!room) return;
+    var link = location.origin + '/?vc_room=' + encodeURIComponent(room);
+    if (!navigator.clipboard || !navigator.clipboard.writeText) { window.prompt(T('교실 링크를 복사하세요', 'Copy the room link'), link); return; }
+    navigator.clipboard.writeText(link).then(function () { button.textContent = T('복사됨', 'Copied'); }, function () { window.prompt(T('교실 링크를 복사하세요', 'Copy the room link'), link); });
+  };
+
   function xAttendance(a) {
     if (!a) return xDash();
     var m = {
@@ -528,7 +594,7 @@
       case 'academy': return String(s.academy || '').trim();
       case 'pay': return tcPlain(xPay(s.pay_type));
       case 'sched': return tcPlain(xSched(s));
-      case 'tentry': return tcPlain(xTeacherEntry(s.teacher_entry));
+      case 'tentry': return tcPlain(xTeacherConnection(s));
       case 'att': return tcPlain(xAttendance(s.attendance));
       case 'lastEval': return tcPlain(xEval(s.last_eval, s.eval_hidden));
       case 'todayEval': return tcPlain(xEval(s.today_eval, s.eval_hidden));
@@ -988,7 +1054,7 @@
       +   tcTh('', '수업 캘린더', 'Class calendar')
       +   tcTh('pay', '결제 유형', 'Payment type')
       +   tcTh('sched', '일정', 'Schedule')
-      +   tcTh('tentry', '강사 입장', 'Instructor entrance')
+      +   tcTh('tentry', '교사 입장 상태', 'Teacher connection')
       +   tcTh('att', '학생 출결', 'Attendance')
       +   tcTh('lastEval', '지난 수업 평가', 'Last class feedback')
       +   tcTh('todayEval', '오늘 평가', "Today's feedback")
@@ -1174,7 +1240,7 @@
             + '<td>' + xCal(s, isC24) + '</td>'
             + '<td>' + xPay(s.pay_type) + '</td>'
             + '<td>' + xSched(s) + '</td>'
-            + '<td>' + xTeacherEntry(s.teacher_entry) + '</td>'
+            + '<td>' + xTeacherConnection(s) + '</td>'
             + '<td>' + xAttendance(s.attendance) + '</td>'
             + '<td>' + xEval(s.last_eval, s.eval_hidden) + '</td>'
             + '<td>' + xEval(s.today_eval, s.eval_hidden) + '</td>'
@@ -1483,3 +1549,4 @@
   document.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); tcDatePick(); if (_rows.length) render(); });
   window.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); tcDatePick(); if (_rows.length) render(); });
 })();
+

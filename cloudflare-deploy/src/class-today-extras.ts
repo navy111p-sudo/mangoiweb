@@ -1,3 +1,4 @@
+import { enrichTeacherRoomPresence } from './teacher-room-presence';
 /* ═══════════════════════════════════════════════════════════════════════════
    📋 «오늘 수업» 줄에 붙이는 일곱 칸 — 날짜 · 강사 입장 시각 · 결제 유형 · 일정 ·
       지난 수업 평가 · 오늘 평가 · 학생 출결          (2026-09-23 매니저 요청)
@@ -272,6 +273,8 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
   }
 
   if (opts.attendanceOnly) return;
+  // Cross-room account details are HQ-only; teachers omit evals and organizations pass false.
+  if (opts.evals === true) await enrichTeacherRoomPresence(env, sessions, dateStr, nowMs);
   // ③ 결제 유형
   try {
     const centerTypes = new Map<string, string | null>();
@@ -351,3 +354,4 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
     } catch (e: any) { console.warn('[classes/today] evaluations:', e?.message); }
   }
 }
+
