@@ -20,9 +20,9 @@ import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnroll
 import { authUidFromRequest } from './auth-token';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서 (사전고지 문자)
 import { handleRefundApi } from './api-pay-refund';   // 💸 환불 실행·기록 (2026-08-25 신설)
-import { activateB2bAiInvoicePayment } from './ai-billing';   // 🏢 대리점 AI 사용료 일괄결제 활성화 (MGB- 주문 전용, 2026-09-10)
+import { activateB2bAiInvoicePayment, mgbAmountNow } from './ai-billing';   // 🏢 대리점 AI 사용료 일괄결제 활성화 (MGB- 주문 전용, 2026-09-10)
 import { activateB2bTuitionPayment, handleB2bTuitionPublic } from './b2b-tuition-load';   // 🏫 B2B 화상수업 수업료 (MGT- 주문 · /api/pay/b2b/*, 2026-10-01)
-import { claimB2bInvoiceForConfirm, releaseB2bInvoiceClaim, revertB2bOnCancel, parseB2bOrder, findB2bDoublePaid } from './b2b-pay-guard';   // 🔒 대리점 청구서 이중결제·취소 되돌리기 (2026-10-22)
+import { claimB2bInvoiceForConfirm, releaseB2bInvoiceClaim, revertB2bOnCancel, parseB2bOrder, findB2bDoublePaid, tossOrderProbe } from './b2b-pay-guard';   // 🔒 대리점 청구서 이중결제·취소 되돌리기 (2026-10-22)
 import { AI_PASS_PLAN, NOT_AI_PASS_PLAN_SQL, aiPassPeriod, aiPassNextBilling, currentAiPassEnd } from './ai-pass';
 import { phonesForStudent } from './notify-contacts';   // 📞 A.i 사전고지 번호 — 우리가 받아 둔 번호를 먼저 보는 정본   // 🤖 A.i 이용권 끝나는 날·매달 자동결제 (2026-09-29)
 
@@ -659,7 +659,9 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
        막히면 토스 승인을 부르지 않으므로 돈은 안 나간다(인증만 된 결제는 토스가 스스로 만료시킨다).
        ⛔ 이 검사를 토스 호출 뒤로 옮기지 말 것 — 그러면 이미 긁힌 뒤다. */
     if (parseB2bOrder(orderId)) {
-      const gate = await claimB2bInvoiceForConfirm(env, orderId, amount, (oid) => tossOrderProbe(env, oid));
+      // ③ (2026-10-23) AI 컨텐츠는 «지금 명세로 다시 계산한 금액» 과 주문 금액이 같아야 승인한다(결제창을 연 뒤 체크를 바꾼 경우)
+      const gate = await claimB2bInvoiceForConfirm(env, orderId, amount, (oid) => tossOrderProbe(env, oid), Date.now(),
+        { mgbAmountNow: (id) => mgbAmountNow(env, id) });
       if (!gate.ok) {
         await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=? AND status NOT IN ('paid','await_deposit')`).bind(gate.error.slice(0, 100), orderId).run();
         return json({ ok: false, error: gate.error, message: gate.message }, 409);
@@ -1259,18 +1261,8 @@ async function tossOrderLookup(env: any, orderId: string): Promise<any | null> {
   } catch (_) { return null; }
 }
 
-/** 🔎 tossOrderLookup 과 같되 «토스가 그 주문을 모른다(404)» 를 «못 물어봤다(null)» 와 갈라 준다 —
- *  대리점 청구서 선점이 «승인 요청이 토스에 닿기도 전에 끊긴» 주문을 넘겨받을 수 있게(2026-10-22). */
-async function tossOrderProbe(env: any, orderId: string): Promise<any | null> {
-  try {
-    const auth = 'Basic ' + btoa(String(env.TOSS_SECRET_KEY) + ':');
-    const r = await fetch(`https://api.tosspayments.com/v1/payments/orders/${encodeURIComponent(orderId)}`, { headers: { 'Authorization': auth } });
-    if (r.status === 404) return { status: 'NOT_FOUND' };
-    if (!r.ok) return null;
-    const j: any = await r.json();
-    return j && j.status ? j : null;
-  } catch (_) { return null; }
-}
+/* 🔎 tossOrderProbe(tossOrderLookup 과 같되 404 «토스가 모름» 을 «못 물어봤다» 와 가름) —
+   정본은 b2b-pay-guard.ts 로 옮겼다(대리점 자동결제도 같은 것을 쓴다, 2026-10-23). */
 
 /** 💳→📚 수강 자동 활성화 (confirm·webhook 공용, 실패해도 결제 흐름에 영향 없음) */
 async function activateEnrollment(env: any, order: any, amount: number, when: number, orderId: string): Promise<void> {

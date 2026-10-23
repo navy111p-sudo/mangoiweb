@@ -31,7 +31,7 @@ import { LEDGER_STATES, type LedgerState } from './session-ledger';
 import { enrollAdminHqOnly, ENROLL_BASE_WEEKLY1 } from './enroll-ops';
 import { SITE_ORIGIN } from './site-url';
 import { ensureScheduleChangeRequestTable } from './student-schedule-request';
-import { ensureB2bClaimColumns } from './b2b-pay-guard';   // 🔒 대리점 청구서 이중결제 선점 칸 (2026-10-22)
+import { ensureB2bClaimColumns, claimB2bInvoiceForConfirm, releaseB2bInvoiceClaim, tossOrderProbe, CLAIM_STALE_MS } from './b2b-pay-guard';   // 🔒 대리점 청구서 이중결제 선점 칸 (2026-10-22)
 import {
   sessionUnitPrice, chargeFor, computeInvoice, balanceAlert, reminderStepToday, reminderText, overdueLevel,
   dueDateOf, diagnoseCounts, parseTheirCounts, postponeIsFree, monthAdd, isValidMonth, addDays,
@@ -286,6 +286,10 @@ function sumPlans(plans: StudentPlan[]): number {
 }
 
 // ───────────────────────── 청구서 ─────────────────────────
+/* ⑤ (2026-10-23) «결제가 승인 중이 아닐 때만» — 청구서를 거두거나(void) 금액을 고치는 쓰기에 붙인다. bind: (now - CLAIM_STALE_MS).
+   승인 문지기(b2b-pay-guard)가 «낼 돈 ≥ 이 주문» 을 확인하고 선점한 뒤에 금액이 줄거나 거둬지면,
+   그 사이 승인된 돈이 «거둔 청구서» 나 «줄어든 청구서» 로 들어간다(옛 금액으로 결제·완납 되살아남). */
+const NOT_CLAIMED = `(confirming_order IS NULL OR confirming_at <= ?)`;
 async function openInvoices(env: Env, shop: string): Promise<any[]> {
   return safe(async () => ((await env.DB.prepare(`SELECT * FROM b2b_tuition_invoices WHERE shop_name = ? AND status IN ('issued','partial') ORDER BY id`).bind(shop).all())?.results || []) as any[], []);
 }
@@ -302,10 +306,20 @@ async function upsertInvoice(env: Env, shop: string, kind: 'monthly' | 'topup', 
     if (kind === 'monthly' || Number(last.paid_krw) > 0 || Number(last.due_krw) === calc.due_krw) return { action: 'unchanged', id: last.id, due: Number(last.due_krw) };
     // 낼 돈이 없어졌으면(학생이 빠짐·입금이 먼저 들어옴) 한 푼도 안 들어온 청구서는 스스로 거둔다
     if (!(calc.due_krw > 0)) {
-      if (!dry) await safe(async () => { await env.DB.prepare(`UPDATE b2b_tuition_invoices SET status='void', updated_at=? WHERE id=? AND paid_krw = 0`).bind(Date.now(), last.id).run(); return true; }, false);
+      // ⑤ (2026-10-23) 결제가 «승인 중» 인 청구서는 거두지 않는다(NOT_CLAIMED) — 모르면(칸 없음) 안 바꾸는 쪽으로 실패한다
+      if (!dry) {
+        await ensureB2bClaimColumns(env);
+        // 0행(승인 중·그 사이 입금)이면 «거뒀다» 고 기록하지 않는다 — 로그가 안 한 일을 했다고 적으면 안 된다
+        const n = await safe(async () => Number(((await env.DB.prepare(`UPDATE b2b_tuition_invoices SET status='void', updated_at=? WHERE id=? AND paid_krw = 0 AND ${NOT_CLAIMED}`).bind(Date.now(), last.id, Date.now() - CLAIM_STALE_MS).run()) as any)?.meta?.changes || 0), 0);
+        if (!n) return { action: 'unchanged', id: last.id, due: Number(last.due_krw) };
+      }
       return { action: 'voided', id: last.id, due: 0 };
     }
-    if (!dry) await safe(async () => { await env.DB.prepare(`UPDATE b2b_tuition_invoices SET due_krw=?, calc_json=?, updated_at=? WHERE id=? AND paid_krw = 0`).bind(calc.due_krw, JSON.stringify(calc), Date.now(), last.id).run(); return true; }, false);
+    if (!dry) {
+      await ensureB2bClaimColumns(env);
+      const n = await safe(async () => Number(((await env.DB.prepare(`UPDATE b2b_tuition_invoices SET due_krw=?, calc_json=?, updated_at=? WHERE id=? AND paid_krw = 0 AND ${NOT_CLAIMED}`).bind(calc.due_krw, JSON.stringify(calc), Date.now(), last.id, Date.now() - CLAIM_STALE_MS).run()) as any)?.meta?.changes || 0), 0);
+      if (!n) return { action: 'unchanged', id: last.id, due: Number(last.due_krw) };
+    }
     return { action: 'refreshed', id: last.id, due: calc.due_krw };
   }
   if (kind === 'monthly' && last && last.status !== 'void') return { action: 'skipped', id: last.id, due: 0 };   // 그 달 정기 청구서는 하나(취소된 것만 다시 만든다)
@@ -538,8 +552,18 @@ async function chargeAutopay(env: Env, shop: string, inv: any): Promise<{ ok: bo
   const ap: any = await safe(async () => await env.DB.prepare(`SELECT * FROM b2b_tuition_autopay WHERE shop_name = ? AND active = 1`).bind(shop).first(), null);
   if (!ap?.billing_key) return { ok: false, amount: 0, error: 'no_card' };
   if (!env.TOSS_SECRET_KEY) return { ok: false, amount: 0, error: 'pg_not_configured' };
-  const o = await createOrder(env, inv);
+  /* ⑤ (2026-10-23) 스윕이 읽어 둔 청구서(inv)는 낡았을 수 있다 — 지금 값으로 다시 읽고, 거둔·완납 청구서는 긁지 않는다. */
+  const cur: any = await safe(async () => await env.DB.prepare(`SELECT * FROM b2b_tuition_invoices WHERE id = ?`).bind(inv.id).first(), null);
+  if (!cur || (cur.status !== 'issued' && cur.status !== 'partial')) return { ok: false, amount: 0, error: 'not_payable' };
+  const o = await createOrder(env, cur);
   if (!o.ok) return { ok: false, amount: 0, error: o.error };
+  /* ⑤ 자동결제도 «카드 결제와 같은 문지기» 를 지난다 — 예전엔 빌링 승인을 곧바로 불러, 같은 청구서를 학원이 카드로 내는 중이거나
+     방금 낸 경우에도 한 번 더 긁었다. 문지기가 낼 돈·다른 주문의 승인 중 여부를 보고 선점한다. 막히면 카드에 손대지 않는다. */
+  const gate = await claimB2bInvoiceForConfirm(env, o.order_id!, o.amount!, (oid) => tossOrderProbe(env, oid));
+  if (!gate.ok) {
+    await safe(async () => { await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=? AND status NOT IN ('paid','await_deposit')`).bind(gate.error.slice(0, 100), o.order_id).run(); return true; }, false);
+    return { ok: false, amount: 0, error: gate.error };
+  }
   const auth = 'Basic ' + btoa(String(env.TOSS_SECRET_KEY) + ':');
   try {
     const res = await fetch(`${TOSS_API}/billing/${encodeURIComponent(ap.billing_key)}`, {
@@ -555,8 +579,10 @@ async function chargeAutopay(env: Env, shop: string, inv: any): Promise<{ ok: bo
     }
     await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=?`).bind(String(d.message || d.code || res.status).slice(0, 200), o.order_id).run();
     await env.DB.prepare(`UPDATE b2b_tuition_autopay SET fail_count = fail_count + 1 WHERE shop_name=?`).bind(shop).run();
+    // 선점은 «분명한 거절»(4xx + 거절 코드)일 때만 놓는다 — 5xx·응답 깨짐은 승인됐을 수도 있어 쥔 채 둔다(5분 뒤 문지기가 토스에 묻는다)
+    if (res.status >= 400 && res.status < 500 && d && d.code && d.code !== 'ALREADY_PROCESSED_PAYMENT') await releaseB2bInvoiceClaim(env, o.order_id!);
     return { ok: false, amount: 0, error: String(d.message || d.code || 'declined') };
-  } catch (e: any) { return { ok: false, amount: 0, error: String(e?.message || e) }; }
+  } catch (e: any) { return { ok: false, amount: 0, error: String(e?.message || e) }; }   // 네트워크가 끊김 = 결과 모름 → 선점을 쥔 채 둔다
 }
 
 // ───────────────────────── 화면용 묶음 ─────────────────────────
@@ -885,9 +911,10 @@ export async function tuitionAdminRouter(request: Request, env: Env, sub: string
   if (sub === 'invoice/void' && method === 'POST') {
     const g = await hqGate(); if (g) return g;
     const id = Number(body.id);
-    const ok = await safe(async () => { const r: any = await env.DB.prepare(`UPDATE b2b_tuition_invoices SET status='void', updated_at=? WHERE id = ? AND paid_krw = 0 AND status IN ('issued')`).bind(Date.now(), id).run(); return (r?.meta?.changes || 0) > 0; }, false);
+    await ensureB2bClaimColumns(env);
+    const ok = await safe(async () => { const r: any = await env.DB.prepare(`UPDATE b2b_tuition_invoices SET status='void', updated_at=? WHERE id = ? AND paid_krw = 0 AND status IN ('issued') AND ${NOT_CLAIMED}`).bind(Date.now(), id, Date.now() - CLAIM_STALE_MS).run(); return (r?.meta?.changes || 0) > 0; }, false);
     if (ok) await logAction(env, 'invoice_void', null, { id, by: who });
-    return ok ? json({ ok: true }) : err('cannot_void: 결제가 들어온 청구서는 취소할 수 없습니다', 409);
+    return ok ? json({ ok: true }) : err('cannot_void: 결제가 들어왔거나 지금 결제가 승인 중인 청구서는 취소할 수 없습니다(승인 중이면 몇 분 뒤 다시 시도)', 409);
   }
 
   if (sub === 'run' && method === 'POST') {

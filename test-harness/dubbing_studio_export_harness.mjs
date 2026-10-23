@@ -13,10 +13,11 @@ function environment() {
   let ep = 'picnic';
   const bus = { connect() {}, disconnect(d) { disconnected.push(d); } };
   const ctx = { resume() {}, createMediaStreamDestination: () => ({ stream: { getAudioTracks: () => [{}] } }) };
-  const c = { Blob, console, exp: { active: false }, MIX: { bus }, state: {}, micSession: null,
+  const c = { Blob, console, exp: { active: false }, MIX: { bus }, state: { lang: 'ko' }, micSession: null,
+    DubLibrary: null, studioIdentity: 'guest', sameStudioAccount: () => true, saveStudioMovie() {}, checkpointStudio() {},
     document: { body: { classList: { add() {}, remove() {} } } }, $: el,
     setTimeout(fn) { timers.push(fn); }, cancelAnimationFrame() {}, setStatus(msg) { statuses.push(msg); }, t: k => k,
-    downloads: { save(d) { downloads.push(d); return Promise.resolve(); } }, episode: () => ({ id: ep }),
+    downloads: { save(d) { downloads.push(d); return Promise.resolve(); } }, episode: () => ({ id: ep, title: { ko: ep, en: ep } }),
     canExport: () => true, audioCtx: () => ctx, lines: () => [], pickMime: () => 'video/webm',
     drawFrame() {}, savePrefs() {}, renderSettings() {}, play() {},
     MediaRecorder: class { constructor() { this.mimeType = 'video/webm'; this.state = 'inactive'; } start() { this.state = 'recording'; } stop() { this.state = 'inactive'; } },
@@ -37,7 +38,7 @@ assert.throws(() => testDestination(finish.replace('MIX.bus.disconnect(dest)', '
 
 {
   const e = environment(), { c } = e, oldRec = new c.MediaRecorder();
-  c.exp = { active: true, dest: {}, recorder: oldRec, chunks: [new Blob(['old-data'])], mime: 'video/webm' };
+  c.exp = { active: true, dest: {}, recorder: oldRec, chunks: [new Blob(['old-data'])], mime: 'video/webm', owner: 'guest', meta: { episodeId: 'picnic' }, startedAt: Date.now() };
   vm.runInContext(finish, c); c.finishExport(true);
   c.exp = { active: true, dest: {}, recorder: new c.MediaRecorder(), chunks: [new Blob(['new'])], mime: 'video/mp4' }; e.changeEpisode('teddy');
   await oldRec.onstop();
@@ -74,6 +75,7 @@ assert.throws(() => testDestination(finish.replace('MIX.bus.disconnect(dest)', '
   const writes = [], statuses = [], stream = { getTracks: () => [{ stop() {} }] };
   class Recorder { constructor() { this.mimeType = 'audio/webm'; this.state = 'inactive'; } start() { this.state = 'recording'; } }
   const c = { Blob, micSession: null, state: {}, window: { isSecureContext: true, MediaRecorder: Recorder }, MediaRecorder: Recorder,
+    studioReady: true, studioLoading: false, studioDeleting: new Set(), studioIdentity: 'guest', studioRevision: () => 0, sameStudioRevision: () => true, episode: () => ({ id: 'picnic' }),
     navigator: { mediaDevices: { getUserMedia: async () => stream } }, pause() {}, recKey: i => `picnic:${i}`,
     setStatus: s => statuses.push(s), t: k => k, renderCurrent() {}, renderCues() {}, renderRecUI() {},
     setRec: (...a) => writes.push(a), dbWrite() {}, canPlay: async () => false };

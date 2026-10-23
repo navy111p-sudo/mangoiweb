@@ -164,6 +164,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 .btn.danger { color: var(--rec); border-color: var(--rec); background: transparent; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .status { font-size: 13px; color: var(--muted); margin: 0; min-height: 1.2em; }
+.studio-save { border-color: var(--accent); }
+.studio-save .row .btn { min-height: 44px; text-decoration: none; display: inline-flex; align-items: center; }
+.studio-save .status[data-state="saved"] { color: var(--accent); }
+.studio-save .status[data-state="error"] { color: var(--rec); }
 .recbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; padding: 5px 6px 5px 12px; border-radius: 999px; background: rgba(224,68,74,.92); color: #fff; font-weight: 800; font-size: 13px; white-space: nowrap; }
 .recbar button { border: 0; border-radius: 999px; padding: 4px 10px; background: #fff; color: #16252C; font-weight: 800; font-size: 12px; }
 body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { pointer-events: none; opacity: .5; }
@@ -246,6 +250,18 @@ body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { 
       <span class="counter" id="counter"></span>
     </div>
     <p class="notice" id="notice" hidden></p>
+    <section class="card studio-save" aria-label="연습 보관">
+      <div class="cue-head"><h2 data-i18n="continueTitle">내 연습 이어가기</h2></div>
+      <p class="help" data-i18n="continueHelp">끝낸 녹음은 남겨 두고, 마지막 대사부터 다시 연습해요.</p>
+      <div class="row">
+        <button type="button" class="btn primary" id="btn-resume" data-i18n="resumePractice">저장된 연습 불러오기</button>
+        <button type="button" class="btn" id="btn-save-practice" data-i18n="savePractice">연습 저장</button>
+        <a class="btn" href="/ai-dubbing.html?library=movies" data-i18n="myWorks">내 작품 보기</a>
+      </div>
+      <p class="status" id="studio-save-status" role="status" aria-live="polite"></p>
+      <button type="button" class="btn" id="btn-movie-retry" data-i18n="retryMovie" hidden>완성 영상 다시 저장</button>
+      <button type="button" class="btn" id="btn-conversation" data-i18n="conversation" disabled>녹음한 표현으로 회화 연습</button>
+    </section>
   </section>
 
   <aside class="panel">
@@ -316,6 +332,8 @@ body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { 
 
 <p class="foot" data-i18n="sample">모든 캐릭터와 대본은 자체 제작입니다.</p>
 
+<script src="/js/ai-dubbing-library.js?v=2"></script>
+<script src="/js/ai-dubbing-practice.js?v=1"></script>
 <script>
 /* =========================================================
    1. DATA — 캐릭터 & 에피소드 (오리지널 콘텐츠)
@@ -596,7 +614,7 @@ const T = {
     rotate: '↻ 역할 돌아가며 바꾸기', roleHelp: '친구끼리 발표할 때는 두 명 이상을 고르세요. 고른 역할은 모두 음소거되고 나머지만 원어민 목소리로 나와요.',
     review: '내 더빙', helpReview: '상대 대사는 원래 목소리로, 내 대사는 내가 녹음한 목소리로 이어서 들려줘요.',
     recTitle: '내 녹음', recCount: (n, m) => `${n} / ${m}개 녹음`,
-    recHelp: '내 대사에서 "녹음하기"를 누르세요. 마이크 접근을 허용하면 바로 녹음돼요. 마치려면 “녹음 완료”를 누르세요. 녹음은 이 기기에만 저장돼요.',
+    recHelp: '내 대사에서 “녹음하기”를 누르고, 마치면 “녹음 완료”를 누르세요. 로그인하면 계정에도 자동 보관해요. 저장 완료 표시를 확인해 주세요.',
     stopRecording: '녹음 완료', micWaiting: '마이크 연결 중…',
     micRecording: '녹음 중입니다. 말을 마치면 녹음 완료를 누르세요.',
     micUnsupported: '마이크 녹음을 지원하는 최신 브라우저에서 HTTPS 주소로 열어 주세요.',
@@ -608,6 +626,20 @@ const T = {
     exporting: '더빙 영상 만드는 중', exportReady: '영상이 준비됐어요.', exportSaved: '영상을 내려받았어요. 다운로드 폴더를 확인하세요.',
     exportDeclined: '저장을 취소했어요.', exportFail: '이 기기에서는 영상 저장을 할 수 없어요.', exportCanceled: '영상 만들기를 멈췄어요.',
     recSaved: '녹음을 저장했어요.', recBad: '소리 파일을 열 수 없어요. 다른 파일로 다시 해 주세요.', cleared: '녹음을 모두 지웠어요.',
+    continueTitle: '내 연습 이어가기', continueHelp: '끝낸 녹음은 남겨 두고, 마지막 대사부터 다시 연습해요.',
+    resumePractice: '저장된 연습 불러오기', savePractice: '연습 저장', myWorks: '내 작품 보기',
+    conversation: '녹음한 표현으로 회화 연습', retryMovie: '완성 영상 다시 저장',
+    savingAccount: '계정에 저장하는 중이에요…', savedAccount: '계정에 저장했어요. 다른 기기에서도 이어할 수 있어요.',
+    guestPractice: '로그인하면 계정에 보관할 수 있어요. 지금은 이 기기의 녹음을 이어서 연습해요.',
+    savedDevice: '이 기기에 연습을 저장했어요.', recMemory: '기기에 저장하지 못했어요. 이 창을 닫기 전에 녹음을 내려받아 주세요.',
+    localKept: '이 기기의 녹음은 그대로 남아 있어요.', loadingPractice: '저장된 대사와 녹음을 불러오는 중이에요…',
+    resumedPractice: '연습을 불러왔어요. 이 기기에서 새로 녹음한 대사는 그대로 두었어요.',
+    noPractice: '아직 저장된 연습이 없어요. 대사를 녹음하거나 연습 저장을 눌러 주세요.',
+    partialResume: '일부 녹음을 불러오지 못했어요. 연결을 확인한 뒤 다시 불러와 주세요.',
+    practiceUnavailable: '회화 연습을 열지 못했어요. 잠시 후 다시 눌러 주세요.',
+    movieSaved: '완성 영상을 계정의 내 작품에 보관했어요.', downloadVoice: '녹음 내려받기',
+    practiceDeleted: '연습 기록과 대사 녹음을 삭제했어요. 새로 녹음해서 시작할 수 있어요.',
+    deletingPractice: '연습 기록과 대사 녹음을 삭제하는 중이에요…', practiceDeleteFailed: '이 기기의 연습을 모두 삭제하지 못했어요. 보관함에서 삭제를 다시 눌러 주세요.',
   },
   en: {
     title: 'A.i Dubbing Video', sub: 'Hear the other parts. Your lines go silent so you can speak.',
@@ -631,7 +663,7 @@ const T = {
     rotate: '↻ Rotate roles', roleHelp: 'For a group performance, pick two or more roles. Every picked role is muted, and only the rest use native-speaker voices.',
     review: 'My dub', helpReview: 'Plays the other parts in their voices and your lines in your recorded voice.',
     recTitle: 'My recordings', recCount: (n, m) => `${n} / ${m} recorded`,
-    recHelp: 'Tap "Record" on your lines. Allow microphone access to start recording. Tap “Finish recording” to save. Recordings stay on this device.',
+    recHelp: 'Tap Record on your lines, then Finish recording. When signed in, recordings also save to your account. Check the saved status.',
     stopRecording: 'Finish recording', micWaiting: 'Connecting microphone…',
     micRecording: 'Recording. Tap Finish recording when you are done.',
     micUnsupported: 'Open this HTTPS page in a current browser supporting microphone recording.',
@@ -643,6 +675,20 @@ const T = {
     exporting: 'Making your dub video', exportReady: 'Your video is ready.', exportSaved: 'Downloaded. Check your Downloads folder.',
     exportDeclined: 'Save canceled.', exportFail: 'This device can’t save videos.', exportCanceled: 'Stopped making the video.',
     recSaved: 'Recording saved.', recBad: 'That sound file can’t be played. Try another file.', cleared: 'All recordings deleted.',
+    continueTitle: 'Continue my practice', continueHelp: 'Keep your recorded lines and continue from your last line.',
+    resumePractice: 'Load saved practice', savePractice: 'Save practice', myWorks: 'My works',
+    conversation: 'Practise these lines in a conversation', retryMovie: 'Retry saving the movie',
+    savingAccount: 'Saving to your account…', savedAccount: 'Saved to your account. You can continue on another device.',
+    guestPractice: 'Sign in to save to your account. You can continue recordings on this device now.',
+    savedDevice: 'Practice saved on this device.', recMemory: 'Could not save on this device. Download your recording before closing this page.',
+    localKept: 'Your recordings remain on this device.', loadingPractice: 'Loading your saved lines and recordings…',
+    resumedPractice: 'Practice loaded. New recordings on this device were kept.',
+    noPractice: 'No saved practice yet. Record a line or press Save practice.',
+    partialResume: 'Some recordings could not be loaded. Check your connection and load again.',
+    practiceUnavailable: 'Could not open the conversation. Please try again.',
+    movieSaved: 'The finished movie is saved in My works.', downloadVoice: 'Download recording',
+    practiceDeleted: 'Practice and line recordings deleted. You can start a new recording.',
+    deletingPractice: 'Deleting the practice and line recordings…', practiceDeleteFailed: 'Could not finish removing this device’s practice. Retry deleting it in My works.',
   },
 };
 
@@ -675,11 +721,12 @@ function epFromQuery(search) {
   const id = m[1].toLowerCase();
   return EPISODES.findIndex((e) => e.id === id);
 }
-function savePrefs() {
+function savePrefs(checkpoint = true) {
   try {
     const { lang, ep, mode, speed, subKo, hideMine, echo, autoNext, bgm } = state;
     localStorage.setItem(STORE_KEY, JSON.stringify({ lang, ep, mode, speed, subKo, hideMine, echo, autoNext, bgm, roles: [...state.roles] }));
   } catch (e) { /* 무시 */ }
+  if (checkpoint) checkpointStudio();
 }
 
 const t = (k) => T[state.lang][k];
@@ -893,9 +940,14 @@ function voiceFor(who) {
 /* =========================================================
    6. RECORDINGS — 학생 녹음 (기기 녹음 앱/파일 → 이 기기 IndexedDB 저장)
    ========================================================= */
-const recs = new Map(); // "에피소드:대사번호" → { blob, url, audio }
+const DubLibrary = window.MangoiDubLibrary || null;
+let studioIdentity = DubLibrary ? DubLibrary.identity() : 'guest';
+let studioReady = false, studioLoading = false;
+const recs = new Map(); // Current account only: "episode:line" → { blob, url, audio }
 const recKey = (i) => `${episode().id}:${i}`;
-const recFor = (i) => recs.get(recKey(i));
+const recFor = (i) => sameStudioAccount(studioIdentity) ? recs.get(recKey(i)) : undefined;
+const localRecKey = (key, owner = studioIdentity) => `${encodeURIComponent(owner)}|${key}`;
+const sameStudioAccount = (owner) => owner === studioIdentity && (!DubLibrary || DubLibrary.identity() === owner);
 
 let dbPromise = null;
 function openDB() {
@@ -911,34 +963,71 @@ function openDB() {
 }
 async function dbWrite(fn) {
   const db = await openDB();
-  if (!db) return;
-  try { fn(db.transaction('recs', 'readwrite').objectStore('recs')); } catch (e) { /* 저장 불가: 메모리에만 유지 */ }
+  if (!db) return false;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction('recs', 'readwrite');
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = tx.onabort = () => resolve(false);
+      fn(tx.objectStore('recs'));
+    } catch (e) { resolve(false); }
+  });
 }
 async function loadRecs() {
+  const owner = studioIdentity;
+  const revisions = new Map(EPISODES.map((ep) => [ep.id, studioRevision(ep.id)]));
   const db = await openDB();
   if (!db) return;
-  try {
-    const store = db.transaction('recs', 'readonly').objectStore('recs');
-    const keys = store.getAllKeys(), vals = store.getAll();
-    vals.onsuccess = () => { keys.result.forEach((k, j) => setRec(k, vals.result[j])); renderRecUI(); renderCues(); };
-  } catch (e) { /* 무시 */ }
+  await new Promise((resolve) => {
+    try {
+      const tx = db.transaction('recs', 'readonly'), store = tx.objectStore('recs');
+      const keys = store.getAllKeys(), vals = store.getAll();
+      tx.onerror = tx.onabort = () => resolve();
+      tx.oncomplete = () => {
+        if (sameStudioAccount(owner)) {
+          // Legacy device recordings have no owner. Never attach or upload them to a signed-in account.
+          if (owner === 'guest') keys.result.forEach((key, j) => {
+            const epId = String(key).split(':')[0];
+            if (/^[a-z0-9-]+:\d+$/.test(String(key)) && vals.result[j] instanceof Blob && studioRevision(epId) === revisions.get(epId)) setRec(key, vals.result[j]);
+          });
+          const prefix = localRecKey('', owner);
+          keys.result.forEach((key, j) => {
+            if (!String(key).startsWith(prefix)) return;
+            const recordKey = String(key).slice(prefix.length), value = vals.result[j];
+            const blob = value instanceof Blob ? value : value?.blob;
+            if (!(blob instanceof Blob)) return;
+            const [epId, lineNo] = recordKey.split(':'), line = EPISODES.find((e) => e.id === epId)?.lines[Number(lineNo)];
+            if (studioRevision(epId) !== revisions.get(epId)) return;
+            if (value.en && (!line || line.en !== value.en || line.who !== value.speaker)) return;
+            setRec(recordKey, blob, value instanceof Blob ? {} : value);
+            if (value.pending) pendingStudioEdits.set(recordKey, { blob, localSaved: true });
+          });
+        }
+        resolve();
+      };
+    } catch (e) { resolve(); }
+  });
 }
 
-function setRec(key, blob) {
+function setRec(key, blob, metadata = {}) {
   const old = recs.get(key);
-  if (old) URL.revokeObjectURL(old.url);
+  if (old) { old.audio.pause(); URL.revokeObjectURL(old.url); }
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);
   audio.preload = 'auto';
-  recs.set(key, { blob, url, audio });
+  recs.set(key, { blob, url, audio, audioId: metadata.audioId || null, pending: Boolean(metadata.pending) });
+}
+function localRecValue(key, recording) {
+  const [epId, lineNo] = key.split(':'), line = EPISODES.find((e) => e.id === epId)?.lines[Number(lineNo)];
+  return { blob: recording.blob, audioId: recording.audioId || null, pending: Boolean(recording.pending), en: line?.en || '', speaker: line?.who || '' };
 }
 function deleteRec(key) {
   const r = recs.get(key);
-  if (!r) return;
-  r.audio.pause();
-  URL.revokeObjectURL(r.url);
+  if (r) { r.audio.pause(); URL.revokeObjectURL(r.url); }
   recs.delete(key);
-  dbWrite((s) => s.delete(key));
+  const owner = studioIdentity;
+  dbWrite((s) => { s.delete(localRecKey(key, owner)); if (owner === 'guest') s.delete(key); });
+  pendingStudioEdits.set(key, { deleted: true });
 }
 function canPlay(blob) {
   return new Promise((resolve) => {
@@ -973,13 +1062,14 @@ function stopMicRecording(discard = false) {
   if (session.stream && !session.stopping) session.stream.getTracks().forEach(track => track.stop());
 }
 async function pickRecording(i) {
+  if (!studioReady || studioLoading || studioDeleting.has(episode().id)) return;
   if (micSession) { stopMicRecording(); renderRecUI(); renderCues(); return; }
   if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
     setStatus(t('micUnsupported')); return;
   }
   pause();
   state.idx = i;
-  const session = { key: recKey(i), recorder: null, stream: null, discard: false };
+  const session = { key: recKey(i), owner: studioIdentity, revision: studioRevision(episode().id), recorder: null, stream: null, discard: false };
   micSession = session;
   setStatus(t('micWaiting')); renderCurrent(); renderCues();
   try {
@@ -1001,12 +1091,22 @@ async function pickRecording(i) {
     recorder.onstop = async () => {
       stream.getTracks().forEach(track => track.stop());
       if (micSession === session) micSession = null;
-      if (!session.discard) {
+      const validSession = () => !session.discard && sameStudioRevision(session.owner, session.key.split(':')[0], session.revision);
+      if (validSession()) {
         const blob = new Blob(chunks, { type: recorder.mimeType || chunks[0]?.type || 'audio/webm' });
-        if (blob.size && await canPlay(blob)) {
-          setRec(session.key, blob);
-          dbWrite(store => store.put(blob, session.key));
-          setStatus(t('recSaved'));
+        const playable = blob.size && await canPlay(blob);
+        if (!validSession()) return;
+        if (playable) {
+          setRec(session.key, blob, { pending: true });
+          const edit = { blob, localSaved: false };
+          pendingStudioEdits.set(session.key, edit);
+          const value = localRecValue(session.key, recs.get(session.key));
+          const localSaved = await dbWrite(store => { if (validSession()) store.put(value, localRecKey(session.key, session.owner)); });
+          edit.localSaved = localSaved;
+          if (!validSession()) return;
+          setStatus(t(localSaved ? 'recSaved' : 'recMemory'));
+          checkpointStudio();
+          scheduleStudioSave(session.key.split(':')[0], true);
         } else setStatus(t('micFailed'));
       }
       renderRecUI(); renderCues();
@@ -1023,6 +1123,7 @@ async function pickRecording(i) {
 }
 window.addEventListener('pagehide', () => stopMicRecording(true));
 function playMyVoice(i) {
+  if (!sameStudioAccount(studioIdentity)) return;
   stopMicRecording();
   const r = recFor(i);
   if (!r) return;
@@ -1032,6 +1133,308 @@ function playMyVoice(i) {
   r.audio.play().catch(() => setStatus(t('recBad')));
 }
 function setStatus(msg) { $('rec-status').textContent = msg; }
+
+/* Account drafts use immutable audio takes. Commit the new manifest before
+ * removing an old take, so a failed upload cannot erase another recorded line. */
+const pendingStudioEdits = new Map(), studioBases = new Map(), studioDrafts = new Map();
+const studioTimers = new Map(), studioJobs = new Map(), studioCheckpoints = new Map(), studioRevisions = new Map(), studioDeleting = new Map();
+const studioRevision = (epId) => studioRevisions.get(epId) || 0;
+const sameStudioRevision = (owner, epId, revision) => sameStudioAccount(owner) && studioRevision(epId) === revision;
+let studioStatus = { key: '' }, movieRetry = null;
+const studioDraftId = (epId) => `studio-${epId}`;
+const checkpointKey = (epId, owner = studioIdentity) => `dubstudio.checkpoint.v2:${encodeURIComponent(owner)}:${epId}`;
+function studioResumeFromQuery(search, epId) {
+  const match = /[?&]resume=([A-Za-z0-9_-]{1,80})(?:[&#]|$)/.exec(String(search || ''));
+  return Boolean(match && match[1] === studioDraftId(epId));
+}
+let studioResumeRequested = studioResumeFromQuery(location.search, episode().id);
+function readStudioCheckpoint(epId) {
+  const key = checkpointKey(epId);
+  if (studioCheckpoints.has(key)) return studioCheckpoints.get(key);
+  try {
+    const snapshot = JSON.parse(localStorage.getItem(key) || 'null');
+    return snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot) ? snapshot : null;
+  } catch (_) { return null; }
+}
+function checkpointStudio(saveRemote = true) {
+  if (!studioReady || studioLoading || studioDeleting.has(episode().id) || !sameStudioAccount(studioIdentity)) return false;
+  const { idx, mode, speed, subKo, hideMine, echo, autoNext, bgm } = state;
+  const deletedLines = [...pendingStudioEdits].filter(([key, edit]) => key.startsWith(`${episode().id}:`) && edit.deleted).map(([key]) => Number(key.split(':')[1]));
+  const snapshot = { version: 1, idx, mode, speed, subKo, hideMine, echo, autoNext, bgm, roles: [...state.roles], deletedLines, updatedAt: Date.now() };
+  let localSaved = false;
+  studioCheckpoints.set(checkpointKey(episode().id), snapshot);
+  try { localStorage.setItem(checkpointKey(episode().id), JSON.stringify(snapshot)); localSaved = true; } catch (_) { /* Still allow an account save when browser storage is unavailable. */ }
+  if (saveRemote) scheduleStudioSave(episode().id);
+  return localSaved;
+}
+function setStudioStatus(key, error) {
+  studioStatus = { key, error };
+  renderStudioStorage();
+}
+function renderStudioStorage() {
+  const box = $('studio-save-status');
+  if (!box) return;
+  const memoryOnly = studioStatus.error?.localSaved === false || [...pendingStudioEdits.values()].some((e) => e.blob && e.localSaved === false);
+  box.textContent = studioStatus.error && DubLibrary
+    ? `${DubLibrary.errorText(studioStatus.error, state.lang === 'en')} ${t(memoryOnly ? 'recMemory' : 'localKept')}`
+    : t(studioStatus.key || (studioIdentity === 'guest' ? 'guestPractice' : 'continueHelp'));
+  box.dataset.state = studioStatus.error ? 'error' : studioStatus.key === 'savedAccount' || studioStatus.key === 'movieSaved' ? 'saved' : '';
+  $('btn-resume').disabled = !studioReady || studioLoading || studioDeleting.has(episode().id) || studioJobs.has(episode().id) || Boolean(micSession) || exp.active;
+  $('btn-save-practice').disabled = !studioReady || studioLoading || studioDeleting.has(episode().id) || studioJobs.has(episode().id) || Boolean(micSession) || exp.active;
+  $('btn-movie-retry').hidden = !movieRetry;
+  $('btn-conversation').disabled = !studioReady || studioLoading || Boolean(micSession) || exp.active || !lines().some((line, i) => isMine(line) && recFor(i));
+}
+function scheduleStudioSave(epId, immediate = false) {
+  clearTimeout(studioTimers.get(epId));
+  if (studioDeleting.has(epId)) return;
+  if (!studioReady || !DubLibrary || !DubLibrary.hasAccount()) {
+    if (studioReady) setStudioStatus('guestPractice');
+    return;
+  }
+  const owner = studioIdentity, revision = studioRevision(epId);
+  const begin = () => {
+    studioTimers.delete(epId);
+    if (!sameStudioRevision(owner, epId, revision)) return;
+    const task = (studioJobs.get(epId) || Promise.resolve()).catch(() => {}).then(() => {
+      if (sameStudioRevision(owner, epId, revision)) return persistStudio(epId, owner);
+    });
+    studioJobs.set(epId, task);
+    renderStudioStorage();
+    task.finally(() => { if (studioJobs.get(epId) === task) { studioJobs.delete(epId); renderStudioStorage(); } }).catch(() => {});
+  };
+  if (immediate) begin(); else studioTimers.set(epId, setTimeout(begin, 800));
+}
+function validStudioRefs(draft, ep) {
+  const refs = draft?.state?.recordings;
+  if (!Array.isArray(refs)) return [];
+  return refs.filter((r) => r && Number.isInteger(r.line) && ep.lines[r.line] && r.en === ep.lines[r.line].en
+    && r.speaker === ep.lines[r.line].who && /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(r.audioId));
+}
+async function persistStudio(epId, owner) {
+  if (!sameStudioAccount(owner)) return;
+  const ep = EPISODES.find((item) => item.id === epId), id = studioDraftId(epId);
+  const revision = studioRevision(epId), valid = () => sameStudioRevision(owner, epId, revision);
+  const snapshot = readStudioCheckpoint(epId);
+  if (!ep || !snapshot) return;
+  const edits = [...pendingStudioEdits].filter(([key]) => key.startsWith(`${epId}:`));
+  setStudioStatus('savingAccount');
+  try {
+    if (!studioBases.has(epId)) {
+      try {
+        const found = await DubLibrary.getDraft(id);
+        if (!valid()) return;
+        studioBases.set(epId, found.draft);
+      } catch (e) {
+        if (!valid()) return;
+        if (e.status === 404) studioBases.set(epId, null); else throw e;
+      }
+    }
+    if (!valid()) return;
+    const oldRefs = validStudioRefs(studioBases.get(epId), ep), refs = new Map(oldRefs.map((r) => [r.line, r]));
+    for (const [key, edit] of edits) {
+      if (!valid()) return;
+      const line = Number(key.split(':')[1]);
+      if (!ep.lines[line]) continue;
+      if (edit.deleted) { refs.delete(line); continue; }
+      const audioId = `line-${line}-${DubLibrary.newId()}`;
+      await DubLibrary.uploadAudio(id, audioId, edit.blob);
+      if (!valid()) return;
+      refs.set(line, { line, audioId, en: ep.lines[line].en, speaker: ep.lines[line].who });
+    }
+    const saved = await DubLibrary.saveDraft(id, {
+      engine: 'studio', episodeId: epId, title: ep.title[state.lang],
+      state: { ...snapshot, deletedLines: [], recordings: [...refs.values()] },
+    });
+    if (!valid()) return;
+    studioBases.set(epId, saved.draft); studioDrafts.set(epId, saved.draft);
+    edits.forEach(([key, edit]) => {
+      if (pendingStudioEdits.get(key) !== edit) return;
+      pendingStudioEdits.delete(key);
+      const local = recs.get(key);
+      if (local && local.blob === edit.blob) {
+        local.audioId = refs.get(Number(key.split(':')[1]))?.audioId || null; local.pending = false;
+        const value = localRecValue(key, local);
+        dbWrite((s) => { if (valid()) s.put(value, localRecKey(key, owner)); });
+      }
+    });
+    const localCheckpoint = readStudioCheckpoint(epId);
+    if (localCheckpoint) {
+      localCheckpoint.deletedLines = [...pendingStudioEdits].filter(([key, edit]) => key.startsWith(`${epId}:`) && edit.deleted).map(([key]) => Number(key.split(':')[1]));
+      try { localStorage.setItem(checkpointKey(epId), JSON.stringify(localCheckpoint)); } catch (_) {}
+    }
+    // Only obsolete take IDs from a confirmed manifest can be removed.
+    const liveIds = new Set([...refs.values()].map((r) => r.audioId));
+    oldRefs.forEach((r) => { if (!liveIds.has(r.audioId) && valid()) DubLibrary.removeAudio(id, r.audioId).catch(() => {}); });
+    if (episode().id === epId) setStudioStatus([...pendingStudioEdits.keys()].some((key) => key.startsWith(`${epId}:`)) ? 'savingAccount' : 'savedAccount');
+  } catch (e) {
+    if (valid()) setStudioStatus('', e);
+  }
+}
+async function resumeStudio() {
+  if (!studioReady || studioLoading || studioDeleting.has(episode().id) || studioJobs.has(episode().id) || micSession || exp.active) return;
+  pause();
+  const ep = episode(), owner = studioIdentity, id = studioDraftId(ep.id);
+  const revision = studioRevision(ep.id), valid = () => sameStudioRevision(owner, ep.id, revision);
+  clearTimeout(studioTimers.get(ep.id)); studioTimers.delete(ep.id);
+  studioLoading = true; setStudioStatus('loadingPractice');
+  let draft = null, problem = null, missing = 0;
+  try {
+    if (DubLibrary && DubLibrary.hasAccount()) {
+      try {
+        const result = await DubLibrary.getDraft(id);
+        if (!valid()) return;
+        draft = result.draft;
+      } catch (e) {
+        if (!valid()) return;
+        if (e.status !== 404) problem = e;
+      }
+    }
+    if (!valid()) return;
+    if (draft && (draft.engine !== 'studio' || draft.episodeId !== ep.id)) { draft = null; problem = new Error('invalid_draft'); }
+    if (!problem) studioBases.set(ep.id, draft);
+    const local = readStudioCheckpoint(ep.id);
+    const prefs = local && (!draft || local.updatedAt > (draft.state?.updatedAt || 0)) ? local : draft?.state;
+    if (draft) {
+      const refs = validStudioRefs(draft, ep);
+      const keptLines = new Set(refs.map((ref) => `${ep.id}:${ref.line}`));
+      // A deletion confirmed on another device also removes its old local cache.
+      // A new local take has its own pending edit and is always kept.
+      recs.forEach((recording, key) => {
+        if (!key.startsWith(`${ep.id}:`) || !recording.audioId || keptLines.has(key) || pendingStudioEdits.has(key)) return;
+        recording.audio.pause(); URL.revokeObjectURL(recording.url); recs.delete(key);
+        dbWrite((store) => store.delete(localRecKey(key, owner)));
+      });
+      await Promise.all(refs.map(async (ref) => {
+        const key = `${ep.id}:${ref.line}`;
+        if (recs.get(key)?.audioId === ref.audioId || pendingStudioEdits.has(key)) return;
+        try {
+          const blob = await DubLibrary.getAudio(id, ref.audioId);
+          if (!valid() || pendingStudioEdits.has(key)) return;
+          setRec(key, blob, { audioId: ref.audioId });
+          const value = localRecValue(key, recs.get(key));
+          await dbWrite((s) => { if (valid()) s.put(value, localRecKey(key, owner)); });
+        } catch (_) { missing++; }
+      }));
+      if (!valid()) return;
+      studioDrafts.set(ep.id, draft);
+    }
+    if (!valid() || episode().id !== ep.id) return;
+    if (prefs) {
+      if (['practice', 'dub', 'review'].includes(prefs.mode)) state.mode = prefs.mode;
+      if ([0.7, 0.85, 1].includes(prefs.speed)) state.speed = prefs.speed;
+      for (const key of ['subKo', 'hideMine', 'echo', 'autoNext', 'bgm']) if (typeof prefs[key] === 'boolean') state[key] = prefs[key];
+      if (Array.isArray(prefs.roles)) state.roles = new Set(prefs.roles.filter((r) => castOf(ep).includes(r)));
+      fitRoles();
+      state.idx = Number.isInteger(prefs.idx) ? Math.min(ep.lines.length - 1, Math.max(0, prefs.idx)) : 0;
+      state.finished = false;
+      savePrefs(false);
+    }
+    setStudioStatus(missing ? 'partialResume' : prefs || [...recs.keys()].some((key) => key.startsWith(`${ep.id}:`)) ? 'resumedPractice' : 'noPractice', problem);
+  } finally {
+    if (valid()) { studioLoading = false; renderAll(); }
+  }
+}
+async function saveStudioMovie(blob, meta, owner = studioIdentity) {
+  if (!DubLibrary || !sameStudioAccount(owner)) return;
+  const attempt = { blob, meta, owner };
+  movieRetry = attempt; setStudioStatus('savingAccount');
+  try {
+    await DubLibrary.saveMovie(blob, meta);
+    if (!sameStudioAccount(owner) || movieRetry !== attempt) return;
+    movieRetry = null; setStudioStatus('movieSaved');
+  } catch (e) {
+    if (!sameStudioAccount(owner) || movieRetry !== attempt) return;
+    if (e.clientId) meta.clientId = e.clientId;
+    setStudioStatus('', e);
+  }
+}
+function openStudioConversation() {
+  const recorded = lines().filter((line, i) => isMine(line) && recFor(i));
+  if (!recorded.length) return;
+  const result = window.MangoiDubPractice?.open({
+    episodeId: episode().id, title: episode().title,
+    lines: recorded.map((line) => ({ en: line.en, ko: line.ko, speaker: line.who })),
+  });
+  if (!result?.ok) setStudioStatus('practiceUnavailable');
+}
+async function initStudioStorage() {
+  const owner = studioIdentity;
+  await loadRecs();
+  if (!sameStudioAccount(owner)) return;
+  EPISODES.forEach((ep) => {
+    const deleted = readStudioCheckpoint(ep.id)?.deletedLines;
+    if (Array.isArray(deleted)) deleted.filter((i) => Number.isInteger(i) && ep.lines[i]).forEach((i) => {
+      const key = `${ep.id}:${i}`, recording = recs.get(key);
+      if (recording) { recording.audio.pause(); URL.revokeObjectURL(recording.url); recs.delete(key); }
+      pendingStudioEdits.set(key, { deleted: true });
+    });
+  });
+  studioReady = true; renderRecUI(); renderCues();
+  if (studioResumeRequested) {
+    studioResumeRequested = false;
+    await resumeStudio();
+    if (!sameStudioAccount(owner)) return;
+  }
+  if (DubLibrary && DubLibrary.hasAccount()) {
+    try {
+      const revisions = new Map(EPISODES.map((ep) => [ep.id, studioRevision(ep.id)]));
+      const result = await DubLibrary.listDrafts();
+      if (!sameStudioAccount(owner)) return;
+      result.drafts.filter((d) => d.engine === 'studio' && studioRevision(d.episodeId) === revisions.get(d.episodeId)).forEach((d) => studioDrafts.set(d.episodeId, d));
+      renderStudioStorage();
+      new Set([...pendingStudioEdits.keys()].map((key) => key.split(':')[0])).forEach((epId) => scheduleStudioSave(epId));
+    } catch (e) { if (sameStudioAccount(owner)) setStudioStatus('', e); }
+  }
+}
+function forgetDeletedStudioDraft(detail) {
+  if (!detail || detail.owner !== studioIdentity || !sameStudioAccount(detail.owner)) return;
+  const ep = EPISODES.find((item) => studioDraftId(item.id) === detail.draftId);
+  if (!ep) return;
+  if (detail.phase === 'deleted' || detail.phase === 'failed') {
+    if (!studioDeleting.has(ep.id)) {
+      // A suspended tab may see only the final notice when it becomes active.
+      if (detail.phase === 'deleted') forgetDeletedStudioDraft({ owner: detail.owner, draftId: detail.draftId });
+      return;
+    }
+    if (studioDeleting.get(ep.id) !== detail.nonce) return;
+    studioDeleting.delete(ep.id);
+    if (episode().id === ep.id) { setStudioStatus(detail.phase === 'deleted' ? 'practiceDeleted' : 'practiceDeleteFailed'); renderAll(); }
+    return;
+  }
+  if (detail.phase === 'deleting') studioDeleting.set(ep.id, detail.nonce);
+  studioRevisions.set(ep.id, studioRevision(ep.id) + 1);
+  clearTimeout(studioTimers.get(ep.id)); studioTimers.delete(ep.id); studioJobs.delete(ep.id);
+  if (micSession?.key.startsWith(`${ep.id}:`)) stopMicRecording(true);
+  if (episode().id === ep.id) pause();
+  recs.forEach((recording, key) => {
+    if (!key.startsWith(`${ep.id}:`)) return;
+    recording.audio.pause(); URL.revokeObjectURL(recording.url); recs.delete(key);
+  });
+  [...pendingStudioEdits.keys()].forEach((key) => { if (key.startsWith(`${ep.id}:`)) pendingStudioEdits.delete(key); });
+  studioBases.delete(ep.id); studioDrafts.delete(ep.id); studioCheckpoints.delete(checkpointKey(ep.id));
+  try { localStorage.removeItem(checkpointKey(ep.id)); } catch (_) {}
+  if (episode().id === ep.id) {
+    studioLoading = false; state.idx = 0; state.finished = false; $('finish').hidden = true;
+    setStatus(''); setStudioStatus(detail.phase === 'deleting' ? 'deletingPractice' : 'practiceDeleted'); renderAll();
+  }
+}
+window.addEventListener('mangoi:dubbing-draft-deleted', (event) => forgetDeletedStudioDraft(event.detail));
+window.addEventListener('storage', (event) => {
+  if (event.key !== 'mangoi:dubbing-draft-deleted' || !event.newValue) return;
+  try { forgetDeletedStudioDraft(JSON.parse(event.newValue)); } catch (_) {}
+});
+if (DubLibrary) DubLibrary.onAccountChange((owner) => {
+  stopMicRecording(true); pause();
+  recs.forEach((r) => URL.revokeObjectURL(r.url)); recs.clear();
+  studioIdentity = owner; studioReady = false; studioLoading = false;
+  studioTimers.forEach(clearTimeout); studioTimers.clear(); studioJobs.clear();
+  pendingStudioEdits.clear(); studioBases.clear(); studioDrafts.clear(); studioCheckpoints.clear(); studioDeleting.clear();
+  EPISODES.forEach((ep) => studioRevisions.set(ep.id, studioRevision(ep.id) + 1));
+  studioResumeRequested = false;
+  movieRetry = null; studioStatus = { key: '' }; setStatus('');
+  state.idx = 0; state.finished = false; $('finish').hidden = true;
+  renderAll(); initStudioStorage();
+});
 
 /* =========================================================
    7. MUSIC — 자체 작곡 배경음악 (브라우저에서 실시간 연주, 저작권 없음)
@@ -1207,6 +1610,7 @@ function runLine(i) {
   stopAll();
   const run = runId;
   state.idx = i;
+  checkpointStudio();
   state.finished = false;
   $('finish').hidden = true;
   renderCurrent();
@@ -1253,6 +1657,7 @@ function jump(i, keepPlaying = state.playing) {
   stopMicRecording();
   const n = lines().length;
   state.idx = Math.max(0, Math.min(n - 1, i));
+  checkpointStudio();
   state.finished = false;
   $('finish').hidden = true;
   if (keepPlaying) { state.playing = true; state.single = false; runLine(state.idx); }
@@ -1275,8 +1680,9 @@ function finishEpisode() {
   $('finish').hidden = false;
   if (exp.active) {
     const recorder = exp.recorder;
-    setTimeout(() => { if (exp.recorder === recorder) finishExport(true); }, 600); // 이 작업의 마지막 소리 꼬리만 담기
+    setTimeout(() => { if (exp.active && exp.recorder === recorder) finishExport(true); }, 600); // 마지막 소리 꼬리까지 담기
   }
+  checkpointStudio();
   renderTransport();
 }
 
@@ -1317,6 +1723,10 @@ function startExport() {
   exp.dest = ctx.createMediaStreamDestination();
   MIX.bus.connect(exp.dest);
   exp.active = true; // routeToMixer가 연결하도록 먼저 켬
+  exp.meta = { engine: 'studio', episodeId: episode().id, title: episode().title[state.lang], interrupted: false,
+    clientId: DubLibrary ? DubLibrary.newId() : undefined };
+  exp.startedAt = Date.now();
+  exp.owner = studioIdentity;
   lines().forEach((_, i) => { const a = audioFor(i); if (a) routeToMixer(a); const r = recFor(i); if (r) routeToMixer(r.audio); });
 
   const canvas = $('export-canvas');
@@ -1373,25 +1783,28 @@ function drawCaption(g, W, H) {
 
 function finishExport(save) {
   if (!exp.active) return;
-  const dest = exp.dest, rec = exp.recorder, chunks = exp.chunks, mime = exp.mime, episodeId = episode().id;
+  const dest = exp.dest, rec = exp.recorder, chunks = exp.chunks, mime = exp.mime;
+  const owner = exp.owner, meta = { ...exp.meta, durationMs: Date.now() - exp.startedAt };
   exp.active = false;
   cancelAnimationFrame(exp.raf);
   document.body.classList.remove('exporting');
   $('recbar').hidden = true;
   // 이전 작업의 정리가 곧바로 시작한 새 작업의 소리까지 끊지 않게 목적지를 붙잡는다.
   setTimeout(() => { try { MIX.bus.disconnect(dest); } catch (e) { /* 무시 */ } }, 1500);
-  const showStatus = (msg) => { if (exp.recorder === rec && !exp.active) setStatus(msg); };
+  const showStatus = (msg) => { if (sameStudioAccount(owner) && exp.recorder === rec && !exp.active) setStatus(msg); };
   rec.onstop = async () => {
+    if (!sameStudioAccount(owner)) return;
     if (!save) { showStatus(t('exportCanceled')); return; }
     const blob = new Blob(chunks, { type: mime });
     const ext = mime.includes('mp4') ? 'mp4' : 'webm';
     showStatus(t('exportReady'));
     try {
-      await downloads.save({ filename: `dub-${episodeId}-${new Date().toISOString().slice(0, 10)}.${ext}`, data: blob });
+      await downloads.save({ filename: `dub-${meta.episodeId}-${new Date().toISOString().slice(0, 10)}.${ext}`, data: blob });
       showStatus(t('exportSaved'));
     } catch (e) {
       showStatus(e?.code === 'declined' ? t('exportDeclined') : t('exportFail'));
     }
+    if (blob.size) saveStudioMovie(blob, meta, owner);
   };
   if (rec.state !== 'inactive') rec.stop();
 }
@@ -1488,12 +1901,18 @@ function cueRecButtons(i) {
   const add = (label, cls, fn) => {
     const b = document.createElement('button');
     b.type = 'button'; b.textContent = label; if (cls) b.className = cls;
-    b.disabled = Boolean(micSession && micSession.key !== recKey(i));
+    b.disabled = studioDeleting.has(episode().id) || Boolean(micSession && micSession.key !== recKey(i));
     b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
     box.appendChild(b);
   };
   add((has ? '● ' : '🎤 ') + recordingLabel(i), has ? 'has' : '', () => pickRecording(i));
-  if (has) add('▶ ' + t('myVoice'), 'has', () => playMyVoice(i));
+  if (has) {
+    add('▶ ' + t('myVoice'), 'has', () => playMyVoice(i));
+    add(t('downloadVoice'), '', () => {
+      const recording = recFor(i);
+      if (recording) downloads.save({ filename: `dub-${episode().id}-line-${i + 1}.${recording.blob.type.includes('mp4') ? 'm4a' : recording.blob.type.includes('ogg') ? 'ogg' : 'webm'}`, data: recording.blob });
+    });
+  }
   return box;
 }
 
@@ -1511,9 +1930,10 @@ function renderRecUI() {
   if (showCap) {
     const has = Boolean(recFor(state.idx));
     $('btn-rec-label').textContent = recordingLabel(state.idx);
-    $('btn-rec').disabled = Boolean(micSession && micSession.key !== recKey(state.idx));
+    $('btn-rec').disabled = !studioReady || studioLoading || studioDeleting.has(episode().id) || Boolean(micSession && micSession.key !== recKey(state.idx));
     $('btn-myplay').hidden = !has;
   }
+  renderStudioStorage();
 }
 
 function renderCurrent() {
@@ -1594,6 +2014,20 @@ $('btn-review').addEventListener('click', () => {
 });
 $('btn-export').addEventListener('click', startExport);
 $('btn-export-cancel').addEventListener('click', pause);
+$('btn-resume').addEventListener('click', resumeStudio);
+$('btn-save-practice').addEventListener('click', () => {
+  const localSaved = checkpointStudio(false);
+  lines().forEach((_, i) => {
+    const key = recKey(i), recording = recFor(i);
+    if (recording && (!recording.audioId || recording.pending) && !pendingStudioEdits.has(key)) pendingStudioEdits.set(key, { blob: recording.blob, localSaved: true });
+  });
+  if (DubLibrary && DubLibrary.hasAccount()) scheduleStudioSave(episode().id, true);
+  else setStudioStatus(localSaved ? 'savedDevice' : 'recMemory');
+});
+$('btn-movie-retry').addEventListener('click', () => {
+  if (movieRetry && sameStudioAccount(movieRetry.owner)) saveStudioMovie(movieRetry.blob, movieRetry.meta);
+});
+$('btn-conversation').addEventListener('click', openStudioConversation);
 $('btn-clear').addEventListener('click', () => { $('clear-confirm').hidden = false; });
 $('btn-clear-no').addEventListener('click', () => { $('clear-confirm').hidden = true; });
 $('btn-clear-yes').addEventListener('click', () => {
@@ -1601,6 +2035,7 @@ $('btn-clear-yes').addEventListener('click', () => {
   lines().forEach((_, i) => deleteRec(recKey(i)));
   $('clear-confirm').hidden = true;
   setStatus(t('cleared'));
+  checkpointStudio();
   renderRecUI(); renderCues(); renderCurrent();
 });
 
@@ -1636,7 +2071,12 @@ document.addEventListener('keydown', (e) => {
 });
 
 renderAll();
-loadRecs();
+initStudioStorage();
+window.addEventListener('beforeunload', (event) => {
+  if (micSession || exp.active || [...pendingStudioEdits.values()].some((edit) => edit.blob && edit.localSaved === false)) {
+    event.preventDefault(); event.returnValue = '';
+  }
+});
 </script>
 </body>
 </html>

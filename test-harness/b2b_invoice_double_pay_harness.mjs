@@ -75,13 +75,14 @@ if (process.env.B2B_CHILD === '1') {
 
   // ── 메모리 SQLite (D1 모양) ──
   const sq = new DatabaseSync(':memory:');
+  let sqlHook = null;   // 특정 질의가 «도는 순간» 끼어들기(경합 재현용)
   const norm = (v) => (v === undefined ? null : (typeof v === 'boolean' ? (v ? 1 : 0) : v));
   const mk = (sql, args) => {
     const st = {
       __sql: sql, __args: args,
       bind: (...b) => mk(sql, b.map(norm)),
       async first(col) { await tick(); const r = sq.prepare(sql).get(...args); if (!r) return null; return col ? r[col] : { ...r }; },
-      async all() { await tick(); return { results: sq.prepare(sql).all(...args).map((r) => ({ ...r })), success: true, meta: {} }; },
+      async all() { await tick(); if (sqlHook) sqlHook(sql); return { results: sq.prepare(sql).all(...args).map((r) => ({ ...r })), success: true, meta: {} }; },
       async run() { await tick(); const r = sq.prepare(sql).run(...args); return { success: true, meta: { last_row_id: Number(r.lastInsertRowid), changes: Number(r.changes) } }; },
     };
     return st;
@@ -123,8 +124,8 @@ if (process.env.B2B_CHILD === '1') {
   const confirm = (orderId, amount) => call('/api/pay/confirm', { paymentKey: 'pk_' + orderId, orderId, amount });
   const webhook = (orderId) => call('/api/pay/webhook', { eventType: 'PAYMENT_STATUS_CHANGED', data: { orderId } });
   const chargesOf = (prefix) => charges.filter((c) => c.orderId.startsWith(prefix)).length;
-  const mgbInv = (id, shop, n) => {
-    sq.prepare(`INSERT INTO ai_billing_invoices (id, shop_name, billing_month, rate_krw, status, generated_at) VALUES (?, ?, '2026-11', 5000, 'draft', ?)`).run(id, shop, NOW);
+  const mgbInv = (id, shop, n, month = '2026-11') => {
+    sq.prepare(`INSERT INTO ai_billing_invoices (id, shop_name, billing_month, rate_krw, status, generated_at) VALUES (?, ?, ?, 5000, 'draft', ?)`).run(id, shop, month, NOW);
     for (let i = 0; i < n; i++) sq.prepare(`INSERT INTO ai_billing_invoice_items (invoice_id, student_user_id, student_name, included, created_at) VALUES (?, ?, ?, 1, ?)`).run(id, `${shop}_s${i}`, `학생${i}`, NOW);
   };
   const mgtInv = (id, shop, due, status = 'issued') => sq.prepare(`INSERT INTO b2b_tuition_invoices (id, shop_name, kind, month, seq, status, due_krw, paid_krw, created_at) VALUES (?, ?, 'monthly', '2026-11', 1, ?, ?, 0, ?)`).run(id, shop, status, due, NOW);
@@ -318,6 +319,92 @@ if (process.env.B2B_CHILD === '1') {
   const w18b = await guard.revertB2bOnCancel(env, s18, pay18, 'toss_webhook', NOW);
   ok('S18 다시 오면 그때 되돌린다', Number(row(`SELECT paid_krw FROM b2b_tuition_invoices WHERE id=170`)?.paid_krw) === 0 && w18b.applied.length > 0, JSON.stringify(w18b));
 
+  /* ═══ ③④⑤ (2026-10-23) — 관리자 경로는 본사 세션으로 «실제 라우터» 를 부른다 ═══ */
+  const { aiBillingRouter } = await imp('ai-billing.ts');
+  const { ensureAuthSchema } = await imp('auth-admin.ts');
+  await ensureAuthSchema(env);
+  sq.exec(`CREATE TABLE IF NOT EXISTS admin_scope (username TEXT PRIMARY KEY, scope_type TEXT NOT NULL, scope_value TEXT, updated_at INTEGER)`);
+  sq.prepare(`INSERT INTO admin_sessions (token, username, created_at, expires_at, last_seen_at) VALUES ('tokHQ', 'hqboss', ?, ?, ?)`).run(NOW, NOW + 30 * 86400000, NOW);
+  sq.prepare(`INSERT INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES ('hqboss', 'hq', NULL, ?)`).run(NOW);
+  const admin = async (path, method = 'GET', body) => {
+    const r = new Request(BASE + '/api/admin/ai-billing/' + path, { method, headers: { 'content-type': 'application/json', cookie: 'mango_admin_session=tokHQ' }, body: body ? JSON.stringify(body) : undefined });
+    try { const res = await aiBillingRouter(r, env); return { status: res.status, body: await res.json().catch(() => ({})) }; }
+    catch (e) { return { status: -1, body: { error: String(e?.message || e) } }; }
+  };
+  const fresh = () => NOW, staleAt = () => NOW - 10 * 60 * 1000;
+
+  /* ── S19 ③ 결제창을 연 «뒤» 학생이 늘면 옛 금액 결제는 막힌다 · 새 금액으로는 된다(짝) ── */
+  mgbInv(190, '학원T', 2);
+  const t19 = newOrder('MGB', 190, 10000);
+  sq.prepare(`INSERT INTO ai_billing_invoice_items (invoice_id, student_user_id, student_name, included, created_at) VALUES (190, '학원T_add', '추가', 1, ?)`).run(NOW);
+  const r19 = await confirm(t19, 10000);
+  ok('S19 명세가 바뀐 청구서의 옛 금액 결제는 409(invoice_amount_changed)', r19.status === 409 && String(r19.body.error || '').startsWith('invoice_amount_changed'), JSON.stringify(r19.body));
+  ok('S19 카드에는 손대지 않는다', chargesOf('MGB-190-') === 0, chargesOf('MGB-190-'));
+  ok('S19 막힌 뒤 선점은 놓인다', row(`SELECT confirming_order FROM ai_billing_invoices WHERE id=190`)?.confirming_order == null);
+  const t19b = newOrder('MGB', 190, 15000);
+  const r19b = await confirm(t19b, 15000);
+  ok('S19 짝: 지금 금액(3명)으로 낸 결제는 된다 · 3명 이용권', r19b.body.ok === true && enrolled(t19b) === 3, JSON.stringify(r19b.body) + ' n=' + enrolled(t19b));
+
+  /* ── S20 ③ 승인 중인 청구서의 명단은 못 바꾼다(한 명·여러 명) · 선점이 낡았으면 바꾼다(짝) ── */
+  mgbInv(191, '학원U', 2);
+  sq.prepare(`INSERT INTO ai_billing_invoice_items (invoice_id, student_user_id, student_name, included, created_at) VALUES (191, '학원U_x', '빠진학생', 0, ?)`).run(NOW);
+  const inc191 = () => row(`SELECT included FROM ai_billing_invoice_items WHERE invoice_id=191 AND student_user_id='학원U_x'`)?.included;
+  sq.prepare(`UPDATE ai_billing_invoices SET confirming_order='MGB-191-HOLD-a', confirming_at=? WHERE id=191`).run(fresh());
+  const e20a = await admin('invoice/item', 'POST', { invoice_id: 191, student_user_id: '학원U_x', included: 1 });
+  ok('S20 승인 중엔 한 명 체크가 409', e20a.status === 409 && inc191() === 0, JSON.stringify(e20a));
+  const e20b = await admin('invoice/items', 'POST', { invoice_id: 191, student_user_ids: ['학원U_x', '학원U_s0'], included: 1 });
+  ok('S20 승인 중엔 여러 명 체크도 409', e20b.status === 409 && inc191() === 0, JSON.stringify(e20b));
+  // 경합: 화면 확인(앞 검사)은 통과했는데 UPDATE 직전에 선점이 생기면 — DB 조건이 막는다
+  sq.prepare(`UPDATE ai_billing_invoices SET confirming_order=NULL, confirming_at=NULL WHERE id=191`).run();
+  sqlHook = (sql) => { if (/SELECT student_user_id FROM ai_billing_invoice_items WHERE invoice_id/.test(sql)) { sq.prepare(`UPDATE ai_billing_invoices SET confirming_order='MGB-191-RACE-b', confirming_at=? WHERE id=191`).run(fresh()); sqlHook = null; } };
+  const e20c = await admin('invoice/item', 'POST', { invoice_id: 191, student_user_id: '학원U_x', included: 1 });
+  sqlHook = null;
+  ok('S20 앞 검사 «뒤» 선점이 생겨도 UPDATE 가 막는다', e20c.status === 409 && inc191() === 0, JSON.stringify(e20c) + ' inc=' + inc191());
+  sq.prepare(`UPDATE ai_billing_invoices SET confirming_at=? WHERE id=191`).run(staleAt());
+  const e20d = await admin('invoice/item', 'POST', { invoice_id: 191, student_user_id: '학원U_x', included: 1 });
+  ok('S20 짝: 선점이 5분 넘게 낡았으면 바꿀 수 있다', e20d.status === 200 && e20d.body.ok === true && inc191() === 1, JSON.stringify(e20d));
+
+  /* ── S21 ④ 달이 바뀌어도 안 낸 청구서가 보인다(오늘 2026-10-22 · 다음 달 2026-11) ── */
+  sq.prepare(`INSERT OR REPLACE INTO ai_billing_meta (k, v, at) VALUES ('auto_billing', 'on', ?)`).run(NOW);   // 표는 ensureSchema 가 이미 만들었다
+  mgbInv(210, '학원V', 2, '2026-10'); mgbInv(211, '학원V', 1, '2026-11');
+  const g21 = await admin('invoice?shop_name=' + encodeURIComponent('학원V'));
+  ok('S21 month 없이 열면 이번 달(2026-10) 미결제를 먼저 보여 준다', g21.body.ok === true && g21.body.invoice?.billing_month === '2026-10', JSON.stringify(g21.body).slice(0, 300));
+  const um21 = g21.body.unpaid_months || [];
+  ok('S21 다음 달(2026-11)도 «안 낸 달» 로 함께 싣는다(마감 전)', um21.length === 1 && um21[0].billing_month === '2026-11' && um21[0].overdue === false && um21[0].total_krw === 5000, JSON.stringify(um21));
+  ok('S21 기본 달(default_month)은 다음 달', g21.body.default_month === '2026-11', g21.body.default_month);
+  const g21b = await admin('invoice?shop_name=' + encodeURIComponent('학원V') + '&month=2026-11');
+  const um21b = g21b.body.unpaid_months || [];
+  ok('S21 다음 달을 콕 집어 열면 그 달 · 이번 달은 «마감 지남» 으로', g21b.body.invoice?.billing_month === '2026-11' && um21b.length === 1 && um21b[0].billing_month === '2026-10' && um21b[0].overdue === true, JSON.stringify(um21b));
+  mgbInv(212, '학원W', 1, '2026-11');
+  const g21c = await admin('invoice?shop_name=' + encodeURIComponent('학원W'));
+  ok('S21 짝: 안 낸 이번 달이 없으면 예전처럼 다음 달 · 목록 빔', g21c.body.invoice?.billing_month === '2026-11' && (g21c.body.unpaid_months || []).length === 0, JSON.stringify(g21c.body).slice(0, 200));
+  mgbInv(213, '학원X', 0, '2026-10'); mgbInv(214, '학원X', 1, '2026-11');
+  const g21d = await admin('invoice?shop_name=' + encodeURIComponent('학원X'));
+  ok('S21 짝: 이번 달 청구서가 있어도 체크된 학생이 0명이면 안 고른다', g21d.body.invoice?.billing_month === '2026-11' && (g21d.body.unpaid_months || []).length === 0, JSON.stringify(g21d.body).slice(0, 200));
+  sq.prepare(`UPDATE ai_billing_invoices SET status='paid' WHERE id=210`).run();
+  const g21e = await admin('invoice?shop_name=' + encodeURIComponent('학원V'));
+  ok('S21 짝: 이번 달을 내면 다음 달로 돌아간다', g21e.body.invoice?.billing_month === '2026-11' && (g21e.body.unpaid_months || []).length === 0, JSON.stringify(g21e.body).slice(0, 200));
+
+  /* ── S22 ⑤ 수업료: 승인 중인 청구서는 거둘(void) 수 없다 · 낡은 선점이면 거둔다(짝) ── */
+  mgtInv(220, '학원Y', 50000);
+  sq.prepare(`UPDATE b2b_tuition_invoices SET confirming_order='MGT-220-HOLD-a', confirming_at=? WHERE id=220`).run(fresh());
+  const v22 = await admin('tuition/invoice/void', 'POST', { id: 220 });
+  ok('S22 승인 중엔 void 가 409 · 청구서 그대로', v22.status === 409 && row(`SELECT status FROM b2b_tuition_invoices WHERE id=220`)?.status === 'issued', JSON.stringify(v22));
+  sq.prepare(`UPDATE b2b_tuition_invoices SET confirming_at=? WHERE id=220`).run(staleAt());
+  const v22b = await admin('tuition/invoice/void', 'POST', { id: 220 });
+  ok('S22 짝: 낡은 선점이면 거둔다', v22b.body.ok === true && row(`SELECT status FROM b2b_tuition_invoices WHERE id=220`)?.status === 'void', JSON.stringify(v22b));
+  // 자동 거두기·금액 갱신(upsertInvoice) 두 UPDATE 도 같은 조건을 건다 — 함수 몸통을 잘라 «그 안에서» 본다
+  const ui = tuSrc.slice(tuSrc.indexOf('async function upsertInvoice'), tuSrc.indexOf('export async function shopSnapshot'));
+  ok('배선: upsertInvoice 의 void·갱신 UPDATE 둘 다 «승인 중 아님» 조건', (ui.match(/AND \$\{NOT_CLAIMED\}`\)/g) || []).length === 2, (ui.match(/AND \$\{NOT_CLAIMED\}`\)/g) || []).length);
+  /* ── 배선: 자동결제(chargeAutopay)도 빌링 승인 «전» 에 같은 문지기를 지난다 ── */
+  const ca = tuSrc.slice(tuSrc.indexOf('async function chargeAutopay'), tuSrc.indexOf('// ───────────────────────── 화면용 묶음'));
+  const iGate = ca.indexOf('await claimB2bInvoiceForConfirm('), iBill = ca.indexOf('/billing/');
+  ok('배선: 자동결제가 빌링 승인 앞에서 문지기를 부르고 막히면 돌아간다', iGate > 0 && iBill > iGate && /if \(!gate\.ok\) \{[\s\S]{0,300}return \{ ok: false/.test(ca.slice(iGate, iBill)), `${iGate}/${iBill}`);
+  ok('배선: 자동결제는 지금 값으로 다시 읽은 청구서로 주문을 만든다', /createOrder\(env, cur\)/.test(ca) && !/createOrder\(env, inv\)/.test(ca));
+  /* ── 배선: 학원 화면이 «안 낸 달» 띠를 그린다 ── */
+  const mh = readFileSync(join(REAL_SRC, '../public/manager.html'), 'utf8');
+  ok('배선: manager.html 이 안 낸 달 목록을 그리고 고른 달을 보낸다', /function aibUnpaidBand\(/.test(mh) && /aibUnpaidBand\(j,/.test(mh) && /month=/.test(mh.slice(mh.indexOf('window.loadAiBill = function'), mh.indexOf('window.aiBillShowMonth'))));
+
   /* ── S14 개인 결제(대리점 아님)는 문지기와 무관 ── */
   ok('S14 개인 주문번호는 대리점 주문이 아니다', guard.parseB2bOrder('MGD-ABC-123') === null && guard.parseB2bOrder('MGB-12-X')?.invoiceId === 12);
 
@@ -360,21 +447,33 @@ else for (const t of res.results) { if (t.pass) { pass++; console.log('  PASS ' 
 
 if (process.env.B2B_MUTATE) {
   const MUT = [
-    ['confirm 문지기 제거', [['api-pay.ts', 'if (parseB2bOrder(orderId)) {\n      const gate', 'if (false) {\n      const gate']]],
+    ['confirm 문지기 제거', [['api-pay.ts', 'if (parseB2bOrder(orderId)) {\n      // ③', 'if (false) {\n      // ③']]],
     /* 겹겹이 막은 자리는 «둘 다» 되돌려야 사고가 난다 — 하나만 되돌리면 다른 겹이 막아 통과하는 것이 정상(등가 변이) */
-    ['문지기 조건 뒤집기(MGB paid·not-draft·쓰는 순간 draft 셋 다 통과)', [['b2b-pay-guard.ts', "if (inv.status === 'paid' || sib.n > 0) return deny", "if (inv.status !== 'paid' && sib.n < 0) return deny"], ['b2b-pay-guard.ts', "if (inv.status !== 'draft') return deny", "if (false) return deny"], ['b2b-pay-guard.ts', "? `status = 'draft'` :", "? `1 = 1` :"]]],
+    ['문지기 조건 뒤집기(MGB paid·not-draft·쓰는 순간 draft 셋 다 통과)', [['b2b-pay-guard.ts', "if (inv.status === 'paid' || sib.n > 0) return deny", "if (inv.status !== 'paid' && sib.n < 0) return deny"], ['b2b-pay-guard.ts', "if (inv.status !== 'draft') return deny", "if (false) return deny"], ['b2b-pay-guard.ts', "? `status = 'draft'` :", "? `1 = 1` :"], ['b2b-pay-guard.ts', 'if (want == null || Math.round(Number(want)) !== Math.round(Number(amount))) {', 'if (false) {']]],   // ③ 금액 대조도 «다 낸 청구서» 를 막는 겹이 됐다(2026-10-23)
     ['선점 UPDATE 무력화', [['b2b-pay-guard.ts', 'WHERE id = ? AND (confirming_order IS NULL OR confirming_order = ? OR confirming_order = ?) AND ${stateCond}`', 'WHERE id = ? OR ? OR ? OR ${stateCond}`']]],
     ['5xx 에도 선점 놓기', [['api-pay.ts', 'if (failRes?.meta?.changes && tossDeclined) await', 'if (failRes?.meta?.changes) await']]],
     ['failed 앞 주문을 토스에 안 묻고 넘겨받기', [['b2b-pay-guard.ts', "(ho.status === 'paid' || ho.status === 'cancelled')", "(ho.status === 'paid' || ho.status === 'failed' || ho.status === 'cancelled')"]]],
     ['failed 앞 주문이면 5분 막기(영영 대기)', [['b2b-pay-guard.ts', "if (fresh && ho?.status !== 'failed') return", "if (fresh) return"]]],
     ['선점 UPDATE 의 상태·금액 조건 제거', [['b2b-pay-guard.ts', ' AND ${stateCond}`', '`']]],
     ['되돌리기 실패에도 취소 기록 남기기', [['b2b-pay-guard.ts', "await dropKey(ev);\n            res.warnings.push(`청구서 #", "res.warnings.push(`청구서 #"]]],
-    ['404 를 «모름» 으로 되돌리기', [['api-pay.ts', "if (r.status === 404) return { status: 'NOT_FOUND' };", '']]],
+    ['404 를 «모름» 으로 되돌리기', [['b2b-pay-guard.ts', "if (r.status === 404) return { status: 'NOT_FOUND' };", '']]],
     ['MGB 활성화 changes 무시', [['ai-billing.ts', "if (!(Number(won?.meta?.changes || 0) > 0)) {", 'if (false) {']]],
     ['MGT 낸 돈 옛 방식(읽고 덮기)', [['b2b-tuition-load.ts', 'SET paid_krw = paid_krw + ?,', 'SET paid_krw = ? + 0 * paid_krw,']]],
     ['웹훅 되돌리기 제거', [['api-pay.ts', "const rv = await revertB2bOnCancel(env, orderId, pay, 'toss_webhook');", "const rv = { applied: [], warnings: [] };"]]],
     ['취소 멱등 제거(INSERT OR IGNORE → 매번 새 ref)', [['b2b-pay-guard.ts', ").bind(ev.ref, orderId, ref.kind", ").bind(ev.ref + Math.random(), orderId, ref.kind"]]],
     ['부분 취소도 전액처럼', [['b2b-pay-guard.ts', "if (String(pay?.status || '') === 'CANCELED') return true;", 'return true;']]],
+    /* ③④⑤ (2026-10-23) */
+    ['③ 승인 직전 금액 대조 제거', [['b2b-pay-guard.ts', 'if (want == null || Math.round(Number(want)) !== Math.round(Number(amount))) {', 'if (false) {']]],
+    ['③ 금액 대조 조건 뒤집기', [['b2b-pay-guard.ts', 'Math.round(Number(want)) !== Math.round(Number(amount))', 'Math.round(Number(want)) === Math.round(Number(amount))']]],
+    ['③ 명단 쓰기의 «승인 중 아님» DB 조건 제거(앞 검사만 남김)', [['ai-billing.ts', 'AND student_user_id = ? AND ${MGB_UNCLAIMED_SQL}`);', 'AND student_user_id = ? AND (0 * ?) + (0 * ?) = 0`);', 'all']]],
+    ['③ 명단 쓰기 두 겹 다 제거', [['ai-billing.ts', 'AND student_user_id = ? AND ${MGB_UNCLAIMED_SQL}`);', 'AND student_user_id = ? AND (0 * ?) + (0 * ?) = 0`);', 'all'], ['ai-billing.ts', 'if ((await mgbClaimedNow(env, invoiceId)) === true) return err(CLAIMED_MSG, 409);', '', 'all'], ['ai-billing.ts', 'if (!r.ok && r.blocked) return err(CLAIMED_MSG, 409);', '', 'all']]],
+    ['④ 이번 달 미결제 자동 고르기 제거', [['ai-billing.ts', 'if (cur) month = cur.billing_month;', 'if (false) month = cur.billing_month;']]],
+    ['④ 안 낸 달 목록 비우기', [['ai-billing.ts', 'unpaid_months: unpaidMonths', 'unpaid_months: []']]],
+    ['④ 체크 0명 달도 미결제로 보기', [['ai-billing.ts', 'unpaidRows.filter((r: any) => Number(r.n) > 0)', 'unpaidRows.filter((r: any) => true)']]],
+    ['⑤ void 라우트의 «승인 중 아님» 조건 제거', [['b2b-tuition-load.ts', "status IN ('issued') AND ${NOT_CLAIMED}`).bind(Date.now(), id, Date.now() - CLAIM_STALE_MS)", "status IN ('issued')`).bind(Date.now(), id)"]]],
+    ['⑤ upsertInvoice 갱신 UPDATE 조건 제거', [['b2b-tuition-load.ts', 'WHERE id=? AND paid_krw = 0 AND ${NOT_CLAIMED}`).bind(calc.due_krw, JSON.stringify(calc), Date.now(), last.id, Date.now() - CLAIM_STALE_MS)', 'WHERE id=? AND paid_krw = 0`).bind(calc.due_krw, JSON.stringify(calc), Date.now(), last.id)']]],
+    ['⑤ 자동결제 문지기 제거', [['b2b-tuition-load.ts', 'const gate = await claimB2bInvoiceForConfirm(env, o.order_id!, o.amount!, (oid) => tossOrderProbe(env, oid));', 'const gate = { ok: true } as any;']]],
+    ['⑤ 자동결제가 낡은 청구서로 주문', [['b2b-tuition-load.ts', 'const o = await createOrder(env, cur);', 'const o = await createOrder(env, inv);']]],
     ['점검에서 대리점 이중결제 빼기', [['api-pay.ts', 'out.b2bDup = await findB2bDoublePaid(env, Date.now() - 30 * 86400 * 1000);', 'out.b2bDup = [];']]],
   ];
   console.log('\n═ 변이시험 — 고친 자리를 되돌려 «잡히는가» ═');
@@ -382,10 +481,10 @@ if (process.env.B2B_MUTATE) {
     const dir = mkdtempSync(join(tmpdir(), 'b2bdp-mut-'));
     cpSync(REAL_SRC, dir, { recursive: true });
     let bad = '';
-    for (const [file, find, repl] of edits) {
+    for (const [file, find, repl, all] of edits) {
       const fp = join(dir, file); const src = readFileSync(fp, 'utf8'); const n = src.split(find).length - 1;
-      if (n !== 1) { bad = `${file} 앵커 ${n}곳`; break; }
-      writeFileSync(fp, src.replace(find, repl));
+      if (all ? n < 1 : n !== 1) { bad = `${file} 앵커 ${n}곳`; break; }   // all = 같은 줄 여러 곳(한/여러 명 라우트 등)을 함께
+      writeFileSync(fp, all ? src.split(find).join(repl) : src.replace(find, repl));
     }
     if (bad) { fail++; console.log(`  FAIL 변이 «${name}» — ${bad}`); rmSync(dir, { recursive: true, force: true }); continue; }
     const r = runChild(dir);

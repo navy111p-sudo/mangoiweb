@@ -1,0 +1,45 @@
+/* Dubbing entry, private library and the short conversation follow-up. */
+.dub-home{padding:20px;background:linear-gradient(120deg,#21324b,#202338);border-color:#44516c}
+.dub-home h2{font-size:21px;line-height:1.4}
+.dub-home .hint,.dub-library .hint,.dub-next .hint{font-size:14px;line-height:1.7}
+.dub-home-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.dub-home-action{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-height:108px;padding:16px;border:1px solid #455575;border-radius:14px;background:#1a2639;color:#edf3ff;text-align:left;font:inherit;cursor:pointer}
+.dub-home-action b{font-size:17px;line-height:1.4}
+.dub-home-action small{color:#c3cede;font-size:13px;line-height:1.5}
+.dub-home-action.primary{background:#f7bd47;border-color:#f7bd47;color:#201707}
+.dub-home-action.primary small{color:#493819}
+.dub-home-action:disabled{opacity:.55;cursor:not-allowed}
+.dub-home-action:focus-visible,.dub-library button:focus-visible,.dub-next button:focus-visible{outline:3px solid #f7bd47;outline-offset:3px}
+.dub-home-action.primary:focus-visible{outline-color:#fff}
+.dub-steps{margin:0;padding:0;list-style:none;display:flex;gap:8px 22px;flex-wrap:wrap;color:#cbd5e1;font-size:13px}
+.dub-steps b{color:#f7bd47;margin-right:6px}
+.dub-library{border-color:#4c6289;scroll-margin-top:80px}
+.dub-library-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.dub-library-tabs{display:flex;gap:8px;flex-wrap:wrap}
+.dub-library-tabs [aria-pressed=true]{background:#334b75;border-color:#8baee8;color:#fff}
+.dub-library-status{margin:0;min-height:22px;font-size:14px;color:#cbd5e1}
+.dub-library-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.dub-library-card{min-width:0;display:flex;flex-direction:column;gap:10px;border:1px solid #364660;background:#101b2b;padding:16px;border-radius:14px}
+.dub-library-card h3{margin:0;font-size:16px;line-height:1.5;overflow-wrap:anywhere}
+.dub-library-card p{margin:0;font-size:13px;color:#c1ccdc;line-height:1.6}
+.dub-library-card video{width:100%;max-height:320px;background:#000;border-radius:8px}
+.dub-library-card .row{margin-top:auto}
+.dub-library-card .btn{min-height:44px}
+.dub-library-badge{align-self:flex-start;display:inline-block;font-size:12px;border-radius:6px;padding:3px 8px;background:#123d32;color:#b3f0d5}
+.dub-library-badge.local{background:#493819;color:#ffdf9a}
+.dub-save-note{font-size:13px;line-height:1.6;color:#cbd5e1}
+.dub-save-note.saved{color:#89e5bd}
+.dub-save-note.error{color:#ffcf92}
+.dub-next{background:linear-gradient(120deg,#133f36,#162b34);border-color:#367e6a}
+.dub-next h2{font-size:19px}
+.dub-next-lines{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0;list-style:none}
+.dub-next-lines li{padding:8px 12px;border-radius:10px;background:#0e2926;border:1px solid #2c6055;font-size:15px;color:#e5fff6}
+.dub-next .btn{min-height:46px;font-size:15px}
+.dub-resume-note{padding:12px 14px;border-radius:12px;background:#193b4b;border:1px solid #3f7894;font-size:14px;line-height:1.7}
+@media(max-width:680px){
+  .dub-home{padding:16px}
+  .dub-home-actions,.dub-library-items{grid-template-columns:1fr}
+  .dub-home-action{min-height:80px;padding:14px}
+  .dub-home-action b{font-size:16px}
+  .dub-steps{gap:6px 14px}
+}

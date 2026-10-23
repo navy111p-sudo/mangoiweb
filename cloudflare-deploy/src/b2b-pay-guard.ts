@@ -90,7 +90,8 @@ async function paidSiblings(env: Env, ref: B2bOrderRef, self: string): Promise<{
  * @param lookup 토스에 그 주문의 진짜 상태를 묻는 함수(api-pay.ts 의 tossOrderLookup). 못 물으면 null.
  */
 export async function claimB2bInvoiceForConfirm(env: Env, orderId: string, amount: number,
-  lookup: (orderId: string) => Promise<any | null>, now = Date.now()): Promise<ClaimResult> {
+  lookup: (orderId: string) => Promise<any | null>, now = Date.now(),
+  opts: { mgbAmountNow?: (invoiceId: number) => Promise<number | null> } = {}): Promise<ClaimResult> {
   const ref = parseB2bOrder(orderId);
   if (!ref) return allow;   // 대리점 주문이 아니면 이 문지기와 무관
   try {
@@ -142,11 +143,59 @@ export async function claimB2bInvoiceForConfirm(env: Env, orderId: string, amoun
       `UPDATE ${t} SET confirming_order = ?, confirming_at = ? WHERE id = ? AND (confirming_order IS NULL OR confirming_order = ? OR confirming_order = ?) AND ${stateCond}`
     ).bind(...binds).run();
     if (!(Number(r?.meta?.changes || 0) > 0)) return deny('invoice_confirm_in_progress', '같은 청구서의 다른 결제가 지금 승인 중입니다. 결제가 두 번 되지 않도록 이번 결제는 진행하지 않았습니다.');
+    /* ③ (2026-10-23) AI 컨텐츠는 결제창을 연 «뒤» 에도 학생 체크를 바꿀 수 있다 — 금액은 checkout 순간에 정해지고
+       활성화는 «지금 체크된 학생» 에게 이용권을 준다. 그래서 낸 돈과 열린 학생 수가 갈렸다(30명분 내고 50명 활성화).
+       ⚠️ 선점을 «쥔 뒤» 에 다시 잰다 — 쥔 동안(5분)은 명단 바꾸기가 막히므로(MGB_UNCLAIMED_SQL) 보통은 여기서 잰 금액이 곧 활성화 금액이다.
+       ⚠️ 다만 «항상» 은 아니다: 승인 응답이 끊겨(502) 선점이 5분 뒤 풀린 사이 명단을 바꾸고, 그 뒤 웹훅이 DONE 을 알리면
+          활성화는 «그때 체크된 학생» 에게 간다. 그 어긋남은 activateB2bAiInvoicePayment 가 console.error 로만 남긴다(점검 항목 아님).
+       ⛔ 못 재면(null·함수 없음) 막는다 — 막아도 돈은 안 나간다. */
+    if (ref.kind === 'MGB') {
+      let want: number | null = null;
+      try { want = opts.mgbAmountNow ? await opts.mgbAmountNow(ref.invoiceId) : null; } catch (_) { want = null; }
+      if (want == null || Math.round(Number(want)) !== Math.round(Number(amount))) {
+        await releaseB2bInvoiceClaim(env, orderId);
+        return deny(want == null ? 'invoice_check_failed' : 'invoice_amount_changed', want == null
+          ? '청구서 금액을 확인하지 못해 결제를 진행하지 않았습니다. 잠시 뒤 다시 시도해 주세요.'
+          : '결제창을 연 뒤 결제할 학생 명단이 바뀌었습니다(지금 금액 ' + Math.round(Number(want)).toLocaleString('ko-KR') + '원). 창을 닫고 다시 결제해 주세요.');
+      }
+    }
     return allow;
   } catch (e: any) {
     console.error('[b2b-pay-guard] 선점 실패 — 막는 쪽으로 처리:', e?.message || e, 'order=', orderId);
     return deny('invoice_check_failed', '청구서 상태를 확인하지 못해 결제를 진행하지 않았습니다. 잠시 뒤 다시 시도해 주세요.');
   }
+}
+
+/**
+ * ③ AI 컨텐츠 명세(학생 체크)를 바꾸는 쓰기에 붙이는 조건 — «지금 승인 중인 주문이 없을 때만».
+ *   bind 순서: (invoiceId, now - CLAIM_STALE_MS) → mgbUnclaimedBinds().
+ *   ⚠️ 선점 칸은 지연 ALTER 라, 이 조건을 쓰기 전에 ensureB2bClaimColumns 를 부른다(없으면 쓰기가 실패 = 바뀌지 않는 쪽).
+ */
+export const MGB_UNCLAIMED_SQL = `NOT EXISTS (SELECT 1 FROM ai_billing_invoices zc WHERE zc.id = ? AND zc.confirming_order IS NOT NULL AND zc.confirming_at > ?)`;
+export function mgbUnclaimedBinds(invoiceId: number, now = Date.now()): any[] { return [invoiceId, now - CLAIM_STALE_MS]; }
+/** 이 청구서가 지금 «승인 중» 인가 — 화면에 먼저 알려 주려는 용도(최종 판정은 위 조건이 DB 에서 한다). 모르면 null. */
+export async function mgbClaimedNow(env: Env, invoiceId: number, now = Date.now()): Promise<boolean | null> {
+  try {
+    await ensureClaimColumns(env);
+    const r: any = await env.DB.prepare(`SELECT confirming_order AS o, confirming_at AS t FROM ai_billing_invoices WHERE id = ?`).bind(invoiceId).first();
+    if (!r) return false;
+    return !!r.o && Number(r.t || 0) > now - CLAIM_STALE_MS;
+  } catch (_) { return null; }
+}
+
+/**
+ * 토스에 «그 주문이 정말 어떻게 됐나» 를 묻는다(confirm 문지기·자동결제 공용 정본, 2026-10-23 api-pay.ts 에서 옮김).
+ *   404 = 토스가 모르는 주문(돈 안 나감) → { status: 'NOT_FOUND' }. 그 밖의 실패·예외는 null(=모름 → 부르는 쪽이 막는다).
+ */
+export async function tossOrderProbe(env: Env, orderId: string): Promise<any | null> {
+  try {
+    const auth = 'Basic ' + btoa(String(env.TOSS_SECRET_KEY) + ':');
+    const r = await fetch(`https://api.tosspayments.com/v1/payments/orders/${encodeURIComponent(orderId)}`, { headers: { 'Authorization': auth } });
+    if (r.status === 404) return { status: 'NOT_FOUND' };
+    if (!r.ok) return null;
+    const j: any = await r.json();
+    return j && j.status ? j : null;
+  } catch (_) { return null; }
 }
 
 /** 승인이 «확실히 실패» 했을 때만 놓는다(네트워크가 끊겨 결과를 모르면 놓지 않는다 — 오래된 선점 판정이 토스에 다시 묻는다). */
