@@ -330,6 +330,10 @@
   }
   function castKey() { return CAST_KEY + ':' + (LIB ? LIB.identity() : 'guest') + ':' + S.ep.id; }
   function saveCast() { try { localStorage.setItem(castKey(), JSON.stringify(S.cast)); } catch (e) {} }
+  function groupName(value) {
+    return String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 30);
+  }
+  function groupTitle(name, title) { return ((name ? name + ' · ' : '') + title).slice(0, 100); }
 
   function renderCast() {
     var box = $('dub-cast');
@@ -771,7 +775,7 @@
       var ext = /mp4/.test(m.mime) ? 'mp4' : 'webm';
       return '<div class="mv"><b>' + esc(m.title) + '</b>'
         + '<video controls playsinline preload="metadata" src="' + esc(m.url) + '"></video>'
-        + '<a href="' + esc(m.url) + '" download="mangoi-' + esc(S.ep.id) + '-' + (i + 1) + '.' + ext + '">' + L('⬇ 파일 내려받기', '⬇ Download a copy') + '</a>'
+        + '<a href="' + esc(m.url) + '" download="' + esc(HOME ? HOME.movieFilename(m.title, m.mime) : 'mangoi-' + S.ep.id + '-' + (i + 1) + '.' + ext) + '">' + L('⬇ 파일 내려받기', '⬇ Download a copy') + '</a>'
         + '<span class="dub-save-note ' + esc(m.saveState || '') + '" role="status">' + (m.saveState === 'saving' ? L('작품을 저장하고 있어요…', 'Saving your movie…') : esc(m.saveMessage || '')) + '</span>'
         + (m.saveState === 'error' && LIB && LIB.hasAccount() ? '<button type="button" class="btn" data-retry-movie="' + i + '">' + L('계정에 다시 저장', 'Retry account save') + '</button>' : '')
         + (m.deviceVoice ? '<span class="hint">' + L('※ 일부 원어민 대사는 기기 목소리로 나와서 영상에 담기지 않았어요.', '※ Some native lines used the device voice and are not in the movie.') + '</span>' : '')
@@ -1209,7 +1213,7 @@
     if (mode !== 'watch' && $('dub-tcard')) $('dub-tcard').hidden = true;
   }
   /* 더빙·먼저 보기 중에는 고르기·출연 설정을 잠근다(둘이 동시에 돌지 않게) */
-  var LOCK_SEL = '#dub-scenes button, #dub-all, #dub-start, #dub-genres button, #dub-cast button, #dub-cast input, #dub-make-movie, #dub-mode, #dub-korean, #dub-w-film, #dub-w-all, #dub-nudge button, #dub-quick-start, #dub-quick-resume, #dub-quick-library, #dub-library button, #dub-practice-go';
+  var LOCK_SEL = '#dub-scenes button, #dub-all, #dub-start, #dub-genres button, #dub-cast button, #dub-cast input, #dub-group-name, #dub-make-movie, #dub-mode, #dub-korean, #dub-w-film, #dub-w-all, #dub-nudge button, #dub-quick-start, #dub-quick-resume, #dub-quick-library, #dub-library button, #dub-practice-go';
   function lockUi(on) { Array.prototype.forEach.call(document.querySelectorAll(LOCK_SEL), function (b) { b.disabled = on; }); }
   function setRunning(on) {
     setPlayerMode(on ? 'dub' : 'off');
@@ -1228,7 +1232,8 @@
 
   function checkpoint(run, complete) {
     if (!HOME || !S.ep || (LIB && run.owner !== LIB.identity())) return;
-    HOME.checkpoint({ id: 'main-' + S.ep.id, episodeId: S.ep.id, title: T(S.ep.title.ko, S.ep.title.en), state: {
+    HOME.checkpoint({ id: 'main-' + S.ep.id, episodeId: S.ep.id, title: groupTitle(run.groupName, T(S.ep.title.ko, S.ep.title.en)), state: {
+      groupName: run.groupName,
       version: 1, cast: S.cast.map(function (c) { return { name: c.name, character: c.character }; }),
       sceneIdxs: run.sceneIdxs.slice(), nextIndex: run.nextIndex, counters: Object.assign({}, run.checkpointCounters),
       mode: run.mode, korean: run.scriptMode === 'ko', makeMovie: !!($('dub-make-movie') && $('dub-make-movie').checked),
@@ -1247,6 +1252,7 @@
     S.resume = { sceneIdxs: state.sceneIdxs.slice(next), counters: state.complete ? {} : counters };
     S.sel = S.resume.sceneIdxs[0];
     $('dub-mode').value = state.mode === 'presentation' ? 'presentation' : 'practice';
+    if ($('dub-group-name')) $('dub-group-name').value = groupName(state.groupName);
     $('dub-korean').checked = !!state.korean;
     $('dub-make-movie').checked = state.makeMovie !== false;
     setGenre('adv', true); saveCast(); renderCast(); renderScenes(); renderPickSum(); renderMbar(); updateDubMode(); openSheet();
@@ -1258,6 +1264,7 @@
     if (probs.length) { alert(T('학생마다 캐릭터를 골라 주세요.', 'Please pick a character for each student.')); return; }
     ensureMix();                                     // ⚠️ 클릭 안에서 만들어야 소리가 난다(자동재생 정책)
     var run = { aborted: false, counters: Object.assign({}, resumeCounters), wakers: [], sub: null, mic: null, movie: null, tracks: [], deviceVoiceUsed: false,
+      groupName: groupName($('dub-group-name') && $('dub-group-name').value),
       owner: LIB ? LIB.identity() : '', sceneIdxs: sceneIdxs.slice(), nextIndex: 0, checkpointCounters: Object.assign({}, resumeCounters),
       mode: $('dub-mode').value === 'presentation' ? 'presentation' : 'practice',
       scriptMode: scriptMode() };
@@ -1277,6 +1284,7 @@
     var title = sceneIdxs.length > 1
       ? T('처음부터 끝까지', 'Whole story')
       : T('에피소드 ' + S.ep.scenes[sceneIdxs[0]].no + ' · ' + S.ep.scenes[sceneIdxs[0]].label.ko, 'Episode ' + S.ep.scenes[sceneIdxs[0]].no + ' · ' + S.ep.scenes[sceneIdxs[0]].label.en);
+    title = groupTitle(run.groupName, title);
     checkpoint(run, false);
     openMic(run).catch(function () {
       throw new Error('mic');
@@ -1706,6 +1714,7 @@
         if (S.ep) { loadCast(); renderCast(); renderResults(); renderMovies(); }
         if ($('dub-resume-note')) $('dub-resume-note').hidden = true;
         if ($('dub-draft-status')) $('dub-draft-status').textContent = '';
+        if ($('dub-group-name')) $('dub-group-name').value = '';
         if ($('dub-next')) $('dub-next').hidden = true;
       },
     });

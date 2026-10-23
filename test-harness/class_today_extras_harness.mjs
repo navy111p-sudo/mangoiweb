@@ -364,10 +364,10 @@ if (run) {
     teacher_entry: { state: 'late', at: 1, late_min: 7 }, attendance: { state: 'absent' },
     last_eval: { date: '2026-09-20', score: 4, max: 5, text: 'Good' }, today_eval: null });
   ok('teacher.html: 요청한 정보만 표시하고 결제유형은 제외한다', /2026-09-23/.test(h1) && !/B2C/.test(h1) && /2\/wk/.test(h1) && /7 min late/.test(h1)
-     && /Absent/.test(h1) && /Last feedback/.test(h1) && /Today's feedback/.test(h1), h1);
+     && /Absent/.test(h1) && /Last class feedback/.test(h1) && /Today's feedback/.test(h1), h1);
   ok('teacher.html: 옛 응답(칸 없음)에는 아무것도 안 그린다(짝)', call({ start_time: '14:00' }) === '');
   const h2 = call({ class_date: 'x', prev_lesson: { date: 'y' }, attendance: null });
-  ok('teacher.html: ↩ 지난 수업이 있으면 «지난 평가» 를 겹쳐 그리지 않는다', !/Last feedback/.test(h2) && /Today's feedback/.test(h2), h2);
+  ok('teacher.html: 지난 수업 요약이 있어도 피드백 동선은 유지한다', /Last class feedback/.test(h2) && /Today's feedback/.test(h2), h2);
   // 📅 이번 주 7칸 — 받으면 그리고, 못 받으면 줄 자체를 안 그린다(짝)
   const wd = ['2026-09-21','2026-09-22','2026-09-23','2026-09-24','2026-09-25','2026-09-26','2026-09-27'];
   const h3 = call({ class_date: '2026-09-23', attendance: null, week_days: [true,false,true,false,true,false,false], week_dates: wd });

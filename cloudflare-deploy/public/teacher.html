@@ -664,7 +664,6 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     <div class="portal-filters">
       <label><span data-en="Student name / ID" data-ko="학생 이름 / ID">Student name / ID</span><input id="portal-search" type="search" autocomplete="off"></label>
       <label><span data-en="Academy" data-ko="학원">Academy</span><select id="portal-academy"><option value="">All</option></select></label>
-      <label><span data-en="Time order" data-ko="시간 정렬">Time order</span><select id="portal-sort"><option value="asc" data-en="Earliest first" data-ko="오름차순">Earliest first</option><option value="desc" data-en="Latest first" data-ko="내림차순">Latest first</option></select></label>
     </div>
   </div>
   <div class="card" id="c-classes" hidden>
@@ -677,6 +676,13 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       </div>
       <div class="nu-c" id="nu-count"></div>
     </div>
+    <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0">
+      <span data-en="Time order" data-ko="시간 정렬">Time order</span>
+      <select id="class-time-sort" style="font:inherit;padding:8px;border:1px solid #94a3b8;border-radius:8px;background:var(--card,#fff);color:inherit">
+        <option value="asc" data-en="Earliest first" data-ko="오름차순 (빠른 시간부터)">Earliest first</option>
+        <option value="desc" data-en="Latest first" data-ko="내림차순 (늦은 시간부터)">Latest first</option>
+      </select>
+    </label>
     <div id="classes"></div>
   </div>
 
@@ -1524,6 +1530,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       });
   }
 
+  document.addEventListener('teacher-feedback-saved', function(){ load(true); });
+
   function setStale(on){
     var el = document.getElementById('stale');
     if (el) el.hidden = !on;
@@ -1869,10 +1877,14 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var atTxt = AT ? ((AT[0] ? AT[0] + ' ' : '') + T(AT[1], AT[2]) + (at.at ? ' ' + hhmm(at.at) : '')
                  + (at.state === 'late' && at.late_min != null ? ' (+' + at.late_min + T('m', '분') + ')' : '')) : D;
     var ev = function (e) { return e ? ((e.date || '') + (e.score != null ? ' ⭐' + e.score + '/' + (e.max || '') : '') + (e.text ? ' · ' + e.text : '')) : D; };
+    var todayFeedback = c.today_eval || (c.eval_id ? { id: c.eval_id } : null);
+    var lastFeedback = c.last_eval || (c.prev_lesson && c.prev_lesson.eval_id ? {
+      id: c.prev_lesson.eval_id, date: c.prev_lesson.date, teacher: c.prev_lesson.teacher_name
+    } : null);
     /* 📝 (2026-09-30 매니저 제보) 눌러서 전문 보기 — 공용 창 js/eval-quick-view.js 를 «누를 때만» 불러온다. */
     var evOpen = function (e) {
       return (e && e.id) ? ' <a class="evq-open" href="/eval.html?id=' + encodeURIComponent(e.id) + '" data-evq="' + esc(e.id)
-        + '" target="_blank" rel="noopener">' + esc(T('📄 Open', '📄 전문 보기')) + '</a>' : '';
+        + '" target="_blank" rel="noopener">' + esc(T('📄 View / Edit', '📄 보기 / 수정')) + '</a>' : '';
     };
     var sl = T(c.sched_label_en, c.sched_label_ko);
     var row1 = [esc(c.class_date || ''),
@@ -1895,10 +1907,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       wkLine = '<br><b>' + esc(T('This week', '이번 주')) + '</b> <span class="cal7" role="img" aria-label="' + esc(T(nOn + ' class day(s) this week', '이번 주 수업 ' + nOn + '일')) + '">' + strip + '</span>';
     }
     return '<div class="cls-extra">' + row1.join(' &middot; ') + wkLine
-      + (c.prev_lesson ? '' : '<br><b>' + esc(T('Last feedback', '지난 평가')) + '</b> ' + esc(ev(c.last_eval)) + evOpen(c.last_eval))
-      + '<br><b>' + esc(T("Today's feedback", '오늘 평가')) + '</b> ' + esc(ev(c.today_eval)) + evOpen(c.today_eval)
+      + '<br><b>' + esc(T('Last class feedback', '지난 수업 피드백')) + '</b> ' + esc(ev(lastFeedback)) + evOpen(lastFeedback)
+      + '<br><b>' + esc(T("Today's feedback", '오늘 피드백')) + '</b> ' + esc(ev(todayFeedback)) + evOpen(todayFeedback)
       + ((!c.today_eval && !c.eval_written && c.class_state !== 'postponed' && c.class_state !== 'cancelled' && typeof wi === 'number' && wi >= 0)
-          ? ' <button type="button" class="evq-open evq-write" data-eval="' + wi + '">' + esc(T('✍ Write now', '✍ 지금 쓰기')) + '</button>' : '')
+          ? ' <button type="button" class="evq-open evq-write" data-eval="' + wi + '">' + esc(T('✍ Write Feedback', '✍ 피드백 작성')) + '</button>' : '')
       + '</div>';
   }
   /* 📊 B — 상태별 개수 칩. 판정은 서버의 class_state 를 «그리기만» 하고, 옛 캐시(값 없음)는 시각으로만.
@@ -1950,7 +1962,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   function portalRows(rows){
     var query = String((document.getElementById('portal-search') || {}).value || '').trim().toLowerCase();
     var academy = String((document.getElementById('portal-academy') || {}).value || '');
-    var direction = (document.getElementById('portal-sort') || {}).value === 'desc' ? -1 : 1;
+    var direction = (document.getElementById('class-time-sort') || {}).value === 'desc' ? -1 : 1;
     return (rows || []).filter(function(c){
       return (!query || [stuName(c),stuUid(c),c.student_name_en].join(' ').toLowerCase().indexOf(query) >= 0)
         && (!academy || c.academy === academy);
@@ -1970,7 +1982,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     lastSig = null;
     if(DATA){ renderClasses(DATA.classes || []); if(DATA.week) renderWeek(DATA.week); }
   }
-  ['portal-search','portal-academy','portal-sort'].forEach(function(id){
+  ['portal-search','portal-academy'].forEach(function(id){
     document.getElementById(id).addEventListener(id === 'portal-search' ? 'input' : 'change',portalRefresh);
   });
   function portalAcademies(){
@@ -1982,10 +1994,32 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     el.innerHTML='<option value="">'+esc(T('All academies','전체 학원'))+'</option>'+Object.keys(names).sort().map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
     el.value=selected;
   }
+  var classTimeSort = 'asc';
+  try { if (localStorage.getItem('mangoi_teacher_time_sort') === 'desc') classTimeSort = 'desc'; } catch (e) {}
+  var classTimeSortSelect = document.getElementById('class-time-sort');
+  classTimeSortSelect.value = classTimeSort;
+  classTimeSortSelect.addEventListener('change', function () {
+    classTimeSort = this.value === 'desc' ? 'desc' : 'asc';
+    try { localStorage.setItem('mangoi_teacher_time_sort', classTimeSort); } catch (e) {}
+    lastSig = null;
+    if (DATA) { renderClasses(DATA.classes || []); if(DATA.week) renderWeek(DATA.week); }
+  });
+  // Sort a copy; row actions retain the same class objects, regardless of status.
+  function sortClassesByTime(list, direction){
+    return list.map(function(c, i){ return { c: c, i: i }; }).sort(function(a, b){
+      var x = Number(a.c.start_ts), y = Number(b.c.start_ts);
+      var ax = a.c.start_ts != null && a.c.start_ts !== '' && isFinite(x);
+      var by = b.c.start_ts != null && b.c.start_ts !== '' && isFinite(y);
+      if (!ax) return by ? 1 : a.i - b.i;
+      if (!by) return -1;
+      return (direction === 'desc' ? y - x : x - y) || a.i - b.i;
+    }).map(function(row){ return row.c; });
+  }
+
   function renderClasses(list){
     portalAcademies();
     var unfiltered = list;
-    list = portalRows(list);
+    list = sortClassesByTime(portalRows(list), classTimeSort);
     if(unfiltered.length && !list.length){document.getElementById('c-classes').hidden=false;document.getElementById('classes').innerHTML='<div class="empty">'+esc(T('No matching classes','검색 결과가 없습니다'))+'</div>';renderNextUp(unfiltered);lastSig=null;return;}
 
     var box = document.getElementById('classes');
@@ -4461,7 +4495,9 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
 (function(){
   function en(){ return document.documentElement.lang !== 'ko'; }   /* applyLang() 이 정하는 값 — 이 화면 언어 정본 */
   function open(id){
-    var go = function(){ if (window.mgEvalQuick) window.mgEvalQuick(id, { en: en() }); };
+    var go = function(){ if (window.mgEvalQuick) window.mgEvalQuick(id, { en: en(), onSaved: function(){
+      document.dispatchEvent(new Event('teacher-feedback-saved'));
+    } }); };
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
     sc.src = '/js/eval-quick-view.js?v=2';
