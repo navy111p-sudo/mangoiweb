@@ -1271,7 +1271,10 @@ function finishEpisode() {
   const mineCount = lines().filter(isMine).length;
   $('finish-body').textContent = t('finishBody')(mineCount);
   $('finish').hidden = false;
-  if (exp.active) setTimeout(() => finishExport(true), 600); // 마지막 소리 꼬리까지 담기
+  if (exp.active) {
+    const recorder = exp.recorder;
+    setTimeout(() => { if (exp.recorder === recorder) finishExport(true); }, 600); // 이 작업의 마지막 소리 꼬리만 담기
+  }
   renderTransport();
 }
 
@@ -1304,6 +1307,7 @@ function pickMime() {
 }
 
 function startExport() {
+  if (exp.active) return;
   if (micSession) { setStatus(t('micRecording')); return; }
   if (!canExport()) { setStatus(t('exportFail')); return; }
   const ctx = audioCtx();
@@ -1322,8 +1326,9 @@ function startExport() {
     exp.recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
     exp.mime = exp.recorder.mimeType || mime || 'video/webm';
   } catch (e) { exp.active = false; MIX.bus.disconnect(exp.dest); setStatus(t('exportFail')); return; }
-  exp.chunks = [];
-  exp.recorder.ondataavailable = (e) => { if (e.data.size) exp.chunks.push(e.data); };
+  const chunks = [];
+  exp.chunks = chunks;
+  exp.recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
   document.body.classList.add('exporting');
   $('recbar').hidden = false;
   setStatus('');
@@ -1366,22 +1371,24 @@ function drawCaption(g, W, H) {
 
 function finishExport(save) {
   if (!exp.active) return;
+  const dest = exp.dest, rec = exp.recorder, chunks = exp.chunks, mime = exp.mime, episodeId = episode().id;
   exp.active = false;
   cancelAnimationFrame(exp.raf);
   document.body.classList.remove('exporting');
   $('recbar').hidden = true;
-  setTimeout(() => { try { MIX.bus.disconnect(exp.dest); } catch (e) { /* 무시 */ } }, 1500); // 팡파르 꼬리까지
-  const rec = exp.recorder;
+  // 이전 작업의 정리가 곧바로 시작한 새 작업의 소리까지 끊지 않게 목적지를 붙잡는다.
+  setTimeout(() => { try { MIX.bus.disconnect(dest); } catch (e) { /* 무시 */ } }, 1500);
+  const showStatus = (msg) => { if (exp.recorder === rec && !exp.active) setStatus(msg); };
   rec.onstop = async () => {
-    if (!save) { setStatus(t('exportCanceled')); return; }
-    const blob = new Blob(exp.chunks, { type: exp.mime });
-    const ext = exp.mime.includes('mp4') ? 'mp4' : 'webm';
-    setStatus(t('exportReady'));
+    if (!save) { showStatus(t('exportCanceled')); return; }
+    const blob = new Blob(chunks, { type: mime });
+    const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+    showStatus(t('exportReady'));
     try {
-      await downloads.save({ filename: `dub-${episode().id}-${new Date().toISOString().slice(0, 10)}.${ext}`, data: blob });
-      setStatus(t('exportSaved'));
+      await downloads.save({ filename: `dub-${episodeId}-${new Date().toISOString().slice(0, 10)}.${ext}`, data: blob });
+      showStatus(t('exportSaved'));
     } catch (e) {
-      setStatus(e?.code === 'declined' ? t('exportDeclined') : t('exportFail'));
+      showStatus(e?.code === 'declined' ? t('exportDeclined') : t('exportFail'));
     }
   };
   if (rec.state !== 'inactive') rec.stop();
