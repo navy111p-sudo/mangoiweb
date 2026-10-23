@@ -466,7 +466,7 @@ if (process.env.B2B_MUTATE) {
     ['③ 승인 직전 금액 대조 제거', [['b2b-pay-guard.ts', 'if (want == null || Math.round(Number(want)) !== Math.round(Number(amount))) {', 'if (false) {']]],
     ['③ 금액 대조 조건 뒤집기', [['b2b-pay-guard.ts', 'Math.round(Number(want)) !== Math.round(Number(amount))', 'Math.round(Number(want)) === Math.round(Number(amount))']]],
     ['③ 명단 쓰기의 «승인 중 아님» DB 조건 제거(앞 검사만 남김)', [['ai-billing.ts', 'AND student_user_id = ? AND ${MGB_UNCLAIMED_SQL}`);', 'AND student_user_id = ? AND (0 * ?) + (0 * ?) = 0`);', 'all']]],
-    ['③ 명단 쓰기 두 겹 다 제거', [['ai-billing.ts', 'AND student_user_id = ? AND ${MGB_UNCLAIMED_SQL}`);', 'AND student_user_id = ? AND (0 * ?) + (0 * ?) = 0`);', 'all'], ['ai-billing.ts', 'if ((await mgbClaimedNow(env, invoiceId)) === true) return err(CLAIMED_MSG, 409);', '', 'all'], ['ai-billing.ts', 'if (r.blocked) return err(CLAIMED_MSG, 409);', '', 'all']]],
+    ['③ 명단 쓰기 두 겹 다 제거', [['ai-billing.ts', 'AND student_user_id = ? AND ${MGB_UNCLAIMED_SQL}`);', 'AND student_user_id = ? AND (0 * ?) + (0 * ?) = 0`);', 'all'], ['ai-billing.ts', 'if ((await mgbClaimedNow(env, invoiceId)) === true) return err(CLAIMED_MSG, 409);', '', 'all'], ['ai-billing.ts', 'if (!r.ok && r.blocked) return err(CLAIMED_MSG, 409);', '', 'all']]],
     ['④ 이번 달 미결제 자동 고르기 제거', [['ai-billing.ts', 'if (cur) month = cur.billing_month;', 'if (false) month = cur.billing_month;']]],
     ['④ 안 낸 달 목록 비우기', [['ai-billing.ts', 'unpaid_months: unpaidMonths', 'unpaid_months: []']]],
     ['④ 체크 0명 달도 미결제로 보기', [['ai-billing.ts', 'unpaidRows.filter((r: any) => Number(r.n) > 0)', 'unpaidRows.filter((r: any) => true)']]],

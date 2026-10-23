@@ -307,10 +307,19 @@ async function upsertInvoice(env: Env, shop: string, kind: 'monthly' | 'topup', 
     // 낼 돈이 없어졌으면(학생이 빠짐·입금이 먼저 들어옴) 한 푼도 안 들어온 청구서는 스스로 거둔다
     if (!(calc.due_krw > 0)) {
       // ⑤ (2026-10-23) 결제가 «승인 중» 인 청구서는 거두지 않는다(NOT_CLAIMED) — 모르면(칸 없음) 안 바꾸는 쪽으로 실패한다
-      if (!dry) { await ensureB2bClaimColumns(env); await safe(async () => { await env.DB.prepare(`UPDATE b2b_tuition_invoices SET status='void', updated_at=? WHERE id=? AND paid_krw = 0 AND ${NOT_CLAIMED}`).bind(Date.now(), last.id, Date.now() - CLAIM_STALE_MS).run(); return true; }, false); }
+      if (!dry) {
+        await ensureB2bClaimColumns(env);
+        // 0행(승인 중·그 사이 입금)이면 «거뒀다» 고 기록하지 않는다 — 로그가 안 한 일을 했다고 적으면 안 된다
+        const n = await safe(async () => Number(((await env.DB.prepare(`UPDATE b2b_tuition_invoices SET status='void', updated_at=? WHERE id=? AND paid_krw = 0 AND ${NOT_CLAIMED}`).bind(Date.now(), last.id, Date.now() - CLAIM_STALE_MS).run()) as any)?.meta?.changes || 0), 0);
+        if (!n) return { action: 'unchanged', id: last.id, due: Number(last.due_krw) };
+      }
       return { action: 'voided', id: last.id, due: 0 };
     }
-    if (!dry) { await ensureB2bClaimColumns(env); await safe(async () => { await env.DB.prepare(`UPDATE b2b_tuition_invoices SET due_krw=?, calc_json=?, updated_at=? WHERE id=? AND paid_krw = 0 AND ${NOT_CLAIMED}`).bind(calc.due_krw, JSON.stringify(calc), Date.now(), last.id, Date.now() - CLAIM_STALE_MS).run(); return true; }, false); }
+    if (!dry) {
+      await ensureB2bClaimColumns(env);
+      const n = await safe(async () => Number(((await env.DB.prepare(`UPDATE b2b_tuition_invoices SET due_krw=?, calc_json=?, updated_at=? WHERE id=? AND paid_krw = 0 AND ${NOT_CLAIMED}`).bind(calc.due_krw, JSON.stringify(calc), Date.now(), last.id, Date.now() - CLAIM_STALE_MS).run()) as any)?.meta?.changes || 0), 0);
+      if (!n) return { action: 'unchanged', id: last.id, due: Number(last.due_krw) };
+    }
     return { action: 'refreshed', id: last.id, due: calc.due_krw };
   }
   if (kind === 'monthly' && last && last.status !== 'void') return { action: 'skipped', id: last.id, due: 0 };   // 그 달 정기 청구서는 하나(취소된 것만 다시 만든다)

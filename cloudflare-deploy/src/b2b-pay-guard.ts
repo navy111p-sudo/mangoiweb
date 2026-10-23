@@ -145,7 +145,9 @@ export async function claimB2bInvoiceForConfirm(env: Env, orderId: string, amoun
     if (!(Number(r?.meta?.changes || 0) > 0)) return deny('invoice_confirm_in_progress', '같은 청구서의 다른 결제가 지금 승인 중입니다. 결제가 두 번 되지 않도록 이번 결제는 진행하지 않았습니다.');
     /* ③ (2026-10-23) AI 컨텐츠는 결제창을 연 «뒤» 에도 학생 체크를 바꿀 수 있다 — 금액은 checkout 순간에 정해지고
        활성화는 «지금 체크된 학생» 에게 이용권을 준다. 그래서 낸 돈과 열린 학생 수가 갈렸다(30명분 내고 50명 활성화).
-       ⚠️ 선점을 «쥔 뒤» 에 다시 잰다 — 쥔 뒤로는 명단 바꾸기가 막히므로(mgbUnclaimedCond) 여기서 잰 금액이 곧 활성화 금액이다.
+       ⚠️ 선점을 «쥔 뒤» 에 다시 잰다 — 쥔 동안(5분)은 명단 바꾸기가 막히므로(MGB_UNCLAIMED_SQL) 보통은 여기서 잰 금액이 곧 활성화 금액이다.
+       ⚠️ 다만 «항상» 은 아니다: 승인 응답이 끊겨(502) 선점이 5분 뒤 풀린 사이 명단을 바꾸고, 그 뒤 웹훅이 DONE 을 알리면
+          활성화는 «그때 체크된 학생» 에게 간다. 그 어긋남은 activateB2bAiInvoicePayment 가 console.error 로만 남긴다(점검 항목 아님).
        ⛔ 못 재면(null·함수 없음) 막는다 — 막아도 돈은 안 나간다. */
     if (ref.kind === 'MGB') {
       let want: number | null = null;

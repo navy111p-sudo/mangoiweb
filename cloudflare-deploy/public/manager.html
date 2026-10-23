@@ -2504,18 +2504,25 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     fetch('/api/admin/ai-billing/invoice/generate', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: '{}'
     }).then(function(r){ return r.json(); }).then(function(j){
-      if (!j || !j.ok) { alert(T('Could not load the student list.', '학생 명단을 불러오지 못했습니다.') + (j && j.error ? ' (' + j.error + ')' : '')); return; }
+      if (!j || !j.ok) { alert(aibFailText(j, T('Could not load the student list.', '학생 명단을 불러오지 못했습니다.'))); return; }
       D.aibill = null; loadAiBill();
     }).catch(function(){ alert(T('Network error.', '네트워크 오류가 발생했습니다.')); })
       .then(function(){ if (btn) btn.disabled = false; });
   };
+  /* (2026-10-23) 실패 사유를 사람 말로 — «결제 진행 중» 은 고장이 아니라 잠시 뒤 되는 일이다(같은 문구 하나로 뭉치지 않는다) */
+  function aibFailText(j, base){
+    var e = String((j && j.error) || '');
+    if (e.indexOf('invoice_confirm_in_progress') === 0) return T('A payment is in progress for this bill, so it cannot be changed now. Try again after the payment finishes (or in a few minutes).', '이 청구서의 결제가 진행 중이라 지금은 바꿀 수 없습니다. 결제가 끝난 뒤(또는 몇 분 뒤) 다시 해 주세요.');
+    if (e.indexOf('claim_check_failed') === 0) return T('Could not check the payment status. Please try again shortly.', '결제 진행 상태를 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+    return base + (e ? ' (' + e + ')' : '');
+  }
   window.aiBillToggleItem = function(cb, invoiceId, uid){
     cb.disabled = true;
     fetch('/api/admin/ai-billing/invoice/item', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ invoice_id: invoiceId, student_user_id: uid, included: cb.checked ? 1 : 0 })
     }).then(function(r){ return r.json(); }).then(function(j){
-      if (!j || !j.ok) { cb.checked = !cb.checked; alert(T('Could not save.', '저장하지 못했습니다.')); return; }
+      if (!j || !j.ok) { cb.checked = !cb.checked; alert(aibFailText(j, T('Could not save.', '저장하지 못했습니다.'))); return; }
       D.aibill = null; loadAiBill();   // 총액을 다시 정확히 받아온다(화면에서 암산하지 않는다)
     }).catch(function(){ cb.checked = !cb.checked; alert(T('Network error.', '네트워크 오류가 발생했습니다.')); })
       .then(function(){ cb.disabled = false; });
@@ -2538,7 +2545,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ invoice_id: j.invoice.id, student_user_ids: uids, included: included ? 1 : 0 })
     }).then(function(r){ return r.json().catch(function(){ return {}; }); }).then(function(o){
-      if (!o || o.ok !== true) { alert(T('Could not save.', '저장하지 못했습니다.') + (o && o.error ? ' (' + o.error + ')' : '')); return; }
+      if (!o || o.ok !== true) { alert(aibFailText(o, T('Could not save.', '저장하지 못했습니다.'))); return; }
+      if (o.partial) alert(T('A payment started midway, so only ' + o.changed + ' student(s) were changed. Change the rest after the payment finishes.', '결제가 시작되어 ' + o.changed + '명만 바뀌었습니다. 결제가 끝난 뒤 나머지를 다시 바꿔 주세요.'));
       if (o.optin_saved === false) alert(T('Saved for this payment, but the sign-up list could not be updated. Please try once more.', '이번 결제에는 반영됐지만 신청 명단 저장에 실패했습니다. 한 번 더 눌러 주세요.'));
       D.aibill = null; loadAiBill();
     }).catch(function(){ alert(T('Network error.', '네트워크 오류가 발생했습니다.')); })

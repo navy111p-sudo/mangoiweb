@@ -367,7 +367,7 @@ function priceFields(pr: AiPrice) {
  *   없으면 새로 만들고 그 순간의 단가를 스냅샷한다.
  */
 async function generateOrRefreshInvoice(env: Env, shopName: string, billingMonth: string, actor: string, liveIn?: Set<string> | null, optInIn?: Set<string> | null, skipIfNoOptIn = false):
-    Promise<{ invoice_id: number; added: number; created: boolean; claimed?: boolean; live_check_failed?: boolean; skipped?: boolean; live_listed?: number; idle_listed?: number; auto_excluded?: number; auto_included?: number }> {
+    Promise<{ invoice_id: number; added: number; created: boolean; claimed?: boolean; claim_unknown?: boolean; live_check_failed?: boolean; skipped?: boolean; live_listed?: number; idle_listed?: number; auto_excluded?: number; auto_included?: number }> {
   await ensureSchema(env);
   // 화상반 목록·신청 명단을 «청구서를 만들기 전에» 읽는다 — 실패하면 빈 청구서 머리도 안 남긴다.
   const live = liveIn === undefined ? await loadLiveUids(env) : liveIn;
@@ -407,7 +407,13 @@ async function generateOrRefreshInvoice(env: Env, shopName: string, billingMonth
   const inv = await env.DB.prepare(`SELECT status FROM ai_billing_invoices WHERE id = ?`).bind(invoiceId).first<{ status: string }>();
   if (inv?.status !== 'draft') return { invoice_id: invoiceId, added: 0, created };
   // ③ 결제 승인 중이면 명세에 손대지 않는다(모르면 손대지 않는다 — 더하면 낸 돈보다 많은 학생이 열린다). 다음 실행이 더한다.
-  if ((await mgbClaimedNow(env, invoiceId)) !== false) return { invoice_id: invoiceId, added: 0, created, claimed: true };
+  //    방금 만든 청구서(created)는 주문이 생길 수 없어 묻지 않는다 — 물었다가 조회가 흔들리면 «학생 줄 없는 머리» 만 남는다.
+  //    «승인 중» 과 «못 물어봤다» 는 다른 사실이라 갈라 돌려준다(화면이 «결제 중» 이라고 거짓말하지 않게).
+  if (!created) {
+    const cl = await mgbClaimedNow(env, invoiceId);
+    if (cl === true) return { invoice_id: invoiceId, added: 0, created, claimed: true };
+    if (cl === null) return { invoice_id: invoiceId, added: 0, created, claim_unknown: true };
+  }
 
   const rosterR = await currentRoster(env, shopName, live, optIn);
   if (!rosterR.ok) return { invoice_id: invoiceId, added: 0, created, live_check_failed: true };
@@ -515,7 +521,7 @@ export async function generateMonthlyAiInvoices(env: Env): Promise<{ agencies: n
   for (const s of shops) {
     const r = await safe(() => generateOrRefreshInvoice(env, s.shop_name, target, 'auto', live, optIn, true), null);
     if (r && r.skipped) skipped++;
-    else if (r && !r.live_check_failed) { invoices++; added += r.added; } else failed++;
+    else if (r && !r.live_check_failed && !r.claim_unknown) { invoices++; added += r.added; } else failed++;
   }
   const out = { agencies: shops.length, invoices, added, failed, skipped, status: failed ? 'partial' : 'ok' };
   await recordCronRun(env, target, out);
@@ -569,34 +575,36 @@ async function setItemsIncluded(env: Env, invoiceId: number, shopName: string, u
      낸 돈과 열리는 학생 수가 다시 갈린다. 그래서 UPDATE 자체에 «승인 중이 아닐 때만» 을 붙인다(DB 가 최종 판정). */
   await ensureB2bClaimColumns(env);
   const ub = mgbUnclaimedBinds(invoiceId);
-  let touched = 0;
-  const countIt = (rs: any) => { for (const r of (rs || []) as any[]) touched += Number(r?.meta?.changes || 0); };
+  /* 묶음(80명) 사이에 승인이 시작되면 앞 묶음만 바뀐다 — «바뀐 학생» 은 실제로 바뀐 줄만 센다(응답·신청 명단이 그것을 따른다). */
+  let done: string[] = [];
+  const countIt = (rs: any, part: string[]) => { ((rs || []) as any[]).forEach((r, k) => { if (Number(r?.meta?.changes || 0) > 0 && part[k]) done.push(part[k]); }); };
   try {
     const st = env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ?, user_set = 1,
         track = CASE WHEN track = 'live' THEN track WHEN ? = 1 THEN 'ai' ELSE 'none' END
       WHERE invoice_id = ? AND student_user_id = ? AND ${MGB_UNCLAIMED_SQL}`);
-    for (let i = 0; i < targets.length; i += 80) countIt(await env.DB.batch(targets.slice(i, i + 80).map(u => st.bind(included, included, invoiceId, u, ...ub))));
+    for (let i = 0; i < targets.length; i += 80) { const part = targets.slice(i, i + 80); countIt(await env.DB.batch(part.map(u => st.bind(included, included, invoiceId, u, ...ub))), part); }
   } catch (_) {
     // track·user_set 칸이 없는 DB(ALTER 실패) — 옛 UPDATE 로 떨어진다(«승인 중» 조건은 그대로 둔다).
-    touched = 0;
+    done = [];
     try {
       const st = env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ? WHERE invoice_id = ? AND student_user_id = ? AND ${MGB_UNCLAIMED_SQL}`);
-      for (let i = 0; i < targets.length; i += 80) countIt(await env.DB.batch(targets.slice(i, i + 80).map(u => st.bind(included, invoiceId, u, ...ub))));
+      for (let i = 0; i < targets.length; i += 80) { const part = targets.slice(i, i + 80); countIt(await env.DB.batch(part.map(u => st.bind(included, invoiceId, u, ...ub))), part); }
     } catch { return { ok: false, changed: [], unknown, optin_saved: false }; }
   }
   // 한 줄도 안 바뀌었다 = 승인 중이라 막혔다(명세에 있는 학생만 골랐으므로). 신청 명단도 건드리지 않는다.
-  if (touched === 0) return { ok: false, changed: [], unknown, optin_saved: false, blocked: true };
+  if (!done.length) return { ok: false, changed: [], unknown, optin_saved: false, blocked: true };
   const optinSaved = await safe(async () => {
     const st = included
       ? env.DB.prepare(`INSERT INTO ai_billing_optin (uid_lc, user_id, shop_name, created_at, created_by) VALUES (?, ?, ?, ?, ?)
            ON CONFLICT(uid_lc) DO UPDATE SET user_id = excluded.user_id, shop_name = excluded.shop_name`)
       : env.DB.prepare(`DELETE FROM ai_billing_optin WHERE uid_lc = ?`);
     const now = Date.now();
-    const rows = targets.map(u => included ? st.bind(u.toLowerCase(), u, shopName, now, actor) : st.bind(u.toLowerCase()));
+    const rows = done.map(u => included ? st.bind(u.toLowerCase(), u, shopName, now, actor) : st.bind(u.toLowerCase()));
     for (let i = 0; i < rows.length; i += 80) await env.DB.batch(rows.slice(i, i + 80));
     return true;
   }, false);
-  return { ok: true, changed: targets, unknown, optin_saved: optinSaved };
+  // 일부만 바뀌었으면(묶음 사이에 승인 시작) blocked 를 함께 알려 화면이 «일부만 저장» 이라고 말하게 한다
+  return { ok: true, changed: done, unknown, optin_saved: optinSaved, blocked: done.length < targets.length };
 }
 
 const UNPAID_LOOKBACK_MONTHS = 12;   // ④ «안 낸 달» 목록을 몇 달 전까지 보여 주나
@@ -878,6 +886,7 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     const r = await generateOrRefreshInvoice(env, shopName, month, scope.label || 'admin');
     if (r.live_check_failed) return json({ ok: false, error: 'live_check_failed', ...r }, 503);
     if (r.claimed) return err(CLAIMED_MSG, 409);
+    if (r.claim_unknown) return err('claim_check_failed: 결제 진행 상태를 확인하지 못해 명세를 고치지 않았습니다. 잠시 뒤 다시 시도해 주세요.', 503);
     return json({ ok: true, ...r });
   }
 
@@ -894,7 +903,7 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (inv.status !== 'draft') return err('결제 완료된 청구서는 명세를 바꿀 수 없습니다', 409);
     if ((await mgbClaimedNow(env, invoiceId)) === true) return err(CLAIMED_MSG, 409);
     const r = await setItemsIncluded(env, invoiceId, inv.shop_name, [studentUid], included as 0 | 1, scope.label || 'admin');
-    if (r.blocked) return err(CLAIMED_MSG, 409);
+    if (!r.ok && r.blocked) return err(CLAIMED_MSG, 409);
     if (!r.ok) return err('save failed', 500);
     if (!r.changed.length) return err('not_in_invoice: 이 청구서 명세에 없는 학생입니다', 404);
     return json({ ok: true, invoice_id: invoiceId, student_user_id: studentUid, included: !!included, optin_saved: r.optin_saved });
@@ -917,9 +926,11 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (inv.status !== 'draft') return err('결제 완료된 청구서는 명세를 바꿀 수 없습니다', 409);
     if ((await mgbClaimedNow(env, invoiceId)) === true) return err(CLAIMED_MSG, 409);
     const r = await setItemsIncluded(env, invoiceId, inv.shop_name, uids, included as 0 | 1, scope.label || 'admin');
-    if (r.blocked) return err(CLAIMED_MSG, 409);
+    if (!r.ok && r.blocked) return err(CLAIMED_MSG, 409);
     if (!r.ok) return err('save failed', 500);
-    return json({ ok: true, invoice_id: invoiceId, included: !!included, changed: r.changed.length, unknown: r.unknown.length, optin_saved: r.optin_saved });
+    // 일부만 바뀜(묶음 사이에 결제 승인이 시작됨) — 성공이라고만 하면 나머지가 바뀐 줄 안다
+    return json({ ok: true, invoice_id: invoiceId, included: !!included, changed: r.changed.length, unknown: r.unknown.length, optin_saved: r.optin_saved,
+      ...(r.blocked ? { partial: true, message: '결제가 시작되어 ' + r.changed.length + '명만 바뀌었습니다. 결제가 끝난 뒤 나머지를 다시 바꿔 주세요.' } : {}) });
   }
 
   // ── GET /history?shop_name=&limit= : 지난 청구서 목록 ──
