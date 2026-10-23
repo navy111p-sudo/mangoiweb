@@ -208,7 +208,7 @@ const BRIEF = { id: 55, date: '2026-09-22', score: 5, max: 5, text: 'The student
     ok('C-12 강사: 평가가 없으면 빈 문자열(짝)', f(null) === '' && f({ text: 'x' }) === '');
   }
   ok('C-13 강사: 지난·오늘 평가 두 줄 모두에 붙였다',
-    /esc\(ev\(c\.last_eval\)\)\s*\+\s*evOpen\(c\.last_eval\)/.test(TCH) && /esc\(ev\(c\.today_eval\)\)\s*\+\s*evOpen\(c\.today_eval\)/.test(TCH));
+    /esc\(ev\(lastFeedback\)\)\s*\+\s*evOpen\(lastFeedback\)/.test(TCH) && /esc\(ev\(todayFeedback\)\)\s*\+\s*evOpen\(todayFeedback\)/.test(TCH));
 }
 
 /* ── D. 클릭 위임 ──────────────────────────────────────────── */
