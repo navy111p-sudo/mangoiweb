@@ -1036,7 +1036,7 @@ function canPlay(blob) {
     const done = (ok) => { URL.revokeObjectURL(url); resolve(ok); };
     a.onloadedmetadata = () => done(true);
     a.onerror = () => done(false);
-    setTimeout(() => done(true), 4000);
+    setTimeout(() => done(false), 4000);
   });
 }
 
@@ -1057,7 +1057,9 @@ function stopMicRecording(discard = false) {
     session.recorder.stop();
   } else if (!session.recorder) micSession = null;
   if (discard) micSession = null;
-  if (session.stream) session.stream.getTracks().forEach(track => track.stop());
+  // stop() flushes asynchronously. Keep the input alive until recorder.onstop
+  // releases it, so short recordings cannot lose their final audio packets.
+  if (session.stream && !session.stopping) session.stream.getTracks().forEach(track => track.stop());
 }
 async function pickRecording(i) {
   if (!studioReady || studioLoading || studioDeleting.has(episode().id)) return;
@@ -1092,7 +1094,9 @@ async function pickRecording(i) {
       const validSession = () => !session.discard && sameStudioRevision(session.owner, session.key.split(':')[0], session.revision);
       if (validSession()) {
         const blob = new Blob(chunks, { type: recorder.mimeType || chunks[0]?.type || 'audio/webm' });
-        if (blob.size) {
+        const playable = blob.size && await canPlay(blob);
+        if (!validSession()) return;
+        if (playable) {
           setRec(session.key, blob, { pending: true });
           const edit = { blob, localSaved: false };
           pendingStudioEdits.set(session.key, edit);
@@ -1711,6 +1715,7 @@ function pickMime() {
 }
 
 function startExport() {
+  if (exp.active) return;
   if (micSession) { setStatus(t('micRecording')); return; }
   if (!canExport()) { setStatus(t('exportFail')); return; }
   const ctx = audioCtx();
@@ -1778,25 +1783,26 @@ function drawCaption(g, W, H) {
 
 function finishExport(save) {
   if (!exp.active) return;
+  const dest = exp.dest, rec = exp.recorder, chunks = exp.chunks, mime = exp.mime;
+  const owner = exp.owner, meta = { ...exp.meta, durationMs: Date.now() - exp.startedAt };
   exp.active = false;
   cancelAnimationFrame(exp.raf);
   document.body.classList.remove('exporting');
   $('recbar').hidden = true;
-  const dest = exp.dest;
-  setTimeout(() => { try { MIX.bus.disconnect(dest); } catch (e) { /* 무시 */ } }, 1500); // 팡파르 꼬리까지
-  const rec = exp.recorder;
-  const chunks = exp.chunks, mime = exp.mime, owner = exp.owner, meta = { ...exp.meta, durationMs: Date.now() - exp.startedAt };
+  // 이전 작업의 정리가 곧바로 시작한 새 작업의 소리까지 끊지 않게 목적지를 붙잡는다.
+  setTimeout(() => { try { MIX.bus.disconnect(dest); } catch (e) { /* 무시 */ } }, 1500);
+  const showStatus = (msg) => { if (sameStudioAccount(owner) && exp.recorder === rec && !exp.active) setStatus(msg); };
   rec.onstop = async () => {
     if (!sameStudioAccount(owner)) return;
-    if (!save) { setStatus(t('exportCanceled')); return; }
+    if (!save) { showStatus(t('exportCanceled')); return; }
     const blob = new Blob(chunks, { type: mime });
     const ext = mime.includes('mp4') ? 'mp4' : 'webm';
-    setStatus(t('exportReady'));
+    showStatus(t('exportReady'));
     try {
       await downloads.save({ filename: `dub-${meta.episodeId}-${new Date().toISOString().slice(0, 10)}.${ext}`, data: blob });
-      if (sameStudioAccount(owner)) setStatus(t('exportSaved'));
+      showStatus(t('exportSaved'));
     } catch (e) {
-      if (sameStudioAccount(owner)) setStatus(e?.code === 'declined' ? t('exportDeclined') : t('exportFail'));
+      showStatus(e?.code === 'declined' ? t('exportDeclined') : t('exportFail'));
     }
     if (blob.size) saveStudioMovie(blob, meta, owner);
   };

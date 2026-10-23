@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
-const html = readFileSync(new URL('../cloudflare-deploy/public/ai-dubbing-studio.html', import.meta.url), 'utf8');
+const html = readFileSync(new URL('../cloudflare-deploy/public/ai-dubbing-studio.html', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const inline = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 assert.ok(inline, 'The studio inline program exists');
 const end = inline.indexOf('/* =========================================================\n   11. EVENTS');
