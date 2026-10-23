@@ -947,7 +947,7 @@ function canPlay(blob) {
     const done = (ok) => { URL.revokeObjectURL(url); resolve(ok); };
     a.onloadedmetadata = () => done(true);
     a.onerror = () => done(false);
-    setTimeout(() => done(true), 4000);
+    setTimeout(() => done(false), 4000);
   });
 }
 
@@ -998,12 +998,12 @@ async function pickRecording(i) {
       if (micSession === session) micSession = null;
       setStatus(t('micFailed')); renderRecUI(); renderCues();
     };
-    recorder.onstop = () => {
+    recorder.onstop = async () => {
       stream.getTracks().forEach(track => track.stop());
       if (micSession === session) micSession = null;
       if (!session.discard) {
         const blob = new Blob(chunks, { type: recorder.mimeType || chunks[0]?.type || 'audio/webm' });
-        if (blob.size) {
+        if (blob.size && await canPlay(blob)) {
           setRec(session.key, blob);
           dbWrite(store => store.put(blob, session.key));
           setStatus(t('recSaved'));

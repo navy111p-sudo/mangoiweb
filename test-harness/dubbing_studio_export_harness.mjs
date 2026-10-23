@@ -70,4 +70,17 @@ assert.throws(() => testDestination(finish.replace('MIX.bus.disconnect(dest)', '
   c.stopMicRecording(); assert.equal(requested, true); assert.equal(stopped, false, 'input stays live until recorder flushes');
   session.stream.getTracks().forEach(t => t.stop()); assert.equal(stopped, true);
 }
-console.log('PASS studio export and recording: session ownership, late data, double clicks, stale callbacks, microphone flush; original-disconnect mutation detected');
+{
+  const writes = [], statuses = [], stream = { getTracks: () => [{ stop() {} }] };
+  class Recorder { constructor() { this.mimeType = 'audio/webm'; this.state = 'inactive'; } start() { this.state = 'recording'; } }
+  const c = { Blob, micSession: null, state: {}, window: { isSecureContext: true, MediaRecorder: Recorder }, MediaRecorder: Recorder,
+    navigator: { mediaDevices: { getUserMedia: async () => stream } }, pause() {}, recKey: i => `picnic:${i}`,
+    setStatus: s => statuses.push(s), t: k => k, renderCurrent() {}, renderCues() {}, renderRecUI() {},
+    setRec: (...a) => writes.push(a), dbWrite() {}, canPlay: async () => false };
+  vm.createContext(c);
+  const code = html.slice(html.indexOf('async function pickRecording('), html.indexOf("window.addEventListener('pagehide'"));
+  vm.runInContext(code, c); await c.pickRecording(0); const r = c.micSession.recorder;
+  r.ondataavailable({ data: new Blob(['header-only']) }); await r.onstop();
+  assert.equal(writes.length, 0, 'unplayable recordings must not be marked saved'); assert.equal(statuses.at(-1), 'micFailed');
+}
+console.log('PASS studio export and recording: session ownership, late data, double clicks, stale callbacks, microphone flush, unplayable audio rejection; original-disconnect mutation detected');
