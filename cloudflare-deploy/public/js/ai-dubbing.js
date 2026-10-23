@@ -1070,8 +1070,9 @@
       });
     })).then(function () {
       if (run.aborted) return;
-      try { v.currentTime = 0; } catch (e) {}
-      tracks.forEach(function (t) { try { t.el.currentTime = 0; } catch (e) {} });
+      var start = sc.playbackStartSec || 0;
+      try { v.currentTime = start; } catch (e) {}
+      tracks.forEach(function (t) { try { t.el.currentTime = start; } catch (e) {} });
       var pv = v.play(); if (pv && pv.catch) pv.catch(function () {});
       tracks.forEach(function (t) { var p = t.el.play(); if (p && p.catch) p.catch(function () {}); });
       setButtons('native');
