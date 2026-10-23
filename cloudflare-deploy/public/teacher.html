@@ -1516,6 +1516,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       });
   }
 
+  document.addEventListener('teacher-feedback-saved', function(){ load(true); });
+
   function setStale(on){
     var el = document.getElementById('stale');
     if (el) el.hidden = !on;
@@ -1847,10 +1849,14 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var atTxt = AT ? ((AT[0] ? AT[0] + ' ' : '') + T(AT[1], AT[2]) + (at.at ? ' ' + hhmm(at.at) : '')
                  + (at.state === 'late' && at.late_min != null ? ' (+' + at.late_min + T('m', '분') + ')' : '')) : D;
     var ev = function (e) { return e ? ((e.date || '') + (e.score != null ? ' ⭐' + e.score + '/' + (e.max || '') : '') + (e.text ? ' · ' + e.text : '')) : D; };
+    var todayFeedback = c.today_eval || (c.eval_id ? { id: c.eval_id } : null);
+    var lastFeedback = c.last_eval || (c.prev_lesson && c.prev_lesson.eval_id ? {
+      id: c.prev_lesson.eval_id, date: c.prev_lesson.date, teacher: c.prev_lesson.teacher_name
+    } : null);
     /* 📝 (2026-09-30 매니저 제보) 눌러서 전문 보기 — 공용 창 js/eval-quick-view.js 를 «누를 때만» 불러온다. */
     var evOpen = function (e) {
       return (e && e.id) ? ' <a class="evq-open" href="/eval.html?id=' + encodeURIComponent(e.id) + '" data-evq="' + esc(e.id)
-        + '" target="_blank" rel="noopener">' + esc(T('📄 Open', '📄 전문 보기')) + '</a>' : '';
+        + '" target="_blank" rel="noopener">' + esc(T('📄 View / Edit', '📄 보기 / 수정')) + '</a>' : '';
     };
     var sl = T(c.sched_label_en, c.sched_label_ko);
     var row1 = [esc(c.class_date || ''),
@@ -1874,10 +1880,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       wkLine = '<br><b>' + esc(T('This week', '이번 주')) + '</b> <span class="cal7" role="img" aria-label="' + esc(T(nOn + ' class day(s) this week', '이번 주 수업 ' + nOn + '일')) + '">' + strip + '</span>';
     }
     return '<div class="cls-extra">' + row1.join(' &middot; ') + wkLine
-      + (c.prev_lesson ? '' : '<br><b>' + esc(T('Last feedback', '지난 평가')) + '</b> ' + esc(ev(c.last_eval)) + evOpen(c.last_eval))
-      + '<br><b>' + esc(T("Today's feedback", '오늘 평가')) + '</b> ' + esc(ev(c.today_eval)) + evOpen(c.today_eval)
+      + '<br><b>' + esc(T('Last class feedback', '지난 수업 피드백')) + '</b> ' + esc(ev(lastFeedback)) + evOpen(lastFeedback)
+      + '<br><b>' + esc(T("Today's feedback", '오늘 피드백')) + '</b> ' + esc(ev(todayFeedback)) + evOpen(todayFeedback)
       + ((!c.today_eval && !c.eval_written && c.class_state !== 'postponed' && c.class_state !== 'cancelled' && typeof wi === 'number' && wi >= 0)
-          ? ' <button type="button" class="evq-open evq-write" data-eval="' + wi + '">' + esc(T('✍ Write now', '✍ 지금 쓰기')) + '</button>' : '')
+          ? ' <button type="button" class="evq-open evq-write" data-eval="' + wi + '">' + esc(T('✍ Write Feedback', '✍ 피드백 작성')) + '</button>' : '')
       + '</div>';
   }
   /* 📊 B — 상태별 개수 칩. 판정은 서버의 class_state 를 «그리기만» 하고, 옛 캐시(값 없음)는 시각으로만.
@@ -4421,7 +4427,9 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
 (function(){
   function en(){ return document.documentElement.lang !== 'ko'; }   /* applyLang() 이 정하는 값 — 이 화면 언어 정본 */
   function open(id){
-    var go = function(){ if (window.mgEvalQuick) window.mgEvalQuick(id, { en: en() }); };
+    var go = function(){ if (window.mgEvalQuick) window.mgEvalQuick(id, { en: en(), onSaved: function(){
+      document.dispatchEvent(new Event('teacher-feedback-saved'));
+    } }); };
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
     sc.src = '/js/eval-quick-view.js?v=2';

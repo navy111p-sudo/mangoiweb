@@ -1008,7 +1008,7 @@ export async function handleTeacherApi(
       const prevRows = await selectInChunks<any>(
         env.DB, uids,
         (ph) => `SELECT COALESCE(NULLIF(student_uid, ''), user_id) AS suid,
-                        teacher_name, lesson_date, score_overall,
+                        id AS eval_id, teacher_name, lesson_date, score_overall,
                         substr(COALESCE(note_en, teacher_comment, strengths, ''), 1, 400) AS note_en,
                         substr(COALESCE(note_ko, ''), 1, 400) AS note_ko,
                         MAX(created_at) AS created_at
@@ -1024,6 +1024,7 @@ export async function handleTeacherApi(
         const p = prevBy.get(String(c.student_uid || ''));
         if (!p) continue;
         c.prev_lesson = {
+          eval_id: Number(p.eval_id) || null,
           date: p.lesson_date || (p.created_at ? new Date(Number(p.created_at) + KST).toISOString().slice(0, 10) : null),
           teacher_name: p.teacher_name || null,
           note_en: p.note_en || null,
