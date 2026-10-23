@@ -2034,11 +2034,17 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   });
   // Sort a copy; row actions retain the same class objects, regardless of status.
   function sortClassesByTime(list, direction){
+    var day = '1970-01-01';
+    for (var i=0;i<list.length;i++) {
+      var ts = Number(list[i].start_ts);
+      if (list[i].start_ts != null && list[i].start_ts !== '' && isFinite(ts)) { day = new Date(ts + 9*3600000).toISOString().slice(0,10); break; }
+    }
     return list.map(function(c, i){ return { c: c, i: i }; }).sort(function(a, b){
       function stamp(c){
         if (c.start_ts != null && c.start_ts !== '' && isFinite(Number(c.start_ts))) return Number(c.start_ts);
         var m=String(c.start_time || '').match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-        return m && +m[1]<24 && +m[2]<60 ? (+m[1]*60 + +m[2])*60000 : NaN;
+        return m && +m[1]<24 && +m[2]<60
+          ? Date.parse((c.class_date || c.date || day) + 'T' + ('0'+m[1]).slice(-2) + ':' + m[2] + ':00+09:00') : NaN;
       }
       var x = stamp(a.c), y = stamp(b.c);
       var ax = isFinite(x);

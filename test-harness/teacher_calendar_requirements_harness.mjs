@@ -35,6 +35,8 @@ for(let seed=0;seed<320;seed++){
     check(ctx.sortClassesByTime(rows,direction).map(x=>x.student_uid).join()===want.map(x=>x.student_uid).join(),'daily fallback ordering '+seed+direction);
   }
   check(rows.every((r,i)=>r===copy[i]),'sorting retains action identity '+seed);
+  const mixed=rows.map((r,i)=>({...r,start_ts:r.n!==null && i%2 ? Date.parse('2026-10-24T00:00:00+09:00')+r.n*60000 : undefined}));
+  check(ctx.sortClassesByTime(mixed,'asc').map(x=>x.student_uid).join()===rows.filter(x=>x.n!==null).sort((a,b)=>a.n-b.n).concat(rows.at(-1)).map(x=>x.student_uid).join(),'mixed timestamp and wall-time ordering '+seed);
 }
 ctx.hhmm=()=>'';
 const feedback=ctx.extrasHtml({class_date:'2026-10-24',level:'<B2>',attendance:{state:'not_yet'}},-1);
