@@ -29,7 +29,8 @@ const BASE = `http://127.0.0.1:${server.address().port}`;
 console.log('Fixture:',BASE);
 const browser = await chromium.launch({headless:true, executablePath:process.env.BROWSER_EXECUTABLE || 'C:/Program Files/Google/Chrome/Application/chrome.exe'});
 const checks=[];
-function check(name, condition){ assert.ok(condition,name); checks.push(name); console.log('PASS',name); }
+let scenarioLabel='';
+function check(name, condition){ name=scenarioLabel+' '+name; assert.ok(condition,name); checks.push(name); console.log('PASS',name); }
 const ts=Date.now(), today=new Date(ts+9*3600e3).toISOString().slice(0,10);
 function monday(date){const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));return d.toISOString().slice(0,10);}
 function mk(id,offset,extra={}){
@@ -45,12 +46,18 @@ function data(weekStart=monday(today)){
     week:{start:weekStart,end:new Date(Date.parse(weekStart)+6*86400000).toISOString().slice(0,10),days:Array.from({length:7},(_,i)=>({date:new Date(Date.parse(weekStart)+i*86400000).toISOString().slice(0,10),items:[]}))}};
 }
 try {
-  for(const width of [1280,800,390,320]){
+  const full=process.env.TEACHER_TEST_MATRIX==='full';
+  const scenarios=(full?[1280,1024,800,700,430,390,360,320]:[1280,800,390,320])
+    .flatMap(width=>(full?['ko','en']:['ko']).flatMap(lang=>(full?['light','dark']:['light']).map(theme=>({width,lang,theme}))));
+  for(const {width,lang,theme} of scenarios){
+    scenarioLabel=lang+'/'+theme;
     const context=await browser.newContext({viewport:{width,height:1000}});
+    await context.addInitScript(theme=>localStorage.setItem('mangoi_teacher_theme',theme),theme);
     const page=await context.newPage();
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     page.on('dialog',d=>d.accept());
     let model=data(),reportCalls=0,reportMode='hold',releaseReport,releaseLog,logCalls=0,logMode='hold',goalMode='ok',holdPortal=false,releasePortal;
+    model.me.lang=lang;
     const fulfill=(route,obj,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(obj)});
     await page.route('**/api/**',async route=>{
       const u=new URL(route.request().url());
@@ -86,7 +93,7 @@ try {
     check(width+'px no horizontal overflow',await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     reportMode='fail';
     await page.locator('#classes [data-rep]').click();
-    await page.waitForFunction(()=>document.querySelector('#classes [data-rep]').textContent.includes('다시'));
+    await page.waitForFunction(term=>document.querySelector('#classes [data-rep]').textContent.includes(term),lang==='ko'?'다시':'Try again');
     check(width+'px report failure enables retry',await page.locator('#classes [data-rep]').isEnabled());
     reportMode='hold';
     // Real pointer, deferred render and blur: the control cannot disappear mid-click.
@@ -102,11 +109,11 @@ try {
     check(width+'px in-flight report remains disabled',await report.isDisabled());
     releaseReport();await page.waitForFunction(()=>window.__teacherTest.state().pending===0);
     await page.locator('#hi').click();
-    await page.waitForFunction(()=>document.querySelector('#classes').textContent.includes('요청됨'));
+    await page.waitForFunction(term=>document.querySelector('#classes').textContent.includes(term),lang==='ko'?'요청됨':'Requested');
     check(width+'px report success survives redraw',await page.locator('#classes .btn-ask').isDisabled());
     goalMode='fail';
     await page.locator('#classes select.goal-pick').first().selectOption('speaking');
-    await page.waitForFunction(()=>document.querySelector('#classes .cls-goal-msg').textContent.includes('저장 안 됨'));
+    await page.waitForFunction(term=>document.querySelector('#classes .cls-goal-msg').textContent.includes(term),lang==='ko'?'저장 안 됨':'Not saved');
     check(width+'px goal failure restores selection and control',await page.locator('#classes select.goal-pick').first().isEnabled()&&(await page.locator('#classes select.goal-pick').first().inputValue())==='');
     goalMode='ok';
     // A portal read started before a local save must not undo the completed write.
@@ -126,16 +133,16 @@ try {
     check(width+'px saving log stays visible',await page.locator('#ev-raw').inputValue()==='The student spoke well.');
     logMode='fail';releaseLog();
     await page.waitForFunction(()=>document.querySelector('#ev-ok')&&!document.querySelector('#ev-ok').disabled);
-    check(width+'px failed save retains draft and retry',await page.locator('#ev-raw').inputValue()==='The student spoke well.'&&(await page.locator('#ev-msg').innerText()).includes('그대로'));
+    check(width+'px failed save retains draft and retry',await page.locator('#ev-raw').inputValue()==='The student spoke well.'&&(await page.locator('#ev-msg').innerText()).includes(lang==='ko'?'그대로':'still here'));
     logMode='ok';await page.locator('#ev-ok').click();await page.locator('#ev-ok').waitFor({state:'detached'});
     check(width+'px successful retry opens saved-log action',await page.locator('#classes [data-evview]').count()===1&&logCalls===2);
     // Screenshot before navigating away.
     await page.locator('#c-classes').scrollIntoViewIfNeeded();
-    await page.locator('#c-classes').screenshot({path:resolve(OUT,'teacher-actions-'+width+'.png')});
+    await page.locator('#c-classes').screenshot({path:resolve(OUT,'teacher-actions-'+width+'-'+lang+'-'+theme+'.png')});
     await page.locator('#lang').click();
-    check(width+'px language button updates actions',(await page.locator('#classes').innerText()).includes('Re-enter'));
+    check(width+'px language button updates actions',(await page.locator('#classes').innerText()).includes(lang==='ko'?'Re-enter':'다시 입장'));
     await page.locator('#theme').click();
-    check(width+'px dark theme button works',await page.locator('html').getAttribute('data-t')==='dark');
+    check(width+'px dark theme button works',await page.locator('html').getAttribute('data-t')===(theme==='dark'?'light':'dark'));
     await page.locator('#theme').click();await page.locator('#lang').click();
     await page.locator('#class-time-sort').selectOption('desc');
     const held=page.locator('#classes .cls-hold [data-join]');
