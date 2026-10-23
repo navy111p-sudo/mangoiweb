@@ -161,6 +161,7 @@ html.dark .kpi-arrow{color:#7c8899}
 .aib-due{font-size:13px;font-weight:800;border-radius:999px;padding:4px 12px;border:1px solid #b9cbe4;background:#eef4ff;color:#1d4ed8;white-space:nowrap}
 .aib-due.warn{border-color:#f5d79a;background:#fff4dc;color:#b45309}
 .aib-due.over{border-color:#f2c1c1;background:#fdecec;color:#b91c1c}
+.aib-unpaid{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;font-weight:700;border-radius:10px;padding:8px 10px;margin:0 0 10px;border:1px solid #f2c1c1;background:#fdecec;color:#b91c1c}
 .aib-policy{font-size:12.5px;margin:4px 0 10px}
 .aib-box{border-radius:10px;padding:12px 14px;background:#f4f6f9;color:#344054;font-size:13.5px;line-height:1.5}
 .aib-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:6px 0 8px}
@@ -426,6 +427,7 @@ html.dark .aib-paid{background:#12301f;color:#7ee2a8}
 html.dark .aib-due{background:#16233a;border-color:#2d4a7a;color:#9cc0ff}
 html.dark .aib-due.warn{background:#3a2c12;border-color:#6e5423;color:#f0c893}
 html.dark .aib-due.over{background:#3a201e;border-color:#7a3a35;color:#f1a49e}
+html.dark .aib-unpaid{background:#3a201e;border-color:#7a3a35;color:#f1a49e}
 html.dark .tag.hot{background:#3a201e;color:#f1a49e}
 html.dark .cal7 i{background:#28313d;color:#aeb9c5}
 html.dark .cal7 i.on{background:#3b82f6;color:#fff}
@@ -2489,29 +2491,38 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     el.textContent = T('Loading...', '불러오는 중...');
     /* 💳 (2026-10-20) 돈 화면이라 캐시(localStorage)를 쓰지 않는다 — «옛 명세·옛 상태(미결제)» 를 보여 주면
        이미 낸 것을 또 내게 된다(수업료 결제 카드와 같은 규칙). 실패하면 실패라고 말한다. */
+    // ④ (2026-10-23) 고른 달이 있으면 그 달을 묻는다 — 없으면 서버가 «이번 달 미결제 → 다음 달» 순으로 정한다.
     Promise.all([
-      get('/api/admin/ai-billing/invoice'),
+      get('/api/admin/ai-billing/invoice' + (D.aibMonthSel ? '?month=' + encodeURIComponent(D.aibMonthSel) : '')),
       get('/api/admin/ai-billing/history'),
     ]).then(function(r){ D.aibill = r[0]; D.aibillHist = r[1]; paintAiBill(); })
       .catch(function(e){ failBox(el, e); });
   };
+  window.aiBillShowMonth = function(ym){ D.aibMonthSel = ym || null; D.aibMsg = null; window.loadAiBill(); };
   window.aiBillGenerate = function(btn){
     if (btn) { btn.disabled = true; }
     fetch('/api/admin/ai-billing/invoice/generate', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: '{}'
     }).then(function(r){ return r.json(); }).then(function(j){
-      if (!j || !j.ok) { alert(T('Could not load the student list.', '학생 명단을 불러오지 못했습니다.') + (j && j.error ? ' (' + j.error + ')' : '')); return; }
+      if (!j || !j.ok) { alert(aibFailText(j, T('Could not load the student list.', '학생 명단을 불러오지 못했습니다.'))); return; }
       D.aibill = null; loadAiBill();
     }).catch(function(){ alert(T('Network error.', '네트워크 오류가 발생했습니다.')); })
       .then(function(){ if (btn) btn.disabled = false; });
   };
+  /* (2026-10-23) 실패 사유를 사람 말로 — «결제 진행 중» 은 고장이 아니라 잠시 뒤 되는 일이다(같은 문구 하나로 뭉치지 않는다) */
+  function aibFailText(j, base){
+    var e = String((j && j.error) || '');
+    if (e.indexOf('invoice_confirm_in_progress') === 0) return T('A payment is in progress for this bill, so it cannot be changed now. Try again after the payment finishes (or in a few minutes).', '이 청구서의 결제가 진행 중이라 지금은 바꿀 수 없습니다. 결제가 끝난 뒤(또는 몇 분 뒤) 다시 해 주세요.');
+    if (e.indexOf('claim_check_failed') === 0) return T('Could not check the payment status. Please try again shortly.', '결제 진행 상태를 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+    return base + (e ? ' (' + e + ')' : '');
+  }
   window.aiBillToggleItem = function(cb, invoiceId, uid){
     cb.disabled = true;
     fetch('/api/admin/ai-billing/invoice/item', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ invoice_id: invoiceId, student_user_id: uid, included: cb.checked ? 1 : 0 })
     }).then(function(r){ return r.json(); }).then(function(j){
-      if (!j || !j.ok) { cb.checked = !cb.checked; alert(T('Could not save.', '저장하지 못했습니다.')); return; }
+      if (!j || !j.ok) { cb.checked = !cb.checked; alert(aibFailText(j, T('Could not save.', '저장하지 못했습니다.'))); return; }
       D.aibill = null; loadAiBill();   // 총액을 다시 정확히 받아온다(화면에서 암산하지 않는다)
     }).catch(function(){ cb.checked = !cb.checked; alert(T('Network error.', '네트워크 오류가 발생했습니다.')); })
       .then(function(){ cb.disabled = false; });
@@ -2534,7 +2545,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ invoice_id: j.invoice.id, student_user_ids: uids, included: included ? 1 : 0 })
     }).then(function(r){ return r.json().catch(function(){ return {}; }); }).then(function(o){
-      if (!o || o.ok !== true) { alert(T('Could not save.', '저장하지 못했습니다.') + (o && o.error ? ' (' + o.error + ')' : '')); return; }
+      if (!o || o.ok !== true) { alert(aibFailText(o, T('Could not save.', '저장하지 못했습니다.'))); return; }
+      if (o.partial) alert(T('A payment started midway, so only ' + o.changed + ' student(s) were changed. Change the rest after the payment finishes.', '결제가 시작되어 ' + o.changed + '명만 바뀌었습니다. 결제가 끝난 뒤 나머지를 다시 바꿔 주세요.'));
       if (o.optin_saved === false) alert(T('Saved for this payment, but the sign-up list could not be updated. Please try once more.', '이번 결제에는 반영됐지만 신청 명단 저장에 실패했습니다. 한 번 더 눌러 주세요.'));
       D.aibill = null; loadAiBill();
     }).catch(function(){ alert(T('Network error.', '네트워크 오류가 발생했습니다.')); })
@@ -2658,6 +2670,23 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       '다음 달에 쓸 A.i 컨텐츠는 이번 달 말일까지 학생을 골라 미리 결제합니다. 화상영어 수업을 듣는 학생은 A.i 가 수업료에 포함돼 여기서 따로 결제하지 않습니다.') + '</p>';
     return h;
   }
+  /* ④ (2026-10-23) «안 낸 다른 달» 띠 — 달이 바뀌어도 못 낸 청구서가 화면에서 사라지지 않게.
+     목록·금액·연체 여부는 서버(unpaid_months)가 정한다. 이 화면은 «그리기만» 한다. */
+  function aibUnpaidBand(j, month){
+    var list = (j && j.unpaid_months) || [], h = '';
+    if (list.length) {
+      h += '<div class="aib-unpaid"><span>⚠️ ' + esc(T('Unpaid A.i content invoice(s):', '아직 결제하지 않은 달이 있습니다:')) + '</span>';
+      h += list.map(function(u){
+        return '<button type="button" class="aib-btn aib-btn-sm" onclick="aiBillShowMonth(\'' + esc(u.billing_month) + '\')">'
+          + esc(aibMonth(u.billing_month) + ' · ' + won(u.total_krw) + T(' KRW', '원') + (u.overdue ? T(' (overdue)', ' (마감 지남)') : '')) + '</button>';
+      }).join(' ') + '</div>';
+    }
+    if (j && j.default_month && month && month !== j.default_month) {
+      h += '<p style="margin:0 0 8px"><button type="button" class="aib-btn aib-btn-ghost aib-btn-sm" onclick="aiBillShowMonth(\'' + esc(j.default_month) + '\')">'
+        + esc(T('Go to ' + aibMonth(j.default_month) + ' (next month)', aibMonth(j.default_month) + '(다음 달) 이용분 보기')) + '</button></p>';
+    }
+    return h;
+  }
   function paintAiBill(){
     var j = D.aibill; if (!j) return;
     var el = document.getElementById('aibillBody');
@@ -2665,6 +2694,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var html = '';
     var month = (j.invoice && j.invoice.billing_month) || j.billing_month;
     if (D.aibMsg) html += '<p class="tui-msg ' + (D.aibMsg.ok ? 'ok' : 'bad') + '">' + esc(D.aibMsg.text) + '</p>';
+    html += aibUnpaidBand(j, month);
     /* 🔌 (2026-09-25) 자동 청구가 꺼져 있으면(테스트 기간) 명세·금액을 그리지 않는다 — 서버가 billing_enabled:false 로 말해 준다.
        ⛔ 여기서 금액을 추정해 그리지 말 것 — 신청하지 않은 학생에게 청구하는 것처럼 보인다. */
     if (j.billing_enabled === false) {

@@ -84,6 +84,13 @@ function stripComments(t) {
 const P = await import(pathToFileURL(PRICE_FILE).href + '?t=' + Date.now());
 const billSrc = readFileSync(BILL_FILE, 'utf8');
 const billCode = stripComments(billSrc);
+/* (2026-10-23) ③ 명단 쓰기에 «결제 승인 중이 아닐 때만» 조건이 붙었다 — 그 조각은 정본(b2b-pay-guard.ts)에서 «읽어» 주입한다(베끼지 않음).
+   조건이 보는 ai_billing_invoices 는 시험 DB 에 «선점 없음» 행만 둔다 → 예전 동작 그대로 재는 것. */
+const guardSrc = readFileSync(join(BILL_FILE, '..', 'b2b-pay-guard.ts'), 'utf8');
+const UNCLAIMED_SQL = (guardSrc.match(/export const MGB_UNCLAIMED_SQL = `([^`]+)`;/) || [])[1] || '';
+const UNCLAIMED_DDL = `CREATE TABLE IF NOT EXISTS ai_billing_invoices (id INTEGER PRIMARY KEY, confirming_order TEXT, confirming_at INTEGER);
+  INSERT OR IGNORE INTO ai_billing_invoices (id) VALUES (1), (2);`;
+const unclaimedBinds = (id) => [id, Date.now() - 5 * 60 * 1000];
 
 console.log('════════ 💰 학원 A.i 공급가(인원 구간) 하니스 ════════');
 
@@ -376,13 +383,14 @@ sec('[⑩] 자동 분류 + 학원 확인 — 명세 줄 track·user_set');
   }
   if (DatabaseSync) {
     try {
-      syncFn = new Function('planItemTrackSync', stripTypeScriptTypes(fnDecl(billSrc, 'syncItemTracks')) + '\nreturn syncItemTracks;')(plan);
+      syncFn = new Function('planItemTrackSync', 'MGB_UNCLAIMED_SQL', 'mgbUnclaimedBinds', stripTypeScriptTypes(fnDecl(billSrc, 'syncItemTracks')) + '\nreturn syncItemTracks;')(plan, UNCLAIMED_SQL, unclaimedBinds);
     } catch (e) { check('syncItemTracks 실행 준비', false, e.message); }
     check('syncItemTracks 를 오려 냈다 (전제)', typeof syncFn === 'function');
     const d = new DatabaseSync(':memory:');
     d.exec(`CREATE TABLE ai_billing_invoice_items (id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_id INTEGER NOT NULL, student_user_id TEXT NOT NULL,
       student_name TEXT, included INTEGER NOT NULL DEFAULT 1, added_manually INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL,
       track TEXT, user_set INTEGER NOT NULL DEFAULT 0, UNIQUE(invoice_id, student_user_id))`);
+    d.exec(UNCLAIMED_DDL);
     const ins = d.prepare('INSERT INTO ai_billing_invoice_items (invoice_id,student_user_id,student_name,included,created_at,track,user_set) VALUES (1,?,?,?,0,?,?)');
     ins.run('ai1', 'A1', 1, 'ai', 0);        // 계속 A.i반
     ins.run('turnlive', 'T', 1, 'ai', 0);    // A.i반 → 화상반이 됨 → 자동 제외
@@ -408,6 +416,16 @@ sec('[⑩] 자동 분류 + 학원 확인 — 명세 줄 track·user_set');
     check('신청 안 한 학원생은 «체크 해제된 줄»(none) 로 보인다', row('idle1').included === 0 && row('idle1').track === 'none', JSON.stringify(row('idle1')));
     check('옛 규칙으로 들어간 미신청 학생은 자동 제외된다', row('wasai').included === 0 && row('wasai').track === 'none', JSON.stringify(row('wasai')));
     check('결과 숫자: 새로 보인 화상반 1 · 신청 안 함 1 · 자동 제외 2', res && res.live_listed === 1 && res.idle_listed === 1 && res.auto_excluded === 2, JSON.stringify(res));
+    /* (2026-10-23) ③ 결제 «승인 중» 인 청구서는 자동 동기화도 체크를 안 바꾼다(낸 돈과 열린 학생 수가 갈리지 않게) · 선점이 낡으면 바꾼다(짝) */
+    d.prepare("INSERT INTO ai_billing_invoice_items (invoice_id,student_user_id,student_name,included,created_at,track,user_set) VALUES (2,'tl2','T2',1,0,'ai',0)").run();
+    d.prepare('UPDATE ai_billing_invoices SET confirming_order=?, confirming_at=? WHERE id=2').run('MGB-2-HOLD-a', Date.now());
+    const tl2 = () => d.prepare("SELECT included FROM ai_billing_invoice_items WHERE invoice_id=2 AND student_user_id='tl2'").get()?.included;
+    try { await syncFn(env, 2, [{ user_id: 'tl2', name: 'T2' }], [], new Set(['tl2']), 0, 0, []); } catch (e) { check('승인 중 동기화 실행', false, e.message); }
+    check('③ 결제 승인 중이면 자동 동기화가 체크를 안 바꾼다', tl2() === 1, tl2());
+    d.prepare('UPDATE ai_billing_invoices SET confirming_at=? WHERE id=2').run(Date.now() - 10 * 60 * 1000);
+    try { await syncFn(env, 2, [{ user_id: 'tl2', name: 'T2' }], [], new Set(['tl2']), 0, 0, []); } catch (e) { check('낡은 선점 동기화 실행', false, e.message); }
+    check('③ (짝) 선점이 5분 넘게 낡았으면 자동 동기화가 바꾼다', tl2() === 0, tl2());
+    check('③ (전제) 승인 중 조건을 정본에서 읽었다', UNCLAIMED_SQL.includes('confirming_order'));
     const bad = { DB: { prepare: () => { throw new Error('no such column: track'); }, batch: async () => [] } };
     let r7; try { r7 = await syncFn(bad, 1, liveRows, aiRows, live, 0, 0, idleRows); } catch (e) { r7 = 'threw'; }
     check('칸이 없는 DB 에서도 던지지 않는다 (옛 동작으로 남음)', r7 !== 'threw' && r7.auto_excluded === 0, JSON.stringify(r7));
@@ -530,8 +548,8 @@ sec('[⑫] AI 컨텐츠 결제 — 명세에 있는 학생만 · 선결제 마�
 {
   let setFn = null;
   try {
-    setFn = new Function('safe', stripTypeScriptTypes(fnDecl(billSrc, 'setItemsIncluded')) + '\nreturn setItemsIncluded;')(
-      async (fn, fb) => { try { return await fn(); } catch { return fb; } });
+    setFn = new Function('safe', 'ensureB2bClaimColumns', 'MGB_UNCLAIMED_SQL', 'mgbUnclaimedBinds', stripTypeScriptTypes(fnDecl(billSrc, 'setItemsIncluded')) + '\nreturn setItemsIncluded;')(
+      async (fn, fb) => { try { return await fn(); } catch { return fb; } }, async () => {}, UNCLAIMED_SQL, unclaimedBinds);
   } catch (e) { check('setItemsIncluded 실행 준비', false, e.message); }
   check('setItemsIncluded 를 오려 냈다 (전제)', typeof setFn === 'function');
   if (setFn && DatabaseSync) {
@@ -540,6 +558,7 @@ sec('[⑫] AI 컨텐츠 결제 — 명세에 있는 학생만 · 선결제 마�
       student_name TEXT, included INTEGER NOT NULL DEFAULT 1, added_manually INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL,
       track TEXT, user_set INTEGER NOT NULL DEFAULT 0, UNIQUE(invoice_id, student_user_id));
       CREATE TABLE ai_billing_optin (uid_lc TEXT PRIMARY KEY, user_id TEXT NOT NULL, shop_name TEXT, created_at INTEGER NOT NULL, created_by TEXT);`);
+    d.exec(UNCLAIMED_DDL);
     const ins = d.prepare('INSERT INTO ai_billing_invoice_items (invoice_id,student_user_id,student_name,included,created_at,track,user_set) VALUES (?,?,?,?,0,?,0)');
     ins.run(1, 'Kid1', 'K1', 0, 'none'); ins.run(1, 'kid2', 'K2', 0, 'none'); ins.run(1, 'vid', 'V', 0, 'live');
     ins.run(2, 'other', 'O', 1, 'ai');   // 다른 학원 청구서의 학생
@@ -582,13 +601,14 @@ sec('[⑫] AI 컨텐츠 결제 — 명세에 있는 학생만 · 선결제 마�
     check('KST 기준 — UTC 로는 31일 14:30 이어도 «오늘 마감»(0)', k.days_left === 0, JSON.stringify(k));
   }
   const invGet = billCode.slice(billCode.indexOf("p === 'invoice' && method === 'GET'"), billCode.indexOf("p === 'invoice/generate'"));
-  check('배선: /invoice 응답 셋 모두 마감(...due)을 싣는다', (invGet.match(/\.\.\.due/g) || []).length === 3);
+  // (2026-10-23) 꺼짐 갈래는 «안 낸 달» 이 필요 없어 ...prepayDue(month) 를 직접 싣는다 — 셋 다 마감을 싣는지는 그대로 본다
+  check('배선: /invoice 응답 셋 모두 마감(...due)을 싣는다', (invGet.match(/\.\.\.(due\b|prepayDue\(month\)\s*\})/g) || []).length === 3);
   // 화면 — 마감은 서버 값을 그린다 · 결제 금액을 화면이 계산하지 않는다 · 돈 화면 캐시 없음
   const mgr = stripComments(readFileSync(join(PUB, 'manager.html'), 'utf8'));
   const due2 = fnDecl(mgr, 'aibDueBar');
   check('manager.html: 마감 띠는 서버의 due_date·days_left 를 그린다 (Date 계산 없음)', /j\.due_date/.test(due2) && /j\.days_left/.test(due2) && !/new Date\(/.test(due2));
   const load = mgr.slice(mgr.indexOf('window.loadAiBill = function'), mgr.indexOf('window.aiBillGenerate'));
-  check('manager.html: AI 컨텐츠 결제는 localStorage 캐시 키를 쓰지 않는다', /get\('\/api\/admin\/ai-billing\/invoice'\)/.test(load) && /get\('\/api\/admin\/ai-billing\/history'\)/.test(load));
+  check('manager.html: AI 컨텐츠 결제는 localStorage 캐시 키를 쓰지 않는다', /get\('\/api\/admin\/ai-billing\/invoice'( \+ |\))/.test(load) && /get\('\/api\/admin\/ai-billing\/history'\)/.test(load));
   const bulk = mgr.slice(mgr.indexOf('window.aiBillBulk = function'), mgr.indexOf('window.aiBillFilter'));
   check('manager.html: 일괄 선택은 invoice/items 를 한 번 부르고 먼저 묻는다', /\/api\/admin\/ai-billing\/invoice\/items/.test(bulk) && /window\.confirm\(/.test(bulk));
   check('manager.html: 메뉴 이름 — «화상영어 수업료 결제» · «AI 컨텐츠 결제»', /data-ko="화상영어 수업료 결제"/.test(mgr) && /data-ko="AI 컨텐츠 결제"/.test(mgr) && !/data-ko="AI 사용료 청구서"/.test(mgr) && !/data-ko="수업료 결제"/.test(mgr));
