@@ -52,7 +52,7 @@ function environment(instant = '2026-10-04T15:05:00Z', cache = null) {
     renderAlsoAccount() {}, renderClasses() {}, renderUpcoming() {}, renderNotices() {}, renderResources() {}, renderManager() {}, paintClassCount() {}, paintNewBadge() {},
     scheduleAutoRefresh(ms) { ui.nextRefresh = ms; },
     EN: () => ui.LANG !== 'ko', T: (en,ko) => ui.LANG === 'ko' ? ko : en, esc: x => String(x ?? ''),
-    stuLabelHtml: it => it.student_name, stuName: it => it.student_name || '', stuUid: it => it.student_uid || '', kindPill: () => ''
+    stuLabelHtml: it => it.student_name, stuLabelText: it => it.student_name, stuName: it => it.student_name || '', stuUid: it => it.student_uid || '', kindPill: () => ''
   };
   vm.createContext(ui);
   vm.runInContext([fn('now'), fn('todayKST'), fn('paintCached'), fn('saveCache'), fn('load'), fn('setStale'), fn('render'),
