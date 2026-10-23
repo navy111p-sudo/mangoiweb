@@ -84,5 +84,11 @@ assert.throws(() => testDestination(finish.replace('MIX.bus.disconnect(dest)', '
   vm.runInContext(code, c); await c.pickRecording(0); const r = c.micSession.recorder;
   r.ondataavailable({ data: new Blob(['header-only']) }); await r.onstop();
   assert.equal(writes.length, 0, 'unplayable recordings must not be marked saved'); assert.equal(statuses.at(-1), 'micFailed');
+  let release;
+  c.canPlay = () => new Promise(resolve => { release = resolve; });
+  await c.pickRecording(0); const next = c.micSession.recorder;
+  next.ondataavailable({ data: new Blob(['valid take']) }); const completing = next.onstop();
+  c.sameStudioRevision = () => false; release(true); await completing;
+  assert.equal(writes.length, 0, 'account/revision changes during validation must prevent old writes');
 }
 console.log('PASS studio export and recording: session ownership, late data, double clicks, stale callbacks, microphone flush, unplayable audio rejection; original-disconnect mutation detected');
