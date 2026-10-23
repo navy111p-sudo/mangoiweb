@@ -30,7 +30,9 @@ function load(text, imports = {}) {
 }
 const scores = load(src('src/evaluation-scores.ts'));
 const records = load(src('src/evaluation-records.ts'), { './d1-chunk': load(src('src/d1-chunk.ts')) });
+const dubbing = load(src('src/api-dubbing.ts'), { './auth-token': {}, './auth-admin': {} });
 const lessons = load(src('src/api-lessons.ts'), {
+  './api-dubbing': dubbing,
   './evaluation-scores': scores,
   './evaluation-records': records,
   './api-util': { json },
