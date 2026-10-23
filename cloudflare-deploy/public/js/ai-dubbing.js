@@ -1263,6 +1263,10 @@
     if ($('dub-d-row')) $('dub-d-row').hidden = mode !== 'dub';
     if ($('dub-meter-wrap')) $('dub-meter-wrap').hidden = mode !== 'dub';
     if ($('dub-w-row')) $('dub-w-row').hidden = mode !== 'watch';
+    if ($('dub-w-controls')) $('dub-w-controls').hidden = mode !== 'watch';
+    if ($('dub-stage')) $('dub-stage').classList.toggle('is-watching', mode === 'watch');
+    if ($('dub-w-settings')) $('dub-w-settings').open = false;
+    if (mode !== 'watch' && $('dub-video')) $('dub-video').playbackRate = 1;
     if ($('dub-live-korean-option')) $('dub-live-korean-option').hidden = mode !== 'dub' || !S.run || S.run.mode !== 'presentation';
     if (mode !== 'watch' && $('dub-tcard')) $('dub-tcard').hidden = true;
   }
@@ -1504,6 +1508,25 @@
   function wOnPause(p) {
     var b = $('dub-w-pause');
     if (b) b.innerHTML = p ? L('▶ 이어 보기', '▶ Resume') : L('⏸ 멈춤', '⏸ Pause');
+    var toggle = $('dub-w-toggle');
+    if (toggle) {
+      toggle.textContent = p ? '▶' : '❚❚';
+      toggle.setAttribute('aria-label', p ? T('이어 보기', 'Resume') : T('일시정지', 'Pause'));
+    }
+  }
+  function wProgress(p) {
+    var bar = $('dub-w-seek'), time = $('dub-w-time');
+    function stamp(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }
+    if (bar) {
+      bar.max = p.duration || 0;
+      bar.step = p.unit === 'line' ? 1 : 0.1;
+      bar.value = p.current || 0;
+      bar.disabled = !p.seekable;
+      bar.style.setProperty('--played', (p.duration ? Math.min(100, 100 * p.current / p.duration) : 0) + '%');
+    }
+    var label = p.unit === 'line' ? T('대사 ', 'Line ') + (p.current + 1) + ' / ' + p.count : stamp(p.current) + ' / ' + stamp(p.duration);
+    if (bar) bar.setAttribute('aria-valuetext', label);
+    if (time) time.textContent = label;
   }
   function wOnItem(i, n, it) {
     S.wNow = { i: i, n: n, it: it };
@@ -1591,6 +1614,7 @@
       card: wCard,
       note: function (k) { setNote(k === 'video' ? T('영상을 불러오지 못했어요 — 목소리만 들려줘요', 'Could not load the video — voices only') : ''); },
       onPause: wOnPause,
+      onProgress: wProgress,
       onItem: wOnItem,
       onSeen: function (epId, no) { markSeen(epId, no); if (S.ep && epId === S.ep.id) { renderWatchPanel(); renderScenes(); renderNudge(); } },
       onEnd: wOnEnd,
@@ -1755,6 +1779,27 @@
     if ($('dub-w-next')) $('dub-w-next').addEventListener('click', function () { if (WATCH && S.watching) WATCH.next(); });
     if ($('dub-w-pause')) $('dub-w-pause').addEventListener('click', function () { if (WATCH && S.watching) WATCH.togglePause(); });
     if ($('dub-w-stop')) $('dub-w-stop').addEventListener('click', function () { if (WATCH && S.watching) WATCH.stop(); });
+    if ($('dub-w-toggle')) $('dub-w-toggle').addEventListener('click', function () { if (WATCH && S.watching) WATCH.togglePause(); });
+    if ($('dub-w-seek')) $('dub-w-seek').addEventListener('input', function (e) {
+      if (WATCH && S.watching) WATCH.seek(Number(e.target.value));
+    });
+    if ($('dub-w-settings')) {
+      $('dub-w-settings').addEventListener('change', function (e) {
+        if (e.target.name !== 'watch-rate' || !e.target.checked) return;
+        var w = watcher();
+        if (!w) return;
+        w.setRate(Number(e.target.value));
+        $('dub-w-rate-label').textContent = e.target.value + '×';
+        $('dub-w-settings').open = false;
+      });
+      document.addEventListener('click', function (e) {
+        var menu = $('dub-w-settings');
+        if (menu && menu.open && !menu.contains(e.target)) menu.open = false;
+      });
+      $('dub-w-settings').addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { $('dub-w-settings').open = false; $('dub-w-settings').querySelector('summary').focus(); }
+      });
+    }
   }
 
   function boot() {
@@ -1801,3 +1846,4 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
 })();
+
