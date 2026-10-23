@@ -1139,6 +1139,10 @@
       mode: $('dub-mode').value === 'presentation' ? 'presentation' : 'practice',
       scriptMode: scriptMode() };
     S.run = run;
+    // Results belong to this recording, including all scenes in a whole-story run.
+    // An in-flight old score may finish, but its detached result cannot affect this take.
+    S.results = [];
+    QUEUE = [];
     $('dub-live-korean').checked = run.scriptMode === 'ko';
     applySndPrefs();
     renderResults();
