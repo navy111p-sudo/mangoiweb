@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
-<link rel="stylesheet" href="/css/ai-dubbing-home.css?v=2">
+<link rel="stylesheet" href="/css/ai-dubbing-home.css?v=3">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>🎬 A.i영화더빙 — mangoi.ai</title>
 <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
@@ -392,6 +392,11 @@
   <section class="panel dub-library" id="dub-library" aria-labelledby="dub-library-title" hidden>
     <div class="dub-library-heading"><h2 id="dub-library-title" data-ko="내 영상과 연습" data-en="My videos and practice">내 영상과 연습</h2><button type="button" class="btn" id="dub-library-close"><span data-ko="닫기" data-en="Close">닫기</span></button></div>
     <div class="dub-library-tabs"><button type="button" class="btn" data-library-view="movies" aria-pressed="true"><span data-ko="내 영상" data-en="My videos">내 영상</span></button><button type="button" class="btn" data-library-view="drafts" aria-pressed="false"><span data-ko="이어할 연습" data-en="Saved practice">이어할 연습</span></button><button type="button" class="btn" id="dub-library-refresh"><span data-ko="새로고침" data-en="Refresh">새로고침</span></button></div>
+    <div class="dub-library-filters" id="dub-library-filters">
+      <label for="dub-library-search"><span data-ko="모둠 이름 검색" data-en="Search group names">모둠 이름 검색</span><input type="search" id="dub-library-search" maxlength="60" autocomplete="off" placeholder="예: 1모둠, 무지개" data-ko-placeholder="예: 1모둠, 무지개" data-en-placeholder="e.g. Group 1, Rainbow" aria-describedby="dub-library-filter-help"></label>
+      <label for="dub-library-layout"><span data-ko="보기 방식" data-en="View">보기 방식</span><select id="dub-library-layout"><option value="all" data-ko="전체 목록" data-en="All videos">전체 목록</option><option value="groups" data-ko="모둠별 보기" data-en="Group by name">모둠별 보기</option></select></label>
+      <p id="dub-library-filter-help" data-ko="모둠 이름의 일부만 입력해도 찾아요. ‘모둠별 보기’를 선택하면 같은 모둠 영상을 한곳에 모아 볼 수 있어요." data-en="Type part of a group name to search. Choose Group by name to see each group’s videos together.">모둠 이름의 일부만 입력해도 찾아요. ‘모둠별 보기’를 선택하면 같은 모둠 영상을 한곳에 모아 볼 수 있어요.</p>
+    </div>
     <p class="dub-library-status" id="dub-library-status" role="status" aria-live="polite"></p>
     <div class="dub-library-empty" id="dub-library-empty" hidden>
       <svg class="dub-empty-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="6" y="10" width="36" height="28" rx="6"/><path d="m20 17 11 7-11 7z"/></svg>
@@ -622,7 +627,7 @@
 <script defer src="/js/ai-dubbing-watch.js?v=6"></script>
 <script defer src="/js/ai-dubbing-library.js?v=2"></script>
 <script defer src="/js/ai-dubbing-practice.js?v=1"></script>
-<script defer src="/js/ai-dubbing-home.js?v=3"></script>
+<script defer src="/js/ai-dubbing-home.js?v=4"></script>
 <script defer src="/js/ai-dubbing.js?v=19"></script>
 </body>
 </html>

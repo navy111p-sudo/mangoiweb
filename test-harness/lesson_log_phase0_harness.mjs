@@ -191,8 +191,16 @@ if (typeof preflight === 'function') {
 }
 
 console.log('\n[7] 강사 화면 — 가볍게·안 멈추게');
-check('낙관적 저장 — 누르면 즉시 닫는다', /btn\.disabled = true;\s*\n\s*close\(\);/.test(TEACHER));
-check('실패하면 큐에 넣는다', /\.catch\(function\(\)\{ qPush\(payload\); \}\)/.test(TEACHER));
+// A send click must not hide an unconfirmed save. The browser matrix executes
+// failure/retry against this production handler at every width/language/theme.
+const logSend = TEACHER.slice(TEACHER.indexOf("mask.querySelector('#ev-ok').onclick"), TEACHER.indexOf('  function openEvalView('));
+const logFetch = logSend.indexOf("fetch('/api/eval/manual-create'");
+const logSuccess = logSend.indexOf('c.eval_written = true');
+check('서버 저장 확인 후 닫는다 — 전송 중에는 초안을 유지', logFetch > 0 && logSuccess > logFetch &&
+  !/close\(\)/.test(logSend.slice(0,logFetch)) && logSend.indexOf('close();',logSuccess) > logSuccess);
+check('저장 실패 시 자동 재전송 대신 초안과 재시도 버튼을 유지',
+  /\.catch\(function\(\)\{\s*logSaving = false;\s*btn.disabled = false;/.test(logSend) &&
+  logSend.includes('Your draft is still here') && !logSend.includes('qPush(payload)'));
 check('다시 열 때 자동 재시도한다', /if \(!document\.hidden\) qFlush\(\);/.test(TEACHER));
 check('⚠ 외부 리소스 0개 계약 유지 (script src·link 없음)',
   !/<script[^>]+src=/i.test(TEACHER) && !/<link[^>]+rel=["']?stylesheet/i.test(TEACHER));
