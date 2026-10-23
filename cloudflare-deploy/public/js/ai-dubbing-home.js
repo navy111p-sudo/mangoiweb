@@ -14,6 +14,12 @@
   function releaseUrls() { urls.splice(0).forEach(function (url) { URL.revokeObjectURL(url); }); }
   function clearItems() { releaseUrls(); if ($('dub-library-items')) $('dub-library-items').replaceChildren(); }
   function owned(owner) { return owner === L.identity(); }
+  // Use the saved title so reopening a movie never picks up another group's name.
+  function movieFilename(title, mime) {
+    var stem = String(title || 'dubbing').replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, '_')
+      .replace(/\s*·\s*/g, '_').replace(/\s+/g, '_').replace(/[. _]+$/g, '');
+    return 'mangoi-' + Array.from(stem || 'dubbing').slice(0, 100).join('') + (/mp4/.test(mime || '') ? '.mp4' : '.webm');
+  }
   function button(text, action, cls) { var b = node('button', 'btn ' + (cls || ''), text); b.type = 'button'; b.addEventListener('click', action); return b; }
   function date(value) { var d = new Date(value); return isNaN(d.getTime()) ? '' : d.toLocaleString(en() ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 
@@ -95,7 +101,7 @@
     card.append(node('p', '', date(movie.createdAt) + ' · ' + (movie.engine === 'studio' ? t('키키와 토토', 'Kiki & Toto') : t('모험 3D 애니', '3D Adventure')) + (movie.interrupted ? t(' · 중간에 멈춘 녹음', ' · Recording stopped partway') : '')));
     var player = node('video'); player.controls = true; player.playsInline = true; player.preload = 'metadata'; player.hidden = true; card.append(player);
     var actions = node('div', 'row'), download = node('a', 'btn', t('파일 내려받기', 'Download'));
-    download.hidden = true; download.download = 'mangoi-dubbing.' + (/mp4/.test(movie.mime || movie.blob && movie.blob.type) ? 'mp4' : 'webm');
+    download.hidden = true; download.download = movieFilename(movie.title, movie.mime || movie.blob && movie.blob.type);
     var error = node('p', 'dub-save-note'); error.setAttribute('role', 'status');
     var play = button(t('영상 보기', 'Watch video'), async function () {
       play.disabled = true; error.textContent = t('영상을 불러오는 중…', 'Loading the movie…');
@@ -223,5 +229,5 @@
     window.addEventListener('pagehide', releaseUrls);
     render();
   }
-  window.MangoiDubHome = { init: init, ready: ready, render: render, checkpoint: checkpoint, saveMovie: saveMovie, practice: practice, openLibrary: openLibrary };
+  window.MangoiDubHome = { init: init, ready: ready, render: render, checkpoint: checkpoint, saveMovie: saveMovie, practice: practice, openLibrary: openLibrary, movieFilename: movieFilename };
 })();
