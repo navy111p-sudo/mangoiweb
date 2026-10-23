@@ -60,8 +60,8 @@ window.READING_LADDER = {
    "color": "#862e9c",
    "cefr": "B1+/B2",
    "name": {
-    "ko": "고1 지식 글",
-    "en": "High-school non-fiction"
+    "ko": "비문학",
+    "en": "Non-fiction"
    },
    "grade": {
     "ko": "중3~고1",
