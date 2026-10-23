@@ -50,13 +50,16 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
     substr(COALESCE(NULLIF(note_en,''), teacher_comment, strengths, ''),1,1500) AS note_en,
     substr(COALESCE(note_ko,''),1,1500) AS note_ko FROM student_evaluations
     WHERE COALESCE(NULLIF(student_uid,''), user_id) = ?`;
-  const [evals, prior] = await Promise.all([
+  const [evals, prior, previousFeedback] = await Promise.all([
     env.DB.prepare(select + ` AND COALESCE(NULLIF(lesson_date,''),date(created_at/1000,'unixepoch','+9 hours')) >= ?
       AND COALESCE(NULLIF(lesson_date,''),date(created_at/1000,'unixepoch','+9 hours')) < ? ORDER BY created_at DESC LIMIT 1001`)
       .bind(uid, from, end).all(),
     env.DB.prepare(select + ` AND COALESCE(NULLIF(lesson_date,''),date(created_at/1000,'unixepoch','+9 hours')) < ?
       ORDER BY COALESCE(NULLIF(lesson_date,''),date(created_at/1000,'unixepoch','+9 hours')) DESC, created_at DESC LIMIT 1`)
       .bind(uid, before).first(),
+    previous ? env.DB.prepare(select + ` AND room_id=?
+      AND COALESCE(NULLIF(lesson_date,''),date(created_at/1000,'unixepoch','+9 hours')) < ?
+      ORDER BY created_at DESC LIMIT 1`).bind(uid, previous.room_id, before).first() : Promise.resolve(null),
   ]);
   if ((evals.results || []).length > 1000) throw new Error('history_too_many_records');
   const schedules = new Map<number, any>((rows.results || []).map((r: any) => [Number(r.id), r]));
@@ -89,9 +92,13 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
       state: 'unknown', label_en: 'Attendance not recorded', label_ko: '출결 기록 미확인', feedback: report });
   }
   let summary: any = previous;
-  if (prior && (!summary || reportDate(prior) >= summary.date)) {
-    summary = { ...(summary && summary.date === reportDate(prior) ? summary : {}), date: reportDate(prior),
-      teacher_name: prior.teacher_name || null, teacher_source: 'feedback', feedback: prior };
+  const sameDayCount = previous ? (rows.results || []).filter((r: any) => previousScheduled([r], before)?.date === previous.date).length : 0;
+  const matchedFeedback = previousFeedback || (prior && summary && reportDate(prior) === summary.date && !prior.room_id && sameDayCount === 1 ? prior : null);
+  const summaryFeedback = prior && (!summary || reportDate(prior) > summary.date) ? prior : matchedFeedback;
+  if (summaryFeedback) {
+    summary = { ...(summary && summary.date === reportDate(summaryFeedback) ? summary : {}), date: reportDate(summaryFeedback),
+      teacher_name: summaryFeedback.teacher_name || (summary?.date === reportDate(summaryFeedback) ? summary.teacher_name : null) || null,
+      teacher_source: 'feedback', feedback: summaryFeedback };
   }
   const nameOf = await loadTeacherNameOf(env);
   if (summary && !summary.teacher_name) summary.teacher_name = nameOf(summary.teacher_id) || null;

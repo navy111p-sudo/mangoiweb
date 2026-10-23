@@ -85,6 +85,14 @@ for(let index=0;index<120;index++) {
 // A historical teacher change must not rewrite an earlier teacher's name.
 db.exec(`INSERT INTO class_audit_log VALUES(2,'teacher_change',NULL,'2026-10-22','{"from_teacher_id":"2","to_teacher_id":"1"}',1792620000000);`);
 const changed=await request();assert.equal(changed.data.items.find(i=>i.date==='2026-10-21').teacher_name,'Teacher C');
+// Two lessons on the last date: an earlier lesson's late-written feedback must not replace the last teacher.
+db.exec(`INSERT INTO class_schedules VALUES(6,'student_one','2','active','2026-10-21',NULL,'17:00',20,'manual',NULL,1,NULL);
+INSERT INTO student_evaluations VALUES(20,'student_one',NULL,'class-6-20261021','2026-10-21','Teacher B','teacher_b',1792753200000,'Earlier lesson, written later',NULL,NULL,NULL);`);
+let twoLessons=await request();assert.equal(twoLessons.data.previous.teacher_name,'Teacher C');
+assert.equal(twoLessons.data.previous.feedback,undefined);
+db.exec(`INSERT INTO student_evaluations VALUES(21,'student_one',NULL,'class-2-20261021','2026-10-21','Teacher C','teacher_c',1792580400000,'Actual last lesson feedback',NULL,NULL,NULL);`);
+twoLessons=await request();assert.equal(twoLessons.data.previous.teacher_name,'Teacher C');
+assert.equal(twoLessons.data.previous.feedback.note_en,'Actual last lesson feedback');
 db.exec('DROP TABLE student_evaluations');
 assert.equal((await request()).status,503,'database failure is an error, never an empty successful history');
 console.log(`PASS: ${matrix} distinct matrix scenarios plus integration cases: real SQLite history, cross-teacher records, report-free previous teacher, substitutes, leap dates, month boundaries, orphan/legacy reports, authorization, read failures and SELECT-only reads.`);
