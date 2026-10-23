@@ -134,7 +134,7 @@ html[data-t="dark"] .pwform input{background:#1b2330;border-color:#2c3949;color:
 /* ── 오늘 수업 리스트 ── */
 .cls{border-top:1px solid #eaeef2;padding:12px 0;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
 .cls:first-of-type{border-top:0}
-.cls-time{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;min-width:64px;color:#16202c}
+.cls-time{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;min-width:64px;color:#16202c;flex:0 0 100%;max-width:none;overflow-wrap:normal}
 .cls-main{flex:1;min-width:150px}
 .cls-name{font-size:16px;font-weight:600}
 /* 🎨 (2026-10-07 사장님 «스케줄·캘린더 색 통일») 정규 주황 · 보강 보라 · 체험 초록 · 레벨테스트 파랑 — 학생 상세 캘린더와 같은 계열 */
@@ -330,10 +330,11 @@ html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
 .btn-appr{background:#0b7a3d;color:#fff;flex:1}
 .btn-skip{background:#e7ebef;color:#2c3a48;flex:0 0 auto}
 .btn-sm{min-height:44px;padding:11px 14px;font-size:14px}
-/* 🪤 (2026-08-16) 수업 줄에 버튼이 셋이면 좁은 폰(430px)에서 글자가 «AI 리포트 요/청» 으로
-   쪼개진다 — .cls-act 가 flex-wrap 이고 셋이 폭을 1:1:1 로 나눠 갖기 때문이다.
-   라벨을 짧게 줄이고, 그래도 넘치면 줄을 쪼개는 대신 «…» 로 자른다(글자가 깨져 보이지 않게). */
-.btn-ask{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Give actions their own row; wrap full labels instead of truncating them. */
+.btn-ask{white-space:normal;overflow:visible;text-overflow:clip}
+.cls-act .btn{flex:1 1 110px;min-width:0;white-space:normal;overflow-wrap:break-word}
+.cls-act .btn:focus-visible{outline:3px solid #1355a8;outline-offset:3px}
+.cls-extra{font-size:13px;line-height:1.65}
 .btn-post{background:#fff;color:#1355a8;border:1px solid #9db8dc;flex:0 0 auto}
 .fld input,.fld select{
   width:100%;border:1px solid #c9d2dc;border-radius:8px;padding:10px;font-size:16px;
@@ -370,7 +371,7 @@ html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
   .wrap{padding:8px 8px 40px}
 }
 @media (min-width:700px){
-  .cls-act{width:auto;flex:0 0 auto}
+  .cls-act{width:100%;flex:0 0 100%}
   .cls-sact{display:flex}
   .cls-postponed .cls-pnote{display:none}
   .btn{padding:13px 22px}
@@ -1345,7 +1346,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var msg = curMsg();
     if (msg) msg.textContent = T('Saving…','저장 중…');
     sel.disabled = true;
-    fetch('/api/teacher/portal?part=goal', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+    fetch('/api/teacher/portal?part=goal', { method:'POST', credentials:'include', signal:AbortSignal.timeout(20000), headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ student_uid: uid, goal_key: key }) })
       .then(function(r){ return r.json().catch(function(){ return null; }).then(function(j){ return { ok: r.ok, j: j }; }); })
       .then(function(x){
@@ -1359,7 +1360,11 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         (DATA && DATA.classes || []).forEach(function(c){
           if (c.kind === 'class' && String(c.student_uid || '') === uid){ if (x.j.goal) c.student_goal = x.j.goal; else delete c.student_goal; }
         });
-        if (DATA) renderClasses(DATA.classes || []);
+        var savedSel = curSel() || sel;
+        savedSel.disabled = false;
+        WK_READ++; // Discard portal reads started before this write completed.
+        lastSig = null;
+        if (DATA) renderClasses(DATA.classes || [], true);
       })
       .catch(function(){
         var s2 = curSel() || sel, m2 = curMsg(), why = T('Not saved (network)','저장 안 됨(연결)');
@@ -1401,7 +1406,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       b2.disabled = false;
       if (m2) m2.textContent = why; else window.alert(why);
     };
-    fetch('/api/teacher/portal?part=preq', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+    fetch('/api/teacher/portal?part=preq', { method:'POST', credentials:'include', signal:AbortSignal.timeout(20000), headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ student_uid: uid, request_id: id }) })
       .then(function(r){ return r.json().catch(function(){ return null; }).then(function(j){ return { ok: r.ok, j: j }; }); })
       .then(function(x){
@@ -1413,7 +1418,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         (DATA && DATA.classes || []).forEach(function(c){
           if (c.kind === 'class' && String(c.student_uid || '') === uid){ if (x.j.parent_request) c.parent_request = x.j.parent_request; else delete c.parent_request; }
         });
-        if (DATA) renderClasses(DATA.classes || []);
+        btn.disabled = false;
+        WK_READ++;
+        lastSig = null;
+        if (DATA) renderClasses(DATA.classes || [], true);
       })
       .catch(function(){ fail(T('Not saved (network)','저장 안 됨(연결)')); });
   });
@@ -1675,6 +1683,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
      (관리자 캘린더의 시간축 격자는 좁은 화면에서 읽히지 않는다).
      ⚠️ LMS 점유 슬롯·시드 데이터는 학생이 없어 입장할 방이 없다 → 정체를 밝히고 흐리게. */
   var WK_OFFSET = 0;
+  var WK_PICKED_DATE = null; // Keep the actual picked day when its week is rendered.
   var WK_SELECTED = null; // null = 이번 주를 따라감, 그 외에는 고른 월요일(자정이 지나도 유지)
   var WK_DATA = null;     // 마지막으로 성공한 주. 실패·언어 변경·탭 복귀 때도 이 값을 쓴다.
   var WK_READ = 0;        // 이동·전체 새로고침·자동 갱신이 함께 쓰는 응답 순서
@@ -1706,6 +1715,17 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   function validWeek(w, start){
     return !!(w && w.start === start && Array.isArray(w.days) && w.days.length === 7);
   }
+  function previousLessonHtml(c){
+    var pv = c.prev_lesson;
+    if (!pv) return c.previous_lesson_loaded === undefined ? '' : '<div class="cls-prev-body">'
+      + esc(c.previous_lesson_loaded ? T('Previous teacher: no earlier class report','이전 교사: 이전 수업 보고서 없음') : T('Previous teacher: unavailable','이전 교사: 확인 불가')) + '</div>';
+    var text = EN() ? (pv.note_en || pv.note_ko || '') : (pv.note_ko || pv.note_en || '');
+    return '<details class="cls-prev"><summary>↩ ' + esc(T('Summary / Previous teacher','수업 요약 / 이전 교사'))
+      + esc((pv.date ? ' · ' + pv.date : '') + ' · ' + (pv.teacher_name || T('Teacher not recorded','교사 기록 없음')))
+      + '</summary><div class="cls-prev-body">' + esc(text || T('(no note was written)','(남긴 내용이 없습니다)'))
+      + (pv.score_overall != null ? ' <span class="cls-prev-score">⭐ ' + esc(String(pv.score_overall)) + '/5</span>' : '')
+      + '</div></details>';
+  }
   function weekRecordHtml(it){
     if(it.kind!=='class') return '';
     var state=it.holiday_name?'holiday':it.class_state==='postponed'?'postponed':it.attendance&&it.attendance.state;
@@ -1734,7 +1754,9 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     // 날짜 칸을 지금 보고 있는 주의 시작일로 맞춘다 — 다음에 달력을 열면 «여기»에서 시작한다.
     var dtIn = document.getElementById('wk-date');
     if (dtIn && w.start) dtIn.value = w.start;
-    syncDateMenus(w.start);
+    var pickedDate = weekOfDate(WK_PICKED_DATE) === w.start ? WK_PICKED_DATE : w.start;
+    if (dtIn) dtIn.value = pickedDate;
+    syncDateMenus(pickedDate);
     var DOW = EN() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
     box.innerHTML = w.days.map(function(d){
       var head = d.date.slice(5) + ' (' + DOW[d.dow] + ')' + (d.is_today ? (EN() ? ' · today' : ' · 오늘') : '');
@@ -1747,6 +1769,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
               + '<span>' + stuLabelHtml(it, dim ? T('(slot taken)','(점유 슬롯)') : T('(name not set)','(이름 미등록)')) + '</span>'
               + kindPill(it).replace(/^ /, '')
               + portalContact(it)
+              + '<span class="wk-record">' + esc(T('Student level','학생 레벨')) + ': ' + esc(it.level || T('Not set','미등록')) + '</span>'
+              + previousLessonHtml(it)
               + weekRecordHtml(it)
               + '</div>';
           }).join('')
@@ -1792,6 +1816,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   function loadWeekOf(dateStr){
     var picked = weekOfDate(dateStr);
     if (!picked) return;
+    WK_PICKED_DATE = dateStr;
     var off = Math.round((Date.parse(picked + 'T00:00:00Z') - Date.parse(wkMonday(0) + 'T00:00:00Z')) / (7 * 86400000));
     loadWeek(off);
   }
@@ -1912,7 +1937,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     }
     return '<div class="cls-extra">' + row1.join(' &middot; ') + wkLine
       + '<br><b>' + esc(T('Last class feedback', '지난 수업 피드백')) + '</b> ' + esc(ev(lastFeedback)) + evOpen(lastFeedback)
-      + '<br><b>' + esc(T("Today's feedback", '오늘 피드백')) + '</b> ' + esc(ev(todayFeedback)) + evOpen(todayFeedback)
+      + '<br><b>' + esc(T("Today's feedback", '오늘 피드백')) + '</b> <span class="feedback-level">' + esc(T('Student level','학생 레벨')) + ': ' + esc(c.level || T('Not set','미등록')) + '</span> · ' + esc(ev(todayFeedback)) + evOpen(todayFeedback)
       + ((!c.today_eval && !c.eval_written && c.class_state !== 'postponed' && c.class_state !== 'cancelled' && typeof wi === 'number' && wi >= 0)
           ? ' <button type="button" class="evq-open evq-write" data-eval="' + wi + '">' + esc(T('✍ Write Feedback', '✍ 피드백 작성')) + '</button>' : '')
       + '</div>';
@@ -1970,7 +1995,13 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     return (rows || []).filter(function(c){
       return (!query || [stuName(c),stuUid(c),c.student_name_en].join(' ').toLowerCase().indexOf(query) >= 0)
         && (!academy || c.academy === academy);
-    }).slice().sort(function(a,b){ return direction * (String(a.start_time || '').localeCompare(String(b.start_time || ''))); });
+    }).slice().sort(function(a,b){
+      function minutes(c){ var m=String(c.start_time || '').match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/); return m && +m[1]<24 && +m[2]<60 ? +m[1]*60 + +m[2] : null; }
+      var x=minutes(a), y=minutes(b);
+      if(x===null) return y===null ? 0 : 1;
+      if(y===null) return -1;
+      return direction * (x-y);
+    });
   }
   function portalContact(c){
     if (!c || c.kind && c.kind !== 'class' || !stuUid(c)) return '';
@@ -2017,17 +2048,38 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   });
   // Sort a copy; row actions retain the same class objects, regardless of status.
   function sortClassesByTime(list, direction){
+    var day = '1970-01-01';
+    for (var i=0;i<list.length;i++) {
+      var ts = Number(list[i].start_ts);
+      if (list[i].start_ts != null && list[i].start_ts !== '' && isFinite(ts)) { day = new Date(ts + 9*3600000).toISOString().slice(0,10); break; }
+    }
     return list.map(function(c, i){ return { c: c, i: i }; }).sort(function(a, b){
-      var x = Number(a.c.start_ts), y = Number(b.c.start_ts);
-      var ax = a.c.start_ts != null && a.c.start_ts !== '' && isFinite(x);
-      var by = b.c.start_ts != null && b.c.start_ts !== '' && isFinite(y);
+      function stamp(c){
+        if (c.start_ts != null && c.start_ts !== '' && isFinite(Number(c.start_ts))) return Number(c.start_ts);
+        var m=String(c.start_time || '').match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+        return m && +m[1]<24 && +m[2]<60
+          ? Date.parse((c.class_date || c.date || day) + 'T' + ('0'+m[1]).slice(-2) + ':' + m[2] + ':00+09:00') : NaN;
+      }
+      var x = stamp(a.c), y = stamp(b.c);
+      var ax = isFinite(x);
+      var by = isFinite(y);
       if (!ax) return by ? 1 : a.i - b.i;
       if (!by) return -1;
       return (direction === 'desc' ? y - x : x - y) || a.i - b.i;
     }).map(function(row){ return row.c; });
   }
 
-  function renderClasses(list){
+  function renderClasses(list, settled){
+    // Keep controls alive while a pointer, keyboard user or request owns them.
+    var currentBox = document.getElementById('classes');
+    if (currentBox && (classPointerDown || reportPendingCount > 0 ||
+        currentBox.querySelector('select:disabled,button.preq-done:disabled') ||
+        (!settled && currentBox.contains(document.activeElement) &&
+         /^(BUTTON|SELECT|INPUT|TEXTAREA|SUMMARY)$/.test(document.activeElement.tagName)))) {
+      classRenderDeferred = true;
+      return;
+    }
+    classRenderDeferred = false;
     portalAcademies();
     var unfiltered = list;
     list = sortClassesByTime(portalRows(list), classTimeSort);
@@ -2121,9 +2173,9 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       // 🏷 class_state 도 지문에 넣는다 — 안 넣으면 서버가 «취소됨/노쇼» 를 새로 알려 줘도
       //    시간·상태가 같아서 «바뀐 게 없다» 로 보고 화면이 옛 라벨을 그대로 둔다.
       sig += sc.schedule_id + ':' + (sc.kind || 'class') + ':' + st + ':' + (sc.class_state || '')
-           + ':' + (sc.no_show_role || '') + ':' + sc.start_time + ':' + stuName(sc) + ':' + stuUid(sc)
+           + ':' + (sc.no_show_role || '') + ':' + sc.start_time + ':' + sc.duration_min + ':' + sc.end_ts + ':' + stuName(sc) + ':' + stuUid(sc)
            + ':' + (sc.level || '') + ':' + (sc.textbook || '')
-           + ':' + (sc.student_phone || '') + ':' + (sc.academy || '') + ':' + JSON.stringify(sc.prev_lesson || null)
+           + ':' + (sc.student_phone || '') + ':' + (sc.academy || '') + ':' + JSON.stringify(sc.prev_lesson || null) + ':' + sc.previous_lesson_loaded
            // ✍ 일지 배지·지난수업 도착도 지문에 넣는다 — 안 넣으면 캐시를 먼저 그린 뒤
            //    서버 응답이 와도 «바뀐 게 없다» 로 보고 배지가 영영 안 뜬다.
            + ':' + (sc.eval_written ? 'E' : '') + (sc.prev_lesson ? 'P' : '')
@@ -2144,6 +2196,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
            // 🚪 (2026-09-29) 방 번호·길이도 넣는다 — 안 넣으면 「오늘은 다른 방으로」·일정 이동으로
            //    room_id 가 바뀌어도 «바뀐 게 없다» 로 보고 다시 안 그려, [수업 입장] 이 옛 방으로 간다.
            + ':' + (sc.room_id || '') + ':' + (sc.duration_min || '') + ':' + (sc.close_at_ts || '')
+           + ':' + sc.enter_from_ts + ':' + sc.enter_until_ts + ':' + (ASKED[sc.room_id] || '')
            // 🚪 (2026-10-21) «학생이 다른 방에» 도 넣는다 — 안 넣으면 학생이 옮겨 가도 빨간 상자가 남거나 안 뜬다.
            + ':' + (sc.student_elsewhere ? sc.student_elsewhere.room + '#' + sc.student_elsewhere.others + (sc.student_elsewhere.via_twin ? 'T' : '') : '') + ',';
     }
@@ -2331,20 +2384,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
          내려줄 때만 그린다(옛 캐시 응답엔 없다 — 없는 것을 지어내지 않는다).
          ⚠️ <details> 라 펼치기 전엔 한 줄이고, 라벨은 renderClasses 가 언어 전환 때마다
             처음부터 다시 그리므로 textContent 갈아끼우기 함정(i18n)이 없다. */
-      var prevHtml = '';
-      if (c.prev_lesson){
-        var pv = c.prev_lesson;
-        var ptxt = EN() ? (pv.note_en || pv.note_ko || '') : (pv.note_ko || pv.note_en || '');
-        prevHtml = '<details class="cls-prev"><summary>↩ '
-          + esc(T('Summary / Previous teacher','수업 요약 / 이전 교사'))
-          + esc((pv.date ? ' · ' + pv.date : '')
-              + (pv.teacher_name ? ' · ' + pv.teacher_name : ''))
-          + '</summary><div class="cls-prev-body">'
-          + (ptxt ? esc(ptxt) : esc(T('(no note was written)','(남긴 내용이 없습니다)')))
-          + (pv.score_overall != null
-              ? ' <span class="cls-prev-score">⭐ ' + esc(String(pv.score_overall)) + '/5</span>' : '')
-          + '</div></details>';
-      }
+      var prevHtml = previousLessonHtml(c);
 
       h += '<div class="cls' + (c.student_elsewhere ? ' cls-away-row' : '') + '">'
         +   '<div class="cls-time">' + esc(MangoiClassDisplay.range(c)) + '</div>'
@@ -3974,11 +4014,29 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
      녹음은 사무실이 관리자 화면에서 돌린다. 여기서 무거운 일을 하지 않는 것이 요점이다.
      ⚠️ 같은 수업을 두 번 눌러도 서버가 «아직 확인 안 된 요청» 을 찾아 하나로 합친다
         (회선이 끊긴 줄 알고 다시 누르는 일이 잦다). 그래서 낙관적으로 처리해도 안전하다. */
+  var reportPendingCount = 0, reportPending = Object.create(null), classPointerDown = false, classRenderDeferred = false;
+  function resumeClassRender(){
+    setTimeout(function(){ if (classRenderDeferred && DATA) renderClasses(DATA.classes || []); }, 0);
+  }
+  document.addEventListener('pointerdown', function(ev){
+    var box = document.getElementById('classes');
+    classPointerDown = !!(box && box.contains(ev.target));
+  });
+  document.addEventListener('pointerup', function(){ classPointerDown = false; resumeClassRender(); });
+  document.addEventListener('pointercancel', function(){ classPointerDown = false; resumeClassRender(); });
+  document.addEventListener('focusout', resumeClassRender);
+  window.addEventListener('blur', function(){ classPointerDown = false; });
+
   function askReport(c, btn){
     if (!c || !c.room_id) return;
+    if (reportPending[c.room_id] || ASKED[c.room_id]) return;
+    reportPending[c.room_id] = true;
+    reportPendingCount++;
     btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
     setBtnLabel(btn, 'Sending…', '보내는 중…');
     fetch('/api/admin/feedback-drafts/report-request', {
+      signal: AbortSignal.timeout(20000),
       method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
         room_id: c.room_id,
@@ -3988,13 +4046,14 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         start_time: c.start_time || ''
       })
     })
-    .then(function(r){ return r.json(); })
+    .then(function(r){ if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
     .then(function(j){
       if (!j || !j.ok) throw new Error((j && j.error) || 'failed');
       //  라벨은 짧게 — 좁은 폰에서 줄이 쪼개진다. 자세한 설명은 title 로 남긴다.
       btn.title = EN() ? 'The office will make the report from the class recording'
                        : '사무실에서 수업 녹음으로 리포트를 만들어 드려요';
       ASKED[c.room_id] = Date.now();   // 다시 그려도 «요청됨» 이 남게
+      WK_READ++;
       askedSave();
       if (j.already) setBtnLabel(btn, 'Already asked', '이미 요청됨');
       else           setBtnLabel(btn, 'Requested ✓', '요청됨 ✓');
@@ -4002,6 +4061,13 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     .catch(function(){
       btn.disabled = false;
       setBtnLabel(btn, 'Try again', '다시 누르기');
+      btn.title = T('Request failed. Check your connection and try again.', '요청을 보내지 못했습니다. 연결을 확인하고 다시 눌러 주세요.');
+    })
+    .then(function(){
+      delete reportPending[c.room_id];
+      reportPendingCount--;
+      btn.removeAttribute('aria-busy');
+      resumeClassRender();
     });
   }
 
@@ -4011,7 +4077,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     mask.innerHTML =
       '<div class="modal" role="dialog" aria-modal="true">'
       + '<h3>' + esc(T('Class Log','수업 일지')) + '</h3>'
-      + '<p class="sub">' + esc(stuLabelText(c, T('(name not set)','(이름 미등록)')) + ' · ' + c.start_time) + '</p>'
+      + '<p class="sub">' + esc(stuLabelText(c, T('(name not set)','(이름 미등록)')) + ' · ' + MangoiClassDisplay.range(c)) + '</p>'
+      + '<p class="sub feedback-level">' + esc(T('Student level','학생 레벨')) + ': ' + esc(c.level || T('Not set','미등록')) + '</p>'
       + '<div class="fld"><label>' + esc(T('Level group (tap to set or change)','수준 그룹 (눌러서 정하거나 바꿔요')) + '</label><div id="ev-band">'
       +   bandChip('sprout', '🌱', T('Sprout','새싹'), c.eval_band)
       +   bandChip('grow',   '🌿', T('Grow','자람'), c.eval_band)
@@ -4042,7 +4109,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       + '</div></div>';
     document.body.appendChild(mask);
 
-    function close(){ if (mask.parentNode) mask.parentNode.removeChild(mask); }
+    var logSaving = false;
+    function close(){ if (!logSaving && mask.parentNode) mask.parentNode.removeChild(mask); }
     function say(cls, txt){ mask.querySelector('#ev-msg').innerHTML = '<div class="' + cls + '">' + esc(txt) + '</div>'; }
     mask.querySelector('#ev-x').onclick = close;
     mask.onclick = function(ev){ if (ev.target === mask) close(); };
@@ -4155,6 +4223,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
 
     mask.querySelector('#ev-ok').onclick = function(){
       var btn = this;
+      if (logSaving) return;
       var ko  = (mask.querySelector('#ev-ko').value || '').trim();
       var en  = (mask.querySelector('#ev-en').value || '').trim();
       var raw = mask.querySelector('#ev-raw').value.trim();
@@ -4194,26 +4263,42 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         notify_parent: true
       };
 
-      /* 🚀 낙관적 저장 — 누르면 «즉시» 닫힌다. 전송은 뒤에서.
-         실패하면 큐에 넣고 다음에 화면을 열 때 자동으로 다시 보낸다.
-         필리핀 회선에서 「눌렀는데 멈췄다」가 사라지는 지점이다. */
+      // Keep the draft visible until the server confirms the save.
+      logSaving = true;
       btn.disabled = true;
-      close();
+      btn.textContent = T('Sending…','보내는 중…');
+      mask.querySelector('#ev-x').disabled = true;
+      say('', T('Saving your log. Please wait…','일지를 저장하고 있습니다. 잠시 기다려 주세요…'));
       fetch('/api/eval/manual-create', {
+        signal: AbortSignal.timeout(20000),
         method:'POST', credentials:'same-origin',
         headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload)
       })
-      .then(function(r){ return r.json(); })
+      .then(function(r){ if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
       .then(function(j){
-        if (!j || !j.ok){ qPush(payload); return; }
+        if (!j || !j.ok) throw new Error('save failed');
         // ✍ (2026-08-27) 방금 쓴 일지를 화면에 바로 반영 — 수업 줄 배지가 「일지 ✓ 보기」로
         //    바뀌고, «내가 쓴 일지» 카드 캐시를 비워 다음 펼침 때 새로 불러온다.
         c.eval_written = true;
         if (j.id) c.eval_id = j.id;
+        var current = freshClass(c);
+        current.eval_written = true;
+        if (j.id) current.eval_id = j.id;
+        WK_READ++;
         MY.myev = null;
-        if (DATA) renderClasses(DATA.classes || []);
+        logSaving = false;
+        close();
+        lastSig = null;
+        if (DATA) renderClasses(DATA.classes || [], true);
       })
-      .catch(function(){ qPush(payload); });
+      .catch(function(){
+        logSaving = false;
+        btn.disabled = false;
+        btn.textContent = T('Try sending again','다시 보내기');
+        mask.querySelector('#ev-x').disabled = false;
+        say('err', T('Save not confirmed. Your draft is still here. Check your connection and try again.',
+                    '저장을 확인하지 못했습니다. 작성한 내용은 그대로 있습니다. 연결을 확인하고 다시 시도해 주세요.'));
+      });
     };
   }
 
@@ -4222,7 +4307,11 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
      ⚠️ 인앱 브라우저는 window.open 이 예외 없이 null 만 돌려준다(CLAUDE.md 함정) —
         반환값이 비면 같은 창으로 연다. */
   function openEvalView(c){
-    if (!c || !c.eval_id) return;
+    if (!c || !c.eval_id){
+      alert(T('The saved log link is unavailable. Refreshing the class list — please try again.', '저장된 일지 링크를 확인할 수 없습니다. 목록을 새로 불러옵니다. 다시 눌러 주세요.'));
+      load(true);
+      return;
+    }
     var u = '/eval.html?id=' + encodeURIComponent(c.eval_id);
     var w = null; try { w = window.open(u, '_blank'); } catch (e) {}
     if (!w) location.href = u;
@@ -4376,6 +4465,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       .then(function(r){ return r.status === 401 ? null : r.json(); })
       .then(function(d){
         if (!currentWeekRead(req)){ scheduleAutoRefresh(arDelay); return; }
+        // A dialog or save may have started after this read was sent.
+        if (modalOpen() || reportPendingCount > 0 || document.querySelector('#classes select:disabled,#classes button.preq-done:disabled')){
+          scheduleAutoRefresh(arDelay); return;
+        }
         if (!d || !d.ok || !validWeek(d.week, req.start || weekOfDate(d.today))) throw new Error('bad');
         // 날짜가 넘어갔으면(자정 근무) 통째로 다시 그린다 — 어제 목록을 남기면 안 된다
         var dayChanged = DATA && DATA.today && d.today && DATA.today !== d.today;

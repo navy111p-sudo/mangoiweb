@@ -1,3 +1,4 @@
+import { attachTeacherPreviousLessons } from './teacher-previous-lessons';
 import { attachCalendarRecords } from './calendar-records';
 import { loadTeacherStudentHistory, validHistoryDate } from './teacher-student-history';
 // ────────────────────────────────────────────────────────────────────────────
@@ -539,6 +540,7 @@ export async function handleTeacherApi(
           status: _postponed ? 'postponed' : (weekDays[wi].date > todayStr ? 'early' : 'done'),
           start_time: `${pad(wh || 0)}:${pad(wm || 0)}`,
           duration_min: Number(s.duration_min) || 30,
+          level: s.level || null,
           student_uid: studentUidOf(s),
           student_name: s.student_name || s.student_en || null,
           student_name_en: s.student_en || null,
@@ -1046,42 +1048,12 @@ export async function handleTeacherApi(
         if (eid) { c.eval_written = true; c.eval_id = eid; }
       }
     }
-    const dayStartMs = Date.UTC(kY, kMo, kD, 0, 0, 0) - KST;   // 오늘 00:00 KST — «오늘 이전» 경계
-    const uids = [...new Set(
-      classes.filter((c: any) => c.kind === 'class' && c.student_uid)
-             .map((c: any) => String(c.student_uid)))];
-    if (uids.length) {
-      // 옛 행은 student_uid 가 비고 user_id 만 있다(api-mango 경로) → COALESCE 로 한 키로 본다.
-      // MAX(created_at) 곁의 나머지 열은 SQLite 규칙상 그 최댓값 행에서 온다(학생당 최신 1건).
-      const prevRows = await selectInChunks<any>(
-        env.DB, uids,
-        (ph) => `SELECT COALESCE(NULLIF(student_uid, ''), user_id) AS suid,
-                        id AS eval_id, teacher_name, lesson_date, score_overall,
-                        substr(COALESCE(note_en, teacher_comment, strengths, ''), 1, 400) AS note_en,
-                        substr(COALESCE(note_ko, ''), 1, 400) AS note_ko,
-                        MAX(created_at) AS created_at
-                   FROM student_evaluations
-                  WHERE COALESCE(NULLIF(student_uid, ''), user_id) IN (${ph}) AND created_at < ?
-                    AND (note_en IS NOT NULL OR note_ko IS NOT NULL OR room_id IS NOT NULL)
-                  GROUP BY suid`,
-        { tail: [dayStartMs], swallowErrors: true },
-      );
-      const prevBy = new Map<string, any>();
-      for (const r of prevRows) if (r.suid) prevBy.set(String(r.suid), r);
-      for (const c of (classes as any[])) {
-        const p = prevBy.get(String(c.student_uid || ''));
-        if (!p) continue;
-        c.prev_lesson = {
-          eval_id: Number(p.eval_id) || null,
-          date: p.lesson_date || (p.created_at ? new Date(Number(p.created_at) + KST).toISOString().slice(0, 10) : null),
-          teacher_name: p.teacher_name || null,
-          note_en: p.note_en || null,
-          note_ko: p.note_ko || null,
-          score_overall: p.score_overall != null ? p.score_overall : null,
-        };
-      }
-    }
+
   } catch { /* 배지·지난수업이 없어도 목록은 정상 */ }
+
+  if (!onlyNext) await attachTeacherPreviousLessons(env.DB, [
+    ...classes, ...weekDays.flatMap((d: any) => d.items),
+  ], now);
 
   /* 🤝 강사 인수인계 카드 (2026-10-10, 경쟁사 분석 적용 ②) — src/teacher-handover.ts
    *  오늘 학생마다 «지난 목표 / 아직 못 고친 문장 / 복습 카드 했는지» 를 붙인다.
