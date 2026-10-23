@@ -80,7 +80,7 @@ const groupScene = { lines: [line, { ...line, id: 'b' }] };
 const groupLines = context.MangoiDubCore.assignLines(groupScene, d.S.cast, {});
 assert.deepEqual(Array.from(groupLines, x => x.performer.idx), [0, 1]);
 d.renderScenes();
-assert.match(el('dub-scenes').innerHTML, /역할 정하러 가기/);
+assert.match(el('dub-scenes').innerHTML, /data-ko="더빙"/);
 assert.doesNotMatch(el('dub-scenes').innerHTML, /바로 더빙/);
 const button = { disabled: false, getAttribute: () => '0' };
 el('dub-scenes').events.click({ target: { closest: selector => selector.includes('data-scene') ? button : null } });
