@@ -124,7 +124,7 @@ try {
       e.element('wk-date').value = '2026-11-18'; e.element('wk-date').dispatch('change');
       check('date change requests corresponding Monday', selectedRequest(e,4,'2026-11-16'));
       await respond(e,4,'2026-11-16','far');
-      check('far week leaves three shortcut buttons unselected', shown(e,'2026-11-16','far') && ['wk-prev','wk-this','wk-next'].every(id => !e.element(id).classList.contains('on')));
+      check('far week keeps picked day and leaves shortcut buttons unselected', e.element('wk-date').value === '2026-11-18' && e.element('wk-range').textContent.startsWith('(2026-11-16 ~ ') && e.element('week').innerHTML.includes('far') && ['wk-prev','wk-this','wk-next'].every(id => !e.element(id).classList.contains('on')));
       e.element('wk-date').value = '2026-10-01'; e.element('wk-go').dispatch('click');
       check('Go button uses picked date', selectedRequest(e,5,'2026-09-28'));
     }
