@@ -174,6 +174,8 @@
   /* « 플레이어 » */
   .stage{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;border:1px solid var(--line)}
   .stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+  .dub-intro-cover{position:absolute;inset:0;background:#000;pointer-events:none}
+  .dub-intro-cover img{width:100%;height:100%;object-fit:contain}
   .sub{position:absolute;left:4%;right:4%;bottom:4%;padding:8px 12px;border-radius:12px;background:rgba(5,8,14,.78);text-align:center}
   .sub .who{display:block;font-size:13px;font-weight:800;color:var(--gold)}
   .sub .en{display:block;font-size:clamp(16px,3.2vw,26px);font-weight:900;line-height:1.3}
@@ -629,6 +631,7 @@
 <script defer src="/js/ai-dubbing-practice.js?v=1"></script>
 <script defer src="/vendor/jszip/jszip.min.js?v=3.10.1"></script>
 <script defer src="/js/ai-dubbing-home.js?v=5"></script>
-<script defer src="/js/ai-dubbing.js?v=20"></script>
+<script defer src="/js/ai-dubbing-intro.js?v=1"></script>
+<script defer src="/js/ai-dubbing.js?v=21"></script>
 </body>
 </html>

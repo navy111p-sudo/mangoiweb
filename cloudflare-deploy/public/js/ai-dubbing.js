@@ -1230,6 +1230,7 @@
 
   /* 장면 영상 불러오기 — 더빙과 «먼저 보기» 가 같이 쓴다(원본 소리는 정본 videoAudio 대로) */
   function loadSceneVideo(v, sc) {
+    if (window.MangoiDubIntro) window.MangoiDubIntro.prepare(v, sc);
     setVideoAudio(v, sc.videoAudio === 'clean');
     v.loop = sc.timing !== 'synced';
     if (sc.poster) v.poster = sc.poster; else v.removeAttribute('poster');
