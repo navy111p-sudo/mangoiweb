@@ -27,9 +27,9 @@ export async function ensureStudentLeaveTable(env: any): Promise<void> {
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_student_leaves_uid ON student_leaves(student_uid)`); } catch { /* 있음 */ }
 }
 
-export async function loadLeaves(env: any, uid: string): Promise<LeaveRow[] | null> {
+export async function loadLeaves(env: any, uid: string, readOnly = false): Promise<LeaveRow[] | null> {
   try {
-    await ensureStudentLeaveTable(env);
+    if (!readOnly) await ensureStudentLeaveTable(env);
     const rs = await env.DB.prepare(
       `SELECT id, student_uid, start_date, end_date, reason, status, created_by, created_at, cancelled_by, cancelled_at
          FROM student_leaves WHERE student_uid = ? ORDER BY start_date DESC`
@@ -42,7 +42,7 @@ export async function loadLeaves(env: any, uid: string): Promise<LeaveRow[] | nu
 }
 
 /** ym = 'YYYY-MM'. 그 달 그 학생의 회차 원장. */
-export async function buildStudentLedger(env: any, uid: string, ym: string, now: number = Date.now()) {
+export async function buildStudentLedger(env: any, uid: string, ym: string, now: number = Date.now(), readOnly = false, historyRows?: any[]) {
   const [y, m] = ym.split('-').map(Number);
   const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const from = `${ym}-01`, to = `${ym}-${pad(days)}`;
@@ -50,7 +50,7 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
 
   let rows: any[] = [];
   try {
-    const rs = await env.DB.prepare(
+    const rs = historyRows ? { results: historyRows } : await env.DB.prepare(
       `SELECT * FROM class_schedules WHERE user_id = ? AND COALESCE(status,'active') != 'cancelled'`
     ).bind(uid).all();
     rows = (rs?.results || []).filter((r: any) => {
@@ -77,11 +77,12 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
       }
     }
     for (const d of dates) {
+      if (r.history_until && d >= r.history_until) continue;
       const startMs = Date.parse(`${d}T${start.length === 5 ? start : '00:00'}:00+09:00`);
       occ.push({ schedule_id: Number(r.id), date: d, start, dur, teacher_id: r.teacher_id ?? null,
         status: String(r.status || 'active').toLowerCase(), room: `class-${r.id}-${d.replace(/-/g, '')}`,
         dated: !!dated, source: String(r.source || ''), start_ms: startMs,
-        upcoming: !(startMs <= now) });
+        upcoming: !(startMs <= now), history_cancelled: !!r.history_cancelled_on && d >= r.history_cancelled_on });
     }
   }
   occ.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
@@ -151,7 +152,7 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
     } catch (e: any) { warnings.push('postpone_requests'); }
   }
 
-  const leaves = await loadLeaves(env, uid);
+  const leaves = await loadLeaves(env, uid, readOnly);
   if (leaves === null) warnings.push('leaves');
   const holds = await loadHoldRanges(env);
   const holidays = new Set<string>();
@@ -187,6 +188,8 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
       onLeave: !!isOnLeave(leaves || [], o.date),
       onHold: !!heldOnFor(holds, uid, o.date),
       holiday: holidays.has(o.date),
+      // History-only cancellation overlay; actual attendance still wins in the canonical classifier.
+      ...(!pr && o.history_cancelled ? { postponeReq: { request_type: 'cancel' } } : {}),
     });
     const def = LEDGER_STATES[state];
     return {
