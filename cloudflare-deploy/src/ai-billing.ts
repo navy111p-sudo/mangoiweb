@@ -57,6 +57,7 @@ import { getScope, scopeStudentCond, type Scope } from './scope';
 import { enrolledCond } from './exec-summary';
 import { hiddenExcludeCond } from './student-override';   // 🙈 명부에서 숨긴 계정은 «청구 인원» 에서도 뺀다
 import { sendPlainSms } from './solapi-client';
+import { ensureB2bClaimColumns, MGB_UNCLAIMED_SQL, mgbUnclaimedBinds, mgbClaimedNow } from './b2b-pay-guard';   // ③ 결제 승인 중엔 명세를 못 바꾸게 (2026-10-23)
 import { tuitionAdminRouter } from './b2b-tuition-load';   // 🏫 B2B 화상수업 수업료(충전금·월 청구) — 같은 접두사 아래 tuition/* 로 위임 (2026-10-01)
 import { aiPrice, aiPriceNote, currentAiPriceRule, parseAiPriceRule, type AiPrice, type AiPriceRule } from './ai-billing-price';   // 💰 학원 공급가 정본(인원 구간·최소 20명분·지사 40%) — 2026-09-24
 
@@ -366,7 +367,7 @@ function priceFields(pr: AiPrice) {
  *   없으면 새로 만들고 그 순간의 단가를 스냅샷한다.
  */
 async function generateOrRefreshInvoice(env: Env, shopName: string, billingMonth: string, actor: string, liveIn?: Set<string> | null, optInIn?: Set<string> | null, skipIfNoOptIn = false):
-    Promise<{ invoice_id: number; added: number; created: boolean; live_check_failed?: boolean; skipped?: boolean; live_listed?: number; idle_listed?: number; auto_excluded?: number; auto_included?: number }> {
+    Promise<{ invoice_id: number; added: number; created: boolean; claimed?: boolean; live_check_failed?: boolean; skipped?: boolean; live_listed?: number; idle_listed?: number; auto_excluded?: number; auto_included?: number }> {
   await ensureSchema(env);
   // 화상반 목록·신청 명단을 «청구서를 만들기 전에» 읽는다 — 실패하면 빈 청구서 머리도 안 남긴다.
   const live = liveIn === undefined ? await loadLiveUids(env) : liveIn;
@@ -405,17 +406,21 @@ async function generateOrRefreshInvoice(env: Env, shopName: string, billingMonth
   // 이미 draft 인 청구서에만 자동으로 더한다 — paid 된 청구서는 명세가 고정이어야 한다(회계 기록).
   const inv = await env.DB.prepare(`SELECT status FROM ai_billing_invoices WHERE id = ?`).bind(invoiceId).first<{ status: string }>();
   if (inv?.status !== 'draft') return { invoice_id: invoiceId, added: 0, created };
+  // ③ 결제 승인 중이면 명세에 손대지 않는다(모르면 손대지 않는다 — 더하면 낸 돈보다 많은 학생이 열린다). 다음 실행이 더한다.
+  if ((await mgbClaimedNow(env, invoiceId)) !== false) return { invoice_id: invoiceId, added: 0, created, claimed: true };
 
   const rosterR = await currentRoster(env, shopName, live, optIn);
   if (!rosterR.ok) return { invoice_id: invoiceId, added: 0, created, live_check_failed: true };
   const roster = rosterR.rows;
   const now = Date.now();
+  // ③ «체크된 줄» 을 더하는 것도 결제 승인 중엔 DB 가 막는다(위 검사와 쓰기 사이에 승인이 시작될 수 있다)
   const stmt = env.DB.prepare(
     `INSERT OR IGNORE INTO ai_billing_invoice_items (invoice_id, student_user_id, student_name, included, added_manually, created_at)
-     VALUES (?, ?, ?, 1, ?, ?)`
+     SELECT ?, ?, ?, 1, ?, ? WHERE ${MGB_UNCLAIMED_SQL}`
   );
   const manualFlag = created ? 0 : 1;   // 처음 생성 때 딸려 들어온 인원은 «자동 생성분», 그 뒤 새로 붙은 인원만 «수동 추가분» 표시
-  const batch = roster.map((s) => stmt.bind(invoiceId, s.user_id, s.name, manualFlag, now));
+  const ub = mgbUnclaimedBinds(invoiceId, now);
+  const batch = roster.map((s) => stmt.bind(invoiceId, s.user_id, s.name, manualFlag, now, ...ub));
   let added = 0;
   for (let i = 0; i < batch.length; i += 80) {
     const results = await env.DB.batch(batch.slice(i, i + 80));
@@ -460,14 +465,15 @@ async function syncItemTracks(env: Env, invoiceId: number, liveRows: Array<{ use
     const optSet = new Set<string>(aiRows.map(r => String(r.user_id).toLowerCase()));   // aiRows = 신청 명단 ∩ 재원 − 화상반
     const plan = planItemTrackSync(items, live, rosterSet, optSet);
     const before = new Map<number, number>(items.map((it: any) => [Number(it.id), Number(it.included) ? 1 : 0]));
-    const up = env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ?, track = ? WHERE id = ? AND invoice_id = ? AND COALESCE(user_set,0) = 0`);
+    // ③ 체크를 바꾸는 자동 분류도 결제 승인 중엔 DB 가 막는다(track 만 바꾸는 upTrack 은 금액과 무관해 그대로)
+    const up = env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ?, track = ? WHERE id = ? AND invoice_id = ? AND COALESCE(user_set,0) = 0 AND ${MGB_UNCLAIMED_SQL}`);
     const upTrack = env.DB.prepare(`UPDATE ai_billing_invoice_items SET track = ? WHERE id = ? AND invoice_id = ?`);
     const stmts = plan.map((x) => {
       const was = before.get(x.id);
       if (was === 1 && x.included === 0) res.auto_excluded++;
       if (was === 0 && x.included === 1) res.auto_included++;
       const it: any = items.find((i: any) => Number(i.id) === x.id);
-      return Number(it?.user_set) === 1 ? upTrack.bind(x.track, x.id, invoiceId) : up.bind(x.included, x.track, x.id, invoiceId);
+      return Number(it?.user_set) === 1 ? upTrack.bind(x.track, x.id, invoiceId) : up.bind(x.included, x.track, x.id, invoiceId, ...mgbUnclaimedBinds(invoiceId, now));
     });
     for (let i = 0; i < stmts.length; i += 80) await env.DB.batch(stmts.slice(i, i + 80));
   } catch (e) {
@@ -547,7 +553,7 @@ async function readCronRun(env: Env): Promise<Record<string, any> | null> {
  *   ⚠️ 명단 쓰기가 실패하면 이번 청구서 체크는 그대로 두되 optin_saved=false 로 알린다(조용히 넘기지 않는다).
  */
 async function setItemsIncluded(env: Env, invoiceId: number, shopName: string, uids: string[], included: 0 | 1, actor: string):
-    Promise<{ ok: boolean; changed: string[]; unknown: string[]; optin_saved: boolean }> {
+    Promise<{ ok: boolean; changed: string[]; unknown: string[]; optin_saved: boolean; blocked?: boolean }> {
   let known: Array<{ student_user_id: string }>;
   try {
     known = (await env.DB.prepare(`SELECT student_user_id FROM ai_billing_invoice_items WHERE invoice_id = ?`)
@@ -558,18 +564,28 @@ async function setItemsIncluded(env: Env, invoiceId: number, shopName: string, u
   const targets: string[] = [], unknown: string[] = [];
   for (const u of uids) { if (exact.has(u)) { if (!targets.includes(u)) targets.push(u); } else unknown.push(u); }
   if (!targets.length) return { ok: true, changed: [], unknown, optin_saved: true };
+  /* ③ (2026-10-23) 결제 «승인 중» 인 청구서의 명세는 바꾸지 않는다 — 금액은 결제창을 연 순간 정해졌고,
+     승인 직전에 문지기(b2b-pay-guard)가 «지금 명세로 다시 잰 금액» 과 대조한다. 그 뒤로 체크가 바뀌면
+     낸 돈과 열리는 학생 수가 다시 갈린다. 그래서 UPDATE 자체에 «승인 중이 아닐 때만» 을 붙인다(DB 가 최종 판정). */
+  await ensureB2bClaimColumns(env);
+  const ub = mgbUnclaimedBinds(invoiceId);
+  let touched = 0;
+  const countIt = (rs: any) => { for (const r of (rs || []) as any[]) touched += Number(r?.meta?.changes || 0); };
   try {
     const st = env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ?, user_set = 1,
         track = CASE WHEN track = 'live' THEN track WHEN ? = 1 THEN 'ai' ELSE 'none' END
-      WHERE invoice_id = ? AND student_user_id = ?`);
-    for (let i = 0; i < targets.length; i += 80) await env.DB.batch(targets.slice(i, i + 80).map(u => st.bind(included, included, invoiceId, u)));
+      WHERE invoice_id = ? AND student_user_id = ? AND ${MGB_UNCLAIMED_SQL}`);
+    for (let i = 0; i < targets.length; i += 80) countIt(await env.DB.batch(targets.slice(i, i + 80).map(u => st.bind(included, included, invoiceId, u, ...ub))));
   } catch (_) {
-    // track·user_set 칸이 없는 DB(ALTER 실패) — 옛 UPDATE 로 떨어진다.
+    // track·user_set 칸이 없는 DB(ALTER 실패) — 옛 UPDATE 로 떨어진다(«승인 중» 조건은 그대로 둔다).
+    touched = 0;
     try {
-      const st = env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ? WHERE invoice_id = ? AND student_user_id = ?`);
-      for (let i = 0; i < targets.length; i += 80) await env.DB.batch(targets.slice(i, i + 80).map(u => st.bind(included, invoiceId, u)));
+      const st = env.DB.prepare(`UPDATE ai_billing_invoice_items SET included = ? WHERE invoice_id = ? AND student_user_id = ? AND ${MGB_UNCLAIMED_SQL}`);
+      for (let i = 0; i < targets.length; i += 80) countIt(await env.DB.batch(targets.slice(i, i + 80).map(u => st.bind(included, invoiceId, u, ...ub))));
     } catch { return { ok: false, changed: [], unknown, optin_saved: false }; }
   }
+  // 한 줄도 안 바뀌었다 = 승인 중이라 막혔다(명세에 있는 학생만 골랐으므로). 신청 명단도 건드리지 않는다.
+  if (touched === 0) return { ok: false, changed: [], unknown, optin_saved: false, blocked: true };
   const optinSaved = await safe(async () => {
     const st = included
       ? env.DB.prepare(`INSERT INTO ai_billing_optin (uid_lc, user_id, shop_name, created_at, created_by) VALUES (?, ?, ?, ?, ?)
@@ -581,6 +597,27 @@ async function setItemsIncluded(env: Env, invoiceId: number, shopName: string, u
     return true;
   }, false);
   return { ok: true, changed: targets, unknown, optin_saved: optinSaved };
+}
+
+const UNPAID_LOOKBACK_MONTHS = 12;   // ④ «안 낸 달» 목록을 몇 달 전까지 보여 주나
+const CLAIM_BUSY = 'invoice_confirm_in_progress';
+const CLAIMED_MSG = CLAIM_BUSY + ': 결제가 진행 중이라 지금은 명단을 바꿀 수 없습니다. 결제가 끝난 뒤(또는 몇 분 뒤) 다시 시도해 주세요.';
+
+/**
+ * ③ (2026-10-23) 지금 명세(체크된 학생)로 다시 계산한 결제 금액 — 결제 승인 직전 문지기가 주문 금액과 대조한다.
+ *   checkout 이 쓰는 식(invoiceAmount)과 «같은 정본». 결제할 수 없는 상태(draft 아님·0명)이거나 못 읽으면 null(=막음).
+ */
+export async function mgbAmountNow(env: Env, invoiceId: number): Promise<number | null> {
+  try {
+    await ensureSchema(env);   // price_rule 등 지연 ALTER 칸 — checkout 과 같은 표 모양에서 잰다
+    const inv = await env.DB.prepare(`SELECT rate_krw, price_rule, status FROM ai_billing_invoices WHERE id = ?`).bind(invoiceId).first<any>();
+    if (!inv || inv.status !== 'draft') return null;
+    const r = await env.DB.prepare(`SELECT COUNT(*) AS n FROM ai_billing_invoice_items WHERE invoice_id = ? AND included = 1`).bind(invoiceId).first<{ n: number }>();
+    const n = Number(r?.n || 0);
+    if (!(n > 0)) return null;
+    const total = invoiceAmount(inv, n).total;
+    return total > 0 ? total : null;
+  } catch (e: any) { console.warn('[ai-billing] 금액 재계산 실패:', e?.message || e); return null; }
 }
 
 /** api-pay.ts 의 activateEnrollment() 가 MGB- 주문을 보면 이걸 부른다 — 결제 확정 뒤 1회. */
@@ -618,6 +655,12 @@ export async function activateB2bAiInvoicePayment(env: Env, orderId: string, amo
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY AUTOINCREMENT, student_user_id TEXT, student_name TEXT NOT NULL, package TEXT, started_at INTEGER, ended_at INTEGER, monthly_fee_krw INTEGER, status TEXT DEFAULT 'pending', notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
     return true;
   }, false);
+  // ③ 문지기가 승인 직전에 금액을 맞췄고 그 뒤로는 명세가 잠긴다 — 그래도 갈렸으면 크게 남긴다(이용권은 그대로 만든다: 돈은 이미 받았다).
+  const want = await safe(async () => {
+    const iv = await env.DB.prepare(`SELECT rate_krw, price_rule FROM ai_billing_invoices WHERE id = ?`).bind(invoiceId).first<any>();
+    return iv ? invoiceAmount(iv, items.length).total : null;
+  }, null as number | null);
+  if (want != null && want !== Math.round(amount)) console.error('[ai-billing] 🚨 낸 돈과 명세 금액이 다름 — 사람이 확인', orderId, 'paid=', amount, 'items=', items.length, 'expected=', want);
   const note = `토스 결제 자동활성화(B2B) · ${orderId} · ${inv.shop_name} ${inv.billing_month}`;
   const perStudent = items.length ? Math.round(amount / items.length) : 0;
   const stmt = env.DB.prepare(
@@ -758,12 +801,36 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (scope.type === 'agency') shopName = scope.value || '';   // 대리점 계정은 자기 것만 — 파라미터 무시
     if (!shopName) return err('shop_name required');
     if (!(await shopAllowed(env, scope, shopName))) return err('forbidden', 403);
-    const month = String(url.searchParams.get('month') || monthAdd(currentMonthKST(), 1));
+    const nextM = monthAdd(currentMonthKST(), 1);
+    const asked = url.searchParams.get('month');
+    let month = String(asked || nextM);
     if (!isValidMonth(month)) return err('month 는 YYYY-MM 형식이어야 합니다');
     // 🔌 자동 청구가 꺼져 있으면(테스트 기간) 청구서도 미리보기도 보여 주지 않는다 — 학원 화면은 안내만 그린다.
     const enabled = await billingEnabled(env);
-    const due = prepayDue(month);   // 📅 선결제 마감(이용 달의 전 달 말일) — 세 응답 모두에 싣는다
-    if (!enabled) return json({ ok: true, billing_enabled: false, exists: false, shop_name: shopName, billing_month: month, ...due });
+    if (!enabled) return json({ ok: true, billing_enabled: false, exists: false, shop_name: shopName, billing_month: month, ...prepayDue(month) });
+    /* ④ (2026-10-23) 달이 바뀌어도 «안 낸 청구서» 가 사라지지 않게 —
+       예전엔 화면이 month 를 안 보내 언제나 «다음 달» 만 보였다. 11/1 이 되면 12월분이 뜨고, 10월에 못 낸 11월분은
+       볼 길도 낼 길도 없었다(그래서 «마감 지남» 띠가 원리상 한 번도 안 떴다).
+       · month 를 안 보냈으면: 이번 달 이용분이 아직 미결제(체크된 학생 있음)면 그것을 먼저 보여 준다(마감 지남).
+       · 어느 경우든 «안 낸 다른 달» 목록(unpaid_months)을 함께 싣는다 — 화면이 그 달로 넘어가는 버튼을 그린다.
+       ⛔ 못 읽으면 예전처럼 다음 달을 보여 준다(목록만 빈다) — 조회 실패로 화면이 통째로 막히면 안 된다. */
+    const unpaidRows = await safe(async () => (await env.DB.prepare(
+      `SELECT i.id, i.billing_month, i.rate_krw, i.price_rule,
+              (SELECT COUNT(*) FROM ai_billing_invoice_items x WHERE x.invoice_id = i.id AND x.included = 1) AS n
+         FROM ai_billing_invoices i
+        WHERE i.shop_name = ? AND i.status = 'draft' AND i.billing_month >= ? AND i.billing_month <= ?
+        ORDER BY i.billing_month`
+    ).bind(shopName, monthAdd(currentMonthKST(), -UNPAID_LOOKBACK_MONTHS), nextM).all<any>()).results || [], [] as any[]);
+    const unpaid = unpaidRows.filter((r: any) => Number(r.n) > 0);
+    if (!asked) {
+      const cur = unpaid.find((r: any) => r.billing_month === currentMonthKST());
+      if (cur) month = cur.billing_month;
+    }
+    const unpaidMonths = unpaid.filter((r: any) => r.billing_month !== month).map((r: any) => ({
+      billing_month: r.billing_month, included_count: Number(r.n), total_krw: invoiceAmount(r, Number(r.n)).total,
+      overdue: r.billing_month <= currentMonthKST(),
+    }));
+    const due = { ...prepayDue(month), default_month: nextM, unpaid_months: unpaidMonths };   // 📅 선결제 마감(이용 달의 전 달 말일) + ④ 안 낸 달
 
     const inv = await env.DB.prepare(
       `SELECT id, shop_name, franchise, billing_month, rate_krw, price_rule, status, generated_at, paid_at, order_id
@@ -810,6 +877,7 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (!isValidMonth(month)) return err('month 는 YYYY-MM 형식이어야 합니다');
     const r = await generateOrRefreshInvoice(env, shopName, month, scope.label || 'admin');
     if (r.live_check_failed) return json({ ok: false, error: 'live_check_failed', ...r }, 503);
+    if (r.claimed) return err(CLAIMED_MSG, 409);
     return json({ ok: true, ...r });
   }
 
@@ -824,7 +892,9 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (!inv) return err('invoice not found', 404);
     if (!(await writeAllowed(env, request, inv.shop_name))) return err('forbidden', 403);
     if (inv.status !== 'draft') return err('결제 완료된 청구서는 명세를 바꿀 수 없습니다', 409);
+    if ((await mgbClaimedNow(env, invoiceId)) === true) return err(CLAIMED_MSG, 409);
     const r = await setItemsIncluded(env, invoiceId, inv.shop_name, [studentUid], included as 0 | 1, scope.label || 'admin');
+    if (r.blocked) return err(CLAIMED_MSG, 409);
     if (!r.ok) return err('save failed', 500);
     if (!r.changed.length) return err('not_in_invoice: 이 청구서 명세에 없는 학생입니다', 404);
     return json({ ok: true, invoice_id: invoiceId, student_user_id: studentUid, included: !!included, optin_saved: r.optin_saved });
@@ -845,7 +915,9 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (!inv) return err('invoice not found', 404);
     if (!(await writeAllowed(env, request, inv.shop_name))) return err('forbidden', 403);
     if (inv.status !== 'draft') return err('결제 완료된 청구서는 명세를 바꿀 수 없습니다', 409);
+    if ((await mgbClaimedNow(env, invoiceId)) === true) return err(CLAIMED_MSG, 409);
     const r = await setItemsIncluded(env, invoiceId, inv.shop_name, uids, included as 0 | 1, scope.label || 'admin');
+    if (r.blocked) return err(CLAIMED_MSG, 409);
     if (!r.ok) return err('save failed', 500);
     return json({ ok: true, invoice_id: invoiceId, included: !!included, changed: r.changed.length, unknown: r.unknown.length, optin_saved: r.optin_saved });
   }
