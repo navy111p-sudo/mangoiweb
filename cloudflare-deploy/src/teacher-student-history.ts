@@ -3,9 +3,55 @@ import { attachCalendarRecords } from './calendar-records';
 import { dowList } from './absence-hold';
 import { recurStartedOn, normSkipDates } from './class-start-date';
 import { loadTeacherNameOf } from './student-schedule-summary';
+import { splitPastDay, splitOriginsFromNotes } from './schedule-split';
+import { evaluationColumns, evaluationKstDate } from './evaluation-records';
 
 const KST = 9 * 3600000;
 const day = (ms: number) => new Date(ms + KST).toISOString().slice(0, 10);
+const nextDay = (date: string) => new Date(Date.parse(date + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
+
+/** A cancelled series still owns its earlier occurrences. Never project it into the future. */
+export function historyScheduleProjection(rows: any[], observedRooms: string[] = []): any[] {
+  const origins = splitOriginsFromNotes(rows), out: any[] = [];
+  for (const row of rows) {
+    if (row.status === 'proposed') continue;
+    if (row.status !== 'cancelled') { out.push(row); continue; }
+    const split = splitPastDay(row, origins);
+    const cancelled = evaluationKstDate(row.updated_at);
+    if (row.scheduled_date) {
+      out.push({ ...row, status: 'active', history_cancelled_on: cancelled || String(row.scheduled_date).slice(0,10) });
+    } else if (split || cancelled) {
+      out.push({ ...row, status: 'active', history_until: split || nextDay(cancelled!), history_cancelled_on: split ? null : cancelled });
+    } else {
+      // The cancellation date is unknown. Only actual attendance can establish these old occurrences.
+      for (const room of observedRooms) {
+        const match = /^class-(\d+)-(\d{4})(\d{2})(\d{2})$/.exec(room);
+        if (match && Number(match[1]) === Number(row.id)) out.push({ ...row, status:'active', scheduled_date:`${match[2]}-${match[3]}-${match[4]}` });
+      }
+    }
+  }
+  return out;
+}
+
+/** Read existing columns only; use the canonical lesson_date → eval_at → created_at date precedence. */
+export async function historyFeedback(db: D1Database, uid: string): Promise<any[]> {
+  const columns = await evaluationColumns(db, 'student_evaluations');
+  const identities = ['student_uid', 'user_id'].filter(c => columns.has(c));
+  if (!identities.length) throw new Error('history_feedback_identity_unavailable');
+  const identity = identities.length === 2 ? "COALESCE(NULLIF(student_uid,''),user_id)" : identities[0];
+  const conflict = identities.length === 2 ? " AND (NULLIF(student_uid,'') IS NULL OR NULLIF(user_id,'') IS NULL OR student_uid=user_id COLLATE BINARY)" : '';
+  const names = ['id','room_id','lesson_date','eval_at','teacher_name','teacher_uid','created_at','note_en','note_ko','teacher_comment','strengths','evaluator','comment'];
+  const rs = await db.prepare(`SELECT ${names.map(c => columns.has(c) ? c : 'NULL AS ' + c).join(',')}
+    FROM student_evaluations WHERE ${identity} = ? COLLATE BINARY${conflict} LIMIT 10001`).bind(uid).all<any>();
+  if ((rs as any).success === false || !Array.isArray(rs.results)) throw new Error('history_feedback_unavailable');
+  if (rs.results.length > 10000) throw new Error('history_too_many_records');
+  return rs.results.map(r => ({ id:r.id,room_id:r.room_id,
+    lesson_date:evaluationKstDate(r.lesson_date) || evaluationKstDate(r.eval_at) || evaluationKstDate(r.created_at),
+    teacher_name:r.teacher_name || r.evaluator || null,created_at:r.created_at,
+    note_en:String(r.note_en || r.teacher_comment || r.strengths || r.comment || '').slice(0,1500),
+    note_ko:String(r.note_ko || '').slice(0,1500) })).filter(r => r.lesson_date)
+    .sort((a,b) => b.lesson_date.localeCompare(a.lesson_date) || (Number(b.created_at)||0)-(Number(a.created_at)||0));
+}
 export function validHistoryDate(value: string): boolean {
   const ms = Date.parse(value + 'T00:00:00Z');
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(ms)
@@ -15,14 +61,13 @@ export function validHistoryDate(value: string): boolean {
 /** Closest earlier occurrence, including a class whose feedback was never written. */
 export function previousScheduled(rows: any[], before: string): any | null {
   const candidates: any[] = [];
-  for (const row of rows) {
-    if (row.status === 'cancelled' || row.status === 'proposed') continue;
+  for (const row of historyScheduleProjection(rows)) {
     const dated = String(row.scheduled_date || '').slice(0, 10);
     let date = '';
     if (dated) { if (dated < before && validHistoryDate(dated)) date = dated; }
     else {
       const dows = dowList(row.day_of_week), skipped = normSkipDates(row.skip_dates);
-      const base = Date.parse(before + 'T00:00:00Z');
+      const base = Date.parse((row.history_until && row.history_until < before ? row.history_until : before) + 'T00:00:00Z');
       for (let i = 1; i <= (skipped.length + 1) * 7; i++) {
         const d = new Date(base - i * 86400000), ymd = d.toISOString().slice(0, 10);
         if (skipped.includes(ymd)) continue;
@@ -39,39 +84,38 @@ export function previousScheduled(rows: any[], before: string): any | null {
 
 /** Read only. Student identity must come from an authorized schedule, never the query string. */
 export async function loadTeacherStudentHistory(env: any, uid: string, month: string, before: string) {
-  const ledger: any = await buildStudentLedger(env, uid, month, Date.now(), true);
-  if (!ledger.ok) throw new Error('history_schedule_unavailable');
   const rows = await env.DB.prepare(`SELECT * FROM class_schedules WHERE user_id = ?`).bind(uid).all();
-  const previous = previousScheduled(rows.results || [], before);
   const from = month + '-01';
   const end = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 1)).toISOString().slice(0, 10);
-  // Include legacy user_id rows, historical records without a surviving reservation and unwritten classes.
-  const select = `SELECT id, room_id, lesson_date, teacher_name, teacher_uid, created_at,
-    substr(COALESCE(NULLIF(note_en,''), teacher_comment, strengths, ''),1,1500) AS note_en,
-    substr(COALESCE(note_ko,''),1,1500) AS note_ko FROM student_evaluations
-    WHERE COALESCE(NULLIF(student_uid,''), user_id) = ?`;
-  const [evals, prior, previousFeedback] = await Promise.all([
-    env.DB.prepare(select + ` AND COALESCE(NULLIF(lesson_date,''),date(created_at/1000,'unixepoch','+9 hours')) >= ?
-      AND COALESCE(NULLIF(lesson_date,''),date(created_at/1000,'unixepoch','+9 hours')) < ? ORDER BY created_at DESC LIMIT 1001`)
-      .bind(uid, from, end).all(),
-    env.DB.prepare(select + ` AND COALESCE(NULLIF(lesson_date,''),date(created_at/1000,'unixepoch','+9 hours')) < ?
-      ORDER BY COALESCE(NULLIF(lesson_date,''),date(created_at/1000,'unixepoch','+9 hours')) DESC, created_at DESC LIMIT 1`)
-      .bind(uid, before).first(),
-    previous ? env.DB.prepare(select + ` AND room_id=?
-      AND COALESCE(NULLIF(lesson_date,''),date(created_at/1000,'unixepoch','+9 hours')) < ?
-      ORDER BY created_at DESC LIMIT 1`).bind(uid, previous.room_id, before).first() : Promise.resolve(null),
+  let observedRooms: string[] = [], observationWarning = false;
+  if ((rows.results || []).some((r: any) => r.status === 'cancelled' && !r.scheduled_date && !evaluationKstDate(r.updated_at))) {
+    try {
+      const attendance = await env.DB.prepare(`SELECT DISTINCT a.room_id FROM attendance a JOIN class_schedules cs
+        ON a.room_id GLOB ('class-' || cs.id || '-[0-9]*') WHERE cs.user_id=? AND a.role='student' LIMIT 10001`)
+        .bind(uid).all();
+      if ((attendance.results || []).length > 10000) throw new Error('history_attendance_limit');
+      observedRooms = (attendance.results || []).map((r: any) => String(r.room_id));
+    } catch { observationWarning = true; }
+  }
+  const projected = historyScheduleProjection(rows.results || [], observedRooms);
+  const previous = previousScheduled(projected, before);
+  const [ledger, allReports]: any[] = await Promise.all([
+    buildStudentLedger(env, uid, month, Date.now(), true, projected), historyFeedback(env.DB, uid),
   ]);
-  if ((evals.results || []).length > 1000) throw new Error('history_too_many_records');
-  const schedules = new Map<number, any>((rows.results || []).map((r: any) => [Number(r.id), r]));
+  if (!ledger.ok) throw new Error('history_schedule_unavailable');
+  if (observationWarning) ledger.warnings.push('historical_attendance');
+  const reportDate = (r: any) => r.lesson_date;
+  const reports = allReports.filter((r: any) => r.lesson_date >= from && r.lesson_date < end);
+  const prior = allReports.find((r: any) => r.lesson_date < before);
+  const previousFeedback = previous && allReports.find((r: any) => r.room_id === previous.room_id && r.lesson_date < before);
+  const schedules = new Map<number, any>(projected.map((r: any) => [Number(r.id), r]));
   const items: any[] = ledger.items.filter((it: any) => {
     const row = schedules.get(it.schedule_id);
     return row && (row.scheduled_date || recurStartedOn(row, it.date, { createdFallback: true }));
   });
   for (const it of items) it.student_uid = uid;
   await attachCalendarRecords(env, items);
-  const reports = evals.results || [];
   const used = new Set<number>();
-  const reportDate = (r: any) => String(r.lesson_date || day(Number(r.created_at))).slice(0, 10);
   for (const it of items) {
     const report = reports.find((r: any) => reportDate(r) === it.date && r.room_id === it.room_id)
       || (items.filter(x => x.date === it.date).length === 1
@@ -92,7 +136,7 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
       state: 'unknown', label_en: 'Attendance not recorded', label_ko: '출결 기록 미확인', feedback: report });
   }
   let summary: any = previous;
-  const sameDayCount = previous ? (rows.results || []).filter((r: any) => previousScheduled([r], before)?.date === previous.date).length : 0;
+  const sameDayCount = previous ? projected.filter((r: any) => previousScheduled([r], before)?.date === previous.date).length : 0;
   const matchedFeedback = previousFeedback || (prior && summary && reportDate(prior) === summary.date && !prior.room_id && sameDayCount === 1 ? prior : null);
   const summaryFeedback = prior && (!summary || reportDate(prior) > summary.date) ? prior : matchedFeedback;
   if (summaryFeedback) {

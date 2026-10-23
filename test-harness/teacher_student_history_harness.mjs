@@ -57,7 +57,7 @@ assert.equal((await request({schedule_id:'2',date:'2026-10-22'})).status,403,'su
 globalThis.__historyActor={ok:true,isTeacher:true,username:'unknown',name:'Unlinked',role:'teacher'};
 assert.equal((await request()).status,403,'unlinked actor fails closed');
 globalThis.__historyActor={ok:false};assert.equal((await request()).status,401);
-assert.ok(executed.every(sql=>/^\s*SELECT\b/.test(sql)),'history uses SELECT only');
+assert.ok(executed.every(sql=>/^\s*(SELECT\b|PRAGMA table_info\b)/.test(sql)),'history only reads data and schema');
 assert.equal(validHistoryDate('2026-02-30'),false);
 assert.equal(previousScheduled([{id:1,day_of_week:'Mon',start_time:'18:00',starts_on:'2026-10-01',skip_dates:'2026-10-19'}],'2026-10-23').date,'2026-10-12');
 let matrix = 0;
@@ -93,6 +93,35 @@ assert.equal(twoLessons.data.previous.feedback,undefined);
 db.exec(`INSERT INTO student_evaluations VALUES(21,'student_one',NULL,'class-2-20261021','2026-10-21','Teacher C','teacher_c',1792580400000,'Actual last lesson feedback',NULL,NULL,NULL);`);
 twoLessons=await request();assert.equal(twoLessons.data.previous.teacher_name,'Teacher C');
 assert.equal(twoLessons.data.previous.feedback.note_en,'Actual last lesson feedback');
+// A split/cancel operation must preserve past classes under their original room IDs.
+db.exec(`ALTER TABLE class_schedules ADD COLUMN updated_at INTEGER;
+ALTER TABLE class_schedules ADD COLUMN notes TEXT;
+INSERT INTO class_schedules(id,user_id,teacher_id,status,day_of_week,start_time,duration_min,starts_on,created_at,updated_at,notes) VALUES
+(70,'student_one','2','cancelled','Fri','15:00',20,'2026-10-01',1,1792108800000,'날짜별로 나눔 @2026-10-16'),
+(71,'student_one','2','cancelled','Mon','15:00',20,'2026-10-01',1,1791932400000,NULL),
+(72,'student_one','2','cancelled','Wed','15:00',20,'2026-10-01',1,NULL,NULL);
+INSERT INTO attendance VALUES('class-71-20261012','student',1791784800000,'student_one','student_one','2026-10-12','attended');
+INSERT INTO attendance VALUES('class-72-20261007','student',1791352800000,'student_one','student_one','2026-10-07','attended');`);
+const cancelled=await request();assert.equal(cancelled.status,200);
+assert.ok(cancelled.data.items.some(i=>i.room_id==='class-70-20261009'));
+assert.ok(!cancelled.data.items.some(i=>i.schedule_id===70&&i.date>='2026-10-16'));
+assert.equal(cancelled.data.items.find(i=>i.room_id==='class-71-20261012').state,'done');
+assert.ok(!cancelled.data.items.some(i=>i.schedule_id===71&&i.date>='2026-10-19'));
+assert.equal(cancelled.data.items.find(i=>i.room_id==='class-72-20261007').state,'done');
+assert.ok(!cancelled.data.items.some(i=>i.room_id==='class-72-20261014'));
+// Read-only compatibility: fresh canonical schema, then legacy schema with eval_at in another month.
+db.exec(`ALTER TABLE student_evaluations RENAME TO full_evaluations;
+CREATE TABLE student_evaluations(id INTEGER,student_uid TEXT,teacher_name TEXT,teacher_comment TEXT,lesson_date TEXT,created_at INTEGER);
+INSERT INTO student_evaluations VALUES(100,'student_one','Teacher B','Canonical-only feedback','2026-10-08',1791446400000);`);
+const canonical=await request();assert.equal(canonical.status,200);
+assert.equal(canonical.data.items.find(i=>i.feedback?.id===100).feedback.note_en,'Canonical-only feedback');
+db.exec(`DROP TABLE student_evaluations;
+CREATE TABLE student_evaluations(id INTEGER,user_id TEXT,eval_at INTEGER,evaluator TEXT,comment TEXT,created_at INTEGER);
+INSERT INTO student_evaluations VALUES(101,'student_one',1790751600000,'Teacher C','Legacy date precedence',1792494000000);`);
+const legacy=await request({month:'2026-09'});assert.equal(legacy.status,200);
+assert.equal(legacy.data.items.find(i=>i.feedback?.id===101).date,'2026-09-30');
+assert.equal(legacy.data.items.find(i=>i.feedback?.id===101).teacher_name,'Teacher C');
+assert.ok(!(await request()).data.items.some(i=>i.feedback?.id===101));
 db.exec('DROP TABLE student_evaluations');
 assert.equal((await request()).status,503,'database failure is an error, never an empty successful history');
 console.log(`PASS: ${matrix} distinct matrix scenarios plus integration cases: real SQLite history, cross-teacher records, report-free previous teacher, substitutes, leap dates, month boundaries, orphan/legacy reports, authorization, read failures and SELECT-only reads.`);
