@@ -78,6 +78,7 @@ import { handleSpaceMonsterApi } from './api-space-monster';  // 🛸 Space Mons
 import { logWarmupFix } from './warmup-parent';            // 📝 학부모 화면용 «고쳐 준 표현» 기록 (2026-10-02 P4)
 import { authUidFromRequest } from './auth-token';          //    ↑ 본인 확인용(토큰 uid == 요청 user_id 일 때만 기록)
 import { retiredDomainResponse } from './retired-domain';    // 🚫 폐지 주소(test.mangoi.co.kr) → 안내문만 (2026-10-16)
+import { handleDubbingApi, isPrivateDubbingKey } from './api-dubbing'; // 🎬 계정별 더빙 작품·이어하기 (기존 녹화와 분리)
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
@@ -278,6 +279,10 @@ const worker = {
     if (path === '/api/seed-shares' || path.startsWith('/api/seed-shares/') || path.startsWith('/s/')) return handleSeedShares(request, env);
 
     if (path === '/api/student/speech-preferences') return handleSpeechPreferences(request, env);
+
+    // This handler authenticates BOTH students and staff and derives its own
+    // account namespace. Do not route it through the admin-only classroom gate.
+    if (path === '/api/dubbing' || path.startsWith('/api/dubbing/')) return handleDubbingApi(request, env);
 
     // 💬 문의·신규상담 페이지 폐지 → 카카오톡 실시간 상담으로 통합 (2026-08-14 피드백 ⑤)
     //   public/contact.html 을 지웠다. 그런데 이 주소는 검색엔진에 색인돼 있고, 카톡·문자로
@@ -932,6 +937,7 @@ const worker = {
       try {
         if (!env.RECORDINGS) return new Response(JSON.stringify({ ok:false, error:'R2 not configured' }), { headers:{'Content-Type':'application/json'} });
         const k = url.searchParams.get('key') || '';
+        if (isPrivateDubbingKey(k)) return new Response('Not found', { status: 404 });
         if (!k) {
           // 🎬 두 prefix 모두 검사: rec/ (multipart 자동녹화) + recordings/ (옛날 단일 업로드)
           const [recList, recordingsList] = await Promise.all([
@@ -5862,6 +5868,9 @@ async function handleRecordingList(request: Request, env: Env): Promise<Response
       for (let page = 0; page < REC_LIST_MAX_PAGES; page++) {
         const listed: any = await env.RECORDINGS.list({ prefix, limit: 1000, cursor });
         for (const o of (listed.objects || [])) {
+          // An explicit ?prefix= may cover the entire shared bucket. Private
+          // learner works are accessible only through their own authenticated API.
+          if (isPrivateDubbingKey(o.key)) continue;
           // 🛟 `<키>.snap` 은 짧은 녹화 안전망의 «사본» 이라 목록에 내보내지 않는다.
           //   내보내면 관리자 화면에 「⚠ 기록 없음(고아)」 로 한 줄씩 더 뜬다(recordings-r2.ts 참고).
           if (String(o.key).endsWith('.snap')) continue;
@@ -5893,6 +5902,7 @@ async function handleRecordingDownload(path: string, request: Request, env: Env)
     const rawKey = path.replace('/api/recordings/blob/', '');
     const key = decodeURIComponent(rawKey);
     if (!key) return recordingJson({ error: 'No key provided' }, 400);
+    if (isPrivateDubbingKey(key)) return recordingJson({ error: 'Not found' }, 404);
 
     const rangeHeader = request.headers.get('range');
     let range: { offset: number; length?: number } | undefined;
@@ -5952,6 +5962,7 @@ async function handleRecordingDelete(path: string, env: Env): Promise<Response> 
     const rawKey = path.replace('/api/recordings/blob/', '');
     const key = decodeURIComponent(rawKey);
     if (!key) return recordingJson({ error: 'No key provided' }, 400);
+    if (isPrivateDubbingKey(key)) return recordingJson({ error: 'Not found' }, 404);
     await env.RECORDINGS.delete(key);
     return recordingJson({ success: true, key });
   } catch (err: any) {

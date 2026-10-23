@@ -11,6 +11,7 @@ import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, resolveOwnerScope, getAdminActor, isOrgScopedRole } from './auth-admin';  // 🔐 공용 소유자 판정
 import { sendPushToUser } from './api-notify';
 import type { MangoEnv } from './api-mango';
+import { isPrivateDubbingKey } from './api-dubbing';
 
 export async function handleLessonsApi(
   request: Request,
@@ -713,7 +714,7 @@ export async function handleLessonsApi(
         // R2 에서 녹음 파일 가져오기
         let audioBuf: ArrayBuffer | null = null;
         try {
-          if (b.recording_id && (env as any).RECORDINGS) {
+          if (b.recording_id && !isPrivateDubbingKey(String(b.recording_id)) && (env as any).RECORDINGS) {
             const obj: any = await (env as any).RECORDINGS.get(b.recording_id);
             if (obj) audioBuf = await obj.arrayBuffer();
           } else if (b.recording_url) {
