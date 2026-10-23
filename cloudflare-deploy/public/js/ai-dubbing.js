@@ -917,7 +917,41 @@
   function setProg(text) { var p = $('dub-prog'); if (p) p.textContent = text || ''; }
   function setButtons(mode) {   // mode: 'student' | 'native' | 'idle'
     $('dub-done').disabled = mode !== 'student';
-    $('dub-skip').disabled = mode === 'idle';
+    var practice = S.run && S.run.mode === 'practice';
+    $('dub-skip').disabled = mode === 'idle' || (practice && mode === 'student');
+    if ($('dub-more-time')) {
+      $('dub-more-time').hidden = !practice || mode !== 'student';
+      $('dub-more-time').disabled = !practice || mode !== 'student';
+    }
+    if ($('dub-practice-time')) $('dub-practice-time').hidden = !practice || mode !== 'student';
+  }
+
+  // This clock is guidance only: practice never advances on silence or timeout.
+  function waitForPracticeDone(run) {
+    return new Promise(function (resolve) {
+      var remaining = 10, timer, finished = false;
+      function render() {
+        var el = $('dub-practice-time');
+        if (el) el.textContent = remaining > 0
+          ? T('연습 시간 ' + remaining + '초 · 말하기 완료를 누를 때까지 기다려요', remaining + 's practice time · press Done when ready')
+          : T('계속 녹음 중이에요 · 말하기 완료를 눌러 주세요', 'Still recording · press Done when ready');
+      }
+      function finish() {
+        if (finished) return;
+        finished = true; clearInterval(timer);
+        run.doneNow = null; run.moreNow = null;
+        var at = run.wakers.indexOf(finish); if (at >= 0) run.wakers.splice(at, 1);
+        if ($('dub-more-time')) { $('dub-more-time').hidden = true; $('dub-more-time').disabled = true; }
+        if ($('dub-practice-time')) $('dub-practice-time').hidden = true;
+        resolve();
+      }
+      run.doneNow = finish;
+      run.moreNow = function () { remaining += 5; render(); };
+      run.wakers.push(finish);
+      render();
+      timer = setInterval(function () { remaining = Math.max(0, remaining - 1); render(); }, 1000);
+      if (run.aborted) finish();
+    });
   }
 
   function waitVideo(v, ms) {
@@ -945,7 +979,7 @@
       var cap = startCapture(run);
       var maxMs = C.recordWindowSec(it.line, 'turn') * 1000;
       var skipped = false;
-      return new Promise(function (resolve) {
+      var waiting = run.mode === 'practice' ? waitForPracticeDone(run) : new Promise(function (resolve) {
         var done = false;
         function fin() { if (done) return; done = true; clearTimeout(watch); resolve(); }
         var watch;
@@ -958,7 +992,8 @@
         run.doneNow = fin;
         run.skipNow = function () { skipped = true; fin(); };
         run.wakers.push(fin);
-      }).then(function () {
+      });
+      return waiting.then(function () {
         run.doneNow = null; run.skipNow = null;
         return cap.stop();
       }).then(function (r) {
@@ -985,7 +1020,13 @@
       sndCues(sc, 'line', k, 'before');
       showLine(run, it.line, it.performer);
       var p;
-      if (it.performer.type === 'student') { sndDuck(DUCK_STUDENT); p = studentTurn(run, sc, it); }
+      if (it.performer.type === 'student') {
+        sndDuck(DUCK_STUDENT);
+        if (run.mode === 'practice') { try { $('dub-video').pause(); } catch (e) {} }
+        p = studentTurn(run, sc, it).then(function () {
+          if (run.mode === 'practice' && !run.aborted) { var vp = $('dub-video').play(); if (vp && vp.catch) vp.catch(function () {}); }
+        });
+      }
       else {
         setButtons('native');
         sndDuck(DUCK_NATIVE);
@@ -1031,14 +1072,23 @@
       tracks.forEach(function (t) { var p = t.el.play(); if (p && p.catch) p.catch(function () {}); });
       setButtons('native');
       return new Promise(function (resolve) {
-        var caps = {}, shown = -2, ended = false;
+        var caps = {}, shown = -2, ended = false, practiceBusy = false;
         var limit = sc.durationSec || 0;
         var cues = C.timedCues(sc), fired = {};     // 🎵 효과음 — 영상 시각(정본 timedCues)에 맞춰 한 번씩
         /* 목소리가 영상을 따라가게 — 영상이 받는 중(버퍼링)이면 같이 서고, 다시 움직이면 같은 시각에서 같이 출발(정본 core) */
         var follow = C.clockFollower(), els = tracks.map(function (tr) { return tr.el; });
         var tick = setInterval(function () {
           if (run.aborted) { finish(); return; }
+          if (practiceBusy) return;
           var t = v.currentTime || 0;
+          if (run.mode === 'practice') {
+            for (var pi = 0; pi < items.length; pi++) {
+              var pit = items[pi];
+              if (pit.performer.type === 'student' && !caps[pi] && t >= pit.line.start && t < pit.line.end) {
+                holdPractice(pi); return;
+              }
+            }
+          }
           follow.step(t, els, v);
           var li = C.lineIndexAt(sc.lines, t);
           if (li !== shown) {
@@ -1052,17 +1102,44 @@
           }
           cues.forEach(function (x, k) { if (!fired[k] && t >= x.at) { fired[k] = true; var e = snd(); if (e) e.cue(x.cue); } });
           items.forEach(function (it, k) {
-            if (it.performer.type !== 'student') return;
+            if (run.mode === 'practice' || it.performer.type !== 'student') return;
             var l = it.line, cap = caps[k];
             if (!cap && t >= l.start - 0.25 && t < l.end) caps[k] = { h: startCapture(run), it: it };
             else if (cap && !cap.closed && t >= l.end + 0.9) closeCap(k);
           });
           if (v.ended || (limit && t >= limit - 0.05) || (!limit && v.duration && t >= v.duration - 0.05)) finish();
         }, 100);
+        function holdPractice(k) {
+          practiceBusy = true;
+          var previousSkip = run.skipNow;
+          var it = items[k], line = it.line;
+          try { v.pause(); v.currentTime = line.start; } catch (e) {}
+          tracks.forEach(function (tr) { try { tr.el.pause(); tr.el.currentTime = line.start; } catch (e) {} });
+          showLine(run, line, it.performer);
+          setTurn('🎤 ' + studentName(it.performer.idx) + ' · ' + charName(line.speaker));
+          sndDuck(DUCK_STUDENT); setButtons('student');
+          run.skipNow = null;
+          caps[k] = { h: startCapture(run), it: it };
+          waitForPracticeDone(run).then(function () { return closeCap(k); }).then(function () {
+            if (run.aborted || ended) return;
+            // The movie recorder keeps the held speaker frame and live microphone on
+            // one wall clock. Skip the unused original voice slot before resuming.
+            var resumeAt = Math.min(limit || v.duration, line.end);
+            try { v.currentTime = resumeAt; } catch (e) {}
+            tracks.forEach(function (tr) { try { tr.el.currentTime = resumeAt; } catch (e) {} });
+            follow = C.clockFollower(); shown = -2;
+            clearLine(run); setTurn(''); run.skipNow = previousSkip; setButtons('native'); sndDuck(1);
+            practiceBusy = false;
+            var vp = v.play(); if (vp && vp.catch) vp.catch(function () {});
+            tracks.forEach(function (tr) { var ap = tr.el.play(); if (ap && ap.catch) ap.catch(function () {}); });
+          });
+        }
         function closeCap(k) {
-          var cap = caps[k]; cap.closed = true;
+          var cap = caps[k];
+          if (!cap || cap.closed) return Promise.resolve();
+          cap.closed = true;
           var res = { key: sc.no + ':' + cap.it.line.id + ':' + Date.now(), sceneNo: sc.no, line: cap.it.line, studentIdx: cap.it.performer.idx, status: 'queued', owner: run.owner };
-          cap.h.stop().then(function (r) {
+          return cap.h.stop().then(function (r) {
             if (run.aborted) return;
             S.results.push(res);
             if (!r.blob) res.status = 'no_audio'; else if (!r.heard) res.status = 'no_speech'; else { res.recorded = true; enqueueScore(res, r.blob); }
@@ -1075,7 +1152,7 @@
           Object.keys(caps).forEach(function (k) { if (!caps[k].closed) closeCap(k); });
           tracks.forEach(function (tr) { try { tr.el.pause(); } catch (e) {} tr.route.cut(); });
           run.tracks = [];
-          clearLine(run); setTurn(''); sndDuck(1);
+          clearLine(run); setTurn(''); setButtons('idle'); sndDuck(1);
           resolve();
         }
         run.skipNow = function () { try { v.currentTime = Math.max(0, (v.duration || limit || 0) - 0.05); } catch (e) {} finish(); };
@@ -1594,6 +1671,7 @@
       if (all.length) startRun(all);
     });
     $('dub-done').addEventListener('click', function () { if (S.run && S.run.doneNow) S.run.doneNow(); });
+    $('dub-more-time').addEventListener('click', function () { if (S.run && S.run.moreNow) S.run.moreNow(); });
     $('dub-skip').addEventListener('click', function () { if (S.run && S.run.skipNow) S.run.skipNow(); });
     $('dub-stop').addEventListener('click', stopRun);
     $('dub-final').addEventListener('click', function () { var p = $('dub-movies-panel'); if (p && !p.hidden) p.scrollIntoView({ behavior: 'smooth', block: 'start' }); });

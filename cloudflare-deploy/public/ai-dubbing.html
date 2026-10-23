@@ -296,6 +296,15 @@
     .w-btns{grid-template-columns:1fr}
     .wrow .btn{min-width:0;flex:1 1 40%}
   }
+  .dub-use-steps{list-style:none;counter-reset:dub-use;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0;padding:0}
+  .dub-use-steps li{counter-increment:dub-use;position:relative;padding:16px 14px 16px 48px;border:1px solid var(--line);border-radius:12px;background:var(--bg);line-height:1.6;min-width:0;overflow-wrap:anywhere}
+  .dub-use-steps li::before{content:counter(dub-use);position:absolute;left:14px;top:16px;display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:var(--mint);color:#052e24;font-weight:800}
+  .dub-use-steps b{display:block;margin-bottom:5px;font-size:16px}
+  .dub-use-steps span{display:block;color:var(--text2);font-size:14px}
+  .dub-save-callout{padding:16px 18px;border:2px solid var(--gold);border-radius:12px;background:#302516;color:#fff1cc;line-height:1.65;overflow-wrap:anywhere}
+  .dub-save-callout strong{display:block;color:#ffda7a;font-size:18px;margin-bottom:5px}
+  .dub-save-callout p{margin:5px 0 0}
+  @media(max-width:860px){.dub-use-steps{grid-template-columns:1fr}.dub-save-callout{padding:14px}.dub-save-callout strong{font-size:17px}}
   @media (prefers-reduced-motion:reduce){ #dub-side,#dub-side.open{transition:none} }
 </style>
 </head>
@@ -334,6 +343,26 @@
       <p class="dub-how-label" data-ko="이 순서로 연습하면 쉬워요" data-en="An easy way to practise">이 순서로 연습하면 쉬워요</p>
       <ol class="dub-steps"><li><b>1</b><span data-ko="영상 먼저 보기" data-en="Watch the scene">영상 먼저 보기</span></li><li><b>2</b><span data-ko="내 목소리로 더빙" data-en="Record your voice">내 목소리로 더빙</span></li><li><b>3</b><span data-ko="내 영상 다시 보기" data-en="Watch your video">내 영상 다시 보기</span></li></ol>
     </div>
+  </section>
+
+  <section class="panel" id="dub-use-guide" aria-labelledby="dub-use-guide-title">
+    <details class="dub-explain">
+    <summary id="dub-use-guide-title" data-ko="친구들과 함께 더빙하는 방법 · 저장 안내" data-en="Record with friends · Saving guide">친구들과 함께 더빙하는 방법 · 저장 안내</summary>
+    <p class="hint" data-ko="한 컴퓨터와 마이크를 함께 사용해요. 아래 순서대로 연습하고 발표해 보세요." data-en="Share one computer and microphone. Follow these steps to practise and present.">한 컴퓨터와 마이크를 함께 사용해요. 아래 순서대로 연습하고 발표해 보세요.</p>
+    <ol class="dub-use-steps">
+      <li><b data-ko="작품·에피소드 고르기" data-en="Pick a film and episode">작품·에피소드 고르기</b><span data-ko="모둠이 함께 할 영상을 골라요. ‘👀 보기’로 먼저 감상해도 좋아요." data-en="Choose your group’s video. You can watch it first with ‘👀 Watch’.">모둠이 함께 할 영상을 골라요. ‘👀 보기’로 먼저 감상해도 좋아요.</span></li>
+      <li><b data-ko="이름과 역할 정하기" data-en="Set names and roles">이름과 역할 정하기</b><span data-ko="‘짧은 더빙 시작’ 또는 장면의 ‘더빙’을 눌러요. 함께하는 인원과 이름을 정하고 각자 캐릭터를 골라요." data-en="Tap Record a short scene or a scene’s Dub button. Set your group size, enter each name and choose a character.">‘짧은 더빙 시작’ 또는 장면의 ‘더빙’을 눌러요. 함께하는 인원과 이름을 정하고 각자 캐릭터를 골라요.</span></li>
+      <li><b data-ko="자막 보며 연습하기" data-en="Practise with subtitles">자막 보며 연습하기</b><span data-ko="‘자막 보며 연습 (추천)’을 고르고 ‘내 목소리로 녹음 시작’을 눌러요. 내 차례에 말한 뒤 ‘말하기 완료’를 누르면 다음 대사로 넘어가요." data-en="Choose Practise with subtitles, then Start recording my voice. Speak on your turn and press Done speaking to move to the next line.">‘자막 보며 연습 (추천)’을 고르고 ‘내 목소리로 녹음 시작’을 눌러요. 내 차례에 말한 뒤 ‘말하기 완료’를 누르면 다음 대사로 넘어가요.</span></li>
+      <li><b data-ko="발표 준비하기" data-en="Get ready to present">발표 준비하기</b><span data-ko="‘자막 없이 발표’를 골라요. 기본은 자막 없이, 필요하면 ‘한국어 자막 켜기’를 선택해요. ‘완성 영상 만들기’도 체크하세요." data-en="Choose Perform without subtitles. Subtitles start off; enable Korean if needed. Keep ‘Make my movie’ checked.">‘자막 없이 발표’를 골라요. 기본은 자막 없이, 필요하면 ‘한국어 자막 켜기’를 선택해요. ‘완성 영상 만들기’도 체크하세요.</span></li>
+      <li><b data-ko="자기 차례에 말하기" data-en="Speak on your turn">자기 차례에 말하기</b><span data-ko="‘자막 없이 발표 녹음’을 누르고 마이크 사용을 허용해요. 화면에 나온 학생이 맡은 대사를 말해요." data-en="Tap Record without subtitles and allow microphone access. The student shown on screen speaks their lines.">‘자막 없이 발표 녹음’을 누르고 마이크 사용을 허용해요. 화면에 나온 학생이 맡은 대사를 말해요.</span></li>
+      <li><b data-ko="완성 영상 보고 저장하기" data-en="Watch and save your movie">완성 영상 보고 저장하기</b><span data-ko="끝나면 ‘▶ 완성 영상 보기’를 눌러요. ‘내 목소리로 만든 영상’ 영역에서 재생한 뒤 영상 아래 ‘⬇ 파일 내려받기’를 눌러요." data-en="When finished, tap Watch my movie. Play it in the Videos with my voice section, then tap ‘⬇ Download a copy’ below the video.">끝나면 ‘▶ 완성 영상 보기’를 눌러요. ‘내 목소리로 만든 영상’ 영역에서 재생한 뒤 영상 아래 ‘⬇ 파일 내려받기’를 눌러요.</span></li>
+    </ol>
+    <aside class="dub-save-callout" aria-label="영상 저장 안내">
+      <strong data-ko="화면을 닫기 전에 꼭 저장하세요!" data-en="Save your movie before closing this page!">화면을 닫기 전에 꼭 저장하세요!</strong>
+      <p data-ko="영상 아래 ‘⬇ 파일 내려받기’를 누르면 컴퓨터에 저장돼요. 보통 ‘다운로드’ 폴더에서 찾을 수 있어요. 다음 모둠으로 바꾸기 전에도 먼저 저장하세요." data-en="Tap ‘⬇ Download a copy’ below the video to save it to your computer, usually in Downloads. Save before the next group starts, too.">영상 아래 ‘⬇ 파일 내려받기’를 누르면 컴퓨터에 저장돼요. 보통 ‘다운로드’ 폴더에서 찾을 수 있어요. 다음 모둠으로 바꾸기 전에도 먼저 저장하세요.</p>
+      <p data-ko="로그인한 경우에는 영상 아래 계정 보관 상태도 확인하세요. 저장 중이거나 실패했다면 완료를 기다리거나 파일로 내려받아 두세요." data-en="When signed in, also check the account save status below the video. If saving is in progress or failed, wait for completion or download a copy.">로그인한 경우에는 영상 아래 계정 보관 상태도 확인하세요. 저장 중이거나 실패했다면 완료를 기다리거나 파일로 내려받아 두세요.</p>
+    </aside>
+    </details>
   </section>
 
   <section class="panel dub-library" id="dub-library" aria-labelledby="dub-library-title" hidden>
@@ -381,7 +410,9 @@
     <div class="meter" id="dub-meter-wrap" aria-hidden="true"><i id="dub-meter"></i></div>
     <div class="row" id="dub-d-row">
       <label class="opt" id="dub-live-korean-option" hidden><input type="checkbox" id="dub-live-korean"> <span data-ko="한국어 자막 켜기" data-en="Show Korean subtitles">한국어 자막 켜기</span></label>
-      <button type="button" class="btn ok" id="dub-done" disabled><span data-ko="✅ 다 말했어요" data-en="✅ I'm done">✅ 다 말했어요</span></button>
+      <button type="button" class="btn ok" id="dub-done" disabled><span data-ko="✅ 말하기 완료" data-en="✅ Done speaking">✅ 말하기 완료</span></button>
+      <button type="button" class="btn" id="dub-more-time" hidden disabled><span data-ko="시간 더 주기 +5초" data-en="More time +5s">시간 더 주기 +5초</span></button>
+      <span class="prog" id="dub-practice-time" role="status" aria-live="polite" hidden></span>
       <button type="button" class="btn" id="dub-skip" disabled><span data-ko="⏭ 넘어가기" data-en="⏭ Skip">⏭ 넘어가기</span></button>
       <button type="button" class="btn warn" id="dub-stop"><span data-ko="⏹ 멈추고 보관" data-en="⏹ Stop and keep">⏹ 멈추고 보관</span></button>
       <span class="prog" id="dub-prog"></span>
@@ -405,6 +436,11 @@
 
   <section class="panel" id="dub-movies-panel" aria-label="완성 영상" hidden>
     <h2><span data-ko="내 목소리로 만든 영상" data-en="Videos with my voice">내 목소리로 만든 영상</span></h2>
+    <aside class="dub-save-callout" id="dub-finished-save-guide" aria-label="완성 영상 확인과 저장">
+      <strong data-ko="화면을 닫기 전에 꼭 저장하세요!" data-en="Save your movie before closing this page!">화면을 닫기 전에 꼭 저장하세요!</strong>
+      <p data-ko="① 아래 영상의 ▶로 다시 보기 → ② 영상 아래 ‘⬇ 파일 내려받기’ → ③ 컴퓨터의 ‘다운로드’ 폴더 확인. 모둠 이름으로 파일 이름을 바꾸면 찾기 쉬워요." data-en="1. Play the video below → 2. Tap ‘⬇ Download a copy’ below it → 3. Check your computer’s Downloads folder. Rename the file with your group name to find it easily.">① 아래 영상의 ▶로 다시 보기 → ② 영상 아래 ‘⬇ 파일 내려받기’ → ③ 컴퓨터의 ‘다운로드’ 폴더 확인. 모둠 이름으로 파일 이름을 바꾸면 찾기 쉬워요.</p>
+      <p data-ko="로그인했다면 영상 아래 계정 저장 완료 상태도 확인하세요. 나중에는 위쪽 ‘내 영상 보기’에서 보관한 영상을 열 수 있어요." data-en="If signed in, also confirm that account saving has completed below the video. Reopen saved movies later using My videos near the top.">로그인했다면 영상 아래 계정 저장 완료 상태도 확인하세요. 나중에는 위쪽 ‘내 영상 보기’에서 보관한 영상을 열 수 있어요.</p>
+    </aside>
     <p class="hint"><span data-ko="로그인하면 내 계정에 자동 보관해요. 영상 아래 저장 상태를 확인하고, 파일로도 내려받을 수 있어요." data-en="When signed in, movies save to your account automatically. Check each movie’s save status; you can also download a copy.">로그인하면 내 계정에 자동 보관해요. 영상 아래 저장 상태를 확인하고, 파일로도 내려받을 수 있어요.</span></p>
     <div class="movies" id="dub-movies"></div>
   </section>
@@ -478,7 +514,7 @@
       <section class="panel" id="dub-cast-panel" aria-label="누가 연기할까요" hidden>
         <div>
           <h2><span data-ko="어떤 캐릭터가 될까요?" data-en="Which character will you be?">어떤 캐릭터가 될까요?</span></h2>
-          <p class="hint"><span data-ko="캐릭터를 고른 뒤, 내 차례에 영어 대사를 말하면 돼요." data-en="Choose a character, then say the English lines when it is your turn.">캐릭터를 고른 뒤, 내 차례에 영어 대사를 말하면 돼요.</span></p>
+          <p class="hint"><span data-ko="캐릭터를 고르고 녹음을 시작해요. 연습 중에는 말한 뒤 ‘말하기 완료’를 눌러요." data-en="Choose a character and start recording. In practice, press Done speaking after your line.">캐릭터를 고르고 녹음을 시작해요. 연습 중에는 말한 뒤 ‘말하기 완료’를 눌러요.</span></p>
         </div>
         <div class="pick-sum" id="dub-pick-sum"></div>
         <div class="dub-resume-note" id="dub-resume-note" hidden></div>
@@ -543,6 +579,6 @@
 <script defer src="/js/ai-dubbing-library.js?v=2"></script>
 <script defer src="/js/ai-dubbing-practice.js?v=1"></script>
 <script defer src="/js/ai-dubbing-home.js?v=2"></script>
-<script defer src="/js/ai-dubbing.js?v=14"></script>
+<script defer src="/js/ai-dubbing.js?v=15"></script>
 </body>
 </html>

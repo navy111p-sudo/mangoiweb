@@ -1782,21 +1782,35 @@ function startExport() {
 
   const canvas = $('export-canvas');
   lines().forEach((_, i) => stillImage(stillFor(i))); // 장면 그림 미리 불러오기
+  exp.stream = null;
   try {
     const stream = canvas.captureStream(30);
+    exp.stream = stream;
     exp.dest.stream.getAudioTracks().forEach((tk) => stream.addTrack(tk));
     const mime = pickMime();
     exp.recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
     exp.mime = exp.recorder.mimeType || mime || 'video/webm';
-  } catch (e) { exp.active = false; MIX.bus.disconnect(exp.dest); setStatus(t('exportFail')); return; }
+  } catch (e) {
+    exp.active = false;
+    exp.stream?.getTracks().forEach((track) => track.stop());
+    exp.dest.stream.getAudioTracks().forEach((track) => track.stop());
+    MIX.bus.disconnect(exp.dest); setStatus(t('exportFail')); return;
+  }
   const chunks = [];
   exp.chunks = chunks;
   exp.recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  const recorder = exp.recorder;
+  recorder.onerror = () => {
+    if (!exp.active || exp.recorder !== recorder) return;
+    state.playing = false; stopAll(); stopMusic();
+    finishExport(false, true); renderTransport();
+  };
   document.body.classList.add('exporting');
   $('recbar').hidden = false;
   setStatus('');
   drawFrame();
-  exp.recorder.start(1000);
+  try { recorder.start(1000); }
+  catch (e) { recorder.onerror(); return; }
   state.mode = 'review'; savePrefs(); renderSettings();
   state.idx = 0; state.finished = false;
   play();
@@ -1832,19 +1846,27 @@ function drawCaption(g, W, H) {
   g.fillText(text, x + 20, y + h / 2 + 1);
 }
 
-function finishExport(save) {
+function finishExport(save, failed = false) {
   if (!exp.active) return;
   const dest = exp.dest, rec = exp.recorder, chunks = exp.chunks, mime = exp.mime;
+  const stream = exp.stream;
+  const releaseTracks = () => (stream?.getTracks() || []).forEach((track) => track.stop());
   const owner = exp.owner, meta = { ...exp.meta, durationMs: Date.now() - exp.startedAt };
   exp.active = false;
   cancelAnimationFrame(exp.raf);
   document.body.classList.remove('exporting');
   $('recbar').hidden = true;
   // 이전 작업의 정리가 곧바로 시작한 새 작업의 소리까지 끊지 않게 목적지를 붙잡는다.
-  setTimeout(() => { try { MIX.bus.disconnect(dest); } catch (e) { /* 무시 */ } }, 1500);
+  setTimeout(() => { releaseTracks(); try { MIX.bus.disconnect(dest); } catch (e) { /* 무시 */ } }, 1500);
   const showStatus = (msg) => { if (sameStudioAccount(owner) && exp.recorder === rec && !exp.active) setStatus(msg); };
+  if (failed) showStatus(t('exportFail'));
+  let stopped = false;
   rec.onstop = async () => {
+    if (stopped) return;
+    stopped = true;
+    releaseTracks();
     if (!sameStudioAccount(owner)) return;
+    if (failed) { showStatus(t('exportFail')); return; }
     if (!save) { showStatus(t('exportCanceled')); return; }
     const blob = new Blob(chunks, { type: mime });
     const ext = mime.includes('mp4') ? 'mp4' : 'webm';
@@ -1857,7 +1879,11 @@ function finishExport(save) {
     }
     if (blob.size) saveStudioMovie(blob, meta, owner);
   };
-  if (rec.state !== 'inactive') rec.stop();
+  if (rec.state === 'inactive') { if (!save || failed) rec.onstop(); }
+  else {
+    try { rec.stop(); }
+    catch (e) { rec.onstop(); }
+  }
 }
 function resetEpisode() {
   stopMicRecording(true);
