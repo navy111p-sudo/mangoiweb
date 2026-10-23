@@ -7,23 +7,24 @@ const extract = (name, next) => html.slice(html.indexOf(`function ${name}(`), ht
 const finish = extract('finishExport', 'resetEpisode');
 const start = extract('startExport', 'drawFrame');
 function environment() {
-  const timers = [], disconnected = [], statuses = [], downloads = [];
+  const timers = [], disconnected = [], statuses = [], downloads = [], tracks = [];
+  const track = (kind) => { const t = { kind, readyState: 'live', stop() { this.readyState = 'ended'; } }; tracks.push(t); return t; };
   const elements = new Map();
-  const el = id => { if (!elements.has(id)) elements.set(id, { hidden: false, textContent: '', classList: { add() {}, remove() {} }, captureStream: () => ({ addTrack() {} }) }); return elements.get(id); };
+  const el = id => { if (!elements.has(id)) elements.set(id, { hidden: false, textContent: '', classList: { add() {}, remove() {} }, captureStream: () => { const own = [track('video')]; return { addTrack(t) { own.push(t); }, getTracks: () => own }; } }); return elements.get(id); };
   let ep = 'picnic';
   const bus = { connect() {}, disconnect(d) { disconnected.push(d); } };
-  const ctx = { resume() {}, createMediaStreamDestination: () => ({ stream: { getAudioTracks: () => [{}] } }) };
+  const ctx = { resume() {}, createMediaStreamDestination: () => ({ stream: { getAudioTracks: () => [track('audio')] } }) };
   const c = { Blob, console, exp: { active: false }, MIX: { bus }, state: { lang: 'ko' }, micSession: null,
     DubLibrary: null, studioIdentity: 'guest', sameStudioAccount: () => true, saveStudioMovie() {}, checkpointStudio() {},
     document: { body: { classList: { add() {}, remove() {} } } }, $: el,
     setTimeout(fn) { timers.push(fn); }, cancelAnimationFrame() {}, setStatus(msg) { statuses.push(msg); }, t: k => k,
     downloads: { save(d) { downloads.push(d); return Promise.resolve(); } }, episode: () => ({ id: ep, title: { ko: ep, en: ep } }),
     canExport: () => true, audioCtx: () => ctx, lines: () => [], pickMime: () => 'video/webm',
-    drawFrame() {}, savePrefs() {}, renderSettings() {}, play() {},
+    drawFrame() {}, savePrefs() {}, renderSettings() {}, play() {}, stopAll() {}, stopMusic() {}, renderTransport() {},
     MediaRecorder: class { constructor() { this.mimeType = 'video/webm'; this.state = 'inactive'; } start() { this.state = 'recording'; } stop() { this.state = 'inactive'; } },
   };
   vm.createContext(c);
-  return { c, timers, disconnected, statuses, downloads, changeEpisode: id => { ep = id; } };
+  return { c, timers, disconnected, statuses, downloads, tracks, changeEpisode: id => { ep = id; } };
 }
 function testDestination(code = finish) {
   const e = environment(), { c } = e, oldDest = {}, newDest = {};
@@ -37,7 +38,55 @@ testDestination();
 assert.throws(() => testDestination(finish.replace('MIX.bus.disconnect(dest)', 'MIX.bus.disconnect(exp.dest)')), 'mutation: disconnecting current destination must fail');
 
 {
+  const e = environment(), { c } = e;
+  vm.runInContext(start + finish, c);
+  c.startExport(); const old = c.exp.recorder, oldTracks = [...e.tracks];
+  c.finishExport(false);
+  assert.ok(oldTracks.every(t => t.readyState === 'live'), 'retain capture tracks until final recorder data is flushed');
+  c.startExport(); const current = c.exp.recorder, currentTracks = e.tracks.filter(t => !oldTracks.includes(t));
+  await old.onstop(); e.timers.forEach(fn => fn());
+  assert.ok(oldTracks.every(t => t.readyState === 'ended'), 'cancellation releases audio and canvas capture tracks');
+  assert.ok(currentTracks.every(t => t.readyState === 'live'), 'old cleanup must not stop a restarted export');
+  old.onerror(); assert.equal(c.exp.recorder, current); assert.equal(c.exp.active, true);
+  current.onerror(); await current.onstop();
+  assert.equal(c.exp.active, false); assert.equal(c.state.playing, false);
+  assert.equal(e.statuses.at(-1), 'exportFail'); assert.equal(e.downloads.length, 0);
+  assert.ok(e.tracks.every(t => t.readyState === 'ended'), 'recorder failure releases every owned track');
+}
+{
+  const e = environment(), { c } = e;
+  c.MediaRecorder.prototype.start = () => { throw new Error('encoder unavailable'); };
+  vm.runInContext(start + finish, c); c.startExport();
+  assert.equal(c.exp.active, false); assert.equal(e.statuses.at(-1), 'exportFail');
+  assert.ok(e.tracks.every(t => t.readyState === 'ended'), 'a synchronous encoder start failure releases tracks');
+}
+{
+  const e = environment(), { c } = e;
+  c.MediaRecorder = class { constructor() { throw new Error('unsupported codec'); } };
+  vm.runInContext(start + finish, c); c.startExport();
+  assert.equal(c.exp.active, false); assert.equal(e.statuses.at(-1), 'exportFail');
+  assert.ok(e.tracks.every(t => t.readyState === 'ended'), 'constructor failure releases tracks already captured');
+}
+{
+  const e = environment(), { c } = e;
+  vm.runInContext(start + finish, c); c.startExport();
+  const rec = c.exp.recorder;
+  rec.ondataavailable({ data: new Blob(['complete-video']) }); c.finishExport(true);
+  await rec.onstop(); await rec.onstop();
+  assert.equal(e.downloads.length, 1, 'duplicate completion events must not download or save twice');
+  assert.ok(e.tracks.every(t => t.readyState === 'ended'), 'successful completion also releases capture tracks');
+}
+{
+  const e = environment(), { c } = e;
+  vm.runInContext(start + finish, c); c.startExport(); c.exp.recorder.onerror();
+  assert.equal(e.statuses.at(-1), 'exportFail', 'show encoder failure even when its stop event never arrives');
+  e.timers.forEach(fn => fn());
+  assert.ok(e.tracks.every(t => t.readyState === 'ended'), 'bounded fallback releases a recorder that never emits stop');
+}
+
+{
   const e = environment(), { c } = e, oldRec = new c.MediaRecorder();
+  oldRec.state = 'recording';
   c.exp = { active: true, dest: {}, recorder: oldRec, chunks: [new Blob(['old-data'])], mime: 'video/webm', owner: 'guest', meta: { episodeId: 'picnic' }, startedAt: Date.now() };
   vm.runInContext(finish, c); c.finishExport(true);
   c.exp = { active: true, dest: {}, recorder: new c.MediaRecorder(), chunks: [new Blob(['new'])], mime: 'video/mp4' }; e.changeEpisode('teddy');
