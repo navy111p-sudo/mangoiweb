@@ -12,13 +12,15 @@
  * ⚠️ 원본 영상 소리는 기본으로 끈다 — AI 영상 생성기가 넣은 의미 없는 목소리 조각이 섞여 있다.
  * ⚠️ 채점 순서는 speech-coach.html 과 같다: 전사(Whisper) → Azure 음소평가(브라우저 SDK) → /api/voice/coach.
  *    ⛔ /api/voice/transcribe 에 prompt(정답 문장)를 보내지 말 것 — 2026-07-29 «전부 100점» 사고.
- * ⚠️ 완성 영상은 이 기기에만 만든다(서버 저장 API 는 아직 없다 — 새 API 는 src/index.ts 승인이 필요).
+ * 완성 영상은 브라우저에서 만든 뒤 인증된 /api/dubbing 보관함으로 저장한다.
+ * 저장·이어하기 UI는 ai-dubbing-home.js, 인증/기기 임시보관은 ai-dubbing-library.js.
  * 🎵 배경음악·효과음은 js/ai-dubbing-sound.js(브라우저 합성)가, 👀 «먼저 보기»(감상) 순서는 js/ai-dubbing-watch.js 가 맡는다.
  *    여기는 재료(섞개·영상·자막·TTS)를 넘기고 그리기만 한다 — 감상 순서를 여기에 다시 적지 말 것.
  */
 (function () {
   'use strict';
   var C = window.MangoiDubCore;
+  var LIB = window.MangoiDubLibrary, HOME = window.MangoiDubHome;
   if (!C) return;
 
   var $ = function (id) { return document.getElementById(id); };
@@ -55,6 +57,7 @@
     run: null,         // 지금 도는 더빙 한 판
     results: [],       // [{ key, sceneNo, line, studentIdx, status, spoken, score, tier, words, err }]
     movies: [],        // [{ title, url, mime, size }]
+    resume: null,      // saved scene boundary; earlier videos stay in the library
     index: [],         // 이야기 목록(1·2·3편) — loadIndex
     genre: 'adv',      // 'adv'(모험 3D 애니) | 'kt'(키키와 토토)
     sel: -1,           // 고른 에피소드(= 매니페스트의 장면 순번)
@@ -319,13 +322,14 @@
   }
   function loadCast() {
     var saved = null;
-    try { saved = JSON.parse(localStorage.getItem(CAST_KEY + ':' + S.ep.id) || 'null'); } catch (e) {}
+    try { saved = JSON.parse(localStorage.getItem(castKey()) || 'null'); } catch (e) {}
     var ok = Array.isArray(saved) && saved.length && !C.castProblems(saved, S.ep).length;
     S.cast = ok ? saved.map(function (c) { return { name: String(c.name || '').slice(0, 12), character: c.character }; }) : defaultCast(1);
     var me = acctName();
     if (me && !S.cast[0].name) S.cast[0].name = String(me).slice(0, 12);
   }
-  function saveCast() { try { localStorage.setItem(CAST_KEY + ':' + S.ep.id, JSON.stringify(S.cast)); } catch (e) {} }
+  function castKey() { return CAST_KEY + ':' + (LIB ? LIB.identity() : 'guest') + ':' + S.ep.id; }
+  function saveCast() { try { localStorage.setItem(castKey(), JSON.stringify(S.cast)); } catch (e) {} }
 
   function renderCast() {
     var box = $('dub-cast');
@@ -373,7 +377,9 @@
       var idx = Number(b.getAttribute('data-i')), cid = b.getAttribute('data-c');
       if (S.cast[idx] && S.ep.playable.indexOf(cid) >= 0) S.cast[idx].character = cid;
     } else return;
-    saveCast(); renderCast(); renderMbar();
+    S.resume = null;
+    if ($('dub-resume-note')) $('dub-resume-note').hidden = true;
+    saveCast(); renderCast(); renderMbar(); updateDubMode();
   }
   function onCastInput(e) {
     var el = e.target;
@@ -418,7 +424,10 @@
   function pickScene(i) {
     if (S.run || S.watching || !scenePlayable(i)) return;
     S.sel = i;
+    S.resume = null;
+    if ($('dub-resume-note')) $('dub-resume-note').hidden = true;
     renderScenes(); renderPickSum(); renderMbar();
+    updateDubMode();
   }
 
   function renderStatus() {
@@ -662,16 +671,19 @@
     var job = QUEUE.shift();
     if (!job) return;
     QBUSY = true;
-    scoreOne(job.res, job.blob)
+    Promise.resolve().then(function () { return scoreOne(job.res, job.blob); })
       .catch(function (e) { job.res.status = 'error'; job.res.err = String((e && e.message) || e).slice(0, 80); })
       .then(function () { QBUSY = false; renderResults(); pump(); });
   }
   function scoreOne(res, blob) {
+    function checkOwner() { if (LIB && res.owner !== LIB.identity()) throw new Error('account_changed'); }
+    checkOwner();
     res.status = 'scoring'; renderResults();
     var target = res.line.en;
     var isWav = String(blob.type || '').indexOf('wav') >= 0;
     var trimP = (isWav && window.SpeechAzure && SpeechAzure.trimWav) ? SpeechAzure.trimWav(blob).catch(function () { return { blob: blob }; }) : Promise.resolve({ blob: blob });
     return trimP.then(function (t) {
+      checkOwner();
       var audio = t.blob || blob;
       var fd = new FormData();
       fd.append('audio', audio, isWav ? 'rec.wav' : 'rec.webm');
@@ -679,6 +691,7 @@
       return fetch('/api/voice/transcribe', { method: 'POST', body: fd })
         .then(function (r) { return r.json(); })
         .then(function (tr) {
+          checkOwner();
           if (!tr || !tr.ok) throw new Error('transcribe_' + ((tr && tr.error) || 'fail'));
           var azP = (isWav && window.SpeechAzure && SpeechAzure.assess)
             ? SpeechAzure.assess({ wavBlob: audio, reference: target, locale: 'en-US', rawSeconds: t.rawSec })
@@ -686,6 +699,7 @@
           return azP.then(function (az) { return { tr: tr, az: (az && az.ok) ? az : null, azReason: az && az.reason }; });
         })
         .then(function (o) {
+          checkOwner();
           var spoken = (o.az && String(o.az.text || '').trim()) || String(o.tr.text || '').trim();
           res.spoken = spoken;
           if (!spoken) { res.status = 'no_speech'; return; }
@@ -700,6 +714,7 @@
             azure_diag: o.az ? 'ok(sdk)' : ('sdk:' + String(o.azReason || 'none')),
           };
           var post = function (p) {
+            checkOwner();
             return fetch('/api/voice/coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) })
               .then(function (r) { return r.json(); });
           };
@@ -723,6 +738,7 @@
     no_audio: ['⚠ 녹음 실패', '⚠ Recording failed'], error: ['⚠ 채점 실패', '⚠ Check failed'],
   };
   function renderResults() {
+    if (HOME) HOME.practice(S.results);
     var panel = $('dub-results');
     if (!panel) return;
     if (!S.results.length || (S.run && S.run.mode === 'presentation')) { panel.hidden = true; return; }
@@ -755,7 +771,9 @@
       var ext = /mp4/.test(m.mime) ? 'mp4' : 'webm';
       return '<div class="mv"><b>' + esc(m.title) + '</b>'
         + '<video controls playsinline preload="metadata" src="' + esc(m.url) + '"></video>'
-        + '<a href="' + esc(m.url) + '" download="mangoi-' + esc(S.ep.id) + '-' + (i + 1) + '.' + ext + '">' + L('⬇ 저장', '⬇ Save') + '</a>'
+        + '<a href="' + esc(m.url) + '" download="mangoi-' + esc(S.ep.id) + '-' + (i + 1) + '.' + ext + '">' + L('⬇ 파일 내려받기', '⬇ Download a copy') + '</a>'
+        + '<span class="dub-save-note ' + esc(m.saveState || '') + '" role="status">' + (m.saveState === 'saving' ? L('작품을 저장하고 있어요…', 'Saving your movie…') : esc(m.saveMessage || '')) + '</span>'
+        + (m.saveState === 'error' && LIB && LIB.hasAccount() ? '<button type="button" class="btn" data-retry-movie="' + i + '">' + L('계정에 다시 저장', 'Retry account save') + '</button>' : '')
         + (m.deviceVoice ? '<span class="hint">' + L('※ 일부 원어민 대사는 기기 목소리로 나와서 영상에 담기지 않았어요.', '※ Some native lines used the device voice and are not in the movie.') + '</span>' : '')
         + '</div>';
     }).join('');
@@ -843,7 +861,7 @@
       var t0 = Date.now();
       (function go() {
         if (!mv.rec || mv.rec.state !== 'inactive' || mv.stopped) return;
-        if (mv.hasFrame || mv.tainted || Date.now() - t0 > 4000) { try { mv.rec.start(1000); } catch (e) {} return; }
+        if (mv.hasFrame || mv.tainted || Date.now() - t0 > 4000) { try { mv.rec.start(1000); mv.startedAt = Date.now(); } catch (e) {} return; }
         mv.startTimer = setTimeout(go, 100);
       })();
       return mv;
@@ -875,7 +893,7 @@
   function updateDubMode() {
     var practice = $('dub-mode').value !== 'presentation';
     $('dub-korean-option').hidden = practice;
-    $('dub-start').innerHTML = practice ? L('▶ 연습 시작', '▶ Start practice') : L('🎤 발표 더빙 시작', '🎤 Start presentation dubbing');
+    $('dub-start').innerHTML = S.resume ? L('▶ 이어 녹음 시작', '▶ Continue recording') : practice ? L('▶ 연습 시작', '▶ Start practice') : L('🎤 발표 더빙 시작', '🎤 Start presentation dubbing');
   }
   function showLine(run, line, performer) {
     var student = performer.type === 'student';
@@ -916,7 +934,7 @@
   /* 학생 한 줄(차례 모드) — 준비 신호 → 마이크 → 말이 끝나면(조용 1.3초)·최대 시간·«다 말했어요» 중 먼저 오는 것에서 끝 */
   function studentTurn(run, sc, it) {
     var idx = it.performer.idx;
-    var res = { key: sc.no + ':' + it.line.id + ':' + Date.now(), sceneNo: sc.no, line: it.line, studentIdx: idx, status: 'queued' };
+    var res = { key: sc.no + ':' + it.line.id + ':' + Date.now(), sceneNo: sc.no, line: it.line, studentIdx: idx, status: 'queued', owner: run.owner };
     return Promise.resolve().then(function () {
       if (run.aborted) return;
       setButtons('student');
@@ -950,7 +968,7 @@
         if (skipped) { res.status = 'skipped'; }          // 넘어간 줄은 채점하지 않는다(녹음은 버림)
         else if (!r.blob) { res.status = 'no_audio'; }
         else if (!r.heard) { res.status = 'no_speech'; }
-        else { res.status = 'queued'; enqueueScore(res, r.blob); }
+        else { res.recorded = true; res.status = 'queued'; enqueueScore(res, r.blob); }
         renderResults();
       });
     });
@@ -1043,11 +1061,11 @@
         }, 100);
         function closeCap(k) {
           var cap = caps[k]; cap.closed = true;
-          var res = { key: sc.no + ':' + cap.it.line.id + ':' + Date.now(), sceneNo: sc.no, line: cap.it.line, studentIdx: cap.it.performer.idx, status: 'queued' };
+          var res = { key: sc.no + ':' + cap.it.line.id + ':' + Date.now(), sceneNo: sc.no, line: cap.it.line, studentIdx: cap.it.performer.idx, status: 'queued', owner: run.owner };
           cap.h.stop().then(function (r) {
             if (run.aborted) return;
             S.results.push(res);
-            if (!r.blob) res.status = 'no_audio'; else if (!r.heard) res.status = 'no_speech'; else enqueueScore(res, r.blob);
+            if (!r.blob) res.status = 'no_audio'; else if (!r.heard) res.status = 'no_speech'; else { res.recorded = true; enqueueScore(res, r.blob); }
             renderResults();
           });
         }
@@ -1114,13 +1132,14 @@
     if (mode !== 'watch' && $('dub-tcard')) $('dub-tcard').hidden = true;
   }
   /* 더빙·먼저 보기 중에는 고르기·출연 설정을 잠근다(둘이 동시에 돌지 않게) */
-  var LOCK_SEL = '#dub-scenes button, #dub-all, #dub-start, #dub-genres button, #dub-cast button, #dub-cast input, #dub-make-movie, #dub-mode, #dub-korean, #dub-w-film, #dub-w-all, #dub-nudge button';
+  var LOCK_SEL = '#dub-scenes button, #dub-all, #dub-start, #dub-genres button, #dub-cast button, #dub-cast input, #dub-make-movie, #dub-mode, #dub-korean, #dub-w-film, #dub-w-all, #dub-nudge button, #dub-quick-start, #dub-quick-resume, #dub-quick-library, #dub-library button, #dub-practice-go';
   function lockUi(on) { Array.prototype.forEach.call(document.querySelectorAll(LOCK_SEL), function (b) { b.disabled = on; }); }
   function setRunning(on) {
     setPlayerMode(on ? 'dub' : 'off');
     lockUi(on);
     $('dub-stop').disabled = !on;
     document.body.classList.toggle('dub-running', !!on);   // 폰 아래 바는 더빙 중엔 숨긴다(플레이어 버튼을 가리지 않게)
+    if (HOME) { HOME.render(); HOME.practice(S.results); }
     if (!on) {
       setButtons('idle'); setProg('');
       if (S.ep && !S.run) { renderScenes(); renderPickSum(); }   // 위에서 «전부 켜기» 한 것을 «재생할 수 있는 것만» 으로 되돌린다
@@ -1130,15 +1149,43 @@
     }
   }
 
-  function startRun(sceneIdxs) {
+  function checkpoint(run, complete) {
+    if (!HOME || !S.ep || (LIB && run.owner !== LIB.identity())) return;
+    HOME.checkpoint({ id: 'main-' + S.ep.id, episodeId: S.ep.id, title: T(S.ep.title.ko, S.ep.title.en), state: {
+      version: 1, cast: S.cast.map(function (c) { return { name: c.name, character: c.character }; }),
+      sceneIdxs: run.sceneIdxs.slice(), nextIndex: run.nextIndex, counters: Object.assign({}, run.checkpointCounters),
+      mode: run.mode, korean: run.scriptMode === 'ko', makeMovie: !!($('dub-make-movie') && $('dub-make-movie').checked),
+      complete: !!complete,
+    } });
+  }
+  function restorePractice(state) {
+    if (!state || state.version !== 1 || !S.ep || !Array.isArray(state.cast) || C.castProblems(state.cast, S.ep).length) return false;
+    if (!Array.isArray(state.sceneIdxs) || !state.sceneIdxs.length || state.sceneIdxs.length > S.ep.scenes.length) return false;
+    if (!state.sceneIdxs.every(function (i) { return Number.isInteger(i) && scenePlayable(i); })) return false;
+    var next = state.complete ? 0 : Number(state.nextIndex);
+    if (!Number.isInteger(next) || next < 0 || next >= state.sceneIdxs.length) return false;
+    var counters = {};
+    S.ep.playable.forEach(function (cid) { var n = state.counters && state.counters[cid]; if (Number.isInteger(n) && n >= 0 && n <= 10000) counters[cid] = n; });
+    S.cast = state.cast.map(function (c) { return { name: String(c.name || '').slice(0, 12), character: c.character }; });
+    S.resume = { sceneIdxs: state.sceneIdxs.slice(next), counters: state.complete ? {} : counters };
+    S.sel = S.resume.sceneIdxs[0];
+    $('dub-mode').value = state.mode === 'presentation' ? 'presentation' : 'practice';
+    $('dub-korean').checked = !!state.korean;
+    $('dub-make-movie').checked = state.makeMovie !== false;
+    setGenre('adv', true); saveCast(); renderCast(); renderScenes(); renderPickSum(); renderMbar(); updateDubMode(); openSheet();
+    return true;
+  }
+  function startRun(sceneIdxs, resumeCounters) {
     if (S.run || S.watching || !S.ep) return;
     var probs = C.castProblems(S.cast, S.ep);
     if (probs.length) { alert(T('학생마다 캐릭터를 골라 주세요.', 'Please pick a character for each student.')); return; }
     ensureMix();                                     // ⚠️ 클릭 안에서 만들어야 소리가 난다(자동재생 정책)
-    var run = { aborted: false, counters: {}, wakers: [], sub: null, mic: null, movie: null, tracks: [], deviceVoiceUsed: false,
+    var run = { aborted: false, counters: Object.assign({}, resumeCounters), wakers: [], sub: null, mic: null, movie: null, tracks: [], deviceVoiceUsed: false,
+      owner: LIB ? LIB.identity() : '', sceneIdxs: sceneIdxs.slice(), nextIndex: 0, checkpointCounters: Object.assign({}, resumeCounters),
       mode: $('dub-mode').value === 'presentation' ? 'presentation' : 'practice',
       scriptMode: scriptMode() };
     S.run = run;
+    S.resume = null;
     // Results belong to this recording, including all scenes in a whole-story run.
     // An in-flight old score may finish, but its detached result cannot affect this take.
     S.results = [];
@@ -1153,6 +1200,7 @@
     var title = sceneIdxs.length > 1
       ? T('처음부터 끝까지', 'Whole story')
       : T('에피소드 ' + S.ep.scenes[sceneIdxs[0]].no + ' · ' + S.ep.scenes[sceneIdxs[0]].label.ko, 'Episode ' + S.ep.scenes[sceneIdxs[0]].no + ' · ' + S.ep.scenes[sceneIdxs[0]].label.en);
+    checkpoint(run, false);
     openMic(run).catch(function () {
       throw new Error('mic');
     }).then(function () {
@@ -1160,20 +1208,30 @@
       var k = 0;
       function nextScene() {
         if (run.aborted || k >= sceneIdxs.length) return Promise.resolve();
+        run.nextIndex = k;
+        run.checkpointCounters = Object.assign({}, run.counters);
+        checkpoint(run, false);
         var sc = S.ep.scenes[sceneIdxs[k++]];
-        return playScene(run, sc).then(function () { return sleep(500, run); }).then(nextScene);
+        return playScene(run, sc).then(function () {
+          if (!run.aborted) { run.nextIndex = k; run.checkpointCounters = Object.assign({}, run.counters); checkpoint(run, k >= sceneIdxs.length); }
+          return sleep(500, run);
+        }).then(nextScene);
       }
       return nextScene();
     }).catch(function (e) {
+      run.failed = true;
       if (String(e && e.message) === 'mic') alert(T('마이크를 쓸 수 없어요. 브라우저에서 마이크를 허용해 주세요.', 'The microphone is not available. Please allow the microphone.'));
       else console.warn('[ai-dubbing] 재생 중 오류', e);
     }).then(function () {
       var mv = run.movie;
       closeMic(run.mic);
       return stopMovie(mv).then(function (blob) {
-        if (blob && blob.size > 2000 && !run.aborted) {
-          S.movies.push({ title: title, url: URL.createObjectURL(blob), mime: blob.type, size: blob.size, deviceVoice: run.deviceVoiceUsed });
+        if (blob && blob.size > 2000 && (!LIB || run.owner === LIB.identity())) {
+          var movie = { title: title + (run.aborted || run.failed ? T(' · 중간 녹음', ' · Partial recording') : ''), url: URL.createObjectURL(blob), mime: blob.type, size: blob.size, deviceVoice: run.deviceVoiceUsed,
+            owner: run.owner, interrupted: !!(run.aborted || run.failed), durationMs: mv && mv.startedAt ? Date.now() - mv.startedAt : 0 };
+          S.movies.push(movie);
           renderMovies();
+          if (HOME) HOME.saveMovie(movie, blob, S.ep.id);
         }
       });
     }).then(function () {
@@ -1495,6 +1553,7 @@
       } else if (S.loadErr) renderLoadError();
       renderMbar();
       updateDubMode();
+      if (HOME) HOME.render();
     };
     window.addEventListener('mangoi:lang-changed', redraw);
     document.addEventListener('mangoi:lang-changed', redraw);
@@ -1516,7 +1575,11 @@
       var p = e.target.closest('button[data-pick]');
       if (p && !p.disabled) pickScene(Number(p.getAttribute('data-pick')));
     });
-    $('dub-start').addEventListener('click', function () { if (scenePlayable(S.sel)) startRun([S.sel]); });
+    $('dub-start').addEventListener('click', function () {
+      if (!scenePlayable(S.sel)) return;
+      var resume = S.resume;
+      startRun(resume ? resume.sceneIdxs : [S.sel], resume ? resume.counters : null);
+    });
     $('dub-mode').addEventListener('change', updateDubMode);
     $('dub-live-korean').addEventListener('change', function () {
       if (!S.run || S.run.mode !== 'presentation') return;
@@ -1534,6 +1597,12 @@
     $('dub-skip').addEventListener('click', function () { if (S.run && S.run.skipNow) S.run.skipNow(); });
     $('dub-stop').addEventListener('click', stopRun);
     $('dub-final').addEventListener('click', function () { var p = $('dub-movies-panel'); if (p && !p.hidden) p.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+    if ($('dub-movies')) $('dub-movies').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-retry-movie]');
+      if (!b || !HOME) return;
+      var movie = S.movies[Number(b.getAttribute('data-retry-movie'))];
+      if (movie && movie.blob && movie.saveState !== 'saving') HOME.saveMovie(movie, movie.blob, S.ep.id);
+    });
     /* 👀 먼저 보기 */
     if ($('dub-nudge')) $('dub-nudge').addEventListener('click', function (e) {
       var w = e.target.closest('button[data-watch]');
@@ -1549,6 +1618,22 @@
   }
 
   function boot() {
+    if (HOME) HOME.init({
+      episode: function () { return S.ep; }, busy: function () { return !!(S.run || S.watching); },
+      shortStart: function (i) { setGenre('adv', true); pickScene(i); $('dub-mode').value = 'practice'; updateDubMode(); openSheet(); },
+      restore: restorePractice, moviesChanged: renderMovies,
+      accountChanged: function () {
+        stopRun(); if (WATCH && S.watching) WATCH.stop(); QUEUE = []; S.results = []; S.resume = null;
+        S.movies.forEach(function (m) { URL.revokeObjectURL(m.url); }); S.movies = [];
+        if (S.ep) { loadCast(); renderCast(); renderResults(); renderMovies(); }
+        if ($('dub-resume-note')) $('dub-resume-note').hidden = true;
+        if ($('dub-draft-status')) $('dub-draft-status').textContent = '';
+        if ($('dub-next')) $('dub-next').hidden = true;
+      },
+    });
+    window.addEventListener('beforeunload', function (e) {
+      if (S.run) { e.preventDefault(); e.returnValue = ''; }
+    });
     S.ktSel = ktIndexOf(readPref(KT_KEY));
     wireStatic();
     applySndPrefs();                                 // 체크 칸·«한글 자막» 끔을 기억한 대로(소리 엔진은 첫 클릭에 만든다)
@@ -1563,11 +1648,13 @@
       $('dub-all-row').hidden = false;
       wire();
       renderMbar();
+      if (HOME) HOME.ready();
     }).catch(function (e) {
       console.warn('[ai-dubbing] 불러오기 실패', e);
       S.loadErr = true;
       renderLoadError();
       renderMbar();
+      if (HOME && /[?&]library=/.test(location.search)) HOME.ready();
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });

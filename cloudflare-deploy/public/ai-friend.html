@@ -13,6 +13,7 @@
   <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0a1530" />
   <script src="/js/mango-i18n.js" defer></script>
+  <script src="/js/ai-dubbing-practice.js?v=1" defer></script>
 <script src="/js/session-guard.js" defer></script>
   <style>
     :root {
@@ -1956,7 +1957,23 @@
       renderTopicBar();
       if (document.querySelector('.empty-state')) renderEmpty();
     });
-    loadHistory();
+    loadHistory().then(function () {
+      function mountDubbingPractice() {
+        if (!window.MangoiDubPractice) return;
+        MangoiDubPractice.mountFriend({
+          host: document.getElementById('chat'), input: document.getElementById('msgInput'),
+          prepare: function (text) {
+            stopSpeakingNow();
+            setTopic(null);                      // The previous topic must not pull this practice away.
+            const input = document.getElementById('msgInput');
+            input.value = text; input.focus();   // Student reviews and sends through the existing form.
+          }
+        });
+      }
+      // defer scripts/i18n finish first, including when history resolves immediately.
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountDubbingPractice, { once: true });
+      else mountDubbingPractice();
+    });
   </script>
 <!-- BUILD:20260813015745 -->
 <style id="mb-tidy-2026-07-11">
