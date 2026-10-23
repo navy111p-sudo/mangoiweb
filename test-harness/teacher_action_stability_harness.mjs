@@ -8,7 +8,8 @@ const start = html.indexOf('  function askReport(');
 const end = html.indexOf('\n  function openEval(', start);
 let resolve, calls = 0;
 const ctx = {
-  reportPendingCount: 0, reportPending: {}, ASKED: {}, DATA: {today:'2026-10-23'},
+  reportPendingCount: 0, reportPending: {}, ASKED: {}, DATA: {today:'2026-10-23'}, WK_READ: 0,
+  resumeClassRender(){}, classRenderDeferred: false,
   Date, Error, AbortSignal, EN:()=>false, T:(en,ko)=>ko, askedSave(){},
   setBtnLabel(b,en,ko){ b.label=ko; },
   fetch(){ calls++; return new Promise(r=>{resolve=r;}); }

@@ -134,7 +134,7 @@ html[data-t="dark"] .pwform input{background:#1b2330;border-color:#2c3949;color:
 /* ── 오늘 수업 리스트 ── */
 .cls{border-top:1px solid #eaeef2;padding:12px 0;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
 .cls:first-of-type{border-top:0}
-.cls-time{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;min-width:64px;color:#16202c}
+.cls-time{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;min-width:64px;color:#16202c;flex:0 0 100%;max-width:none;overflow-wrap:normal}
 .cls-main{flex:1;min-width:150px}
 .cls-name{font-size:16px;font-weight:600}
 /* 🎨 (2026-10-07 사장님 «스케줄·캘린더 색 통일») 정규 주황 · 보강 보라 · 체험 초록 · 레벨테스트 파랑 — 학생 상세 캘린더와 같은 계열 */
@@ -1346,7 +1346,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var msg = curMsg();
     if (msg) msg.textContent = T('Saving…','저장 중…');
     sel.disabled = true;
-    fetch('/api/teacher/portal?part=goal', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+    fetch('/api/teacher/portal?part=goal', { method:'POST', credentials:'include', signal:AbortSignal.timeout(20000), headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ student_uid: uid, goal_key: key }) })
       .then(function(r){ return r.json().catch(function(){ return null; }).then(function(j){ return { ok: r.ok, j: j }; }); })
       .then(function(x){
@@ -1362,6 +1362,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         });
         var savedSel = curSel() || sel;
         savedSel.disabled = false;
+        WK_READ++; // Discard portal reads started before this write completed.
         lastSig = null;
         if (DATA) renderClasses(DATA.classes || [], true);
       })
@@ -1405,7 +1406,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       b2.disabled = false;
       if (m2) m2.textContent = why; else window.alert(why);
     };
-    fetch('/api/teacher/portal?part=preq', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+    fetch('/api/teacher/portal?part=preq', { method:'POST', credentials:'include', signal:AbortSignal.timeout(20000), headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ student_uid: uid, request_id: id }) })
       .then(function(r){ return r.json().catch(function(){ return null; }).then(function(j){ return { ok: r.ok, j: j }; }); })
       .then(function(x){
@@ -1417,7 +1418,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         (DATA && DATA.classes || []).forEach(function(c){
           if (c.kind === 'class' && String(c.student_uid || '') === uid){ if (x.j.parent_request) c.parent_request = x.j.parent_request; else delete c.parent_request; }
         });
-        if (DATA) renderClasses(DATA.classes || []);
+        btn.disabled = false;
+        WK_READ++;
+        lastSig = null;
+        if (DATA) renderClasses(DATA.classes || [], true);
       })
       .catch(function(){ fail(T('Not saved (network)','저장 안 됨(연결)')); });
   });
@@ -2029,9 +2033,13 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     // Keep controls alive while a pointer, keyboard user or request owns them.
     var currentBox = document.getElementById('classes');
     if (currentBox && (classPointerDown || reportPendingCount > 0 ||
-        currentBox.querySelector('select:disabled') ||
+        currentBox.querySelector('select:disabled,button.preq-done:disabled') ||
         (!settled && currentBox.contains(document.activeElement) &&
-         /^(BUTTON|SELECT|INPUT|TEXTAREA|SUMMARY)$/.test(document.activeElement.tagName)))) return;
+         /^(BUTTON|SELECT|INPUT|TEXTAREA|SUMMARY)$/.test(document.activeElement.tagName)))) {
+      classRenderDeferred = true;
+      return;
+    }
+    classRenderDeferred = false;
     portalAcademies();
     var unfiltered = list;
     list = sortClassesByTime(portalRows(list), classTimeSort);
@@ -3979,13 +3987,17 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
      녹음은 사무실이 관리자 화면에서 돌린다. 여기서 무거운 일을 하지 않는 것이 요점이다.
      ⚠️ 같은 수업을 두 번 눌러도 서버가 «아직 확인 안 된 요청» 을 찾아 하나로 합친다
         (회선이 끊긴 줄 알고 다시 누르는 일이 잦다). 그래서 낙관적으로 처리해도 안전하다. */
-  var reportPendingCount = 0, reportPending = Object.create(null), classPointerDown = false;
+  var reportPendingCount = 0, reportPending = Object.create(null), classPointerDown = false, classRenderDeferred = false;
+  function resumeClassRender(){
+    setTimeout(function(){ if (classRenderDeferred && DATA) renderClasses(DATA.classes || []); }, 0);
+  }
   document.addEventListener('pointerdown', function(ev){
     var box = document.getElementById('classes');
     classPointerDown = !!(box && box.contains(ev.target));
   });
-  document.addEventListener('pointerup', function(){ classPointerDown = false; });
-  document.addEventListener('pointercancel', function(){ classPointerDown = false; });
+  document.addEventListener('pointerup', function(){ classPointerDown = false; resumeClassRender(); });
+  document.addEventListener('pointercancel', function(){ classPointerDown = false; resumeClassRender(); });
+  document.addEventListener('focusout', resumeClassRender);
   window.addEventListener('blur', function(){ classPointerDown = false; });
 
   function askReport(c, btn){
@@ -4014,6 +4026,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       btn.title = EN() ? 'The office will make the report from the class recording'
                        : '사무실에서 수업 녹음으로 리포트를 만들어 드려요';
       ASKED[c.room_id] = Date.now();   // 다시 그려도 «요청됨» 이 남게
+      WK_READ++;
       askedSave();
       if (j.already) setBtnLabel(btn, 'Already asked', '이미 요청됨');
       else           setBtnLabel(btn, 'Requested ✓', '요청됨 ✓');
@@ -4027,6 +4040,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       delete reportPending[c.room_id];
       reportPendingCount--;
       btn.removeAttribute('aria-busy');
+      resumeClassRender();
     });
   }
 
@@ -4067,7 +4081,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       + '</div></div>';
     document.body.appendChild(mask);
 
-    function close(){ if (mask.parentNode) mask.parentNode.removeChild(mask); }
+    var logSaving = false;
+    function close(){ if (!logSaving && mask.parentNode) mask.parentNode.removeChild(mask); }
     function say(cls, txt){ mask.querySelector('#ev-msg').innerHTML = '<div class="' + cls + '">' + esc(txt) + '</div>'; }
     mask.querySelector('#ev-x').onclick = close;
     mask.onclick = function(ev){ if (ev.target === mask) close(); };
@@ -4180,6 +4195,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
 
     mask.querySelector('#ev-ok').onclick = function(){
       var btn = this;
+      if (logSaving) return;
       var ko  = (mask.querySelector('#ev-ko').value || '').trim();
       var en  = (mask.querySelector('#ev-en').value || '').trim();
       var raw = mask.querySelector('#ev-raw').value.trim();
@@ -4219,26 +4235,42 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         notify_parent: true
       };
 
-      /* 🚀 낙관적 저장 — 누르면 «즉시» 닫힌다. 전송은 뒤에서.
-         실패하면 큐에 넣고 다음에 화면을 열 때 자동으로 다시 보낸다.
-         필리핀 회선에서 「눌렀는데 멈췄다」가 사라지는 지점이다. */
+      // Keep the draft visible until the server confirms the save.
+      logSaving = true;
       btn.disabled = true;
-      close();
+      btn.textContent = T('Sending…','보내는 중…');
+      mask.querySelector('#ev-x').disabled = true;
+      say('', T('Saving your log. Please wait…','일지를 저장하고 있습니다. 잠시 기다려 주세요…'));
       fetch('/api/eval/manual-create', {
+        signal: AbortSignal.timeout(20000),
         method:'POST', credentials:'same-origin',
         headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload)
       })
-      .then(function(r){ return r.json(); })
+      .then(function(r){ if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
       .then(function(j){
-        if (!j || !j.ok){ qPush(payload); return; }
+        if (!j || !j.ok) throw new Error('save failed');
         // ✍ (2026-08-27) 방금 쓴 일지를 화면에 바로 반영 — 수업 줄 배지가 「일지 ✓ 보기」로
         //    바뀌고, «내가 쓴 일지» 카드 캐시를 비워 다음 펼침 때 새로 불러온다.
         c.eval_written = true;
         if (j.id) c.eval_id = j.id;
+        var current = freshClass(c);
+        current.eval_written = true;
+        if (j.id) current.eval_id = j.id;
+        WK_READ++;
         MY.myev = null;
-        if (DATA) renderClasses(DATA.classes || []);
+        logSaving = false;
+        close();
+        lastSig = null;
+        if (DATA) renderClasses(DATA.classes || [], true);
       })
-      .catch(function(){ qPush(payload); });
+      .catch(function(){
+        logSaving = false;
+        btn.disabled = false;
+        btn.textContent = T('Try sending again','다시 보내기');
+        mask.querySelector('#ev-x').disabled = false;
+        say('err', T('Save not confirmed. Your draft is still here. Check your connection and try again.',
+                    '저장을 확인하지 못했습니다. 작성한 내용은 그대로 있습니다. 연결을 확인하고 다시 시도해 주세요.'));
+      });
     };
   }
 
@@ -4247,7 +4279,11 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
      ⚠️ 인앱 브라우저는 window.open 이 예외 없이 null 만 돌려준다(CLAUDE.md 함정) —
         반환값이 비면 같은 창으로 연다. */
   function openEvalView(c){
-    if (!c || !c.eval_id) return;
+    if (!c || !c.eval_id){
+      alert(T('The saved log link is unavailable. Refreshing the class list — please try again.', '저장된 일지 링크를 확인할 수 없습니다. 목록을 새로 불러옵니다. 다시 눌러 주세요.'));
+      load(true);
+      return;
+    }
     var u = '/eval.html?id=' + encodeURIComponent(c.eval_id);
     var w = null; try { w = window.open(u, '_blank'); } catch (e) {}
     if (!w) location.href = u;
@@ -4402,7 +4438,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       .then(function(d){
         if (!currentWeekRead(req)){ scheduleAutoRefresh(arDelay); return; }
         // A dialog or save may have started after this read was sent.
-        if (modalOpen() || reportPendingCount > 0 || document.querySelector('#classes select:disabled')){
+        if (modalOpen() || reportPendingCount > 0 || document.querySelector('#classes select:disabled,#classes button.preq-done:disabled')){
           scheduleAutoRefresh(arDelay); return;
         }
         if (!d || !d.ok || !validWeek(d.week, req.start || weekOfDate(d.today))) throw new Error('bad');
