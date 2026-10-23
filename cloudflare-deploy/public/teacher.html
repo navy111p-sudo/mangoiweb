@@ -1976,12 +1976,18 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     if (!c || c.kind && c.kind !== 'class' || !stuUid(c)) return '';
     return '<div class="cls-meta">' + esc(T('Academy','학원')) + ': ' + esc(c.academy || '—')
       + ' · ' + esc(T('Contact','연락처')) + ': ' + esc(c.student_phone || '—')
-      + ' <button type="button" class="tbtn" data-student-calendar="'+esc(stuUid(c))+'">'+esc(T('Calendar','캘린더'))+'</button></div>';
+      + ' <button type="button" class="tbtn" data-student-calendar="'+esc(stuUid(c))+'" data-history-schedule="'+esc(c.schedule_id || c.id || '')+'" data-history-date="'+esc(c.class_date || c.date || todayKST())+'" data-history-name="'+esc(stuName(c) || stuUid(c))+'">'+esc(T('Summary / Calendar','수업 요약 / 캘린더'))+'</button></div>';
   }
   document.addEventListener('click',function(e){
     var button=e.target.closest && e.target.closest('[data-student-calendar]');if(!button)return;
-    document.getElementById('portal-search').value=button.getAttribute('data-student-calendar');portalRefresh();
-    document.getElementById('c-week').scrollIntoView({block:'start'});
+    var context={scheduleId:button.getAttribute('data-history-schedule'),date:button.getAttribute('data-history-date'),name:button.getAttribute('data-history-name'),opener:button};
+    function show(){window.MangoiTeacherHistory.open(context);}
+    if(window.MangoiTeacherHistory){show();return;}
+    if(button.disabled)return;button.disabled=true;
+    var script=document.createElement('script');script.src='/js/teacher-student-history.js?v=1';
+    script.onload=function(){button.disabled=false;show();};
+    script.onerror=function(){button.disabled=false;script.remove();alert(T('Could not load class history. Please try again.','수업 이력을 불러오지 못했습니다. 다시 시도해 주세요.'));};
+    document.head.appendChild(script);
   });
   function portalRefresh(){
     lastSig = null;

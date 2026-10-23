@@ -1,4 +1,5 @@
 import { attachCalendarRecords } from './calendar-records';
+import { loadTeacherStudentHistory, validHistoryDate } from './teacher-student-history';
 // ────────────────────────────────────────────────────────────────────────────
 // 🇵🇭 강사 전용 초경량 포털 API — /api/teacher/portal
 //
@@ -126,7 +127,7 @@ export async function handleTeacherApi(
    *  [건너뛰는 것] 공지·자료·평점 조회(D1 3회) · 매니저 블록(D1 2회, 오늘 전체 수업 스캔)
    *       · 학생 읽기밴드(KV). 즉 D1 왕복이 5회 줄고 본문이 수십 KB → 수백 B 가 된다.
    */
-  const onlyNext = url.searchParams.get('only') === 'next';
+  const onlyNext = url.searchParams.get('only') === 'next' || url.searchParams.get('part') === 'student_history';
 
   // ── 신원: 쿠키 세션에서만 (클라이언트가 보내는 값은 일절 신뢰하지 않는다) ──
   const actor = await getAdminActor(request, env as any);
@@ -324,6 +325,36 @@ export async function handleTeacherApi(
   // 🔀 '연결 안 됨'과 '누구인지 헷갈림'은 본사가 할 일이 다르다.
   //    전자는 이름을 채워 넣는 일, 후자는 둘 중 누구인지 고르는 일이다. 문구도 갈라 준다.
   const identityAmbiguous = !isManager && ambiguousNames.length > 0;
+
+  // Student history is lazy-loaded and read-only. Resolve the student from an owned schedule.
+  if (url.searchParams.get('part') === 'student_history') {
+    const scheduleId = Number(url.searchParams.get('schedule_id'));
+    const date = String(url.searchParams.get('date') || todayStr);
+    const month = String(url.searchParams.get('month') || date.slice(0, 7));
+    if (!Number.isSafeInteger(scheduleId) || scheduleId <= 0 || !validHistoryDate(date)
+        || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || Number(month.slice(0,4)) < 2000) {
+      return json({ ok: false, error: 'bad_history_request' }, 400);
+    }
+    if (!isManager && (identityUnlinked || identityAmbiguous)) return json({ ok: false, error: 'history_forbidden' }, 403);
+    try {
+      const schedule = await env.DB.prepare(`SELECT id, user_id, teacher_id, status FROM class_schedules WHERE id=? LIMIT 1`)
+        .bind(scheduleId).first<any>();
+      const uid = schedule && studentUidOf(schedule);
+      if (!uid) return json({ ok: false, error: 'history_forbidden' }, 403);
+      const keys = [...new Set([...linkedTeacherIds, String(actor.username || '')].filter(Boolean))];
+      let allowed = isManager || ((schedule.status || 'active') === 'active' && keys.includes(String(schedule.teacher_id)));
+      if (!allowed && keys.length) {
+        const sub = await env.DB.prepare(`SELECT substitute_teacher_id FROM class_substitutions
+          WHERE schedule_id=? AND sub_date=? AND status='active' LIMIT 1`).bind(scheduleId, date).first<any>();
+        allowed = !!sub && keys.includes(String(sub.substitute_teacher_id));
+      }
+      if (!allowed) return json({ ok: false, error: 'history_forbidden' }, 403);
+      return json(await loadTeacherStudentHistory(env, uid, month, date));
+    } catch (e) {
+      console.warn('[teacher-history] read failed');
+      return json({ ok: false, error: 'history_unavailable' }, 503);
+    }
+  }
 
   /* 🔄 (2026-08-28) 1회성 대체강사 — 오늘 하루만. 강사 병가·휴가로 다른 강사가 이 회차를
    *  맡으면 원래 강사의 class_schedules.teacher_id 는 그대로다(다음 회차 자동복귀를 위해 —
