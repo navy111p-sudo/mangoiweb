@@ -330,10 +330,11 @@ html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
 .btn-appr{background:#0b7a3d;color:#fff;flex:1}
 .btn-skip{background:#e7ebef;color:#2c3a48;flex:0 0 auto}
 .btn-sm{min-height:44px;padding:11px 14px;font-size:14px}
-/* 🪤 (2026-08-16) 수업 줄에 버튼이 셋이면 좁은 폰(430px)에서 글자가 «AI 리포트 요/청» 으로
-   쪼개진다 — .cls-act 가 flex-wrap 이고 셋이 폭을 1:1:1 로 나눠 갖기 때문이다.
-   라벨을 짧게 줄이고, 그래도 넘치면 줄을 쪼개는 대신 «…» 로 자른다(글자가 깨져 보이지 않게). */
-.btn-ask{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Give actions their own row; wrap full labels instead of truncating them. */
+.btn-ask{white-space:normal;overflow:visible;text-overflow:clip}
+.cls-act .btn{flex:1 1 110px;min-width:0;white-space:normal;overflow-wrap:break-word}
+.cls-act .btn:focus-visible{outline:3px solid #1355a8;outline-offset:3px}
+.cls-extra{font-size:13px;line-height:1.65}
 .btn-post{background:#fff;color:#1355a8;border:1px solid #9db8dc;flex:0 0 auto}
 .fld input,.fld select{
   width:100%;border:1px solid #c9d2dc;border-radius:8px;padding:10px;font-size:16px;
@@ -370,7 +371,7 @@ html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
   .wrap{padding:8px 8px 40px}
 }
 @media (min-width:700px){
-  .cls-act{width:auto;flex:0 0 auto}
+  .cls-act{width:100%;flex:0 0 100%}
   .cls-sact{display:flex}
   .cls-postponed .cls-pnote{display:none}
   .btn{padding:13px 22px}
@@ -1359,7 +1360,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         (DATA && DATA.classes || []).forEach(function(c){
           if (c.kind === 'class' && String(c.student_uid || '') === uid){ if (x.j.goal) c.student_goal = x.j.goal; else delete c.student_goal; }
         });
-        if (DATA) renderClasses(DATA.classes || []);
+        var savedSel = curSel() || sel;
+        savedSel.disabled = false;
+        lastSig = null;
+        if (DATA) renderClasses(DATA.classes || [], true);
       })
       .catch(function(){
         var s2 = curSel() || sel, m2 = curMsg(), why = T('Not saved (network)','저장 안 됨(연결)');
@@ -2021,7 +2025,13 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     }).map(function(row){ return row.c; });
   }
 
-  function renderClasses(list){
+  function renderClasses(list, settled){
+    // Keep controls alive while a pointer, keyboard user or request owns them.
+    var currentBox = document.getElementById('classes');
+    if (currentBox && (classPointerDown || reportPendingCount > 0 ||
+        currentBox.querySelector('select:disabled') ||
+        (!settled && currentBox.contains(document.activeElement) &&
+         /^(BUTTON|SELECT|INPUT|TEXTAREA|SUMMARY)$/.test(document.activeElement.tagName)))) return;
     portalAcademies();
     var unfiltered = list;
     list = sortClassesByTime(portalRows(list), classTimeSort);
@@ -2138,6 +2148,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
            // 🚪 (2026-09-29) 방 번호·길이도 넣는다 — 안 넣으면 「오늘은 다른 방으로」·일정 이동으로
            //    room_id 가 바뀌어도 «바뀐 게 없다» 로 보고 다시 안 그려, [수업 입장] 이 옛 방으로 간다.
            + ':' + (sc.room_id || '') + ':' + (sc.duration_min || '') + ':' + (sc.close_at_ts || '')
+           + ':' + sc.enter_from_ts + ':' + sc.enter_until_ts + ':' + (ASKED[sc.room_id] || '')
            // 🚪 (2026-10-21) «학생이 다른 방에» 도 넣는다 — 안 넣으면 학생이 옮겨 가도 빨간 상자가 남거나 안 뜬다.
            + ':' + (sc.student_elsewhere ? sc.student_elsewhere.room + '#' + sc.student_elsewhere.others + (sc.student_elsewhere.via_twin ? 'T' : '') : '') + ',';
     }
@@ -3968,11 +3979,25 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
      녹음은 사무실이 관리자 화면에서 돌린다. 여기서 무거운 일을 하지 않는 것이 요점이다.
      ⚠️ 같은 수업을 두 번 눌러도 서버가 «아직 확인 안 된 요청» 을 찾아 하나로 합친다
         (회선이 끊긴 줄 알고 다시 누르는 일이 잦다). 그래서 낙관적으로 처리해도 안전하다. */
+  var reportPendingCount = 0, reportPending = Object.create(null), classPointerDown = false;
+  document.addEventListener('pointerdown', function(ev){
+    var box = document.getElementById('classes');
+    classPointerDown = !!(box && box.contains(ev.target));
+  });
+  document.addEventListener('pointerup', function(){ classPointerDown = false; });
+  document.addEventListener('pointercancel', function(){ classPointerDown = false; });
+  window.addEventListener('blur', function(){ classPointerDown = false; });
+
   function askReport(c, btn){
     if (!c || !c.room_id) return;
+    if (reportPending[c.room_id] || ASKED[c.room_id]) return;
+    reportPending[c.room_id] = true;
+    reportPendingCount++;
     btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
     setBtnLabel(btn, 'Sending…', '보내는 중…');
     fetch('/api/admin/feedback-drafts/report-request', {
+      signal: AbortSignal.timeout(20000),
       method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
         room_id: c.room_id,
@@ -3982,7 +4007,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         start_time: c.start_time || ''
       })
     })
-    .then(function(r){ return r.json(); })
+    .then(function(r){ if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
     .then(function(j){
       if (!j || !j.ok) throw new Error((j && j.error) || 'failed');
       //  라벨은 짧게 — 좁은 폰에서 줄이 쪼개진다. 자세한 설명은 title 로 남긴다.
@@ -3996,6 +4021,12 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     .catch(function(){
       btn.disabled = false;
       setBtnLabel(btn, 'Try again', '다시 누르기');
+      btn.title = T('Request failed. Check your connection and try again.', '요청을 보내지 못했습니다. 연결을 확인하고 다시 눌러 주세요.');
+    })
+    .then(function(){
+      delete reportPending[c.room_id];
+      reportPendingCount--;
+      btn.removeAttribute('aria-busy');
     });
   }
 
@@ -4370,6 +4401,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       .then(function(r){ return r.status === 401 ? null : r.json(); })
       .then(function(d){
         if (!currentWeekRead(req)){ scheduleAutoRefresh(arDelay); return; }
+        // A dialog or save may have started after this read was sent.
+        if (modalOpen() || reportPendingCount > 0 || document.querySelector('#classes select:disabled')){
+          scheduleAutoRefresh(arDelay); return;
+        }
         if (!d || !d.ok || !validWeek(d.week, req.start || weekOfDate(d.today))) throw new Error('bad');
         // 날짜가 넘어갔으면(자정 근무) 통째로 다시 그린다 — 어제 목록을 남기면 안 된다
         var dayChanged = DATA && DATA.today && d.today && DATA.today !== d.today;
