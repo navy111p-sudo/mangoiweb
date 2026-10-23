@@ -79,8 +79,8 @@ check('students_erp 에서 학부모/학생 번호를 찾는다',
 check('🔑 notify_parent === true 일 때만 서버가 번호를 찾는다 (관리자 저장이 문자로 새지 않게)',
   /body\.notify_parent === true/.test(SRC));
 check('강사 화면이 notify_parent 를 보낸다', /notify_parent:\s*true/.test(TEACHER));
-check('강사 화면은 전화번호를 보내지 않는다 (PII 는 화면이 다루지 않는다)',
-  !/parent_phone/.test(TEACHER) && !/student_phone/.test(TEACHER));
+check('강사 평가 저장 본문에는 전화번호를 보내지 않는다 (문자 수신자는 서버가 조회)',
+  !/parent_phone|student_phone/.test(TEACHER.slice(TEACHER.indexOf('var payload = {'), TEACHER.indexOf('notify_parent: true'))));
 check('⚠ 관리자 화면(adm-q1)은 notify_parent 를 보내지 않는다', ADM_Q1.length > 0 && !/notify_parent/.test(ADM_Q1));
 check('⚠ 관리자 화면(adm-r6)은 notify_parent 를 보내지 않는다', ADM_R6.length > 0 && !/notify_parent/.test(ADM_R6));
 check('문자 본문은 한국어 고정 템플릿 + 링크 (강사가 쓴 영어를 그대로 보내지 않는다)',

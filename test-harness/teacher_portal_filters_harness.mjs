@@ -1,0 +1,17 @@
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const html=readFileSync(new URL('../cloudflare-deploy/public/teacher.html',import.meta.url),'utf8');
+const elements={'portal-search':{value:''},'portal-academy':{value:''},'class-time-sort':{value:'asc'}};
+const ctx={document:{getElementById:id=>elements[id]},stuName:c=>c.student_name,stuUid:c=>c.student_uid};
+vm.createContext(ctx);
+vm.runInContext(html.slice(html.indexOf('  function portalRows('),html.indexOf('  function portalContact(')),ctx);
+const rows=[{student_name:'Kim',student_uid:'abc',academy:'A',start_time:'20:00',absence_hold:true},{student_name:'Lee',student_uid:'def',academy:'B',start_time:'09:00'},{student_name:'Kim',student_uid:'ghi',academy:'A',start_time:'12:00',class_state:'postponed'}];
+assert.equal(ctx.portalRows(rows).map(c=>c.student_uid).join(','),'def,ghi,abc');
+elements['class-time-sort'].value='desc';assert.equal(ctx.portalRows(rows)[0].student_uid,'abc');
+elements['portal-search'].value='DEF';assert.equal(ctx.portalRows(rows)[0],rows[1]);
+elements['portal-search'].value='Kim';elements['portal-academy'].value='B';assert.equal(ctx.portalRows(rows).length,0);
+elements['portal-academy'].value='A';assert.equal(ctx.portalRows(rows).length,2);
+assert.equal(rows[0].student_uid,'abc');
+for(const m of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) new vm.Script(m[1]);
+console.log('PASS: chronological hold/postponed ordering, reverse ordering, ID/name/academy search, source identity, inline syntax');
