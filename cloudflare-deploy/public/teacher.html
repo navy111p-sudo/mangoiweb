@@ -1683,6 +1683,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
      (관리자 캘린더의 시간축 격자는 좁은 화면에서 읽히지 않는다).
      ⚠️ LMS 점유 슬롯·시드 데이터는 학생이 없어 입장할 방이 없다 → 정체를 밝히고 흐리게. */
   var WK_OFFSET = 0;
+  var WK_PICKED_DATE = null; // Keep the actual picked day when its week is rendered.
   var WK_SELECTED = null; // null = 이번 주를 따라감, 그 외에는 고른 월요일(자정이 지나도 유지)
   var WK_DATA = null;     // 마지막으로 성공한 주. 실패·언어 변경·탭 복귀 때도 이 값을 쓴다.
   var WK_READ = 0;        // 이동·전체 새로고침·자동 갱신이 함께 쓰는 응답 순서
@@ -1714,6 +1715,17 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   function validWeek(w, start){
     return !!(w && w.start === start && Array.isArray(w.days) && w.days.length === 7);
   }
+  function previousLessonHtml(c){
+    var pv = c.prev_lesson;
+    if (!pv) return c.previous_lesson_loaded === undefined ? '' : '<div class="cls-prev-body">'
+      + esc(c.previous_lesson_loaded ? T('Previous teacher: no earlier class report','이전 교사: 이전 수업 보고서 없음') : T('Previous teacher: unavailable','이전 교사: 확인 불가')) + '</div>';
+    var text = EN() ? (pv.note_en || pv.note_ko || '') : (pv.note_ko || pv.note_en || '');
+    return '<details class="cls-prev"><summary>↩ ' + esc(T('Summary / Previous teacher','수업 요약 / 이전 교사'))
+      + esc((pv.date ? ' · ' + pv.date : '') + ' · ' + (pv.teacher_name || T('Teacher not recorded','교사 기록 없음')))
+      + '</summary><div class="cls-prev-body">' + esc(text || T('(no note was written)','(남긴 내용이 없습니다)'))
+      + (pv.score_overall != null ? ' <span class="cls-prev-score">⭐ ' + esc(String(pv.score_overall)) + '/5</span>' : '')
+      + '</div></details>';
+  }
   function weekRecordHtml(it){
     if(it.kind!=='class') return '';
     var state=it.holiday_name?'holiday':it.class_state==='postponed'?'postponed':it.attendance&&it.attendance.state;
@@ -1742,7 +1754,9 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     // 날짜 칸을 지금 보고 있는 주의 시작일로 맞춘다 — 다음에 달력을 열면 «여기»에서 시작한다.
     var dtIn = document.getElementById('wk-date');
     if (dtIn && w.start) dtIn.value = w.start;
-    syncDateMenus(w.start);
+    var pickedDate = weekOfDate(WK_PICKED_DATE) === w.start ? WK_PICKED_DATE : w.start;
+    if (dtIn) dtIn.value = pickedDate;
+    syncDateMenus(pickedDate);
     var DOW = EN() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
     box.innerHTML = w.days.map(function(d){
       var head = d.date.slice(5) + ' (' + DOW[d.dow] + ')' + (d.is_today ? (EN() ? ' · today' : ' · 오늘') : '');
@@ -1755,6 +1769,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
               + '<span>' + stuLabelHtml(it, dim ? T('(slot taken)','(점유 슬롯)') : T('(name not set)','(이름 미등록)')) + '</span>'
               + kindPill(it).replace(/^ /, '')
               + portalContact(it)
+              + '<span class="wk-record">' + esc(T('Student level','학생 레벨')) + ': ' + esc(it.level || T('Not set','미등록')) + '</span>'
+              + previousLessonHtml(it)
               + weekRecordHtml(it)
               + '</div>';
           }).join('')
@@ -1800,6 +1816,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   function loadWeekOf(dateStr){
     var picked = weekOfDate(dateStr);
     if (!picked) return;
+    WK_PICKED_DATE = dateStr;
     var off = Math.round((Date.parse(picked + 'T00:00:00Z') - Date.parse(wkMonday(0) + 'T00:00:00Z')) / (7 * 86400000));
     loadWeek(off);
   }
@@ -1920,7 +1937,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     }
     return '<div class="cls-extra">' + row1.join(' &middot; ') + wkLine
       + '<br><b>' + esc(T('Last class feedback', '지난 수업 피드백')) + '</b> ' + esc(ev(lastFeedback)) + evOpen(lastFeedback)
-      + '<br><b>' + esc(T("Today's feedback", '오늘 피드백')) + '</b> ' + esc(ev(todayFeedback)) + evOpen(todayFeedback)
+      + '<br><b>' + esc(T("Today's feedback", '오늘 피드백')) + '</b> <span class="feedback-level">' + esc(T('Student level','학생 레벨')) + ': ' + esc(c.level || T('Not set','미등록')) + '</span> · ' + esc(ev(todayFeedback)) + evOpen(todayFeedback)
       + ((!c.today_eval && !c.eval_written && c.class_state !== 'postponed' && c.class_state !== 'cancelled' && typeof wi === 'number' && wi >= 0)
           ? ' <button type="button" class="evq-open evq-write" data-eval="' + wi + '">' + esc(T('✍ Write Feedback', '✍ 피드백 작성')) + '</button>' : '')
       + '</div>';
@@ -1978,7 +1995,13 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     return (rows || []).filter(function(c){
       return (!query || [stuName(c),stuUid(c),c.student_name_en].join(' ').toLowerCase().indexOf(query) >= 0)
         && (!academy || c.academy === academy);
-    }).slice().sort(function(a,b){ return direction * (String(a.start_time || '').localeCompare(String(b.start_time || ''))); });
+    }).slice().sort(function(a,b){
+      function minutes(c){ var m=String(c.start_time || '').match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/); return m && +m[1]<24 && +m[2]<60 ? +m[1]*60 + +m[2] : null; }
+      var x=minutes(a), y=minutes(b);
+      if(x===null) return y===null ? 0 : 1;
+      if(y===null) return -1;
+      return direction * (x-y);
+    });
   }
   function portalContact(c){
     if (!c || c.kind && c.kind !== 'class' || !stuUid(c)) return '';
@@ -2019,10 +2042,21 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   });
   // Sort a copy; row actions retain the same class objects, regardless of status.
   function sortClassesByTime(list, direction){
+    var day = '1970-01-01';
+    for (var i=0;i<list.length;i++) {
+      var ts = Number(list[i].start_ts);
+      if (list[i].start_ts != null && list[i].start_ts !== '' && isFinite(ts)) { day = new Date(ts + 9*3600000).toISOString().slice(0,10); break; }
+    }
     return list.map(function(c, i){ return { c: c, i: i }; }).sort(function(a, b){
-      var x = Number(a.c.start_ts), y = Number(b.c.start_ts);
-      var ax = a.c.start_ts != null && a.c.start_ts !== '' && isFinite(x);
-      var by = b.c.start_ts != null && b.c.start_ts !== '' && isFinite(y);
+      function stamp(c){
+        if (c.start_ts != null && c.start_ts !== '' && isFinite(Number(c.start_ts))) return Number(c.start_ts);
+        var m=String(c.start_time || '').match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+        return m && +m[1]<24 && +m[2]<60
+          ? Date.parse((c.class_date || c.date || day) + 'T' + ('0'+m[1]).slice(-2) + ':' + m[2] + ':00+09:00') : NaN;
+      }
+      var x = stamp(a.c), y = stamp(b.c);
+      var ax = isFinite(x);
+      var by = isFinite(y);
       if (!ax) return by ? 1 : a.i - b.i;
       if (!by) return -1;
       return (direction === 'desc' ? y - x : x - y) || a.i - b.i;
@@ -2133,9 +2167,9 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       // 🏷 class_state 도 지문에 넣는다 — 안 넣으면 서버가 «취소됨/노쇼» 를 새로 알려 줘도
       //    시간·상태가 같아서 «바뀐 게 없다» 로 보고 화면이 옛 라벨을 그대로 둔다.
       sig += sc.schedule_id + ':' + (sc.kind || 'class') + ':' + st + ':' + (sc.class_state || '')
-           + ':' + (sc.no_show_role || '') + ':' + sc.start_time + ':' + stuName(sc) + ':' + stuUid(sc)
+           + ':' + (sc.no_show_role || '') + ':' + sc.start_time + ':' + sc.duration_min + ':' + sc.end_ts + ':' + stuName(sc) + ':' + stuUid(sc)
            + ':' + (sc.level || '') + ':' + (sc.textbook || '')
-           + ':' + (sc.student_phone || '') + ':' + (sc.academy || '') + ':' + JSON.stringify(sc.prev_lesson || null)
+           + ':' + (sc.student_phone || '') + ':' + (sc.academy || '') + ':' + JSON.stringify(sc.prev_lesson || null) + ':' + sc.previous_lesson_loaded
            // ✍ 일지 배지·지난수업 도착도 지문에 넣는다 — 안 넣으면 캐시를 먼저 그린 뒤
            //    서버 응답이 와도 «바뀐 게 없다» 로 보고 배지가 영영 안 뜬다.
            + ':' + (sc.eval_written ? 'E' : '') + (sc.prev_lesson ? 'P' : '')
@@ -2344,20 +2378,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
          내려줄 때만 그린다(옛 캐시 응답엔 없다 — 없는 것을 지어내지 않는다).
          ⚠️ <details> 라 펼치기 전엔 한 줄이고, 라벨은 renderClasses 가 언어 전환 때마다
             처음부터 다시 그리므로 textContent 갈아끼우기 함정(i18n)이 없다. */
-      var prevHtml = '';
-      if (c.prev_lesson){
-        var pv = c.prev_lesson;
-        var ptxt = EN() ? (pv.note_en || pv.note_ko || '') : (pv.note_ko || pv.note_en || '');
-        prevHtml = '<details class="cls-prev"><summary>↩ '
-          + esc(T('Summary / Previous teacher','수업 요약 / 이전 교사'))
-          + esc((pv.date ? ' · ' + pv.date : '')
-              + (pv.teacher_name ? ' · ' + pv.teacher_name : ''))
-          + '</summary><div class="cls-prev-body">'
-          + (ptxt ? esc(ptxt) : esc(T('(no note was written)','(남긴 내용이 없습니다)')))
-          + (pv.score_overall != null
-              ? ' <span class="cls-prev-score">⭐ ' + esc(String(pv.score_overall)) + '/5</span>' : '')
-          + '</div></details>';
-      }
+      var prevHtml = previousLessonHtml(c);
 
       h += '<div class="cls' + (c.student_elsewhere ? ' cls-away-row' : '') + '">'
         +   '<div class="cls-time">' + esc(MangoiClassDisplay.range(c)) + '</div>'
@@ -4050,7 +4071,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     mask.innerHTML =
       '<div class="modal" role="dialog" aria-modal="true">'
       + '<h3>' + esc(T('Class Log','수업 일지')) + '</h3>'
-      + '<p class="sub">' + esc(stuLabelText(c, T('(name not set)','(이름 미등록)')) + ' · ' + c.start_time) + '</p>'
+      + '<p class="sub">' + esc(stuLabelText(c, T('(name not set)','(이름 미등록)')) + ' · ' + MangoiClassDisplay.range(c)) + '</p>'
+      + '<p class="sub feedback-level">' + esc(T('Student level','학생 레벨')) + ': ' + esc(c.level || T('Not set','미등록')) + '</p>'
       + '<div class="fld"><label>' + esc(T('Level group (tap to set or change)','수준 그룹 (눌러서 정하거나 바꿔요')) + '</label><div id="ev-band">'
       +   bandChip('sprout', '🌱', T('Sprout','새싹'), c.eval_band)
       +   bandChip('grow',   '🌿', T('Grow','자람'), c.eval_band)
