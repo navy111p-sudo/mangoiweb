@@ -1,3 +1,4 @@
+import { dropCafe24SlotDuplicates } from './cafe24-slot-duplicates';
 import { WEEKLY_POSTPONE, prepareWeeklyPostpone } from './weekly-postpone';
 import { WEAK_WHERE, WEAK_ORDER, weakSince } from './weak-words';
 import { counselingRecipient, sendCounselingSms } from './counseling-send';
@@ -3802,6 +3803,11 @@ export async function handleAdminApi(
         c24MirroredHidden = _drop.hidden;
       }
 
+      // Separately registered Mangoi schedules (e.g. #6827) have no c24 mirror note.
+      // Hide only the exact student's LMS slot in this response; keep both stored records.
+      const c24SlotDuplicates = dropCafe24SlotDuplicates(c24Rows, sessions);
+      c24Rows = c24SlotDuplicates.kept;
+
       if (c24Rows.length) {
         const tmap = await loadCafe24TeacherMap(env as any, c24Rows.map(r => r.teacher_uid));
         // 🎌 카페24 줄도 휴강 판정 — 강사 열쇠는 관제탑과 같은 정본(cafe24HolidayTeacher).
@@ -3872,6 +3878,7 @@ export async function handleAdminApi(
           cafe24: c24Count,
           // 🪞 미러 줄이 있어 뺀 카페24 «복사본» 수(위 dropMirroredCafe24) — 숫자가 줄어든 이유를 사람이 볼 수 있게
           cafe24_mirrored_hidden: c24MirroredHidden,
+          cafe24_slot_duplicates_hidden: c24SlotDuplicates.hidden,
           joinable: sessions.filter(x => x.join_open).length,
           holiday: sessions.filter(x => x.holiday).length,
         },
