@@ -234,6 +234,36 @@ test('blank group names remain optional and long names do not exceed account tit
   assert.equal(w.drafts.at(-1).p.state.groupName.length,30);
 });
 
+test('group search filters the loaded library without requests and groups legacy named movies',async()=>{
+  const w=world();await w.boot();let requests=0;w.lib.listMovies=async()=>{requests++;return{ok:true,movies:[]};};
+  const titles=['1모둠 · 에피소드 1 · 첫 장면','1모둠 · Episode 2 · Scene','무지개 모둠 · 처음부터 끝까지','에피소드 3 · 마지막 장면'];
+  w.localMovies=titles.map((title,i)=>({id:'m'+i,meta:{engine:'main',episodeId:'fixture',title},blob:new Blob(['video']),createdAt:Date.now()-i}));
+  await w.ctx.MangoiDubHome.openLibrary('movies');assert.equal(w.el('dub-library-items').children.length,4);
+  w.el('dub-library-search').value='  1모둠 ';await w.el('dub-library-search').fire('input');
+  assert.equal(w.el('dub-library-items').children.length,2);assert.match(w.el('dub-library-status').textContent,/2 \/ 4/);assert.equal(requests,1);
+  w.el('dub-library-layout').value='groups';await w.el('dub-library-layout').fire('change');
+  assert.equal(w.el('dub-library-items').children.length,1);assert.match(w.el('dub-library-items').children[0].textContent,/1모둠 · 2개 영상/);
+  w.el('dub-library-search').value='';await w.el('dub-library-search').fire('input');
+  const groups=w.el('dub-library-items').children;assert.equal(groups.length,3);assert.match(groups.at(-1).textContent,/모둠 이름 없음/);
+  w.el('dub-library-search').value='무지개'.normalize('NFD');await w.el('dub-library-search').fire('input');
+  assert.equal(w.el('dub-library-items').children.length,1);assert.match(w.el('dub-library-items').textContent,/무지개 모둠/);
+  w.el('dub-library-search').value='없는 모둠';await w.el('dub-library-search').fire('input');
+  assert.match(w.el('dub-library-items').textContent,/찾은 영상이 없어요/);assert.equal(w.el('dub-library-empty').hidden,true);
+  const clear=w.el('dub-library-items').children[0].children.find(x=>x.tagName==='button');await clear.fire('click');
+  assert.equal(w.el('dub-library-search').value,'');assert.equal(w.el('dub-library-items').children.length,3);assert.equal(requests,1);
+});
+
+test('video filters never hide saved practice and account changes discard search data and late responses',async()=>{
+  const w=world();await w.boot();w.el('dub-library-search').value='1모둠';w.el('dub-library-layout').value='groups';
+  w.remoteDrafts=[{id:'p1',engine:'main',episodeId:'fixture',title:'연습',updatedAt:Date.now()}];
+  await w.ctx.MangoiDubHome.openLibrary('drafts');assert.equal(w.el('dub-library-filters').hidden,true);assert.equal(w.el('dub-library-items').children.length,1);
+  const pending=deferred();w.lib.listMovies=()=>pending.promise;
+  const load=w.ctx.MangoiDubHome.openLibrary('movies');w.changeOwner('student:bob');
+  pending.resolve({ok:true,movies:[{id:'private',engine:'main',title:'1모둠 · 에피소드 1',createdAt:Date.now()}]});await load;
+  assert.equal(w.el('dub-library-search').value,'');await w.el('dub-library-search').fire('input');await w.el('dub-library-layout').fire('change');
+  assert.equal(w.el('dub-library-items').children.length,0,'Neither a stale response nor filters can repaint the old account');
+});
+
 let failed=0;
 for(const {name,fn}of tests){try{await fn();console.log('✅ '+name);}catch(e){failed++;console.error('❌ '+name+'\n   '+e.stack);}}
 console.log(`\nDubbing resume/player: ${tests.length-failed} PASS / ${failed} FAIL`);
