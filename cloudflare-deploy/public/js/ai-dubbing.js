@@ -1047,6 +1047,44 @@
   }
 
   /* 동기 모드 — 영상·BGM·캐릭터 음성이 함께 흐르고, 학생 캐릭터 음성만 0. 학생 대사 구간에 마이크를 연다. */
+  function canSeekMedia(el, time) {
+    var ranges = el && el.seekable;
+    if (!ranges) return false;
+    for (var i = 0; i < ranges.length; i++) {
+      if (time >= ranges.start(i) && time <= ranges.end(i)) return true;
+    }
+    return false;
+  }
+  // A streaming response without byte ranges may silently seek back to zero.
+  // Move the whole group only when every element can seek, and wait for the
+  // decoded video frame before audio, captions or microphone capture can resume.
+  function positionSyncedMedia(v, tracks, time, run) {
+    var els = [v].concat(tracks.map(function (tr) { return tr.el; }));
+    if (!time || !els.every(function (el) { return canSeekMedia(el, time); })) return Promise.resolve(false);
+    return Promise.all(els.map(function (el) {
+      if (!el.seeking && Math.abs(el.currentTime - time) < 0.04) return Promise.resolve();
+      return new Promise(function (resolve, reject) {
+        var timer;
+        function clean() {
+          clearTimeout(timer);
+          el.removeEventListener('seeked', done); el.removeEventListener('error', fail);
+          var at = run.wakers.indexOf(cancel); if (at >= 0) run.wakers.splice(at, 1);
+        }
+        function done() {
+          if (el.seeking) return;
+          clean();
+          if (el.readyState >= 2 && Math.abs(el.currentTime - time) < 0.15) resolve();
+          else reject(new Error('Video/audio seek did not reach the dialogue frame'));
+        }
+        function fail() { clean(); reject(new Error('Video/audio seek failed')); }
+        function cancel() { clean(); resolve(); }
+        run.wakers.push(cancel);
+        el.addEventListener('seeked', done); el.addEventListener('error', fail);
+        timer = setTimeout(fail, 8000);
+        try { el.currentTime = time; } catch (e) { fail(); }
+      });
+    })).then(function () { return true; });
+  }
   function playSynced(run, sc) {
     var v = $('dub-video');
     var items = C.assignLines(sc, S.cast, run.counters);
@@ -1071,8 +1109,9 @@
     })).then(function () {
       if (run.aborted) return;
       var start = sc.playbackStartSec || 0;
-      try { v.currentTime = start; } catch (e) {}
-      tracks.forEach(function (t) { try { t.el.currentTime = start; } catch (e) {} });
+      return positionSyncedMedia(v, tracks, start, run);
+    }).then(function () {
+      if (run.aborted) return;
       var pv = v.play(); if (pv && pv.catch) pv.catch(function () {});
       tracks.forEach(function (t) { var p = t.el.play(); if (p && p.catch) p.catch(function () {}); });
       setButtons('native');
@@ -1118,8 +1157,10 @@
           practiceBusy = true;
           var previousSkip = run.skipNow;
           var it = items[k], line = it.line;
-          try { v.pause(); v.currentTime = line.start; } catch (e) {}
-          tracks.forEach(function (tr) { try { tr.el.pause(); tr.el.currentTime = line.start; } catch (e) {} });
+          // The video clock already reached this line. Rewinding a paused
+          // stream here can replace its speaker frame with the opening title.
+          try { v.pause(); } catch (e) {}
+          tracks.forEach(function (tr) { try { tr.el.pause(); } catch (e) {} });
           showLine(run, line, it.performer);
           setTurn('🎤 ' + studentName(it.performer.idx) + ' · ' + charName(line.speaker));
           sndDuck(DUCK_STUDENT); setButtons('student');
@@ -1127,16 +1168,23 @@
           caps[k] = { h: startCapture(run), it: it };
           waitForPracticeDone(run).then(function () { return closeCap(k); }).then(function () {
             if (run.aborted || ended) return;
-            // The movie recorder keeps the held speaker frame and live microphone on
-            // one wall clock. Skip the unused original voice slot before resuming.
+            clearLine(run); setTurn('');
+            // Skip the unused voice slot only if the entire group can seek.
+            // Otherwise continue naturally from the held frame on the same clock.
             var resumeAt = Math.min(limit || v.duration, line.end);
-            try { v.currentTime = resumeAt; } catch (e) {}
-            tracks.forEach(function (tr) { try { tr.el.currentTime = resumeAt; } catch (e) {} });
-            follow = C.clockFollower(); shown = -2;
-            clearLine(run); setTurn(''); run.skipNow = previousSkip; setButtons('native'); sndDuck(1);
-            practiceBusy = false;
-            var vp = v.play(); if (vp && vp.catch) vp.catch(function () {});
-            tracks.forEach(function (tr) { var ap = tr.el.play(); if (ap && ap.catch) ap.catch(function () {}); });
+            return positionSyncedMedia(v, tracks, resumeAt, run).then(function () {
+              if (run.aborted || ended) return;
+              follow = C.clockFollower(); shown = k;
+              run.skipNow = previousSkip; setButtons('native'); sndDuck(1);
+              practiceBusy = false;
+              var vp = v.play(); if (vp && vp.catch) vp.catch(function () {});
+              tracks.forEach(function (tr) { var ap = tr.el.play(); if (ap && ap.catch) ap.catch(function () {}); });
+            });
+          }).catch(function (e) {
+            console.warn('[ai-dubbing] resume failed', e);
+            run.failed = true; run.aborted = true;
+            run.wakers.splice(0).forEach(function (wake) { wake(); });
+            finish();
           });
         }
         function closeCap(k) {
@@ -1163,6 +1211,11 @@
         run.skipNow = function () { try { v.currentTime = Math.max(0, (v.duration || limit || 0) - 0.05); } catch (e) {} finish(); };
         run.wakers.push(finish);
       });
+    }).catch(function (e) {
+      try { v.pause(); } catch (ignored) {}
+      tracks.forEach(function (tr) { try { tr.el.pause(); } catch (ignored) {} tr.route.cut(); });
+      run.tracks = [];
+      throw e;
     });
   }
 
@@ -1793,3 +1846,4 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
 })();
+
