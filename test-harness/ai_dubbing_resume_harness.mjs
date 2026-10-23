@@ -194,6 +194,46 @@ test('draft deletion removes a local-only fallback locally and keeps remote dele
   }
 });
 
+test('group names are captured per recording and preserved in movie, download and account metadata',async()=>{
+  const w=world();await w.boot();const held=deferred(),entered=deferred();
+  w.ctx.hooks.scene=()=>{entered.resolve();return held.promise;};
+  w.el('dub-group-name').value='  무지개 모둠  ';w.d.startRun([0]);await entered.promise;
+  assert.equal(w.d.S.run.groupName,'무지개 모둠');
+  assert.equal(w.drafts.at(-1).p.state.groupName,'무지개 모둠');
+  w.el('dub-group-name').value='다음 모둠';held.resolve();await until(()=>!w.d.S.run);
+  assert.match(w.d.S.movies[0].title,/^무지개 모둠 · 에피소드 1/);
+  assert.match(w.saved[0].meta.title,/^무지개 모둠 · /);
+  assert.match(w.el('dub-movies').innerHTML,/download="mangoi-무지개_모둠_/);
+  assert.ok(!w.el('dub-movies').innerHTML.includes('다음_모둠'));
+  w.ctx.hooks.scene=()=>Promise.resolve();w.d.startRun([0]);await until(()=>!w.d.S.run);
+  assert.match(w.d.S.movies[1].title,/^다음 모둠 · /);
+  assert.match(w.d.S.movies[0].title,/^무지개 모둠 · /);
+  assert.equal(w.d.restorePractice({...state(),groupName:'무지개 모둠'}),true);
+  assert.equal(w.el('dub-group-name').value,'무지개 모둠');
+  assert.equal(w.d.restorePractice(state()),true);assert.equal(w.el('dub-group-name').value,'');
+});
+
+test('gallery downloads use the saved title, and filenames remain safe and bounded',async()=>{
+  const w=world();await w.boot();const filename=w.ctx.MangoiDubHome.movieFilename;
+  assert.match(filename('1모둠 · 에피소드 1','video/webm'),/^mangoi-1모둠_에피소드_1\.webm$/);
+  assert.match(filename('CON:/\\<>"|?*\u0000 · test.','video/mp4'),/^mangoi-.*\.mp4$/);
+  assert.ok(!/[<>:"/\\|?*\u0000-\u001f]/.test(filename('CON:/\\<>"|?*\u0000','video/webm')));
+  assert.ok(filename('가'.repeat(500),'video/webm').length<120);
+  w.localMovies=[{id:'movie-1',meta:{engine:'main',episodeId:'fixture',title:'1모둠 · 에피소드 1'},blob:new Blob(['video'],{type:'video/webm'}),createdAt:Date.now()}];
+  await w.ctx.MangoiDubHome.openLibrary('movies');const card=w.el('dub-library-items').children[0];
+  const links=[];const walk=e=>{e.children.forEach(c=>{if(c.tagName==='a')links.push(c);walk(c);});};walk(card);
+  assert.equal(links[0].download,'mangoi-1모둠_에피소드_1.webm');
+});
+
+test('blank group names remain optional and long names do not exceed account title limits',async()=>{
+  const w=world();await w.boot();w.el('dub-group-name').value=' ';w.d.startRun([0]);await until(()=>!w.d.S.run);
+  assert.match(w.d.S.movies[0].title,/^에피소드 1/);
+  w.d.S.ep.title.ko='긴 제목'.repeat(40);w.d.S.ep.scenes[0].label.ko='긴 장면'.repeat(40);
+  w.el('dub-group-name').value='가'.repeat(100);w.d.startRun([0]);await until(()=>!w.d.S.run);
+  assert.ok(w.saved.at(-1).meta.title.length<=120);assert.ok(w.drafts.at(-1).p.title.length<=120);
+  assert.equal(w.drafts.at(-1).p.state.groupName.length,30);
+});
+
 let failed=0;
 for(const {name,fn}of tests){try{await fn();console.log('✅ '+name);}catch(e){failed++;console.error('❌ '+name+'\n   '+e.stack);}}
 console.log(`\nDubbing resume/player: ${tests.length-failed} PASS / ${failed} FAIL`);

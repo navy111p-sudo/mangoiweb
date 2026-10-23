@@ -164,6 +164,8 @@
   .btn:disabled{opacity:.45;cursor:not-allowed}
   .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .opts{display:flex;flex-direction:column;gap:6px}
+  .dub-group{display:block;margin:14px 0}.dub-group b{display:block;margin-bottom:6px}
+  #dub-group-name{font:inherit;width:100%;padding:10px 12px;border:1px solid #3b4659;border-radius:10px;background:#0b1018;color:var(--text)}
   .opt{display:flex;align-items:center;gap:8px;font-size:13.5px}
   .opt input{width:18px;height:18px;flex:none}
   .flow{margin:0;font-size:12.5px;color:var(--text2);text-align:center}
@@ -347,7 +349,7 @@
     <p class="hint" data-ko="한 컴퓨터와 마이크를 함께 사용해요. 아래 순서대로 연습하고 발표해 보세요." data-en="Share one computer and microphone. Follow these steps to practise and present.">한 컴퓨터와 마이크를 함께 사용해요. 아래 순서대로 연습하고 발표해 보세요.</p>
     <ol class="dub-use-steps">
       <li><b data-ko="작품·에피소드 고르기" data-en="Pick a film and episode">작품·에피소드 고르기</b><span data-ko="모둠이 함께 할 영상을 골라요. ‘👀 보기’로 먼저 감상해도 좋아요." data-en="Choose your group’s video. You can watch it first with ‘👀 Watch’.">모둠이 함께 할 영상을 골라요. ‘👀 보기’로 먼저 감상해도 좋아요.</span></li>
-      <li><b data-ko="이름과 역할 정하기" data-en="Set names and roles">이름과 역할 정하기</b><span data-ko="‘역할 정하러 가기’를 눌러요. 모둠 인원과 이름을 입력하고 각자 역할을 골라요." data-en="Tap ‘Choose roles’. Set your group size, enter each name and choose a role.">‘역할 정하러 가기’를 눌러요. 모둠 인원과 이름을 입력하고 각자 역할을 골라요.</span></li>
+      <li><b data-ko="모둠 이름과 역할 정하기" data-en="Set your group name and roles">모둠 이름과 역할 정하기</b><span data-ko="‘역할 정하러 가기’를 눌러요. 모둠 이름과 학생 이름을 입력하고 인원·역할을 정해요." data-en="Tap ‘Choose roles’. Enter your group name and student names, then set the group size and roles.">‘역할 정하러 가기’를 눌러요. 모둠 이름과 학생 이름을 입력하고 인원·역할을 정해요.</span></li>
       <li><b data-ko="자막 보며 연습하기" data-en="Practise with subtitles">자막 보며 연습하기</b><span data-ko="3번에서 ‘연습’을 고르고 ‘연습 시작’을 눌러요. 영어·한국어 자막을 보며 자기 차례에 말해요." data-en="In step 3, choose Practice and tap Start practice. Read the English and Korean subtitles and speak on your turn.">3번에서 ‘연습’을 고르고 ‘연습 시작’을 눌러요. 영어·한국어 자막을 보며 자기 차례에 말해요.</span></li>
       <li><b data-ko="발표 준비하기" data-en="Get ready to present">발표 준비하기</b><span data-ko="‘발표 더빙’을 골라요. 기본은 자막 없이, 필요하면 ‘한국어 자막 켜기’를 선택해요. ‘완성 영상 만들기’도 체크하세요." data-en="Choose Presentation dubbing. Subtitles start off; enable Korean if needed. Keep ‘Make my movie’ checked.">‘발표 더빙’을 골라요. 기본은 자막 없이, 필요하면 ‘한국어 자막 켜기’를 선택해요. ‘완성 영상 만들기’도 체크하세요.</span></li>
       <li><b data-ko="자기 차례에 말하기" data-en="Speak on your turn">자기 차례에 말하기</b><span data-ko="‘발표 더빙 시작’을 누르고 마이크 사용을 허용해요. 화면에 나온 학생이 맡은 대사를 말해요." data-en="Tap Start presentation dubbing and allow microphone access. The student shown on screen speaks their lines.">‘발표 더빙 시작’을 누르고 마이크 사용을 허용해요. 화면에 나온 학생이 맡은 대사를 말해요.</span></li>
@@ -424,7 +426,7 @@
     <h2><span data-ko="▶ 완성 영상" data-en="▶ My movie">▶ 완성 영상</span></h2>
     <aside class="dub-save-callout" id="dub-finished-save-guide" aria-label="완성 영상 확인과 저장">
       <strong data-ko="화면을 닫기 전에 꼭 저장하세요!" data-en="Save your movie before closing this page!">화면을 닫기 전에 꼭 저장하세요!</strong>
-      <p data-ko="① 아래 영상의 ▶로 다시 보기 → ② 영상 아래 ‘⬇ 파일 내려받기’ → ③ 컴퓨터의 ‘다운로드’ 폴더 확인. 모둠 이름으로 파일 이름을 바꾸면 찾기 쉬워요." data-en="1. Play the video below → 2. Tap ‘⬇ Download a copy’ below it → 3. Check your computer’s Downloads folder. Rename the file with your group name to find it easily.">① 아래 영상의 ▶로 다시 보기 → ② 영상 아래 ‘⬇ 파일 내려받기’ → ③ 컴퓨터의 ‘다운로드’ 폴더 확인. 모둠 이름으로 파일 이름을 바꾸면 찾기 쉬워요.</p>
+      <p data-ko="① 아래 영상의 ▶로 다시 보기 → ② 영상 아래 ‘⬇ 파일 내려받기’ → ③ 컴퓨터의 ‘다운로드’ 폴더 확인. 입력한 모둠 이름이 영상 제목과 파일 이름에 자동으로 들어가요." data-en="1. Play the video below → 2. Tap ‘⬇ Download a copy’ below it → 3. Check your computer’s Downloads folder. Your group name is included in the movie title and filename automatically.">① 아래 영상의 ▶로 다시 보기 → ② 영상 아래 ‘⬇ 파일 내려받기’ → ③ 컴퓨터의 ‘다운로드’ 폴더 확인. 입력한 모둠 이름이 영상 제목과 파일 이름에 자동으로 들어가요.</p>
       <p data-ko="로그인했다면 영상 아래 계정 저장 완료 상태도 확인하세요. 나중에는 위쪽 ‘내 작품 보기’에서 보관한 영상을 열 수 있어요." data-en="If signed in, also confirm that account saving has completed below the video. Reopen saved movies later using My movie library near the top.">로그인했다면 영상 아래 계정 저장 완료 상태도 확인하세요. 나중에는 위쪽 ‘내 작품 보기’에서 보관한 영상을 열 수 있어요.</p>
     </aside>
     <p class="hint"><span data-ko="로그인하면 내 계정에 자동 보관해요. 영상 아래 저장 상태를 확인하고, 파일로도 내려받을 수 있어요." data-en="When signed in, movies save to your account automatically. Check each movie’s save status; you can also download a copy.">로그인하면 내 계정에 자동 보관해요. 영상 아래 저장 상태를 확인하고, 파일로도 내려받을 수 있어요.</span></p>
@@ -503,6 +505,8 @@
           <p class="hint"><span data-ko="모둠 1~5명이 한 컴퓨터와 마이크를 함께 사용해요. 각자 이름과 역할을 정하고, 같은 영상을 보며 자기 차례에 말해요. 맡은 역할의 원어민 목소리는 꺼져요. 같은 역할을 고르면 대사를 번갈아 말해요. 모둠의 목소리는 하나의 완성 영상에 담겨요." data-en="1 to 5 students share one computer and microphone. Set each student’s name and role, watch the same video and speak on your turn. Native voices for your roles are muted. Students sharing a role take turns. Your group’s voices are recorded in one movie.">모둠 1~5명이 한 컴퓨터와 마이크를 함께 사용해요. 각자 이름과 역할을 정하고, 같은 영상을 보며 자기 차례에 말해요. 맡은 역할의 원어민 목소리는 꺼져요. 같은 역할을 고르면 대사를 번갈아 말해요. 모둠의 목소리는 하나의 완성 영상에 담겨요.</span></p>
         </div>
         <div class="pick-sum" id="dub-pick-sum"></div>
+        <label class="dub-group" for="dub-group-name"><b data-ko="모둠 이름 (선택)" data-en="Group name (optional)">모둠 이름 (선택)</b><input type="text" id="dub-group-name" maxlength="30" autocomplete="off" placeholder="예: 1모둠, 무지개 모둠" data-ko-placeholder="예: 1모둠, 무지개 모둠" data-en-placeholder="e.g. Group 1, Rainbow Team" aria-describedby="dub-group-help"></label>
+        <p class="hint" id="dub-group-help" data-ko="입력한 이름이 완성 영상 제목과 내려받는 파일 이름에 들어가요. 다음 모둠이 시작하기 전에 이름을 바꿔주세요." data-en="This name appears in your movie title and download filename. Change it before the next group starts.">입력한 이름이 완성 영상 제목과 내려받는 파일 이름에 들어가요. 다음 모둠이 시작하기 전에 이름을 바꿔주세요.</p>
         <div class="dub-resume-note" id="dub-resume-note" hidden></div>
         <div id="dub-cast"></div>
         <div class="nudge" id="dub-nudge" hidden></div>
@@ -565,7 +569,7 @@
 <script defer src="/js/ai-dubbing-watch.js?v=3"></script>
 <script defer src="/js/ai-dubbing-library.js?v=2"></script>
 <script defer src="/js/ai-dubbing-practice.js?v=1"></script>
-<script defer src="/js/ai-dubbing-home.js?v=1"></script>
-<script defer src="/js/ai-dubbing.js?v=13"></script>
+<script defer src="/js/ai-dubbing-home.js?v=2"></script>
+<script defer src="/js/ai-dubbing.js?v=14"></script>
 </body>
 </html>
