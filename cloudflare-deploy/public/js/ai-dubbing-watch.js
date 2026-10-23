@@ -198,8 +198,10 @@
         var limit = sc.durationSec || 0;
         var completed = false;
         return wait(run, function (fin) {
-          try { if (v) v.currentTime = 0; } catch (e) {}
-          tracks.forEach(function (t) { try { t.el.currentTime = 0; } catch (e) {} });
+          // Keep the original timeline for voices, captions and cues when skipping an embedded title.
+          var start = sc.playbackStartSec || 0;
+          try { if (v) v.currentTime = start; } catch (e) {}
+          tracks.forEach(function (t) { try { t.el.currentTime = start; } catch (e) {} });
           if (v && videoOk) playEl(run, v);
           tracks.forEach(function (t) { playEl(run, t.el); });
           var shown = -2, last = -1, lastAt = now();
@@ -240,10 +242,12 @@
       if (v && kit.prepVideo) kit.prepVideo(v, sc);
       var s = snd();
       if (s) s.enterScene(ep.palette, sc.mood, !!sc.bgm);
-      kit.card(item);
+      var showTitle = !run.titleShown;
+      run.titleShown = true;
+      kit.card(showTitle ? item : null);
       sfx(item.first ? 'chime' : 'whoosh', 0.8);
       var vReady = v && kit.waitVideo ? guard(run, kit.waitVideo(v, VIDEO_MS)) : Promise.resolve(false);
-      return Promise.all([vReady, sleep(run, CARD_MS)]).then(function (r) {
+      return Promise.all([vReady, sleep(run, showTitle ? CARD_MS : 0)]).then(function (r) {
         kit.card(null);
         if (cut(run)) return false;
         var videoOk = !!r[0];

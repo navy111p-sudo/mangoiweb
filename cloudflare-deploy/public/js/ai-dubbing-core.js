@@ -188,6 +188,7 @@
         video: video,
         poster: resolveUrl(s.poster, baseUrl),   // 장면 카드·영상 첫 화면(없으면 빈 값 — 화면이 이모지로 대신 그린다)
         durationSec: dur,
+        playbackStartSec: isNum(s.playbackStartSec) && s.playbackStartSec > 0 && dur && s.playbackStartSec < dur && lines.every(function (l) { return !isNum(l.start) || l.start >= s.playbackStartSec; }) ? s.playbackStartSec : 0,
         bgm: resolveUrl(s.bgm, baseUrl),
         voices: voices,
         videoAudio: trim(s.videoAudio).toLowerCase() === 'clean' ? 'clean' : 'mute',
