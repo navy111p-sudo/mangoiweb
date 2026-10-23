@@ -57,9 +57,12 @@ export async function ensureB2bClaimColumns(env: Env): Promise<void> {
       if (!info.length) continue;   // 표가 아직 없음 — 다음에 다시 본다
       const have = new Set(info.map((c: any) => String(c.name)));
       for (const [n, ty] of [['confirming_order', 'TEXT'], ['confirming_at', 'INTEGER']]) {
-        if (!have.has(n)) { try { await env.DB.prepare(`ALTER TABLE ${t} ADD COLUMN ${n} ${ty}`).run(); } catch (_) { /* 동시 ALTER */ } }
+        if (!have.has(n)) { try { await env.DB.prepare(`ALTER TABLE ${t} ADD COLUMN ${n} ${ty}`).run(); } catch (_) { /* 동시 ALTER — 아래에서 다시 본다 */ } }
       }
-      done++;
+      // ALTER 가 «다른 이유로» 실패했을 수 있다 — 다시 재서 두 칸이 정말 있을 때만 끝난 것으로 센다
+      const again: any[] = ((await env.DB.prepare(`PRAGMA table_info(${t})`).all())?.results || []) as any[];
+      const have2 = new Set(again.map((c: any) => String(c.name)));
+      if (have2.has('confirming_order') && have2.has('confirming_at')) done++;
     } catch (_) { /* 다음에 다시 */ }
   }
   if (done === 2) _cols = true;
@@ -113,10 +116,12 @@ export async function claimB2bInvoiceForConfirm(env: Env, orderId: string, amoun
     if (holder && holder !== orderId) {
       const fresh = now - Number(inv.confirming_at || 0) < CLAIM_STALE_MS;
       const ho: any = await env.DB.prepare(`SELECT status FROM payment_orders WHERE order_id = ?`).bind(holder).first();
-      const holderDone = !!ho && (ho.status === 'paid' || ho.status === 'failed' || ho.status === 'cancelled');
+      const holderDone = !!ho && (ho.status === 'paid' || ho.status === 'cancelled');
       // MGT 는 앞 주문이 끝났으면(위에서 낼 돈까지 다시 쟀다) 넘겨받아도 된다. MGB 는 paid 면 이미 위에서 막혔다.
+      // ⛔ 'failed' 는 «끝남» 이 아니다 — 토스 5xx·응답 깨짐도 failed 로 적힌다(승인됐을 수도). 그래서 토스에 묻는다.
+      //    (분명한 거절이면 api-pay.ts 가 이미 선점을 놓았으므로, 선점이 남은 failed 는 «결과를 모르는» 쪽이다)
       if (!holderDone) {
-        if (fresh) return deny('invoice_confirm_in_progress', '같은 청구서의 다른 결제가 지금 승인 중입니다. 결제가 두 번 되지 않도록 이번 결제는 진행하지 않았습니다. 잠시 뒤 청구서 상태를 확인해 주세요.');
+        if (fresh && ho?.status !== 'failed') return deny('invoice_confirm_in_progress', '같은 청구서의 다른 결제가 지금 승인 중입니다. 결제가 두 번 되지 않도록 이번 결제는 진행하지 않았습니다. 잠시 뒤 청구서 상태를 확인해 주세요.');
         // 오래된 선점 — 토스가 그 주문을 정말 승인했는지 물어본다. 모르면 막는다.
         const p = await lookup(holder);
         if (!p) return deny('invoice_confirm_unknown', '같은 청구서의 이전 결제 상태를 확인하지 못했습니다. 결제가 두 번 되지 않도록 이번 결제는 진행하지 않았습니다. 잠시 뒤 다시 시도해 주세요.');
@@ -129,9 +134,13 @@ export async function claimB2bInvoiceForConfirm(env: Env, orderId: string, amoun
       }
     }
     // 선점 — 쥔 사람이 없거나, 나거나, 위에서 넘겨받아도 된다고 판정한 그 주문일 때만
+    //   + 청구서 상태·남은 금액도 «쓰는 순간» DB 가 한 번 더 본다(읽은 뒤 그 사이 다른 결제가 확정됐을 수 있다)
+    const stateCond = ref.kind === 'MGB' ? `status = 'draft'` : `status IN ('issued','partial') AND due_krw - paid_krw >= ?`;
+    const binds: any[] = [orderId, now, ref.invoiceId, orderId, holder || orderId];
+    if (ref.kind === 'MGT') binds.push(Math.round(Number(amount)));
     const r: any = await env.DB.prepare(
-      `UPDATE ${t} SET confirming_order = ?, confirming_at = ? WHERE id = ? AND (confirming_order IS NULL OR confirming_order = ? OR confirming_order = ?)`
-    ).bind(orderId, now, ref.invoiceId, orderId, holder || orderId).run();
+      `UPDATE ${t} SET confirming_order = ?, confirming_at = ? WHERE id = ? AND (confirming_order IS NULL OR confirming_order = ? OR confirming_order = ?) AND ${stateCond}`
+    ).bind(...binds).run();
     if (!(Number(r?.meta?.changes || 0) > 0)) return deny('invoice_confirm_in_progress', '같은 청구서의 다른 결제가 지금 승인 중입니다. 결제가 두 번 되지 않도록 이번 결제는 진행하지 않았습니다.');
     return allow;
   } catch (e: any) {
@@ -202,36 +211,59 @@ export async function revertB2bOnCancel(env: Env, orderId: string, pay: any, sou
     const full = isFullCancel(pay, orderAmount, events);
     if (!events.length) { res.warnings.push('취소 금액을 알 수 없어 청구서를 자동으로 되돌리지 않았습니다 — 토스 상점관리자에서 확인해 주세요.'); return res; }
 
+    /* 멱등 키(b2b_payment_cancels) — 효과가 «성공한 뒤» 에만 남긴다. 키를 먼저 다 먹고 효과가 실패하면
+       웹훅 재전송·앱 환불이 다시 와도 «이미 처리» 로 빠져 영영 안 되돌려진다. 실패하면 키를 지운다. */
     const fresh: CancelEvent[] = [];
-    for (const ev of events) {
+    const claimKey = async (ev: CancelEvent): Promise<boolean> => {
       const ins: any = await env.DB.prepare(
         `INSERT OR IGNORE INTO b2b_payment_cancels (ref, order_id, kind, invoice_id, amount, full_cancel, source, created_at) VALUES (?,?,?,?,?,?,?,?)`
       ).bind(ev.ref, orderId, ref.kind, ref.invoiceId, ev.amount, full ? 1 : 0, source, now).run();
-      if (Number(ins?.meta?.changes || 0) > 0) fresh.push(ev);
-    }
+      return Number(ins?.meta?.changes || 0) > 0;
+    };
+    const dropKey = async (ev: CancelEvent) => {
+      try { await env.DB.prepare(`DELETE FROM b2b_payment_cancels WHERE ref = ? AND applied IS NULL`).bind(ev.ref).run(); }
+      catch (e: any) { console.error('[b2b-pay-guard] 🚨 취소 기록을 되돌리지 못함 — 이 취소는 자동으로 다시 안 됨', ev.ref, e?.message || e); }
+    };
 
     if (ref.kind === 'MGT') {
-      for (const ev of fresh) {
-        const w: any = await env.DB.prepare(
-          `INSERT OR IGNORE INTO b2b_wallet_entries (shop_name, kind, amount, memo, ref, created_by, created_at)
-           SELECT shop_name, 'invoice_refund', ?, ?, ?, ?, ? FROM b2b_tuition_invoices WHERE id = ?`
-        ).bind(-ev.amount, `청구서 #${ref.invoiceId} 결제 취소 (${orderId})`, `REFUND-${ev.ref}`, source, now, ref.invoiceId).run();
-        if (!(Number(w?.meta?.changes || 0) > 0)) { res.warnings.push(`충전금 되돌리기 기록을 남기지 못했습니다(${ev.ref}).`); continue; }
-        // 낸 돈을 줄이고 상태를 다시 매긴다 — 거둔(void) 청구서는 그대로 둔다
-        await env.DB.prepare(
-          `UPDATE b2b_tuition_invoices SET
-              paid_krw = MAX(0, paid_krw - ?),
-              status = CASE WHEN status = 'void' THEN status
-                            WHEN MAX(0, paid_krw - ?) <= 0 THEN 'issued'
-                            WHEN MAX(0, paid_krw - ?) < due_krw THEN 'partial' ELSE 'paid' END,
-              paid_at = CASE WHEN MAX(0, paid_krw - ?) <= 0 THEN NULL ELSE paid_at END,
-              confirming_order = CASE WHEN confirming_order = ? THEN NULL ELSE confirming_order END,
-              updated_at = ?
-            WHERE id = ?`
-        ).bind(ev.amount, ev.amount, ev.amount, ev.amount, orderId, now, ref.invoiceId).run();
-        res.applied.push(`충전금 −₩${ev.amount.toLocaleString('ko-KR')}`);
+      for (const ev of events) {
+        if (!(await claimKey(ev))) continue;   // 이미 처리한 취소
+        try {
+          const w: any = await env.DB.prepare(
+            `INSERT OR IGNORE INTO b2b_wallet_entries (shop_name, kind, amount, memo, ref, created_by, created_at)
+             SELECT shop_name, 'invoice_refund', ?, ?, ?, ?, ? FROM b2b_tuition_invoices WHERE id = ?`
+          ).bind(-ev.amount, `청구서 #${ref.invoiceId} 결제 취소 (${orderId})`, `REFUND-${ev.ref}`, source, now, ref.invoiceId).run();
+          if (!(Number(w?.meta?.changes || 0) > 0)) {
+            const had: any = await env.DB.prepare(`SELECT 1 AS x FROM b2b_wallet_entries WHERE ref = ?`).bind(`REFUND-${ev.ref}`).first();
+            if (had) { fresh.push(ev); continue; }   // 충전금은 이미 되돌려져 있다(앞 시도가 키만 못 남김) — 청구서는 그때 같이 됐다
+            await dropKey(ev);
+            res.warnings.push(`청구서 #${ref.invoiceId} 를 찾지 못해 충전금을 되돌리지 못했습니다(${ev.ref}).`);
+            continue;
+          }
+          // 낸 돈을 줄이고 상태를 다시 매긴다 — 거둔(void) 청구서는 그대로 둔다
+          await env.DB.prepare(
+            `UPDATE b2b_tuition_invoices SET
+                paid_krw = MAX(0, paid_krw - ?),
+                status = CASE WHEN status = 'void' THEN status
+                              WHEN MAX(0, paid_krw - ?) <= 0 THEN 'issued'
+                              WHEN MAX(0, paid_krw - ?) < due_krw THEN 'partial' ELSE 'paid' END,
+                paid_at = CASE WHEN MAX(0, paid_krw - ?) <= 0 THEN NULL ELSE paid_at END,
+                confirming_order = CASE WHEN confirming_order = ? THEN NULL ELSE confirming_order END,
+                updated_at = ?
+              WHERE id = ?`
+          ).bind(ev.amount, ev.amount, ev.amount, ev.amount, orderId, now, ref.invoiceId).run();
+          fresh.push(ev);
+          res.applied.push(`충전금 −₩${ev.amount.toLocaleString('ko-KR')}`);
+        } catch (e: any) {
+          // 충전금 원장(REFUND-ref)이 이미 들어갔으면 키를 지우지 않는다 — 다시 와도 충전금은 ref UNIQUE 로 안 겹치지만
+          // 청구서 UPDATE 만 다시 돌면 낸 돈이 두 번 줄어든다. 사람이 본다.
+          const had: any = await env.DB.prepare(`SELECT 1 AS x FROM b2b_wallet_entries WHERE ref = ?`).bind(`REFUND-${ev.ref}`).first().catch(() => null);
+          if (!had) await dropKey(ev);
+          res.warnings.push(`취소 반영 중 오류(${ev.ref}) — ${had ? '충전금만 되돌려졌습니다. 청구서 낸 돈을 직접 확인해 주세요' : '다음 알림 때 다시 시도합니다'}: ` + String(e?.message || e));
+        }
       }
     } else {
+      for (const ev of events) if (await claimKey(ev)) fresh.push(ev);
       if (!full) {
         if (fresh.length) {
           await env.DB.prepare(`UPDATE b2b_payment_cancels SET applied = 'needs_review' WHERE order_id = ? AND applied IS NULL`).bind(orderId).run();
@@ -239,21 +271,28 @@ export async function revertB2bOnCancel(env: Env, orderId: string, pay: any, sou
         }
         return res;
       }
-      // 전액 취소 — 그 주문이 «청구서의» 주문일 때만 청구서를 되돌린다(중복 결제분을 취소한 경우 청구서는 그대로)
-      const u: any = await env.DB.prepare(
-        `UPDATE ai_billing_invoices SET status = 'draft', paid_at = NULL, order_id = NULL, confirming_order = NULL, confirming_at = NULL
-          WHERE id = ? AND status = 'paid' AND order_id = ?`
-      ).bind(ref.invoiceId, orderId).run();
-      if (Number(u?.meta?.changes || 0) > 0) res.applied.push('청구서를 미결제로 되돌림');
-      else await env.DB.prepare(`UPDATE ai_billing_invoices SET confirming_order = NULL, confirming_at = NULL WHERE id = ? AND confirming_order = ?`).bind(ref.invoiceId, orderId).run();
-      // 그 주문으로 만든 수강 기록만(주문번호가 notes 에 박혀 있다). ⚠️ instr — LIKE 패턴 한도 회피
-      try {
-        const e: any = await env.DB.prepare(
-          `UPDATE enrollments SET status = 'refunded', updated_at = ? WHERE instr(notes, ?) > 0 AND status = 'active'`
-        ).bind(now, orderId).run();
-        const n = Number(e?.meta?.changes || 0);
-        if (n > 0) res.applied.push(`A.i 이용권 ${n}명 종료`);
-      } catch (e: any) { res.warnings.push('수강 기록을 되돌리지 못했습니다: ' + String(e?.message || e)); }
+      if (fresh.length) {
+        try {
+          // 전액 취소 — 그 주문이 «청구서의» 주문일 때만 청구서를 되돌린다(중복 결제분을 취소한 경우 청구서는 그대로)
+          const u: any = await env.DB.prepare(
+            `UPDATE ai_billing_invoices SET status = 'draft', paid_at = NULL, order_id = NULL, confirming_order = NULL, confirming_at = NULL
+              WHERE id = ? AND status = 'paid' AND order_id = ?`
+          ).bind(ref.invoiceId, orderId).run();
+          if (Number(u?.meta?.changes || 0) > 0) res.applied.push('청구서를 미결제로 되돌림');
+          else await env.DB.prepare(`UPDATE ai_billing_invoices SET confirming_order = NULL, confirming_at = NULL WHERE id = ? AND confirming_order = ?`).bind(ref.invoiceId, orderId).run();
+          // 그 주문으로 만든 수강 기록만(주문번호가 notes 에 박혀 있다). ⚠️ instr — LIKE 패턴 한도 회피
+          const e: any = await env.DB.prepare(
+            `UPDATE enrollments SET status = 'refunded', updated_at = ? WHERE instr(notes, ?) > 0 AND status = 'active'`
+          ).bind(now, orderId).run();
+          const n = Number(e?.meta?.changes || 0);
+          if (n > 0) res.applied.push(`A.i 이용권 ${n}명 종료`);
+        } catch (e: any) {
+          // 두 UPDATE 다 «다시 돌려도 같은 결과» 라 키를 지워 다음 알림 때 다시 시도하게 한다
+          for (const ev of fresh) await dropKey(ev);
+          fresh.length = 0;
+          res.warnings.push('청구서·이용권을 되돌리지 못했습니다(다음 알림 때 다시 시도): ' + String(e?.message || e));
+        }
+      }
     }
     if (fresh.length) await env.DB.prepare(`UPDATE b2b_payment_cancels SET applied = COALESCE(applied, ?) WHERE order_id = ?`).bind(res.applied.join(' · ') || 'none', orderId).run();
   } catch (e: any) {

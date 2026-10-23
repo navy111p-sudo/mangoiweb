@@ -60,9 +60,11 @@ if (process.env.B2B_CHILD === '1') {
       const ex = toss.get(b.orderId);
       if (ex && ex.status === 'DONE') return resp(400, { code: 'ALREADY_PROCESSED_PAYMENT', message: '이미 처리된 결제' });
       if (pl === 'decline') return resp(400, { code: 'REJECT_CARD_COMPANY', message: '카드사 거절' });
+      if (pl === 'server_error') return resp(500, { code: 'FAILED_INTERNAL_SYSTEM_PROCESSING', message: '내부 오류' });
       const rec = { status: 'DONE', totalAmount: b.amount, balanceAmount: b.amount, paymentKey: b.paymentKey, orderId: b.orderId, method: '카드', cancels: [] };
       toss.set(b.orderId, rec); charges.push({ orderId: b.orderId, amount: b.amount });
       if (pl === 'network_after') throw new Error('socket hang up after approve');
+      if (pl === 'server_error_after') return resp(500, { code: 'FAILED_INTERNAL_SYSTEM_PROCESSING', message: '내부 오류' });
       return resp(200, rec);
     }
     const m = /^https:\/\/api\.tosspayments\.com\/v1\/payments\/orders\/(.+)$/.exec(url);
@@ -273,6 +275,49 @@ if (process.env.B2B_CHILD === '1') {
   ok('S13 같은 청구서에 승인 둘이면 점검이 잡는다', dupIds.includes(107), JSON.stringify(au.b2bDup));
   ok('S13 정상 결제 청구서는 안 잡는다(짝)', !dupIds.includes(101) && !dupIds.includes(104), JSON.stringify(dupIds));
 
+  /* ── S15 토스가 «승인해 놓고» 500 을 주면 — 선점을 놓지 않고, 바로 온 다음 주문도 토스에 물어 막는다 ── */
+  mgbInv(150, '학원O', 1);
+  const o1 = newOrder('MGB', 150, 5000), o2 = newOrder('MGB', 150, 5000);
+  plan.set(o1, 'server_error_after');
+  await confirm(o1, 5000);
+  ok('S15 5xx 뒤에도 선점은 그 주문이 쥐고 있다', row(`SELECT confirming_order FROM ai_billing_invoices WHERE id=150`)?.confirming_order === o1);
+  const p2 = await confirm(o2, 5000);
+  ok('S15 바로 온 두 번째 주문은 막힌다 — 카드는 한 번만', p2.status === 409 && chargesOf('MGB-150-') === 1, JSON.stringify(p2.body) + ' charges=' + chargesOf('MGB-150-'));
+
+  /* ── S16 짝: 토스가 «승인 안 하고» 500 이면 — 다음 주문은 토스에 물어(모름) 바로 결제된다(영영 막히지 않는다) ── */
+  mgbInv(151, '학원P', 1);
+  const p1o = newOrder('MGB', 151, 5000), p2o = newOrder('MGB', 151, 5000);
+  plan.set(p1o, 'server_error');
+  await confirm(p1o, 5000);
+  const p3 = await confirm(p2o, 5000);
+  ok('S16 승인 안 된 5xx 뒤 다음 주문은 결제된다', p3.body.ok === true && chargesOf('MGB-151-') === 1, JSON.stringify(p3.body));
+
+  /* ── S17 수업료: 읽은 «뒤» 그 사이 다른 결제가 확정되면 선점 UPDATE 가 막는다 ── */
+  mgtInv(160, '학원Q', 100000); mgtInv(161, '학원R', 100000);
+  const stale = NOW - 10 * 60 * 1000;
+  const q1o = newOrder('MGT', 160, 100000), q2o = newOrder('MGT', 160, 100000);
+  sq.prepare(`UPDATE b2b_tuition_invoices SET confirming_order=?, confirming_at=? WHERE id=160`).run(q1o, stale);
+  const g17 = await guard.claimB2bInvoiceForConfirm(env, q2o, 100000, async () => {
+    sq.prepare(`UPDATE b2b_tuition_invoices SET paid_krw=100000, status='paid', confirming_order=NULL WHERE id=160`).run();   // 그 사이 다른 결제가 확정
+    return { status: 'NOT_FOUND' };
+  }, NOW);
+  ok('S17 그 사이 다 낸 청구서는 선점하지 못한다', g17.ok === false, JSON.stringify(g17));
+  const r1o = newOrder('MGT', 161, 100000), r2o = newOrder('MGT', 161, 100000);
+  sq.prepare(`UPDATE b2b_tuition_invoices SET confirming_order=?, confirming_at=? WHERE id=161`).run(r1o, stale);
+  const g17b = await guard.claimB2bInvoiceForConfirm(env, r2o, 100000, async () => ({ status: 'NOT_FOUND' }), NOW);
+  ok('S17 짝: 그대로면 넘겨받는다', g17b.ok === true, JSON.stringify(g17b));
+
+  /* ── S18 되돌리기가 실패하면 취소 기록(멱등 키)을 남기지 않는다 — 다음 알림 때 다시 된다 ── */
+  const s18 = 'MGT-170-H999-aa999';
+  sq.prepare(`INSERT INTO payment_orders (order_id, uid, program, amount, status, method, created_at) VALUES (?, NULL, 'b2b_tuition', 5000, 'paid', 'card', ?)`).run(s18, NOW);
+  const pay18 = { status: 'CANCELED', totalAmount: 5000, balanceAmount: 0, cancels: [{ cancelAmount: 5000, transactionKey: 'tk170' }] };
+  const w18a = await guard.revertB2bOnCancel(env, s18, pay18, 'toss_webhook', NOW);
+  ok('S18 청구서가 없으면 경고하고', w18a.warnings.length > 0, JSON.stringify(w18a));
+  ok('S18 취소 기록은 남기지 않는다', cnt(`SELECT COUNT(*) FROM b2b_payment_cancels WHERE ref='TX-tk170'`) === 0);
+  mgtInv(170, '학원S', 5000, 'paid'); sq.prepare(`UPDATE b2b_tuition_invoices SET paid_krw=5000 WHERE id=170`).run();
+  const w18b = await guard.revertB2bOnCancel(env, s18, pay18, 'toss_webhook', NOW);
+  ok('S18 다시 오면 그때 되돌린다', Number(row(`SELECT paid_krw FROM b2b_tuition_invoices WHERE id=170`)?.paid_krw) === 0 && w18b.applied.length > 0, JSON.stringify(w18b));
+
   /* ── S14 개인 결제(대리점 아님)는 문지기와 무관 ── */
   ok('S14 개인 주문번호는 대리점 주문이 아니다', guard.parseB2bOrder('MGD-ABC-123') === null && guard.parseB2bOrder('MGB-12-X')?.invoiceId === 12);
 
@@ -317,9 +362,13 @@ if (process.env.B2B_MUTATE) {
   const MUT = [
     ['confirm 문지기 제거', [['api-pay.ts', 'if (parseB2bOrder(orderId)) {\n      const gate', 'if (false) {\n      const gate']]],
     /* 겹겹이 막은 자리는 «둘 다» 되돌려야 사고가 난다 — 하나만 되돌리면 다른 겹이 막아 통과하는 것이 정상(등가 변이) */
-    ['문지기 조건 뒤집기(MGB paid·not-draft 둘 다 통과)', [['b2b-pay-guard.ts', "if (inv.status === 'paid' || sib.n > 0) return deny", "if (inv.status !== 'paid' && sib.n < 0) return deny"], ['b2b-pay-guard.ts', "if (inv.status !== 'draft') return deny", "if (false) return deny"]]],
-    ['선점 UPDATE 무력화', [['b2b-pay-guard.ts', 'WHERE id = ? AND (confirming_order IS NULL OR confirming_order = ? OR confirming_order = ?)`', 'WHERE id = ? OR ? OR ?`']]],
-    ['거절 때 선점 안 놓기 + 끝난 주문 넘겨받기 끄기', [['api-pay.ts', 'if (failRes?.meta?.changes) await releaseB2bInvoiceClaim(env, orderId);', ''], ['b2b-pay-guard.ts', "ho.status === 'paid' || ho.status === 'failed' || ho.status === 'cancelled'", "ho.status === 'paid'"]]],
+    ['문지기 조건 뒤집기(MGB paid·not-draft·쓰는 순간 draft 셋 다 통과)', [['b2b-pay-guard.ts', "if (inv.status === 'paid' || sib.n > 0) return deny", "if (inv.status !== 'paid' && sib.n < 0) return deny"], ['b2b-pay-guard.ts', "if (inv.status !== 'draft') return deny", "if (false) return deny"], ['b2b-pay-guard.ts', "? `status = 'draft'` :", "? `1 = 1` :"]]],
+    ['선점 UPDATE 무력화', [['b2b-pay-guard.ts', 'WHERE id = ? AND (confirming_order IS NULL OR confirming_order = ? OR confirming_order = ?) AND ${stateCond}`', 'WHERE id = ? OR ? OR ? OR ${stateCond}`']]],
+    ['5xx 에도 선점 놓기', [['api-pay.ts', 'if (failRes?.meta?.changes && tossDeclined) await', 'if (failRes?.meta?.changes) await']]],
+    ['failed 앞 주문을 토스에 안 묻고 넘겨받기', [['b2b-pay-guard.ts', "(ho.status === 'paid' || ho.status === 'cancelled')", "(ho.status === 'paid' || ho.status === 'failed' || ho.status === 'cancelled')"]]],
+    ['failed 앞 주문이면 5분 막기(영영 대기)', [['b2b-pay-guard.ts', "if (fresh && ho?.status !== 'failed') return", "if (fresh) return"]]],
+    ['선점 UPDATE 의 상태·금액 조건 제거', [['b2b-pay-guard.ts', ' AND ${stateCond}`', '`']]],
+    ['되돌리기 실패에도 취소 기록 남기기', [['b2b-pay-guard.ts', "await dropKey(ev);\n            res.warnings.push(`청구서 #", "res.warnings.push(`청구서 #"]]],
     ['404 를 «모름» 으로 되돌리기', [['api-pay.ts', "if (r.status === 404) return { status: 'NOT_FOUND' };", '']]],
     ['MGB 활성화 changes 무시', [['ai-billing.ts', "if (!(Number(won?.meta?.changes || 0) > 0)) {", 'if (false) {']]],
     ['MGT 낸 돈 옛 방식(읽고 덮기)', [['b2b-tuition-load.ts', 'SET paid_krw = paid_krw + ?,', 'SET paid_krw = ? + 0 * paid_krw,']]],

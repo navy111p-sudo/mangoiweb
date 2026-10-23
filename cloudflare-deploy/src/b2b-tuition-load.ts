@@ -515,13 +515,16 @@ export async function activateB2bTuitionPayment(env: Env, orderId: string, amoun
   /* 🔒 (2026-10-22) 낸 돈은 «DB 안에서» 더한다 — 두 결제가 동시에 확정되면 둘 다 옛 paid_krw 를 읽어
      한쪽 금액이 사라졌다. 거둔(void) 청구서에 늦게 들어온 돈은 충전금에만 남기고 상태는 안 바꾼다. */
   const amt = Math.round(amount);
-  await ensureB2bClaimColumns(env);   // 아래 UPDATE 가 선점 칸을 지운다 — 칸이 없으면 UPDATE 통째로 죽어 낸 돈이 안 적힌다
-  await safe(async () => { await env.DB.prepare(
+  /* ⚠️ 낸 돈 UPDATE 에 선점 칸을 섞지 않는다 — 그 칸은 지연 ALTER 로 생겨, 없으면 UPDATE 통째로 죽고
+     충전금은 이미 들어간 뒤라 재시도도 «이미 반영됨» 으로 빠진다(= 낸 돈이 영영 안 적힘). 선점 정리는 따로. */
+  const up: any = await safe(async () => await env.DB.prepare(
     `UPDATE b2b_tuition_invoices SET paid_krw = paid_krw + ?,
         status = CASE WHEN status = 'void' THEN status WHEN paid_krw + ? >= due_krw THEN 'paid' ELSE 'partial' END,
-        paid_at = ?, order_id = ?,
-        confirming_order = CASE WHEN confirming_order = ? THEN NULL ELSE confirming_order END, updated_at = ?
-      WHERE id = ?`).bind(amt, amt, when, orderId, orderId, Date.now(), inv.id).run(); return true; }, false);
+        paid_at = ?, order_id = ?, updated_at = ?
+      WHERE id = ?`).bind(amt, amt, when, orderId, Date.now(), inv.id).run(), null);
+  if (!up || !(Number(up.meta?.changes || 0) > 0)) console.error('[b2b-tuition] 🚨 충전금은 들어갔는데 청구서 낸 돈을 못 적음 — 사람이 맞춰야 함', orderId, 'invoice=', inv.id, 'amount=', amt);
+  await ensureB2bClaimColumns(env);
+  await safe(async () => { await env.DB.prepare(`UPDATE b2b_tuition_invoices SET confirming_order = NULL, confirming_at = NULL WHERE id = ? AND confirming_order = ?`).bind(inv.id, orderId).run(); return true; }, false);
   const after: any = await safe(async () => await env.DB.prepare(`SELECT status, paid_krw, due_krw FROM b2b_tuition_invoices WHERE id = ?`).bind(inv.id).first(), null);
   const status = after?.status || '?';
   if (after && Number(after.paid_krw) > Number(after.due_krw)) console.error('[b2b-tuition] ⚠️ 청구액보다 많이 결제됨 — 이중결제 확인 필요', orderId, 'invoice=', inv.id, after);

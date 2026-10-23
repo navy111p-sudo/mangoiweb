@@ -21,8 +21,8 @@ import { authUidFromRequest } from './auth-token';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서 (사전고지 문자)
 import { handleRefundApi } from './api-pay-refund';   // 💸 환불 실행·기록 (2026-08-25 신설)
 import { activateB2bAiInvoicePayment } from './ai-billing';   // 🏢 대리점 AI 사용료 일괄결제 활성화 (MGB- 주문 전용, 2026-09-10)
-import { activateB2bTuitionPayment, handleB2bTuitionPublic } from './b2b-tuition-load';
-import { claimB2bInvoiceForConfirm, releaseB2bInvoiceClaim, revertB2bOnCancel, parseB2bOrder, findB2bDoublePaid } from './b2b-pay-guard';   // 🔒 대리점 청구서 이중결제·취소 되돌리기 (2026-10-22)   // 🏫 B2B 화상수업 수업료 (MGT- 주문 · /api/pay/b2b/*, 2026-10-01)
+import { activateB2bTuitionPayment, handleB2bTuitionPublic } from './b2b-tuition-load';   // 🏫 B2B 화상수업 수업료 (MGT- 주문 · /api/pay/b2b/*, 2026-10-01)
+import { claimB2bInvoiceForConfirm, releaseB2bInvoiceClaim, revertB2bOnCancel, parseB2bOrder, findB2bDoublePaid } from './b2b-pay-guard';   // 🔒 대리점 청구서 이중결제·취소 되돌리기 (2026-10-22)
 import { AI_PASS_PLAN, NOT_AI_PASS_PLAN_SQL, aiPassPeriod, aiPassNextBilling, currentAiPassEnd } from './ai-pass';
 import { phonesForStudent } from './notify-contacts';   // 📞 A.i 사전고지 번호 — 우리가 받아 둔 번호를 먼저 보는 정본   // 🤖 A.i 이용권 끝나는 날·매달 자동결제 (2026-09-29)
 
@@ -748,8 +748,11 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     const msg = tossJson?.message || '결제 승인에 실패했습니다.';
     /* ⚠️ 이미 결제됐거나(다른 요청이 먼저 확정) 입금 대기인 주문은 failed 로 덮지 않는다 — 덮으면 돈은 나갔는데 장부만 실패가 된다. */
     const failRes: any = await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=? AND status NOT IN ('paid','await_deposit')`).bind(String(code).slice(0, 100), orderId).run();
-    // 토스가 «거절» 을 분명히 말한 경우만 대리점 청구서 선점을 놓는다(위 네트워크 오류 갈래는 결과를 몰라 안 놓는다)
-    if (failRes?.meta?.changes) await releaseB2bInvoiceClaim(env, orderId);
+    // 토스가 «거절» 을 분명히 말한 경우만 대리점 청구서 선점을 놓는다 — 4xx + 에러코드가 있을 때뿐.
+    //   ⛔ 5xx·게이트웨이 오류·JSON 아닌 본문·ALREADY_PROCESSED 는 «승인됐을 수도» 있어 안 놓는다
+    //      (다음 결제가 토스 조회로 정말 안 나갔는지 확인한 뒤에만 넘겨받는다 — b2b-pay-guard.ts).
+    const tossDeclined = tossRes.status >= 400 && tossRes.status < 500 && !!tossJson?.code && tossJson.code !== 'ALREADY_PROCESSED_PAYMENT';
+    if (failRes?.meta?.changes && tossDeclined) await releaseB2bInvoiceClaim(env, orderId);
     if (!failRes?.meta?.changes) {
       const now: any = await env.DB.prepare(`SELECT status, amount FROM payment_orders WHERE order_id = ? LIMIT 1`).bind(orderId).first();
       if (now?.status === 'paid') return json({ ok: true, already: true, orderId, amount: now.amount, message: '이미 결제 완료된 주문입니다.' });
