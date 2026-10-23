@@ -2,7 +2,7 @@
  * existing player; this module never starts a microphone on page load. */
 (function () {
   'use strict';
-  var L = window.MangoiDubLibrary, adapter, view = 'movies', generation = 0, urls = [], catalogue = null;
+  var L = window.MangoiDubLibrary, adapter, view = 'movies', generation = 0, urls = [], catalogue = null, bulkJob = null;
   if (!L) return;
   var $ = function (id) { return document.getElementById(id); };
   function en() { try { return window.getLang && window.getLang() === 'en'; } catch (_) { return false; } }
@@ -12,7 +12,7 @@
   function status(text) { if ($('dub-library-status')) $('dub-library-status').textContent = text; }
   function message(error) { return L.errorText(error, !!en()); }
   function releaseUrls() { urls.splice(0).forEach(function (url) { URL.revokeObjectURL(url); }); }
-  function clearItems() { releaseUrls(); if ($('dub-library-items')) $('dub-library-items').replaceChildren(); }
+  function clearItems() { bulkJob = null; releaseUrls(); if ($('dub-library-items')) $('dub-library-items').replaceChildren(); }
   function owned(owner) { return owner === L.identity(); }
   // Use the saved title so reopening a movie never picks up another group's name.
   function movieFilename(title, mime) {
@@ -27,6 +27,48 @@
     return match ? match[1].trim() : '';
   }
   function searchKey(value) { return String(value || '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase(); }
+  function downloadError(text) { var error = new Error(); error.downloadText = text; return error; }
+  function groupDownload(group, section, c) {
+    var actions = node('div', 'dub-group-download'), note = node('p', 'dub-save-note');
+    note.setAttribute('role', 'status'); note.setAttribute('aria-live', 'polite');
+    var ready = node('a', 'btn', t('ZIP 다시 내려받기', 'Download ZIP again')); ready.hidden = true;
+    var start = button(t('모두 내려받기 (ZIP)', 'Download all (ZIP)'), async function () {
+      if (!owned(c.owner) || catalogue !== c || !section.isConnected) return;
+      if (bulkJob) { note.textContent = t('다른 모둠의 ZIP을 준비 중이에요. 잠시 후 다시 눌러 주세요.', 'Another group ZIP is being prepared. Please try again shortly.'); return; }
+      var ticket = {}; bulkJob = ticket; start.disabled = true;
+      function current() { return bulkJob === ticket && owned(c.owner) && catalogue === c && section.isConnected; }
+      try {
+        if (!window.JSZip) throw downloadError(t('ZIP 기능을 불러오지 못했어요. 화면을 새로고침한 뒤 다시 시도해 주세요.', 'ZIP could not load. Refresh the page and try again.'));
+        var zip = new window.JSZip(), total = 0;
+        for (var i = 0; i < group.items.length; i++) {
+          if (!current()) return;
+          note.textContent = t('모둠 영상을 모으는 중… ', 'Collecting group videos… ') + (i + 1) + ' / ' + group.items.length;
+          var movie = group.items[i], blob = movie.blob || await L.getMovie(movie.id);
+          if (!current()) return;
+          if (!(blob instanceof Blob) || !blob.size) throw downloadError(t('비어 있는 영상이 있어요. 각 영상의 ‘영상 보기’를 확인한 뒤 다시 시도해 주세요.', 'A video is empty. Check each video with Watch video and try again.'));
+          total += blob.size;
+          // JSZip builds the archive in memory. Keep a large collection from exhausting the tab.
+          if (total > 512 * 1024 * 1024) throw downloadError(t('영상 용량이 커서 한 번에 묶기 어려워요. 각 영상의 ‘파일 내려받기’를 이용해 주세요.', 'These videos are too large to bundle at once. Download each video separately.'));
+          var title = movieGroup(movie) ? movie.title : (group.name || t('모둠 이름 없음', 'No group name')) + ' · ' + movie.title;
+          // Every entry has an ordinal, so repeated titles never replace an earlier recording.
+          zip.file(String(i + 1).padStart(3, '0') + '_' + movieFilename(title, movie.mime || blob.type), blob, { compression: 'STORE' });
+        }
+        note.textContent = t('ZIP 파일을 만드는 중…', 'Creating ZIP…');
+        var archive = await zip.generateAsync({ type: 'blob', compression: 'STORE', streamFiles: true });
+        if (!current()) return;
+        var url = URL.createObjectURL(archive); urls.push(url);
+        ready.href = url; ready.download = movieFilename((group.name || t('모둠 이름 없음', 'No group name')) + ' · 더빙영상', '').replace(/\.webm$/, '.zip');
+        ready.hidden = false; start.hidden = true; ready.click();
+        note.textContent = t('ZIP 내려받기를 시작했어요. 다운로드 폴더를 확인하고, ZIP을 풀면 모둠 영상들이 나와요. 시작되지 않으면 ‘ZIP 다시 내려받기’를 누르세요.', 'ZIP download started. Check your Downloads folder and unzip it to find the group videos. If it did not start, choose Download ZIP again.');
+      } catch (e) {
+        if (current()) note.textContent = t('모두 내려받기를 완료하지 못했어요. ', 'Could not download the group. ') + (e.downloadText || (e.status === 401 ? t('로그인 상태를 확인해 주세요.', 'Please check that you are signed in.') : t('영상 연결을 확인하고 다시 시도해 주세요.', 'Check your connection and try again.'))) + t(' 다시 눌러 시도할 수 있어요.', ' You can try again.');
+      } finally {
+        if (bulkJob === ticket) bulkJob = null;
+        start.disabled = false;
+      }
+    });
+    actions.append(start, ready, note); return actions;
+  }
   function drawCatalogue() {
     var c = catalogue;
     if (!c || !owned(c.owner) || c.kind !== view) return;
@@ -42,6 +84,7 @@
       Array.from(groups.values()).sort(function (a, b) { return a.name && b.name ? a.name.localeCompare(b.name, en() ? 'en' : 'ko', { numeric: true }) : a.name ? -1 : b.name ? 1 : 0; }).forEach(function (group) {
         var section = node('section', 'dub-library-group');
         section.append(node('h3', 'dub-library-group-title', (group.name || t('모둠 이름 없음', 'No group name')) + ' · ' + group.items.length + t('개 영상', ' videos')));
+        section.append(groupDownload(group, section, c));
         var grid = node('div', 'dub-library-items');
         group.items.forEach(function (item) { grid.append(movieCard(item, c.owner)); });
         section.append(grid); box.append(section);
