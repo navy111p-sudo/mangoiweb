@@ -38,6 +38,16 @@ testDestination();
 assert.throws(() => testDestination(finish.replace('MIX.bus.disconnect(dest)', 'MIX.bus.disconnect(exp.dest)')), 'mutation: disconnecting current destination must fail');
 
 {
+  const e = environment(), { c } = e, captured = [];
+  c.state.idx = 7;
+  c.state.finished = true;
+  c.drawFrame = () => captured.push({ idx: c.state.idx, finished: c.state.finished });
+  vm.runInContext(start, c);
+  c.startExport();
+  assert.deepEqual(captured, [{ idx: 0, finished: false }], 'first captured frame must caption the first line even when another recording was selected');
+}
+
+{
   const e = environment(), { c } = e;
   vm.runInContext(start + finish, c);
   c.startExport(); const old = c.exp.recorder, oldTracks = [...e.tracks];
