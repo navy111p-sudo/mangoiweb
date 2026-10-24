@@ -537,8 +537,40 @@ async function handleDownloads(request: Request, bucket: R2Bucket, owner: Owner,
 // Upload checkpoints contain descriptors and hashes only, never original media.
 // Separate from media quota accounting, with CAS and deletion tombstones.
 interface UploadEntry { id: string; title: string; size: number; mime: string; engine: string; episodeId: string; state: 'pending' | 'saved'; error: string; sha256?: string; durationMs?: number; interrupted?: boolean }
-interface UploadJob { version: 1; owner: string; id: string; updatedAt: number; entries: UploadEntry[] }
+interface ConnectionRow { key: string; seq: number; name: string; code: string; movieIds: string[]; sha256?: string }
+interface Connections { version: 1; rows: ConnectionRow[]; removed: string[] }
+interface UploadJob { connections?: Connections; version: 1; owner: string; id: string; updatedAt: number; entries: UploadEntry[] }
 interface UploadLedger { version: 1; jobs: UploadJob[]; removed: Record<string, number> }
+const CONNECTION_CODES = ['pending', 'connected', 'duplicate', 'saved', 'empty', 'large', 'size', 'content', 'legacy', 'read', 'storage', 'stopped', 'lost', 'check'];
+function connectionHistory(input: unknown, entries: UploadEntry[]): Connections {
+  if (!record(input) || input.version !== 1 || !Array.isArray(input.rows) || input.rows.length > 2000 || !Array.isArray(input.removed) || input.removed.length > 4000) fail(400, 'invalid_connections');
+  const keys = new Set<string>(), ids = new Set(entries.map(e => e.id));
+  const rows = input.rows.map((r: unknown): ConnectionRow => {
+    if (!record(r) || typeof r.key !== 'string' || !SAFE_ID.test(r.key) || keys.has(r.key)
+      || typeof r.seq !== 'number' || !Number.isSafeInteger(r.seq) || r.seq < 1
+      || typeof r.name !== 'string' || r.name.length > 1000 || typeof r.code !== 'string' || !CONNECTION_CODES.includes(r.code)
+      || !Array.isArray(r.movieIds) || r.movieIds.length > 2000 || new Set(r.movieIds).size !== r.movieIds.length || r.movieIds.some(id => typeof id !== 'string' || !ids.has(id))
+      || r.sha256 !== undefined && (typeof r.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(r.sha256))) fail(400, 'invalid_connections');
+    keys.add(r.key);
+    return { key: r.key, seq: r.seq, name: r.name, code: r.code, movieIds: r.movieIds as string[], ...(typeof r.sha256 === 'string' ? { sha256: r.sha256 } : {}) };
+  });
+  const removed = input.removed;
+  if (removed.some(key => typeof key !== 'string' || !SAFE_ID.test(key)) || new Set(removed).size !== removed.length) fail(400, 'invalid_connections');
+  return { version: 1, rows, removed: removed as string[] };
+}
+function mergeConnectionHistory(a?: Connections, b?: Connections): Connections | undefined {
+  if (!a) return b; if (!b) return a;
+  const removed = Array.from(new Set([...a.removed, ...b.removed]));
+  const rows = new Map(a.rows.filter(r => !removed.includes(r.key)).map(r => [r.key, r]));
+  for (const row of b.rows) {
+    if (removed.includes(row.key)) continue;
+    const old = rows.get(row.key);
+    if (old && old.seq === row.seq && JSON.stringify(old) !== JSON.stringify(row)) fail(409, 'connections_changed');
+    if (!old || row.seq > old.seq) rows.set(row.key, row);
+  }
+  if (rows.size > 2000 || removed.length > 4000) fail(413, 'connection_storage_limit');
+  return { version: 1, rows: Array.from(rows.values()), removed };
+}
 function uploadCheckpoint(input: unknown, actor: string): UploadJob {
   if (!record(input) || input.version !== 1 || input.owner !== actor || typeof input.id !== 'string'
     || !/^[a-z0-9]+-[a-z0-9-]{1,65}$/.test(input.id) || input.id.length > 80
@@ -560,7 +592,7 @@ function uploadCheckpoint(input: unknown, actor: string): UploadJob {
       ...(typeof e.durationMs === 'number' ? { durationMs: e.durationMs } : {}),
       ...(typeof e.interrupted === 'boolean' ? { interrupted: e.interrupted } : {}) };
   });
-  return { version: 1, owner: actor, id: input.id, updatedAt: Date.now(), entries };
+  return { version: 1, owner: actor, id: input.id, updatedAt: Date.now(), entries, ...(input.connections !== undefined ? { connections: connectionHistory(input.connections, entries) } : {}) };
 }
 function uploadDescriptor(e: UploadEntry): string {
   return JSON.stringify([e.id, e.title, e.size, e.mime, e.engine, e.episodeId]);
@@ -598,7 +630,7 @@ async function handleUploads(request: Request, bucket: R2Bucket, owner: Owner, p
           entries.set(e.id, { ...old, ...e, ...(old?.sha256 ? { sha256: old.sha256 } : {}), state: old?.state === 'saved' ? 'saved' : e.state });
         }
         if (entries.size > 2000) fail(413, 'upload_storage_limit');
-        saved = { ...previous, entries: Array.from(entries.values()), updatedAt: now };
+        saved = { ...previous, entries: Array.from(entries.values()), updatedAt: now, ...(previous.connections || incoming.connections ? { connections: mergeConnectionHistory(previous.connections, incoming.connections) } : {}) };
         ledger.jobs = ledger.jobs.map(j => j.id === jobId ? saved! : j);
       } else {
         const created = parseInt(jobId.split('-')[0], 36);

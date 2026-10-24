@@ -464,6 +464,7 @@
   function uploadKey(owner) { return UPLOAD_KEY + encodeURIComponent(owner); }
   function validUpload(r, owner) {
     if (!r || r.version !== 1 || r.owner !== owner || typeof r.id !== 'string' || !/^[a-z0-9-]{1,80}$/.test(r.id) || !Number.isSafeInteger(r.updatedAt) || r.updatedAt <= 0 || !Array.isArray(r.entries) || !r.entries.length || r.entries.length > 2000) return false;
+    if (r.connections !== undefined && !validConnections(r.connections, r)) return false;
     var ids = new Set();
     return r.entries.every(function (e) {
       if (!e || typeof e.id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(e.id) || ids.has(e.id)) return false;
@@ -537,7 +538,7 @@
       if (old && (!sameUpload(old, e) || old.sha256 && e.sha256 && old.sha256 !== e.sha256)) throw new Error('upload_changed');
       entries.set(e.id, Object.assign({}, old, e, old && old.sha256 ? { sha256: old.sha256 } : {}, old && old.state === 'saved' ? { state: 'saved', error: '' } : old && e.state !== 'saved' ? { state: old.state, error: old.error } : {}));
     });
-    return Object.assign({}, a, { entries: Array.from(entries.values()), updatedAt: Math.max(a.updatedAt, b.updatedAt) });
+    return Object.assign({}, a, { entries: Array.from(entries.values()), updatedAt: Math.max(a.updatedAt, b.updatedAt), connections: mergeCloudConnections(a.connections, b.connections) });
   }
   async function syncUpload(c, u) {
     if (!L.saveUpload || !L.hasAccount() || !u.record || !uploadCurrent(c, u)) return;
@@ -545,13 +546,15 @@
     try {
       var response = await L.saveUpload(snapshot, c.owner);
       if (!uploadCurrent(c, u) || !u.record || u.record.id !== snapshot.id) return;
-      if (!validUpload(response.upload, c.owner) || response.upload.id !== snapshot.id) throw new Error('invalid_upload');
+      if (!validUpload(response.upload, c.owner) || response.upload.id !== snapshot.id || snapshot.connections && !response.upload.connections) throw new Error('invalid_upload');
       u.record = mergeUpload(u.record, response.upload); c.uploads = (c.uploads || []).filter(function (r) { return r.id !== u.record.id; }); c.uploads.push(response.upload);
+      if (response.upload.connections) { u.connectionAckHistory = mergeCloudConnections(u.connectionAckHistory, response.upload.connections); u.connectionAck = connectionSignature(u.connectionAckHistory); applyCloudConnections(c, u, u.record.connections); }
       reconcileUpload(c, u, c.response); rememberUpload(c, u); u.cloudSaved = true; u.cloudError = false;
+      if (snapshot.connections) { u.connectionCloudError = false; u.connectionCloudSaved = true; }
     } catch (e) {
       if (!uploadCurrent(c, u)) return;
-      u.cloudSaved = false; u.cloudError = true;
-      if (e.status === 410 || e.code === 'upload_changed' || e.code === 'upload_expired') { u.historyChanged = true; u.stopped = true; u.reason = t('계정의 진행 기록이 삭제되거나 바뀌었어요. 보관함을 새로고침해 주세요.', 'Account save progress was removed or changed. Refresh the library.'); }
+      u.cloudSaved = false; u.cloudError = true; if (snapshot.connections) { u.connectionCloudError = true; u.connectionCloudSaved = false; }
+      if (e.status === 410 || e.code === 'connections_changed' || e.code === 'upload_changed' || e.code === 'upload_expired') { u.historyChanged = true; u.stopped = true; u.reason = t('계정의 진행 기록이 삭제되거나 바뀌었어요. 보관함을 새로고침해 주세요.', 'Account save progress was removed or changed. Refresh the library.'); }
     }
   }
   async function pullUploads(c) {
@@ -571,53 +574,109 @@
       u.record = candidates.find(function (r) { return r.entries.some(function (e) { return e.state !== 'saved'; }); }) || candidates[0];
       u.record = JSON.parse(JSON.stringify(u.record));
     }
-    if (u.record) { reconcileUpload(c, u, c.response); rememberUpload(c, u); await syncUpload(c, u); }
+    if (u.record) { restoreConnections(c, u); if (remote && remote.connections) applyCloudConnections(c, u, mergeCloudConnections(connectionWire(u), remote.connections)); reconcileUpload(c, u, c.response); rememberUpload(c, u); await syncUpload(c, u); }
   }
   async function originalHash(blob) {
     if (!blob || blob.size > 64 * 1024 * 1024 || !window.crypto || !window.crypto.subtle) throw new Error('original_hash_unavailable');
     var bytes = await blob.arrayBuffer(), hash = await window.crypto.subtle.digest('SHA-256', bytes);
     return Array.from(new Uint8Array(hash)).map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
   }
+  function connectionId() { return window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 15); }
+  function validConnections(h, job) {
+    if (!h || h.version !== 1 || !Array.isArray(h.rows) || h.rows.length > 2000 || !Array.isArray(h.removed) || h.removed.length > 4000) return false;
+    var keys = new Set(), ids = new Set(job.entries.map(function (e) { return e.id; }));
+    return h.removed.every(function (key) { return typeof key === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(key); }) && new Set(h.removed).size === h.removed.length && h.rows.every(function (r) {
+      if (!r || typeof r.key !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(r.key) || keys.has(r.key)) return false; keys.add(r.key);
+      return Number.isSafeInteger(r.seq) && r.seq > 0 && typeof r.name === 'string' && r.name.length <= 1000 && ['pending','connected','duplicate','saved','empty','large','size','content','legacy','read','storage','stopped','lost','check'].indexOf(r.code) >= 0
+        && Array.isArray(r.movieIds) && r.movieIds.length <= 2000 && new Set(r.movieIds).size === r.movieIds.length && r.movieIds.every(function (id) { return ids.has(id); })
+        && (r.sha256 === undefined || typeof r.sha256 === 'string' && /^[a-f0-9]{64}$/.test(r.sha256));
+    });
+  }
+  function mergeCloudConnections(a, b) {
+    if (!a) return b; if (!b) return a;
+    var removed = Array.from(new Set(a.removed.concat(b.removed))), rows = new Map();
+    a.rows.concat(b.rows).forEach(function (r) { if (removed.indexOf(r.key) >= 0) return; var old = rows.get(r.key); if (old && old.seq === r.seq && JSON.stringify(old) !== JSON.stringify(r)) throw new Error('connections_changed'); if (!old || r.seq > old.seq) rows.set(r.key, r); });
+    return { version: 1, rows: Array.from(rows.values()), removed: removed };
+  }
+  function connectionSignature(h) { return JSON.stringify({ rows: h.rows.slice().sort(function (a, b) { return a.key.localeCompare(b.key); }), removed: h.removed.slice().sort() }); }
+  function connectionWire(u) {
+    return { version: 1, rows: (u.connectionResults || []).map(function (r) {
+      var data = { key: r.key, name: r.name, code: r.outcome || r.code, movieIds: r.movieIds || [], ...(r.sha256 ? { sha256: r.sha256 } : {}) }, sig = JSON.stringify(data);
+      if (r.wireSig && r.wireSig !== sig) r.seq++; r.wireSig = sig; r.seq = r.seq || 1;
+      return { key: data.key, seq: r.seq, name: data.name, code: data.code, movieIds: data.movieIds, ...(data.sha256 ? { sha256: data.sha256 } : {}) };
+    }), removed: u.connectionRemoved || [] };
+  }
+  function applyCloudConnections(c, u, history) {
+    if (!history || !uploadCurrent(c, u) || !u.record || !validConnections(history, u.record)) return;
+    var previous = new Map((u.connectionResults || []).map(function (r) { return [r.key, r]; }));
+    u.connectionResults = history.rows.filter(function (r) { return history.removed.indexOf(r.key) < 0; }).map(function (r) {
+      var old = previous.get(r.key); if (old && u.connecting && old.seq >= r.seq) return old;
+      var row = Object.assign(old || {}, r, { id: old ? old.id : ++u.connectionSeq, outcome: r.code, titles: [] });
+      row.wireSig = JSON.stringify({ key: row.key, name: row.name, code: row.outcome, movieIds: row.movieIds, ...(row.sha256 ? { sha256: row.sha256 } : {}) }); return row;
+    });
+    u.connectionRemoved = history.removed.slice(); u.connectionRecordId = u.record.id; u.record.connections = history;
+    if (!u.connecting) reconcileConnections(c, u); saveConnections(c, u, true);
+  }
+  function queueConnectionSync(c, u) {
+    if (!L.saveUpload || !L.hasAccount() || !uploadCurrent(c, u) || !u.record || u.historyChanged) return Promise.resolve();
+    if (u.connectionSyncing) return u.connectionPromise;
+    var jobId = u.record.id; u.connectionSyncing = true;
+    u.connectionPromise = (async function () {
+      try {
+        while (uploadCurrent(c, u) && u.record && u.record.id === jobId) {
+          var wire = connectionWire(u); if (connectionSignature(wire) === u.connectionAck) break;
+          u.record.connections = wire; await syncUpload(c, u);
+          if (!uploadCurrent(c, u) || u.historyChanged || !u.cloudSaved) break;
+        }
+      } catch (_) { u.connectionCloudError = true; u.connectionCloudSaved = false; }
+      finally { u.connectionSyncing = false; if (uploadCurrent(c, u)) { drawCatalogue(); if (u.record && u.record.id !== jobId) queueConnectionSync(c, u); } }
+    })(); return u.connectionPromise;
+  }
   var CONNECTION_KEY = 'mangoi_dub_connections_v1:';
   function connectionKey(owner, jobId) { return CONNECTION_KEY + encodeURIComponent(owner) + ':' + jobId; }
   function connectionRetry(r) { return ['connected', 'duplicate', 'saved', 'pending'].indexOf(r.code) < 0; }
-  function saveConnections(c, u) {
+  function saveConnections(c, u, fromCloud) {
     if (!uploadCurrent(c, u) || !u.record || u.connectionRecordId !== u.record.id) return;
     try {
-      var rows = (u.connectionResults || []).map(function (r) { return { id: r.id, name: r.name, code: r.code, movieIds: r.movieIds || [], ...(r.sha256 ? { sha256: r.sha256 } : {}) }; });
-      var raw = JSON.stringify({ version: 1, owner: c.owner, jobId: u.record.id, rows: rows });
+      var wire = connectionWire(u); u.record.connections = wire;
+      var rows = wire.rows.map(function (r) { var local = u.connectionResults.find(function (e) { return e.key === r.key; }); return Object.assign({ id: local.id }, r); });
+      var raw = JSON.stringify({ version: 1, owner: c.owner, jobId: u.record.id, rows: rows, removed: wire.removed });
       if (rows.length > 2000 || raw.length > 1024 * 1024) throw new Error('connection_history_limit');
       localStorage.setItem(connectionKey(c.owner, u.record.id), raw); u.connectionRemembered = true; u.connectionHistoryError = false;
     } catch (_) { u.connectionRemembered = false; }
+    if (!fromCloud && (u.connectionResults || []).length) { queueConnectionSync(c, u); }
   }
   function reconcileConnections(c, u) {
     var entries = new Map(u.record.entries.map(function (e) { return [e.id, e]; }));
     (u.connectionResults || []).forEach(function (r) {
       var matches = (r.movieIds || []).map(function (id) { return entries.get(id); }).filter(Boolean);
       if (!matches.length && r.code === 'pending' && r.sha256) matches = u.record.entries.filter(function (e) { return e.sha256 === r.sha256; });
-      r.movieIds = matches.map(function (e) { return e.id; });
       r.titles = matches.filter(function (e) { return e.state === 'saved' || c.items.some(function (m) { return m.local && sameUpload(e, m); }); }).map(function (e) { return e.title; });
       var available = matches.length && matches.every(function (e) { return e.state === 'saved' || c.items.some(function (m) { return m.local && sameUpload(e, m); }); });
-      if (available) r.code = matches.every(function (e) { return e.state === 'saved'; }) ? 'saved' : 'connected';
+      if (available) r.code = matches.every(function (e) { return e.state === 'saved'; }) ? 'saved' : r.outcome === 'duplicate' ? 'duplicate' : 'connected';
       else if (['connected', 'duplicate', 'saved', 'pending'].indexOf(r.code) >= 0) r.code = c.localError ? 'check' : r.code === 'pending' ? 'stopped' : 'lost';
     });
   }
   function restoreConnections(c, u) {
     if (!u.record || u.connectionRecordId === u.record.id) return;
-    u.connectionRecordId = u.record.id; u.connectionResults = []; u.connectionSeq = 0; u.connectionOnlyFailed = true; u.connectionRemembered = true; u.connectionHistoryError = false;
+    u.connectionRecordId = u.record.id; u.connectionResults = []; u.connectionSeq = 0; u.connectionOnlyFailed = true; u.connectionRemembered = true; u.connectionHistoryError = false; u.connectionRemoved = []; u.connectionAck = null; u.connectionAckHistory = null; u.connectionCloudSaved = false; u.connectionCloudError = false;
     try {
-      var raw = localStorage.getItem(connectionKey(c.owner, u.record.id)); if (!raw) return;
+      var raw = localStorage.getItem(connectionKey(c.owner, u.record.id)); if (!raw) { if (u.record.connections) applyCloudConnections(c, u, u.record.connections); return; }
       if (raw.length > 1024 * 1024) throw new Error('connection_history_limit');
       var saved = JSON.parse(raw), ids = new Set(), movieIds = new Set(u.record.entries.map(function (e) { return e.id; }));
       if (!saved || saved.version !== 1 || saved.owner !== c.owner || saved.jobId !== u.record.id || !Array.isArray(saved.rows) || saved.rows.length > 2000) throw new Error('invalid_connection_history');
+      if (saved.removed !== undefined && (!Array.isArray(saved.removed) || saved.removed.length > 4000 || saved.removed.some(function (key) { return typeof key !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(key); }))) throw new Error('invalid_connection_history');
+      u.connectionRemoved = saved.removed || [];
       u.connectionResults = saved.rows.map(function (r) {
         if (!r || !Number.isSafeInteger(r.id) || r.id <= 0 || ids.has(r.id) || typeof r.name !== 'string' || r.name.length > 1000
           || ['pending', 'connected', 'duplicate', 'saved', 'empty', 'large', 'size', 'content', 'legacy', 'read', 'storage', 'stopped', 'lost', 'check'].indexOf(r.code) < 0
           || !Array.isArray(r.movieIds) || r.movieIds.length > 2000 || new Set(r.movieIds).size !== r.movieIds.length || r.movieIds.some(function (id) { return !movieIds.has(id); })
           || r.sha256 !== undefined && (typeof r.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(r.sha256))) throw new Error('invalid_connection_history');
         ids.add(r.id); u.connectionSeq = Math.max(u.connectionSeq, r.id);
-        return { id: r.id, name: r.name, code: r.code, movieIds: r.movieIds.slice(), titles: [], ...(r.sha256 ? { sha256: r.sha256 } : {}) };
+        return { id: r.id, key: r.key || 'legacy-' + u.record.id.slice(-48) + '-' + r.id, seq: r.seq || 1, name: r.name, code: r.code, outcome: r.code, movieIds: r.movieIds.slice(), titles: [], ...(r.sha256 ? { sha256: r.sha256 } : {}) };
       });
+      if (!validConnections(connectionWire(u), u.record)) throw new Error('invalid_connection_history');
+      var merged = mergeCloudConnections(connectionWire(u), u.record.connections); if (merged) applyCloudConnections(c, u, merged);
       reconcileConnections(c, u); saveConnections(c, u);
     } catch (_) { u.connectionResults = []; u.connectionHistoryError = true; }
   }
@@ -649,9 +708,9 @@
     if (!retryId) u.connectionOnlyFailed = false; u.connectionResults = u.connectionResults || []; u.connectionSeq = u.connectionSeq || 0;
     // Keep descriptors only in the result list, never File objects or video bytes.
     var rows = files.map(function (file, i) {
-      var row = { id: retryId && i === 0 ? retryId : ++u.connectionSeq, name: file.name || t('이름 없는 파일 ', 'Unnamed file ') + (i + 1), code: 'pending', titles: [], movieIds: [] };
+      var row = { key: connectionId(), seq: 1, outcome: 'pending', id: retryId && i === 0 ? retryId : ++u.connectionSeq, name: file.name || t('이름 없는 파일 ', 'Unnamed file ') + (i + 1), code: 'pending', titles: [], movieIds: [] };
       var old = u.connectionResults.findIndex(function (r) { return r.id === row.id; });
-      if (old >= 0) u.connectionResults[old] = row; else u.connectionResults.push(row); return row;
+      if (old >= 0) { u.connectionRemoved = Array.from(new Set((u.connectionRemoved || []).concat(u.connectionResults[old].key))); u.connectionResults[old] = row; } else u.connectionResults.push(row); return row;
     });
     u.busy = true; u.connecting = true; u.stopped = false; u.reason = ''; saveConnections(c, u); drawCatalogue();
     var connected = 0, rejected = 0;
@@ -686,11 +745,11 @@
           try { await L.storeLocalMovie(blob, meta, c.owner); }
           catch (_) { if (!current()) return; row.code = 'storage'; break; }
           if (!current()) return;
-          c.items.push(Object.assign({}, meta, { id: e.id, local: true, blob: blob, createdAt: Date.now() })); e.state = 'pending'; e.error = ''; u.selected.add(e.id); row.titles.push(e.title); connected++; saveConnections(c, u);
+          c.items.push(Object.assign({}, meta, { id: e.id, local: true, blob: blob, createdAt: Date.now() })); e.state = 'pending'; e.error = ''; u.selected.add(e.id); row.titles.push(e.title); connected++; row.outcome = row.code; saveConnections(c, u);
         }
         if (row.code !== 'connected') rejected++;
         rememberUpload(c, u); drawCatalogue();
-        } finally { if (current()) saveConnections(c, u); }
+        } finally { if (current()) { row.outcome = row.code; saveConnections(c, u); } }
       }
       rememberUpload(c, u);
       u.reason = t('원본 ' + connected + '개 연결 · 연결하지 못한 파일 ' + rejected + '개. 아래 파일별 결과를 확인하세요. 연결된 영상은 ‘남은 영상 이어서 저장’을 눌러 저장하세요.', connected + ' originals connected; ' + rejected + ' files need attention. Check each result below, then choose Resume to save connected videos.');
@@ -700,8 +759,10 @@
     if (!u.connectionResults || !u.connectionResults.length) return;
     var section = node('section', 'dub-original-results'); section.setAttribute('aria-label', t('원본 파일 연결 결과', 'Original file connection results'));
     section.append(node('h4', '', t('파일별 연결 결과', 'File connection results')));
-    section.append(node('p', 'dub-save-note', t('연결되지 않은 파일은 이유를 확인하고 옆의 파일 선택으로 다시 골라 주세요. 성공한 파일은 다시 선택하지 않아도 돼요.', 'For an unconnected file, check its reason and select a replacement beside it. Successful files do not need to be selected again.')));
-    section.append(node('p', 'dub-save-note', u.connectionRemembered ? t('파일 이름과 연결 결과를 이 기기·브라우저에 기억해요. 다시 열면 연결되지 않은 파일만 먼저 보여요. 연결되지 않은 파일은 다시 선택해야 해요.', 'Names and results are remembered in this browser. Reopening shows unconnected files first. Unconnected files must be selected again.') : t('파일별 결과를 이 브라우저에 저장하지 못했어요. 화면을 닫기 전에 브라우저 저장 공간·설정을 확인해 주세요.', 'File results could not be remembered. Check browser storage before closing.')));
+    section.append(node('p', 'dub-save-note', t('연결되지 않은 파일은 이유를 확인하고 옆의 파일 선택으로 다시 골라 주세요. 이 기기에서 연결된 파일은 다시 선택하지 않아도 돼요.', 'For an unconnected file, check its reason and select a replacement beside it. Files connected on this device do not need to be selected again.')));
+    section.append(node('p', 'dub-save-note', u.connectionRemembered ? t('파일 이름과 연결 결과를 기억해요. 다시 열면 연결되지 않은 파일만 먼저 보여요. 연결되지 않은 파일은 다시 선택해야 해요.', 'Names and results are remembered for this account. Reopening shows unconnected files first. Unconnected files must be selected again.') : t('파일별 결과를 이 브라우저에 저장하지 못했어요. 화면을 닫기 전에 브라우저 저장 공간·설정을 확인해 주세요.', 'File results could not be remembered. Check browser storage before closing.')));
+    var resultsSynced = u.connectionCloudSaved && !u.connectionSyncing && connectionSignature(connectionWire(u)) === u.connectionAck;
+    if (L.saveUpload) section.append(node('p', 'dub-save-note', u.connectionCloudError ? t('파일별 결과를 계정에 동기화하지 못했어요. 이 기기의 기록은 유지돼요. 연결을 확인하고 보관함을 새로고침해 주세요.', 'File results could not sync to your account. Device history is kept. Check your connection and refresh the library.') : resultsSynced ? t('✓ 파일별 결과가 계정에 동기화됐어요. 다른 기기에서 같은 계정으로 로그인해도 불러와요. 그 기기에 없는 원본은 다시 선택해 주세요.', '✓ File results are synced to your account. Sign in on another device to restore them. Reselect originals missing on that device.') : t('파일별 결과를 계정에 동기화하는 중… 완료 안내를 확인해 주세요.', 'Syncing file results to your account… Wait for confirmation.')));
     var failures = u.connectionResults.filter(connectionRetry), filterLabel = node('label', 'dub-original-filter'), filter = node('input'); filter.type = 'checkbox'; filter.checked = !!u.connectionOnlyFailed; filter.disabled = u.busy;
     filter.setAttribute('aria-label', t('연결되지 않은 파일만 보기', 'Show only unconnected files'));
     filter.addEventListener('change', function () { if (!uploadCurrent(c, u) || u.busy) return; u.connectionOnlyFailed = filter.checked; drawCatalogue(); });
