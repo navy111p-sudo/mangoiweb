@@ -1733,8 +1733,22 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var label=labels[state] || ['Check needed','확인 필요'];
     var ev=it.today_eval;
     return '<span class="wk-record">'+esc(T(label[0],label[1]))+(it.teacher_changed?' · '+esc(T('Teacher changed','강사 변경')):'')+'</span>'
-      + '<span class="wk-record">'+(ev&&ev.id?'<a href="/eval.html?id='+encodeURIComponent(ev.id)+'" target="_blank" rel="noopener">'+esc(T('Class report · Open','수업 보고서 · 보기'))+'</a>':esc(it.report_loaded===false?T('Report unavailable','보고서 확인 불가'):T('Report: not written','보고서: 미작성')))+'</span>';
+      + '<span class="wk-record">'+(ev&&ev.id?'<a class="evq-open" data-evq="'+esc(ev.id)+'" href="/eval.html?id='+encodeURIComponent(ev.id)+'" target="_blank" rel="noopener">'+esc(T('Feedback · View / Edit','피드백 · 보기 / 수정'))+'</a>':esc(it.report_loaded===false?T('Report unavailable','보고서 확인 불가'):T('Report: not written','보고서: 미작성')))+'</span>'
+      + (canWriteWeekFeedback(it) ? '<button type="button" class="tbtn" data-week-eval="'+esc(it.room_id)+'">'+esc(T('Write feedback','피드백 작성'))+'</button>' : '');
   }
+  function canWriteWeekFeedback(it){
+    return !!(it && it.kind === 'class' && it.student_uid && it.room_id && it.report_loaded === true
+      && !(it.today_eval && it.today_eval.id) && !it.eval_written && !it.holiday_name
+      && it.class_state !== 'postponed' && it.class_state !== 'cancelled'
+      && Number.isFinite(Number(it.start_ts)) && Number(it.start_ts) > 0 && now() >= Number(it.start_ts));
+  }
+  document.addEventListener('click',function(e){
+    var button=e.target.closest && e.target.closest('[data-week-eval]');
+    if(!button || !WK_DATA || !DATA) return;
+    var room=button.getAttribute('data-week-eval'), item=null;
+    WK_DATA.days.forEach(function(day){(day.items || []).forEach(function(it){if(it.room_id===room) item=it;});});
+    if(canWriteWeekFeedback(item)) openEval(item);
+  });
   window.addEventListener('class-time-format',function(){lastSig=null;if(DATA) render(DATA);});
   function renderWeek(w){
     var card = document.getElementById('c-week'), box = document.getElementById('week');
@@ -3075,7 +3089,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     if (!c || !c.schedule_id || !DATA || !Array.isArray(DATA.classes)) return c;
     for (var i = 0; i < DATA.classes.length; i++){
       var x = DATA.classes[i];
-      if (x && String(x.schedule_id) === String(c.schedule_id) && (x.kind || 'class') === (c.kind || 'class')) return x;
+      if (x && String(x.schedule_id) === String(c.schedule_id) && (x.kind || 'class') === (c.kind || 'class')
+          && (!(c.class_date || c.date) || (x.class_date || x.date || DATA.today) === (c.class_date || c.date))) return x;
     }
     return c;
   }
@@ -4078,7 +4093,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     mask.innerHTML =
       '<div class="modal" role="dialog" aria-modal="true">'
       + '<h3>' + esc(T('Class Log','수업 일지')) + '</h3>'
-      + '<p class="sub">' + esc(stuLabelText(c, T('(name not set)','(이름 미등록)')) + ' · ' + MangoiClassDisplay.range(c)) + '</p>'
+      + '<p class="sub">' + esc((c.class_date || c.date || DATA.today) + ' · ' + stuLabelText(c, T('(name not set)','(이름 미등록)')) + ' · ' + MangoiClassDisplay.range(c)) + '</p>'
       + '<p class="sub feedback-level">' + esc(T('Student level','학생 레벨')) + ': ' + esc(c.level || T('Not set','미등록')) + '</p>'
       + '<div class="fld"><label>' + esc(T('Level group (tap to set or change)','수준 그룹 (눌러서 정하거나 바꿔요')) + '</label><div id="ev-band">'
       +   bandChip('sprout', '🌱', T('Sprout','새싹'), c.eval_band)
@@ -4251,7 +4266,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         teacher_uid: DATA.me.username,
         teacher_name: DATA.me.name,
         room_id: c.room_id,
-        lesson_date: DATA.today,
+        lesson_date: c.class_date || c.date || DATA.today,
         score_participation: pick(mask,'participation'),
         score_comprehension: pick(mask,'comprehension'),
         score_speaking: pick(mask,'speaking'),
@@ -4285,12 +4300,15 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         var current = freshClass(c);
         current.eval_written = true;
         if (j.id) current.eval_id = j.id;
+        if (j.id) c.today_eval = { id: j.id };
         WK_READ++;
         MY.myev = null;
         logSaving = false;
         close();
         lastSig = null;
         if (DATA) renderClasses(DATA.classes || [], true);
+        if (WK_DATA) renderWeek(WK_DATA);
+        document.dispatchEvent(new Event('teacher-feedback-saved'));
       })
       .catch(function(){
         logSaving = false;

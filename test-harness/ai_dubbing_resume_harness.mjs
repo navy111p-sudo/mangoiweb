@@ -302,6 +302,46 @@ test('missing ZIP support and oversized collections explain how to recover',asyn
   await b.start.fire('click');assert.match(b.note.textContent,/파일 내려받기/);assert.equal(b.ready.hidden,true);
 });
 
+function selectedControls(w){const host=w.el('dub-library-bulk');return{start:descendants(host).find(e=>e.tagName==='button'&&e.textContent==='선택한 모둠 내려받기 (ZIP)'),ready:descendants(host).find(e=>e.tagName==='a'),note:descendants(host).find(e=>e.attrs['aria-live']==='polite')};}
+async function selectGroup(w,name){const check=descendants(w.el('dub-library-items')).find(e=>e.tagName==='input'&&e.attrs['aria-label']===name+' 선택');assert.ok(check);check.checked=true;await check.fire('change');}
+test('selected groups persist across searches and ZIP contains only their videos in separate named folders',async()=>{
+  const w=await bulkWorld();assert.equal(selectedControls(w).start.disabled,true);
+  await selectGroup(w,'무지개 모둠');assert.match(w.el('dub-library-bulk').textContent,/선택한 모둠 1개 · 영상 2개/);
+  w.el('dub-library-search').value='다른';await w.el('dub-library-search').fire('input');
+  assert.match(w.el('dub-library-bulk').textContent,/무지개 모둠/);await selectGroup(w,'다른 모둠');
+  const b=selectedControls(w);assert.match(w.el('dub-library-bulk').textContent,/선택한 모둠 2개 · 영상 3개/);await b.start.fire('click');
+  const files=w.archives[0].files;assert.equal(files.length,3);assert.equal(new Set(files.map(f=>f.name.split('/')[0])).size,2);
+  assert.ok(files.every(f=>f.name.split('/').length===2));assert.ok(files.some(f=>f.name.includes('_무지개_모둠/')));assert.ok(files.some(f=>f.name.includes('_다른_모둠/')));
+  assert.deepEqual((await Promise.all(files.map(f=>f.blob.text()))).sort(),['local bytes','private','remote bytes'].sort());
+  assert.match(b.ready.download,/선택한_모둠_2개_더빙영상\.zip$/);assert.equal(b.ready.clicks,1);
+});
+test('select visible groups never adds hidden groups, and clear/refresh/account changes discard selection',async()=>{
+  const w=await bulkWorld();const buttonByText=text=>descendants(w.el('dub-library-bulk')).find(e=>e.tagName==='button'&&e.textContent===text);
+  await buttonByText('보이는 모둠 모두 선택').fire('click');assert.match(w.el('dub-library-bulk').textContent,/1개 · 영상 2개/);
+  await buttonByText('선택 해제').fire('click');assert.equal(selectedControls(w).start.disabled,true);
+  await selectGroup(w,'무지개 모둠');await w.ctx.MangoiDubHome.openLibrary('movies');assert.equal(selectedControls(w).start.disabled,true);
+  await selectGroup(w,'무지개 모둠');w.changeOwner('student:bob');assert.equal(w.el('dub-library-bulk').hidden,true);assert.equal(w.el('dub-library-bulk').children.length,0);
+  await w.ctx.MangoiDubHome.openLibrary('movies');assert.equal(selectedControls(w).start.disabled,true);
+});
+test('group folder names cannot traverse paths or merge after filename sanitization',async()=>{
+  const w=await bulkWorld();w.lib.listMovies=async()=>({movies:[]});
+  const groups=['A/B','A:B','../..','모둠 이름 없음',''];
+  w.localMovies=groups.map((name,i)=>({id:'safe-'+i,meta:{title:(name?name+' · ':'')+'에피소드 1'},blob:new Blob([String(i)])}));
+  w.el('dub-library-search').value='';await w.ctx.MangoiDubHome.openLibrary('movies');
+  await descendants(w.el('dub-library-bulk')).find(e=>e.textContent==='보이는 모둠 모두 선택').fire('click');await selectedControls(w).start.fire('click');
+  const files=w.archives[0].files,folders=files.map(f=>f.name.split('/')[0]);assert.equal(files.length,5);assert.equal(new Set(folders).size,5);
+  for(const f of files){const parts=f.name.split('/');assert.equal(parts.length,2);assert.ok(parts.every(p=>p!=='.'&&p!=='..'&&!/[<>:"\\|?*]/.test(p)));}
+});
+test('changing selected groups cancels a pending multi-group ZIP and a failed group never yields a partial ZIP',async()=>{
+  const w=await bulkWorld();w.el('dub-library-search').value='';await w.el('dub-library-search').fire('input');
+  await descendants(w.el('dub-library-bulk')).find(e=>e.textContent==='보이는 모둠 모두 선택').fire('click');
+  const held=deferred();w.lib.getMovie=()=>held.promise;let b=selectedControls(w);const job=b.start.fire('click');await tick();
+  await descendants(w.el('dub-library-bulk')).find(e=>e.tagName==='button'&&e.textContent==='선택 해제').fire('click');held.resolve(new Blob(['late']));await job;
+  assert.equal(w.archives.length,0);assert.equal(b.ready.clicks,undefined);
+  await descendants(w.el('dub-library-bulk')).find(e=>e.textContent==='보이는 모둠 모두 선택').fire('click');w.lib.getMovie=async()=>{throw new Error('network');};
+  b=selectedControls(w);await b.start.fire('click');assert.equal(w.archives.length,0);assert.equal(b.ready.hidden,true);assert.equal(b.start.disabled,false);
+});
+
 let failed=0;
 for(const {name,fn}of tests){try{await fn();console.log('✅ '+name);}catch(e){failed++;console.error('❌ '+name+'\n   '+e.stack);}}
 console.log(`\nDubbing resume/player: ${tests.length-failed} PASS / ${failed} FAIL`);
