@@ -112,6 +112,15 @@ try {
   for (const n of names) {
     const p = await browser.newPage();
     await p.setViewport({ width: 1280, height: 800 });
+    await p.evaluateOnNewDocument(() => {
+      window.__harnessCapturedInputs = [];
+      const gum = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getUserMedia = async function(constraints) {
+        const stream = await gum(constraints);
+        window.__harnessCapturedInputs.push(...stream.getTracks().map(t => ({kind:t.kind,label:t.label})));
+        return stream;
+      };
+    });
     p.on('pageerror', e => { fail++; console.log('  [pageerror ' + n + ']', e.stack || String(e)); });
     pages.push(p);
   }
@@ -126,8 +135,9 @@ try {
     throw new Error('Test room mismatch; aborting to avoid any shared classroom.');
   }
   chk('전원 고유 테스트 방 확인 (실수업/공용방 제외)', rooms.every(r => r.value === CANONICAL_ROOM));
+  // Inspect capture inputs: teacher output may be a WebAudio mixer track.
   const mediaLabels = await Promise.all(pages.map(p => p.evaluate(() =>
-    typeof vcLocalStream !== 'undefined' && vcLocalStream ? vcLocalStream.getTracks().map(t => ({kind:t.kind,label:t.label})) : [])));
+    window.__harnessCapturedInputs || [])));
   mediaLabels.forEach((tracks, i) => chk(names[i] + ': 가상 카메라·마이크만 사용',
     tracks.some(t => t.kind === 'audio') && tracks.some(t => t.kind === 'video') && tracks.every(t => /fake/i.test(t.label)), JSON.stringify(tracks)));
 
