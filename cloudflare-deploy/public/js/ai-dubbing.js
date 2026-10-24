@@ -1120,7 +1120,7 @@
         var limit = sc.durationSec || 0;
         var cues = C.timedCues(sc), fired = {};     // 🎵 효과음 — 영상 시각(정본 timedCues)에 맞춰 한 번씩
         /* 목소리가 영상을 따라가게 — 영상이 받는 중(버퍼링)이면 같이 서고, 다시 움직이면 같은 시각에서 같이 출발(정본 core) */
-        var follow = C.clockFollower(), els = tracks.map(function (tr) { return tr.el; });
+        var follow = C.clockFollower({ lines: sc.lines }), els = tracks.map(function (tr) { return tr.el; });
         var tick = setInterval(function () {
           if (run.aborted) { finish(); return; }
           if (practiceBusy) return;
@@ -1172,7 +1172,7 @@
             // The whole group is already paused on the dialogue frame. Resume
             // that clock naturally: Safari can advertise seekable audio yet
             // reject a seek after recording, aborting an otherwise valid take.
-            follow = C.clockFollower(); shown = k;
+            follow = C.clockFollower({ lines: sc.lines }); shown = k;
             run.skipNow = previousSkip; setButtons('native'); sndDuck(1);
             practiceBusy = false;
             var vp = v.play(); if (vp && vp.catch) vp.catch(function () {});

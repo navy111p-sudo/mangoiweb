@@ -307,6 +307,7 @@
    *    입모양과 어긋나고, 되감기가 되풀이되어 같은 소리가 겹쳐 들린다(2026-10-21 4편 제보).
    *  · 시계가 다시 움직이면 그 시각으로 맞춰 «같이» 출발한다.
    *  · 평소에는 drift(초)보다 벌어질 때만 되감고, 한 요소를 되감은 뒤 cooldownMs 동안은 다시 안 감는다(되감기 반복 = 끊김).
+   *  · lines가 있으면 대사와 앞뒤 0.12초를 건너뛰지 않는다. 최대 ±3% 속도로 따라가고 무음 구간에서만 위치를 맞춘다.
    *  ⚠️ 시계 요소(영상이 없을 때의 첫 소리 파일)는 건드리지 않는다. 처음부터 멈춰 있던 요소(자동재생 막힘 등)는 세우지도 깨우지도 않는다.
    *  돌려주는 값: 'ok' | 'hold'(이번에 세움) | 'held'(세운 채 기다림) | 'resume'(다시 출발) */
   function clockFollower(opt) {
@@ -315,9 +316,21 @@
     var STILL = isNum(opt.stillTicks) ? opt.stillTicks : 2;
     var COOL = isNum(opt.cooldownMs) ? opt.cooldownMs : 1000;
     var nowFn = opt.now || function () { return Date.now(); };
-    var last = null, still = 0, held = [], seeks = [];
+    var lines = opt.lines || [];
+    var last = null, still = 0, held = [], seeks = [], baseRate = 1;
+    function rate(el, value) { try { el.playbackRate = baseRate * value; } catch (e) {} }
+    function crossesSpeech(a, b) {
+      var lo = Math.min(a, b) - 0.12, hi = Math.max(a, b) + 0.12;
+      return lines.some(function (l) { return isNum(l.start) && isNum(l.end) && l.start <= hi && l.end >= lo; });
+    }
     function play(el) { try { var p = el.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {} }
     function seek(el, t) {
+      /* A hard seek inside a sentence drops (or repeats) syllables. Keep every
+       * sample and converge gently; only jump when the entire gap is silent.
+       * Check the source AND destination, including a short consonant tail. */
+      var at = el.currentTime || 0;
+      if (crossesSpeech(at, t)) { rate(el, Math.abs(t - at) < 0.04 ? 1 : (t > at ? 1.03 : 0.97)); return; }
+      rate(el, 1);
       try { el.currentTime = t; } catch (e) {}
       for (var i = 0; i < seeks.length; i++) if (seeks[i].el === el) { seeks[i].at = nowFn(); return; }
       seeks.push({ el: el, at: nowFn() });
@@ -327,6 +340,7 @@
       return false;
     }
     function step(t, els, clockEl) {
+      baseRate = clockEl && isNum(clockEl.playbackRate) && clockEl.playbackRate > 0 ? clockEl.playbackRate : 1;
       t = isNum(t) ? t : 0;
       var moved = last === null || t > last + 0.01;
       last = t;
@@ -347,6 +361,7 @@
         return 'resume';
       }
       (els || []).forEach(function (el) {
+        if (el && el !== clockEl && Math.abs((el.currentTime || 0) - t) < 0.04) rate(el, 1);
         if (!el || el === clockEl || el.paused || coolingDown(el)) return;
         if (Math.abs((el.currentTime || 0) - t) > DRIFT) seek(el, t);
       });

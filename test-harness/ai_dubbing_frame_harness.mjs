@@ -58,11 +58,11 @@ async function holdTest(code = hold, seekable = false) {
   v.pause = a.pause = () => {}; v.play = a.play = () => { plays++; return Promise.resolve(); };
   const line = { start: 10.24, end: 13.68 }, samples = [];
   const c = { ...ctx, v, run: r, tracks: [{ el: a }], items: [{ line, performer: { idx: 0 } }],
-    practiceBusy: false, caps: {}, limit: 61, ended: false, shown: -2,
+    practiceBusy: false, caps: {}, limit: 61, ended: false, shown: -2, sc: { lines: [line] },
     showLine() { samples.push(v.currentTime); }, setTurn() {}, studentName: () => 'student', charName: () => 'Luna',
     sndDuck() {}, DUCK_STUDENT: 1, setButtons() {}, startCapture: () => ({}),
     waitForPracticeDone: () => Promise.resolve(), closeCap: () => Promise.resolve(),
-    clearLine() {}, C: { clockFollower: () => ({}) }, finish() {}, console,
+    clearLine() {}, C: { clockFollower: options => { assert.equal(options.lines[0], line); return {}; } }, finish() {}, console,
   };
   vm.createContext(c); vm.runInContext(helper + code, c); c.holdPractice(0);
   await new Promise(resolve => setImmediate(resolve));

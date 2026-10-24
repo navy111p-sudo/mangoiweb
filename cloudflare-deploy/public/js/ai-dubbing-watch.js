@@ -244,7 +244,7 @@
           tracks.forEach(function (t) { playEl(run, t.el); });
           var shown = -2, last = -1, lastAt = now();
           /* 목소리가 영상을 따라가게 — 영상이 받는 중(버퍼링)이면 같이 서고, 다시 움직이면 같은 시각에서 같이 출발(정본 core) */
-          var follow = C.clockFollower({ now: now }), els = tracks.map(function (tr) { return tr.el; });
+          var follow = C.clockFollower({ now: now, lines: sc.lines }), els = tracks.map(function (tr) { return tr.el; });
           function endTime() {
             var duration = clock && clock.duration;
             return limit && isFinite(duration) && duration > 0 ? Math.min(limit, duration) : limit || (isFinite(duration) ? duration : 0);
@@ -261,7 +261,7 @@
             if (v && v !== clock) { try { v.currentTime = target; } catch (e) {} }
             tracks.forEach(function (tr) { try { tr.el.currentTime = target; } catch (e) {} });
             // Discard the follower's pre-seek stall state, including while paused.
-            follow = C.clockFollower({ now: now });
+            follow = C.clockFollower({ now: now, lines: sc.lines });
             cues.forEach(function (x, k) { fired[k] = x.at <= target; });
             last = target; lastAt = now();
             shown = C.lineIndexAt(sc.lines, target);
