@@ -1,3 +1,4 @@
+import type { EleaderEngines } from './eleader-engines';
 import { recordTeacherRoomPresence } from './teacher-room-presence';
 import { attachCalendarRecords } from './calendar-records';
 import { WEEKLY_POSTPONE, readWeeklyPostponePlan } from './weekly-postpone';
@@ -201,7 +202,8 @@ export async function handleMangoApi(
   request: Request,
   url: URL,
   env: MangoEnv,
-  ctx?: ExecutionContext   // 🧠 판단력 비동기 분석(waitUntil) 전달용 — 선택적(하위호환)
+  ctx?: ExecutionContext,   // 🧠 판단력 비동기 분석(waitUntil) 전달용 — 선택적(하위호환)
+  eleaderEngines?: EleaderEngines
 ): Promise<Response | null> {
   const path = url.pathname;
   const method = request.method;
@@ -1576,7 +1578,7 @@ export async function handleMangoApi(
     // ═══════════════════════════════════════════════════════════════
     if (path.startsWith('/api/ai/') || path === '/api/admin/ai-command'
         || path === '/api/student/ai-command' || path === '/api/admin/ai-action') {
-      const rAi = await handleAiApi(request, url, env);
+      const rAi = await handleAiApi(request, url, env, eleaderEngines);
       if (rAi) return rAi;
     }
     if (path.startsWith('/api/push/') || path.startsWith('/api/admin/push/')

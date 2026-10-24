@@ -1,3 +1,5 @@
+import type { EleaderEngines } from './eleader-engines';
+import { handleEleaderApi } from './api-eleader';
 // ═══════════════════════════════════════════════════════════════════════
 // 🤖 api-ai.ts — AI 영작 첨삭(AW) + AI 영어친구 챗봇(CF) (25차 분리)
 //   게임화 포인트/배지는 api-points·api-games 의 export 헬퍼 사용.
@@ -38,10 +40,12 @@ import { createJsonTextTap, takeSentences } from './stream-json-text';   // 📡
 export async function handleAiApi(
   request: Request,
   url: URL,
-  env: MangoEnv
+  env: MangoEnv,
+  eleaderEngines?: EleaderEngines
 ): Promise<Response | null> {
   const path = url.pathname;
   const method = request.method;
+  if (path.startsWith('/api/ai/eleader/')) return handleEleaderApi(request, url, env, eleaderEngines);
 
     // ═══════════════════════════════════════════════════════════════
     // ✍️ Phase AW — AI 영작 첨삭 (Grammarly + GPT)
