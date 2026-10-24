@@ -1110,7 +1110,7 @@ window.vcStopMyScreen = async function(){
                     } catch(_){}
                 });
                 try { if (sa.sys) sa.sys.stop(); } catch(_){}
-                try { if (sa.ctx) sa.ctx.close(); } catch(_){}
+                vcCloseAudioContext(sa.ctx);
                 window.__vcScreenAudio = null;
             }
         } catch(_){}
@@ -5921,6 +5921,15 @@ function vcUpdatePraiseRoster(){
         roster.style.display = 'flex';
         // 좁은 영상 칸에선 제목을 감춰 한 줄로 유지
         try { roster.classList.toggle('vpr-narrow', pane.getBoundingClientRect().width < 300); } catch(e){}
+        // Pane width animates after split changes; keep the compact roster in sync.
+        if (!pane.__vcRosterResize && typeof ResizeObserver !== 'undefined') {
+            pane.__vcRosterResize = new ResizeObserver(function(){
+                roster.classList.toggle('vpr-narrow', pane.getBoundingClientRect().width < 300);
+                var toast = document.getElementById('vc-roster-toast');
+                if (toast) toast.style.top = (roster.offsetTop + roster.offsetHeight + 4) + 'px';
+            });
+            pane.__vcRosterResize.observe(pane);
+        }
         // 안내 말풍선은 로스터 줄 '바로 아래'에 표시
         var rt2 = document.getElementById('vc-roster-toast');
         if (rt2){ try { rt2.style.top = (roster.offsetTop + roster.offsetHeight + 4) + 'px'; } catch(e){ rt2.style.top = '48px'; } }
@@ -6519,6 +6528,17 @@ function vcSmartFitAll(){
 window.addEventListener('resize', function(){ setTimeout(vcSmartFitAll, 150); });
 window.addEventListener('orientationchange', function(){ setTimeout(vcSmartFitAll, 350); });
 
+// AudioContext.close() can reject asynchronously when a reconnect and the old
+// animation loop both clean up the same monitor. A synchronous try/catch alone
+// leaves that rejection unhandled.
+function vcCloseAudioContext(ctx) {
+    if (!ctx || ctx.state === 'closed') return;
+    try {
+        const closing = ctx.close();
+        if (closing && typeof closing.catch === 'function') closing.catch(function() {});
+    } catch (_) {}
+}
+
 function attachStreamMonitor(box, stream) {
     if (!box || !stream) return;
     try { vcInstallSmartFit(box.querySelector('video')); } catch(e){}
@@ -6612,7 +6632,7 @@ function attachStreamMonitor(box, stream) {
         if (box.__vsMon.key === monKey) return;                 // 스트림+오디오트랙 동일 = 재등록 불필요
         try { clearInterval(box.__vsMon.iconInt); } catch(e){}
         box.__vsMon.stop = true;
-        try { box.__vsMon.ctx && box.__vsMon.ctx.close(); } catch(e){}
+        vcCloseAudioContext(box.__vsMon.ctx);
         box.__vsMon = null;
     }
     const mon = { key: monKey, stream: stream, stop: false, iconInt: null, ctx: null,
@@ -6637,7 +6657,7 @@ function attachStreamMonitor(box, stream) {
         const data = new Uint8Array(analyser.frequencyBinCount);
         function loop() {
             if (mon.stop || !box.isConnected) {
-                try { ctx.close(); } catch(e) {}
+                vcCloseAudioContext(ctx);
                 if (box.__vsMon === mon) box.__vsMon = null;
                 return;
             }
@@ -6666,7 +6686,8 @@ function attachStreamMonitor(box, stream) {
     } catch(e) {
         // 오디오 트랙이 없으면 createMediaStreamSource 가 던진다. 이때 만들어 둔 AudioContext 를
         // 닫지 않으면 브라우저의 AudioContext 개수 상한을 갉아먹는다(누수). (2026-07-24 재점검)
-        try { if (mon.ctx) { mon.ctx.close(); mon.ctx = null; } } catch(_) {}
+        vcCloseAudioContext(mon.ctx);
+        mon.ctx = null;
         console.warn('음량 분석 실패:', e);
     }
 }
