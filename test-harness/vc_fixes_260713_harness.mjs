@@ -87,6 +87,7 @@ const b = await page.evaluate(async () => {
   try {
     vcRoomId = 'harness-room';
     vcStartPdfPoll();
+    window._vcJoinedRoomId = vcRoomId; // polling starts only after room-joined acknowledgement
     await new Promise(r => setTimeout(r, 1200));
     vcStopPdfPoll();
   } finally { window.fetch = origFetch; }
@@ -117,6 +118,7 @@ const c = await mpage.evaluate(async () => {
     }
   });
   if (grid) grid.setAttribute('data-count', '3');
+  document.getElementById('vc-local-box').style.setProperty('display', 'none', 'important'); // explicit hidden-self fixture
   const out = {};
   out.localHidden = (function(){ const el = document.getElementById('vc-local-box'); return !el || el.offsetWidth === 0; })();
   // 로그인 없음 → 로컬 연출만 (서버 호출 없음)

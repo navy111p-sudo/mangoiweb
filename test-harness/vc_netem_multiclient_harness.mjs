@@ -6,7 +6,7 @@
  *
  *  P1) 다중 동시 접속: 3자 메시(mesh) 전원 P2P connected + 입장→연결 소요시간 측정
  *  P2) 미디어 실흐름: 각 클라이언트 framesDecoded/bytesReceived 실제 증가
- *  P3) 송신 상한 적용: maxBitrate ≤ 1.2Mbps + degradationPreference=balanced (저전력·적응 기반)
+ *  P3) 송신 상한 적용: maxBitrate ≤ 1.2Mbps + maintain-framerate (프레임 유지 정책)
  *  P4) 대역 제한 생존: CDP로 학생1의 HTTP/WS 를 300kbps+400ms 로 조이고 20초 —
  *      수업(WS·P2P)이 튕기지 않는지 확인
  *      ⚠️ CDP Network.emulateNetworkConditions 는 WebRTC UDP 미디어는 조이지 못함.
@@ -29,6 +29,8 @@ const BASE = process.env.BASE_URL || 'https://test.mangoi.co.kr';
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const CLIENTS = Math.min(4, Math.max(2, parseInt(process.env.CLIENTS || '3', 10)));
 const ROOM = 'harness-net-' + Date.now().toString(36);
+// Production normalizes ad-hoc rooms to meet-*; never accept a different room.
+const CANONICAL_ROOM = 'meet-' + ROOM;
 
 let pass = 0, fail = 0;
 const chk = (name, ok, extra) => {
@@ -97,7 +99,7 @@ const browser = await puppeteer.launch({
   args: [
     '--no-sandbox',
     '--use-fake-ui-for-media-stream',      // 권한 팝업 자동 허용
-    '--use-fake-device-for-user-media',    // 가짜 캠(움직이는 패턴)+가짜 마이크(톤)
+    '--use-fake-device-for-media-stream',    // 가짜 캠(움직이는 패턴)+가짜 마이크(톤)
     '--autoplay-policy=no-user-gesture-required',
   ],
 });
@@ -110,13 +112,24 @@ try {
   for (const n of names) {
     const p = await browser.newPage();
     await p.setViewport({ width: 1280, height: 800 });
-    p.on('pageerror', e => console.log('  [pageerror ' + n + ']', String(e).slice(0, 140)));
+    p.on('pageerror', e => { fail++; console.log('  [pageerror ' + n + ']', e.stack || String(e)); });
     pages.push(p);
   }
   const t0 = Date.now();
   await Promise.all(pages.map((p, i) =>
-    p.goto(`${BASE}/?vc_autojoin=1&vc_room=${ROOM}&vc_name=${encodeURIComponent(names[i])}`,
+    p.goto(`${BASE}/?vc_autojoin=1&vc_room=${ROOM}&vc_role=${i===0?'teacher':'student'}&vc_name=${encodeURIComponent(names[i])}`,
       { waitUntil: 'domcontentloaded', timeout: 60000 })));
+
+  const rooms = await Promise.all(pages.map(p => waitFor(p, expected => typeof vcRoomId !== 'undefined' && vcRoomId === expected && vcRoomId, 20000, CANONICAL_ROOM)));
+  if (rooms.some(r => r.value !== CANONICAL_ROOM)) {
+    console.log('Room diagnostics:', JSON.stringify(await Promise.all(pages.map(p=>p.evaluate(()=>({url:location.href,room:typeof vcRoomId==='undefined'?null:vcRoomId,inCall:document.body.classList.contains('vc-in-call'),role:window.vcMyRole,boot:document.body.innerText.slice(-500)}))))));
+    throw new Error('Test room mismatch; aborting to avoid any shared classroom.');
+  }
+  chk('전원 고유 테스트 방 확인 (실수업/공용방 제외)', rooms.every(r => r.value === CANONICAL_ROOM));
+  const mediaLabels = await Promise.all(pages.map(p => p.evaluate(() =>
+    typeof vcLocalStream !== 'undefined' && vcLocalStream ? vcLocalStream.getTracks().map(t => ({kind:t.kind,label:t.label})) : [])));
+  mediaLabels.forEach((tracks, i) => chk(names[i] + ': 가상 카메라·마이크만 사용',
+    tracks.some(t => t.kind === 'audio') && tracks.some(t => t.kind === 'video') && tracks.every(t => /fake/i.test(t.label)), JSON.stringify(tracks)));
 
   const need = CLIENTS - 1;   // 메시: 각자 나머지 전원과 연결
   const joins = await Promise.all(pages.map(p => waitFor(p, connectedFn, 60000, need)));
@@ -159,7 +172,7 @@ try {
   });
   chk('비디오 sender 파라미터 조회됨', params.length > 0, JSON.stringify(params));
   chk('maxBitrate ≤ 1.2Mbps 상한 적용', params.length > 0 && params.every(x => x.br > 0 && x.br <= 1200 * 1000));
-  chk('degradationPreference=balanced', params.length > 0 && params.every(x => x.dp === 'balanced'));
+  chk('degradationPreference=maintain-framerate', params.length > 0 && params.every(x => x.dp === 'maintain-framerate'));
 
   /* ── P4) 대역 제한(300kbps+400ms) 생존 ── */
   console.log('\n[P4] 대역 제한 생존 — 학생1 HTTP/WS 300kbps·400ms 20초 (UDP 미디어는 CDP 한계로 미적용)');
