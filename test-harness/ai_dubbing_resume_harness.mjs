@@ -746,7 +746,7 @@ test('a separate browser restores account upload progress without local storage 
 });
 test('cross-browser original reconnection rejects different same-size bytes and resumes only exact unfinished originals',async()=>{
   const {w,x}=await crossUploadFixture();const original=w.localMovies[0].blob,wrong=new Blob(['x'.repeat(original.size)],{type:original.type});
-  let picker=originalPicker(x);picker.files=[wrong];await picker.fire('change');assert.equal(x.localMovies.length,0);assert.match(x.el('dub-library-upload').textContent,/일치하지 않는 파일 1개/);
+  let picker=originalPicker(x);picker.files=[wrong];await picker.fire('change');assert.equal(x.localMovies.length,0);assert.match(x.el('dub-library-upload').textContent,/연결하지 못한 파일 1개/);
   picker=originalPicker(x);picker.files=w.localMovies.map(m=>m.blob);await picker.fire('change');assert.equal(x.localMovies.length,2);assert.equal(x.uploadCalls.length,0);
   await resumeUpload(x).fire('click');assert.deepEqual(x.uploadCalls.map(c=>c.meta.clientId),['device-1','device-2']);assert.match(x.el('dub-library-upload').textContent,/3 \/ 3개 저장 · 남은 0개/);
 });
@@ -769,6 +769,36 @@ test('an original replaced by different bytes of the same size cannot be uploade
 });
 test('a failed account progress lookup is visible even in a fresh browser without any originals',async()=>{
   const w=world();await w.boot();w.lib.listUploads=async()=>{throw new Error('offline');};await w.ctx.MangoiDubHome.openLibrary('movies');assert.equal(w.el('dub-library-upload').hidden,false);assert.match(w.el('dub-library-upload').textContent,/계정의 저장 진행을 불러오지 못/);
+});
+
+function namedOriginal(blob,name){const f=blob.slice(0,blob.size,blob.type);Object.defineProperty(f,'name',{value:name});return f;}
+const connectionList=w=>descendants(w.el('dub-library-upload')).find(e=>e.attrs['aria-label']==='원본 파일 연결 결과');
+test('a mixed multi-file selection auto-matches originals and reports each filename and distinct reason',async()=>{
+  const {w,x}=await crossUploadFixture(),a=w.localMovies[0].blob,b=w.localMovies[1].blob;
+  const picker=originalPicker(x);picker.files=[namedOriginal(a,'맞는 영상.webm'),namedOriginal(new Blob(['x'.repeat(b.size)]),'다른 내용.webm'),namedOriginal(a,'중복.webm'),namedOriginal(new Blob([]),'빈 파일.webm'),{name:'큰 파일.mp4',size:64*1024*1024+1},namedOriginal(new Blob(['size mismatch'.repeat(10)]),'크기 다름.webm')];
+  await picker.fire('change');assert.equal(x.localMovies.length,1);assert.equal(x.uploadCalls.length,0);
+  const text=connectionList(x).textContent;for(const name of ['맞는 영상.webm','다른 내용.webm','중복.webm','빈 파일.webm','큰 파일.mp4','크기 다름.webm'])assert.ok(text.includes(name));
+  for(const reason of ['남은 영상과 연결','파일 내용이','이미 이 기기에 연결','비어 있는 파일','64MB','파일 크기가 일치하지'])assert.ok(text.includes(reason),reason);
+  assert.equal(descendants(connectionList(x)).filter(e=>e.type==='file').length,4);
+});
+test('retrying a single rejected row preserves earlier successful rows and never uploads implicitly',async()=>{
+  const {w,x}=await crossUploadFixture(),picker=originalPicker(x);picker.files=[namedOriginal(w.localMovies[0].blob,'성공.webm'),namedOriginal(new Blob(['x'.repeat(w.localMovies[1].blob.size)]),'실패.webm')];await picker.fire('change');
+  const retry=descendants(connectionList(x)).find(e=>e.attrs['aria-label']==='실패.webm 다시 선택');retry.files=[namedOriginal(w.localMovies[1].blob,'수정한 원본.webm')];await retry.fire('change');
+  assert.equal(x.localMovies.length,2);assert.equal(x.uploadCalls.length,0);assert.ok(connectionList(x).textContent.includes('성공.webm'));assert.ok(connectionList(x).textContent.includes('수정한 원본.webm'));assert.ok(!connectionList(x).textContent.includes('실패.webm'));
+  assert.equal(descendants(connectionList(x)).filter(e=>e.type==='file').length,0);await resumeUpload(x).fire('click');assert.deepEqual(x.uploadCalls.map(c=>c.meta.clientId),['device-1','device-2']);
+});
+test('unreadable and unstorable files report their names without preventing the next original from connecting',async()=>{
+  for(const mode of ['read','storage']){
+    const {w,x}=await crossUploadFixture(),save=x.lib.storeLocalMovie;let first=true;
+    if(mode==='storage')x.lib.storeLocalMovie=async(...args)=>{if(first){first=false;throw new Error('quota');}return save(...args);};
+    const bad=namedOriginal(w.localMovies[0].blob,'문제 파일.webm');if(mode==='read')bad.arrayBuffer=async()=>{throw new Error('unreadable');};
+    const picker=originalPicker(x);picker.files=[bad,namedOriginal(w.localMovies[1].blob,'다음 원본.webm')];await picker.fire('change');
+    assert.equal(x.localMovies.length,1);assert.ok(connectionList(x).textContent.includes('문제 파일.webm'));assert.match(connectionList(x).textContent,mode==='read'?/파일 내용을 읽지 못/:/원본을 보관하지 못/);assert.ok(connectionList(x).textContent.includes('다음 원본.webm'));assert.equal(x.uploadCalls.length,0);
+  }
+});
+test('a stale retry file control cannot connect originals after an account change',async()=>{
+  const {w,x}=await crossUploadFixture(),picker=originalPicker(x);picker.files=[namedOriginal(new Blob(['x'.repeat(w.localMovies[0].blob.size)]),'실패.webm')];await picker.fire('change');
+  const retry=descendants(connectionList(x)).find(e=>e.type==='file');x.changeOwner('student:bob');retry.files=[w.localMovies[0].blob];await retry.fire('change');assert.equal(x.localMovies.length,0);assert.equal(x.uploadCalls.length,0);
 });
 
 let failed=0;
