@@ -265,7 +265,7 @@ test('video filters never hide saved practice and account changes discard search
 });
 
 function descendants(el){return el.children.flatMap(c=>[c,...descendants(c)]);}
-function bulkControls(w){const section=w.el('dub-library-items').children[0];return{section,start:descendants(section).find(e=>e.tagName==='button'&&e.textContent==='모두 내려받기 (ZIP)'),ready:descendants(section).find(e=>e.tagName==='a'&&e.textContent==='ZIP 다시 내려받기'),note:descendants(section).find(e=>e.attrs['aria-live']==='polite')};}
+function bulkControls(w){const section=w.el('dub-library-items').children[0];return{section,start:descendants(section).find(e=>e.tagName==='button'&&e.textContent==='모두 내려받기 (ZIP)'),ready:descendants(section).find(e=>e.tagName==='a'&&e.textContent==='ZIP 다시 내려받기'),note:descendants(section).find(e=>e.className==='dub-save-note'&&e.attrs['aria-live']==='polite')};}
 async function bulkWorld(){
   const w=world();await w.boot();w.archives=[];
   w.ctx.JSZip=class{constructor(){this.files=[];}file(name,blob){this.files.push({name,blob});}async generateAsync(options){w.archives.push({files:this.files,options});return new Blob(['zip'],{type:'application/zip'});}};
@@ -302,7 +302,7 @@ test('missing ZIP support and oversized collections explain how to recover',asyn
   await b.start.fire('click');assert.match(b.note.textContent,/파일 내려받기/);assert.equal(b.ready.hidden,true);
 });
 
-function selectedControls(w){const host=w.el('dub-library-bulk');return{start:descendants(host).find(e=>e.tagName==='button'&&e.textContent==='선택한 모둠 내려받기 (ZIP)'),ready:descendants(host).find(e=>e.tagName==='a'),note:descendants(host).find(e=>e.attrs['aria-live']==='polite')};}
+function selectedControls(w){const host=w.el('dub-library-bulk');return{start:descendants(host).find(e=>e.tagName==='button'&&e.textContent==='선택한 모둠 내려받기 (ZIP)'),ready:descendants(host).find(e=>e.tagName==='a'),note:descendants(host).find(e=>e.className==='dub-save-note'&&e.attrs['aria-live']==='polite')};}
 async function selectGroup(w,name){const check=descendants(w.el('dub-library-items')).find(e=>e.tagName==='input'&&e.attrs['aria-label']===name+' 선택');assert.ok(check);check.checked=true;await check.fire('change');}
 test('selected groups persist across searches and ZIP contains only their videos in separate named folders',async()=>{
   const w=await bulkWorld();assert.equal(selectedControls(w).start.disabled,true);
@@ -410,6 +410,47 @@ test('a later ZIP failure stops the queue and Download all remains usable for a 
   assert.equal(partButton(w,3).disabled,false);
   const all=descendants(w.el('dub-library-bulk')).find(e=>e.tagName==='button'&&e.textContent==='모두 내려받기');assert.ok(all);assert.equal(all.disabled,false);
   w.lib.getMovie=get;await all.fire('click');assert.equal(w.archives.length,4);
+});
+
+function progressControls(w){const all=descendants(w.el('dub-library-bulk'));return{stop:all.find(e=>e.tagName==='button'&&e.textContent==='중단'),resume:all.find(e=>e.tagName==='button'&&e.textContent==='남은 ZIP 이어받기'),meter:all.find(e=>e.tagName==='progress'),summary:all.find(e=>e.className==='dub-zip-summary')};}
+test('pause between ZIPs shows request progress and resume fetches only the unrequested ZIPs',async()=>{
+  const w=await splitWorld([300,300,300]),held=deferred();let waiting=false;
+  w.ctx.setTimeout=(fn,ms,...args)=>ms===250?(waiting=true,held.promise.then(fn),1):setTimeout(fn,ms,...args);
+  const b=selectedControls(w),job=b.start.fire('click');await until(()=>waiting);
+  let p=progressControls(w);assert.equal(p.meter.max,3);assert.equal(p.meter.value,1);await p.stop.fire('click');assert.match(p.summary.textContent,/중단 중/);assert.equal(p.resume.disabled,true);
+  held.resolve();await job;assert.match(p.summary.textContent,/중단됨/);assert.equal(p.resume.disabled,false);assert.equal(p.resume.hidden,false);assert.deepEqual(w.requests,['v0']);
+  w.ctx.setTimeout=setTimeout;await p.resume.fire('click');
+  assert.deepEqual(w.requests,['v0','v1','v2']);assert.equal(w.archives.length,3);assert.equal(p.meter.value,3);assert.equal(p.resume.hidden,true);assert.match(p.summary.textContent,/모든 ZIP 다운로드 요청됨/);
+});
+test('pause during a ZIP fetch prevents a late download and resume restarts just the unfinished part',async()=>{
+  const w=await splitWorld([300,300,300]),held=deferred(),entered=deferred(),get=w.lib.getMovie;
+  w.lib.getMovie=async id=>{if(id==='v1'){w.requests.push(id);entered.resolve();return held.promise;}return get(id);};
+  const b=selectedControls(w),job=b.start.fire('click');await entered.promise;
+  const p=progressControls(w);assert.match(p.summary.textContent,/전체 3개 중 2번째 ZIP/);assert.equal(p.meter.value,1);
+  await p.stop.fire('click');assert.equal(p.resume.disabled,true);held.resolve(sizedBlob('v1',w.sizes[1]));await job;
+  assert.equal(w.archives.length,1);assert.equal(b.ready.clicks,1);assert.equal(p.resume.disabled,false);
+  w.lib.getMovie=get;await p.resume.fire('click');assert.deepEqual(w.requests,['v0','v1','v1','v2']);assert.equal(b.ready.clicks,3);assert.equal(p.meter.value,3);
+});
+test('a paused ZIP generation cannot request a download after finishing, and remains resumable',async()=>{
+  const w=await splitWorld([300,300]),held=deferred(),entered=deferred(),Base=w.ctx.JSZip;let builds=0;
+  w.ctx.JSZip=class extends Base{async generateAsync(options){builds++;if(builds===2){entered.resolve();await held.promise;}return super.generateAsync(options);}};
+  const b=selectedControls(w),job=b.start.fire('click');await entered.promise;const p=progressControls(w);await p.stop.fire('click');held.resolve();await job;
+  assert.equal(b.ready.clicks,1);assert.equal(p.meter.value,1);await p.resume.fire('click');assert.equal(b.ready.clicks,2);assert.equal(p.meter.value,2);
+});
+test('resume after a middle failure skips both earlier requests and a manually requested later ZIP',async()=>{
+  const w=await splitWorld([300,300,300]),get=w.lib.getMovie;
+  w.lib.getMovie=async id=>{if(id==='v1')throw new Error('offline');return get(id);};await selectedControls(w).start.fire('click');
+  const p=progressControls(w);assert.equal(p.resume.hidden,false);assert.equal(p.meter.value,1);
+  await partButton(w,3).fire('click');assert.equal(p.meter.value,2);
+  const count=w.requests.length;w.lib.getMovie=get;await p.resume.fire('click');assert.deepEqual(w.requests.slice(count),['v1']);assert.equal(p.meter.value,3);
+  const before=p.meter.value;await partButton(w,1).fire('click');assert.equal(p.meter.value,before,'A retry never counts twice');
+});
+test('paused resume buttons cannot fetch another account’s videos or survive closing the library',async()=>{
+  for(const cancel of [w=>w.changeOwner('student:bob'),w=>w.el('dub-library-close').fire('click')]){
+    const w=await splitWorld([300,300]),held=deferred();let waiting=false;w.ctx.setTimeout=(fn,ms,...args)=>ms===250?(waiting=true,held.promise.then(fn),1):setTimeout(fn,ms,...args);
+    const job=selectedControls(w).start.fire('click');await until(()=>waiting);const p=progressControls(w);await p.stop.fire('click');held.resolve();await job;
+    await cancel(w);const before=w.requests.length;await p.resume.fire('click');assert.equal(w.requests.length,before);
+  }
 });
 
 let failed=0;
