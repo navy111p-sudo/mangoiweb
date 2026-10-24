@@ -543,6 +543,11 @@
   async function syncUpload(c, u) {
     if (!L.saveUpload || !L.hasAccount() || !u.record || !uploadCurrent(c, u)) return;
     var snapshot = JSON.parse(JSON.stringify(u.record));
+    if (snapshot.connections) {
+      var delta = connectionPending(u, snapshot.connections);
+      if (delta.rows.length || delta.removed.length) snapshot.connections = { version: 1, rows: delta.rows.slice(0, 25), removed: delta.removed.slice(0, Math.max(0, 25 - Math.min(25, delta.rows.length))) };
+      else delete snapshot.connections;
+    }
     try {
       var response = await L.saveUpload(snapshot, c.owner);
       if (!uploadCurrent(c, u) || !u.record || u.record.id !== snapshot.id) return;
@@ -574,7 +579,7 @@
       u.record = candidates.find(function (r) { return r.entries.some(function (e) { return e.state !== 'saved'; }); }) || candidates[0];
       u.record = JSON.parse(JSON.stringify(u.record));
     }
-    if (u.record) { restoreConnections(c, u); if (remote && remote.connections) applyCloudConnections(c, u, mergeCloudConnections(connectionWire(u), remote.connections)); reconcileUpload(c, u, c.response); rememberUpload(c, u); await syncUpload(c, u); }
+    if (u.record) { restoreConnections(c, u); remote = c.uploads.find(function (r) { return r.id === u.record.id; }); if (remote && remote.connections) { u.connectionAckHistory = mergeCloudConnections(u.connectionAckHistory, remote.connections); u.connectionAck = connectionSignature(u.connectionAckHistory); } if (remote && remote.connections) applyCloudConnections(c, u, mergeCloudConnections(connectionWire(u), remote.connections)); reconcileUpload(c, u, c.response); rememberUpload(c, u); await syncUpload(c, u); }
   }
   async function originalHash(blob) {
     if (!blob || blob.size > 64 * 1024 * 1024 || !window.crypto || !window.crypto.subtle) throw new Error('original_hash_unavailable');
@@ -599,6 +604,29 @@
     return { version: 1, rows: Array.from(rows.values()), removed: removed };
   }
   function connectionSignature(h) { return JSON.stringify({ rows: h.rows.slice().sort(function (a, b) { return a.key.localeCompare(b.key); }), removed: h.removed.slice().sort() }); }
+  function connectionPending(u, wire) {
+    var ack = u.connectionAckHistory || { rows: [], removed: [] }, rows = new Map(ack.rows.map(function (r) { return [r.key, r]; })), removed = new Set(ack.removed);
+    return { rows: wire.rows.filter(function (r) { var old = rows.get(r.key); return !removed.has(r.key) && (!old || old.seq < r.seq || old.seq === r.seq && JSON.stringify(old) !== JSON.stringify(r)); }), removed: wire.removed.filter(function (key) { return !removed.has(key); }) };
+  }
+  async function retryConnectionSync(c, u) {
+    if (!uploadCurrent(c, u) || !u.record || u.connectionSyncing || u.historyChanged) return;
+    var jobId = u.record.id; u.connectionSyncing = true; u.connectionCloudError = false; drawCatalogue();
+    try {
+      var response = await L.listUploads();
+      if (!uploadCurrent(c, u) || !u.record || u.record.id !== jobId) return;
+      if (!response || !Array.isArray(response.uploads) || !Array.isArray(response.removed) || response.uploads.some(function (r) { return !validUpload(r, c.owner); })) throw new Error('invalid_upload');
+      if (response.removed.indexOf(jobId) >= 0) { u.historyChanged = true; throw new Error('upload_removed'); }
+      var remote = response.uploads.find(function (r) { return r.id === jobId; });
+      if (remote) {
+        u.record = mergeUpload(u.record, remote);
+        if (remote.connections) { u.connectionAckHistory = mergeCloudConnections(u.connectionAckHistory, remote.connections); u.connectionAck = connectionSignature(u.connectionAckHistory); applyCloudConnections(c, u, u.record.connections); }
+      }
+    } catch (_) { if (uploadCurrent(c, u) && u.record && u.record.id === jobId) u.connectionCloudError = true; }
+    finally { u.connectionSyncing = false; }
+    if (!uploadCurrent(c, u) || !u.record || u.record.id !== jobId) return;
+    if (!u.connectionCloudError) return queueConnectionSync(c, u);
+    drawCatalogue();
+  }
   function connectionWire(u) {
     return { version: 1, rows: (u.connectionResults || []).map(function (r) {
       var data = { key: r.key, name: r.name, code: r.outcome || r.code, movieIds: r.movieIds || [], ...(r.sha256 ? { sha256: r.sha256 } : {}) }, sig = JSON.stringify(data);
@@ -620,12 +648,13 @@
   function queueConnectionSync(c, u) {
     if (!L.saveUpload || !L.hasAccount() || !uploadCurrent(c, u) || !u.record || u.historyChanged) return Promise.resolve();
     if (u.connectionSyncing) return u.connectionPromise;
-    var jobId = u.record.id; u.connectionSyncing = true;
+    var jobId = u.record.id; u.connectionSyncing = true; u.connectionCloudError = false;
     u.connectionPromise = (async function () {
       try {
         while (uploadCurrent(c, u) && u.record && u.record.id === jobId) {
-          var wire = connectionWire(u); if (connectionSignature(wire) === u.connectionAck) break;
-          u.record.connections = wire; await syncUpload(c, u);
+          var wire = connectionWire(u), pending = connectionPending(u, wire); if (!pending.rows.length && !pending.removed.length) { u.connectionCloudSaved = true; break; }
+          u.record.connections = wire; drawCatalogue(); await syncUpload(c, u);
+          if (uploadCurrent(c, u)) drawCatalogue();
           if (!uploadCurrent(c, u) || u.historyChanged || !u.cloudSaved) break;
         }
       } catch (_) { u.connectionCloudError = true; u.connectionCloudSaved = false; }
@@ -762,7 +791,18 @@
     section.append(node('p', 'dub-save-note', t('연결되지 않은 파일은 이유를 확인하고 옆의 파일 선택으로 다시 골라 주세요. 이 기기에서 연결된 파일은 다시 선택하지 않아도 돼요.', 'For an unconnected file, check its reason and select a replacement beside it. Files connected on this device do not need to be selected again.')));
     section.append(node('p', 'dub-save-note', u.connectionRemembered ? t('파일 이름과 연결 결과를 기억해요. 다시 열면 연결되지 않은 파일만 먼저 보여요. 연결되지 않은 파일은 다시 선택해야 해요.', 'Names and results are remembered for this account. Reopening shows unconnected files first. Unconnected files must be selected again.') : t('파일별 결과를 이 브라우저에 저장하지 못했어요. 화면을 닫기 전에 브라우저 저장 공간·설정을 확인해 주세요.', 'File results could not be remembered. Check browser storage before closing.')));
     var resultsSynced = u.connectionCloudSaved && !u.connectionSyncing && connectionSignature(connectionWire(u)) === u.connectionAck;
-    if (L.saveUpload) section.append(node('p', 'dub-save-note', u.connectionCloudError ? t('파일별 결과를 계정에 동기화하지 못했어요. 이 기기의 기록은 유지돼요. 연결을 확인하고 보관함을 새로고침해 주세요.', 'File results could not sync to your account. Device history is kept. Check your connection and refresh the library.') : resultsSynced ? t('✓ 파일별 결과가 계정에 동기화됐어요. 다른 기기에서 같은 계정으로 로그인해도 불러와요. 그 기기에 없는 원본은 다시 선택해 주세요.', '✓ File results are synced to your account. Sign in on another device to restore them. Reselect originals missing on that device.') : t('파일별 결과를 계정에 동기화하는 중… 완료 안내를 확인해 주세요.', 'Syncing file results to your account… Wait for confirmation.')));
+    if (L.saveUpload) section.append(node('p', 'dub-save-note', u.connectionCloudError ? t('파일별 결과를 계정에 동기화하지 못했어요. 이 기기의 기록은 유지돼요. 연결을 확인한 뒤 남은 기록만 다시 동기화해 주세요.', 'File results could not sync to your account. Device history is kept. Retry the remaining records.') : resultsSynced ? t('✓ 파일별 결과가 계정에 동기화됐어요. 다른 기기에서 같은 계정으로 로그인해도 불러와요. 그 기기에 없는 원본은 다시 선택해 주세요.', '✓ File results are synced to your account. Sign in on another device to restore them. Reselect originals missing on that device.') : t('파일별 결과를 계정에 동기화하는 중… 완료 안내를 확인해 주세요.', 'Syncing file results to your account… Wait for confirmation.')));
+    if (L.saveUpload && L.hasAccount()) {
+      var wire = connectionWire(u), pending = connectionPending(u, wire), total = wire.rows.length + wire.removed.length, remaining = pending.rows.length + pending.removed.length, completed = total - remaining;
+      var progressText = node('p', 'dub-save-note', t('계정 동기화: ', 'Account sync: ') + completed + ' / ' + total + t('개 완료 · 남은 기록 ', ' complete · Remaining ') + remaining + t('개', '') + (wire.removed.length ? t(' (교체된 기록 정리 포함)', ' (including replaced records)') : ''));
+      progressText.setAttribute('role', 'status'); progressText.setAttribute('aria-live', 'polite'); section.append(progressText);
+      var meter = node('progress'); meter.max = Math.max(1, total); meter.value = completed; meter.setAttribute('aria-label', t('파일별 연결 결과 계정 동기화', 'File result account sync')); section.append(meter);
+      if (u.connectionCloudError && remaining) {
+        var retrySync = node('button', 'btn btn-secondary', t('남은 기록 다시 동기화', 'Retry remaining records')); retrySync.type = 'button'; retrySync.disabled = !!u.connectionSyncing || !!u.historyChanged;
+        retrySync.addEventListener('click', function () { return retryConnectionSync(c, u); }); section.append(retrySync);
+        if (u.historyChanged) section.append(node('p', 'dub-save-note', t('계정의 기록이 바뀌었어요. 보관함을 새로고침해 주세요.', 'Account history changed. Refresh the library.')));
+      }
+    }
     var failures = u.connectionResults.filter(connectionRetry), filterLabel = node('label', 'dub-original-filter'), filter = node('input'); filter.type = 'checkbox'; filter.checked = !!u.connectionOnlyFailed; filter.disabled = u.busy;
     filter.setAttribute('aria-label', t('연결되지 않은 파일만 보기', 'Show only unconnected files'));
     filter.addEventListener('change', function () { if (!uploadCurrent(c, u) || u.busy) return; u.connectionOnlyFailed = filter.checked; drawCatalogue(); });

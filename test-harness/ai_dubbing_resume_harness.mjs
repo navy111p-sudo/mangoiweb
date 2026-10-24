@@ -868,6 +868,22 @@ test('another account and a cloud-deleted upload job cannot restore private file
   server.removed.add(server.jobs[0].id);server.jobs=[];await x.ctx.MangoiDubHome.openLibrary('movies');assert.equal(connectionList(x),undefined);assert.equal(server.jobs.length,0);
 });
 
+test('file result sync reports partial progress and retry sends only unconfirmed records',async()=>{
+  const {x,server}=await crossUploadFixture();server.offline=true;
+  const picker=originalPicker(x);picker.files=Array.from({length:60},(_,i)=>namedOriginal(new Blob([]),'빈 파일 '+i+'.webm'));await picker.fire('change');for(let n=0;n<15;n++)await tick();
+  const button=()=>descendants(connectionList(x)).find(e=>e.tagName==='button'&&e.textContent==='남은 기록 다시 동기화');assert.ok(button());
+  server.offline=false;const save=x.lib.saveUpload,sent=[];let calls=0;
+  x.lib.saveUpload=async(job,owner)=>{if(job.connections){sent.push(structuredClone(job.connections));if(++calls===2)throw new Error('offline');}return save(job,owner);};
+  await button().fire('click');assert.match(connectionList(x).textContent,/25 \/ 60개 완료 · 남은 기록 35개/);assert.ok(button());
+  const acknowledged=new Set(sent[0].rows.map(r=>r.key));sent.length=0;await button().fire('click');
+  assert.match(connectionList(x).textContent,/60 \/ 60개 완료 · 남은 기록 0개/);assert.equal(button(),undefined);assert.equal(sent.reduce((n,h)=>n+h.rows.length,0),35);assert.ok(sent.every(h=>h.rows.every(r=>!acknowledged.has(r.key))));assert.equal(x.uploadCalls.length,0);
+});
+test('retry reads account acknowledgements after a lost response instead of resending committed file results',async()=>{
+  const {x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=[namedOriginal(new Blob([]),'빈 파일.webm')];await picker.fire('change');for(let n=0;n<10;n++)await tick();server.offline=false;
+  const save=x.lib.saveUpload;let calls=0;x.lib.saveUpload=async(...args)=>{calls++;const response=await save(...args);throw new Error('lost response');};
+  const button=()=>descendants(connectionList(x)).find(e=>e.tagName==='button'&&e.textContent==='남은 기록 다시 동기화');await button().fire('click');assert.equal(calls,1);assert.ok(button());await button().fire('click');assert.equal(calls,1);assert.match(connectionList(x).textContent,/1 \/ 1개 완료 · 남은 기록 0개/);
+});
+
 let failed=0;
 for(const {name,fn}of tests){try{await fn();console.log('✅ '+name);}catch(e){failed++;console.error('❌ '+name+'\n   '+e.stack);}}
 console.log(`\nDubbing resume/player: ${tests.length-failed} PASS / ${failed} FAIL`);
