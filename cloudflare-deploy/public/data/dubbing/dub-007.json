@@ -502,14 +502,14 @@
       "mood": "triumph",
       "durationSec": 61,
       "playbackStartSec": 2,
-      "video": "/media/dubbing/dub-007/scene-6.mp4?v=2",
+      "video": "/media/dubbing/dub-007/scene-6.mp4?v=3",
       "poster": "/media/dubbing/dub-007/scene-6.jpg?v=2",
       "videoAudio": "mute",
       "voices": {
         "luna": "/media/dubbing/dub-007/scene-6-luna.mp3?v=4",
         "zio": "/media/dubbing/dub-007/scene-6-zio.mp3?v=4",
         "nova": "/media/dubbing/dub-007/scene-6-nova.mp3?v=4",
-        "nora": "/media/dubbing/dub-007/scene-6-nora.mp3?v=4"
+        "nora": "/media/dubbing/dub-007/scene-6-nora.mp3?v=5"
       },
       "lines": [
         {
@@ -557,8 +557,8 @@
           "speaker": "nora",
           "en": "Welcome home, our brave astronaut.",
           "ko": "용감한 우주비행사야, 집에 온 걸 환영해.",
-          "start": 46.88,
-          "end": 50.01
+          "start": 47.296667,
+          "end": 50.426667
         }
       ],
       "sfx": [
@@ -573,7 +573,7 @@
           "gain": 0.2
         },
         {
-          "t": 50.2,
+          "t": 50.616667,
           "name": "chime",
           "gain": 0.18
         }
@@ -587,6 +587,12 @@
     "music": "Original instrumental space score and synthetic effects; no speech in background tracks",
     "guest": "The visible ground controller delivering the final greeting is Mom Nora, not Nova.",
     "review": "Revision 2: 61 seconds per episode, isolated speaker framing, baked BGM dialogue ducking, timed low-gain SFX rendered from the same app sound recipes; media cache version 2.",
-    "ep6AudioRestoration": "Original recorded tails recovered; line 4 restored from one continuous original utterance; no synthesized speech; role audio cache v4."
+    "ep6AudioRestoration": "Original recorded tails recovered; line 4 restored from one continuous original utterance; no synthesized speech; role audio cache v4.",
+    "ep6DialogueSpacing": {
+      "gapSec": 0.516667,
+      "insertSec": 0.4166666666666667,
+      "videoCutSec": 46.791666666666664,
+      "method": "10-frame reaction hold after shot change; Nora audio and later SFX shifted equally; original speech unchanged; unused ending trimmed to retain 61 seconds."
+    }
   }
 }
