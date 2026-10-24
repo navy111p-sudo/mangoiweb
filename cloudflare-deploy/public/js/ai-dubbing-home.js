@@ -562,7 +562,7 @@
     var u = uploadState(c);
     if (u.record && response.removed.indexOf(u.record.id) >= 0) {
       if (uploadJob) { u.stopped = true; u.historyChanged = true; u.reason = t('계정에서 삭제된 진행 기록이에요. 보관함을 새로고침해 주세요.', 'This progress was removed from your account. Refresh the library.'); return; }
-      localStorage.removeItem(uploadKey(c.owner)); u.record = null; u.persistedId = null; u.selected.clear();
+      localStorage.removeItem(connectionKey(c.owner, u.record.id)); localStorage.removeItem(uploadKey(c.owner)); u.record = null; u.persistedId = null; u.selected.clear();
     }
     var remote = u.record && c.uploads.find(function (r) { return r.id === u.record.id; });
     if (remote) u.record = mergeUpload(u.record, remote);
@@ -578,8 +578,53 @@
     var bytes = await blob.arrayBuffer(), hash = await window.crypto.subtle.digest('SHA-256', bytes);
     return Array.from(new Uint8Array(hash)).map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
   }
+  var CONNECTION_KEY = 'mangoi_dub_connections_v1:';
+  function connectionKey(owner, jobId) { return CONNECTION_KEY + encodeURIComponent(owner) + ':' + jobId; }
+  function connectionRetry(r) { return ['connected', 'duplicate', 'saved', 'pending'].indexOf(r.code) < 0; }
+  function saveConnections(c, u) {
+    if (!uploadCurrent(c, u) || !u.record || u.connectionRecordId !== u.record.id) return;
+    try {
+      var rows = (u.connectionResults || []).map(function (r) { return { id: r.id, name: r.name, code: r.code, movieIds: r.movieIds || [], ...(r.sha256 ? { sha256: r.sha256 } : {}) }; });
+      var raw = JSON.stringify({ version: 1, owner: c.owner, jobId: u.record.id, rows: rows });
+      if (rows.length > 2000 || raw.length > 1024 * 1024) throw new Error('connection_history_limit');
+      localStorage.setItem(connectionKey(c.owner, u.record.id), raw); u.connectionRemembered = true; u.connectionHistoryError = false;
+    } catch (_) { u.connectionRemembered = false; }
+  }
+  function reconcileConnections(c, u) {
+    var entries = new Map(u.record.entries.map(function (e) { return [e.id, e]; }));
+    (u.connectionResults || []).forEach(function (r) {
+      var matches = (r.movieIds || []).map(function (id) { return entries.get(id); }).filter(Boolean);
+      if (!matches.length && r.code === 'pending' && r.sha256) matches = u.record.entries.filter(function (e) { return e.sha256 === r.sha256; });
+      r.movieIds = matches.map(function (e) { return e.id; });
+      r.titles = matches.filter(function (e) { return e.state === 'saved' || c.items.some(function (m) { return m.local && sameUpload(e, m); }); }).map(function (e) { return e.title; });
+      var available = matches.length && matches.every(function (e) { return e.state === 'saved' || c.items.some(function (m) { return m.local && sameUpload(e, m); }); });
+      if (available) r.code = matches.every(function (e) { return e.state === 'saved'; }) ? 'saved' : 'connected';
+      else if (['connected', 'duplicate', 'saved', 'pending'].indexOf(r.code) >= 0) r.code = c.localError ? 'check' : r.code === 'pending' ? 'stopped' : 'lost';
+    });
+  }
+  function restoreConnections(c, u) {
+    if (!u.record || u.connectionRecordId === u.record.id) return;
+    u.connectionRecordId = u.record.id; u.connectionResults = []; u.connectionSeq = 0; u.connectionOnlyFailed = true; u.connectionRemembered = true; u.connectionHistoryError = false;
+    try {
+      var raw = localStorage.getItem(connectionKey(c.owner, u.record.id)); if (!raw) return;
+      if (raw.length > 1024 * 1024) throw new Error('connection_history_limit');
+      var saved = JSON.parse(raw), ids = new Set(), movieIds = new Set(u.record.entries.map(function (e) { return e.id; }));
+      if (!saved || saved.version !== 1 || saved.owner !== c.owner || saved.jobId !== u.record.id || !Array.isArray(saved.rows) || saved.rows.length > 2000) throw new Error('invalid_connection_history');
+      u.connectionResults = saved.rows.map(function (r) {
+        if (!r || !Number.isSafeInteger(r.id) || r.id <= 0 || ids.has(r.id) || typeof r.name !== 'string' || r.name.length > 1000
+          || ['pending', 'connected', 'duplicate', 'saved', 'empty', 'large', 'size', 'content', 'legacy', 'read', 'storage', 'stopped', 'lost', 'check'].indexOf(r.code) < 0
+          || !Array.isArray(r.movieIds) || r.movieIds.length > 2000 || new Set(r.movieIds).size !== r.movieIds.length || r.movieIds.some(function (id) { return !movieIds.has(id); })
+          || r.sha256 !== undefined && (typeof r.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(r.sha256))) throw new Error('invalid_connection_history');
+        ids.add(r.id); u.connectionSeq = Math.max(u.connectionSeq, r.id);
+        return { id: r.id, name: r.name, code: r.code, movieIds: r.movieIds.slice(), titles: [], ...(r.sha256 ? { sha256: r.sha256 } : {}) };
+      });
+      reconcileConnections(c, u); saveConnections(c, u);
+    } catch (_) { u.connectionResults = []; u.connectionHistoryError = true; }
+  }
   function connectionReason(code) {
     var reasons = {
+      lost: ['연결했던 원본이 이 기기에 없어요. 원본 파일을 다시 선택해 주세요.', 'The connected original is missing on this device. Select it again.'],
+      check: ['이 기기의 원본을 확인하지 못했어요. 보관함을 새로고침하거나 원본을 다시 선택해 주세요.', 'Could not check device originals. Refresh the library or select the original again.'],
       pending: ['원본 내용을 확인하는 중이에요.', 'Checking original content.'],
       connected: ['남은 영상과 연결했어요. 이어서 저장할 수 있어요.', 'Connected to remaining videos. Ready to resume.'],
       duplicate: ['이 원본은 이미 이 기기에 연결돼 있어요.', 'This original is already connected on this device.'],
@@ -597,19 +642,24 @@
   }
   async function connectOriginals(c, u, files, retryId) {
     if (!uploadCurrent(c, u) || u.busy || uploadJob || bulkJob || !u.record || !L.storeLocalMovie || !files.length) return;
-    u.connectionResults = u.connectionResults || []; u.connectionSeq = u.connectionSeq || 0;
+    restoreConnections(c, u);
+    if ((u.connectionResults || []).length + files.length - (retryId ? 1 : 0) > 2000) { u.reason = t('연결 결과는 작업당 2,000개까지 기억할 수 있어요. 파일을 나눠 선택하거나 진행 기록을 정리해 주세요.', 'A job can remember up to 2,000 file results. Select fewer files or remove old progress.'); drawCatalogue(); return; }
+    var jobId = u.record.id, epoch = u.connectionEpoch = (u.connectionEpoch || 0) + 1;
+    function current() { return uploadCurrent(c, u) && u.record && u.record.id === jobId && u.connectionEpoch === epoch; }
+    if (!retryId) u.connectionOnlyFailed = false; u.connectionResults = u.connectionResults || []; u.connectionSeq = u.connectionSeq || 0;
     // Keep descriptors only in the result list, never File objects or video bytes.
     var rows = files.map(function (file, i) {
-      var row = { id: retryId && i === 0 ? retryId : ++u.connectionSeq, name: file.name || t('이름 없는 파일 ', 'Unnamed file ') + (i + 1), code: 'pending', titles: [] };
+      var row = { id: retryId && i === 0 ? retryId : ++u.connectionSeq, name: file.name || t('이름 없는 파일 ', 'Unnamed file ') + (i + 1), code: 'pending', titles: [], movieIds: [] };
       var old = u.connectionResults.findIndex(function (r) { return r.id === row.id; });
       if (old >= 0) u.connectionResults[old] = row; else u.connectionResults.push(row); return row;
     });
-    u.busy = true; u.connecting = true; u.stopped = false; u.reason = ''; drawCatalogue();
+    u.busy = true; u.connecting = true; u.stopped = false; u.reason = ''; saveConnections(c, u); drawCatalogue();
     var connected = 0, rejected = 0;
     try {
       for (var i = 0; i < files.length; i++) {
-        if (!uploadCurrent(c, u)) return;
+        if (!current()) return;
         var file = files[i], row = rows[i];
+        try {
         if (u.stopped) { row.code = 'stopped'; rejected++; continue; }
         if (!file.size) { row.code = 'empty'; rejected++; continue; }
         if (file.size > 64 * 1024 * 1024) { row.code = 'large'; rejected++; continue; }
@@ -617,40 +667,49 @@
         if (!sameSize.length) { row.code = 'size'; rejected++; continue; }
         var hash;
         try { hash = await originalHash(file); }
-        catch (_) { if (!uploadCurrent(c, u)) return; row.code = 'read'; rejected++; continue; }
-        if (!uploadCurrent(c, u)) return;
+        catch (_) { if (!current()) return; row.code = 'read'; rejected++; continue; }
+        if (!current()) return;
         if (u.stopped) { row.code = 'stopped'; rejected++; continue; }
+        row.sha256 = hash; saveConnections(c, u);
         var exact = sameSize.filter(function (e) { return e.sha256 === hash; });
         var matches = exact.filter(function (e) { return e.state !== 'saved' && !c.items.some(function (m) { return m.local && sameUpload(e, m); }); });
+        row.movieIds = exact.map(function (e) { return e.id; }); saveConnections(c, u);
         if (!matches.length) {
           row.code = exact.some(function (e) { return e.state !== 'saved'; }) ? 'duplicate' : exact.length ? 'saved' : sameSize.some(function (e) { return e.state !== 'saved' && !e.sha256; }) ? 'legacy' : 'content';
           if (row.code !== 'duplicate' && row.code !== 'saved') rejected++; continue;
         }
         row.code = 'connected';
         for (var j = 0; j < matches.length; j++) {
-          if (!uploadCurrent(c, u)) return;
+          if (!current()) return;
           if (u.stopped) { row.code = 'stopped'; break; }
           var e = matches[j], blob = file.slice(0, file.size, e.mime), meta = { clientId: e.id, title: e.title, engine: e.engine, episodeId: e.episodeId, durationMs: e.durationMs || 0, interrupted: !!e.interrupted };
           try { await L.storeLocalMovie(blob, meta, c.owner); }
-          catch (_) { if (!uploadCurrent(c, u)) return; row.code = 'storage'; break; }
-          if (!uploadCurrent(c, u)) return;
-          c.items.push(Object.assign({}, meta, { id: e.id, local: true, blob: blob, createdAt: Date.now() })); e.state = 'pending'; e.error = ''; u.selected.add(e.id); row.titles.push(e.title); connected++;
+          catch (_) { if (!current()) return; row.code = 'storage'; break; }
+          if (!current()) return;
+          c.items.push(Object.assign({}, meta, { id: e.id, local: true, blob: blob, createdAt: Date.now() })); e.state = 'pending'; e.error = ''; u.selected.add(e.id); row.titles.push(e.title); connected++; saveConnections(c, u);
         }
         if (row.code !== 'connected') rejected++;
         rememberUpload(c, u); drawCatalogue();
+        } finally { if (current()) saveConnections(c, u); }
       }
       rememberUpload(c, u);
       u.reason = t('원본 ' + connected + '개 연결 · 연결하지 못한 파일 ' + rejected + '개. 아래 파일별 결과를 확인하세요. 연결된 영상은 ‘남은 영상 이어서 저장’을 눌러 저장하세요.', connected + ' originals connected; ' + rejected + ' files need attention. Check each result below, then choose Resume to save connected videos.');
-    } finally { u.busy = false; u.connecting = false; if (uploadCurrent(c, u)) drawCatalogue(); }
+    } finally { if (u.connectionEpoch === epoch) { u.busy = false; u.connecting = false; if (current()) { saveConnections(c, u); drawCatalogue(); } } }
   }
   function connectionResults(c, u, host) {
     if (!u.connectionResults || !u.connectionResults.length) return;
     var section = node('section', 'dub-original-results'); section.setAttribute('aria-label', t('원본 파일 연결 결과', 'Original file connection results'));
     section.append(node('h4', '', t('파일별 연결 결과', 'File connection results')));
     section.append(node('p', 'dub-save-note', t('연결되지 않은 파일은 이유를 확인하고 옆의 파일 선택으로 다시 골라 주세요. 성공한 파일은 다시 선택하지 않아도 돼요.', 'For an unconnected file, check its reason and select a replacement beside it. Successful files do not need to be selected again.')));
+    section.append(node('p', 'dub-save-note', u.connectionRemembered ? t('파일 이름과 연결 결과를 이 기기·브라우저에 기억해요. 다시 열면 연결되지 않은 파일만 먼저 보여요. 연결되지 않은 파일은 다시 선택해야 해요.', 'Names and results are remembered in this browser. Reopening shows unconnected files first. Unconnected files must be selected again.') : t('파일별 결과를 이 브라우저에 저장하지 못했어요. 화면을 닫기 전에 브라우저 저장 공간·설정을 확인해 주세요.', 'File results could not be remembered. Check browser storage before closing.')));
+    var failures = u.connectionResults.filter(connectionRetry), filterLabel = node('label', 'dub-original-filter'), filter = node('input'); filter.type = 'checkbox'; filter.checked = !!u.connectionOnlyFailed; filter.disabled = u.busy;
+    filter.setAttribute('aria-label', t('연결되지 않은 파일만 보기', 'Show only unconnected files'));
+    filter.addEventListener('change', function () { if (!uploadCurrent(c, u) || u.busy) return; u.connectionOnlyFailed = filter.checked; drawCatalogue(); });
+    filterLabel.append(filter, node('span', '', t('연결되지 않은 파일만 보기', 'Show only unconnected files') + ' · ' + failures.length + t('개', ''))); section.append(filterLabel);
+    if (u.connectionOnlyFailed && !failures.length) section.append(node('p', '', t('다시 선택할 파일이 없어요. 연결된 영상은 ‘남은 영상 이어서 저장’을 눌러 저장하세요.', 'No files need reselecting. Choose Resume to save connected videos.')));
     var list = node('ul');
-    u.connectionResults.forEach(function (r) {
-      var item = node('li'), retry = ['connected', 'duplicate', 'saved', 'pending'].indexOf(r.code) < 0;
+    u.connectionResults.filter(function (r) { return !u.connectionOnlyFailed || connectionRetry(r); }).forEach(function (r) {
+      var item = node('li'), retry = connectionRetry(r);
       item.append(node('strong', '', r.name), node('p', '', connectionReason(r.code)));
       if (r.titles.length) item.append(node('p', '', t('연결된 영상: ', 'Connected videos: ') + r.titles.join(' · ')));
       if (retry) {
@@ -741,7 +800,7 @@
   }
   function uploadBar(c, shown) {
     var host = $('dub-library-upload'); if (!host || c.kind !== 'movies') return;
-    var locals = c.items.filter(function (m) { return m.local; }), u = uploadState(c); u.checks = new Map();
+    var locals = c.items.filter(function (m) { return m.local; }), u = uploadState(c); restoreConnections(c, u); u.checks = new Map();
     if (!locals.length && !u.record && !u.historyError && !u.cloudError) return;
     host.hidden = false;
     host.append(node('h3', '', t('이 기기의 영상, 계정에 모아 저장', 'Save device videos to your account')));
@@ -790,13 +849,14 @@
       }
       if (c.localError) host.append(node('p', 'dub-save-note', t('이 기기의 원본 영상을 불러오지 못했어요. 브라우저 저장 설정을 확인하고 보관함을 새로고침해 주세요.', 'Could not load device originals. Check browser storage and refresh the library.')));
     }
+    if (u.connectionHistoryError) host.append(node('p', 'dub-save-note', t('파일별 연결 기록을 읽지 못했어요. 원본 영상은 유지돼요. 필요한 파일을 다시 선택해 주세요.', 'Could not read file connection history. Originals are kept. Select the files again.')));
     if (u.record) connectionResults(c, u, host);
     if (u.record || u.historyError) {
       var remove = button(t('저장 진행 기록 지우기', 'Remove save progress'), async function () {
         if (!uploadCurrent(c, u) || u.busy || uploadJob) return;
         try {
           if (L.deleteUpload && u.record) { u.busy = true; await L.deleteUpload(u.record.id, c.owner); if (!uploadCurrent(c, u)) return; c.uploads = (c.uploads || []).filter(function (r) { return r.id !== u.record.id; }); u.busy = false; }
-          localStorage.removeItem(uploadKey(c.owner)); u.record = null; u.persistedId = null; u.historyError = false; u.historyChanged = false; u.total = 0; u.reason = ''; u.results.clear(); await refresh(); }
+          if (u.record) localStorage.removeItem(connectionKey(c.owner, u.record.id)); localStorage.removeItem(uploadKey(c.owner)); u.record = null; u.persistedId = null; u.historyError = false; u.historyChanged = false; u.total = 0; u.reason = ''; u.results.clear(); await refresh(); }
         catch (_) { u.busy = false; status(t('진행 기록을 지우지 못했어요. 브라우저 저장 설정을 확인해 주세요.', 'Could not remove progress. Check browser storage settings.')); }
       }); remove.disabled = u.busy; controls.append(remove);
       if (L.deleteUpload) host.append(node('p', 'dub-save-note', t('진행 기록을 지우면 모든 기기에서 해당 작업 기록만 사라져요. 저장된 영상과 원본은 유지돼요.', 'Removing progress clears this job on all devices. Saved videos and originals are kept.')));
@@ -1080,7 +1140,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-library-view]'), function (b) { b.addEventListener('click', function () { openLibrary(b.getAttribute('data-library-view')); }); });
     L.onAccountChange(function () { ++generation; catalogue = null; clearItems(); if ($('dub-library-search')) $('dub-library-search').value = ''; status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
     window.addEventListener('mangoi:lang-changed', function () { render(); if ($('dub-library') && !$('dub-library').hidden) refresh(); });
-    window.addEventListener('pagehide', function () { if (uploadJob) { uploadJob.state.stopped = true; rememberUpload(uploadJob.catalogue, uploadJob.state); } downloadPauses.slice().forEach(function (pause) { pause(); }); releaseUrls(); });
+    window.addEventListener('pagehide', function () { if (catalogue && catalogue.upload && catalogue.upload.connecting) { var u = catalogue.upload; saveConnections(catalogue, u); u.connectionEpoch++; u.stopped = true; u.busy = false; u.connecting = false; } if (uploadJob) { uploadJob.state.stopped = true; rememberUpload(uploadJob.catalogue, uploadJob.state); } downloadPauses.slice().forEach(function (pause) { pause(); }); releaseUrls(); });
     render();
   }
   window.MangoiDubHome = { init: init, ready: ready, render: render, checkpoint: checkpoint, saveMovie: saveMovie, practice: practice, openLibrary: openLibrary, movieFilename: movieFilename };
