@@ -838,6 +838,12 @@ test('removing save progress also removes its remembered file results without de
   const {x}=await mixedConnectionFixture(),key=connectionsKey(x);await descendants(x.el('dub-library-upload')).find(e=>e.tagName==='button'&&e.textContent==='저장 진행 기록 지우기').fire('click');assert.equal(x.data.has(key),false);assert.equal(x.localMovies.length,1);
 });
 
+test('pagehide invalidates a late file read so it cannot overwrite restored or retried results',async()=>{
+  const {w,x,server}=await crossUploadFixture(),hold=deferred(),blob=namedOriginal(w.localMovies[0].blob,'이전 화면.webm');blob.arrayBuffer=()=>hold.promise;
+  const picker=originalPicker(x);picker.files=[blob];const task=picker.fire('change');await until(()=>!!x.data.get(connectionsKey(x)));x.pagehide();const y=await reloadUploadWorld(x,z=>cloudUploads(z,server));
+  const retry=descendants(connectionList(y)).find(e=>e.type==='file');retry.files=[namedOriginal(w.localMovies[0].blob,'다시 선택한 원본.webm')];await retry.fire('change');const raw=y.data.get(connectionsKey(y));hold.resolve(await w.localMovies[0].blob.arrayBuffer());await task;assert.equal(y.data.get(connectionsKey(y)),raw);assert.equal(y.localMovies.length,1);assert.equal(x.localMovies.length,0);
+});
+
 let failed=0;
 for(const {name,fn}of tests){try{await fn();console.log('✅ '+name);}catch(e){failed++;console.error('❌ '+name+'\n   '+e.stack);}}
 console.log(`\nDubbing resume/player: ${tests.length-failed} PASS / ${failed} FAIL`);

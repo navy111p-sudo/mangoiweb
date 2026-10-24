@@ -644,8 +644,8 @@
     if (!uploadCurrent(c, u) || u.busy || uploadJob || bulkJob || !u.record || !L.storeLocalMovie || !files.length) return;
     restoreConnections(c, u);
     if ((u.connectionResults || []).length + files.length - (retryId ? 1 : 0) > 2000) { u.reason = t('연결 결과는 작업당 2,000개까지 기억할 수 있어요. 파일을 나눠 선택하거나 진행 기록을 정리해 주세요.', 'A job can remember up to 2,000 file results. Select fewer files or remove old progress.'); drawCatalogue(); return; }
-    var jobId = u.record.id;
-    function current() { return uploadCurrent(c, u) && u.record && u.record.id === jobId; }
+    var jobId = u.record.id, epoch = u.connectionEpoch = (u.connectionEpoch || 0) + 1;
+    function current() { return uploadCurrent(c, u) && u.record && u.record.id === jobId && u.connectionEpoch === epoch; }
     if (!retryId) u.connectionOnlyFailed = false; u.connectionResults = u.connectionResults || []; u.connectionSeq = u.connectionSeq || 0;
     // Keep descriptors only in the result list, never File objects or video bytes.
     var rows = files.map(function (file, i) {
@@ -694,7 +694,7 @@
       }
       rememberUpload(c, u);
       u.reason = t('원본 ' + connected + '개 연결 · 연결하지 못한 파일 ' + rejected + '개. 아래 파일별 결과를 확인하세요. 연결된 영상은 ‘남은 영상 이어서 저장’을 눌러 저장하세요.', connected + ' originals connected; ' + rejected + ' files need attention. Check each result below, then choose Resume to save connected videos.');
-    } finally { u.busy = false; u.connecting = false; if (current()) { saveConnections(c, u); drawCatalogue(); } }
+    } finally { if (u.connectionEpoch === epoch) { u.busy = false; u.connecting = false; if (current()) { saveConnections(c, u); drawCatalogue(); } } }
   }
   function connectionResults(c, u, host) {
     if (!u.connectionResults || !u.connectionResults.length) return;
@@ -1140,7 +1140,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-library-view]'), function (b) { b.addEventListener('click', function () { openLibrary(b.getAttribute('data-library-view')); }); });
     L.onAccountChange(function () { ++generation; catalogue = null; clearItems(); if ($('dub-library-search')) $('dub-library-search').value = ''; status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
     window.addEventListener('mangoi:lang-changed', function () { render(); if ($('dub-library') && !$('dub-library').hidden) refresh(); });
-    window.addEventListener('pagehide', function () { if (uploadJob) { uploadJob.state.stopped = true; rememberUpload(uploadJob.catalogue, uploadJob.state); } downloadPauses.slice().forEach(function (pause) { pause(); }); releaseUrls(); });
+    window.addEventListener('pagehide', function () { if (catalogue && catalogue.upload && catalogue.upload.connecting) { var u = catalogue.upload; saveConnections(catalogue, u); u.connectionEpoch++; u.stopped = true; u.busy = false; u.connecting = false; } if (uploadJob) { uploadJob.state.stopped = true; rememberUpload(uploadJob.catalogue, uploadJob.state); } downloadPauses.slice().forEach(function (pause) { pause(); }); releaseUrls(); });
     render();
   }
   window.MangoiDubHome = { init: init, ready: ready, render: render, checkpoint: checkpoint, saveMovie: saveMovie, practice: practice, openLibrary: openLibrary, movieFilename: movieFilename };
