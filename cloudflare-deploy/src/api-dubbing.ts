@@ -116,10 +116,10 @@ function declaredSize(request: Request, maximum: number): number {
   if (!size || !request.body) fail(400, 'empty_file');
   return size;
 }
-async function readJson(request: Request): Promise<unknown> {
+async function readJson(request: Request, maximum = DUBBING_LIMITS.draftBytes): Promise<unknown> {
   if ((request.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase() !== 'application/json') fail(415, 'json_required');
   const length = request.headers.get('Content-Length');
-  if (length && Number(length) > DUBBING_LIMITS.draftBytes) fail(413, 'draft_too_large');
+  if (length && Number(length) > maximum) fail(413, 'draft_too_large');
   if (!request.body) fail(400, 'invalid_json');
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -129,7 +129,7 @@ async function readJson(request: Request): Promise<unknown> {
       const part = await reader.read();
       if (part.done) break;
       size += part.value.byteLength;
-      if (size > DUBBING_LIMITS.draftBytes) { await reader.cancel(); fail(413, 'draft_too_large'); }
+      if (size > maximum) { await reader.cancel(); fail(413, 'draft_too_large'); }
       chunks.push(part.value);
     }
   } finally { reader.releaseLock(); }
@@ -436,6 +436,104 @@ async function deleteDraft(bucket: R2Bucket, owner: Owner, draftId: string): Pro
   }
 }
 
+// Account download checkpoints live OUTSIDE the media quota prefix. They are
+// bounded metadata, never video blobs, and generic recording routes exclude them.
+const DOWNLOAD_BYTES = 2 * 1024 * 1024;
+const DOWNLOAD_RETENTION = 30 * 24 * 60 * 60 * 1000;
+interface DownloadEntry { deviceOnly?: boolean; id: string; title: string; size: number; mime: string; createdAt: string; name: string; path: string }
+interface DownloadJob { version: 1; owner: string; id: string; limit: number; title: string; filename: string; updatedAt: number; requested: number[]; parts: DownloadEntry[][] }
+interface DownloadLedger { version: 1; jobs: DownloadJob[]; removed: Record<string, number> }
+function downloadJob(input: unknown, actor: string): DownloadJob {
+  if (!record(input) || input.version !== 1 || input.owner !== actor || input.limit !== 512 * 1024 * 1024
+    || typeof input.id !== 'string' || !/^[a-z0-9]+-[a-z0-9-]{1,65}$/.test(input.id) || input.id.length > 80
+    || typeof input.title !== 'string' || input.title.length > 500
+    || typeof input.filename !== 'string' || input.filename.length > 220 || !/^mangoi-.*\.zip$/.test(input.filename)
+    || /[<>:"/\\|?*\u0000-\u001f\u007f]/.test(input.filename)
+    || !Array.isArray(input.parts) || !input.parts.length || input.parts.length > 1000
+    || !Array.isArray(input.requested) || input.requested.length > input.parts.length) fail(400, 'invalid_download');
+  const ids = new Set<string>(), paths = new Set<string>();
+  let count = 0;
+  const parts: DownloadEntry[][] = input.parts.map(part => {
+    if (!Array.isArray(part) || !part.length || part.length > 2000) fail(400, 'invalid_download');
+    let bytes = 22;
+    return part.map((e: unknown) => {
+      if (!record(e) || ++count > 2000 || typeof e.id !== 'string' || !SAFE_ID.test(e.id) || ids.has(e.id)
+        || typeof e.title !== 'string' || e.title.length > 500 || typeof e.name !== 'string' || e.name.length > 500
+        || typeof e.mime !== 'string' || e.mime.length > 100 || typeof e.createdAt !== 'string' || e.createdAt.length > 80
+        || (e.deviceOnly !== undefined && typeof e.deviceOnly !== 'boolean')
+        || typeof e.size !== 'number' || !Number.isSafeInteger(e.size) || e.size <= 0
+        || typeof e.path !== 'string' || e.path.length > 500 || !/\.(mp4|webm)$/.test(e.path) || paths.has(e.path)) fail(400, 'invalid_download');
+      const segments = e.path.split('/');
+      if (segments.length > 2 || segments.some(v => !/^\d{3,}_/.test(v) || /[<>:"\\|?*\u0000-\u001f\u007f]/.test(v) || /[. ]$/.test(v))) fail(400, 'invalid_download');
+      bytes += e.size + 1024 + new TextEncoder().encode(e.path).length * 6;
+      if (bytes > 512 * 1024 * 1024) fail(400, 'invalid_download');
+      ids.add(e.id); paths.add(e.path);
+      return { ...(typeof e.deviceOnly === 'boolean' ? { deviceOnly: e.deviceOnly } : {}), id: e.id, title: e.title, size: e.size, mime: e.mime, createdAt: e.createdAt, name: e.name, path: e.path };
+    });
+  });
+  const requested = input.requested as unknown[];
+  if (requested.some(i => typeof i !== 'number' || !Number.isInteger(i) || i < 0 || i >= parts.length) || new Set(requested).size !== requested.length) fail(400, 'invalid_download');
+  return { version: 1, owner: actor, id: input.id, limit: input.limit, title: input.title, filename: input.filename, updatedAt: Date.now(), requested: requested as number[], parts };
+}
+function downloadManifest(job: DownloadJob): string {
+  return JSON.stringify({ owner: job.owner, id: job.id, limit: job.limit, title: job.title, filename: job.filename, parts: job.parts });
+}
+async function downloadLedger(bucket: R2Bucket, key: string): Promise<{ ledger: DownloadLedger; etag?: string }> {
+  const object = await bucket.get(key);
+  if (!object) return { ledger: { version: 1, jobs: [], removed: {} } };
+  if (object.size > DOWNLOAD_BYTES) fail(503, 'download_index_invalid');
+  const ledger = await object.json<DownloadLedger>();
+  if (ledger.version !== 1 || !Array.isArray(ledger.jobs) || ledger.jobs.length > 10 || !record(ledger.removed) || Object.keys(ledger.removed).length > 1000) fail(503, 'download_index_invalid');
+  return { ledger, etag: object.httpEtag };
+}
+async function handleDownloads(request: Request, bucket: R2Bucket, owner: Owner, path: string): Promise<Response> {
+  const key = DUBBING_PRIVATE_PREFIX + 'download-progress/v1/' + owner.key + '.json';
+  if (path === '/downloads' && request.method === 'GET') {
+    const { ledger } = await downloadLedger(bucket, key);
+    return reply({ downloads: ledger.jobs, removed: Object.keys(ledger.removed) }, owner);
+  }
+  const match = /^\/downloads\/([a-z0-9-]{1,80})$/.exec(path);
+  if (!match || !['PUT', 'DELETE'].includes(request.method)) fail(404, 'not_found');
+  const jobId = match[1];
+  const actor = decodeURIComponent(request.headers.get('X-Dubbing-Actor') || '').trim().toLowerCase();
+  const incoming = request.method === 'PUT' ? downloadJob(await readJson(request, DOWNLOAD_BYTES), actor) : null;
+  if (incoming && incoming.id !== jobId) fail(400, 'invalid_download');
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const { ledger, etag } = await downloadLedger(bucket, key);
+    const now = Date.now();
+    for (const [removedId, at] of Object.entries(ledger.removed)) if (now - at > DOWNLOAD_RETENTION) delete ledger.removed[removedId];
+    const previous = ledger.jobs.find(j => j.id === jobId);
+    let saved: DownloadJob | undefined;
+    if (incoming) {
+      if (ledger.removed[jobId]) fail(410, 'download_deleted');
+      if (previous) {
+        if (downloadManifest(previous) !== downloadManifest(incoming)) fail(409, 'download_changed');
+        saved = { ...previous, updatedAt: now, requested: Array.from(new Set([...previous.requested, ...incoming.requested])).sort((a, b) => a - b) };
+        ledger.jobs = ledger.jobs.map(j => j.id === jobId ? saved! : j);
+      } else {
+        // New checkpoints expire after 30 days; existing jobs can resume later.
+        // This also prevents a very old offline client resurrecting a pruned tombstone.
+        const created = parseInt(jobId.split('-')[0], 36);
+        if (!Number.isSafeInteger(created) || created < now - DOWNLOAD_RETENTION || created > now + 5 * 60 * 1000) fail(409, 'download_expired');
+        if (ledger.jobs.length >= 10) fail(409, 'download_count_limit');
+        saved = incoming; ledger.jobs.push(saved);
+      }
+    } else {
+      ledger.jobs = ledger.jobs.filter(j => j.id !== jobId);
+      ledger.removed[jobId] = now;
+      if (Object.keys(ledger.removed).length > 1000) fail(429, 'download_delete_limit');
+    }
+    const text = JSON.stringify(ledger);
+    if (new TextEncoder().encode(text).length > DOWNLOAD_BYTES) fail(413, 'download_storage_limit');
+    const stored = await bucket.put(key, text, {
+      onlyIf: new Headers(etag ? { 'If-Match': etag } : { 'If-None-Match': '*' }),
+      httpMetadata: { contentType: 'application/json', cacheControl: 'private, no-store' },
+    });
+    if (stored) return reply(incoming ? { download: saved } : {}, owner);
+  }
+  return fail(409, 'download_busy');
+}
+
 export async function handleDubbingApi(request: Request, env: MangoEnv): Promise<Response> {
   let owner: Owner | undefined;
   try {
@@ -446,6 +544,8 @@ export async function handleDubbingApi(request: Request, env: MangoEnv): Promise
     const bucket = env.RECORDINGS;
     const method = request.method;
     const path = url.pathname.slice('/api/dubbing'.length);
+
+    if (path === '/downloads' || path.startsWith('/downloads/')) return await handleDownloads(request, bucket, owner, path);
 
     if (path === '/movies' && method === 'GET') {
       const objects = await ownedObjects(bucket, owner.prefix + 'movies/', true);
