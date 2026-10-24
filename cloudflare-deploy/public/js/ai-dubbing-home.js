@@ -608,8 +608,9 @@
     var ack = u.connectionAckHistory || { rows: [], removed: [] }, rows = new Map(ack.rows.map(function (r) { return [r.key, r]; })), removed = new Set(ack.removed);
     return { rows: wire.rows.filter(function (r) { var old = rows.get(r.key); return !removed.has(r.key) && (!old || old.seq < r.seq || old.seq === r.seq && JSON.stringify(old) !== JSON.stringify(r)); }), removed: wire.removed.filter(function (key) { return !removed.has(key); }) };
   }
-  async function retryConnectionSync(c, u) {
+  function retryConnectionSync(c, u) {
     if (!uploadCurrent(c, u) || !u.record || u.connectionSyncing || u.historyChanged) return;
+    u.connectionPromise = (async function () {
     var jobId = u.record.id; u.connectionSyncing = true; u.connectionCloudError = false; drawCatalogue();
     try {
       var response = await L.listUploads();
@@ -626,6 +627,27 @@
     if (!uploadCurrent(c, u) || !u.record || u.record.id !== jobId) return;
     if (!u.connectionCloudError) return queueConnectionSync(c, u);
     drawCatalogue();
+    })(); return u.connectionPromise;
+  }
+  function reconnectConnections() {
+    var c = catalogue, u = c && c.upload;
+    if (!u || !u.record || !L.hasAccount() || !L.saveUpload || !uploadCurrent(c, u) || u.historyChanged) return;
+    if (u.connectionReconnectTask) return u.connectionReconnectTask;
+    var jobId = u.record.id, pending = connectionPending(u, connectionWire(u));
+    if (!pending.rows.length && !pending.removed.length) return;
+    u.connectionAutoSync = 'running'; drawCatalogue();
+    u.connectionReconnectTask = (async function () {
+      try {
+        if (u.connectionSyncing) await u.connectionPromise;
+        if (!uploadCurrent(c, u) || !u.record || u.record.id !== jobId || u.historyChanged) return;
+        pending = connectionPending(u, connectionWire(u));
+        if (pending.rows.length || pending.removed.length) await retryConnectionSync(c, u);
+        if (!uploadCurrent(c, u) || !u.record || u.record.id !== jobId) return;
+        pending = connectionPending(u, connectionWire(u));
+        u.connectionAutoSync = !u.historyChanged && !u.connectionCloudError && !pending.rows.length && !pending.removed.length ? 'complete' : 'failed';
+        drawCatalogue();
+      } finally { u.connectionReconnectTask = null; }
+    })(); return u.connectionReconnectTask;
   }
   function connectionWire(u) {
     return { version: 1, rows: (u.connectionResults || []).map(function (r) {
@@ -802,6 +824,10 @@
         retrySync.addEventListener('click', function () { return retryConnectionSync(c, u); }); section.append(retrySync);
         if (u.historyChanged) section.append(node('p', 'dub-save-note', t('계정의 기록이 바뀌었어요. 보관함을 새로고침해 주세요.', 'Account history changed. Refresh the library.')));
       }
+    }
+    if (u.connectionAutoSync === 'running' || u.connectionAutoSync === 'complete' && !remaining) {
+      var notice = node('p', 'dub-save-note', u.connectionAutoSync === 'complete' ? t('✓ 인터넷이 다시 연결되어 남은 기록의 계정 동기화를 완료했어요.', '✓ Connection restored. Remaining records have synced to your account.') : t('인터넷이 다시 연결되어 남은 기록을 자동으로 동기화하고 있어요…', 'Connection restored. Automatically syncing remaining records…'));
+      notice.setAttribute('role', 'status'); notice.setAttribute('aria-live', 'polite'); section.append(notice);
     }
     var failures = u.connectionResults.filter(connectionRetry), filterLabel = node('label', 'dub-original-filter'), filter = node('input'); filter.type = 'checkbox'; filter.checked = !!u.connectionOnlyFailed; filter.disabled = u.busy;
     filter.setAttribute('aria-label', t('연결되지 않은 파일만 보기', 'Show only unconnected files'));
@@ -1241,6 +1267,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-library-view]'), function (b) { b.addEventListener('click', function () { openLibrary(b.getAttribute('data-library-view')); }); });
     L.onAccountChange(function () { ++generation; catalogue = null; clearItems(); if ($('dub-library-search')) $('dub-library-search').value = ''; status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
     window.addEventListener('mangoi:lang-changed', function () { render(); if ($('dub-library') && !$('dub-library').hidden) refresh(); });
+    window.addEventListener('online', reconnectConnections);
     window.addEventListener('pagehide', function () { if (catalogue && catalogue.upload && catalogue.upload.connecting) { var u = catalogue.upload; saveConnections(catalogue, u); u.connectionEpoch++; u.stopped = true; u.busy = false; u.connecting = false; } if (uploadJob) { uploadJob.state.stopped = true; rememberUpload(uploadJob.catalogue, uploadJob.state); } downloadPauses.slice().forEach(function (pause) { pause(); }); releaseUrls(); });
     render();
   }

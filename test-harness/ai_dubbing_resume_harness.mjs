@@ -72,7 +72,7 @@ function world(sharedData){
     loadIndex=function(){return Promise.resolve([]);};
     loadEpisode=function(){return Promise.resolve();};
   })();`,ctx);
-  out.pagehide=()=>events.get('pagehide')?.();out.ctx=ctx;out.el=el;out.data=data;out.lib=lib;out.d=ctx.testDub;
+  out.pagehide=()=>events.get('pagehide')?.();out.online=()=>events.get('online')?.();out.ctx=ctx;out.el=el;out.data=data;out.lib=lib;out.d=ctx.testDub;
   out.d.S.ep=structuredClone(fixture);out.d.S.cast=[{name:'Alice',character:'mina'}];out.d.S.sel=0;
   data.set('mangoi_logged_user',JSON.stringify({uid:'alice',name:'Alice'}));
   el('dub-mode').value='practice';el('dub-make-movie').checked=true;
@@ -882,6 +882,19 @@ test('retry reads account acknowledgements after a lost response instead of rese
   const {x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=[namedOriginal(new Blob([]),'빈 파일.webm')];await picker.fire('change');for(let n=0;n<10;n++)await tick();server.offline=false;
   const save=x.lib.saveUpload;let calls=0;x.lib.saveUpload=async(...args)=>{calls++;const response=await save(...args);throw new Error('lost response');};
   const button=()=>descendants(connectionList(x)).find(e=>e.tagName==='button'&&e.textContent==='남은 기록 다시 동기화');await button().fire('click');assert.equal(calls,1);assert.ok(button());await button().fire('click');assert.equal(calls,1);assert.match(connectionList(x).textContent,/1 \/ 1개 완료 · 남은 기록 0개/);
+});
+
+test('reconnecting automatically syncs only remaining results and announces completion without uploading videos',async()=>{
+  const {x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=Array.from({length:60},(_,i)=>namedOriginal(new Blob([]),'오프라인 '+i+'.webm'));await picker.fire('change');for(let i=0;i<10;i++)await tick();
+  server.offline=false;const save=x.lib.saveUpload;let calls=0,acked=new Set(),sent=[];x.lib.saveUpload=async(job,owner)=>{if(job.connections){sent.push(job.connections);if(++calls===2)throw Error('offline');const result=await save(job,owner);job.connections.rows.forEach(r=>acked.add(r.key));return result;}return save(job,owner);};
+  await x.online();assert.match(connectionList(x).textContent,/25 \/ 60개 완료/);assert.ok(!connectionList(x).textContent.includes('남은 기록의 계정 동기화를 완료'));
+  const completed=new Set(acked);sent=[];await Promise.all([x.online(),x.online()]);assert.equal(sent.reduce((n,h)=>n+h.rows.length,0),35);assert.ok(sent.every(h=>h.rows.every(r=>!completed.has(r.key))));assert.match(connectionList(x).textContent,/인터넷이 다시 연결되어 남은 기록의 계정 동기화를 완료/);assert.equal(x.uploadCalls.length,0);
+  sent=[];await x.online();assert.equal(sent.length,0);
+});
+test('reconnection during an in-flight failure waits then retries and closed or changed accounts cannot sync',async()=>{
+  const {x,server}=await crossUploadFixture();const save=x.lib.saveUpload,hold=deferred();let entered=false,calls=0;x.lib.saveUpload=async(...args)=>{calls++;if(calls===1){entered=true;await hold.promise;throw Error('offline');}return save(...args);};
+  const picker=originalPicker(x);picker.files=[namedOriginal(new Blob([]),'대기 파일.webm')];await picker.fire('change');await until(()=>entered);const task=x.online();hold.resolve();await task;assert.match(connectionList(x).textContent,/남은 기록의 계정 동기화를 완료/);assert.equal(calls,2);
+  const before=calls;await x.el('dub-library-close').fire('click');await x.online();assert.equal(calls,before);x.changeOwner('student:bob');await x.online();assert.equal(calls,before);
 });
 
 let failed=0;
