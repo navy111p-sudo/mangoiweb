@@ -1808,11 +1808,13 @@ function startExport() {
   document.body.classList.add('exporting');
   $('recbar').hidden = false;
   setStatus('');
+  // The canvas is captured immediately, before play() renders the first line.
+  // Reset the caption before drawing so a selected recording cannot leak in.
+  state.idx = 0; state.finished = false;
   drawFrame();
   try { recorder.start(1000); }
   catch (e) { recorder.onerror(); return; }
   state.mode = 'review'; savePrefs(); renderSettings();
-  state.idx = 0; state.finished = false;
   play();
 }
 
