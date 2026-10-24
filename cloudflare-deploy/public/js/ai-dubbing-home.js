@@ -61,7 +61,7 @@
         return part.every(function (e) {
           if (++count > 2000 || !e || typeof e.id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(e.id) || ids.has(e.id) || paths.has(e.path)) return false;
           ids.add(e.id); paths.add(e.path);
-          if (!Number.isSafeInteger(e.size) || e.size <= 0 || typeof e.title !== 'string' || e.title.length > 500 || typeof e.name !== 'string' || e.name.length > 500 || typeof e.mime !== 'string' || e.mime.length > 100 || typeof e.createdAt !== 'string' || e.createdAt.length > 80) return false;
+          if ((e.deviceOnly !== undefined && typeof e.deviceOnly !== 'boolean') || !Number.isSafeInteger(e.size) || e.size <= 0 || typeof e.title !== 'string' || e.title.length > 500 || typeof e.name !== 'string' || e.name.length > 500 || typeof e.mime !== 'string' || e.mime.length > 100 || typeof e.createdAt !== 'string' || e.createdAt.length > 80) return false;
           if (typeof e.path !== 'string' || e.path.length > 500 || !/\.(mp4|webm)$/.test(e.path)) return false;
           var segments = e.path.split('/');
           return segments.length <= 2 && segments.every(function (v) { return v && v !== '.' && v !== '..' && !/[<>:"\\|?*\u0000-\u001f]/.test(v) && !/[. ]$/.test(v) && /^\d{3,}_/.test(v); });
@@ -76,12 +76,15 @@
     if (!Array.isArray(records) || records.length > 10) throw new Error('invalid_download_history');
     return records;
   }
+  function downloadRecord(run, owner) {
+    return { version: 1, owner: owner, id: run.id, limit: ZIP_MAX_BYTES, title: run.title, filename: run.filename, updatedAt: Date.now(), requested: Array.from(run.requested).sort(function (a, b) { return a - b; }), parts: run.parts.map(function (part) {
+        return part.map(function (e) { if (e.checkpoint) return Object.assign({}, e.checkpoint); var m = e.movie; return { deviceOnly: !!m.local, id: m.id, title: m.title || '', size: e.size, mime: e.mime || '', createdAt: String(m.createdAt || ''), name: e.name, path: e.path }; });
+      }) };
+  }
   function writeDownload(run, owner) {
     try {
       if (!owned(owner)) return false;
-      var record = { version: 1, owner: owner, id: run.id, limit: ZIP_MAX_BYTES, title: run.title, filename: run.filename, updatedAt: Date.now(), requested: Array.from(run.requested).sort(function (a, b) { return a - b; }), parts: run.parts.map(function (part) {
-        return part.map(function (e) { var m = e.movie; return { id: m.id, title: m.title || '', size: e.size, mime: e.mime || '', createdAt: String(m.createdAt || ''), name: e.name, path: e.path }; });
-      }) };
+      var record = Object.assign(downloadRecord(run, owner), { cloud: !!run.cloud });
       if (!checkpointValid(record, owner)) return false;
       var records = readDownloads(owner).filter(function (r) { return checkpointValid(r, owner) && r.id !== run.id; });
       // Keep unfinished jobs. Only old fully-requested jobs may be evicted.
@@ -98,28 +101,81 @@
     var byId = new Map(); items.forEach(function (m) { byId.set(m.id, m); });
     return record.parts.map(function (part) { return part.map(function (e) {
       var movie = byId.get(e.id), size = movie && (movie.blob ? movie.blob.size : movie.size), mime = movie && (movie.mime || movie.blob && movie.blob.type);
-      if (!movie || movie.title !== e.title || (Number.isSafeInteger(size) && size !== e.size) || (mime && e.mime && mime !== e.mime) || (e.createdAt && String(movie.createdAt || '') !== e.createdAt)) throw new Error('download_movie_changed');
-      return { movie: movie, size: e.size, mime: e.mime, name: e.name, path: e.path };
+      if (!movie || movie.title !== e.title || (Number.isSafeInteger(size) && size !== e.size) || (mime && e.mime && mime !== e.mime) || (!e.deviceOnly && e.createdAt && String(movie.createdAt || '') !== e.createdAt)) throw new Error('download_movie_changed');
+      return { movie: movie, size: e.size, mime: e.mime, name: e.name, path: e.path, checkpoint: e };
     }); });
+  }
+  function mergeDownload(a, b) {
+    // Part boundaries and paths are immutable. Never merge unrelated manifests.
+    if (JSON.stringify(a.parts) !== JSON.stringify(b.parts) || a.filename !== b.filename || a.title !== b.title) return b;
+    return Object.assign({}, b, { requested: Array.from(new Set(a.requested.concat(b.requested))).sort(function (x, y) { return x - y; }), cloud: !!(a.cloud || b.cloud) });
+  }
+  function putCatalogueDownload(c, record) {
+    if (!owned(c.owner) || catalogue !== c) return;
+    if (!c.downloads) { try { c.downloads = readDownloads(c.owner); } catch (_) { c.downloads = []; } }
+    var previous = c.downloads.find(function (r) { return r.id === record.id; });
+    c.downloads = c.downloads.filter(function (r) { return r.id !== record.id; });
+    c.downloads.push(previous ? mergeDownload(previous, record) : record);
+  }
+  async function pullDownloads(c) {
+    if (!L.listDownloads || !L.hasAccount()) return;
+    var response = await L.listDownloads();
+    if (!owned(c.owner) || catalogue !== c) return;
+    if (!response || !Array.isArray(response.downloads) || response.downloads.length > 10 || !Array.isArray(response.removed)) throw new Error('invalid_download_response');
+    var records = response.downloads.filter(function (r) { return checkpointValid(r, c.owner); }).map(function (r) { return Object.assign({}, r, { cloud: true }); });
+    var locals = []; try { locals = readDownloads(c.owner); } catch (_) {}
+    var deleted = new Set(response.removed);
+    locals = locals.filter(function (r) { return checkpointValid(r, c.owner) && !deleted.has(r.id) && (!r.cloud || records.some(function (s) { return s.id === r.id; })); });
+    // A local outbox recovers a connection loss or a tab closed just after click.
+    for (var i = 0; i < locals.length; i++) {
+      if (!owned(c.owner) || catalogue !== c) return;
+      var local = locals[i], remote = records.find(function (r) { return r.id === local.id; }), merged = remote ? mergeDownload(local, remote) : local;
+      if (!remote || merged.requested.length !== remote.requested.length) {
+        try {
+          var saved = await L.saveDownload(merged, c.owner);
+          if (!owned(c.owner) || catalogue !== c) return;
+          if (!saved || !checkpointValid(saved.download, c.owner)) throw new Error('invalid_download_response');
+          merged = Object.assign({}, saved.download, { cloud: true });
+        } catch (e) {
+          if (!owned(c.owner) || catalogue !== c) return;
+          if (e.code === 'download_deleted') { deleted.add(local.id); continue; }
+          c.downloadSyncError = true;
+        }
+      }
+      records = records.filter(function (r) { return r.id !== local.id; }); records.push(merged);
+    }
+    if (!owned(c.owner) || catalogue !== c) return;
+    c.downloads = records;
+    // Keep only existing local outbox entries; cloud-only histories need no
+    // browser storage. Clearing a deleted job never deletes the original videos.
+    try { localStorage.setItem(downloadKey(c.owner), JSON.stringify(locals.filter(function (r) { return !deleted.has(r.id); }).map(function (r) { return records.find(function (s) { return s.id === r.id; }) || r; }))); } catch (_) {}
   }
   function renderDownloads(c) {
     var host = $('dub-library-downloads'); if (!host || c.kind !== 'movies') return;
     var records;
-    try { records = readDownloads(c.owner); }
+    try { records = c.downloads || readDownloads(c.owner); }
     catch (_) { host.hidden = false; host.append(node('p', '', t('저장한 다운로드 진행 상황을 읽지 못했어요. 이 브라우저의 저장 설정을 확인해 주세요.', 'Saved download progress could not be read. Check this browser’s storage settings.'))); return; }
+    if (c.downloadSyncError) { host.hidden = false; host.append(node('p', 'dub-save-note', t('계정의 다운로드 기록을 동기화하지 못했어요. 연결을 확인하고 보관함을 새로고침해 주세요. 다른 기기의 최신 기록은 아직 반영되지 않았어요.', 'Account progress could not sync. Check your connection and refresh the library. Progress from other devices is not yet included.'))); }
     if (!records.length) return;
     host.hidden = false; host.append(node('h3', '', t('저장한 다운로드', 'Saved downloads')));
     records.sort(function (a, b) { return (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0); }).forEach(function (record) {
       if (!checkpointValid(record, c.owner)) { host.append(node('p', '', t('형식이 맞지 않는 다운로드 기록은 복원하지 않았어요.', 'An invalid download record was not restored.'))); return; }
       var card = node('details', 'dub-saved-download'); card.open = record.requested.length < record.parts.length;
       card.append(node('summary', '', record.title + ' · ' + t('요청 ', 'Requested ') + record.requested.length + ' / ' + record.parts.length + ' · ' + date(record.updatedAt)));
+      card.append(node('p', 'dub-library-badge', record.cloud && !c.downloadSyncError ? t('계정에 동기화됨', 'Synced to your account') : t('이 브라우저에 저장됨', 'Saved in this browser')));
       try { checkpointParts(record, c.items); card.append(groupDownload(null, card, c, null, record)); }
-      catch (_) { card.append(node('p', 'dub-save-note', t('원본 영상이 목록에서 사라졌거나 이름·용량이 바뀌어 이어받을 수 없어요. 목록을 새로고침하거나 영상을 다시 선택해 주세요.', 'An original video is missing or changed. Refresh the list or select the videos again.'))); }
-      card.append(button(t('다운로드 진행 기록 삭제', 'Remove download progress'), function () {
+      catch (_) { card.append(node('p', 'dub-save-note', t('원본 영상이 이 기기에서 보이지 않거나 변경되었어요. 원래 기기에서 영상의 ‘내 계정에도 저장하기’를 누른 뒤 이 보관함을 새로고침해 주세요. 삭제되거나 변경된 영상은 다시 선택해 주세요.', 'An original is unavailable here or changed. On the original device, choose Save to my account for the video, then refresh here. Reselect deleted or changed videos.'))); }
+      card.append(button(t('다운로드 진행 기록 삭제', 'Remove download progress'), async function () {
         if (!owned(c.owner) || catalogue !== c) return;
         if (bulkJob) { status(t('다운로드를 중단한 뒤 진행 기록을 삭제해 주세요.', 'Pause the download before removing its progress.')); return; }
-        try { localStorage.setItem(downloadKey(c.owner), JSON.stringify(readDownloads(c.owner).filter(function (r) { return r.id !== record.id; }))); drawCatalogue(); }
-        catch (_) { status(t('진행 기록을 삭제하지 못했어요. 브라우저 저장 설정을 확인해 주세요.', 'Could not remove the progress. Check browser storage settings.')); }
+        try {
+          if (L.deleteDownload && L.hasAccount()) await L.deleteDownload(record.id, c.owner);
+          if (!owned(c.owner) || catalogue !== c) return;
+          if (c.downloads) c.downloads = c.downloads.filter(function (r) { return r.id !== record.id; });
+          try { localStorage.setItem(downloadKey(c.owner), JSON.stringify(readDownloads(c.owner).filter(function (r) { return r.id !== record.id; }))); } catch (_) {}
+          drawCatalogue();
+        }
+        catch (_) { status(t('진행 기록을 삭제하지 못했어요. 연결을 확인하고 다시 시도해 주세요.', 'Could not remove the progress. Check browser storage settings.')); }
       }));
       host.append(card);
     });
@@ -136,7 +192,32 @@
       if (currentUrl) { URL.revokeObjectURL(currentUrl); urls = urls.filter(function (url) { return url !== currentUrl; }); currentUrl = null; }
     }
     function failed(e) { return e.downloadText || (e.status === 401 ? t('로그인 상태를 확인해 주세요.', 'Please check that you are signed in.') : t('영상 연결을 확인하고 다시 시도해 주세요.', 'Check your connection and try again.')); }
-    function remember(run) { if (valid(run)) run.remembered = writeDownload(run, c.owner); }
+    function remember(run) {
+      if (!valid(run)) return Promise.resolve();
+      run.remembered = writeDownload(run, c.owner);
+      var snapshot = downloadRecord(run, c.owner);
+      putCatalogueDownload(c, Object.assign({}, snapshot, { cloud: !!run.cloud }));
+      if (!L.saveDownload || !L.hasAccount()) return Promise.resolve();
+      run.syncState = 'syncing'; updateProgress(run);
+      run.saveQueue = (run.saveQueue || Promise.resolve()).then(async function () {
+        if (!valid(run) || run.deleted) return;
+        run.syncState = 'syncing'; updateProgress(run);
+        try {
+          var response = await L.saveDownload(snapshot, c.owner);
+          if (!valid(run)) return;
+          if (!response || !checkpointValid(response.download, c.owner)) throw new Error('invalid_download_response');
+          response.download.requested.forEach(function (i) { run.requested.add(i); });
+          run.cloud = true; run.syncState = 'saved'; run.remembered = writeDownload(run, c.owner);
+          putCatalogueDownload(c, Object.assign(downloadRecord(run, c.owner), { cloud: true }));
+        } catch (e) {
+          if (!valid(run)) return;
+          run.syncState = 'error'; run.syncErrorCode = e.code || '';
+          if (e.code === 'download_deleted') { run.deleted = true; run.paused = true; }
+        }
+        updateProgress(run);
+      });
+      return run.saveQueue;
+    }
     function updateProgress(run, phase, initial) {
       if ((!initial && !valid(run)) || !run.meter) return;
       if (phase) run.phase = phase;
@@ -148,12 +229,21 @@
         : run.busy && run.currentIndex != null ? t('전체 ' + total + '개 중 ' + (run.currentIndex + 1) + '번째 ZIP', 'ZIP ' + (run.currentIndex + 1) + ' of ' + total) + ' · ' + run.phase
         : remaining === 0 ? t('모든 ZIP 다운로드 요청됨', 'All ZIP downloads requested') : t('남은 ZIP ', 'Remaining ZIPs: ') + remaining + t('개', '');
       run.summary.textContent = state + ' · ' + count;
-      if (run.help) run.help.textContent = run.remembered
-        ? t('이 기기·브라우저에 진행 상황을 기억해요. 화면을 닫거나 새로고침해도 같은 계정으로 보관함을 열면 이어받을 수 있어요. 요청한 ZIP은 건너뛰며 차단된 파일은 번호별 버튼으로 다시 받으세요.', 'Progress is remembered in this browser on this device. Reopen the library with the same account after closing or refreshing to resume. Requested ZIPs are skipped; retry blocked files with their numbered buttons.')
-        : t('브라우저에 진행 상황을 저장하지 못했어요. 이 화면을 유지하면 남은 ZIP을 이어받을 수 있어요. 이전 진행 기록을 정리하거나 브라우저 저장 공간·설정을 확인해 주세요.', 'Progress could not be saved in this browser. Keep this view open to resume. Remove old progress records or check browser storage space and settings.');
+      if (run.help) {
+        var localOnly = run.parts.some(function (part) { return part.some(function (e) { return e.movie.local; }); });
+        run.help.textContent = run.deleted ? t('다른 기기에서 이 진행 기록을 삭제했어요. 보관함을 새로고침해 주세요.', 'This progress was removed on another device. Refresh the library.')
+          : run.syncState === 'syncing' ? t('계정에 진행 상황을 저장하는 중… 저장 완료 안내 후 화면을 닫아 주세요.', 'Saving progress to your account… Wait for confirmation before closing.')
+          : run.syncState === 'saved' ? t('계정에 진행 상황을 저장했어요. 다른 컴퓨터·브라우저에서도 같은 계정으로 보관함을 열면 남은 ZIP만 이어받을 수 있어요.', 'Progress saved to your account. Open the library with the same account on another computer or browser to resume remaining ZIPs.')
+          : run.syncState === 'error' && /limit/.test(run.syncErrorCode || '') ? t('계정의 다운로드 기록 저장 한도에 도달했어요. 완료한 진행 기록을 삭제한 뒤 보관함을 새로고침해 주세요. 원본 영상은 삭제되지 않아요.', 'Your account download history is full. Remove a completed progress record and refresh the library. Original videos are kept.')
+          : run.syncState === 'error' ? t('계정 동기화에 실패했어요. 다른 기기에는 최신 기록이 없을 수 있어요. 연결 후 이 보관함을 새로고침해 주세요.', 'Account sync failed. Other devices may not have the latest progress. Reconnect and refresh this library.')
+          : run.remembered ? t('이 기기·브라우저에 진행 상황을 기억해요. 같은 계정으로 보관함을 다시 열면 이어받을 수 있어요.', 'Progress is remembered in this browser. Reopen the library with the same account to resume.')
+          : t('진행 상황을 저장하지 못했어요. 이 화면을 유지해 주세요.', 'Progress could not be saved. Keep this view open.');
+        if (localOnly) run.help.textContent += t(' 이 기기에만 있는 원본은 먼저 ‘내 계정에도 저장하기’를 눌러야 다른 기기에서 받을 수 있어요.', ' Save device-only originals to your account before downloading them on another device.');
+        run.help.textContent += t(' 요청한 ZIP은 건너뛰며, 실제 저장 여부는 다운로드 폴더에서 확인하세요. 차단된 파일은 번호별 버튼으로 다시 받으세요.', ' Requested ZIPs are skipped. Check Downloads for saved files; retry blocked files with their numbered buttons.');
+      }
       run.stopButton.hidden = !run.busy; run.stopButton.disabled = !run.busy || run.paused;
       run.resumeButton.hidden = remaining === 0 || (!run.paused && !run.failed);
-      run.resumeButton.disabled = run.busy || remaining === 0;
+      run.resumeButton.disabled = run.busy || remaining === 0 || !!run.deleted;
     }
     function setupProgress(run) {
       progressBox.replaceChildren(); progressBox.hidden = false;
@@ -172,7 +262,7 @@
       updateProgress(run, null, true);
     }
     async function buildPart(run, index, queueTicket) {
-      if (!valid(run)) return false;
+      if (!valid(run) || run.deleted) return false;
       if (queueTicket && bulkJob !== queueTicket) return false;
       if (!queueTicket && bulkJob) { note.textContent = t('다른 ZIP을 준비 중이에요. 잠시 후 다시 눌러 주세요.', 'Another ZIP is being prepared. Please try again shortly.'); return; }
       var wasPaused = run.paused;
@@ -203,7 +293,7 @@
         currentUrl = URL.createObjectURL(archive); urls.push(currentUrl);
         ready.href = currentUrl; ready.download = run.filename.replace(/\.zip$/, run.parts.length > 1 ? '-part-' + String(index + 1).padStart(3, '0') + '.zip' : '.zip');
         ready.hidden = false; ready.click(); start.hidden = true;
-        run.requested.add(index); remember(run); updateProgress(run, t('다운로드 요청함', 'Download requested'));
+        run.requested.add(index); await remember(run); if (!valid(run)) return false; updateProgress(run, t('다운로드 요청함', 'Download requested'));
         if (control) control.textContent = (index + 1) + t('번 ZIP 다시 내려받기', ' · Download ZIP again');
         note.textContent = run.parts.length > 1
           ? (index + 1) + ' / ' + run.parts.length + t('번 ZIP 내려받기를 시작했어요. 다운로드 폴더를 확인해 주세요. 차단되거나 빠진 파일은 번호별 버튼으로 다시 받을 수 있어요.', ' ZIP download started. Check Downloads. Use the numbered buttons to retry any blocked or missing file.')
@@ -223,10 +313,25 @@
       }
     }
     async function downloadAll(run, remainingOnly) {
-      if (!valid(run)) return;
+      if (!valid(run) || run.deleted) return;
       if (bulkJob) { note.textContent = t('다른 ZIP을 준비 중이에요. 잠시 후 다시 눌러 주세요.', 'Another ZIP is being prepared. Please try again shortly.'); return; }
       var ticket = {}; bulkJob = ticket; start.disabled = true;
-      if (!remainingOnly) { run.requested.clear(); remember(run); }
+      if (remainingOnly && L.listDownloads && L.hasAccount()) {
+        try {
+          c.downloadSyncError = false; await pullDownloads(c);
+          if (!valid(run) || bulkJob !== ticket) return;
+          var latest = c.downloads && c.downloads.find(function (r) { return r.id === run.id; });
+          if (!latest || c.downloadSyncError) throw new Error('download_sync');
+          latest.requested.forEach(function (i) { run.requested.add(i); });
+        } catch (_) {
+          if (bulkJob === ticket) bulkJob = null;
+          start.disabled = false; run.paused = true; run.syncState = 'error'; updateProgress(run);
+          note.textContent = t('최신 진행 상황을 확인하지 못했어요. 연결을 확인한 뒤 이어받기를 다시 눌러 주세요.', 'Could not check the latest progress. Check your connection and retry resume.'); return;
+        }
+      }
+      // Redownloading all keeps the cumulative request history; the server
+      // merges request indices monotonically across devices.
+      if (!valid(run) || bulkJob !== ticket) { if (bulkJob === ticket) bulkJob = null; return; }
       run.paused = false; run.failed = false; run.busy = true; run.currentIndex = null; updateProgress(run);
       if (run.allButton) run.allButton.disabled = true;
       run.buttons.forEach(function (b) { b.disabled = true; });
@@ -305,7 +410,7 @@
         run.title = archiveTitle;
         run.filename = movieFilename(archiveTitle + ' · ' + t('더빙영상', 'dubbing videos'), '').replace(/\.webm$/, '.zip');
         if (!current()) return;
-        remember(run); setupProgress(run); setupPartButtons(run);
+        await remember(run); if (!current()) return; setupProgress(run); setupPartButtons(run);
       } catch (e) {
         if (current()) note.textContent = t('모두 내려받기를 준비하지 못했어요. ', 'Could not prepare the download. ') + failed(e) + t(' 다시 눌러 시도할 수 있어요.', ' You can try again.');
         return;
@@ -319,7 +424,7 @@
     actions.append(start, ready, progressBox, partButtons, note);
     downloadPauses.push(function () { if (session && session.busy && valid(session)) { session.paused = true; remember(session); updateProgress(session); } });
     if (restored) {
-      var run = { id: restored.id, title: restored.title, filename: restored.filename, parts: checkpointParts(restored, c.items), buttons: [], requested: new Set(restored.requested), busy: false, paused: true, failed: false, remembered: true };
+      var run = { id: restored.id, title: restored.title, filename: restored.filename, parts: checkpointParts(restored, c.items), buttons: [], requested: new Set(restored.requested), busy: false, paused: true, failed: false, remembered: true, cloud: !!restored.cloud, syncState: restored.cloud ? 'saved' : null };
       session = run; start.hidden = true; setupProgress(run); setupPartButtons(run);
     }
     return actions;
@@ -460,6 +565,10 @@
     });
     items.sort(function (a, b) { return new Date(b.createdAt || b.updatedAt).getTime() - new Date(a.createdAt || a.updatedAt).getTime(); });
     catalogue = { owner: owner, kind: kind, items: items, response: response, error: results[0].reason };
+    if (kind === 'movies' && L.listDownloads && L.hasAccount()) {
+      try { await pullDownloads(catalogue); } catch (_) { if (catalogue && catalogue.owner === owner) catalogue.downloadSyncError = true; }
+      if (ticket !== generation || !owned(owner)) return;
+    }
     drawCatalogue();
   }
   function movieCard(movie, owner) {

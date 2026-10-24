@@ -268,6 +268,9 @@
   window.MangoiDubLibrary = {
     identity: identity, scope: identity, hasAccount: function () { return identity() !== 'guest'; },
     newId: id, errorText: errorText, onAccountChange: onAccountChange,
+    listDownloads: function () { return request('/downloads'); },
+    saveDownload: function (job, owner) { return request('/downloads/' + keyPart(job.id), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(job) }, false, owner); },
+    deleteDownload: function (jobId, owner) { return request('/downloads/' + keyPart(jobId), { method: 'DELETE' }, false, owner); },
     listMovies: function () { return request('/movies'); },
     getMovie: function (movieId) { return request('/movies/' + keyPart(movieId), {}, true); },
     saveMovie: saveMovie,

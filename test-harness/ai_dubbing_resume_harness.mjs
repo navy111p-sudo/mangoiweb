@@ -489,7 +489,7 @@ test('missing, renamed or resized originals keep their progress record but canno
   const w=await checkpointWorld();
   for(const change of [movies=>movies.shift(),movies=>movies[0].title='바뀐 영상',movies=>movies[0].size++]){
     const x=await restoredWorld(w,x=>{const list=x.lib.listMovies;x.lib.listMovies=async()=>{const result=await list();change(result.movies);return result;};});
-    assert.equal(historyControls(x).resume,undefined);assert.match(x.el('dub-library-downloads').textContent,/사라졌거나.*바뀌어/);assert.equal(x.requests.length,0);assert.equal(storedJobs(x).length,1);
+    assert.equal(historyControls(x).resume,undefined);assert.match(x.el('dub-library-downloads').textContent,/이 기기에서 보이지 않거나 변경/);assert.equal(x.requests.length,0);assert.equal(storedJobs(x).length,1);
   }
 });
 test('corrupt or traversal-shaped progress is never converted to a ZIP or fetched',async()=>{
@@ -505,6 +505,63 @@ test('blocked browser storage warns accurately while the current download still 
 test('removing a download progress record never removes saved movies',async()=>{
   const w=await checkpointWorld(),x=await restoredWorld(w);let deleted=0;x.lib.deleteMovie=async()=>deleted++;x.lib.removeLocalMovie=async()=>deleted++;
   const remove=descendants(x.el('dub-library-downloads')).find(e=>e.tagName==='button'&&e.textContent==='다운로드 진행 기록 삭제');await remove.fire('click');assert.equal(storedJobs(x).length,0);assert.equal(deleted,0);assert.equal(x.el('dub-library-downloads').hidden,true);
+});
+
+function cloudFixture(w, store) {
+  const account=()=>{if(!store.has(w.owner))store.set(w.owner,{jobs:new Map(),removed:new Set()});return store.get(w.owner);};
+  w.lib.listDownloads=async()=>({downloads:structuredClone([...account().jobs.values()]),removed:[...account().removed]});
+  w.lib.saveDownload=async(job,owner)=>{
+    assert.equal(owner,w.owner);const a=account();if(a.removed.has(job.id))throw Object.assign(new Error('deleted'),{code:'download_deleted'});
+    const old=a.jobs.get(job.id);const next=structuredClone(job);
+    if(old)next.requested=[...new Set([...old.requested,...job.requested])].sort();
+    a.jobs.set(job.id,next);return{download:structuredClone(next)};
+  };
+  w.lib.deleteDownload=async id=>{const a=account();a.jobs.delete(id);a.removed.add(id);return{};};
+}
+async function cloudCheckpoint(){const w=await checkpointWorld(),store=new Map();cloudFixture(w,store);await w.ctx.MangoiDubHome.openLibrary('movies');return{w,store};}
+test('a separate browser with empty localStorage restores account progress and requests only remaining ZIPs',async()=>{
+  const {w,store}=await cloudCheckpoint();const other={...w,data:new Map()};
+  const x=await restoredWorld(other,x=>cloudFixture(x,store));assert.equal(historyControls(x).meter.value,1);assert.equal(x.requests.length,0);
+  assert.match(x.el('dub-library-downloads').textContent,/계정에 동기화됨/);
+  await historyControls(x).resume.fire('click');assert.deepEqual(x.requests,['v1','v2']);assert.equal(historyControls(x).meter.value,3);
+  assert.deepEqual([...store.get(w.owner).jobs.values()][0].requested,[0,1,2]);
+  assert.ok(x.data!==w.data);assert.match(x.el('dub-library-downloads').textContent,/다른 컴퓨터·브라우저/);
+});
+test('resume checks another device’s newer requests before starting and never rewinds account progress',async()=>{
+  const {w,store}=await cloudCheckpoint(),x=await restoredWorld({...w,data:new Map()},x=>cloudFixture(x,store));
+  const saved=[...store.get(w.owner).jobs.values()][0];saved.requested=[0,1];
+  await historyControls(x).resume.fire('click');assert.deepEqual(x.requests,['v2']);assert.deepEqual(saved.parts,storedJobs(x)[0].parts);
+});
+test('cloud progress is separated by account even with a fresh browser',async()=>{
+  const {w,store}=await cloudCheckpoint();const x=await restoredWorld({...w,data:new Map()},x=>cloudFixture(x,store),'student:bob');
+  assert.equal(x.el('dub-library-downloads').hidden,true);assert.equal(x.requests.length,0);
+});
+test('an offline local outbox merges after reconnection and cloud failure is visible',async()=>{
+  const w=await checkpointWorld(),store=new Map();cloudFixture(w,store);const save=w.lib.saveDownload;
+  w.lib.saveDownload=async()=>{throw new Error('offline');};await w.ctx.MangoiDubHome.openLibrary('movies');
+  assert.match(w.el('dub-library-downloads').textContent,/동기화하지 못/);assert.equal(store.get(w.owner).jobs.size,0);
+  w.lib.saveDownload=save;await w.ctx.MangoiDubHome.openLibrary('movies');assert.equal(store.get(w.owner).jobs.size,1);
+  const x=await restoredWorld({...w,data:new Map()},x=>cloudFixture(x,store));assert.equal(historyControls(x).meter.value,1);
+});
+test('deletion on another device removes stale local history and cannot recreate it',async()=>{
+  const {w,store}=await cloudCheckpoint(),a=store.get(w.owner),id=[...a.jobs.keys()][0];a.jobs.delete(id);a.removed.add(id);
+  await w.ctx.MangoiDubHome.openLibrary('movies');assert.equal(w.el('dub-library-downloads').hidden,true);assert.equal(storedJobs(w).length,0);assert.equal(a.jobs.size,0);
+});
+test('missing device-only originals show account upload guidance and never fetch a partial ZIP',async()=>{
+  const {w,store}=await cloudCheckpoint();const x=await restoredWorld({...w,data:new Map()},x=>{cloudFixture(x,store);x.lib.listMovies=async()=>({movies:[]});});
+  assert.match(x.el('dub-library-downloads').textContent,/내 계정에도 저장하기/);assert.equal(historyControls(x).resume,undefined);assert.equal(x.requests.length,0);
+});
+test('a promoted local original retains immutable manifest timestamps while resuming from another device',async()=>{
+  const {w,store}=await cloudCheckpoint();const saved=[...store.get(w.owner).jobs.values()][0];saved.parts.forEach(part=>part.forEach(e=>{e.deviceOnly=true;e.createdAt='123';}));
+  const x=await restoredWorld({...w,data:new Map()},x=>{cloudFixture(x,store);const list=x.lib.listMovies;x.lib.listMovies=async()=>({movies:(await list()).movies.map(m=>({...m,createdAt:456}))});});
+  await historyControls(x).resume.fire('click');assert.deepEqual(x.requests,['v1','v2']);
+  assert.ok([...store.get(w.owner).jobs.values()][0].parts.every(p=>p.every(e=>e.createdAt==='123'&&e.deviceOnly)));
+});
+test('failed latest-progress lookup prevents accidental duplicate resume and can be retried',async()=>{
+  const {w,store}=await cloudCheckpoint(),x=await restoredWorld({...w,data:new Map()},x=>cloudFixture(x,store));
+  const list=x.lib.listDownloads;x.lib.listDownloads=async()=>{throw new Error('offline');};await historyControls(x).resume.fire('click');assert.equal(x.requests.length,0);
+  assert.match(x.el('dub-library-downloads').textContent,/최신 진행 상황을 확인하지 못/);x.lib.listDownloads=list;
+  await historyControls(x).resume.fire('click');assert.deepEqual(x.requests,['v1','v2']);
 });
 
 let failed=0;
