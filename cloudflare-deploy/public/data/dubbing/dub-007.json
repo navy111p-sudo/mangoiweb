@@ -506,10 +506,10 @@
       "poster": "/media/dubbing/dub-007/scene-6.jpg?v=2",
       "videoAudio": "mute",
       "voices": {
-        "luna": "/media/dubbing/dub-007/scene-6-luna.mp3?v=2",
-        "zio": "/media/dubbing/dub-007/scene-6-zio.mp3?v=2",
-        "nova": "/media/dubbing/dub-007/scene-6-nova.mp3?v=2",
-        "nora": "/media/dubbing/dub-007/scene-6-nora.mp3?v=2"
+        "luna": "/media/dubbing/dub-007/scene-6-luna.mp3?v=4",
+        "zio": "/media/dubbing/dub-007/scene-6-zio.mp3?v=4",
+        "nova": "/media/dubbing/dub-007/scene-6-nova.mp3?v=4",
+        "nora": "/media/dubbing/dub-007/scene-6-nora.mp3?v=4"
       },
       "lines": [
         {
@@ -518,7 +518,7 @@
           "en": "We can go home at last.",
           "ko": "드디어 집에 갈 수 있어.",
           "start": 11.68,
-          "end": 13.46
+          "end": 13.66
         },
         {
           "id": "s6-l2",
@@ -526,7 +526,7 @@
           "en": "Your friends are waiting for you.",
           "ko": "친구들이 너를 기다리고 있어.",
           "start": 14.9,
-          "end": 16.7
+          "end": 16.9
         },
         {
           "id": "s6-l3",
@@ -534,7 +534,7 @@
           "en": "Our ship is ready for Earth.",
           "ko": "우리 우주선이 지구로 갈 준비가 됐어.",
           "start": 23.82,
-          "end": 25.823
+          "end": 26.023
         },
         {
           "id": "s6-l4",
@@ -542,7 +542,7 @@
           "en": "Thank you for helping us, Zio.",
           "ko": "우리를 도와줘서 고마워, 지오.",
           "start": 27.515,
-          "end": 30.468
+          "end": 30.718
         },
         {
           "id": "s6-l5",
@@ -550,7 +550,7 @@
           "en": "We are friends across the stars.",
           "ko": "우린 별을 넘어 함께하는 친구야.",
           "start": 43.38,
-          "end": 46.66
+          "end": 46.78
         },
         {
           "id": "s6-l6",
@@ -558,7 +558,7 @@
           "en": "Welcome home, our brave astronaut.",
           "ko": "용감한 우주비행사야, 집에 온 걸 환영해.",
           "start": 46.88,
-          "end": 49.76
+          "end": 50.01
         }
       ],
       "sfx": [
@@ -586,6 +586,7 @@
     "dialogue": "Original generated English voices retained; six dialogue close-ups regenerated with Wan 2.7 using the original separated audio as waveform reference, then composited on the original clock.",
     "music": "Original instrumental space score and synthetic effects; no speech in background tracks",
     "guest": "The visible ground controller delivering the final greeting is Mom Nora, not Nova.",
-    "review": "Revision 2: 61 seconds per episode, isolated speaker framing, baked BGM dialogue ducking, timed low-gain SFX rendered from the same app sound recipes; media cache version 2."
+    "review": "Revision 2: 61 seconds per episode, isolated speaker framing, baked BGM dialogue ducking, timed low-gain SFX rendered from the same app sound recipes; media cache version 2.",
+    "ep6AudioRestoration": "Original recorded tails recovered; line 4 restored from one continuous original utterance; no synthesized speech; role audio cache v4."
   }
 }

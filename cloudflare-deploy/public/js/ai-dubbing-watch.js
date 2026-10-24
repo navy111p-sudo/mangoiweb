@@ -206,7 +206,7 @@
           tracks.forEach(function (t) { playEl(run, t.el); });
           var shown = -2, last = -1, lastAt = now();
           /* 목소리가 영상을 따라가게 — 영상이 받는 중(버퍼링)이면 같이 서고, 다시 움직이면 같은 시각에서 같이 출발(정본 core) */
-          var follow = C.clockFollower({ now: now }), els = tracks.map(function (tr) { return tr.el; });
+          var follow = C.clockFollower({ now: now, lines: sc.lines }), els = tracks.map(function (tr) { return tr.el; });
           var timer = setInterval(function () {
             if (run.paused) { lastAt = now(); return; }
             var t = (clock && clock.currentTime) || 0;

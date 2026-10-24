@@ -37,7 +37,7 @@ import vm from 'node:vm';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dir, '..');
 const PUB = join(ROOT, 'cloudflare-deploy', 'public');
-const rd = (p) => readFileSync(p, 'utf8');
+const rd = (p) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 
 let PASS = 0, FAIL = 0;
 const check = (name, ok, extra) => {
@@ -995,10 +995,12 @@ function loadWatch(src) {
 }
 const W_SPEED = 200;   // 가짜 영상은 실제 시간의 200배로 흐른다(20초 장면 = 0.1초)
 class WMedia {
-  constructor(dur) { this.paused = true; this._base = 0; this._at = 0; this.duration = dur; this.readyState = 4; }
+  constructor(dur) { this.paused = true; this._base = 0; this._at = 0; this.duration = dur; this.readyState = 4; this.speed = W_SPEED; this._rate = 1; }
   get ended() { return this.currentTime >= this.duration - 0.001; }
-  get currentTime() { return this.paused ? this._base : Math.min(this.duration, this._base + (Date.now() - this._at) / 1000 * W_SPEED); }
+  get currentTime() { return this.paused ? this._base : Math.min(this.duration, this._base + (Date.now() - this._at) / 1000 * this.speed * this._rate); }
   set currentTime(v) { this._base = v; this._at = Date.now(); }
+  get playbackRate() { return this._rate; }
+  set playbackRate(v) { this.currentTime = this.currentTime; this._rate = v; }
   play() { if (this.paused) { this._at = Date.now(); this.paused = false; } return Promise.resolve(); }
   pause() { if (!this.paused) { this._base = this.currentTime; this.paused = true; } }
   addEventListener() {}
@@ -1012,15 +1014,16 @@ function watchWorld(W, o) {
     stopMusic() { w.eng.push(['stop']); },
   };
   const clipMs = o.clipMs || 15;
-  class FAudio {
-    constructor() { this.paused = true; this.readyState = 4; this.currentTime = 0; this.duration = 0.5; this.pauses = 0; w.audios.push(this); }
-    play() { this.paused = false; clearTimeout(this._t); this._t = setTimeout(() => { this.paused = true; if (this.onended) this.onended(); }, clipMs); return Promise.resolve(); }
-    pause() { this.paused = true; this.pauses++; clearTimeout(this._t); }
+  class FAudio extends WMedia {
+    constructor() { super(100000); this.speed = o.speed || W_SPEED; this.pauses = 0; w.audios.push(this); }
+    play() { super.play(); clearTimeout(this._t); this._t = setTimeout(() => { super.pause(); if (this.onended) this.onended(); }, clipMs); return Promise.resolve(); }
+    pause() { super.pause(); this.pauses++; clearTimeout(this._t); }
     addEventListener() {}
   }
   function U(text) { this.text = text; }
   const synth = { speak(u) { w.utters.push(u.text); setTimeout(() => { if (u.onend) u.onend(); }, 10); }, cancel() {}, pause() {}, resume() {} };
   const video = new WMedia(1);
+  video.speed = o.speed || W_SPEED;
   w.video = video;
   w.kit = {
     C: CORE, opt: { cardMs: o.cardMs || 10, gapMs: 5, endMs: 5, tickMs: 5, stallMs: 400, videoMs: 100 },
@@ -1180,7 +1183,7 @@ async function watchChecks(src, verbose) {
      «짝» — 영상이 안 서면 목소리는 장면 끝 정리 때 한 번만 멈춘다(«언제나 세우기» 도 통과하지 못하게). */
   {
     const runStall = async (stall) => {
-      const w = watchWorld(W, { clipMs: 60000 });
+      const w = watchWorld(W, { clipMs: 60000, speed: 10 });
       const p = w.runner.start([{ ep: WEP4, scIdx: 0, first: true }]);
       const out = { w, reached: false, heldAll: null, resumedAll: null, nearT: null, stallT: null };
       for (let i = 0; i < 600 && !out.reached; i++) { if (!w.video.paused && w.video.currentTime > 5) out.reached = true; else await wsleep(2); }
@@ -1192,7 +1195,8 @@ async function watchChecks(src, verbose) {
         w.video.play();
         await wsleep(25);
         out.resumedAll = voices().every((a) => !a.paused);
-        out.nearT = voices().every((a) => a.currentTime >= out.stallT - 0.01 && a.currentTime <= out.stallT + 3);
+        out.nearValues = [w.video.currentTime, voices().map((a) => a.currentTime)];
+        out.nearT = voices().every((a) => Math.abs(a.currentTime - w.video.currentTime) <= 0.81);
       }
       out.r = await wwithin(p, 6000);
       out.pauses = voices().map((a) => a.pauses);
@@ -1200,7 +1204,7 @@ async function watchChecks(src, verbose) {
     };
     const [s1, s0] = await Promise.all([runStall(true), runStall(false)]);
     t('⑪-W23 동기 장면(dub-004) — 영상이 서면(버퍼링) 캐릭터 목소리도 «전부» 같이 선다', s1.reached && s1.heldAll === true, { reached: s1.reached, heldAll: s1.heldAll, n: s1.w.audios.length });
-    t('⑪-W24 영상이 다시 움직이면 목소리도 «전부» 다시 나오고, 영상이 섰던 시각에서 이어진다', s1.resumedAll === true && s1.nearT === true, { resumed: s1.resumedAll, near: s1.nearT, stallT: s1.stallT, at: s1.w.audios.map((a) => a.currentTime) });
+    t('⑪-W24 영상이 다시 움직이면 목소리도 «전부» 다시 나오고, 영상이 섰던 시각에서 이어진다', s1.resumedAll === true && s1.nearT === true, { resumed: s1.resumedAll, near: s1.nearT, stallT: s1.stallT, at: s1.nearValues });
     t('⑪-W25 버퍼링이 지나간 뒤에도 장면은 끝까지 간다(«봤어요»)', !s1.r.timeout && s1.r.v === true, s1.r);
     t('⑪-W26 «짝» — 영상이 안 서면 목소리는 장면 끝 정리 때 한 번만 멈춘다(도중에 세우지 않는다)', s0.reached && !s0.r.timeout && s0.r.v === true && s0.pauses.length > 0 && s0.pauses.every((n) => n === 1), { pauses: s0.pauses, r: s0.r });
     t('⑪-W27 버퍼링 한 번이면 목소리는 «두 번» 멈춘다(버퍼링 1 + 정리 1) — 되감기·멈춤이 되풀이되지 않는다', s1.pauses.length > 0 && s1.pauses.every((n) => n === 2), { pauses: s1.pauses });
@@ -1532,8 +1536,8 @@ const WIRE_MUTANTS = [
   ['player', '더빙 화면: 옛 0.3초 되감기로 되돌림', 'follow.step(t, els, v);', OLD_RESYNC_PLAYER],
   ['player', '[조건 뒤집기] 더빙 화면: if (false) 로', 'follow.step(t, els, v);', 'if (false) follow.step(t, els, v);'],
   ['player', '[조건 뒤집기] 더빙 화면: false && 로', 'follow.step(t, els, v);', 'false && follow.step(t, els, v);'],
-  ['player', '더빙 화면: 정본 대신 빈 객체', 'var follow = C.clockFollower(), els', 'var follow = { step: function () {} }, els'],
-  ['watch', '먼저 보기: 정본 대신 빈 객체', 'var follow = C.clockFollower({ now: now }), els', 'var follow = { step: function () {} }, els'],
+  ['player', '더빙 화면: 정본 대신 빈 객체', 'var follow = C.clockFollower({ lines: sc.lines }), els', 'var follow = { step: function () {} }, els'],
+  ['watch', '먼저 보기: 정본 대신 빈 객체', 'var follow = C.clockFollower({ now: now, lines: sc.lines }), els', 'var follow = { step: function () {} }, els'],
 ];
 for (const [which, name, from, to] of WIRE_MUTANTS) {
   const src = which === 'player' ? PLAYER_SRC_RAW : WATCH_SRC;
