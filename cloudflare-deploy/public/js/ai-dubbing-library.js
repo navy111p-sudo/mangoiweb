@@ -268,6 +268,15 @@
   window.MangoiDubLibrary = {
     identity: identity, scope: identity, hasAccount: function () { return identity() !== 'guest'; },
     newId: id, errorText: errorText, onAccountChange: onAccountChange,
+    listUploads: function () { return request('/uploads'); },
+    saveUpload: function (job, owner) { return request('/uploads/' + keyPart(job.id), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(job) }, false, owner); },
+    deleteUpload: function (jobId, owner) { return request('/uploads/' + keyPart(jobId), { method: 'DELETE' }, false, owner); },
+    storeLocalMovie: async function (blob, metadata, owner) {
+      assertOwner(owner); var movieId = keyPart(metadata.clientId);
+      if (!blob || !blob.size || blob.size > 64 * 1024 * 1024) throw failure('empty_media');
+      await localWrite('movies', { key: owner + '/' + movieId, owner: owner, id: movieId, blob: blob, meta: Object.assign({}, metadata), createdAt: Date.now() }, null, function () { assertOwner(owner); });
+      assertOwner(owner);
+    },
     listDownloads: function () { return request('/downloads'); },
     saveDownload: function (job, owner) { return request('/downloads/' + keyPart(job.id), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(job) }, false, owner); },
     deleteDownload: function (jobId, owner) { return request('/downloads/' + keyPart(jobId), { method: 'DELETE' }, false, owner); },

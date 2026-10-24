@@ -368,6 +368,14 @@ test('progress saves are pinned to their original owner and late cross-account h
   await assert.rejects(w.api.deleteDownload('abc-job','student:alice'),e=>e.code==='account_changed');assert.equal(w.calls.length,before);
 });
 
+test('upload progress routes are private, owner pinned and contain metadata only',async()=>{
+  const w=world(alice),job={id:'abc-upload',entries:[{id:'movie-id',sha256:'a'.repeat(64)}]};
+  await w.api.listUploads();await w.api.saveUpload(job,'student:alice');await w.api.deleteUpload(job.id,'student:alice');
+  assert.deepEqual(w.calls.map(c=>[c.url,c.opts.method||'GET']),[['/api/dubbing/uploads','GET'],['/api/dubbing/uploads/abc-upload','PUT'],['/api/dubbing/uploads/abc-upload','DELETE']]);
+  assert.deepEqual(JSON.parse(w.calls[1].opts.body),job);for(const c of w.calls){assert.equal(c.opts.headers.get('X-Dubbing-Actor'),'student%3Aalice');assert.equal(c.opts.cache,'no-store');}
+  w.student('Bob');const before=w.calls.length;await assert.rejects(w.api.saveUpload(job,'student:alice'),e=>e.code==='account_changed');await assert.rejects(w.api.deleteUpload(job.id,'student:alice'),e=>e.code==='account_changed');assert.equal(w.calls.length,before);
+});
+
 let failures=0;
 for(const {name,fn} of checks) {
   try {await fn();console.log('✅ '+name);} catch(e) {failures++;console.error('❌ '+name+'\n   '+e.message);}

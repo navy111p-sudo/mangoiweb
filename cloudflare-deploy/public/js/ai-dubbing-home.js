@@ -470,6 +470,7 @@
       ids.add(e.id);
       return typeof e.title === 'string' && e.title.length <= 500 && Number.isSafeInteger(e.size) && e.size > 0 && typeof e.mime === 'string' && e.mime.length <= 100
         && typeof e.engine === 'string' && e.engine.length <= 20 && typeof e.episodeId === 'string' && e.episodeId.length <= 80
+        && (e.sha256 === undefined || typeof e.sha256 === 'string' && /^[a-f0-9]{64}$/.test(e.sha256))
         && ['pending', 'saved', 'failed', 'missing', 'changed'].indexOf(e.state) >= 0 && typeof e.error === 'string' && e.error.length <= 1000;
     });
   }
@@ -478,7 +479,7 @@
     if (raw.length > 1024 * 1024) throw new Error('upload_history_too_large');
     var r = JSON.parse(raw); if (!validUpload(r, owner)) throw new Error('invalid_upload_history'); return r;
   }
-  function uploadEntry(m) { return { id: m.id, title: m.title || '', size: m.blob.size, mime: m.blob.type || 'video/webm', engine: m.engine || '', episodeId: m.episodeId || '', state: 'pending', error: '' }; }
+  function uploadEntry(m) { return { id: m.id, title: m.title || '', size: m.blob.size, mime: m.blob.type || 'video/webm', engine: m.engine || '', episodeId: m.episodeId || '', state: 'pending', error: '', durationMs: m.durationMs || 0, interrupted: !!m.interrupted }; }
   function sameUpload(e, m) {
     return e.id === m.id && e.title === m.title && e.size === (m.blob ? m.blob.size : m.size) && e.mime === (m.blob ? m.blob.type || 'video/webm' : m.mime) && e.engine === (m.engine || '') && e.episodeId === (m.episodeId || '');
   }
@@ -529,11 +530,85 @@
     }
     return c.upload;
   }
+  function mergeUpload(a, b) {
+    var entries = new Map(a.entries.map(function (e) { return [e.id, e]; }));
+    b.entries.forEach(function (e) {
+      var old = entries.get(e.id);
+      if (old && (!sameUpload(old, e) || old.sha256 && e.sha256 && old.sha256 !== e.sha256)) throw new Error('upload_changed');
+      entries.set(e.id, Object.assign({}, old, e, old && old.sha256 ? { sha256: old.sha256 } : {}, old && old.state === 'saved' ? { state: 'saved', error: '' } : old && e.state !== 'saved' ? { state: old.state, error: old.error } : {}));
+    });
+    return Object.assign({}, a, { entries: Array.from(entries.values()), updatedAt: Math.max(a.updatedAt, b.updatedAt) });
+  }
+  async function syncUpload(c, u) {
+    if (!L.saveUpload || !L.hasAccount() || !u.record || !uploadCurrent(c, u)) return;
+    var snapshot = JSON.parse(JSON.stringify(u.record));
+    try {
+      var response = await L.saveUpload(snapshot, c.owner);
+      if (!uploadCurrent(c, u) || !u.record || u.record.id !== snapshot.id) return;
+      if (!validUpload(response.upload, c.owner) || response.upload.id !== snapshot.id) throw new Error('invalid_upload');
+      u.record = mergeUpload(u.record, response.upload); c.uploads = (c.uploads || []).filter(function (r) { return r.id !== u.record.id; }); c.uploads.push(response.upload);
+      reconcileUpload(c, u, c.response); rememberUpload(c, u); u.cloudSaved = true; u.cloudError = false;
+    } catch (e) {
+      if (!uploadCurrent(c, u)) return;
+      u.cloudSaved = false; u.cloudError = true;
+      if (e.status === 410 || e.code === 'upload_changed' || e.code === 'upload_expired') { u.historyChanged = true; u.stopped = true; u.reason = t('계정의 진행 기록이 삭제되거나 바뀌었어요. 보관함을 새로고침해 주세요.', 'Account save progress was removed or changed. Refresh the library.'); }
+    }
+  }
+  async function pullUploads(c) {
+    var response = await L.listUploads();
+    if (catalogue !== c || !owned(c.owner)) return;
+    if (!response || !Array.isArray(response.uploads) || !Array.isArray(response.removed) || response.uploads.some(function (r) { return !validUpload(r, c.owner); })) throw new Error('invalid_upload');
+    c.uploads = response.uploads;
+    var u = uploadState(c);
+    if (u.record && response.removed.indexOf(u.record.id) >= 0) {
+      if (uploadJob) { u.stopped = true; u.historyChanged = true; u.reason = t('계정에서 삭제된 진행 기록이에요. 보관함을 새로고침해 주세요.', 'This progress was removed from your account. Refresh the library.'); return; }
+      localStorage.removeItem(uploadKey(c.owner)); u.record = null; u.persistedId = null; u.selected.clear();
+    }
+    var remote = u.record && c.uploads.find(function (r) { return r.id === u.record.id; });
+    if (remote) u.record = mergeUpload(u.record, remote);
+    if (!u.record && !u.historyError && c.uploads.length) {
+      var candidates = c.uploads.slice().sort(function (a, b) { return b.updatedAt - a.updatedAt; });
+      u.record = candidates.find(function (r) { return r.entries.some(function (e) { return e.state !== 'saved'; }); }) || candidates[0];
+      u.record = JSON.parse(JSON.stringify(u.record));
+    }
+    if (u.record) { reconcileUpload(c, u, c.response); rememberUpload(c, u); await syncUpload(c, u); }
+  }
+  async function originalHash(blob) {
+    if (!blob || blob.size > 64 * 1024 * 1024 || !window.crypto || !window.crypto.subtle) throw new Error('original_hash_unavailable');
+    var bytes = await blob.arrayBuffer(), hash = await window.crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(hash)).map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
+  }
+  async function connectOriginals(c, u, files) {
+    if (!uploadCurrent(c, u) || u.busy || uploadJob || bulkJob || !u.record || !L.storeLocalMovie) return;
+    u.busy = true; u.connecting = true; u.reason = ''; drawCatalogue();
+    var connected = 0, rejected = 0;
+    try {
+      for (var i = 0; i < files.length; i++) {
+        if (!uploadCurrent(c, u)) return;
+        var file = files[i], candidates = u.record.entries.filter(function (e) { return e.state !== 'saved' && e.sha256 && e.size === file.size && !c.items.some(function (m) { return m.local && sameUpload(e, m); }); });
+        if (!candidates.length) { rejected++; continue; }
+        var hash = await originalHash(file);
+        if (!uploadCurrent(c, u)) return;
+        var matches = candidates.filter(function (e) { return e.sha256 === hash; });
+        if (!matches.length) { rejected++; continue; }
+        for (var j = 0; j < matches.length; j++) {
+          var e = matches[j], blob = file.slice(0, file.size, e.mime), meta = { clientId: e.id, title: e.title, engine: e.engine, episodeId: e.episodeId, durationMs: e.durationMs || 0, interrupted: !!e.interrupted };
+          await L.storeLocalMovie(blob, meta, c.owner);
+          if (!uploadCurrent(c, u)) return;
+          c.items.push(Object.assign({}, meta, { id: e.id, local: true, blob: blob, createdAt: Date.now() })); e.state = 'pending'; e.error = ''; u.selected.add(e.id); connected++;
+        }
+      }
+      rememberUpload(c, u);
+      u.reason = t('원본 ' + connected + '개 연결 · 일치하지 않는 파일 ' + rejected + '개. 연결된 영상은 ‘남은 영상 이어서 저장’을 눌러 저장하세요.', connected + ' originals connected; ' + rejected + ' unmatched files. Choose Resume to save connected videos.');
+    } catch (_) { if (uploadCurrent(c, u)) u.reason = t('원본을 연결하지 못했어요. 브라우저 저장 공간과 원본 파일을 확인해 주세요.', 'Could not connect originals. Check browser storage and original files.'); }
+    finally { u.busy = false; u.connecting = false; if (uploadCurrent(c, u)) drawCatalogue(); }
+  }
   function uploadCurrent(c, u) { return catalogue === c && c.upload === u && owned(c.owner) && view === 'movies'; }
   async function uploadSelected(c, only, resumeOnly) {
     if (catalogue !== c || !owned(c.owner) || !L.hasAccount()) return;
     if (uploadJob || bulkJob) { status(t('다른 저장·다운로드 작업이 끝난 뒤 다시 눌러 주세요.', 'Wait for the other save or download to finish.')); return; }
     var u = uploadState(c), movies = only || c.items.filter(function (m) { return m.local && u.selected.has(m.id); });
+    if (u.busy) return;
     if (u.historyError) { status(t('저장 진행 기록을 읽지 못했어요. 아래의 진행 기록 지우기를 누른 뒤 다시 선택해 주세요.', 'Could not read save progress. Remove the progress record below and select again.')); return; }
     if (!resumeOnly && !movies.length) return;
     if (resumeOnly) {
@@ -553,6 +628,28 @@
     var requested = new Set(movies.map(function (m) { return m.id; })), ticket = { state: u, catalogue: c }; uploadJob = ticket;
     u.busy = true; u.verifying = true; u.stopped = false; u.reason = ''; u.results = new Map(); drawCatalogue();
     try {
+      if (L.listUploads) {
+        try { await pullUploads(c); } catch (_) { u.cloudError = true; u.cloudSaved = false; }
+        if (!uploadCurrent(c, u) || u.stopped || u.historyChanged) return;
+        await syncUpload(c, u);
+        // Hash every available unfinished original before sending the first movie.
+        // A fresh browser can then reconnect an exact file rather than guessing.
+        if (L.saveUpload) {
+          for (var h = 0; h < u.record.entries.length; h++) {
+            var he = u.record.entries[h], hm = c.items.find(function (m) { return m.local && sameUpload(he, m); });
+            if (he.state !== 'saved' && hm) {
+              try {
+                var actualHash = await originalHash(hm.blob);
+                if (he.sha256 && he.sha256 !== actualHash) { u.stopped = true; u.reason = t('원본 파일 내용이 진행 기록과 달라 저장을 멈췄어요. 원본을 확인해 주세요.', 'Saving stopped because an original no longer matches its fingerprint. Check the original.'); return; }
+                he.sha256 = actualHash;
+              } catch (_) { u.hashError = true; if (he.sha256) { u.stopped = true; u.reason = t('원본 파일 내용을 확인하지 못했어요. 원본과 브라우저 설정을 확인해 주세요.', 'Could not verify the original file. Check the original and browser settings.'); return; } }
+              if (!uploadCurrent(c, u) || u.stopped) return;
+            }
+          }
+          rememberUpload(c, u); await syncUpload(c, u);
+          if (!uploadCurrent(c, u) || u.stopped || u.historyChanged) return;
+        }
+      }
       var response;
       try { response = await L.listMovies(); if (!response || !Array.isArray(response.movies)) throw new Error('invalid_response'); }
       catch (_) { if (uploadCurrent(c, u)) { u.stopped = true; u.reason = t('계정의 저장 완료 목록을 확인하지 못했어요. 연결을 확인한 뒤 이어서 저장을 다시 눌러 주세요.', 'Could not check saved account videos. Check your connection and retry resume.'); } return; }
@@ -569,12 +666,13 @@
           if (!result || !result.movie || result.movie.id !== movie.id) throw new Error('invalid_movie_response');
           c.items = c.items.map(function (m) { return m.id === movie.id ? Object.assign({}, result.movie, { local: false }) : m; });
           u.selected.delete(movie.id); entry.state = 'saved'; entry.error = '';
+          c.response = Object.assign({}, c.response, { movies: c.items.filter(function (m) { return !m.local; }) });
         } catch (e) {
           if (!uploadCurrent(c, u) || uploadJob !== ticket) return;
           entry.state = 'failed'; entry.error = message(e).slice(0, 1000);
           if (e.status === 401 || e.status === 429 || e.status === 503 || /account_changed|auth_required|movie_count_limit|quota|network|timeout/.test(e.code || '')) { u.stopped = true; u.reason = message(e); }
         }
-        rememberUpload(c, u); drawCatalogue();
+        rememberUpload(c, u); await syncUpload(c, u); drawCatalogue();
       }
     } finally {
       if (uploadJob === ticket) uploadJob = null;
@@ -585,10 +683,20 @@
   function uploadBar(c, shown) {
     var host = $('dub-library-upload'); if (!host || c.kind !== 'movies') return;
     var locals = c.items.filter(function (m) { return m.local; }), u = uploadState(c); u.checks = new Map();
-    if (!locals.length && !u.record && !u.historyError) return;
+    if (!locals.length && !u.record && !u.historyError && !u.cloudError) return;
     host.hidden = false;
     host.append(node('h3', '', t('이 기기의 영상, 계정에 모아 저장', 'Save device videos to your account')));
     host.append(node('p', '', t('영상 카드에서 저장할 영상을 선택하세요. 검색해도 선택은 유지돼요. 계정에 저장하면 다른 컴퓨터·브라우저에서도 볼 수 있어요.', 'Select videos on their cards. Selections stay when you search. Account videos are available on other computers and browsers.')));
+    if (c.uploads && c.uploads.length > 1) {
+      var jobLabel = node('label', '', t('저장 작업 선택 ', 'Save job ')), jobs = node('select'); jobs.setAttribute('aria-label', t('저장 작업 선택', 'Choose save job')); jobs.disabled = u.busy;
+      c.uploads.slice().sort(function (a, b) { return b.updatedAt - a.updatedAt; }).forEach(function (r) { var option = node('option', '', r.entries[0].title + ' · ' + r.entries.length + t('개 영상', ' videos') + ' · ' + new Date(r.updatedAt).toLocaleString()); option.value = r.id; option.selected = !!u.record && r.id === u.record.id; jobs.append(option); });
+      jobs.addEventListener('change', function () {
+        if (!uploadCurrent(c, u) || u.busy) return;
+        var next = c.uploads.find(function (r) { return r.id === jobs.value; }); if (!next) return;
+        u.replaceId = u.record && u.record.id; u.record = JSON.parse(JSON.stringify(next)); u.selected.clear(); u.persistedId = null;
+        reconcileUpload(c, u, c.response); rememberUpload(c, u); u.cloudSaved = true; drawCatalogue();
+      }); jobLabel.append(jobs); host.append(jobLabel);
+    }
     var summary = node('p', 'dub-selection-summary', t('선택한 영상 ', 'Selected videos: ') + u.selected.size + t('개 · 이 기기에만 저장된 영상 ', ' · Device-only videos: ') + locals.length + t('개', ''));
     summary.setAttribute('role', 'status'); host.append(summary);
     var controls = node('div', 'row');
@@ -602,6 +710,7 @@
     var stop = button(t('저장 중단', 'Stop saving'), function () { if (uploadCurrent(c, u) && u.busy) { u.stopped = true; rememberUpload(c, u); drawCatalogue(); } }); stop.hidden = !u.busy; stop.disabled = u.stopped;
     controls.append(select, clear, save, stop); host.append(controls);
     if (!L.hasAccount()) host.append(node('p', 'dub-save-note', t('계정에 저장하려면 먼저 로그인해 주세요.', 'Sign in before saving to your account.')));
+    if (u.cloudError && !u.record) host.append(node('p', 'dub-save-note', t('계정의 저장 진행을 불러오지 못했어요. 연결을 확인하고 보관함을 새로고침해 주세요.', 'Could not load account save progress. Check your connection and refresh the library.')));
     if (u.historyError) host.append(node('p', 'dub-save-note', t('저장 진행 기록을 읽지 못했어요. 원본 영상은 지우지 않았어요. 진행 기록을 지운 뒤 다시 선택해 주세요.', 'Save progress could not be read. Original videos are kept. Remove the progress record and select again.')));
     if (u.record) {
       u.total = u.record.entries.length; u.saved = u.record.entries.filter(function (e) { return e.state === 'saved'; }).length;
@@ -611,18 +720,29 @@
       var resume = button(t('남은 영상 이어서 저장', 'Resume remaining video saves'), function () { return uploadSelected(c, null, true); }, 'go');
       resume.disabled = u.busy || !L.hasAccount() || !!c.localError; resume.hidden = remaining === 0; controls.append(resume);
       host.append(node('p', 'dub-selection-summary', (u.remembered ? t('기억한 저장 진행: ', 'Remembered save progress: ') : t('현재 저장 진행: ', 'Current save progress: ')) + u.saved + ' / ' + u.total + t('개 저장 · 남은 ', ' saved · Remaining ') + remaining + t('개', '')));
-      host.append(node('p', 'dub-save-note', u.remembered ? t('이 기기·브라우저에서 같은 계정으로 보관함을 다시 열면 진행 상황을 불러와요. ‘남은 영상 이어서 저장’은 기억한 목록에서 이미 계정에 저장된 영상을 확인하고 건너뛰어요.', 'Reopen the library with the same account in this browser to restore progress. Resume checks the remembered list against your account and skips already saved videos.') : t('이 브라우저에 진행 기록을 저장하지 못했어요. 화면을 닫지 말고 브라우저 저장 공간·설정을 확인해 주세요.', 'Save progress could not be remembered in this browser. Keep this screen open and check browser storage settings.')));
+      host.append(node('p', 'dub-save-note', u.remembered ? t('같은 계정으로 보관함을 열면 저장 진행을 불러오고 이미 저장된 영상은 건너뛰어요. 다른 기기에서는 아직 전송하지 않은 원본 파일을 아래에서 연결해 주세요.', 'Open the library with the same account to restore progress and skip saved videos. On another device, connect untransferred original files below.') : t('이 브라우저에 진행 기록을 저장하지 못했어요. 화면을 닫지 말고 브라우저 저장 공간·설정을 확인해 주세요.', 'Save progress could not be remembered in this browser. Keep this screen open and check browser storage settings.')));
+      host.append(node('p', 'dub-save-note', u.cloudSaved ? t('✓ 계정에 저장 진행이 동기화됐어요. 다른 컴퓨터·브라우저에서도 불러올 수 있어요.', '✓ Save progress is synced to your account and available on other devices.') : t('계정에 진행 상황을 동기화하지 못했어요. 현재 기기의 진행 기록은 유지돼요. 연결을 확인하고 보관함을 새로고침해 주세요.', 'Progress is not synced to your account. Device progress is kept. Check your connection and refresh the library.')));
+      if (u.hashError) host.append(node('p', 'dub-save-note', t('일부 원본의 내용 확인을 마치지 못했어요. 해당 영상은 원래 기기에서 이어서 저장해 주세요.', 'Some originals could not be fingerprinted. Resume those videos on the original device.')));
+      if (u.record.entries.some(function (e) { return e.state === 'missing'; })) {
+        var originalLabel = node('label', 'dub-save-note', t('다른 기기에서 이어서 저장하려면 원본 파일 연결 ', 'Connect original files to resume on this device ')), picker = node('input');
+        picker.type = 'file'; picker.multiple = true; picker.accept = 'video/webm,video/mp4,.webm,.mp4'; picker.disabled = u.busy; picker.setAttribute('aria-label', t('남은 영상 원본 파일 연결', 'Connect remaining original video files'));
+        picker.addEventListener('change', function () { return connectOriginals(c, u, Array.from(picker.files || [])); }); originalLabel.append(picker); host.append(originalLabel);
+        host.append(node('p', 'dub-save-note', t('전송 전 원본은 자동으로 다른 기기에 옮겨지지 않아요. 내려받아 둔 원본을 선택하면 내용이 정확히 일치하는 영상만 연결돼요. 원본이 없거나 이전 버전의 기록이면 원래 기기·브라우저에서 이어서 저장하세요.', 'Untransferred originals do not move automatically. Select downloaded originals; only exact content matches are connected. Without an original or for older progress, resume in the original browser.')));
+      }
       if (c.localError) host.append(node('p', 'dub-save-note', t('이 기기의 원본 영상을 불러오지 못했어요. 브라우저 저장 설정을 확인하고 보관함을 새로고침해 주세요.', 'Could not load device originals. Check browser storage and refresh the library.')));
     }
     if (u.record || u.historyError) {
-      var remove = button(t('저장 진행 기록 지우기', 'Remove save progress'), function () {
+      var remove = button(t('저장 진행 기록 지우기', 'Remove save progress'), async function () {
         if (!uploadCurrent(c, u) || u.busy || uploadJob) return;
-        try { localStorage.removeItem(uploadKey(c.owner)); u.record = null; u.persistedId = null; u.historyError = false; u.historyChanged = false; u.total = 0; u.reason = ''; u.results.clear(); drawCatalogue(); }
-        catch (_) { status(t('진행 기록을 지우지 못했어요. 브라우저 저장 설정을 확인해 주세요.', 'Could not remove progress. Check browser storage settings.')); }
+        try {
+          if (L.deleteUpload && u.record) { u.busy = true; await L.deleteUpload(u.record.id, c.owner); if (!uploadCurrent(c, u)) return; c.uploads = (c.uploads || []).filter(function (r) { return r.id !== u.record.id; }); u.busy = false; }
+          localStorage.removeItem(uploadKey(c.owner)); u.record = null; u.persistedId = null; u.historyError = false; u.historyChanged = false; u.total = 0; u.reason = ''; u.results.clear(); await refresh(); }
+        catch (_) { u.busy = false; status(t('진행 기록을 지우지 못했어요. 브라우저 저장 설정을 확인해 주세요.', 'Could not remove progress. Check browser storage settings.')); }
       }); remove.disabled = u.busy; controls.append(remove);
+      if (L.deleteUpload) host.append(node('p', 'dub-save-note', t('진행 기록을 지우면 모든 기기에서 해당 작업 기록만 사라져요. 저장된 영상과 원본은 유지돼요.', 'Removing progress clears this job on all devices. Saved videos and originals are kept.')));
     }
     if (u.record) {
-      var text = u.busy && u.verifying ? t('계정에 이미 저장된 영상을 확인하는 중…', 'Checking videos already saved to your account…') : u.busy ? (u.stopped ? t('현재 영상 저장을 마친 뒤 중단해요.', 'Stopping after the current video.') : t('전체 ' + u.total + '개 중 ' + Math.min((u.currentIndex || 0) + 1, u.total) + '번째 저장 중 · ', 'Saving video ' + Math.min((u.currentIndex || 0) + 1, u.total) + ' of ' + u.total + ' · ') + u.currentTitle)
+      var text = u.connecting ? t('원본 파일 내용을 확인하고 연결하는 중…', 'Checking and connecting original files…') : u.busy && u.verifying ? t('계정에 이미 저장된 영상을 확인하는 중…', 'Checking videos already saved to your account…') : u.busy ? (u.stopped ? t('현재 영상 저장을 마친 뒤 중단해요.', 'Stopping after the current video.') : t('전체 ' + u.total + '개 중 ' + Math.min((u.currentIndex || 0) + 1, u.total) + '번째 저장 중 · ', 'Saving video ' + Math.min((u.currentIndex || 0) + 1, u.total) + ' of ' + u.total + ' · ') + u.currentTitle)
         : u.stopped ? t('저장을 중단했어요.', 'Saving stopped.') : remaining ? t('저장이 멈춰 있어요. 남은 영상을 이어서 저장해 주세요.', 'Saving is paused. Resume the remaining videos.') : t('모든 영상을 계정에 저장했어요.', 'All videos are saved to your account.');
       var progress = node('p', 'dub-selection-summary', text + ' · ' + t('저장 ', 'Saved ') + u.saved + t('개 · 실패 ', ' · Failed ') + u.failed + t('개 · 남은 ', ' · Remaining ') + (u.total - u.saved) + t('개', ''));
       progress.setAttribute('role', 'status'); progress.setAttribute('aria-live', 'polite'); host.append(progress);
@@ -632,7 +752,7 @@
       var results = node('ul', 'dub-upload-results');
       u.results.forEach(function (r) { results.append(node('li', '', (r.saved ? t('저장 완료 · ', 'Saved · ') : t('저장 실패 · ', 'Failed · ')) + r.title + (r.error ? ' · ' + r.error : ''))); }); host.append(results);
     }
-    host.append(node('p', 'dub-save-note', t('화면을 닫거나 새로고침하면 저장이 멈춰요. 같은 기기·브라우저의 보관함에서 남은 영상을 이어서 저장할 수 있어요. 아직 계정에 저장하지 않은 원본 영상은 브라우저에서 삭제하지 마세요.', 'Closing or refreshing pauses saving. Reopen this browser’s library to resume remaining videos. Keep device originals until they are saved to your account.')));
+    host.append(node('p', 'dub-save-note', t('화면을 닫거나 새로고침하면 저장이 멈춰요. 같은 계정의 보관함에서 남은 영상을 이어서 저장할 수 있어요. 다른 기기에서는 원본 파일 연결이 필요해요. 아직 계정에 저장하지 않은 원본 영상은 브라우저에서 삭제하지 마세요.', 'Closing or refreshing pauses saving. Reopen your account library to resume remaining videos. Another device needs the original files. Keep device originals until they are saved to your account.')));
   }
 
   function drawCatalogue() {
@@ -748,6 +868,10 @@
     catalogue = { owner: owner, kind: kind, items: items, response: response, localError: results[1].status !== 'fulfilled', error: results[0].reason };
     if (kind === 'movies' && L.listDownloads && L.hasAccount()) {
       try { await pullDownloads(catalogue); } catch (_) { if (catalogue && catalogue.owner === owner) catalogue.downloadSyncError = true; }
+      if (ticket !== generation || !owned(owner)) return;
+    }
+    if (kind === 'movies' && L.listUploads && L.hasAccount()) {
+      try { await pullUploads(catalogue); } catch (_) { if (catalogue && catalogue.owner === owner) uploadState(catalogue).cloudError = true; }
       if (ticket !== generation || !owned(owner)) return;
     }
     drawCatalogue();

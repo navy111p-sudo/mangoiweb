@@ -534,6 +534,90 @@ async function handleDownloads(request: Request, bucket: R2Bucket, owner: Owner,
   return fail(409, 'download_busy');
 }
 
+// Upload checkpoints contain descriptors and hashes only, never original media.
+// Separate from media quota accounting, with CAS and deletion tombstones.
+interface UploadEntry { id: string; title: string; size: number; mime: string; engine: string; episodeId: string; state: 'pending' | 'saved'; error: string; sha256?: string; durationMs?: number; interrupted?: boolean }
+interface UploadJob { version: 1; owner: string; id: string; updatedAt: number; entries: UploadEntry[] }
+interface UploadLedger { version: 1; jobs: UploadJob[]; removed: Record<string, number> }
+function uploadCheckpoint(input: unknown, actor: string): UploadJob {
+  if (!record(input) || input.version !== 1 || input.owner !== actor || typeof input.id !== 'string'
+    || !/^[a-z0-9]+-[a-z0-9-]{1,65}$/.test(input.id) || input.id.length > 80
+    || !Array.isArray(input.entries) || !input.entries.length || input.entries.length > 2000) fail(400, 'invalid_upload');
+  const ids = new Set<string>();
+  const entries: UploadEntry[] = input.entries.map((e: unknown) => {
+    if (!record(e) || typeof e.id !== 'string' || !SAFE_ID.test(e.id) || ids.has(e.id)
+      || typeof e.title !== 'string' || e.title.length > 500 || typeof e.mime !== 'string' || e.mime.length > 100
+      || typeof e.engine !== 'string' || e.engine.length > 20 || typeof e.episodeId !== 'string' || e.episodeId.length > 80
+      || typeof e.size !== 'number' || !Number.isSafeInteger(e.size) || e.size <= 0
+      || !['pending', 'saved', 'failed', 'missing', 'changed'].includes(String(e.state))
+      || (e.sha256 !== undefined && (typeof e.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(e.sha256)))
+      || (e.durationMs !== undefined && (typeof e.durationMs !== 'number' || !Number.isFinite(e.durationMs) || e.durationMs < 0 || e.durationMs > 7200000))
+      || (e.interrupted !== undefined && typeof e.interrupted !== 'boolean')) fail(400, 'invalid_upload');
+    ids.add(e.id);
+    return { id: e.id, title: e.title, size: e.size, mime: e.mime, engine: e.engine, episodeId: e.episodeId,
+      state: e.state === 'saved' ? 'saved' : 'pending', error: '',
+      ...(typeof e.sha256 === 'string' ? { sha256: e.sha256 } : {}),
+      ...(typeof e.durationMs === 'number' ? { durationMs: e.durationMs } : {}),
+      ...(typeof e.interrupted === 'boolean' ? { interrupted: e.interrupted } : {}) };
+  });
+  return { version: 1, owner: actor, id: input.id, updatedAt: Date.now(), entries };
+}
+function uploadDescriptor(e: UploadEntry): string {
+  return JSON.stringify([e.id, e.title, e.size, e.mime, e.engine, e.episodeId]);
+}
+async function handleUploads(request: Request, bucket: R2Bucket, owner: Owner, path: string): Promise<Response> {
+  const key = DUBBING_PRIVATE_PREFIX + 'upload-progress/v1/' + owner.key + '.json';
+  const read = async (): Promise<{ ledger: UploadLedger; etag?: string }> => {
+    const object = await bucket.get(key);
+    if (!object) return { ledger: { version: 1, jobs: [], removed: {} } };
+    if (object.size > DOWNLOAD_BYTES) fail(503, 'upload_index_invalid');
+    const ledger = await object.json<UploadLedger>();
+    if (ledger.version !== 1 || !Array.isArray(ledger.jobs) || ledger.jobs.length > 10 || !record(ledger.removed) || Object.keys(ledger.removed).length > 1000) fail(503, 'upload_index_invalid');
+    return { ledger, etag: object.httpEtag };
+  };
+  if (path === '/uploads' && request.method === 'GET') {
+    const { ledger } = await read(); return reply({ uploads: ledger.jobs, removed: Object.keys(ledger.removed) }, owner);
+  }
+  const match = /^\/uploads\/([a-z0-9-]{1,80})$/.exec(path);
+  if (!match || !['PUT', 'DELETE'].includes(request.method)) fail(404, 'not_found');
+  const jobId = match[1], actor = decodeURIComponent(request.headers.get('X-Dubbing-Actor') || '').trim().toLowerCase();
+  const incoming = request.method === 'PUT' ? uploadCheckpoint(await readJson(request, DOWNLOAD_BYTES), actor) : null;
+  if (incoming && incoming.id !== jobId) fail(400, 'invalid_upload');
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const { ledger, etag } = await read(), now = Date.now();
+    for (const [removedId, at] of Object.entries(ledger.removed)) if (now - at > DOWNLOAD_RETENTION) delete ledger.removed[removedId];
+    let saved: UploadJob | undefined;
+    if (incoming) {
+      if (ledger.removed[jobId]) fail(410, 'upload_deleted');
+      const previous = ledger.jobs.find(j => j.id === jobId);
+      if (previous) {
+        const entries = new Map(previous.entries.map(e => [e.id, e]));
+        for (const e of incoming.entries) {
+          const old = entries.get(e.id);
+          if (old && (uploadDescriptor(old) !== uploadDescriptor(e) || old.sha256 && e.sha256 && old.sha256 !== e.sha256)) fail(409, 'upload_changed');
+          entries.set(e.id, { ...old, ...e, ...(old?.sha256 ? { sha256: old.sha256 } : {}), state: old?.state === 'saved' ? 'saved' : e.state });
+        }
+        if (entries.size > 2000) fail(413, 'upload_storage_limit');
+        saved = { ...previous, entries: Array.from(entries.values()), updatedAt: now };
+        ledger.jobs = ledger.jobs.map(j => j.id === jobId ? saved! : j);
+      } else {
+        const created = parseInt(jobId.split('-')[0], 36);
+        if (!Number.isSafeInteger(created) || created < now - DOWNLOAD_RETENTION || created > now + 300000) fail(409, 'upload_expired');
+        if (ledger.jobs.length >= 10) fail(409, 'upload_count_limit');
+        saved = incoming; ledger.jobs.push(saved);
+      }
+    } else {
+      ledger.jobs = ledger.jobs.filter(j => j.id !== jobId); ledger.removed[jobId] = now;
+      if (Object.keys(ledger.removed).length > 1000) fail(429, 'upload_delete_limit');
+    }
+    const text = JSON.stringify(ledger);
+    if (new TextEncoder().encode(text).length > DOWNLOAD_BYTES) fail(413, 'upload_storage_limit');
+    const stored = await bucket.put(key, text, { onlyIf: new Headers(etag ? { 'If-Match': etag } : { 'If-None-Match': '*' }), httpMetadata: { contentType: 'application/json', cacheControl: 'private, no-store' } });
+    if (stored) return reply(incoming ? { upload: saved } : {}, owner);
+  }
+  return fail(409, 'upload_busy');
+}
+
 export async function handleDubbingApi(request: Request, env: MangoEnv): Promise<Response> {
   let owner: Owner | undefined;
   try {
@@ -544,6 +628,8 @@ export async function handleDubbingApi(request: Request, env: MangoEnv): Promise
     const bucket = env.RECORDINGS;
     const method = request.method;
     const path = url.pathname.slice('/api/dubbing'.length);
+
+    if (path === '/uploads' || path.startsWith('/uploads/')) return await handleUploads(request, bucket, owner, path);
 
     if (path === '/downloads' || path.startsWith('/downloads/')) return await handleDownloads(request, bucket, owner, path);
 
