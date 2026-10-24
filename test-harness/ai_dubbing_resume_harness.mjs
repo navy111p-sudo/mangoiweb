@@ -564,6 +564,77 @@ test('failed latest-progress lookup prevents accidental duplicate resume and can
   await historyControls(x).resume.fire('click');assert.deepEqual(x.requests,['v1','v2']);
 });
 
+function uploadControls(w){const all=descendants(w.el('dub-library-upload')),find=t=>all.find(e=>e.tagName==='button'&&e.textContent===t);return{start:find('선택한 영상 계정에 저장'),select:find('보이는 기기 영상 모두 선택'),clear:find('영상 선택 해제'),stop:find('저장 중단'),meter:all.find(e=>e.tagName==='progress')};}
+async function uploadWorld(){
+  const w=world();await w.boot();w.uploadCalls=[];w.cloudMovies=[{id:'cloud',title:'무지개 모둠 · 에피소드 9',engine:'main',episodeId:'fixture',createdAt:100}];
+  w.localMovies=[0,1,2].map(i=>({id:'device-'+i,createdAt:123,blob:new Blob(['voice-'+i],{type:'video/webm'}),meta:{title:(i<2?'무지개 모둠':'다른 모둠')+' · 에피소드 '+(i+1),engine:i===1?'studio':'main',episodeId:'fixture',interrupted:i===1,durationMs:1234}}));
+  w.lib.listMovies=async()=>({movies:w.cloudMovies.slice()});
+  w.lib.saveMovie=async(blob,meta)=>{w.uploadCalls.push({owner:w.owner,blob,meta:structuredClone(meta)});const movie={...meta,id:meta.clientId,mime:blob.type,size:blob.size,createdAt:456};w.cloudMovies.push(movie);w.localMovies=w.localMovies.filter(m=>m.id!==meta.clientId);return{ok:true,movie};};
+  await w.ctx.MangoiDubHome.openLibrary('movies');return w;
+}
+test('bulk account save preserves selections across search/group views and uploads only selected device videos sequentially',async()=>{
+  const w=await uploadWorld();assert.equal(uploadControls(w).start.disabled,true);
+  w.el('dub-library-search').value='무지개';await w.el('dub-library-search').fire('input');await uploadControls(w).select.fire('click');
+  assert.match(w.el('dub-library-upload').textContent,/선택한 영상 2개/);
+  w.el('dub-library-search').value='다른';await w.el('dub-library-search').fire('input');await uploadControls(w).select.fire('click');
+  w.el('dub-library-layout').value='groups';await w.el('dub-library-layout').fire('change');assert.match(w.el('dub-library-upload').textContent,/선택한 영상 3개/);
+  const held=deferred(),save=w.lib.saveMovie,entered=[];w.lib.saveMovie=async(b,m)=>{entered.push(m.clientId);if(entered.length===1)await held.promise;return save(b,m);};
+  const job=uploadControls(w).start.fire('click');await until(()=>entered.length===1);
+  assert.equal(uploadControls(w).start.disabled,true);assert.equal(uploadControls(w).select.disabled,true);assert.deepEqual(entered,['device-0']);
+  held.resolve();await job;assert.deepEqual(entered,['device-0','device-1','device-2']);assert.equal(w.localMovies.length,0);
+  assert.equal(w.uploadCalls.length,3);assert.ok(w.uploadCalls.every(c=>c.owner==='student:alice'));
+  const studio=w.uploadCalls[1];assert.equal(studio.meta.engine,'studio');assert.equal(studio.meta.interrupted,true);assert.equal(studio.meta.durationMs,1234);assert.equal(studio.meta.title,'무지개 모둠 · 에피소드 2');assert.equal(await studio.blob.text(),'voice-1');
+  assert.match(w.el('dub-library-upload').textContent,/저장 3개 · 실패 0개 · 남은 0개/);assert.equal(uploadControls(w).meter.value,3);
+  assert.equal(descendants(w.el('dub-library-items')).filter(e=>e.tagName==='input'&&e.attrs['aria-label']?.startsWith('계정에 저장할')).length,0);
+  await w.ctx.MangoiDubHome.openLibrary('movies');assert.equal(w.el('dub-library-upload').hidden,true);assert.equal(w.cloudMovies.length,4);
+});
+test('individual device checkboxes and clear selection never select cloud videos',async()=>{
+  const w=await uploadWorld();const checks=()=>descendants(w.el('dub-library-items')).filter(e=>e.tagName==='input'&&e.attrs['aria-label']?.startsWith('계정에 저장할'));
+  assert.equal(checks().length,3);const check=checks()[1];check.checked=true;await check.fire('change');assert.match(w.el('dub-library-upload').textContent,/선택한 영상 1개/);
+  await uploadControls(w).clear.fire('click');assert.equal(uploadControls(w).start.disabled,true);assert.ok(checks().every(c=>!c.checked));
+  checks()[1].checked=true;await checks()[1].fire('change');await uploadControls(w).start.fire('click');assert.deepEqual(w.uploadCalls.map(c=>c.meta.clientId),['device-1']);
+});
+test('partial save failures retain originals and selections, and retry does not re-upload successes',async()=>{
+  const w=await uploadWorld(),save=w.lib.saveMovie,attempts=[];let fail=true;
+  w.lib.saveMovie=async(b,m)=>{attempts.push(m.clientId);if(m.clientId==='device-1'&&fail)throw Object.assign(new Error('invalid'),{code:'invalid_metadata'});return save(b,m);};
+  await uploadControls(w).select.fire('click');await uploadControls(w).start.fire('click');assert.match(w.el('dub-library-upload').textContent,/저장 2개 · 실패 1개 · 남은 0개/);
+  assert.match(w.el('dub-library-upload').textContent,/저장 실패 · 무지개 모둠 · 에피소드 2/);assert.equal(w.localMovies.length,1);assert.equal(await w.localMovies[0].blob.text(),'voice-1');assert.match(w.el('dub-library-upload').textContent,/선택한 영상 1개/);
+  fail=false;await uploadControls(w).start.fire('click');assert.deepEqual(attempts,['device-0','device-1','device-2','device-1']);assert.equal(w.localMovies.length,0);assert.equal(w.cloudMovies.length,4);
+});
+test('network/account quota failures stop the queue while failed and unattempted videos stay selected',async()=>{
+  for(const error of [{code:'network'},{code:'movie_count_limit',status:409}]){
+    const w=await uploadWorld(),save=w.lib.saveMovie,attempts=[];w.lib.saveMovie=async(b,m)=>{attempts.push(m.clientId);if(m.clientId==='device-1')throw error;return save(b,m);};
+    await uploadControls(w).select.fire('click');await uploadControls(w).start.fire('click');assert.deepEqual(attempts,['device-0','device-1']);assert.equal(w.localMovies.length,2);
+    assert.match(w.el('dub-library-upload').textContent,/저장 1개 · 실패 1개 · 남은 1개/);assert.match(w.el('dub-library-upload').textContent,/선택한 영상 2개/);
+    w.lib.saveMovie=save;await uploadControls(w).start.fire('click');assert.equal(w.cloudMovies.length,4);
+  }
+});
+test('pause settles the current upload, keeps remaining originals, and retries only remaining selections',async()=>{
+  const w=await uploadWorld(),save=w.lib.saveMovie,held=deferred();let entered=false;w.lib.saveMovie=async(b,m)=>{entered=true;await held.promise;return save(b,m);};
+  await uploadControls(w).select.fire('click');const job=uploadControls(w).start.fire('click');await until(()=>entered);await uploadControls(w).stop.fire('click');held.resolve();await job;
+  assert.equal(w.uploadCalls.length,1);assert.equal(w.localMovies.length,2);assert.match(w.el('dub-library-upload').textContent,/저장을 중단/);assert.match(w.el('dub-library-upload').textContent,/선택한 영상 2개/);
+  w.lib.saveMovie=save;await uploadControls(w).start.fire('click');assert.equal(w.uploadCalls.length,3);
+});
+test('account changes, close, refresh and pagehide prevent the next video upload and stale selection controls cannot restart it',async()=>{
+  for(const [mode,cancel] of [['account',w=>w.changeOwner('student:bob')],['close',w=>w.el('dub-library-close').fire('click')],['refresh',w=>w.ctx.MangoiDubHome.openLibrary('movies')],['pagehide',w=>w.pagehide()]]){
+    const w=await uploadWorld(),held=deferred(),calls=[];w.lib.saveMovie=async(b,m)=>{calls.push({owner:w.owner,id:m.clientId});await held.promise;return{movie:{...m,id:m.clientId}};};
+    await uploadControls(w).select.fire('click');const stale=uploadControls(w).start,job=stale.fire('click');await until(()=>calls.length===1);await cancel(w);held.resolve();await job;
+    assert.equal(calls.length,1);assert.equal(calls[0].owner,'student:alice');assert.equal(w.localMovies.length,3);
+    // The stale start from a closed/refreshed/account-switched view cannot upload.
+    if(mode!=='pagehide'){await stale.fire('click');assert.equal(calls.length,1);}
+  }
+});
+test('guest device selection explains sign-in and cannot send an account save',async()=>{
+  const w=await uploadWorld();w.changeOwner('guest');await w.ctx.MangoiDubHome.openLibrary('movies');await uploadControls(w).select.fire('click');assert.equal(uploadControls(w).start.disabled,true);assert.match(w.el('dub-library-upload').textContent,/먼저 로그인/);
+  await uploadControls(w).start.fire('click');assert.equal(w.uploadCalls.length,0);
+});
+test('active uploads cannot be duplicated by double clicks, single-save buttons, or ZIP controls',async()=>{
+  const w=await uploadWorld(),held=deferred(),save=w.lib.saveMovie;let entered=0;w.lib.saveMovie=async(b,m)=>{entered++;await held.promise;return save(b,m);};
+  w.el('dub-library-layout').value='groups';await w.el('dub-library-layout').fire('change');await uploadControls(w).select.fire('click');const job=uploadControls(w).start.fire('click');await until(()=>entered===1);
+  await uploadControls(w).start.fire('click');const buttons=descendants(w.el('dub-library-items'));await buttons.find(b=>b.tagName==='button'&&b.textContent==='내 계정에도 저장하기').fire('click');await buttons.find(b=>b.tagName==='button'&&b.textContent==='모두 내려받기 (ZIP)').fire('click');assert.equal(entered,1);
+  held.resolve();await job;assert.equal(w.uploadCalls.length,3);
+});
+
 let failed=0;
 for(const {name,fn}of tests){try{await fn();console.log('✅ '+name);}catch(e){failed++;console.error('❌ '+name+'\n   '+e.stack);}}
 console.log(`\nDubbing resume/player: ${tests.length-failed} PASS / ${failed} FAIL`);
