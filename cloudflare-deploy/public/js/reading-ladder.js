@@ -191,6 +191,15 @@
   }
   // 2026-10-19 부터 176편 모두 그림책이 있다. 그림책이 없는 글(데이터에 book:false)이 생기면 그림책 표시·버튼을 그리지 않는다(없는 페이지로 보내지 않게).
   function hasBook(p) { return !!p && p.book !== false; }
+  // Reuse the first picture on the storybook page; lazy-load offscreen rows.
+  function bookThumbnail(p) {
+    return '<span class="rl-thumb" aria-hidden="true">📖' + (hasBook(p) ?
+      '<img src="/img/story/' + esc(p.id) + '-cover.webp?v=2" alt="" width="1024" height="688" loading="lazy" decoding="async">' : '') + '</span>';
+  }
+  // A missing picture leaves a book placeholder without changing the row size.
+  root.addEventListener('error', function (e) {
+    if (e.target && e.target.tagName === 'IMG' && e.target.parentNode && e.target.parentNode.classList.contains('rl-thumb')) e.target.hidden = true;
+  }, true);
   function bookTag(p) {
     if (!hasBook(p)) return '';
     var n = bookStamps(p.id);
@@ -335,6 +344,7 @@
     var s = RLCore.statusOf(state.prog[p.id]);
     return '<button type="button" class="rl-item ' + s + (on ? ' sel' : '') + '" data-act="sel" data-id="' + esc(p.id) + '" aria-pressed="' + on + '">' +
       '<span class="rl-no">' + pad2(no) + '</span>' +
+      bookThumbnail(p) +
       '<span class="rl-tt"><b lang="en">' + esc(p.title.en) + '</b>' + (lang() === 'en' ? '' : '<span>' + esc(p.title.ko) + '</span>') + '</span>' +
       '<span class="rl-topic">' + esc(L(p.topic)) + '</span>' +
       '<span class="rl-wc">' + RLCore.wordCount(p) + esc(T('단어', 'w')) + '</span>' + statusIcon(s) + '</button>';
