@@ -586,7 +586,7 @@ test('bulk account save preserves selections across search/group views and uploa
   const studio=w.uploadCalls[1];assert.equal(studio.meta.engine,'studio');assert.equal(studio.meta.interrupted,true);assert.equal(studio.meta.durationMs,1234);assert.equal(studio.meta.title,'무지개 모둠 · 에피소드 2');assert.equal(await studio.blob.text(),'voice-1');
   assert.match(w.el('dub-library-upload').textContent,/저장 3개 · 실패 0개 · 남은 0개/);assert.equal(uploadControls(w).meter.value,3);
   assert.equal(descendants(w.el('dub-library-items')).filter(e=>e.tagName==='input'&&e.attrs['aria-label']?.startsWith('계정에 저장할')).length,0);
-  await w.ctx.MangoiDubHome.openLibrary('movies');assert.equal(w.el('dub-library-upload').hidden,true);assert.equal(w.cloudMovies.length,4);
+  await w.ctx.MangoiDubHome.openLibrary('movies');assert.match(w.el('dub-library-upload').textContent,/3 \/ 3개 저장/);assert.equal(w.cloudMovies.length,4);
 });
 test('individual device checkboxes and clear selection never select cloud videos',async()=>{
   const w=await uploadWorld();const checks=()=>descendants(w.el('dub-library-items')).filter(e=>e.tagName==='input'&&e.attrs['aria-label']?.startsWith('계정에 저장할'));
@@ -597,7 +597,7 @@ test('individual device checkboxes and clear selection never select cloud videos
 test('partial save failures retain originals and selections, and retry does not re-upload successes',async()=>{
   const w=await uploadWorld(),save=w.lib.saveMovie,attempts=[];let fail=true;
   w.lib.saveMovie=async(b,m)=>{attempts.push(m.clientId);if(m.clientId==='device-1'&&fail)throw Object.assign(new Error('invalid'),{code:'invalid_metadata'});return save(b,m);};
-  await uploadControls(w).select.fire('click');await uploadControls(w).start.fire('click');assert.match(w.el('dub-library-upload').textContent,/저장 2개 · 실패 1개 · 남은 0개/);
+  await uploadControls(w).select.fire('click');await uploadControls(w).start.fire('click');assert.match(w.el('dub-library-upload').textContent,/저장 2개 · 실패 1개 · 남은 1개/);
   assert.match(w.el('dub-library-upload').textContent,/저장 실패 · 무지개 모둠 · 에피소드 2/);assert.equal(w.localMovies.length,1);assert.equal(await w.localMovies[0].blob.text(),'voice-1');assert.match(w.el('dub-library-upload').textContent,/선택한 영상 1개/);
   fail=false;await uploadControls(w).start.fire('click');assert.deepEqual(attempts,['device-0','device-1','device-2','device-1']);assert.equal(w.localMovies.length,0);assert.equal(w.cloudMovies.length,4);
 });
@@ -605,7 +605,7 @@ test('network/account quota failures stop the queue while failed and unattempted
   for(const error of [{code:'network'},{code:'movie_count_limit',status:409}]){
     const w=await uploadWorld(),save=w.lib.saveMovie,attempts=[];w.lib.saveMovie=async(b,m)=>{attempts.push(m.clientId);if(m.clientId==='device-1')throw error;return save(b,m);};
     await uploadControls(w).select.fire('click');await uploadControls(w).start.fire('click');assert.deepEqual(attempts,['device-0','device-1']);assert.equal(w.localMovies.length,2);
-    assert.match(w.el('dub-library-upload').textContent,/저장 1개 · 실패 1개 · 남은 1개/);assert.match(w.el('dub-library-upload').textContent,/선택한 영상 2개/);
+    assert.match(w.el('dub-library-upload').textContent,/저장 1개 · 실패 1개 · 남은 2개/);assert.match(w.el('dub-library-upload').textContent,/선택한 영상 2개/);
     w.lib.saveMovie=save;await uploadControls(w).start.fire('click');assert.equal(w.cloudMovies.length,4);
   }
 });
@@ -633,6 +633,88 @@ test('active uploads cannot be duplicated by double clicks, single-save buttons,
   w.el('dub-library-layout').value='groups';await w.el('dub-library-layout').fire('change');await uploadControls(w).select.fire('click');const job=uploadControls(w).start.fire('click');await until(()=>entered===1);
   await uploadControls(w).start.fire('click');const buttons=descendants(w.el('dub-library-items'));await buttons.find(b=>b.tagName==='button'&&b.textContent==='내 계정에도 저장하기').fire('click');await buttons.find(b=>b.tagName==='button'&&b.textContent==='모두 내려받기 (ZIP)').fire('click');assert.equal(entered,1);
   held.resolve();await job;assert.equal(w.uploadCalls.length,3);
+});
+
+const uploadHistoryKey=w=>'mangoi_dub_uploads_v1:'+encodeURIComponent(w.owner);
+const uploadHistory=w=>JSON.parse(w.data.get(uploadHistoryKey(w))||'null');
+function resumeUpload(w){return descendants(w.el('dub-library-upload')).find(e=>e.tagName==='button'&&e.textContent==='남은 영상 이어서 저장');}
+async function pausedUploadWorld(){
+  const w=await uploadWorld(),save=w.lib.saveMovie;
+  w.lib.saveMovie=async(b,m)=>{const r=await save(b,m);if(m.clientId==='device-0')w.pagehide();return r;};
+  await uploadControls(w).select.fire('click');await uploadControls(w).start.fire('click');return w;
+}
+async function reloadUploadWorld(w,mutate,owner=w.owner){
+  const x=world(w.data);await x.boot();x.changeOwner(owner);x.localMovies=w.localMovies.slice();x.cloudMovies=w.cloudMovies;x.uploadCalls=[];
+  x.lib.listMovies=async()=>({movies:x.cloudMovies.slice()});
+  x.lib.saveMovie=async(blob,meta)=>{x.uploadCalls.push({owner:x.owner,blob,meta:structuredClone(meta)});const movie={...meta,id:meta.clientId,mime:blob.type,size:blob.size,createdAt:789};x.cloudMovies.push(movie);x.localMovies=x.localMovies.filter(m=>m.id!==meta.clientId);return{movie};};
+  if(mutate)mutate(x);await x.ctx.MangoiDubHome.openLibrary('movies');return x;
+}
+test('account upload progress survives a fresh JS context and resumes only unfinished originals without automatic uploading',async()=>{
+  const w=await pausedUploadWorld(),record=uploadHistory(w);assert.equal(record.entries.length,3);assert.deepEqual(record.entries.map(e=>e.state),['saved','pending','pending']);
+  const json=w.data.get(uploadHistoryKey(w));assert.ok(!json.includes('blob:')&&!json.includes('voice-0')&&!json.includes('mango_token'));
+  const x=await reloadUploadWorld(w);assert.match(x.el('dub-library-upload').textContent,/1 \/ 3개 저장 · 남은 2개/);assert.equal(x.uploadCalls.length,0);assert.equal(uploadControls(x).meter.value,1);
+  await resumeUpload(x).fire('click');assert.deepEqual(x.uploadCalls.map(c=>c.meta.clientId),['device-1','device-2']);assert.match(x.el('dub-library-upload').textContent,/3 \/ 3개 저장 · 남은 0개/);assert.equal(uploadControls(x).meter.value,3);
+});
+test('a server-committed upload with a lost success response is reconciled and never uploaded a second time',async()=>{
+  const w=await pausedUploadWorld(),pending=w.localMovies[0];
+  w.cloudMovies.push({...pending.meta,id:pending.id,size:pending.blob.size,mime:pending.blob.type,createdAt:999});
+  const x=await reloadUploadWorld(w);assert.match(x.el('dub-library-upload').textContent,/2 \/ 3개 저장 · 남은 1개/);
+  await resumeUpload(x).fire('click');assert.deepEqual(x.uploadCalls.map(c=>c.meta.clientId),['device-2']);assert.equal(new Set(x.cloudMovies.map(m=>m.id)).size,x.cloudMovies.length);
+});
+test('resume rechecks the latest account list even when another view saved a video after this library opened',async()=>{
+  const w=await pausedUploadWorld(),x=await reloadUploadWorld(w),pending=x.localMovies[0];
+  x.cloudMovies.push({...pending.meta,id:pending.id,size:pending.blob.size,mime:pending.blob.type,createdAt:999});
+  await resumeUpload(x).fire('click');assert.deepEqual(x.uploadCalls.map(c=>c.meta.clientId),['device-2']);
+});
+test('the entire queue exists before the first account-list await and a closed view can restore all selected originals',async()=>{
+  const w=await uploadWorld(),held=deferred();w.lib.listMovies=()=>held.promise;
+  await uploadControls(w).select.fire('click');const job=uploadControls(w).start.fire('click');await until(()=>!!uploadHistory(w));assert.equal(uploadHistory(w).entries.length,3);
+  await w.el('dub-library-close').fire('click');held.resolve({movies:w.cloudMovies.slice()});await job;assert.equal(w.uploadCalls.length,0);
+  const x=await reloadUploadWorld(w);assert.equal(x.uploadCalls.length,0);await resumeUpload(x).fire('click');assert.equal(x.uploadCalls.length,3);
+});
+test('missing or changed originals are retained in progress and never silently counted as saved',async()=>{
+  const w=await pausedUploadWorld();
+  for(const mutate of [x=>x.localMovies.shift(),x=>x.localMovies[0]={...x.localMovies[0],blob:new Blob(['changed-size'])}]){
+    const x=await reloadUploadWorld(w,mutate);await resumeUpload(x).fire('click');assert.deepEqual(x.uploadCalls.map(c=>c.meta.clientId),['device-2']);
+    assert.match(x.el('dub-library-upload').textContent,/2 \/ 3개 저장 · 남은 1개/);assert.ok(uploadHistory(x).entries.some(e=>['missing','changed'].includes(e.state)));assert.match(x.el('dub-library-upload').textContent,/원본|정보가 바뀌/);
+    // Reset shared account state before the second variation.
+    w.cloudMovies=w.cloudMovies.filter(m=>m.id!=='device-2');w.data.set(uploadHistoryKey(w),JSON.stringify({version:1,owner:w.owner,id:'fixture-progress',updatedAt:Date.now(),entries:[...uploadHistory(w).entries.map(e=>({...e,state:e.id==='device-0'?'saved':'pending',error:''}))]}));
+  }
+});
+test('an unavailable account list never causes blind uploads and reconnecting can resume safely',async()=>{
+  const w=await pausedUploadWorld(),x=await reloadUploadWorld(w),list=x.lib.listMovies;x.lib.listMovies=async()=>{throw new Error('offline');};
+  await resumeUpload(x).fire('click');assert.equal(x.uploadCalls.length,0);assert.match(x.el('dub-library-upload').textContent,/저장 완료 목록을 확인하지 못/);
+  x.lib.listMovies=list;await resumeUpload(x).fire('click');assert.equal(x.uploadCalls.length,2);
+});
+test('upload progress is scoped to the same account and a stale resume cannot upload after switching accounts',async()=>{
+  const w=await pausedUploadWorld(),x=await reloadUploadWorld(w),stale=resumeUpload(x);x.changeOwner('student:bob');
+  x.localMovies=[];x.lib.listMovies=async()=>({movies:[]});await x.ctx.MangoiDubHome.openLibrary('movies');assert.equal(resumeUpload(x),undefined);assert.equal(x.el('dub-library-upload').hidden,true);
+  await stale.fire('click');assert.equal(x.uploadCalls.length,0);assert.ok(w.data.has('mangoi_dub_uploads_v1:student%3Aalice'));assert.ok(!w.data.has('mangoi_dub_uploads_v1:student%3Abob'));
+});
+test('corrupt or foreign-account progress cannot select or upload originals and clearing progress never deletes movies',async()=>{
+  const w=await pausedUploadWorld(),original=w.data.get(uploadHistoryKey(w));
+  for(const bad of ['{broken',JSON.stringify({...JSON.parse(original),owner:'student:bob'}),JSON.stringify({...JSON.parse(original),entries:[{...JSON.parse(original).entries[0],id:'../escape'}]})]){
+    w.data.set(uploadHistoryKey(w),bad);const x=await reloadUploadWorld(w);assert.match(x.el('dub-library-upload').textContent,/기록을 읽지 못/);assert.equal(resumeUpload(x),undefined);assert.equal(x.uploadCalls.length,0);
+    const before=x.localMovies.length,cloud=x.cloudMovies.length;await descendants(x.el('dub-library-upload')).find(e=>e.tagName==='button'&&e.textContent==='저장 진행 기록 지우기').fire('click');assert.equal(x.localMovies.length,before);assert.equal(x.cloudMovies.length,cloud);assert.equal(x.data.has(uploadHistoryKey(x)),false);
+  }
+});
+test('blocked checkpoint writes report the limitation while current-view saving still works',async()=>{
+  const w=await uploadWorld(),set=w.ctx.localStorage.setItem;w.ctx.localStorage.setItem=(k,v)=>{if(k.startsWith('mangoi_dub_uploads_v1:'))throw new Error('quota');set(k,v);};
+  await uploadControls(w).select.fire('click');await uploadControls(w).start.fire('click');assert.equal(w.uploadCalls.length,3);assert.match(w.el('dub-library-upload').textContent,/진행 기록을 저장하지 못/);assert.equal(uploadHistory(w),null);
+});
+test('adding another selection preserves unfinished originals in the remembered queue',async()=>{
+  const w=await pausedUploadWorld();w.localMovies.push({id:'extra',createdAt:123,blob:new Blob(['extra']),meta:{engine:'main',episodeId:'fixture',title:'새 모둠 · 에피소드 1'}});
+  const x=await reloadUploadWorld(w);const card=x.el('dub-library-items').children.find(e=>e.textContent.includes('새 모둠'));const one=descendants(card).find(e=>e.tagName==='button'&&e.textContent==='내 계정에도 저장하기');
+  await one.fire('click');assert.ok(uploadHistory(x).entries.some(e=>e.id==='device-2'&&e.state==='pending'));assert.ok(uploadHistory(x).entries.some(e=>e.id==='extra'&&e.state==='saved'));assert.equal(uploadHistory(x).entries.length,4);
+});
+
+test('an unreadable original store disables resume instead of declaring originals lost or posting anything',async()=>{
+  const w=await pausedUploadWorld(),x=await reloadUploadWorld(w,x=>{x.lib.listLocalMovies=async()=>{throw new Error('device-store-unavailable');};});
+  assert.equal(resumeUpload(x).disabled,true);assert.match(x.el('dub-library-upload').textContent,/원본 영상을 불러오지 못/);assert.equal(x.uploadCalls.length,0);assert.ok(!uploadHistory(x).entries.some(e=>e.state==='missing'));
+});
+test('a record removed in another tab cannot be resurrected by a stale resume control',async()=>{
+  const w=await pausedUploadWorld(),x=await reloadUploadWorld(w),resume=resumeUpload(x);x.data.delete(uploadHistoryKey(x));await resume.fire('click');
+  assert.equal(x.uploadCalls.length,0);assert.equal(x.data.has(uploadHistoryKey(x)),false);assert.match(x.el('dub-library-upload').textContent,/다른 화면에서 바뀌/);
 });
 
 let failed=0;
