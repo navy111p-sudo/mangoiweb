@@ -152,3 +152,5 @@ body .top{padding-right:158px}
 .dub-upload-select{display:flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;margin-bottom:10px}.dub-upload-select input{flex:0 0 24px;width:24px;height:24px;accent-color:var(--mint)}.dub-upload-results{padding-left:22px;max-height:280px;overflow:auto;line-height:1.6}.dub-upload-results li{margin-bottom:8px}
 
 .dub-library-upload>label{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;min-width:0}.dub-library-upload select,.dub-library-upload input[type=file]{max-width:100%;min-width:0;min-height:44px;font:inherit}.dub-library-upload select{width:100%;padding:10px;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px}
+
+.dub-original-results{margin:16px 0;padding:12px;border:1px solid var(--line);border-radius:10px;min-width:0}.dub-original-results h4{margin:0 0 10px}.dub-original-results ul{padding-left:20px}.dub-original-results li{margin:0 0 14px;overflow-wrap:anywhere}.dub-original-results label{display:flex;flex-direction:column;gap:6px}.dub-original-results input[type=file]{width:100%;max-width:100%;min-width:0}
