@@ -2,6 +2,7 @@
 // network boundaries are replaced; resume, finalization and score orchestration run.
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { webcrypto } from 'node:crypto';
 import assert from 'node:assert/strict';
 const root=new URL('../',import.meta.url);
 const read=p=>readFileSync(new URL(p,root),'utf8');
@@ -715,6 +716,59 @@ test('an unreadable original store disables resume instead of declaring original
 test('a record removed in another tab cannot be resurrected by a stale resume control',async()=>{
   const w=await pausedUploadWorld(),x=await reloadUploadWorld(w),resume=resumeUpload(x);x.data.delete(uploadHistoryKey(x));await resume.fire('click');
   assert.equal(x.uploadCalls.length,0);assert.equal(x.data.has(uploadHistoryKey(x)),false);assert.match(x.el('dub-library-upload').textContent,/다른 화면에서 바뀌/);
+});
+
+// Independent browser storage with shared authenticated account boundaries.
+function cloudUploads(w, server) {
+  w.ctx.crypto=webcrypto;
+  w.lib.listUploads=async()=>({uploads:structuredClone(server.jobs.filter(r=>r.owner===w.owner)),removed:[...server.removed]});
+  w.lib.saveUpload=async(r,owner)=>{
+    assert.equal(owner,w.owner);if(server.offline)throw new Error('offline');
+    if(server.removed.has(r.id))throw Object.assign(new Error('deleted'),{status:410});
+    const prior=server.jobs.find(j=>j.id===r.id&&j.owner===owner),entries=new Map((prior?.entries||[]).map(e=>[e.id,e]));
+    r.entries.forEach(e=>{const old=entries.get(e.id);entries.set(e.id,{...old,...e,...(old?.sha256?{sha256:old.sha256}:{}),state:old?.state==='saved'?'saved':e.state==='saved'?'saved':'pending',error:''});});
+    const job={...structuredClone(r),entries:[...entries.values()]};server.jobs=server.jobs.filter(j=>j.id!==r.id||j.owner!==owner);server.jobs.push(job);return{upload:structuredClone(job)};
+  };
+  w.lib.deleteUpload=async(id,owner)=>{assert.equal(owner,w.owner);server.jobs=server.jobs.filter(j=>j.id!==id||j.owner!==owner);server.removed.add(id);};
+  w.lib.storeLocalMovie=async(blob,meta,owner)=>{assert.equal(owner,w.owner);w.localMovies.push({id:meta.clientId,blob,meta,createdAt:1});};
+}
+async function crossUploadFixture(){
+  const server={jobs:[],removed:new Set()},w=await uploadWorld();cloudUploads(w,server);const save=w.lib.saveMovie;
+  w.lib.saveMovie=async(b,m)=>{const r=await save(b,m);if(m.clientId==='device-0')w.pagehide();return r;};
+  await uploadControls(w).select.fire('click');await uploadControls(w).start.fire('click');
+  const source={...w,data:new Map()},x=await reloadUploadWorld(source,y=>{y.localMovies=[];cloudUploads(y,server);});return{w,x,server};
+}
+const originalPicker=w=>descendants(w.el('dub-library-upload')).find(e=>e.tagName==='input'&&e.type==='file');
+test('a separate browser restores account upload progress without local storage or original bytes and never uploads automatically',async()=>{
+  const {w,x,server}=await crossUploadFixture();assert.notEqual(w.data,x.data);assert.equal(x.localMovies.length,0);assert.equal(x.uploadCalls.length,0);
+  assert.match(x.el('dub-library-upload').textContent,/1 \/ 3개 저장 · 남은 2개/);assert.match(x.el('dub-library-upload').textContent,/계정에 저장 진행이 동기화/);assert.ok(originalPicker(x));
+  assert.ok(server.jobs[0].entries.every(e=>/^[a-f0-9]{64}$/.test(e.sha256)));await resumeUpload(x).fire('click');assert.equal(x.uploadCalls.length,0);
+});
+test('cross-browser original reconnection rejects different same-size bytes and resumes only exact unfinished originals',async()=>{
+  const {w,x}=await crossUploadFixture();const original=w.localMovies[0].blob,wrong=new Blob(['x'.repeat(original.size)],{type:original.type});
+  let picker=originalPicker(x);picker.files=[wrong];await picker.fire('change');assert.equal(x.localMovies.length,0);assert.match(x.el('dub-library-upload').textContent,/일치하지 않는 파일 1개/);
+  picker=originalPicker(x);picker.files=w.localMovies.map(m=>m.blob);await picker.fire('change');assert.equal(x.localMovies.length,2);assert.equal(x.uploadCalls.length,0);
+  await resumeUpload(x).fire('click');assert.deepEqual(x.uploadCalls.map(c=>c.meta.clientId),['device-1','device-2']);assert.match(x.el('dub-library-upload').textContent,/3 \/ 3개 저장 · 남은 0개/);
+});
+test('account-upload checkpoints from another account never appear in an empty browser',async()=>{
+  const {x,server}=await crossUploadFixture();x.changeOwner('student:bob');x.cloudMovies=[];await x.ctx.MangoiDubHome.openLibrary('movies');assert.equal(x.el('dub-library-upload').hidden,true);assert.equal(x.uploadCalls.length,0);assert.equal(server.jobs.length,1);
+});
+test('cloud deletion propagates to an old browser and a stale resume cannot resurrect it or upload a movie',async()=>{
+  const {w,x,server}=await crossUploadFixture();const id=server.jobs[0].id;server.jobs=[];server.removed.add(id);
+  await resumeUpload(x).fire('click');assert.equal(x.uploadCalls.length,0);assert.match(x.el('dub-library-upload').textContent,/계정에서 삭제된 진행/);
+  const y=await reloadUploadWorld(w,z=>cloudUploads(z,server));assert.equal(resumeUpload(y),undefined);assert.equal(server.jobs.length,0);
+});
+test('offline cloud checkpoint failure is visible and keeps local originals and current-device progress',async()=>{
+  const w=await uploadWorld(),server={jobs:[],removed:new Set(),offline:true};cloudUploads(w,server);
+  await uploadControls(w).select.fire('click');await uploadControls(w).start.fire('click');assert.equal(w.uploadCalls.length,3);assert.ok(uploadHistory(w));assert.match(w.el('dub-library-upload').textContent,/계정에 진행 상황을 동기화하지 못/);
+});
+
+test('an original replaced by different bytes of the same size cannot be uploaded under a remembered fingerprint',async()=>{
+  const {w,server}=await crossUploadFixture();const x=await reloadUploadWorld(w,y=>{cloudUploads(y,server);const old=y.localMovies[0];y.localMovies[0]={...old,blob:new Blob(['x'.repeat(old.blob.size)],{type:old.blob.type})};});
+  await resumeUpload(x).fire('click');assert.equal(x.uploadCalls.length,0);assert.match(x.el('dub-library-upload').textContent,/原本|원본 파일 내용이 진행 기록과 달라/);
+});
+test('a failed account progress lookup is visible even in a fresh browser without any originals',async()=>{
+  const w=world();await w.boot();w.lib.listUploads=async()=>{throw new Error('offline');};await w.ctx.MangoiDubHome.openLibrary('movies');assert.equal(w.el('dub-library-upload').hidden,false);assert.match(w.el('dub-library-upload').textContent,/계정의 저장 진행을 불러오지 못/);
 });
 
 let failed=0;
