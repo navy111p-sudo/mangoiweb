@@ -31,56 +31,126 @@
   }
   function searchKey(value) { return String(value || '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase(); }
   function downloadError(text) { var error = new Error(); error.downloadText = text; return error; }
+  var ZIP_MAX_BYTES = 512 * 1024 * 1024;
+  function zipParts(entries) {
+    var parts = [], part = [], size = 22;
+    entries.forEach(function (entry) {
+      // STORE adds headers, UTF-8 path fields and folder entries. Reserve space
+      // for them so the generated ZIP, not just its video payload, stays bounded.
+      var cost = entry.size + 1024 + new TextEncoder().encode(entry.path).length * 6;
+      if (cost + 22 > ZIP_MAX_BYTES) throw downloadError(t('영상 하나가 ZIP 한도보다 커요. 해당 영상의 ‘영상 보기’ → ‘파일 내려받기’로 원본을 저장해 주세요.', 'One video exceeds the ZIP limit. Use Watch video → Download to save its original file.'));
+      if (part.length && size + cost > ZIP_MAX_BYTES) { parts.push(part); part = []; size = 22; }
+      part.push(entry); size += cost;
+    });
+    if (part.length) parts.push(part);
+    return parts;
+  }
   function groupDownload(group, section, c, selection) {
-    var actions = node('div', 'dub-group-download'), note = node('p', 'dub-save-note');
+    var actions = node('div', 'dub-group-download'), note = node('p', 'dub-save-note'), partButtons = node('div', 'dub-zip-parts');
     note.setAttribute('role', 'status'); note.setAttribute('aria-live', 'polite');
     var ready = node('a', 'btn', t('ZIP 다시 내려받기', 'Download ZIP again')); ready.hidden = true;
-    var start = button(selection ? t('선택한 모둠 내려받기 (ZIP)', 'Download selected groups (ZIP)') : t('모두 내려받기 (ZIP)', 'Download all (ZIP)'), async function () {
-      if (!owned(c.owner) || catalogue !== c || !section.isConnected) return;
-      var groups = selection ? selection() : [group]; if (!groups.length) return;
-      if (bulkJob) { note.textContent = t('다른 모둠의 ZIP을 준비 중이에요. 잠시 후 다시 눌러 주세요.', 'Another group ZIP is being prepared. Please try again shortly.'); return; }
+    var session = null, currentUrl = null;
+    function valid(run) { return session === run && owned(c.owner) && catalogue === c && section.isConnected && actions.isConnected; }
+    function forgetArchive() {
+      ready.hidden = true; ready.removeAttribute('href');
+      if (currentUrl) { URL.revokeObjectURL(currentUrl); urls = urls.filter(function (url) { return url !== currentUrl; }); currentUrl = null; }
+    }
+    function failed(e) { return e.downloadText || (e.status === 401 ? t('로그인 상태를 확인해 주세요.', 'Please check that you are signed in.') : t('영상 연결을 확인하고 다시 시도해 주세요.', 'Check your connection and try again.')); }
+    async function buildPart(run, index) {
+      if (!valid(run)) return;
+      if (bulkJob) { note.textContent = t('다른 ZIP을 준비 중이에요. 잠시 후 다시 눌러 주세요.', 'Another ZIP is being prepared. Please try again shortly.'); return; }
       var ticket = {}; bulkJob = ticket; start.disabled = true;
-      function current() { return bulkJob === ticket && owned(c.owner) && catalogue === c && section.isConnected; }
+      var part = run.parts[index], control = run.buttons[index]; if (control) control.disabled = true;
+      function current() { return bulkJob === ticket && valid(run); }
+      try {
+        forgetArchive();
+        var zip = new window.JSZip();
+        for (var i = 0; i < part.length; i++) {
+          if (!current()) return;
+          var entry = part[i];
+          note.textContent = t('ZIP ', 'ZIP ') + (index + 1) + ' / ' + run.parts.length + t(' · 영상을 모으는 중… ', ' · Collecting videos… ') + (i + 1) + ' / ' + part.length + ' · ' + entry.name;
+          var blob = entry.movie.blob || await L.getMovie(entry.movie.id);
+          if (!current()) return;
+          if (!(blob instanceof Blob) || !blob.size || blob.size !== entry.size) throw downloadError(t('영상 용량이 바뀌었거나 비어 있어요. 보관함을 새로고침한 뒤 다시 선택해 주세요.', 'A video changed size or is empty. Refresh the library and select it again.'));
+          zip.file(entry.path, blob, { compression: 'STORE' });
+        }
+        note.textContent = t('ZIP 파일을 만드는 중… ', 'Creating ZIP… ') + (index + 1) + ' / ' + run.parts.length;
+        var archive = await zip.generateAsync({ type: 'blob', compression: 'STORE', streamFiles: true });
+        if (!current()) return;
+        if (archive.size > ZIP_MAX_BYTES) throw downloadError(t('ZIP 용량을 초과했어요. 모둠을 나누어 선택한 뒤 다시 시도해 주세요.', 'The ZIP exceeded the size limit. Select fewer groups and try again.'));
+        currentUrl = URL.createObjectURL(archive); urls.push(currentUrl);
+        ready.href = currentUrl; ready.download = run.filename.replace(/\.zip$/, run.parts.length > 1 ? '-part-' + String(index + 1).padStart(3, '0') + '.zip' : '.zip');
+        ready.hidden = false; ready.click(); start.hidden = true;
+        if (control) control.textContent = (index + 1) + t('번 ZIP 다시 내려받기', ' · Download ZIP again');
+        note.textContent = run.parts.length > 1
+          ? (index + 1) + ' / ' + run.parts.length + t('번 ZIP 내려받기를 시작했어요. 번호별 버튼을 모두 눌러 저장해 주세요. 각 ZIP은 따로 풀 수 있고 모둠별 폴더 이름은 같아요.', ' ZIP download started. Save every numbered ZIP. Each opens independently and keeps the same group folder names.')
+          : t('ZIP 내려받기를 시작했어요. 다운로드 폴더를 확인하고, 시작되지 않으면 ‘ZIP 다시 내려받기’를 누르세요.', 'ZIP download started. Check Downloads, or choose Download ZIP again if it did not start.');
+      } catch (e) {
+        if (current()) note.textContent = (index + 1) + ' / ' + run.parts.length + t('번 ZIP을 완료하지 못했어요. ', ' ZIP could not be completed. ') + failed(e) + t(' 이 ZIP을 다시 눌러 시도할 수 있어요.', ' Retry this ZIP.');
+      } finally {
+        if (bulkJob === ticket) bulkJob = null;
+        start.disabled = false; if (control) control.disabled = false;
+      }
+    }
+    var start = button(selection ? t('선택한 모둠 내려받기 (ZIP)', 'Download selected groups (ZIP)') : t('모두 내려받기 (ZIP)', 'Download all (ZIP)'), async function () {
+      if (!owned(c.owner) || catalogue !== c || !actions.isConnected) return;
+      var groups = selection ? selection() : [group]; if (!groups.length) return;
+      if (bulkJob) { note.textContent = t('다른 ZIP을 준비 중이에요. 잠시 후 다시 눌러 주세요.', 'Another ZIP is being prepared. Please try again shortly.'); return; }
+      var run = { parts: [], buttons: [] }, ticket = {}; session = run; bulkJob = ticket; start.disabled = true;
+      function current() { return bulkJob === ticket && valid(run); }
       try {
         if (!window.JSZip) throw downloadError(t('ZIP 기능을 불러오지 못했어요. 화면을 새로고침한 뒤 다시 시도해 주세요.', 'ZIP could not load. Refresh the page and try again.'));
-        var zip = new window.JSZip(), total = 0, entries = [];
+        forgetArchive(); partButtons.replaceChildren();
+        var entries = [];
         groups.forEach(function (g, index) {
           var name = g.name || t('모둠 이름 없음', 'No group name');
-          // Number folders as well as files: sanitized names must never merge two groups.
           var folder = selection ? String(index + 1).padStart(3, '0') + '_' + filenameStem(name) + '/' : '';
-          g.items.forEach(function (movie, ordinal) { entries.push({ movie: movie, name: name, folder: folder, ordinal: ordinal + 1 }); });
+          g.items.forEach(function (movie, ordinal) {
+            var title = movieGroup(movie) ? movie.title : name + ' · ' + movie.title;
+            entries.push({ movie: movie, name: name, folder: folder, ordinal: ordinal + 1, title: title });
+          });
         });
         for (var i = 0; i < entries.length; i++) {
           if (!current()) return;
-          note.textContent = t('모둠 영상을 모으는 중… ', 'Collecting group videos… ') + (i + 1) + ' / ' + entries.length + ' · ' + entries[i].name;
-          var movie = entries[i].movie, blob = movie.blob || await L.getMovie(movie.id);
-          if (!current()) return;
-          if (!(blob instanceof Blob) || !blob.size) throw downloadError(t('비어 있는 영상이 있어요. 각 영상의 ‘영상 보기’를 확인한 뒤 다시 시도해 주세요.', 'A video is empty. Check each video with Watch video and try again.'));
-          total += blob.size;
-          // JSZip builds the archive in memory. Keep a large collection from exhausting the tab.
-          if (total > 512 * 1024 * 1024) throw downloadError(t('영상 용량이 커서 한 번에 묶기 어려워요. 각 영상의 ‘파일 내려받기’를 이용해 주세요.', 'These videos are too large to bundle at once. Download each video separately.'));
-          var title = movieGroup(movie) ? movie.title : entries[i].name + ' · ' + movie.title;
-          // Every entry has an ordinal, so repeated titles never replace an earlier recording.
-          zip.file(entries[i].folder + String(entries[i].ordinal).padStart(3, '0') + '_' + movieFilename(title, movie.mime || blob.type), blob, { compression: 'STORE' });
+          var entry = entries[i], movie = entry.movie, size = movie.blob ? movie.blob.size : movie.size, mime = movie.mime || movie.blob && movie.blob.type;
+          note.textContent = t('영상 용량을 확인하는 중… ', 'Checking video sizes… ') + (i + 1) + ' / ' + entries.length;
+          // Current account metadata includes size. Legacy records are checked one
+          // at a time; never keep every selected remote video in memory to plan parts.
+          if (!Number.isSafeInteger(size) || size <= 0 || (!mime && !movie.blob)) {
+            var probe = await L.getMovie(movie.id);
+            if (!current()) return;
+            size = probe.size; mime = mime || probe.type; probe = null;
+          }
+          if (!Number.isSafeInteger(size) || size <= 0) throw downloadError(t('비어 있는 영상이 있어요. ‘영상 보기’를 확인한 뒤 다시 시도해 주세요.', 'A video is empty. Check Watch video and try again.'));
+          entry.size = size;
+          entry.path = entry.folder + String(entry.ordinal).padStart(3, '0') + '_' + movieFilename(entry.title, mime);
         }
-        note.textContent = t('ZIP 파일을 만드는 중…', 'Creating ZIP…');
-        var archive = await zip.generateAsync({ type: 'blob', compression: 'STORE', streamFiles: true });
-        if (!current()) return;
-        var url = URL.createObjectURL(archive); urls.push(url);
-        ready.href = url;
+        run.parts = zipParts(entries);
+        if (!selection && run.parts.length > 1) {
+          entries.forEach(function (entry) { entry.path = '001_' + filenameStem(entry.name) + '/' + entry.path; });
+          run.parts = zipParts(entries);
+        }
         var archiveTitle = selection ? t('선택한 모둠 ' + groups.length + '개', groups.length + ' selected groups') : (group.name || t('모둠 이름 없음', 'No group name'));
-        ready.download = movieFilename(archiveTitle + ' · ' + t('더빙영상', 'dubbing videos'), '').replace(/\.webm$/, '.zip');
-        ready.hidden = false; start.hidden = true; ready.click();
-        note.textContent = t('ZIP 내려받기를 시작했어요. 다운로드 폴더를 확인하고, ZIP을 풀면 모둠 영상들이 나와요. 시작되지 않으면 ‘ZIP 다시 내려받기’를 누르세요.', 'ZIP download started. Check your Downloads folder and unzip it to find the group videos. If it did not start, choose Download ZIP again.');
+        run.filename = movieFilename(archiveTitle + ' · ' + t('더빙영상', 'dubbing videos'), '').replace(/\.webm$/, '.zip');
+        if (!current()) return;
+        if (run.parts.length > 1) {
+          partButtons.append(node('p', '', run.parts.length + t('개 ZIP으로 나눠 저장해요. 번호별 버튼을 모두 눌러 주세요. 각 ZIP은 최대 512MB예요.', ' ZIP files are ready to prepare. Save every numbered ZIP. Each ZIP is at most 512MB.')));
+          run.parts.forEach(function (_, index) {
+            var control = button((index + 1) + t('번 ZIP 내려받기', ' · Download ZIP'), function () { return buildPart(run, index); });
+            run.buttons.push(control); partButtons.append(control);
+          }); start.hidden = true;
+        }
       } catch (e) {
-        if (current()) note.textContent = t('모두 내려받기를 완료하지 못했어요. ', 'Could not download the group. ') + (e.downloadText || (e.status === 401 ? t('로그인 상태를 확인해 주세요.', 'Please check that you are signed in.') : t('영상 연결을 확인하고 다시 시도해 주세요.', 'Check your connection and try again.'))) + t(' 다시 눌러 시도할 수 있어요.', ' You can try again.');
+        if (current()) note.textContent = t('모두 내려받기를 준비하지 못했어요. ', 'Could not prepare the download. ') + failed(e) + t(' 다시 눌러 시도할 수 있어요.', ' You can try again.');
+        return;
       } finally {
         if (bulkJob === ticket) bulkJob = null;
         start.disabled = false;
       }
+      if (valid(run)) await buildPart(run, 0);
     });
     start.disabled = !!selection && !selection().length;
-    actions.append(start, ready, note); return actions;
+    actions.append(start, ready, partButtons, note); return actions;
   }
   function movieGroups(items) {
     var groups = new Map();
@@ -105,7 +175,7 @@
       c.selected.clear(); drawCatalogue(); c.clearSelected.focus();
     }); c.clearSelected.disabled = !chosen.length;
     controls.append(c.selectShown, c.clearSelected); host.append(controls);
-    host.append(node('p', 'dub-selection-help', t('모둠 이름 옆의 체크박스로 여러 모둠을 선택하세요. 검색해도 선택은 유지되며, ZIP 안에 모둠별 폴더로 저장돼요.', 'Select groups using their checkboxes. Selections stay when you search. The ZIP contains a folder for each selected group.')));
+    host.append(node('p', 'dub-selection-help', t('모둠 이름 옆의 체크박스로 여러 모둠을 선택하세요. 검색해도 선택은 유지되며, ZIP 안에 모둠별 폴더로 저장돼요. 512MB를 넘으면 여러 ZIP으로 나눠 받아요.', 'Select groups using their checkboxes. Selections stay when you search. ZIP files keep a folder per group. Downloads over 512MB are split into multiple ZIP files.')));
     host.append(groupDownload(null, host, c, selected));
   }
   function drawCatalogue() {
