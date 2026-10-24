@@ -802,7 +802,7 @@
    * 화면의 영상 + 자막을 캔버스에 그리고, 섞개(원어민 음성·BGM·마이크)를 소리로 붙여 MediaRecorder 로 굽는다. */
   function pickMime() {
     if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return '';
-    var list = ['video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'];
+    var list = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm'];
     for (var i = 0; i < list.length; i++) if (MediaRecorder.isTypeSupported(list[i])) return list[i];
     return '';
   }
@@ -1047,6 +1047,44 @@
   }
 
   /* 동기 모드 — 영상·BGM·캐릭터 음성이 함께 흐르고, 학생 캐릭터 음성만 0. 학생 대사 구간에 마이크를 연다. */
+  function canSeekMedia(el, time) {
+    var ranges = el && el.seekable;
+    if (!ranges) return false;
+    for (var i = 0; i < ranges.length; i++) {
+      if (time >= ranges.start(i) && time <= ranges.end(i)) return true;
+    }
+    return false;
+  }
+  // A streaming response without byte ranges may silently seek back to zero.
+  // Move the whole group only when every element can seek, and wait for the
+  // decoded video frame before audio, captions or microphone capture can resume.
+  function positionSyncedMedia(v, tracks, time, run) {
+    var els = [v].concat(tracks.map(function (tr) { return tr.el; }));
+    if (!time || !els.every(function (el) { return canSeekMedia(el, time); })) return Promise.resolve(false);
+    return Promise.all(els.map(function (el) {
+      if (!el.seeking && Math.abs(el.currentTime - time) < 0.04) return Promise.resolve();
+      return new Promise(function (resolve, reject) {
+        var timer;
+        function clean() {
+          clearTimeout(timer);
+          el.removeEventListener('seeked', done); el.removeEventListener('error', fail);
+          var at = run.wakers.indexOf(cancel); if (at >= 0) run.wakers.splice(at, 1);
+        }
+        function done() {
+          if (el.seeking) return;
+          clean();
+          if (el.readyState >= 2 && Math.abs(el.currentTime - time) < 0.15) resolve();
+          else reject(new Error('Video/audio seek did not reach the dialogue frame'));
+        }
+        function fail() { clean(); reject(new Error('Video/audio seek failed')); }
+        function cancel() { clean(); resolve(); }
+        run.wakers.push(cancel);
+        el.addEventListener('seeked', done); el.addEventListener('error', fail);
+        timer = setTimeout(fail, 8000);
+        try { el.currentTime = time; } catch (e) { fail(); }
+      });
+    })).then(function () { return true; });
+  }
   function playSynced(run, sc) {
     var v = $('dub-video');
     var items = C.assignLines(sc, S.cast, run.counters);
@@ -1071,8 +1109,9 @@
     })).then(function () {
       if (run.aborted) return;
       var start = sc.playbackStartSec || 0;
-      try { v.currentTime = start; } catch (e) {}
-      tracks.forEach(function (t) { try { t.el.currentTime = start; } catch (e) {} });
+      return positionSyncedMedia(v, tracks, start, run);
+    }).then(function () {
+      if (run.aborted) return;
       var pv = v.play(); if (pv && pv.catch) pv.catch(function () {});
       tracks.forEach(function (t) { var p = t.el.play(); if (p && p.catch) p.catch(function () {}); });
       setButtons('native');
@@ -1118,8 +1157,10 @@
           practiceBusy = true;
           var previousSkip = run.skipNow;
           var it = items[k], line = it.line;
-          try { v.pause(); v.currentTime = line.start; } catch (e) {}
-          tracks.forEach(function (tr) { try { tr.el.pause(); tr.el.currentTime = line.start; } catch (e) {} });
+          // The video clock already reached this line. Rewinding a paused
+          // stream here can replace its speaker frame with the opening title.
+          try { v.pause(); } catch (e) {}
+          tracks.forEach(function (tr) { try { tr.el.pause(); } catch (e) {} });
           showLine(run, line, it.performer);
           setTurn('🎤 ' + studentName(it.performer.idx) + ' · ' + charName(line.speaker));
           sndDuck(DUCK_STUDENT); setButtons('student');
@@ -1127,16 +1168,20 @@
           caps[k] = { h: startCapture(run), it: it };
           waitForPracticeDone(run).then(function () { return closeCap(k); }).then(function () {
             if (run.aborted || ended) return;
-            // The movie recorder keeps the held speaker frame and live microphone on
-            // one wall clock. Skip the unused original voice slot before resuming.
-            var resumeAt = Math.min(limit || v.duration, line.end);
-            try { v.currentTime = resumeAt; } catch (e) {}
-            tracks.forEach(function (tr) { try { tr.el.currentTime = resumeAt; } catch (e) {} });
-            follow = C.clockFollower({ lines: sc.lines }); shown = -2;
-            clearLine(run); setTurn(''); run.skipNow = previousSkip; setButtons('native'); sndDuck(1);
+            clearLine(run); setTurn('');
+            // The whole group is already paused on the dialogue frame. Resume
+            // that clock naturally: Safari can advertise seekable audio yet
+            // reject a seek after recording, aborting an otherwise valid take.
+            follow = C.clockFollower({ lines: sc.lines }); shown = k;
+            run.skipNow = previousSkip; setButtons('native'); sndDuck(1);
             practiceBusy = false;
             var vp = v.play(); if (vp && vp.catch) vp.catch(function () {});
             tracks.forEach(function (tr) { var ap = tr.el.play(); if (ap && ap.catch) ap.catch(function () {}); });
+          }).catch(function (e) {
+            console.warn('[ai-dubbing] resume failed', e);
+            run.failed = true; run.aborted = true;
+            run.wakers.splice(0).forEach(function (wake) { wake(); });
+            finish();
           });
         }
         function closeCap(k) {
@@ -1163,6 +1208,11 @@
         run.skipNow = function () { try { v.currentTime = Math.max(0, (v.duration || limit || 0) - 0.05); } catch (e) {} finish(); };
         run.wakers.push(finish);
       });
+    }).catch(function (e) {
+      try { v.pause(); } catch (ignored) {}
+      tracks.forEach(function (tr) { try { tr.el.pause(); } catch (ignored) {} tr.route.cut(); });
+      run.tracks = [];
+      throw e;
     });
   }
 
@@ -1177,6 +1227,7 @@
 
   /* 장면 영상 불러오기 — 더빙과 «먼저 보기» 가 같이 쓴다(원본 소리는 정본 videoAudio 대로) */
   function loadSceneVideo(v, sc) {
+    if (window.MangoiDubIntro) window.MangoiDubIntro.prepare(v, sc);
     setVideoAudio(v, sc.videoAudio === 'clean');
     v.loop = sc.timing !== 'synced';
     if (sc.poster) v.poster = sc.poster; else v.removeAttribute('poster');
@@ -1210,6 +1261,10 @@
     if ($('dub-d-row')) $('dub-d-row').hidden = mode !== 'dub';
     if ($('dub-meter-wrap')) $('dub-meter-wrap').hidden = mode !== 'dub';
     if ($('dub-w-row')) $('dub-w-row').hidden = mode !== 'watch';
+    if ($('dub-w-controls')) $('dub-w-controls').hidden = mode !== 'watch';
+    if ($('dub-stage')) $('dub-stage').classList.toggle('is-watching', mode === 'watch');
+    if ($('dub-w-settings')) $('dub-w-settings').open = false;
+    if (mode !== 'watch' && $('dub-video')) $('dub-video').playbackRate = 1;
     if ($('dub-live-korean-option')) $('dub-live-korean-option').hidden = mode !== 'dub' || !S.run || S.run.mode !== 'presentation';
     if (mode !== 'watch' && $('dub-tcard')) $('dub-tcard').hidden = true;
   }
@@ -1451,6 +1506,25 @@
   function wOnPause(p) {
     var b = $('dub-w-pause');
     if (b) b.innerHTML = p ? L('▶ 이어 보기', '▶ Resume') : L('⏸ 멈춤', '⏸ Pause');
+    var toggle = $('dub-w-toggle');
+    if (toggle) {
+      toggle.textContent = p ? '▶' : '❚❚';
+      toggle.setAttribute('aria-label', p ? T('이어 보기', 'Resume') : T('일시정지', 'Pause'));
+    }
+  }
+  function wProgress(p) {
+    var bar = $('dub-w-seek'), time = $('dub-w-time');
+    function stamp(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }
+    if (bar) {
+      bar.max = p.duration || 0;
+      bar.step = p.unit === 'line' ? 1 : 0.1;
+      bar.value = p.current || 0;
+      bar.disabled = !p.seekable;
+      bar.style.setProperty('--played', (p.duration ? Math.min(100, 100 * p.current / p.duration) : 0) + '%');
+    }
+    var label = p.unit === 'line' ? T('대사 ', 'Line ') + (p.current + 1) + ' / ' + p.count : stamp(p.current) + ' / ' + stamp(p.duration);
+    if (bar) bar.setAttribute('aria-valuetext', label);
+    if (time) time.textContent = label;
   }
   function wOnItem(i, n, it) {
     S.wNow = { i: i, n: n, it: it };
@@ -1538,6 +1612,7 @@
       card: wCard,
       note: function (k) { setNote(k === 'video' ? T('영상을 불러오지 못했어요 — 목소리만 들려줘요', 'Could not load the video — voices only') : ''); },
       onPause: wOnPause,
+      onProgress: wProgress,
       onItem: wOnItem,
       onSeen: function (epId, no) { markSeen(epId, no); if (S.ep && epId === S.ep.id) { renderWatchPanel(); renderScenes(); renderNudge(); } },
       onEnd: wOnEnd,
@@ -1702,6 +1777,27 @@
     if ($('dub-w-next')) $('dub-w-next').addEventListener('click', function () { if (WATCH && S.watching) WATCH.next(); });
     if ($('dub-w-pause')) $('dub-w-pause').addEventListener('click', function () { if (WATCH && S.watching) WATCH.togglePause(); });
     if ($('dub-w-stop')) $('dub-w-stop').addEventListener('click', function () { if (WATCH && S.watching) WATCH.stop(); });
+    if ($('dub-w-toggle')) $('dub-w-toggle').addEventListener('click', function () { if (WATCH && S.watching) WATCH.togglePause(); });
+    if ($('dub-w-seek')) $('dub-w-seek').addEventListener('input', function (e) {
+      if (WATCH && S.watching) WATCH.seek(Number(e.target.value));
+    });
+    if ($('dub-w-settings')) {
+      $('dub-w-settings').addEventListener('change', function (e) {
+        if (e.target.name !== 'watch-rate' || !e.target.checked) return;
+        var w = watcher();
+        if (!w) return;
+        w.setRate(Number(e.target.value));
+        $('dub-w-rate-label').textContent = e.target.value + '×';
+        $('dub-w-settings').open = false;
+      });
+      document.addEventListener('click', function (e) {
+        var menu = $('dub-w-settings');
+        if (menu && menu.open && !menu.contains(e.target)) menu.open = false;
+      });
+      $('dub-w-settings').addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { $('dub-w-settings').open = false; $('dub-w-settings').querySelector('summary').focus(); }
+      });
+    }
   }
 
   function boot() {
@@ -1748,3 +1844,4 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
 })();
+

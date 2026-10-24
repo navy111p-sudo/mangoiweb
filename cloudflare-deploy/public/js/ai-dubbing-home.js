@@ -2,7 +2,7 @@
  * existing player; this module never starts a microphone on page load. */
 (function () {
   'use strict';
-  var L = window.MangoiDubLibrary, adapter, view = 'movies', generation = 0, urls = [];
+  var L = window.MangoiDubLibrary, adapter, view = 'movies', generation = 0, urls = [], catalogue = null, bulkJob = null;
   if (!L) return;
   var $ = function (id) { return document.getElementById(id); };
   function en() { try { return window.getLang && window.getLang() === 'en'; } catch (_) { return false; } }
@@ -12,16 +12,247 @@
   function status(text) { if ($('dub-library-status')) $('dub-library-status').textContent = text; }
   function message(error) { return L.errorText(error, !!en()); }
   function releaseUrls() { urls.splice(0).forEach(function (url) { URL.revokeObjectURL(url); }); }
-  function clearItems() { releaseUrls(); if ($('dub-library-items')) $('dub-library-items').replaceChildren(); }
+  function clearItems() { bulkJob = null; releaseUrls(); if ($('dub-library-items')) $('dub-library-items').replaceChildren(); if ($('dub-library-bulk')) { $('dub-library-bulk').replaceChildren(); $('dub-library-bulk').hidden = true; } }
   function owned(owner) { return owner === L.identity(); }
   // Use the saved title so reopening a movie never picks up another group's name.
-  function movieFilename(title, mime) {
+  function filenameStem(title) {
     var stem = String(title || 'dubbing').replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, '_')
       .replace(/\s*·\s*/g, '_').replace(/\s+/g, '_').replace(/[. _]+$/g, '');
-    return 'mangoi-' + Array.from(stem || 'dubbing').slice(0, 100).join('') + (/mp4/.test(mime || '') ? '.mp4' : '.webm');
+    return Array.from(stem || 'dubbing').slice(0, 100).join('');
+  }
+  function movieFilename(title, mime) {
+    return 'mangoi-' + filenameStem(title) + (/mp4/.test(mime || '') ? '.mp4' : '.webm');
   }
   function button(text, action, cls) { var b = node('button', 'btn ' + (cls || ''), text); b.type = 'button'; b.addEventListener('click', action); return b; }
   function date(value) { var d = new Date(value); return isNaN(d.getTime()) ? '' : d.toLocaleString(en() ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+  function movieGroup(movie) {
+    var match = /^(.*?) · (?=에피소드 \d|Episode \d|처음부터 끝까지|Whole story)/.exec(String(movie.title || ''));
+    return match ? match[1].trim() : '';
+  }
+  function searchKey(value) { return String(value || '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase(); }
+  function downloadError(text) { var error = new Error(); error.downloadText = text; return error; }
+  var ZIP_MAX_BYTES = 512 * 1024 * 1024;
+  function zipParts(entries) {
+    var parts = [], part = [], size = 22;
+    entries.forEach(function (entry) {
+      // STORE adds headers, UTF-8 path fields and folder entries. Reserve space
+      // for them so the generated ZIP, not just its video payload, stays bounded.
+      var cost = entry.size + 1024 + new TextEncoder().encode(entry.path).length * 6;
+      if (cost + 22 > ZIP_MAX_BYTES) throw downloadError(t('영상 하나가 ZIP 한도보다 커요. 해당 영상의 ‘영상 보기’ → ‘파일 내려받기’로 원본을 저장해 주세요.', 'One video exceeds the ZIP limit. Use Watch video → Download to save its original file.'));
+      if (part.length && size + cost > ZIP_MAX_BYTES) { parts.push(part); part = []; size = 22; }
+      part.push(entry); size += cost;
+    });
+    if (part.length) parts.push(part);
+    return parts;
+  }
+  function groupDownload(group, section, c, selection) {
+    var actions = node('div', 'dub-group-download'), note = node('p', 'dub-save-note'), partButtons = node('div', 'dub-zip-parts');
+    note.setAttribute('role', 'status'); note.setAttribute('aria-live', 'polite');
+    var ready = node('a', 'btn', t('ZIP 다시 내려받기', 'Download ZIP again')); ready.hidden = true;
+    var session = null, currentUrl = null;
+    function valid(run) { return session === run && owned(c.owner) && catalogue === c && section.isConnected && actions.isConnected; }
+    function forgetArchive() {
+      ready.hidden = true; ready.removeAttribute('href');
+      if (currentUrl) { URL.revokeObjectURL(currentUrl); urls = urls.filter(function (url) { return url !== currentUrl; }); currentUrl = null; }
+    }
+    function failed(e) { return e.downloadText || (e.status === 401 ? t('로그인 상태를 확인해 주세요.', 'Please check that you are signed in.') : t('영상 연결을 확인하고 다시 시도해 주세요.', 'Check your connection and try again.')); }
+    async function buildPart(run, index, queueTicket) {
+      if (!valid(run)) return false;
+      if (queueTicket && bulkJob !== queueTicket) return false;
+      if (!queueTicket && bulkJob) { note.textContent = t('다른 ZIP을 준비 중이에요. 잠시 후 다시 눌러 주세요.', 'Another ZIP is being prepared. Please try again shortly.'); return; }
+      var ticket = queueTicket || {}; bulkJob = ticket; start.disabled = true;
+      var part = run.parts[index], control = run.buttons[index]; if (control) control.disabled = true;
+      function current() { return bulkJob === ticket && valid(run); }
+      try {
+        forgetArchive();
+        var zip = new window.JSZip();
+        for (var i = 0; i < part.length; i++) {
+          if (!current()) return;
+          var entry = part[i];
+          note.textContent = t('ZIP ', 'ZIP ') + (index + 1) + ' / ' + run.parts.length + t(' · 영상을 모으는 중… ', ' · Collecting videos… ') + (i + 1) + ' / ' + part.length + ' · ' + entry.name;
+          var blob = entry.movie.blob || await L.getMovie(entry.movie.id);
+          if (!current()) return;
+          if (!(blob instanceof Blob) || !blob.size || blob.size !== entry.size) throw downloadError(t('영상 용량이 바뀌었거나 비어 있어요. 보관함을 새로고침한 뒤 다시 선택해 주세요.', 'A video changed size or is empty. Refresh the library and select it again.'));
+          zip.file(entry.path, blob, { compression: 'STORE' });
+        }
+        note.textContent = t('ZIP 파일을 만드는 중… ', 'Creating ZIP… ') + (index + 1) + ' / ' + run.parts.length;
+        var archive = await zip.generateAsync({ type: 'blob', compression: 'STORE', streamFiles: true });
+        if (!current()) return;
+        if (archive.size > ZIP_MAX_BYTES) throw downloadError(t('ZIP 용량을 초과했어요. 모둠을 나누어 선택한 뒤 다시 시도해 주세요.', 'The ZIP exceeded the size limit. Select fewer groups and try again.'));
+        currentUrl = URL.createObjectURL(archive); urls.push(currentUrl);
+        ready.href = currentUrl; ready.download = run.filename.replace(/\.zip$/, run.parts.length > 1 ? '-part-' + String(index + 1).padStart(3, '0') + '.zip' : '.zip');
+        ready.hidden = false; ready.click(); start.hidden = true;
+        if (control) control.textContent = (index + 1) + t('번 ZIP 다시 내려받기', ' · Download ZIP again');
+        note.textContent = run.parts.length > 1
+          ? (index + 1) + ' / ' + run.parts.length + t('번 ZIP 내려받기를 시작했어요. 다운로드 폴더를 확인해 주세요. 차단되거나 빠진 파일은 번호별 버튼으로 다시 받을 수 있어요.', ' ZIP download started. Check Downloads. Use the numbered buttons to retry any blocked or missing file.')
+          : t('ZIP 내려받기를 시작했어요. 다운로드 폴더를 확인하고, 시작되지 않으면 ‘ZIP 다시 내려받기’를 누르세요.', 'ZIP download started. Check Downloads, or choose Download ZIP again if it did not start.');
+        return true;
+      } catch (e) {
+        if (current()) note.textContent = (index + 1) + ' / ' + run.parts.length + t('번 ZIP을 완료하지 못했어요. ', ' ZIP could not be completed. ') + failed(e) + (run.parts.length > 1 ? t(' 이 ZIP의 번호별 버튼으로 다시 시도해 주세요.', ' Retry using this ZIP’s numbered button.') : t(' 내려받기 버튼을 다시 눌러 시도해 주세요.', ' Press the download button to retry.'));
+        return false;
+      } finally {
+        if (!queueTicket) {
+          if (bulkJob === ticket) bulkJob = null;
+          start.disabled = false; if (control) control.disabled = false;
+        }
+      }
+    }
+    async function downloadAll(run) {
+      if (!valid(run)) return;
+      if (bulkJob) { note.textContent = t('다른 ZIP을 준비 중이에요. 잠시 후 다시 눌러 주세요.', 'Another ZIP is being prepared. Please try again shortly.'); return; }
+      var ticket = {}; bulkJob = ticket; start.disabled = true;
+      if (run.allButton) run.allButton.disabled = true;
+      run.buttons.forEach(function (b) { b.disabled = true; });
+      try {
+        for (var index = 0; index < run.parts.length; index++) {
+          if (!valid(run) || bulkJob !== ticket) return;
+          if (!await buildPart(run, index, ticket)) return;
+          // Give the browser time to start this Blob download before releasing
+          // its URL while preparing the next ZIP. Never build ZIPs concurrently.
+          if (index + 1 < run.parts.length) await new Promise(function (resolve) { setTimeout(resolve, 250); });
+        }
+        if (valid(run) && bulkJob === ticket && run.parts.length > 1) note.textContent = run.parts.length + t('개 ZIP의 다운로드를 순서대로 요청했어요. 브라우저에서 차단 안내가 뜨면 ‘여러 파일 다운로드’를 허용해 주세요. 다운로드 폴더에서 모든 번호를 확인하고, 차단되거나 빠진 ZIP은 번호별 버튼으로 다시 받으세요.', ' ZIP download requests were sent in order. If your browser shows a blocking notice, allow multiple file downloads. Check Downloads for every part number and retry blocked or missing ZIPs with the numbered buttons.');
+      } finally {
+        if (bulkJob === ticket) bulkJob = null;
+        start.disabled = false;
+        if (run.allButton) run.allButton.disabled = false;
+        run.buttons.forEach(function (b) { b.disabled = false; });
+      }
+    }
+    var start = button(selection ? t('선택한 모둠 내려받기 (ZIP)', 'Download selected groups (ZIP)') : t('모두 내려받기 (ZIP)', 'Download all (ZIP)'), async function () {
+      if (!owned(c.owner) || catalogue !== c || !actions.isConnected) return;
+      var groups = selection ? selection() : [group]; if (!groups.length) return;
+      if (bulkJob) { note.textContent = t('다른 ZIP을 준비 중이에요. 잠시 후 다시 눌러 주세요.', 'Another ZIP is being prepared. Please try again shortly.'); return; }
+      var run = { parts: [], buttons: [] }, ticket = {}; session = run; bulkJob = ticket; start.disabled = true;
+      function current() { return bulkJob === ticket && valid(run); }
+      try {
+        if (!window.JSZip) throw downloadError(t('ZIP 기능을 불러오지 못했어요. 화면을 새로고침한 뒤 다시 시도해 주세요.', 'ZIP could not load. Refresh the page and try again.'));
+        forgetArchive(); partButtons.replaceChildren();
+        var entries = [];
+        groups.forEach(function (g, index) {
+          var name = g.name || t('모둠 이름 없음', 'No group name');
+          var folder = selection ? String(index + 1).padStart(3, '0') + '_' + filenameStem(name) + '/' : '';
+          g.items.forEach(function (movie, ordinal) {
+            var title = movieGroup(movie) ? movie.title : name + ' · ' + movie.title;
+            entries.push({ movie: movie, name: name, folder: folder, ordinal: ordinal + 1, title: title });
+          });
+        });
+        for (var i = 0; i < entries.length; i++) {
+          if (!current()) return;
+          var entry = entries[i], movie = entry.movie, size = movie.blob ? movie.blob.size : movie.size, mime = movie.mime || movie.blob && movie.blob.type;
+          note.textContent = t('영상 용량을 확인하는 중… ', 'Checking video sizes… ') + (i + 1) + ' / ' + entries.length;
+          // Current account metadata includes size. Legacy records are checked one
+          // at a time; never keep every selected remote video in memory to plan parts.
+          if (!Number.isSafeInteger(size) || size <= 0 || (!mime && !movie.blob)) {
+            var probe = await L.getMovie(movie.id);
+            if (!current()) return;
+            size = probe.size; mime = mime || probe.type; probe = null;
+          }
+          if (!Number.isSafeInteger(size) || size <= 0) throw downloadError(t('비어 있는 영상이 있어요. ‘영상 보기’를 확인한 뒤 다시 시도해 주세요.', 'A video is empty. Check Watch video and try again.'));
+          entry.size = size;
+          entry.path = entry.folder + String(entry.ordinal).padStart(3, '0') + '_' + movieFilename(entry.title, mime);
+        }
+        run.parts = zipParts(entries);
+        if (!selection && run.parts.length > 1) {
+          entries.forEach(function (entry) { entry.path = '001_' + filenameStem(entry.name) + '/' + entry.path; });
+          run.parts = zipParts(entries);
+        }
+        var archiveTitle = selection ? t('선택한 모둠 ' + groups.length + '개', groups.length + ' selected groups') : (group.name || t('모둠 이름 없음', 'No group name'));
+        run.filename = movieFilename(archiveTitle + ' · ' + t('더빙영상', 'dubbing videos'), '').replace(/\.webm$/, '.zip');
+        if (!current()) return;
+        if (run.parts.length > 1) {
+          partButtons.append(node('p', '', run.parts.length + t('개 ZIP을 순서대로 내려받아요. 차단되면 번호별 버튼으로 다시 받아 주세요. 각 ZIP은 최대 512MB예요.', ' ZIP files download in order. If blocked, retry with the numbered buttons. Each ZIP is at most 512MB.')));
+          run.allButton = button(t('모두 내려받기', 'Download all'), function () { return downloadAll(run); });
+          partButtons.append(run.allButton);
+          run.parts.forEach(function (_, index) {
+            var control = button((index + 1) + t('번 ZIP 내려받기', ' · Download ZIP'), function () { return buildPart(run, index); });
+            run.buttons.push(control); partButtons.append(control);
+          }); start.hidden = true;
+        }
+      } catch (e) {
+        if (current()) note.textContent = t('모두 내려받기를 준비하지 못했어요. ', 'Could not prepare the download. ') + failed(e) + t(' 다시 눌러 시도할 수 있어요.', ' You can try again.');
+        return;
+      } finally {
+        if (bulkJob === ticket) bulkJob = null;
+        start.disabled = false;
+      }
+      if (valid(run)) await downloadAll(run);
+    });
+    start.disabled = !!selection && !selection().length;
+    actions.append(start, ready, partButtons, note); return actions;
+  }
+  function movieGroups(items) {
+    var groups = new Map();
+    items.forEach(function (item) { var name = movieGroup(item), key = searchKey(name); if (!groups.has(key)) groups.set(key, { key: key, name: name, items: [] }); groups.get(key).items.push(item); });
+    return Array.from(groups.values()).sort(function (a, b) { return a.name && b.name ? a.name.localeCompare(b.name, en() ? 'en' : 'ko', { numeric: true }) : a.name ? -1 : b.name ? 1 : 0; });
+  }
+  function selectionBar(c, shownGroups) {
+    var host = $('dub-library-bulk'); if (!host) return;
+    host.hidden = false;
+    var selected = function () { return c.groups.filter(function (g) { return c.selected.has(g.key); }); };
+    var chosen = selected(), count = chosen.reduce(function (sum, g) { return sum + g.items.length; }, 0);
+    var summary = node('p', 'dub-selection-summary', t('선택한 모둠 ', 'Selected groups: ') + chosen.length + t('개 · 영상 ', ' · Videos: ') + count + t('개', ''));
+    summary.setAttribute('role', 'status'); host.append(summary);
+    if (chosen.length) host.append(node('p', 'dub-selected-names', chosen.map(function (g) { return g.name || t('모둠 이름 없음', 'No group name'); }).join(', ')));
+    var controls = node('div', 'row');
+    c.selectShown = button(t('보이는 모둠 모두 선택', 'Select visible groups'), function () {
+      if (catalogue !== c || !owned(c.owner)) return;
+      shownGroups.forEach(function (g) { c.selected.add(g.key); }); drawCatalogue(); c.selectShown.focus();
+    }); c.selectShown.disabled = !shownGroups.length;
+    c.clearSelected = button(t('선택 해제', 'Clear selection'), function () {
+      if (catalogue !== c || !owned(c.owner)) return;
+      c.selected.clear(); drawCatalogue(); c.clearSelected.focus();
+    }); c.clearSelected.disabled = !chosen.length;
+    controls.append(c.selectShown, c.clearSelected); host.append(controls);
+    host.append(node('p', 'dub-selection-help', t('모둠 이름 옆의 체크박스로 여러 모둠을 선택하세요. 검색해도 선택은 유지되며, ZIP 안에 모둠별 폴더로 저장돼요. 512MB를 넘으면 여러 ZIP으로 나눠 받아요.', 'Select groups using their checkboxes. Selections stay when you search. ZIP files keep a folder per group. Downloads over 512MB are split into multiple ZIP files.')));
+    host.append(groupDownload(null, host, c, selected));
+  }
+  function drawCatalogue() {
+    var c = catalogue;
+    if (!c || !owned(c.owner) || c.kind !== view) return;
+    clearItems();
+    var box = $('dub-library-items'); if (!box) return;
+    var query = c.kind === 'movies' && $('dub-library-search') ? searchKey($('dub-library-search').value) : '';
+    var shown = c.items.filter(function (item) { return !query || searchKey(movieGroup(item) || t('모둠 이름 없음', 'No group name')).indexOf(query) >= 0; });
+    var grouped = c.kind === 'movies' && $('dub-library-layout') && $('dub-library-layout').value === 'groups';
+    box.classList.toggle('grouped', !!grouped);
+    if (grouped) {
+      c.groups = movieGroups(c.items); c.selected = c.selected || new Set(); c.selectionChecks = new Map();
+      var groups = movieGroups(shown); selectionBar(c, groups);
+      groups.forEach(function (group) {
+        var section = node('section', 'dub-library-group');
+        var title = node('h3', 'dub-library-group-title'), label = node('label', 'dub-group-select');
+        var check = node('input'); check.type = 'checkbox'; check.checked = c.selected.has(group.key);
+        check.setAttribute('aria-label', (group.name || t('모둠 이름 없음', 'No group name')) + t(' 선택', ' select'));
+        check.addEventListener('change', function () {
+          if (catalogue !== c || !owned(c.owner) || !section.isConnected) return;
+          if (check.checked) c.selected.add(group.key); else c.selected.delete(group.key);
+          drawCatalogue(); var next = c.selectionChecks.get(group.key); if (next) next.focus();
+        }); c.selectionChecks.set(group.key, check);
+        label.append(check, node('span', '', (group.name || t('모둠 이름 없음', 'No group name')) + ' · ' + group.items.length + t('개 영상', ' videos')));
+        title.append(label); section.append(title);
+        section.append(groupDownload(group, section, c));
+        var grid = node('div', 'dub-library-items');
+        group.items.forEach(function (item) { grid.append(movieCard(item, c.owner)); });
+        section.append(grid); box.append(section);
+      });
+    } else shown.forEach(function (item) { box.append(c.kind === 'movies' ? movieCard(item, c.owner) : draftCard(item, c.owner)); });
+    if (c.items.length && !shown.length) {
+      var none = node('div', 'dub-library-no-match');
+      none.append(node('p', '', t('이 모둠 이름으로 찾은 영상이 없어요.', 'No videos match this group name.')));
+      none.append(button(t('검색 지우기', 'Clear search'), function () { $('dub-library-search').value = ''; drawCatalogue(); $('dub-library-search').focus(); }));
+      box.append(none);
+    }
+    var empty = $('dub-library-empty'), emptyTitle = $('dub-empty-title');
+    if (empty) empty.hidden = !!c.items.length || (!c.response && c.owner !== 'guest');
+    if (emptyTitle) emptyTitle.textContent = c.kind === 'movies' ? t('아직 내 영상이 없어요', 'No videos yet') : t('이어할 연습이 없어요', 'No saved practice yet');
+    var text;
+    if (!c.response) text = message(c.error) + (c.items.length ? t(' 이 기기에 남은 항목을 보여드려요.', ' Showing items saved on this device.') : '');
+    else if (!c.items.length) text = c.kind === 'movies' ? t('아직 보관한 영상이 없어요. 짧은 더빙부터 시작해 보세요.', 'No saved videos yet. Start with a short scene.') : t('하던 연습을 저장하면 이곳에서 계속할 수 있어요.', 'Save your practice to continue it here.');
+    else text = c.kind === 'movies' ? t('보고 싶은 영상의 ‘영상 보기’를 누르세요.', 'Choose Watch video to open a recording.') : t('계속하고 싶은 연습의 ‘이 연습 이어하기’를 누르세요.', 'Choose Continue this practice to pick up where you left off.');
+    if (c.kind === 'movies' && c.items.length) text += ' · ' + shown.length + ' / ' + c.items.length + t('개 영상', ' videos');
+    status(text);
+  }
 
   function render() {
     var b = $('dub-quick-start'), note = $('dub-quick-detail'), ep = adapter && adapter.episode();
@@ -60,6 +291,8 @@
   }
   async function refresh() {
     var owner = L.identity(), ticket = ++generation, kind = view;
+    catalogue = null;
+    if ($('dub-library-filters')) $('dub-library-filters').hidden = kind !== 'movies';
     clearItems(); status(t('내 보관함을 불러오는 중…', 'Loading your library…'));
     if ($('dub-library-empty')) $('dub-library-empty').hidden = true;
     var remote = kind === 'movies' ? L.listMovies() : L.listDrafts();
@@ -83,16 +316,8 @@
       }
     });
     items.sort(function (a, b) { return new Date(b.createdAt || b.updatedAt).getTime() - new Date(a.createdAt || a.updatedAt).getTime(); });
-    var box = $('dub-library-items');
-    if (!box) return;
-    items.forEach(function (item) { box.append(kind === 'movies' ? movieCard(item, owner) : draftCard(item, owner)); });
-    var empty = $('dub-library-empty'), emptyTitle = $('dub-empty-title');
-    // A failed account request does not mean the account has no work.
-    if (empty) empty.hidden = !!items.length || (!response && owner !== 'guest');
-    if (emptyTitle) emptyTitle.textContent = kind === 'movies' ? t('아직 내 영상이 없어요', 'No videos yet') : t('이어할 연습이 없어요', 'No saved practice yet');
-    if (!response) status(message(results[0].reason) + (items.length ? t(' 이 기기에 남은 항목을 보여드려요.', ' Showing items saved on this device.') : ''));
-    else if (!items.length) status(kind === 'movies' ? t('아직 보관한 영상이 없어요. 짧은 더빙부터 시작해 보세요.', 'No saved videos yet. Start with a short scene.') : t('하던 연습을 저장하면 이곳에서 계속할 수 있어요.', 'Save your practice to continue it here.'));
-    else status(kind === 'movies' ? t('보고 싶은 영상의 ‘영상 보기’를 누르세요.', 'Choose Watch video to open a recording.') : t('계속하고 싶은 연습의 ‘이 연습 이어하기’를 누르세요.', 'Choose Continue this practice to pick up where you left off.'));
+    catalogue = { owner: owner, kind: kind, items: items, response: response, error: results[0].reason };
+    drawCatalogue();
   }
   function movieCard(movie, owner) {
     var card = node('article', 'dub-library-card');
@@ -222,9 +447,11 @@
     if ($('dub-quick-resume')) $('dub-quick-resume').addEventListener('click', function () { openLibrary('drafts'); });
     if ($('dub-quick-library')) $('dub-quick-library').addEventListener('click', function () { openLibrary('movies'); });
     if ($('dub-library-refresh')) $('dub-library-refresh').addEventListener('click', refresh);
-    if ($('dub-library-close')) $('dub-library-close').addEventListener('click', function () { $('dub-library').hidden = true; ++generation; clearItems(); });
+    if ($('dub-library-search')) $('dub-library-search').addEventListener('input', drawCatalogue);
+    if ($('dub-library-layout')) $('dub-library-layout').addEventListener('change', drawCatalogue);
+    if ($('dub-library-close')) $('dub-library-close').addEventListener('click', function () { $('dub-library').hidden = true; ++generation; catalogue = null; clearItems(); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-library-view]'), function (b) { b.addEventListener('click', function () { openLibrary(b.getAttribute('data-library-view')); }); });
-    L.onAccountChange(function () { ++generation; clearItems(); status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
+    L.onAccountChange(function () { ++generation; catalogue = null; clearItems(); if ($('dub-library-search')) $('dub-library-search').value = ''; status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
     window.addEventListener('mangoi:lang-changed', function () { render(); if ($('dub-library') && !$('dub-library').hidden) refresh(); });
     window.addEventListener('pagehide', releaseUrls);
     render();

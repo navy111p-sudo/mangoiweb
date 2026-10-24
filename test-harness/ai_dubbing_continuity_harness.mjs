@@ -31,6 +31,12 @@ for (const sc of ep.scenes) for (const l of sc.lines) {
 }
 const a=media(2), f=C.clockFollower({lines:ep.scenes[0].lines});
 f.step(2.4,[a],null); assert.equal(a.currentTime,2.4); checks++;
+for (const speed of [.75, 1.5, 2]) {
+  const clock=media(11.4), voice=media(11);clock.playbackRate=speed;
+  const h=C.clockFollower({lines:ep.scenes[0].lines});h.step(11.4,[voice],clock);
+  assert.equal(voice.playbackRate,speed*1.03);assert.equal(voice.seeks.length,0);
+  voice._t=11.59;h.step(11.6,[voice],clock);assert.equal(voice.playbackRate,speed);checks++;
+}
 // A video stall still holds audio, and recovery cannot skip a spoken word.
 const b=media(11), g=C.clockFollower({lines:ep.scenes[0].lines});
 g.step(11.4,[b],null);g.step(11.4,[b],null);g.step(11.4,[b],null);

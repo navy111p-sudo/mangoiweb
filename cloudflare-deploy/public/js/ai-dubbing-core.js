@@ -317,8 +317,8 @@
     var COOL = isNum(opt.cooldownMs) ? opt.cooldownMs : 1000;
     var nowFn = opt.now || function () { return Date.now(); };
     var lines = opt.lines || [];
-    var last = null, still = 0, held = [], seeks = [];
-    function rate(el, value) { try { el.playbackRate = value; } catch (e) {} }
+    var last = null, still = 0, held = [], seeks = [], baseRate = 1;
+    function rate(el, value) { try { el.playbackRate = baseRate * value; } catch (e) {} }
     function crossesSpeech(a, b) {
       var lo = Math.min(a, b) - 0.12, hi = Math.max(a, b) + 0.12;
       return lines.some(function (l) { return isNum(l.start) && isNum(l.end) && l.start <= hi && l.end >= lo; });
@@ -340,6 +340,7 @@
       return false;
     }
     function step(t, els, clockEl) {
+      baseRate = clockEl && isNum(clockEl.playbackRate) && clockEl.playbackRate > 0 ? clockEl.playbackRate : 1;
       t = isNum(t) ? t : 0;
       var moved = last === null || t > last + 0.01;
       last = t;

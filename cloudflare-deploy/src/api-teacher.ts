@@ -1,4 +1,6 @@
+import { attachTeacherPreviousLessons } from './teacher-previous-lessons';
 import { attachCalendarRecords } from './calendar-records';
+import { dropTeacherCafe24Duplicates } from './teacher-cafe24-duplicates';
 // ────────────────────────────────────────────────────────────────────────────
 // 🇵🇭 강사 전용 초경량 포털 API — /api/teacher/portal
 //
@@ -35,6 +37,7 @@ import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holi
 import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인계 카드(2026-10-10)
 import { loadActiveGoals, setStudentGoal, goalByKey, GOALS } from './student-goal';   // 🗓 4주 목표(2026-10-10)
 import { loadParentRequests, markParentRequestDone } from './parent-request';   // 👪 학부모 요청 반영(2026-10-10)
+import { loadTeacherStudentHistory, validHistoryDate } from './teacher-student-history';
 
 interface TeacherEnv {
   DB: D1Database;
@@ -126,7 +129,7 @@ export async function handleTeacherApi(
    *  [건너뛰는 것] 공지·자료·평점 조회(D1 3회) · 매니저 블록(D1 2회, 오늘 전체 수업 스캔)
    *       · 학생 읽기밴드(KV). 즉 D1 왕복이 5회 줄고 본문이 수십 KB → 수백 B 가 된다.
    */
-  const onlyNext = url.searchParams.get('only') === 'next';
+  const onlyNext = url.searchParams.get('only') === 'next' || url.searchParams.get('part') === 'student_history';
 
   // ── 신원: 쿠키 세션에서만 (클라이언트가 보내는 값은 일절 신뢰하지 않는다) ──
   const actor = await getAdminActor(request, env as any);
@@ -325,6 +328,36 @@ export async function handleTeacherApi(
   //    전자는 이름을 채워 넣는 일, 후자는 둘 중 누구인지 고르는 일이다. 문구도 갈라 준다.
   const identityAmbiguous = !isManager && ambiguousNames.length > 0;
 
+  // Student history is lazy-loaded and read-only. Resolve the student from an owned schedule.
+  if (url.searchParams.get('part') === 'student_history') {
+    const scheduleId = Number(url.searchParams.get('schedule_id'));
+    const date = String(url.searchParams.get('date') || todayStr);
+    const month = String(url.searchParams.get('month') || date.slice(0, 7));
+    if (!Number.isSafeInteger(scheduleId) || scheduleId <= 0 || !validHistoryDate(date)
+        || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || Number(month.slice(0,4)) < 2000) {
+      return json({ ok: false, error: 'bad_history_request' }, 400);
+    }
+    if (!isManager && (identityUnlinked || identityAmbiguous)) return json({ ok: false, error: 'history_forbidden' }, 403);
+    try {
+      const schedule = await env.DB.prepare(`SELECT id, user_id, teacher_id, status FROM class_schedules WHERE id=? LIMIT 1`)
+        .bind(scheduleId).first<any>();
+      const uid = schedule && studentUidOf(schedule);
+      if (!uid) return json({ ok: false, error: 'history_forbidden' }, 403);
+      const keys = [...new Set([...linkedTeacherIds, String(actor.username || '')].filter(Boolean))];
+      let allowed = isManager || ((schedule.status || 'active') === 'active' && keys.includes(String(schedule.teacher_id)));
+      if (!allowed && keys.length) {
+        const sub = await env.DB.prepare(`SELECT substitute_teacher_id FROM class_substitutions
+          WHERE schedule_id=? AND sub_date=? AND status='active' LIMIT 1`).bind(scheduleId, date).first<any>();
+        allowed = !!sub && keys.includes(String(sub.substitute_teacher_id));
+      }
+      if (!allowed) return json({ ok: false, error: 'history_forbidden' }, 403);
+      return json(await loadTeacherStudentHistory(env, uid, month, date));
+    } catch (e) {
+      console.warn('[teacher-history] read failed');
+      return json({ ok: false, error: 'history_unavailable' }, 503);
+    }
+  }
+
   /* 🔄 (2026-08-28) 1회성 대체강사 — 오늘 하루만. 강사 병가·휴가로 다른 강사가 이 회차를
    *  맡으면 원래 강사의 class_schedules.teacher_id 는 그대로다(다음 회차 자동복귀를 위해 —
    *  enroll-ops.ts (m-2)/(m-3) 참고). 그래서 위의 `conds`(teacher_id 매칭)만으로는:
@@ -362,6 +395,7 @@ export async function handleTeacherApi(
   } catch (e) { console.warn('[teacher-portal] substitution overlay:', (e as any)?.message); }
 
   const classes: any[] = [];
+  let cafe24DedupeSchedules: any[] = [];
   // 📅 앞으로 7일 안의 일회성 수업 — 선언은 여기(반환문과 같은 스코프). 채우는 건 아래 루프.
   const upcoming: any[] = [];
 
@@ -419,6 +453,7 @@ export async function handleTeacherApi(
     catch { try { rows = await env.DB.prepare(sqlPlain).bind(...bindsAll).all<any>(); } catch { rows = { results: [] }; } }
     // 🪪 이름 칸이 비었거나 «아이디 그대로» 면 명부(students_erp)의 이름으로 채운다 — resolveStudentName 참고.
     for (const r of (rows.results || [])) r.student_name = resolveStudentName(r);
+    cafe24DedupeSchedules = rows.results || [];
 
     /* ⏰ 입장 시간창 — 강사는 학생보다 **먼저(또는 같이)** 열려야 한다.
        (2026-08-02) 예전엔 값이 셋으로 갈라져 있었다: 학생 10분 / 마이페이지 30분 / 이 화면 5분.
@@ -508,6 +543,7 @@ export async function handleTeacherApi(
           status: _postponed ? 'postponed' : (weekDays[wi].date > todayStr ? 'early' : 'done'),
           start_time: `${pad(wh || 0)}:${pad(wm || 0)}`,
           duration_min: Number(s.duration_min) || 30,
+          level: s.level || null,
           student_uid: studentUidOf(s),
           student_name: s.student_name || s.student_en || null,
           student_name_en: s.student_en || null,
@@ -831,8 +867,10 @@ export async function handleTeacherApi(
       try { lmsRs = await env.DB.prepare(lmsSqlJoin).bind(sinceDate, todayStr, ...cafe24Tids).all<any>(); }
       catch { lmsRs = await env.DB.prepare(lmsSqlPlain).bind(sinceDate, todayStr, ...cafe24Tids).all<any>(); }
 
+      // Keep Mangoi schedules and their room/attendance fields; hide only duplicate LMS rows.
+      const lmsVisible = dropTeacherCafe24Duplicates(lmsRs.results || [], cafe24DedupeSchedules, classes, dowMatches);
       const seen = new Set(classes.map((c: any) => String(c.room_id)));
-      for (const r of (lmsRs.results || [])) {
+      for (const r of lmsVisible.kept) {
         const rid = String(r.room_id || '');
         if (!rid || seen.has(rid)) continue;        // 예약표에서 이미 온 수업과 겹치지 않게
         seen.add(rid);
@@ -1015,42 +1053,12 @@ export async function handleTeacherApi(
         if (eid) { c.eval_written = true; c.eval_id = eid; }
       }
     }
-    const dayStartMs = Date.UTC(kY, kMo, kD, 0, 0, 0) - KST;   // 오늘 00:00 KST — «오늘 이전» 경계
-    const uids = [...new Set(
-      classes.filter((c: any) => c.kind === 'class' && c.student_uid)
-             .map((c: any) => String(c.student_uid)))];
-    if (uids.length) {
-      // 옛 행은 student_uid 가 비고 user_id 만 있다(api-mango 경로) → COALESCE 로 한 키로 본다.
-      // MAX(created_at) 곁의 나머지 열은 SQLite 규칙상 그 최댓값 행에서 온다(학생당 최신 1건).
-      const prevRows = await selectInChunks<any>(
-        env.DB, uids,
-        (ph) => `SELECT COALESCE(NULLIF(student_uid, ''), user_id) AS suid,
-                        id AS eval_id, teacher_name, lesson_date, score_overall,
-                        substr(COALESCE(note_en, teacher_comment, strengths, ''), 1, 400) AS note_en,
-                        substr(COALESCE(note_ko, ''), 1, 400) AS note_ko,
-                        MAX(created_at) AS created_at
-                   FROM student_evaluations
-                  WHERE COALESCE(NULLIF(student_uid, ''), user_id) IN (${ph}) AND created_at < ?
-                    AND (note_en IS NOT NULL OR note_ko IS NOT NULL OR room_id IS NOT NULL)
-                  GROUP BY suid`,
-        { tail: [dayStartMs], swallowErrors: true },
-      );
-      const prevBy = new Map<string, any>();
-      for (const r of prevRows) if (r.suid) prevBy.set(String(r.suid), r);
-      for (const c of (classes as any[])) {
-        const p = prevBy.get(String(c.student_uid || ''));
-        if (!p) continue;
-        c.prev_lesson = {
-          eval_id: Number(p.eval_id) || null,
-          date: p.lesson_date || (p.created_at ? new Date(Number(p.created_at) + KST).toISOString().slice(0, 10) : null),
-          teacher_name: p.teacher_name || null,
-          note_en: p.note_en || null,
-          note_ko: p.note_ko || null,
-          score_overall: p.score_overall != null ? p.score_overall : null,
-        };
-      }
-    }
+
   } catch { /* 배지·지난수업이 없어도 목록은 정상 */ }
+
+  if (!onlyNext) await attachTeacherPreviousLessons(env.DB, [
+    ...classes, ...weekDays.flatMap((d: any) => d.items),
+  ], now);
 
   /* 🤝 강사 인수인계 카드 (2026-10-10, 경쟁사 분석 적용 ②) — src/teacher-handover.ts
    *  오늘 학생마다 «지난 목표 / 아직 못 고친 문장 / 복습 카드 했는지» 를 붙인다.

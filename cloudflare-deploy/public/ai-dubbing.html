@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
-<link rel="stylesheet" href="/css/ai-dubbing-home.css?v=2">
+<link rel="stylesheet" href="/css/ai-dubbing-home.css?v=6">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>🎬 A.i영화더빙 — mangoi.ai</title>
 <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
@@ -174,6 +174,8 @@
   /* « 플레이어 » */
   .stage{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;border:1px solid var(--line)}
   .stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+  .dub-intro-cover{position:absolute;inset:0;background:#000;pointer-events:none}
+  .dub-intro-cover img{width:100%;height:100%;object-fit:contain}
   .sub{position:absolute;left:4%;right:4%;bottom:4%;padding:8px 12px;border-radius:12px;background:rgba(5,8,14,.78);text-align:center}
   .sub .who{display:block;font-size:13px;font-weight:800;color:var(--gold)}
   .sub .en{display:block;font-size:clamp(16px,3.2vw,26px);font-weight:900;line-height:1.3}
@@ -308,6 +310,28 @@
   .dub-save-callout p{margin:5px 0 0}
   @media(max-width:860px){.dub-use-steps{grid-template-columns:1fr}.dub-save-callout{padding:14px}.dub-save-callout strong{font-size:17px}}
   @media (prefers-reduced-motion:reduce){ #dub-side,#dub-side.open{transition:none} }
+  .watch-controls{position:absolute;inset:auto 0 0;padding:24px 14px 8px;background:linear-gradient(transparent,rgba(0,0,0,.88));z-index:6;color:#fff}
+  .stage.is-watching .sub{bottom:82px}
+  .watch-seek{display:block;width:100%;height:18px;margin:0;cursor:pointer;accent-color:#ff1744;background:transparent;appearance:none;-webkit-appearance:none}
+  .watch-seek::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(to right,#ff1744 var(--played,0%),#ffffff55 var(--played,0%))}
+  .watch-seek::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:12px;height:12px;margin-top:-4px;border-radius:50%;background:#ff1744}
+  .watch-seek::-moz-range-track{height:4px;border-radius:2px;background:#ffffff55}
+  .watch-seek::-moz-range-progress{height:4px;background:#ff1744}
+  .watch-seek::-moz-range-thumb{width:12px;height:12px;border:0;border-radius:50%;background:#ff1744}
+  .watch-seek:disabled{opacity:.4;cursor:default}
+  .watch-controls-row{display:flex;align-items:center;gap:12px;min-height:36px}
+  .watch-controls button,.watch-settings summary{border:0;background:transparent;color:#fff;font:inherit;cursor:pointer;padding:7px;min-width:36px;min-height:36px}
+  .watch-controls output{font-size:12px;font-variant-numeric:tabular-nums}
+  .watch-settings{margin-left:auto;position:relative}
+  .watch-settings summary{list-style:none;white-space:nowrap}
+  .watch-settings summary::-webkit-details-marker{display:none}
+  .watch-settings fieldset{position:absolute;right:0;bottom:44px;width:158px;margin:0;padding:10px;border:1px solid #3b4050;border-radius:12px;background:rgba(17,20,27,.97);box-shadow:0 8px 30px #0008}
+  .watch-settings legend{font-size:13px;font-weight:700;background:#11141b;border-radius:6px;padding:4px 8px}
+  .watch-settings label{display:flex;align-items:center;gap:10px;padding:7px;border-radius:6px;font-size:13px;cursor:pointer}
+  .watch-settings label:hover{background:#ffffff18}
+  .watch-settings input{accent-color:#ff1744}
+  .watch-controls :focus-visible{outline:2px solid #fff;outline-offset:2px}
+  @media(max-width:480px){.watch-controls{padding:14px 8px 4px}.stage.is-watching .sub{bottom:72px}.watch-settings fieldset{bottom:38px;width:220px;display:grid;grid-template-columns:repeat(3,1fr);padding:6px}.watch-settings label{padding:5px 2px;font-size:11px;gap:3px}.watch-settings legend{font-size:11px;padding:2px 6px}}
 </style>
 </head>
 <body>
@@ -370,6 +394,11 @@
   <section class="panel dub-library" id="dub-library" aria-labelledby="dub-library-title" hidden>
     <div class="dub-library-heading"><h2 id="dub-library-title" data-ko="내 영상과 연습" data-en="My videos and practice">내 영상과 연습</h2><button type="button" class="btn" id="dub-library-close"><span data-ko="닫기" data-en="Close">닫기</span></button></div>
     <div class="dub-library-tabs"><button type="button" class="btn" data-library-view="movies" aria-pressed="true"><span data-ko="내 영상" data-en="My videos">내 영상</span></button><button type="button" class="btn" data-library-view="drafts" aria-pressed="false"><span data-ko="이어할 연습" data-en="Saved practice">이어할 연습</span></button><button type="button" class="btn" id="dub-library-refresh"><span data-ko="새로고침" data-en="Refresh">새로고침</span></button></div>
+    <div class="dub-library-filters" id="dub-library-filters">
+      <label for="dub-library-search"><span data-ko="모둠 이름 검색" data-en="Search group names">모둠 이름 검색</span><input type="search" id="dub-library-search" maxlength="60" autocomplete="off" placeholder="예: 1모둠, 무지개" data-ko-placeholder="예: 1모둠, 무지개" data-en-placeholder="e.g. Group 1, Rainbow" aria-describedby="dub-library-filter-help"></label>
+      <label for="dub-library-layout"><span data-ko="보기 방식" data-en="View">보기 방식</span><select id="dub-library-layout"><option value="all" data-ko="전체 목록" data-en="All videos">전체 목록</option><option value="groups" data-ko="모둠별 보기" data-en="Group by name">모둠별 보기</option></select></label>
+      <p id="dub-library-filter-help" data-ko="모둠 이름의 일부만 입력해도 찾아요. ‘모둠별 보기’를 선택하면 같은 모둠 영상을 모아 보고 ‘모두 내려받기 (ZIP)’로 한 번에 저장할 수 있어요." data-en="Type part of a group name to search. Choose Group by name to see each group’s videos together and save them with Download all (ZIP).">모둠 이름의 일부만 입력해도 찾아요. ‘모둠별 보기’를 선택하면 같은 모둠 영상을 모아 보고 ‘모두 내려받기 (ZIP)’로 한 번에 저장할 수 있어요.</p>
+    </div>
     <p class="dub-library-status" id="dub-library-status" role="status" aria-live="polite"></p>
     <div class="dub-library-empty" id="dub-library-empty" hidden>
       <svg class="dub-empty-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="6" y="10" width="36" height="28" rx="6"/><path d="m20 17 11 7-11 7z"/></svg>
@@ -377,6 +406,7 @@
       <p data-ko="짧은 한 장면부터 연습해 볼까요?" data-en="Try recording one short scene.">짧은 한 장면부터 연습해 볼까요?</p>
       <button type="button" class="btn go" id="dub-library-start" disabled><span data-ko="짧은 더빙 시작" data-en="Record a short scene">짧은 더빙 시작</span></button>
     </div>
+    <div class="dub-library-bulk" id="dub-library-bulk" hidden></div>
     <div class="dub-library-items" id="dub-library-items"></div>
     <details class="dub-explain dub-storage-info"><summary data-ko="영상은 어디에 저장되나요?" data-en="Where are my videos saved?">영상은 어디에 저장되나요?</summary><p class="hint" data-ko="‘내 계정에 저장됨’이라고 표시된 영상은 로그인한 다른 기기에서도 볼 수 있어요. ‘이 기기에만 저장됨’은 지금 쓰는 브라우저에만 남아 있어요. 계정당 영상 20개·연습 12개, 영상 하나당 64MB까지 보관해요." data-en="Videos marked ‘Saved to my account’ are available on your other signed-in devices. ‘Saved on this device only’ means the video stays in this browser. Each account can keep 20 videos and 12 practices, with up to 64 MB per video.">‘내 계정에 저장됨’이라고 표시된 영상은 로그인한 다른 기기에서도 볼 수 있어요. ‘이 기기에만 저장됨’은 지금 쓰는 브라우저에만 남아 있어요. 계정당 영상 20개·연습 12개, 영상 하나당 64MB까지 보관해요.</p></details>
   </section>
@@ -408,6 +438,24 @@
       <div class="turn" id="dub-turn" hidden></div>
       <div class="tcard" id="dub-tcard" hidden><span class="tc-k" id="dub-tc-k"></span><b class="tc-t" id="dub-tc-t"></b><span class="tc-s" id="dub-tc-s"></span></div>
       <div class="sub" id="dub-sub" hidden><span class="who" id="dub-sub-who"></span><span class="en" id="dub-sub-en"></span><span class="ko" id="dub-sub-ko"></span></div>
+      <div class="watch-controls" id="dub-w-controls" hidden>
+        <input id="dub-w-seek" class="watch-seek" type="range" min="0" max="0" value="0" step="0.1" aria-label="재생 위치 / Playback position" disabled>
+        <div class="watch-controls-row">
+          <button type="button" id="dub-w-toggle" aria-label="재생 / 일시정지" title="재생 / 일시정지">❚❚</button>
+          <output id="dub-w-time" aria-live="off">0:00 / 0:00</output>
+          <details id="dub-w-settings" class="watch-settings">
+            <summary aria-label="재생 속도 / Playback speed"><span aria-hidden="true">⚙</span> <span id="dub-w-rate-label">1×</span></summary>
+            <fieldset><legend data-ko="재생 속도" data-en="Playback speed">재생 속도</legend>
+              <label><input type="radio" name="watch-rate" value="0.5"> 0.5×</label>
+              <label><input type="radio" name="watch-rate" value="0.75"> 0.75×</label>
+              <label><input type="radio" name="watch-rate" value="1" checked> <span data-ko="보통 (1×)" data-en="Normal (1×)">보통 (1×)</span></label>
+              <label><input type="radio" name="watch-rate" value="1.25"> 1.25×</label>
+              <label><input type="radio" name="watch-rate" value="1.5"> 1.5×</label>
+              <label><input type="radio" name="watch-rate" value="2"> 2×</label>
+            </fieldset>
+          </details>
+        </div>
+      </div>
     </div>
     <div class="meter" id="dub-meter-wrap" aria-hidden="true"><i id="dub-meter"></i></div>
     <div class="row" id="dub-d-row">
@@ -577,12 +625,14 @@
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script defer src="/js/speech-azure.js?v=2"></script>
-<script defer src="/js/ai-dubbing-core.js?v=6"></script>
+<script defer src="/js/ai-dubbing-core.js?v=7"></script>
 <script defer src="/js/ai-dubbing-sound.js?v=2"></script>
-<script defer src="/js/ai-dubbing-watch.js?v=5"></script>
+<script defer src="/js/ai-dubbing-watch.js?v=7"></script>
 <script defer src="/js/ai-dubbing-library.js?v=2"></script>
 <script defer src="/js/ai-dubbing-practice.js?v=1"></script>
-<script defer src="/js/ai-dubbing-home.js?v=3"></script>
-<script defer src="/js/ai-dubbing.js?v=18"></script>
+<script defer src="/vendor/jszip/jszip.min.js?v=3.10.1"></script>
+<script defer src="/js/ai-dubbing-home.js?v=8"></script>
+<script defer src="/js/ai-dubbing-intro.js?v=1"></script>
+<script defer src="/js/ai-dubbing.js?v=24"></script>
 </body>
 </html>

@@ -16,12 +16,12 @@ class El {
   set textContent(v){this._text=String(v);this.children=[];} get textContent(){return this._text+this.children.map(x=>x.textContent).join('');}
   append(...xs){xs.forEach(x=>{this.children.push(x);x.parentNode=this;});}appendChild(x){this.append(x);return x;}
   replaceChildren(...xs){this.children.forEach(x=>x.parentNode=null);this.children=[];this._text='';this.append(...xs);}
-  setAttribute(k,v){this.attrs[k]=String(v);}getAttribute(k){return this.attrs[k]??null;}
+  setAttribute(k,v){this.attrs[k]=String(v);}getAttribute(k){return this.attrs[k]??null;}removeAttribute(k){delete this.attrs[k];}
   addEventListener(k,f){const a=this.events.get(k)||[];a.push(f);this.events.set(k,a);}removeEventListener(k,f){this.events.set(k,(this.events.get(k)||[]).filter(x=>x!==f));}
   async fire(k,event={}){for(const f of this.events.get(k)||[])await f.call(this,{currentTarget:this,target:this,...event});}
   querySelectorAll(selector){const all=[];const walk=x=>{x.children.forEach(c=>{all.push(c);walk(c);});};walk(this);if(selector==='video')return all.filter(x=>x.tagName==='video');if(selector==='[data-library-view]')return all.filter(x=>x.attrs['data-library-view']);return[];}
   get isConnected(){return!!(this.root||this.parentNode?.isConnected);}get scrollHeight(){return this.children.length*100;}
-  scrollIntoView(){}focus(){this.focused=true;}pause(){this.paused=true;}remove(){if(this.parentNode)this.parentNode.children=this.parentNode.children.filter(x=>x!==this);this.parentNode=null;}
+  click(){this.clicks=(this.clicks||0)+1;}scrollIntoView(){}focus(){this.focused=true;}pause(){this.paused=true;}remove(){if(this.parentNode)this.parentNode.children=this.parentNode.children.filter(x=>x!==this);this.parentNode=null;}
 }
 const fixture={id:'fixture',title:{ko:'모험',en:'Adventure'},status:'final',note:{ko:'',en:''},playable:['mina','jun'],characters:{mina:{emoji:'M',name:{ko:'미나',en:'Mina'}},jun:{emoji:'J',name:{ko:'준',en:'Jun'}}},scenes:[
   {no:1,label:{ko:'첫 장면',en:'First scene'},video:'/one.mp4',durationSec:60,lines:[{id:'a',speaker:'mina',en:'Can you help me?',ko:'도와줄래?'}]},
@@ -32,7 +32,7 @@ function world(){
   const els=new Map(),data=new Map(),listeners=[],events=new Map();
   const el=id=>{if(!els.has(id)){const e=new El();e.id=id;e.root=true;els.set(id,e);}return els.get(id);};
   const out={owner:'student:alice',saved:[],drafts:[],fetches:[],revoked:[],micCount:0,movieStarts:0,localMovies:[],remoteDrafts:[],localDrafts:[],deletedDrafts:[]};
-  const ctx={console,Blob,FormData,Headers,Response,URLSearchParams,Promise,setTimeout,clearTimeout,setInterval,clearInterval,
+  const ctx={console,Blob,TextEncoder,FormData,Headers,Response,URLSearchParams,Promise,setTimeout,clearTimeout,setInterval,clearInterval,
     location:{search:'?ep=fixture',href:''},getLang:()=> 'ko',alert:()=>{},confirm:()=>true,
     localStorage:{getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,String(v)),removeItem:k=>data.delete(k)},
     URL:{createObjectURL:()=> 'blob:test-'+Math.random(),revokeObjectURL:u=>out.revoked.push(u)},
@@ -232,6 +232,184 @@ test('blank group names remain optional and long names do not exceed account tit
   w.el('dub-group-name').value='가'.repeat(100);w.d.startRun([0]);await until(()=>!w.d.S.run);
   assert.ok(w.saved.at(-1).meta.title.length<=120);assert.ok(w.drafts.at(-1).p.title.length<=120);
   assert.equal(w.drafts.at(-1).p.state.groupName.length,30);
+});
+
+test('group search filters the loaded library without requests and groups legacy named movies',async()=>{
+  const w=world();await w.boot();let requests=0;w.lib.listMovies=async()=>{requests++;return{ok:true,movies:[]};};
+  const titles=['1모둠 · 에피소드 1 · 첫 장면','1모둠 · Episode 2 · Scene','무지개 모둠 · 처음부터 끝까지','에피소드 3 · 마지막 장면'];
+  w.localMovies=titles.map((title,i)=>({id:'m'+i,meta:{engine:'main',episodeId:'fixture',title},blob:new Blob(['video']),createdAt:Date.now()-i}));
+  await w.ctx.MangoiDubHome.openLibrary('movies');assert.equal(w.el('dub-library-items').children.length,4);
+  w.el('dub-library-search').value='  1모둠 ';await w.el('dub-library-search').fire('input');
+  assert.equal(w.el('dub-library-items').children.length,2);assert.match(w.el('dub-library-status').textContent,/2 \/ 4/);assert.equal(requests,1);
+  w.el('dub-library-layout').value='groups';await w.el('dub-library-layout').fire('change');
+  assert.equal(w.el('dub-library-items').children.length,1);assert.match(w.el('dub-library-items').children[0].textContent,/1모둠 · 2개 영상/);
+  w.el('dub-library-search').value='';await w.el('dub-library-search').fire('input');
+  const groups=w.el('dub-library-items').children;assert.equal(groups.length,3);assert.match(groups.at(-1).textContent,/모둠 이름 없음/);
+  w.el('dub-library-search').value='무지개'.normalize('NFD');await w.el('dub-library-search').fire('input');
+  assert.equal(w.el('dub-library-items').children.length,1);assert.match(w.el('dub-library-items').textContent,/무지개 모둠/);
+  w.el('dub-library-search').value='없는 모둠';await w.el('dub-library-search').fire('input');
+  assert.match(w.el('dub-library-items').textContent,/찾은 영상이 없어요/);assert.equal(w.el('dub-library-empty').hidden,true);
+  const clear=w.el('dub-library-items').children[0].children.find(x=>x.tagName==='button');await clear.fire('click');
+  assert.equal(w.el('dub-library-search').value,'');assert.equal(w.el('dub-library-items').children.length,3);assert.equal(requests,1);
+});
+
+test('video filters never hide saved practice and account changes discard search data and late responses',async()=>{
+  const w=world();await w.boot();w.el('dub-library-search').value='1모둠';w.el('dub-library-layout').value='groups';
+  w.remoteDrafts=[{id:'p1',engine:'main',episodeId:'fixture',title:'연습',updatedAt:Date.now()}];
+  await w.ctx.MangoiDubHome.openLibrary('drafts');assert.equal(w.el('dub-library-filters').hidden,true);assert.equal(w.el('dub-library-items').children.length,1);
+  const pending=deferred();w.lib.listMovies=()=>pending.promise;
+  const load=w.ctx.MangoiDubHome.openLibrary('movies');w.changeOwner('student:bob');
+  pending.resolve({ok:true,movies:[{id:'private',engine:'main',title:'1모둠 · 에피소드 1',createdAt:Date.now()}]});await load;
+  assert.equal(w.el('dub-library-search').value,'');await w.el('dub-library-search').fire('input');await w.el('dub-library-layout').fire('change');
+  assert.equal(w.el('dub-library-items').children.length,0,'Neither a stale response nor filters can repaint the old account');
+});
+
+function descendants(el){return el.children.flatMap(c=>[c,...descendants(c)]);}
+function bulkControls(w){const section=w.el('dub-library-items').children[0];return{section,start:descendants(section).find(e=>e.tagName==='button'&&e.textContent==='모두 내려받기 (ZIP)'),ready:descendants(section).find(e=>e.tagName==='a'&&e.textContent==='ZIP 다시 내려받기'),note:descendants(section).find(e=>e.attrs['aria-live']==='polite')};}
+async function bulkWorld(){
+  const w=world();await w.boot();w.archives=[];
+  w.ctx.JSZip=class{constructor(){this.files=[];}file(name,blob){this.files.push({name,blob});}async generateAsync(options){w.archives.push({files:this.files,options});return new Blob(['zip'],{type:'application/zip'});}};
+  w.lib.listMovies=async()=>({movies:[{id:'remote',title:'무지개 모둠 · 에피소드 1',mime:'video/mp4'}]});
+  w.lib.getMovie=async()=>new Blob(['remote bytes'],{type:'video/mp4'});
+  w.localMovies=[{id:'local',meta:{title:'무지개 모둠 · 에피소드 1'},blob:new Blob(['local bytes'],{type:'video/webm'})},{id:'other',meta:{title:'다른 모둠 · 에피소드 1'},blob:new Blob(['private'])}];
+  w.el('dub-library-layout').value='groups';w.el('dub-library-search').value='무지개';await w.ctx.MangoiDubHome.openLibrary('movies');return w;
+}
+test('group ZIP includes only that group, local and remote bytes, unique names and a reusable download',async()=>{
+  const w=await bulkWorld(),b=bulkControls(w);await b.start.fire('click');
+  assert.equal(w.archives.length,1);const archive=w.archives[0];assert.equal(archive.files.length,2);
+  assert.deepEqual(await Promise.all(archive.files.map(f=>f.blob.text())),['remote bytes','local bytes']);
+  assert.equal(new Set(archive.files.map(f=>f.name)).size,2);assert.ok(archive.files.every(f=>f.name.includes('무지개_모둠')));
+  assert.match(archive.files[0].name,/\.mp4$/);assert.match(archive.files[1].name,/\.webm$/);
+  assert.equal(b.ready.download,'mangoi-무지개_모둠_더빙영상.zip');assert.equal(b.ready.clicks,1);assert.equal(b.ready.hidden,false);assert.equal(b.start.hidden,true);
+  const url=b.ready.href;await w.el('dub-library-close').fire('click');assert.ok(w.revoked.includes(url));
+});
+test('group ZIP failures do not silently omit videos and allow a complete retry',async()=>{
+  const w=await bulkWorld(),b=bulkControls(w);w.lib.getMovie=async()=>{throw new Error('network');};
+  await b.start.fire('click');assert.equal(w.archives.length,0);assert.equal(b.ready.hidden,true);assert.equal(b.start.disabled,false);assert.match(b.note.textContent,/(?:완료|준비)하지 못했어요/);
+  w.lib.getMovie=async()=>new Blob(['ok']);await b.start.fire('click');assert.equal(w.archives[0].files.length,2);
+});
+test('pending group downloads stop on account changes, filter redraws and closing the library',async()=>{
+  for(const cancel of [w=>w.changeOwner('student:bob'),w=>w.el('dub-library-search').fire('input'),w=>w.el('dub-library-close').fire('click')]){
+    const w=await bulkWorld(),b=bulkControls(w),held=deferred();w.lib.getMovie=()=>held.promise;
+    const download=b.start.fire('click');await tick();await cancel(w);held.resolve(new Blob(['old account']));await download;
+    assert.equal(w.archives.length,0);assert.equal(b.ready.clicks,undefined);assert.equal(b.ready.hidden,true);
+  }
+});
+test('missing ZIP support and oversized collections explain how to recover',async()=>{
+  const w=await bulkWorld(),b=bulkControls(w);w.ctx.JSZip=null;await b.start.fire('click');assert.match(b.note.textContent,/새로고침/);assert.equal(b.start.disabled,false);
+  w.ctx.JSZip=class{file(){}generateAsync(){assert.fail('oversized ZIP must not be built');}};
+  w.lib.getMovie=async()=>{const blob=new Blob(['x']);Object.defineProperty(blob,'size',{value:513*1024*1024});return blob;};
+  await b.start.fire('click');assert.match(b.note.textContent,/파일 내려받기/);assert.equal(b.ready.hidden,true);
+});
+
+function selectedControls(w){const host=w.el('dub-library-bulk');return{start:descendants(host).find(e=>e.tagName==='button'&&e.textContent==='선택한 모둠 내려받기 (ZIP)'),ready:descendants(host).find(e=>e.tagName==='a'),note:descendants(host).find(e=>e.attrs['aria-live']==='polite')};}
+async function selectGroup(w,name){const check=descendants(w.el('dub-library-items')).find(e=>e.tagName==='input'&&e.attrs['aria-label']===name+' 선택');assert.ok(check);check.checked=true;await check.fire('change');}
+test('selected groups persist across searches and ZIP contains only their videos in separate named folders',async()=>{
+  const w=await bulkWorld();assert.equal(selectedControls(w).start.disabled,true);
+  await selectGroup(w,'무지개 모둠');assert.match(w.el('dub-library-bulk').textContent,/선택한 모둠 1개 · 영상 2개/);
+  w.el('dub-library-search').value='다른';await w.el('dub-library-search').fire('input');
+  assert.match(w.el('dub-library-bulk').textContent,/무지개 모둠/);await selectGroup(w,'다른 모둠');
+  const b=selectedControls(w);assert.match(w.el('dub-library-bulk').textContent,/선택한 모둠 2개 · 영상 3개/);await b.start.fire('click');
+  const files=w.archives[0].files;assert.equal(files.length,3);assert.equal(new Set(files.map(f=>f.name.split('/')[0])).size,2);
+  assert.ok(files.every(f=>f.name.split('/').length===2));assert.ok(files.some(f=>f.name.includes('_무지개_모둠/')));assert.ok(files.some(f=>f.name.includes('_다른_모둠/')));
+  assert.deepEqual((await Promise.all(files.map(f=>f.blob.text()))).sort(),['local bytes','private','remote bytes'].sort());
+  assert.match(b.ready.download,/선택한_모둠_2개_더빙영상\.zip$/);assert.equal(b.ready.clicks,1);
+});
+test('select visible groups never adds hidden groups, and clear/refresh/account changes discard selection',async()=>{
+  const w=await bulkWorld();const buttonByText=text=>descendants(w.el('dub-library-bulk')).find(e=>e.tagName==='button'&&e.textContent===text);
+  await buttonByText('보이는 모둠 모두 선택').fire('click');assert.match(w.el('dub-library-bulk').textContent,/1개 · 영상 2개/);
+  await buttonByText('선택 해제').fire('click');assert.equal(selectedControls(w).start.disabled,true);
+  await selectGroup(w,'무지개 모둠');await w.ctx.MangoiDubHome.openLibrary('movies');assert.equal(selectedControls(w).start.disabled,true);
+  await selectGroup(w,'무지개 모둠');w.changeOwner('student:bob');assert.equal(w.el('dub-library-bulk').hidden,true);assert.equal(w.el('dub-library-bulk').children.length,0);
+  await w.ctx.MangoiDubHome.openLibrary('movies');assert.equal(selectedControls(w).start.disabled,true);
+});
+test('group folder names cannot traverse paths or merge after filename sanitization',async()=>{
+  const w=await bulkWorld();w.lib.listMovies=async()=>({movies:[]});
+  const groups=['A/B','A:B','../..','모둠 이름 없음',''];
+  w.localMovies=groups.map((name,i)=>({id:'safe-'+i,meta:{title:(name?name+' · ':'')+'에피소드 1'},blob:new Blob([String(i)])}));
+  w.el('dub-library-search').value='';await w.ctx.MangoiDubHome.openLibrary('movies');
+  await descendants(w.el('dub-library-bulk')).find(e=>e.textContent==='보이는 모둠 모두 선택').fire('click');await selectedControls(w).start.fire('click');
+  const files=w.archives[0].files,folders=files.map(f=>f.name.split('/')[0]);assert.equal(files.length,5);assert.equal(new Set(folders).size,5);
+  for(const f of files){const parts=f.name.split('/');assert.equal(parts.length,2);assert.ok(parts.every(p=>p!=='.'&&p!=='..'&&!/[<>:"\\|?*]/.test(p)));}
+});
+test('changing selected groups cancels a pending multi-group ZIP and a failed group never yields a partial ZIP',async()=>{
+  const w=await bulkWorld();w.el('dub-library-search').value='';await w.el('dub-library-search').fire('input');
+  await descendants(w.el('dub-library-bulk')).find(e=>e.textContent==='보이는 모둠 모두 선택').fire('click');
+  const held=deferred();w.lib.getMovie=()=>held.promise;let b=selectedControls(w);const job=b.start.fire('click');await tick();
+  await descendants(w.el('dub-library-bulk')).find(e=>e.tagName==='button'&&e.textContent==='선택 해제').fire('click');held.resolve(new Blob(['late']));await job;
+  assert.equal(w.archives.length,0);assert.equal(b.ready.clicks,undefined);
+  await descendants(w.el('dub-library-bulk')).find(e=>e.textContent==='보이는 모둠 모두 선택').fire('click');w.lib.getMovie=async()=>{throw new Error('network');};
+  b=selectedControls(w);await b.start.fire('click');assert.equal(w.archives.length,0);assert.equal(b.ready.hidden,true);assert.equal(b.start.disabled,false);
+});
+
+function sizedBlob(id,size){const blob=new Blob([id],{type:'video/mp4'});Object.defineProperty(blob,'size',{value:size});return blob;}
+function partButton(w,n){return descendants(w.el('dub-library-bulk')).find(e=>e.tagName==='button'&&e.textContent.startsWith(n+'번 ZIP'));}
+async function splitWorld(sizes=[200,200,200,100]){
+  const w=await bulkWorld();w.requests=[];w.sizes=sizes.map(n=>n*1024*1024);
+  w.localMovies=[];w.lib.listMovies=async()=>({movies:w.sizes.map((size,i)=>({id:'v'+i,title:(i<3?'1모둠':'2모둠')+' · 에피소드 1',size,mime:'video/mp4'}))});
+  w.lib.getMovie=async id=>{w.requests.push(id);return sizedBlob(id,w.sizes[Number(id.slice(1))]);};
+  w.el('dub-library-search').value='';await w.ctx.MangoiDubHome.openLibrary('movies');
+  await descendants(w.el('dub-library-bulk')).find(e=>e.textContent==='보이는 모둠 모두 선택').fire('click');return w;
+}
+test('one click downloads ZIP parts in order, fetching only one part at a time and preserving folders',async()=>{
+  const w=await splitWorld(),b=selectedControls(w),held=deferred(),get=w.lib.getMovie;
+  w.ctx.setTimeout=(fn,ms,...args)=>ms===250?setImmediate(fn):setTimeout(fn,ms,...args);
+  w.lib.getMovie=async id=>{if(id==='v2'){w.requests.push(id);return held.promise;}return get(id);};
+  const job=b.start.fire('click');await until(()=>w.requests.includes('v2'));
+  assert.equal(w.archives.length,1);assert.deepEqual(w.requests,['v0','v1','v2']);
+  assert.equal(partButton(w,1).disabled,true);assert.equal(partButton(w,2).disabled,true);
+  const firstUrl=w.revoked.at(-1);assert.ok(firstUrl,'Previous ZIP URL is released before fetching the next part');
+  held.resolve(sizedBlob('v2',w.sizes[2]));await job;
+  assert.equal(w.archives.length,2);assert.equal(b.ready.clicks,2);assert.match(b.ready.download,/-part-002\.zip$/);
+  assert.ok(w.revoked.includes(firstUrl));assert.equal(partButton(w,2).disabled,false);
+  const files=w.archives.flatMap(a=>a.files);assert.equal(files.length,4);assert.equal(new Set(files.map(f=>f.name)).size,4);
+  assert.deepEqual(await Promise.all(files.map(f=>f.blob.text())),['v0','v1','v2','v3']);
+  assert.ok(files.slice(0,3).every(f=>f.name.startsWith('001_1모둠/')));assert.ok(files[3].name.startsWith('002_2모둠/'));
+  assert.ok(files[2].name.includes('/003_'),'Ordinals continue across ZIP boundaries');
+  for(const a of w.archives)assert.ok(a.files.reduce((sum,f)=>sum+f.blob.size,0)<512*1024*1024);
+  assert.match(b.note.textContent,/다운로드를 순서대로 요청/);assert.match(b.note.textContent,/차단되거나 빠진 ZIP/);
+});
+
+test('ZIP planning accounts for header overhead at the 512MiB boundary',async()=>{
+  const w=await splitWorld([256,256]);await selectedControls(w).start.fire('click');
+  assert.equal(w.archives.length,2);assert.equal(w.archives[0].files.length,1);assert.ok(partButton(w,2),'Two 256MiB files require two ZIPs once headers are counted');
+  assert.equal(w.archives[1].files.length,1);
+});
+test('a failed later ZIP retries only that part and old part buttons cannot fetch after an account change',async()=>{
+  const w=await splitWorld(),b=selectedControls(w),get=w.lib.getMovie;
+  w.lib.getMovie=async id=>{if(id==='v2')throw new Error('offline');return get(id);};await b.start.fire('click');
+  assert.equal(w.archives.length,1);assert.match(b.note.textContent,/2 \/ 2번 ZIP을 완료하지 못/);
+  w.lib.getMovie=get;const before=w.requests.length;await partButton(w,2).fire('click');assert.equal(w.archives.length,2);assert.deepEqual(w.requests.slice(before),['v2','v3']);
+  const stale=partButton(w,1);w.changeOwner('student:bob');const count=w.requests.length;await stale.fire('click');assert.equal(w.requests.length,count);
+});
+test('a split single-group download also keeps its group folder, and changed size metadata cannot overflow a ZIP',async()=>{
+  const w=await splitWorld([200,200,200]);const b=bulkControls(w);await b.start.fire('click');assert.ok(w.archives[0].files.every(f=>f.name.startsWith('001_1모둠/')));
+  const x=await splitWorld([100]);x.lib.getMovie=async()=>sizedBlob('changed',101*1024*1024);await selectedControls(x).start.fire('click');assert.equal(x.archives.length,0);assert.match(selectedControls(x).note.textContent,/새로고침/);
+});
+
+test('a browser-blocked request leaves numbered buttons usable and retry rebuilds only the missing ZIP',async()=>{
+  const w=await splitWorld(),b=selectedControls(w),attempts=[],received=[];
+  b.ready.click=function(){attempts.push(this.download);if(attempts.length!==2)received.push(this.download);};
+  await b.start.fire('click');assert.equal(attempts.length,2);assert.equal(received.length,1);
+  assert.match(b.note.textContent,/브라우저.*허용/);assert.equal(partButton(w,2).disabled,false);
+  const count=w.requests.length;await partButton(w,2).fire('click');assert.equal(received.length,2);
+  assert.deepEqual(w.requests.slice(count),['v2','v3']);assert.match(received.at(-1),/-part-002\.zip$/);
+});
+test('account, selection and close changes stop the queue between ZIPs',async()=>{
+  for(const cancel of [w=>w.changeOwner('student:bob'),w=>w.el('dub-library-search').fire('input'),w=>w.el('dub-library-close').fire('click')]){
+    const w=await splitWorld(),held=deferred();let waiting=false;
+    w.ctx.setTimeout=(fn,ms,...args)=>ms===250?(waiting=true,held.promise.then(fn),1):setTimeout(fn,ms,...args);
+    const b=selectedControls(w),job=b.start.fire('click');await until(()=>waiting);assert.equal(w.archives.length,1);
+    await cancel(w);held.resolve();await job;assert.equal(w.archives.length,1);assert.deepEqual(w.requests,['v0','v1']);
+  }
+});
+test('a later ZIP failure stops the queue and Download all remains usable for a new attempt',async()=>{
+  const w=await splitWorld([300,300,300]),get=w.lib.getMovie;
+  w.lib.getMovie=async id=>{if(id==='v1')throw new Error('offline');return get(id);};
+  await selectedControls(w).start.fire('click');assert.equal(w.archives.length,1);assert.deepEqual(w.requests,['v0']);
+  assert.equal(partButton(w,3).disabled,false);
+  const all=descendants(w.el('dub-library-bulk')).find(e=>e.tagName==='button'&&e.textContent==='모두 내려받기');assert.ok(all);assert.equal(all.disabled,false);
+  w.lib.getMovie=get;await all.fire('click');assert.equal(w.archives.length,4);
 });
 
 let failed=0;
