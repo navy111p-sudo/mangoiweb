@@ -502,8 +502,8 @@
       "mood": "triumph",
       "durationSec": 61,
       "playbackStartSec": 2,
-      "video": "/media/dubbing/dub-007/scene-6.mp4?v=3",
-      "poster": "/media/dubbing/dub-007/scene-6.jpg?v=2",
+      "video": "/media/dubbing/dub-007/scene-6.mp4?v=4",
+      "poster": "/media/dubbing/dub-007/scene-6.jpg?v=3",
       "videoAudio": "mute",
       "voices": {
         "luna": "/media/dubbing/dub-007/scene-6-luna.mp3?v=4",
@@ -593,6 +593,20 @@
       "insertSec": 0.4166666666666667,
       "videoCutSec": 46.791666666666664,
       "method": "10-frame reaction hold after shot change; Nora audio and later SFX shifted equally; original speech unchanged; unused ending trimmed to retain 61 seconds."
+    },
+    "ep6VisualContinuity": {
+      "date": "2026-10-24",
+      "videoCache": 4,
+      "posterCache": 3,
+      "edit": "2-16s: Luna opens the hatch, exits with Nova, and closes it only after both are outside. 16-32s: closed human spacecraft hatch, larger saucer and a distinct purple pilot wearing blue; green Zio remains outside and later arrives on Earth.",
+      "audio": "Original role audio, BGM, SFX and all subtitle timings unchanged. Replacement master remains silent for the existing separate-track player.",
+      "durationSec": 61,
+      "generationJobs": [
+        "ed30b6fe-17d4-4b9d-bd4a-0aaf560b5341",
+        "678076b8-1ab2-445b-a77e-cee4591331f2",
+        "c11f3bd7-165d-4217-9002-436bd05c8e9d"
+      ],
+      "limitation": "Newly generated character motion is not phoneme-level lip synchronization."
     }
   }
 }
