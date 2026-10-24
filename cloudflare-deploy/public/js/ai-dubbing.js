@@ -1169,17 +1169,14 @@
           waitForPracticeDone(run).then(function () { return closeCap(k); }).then(function () {
             if (run.aborted || ended) return;
             clearLine(run); setTurn('');
-            // Skip the unused voice slot only if the entire group can seek.
-            // Otherwise continue naturally from the held frame on the same clock.
-            var resumeAt = Math.min(limit || v.duration, line.end);
-            return positionSyncedMedia(v, tracks, resumeAt, run).then(function () {
-              if (run.aborted || ended) return;
-              follow = C.clockFollower(); shown = k;
-              run.skipNow = previousSkip; setButtons('native'); sndDuck(1);
-              practiceBusy = false;
-              var vp = v.play(); if (vp && vp.catch) vp.catch(function () {});
-              tracks.forEach(function (tr) { var ap = tr.el.play(); if (ap && ap.catch) ap.catch(function () {}); });
-            });
+            // The whole group is already paused on the dialogue frame. Resume
+            // that clock naturally: Safari can advertise seekable audio yet
+            // reject a seek after recording, aborting an otherwise valid take.
+            follow = C.clockFollower(); shown = k;
+            run.skipNow = previousSkip; setButtons('native'); sndDuck(1);
+            practiceBusy = false;
+            var vp = v.play(); if (vp && vp.catch) vp.catch(function () {});
+            tracks.forEach(function (tr) { var ap = tr.el.play(); if (ap && ap.catch) ap.catch(function () {}); });
           }).catch(function (e) {
             console.warn('[ai-dubbing] resume failed', e);
             run.failed = true; run.aborted = true;
