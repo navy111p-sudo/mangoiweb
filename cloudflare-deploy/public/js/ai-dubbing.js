@@ -802,7 +802,7 @@
    * 화면의 영상 + 자막을 캔버스에 그리고, 섞개(원어민 음성·BGM·마이크)를 소리로 붙여 MediaRecorder 로 굽는다. */
   function pickMime() {
     if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return '';
-    var list = ['video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'];
+    var list = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm'];
     for (var i = 0; i < list.length; i++) if (MediaRecorder.isTypeSupported(list[i])) return list[i];
     return '';
   }
