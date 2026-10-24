@@ -12,13 +12,16 @@
   function status(text) { if ($('dub-library-status')) $('dub-library-status').textContent = text; }
   function message(error) { return L.errorText(error, !!en()); }
   function releaseUrls() { urls.splice(0).forEach(function (url) { URL.revokeObjectURL(url); }); }
-  function clearItems() { bulkJob = null; releaseUrls(); if ($('dub-library-items')) $('dub-library-items').replaceChildren(); }
+  function clearItems() { bulkJob = null; releaseUrls(); if ($('dub-library-items')) $('dub-library-items').replaceChildren(); if ($('dub-library-bulk')) { $('dub-library-bulk').replaceChildren(); $('dub-library-bulk').hidden = true; } }
   function owned(owner) { return owner === L.identity(); }
   // Use the saved title so reopening a movie never picks up another group's name.
-  function movieFilename(title, mime) {
+  function filenameStem(title) {
     var stem = String(title || 'dubbing').replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, '_')
       .replace(/\s*·\s*/g, '_').replace(/\s+/g, '_').replace(/[. _]+$/g, '');
-    return 'mangoi-' + Array.from(stem || 'dubbing').slice(0, 100).join('') + (/mp4/.test(mime || '') ? '.mp4' : '.webm');
+    return Array.from(stem || 'dubbing').slice(0, 100).join('');
+  }
+  function movieFilename(title, mime) {
+    return 'mangoi-' + filenameStem(title) + (/mp4/.test(mime || '') ? '.mp4' : '.webm');
   }
   function button(text, action, cls) { var b = node('button', 'btn ' + (cls || ''), text); b.type = 'button'; b.addEventListener('click', action); return b; }
   function date(value) { var d = new Date(value); return isNaN(d.getTime()) ? '' : d.toLocaleString(en() ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
@@ -28,36 +31,45 @@
   }
   function searchKey(value) { return String(value || '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase(); }
   function downloadError(text) { var error = new Error(); error.downloadText = text; return error; }
-  function groupDownload(group, section, c) {
+  function groupDownload(group, section, c, selection) {
     var actions = node('div', 'dub-group-download'), note = node('p', 'dub-save-note');
     note.setAttribute('role', 'status'); note.setAttribute('aria-live', 'polite');
     var ready = node('a', 'btn', t('ZIP 다시 내려받기', 'Download ZIP again')); ready.hidden = true;
-    var start = button(t('모두 내려받기 (ZIP)', 'Download all (ZIP)'), async function () {
+    var start = button(selection ? t('선택한 모둠 내려받기 (ZIP)', 'Download selected groups (ZIP)') : t('모두 내려받기 (ZIP)', 'Download all (ZIP)'), async function () {
       if (!owned(c.owner) || catalogue !== c || !section.isConnected) return;
+      var groups = selection ? selection() : [group]; if (!groups.length) return;
       if (bulkJob) { note.textContent = t('다른 모둠의 ZIP을 준비 중이에요. 잠시 후 다시 눌러 주세요.', 'Another group ZIP is being prepared. Please try again shortly.'); return; }
       var ticket = {}; bulkJob = ticket; start.disabled = true;
       function current() { return bulkJob === ticket && owned(c.owner) && catalogue === c && section.isConnected; }
       try {
         if (!window.JSZip) throw downloadError(t('ZIP 기능을 불러오지 못했어요. 화면을 새로고침한 뒤 다시 시도해 주세요.', 'ZIP could not load. Refresh the page and try again.'));
-        var zip = new window.JSZip(), total = 0;
-        for (var i = 0; i < group.items.length; i++) {
+        var zip = new window.JSZip(), total = 0, entries = [];
+        groups.forEach(function (g, index) {
+          var name = g.name || t('모둠 이름 없음', 'No group name');
+          // Number folders as well as files: sanitized names must never merge two groups.
+          var folder = selection ? String(index + 1).padStart(3, '0') + '_' + filenameStem(name) + '/' : '';
+          g.items.forEach(function (movie, ordinal) { entries.push({ movie: movie, name: name, folder: folder, ordinal: ordinal + 1 }); });
+        });
+        for (var i = 0; i < entries.length; i++) {
           if (!current()) return;
-          note.textContent = t('모둠 영상을 모으는 중… ', 'Collecting group videos… ') + (i + 1) + ' / ' + group.items.length;
-          var movie = group.items[i], blob = movie.blob || await L.getMovie(movie.id);
+          note.textContent = t('모둠 영상을 모으는 중… ', 'Collecting group videos… ') + (i + 1) + ' / ' + entries.length + ' · ' + entries[i].name;
+          var movie = entries[i].movie, blob = movie.blob || await L.getMovie(movie.id);
           if (!current()) return;
           if (!(blob instanceof Blob) || !blob.size) throw downloadError(t('비어 있는 영상이 있어요. 각 영상의 ‘영상 보기’를 확인한 뒤 다시 시도해 주세요.', 'A video is empty. Check each video with Watch video and try again.'));
           total += blob.size;
           // JSZip builds the archive in memory. Keep a large collection from exhausting the tab.
           if (total > 512 * 1024 * 1024) throw downloadError(t('영상 용량이 커서 한 번에 묶기 어려워요. 각 영상의 ‘파일 내려받기’를 이용해 주세요.', 'These videos are too large to bundle at once. Download each video separately.'));
-          var title = movieGroup(movie) ? movie.title : (group.name || t('모둠 이름 없음', 'No group name')) + ' · ' + movie.title;
+          var title = movieGroup(movie) ? movie.title : entries[i].name + ' · ' + movie.title;
           // Every entry has an ordinal, so repeated titles never replace an earlier recording.
-          zip.file(String(i + 1).padStart(3, '0') + '_' + movieFilename(title, movie.mime || blob.type), blob, { compression: 'STORE' });
+          zip.file(entries[i].folder + String(entries[i].ordinal).padStart(3, '0') + '_' + movieFilename(title, movie.mime || blob.type), blob, { compression: 'STORE' });
         }
         note.textContent = t('ZIP 파일을 만드는 중…', 'Creating ZIP…');
         var archive = await zip.generateAsync({ type: 'blob', compression: 'STORE', streamFiles: true });
         if (!current()) return;
         var url = URL.createObjectURL(archive); urls.push(url);
-        ready.href = url; ready.download = movieFilename((group.name || t('모둠 이름 없음', 'No group name')) + ' · 더빙영상', '').replace(/\.webm$/, '.zip');
+        ready.href = url;
+        var archiveTitle = selection ? t('선택한 모둠 ' + groups.length + '개', groups.length + ' selected groups') : (group.name || t('모둠 이름 없음', 'No group name'));
+        ready.download = movieFilename(archiveTitle + ' · ' + t('더빙영상', 'dubbing videos'), '').replace(/\.webm$/, '.zip');
         ready.hidden = false; start.hidden = true; ready.click();
         note.textContent = t('ZIP 내려받기를 시작했어요. 다운로드 폴더를 확인하고, ZIP을 풀면 모둠 영상들이 나와요. 시작되지 않으면 ‘ZIP 다시 내려받기’를 누르세요.', 'ZIP download started. Check your Downloads folder and unzip it to find the group videos. If it did not start, choose Download ZIP again.');
       } catch (e) {
@@ -67,7 +79,34 @@
         start.disabled = false;
       }
     });
+    start.disabled = !!selection && !selection().length;
     actions.append(start, ready, note); return actions;
+  }
+  function movieGroups(items) {
+    var groups = new Map();
+    items.forEach(function (item) { var name = movieGroup(item), key = searchKey(name); if (!groups.has(key)) groups.set(key, { key: key, name: name, items: [] }); groups.get(key).items.push(item); });
+    return Array.from(groups.values()).sort(function (a, b) { return a.name && b.name ? a.name.localeCompare(b.name, en() ? 'en' : 'ko', { numeric: true }) : a.name ? -1 : b.name ? 1 : 0; });
+  }
+  function selectionBar(c, shownGroups) {
+    var host = $('dub-library-bulk'); if (!host) return;
+    host.hidden = false;
+    var selected = function () { return c.groups.filter(function (g) { return c.selected.has(g.key); }); };
+    var chosen = selected(), count = chosen.reduce(function (sum, g) { return sum + g.items.length; }, 0);
+    var summary = node('p', 'dub-selection-summary', t('선택한 모둠 ', 'Selected groups: ') + chosen.length + t('개 · 영상 ', ' · Videos: ') + count + t('개', ''));
+    summary.setAttribute('role', 'status'); host.append(summary);
+    if (chosen.length) host.append(node('p', 'dub-selected-names', chosen.map(function (g) { return g.name || t('모둠 이름 없음', 'No group name'); }).join(', ')));
+    var controls = node('div', 'row');
+    c.selectShown = button(t('보이는 모둠 모두 선택', 'Select visible groups'), function () {
+      if (catalogue !== c || !owned(c.owner)) return;
+      shownGroups.forEach(function (g) { c.selected.add(g.key); }); drawCatalogue(); c.selectShown.focus();
+    }); c.selectShown.disabled = !shownGroups.length;
+    c.clearSelected = button(t('선택 해제', 'Clear selection'), function () {
+      if (catalogue !== c || !owned(c.owner)) return;
+      c.selected.clear(); drawCatalogue(); c.clearSelected.focus();
+    }); c.clearSelected.disabled = !chosen.length;
+    controls.append(c.selectShown, c.clearSelected); host.append(controls);
+    host.append(node('p', 'dub-selection-help', t('모둠 이름 옆의 체크박스로 여러 모둠을 선택하세요. 검색해도 선택은 유지되며, ZIP 안에 모둠별 폴더로 저장돼요.', 'Select groups using their checkboxes. Selections stay when you search. The ZIP contains a folder for each selected group.')));
+    host.append(groupDownload(null, host, c, selected));
   }
   function drawCatalogue() {
     var c = catalogue;
@@ -79,11 +118,20 @@
     var grouped = c.kind === 'movies' && $('dub-library-layout') && $('dub-library-layout').value === 'groups';
     box.classList.toggle('grouped', !!grouped);
     if (grouped) {
-      var groups = new Map();
-      shown.forEach(function (item) { var name = movieGroup(item), key = searchKey(name); if (!groups.has(key)) groups.set(key, { name: name, items: [] }); groups.get(key).items.push(item); });
-      Array.from(groups.values()).sort(function (a, b) { return a.name && b.name ? a.name.localeCompare(b.name, en() ? 'en' : 'ko', { numeric: true }) : a.name ? -1 : b.name ? 1 : 0; }).forEach(function (group) {
+      c.groups = movieGroups(c.items); c.selected = c.selected || new Set(); c.selectionChecks = new Map();
+      var groups = movieGroups(shown); selectionBar(c, groups);
+      groups.forEach(function (group) {
         var section = node('section', 'dub-library-group');
-        section.append(node('h3', 'dub-library-group-title', (group.name || t('모둠 이름 없음', 'No group name')) + ' · ' + group.items.length + t('개 영상', ' videos')));
+        var title = node('h3', 'dub-library-group-title'), label = node('label', 'dub-group-select');
+        var check = node('input'); check.type = 'checkbox'; check.checked = c.selected.has(group.key);
+        check.setAttribute('aria-label', (group.name || t('모둠 이름 없음', 'No group name')) + t(' 선택', ' select'));
+        check.addEventListener('change', function () {
+          if (catalogue !== c || !owned(c.owner) || !section.isConnected) return;
+          if (check.checked) c.selected.add(group.key); else c.selected.delete(group.key);
+          drawCatalogue(); var next = c.selectionChecks.get(group.key); if (next) next.focus();
+        }); c.selectionChecks.set(group.key, check);
+        label.append(check, node('span', '', (group.name || t('모둠 이름 없음', 'No group name')) + ' · ' + group.items.length + t('개 영상', ' videos')));
+        title.append(label); section.append(title);
         section.append(groupDownload(group, section, c));
         var grid = node('div', 'dub-library-items');
         group.items.forEach(function (item) { grid.append(movieCard(item, c.owner)); });

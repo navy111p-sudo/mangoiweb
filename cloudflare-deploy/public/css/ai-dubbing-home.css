@@ -135,3 +135,8 @@ body .top{padding-right:158px}
 .dub-group-download{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px;min-width:0}
 .dub-group-download .btn{min-height:44px;white-space:normal}
 .dub-group-download .dub-save-note{flex-basis:100%;margin:0;overflow-wrap:anywhere}
+
+.dub-library-bulk{padding:14px;margin:16px 0;border:1px solid var(--mint);border-radius:12px;background:var(--bg);overflow-wrap:anywhere}
+.dub-library-bulk p{margin:0 0 10px;line-height:1.6}.dub-selection-summary{font-weight:800}.dub-selected-names,.dub-selection-help{font-size:14px;color:var(--text2)}
+.dub-library-bulk .row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.dub-library-bulk .btn{min-height:44px;white-space:normal}
+.dub-group-select{display:flex;align-items:center;gap:12px;min-height:44px;cursor:pointer}.dub-group-select input{flex:0 0 24px;width:24px;height:24px;accent-color:var(--mint)}.dub-group-select span{min-width:0;overflow-wrap:anywhere}
