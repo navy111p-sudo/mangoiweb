@@ -351,25 +351,33 @@ async function splitWorld(sizes=[200,200,200,100]){
   w.el('dub-library-search').value='';await w.ctx.MangoiDubHome.openLibrary('movies');
   await descendants(w.el('dub-library-bulk')).find(e=>e.textContent==='보이는 모둠 모두 선택').fire('click');return w;
 }
-test('large selected groups split lazily into independent named ZIPs with stable folders and no lost or duplicated movies',async()=>{
-  const w=await splitWorld(),b=selectedControls(w);await b.start.fire('click');
-  assert.equal(w.archives.length,1);assert.deepEqual(w.requests,['v0','v1'],'Only the first part is fetched');assert.match(b.ready.download,/-part-001\.zip$/);
-  const firstUrl=b.ready.href;assert.ok(partButton(w,2));await partButton(w,2).fire('click');
-  assert.equal(w.archives.length,2);assert.match(b.ready.download,/-part-002\.zip$/);assert.ok(w.revoked.includes(firstUrl),'Only the current archive URL is retained');
+test('one click downloads ZIP parts in order, fetching only one part at a time and preserving folders',async()=>{
+  const w=await splitWorld(),b=selectedControls(w),held=deferred(),get=w.lib.getMovie;
+  w.ctx.setTimeout=(fn,ms,...args)=>ms===250?setImmediate(fn):setTimeout(fn,ms,...args);
+  w.lib.getMovie=async id=>{if(id==='v2'){w.requests.push(id);return held.promise;}return get(id);};
+  const job=b.start.fire('click');await until(()=>w.requests.includes('v2'));
+  assert.equal(w.archives.length,1);assert.deepEqual(w.requests,['v0','v1','v2']);
+  assert.equal(partButton(w,1).disabled,true);assert.equal(partButton(w,2).disabled,true);
+  const firstUrl=w.revoked.at(-1);assert.ok(firstUrl,'Previous ZIP URL is released before fetching the next part');
+  held.resolve(sizedBlob('v2',w.sizes[2]));await job;
+  assert.equal(w.archives.length,2);assert.equal(b.ready.clicks,2);assert.match(b.ready.download,/-part-002\.zip$/);
+  assert.ok(w.revoked.includes(firstUrl));assert.equal(partButton(w,2).disabled,false);
   const files=w.archives.flatMap(a=>a.files);assert.equal(files.length,4);assert.equal(new Set(files.map(f=>f.name)).size,4);
   assert.deepEqual(await Promise.all(files.map(f=>f.blob.text())),['v0','v1','v2','v3']);
   assert.ok(files.slice(0,3).every(f=>f.name.startsWith('001_1모둠/')));assert.ok(files[3].name.startsWith('002_2모둠/'));
   assert.ok(files[2].name.includes('/003_'),'Ordinals continue across ZIP boundaries');
   for(const a of w.archives)assert.ok(a.files.reduce((sum,f)=>sum+f.blob.size,0)<512*1024*1024);
+  assert.match(b.note.textContent,/다운로드를 순서대로 요청/);assert.match(b.note.textContent,/차단되거나 빠진 ZIP/);
 });
+
 test('ZIP planning accounts for header overhead at the 512MiB boundary',async()=>{
   const w=await splitWorld([256,256]);await selectedControls(w).start.fire('click');
-  assert.equal(w.archives[0].files.length,1);assert.ok(partButton(w,2),'Two 256MiB files require two ZIPs once headers are counted');
-  await partButton(w,2).fire('click');assert.equal(w.archives[1].files.length,1);
+  assert.equal(w.archives.length,2);assert.equal(w.archives[0].files.length,1);assert.ok(partButton(w,2),'Two 256MiB files require two ZIPs once headers are counted');
+  assert.equal(w.archives[1].files.length,1);
 });
 test('a failed later ZIP retries only that part and old part buttons cannot fetch after an account change',async()=>{
-  const w=await splitWorld(),b=selectedControls(w);await b.start.fire('click');const get=w.lib.getMovie;
-  w.lib.getMovie=async()=>{throw new Error('offline');};await partButton(w,2).fire('click');
+  const w=await splitWorld(),b=selectedControls(w),get=w.lib.getMovie;
+  w.lib.getMovie=async id=>{if(id==='v2')throw new Error('offline');return get(id);};await b.start.fire('click');
   assert.equal(w.archives.length,1);assert.match(b.note.textContent,/2 \/ 2번 ZIP을 완료하지 못/);
   w.lib.getMovie=get;const before=w.requests.length;await partButton(w,2).fire('click');assert.equal(w.archives.length,2);assert.deepEqual(w.requests.slice(before),['v2','v3']);
   const stale=partButton(w,1);w.changeOwner('student:bob');const count=w.requests.length;await stale.fire('click');assert.equal(w.requests.length,count);
@@ -377,6 +385,31 @@ test('a failed later ZIP retries only that part and old part buttons cannot fetc
 test('a split single-group download also keeps its group folder, and changed size metadata cannot overflow a ZIP',async()=>{
   const w=await splitWorld([200,200,200]);const b=bulkControls(w);await b.start.fire('click');assert.ok(w.archives[0].files.every(f=>f.name.startsWith('001_1모둠/')));
   const x=await splitWorld([100]);x.lib.getMovie=async()=>sizedBlob('changed',101*1024*1024);await selectedControls(x).start.fire('click');assert.equal(x.archives.length,0);assert.match(selectedControls(x).note.textContent,/새로고침/);
+});
+
+test('a browser-blocked request leaves numbered buttons usable and retry rebuilds only the missing ZIP',async()=>{
+  const w=await splitWorld(),b=selectedControls(w),attempts=[],received=[];
+  b.ready.click=function(){attempts.push(this.download);if(attempts.length!==2)received.push(this.download);};
+  await b.start.fire('click');assert.equal(attempts.length,2);assert.equal(received.length,1);
+  assert.match(b.note.textContent,/브라우저.*허용/);assert.equal(partButton(w,2).disabled,false);
+  const count=w.requests.length;await partButton(w,2).fire('click');assert.equal(received.length,2);
+  assert.deepEqual(w.requests.slice(count),['v2','v3']);assert.match(received.at(-1),/-part-002\.zip$/);
+});
+test('account, selection and close changes stop the queue between ZIPs',async()=>{
+  for(const cancel of [w=>w.changeOwner('student:bob'),w=>w.el('dub-library-search').fire('input'),w=>w.el('dub-library-close').fire('click')]){
+    const w=await splitWorld(),held=deferred();let waiting=false;
+    w.ctx.setTimeout=(fn,ms,...args)=>ms===250?(waiting=true,held.promise.then(fn),1):setTimeout(fn,ms,...args);
+    const b=selectedControls(w),job=b.start.fire('click');await until(()=>waiting);assert.equal(w.archives.length,1);
+    await cancel(w);held.resolve();await job;assert.equal(w.archives.length,1);assert.deepEqual(w.requests,['v0','v1']);
+  }
+});
+test('a later ZIP failure stops the queue and Download all remains usable for a new attempt',async()=>{
+  const w=await splitWorld([300,300,300]),get=w.lib.getMovie;
+  w.lib.getMovie=async id=>{if(id==='v1')throw new Error('offline');return get(id);};
+  await selectedControls(w).start.fire('click');assert.equal(w.archives.length,1);assert.deepEqual(w.requests,['v0']);
+  assert.equal(partButton(w,3).disabled,false);
+  const all=descendants(w.el('dub-library-bulk')).find(e=>e.tagName==='button'&&e.textContent==='모두 내려받기');assert.ok(all);assert.equal(all.disabled,false);
+  w.lib.getMovie=get;await all.fire('click');assert.equal(w.archives.length,4);
 });
 
 let failed=0;

@@ -56,10 +56,11 @@
       if (currentUrl) { URL.revokeObjectURL(currentUrl); urls = urls.filter(function (url) { return url !== currentUrl; }); currentUrl = null; }
     }
     function failed(e) { return e.downloadText || (e.status === 401 ? t('로그인 상태를 확인해 주세요.', 'Please check that you are signed in.') : t('영상 연결을 확인하고 다시 시도해 주세요.', 'Check your connection and try again.')); }
-    async function buildPart(run, index) {
-      if (!valid(run)) return;
-      if (bulkJob) { note.textContent = t('다른 ZIP을 준비 중이에요. 잠시 후 다시 눌러 주세요.', 'Another ZIP is being prepared. Please try again shortly.'); return; }
-      var ticket = {}; bulkJob = ticket; start.disabled = true;
+    async function buildPart(run, index, queueTicket) {
+      if (!valid(run)) return false;
+      if (queueTicket && bulkJob !== queueTicket) return false;
+      if (!queueTicket && bulkJob) { note.textContent = t('다른 ZIP을 준비 중이에요. 잠시 후 다시 눌러 주세요.', 'Another ZIP is being prepared. Please try again shortly.'); return; }
+      var ticket = queueTicket || {}; bulkJob = ticket; start.disabled = true;
       var part = run.parts[index], control = run.buttons[index]; if (control) control.disabled = true;
       function current() { return bulkJob === ticket && valid(run); }
       try {
@@ -83,13 +84,39 @@
         ready.hidden = false; ready.click(); start.hidden = true;
         if (control) control.textContent = (index + 1) + t('번 ZIP 다시 내려받기', ' · Download ZIP again');
         note.textContent = run.parts.length > 1
-          ? (index + 1) + ' / ' + run.parts.length + t('번 ZIP 내려받기를 시작했어요. 번호별 버튼을 모두 눌러 저장해 주세요. 각 ZIP은 따로 풀 수 있고 모둠별 폴더 이름은 같아요.', ' ZIP download started. Save every numbered ZIP. Each opens independently and keeps the same group folder names.')
+          ? (index + 1) + ' / ' + run.parts.length + t('번 ZIP 내려받기를 시작했어요. 다운로드 폴더를 확인해 주세요. 차단되거나 빠진 파일은 번호별 버튼으로 다시 받을 수 있어요.', ' ZIP download started. Check Downloads. Use the numbered buttons to retry any blocked or missing file.')
           : t('ZIP 내려받기를 시작했어요. 다운로드 폴더를 확인하고, 시작되지 않으면 ‘ZIP 다시 내려받기’를 누르세요.', 'ZIP download started. Check Downloads, or choose Download ZIP again if it did not start.');
+        return true;
       } catch (e) {
-        if (current()) note.textContent = (index + 1) + ' / ' + run.parts.length + t('번 ZIP을 완료하지 못했어요. ', ' ZIP could not be completed. ') + failed(e) + t(' 이 ZIP을 다시 눌러 시도할 수 있어요.', ' Retry this ZIP.');
+        if (current()) note.textContent = (index + 1) + ' / ' + run.parts.length + t('번 ZIP을 완료하지 못했어요. ', ' ZIP could not be completed. ') + failed(e) + (run.parts.length > 1 ? t(' 이 ZIP의 번호별 버튼으로 다시 시도해 주세요.', ' Retry using this ZIP’s numbered button.') : t(' 내려받기 버튼을 다시 눌러 시도해 주세요.', ' Press the download button to retry.'));
+        return false;
+      } finally {
+        if (!queueTicket) {
+          if (bulkJob === ticket) bulkJob = null;
+          start.disabled = false; if (control) control.disabled = false;
+        }
+      }
+    }
+    async function downloadAll(run) {
+      if (!valid(run)) return;
+      if (bulkJob) { note.textContent = t('다른 ZIP을 준비 중이에요. 잠시 후 다시 눌러 주세요.', 'Another ZIP is being prepared. Please try again shortly.'); return; }
+      var ticket = {}; bulkJob = ticket; start.disabled = true;
+      if (run.allButton) run.allButton.disabled = true;
+      run.buttons.forEach(function (b) { b.disabled = true; });
+      try {
+        for (var index = 0; index < run.parts.length; index++) {
+          if (!valid(run) || bulkJob !== ticket) return;
+          if (!await buildPart(run, index, ticket)) return;
+          // Give the browser time to start this Blob download before releasing
+          // its URL while preparing the next ZIP. Never build ZIPs concurrently.
+          if (index + 1 < run.parts.length) await new Promise(function (resolve) { setTimeout(resolve, 250); });
+        }
+        if (valid(run) && bulkJob === ticket && run.parts.length > 1) note.textContent = run.parts.length + t('개 ZIP의 다운로드를 순서대로 요청했어요. 브라우저에서 차단 안내가 뜨면 ‘여러 파일 다운로드’를 허용해 주세요. 다운로드 폴더에서 모든 번호를 확인하고, 차단되거나 빠진 ZIP은 번호별 버튼으로 다시 받으세요.', ' ZIP download requests were sent in order. If your browser shows a blocking notice, allow multiple file downloads. Check Downloads for every part number and retry blocked or missing ZIPs with the numbered buttons.');
       } finally {
         if (bulkJob === ticket) bulkJob = null;
-        start.disabled = false; if (control) control.disabled = false;
+        start.disabled = false;
+        if (run.allButton) run.allButton.disabled = false;
+        run.buttons.forEach(function (b) { b.disabled = false; });
       }
     }
     var start = button(selection ? t('선택한 모둠 내려받기 (ZIP)', 'Download selected groups (ZIP)') : t('모두 내려받기 (ZIP)', 'Download all (ZIP)'), async function () {
@@ -134,7 +161,9 @@
         run.filename = movieFilename(archiveTitle + ' · ' + t('더빙영상', 'dubbing videos'), '').replace(/\.webm$/, '.zip');
         if (!current()) return;
         if (run.parts.length > 1) {
-          partButtons.append(node('p', '', run.parts.length + t('개 ZIP으로 나눠 저장해요. 번호별 버튼을 모두 눌러 주세요. 각 ZIP은 최대 512MB예요.', ' ZIP files are ready to prepare. Save every numbered ZIP. Each ZIP is at most 512MB.')));
+          partButtons.append(node('p', '', run.parts.length + t('개 ZIP을 순서대로 내려받아요. 차단되면 번호별 버튼으로 다시 받아 주세요. 각 ZIP은 최대 512MB예요.', ' ZIP files download in order. If blocked, retry with the numbered buttons. Each ZIP is at most 512MB.')));
+          run.allButton = button(t('모두 내려받기', 'Download all'), function () { return downloadAll(run); });
+          partButtons.append(run.allButton);
           run.parts.forEach(function (_, index) {
             var control = button((index + 1) + t('번 ZIP 내려받기', ' · Download ZIP'), function () { return buildPart(run, index); });
             run.buttons.push(control); partButtons.append(control);
@@ -147,7 +176,7 @@
         if (bulkJob === ticket) bulkJob = null;
         start.disabled = false;
       }
-      if (valid(run)) await buildPart(run, 0);
+      if (valid(run)) await downloadAll(run);
     });
     start.disabled = !!selection && !selection().length;
     actions.append(start, ready, partButtons, note); return actions;
