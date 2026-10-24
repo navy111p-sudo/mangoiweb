@@ -458,54 +458,134 @@
     host.append(node('p', 'dub-selection-help', t('모둠 이름 옆의 체크박스로 여러 모둠을 선택하세요. 검색해도 선택은 유지되며, ZIP 안에 모둠별 폴더로 저장돼요. 512MB를 넘으면 여러 ZIP으로 나눠 받아요.', 'Select groups using their checkboxes. Selections stay when you search. ZIP files keep a folder per group. Downloads over 512MB are split into multiple ZIP files.')));
     host.append(groupDownload(null, host, c, selected));
   }
+  // Account-scoped, bounded metadata only. Original blobs stay in IndexedDB.
+  // A single remembered queue can include later selections without losing work.
+  var UPLOAD_KEY = 'mangoi_dub_uploads_v1:';
+  function uploadKey(owner) { return UPLOAD_KEY + encodeURIComponent(owner); }
+  function validUpload(r, owner) {
+    if (!r || r.version !== 1 || r.owner !== owner || typeof r.id !== 'string' || !/^[a-z0-9-]{1,80}$/.test(r.id) || !Number.isSafeInteger(r.updatedAt) || r.updatedAt <= 0 || !Array.isArray(r.entries) || !r.entries.length || r.entries.length > 2000) return false;
+    var ids = new Set();
+    return r.entries.every(function (e) {
+      if (!e || typeof e.id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(e.id) || ids.has(e.id)) return false;
+      ids.add(e.id);
+      return typeof e.title === 'string' && e.title.length <= 500 && Number.isSafeInteger(e.size) && e.size > 0 && typeof e.mime === 'string' && e.mime.length <= 100
+        && typeof e.engine === 'string' && e.engine.length <= 20 && typeof e.episodeId === 'string' && e.episodeId.length <= 80
+        && ['pending', 'saved', 'failed', 'missing', 'changed'].indexOf(e.state) >= 0 && typeof e.error === 'string' && e.error.length <= 1000;
+    });
+  }
+  function readUpload(owner) {
+    var raw = localStorage.getItem(uploadKey(owner)); if (!raw) return null;
+    if (raw.length > 1024 * 1024) throw new Error('upload_history_too_large');
+    var r = JSON.parse(raw); if (!validUpload(r, owner)) throw new Error('invalid_upload_history'); return r;
+  }
+  function uploadEntry(m) { return { id: m.id, title: m.title || '', size: m.blob.size, mime: m.blob.type || 'video/webm', engine: m.engine || '', episodeId: m.episodeId || '', state: 'pending', error: '' }; }
+  function sameUpload(e, m) {
+    return e.id === m.id && e.title === m.title && e.size === (m.blob ? m.blob.size : m.size) && e.mime === (m.blob ? m.blob.type || 'video/webm' : m.mime) && e.engine === (m.engine || '') && e.episodeId === (m.episodeId || '');
+  }
+  function rememberUpload(c, u) {
+    if (!owned(c.owner) || !u.record) return false;
+    try {
+      var old = readUpload(c.owner), r = u.record;
+      if ((!old && u.persistedId === r.id) || old && old.id !== r.id && old.id !== u.replaceId) throw new Error('upload_history_changed');
+      if (old && old.id === r.id) {
+        // Keep another tab's confirmed successes and extra queued originals.
+        var map = new Map(old.entries.map(function (e) { return [e.id, e]; }));
+        r.entries.forEach(function (e) {
+          var prior = map.get(e.id);
+          if (prior && !sameUpload(prior, { id: e.id, title: e.title, size: e.size, mime: e.mime, engine: e.engine, episodeId: e.episodeId })) throw new Error('upload_history_changed');
+          map.set(e.id, prior && prior.state === 'saved' ? prior : e);
+        }); r.entries = Array.from(map.values());
+      }
+      r.updatedAt = Date.now(); if (!validUpload(r, c.owner)) throw new Error('invalid_upload_history');
+      var json = JSON.stringify(r); if (json.length > 1024 * 1024) throw new Error('upload_history_too_large');
+      localStorage.setItem(uploadKey(c.owner), json); r.entries.forEach(function (e) { if (e.state === 'saved') u.selected.delete(e.id); }); u.replaceId = null; u.persistedId = r.id; u.remembered = true; return true;
+    } catch (e) { u.remembered = false; if (e.message === 'upload_history_changed') { u.historyChanged = true; u.stopped = true; u.reason = t('진행 기록이 다른 화면에서 바뀌었어요. 보관함을 새로고침해 주세요.', 'Save progress changed in another view. Refresh the library.'); } return false; }
+  }
+  function reconcileUpload(c, u, response) {
+    if (!u.record || !response || !Array.isArray(response.movies)) return;
+    var remote = new Map(response.movies.map(function (m) { return [m.id, m]; }));
+    var locals = new Map(c.items.filter(function (m) { return m.local; }).map(function (m) { return [m.id, m]; }));
+    u.record.entries.forEach(function (e) {
+      var saved = remote.get(e.id), local = locals.get(e.id);
+      if (saved && sameUpload(e, saved)) { e.state = 'saved'; e.error = ''; u.selected.delete(e.id); }
+      else if (e.state === 'saved') { u.selected.delete(e.id); }
+      else if (saved || local && !sameUpload(e, local)) { e.state = 'changed'; e.error = t('원본 정보가 바뀌었어요. 영상을 확인한 뒤 진행 기록을 지우고 다시 선택해 주세요.', 'The original changed. Check it, remove the progress record, and select again.'); }
+      else if (!local && !c.localError) { e.state = 'missing'; e.error = t('이 기기에 원본 영상이 없어요. 원래 기기·브라우저에서 보관함을 열거나 원본을 복원해 주세요.', 'The original is missing on this device. Open the library in the original browser or restore the original.'); }
+      else if (local && (e.state === 'missing' || e.state === 'changed')) { e.state = 'pending'; e.error = ''; }
+    });
+    c.items = response.movies.slice().concat(Array.from(locals.values()).filter(function (m) { return !remote.has(m.id); })); c.response = response;
+  }
   function uploadState(c) {
-    if (!c.upload) c.upload = { selected: new Set(), results: new Map(), busy: false, stopped: false, total: 0, done: 0, saved: 0, failed: 0 };
+    if (!c.upload) {
+      var u = c.upload = { selected: new Set(), results: new Map(), busy: false, stopped: false, total: 0, done: 0, saved: 0, failed: 0 };
+      try {
+        u.record = readUpload(c.owner); u.remembered = !!u.record; u.persistedId = u.record && u.record.id;
+        if (u.record) {
+          reconcileUpload(c, u, c.response);
+          u.record.entries.forEach(function (e) { if (e.state !== 'saved' && c.items.some(function (m) { return m.local && sameUpload(e, m); })) u.selected.add(e.id); });
+          rememberUpload(c, u);
+        }
+      } catch (_) { u.historyError = true; }
+    }
     return c.upload;
   }
   function uploadCurrent(c, u) { return catalogue === c && c.upload === u && owned(c.owner) && view === 'movies'; }
-  async function uploadSelected(c, only) {
+  async function uploadSelected(c, only, resumeOnly) {
     if (catalogue !== c || !owned(c.owner) || !L.hasAccount()) return;
     if (uploadJob || bulkJob) { status(t('다른 저장·다운로드 작업이 끝난 뒤 다시 눌러 주세요.', 'Wait for the other save or download to finish.')); return; }
     var u = uploadState(c), movies = only || c.items.filter(function (m) { return m.local && u.selected.has(m.id); });
-    if (!movies.length) return;
-    // Snapshot the selection, including hidden search results. Keep the original
-    // client IDs so a timeout/retry cannot create duplicate account videos.
-    movies = movies.slice();
-    var ticket = { state: u }; uploadJob = ticket;
-    u.busy = true; u.stopped = false; u.total = movies.length; u.done = 0; u.saved = 0; u.failed = 0; u.currentTitle = ''; u.reason = ''; u.results = new Map();
-    movies.forEach(function (m) { u.selected.add(m.id); });
-    drawCatalogue();
+    if (u.historyError) { status(t('저장 진행 기록을 읽지 못했어요. 아래의 진행 기록 지우기를 누른 뒤 다시 선택해 주세요.', 'Could not read save progress. Remove the progress record below and select again.')); return; }
+    if (!resumeOnly && !movies.length) return;
+    if (resumeOnly) {
+      try { var latest = readUpload(c.owner); if (!latest && !u.persistedId) latest = u.record; if (!latest || !u.record || latest.id !== u.record.id) throw new Error('upload_history_changed'); u.record = latest; }
+      catch (_) { u.reason = t('저장 진행 기록이 다른 화면에서 바뀌었어요. 보관함을 새로고침해 주세요.', 'Save progress changed in another view. Refresh the library.'); drawCatalogue(); return; }
+    } else {
+      if (!u.record || u.record.entries.every(function (e) { return e.state === 'saved'; })) {
+        u.replaceId = u.record && u.record.id;
+        u.record = { version: 1, owner: c.owner, id: Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12), updatedAt: Date.now(), entries: [] };
+      }
+      var known = new Set(u.record.entries.map(function (e) { return e.id; }));
+      movies.forEach(function (m) { if (!known.has(m.id)) { u.record.entries.push(uploadEntry(m)); known.add(m.id); } u.selected.add(m.id); });
+    }
+    // Persist the full queue BEFORE the first asynchronous step. A tab may close
+    // after the server commits a file but before the success response arrives.
+    rememberUpload(c, u); if (u.historyChanged) { drawCatalogue(); return; }
+    var requested = new Set(movies.map(function (m) { return m.id; })), ticket = { state: u, catalogue: c }; uploadJob = ticket;
+    u.busy = true; u.verifying = true; u.stopped = false; u.reason = ''; u.results = new Map(); drawCatalogue();
     try {
+      var response;
+      try { response = await L.listMovies(); if (!response || !Array.isArray(response.movies)) throw new Error('invalid_response'); }
+      catch (_) { if (uploadCurrent(c, u)) { u.stopped = true; u.reason = t('계정의 저장 완료 목록을 확인하지 못했어요. 연결을 확인한 뒤 이어서 저장을 다시 눌러 주세요.', 'Could not check saved account videos. Check your connection and retry resume.'); } return; }
+      if (!uploadCurrent(c, u) || u.stopped || uploadJob !== ticket) return;
+      reconcileUpload(c, u, response); rememberUpload(c, u); u.verifying = false;
+      movies = u.record.entries.filter(function (e) { return e.state !== 'saved' && e.state !== 'missing' && e.state !== 'changed' && (resumeOnly || requested.has(e.id)); }).map(function (e) { return c.items.find(function (m) { return m.local && sameUpload(e, m); }); }).filter(Boolean);
       for (var i = 0; i < movies.length; i++) {
         if (!uploadCurrent(c, u) || u.stopped || uploadJob !== ticket) return;
-        var movie = movies[i]; u.currentTitle = movie.title;
-        drawCatalogue();
+        var movie = movies[i], entry = u.record.entries.find(function (e) { return e.id === movie.id; });
+        entry.state = 'pending'; entry.error = ''; u.currentTitle = movie.title; u.currentIndex = u.record.entries.indexOf(entry); rememberUpload(c, u); if (u.historyChanged) return; drawCatalogue();
         try {
           var result = await L.saveMovie(movie.blob, { clientId: movie.id, engine: movie.engine, episodeId: movie.episodeId, title: movie.title, interrupted: !!movie.interrupted, durationMs: movie.durationMs || 0 });
           if (!uploadCurrent(c, u) || uploadJob !== ticket) return;
           if (!result || !result.movie || result.movie.id !== movie.id) throw new Error('invalid_movie_response');
-          // Replace only confirmed successes. Failed/unattempted originals stay
-          // on the device and selected; no bulk deletion or implicit refresh.
           c.items = c.items.map(function (m) { return m.id === movie.id ? Object.assign({}, result.movie, { local: false }) : m; });
-          u.selected.delete(movie.id); u.saved++;
-          u.results.set(movie.id, { title: movie.title, saved: true });
+          u.selected.delete(movie.id); entry.state = 'saved'; entry.error = '';
         } catch (e) {
           if (!uploadCurrent(c, u) || uploadJob !== ticket) return;
-          u.failed++; u.results.set(movie.id, { title: movie.title, saved: false, error: message(e) });
+          entry.state = 'failed'; entry.error = message(e).slice(0, 1000);
           if (e.status === 401 || e.status === 429 || e.status === 503 || /account_changed|auth_required|movie_count_limit|quota|network|timeout/.test(e.code || '')) { u.stopped = true; u.reason = message(e); }
         }
-        u.done++; drawCatalogue();
+        rememberUpload(c, u); drawCatalogue();
       }
     } finally {
       if (uploadJob === ticket) uploadJob = null;
-      u.busy = false; u.currentTitle = '';
-      if (uploadCurrent(c, u)) drawCatalogue();
+      u.busy = false; u.verifying = false; u.currentTitle = '';
+      if (uploadCurrent(c, u)) { rememberUpload(c, u); drawCatalogue(); }
     }
   }
   function uploadBar(c, shown) {
     var host = $('dub-library-upload'); if (!host || c.kind !== 'movies') return;
     var locals = c.items.filter(function (m) { return m.local; }), u = uploadState(c); u.checks = new Map();
-    if (!locals.length && !u.total) return;
+    if (!locals.length && !u.record && !u.historyError) return;
     host.hidden = false;
     host.append(node('h3', '', t('이 기기의 영상, 계정에 모아 저장', 'Save device videos to your account')));
     host.append(node('p', '', t('영상 카드에서 저장할 영상을 선택하세요. 검색해도 선택은 유지돼요. 계정에 저장하면 다른 컴퓨터·브라우저에서도 볼 수 있어요.', 'Select videos on their cards. Selections stay when you search. Account videos are available on other computers and browsers.')));
@@ -519,21 +599,40 @@
     var clear = button(t('영상 선택 해제', 'Clear video selection'), function () { if (uploadCurrent(c, u) && !u.busy) { u.selected.clear(); drawCatalogue(); u.clearSelection.focus(); } }); u.clearSelection = clear; clear.disabled = u.busy || !u.selected.size;
     var save = button(t('선택한 영상 계정에 저장', 'Save selected videos to account'), function () { return uploadSelected(c); }, 'go');
     save.disabled = u.busy || !u.selected.size || !L.hasAccount();
-    var stop = button(t('저장 중단', 'Stop saving'), function () { if (uploadCurrent(c, u) && u.busy) { u.stopped = true; drawCatalogue(); } }); stop.hidden = !u.busy; stop.disabled = u.stopped;
+    var stop = button(t('저장 중단', 'Stop saving'), function () { if (uploadCurrent(c, u) && u.busy) { u.stopped = true; rememberUpload(c, u); drawCatalogue(); } }); stop.hidden = !u.busy; stop.disabled = u.stopped;
     controls.append(select, clear, save, stop); host.append(controls);
     if (!L.hasAccount()) host.append(node('p', 'dub-save-note', t('계정에 저장하려면 먼저 로그인해 주세요.', 'Sign in before saving to your account.')));
-    if (u.total) {
-      var text = u.busy ? (u.stopped ? t('현재 영상 저장을 마친 뒤 중단해요.', 'Stopping after the current video.') : t('전체 ' + u.total + '개 중 ' + Math.min(u.done + 1, u.total) + '번째 저장 중 · ', 'Saving video ' + Math.min(u.done + 1, u.total) + ' of ' + u.total + ' · ') + u.currentTitle)
-        : u.stopped ? t('저장을 중단했어요.', 'Saving stopped.') : t('선택한 영상 저장 처리가 끝났어요.', 'Selected videos have been processed.');
-      var progress = node('p', 'dub-selection-summary', text + ' · ' + t('저장 ', 'Saved ') + u.saved + t('개 · 실패 ', ' · Failed ') + u.failed + t('개 · 남은 ', ' · Remaining ') + (u.total - u.done) + t('개', ''));
+    if (u.historyError) host.append(node('p', 'dub-save-note', t('저장 진행 기록을 읽지 못했어요. 원본 영상은 지우지 않았어요. 진행 기록을 지운 뒤 다시 선택해 주세요.', 'Save progress could not be read. Original videos are kept. Remove the progress record and select again.')));
+    if (u.record) {
+      u.total = u.record.entries.length; u.saved = u.record.entries.filter(function (e) { return e.state === 'saved'; }).length;
+      u.failed = u.record.entries.filter(function (e) { return e.state === 'failed' || e.state === 'missing' || e.state === 'changed'; }).length; u.done = u.saved + u.failed;
+      u.results = new Map(u.record.entries.filter(function (e) { return e.state !== 'pending'; }).map(function (e) { return [e.id, { title: e.title, saved: e.state === 'saved', error: e.error }]; }));
+      var remaining = u.total - u.saved;
+      var resume = button(t('남은 영상 이어서 저장', 'Resume remaining video saves'), function () { return uploadSelected(c, null, true); }, 'go');
+      resume.disabled = u.busy || !L.hasAccount() || !!c.localError; resume.hidden = remaining === 0; controls.append(resume);
+      host.append(node('p', 'dub-selection-summary', (u.remembered ? t('기억한 저장 진행: ', 'Remembered save progress: ') : t('현재 저장 진행: ', 'Current save progress: ')) + u.saved + ' / ' + u.total + t('개 저장 · 남은 ', ' saved · Remaining ') + remaining + t('개', '')));
+      host.append(node('p', 'dub-save-note', u.remembered ? t('이 기기·브라우저에서 같은 계정으로 보관함을 다시 열면 진행 상황을 불러와요. ‘남은 영상 이어서 저장’은 기억한 목록에서 이미 계정에 저장된 영상을 확인하고 건너뛰어요.', 'Reopen the library with the same account in this browser to restore progress. Resume checks the remembered list against your account and skips already saved videos.') : t('이 브라우저에 진행 기록을 저장하지 못했어요. 화면을 닫지 말고 브라우저 저장 공간·설정을 확인해 주세요.', 'Save progress could not be remembered in this browser. Keep this screen open and check browser storage settings.')));
+      if (c.localError) host.append(node('p', 'dub-save-note', t('이 기기의 원본 영상을 불러오지 못했어요. 브라우저 저장 설정을 확인하고 보관함을 새로고침해 주세요.', 'Could not load device originals. Check browser storage and refresh the library.')));
+    }
+    if (u.record || u.historyError) {
+      var remove = button(t('저장 진행 기록 지우기', 'Remove save progress'), function () {
+        if (!uploadCurrent(c, u) || u.busy || uploadJob) return;
+        try { localStorage.removeItem(uploadKey(c.owner)); u.record = null; u.persistedId = null; u.historyError = false; u.historyChanged = false; u.total = 0; u.reason = ''; u.results.clear(); drawCatalogue(); }
+        catch (_) { status(t('진행 기록을 지우지 못했어요. 브라우저 저장 설정을 확인해 주세요.', 'Could not remove progress. Check browser storage settings.')); }
+      }); remove.disabled = u.busy; controls.append(remove);
+    }
+    if (u.record) {
+      var text = u.busy && u.verifying ? t('계정에 이미 저장된 영상을 확인하는 중…', 'Checking videos already saved to your account…') : u.busy ? (u.stopped ? t('현재 영상 저장을 마친 뒤 중단해요.', 'Stopping after the current video.') : t('전체 ' + u.total + '개 중 ' + Math.min((u.currentIndex || 0) + 1, u.total) + '번째 저장 중 · ', 'Saving video ' + Math.min((u.currentIndex || 0) + 1, u.total) + ' of ' + u.total + ' · ') + u.currentTitle)
+        : u.stopped ? t('저장을 중단했어요.', 'Saving stopped.') : remaining ? t('저장이 멈춰 있어요. 남은 영상을 이어서 저장해 주세요.', 'Saving is paused. Resume the remaining videos.') : t('모든 영상을 계정에 저장했어요.', 'All videos are saved to your account.');
+      var progress = node('p', 'dub-selection-summary', text + ' · ' + t('저장 ', 'Saved ') + u.saved + t('개 · 실패 ', ' · Failed ') + u.failed + t('개 · 남은 ', ' · Remaining ') + (u.total - u.saved) + t('개', ''));
       progress.setAttribute('role', 'status'); progress.setAttribute('aria-live', 'polite'); host.append(progress);
-      var meter = node('progress'); meter.max = u.total; meter.value = u.done; meter.setAttribute('aria-label', t('선택한 영상 저장 처리 진행 상황', 'Selected video save progress')); host.append(meter);
+      var meter = node('progress'); meter.max = u.total; meter.value = u.saved; meter.setAttribute('aria-label', t('선택한 영상 계정 저장 진행 상황', 'Selected video account save progress')); host.append(meter);
       if (u.reason) host.append(node('p', 'dub-save-note', u.reason));
       if (!u.busy && u.selected.size) host.append(node('p', 'dub-save-note', t('실패하거나 아직 저장하지 않은 영상은 선택된 채로 남아요. ‘선택한 영상 계정에 저장’을 다시 눌러 주세요.', 'Failed and unattempted videos stay selected. Choose Save selected videos to account to retry.')));
       var results = node('ul', 'dub-upload-results');
       u.results.forEach(function (r) { results.append(node('li', '', (r.saved ? t('저장 완료 · ', 'Saved · ') : t('저장 실패 · ', 'Failed · ')) + r.title + (r.error ? ' · ' + r.error : ''))); }); host.append(results);
     }
-    host.append(node('p', 'dub-save-note', t('저장이 끝날 때까지 이 화면을 열어 두세요. 실패하거나 중단된 영상은 이 기기에 남아 다시 시도할 수 있어요.', 'Keep this screen open until saving finishes. Failed or interrupted videos stay on this device for retry.')));
+    host.append(node('p', 'dub-save-note', t('화면을 닫거나 새로고침하면 저장이 멈춰요. 같은 기기·브라우저의 보관함에서 남은 영상을 이어서 저장할 수 있어요. 아직 계정에 저장하지 않은 원본 영상은 브라우저에서 삭제하지 마세요.', 'Closing or refreshing pauses saving. Reopen this browser’s library to resume remaining videos. Keep device originals until they are saved to your account.')));
   }
 
   function drawCatalogue() {
@@ -646,7 +745,7 @@
       }
     });
     items.sort(function (a, b) { return new Date(b.createdAt || b.updatedAt).getTime() - new Date(a.createdAt || a.updatedAt).getTime(); });
-    catalogue = { owner: owner, kind: kind, items: items, response: response, error: results[0].reason };
+    catalogue = { owner: owner, kind: kind, items: items, response: response, localError: results[1].status !== 'fulfilled', error: results[0].reason };
     if (kind === 'movies' && L.listDownloads && L.hasAccount()) {
       try { await pullDownloads(catalogue); } catch (_) { if (catalogue && catalogue.owner === owner) catalogue.downloadSyncError = true; }
       if (ticket !== generation || !owned(owner)) return;
@@ -797,7 +896,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-library-view]'), function (b) { b.addEventListener('click', function () { openLibrary(b.getAttribute('data-library-view')); }); });
     L.onAccountChange(function () { ++generation; catalogue = null; clearItems(); if ($('dub-library-search')) $('dub-library-search').value = ''; status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
     window.addEventListener('mangoi:lang-changed', function () { render(); if ($('dub-library') && !$('dub-library').hidden) refresh(); });
-    window.addEventListener('pagehide', function () { if (uploadJob) uploadJob.state.stopped = true; downloadPauses.slice().forEach(function (pause) { pause(); }); releaseUrls(); });
+    window.addEventListener('pagehide', function () { if (uploadJob) { uploadJob.state.stopped = true; rememberUpload(uploadJob.catalogue, uploadJob.state); } downloadPauses.slice().forEach(function (pause) { pause(); }); releaseUrls(); });
     render();
   }
   window.MangoiDubHome = { init: init, ready: ready, render: render, checkpoint: checkpoint, saveMovie: saveMovie, practice: practice, openLibrary: openLibrary, movieFilename: movieFilename };
