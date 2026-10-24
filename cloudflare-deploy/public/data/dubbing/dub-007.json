@@ -502,14 +502,14 @@
       "mood": "triumph",
       "durationSec": 61,
       "playbackStartSec": 2,
-      "video": "/media/dubbing/dub-007/scene-6.mp4?v=6",
+      "video": "/media/dubbing/dub-007/scene-6.mp4?v=7",
       "poster": "/media/dubbing/dub-007/scene-6.jpg?v=3",
       "videoAudio": "mute",
       "voices": {
         "luna": "/media/dubbing/dub-007/scene-6-luna.mp3?v=4",
-        "zio": "/media/dubbing/dub-007/scene-6-zio.mp3?v=4",
+        "zio": "/media/dubbing/dub-007/scene-6-zio.mp3?v=5",
         "nova": "/media/dubbing/dub-007/scene-6-nova.mp3?v=4",
-        "nora": "/media/dubbing/dub-007/scene-6-nora.mp3?v=5"
+        "nora": "/media/dubbing/dub-007/scene-6-nora.mp3?v=6"
       },
       "lines": [
         {
@@ -545,20 +545,20 @@
           "end": 30.718
         },
         {
-          "id": "s6-l5",
-          "speaker": "zio",
-          "en": "We are friends across the stars.",
-          "ko": "우린 별을 넘어 함께하는 친구야.",
-          "start": 43.38,
-          "end": 46.78
-        },
-        {
           "id": "s6-l6",
           "speaker": "nora",
           "en": "Welcome home, our brave astronaut.",
           "ko": "용감한 우주비행사야, 집에 온 걸 환영해.",
-          "start": 47.296667,
-          "end": 50.426667
+          "start": 53.296667,
+          "end": 56.426667
+        },
+        {
+          "id": "s6-l5",
+          "speaker": "zio",
+          "en": "We are friends across the stars.",
+          "ko": "우린 별을 넘어 함께하는 친구야.",
+          "start": 56.943333,
+          "end": 60.343333
         }
       ],
       "sfx": [
@@ -578,7 +578,7 @@
           "gain": 0.18
         }
       ],
-      "bgm": "/media/dubbing/dub-007/scene-6-bgm.mp3?v=2"
+      "bgm": "/media/dubbing/dub-007/scene-6-bgm.mp3?v=3"
     }
   ],
   "_production": {
@@ -631,6 +631,19 @@
       "audio": "All existing dialogue, role stems, BGM, SFX and subtitle timings retained. The new arrival action uses the existing Zio dialogue as accompaniment and is not phoneme-level lip synchronization.",
       "durationSec": 61,
       "generationJob": "5a4f8860-f4ef-461e-9443-4a6e4d386451"
+    },
+    "ep6ZioWelcome": {
+      "date": "2026-10-25",
+      "videoCache": 7,
+      "replaceSec": [
+        46.75,
+        60.5
+      ],
+      "edit": "Luna and Nora first share their original reunion hug at 46.75-53s. Then Nora turns to welcome green Zio and hugs him. Zio returns the embrace; Luna and Nova watch beside them.",
+      "audio": "Nora's original complete welcome take moves from 47.296667-50.426667s to 53.296667-56.426667s. Zio's original complete friends-across-the-stars utterance moves from 43.38-46.78s to 56.943333-60.343333s, following a 0.516666s reply gap. No new or repeated speech; original utterances include 100ms handles. BGM is ducked for the new exchange. Existing six lines are retained and sorted by new timestamps.",
+      "durationSec": 61,
+      "generationJob": "3811da31-9419-4fdc-860e-d1f82f117dfd",
+      "billing": "One explicitly authorized free Genjutsu edit, no generation credits."
     }
   }
 }
