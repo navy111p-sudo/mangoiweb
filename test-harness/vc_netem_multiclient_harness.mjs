@@ -112,7 +112,18 @@ try {
   for (const n of names) {
     const p = await browser.newPage();
     await p.setViewport({ width: 1280, height: 800 });
-    await p.evaluateOnNewDocument(() => {
+    await p.evaluateOnNewDocument(expectedRoom => {
+      // Reject a wrong room before any signaling connection can be opened.
+      const RealWebSocket = window.WebSocket;
+      window.WebSocket = class extends RealWebSocket {
+        constructor(url, ...args) {
+          const target = new URL(url, location.href);
+          if (target.pathname === '/ws/video-call' && target.searchParams.get('roomId') !== expectedRoom) {
+            throw new Error('Harness blocked non-test video room');
+          }
+          super(url, ...args);
+        }
+      };
       window.__harnessCapturedInputs = [];
       const gum = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
       navigator.mediaDevices.getUserMedia = async function(constraints) {
@@ -120,7 +131,7 @@ try {
         window.__harnessCapturedInputs.push(...stream.getTracks().map(t => ({kind:t.kind,label:t.label})));
         return stream;
       };
-    });
+    }, CANONICAL_ROOM);
     p.on('pageerror', e => { fail++; console.log('  [pageerror ' + n + ']', e.stack || String(e)); });
     pages.push(p);
   }
@@ -244,8 +255,14 @@ try {
 
   /* ── 정리: 전원 명시적 퇴장(방 잔존 방지) ── */
   for (const p of pages) {
-    try { await p.evaluate(() => { try { vcConn && vcConn.close(); } catch (_) {} }); } catch (_) {}
+    try { await p.evaluate(() => {
+      try { window.MangoAttendance && window.MangoAttendance.stop(); } catch (_) {}
+      try { if (vcConn) { vcConn.send({type:'leave-room',data:{}}); vcConn.close(); } } catch (_) {}
+      try { if (vcLocalStream) vcLocalStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+      document.body.classList.remove('vc-in-call');
+    }); } catch (_) {}
   }
+  await sleep(700); // allow the test-only attendance leave request to finish
 } catch (e) {
   fail++;
   console.error('❌ 하네스 실행 오류:', e && e.message);
