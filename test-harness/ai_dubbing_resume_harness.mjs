@@ -28,8 +28,8 @@ const fixture={id:'fixture',title:{ko:'모험',en:'Adventure'},status:'final',no
   {no:2,label:{ko:'짧은 장면',en:'Short scene'},video:'/two.mp4',durationSec:30,lines:[{id:'b',speaker:'mina',en:'Thank you!',ko:'고마워!'}]},
   {no:3,label:{ko:'마지막 장면',en:'Last scene'},video:'/three.mp4',durationSec:45,lines:[{id:'c',speaker:'jun',en:'Let us go!',ko:'가자!'}]},
 ]};
-function world(){
-  const els=new Map(),data=new Map(),listeners=[],events=new Map();
+function world(sharedData){
+  const els=new Map(),data=sharedData||new Map(),listeners=[],events=new Map();
   const el=id=>{if(!els.has(id)){const e=new El();e.id=id;e.root=true;els.set(id,e);}return els.get(id);};
   const out={owner:'student:alice',saved:[],drafts:[],fetches:[],revoked:[],micCount:0,movieStarts:0,localMovies:[],remoteDrafts:[],localDrafts:[],deletedDrafts:[]};
   const ctx={console,Blob,TextEncoder,FormData,Headers,Response,URLSearchParams,Promise,setTimeout,clearTimeout,setInterval,clearInterval,
@@ -71,7 +71,7 @@ function world(){
     loadIndex=function(){return Promise.resolve([]);};
     loadEpisode=function(){return Promise.resolve();};
   })();`,ctx);
-  out.ctx=ctx;out.el=el;out.data=data;out.lib=lib;out.d=ctx.testDub;
+  out.pagehide=()=>events.get('pagehide')?.();out.ctx=ctx;out.el=el;out.data=data;out.lib=lib;out.d=ctx.testDub;
   out.d.S.ep=structuredClone(fixture);out.d.S.cast=[{name:'Alice',character:'mina'}];out.d.S.sel=0;
   data.set('mangoi_logged_user',JSON.stringify({uid:'alice',name:'Alice'}));
   el('dub-mode').value='practice';el('dub-make-movie').checked=true;
@@ -451,6 +451,60 @@ test('paused resume buttons cannot fetch another account’s videos or survive c
     const job=selectedControls(w).start.fire('click');await until(()=>waiting);const p=progressControls(w);await p.stop.fire('click');held.resolve();await job;
     await cancel(w);const before=w.requests.length;await p.resume.fire('click');assert.equal(w.requests.length,before);
   }
+});
+
+const historyPrefix='mangoi_dub_downloads_v1:';
+const historyKey=w=>[...w.data.keys()].find(k=>k.startsWith(historyPrefix));
+const storedJobs=w=>JSON.parse(w.data.get(historyKey(w))||'[]');
+function historyControls(w){const all=descendants(w.el('dub-library-downloads'));return{resume:all.find(e=>e.tagName==='button'&&e.textContent==='남은 ZIP 이어받기'),meter:all.find(e=>e.tagName==='progress'),summary:all.find(e=>e.className==='dub-zip-summary')};}
+async function checkpointWorld(){
+  const w=await splitWorld([300,300,300]),held=deferred();let waiting=false;
+  w.ctx.setTimeout=(fn,ms,...args)=>ms===250?(waiting=true,held.promise.then(fn),1):setTimeout(fn,ms,...args);
+  const job=selectedControls(w).start.fire('click');await until(()=>waiting);w.pagehide();held.resolve();await job;return w;
+}
+async function restoredWorld(w,mutate,owner='student:alice'){
+  const x=world(w.data);await x.boot();x.changeOwner(owner);x.sizes=w.sizes;x.requests=[];x.archives=[];x.localMovies=w.localMovies;
+  x.ctx.JSZip=class{constructor(){this.files=[];}file(name,blob){this.files.push({name,blob});}async generateAsync(options){x.archives.push({files:this.files,options});return new Blob(['zip'],{type:'application/zip'});}};
+  x.lib.listMovies=w.lib.listMovies;x.lib.getMovie=async id=>{x.requests.push(id);return sizedBlob(id,w.sizes[Number(id.slice(1))]);};
+  if(mutate)mutate(x);await x.ctx.MangoiDubHome.openLibrary('movies');return x;
+}
+test('refresh restores metadata-only progress and resumes remaining ZIPs without automatically downloading on open',async()=>{
+  const w=await checkpointWorld(),jobs=storedJobs(w);assert.equal(jobs.length,1);assert.deepEqual(jobs[0].requested,[0]);assert.equal(jobs[0].parts.length,3);
+  assert.ok(!w.data.get(historyKey(w)).includes('blob:'));assert.ok(!w.data.get(historyKey(w)).includes('remote bytes'));
+  const x=await restoredWorld(w),p=historyControls(x);assert.ok(p.resume);assert.equal(p.meter.value,1);assert.equal(p.meter.max,3);assert.equal(x.requests.length,0);assert.equal(x.archives.length,0);
+  await p.resume.fire('click');assert.deepEqual(x.requests,['v1','v2']);assert.equal(x.archives.length,2);assert.deepEqual(storedJobs(x)[0].requested,[0,1,2]);
+  assert.equal(x.archives[0].files[0].name,jobs[0].parts[1][0].path);assert.equal(x.archives[1].files[0].name,jobs[0].parts[2][0].path);
+});
+test('closing and reopening the library retains progress, and account B cannot see or use account A’s resume controls',async()=>{
+  const w=await checkpointWorld(),x=await restoredWorld(w);await x.el('dub-library-close').fire('click');await x.ctx.MangoiDubHome.openLibrary('movies');assert.equal(historyControls(x).meter.value,1);
+  const stale=historyControls(x).resume;x.changeOwner('student:bob');await x.ctx.MangoiDubHome.openLibrary('movies');assert.equal(x.el('dub-library-downloads').hidden,true);assert.equal(historyControls(x).resume,undefined);
+  await stale.fire('click');assert.equal(x.requests.length,0);x.changeOwner('student:alice');await x.ctx.MangoiDubHome.openLibrary('movies');assert.equal(historyControls(x).meter.value,1);
+});
+test('added videos do not change the saved selection, ZIP boundaries or filenames',async()=>{
+  const w=await checkpointWorld(),saved=storedJobs(w)[0];
+  const x=await restoredWorld(w,x=>{const list=x.lib.listMovies;x.lib.listMovies=async()=>{const result=await list();result.movies.unshift({id:'new-video',title:'1모둠 · 에피소드 1',size:100,mime:'video/mp4'});return result;};});
+  await historyControls(x).resume.fire('click');assert.deepEqual(x.requests,['v1','v2']);assert.equal(x.archives[0].files[0].name,saved.parts[1][0].path);
+});
+test('missing, renamed or resized originals keep their progress record but cannot silently resume',async()=>{
+  const w=await checkpointWorld();
+  for(const change of [movies=>movies.shift(),movies=>movies[0].title='바뀐 영상',movies=>movies[0].size++]){
+    const x=await restoredWorld(w,x=>{const list=x.lib.listMovies;x.lib.listMovies=async()=>{const result=await list();change(result.movies);return result;};});
+    assert.equal(historyControls(x).resume,undefined);assert.match(x.el('dub-library-downloads').textContent,/사라졌거나.*바뀌어/);assert.equal(x.requests.length,0);assert.equal(storedJobs(x).length,1);
+  }
+});
+test('corrupt or traversal-shaped progress is never converted to a ZIP or fetched',async()=>{
+  const w=await checkpointWorld(),key=historyKey(w),original=w.data.get(key);
+  const bad=JSON.parse(original);bad[0].parts[0][0].path='../evil.mp4';w.data.set(key,JSON.stringify(bad));let x=await restoredWorld(w);assert.equal(historyControls(x).resume,undefined);assert.match(x.el('dub-library-downloads').textContent,/형식이 맞지/);assert.equal(x.requests.length,0);
+  w.data.set(key,'{broken');x=await restoredWorld(w);assert.equal(historyControls(x).resume,undefined);assert.match(x.el('dub-library-downloads').textContent,/읽지 못/);assert.equal(x.requests.length,0);
+});
+test('blocked browser storage warns accurately while the current download still works',async()=>{
+  const w=await splitWorld([100]);const set=w.ctx.localStorage.setItem;w.ctx.localStorage.setItem=(k,v)=>{if(k.startsWith(historyPrefix))throw new Error('quota');set(k,v);};
+  await selectedControls(w).start.fire('click');assert.equal(w.archives.length,1);assert.equal(historyKey(w),undefined);
+  assert.match(w.el('dub-library-bulk').textContent,/진행 상황을 저장하지 못/);assert.ok(!w.el('dub-library-bulk').textContent.includes('화면을 닫거나 새로고침해도'));
+});
+test('removing a download progress record never removes saved movies',async()=>{
+  const w=await checkpointWorld(),x=await restoredWorld(w);let deleted=0;x.lib.deleteMovie=async()=>deleted++;x.lib.removeLocalMovie=async()=>deleted++;
+  const remove=descendants(x.el('dub-library-downloads')).find(e=>e.tagName==='button'&&e.textContent==='다운로드 진행 기록 삭제');await remove.fire('click');assert.equal(storedJobs(x).length,0);assert.equal(deleted,0);assert.equal(x.el('dub-library-downloads').hidden,true);
 });
 
 let failed=0;
