@@ -52,9 +52,10 @@ const run = () => ({ wakers: [] });
 }
 // Run the actual hold/resume closure, including asynchronous student completion.
 const hold = source.slice(source.indexOf('        function holdPractice('), source.indexOf('        function closeCap('));
-async function holdTest(code = hold) {
-  const v = new Media(false), a = new Media(false), r = { ...run(), aborted: false };
-  v.pause = a.pause = () => {}; v.play = a.play = () => Promise.resolve();
+async function holdTest(code = hold, seekable = false) {
+  const v = new Media(seekable), a = new Media(seekable), r = { ...run(), aborted: false };
+  let plays = 0;
+  v.pause = a.pause = () => {}; v.play = a.play = () => { plays++; return Promise.resolve(); };
   const line = { start: 10.24, end: 13.68 }, samples = [];
   const c = { ...ctx, v, run: r, tracks: [{ el: a }], items: [{ line, performer: { idx: 0 } }],
     practiceBusy: false, caps: {}, limit: 61, ended: false, shown: -2,
@@ -69,7 +70,10 @@ async function holdTest(code = hold) {
   assert.deepEqual(a.seeks, [], 'holding must not rewind the voice');
   assert.equal(samples[0], 10.3); assert.equal(c.practiceBusy, false);
   assert.equal(c.shown, 0, 'completed student caption is not repeated while the slot plays out');
+  assert.equal(plays, 2, 'video and voice must both resume after student completion');
+  assert.equal(r.aborted, false);
 }
 await holdTest();
+await holdTest(hold, true);
 await assert.rejects(holdTest(hold.replace('v.pause();', 'v.pause(); v.currentTime = line.start;')), /must not rewind/, 'old rewind mutation must fail');
 console.log('PASS: held frame, seekability across tracks, decoded seek barrier, wrong-frame rejection, cancellation, natural resume; old rewind mutation detected');
