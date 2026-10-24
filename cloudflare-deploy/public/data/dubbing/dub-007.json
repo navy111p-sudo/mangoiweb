@@ -502,7 +502,7 @@
       "mood": "triumph",
       "durationSec": 61,
       "playbackStartSec": 2,
-      "video": "/media/dubbing/dub-007/scene-6.mp4?v=5",
+      "video": "/media/dubbing/dub-007/scene-6.mp4?v=6",
       "poster": "/media/dubbing/dub-007/scene-6.jpg?v=3",
       "videoAudio": "mute",
       "voices": {
@@ -619,6 +619,18 @@
       "audio": "Original dialogue, role stems, BGM and subtitle timings retained. Rocket SFX moved from 30.8s to 38.8s to match the new departure.",
       "durationSec": 61,
       "generationJob": "2e58abcc-e99a-499c-a88f-366d834f6c26"
+    },
+    "ep6ArrivalContinuity": {
+      "date": "2026-10-25",
+      "videoCache": 6,
+      "replaceSec": [
+        40,
+        46.75
+      ],
+      "edit": "The same silver human spacecraft is landed with its hatch open and ramp down. Luna walks down first, green Zio follows through the same doorway, and Nova follows. Both passengers reach the ground and stand side by side before the existing mother reunion shot.",
+      "audio": "All existing dialogue, role stems, BGM, SFX and subtitle timings retained. The new arrival action uses the existing Zio dialogue as accompaniment and is not phoneme-level lip synchronization.",
+      "durationSec": 61,
+      "generationJob": "5a4f8860-f4ef-461e-9443-4a6e4d386451"
     }
   }
 }
