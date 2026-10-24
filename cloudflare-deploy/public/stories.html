@@ -113,9 +113,9 @@ html.rl-browse .foot{flex:none;margin:8px 0 0;font-size:12px}
 .rl-item{display:grid;grid-template-columns:26px 64px minmax(0,1fr) auto 58px 20px;align-items:center;gap:10px;padding:3px 10px;border:0;border-radius:10px;background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer;min-width:0}
 .rl-item:hover{background:var(--chip)}
 .rl-item.sel{background:var(--sc-tint);box-shadow:inset 0 0 0 1.5px var(--sc)}
-.rl-thumb{position:relative;display:grid;place-items:center;width:64px;height:44px;border-radius:8px;overflow:hidden;background:var(--chip);font-size:24px}
+.rl-entry{position:relative;min-width:0}\n.rl-entry .rl-item{width:100%;height:100%}\n.rl-thumb{position:absolute;left:46px;top:50%;transform:translateY(-50%);text-decoration:none;display:grid;place-items:center;width:64px;height:44px;border-radius:8px;overflow:hidden;background:var(--chip);font-size:24px}
 .rl-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.rl-thumb img[hidden]{display:none}
+.rl-thumb img[hidden]{display:none}\na.rl-thumb:hover{box-shadow:0 0 0 2px var(--sc)}\na.rl-thumb:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .rl-no{font-size:13px;font-weight:800;color:var(--sc-ink);font-variant-numeric:tabular-nums}
 .rl-tt{display:grid;min-width:0}
 .rl-tt b{font-size:14px;font-weight:800;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -232,7 +232,7 @@ html.rl-browse .foot{flex:none;margin:8px 0 0;font-size:12px}
 }
 @media (max-width:640px){
   .rl-item{grid-template-columns:22px 52px minmax(0,1fr) 20px;gap:7px;padding:5px 6px}
-  .rl-thumb{width:52px;height:36px}
+  .rl-thumb{left:35px;width:52px;height:36px}
   .rl-item .rl-wc{display:none}
   .rl-meter{display:none}
   .rl-tb{position:relative}
@@ -409,6 +409,6 @@ html.rl-browse .foot{flex:none;margin:8px 0 0;font-size:12px}
 <script src="/js/reading-ladder-data.js?v=7"></script>
 <script src="/js/reading-ladder-art.js?v=1"></script>
 <script src="/js/story-audio.js?v=1"></script>
-<script src="/js/reading-ladder.js?v=15"></script>
+<script src="/js/reading-ladder.js?v=16"></script>
 </body>
 </html>

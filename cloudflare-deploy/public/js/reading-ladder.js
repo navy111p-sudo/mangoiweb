@@ -193,8 +193,11 @@
   function hasBook(p) { return !!p && p.book !== false; }
   // Reuse the first picture on the storybook page; lazy-load offscreen rows.
   function bookThumbnail(p) {
-    return '<span class="rl-thumb" aria-hidden="true">📖' + (hasBook(p) ?
-      '<img src="/img/story/' + esc(p.id) + '-cover.webp?v=2" alt="" width="1024" height="688" loading="lazy" decoding="async">' : '') + '</span>';
+    var label = esc(L(p.title) + T(' 그림책 읽기', ' — Read picture book'));
+    var tag = hasBook(p) ? 'a' : 'span';
+    return '<' + tag + ' class="rl-thumb"' + (hasBook(p) ?
+      ' href="/story-' + esc(p.id) + '.html" aria-label="' + label + '" title="' + label + '"' : ' aria-hidden="true"') + '>📖' + (hasBook(p) ?
+      '<img src="/img/story/' + esc(p.id) + '-cover.webp?v=2" alt="" width="1024" height="688" loading="lazy" decoding="async">' : '') + '</' + tag + '>';
   }
   // A missing picture leaves a book placeholder without changing the row size.
   root.addEventListener('error', function (e) {
@@ -342,12 +345,12 @@
 
   function itemHtml(p, no, on) {
     var s = RLCore.statusOf(state.prog[p.id]);
-    return '<button type="button" class="rl-item ' + s + (on ? ' sel' : '') + '" data-act="sel" data-id="' + esc(p.id) + '" aria-pressed="' + on + '">' +
+    return '<div class="rl-entry"><button type="button" class="rl-item ' + s + (on ? ' sel' : '') + '" data-act="sel" data-id="' + esc(p.id) + '" aria-pressed="' + on + '">' +
       '<span class="rl-no">' + pad2(no) + '</span>' +
-      bookThumbnail(p) +
+      '<span class="rl-thumb-space" aria-hidden="true"></span>' +
       '<span class="rl-tt"><b lang="en">' + esc(p.title.en) + '</b>' + (lang() === 'en' ? '' : '<span>' + esc(p.title.ko) + '</span>') + '</span>' +
       '<span class="rl-topic">' + esc(L(p.topic)) + '</span>' +
-      '<span class="rl-wc">' + RLCore.wordCount(p) + esc(T('단어', 'w')) + '</span>' + statusIcon(s) + '</button>';
+      '<span class="rl-wc">' + RLCore.wordCount(p) + esc(T('단어', 'w')) + '</span>' + statusIcon(s) + '</button>' + bookThumbnail(p) + '</div>';
   }
 
   // 이전·다음 글 — 넓은 창은 글자, 좁은 창(stories.html CSS)은 화살표만 보인다. 글자는 화면에서만 감추고
