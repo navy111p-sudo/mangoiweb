@@ -236,7 +236,7 @@
       "mood": "tense",
       "durationSec": 61,
       "playbackStartSec": 2,
-      "video": "/media/dubbing/dub-007/scene-3.mp4?v=2",
+      "video": "/media/dubbing/dub-007/scene-3.mp4?v=3",
       "poster": "/media/dubbing/dub-007/scene-3.jpg?v=2",
       "videoAudio": "mute",
       "voices": {
@@ -323,7 +323,7 @@
       "mood": "mystery",
       "durationSec": 61,
       "playbackStartSec": 2,
-      "video": "/media/dubbing/dub-007/scene-4.mp4?v=3",
+      "video": "/media/dubbing/dub-007/scene-4.mp4?v=4",
       "poster": "/media/dubbing/dub-007/scene-4.jpg?v=2",
       "videoAudio": "mute",
       "voices": {
@@ -502,7 +502,7 @@
       "mood": "triumph",
       "durationSec": 61,
       "playbackStartSec": 2,
-      "video": "/media/dubbing/dub-007/scene-6.mp4?v=7",
+      "video": "/media/dubbing/dub-007/scene-6.mp4?v=8",
       "poster": "/media/dubbing/dub-007/scene-6.jpg?v=3",
       "videoAudio": "mute",
       "voices": {
@@ -644,6 +644,25 @@
       "durationSec": 61,
       "generationJob": "3811da31-9419-4fdc-860e-d1f82f117dfd",
       "billing": "One explicitly authorized free Genjutsu edit, no generation credits."
+    },
+    "wholeStoryContinuityReview": {
+      "date": "2026-10-25",
+      "reviewedScenes": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "edits": [
+        "EP3 8-17s: reframe repair to exclude the unintended Zio inside Luna's hatch.",
+        "EP4 frames 840-892 and 967-1233: Zio reaction/tool close-up excludes duplicate Nova and the extra small UFO.",
+        "EP6 2-4s: helmet close-up excludes the ambiguous green background face.",
+        "EP6 46.75-53s and 56.5-61s: medium reunion shots exclude the unrelated cone-shaped lander; greeting close-up 53-56.5s preserved."
+      ],
+      "timing": "All 61-second silent masters, original action order, dialogue offsets and role/BGM stems retained.",
+      "limitations": "Editorial correction, not a complete visual regeneration. Earlier cyan UFO/cockpit design and EP6 gold-rimmed enlarged saucer remain visibly different; early red-striped hull and EP6 unstriped hull are not fully matched. No new video generation was used in this editorial pass."
     }
   }
 }
