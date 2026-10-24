@@ -502,7 +502,7 @@
       "mood": "triumph",
       "durationSec": 61,
       "playbackStartSec": 2,
-      "video": "/media/dubbing/dub-007/scene-6.mp4?v=4",
+      "video": "/media/dubbing/dub-007/scene-6.mp4?v=5",
       "poster": "/media/dubbing/dub-007/scene-6.jpg?v=3",
       "videoAudio": "mute",
       "voices": {
@@ -568,7 +568,7 @@
           "gain": 0.17
         },
         {
-          "t": 30.8,
+          "t": 38.8,
           "name": "rocket",
           "gain": 0.2
         },
@@ -607,6 +607,18 @@
         "c11f3bd7-165d-4217-9002-436bd05c8e9d"
       ],
       "limitation": "Newly generated character motion is not phoneme-level lip synchronization."
+    },
+    "ep6BoardingContinuity": {
+      "date": "2026-10-24",
+      "videoCache": 5,
+      "replaceSec": [
+        30.75,
+        40
+      ],
+      "edit": "After the farewell, Luna, green Zio and Nova board the same silver human spacecraft. The hatch closes after the last passenger enters. A cabin shot shows Luna and Zio together, followed by departure toward Earth; the purple pilot remains aboard the separate saucer.",
+      "audio": "Original dialogue, role stems, BGM and subtitle timings retained. Rocket SFX moved from 30.8s to 38.8s to match the new departure.",
+      "durationSec": 61,
+      "generationJob": "2e58abcc-e99a-499c-a88f-366d834f6c26"
     }
   }
 }
