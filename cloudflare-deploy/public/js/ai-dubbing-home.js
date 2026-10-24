@@ -2,7 +2,7 @@
  * existing player; this module never starts a microphone on page load. */
 (function () {
   'use strict';
-  var L = window.MangoiDubLibrary, adapter, view = 'movies', generation = 0, urls = [], catalogue = null, bulkJob = null;
+  var L = window.MangoiDubLibrary, adapter, view = 'movies', generation = 0, urls = [], catalogue = null, bulkJob = null, downloadPauses = [];
   if (!L) return;
   var $ = function (id) { return document.getElementById(id); };
   function en() { try { return window.getLang && window.getLang() === 'en'; } catch (_) { return false; } }
@@ -12,7 +12,7 @@
   function status(text) { if ($('dub-library-status')) $('dub-library-status').textContent = text; }
   function message(error) { return L.errorText(error, !!en()); }
   function releaseUrls() { urls.splice(0).forEach(function (url) { URL.revokeObjectURL(url); }); }
-  function clearItems() { bulkJob = null; releaseUrls(); if ($('dub-library-items')) $('dub-library-items').replaceChildren(); if ($('dub-library-bulk')) { $('dub-library-bulk').replaceChildren(); $('dub-library-bulk').hidden = true; } }
+  function clearItems() { downloadPauses.splice(0).forEach(function (pause) { pause(); }); bulkJob = null; releaseUrls(); if ($('dub-library-items')) $('dub-library-items').replaceChildren(); if ($('dub-library-bulk')) { $('dub-library-bulk').replaceChildren(); $('dub-library-bulk').hidden = true; } if ($('dub-library-downloads')) { $('dub-library-downloads').replaceChildren(); $('dub-library-downloads').hidden = true; } }
   function owned(owner) { return owner === L.identity(); }
   // Use the saved title so reopening a movie never picks up another group's name.
   function filenameStem(title) {
@@ -45,7 +45,86 @@
     if (part.length) parts.push(part);
     return parts;
   }
-  function groupDownload(group, section, c, selection) {
+  var DOWNLOAD_KEY = 'mangoi_dub_downloads_v1:';
+  function downloadKey(owner) { return DOWNLOAD_KEY + encodeURIComponent(owner); }
+  function checkpointValid(record, owner) {
+    try {
+      if (!record || record.version !== 1 || record.owner !== owner || record.limit !== ZIP_MAX_BYTES || typeof record.id !== 'string' || !/^[a-z0-9-]{1,80}$/.test(record.id)) return false;
+      if (typeof record.title !== 'string' || record.title.length > 500 || typeof record.filename !== 'string' || record.filename.length > 220 || !/^mangoi-.*\.zip$/.test(record.filename) || /[<>:"/\\|?*\u0000-\u001f]/.test(record.filename)) return false;
+      if (!Number.isSafeInteger(record.updatedAt) || record.updatedAt <= 0) return false;
+      if (!Array.isArray(record.parts) || !record.parts.length || record.parts.length > 1000 || !Array.isArray(record.requested) || record.requested.length > record.parts.length) return false;
+      if (!record.requested.every(function (i) { return Number.isInteger(i) && i >= 0 && i < record.parts.length; }) || new Set(record.requested).size !== record.requested.length) return false;
+      var count = 0, ids = new Set(), paths = new Set();
+      return record.parts.every(function (part) {
+        if (!Array.isArray(part) || !part.length || part.length > 2000) return false;
+        if (zipParts(part).length !== 1) return false;
+        return part.every(function (e) {
+          if (++count > 2000 || !e || typeof e.id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(e.id) || ids.has(e.id) || paths.has(e.path)) return false;
+          ids.add(e.id); paths.add(e.path);
+          if (!Number.isSafeInteger(e.size) || e.size <= 0 || typeof e.title !== 'string' || e.title.length > 500 || typeof e.name !== 'string' || e.name.length > 500 || typeof e.mime !== 'string' || e.mime.length > 100 || typeof e.createdAt !== 'string' || e.createdAt.length > 80) return false;
+          if (typeof e.path !== 'string' || e.path.length > 500 || !/\.(mp4|webm)$/.test(e.path)) return false;
+          var segments = e.path.split('/');
+          return segments.length <= 2 && segments.every(function (v) { return v && v !== '.' && v !== '..' && !/[<>:"\\|?*\u0000-\u001f]/.test(v) && !/[. ]$/.test(v) && /^\d{3,}_/.test(v); });
+        });
+      });
+    } catch (_) { return false; }
+  }
+  function readDownloads(owner) {
+    var raw = localStorage.getItem(downloadKey(owner));
+    if (raw && raw.length > 2 * 1024 * 1024) throw new Error('download_history_too_large');
+    var records = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(records) || records.length > 10) throw new Error('invalid_download_history');
+    return records;
+  }
+  function writeDownload(run, owner) {
+    try {
+      if (!owned(owner)) return false;
+      var record = { version: 1, owner: owner, id: run.id, limit: ZIP_MAX_BYTES, title: run.title, filename: run.filename, updatedAt: Date.now(), requested: Array.from(run.requested).sort(function (a, b) { return a - b; }), parts: run.parts.map(function (part) {
+        return part.map(function (e) { var m = e.movie; return { id: m.id, title: m.title || '', size: e.size, mime: e.mime || '', createdAt: String(m.createdAt || ''), name: e.name, path: e.path }; });
+      }) };
+      if (!checkpointValid(record, owner)) return false;
+      var records = readDownloads(owner).filter(function (r) { return checkpointValid(r, owner) && r.id !== run.id; });
+      // Keep unfinished jobs. Only old fully-requested jobs may be evicted.
+      if (records.length >= 10) {
+        var completed = records.findIndex(function (r) { return r.requested.length === r.parts.length; });
+        if (completed < 0) return false;
+        records.splice(completed, 1);
+      }
+      records.push(record); var json = JSON.stringify(records); if (json.length > 2 * 1024 * 1024) return false;
+      localStorage.setItem(downloadKey(owner), json); return true;
+    } catch (_) { return false; }
+  }
+  function checkpointParts(record, items) {
+    var byId = new Map(); items.forEach(function (m) { byId.set(m.id, m); });
+    return record.parts.map(function (part) { return part.map(function (e) {
+      var movie = byId.get(e.id), size = movie && (movie.blob ? movie.blob.size : movie.size), mime = movie && (movie.mime || movie.blob && movie.blob.type);
+      if (!movie || movie.title !== e.title || (Number.isSafeInteger(size) && size !== e.size) || (mime && e.mime && mime !== e.mime) || (e.createdAt && String(movie.createdAt || '') !== e.createdAt)) throw new Error('download_movie_changed');
+      return { movie: movie, size: e.size, mime: e.mime, name: e.name, path: e.path };
+    }); });
+  }
+  function renderDownloads(c) {
+    var host = $('dub-library-downloads'); if (!host || c.kind !== 'movies') return;
+    var records;
+    try { records = readDownloads(c.owner); }
+    catch (_) { host.hidden = false; host.append(node('p', '', t('저장한 다운로드 진행 상황을 읽지 못했어요. 이 브라우저의 저장 설정을 확인해 주세요.', 'Saved download progress could not be read. Check this browser’s storage settings.'))); return; }
+    if (!records.length) return;
+    host.hidden = false; host.append(node('h3', '', t('저장한 다운로드', 'Saved downloads')));
+    records.sort(function (a, b) { return (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0); }).forEach(function (record) {
+      if (!checkpointValid(record, c.owner)) { host.append(node('p', '', t('형식이 맞지 않는 다운로드 기록은 복원하지 않았어요.', 'An invalid download record was not restored.'))); return; }
+      var card = node('details', 'dub-saved-download'); card.open = record.requested.length < record.parts.length;
+      card.append(node('summary', '', record.title + ' · ' + t('요청 ', 'Requested ') + record.requested.length + ' / ' + record.parts.length + ' · ' + date(record.updatedAt)));
+      try { checkpointParts(record, c.items); card.append(groupDownload(null, card, c, null, record)); }
+      catch (_) { card.append(node('p', 'dub-save-note', t('원본 영상이 목록에서 사라졌거나 이름·용량이 바뀌어 이어받을 수 없어요. 목록을 새로고침하거나 영상을 다시 선택해 주세요.', 'An original video is missing or changed. Refresh the list or select the videos again.'))); }
+      card.append(button(t('다운로드 진행 기록 삭제', 'Remove download progress'), function () {
+        if (!owned(c.owner) || catalogue !== c) return;
+        if (bulkJob) { status(t('다운로드를 중단한 뒤 진행 기록을 삭제해 주세요.', 'Pause the download before removing its progress.')); return; }
+        try { localStorage.setItem(downloadKey(c.owner), JSON.stringify(readDownloads(c.owner).filter(function (r) { return r.id !== record.id; }))); drawCatalogue(); }
+        catch (_) { status(t('진행 기록을 삭제하지 못했어요. 브라우저 저장 설정을 확인해 주세요.', 'Could not remove the progress. Check browser storage settings.')); }
+      }));
+      host.append(card);
+    });
+  }
+  function groupDownload(group, section, c, selection, restored) {
     var actions = node('div', 'dub-group-download'), note = node('p', 'dub-save-note'), partButtons = node('div', 'dub-zip-parts'), progressBox = node('div', 'dub-zip-progress');
     progressBox.hidden = true;
     note.setAttribute('role', 'status'); note.setAttribute('aria-live', 'polite');
@@ -57,8 +136,9 @@
       if (currentUrl) { URL.revokeObjectURL(currentUrl); urls = urls.filter(function (url) { return url !== currentUrl; }); currentUrl = null; }
     }
     function failed(e) { return e.downloadText || (e.status === 401 ? t('로그인 상태를 확인해 주세요.', 'Please check that you are signed in.') : t('영상 연결을 확인하고 다시 시도해 주세요.', 'Check your connection and try again.')); }
-    function updateProgress(run, phase) {
-      if (!valid(run) || !run.meter) return;
+    function remember(run) { if (valid(run)) run.remembered = writeDownload(run, c.owner); }
+    function updateProgress(run, phase, initial) {
+      if ((!initial && !valid(run)) || !run.meter) return;
       if (phase) run.phase = phase;
       var total = run.parts.length, sent = run.requested.size, remaining = total - sent;
       run.meter.max = total; run.meter.value = sent;
@@ -68,6 +148,9 @@
         : run.busy && run.currentIndex != null ? t('전체 ' + total + '개 중 ' + (run.currentIndex + 1) + '번째 ZIP', 'ZIP ' + (run.currentIndex + 1) + ' of ' + total) + ' · ' + run.phase
         : remaining === 0 ? t('모든 ZIP 다운로드 요청됨', 'All ZIP downloads requested') : t('남은 ZIP ', 'Remaining ZIPs: ') + remaining + t('개', '');
       run.summary.textContent = state + ' · ' + count;
+      if (run.help) run.help.textContent = run.remembered
+        ? t('이 기기·브라우저에 진행 상황을 기억해요. 화면을 닫거나 새로고침해도 같은 계정으로 보관함을 열면 이어받을 수 있어요. 요청한 ZIP은 건너뛰며 차단된 파일은 번호별 버튼으로 다시 받으세요.', 'Progress is remembered in this browser on this device. Reopen the library with the same account after closing or refreshing to resume. Requested ZIPs are skipped; retry blocked files with their numbered buttons.')
+        : t('브라우저에 진행 상황을 저장하지 못했어요. 이 화면을 유지하면 남은 ZIP을 이어받을 수 있어요. 이전 진행 기록을 정리하거나 브라우저 저장 공간·설정을 확인해 주세요.', 'Progress could not be saved in this browser. Keep this view open to resume. Remove old progress records or check browser storage space and settings.');
       run.stopButton.hidden = !run.busy; run.stopButton.disabled = !run.busy || run.paused;
       run.resumeButton.hidden = remaining === 0 || (!run.paused && !run.failed);
       run.resumeButton.disabled = run.busy || remaining === 0;
@@ -79,13 +162,14 @@
       var controls = node('div', 'row');
       run.stopButton = button(t('중단', 'Pause'), function () {
         if (!valid(run) || !run.busy) return;
-        run.paused = true; updateProgress(run);
+        run.paused = true; remember(run); updateProgress(run);
         note.textContent = t('중단을 요청했어요. 현재 준비 작업을 정리한 뒤 남은 ZIP만 이어받을 수 있어요. 이미 시작된 파일 저장은 브라우저에서 계속될 수 있어요.', 'Pause requested. Once the current preparation stops, resume only the remaining ZIPs. Downloads already started may continue in the browser.');
       });
       run.resumeButton = button(t('남은 ZIP 이어받기', 'Resume remaining ZIPs'), function () { return downloadAll(run, true); });
       controls.append(run.stopButton, run.resumeButton);
-      progressBox.append(run.summary, run.meter, controls, node('p', 'dub-zip-help', t('이어받기는 이 보관함 화면을 그대로 열어 둔 동안 가능해요. 요청한 ZIP은 건너뛰며, 브라우저에서 차단된 파일은 번호별 버튼으로 다시 받으세요.', 'Resume while keeping this library view open. ZIPs already requested are skipped; retry browser-blocked files with their numbered buttons.')));
-      updateProgress(run);
+      run.help = node('p', 'dub-zip-help');
+      progressBox.append(run.summary, run.meter, controls, run.help);
+      updateProgress(run, null, true);
     }
     async function buildPart(run, index, queueTicket) {
       if (!valid(run)) return false;
@@ -108,6 +192,7 @@
           var blob = entry.movie.blob || await L.getMovie(entry.movie.id);
           if (!current()) return;
           if (!(blob instanceof Blob) || !blob.size || blob.size !== entry.size) throw downloadError(t('영상 용량이 바뀌었거나 비어 있어요. 보관함을 새로고침한 뒤 다시 선택해 주세요.', 'A video changed size or is empty. Refresh the library and select it again.'));
+          if (entry.mime && blob.type && entry.mime !== blob.type) throw downloadError(t('영상 형식이 바뀌었어요. 영상을 다시 선택해 주세요.', 'The video format changed. Select the videos again.'));
           zip.file(entry.path, blob, { compression: 'STORE' });
         }
         updateProgress(run, t('ZIP 파일 만드는 중', 'Creating ZIP'));
@@ -118,14 +203,14 @@
         currentUrl = URL.createObjectURL(archive); urls.push(currentUrl);
         ready.href = currentUrl; ready.download = run.filename.replace(/\.zip$/, run.parts.length > 1 ? '-part-' + String(index + 1).padStart(3, '0') + '.zip' : '.zip');
         ready.hidden = false; ready.click(); start.hidden = true;
-        run.requested.add(index); updateProgress(run, t('다운로드 요청함', 'Download requested'));
+        run.requested.add(index); remember(run); updateProgress(run, t('다운로드 요청함', 'Download requested'));
         if (control) control.textContent = (index + 1) + t('번 ZIP 다시 내려받기', ' · Download ZIP again');
         note.textContent = run.parts.length > 1
           ? (index + 1) + ' / ' + run.parts.length + t('번 ZIP 내려받기를 시작했어요. 다운로드 폴더를 확인해 주세요. 차단되거나 빠진 파일은 번호별 버튼으로 다시 받을 수 있어요.', ' ZIP download started. Check Downloads. Use the numbered buttons to retry any blocked or missing file.')
           : t('ZIP 내려받기를 시작했어요. 다운로드 폴더를 확인하고, 시작되지 않으면 ‘ZIP 다시 내려받기’를 누르세요.', 'ZIP download started. Check Downloads, or choose Download ZIP again if it did not start.');
         return true;
       } catch (e) {
-        if (current()) run.failed = true;
+        if (current()) { run.failed = true; remember(run); }
         if (current()) note.textContent = (index + 1) + ' / ' + run.parts.length + t('번 ZIP을 완료하지 못했어요. ', ' ZIP could not be completed. ') + failed(e) + (run.parts.length > 1 ? t(' 이 ZIP의 번호별 버튼으로 다시 시도해 주세요.', ' Retry using this ZIP’s numbered button.') : t(' 내려받기 버튼을 다시 눌러 시도해 주세요.', ' Press the download button to retry.'));
         return false;
       } finally {
@@ -141,7 +226,7 @@
       if (!valid(run)) return;
       if (bulkJob) { note.textContent = t('다른 ZIP을 준비 중이에요. 잠시 후 다시 눌러 주세요.', 'Another ZIP is being prepared. Please try again shortly.'); return; }
       var ticket = {}; bulkJob = ticket; start.disabled = true;
-      if (!remainingOnly) run.requested.clear();
+      if (!remainingOnly) { run.requested.clear(); remember(run); }
       run.paused = false; run.failed = false; run.busy = true; run.currentIndex = null; updateProgress(run);
       if (run.allButton) run.allButton.disabled = true;
       run.buttons.forEach(function (b) { b.disabled = true; });
@@ -164,11 +249,25 @@
         if (valid(run) && run.paused) note.textContent = t('중단했어요. ‘남은 ZIP 이어받기’를 누르면 다운로드를 요청하지 않은 ZIP부터 계속해요.', 'Paused. Resume remaining ZIPs continues with ZIPs not yet requested.');
       }
     }
+    function setupPartButtons(run) {
+      partButtons.replaceChildren();
+      if (run.parts.length > 1) {
+        partButtons.append(node('p', '', run.parts.length + t('개 ZIP을 순서대로 내려받아요. 차단되면 번호별 버튼으로 다시 받아 주세요. 각 ZIP은 최대 512MB예요.', ' ZIP files download in order. If blocked, retry with the numbered buttons. Each ZIP is at most 512MB.')));
+        run.allButton = button(t('모두 내려받기', 'Download all'), function () { return downloadAll(run); }); partButtons.append(run.allButton);
+        run.parts.forEach(function (_, index) {
+          var control = button((index + 1) + (run.requested.has(index) ? t('번 ZIP 다시 내려받기', ' · Download ZIP again') : t('번 ZIP 내려받기', ' · Download ZIP')), function () { return buildPart(run, index); });
+          run.buttons.push(control); partButtons.append(control);
+        }); start.hidden = true;
+      } else if (restored) {
+        var control = button(t('1번 ZIP 다시 내려받기', '1 · Download ZIP again'), function () { return buildPart(run, 0); });
+        run.buttons.push(control); partButtons.append(control);
+      }
+    }
     var start = button(selection ? t('선택한 모둠 내려받기 (ZIP)', 'Download selected groups (ZIP)') : t('모두 내려받기 (ZIP)', 'Download all (ZIP)'), async function () {
       if (!owned(c.owner) || catalogue !== c || !actions.isConnected) return;
       var groups = selection ? selection() : [group]; if (!groups.length) return;
       if (bulkJob) { note.textContent = t('다른 ZIP을 준비 중이에요. 잠시 후 다시 눌러 주세요.', 'Another ZIP is being prepared. Please try again shortly.'); return; }
-      var run = { parts: [], buttons: [], requested: new Set(), busy: false, paused: false, failed: false }, ticket = {}; session = run; bulkJob = ticket; start.disabled = true;
+      var run = { id: Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12), parts: [], buttons: [], requested: new Set(), busy: false, paused: false, failed: false }, ticket = {}; session = run; bulkJob = ticket; start.disabled = true;
       function current() { return bulkJob === ticket && valid(run) && !run.paused; }
       try {
         if (!window.JSZip) throw downloadError(t('ZIP 기능을 불러오지 못했어요. 화면을 새로고침한 뒤 다시 시도해 주세요.', 'ZIP could not load. Refresh the page and try again.'));
@@ -194,7 +293,7 @@
             size = probe.size; mime = mime || probe.type; probe = null;
           }
           if (!Number.isSafeInteger(size) || size <= 0) throw downloadError(t('비어 있는 영상이 있어요. ‘영상 보기’를 확인한 뒤 다시 시도해 주세요.', 'A video is empty. Check Watch video and try again.'));
-          entry.size = size;
+          entry.size = size; entry.mime = mime || '';
           entry.path = entry.folder + String(entry.ordinal).padStart(3, '0') + '_' + movieFilename(entry.title, mime);
         }
         run.parts = zipParts(entries);
@@ -203,18 +302,10 @@
           run.parts = zipParts(entries);
         }
         var archiveTitle = selection ? t('선택한 모둠 ' + groups.length + '개', groups.length + ' selected groups') : (group.name || t('모둠 이름 없음', 'No group name'));
+        run.title = archiveTitle;
         run.filename = movieFilename(archiveTitle + ' · ' + t('더빙영상', 'dubbing videos'), '').replace(/\.webm$/, '.zip');
         if (!current()) return;
-        setupProgress(run);
-        if (run.parts.length > 1) {
-          partButtons.append(node('p', '', run.parts.length + t('개 ZIP을 순서대로 내려받아요. 차단되면 번호별 버튼으로 다시 받아 주세요. 각 ZIP은 최대 512MB예요.', ' ZIP files download in order. If blocked, retry with the numbered buttons. Each ZIP is at most 512MB.')));
-          run.allButton = button(t('모두 내려받기', 'Download all'), function () { return downloadAll(run); });
-          partButtons.append(run.allButton);
-          run.parts.forEach(function (_, index) {
-            var control = button((index + 1) + t('번 ZIP 내려받기', ' · Download ZIP'), function () { return buildPart(run, index); });
-            run.buttons.push(control); partButtons.append(control);
-          }); start.hidden = true;
-        }
+        remember(run); setupProgress(run); setupPartButtons(run);
       } catch (e) {
         if (current()) note.textContent = t('모두 내려받기를 준비하지 못했어요. ', 'Could not prepare the download. ') + failed(e) + t(' 다시 눌러 시도할 수 있어요.', ' You can try again.');
         return;
@@ -225,7 +316,13 @@
       if (valid(run)) await downloadAll(run);
     });
     start.disabled = !!selection && !selection().length;
-    actions.append(start, ready, progressBox, partButtons, note); return actions;
+    actions.append(start, ready, progressBox, partButtons, note);
+    downloadPauses.push(function () { if (session && session.busy && valid(session)) { session.paused = true; remember(session); updateProgress(session); } });
+    if (restored) {
+      var run = { id: restored.id, title: restored.title, filename: restored.filename, parts: checkpointParts(restored, c.items), buttons: [], requested: new Set(restored.requested), busy: false, paused: true, failed: false, remembered: true };
+      session = run; start.hidden = true; setupProgress(run); setupPartButtons(run);
+    }
+    return actions;
   }
   function movieGroups(items) {
     var groups = new Map();
@@ -256,7 +353,7 @@
   function drawCatalogue() {
     var c = catalogue;
     if (!c || !owned(c.owner) || c.kind !== view) return;
-    clearItems();
+    clearItems(); renderDownloads(c);
     var box = $('dub-library-items'); if (!box) return;
     var query = c.kind === 'movies' && $('dub-library-search') ? searchKey($('dub-library-search').value) : '';
     var shown = c.items.filter(function (item) { return !query || searchKey(movieGroup(item) || t('모둠 이름 없음', 'No group name')).indexOf(query) >= 0; });
@@ -499,7 +596,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-library-view]'), function (b) { b.addEventListener('click', function () { openLibrary(b.getAttribute('data-library-view')); }); });
     L.onAccountChange(function () { ++generation; catalogue = null; clearItems(); if ($('dub-library-search')) $('dub-library-search').value = ''; status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
     window.addEventListener('mangoi:lang-changed', function () { render(); if ($('dub-library') && !$('dub-library').hidden) refresh(); });
-    window.addEventListener('pagehide', releaseUrls);
+    window.addEventListener('pagehide', function () { downloadPauses.slice().forEach(function (pause) { pause(); }); releaseUrls(); });
     render();
   }
   window.MangoiDubHome = { init: init, ready: ready, render: render, checkpoint: checkpoint, saveMovie: saveMovie, practice: practice, openLibrary: openLibrary, movieFilename: movieFilename };
