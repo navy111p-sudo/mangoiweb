@@ -727,7 +727,7 @@ function cloudUploads(w, server) {
     if(server.removed.has(r.id))throw Object.assign(new Error('deleted'),{status:410});
     const prior=server.jobs.find(j=>j.id===r.id&&j.owner===owner),entries=new Map((prior?.entries||[]).map(e=>[e.id,e]));
     r.entries.forEach(e=>{const old=entries.get(e.id);entries.set(e.id,{...old,...e,...(old?.sha256?{sha256:old.sha256}:{}),state:old?.state==='saved'?'saved':e.state==='saved'?'saved':'pending',error:''});});
-    const job={...structuredClone(r),entries:[...entries.values()]};server.jobs=server.jobs.filter(j=>j.id!==r.id||j.owner!==owner);server.jobs.push(job);return{upload:structuredClone(job)};
+    const job={...structuredClone(r),entries:[...entries.values()]};if(prior?.connections||r.connections){const removed=[...new Set([...(prior?.connections?.removed||[]),...(r.connections?.removed||[])])],rows=new Map();for(const row of [...(prior?.connections?.rows||[]),...(r.connections?.rows||[])]){if(removed.includes(row.key))continue;const old=rows.get(row.key);if(!old||row.seq>old.seq)rows.set(row.key,structuredClone(row));}job.connections={version:1,rows:[...rows.values()],removed};}server.jobs=server.jobs.filter(j=>j.id!==r.id||j.owner!==owner);server.jobs.push(job);return{upload:structuredClone(job)};
   };
   w.lib.deleteUpload=async(id,owner)=>{assert.equal(owner,w.owner);server.jobs=server.jobs.filter(j=>j.id!==id||j.owner!==owner);server.removed.add(id);};
   w.lib.storeLocalMovie=async(blob,meta,owner)=>{assert.equal(owner,w.owner);w.localMovies.push({id:meta.clientId,blob,meta,createdAt:1});};
@@ -830,7 +830,7 @@ test('lost device originals become retryable after reload and another account ca
 test('malformed or foreign file-result history is rejected and storage failures never discard connected originals',async()=>{
   const {x,server}=await mixedConnectionFixture(),key=connectionsKey(x),raw=x.data.get(key);
   for(const bad of ['{bad',JSON.stringify({...JSON.parse(raw),owner:'student:bob'}),JSON.stringify({...JSON.parse(raw),rows:[{...JSON.parse(raw).rows[0],movieIds:['../escape']}]})]){
-    x.data.set(key,bad);const y=await reloadUploadWorld(x,z=>cloudUploads(z,server));assert.match(y.el('dub-library-upload').textContent,/파일별 연결 기록을 읽지 못/);assert.equal(connectionList(y),undefined);assert.equal(y.localMovies.length,1);
+    x.data.set(key,bad);const y=await reloadUploadWorld(x,z=>cloudUploads(z,server));assert.ok(connectionList(y));assert.ok(!connectionList(y).textContent.includes('../escape'));assert.ok(!connectionList(y).textContent.includes('student:bob'));assert.equal(y.localMovies.length,1);
   }
   const {w,x:y}=await crossUploadFixture(),set=y.ctx.localStorage.setItem;y.ctx.localStorage.setItem=(k,v)=>{if(k.startsWith('mangoi_dub_connections_v1:'))throw new Error('quota');set(k,v);};const picker=originalPicker(y);picker.files=[namedOriginal(w.localMovies[0].blob,'원본.webm')];await picker.fire('change');assert.equal(y.localMovies.length,1);assert.match(connectionList(y).textContent,/결과를 이 브라우저에 저장하지 못/);
 });
@@ -842,6 +842,30 @@ test('pagehide invalidates a late file read so it cannot overwrite restored or r
   const {w,x,server}=await crossUploadFixture(),hold=deferred(),blob=namedOriginal(w.localMovies[0].blob,'이전 화면.webm');blob.arrayBuffer=()=>hold.promise;
   const picker=originalPicker(x);picker.files=[blob];const task=picker.fire('change');await until(()=>!!x.data.get(connectionsKey(x)));x.pagehide();const y=await reloadUploadWorld(x,z=>cloudUploads(z,server));
   const retry=descendants(connectionList(y)).find(e=>e.type==='file');retry.files=[namedOriginal(w.localMovies[0].blob,'다시 선택한 원본.webm')];await retry.fire('change');const raw=y.data.get(connectionsKey(y));hold.resolve(await w.localMovies[0].blob.arrayBuffer());await task;assert.equal(y.data.get(connectionsKey(y)),raw);assert.equal(y.localMovies.length,1);assert.equal(x.localMovies.length,0);
+});
+
+async function settledConnections(w,server){await until(()=>server.jobs.some(j=>j.owner===w.owner&&j.connections?.rows.some(r=>r.code==='content')));for(let n=0;n<10;n++)await tick();}
+async function freshConnectionBrowser(source,server){return reloadUploadWorld({...source,data:new Map()},z=>{z.localMovies=[];cloudUploads(z,server);});}
+test('a fresh browser restores account filenames and failure reasons, verifies device originals and never uploads automatically',async()=>{
+  const {w,x,server}=await mixedConnectionFixture();await settledConnections(x,server);const y=await freshConnectionBrowser(x,server);
+  assert.equal(y.localMovies.length,0);assert.equal(y.uploadCalls.length,0);assert.equal(connectionFilter(y).checked,true);assert.match(connectionList(y).textContent,/다시 고를 파일.webm/);assert.match(connectionList(y).textContent,/파일 내용이 남은 영상/);assert.match(connectionList(y).textContent,/성공 원본.webm/);assert.match(connectionList(y).textContent,/원본이 이 기기에 없어요/);
+  const pickers=descendants(connectionList(y)).filter(e=>e.type==='file');pickers[0].files=[namedOriginal(w.localMovies[0].blob,'새 기기 원본1.webm')];await pickers[0].fire('change');
+  const retry=descendants(connectionList(y)).find(e=>e.attrs['aria-label']==='다시 고를 파일.webm 다시 선택');retry.files=[namedOriginal(w.localMovies[1].blob,'새 기기 원본2.webm')];await retry.fire('change');for(let i=0;i<15;i++)await tick();
+  assert.equal(y.uploadCalls.length,0);assert.equal(y.localMovies.length,2);assert.match(connectionList(y).textContent,/다시 선택할 파일이 없어요/);await resumeUpload(y).fire('click');assert.deepEqual(y.uploadCalls.map(c=>c.meta.clientId),['device-1','device-2']);
+  const z=await freshConnectionBrowser(y,server);assert.match(connectionList(z).textContent,/다시 선택할 파일이 없어요/);assert.equal(z.uploadCalls.length,0);
+});
+test('an old browser cannot resurrect a replaced file result after another browser retries it',async()=>{
+  const {w,x,server}=await mixedConnectionFixture();await settledConnections(x,server);const old=structuredClone(server.jobs[0]),y=await freshConnectionBrowser(x,server);
+  const retry=descendants(connectionList(y)).find(e=>e.attrs['aria-label']==='다시 고를 파일.webm 다시 선택');retry.files=[namedOriginal(w.localMovies[1].blob,'교체한 원본.webm')];await retry.fire('change');for(let n=0;n<15;n++)await tick();
+  await x.lib.saveUpload(old,x.owner);const z=await freshConnectionBrowser(x,server);assert.ok(!connectionList(z).textContent.includes('다시 고를 파일.webm'));assert.ok(connectionList(z).textContent.includes('교체한 원본.webm'));
+});
+test('offline file results remain local and sync when the original browser reconnects',async()=>{
+  const {w,x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=[namedOriginal(new Blob(['x'.repeat(w.localMovies[1].blob.size)]),'오프라인 파일.webm')];await picker.fire('change');for(let n=0;n<10;n++)await tick();assert.match(connectionList(x).textContent,/계정에 동기화하지 못/);
+  server.offline=false;await x.ctx.MangoiDubHome.openLibrary('movies');await settledConnections(x,server);const y=await freshConnectionBrowser(x,server);assert.match(connectionList(y).textContent,/오프라인 파일.webm/);
+});
+test('another account and a cloud-deleted upload job cannot restore private filenames',async()=>{
+  const {x,server}=await mixedConnectionFixture();await settledConnections(x,server);const y=await freshConnectionBrowser(x,server);y.changeOwner('student:bob');y.cloudMovies=[];await y.ctx.MangoiDubHome.openLibrary('movies');assert.equal(connectionList(y),undefined);
+  server.removed.add(server.jobs[0].id);server.jobs=[];await x.ctx.MangoiDubHome.openLibrary('movies');assert.equal(connectionList(x),undefined);assert.equal(server.jobs.length,0);
 });
 
 let failed=0;
