@@ -2021,10 +2021,11 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     if (!c || c.kind && c.kind !== 'class' || !stuUid(c)) return '';
     return '<div class="cls-meta">' + esc(T('Academy','학원')) + ': ' + esc(c.academy || '—')
       + ' · ' + esc(T('Contact','연락처')) + ': ' + esc(c.student_phone || '—')
-      + ' <button type="button" class="tbtn" data-student-calendar="'+esc(stuUid(c))+'" data-history-schedule="'+esc(c.schedule_id || c.id || '')+'" data-history-date="'+esc(c.class_date || c.date || todayKST())+'" data-history-name="'+esc(stuLabelText(c))+'">'+esc(T('Summary / Calendar','수업 요약 / 캘린더'))+'</button></div>';
+      + ' <button type="button" class="tbtn" data-teacher-history data-history-schedule="'+esc(c.schedule_id || c.id || '')+'" data-history-date="'+esc(c.class_date || c.date || todayKST())+'" data-history-name="'+esc(stuLabelText(c))+'">'+esc(T('Summary / Calendar','수업 요약 / 캘린더'))+'</button></div>';
   }
   document.addEventListener('click',function(e){
-    var button=e.target.closest && e.target.closest('[data-student-calendar]');if(!button)return;
+    // History opens a read-only dialog. Keep its action separate from legacy student-filter controls.
+    var button=e.target.closest && e.target.closest('[data-teacher-history]');if(!button)return;
     var context={scheduleId:button.getAttribute('data-history-schedule'),date:button.getAttribute('data-history-date'),name:button.getAttribute('data-history-name'),opener:button};
     function show(){window.MangoiTeacherHistory.open(context);}
     if(window.MangoiTeacherHistory){show();return;}
