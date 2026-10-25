@@ -271,6 +271,45 @@ export async function billingEnabled(env: Env): Promise<boolean> {
   } catch (_) { return false; }
 }
 
+/* 🧪 (2026-10-25 사장님 지시) 테스트 대리점 예외 — 전체 스위치가 꺼져 있어도 «이 계정의 대리점» 만은 결제가 열린다.
+ *   실제 카드 결제가 끝까지 되는지 보려는 것이라, 다른 376곳 학원 화면에는 아무것도 안 바뀐다.
+ *   ⚠️ 열리는 범위: 청구서 보기(GET /invoice)·명단 불러오기(generate)·결제 주문(checkout) 셋뿐.
+ *      월 cron(generateMonthlyAiInvoices)은 여전히 전체 스위치만 본다 — 예외 대리점도 자동 청구서는 안 생긴다.
+ *   ⚠️ 이름이 아니라 «로그인 아이디» 로 적는다 — 대리점 이름은 admin_scope.scope_value 에서 읽는다(손으로 베끼면 틀린다).
+ *   ⚠️ 못 읽으면 «아무 대리점도 예외 아님» — 모르면 청구하지 않는 쪽으로 실패한다(billingEnabled 와 같은 방향).
+ *   테스트가 끝나면 이 배열에서 아이디를 빼고 배포하면 된다. */
+export const AI_BILLING_TEST_ACCOUNTS: readonly string[] = ['ptagency'];
+
+/** 판정 정본 — 전체 스위치가 켜져 있거나, 이 대리점이 테스트 예외면 열린다. */
+export function aiBillingOpenFor(globalOn: boolean, testShops: ReadonlySet<string>, shopName: string): boolean {
+  if (globalOn === true) return true;
+  const s = String(shopName || '').trim();
+  return s !== '' && testShops.has(s);
+}
+
+async function aiBillingTestShops(env: Env): Promise<Set<string>> {
+  const out = new Set<string>();
+  const ids = AI_BILLING_TEST_ACCOUNTS.map(u => String(u || '').trim().toLowerCase()).filter(Boolean);
+  if (!ids.length) return out;
+  // 계정이 한두 개라 IN 목록 대신 한 줄씩 묻는다(손수 만든 IN 목록은 d1_bind_limit_harness 가 막는다).
+  for (const id of ids) {
+    try {
+      const rows = (await env.DB.prepare(
+        `SELECT scope_value FROM admin_scope WHERE scope_type = 'agency' AND LOWER(username) = ?`
+      ).bind(id).all<{ scope_value: string | null }>()).results || [];
+      for (const r of rows) { const v = String(r?.scope_value || '').trim(); if (v) out.add(v); }
+    } catch (_) { /* 못 읽으면 예외 없음 */ }
+  }
+  return out;
+}
+
+/** 이 대리점의 A.i 결제가 지금 열려 있는가 — 전체 스위치 또는 테스트 대리점 예외. */
+export async function billingEnabledFor(env: Env, shopName: string): Promise<boolean> {
+  const globalOn = await billingEnabled(env);
+  if (globalOn) return true;
+  return aiBillingOpenFor(false, await aiBillingTestShops(env), shopName);
+}
+
 /** 대리점(shop_name) 의 «지금» 명단을 셋으로 가른다(재원 = enrolledCond 정본):
  *    rows       A.i반(청구) = 신청 명단에 있고 화상반이 아님
  *    live_rows  화상반(A.i 포함 · 청구 안 함)
@@ -814,7 +853,7 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     let month = String(asked || nextM);
     if (!isValidMonth(month)) return err('month 는 YYYY-MM 형식이어야 합니다');
     // 🔌 자동 청구가 꺼져 있으면(테스트 기간) 청구서도 미리보기도 보여 주지 않는다 — 학원 화면은 안내만 그린다.
-    const enabled = await billingEnabled(env);
+    const enabled = await billingEnabledFor(env, shopName);   // 🧪 전체 스위치 또는 테스트 대리점 예외
     if (!enabled) return json({ ok: true, billing_enabled: false, exists: false, shop_name: shopName, billing_month: month, ...prepayDue(month) });
     /* ④ (2026-10-23) 달이 바뀌어도 «안 낸 청구서» 가 사라지지 않게 —
        예전엔 화면이 month 를 안 보내 언제나 «다음 달» 만 보였다. 11/1 이 되면 12월분이 뜨고, 10월에 못 낸 11월분은
@@ -880,7 +919,7 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (scope.type === 'agency') shopName = scope.value || '';
     if (!shopName) return err('shop_name required');
     if (!(await writeAllowed(env, request, shopName))) return err('forbidden', 403);
-    if (!(await billingEnabled(env))) return err('billing_disabled: 테스트 기간이라 A.i 사용료를 청구하지 않습니다', 409);
+    if (!(await billingEnabledFor(env, shopName))) return err('billing_disabled: 테스트 기간이라 A.i 사용료를 청구하지 않습니다', 409);
     const month = String(b?.month || monthAdd(currentMonthKST(), 1));
     if (!isValidMonth(month)) return err('month 는 YYYY-MM 형식이어야 합니다');
     const r = await generateOrRefreshInvoice(env, shopName, month, scope.label || 'admin');
@@ -963,7 +1002,7 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     if (!inv) return err('invoice not found', 404);
     // 🔒 (2026-09-11 사장님 결정) 결제 주문 생성 — writeAllowed() 하나로 판정한다(위 정의부 참고).
     if (!(await writeAllowed(env, request, inv.shop_name))) return err('forbidden', 403);
-    if (!(await billingEnabled(env))) return err('billing_disabled: 테스트 기간이라 A.i 사용료를 청구하지 않습니다', 409);
+    if (!(await billingEnabledFor(env, inv.shop_name))) return err('billing_disabled: 테스트 기간이라 A.i 사용료를 청구하지 않습니다', 409);
     if (inv.status === 'paid') return err('이미 결제된 청구서입니다', 409);
     const includedCount = await safe(async () => {
       const r = await env.DB.prepare(`SELECT COUNT(*) AS n FROM ai_billing_invoice_items WHERE invoice_id = ? AND included = 1`).bind(invoiceId).first<{ n: number }>();
