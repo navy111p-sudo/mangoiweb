@@ -1832,6 +1832,7 @@ const worker = {
           const pilotRes = await handleMangoApi(request, url, env, ctx, {
             chat: r => handleWarmupChat(markEleaderExpansion(r), ephemeralEleaderEnv(env)),
             voice: r => handleGamesApi(r, new URL(r.url), ephemeralEleaderEnv(env)),
+            warm: r => warmupChatEntry(r, (req, send) => handleWarmupChat(req, env, send)),
           });
           if (pilotRes) return pilotRes;
         }

@@ -1,0 +1,160 @@
+/* 엘리더잼 Level 1 기본과정 — A.i 말하기(warmup.html)에 «허용된 학생에게만» 책 22권을 붙인다.
+ * (2026-10-25 사장님 지시: ed/1234 로 로그인하면 아바타와 A.i 말하기로 대화)
+ *
+ * - 서버(/api/ai/eleader/l1/books)가 허용한 계정에서만 그린다. 403·오류면 아무것도 안 그린다(다른 학생은 예전 그대로).
+ * - 책을 고르면 웜업 대화가 /api/ai/eleader/l1/chat 으로 간다(주제·난이도·연령은 서버가 정함, 하루 상한 있음).
+ * - 아바타·마이크·음성 재생은 웜업 화면의 것을 그대로 쓴다 — 여기서 새로 만들지 않는다.
+ * - 대화 엔진 호출은 warmupFetch 를 감싸 «엘리더잼 모드일 때만» 주소를 바꾼다. 모드가 아니면 손대지 않는다.
+ */
+(function () {
+  'use strict';
+  var anchor = document.getElementById('eleaderEntry');
+  if (!anchor || typeof window.warmupFetch !== 'function') return;
+
+  var en = function () { try { return localStorage.getItem('mangoi_lang') === 'en'; } catch (e) { return false; } };
+  var T = function (ko, e) { return en() ? e : ko; };
+  var token = function () { try { return localStorage.getItem('mango_token') || ''; } catch (e) { return ''; } };
+
+  var box = document.createElement('section');
+  box.id = 'eleaderL1'; box.hidden = true;
+  box.setAttribute('aria-label', 'Eleader Jam Level 1');
+  anchor.insertAdjacentElement('afterend', box);
+
+  var data = null;       // 서버가 준 책 목록
+  var state = null;      // { book, title, n, q, lastInput, lastAt, answering, tok }
+  var bar = null;
+
+  function css() {
+    if (document.getElementById('eleaderL1Css')) return;
+    var s = document.createElement('style'); s.id = 'eleaderL1Css';
+    s.textContent = '#eleaderL1{margin:12px 0;padding:14px;border:2px solid #16a34a;border-radius:14px;background:#f0fdf4;color:#14532d}'
+      + '#eleaderL1 h3{margin:0 0 4px;font-size:17px}#eleaderL1 p{margin:4px 0 10px;font-size:13px;color:#166534}'
+      + '#eleaderL1 select{width:100%;padding:10px;font-size:15px;border:1px solid #86efac;border-radius:10px;background:#fff;color:#14532d;margin-bottom:8px}'
+      + '#eleaderL1 .l1-go{width:100%;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:16px;font-weight:700;cursor:pointer}'
+      + '#eleaderL1Bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 8px;padding:8px 12px;border-radius:12px;background:#f0fdf4;border:1px solid #86efac;color:#14532d;font-size:14px}'
+      + '#eleaderL1Bar b{font-weight:700}#eleaderL1Bar button{border:1px solid #86efac;background:#fff;color:#14532d;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer}'
+      + '#eleaderL1Bar .l1-hint{flex-basis:100%;color:#166534}#eleaderL1Bar .l1-hint[hidden]{display:none}';
+    document.head.appendChild(s);
+  }
+
+  function render() {
+    if (!data) { box.hidden = true; box.replaceChildren(); return; }
+    css();
+    var h = document.createElement('h3'); h.textContent = '📗 ' + T('엘리더잼 Level 1 기본과정', 'Eleader Jam Level 1 Basic Course');
+    var p = document.createElement('p');
+    p.textContent = T('책을 고르면 Emma 선생님이 책 질문을 하나씩 물어봐요. 마이크로 답하거나 글로 적어 보세요.',
+      'Pick a book and Emma will ask its questions one by one. Answer with the microphone or by typing.');
+    var sel = document.createElement('select'); sel.id = 'eleaderL1Book';
+    sel.setAttribute('aria-label', T('책 고르기', 'Choose a book'));
+    data.books.forEach(function (b) { sel.appendChild(new Option(b.title + ' (' + b.questions.length + T('문항', ' questions') + ')', b.id)); });
+    if (state) sel.value = state.book;
+    var go = document.createElement('button'); go.type = 'button'; go.className = 'l1-go';
+    go.textContent = T('🎤 이 책으로 Emma와 말하기 시작', '🎤 Start talking with Emma');
+    go.onclick = function () { start(sel.value); };
+    box.replaceChildren(h, p, sel, go);
+    box.hidden = false;
+  }
+
+  function current() { return state ? (data.books.filter(function (b) { return b.id === state.book; })[0] || null) : null; }
+
+  function drawBar() {
+    var b = current(); if (!b) { if (bar) bar.remove(); bar = null; return; }
+    var log = document.getElementById('log');
+    if (!log || !log.parentNode) return;
+    css();
+    if (!bar) { bar = document.createElement('div'); bar.id = 'eleaderL1Bar'; bar.setAttribute('role', 'status'); log.parentNode.insertBefore(bar, log); }
+    var i = Math.min(state.q, b.questions.length - 1), q = b.questions[i];
+    var done = state.q >= b.questions.length;
+    var t = document.createElement('span');
+    var strong = document.createElement('b'); strong.textContent = '📗 ' + b.title;
+    t.appendChild(strong);
+    t.appendChild(document.createTextNode(done ? T(' · 다 했어요! 🎉', ' · All done! 🎉') : (' · ' + T('질문 ', 'Question ') + (i + 1) + ' / ' + b.questions.length)));
+    var hb = document.createElement('button'); hb.type = 'button'; hb.textContent = T('💡 힌트', '💡 Hint');
+    var hint = document.createElement('span'); hint.className = 'l1-hint'; hint.hidden = true; hint.lang = 'ko';
+    hint.textContent = q.hint + ' — ' + T('예: ', 'e.g. ') + q.model;
+    hb.onclick = function () { hint.hidden = !hint.hidden; };
+    var out = document.createElement('button'); out.type = 'button'; out.textContent = T('책 그만하기', 'Leave book');
+    out.onclick = function () { stop(); try { window.addMsg(T('📗 엘리더잼 책 연습을 마쳤어요. 이제 자유 대화예요.', '📗 Book practice ended. Free talk now.'), 'sys'); } catch (e) {} };
+    bar.replaceChildren(t, hb, out, hint);
+  }
+
+  function stop() {
+    state = null;
+    try { if (window.WCTX && /^엘리더잼 L1/.test(window.WCTX.textbook || '')) { window.WCTX.textbook = ''; window.updateTopicChip && window.updateTopicChip(); } } catch (e) {}
+    drawBar(); render();
+  }
+
+  function start(bookId) {
+    var b = (data.books.filter(function (x) { return x.id === bookId; })[0]);
+    if (!b) return;
+    try { if (typeof window.clearBtsBook === 'function') window.clearBtsBook(false); } catch (e) {}
+    try { if (typeof window.setLevel === 'function') window.setLevel(1, false); } catch (e) {}
+    try { if (typeof window.setAge === 'function') window.setAge('kid', false); } catch (e) {}
+    state = { book: b.id, title: b.title, n: b.questions.length, q: 0, lastInput: null, lastAt: 0, answering: 0, tok: token() };
+    try {
+      window.WCTX.textbook = '엘리더잼 L1 · ' + b.title; window.WCTX.level = ''; window.WCTX.lesson_no = 0; window.WCTX.sentences = [];
+    } catch (e) {}
+    var started = !!window._warmStarted;
+    try { window.startWarmup(); } catch (e) {}
+    drawBar();
+    if (started) kick();   // 이미 대화 중이면 첫 인사(initGreeting)가 다시 안 돈다 — 첫 질문을 직접 부른다
+  }
+
+  async function kick() {
+    try {
+      var body = window.withCtx({ session_id: window.SESSION_ID, kickoff: 1, student_input: "Let's start the book." });
+      var r = await window.warmupFetch(window.warmupEndpoint(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!r.ok) { note(r.status); return; }
+      var d = await r.json();
+      if (d && d.ai_response) { window.addMsg(d.ai_response, 'ai'); try { window.showAnswerChips(d.answer_chips, d.speaking_help); } catch (e) {} }
+    } catch (e) {}
+  }
+
+  function note(status) {
+    var msg = status === 429 ? T('오늘 엘리더잼 대화 횟수를 다 썼어요. 내일 다시 해요.', "You've used today's Eleader Jam turns. Try again tomorrow.")
+      : status === 403 || status === 401 ? T('로그인이 바뀌었어요. 다시 로그인해 주세요.', 'Your login changed. Please log in again.')
+      : T('답을 받지 못했어요. 잠시 후 다시 해 주세요.', 'No reply yet. Please try again shortly.');
+    try { window.addMsg(msg, 'sys'); } catch (e) {}
+  }
+
+  /* 웜업 대화 요청을 «엘리더잼 모드일 때만» 서버의 l1 통로로 돌린다. */
+  var origFetch = window.warmupFetch;
+  window.warmupFetch = function (url, options) {
+    if (!state || window.API_BASE || !/\/api\/warmup\/chat$/.test(String(url)) || !options || typeof options.body !== 'string') return origFetch(url, options);
+    var tk = token();
+    if (!tk || tk !== state.tok) { stop(); return origFetch(url, options); }   // 로그인이 바뀌면 손을 뗀다
+    var body; try { body = JSON.parse(options.body); } catch (e) { return origFetch(url, options); }
+    if (body.kickoff === 1) {
+      body.eleader_q = Math.min(state.q, state.n - 1);
+    } else {
+      var input = String(body.student_input || ''), now = Date.now();
+      // 같은 말을 곧바로 다시 보내면(스트림 실패 뒤 재시도) 같은 문항으로 본다.
+      if (input === state.lastInput && now - state.lastAt < 30000) body.eleader_q = state.answering;
+      else { state.answering = Math.min(state.q, state.n - 1); state.q = Math.min(state.q + 1, state.n); body.eleader_q = state.answering; }
+      state.lastInput = input; state.lastAt = now;
+    }
+    body.eleader_book = state.book;
+    delete body.lesson_topic; delete body.textbook; delete body.level; delete body.lesson_no;
+    var opts = Object.assign({}, options, { body: JSON.stringify(body), headers: Object.assign({}, options.headers || {}, { Authorization: 'Bearer ' + tk }) });
+    var p = origFetch('/api/ai/eleader/l1/chat', opts);
+    p.then(function (r) { if (r && (r.status === 429 || r.status === 401 || r.status === 403)) note(r.status); drawBar(); }, function () {});
+    return p;
+  };
+
+  var epoch = 0;
+  async function load() {
+    var mine = ++epoch, tk = token();
+    data = null; render();
+    if (!tk) return;
+    try {
+      var r = await fetch('/api/ai/eleader/l1/books', { headers: { Authorization: 'Bearer ' + tk }, cache: 'no-store', credentials: 'omit' });
+      if (mine !== epoch || token() !== tk || !r.ok) return;
+      var d = await r.json();
+      if (!d || d.ok !== true || !Array.isArray(d.books) || !d.books.length) return;
+      data = d; render();
+    } catch (e) { /* 다른 학생은 예전 화면 그대로 */ }
+  }
+  window.addEventListener('storage', function (e) { if (e.key === 'mango_token' || e.key === null) { if (state && token() !== state.tok) stop(); load(); } });
+  window.addEventListener('mangoi:lang-changed', function () { render(); drawBar(); });
+  load();
+})();
