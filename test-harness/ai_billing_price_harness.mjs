@@ -614,5 +614,46 @@ sec('[⑫] AI 컨텐츠 결제 — 명세에 있는 학생만 · 선결제 마�
   check('manager.html: 메뉴 이름 — «화상영어 수업료 결제» · «AI 컨텐츠 결제»', /data-ko="화상영어 수업료 결제"/.test(mgr) && /data-ko="AI 컨텐츠 결제"/.test(mgr) && !/data-ko="AI 사용료 청구서"/.test(mgr) && !/data-ko="수업료 결제"/.test(mgr));
 }
 
+/* ══ ⑬ 테스트 대리점 예외 (2026-10-25) — 전체 스위치가 꺼져 있어도 «그 대리점만» 열린다 ══
+   판정·조회를 오려 내 실제로 돌린다. «열린다» 와 «남은 안 열린다»·«못 읽으면 안 열린다» 를 짝으로 본다. */
+sec('[⑬] 테스트 대리점 예외 — 그 대리점만 열리고, cron 은 그대로');
+{
+  let openFor = null, enabledFor = null;
+  try {
+    openFor = new Function(stripTypeScriptTypes(fnDecl(billSrc, 'aiBillingOpenFor').replace(/^export\s+/, '')) + '\nreturn aiBillingOpenFor;')();
+    const accM = billSrc.match(/export const AI_BILLING_TEST_ACCOUNTS[^=]*=\s*(\[[^\]]*\])/);
+    const accounts = accM ? JSON.parse(accM[1].replace(/'/g, '"')) : null;
+    check('예외 계정 목록을 소스에서 읽었다 (ptagency 포함)', Array.isArray(accounts) && accounts.includes('ptagency'), accM && accM[1]);
+    enabledFor = (globalOn, dbFn) => new Function('AI_BILLING_TEST_ACCOUNTS', 'billingEnabled', 'aiBillingOpenFor',
+      stripTypeScriptTypes(fnDecl(billSrc, 'aiBillingTestShops')) + '\n' + stripTypeScriptTypes(fnDecl(billSrc, 'billingEnabledFor').replace(/^export\s+/, '')) + '\nreturn billingEnabledFor;'
+    )(accounts || [], async () => globalOn, openFor);
+  } catch (e) { check('판정 함수를 오려 냈다', false, String(e && e.message || e)); }
+  if (openFor) {
+    const T = new Set(['결제 테스트 대리점']);
+    check('스위치 꺼짐 + 예외 대리점 → 열림', openFor(false, T, '결제 테스트 대리점') === true);
+    check('(짝) 스위치 꺼짐 + 다른 대리점 → 닫힘', openFor(false, T, '망고아이 강남 대리점') === false);
+    check('(짝) 스위치 꺼짐 + 빈 이름 → 닫힘', openFor(false, new Set(['']), '') === false);
+    check('스위치 켜짐이면 누구나 열림(예전 동작)', openFor(true, new Set(), '망고아이 강남 대리점') === true);
+  }
+  if (enabledFor) {
+    let lastSql = '', lastBinds = [];
+    const db = (rows, throws) => ({ prepare(sql) { lastSql = sql; return { bind(...b) { lastBinds = b; return { async all() { if (throws) throw new Error('D1 down'); return { results: rows }; } }; } }; } });
+    const run = async (globalOn, rows, throws, shop) => { try { return await enabledFor(globalOn)({ DB: db(rows, throws) }, shop); } catch (e) { return 'THREW:' + e.message; } };
+    check('예외 계정의 대리점(admin_scope) → 열림', await run(false, [{ scope_value: '결제 테스트 대리점' }], false, '결제 테스트 대리점') === true);
+    check('조회는 agency 스코프·계정 아이디(소문자)로만', /scope_type = 'agency'/.test(lastSql) && /LOWER\(username\)/.test(lastSql) && lastBinds.includes('ptagency'), lastSql + ' ' + JSON.stringify(lastBinds));
+    check('(짝) 다른 대리점 → 닫힘', await run(false, [{ scope_value: '결제 테스트 대리점' }], false, '망고아이 강남 대리점') === false);
+    check('(짝) 조회 실패 → 닫힘(던지지 않음)', await run(false, [], true, '결제 테스트 대리점') === false);
+    check('(짝) 계정이 대리점이 아니면(행 없음) → 닫힘', await run(false, [], false, '결제 테스트 대리점') === false);
+    check('스위치 켜짐 → 조회 없이 열림', await run(true, [], true, '아무 대리점') === true);
+  }
+  // 배선 — 학원 화면이 타는 세 갈래는 예외를 보고, 월 cron·HQ 스위치는 전체 스위치만 본다
+  const seg = (a, b) => billCode.slice(billCode.indexOf(a), billCode.indexOf(b));
+  check('배선: GET /invoice 는 billingEnabledFor(env, shopName)', /billingEnabledFor\(env, shopName\)/.test(seg("p === 'invoice' && method === 'GET'", "p === 'invoice/generate'")));
+  check('배선: invoice/generate 는 billingEnabledFor(env, shopName)', /billingEnabledFor\(env, shopName\)/.test(seg("p === 'invoice/generate'", "p === 'invoice/item'")));
+  check('배선: invoice/checkout 는 billingEnabledFor(env, inv.shop_name)', /billingEnabledFor\(env, inv\.shop_name\)/.test(seg("p === 'invoice/checkout'", 'const amount = invoiceAmount')));
+  const mon2 = stripComments(fnDecl(billSrc, 'generateMonthlyAiInvoices'));
+  check('(짝) 월 cron 은 예외를 보지 않는다 — 전체 스위치만', /billingEnabled\(env\)/.test(mon2) && !/billingEnabledFor|AI_BILLING_TEST/.test(mon2));
+}
+
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);
 if (FAIL) { console.log('실패:\n  - ' + FAILS.join('\n  - ')); process.exit(1); }
