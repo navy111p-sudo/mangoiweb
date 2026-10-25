@@ -72,7 +72,7 @@ function world(sharedData){
     loadIndex=function(){return Promise.resolve([]);};
     loadEpisode=function(){return Promise.resolve();};
   })();`,ctx);
-  out.pagehide=()=>events.get('pagehide')?.();out.online=()=>events.get('online')?.();out.ctx=ctx;out.el=el;out.data=data;out.lib=lib;out.d=ctx.testDub;
+  out.pagehide=()=>events.get('pagehide')?.();out.online=()=>events.get('online')?.();out.pageshow=()=>events.get('pageshow')?.({persisted:true});out.ctx=ctx;out.el=el;out.data=data;out.lib=lib;out.d=ctx.testDub;
   out.d.S.ep=structuredClone(fixture);out.d.S.cast=[{name:'Alice',character:'mina'}];out.d.S.sel=0;
   data.set('mangoi_logged_user',JSON.stringify({uid:'alice',name:'Alice'}));
   el('dub-mode').value='practice';el('dub-make-movie').checked=true;
@@ -917,6 +917,18 @@ test('closing during foreground reconnect hands remaining results to background 
   const {x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=[namedOriginal(new Blob([]),'인계 원본.webm')];await picker.fire('change');for(let i=0;i<10;i++)await tick();server.offline=false;
   const list=x.lib.listUploads,hold=deferred();let calls=0;x.lib.listUploads=async()=>{if(++calls===1)await hold.promise;return list();};const task=x.online();await until(()=>calls===1);await x.el('dub-library-close').fire('click');hold.resolve();await task;
   assert.equal(x.el('dub-library').hidden,true);assert.equal(x.el('dub-sync-notification').hidden,false);assert.ok(server.jobs[0].connections.rows.some(r=>r.name==='인계 원본.webm'));assert.equal(x.uploadCalls.length,0);
+});
+
+test('a fresh online app syncs remembered results before opening the library and does not repeat its completion notice',async()=>{
+  const {x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=[namedOriginal(new Blob([]),'다시 연 앱.webm')];await picker.fire('change');for(let i=0;i<10;i++)await tick();server.offline=false;
+  const y=world(new Map(x.data));y.ctx.navigator={onLine:true};cloudUploads(y,server);y.el('dub-library').hidden=true;y.el('dub-sync-notification').hidden=true;await y.boot();await until(()=>!y.el('dub-sync-notification').hidden);
+  assert.equal(y.el('dub-library').hidden,true);assert.ok(server.jobs[0].connections.rows.some(r=>r.name==='다시 연 앱.webm'));assert.equal(y.saved.length,0);assert.match(y.el('dub-sync-notification-text').textContent,/남은 기록의 계정 동기화를 완료/);
+  const z=world(new Map(y.data));z.ctx.navigator={onLine:true};cloudUploads(z,server);z.el('dub-sync-notification').hidden=true;await z.boot();for(let i=0;i<15;i++)await tick();assert.equal(z.el('dub-sync-notification').hidden,true);
+});
+test('an offline app waits for reconnection and a restored app retries only results left by a failed startup',async()=>{
+  const {x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=Array.from({length:60},(_,i)=>namedOriginal(new Blob([]),'재시작 '+i+'.webm'));await picker.fire('change');for(let i=0;i<10;i++)await tick();server.offline=false;
+  const y=world(new Map(x.data));y.ctx.navigator={onLine:false};cloudUploads(y,server);y.el('dub-library').hidden=true;y.el('dub-sync-notification').hidden=true;const save=y.lib.saveUpload;let calls=0,sent=[];y.lib.saveUpload=async(job,owner)=>{sent.push(structuredClone(job.connections));if(++calls===2)throw Error('offline');return save(job,owner);};
+  await y.boot();assert.equal(calls,0);y.ctx.navigator.onLine=true;await y.online();assert.equal(calls,2);assert.equal(y.el('dub-sync-notification').hidden,true);const ack=new Set(sent[0].rows.map(r=>r.key));sent=[];await y.pageshow();assert.equal(sent.reduce((n,h)=>n+h.rows.length,0),35);assert.ok(sent.every(h=>h.rows.every(r=>!ack.has(r.key))));assert.equal(y.el('dub-sync-notification').hidden,false);assert.equal(y.saved.length,0);
 });
 
 let failed=0;
