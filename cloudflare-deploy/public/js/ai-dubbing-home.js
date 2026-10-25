@@ -681,8 +681,9 @@
       try {
         var c = catalogue, u = c && c.upload;
         if (u && uploadCurrent(c, u)) {
+          var pending = connectionPending(u, connectionWire(u)), hadPending = pending.rows.length || pending.removed.length;
           await reconnectConnections();
-          if (owned(task.owner) && task.epoch === reconnectEpoch && u.connectionAutoSync === 'complete') connectionNotification();
+          if (hadPending && owned(task.owner) && task.epoch === reconnectEpoch && u.connectionAutoSync === 'complete') connectionNotification();
         }
         if (owned(task.owner) && task.epoch === reconnectEpoch) await syncClosedConnections(task.owner, task.epoch);
       } catch (_) { /* Keep the local outbox for the next reconnect or manual retry. */ }

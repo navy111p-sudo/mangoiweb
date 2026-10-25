@@ -889,7 +889,7 @@ test('reconnecting automatically syncs only remaining results and announces comp
   server.offline=false;const save=x.lib.saveUpload;let calls=0,acked=new Set(),sent=[];x.lib.saveUpload=async(job,owner)=>{if(job.connections){sent.push(job.connections);if(++calls===2)throw Error('offline');const result=await save(job,owner);job.connections.rows.forEach(r=>acked.add(r.key));return result;}return save(job,owner);};
   await x.online();assert.match(connectionList(x).textContent,/25 \/ 60개 완료/);assert.ok(!connectionList(x).textContent.includes('남은 기록의 계정 동기화를 완료'));
   const completed=new Set(acked);sent=[];await Promise.all([x.online(),x.online()]);assert.equal(sent.reduce((n,h)=>n+h.rows.length,0),35);assert.ok(sent.every(h=>h.rows.every(r=>!completed.has(r.key))));assert.match(connectionList(x).textContent,/인터넷이 다시 연결되어 남은 기록의 계정 동기화를 완료/);assert.equal(x.uploadCalls.length,0);
-  sent=[];await x.online();assert.equal(sent.length,0);
+  await x.el('dub-sync-notification-close').fire('click');sent=[];await x.online();assert.equal(sent.length,0);assert.equal(x.el('dub-sync-notification').hidden,true);
 });
 test('reconnection during an in-flight failure waits then retries and closed or changed accounts cannot sync',async()=>{
   const {x,server}=await crossUploadFixture();const save=x.lib.saveUpload,hold=deferred();let entered=false,calls=0;x.lib.saveUpload=async(...args)=>{calls++;if(calls===1){entered=true;await hold.promise;throw Error('offline');}return save(...args);};
