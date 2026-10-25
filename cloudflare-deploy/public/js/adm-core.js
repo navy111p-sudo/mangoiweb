@@ -5775,8 +5775,11 @@ async function _ensureFranchiseSelect() {
 }
 // ✏️ (2026-09-11) 수정 모드 — 대리점(centers)의 _ctEditId/ctResetForm/ctEdit 와 같은 방식.
 var _frEditId = 0;
+// 🏛️ (2026-10-25) 수정 폼을 열 때의 대표지사 — 저장 때 «바뀌었을 때만» master_assign 을 보낸다.
+var _frEditMaster = '';
 function frResetForm() {
   _frEditId = 0;
+  _frEditMaster = '';
   const e = id => document.getElementById(id);
   ['fr-name','fr-login','fr-login-pw','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>{ if(e(id)) e(id).value=''; });
   if (e('fr-master')) e('fr-master').value = '';
@@ -5795,6 +5798,8 @@ function frEdit(id) {
   if (e('fr-name')) e('fr-name').value = f.name == null ? '' : f.name;
   // 🏛️ (2026-09-18) 지금 배정된 대표지사 — 표 칸(assignMasterBranch)과 같은 값(f.master_branch_id).
   if (e('fr-master')) e('fr-master').value = f.master_branch_id == null ? '' : String(f.master_branch_id);
+  // 칸이 실제로 잡은 값을 기억한다 — 목록에 그 대표지사가 없으면 '' 이고, 그대로 저장하면 «안 바뀜» 이 된다.
+  _frEditMaster = (e('fr-master') || {}).value || '';
   // 🪪 (2026-09-15) 화면에 보이는 login_id 는 «추정값» 일 수 있다(admin_scope 접두어 매칭) —
   // 그 값을 그대로 이 칸에 채우면 «건드리지 않고 그냥 저장」만 눌러도 추정값이 확정값으로
   // 굳는다. 이 칸은 본사가 실제로 입력해 둔 f.login_username(원본)만 채운다.
@@ -5823,7 +5828,28 @@ function _frPasswordAlert(result) {
   }
 }
 
+/* ⏳ (2026-10-25 — 사장님 제보 「지사 정보를 수정하려는데 수정 저장을 눌러도 반응이 없다」)
+   저장하는 동안 버튼에 아무 표시가 없었고, 성공해도 알림 없이 폼만 조용히 비워졌다 —
+   그래서 «느린 저장» 과 «안 된 저장» 을 구별할 수 없었다. 저장 중에는 버튼을 잠그고 글자를
+   바꾸며, 끝나면 성공/실패를 반드시 말로 알린다. 본문은 _saveFranchiseInner. */
+var _frSaving = false;
 async function saveFranchise() {
+  if (_frSaving) return;
+  const btn = document.getElementById('fr-add-btn');
+  const ko = btn ? btn.getAttribute('data-ko') : '', en = btn ? btn.getAttribute('data-en') : '';
+  _frSaving = true;
+  if (btn) { btn.disabled = true; btn.textContent = adminLang==='en' ? 'Saving…' : '저장 중…'; }
+  try {
+    await _saveFranchiseInner();
+  } catch (err) {
+    alert((adminLang==='en' ? 'Failed to save: ' : '저장 실패: ') + (err && err.message || err));
+  } finally {
+    _frSaving = false;
+    // 성공하면 frResetForm 이 이미 «+ 등록» 으로 바꿔 두었다 — 그 경우는 글자를 되돌리지 않는다.
+    if (btn) { btn.disabled = false; if (btn.getAttribute('data-ko') === ko) _ctSetBtnLabel(btn, ko, en); }
+  }
+}
+async function _saveFranchiseInner() {
   const e = id => document.getElementById(id);
   const name = (e('fr-name').value||'').trim();
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
@@ -5857,9 +5883,13 @@ async function saveFranchise() {
       return;
     }
     // 🏛️ (2026-09-18) frResetForm 이 fr-master 값을 지우기 «전» 에 배정을 보낸다.
-    await assignMasterBranch(_frEditId, masterVal);
+    // (2026-10-25) 폼을 열 때와 같으면 보내지 않는다 — 대표지사 목록이 아직 안 채워진 채
+    // 저장하면 값이 '' 로 읽혀 멀쩡한 배정이 «미지정» 으로 풀리던 길도 함께 막힌다.
+    const savedId = _frEditId;
+    if (masterVal !== _frEditMaster) await assignMasterBranch(savedId, masterVal);
     frResetForm();
     loadFranchises();
+    if (!d || !d.password_result) alert(adminLang==='en' ? 'Branch #' + savedId + ' saved.' : '지사 정보를 저장했습니다 (ID ' + savedId + ').');
     // 🔑 이름을 바꿨는데 그 지사에 로그인 계정이 연결돼 있으면, 그 계정은 여전히 «옛 이름»
     // 기준으로 학생을 찾는다(서버가 일부러 안 옮긴다 — 대리점(centers)과 같은 이유).
     if (d && d.login_account_note) {
