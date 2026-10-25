@@ -174,8 +174,11 @@ export interface LegacyTeacherInfo {
  *                                                 다음 시도에서 다시 확인한다 = 일시적)
  *   ⛔ «못 찾았지만 일단 강사로» 폴백을 되살리지 마세요 — 그게 이 사고입니다.
  */
+/*   반환형을 판별 유니온으로 두지 않는다 — 이 저장소 tsc 설정에서는 `!gate.allow` 로 좁혀지지 않아
+     `gate.reason` 이 TS2339 가 된다(CI 에서 실제로 밟음). */
+export type LegacyProvisionRefusal = 'roster_lookup_failed' | 'not_in_teacher_roster';
 export function legacyProvisionGate(info: LegacyTeacherInfo | null | undefined):
-  { allow: true } | { allow: false; reason: 'roster_lookup_failed' | 'not_in_teacher_roster' } {
+  { allow: boolean; reason?: LegacyProvisionRefusal } {
   if (!info || info.lookup_failed) return { allow: false, reason: 'roster_lookup_failed' };
   if (info.matched !== true) return { allow: false, reason: 'not_in_teacher_roster' };
   return { allow: true };
