@@ -16,16 +16,16 @@ const BOOKS = [1, 2].map(n => ({ id: 'books-v1-b0' + n, title: '0' + n + '권 ·
   questions: Array.from({ length: 20 }, (_, i) => ({ question: `Book ${n} question ${i + 1}?`, hint: `힌트 ${i + 1}`, model: `Answer ${i + 1}.` })) }));
 const browser = await chromium.launch({ headless: true });
 
-async function open({ token, booksStatus = 200, lang, booksBody } = {}) {
+async function open({ token, booksStatus = 200, lang, booksBody, warmLang } = {}) {
   const c = await browser.newContext({ serviceWorkers: 'block' });
-  await c.addInitScript(([t, l]) => { if (t) localStorage.setItem('mango_token', t); if (l) localStorage.setItem('mangoi_lang', l); }, [token, lang]);
-  const log = { l1: [], warm: [], books: 0 };
+  await c.addInitScript(([t, l, w]) => { if (t) localStorage.setItem('mango_token', t); if (l) localStorage.setItem('mangoi_lang', l); if (w) localStorage.setItem('mangoi_warmup_lang', w); }, [token, lang, warmLang]);
+  const log = { l1: [], warm: [], books: 0, failNext: 0 };
   await c.route('**/*', async r => {
     const u = new URL(r.request().url());
     if (u.origin !== ORIGIN) return r.abort();
     if (!u.pathname.startsWith('/api/')) return r.continue();
     if (u.pathname === '/api/ai/eleader/l1/books') { log.books++; return booksStatus === 200 ? r.fulfill({ json: booksBody || { ok: true, books: BOOKS, daily_cap: 120, used_today: 0 } }) : r.fulfill({ status: booksStatus, json: { error: 'l1_not_enrolled' } }); }
-    if (u.pathname === '/api/ai/eleader/l1/chat') { const b = JSON.parse(r.request().postData() || '{}'); log.l1.push({ b, auth: r.request().headers()['authorization'] }); return r.fulfill({ json: { ai_response: 'Reply ' + log.l1.length, answer_chips: [] } }); }
+    if (u.pathname === '/api/ai/eleader/l1/chat') { const b = JSON.parse(r.request().postData() || '{}'); log.l1.push({ b, auth: r.request().headers()['authorization'] }); if (log.failNext) { log.failNext--; return r.fulfill({ status: 503, json: { error: 'limit_unavailable' } }); } return r.fulfill({ json: { ai_response: 'Reply ' + log.l1.length, answer_chips: [] } }); }
     if (u.pathname === '/api/warmup/chat') { log.warm.push(JSON.parse(r.request().postData() || '{}')); return r.fulfill({ json: { ai_response: 'free reply', answer_chips: [] } }); }
     return r.fulfill({ status: 404, json: { error: 'test_only' } });
   });
@@ -63,12 +63,23 @@ try {
   ok('turn1: bar 2/20', /질문 2 \/ 20/.test(await p.locator('#eleaderL1Bar').innerText()));
   await send(p, 'Yes');
   ok('turn2: answering q1', log.l1.at(-1).b.eleader_q === 1);
+  // ②-2 같은 말을 연달아 답해도(「Yes」) 다음 문항으로 간다 — 재시도로 오인하지 않는다
+  await send(p, 'Yes');
+  ok('same answer twice: answering q2', log.l1.at(-1).b.eleader_q === 2, JSON.stringify(log.l1.at(-1).b));
+  // ②-3 실패하면 문항을 건너뛰지 않는다
+  log.failNext = 1;
+  await send(p, 'I like cats');
+  ok('fail: was answering q3', log.l1.at(-1).b.eleader_q === 3);
+  ok('fail: bar stays 4/20', /질문 4 \/ 20/.test(await p.locator('#eleaderL1Bar').innerText()));
+  await send(p, 'I like cats a lot');
+  ok('after fail: answers the same q3 again', log.l1.at(-1).b.eleader_q === 3);
+  ok('after fail: bar 5/20', /질문 5 \/ 20/.test(await p.locator('#eleaderL1Bar').innerText()));
   await p.click('#eleaderL1Bar button:has-text("힌트")');
-  ok('hint: shows Korean hint of current question', /힌트 3/.test(await p.locator('#eleaderL1Bar').innerText()));
+  ok('hint: shows Korean hint of current question', /힌트 5/.test(await p.locator('#eleaderL1Bar').innerText()));
   // ③ 책 그만하기 → 자유 대화로 돌아감
   await p.click('#eleaderL1Bar button:has-text("책 그만하기")');
   await send(p, 'hello');
-  ok('leave: free talk uses normal warmup chat', log.warm.length === 1 && log.l1.length === 3);
+  ok('leave: free talk uses normal warmup chat', log.warm.length === 1 && log.l1.length === 6);
   ok('leave: bar removed', await p.locator('#eleaderL1Bar').count() === 0);
   ok('ed: no page errors', errors.length === 0, errors.join(' | '));
   await c.close();
@@ -89,6 +100,15 @@ try {
   ({ c, p } = await open({ token: 'tok-ed', booksBody: { ok: false, books: BOOKS } }));
   await p.waitForTimeout(600);
   ok('ok:false: panel hidden', !(await p.locator('#eleaderL1').isVisible()));
+  await c.close();
+
+  // ③-4 웜업을 중국어로 두었던 학생도 책은 영어로
+  ({ c, p, log } = await open({ token: 'tok-ed', warmLang: 'zh' }));
+  await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+  ok('zh: was Chinese before start', await p.evaluate(() => window.isZh && window.isZh()) === true);
+  await p.click('#eleaderL1 .l1-go'); await p.waitForTimeout(800);
+  ok('zh: start switches warmup to English', await p.evaluate(() => window.isZh()) === false);
+  ok('zh: kickoff went to l1', log.l1.length >= 1 && log.l1[0].b.kickoff === 1);
   await c.close();
 
   // ④ 영어 화면

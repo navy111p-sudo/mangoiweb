@@ -42,14 +42,14 @@
     css();
     var h = document.createElement('h3'); h.textContent = '📗 ' + T('엘리더잼 Level 1 기본과정', 'Eleader Jam Level 1 Basic Course');
     var p = document.createElement('p');
-    p.textContent = T('책을 고르면 Emma 선생님이 책 질문을 하나씩 물어봐요. 마이크로 답하거나 글로 적어 보세요.',
-      'Pick a book and Emma will ask its questions one by one. Answer with the microphone or by typing.');
+    p.textContent = T('책을 고르면 선생님이 책 질문을 하나씩 물어봐요. 마이크로 답하거나 글로 적어 보세요.',
+      'Pick a book and your teacher will ask its questions one by one. Answer with the microphone or by typing.');
     var sel = document.createElement('select'); sel.id = 'eleaderL1Book';
     sel.setAttribute('aria-label', T('책 고르기', 'Choose a book'));
     data.books.forEach(function (b) { sel.appendChild(new Option(b.title + ' (' + b.questions.length + T('문항', ' questions') + ')', b.id)); });
     if (state) sel.value = state.book;
     var go = document.createElement('button'); go.type = 'button'; go.className = 'l1-go';
-    go.textContent = T('🎤 이 책으로 Emma와 말하기 시작', '🎤 Start talking with Emma');
+    go.textContent = T('🎤 이 책으로 말하기 시작', '🎤 Start talking with this book');
     go.onclick = function () { start(sel.value); };
     box.replaceChildren(h, p, sel, go);
     box.hidden = false;
@@ -90,7 +90,9 @@
     try { if (typeof window.clearBtsBook === 'function') window.clearBtsBook(false); } catch (e) {}
     try { if (typeof window.setLevel === 'function') window.setLevel(1, false); } catch (e) {}
     try { if (typeof window.setAge === 'function') window.setAge('kid', false); } catch (e) {}
-    state = { book: b.id, title: b.title, n: b.questions.length, q: 0, lastInput: null, lastAt: 0, answering: 0, tok: token() };
+    // 책은 영어 과정 — 중국어로 두면 인사·얼굴·목소리가 중국어 선생님으로 나간다(서버는 영어로 답함).
+    try { if (typeof window.isZh === 'function' && window.isZh() && typeof window.setWarmLang === 'function') window.setWarmLang('en', false); } catch (e) {}
+    state = { book: b.id, title: b.title, n: b.questions.length, q: 0, sid: window.SESSION_ID, last: null, tok: token() };
     try {
       window.WCTX.textbook = '엘리더잼 L1 · ' + b.title; window.WCTX.level = ''; window.WCTX.lesson_no = 0; window.WCTX.sentences = [];
     } catch (e) {}
@@ -101,10 +103,11 @@
   }
 
   async function kick() {
+    if (window.sending) return;   // 답이 오가는 중이면 겹쳐 보내지 않는다(그 답 다음 턴부터 책 질문)
     try {
       var body = window.withCtx({ session_id: window.SESSION_ID, kickoff: 1, student_input: "Let's start the book." });
       var r = await window.warmupFetch(window.warmupEndpoint(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (!r.ok) { note(r.status); return; }
+      if (!r.ok) { if ([429, 401, 403].indexOf(r.status) < 0) note(r.status); return; }   // 그 셋은 감싼 쪽이 이미 알렸다
       var d = await r.json();
       if (d && d.ai_response) { window.addMsg(d.ai_response, 'ai'); try { window.showAnswerChips(d.answer_chips, d.speaking_help); } catch (e) {} }
     } catch (e) {}
@@ -124,20 +127,31 @@
     var tk = token();
     if (!tk || tk !== state.tok) { stop(); return origFetch(url, options); }   // 로그인이 바뀌면 손을 뗀다
     var body; try { body = JSON.parse(options.body); } catch (e) { return origFetch(url, options); }
+    // 🗑 새 대화(세션이 바뀜)면 책도 처음부터.
+    if (body.session_id !== state.sid) { state.sid = body.session_id; state.q = 0; state.last = null; }
+    var answering = -1;
     if (body.kickoff === 1) {
       body.eleader_q = Math.min(state.q, state.n - 1);
     } else {
-      var input = String(body.student_input || ''), now = Date.now();
-      // 같은 말을 곧바로 다시 보내면(스트림 실패 뒤 재시도) 같은 문항으로 본다.
-      if (input === state.lastInput && now - state.lastAt < 30000) body.eleader_q = state.answering;
-      else { state.answering = Math.min(state.q, state.n - 1); state.q = Math.min(state.q + 1, state.n); body.eleader_q = state.answering; }
-      state.lastInput = input; state.lastAt = now;
+      var input = String(body.student_input || ''), now = Date.now(), last = state.last;
+      /* 재시도는 «스트림이 빈손으로 끊겨 같은 본문을 stream 없이 바로 다시 보내는» 경우 하나뿐(warmup.html sendMsg).
+         ⛔ 내용만 같다고 재시도로 보지 않는다 — 아이는 「Yes.」를 연달아 답한다. */
+      var retry = !!(last && last.stream && body.stream !== 1 && last.input === input && now - last.at < 30000);
+      answering = retry ? last.q : Math.min(state.q, state.n - 1);
+      body.eleader_q = answering;
+      state.last = { input: input, at: now, stream: body.stream === 1, q: answering };
     }
     body.eleader_book = state.book;
     delete body.lesson_topic; delete body.textbook; delete body.level; delete body.lesson_no;
     var opts = Object.assign({}, options, { body: JSON.stringify(body), headers: Object.assign({}, options.headers || {}, { Authorization: 'Bearer ' + tk }) });
     var p = origFetch('/api/ai/eleader/l1/chat', opts);
-    p.then(function (r) { if (r && (r.status === 429 || r.status === 401 || r.status === 403)) note(r.status); drawBar(); }, function () {});
+    /* 문항은 «답을 받았을 때만» 넘긴다 — 실패(상한·장애·끊김)면 같은 문항을 다시 답하게 둔다. */
+    var mine = state;
+    p.then(function (r) {
+      if (r && r.ok && answering >= 0 && state === mine) state.q = Math.max(state.q, Math.min(answering + 1, state.n));
+      if (r && (r.status === 429 || r.status === 401 || r.status === 403)) note(r.status);
+      drawBar();
+    }, function () {});
     return p;
   };
 
