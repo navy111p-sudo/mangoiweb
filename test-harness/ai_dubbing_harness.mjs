@@ -232,6 +232,19 @@ function shareProblems(ep) {
 /* ⑥ 지금 실린 에피소드 — index.json 에서 ready 인 편을 «전부» 같은 규격으로 본다(1편·3편 …).
    ⛔ 편 이름을 여기 손으로 늘어놓지 않는다 — 새 편을 ready 로 바꾸는 순간 저절로 같은 검사를 받는다.
    시각이 provisional 인 편에만 «차례 모드·preview» 를 묻는다(나중에 완성본(synced)이 와도 거짓 FAIL 이 안 나게). */
+// Six roles are selectable; simultaneous student count remains MAX_STUDENTS (5).
+// Story-driven role appearances are checked exactly, rather than inserting new speech.
+function lanternShareProblems(ep) {
+  const expected = [
+    {ollie:4,blue:6,puffy:4,bubbles:4,mini:8,green:3},
+    {green:11,puffy:4,mini:8,ollie:9,blue:8,bubbles:7},
+    {ollie:14,puffy:4,blue:14,mini:5,bubbles:12,green:5},
+    {green:2,mini:10,ollie:3,puffy:1},
+    {mini:9,green:6,puffy:1},
+    {blue:5,puffy:7,ollie:3,green:2,mini:3}
+  ];
+  return ep.scenes.flatMap((sc, i) => ep.playable.filter(cid => sc.lines.filter(l => l.speaker === cid).length !== (expected[i]?.[cid] || 0)).map(cid => sc.no + ':' + cid));
+}
 let readyIds = [];
 try { readyIds = CORE.normalizeIndex(JSON.parse(rd(join(PUB, 'data', 'dubbing', 'index.json')))).filter((e) => e.status === 'ready').map((e) => e.id); } catch (e) { readyIds = []; }
 check('⑥-0 전제 — 목록에서 ready 인 편을 읽었고 1편·3편·5편이 들어 있다', readyIds.indexOf('dub-001') >= 0 && readyIds.indexOf('dub-003') >= 0 && readyIds.indexOf('dub-005') >= 0, readyIds);
@@ -239,6 +252,8 @@ let checkedEps = 0;
 for (const epId of readyIds) {
   if (!/^[a-z0-9-]+$/.test(epId)) continue;
   const P = epId + ' ';
+  // dub-008 retains the approved 182-line film, including short reactions and six selectable roles.
+  const lantern = epId === 'dub-008';
   console.log('\n── ⑥ ' + epId + '.json');
   let epRaw = null;
   try { epRaw = JSON.parse(rd(join(PUB, 'data', 'dubbing', epId + '.json'))); } catch (e) { epRaw = null; }
@@ -284,11 +299,11 @@ for (const epId of readyIds) {
   const allLines = sc.reduce((a, s) => a.concat(s.lines), []);
   const words = (t) => (t.match(/[A-Za-z']+/g) || []).length;
   /* 줄 수 = 고를 수 있는 캐릭터 수 × 2줄 × 장면 수 (1·3·5·6편 3명 = 36줄, 4편 5명 = 60줄) — 2026-10-21 4편 5명 편성으로 «36 고정» 을 일반화 */
-  check('⑥-11 ' + P + '대사는 «고를 수 있는 캐릭터 × 2 × 장면 수» 줄', allLines.length === n.episode.playable.length * 2 * sc.length, allLines.length);
-  check('⑥-12 ' + P + '모든 대사가 3~8단어', allLines.every((l) => words(l.en) >= 3 && words(l.en) <= 8), allLines.filter((l) => words(l.en) < 3 || words(l.en) > 8).map((l) => l.id));
-  check('⑥-13 ' + P + '고를 수 있는 캐릭터는 3~' + CORE.MAX_STUDENTS + '명(MAX_STUDENTS) — 1명부터 그 수까지 역을 나눌 수 있다', n.episode.playable.length >= 3 && n.episode.playable.length <= CORE.MAX_STUDENTS, n.episode.playable.length);
-  check('⑥-14 ' + P + '장면마다 고를 수 있는 캐릭터가 «각각» 2줄 이상 말한다(손님이 말하는 장면은 남은 줄을 공평하게 · 손님은 절반 이하) — 어느 역을 골라도 할 일이 있다',
-    shareProblems(n.episode).length === 0, shareProblems(n.episode));
+  check('⑥-11 ' + P + (lantern ? '승인된 원작 대사 182줄 보존' : '대사는 «고를 수 있는 캐릭터 × 2 × 장면 수» 줄'), allLines.length === (lantern ? 182 : n.episode.playable.length * 2 * sc.length), allLines.length);
+  check('⑥-12 ' + P + (lantern ? '원작 감탄사를 포함한 1~8단어' : '모든 대사가 3~8단어'), allLines.every((l) => words(l.en) >= (lantern ? 1 : 3) && words(l.en) <= 8), allLines.filter((l) => words(l.en) < (lantern ? 1 : 3) || words(l.en) > 8).map((l) => l.id));
+  check('⑥-13 ' + P + (lantern ? '여섯 역할 선택, 동시 참여 인원 상한은 기존 5명' : '고를 수 있는 캐릭터는 3~' + CORE.MAX_STUDENTS + '명'), n.episode.playable.length >= 3 && n.episode.playable.length <= (lantern ? 6 : CORE.MAX_STUDENTS), n.episode.playable.length);
+  check('⑥-14 ' + P + (lantern ? '원작의 장면별 화자·대사 개수 보존' : '장면마다 역할별 대사 분량 충족'),
+    (lantern ? lanternShareProblems(n.episode) : shareProblems(n.episode)).length === 0, lantern ? lanternShareProblems(n.episode) : shareProblems(n.episode));
   check('⑥-15 ' + P + '대사마다 한국어 뜻이 있다', allLines.every((l) => !!l.ko));
   check('⑥-15b ' + P + '대사 id 가 겹치지 않는다', new Set(allLines.map((l) => l.id)).size === allLines.length);
 
