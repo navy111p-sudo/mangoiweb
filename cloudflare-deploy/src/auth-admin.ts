@@ -21,7 +21,7 @@ import { generateSecret, otpauthURI, verifyTOTP } from './totp';
 import { sendPlainSms } from './solapi-client';
 import { sendEmail, getEmailMode, emailLayout } from './email';
 import { authUidFromRequest } from './auth-token';   // 🔐 소유자 검증(단방향 의존: auth-admin → auth-token)
-import { legacyLoginEnabled, verifyLegacyLmsLogin, lookupTeacherByLoginId, provisionTeacherAccount } from './legacy-teacher-auth';
+import { legacyLoginEnabled, verifyLegacyLmsLogin, lookupTeacherByLoginId, provisionTeacherAccount, legacyProvisionGate } from './legacy-teacher-auth';
 
 export interface AuthEnv {
   DB: D1Database;
@@ -819,6 +819,20 @@ export async function handleAdminAuthApi(
         }
         // 카페24 강사 명부에서 실제 이름을 찾아 계정에 심는다(마이페이지 급여·평가가 이름 매칭).
         const info = await lookupTeacherByLoginId(env as any, username);
+        /* 🚧 (2026-10-25) 옛 LMS 는 대리점·지사 계정도 받는다 — 강사 명부에서 찾은 아이디만 강사로 만든다.
+           (대리점 masteraca 가 강사 계정으로 생성돼 /teacher 로 가던 사고. 정본 legacyProvisionGate) */
+        const gate = legacyProvisionGate(info);
+        if (!gate.allow) {
+          await recordLogin(env, username, ip, ua, false, 'legacy_' + gate.reason);
+          if (gate.reason === 'roster_lookup_failed') {
+            return json({ ok: false, error: 'roster_lookup_failed',
+              message: '강사 명부를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+              message_en: 'Could not check the teacher roster. Please try again in a moment.' }, 503);
+          }
+          return json({ ok: false, error: 'not_teacher_account',
+            message: '이 아이디는 강사 명부에 없습니다. 대리점·지사 계정은 본사에 관리자 계정 발급을 요청해 주세요.',
+            message_en: 'This ID is not in the teacher roster. Branch/agency accounts must be issued by HQ.' }, 403);
+        }
         const newHash = await hashPassword(password);
         try {
           await provisionTeacherAccount(env as any, username, newHash, info);
