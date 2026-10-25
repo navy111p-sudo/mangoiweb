@@ -1,3 +1,4 @@
+import {tmpdir as handoffTmp} from 'node:os';import {resolve as handoffResolve} from 'node:path';import {pathToFileURL as handoffURL,fileURLToPath as handoffFile} from 'node:url';
 // Synthetic SQLite sandbox; adapters are explicitly mocked. No microphone/provider.
 import assert from 'node:assert/strict';
 import {fixture} from './fixture.mjs';
@@ -16,4 +17,4 @@ for(const action of ['chat','tts','transcribe'])for(const boundary of ['consent'
 for(const action of ['chat','tts','transcribe'])for(const actor of ['pilot-child-2','other-child','guest-fixture','forged'])await check(`${action}/actor/${actor}`,round,async()=>{const r=await send(action,{token:f.tokens[actor]||actor});assert.ok([401,403].includes(r.status));assert.equal(calls,0);});
 for(const action of ['chat','tts','transcribe'])await check(`${action}/duplicate`,round,async()=>{const rid=crypto.randomUUID();const results=await Promise.all(Array.from({length:10},()=>send(action,{rid})));assert.equal(results.filter(r=>r.status===200).length,1);assert.equal(results.filter(r=>r.status===409).length,9);assert.equal(calls,1);});
 }
-const summary={uniqueConditions:new Set(rows.map(r=>r.id)).size,repetitions:3,executions:rows.length,passed:rows.filter(r=>r.pass).length,failed:rows.filter(r=>!r.pass).length,provider:'mock adapters',storage:'isolated in-memory SQLite',realMicrophone:false};writeFileSync(process.env.MATRIX_OUTPUT||'/tmp/eleader-sandbox-matrix.json',JSON.stringify({summary,rows},null,2));console.log(JSON.stringify(summary));for(const r of rows.filter(r=>!r.pass).slice(0,20))console.error(r);if(summary.failed)process.exitCode=1;
+const summary={uniqueConditions:new Set(rows.map(r=>r.id)).size,repetitions:3,executions:rows.length,passed:rows.filter(r=>r.pass).length,failed:rows.filter(r=>!r.pass).length,provider:'mock adapters',storage:'isolated in-memory SQLite',realMicrophone:false};writeFileSync(process.env.MATRIX_OUTPUT||(handoffTmp()+'/eleader-sandbox-matrix.json'),JSON.stringify({summary,rows},null,2));console.log(JSON.stringify(summary));for(const r of rows.filter(r=>!r.pass).slice(0,20))console.error(r);if(summary.failed)process.exitCode=1;

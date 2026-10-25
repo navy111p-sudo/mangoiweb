@@ -1,18 +1,19 @@
+import {tmpdir as handoffTmp} from 'node:os';import {resolve as handoffResolve} from 'node:path';import {pathToFileURL as handoffURL,fileURLToPath as handoffFile} from 'node:url';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {mkdir} from 'node:fs/promises';
 import {start} from './server.mjs';
 const require=createRequire(import.meta.url);
 let chromium;
-try{({chromium}=require('playwright'));}catch{({chromium}=require(process.env.PLAYWRIGHT_MODULE||'/opt/codex/runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright-core'));}
+try{({chromium}=require('playwright'));}catch{({chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright'));}
 const f=await start();
-const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH,headless:true,args:['--no-sandbox']});
 const context=await browser.newContext({viewport:{width:1280,height:1000}});
 const requests=[],errors=[];
 await context.route('**/*',route=>{const url=new URL(route.request().url());if(url.hostname!=='127.0.0.1'){requests.push(url.origin);return route.abort();}return route.continue();});
 const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
 const base='http://127.0.0.1:8798/eleader-pilot.html?academy=eleaderjam';
-const output=process.env.ELEADER_ARTIFACTS||'/tmp/eleader-artifacts';await mkdir(output,{recursive:true});
+const output=process.env.ELEADER_ARTIFACTS||(handoffTmp()+'/eleader-artifacts');await mkdir(output,{recursive:true});
 try{
  await page.addInitScript(token=>localStorage.setItem('mango_token',token),f.tokens['pilot-child-1']);
  await page.goto(base);await page.locator('#student').waitFor({state:'visible'});

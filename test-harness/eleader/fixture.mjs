@@ -1,3 +1,4 @@
+import {tmpdir as handoffTmp} from 'node:os';import {resolve as handoffResolve} from 'node:path';import {pathToFileURL as handoffURL,fileURLToPath as handoffFile} from 'node:url';
 // Local-only synthetic fixture. No production binding, account, or credential is used.
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
@@ -8,7 +9,7 @@ const root = resolve(import.meta.dirname, '../..');
 const require = createRequire(root + '/cloudflare-deploy/package.json');
 const { build } = require('esbuild');
 export async function fixture(filename = ':memory:') {
-  const outfile = '/tmp/eleader-test-api-' + process.pid + '.mjs';
+  const outfile = (handoffTmp()+'/eleader-test-api-') + process.pid + '.mjs';
   await build({ stdin:{ contents: "export { handleEleaderApi } from './src/api-eleader'; export { signUidToken } from './src/auth-token';",resolveDir:root+'/cloudflare-deploy'},bundle:true,platform:'node',format:'esm',outfile,logLevel:'silent' });
   const {handleEleaderApi,signUidToken}=await import(pathToFileURL(outfile));
   const db=new DatabaseSync(filename); db.exec(readFileSync(root+'/cloudflare-deploy/sql/eleader-pilot.sql','utf8'));

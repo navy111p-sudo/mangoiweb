@@ -7,6 +7,18 @@
   const adminView = new URLSearchParams(location.search).get('view') === 'director';
   const token = () => adminView ? '' : (localStorage.getItem('mango_token') || '');
   let identity = token(), state, unit, index = 0, busy = false, generation = 0, speechGeneration = 0;
+  let trialTimer, turn, ownerUI;
+  const localSeen=new Set();
+  function applyTrial(){
+    clearTimeout(trialTimer);
+    const trial=state?.trial, notice=el('trialNotice');notice.hidden=!trial;
+    el('stagedNotice').hidden=trial?.voice_mode==='cloudflare';
+    if(!trial)return;
+    notice.textContent=(state.curriculum?(state.curriculum.notice||'원문·보충 통합 질문팩. '):'')+(trial.voice_mode==='cloudflare'?'ED 합성 학원 · 성인 소유자 시험. 아래 시작 코드와 동의 확인 후에만 음성을 사용합니다. 완료 기록은 저장하지 않습니다.':'ED 합성 학원 · 읽기 전용 시험 · 실제 학생 데이터 아님. 완료 저장·마이크·AI·음성은 차단됩니다.');
+    el('complete').disabled=true;el('listen').disabled=true;
+    const remaining=Number(trial.expires_at)-Date.now();
+    trialTimer=setTimeout(()=>{clear();notice.hidden=false;notice.textContent='ED 시험 시간이 끝났습니다. 새 로그인도 차단됩니다.';},Math.max(0,Math.min(remaining,3600000)));
+  }
   function stopSpeech(message) {
     window.EleaderSpeaking?.cancel();
     speechGeneration++;
@@ -15,7 +27,9 @@
     if (message) el('voiceStatus').textContent = message;
   }
   function clear() {
-    generation++; stopSpeech(); window.EleaderSpeaking?.reset(); state = null; unit = null;
+    ownerUI?.dispose();ownerUI=null;el('ownerTrial').hidden=true;
+    clearTimeout(trialTimer);el('trialNotice').hidden=true;el('curriculumNotice').textContent='로그인 확인 후 배정된 질문팩을 표시합니다.';
+    generation++; localSeen.clear();turn?.expire();turn=null; stopSpeech(); window.EleaderSpeaking?.reset(); state = null; unit = null;
     el('student').hidden = el('director').hidden = el('lesson').hidden = true;
     ['units','history','report','expansion','question','hint','students','assignUnit'].forEach(id => el(id).replaceChildren());
     el('answer').value = ''; el('settingName').value = ''; el('enabled').checked = false;
@@ -47,7 +61,7 @@
     if (busy) return; busy = true;
     document.querySelectorAll('button').forEach(b => { if(b.id !== 'stop') b.disabled = true; });
     try { await fn(); } catch(e) { error(e); }
-    finally { busy = false; document.querySelectorAll('button').forEach(b => b.disabled = false); window.EleaderSpeaking?.configure(state?.live); }
+    finally { busy = false; document.querySelectorAll('button').forEach(b => b.disabled = false); window.EleaderSpeaking?.configure(state?.live); applyTrial();ownerUI?.refresh(); }
   }
   function table(target, rows) {
     const t = document.createElement('table');
@@ -55,33 +69,47 @@
     el(target).replaceChildren(t);
   }
   function render() {
+    el('curriculumNotice').textContent=state.curriculum?(state.curriculum.notice||'원문·보충 통합 질문팩입니다.'):'별도 작성한 3유닛·60문항 시범판입니다. 전체 440문항 완성본은 아닙니다.';
     el('academyName').textContent=state.name; el('status').textContent='배정 및 기록을 확인했어요 · 음성·AI는 아래 승인 상태를 확인하세요';
     window.EleaderSpeaking?.configure(state.live);
+    ownerUI?.dispose();ownerUI=null;el('ownerTrial').hidden=!state.trial;
+    if(state.trial&&state.role==='student'){
+      const live=state.trial.voice_mode==='cloudflare';
+      const services=live?window.EleaderTrial20Browser?.create({getToken:token,avatar:phase=>{if(phase==='start')window.MangoAvatar?.plainStart();else window.MangoAvatar?.plainStop();}}):undefined;
+      ownerUI=window.EleaderTrial20UI?.mount({element:el('ownerTrial'),books:state.units,getToken:token,enabled:live,mode:live?'cloudflare':'disabled',services,startSession:services?.startSession});
+    }
     const director=state.role==='director'; el('director').hidden=!director; el('student').hidden=director;
     if(director) {
       el('settingName').value=state.name; el('enabled').checked=state.enabled;
       el('students').replaceChildren(...state.students.map(s=>new Option(s.subject,s.subject)));
       el('assignUnit').replaceChildren(...state.units.map(u=>new Option(u.title,u.id)));
-      table('report', [['학생','유닛','배정','완료 / 20'],...state.students.flatMap(s=>state.units.map(u=>[s.subject,u.title,state.assignments.some(a=>a.student_uid===s.subject&&a.unit_id===u.id)?'배정':'미배정',state.progress.filter(p=>p.student_uid===s.subject&&p.unit_id===u.id).length+' / 20']))]);
+      table('report', [['학생','유닛','배정','완료 / 문항 수'],...state.students.flatMap(s=>state.units.map(u=>[s.subject,u.title,state.assignments.some(a=>a.student_uid===s.subject&&a.unit_id===u.id)?'배정':'미배정',state.progress.filter(p=>p.student_uid===s.subject&&p.unit_id===u.id).length+' / '+u.questions.length]))]);
     } else {
       el('units').replaceChildren(...state.units.map(u=>{
         const button=document.createElement('button'); button.className='unit';
         const assigned=state.assignments.some(a=>a.unit_id===u.id);
         const title=document.createElement('strong'); title.textContent=u.title;
-        button.append(title,document.createTextNode(assigned?'20문항 · 연습하기':'미배정 · 원장님께 요청하세요'));
+        button.append(title,document.createTextNode(assigned?u.questions.length+'문항 · 연습하기':'미배정 · 원장님께 요청하세요'));
         button.setAttribute('aria-pressed',String(unit?.id===u.id));
         button.onclick=()=>{if(!assigned){el('status').textContent='아직 배정되지 않은 유닛입니다.';return;} unit=u; index=0;render();showQuestion();};return button;
       }));
-      table('history',[['유닛','연습한 문항'],...state.units.map(u=>[u.title,state.progress.filter(p=>p.unit_id===u.id).length+' / 20'])]);
+      table('history',[['유닛','연습한 문항'],...state.units.map(u=>[u.title,state.progress.filter(p=>p.unit_id===u.id).length+' / '+u.questions.length])]);
       if(unit&&!state.assignments.some(a=>a.unit_id===unit.id)){unit=null;el('lesson').hidden=true;stopSpeech();}
     }
   }
   function showQuestion() {
     stopSpeech(); window.EleaderSpeaking?.reset(); window.EleaderSpeaking?.configure(state.live); const q=unit.questions[index]; el('lesson').hidden=false;
-    el('position').textContent=unit.title+' · '+(index+1)+' / 20'; el('question').textContent=q.question;
+    el('position').textContent=unit.title+' · '+(index+1)+' / '+unit.questions.length; el('question').textContent=q.question;
+    if(q.provenance)el('position').textContent+=' · '+q.provenance.map(p=>p==='proposal'?'제안서 대표':p==='supplement'?'별도 보충':p).join(' + ');
     el('hint').textContent=q.hint;el('hint').hidden=true;el('answer').value='';el('expansion').textContent='';
     el('complete').textContent=state.progress.some(p=>p.question_id===q.id)?'이미 연습한 문장 · 다시 연습':'이 문장 연습 완료';
     if(window.MangoAvatar) window.MangoAvatar.setCharacter('emma');
+    turn?.expire();
+    turn=window.EleaderTurn?.create({questions:[q],adapter:{
+      speak:async()=>{},stop:()=>{},canRetry:()=>false,
+      respond:async()=>({understood:false,text:'이렇게 말할 수도 있어요. 내 생각과 다르면 바꾸어 말해요.\n'+q.model+'\n(준비된 예시이며 AI 교정·정답 판정이 아닙니다.)'})
+    },onChange:s=>{el('turnStatus').textContent='텍스트 모의 연습 · 이번 화면에서 본 문항 '+localSeen.size+'개 · '+({waiting:'답을 기다려요. 힌트·다시 보기·다음 문항을 선택할 수 있어요.',thinking:'예시를 준비하고 있어요.',speaking:'문장을 표시해요. 실제 음성 재생은 아닙니다.',error:'처리하지 못했어요. 자동 재시도하지 않습니다.',expired:'이 질문을 종료했어요.'}[s.phase]||'');if(s.text)el('expansion').textContent=s.text;}});
+    localSeen.add(q.id);turn?.start();applyTrial();
   }
   async function load() { stopSpeech(); state=await api('state'); render(); }
   el('reload').onclick=()=>run(load);
@@ -89,9 +117,10 @@
   el('expand').onclick=()=>{
     const q=unit.questions[index], answer=el('answer').value.trim();
     if(!answer){el('expansion').textContent='한 단어라도 적어 보세요.';return;}
-    const match=answer.toLowerCase().replace(/[.!?]$/,'')===q.short;
-    el('expansion').textContent=(match?'이 짧은 답을 문장으로 말해 볼까요?\n':'이렇게 말할 수도 있어요. 내 생각과 다르면 바꾸어 말해요.\n')+q.model+'\n(준비된 예시이며 AI 교정·정답 판정이 아닙니다.)';
+    if(turn){void turn.submit(answer);return;}
+    el('expansion').textContent=q.model+'\n(준비된 예시이며 AI 교정·정답 판정이 아닙니다.)';
   };
+  el('repeatQuestion').onclick=()=>{stopSpeech();void turn?.repeat();};
   el('next').onclick=()=>{index=(index+1)%unit.questions.length;showQuestion();};
   el('complete').onclick=()=>run(async()=>{await api('complete',{unit:unit.id,question:unit.questions[index].id});await load();if(unit)showQuestion();});
   el('settings').onsubmit=e=>{e.preventDefault();run(async()=>{await api('settings',{name:el('settingName').value,enabled:el('enabled').checked});await load();});};
@@ -107,7 +136,7 @@
     utterance.onerror=()=>{if(epoch===speechGeneration)stopSpeech('음성 재생에 실패했어요. 문장을 직접 읽거나 다시 시도해 주세요.');};
     try{synth.speak(utterance);}catch{stopSpeech('음성을 재생할 수 없어요. 문장을 직접 읽어 주세요.');}
   };
-  el('stop').onclick=()=>stopSpeech('음성 재생을 취소했어요.');
+  el('stop').onclick=()=>{turn?.cancel();stopSpeech('음성 재생을 취소했어요.');};
   window.addEventListener('storage',e=>{if(e.key==='mango_token'||e.key===null){clear();identity=token();el('status').textContent='로그인이 변경됐어요. 배정·기록을 새로고침해 주세요.';}});
   window.addEventListener('pagehide',()=>{clear();});
   document.addEventListener('visibilitychange',()=>{
