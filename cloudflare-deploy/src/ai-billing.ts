@@ -73,14 +73,18 @@ export const DEFAULT_AI_RATE_KRW = 10000;
 let _ensured = false;
 async function ensureSchema(env: Env): Promise<void> {
   if (_ensured) return;
-  await safe(async () => {
-    await env.DB.exec(`CREATE TABLE IF NOT EXISTS agency_ai_rate (
+  /* 🛠 (2026-10-25) 표 만들기는 prepare().run() 으로 한 문장씩 — 하나가 실패해도 나머지는 계속.
+     예전엔 safe() 하나로 감싸 실패를 삼키고도 _ensured 를 세워, 표가 안 생겨도 이 격리에서 다시
+     시도하지 않았다(그러면 GET /invoice 의 청구서 조회가 «no such table» 로 던져 internal_error).
+     핵심 표(청구서·명세)가 실패하면 _ensured 를 세우지 않아 다음 요청이 다시 시도한다. */
+  const ddls = [
+    `CREATE TABLE IF NOT EXISTS agency_ai_rate (
       shop_name TEXT PRIMARY KEY,
       rate_krw INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       updated_by TEXT
-    )`);
-    await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_billing_invoices (
+    )`,
+    `CREATE TABLE IF NOT EXISTS ai_billing_invoices (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       shop_name TEXT NOT NULL,
       franchise TEXT,
@@ -92,9 +96,9 @@ async function ensureSchema(env: Env): Promise<void> {
       paid_at INTEGER,
       order_id TEXT,
       UNIQUE(shop_name, billing_month)
-    )`);
-    await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_ai_billing_invoices_shop ON ai_billing_invoices(shop_name, billing_month)`);
-    await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_billing_invoice_items (
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_ai_billing_invoices_shop ON ai_billing_invoices(shop_name, billing_month)`,
+    `CREATE TABLE IF NOT EXISTS ai_billing_invoice_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       invoice_id INTEGER NOT NULL,
       student_user_id TEXT NOT NULL,
@@ -103,31 +107,35 @@ async function ensureSchema(env: Env): Promise<void> {
       added_manually INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL,
       UNIQUE(invoice_id, student_user_id)
-    )`);
-    await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_ai_billing_items_invoice ON ai_billing_invoice_items(invoice_id)`);
-    // 🛎 월 자동 청구의 «마지막 실행 결과» — 로그는 5% 샘플링이라 실패가 안 남는다. 관리자 카드가 이것을 읽어 말한다.
-    await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_billing_meta (k TEXT PRIMARY KEY, v TEXT, at INTEGER NOT NULL)`);
-    // ✋ (2026-09-25) «A.i 단독 신청» 명단 — 청구 대상은 «추정» 이 아니라 여기 적힌 학생뿐이다(아래 loadAiOptIns).
-    //    학원이 청구서 명세에서 체크하면 들어오고, 체크를 풀면 빠진다. 다음 달 청구서가 이 명단을 이어받는다.
-    await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_billing_optin (
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_ai_billing_items_invoice ON ai_billing_invoice_items(invoice_id)`,
+    `CREATE TABLE IF NOT EXISTS ai_billing_meta (k TEXT PRIMARY KEY, v TEXT, at INTEGER NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS ai_billing_optin (
       uid_lc TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       shop_name TEXT,
       created_at INTEGER NOT NULL,
       created_by TEXT
-    )`);
-    return true;
-  }, false);
+    )`,
+  ];
+  let coreOk = true;
+  for (let i = 0; i < ddls.length; i++) {
+    try { await env.DB.prepare(ddls[i]).run(); }
+    catch (e: any) {
+      console.warn('[ai-billing] ensureSchema DDL failed:', i, e && e.message);
+      if (i <= 3) coreOk = false;   // 0 agency_ai_rate · 1 invoices · 2 index · 3 items
+    }
+  }
   // 💰 (2026-09-24) 청구서마다 «생성 시점의 공급가 규칙» 을 JSON 으로 박아 둔다 — 나중에 표를
   //    바꿔도 이미 만든 청구서 금액은 안 바뀐다. 없는(NULL) 옛 청구서는 rate_krw × 인원 그대로.
   //    이미 있으면 "duplicate column" 으로 조용히 끝난다(멱등).
-  try { await env.DB.prepare(`ALTER TABLE ai_billing_invoices ADD COLUMN price_rule TEXT`).run(); } catch (_) {}
+  try { await env.DB.prepare(`ALTER TABLE ai_billing_invoices ADD COLUMN price_rule TEXT`).run(); } catch (_) { /* 이미 있음(멱등) */ }
   // 🎯 (2026-09-24 추천안 ① «자동 분류 + 학원 확인») 명세 줄마다
   //   track    = 마지막 자동 판정('live' 화상반 · 'ai' A.i반)
   //   user_set = 학원이 체크를 직접 바꿨는가(1 이면 «인원 다시 확인» 이 그 줄을 다시는 안 건드린다).
-  try { await env.DB.prepare(`ALTER TABLE ai_billing_invoice_items ADD COLUMN track TEXT`).run(); } catch (_) {}
-  try { await env.DB.prepare(`ALTER TABLE ai_billing_invoice_items ADD COLUMN user_set INTEGER NOT NULL DEFAULT 0`).run(); } catch (_) {}
-  _ensured = true;
+  try { await env.DB.prepare(`ALTER TABLE ai_billing_invoice_items ADD COLUMN track TEXT`).run(); } catch (_) { /* 이미 있음(멱등) */ }
+  try { await env.DB.prepare(`ALTER TABLE ai_billing_invoice_items ADD COLUMN user_set INTEGER NOT NULL DEFAULT 0`).run(); } catch (_) { /* 이미 있음(멱등) */ }
+  if (coreOk) _ensured = true;
 }
 
 // ── KST 월 계산 (org-settlement.ts currentMonth() 와 같은 방식) ──────────────
@@ -879,10 +887,25 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
     }));
     const due = { ...prepayDue(month), default_month: nextM, unpaid_months: unpaidMonths };   // 📅 선결제 마감(이용 달의 전 달 말일) + ④ 안 낸 달
 
-    const inv = await env.DB.prepare(
+    /* 🛠 (2026-10-25) 이 조회만 감싸지 않아, 표·칸이 없으면 던져 화면이 «internal_error» 만 말했다(ptagency 첫 테스트).
+       이제 price_rule 칸이 없으면 옛 SELECT 로 한 번 더 묻고, 그래도 실패하면 «무엇이 실패했는지» 를 말한다
+       (로그는 5% 샘플이라 안 남는다). ⛔ 조회 실패를 «청구서 없음» 으로 읽지 않는다 — 미리보기가 떠서 결제로 갈 수 있다. */
+    let invErr = '';
+    let inv: any = await env.DB.prepare(
       `SELECT id, shop_name, franchise, billing_month, rate_krw, price_rule, status, generated_at, paid_at, order_id
        FROM ai_billing_invoices WHERE shop_name = ? AND billing_month = ?`
-    ).bind(shopName, month).first<any>();
+    ).bind(shopName, month).first<any>().catch((e: any) => { invErr = String((e && e.message) || e); return undefined; });
+    if (inv === undefined) {
+      const firstErr = invErr; invErr = '';
+      inv = await env.DB.prepare(
+        `SELECT id, shop_name, franchise, billing_month, rate_krw, status, generated_at, paid_at, order_id
+         FROM ai_billing_invoices WHERE shop_name = ? AND billing_month = ?`
+      ).bind(shopName, month).first<any>().catch((e: any) => { invErr = String((e && e.message) || e); return undefined; });
+      if (inv === undefined) {
+        console.error('[ai-billing] invoice lookup failed:', firstErr, '|', invErr);
+        return err('invoice_lookup_failed: 청구서를 읽지 못했습니다 (' + (invErr || firstErr).slice(0, 160) + ')', 503);
+      }
+    }
     if (!inv) {
       // 아직 생성 전 — 지금 재원 기준으로 «미리보기» 만 보여준다(저장하지 않음).
       const roster = await currentRoster(env, shopName);
