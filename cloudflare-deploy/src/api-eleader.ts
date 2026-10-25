@@ -4,6 +4,7 @@ import { verifyUidToken } from './auth-token';
 import { getAdminActor } from './auth-admin';
 import type { MangoEnv } from './api-mango';
 import { ELEADER_UNITS } from './eleader-pack';
+import { handleEleaderL1, ELEADER_L1_PREFIX } from './eleader-l1';
 
 type PilotEnv = MangoEnv & { ELEADER_PILOT?: string };
 const prefix = '/api/ai/eleader/';
@@ -30,6 +31,8 @@ async function body(request: Request): Promise<Record<string, unknown>> {
 /** Default off. No AI, speech upload, recording, schema creation or membership provisioning. */
 export async function handleEleaderApi(request: Request, url: URL, env: PilotEnv, engines?: EleaderEngines): Promise<Response | null> {
   if (!url.pathname.startsWith(prefix)) return null;
+  // Level 1 기본과정은 시범판 스위치(ELEADER_PILOT)와 별개 — 허용 학생 목록으로 막는다(eleader-l1.ts).
+  if (url.pathname.startsWith(ELEADER_L1_PREFIX)) return handleEleaderL1(request, url, env as any, engines?.warm ? r => engines.warm!(r) : undefined);
   if (env.ELEADER_PILOT !== 'on') return reply({ error: 'pilot_disabled' }, 404);
   if (!['GET', 'POST'].includes(request.method)) return reply({ error: 'method_not_allowed' }, 405);
   if (request.method === 'POST' && request.headers.get('Origin') !== url.origin) return reply({ error: 'same_origin_required' }, 403);
