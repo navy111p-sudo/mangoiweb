@@ -19,7 +19,7 @@
   ⚠️ 매니페스트를 못 읽으면 아래 «준비 중» 칸이 그대로 남는다(눌러도 아무 데도 안 가게 — 없는 영상으로 보내지 않는다).
 
   🧭 배치 (2026-10-20 사장님 「두 장르가 한 화면에서 잘 보이게」 → 시안 4종 중 B안)
-  소개 카드 → 장르 카드 2개(모험 3D 애니 8편 × 에피소드 6 · 키키와 토토 10편) → 왼쪽 «작품·에피소드 고르기» / 오른쪽 «누가 연기할까요?».
+  소개 카드 → 장르 카드 2개(모험 3D 애니 7편 × 에피소드 6 · 키키와 토토 10편) → 왼쪽 «작품·에피소드 고르기» / 오른쪽 «누가 연기할까요?».
   폰(860px 이하)은 한 줄로 쌓고, 출연 설정은 아래 고정 바 → 바텀시트로 연다.
   ⛔ 키키와 토토는 전용 스튜디오(/ai-dubbing-studio.html?ep=<id>)에서 더빙한다 — 여기서는 «고르기» 만 한다(재생 기능을 두 벌 만들지 않는다).
 -->
@@ -85,7 +85,7 @@
   .notice.err{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.5)}
   .notice.err b{color:var(--red)}
 
-  /* « 1. 작품 고르기 » — 8편 */
+  /* « 1. 작품 고르기 » — 7편 */
   .eps{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:10px}
   .ep{position:relative;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;aspect-ratio:3/4;padding:9px;border-radius:14px;
     border:1px solid var(--line);background:#121826;background-size:cover;background-position:center;color:var(--text);text-decoration:none;overflow:hidden}
@@ -418,9 +418,9 @@
   <section class="genres" id="dub-genres" aria-label="장르 고르기">
     <button type="button" class="genre adv" data-genre="adv" aria-pressed="true" aria-controls="dub-adv">
       <span class="g-ic" aria-hidden="true">🦖</span>
-      <span class="g-tx"><b data-ko="모험 3D 애니" data-en="3D Adventure">모험 3D 애니</b><span class="g-sub" data-ko="3D 애니메이션 8편 · 작품마다 에피소드 6개" data-en="8 animated films · 6 episodes each">3D 애니메이션 8편 · 작품마다 에피소드 6개</span></span>
-      <span class="g-num"><b>8</b><small data-ko="편 × 에피소드 6" data-en="films × 6 episodes">편 × 에피소드 6</small></span>
-      <span class="g-mini" id="dub-g-adv-mini" aria-hidden="true"><span class="mn">1</span><span class="mn">2</span><span class="mn">3</span><span class="mn">4</span><span class="mn">5</span><span class="mn">6</span><span class="mn">7</span><span class="mn">8</span></span>
+      <span class="g-tx"><b data-ko="모험 3D 애니" data-en="3D Adventure">모험 3D 애니</b><span class="g-sub" data-ko="3D 애니메이션 7편 · 작품마다 에피소드 6개" data-en="7 animated films · 6 episodes each">3D 애니메이션 7편 · 작품마다 에피소드 6개</span></span>
+      <span class="g-num"><b>7</b><small data-ko="편 × 에피소드 6" data-en="films × 6 episodes">편 × 에피소드 6</small></span>
+      <span class="g-mini" id="dub-g-adv-mini" aria-hidden="true"><span class="mn">1</span><span class="mn">2</span><span class="mn">3</span><span class="mn">4</span><span class="mn">5</span><span class="mn">6</span><span class="mn">7</span></span>
       <span class="g-sel" data-ko="선택됨" data-en="Selected">선택됨</span>
     </button>
     <button type="button" class="genre kt" data-genre="kt" aria-pressed="false" aria-controls="dub-kt">
@@ -511,7 +511,7 @@
       <section class="panel" id="dub-eps-panel" aria-label="이야기 고르기" hidden>
         <div>
           <h2><span data-ko="이야기 고르기" data-en="Choose a story">이야기 고르기</span></h2>
-          <p class="hint"><span data-ko="3D 애니메이션 8편 — 작품마다 에피소드 6개가 있어요." data-en="8 animated films — each has 6 episodes.">3D 애니메이션 8편 — 작품마다 에피소드 6개가 있어요.</span></p>
+          <p class="hint"><span data-ko="3D 애니메이션 7편 — 작품마다 에피소드 6개가 있어요." data-en="7 animated films — each has 6 episodes.">3D 애니메이션 7편 — 작품마다 에피소드 6개가 있어요.</span></p>
         </div>
         <div class="eps" id="dub-eps"></div>
       </section>
@@ -633,7 +633,7 @@
 <script defer src="/js/ai-dubbing-library.js?v=4"></script>
 <script defer src="/js/ai-dubbing-practice.js?v=1"></script>
 <script defer src="/vendor/jszip/jszip.min.js?v=3.10.1"></script>
-<script defer src="/js/ai-dubbing-home.js?v=20"></script>
+<script defer src="/js/ai-dubbing-home.js?v=21"></script>
 <script defer src="/js/ai-dubbing-intro.js?v=1"></script>
 <script defer src="/js/ai-dubbing.js?v=24"></script>
 <aside id="dub-sync-notification" class="dub-sync-notification" role="status" aria-live="polite" hidden>

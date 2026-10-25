@@ -645,7 +645,7 @@
   }
   function connectionNotification() {
     var notice = $('dub-sync-notification'); if (!notice) return;
-    $('dub-sync-notification-text').textContent = t('✓ 인터넷이 다시 연결되어 남은 기록의 계정 동기화를 완료했어요.', '✓ Connection restored. Remaining records have synced to your account.');
+    $('dub-sync-notification-text').textContent = t('✓ 남은 기록의 계정 동기화를 완료했어요.', '✓ Remaining records have synced to your account.');
     notice.hidden = false;
   }
   async function syncClosedConnections(owner, epoch) {
@@ -672,6 +672,10 @@
       var json = JSON.stringify(mergeUpload(latest, remote)); if (json.length > 1024 * 1024) throw new Error('upload_history_too_large');
       localStorage.setItem(uploadKey(owner), json);
     }
+  }
+  function syncConnectionsWhenOnline() {
+    if (window.navigator && window.navigator.onLine === false) return;
+    return reconnectAccountConnections();
   }
   function reconnectAccountConnections() {
     if (!L.hasAccount()) return;
@@ -1329,9 +1333,11 @@
     L.onAccountChange(function () { ++reconnectEpoch; reconnectTask = null; if ($('dub-sync-notification')) $('dub-sync-notification').hidden = true; ++generation; catalogue = null; clearItems(); if ($('dub-library-search')) $('dub-library-search').value = ''; status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
     window.addEventListener('mangoi:lang-changed', function () { render(); if ($('dub-library') && !$('dub-library').hidden) refresh(); });
     if ($('dub-sync-notification-close')) $('dub-sync-notification-close').addEventListener('click', function () { $('dub-sync-notification').hidden = true; });
-    window.addEventListener('online', reconnectAccountConnections);
+    window.addEventListener('online', syncConnectionsWhenOnline);
+    window.addEventListener('pageshow', function (event) { if (event.persisted) return syncConnectionsWhenOnline(); });
     window.addEventListener('pagehide', function () { ++reconnectEpoch; reconnectTask = null; if (catalogue && catalogue.upload && catalogue.upload.connecting) { var u = catalogue.upload; saveConnections(catalogue, u); u.connectionEpoch++; u.stopped = true; u.busy = false; u.connecting = false; } if (uploadJob) { uploadJob.state.stopped = true; rememberUpload(uploadJob.catalogue, uploadJob.state); } downloadPauses.slice().forEach(function (pause) { pause(); }); releaseUrls(); });
     render();
+    syncConnectionsWhenOnline();
   }
   window.MangoiDubHome = { init: init, ready: ready, render: render, checkpoint: checkpoint, saveMovie: saveMovie, practice: practice, openLibrary: openLibrary, movieFilename: movieFilename };
 })();
