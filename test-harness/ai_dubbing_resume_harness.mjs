@@ -897,6 +897,28 @@ test('reconnection during an in-flight failure waits then retries and closed or 
   const before=calls;await x.el('dub-library-close').fire('click');await x.online();assert.equal(calls,before);x.changeOwner('student:bob');await x.online();assert.equal(calls,before);
 });
 
+test('closed library reconnect syncs persisted results in batches, resumes only remaining records and shows dismissible app notice',async()=>{
+  const {x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=Array.from({length:60},(_,i)=>namedOriginal(new Blob([]),'닫힌 보관함 '+i+'.webm'));await picker.fire('change');for(let i=0;i<10;i++)await tick();await x.el('dub-library-close').fire('click');
+  server.offline=false;const save=x.lib.saveUpload;let calls=0,sent=[];x.lib.saveUpload=async(job,owner)=>{if(job.connections){sent.push(structuredClone(job.connections));if(++calls===2)throw Error('offline');}return save(job,owner);};
+  x.el('dub-sync-notification').hidden=true;await x.online();assert.equal(x.el('dub-sync-notification').hidden,true);assert.equal(sent.length,2);const ack=new Set(sent[0].rows.map(r=>r.key));sent=[];
+  await Promise.all([x.online(),x.online()]);assert.equal(sent.reduce((n,h)=>n+h.rows.length,0),35);assert.ok(sent.every(h=>h.rows.every(r=>!ack.has(r.key))));assert.equal(x.el('dub-library').hidden,true);assert.equal(x.el('dub-sync-notification').hidden,false);assert.match(x.el('dub-sync-notification-text').textContent,/남은 기록의 계정 동기화를 완료/);assert.equal(x.uploadCalls.length,0);
+  await x.el('dub-sync-notification-close').fire('click');assert.equal(x.el('dub-sync-notification').hidden,true);await x.ctx.MangoiDubHome.openLibrary('movies');assert.match(connectionList(x).textContent,/60 \/ 60개 완료/);
+});
+test('closed background sync cannot continue or show a notice after account changes, pagehide or cloud deletion',async()=>{
+  for(const mode of ['account','pagehide','deleted']){
+    const {x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=[namedOriginal(new Blob([]),'비공개 파일.webm')];await picker.fire('change');for(let i=0;i<10;i++)await tick();await x.el('dub-library-close').fire('click');x.el('dub-sync-notification').hidden=true;server.offline=false;
+    const save=x.lib.saveUpload,hold=deferred();let calls=0;x.lib.saveUpload=async(...args)=>{calls++;return save(...args);};
+    if(mode==='deleted'){server.removed.add(server.jobs[0].id);server.jobs=[];await x.online();}
+    else {const list=x.lib.listUploads;let entered=false;x.lib.listUploads=async()=>{entered=true;await hold.promise;return list();};const task=x.online();await until(()=>entered);if(mode==='account'){x.changeOwner('student:bob');x.changeOwner('student:alice');}else x.pagehide();hold.resolve();await task;}
+    assert.equal(calls,0);assert.equal(x.el('dub-sync-notification').hidden,true);assert.equal(x.uploadCalls.length,0);
+  }
+});
+test('closing during foreground reconnect hands remaining results to background without reopening the library',async()=>{
+  const {x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=[namedOriginal(new Blob([]),'인계 원본.webm')];await picker.fire('change');for(let i=0;i<10;i++)await tick();server.offline=false;
+  const list=x.lib.listUploads,hold=deferred();let calls=0;x.lib.listUploads=async()=>{if(++calls===1)await hold.promise;return list();};const task=x.online();await until(()=>calls===1);await x.el('dub-library-close').fire('click');hold.resolve();await task;
+  assert.equal(x.el('dub-library').hidden,true);assert.equal(x.el('dub-sync-notification').hidden,false);assert.ok(server.jobs[0].connections.rows.some(r=>r.name==='인계 원본.webm'));assert.equal(x.uploadCalls.length,0);
+});
+
 let failed=0;
 for(const {name,fn}of tests){try{await fn();console.log('✅ '+name);}catch(e){failed++;console.error('❌ '+name+'\n   '+e.stack);}}
 console.log(`\nDubbing resume/player: ${tests.length-failed} PASS / ${failed} FAIL`);
