@@ -1,3 +1,7 @@
+import { eleaderStagedResponse } from './eleader-release';
+import { ELEADER_EXPANSION_RULE, markEleaderExpansion, hasEleaderExpansion } from './eleader-expansion';
+import { ephemeralEleaderEnv } from './eleader-engines';
+import { handleGamesApi } from './api-games';
 import { handleSeedShares } from './seed-shares';
 import { handleSpeechPreferences } from './speech-preferences';
 import { loadRecentMistakes, recentMistakesPromptLine } from './recent-mistakes';   // 🔁 최근 교정 다시 쓰기(2026-10-18)
@@ -210,6 +214,8 @@ const worker = {
   // 얇은 래퍼: 실제 처리는 handle()이 하고, 여기서 보안 헤더만 씌운다.
   //   this 바인딩에 의존하지 않도록 worker.handle 로 명시 참조(진입점 안정성).
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const staged = eleaderStagedResponse(request);
+    if (staged) return applySecurityHeaders(staged);
     // ⚡ (2026-08-09) 같은 DDL 을 이 격리에서 한 번만 D1 으로 보낸다.
     //   이 저장소는 표를 요청 처리 도중 만든다(CREATE TABLE IF NOT EXISTS 가 핸들러 첫 줄마다).
     //   실측: DDL 411건 중 392건이 «요청마다» 나갈 수 있었다. 표가 이미 있어도 왕복은 그대로다.
@@ -1537,6 +1543,7 @@ const worker = {
         path === '/api/streak/status' ||
         path === '/api/streak/leaderboard' ||
         // ✍️ Phase AW AI 영작 첨삭
+        path.startsWith('/api/ai/eleader/') || // opt-in pilot; handler enforces membership
         path === '/api/ai/write-correct' ||
         path === '/api/ai/write-history' ||
         path === '/api/ai/write-stats' ||
@@ -1821,6 +1828,13 @@ const worker = {
           if (dq) return dq;
         }
 
+        if (path.startsWith('/api/ai/eleader/')) {
+          const pilotRes = await handleMangoApi(request, url, env, ctx, {
+            chat: r => handleWarmupChat(markEleaderExpansion(r), ephemeralEleaderEnv(env)),
+            voice: r => handleGamesApi(r, new URL(r.url), ephemeralEleaderEnv(env)),
+          });
+          if (pilotRes) return pilotRes;
+        }
         const res = await handleMangoApi(request, url, env, ctx);
         if (res) return res;
       } catch (e: any) {
@@ -4364,6 +4378,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
           중괄호 덩어리를 보고 «무너졌다» 로 판정해 대화가 통째로 안전문구로 떨어진다. */
     sys += '\n' + (ctxLang === 'zh' ? WARMUP_ZH_CORRECTION_RULE : WARMUP_CORRECTION_RULE);
     sys += '\n' + warmupGuidanceRule(body, ctxLang);
+    if (hasEleaderExpansion(request)) sys += ELEADER_EXPANSION_RULE;
     /* 🏷️ 첫 턴에는 «화면 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
        ⚠️ 이 파일은 공동 금지구역이다 — 2026-08-31 사장님이 「진행해」로 승인하신 «AI 가 자기
           이름을 못 지키는» 그 버그의 연장이고, 변경은 이 조립 1줄 + 주석뿐이다.
