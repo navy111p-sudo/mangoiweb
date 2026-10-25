@@ -19,6 +19,9 @@ try{
  await p.setViewportSize({width:390,height:844});assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));count++;
  await p.locator('#eleaderEntry button').click();await p.waitForURL('**/eleader-pilot.html?academy=eleaderjam');await p.locator('#student').waitFor({state:'visible'});assert.equal(await p.locator('#units button').count(),3);count++;
  await p.getByRole('button',{name:'반려동물 20문항 · 연습하기'}).click();await p.locator('#hintButton').click();assert.match(await p.locator('#hint').innerText(),/고양이/);count++;await c.close();
+ ({c,p}=await setup(f.tokens['pilot-child-1']));await c.addInitScript(()=>localStorage.setItem('mangoi_lang','en'));await load(p);await p.locator('#eleaderEntry button').waitFor();
+ assert.match(await p.locator('#eleaderEntry').innerText(),/custom question practice/);assert.doesNotMatch(await p.locator('#eleaderEntry').innerText(),/맞춤 문항|한글 힌트와/);
+ await p.evaluate(()=>{localStorage.setItem('mangoi_lang','ko');dispatchEvent(new CustomEvent('mangoi:lang-changed',{detail:{lang:'ko'}}));});await p.waitForFunction(()=>/맞춤 문항 연습/.test(document.querySelector('#eleaderEntry').innerText));count++;await c.close();
  ({c,p}=await setup(f.tokens['other-child']));await load(p);await p.locator('#eleaderEntry button').waitFor();assert.doesNotMatch(await p.locator('#eleaderEntry').innerText(),/엘리더잼/);count++;await c.close();
  for(const token of ['', 'forged']){({c,p}=await setup(token));await load(p);await p.waitForTimeout(150);assert.ok(await p.locator('#eleaderEntry').isHidden());assert.ok(await p.locator('#wusStart').isVisible());count++;await c.close();}
  ({c,p}=await setup(f.tokens['pilot-child-1']));await load(p);await p.locator('#eleaderEntry button').waitFor();f.db.exec("DELETE FROM eleader_members WHERE subject='pilot-child-1'");await p.locator('#eleaderEntry button').click();await p.waitForFunction(()=>document.querySelector('#eleaderEntry').hidden);assert.match(p.url(),/warmup/);count++;
@@ -29,5 +32,5 @@ try{
  await load(p);for(let i=0;i<100&&!held;i++)await p.waitForTimeout(10);assert.ok(held);
  await p.evaluate(()=>{localStorage.removeItem('mango_token');dispatchEvent(new StorageEvent('storage',{key:'mango_token'}));});release();await p.waitForTimeout(100);assert.ok(await p.locator('#eleaderEntry').isHidden());count++;await c.close();
  f.env.ELEADER_PILOT='off';({c,p}=await setup(f.tokens['pilot-child-1']));await load(p);await p.waitForTimeout(150);assert.ok(await p.locator('#eleaderEntry').isHidden());assert.ok(await p.locator('#wusStart').isVisible());count++;await c.close();
- console.log(`PASS ${count} entry browser scenarios: actual Warmup→pilot navigation, own tenant only, anonymous/forged/default-off, revocation at click, same-tab identity change and delayed old response. All external API calls intercepted; no provider use.`);
+ console.log(`PASS ${count} entry browser scenarios: actual Warmup→pilot navigation, own tenant only, EN/KO labels, anonymous/forged/default-off, revocation at click, same-tab identity change and delayed old response. All external API calls intercepted; no provider use.`);
 }finally{await browser.close();await new Promise(r=>f.server.close(r));f.db.close();}
