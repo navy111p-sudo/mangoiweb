@@ -3,6 +3,7 @@
 (function () {
   'use strict';
   var L = window.MangoiDubLibrary, adapter, view = 'movies', generation = 0, urls = [], catalogue = null, bulkJob = null, downloadPauses = [], uploadJob = null;
+  var reconnectTask = null, reconnectEpoch = 0;
   if (!L) return;
   var $ = function (id) { return document.getElementById(id); };
   function en() { try { return window.getLang && window.getLang() === 'en'; } catch (_) { return false; } }
@@ -628,6 +629,66 @@
     if (!u.connectionCloudError) return queueConnectionSync(c, u);
     drawCatalogue();
     })(); return u.connectionPromise;
+  }
+  function backgroundConnectionRecord(owner) {
+    var record = readUpload(owner); if (!record) return null;
+    var raw = localStorage.getItem(connectionKey(owner, record.id));
+    if (raw) {
+      if (raw.length > 1024 * 1024) throw new Error('connection_history_limit');
+      var saved = JSON.parse(raw);
+      if (!saved || saved.version !== 1 || saved.owner !== owner || saved.jobId !== record.id || !Array.isArray(saved.rows)) throw new Error('invalid_connection_history');
+      var history = { version: 1, rows: saved.rows.map(function (r) { return { key: r.key, seq: r.seq, name: r.name, code: r.code, movieIds: r.movieIds, ...(r.sha256 ? { sha256: r.sha256 } : {}) }; }), removed: saved.removed || [] };
+      if (!validConnections(history, record)) throw new Error('invalid_connection_history');
+      record.connections = mergeCloudConnections(record.connections, history);
+    }
+    return record;
+  }
+  function connectionNotification() {
+    var notice = $('dub-sync-notification'); if (!notice) return;
+    $('dub-sync-notification-text').textContent = t('✓ 인터넷이 다시 연결되어 남은 기록의 계정 동기화를 완료했어요.', '✓ Connection restored. Remaining records have synced to your account.');
+    notice.hidden = false;
+  }
+  async function syncClosedConnections(owner, epoch) {
+    function current() { return owned(owner) && epoch === reconnectEpoch && L.hasAccount() && !(catalogue && view === 'movies'); }
+    if (!current() || !L.listUploads || !L.saveUpload) return;
+    var record = backgroundConnectionRecord(owner); if (!record || !record.connections) return;
+    var jobId = record.id, response = await L.listUploads();
+    if (!current()) return;
+    if (!response || !Array.isArray(response.uploads) || !Array.isArray(response.removed) || response.uploads.some(function (r) { return !validUpload(r, owner); })) throw new Error('invalid_upload');
+    if (response.removed.indexOf(jobId) >= 0) return;
+    var remote = response.uploads.find(function (r) { return r.id === jobId; }), ack = remote && remote.connections, sent = false;
+    while (current()) {
+      record = backgroundConnectionRecord(owner); if (!record || record.id !== jobId) return;
+      if (remote) record = mergeUpload(record, remote);
+      var pending = connectionPending({ connectionAckHistory: ack }, record.connections), count = pending.rows.length + pending.removed.length;
+      if (!count) { if (sent) connectionNotification(); return; }
+      var snapshot = JSON.parse(JSON.stringify(record));
+      snapshot.connections = { version: 1, rows: pending.rows.slice(0, 25), removed: pending.removed.slice(0, Math.max(0, 25 - Math.min(25, pending.rows.length))) };
+      var result = await L.saveUpload(snapshot, owner);
+      if (!current()) return;
+      if (!result || !validUpload(result.upload, owner) || result.upload.id !== jobId || !result.upload.connections) throw new Error('invalid_upload');
+      remote = result.upload; ack = mergeCloudConnections(ack, remote.connections); sent = true;
+      var latest = backgroundConnectionRecord(owner); if (!latest || latest.id !== jobId) return;
+      var json = JSON.stringify(mergeUpload(latest, remote)); if (json.length > 1024 * 1024) throw new Error('upload_history_too_large');
+      localStorage.setItem(uploadKey(owner), json);
+    }
+  }
+  function reconnectAccountConnections() {
+    if (!L.hasAccount()) return;
+    if (reconnectTask) return reconnectTask.promise;
+    var task = { owner: L.identity(), epoch: reconnectEpoch }; reconnectTask = task;
+    task.promise = (async function () {
+      try {
+        var c = catalogue, u = c && c.upload;
+        if (u && uploadCurrent(c, u)) {
+          var pending = connectionPending(u, connectionWire(u)), hadPending = pending.rows.length || pending.removed.length;
+          await reconnectConnections();
+          if (hadPending && owned(task.owner) && task.epoch === reconnectEpoch && u.connectionAutoSync === 'complete') connectionNotification();
+        }
+        if (owned(task.owner) && task.epoch === reconnectEpoch) await syncClosedConnections(task.owner, task.epoch);
+      } catch (_) { /* Keep the local outbox for the next reconnect or manual retry. */ }
+      finally { if (reconnectTask === task) reconnectTask = null; }
+    })(); return task.promise;
   }
   function reconnectConnections() {
     var c = catalogue, u = c && c.upload;
@@ -1265,10 +1326,11 @@
     if ($('dub-library-layout')) $('dub-library-layout').addEventListener('change', drawCatalogue);
     if ($('dub-library-close')) $('dub-library-close').addEventListener('click', function () { $('dub-library').hidden = true; ++generation; catalogue = null; clearItems(); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-library-view]'), function (b) { b.addEventListener('click', function () { openLibrary(b.getAttribute('data-library-view')); }); });
-    L.onAccountChange(function () { ++generation; catalogue = null; clearItems(); if ($('dub-library-search')) $('dub-library-search').value = ''; status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
+    L.onAccountChange(function () { ++reconnectEpoch; reconnectTask = null; if ($('dub-sync-notification')) $('dub-sync-notification').hidden = true; ++generation; catalogue = null; clearItems(); if ($('dub-library-search')) $('dub-library-search').value = ''; status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
     window.addEventListener('mangoi:lang-changed', function () { render(); if ($('dub-library') && !$('dub-library').hidden) refresh(); });
-    window.addEventListener('online', reconnectConnections);
-    window.addEventListener('pagehide', function () { if (catalogue && catalogue.upload && catalogue.upload.connecting) { var u = catalogue.upload; saveConnections(catalogue, u); u.connectionEpoch++; u.stopped = true; u.busy = false; u.connecting = false; } if (uploadJob) { uploadJob.state.stopped = true; rememberUpload(uploadJob.catalogue, uploadJob.state); } downloadPauses.slice().forEach(function (pause) { pause(); }); releaseUrls(); });
+    if ($('dub-sync-notification-close')) $('dub-sync-notification-close').addEventListener('click', function () { $('dub-sync-notification').hidden = true; });
+    window.addEventListener('online', reconnectAccountConnections);
+    window.addEventListener('pagehide', function () { ++reconnectEpoch; reconnectTask = null; if (catalogue && catalogue.upload && catalogue.upload.connecting) { var u = catalogue.upload; saveConnections(catalogue, u); u.connectionEpoch++; u.stopped = true; u.busy = false; u.connecting = false; } if (uploadJob) { uploadJob.state.stopped = true; rememberUpload(uploadJob.catalogue, uploadJob.state); } downloadPauses.slice().forEach(function (pause) { pause(); }); releaseUrls(); });
     render();
   }
   window.MangoiDubHome = { init: init, ready: ready, render: render, checkpoint: checkpoint, saveMovie: saveMovie, practice: practice, openLibrary: openLibrary, movieFilename: movieFilename };

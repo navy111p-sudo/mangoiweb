@@ -156,3 +156,8 @@ body .top{padding-right:158px}
 .dub-original-results{margin:16px 0;padding:12px;border:1px solid var(--line);border-radius:10px;min-width:0}.dub-original-results h4{margin:0 0 10px}.dub-original-results ul{padding-left:20px}.dub-original-results li{margin:0 0 14px;overflow-wrap:anywhere}.dub-original-results label{display:flex;flex-direction:column;gap:6px}.dub-original-results input[type=file]{width:100%;max-width:100%;min-width:0}
 
 .dub-original-results .dub-original-filter{flex-direction:row;align-items:center;gap:10px;min-height:44px}.dub-original-filter input{flex:0 0 22px;width:22px;height:22px;accent-color:var(--mint)}
+
+.dub-sync-notification{position:fixed;z-index:10000;bottom:96px;left:50%;transform:translateX(-50%);box-sizing:border-box;width:min(560px,calc(100% - 32px));display:flex;align-items:center;gap:12px;padding:16px;border:1px solid #39c79b;border-radius:14px;background:#122c27;color:#f1fff9;box-shadow:0 8px 28px #0008;font-size:15px;line-height:1.6}
+.dub-sync-notification[hidden]{display:none}
+.dub-sync-notification span{flex:1;min-width:0}
+.dub-sync-notification button{flex:none}
