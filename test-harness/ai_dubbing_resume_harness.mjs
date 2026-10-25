@@ -900,7 +900,7 @@ test('reconnection during an in-flight failure waits then retries and closed or 
 test('closed library reconnect syncs persisted results in batches, resumes only remaining records and shows dismissible app notice',async()=>{
   const {x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=Array.from({length:60},(_,i)=>namedOriginal(new Blob([]),'닫힌 보관함 '+i+'.webm'));await picker.fire('change');for(let i=0;i<10;i++)await tick();await x.el('dub-library-close').fire('click');
   server.offline=false;const save=x.lib.saveUpload;let calls=0,sent=[];x.lib.saveUpload=async(job,owner)=>{if(job.connections){sent.push(structuredClone(job.connections));if(++calls===2)throw Error('offline');}return save(job,owner);};
-  x.el('dub-sync-notification').hidden=true;await x.online();assert.equal(x.el('dub-sync-notification').hidden,true);assert.equal(sent.length,2);const ack=new Set(sent[0].rows.map(r=>r.key));sent=[];
+  x.el('dub-sync-notification').hidden=true;await x.online();assert.equal(x.el('dub-sync-notification').hidden,false);assert.match(x.el('dub-sync-notification-text').textContent,/동기화에 실패/);assert.equal(sent.length,2);const ack=new Set(sent[0].rows.map(r=>r.key));sent=[];
   await Promise.all([x.online(),x.online()]);assert.equal(sent.reduce((n,h)=>n+h.rows.length,0),35);assert.ok(sent.every(h=>h.rows.every(r=>!ack.has(r.key))));assert.equal(x.el('dub-library').hidden,true);assert.equal(x.el('dub-sync-notification').hidden,false);assert.match(x.el('dub-sync-notification-text').textContent,/남은 기록의 계정 동기화를 완료/);assert.equal(x.uploadCalls.length,0);
   await x.el('dub-sync-notification-close').fire('click');assert.equal(x.el('dub-sync-notification').hidden,true);await x.ctx.MangoiDubHome.openLibrary('movies');assert.match(connectionList(x).textContent,/60 \/ 60개 완료/);
 });
@@ -910,7 +910,7 @@ test('closed background sync cannot continue or show a notice after account chan
     const save=x.lib.saveUpload,hold=deferred();let calls=0;x.lib.saveUpload=async(...args)=>{calls++;return save(...args);};
     if(mode==='deleted'){server.removed.add(server.jobs[0].id);server.jobs=[];await x.online();}
     else {const list=x.lib.listUploads;let entered=false;x.lib.listUploads=async()=>{entered=true;await hold.promise;return list();};const task=x.online();await until(()=>entered);if(mode==='account'){x.changeOwner('student:bob');x.changeOwner('student:alice');}else x.pagehide();hold.resolve();await task;}
-    assert.equal(calls,0);assert.equal(x.el('dub-sync-notification').hidden,true);assert.equal(x.uploadCalls.length,0);
+    assert.equal(calls,0);assert.equal(x.el('dub-sync-notification').hidden,mode!=='deleted');if(mode==='deleted')assert.equal(x.el('dub-sync-notification-retry').hidden,true);assert.equal(x.uploadCalls.length,0);
   }
 });
 test('closing during foreground reconnect hands remaining results to background without reopening the library',async()=>{
@@ -928,7 +928,19 @@ test('a fresh online app syncs remembered results before opening the library and
 test('an offline app waits for reconnection and a restored app retries only results left by a failed startup',async()=>{
   const {x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=Array.from({length:60},(_,i)=>namedOriginal(new Blob([]),'재시작 '+i+'.webm'));await picker.fire('change');for(let i=0;i<10;i++)await tick();server.offline=false;
   const y=world(new Map(x.data));y.ctx.navigator={onLine:false};cloudUploads(y,server);y.el('dub-library').hidden=true;y.el('dub-sync-notification').hidden=true;const save=y.lib.saveUpload;let calls=0,sent=[];y.lib.saveUpload=async(job,owner)=>{sent.push(structuredClone(job.connections));if(++calls===2)throw Error('offline');return save(job,owner);};
-  await y.boot();assert.equal(calls,0);y.ctx.navigator.onLine=true;await y.online();assert.equal(calls,2);assert.equal(y.el('dub-sync-notification').hidden,true);const ack=new Set(sent[0].rows.map(r=>r.key));sent=[];await y.pageshow();assert.equal(sent.reduce((n,h)=>n+h.rows.length,0),35);assert.ok(sent.every(h=>h.rows.every(r=>!ack.has(r.key))));assert.equal(y.el('dub-sync-notification').hidden,false);assert.equal(y.saved.length,0);
+  await y.boot();assert.equal(calls,0);y.ctx.navigator.onLine=true;await y.online();assert.equal(calls,2);assert.match(y.el('dub-sync-notification-text').textContent,/동기화에 실패/);const ack=new Set(sent[0].rows.map(r=>r.key));sent=[];await y.pageshow();assert.equal(sent.reduce((n,h)=>n+h.rows.length,0),35);assert.ok(sent.every(h=>h.rows.every(r=>!ack.has(r.key))));assert.equal(y.el('dub-sync-notification').hidden,false);assert.equal(y.saved.length,0);
+});
+
+test('app notice shows confirmed batch progress and retry sends only remaining records with duplicate clicks serialized',async()=>{
+  const {x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=Array.from({length:60},(_,i)=>namedOriginal(new Blob([]),'진행 '+i+'.webm'));await picker.fire('change');for(let i=0;i<10;i++)await tick();await x.el('dub-library-close').fire('click');server.offline=false;
+  const save=x.lib.saveUpload,hold=deferred();let calls=0,sent=[];x.lib.saveUpload=async(job,owner)=>{sent.push(structuredClone(job.connections));if(++calls===2){await hold.promise;throw Error('offline');}return save(job,owner);};
+  const task=x.online();await until(()=>calls===2);assert.match(x.el('dub-sync-notification-counts').textContent,/25 \/ 60개 완료 · 남은 기록 35개/);assert.equal(x.el('dub-sync-notification-progress').value,25);assert.equal(x.el('dub-sync-notification-retry').hidden,true);hold.resolve();await task;
+  assert.equal(x.el('dub-sync-notification-retry').hidden,false);const ack=new Set(sent[0].rows.map(r=>r.key));sent=[];await Promise.all([x.el('dub-sync-notification-retry').fire('click'),x.el('dub-sync-notification-retry').fire('click')]);assert.equal(sent.reduce((n,h)=>n+h.rows.length,0),35);assert.ok(sent.every(h=>h.rows.every(r=>!ack.has(r.key))));assert.match(x.el('dub-sync-notification-counts').textContent,/60 \/ 60개 완료 · 남은 기록 0개/);assert.equal(x.el('dub-sync-notification-retry').hidden,true);assert.equal(x.uploadCalls.length,0);
+});
+test('app notice retry reconciles a lost response without resending and stale retry cannot sync another account',async()=>{
+  const {x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=[namedOriginal(new Blob([]),'응답 유실.webm')];await picker.fire('change');for(let i=0;i<10;i++)await tick();await x.el('dub-library-close').fire('click');server.offline=false;
+  const save=x.lib.saveUpload;let calls=0;x.lib.saveUpload=async(...args)=>{calls++;await save(...args);throw Error('lost response');};await x.online();assert.equal(x.el('dub-sync-notification-retry').hidden,false);await x.el('dub-sync-notification-retry').fire('click');assert.equal(calls,1);assert.match(x.el('dub-sync-notification-text').textContent,/남은 기록의 계정 동기화를 완료/);
+  x.changeOwner('student:bob');await x.el('dub-sync-notification-retry').fire('click');assert.equal(calls,1);assert.equal(x.el('dub-sync-notification').hidden,true);
 });
 
 let failed=0;
