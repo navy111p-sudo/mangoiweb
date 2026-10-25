@@ -655,5 +655,39 @@ sec('[⑬] 테스트 대리점 예외 — 그 대리점만 열리고, cron 은 �
   check('(짝) 월 cron 은 예외를 보지 않는다 — 전체 스위치만', /billingEnabled\(env\)/.test(mon2) && !/billingEnabledFor|AI_BILLING_TEST/.test(mon2));
 }
 
+
+// ── ⑭ (2026-10-25) 빈 DB 에서 표가 실제로 생기는가 · 청구서 조회 실패가 internal_error 로 던지지 않는가 ──
+console.log('\n⑭ ensureSchema 실제 실행 · GET /invoice 조회 가드');
+{
+  let mkEnsure = null;
+  try {
+    const decl = fnDecl(billSrc, 'ensureSchema');
+    mkEnsure = () => new Function('safe', 'let _ensured = false;\n' + stripTypeScriptTypes(decl) + '\nreturn ensureSchema;')(async (f, fb) => { try { return await f(); } catch { return fb; } });
+  } catch (e) { check('전제: ensureSchema 를 오려 냈다', false, e.message); }
+  if (mkEnsure && DatabaseSync) {
+    const envOf = (d, failIdx = -1) => { let n = 0; return { DB: {
+      prepare: (sql) => ({ run: async () => { const i = n++; if (/^\s*CREATE/i.test(sql) && i === failIdx) throw new Error('boom'); d.exec(sql); return {}; }, bind: () => ({ run: async () => {} }) }),
+      exec: async (sql) => { throw new Error('multi-line exec not supported'); },
+    } }; };
+    const tables = (d) => d.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name);
+    const d1 = new DatabaseSync(':memory:');
+    const ens = mkEnsure();
+    try { await ens(envOf(d1)); } catch (e) { check('ensureSchema 가 던지지 않는다', false, e.message); }
+    const t = tables(d1);
+    check('빈 DB 에 청구서·명세·메타·신청 표가 생긴다(exec 를 못 써도)', ['ai_billing_invoices','ai_billing_invoice_items','ai_billing_meta','ai_billing_optin','agency_ai_rate'].every(x => t.includes(x)), t.join(','));
+    check('price_rule·track·user_set 칸이 붙는다', ['price_rule'].every(c => d1.prepare("PRAGMA table_info(ai_billing_invoices)").all().some(r => r.name === c)) && ['track','user_set'].every(c => d1.prepare("PRAGMA table_info(ai_billing_invoice_items)").all().some(r => r.name === c)));
+    // 핵심 표가 실패하면 다음 호출이 다시 시도한다(_ensured 를 세우지 않는다)
+    const d2 = new DatabaseSync(':memory:');
+    const ens2 = mkEnsure();
+    await ens2(envOf(d2, 1));
+    check('(짝) 청구서 표 생성이 실패하면 그 표는 없다', !tables(d2).includes('ai_billing_invoices'));
+    await ens2(envOf(d2));
+    check('(짝) 다음 요청이 다시 시도해 표가 생긴다', tables(d2).includes('ai_billing_invoices'));
+  }
+  const g = billCode.slice(billCode.indexOf("p === 'invoice' && method === 'GET'"), billCode.indexOf("p === 'invoice/generate'"));
+  check('GET /invoice 의 청구서 조회는 .catch 로 감싸져 있다(던지면 internal_error)', /FROM ai_billing_invoices WHERE shop_name = \? AND billing_month = \?`\s*\)\.bind\(shopName, month\)\.first<any>\(\)\.catch/.test(g));
+  check('조회 실패는 «무엇이 실패했는지» 를 말하는 503', /invoice_lookup_failed/.test(g) && /, 503\)/.test(g));
+}
+
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);
 if (FAIL) { console.log('실패:\n  - ' + FAILS.join('\n  - ')); process.exit(1); }
