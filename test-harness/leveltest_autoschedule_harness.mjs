@@ -139,14 +139,12 @@ check('7일로 끊는다 (무한정 쌓이지 않게)', /UPCOMING_DAYS \* dayMs/
 check('⛔ 반복 수업은 안 넣는다 (넣으면 그 강사 시간표로 가득 찬다)',
   /if \(!s\.scheduled_date\) continue;/.test(tapi));
 check('레벨테스트 표시가 함께 실린다', /is_level_test: classKindOf\(s\) === 'level_test',[\s\S]{0,120}?\}\);\s*\n\s*continue;/.test(tapi));
-check('화면에 «다가오는 수업» 카드가 있다', /id="c-upcoming"/.test(thtml));
-check('그리는 함수가 있다', /function renderUpcoming\(list\)/.test(thtml));
-check('실제로 «불린다» (정의만 하면 화면은 그대로다)', /renderUpcoming\(d\.upcoming \|\| \[\]\)/.test(thtml));
-check('언어를 바꿔도 다시 그린다', /renderUpcoming\(DATA\.upcoming \|\| \[\]\)/.test(thtml));
-check('건이 없으면 카드째 숨긴다 (빈 카드 금지)',
-  /if \(!list\.length\)\{ card\.hidden = true; return; \}/.test(thtml));
-check('여기엔 입장 버튼을 주지 않는다 (그날이 아니면 방이 없다)',
-  !/renderUpcoming[\s\S]{0,2200}?cls-act/.test(thtml));
+/* 📅 (2026-10-26 강사 제안) 화면의 «다가오는 수업 (7일)» 카드는 뺐다 — 강사는 근무 전 매일 일정을
+   확인하므로 오늘 수업만 보이면 된다. 다른 날은 합친 카드의 날짜 드롭다운·주간 전체 보기에서 본다.
+   서버 upcoming 은 «수업 연기 · 변경 요청» 카드가 계속 쓰므로 위 서버 검사는 그대로 둔다. */
+check('⛔ 화면에 «다가오는 수업» 카드가 없다 (강사 제안으로 삭제)', !/id="c-upcoming"/.test(thtml));
+check('⛔ 그리는 함수·호출이 남아 있지 않다', !/renderUpcoming\(/.test(thtml));
+check('연기·변경 요청 카드는 여전히 DATA.upcoming 을 읽는다', /DATA && DATA\.upcoming/.test(thtml));
 
 console.log('\n[ ⑥-3 강사도 «내 주간 스케줄» 을 본다 ]');
 /* 사장님 지적: "미리 교사의 스케줄에 올라와 있어야 하지 않나". 확인해 보니 강사에게
