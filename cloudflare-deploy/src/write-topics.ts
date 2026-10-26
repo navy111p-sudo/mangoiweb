@@ -29,11 +29,12 @@
  *        선생님이 화면에서 보고 고친다(초안 → 게시 두 단계).
  *
  * [그림] R2 RECORDINGS 의 `write-topics/<id>/<ver>.<ext>` — 녹화 청소기(`rec/` 만 훑음)와 겹치지 않는다.
- *        flux-2-klein-4b(멀티파트) → 실패하면 flux-1-schnell. 주소에 ver 가 있어 1년 캐시해도 안전.
+ *        flux-2-klein-4b(멀티파트) → 실패하면 flux-1-schnell. 공개(published) 그림만 1년 공개 캐시.
+ *        🔒 그 밖(학생 «나만 보는 주제»·초안·숨김)은 ?sig= 단기 서명 또는 소유자·본사 세션 + no-store(2026-10-26).
  */
 import { json } from './api-util';
 import { getAdminActor } from './auth-admin';
-import { authUidFromRequest } from './auth-token';
+import { authUidFromRequest, signWtImgSig, verifyWtImgSig } from './auth-token';
 import { orgScopeVerdict, readScopeType, type OrgScopeVerdict } from './org-scope-guard';
 import { isEnglishText } from './english-only';
 
@@ -125,6 +126,17 @@ export function canEditTopic(actor: { username: string; isTeacher: boolean; ownO
   if (!actor.isTeacher && !actor.ownOnly) return true;
   const me = String(actor.username || ''), owner = String(row.created_by || '');
   return !!me && me === owner;
+}
+
+/** 🖼 비공개 그림을 볼 수 있는가(2026-10-26) — 목록(manage)과 같은 기준.
+ *  만든 사람 본인(아이디 완전일치) · 또는 본사(선생님·조직 아님)는 «학생 주제가 아닌» 것만.
+ *  ⛔ 학생의 «나만 보는 주제»(stu:)는 본사도 못 본다(목록에서도 빼는 것과 같은 말). */
+export function canViewTopicImage(actor: { username: string; isTeacher: boolean; ownOnly?: boolean } | null, row: { created_by?: string | null } | null): boolean {
+  if (!actor || !row) return false;
+  const me = String(actor.username || ''), owner = String(row.created_by || '');
+  if (me && me === owner) return true;
+  if (actor.isTeacher || actor.ownOnly) return false;
+  return !owner.startsWith(WT_STUDENT_PREFIX);
 }
 
 /** 미션 단어 — 서버(api-ai.ts)가 «미션 단어를 썼다» 로 세는 글자만 받는다. */
@@ -329,6 +341,15 @@ function rowToItem(r: any, staff: boolean) {
   if (staff) { item.status = r.status; item.created_by = r.created_by || ''; item.image_prompt = r.image_prompt || ''; }
   return item;
 }
+/** 공개가 아닌 글감의 그림 주소에 «그 한 장 전용» 단기 서명을 붙인다(본인·직원 응답에만 쓴다).
+ *  서명을 못 만들면(비밀 미설정) 주소는 그대로 — 그 경우 직원 쿠키로만 열리고 학생 화면에는 안 보인다(막는 쪽). */
+async function withImgSig(env: any, item: any, r: any): Promise<any> {
+  if (!item || !item.image_url || !r || r.status === 'published') return item;
+  try { item.image_url += '?sig=' + encodeURIComponent(await signWtImgSig(Number(r.id), Number(r.image_ver), env)); }
+  catch (e: any) { console.warn('[write-topics] img sig:', e?.message); }
+  return item;
+}
+const staffItem = (env: any, row: any) => withImgSig(env, rowToItem(row, true), row);
 function rowToDraft(r: any): WtDraft {
   const it = rowToItem(r, false);
   return { title_ko: it.title_ko, title_en: it.title_en, icon: it.icon, open: it.open, questions: it.questions, words: it.words, image_prompt: r.image_prompt || '' };
@@ -492,13 +513,25 @@ export async function handleWriteTopicsApi(request: Request, url: URL, env: any)
   // 🖼 그림 — 주소에 판(ver)이 있어 1년 캐시. 판이 안 맞으면 404(옛 주소가 새 그림을 보이지 않게).
   const im = path.match(/^\/api\/class\/write-topics\/img\/(\d+)\/(\d+)$/);
   if (im && (method === 'GET' || method === 'HEAD')) {
-    const row: any = await env.DB.prepare(`SELECT image_key, image_ver, image_mime, status FROM write_topics WHERE id = ?`).bind(Number(im[1])).first();
+    const row: any = await env.DB.prepare(`SELECT image_key, image_ver, image_mime, status, created_by FROM write_topics WHERE id = ?`).bind(Number(im[1])).first();
     if (!row || !row.image_key || Number(row.image_ver) !== Number(im[2]) || !env.RECORDINGS) return new Response('not found', { status: 404 });
+    // 🔒 (2026-10-26) 공개(published)만 누구나·공개 캐시. 나머지(학생 «나만 보는 주제»·초안·숨김)는
+    //   단기 서명 또는 소유자·본사 세션이 있어야 하고 캐시에 남기지 않는다. 남이면 «없음»(존재도 안 알림).
+    const isPublic = row.status === 'published';
+    if (!isPublic) {
+      let allowed = row.status !== 'deleted' && await verifyWtImgSig(Number(im[1]), Number(im[2]), url.searchParams.get('sig') || '', env);
+      if (!allowed && row.status !== 'deleted') {
+        const hasCred = /mangoi_admin_session=/.test(request.headers.get('Cookie') || '') || /^Bearer\s+\S/.test(request.headers.get('Authorization') || '');
+        if (hasCred) { try { const g = await actorGate(request, env); allowed = 'actor' in g && canViewTopicImage(g.actor, row); } catch { allowed = false; } }
+      }
+      if (!allowed) return new Response('not found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
+    }
     const obj = await env.RECORDINGS.get(row.image_key);
     if (!obj) return new Response('not found', { status: 404 });
     return new Response(method === 'HEAD' ? null : obj.body, { headers: {
       'Content-Type': row.image_mime || 'image/jpeg',
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Cache-Control': isPublic ? 'public, max-age=31536000, immutable' : 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
     } });
   }
 
@@ -519,7 +552,7 @@ export async function handleWriteTopicsApi(request: Request, url: URL, env: any)
         const ms: any = (a.isTeacher || a.ownOnly)
           ? await env.DB.prepare(`SELECT * FROM write_topics WHERE created_by = ? AND status != 'deleted' ORDER BY updated_at DESC LIMIT ?`).bind(a.username, WT_LIST_MAX).all()
           : await env.DB.prepare(`SELECT * FROM write_topics WHERE status != 'deleted' AND COALESCE(created_by, '') NOT LIKE 'stu:%' ORDER BY updated_at DESC LIMIT ?`).bind(WT_LIST_MAX).all();
-        const manage = (ms.results || []).map((r: any) => rowToItem(r, true));
+        const manage = await Promise.all((ms.results || []).map((r: any) => staffItem(env, r)));
         const cap = a.student ? WT_STUDENT_DAILY_CAP : WT_USER_DAILY_CAP;
         const used = await countUsage(env, a.username);
         const cg = writeTopicCostGate(used.user, used.total, cap);
@@ -558,7 +591,7 @@ export async function handleWriteTopicsApi(request: Request, url: URL, env: any)
     await markLogOk(env, cg.logId);
     const id = Number(r?.meta?.last_row_id);
     const row: any = await env.DB.prepare(`SELECT * FROM write_topics WHERE id = ?`).bind(id).first();
-    return json({ ok: true, item: rowToItem(row, true), ai_used: !!raw });
+    return json({ ok: true, item: await staffItem(env, row), ai_used: !!raw });
   }
 
   const id = Number(b.id);
@@ -572,19 +605,19 @@ export async function handleWriteTopicsApi(request: Request, url: URL, env: any)
     await env.DB.prepare(`UPDATE write_topics SET title_ko = ?, title_en = ?, icon = ?, open_line = ?, questions_json = ?, words_json = ?, updated_at = ? WHERE id = ?`)
       .bind(d.title_ko, d.title_en, d.icon, d.open, JSON.stringify(d.questions), JSON.stringify(d.words), now, id).run();
     const nr: any = await env.DB.prepare(`SELECT * FROM write_topics WHERE id = ?`).bind(id).first();
-    return json({ ok: true, item: rowToItem(nr, true) });
+    return json({ ok: true, item: await staffItem(env, nr) });
   }
   if (action === 'publish') {
     const d = rowToDraft(row);
     if (!d.title_ko || !d.questions.length) return json({ ok: false, error: 'incomplete' }, 400);
     await env.DB.prepare(`UPDATE write_topics SET status = 'published', published_at = ?, updated_at = ? WHERE id = ?`).bind(now, now, id).run();
     const nr: any = await env.DB.prepare(`SELECT * FROM write_topics WHERE id = ?`).bind(id).first();
-    return json({ ok: true, item: rowToItem(nr, true) });
+    return json({ ok: true, item: await staffItem(env, nr) });
   }
   if (action === 'hide') {
     await env.DB.prepare(`UPDATE write_topics SET status = 'hidden', updated_at = ? WHERE id = ?`).bind(now, id).run();
     const nr: any = await env.DB.prepare(`SELECT * FROM write_topics WHERE id = ?`).bind(id).first();
-    return json({ ok: true, item: rowToItem(nr, true) });
+    return json({ ok: true, item: await staffItem(env, nr) });
   }
   // action === 'image'
   if (!env.AI) return json({ ok: false, error: 'ai_unavailable' }, 503);
@@ -602,5 +635,5 @@ export async function handleWriteTopicsApi(request: Request, url: URL, env: any)
     try { await env.RECORDINGS.delete(row.image_key); } catch { /* 옛 판은 남아도 무해 */ }
   }
   const nr: any = await env.DB.prepare(`SELECT * FROM write_topics WHERE id = ?`).bind(id).first();
-  return json({ ok: true, item: rowToItem(nr, true) });
+  return json({ ok: true, item: await staffItem(env, nr) });
 }
