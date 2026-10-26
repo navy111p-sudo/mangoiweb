@@ -11520,6 +11520,66 @@ LIMIT $limit`;
           login_account_note: linkedAccount ? { username: linkedAccount.username, old_name: before?.name } : undefined,
         });
       }
+      /* 🔎 (2026-10-26 사장님 「카페24에서 학생 아이디 가져오듯 대리점 아이디도 가져와야」)
+         옛 LMS 화면은 대리점마다 «아이디»(엘리더잼영어 = ysyt00)를 보여 주는데, 야간 동기화의
+         :Center Cypher 는 id·branch_id·name·address·manager·active 여섯 칸뿐이다. 그 값이
+         :Center 의 어느 속성에 있는지, 아니면 이어진 다른 노드에 있는지 **추측으로 박기 전에**
+         실제 그래프를 읽어 보여 준다(지사 debug=cafe24_props 와 같은 방식).
+           ?debug=cafe24_props            → :Center 전체 속성 이름 + 예시 3건
+           ?debug=cafe24_props&name=엘리더잼 → 그 이름을 담은 :Center 의 속성 + 이어진 노드
+           ?debug=cafe24_props&find=ysyt00  → 그래프 전체에서 그 값을 «그대로» 가진 노드·속성
+         ⛔ 이 결과로 곧바로 centers 를 UPDATE 하지 않는다 — 칸을 확인한 뒤 동기화에 넣는다.
+         본사만(원본 그래프의 날 것 그대로). */
+      if (method === 'GET' && url.searchParams.get('debug') === 'cafe24_props') {
+        if (!canEditOrg(_cSc)) return json({ ok: false, error: 'forbidden_scope' }, 403);
+        // canEditOrg 는 'none'(교사)에도 true 다 — 원본 그래프(연락처 등)를 강사에게 열지 않는다.
+        const _dbgActor = await getAdminActor(request, env as any);
+        if (!_dbgActor.ok) return json({ ok: false, error: 'unauthorized' }, 401);
+        if (_dbgActor.isTeacher) return json(forbiddenTeacherBody(_dbgActor), 403);
+        try {
+          const nm = (url.searchParams.get('name') || '').trim();
+          const fv = (url.searchParams.get('find') || '').trim();
+          const pick = (rs: any, k: string) => rs.fields.indexOf(k);
+          const out: any = { ok: true };
+          const all = await runCypher(env, `MATCH (c:Center) RETURN properties(c) AS props`, {}, 'READ');
+          const ki = pick(all, 'props');
+          const keySet = new Set<string>(); const sample: any[] = [];
+          for (const row of all.values) {
+            const pr = row[ki] as Record<string, any> | null;
+            if (pr) Object.keys(pr).forEach(k => keySet.add(k));
+            if (pr && sample.length < 3) sample.push(pr);
+          }
+          out.center_count = all.values.length;
+          out.all_property_keys = Array.from(keySet).sort();
+          out.sample_rows = sample;
+          if (nm) {
+            const rs = await runCypher(env, `
+              MATCH (c:Center) WHERE c.name CONTAINS $nm
+              OPTIONAL MATCH (c)-[rel]-(x)
+              RETURN properties(c) AS center_props,
+                     collect(DISTINCT {rel_type: type(rel), other_labels: labels(x), other_props: properties(x)})[0..20] AS linked
+              LIMIT 5`, { nm }, 'READ');
+            out.by_name = rs.values.map((row: any[]) => ({
+              center_props: row[pick(rs, 'center_props')],
+              linked_nodes: (row[pick(rs, 'linked')] || []).filter((l: any) => l && l.rel_type),
+            }));
+          }
+          if (fv) {
+            if (!/^[A-Za-z0-9_.@-]{3,64}$/.test(fv)) return json({ ok: false, error: 'bad_find' }, 400);
+            const rs = await runCypher(env, `
+              MATCH (n) WHERE any(k IN keys(n) WHERE toString(n[k]) = $v)
+              RETURN labels(n) AS labels, [k IN keys(n) WHERE toString(n[k]) = $v] AS matched_keys, properties(n) AS props
+              LIMIT 10`, { v: fv }, 'READ');
+            out.find = rs.values.map((row: any[]) => ({
+              labels: row[pick(rs, 'labels')], matched_keys: row[pick(rs, 'matched_keys')], props: row[pick(rs, 'props')],
+            }));
+          }
+          return json(out);
+        } catch (e: any) {
+          if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+          return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
+        }
+      }
       if (method === 'GET') {
         const q = (url.searchParams.get('q') || '').trim();
         // 💳 (2026-08-14) 결제유형 필터 — 'B2B' | 'B2C' | 'NONE'(미지정). 그 밖의 값은 «전체».

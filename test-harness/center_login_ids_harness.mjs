@@ -62,5 +62,16 @@ const spans = [...core.slice(core.indexOf('async function loadCenters'), c1).mat
   .concat([...html.matchAll(/<tbody id="centers-table"><tr><td colspan="(\d+)"/g)].map(m => +m[1]));
 ok(`th(${thN}) = td(${tdN}) = colspan(${spans.join(',')})`, thN > 0 && thN === tdN && spans.length >= 3 && spans.every(n => n === thN));
 
+// ── ④ 카페24 :Center 속성 진단(2026-10-26) ─────────────────
+const d0 = api.indexOf("url.searchParams.get('debug') === 'cafe24_props') {\n        if (!canEditOrg(_cSc))");
+const d1 = d0 > 0 ? api.indexOf("if (method === 'GET') {", d0) : -1;
+ok('전제: 대리점 진단 블록을 찾았다', d0 > 0 && d1 > d0);
+const dbg = api.slice(d0, d1);
+ok('진단: 본사만(canEditOrg)', /if \(!canEditOrg\(_cSc\)\) return/.test(dbg));
+ok('진단: 강사도 막는다(canEditOrg 는 교사에 true)', /_dbgActor\.isTeacher\) return json\(forbiddenTeacherBody/.test(dbg));
+ok('진단: 읽기 전용(Cypher READ · D1 쓰기 없음)', !/env\.DB/.test(dbg) && (dbg.match(/'READ'\)/g) || []).length === 3 && !/'WRITE'/.test(dbg));
+ok('진단: find 값을 검사하고 파라미터로 넘긴다', /bad_find/.test(dbg) && /\{ v: fv \}/.test(dbg) && !/\$\{fv\}/.test(dbg));
+ok('진단이 목록 GET 보다 앞(먼저 돌아간다)', d0 < d1);
+
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
