@@ -11582,7 +11582,43 @@ LIMIT $limit`;
         const rs = await env.DB.prepare(
           `SELECT ${cols} FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${listWhereSql} ORDER BY c.active DESC, c.name ASC${pageSql}`
         ).bind(...pageBinds).all();
-        return json({ ok: true, items: rs.results || [], total: pt ? counts[pt] : counts.all, counts, limit, offset,
+        const _ctItems: any[] = (rs.results || []) as any[];
+        /* 🪪 (2026-10-26 사장님 「대리점 아이디가 안 나온다」) 대리점 로그인 계정은 centers 에
+           칸이 없고 admin_scope(scope_type='agency') 의 scope_value = 대리점 «이름» 으로만
+           이어진다(scopeCenterCond 가 name = ? 로 가르는 것과 같은 규칙 — 정확일치만, 추측 없음).
+           ⚠️ 이 줄이 그 이름을 쓰는 «모든» 대리점에 붙는 것은 사실 그대로다 — centers.name 이
+              유일하지 않아 그 계정은 같은 이름 대리점 자료를 함께 본다(login_shared 로 알린다).
+           ⚠️ 지워진 계정의 남은 scope 행은 admin_account 와 JOIN 해 뺀다.
+           🔒 계정명은 본사만(지사 login_id 와 같은 이유). 실패해도 목록은 그대로 — 칸만 «모름». */
+        if (!min && canEditOrg(_cSc) && _ctItems.length) {
+          try {
+            const names = Array.from(new Set(_ctItems.map((it: any) => String(it.name || '')).filter(Boolean)));
+            const namesJson = JSON.stringify(names);
+            const acc = await env.DB.prepare(
+              `SELECT s.scope_value AS shop, s.username FROM admin_scope s
+                 JOIN admin_account a ON a.username = s.username
+                WHERE s.scope_type = 'agency' AND s.scope_value IN (SELECT value FROM json_each(?))
+                ORDER BY s.username`
+            ).bind(namesJson).all();
+            const dup = await env.DB.prepare(
+              `SELECT name FROM centers WHERE name IN (SELECT value FROM json_each(?)) GROUP BY name HAVING COUNT(*) > 1`
+            ).bind(namesJson).all();
+            const byName = new Map<string, string[]>();
+            for (const r of (acc.results || []) as any[]) {
+              const k = String(r.shop || '');
+              if (!byName.has(k)) byName.set(k, []);
+              byName.get(k)!.push(String(r.username));
+            }
+            const dupSet = new Set(((dup.results || []) as any[]).map((r: any) => String(r.name)));
+            for (const it of _ctItems) {
+              it.login_ids = byName.get(String(it.name || '')) || [];
+              it.login_shared = dupSet.has(String(it.name || ''));
+            }
+          } catch (e: any) {
+            console.warn('[centers] login_ids lookup failed', e?.message || e);
+          }
+        }
+        return json({ ok: true, items: _ctItems, total: pt ? counts[pt] : counts.all, counts, limit, offset,
                       scope: { type: _cSc.type, label: _cSc.label }, can_edit: canEditOrg(_cSc) });
       }
       const b = await parseJsonBody(request);

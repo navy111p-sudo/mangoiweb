@@ -6509,7 +6509,7 @@ async function loadCenters(opts) {
     _ctRows = [];
     const en = adminLang === 'en';
     const why = (d && (d.message || d.error)) || (_ctHttp ? ('HTTP ' + _ctHttp) : (en ? 'network error' : '연결 실패'));
-    tb.innerHTML = '<tr><td colspan="10" class="empty" style="color:#b91c1c">⚠ '
+    tb.innerHTML = '<tr><td colspan="11" class="empty" style="color:#b91c1c">⚠ '
       + (en ? 'Could not load the agency list: ' : '대리점 목록을 불러오지 못했습니다: ') + _esc(String(why))
       + (_ctHttp ? ' (HTTP ' + _ctHttp + ')' : '') + '</td></tr>';
     const pg = document.getElementById('ct-pager'); if (pg) pg.innerHTML = '';
@@ -6527,7 +6527,7 @@ async function loadCenters(opts) {
   }
   if (!d.ok || !Array.isArray(d.items) || d.items.length === 0) {
     _ctRows = [];
-    tb.innerHTML = '<tr><td colspan="10" class="empty">'
+    tb.innerHTML = '<tr><td colspan="11" class="empty">'
       + ((_ctState.q || _ctState.pt || _ctState.fid) ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
     _ctRenderPager();
     return;
@@ -6566,8 +6566,22 @@ async function loadCenters(opts) {
     ? `<button type="button" onclick="ctEdit(${Number(c.id)})" class="org-rowact" data-ko="✏️ 수정" data-en="✏️ Edit"
         style="padding:2px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">${adminLang==='en'?'✏️ Edit':'✏️ 수정'}</button>`
     : '';
+  /* 🪪 (2026-10-26) 로그인 아이디 — 서버가 admin_scope(이름 정확일치)로 찾아 준 값.
+     login_ids 가 «없으면» 못 물어본 것(본사 아님·조회 실패) → «?», 빈 배열이면 «계정 없음». */
+  const _ctLoginCell = c => {
+    const en = adminLang === 'en';
+    if (!Array.isArray(c.login_ids)) return '<span style="color:#9ca3af" title="' + (en ? 'Unknown' : '확인하지 못했습니다') + '">?</span>';
+    if (!c.login_ids.length) return '<span style="color:#9ca3af" title="' + (en ? 'No login account is linked to this exact agency name' : '이 대리점 이름과 정확히 이어진 로그인 계정이 없습니다') + '">' + (en ? 'No account' : '계정 없음') + '</span>';
+    return c.login_ids.map(u => {
+      const safe = String(u).replace(/['\\]/g, '');
+      return `<span style="font-family:MangoiHanSC,ui-monospace,monospace;font-size:12px">${_esc(u)}</span>`
+        + `<button type="button" onclick="ltCopyTicket(this,'${safe}')" title="${en?'Copy login ID':'아이디 복사'}"
+            style="margin-left:4px;padding:1px 6px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">📋</button>`;
+    }).join('<br>')
+      + (c.login_shared ? '<div style="font-size:10.5px;color:#b45309">' + (en ? '⚠ shared by agencies with the same name' : '⚠ 같은 이름 대리점과 함께 씀') + '</div>' : '');
+  };
   tb.innerHTML = d.items.map(c =>
-    `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td>${_ptCell(c)}</td><td style="white-space:nowrap">${_tuCell(c)}</td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.phone)||'—'}</td><td>${_esc(c.address)||'—'}</td><td style="white-space:nowrap">${_actCell(c)}</td></tr>`
+    `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td style="white-space:nowrap">${_ctLoginCell(c)}</td><td>${_ptCell(c)}</td><td style="white-space:nowrap">${_tuCell(c)}</td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.phone)||'—'}</td><td>${_esc(c.address)||'—'}</td><td style="white-space:nowrap">${_actCell(c)}</td></tr>`
   ).join('');
   _ctRenderPager();
 }
