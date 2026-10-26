@@ -394,6 +394,18 @@
     #wtPanel[hidden], #wtRow[hidden], #wtEdit[hidden], #wtMine[hidden], .wt-btn[hidden] { display: none !important; }
     .wt-head { font-size: 16px; font-weight: 900; color: #a7f3d0; margin-bottom: 10px; }
     .wt-who { font-size: 12.5px; font-weight: 700; color: var(--text2); }
+    /* ⏳ 오늘 AI 남은 횟수 — 처음부터 보인다(제안 4). 다 쓰면 붉게 «내일 다시». */
+    .wt-left { display: inline-block; margin-left: 6px; padding: 2px 9px; border-radius: 99px; font-size: 12.5px; font-weight: 900;
+      background: #fbbf24; color: #1a1a1a; vertical-align: 1px; }
+    .wt-left.out { background: #fecaca; color: #7f1d1d; }
+    .wt-left:empty { display: none; }
+    /* 💡 예시 주제 버튼(학생만, 제안 1) — 누르면 칸에 들어가기만 한다(AI 는 학생이 «만들기» 를 눌러야 쓴다) */
+    .wt-ideas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; align-items: center; }
+    .wt-ideas[hidden] { display: none !important; }
+    .wt-ideas-lbl { font-size: 12.5px; font-weight: 800; color: var(--text2); margin-right: 2px; }
+    .wt-idea { padding: 6px 11px; border-radius: 99px; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 700;
+      color: #f1f5f9; background: rgba(15,23,42,0.55); border: 1px solid rgba(148,163,184,0.45); }
+    .wt-idea:hover, .wt-idea:focus-visible { border-color: #34d399; color: #a7f3d0; }
     .wt-row { display: flex; gap: 8px; flex-wrap: wrap; }
     .wt-row > input { flex: 1 1 220px; min-width: 0; }
     .wt-panel input { box-sizing: border-box; padding: 10px 12px; border-radius: 10px; background: var(--card); color: var(--text);
@@ -694,11 +706,12 @@
          제목 → «브레인스토밍 만들기»(AI 초안) → 바로 아래 브레인스토밍에 그대로 보이고 → 고쳐 저장 → 🎨 그림(AI) → 📢 올리면 학원 전체 «장면·글감 선택» 에 뜬다.
          서버 정본: src/write-topics.ts (권한·하루 상한·저장). ⛔ 판정을 화면에 복제하지 말 것 — 화면은 서버가 준 can_create·message 를 그리기만 한다. -->
     <section class="wt-panel" id="wtPanel" hidden aria-labelledby="wtHead">
-      <div class="wt-head" id="wtHead">📌 <span data-ko="주제 만들기" data-en="Create a topic">주제 만들기</span> <span class="wt-who" id="wtWho" data-ko="(원장·선생님에게만 보여요)" data-en="(teachers only)">(원장·선생님에게만 보여요)</span></div>
+      <div class="wt-head" id="wtHead">📌 <span data-ko="주제 만들기" data-en="Create a topic">주제 만들기</span> <span class="wt-who" id="wtWho" data-ko="(원장·선생님에게만 보여요)" data-en="(teachers only)">(원장·선생님에게만 보여요)</span><span class="wt-left" id="wtLeft" aria-live="polite"></span></div>
       <div class="wt-row" id="wtRow">
-        <input type="text" id="wtTitleIn" maxlength="40" autocomplete="off" placeholder="글감 제목 — 예) 나의 첫 캠핑" data-ko-ph="글감 제목 — 예) 나의 첫 캠핑" data-en-ph="Topic title — e.g. My first camping trip" data-ko-aria="글감 제목" data-en-aria="Topic title" aria-label="글감 제목">
+        <input type="text" id="wtTitleIn" maxlength="40" autocomplete="off" placeholder="주제 제목 — 예) 나의 첫 캠핑" data-ko-ph="주제 제목 — 예) 나의 첫 캠핑" data-en-ph="Topic title — e.g. My first camping trip" data-ko-aria="주제 제목" data-en-aria="Topic title" aria-label="주제 제목">
         <button type="button" class="wt-btn wt-main" id="wtDraftBtn" onclick="wtDraft()">🧠 <span data-ko="브레인스토밍 만들기" data-en="Make brainstorming">브레인스토밍 만들기</span></button>
       </div>
+      <div class="wt-ideas" id="wtIdeas" hidden></div>
       <div class="wt-msg" id="wtMsg" role="status" aria-live="polite"></div>
       <div class="wt-edit" id="wtEdit" hidden>
         <div class="wt-state" id="wtState"></div>
@@ -716,7 +729,7 @@
           <button type="button" class="wt-btn" id="wtHideBtn" onclick="wtHide()">🙈 <span data-ko="내리기" data-en="Unpublish">내리기</span></button>
         </div>
       </div>
-      <details class="wt-mine" id="wtMine" hidden><summary><span id="wtMineSum" data-ko="📂 내가 만든 글감" data-en="📂 My topics">📂 내가 만든 글감</span></summary><div id="wtMineList"></div></details>
+      <details class="wt-mine" id="wtMine" hidden><summary><span id="wtMineSum" data-ko="📂 내가 만든 주제" data-en="📂 My topics">📂 내가 만든 주제</span></summary><div id="wtMineList"></div></details>
     </section>
     <div class="pic-card" id="picCard">
       <div class="pic-scene" id="picScene">
@@ -2660,6 +2673,7 @@
        ⚠️ <optgroup label> 은 i18n 엔진이 안 바꾼다 — 언어가 바뀌면 이 목록을 다시 그린다.
        ⛔ 이 목록에 «중괄호 + id:» 모양 리터럴을 쓰지 말 것 — 하니스가 GO_THEMES 주제 수(8)를 그 모양으로 센다. */
     const AW_GROUPS = [
+      { key:'mine',   ko:'📝 내 주제',        en:'📝 My topics' },
       { key:'custom', ko:'📌 선생님 글감',    en:"📌 Teacher's topics" },
       { key:'pic',    ko:'🎬 그림 장면',      en:'🎬 Picture scenes' },
       { key:'story',  ko:'🧠 내 경험 이야기', en:'🧠 My own story' },
@@ -2674,15 +2688,27 @@
       if (!it) return null;
       const qs = (Array.isArray(it.questions) ? it.questions : []).filter(q => q && q.k && q.ko && q.en);
       const notYet = !!(it.status && it.status !== 'published');
+      // 🎒 학생 화면의 «안 올린» 주제 = 학생이 만든 내 주제(학생은 올리기가 없다) — 선생님 말로 부르지 않는다(제안 0)
+      const mineStu = notYet && wtIsStudent();
       return { id: 'custom:' + it.id, icon: it.icon || '📌', ko: it.title_ko || '', en: it.title_en || it.title_ko || '', set: 'custom',
-               srcKo: notYet ? '선생님 글감 · 아직 안 올림' : '선생님 글감', srcEn: notYet ? "Teacher's topic · not published" : "Teacher's topic",
+               srcKo: mineStu ? '내 주제 · 나만 보여요' : notYet ? '선생님 글감 · 아직 안 올림' : '선생님 글감',
+               srcEn: mineStu ? 'My topic · just for you' : notYet ? "Teacher's topic · not published" : "Teacher's topic",
                open: String(it.open || '').trim(), qs: qs, words: (Array.isArray(it.words) ? it.words : []).map(w => String(w || '').trim()).filter(w => /^[a-zA-Z' -]{1,30}$/.test(w)).slice(0, 3), img: it.image_url || '' };
     }
     function awPickerEntries(key) {
+      if (key === 'mine') {
+        // 🎒 학생이 만든 «내 주제» — 선생님 글감과 섞지 않고 맨 위 묶음으로(제안 0). 선생님 화면에는 이 묶음이 없다.
+        if (!wtIsStudent()) return [];
+        return (_wtManage || []).filter(it => it && it.status !== 'published' && it.status !== 'deleted').map(it => {
+          const ic = it.icon ? it.icon + ' ' : '';
+          return { v: 'custom:' + it.id, ko: ic + it.title_ko, en: ic + (it.title_en || it.title_ko) };
+        });
+      }
       if (key === 'custom') {
         // 학원 전체에 올라온 것 + (선생님 화면이면) 아직 안 올린 내 초안 — 초안은 «(아직 안 올림)» 을 달아 학생 목록과 구분한다
+        // (학생 화면에서는 학생 주제가 위 «📝 내 주제» 묶음에 따로 있으므로 여기에는 올라온 것만)
         const seen = new Set(), out = [];
-        _wtItems.concat((_wtManage || []).filter(it => it.status !== 'published' && it.status !== 'deleted')).forEach(it => {
+        _wtItems.concat(wtIsStudent() ? [] : (_wtManage || []).filter(it => it.status !== 'published' && it.status !== 'deleted')).forEach(it => {
           if (!it || seen.has(it.id)) return; seen.add(it.id);
           const draft = it.status && it.status !== 'published';
           const ic = it.icon ? it.icon + ' ' : '';
@@ -2833,6 +2859,7 @@
     function wtFail(e, actKo, actEn) {
       const d = e && e.d, code = d && d.error;
       let text;
+      if (code === 'daily_cap') { _wtAiLeft = 0; wtRenderLeft(); }   // 서버가 «다 썼다» 고 하면 배지도 그 사실로
       if (d && d.message) { const parts = String(d.message).split(' / '); text = goLangKo() ? parts[0] : (parts[1] || parts[0]); }
       else if (code && WT_ERR[code]) text = wtT(WT_ERR[code][0], WT_ERR[code][1]);
       else if (!e || e.status === undefined) text = wtT('서버에 연결하지 못했어요. 인터넷을 확인해 주세요.', 'Could not reach the server. Check your connection.');
@@ -2879,10 +2906,24 @@
       if (!panel) return;
       panel.hidden = !(_wtCan || _wtNeedLogin);
       const who = document.getElementById('wtWho'), row = document.getElementById('wtRow');
-      const whoKo = !_wtCan ? '(로그인하면 나만의 주제를 만들 수 있어요)' : wtIsStudent() ? '(나만 보는 주제 · 하루 AI ' + (_wtAiCap || 10) + '번)' : '(원장·선생님에게만 보여요)';
-      const whoEn = !_wtCan ? '(log in to make your own topic)' : wtIsStudent() ? '(just for you · ' + (_wtAiCap || 10) + ' AI uses a day)' : '(teachers only)';
+      const whoKo = !_wtCan ? '(로그인하면 나만의 주제를 만들 수 있어요)' : wtIsStudent() ? '(🔒 나만 보여요)' : '(원장·선생님에게만 보여요)';
+      const whoEn = !_wtCan ? '(log in to make your own topic)' : wtIsStudent() ? '(🔒 just for you)' : '(teachers only)';
       if (who) { who.setAttribute('data-ko', whoKo); who.setAttribute('data-en', whoEn); who.textContent = wtT(whoKo, whoEn); }
       if (row) row.hidden = !_wtCan;
+      wtRenderLeft();
+      wtRenderIdeas();
+      // 학생 칸 안내 글 — «글감 제목» 대신 학생 말(제안 0)
+      const tin = document.getElementById('wtTitleIn');
+      if (tin) {
+        const phKo = wtIsStudent() ? '쓰고 싶은 주제를 적거나 아래에서 골라요' : '주제 제목 — 예) 나의 첫 캠핑';
+        const phEn = wtIsStudent() ? 'Type a topic you want, or pick one below' : 'Topic title — e.g. My first camping trip';
+        tin.setAttribute('data-ko-ph', phKo); tin.setAttribute('data-en-ph', phEn); tin.placeholder = wtT(phKo, phEn);
+      }
+      const mineSum = document.getElementById('wtMineSum');
+      if (mineSum) {
+        const mKo = wtIsStudent() ? '📂 내 주제' : '📂 내가 만든 주제';
+        mineSum.setAttribute('data-ko', mKo); mineSum.textContent = wtT(mKo, '📂 My topics');
+      }
       if (!_wtCan) { document.getElementById('wtEdit').hidden = true; document.getElementById('wtMine').hidden = true; return; }
       const edit = document.getElementById('wtEdit'), it = _wtCur;
       edit.hidden = !it;
@@ -2913,6 +2954,37 @@
         </div>`).join('');
       try { window.applyI18n && window.applyI18n(panel); } catch (e) {}
     }
+    // ⏳ 오늘 AI 남은 횟수(제안 4) — 서버가 준 ai_left 를 그리기만 한다(모르면 안 그린다)
+    function wtRenderLeft() {
+      const el = document.getElementById('wtLeft');
+      if (!el) return;
+      if (!_wtCan || typeof _wtAiLeft !== 'number') { el.textContent = ''; el.className = 'wt-left'; return; }
+      const out = _wtAiLeft <= 0;
+      el.className = 'wt-left' + (out ? ' out' : '');
+      el.textContent = out ? wtT('오늘 AI 다 씀 · 내일 다시', "Today's AI used up · try tomorrow")
+                           : wtT('오늘 AI ' + _wtAiLeft + '번 남음', _wtAiLeft + ' AI uses left today');
+    }
+    // 💡 예시 주제(제안 1) — 학생만. 누르면 칸에 넣기만 하고, AI 는 «만들기» 를 눌러야 쓴다(횟수를 몰래 쓰지 않는다).
+    const WT_IDEAS = [
+      ['🐶', '우리 집 강아지', 'My Dog'], ['🍕', '제일 좋아하는 음식', 'My Favorite Food'], ['⚽', '주말에 한 일', 'My Weekend'],
+      ['🎂', '내 생일', 'My Birthday'], ['🦖', '내가 좋아하는 공룡', 'My Favorite Dinosaur'], ['✈️', '가고 싶은 나라', 'A Country I Want to Visit'],
+      ['🏫', '우리 반 친구', 'My Classmate'], ['🌙', '어젯밤 꿈', 'My Dream Last Night'],
+    ];
+    function wtRenderIdeas() {
+      const box = document.getElementById('wtIdeas');
+      if (!box) return;
+      box.hidden = !(_wtCan && wtIsStudent());
+      if (box.hidden) return;
+      box.innerHTML = '<span class="wt-ideas-lbl">' + escapeHtml(wtT('💡 이런 주제는 어때요?', '💡 How about:')) + '</span>' +
+        WT_IDEAS.map((x, i) => '<button type="button" class="wt-idea" onclick="wtPickIdea(' + i + ')">' + escapeHtml(x[0] + ' ' + wtT(x[1], x[2])) + '</button>').join('');
+    }
+    window.wtPickIdea = function(i) {
+      const x = WT_IDEAS[Number(i)], inp = document.getElementById('wtTitleIn');
+      if (!x || !inp) return;
+      inp.value = wtT(x[1], x[2]);
+      inp.focus();
+      wtMsg('👉 ' + wtT('«🧠 브레인스토밍 만들기» 를 누르면 이 주제로 질문이 나와요. 글자는 바꿔도 돼요!', 'Press «🧠 Make brainstorming» to get questions for this topic. You can change the words!'), 'ok');
+    };
     function wtCollect() {
       const words = String(document.getElementById('wtWords').value || '').split(/[,，]/).map(w => w.trim()).filter(Boolean);
       const questions = [].map.call(document.querySelectorAll('#wtQs .wt-q'), row => {
@@ -2926,11 +2998,12 @@
     window.wtDraft = async function() {
       if (_wtBusy) return;
       const inp = document.getElementById('wtTitleIn'), title = String(inp.value || '').trim();
-      if (title.length < 2) { wtMsg('⚠️ ' + wtT('글감 제목을 2글자 이상 적어 주세요.', 'Please type a title (2+ letters).'), 'bad'); inp.focus(); return; }
+      if (title.length < 2) { wtMsg('⚠️ ' + wtT('주제를 2글자 이상 적어 주세요.', 'Please type a title (2+ letters).'), 'bad'); inp.focus(); return; }
+      if (_wtAiLeft === 0) { wtMsg('⏳ ' + wtT('오늘 AI 를 다 썼어요. 내일 다시 만들 수 있어요. 지금은 위 목록의 주제로 써 보세요!', 'You used all of today\'s AI. Try again tomorrow — for now, pick a topic from the list above!'), 'warn'); return; }
       wtSetBusy(true, wtT('🧠 AI 가 6하원칙 질문을 만드는 중이에요… (10초쯤)', '🧠 AI is writing the 5W1H questions… (about 10s)'));
       try {
         const d = await wtCall({ action: 'draft', title: title });
-        if (typeof _wtAiLeft === 'number') _wtAiLeft = Math.max(0, _wtAiLeft - 1);
+        if (typeof _wtAiLeft === 'number') _wtAiLeft = Math.max(0, _wtAiLeft - 1); wtRenderLeft();
         wtSetBusy(false);
         _wtCur = d.item;
         wtTake(d.item);
@@ -2954,7 +3027,7 @@
       wtSetBusy(true, wtT('🎨 AI 가 그림을 그리는 중이에요… (20초쯤)', '🎨 AI is drawing the picture… (about 20s)'));
       try {
         const d = await wtCall({ action: 'image', id: _wtCur.id });
-        if (typeof _wtAiLeft === 'number') _wtAiLeft = Math.max(0, _wtAiLeft - 1);
+        if (typeof _wtAiLeft === 'number') _wtAiLeft = Math.max(0, _wtAiLeft - 1); wtRenderLeft();
         wtSetBusy(false); wtTake(d.item);
         wtMsg('✅ ' + wtT('그림을 만들었어요. 위 그림 칸에 보여요.', 'Picture made. It shows in the picture box above.'), 'ok');
       } catch (e) { wtSetBusy(false); wtFail(e, '그림 만들기', 'Make a picture'); }
