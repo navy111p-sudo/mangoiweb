@@ -71,6 +71,11 @@ try {
   globalThis.__WT.isOrgScopedRole = isOrg.isOrgScopedRole;
   const OG = await import(toData(importsTo(stripTypeScriptTypes(rd(resolve(SRC, 'org-scope-guard.ts'))), '__WT')));
   globalThis.__WT.orgScopeVerdict = OG.orgScopeVerdict; globalThis.__WT.readScopeType = OG.readScopeType;
+  // 🔒 그림 서명은 «진짜» 정본으로 돌린다(가짜로 두면 서명 검사가 원리상 헛돈다)
+  const RJ = await import(toData(stripTypeScriptTypes(rd(resolve(SRC, 'room-jwt-secret.ts')))));
+  globalThis.__WT.requireRoomJwtSecret = RJ.requireRoomJwtSecret;
+  const AT = await import(toData(importsTo(stripTypeScriptTypes(rd(process.env.AT_SRC || resolve(SRC, 'auth-token.ts'))), '__WT')));
+  globalThis.__WT.signWtImgSig = AT.signWtImgSig; globalThis.__WT.verifyWtImgSig = AT.verifyWtImgSig;
   const wtPath = process.env.WT_SRC || resolve(SRC, 'write-topics.ts');
   M = await import(toData(importsTo(stripTypeScriptTypes(rd(wtPath)), '__WT')));
 } catch (e) { console.log('  (정본 로드 실패) ' + e.message); }
@@ -166,7 +171,7 @@ const AI = { run: async (model, input) => {
       { k: 'how', ko: '기분은?', en: 'How did you feel?', starter: 'I felt', example: 'excited' }],
     words: ['bus', 'museum', '점심'], image_prompt: 'children on a school bus going to a museum' } };
 } };
-const ENV = { DB: D1, AI, RECORDINGS };
+const ENV = { DB: D1, AI, RECORDINGS, ROOM_JWT_SECRET: 'LOCAL-ONLY-write-topics-harness-not-a-secret' };
 const call = async (method, path, who, body) => {
   const headers = { 'content-type': 'application/json' };
   if (who && who.startsWith('Bearer ')) headers.Authorization = who;
@@ -515,6 +520,88 @@ ok(/ko-KR/.test(wmic) && !/wtCall|wtDraft\(/.test(wmic) && /inp\.value = heard/.
 ok(/stopDictation\(\)/.test(wmic) && /window\.wtMicStop && window\.wtMicStop\(\)/.test(blockFrom(HTML, 'window.toggleDictation = function(){')), '🎤 글쓰기 받아쓰기와 동시에 듣지 않는다(양쪽)');
 ok(/wtRenderMic\(\)/.test(blockFrom(HTML, 'function wtRenderPanel()')), '패널을 그릴 때 🎤 도 함께 그린다');
 
+console.log('\n⑨ 🔒 비공개 그림 — 소유자 확인 · 단기 서명 · 공개 캐시 해제 (2026-10-26)');
+{
+  const W = globalThis.__WT;
+  ok(typeof W.signWtImgSig === 'function' && typeof W.verifyWtImgSig === 'function', '전제: 진짜 서명 정본을 불러왔다');
+  const raw = (u) => u.replace(/\?.*$/, '');
+  const get = async (u, who) => call('GET', u, who);
+  const noStore = (g) => /no-store/.test(g.res.headers.get('Cache-Control') || '') && !/public|immutable/.test(g.res.headers.get('Cache-Control') || '');
+  // 판정 함수 — 짝으로
+  ok(M.canViewTopicImage({ username: 'stu:a', isTeacher: false, ownOnly: true }, { created_by: 'stu:a' }) === true, '학생 본인은 자기 주제 그림을 본다');
+  ok(M.canViewTopicImage({ username: 'stu:b', isTeacher: false, ownOnly: true }, { created_by: 'stu:a' }) === false, '(짝) 다른 학생은 못 본다');
+  ok(M.canViewTopicImage(ACTORS.admin, { created_by: 'stu:a' }) === false, '본사도 학생 «나만 보는 주제» 그림은 못 본다(목록과 같은 기준)');
+  ok(M.canViewTopicImage(ACTORS.admin, { created_by: 'hq_t_kim' }) === true, '(짝) 본사는 직원 초안 그림을 본다');
+  ok(M.canViewTopicImage(ACTORS.hq_t_lee, { created_by: 'hq_t_kim' }) === false, '선생님은 남의 초안 그림을 못 본다');
+  ok(M.canViewTopicImage(ACTORS.hq_t_kim, { created_by: 'HQ_T_KIM' }) === false, '(짝) 대소문자만 다른 아이디는 남이다');
+  ok(M.canViewTopicImage(null, { created_by: 'x' }) === false && M.canViewTopicImage(ACTORS.admin, null) === false, '모르면 못 본다');
+
+  // 학생 «나만 보는 주제» 그림
+  let r = await call('POST', '/api/class/write-topics', 'Bearer tok-parkjh', { action: 'draft', title: '우리 가족 여행' });
+  const P = r.j.item;
+  r = await call('POST', '/api/class/write-topics', 'Bearer tok-parkjh', { action: 'image', id: P.id });
+  const pu = r.j.item.image_url;
+  ok(r.st === 200 && /\/img\/\d+\/1\?sig=\d+\./.test(pu), '학생 주제 그림 주소에는 단기 서명이 붙는다', pu);
+  let g = await get(pu);
+  ok(g.st === 200 && g.res.headers.get('Content-Type') === 'image/png' && noStore(g), '서명 있으면 열린다 · private, no-store(공개 캐시 아님)', g.res.headers.get('Cache-Control'));
+  g = await get(raw(pu));
+  ok(g.st === 404 && noStore(g), '🔴 로그인·서명 없이 번호만으로는 안 열린다(404 · 캐시 안 됨)');
+  g = await get(raw(pu), 'Bearer tok-leeyu');
+  ok(g.st === 404, '다른 학생 토큰으로도 안 열린다');
+  g = await get(raw(pu), 'Bearer tok-parkjh');
+  ok(g.st === 200 && noStore(g), '(짝) 본인 토큰이면 서명 없이도 열린다');
+  g = await get(raw(pu), 'admin');
+  ok(g.st === 404, '본사 쿠키로도 학생 주제 그림은 안 열린다');
+  { const sg = decodeURIComponent(pu.split('sig=')[1]); const at = sg.indexOf('.') + 10; const bad = sg.slice(0, at) + (sg[at] === 'A' ? 'B' : 'A') + sg.slice(at + 1);
+    g = await get(raw(pu) + '?sig=' + encodeURIComponent(bad)); }
+  ok(g.st === 404, '서명을 한 글자 바꾸면 안 열린다');
+  const other = await W.signWtImgSig(P.id + 1, 1, ENV);
+  g = await get(raw(pu) + '?sig=' + encodeURIComponent(other));
+  ok(g.st === 404, '다른 글감 번호의 서명으로는 안 열린다');
+  const expired = await W.signWtImgSig(P.id, 1, ENV, -1000);
+  g = await get(raw(pu) + '?sig=' + encodeURIComponent(expired));
+  ok(g.st === 404, '만료된 서명은 안 열린다');
+  r = await call('POST', '/api/class/write-topics', 'Bearer tok-parkjh', { action: 'image', id: P.id });
+  g = await get(pu);
+  ok(/\/2\?sig=/.test(r.j.item.image_url) && g.st === 404, '그림을 다시 만들면 옛 판 서명 주소는 안 열린다');
+  g = await get(r.j.item.image_url);
+  ok(g.st === 200, '(짝) 새 판 서명 주소는 열린다');
+  r = await call('GET', '/api/class/write-topics', 'Bearer tok-parkjh');
+  const mine = r.j.manage.find(x => x.id === P.id) || {};
+  ok(/\?sig=/.test(mine.image_url || '') && (await get(mine.image_url)).st === 200, '내 목록(manage)의 그림 주소에도 서명이 붙고 열린다');
+  ok(!r.j.items.some(x => x.id === P.id), '(짝) 공개 목록에는 여전히 안 나온다');
+  g = await get('/api/class/write-topics/img/' + P.id + '/2?sig=' + encodeURIComponent(await W.signWtImgSig(P.id, 2, { ROOM_JWT_SECRET: 'some-other-secret' })));
+  ok(g.st === 404, '다른 비밀키로 만든 서명은 안 열린다');
+
+  // 직원 초안 → 공개 → 내리기
+  r = await call('POST', '/api/class/write-topics', 'admin', { action: 'draft', title: '나의 보물' });
+  const D = r.j.item;
+  r = await call('POST', '/api/class/write-topics', 'admin', { action: 'image', id: D.id });
+  const du = r.j.item.image_url;
+  ok(/\?sig=/.test(du), '직원 초안 그림에도 서명');
+  ok((await get(raw(du))).st === 404, '초안 그림은 로그인 없이 안 열린다');
+  ok((await get(raw(du), 'admin')).st === 200, '(짝) 본사 쿠키(img 태그가 쿠키를 싣는다)면 열린다');
+  ok((await get(raw(du), 'hq_t_lee')).st === 404, '다른 선생님 쿠키로는 안 열린다');
+  r = await call('POST', '/api/class/write-topics', 'admin', { action: 'publish', id: D.id });
+  ok(!/\?sig=/.test(r.j.item.image_url), '공개된 글감 그림 주소에는 서명을 안 붙인다');
+  r = await call('GET', '/api/class/write-topics');
+  const pubD = r.j.items.find(x => x.id === D.id) || {};
+  g = await get(pubD.image_url || 'x');
+  ok(g.st === 200 && /public/.test(g.res.headers.get('Cache-Control') || '') && /immutable/.test(g.res.headers.get('Cache-Control') || ''), '(짝) 공개 그림은 누구나 · 공개 캐시 그대로');
+  r = await call('POST', '/api/class/write-topics', 'admin', { action: 'hide', id: D.id });
+  g = await get(raw(du));
+  ok(g.st === 404 && noStore(g), '내린 글감 그림은 다시 로그인 없이 안 열린다');
+  ok((await get(raw(du), 'admin')).st === 200, '(짝) 내린 것도 본사는 본다');
+  // 삭제 상태 — 서명이 있어도 안 연다
+  const sigD = await W.signWtImgSig(D.id, 1, ENV);
+  db.prepare("UPDATE write_topics SET status = 'deleted' WHERE id = ?").run(D.id);
+  ok((await get(raw(du) + '?sig=' + encodeURIComponent(sigD))).st === 404 && (await get(raw(du), 'admin')).st === 404, '삭제된 글감 그림은 서명·본사여도 안 연다');
+  // 비밀키가 없으면 — 서명은 못 만들되 막는 쪽(공개 캐시로 새지 않음)
+  const ENV2 = { ...ENV }; delete ENV2.ROOM_JWT_SECRET;
+  const req2 = new Request('https://mangoi.ai' + raw(pu));
+  const g2 = await M.handleWriteTopicsApi(req2, new URL(req2.url), ENV2);
+  ok(g2.status === 404, '비밀키가 없어도 비공개 그림은 안 연다(fail-closed)');
+}
 console.log('\n[G] 이어 쓰기(제안 5) · 내 작품 카드(제안 9) — 2026-10-26');
 const GBLK = (() => { const a = HTML.indexOf('const AW_TOPIC_KEY'), b = HTML.indexOf('/* ═══ 📄 STEP 4'); return a > 0 && b > a ? HTML.slice(a, b) : ''; })();
 ok(!!GBLK, '전제: 이어 쓰기·작품 카드 블록을 오려 냈다');
@@ -636,5 +723,21 @@ try { GW.w.openWorkCard(); } catch (e) { GW.log.threw = String(e); }
 ok(GW.log.toasts.some(t => /저장하지 못했어요/.test(t)) && GW.log.cls.has('sheet-open') && !GW.log.threw, '9) 저장이 막힌 기기면 «못 했다» 고 말하고 카드는 그래도 연다(인쇄할 수 있게)');
 ok(/onclick="openWorkCard\(\)"/.test(HTML) && /onclick="openWorks\(\)"/.test(HTML), '9) 첨삭 결과에 «작품 카드로 저장», 일기 머리에 «내 작품» 버튼');
 ok(/\.wk-list \{ display: none; \}/.test(style), '9) 인쇄할 때는 카드 고르는 줄을 감춘다');
+
+console.log('\n⑩ 🔒 내 작품 카드 — 낡은 서명 그림 주소를 새로 고치고, 못 열면 아이콘으로 (2026-10-26)');
+{
+  const fsrc = blockFrom(HTML, 'function awFreshImg(u)');
+  ok(!!fsrc, '전제: awFreshImg 를 오려 냈다');
+  let fresh = null;
+  try { fresh = new Function('awFindCustom', fsrc + '; return awFreshImg;')(id => (String(id) === '5' ? { image_url: '/api/class/write-topics/img/5/2?sig=NEW' } : null)); } catch (e) { fresh = null; }
+  ok(fresh && fresh('/api/class/write-topics/img/5/1?sig=OLD') === '/api/class/write-topics/img/5/2?sig=NEW', '목록에 같은 글감이 있으면 지금 받은(새 서명) 주소로 그린다');
+  ok(fresh && fresh('/api/class/write-topics/img/9/1?sig=OLD') === '/api/class/write-topics/img/9/1?sig=OLD', '(짝) 목록에 없으면 저장된 주소 그대로');
+  ok(fresh && fresh('/img/write-scenes/park.webp') === '/img/write-scenes/park.webp' && fresh('') === '', '(짝) 글감 그림이 아닌 주소·빈 값은 건드리지 않는다');
+  const card = blockFrom(HTML, 'function awWorkCardHtml(w, items, idx)');
+  ok(/src="\$\{escapeHtml\(awFreshImg\(w\.img\)\)\}"/.test(card), '작품 카드는 awFreshImg 를 거쳐 그린다');
+  ok(/onerror="this\.nextElementSibling\.hidden=false;this\.remove\(\)"><div class="wk-icon" hidden>/.test(card), '그림이 안 열리면(만료·삭제) 옆 아이콘을 보인다 — 빈 그림 대신');
+  ok(!/onerror="[^"]*\$\{/.test(card), '(짝) onerror 안에 값을 끼워 넣지 않는다(따옴표 깨짐 방지)');
+  ok(!/\.wk-icon \{[^}]*display/.test(style), '.wk-icon 에 display 를 정하지 않는다([hidden] 이 먹게)');
+}
 
 done();

@@ -3303,6 +3303,12 @@
       if (!out.length) out.push({ ko: '주제를 정해 끝까지 써 보았어요', en: 'Chose a topic and wrote it to the end' });
       return out.slice(0, 3);
     }
+    function awFreshImg(u) {
+      const m = String(u || '').match(/^\/api\/class\/write-topics\/img\/(\d+)\//);
+      if (!m) return String(u || '');
+      try { const it = awFindCustom(m[1]); if (it && it.image_url) return String(it.image_url); } catch (e) {}
+      return String(u);
+    }
     function awThemeImg(t) {
       if (!t) return '';
       if (t.img) return String(t.img);
@@ -3331,7 +3337,10 @@
       }
       const day = new Date(w.ts).toLocaleDateString(awLangEn() ? 'en-US' : 'ko-KR');
       const title = w.en || w.ko || awTr('나의 영작', 'My Writing');
-      const pic = w.img ? `<img class="wk-pic" src="${escapeHtml(w.img)}" alt="">` : `<div class="wk-icon">${escapeHtml(w.icon || '✍️')}</div>`;
+      // 🔒 «내 주제» 그림은 6시간짜리 서명 주소라 저장해 둔 주소가 낡는다 — 지금 목록에 같은 글감이 있으면 새 주소로,
+      //    그래도 못 열면 아이콘으로 바꾼다(빈 그림 대신).
+      const wkIc = escapeHtml(w.icon || '✍️');
+      const pic = w.img ? `<img class="wk-pic" src="${escapeHtml(awFreshImg(w.img))}" alt="" onerror="this.nextElementSibling.hidden=false;this.remove()"><div class="wk-icon" hidden>${wkIc}</div>` : `<div class="wk-icon">${wkIc}</div>`;
       const praise = (w.praise || []).map(p => `<li>${escapeHtml(awLangEn() ? p.en : p.ko)}</li>`).join('');
       const others = items.length > 1 ? `<div class="wk-list"><b>${escapeHtml(awTr('🏆 내 작품', '🏆 My works'))} ${items.length}</b>${items.map((x, i) =>
         `<button type="button" class="wk-chip${i === idx ? ' on' : ''}" onclick="awShowWork(${i})">${escapeHtml((x.icon || '✍️') + ' ' + (x.en || x.ko || '…'))}</button>`).join('')}</div>` : '';
