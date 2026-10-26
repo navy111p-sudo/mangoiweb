@@ -74,7 +74,7 @@ if (!M) done();
 
 console.log('\n① 순수 판정');
 ok(M.writeTopicEditVerdict(true, 'hq') === 'ok', '본사·선생님(스코프 hq/none) → 만들 수 있다');
-ok(M.writeTopicEditVerdict(true, 'org') === 'org', '(짝) 지사·대리점 → 막힌다(학원 전체에 보이는 글감이라)');
+ok(M.writeTopicEditVerdict(true, 'org') === 'own', '지사·대리점·가맹 원장도 만들 수 있다 — 고치기는 자기 것만(2026-10-26)');
 ok(M.writeTopicEditVerdict(true, 'unknown') === 'unknown', '(짝) 권한을 못 읽으면 막는다(fail-closed)');
 ok(M.writeTopicEditVerdict(false, 'hq') === 'auth', '(짝) 로그인이 없으면 막는다');
 const CAP = M.WT_USER_DAILY_CAP;
@@ -86,6 +86,8 @@ ok(M.canEditTopic(ACTORS.hq_t_kim, { created_by: 'hq_t_kim' }) === true, '선생
 ok(M.canEditTopic(ACTORS.hq_t_kim, { created_by: 'hq_t_lee' }) === false, '(짝) 남의 글감은 못 고친다');
 ok(M.canEditTopic(ACTORS.hq_t_kim, { created_by: 'HQ_T_KIM' }) === false, '(짝) 대소문자만 다른 아이디는 남이다(완전일치)');
 ok(M.canEditTopic(ACTORS.admin, { created_by: 'hq_t_lee' }) === true, '본사는 전부 고친다');
+ok(M.canEditTopic({ username: 'gn_capi', isTeacher: false, ownOnly: true }, { created_by: 'gn_capi' }) === true, '대리점 원장은 자기 글감을 고친다');
+ok(M.canEditTopic({ username: 'gn_capi', isTeacher: false, ownOnly: true }, { created_by: 'hq_t_lee' }) === false, '(짝) 대리점 원장은 남의 글감을 못 고친다');
 ok(M.canEditTopic(ACTORS.admin, null) === false, '없는 글감은 아무도 못 고친다');
 ok(JSON.stringify(M.normalizeWords(['tent', '텐트', 'tent', 'Fire', 'big red star', 'stars', 'moon'])) === '["tent","Fire","stars"]',
   '미션 단어: 한글·중복·3낱말 이상은 버리고 3개까지', JSON.stringify(M.normalizeWords(['tent', '텐트', 'tent', 'Fire', 'big red star', 'stars', 'moon'])));
@@ -169,8 +171,6 @@ ok(r.st === 200 && r.j.ok === true && Array.isArray(r.j.items) && r.j.can_create
 ok(/no-store/.test(r.res.headers.get('Cache-Control') || ''), '목록은 캐시하지 않는다(방금 올린 글감이 바로 보여야)');
 r = await call('POST', '/api/class/write-topics', null, { action: 'draft', title: '소풍' });
 ok(r.st === 401 && r.j.error === 'auth_required' && /\/ /.test(r.j.message), '로그인 없이 만들기 → 401 (한/영 문구)');
-r = await call('POST', '/api/class/write-topics', 'branch_bs', { action: 'draft', title: '소풍' });
-ok(r.st === 403 && r.j.error === 'forbidden_scope', '지사·대리점 → 403 forbidden_scope');
 r = await call('POST', '/api/class/write-topics', 'noscope', { action: 'draft', title: '소풍' });
 ok(r.st === 403 && r.j.error === 'scope_unknown', '권한 행이 없는 계정 → 403(모르면 막는다)');
 r = await call('POST', '/api/class/write-topics', 'hq_t_kim', { action: 'zzz' });
@@ -191,7 +191,9 @@ ok(r.j.can_create === true && r.j.manage.length === 1 && r.j.manage[0].id === T1
 r = await call('GET', '/api/class/write-topics', 'hq_t_lee');
 ok(r.j.can_create === true && r.j.manage.length === 0, '(짝) 다른 선생님에게는 남의 초안이 «내 글감» 에 안 나온다');
 r = await call('GET', '/api/class/write-topics', 'branch_bs');
-ok(r.j.can_create === false && r.j.manage.length === 0, '(짝) 지사 쿠키로 GET → 목록만, 만들기 안 됨');
+ok(r.j.can_create === true && r.j.manage.length === 0, '지사 쿠키로 GET → 만들기 됨(2026-10-26) · 남의 초안은 «내 글감» 에 안 나온다');
+r = await call('POST', '/api/class/write-topics', 'branch_bs', { action: 'hide', id: T1.id });
+ok(r.st === 403 && r.j.error === 'not_owner', '(짝) 지사가 남의 글감 내리기 → 403 not_owner');
 r = await call('POST', '/api/class/write-topics', 'hq_t_lee', { action: 'save', id: T1.id, title_ko: '남의 것' });
 ok(r.st === 403 && r.j.error === 'not_owner', '다른 선생님이 고치기 → 403 not_owner');
 r = await call('POST', '/api/class/write-topics', 'hq_t_kim', { action: 'save', id: T1.id, title_ko: '우리 반 소풍 (수정)', words: ['bus', '버스', 'lunch box'],
