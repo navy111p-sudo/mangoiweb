@@ -273,6 +273,7 @@ html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
 .cls-chip.c-cancel{color:#6b7783}
 .cls-chip.c-noshow{border-color:#b42318;color:#b42318}
 .cls-chip.c-done{color:#6b7783}
+.cls-chip.c-nolog{border-color:#1355a8;color:#1355a8}
 .cls-chip:focus-visible{outline:2px solid #1355a8;outline-offset:2px}
 /* 🖥 D (PC 만): 입장 버튼 자리에 상태 상자 — 폰(700px 미만)에서는 숨기고 이름 아래 한 줄(A)을 쓴다 */
 .cls-sact{display:none}
@@ -531,6 +532,35 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
  .cls-name,.row b{font-size:19px}.cls-time{font-size:25px}
  .btn,.btn-sm{font-size:18px}.kpi b{font-size:32px}
 }
+
+/* 🧾 (2026-10-26) 보기 설정 줄 · 표 보기 · 상세 숨기기.
+   ⚠️ 줄(.cls) 마크업은 renderClasses 그대로 — 여기서는 배치만 바꾼다(버튼·상태 판정 중복 없음).
+   ⚠️ hover 는 색만(크기·위치 고정 — 1-3 규칙). 연기·보류·다른 방 줄은 제 배경을 지킨다. */
+.cls-viewbar{display:flex;gap:10px 18px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.cls-viewbar label{display:flex;align-items:center;gap:8px}
+.cls-viewbar select{font:inherit;padding:8px;border:1px solid #94a3b8;border-radius:8px;background:var(--card,#fff);color:inherit;min-height:40px}
+.cls-viewbar input[type=checkbox]{width:20px;height:20px}
+html[data-t="dark"] .cls-viewbar select{background:#1b2330;color:#c9d4e0;border-color:#2c3949}
+.cls-view-pc{display:none !important}
+#classes.cls-lite .cls-goal,#classes.cls-lite .cls-hand,#classes.cls-lite .cls-prev{display:none}
+.cls-dhead{display:none}
+@media(min-width:900px){
+ .cls-view-pc{display:flex !important}
+ #classes.cls-dense .cls-dhead{display:grid;grid-template-columns:170px minmax(0,1fr) 300px;gap:0 16px;padding:8px 12px;border-bottom:2px solid #d7dee6;font-size:13px;font-weight:800;color:#5d6b7a;letter-spacing:.3px}
+ #classes.cls-dense .cls{display:grid;grid-template-columns:170px minmax(0,1fr) 300px;gap:0 16px;align-items:center;padding:10px 12px;border-top:1px solid #e6ebf1}
+ #classes.cls-dense .cls-dhead + .cls{border-top:0}
+ #classes.cls-dense .cls:not(.cls-postponed):not(.cls-hold):not(.cls-away-row):hover{background:#f5f8fc}
+ #classes.cls-dense .cls-time{font-size:19px;min-width:0}
+ #classes.cls-dense .cls-main{min-width:0}
+ #classes.cls-dense .cls-name{font-size:17px}
+ #classes.cls-dense .cls-meta{font-size:14.5px}
+ #classes.cls-dense .cls-act{width:auto;flex:none;justify-content:flex-end}
+ #classes.cls-dense .cls-act .btn{min-height:42px;padding:9px 14px;font-size:16px}
+ #classes.cls-dense .cls-info .cls-time{font-size:17px}
+ html[data-t="dark"] #classes.cls-dense .cls-dhead{border-color:#2a3542;color:#9dabb9}
+ html[data-t="dark"] #classes.cls-dense .cls{border-color:#2a3542}
+ html[data-t="dark"] #classes.cls-dense .cls:not(.cls-postponed):not(.cls-hold):not(.cls-away-row):hover{background:#1b2531}
+}
 </style>
 <!-- 🌙 저장된 테마를 **첫 페인트 전에** 적용한다. 본문 스크립트(문서 끝)에서 하면
      흰 화면이 한 번 번쩍인 뒤 어두워진다 — 새벽 근무 강사에게는 그 한 번이 눈부시다.
@@ -684,6 +714,17 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         <option value="desc" data-en="Latest first" data-ko="내림차순 (늦은 시간부터)">Latest first</option>
       </select>
     </label>
+    <!-- 🧾 (2026-10-26) 표 보기 · 상세 숨기기 — 줄 내용·버튼은 그대로, 배치만 바꾼다(initClsView).
+         표 보기는 PC(900px 이상)에서만 먹는다 — 폰은 저장값과 상관없이 늘 카드다. -->
+    <div class="cls-viewbar" id="cls-viewbar">
+      <label class="cls-view-pc"><span data-en="View" data-ko="보기">View</span>
+        <select id="cls-view">
+          <option value="cards" data-en="Cards" data-ko="카드">Cards</option>
+          <option value="table" data-en="Table (PC)" data-ko="표 (PC)">Table (PC)</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="cls-lite"> <span data-en="Hide details (goal · handover · last class)" data-ko="상세 숨기기 (목표 · 인수인계 · 지난 수업)">Hide details (goal · handover · last class)</span></label>
+    </div>
     <!-- 다른 날을 고르면 이 상자(오늘 목록)는 숨고 #cls-day-view 가 그 날을 그린다. -->
     <div id="cls-today">
       <!-- ⏳ 다음 수업 한 건만 크게 (요청 2번). 남은 수업이 없으면 통째로 숨는다. -->
@@ -2030,11 +2071,17 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     return 'plan';
   }
   function clsChipsHtml(list, t){
-    var n = { plan: 0, postponed: 0, cancelled: 0, no_show: 0, done: 0 }, real = 0;
+    var n = { plan: 0, postponed: 0, cancelled: 0, no_show: 0, done: 0, nolog: 0 }, real = 0;
     for (var i = 0; i < list.length; i++){
       var c = list[i];
       if (c.kind && c.kind !== 'class') continue;
-      real++; n[clsStateOf(c, t)]++;
+      real++;
+      var cs = clsStateOf(c, t);
+      n[cs]++;
+      // ✍ (2026-10-26) 끝났는데 일지가 없는 수업 — 줄에 [일지 쓰기](.btn-eval) 가 그려지는 조건과 똑같이 센다
+      //   (취소·연기·보류 줄에는 그 버튼이 없다. «끝났다» 는 줄과 같은 close_at_ts 시각 기준).
+      if (c.class_state !== 'cancelled' && c.class_state !== 'postponed' && !c.absence_hold
+          && t > c.close_at_ts && !c.eval_written) n.nolog++;
     }
     if (!real) return '';
     var defs = [
@@ -2042,7 +2089,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       ['postponed', 'c-post',   '⏸ ' + T('Postponed', '연기')],
       ['cancelled', 'c-cancel', '✕ ' + T('Cancelled', '취소')],
       ['no_show',   'c-noshow', '⚠ ' + T('No-show', '노쇼')],
-      ['done',      'c-done',   '✔ ' + T('Done', '완료')]
+      ['done',      'c-done',   '✔ ' + T('Done', '완료')],
+      ['nolog',     'c-nolog',  '✍ ' + T('Log not written', '일지 미작성')]
     ];
     var out = '';
     for (var d = 0; d < defs.length; d++){
@@ -2575,7 +2623,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         if (!ch) return;
         var k = ch.getAttribute('data-chip');
         var sel = k === 'postponed' ? '.cls-postponed' : k === 'cancelled' ? '.cls-cancel'
-                : k === 'no_show' ? '.p-noshow' : null;
+                : k === 'no_show' ? '.p-noshow' : k === 'nolog' ? '.btn-eval' : null;
         var el = sel ? box.querySelector(sel) : null;
         if (el && el.closest) el = el.closest('.cls') || el;
         if (!el){
@@ -4613,6 +4661,46 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     arDelay = AR_MIN; scheduleAutoRefresh(1000);
     outboxFlush();          // 📮 회선이 돌아오면 못 보낸 승인부터 보낸다
   });
+
+  /* 🧾 (2026-10-26) 「오늘의 수업」 보기 설정 — 표 보기(PC) · 상세 숨기기.
+     #classes 에 클래스 두 개(cls-dense · cls-lite)만 붙였다 뗀다. 줄은 renderClasses 가 그대로 그린다.
+     표 머리줄은 renderClasses 가 innerHTML 을 갈 때마다 사라지므로 관찰자로 첫 줄 앞에 다시 넣는다
+     (renderClasses 를 건드리지 않으려고 — 지문·60초 tick 로직과 엮이지 않게). */
+  (function initClsView(){
+    var box = document.getElementById('classes');
+    var view = document.getElementById('cls-view');
+    var lite = document.getElementById('cls-lite');
+    if (!box || !view || !lite) return;
+    var KV = 'mangoi_teacher_cls_view', KL = 'mangoi_teacher_cls_lite';
+    function load(k){ try { return localStorage.getItem(k); } catch (e) { return null; } }
+    function save(k, v){ try { localStorage.setItem(k, v); } catch (e) {} }
+    function ensureHead(){
+      var head = box.querySelector('.cls-dhead');
+      var first = box.querySelector('.cls');
+      if (!box.classList.contains('cls-dense') || !first){ if (head) head.remove(); return; }
+      if (head && head.nextElementSibling === first && head.getAttribute('data-lang') === LANG) return;
+      if (head) head.remove();
+      head = document.createElement('div');
+      head.className = 'cls-dhead';
+      head.setAttribute('aria-hidden', 'true');
+      head.setAttribute('data-lang', LANG);
+      head.innerHTML = '<span>' + esc(T('Time', '시간')) + '</span><span>'
+        + esc(T('Student · status · details', '학생 · 상태 · 상세')) + '</span><span>'
+        + esc(T('Action', '작업')) + '</span>';
+      first.parentNode.insertBefore(head, first);
+    }
+    function apply(){
+      box.classList.toggle('cls-dense', view.value === 'table');
+      box.classList.toggle('cls-lite', !!lite.checked);
+      ensureHead();
+    }
+    view.value = load(KV) === 'table' ? 'table' : 'cards';
+    lite.checked = load(KL) === '1';
+    view.addEventListener('change', function(){ save(KV, view.value === 'table' ? 'table' : 'cards'); apply(); });
+    lite.addEventListener('change', function(){ save(KL, lite.checked ? '1' : '0'); apply(); });
+    if (window.MutationObserver) new MutationObserver(ensureHead).observe(box, { childList: true });
+    apply();
+  })();
 
   applyLang();
   paintOutbox();            // 📮 지난번에 못 보낸 것이 있으면 먼저 알린다
