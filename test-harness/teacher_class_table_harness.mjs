@@ -45,7 +45,15 @@ if (api) {
   try { h = api.classTableHtml([row, lms, old], { act: (c, i) => '<button data-join="' + i + '">GO</button>', status: () => '<i>ST</i>', wi: (c, i) => i }); }
   catch (e) { h = 'THROW ' + e.message; }
   const ths = (h.match(/<th>[^<]*<\/th>/g) || []).map(x => x.replace(/<\/?th>/g, ''));
-  ok('① 머리 15칸 · 매니저 화면 순서', ths.join('|') === 'Date|Time|Status|Student / Action|Contact|Academy|Class calendar|Schedule|Teacher connection|Attendance|Previous teacher|Last class feedback|Today\'s feedback|Level · Textbook|Room', ths);
+  // 2026-10-27 사장님 «너무 복잡해» → 15칸을 7칸으로 묶음(PC=B안). 값은 하나도 안 빠졌는지 ④가 본다.
+  ok('① 머리 7칸 · 묶음 순서', ths.join('|') === 'Time|Status|Student · Contact · Academy|Class calendar|Teacher connection · Attendance|Previous teacher · Feedback|Action', ths);
+  const trs = h.split('<tr class="cls-tr').slice(1);
+  ok('⑧ 줄마다 7칸 · 칸 이름(data-k) 실림 — 폰 상자가 이 이름을 그린다', trs.length === 3 && trs.every(r => (r.match(/<td class="c-[a-z]+" data-k="[^"]+">/g) || []).length === 7), trs.map(r => (r.match(/<td /g) || []).length));
+  ok('⑧ 칸 순서 = time·st·stu·cal·conn·prev·act', trs.every(r => (r.match(/<td class="(c-[a-z]+)"/g) || []).map(x => x.slice(11, -1)).join(',') === 'c-time,c-st,c-stu,c-cal,c-conn,c-prev,c-act'));
+  ok('⑧ 할 일 버튼은 맨 오른쪽 칸(c-act) 안', /<td class="c-act"[^>]*><div class="cls-tbl-act"><button data-join="0">/.test(h));
+  ok('⑧ 학생 칸 안에 연락처·학원(묶음)', /<td class="c-stu"[^>]*><b>Kim<\/b><div class="cls-sub"><span class="nw"><a href="tel:01011112222">[^<]*<\/a><\/span> · A학원<\/div>/.test(h));
+  ok('⑧ 강사 입장 · 학생 출결이 한 칸', /<td class="c-conn"[^>]*><div class="cls-kv"><span>Teacher<\/span> not yet<\/div><div class="cls-kv"><span>Student<\/span> Not started<\/div>/.test(h));
+  ok('⑧ 이전 강사 · 레벨 · 교재가 한 칸', /<td class="c-prev"[^>]*>[^]*Teacher Kaye · 2026-10-20[^]*Lv3 · BTS 5/.test(h));
   ok('② 결제 유형 칸·값 없음', !/Payment/.test(h) && !/B2C/.test(h));
   ok('② 연기·참관·초대·메시지 없음', !/Move|Observe|Invite|Message/.test(h));
   ok('③ 수업 줄에는 넘겨준 버튼', /data-join="0"/.test(h));
@@ -69,6 +77,19 @@ if (api) {
   try { v = m && new Function('window', 'return ' + m[1])({ innerWidth: 390 }); } catch (e) {}
   ok('⑦ 폰(390px) 첫 보기 = 표', v === 'table', m && m[1]);
   ok('⑦ 저장값(cards/table)이 있으면 그것을 쓴다(짝)', /localStorage\.getItem\('mangoi_teacher_class_view'\)[^\n]*classView = savedView/.test(html));
+}
+// ⑨ 실선(가로·세로) + 폰(<900px)은 같은 DOM 을 수업당 격자 상자로(D안) — CSS 를 실제로 읽어 본다
+{
+  const style = ([...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).find(t => t.includes('.cls-tbl{')) || '').replace(/\r\n/g, '\n');
+  ok('⑨ 전제: 표 CSS 가 든 <style> 을 찾았다', style.length > 500, style.length);
+  const rule = sel => { const m = style.match(new RegExp('(?:^|\\n|})\\s*' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{([^}]*)\\}')); return m ? m[1] : ''; };
+  ok('⑨ PC 칸에 세로선까지(border:1px solid)', /border:1px solid/.test(rule('.cls-tbl td')) && /border:1px solid/.test(rule('.cls-tbl th')));
+  const mq = (style.match(/@media \(max-width:899\.98px\)\{([\s\S]*?)\n\}/) || [])[1] || '';
+  ok('⑨ 폰 블록이 있다(899.98px)', mq.length > 200, mq.length);
+  ok('⑨ 폰: 머리줄 숨김 · 줄 = 격자 상자', /\.cls-tbl thead\{display:none\}/.test(mq) && /\.cls-tbl tr\{display:grid;[^}]*grid-template-areas:"time st" "stu stu" "act act" "cal cal" "conn prev"/.test(mq));
+  ok('⑨ 폰: 일곱 칸 모두 자리(grid-area)가 있다(짝 — 빠지면 상자 밖으로 샌다)', ['time','st','stu','act','cal','conn','prev'].every(a => new RegExp('td\\.c-' + a + '\\{grid-area:' + a + '[;}]').test(mq)));
+  ok('⑨ 폰: 칸 이름을 data-k 로 그린다', /content:attr\(data-k\)/.test(mq));
+  ok('⑨ 연기된 줄 강조가 줄무늬에 안 덮인다(특정성)', /\.cls-tbl tbody tr\.cls-postponed>td\{background:#fff4e0\}/.test(style) && /nth-child\(even\):not\(\.cls-postponed\)>td\{background:none\}/.test(mq));
 }
 console.log('\n결과: PASS ' + pass + ' / FAIL ' + fail);
 if (fail) process.exit(1);

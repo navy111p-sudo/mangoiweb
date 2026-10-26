@@ -209,29 +209,62 @@ html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
 .cls-extra .cal7 i,.cls-tbl .cal7 i{display:inline-block;width:17px;height:17px;line-height:17px;text-align:center;font-size:9.5px;font-weight:800;font-style:normal;border-radius:4px;background:#e4e7ec;color:#475467}
 .cls-extra .cal7 i.on,.cls-tbl .cal7 i.on{background:#3b82f6;color:#fff}
 .cls-extra .cal7 i.today,.cls-tbl .cal7 i.today{outline:2px solid #b45309}
-/* 📋 (2026-10-26) 표 보기 — 매니저 화면 「오늘 수업」 표와 같은 칸. 넓으면 상자 안에서만 옆으로 민다. */
-.cls-tbl-wrap{overflow:auto;margin-top:8px;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:10px}
+/* 📋 (2026-10-26) 표 보기 → 🧱 (2026-10-27) 7칸 + 가로·세로 실선. PC(≥900px)=표(B안), 폰=수업당 격자 상자(D안).
+   넓어도 상자 안에서만 옆으로 민다. */
+.cls-tbl-wrap{overflow:auto;margin-top:8px;-webkit-overflow-scrolling:touch;border:1px solid #94a3b8;border-radius:8px}
 .cls-tbl{width:100%;border-collapse:collapse;font-size:12.5px;line-height:1.45}
-.cls-tbl th{background:#f1f5f9;color:#334155;font-size:11.5px;font-weight:700;text-align:left;padding:8px 6px;white-space:nowrap;border-bottom:1px solid #cbd5e1}
-.cls-tbl td{padding:8px 6px;border-bottom:1px solid #e2e8f0;vertical-align:top}
-.cls-tbl td.nw{white-space:nowrap}
-.cls-tbl td.stu{min-width:200px}
+.cls-tbl th{background:#eef2f7;color:#1f2937;font-size:11.5px;font-weight:700;text-align:left;padding:8px;border:1px solid #cbd5e1;border-bottom:2px solid #94a3b8}
+.cls-tbl td{padding:8px;border:1px solid #cbd5e1;vertical-align:top}
+.cls-tbl tr>*:first-child{border-left:0}.cls-tbl tr>*:last-child{border-right:0}
+.cls-tbl thead tr>*{border-top:0}.cls-tbl tbody tr:last-child>td{border-bottom:0}
+.cls-tbl tbody tr:nth-child(even)>td{background:#f8fafc}
+.cls-tbl .nw{white-space:nowrap}
+.cls-tbl td.c-stu{min-width:150px}
+.cls-tbl td.c-act{min-width:120px}
+.cls-tbl td.c-act code{word-break:break-all}
+.cls-tbl .cls-sub{margin-top:3px;font-size:12px;color:#64748b}
+.cls-tbl .cls-kv>span{color:#64748b;font-size:11.5px}
 .cls-tbl a{color:#1d4ed8}
+/* 📱 폰 — 같은 표를 수업당 상자로: 윗줄 시간·상태, 학생, 할 일, 캘린더, 입장 | 이전 강사. 칸 이름은 data-k */
+@media (max-width:899.98px){
+  .cls-tbl-wrap{border:0;border-radius:0;overflow:visible}
+  .cls-tbl,.cls-tbl tbody{display:block}
+  .cls-tbl thead{display:none}
+  .cls-tbl tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"time st" "stu stu" "act act" "cal cal" "conn prev";
+    border:1px solid #94a3b8;border-radius:8px;overflow:hidden;margin-bottom:12px}
+  .cls-tbl td{display:block;min-width:0;border:0;border-bottom:1px solid #cbd5e1}
+  .cls-tbl tbody tr:nth-child(even):not(.cls-postponed)>td{background:none}
+  .cls-tbl td.c-time{grid-area:time;background:#eef2f7!important;border-bottom:2px solid #94a3b8}
+  .cls-tbl td.c-st{grid-area:st;background:#eef2f7!important;border-bottom:2px solid #94a3b8;text-align:right}
+  .cls-tbl td.c-stu{grid-area:stu;min-width:0}
+  .cls-tbl td.c-act{grid-area:act}
+  .cls-tbl td.c-cal{grid-area:cal}
+  .cls-tbl td.c-conn{grid-area:conn;border-right:1px solid #cbd5e1;border-bottom:0}
+  .cls-tbl td.c-prev{grid-area:prev;border-bottom:0}
+  .cls-tbl td.c-cal::before,.cls-tbl td.c-conn::before,.cls-tbl td.c-prev::before{content:attr(data-k);display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px}
+  .cls-tbl-act{margin-top:0}
+}
 .cls-tbl code{font-size:11px;color:#64748b}
 .cls-tbl-act{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}
-.cls-tbl-act .btn{min-height:36px;padding:7px 12px;font-size:13px;line-height:18px;flex:0 0 auto}
+.cls-tbl-act .btn{min-height:36px;padding:7px 12px;font-size:13px;line-height:18px;flex:0 1 auto;white-space:normal;text-align:left}
 .cls-tbl-pnote{display:inline-block;margin-top:4px;font-size:12px;font-weight:700;color:#b45309}
 .cls-tbl .tbtn{min-height:32px;padding:4px 10px;font-size:12px;margin-top:4px;white-space:nowrap}
 .cls-tbl-notes{margin-top:6px;font-size:12px}
 .cls-tbl-notes>summary{cursor:pointer;color:#2563eb;font-weight:700}
 .cls-tbl tr.cls-cancel td{opacity:.55}
-.cls-tbl tr.cls-postponed td{background:#fff4e0}
+.cls-tbl tbody tr.cls-postponed>td{background:#fff4e0}
 .cls-tbl tr.cls-away-row td:first-child{box-shadow:inset 4px 0 0 #dc2626}
-html[data-t="dark"] .cls-tbl-wrap{border-color:#2c3949}
-html[data-t="dark"] .cls-tbl th{background:#1b2330;color:#c9d4e0;border-color:#2c3949}
-html[data-t="dark"] .cls-tbl td{border-color:#2c3949}
+html[data-t="dark"] .cls-tbl-wrap,html[data-t="dark"] .cls-tbl tr{border-color:#4a5a6e}
+html[data-t="dark"] .cls-tbl th{background:#1b2330;color:#c9d4e0;border-color:#3a4859}
+html[data-t="dark"] .cls-tbl td{border-color:#3a4859}
+html[data-t="dark"] .cls-tbl tbody tr:nth-child(even)>td{background:#18202b}
+html[data-t="dark"] .cls-tbl .cls-sub,html[data-t="dark"] .cls-tbl .cls-kv>span{color:#9aa7b7}
+@media (max-width:899.98px){
+  html[data-t="dark"] .cls-tbl tbody tr:nth-child(even):not(.cls-postponed)>td{background:none}
+  html[data-t="dark"] .cls-tbl td.c-time,html[data-t="dark"] .cls-tbl td.c-st{background:#1b2330!important}
+}
 html[data-t="dark"] .cls-tbl a{color:#93c5fd}
-html[data-t="dark"] .cls-tbl tr.cls-postponed td{background:#3a2a10}
+html[data-t="dark"] .cls-tbl tbody tr.cls-postponed>td{background:#3a2a10}
 .cls-prev summary{cursor:pointer;color:#3b5bd6;font-weight:600;user-select:none}
 .cls-prev-body{margin-top:3px;padding:6px 10px;background:#f4f6fa;border-radius:6px;color:#3d4a58;line-height:1.5}
 .cls-prev-score{color:#8a6d1a;font-weight:700}
@@ -2371,15 +2404,21 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
      그리기만 한다 — 판정을 표에 복제하지 않는다.
      opt.act(c, i) = «학생 / 액션» 칸 버튼(오늘 = classActHtml, 다른 날 = 피드백 작성)
      opt.status(c) = 상태 배지 · opt.wi(c, i) = 「✍ 피드백 작성」이 가리킬 목록 번호(없으면 -1). */
+  /* 🧱 (2026-10-27 사장님 «너무 복잡해 — 가로·세로 실선, PC 는 B · 폰은 D») 15칸 → 7칸으로 묶었다.
+     같은 성격의 값을 한 칸에 모으고(학생·연락처·학원 / 강사 입장·학생 출결 / 이전 강사·피드백·레벨),
+     할 일 버튼은 늘 맨 오른쪽 칸. 폰(<900px)에서는 «같은 DOM» 을 CSS 가 수업당 격자 상자로 바꾼다
+     (.cls-tbl 의 @media 블록) — 두 벌을 그리지 않으므로 버튼 배선(bindClassRows)·지문이 하나로 남는다.
+     칸 이름은 data-k 에 실어 폰에서만 ::before 로 보인다. */
   function classTableHtml(list, opt){
     opt = opt || {};
     var D = '—';
-    var cols = [['Date','날짜'],['Time','시간'],['Status','상태'],['Student / Action','학생 / 액션'],['Contact','연락처'],
-      ['Academy','학원'],['Class calendar','수업 캘린더'],['Schedule','일정'],['Teacher connection','강사 입장 상태'],
-      ['Attendance','학생 출결'],['Previous teacher','이전 강사'],['Last class feedback','지난 수업 피드백'],
-      ["Today's feedback",'오늘 피드백'],['Level · Textbook','레벨 · 교재'],['Room','강의실']];
+    var cols = [['c-time','Time','시간'],['c-st','Status','상태'],['c-stu','Student · Contact · Academy','학생 · 연락처 · 학원'],
+      ['c-cal','Class calendar','수업 캘린더'],['c-conn','Teacher connection · Attendance','강사 입장 · 학생 출결'],
+      ['c-prev','Previous teacher · Feedback','이전 강사 · 피드백'],['c-act','Action','할 일']];
+    function td(k, body){ return '<td class="' + cols[k][0] + '" data-k="' + esc(T(cols[k][1], cols[k][2])) + '">' + body + '</td>'; }
+    function kv(label, v){ return '<div class="cls-kv"><span>' + esc(label) + '</span> ' + v + '</div>'; }
     var h = '<div class="cls-tbl-wrap"><table class="cls-tbl"><thead><tr>'
-      + cols.map(function(x){ return '<th>' + esc(T(x[0], x[1])) + '</th>'; }).join('') + '</tr></thead><tbody>';
+      + cols.map(function(x){ return '<th>' + esc(T(x[1], x[2])) + '</th>'; }).join('') + '</tr></thead><tbody>';
     for (var i = 0; i < list.length; i++){
       var c = list[i];
       var info = c.kind && c.kind !== 'class';
@@ -2395,23 +2434,17 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       var notes = info ? '' : (goalHtml(c) + preqHtml(c) + handoverHtml(c));
       var rowCls = 'cls-tr' + (c.class_state === 'cancelled' ? ' cls-cancel' : c.class_state === 'postponed' ? ' cls-postponed' : '')
         + (c.student_elsewhere ? ' cls-away-row' : '') + (info ? ' cls-info' : '');
+      var lvl = esc([c.level, c.textbook].filter(Boolean).join(' · ') || D);
       h += '<tr class="' + rowCls + '">'
-        + '<td class="nw">' + (x ? x.date : esc(c.class_date || '')) + '</td>'
-        + '<td class="nw">' + esc(MangoiClassDisplay.range(c)) + '</td>'
-        + '<td>' + (c.absence_hold ? '<span class="pill p-hold">' + esc(T('ON HOLD','보류')) + '</span>' : (opt.status ? opt.status(c) : '')) + '</td>'
-        + '<td class="stu">' + stu + (opt.act && !info ? '<div class="cls-tbl-act">' + opt.act(c, i) + '</div>' : '')
-        +   (notes ? '<details class="cls-tbl-notes"><summary>' + esc(T('📝 Notes','📝 메모')) + '</summary>' + notes + '</details>' : '') + '</td>'
-        + '<td class="nw">' + (pc ? pc.contact : D) + '</td>'
-        + '<td>' + (pc ? pc.academy : D) + '</td>'
-        + '<td>' + (x && x.week ? x.week + '<br>' : '') + (pc ? pc.history : D) + '</td>'
-        + '<td>' + (x ? x.sched : D) + '</td>'
-        + '<td>' + (x ? x.te : D) + '</td>'
-        + '<td>' + (x ? x.at : D) + '</td>'
-        + '<td>' + prevT + '</td>'
-        + '<td>' + (x ? x.last : D) + '</td>'
-        + '<td>' + (x ? x.today : D) + '</td>'
-        + '<td>' + esc([c.level, c.textbook].filter(Boolean).join(' · ') || D) + '</td>'
-        + '<td><code>' + esc(c.room_id || D) + '</code></td>'
+        + td(0, '<b class="nw">' + esc(MangoiClassDisplay.range(c)) + '</b><div class="cls-sub nw">' + (x ? x.date : esc(c.class_date || '')) + '</div>')
+        + td(1, c.absence_hold ? '<span class="pill p-hold">' + esc(T('ON HOLD','보류')) + '</span>' : (opt.status ? opt.status(c) : ''))
+        + td(2, stu + (pc ? '<div class="cls-sub"><span class="nw">' + pc.contact + '</span> · ' + pc.academy + '</div>' : ''))
+        + td(3, (x && x.week ? x.week : '') + (x ? '<div class="cls-sub">' + x.sched + '</div>' : '') + (pc ? pc.history : (x ? '' : D)))
+        + td(4, x ? kv(T('Teacher','강사'), x.te) + kv(T('Student','학생'), x.at) : D)
+        + td(5, info ? D : kv(T('Previous','이전'), prevT) + (x ? kv(T('Last','지난'), x.last) + kv(T('Today','오늘'), x.today) : '') + kv(T('Level','레벨'), lvl))
+        + td(6, (opt.act && !info ? '<div class="cls-tbl-act">' + opt.act(c, i) + '</div>' : '')
+          + (notes ? '<details class="cls-tbl-notes"><summary>' + esc(T('📝 Notes','📝 메모')) + '</summary>' + notes + '</details>' : '')
+          + (c.room_id ? '<div class="cls-sub"><code>' + esc(c.room_id) + '</code></div>' : ''))
         + '</tr>';
     }
     return h + '</tbody></table></div>';
