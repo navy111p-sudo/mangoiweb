@@ -746,7 +746,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     return { due_date: new Date(due).toISOString().slice(0, 10), days_left: Math.round((due - today) / 86400000) };
   }
   function aibPrice(n){
-    var rate = n > 70 ? 4500 : n > 50 ? 5500 : n > 20 ? 6500 : 7500, bill = Math.max(n, 20), min = n < 20;
+    var rate = n > 70 ? 4500 : n > 50 ? 5500 : n > 20 ? 6500 : 7500, bill = n, min = false;   // 최소 청구 2026-10-26 폐지
     return { total: n > 0 ? rate * bill : 0, f: { applied_rate_krw: rate, billable_count: bill, min_applied: min && n > 0,
       price_note_ko: '(예시) ' + n + '명 → ' + (n > 20 ? '구간 단가 ' : '20명 이하 단가 ') + rate.toLocaleString() + '원/명' + (min && n > 0 ? ' · 최소 20명분 청구' : ''),
       price_note_en: '(sample) ' + n + ' students → ' + rate.toLocaleString() + ' KRW each' + (min && n > 0 ? ' · minimum 20 billed' : '') } };
@@ -859,7 +859,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
           next_preview: { due_krw: 1200000, explain_ko: ['다음 달 예정 수업 80회 × 15,000원'], explain_en: ['Next month: 80 classes × 15,000'], lines: [] },
           autopay: null };
       };
-      // 🤖 (2026-10-20) AI 컨텐츠 결제 — 다음 달 이용분 예시. 단가 설명은 서버 공급가 표(20명 이하 7,500원 · 최소 20명분)를 흉내 낸 «예시» 다.
+      // 🤖 (2026-10-20) AI 컨텐츠 결제 — 다음 달 이용분 예시. 단가 설명은 서버 공급가 표(20명 이하 7,500원 · 최소 청구 없음)를 흉내 낸 «예시» 다.
       case '/api/admin/ai-billing/invoice': return function(){
         var due = aibDue();
         if (!AIB.made) {
@@ -876,7 +876,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       };
       case '/api/admin/ai-billing/history': return function(){
         var pm = (function(m){ var y = +m.slice(0, 4), mo = +m.slice(5, 7) - 1; if (mo < 1) { mo = 12; y--; } return y + '-' + (mo < 10 ? '0' : '') + mo; })(AIB.month);
-        return { ok: true, shop_name: SHOPS[0].name, rows: [{ id: 8801, billing_month: pm, status: 'paid', included_count: 6, rate_krw: 7500, total_krw: 150000 }] };
+        return { ok: true, shop_name: SHOPS[0].name, rows: [{ id: 8801, billing_month: pm, status: 'paid', included_count: 6, rate_krw: 7500, total_krw: 45000 }] };
       };
       case '/api/admin/omnisearch': return function(){
         var m = /q=([^&]*)/.exec(qs), w = m ? decodeURIComponent(m[1]).trim() : '';
@@ -2642,7 +2642,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       .catch(function(){ clean(); show(false, T('Network error while confirming the payment. If your card was charged, it will be cancelled automatically.', '네트워크 오류로 결제 확인에 실패했습니다. 카드에서 빠져나갔다면 자동 취소됩니다.')); });
   })();
   /* 💰 (2026-09-24) 적용 단가·최소 청구·경계 보정 설명은 서버(ai-billing-price.ts)가 만든 글자를 그대로 그린다.
-     ⛔ 이 화면에서 인원 × 단가를 계산하지 말 것(구간·최소 20명분이 있어 반드시 틀린다).
+     ⛔ 이 화면에서 인원 × 단가를 계산하지 말 것(구간·경계 보정이 있어 반드시 틀린다).
      ⛔ 지사 커미션은 이 카드(학원 계정 전용)에 그리지 않는다 — 본사·지사 사이 금액이다. */
   function aiBillPriceRows(o, noRate){
     var note = T(o.price_note_en || '', o.price_note_ko || '');

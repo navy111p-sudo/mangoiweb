@@ -3,7 +3,7 @@
  * ════════════════════════════════════════════════════════════════════════
  *  무엇을 지키나
  *   ① 사장님 공급가 제안서 5안(71↑ 4,500 · 51~70 5,500 · 21~50 6,500 · 20↓ 7,500원/명)
- *   ② 최소 20명분 청구 · 구간 경계 보정(인원이 늘면 청구액이 «절대 줄지 않는다» — 0~2,000명 전수)
+ *   ② 최소 청구 없음(2026-10-26 폐지 — 3명이면 22,500원) · 구간 경계 보정(인원이 늘면 청구액이 «절대 줄지 않는다» — 0~2,000명 전수)
  *   ③ 지사 커미션 40% + 본사 몫 = 총액
  *   ④ 청구서는 «생성 시점 규칙» 으로 계산(price_rule 스냅샷) · 옛 청구서(NULL)는 rate×인원 그대로
  *   ⑤ 화상반 학생은 청구 인원에서 뺀다(이중 청구 방지) — LIVE_UIDS_SQL 을 «진짜 SQLite» 에 돌린다
@@ -97,7 +97,7 @@ console.log('════════ 💰 학원 A.i 공급가(인원 구간) �
 /* ══ ① 5안 경계값 ═══════════════════════════════════════════════════════ */
 sec('[①] 5안 구간 단가 · 경계값 (사장님 공급가 제안서)');
 {
-  const expect = { 1: 150000, 5: 150000, 20: 150000, 21: 150000, 23: 150000, 24: 156000, 50: 325000,
+  const expect = { 1: 7500, 3: 22500, 5: 37500, 19: 142500, 20: 150000, 21: 150000, 23: 150000, 24: 156000, 50: 325000,
     51: 325000, 60: 330000, 70: 385000, 71: 385000, 86: 387000, 100: 450000, 200: 900000 };
   for (const [n, t] of Object.entries(expect)) {
     const got = P.aiPrice(Number(n)).total;
@@ -131,15 +131,15 @@ sec('[②] 인원이 늘면 청구액이 절대 줄지 않는다 (0~2,000명 전
   check('예외 단가도 역전 0건', badC == null);
 }
 
-/* ══ ③ 최소 20명분 ═════════════════════════════════════════════════════ */
-sec('[③] 최소 20명분 청구');
+/* ══ ③ 최소 청구 폐지 (2026-10-26 사장님 «20명 미만이면 한 명당 7,500원») ══ */
+sec('[③] 최소 청구 없음 — 인원 × 단가');
 {
-  const p5 = P.aiPrice(5);
-  check('5명 → 청구 인원 20', p5.billable === 20 && p5.count === 5 && p5.min_applied === true);
-  check('20명 → 최소 청구 표시 없음', P.aiPrice(20).min_applied === false);
-  check('설명 글자에 «최소 20명분»', /최소 20명분/.test(P.aiPriceNote(p5).ko) && /minimum 20/.test(P.aiPriceNote(p5).en));
-  check('예외 단가도 최소 20명분 (5명 × 5,000 → 100,000)', P.aiPrice(5, 5000).total === 100000);
-  check('상수 AI_MIN_BILLABLE = 20', P.AI_MIN_BILLABLE === 20);
+  const p3 = P.aiPrice(3);
+  check('3명 → 22,500 (청구 인원 3 · 최소 청구 표시 없음)', p3.total === 22500 && p3.billable === 3 && p3.min_applied === false, JSON.stringify(p3));
+  check('설명 글자에 «최소 …명분» 이 없다', !/최소/.test(P.aiPriceNote(p3).ko) && !/minimum/.test(P.aiPriceNote(p3).en));
+  check('예외 단가도 인원만큼 (5명 × 5,000 → 25,000)', P.aiPrice(5, 5000).total === 25000);
+  check('상수 AI_MIN_BILLABLE = 0', P.AI_MIN_BILLABLE === 0);
+  check('(짝) 규칙에 min 을 주면 엔진은 여전히 최소 청구를 한다(옛 낸 청구서 재계산용)', P.aiPrice(5, null, { tiers: P.currentAiPriceRule().tiers, min: 20, pct: 40 }).total === 150000);
 }
 
 /* ══ ④ 지사 커미션 40% ══════════════════════════════════════════════════ */
@@ -162,7 +162,7 @@ sec('[⑤] 학원 예외 단가 · parseAiPriceRule');
   check('예외 단가 80명 × 3,000 = 240,000 (custom)', c.total === 240000 && c.basis === 'custom');
   check('예외 단가 0/null 이면 구간 단가', P.aiPrice(80, 0).basis === 'tier' && P.aiPrice(80, null).basis === 'tier');
   const rt = P.parseAiPriceRule(JSON.stringify(P.currentAiPriceRule()));
-  check('규칙 JSON 왕복', !!rt && rt.tiers.length === 4 && rt.min === 20 && rt.pct === 40);
+  check('규칙 JSON 왕복', !!rt && rt.tiers.length === 4 && rt.min === 0 && rt.pct === 40);
   check('1명부터 못 덮는 규칙은 거절(null)', P.parseAiPriceRule({ tiers: [{ min: 10, rate: 5000 }], min: 0, pct: 40 }) === null);
   check('깨진 JSON 은 null (던지지 않는다)', P.parseAiPriceRule('{oops') === null && P.parseAiPriceRule(null) === null);
   const old = { tiers: [{ min: 51, rate: 5000 }, { min: 1, rate: 8000 }], min: 10, pct: 30 };
@@ -187,7 +187,11 @@ let invoiceAmount = null;
   if (invoiceAmount) {
     const rule = JSON.stringify(P.currentAiPriceRule());
     check('새 청구서(규칙 스냅샷·예외 없음) 30명 → 195,000', call({ rate_krw: 0, price_rule: rule }, 30).total === 195000);
-    check('새 청구서 5명 → 최소 20명분 150,000', call({ rate_krw: 0, price_rule: rule }, 5).total === 150000);
+    check('새 청구서 5명 → 37,500 (최소 청구 없음)', call({ rate_krw: 0, price_rule: rule }, 5).total === 37500);
+    const min20 = JSON.stringify({ ...P.currentAiPriceRule(), min: 20 });
+    check('옛 스냅샷(min 20)인 «안 낸» 청구서 3명 → 22,500 (최소 청구를 안 씀)', call({ rate_krw: 0, price_rule: min20, status: 'draft' }, 3).total === 22500);
+    check('(짝) status 가 비어 있어도 낸 것이 아니면 22,500', call({ rate_krw: 0, price_rule: min20 }, 3).total === 22500);
+    check('(짝) 이미 «낸» 청구서는 스냅샷 그대로 150,000 (이력과 실제 결제가 안 갈림)', call({ rate_krw: 0, price_rule: min20, status: 'paid' }, 3).total === 150000);
     check('새 청구서 + 예외 단가 3,000 × 80 → 240,000', call({ rate_krw: 3000, price_rule: rule }, 80).total === 240000);
     const oldRule = JSON.stringify({ tiers: [{ min: 1, rate: 9000 }], min: 0, pct: 40 });
     check('스냅샷 규칙이 «지금 표» 를 이긴다 (10명 × 9,000)', call({ rate_krw: 0, price_rule: oldRule }, 10).total === 90000);
