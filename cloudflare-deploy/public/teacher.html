@@ -159,7 +159,9 @@ html[data-t="dark"] .cls-week>summary{color:#7aa7ff}
 .portal-filters{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
 .portal-filters label{display:flex;flex-direction:column;gap:4px;font-size:13px;flex:1;min-width:140px}
 .portal-filters input,.portal-filters select,.wk-jump select{min-height:44px;padding:8px;border:1px solid #c9d2dc;border-radius:8px;font:inherit;background:#fff;color:#16202c;max-width:100%}
-html[data-t="dark"] .portal-filters input,html[data-t="dark"] .portal-filters select,html[data-t="dark"] .wk-jump select{background:#1b2330;color:#c9d4e0;border-color:#2c3949}
+/* 🌙 (2026-10-27) 시간 정렬·보기 선택 — 예전엔 인라인 배경이 정의되지 않은 카드 색 변수였는데 그 변수가 어디에도 없어 다크에서 «흰 바탕 + 밝은 글자» 로 안 읽혔다 */
+.cls-sel{font:inherit;padding:8px;border:1px solid #94a3b8;border-radius:8px;background:#fff;color:#101828}
+html[data-t="dark"] .portal-filters input,html[data-t="dark"] .portal-filters select,html[data-t="dark"] .wk-jump select,html[data-t="dark"] .cls-sel{background:#1b2330;color:#c9d4e0;border-color:#2c3949}
 
 .wk-jump{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 10px}
 .wk-jump label{font-size:12.5px;font-weight:700;color:#6b7783}
@@ -706,7 +708,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     </div>
     <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0">
       <span data-en="Time order" data-ko="시간 정렬">Time order</span>
-      <select id="class-time-sort" style="font:inherit;padding:8px;border:1px solid #94a3b8;border-radius:8px;background:var(--card,#fff);color:inherit">
+      <select id="class-time-sort" class="cls-sel">
         <option value="asc" data-en="Earliest first" data-ko="오름차순 (빠른 시간부터)">Earliest first</option>
         <option value="desc" data-en="Latest first" data-ko="내림차순 (늦은 시간부터)">Latest first</option>
       </select>
@@ -715,7 +717,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
          표에는 연기·참관·초대 링크·메시지·결제 유형을 넣지 않는다(강사가 쓸 일이 없는 칸). -->
     <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px">
       <span data-en="View" data-ko="보기">View</span>
-      <select id="class-view" style="font:inherit;padding:8px;border:1px solid #94a3b8;border-radius:8px;background:var(--card,#fff);color:inherit">
+      <select id="class-view" class="cls-sel">
         <option value="table" data-en="Table (like manager page)" data-ko="표 (매니저 화면처럼)">Table (like manager page)</option>
         <option value="cards" data-en="Cards" data-ko="카드">Cards</option>
       </select>
