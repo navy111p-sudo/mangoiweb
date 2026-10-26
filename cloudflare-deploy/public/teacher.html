@@ -145,6 +145,12 @@ html[data-t="dark"] .pwform input{background:#1b2330;border-color:#2c3949;color:
    대부분이 정규라 전부 배지가 붙으면 «특별한 수업» 표시가 묻힌다. */
 .pill.p-trial{background:#047857;color:#fff}
 .pill.p-makeup{background:#6d28d9;color:#fff}
+/* 📅 (2026-10-26) 합친 카드 안 «주간 전체 보기» 접이칸 */
+.cls-week{border-top:1px solid #e6ebf1;margin-top:12px;padding-top:10px}
+.cls-week>summary{cursor:pointer;font-size:14px;font-weight:700;color:#2563eb;min-height:44px;display:flex;align-items:center;gap:6px}
+.cls-week[open]>summary{margin-bottom:8px}
+html[data-t="dark"] .cls-week{border-color:#2a3542}
+html[data-t="dark"] .cls-week>summary{color:#7aa7ff}
 .wk-nav{display:flex;gap:6px;margin:0 0 10px}
 .wk-nav button{flex:1;padding:8px 6px;border:1px solid #d7dee6;background:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;color:#334}
 .wk-nav button.on{background:#2563eb;border-color:#2563eb;color:#fff}
@@ -661,21 +667,15 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   </div>
 
 
-  <div class="card" id="portal-tools">
-    <div class="portal-filters">
-      <label><span data-en="Student name / ID" data-ko="학생 이름 / ID">Student name / ID</span><input id="portal-search" type="search" autocomplete="off"></label>
-      <label><span data-en="Academy" data-ko="학원">Academy</span><select id="portal-academy"><option value="">All</option></select></label>
-    </div>
-  </div>
+  <!-- 📅 (2026-10-26 제안 2) «오늘의 수업» + «내 주간 스케줄» 통합 — 한 카드에 오늘만 보이고,
+       날짜 드롭다운으로 다른 날을 고르면 그 날의 수업이 같은 자리에 뜬다.
+       학생 이름·ID 검색과 학원 드롭다운도 이 카드 안으로 옮겼다(두 목록 모두에 걸린다). -->
   <div class="card" id="c-classes" hidden>
     <h2><span id="cls-title" data-en="Today's Classes" data-ko="오늘의 수업">Today's Classes</span> <small id="cls-count"></small><span id="cls-new"></span></h2>
-    <!-- ⏳ 다음 수업 한 건만 크게 (요청 2번). 남은 수업이 없으면 통째로 숨는다. -->
-    <div class="nextup" id="nextup" hidden>
-      <div class="nu-box">
-        <div class="nu-l" id="nu-label"></div>
-        <div class="nu-t" id="nu-who"></div>
-      </div>
-      <div class="nu-c" id="nu-count"></div>
+    <div class="portal-filters" id="portal-tools">
+      <label><span data-en="Date" data-ko="날짜">Date</span><select id="cls-day"></select></label>
+      <label><span data-en="Student name / ID" data-ko="학생 이름 / ID">Student name / ID</span><input id="portal-search" type="search" autocomplete="off"></label>
+      <label><span data-en="Academy" data-ko="학원">Academy</span><select id="portal-academy"><option value="">All</option></select></label>
     </div>
     <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0">
       <span data-en="Time order" data-ko="시간 정렬">Time order</span>
@@ -684,7 +684,41 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         <option value="desc" data-en="Latest first" data-ko="내림차순 (늦은 시간부터)">Latest first</option>
       </select>
     </label>
-    <div id="classes"></div>
+    <!-- 다른 날을 고르면 이 상자(오늘 목록)는 숨고 #cls-day-view 가 그 날을 그린다. -->
+    <div id="cls-today">
+      <!-- ⏳ 다음 수업 한 건만 크게 (요청 2번). 남은 수업이 없으면 통째로 숨는다. -->
+      <div class="nextup" id="nextup" hidden>
+        <div class="nu-box">
+          <div class="nu-l" id="nu-label"></div>
+          <div class="nu-t" id="nu-who"></div>
+        </div>
+        <div class="nu-c" id="nu-count"></div>
+      </div>
+      <div id="classes"></div>
+    </div>
+    <div id="cls-day-view" hidden></div>
+    <!-- 📅 (2026-10-26) 옛 «내 주간 스케줄» 카드 — 합친 카드 안의 접이칸으로 옮겼다.
+         평소엔 접혀 있어 오늘 목록 + 날짜 드롭다운만 보이고, 펼치면 주 이동·날짜 이동·주 전체 목록이 그대로 있다. -->
+    <details class="cls-week" id="c-week" hidden>
+      <summary><span data-en="Full week view" data-ko="주간 전체 보기">Full week view</span> <small id="wk-range"></small></summary>
+      <div class="wk-nav">
+        <button type="button" id="wk-prev" data-en="◀ Prev" data-ko="◀ 이전 주">◀ 이전 주</button>
+        <button type="button" id="wk-this" class="on" data-en="This week" data-ko="이번 주">이번 주</button>
+        <button type="button" id="wk-next" data-en="Next ▶" data-ko="다음 주 ▶">다음 주 ▶</button>
+      </div>
+      <!-- 📅 (2026-08-07 마이마이 ⑥ 「연·월·일을 바로 고르게 해 달라 — 지금은 이전/다음뿐」)
+           옛 시스템은 연/월/일 드롭다운 3개였다. 여기서는 **날짜 하나**로 같은 일을 한다:
+           폰에서는 OS 달력이 뜨고(연·월·일을 한 화면에서 고른다), PC 에서는 직접 입력된다.
+           고른 날이 속한 «주» 로 이동한다 — 이 카드가 그리는 단위가 주이기 때문. -->
+      <div class="wk-jump">
+        <label for="wk-date" data-en="Jump to date" data-ko="날짜로 이동">날짜로 이동</label>
+        <input type="date" id="wk-date">
+        <select id="wk-year" aria-label="Year"></select><select id="wk-month" aria-label="Month"></select><select id="wk-day" aria-label="Day"></select>
+        <button type="button" id="wk-go" data-en="Go" data-ko="이동">이동</button>
+      </div>
+      <div id="wk-error" class="warnline" role="status" hidden data-en="Could not load the selected week. The last loaded week is still shown. Tap Refresh to retry." data-ko="선택한 주를 불러오지 못했습니다. 마지막으로 불러온 주를 그대로 표시합니다. 새로고침을 눌러 다시 시도해 주세요.">Could not load the selected week. The last loaded week is still shown. Tap Refresh to retry.</div>
+      <div id="week"></div>
+    </details>
   </div>
 
   <!-- 📅 (2026-08-06 마이마이 제보 "내일 수업이 안 보인다")
@@ -699,26 +733,6 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   <!-- 🗓 (2026-08-06) 「내 주간 스케줄」 — 강사에게 자기 일정을 미리 보는 화면이 아예 없었다.
        마이페이지 탭 11개 중 스케줄이 없고, 이 화면은 «오늘» 만 그렸다. 관리자에게는 주간
        통합 캘린더가 있는데 정작 당사자인 강사는 못 봤다. -->
-  <div class="card" id="c-week" hidden>
-    <h2><span data-en="My Week" data-ko="내 주간 스케줄">My Week</span> <small id="wk-range"></small></h2>
-    <div class="wk-nav">
-      <button type="button" id="wk-prev" data-en="◀ Prev" data-ko="◀ 이전 주">◀ 이전 주</button>
-      <button type="button" id="wk-this" class="on" data-en="This week" data-ko="이번 주">이번 주</button>
-      <button type="button" id="wk-next" data-en="Next ▶" data-ko="다음 주 ▶">다음 주 ▶</button>
-    </div>
-    <!-- 📅 (2026-08-07 마이마이 ⑥ 「연·월·일을 바로 고르게 해 달라 — 지금은 이전/다음뿐」)
-         옛 시스템은 연/월/일 드롭다운 3개였다. 여기서는 **날짜 하나**로 같은 일을 한다:
-         폰에서는 OS 달력이 뜨고(연·월·일을 한 화면에서 고른다), PC 에서는 직접 입력된다.
-         고른 날이 속한 «주» 로 이동한다 — 이 카드가 그리는 단위가 주이기 때문. -->
-    <div class="wk-jump">
-      <label for="wk-date" data-en="Jump to date" data-ko="날짜로 이동">날짜로 이동</label>
-      <input type="date" id="wk-date">
-      <select id="wk-year" aria-label="Year"></select><select id="wk-month" aria-label="Month"></select><select id="wk-day" aria-label="Day"></select>
-      <button type="button" id="wk-go" data-en="Go" data-ko="이동">이동</button>
-    </div>
-    <div id="wk-error" class="warnline" role="status" hidden data-en="Could not load the selected week. The last loaded week is still shown. Tap Refresh to retry." data-ko="선택한 주를 불러오지 못했습니다. 마지막으로 불러온 주를 그대로 표시합니다. 새로고침을 눌러 다시 시도해 주세요.">Could not load the selected week. The last loaded week is still shown. Tap Refresh to retry.</div>
-    <div id="week"></div>
-  </div>
 
   <!-- ⚡ 정전 · 인터넷 장애 신고 (멜카 요청) — 수업 목록 바로 아래.
        정전 중인 강사는 폰 배터리로 모바일데이터를 쓴다. 버튼 하나에서 시작해
@@ -1711,6 +1725,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   function setWeekError(on){
     var el = document.getElementById('wk-error');
     if (el) el.hidden = !on;
+    renderClsDay(); // 합친 카드의 «다른 날» 보기도 실패 안내를 함께 바꾼다
   }
   function validWeek(w, start){
     return !!(w && w.start === start && Array.isArray(w.days) && w.days.length === 7);
@@ -1752,9 +1767,9 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   window.addEventListener('class-time-format',function(){lastSig=null;if(DATA) render(DATA);});
   function renderWeek(w){
     var card = document.getElementById('c-week'), box = document.getElementById('week');
-    if (!card || !box || !w || !w.days) return;
+    if (!card || !box || !w || !w.days){ renderClsDay(); return; } // 주 자료가 없어도 날짜 드롭다운은 채운다
     portalAcademies(w);
-    card.hidden = false;
+    card.hidden = false; // 합친 카드 안의 «주간 전체 보기» 접이칸(평소엔 접힘)
     card.setAttribute('aria-busy', 'false');
     bindWeekNav();
     // 버튼·날짜 칸은 요청 중인 주가 아니라 실제로 표시한 주에 맞춘다.
@@ -1774,23 +1789,28 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var DOW = EN() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
     box.innerHTML = w.days.map(function(d){
       var head = d.date.slice(5) + ' (' + DOW[d.dow] + ')' + (d.is_today ? (EN() ? ' · today' : ' · 오늘') : '');
-      var visibleItems = portalRows(d.items || []);
-      var body = visibleItems.length
-        ? visibleItems.map(function(it){
-            var dim = (it.kind !== 'class');
-            return '<div class="wk-i"' + (dim ? ' style="opacity:.55"' : '') + '>'
-              + '<b>' + esc(MangoiClassDisplay.range(it)) + '</b>'
-              + '<span>' + stuLabelHtml(it, dim ? T('(slot taken)','(점유 슬롯)') : T('(name not set)','(이름 미등록)')) + '</span>'
-              + kindPill(it).replace(/^ /, '')
-              + portalContact(it)
-              + '<span class="wk-record">' + esc(T('Student level','학생 레벨')) + ': ' + esc(it.level || T('Not set','미등록')) + '</span>'
-              + previousLessonHtml(it)
-              + weekRecordHtml(it)
-              + '</div>';
-          }).join('')
-        : '<div class="wk-none">' + T('No classes','수업 없음') + '</div>';
-      return '<div class="wk-day' + (d.is_today ? ' today' : '') + '"><div class="wk-d">' + esc(head) + '</div>' + body + '</div>';
+      return '<div class="wk-day' + (d.is_today ? ' today' : '') + '"><div class="wk-d">' + esc(head) + '</div>' + weekDayBodyHtml(d) + '</div>';
     }).join('');
+    renderClsDay();
+  }
+  /* 하루치 목록 — 주간 카드와 합친 카드의 «다른 날» 보기가 같은 줄 모양을 쓴다(한 곳에서만 고친다). */
+  function weekDayBodyHtml(d){
+    var visibleItems = portalRows(d.items || []);
+    return visibleItems.length
+      ? visibleItems.map(weekItemHtml).join('')
+      : '<div class="wk-none">' + T('No classes','수업 없음') + '</div>';
+  }
+  function weekItemHtml(it){
+    var dim = (it.kind !== 'class');
+    return '<div class="wk-i"' + (dim ? ' style="opacity:.55"' : '') + '>'
+      + '<b>' + esc(MangoiClassDisplay.range(it)) + '</b>'
+      + '<span>' + stuLabelHtml(it, dim ? T('(slot taken)','(점유 슬롯)') : T('(name not set)','(이름 미등록)')) + '</span>'
+      + kindPill(it).replace(/^ /, '')
+      + portalContact(it)
+      + '<span class="wk-record">' + esc(T('Student level','학생 레벨')) + ': ' + esc(it.level || T('Not set','미등록')) + '</span>'
+      + previousLessonHtml(it)
+      + weekRecordHtml(it)
+      + '</div>';
   }
   /* 주 이동 버튼 — 한 번만 배선한다(다시 그릴 때마다 리스너가 쌓이면 클릭 한 번에 여러 번 나간다) */
   function syncDateMenus(value){
@@ -1836,6 +1856,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   }
   function loadWeek(off){
     WK_SELECTED = off === 0 ? null : wkMonday(off);
+    // 합친 카드의 날짜 드롭다운도 고른 날(없으면 그 주 월요일)로 따라간다 — 이번 주면 오늘
+    var pickedInWeek = WK_PICKED_DATE && weekOfDate(WK_PICKED_DATE) === wkMonday(off);
+    CLS_DAY = pickedInWeek ? WK_PICKED_DATE : (off === 0 ? null : wkMonday(off));
+    if (CLS_DAY === clsToday()) CLS_DAY = null;
     var req = beginWeekRead();
     renderWeek(WK_DATA); // 실패하더라도 보이던 범위·날짜·버튼을 그대로 남긴다
     var card = document.getElementById('c-week');
@@ -1859,6 +1883,87 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         setWeekError(true);
         try { console.warn('[week] load failed:', e); } catch(_){}
       });
+  }
+
+  /* 📅 (2026-10-26 제안 2) «오늘의 수업» 과 «내 주간 스케줄» 을 한 카드로 합쳤다.
+     기본은 오늘 목록(입장 버튼이 있는 #cls-today). 드롭다운에서 다른 날을 고르면
+     그 날이 든 주를 기존 loadWeekOf 로 불러와 #cls-day-view 에 그 하루만 그린다.
+     ⚠️ 불러오기는 «고를 때» 한 번만 한다 — renderClsDay 안에서 부르면
+        loadWeek → renderWeek → renderClsDay 로 다시 들어와 요청이 끝없이 이어진다. */
+  var CLS_DAY = null;       // null = 오늘(자정이 지나면 저절로 따라감), 그 외에는 고른 날짜
+  var CLS_DAY_KEY = null;   // 드롭다운을 만든 기준(오늘·언어). 바뀌면 다시 만든다
+  var CLS_DAY_BACK = 7, CLS_DAY_AHEAD = 14;
+  function clsToday(){ return new Date(now() + 9*3600*1000).toISOString().slice(0,10); }
+  function clsDayAdd(dateStr, n){
+    var d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0,10);
+  }
+  function clsDayLabel(dateStr, today, en){
+    if (en === undefined) en = EN();
+    var DOW = en ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
+    return dateStr.slice(5) + ' (' + DOW[new Date(dateStr + 'T00:00:00Z').getUTCDay()] + ')'
+      + (dateStr === today ? (en ? ' · Today' : ' · 오늘') : '');
+  }
+  function buildClsDayMenu(today){
+    var sel = document.getElementById('cls-day');
+    if (!sel) return;
+    var first = clsDayAdd(today, -CLS_DAY_BACK), last = clsDayAdd(today, CLS_DAY_AHEAD);
+    // «주간 전체 보기» 로 먼 날을 고르면 범위 밖이다 — 버리지 않고 그 날짜를 한 줄 더 넣는다
+    var extra = (CLS_DAY && (CLS_DAY < first || CLS_DAY > last)) ? CLS_DAY : '';
+    var key = today + '|' + (EN() ? 'en' : 'ko') + '|' + extra;
+    if (CLS_DAY_KEY !== key){
+      var days = [];
+      for (var i = -CLS_DAY_BACK; i <= CLS_DAY_AHEAD; i++) days.push(clsDayAdd(today, i));
+      if (extra) days.push(extra);
+      sel.innerHTML = days.sort().map(function(ds){
+        return '<option value="' + ds + '">' + esc(clsDayLabel(ds, today)) + '</option>';
+      }).join('');
+      CLS_DAY_KEY = key;
+    }
+    sel.value = CLS_DAY || today;
+    if (!sel._clsBound){
+      sel._clsBound = true;
+      sel.addEventListener('change', function(){ pickClsDay(this.value); });
+    }
+  }
+  function pickClsDay(dateStr){
+    if (!weekOfDate(dateStr)) return;
+    var today = clsToday();
+    CLS_DAY = dateStr === today ? null : dateStr;
+    if (CLS_DAY && !(WK_DATA && WK_DATA.start === weekOfDate(CLS_DAY))) loadWeekOf(CLS_DAY);
+    else renderClsDay();
+  }
+  function setClsTitle(en, ko){
+    var ct = document.getElementById('cls-title');
+    if (!ct) return;
+    ct.setAttribute('data-en', en);
+    ct.setAttribute('data-ko', ko);
+    ct.textContent = T(en, ko);
+  }
+  function renderClsDay(){
+    var today = clsToday();
+    buildClsDayMenu(today);
+    var day = CLS_DAY || today, other = day !== today;
+    var todayBox = document.getElementById('cls-today'), view = document.getElementById('cls-day-view');
+    if (!todayBox || !view) return;
+    todayBox.hidden = other;
+    view.hidden = !other;
+    var cnt = document.getElementById('cls-count');
+    if (cnt) cnt.hidden = other; // 제목 옆 숫자는 «오늘» 수업 수다
+    if (!other){
+      if (IS_MGR) setClsTitle('My cover classes', '내 커버 수업');
+      else setClsTitle("Today's Classes", '오늘의 수업');
+      return;
+    }
+    setClsTitle('Classes · ' + clsDayLabel(day, today, true), '수업 · ' + clsDayLabel(day, today, false));
+    var found = null;
+    ((WK_DATA && WK_DATA.days) || []).forEach(function(d){ if (d.date === day) found = d; });
+    if (found){ view.innerHTML = '<div class="wk-day">' + weekDayBodyHtml(found) + '</div>'; return; }
+    var err = document.getElementById('wk-error');
+    view.innerHTML = '<div class="empty">' + esc(err && err.hidden === false
+      ? T('Could not load this date. Tap Refresh to retry.', '이 날짜를 불러오지 못했습니다. 새로고침을 눌러 다시 시도해 주세요.')
+      : T('Loading…', '불러오는 중…')) + '</div>';
   }
 
   /* 📅 다가오는 수업 — 오늘 목록과 «따로» 둔다. 섞으면 오늘 할 일이 흐려진다.
