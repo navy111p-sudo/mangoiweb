@@ -163,7 +163,7 @@ function runAll(src, label) {
   check('④ 안전', '오늘 숨김은 «기기 날짜» 로 저장한다(dayKey(new Date()))', /write\('localStorage', HIDE_KEY, today\)/.test(code) && /var today = dayKey\(new Date\(\)\)/.test(code));
   check('④ 안전', '저장이 막혀도 이 화면에서는 기억한다(mem)', /mem\.hidden = today/.test(code) && /\|\| mem\.hidden/.test(code) && /\|\| mem\.seen/.test(code));
   check('④ 안전', '저장소 읽기·쓰기는 전부 try 로 감싼다', /function read\(store, key\) \{ try \{/.test(code) && /function write\(store, key, value\) \{ try \{/.test(code));
-  check('④ 안전', '위쪽 버튼은 판정(decide)을 거치지 않고 언제나 연다', /btn\.addEventListener\('click', function \(\) \{ open\(0, btn\); \}\)/.test(code));
+  check('④ 안전', '위쪽 버튼은 판정(decide)을 거치지 않고 언제나 연다', /btn\.addEventListener\('click', function \(\) \{ open\(0, btn, true\); \}\)/.test(code));   // true = 사람이 엶(🔊 음성 안내 시작)
   check('④ 안전', '저절로 열기는 decide 한 곳에서만 정한다', (code.match(/decide\(\{/g) || []).length === 1);
   check('④ 안전', 'CSS: 공용 홈/EN 칩·드로어보다 위(z-index 100002)', /\.dg-ov\{[^}]*z-index:100002/.test(css));
   for (const [sel, re] of [['✕', /\.dg-x\{[^}]*width:48px;height:48px/], ['이전·다음', /\.dg-nav button\{min-height:54px/], ['오늘은 다시 보지 않기', /\.dg-hide\{min-height:44px/], ['단계 칩', /\.dg-tab\{[^}]*min-height:48px/], ['❓ 사용방법', /\.dub-guide-open\{[^}]*min-height:44px/], ['🌐', /\.dg-lang\{[^}]*min-height:44px/]]) {
@@ -224,7 +224,7 @@ const MUTANTS = [
   ['시작하기가 녹음 버튼을 누름', 'if (target) { try { target.focus(); }', 'if (target) { try { target.click(); }'],
   ['안내창이 마이크를 켬', 'function lockScroll() {', "function lockScroll() { try { navigator.mediaDevices.getUserMedia({ audio: true }); } catch (e) {}"],
   ['다시 열면 스크롤 기록 덮음', '    if (was) return;   // 이미', '    // 이미'],
-  ['위쪽 버튼도 오늘 숨김을 따름', 'if (btn) btn.addEventListener(\'click\', function () { open(0, btn); });', "if (btn) btn.addEventListener('click', function () { if (hiddenDay() !== dayKey(new Date())) open(0, btn); });"],
+  ['위쪽 버튼도 오늘 숨김을 따름', 'if (btn) btn.addEventListener(\'click\', function () { open(0, btn, true); });', "if (btn) btn.addEventListener('click', function () { if (hiddenDay() !== dayKey(new Date())) open(0, btn, true); });"],
   ['저장이 막히면 숨김을 잊음', '    mem.hidden = today;\n', ''],
   ['innerHTML 로 그림', "ov.querySelector('.dg-tip').textContent = T(s.tip);", "ov.querySelector('.dg-tip').innerHTML = T(s.tip);"],
   ['없는 버튼 이름을 말함', "'연습하고 싶은 장면의 ‘더빙’을 눌러요.'", "'연습하고 싶은 장면의 ‘더빙하기’를 눌러요.'"],
