@@ -11,7 +11,7 @@
  *
  * [단가 — 2026-09-24 개정] 기본은 «A.i반 인원 구간 공급가»(사장님 공급가 제안서 5안) —
  *   정본 `ai-billing-price.ts`(71명↑ 4,500 · 51~70 5,500 · 21~50 6,500 · 20명↓ 7,500원/명,
- *   최소 20명분 청구, 구간 경계 보정, 지사 커미션 40%). `agency_ai_rate` 에 적힌 학원만
+ *   최소 청구 없음(2026-10-26 폐지), 구간 경계 보정, 지사 커미션 40%). `agency_ai_rate` 에 적힌 학원만
  *   «예외 단가» 로 그 단가 × 청구 인원. 본사(hq)만 바꿀 수 있다.
  *   (2026-09-10 ~ 09-23 의 «기본 10,000원 × 인원» 은 `DEFAULT_AI_RATE_KRW` 로 옛 청구서
  *   읽기에만 남는다 — 그 기간 생성된 청구서는 운영 0건.)
@@ -59,7 +59,7 @@ import { hiddenExcludeCond } from './student-override';   // 🙈 명부에서 �
 import { sendPlainSms } from './solapi-client';
 import { ensureB2bClaimColumns, MGB_UNCLAIMED_SQL, mgbUnclaimedBinds, mgbClaimedNow } from './b2b-pay-guard';   // ③ 결제 승인 중엔 명세를 못 바꾸게 (2026-10-23)
 import { tuitionAdminRouter } from './b2b-tuition-load';   // 🏫 B2B 화상수업 수업료(충전금·월 청구) — 같은 접두사 아래 tuition/* 로 위임 (2026-10-01)
-import { aiPrice, aiPriceNote, currentAiPriceRule, parseAiPriceRule, type AiPrice, type AiPriceRule } from './ai-billing-price';   // 💰 학원 공급가 정본(인원 구간·최소 20명분·지사 40%) — 2026-09-24
+import { aiPrice, aiPriceNote, currentAiPriceRule, parseAiPriceRule, type AiPrice, type AiPriceRule } from './ai-billing-price';   // 💰 학원 공급가 정본(인원 구간·지사 40% · 최소 청구 2026-10-26 폐지) — 2026-09-24
 
 interface Env { DB: D1Database; [k: string]: any }
 
@@ -388,8 +388,16 @@ async function customRateFor(env: Env, shopName: string): Promise<number | null>
 /** 청구서 한 장의 금액 — 정본 하나(화면·이력·결제가 전부 이것을 쓴다. 한 곳만 다르면 청구서와 결제가 갈린다).
  *  price_rule 이 있으면 그 규칙(인원 구간·최소 청구) + rate_krw>0 이면 예외 단가.
  *  없으면(옛 청구서) rate_krw × 인원 그대로 — 최소 청구도 없던 시절이라 소급하지 않는다. */
-export function invoiceAmount(inv: { rate_krw: any; price_rule?: any }, includedCount: number): AiPrice {
-  const rule: AiPriceRule | null = parseAiPriceRule(inv?.price_rule);
+export function invoiceAmount(inv: { rate_krw: any; price_rule?: any; status?: any }, includedCount: number): AiPrice {
+  let rule: AiPriceRule | null = parseAiPriceRule(inv?.price_rule);
+  /* 💸 (2026-10-26 사장님 «20명 미만이면 한 명당 7,500원») 최소 청구를 없앴다. 이미 만든 «안 낸» 청구서에
+     옛 스냅샷(min 20)이 박혀 있으면 그대로 150,000원이 나가므로, 낸 청구서(paid)가 아니면 지금 규칙의
+     최소 인원보다 큰 값은 쓰지 않는다(값이 «내려가는» 쪽만 — 청구액이 늘어나는 일은 없다).
+     ⛔ paid 는 손대지 않는다 — 실제로 낸 금액과 이력이 어긋난다. */
+  if (rule && String(inv?.status || '') !== 'paid') {
+    const curMin = currentAiPriceRule().min;
+    if (rule.min > curMin) rule = { ...rule, min: curMin };
+  }
   const stored = Number(inv?.rate_krw);
   if (rule) return aiPrice(includedCount, stored > 0 ? stored : null, rule);
   const legacyRate = stored > 0 ? stored : DEFAULT_AI_RATE_KRW;
