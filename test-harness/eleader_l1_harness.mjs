@@ -134,6 +134,35 @@ ok('topic: invalid → null', M.eleaderL1Topic('books-v1-b01', -1, false) === nu
   db.close();
 }
 
+// ⑤-2 D1 허용 목록(eleader_l1_students) — 넣은 학생만 열림 · 정확일치 · 끄면 닫힘 · 상한은 학생마다 따로
+{
+  const { DB: D4, db } = makeDB(); const e4 = base(D4);
+  await D4.exec('CREATE TABLE IF NOT EXISTS eleader_l1_students (uid TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, note TEXT, created_at INTEGER)');
+  await D4.prepare('INSERT INTO eleader_l1_students (uid) VALUES (?)').bind('stu-a').run();
+  await D4.prepare('INSERT INTO eleader_l1_students (uid, enabled) VALUES (?, 0)').bind('stu-off').run();
+  const tA = await M.signUidToken('stu-a', e4), tE = await M.signUidToken('ed', e4);
+  const st = async (u) => (await call(req('books', { token: await M.signUidToken(u, e4) }), e4)).status;
+  ok('db allow: listed student opens', await st('stu-a') === 200);
+  ok('db allow: case variant stays closed', await st('STU-A') === 403);
+  ok('db allow: disabled row stays closed', await st('stu-off') === 403);
+  ok('db allow: unlisted stays closed', await st('stu-b') === 403);
+  ok('db allow: code test account still opens', await st('ed') === 200);
+  let n = 0; const w = async () => { n++; return new Response('{}'); };
+  const d = () => Date.UTC(2026, 9, 26, 3);
+  for (let i = 0; i < 120; i++) await call(req('chat', { token: tE, method: 'POST', body: turn() }), e4, w, d);
+  r = await call(req('chat', { token: tA, method: 'POST', body: turn() }), e4, w, d);
+  ok('db allow: ed using up 120 does not block another student', r.status === 200 && n === 121, 'status=' + r.status + ' n=' + n);
+  db.close();
+  const { DB: D5 } = makeDB(true); const e5 = base(D5);
+  r = await call(req('books', { token: await M.signUidToken('stu-a', e5) }), e5);
+  ok('db allow: DB down → closed (403)', r.status === 403);
+}
+{
+  const src = readFileSync(new URL('../cloudflare-deploy/src/eleader-l1.ts', import.meta.url), 'utf8');
+  const set = (src.match(/ELEADER_L1_STUDENTS[^=]*=\s*new Set\(\[([^\]]*)\]/) || [])[1] || '';
+  ok('privacy: code allowlist holds only the test account', set.replace(/\s/g, '') === "'ed'", set);
+}
+
 // ⑥ 상한을 못 세면 막는다(비용 상한)
 {
   const { DB: D3 } = makeDB(true); const e3 = base(D3); const t = await M.signUidToken('ed', e3);

@@ -12,8 +12,25 @@
 import { verifyUidToken } from './auth-token';
 import { ELEADER_BOOK_UNITS } from './eleader-book-pack';
 
-/** 정확일치(대소문자 구분) — `Ed`·`ED` 는 다른 계정이다. 학생을 늘리려면 이 목록에 한 줄. */
+/** 코드에 박힌 허용 학생 — 시험 계정뿐. 정확일치(대소문자 구분) — `Ed`·`ED` 는 다른 계정이다. */
 export const ELEADER_L1_STUDENTS: ReadonlySet<string> = new Set(['ed']);
+/* 🔒 실제 학생은 코드가 아니라 D1 `eleader_l1_students` 에 둔다(2026-10-26).
+   ⛔ 학생 아이디·이름을 이 파일에 적지 마세요 — 저장소가 공개라 누구나 읽고,
+      비밀번호가 없는 학생은 아이디만으로 로그인됩니다.
+   추가: INSERT INTO eleader_l1_students (uid, note, created_at) VALUES ('<students_erp.user_id 표기 그대로>', '…', <ms>)
+   끄기: UPDATE eleader_l1_students SET enabled = 0 WHERE uid = ? */
+async function ensureStudents(DB: D1Database) {
+  await DB.exec('CREATE TABLE IF NOT EXISTS eleader_l1_students (uid TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, note TEXT, created_at INTEGER)');
+}
+/** 허용 학생인가. D1 을 못 읽으면 «아니오»(막는 쪽) — 비용이 드는 통로라서. */
+export async function eleaderL1Enrolled(DB: D1Database, uid: string): Promise<boolean> {
+  if (ELEADER_L1_STUDENTS.has(uid)) return true;
+  try {
+    await ensureStudents(DB);
+    const r = await DB.prepare('SELECT 1 AS ok FROM eleader_l1_students WHERE uid = ? AND enabled = 1').bind(uid).first();
+    return !!r;
+  } catch { return false; }
+}
 export const ELEADER_L1_DAILY_CAP = 120;
 export const ELEADER_L1_PREFIX = '/api/ai/eleader/l1/';
 
@@ -93,7 +110,7 @@ export async function handleEleaderL1(request: Request, url: URL, env: L1Env, wa
   let uid = '';
   try { uid = (await verifyUidToken(auth.slice(7), env as any)) || ''; } catch { uid = ''; }
   if (!uid) return reply({ error: 'login_required' }, 401);
-  if (!ELEADER_L1_STUDENTS.has(uid)) return reply({ error: 'l1_not_enrolled' }, 403);
+  if (!(await eleaderL1Enrolled(env.DB, uid))) return reply({ error: 'l1_not_enrolled' }, 403);
   const day = kstDay(now());
 
   if (action === 'books') {
