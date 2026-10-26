@@ -40,6 +40,8 @@ ok('워커 코드에 api.typecast.ai 호출이 없다', !/api\.typecast\.ai/.tes
 const nonFn = Object.entries(mod).filter(([k, v]) => k !== 'default' && typeof v !== 'function').map(([k]) => k);
 ok('named export 는 전부 함수(상수를 export 하면 Cloudflare 런타임이 시작부터 실패) ' + JSON.stringify(nonFn), nonFn.length === 0);
 ok('wrangler.toml 에 R2 바인딩 TTS_CACHE', /binding\s*=\s*"TTS_CACHE"/.test(toml) && /bucket_name\s*=\s*"mangoi-avatar-tts-cache"/.test(toml));
+// 대시보드 «변수» 는 다음 자동 배포에 지워진다 — 지역은 wrangler.toml [vars] 에 있어야 한다(2026-10-26)
+ok('wrangler.toml [vars] 에 AZURE_SPEECH_REGION', /\[vars\][\s\S]*?AZURE_SPEECH_REGION\s*=\s*"[a-z]+"/.test(toml));
 
 console.log('② Azure 로 만들고, 두 번째는 캐시');
 {
