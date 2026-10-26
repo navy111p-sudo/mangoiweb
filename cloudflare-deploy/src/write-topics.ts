@@ -11,11 +11,13 @@
  *   POST /api/class/write-topics  {action}  → draft | image | save | publish | hide (모르는 값 = 400)
  *   GET  /api/class/write-topics/img/<id>/<ver> → 그 글감의 AI 그림(R2 `write-topics/` 밑)
  *
- * [권한] 쓰기는 «로그인한 본사·선생님» 만. 지사·대리점(조직 계정)은 막는다 — 글감이 «학원 전체»
- *        (전국 학생)에게 보이므로 한 대리점이 올린 글이 남의 학원 학생 화면에 뜨면 안 된다.
+ * [권한] 쓰기는 «관리자 로그인한 사람 모두»(본사·선생님·지사·대리점·가맹 원장).
+ *        📜 (2026-10-26 사장님 지시 «그냥 모두에게 보이게») 예전엔 지사·대리점을 막았다 — 글감이 «학원 전체»
+ *           (전국 학생)에게 보여서. 강남캐피 원장님 요청으로 열었고, 글감은 여전히 «학원 전체» 에 보인다.
+ *        조직 계정(지사·대리점·가맹)은 선생님처럼 «자기가 만든 것» 만 고친다(남의 글감을 내리지 못하게).
  *        🔴 getAdminActor() 는 스코프 조회 실패를 삼키고 본사 동급으로 떨어진다(CLAUDE.md 2장).
  *           그래서 admin_scope.scope_type 을 «삼키지 않고» 다시 읽고, 모르면 막는다(fail-closed).
- *        선생님은 «자기가 만든 것» 만 고치고, 본사는 전부 고친다.
+ *        선생님·조직 계정은 «자기가 만든 것» 만 고치고, 본사는 전부 고친다.
  *
  * [비용] AI 호출(초안·그림)은 돈이 나간다 → 순수 함수 writeTopicCostGate 가 정한다.
  *        한 사람 24시간 WT_USER_DAILY_CAP 회 · 전체 WT_TOTAL_DAILY_CAP 회. 세기는 «부르기 전» 에
@@ -74,11 +76,11 @@ const clean = (s: unknown, max: number) =>
 
 /* ───────────── 순수 판정 (하니스가 실제로 돌린다) ───────────── */
 
-/** 쓰기 권한 — 'ok' | 'auth'(로그인 필요) | 'org'(지사·대리점) | 'unknown'(권한을 못 읽음 = 막음) */
-export type WtEditVerdict = 'ok' | 'auth' | 'org' | 'unknown';
+/** 쓰기 권한 — 'ok'(본사) | 'own'(지사·대리점 — 자기 글감만) | 'auth'(로그인 필요) | 'unknown'(권한을 못 읽음 = 막음) */
+export type WtEditVerdict = 'ok' | 'own' | 'auth' | 'unknown';
 export function writeTopicEditVerdict(actorOk: boolean, scope: OrgScopeVerdict): WtEditVerdict {
   if (!actorOk) return 'auth';
-  if (scope === 'org') return 'org';
+  if (scope === 'org') return 'own';
   if (scope !== 'hq') return 'unknown';   // 모르면 막는다(fail-closed) — 'hq' 만 통과
   return 'ok';
 }
@@ -95,9 +97,9 @@ export function writeTopicCostGate(userUsed: unknown, totalUsed: unknown,
 }
 
 /** 고칠 수 있는가 — 선생님은 자기 것만(아이디 완전일치), 본사는 전부. */
-export function canEditTopic(actor: { username: string; isTeacher: boolean }, row: { created_by?: string | null } | null): boolean {
+export function canEditTopic(actor: { username: string; isTeacher: boolean; ownOnly?: boolean }, row: { created_by?: string | null } | null): boolean {
   if (!row) return false;
-  if (!actor.isTeacher) return true;
+  if (!actor.isTeacher && !actor.ownOnly) return true;
   const me = String(actor.username || ''), owner = String(row.created_by || '');
   return !!me && me === owner;
 }
@@ -278,7 +280,7 @@ async function editGate(request: Request, env: any): Promise<{ actor: any } | { 
   if (!actor.ok) return { res: json({ ok: false, error: 'auth_required', message: '로그인한 선생님·관리자만 만들 수 있어요. / Teachers and admins only.' }, 401) };
   const st = await readScopeType(env, actor.username);
   const v = writeTopicEditVerdict(actor.ok, orgScopeVerdict(st, actor.role));
-  if (v === 'org') return { res: json({ ok: false, error: 'forbidden_scope', message: '글감은 학원 전체에 보여서 본사·선생님 계정만 만들 수 있어요. / Only HQ and teacher accounts can create topics.' }, 403) };
+  if (v === 'own') return { actor: { ...actor, ownOnly: true } };   // 지사·대리점 — 만들 수 있고, 고치기는 자기 것만
   if (v !== 'ok') return { res: json({ ok: false, error: 'scope_unknown', message: '권한을 확인하지 못했어요. 잠시 후 다시 해 주세요. / Could not check your permission. Please try again.' }, 403) };
   return { actor };
 }
@@ -424,7 +426,7 @@ export async function handleWriteTopicsApi(request: Request, url: URL, env: any)
       if ('actor' in g) {
         canCreate = true;
         const a = g.actor;
-        const ms: any = a.isTeacher
+        const ms: any = (a.isTeacher || a.ownOnly)
           ? await env.DB.prepare(`SELECT * FROM write_topics WHERE created_by = ? AND status != 'deleted' ORDER BY updated_at DESC LIMIT ?`).bind(a.username, WT_LIST_MAX).all()
           : await env.DB.prepare(`SELECT * FROM write_topics WHERE status != 'deleted' ORDER BY updated_at DESC LIMIT ?`).bind(WT_LIST_MAX).all();
         manage = (ms.results || []).map((r: any) => rowToItem(r, true));
