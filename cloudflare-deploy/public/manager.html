@@ -2514,6 +2514,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var e = String((j && j.error) || '');
     if (e.indexOf('invoice_confirm_in_progress') === 0) return T('A payment is in progress for this bill, so it cannot be changed now. Try again after the payment finishes (or in a few minutes).', '이 청구서의 결제가 진행 중이라 지금은 바꿀 수 없습니다. 결제가 끝난 뒤(또는 몇 분 뒤) 다시 해 주세요.');
     if (e.indexOf('claim_check_failed') === 0) return T('Could not check the payment status. Please try again shortly.', '결제 진행 상태를 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+    if (e.indexOf('student_already_paid') === 0) return T('This student is already paid for and cannot be removed. For a refund, please contact head office.', '이미 결제한 학생은 빼거나 바꿀 수 없습니다. 환불이 필요하면 본사에 문의해 주세요.');
+    if (e.indexOf('topup_unavailable') === 0) return T('Could not check the paid students. Please try again shortly.', '결제한 학생을 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
     return base + (e ? ' (' + e + ')' : '');
   }
   window.aiBillToggleItem = function(cb, invoiceId, uid){
@@ -2571,8 +2573,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var j = D.aibill;
     if (!j || !j.exists || !j.invoice) return;
     var inv = j.invoice;
-    if (!window.confirm(T('Pay ' + won(inv.total_krw) + ' for ' + n0(inv.included_count) + ' student(s) — A.i content for ' + aibMonth(inv.billing_month) + '?',
-                          aibMonth(inv.billing_month) + ' 이용분 ' + n0(inv.included_count) + '명 · ' + won(inv.total_krw) + '원을 결제할까요?'))) return;
+    var tp = inv.status === 'paid', cN = tp ? inv.unpaid_count : inv.included_count, cA = tp ? inv.owed_krw : inv.total_krw;
+    if (!window.confirm(T((tp ? 'Pay an extra ' : 'Pay ') + won(cA) + ' for ' + n0(cN) + (tp ? ' more' : '') + ' student(s) — A.i content for ' + aibMonth(inv.billing_month) + '?',
+                          aibMonth(inv.billing_month) + ' 이용분 ' + (tp ? '추가 ' : '') + n0(cN) + '명 · ' + won(cA) + '원을 결제할까요?'))) return;
     if (btn) btn.disabled = true;
     fetch('/api/admin/ai-billing/invoice/checkout', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
@@ -2716,14 +2719,25 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var inv = j.invoice, items = j.items || [];
       var paid = inv.status === 'paid';
       html += aibDueBar(j, inv.billing_month, paid);
+      /* ➕ (2026-10-26) 결제는 여러 번에 나눠 낼 수 있다 — 낸 학생(paid_order_id)은 위에 고정해 보여 주고,
+         나머지 학생은 아래에서 계속 체크해 «추가 결제» 한다. 금액·인원은 서버가 준 숫자(paid_count·paid_total_krw·
+         unpaid_count·owed_krw)를 그대로 그린다. 옛 서버(topup_open 없음)면 예전처럼 «결제 완료» 만. */
+      var topup = paid && inv.topup_open === true;
+      var paidList = items.filter(function(it){ return it.paid_order_id || (paid && !topup && Number(it.included) === 1); });
       if (paid) {
-        var inc = items.filter(function(it){ return Number(it.included) === 1; });
-        html += '<div class="aib-paid">✅ ' + esc(T('Paid — ' + n0(inc.length) + ' student(s) · ' + won(inv.total_krw) + ' KRW', '결제 완료 — ' + n0(inc.length) + '명 · ' + won(inv.total_krw) + '원'))
-          + (inv.paid_at ? '<div class="muted" style="font-size:12px;margin-top:2px">' + esc(T('Paid on ', '결제일 ')) + esc(new Date(Number(inv.paid_at) + 9 * 3600e3).toISOString().slice(0, 10)) + '</div>' : '') + '</div>'
-          + aiBillPriceRows(inv)
-          + '<div class="aib-chips">' + inc.map(function(it){ return '<span class="aib-chip">' + esc(it.student_name || it.student_user_id) + '</span>'; }).join('') + '</div>'
+        var pCnt = topup ? n0(inv.paid_count) : n0(paidList.length), pTot = topup ? inv.paid_total_krw : inv.total_krw;
+        html += '<div class="aib-paid">✅ ' + esc(T('Paid — ' + pCnt + ' student(s) · ' + won(pTot) + ' KRW', '결제 완료 — ' + pCnt + '명 · ' + won(pTot) + '원'))
+          + (inv.paid_at ? '<div class="muted" style="font-size:12px;margin-top:2px">' + esc(T('First paid on ', '처음 결제일 ')) + esc(new Date(Number(inv.paid_at) + 9 * 3600e3).toISOString().slice(0, 10)) + '</div>' : '') + '</div>'
+          + '<div class="aib-chips">' + paidList.map(function(it){ return '<span class="aib-chip">✅ ' + esc(it.student_name || it.student_user_id) + '</span>'; }).join('') + '</div>';
+        if (!topup) html += aiBillPriceRows(inv)
           + '<p class="muted" style="font-size:12px">' + T('The list is fixed once paid. To add a student, please contact head office.', '결제한 명단은 바뀌지 않습니다. 학생을 더 넣어야 하면 본사로 문의해 주세요.') + '</p>';
-      } else {
+        else html += '<p class="muted" style="font-size:12px;margin:0 0 6px">' + T('Paid students stay as they are. To add more students this month, check them below and pay for the extra students only.',
+          '결제한 학생은 그대로 이용합니다. 이번 달에 학생을 더 넣으려면 아래에서 체크하고 «추가 결제» 하세요 — 늘어난 학생 몫만 결제됩니다.') + '</p>';
+      }
+      if (!paid || topup) {
+        items = items.filter(function(it){ return !it.paid_order_id; });   // 아래 목록은 «아직 안 낸» 학생만
+        var payCnt = topup ? Number(inv.unpaid_count || 0) : Number(inv.included_count || 0);
+        var payAmt = topup ? Number(inv.owed_krw || 0) : Number(inv.total_krw || 0);
         /* 🎯 (2026-09-24 «자동 분류 + 학원 확인» · 2026-10-20 화면 재구성) 세 무리로 나눠 그린다 — 판정은 서버가 준 track·included 그대로.
              a = 결제 대상(체크됨) · b = 아직 신청 안 함(체크 안 됨, 화상반 아님) · c = 화상반(A.i 포함 · 체크 안 됨)
            ⛔ 이 화면은 판정하지 않는다. 화상반이 틀렸으면 학원이 체크해 결제 대상에 넣는다(user_set — 그 뒤 자동이 안 건드림). */
@@ -2749,21 +2763,22 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
             + (grp[g].length && btnLbl ? '<button type="button" class="aib-btn aib-btn-sm" onclick="aiBillBulk(this,\'' + g + '\',' + (inc ? 1 : 0) + ')">' + btnLbl + '</button>' : '') + '</div>';
         };
         html += '<div class="aib-kpis">'
-          + '<div class="aib-kpi aib-kpi-on"><span>' + T('Students to pay for', '결제할 학생') + '</span><b>' + n0(inv.included_count) + T('', '명') + '</b></div>'
+          + '<div class="aib-kpi aib-kpi-on"><span>' + (topup ? T('Extra students to pay for', '추가로 결제할 학생') : T('Students to pay for', '결제할 학생')) + '</span><b>' + n0(payCnt) + T('', '명') + '</b></div>'
           + '<div class="aib-kpi"><span>' + T('Price per student', '1인 단가') + '</span><b>' + won(inv.applied_rate_krw != null ? inv.applied_rate_krw : inv.rate_krw) + T('', '원') + '</b></div>'
-          + '<div class="aib-kpi aib-kpi-on"><span>' + T('Amount to pay', '결제 금액') + '</span><b>' + won(inv.total_krw) + T('', '원') + '</b></div>'
+          + '<div class="aib-kpi aib-kpi-on"><span>' + (topup ? T('Extra amount to pay', '추가 결제 금액') : T('Amount to pay', '결제 금액')) + '</span><b>' + won(payAmt) + T('', '원') + '</b></div>'
           + '</div>'
-          + aiBillPriceRows(inv, true)   // 1인 단가는 바로 위 칸에 있다 — 두 번 쓰지 않는다
+          + (topup ? '' : aiBillPriceRows(inv, true))   // 1인 단가는 바로 위 칸에 있다 — 두 번 쓰지 않는다
           + '<input type="search" class="aib-q" placeholder="' + esc(T('Find by name or ID', '이름 · 아이디로 찾기')) + '" value="' + esc(D.aibQ || '') + '" oninput="aiBillFilter(this.value)">'
-          + '<div class="aib-grp">' + grpHead('a', '✅ ' + T('Paying for A.i content', '결제 대상 (A.i 컨텐츠 이용)'), '', T('Unselect all shown', '보이는 학생 모두 빼기'), false)
+          + '<div class="aib-grp">' + grpHead('a', '✅ ' + (topup ? T('Extra students to pay for', '추가 결제 대상') : T('Paying for A.i content', '결제 대상 (A.i 컨텐츠 이용)')), '', T('Unselect all shown', '보이는 학생 모두 빼기'), false)
           + (aiIt.length ? aiIt.map(itemRow).join('') : '<p class="muted aib-sub">' + T('No student selected yet. Check students below.', '아직 고른 학생이 없습니다. 아래에서 체크해 주세요.') + '</p>') + '</div>'
           + (noIt.length ? '<div class="aib-grp">' + grpHead('b', '✋ ' + T('Not signed up', '아직 신청 안 한 학생'), T('Not paid. Check a student who will use A.i content next month.', '결제하지 않습니다. 다음 달 A.i 컨텐츠를 쓸 학생만 체크해 주세요.'), T('Select all shown', '보이는 학생 모두 선택'), true)
             + noIt.map(itemRow).join('') + '</div>' : '')
           + (lvIt.length ? '<details class="aib-grp"' + (D.aibQ ? ' open' : '') + '><summary>' + grpHead('c', '📹 ' + T('Video-class students', '화상영어 수업 학생'), T('A.i is included in their tuition — not paid here. Check only if this is wrong.', 'A.i 가 수업료에 포함돼 여기서 결제하지 않습니다. 판정이 틀린 학생만 체크해 주세요.'), '', true) + '</summary>'
             + lvIt.map(itemRow).join('') + '</details>' : '')
-          + '<div class="aib-paybar"><div class="aib-paysum"><span class="muted">' + T('Total', '합계') + ' · ' + n0(inv.included_count) + T(' student(s)', '명') + '</span><b>' + won(inv.total_krw) + T(' KRW', '원') + '</b></div>'
+          + '<div class="aib-paybar"><div class="aib-paysum"><span class="muted">' + (topup ? T('Extra', '추가') : T('Total', '합계')) + ' · ' + n0(payCnt) + T(' student(s)', '명') + '</span><b>' + won(payAmt) + T(' KRW', '원') + '</b></div>'
           + '<button type="button" class="aib-btn aib-btn-ghost" onclick="aiBillGenerate(this)" title="' + esc(T('Add students who joined after the list was made', '명단을 만든 뒤 들어온 학생을 더합니다')) + '">🔄 ' + T('Refresh list', '명단 다시 확인') + '</button>'
-          + '<button type="button" class="aib-btn aib-btn-main" onclick="aiBillPay(this)"' + (inv.included_count > 0 ? '' : ' disabled') + '>💳 ' + T('Pay ' + won(inv.total_krw) + ' KRW', won(inv.total_krw) + '원 결제하기') + '</button></div>'
+          + '<button type="button" class="aib-btn aib-btn-main" onclick="aiBillPay(this)"' + (payCnt > 0 && payAmt > 0 ? '' : ' disabled') + '>💳 ' + (topup ? T('Pay extra ' + won(payAmt) + ' KRW', won(payAmt) + '원 추가 결제') : T('Pay ' + won(payAmt) + ' KRW', won(payAmt) + '원 결제하기')) + '</button></div>'
+          + (topup && payCnt > 0 && !(payAmt > 0) ? '<p class="muted" style="font-size:12px;margin-top:6px">' + T('These extra students fall in the same price band, so the extra amount is 0 KRW. Please contact head office.', '추가한 학생이 같은 금액 구간 안이라 더 낼 금액이 0원입니다. 본사에 문의해 주세요.') + '</p>' : '')
           + '<p class="muted" style="font-size:12px;margin-top:6px">' + T('Uncheck students who have left the academy — they are removed before payment.', '학원을 그만둔 학생은 체크를 풀어 주세요 — 결제 전에 명단에서 빠집니다.') + '</p>';
       }
     }

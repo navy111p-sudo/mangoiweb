@@ -191,7 +191,11 @@ let invoiceAmount = null;
     const min20 = JSON.stringify({ ...P.currentAiPriceRule(), min: 20 });
     check('옛 스냅샷(min 20)인 «안 낸» 청구서 3명 → 22,500 (최소 청구를 안 씀)', call({ rate_krw: 0, price_rule: min20, status: 'draft' }, 3).total === 22500);
     check('(짝) status 가 비어 있어도 낸 것이 아니면 22,500', call({ rate_krw: 0, price_rule: min20 }, 3).total === 22500);
-    check('(짝) 이미 «낸» 청구서는 스냅샷 그대로 150,000 (이력과 실제 결제가 안 갈림)', call({ rate_krw: 0, price_rule: min20, status: 'paid' }, 3).total === 150000);
+    /* (2026-10-26 ptagency 실사고 «1명 결제했는데 150,000원이라고 나와») 결제는 draft 상한으로 7,500원이 나갔는데
+       paid 만 스냅샷(min 20)을 써서 «150,000원 결제 완료» 라고 말했다 — 이제 낸 청구서도 같은 상한. */
+    check('이미 «낸» 청구서도 실제 결제와 같은 식: 1명 → 7,500 (150,000 아님)', call({ rate_krw: 0, price_rule: min20, status: 'paid' }, 1).total === 7500);
+    check('(짝) 낸 청구서 3명 → 22,500', call({ rate_krw: 0, price_rule: min20, status: 'paid' }, 3).total === 22500);
+    check('(짝) 상한은 «내리기» 만 — 스냅샷 min 이 지금보다 작으면 그대로', call({ rate_krw: 0, price_rule: JSON.stringify({ ...P.currentAiPriceRule(), min: 0 }), status: 'paid' }, 2).total === 15000);
     check('새 청구서 + 예외 단가 3,000 × 80 → 240,000', call({ rate_krw: 3000, price_rule: rule }, 80).total === 240000);
     const oldRule = JSON.stringify({ tiers: [{ min: 1, rate: 9000 }], min: 0, pct: 40 });
     check('스냅샷 규칙이 «지금 표» 를 이긴다 (10명 × 9,000)', call({ rate_krw: 0, price_rule: oldRule }, 10).total === 90000);
@@ -324,7 +328,9 @@ sec('[⑨] 배선 — 청구서·이력·결제·미리보기가 같은 정본�
   check('invoiceAmount 호출이 셋 이상 (/invoice · /history · checkout)', count(/(?<!function )invoiceAmount\(/g) >= 3);
   check('(짝) invoiceAmount 선언은 정확히 하나 (복제 없음)', count(/function invoiceAmount\(/g) === 1);
   const chk = billCode.slice(billCode.indexOf("p === 'invoice/checkout'"));
-  check('결제 금액 = invoiceAmount(...).total', /const amount = invoiceAmount\([^)]*\)\.total/.test(chk));
+  // ➕ (2026-10-26) 추가 결제 — checkout 은 문지기와 «같은 함수»(mgbAmountNow → aiOwedAmount → invoiceAmount)로 금액을 정한다
+  check('결제 금액 = mgbAmountNow (문지기와 같은 정본)', /const amount = await mgbAmountNow\(env, invoiceId\)/.test(chk));
+  check('(짝) mgbAmountNow 가 aiOwedAmount 로, aiOwedAmount 가 invoiceAmount 로 잰다', /aiOwedAmount\(inv, c\.paid, c\.unpaid\)/.test(fnDecl(billCode, 'mgbAmountNow')) && /invoiceAmount\(inv, paid \+ unpaid\)/.test(fnDecl(billCode, 'aiOwedAmount')));
   check('청구서 INSERT 가 price_rule 을 스냅샷', /INSERT INTO ai_billing_invoices[^`]*price_rule/.test(billCode) && /JSON\.stringify\(currentAiPriceRule\(\)\)/.test(billCode));
   check('price_rule 칸을 지연 ALTER 로 만든다', /ALTER TABLE ai_billing_invoices ADD COLUMN price_rule/.test(billCode));
   const gen = fnDecl(billCode, 'generateOrRefreshInvoice');
@@ -387,7 +393,7 @@ sec('[⑩] 자동 분류 + 학원 확인 — 명세 줄 track·user_set');
   }
   if (DatabaseSync) {
     try {
-      syncFn = new Function('planItemTrackSync', 'MGB_UNCLAIMED_SQL', 'mgbUnclaimedBinds', stripTypeScriptTypes(fnDecl(billSrc, 'syncItemTracks')) + '\nreturn syncItemTracks;')(plan, UNCLAIMED_SQL, unclaimedBinds);
+      syncFn = new Function('planItemTrackSync', 'MGB_UNCLAIMED_SQL', 'mgbUnclaimedBinds', '_paidColOk', stripTypeScriptTypes(fnDecl(billSrc, 'syncItemTracks')) + '\nreturn syncItemTracks;')(plan, UNCLAIMED_SQL, unclaimedBinds, false);
     } catch (e) { check('syncItemTracks 실행 준비', false, e.message); }
     check('syncItemTracks 를 오려 냈다 (전제)', typeof syncFn === 'function');
     const d = new DatabaseSync(':memory:');
@@ -552,8 +558,8 @@ sec('[⑫] AI 컨텐츠 결제 — 명세에 있는 학생만 · 선결제 마�
 {
   let setFn = null;
   try {
-    setFn = new Function('safe', 'ensureB2bClaimColumns', 'MGB_UNCLAIMED_SQL', 'mgbUnclaimedBinds', stripTypeScriptTypes(fnDecl(billSrc, 'setItemsIncluded')) + '\nreturn setItemsIncluded;')(
-      async (fn, fb) => { try { return await fn(); } catch { return fb; } }, async () => {}, UNCLAIMED_SQL, unclaimedBinds);
+    setFn = new Function('safe', 'ensureB2bClaimColumns', 'MGB_UNCLAIMED_SQL', 'mgbUnclaimedBinds', '_paidColOk', stripTypeScriptTypes(fnDecl(billSrc, 'setItemsIncluded')) + '\nreturn setItemsIncluded;')(
+      async (fn, fb) => { try { return await fn(); } catch { return fb; } }, async () => {}, UNCLAIMED_SQL, unclaimedBinds, false);
   } catch (e) { check('setItemsIncluded 실행 준비', false, e.message); }
   check('setItemsIncluded 를 오려 냈다 (전제)', typeof setFn === 'function');
   if (setFn && DatabaseSync) {
