@@ -321,8 +321,11 @@ const PARTS = [
   fn('window.awPickTopic = function(v)', 'awPickTopic'),
   fn('window.awTopicWords = function()', 'awTopicWords'),
 ].join('\n');
+const WT_IS_STUDENT = (HTML.match(/const wtIsStudent = [^\n]+\n/) || [''])[0];
 const BODY = `
   let _picIdx = S.picIdx, _goTheme = S.theme || null, _goAnswers = S.answers || {}, _wtItems = S.items || [], _wtManage = S.manage || [], _wtCan = !!S.can;
+  let _wtRole = S.role === 'student' ? 'student' : '';
+  ${WT_IS_STUDENT}
   const calls = [];
   const goApplyTheme = (t, toggle, quiet) => { calls.push({ fn: 'apply', id: t && t.id, set: t && t.set, quiet }); _goTheme = t; };
   const choosePic = n => { calls.push({ fn: 'choosePic', n }); _picIdx = n; };
@@ -417,4 +420,44 @@ ok(/\.wrap > \.aw-plan \{ grid-column: 1; grid-row: 4 \/ 13/.test(style) && !/\.
 ok(!/[「」]/.test(style), '<style> 안에 홑낫표 없음(한자 폰트 검사)');
 ok((HTML.match(/\{ id:'/g) || []).length === 8, '«{ id:» 모양 리터럴은 GO_THEMES 8개뿐(목록 코드가 그 모양을 안 쓴다)');
 ok(/credentials: 'include'/.test(blockFrom(HTML, 'async function wtLoad()')) && /credentials: 'include'/.test(blockFrom(HTML, 'async function wtCall(body)')), '선생님 판정에 필요한 세션 쿠키를 함께 보낸다');
+console.log('\n[E] 학생이 쓰기 쉽게(제안 0·1·4 — 2026-10-26)');
+ok(!!WT_IS_STUDENT, '전제: 학생 판정 정본(wtIsStudent)을 소스에서 오려 냈다');
+const MYDRAFT = Object.assign({}, ITEM, { id: 31, status: 'draft', title_ko: '우리 집 강아지', title_en: 'My Dog' });
+const stuT = mk({ picIdx: 0, role: 'student', manage: [MYDRAFT] }).awThemeFromCustom(MYDRAFT);
+ok(/내 주제/.test(stuT.srcKo) && !/선생님/.test(stuT.srcKo) && /My topic/.test(stuT.srcEn), '0) 학생이 만든 주제는 «내 주제» 로 부른다(선생님 글감 아님)', stuT.srcKo);
+const stfT = mk({ picIdx: 0, manage: [MYDRAFT] }).awThemeFromCustom(MYDRAFT);
+ok(/선생님 글감 · 아직 안 올림/.test(stfT.srcKo), '(짝) 선생님 화면의 초안은 예전 그대로 «선생님 글감 · 아직 안 올림»', stfT.srcKo);
+const pubT = mk({ picIdx: 0, role: 'student' }).awThemeFromCustom(ITEM);
+ok(pubT.srcKo === '선생님 글감', '(짝) 학원에 올라온 글감은 학생 화면에서도 «선생님 글감»', pubT.srcKo);
+const wS = mk({ picIdx: 0, role: 'student', items: [ITEM], manage: [MYDRAFT] }); wS.awBuildPicker();
+const gS = wS.picChoice.children.map(g => g.label);
+ok(/내 주제/.test(gS[0]) && /선생님/.test(gS[1]), '0) 학생 목록 맨 위 묶음은 «📝 내 주제», 그다음 선생님 글감', gS.join(' | '));
+const mineG = wS.picChoice.children[0], teachG = wS.picChoice.children[1];
+ok(mineG.children.length === 1 && mineG.children[0].value === 'custom:31' && !teachG.children.some(o => o.value === 'custom:31'),
+  '0) 내 주제는 «내 주제» 묶음에만 있고 선생님 묶음과 섞이지 않는다');
+const wT = mk({ picIdx: 0, items: [ITEM], manage: [MYDRAFT] }); wT.awBuildPicker();
+ok(!wT.picChoice.children.some(g => /내 주제/.test(g.label)) && wT.picChoice.options.some(o => o.value === 'custom:31'), '(짝) 선생님 화면에는 «내 주제» 묶음이 없고 초안은 선생님 묶음에 있다');
+const stripTags = h => h.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<[^>]+>/g, ' ');
+const vis = stripTags(HTML);
+ok(!/내가 만든 글감/.test(vis) && !/글감 제목 —/.test(vis), '0) 화면 글자에 «내가 만든 글감»·«글감 제목» 이 없다');
+ok(/주제를 2글자 이상/.test(HTML) && !/글감 제목을 2글자/.test(HTML), '0) 짧은 제목 경고도 «주제»');
+const ideas = (HTML.match(/const WT_IDEAS = \[([\s\S]*?)\n    \];/) || [])[1] || '';
+const ideaN = (ideas.match(/\['/g) || []).length;
+ok(ideaN === 8, '1) 예시 주제 8개', String(ideaN));
+ok(/id="wtIdeas" hidden/.test(HTML) && /#wtIdeas|\.wt-ideas\[hidden\] \{ display: none !important/.test(style), '1) 예시 줄은 처음엔 감춰져 있고 [hidden] 이 먹는다');
+const rIdeas = blockFrom(HTML, 'function wtRenderIdeas()');
+ok(/box\.hidden = !\(_wtCan && wtIsStudent\(\)\)/.test(rIdeas), '1) 예시 주제는 로그인한 학생에게만');
+const pick = blockFrom(HTML, 'window.wtPickIdea = function(i)');
+ok(/inp\.value = /.test(pick) && !/wtCall|wtDraft\(/.test(pick), '1) 누르면 칸에 넣기만 — AI 를 몰래 부르지 않는다');
+const ideaChars = [...ideas].filter(c => c.codePointAt(0) > 0x1F000);
+ok(ideaChars.every(c => !['🫶','🥲','🫠'].includes(c)), '1) 예시 이모지는 Unicode 13 이전');
+ok(/id="wtLeft"/.test(HTML) && HTML.indexOf('id="wtLeft"') < HTML.indexOf('id="wtRow"'), '4) 남은 횟수 배지가 제목 줄(입력칸 위)에 있다');
+const rl = blockFrom(HTML, 'function wtRenderLeft()');
+ok(/typeof _wtAiLeft !== 'number'/.test(rl) && /내일 다시/.test(rl) && /번 남음/.test(rl), '4) 숫자를 모르면 안 그리고, 0이면 «내일 다시»');
+ok((HTML.match(/_wtAiLeft - 1\); wtRenderLeft\(\);/g) || []).length === 2, '4) AI 를 쓰면(질문·그림) 배지를 바로 다시 그린다');
+ok(/code === 'daily_cap'\) \{ _wtAiLeft = 0; wtRenderLeft\(\)/.test(HTML), '4) 서버가 «다 썼다» 하면 배지도 0');
+ok(/if \(_wtAiLeft === 0\) \{ wtMsg/.test(blockFrom(HTML, 'window.wtDraft = async function()')), '4) 0번 남으면 요청을 보내지 않고 안내한다');
+const rp = blockFrom(HTML, 'function wtRenderPanel()');
+ok(/wtRenderLeft\(\)/.test(rp) && /wtRenderIdeas\(\)/.test(rp), '0·1·4) 패널을 그릴 때 배지·예시도 함께 그린다');
+
 done();
