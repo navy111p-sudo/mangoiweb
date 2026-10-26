@@ -414,6 +414,10 @@
     .wt-btn { padding: 10px 15px; border-radius: 10px; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 800;
       color: var(--text); background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.24); }
     .wt-btn:disabled { opacity: .55; cursor: wait; }
+    /* 🎤 말로 주제 넣기(제안 3) — 음성인식이 없는 브라우저에서는 아예 안 그린다 */
+    .wt-mic { background: rgba(15,23,42,0.6); color: #f1f5f9; border: 1px solid rgba(148,163,184,0.5); }
+    .wt-mic.on { background: #fecaca; color: #7f1d1d; border-color: #f87171; }
+    .wt-mic[hidden] { display: none !important; }
     .wt-main { background: linear-gradient(135deg,#10b981,#047857); color: #fff; border-color: #10b981; }
     .wt-pub { background: linear-gradient(135deg,#38bdf8,#2563eb); color: #fff; border-color: #38bdf8; }
     .wt-msg { margin-top: 8px; font-size: 13.5px; line-height: 1.5; color: var(--text2); }
@@ -476,6 +480,13 @@
       background: var(--card); color: var(--text); border: 1.5px solid rgba(148,163,184,0.25);
       font-size: 16px; font-family: inherit; }
     .go-q input:focus { outline: 0; border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,0.2); }
+    /* 👆 고르는 답(1·2단계 학생 주제, 제안 2) — 누르면 칸에 들어간다. 직접 써도 된다. */
+    .go-choices { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+    .go-choices-lbl { font-size: 12.5px; font-weight: 800; color: #94a3b8; margin-right: 2px; }
+    .go-choice { padding: 6px 12px; border-radius: 99px; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 700;
+      color: #e0f2fe; background: rgba(15,23,42,0.6); border: 1px solid rgba(56,189,248,0.45); }
+    .go-choice:hover, .go-choice:focus-visible { border-color: #38bdf8; color: #ffffff; }
+    .go-choice.on { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
     .go-preview { margin-top: 14px; background: rgba(2,6,23,0.45); border: 1px dashed rgba(125,211,252,0.42);
       border-radius: 12px; padding: 13px 16px; }
     .go-pv-h { font-size: 13.5px; font-weight: 900; color: #7dd3fc; margin-bottom: 8px; }
@@ -709,6 +720,7 @@
       <div class="wt-head" id="wtHead">📌 <span data-ko="주제 만들기" data-en="Create a topic">주제 만들기</span> <span class="wt-who" id="wtWho" data-ko="(원장·선생님에게만 보여요)" data-en="(teachers only)">(원장·선생님에게만 보여요)</span><span class="wt-left" id="wtLeft" aria-live="polite"></span></div>
       <div class="wt-row" id="wtRow">
         <input type="text" id="wtTitleIn" maxlength="40" autocomplete="off" placeholder="주제 제목 — 예) 나의 첫 캠핑" data-ko-ph="주제 제목 — 예) 나의 첫 캠핑" data-en-ph="Topic title — e.g. My first camping trip" data-ko-aria="주제 제목" data-en-aria="Topic title" aria-label="주제 제목">
+        <button type="button" class="wt-btn wt-mic" id="wtMicBtn" onclick="wtMic()" hidden>🎤 <span id="wtMicLbl" data-ko="말로" data-en="Say it">말로</span></button>
         <button type="button" class="wt-btn wt-main" id="wtDraftBtn" onclick="wtDraft()">🧠 <span data-ko="브레인스토밍 만들기" data-en="Make brainstorming">브레인스토밍 만들기</span></button>
       </div>
       <div class="wt-ideas" id="wtIdeas" hidden></div>
@@ -1576,6 +1588,7 @@
     document.addEventListener('DOMContentLoaded', () => renderMicState(_micState), { once: true });
     renderMicState('off');
     window.toggleDictation = function(){
+      try { window.wtMicStop && window.wtMicStop(); } catch (e) {}   // 🎤 주제 말로 넣기와 동시에 듣지 않는다
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SR) { renderMicState('unsupported'); return; }
       if (_recOn) { stopDictation(); return; }
@@ -2512,6 +2525,8 @@
              <input type="text" id="go-${q.k}" maxlength="120" value="${escapeHtml(_goAnswers[q.k] || '')}"
                placeholder="${escapeHtml(q.ph)}" data-ko-ph="${escapeHtml(q.ph)}" data-en-ph="${escapeHtml(q.ph)}"
                oninput="goInput('${q.k}', this.value)">
+             ${Array.isArray(q.choices) && q.choices.length ? `<div class="go-choices"><span class="go-choices-lbl" data-ko="👆 골라도 돼요" data-en="👆 Tap one">${escapeHtml(goLangKo() ? '👆 골라도 돼요' : '👆 Tap one')}</span>` +
+               q.choices.map((c, i) => `<button type="button" class="go-choice${String(_goAnswers[q.k] || '').trim() === c ? ' on' : ''}" data-k="${escapeHtml(q.k)}" data-i="${i}" onclick="goPickChoice(this)">${escapeHtml(c)}</button>`).join('') + `</div>` : ''}
            </div>`).join('') + `</div>
          <div class="go-preview" id="goPreview"></div>
          <div class="go-actions">
@@ -2912,6 +2927,7 @@
       if (row) row.hidden = !_wtCan;
       wtRenderLeft();
       wtRenderIdeas();
+      wtRenderMic();
       // 학생 칸 안내 글 — «글감 제목» 대신 학생 말(제안 0)
       const tin = document.getElementById('wtTitleIn');
       if (tin) {
@@ -2985,6 +3001,51 @@
       inp.focus();
       wtMsg('👉 ' + wtT('«🧠 브레인스토밍 만들기» 를 누르면 이 주제로 질문이 나와요. 글자는 바꿔도 돼요!', 'Press «🧠 Make brainstorming» to get questions for this topic. You can change the words!'), 'ok');
     };
+    // 지금 고른 단계 이름 — 단계 버튼의 글자를 그대로 읽는다(이름을 두 곳에 적지 않게)
+    function wtLevelName(ko) {
+      const sp = document.querySelector('.level-btn[data-level="' + currentLevel + '"] span');
+      return sp ? (sp.getAttribute(ko ? 'data-ko' : 'data-en') || sp.textContent) : currentLevel;
+    }
+    // 🎤 말로 주제 넣기(제안 3) — 한국어로 말해도 된다. 들은 말은 칸에 넣기만 하고 AI 는 «만들기» 를 눌러야 쓴다.
+    let _wtRec = null;
+    const wtSR = () => window.SpeechRecognition || window.webkitSpeechRecognition;
+    function wtRenderMic() {
+      const b = document.getElementById('wtMicBtn');
+      if (!b) return;
+      b.hidden = !(_wtCan && wtSR());
+      b.classList.toggle('on', !!_wtRec);
+      const l = document.getElementById('wtMicLbl');
+      if (l) { const ko = _wtRec ? '그만' : '말로', en = _wtRec ? 'Stop' : 'Say it'; l.setAttribute('data-ko', ko); l.setAttribute('data-en', en); l.textContent = wtT(ko, en); }
+    }
+    window.wtMicStop = function() { const r = _wtRec; if (!r) return; _wtRec = null; try { r.abort(); } catch (e) {} wtRenderMic(); };
+    window.wtMic = function() {
+      const SR = wtSR();
+      if (!SR || _wtBusy) return;
+      if (_wtRec) { try { _wtRec.stop(); } catch (e) { wtMicStop(); } return; }   // 한 번 더 누르면 그만(들은 데까지 넣는다)
+      try { if (typeof stopDictation === 'function') stopDictation(); } catch (e) {}   // 글쓰기 받아쓰기와 동시에 듣지 않는다
+      const inp = document.getElementById('wtTitleIn');
+      const rec = new SR(); _wtRec = rec;
+      rec.lang = goLangKo() ? 'ko-KR' : 'en-US'; rec.continuous = false; rec.interimResults = true; rec.maxAlternatives = 1;
+      let heard = '', err = '';
+      rec.onresult = ev => {
+        if (_wtRec !== rec) return;
+        let t = '';
+        for (let i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript;
+        heard = t.replace(/\s+/g, ' ').replace(/[.。!?]+$/, '').trim().slice(0, 40);
+        if (heard && inp) inp.value = heard;
+      };
+      rec.onerror = ev => { if (_wtRec === rec) err = ev.error || 'error'; };
+      rec.onend = () => {
+        if (_wtRec !== rec) return;
+        _wtRec = null; wtRenderMic();
+        if (heard) wtMsg('🎤 ' + wtT('«' + heard + '» 라고 들었어요. 맞으면 «🧠 브레인스토밍 만들기» 를 눌러요. 틀린 글자는 고쳐도 돼요.', 'I heard «' + heard + '». If right, press «🧠 Make brainstorming». You can fix the words.'), 'ok');
+        else if (err === 'not-allowed' || err === 'service-not-allowed') wtMsg('🎤 ' + wtT('마이크를 쓸 수 없어요. 브라우저에서 마이크를 허용하거나 글자로 적어 주세요.', 'The microphone is blocked. Allow it in the browser, or type the topic.'), 'bad');
+        else wtMsg('🎤 ' + wtT('잘 못 들었어요. 다시 눌러 말하거나 글자로 적어 주세요.', 'I could not hear you. Press again and speak, or type the topic.'), 'warn');
+      };
+      wtRenderMic();
+      wtMsg('🎤 ' + wtT('듣는 중… 쓰고 싶은 주제를 말해 주세요. 한국어도 돼요. (예: 우리 집 강아지)', 'Listening… say the topic you want to write about.'), 'warn');
+      try { rec.start(); } catch (e) { _wtRec = null; wtRenderMic(); wtMsg('🎤 ' + wtT('마이크를 켜지 못했어요. 글자로 적어 주세요.', 'Could not start the microphone. Please type the topic.'), 'bad'); }
+    };
     function wtCollect() {
       const words = String(document.getElementById('wtWords').value || '').split(/[,，]/).map(w => w.trim()).filter(Boolean);
       const questions = [].map.call(document.querySelectorAll('#wtQs .wt-q'), row => {
@@ -3002,7 +3063,7 @@
       if (_wtAiLeft === 0) { wtMsg('⏳ ' + wtT('오늘 AI 를 다 썼어요. 내일 다시 만들 수 있어요. 지금은 위 목록의 주제로 써 보세요!', 'You used all of today\'s AI. Try again tomorrow — for now, pick a topic from the list above!'), 'warn'); return; }
       wtSetBusy(true, wtT('🧠 AI 가 6하원칙 질문을 만드는 중이에요… (10초쯤)', '🧠 AI is writing the 5W1H questions… (about 10s)'));
       try {
-        const d = await wtCall({ action: 'draft', title: title });
+        const d = await wtCall({ action: 'draft', title: title, level: currentLevel });   // 단계 맞춤(서버는 학생 주제에만 쓴다)
         if (typeof _wtAiLeft === 'number') _wtAiLeft = Math.max(0, _wtAiLeft - 1); wtRenderLeft();
         wtSetBusy(false);
         _wtCur = d.item;
@@ -3010,7 +3071,7 @@
         goApplyTheme(awThemeFromCustom(d.item), false, false);   // 바로 아래 브레인스토밍으로
         wtMsg(d.ai_used
           ? '✅ ' + (wtIsStudent()
-              ? wtT('만들었어요! 바로 아래 브레인스토밍 질문에 답하고 STEP 3 에 영어로 써 보세요.', 'Done! Answer the brainstorming questions below, then write in English in STEP 3.')
+              ? wtT('만들었어요! «' + wtLevelName(true) + '» 에 맞춘 질문이에요. 바로 아래 질문에 답하고 STEP 3 에 영어로 써 보세요.', 'Done! The questions fit «' + wtLevelName(false) + '». Answer them below, then write in English in STEP 3.')
               : wtT('만들었어요! 바로 아래 브레인스토밍에 보여요. 고칠 곳은 고치고 «💾 저장» → «📢 학원 전체에 올리기».', 'Done! It shows in the brainstorming right below. Edit, then Save → Publish.'))
           : 'ℹ️ ' + wtT('AI 가 답하지 않아 기본 6하원칙 질문으로 만들었어요. 고쳐서 쓰세요.', 'AI did not answer, so the default 5W1H questions were used. Edit as you like.'),
           d.ai_used ? 'ok' : 'warn');
@@ -3092,6 +3153,17 @@
       flowMark(2);
       ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
       ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+    // 👆 고르는 답 누르기 — 칸에 넣고(직접 쓴 것처럼) 고른 것만 표시한다
+    window.goPickChoice = function(btn) {
+      const k = btn && btn.getAttribute('data-k'), i = Number(btn && btn.getAttribute('data-i'));
+      const q = goQuestions().find(x => x.k === k);
+      const c = q && Array.isArray(q.choices) ? q.choices[i] : '';
+      if (!c) return;
+      const inp = document.getElementById('go-' + k);
+      if (inp) inp.value = c;
+      goInput(k, c);
+      btn.parentNode.querySelectorAll('.go-choice').forEach(b => b.classList.toggle('on', b === btn));
     };
     window.goInput = function(k, v) {
       _goAnswers[k] = String(v || '').slice(0, 120);

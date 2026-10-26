@@ -145,9 +145,15 @@ const D1 = {
 const R2 = new Map();
 const RECORDINGS = { put: async (k, v, o) => { R2.set(k, { body: v, o }); }, get: async k => R2.get(k) || null, delete: async k => { R2.delete(k); } };
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 1, 2, 3]).toString('base64');
-let AI_MODE = 'ok', aiCalls = [];
+let AI_MODE = 'ok', aiCalls = [], aiPrompts = [];
+const RICH = { title_en: 'My Dog', title_ko: '우리 집 강아지', icon: '🐶', open: 'I have a dog.',
+  questions: ['when', 'where', 'who', 'what', 'why', 'how'].map(k => ({ k, ko: k + ' 질문?', en: k + ' question?', starter: 'I ',
+    example: 'a very long example answer here', choices: ['my dog', '내 강아지', 'MY DOG', 'a big brown dog', 'the park', 'home'] })),
+  words: ['dog'], image_prompt: 'a happy dog in a garden' };
 const AI = { run: async (model, input) => {
   aiCalls.push(model);
+  if (input && input.messages) aiPrompts.push(String(input.messages[0].content));
+  if (AI_MODE === 'rich' && !/flux/.test(model)) return { response: JSON.parse(JSON.stringify(RICH)) };
   if (/flux/.test(model)) {
     if (AI_MODE === 'img-fail') throw new Error('boom');
     if (AI_MODE === 'img-fallback' && /klein/.test(model)) throw new Error('klein down');
@@ -459,5 +465,54 @@ ok(/code === 'daily_cap'\) \{ _wtAiLeft = 0; wtRenderLeft\(\)/.test(HTML), '4) �
 ok(/if \(_wtAiLeft === 0\) \{ wtMsg/.test(blockFrom(HTML, 'window.wtDraft = async function()')), '4) 0번 남으면 요청을 보내지 않고 안내한다');
 const rp = blockFrom(HTML, 'function wtRenderPanel()');
 ok(/wtRenderLeft\(\)/.test(rp) && /wtRenderIdeas\(\)/.test(rp), '0·1·4) 패널을 그릴 때 배지·예시도 함께 그린다');
+
+console.log('\n[F] 내 단계에 맞는 질문(제안 2) · 말로 주제 넣기(제안 3) — 2026-10-26');
+ok(M.normalizeLevel('a1') === 'A1' && M.normalizeLevel('B2') === 'B2' && M.normalizeLevel('C1') === '' && M.normalizeLevel(null) === '', '단계 값은 A1~B2 만 · 모르면 «단계 맞춤 없음»');
+const RAW = () => JSON.parse(JSON.stringify(RICH));
+const nw = s => String(s).split(/\s+/).filter(Boolean).length;
+const L1 = M.normalizeDraft(RAW(), '우리 집 강아지', 'A1');
+ok(L1.questions.length <= M.WT_LEVEL_SPEC.A1.maxQ && L1.questions.some(q => q.k === 'what'), '1단계: 질문 4개 이하 · «무엇» 은 남긴다', L1.questions.map(q => q.k).join(','));
+ok(L1.questions.every(q => nw(q.ph.replace(/^예\)\s*/, '')) <= 3), '1단계: 예시 답 3낱말 이하', L1.questions.map(q => q.ph).join(' | '));
+ok(L1.questions.every(q => Array.isArray(q.choices) && q.choices.length >= 2 && q.choices.length <= 3 && q.choices.every(c => nw(c) <= 3 && !/[가-힣]/.test(c))),
+  '1단계: 질문마다 고르는 답 2~3개 · 영어만 · 3낱말 이하', JSON.stringify(L1.questions[0].choices));
+ok(L1.questions[0].choices.filter(c => c.toLowerCase() === 'my dog').length === 1, '고르는 답은 대소문자만 다른 중복을 뺀다');
+const L2 = M.normalizeDraft(RAW(), '우리 집 강아지', 'A2');
+ok(L2.questions.length <= 5 && L2.questions.every(q => q.choices && q.choices.every(c => nw(c) <= 4)), '2단계: 질문 5개 이하 · 고르는 답 4낱말 이하');
+const L3 = M.normalizeDraft(RAW(), '우리 집 강아지', 'B1');
+ok(L3.questions.length === 6 && L3.questions.every(q => !q.choices), '3단계: 질문 6개 그대로 · 고르는 답 없음(직접 쓴다)');
+const noWhy = RAW(); noWhy.questions = noWhy.questions.filter(q => q.k !== 'why');
+const L4 = M.normalizeDraft(noWhy, '우리 집 강아지', 'B2');
+ok(L4.questions.some(q => q.k === 'why') && L4.questions.every(q => !q.choices), '4단계: AI 가 «왜» 를 빼도 넣는다(이유 쓰기)', L4.questions.map(q => q.k).join(','));
+const L0 = M.normalizeDraft(RAW(), '우리 집 강아지');
+ok(L0.questions.length === 6 && L0.questions.every(q => !q.choices) && L0.questions[0].ph === '예) a very long example answer here', '(짝) 단계가 없으면 예전 그대로(선생님 글감)');
+// 서버: 학생은 단계 맞춤, 선생님은 단계를 보내도 무시
+AI_MODE = 'rich'; aiPrompts = [];
+r = await call('POST', '/api/class/write-topics', 'Bearer tok-leeyu', { action: 'draft', title: '우리 집 강아지', level: 'A1' });
+const SL = r.j && r.j.item;
+ok(r.st === 200 && SL && SL.questions.length <= 4 && SL.questions.every(q => q.choices && q.choices.length >= 2), '학생이 1단계로 만들면 → 짧은 질문 + 고르는 답', r.st + ' ' + (SL ? SL.questions.length : ''));
+ok(/LEVEL: Step 1/.test(aiPrompts[aiPrompts.length - 1] || ''), '학생 단계가 AI 지시에 실린다');
+aiPrompts = [];
+r = await call('POST', '/api/class/write-topics', 'admin', { action: 'draft', title: '우리 집 강아지', level: 'A1' });
+ok(r.st === 200 && r.j.item.questions.length === 6 && r.j.item.questions.every(q => !q.choices) && !/LEVEL:/.test(aiPrompts[aiPrompts.length - 1] || ''),
+  '(짝) 선생님이 보내도 단계는 무시 — 선생님 글감은 모든 단계 학생에게 나간다');
+r = await call('POST', '/api/class/write-topics', 'Bearer tok-leeyu', { action: 'draft', title: '우리 집 강아지 2', level: 'zz' });
+ok(r.st === 200 && r.j.item.questions.every(q => !q.choices) && !/LEVEL:/.test(aiPrompts[aiPrompts.length - 1] || ''), '(짝) 모르는 단계 값 → 단계 맞춤 없이 예전대로');
+AI_MODE = 'ok';
+r = await call('POST', '/api/class/write-topics', 'Bearer tok-leeyu', { action: 'save', id: SL.id, title_ko: '강아지 이야기',
+  questions: SL.questions.map(q => ({ k: q.k, ko: q.ko, en: q.en, starter: q.starter, example: 'my dog' })) });
+ok(r.st === 200 && r.j.item.questions.every(q => q.choices && q.choices.length >= 2), '저장해도 고르는 답이 사라지지 않는다(편집 칸에 없는 값)');
+// 화면
+ok(/wtCall\(\{ action: 'draft', title: title, level: currentLevel \}\)/.test(HTML), '화면이 지금 고른 단계를 함께 보낸다');
+const rgq = blockFrom(HTML, 'function renderGoQuestions()');
+ok(/q\.choices/.test(rgq) && /goPickChoice\(this\)/.test(rgq), '브레인스토밍 칸에 고르는 답 버튼을 그린다');
+const gpc = blockFrom(HTML, 'window.goPickChoice = function(btn)');
+ok(/goInput\(k, c\)/.test(gpc) && /q\.choices\[i\]/.test(gpc), '고르는 답을 누르면 그 칸에 들어간다(화면 글자가 아니라 질문 값에서)');
+ok(/id="wtMicBtn"[^>]*hidden/.test(HTML) && /\.wt-mic\[hidden\] \{ display: none !important/.test(style), '🎤 버튼은 처음에 숨김 · [hidden] 이 먹는다');
+const rmic = blockFrom(HTML, 'function wtRenderMic()');
+ok(/b\.hidden = !\(_wtCan && wtSR\(\)\)/.test(rmic), '🎤 는 만들 수 있고 음성인식이 되는 브라우저에서만');
+const wmic = blockFrom(HTML, 'window.wtMic = function()');
+ok(/ko-KR/.test(wmic) && !/wtCall|wtDraft\(/.test(wmic) && /inp\.value = heard/.test(wmic), '🎤 한국어로 들어 칸에 넣기만 — AI 를 몰래 부르지 않는다');
+ok(/stopDictation\(\)/.test(wmic) && /window\.wtMicStop && window\.wtMicStop\(\)/.test(blockFrom(HTML, 'window.toggleDictation = function(){')), '🎤 글쓰기 받아쓰기와 동시에 듣지 않는다(양쪽)');
+ok(/wtRenderMic\(\)/.test(blockFrom(HTML, 'function wtRenderPanel()')), '패널을 그릴 때 🎤 도 함께 그린다');
 
 done();
