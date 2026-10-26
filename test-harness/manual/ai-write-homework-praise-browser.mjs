@@ -21,7 +21,7 @@ const QS = [Q('what','💡 What — 무엇을 했나요?','💡 What — What di
 const HW = { id: 41, title_ko: '나의 주말', title_en: 'My weekend', icon: '🏖', open: '', questions: QS, words: [], image_url: '', due_date: '2099-12-31' };
 const HW2 = { id: 42, title_ko: '나의 꿈', title_en: 'My dream', icon: '🌠', open: '', questions: QS, words: [], image_url: '', due_date: '2099-12-30' };
 const PLAIN = { id: 43, title_ko: '그냥 글감', title_en: 'Just a topic', icon: '📝', open: '', questions: QS, words: [], image_url: '' };
-const RESULT = { ok: true, score: 88, level: 'A1', corrected: 'On the weekend, I played soccer with my friends.', issues: [{ original: 'play', corrected: 'played', explanation: '과거형' }], upgrades: [], tip: 'Great!', reply: 'Soccer sounds fun!', mission_used: [] };
+const RESULT = { ok: true, topic_recorded: true, score: 88, level: 'A1', corrected: 'On the weekend, I played soccer with my friends.', issues: [{ original: 'play', corrected: 'played', explanation: '과거형' }], upgrades: [], tip: 'Great!', reply: 'Soccer sounds fun!', mission_used: [] };
 let MODE = 'student', posts = [];
 const server = createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x'), p = decodeURIComponent(u.pathname);

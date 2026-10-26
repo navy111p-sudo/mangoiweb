@@ -1972,7 +1972,7 @@
         if (d && d.ok) {
           awNoteRound(text, Number(d.score) || 0, currentLevel);   // 🔁 몇 차 첨삭인지 · 지난 점수
           renderResult(d);
-          awMarkHwDone(awTopicIdNow());
+          if (d.topic_recorded === true) awMarkHwDone(awTopicIdNow());   // 📅 서버가 «적었다» 고 말할 때만 ✓
           await loadHistory();
         } else {
           console.error('[AI Write] server error:', d, 'status:', r.status);
@@ -2755,7 +2755,7 @@
     function awHwState(it) {
       if (!it || !it.due_date) return '';
       if (_wtDone.has(Number(it.id))) return 'done';
-      if (wtIsStudent() && !_wtDoneKnown) return 'open';
+      if (!_wtDoneKnown && !(_wtCan && !wtIsStudent())) return 'open';   // 낸 것을 모르면(학생·게스트) «마감 지남» 이라 말하지 않는다 — 직원만 날짜로
       return it.due_date < awTodayKst() ? 'late' : 'open';
     }
     function awHwLabel(it) {

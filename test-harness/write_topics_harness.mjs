@@ -794,7 +794,7 @@ console.log('\n[H] 숙제·마감일(제안 6) · 칭찬 먼저(제안 7) · 안
   ok((r.j.items.find(x => x.id === HW.id) || {}).due_date === '2026-11-03', '6) 학생 목록에 마감일이 실린다');
   // 제출 = 그 주제로 첨삭받은 글(topic_id)
   const insC = db.prepare('INSERT INTO ai_writing_corrections (student_uid, score, created_at, topic_id) VALUES (?, ?, ?, ?)');
-  insC.run('kimsu', 70, Date.now() - 3600e3, HW.id); insC.run('kimsu', 88, Date.now(), HW.id); insC.run('leeyu', 60, Date.now(), HW.id); insC.run('kimsu', 90, Date.now(), null);
+  insC.run('kimsu', 70, Date.now() - 3600e3, HW.id); insC.run('kimsu', 88, Date.now(), HW.id); insC.run('leeyu', 60, Date.now(), HW.id); insC.run('kimsu', 90, Date.now(), null); insC.run('guest_ab12', 99, Date.now(), HW.id); insC.run('', 99, Date.now(), HW.id);
   r = await call('GET', '/api/class/write-topics', 'Bearer tok-kimsu');
   ok(Array.isArray(r.j.done_ids) && r.j.done_ids.includes(HW.id), '6) 학생 GET → 낸 숙제 번호(done_ids)');
   r = await call('GET', '/api/class/write-topics', 'Bearer tok-nobody');
@@ -803,8 +803,9 @@ console.log('\n[H] 숙제·마감일(제안 6) · 칭찬 먼저(제안 7) · 안
   ok((r.j.manage.find(x => x.id === HW.id) || {}).submit_count === 2, '6) 선생님 «내 글감» 에 제출 학생 수(사람 수 — 횟수 아님)', JSON.stringify((r.j.manage.find(x => x.id === HW.id) || {}).submit_count));
   r = await call('GET', '/api/class/write-topics?submits=' + HW.id, 'hq_t_kim');
   const subs = (r.j && r.j.items) || [];
-  const kim = subs.find(x => x.uid === 'kimsu') || {};
-  ok(r.st === 200 && subs.length === 2 && kim.n === 2 && kim.best === 88 && kim.name === '김수아', '6) 제출 확인 → 학생마다 한 줄(횟수·최고 점수·이름)', JSON.stringify(subs));
+  const kim = subs.find(x => x.name === '김수아') || {};
+  ok(r.st === 200 && subs.length === 2 && kim.n === 2 && kim.best === 88, '6) 제출 확인 → 학생마다 한 줄(횟수·최고 점수·이름) · 게스트·빈 계정은 안 섞인다', JSON.stringify(subs));
+  ok(kim.uid === 'ki***' && !subs.some(x => /kimsu|leeyu/.test(x.uid)), '6) 🔒 선생님에게는 로그인 아이디를 가려서 준다', JSON.stringify(subs.map(x => x.uid)));
   ok(/no-store/.test(r.res.headers.get('Cache-Control') || ''), '6) 제출 목록은 캐시하지 않는다(학생 이름)');
   r = await call('GET', '/api/class/write-topics?submits=' + HW.id, 'hq_t_lee');
   ok(r.st === 403 && r.j.error === 'not_allowed' && / \/ /.test(r.j.message), '(짝) 다른 선생님 → 403(한/영)');
@@ -813,7 +814,7 @@ console.log('\n[H] 숙제·마감일(제안 6) · 칭찬 먼저(제안 7) · 안
   r = await call('GET', '/api/class/write-topics?submits=' + HW.id);
   ok(r.st === 401 || r.st === 403, '(짝) 로그인 없이 → 못 연다');
   r = await call('GET', '/api/class/write-topics?submits=' + HW.id, 'admin');
-  ok(r.st === 200 && (r.j.items || []).length === 2, '본사도 본다');
+  ok(r.st === 200 && (r.j.items || []).length === 2 && (r.j.items || []).some(x => x.uid === 'kimsu'), '본사도 본다 · 본사는 아이디 전체');
   // 첨삭 기록 쪽 배선(api-ai.ts) — topic_id 를 적고, 칸이 없으면 옛 모양으로 다시 적는다
   const AIS = rd(resolve(SRC, 'api-ai.ts'));
   ok(/ADD COLUMN topic_id INTEGER/.test(AIS) && /Number\(b\.topic_id\)/.test(AIS), '6) 첨삭 기록에 topic_id 칸 · 화면이 보낸 번호를 숫자로만 받는다');
@@ -842,6 +843,10 @@ console.log('\n[H] 숙제·마감일(제안 6) · 칭찬 먼저(제안 7) · 안
   hw = mk({ picIdx: 0, items: [LATE], role: 'student' });
   hw.setDone([], false);
   ok(hw.awHwState(LATE) === 'open' && !/지남/.test(hw.awHwLabel(LATE).ko), '(짝) 낸 것을 못 받았으면(모름) «마감 지남» 이라 말하지 않는다');
+  hw = mk({ picIdx: 0, items: [LATE], role: '', can: false }); hw.setDone([], false);
+  ok(hw.awHwState(LATE) === 'open', '(짝) 게스트(로그인 안 함)에게도 «마감 지남» 이라 말하지 않는다');
+  hw = mk({ picIdx: 0, items: [LATE], role: '', can: true }); hw.setDone([], false);
+  ok(hw.awHwState(LATE) === 'late', '(짝) 선생님 화면은 날짜로 «마감 지남»');
   hw = mk({ picIdx: 0, items: [HWI], role: '' });
   hw.awRenderHwNote();
   ok(hw.hwNote.hidden === true, '(짝) 선생님 화면에는 학생 안내 줄이 없다');
@@ -860,7 +865,10 @@ console.log('\n[H] 숙제·마감일(제안 6) · 칭찬 먼저(제안 7) · 안
   hw.awMarkHwDone(23);
   ok(hw.toasts.length === 1, '(짝) 숙제가 아닌 글감은 아무 말도 안 한다');
   const sub = blockFrom(HTML, 'async function submitWrite()') || HTML;
-  ok(/topic_id: awTopicIdNow\(\)/.test(HTML) && /awMarkHwDone\(awTopicIdNow\(\)\)/.test(HTML), '6) 첨삭 요청에 topic_id · 성공하면 «냈어요» 표시');
+  ok(/topic_id: awTopicIdNow\(\)/.test(HTML) && /if \(d\.topic_recorded === true\) awMarkHwDone\(awTopicIdNow\(\)\)/.test(HTML), '6) 첨삭 요청에 topic_id · 서버가 «적었다»(topic_recorded) 고 할 때만 ✓');
+  ok(!/^\s*awMarkHwDone\(awTopicIdNow\(\)\);/m.test(HTML), '(짝) 서버 확인 없이 ✓ 를 그리는 줄이 없다');
+  ok(/topic_recorded: topicRecorded/.test(AIS) && /topicRecorded = topicId !== null && !!uid;/.test(AIS) && AIS.indexOf('topicRecorded = topicId') < AIS.indexOf('retry without'), '6) 서버: topic_id 를 «실제로» 적었을 때만 topic_recorded=true(옛 모양으로 다시 적으면 false)');
+  ok(/duplicate column/.test(AIS) && /_awTopicColTried = false/.test(AIS), '6) ALTER 가 일시 장애로 실패하면 다음 요청에서 다시 시도한다');
   ok(/id="wtDue"/.test(HTML) && /wtDueBox\.hidden = wtIsStudent\(\)|wtDueBox'\)\.hidden = wtIsStudent\(\)/.test(HTML), '6) 마감일 칸은 선생님에게만');
   ok(/\.wt-f\[hidden\] \{ display: none !important; \}/.test(HTML), '6) 학생 화면에서 마감일 칸이 실제로 감춰진다(.wt-f 의 display 가 [hidden] 을 이기는 함정)');
   ok(/wtSubmits\(/.test(HTML) && /\?submits=/.test(HTML), '6) «📋 제출 확인» 이 제출 목록을 연다');

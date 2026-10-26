@@ -57,7 +57,8 @@ export async function handleAiApi(
       // 📅 (2026-10-26 제안 6) 어느 주제(선생님 숙제·내 주제)로 쓴 글인가 — 지연 ALTER, 한 워커에 한 번만 시도
       if (!_awTopicColTried) {
         _awTopicColTried = true;
-        try { await env.DB.exec(`ALTER TABLE ai_writing_corrections ADD COLUMN topic_id INTEGER`); } catch { /* 있음 */ }
+        try { await env.DB.exec(`ALTER TABLE ai_writing_corrections ADD COLUMN topic_id INTEGER`); }
+        catch (e: any) { if (!/duplicate column/i.test(String(e?.message || e))) _awTopicColTried = false; }   // 일시 장애면 다음 요청에서 다시 시도
         try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_awc_topic ON ai_writing_corrections(topic_id)`); } catch { /* 칸이 없으면 실패 — 무해 */ }
       }
     };
@@ -210,6 +211,7 @@ Student text: """${text}"""`;
       // 📅 어느 주제로 쓴 글인가(숙제 제출 확인용) — 양의 정수만. 화면이 보낸 번호라 «제출» 의 근거일 뿐 권한·포인트에는 안 쓴다.
       const _tid = Number(b.topic_id);
       const topicId = Number.isInteger(_tid) && _tid > 0 && _tid < 1e9 ? _tid : null;
+      let topicRecorded = false;   // 📅 «그 주제로 냈다» 가 정말 적혔는가 — 화면은 이것이 true 일 때만 ✓ 를 그린다
       try {
         const now = Date.now();
         const fb = JSON.stringify({ issues, tip, reply, upgrades, mission_words: missionWords, mission_used: missionUsed, meta });
@@ -217,6 +219,7 @@ Student text: """${text}"""`;
           await env.DB.prepare(
             `INSERT INTO ai_writing_corrections (student_uid, original_text, corrected_text, feedback, level, score, created_at, topic_id) VALUES (?,?,?,?,?,?,?,?)`
           ).bind(uid || null, text, corrected, fb, level, score, now, topicId).run();
+          topicRecorded = topicId !== null && !!uid;
         } catch (e1: any) {
           // ⚠️ topic_id 칸이 아직 없으면(ALTER 실패) 그 칸 없이라도 남긴다 — 첨삭 기록이 통째로 사라지지 않게
           console.warn('[write-correct] insert with topic_id failed, retry without:', e1?.message || e1);
@@ -343,6 +346,7 @@ Student text: """${text}"""`;
         mission_words: missionWords, mission_used: missionUsed,
         points: pointsEarned, mission_bonus: missionBonus, streak_bonus: streakBonus,
         earned_badges: earnedBadges, vocab_saved: vocabSaved,
+        topic_recorded: topicRecorded,
         ...(raw ? {} : { ai_unavailable: true, fallback: true }),
       });
     }

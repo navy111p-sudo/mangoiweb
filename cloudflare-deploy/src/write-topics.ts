@@ -582,6 +582,9 @@ const unsafeRes = (...texts: unknown[]): Response | null => {
 
 /* 📅📋 숙제 제출(제안 6) — 쓴 글(ai_writing_corrections.topic_id, api-ai.ts 가 적는다)로 센다.
    ⚠️ 그 칸은 지연 ALTER 라 아직 없을 수 있다 — 그때는 «못 셈» 으로 둔다(0건 «아무도 안 냈다» 로 위장하지 않는다). */
+// 📅 «제출» 로 세는 것은 진짜 학생 계정만 — 게스트(guest_·anon_)·빈 값은 «제출 N명» 에 안 섞는다
+const WT_REAL_STUDENT = `student_uid IS NOT NULL AND student_uid != '' AND student_uid NOT LIKE 'guest%' AND student_uid NOT LIKE 'anon%'`;
+export function maskUid(u: string): string { const s = String(u || ''); return s.length <= 2 ? s.slice(0, 1) + '*' : s.slice(0, 2) + '*'.repeat(Math.min(6, s.length - 2)); }
 async function doneTopicIds(env: any, uid: string): Promise<number[] | null> {
   if (!uid) return null;
   try {
@@ -593,7 +596,7 @@ async function attachSubmitCounts(env: any, manage: any[]): Promise<void> {
   if (!manage.some(it => it.due_date)) return;
   try {
     // 바인드 없이 «숙제인 글감» 으로만 좁힌다(목록 길이와 무관)
-    const rs: any = await env.DB.prepare(`SELECT topic_id, COUNT(DISTINCT student_uid) AS n FROM ai_writing_corrections WHERE topic_id IN (SELECT id FROM write_topics WHERE COALESCE(due_date, '') != '') GROUP BY topic_id`).all();
+    const rs: any = await env.DB.prepare(`SELECT topic_id, COUNT(DISTINCT student_uid) AS n FROM ai_writing_corrections WHERE topic_id IN (SELECT id FROM write_topics WHERE COALESCE(due_date, '') != '') AND ${WT_REAL_STUDENT} GROUP BY topic_id`).all();
     const m = new Map<number, number>((rs.results || []).map((r: any) => [Number(r.topic_id), Number(r.n) || 0]));
     for (const it of manage) if (it.due_date) it.submit_count = m.get(Number(it.id)) || 0;
   } catch { /* 칸이 아직 없음 — submit_count 를 안 실으면 화면이 «—» 로 그린다 */ }
@@ -605,7 +608,7 @@ async function submitsList(request: Request, env: any, id: number): Promise<Resp
   const row: any = await env.DB.prepare(`SELECT id, created_by, status FROM write_topics WHERE id = ?`).bind(id).first();
   if (!row || row.status === 'deleted') return json({ ok: false, error: 'not_found' }, 404);
   if (!canSeeSubmits(g.actor, row)) return json({ ok: false, error: 'not_allowed', message: '제출 명단은 본사와 그 숙제를 낸 선생님만 볼 수 있어요. / Only HQ and the teacher who set this homework can see the list.' }, 403);
-  const base = `FROM ai_writing_corrections c WHERE c.topic_id = ? GROUP BY c.student_uid ORDER BY last_at DESC LIMIT 200`;
+  const base = `FROM ai_writing_corrections c WHERE c.topic_id = ? AND ${WT_REAL_STUDENT.replace(/student_uid/g, 'c.student_uid')} GROUP BY c.student_uid ORDER BY last_at DESC LIMIT 200`;
   const cols = `c.student_uid AS uid, COUNT(*) AS n, MAX(c.created_at) AS last_at, MAX(c.score) AS best`;
   let rs: any;
   try { rs = await env.DB.prepare(`SELECT ${cols}, (SELECT e.korean_name FROM students_erp e WHERE e.user_id = c.student_uid LIMIT 1) AS name ${base}`).bind(id).all(); }
@@ -613,7 +616,9 @@ async function submitsList(request: Request, env: any, id: number): Promise<Resp
     try { rs = await env.DB.prepare(`SELECT ${cols} ${base}`).bind(id).all(); }
     catch { return jsonNoStore({ ok: true, unknown: true, items: [] }); }   // 칸이 아직 없음 = 못 셈
   }
-  const items = (rs.results || []).filter((r: any) => r.uid).map((r: any) => ({ uid: String(r.uid), name: String(r.name || ''), n: Number(r.n) || 0, last_at: Number(r.last_at) || 0, best: Number(r.best) || 0 }));
+  // 🔒 선생님에게는 로그인 아이디를 가려서 준다(이 서비스에서 아이디는 사실상 비밀번호) — 본사만 전체
+  const hideUid = !!g.actor.isTeacher;
+  const items = (rs.results || []).filter((r: any) => r.uid).map((r: any) => ({ uid: hideUid ? maskUid(String(r.uid)) : String(r.uid), name: String(r.name || ''), n: Number(r.n) || 0, last_at: Number(r.last_at) || 0, best: Number(r.best) || 0 }));
   return jsonNoStore({ ok: true, items });
 }
 
