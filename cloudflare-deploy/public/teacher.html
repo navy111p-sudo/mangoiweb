@@ -145,6 +145,12 @@ html[data-t="dark"] .pwform input{background:#1b2330;border-color:#2c3949;color:
    대부분이 정규라 전부 배지가 붙으면 «특별한 수업» 표시가 묻힌다. */
 .pill.p-trial{background:#047857;color:#fff}
 .pill.p-makeup{background:#6d28d9;color:#fff}
+/* 📅 (2026-10-26) 합친 카드 안 «주간 전체 보기» 접이칸 */
+.cls-week{border-top:1px solid #e6ebf1;margin-top:12px;padding-top:10px}
+.cls-week>summary{cursor:pointer;font-size:14px;font-weight:700;color:#2563eb;min-height:44px;display:flex;align-items:center;gap:6px}
+.cls-week[open]>summary{margin-bottom:8px}
+html[data-t="dark"] .cls-week{border-color:#2a3542}
+html[data-t="dark"] .cls-week>summary{color:#7aa7ff}
 .wk-nav{display:flex;gap:6px;margin:0 0 10px}
 .wk-nav button{flex:1;padding:8px 6px;border:1px solid #d7dee6;background:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;color:#334}
 .wk-nav button.on{background:#2563eb;border-color:#2563eb;color:#fff}
@@ -691,6 +697,28 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       <div id="classes"></div>
     </div>
     <div id="cls-day-view" hidden></div>
+    <!-- 📅 (2026-10-26) 옛 «내 주간 스케줄» 카드 — 합친 카드 안의 접이칸으로 옮겼다.
+         평소엔 접혀 있어 오늘 목록 + 날짜 드롭다운만 보이고, 펼치면 주 이동·날짜 이동·주 전체 목록이 그대로 있다. -->
+    <details class="cls-week" id="c-week" hidden>
+      <summary><span data-en="Full week view" data-ko="주간 전체 보기">Full week view</span> <small id="wk-range"></small></summary>
+      <div class="wk-nav">
+        <button type="button" id="wk-prev" data-en="◀ Prev" data-ko="◀ 이전 주">◀ 이전 주</button>
+        <button type="button" id="wk-this" class="on" data-en="This week" data-ko="이번 주">이번 주</button>
+        <button type="button" id="wk-next" data-en="Next ▶" data-ko="다음 주 ▶">다음 주 ▶</button>
+      </div>
+      <!-- 📅 (2026-08-07 마이마이 ⑥ 「연·월·일을 바로 고르게 해 달라 — 지금은 이전/다음뿐」)
+           옛 시스템은 연/월/일 드롭다운 3개였다. 여기서는 **날짜 하나**로 같은 일을 한다:
+           폰에서는 OS 달력이 뜨고(연·월·일을 한 화면에서 고른다), PC 에서는 직접 입력된다.
+           고른 날이 속한 «주» 로 이동한다 — 이 카드가 그리는 단위가 주이기 때문. -->
+      <div class="wk-jump">
+        <label for="wk-date" data-en="Jump to date" data-ko="날짜로 이동">날짜로 이동</label>
+        <input type="date" id="wk-date">
+        <select id="wk-year" aria-label="Year"></select><select id="wk-month" aria-label="Month"></select><select id="wk-day" aria-label="Day"></select>
+        <button type="button" id="wk-go" data-en="Go" data-ko="이동">이동</button>
+      </div>
+      <div id="wk-error" class="warnline" role="status" hidden data-en="Could not load the selected week. The last loaded week is still shown. Tap Refresh to retry." data-ko="선택한 주를 불러오지 못했습니다. 마지막으로 불러온 주를 그대로 표시합니다. 새로고침을 눌러 다시 시도해 주세요.">Could not load the selected week. The last loaded week is still shown. Tap Refresh to retry.</div>
+      <div id="week"></div>
+    </details>
   </div>
 
   <!-- 📅 (2026-08-06 마이마이 제보 "내일 수업이 안 보인다")
@@ -705,28 +733,6 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   <!-- 🗓 (2026-08-06) 「내 주간 스케줄」 — 강사에게 자기 일정을 미리 보는 화면이 아예 없었다.
        마이페이지 탭 11개 중 스케줄이 없고, 이 화면은 «오늘» 만 그렸다. 관리자에게는 주간
        통합 캘린더가 있는데 정작 당사자인 강사는 못 봤다. -->
-  <!-- ⚠️ (2026-10-26) 이 카드는 «오늘의 수업» 의 날짜 드롭다운으로 합쳐져 화면에는 안 띄운다.
-       주 단위 불러오기 상태(WK_DATA·날짜칸·오류줄)를 이 요소들이 그대로 들고 있어 마크업은 남긴다. -->
-  <div class="card" id="c-week" hidden>
-    <h2><span data-en="My Week" data-ko="내 주간 스케줄">My Week</span> <small id="wk-range"></small></h2>
-    <div class="wk-nav">
-      <button type="button" id="wk-prev" data-en="◀ Prev" data-ko="◀ 이전 주">◀ 이전 주</button>
-      <button type="button" id="wk-this" class="on" data-en="This week" data-ko="이번 주">이번 주</button>
-      <button type="button" id="wk-next" data-en="Next ▶" data-ko="다음 주 ▶">다음 주 ▶</button>
-    </div>
-    <!-- 📅 (2026-08-07 마이마이 ⑥ 「연·월·일을 바로 고르게 해 달라 — 지금은 이전/다음뿐」)
-         옛 시스템은 연/월/일 드롭다운 3개였다. 여기서는 **날짜 하나**로 같은 일을 한다:
-         폰에서는 OS 달력이 뜨고(연·월·일을 한 화면에서 고른다), PC 에서는 직접 입력된다.
-         고른 날이 속한 «주» 로 이동한다 — 이 카드가 그리는 단위가 주이기 때문. -->
-    <div class="wk-jump">
-      <label for="wk-date" data-en="Jump to date" data-ko="날짜로 이동">날짜로 이동</label>
-      <input type="date" id="wk-date">
-      <select id="wk-year" aria-label="Year"></select><select id="wk-month" aria-label="Month"></select><select id="wk-day" aria-label="Day"></select>
-      <button type="button" id="wk-go" data-en="Go" data-ko="이동">이동</button>
-    </div>
-    <div id="wk-error" class="warnline" role="status" hidden data-en="Could not load the selected week. The last loaded week is still shown. Tap Refresh to retry." data-ko="선택한 주를 불러오지 못했습니다. 마지막으로 불러온 주를 그대로 표시합니다. 새로고침을 눌러 다시 시도해 주세요.">Could not load the selected week. The last loaded week is still shown. Tap Refresh to retry.</div>
-    <div id="week"></div>
-  </div>
 
   <!-- ⚡ 정전 · 인터넷 장애 신고 (멜카 요청) — 수업 목록 바로 아래.
        정전 중인 강사는 폰 배터리로 모바일데이터를 쓴다. 버튼 하나에서 시작해
@@ -1763,7 +1769,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var card = document.getElementById('c-week'), box = document.getElementById('week');
     if (!card || !box || !w || !w.days){ renderClsDay(); return; } // 주 자료가 없어도 날짜 드롭다운은 채운다
     portalAcademies(w);
-    card.hidden = true; // 합친 카드(#c-classes)의 날짜 드롭다운이 대신 보여 준다 — renderClsDay
+    card.hidden = false; // 합친 카드 안의 «주간 전체 보기» 접이칸(평소엔 접힘)
     card.setAttribute('aria-busy', 'false');
     bindWeekNav();
     // 버튼·날짜 칸은 요청 중인 주가 아니라 실제로 표시한 주에 맞춘다.
@@ -1850,6 +1856,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   }
   function loadWeek(off){
     WK_SELECTED = off === 0 ? null : wkMonday(off);
+    // 합친 카드의 날짜 드롭다운도 고른 날(없으면 그 주 월요일)로 따라간다 — 이번 주면 오늘
+    var pickedInWeek = WK_PICKED_DATE && weekOfDate(WK_PICKED_DATE) === wkMonday(off);
+    CLS_DAY = pickedInWeek ? WK_PICKED_DATE : (off === 0 ? null : wkMonday(off));
+    if (CLS_DAY === clsToday()) CLS_DAY = null;
     var req = beginWeekRead();
     renderWeek(WK_DATA); // 실패하더라도 보이던 범위·날짜·버튼을 그대로 남긴다
     var card = document.getElementById('c-week');
@@ -1899,15 +1909,16 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var sel = document.getElementById('cls-day');
     if (!sel) return;
     var first = clsDayAdd(today, -CLS_DAY_BACK), last = clsDayAdd(today, CLS_DAY_AHEAD);
-    if (CLS_DAY && (CLS_DAY < first || CLS_DAY > last)) CLS_DAY = null; // 자정이 지나 범위를 벗어난 선택
-    var key = today + '|' + (EN() ? 'en' : 'ko');
+    // «주간 전체 보기» 로 먼 날을 고르면 범위 밖이다 — 버리지 않고 그 날짜를 한 줄 더 넣는다
+    var extra = (CLS_DAY && (CLS_DAY < first || CLS_DAY > last)) ? CLS_DAY : '';
+    var key = today + '|' + (EN() ? 'en' : 'ko') + '|' + extra;
     if (CLS_DAY_KEY !== key){
-      var h = '';
-      for (var i = -CLS_DAY_BACK; i <= CLS_DAY_AHEAD; i++){
-        var ds = clsDayAdd(today, i);
-        h += '<option value="' + ds + '">' + esc(clsDayLabel(ds, today)) + '</option>';
-      }
-      sel.innerHTML = h;
+      var days = [];
+      for (var i = -CLS_DAY_BACK; i <= CLS_DAY_AHEAD; i++) days.push(clsDayAdd(today, i));
+      if (extra) days.push(extra);
+      sel.innerHTML = days.sort().map(function(ds){
+        return '<option value="' + ds + '">' + esc(clsDayLabel(ds, today)) + '</option>';
+      }).join('');
       CLS_DAY_KEY = key;
     }
     sel.value = CLS_DAY || today;
