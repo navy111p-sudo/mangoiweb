@@ -441,6 +441,8 @@
     .wt-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; margin-top: 6px;
       border-radius: 10px; background: rgba(15,23,42,0.45); }
     .wt-item-t { flex: 1 1 160px; min-width: 0; font-size: 14px; font-weight: 800; color: var(--text); overflow-wrap: anywhere; }
+    .wt-item-w { display: block; font-size: 12.5px; font-weight: 700; color: var(--text2); margin-top: 2px; }
+    .wt-btn.wt-go { background: linear-gradient(135deg,#10b981,#059669); color: #fff; border-color: transparent; }
     .wt-badge { font-size: 12px; font-weight: 800; padding: 2px 9px; border-radius: 99px; color: #fde68a; border: 1px solid rgba(253,230,138,0.5); }
     .wt-badge.pub { color: #86efac; border-color: rgba(134,239,172,0.5); }
     .go-pick-lbl { display: block; font-size: 13px; font-weight: 800; color: var(--text2); margin: 2px 0 7px; }
@@ -538,7 +540,24 @@
     .sh-bad { color: #b91c1c; text-decoration: line-through; }
     .sh-good { color: #047857; font-weight: 800; }
     .sh-why { color: #78716c; font-size: 13.5px; }
+    /* 🏆 내 작품 카드(제안 9) — 한 장 출력과 같은 #sheetModal(같은 z-index · 같은 인쇄 규칙)에 그린다 */
+    .wk-list { max-width: 860px; margin: 10px auto 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: #44403c; font-size: 13.5px; }
+    .wk-chip { border: 1px solid #d6d3d1; background: #fff; color: #44403c; border-radius: 99px; padding: 6px 12px;
+      font-size: 13px; font-family: inherit; cursor: pointer; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wk-chip.on { background: #fdf2f8; border-color: #db2777; color: #9d174d; font-weight: 800; }
+    .wk-card { margin-top: 12px; text-align: center; border: 3px solid #fbcfe8; border-radius: 18px; }
+    .wk-pic { display: block; width: 100%; max-height: 300px; object-fit: cover; border-radius: 12px; margin-bottom: 14px; }
+    .wk-icon { font-size: 64px; line-height: 1.2; margin-bottom: 6px; }
+    .wk-title { font-size: 30px; font-weight: 900; color: #9d174d; line-height: 1.25; }
+    .wk-sub { font-size: 15px; color: #78716c; margin-top: 4px; }
+    .wk-by { font-size: 13.5px; color: #78716c; margin: 8px 0 16px; }
+    .wk-text { text-align: left; font-size: 18px; line-height: 1.9; white-space: pre-wrap; color: #1c1917;
+      background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 16px 18px; }
+    .wk-good { text-align: left; margin-top: 14px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 12px; padding: 12px 16px; color: #14532d; font-size: 15px; }
+    .wk-good ul { margin: 6px 0 0; padding-left: 20px; line-height: 1.7; }
+    .wk-reply { text-align: left; margin-top: 12px; background: #f5f3ff; border: 1px solid #c4b5fd; border-radius: 12px; padding: 12px 16px; color: #3b0764; font-size: 14.5px; line-height: 1.7; }
     @media print {
+      .wk-list { display: none; }
       body.sheet-open > *:not(#sheetModal) { display: none !important; }
       body.sheet-open #bookModal { display: none !important; }
       #sheetModal { position: static; overflow: visible; background: #fff; }
@@ -554,6 +573,9 @@
       .go-q-label { font-size: 13.5px; }
       .go-go { font-size: 15px; }
       .sh-paper { padding: 20px 16px 40px; }
+      .sh-tools { gap: 6px; padding: 10px 10px; }
+      .sh-tools button { padding: 10px 12px; font-size: 14px; white-space: nowrap; }
+      .wk-title { font-size: 25px; }
     }
     /* ═══ 🖥 PC 한 화면 2단 배치 (2026-10-16 사장님 «한방에 모두 보이게 · 글자 크기는 그대로») ═══
        왼쪽 = ① 고르기(난이도·장면·오늘의 그림), 오른쪽 = ② 쓰기(소개·미션·도움·쓰기 칸·첨삭 버튼).
@@ -847,6 +869,7 @@
     <div class="history">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <h3 style="margin:0;flex:1">📜 <span data-ko="나의 영작 일기 (날짜별 복습)" data-en="My Writing Diary (Daily Review)">나의 영작 일기 (날짜별 복습)</span></h3>
+        <button class="book-btn" onclick="openWorks()">🏆 <span data-ko="내 작품" data-en="My works">내 작품</span></button>
         <button class="book-btn" onclick="makeBook()">📕 <span data-ko="내 동화책 만들기" data-en="Make My Storybook">내 동화책 만들기</span></button>
         <button onclick="toggleViewMode()" id="viewModeBtn" style="padding:6px 12px;background:rgba(251,191,36,0.18);color:var(--gold);border:1px solid rgba(251,191,36,0.40);border-radius:8px;cursor:pointer;font-size:11.5px;font-weight:700;font-family:inherit">📅 <span data-ko="날짜별" data-en="By Date">날짜별</span></button>
       </div>
@@ -1103,10 +1126,12 @@
           // 빈 칸이면 «내» 초안만 지운다(공용 PC 에서 남의 초안을 지우지 않는다)
           const old = JSON.parse(localStorage.getItem(AW_DRAFT_KEY) || 'null');
           if (old && old.u === uid) localStorage.removeItem(AW_DRAFT_KEY);
+          awTopicWorkSave();
           return;
         }
         localStorage.setItem(AW_DRAFT_KEY, JSON.stringify({ u: uid, t: t.slice(0, 4000), ts: Date.now() }));
       } catch (e) {}
+      awTopicWorkSave();   // ✍️ 내 주제별 «쓰던 글» 도 함께(제안 5)
     }
     function awDraftForget() {
       clearTimeout(_awDraftTimer);
@@ -2004,6 +2029,7 @@
           <div class="aw-result-acts">
             <button onclick="awReviseAgain()" id="awReviseBtn" style="flex:1 1 220px;padding:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:10px;font-weight:800;cursor:pointer;font-size:14px;font-family:inherit">✏️ <span data-ko="내 글 고쳐서 다시 첨삭" data-en="Fix my writing & resubmit">내 글 고쳐서 다시 첨삭</span></button>
             <button onclick="resetForm()" style="flex:1 1 160px;padding:12px;background:linear-gradient(135deg,var(--gold),#f59e0b);color:#1a1a1a;border:0;border-radius:10px;font-weight:800;cursor:pointer;font-size:14px;font-family:inherit">🔄 <span data-ko="새 글 작성하기" data-en="Write New">새 글 작성하기</span></button>
+            <button onclick="openWorkCard()" style="padding:12px 18px;background:linear-gradient(135deg,#f472b6,#db2777);color:#fff;border:0;border-radius:10px;font-weight:800;cursor:pointer;font-size:13px;font-family:inherit">🏆 <span data-ko="내 작품 카드로 저장" data-en="Save as my work card">내 작품 카드로 저장</span></button>
             <button onclick="openSheet()" style="padding:12px 18px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:10px;font-weight:800;cursor:pointer;font-size:13px;font-family:inherit">🖨 <span data-ko="한 장으로 출력 (초안·첨삭·완성본)" data-en="Print one page (draft·feedback·final)">한 장으로 출력 (초안·첨삭·완성본)</span></button>
             <button onclick="document.getElementById('histList').scrollIntoView({behavior:'smooth'})" style="padding:12px 18px;background:rgba(255,255,255,0.08);color:var(--text);border:1px solid rgba(255,255,255,0.18);border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;font-family:inherit">📜 <span data-ko="기록 보기" data-en="History">기록 보기</span></button>
           </div>
@@ -2960,14 +2986,15 @@
         document.getElementById('wtPubBtn').hidden = wtIsStudent() || it.status === 'published';
         document.getElementById('wtHideBtn').hidden = wtIsStudent() || it.status !== 'published';
       }
-      const mine = document.getElementById('wtMine'), list = (_wtManage || []).filter(x => x.status !== 'deleted');
+      const mine = document.getElementById('wtMine'), list = awMineSorted((_wtManage || []).filter(x => x.status !== 'deleted'));
       mine.hidden = !list.length;
-      document.getElementById('wtMineList').innerHTML = list.map(x => `
+      document.getElementById('wtMineList').innerHTML = list.map(x => { const wl = awMineWorkLine(x.id); return `
         <div class="wt-item">
-          <span class="wt-item-t">${escapeHtml((x.icon ? x.icon + ' ' : '') + (x.title_ko || ''))}</span>
+          <span class="wt-item-t">${escapeHtml((x.icon ? x.icon + ' ' : '') + (x.title_ko || ''))}${wl ? `<span class="wt-item-w">${escapeHtml(wl)}</span>` : ''}</span>
           <span class="wt-badge${x.status === 'published' ? ' pub' : ''}">${escapeHtml(wtIsStudent() ? wtT('나만', 'Mine') : x.status === 'published' ? wtT('올림', 'Published') : x.status === 'hidden' ? wtT('내림', 'Hidden') : wtT('초안', 'Draft'))}</span>
+          <button type="button" class="wt-btn wt-go" onclick="wtResume(${Number(x.id)})">${escapeHtml(wl ? wtT('✍️ 이어 쓰기', '✍️ Continue') : wtT('✍️ 쓰기', '✍️ Write'))}</button>
           <button type="button" class="wt-btn" onclick="wtOpen(${Number(x.id)})">${escapeHtml(wtT('✏️ 불러오기', '✏️ Open'))}</button>
-        </div>`).join('');
+        </div>`; }).join('');
       try { window.applyI18n && window.applyI18n(panel); } catch (e) {}
     }
     // ⏳ 오늘 AI 남은 횟수(제안 4) — 서버가 준 ai_left 를 그리기만 한다(모르면 안 그린다)
@@ -3167,7 +3194,7 @@
     };
     window.goInput = function(k, v) {
       _goAnswers[k] = String(v || '').slice(0, 120);
-      renderGoPreview(); goSave();
+      renderGoPreview(); goSave(); awTopicWorkSave();
     };
     window.goClear = function() {
       if (!confirm('브레인스토밍 메모를 모두 지울까요?')) return;
@@ -3197,6 +3224,169 @@
         el.classList.toggle('on', i === _flowDone + 1);
       });
     }
+
+    /* ═══ ✍️ 이어 쓰기(제안 5) · 🏆 내 작품 카드(제안 9) — 2026-10-26 ═══
+       ⑤ 내 주제마다 «쓰던 글 · 브레인스토밍 메모» 를 이 기기에 따로 남긴다 → «📂 내가 만든 주제» 를 최근에 쓴 순으로 그리고
+          «✍️ 이어 쓰기» 한 번에 그 주제 · 메모 · 글을 되살린다.
+          ⛔ 계정마다 다른 키(…:<uid>) — 공용 PC 에서 남의 기록을 덮거나 보여 주지 않는다.
+          ⛔ 저장은 «사람이 쓸 때» 만(글 입력 · 메모 입력) — 주제를 바꾸는 순간 앞 주제의 글을 새 주제 몫으로 적지 않는다.
+          ⛔ 지금 칸에 다른 글이 있으면 묻고 바꾼다(말없이 덮지 않는다).
+       ⑨ 첨삭을 받은 글을 «작품 카드»(그림·제목·완성 글·잘한 점)로 이 기기에 남기고 한 장으로 인쇄한다.
+          «⭐ 잘한 점» 은 AI 에게 다시 묻지 않는다 — 단어 수·목표·점수·미션 단어처럼 «잰 사실» 만 적는다(지어내지 않는다). */
+    const AW_TOPIC_KEY = 'mangoi_aiwrite_topicwork_v1', AW_WORKS_KEY = 'mangoi_aiwrite_works_v1';
+    const AW_TOPIC_MAX = 30, AW_TOPIC_DAYS = 30, AW_WORKS_MAX = 20;
+    function awKeyFor(base) { return base + ':' + (getUid() || 'guest'); }
+    function awJson(key, dflt) { try { const v = JSON.parse(localStorage.getItem(key) || 'null'); return v && typeof v === 'object' ? v : dflt; } catch (e) { return dflt; } }
+    function awTopicMap() { return awJson(awKeyFor(AW_TOPIC_KEY), {}); }
+    function awTopicWorkGet(id) { const w = awTopicMap()[id]; return w && w.ts && Date.now() - w.ts <= AW_TOPIC_DAYS * AW_DAY_MS ? w : null; }
+    // 사람이 글·메모를 고쳤을 때만 부른다(awDraftSave · goInput). 지금 주제가 «내 주제/선생님 글감» 일 때만 남긴다.
+    function awTopicWorkSave() {
+      try {
+        if (!_goTheme || _goTheme.set !== 'custom') return;
+        const t = ((document.getElementById('text') || {}).value || '').slice(0, 4000);
+        const a = {}; Object.keys(_goAnswers || {}).forEach(k => { const v = String(_goAnswers[k] || '').trim(); if (v) a[k] = v.slice(0, 120); });
+        const m = awTopicMap(), now = Date.now(), prev = m[_goTheme.id] || {};
+        // 칸을 비운 것(«🔄 새로» 등)은 «쓰던 글» 을 지우지 않는다 — 마지막으로 쓴 글이 남아 다음에 이어 쓸 수 있다
+        const keepT = t.trim() ? t : String(prev.t || '');
+        if (!keepT.trim() && !Object.keys(a).length) delete m[_goTheme.id];
+        else m[_goTheme.id] = { t: keepT, a: a, ts: now };
+        // 오래된 것(30일)·넘치는 것(30개)은 지운다 — 이 기기 저장 공간을 계속 먹지 않게
+        const keep = Object.keys(m).filter(k => m[k] && m[k].ts && now - m[k].ts <= AW_TOPIC_DAYS * AW_DAY_MS)
+          .sort((x, y) => m[y].ts - m[x].ts).slice(0, AW_TOPIC_MAX);
+        const out = {}; keep.forEach(k => { out[k] = m[k]; });
+        localStorage.setItem(awKeyFor(AW_TOPIC_KEY), JSON.stringify(out));
+      } catch (e) {}
+    }
+    // «📂 내가 만든 주제» 순서 — 이 기기에서 마지막으로 쓴 때와 서버에서 고친 때 중 늦은 쪽, 최근 것이 위
+    function awMineSorted(list) {
+      const m = awTopicMap();
+      const at = x => Math.max(Number(x.updated_at) || 0, ((m['custom:' + x.id] || {}).ts) || 0);
+      return list.slice().sort((x, y) => at(y) - at(x));
+    }
+    function awMineWorkLine(id) {
+      const w = awTopicWorkGet('custom:' + id);
+      if (!w) return '';
+      const n = awWordCount(w.t), d = new Date(w.ts), md = (d.getMonth() + 1) + '/' + d.getDate();
+      return n ? awTr(`쓰던 글 ${n}단어 · ${md}`, `${n} words written · ${md}`) : awTr(`메모만 있음 · ${md}`, `Notes only · ${md}`);
+    }
+    window.wtResume = function(id) {
+      const it = awFindCustom(id), t = awThemeFromCustom(it);
+      if (!t) return;
+      const w = awTopicWorkGet(t.id);
+      goApplyTheme(t, false, true);
+      if (w && w.a && typeof w.a === 'object') { _goAnswers = Object.assign({}, w.a); renderGoQuestions(); renderGoMemo(); goSave(); }
+      const ta = document.getElementById('text');
+      if (w && w.t && w.t.trim() && ta && ta.value.trim() !== w.t.trim()) {
+        if (!ta.value.trim() || confirm(awTr('지금 칸의 글을 «' + t.ko + '» 에 쓰던 글로 바꿀까요?\n(지금 칸의 글은 사라져요)',
+                                              'Replace the text in the box with your writing for «' + t.en + '»?\n(The current text will be lost)'))) {
+          ta.value = w.t; updateCharCount();
+        }
+      }
+      showToast(w ? awTr('✍️ «' + t.ko + '» 이어 쓰기 — 쓰던 곳부터 계속하세요!', '✍️ Continue «' + t.en + '» from where you stopped!')
+                  : awTr('✍️ «' + t.ko + '» 로 쓰기 시작!', '✍️ Start writing «' + t.en + '»!'));
+      if (ta) { ta.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => { try { ta.focus({ preventScroll: true }); } catch (e) {} }, 400); }
+    };
+
+    // ⑨ 내 작품 카드 ─────────────────────────────────────────
+    function awWorksRead() { const d = awJson(awKeyFor(AW_WORKS_KEY), null); return d && Array.isArray(d.items) ? d.items : []; }
+    function awWorksWrite(items) { try { localStorage.setItem(awKeyFor(AW_WORKS_KEY), JSON.stringify({ items: items.slice(0, AW_WORKS_MAX) })); return true; } catch (e) { return false; } }
+    // 잘한 점 — 잰 사실만(ko/en 짝). 아무것도 없을 때도 «끝까지 썼다» 는 사실은 있다.
+    function awPraise(d, text, lv) {
+      const out = [], n = awWordCount(text), g = awGoal(lv), sc = Number(d && d.score) || 0;
+      if (n >= g[0]) out.push({ ko: `영어 ${n}단어를 썼어요 — ${lv} 목표(${g[0]}단어) 달성!`, en: `Wrote ${n} English words — ${lv} goal (${g[0]}) reached!` });
+      else if (n) out.push({ ko: `영어 ${n}단어로 끝까지 썼어요`, en: `Finished a piece with ${n} English words` });
+      const mu = (d && Array.isArray(d.mission_used)) ? d.mission_used.filter(Boolean) : [];
+      if (mu.length) out.push({ ko: `미션 단어 ${mu.length}개를 썼어요 (${mu.slice(0, 3).join(', ')})`, en: `Used ${mu.length} mission word${mu.length > 1 ? 's' : ''} (${mu.slice(0, 3).join(', ')})` });
+      if (d && Array.isArray(d.issues) && !d.issues.length) out.push({ ko: '고칠 곳이 거의 없었어요', en: 'Almost nothing to fix' });
+      if (sc >= 85) out.push({ ko: `첨삭 점수 ${sc}점 — 훌륭해요!`, en: `Score ${sc} — excellent!` });
+      else if (sc >= 70) out.push({ ko: `첨삭 점수 ${sc}점`, en: `Score ${sc}` });
+      if (!out.length) out.push({ ko: '주제를 정해 끝까지 써 보았어요', en: 'Chose a topic and wrote it to the end' });
+      return out.slice(0, 3);
+    }
+    function awFreshImg(u) {
+      const m = String(u || '').match(/^\/api\/class\/write-topics\/img\/(\d+)\//);
+      if (!m) return String(u || '');
+      try { const it = awFindCustom(m[1]); if (it && it.image_url) return String(it.image_url); } catch (e) {}
+      return String(u);
+    }
+    function awThemeImg(t) {
+      if (!t) return '';
+      if (t.img) return String(t.img);
+      if (t.set === 'scene') {
+        const sc = PIC_SCENES.find(x => 'pic:' + x.img === t.id);
+        if (sc) return sc.posterSrc || '/img/write-scenes/' + sc.img + '.webp';
+      }
+      return '';
+    }
+    function awWorkFromResult(d, draft, t, lv) {
+      const text = String((d && d.corrected) || draft || '').trim();
+      return { id: Date.now(), ts: Date.now(), icon: (t && t.icon) || '✍️', ko: (t && t.ko) || '', en: (t && t.en) || '',
+               img: awThemeImg(t), text: text.slice(0, 4000), score: Number(d && d.score) || 0, level: (d && d.level) || lv || '',
+               praise: awPraise(d, draft, lv), reply: String((d && d.reply) || '').slice(0, 600) };
+    }
+    // 같은 글이면 새로 쌓지 않고 바꾼다(버튼을 여러 번 눌러도 한 장)
+    function awWorkSave(w) {
+      const items = awWorksRead().filter(x => x && awNorm(x.text) !== awNorm(w.text));
+      items.unshift(w);
+      return awWorksWrite(items) ? items : null;
+    }
+    function awWorkCardHtml(w, items, idx) {
+      let userName = awTr('나', 'Me');
+      for (const k of ['mangoi_logged_user', 'mango_user']) {
+        try { const u = JSON.parse(localStorage.getItem(k) || 'null'); if (u && u.name && u.name !== (u.uid || u.user_id)) { userName = u.name; break; } } catch (e) {}
+      }
+      const day = new Date(w.ts).toLocaleDateString(awLangEn() ? 'en-US' : 'ko-KR');
+      const title = w.en || w.ko || awTr('나의 영작', 'My Writing');
+      // 🔒 «내 주제» 그림은 6시간짜리 서명 주소라 저장해 둔 주소가 낡는다 — 지금 목록에 같은 글감이 있으면 새 주소로,
+      //    그래도 못 열면 아이콘으로 바꾼다(빈 그림 대신).
+      const wkIc = escapeHtml(w.icon || '✍️');
+      const pic = w.img ? `<img class="wk-pic" src="${escapeHtml(awFreshImg(w.img))}" alt="" onerror="this.nextElementSibling.hidden=false;this.remove()"><div class="wk-icon" hidden>${wkIc}</div>` : `<div class="wk-icon">${wkIc}</div>`;
+      const praise = (w.praise || []).map(p => `<li>${escapeHtml(awLangEn() ? p.en : p.ko)}</li>`).join('');
+      const others = items.length > 1 ? `<div class="wk-list"><b>${escapeHtml(awTr('🏆 내 작품', '🏆 My works'))} ${items.length}</b>${items.map((x, i) =>
+        `<button type="button" class="wk-chip${i === idx ? ' on' : ''}" onclick="awShowWork(${i})">${escapeHtml((x.icon || '✍️') + ' ' + (x.en || x.ko || '…'))}</button>`).join('')}</div>` : '';
+      return `
+        <div class="sh-tools">
+          <button style="background:#059669;color:#fff" onclick="window.print()">🖨 ${escapeHtml(awTr('인쇄 / PDF 저장', 'Print / Save PDF'))}</button>
+          <button style="background:#fee2e2;color:#991b1b" onclick="awDeleteWork(${idx})">🗑 ${escapeHtml(awTr('이 카드 지우기', 'Delete card'))}</button>
+          <button style="background:#e7e5e4;color:#44403c" onclick="closeSheet()">✕ ${escapeHtml(awTr('닫기', 'Close'))}</button>
+        </div>
+        ${others}
+        <div class="sh-paper wk-card">
+          ${pic}
+          <div class="wk-title">${escapeHtml(title)}</div>
+          ${w.en && w.ko && w.en !== w.ko ? `<div class="wk-sub">${escapeHtml(w.ko)}</div>` : ''}
+          <div class="wk-by">✍️ ${escapeHtml(userName)} · ${escapeHtml(day)}${w.level ? ' · ' + escapeHtml(w.level) : ''}</div>
+          <div class="wk-text">${escapeHtml(w.text)}</div>
+          <div class="wk-good"><b>⭐ ${escapeHtml(awTr('잘한 점', 'What I did well'))}</b><ul>${praise}</ul></div>
+          ${w.reply ? `<div class="wk-reply"><b>💬 ${escapeHtml(awTr('망고 선생님', 'Teacher Mango'))}</b><br>${escapeHtml(w.reply)}</div>` : ''}
+          <div class="sh-meta" style="margin:16px 0 0;text-align:center">Mangoi · AI ${escapeHtml(awTr('영작 작품 카드', 'Writing card'))}</div>
+        </div>`;
+    }
+    function awOpenWorkView(items, idx) {
+      const box = document.getElementById('sheetModal');
+      box.innerHTML = awWorkCardHtml(items[idx], items, idx);
+      box.style.display = 'block'; document.body.classList.add('sheet-open'); box.scrollTop = 0;
+    }
+    window.openWorkCard = function() {
+      if (!_lastResult) { alert(awTr('먼저 AI 첨삭을 받아주세요!', 'Get AI feedback first!')); return; }
+      const w = awWorkFromResult(_lastResult, _lastDraft, _goTheme, currentLevel);
+      const items = awWorkSave(w);
+      if (!items) { showToast(awTr('⚠️ 이 기기에 저장하지 못했어요 — 카드는 지금 인쇄해 두세요.', "⚠️ Couldn't save on this device — print the card now.")); awOpenWorkView([w], 0); return; }
+      showToast(awTr('🏆 내 작품 카드로 저장했어요!', '🏆 Saved as a work card!'));
+      awOpenWorkView(items, 0);
+    };
+    window.openWorks = function() {
+      const items = awWorksRead();
+      if (!items.length) { alert(awTr('아직 작품 카드가 없어요. 첨삭을 받은 뒤 «🏆 작품 카드» 를 눌러 보세요!', 'No work cards yet. After feedback, press «🏆 Work card»!')); return; }
+      awOpenWorkView(items, 0);
+    };
+    window.awShowWork = function(i) { const items = awWorksRead(); if (items[i]) awOpenWorkView(items, i); };
+    window.awDeleteWork = function(i) {
+      const items = awWorksRead();
+      if (!items[i] || !confirm(awTr('이 작품 카드를 지울까요?', 'Delete this work card?'))) return;
+      items.splice(i, 1); awWorksWrite(items);
+      if (items.length) awOpenWorkView(items, Math.min(i, items.length - 1)); else closeSheet();
+    };
 
     /* ═══ 📄 STEP 4 — 한 장 출력 (초안 · AI 첨삭 · 완성본) ═══
        제안서 «출력 및 보관: 초안, AI 첨삭 피드백, 완성본을 한 페이지에 연동 출력».

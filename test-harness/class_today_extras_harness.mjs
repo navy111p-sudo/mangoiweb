@@ -353,12 +353,12 @@ ok('강사 포털: 조건 없이 try 로 감싼다', /\n[ \t]*try \{ await enric
 ok('강사 포털: 배너(?only=next)는 건너뛴다', /if \(!onlyNext\) \{[\s\S]{0,700}enrichClassesToday/.test(tea));
 const th2 = readFileSync(join(PUB, 'teacher.html'), 'utf8').replace(/\r\n/g, '\n');
 /* (2026-10-01) 두 번째 인자 wi(「✍ 지금 쓰기」 줄 번호)가 붙어도 찾는다 — 시그니처 «모양» 을 못 박지 않는다 */
-const fi = th2.search(/function extrasHtml\(c(?:,\s*\w+)?\)\{/);
+const fi = th2.search(/function extrasHtml\(c(?:,\s*\w+){0,2}\)\{/);   // (2026-10-26) 표 보기용 asParts 인자가 붙었다
 let body = '';
 if (fi > 0) { let d = 0, i = th2.indexOf('{', fi); const st = i; for (; i < th2.length; i++) { if (th2[i] === '{') d++; else if (th2[i] === '}') { d--; if (!d) break; } } body = th2.slice(st + 1, i); }
 ok('teacher.html extrasHtml 을 오려 냈다', body.length > 200);
 let run = null;
-try { run = new Function('T', 'esc', 'hhmm', 'c', 'wi', body); } catch (e) { ok('extrasHtml 컴파일', false, e.message); }
+try { run = new Function('T', 'esc', 'hhmm', 'c', 'wi', 'asParts', body); } catch (e) { ok('extrasHtml 컴파일', false, e.message); }
 if (run) {
   const T = (en) => en, esc = (x) => String(x), hhmm = () => '14:07';
   const call = (c) => { try { return run(T, esc, hhmm, c); } catch (e) { return 'THROW ' + e.message; } };

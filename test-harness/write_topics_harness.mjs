@@ -602,5 +602,142 @@ console.log('\n⑨ 🔒 비공개 그림 — 소유자 확인 · 단기 서명 �
   const g2 = await M.handleWriteTopicsApi(req2, new URL(req2.url), ENV2);
   ok(g2.status === 404, '비밀키가 없어도 비공개 그림은 안 연다(fail-closed)');
 }
+console.log('\n[G] 이어 쓰기(제안 5) · 내 작품 카드(제안 9) — 2026-10-26');
+const GBLK = (() => { const a = HTML.indexOf('const AW_TOPIC_KEY'), b = HTML.indexOf('/* ═══ 📄 STEP 4'); return a > 0 && b > a ? HTML.slice(a, b) : ''; })();
+ok(!!GBLK, '전제: 이어 쓰기·작품 카드 블록을 오려 냈다');
+const gLine = re => (HTML.match(re) || [''])[0];
+const G_DEPS = [gLine(/const AW_WORD_GOAL = [^\n]+\n/), gLine(/const AW_DAY_MS = [^\n]+\n/), gLine(/const awNorm = [^\n]+\n/),
+  fn('function awWords(s)', 'awWords'), fn('function awWordCount(s)', 'awWordCount'), fn('function awGoal(lv)', 'awGoal'),
+  fn('function escapeHtml(s)', 'escapeHtml'), cut(/const PIC_SCENES = \[[\s\S]*?\n    \];/, 'PIC_SCENES(G)')].join('\n');
+const { runInNewContext } = await import('node:vm');
+function gWorld(o = {}) {
+  const store = Object.assign({}, o.store || {});
+  const els = {}; const el = id => els[id] || (els[id] = { id, value: '', innerHTML: '', style: {}, scrollTop: 0, scrollIntoView() {}, focus() {} });
+  if (o.text != null) el('text').value = o.text;
+  const log = { toasts: [], confirms: 0, applied: [], cls: new Set(), alerts: 0 };
+  const ctx = {
+    localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { if (o.full) throw new Error('quota'); store[k] = String(v); }, removeItem: k => { delete store[k]; } },
+    document: { getElementById: el, body: { classList: { add: c => log.cls.add(c), remove: c => log.cls.delete(c) } } },
+    window: {}, Date, Math, JSON, Object, Array, String, Number, Set,
+    getUid: () => o.uid || 'kim', awTr: (k, e) => (o.en ? e : k), awLangEn: () => !!o.en,
+    showToast: m => log.toasts.push(m), alert: () => { log.alerts++; }, confirm: () => { log.confirms++; return !!o.yes; },
+    closeSheet: () => log.cls.delete('sheet-open'), setTimeout: f => f(),
+    awFindCustom: id => (o.items || []).find(x => Number(x.id) === Number(id)) || null,
+    awThemeFromCustom: it => it ? { id: 'custom:' + it.id, icon: it.icon || '📌', ko: it.title_ko, en: it.title_en || it.title_ko, set: 'custom', img: it.image_url || '' } : null,
+    goApplyTheme: t => { log.applied.push(t.id); ctx._goTheme = t; }, renderGoQuestions() {}, renderGoMemo() {}, goSave() {},
+    updateCharCount() { log.updated = (log.updated || 0) + 1; },
+    _goTheme: o.theme || null, _goAnswers: o.answers || {}, _lastResult: o.result || null, _lastDraft: o.draft || '', currentLevel: o.level || 'A1',
+  };
+  runInNewContext('var window = this.window;' + G_DEPS.replace(/^\s*const /gm, 'var ') + '\n' + GBLK.replace(/^\s*const /gm, 'var ') + '\nthis.__g = { awTopicWorkSave, awTopicWorkGet, awTopicMap, awMineSorted, awMineWorkLine, awPraise, awWorkFromResult, awWorkSave, awWorksRead, awWorkCardHtml };', ctx);
+  return { ctx, g: ctx.__g, store, el, log, w: ctx.window };
+}
+const CUSTOM = { id: 'custom:31', set: 'custom', icon: '🐶', ko: '우리 집 강아지', en: 'My Dog', img: '' };
+// ⑤ 저장 — 사람이 쓴 글·메모가 그 주제 몫으로 남는다
+let GW = gWorld({ theme: CUSTOM, text: 'I have a dog. He is brown.', answers: { what: 'my dog', who: ' ' } });
+GW.g.awTopicWorkSave();
+const kimKey = 'mangoi_aiwrite_topicwork_v1:kim';
+let tw = JSON.parse(GW.store[kimKey] || '{}')['custom:31'];
+ok(tw && tw.t === 'I have a dog. He is brown.' && tw.a.what === 'my dog' && !('who' in tw.a), '5) 내 주제에 쓰던 글·메모를 그 주제 몫으로 남긴다(빈 메모는 뺀다)', JSON.stringify(tw));
+ok(!GW.store['mangoi_aiwrite_topicwork_v1:lee'], '5) 계정마다 다른 키 — 다른 계정 칸은 건드리지 않는다');
+GW = gWorld({ theme: { id: 'pic:park', set: 'scene', icon: '🖼', ko: '공원', en: 'Park' }, text: 'A park.' });
+GW.g.awTopicWorkSave();
+ok(!Object.keys(GW.store).length, '(짝) 그림·오늘의 글감 주제는 «주제별 글» 을 남기지 않는다(내 주제·선생님 글감만)');
+// 칸을 비워도 마지막 글은 남는다
+GW = gWorld({ theme: CUSTOM, text: '', answers: {}, store: { [kimKey]: JSON.stringify({ 'custom:31': { t: 'old text here', a: { what: 'x' }, ts: Date.now() - 1000 } }) } });
+GW.g.awTopicWorkSave();
+tw = JSON.parse(GW.store[kimKey])['custom:31'];
+ok(tw && tw.t === 'old text here', '5) 칸을 비워도(«새로») 마지막에 쓴 글은 남는다', JSON.stringify(tw));
+// 오래된 것은 안 보인다 · 30개 넘으면 오래된 것부터 지운다
+const many = {}; for (let i = 0; i < 35; i++) many['custom:' + (100 + i)] = { t: 'w' + i, a: {}, ts: Date.now() - (i + 1) * 60000 };
+many['custom:999'] = { t: 'ancient', a: {}, ts: Date.now() - 40 * 86400000 };
+GW = gWorld({ theme: CUSTOM, text: 'new one', store: { [kimKey]: JSON.stringify(many) } });
+GW.g.awTopicWorkSave();
+const kept = JSON.parse(GW.store[kimKey]);
+ok(Object.keys(kept).length === 30 && kept['custom:31'] && !kept['custom:999'] && !kept['custom:134'], '5) 30개까지 · 30일 지난 것은 지운다(최근 것이 남는다)', String(Object.keys(kept).length));
+ok(GW.g.awTopicWorkGet('custom:999') === null, '5) 30일 지난 기록은 «이어 쓰기» 로 안 나온다');
+// 순서 — 이 기기에서 최근에 쓴 것이 위
+GW = gWorld({ store: { [kimKey]: JSON.stringify({ 'custom:2': { t: 'a b c', a: {}, ts: Date.now() } }) } });
+const sorted = GW.g.awMineSorted([{ id: 1, updated_at: Date.now() - 5000 }, { id: 2, updated_at: 1 }, { id: 3, updated_at: Date.now() - 1000 }]);
+ok(sorted.map(x => x.id).join(',') === '2,3,1', '5) «내가 만든 주제» 는 최근에 쓴 순(이 기기 기록 · 서버 수정 중 늦은 쪽)', sorted.map(x => x.id).join(','));
+ok(/3단어/.test(GW.g.awMineWorkLine(2)) && GW.g.awMineWorkLine(1) === '', '5) 쓰던 글이 있으면 «N단어 · 날짜», 없으면 아무것도 안 붙인다');
+// 이어 쓰기 — 빈 칸이면 바로 넣고, 다른 글이 있으면 묻는다
+const ITEMS = [{ id: 31, title_ko: '우리 집 강아지', title_en: 'My Dog', icon: '🐶' }];
+const saved31 = JSON.stringify({ 'custom:31': { t: 'I have a dog.', a: { what: 'my dog' }, ts: Date.now() } });
+GW = gWorld({ items: ITEMS, text: '', store: { [kimKey]: saved31 } });
+GW.w.wtResume(31);
+ok(GW.log.applied[0] === 'custom:31' && GW.el('text').value === 'I have a dog.' && GW.ctx._goAnswers.what === 'my dog' && GW.log.confirms === 0,
+  '5) «이어 쓰기» → 그 주제를 고르고 메모·글을 되살린다(빈 칸이면 묻지 않음)');
+GW = gWorld({ items: ITEMS, text: 'something else', store: { [kimKey]: saved31 }, yes: false });
+GW.w.wtResume(31);
+ok(GW.log.confirms === 1 && GW.el('text').value === 'something else', '5) 칸에 다른 글이 있으면 묻고, «아니요» 면 지금 글을 지킨다');
+GW = gWorld({ items: ITEMS, text: 'something else', store: { [kimKey]: saved31 }, yes: true });
+GW.w.wtResume(31);
+ok(GW.el('text').value === 'I have a dog.' && GW.log.updated >= 1, '(짝) «예» 면 쓰던 글로 바꾸고 단어 수 줄도 다시 그린다');
+GW = gWorld({ items: ITEMS, text: 'I have a dog.', store: { [kimKey]: saved31 } });
+GW.w.wtResume(31);
+ok(GW.log.confirms === 0, '5) 칸의 글이 이미 같으면 묻지 않는다');
+GW = gWorld({ items: ITEMS, text: '', store: {} });
+GW.w.wtResume(31);
+ok(GW.log.applied[0] === 'custom:31' && GW.el('text').value === '' && GW.log.toasts.some(t => /쓰기 시작/.test(t)), '(짝) 기록이 없으면 주제만 고르고 «쓰기 시작»');
+// 화면 배선
+const rpG = blockFrom(HTML, 'function wtRenderPanel()');
+ok(/awMineSorted\(/.test(rpG) && /wtResume\(\$\{Number\(x\.id\)\}\)/.test(rpG) && /wtOpen\(\$\{Number\(x\.id\)\}\)/.test(rpG), '5) 목록이 최근 순 · «이어 쓰기» 와 «불러오기» 를 함께 그린다');
+ok(/awTopicWorkSave\(\)/.test(blockFrom(HTML, 'function awDraftSave()')) && /awTopicWorkSave\(\)/.test(blockFrom(HTML, 'window.goInput = function(k, v)')), '5) 저장은 사람이 글·메모를 쓸 때만(awDraftSave · goInput)');
+ok(!/awTopicWorkSave/.test(blockFrom(HTML, 'function goApplyTheme(t, toggle, quiet)')), '(짝) 주제를 바꾸는 순간에는 저장하지 않는다 — 앞 주제 글을 새 주제 몫으로 적지 않는다');
+
+// ⑨ 작품 카드
+const RES = { score: 88, level: 'A1', corrected: 'I have a brown dog.', issues: [], mission_used: ['dog', 'brown'], reply: 'What a cute dog!' };
+GW = gWorld({});
+const pr = GW.g.awPraise(RES, 'I have a brown dog. He is very cute and he likes to run in the park every day with me', 'A1');
+ok(pr.length >= 2 && pr.length <= 3 && /20단어|21단어|2\d단어/.test(pr[0].ko) && /목표/.test(pr[0].ko) && pr.some(p => /미션 단어 2개/.test(p.ko)), '9) 잘한 점은 잰 사실(단어 수·목표·미션 단어) — 최대 3줄', JSON.stringify(pr.map(p => p.ko)));
+ok(pr.every(p => p.en && !/[가-힣]/.test(p.en)), '9) 잘한 점은 영어 짝이 있다');
+const pr0 = GW.g.awPraise({ score: 30, issues: [{}] }, '', 'A1');
+ok(pr0.length === 1 && /끝까지/.test(pr0[0].ko), '(짝) 잴 것이 없으면 «끝까지 써 보았어요» 한 줄 — 지어내지 않는다');
+const prLow = GW.g.awPraise({ score: 50, issues: [{}] }, 'one two three', 'B1');
+ok(!prLow.some(p => /목표/.test(p.ko) || /점수/.test(p.ko)), '(짝) 목표 못 미침·낮은 점수는 «잘한 점» 으로 쓰지 않는다', JSON.stringify(prLow.map(p => p.ko)));
+const wk = GW.g.awWorkFromResult(RES, 'I have a brown dog.', CUSTOM, 'A1');
+ok(wk.text === 'I have a brown dog.' && wk.en === 'My Dog' && wk.icon === '🐶' && wk.score === 88, '9) 카드 = 주제 아이콘·영어 제목·완성 글·점수');
+const sceneT = { id: 'pic:' + (GW.ctx.PIC_SCENES[0] || {}).img, set: 'scene', icon: '🖼', ko: 'a', en: 'b' };
+ok(/write-scenes|\.webp|posters?\//.test(GW.g.awWorkFromResult(RES, 'x', sceneT, 'A1').img), '9) 그림 주제는 그 그림을 카드에 싣는다');
+// 저장 — 같은 글은 한 장 · 최대 20장 · 계정별
+let items = GW.g.awWorkSave(wk); items = GW.g.awWorkSave(Object.assign({}, wk, { id: 2, text: 'i have a  brown dog.' }));
+ok(items.length === 1, '9) 같은 글을 다시 저장하면 쌓지 않고 한 장으로');
+for (let i = 0; i < 25; i++) GW.g.awWorkSave(Object.assign({}, wk, { id: 10 + i, text: 'work number ' + i }));
+ok(GW.g.awWorksRead().length === 20 && GW.g.awWorksRead()[0].text === 'work number 24', '9) 최대 20장 · 최근 것이 맨 앞');
+ok(!!GW.store['mangoi_aiwrite_works_v1:kim'] && !GW.store['mangoi_aiwrite_works_v1:lee'], '9) 작품도 계정마다 따로');
+// 카드 그리기 — 글자는 이스케이프 · 잘한 점·답장이 들어간다
+const evil = Object.assign({}, wk, { text: '<img src=x onerror=alert(1)>', reply: '<b>hi</b>' });
+const card = GW.g.awWorkCardHtml(evil, [evil], 0);
+ok(!/<img src=x/.test(card) && /&lt;img src=x/.test(card) && /잘한 점/.test(card) && /망고 선생님/.test(card) && /window\.print\(\)/.test(card), '9) 카드는 글을 이스케이프해 그리고 «잘한 점» · 답장 · 인쇄 버튼이 있다');
+const cardEn = gWorld({ en: true }).g.awWorkCardHtml(wk, [wk, wk], 1);
+ok(/What I did well/.test(cardEn) && /Print/.test(cardEn) && /awShowWork\(0\)/.test(cardEn) && /wk-chip on/.test(cardEn), '9) 영어 화면은 영어로 · 여러 장이면 고르는 줄');
+// 열기
+GW = gWorld({ result: RES, draft: 'I have a brown dog.', theme: CUSTOM });
+GW.w.openWorkCard();
+ok(GW.log.cls.has('sheet-open') && /My Dog/.test(GW.el('sheetModal').innerHTML) && GW.g.awWorksRead().length === 1 && GW.log.toasts.some(t => /저장했어요/.test(t)), '9) «작품 카드로 저장» → 저장하고 카드를 연다');
+GW = gWorld({ result: null });
+GW.w.openWorkCard();
+ok(GW.log.alerts === 1 && !GW.log.cls.has('sheet-open'), '(짝) 첨삭 전이면 열지 않고 안내만');
+GW = gWorld({ result: RES, draft: 'x', theme: CUSTOM, full: true });
+try { GW.w.openWorkCard(); } catch (e) { GW.log.threw = String(e); }
+ok(GW.log.toasts.some(t => /저장하지 못했어요/.test(t)) && GW.log.cls.has('sheet-open') && !GW.log.threw, '9) 저장이 막힌 기기면 «못 했다» 고 말하고 카드는 그래도 연다(인쇄할 수 있게)');
+ok(/onclick="openWorkCard\(\)"/.test(HTML) && /onclick="openWorks\(\)"/.test(HTML), '9) 첨삭 결과에 «작품 카드로 저장», 일기 머리에 «내 작품» 버튼');
+ok(/\.wk-list \{ display: none; \}/.test(style), '9) 인쇄할 때는 카드 고르는 줄을 감춘다');
+
+console.log('\n⑩ 🔒 내 작품 카드 — 낡은 서명 그림 주소를 새로 고치고, 못 열면 아이콘으로 (2026-10-26)');
+{
+  const fsrc = blockFrom(HTML, 'function awFreshImg(u)');
+  ok(!!fsrc, '전제: awFreshImg 를 오려 냈다');
+  let fresh = null;
+  try { fresh = new Function('awFindCustom', fsrc + '; return awFreshImg;')(id => (String(id) === '5' ? { image_url: '/api/class/write-topics/img/5/2?sig=NEW' } : null)); } catch (e) { fresh = null; }
+  ok(fresh && fresh('/api/class/write-topics/img/5/1?sig=OLD') === '/api/class/write-topics/img/5/2?sig=NEW', '목록에 같은 글감이 있으면 지금 받은(새 서명) 주소로 그린다');
+  ok(fresh && fresh('/api/class/write-topics/img/9/1?sig=OLD') === '/api/class/write-topics/img/9/1?sig=OLD', '(짝) 목록에 없으면 저장된 주소 그대로');
+  ok(fresh && fresh('/img/write-scenes/park.webp') === '/img/write-scenes/park.webp' && fresh('') === '', '(짝) 글감 그림이 아닌 주소·빈 값은 건드리지 않는다');
+  const card = blockFrom(HTML, 'function awWorkCardHtml(w, items, idx)');
+  ok(/src="\$\{escapeHtml\(awFreshImg\(w\.img\)\)\}"/.test(card), '작품 카드는 awFreshImg 를 거쳐 그린다');
+  ok(/onerror="this\.nextElementSibling\.hidden=false;this\.remove\(\)"><div class="wk-icon" hidden>/.test(card), '그림이 안 열리면(만료·삭제) 옆 아이콘을 보인다 — 빈 그림 대신');
+  ok(!/onerror="[^"]*\$\{/.test(card), '(짝) onerror 안에 값을 끼워 넣지 않는다(따옴표 깨짐 방지)');
+  ok(!/\.wk-icon \{[^}]*display/.test(style), '.wk-icon 에 display 를 정하지 않는다([hidden] 이 먹게)');
+}
 
 done();
