@@ -33,6 +33,7 @@
  */
 import { json } from './api-util';
 import { getAdminActor } from './auth-admin';
+import { authUidFromRequest } from './auth-token';
 import { orgScopeVerdict, readScopeType, type OrgScopeVerdict } from './org-scope-guard';
 import { isEnglishText } from './english-only';
 
@@ -44,6 +45,10 @@ const jsonNoStore = (data: any, status = 200): Response => {
 };
 
 export const WT_USER_DAILY_CAP = 30;    // 한 사람 24시간 AI 호출(초안+그림) 상한
+/* 🎒 학생도 «나만 보는 주제» 를 만든다(2026-10-26 사장님 «학생에게도 보이게»).
+   학생 것은 created_by 앞에 이 접두사가 붙어 직원 계정과 섞이지 않고, «학원 전체 올리기» 는 못 한다(본인 목록에만 보임). */
+export const WT_STUDENT_DAILY_CAP = 10;
+export const WT_STUDENT_PREFIX = 'stu:';
 export const WT_TOTAL_DAILY_CAP = 300;  // 전체 24시간 상한(폭주 안전판)
 export const WT_ACTIONS = ['draft', 'image', 'save', 'publish', 'hide'] as const;
 export const WT_IMG_PREFIX = 'write-topics/';
@@ -285,6 +290,28 @@ async function editGate(request: Request, env: any): Promise<{ actor: any } | { 
   return { actor };
 }
 
+/** 학생 — 로그인 토큰(Authorization: Bearer)만 받는다. 게스트 id 는 계정이 아니라 안 받는다. */
+async function studentActor(request: Request, env: any): Promise<any | null> {
+  let uid: string | null = null;
+  try { uid = await authUidFromRequest(request, new URL(request.url), env); } catch { uid = null; }
+  uid = String(uid || '').trim();
+  if (!uid || /^guest/i.test(uid)) return null;
+  return { ok: true, username: WT_STUDENT_PREFIX + uid, name: '', role: 'student', isTeacher: false, ownOnly: true, student: true };
+}
+
+/** 직원 세션이 통과하면 직원, 아니면 학생 토큰, 둘 다 아니면 거절. */
+async function actorGate(request: Request, env: any): Promise<{ actor: any } | { res: Response }> {
+  let staffRes: Response | null = null;
+  if (/mangoi_admin_session=/.test(request.headers.get('Cookie') || '')) {
+    const g = await editGate(request, env);
+    if ('actor' in g) return g;
+    staffRes = g.res;
+  }
+  const s = await studentActor(request, env);
+  if (s) return { actor: s };
+  return { res: staffRes || json({ ok: false, error: 'auth_required', message: '로그인하면 나만의 주제를 만들 수 있어요. / Log in to create your own topics.' }, 401) };
+}
+
 async function countUsage(env: any, username: string): Promise<{ user: number | null; total: number | null }> {
   const since = Date.now() - 86400000;
   let user: number | null = null, total: number | null = null;
@@ -292,9 +319,9 @@ async function countUsage(env: any, username: string): Promise<{ user: number | 
   try { const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM write_topic_gen_log WHERE ts > ?`).bind(since).first(); total = r ? Number(r.n) : null; } catch { total = null; }
   return { user, total };
 }
-async function costGateOrRes(env: any, username: string, kind: string): Promise<{ logId: number | null } | { res: Response }> {
+async function costGateOrRes(env: any, username: string, kind: string, userCap = WT_USER_DAILY_CAP): Promise<{ logId: number | null } | { res: Response }> {
   const used = await countUsage(env, username);
-  const g = writeTopicCostGate(used.user, used.total);
+  const g = writeTopicCostGate(used.user, used.total, userCap);
   if (!g.ok) return { res: json({ ok: false, error: 'daily_cap', reason: g.reason, message: '오늘 AI 만들기 횟수를 다 썼어요. 내일 다시 해 주세요. / Daily AI limit reached — please try again tomorrow.' }, 429) };
   let logId: number | null = null;
   try {
@@ -420,23 +447,26 @@ export async function handleWriteTopicsApi(request: Request, url: URL, env: any)
     const rs: any = await env.DB.prepare(`SELECT * FROM write_topics WHERE status = 'published' ORDER BY published_at DESC, id DESC LIMIT ?`).bind(WT_LIST_MAX).all();
     const items = (rs.results || []).map((r: any) => rowToItem(r, false));
     // 만들 수 있는 사람인지(쿠키가 있을 때만 묻는다 — 학생 화면은 여기서 끝)
-    let canCreate = false, manage: any[] = [], reason = '';
-    if (/mangoi_admin_session=/.test(request.headers.get('Cookie') || '')) {
-      const g = await editGate(request, env);
+    // 만들 수 있는 사람인지 — 직원 세션 쿠키 또는 학생 로그인 토큰이 있을 때만 묻는다
+    const hasCookie = /mangoi_admin_session=/.test(request.headers.get('Cookie') || '');
+    const hasBearer = /^Bearer\s+\S/.test(request.headers.get('Authorization') || '');
+    if (hasCookie || hasBearer) {
+      const g = await actorGate(request, env);
       if ('actor' in g) {
-        canCreate = true;
         const a = g.actor;
+        // 본사 전체 목록에서도 학생의 «나만 보는 주제» 는 뺀다(본인 것만 본인 목록에)
         const ms: any = (a.isTeacher || a.ownOnly)
           ? await env.DB.prepare(`SELECT * FROM write_topics WHERE created_by = ? AND status != 'deleted' ORDER BY updated_at DESC LIMIT ?`).bind(a.username, WT_LIST_MAX).all()
-          : await env.DB.prepare(`SELECT * FROM write_topics WHERE status != 'deleted' ORDER BY updated_at DESC LIMIT ?`).bind(WT_LIST_MAX).all();
-        manage = (ms.results || []).map((r: any) => rowToItem(r, true));
+          : await env.DB.prepare(`SELECT * FROM write_topics WHERE status != 'deleted' AND COALESCE(created_by, '') NOT LIKE 'stu:%' ORDER BY updated_at DESC LIMIT ?`).bind(WT_LIST_MAX).all();
+        const manage = (ms.results || []).map((r: any) => rowToItem(r, true));
+        const cap = a.student ? WT_STUDENT_DAILY_CAP : WT_USER_DAILY_CAP;
         const used = await countUsage(env, a.username);
-        const cg = writeTopicCostGate(used.user, used.total);
-        return jsonNoStore({ ok: true, items, can_create: true, manage, ai_left: cg.left, ai_cap: WT_USER_DAILY_CAP });
+        const cg = writeTopicCostGate(used.user, used.total, cap);
+        return jsonNoStore({ ok: true, items, can_create: true, role: a.student ? 'student' : 'staff', manage, ai_left: cg.left, ai_cap: cap });
       }
-      reason = 'denied';
+      return jsonNoStore({ ok: true, items, can_create: false, manage: [], reason: 'denied' });
     }
-    return jsonNoStore({ ok: true, items, can_create: canCreate, manage, reason });
+    return jsonNoStore({ ok: true, items, can_create: false, manage: [], reason: 'login' });
   }
 
   if (method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
@@ -444,16 +474,18 @@ export async function handleWriteTopicsApi(request: Request, url: URL, env: any)
   const action = String(b && b.action || '');
   if (!(WT_ACTIONS as readonly string[]).includes(action)) return json({ ok: false, error: 'unknown_action' }, 400);
 
-  const g = await editGate(request, env);
+  const g = await actorGate(request, env);
   if ('res' in g) return g.res;
   const actor = g.actor;
   const now = Date.now();
+  const aiCap = actor.student ? WT_STUDENT_DAILY_CAP : WT_USER_DAILY_CAP;
+  if (actor.student && action === 'publish') return json({ ok: false, error: 'student_no_publish', message: '학생이 만든 주제는 나만 볼 수 있어요. / Topics made by students are just for you.' }, 403);
 
   if (action === 'draft') {
     const title = clean(b.title, WT_TITLE_MAX);
     if (title.length < 2) return json({ ok: false, error: 'title_required', message: '글감 제목을 2글자 이상 적어 주세요. / Please type a title (2+ letters).' }, 400);
     if (!env.AI) return json({ ok: false, error: 'ai_unavailable' }, 503);
-    const cg = await costGateOrRes(env, actor.username, 'draft');
+    const cg = await costGateOrRes(env, actor.username, 'draft', aiCap);
     if ('res' in cg) return cg.res;
     const raw = await runDraft(env, title);
     const d = normalizeDraft(raw, title);
@@ -495,7 +527,7 @@ export async function handleWriteTopicsApi(request: Request, url: URL, env: any)
   // action === 'image'
   if (!env.AI) return json({ ok: false, error: 'ai_unavailable' }, 503);
   if (!env.RECORDINGS) return json({ ok: false, error: 'storage_unavailable' }, 503);
-  const cg = await costGateOrRes(env, actor.username, 'image');
+  const cg = await costGateOrRes(env, actor.username, 'image', aiCap);
   if ('res' in cg) return cg.res;
   const img = await runImage(env, row.image_prompt || row.title_en || row.title_ko);
   if (!img) return json({ ok: false, error: 'image_failed', message: '그림을 만들지 못했어요. 잠시 후 다시 눌러 주세요. / Could not make the picture. Please try again.' }, 502);

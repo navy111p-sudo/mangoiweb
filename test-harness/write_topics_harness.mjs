@@ -54,6 +54,11 @@ globalThis.__WT = {
     const m = (req.headers.get('Cookie') || '').match(/mangoi_admin_session=([\w-]+)/);
     return (m && ACTORS[m[1]]) || { ok: false, username: '', name: '', role: 'none', isTeacher: false };
   },
+  // 학생 로그인 토큰 — 'Bearer tok-<uid>' 만 «진짜» 로 본다(그 밖은 서명 실패 = null)
+  authUidFromRequest: async (req) => {
+    const m = (req.headers.get('Authorization') || '').match(/^Bearer tok-([\w.-]+)$/);
+    return m ? m[1] : null;
+  },
 };
 const importsTo = (code, ns) => code.replace(/^import\s*\{([^}]*)\}\s*from\s*'[^']+';?/gm, (m, names) =>
   names.split(',').map(n => n.trim()).filter(n => n && !/^type\s/.test(n)).map(n => `const ${n} = globalThis.${ns}.${n};`).join('\n'));
@@ -158,7 +163,8 @@ const AI = { run: async (model, input) => {
 const ENV = { DB: D1, AI, RECORDINGS };
 const call = async (method, path, who, body) => {
   const headers = { 'content-type': 'application/json' };
-  if (who) headers.Cookie = 'mangoi_admin_session=' + who;
+  if (who && who.startsWith('Bearer ')) headers.Authorization = who;
+  else if (who) headers.Cookie = 'mangoi_admin_session=' + who;
   const req = new Request('https://mangoi.ai' + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
   const res = await M.handleWriteTopicsApi(req, new URL(req.url), ENV);
   let j = null; const ct = res.headers.get('content-type') || '';
@@ -238,6 +244,34 @@ r = await call('POST', '/api/class/write-topics', 'hq_t_lee', { action: 'image',
 ok(r.st === 429, '그림도 같은 상한을 쓴다');
 insLog.run('old_user', 'draft', Date.now() - 2 * 86400000);
 ok(M.writeTopicCostGate(db.prepare('SELECT COUNT(*) n FROM write_topic_gen_log WHERE username=? AND ts > ?').get('old_user', Date.now() - 86400000).n, 0).ok, '24시간이 지난 기록은 세지 않는다');
+
+console.log('\n③ 학생 — 로그인하면 «나만 보는 주제» (2026-10-26 사장님 «학생도 각자 원하는 주제로 연습»)');
+r = await call('GET', '/api/class/write-topics');
+ok(r.j.can_create === false && r.j.reason === 'login', '로그인 안 한 학생 → 만들기 안 됨 · «로그인하면» 안내(reason=login)');
+r = await call('GET', '/api/class/write-topics', 'Bearer forged');
+ok(r.j.can_create === false && r.j.reason === 'denied', '(짝) 가짜 토큰 → 만들기 안 됨');
+r = await call('GET', '/api/class/write-topics', 'Bearer tok-guest_ab12');
+ok(r.j.can_create === false, '(짝) 게스트 id 토큰은 계정이 아니다 → 안 됨');
+r = await call('GET', '/api/class/write-topics', 'Bearer tok-kimsu');
+ok(r.j.can_create === true && r.j.role === 'student' && r.j.ai_cap === M.WT_STUDENT_DAILY_CAP && r.j.manage.length === 0, '로그인 학생 → 만들기 됨 · role=student · 학생 상한');
+r = await call('POST', '/api/class/write-topics', 'Bearer tok-kimsu', { action: 'draft', title: '내가 좋아하는 공룡' });
+ok(r.st === 200 && r.j.item.created_by === 'stu:kimsu' && r.j.item.status === 'draft', '학생 초안 → created_by=stu:<uid> · 초안');
+const S1 = r.j.item;
+r = await call('POST', '/api/class/write-topics', 'Bearer tok-kimsu', { action: 'publish', id: S1.id });
+ok(r.st === 403 && r.j.error === 'student_no_publish' && /\/ /.test(r.j.message), '학생은 학원 전체에 못 올린다(403 · 한/영)');
+r = await call('POST', '/api/class/write-topics', 'Bearer tok-kimsu', { action: 'save', id: S1.id, title_ko: '공룡 이야기' });
+ok(r.st === 200 && r.j.item.title_ko === '공룡 이야기', '(짝) 자기 주제는 고친다');
+r = await call('POST', '/api/class/write-topics', 'Bearer tok-leeyu', { action: 'save', id: S1.id, title_ko: '남의 것' });
+ok(r.st === 403 && r.j.error === 'not_owner', '다른 학생은 못 고친다');
+r = await call('GET', '/api/class/write-topics', 'Bearer tok-kimsu');
+ok(r.j.manage.length === 1 && r.j.manage[0].id === S1.id, '내 목록에는 내 주제가 보인다');
+r = await call('GET', '/api/class/write-topics', 'Bearer tok-leeyu');
+ok(r.j.manage.length === 0 && !r.j.items.some(x => x.id === S1.id), '(짝) 다른 학생 목록·공개 목록에는 안 보인다');
+r = await call('GET', '/api/class/write-topics', 'admin');
+ok(r.j.role === 'staff' && !r.j.manage.some(x => x.id === S1.id), '본사 관리 목록에도 학생 주제는 섞이지 않는다');
+for (let i = 1; i < M.WT_STUDENT_DAILY_CAP; i++) insLog.run('stu:kimsu', 'draft', Date.now());
+r = await call('POST', '/api/class/write-topics', 'Bearer tok-kimsu', { action: 'draft', title: '하나 더' });
+ok(r.st === 429 && r.j.error === 'daily_cap', `학생은 하루 ${M.WT_STUDENT_DAILY_CAP}번까지(직원 상한 ${CAP} 이 아님)`);
 // LLM 이 죽어도 초안은 만든다(기본 6칸)
 AI_MODE = 'text-fail';
 r = await call('POST', '/api/class/write-topics', 'admin', { action: 'draft', title: '내가 좋아하는 계절' });
@@ -371,8 +405,9 @@ ok(/<select id="picChoice" onchange="awPickTopic\(this\.value\)">/.test(HTML), '
 ok(pos('pickNote') < 0 && pos('topicRow') < 0 && !/function shuffleTopics/.test(HTML), '(짝) 옛 «셋 중 하나만» 안내·🎲 칩 줄은 없다 — 고르는 곳을 다시 늘리지 않는다');
 const plan = blockFrom(HTML, '<div class="aw-plan" id="awPlan">') ? HTML.slice(pos('awPlan'), pos('missionCard')) : '';
 ok(plan.includes('id="picCard"') && plan.includes('id="wtPanel"') && plan.includes('id="goCard"'), '그림 · 선생님 글감 · 브레인스토밍이 한 묶음(#awPlan)');
-ok(pos('picCard') < pos('wtPanel') && pos('wtPanel') < pos('goCard') && pos('goCard') < pos('missionCard') && pos('missionCard') < pos('awHelp') && pos('awHelp') < pos('text'),
-  '순서: 그림 → 선생님 글감 → 브레인스토밍 → 미션 → 도움 → 글쓰기 칸');
+// 2026-10-26 사장님 캡처 «장면·글감 선택 바로 아래» — 주제 만들기가 그림 «위» 로 올라갔다
+ok(pos('wtPanel') < pos('picCard') && pos('picCard') < pos('goCard') && pos('goCard') < pos('missionCard') && pos('missionCard') < pos('awHelp') && pos('awHelp') < pos('text'),
+  '순서: 주제 만들기 → 그림 → 브레인스토밍 → 미션 → 도움 → 글쓰기 칸');
 const helpSlice = HTML.slice(pos('awHelp'), HTML.indexOf('</details>', HTML.indexOf('id="sentenceCoach"')) + 10);
 ok(!helpSlice.includes('id="goCard"') && helpSlice.includes('id="sentenceCoach"'), '«도움» 안에는 문장 연습만(브레인스토밍은 밖)');
 ok(/id="wtPanel" hidden/.test(HTML), '선생님 칸은 처음에 감춰져 있다(학생 화면)');
