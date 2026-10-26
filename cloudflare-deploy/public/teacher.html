@@ -296,6 +296,9 @@ html[data-t="dark"] .cls-tbl tr.cls-postponed td{background:#3a2a10}
 .cls-chip.c-cancel{color:#6b7783}
 .cls-chip.c-noshow{border-color:#b42318;color:#b42318}
 .cls-chip.c-done{color:#6b7783}
+.cls-chip.c-nolog{border-color:#1355a8;color:#1355a8}
+/* 🙈 (2026-10-26) 상세 숨기기 — 참고 정보 3종만. 다른 방 경고·학부모 요청·일지 버튼은 «지금 할 일» 이라 남긴다 */
+.cls-lite .cls-goal,.cls-lite .cls-hand,.cls-lite .cls-prev{display:none}
 .cls-chip:focus-visible{outline:2px solid #1355a8;outline-offset:2px}
 /* 🖥 D (PC 만): 입장 버튼 자리에 상태 상자 — 폰(700px 미만)에서는 숨기고 이름 아래 한 줄(A)을 쓴다 */
 .cls-sact{display:none}
@@ -501,6 +504,7 @@ html[data-t="dark"] .cls-chip.c-plan{border-color:#4fc583;color:#4fc583}
 html[data-t="dark"] .cls-chip.c-post{border-color:#f0b45a;color:#f0b45a}
 html[data-t="dark"] .cls-chip.c-noshow{border-color:#f28b82;color:#f28b82}
 html[data-t="dark"] .cls-chip.c-cancel,html[data-t="dark"] .cls-chip.c-done{color:#9dabb9}
+html[data-t="dark"] .cls-chip.c-nolog{border-color:#8fb4ff;color:#8fb4ff}
 html[data-t="dark"] .sb-post{background:#1b2330;color:#f0b45a;border-color:#7a5520}
 html[data-t="dark"] .sb-cancel{background:#252f3a;color:#9dabb9}
 html[data-t="dark"] .p-soon{background:#4a3a06;color:#ffd97a}
@@ -715,6 +719,11 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         <option value="table" data-en="Table (like manager page)" data-ko="표 (매니저 화면처럼)">Table (like manager page)</option>
         <option value="cards" data-en="Cards" data-ko="카드">Cards</option>
       </select>
+    </label>
+    <!-- 🙈 (2026-10-26) 카드 보기에서 목표·인수인계·지난 수업을 접는다. 표 보기는 이미 «📝 메모» 로 접혀 있어 숨긴다. -->
+    <label id="cls-lite-wrap" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px">
+      <input type="checkbox" id="cls-lite">
+      <span data-en="Hide details (goal · handover · last class)" data-ko="상세 숨기기 (목표 · 인수인계 · 지난 수업)">Hide details (goal · handover · last class)</span>
     </label>
     <!-- 다른 날을 고르면 이 상자(오늘 목록)는 숨고 #cls-day-view 가 그 날을 그린다. -->
     <div id="cls-today">
@@ -2086,11 +2095,14 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     return 'plan';
   }
   function clsChipsHtml(list, t){
-    var n = { plan: 0, postponed: 0, cancelled: 0, no_show: 0, done: 0 }, real = 0;
+    var n = { plan: 0, postponed: 0, cancelled: 0, no_show: 0, done: 0, nolog: 0 }, real = 0;
     for (var i = 0; i < list.length; i++){
       var c = list[i];
       if (c.kind && c.kind !== 'class') continue;
       real++; n[clsStateOf(c, t)]++;
+      // ✍ (2026-10-26) 끝났는데 일지가 없는 수업 — 줄에 [일지 쓰기](.btn-eval) 가 그려지는 조건과 똑같이 센다
+      if (c.class_state !== 'cancelled' && c.class_state !== 'postponed' && !c.absence_hold
+          && t > c.close_at_ts && !c.eval_written) n.nolog++;
     }
     if (!real) return '';
     var defs = [
@@ -2098,7 +2110,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       ['postponed', 'c-post',   '⏸ ' + T('Postponed', '연기')],
       ['cancelled', 'c-cancel', '✕ ' + T('Cancelled', '취소')],
       ['no_show',   'c-noshow', '⚠ ' + T('No-show', '노쇼')],
-      ['done',      'c-done',   '✔ ' + T('Done', '완료')]
+      ['done',      'c-done',   '✔ ' + T('Done', '완료')],
+      ['nolog',     'c-nolog',  '✍ ' + T('Log not written', '일지 미작성')]
     ];
     var out = '';
     for (var d = 0; d < defs.length; d++){
@@ -2201,7 +2214,22 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     lastSig = null;   // 지문에는 보기 모드가 없다 — 바꿀 때 직접 지워 다시 그리게 한다
     if (DATA) renderClasses(DATA.classes || []);
     renderClsDay();
+    syncClsLite();
   });
+  /* 🙈 (2026-10-26) 상세 숨기기 — 줄 마크업은 그대로 두고 상자에 클래스만 붙인다(renderClasses 는 모른다). */
+  var clsLiteBox = document.getElementById('cls-lite');
+  try { clsLiteBox.checked = localStorage.getItem('mangoi_teacher_cls_lite') === '1'; } catch (e) {}
+  function syncClsLite(){
+    var on = clsLiteBox.checked;
+    ['classes', 'cls-day-view'].forEach(function (id){ var b = document.getElementById(id); if (b) b.classList.toggle('cls-lite', on); });
+    var w = document.getElementById('cls-lite-wrap');
+    if (w) w.hidden = classViewIsTable();
+  }
+  clsLiteBox.addEventListener('change', function () {
+    try { localStorage.setItem('mangoi_teacher_cls_lite', this.checked ? '1' : '0'); } catch (e) {}
+    syncClsLite();
+  });
+  syncClsLite();
   // Sort a copy; row actions retain the same class objects, regardless of status.
   function sortClassesByTime(list, direction){
     var day = '1970-01-01';
@@ -2735,7 +2763,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         if (!ch) return;
         var k = ch.getAttribute('data-chip');
         var sel = k === 'postponed' ? '.cls-postponed' : k === 'cancelled' ? '.cls-cancel'
-                : k === 'no_show' ? '.p-noshow' : null;
+                : k === 'no_show' ? '.p-noshow' : k === 'nolog' ? '.btn-eval' : null;
         var el = sel ? box.querySelector(sel) : null;
         if (el && el.closest) el = el.closest('.cls, .cls-tr') || el;
         if (!el){
