@@ -52,7 +52,9 @@ function environment(instant = '2026-10-04T15:05:00Z', cache = null) {
     renderAlsoAccount() {}, renderClasses() {}, renderUpcoming() {}, renderNotices() {}, renderResources() {}, renderManager() {}, paintClassCount() {}, paintNewBadge() {},
     scheduleAutoRefresh(ms) { ui.nextRefresh = ms; },
     EN: () => ui.LANG !== 'ko', T: (en,ko) => ui.LANG === 'ko' ? ko : en, esc: x => String(x ?? ''),
-    stuLabelHtml: it => it.student_name, stuLabelText: it => it.student_name, stuName: it => it.student_name || '', stuUid: it => it.student_uid || '', kindPill: () => ''
+    stuLabelHtml: it => it.student_name, stuLabelText: it => it.student_name, stuName: it => it.student_name || '', stuUid: it => it.student_uid || '', kindPill: () => '',
+    // 2026-10-26: 첫 보기가 표가 되어 날짜 보기가 classTableHtml 을 부른다 — 실제 페이지에는 전역으로 있다. 학생 이름만 그려 아래 label 검사가 그대로 뜻을 갖게 한다.
+    classTableHtml: list => '<table>' + list.map(c => '<tr>' + (c.student_name || '') + '</tr>').join('') + '</table>', stPill: () => '', weekRecordHtml: () => ''
   };
   vm.createContext(ui);
   vm.runInContext([fn('now'), fn('todayKST'), fn('paintCached'), fn('saveCache'), fn('load'), fn('setStale'), fn('render'),

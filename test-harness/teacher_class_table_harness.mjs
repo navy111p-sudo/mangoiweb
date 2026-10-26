@@ -62,5 +62,13 @@ if (api) {
   const esc = api.classTableHtml([{ ...row, student_name: '<b>x', academy: '<img>' }], {});
   ok('이스케이프(학원 이름)', !/<img>/.test(esc));
 }
+// ⑦ 처음 보기는 폰·PC 모두 표(2026-10-26) — 기기 저장값이 있으면 그것이 이긴다(짝)
+{
+  const m = html.match(/var classView = ([^;]+);/);
+  let v = null;
+  try { v = m && new Function('window', 'return ' + m[1])({ innerWidth: 390 }); } catch (e) {}
+  ok('⑦ 폰(390px) 첫 보기 = 표', v === 'table', m && m[1]);
+  ok('⑦ 저장값(cards/table)이 있으면 그것을 쓴다(짝)', /localStorage\.getItem\('mangoi_teacher_class_view'\)[^\n]*classView = savedView/.test(html));
+}
 console.log('\n결과: PASS ' + pass + ' / FAIL ' + fail);
 if (fail) process.exit(1);

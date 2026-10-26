@@ -2191,9 +2191,9 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     if (DATA) { renderClasses(DATA.classes || []); if(DATA.week) renderWeek(DATA.week); }
   });
   /* 📋 (2026-10-26) 보기 — 표(매니저 화면처럼) / 카드. 고른 값은 이 기기에 기억한다.
-     처음엔 넓은 화면(PC·태블릿 가로)은 표, 폰은 카드 — 15칸 표는 폰에서 옆으로 밀어야 해서다. */
+     처음엔 폰·PC 모두 표(2026-10-26 사장님 지시). 폰에서는 표가 자기 상자 안에서만 옆으로 밀리고 페이지는 안 밀린다. */
   var classViewSelect = document.getElementById('class-view');
-  var classView = (window.innerWidth || 0) >= 900 ? 'table' : 'cards';
+  var classView = 'table';
   try { var savedView = localStorage.getItem('mangoi_teacher_class_view'); if (savedView === 'table' || savedView === 'cards') classView = savedView; } catch (e) {}
   classViewSelect.value = classView;
   classViewSelect.addEventListener('change', function () {
