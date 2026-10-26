@@ -51,6 +51,31 @@
 .dg-again{margin:4px 0 6px;font-size:13px;line-height:1.5;color:#9aa4b5;text-align:center;word-break:keep-all}
 .dg-box button:focus-visible{outline:3px solid #f7bd47;outline-offset:2px}
 
+/* 🔊 음성 안내 — js/ai-dubbing-guide-voice.js (2026-10-26). 창 안 버튼(듣기↔끄기) + 창을 닫고 이어 들을 때 아래 «끄기» 막대 */
+.dg-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px 10px}
+.dg-voice{min-height:44px;padding:6px 16px;border:2px solid rgba(245,184,61,.8);border-radius:999px;background:rgba(245,184,61,.16);color:#ffe2a6;
+  font:inherit;font-size:15.5px;font-weight:900;white-space:nowrap;cursor:pointer}
+.dg-voice:hover{background:rgba(245,184,61,.26)}
+.dg-voice.dgv-on{border-color:#ff6b8f;background:rgba(255,45,111,.18);color:#ffd6e0}
+/* 폭은 «내용만큼» + 화면 안 — left:50%+translate 만 두면 폭이 화면 절반으로 줄어 글자가 쪼개진다(CLAUDE.md 2장) */
+.dgv-bar{position:fixed;left:20px;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:100001;display:flex;align-items:center;gap:10px;
+  box-sizing:border-box;width:max-content;max-width:calc(100vw - 24px);padding:6px 6px 6px 16px;border:2px solid rgba(245,184,61,.75);border-radius:999px;
+  background:#161c28;color:#e8ecf3;box-shadow:0 10px 30px rgba(0,0,0,.55);
+  font-family:MangoiHanSC,'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:15px;font-weight:800;line-height:1.3}
+.dgv-bar[hidden]{display:none!important}
+.dgv-now{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dgv-off{flex:none;min-height:44px;padding:0 18px;border:0;border-radius:999px;background:linear-gradient(135deg,#ff2d6f,#ff6b8f);color:#fff;
+  font:inherit;font-size:15.5px;font-weight:900;cursor:pointer}
+.dg-voice:focus-visible,.dgv-off:focus-visible{outline:3px solid #f7bd47;outline-offset:2px}
+/* 폰(≤860px): 화면 아래 고정 바(.mbar) 위로.
+   역할 고르기 시트(화면 높이 88%)가 열리면 «■ 끄기» 버튼만 남겨 맨 위 머리줄의 빈자리(← 와 🏠·🌐 칩 사이)로 —
+   시트 버튼도, 공용 칩도 가리지 않는다(320~430px 실측: ← 8~42px · 칩은 오른쪽 끝에서 135px) */
+@media(max-width:860px){
+  .dgv-bar{left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  body.dub-sheet-open .dgv-bar{left:50px;transform:none;top:calc(4px + env(safe-area-inset-top,0px));bottom:auto;max-width:calc(100vw - 190px);padding:1px;border-width:1px}
+  body.dub-sheet-open .dgv-now{display:none}
+}
+
 @media(max-width:480px){
   .dg-ov{padding:8px}
   .dg-box{max-height:calc(100vh - 16px);max-height:calc(100svh - 16px);border-radius:18px}

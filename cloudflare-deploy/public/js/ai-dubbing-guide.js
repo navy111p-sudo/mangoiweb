@@ -18,7 +18,10 @@
  *       - 저장소가 막힌 기기에서는 «보여 주는» 쪽으로 실패한다(설명을 잃는 것보다 한 번 더 보는 편이 낫다)
  *     ⛔ 위쪽 ‘❓ 사용방법’ 버튼은 언제나 연다 — 오늘 숨김·이 탭에서 봄과 상관없다.
  *
- *   · ⛔ 이 창은 마이크·영상·소리를 «건드리지 않는다» (getUserMedia·play()·AudioContext 0 — 하니스가 본다).
+ *   · ⛔ 이 파일은 마이크·영상·소리를 «직접» 건드리지 않는다 (getUserMedia·play()·AudioContext 0 — 하니스가 본다).
+ *     🔊 음성 안내는 js/ai-dubbing-guide-voice.js 가 맡는다(2026-10-26 사장님: «클릭하면 바로 들리게 · 끄기 버튼»).
+ *     여기는 열림·닫힘만 알린다(voice().guideOpened·guideClosed) — 사람이 ‘❓ 사용방법’으로 열면 소리 시작,
+ *     저절로 열리면 소리 0, ✕·Esc·오늘 숨김이면 끔, ‘시작하기’면 이어 듣기. 판단은 그 파일 한 곳.
  *     ‘시작하기’도 녹음을 시작하지 않는다 — 창을 닫고 ‘짧은 더빙 시작’ 버튼으로 «포커스만» 옮긴다.
  *   · 바깥(어두운 곳)을 눌러도 닫히지 않는다 — 팝업은 ✕ 로만 닫는다(js/mg-modal-policy.js 와 같은 정책).
  *   · Esc 로 닫힌다. 이때 화면의 Esc(역할 고르기 시트 닫기)까지 같이 돌지 않게 이 창이 먼저 받아 멈춘다.
@@ -88,6 +91,8 @@
   function $(id) { return document.getElementById(id); }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function imgUrl(i, en) { return '/img/dubbing-guide/' + STEPS[i].img + '-' + (en ? 'en' : 'ko') + '.jpg?v=' + IMG_V; }
+  /* 🔊 음성 안내(js/ai-dubbing-guide-voice.js) — 못 실렸으면 null, 안내창은 소리 없이 그대로 돈다 */
+  function voice() { var v = root.MangoiDubVoice; return v && typeof v.mount === 'function' ? v : null; }
 
   var ov = null, box = null, idx = 0, back = null, saved = null, hooked = false;
   var UI = {
@@ -132,7 +137,11 @@
     var nx = el('button', 'dg-next'); nx.type = 'button';
     nav.append(pv, nx);
     var hide = el('button', 'dg-hide'); hide.type = 'button';
-    foot.append(nav, hide);
+    /* 아래 줄 = ‘🔊 소리로 듣기’(음성 안내가 실렸을 때) + ‘오늘은 다시 보지 않기’ */
+    var row = el('div', 'dg-row');
+    if (voice()) voice().mount(row);
+    row.appendChild(hide);
+    foot.append(nav, row);
     box.append(head, tabs, body, foot);
     ov.appendChild(box);
     document.body.appendChild(ov);
@@ -240,6 +249,8 @@
       document.addEventListener('focusin', onFocusIn);
     }
     focusIn(ov.querySelector('.dg-next'));
+    /* opener 가 있다 = 사람이 버튼을 눌러 열었다(그 클릭 안) → 음성 안내가 바로 시작. 저절로 열림(null)은 소리 0 */
+    if (voice()) voice().guideOpened(!!opener);
   }
 
   function close(why) {
@@ -251,6 +262,7 @@
       document.removeEventListener('focusin', onFocusIn);
     }
     unlockScroll();
+    if (voice()) voice().guideClosed(why);   // «시작하기» 면 소리가 이어지고(아래 «끄기» 막대), 그 밖은 꺼진다
     var opener = back, target = null;
     back = null;
     if (why === 'start') {

@@ -3,7 +3,8 @@
 //     저절로 열림 · 맨 위에 있고 눌림 · 그림이 실제로 그려짐 · 화면 안에 들어옴 · 가로 스크롤 없음 · 손가락 크기
 //     Tab 가두기 · 단계 넘기기/칩 · Esc · 포커스 되돌리기 · 같은 탭 새로 고침엔 안 뜸 · ‘❓ 사용방법’ 으로 다시 열림
 //     ‘시작하기’(포커스만, 녹음·시트 안 열림) · 오늘은 다시 보지 않기(기기 날짜로 저장 · 새 탭에서도 안 뜸 · 버튼은 열림)
-//     안내창이 마이크·영상·소리를 건드리지 않음(getUserMedia·play·AudioContext 0)
+//     안내창이 마이크·영상을 건드리지 않음(getUserMedia·영상 play·AudioContext 0) — 소리는 «🔊 안내 음성» 만,
+//     그것도 사람이 ‘❓ 사용방법’ 을 눌러 열 때만(저절로 열림=0). 자세한 음성 검사: manual/ai-dubbing-guide-voice-browser.mjs
 //   한 번씩: 저장소 막힘 · 날짜 바뀜(시계 조작, 서울·LA) · 주소(?ep·?resume·?library·잘못된 ep) · 빠른 연타 ·
 //           열고 닫기 15회 · 폰 역할 시트와 Esc · 스크롤 자리 · 창 안 🌐 · 닫은 뒤 기존 더빙 흐름(녹음·보기)
 //   자동으로 안 돈다(manual/) — 사람이 부른다(리포 루트에서):
@@ -30,9 +31,9 @@ const VIEWS = [
 
 /* 마이크·영상·소리 호출을 센다 — 안내창은 0 이어야 한다 */
 function probe() {
-  window.__calls = { gum: 0, play: 0, ac: 0 };
+  window.__calls = { gum: 0, play: 0, ac: 0, voice: 0 };   // voice = 🔊 안내 음성(/audio/dubbing-guide/) — 나머지 재생은 play
   try { const md = navigator.mediaDevices; if (md && md.getUserMedia) { const g = md.getUserMedia.bind(md); md.getUserMedia = function (c) { window.__calls.gum++; return g(c); }; } } catch (e) {}
-  try { const p = HTMLMediaElement.prototype.play; HTMLMediaElement.prototype.play = function () { window.__calls.play++; return p.apply(this, arguments); }; } catch (e) {}
+  try { const p = HTMLMediaElement.prototype.play; HTMLMediaElement.prototype.play = function () { if (/\/audio\/dubbing-guide\//.test(String(this.currentSrc || this.src || ''))) window.__calls.voice++; else window.__calls.play++; return p.apply(this, arguments); }; } catch (e) {}
   try { const A = window.AudioContext; if (A) { window.AudioContext = function () { window.__calls.ac++; return new A(...arguments); }; window.AudioContext.prototype = A.prototype; } } catch (e) {}
 }
 async function newPage(ctx, errs) {
@@ -106,6 +107,7 @@ for (const [vname, vp, mobile] of VIEWS) for (const lang of ['ko', 'en']) await 
   await p.click('#dub-guide .dg-tab[data-step="0"]'); s = await st(p);
   ok(`${tag} 단계 칩 ①을 누르면 1단계로`, s.step === 0 && s.next === X.next);
   ok(`${tag} 여기까지 마이크·영상·소리 0`, s.calls.gum === 0 && s.calls.play === 0 && s.calls.ac === 0, s.calls);
+  ok(`${tag} 저절로 열린 창은 안내 음성도 0`, s.calls.voice === 0, s.calls);
   await p.keyboard.press('Escape'); s = await st(p);
   ok(`${tag} Esc 로 닫힌다`, !s.open);
   ok(`${tag} 닫으면 스크롤 잠금이 풀린다`, s.overflow === '|', s.overflow);
@@ -114,6 +116,7 @@ for (const [vname, vp, mobile] of VIEWS) for (const lang of ['ko', 'en']) await 
   ok(`${tag} 같은 탭에서 새로 고침하면 다시 안 뜬다`, !s.open);
   await p.click('#dub-guide-open'); s = await st(p);
   ok(`${tag} ‘❓ 사용방법’ 으로 다시 열린다(1단계부터)`, s.open && s.step === 0 && s.focusIn, s);
+  ok(`${tag} ‘❓ 사용방법’ 을 누르면 안내 음성이 나온다(사람이 누름)`, s.calls.voice === 1, s.calls);
   await p.click('#dub-guide .dg-x'); s = await st(p);
   ok(`${tag} ✕ 로 닫히고 포커스는 ‘❓ 사용방법’ 으로`, !s.open && s.active === 'dub-guide-open', s.active);
   await p.click('#dub-guide-open'); await p.click('#dub-guide .dg-tab[data-step="2"]'); await p.click('#dub-guide .dg-next'); await p.waitForTimeout(150); s = await st(p);
