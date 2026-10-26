@@ -69,7 +69,25 @@ const SLOT_KEYS = WT_SLOTS.map(s => s.k as string);
 const SLOT_ICON: Record<string, string> = { when: '🕒', where: '📍', who: '🧑', what: '💡', why: '❓', how: '💗' };
 const SLOT_EN: Record<string, string> = { when: 'When', where: 'Where', who: 'Who', what: 'What', why: 'Why', how: 'How' };
 
-export interface WtQuestion { k: string; p: number; ko: string; en: string; starter: string; ph: string; }
+export interface WtQuestion { k: string; p: number; ko: string; en: string; starter: string; ph: string; choices?: string[]; }
+
+/* 🎚 학생 단계에 맞춘 질문(제안 2 — 2026-10-26). 값은 AI 영작 화면의 단계 버튼(data-level, CEFR)과 같은 말이다.
+   ⛔ 학생이 만든 주제에만 쓴다 — 선생님 글감은 모든 단계 학생에게 같이 나가므로 한 단계에 맞추면 안 된다.
+   ⛔ 지시만으로는 안 지켜진다(CLAUDE.md 반복 실측) — 질문 수·예시 길이·고르는 답은 normalizeDraft 가 결정론으로 맞춘다.
+   maxQ 질문 수 상한 · exWords 예시 낱말 상한 · choiceWords 고르는 답 낱말 상한(0 = 고르는 답 없음) · needWhy «왜» 필수 */
+export const WT_LEVELS = ['A1', 'A2', 'B1', 'B2'] as const;
+export type WtLevel = typeof WT_LEVELS[number];
+export const WT_LEVEL_SPEC: Record<WtLevel, { maxQ: number; exWords: number; choiceWords: number; needWhy: boolean }> = {
+  A1: { maxQ: 4, exWords: 3, choiceWords: 3, needWhy: false },
+  A2: { maxQ: 5, exWords: 5, choiceWords: 4, needWhy: false },
+  B1: { maxQ: 6, exWords: 6, choiceWords: 0, needWhy: false },
+  B2: { maxQ: 6, exWords: 8, choiceWords: 0, needWhy: true },
+};
+/** 모르는 값은 '' (= 예전 동작, 단계 맞춤 없음). */
+export function normalizeLevel(v: unknown): WtLevel | '' {
+  const s = String(v ?? '').trim().toUpperCase();
+  return (WT_LEVELS as readonly string[]).includes(s) ? s as WtLevel : '';
+}
 export interface WtDraft {
   title_ko: string; title_en: string; icon: string; open: string;
   questions: WtQuestion[]; words: string[]; image_prompt: string;
@@ -155,8 +173,24 @@ export function normalizeIcon(raw: unknown): string {
 }
 
 /** 질문 한 칸 — LLM 이 준 것 중 쓸 수 있는 칸만 고르고 나머지는 기본값. */
-export function normalizeQuestion(raw: any, k: string): WtQuestion {
+const wordCount = (s: string) => s.split(/\s+/).filter(Boolean).length;
+/** 고르는 답(1·2단계) — 영어·짧음·중복 없음·최대 3개. 2개도 못 남으면 빈 배열(= 칸을 안 그린다). */
+export function normalizeChoices(raw: any, maxWords: number): string[] {
+  if (!maxWords || !Array.isArray(raw)) return [];
+  const out: string[] = [], seen = new Set<string>();
+  for (const c of raw) {
+    const t = clean(c, 30).replace(/[.!?]+$/, '');
+    if (!t || !isEnglishText(t, 30) || !/[A-Za-z]/.test(t) || wordCount(t) > maxWords) continue;
+    const key = t.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key); out.push(t);
+    if (out.length >= 3) break;
+  }
+  return out.length >= 2 ? out : [];
+}
+export function normalizeQuestion(raw: any, k: string, level: WtLevel | '' = ''): WtQuestion {
   const slot = WT_SLOTS.find(s => s.k === k)!;
+  const spec = level ? WT_LEVEL_SPEC[level] : null;
   const icon = SLOT_ICON[k], enHead = SLOT_EN[k];
   let ko = clean(raw && raw.ko, 70);
   if (!HANGUL.test(ko)) ko = slot.ko;
@@ -167,11 +201,16 @@ export function normalizeQuestion(raw: any, k: string): WtQuestion {
   const starter = normalizeStarter(raw && raw.starter, slot.starter);
   let ex = clean(raw && (raw.example ?? raw.ph), 50).replace(/^예\)\s*/, '');
   if (!isEnglishText(ex, 50) || !/[A-Za-z]/.test(ex)) ex = slot.ex;
-  return { k, p: slot.p, ko, en, starter, ph: '예) ' + ex };
+  if (spec && wordCount(ex) > spec.exWords) ex = ex.split(/\s+/).slice(0, spec.exWords).join(' ');
+  const q: WtQuestion = { k, p: slot.p, ko, en, starter, ph: '예) ' + ex };
+  const ch = normalizeChoices(raw && raw.choices, spec ? spec.choiceWords : 0);
+  if (ch.length) q.choices = ch;
+  return q;
 }
 
 /** LLM 초안 → 화면에 그대로 내보낼 수 있는 모양. 제목은 선생님이 적은 것이 이긴다. */
-export function normalizeDraft(raw: any, titleInput: string): WtDraft {
+export function normalizeDraft(raw: any, titleInput: string, levelIn: unknown = ''): WtDraft {
+  const level = normalizeLevel(levelIn), spec = level ? WT_LEVEL_SPEC[level] : null;
   const r = raw && typeof raw === 'object' ? raw : {};
   const title = clean(titleInput, WT_TITLE_MAX);
   const titleKo = HANGUL.test(title) ? title : (HANGUL.test(clean(r.title_ko, WT_TITLE_MAX)) ? clean(r.title_ko, WT_TITLE_MAX) : title);
@@ -187,7 +226,16 @@ export function normalizeDraft(raw: any, titleInput: string): WtDraft {
   if (!keys.includes('what')) keys.push('what');
   if (keys.length < 3) keys = SLOT_KEYS.slice();
   keys = SLOT_KEYS.filter(k => keys.includes(k));       // 순서는 언제나 6하원칙 순서
-  const questions = keys.map(k => normalizeQuestion(given[k], k));
+  if (spec) {
+    if (spec.needWhy && !keys.includes('why')) keys = SLOT_KEYS.filter(k => keys.includes(k) || k === 'why');
+    // 상한을 넘으면 뒤에서부터 덜어 낸다 — 'what'(·4단계 'why')은 남긴다
+    while (keys.length > spec.maxQ) {
+      const drop = [...keys].reverse().find(k => k !== 'what' && !(spec.needWhy && k === 'why'));
+      if (!drop) break;
+      keys = keys.filter(k => k !== drop);
+    }
+  }
+  const questions = keys.map(k => normalizeQuestion(given[k], k, level));
   let prompt = clean(r.image_prompt, 280);
   if (!isEnglishText(prompt, 280) || prompt.length < 8) prompt = titleEn || 'children writing a story together in a bright classroom';
   return {
@@ -217,7 +265,14 @@ export function normalizeSave(b: any, prev: WtDraft): WtDraft {
     title_en: titleEn,
     icon: b && b.icon !== undefined ? normalizeIcon(b.icon) : prev.icon,
     open: b && b.open !== undefined ? normalizeOpen(b.open) : prev.open,
-    questions: keys.map(k => normalizeQuestion(given[k], k)),
+    // 고르는 답은 편집 칸에 없다 — 같은 칸이면 저장 전 값을 그대로 이어 붙인다(저장 한 번에 사라지지 않게)
+    questions: keys.map(k => {
+      const q = normalizeQuestion(given[k], k);
+      const old = (prev.questions || []).find(x => x && x.k === k);
+      const ch = normalizeChoices(old && old.choices, 8);
+      if (ch.length) q.choices = ch;
+      return q;
+    }),
     words: b && b.words !== undefined ? normalizeWords(b.words) : prev.words,
     image_prompt: prev.image_prompt,
   };
@@ -337,7 +392,13 @@ async function markLogOk(env: any, logId: number | null) {
 
 /* ───────────── AI 호출 ───────────── */
 
-function draftPrompt(title: string): string {
+const LEVEL_RULE: Record<WtLevel, string> = {
+  A1: 'LEVEL: Step 1 (youngest beginners, age 7-9). Ask only 3 or 4 questions. Korean questions must be very short and easy. Examples are 1-3 English words. For EVERY question also add "choices": three different short English answers (1-3 words each) the child can tap. Each choice must read correctly when appended to the starter of that question, like the example.',
+  A2: 'LEVEL: Step 2 (beginners). Ask 4 or 5 questions. Examples are 2-5 English words. For EVERY question also add "choices": three different short English answers (2-4 words each) the child can tap. Each choice must read correctly when appended to the starter of that question, like the example.',
+  B1: 'LEVEL: Step 3 (intermediate, short essay). Ask 5 or 6 questions. Examples are short phrases.',
+  B2: 'LEVEL: Step 4 (high school grade 10, essay). Ask 5 or 6 questions and ALWAYS include "why"; the Korean "why" question asks for two reasons. Examples may be a short clause (4-8 words).',
+};
+function draftPrompt(title: string, level: WtLevel | '' = ''): string {
   return `You are helping a Korean English academy make a writing topic for children (age 8-14, beginner to intermediate).
 The teacher's topic title is: """${title}"""
 
@@ -355,15 +416,15 @@ Make a brainstorming outline (5W1H) the student answers before writing. Respond 
 }
 Rules: choose 4 to 6 of the six keys that fit the topic and always include "what". Starters must be grammatical with the example
 appended (e.g. "I was at " + "the park"). Never end a starter with "a", "an" or "the". Words must be single common nouns or verbs
-that will appear in the picture. No scary, violent or sad scenes. No text or letters in the picture description.`;
+that will appear in the picture. No scary, violent or sad scenes. No text or letters in the picture description.${level ? '\n' + LEVEL_RULE[level] : ''}`;
 }
 
-async function runDraft(env: any, title: string): Promise<any> {
+async function runDraft(env: any, title: string, level: WtLevel | '' = ''): Promise<any> {
   const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct'];
   for (const m of models) {
     try {
       const resp: any = await env.AI.run(m, {
-        messages: [{ role: 'user', content: draftPrompt(title) }],
+        messages: [{ role: 'user', content: draftPrompt(title, level) }],
         max_tokens: 1200, temperature: 0.4,
       });
       const obj = parseModelJson(resp);
@@ -483,12 +544,13 @@ export async function handleWriteTopicsApi(request: Request, url: URL, env: any)
 
   if (action === 'draft') {
     const title = clean(b.title, WT_TITLE_MAX);
-    if (title.length < 2) return json({ ok: false, error: 'title_required', message: '글감 제목을 2글자 이상 적어 주세요. / Please type a title (2+ letters).' }, 400);
+    if (title.length < 2) return json({ ok: false, error: 'title_required', message: '주제를 2글자 이상 적어 주세요. / Please type a title (2+ letters).' }, 400);
     if (!env.AI) return json({ ok: false, error: 'ai_unavailable' }, 503);
     const cg = await costGateOrRes(env, actor.username, 'draft', aiCap);
     if ('res' in cg) return cg.res;
-    const raw = await runDraft(env, title);
-    const d = normalizeDraft(raw, title);
+    const level = actor.student ? normalizeLevel(b.level) : '';   // 단계 맞춤은 학생 주제만(선생님 글감은 모든 단계에 나간다)
+    const raw = await runDraft(env, title, level);
+    const d = normalizeDraft(raw, title, level);
     const r: any = await env.DB.prepare(
       `INSERT INTO write_topics (title_ko, title_en, icon, open_line, questions_json, words_json, image_prompt, image_ver, status, created_by, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'draft', ?, ?, ?)`
