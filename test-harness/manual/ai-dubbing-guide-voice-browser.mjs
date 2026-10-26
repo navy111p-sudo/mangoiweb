@@ -186,6 +186,65 @@ for (const [w, h] of [[320, 568], [360, 740], [390, 844], [430, 932]]) for (cons
   await ctx.close();
 });
 
+// 소리가 나는 중 ☰ 드로어를 열면 — 드로어(와 덮개)가 막대 «위» (메뉴가 막대에 안 가린다)
+for (const [vname, vp, mobile] of [['폰 390', { width: 390, height: 844 }, true], ['PC 1024', { width: 1024, height: 768 }, false], ['PC 1280', { width: 1280, height: 800 }, false]]) await guard(`[드로어 ${vname}]`, async () => {
+  const tag = `[드로어 ${vname}]`, errs = [];
+  const ctx = await browser.newContext({ viewport: vp, serviceWorkers: 'block', hasTouch: mobile, isMobile: mobile });
+  await ctx.addInitScript(probe);
+  const p = await ctx.newPage(); p.on('pageerror', e => errs.push(String(e)));
+  await p.goto(B + '/ai-dubbing.html', { waitUntil: 'networkidle' }); await p.waitForTimeout(400);
+  await p.click('#dub-guide .dg-voice'); await waitState(p, 'playing');
+  await p.click('#dub-guide .dg-tab[data-step="2"]'); await p.click('#dub-guide .dg-next'); await p.waitForTimeout(250);
+  let s = await vs(p);
+  ok(`${tag} (전제) 막대가 보인다`, s.barShown && s.barHit);
+  await p.evaluate(() => { const t = document.getElementById('mg-drawer-tab'); if (t) t.click(); });
+  await p.waitForTimeout(600);
+  const d = await p.evaluate(() => {
+    const dr = document.getElementById('mg-drawer'), bar = document.getElementById('dub-voice-bar');
+    const r = dr.getBoundingClientRect(), br = bar.getBoundingClientRect();
+    const open = r.right > 10;
+    /* 막대와 드로어가 겹치는 자리에서 맨 위가 누구인가 */
+    const x = Math.min(br.right, r.right) - 8, y = br.top + br.height / 2;
+    const top = document.elementFromPoint(Math.max(br.left + 4, Math.min(x, r.right - 4)), y);
+    const items = [...dr.querySelectorAll('a,button')].filter(a => { const q = a.getBoundingClientRect(); return q.width && q.bottom > br.top && q.top < br.bottom && q.bottom <= innerHeight + 0.5; })   // 화면 경계에 걸친 칸(드로어 스크롤 아래)은 막대가 없어도 못 누른다 — 온전히 보이는 칸만
+      .map(a => { const q = a.getBoundingClientRect(); const t = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2); return { name: a.textContent.trim().slice(0, 16), hit: !!t && (t === a || a.contains(t)), rect: [q.top, q.bottom], vh: innerHeight, top: t && (t.id || t.className || t.tagName) }; });
+    return { open, onDrawerSide: !!top && (dr.contains(top) || top.id === 'mg-drawer-overlay'), topIs: top && (top.id || top.className), items };
+  });
+  ok(`${tag} (전제) 드로어가 열린다`, d.open, d);
+  ok(`${tag} 막대와 겹치는 자리에서 맨 위는 드로어(또는 덮개)`, d.onDrawerSide, d.topIs);
+  for (const it of d.items) ok(`${tag} 막대 높이의 드로어 메뉴 «${it.name}» 가 눌린다`, it.hit, it);
+  ok(`${tag} 페이지 오류 0`, errs.length === 0, errs);
+  await ctx.close();
+});
+// 폰 — 동기화 알림이 떠 있으면 막대는 위쪽 머리줄로(알림의 «다시 동기화» 버튼을 가리지 않게)
+await guard('[폰 동기화 알림]', async () => {
+  const tag = '[폰 동기화 알림]', errs = [];
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block', hasTouch: true, isMobile: true });
+  await ctx.addInitScript(probe);
+  const p = await ctx.newPage(); p.on('pageerror', e => errs.push(String(e)));
+  await p.goto(B + '/ai-dubbing.html', { waitUntil: 'networkidle' }); await p.waitForTimeout(400);
+  await p.click('#dub-guide .dg-voice'); await waitState(p, 'playing');
+  await p.click('#dub-guide .dg-tab[data-step="2"]'); await p.click('#dub-guide .dg-next'); await p.waitForTimeout(250);
+  let s = await vs(p);
+  ok(`${tag} (전제) 알림이 없을 때 막대는 아래`, s.barShown && s.barRect.t > s.vh / 2, s.barRect);
+  await p.evaluate(() => {   // 화면이 실제로 띄우는 모양 그대로(글 + «남은 기록 다시 동기화»)
+    const n = document.getElementById('dub-sync-notification');
+    document.getElementById('dub-sync-notification-text').textContent = '계정에 저장하지 못한 기록이 있어요. 연결을 확인한 뒤 다시 동기화해 주세요.';
+    document.getElementById('dub-sync-notification-retry').hidden = false;
+    n.hidden = false;
+  });
+  await p.waitForTimeout(200);
+  s = await vs(p);
+  const r = await p.evaluate(() => { const b = document.getElementById('dub-sync-notification-retry'), q = b.getBoundingClientRect(); const t = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2); return { hit: !!t && (t === b || b.contains(t)), rect: [q.top, q.bottom] }; });
+  ok(`${tag} 알림이 뜨면 막대가 맨 위 머리줄(56px) 안으로`, s.barShown && s.barRect.b <= 56.5, s.barRect);
+  ok(`${tag} 알림의 «남은 기록 다시 동기화» 가 눌린다`, r.hit, r);
+  ok(`${tag} 막대 «끄기» 도 눌린다`, s.barHit);
+  for (const c of s.chrome) if (c.there) ok(`${tag} 공용 버튼 ${c.q} 를 안 가린다`, c.hit, c);
+  await shot(p, '폰-동기화알림');
+  ok(`${tag} 페이지 오류 0`, errs.length === 0, errs);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log('═'.repeat(66));

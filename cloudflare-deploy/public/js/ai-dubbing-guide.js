@@ -233,7 +233,8 @@
     saved = null;
   }
 
-  function open(at, opener) {
+  /* byUser = 사람이 ‘❓ 사용방법’ 을 눌렀다(그 클릭 안) — 이때만 음성 안내가 바로 시작한다 */
+  function open(at, opener, byUser) {
     build();
     var was = !ov.hidden;
     idx = Math.max(0, Math.min(STEPS.length - 1, at || 0));
@@ -249,8 +250,8 @@
       document.addEventListener('focusin', onFocusIn);
     }
     focusIn(ov.querySelector('.dg-next'));
-    /* opener 가 있다 = 사람이 버튼을 눌러 열었다(그 클릭 안) → 음성 안내가 바로 시작. 저절로 열림(null)은 소리 0 */
-    if (voice()) voice().guideOpened(!!opener);
+    /* 사람이 ‘❓’ 를 눌러 열었으면 음성 안내가 바로 시작. 저절로 열림·공개 API(open()) 는 소리 0 — 창 안 ‘🔊’ 로 켠다 */
+    if (voice()) voice().guideOpened(!!byUser);
   }
 
   function close(why) {
@@ -282,12 +283,12 @@
     close('hide');
   }
 
-  api.open = function () { open(0, $('dub-guide-open')); };
+  api.open = function () { open(0, $('dub-guide-open')); };   // 클릭 밖에서 불릴 수 있다 → 소리는 켜지 않는다
   api.close = function () { close('api'); };
   api.isOpen = function () { return !!ov && !ov.hidden; };
 
   var btn = $('dub-guide-open');
-  if (btn) btn.addEventListener('click', function () { open(0, btn); });
+  if (btn) btn.addEventListener('click', function () { open(0, btn, true); });
   function relang() { if (ov && !ov.hidden) draw(); }
   root.addEventListener('mangoi:lang-changed', relang);
   document.addEventListener('mangoi:lang-changed', relang);
