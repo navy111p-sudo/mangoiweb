@@ -200,7 +200,7 @@ npx wrangler secret put TURN_KEY_API_TOKEN --env production
 
 | 이름 | 용도 |
 |---|---|
-| `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION` | `/api/tts`(관리자 AI 운영비서 한국어 음성) — Azure Speech. 메인 워커와 같은 Speech 리소스 값 |
+| `AZURE_SPEECH_KEY`(비밀) / `AZURE_SPEECH_REGION`(`wrangler.toml` `[vars]`) | `/api/tts`(관리자 AI 운영비서 한국어 음성) — Azure Speech(`mangoi-speech`, Korea Central). ⚠️ 지역을 대시보드 «변수» 로 넣으면 다음 자동 배포에 지워집니다 — `wrangler.toml` 에 둡니다. 2026-10-26 키 등록·실제 음성(`X-TTS-Provider: azure`)·캐시 적중(`r2-cache`) 확인 |
 | (선택) `AZURE_VOICE_KO` / `AZURE_VOICE_KO_OPS` / `AZURE_VOICE_EN` | 목소리 바꾸기(기본 `ko-KR-SunHiNeural` 여성 · `en-US-JennyNeural`). 형식이 틀리면 기본값 |
 | `TTS_RELAY_URL` / `TTS_RELAY_KEY` | `/api/tts-free` 한국어 구글 음성 KR 릴레이 |
 | ~~`TYPECAST_*`~~ | ⛔ 2026-10-26 부터 안 씀(비용 Azure 의 5배 이상 · 403 차단). 남아 있어도 무해 |
