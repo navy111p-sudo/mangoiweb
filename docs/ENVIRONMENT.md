@@ -200,8 +200,12 @@ npx wrangler secret put TURN_KEY_API_TOKEN --env production
 
 | 이름 | 용도 |
 |---|---|
-| `TYPECAST_API_KEY` | Typecast TTS |
-| `TYPECAST_VOICE_ID` / `TYPECAST_VOICE_ID_STUDENT` | 상담원/학생용 목소리 |
+| `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION` | `/api/tts`(관리자 AI 운영비서 한국어 음성) — Azure Speech. 메인 워커와 같은 Speech 리소스 값 |
+| (선택) `AZURE_VOICE_KO` / `AZURE_VOICE_KO_OPS` / `AZURE_VOICE_EN` | 목소리 바꾸기(기본 `ko-KR-SunHiNeural` 여성 · `en-US-JennyNeural`). 형식이 틀리면 기본값 |
+| `TTS_RELAY_URL` / `TTS_RELAY_KEY` | `/api/tts-free` 한국어 구글 음성 KR 릴레이 |
+| ~~`TYPECAST_*`~~ | ⛔ 2026-10-26 부터 안 씀(비용 Azure 의 5배 이상 · 403 차단). 남아 있어도 무해 |
+
+R2 바인딩 `TTS_CACHE` → 버킷 `mangoi-avatar-tts-cache`(음성 캐시 + 월별 사용량 `usage/YYYY-MM.json`).
 
 설정: `cd mangoi-ai-avatar-cf` 후 `npx wrangler secret put 이름`
 
