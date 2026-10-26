@@ -19,7 +19,7 @@ function fn(name) {
   if (a < 0 || b < 0) throw new Error('Missing function: ' + name);
   return source.slice(a, b);
 }
-const weekCode = between('  var WK_OFFSET = 0;', '\n  /* 📅 다가오는 수업');
+const weekCode = between('  var WK_OFFSET = 0;', '\n  /* 📅 (2026-10-26 강사 제안) «다가오는 수업');
 const languageCode = between("  document.getElementById('lang').onclick =", '\n  // 새로고침을 직접');
 const visibilityCode = between("  document.addEventListener('visibilitychange'", "\n  window.addEventListener('online'", source.indexOf("  function scheduleAutoRefresh("));
 function environment(instant = '2026-10-04T15:05:00Z', cache = null) {
