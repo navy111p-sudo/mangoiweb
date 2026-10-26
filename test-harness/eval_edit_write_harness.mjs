@@ -180,11 +180,11 @@ ok('C-9 저장 성공은 «ok === true» 로 가른다', /x\.st === 200 && x\.d 
 /* ── D. 강사 「✍ 지금 쓰기」 ───────────────────────────────── */
 console.log('\n[D] 강사 화면 「✍ 지금 쓰기」');
 {
-  const i = TCH.indexOf('  function extrasHtml(c, wi){');
+  const i = TCH.indexOf('  function extrasHtml(c, wi, asParts){');   // (2026-10-26) 표 보기용 asParts 인자
   const src = i > 0 ? braceFrom(TCH, i) : '';
   ok('D-0 전제: extrasHtml(c, wi) 를 오려 냈다', src.length > 200);
   let f = null;
-  try { f = new Function('esc', 'T', 'hhmm', 'EN', 'function x(c, wi)' + src + ' return x;')(
+  try { f = new Function('esc', 'T', 'hhmm', 'EN', 'function x(c, wi, asParts)' + src + ' return x;')(
     (s) => String(s == null ? '' : s).replace(/</g, '&lt;'), (en) => en, () => '09:00', () => true); }
   catch (e) { ok('D-0b 만들 수 있다', false, e.message); }
   if (f) {

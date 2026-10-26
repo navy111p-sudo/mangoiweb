@@ -203,10 +203,33 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 .cls-extra .evq-write{background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;padding:1px 7px;font:inherit;font-weight:700;cursor:pointer}
 html[data-t="dark"] .cls-extra .evq-write{background:#1e293b;border-color:#3b82f6}
 html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
-.cls-extra .cal7{display:inline-flex;gap:2px;vertical-align:middle}
-.cls-extra .cal7 i{display:inline-block;width:17px;height:17px;line-height:17px;text-align:center;font-size:9.5px;font-weight:800;font-style:normal;border-radius:4px;background:#e4e7ec;color:#475467}
-.cls-extra .cal7 i.on{background:#3b82f6;color:#fff}
-.cls-extra .cal7 i.today{outline:2px solid #b45309}
+.cls-extra .cal7,.cls-tbl .cal7{display:inline-flex;gap:2px;vertical-align:middle}
+.cls-extra .cal7 i,.cls-tbl .cal7 i{display:inline-block;width:17px;height:17px;line-height:17px;text-align:center;font-size:9.5px;font-weight:800;font-style:normal;border-radius:4px;background:#e4e7ec;color:#475467}
+.cls-extra .cal7 i.on,.cls-tbl .cal7 i.on{background:#3b82f6;color:#fff}
+.cls-extra .cal7 i.today,.cls-tbl .cal7 i.today{outline:2px solid #b45309}
+/* 📋 (2026-10-26) 표 보기 — 매니저 화면 「오늘 수업」 표와 같은 칸. 넓으면 상자 안에서만 옆으로 민다. */
+.cls-tbl-wrap{overflow:auto;margin-top:8px;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:10px}
+.cls-tbl{width:100%;border-collapse:collapse;font-size:12.5px;line-height:1.45}
+.cls-tbl th{background:#f1f5f9;color:#334155;font-size:11.5px;font-weight:700;text-align:left;padding:8px 6px;white-space:nowrap;border-bottom:1px solid #cbd5e1}
+.cls-tbl td{padding:8px 6px;border-bottom:1px solid #e2e8f0;vertical-align:top}
+.cls-tbl td.nw{white-space:nowrap}
+.cls-tbl td.stu{min-width:200px}
+.cls-tbl a{color:#1d4ed8}
+.cls-tbl code{font-size:11px;color:#64748b}
+.cls-tbl-act{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}
+.cls-tbl-act .btn{min-height:36px;padding:7px 12px;font-size:13px;line-height:18px;flex:0 0 auto}
+.cls-tbl-pnote{display:inline-block;margin-top:4px;font-size:12px;font-weight:700;color:#b45309}
+.cls-tbl .tbtn{min-height:32px;padding:4px 10px;font-size:12px;margin-top:4px;white-space:nowrap}
+.cls-tbl-notes{margin-top:6px;font-size:12px}
+.cls-tbl-notes>summary{cursor:pointer;color:#2563eb;font-weight:700}
+.cls-tbl tr.cls-cancel td{opacity:.55}
+.cls-tbl tr.cls-postponed td{background:#fff4e0}
+.cls-tbl tr.cls-away-row td:first-child{box-shadow:inset 4px 0 0 #dc2626}
+html[data-t="dark"] .cls-tbl-wrap{border-color:#2c3949}
+html[data-t="dark"] .cls-tbl th{background:#1b2330;color:#c9d4e0;border-color:#2c3949}
+html[data-t="dark"] .cls-tbl td{border-color:#2c3949}
+html[data-t="dark"] .cls-tbl a{color:#93c5fd}
+html[data-t="dark"] .cls-tbl tr.cls-postponed td{background:#3a2a10}
 .cls-prev summary{cursor:pointer;color:#3b5bd6;font-weight:600;user-select:none}
 .cls-prev-body{margin-top:3px;padding:6px 10px;background:#f4f6fa;border-radius:6px;color:#3d4a58;line-height:1.5}
 .cls-prev-score{color:#8a6d1a;font-weight:700}
@@ -682,6 +705,15 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       <select id="class-time-sort" style="font:inherit;padding:8px;border:1px solid #94a3b8;border-radius:8px;background:var(--card,#fff);color:inherit">
         <option value="asc" data-en="Earliest first" data-ko="오름차순 (빠른 시간부터)">Earliest first</option>
         <option value="desc" data-en="Latest first" data-ko="내림차순 (늦은 시간부터)">Latest first</option>
+      </select>
+    </label>
+    <!-- 📋 (2026-10-26 강사 제안 3) 매니저 화면 «오늘 수업» 표와 같은 모양으로 보기.
+         표에는 연기·참관·초대 링크·메시지·결제 유형을 넣지 않는다(강사가 쓸 일이 없는 칸). -->
+    <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px">
+      <span data-en="View" data-ko="보기">View</span>
+      <select id="class-view" style="font:inherit;padding:8px;border:1px solid #94a3b8;border-radius:8px;background:var(--card,#fff);color:inherit">
+        <option value="table" data-en="Table (like manager page)" data-ko="표 (매니저 화면처럼)">Table (like manager page)</option>
+        <option value="cards" data-en="Cards" data-ko="카드">Cards</option>
       </select>
     </label>
     <!-- 다른 날을 고르면 이 상자(오늘 목록)는 숨고 #cls-day-view 가 그 날을 그린다. -->
@@ -1734,15 +1766,18 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       + (pv.score_overall != null ? ' <span class="cls-prev-score">⭐ ' + esc(String(pv.score_overall)) + '/5</span>' : '')
       + '</div></details>';
   }
-  function weekRecordHtml(it){
+  // btnOnly=true → 「피드백 작성」 버튼만(표 보기의 «학생 / 액션» 칸). 판정은 canWriteWeekFeedback 한 곳.
+  function weekRecordHtml(it, btnOnly){
     if(it.kind!=='class') return '';
+    var btn = canWriteWeekFeedback(it) ? '<button type="button" class="tbtn" data-week-eval="'+esc(it.room_id)+'">'+esc(T('Write feedback','피드백 작성'))+'</button>' : '';
+    if(btnOnly) return btn;
     var state=it.holiday_name?'holiday':it.class_state==='postponed'?'postponed':it.attendance&&it.attendance.state;
     var labels={attended:['Attended','출석'],late:['Late','지각'],absent:['Absent','결석'],postponed:['Postponed','연기'],holiday:['Holiday','휴강'],waiting:['Waiting','입장 대기'],not_yet:['Upcoming','예정'],unknown:['Check needed','확인 필요'],cafe24:['No attendance record','출결 기록 없음']};
     var label=labels[state] || ['Check needed','확인 필요'];
     var ev=it.today_eval;
     return '<span class="wk-record">'+esc(T(label[0],label[1]))+(it.teacher_changed?' · '+esc(T('Teacher changed','강사 변경')):'')+'</span>'
       + '<span class="wk-record">'+(ev&&ev.id?'<a class="evq-open" data-evq="'+esc(ev.id)+'" href="/eval.html?id='+encodeURIComponent(ev.id)+'" target="_blank" rel="noopener">'+esc(T('Feedback · View / Edit','피드백 · 보기 / 수정'))+'</a>':esc(it.report_loaded===false?T('Report unavailable','보고서 확인 불가'):T('Report: not written','보고서: 미작성')))+'</span>'
-      + (canWriteWeekFeedback(it) ? '<button type="button" class="tbtn" data-week-eval="'+esc(it.room_id)+'">'+esc(T('Write feedback','피드백 작성'))+'</button>' : '');
+      + btn;
   }
   function canWriteWeekFeedback(it){
     return !!(it && it.kind === 'class' && it.student_uid && it.room_id && it.report_loaded === true
@@ -1934,6 +1969,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     ct.setAttribute('data-ko', ko);
     ct.textContent = T(en, ko);
   }
+  // 📋 표 보기인가 — 오늘 목록(renderClasses)과 다른 날 보기(renderClsDay)가 함께 본다.
+  function classViewIsTable(){
+    return (document.getElementById('class-view') || {}).value === 'table';
+  }
   function renderClsDay(){
     var today = clsToday();
     buildClsDayMenu(today);
@@ -1952,7 +1991,16 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     setClsTitle('Classes · ' + clsDayLabel(day, today, true), '수업 · ' + clsDayLabel(day, today, false));
     var found = null;
     ((WK_DATA && WK_DATA.days) || []).forEach(function(d){ if (d.date === day) found = d; });
-    if (found){ view.innerHTML = '<div class="wk-day">' + weekDayBodyHtml(found) + '</div>'; return; }
+    if (found){
+      var dayRows = portalRows(found.items || []);
+      view.innerHTML = (classViewIsTable() && dayRows.length)
+        ? classTableHtml(dayRows, {
+            status: function(c){ return stPill(c, false, day < today, false); },
+            act: function(c){ return weekRecordHtml(c, true); }
+          })
+        : '<div class="wk-day">' + weekDayBodyHtml(found) + '</div>';
+      return;
+    }
     var err = document.getElementById('wk-error');
     view.innerHTML = '<div class="empty">' + esc(err && err.hidden === false
       ? T('Could not load this date. Tap Refresh to retry.', '이 날짜를 불러오지 못했습니다. 새로고침을 눌러 다시 시도해 주세요.')
@@ -1969,8 +2017,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   /* ✍ (2026-10-01 매니저 요청 «make the today's feedback next to attendance») wi = 그 줄의 목록 번호.
      수업이 시작됐거나 끝났고 아직 일지가 없을 때만 「오늘 평가」 옆에 「✍ 지금 쓰기」 — 누르면 기존 일지 창(openEval).
      ⛔ 시작 전에는 주지 않는다 — 일지는 학부모에게 문자로 나가므로 수업 전 문자가 된다. 새 창을 만들지 않는다. */
-  function extrasHtml(c, wi){
-    if (!c || !('attendance' in c || 'teacher_entry' in c || 'class_date' in c)) return '';
+  /* 📋 (2026-10-26) asParts=true 면 같은 값을 «칸별 조각» 으로 돌려준다 — 표 보기(classTableHtml)가 쓴다.
+     판정을 표 쪽에 복제하지 않으려고 이 함수 하나에서 둘 다 만든다. 칸이 없는 옛 응답이면 null. */
+  function extrasHtml(c, wi, asParts){
+    if (!c || !('attendance' in c || 'teacher_entry' in c || 'class_date' in c)) return asParts ? null : '';
     var D = '—';
     var te = c.teacher_entry, at = c.attendance;
     var teTxt = !te ? D
@@ -2003,7 +2053,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
        ⛔ 칸을 못 받으면(카페24 줄·옛 응답) 지어내지 않고 줄 자체를 안 그린다.
        ⛔ 「📅 캘린더」 창은 넣지 않는다 — 그 화면(/admin/student.html)은 관리자 API 를 불러 강사 계정은 막힌다. */
     var wdd = (Array.isArray(c.week_days) && c.week_days.length === 7) ? c.week_days : null;
-    var wkLine = '';
+    var wkLine = '', wkStrip = '';
     if (wdd) {
       var wds = Array.isArray(c.week_dates) ? c.week_dates : [];
       var tdi = wds.indexOf(String(c.class_date || '').slice(0, 10));
@@ -2012,13 +2062,19 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         if (wdd[ci]) nOn++;
         strip += '<i class="' + (wdd[ci] ? 'on' : '') + (ci === tdi ? ' today' : '') + '" title="' + esc((wds[ci] || '') + (wdd[ci] ? T(' class', ' 수업') : '')) + '">' + T(E7[ci], K7[ci]) + '</i>';
       }
-      wkLine = '<br><b>' + esc(T('This week', '이번 주')) + '</b> <span class="cal7" role="img" aria-label="' + esc(T(nOn + ' class day(s) this week', '이번 주 수업 ' + nOn + '일')) + '">' + strip + '</span>';
+      wkStrip = '<span class="cal7" role="img" aria-label="' + esc(T(nOn + ' class day(s) this week', '이번 주 수업 ' + nOn + '일')) + '">' + strip + '</span>';
+      wkLine = '<br><b>' + esc(T('This week', '이번 주')) + '</b> ' + wkStrip;
     }
+    var writeBtn = (!c.today_eval && !c.eval_written && c.class_state !== 'postponed' && c.class_state !== 'cancelled' && typeof wi === 'number' && wi >= 0)
+          ? ' <button type="button" class="evq-open evq-write" data-eval="' + wi + '">' + esc(T('✍ Write Feedback', '✍ 피드백 작성')) + '</button>' : '';
+    if (asParts) return {
+      date: esc(c.class_date || ''), sched: esc(sl || D), te: esc(teTxt), at: esc(atTxt), week: wkStrip,
+      last: esc(ev(lastFeedback)) + evOpen(lastFeedback), today: esc(ev(todayFeedback)) + evOpen(todayFeedback) + writeBtn
+    };
     return '<div class="cls-extra">' + row1.join(' &middot; ') + wkLine
       + '<br><b>' + esc(T('Last class feedback', '지난 수업 피드백')) + '</b> ' + esc(ev(lastFeedback)) + evOpen(lastFeedback)
       + '<br><b>' + esc(T("Today's feedback", '오늘 피드백')) + '</b> <span class="feedback-level">' + esc(T('Student level','학생 레벨')) + ': ' + esc(c.level || T('Not set','미등록')) + '</span> · ' + esc(ev(todayFeedback)) + evOpen(todayFeedback)
-      + ((!c.today_eval && !c.eval_written && c.class_state !== 'postponed' && c.class_state !== 'cancelled' && typeof wi === 'number' && wi >= 0)
-          ? ' <button type="button" class="evq-open evq-write" data-eval="' + wi + '">' + esc(T('✍ Write Feedback', '✍ 피드백 작성')) + '</button>' : '')
+      + writeBtn
       + '</div>';
   }
   /* 📊 B — 상태별 개수 칩. 판정은 서버의 class_state 를 «그리기만» 하고, 옛 캐시(값 없음)는 시각으로만.
@@ -2082,11 +2138,19 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       return direction * (x-y);
     });
   }
-  function portalContact(c){
-    if (!c || c.kind && c.kind !== 'class' || !stuUid(c)) return '';
+  /* asParts=true 면 표 보기(classTableHtml)용 칸별 조각 {academy, contact, history} — 판정은 여기 한 곳. */
+  function portalContact(c, asParts){
+    if (!c || c.kind && c.kind !== 'class' || !stuUid(c)) return asParts ? null : '';
+    var history = '<button type="button" class="tbtn" data-teacher-history data-history-schedule="'+esc(c.schedule_id || c.id || '')+'" data-history-date="'+esc(c.class_date || c.date || todayKST())+'" data-history-name="'+esc(stuLabelText(c))+'">'+esc(T('Summary / Calendar','수업 요약 / 캘린더'))+'</button>';
+    if (asParts) return {
+      academy: esc(c.academy || '—'),
+      // ☎ 폰에서 바로 걸 수 있게 tel: 링크(매니저 화면과 같은 모양). 번호가 없으면 «—».
+      contact: c.student_phone ? '<a href="tel:' + esc(String(c.student_phone).replace(/[^0-9+]/g, '')) + '">☎ ' + esc(c.student_phone) + '</a>' : '—',
+      history: history
+    };
     return '<div class="cls-meta">' + esc(T('Academy','학원')) + ': ' + esc(c.academy || '—')
       + ' · ' + esc(T('Contact','연락처')) + ': ' + esc(c.student_phone || '—')
-      + ' <button type="button" class="tbtn" data-teacher-history data-history-schedule="'+esc(c.schedule_id || c.id || '')+'" data-history-date="'+esc(c.class_date || c.date || todayKST())+'" data-history-name="'+esc(stuLabelText(c))+'">'+esc(T('Summary / Calendar','수업 요약 / 캘린더'))+'</button></div>';
+      + ' ' + history + '</div>';
   }
   document.addEventListener('click',function(e){
     // History opens a read-only dialog. Keep its action separate from legacy student-filter controls.
@@ -2126,6 +2190,18 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     lastSig = null;
     if (DATA) { renderClasses(DATA.classes || []); if(DATA.week) renderWeek(DATA.week); }
   });
+  /* 📋 (2026-10-26) 보기 — 표(매니저 화면처럼) / 카드. 고른 값은 이 기기에 기억한다.
+     처음엔 넓은 화면(PC·태블릿 가로)은 표, 폰은 카드 — 15칸 표는 폰에서 옆으로 밀어야 해서다. */
+  var classViewSelect = document.getElementById('class-view');
+  var classView = (window.innerWidth || 0) >= 900 ? 'table' : 'cards';
+  try { var savedView = localStorage.getItem('mangoi_teacher_class_view'); if (savedView === 'table' || savedView === 'cards') classView = savedView; } catch (e) {}
+  classViewSelect.value = classView;
+  classViewSelect.addEventListener('change', function () {
+    try { localStorage.setItem('mangoi_teacher_class_view', this.value === 'cards' ? 'cards' : 'table'); } catch (e) {}
+    lastSig = null;   // 지문에는 보기 모드가 없다 — 바꿀 때 직접 지워 다시 그리게 한다
+    if (DATA) renderClasses(DATA.classes || []);
+    renderClsDay();
+  });
   // Sort a copy; row actions retain the same class objects, regardless of status.
   function sortClassesByTime(list, direction){
     var day = '1970-01-01';
@@ -2149,6 +2225,167 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     }).map(function(row){ return row.c; });
   }
 
+  function stPill(c, live, done, open){
+    var st = c.class_state;
+    if (st === 'cancelled') return ' <span class="pill p-cancel">' + esc(T('Cancelled','취소됨')) + '</span>';
+    if (st === 'postponed' && c.holiday_name) return ' <span class="pill p-postponed">' + esc(T('Holiday','공휴일 휴강')) + '</span>';   // 🎌 2026-10-09
+    if (st === 'postponed') return ' <span class="pill p-postponed">' + esc(T('Postponed','연기됨')) + '</span>';
+    if (st === 'no_show'){
+      var who = c.no_show_role === 'teacher' ? T('teacher','강사')
+              : c.no_show_role === 'student' ? T('student','학생')
+              : c.no_show_role === 'both'    ? T('both','둘 다') : '';
+      return ' <span class="pill p-noshow">' + esc(who ? T('No-show · ' + who, '노쇼 · ' + who) : T('No-show','노쇼')) + '</span>';
+    }
+    if (st === 'ongoing') return ' <span class="pill p-live">' + esc(T('NOW','진행중')) + '</span>';
+    if (st === 'done')    return ' <span class="pill p-done">' + esc(T('Done','완료')) + '</span>';
+    /* 「예정」도 **눈에 보이게** 적는다 — 제보가 정확히 「구분이 되나」였다.
+       배지가 없으면 «예정» 인지 «라벨이 빠진» 것인지 사람이 알 수 없다.
+       다만 앞으로 올 수업이 대부분이라 눈에 덜 띄는 회색으로 둔다(입장가능은 그대로 강조). */
+    if (st === 'scheduled')
+      return open ? ' <span class="pill p-soon">' + esc(T('Open','입장가능')) + '</span>'
+                  : ' <span class="pill p-plan">' + esc(T('Scheduled','예정')) + '</span>';
+    // ↓ class_state 가 없는 옛 캐시 — 예전 판정 그대로
+    return live ? ' <span class="pill p-live">' + esc(T('NOW','진행중')) + '</span>'
+         : done ? ' <span class="pill p-done">' + esc(T('Done','완료')) + '</span>'
+         : (open ? ' <span class="pill p-soon">' + esc(T('Open','입장가능')) + '</span>' : '');
+  }
+
+  /* 🚪 수업 줄의 입장·일지·AI 리포트 버튼 — 카드 보기와 표 보기가 **같은 함수**를 쓴다
+     (2026-10-26 표 보기 추가 때 renderClasses 에서 빼냈다. 판정을 두 벌 두지 않는다).
+     i = 그 줄의 목록 번호(data-join·data-eval 이 가리킨다). */
+  function classActHtml(c, i, t, open, done){
+    var h = '';
+    /* 🚪 (2026-08-07 마이마이 ⑤⑪) 강사 문은 «그날 하루 종일» 열려 있다.
+       서버가 enter_from_ts~enter_until_ts 로 내려준다. 옛 응답(캐시)에는 그 값이 없으므로
+       그때는 예전 규칙(open_at_ts~close_at_ts)으로 떨어진다 — 없는 권한을 지어내지 않는다.
+       · 시작 전  : [미리 입장] — 교재를 열어 두는 시간
+       · 종료 후  : [다시 입장] — 연장·마무리. 「완료」라고 문을 잠그던 것이 요청 ⑪ 의 원인이었다. */
+    var canEnter = (c.enter_from_ts != null && c.enter_until_ts != null)
+      ? (t >= c.enter_from_ts && t <= c.enter_until_ts)
+      : open;
+    if (done){
+      // 끝난 수업도 다시 들어갈 수 있다(연장·마무리). 평가하기가 여전히 주 동선이라 색은 그대로.
+      h += (canEnter
+            ? '<button class="btn btn-join btn-reenter" type="button" data-join="' + i + '">'
+              +   esc(T('Re-enter','다시 입장')) + '</button>'
+            : '<button class="btn btn-off" type="button" disabled>' + esc(T('Done','완료')) + '</button>')
+        //  📝 (2026-08-10) 「평가하기」 → 「일지」. 강사가 실제로 하는 일이 «평가»가 아니라
+        //     «오늘 무슨 일이 있었는지 한 줄 남기기» 라서 이름을 일에 맞췄다.
+        //  ✍ (2026-08-27 마이마이 8/26 ①) 이미 쓴 수업에는 「일지 ✓ 보기」 — 쓴 것이
+        //     화면에 안 보여 «피드백이 안 보인다» 가 된 지점. 보기는 학부모와 같은
+        //     eval.html 을 연다(강사가 학부모가 받은 그대로를 확인한다).
+        +  (c.eval_written
+            ? '<button class="btn btn-gray" type="button" data-evview="' + i + '" title="'
+              +  esc(T('Your log for this class is saved — tap to read it',
+                       '이 수업의 일지가 저장돼 있습니다 — 눌러서 확인')) + '">'
+              +  esc(T('Log ✓ View','일지 ✓ 보기')) + '</button>'
+            : '<button class="btn btn-eval" type="button" data-eval="' + i + '">'
+              +  esc(T('Class log','일지 쓰기')) + '</button>')
+        /* 🎙 (2026-08-15) AI 리포트는 «요청» 만 한다 — 강사가 직접 돌리지 않는다.
+           녹음 전사는 브라우저가 60초 조각으로 잘라 올리는데 45분 수업이면 약 86MB 다.
+           필리핀 회선에서는 못 버틴다. 그래서 버튼은 요청만 보내고(200바이트),
+           실제 생성은 회선 좋은 사무실이 관리자 화면에서 한다. */
+        //  이미 요청한 수업이면 그렇게 그린다(60초 자동 갱신·언어 전환에도 안 풀리게)
+        +  (ASKED[c.room_id]
+            ? '<button class="btn btn-gray btn-sm btn-ask" type="button" disabled title="'
+              +  esc(T('The office will make the report from the class recording',
+                       '사무실에서 수업 녹음으로 리포트를 만들어 드려요')) + '">'
+              +  esc(T('Requested ✓','요청됨 ✓')) + '</button>'
+            : '<button class="btn btn-gray btn-sm btn-ask" type="button" data-rep="' + i + '" title="'
+              +  esc(T('Ask the office to make the AI report for this class',
+                       '이 수업 AI 리포트를 사무실에 요청합니다')) + '">'
+              +  esc(T('AI report','AI 리포트')) + '</button>');
+    } else if (open){
+      h += '<button class="btn btn-join" type="button" data-join="' + i + '">'
+        +    esc(T('Join Class','수업 입장')) + '</button>';
+    } else if (canEnter){
+      // 아직 시작 전 — 들어갈 수는 있다. 남은 시간은 «막는 말» 이 아니라 «안내» 로 붙인다.
+      var minsEarly = Math.max(1, Math.round((c.start_ts - t) / 60000));
+      h += '<button class="btn btn-early" type="button" data-join="' + i + '" title="'
+        +    esc(T('Open the room now to prepare the textbook', '지금 방을 열어 교재를 준비할 수 있어요')) + '">'
+        +    esc(T('Enter early · ' + fmtWait(minsEarly) + ' to start',
+                   '미리 입장 · 시작 ' + fmtWait(minsEarly) + ' 전')) + '</button>';
+    } else {
+      // 문이 열리기 전에는 비활성 — 남은 시간을 시/분으로 알려 준다.
+      var mins = Math.max(1, Math.round((c.open_at_ts - t) / 60000));
+      h += '<button class="btn btn-off" type="button" disabled>'
+        +    esc(T('Opens in ' + fmtWait(mins), fmtWait(mins) + ' 뒤 입장')) + '</button>';
+    }
+    /* 🚫 (2026-08-08 마이마이 요청) 수업 줄의 [연기] 버튼을 뺐다.
+       이유: [수업 입장] 바로 옆이라 **잘못 누르기 쉽다**. 매니저·학생만 연기하게 해 달라는
+       요청이었는데, 실제 코드는 이미 «요청 → 매니저 승인» 이라 강사가 혼자 옮길 수는 없었다.
+       그래도 오탭 위험은 진짜라 버튼만 여기서 없앤다. 연기·변경 요청 자체는 마이페이지
+       [📚 내 수업] 에 그대로 있다 — 거기서는 어느 수업인지 **일부러 골라야** 해서 오탭이 안 난다.
+       ⛔ openPostpone()·btn-post CSS 는 **일부러 남겨 둔다** — 지금은 아무 데서도 부르지 않는다.
+          「아플 때 알릴 길까지 막지 말라」는 판단이 나오면 이 블록 3줄만 되살리면 되게 하기 위해서다.
+          (버튼을 되살릴 땐 [수업 입장] 과 붙지 않게 줄을 나눌 것 — 오탭이 원래 문제였다) */
+    /* 🚪 (2026-09-10 사장님 지시) 「오늘은 이 방으로」 — 이 수업만 하루 다른 회의방으로 돌린다.
+       ⚠️ [수업 입장] 과 **줄을 나눠** 둔다 — 2026-08-08 에 [연기] 를 뺀 이유가 «바로 옆이라
+          잘못 누른다» 였다. 같은 실수를 반복하지 않는다(작은 글씨 · 아래 줄).
+       정본·주의사항은 src/class-room-override.ts. */
+    if (IS_MGR && c.schedule_id) {
+      h += '<div style="margin-top:6px;display:flex;justify-content:flex-end">'
+        +  '<button type="button" data-roomset="' + i + '" '
+        +    'style="background:transparent;border:1px solid rgba(148,163,184,.45);color:#94a3b8;'
+        +    'border-radius:8px;padding:4px 10px;font-size:11.5px;font-weight:700;cursor:pointer" title="'
+        +    esc(T('Move only today\'s class to a meeting room. The student joins with no extra steps.',
+                   '오늘 이 수업만 회의방으로 옮깁니다. 학생은 평소처럼 «수업 입장» 만 누르면 됩니다.')) + '">'
+        +    esc(T('🚪 Today: another room', '🚪 오늘은 다른 방으로')) + '</button></div>';
+    }
+    return h;
+  }
+
+  /* 📋 (2026-10-26 강사 제안 3) «매니저 화면처럼» 표 보기 — 관리자·매니저 「오늘 수업」(js/adm-today-classes.js)과
+     같은 칸 순서. 강사가 쓸 일이 없는 칸(연기·참관·초대 링크·메시지·결제 유형)은 일부러 뺐다.
+     값은 전부 기존 함수(extrasHtml·portalContact·previousLessonHtml 의 prev_lesson)에서 «조각» 으로 받아
+     그리기만 한다 — 판정을 표에 복제하지 않는다.
+     opt.act(c, i) = «학생 / 액션» 칸 버튼(오늘 = classActHtml, 다른 날 = 피드백 작성)
+     opt.status(c) = 상태 배지 · opt.wi(c, i) = 「✍ 피드백 작성」이 가리킬 목록 번호(없으면 -1). */
+  function classTableHtml(list, opt){
+    opt = opt || {};
+    var D = '—';
+    var cols = [['Date','날짜'],['Time','시간'],['Status','상태'],['Student / Action','학생 / 액션'],['Contact','연락처'],
+      ['Academy','학원'],['Class calendar','수업 캘린더'],['Schedule','일정'],['Teacher connection','강사 입장 상태'],
+      ['Attendance','학생 출결'],['Previous teacher','이전 강사'],['Last class feedback','지난 수업 피드백'],
+      ["Today's feedback",'오늘 피드백'],['Level · Textbook','레벨 · 교재'],['Room','강의실']];
+    var h = '<div class="cls-tbl-wrap"><table class="cls-tbl"><thead><tr>'
+      + cols.map(function(x){ return '<th>' + esc(T(x[0], x[1])) + '</th>'; }).join('') + '</tr></thead><tbody>';
+    for (var i = 0; i < list.length; i++){
+      var c = list[i];
+      var info = c.kind && c.kind !== 'class';
+      var x = info ? null : extrasHtml(c, opt.wi ? opt.wi(c, i) : -1, true);
+      var pc = info ? null : portalContact(c, true);
+      var pv = c.prev_lesson;
+      var prevT = pv ? esc((pv.teacher_name || T('Teacher not recorded','교사 기록 없음')) + (pv.date ? ' · ' + pv.date : ''))
+        : esc(c.previous_lesson_loaded ? T('No earlier report','이전 보고서 없음') : D);
+      var stu = info
+        ? esc(c.kind === 'lms' ? T('Teaching on the old LMS', '옛 LMS 수업 중') : T('Sample data', '샘플 데이터'))
+          + ' <span class="pill p-info">' + esc(T('Not a Mangoi class', '망고아이 수업 아님')) + '</span>'
+        : '<b>' + stuLabelHtml(c, T('(name not set)','(이름 미등록)')) + '</b>' + kindPill(c);
+      var notes = info ? '' : (goalHtml(c) + preqHtml(c) + handoverHtml(c));
+      var rowCls = 'cls-tr' + (c.class_state === 'cancelled' ? ' cls-cancel' : c.class_state === 'postponed' ? ' cls-postponed' : '')
+        + (c.student_elsewhere ? ' cls-away-row' : '') + (info ? ' cls-info' : '');
+      h += '<tr class="' + rowCls + '">'
+        + '<td class="nw">' + (x ? x.date : esc(c.class_date || '')) + '</td>'
+        + '<td class="nw">' + esc(MangoiClassDisplay.range(c)) + '</td>'
+        + '<td>' + (c.absence_hold ? '<span class="pill p-hold">' + esc(T('ON HOLD','보류')) + '</span>' : (opt.status ? opt.status(c) : '')) + '</td>'
+        + '<td class="stu">' + stu + (opt.act && !info ? '<div class="cls-tbl-act">' + opt.act(c, i) + '</div>' : '')
+        +   (notes ? '<details class="cls-tbl-notes"><summary>' + esc(T('📝 Notes','📝 메모')) + '</summary>' + notes + '</details>' : '') + '</td>'
+        + '<td class="nw">' + (pc ? pc.contact : D) + '</td>'
+        + '<td>' + (pc ? pc.academy : D) + '</td>'
+        + '<td>' + (x && x.week ? x.week + '<br>' : '') + (pc ? pc.history : D) + '</td>'
+        + '<td>' + (x ? x.sched : D) + '</td>'
+        + '<td>' + (x ? x.te : D) + '</td>'
+        + '<td>' + (x ? x.at : D) + '</td>'
+        + '<td>' + prevT + '</td>'
+        + '<td>' + (x ? x.last : D) + '</td>'
+        + '<td>' + (x ? x.today : D) + '</td>'
+        + '<td>' + esc([c.level, c.textbook].filter(Boolean).join(' · ') || D) + '</td>'
+        + '<td><code>' + esc(c.room_id || D) + '</code></td>'
+        + '</tr>';
+    }
+    return h + '</tbody></table></div>';
+  }
   function renderClasses(list, settled){
     // Keep controls alive while a pointer, keyboard user or request owns them.
     var currentBox = document.getElementById('classes');
@@ -2283,6 +2520,25 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     if (sig === lastSig) return;
     lastSig = sig;
 
+    /* 📋 (2026-10-26) 표 보기 — 카드와 같은 버튼 함수(classActHtml)·같은 배선(bindClassRows)을 쓴다. */
+    if (classViewIsTable()){
+      box.innerHTML = h + classTableHtml(list, {
+        status: function(c){
+          return stPill(c, t >= c.start_ts && t <= c.close_at_ts, t > c.close_at_ts, t >= c.open_at_ts && t <= c.close_at_ts);
+        },
+        wi: function(c, i){ return (t >= c.start_ts) ? i : -1; },
+        act: function(c, i){
+          if (c.class_state === 'cancelled') return '';
+          if (c.class_state === 'postponed') return '<span class="cls-tbl-pnote">' + esc(T('No need to wait in the room','방에서 기다리지 않아도 됩니다')) + '</span>';
+          if (c.absence_hold) return '<button class="btn btn-gray btn-sm" type="button" data-join="' + i + '">'
+            + esc(T('Student came? Enter','학생이 왔으면 입장')) + '</button>';
+          return classActHtml(c, i, t, t >= c.open_at_ts && t <= c.close_at_ts, t > c.close_at_ts) + awayHtml(c, i);
+        }
+      });
+      bindClassRows(box, list);
+      return;
+    }
+
     /* 🏷 (2026-08-19 Melca 8/19 제보 ①) 「예정/진행중/완료/취소/노쇼가 구분되나」
        ────────────────────────────────────────────────────────────────────
        예전에는 이 화면이 상태를 **자기가 계산**했다(live/done/open). 서버도 따로 계산해서
@@ -2292,31 +2548,6 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
           없는 상태를 지어내지 않는다.
        ⚠️ 라벨을 textContent 로 나중에 갈아 끼우지 않는다 — i18n 이 못 따라온다.
           언어가 바뀌면 이 함수가 처음부터 다시 그린다(renderClasses 가 다시 돈다). */
-    function stPill(c, live, done, open){
-      var st = c.class_state;
-      if (st === 'cancelled') return ' <span class="pill p-cancel">' + esc(T('Cancelled','취소됨')) + '</span>';
-      if (st === 'postponed' && c.holiday_name) return ' <span class="pill p-postponed">' + esc(T('Holiday','공휴일 휴강')) + '</span>';   // 🎌 2026-10-09
-      if (st === 'postponed') return ' <span class="pill p-postponed">' + esc(T('Postponed','연기됨')) + '</span>';
-      if (st === 'no_show'){
-        var who = c.no_show_role === 'teacher' ? T('teacher','강사')
-                : c.no_show_role === 'student' ? T('student','학생')
-                : c.no_show_role === 'both'    ? T('both','둘 다') : '';
-        return ' <span class="pill p-noshow">' + esc(who ? T('No-show · ' + who, '노쇼 · ' + who) : T('No-show','노쇼')) + '</span>';
-      }
-      if (st === 'ongoing') return ' <span class="pill p-live">' + esc(T('NOW','진행중')) + '</span>';
-      if (st === 'done')    return ' <span class="pill p-done">' + esc(T('Done','완료')) + '</span>';
-      /* 「예정」도 **눈에 보이게** 적는다 — 제보가 정확히 「구분이 되나」였다.
-         배지가 없으면 «예정» 인지 «라벨이 빠진» 것인지 사람이 알 수 없다.
-         다만 앞으로 올 수업이 대부분이라 눈에 덜 띄는 회색으로 둔다(입장가능은 그대로 강조). */
-      if (st === 'scheduled')
-        return open ? ' <span class="pill p-soon">' + esc(T('Open','입장가능')) + '</span>'
-                    : ' <span class="pill p-plan">' + esc(T('Scheduled','예정')) + '</span>';
-      // ↓ class_state 가 없는 옛 캐시 — 예전 판정 그대로
-      return live ? ' <span class="pill p-live">' + esc(T('NOW','진행중')) + '</span>'
-           : done ? ' <span class="pill p-done">' + esc(T('Done','완료')) + '</span>'
-           : (open ? ' <span class="pill p-soon">' + esc(T('Open','입장가능')) + '</span>' : '');
-    }
-
     for (var i=0;i<list.length;i++){
       var c = list[i];
       // 서버가 준 시간창을 단말 시계(보정됨)로 다시 판정 — 페이지를 열어 둔 채 시간이
@@ -2487,86 +2718,15 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         +   '</div>'
         +   '<div class="cls-act">';
 
-      /* 🚪 (2026-08-07 마이마이 ⑤⑪) 강사 문은 «그날 하루 종일» 열려 있다.
-         서버가 enter_from_ts~enter_until_ts 로 내려준다. 옛 응답(캐시)에는 그 값이 없으므로
-         그때는 예전 규칙(open_at_ts~close_at_ts)으로 떨어진다 — 없는 권한을 지어내지 않는다.
-         · 시작 전  : [미리 입장] — 교재를 열어 두는 시간
-         · 종료 후  : [다시 입장] — 연장·마무리. 「완료」라고 문을 잠그던 것이 요청 ⑪ 의 원인이었다. */
-      var canEnter = (c.enter_from_ts != null && c.enter_until_ts != null)
-        ? (t >= c.enter_from_ts && t <= c.enter_until_ts)
-        : open;
-      if (done){
-        // 끝난 수업도 다시 들어갈 수 있다(연장·마무리). 평가하기가 여전히 주 동선이라 색은 그대로.
-        h += (canEnter
-              ? '<button class="btn btn-join btn-reenter" type="button" data-join="' + i + '">'
-                +   esc(T('Re-enter','다시 입장')) + '</button>'
-              : '<button class="btn btn-off" type="button" disabled>' + esc(T('Done','완료')) + '</button>')
-          //  📝 (2026-08-10) 「평가하기」 → 「일지」. 강사가 실제로 하는 일이 «평가»가 아니라
-          //     «오늘 무슨 일이 있었는지 한 줄 남기기» 라서 이름을 일에 맞췄다.
-          //  ✍ (2026-08-27 마이마이 8/26 ①) 이미 쓴 수업에는 「일지 ✓ 보기」 — 쓴 것이
-          //     화면에 안 보여 «피드백이 안 보인다» 가 된 지점. 보기는 학부모와 같은
-          //     eval.html 을 연다(강사가 학부모가 받은 그대로를 확인한다).
-          +  (c.eval_written
-              ? '<button class="btn btn-gray" type="button" data-evview="' + i + '" title="'
-                +  esc(T('Your log for this class is saved — tap to read it',
-                         '이 수업의 일지가 저장돼 있습니다 — 눌러서 확인')) + '">'
-                +  esc(T('Log ✓ View','일지 ✓ 보기')) + '</button>'
-              : '<button class="btn btn-eval" type="button" data-eval="' + i + '">'
-                +  esc(T('Class log','일지 쓰기')) + '</button>')
-          /* 🎙 (2026-08-15) AI 리포트는 «요청» 만 한다 — 강사가 직접 돌리지 않는다.
-             녹음 전사는 브라우저가 60초 조각으로 잘라 올리는데 45분 수업이면 약 86MB 다.
-             필리핀 회선에서는 못 버틴다. 그래서 버튼은 요청만 보내고(200바이트),
-             실제 생성은 회선 좋은 사무실이 관리자 화면에서 한다. */
-          //  이미 요청한 수업이면 그렇게 그린다(60초 자동 갱신·언어 전환에도 안 풀리게)
-          +  (ASKED[c.room_id]
-              ? '<button class="btn btn-gray btn-sm btn-ask" type="button" disabled title="'
-                +  esc(T('The office will make the report from the class recording',
-                         '사무실에서 수업 녹음으로 리포트를 만들어 드려요')) + '">'
-                +  esc(T('Requested ✓','요청됨 ✓')) + '</button>'
-              : '<button class="btn btn-gray btn-sm btn-ask" type="button" data-rep="' + i + '" title="'
-                +  esc(T('Ask the office to make the AI report for this class',
-                         '이 수업 AI 리포트를 사무실에 요청합니다')) + '">'
-                +  esc(T('AI report','AI 리포트')) + '</button>');
-      } else if (open){
-        h += '<button class="btn btn-join" type="button" data-join="' + i + '">'
-          +    esc(T('Join Class','수업 입장')) + '</button>';
-      } else if (canEnter){
-        // 아직 시작 전 — 들어갈 수는 있다. 남은 시간은 «막는 말» 이 아니라 «안내» 로 붙인다.
-        var minsEarly = Math.max(1, Math.round((c.start_ts - t) / 60000));
-        h += '<button class="btn btn-early" type="button" data-join="' + i + '" title="'
-          +    esc(T('Open the room now to prepare the textbook', '지금 방을 열어 교재를 준비할 수 있어요')) + '">'
-          +    esc(T('Enter early · ' + fmtWait(minsEarly) + ' to start',
-                     '미리 입장 · 시작 ' + fmtWait(minsEarly) + ' 전')) + '</button>';
-      } else {
-        // 문이 열리기 전에는 비활성 — 남은 시간을 시/분으로 알려 준다.
-        var mins = Math.max(1, Math.round((c.open_at_ts - t) / 60000));
-        h += '<button class="btn btn-off" type="button" disabled>'
-          +    esc(T('Opens in ' + fmtWait(mins), fmtWait(mins) + ' 뒤 입장')) + '</button>';
-      }
-      /* 🚫 (2026-08-08 마이마이 요청) 수업 줄의 [연기] 버튼을 뺐다.
-         이유: [수업 입장] 바로 옆이라 **잘못 누르기 쉽다**. 매니저·학생만 연기하게 해 달라는
-         요청이었는데, 실제 코드는 이미 «요청 → 매니저 승인» 이라 강사가 혼자 옮길 수는 없었다.
-         그래도 오탭 위험은 진짜라 버튼만 여기서 없앤다. 연기·변경 요청 자체는 마이페이지
-         [📚 내 수업] 에 그대로 있다 — 거기서는 어느 수업인지 **일부러 골라야** 해서 오탭이 안 난다.
-         ⛔ openPostpone()·btn-post CSS 는 **일부러 남겨 둔다** — 지금은 아무 데서도 부르지 않는다.
-            「아플 때 알릴 길까지 막지 말라」는 판단이 나오면 이 블록 3줄만 되살리면 되게 하기 위해서다.
-            (버튼을 되살릴 땐 [수업 입장] 과 붙지 않게 줄을 나눌 것 — 오탭이 원래 문제였다) */
-      /* 🚪 (2026-09-10 사장님 지시) 「오늘은 이 방으로」 — 이 수업만 하루 다른 회의방으로 돌린다.
-         ⚠️ [수업 입장] 과 **줄을 나눠** 둔다 — 2026-08-08 에 [연기] 를 뺀 이유가 «바로 옆이라
-            잘못 누른다» 였다. 같은 실수를 반복하지 않는다(작은 글씨 · 아래 줄).
-         정본·주의사항은 src/class-room-override.ts. */
-      if (IS_MGR && c.schedule_id) {
-        h += '<div style="margin-top:6px;display:flex;justify-content:flex-end">'
-          +  '<button type="button" data-roomset="' + i + '" '
-          +    'style="background:transparent;border:1px solid rgba(148,163,184,.45);color:#94a3b8;'
-          +    'border-radius:8px;padding:4px 10px;font-size:11.5px;font-weight:700;cursor:pointer" title="'
-          +    esc(T('Move only today\'s class to a meeting room. The student joins with no extra steps.',
-                     '오늘 이 수업만 회의방으로 옮깁니다. 학생은 평소처럼 «수업 입장» 만 누르면 됩니다.')) + '">'
-          +    esc(T('🚪 Today: another room', '🚪 오늘은 다른 방으로')) + '</button></div>';
-      }
+      h += classActHtml(c, i, t, open, done);
       h += '</div></div>';
     }
     box.innerHTML = h;
+    bindClassRows(box, list);
+  }
+
+  /* 수업 목록 상자(카드·표 공통)의 칩·버튼 배선 — 다시 그릴 때마다 부른다. */
+  function bindClassRows(box, list){
     /* 📊 칩 누르면 그 상태의 첫 줄로 — 위임 리스너는 한 번만 단다(이 함수는 60초마다 다시 돈다). */
     if (!box.__chipBound){
       box.__chipBound = true;
@@ -2577,9 +2737,9 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         var sel = k === 'postponed' ? '.cls-postponed' : k === 'cancelled' ? '.cls-cancel'
                 : k === 'no_show' ? '.p-noshow' : null;
         var el = sel ? box.querySelector(sel) : null;
-        if (el && el.closest) el = el.closest('.cls') || el;
+        if (el && el.closest) el = el.closest('.cls, .cls-tr') || el;
         if (!el){
-          var rows = box.querySelectorAll('.cls');
+          var rows = box.querySelectorAll('.cls, .cls-tr');
           for (var r = 0; r < rows.length; r++){
             var hasDone = !!rows[r].querySelector('.p-done');
             if (k === 'done' ? hasDone : (k === 'plan' && !hasDone && !rows[r].querySelector('.p-postponed,.p-cancel,.p-noshow'))){ el = rows[r]; break; }
