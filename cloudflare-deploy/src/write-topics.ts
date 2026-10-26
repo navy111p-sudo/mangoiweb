@@ -128,6 +128,75 @@ export function canEditTopic(actor: { username: string; isTeacher: boolean; ownO
   return !!me && me === owner;
 }
 
+/** 📅 숙제 마감일(제안 6, 2026-10-26) — 'YYYY-MM-DD'(한국 날짜 하루 끝까지). '' = 숙제 아님(지우기).
+ *  달력에 실제로 있는 날짜만 받는다(2026-02-30 같은 값은 null = 거절). 화면이 보낸 값을 믿지 않는다. */
+export function normalizeDueDate(v: unknown): string | null {
+  const s = String(v == null ? '' : v).trim();
+  if (!s) return '';
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+  if (y < 2020 || y > 2100) return null;
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
+  return s;
+}
+
+/** 📋 숙제 제출 명단을 볼 수 있는가(제안 6) — 이름·점수·글 첫 줄이 나가므로 좁게.
+ *  본사(선생님·조직 아님)는 학생 주제가 아닌 것 전부 · 선생님은 자기가 낸 숙제만 · 학생과 지사·대리점은 못 본다
+ *  (지사·대리점은 학원 전체 숙제에 남의 지사 학생이 섞이므로 — 건수만 본다). */
+export function canSeeSubmits(actor: { username: string; isTeacher: boolean; ownOnly?: boolean; student?: boolean } | null, row: { created_by?: string | null } | null): boolean {
+  if (!actor || !row || actor.student || actor.ownOnly) return false;
+  const me = String(actor.username || ''), owner = String(row.created_by || '');
+  if (owner.startsWith(WT_STUDENT_PREFIX)) return false;
+  if (!actor.isTeacher) return true;
+  return !!me && me === owner;
+}
+
+/* 🛡 부드러운 거르기(제안 8, 2026-10-26) — 학생이 만드는 «나만 보는 주제» 에만 건다(AI 를 부르기 «전» 이라 횟수를 안 쓴다).
+   ⛔ 화면에 복제하지 말 것 — 화면은 서버가 준 message 를 그리기만 한다.
+   ⚠️ 낱말 목록은 «아이 주제» 기준으로 좁게 — 넓히면 멀쩡한 주제가 막힌다(예: «불이 꺼져요» 의 꺼져, «시발점», «개 색깔», «Moby Dick», «murder mystery»).
+   kind: hurt(자해·해치기) · private(전화·주소·이메일) · adult · swear. 못 찾으면 ''. */
+export type WtUnsafeKind = '' | 'hurt' | 'private' | 'adult' | 'swear';
+const WT_HURT = ['자살', '자해', '죽고싶', '죽을래', '죽여버', '죽일거', '죽이고싶', '살인', '살해', '목매', 'suicide', 'killmyself'];
+const WT_ADULT = ['섹스', '야동', '포르노', '성관계', '19금', '야한', 'porn', 'nude'];
+const WT_ADULT_WORD = /\b(sex|sexy|naked|boobs)\b/i;
+const WT_SWEAR = ['씨발', '시발', '씨바', '씨빨', 'ㅅㅂ', 'ㅆㅂ', '병신', '븅신', '빙신', 'ㅂㅅ', '개새끼', '개새', '좆', '존나', 'ㅈㄴ', '지랄', 'ㅈㄹ',
+  '미친놈', '미친년', '미친새', '닥쳐', '썅', '쌍년', '염병', '등신', '찐따', '느금', '니애미', '니엄마', '패드립', '엿먹',
+  'fuck', 'shit', 'bitch', 'cunt', 'nigg', 'asshole', 'motherf'];
+const WT_SWEAR_WORD = /\b(bastard|retard|damn)\b/i;
+export function topicUnsafeKind(...texts: unknown[]): WtUnsafeKind {
+  const raw = texts.map(t => String(t == null ? '' : t)).join(' \n ').normalize('NFKC');
+  if (!raw.trim()) return '';
+  // 기호를 끼워 넣거나(s.h.i.t) 한 글자씩 띄어 써도(씨 발) 잡는다. 낱말끼리는 붙이지 않는다 —
+  // 붙이면 «물병 신발»·«출시 발표» 가 욕이 된다. 시발점·시발역은 정상 낱말이라 먼저 뺀다.
+  const toks: string[] = [];
+  let run = '';
+  for (const w of raw.toLowerCase().split(/\s+/)) {
+    const c = w.replace(/시발(점|역|택시)/g, '').replace(/[._\-*~!@#$%^&()\[\]{}'"`,/\\|+=?:;<>]/g, '');
+    if (!c) continue;
+    if ([...c].length === 1) { run += c; continue; }
+    if (run) { toks.push(run); run = ''; }
+    toks.push(c);
+  }
+  if (run) toks.push(run);
+  const has = (list: string[]) => list.some(w => toks.some(t => t.includes(w)));
+  // 자해·해치기만은 띄어 써도 잡는다(«죽고 싶어») — 잘못 막는 값보다 놓치는 값이 크다.
+  const flat = raw.toLowerCase().replace(/\s+/g, '');
+  if (has(WT_HURT) || WT_HURT.some(w => flat.includes(w))) return 'hurt';
+  if (/01[016789][\s.\-]?\d{3,4}[\s.\-]?\d{4}/.test(raw) || /\d{6}\s*-\s*[1-4]\d{6}/.test(raw) ||
+      /[\w.+-]+@[\w-]+\.[a-z]{2,}/i.test(raw) || /\d+\s*동\s*\d+\s*호/.test(raw) || /(\d[.\-]?){9,}/.test(raw)) return 'private';
+  if (has(WT_ADULT) || WT_ADULT_WORD.test(raw)) return 'adult';
+  if (has(WT_SWEAR) || WT_SWEAR_WORD.test(raw)) return 'swear';
+  return '';
+}
+export const WT_UNSAFE_MSG: Record<Exclude<WtUnsafeKind, ''>, string> = {
+  hurt: '이 주제는 여기서 만들 수 없어요. 마음이 힘들면 선생님이나 부모님께 꼭 이야기해 주세요. 💛 / This topic can\'t be made here. If you feel upset, please talk to a teacher or your parents. 💛',
+  private: '전화번호·주소·이메일 같은 개인정보는 넣지 말아요. 빼고 다시 적어 주세요. / Please leave out personal info like phone numbers, addresses or emails.',
+  adult: '이 주제는 여기서 쓸 수 없어요. 아래 💡 주제 중에서 골라 볼까요? / This topic can\'t be used here. How about one of the ideas below?',
+  swear: '고운 말로 바꿔서 다시 적어 주세요. 아래 💡 주제 중에서 골라도 좋아요. / Please use kind words. You can also pick an idea below.',
+};
+
 /** 🖼 비공개 그림을 볼 수 있는가(2026-10-26) — 목록(manage)과 같은 기준.
  *  만든 사람 본인(아이디 완전일치) · 또는 본사(선생님·조직 아님)는 «학생 주제가 아닌» 것만.
  *  ⛔ 학생의 «나만 보는 주제»(stu:)는 본사도 못 본다(목록에서도 빼는 것과 같은 말). */
@@ -325,6 +394,8 @@ export async function ensureWriteTopicTables(env: any): Promise<void> {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS write_topic_gen_log (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, kind TEXT, ok INTEGER DEFAULT 0, ts INTEGER)`);
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_wtgl_user_ts ON write_topic_gen_log(username, ts)`); } catch { /* 있음 */ }
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_wt_status ON write_topics(status, published_at)`); } catch { /* 있음 */ }
+  // 📅 숙제 마감일(제안 6) — 지연 ALTER. 실패해도(이미 있음) 그대로 간다.
+  try { await env.DB.exec(`ALTER TABLE write_topics ADD COLUMN due_date TEXT`); } catch { /* 있음 */ }
   _schemaReady = true;
 }
 
@@ -337,6 +408,7 @@ function rowToItem(r: any, staff: boolean) {
     open: r.open_line || '', questions, words,
     image_url: r.image_key && r.image_ver ? `/api/class/write-topics/img/${r.id}/${r.image_ver}` : '',
     updated_at: r.updated_at || 0,
+    due_date: normalizeDueDate(r.due_date) || '',   // 📅 '' = 숙제 아님
   };
   if (staff) { item.status = r.status; item.created_by = r.created_by || ''; item.image_prompt = r.image_prompt || ''; }
   return item;
@@ -503,6 +575,53 @@ const EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', '
 
 /* ───────────── 라우트 ───────────── */
 
+const unsafeRes = (...texts: unknown[]): Response | null => {
+  const k = topicUnsafeKind(...texts);
+  return k ? json({ ok: false, error: 'unsafe_topic', kind: k, message: WT_UNSAFE_MSG[k] }, 400) : null;
+};
+
+/* 📅📋 숙제 제출(제안 6) — 쓴 글(ai_writing_corrections.topic_id, api-ai.ts 가 적는다)로 센다.
+   ⚠️ 그 칸은 지연 ALTER 라 아직 없을 수 있다 — 그때는 «못 셈» 으로 둔다(0건 «아무도 안 냈다» 로 위장하지 않는다). */
+// 📅 «제출» 로 세는 것은 진짜 학생 계정만 — 게스트(guest_·anon_)·빈 값은 «제출 N명» 에 안 섞는다
+const WT_REAL_STUDENT = `student_uid IS NOT NULL AND student_uid != '' AND student_uid NOT LIKE 'guest%' AND student_uid NOT LIKE 'anon%'`;
+export function maskUid(u: string): string { const s = String(u || ''); return s.length <= 2 ? s.slice(0, 1) + '*' : s.slice(0, 2) + '*'.repeat(Math.min(6, s.length - 2)); }
+async function doneTopicIds(env: any, uid: string): Promise<number[] | null> {
+  if (!uid) return null;
+  try {
+    const rs: any = await env.DB.prepare(`SELECT DISTINCT topic_id FROM ai_writing_corrections WHERE student_uid = ? AND topic_id IS NOT NULL`).bind(uid).all();
+    return (rs.results || []).map((r: any) => Number(r.topic_id)).filter((n: number) => Number.isInteger(n) && n > 0);
+  } catch { return null; }
+}
+async function attachSubmitCounts(env: any, manage: any[]): Promise<void> {
+  if (!manage.some(it => it.due_date)) return;
+  try {
+    // 바인드 없이 «숙제인 글감» 으로만 좁힌다(목록 길이와 무관)
+    const rs: any = await env.DB.prepare(`SELECT topic_id, COUNT(DISTINCT student_uid) AS n FROM ai_writing_corrections WHERE topic_id IN (SELECT id FROM write_topics WHERE COALESCE(due_date, '') != '') AND ${WT_REAL_STUDENT} GROUP BY topic_id`).all();
+    const m = new Map<number, number>((rs.results || []).map((r: any) => [Number(r.topic_id), Number(r.n) || 0]));
+    for (const it of manage) if (it.due_date) it.submit_count = m.get(Number(it.id)) || 0;
+  } catch { /* 칸이 아직 없음 — submit_count 를 안 실으면 화면이 «—» 로 그린다 */ }
+}
+async function submitsList(request: Request, env: any, id: number): Promise<Response> {
+  if (!Number.isInteger(id) || id <= 0) return json({ ok: false, error: 'id_required' }, 400);
+  const g = await actorGate(request, env);
+  if ('res' in g) return g.res;
+  const row: any = await env.DB.prepare(`SELECT id, created_by, status FROM write_topics WHERE id = ?`).bind(id).first();
+  if (!row || row.status === 'deleted') return json({ ok: false, error: 'not_found' }, 404);
+  if (!canSeeSubmits(g.actor, row)) return json({ ok: false, error: 'not_allowed', message: '제출 명단은 본사와 그 숙제를 낸 선생님만 볼 수 있어요. / Only HQ and the teacher who set this homework can see the list.' }, 403);
+  const base = `FROM ai_writing_corrections c WHERE c.topic_id = ? AND ${WT_REAL_STUDENT.replace(/student_uid/g, 'c.student_uid')} GROUP BY c.student_uid ORDER BY last_at DESC LIMIT 200`;
+  const cols = `c.student_uid AS uid, COUNT(*) AS n, MAX(c.created_at) AS last_at, MAX(c.score) AS best`;
+  let rs: any;
+  try { rs = await env.DB.prepare(`SELECT ${cols}, (SELECT e.korean_name FROM students_erp e WHERE e.user_id = c.student_uid LIMIT 1) AS name ${base}`).bind(id).all(); }
+  catch {
+    try { rs = await env.DB.prepare(`SELECT ${cols} ${base}`).bind(id).all(); }
+    catch { return jsonNoStore({ ok: true, unknown: true, items: [] }); }   // 칸이 아직 없음 = 못 셈
+  }
+  // 🔒 선생님에게는 로그인 아이디를 가려서 준다(이 서비스에서 아이디는 사실상 비밀번호) — 본사만 전체
+  const hideUid = !!g.actor.isTeacher;
+  const items = (rs.results || []).filter((r: any) => r.uid).map((r: any) => ({ uid: hideUid ? maskUid(String(r.uid)) : String(r.uid), name: String(r.name || ''), n: Number(r.n) || 0, last_at: Number(r.last_at) || 0, best: Number(r.best) || 0 }));
+  return jsonNoStore({ ok: true, items });
+}
+
 export async function handleWriteTopicsApi(request: Request, url: URL, env: any): Promise<Response | null> {
   const path = url.pathname;
   const method = request.method;
@@ -537,6 +656,7 @@ export async function handleWriteTopicsApi(request: Request, url: URL, env: any)
 
   if (path !== '/api/class/write-topics') return json({ ok: false, error: 'not_found' }, 404);
 
+  if (method === 'GET' && url.searchParams.has('submits')) return submitsList(request, env, Number(url.searchParams.get('submits')));
   if (method === 'GET') {
     const rs: any = await env.DB.prepare(`SELECT * FROM write_topics WHERE status = 'published' ORDER BY published_at DESC, id DESC LIMIT ?`).bind(WT_LIST_MAX).all();
     const items = (rs.results || []).map((r: any) => rowToItem(r, false));
@@ -556,7 +676,10 @@ export async function handleWriteTopicsApi(request: Request, url: URL, env: any)
         const cap = a.student ? WT_STUDENT_DAILY_CAP : WT_USER_DAILY_CAP;
         const used = await countUsage(env, a.username);
         const cg = writeTopicCostGate(used.user, used.total, cap);
-        return jsonNoStore({ ok: true, items, can_create: true, role: a.student ? 'student' : 'staff', manage, ai_left: cg.left, ai_cap: cap });
+        const out: any = { ok: true, items, can_create: true, role: a.student ? 'student' : 'staff', manage, ai_left: cg.left, ai_cap: cap };
+        if (a.student) out.done_ids = await doneTopicIds(env, a.username.slice(WT_STUDENT_PREFIX.length));   // null = 못 셈(✓·«마감 지남» 을 안 그린다)
+        else await attachSubmitCounts(env, manage);
+        return jsonNoStore(out);
       }
       return jsonNoStore({ ok: true, items, can_create: false, manage: [], reason: 'denied' });
     }
@@ -578,6 +701,7 @@ export async function handleWriteTopicsApi(request: Request, url: URL, env: any)
   if (action === 'draft') {
     const title = clean(b.title, WT_TITLE_MAX);
     if (title.length < 2) return json({ ok: false, error: 'title_required', message: '주제를 2글자 이상 적어 주세요. / Please type a title (2+ letters).' }, 400);
+    if (actor.student) { const bad = unsafeRes(title); if (bad) return bad; }   // 🛡 AI 를 부르기 «전» — 횟수를 안 쓴다
     if (!env.AI) return json({ ok: false, error: 'ai_unavailable' }, 503);
     const cg = await costGateOrRes(env, actor.username, 'draft', aiCap);
     if ('res' in cg) return cg.res;
@@ -602,8 +726,22 @@ export async function handleWriteTopicsApi(request: Request, url: URL, env: any)
 
   if (action === 'save') {
     const d = normalizeSave(b, rowToDraft(row));
+    if (actor.student) {
+      const bad = unsafeRes(d.title_ko, d.title_en, d.open, d.words.join(' '), d.questions.map(q => [q.ko, q.en, q.starter, q.ph].join(' ')).join(' '));
+      if (bad) return bad;
+    }
+    // 📅 숙제 마감일 — 직원 글감만(학생 주제는 숙제가 아니다). 안 보내면 그대로 둔다.
+    let due: string | null | undefined = undefined;
+    if (!actor.student && b.due_date !== undefined) {
+      due = normalizeDueDate(b.due_date);
+      if (due === null) return json({ ok: false, error: 'bad_due_date', message: '마감일을 다시 골라 주세요. / Please pick the due date again.' }, 400);
+    }
     await env.DB.prepare(`UPDATE write_topics SET title_ko = ?, title_en = ?, icon = ?, open_line = ?, questions_json = ?, words_json = ?, updated_at = ? WHERE id = ?`)
       .bind(d.title_ko, d.title_en, d.icon, d.open, JSON.stringify(d.questions), JSON.stringify(d.words), now, id).run();
+    if (due !== undefined) {
+      try { await env.DB.prepare(`UPDATE write_topics SET due_date = ? WHERE id = ?`).bind(due || null, id).run(); }
+      catch (e: any) { console.warn('[write-topics] due_date:', e?.message); return json({ ok: false, error: 'due_unavailable', message: '글감은 저장했지만 마감일은 저장하지 못했어요. 잠시 후 다시 저장해 주세요. / Saved, but the due date could not be saved. Please save again.' }, 503); }
+    }
     const nr: any = await env.DB.prepare(`SELECT * FROM write_topics WHERE id = ?`).bind(id).first();
     return json({ ok: true, item: await staffItem(env, nr) });
   }

@@ -429,6 +429,7 @@
     .wt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px; }
     .wt-f { display: block; min-width: 0; font-size: 12.5px; font-weight: 800; color: var(--text2); }
     .wt-f > input { display: block; width: 100%; margin-top: 4px; }
+    .wt-f[hidden] { display: none !important; }   /* 📅 학생에게 마감일 칸 감춤 — .wt-f 의 display 가 [hidden] 을 이기므로 */
     .wt-wide { grid-column: 1 / -1; }
     .wt-qs-box { margin-top: 10px; }
     .wt-qs-box > summary { cursor: pointer; font-size: 14px; font-weight: 800; color: #bae6fd; padding: 6px 0; }
@@ -445,6 +446,20 @@
     .wt-btn.wt-go { background: linear-gradient(135deg,#10b981,#059669); color: #fff; border-color: transparent; }
     .wt-badge { font-size: 12px; font-weight: 800; padding: 2px 9px; border-radius: 99px; color: #fde68a; border: 1px solid rgba(253,230,138,0.5); }
     .wt-badge.pub { color: #86efac; border-color: rgba(134,239,172,0.5); }
+    /* 📅 숙제(제안 6) — 마감일·제출 수 배지, 제출 명단, 학생 «이번 숙제» 안내 줄 */
+    .wt-badge.hw { color: #93c5fd; border-color: rgba(147,197,253,0.55); }
+    .wt-subs { margin-top: 8px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14); font-size: 13px; }
+    .wt-subs table { width: 100%; border-collapse: collapse; }
+    .wt-subs th, .wt-subs td { text-align: left; padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap; }
+    .wt-subs td.nm { white-space: normal; }
+    .aw-hw-note { margin: 6px 0 0; padding: 8px 12px; border-radius: 10px; font-size: 13.5px; font-weight: 700; line-height: 1.5;
+                  background: rgba(96,165,250,0.12); border: 1px solid rgba(147,197,253,0.4); color: #dbeafe; }
+    .aw-hw-note.done { background: rgba(34,197,94,0.12); border-color: rgba(134,239,172,0.45); color: #dcfce7; }
+    .aw-hw-note[hidden] { display: none !important; }
+    /* ⭐ 칭찬 먼저(제안 7) — 첨삭 결과 맨 위 «잘한 점» */
+    .aw-praise-top { margin: 0 0 14px; padding: 12px 14px; border-radius: 12px; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.45); }
+    .aw-praise-top .t { font-size: 13px; font-weight: 900; color: var(--gold); margin-bottom: 4px; }
+    .aw-praise-top ul { margin: 0; padding-left: 20px; font-size: 14.5px; font-weight: 700; line-height: 1.6; color: var(--text); }
     .go-pick-lbl { display: block; font-size: 13px; font-weight: 800; color: var(--text2); margin: 2px 0 7px; }
     .go-cur-swap { flex-basis: 100%; font-size: 12.5px; color: #fef3c7; } /* #fde68a 는 이 바탕에서 대비 4.48 — 4.5 미달(2026-10-16 실측) */
     /* ═══ 🧠 그래픽 오가나이저 (브레인스토밍) ═══ */
@@ -732,6 +747,7 @@
       <label for="picChoice" data-ko="🎬 장면·글감 선택" data-en="🎬 Pick a scene or topic">🎬 장면·글감 선택</label>
       <select id="picChoice" onchange="awPickTopic(this.value)"></select>
     </div>
+    <div class="aw-hw-note" id="awHwNote" role="status" aria-live="polite" hidden></div>
     <!-- 🧩 그림 → (선생님 글감 만들기) → 브레인스토밍 을 한 묶음으로 — PC 2단에서는 이 묶음이 왼쪽 칸(그리드 4~12줄)에 함께 놓인다. -->
     <div class="aw-plan" id="awPlan">
     <!-- 📌 주제 만들기 — (2026-10-26 사장님 캡처 «장면·글감 선택 바로 아래») 그림 «위» 로 옮김 · 학생도 로그인하면 «나만 보는 주제» 를 만든다. 옛 설명: (2026-10-19 사장님 지시 «원장이 글감 제목을 쓰면 바로 아래 브레인스토밍이 나와 그거로 글감을 하게» · 원장·선생님 둘 다 · 학원 전체 · AI 그림).
@@ -754,6 +770,7 @@
           <label class="wt-f"><span data-ko="제목(영어)" data-en="Title (English)">제목(영어)</span><input type="text" id="wtTe" maxlength="60"></label>
           <label class="wt-f wt-wide"><span data-ko="첫 문장 — 서론 맨 앞에 들어가요(영어)" data-en="Opening line — goes first in the intro (English)">첫 문장 — 서론 맨 앞에 들어가요(영어)</span><input type="text" id="wtOpen" maxlength="160"></label>
           <label class="wt-f wt-wide"><span data-ko="미션 단어 3개 — 영어, 쉼표로 나눠요" data-en="3 mission words — English, separated by commas">미션 단어 3개 — 영어, 쉼표로 나눠요</span><input type="text" id="wtWords" maxlength="100"></label>
+          <label class="wt-f" id="wtDueBox"><span data-ko="📅 숙제 마감일 — 비우면 숙제 아님" data-en="📅 Homework due date — leave empty if not homework">📅 숙제 마감일 — 비우면 숙제 아님</span><input type="date" id="wtDue"></label>
         </div>
         <details class="wt-qs-box"><summary><span data-ko="✏️ 질문 다듬기 (6하원칙)" data-en="✏️ Edit the 5W1H questions">✏️ 질문 다듬기 (6하원칙)</span></summary><div id="wtQs"></div></details>
         <div class="wt-actions">
@@ -763,7 +780,7 @@
           <button type="button" class="wt-btn" id="wtHideBtn" onclick="wtHide()">🙈 <span data-ko="내리기" data-en="Unpublish">내리기</span></button>
         </div>
       </div>
-      <details class="wt-mine" id="wtMine" hidden><summary><span id="wtMineSum" data-ko="📂 내가 만든 주제" data-en="📂 My topics">📂 내가 만든 주제</span></summary><div id="wtMineList"></div></details>
+      <details class="wt-mine" id="wtMine" hidden><summary><span id="wtMineSum" data-ko="📂 내가 만든 주제" data-en="📂 My topics">📂 내가 만든 주제</span></summary><div id="wtMineList"></div><div class="wt-subs" id="wtSubs" hidden></div></details>
     </section>
     <div class="pic-card" id="picCard">
       <div class="pic-scene" id="picScene">
@@ -1941,7 +1958,8 @@
         r = await fetch('/api/ai/write-correct', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           // token: 로그인 사용자면 포인트/배지 적립, mission_words: 서버가 실사용 검증
-          body: JSON.stringify({ text, level: currentLevel, uid: getUid(), token: getToken(), mission_words: _missionWords })
+          // topic_id: 지금 주제가 선생님 글감·내 주제면 그 번호 — 서버가 쓴 글에 적어 «숙제 제출» 로 센다(제안 6)
+          body: JSON.stringify({ text, level: currentLevel, uid: getUid(), token: getToken(), mission_words: _missionWords, topic_id: awTopicIdNow() })
         });
         try {
           d = await r.json();
@@ -1954,6 +1972,7 @@
         if (d && d.ok) {
           awNoteRound(text, Number(d.score) || 0, currentLevel);   // 🔁 몇 차 첨삭인지 · 지난 점수
           renderResult(d);
+          if (d.topic_recorded === true) awMarkHwDone(awTopicIdNow());   // 📅 서버가 «적었다» 고 말할 때만 ✓
           await loadHistory();
         } else {
           console.error('[AI Write] server error:', d, 'status:', r.status);
@@ -1993,9 +2012,15 @@
           <button onclick="speakReply('${encodeURIComponent(d.reply)}')" title="들어보기" style="background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.45);color:var(--gold);width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:17px;flex-shrink:0">🔊</button>
         </div>` : '';
       const rwTarget = pickRewriteTarget(d);
+      /* ⭐ 칭찬 먼저(제안 7, 2026-10-26) — 점수·고칠 곳보다 «잘한 점» 을 맨 위에.
+         내용은 awPraise(잰 사실만 — 단어 수·목표·미션 단어·고칠 곳·점수)라 AI 가 지어낸 칭찬이 아니다. 작품 카드와 같은 정본. */
+      const praise = awPraise(d, (_awSubmitSnap && _awSubmitSnap.text) || _lastDraft || '', currentLevel).slice(0, 2);
+      const praiseHtml = `<div class="aw-praise-top" id="awPraiseTop"><div class="t"><span data-ko="⭐ 잘한 점" data-en="⭐ What you did well">⭐ 잘한 점</span></div><ul>${
+        praise.map(p => `<li data-ko="${escapeHtml(p.ko)}" data-en="${escapeHtml(p.en)}">${escapeHtml(awTr(p.ko, p.en))}</li>`).join('')}</ul></div>`;
       document.getElementById('resultBox').style.display = '';
       document.getElementById('resultBox').innerHTML = `
         <div class="result">
+          ${praiseHtml}
           <div class="result-head">
             <div class="score-circle" style="--p:${sc*3.6}deg;background:conic-gradient(${color} ${sc*3.6}deg, #1e293b 0)">
               <span style="color:${color}">${sc}</span>
@@ -2009,7 +2034,7 @@
           ${replyHtml}
           <div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">✅ 수정된 문장</div>
           <div class="corrected">${escapeHtml(d.corrected)}</div>
-          ${issuesHtml ? '<div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">⚠️ 발견된 점</div><div class="issues">' + issuesHtml + '</div>' : ''}
+          ${issuesHtml ? '<div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px"><span data-ko="💡 이렇게 고치면 더 좋아요" data-en="💡 Make it even better">💡 이렇게 고치면 더 좋아요</span></div><div class="issues">' + issuesHtml + '</div>' : ''}
           ${upgradesHtml}
           <details class="rewrite-box">
             <summary class="rewrite-head">✏️ 첨삭 후 따라 쓰기 (선택 · 펼쳐 보기) <span style="font-size:13px;color:var(--text2)">(+5P)</span></summary>
@@ -2714,12 +2739,68 @@
        ⚠️ <optgroup label> 은 i18n 엔진이 안 바꾼다 — 언어가 바뀌면 이 목록을 다시 그린다.
        ⛔ 이 목록에 «중괄호 + id:» 모양 리터럴을 쓰지 말 것 — 하니스가 GO_THEMES 주제 수(8)를 그 모양으로 센다. */
     const AW_GROUPS = [
-      { key:'mine',   ko:'📝 내 주제',        en:'📝 My topics' },
+      { key:'hw',     ko:'📅 숙제',           en:'📅 Homework' },
+      { key:'mine',   ko:'📝 내 주제 · 🔒 나만 보여요', en:'📝 My topics · 🔒 just for you' },
       { key:'custom', ko:'📌 선생님 글감',    en:"📌 Teacher's topics" },
       { key:'pic',    ko:'🎬 그림 장면',      en:'🎬 Picture scenes' },
       { key:'story',  ko:'🧠 내 경험 이야기', en:'🧠 My own story' },
       { key:'topic',  ko:'🎲 오늘의 글감',    en:'🎲 Writing topics' },
     ];
+    /* 📅 숙제(제안 6, 2026-10-26) — 선생님 글감에 마감일(due_date)이 있으면 숙제. 서버 정본 src/write-topics.ts.
+       제출 = 그 주제로 «AI 첨삭 받기» 를 한 것(서버가 쓴 글에 topic_id 를 적는다). 학생은 서버가 준 done_ids 로 ✓ 를 그린다.
+       ⚠️ done_ids 를 못 받았으면(null) ✓ 도 «마감 지남» 도 그리지 않는다 — 모르는 것을 «안 냈다» 로 말하지 않는다. */
+    let _wtDone = new Set(), _wtDoneKnown = false;
+    const awTodayKst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    function awDueShort(dd) { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(String(dd || '')); return m ? (+m[1]) + '/' + (+m[2]) : ''; }
+    function awHwState(it) {
+      if (!it || !it.due_date) return '';
+      if (_wtDone.has(Number(it.id))) return 'done';
+      if (!_wtDoneKnown && !(_wtCan && !wtIsStudent())) return 'open';   // 낸 것을 모르면(학생·게스트) «마감 지남» 이라 말하지 않는다 — 직원만 날짜로
+      return it.due_date < awTodayKst() ? 'late' : 'open';
+    }
+    function awHwLabel(it) {
+      const st = awHwState(it), dd = awDueShort(it && it.due_date);
+      let ko = st === 'done' ? '✓ 제출함' : st === 'late' ? '마감 지남(' + dd + ')' : dd + '까지';
+      let en = st === 'done' ? '✓ Submitted' : st === 'late' ? 'Past due (' + dd + ')' : 'Due ' + dd;
+      if (!wtIsStudent() && typeof it.submit_count === 'number') { ko += ' · 제출 ' + it.submit_count + '명'; en += ' · ' + it.submit_count + ' submitted'; }
+      return { ko, en };
+    }
+    // 학원에 올라온 숙제만 — 할 것(마감 빠른 순) → 마감 지남 → 낸 것
+    function awHwItems() {
+      const rank = it => ({ open: 0, late: 1, done: 2 })[awHwState(it)];
+      return (_wtItems || []).filter(it => it && it.due_date && (!it.status || it.status === 'published'))
+        .slice().sort((a, b) => rank(a) - rank(b) || String(a.due_date).localeCompare(String(b.due_date)) || Number(a.id) - Number(b.id));
+    }
+    // 학생 «이번 숙제» 안내 줄 — 고르는 곳이 아니다(고르기는 위 목록 하나에서). 숙제가 없으면 안 그린다.
+    function awRenderHwNote() {
+      const el = document.getElementById('awHwNote');
+      if (!el) return;
+      const list = wtIsStudent() ? awHwItems() : [];
+      if (!list.length) { el.hidden = true; el.textContent = ''; return; }
+      const todo = list.filter(it => awHwState(it) !== 'done');
+      el.hidden = false;
+      el.className = 'aw-hw-note' + (todo.length ? '' : ' done');
+      if (!todo.length) { el.textContent = awTr('✓ 숙제를 모두 냈어요! 잘했어요.', '✓ All homework submitted — great job!'); return; }
+      const f = todo[0], dd = awDueShort(f.due_date), late = awHwState(f) === 'late';
+      el.textContent = awTr('📅 숙제 ' + todo.length + '개 — ' + (f.icon ? f.icon + ' ' : '') + f.title_ko + ' (' + (late ? '마감 지남 ' + dd : dd + '까지') + '). 위 목록 맨 위 «📅 숙제» 에서 골라 쓰고 «AI 첨삭 받기» 를 누르면 제출돼요.',
+                            '📅 ' + todo.length + ' homework — ' + (f.icon ? f.icon + ' ' : '') + (f.title_en || f.title_ko) + ' (' + (late ? 'past due ' + dd : 'due ' + dd) + '). Pick it at the top of the list above, write, and press «Get AI feedback» to submit.');
+    }
+    // 지금 주제가 선생님 글감·내 주제면 그 번호(쓴 글에 적어 «제출» 로 센다), 아니면 null
+    function awTopicIdNow() {
+      const t = _goTheme;
+      if (!t || t.set !== 'custom') return null;
+      const n = Number(String(t.id).slice(7));
+      return Number.isInteger(n) && n > 0 ? n : null;
+    }
+    // 첨삭이 끝나면 그 숙제를 «✓ 제출함» 으로(서버도 같은 글로 센다). 숙제가 아니면 아무것도 안 한다.
+    function awMarkHwDone(id) {
+      if (!wtIsStudent()) return;   // 로그인한 학생만 서버에 «낸 것» 으로 남는다(게스트·선생님 시험 첨삭은 아님)
+      const it = id ? awFindCustom(id) : null;
+      if (!it || !it.due_date || _wtDone.has(Number(id))) return;
+      _wtDone.add(Number(id));
+      awBuildPicker(); awRenderHwNote();
+      showToast(awTr('📅 숙제 «' + it.title_ko + '» 를 냈어요!', '📅 Homework «' + (it.title_en || it.title_ko) + '» submitted!'));
+    }
     // 📌 선생님 글감 찾기 — 학원 전체 목록 먼저, 없으면 (선생님 화면이면) 내가 만든 초안
     function awFindCustom(id) {
       id = Number(id);
@@ -2731,12 +2812,17 @@
       const notYet = !!(it.status && it.status !== 'published');
       // 🎒 학생 화면의 «안 올린» 주제 = 학생이 만든 내 주제(학생은 올리기가 없다) — 선생님 말로 부르지 않는다(제안 0)
       const mineStu = notYet && wtIsStudent();
+      const hw = !notYet && it.due_date ? awHwLabel(it) : null;   // 📅 숙제면 마감일·제출 여부를 함께
       return { id: 'custom:' + it.id, icon: it.icon || '📌', ko: it.title_ko || '', en: it.title_en || it.title_ko || '', set: 'custom',
-               srcKo: mineStu ? '내 주제 · 나만 보여요' : notYet ? '선생님 글감 · 아직 안 올림' : '선생님 글감',
-               srcEn: mineStu ? 'My topic · just for you' : notYet ? "Teacher's topic · not published" : "Teacher's topic",
+               srcKo: mineStu ? '내 주제 · 🔒 나만 보여요' : notYet ? '선생님 글감 · 아직 안 올림' : hw ? '📅 숙제 · ' + hw.ko : '선생님 글감',
+               srcEn: mineStu ? 'My topic · 🔒 just for you' : notYet ? "Teacher's topic · not published" : hw ? '📅 Homework · ' + hw.en : "Teacher's topic",
                open: String(it.open || '').trim(), qs: qs, words: (Array.isArray(it.words) ? it.words : []).map(w => String(w || '').trim()).filter(w => /^[a-zA-Z' -]{1,30}$/.test(w)).slice(0, 3), img: it.image_url || '' };
     }
     function awPickerEntries(key) {
+      if (key === 'hw') return awHwItems().map(it => {
+        const ic = it.icon ? it.icon + ' ' : '', l = awHwLabel(it);
+        return { v: 'custom:' + it.id, ko: ic + it.title_ko + ' · ' + l.ko, en: ic + (it.title_en || it.title_ko) + ' · ' + l.en };
+      });
       if (key === 'mine') {
         // 🎒 학생이 만든 «내 주제» — 선생님 글감과 섞지 않고 맨 위 묶음으로(제안 0). 선생님 화면에는 이 묶음이 없다.
         if (!wtIsStudent()) return [];
@@ -2751,6 +2837,7 @@
         const seen = new Set(), out = [];
         _wtItems.concat(wtIsStudent() ? [] : (_wtManage || []).filter(it => it.status !== 'published' && it.status !== 'deleted')).forEach(it => {
           if (!it || seen.has(it.id)) return; seen.add(it.id);
+          if (it.due_date && (!it.status || it.status === 'published')) return;   // 📅 올라온 숙제는 위 «숙제» 묶음에만(한 값이 두 번 있으면 고르기가 엉킨다)
           const draft = it.status && it.status !== 'published';
           const ic = it.icon ? it.icon + ' ' : '';
           out.push({ v: 'custom:' + it.id, ko: ic + it.title_ko + (draft ? ' (아직 안 올림)' : ''), en: ic + (it.title_en || it.title_ko) + (draft ? ' (not published)' : '') });
@@ -2905,6 +2992,8 @@
       else if (code && WT_ERR[code]) text = wtT(WT_ERR[code][0], WT_ERR[code][1]);
       else if (!e || e.status === undefined) text = wtT('서버에 연결하지 못했어요. 인터넷을 확인해 주세요.', 'Could not reach the server. Check your connection.');
       else text = wtT('서버가 오류로 답했어요', 'The server answered with an error') + ' (' + (code || e.status) + ')';
+      // 🛡 부드러운 거르기(제안 8) — 꾸짖지 않는다: «고장» 처럼 빨갛게 그리지 않고 다른 주제를 권한다(문구는 서버 정본)
+      if (code === 'unsafe_topic') { wtMsg('🌱 ' + text, 'warn'); return; }
       wtMsg('⚠️ ' + wtT(actKo, actEn) + ' — ' + text, 'bad');
     }
     function wtSetBusy(on, text) {
@@ -2916,12 +3005,14 @@
     function wtTake(it) {
       if (!it) return;
       _wtCur = it;
-      const up = (arr) => { const k = arr.findIndex(x => Number(x.id) === Number(it.id)); if (k >= 0) arr[k] = it; else arr.unshift(it); };
+      // 저장 응답에는 제출 수가 없다(목록 GET 만 센다) — 고친 뒤에도 배지가 «—» 로 사라지지 않게 옛 값을 잇는다
+      const up = (arr) => { const k = arr.findIndex(x => Number(x.id) === Number(it.id)); if (k >= 0) { if (it.submit_count === undefined && arr[k].submit_count !== undefined && it.due_date) it.submit_count = arr[k].submit_count; arr[k] = it; } else arr.unshift(it); };
       up(_wtManage);
       const pk = _wtItems.findIndex(x => Number(x.id) === Number(it.id));
       if (it.status === 'published') { if (pk >= 0) _wtItems[pk] = it; else _wtItems.unshift(it); }
       else if (pk >= 0) _wtItems.splice(pk, 1);
       awBuildPicker();
+      awRenderHwNote();
       wtRenderPanel();
       // 지금 이 글감으로 쓰는 중이면 고친 내용을 바로 아래 브레인스토밍·그림에 반영(스크롤 없이)
       if (_goTheme && _goTheme.id === 'custom:' + it.id) { goApplyTheme(awThemeFromCustom(it), false, true); _goPrev = null; renderGoThemes(); }
@@ -2975,6 +3066,9 @@
         document.getElementById('wtTe').value = it.title_en || '';
         document.getElementById('wtOpen').value = it.open || '';
         document.getElementById('wtWords').value = (it.words || []).join(', ');
+        // 📅 숙제 마감일 — 선생님 글감만(학생 주제는 숙제가 아니다)
+        document.getElementById('wtDueBox').hidden = wtIsStudent();
+        document.getElementById('wtDue').value = it.due_date || '';
         document.getElementById('wtQs').innerHTML = (it.questions || []).map(q => `
           <div class="wt-q" data-k="${escapeHtml(q.k)}">
             <div class="wt-q-k">${escapeHtml(q.k)}</div>
@@ -2991,9 +3085,11 @@
       document.getElementById('wtMineList').innerHTML = list.map(x => { const wl = awMineWorkLine(x.id); return `
         <div class="wt-item">
           <span class="wt-item-t">${escapeHtml((x.icon ? x.icon + ' ' : '') + (x.title_ko || ''))}${wl ? `<span class="wt-item-w">${escapeHtml(wl)}</span>` : ''}</span>
+          ${!wtIsStudent() && x.due_date ? `<span class="wt-badge hw">${escapeHtml('📅 ' + wtT(awHwLabel(x).ko, awHwLabel(x).en))}</span>` : ''}
           <span class="wt-badge${x.status === 'published' ? ' pub' : ''}">${escapeHtml(wtIsStudent() ? wtT('나만', 'Mine') : x.status === 'published' ? wtT('올림', 'Published') : x.status === 'hidden' ? wtT('내림', 'Hidden') : wtT('초안', 'Draft'))}</span>
           <button type="button" class="wt-btn wt-go" onclick="wtResume(${Number(x.id)})">${escapeHtml(wl ? wtT('✍️ 이어 쓰기', '✍️ Continue') : wtT('✍️ 쓰기', '✍️ Write'))}</button>
           <button type="button" class="wt-btn" onclick="wtOpen(${Number(x.id)})">${escapeHtml(wtT('✏️ 불러오기', '✏️ Open'))}</button>
+          ${!wtIsStudent() && x.due_date && x.status === 'published' ? `<button type="button" class="wt-btn" onclick="wtSubmits(${Number(x.id)})">${escapeHtml(wtT('📋 제출 확인', '📋 Submissions'))}</button>` : ''}
         </div>`; }).join('');
       try { window.applyI18n && window.applyI18n(panel); } catch (e) {}
     }
@@ -3080,8 +3176,10 @@
         row.querySelectorAll('input[data-f]').forEach(inp => { q[inp.getAttribute('data-f')] = inp.value; });
         return q;
       });
-      return { id: _wtCur.id, title_ko: document.getElementById('wtTk').value, title_en: document.getElementById('wtTe').value,
+      const body = { id: _wtCur.id, title_ko: document.getElementById('wtTk').value, title_en: document.getElementById('wtTe').value,
                open: document.getElementById('wtOpen').value, words: words, questions: questions };
+      if (!wtIsStudent()) body.due_date = document.getElementById('wtDue').value || '';   // 📅 '' = 숙제 아님(지우기)
+      return body;
     }
     window.wtDraft = async function() {
       if (_wtBusy) return;
@@ -3107,7 +3205,12 @@
     window.wtSave = async function() {
       if (_wtBusy || !_wtCur) return;
       wtSetBusy(true, wtT('💾 저장하는 중…', '💾 Saving…'));
-      try { const d = await wtCall(Object.assign({ action: 'save' }, wtCollect())); wtSetBusy(false); wtTake(d.item); wtMsg('✅ ' + wtT('저장했어요.', 'Saved.'), 'ok'); }
+      try {
+        const d = await wtCall(Object.assign({ action: 'save' }, wtCollect())); wtSetBusy(false); wtTake(d.item);
+        const hwHint = d.item && d.item.due_date && d.item.status !== 'published'
+          ? ' ' + wtT('📅 숙제는 «학원 전체에 올리기» 를 해야 학생에게 보여요.', '📅 Publish it so students can see the homework.') : '';
+        wtMsg('✅ ' + wtT('저장했어요.', 'Saved.') + hwHint, 'ok');
+      }
       catch (e) { wtSetBusy(false); wtFail(e, '저장', 'Save'); }
     };
     window.wtImage = async function() {
@@ -3139,6 +3242,29 @@
       try { const d = await wtCall({ action: 'hide', id: _wtCur.id }); wtSetBusy(false); wtTake(d.item); wtMsg('✅ ' + wtT('내렸어요. 학생 목록에 더는 안 보여요.', 'Unpublished. Students no longer see it.'), 'ok'); }
       catch (e) { wtSetBusy(false); wtFail(e, '내리기', 'Unpublish'); }
     };
+    // 📋 숙제 제출 확인(제안 6) — 본사·그 숙제를 낸 선생님만(서버가 가린다). 누가·몇 번·언제·최고 점수.
+    window.wtSubmits = async function(id) {
+      const box = document.getElementById('wtSubs');
+      if (!box) return;
+      const it = (_wtManage || []).find(x => Number(x.id) === Number(id));
+      box.hidden = false;
+      box.textContent = wtT('📋 불러오는 중…', '📋 Loading…');
+      let r = null, d = null;
+      try { r = await fetch(WT_API + '?submits=' + encodeURIComponent(id), { credentials: 'include', headers: wtHeaders(false) }); d = await r.json(); } catch (e) { d = null; }
+      const head = '<div style="font-weight:900;margin-bottom:6px">📋 ' + escapeHtml((it ? (it.icon ? it.icon + ' ' : '') + it.title_ko : '') + (it && it.due_date ? ' · ' + awDueShort(it.due_date) + wtT('까지', ' due') : '')) +
+        ' <button type="button" class="wt-btn" style="float:right" onclick="document.getElementById(\'wtSubs\').hidden=true">' + escapeHtml(wtT('닫기', 'Close')) + '</button></div>';
+      if (!r || !r.ok || !d || d.ok !== true || !Array.isArray(d.items)) {
+        const msg = d && d.message ? String(d.message).split(' / ')[goLangKo() ? 0 : 1] || d.message : wtT('명단을 불러오지 못했어요. 잠시 후 다시 눌러 주세요.', 'Could not load the list. Please try again.');
+        box.innerHTML = head + '<div>' + escapeHtml(msg) + '</div>'; return;
+      }
+      if (d.unknown) { box.innerHTML = head + '<div>' + escapeHtml(wtT('아직 셀 수 없어요 — 학생이 이 숙제로 첫 첨삭을 받으면 쌓이기 시작해요.', 'Not counted yet — it starts once a student gets feedback on this homework.')) + '</div>'; return; }
+      if (!d.items.length) { box.innerHTML = head + '<div>' + escapeHtml(wtT('아직 낸 학생이 없어요.', 'No one has submitted yet.')) + '</div>'; return; }
+      const fmt = ms => { const t = new Date(Number(ms) + 9 * 3600e3); return (t.getUTCMonth() + 1) + '/' + t.getUTCDate() + ' ' + String(t.getUTCHours()).padStart(2, '0') + ':' + String(t.getUTCMinutes()).padStart(2, '0'); };
+      box.innerHTML = head + '<div style="margin-bottom:4px">' + escapeHtml(wtT('낸 학생 ' + d.items.length + '명', d.items.length + ' students submitted')) + '</div><table><thead><tr><th>' +
+        [wtT('학생', 'Student'), wtT('횟수', 'Times'), wtT('마지막', 'Last'), wtT('최고 점수', 'Best')].map(escapeHtml).join('</th><th>') + '</th></tr></thead><tbody>' +
+        d.items.map(x => '<tr><td class="nm">' + escapeHtml(x.name ? x.name + ' (' + x.uid + ')' : x.uid) + '</td><td>' + Number(x.n) + '</td><td>' + escapeHtml(fmt(x.last_at)) + '</td><td>' + Number(x.best) + '</td></tr>').join('') +
+        '</tbody></table>';
+    };
     // 학원 글감 목록 + (선생님이면) 만들기 권한 — 못 받으면 예전 그대로(선생님 글감만 목록에 없다)
     async function wtLoad() {
       let d = null;
@@ -3151,7 +3277,10 @@
       _wtManage = Array.isArray(d.manage) ? d.manage : [];
       _wtAiLeft = typeof d.ai_left === 'number' ? d.ai_left : null;
       _wtAiCap = typeof d.ai_cap === 'number' ? d.ai_cap : null;
+      _wtDoneKnown = Array.isArray(d.done_ids);   // 📅 학생이 낸 숙제 — 못 받았으면 «모름»
+      _wtDone = new Set(_wtDoneKnown ? d.done_ids.map(Number) : []);
       awBuildPicker();
+      awRenderHwNote();
       wtRenderPanel();
       // 새로고침 전 고른 선생님 글감 다시 잇기(조용히 — 스크롤·«바꿨어요» 없이)
       if (_awPendingCustom) {
@@ -3160,7 +3289,7 @@
       }
     }
     ['mangoi:lang-changed'].forEach(ev => {
-      window.addEventListener(ev, () => { awBuildPicker(); renderGoThemes(); if (_wtCan || _wtNeedLogin) wtRenderPanel(); awRenderCount(); });
+      window.addEventListener(ev, () => { awBuildPicker(); awRenderHwNote(); renderGoThemes(); if (_wtCan || _wtNeedLogin) wtRenderPanel(); awRenderCount(); });
       document.addEventListener(ev, () => awRenderCount());
     });
     /* 🌐 이 스크립트는 공용 i18n 엔진(mango-i18n.js, defer)보다 «먼저» 돈다 — 그때는 getLang 이 없어 늘 한국어로 그린다.
