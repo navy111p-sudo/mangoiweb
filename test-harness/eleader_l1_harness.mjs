@@ -115,6 +115,15 @@ ok('topic: kickoff asks Q1', k.includes('START NOW') && k.includes('1/20') && k.
 const last = M.eleaderL1Topic('books-v1-b01', 19, false);
 ok('topic: last question ends lesson', last.includes('last question') && !last.includes('21/20'));
 ok('topic: beginner level stated', k.includes('Level 1') && /ages 6-9/.test(k));
+// 자연스러운 대화(2026-10-26 「개를 좋아한다는데 고양이 색을 물어봐요」) — 반응·다리·중복질문·완전한 문장
+const mid = M.eleaderL1Topic('books-v1-b01', 6, false);
+ok('topic: mid names current and next', mid.includes('7/20') && mid.includes('8/20') && mid.includes('What color is your dream cat?'));
+ok('topic: reacts to learner words', /exact thing the learner said/.test(mid) && /their own words/.test(mid));
+ok('topic: bridges topic change', /bridge/.test(mid));
+ok('topic: no re-asking answered question', /already answered this question/.test(mid) && /do not ask it again/.test(mid));
+ok('topic: keeps question complete', /never drop small words/.test(mid) && /never "What color is cat\?"/.test(mid));
+ok('topic: no forced verbatim/in-order reading', !/ask exactly/.test(mid) && !/in order/.test(mid) && !/at most 7 words/.test(mid));
+ok('topic: last question has no bridge/next', !/move on to book question/.test(last));
 ok('topic: invalid → null', M.eleaderL1Topic('books-v1-b01', -1, false) === null && M.eleaderL1Topic('x', 0, false) === null);
 
 // ⑤ 하루 상한 — 동시 요청에서도 정확히 120
