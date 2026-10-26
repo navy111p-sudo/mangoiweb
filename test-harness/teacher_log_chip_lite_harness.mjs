@@ -88,6 +88,12 @@ ok("nolog → '.btn-eval'", /k === 'nolog' \? '\.btn-eval'/.test(bind));
 ok('찾은 버튼에서 줄(.cls / .cls-tr)로 올라간다', /el\.closest\('\.cls, \.cls-tr'\)/.test(bind));
 ok('줄의 [일지 쓰기] 버튼 클래스가 btn-eval 그대로다(칩 이동 대상)', /class="btn btn-eval" type="button" data-eval=/.test(fnBlock(html, 'classActHtml')));
 
+console.log('▶ 다크 모드 선택 상자 (2026-10-27) — 시간 정렬·보기');
+ok('두 선택 상자가 cls-sel 클래스를 쓴다', /<select id="class-time-sort" class="cls-sel">/.test(html) && /<select id="class-view" class="cls-sel">/.test(html));
+ok('정의되지 않은 --card 로 배경을 칠하지 않는다(다크에서 흰 바탕)', !/var\(--card/.test(html));
+ok('밝게: 흰 바탕 + 진한 글자', /\.cls-sel\{[^}]*background:#fff;color:#101828\}/.test(css));
+ok('(짝) 어둡게: 어두운 바탕 + 밝은 글자', /html\[data-t="dark"\] \.cls-sel\{background:#1b2330;color:#c9d4e0;border-color:#2c3949\}/.test(css));
+
 console.log('▶ 문법');
 let syntax = true;
 for (const m of html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)) { try { new vm.Script(m[1]); } catch (e) { syntax = false; } }
