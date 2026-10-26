@@ -133,6 +133,8 @@ function makeWorld({ lang = 'ko', uid = 'kid01' } = {}) {
     function getToken() { return ''; }
     function showToast(m) { env.toasts.push(m); }
     function stopDictation() {}
+    function awTopicIdNow() { return null; }   // 📅 숙제(제안 6) — 정본 검사는 write_topics_harness
+    function awMarkHwDone() {}
     function awTopicWorkSave() { env.topicSaves = (env.topicSaves || 0) + 1; }   // ✍️ 이어 쓰기(제안 5) — 정본 검사는 write_topics_harness [G]
     function showErrorBox(t, d) { env.rendered.push({ error: t + ' ' + d }); }
     function renderResult(d) { env.rendered.push({ score: d.score, round: _awRoundNow && Object.assign({}, _awRoundNow), snap: _awSubmitSnap }); }

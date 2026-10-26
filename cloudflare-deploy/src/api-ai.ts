@@ -37,6 +37,7 @@ import { handleStoryApi } from './story-correct';   // 📖 동화책 바꿔 쓰
 import { recordAiLatency } from './ai-latency-log';   // ⏱ «학생이 얼마나 기다리는가» (A-3)
 import { createJsonTextTap, takeSentences } from './stream-json-text';   // 📡 스트리밍 본문 추출 (A-1)
 
+let _awTopicColTried = false;   // 📅 topic_id 지연 ALTER — 워커당 한 번
 export async function handleAiApi(
   request: Request,
   url: URL,
@@ -53,6 +54,12 @@ export async function handleAiApi(
     const ensureWriteSchema = async () => {
       // D1 의 exec() 는 멀티라인 SQL 미지원 — 반드시 한 줄로
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_writing_corrections (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, original_text TEXT NOT NULL, corrected_text TEXT, feedback TEXT, level TEXT, score INTEGER, created_at INTEGER NOT NULL);`);
+      // 📅 (2026-10-26 제안 6) 어느 주제(선생님 숙제·내 주제)로 쓴 글인가 — 지연 ALTER, 한 워커에 한 번만 시도
+      if (!_awTopicColTried) {
+        _awTopicColTried = true;
+        try { await env.DB.exec(`ALTER TABLE ai_writing_corrections ADD COLUMN topic_id INTEGER`); } catch { /* 있음 */ }
+        try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_awc_topic ON ai_writing_corrections(topic_id)`); } catch { /* 칸이 없으면 실패 — 무해 */ }
+      }
     };
 
     if (method === 'POST' && path === '/api/ai/write-correct') {
@@ -200,11 +207,23 @@ Student text: """${text}"""`;
         ? { ai_raw_excerpt: raw.slice(0, 500), parsed: false }
         : { parsed: true };
 
+      // 📅 어느 주제로 쓴 글인가(숙제 제출 확인용) — 양의 정수만. 화면이 보낸 번호라 «제출» 의 근거일 뿐 권한·포인트에는 안 쓴다.
+      const _tid = Number(b.topic_id);
+      const topicId = Number.isInteger(_tid) && _tid > 0 && _tid < 1e9 ? _tid : null;
       try {
         const now = Date.now();
-        await env.DB.prepare(
-          `INSERT INTO ai_writing_corrections (student_uid, original_text, corrected_text, feedback, level, score, created_at) VALUES (?,?,?,?,?,?,?)`
-        ).bind(uid || null, text, corrected, JSON.stringify({ issues, tip, reply, upgrades, mission_words: missionWords, mission_used: missionUsed, meta }), level, score, now).run();
+        const fb = JSON.stringify({ issues, tip, reply, upgrades, mission_words: missionWords, mission_used: missionUsed, meta });
+        try {
+          await env.DB.prepare(
+            `INSERT INTO ai_writing_corrections (student_uid, original_text, corrected_text, feedback, level, score, created_at, topic_id) VALUES (?,?,?,?,?,?,?,?)`
+          ).bind(uid || null, text, corrected, fb, level, score, now, topicId).run();
+        } catch (e1: any) {
+          // ⚠️ topic_id 칸이 아직 없으면(ALTER 실패) 그 칸 없이라도 남긴다 — 첨삭 기록이 통째로 사라지지 않게
+          console.warn('[write-correct] insert with topic_id failed, retry without:', e1?.message || e1);
+          await env.DB.prepare(
+            `INSERT INTO ai_writing_corrections (student_uid, original_text, corrected_text, feedback, level, score, created_at) VALUES (?,?,?,?,?,?,?)`
+          ).bind(uid || null, text, corrected, fb, level, score, now).run();
+        }
       } catch (e: any) {
         console.error('[write-correct] DB insert failed:', e?.message || e);
       }

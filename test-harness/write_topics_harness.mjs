@@ -323,6 +323,7 @@ const PARTS = [
   fn('function goLineFor(q)', 'goLineFor'),
   fn('function goOutline()', 'goOutline'),
   cut(/const AW_GROUPS = \[[\s\S]*?\n    \];/, 'AW_GROUPS'),
+  cut(/    let _wtDone = new Set\(\)[\s\S]*?(?=\n    \/\/ 📌 선생님 글감 찾기)/, 'awHw* (숙제)'),
   fn('function awFindCustom(id)', 'awFindCustom'),
   fn('function awThemeFromCustom(it)', 'awThemeFromCustom'),
   fn('function awPickerEntries(key)', 'awPickerEntries'),
@@ -344,12 +345,15 @@ const BODY = `
   const goLangKo = () => S.lang !== 'en';
   const mkEl = tag => ({ tag, children: [], attrs: {}, textContent: '', label: '', value: '',
     appendChild(c) { this.children.push(c); return c; }, setAttribute(k, v) { this.attrs[k] = v; } });
-  const document = { createElement: mkEl };
+  const hwNote = { hidden: true, textContent: '', className: '' }, toasts = [];
+  const document = { createElement: mkEl, getElementById: id => (id === 'awHwNote' ? hwNote : null) };
+  const awTr = (ko, en) => (S.lang === 'en' ? en : ko);
+  const showToast = m => toasts.push(m);
   const picChoice = { children: [], value: '', appendChild(c) { this.children.push(c); return c; },
     set innerHTML(v) { this.children = []; }, get options() { return this.children.flatMap(g => g.children); } };
   ${PARTS}
   return { window, calls, picChoice, get theme() { return _goTheme; }, awBuildPicker, awPickerEntries, awThemeFromCustom, goQuestions, goOutline,
-           setTheme(t) { _goTheme = t; }, setAnswers(a) { _goAnswers = a; }, GO_THEMES, PIC_SCENES, TOPICS };`;
+           setTheme(t) { _goTheme = t; }, setAnswers(a) { _goAnswers = a; }, hwNote, toasts, awHwLabel, awHwItems, awHwState, awRenderHwNote, awTopicIdNow, awMarkHwDone, setDone(ids, known) { _wtDone = new Set(ids); _wtDoneKnown = known; }, GO_THEMES, PIC_SCENES, TOPICS };`;
 let mk = null;
 try { mk = new Function('S', BODY); mk({ picIdx: 0 }); } catch (e) { console.log('  (실행 준비 실패) ' + e.message); mk = null; }
 ok(!!mk, '전제: 목록·글감 코드가 함께 실행된다');
@@ -738,6 +742,139 @@ console.log('\n⑩ 🔒 내 작품 카드 — 낡은 서명 그림 주소를 새
   ok(/onerror="this\.nextElementSibling\.hidden=false;this\.remove\(\)"><div class="wk-icon" hidden>/.test(card), '그림이 안 열리면(만료·삭제) 옆 아이콘을 보인다 — 빈 그림 대신');
   ok(!/onerror="[^"]*\$\{/.test(card), '(짝) onerror 안에 값을 끼워 넣지 않는다(따옴표 깨짐 방지)');
   ok(!/\.wk-icon \{[^}]*display/.test(style), '.wk-icon 에 display 를 정하지 않는다([hidden] 이 먹게)');
+}
+
+
+console.log('\n[H] 숙제·마감일(제안 6) · 칭찬 먼저(제안 7) · 안심 표시·부드러운 거르기(제안 8) — 2026-10-26');
+{
+  // ── 순수 판정
+  ok(M.normalizeDueDate('2026-11-03') === '2026-11-03' && M.normalizeDueDate('') === '' && M.normalizeDueDate(null) === '', '마감일: 진짜 날짜는 그대로 · 비우면 «숙제 아님»');
+  for (const bad of ['2026-02-30', '2026-13-01', '1999-01-01', '2026/11/03', '11-03', 'x', '2026-11-3'])
+    ok(M.normalizeDueDate(bad) === null, `(짝) 엉터리 마감일 «${bad}» → null(저장 거절)`);
+  const ROWK = { created_by: 'hq_t_kim' };
+  ok(M.canSeeSubmits(ACTORS.admin, ROWK) === true && M.canSeeSubmits(ACTORS.hq_t_kim, ROWK) === true, '제출 확인: 본사·그 글감을 만든 선생님은 본다');
+  ok(M.canSeeSubmits(ACTORS.hq_t_lee, ROWK) === false, '(짝) 다른 선생님은 못 본다(남의 반 학생 이름)');
+  ok(M.canSeeSubmits({ username: 'gn', isTeacher: false, ownOnly: true }, { created_by: 'gn' }) === false, '(짝) 지사·대리점은 이름 목록을 못 본다(학생 이름이 지사 밖으로 안 나가게 — 숫자만)');
+  ok(M.canSeeSubmits({ username: 'stu:kimsu', isTeacher: false, student: true }, { created_by: 'stu:kimsu' }) === false && M.canSeeSubmits(ACTORS.admin, { created_by: 'stu:kimsu' }) === false, '(짝) 학생·학생 주제에는 제출 목록이 없다');
+  ok(M.canSeeSubmits(null, ROWK) === false && M.canSeeSubmits(ACTORS.admin, null) === false, '(짝) 모르면 안 보인다');
+  for (const t of ['씨발', '씨 발 진짜', 's.h.i.t', 'fuck you'])          ok(M.topicUnsafeKind(t) === 'swear', `거르기: «${t}» → 욕설`);
+  for (const t of ['자살하고 싶어', '죽고 싶어', '죽 고 싶 어'])         ok(M.topicUnsafeKind(t) === 'hurt', `거르기: «${t}» → 마음이 힘든 말`);
+  for (const t of ['우리집 010-1234-5678', 'me@mail.com', '101동 1203호', '900101-1234567']) ok(M.topicUnsafeKind(t) === 'private', `거르기: «${t}» → 개인정보`);
+  for (const t of ['야한 이야기', 'sex', '19금 영화'])                  ok(M.topicUnsafeKind(t) === 'adult', `거르기: «${t}» → 어른 내용`);
+  for (const t of ['우리 집 강아지', '물병 신발', '출시 발표', '시발점에서 출발', '개 색깔', 'Moby Dick', 'murder mystery book', 'Sussex trip', '2026 10 26 소풍', '불이 꺼져요', 'Fukuoka 여행', '나의 첫 캠핑'])
+    ok(M.topicUnsafeKind(t) === '', `(짝) 멀쩡한 주제 «${t}» 는 안 거른다`);
+  ok(M.topicUnsafeKind('강아지', '', null, ['a', '씨발']) === 'swear', '여러 칸 중 하나만 걸려도 거른다(질문·단어까지)');
+  ok(Object.values(M.WT_UNSAFE_MSG).every(m => / \/ /.test(m) && /[가-힣]/.test(m)) && /선생님|부모님/.test(M.WT_UNSAFE_MSG.hurt), '거르기 문구는 한/영 · 힘든 말에는 «선생님·부모님께 이야기» 를 권한다');
+
+  // ── 진짜 SQLite 로 라우트
+  db.exec(`CREATE TABLE IF NOT EXISTS ai_writing_corrections (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, score INTEGER, created_at INTEGER, topic_id INTEGER)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, korean_name TEXT)`);
+  db.prepare(`INSERT OR IGNORE INTO students_erp VALUES ('kimsu','김수아'),('leeyu','이유나')`).run();
+  const logsBefore = db.prepare('SELECT COUNT(*) n FROM write_topic_gen_log WHERE username = ?').get('stu:leeyu').n;
+  r = await call('POST', '/api/class/write-topics', 'Bearer tok-leeyu', { action: 'draft', title: '씨발 진짜' });
+  ok(r.st === 400 && r.j.error === 'unsafe_topic' && r.j.kind === 'swear' && / \/ /.test(r.j.message), '8) 학생이 욕설 주제 → 400 unsafe_topic(부드러운 한/영 문구)');
+  ok(db.prepare('SELECT COUNT(*) n FROM write_topic_gen_log WHERE username = ?').get('stu:leeyu').n === logsBefore, '8) 거른 주제는 AI 를 안 부르고 하루 횟수도 안 쓴다');
+  r = await call('POST', '/api/class/write-topics', 'Bearer tok-leeyu', { action: 'draft', title: '우리 집 강아지' });
+  ok(r.st === 200 && r.j.ok, '(짝) 멀쩡한 학생 주제는 그대로 만든다');
+  const SL = r.j.item;
+  r = await call('POST', '/api/class/write-topics', 'Bearer tok-leeyu', { action: 'save', id: SL.id, open: 'My phone is 010-1234-5678.' });
+  ok(r.st === 400 && r.j.kind === 'private', '8) 학생 저장도 거른다(첫 문장에 전화번호)');
+  r = await call('POST', '/api/class/write-topics', 'Bearer tok-leeyu', { action: 'save', id: SL.id, due_date: '2026-11-03', title_ko: '우리 집 강아지 (수정)' });
+  ok(r.st === 200 && !r.j.item.due_date, '(짝) 학생이 보낸 마감일은 무시한다(자기 주제는 숙제가 아니다)');
+  r = await call('POST', '/api/class/write-topics', 'hq_t_kim', { action: 'draft', title: '씨발 진짜' });
+  ok(r.st === 200, '(짝) 거르기는 학생에게만 — 선생님 주제는 막지 않는다(학생 앞에 나가기 전 선생님이 본다)');
+  r = await call('POST', '/api/class/write-topics', 'hq_t_kim', { action: 'draft', title: '이번 주 숙제 — 나의 주말' });
+  const HW = r.j.item;
+  r = await call('POST', '/api/class/write-topics', 'hq_t_kim', { action: 'save', id: HW.id, due_date: '2026-02-30' });
+  ok(r.st === 400 && r.j.error === 'bad_due_date', '6) 엉터리 마감일 저장 → 400 bad_due_date');
+  r = await call('POST', '/api/class/write-topics', 'hq_t_kim', { action: 'save', id: HW.id, due_date: '2026-11-03' });
+  ok(r.st === 200 && r.j.item.due_date === '2026-11-03', '6) 선생님이 마감일을 저장한다');
+  await call('POST', '/api/class/write-topics', 'hq_t_kim', { action: 'publish', id: HW.id });
+  r = await call('GET', '/api/class/write-topics');
+  ok((r.j.items.find(x => x.id === HW.id) || {}).due_date === '2026-11-03', '6) 학생 목록에 마감일이 실린다');
+  // 제출 = 그 주제로 첨삭받은 글(topic_id)
+  const insC = db.prepare('INSERT INTO ai_writing_corrections (student_uid, score, created_at, topic_id) VALUES (?, ?, ?, ?)');
+  insC.run('kimsu', 70, Date.now() - 3600e3, HW.id); insC.run('kimsu', 88, Date.now(), HW.id); insC.run('leeyu', 60, Date.now(), HW.id); insC.run('kimsu', 90, Date.now(), null);
+  r = await call('GET', '/api/class/write-topics', 'Bearer tok-kimsu');
+  ok(Array.isArray(r.j.done_ids) && r.j.done_ids.includes(HW.id), '6) 학생 GET → 낸 숙제 번호(done_ids)');
+  r = await call('GET', '/api/class/write-topics', 'Bearer tok-nobody');
+  ok(Array.isArray(r.j.done_ids) && r.j.done_ids.length === 0, '(짝) 안 낸 학생 → 빈 목록(남의 제출이 안 섞인다)');
+  r = await call('GET', '/api/class/write-topics', 'hq_t_kim');
+  ok((r.j.manage.find(x => x.id === HW.id) || {}).submit_count === 2, '6) 선생님 «내 글감» 에 제출 학생 수(사람 수 — 횟수 아님)', JSON.stringify((r.j.manage.find(x => x.id === HW.id) || {}).submit_count));
+  r = await call('GET', '/api/class/write-topics?submits=' + HW.id, 'hq_t_kim');
+  const subs = (r.j && r.j.items) || [];
+  const kim = subs.find(x => x.uid === 'kimsu') || {};
+  ok(r.st === 200 && subs.length === 2 && kim.n === 2 && kim.best === 88 && kim.name === '김수아', '6) 제출 확인 → 학생마다 한 줄(횟수·최고 점수·이름)', JSON.stringify(subs));
+  ok(/no-store/.test(r.res.headers.get('Cache-Control') || ''), '6) 제출 목록은 캐시하지 않는다(학생 이름)');
+  r = await call('GET', '/api/class/write-topics?submits=' + HW.id, 'hq_t_lee');
+  ok(r.st === 403 && r.j.error === 'not_allowed' && / \/ /.test(r.j.message), '(짝) 다른 선생님 → 403(한/영)');
+  r = await call('GET', '/api/class/write-topics?submits=' + HW.id, 'Bearer tok-kimsu');
+  ok(r.st === 403 || r.st === 401, '(짝) 학생은 제출 목록을 못 연다');
+  r = await call('GET', '/api/class/write-topics?submits=' + HW.id);
+  ok(r.st === 401 || r.st === 403, '(짝) 로그인 없이 → 못 연다');
+  r = await call('GET', '/api/class/write-topics?submits=' + HW.id, 'admin');
+  ok(r.st === 200 && (r.j.items || []).length === 2, '본사도 본다');
+  // 첨삭 기록 쪽 배선(api-ai.ts) — topic_id 를 적고, 칸이 없으면 옛 모양으로 다시 적는다
+  const AIS = rd(resolve(SRC, 'api-ai.ts'));
+  ok(/ADD COLUMN topic_id INTEGER/.test(AIS) && /Number\(b\.topic_id\)/.test(AIS), '6) 첨삭 기록에 topic_id 칸 · 화면이 보낸 번호를 숫자로만 받는다');
+  const insAt = AIS.indexOf('INSERT INTO ai_writing_corrections');
+  const insBlk = AIS.slice(insAt, AIS.indexOf('INSERT INTO ai_writing_corrections', insAt + 10) + 400);
+  ok(/topic_id/.test(insBlk) && AIS.split('INSERT INTO ai_writing_corrections').length - 1 >= 2, '(짝) topic_id 로 못 적으면 그 칸 없이 한 번 더 적는다(기록이 통째로 사라지지 않게)');
+
+  // ── 화면 — 숙제 묶음·꼬리표·안내 줄
+  const HWI = { id: 21, title_ko: '나의 주말', title_en: 'My weekend', icon: '🏖', due_date: '2099-12-31', questions: [], words: [], status: 'published' };
+  const LATE = { id: 22, title_ko: '나의 꿈', title_en: 'My dream', icon: '🌠', due_date: '2020-01-02', questions: [], words: [] };
+  const PLAIN = { id: 23, title_ko: '그냥 글감', title_en: 'Just a topic', icon: '📝', questions: [], words: [] };
+  let hw = mk({ picIdx: 0, items: [HWI, LATE, PLAIN], role: 'student' });
+  hw.setDone([], true);
+  ok(hw.awHwItems().map(x => x.id).join(',') === '21,22', '6) 숙제 = 마감일 있는 글감만 · 할 것 먼저, 마감 지난 것 다음', hw.awHwItems().map(x => x.id).join(','));
+  ok(hw.awHwLabel(HWI).ko === '12/31까지' && hw.awHwLabel(LATE).ko === '마감 지남(1/2)', '6) 꼬리표: «M/D까지» · «마감 지남(M/D)»');
+  hw.awBuildPicker();
+  const grp = hw.picChoice.children.map(g => g.label).join('|');
+  ok(/^📅 숙제/.test(grp), '6) 숙제는 같은 목록 맨 위 묶음(새 고르는 곳을 안 만든다)', grp);
+  const hwOpts = (hw.picChoice.children[0] || { children: [] }).children.map(o => o.value);
+  ok(hwOpts.includes('custom:21') && !hw.picChoice.children.slice(1).some(g => g.children.some(o => o.value === 'custom:21')), '(짝) 숙제 글감은 «선생님 글감» 묶음에 두 번 안 나온다');
+  ok(hw.picChoice.children.some(g => g.children.some(o => o.value === 'custom:23')), '(짝) 마감일 없는 글감은 원래 묶음에 그대로');
+  hw.awRenderHwNote();
+  ok(hw.hwNote.hidden === false && /숙제 2개/.test(hw.hwNote.textContent) && /나의 주말/.test(hw.hwNote.textContent) && /제출/.test(hw.hwNote.textContent), '6) 학생 안내 줄: 숙제 개수 · 가장 급한 것 · 어떻게 내는지', hw.hwNote.textContent);
+  hw.setDone([21, 22], true); hw.awRenderHwNote();
+  ok(/모두 냈어요/.test(hw.hwNote.textContent) && /done/.test(hw.hwNote.className) && hw.awHwLabel(HWI).ko === '✓ 제출함', '6) 다 내면 «모두 냈어요» · 꼬리표 ✓ 제출함');
+  hw = mk({ picIdx: 0, items: [LATE], role: 'student' });
+  hw.setDone([], false);
+  ok(hw.awHwState(LATE) === 'open' && !/지남/.test(hw.awHwLabel(LATE).ko), '(짝) 낸 것을 못 받았으면(모름) «마감 지남» 이라 말하지 않는다');
+  hw = mk({ picIdx: 0, items: [HWI], role: '' });
+  hw.awRenderHwNote();
+  ok(hw.hwNote.hidden === true, '(짝) 선생님 화면에는 학생 안내 줄이 없다');
+  ok(/제출 3명/.test(hw.awHwLabel(Object.assign({}, HWI, { submit_count: 3 })).ko) && !/제출 \d/.test(hw.awHwLabel(HWI).ko), '6) 선생님 꼬리표에 제출 N명 · 숫자를 모르면 안 붙인다(0으로 지어내지 않음)');
+  hw = mk({ picIdx: 0, items: [], role: 'student' });
+  hw.awRenderHwNote();
+  ok(hw.hwNote.hidden === true, '(짝) 숙제가 없으면 안내 줄을 안 그린다');
+  // 첨삭 → «냈어요»
+  hw = mk({ picIdx: 0, items: [HWI, PLAIN], role: 'student' }); hw.setDone([], true);
+  hw.setTheme({ id: 'custom:21', set: 'custom' });
+  ok(hw.awTopicIdNow() === 21, '6) 지금 주제 번호를 첨삭 요청에 싣는다');
+  hw.setTheme({ id: 'pic:park.webp', set: 'scene' });
+  ok(hw.awTopicIdNow() === null, '(짝) 그림·오늘의 글감은 번호가 없다(null)');
+  hw.awMarkHwDone(21);
+  ok(hw.awHwState(HWI) === 'done' && hw.toasts.some(t => /냈어요/.test(t)), '6) 첨삭이 끝나면 그 숙제를 ✓ 로 · 토스트');
+  hw.awMarkHwDone(23);
+  ok(hw.toasts.length === 1, '(짝) 숙제가 아닌 글감은 아무 말도 안 한다');
+  const sub = blockFrom(HTML, 'async function submitWrite()') || HTML;
+  ok(/topic_id: awTopicIdNow\(\)/.test(HTML) && /awMarkHwDone\(awTopicIdNow\(\)\)/.test(HTML), '6) 첨삭 요청에 topic_id · 성공하면 «냈어요» 표시');
+  ok(/id="wtDue"/.test(HTML) && /wtDueBox\.hidden = wtIsStudent\(\)|wtDueBox'\)\.hidden = wtIsStudent\(\)/.test(HTML), '6) 마감일 칸은 선생님에게만');
+  ok(/\.wt-f\[hidden\] \{ display: none !important; \}/.test(HTML), '6) 학생 화면에서 마감일 칸이 실제로 감춰진다(.wt-f 의 display 가 [hidden] 을 이기는 함정)');
+  ok(/wtSubmits\(/.test(HTML) && /\?submits=/.test(HTML), '6) «📋 제출 확인» 이 제출 목록을 연다');
+
+  // ── 칭찬 먼저(7)
+  const rr = blockFrom(HTML, 'function renderResult(d)');
+  const pAt = rr.indexOf('${praiseHtml}'), hAt = rr.indexOf('result-head');
+  ok(pAt > 0 && hAt > 0 && pAt < hAt, '7) «잘한 점» 이 점수·고칠 곳보다 위', `${pAt} / ${hAt}`);
+  ok(/awPraise\(d,/.test(rr) && /escapeHtml\(awTr\(p\.ko, p\.en\)\)/.test(rr) && /data-en="\$\{escapeHtml\(p\.en\)\}"/.test(rr), '7) 칭찬은 awPraise(잰 사실) · 이스케이프 · 한/영 속성');
+  ok(!/⚠️ 발견된 점/.test(rr) && /💡 이렇게 고치면 더 좋아요/.test(rr), '7) «⚠️ 발견된 점» 을 «💡 이렇게 고치면 더 좋아요» 로');
+
+  // ── 안심 표시(8)
+  ok(/🔒 나만 보여요/.test((HTML.match(/const AW_GROUPS = \[[\s\S]*?\n    \];/) || [''])[0]), '8) 목록 «내 주제» 묶음 이름에 «🔒 나만 보여요»');
+  ok(/code === 'unsafe_topic'[\s\S]{0,60}'warn'/.test(blockFrom(HTML, 'function wtFail(e, actKo, actEn)')), '8) 걸러진 주제는 빨간 오류가 아니라 부드러운 안내(warn)');
 }
 
 done();
