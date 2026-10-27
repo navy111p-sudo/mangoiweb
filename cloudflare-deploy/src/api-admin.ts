@@ -3852,7 +3852,8 @@ export async function handleAdminApi(
         try {
           const _cp = await loadContactPhones(env, sessions.map(x => x.student_uid));
           _ctContactsOk = _cp.complete;
-          for (const x of sessions) x.contact_phone = _cp.phones.get(String(x.student_uid || '')) || null;
+          // 정본은 아이디를 trim 해서 묻고 그 키로 돌려준다 — 찾을 때도 trim(카페24 행에 뒤 공백이 붙은 아이디가 실재한다)
+          for (const x of sessions) x.contact_phone = _cp.phones.get(String(x.student_uid || '').trim()) || null;
         } catch (e: any) { _ctContactsOk = false; console.warn('[classes/today] contacts:', e?.message); }
       }
 
