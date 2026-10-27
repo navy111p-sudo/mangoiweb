@@ -174,18 +174,23 @@ export async function handleTeacherApi(
     // note_en/note_ko/room_id 는 강사 1분 일지(/api/eval/create)만 채우는 칸 —
     // AI 자동보고(ai-lesson-report 자동저장)·관리자 일괄평가(bulk-create) 행이
     // «내가 쓴 일지» 로 둔갑하지 않게 이 표식으로 거른다.
-    const rs: any = await env.DB.prepare(
+    // 🗓 (2026-10-27) 출결·레벨 칸(attendance_status·student_level)도 싣는다 — 정본 eval-attendance.ts.
+    //   ⚠️ 그 칸은 api-lessons.ts ensureEvalTable 의 «지연 ALTER» 로 생긴다 — 배포 뒤 첫 일지 저장 전에는
+    //      없어서 SELECT 가 «no such column» 으로 죽는다. 그때는 옛 칸만으로 한 번 더 읽는다(카드가 통째로 실패하지 않게).
+    const myEvalsSql = (extra: string) =>
       `SELECT id, student_name, lesson_date, score_overall,
               substr(COALESCE(note_en, teacher_comment, strengths, ''), 1, 600) AS note_en,
               substr(COALESCE(note_ko, ''), 1, 600) AS note_ko,
-              parent_notified, viewed_by_parent, created_at
+              parent_notified, viewed_by_parent, created_at${extra}
          FROM student_evaluations
         WHERE (${ors.join(' OR ')})
           AND (note_en IS NOT NULL OR note_ko IS NOT NULL OR room_id IS NOT NULL)
-        ORDER BY created_at DESC LIMIT 40`
-    ).bind(...binds).all<any>().catch((e: any) => {
-      console.warn('[teacher-portal] my_evals:', e?.message); return null;
-    });
+        ORDER BY created_at DESC LIMIT 40`;
+    const rs: any = await env.DB.prepare(myEvalsSql(', attendance_status, student_level')).bind(...binds).all<any>()
+      .catch(() => env.DB.prepare(myEvalsSql('')).bind(...binds).all<any>())
+      .catch((e: any) => {
+        console.warn('[teacher-portal] my_evals:', e?.message); return null;
+      });
     // DB 실패를 «일지 없음» 으로 위장하지 않는다 — 화면의 실패 문구가 뜨게 한다.
     if (!rs) return json({ ok: false, error: 'db_error' }, 500);
     return json({ ok: true, items: rs.results || [] });
