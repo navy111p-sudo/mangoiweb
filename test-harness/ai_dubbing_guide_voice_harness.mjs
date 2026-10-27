@@ -494,6 +494,15 @@ async function runAll(src, gsrc) {
     check('③ 배선', `guide-${lang}.mp3 는 2MB 이하(폰 회선)`, buf.length <= 2 * 1024 * 1024, buf.length);
     const last = o[o.length - 1];
     check('③ 배선', `guide-${lang}.mp3 길이가 장면 표와 맞다(마지막 장면 5~25초)`, m.seconds - last >= 5 && m.seconds - last <= 25, { seconds: m.seconds, last });
+    /* 빌드 기록(build_guide.py 가 남김)과 대조 — v2 는 위 «5~25초» 를 통과한 채 끝 2.9초가 잘려 있었다(2026-10-27).
+       «마지막 장면이 그럴듯한 길이인가» 로는 못 잡는다 → «만들 때 목소리 길이만큼 파일이 있는가» 로 묻는다 */
+    const bf = path.join(ROOT, 'tools', 'dubbing-guide-audio', `build-${lang}.json`);
+    let b = null; try { b = JSON.parse(fs.readFileSync(bf, 'utf8')); } catch (e) { b = null; }
+    check('③ 배선', `빌드 기록 build-${lang}.json 이 있다`, !!b && Array.isArray(b.offsets) && b.seconds > 0);
+    if (b) {
+      check('③ 배선', `guide-${lang}.mp3 가 잘리지 않았다(파일 길이 = 빌드 때 목소리 길이 ±0.3초)`, Math.abs(m.seconds - b.seconds) <= 0.3, { file: +m.seconds.toFixed(2), built: b.seconds });
+      check('③ 배선', `${lang} 장면 시작 시각(OFFSETS) = 빌드 기록`, JSON.stringify(o) === JSON.stringify(b.offsets), { js: o, built: b.offsets });
+    }
   }
   check('③ 배선', '음원 주소에 버전이 붙는다(AUDIO_V)', /AUDIO_V = '\d+'/.test(src) &&/'\.mp3\?v=' \+ AUDIO_V/.test(src));
   check('③ 배선', '대본 문서가 있다(11장면)', (() => {
