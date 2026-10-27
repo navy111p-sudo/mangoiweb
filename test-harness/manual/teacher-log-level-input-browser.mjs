@@ -3,6 +3,7 @@
 //   PLAYWRIGHT_MODULE=/opt/node-tools/node_modules/playwright/index.mjs node test-harness/manual/teacher-log-level-input-browser.mjs
 // 폭 1280·390·320 × 한국어/영어 × 라이트/다크 에서:
 //   고르기 칸이 보이고·손가락 크기이고·맨 위에 있어 눌리고·가로로 안 넘치는가 /
+//   고르면 저장 «전» 에 확인창을 띄우고(누구·무엇에서 무엇으로·판단력 훈련 안내), «취소» 면 요청 0 · 칸 되돌림인가 /
 //   골라서 저장하면 서버로 그 값이 가고 수업 줄의 레벨도 바뀌는가 /
 //   거절되면 칸이 되돌아가고 빨간 안내가 «읽히는가»(대비) /
 //   저장 중에 «보내기» 를 누르면 일지가 안 나가고, 끝나면 나가는가.
@@ -22,6 +23,7 @@ const BASE = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch(process.env.BROWSER_EXECUTABLE ? { executablePath: process.env.BROWSER_EXECUTABLE } : {});
 let n = 0;
 const check = (name, cond) => { assert.ok(cond, name); n++; console.log('PASS', name); };
+const until = async (f, ms = 5000) => { const t0 = Date.now(); while (!f()) { if (Date.now() - t0 > ms) return false; await new Promise((r) => setTimeout(r, 25)); } return true; };
 const ts = Date.now(), today = new Date(ts + 9 * 3600e3).toISOString().slice(0, 10);
 const start = ts - 30 * 60000;
 // 서버 정본(levelScaleForPortal)과 같은 모양 — 화면은 이 표로만 목록을 그린다.
@@ -67,6 +69,9 @@ try {
     await ctx.addInitScript((t) => localStorage.setItem('mangoi_teacher_theme', t), theme);
     const page = await ctx.newPage();
     const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+    // 확인창 — Playwright 는 처리기가 없으면 저절로 «취소» 하므로 직접 받는다. 답은 시험마다 정한다.
+    let dialogAnswer = true; const dialogs = [];
+    page.on('dialog', async (d) => { dialogs.push({ type: d.type(), msg: d.message() }); if (dialogAnswer) await d.accept(); else await d.dismiss(); });
     let sentLog = null, levelBodies = [], levelMode = 'ok', releaseLevel = null;
     await page.route('**/api/**', async (route) => {
       const u = new URL(route.request().url());
@@ -89,8 +94,10 @@ try {
     await page.locator('.modal').waitFor();
     await sel.waitFor({ timeout: 8000 }).catch(() => {});   // 없으면 «시간 초과 크래시» 가 아니라 아래 줄이 깔끔하게 FAIL
     check(tag + ' 레벨 고르기 칸이 그려짐', (await sel.count()) === 1);
-    const L = lang === 'ko' ? { label: '학생 레벨 — 고르면 바로 저장돼요', g1: '첫걸음 (Lv 1–4)', saved: '저장했어요: Lv 12', was: '(전: Lv 5)', deny: '내 수업 학생이 아니라', wait: '레벨을 저장하는 중' }
-      : { label: 'Student level — pick to change', g1: 'Starter (Lv 1–4)', saved: 'Saved: Lv 12', was: '(was Lv 5)', deny: 'not in your class list', wait: 'still saving' };
+    const L = lang === 'ko' ? { label: '학생 레벨 — 고르면 한 번 묻고 저장해요', g1: '첫걸음 (Lv 1–4)', saved: '저장했어요: Lv 12', was: '(전: Lv 5)', deny: '내 수업 학생이 아니라', wait: '레벨을 저장하는 중',
+        ask: '이 학생의 레벨을 바꿀까요?', jt: '판단력 훈련은 이 레벨부터 다시 시작해요', who: '지승연' }
+      : { label: 'Student level — pick to change (asks before saving)', g1: 'Starter (Lv 1–4)', saved: 'Saved: Lv 12', was: '(was Lv 5)', deny: 'not in your class list', wait: 'still saving',
+        ask: "Change this student's level?", jt: 'Judgment training will restart from this level', who: 'Ji Seungyeon' };
     const modal = page.locator('.modal');
     check(tag + ' 라벨', (await modal.locator('label[for="ev-lv"]').innerText()).includes(L.label));
     check(tag + ' 지금 값 Lv 5 가 골라져 있음', (await sel.inputValue()) === 'Lv 5');
@@ -103,14 +110,31 @@ try {
     check(tag + ' 가로 넘침 없음', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await modal.screenshot({ path: resolve(OUT, `level-${width}-${lang}-${theme}.png`) });
 
-    // 저장 성공
+    // 저장 성공 — 먼저 확인창을 띄우고, «확인» 이면 저장한다
+    check(tag + ' 창을 연 것만으로는 확인창이 안 뜸', dialogs.length === 0);
     await sel.selectOption('Lv 12');
     await page.waitForFunction(() => /Lv 12/.test((document.querySelector('#ev-lv-msg') || {}).textContent || ''));
+    const d1 = dialogs[0] || {};
+    check(tag + ' 저장 전에 확인창(confirm) 한 번', dialogs.length === 1 && d1.type === 'confirm');
+    check(tag + ' 확인창 글자: 물음 · 누구 · Lv 5 → Lv 12 · 판단력 훈련 안내',
+      String(d1.msg).includes(L.ask) && String(d1.msg).includes(L.who) && String(d1.msg).includes('Lv 5  →  Lv 12') && String(d1.msg).includes(L.jt));
     check(tag + ' 서버로 {student_uid, level:"Lv 12"}', levelBodies.length === 1 && levelBodies[0].student_uid === 'fixture-1' && levelBodies[0].level === 'Lv 12');
     const msg1 = await page.locator('#ev-lv-msg').innerText();
     check(tag + ' 저장 안내 ✅ + 전 값', msg1.includes(L.saved) && msg1.includes(L.was) && !(await page.locator('#ev-lv-msg').getAttribute('class')).includes('lv-err'));
     check(tag + ' 수업 줄의 레벨도 Lv 12', await page.evaluate(() => /Lv 12/.test(document.querySelector('#classes').textContent) && !/Lv 5\b/.test(document.querySelector('#classes').textContent)));
     check(tag + ' 칸이 다시 풀림', !(await sel.isDisabled()) && (await sel.inputValue()) === 'Lv 12');
+
+    // 취소 — 요청 0 · 칸이 지금 값(Lv 12)으로 돌아옴 · 안내 줄 그대로(빨간 안내 아님) · 칸 잠기지 않음
+    const msgKept = await page.locator('#ev-lv-msg').innerText();
+    dialogAnswer = false;
+    await sel.selectOption('Lv 30');
+    check(tag + ' 취소: 확인창은 떴다', await until(() => dialogs.length === 2));
+    await page.waitForTimeout(300);
+    check(tag + ' 취소: 저장 요청이 안 나감', levelBodies.length === 1);
+    check(tag + ' 취소: 칸이 Lv 12 로 돌아오고 잠기지 않음', (await sel.inputValue()) === 'Lv 12' && !(await sel.isDisabled()));
+    check(tag + ' 취소: 안내 줄 그대로 · 빨간 안내 아님', (await page.locator('#ev-lv-msg').innerText()) === msgKept && !(await page.locator('#ev-lv-msg').getAttribute('class')).includes('lv-err'));
+    check(tag + ' 취소: 수업 줄 레벨도 그대로 Lv 12', await page.evaluate(() => /Lv 12/.test(document.querySelector('#classes').textContent) && !/Lv 30/.test(document.querySelector('#classes').textContent)));
+    dialogAnswer = true;
 
     // 거절 — 되돌리고 빨간 안내(읽히는가)
     levelMode = 'deny';
