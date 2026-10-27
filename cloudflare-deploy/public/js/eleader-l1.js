@@ -68,7 +68,7 @@
     var t = document.createElement('span');
     var strong = document.createElement('b'); strong.textContent = '📗 ' + b.title;
     t.appendChild(strong);
-    t.appendChild(document.createTextNode(done ? T(' · 다 했어요! 🎉', ' · All done! 🎉') : (' · ' + T('질문 ', 'Question ') + (i + 1) + ' / ' + b.questions.length)));
+    t.appendChild(document.createTextNode(done ? T(' · 다 했어요! 🎉 · 계속 이야기해요', ' · All done! 🎉 · Keep talking') : (' · ' + T('질문 ', 'Question ') + (i + 1) + ' / ' + b.questions.length)));
     // 🐶 학생이 고른 주제(서버가 X-Eleader-Topic 으로 알려 줌) — 책 질문을 그 주제로 바꿔 묻는 중이라는 표시
     if (state.wish) t.appendChild(document.createTextNode(' · 🔄 ' + T('주제: ', 'Topic: ') + state.wish));
     var hb = document.createElement('button'); hb.type = 'button'; hb.textContent = T('💡 힌트', '💡 Hint');
@@ -140,7 +140,9 @@
       /* 재시도는 «스트림이 빈손으로 끊겨 같은 본문을 stream 없이 바로 다시 보내는» 경우 하나뿐(warmup.html sendMsg).
          ⛔ 내용만 같다고 재시도로 보지 않는다 — 아이는 「Yes.」를 연달아 답한다. */
       var retry = !!(last && last.stream && body.stream !== 1 && last.input === input && now - last.at < 30000);
-      answering = retry ? last.q : Math.min(state.q, state.n - 1);
+      /* 📗 책을 다 끝낸 뒤에는 n(=«다 했어요») 을 보낸다 — 예전처럼 마지막 문항(n-1)을 다시 보내면
+         서버가 매 턴 마무리 인사만 되풀이하고 새 질문을 안 했다(2026-10-27 「great job 만 하고 질문을 더 안 해요」). */
+      answering = retry ? last.q : Math.min(state.q, state.n);
       body.eleader_q = answering;
       state.last = { input: input, at: now, stream: body.stream === 1, q: answering };
     }
