@@ -425,6 +425,7 @@ html[data-t="dark"] .cls-tbl tbody tr.cls-postponed>td{background:#3a2a10}
 .sum{font-size:15px;font-weight:700;color:#8a5a00;margin-bottom:8px}
 .sum b{font-size:20px;font-variant-numeric:tabular-nums}
 .mini{font-size:13px;color:#5d6b7a;padding:4px 0}
+.mini.lv-err{color:#b42318}   /* 🎚 일지 창 레벨 저장 실패 — 흰 바탕 대비 6.5 */
 .draft{border-top:1px solid #f0e0c0;padding:12px 0}
 .draft-txt{font-size:14px;background:#fff;border:1px solid #e4dcc8;border-radius:8px;padding:10px;margin:6px 0;white-space:pre-wrap}
 .warnline{font-size:12.5px;color:#8a5a00;margin-bottom:8px}
@@ -533,6 +534,7 @@ html[data-t="dark"] .row span,
 html[data-t="dark"] .modal p.sub,
 html[data-t="dark"] .mini,
 html[data-t="dark"] .empty{color:#9dabb9}
+html[data-t="dark"] .mini.lv-err{color:#fda29b}
 html[data-t="dark"] .payls{border-color:#2b3541}
 html[data-t="dark"] .payls-when{color:#9dabb9}
 html[data-t="dark"] .payls-wrap>summary{color:#7bc496}
@@ -3602,6 +3604,20 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   /* 🚪 (2026-09-29) 버튼이 쥔 줄은 «그린 순간» 의 사본이다. 누르는 순간 최신 DATA 에서
      같은 수업(schedule_id)을 다시 찾아 그 room_id 를 쓴다 — 그리지 않은 사이 방이 바뀌어도
      옛 방으로 가지 않게. 못 찾으면(옛 캐시·안내 줄) 받은 줄 그대로 = 고치기 전과 같다. */
+  /* 🎚 레벨을 정한 뒤 — 같은 학생이 보이는 모든 줄(오늘·앞으로 7일·주간)의 레벨을 함께 바꾸고 다시 그린다.
+     ⚠️ 학생 아이디 «정확일치» 로만(Kim/kim 은 다른 계정). 이미 떠난 화면 읽기는 버린다(WK_READ++). */
+  function setLevelOnScreen(c, level){
+    var uid = String((c && c.student_uid) || '');
+    if (!uid) return;
+    if (c) c.level = level;
+    function fix(list){ (list || []).forEach(function(x){ if (x && String(x.student_uid || '') === uid) x.level = level; }); }
+    if (DATA){ fix(DATA.classes); fix(DATA.upcoming); }
+    if (WK_DATA && Array.isArray(WK_DATA.days)) WK_DATA.days.forEach(function(d){ fix(d && d.items); });
+    WK_READ++;
+    lastSig = null;
+    if (DATA) renderClasses(DATA.classes || [], true);
+    if (WK_DATA) renderWeek(WK_DATA);
+  }
   function freshClass(c){
     if (!c || !c.schedule_id || !DATA || !Array.isArray(DATA.classes)) return c;
     for (var i = 0; i < DATA.classes.length; i++){
@@ -4628,13 +4644,40 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         : T('on time', '정시');
       return T('Entry record: joined', '입장 기록:') + (autoAtt.at ? ' ' + hhmm(autoAtt.at) + T('', ' 입장') : '') + ' (' + how + ')' + tail;
     }
+    /* 🎚 (2026-10-27 사장님 「강사가 일지에서 레벨을 직접 입력하게 해줘」) 학생 레벨 — 고르면 «곧바로» 저장한다.
+       일지 «보내기» 와 따로 저장하는 이유: 레벨은 이 일지가 아니라 «학생» 의 값이라 다른 화면(판단력 훈련·오늘의 학습)도
+       함께 읽는다. 저장 정본은 서버 src/teacher-student-level.ts(Lv 1~34 만 · 변경 기록 · 이 강사의 학생만).
+       목록은 서버가 내려준 DATA.level_scale 로만 그린다 — 없으면(옛 응답) 예전처럼 글자만 보여 준다. */
+    var lvScale = (DATA && Array.isArray(DATA.level_scale)) ? DATA.level_scale : [];
+    var lvCur = String(c.level || '').trim();
+    var lvEditable = lvScale.length > 0 && !!c.student_uid;
+    function levelPicker(){
+      var known = false, groups = '', i, n, v, sc;
+      for (i = 0; i < lvScale.length; i++){
+        sc = lvScale[i];
+        groups += '<optgroup label="' + esc(T(sc.en, sc.ko) + ' (Lv ' + sc.from + '–' + sc.to + ')') + '">';
+        for (n = Number(sc.from); n <= Number(sc.to); n++){
+          v = 'Lv ' + n;
+          if (v === lvCur) known = true;
+          groups += '<option value="' + v + '"' + (v === lvCur ? ' selected' : '') + '>' + v + '</option>';
+        }
+        groups += '</optgroup>';
+      }
+      // 목록에 없는 지금 값(옛 표기 등)은 지우지 않고 «지금 값» 으로 맨 위에 보여 준다 — 고르기 전에는 아무것도 안 바뀐다.
+      var head = known ? '' : '<option value="" selected>'
+        + esc(lvCur ? lvCur + T(' (current)', ' (지금 값)') : T('Not set — choose a level', '미등록 — 레벨을 골라 주세요')) + '</option>';
+      return '<select id="ev-lv">' + head + groups + '</select>';
+    }
     var mask = document.createElement('div');
     mask.className = 'mask';
     mask.innerHTML =
       '<div class="modal" role="dialog" aria-modal="true">'
       + '<h3>' + esc(T('Class Log','수업 일지')) + '</h3>'
       + '<p class="sub">' + esc((c.class_date || c.date || DATA.today) + ' · ' + stuLabelText(c, T('(name not set)','(이름 미등록)')) + ' · ' + MangoiClassDisplay.range(c)) + '</p>'
-      + '<p class="sub feedback-level"><b>' + esc(T('Student level','학생 레벨')) + '</b>: ' + esc(c.level || T('Not set','미등록')) + '</p>'
+      + (lvEditable
+          ? '<div class="fld feedback-level"><label for="ev-lv">' + esc(T('Student level — pick to change (saved right away)','학생 레벨 — 고르면 바로 저장돼요')) + '</label>'
+            + levelPicker() + '<div class="mini" id="ev-lv-msg" aria-live="polite"></div></div>'
+          : '<p class="sub feedback-level"><b>' + esc(T('Student level','학생 레벨')) + '</b>: ' + esc(c.level || T('Not set','미등록')) + '</p>')
       + '<div class="fld"><label>' + esc(T('Class status — tap to confirm or change','수업 출결 — 눌러서 확인하거나 바꿔요')) + '</label><div id="ev-att">'
       +   attChip('attended', '✅', T('Attended','출석'))
       +   attChip('late',     '⏰', T('Late','지각'))
@@ -4706,6 +4749,51 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       var el = attBox.querySelector('[data-att].on');
       return el ? el.getAttribute('data-att') : '';
     }
+
+    // 🎚 레벨 고르기 — 저장이 끝나기 전에는 다시 못 고르고(칸을 잠금), «보내기» 도 기다리게 한다
+    //   (일지 서버가 저장 순간의 레벨을 사진으로 남기므로 순서가 뒤집히면 옛 레벨이 찍힌다).
+    var lvSel = mask.querySelector('#ev-lv'), lvSaving = false;
+    function lvSay(err, txt){
+      var m = mask.querySelector('#ev-lv-msg');
+      if (!m) return;
+      m.className = 'mini' + (err ? ' lv-err' : '');
+      m.textContent = txt;
+    }
+    function lvErrText(code){
+      if (code === 'not_your_student') return T('This student is not in your class list — please ask the office.', '내 수업 학생이 아니라 바꿀 수 없어요 — 본사에 알려 주세요.');
+      if (code === 'not_found') return T('This student is not in the student list — please ask the office.', '학생 명부에 없어 저장하지 못했어요 — 본사에 알려 주세요.');
+      if (code === 'bad_level') return T('That level cannot be chosen.', '고를 수 없는 레벨이에요.');
+      if (code === 'auth_required') return T('Please log in again.', '다시 로그인해 주세요.');
+      return T('Not saved — check your connection and pick again.', '저장하지 못했어요 — 연결을 확인하고 다시 골라 주세요.');
+    }
+    if (lvSel) lvSel.onchange = function(){
+      var want = lvSel.value;
+      if (!want || lvSaving) return;            // «지금 값»·«미등록» 줄은 고르는 값이 아니다
+      var before = lvCur;
+      lvSaving = true;
+      lvSel.disabled = true;
+      lvSay(false, T('Saving the level…', '레벨을 저장하는 중…'));
+      fetch('/api/teacher/portal?part=level', { method:'POST', credentials:'include', signal:AbortSignal.timeout(20000),
+        headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ student_uid: c.student_uid, level: want }) })
+        .then(function(r){ return r.json().catch(function(){ return null; }); })
+        .then(function(j){
+          if (!j || j.ok !== true || !j.level) throw (j || {});
+          lvCur = j.level;
+          setLevelOnScreen(c, j.level);
+          var head = lvSel.querySelector('option[value=""]');
+          if (head) head.parentNode.removeChild(head);   // 한 번 정하면 «미등록» 줄은 더 이상 사실이 아니다
+          lvSel.value = j.level;
+          lvSay(false, '✅ ' + T('Saved: ', '저장했어요: ') + j.level
+            + (j.previous && j.previous !== j.level ? T(' (was ', ' (전: ') + j.previous + ')' : ''));
+        })
+        .catch(function(e){
+          // 저장이 안 됐으면 칸도 옛 값으로 되돌린다 — «바뀐 것처럼» 보이면 안 된다.
+          lvSel.value = before;
+          if (lvSel.value !== before) lvSel.value = '';
+          lvSay(true, '⚠️ ' + lvErrText(e && e.error));
+        })
+        .then(function(){ lvSaving = false; lvSel.disabled = false; });
+    };
 
     // 칩 토글 — 눌린 것만 서버로 간다(빈 칸을 채우게 하지 않기 위한 장치다).
     var chipBox = mask.querySelector('#ev-chips');
@@ -4800,6 +4888,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     mask.querySelector('#ev-ok').onclick = function(){
       var btn = this;
       if (logSaving) return;
+      if (lvSaving){ say('warn', T('The level is still saving — tap Send again in a moment.', '레벨을 저장하는 중이에요 — 잠시 뒤 「보내기」를 다시 눌러 주세요.')); return; }
       var ko  = (mask.querySelector('#ev-ko').value || '').trim();
       var en  = (mask.querySelector('#ev-en').value || '').trim();
       var raw = mask.querySelector('#ev-raw').value.trim();
