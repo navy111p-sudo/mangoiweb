@@ -649,7 +649,7 @@
       + 'style="cursor:pointer;user-select:none;white-space:nowrap' + (on ? ';color:#1d4ed8' : '') + '">'
       + label + '<span aria-hidden="true" style="margin-left:3px;font-size:10px;opacity:' + (on ? '1' : '.4') + '">' + ar + '</span></th>';
   }
-  var _contactSrc = '';   // 서버가 준 연락처 근거('retention' | 'restricted')
+  var _contactSrc = '';   // 서버가 준 연락처 근거('lookup' | 'failed' | 'restricted') — 2026-10-27 전에는 'retention'
   var _holiday = null;    // 🎌 서버가 준 휴강일 정보 {name, closed} — 평일이면 null
 
   /* 🔎 (2026-09-01 사장님 요청) 「카페24 수업」과 「우리가 새로 넣은 수업」 가르기 + 검색.
@@ -866,10 +866,17 @@
       return T('☎ 연락처는 본사 계정에서만 보입니다.',
                'Contact numbers are visible to HQ accounts only.');
     }
-    return T('☎ 연락처 ' + missing + '/' + total + '건이 «—» 입니다 — 학생 명부에는 번호가 저장돼 있지 않고, '
-           + '«관리 대상(만료·휴면)» 명단에 오른 학생만 번호가 있습니다.',
-             '☎ ' + missing + ' of ' + total + ' have no number — the student roster stores no phone numbers; '
-           + 'only students on the at-risk (expiring/inactive) list have one.');
+    /* ☎ (2026-10-27) 조회가 실패했으면 «없다» 가 아니라 «확인 못 함» — 같은 글자로 말하지 않는다 */
+    if (_contactSrc === 'failed') {
+      return T('☎ 지금 연락처를 확인하지 못했습니다 — 잠시 뒤 새로고침해 주세요.',
+               '☎ Could not check contact numbers right now — please refresh in a moment.');
+    }
+    if (_contactSrc !== 'lookup') return '';
+    /* 문구는 강사 화면(teacher.html contactNoteHtml)·manager.html 과 같은 말 — 번호 원천도 같은 정본(loadContactPhones) */
+    return T('☎ 연락처 ' + missing + '/' + total + '건이 «—» 입니다 — 학생 명부에는 번호가 거의 없어, '
+           + '주로 «관리 대상(만료·휴면)» 학생이나 직원이 학생 상세에 넣은 번호만 보입니다.',
+             '☎ ' + missing + ' of ' + total + ' have no number — the student roster has almost no phone numbers; '
+           + 'mostly only at-risk (expiring/inactive) students or numbers saved by staff in the student profile show here.');
   }
 
   /* 📚 (2026-09-08 사장님 요청) «교재 미배정» 이 몇 건인지 목록 위에서 한 번 말하고,
@@ -1419,7 +1426,7 @@
         throw new Error((d && d.error) || 'load_failed');
       }
       /* ☎️ 연락처 근거는 서버 말을 그대로 받는다(모르면 빈 값 → 안내를 안 그린다) */
-      _contactSrc = (d.contact_source === 'retention' || d.contact_source === 'restricted') ? d.contact_source : '';
+      _contactSrc = (d.contact_source === 'lookup' || d.contact_source === 'failed' || d.contact_source === 'restricted') ? d.contact_source : '';
       /* 🎌 휴강일 정보도 서버 말 그대로(평일이면 null) */
       _holiday = (d.holiday && typeof d.holiday === 'object') ? d.holiday : null;
       /* 지금 들어갈 수 있는 수업을 맨 위로 — 급할 때 위만 보면 되도록 */
