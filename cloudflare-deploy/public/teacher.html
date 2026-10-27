@@ -4292,9 +4292,13 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var h = '';
     items.slice(0, 40).forEach(function(it){
       var txt = EN() ? (it.note_en || it.note_ko || '') : (it.note_ko || it.note_en || '');
+      // 🗓 (2026-10-27) 일지에 적은 출결·레벨 — 옛 일지(칸 없음)는 아무것도 안 그린다.
+      var att = { attended:['✅','Attended','출석'], late:['⏰','Late','지각'], absent:['❌','Absent','결석'] }[it.attendance_status];
       h += '<div class="draft" style="border-color:#e4e9ee">'
         +   '<div class="cls-name">' + esc(it.student_name || '-')
         +     ' <span class="cls-meta">' + esc(it.lesson_date || '')
+        +       (att ? ' · ' + att[0] + ' ' + esc(T(att[1], att[2])) : '')
+        +       (it.student_level ? ' · ' + esc(T('Level: ', '레벨: ') + it.student_level) : '')
         +       (it.score_overall != null ? ' · ⭐ ' + esc(String(it.score_overall)) + '/5' : '')
         +     '</span></div>'
         +   (txt ? '<div class="draft-txt">' + esc(txt) + '</div>' : '')
@@ -4605,13 +4609,37 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   }
 
   function openEval(c){
+    /* 🗓 (2026-10-27 사장님 요청 4번) 수업 출결 — 출석·지각·결석.
+       서버의 입장 기록 판정(c.attendance, 정본 src/class-today-extras.ts)이 셋 중 하나면 미리 골라 두고,
+       강사가 눌러 확인하거나 바꾼다. 판정이 없거나 «확인 불가·대기» 면 고르지 않은 채로 둔다(지어내지 않는다).
+       저장은 /api/eval/manual-create 의 attendance_status — 서버 정본 src/eval-attendance.ts. */
+    var autoAtt = c.attendance || null;
+    var attPre = (autoAtt && ['attended', 'late', 'absent'].indexOf(autoAtt.state) >= 0) ? autoAtt.state : '';
+    function attChip(key, icon, label){
+      var on = attPre === key;
+      return '<button type="button" class="tchip' + (on ? ' on' : '') + '" data-att="' + key + '" aria-pressed="' + on + '">' + icon + ' ' + esc(label) + '</button>';
+    }
+    function attHint(){
+      if (!attPre) return T('No entry record to go by — please choose.', '입장 기록으로 정할 수 없어요 — 직접 골라 주세요.');
+      var tail = T(' — pre-selected. Change it if wrong.', ' — 미리 골랐어요. 틀리면 바꿔 주세요.');
+      if (attPre === 'absent') return T('Entry record: no entry', '입장 기록: 입장 없음') + tail;
+      var how = attPre === 'late'
+        ? (autoAtt.late_min != null ? '+' + autoAtt.late_min + T(' min', '분') : T('late', '지각'))
+        : T('on time', '정시');
+      return T('Entry record: joined', '입장 기록:') + (autoAtt.at ? ' ' + hhmm(autoAtt.at) + T('', ' 입장') : '') + ' (' + how + ')' + tail;
+    }
     var mask = document.createElement('div');
     mask.className = 'mask';
     mask.innerHTML =
       '<div class="modal" role="dialog" aria-modal="true">'
       + '<h3>' + esc(T('Class Log','수업 일지')) + '</h3>'
       + '<p class="sub">' + esc((c.class_date || c.date || DATA.today) + ' · ' + stuLabelText(c, T('(name not set)','(이름 미등록)')) + ' · ' + MangoiClassDisplay.range(c)) + '</p>'
-      + '<p class="sub feedback-level">' + esc(T('Student level','학생 레벨')) + ': ' + esc(c.level || T('Not set','미등록')) + '</p>'
+      + '<p class="sub feedback-level"><b>' + esc(T('Student level','학생 레벨')) + '</b>: ' + esc(c.level || T('Not set','미등록')) + '</p>'
+      + '<div class="fld"><label>' + esc(T('Class status — tap to confirm or change','수업 출결 — 눌러서 확인하거나 바꿔요')) + '</label><div id="ev-att">'
+      +   attChip('attended', '✅', T('Attended','출석'))
+      +   attChip('late',     '⏰', T('Late','지각'))
+      +   attChip('absent',   '❌', T('Absent','결석'))
+      + '</div><div class="mini" id="ev-att-auto">' + esc(attHint()) + '</div></div>'
       + '<div class="fld"><label>' + esc(T('Level group (tap to set or change)','수준 그룹 (눌러서 정하거나 바꿔요')) + '</label><div id="ev-band">'
       +   bandChip('sprout', '🌱', T('Sprout','새싹'), c.eval_band)
       +   bandChip('grow',   '🌿', T('Grow','자람'), c.eval_band)
@@ -4662,6 +4690,21 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     function chosenBand(){
       var el = bandBox.querySelector('[data-band].on');
       return el ? el.getAttribute('data-band') : '';
+    }
+
+    // 🗓 출결 토글 — 밴드와 같은 규칙(하나만 · 켜진 것을 다시 누르면 «고르지 않음»).
+    var attBox = mask.querySelector('#ev-att');
+    attBox.onclick = function(ev){
+      var b = ev.target.closest ? ev.target.closest('[data-att]') : null;
+      if (!b) return;
+      var already = b.className.indexOf('on') >= 0;
+      var all = attBox.querySelectorAll('[data-att]');
+      for (var i=0;i<all.length;i++){ all[i].className = 'tchip'; all[i].setAttribute('aria-pressed', 'false'); }
+      if (!already){ b.className = 'tchip on'; b.setAttribute('aria-pressed', 'true'); }
+    };
+    function chosenAtt(){
+      var el = attBox.querySelector('[data-att].on');
+      return el ? el.getAttribute('data-att') : '';
     }
 
     // 칩 토글 — 눌린 것만 서버로 간다(빈 칸을 채우게 하지 않기 위한 장치다).
@@ -4788,6 +4831,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         score_comprehension: pick(mask,'comprehension'),
         score_speaking: pick(mask,'speaking'),
         band: chosenBand() || undefined,
+        attendance_status: chosenAtt() || undefined,   // 🗓 출석·지각·결석 — 안 고르면 안 보낸다(서버가 null)
         note_en: en || raw,
         note_ko: ko,
         chips: chosenChips(),
