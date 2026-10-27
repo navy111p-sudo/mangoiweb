@@ -4656,7 +4656,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         : T('on time', '정시');
       return T('Entry record: joined', '입장 기록:') + (autoAtt.at ? ' ' + hhmm(autoAtt.at) + T('', ' 입장') : '') + ' (' + how + ')' + tail;
     }
-    /* 🎚 (2026-10-27 사장님 「강사가 일지에서 레벨을 직접 입력하게 해줘」) 학생 레벨 — 고르면 «곧바로» 저장한다.
+    /* 🎚 (2026-10-27 사장님 「강사가 일지에서 레벨을 직접 입력하게 해줘」) 학생 레벨 — 고르면 한 번 묻고(확인창) 저장한다.
        일지 «보내기» 와 따로 저장하는 이유: 레벨은 이 일지가 아니라 «학생» 의 값이라 다른 화면(판단력 훈련·오늘의 학습)도
        함께 읽는다. 저장 정본은 서버 src/teacher-student-level.ts(Lv 1~34 만 · 변경 기록 · 이 강사의 학생만).
        목록은 서버가 내려준 DATA.level_scale 로만 그린다 — 없으면(옛 응답) 예전처럼 글자만 보여 준다. */
@@ -4687,7 +4687,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       + '<h3>' + esc(T('Class Log','수업 일지')) + '</h3>'
       + '<p class="sub">' + esc((c.class_date || c.date || DATA.today) + ' · ' + stuLabelText(c, T('(name not set)','(이름 미등록)')) + ' · ' + MangoiClassDisplay.range(c)) + '</p>'
       + (lvEditable
-          ? '<div class="fld feedback-level"><label for="ev-lv">' + esc(T('Student level — pick to change (saved right away)','학생 레벨 — 고르면 바로 저장돼요')) + '</label>'
+          ? '<div class="fld feedback-level"><label for="ev-lv">' + esc(T('Student level — pick to change (asks before saving)','학생 레벨 — 고르면 한 번 묻고 저장해요')) + '</label>'
             + levelPicker() + '<div class="mini" id="ev-lv-msg" aria-live="polite"></div></div>'
           : '<p class="sub feedback-level"><b>' + esc(T('Student level','학생 레벨')) + '</b>: ' + esc(c.level || T('Not set','미등록')) + '</p>')
       + '<div class="fld"><label>' + esc(T('Class status — tap to confirm or change','수업 출결 — 눌러서 확인하거나 바꿔요')) + '</label><div id="ev-att">'
@@ -4782,6 +4782,22 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       var want = lvSel.value;
       if (!want || lvSaving) return;            // «지금 값»·«미등록» 줄은 고르는 값이 아니다
       var before = lvCur;
+      /* 🎚 저장 «전» 에 한 번 묻는다(2026-10-27 사장님 「2번 확인창 넣어줘」) — 잘못 고른 한 번이 곧바로 원부에
+         쓰이고, 학생이 다음에 판단력 훈련을 열 때 그 레벨로 다시 시작(모드·나이대 기본값)하기 때문.
+         ⚠️ 초기화는 «저장할 때» 가 아니라 «학생이 다음에 열 때» 일어난다 — 그 사이 원래 값으로 되돌리면 안 일어난다.
+         그래서 문구도 «다음에 열 때» 라고 말한다(실제보다 더 경고하는 쪽만 남음). 취소하면 칸만 되돌리고 요청은 안 나간다.
+         4주 목표 고르기(.cls-goal select)와 같은 window.confirm 방식. */
+      var who = stuLabelText(c, '');
+      var askMsg = T('Change this student\'s level?', '이 학생의 레벨을 바꿀까요?')
+        + (who ? '\n' + who : '')
+        + '\n\n' + (before || T('Not set', '미등록')) + '  →  ' + want
+        + '\n\n' + T('Next time the student opens Judgment training, it restarts at this level (the student\'s chosen mode and age group, e.g. adult, go back to default).',
+                       '학생이 다음에 판단력 훈련을 열 때 이 레벨부터 다시 시작해요(학생이 고른 모드·나이대(예: 성인)는 기본값으로 돌아가요).');
+      if (!window.confirm(askMsg)){
+        lvSel.value = before;
+        if (lvSel.value !== before) lvSel.value = '';
+        return;
+      }
       lvSaving = true;
       lvSel.disabled = true;
       lvSay(false, T('Saving the level…', '레벨을 저장하는 중…'));

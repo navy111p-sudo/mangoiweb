@@ -272,6 +272,8 @@ function makeSelect(html) {
   const sel = {
     disabled: false, onchange: null, opts, groups,
     get value() { return idx >= 0 && opts[idx] ? opts[idx].value : ''; },
+    // 실제 select 처럼 «아무것도 안 골라짐»(-1)과 «값이 빈 줄(미등록·지금 값)이 골라짐» 을 가른다 — value 만 보면 둘 다 ''.
+    get selectedIndex() { return idx; },
     set value(v) { idx = opts.findIndex((o) => o.value === String(v)); },
     querySelector(s) {
       if (s !== 'option[value=""]') return null;
@@ -302,10 +304,11 @@ function makeMask() {
   return mask;
 }
 let lang = 'en', mask = null, calls = [], levelMode = 'ok', levelResp = null, release = null, renders = 0, weekRenders = 0;
+let confirmAnswer = true, confirms = [];   // window.confirm 대역 — 묻는 글자를 적고, 정해 둔 답을 돌려준다
 const body = { appendChild(m) { m.parentNode = body; }, removeChild(m) { m.parentNode = null; } };
 const ctx = {
   Date, Number, String, Array, AbortSignal, Event, JSON, Promise, Error,
-  window: { addEventListener() {} },
+  window: { addEventListener() {}, confirm: (m) => { confirms.push(String(m)); return confirmAnswer; } },
   T: (en, ko) => (lang === 'en' ? en : ko), EN: () => lang === 'en',
   esc: (x) => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
   hhmm: () => '12:31',
@@ -335,7 +338,7 @@ try {
       classes: [c, { kind: 'class', student_uid: 'kim01', level: 'Lv 5', schedule_id: 2 }, { kind: 'class', student_uid: 'Kim01', level: 'Lv 1' }],
       upcoming: [{ kind: 'class', student_uid: 'kim01', level: 'Lv 5' }] };
     ctx.WK_DATA = { days: [{ items: [{ student_uid: 'kim01', level: 'Lv 5' }, { student_uid: 'other', level: 'Lv 2' }] }] };
-    calls = []; levelMode = 'ok'; renders = 0; weekRenders = 0; ctx.lastSig = 'x';
+    calls = []; levelMode = 'ok'; renders = 0; weekRenders = 0; ctx.lastSig = 'x'; confirmAnswer = true; confirms = [];
     return c;
   };
   const sendLog = async () => { await mask.querySelector('#ev-ok').onclick.call({ disabled: false, textContent: '' }); await tick(); };
@@ -349,7 +352,7 @@ try {
   ok(sel && sel.groups.length === SCALE.length && sel.opts.length === SCALE[SCALE.length - 1].to, `  묶음 ${SCALE.length}개 · 레벨 ${SCALE.length ? SCALE[SCALE.length - 1].to : '?'}개`);
   ok(sel && sel.value === 'Lv 5' && !sel.opts.some((o) => o.value === ''), '  지금 값(Lv 5)이 골라져 있고 «미등록» 줄은 없다');
   ok(sel && /Starter \(Lv 1–4\)/.test(sel.groups[0]), '  묶음 이름에 Lv 구간이 붙는다(Starter (Lv 1–4))');
-  ok(/Student level — pick to change/.test(mask.innerHTML) && /id="ev-lv-msg"/.test(mask.innerHTML), '  안내 라벨과 결과 줄 자리');
+  ok(/Student level — pick to change \(asks before saving\)/.test(mask.innerHTML) && /id="ev-lv-msg"/.test(mask.innerHTML), '  안내 라벨과 결과 줄 자리');
   c = fresh({ level: null }); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
   ok(sel && sel.value === '' && sel.opts[0].value === '' && /Not set — choose a level/.test(sel.opts[0].text), '레벨이 없으면 «Not set — choose a level» 이 골라져 있다');
   c = fresh({ level: '<img src=x>' }); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
@@ -379,6 +382,58 @@ try {
   levelResp = { ok: true, level: 'Lv 3', previous: null };
   sel.pick('Lv 3'); await tick();
   ok(sel.value === 'Lv 3' && !sel.opts.some((o) => o.value === '') && /✅ Saved: Lv 3$/.test(msg().textContent), '미등록 → Lv 3: «미등록» 줄이 사라지고 «(was …)» 는 안 붙는다');
+
+  // D-2b 확인창 — 저장 «전» 에 한 번 묻는다(2026-10-27 사장님 「2번 확인창 넣어줘」)
+  //   «묻는다» 와 «취소하면 아무것도 안 나간다» 를 짝으로 본다 — 앞만 보면 «묻기만 하고 그냥 저장» 이 통과하고,
+  //   뒤만 보면 «확인창을 통째로 빼기» 가 통과한다.
+  c = fresh(); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
+  levelResp = { ok: true, level: 'Lv 12', previous: 'Lv 5' };
+  sel.pick('Lv 12'); await tick();
+  ok(confirms.length === 1, '고르면 저장 전에 확인창을 한 번 띄운다');
+  ok(confirms[0] && /Change this student's level\?/.test(confirms[0]) && /\nKim\n/.test(confirms[0]) && /Lv 5 {2}→ {2}Lv 12/.test(confirms[0]),
+     '  묻는 글자: 누구의(Kim) · 무엇에서 무엇으로(Lv 5 → Lv 12)');
+  ok(confirms[0] && /Next time the student opens Judgment training, it restarts at this level/.test(confirms[0]) && /mode and age group, e\.g\. adult, go back to default/.test(confirms[0]),
+     '  판단력 훈련이 «다음에 열 때» 다시 시작된다(모드·나이대 기본값)는 사실을 함께 말한다');
+  ok(calls.some((x) => x.url === '/api/teacher/portal?part=level'), '  «확인» 이면 저장 요청이 나간다');
+  // 취소 — 요청 0 · 칸 되돌림 · 안내 줄 그대로 · 화면 값 그대로
+  c = fresh(); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
+  const msgBefore = msg().textContent;
+  confirmAnswer = false;
+  sel.pick('Lv 20'); await tick();
+  ok(confirms.length === 1 && !calls.some((x) => x.url === '/api/teacher/portal?part=level'), '«취소» 면 저장 요청이 한 건도 안 나간다');
+  ok(sel.value === 'Lv 5' && sel.disabled === false && c.level === 'Lv 5' && renders === 0, '  칸을 지금 값(Lv 5)으로 되돌리고 잠그지 않는다 · 화면 값·목록 그대로');
+  ok(msg().textContent === msgBefore && !/lv-err/.test(msg().className), '  취소는 실패가 아니다 — 빨간 안내를 띄우지 않는다');
+  // 취소한 뒤 다시 고르면 다시 묻고, 이번엔 저장된다(취소가 칸을 잠그지 않는다)
+  confirmAnswer = true;
+  sel.pick('Lv 20'); await tick();
+  ok(confirms.length === 2 && calls.filter((x) => x.url === '/api/teacher/portal?part=level').length === 1, '  취소한 뒤 다시 고르면 다시 묻고 그때 저장한다');
+  // 미등록에서 — «Not set → Lv 3» · 취소하면 «미등록» 줄로 돌아간다
+  c = fresh({ level: null }); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
+  confirmAnswer = false;
+  sel.pick('Lv 3'); await tick();
+  ok(confirms[0] && /Not set {2}→ {2}Lv 3/.test(confirms[0]), '미등록이면 «Not set → Lv 3» 으로 묻는다');
+  ok(sel.value === '' && sel.opts[0].value === '' && !calls.some((x) => x.url === '/api/teacher/portal?part=level'), '  취소하면 «미등록» 줄로 돌아가고 요청 0');
+  // 목록에 없는 지금 값(옛 표기 'Lv 40') — 취소·실패하면 «Lv 40 (current)» 줄로 돌아가야 한다(빈 칸이 되면 안 된다).
+  //   value 만 보면 빈 칸(-1)도 '' 라서 못 가른다 — selectedIndex 로 «그 줄이 골라졌나» 를 본다.
+  c = fresh({ level: 'Lv 40' }); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
+  ok(sel && sel.selectedIndex === 0 && sel.opts[0].value === '' && /^Lv 40 \(current\)$/.test(sel.opts[0].text), '전제: 옛 표기 Lv 40 은 «Lv 40 (current)» 줄이 골라져 있다');
+  confirmAnswer = false;
+  sel.pick('Lv 7'); await tick();
+  ok(confirms[0] && /Lv 40 {2}→ {2}Lv 7/.test(confirms[0]), '  옛 표기에서도 «Lv 40 → Lv 7» 로 묻는다');
+  ok(sel.selectedIndex === 0 && !calls.some((x) => x.url === '/api/teacher/portal?part=level'), '  취소하면 «Lv 40 (current)» 줄로 돌아간다(빈 칸 아님) · 요청 0');
+  confirmAnswer = true; levelResp = { ok: false, error: 'db_error' };
+  sel.pick('Lv 7'); await tick();
+  ok(sel.selectedIndex === 0 && /lv-err/.test(msg().className), '  저장이 실패해도 «Lv 40 (current)» 줄로 돌아간다(빈 칸 아님)');
+  // 고르는 값이 아닌 줄·저장 중에는 묻지도 않는다
+  c = fresh({ level: null }); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
+  sel.pick(''); await tick();
+  ok(confirms.length === 0, '«미등록» 줄(빈 값)을 고르면 묻지도 않는다');
+  c = fresh(); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
+  levelMode = 'defer'; levelResp = { ok: true, level: 'Lv 9', previous: 'Lv 5' };
+  sel.pick('Lv 9'); await tick();
+  sel.pick('Lv 10'); await tick();
+  ok(confirms.length === 1, '저장 중에 다시 골라도 두 번째 확인창을 띄우지 않는다');
+  release(); await tick();
 
   // D-3 실패 — 되돌린다
   for (const [code, re] of [['not_your_student', /not in your class list/], ['not_found', /not in the student list/], ['bad_level', /cannot be chosen/], ['auth_required', /log in again/], ['db_error', /check your connection/]]) {
@@ -422,9 +477,11 @@ try {
   // D-5 한국어 화면
   lang = 'ko';
   c = fresh(); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
-  ok(/학생 레벨 — 고르면 바로 저장돼요/.test(mask.innerHTML) && sel && /첫걸음 \(Lv 1–4\)/.test(sel.groups[0]), '한국어 화면: 라벨·묶음 이름(첫걸음)');
+  ok(/학생 레벨 — 고르면 한 번 묻고 저장해요/.test(mask.innerHTML) && sel && /첫걸음 \(Lv 1–4\)/.test(sel.groups[0]), '한국어 화면: 라벨·묶음 이름(첫걸음)');
   levelResp = { ok: true, level: 'Lv 12', previous: 'Lv 5' }; sel.pick('Lv 12'); await tick();
   ok(/✅ 저장했어요: Lv 12 \(전: Lv 5\)/.test(msg().textContent), '한국어 화면: «✅ 저장했어요: Lv 12 (전: Lv 5)»');
+  ok(confirms[0] && /이 학생의 레벨을 바꿀까요\?/.test(confirms[0]) && /Lv 5 {2}→ {2}Lv 12/.test(confirms[0]) && /학생이 다음에 판단력 훈련을 열 때 이 레벨부터 다시 시작해요/.test(confirms[0]),
+     '한국어 화면: 확인창 «이 학생의 레벨을 바꿀까요?» · Lv 5 → Lv 12 · 판단력 훈련 안내');
   c = fresh({ level: null }); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
   ok(sel && /미등록 — 레벨을 골라 주세요/.test(sel.opts[0].text), '한국어 화면: «미등록 — 레벨을 골라 주세요»');
   levelResp = { ok: false, error: 'not_your_student' }; sel.pick('Lv 2'); await tick();
