@@ -35,6 +35,7 @@ const lessons = load(src('src/api-lessons.ts'), {
   './api-dubbing': dubbing,
   './evaluation-scores': scores,
   './evaluation-records': records,
+  './eval-attendance': load(src('src/eval-attendance.ts')),
   './api-util': { json },
   './site-url': { siteUrl: path => 'https://example.invalid' + path },
   './auth-token': {},
