@@ -176,6 +176,51 @@ html[data-t="dark"] .wk-jump input[type="date"]{background:#1b2330;border-color:
 .wk-i{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;padding:3px 0}
 .wk-i b{min-width:46px}
 .wk-none{font-size:12.5px;color:#9aa7b4}
+/* 📅 (2026-10-27) 전체 일정 — 주간/월간 전환 + 월 달력. 칸은 «색» 만 바뀐다(hover 확대 금지 규칙과 같은 결). */
+.wk-mode{display:flex;gap:6px;margin:0 0 10px}
+.wk-mode button{flex:1;min-height:44px;padding:8px 6px;border:1px solid #d7dee6;background:#fff;border-radius:8px;font-size:13.5px;font-weight:700;cursor:pointer;color:#334}
+.wk-mode button.on{background:#2563eb;border-color:#2563eb;color:#fff}
+.mo-head{display:flex;gap:6px;align-items:center;margin:0 0 10px}
+.mo-head button{min-height:44px;padding:8px 10px;border:1px solid #d7dee6;background:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;color:#334}
+.mo-head button.on{background:#2563eb;border-color:#2563eb;color:#fff}
+.mo-head b{flex:1;text-align:center;font-size:15px}
+.mo-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border:1px solid #d7dee6;border-radius:8px;overflow:hidden}
+.mo-h{padding:6px 2px;text-align:center;font-size:12px;font-weight:700;background:#f1f5f9;color:#475569;border-bottom:1px solid #d7dee6}
+.mo-h.sun,.mo-c.sun .mo-d{color:#dc2626}
+.mo-h.sat,.mo-c.sat .mo-d{color:#2563eb}
+.mo-c{min-height:92px;min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:2px;padding:4px;margin:0;border:0;border-right:1px solid #e6ebf1;border-bottom:1px solid #e6ebf1;border-radius:0;background:#fff;text-align:left;font:inherit;color:#16202c;cursor:pointer}
+.mo-c:nth-child(7n){border-right:0}
+.mo-c:hover{background:#f1f6ff}
+.mo-c.today{background:#fef9c3}
+.mo-c.hol{background:#fef2f2}
+.mo-blank,.mo-blank:hover{cursor:default;background:#fafbfc}
+.mo-d{font-size:13px;font-weight:700;display:flex;align-items:center;gap:4px}
+.mo-n{font-size:11px;font-weight:800;color:#fff;background:#2563eb;border-radius:9px;padding:0 6px;line-height:16px}
+.mo-hol{font-size:10.5px;font-weight:700;color:#b91c1c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mo-i{display:block;font-size:11px;line-height:1.3;padding:2px 4px;border-radius:4px;background:#eff6ff;border-left:3px solid #2563eb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mo-i.lt{background:#ecfdf5;border-color:#10b981}
+.mo-i.pp{background:#f1f5f9;border-color:#94a3b8;color:#64748b;text-decoration:line-through}
+.mo-i.hol{background:#fee2e2;border-color:#ef4444;color:#991b1b}
+.mo-i.dim{opacity:.55;background:#f8fafc;border-color:#cbd5e1}
+.mo-more{font-size:11px;color:#64748b;font-weight:700}
+.mo-tip,.cls-cnote{font-size:12.5px;line-height:1.45;color:#6b7783;margin:8px 0 0}
+.cls-cnote{margin:4px 0 8px}
+/* 폰: 칸이 45px 남짓이라 «12:3…» 으로 잘려 못 읽는다 → 날짜 + 수업 수 배지만 크게. 눌러서 그 날 목록을 본다(시각·이름은 거기). */
+@media (max-width:640px){.mo-c{min-height:54px;padding:4px 2px;align-items:center}.mo-i,.mo-more,.mo-hol{display:none}.mo-d{flex-direction:column;gap:3px;font-size:13px}.mo-n{font-size:12px;line-height:18px;padding:0 7px}.mo-head b{font-size:14px}}
+html[data-t="dark"] .wk-mode button,html[data-t="dark"] .mo-head button{background:#1b2330;border-color:#2c3949;color:#c9d4e0}
+html[data-t="dark"] .wk-mode button.on,html[data-t="dark"] .mo-head button.on{background:#2563eb;border-color:#2563eb;color:#fff}
+html[data-t="dark"] .mo-grid{border-color:#2c3949}
+html[data-t="dark"] .mo-h{background:#1b2330;color:#9dabb9;border-color:#2c3949}
+html[data-t="dark"] .mo-c{background:#141b24;color:#c9d4e0;border-color:#2a3542}
+html[data-t="dark"] .mo-c:hover{background:#1b2330}
+html[data-t="dark"] .mo-c.today{background:#3a3413}
+html[data-t="dark"] .mo-c.hol{background:#3a1d1d}
+html[data-t="dark"] .mo-blank{background:#10161e}
+html[data-t="dark"] .mo-i{background:#1e2a3d;color:#c9d4e0}
+html[data-t="dark"] .mo-i.lt{background:#123227}
+html[data-t="dark"] .mo-i.pp{background:#1b2330;color:#8a99a8}
+html[data-t="dark"] .mo-i.hol{background:#4a1f1f;color:#fecaca}
+html[data-t="dark"] .mo-tip,html[data-t="dark"] .cls-cnote{color:#9dabb9}
 html[data-t="dark"] .wk-nav button{background:#1b2330;border-color:#2c3949;color:#c9d4e0}
 html[data-t="dark"] .wk-day{border-color:#2a3542}
 .cls-meta{font-size:13px;color:#5d6b7a;margin-top:2px}
@@ -737,6 +782,9 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     <h2><span id="cls-title" data-en="Today's Classes" data-ko="오늘의 수업">Today's Classes</span> <small id="cls-count"></small><span id="cls-new"></span></h2>
     <div class="portal-filters" id="portal-tools">
       <label><span data-en="Date" data-ko="날짜">Date</span><select id="cls-day"></select></label>
+      <!-- 📅 (2026-10-27 강사 제안 «관리자 화면처럼 월 보기») 아래 «전체 일정» 접이칸을 월 달력으로 바로 연다. -->
+      <button type="button" class="tbtn" id="cls-month-open" style="align-self:flex-end;min-height:44px"
+              data-en="📅 Month view" data-ko="📅 월 달력">📅 Month view</button>
       <label><span data-en="Student name / ID" data-ko="학생 이름 / ID">Student name / ID</span><input id="portal-search" type="search" autocomplete="off"></label>
       <label><span data-en="Academy" data-ko="학원">Academy</span><select id="portal-academy"><option value="">All</option></select></label>
     </div>
@@ -777,7 +825,13 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     <!-- 📅 (2026-10-26) 옛 «내 주간 스케줄» 카드 — 합친 카드 안의 접이칸으로 옮겼다.
          평소엔 접혀 있어 오늘 목록 + 날짜 드롭다운만 보이고, 펼치면 주 이동·날짜 이동·주 전체 목록이 그대로 있다. -->
     <details class="cls-week" id="c-week" hidden>
-      <summary><span data-en="Full week view" data-ko="주간 전체 보기">Full week view</span> <small id="wk-range"></small></summary>
+      <summary><span data-en="Full schedule (week · month)" data-ko="전체 일정 (주간 · 월간)">Full schedule (week · month)</span> <small id="wk-range"></small></summary>
+      <!-- 📅 (2026-10-27) 주간/월간 전환 — 월간은 #mo-pane 이 따로 그리고 따로 불러온다(주간 코드는 그대로). -->
+      <div class="wk-mode" role="group" aria-label="Week / Month">
+        <button type="button" id="wk-mode-week" class="on" aria-pressed="true" data-en="Week" data-ko="주간">Week</button>
+        <button type="button" id="wk-mode-month" aria-pressed="false" data-en="Month" data-ko="월간">Month</button>
+      </div>
+      <div id="wk-pane">
       <div class="wk-nav">
         <button type="button" id="wk-prev" data-en="◀ Prev" data-ko="◀ 이전 주">◀ 이전 주</button>
         <button type="button" id="wk-this" class="on" data-en="This week" data-ko="이번 주">이번 주</button>
@@ -795,6 +849,18 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       </div>
       <div id="wk-error" class="warnline" role="status" hidden data-en="Could not load the selected week. The last loaded week is still shown. Tap Refresh to retry." data-ko="선택한 주를 불러오지 못했습니다. 마지막으로 불러온 주를 그대로 표시합니다. 새로고침을 눌러 다시 시도해 주세요.">Could not load the selected week. The last loaded week is still shown. Tap Refresh to retry.</div>
       <div id="week"></div>
+      </div>
+      <div id="mo-pane" hidden>
+        <div class="mo-head">
+          <button type="button" id="mo-prev" data-en="◀ Prev" data-ko="◀ 이전 달">◀ Prev</button>
+          <b id="mo-label"></b>
+          <button type="button" id="mo-this" data-en="This month" data-ko="이번 달">This month</button>
+          <button type="button" id="mo-next" data-en="Next ▶" data-ko="다음 달 ▶">Next ▶</button>
+        </div>
+        <div id="mo-error" class="warnline" role="status" hidden data-en="Could not load this month. Tap the month buttons or Refresh to retry." data-ko="이 달을 불러오지 못했습니다. 달 버튼이나 새로고침을 눌러 다시 시도해 주세요.">Could not load this month. Tap the month buttons or Refresh to retry.</div>
+        <div id="month"></div>
+        <div class="mo-tip" data-en="Times are Korea time (KST). Tap a day to open its classes above (enter, feedback, contact)." data-ko="시간은 한국 시간(KST)입니다. 날짜를 누르면 위 목록에 그 날 수업이 열립니다(입장·피드백·연락처).">Times are Korea time (KST). Tap a day to open its classes above (enter, feedback, contact).</div>
+      </div>
     </details>
   </div>
 
@@ -1556,7 +1622,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   function paintCached(){
     try {
       var raw = localStorage.getItem(CK) || 'null';
-      var c = JSON.parse(raw, function(key,value){ return key === 'student_phone' ? undefined : value; });
+      var c = JSON.parse(raw, function(key,value){ return (key === 'student_phone' || key === 'contacts_checked') ? undefined : value; });
       // Remove contact fields left by an older build, including expired caches.
       if (raw.indexOf('"student_phone"') >= 0) localStorage.setItem(CK, JSON.stringify(c));
       if (!c || c.today !== todayKST()) return false;
@@ -1577,7 +1643,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   function saveCache(d){
     try {
       d._skew = SKEW;
-      localStorage.setItem(CK, JSON.stringify(d, function(key,value){ return key === 'student_phone' ? undefined : value; }));
+      localStorage.setItem(CK, JSON.stringify(d, function(key,value){ return (key === 'student_phone' || key === 'contacts_checked') ? undefined : value; }));
     } catch (e) { /* 용량 초과 등은 무시 — 캐시는 있으면 좋은 것일 뿐 */ }
   }
 
@@ -2055,6 +2121,147 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   /* 📅 (2026-10-26 강사 제안) «다가오는 수업 (7일)» 카드를 뺐다 — 강사는 근무 전 매일 일정을 확인하므로
      오늘 수업만 보이면 된다. DATA.upcoming 은 «수업 연기 · 변경 요청» 카드가 계속 쓰므로 서버 응답은 그대로 둔다. */
 
+  /* 📅 (2026-10-27 강사 제안 «매니저 화면처럼 스케줄에 월 보기») «전체 일정» 접이칸의 주간/월간 전환.
+     서버 ?part=month&month=YYYY-MM(api-teacher.ts monthMode)이 주간과 «같은 판정»(hitsOn·calendarItemOf)으로
+     한 달을 펼쳐 준다 — 판정을 화면에 다시 적지 않는다.
+     달력 칸을 누르면 그 날을 위 «날짜» 목록으로 연다(pickClsDay — 입장·피드백·연락처가 있는 바로 그 목록).
+     ⚠️ 월 달력은 «언제 무슨 수업이 있나» 만 그린다(출결·연락처·평가는 날짜를 눌러 그 날 목록에서).
+     ⚠️ 접이칸이 열려 있을 때만 부른다 — 첫 화면 API 1회 계약(머리말 4번)을 깨지 않는다.
+     ⚠️ 주간 코드(renderWeek·loadWeek)는 건드리지 않는다 — 월간은 따로 그리고 따로 불러온다. */
+  var MO = { view: 'week', month: null, data: null, read: 0, err: false };
+  var MO_VIEW_KEY = 'mangoi_teacher_sched_view';
+  function moThisMonth(){ return clsToday().slice(0, 7); }
+  function moShift(ym, n){
+    var d = new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7) - 1 + n, 1));
+    return d.toISOString().slice(0, 7);
+  }
+  function moLabel(ym){
+    var y = +ym.slice(0, 4), m = +ym.slice(5, 7);
+    var EN_M = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    return EN() ? EN_M[m - 1] + ' ' + y : y + '년 ' + m + '월';
+  }
+  function moOpen(){ var c = document.getElementById('c-week'); return !!(c && c.open && !c.hidden); }
+  function setScheduleView(v, remember){
+    MO.view = v === 'month' ? 'month' : 'week';
+    var wp = document.getElementById('wk-pane'), mp = document.getElementById('mo-pane');
+    if (wp) wp.hidden = MO.view !== 'week';
+    if (mp) mp.hidden = MO.view !== 'month';
+    var rg = document.getElementById('wk-range');
+    if (rg) rg.hidden = MO.view !== 'week';   // 머리의 «(주 시작 ~ 끝)» 은 주간일 때만 맞는 말이다
+    [['wk-mode-week', 'week'], ['wk-mode-month', 'month']].forEach(function(p){
+      var b = document.getElementById(p[0]);
+      if (!b) return;
+      var on = p[1] === MO.view;
+      if (on) b.classList.add('on'); else b.classList.remove('on');
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    if (remember) { try { localStorage.setItem(MO_VIEW_KEY, MO.view); } catch (e) { /* 저장 못 해도 이번 화면은 그대로 */ } }
+    if (MO.view === 'month' && moOpen()) loadMonth(MO.month || moThisMonth());
+  }
+  function loadMonth(ym){
+    if (!/^\d{4}-\d{2}$/.test(String(ym || ''))) return;
+    MO.month = ym;
+    var req = ++MO.read;
+    MO.err = false;
+    renderMonth();   // 보이던 달은 그대로 두고(다른 달이면 «불러오는 중»)
+    fetch('/api/teacher/portal?part=month&month=' + ym, { credentials:'same-origin', cache:'no-store', headers:{ 'Accept':'application/json' } })
+      .then(function(r){
+        if (r.status === 401) { location.href = '/admin/login?next=%2Fteacher'; throw new Error('auth'); }
+        return r.json();
+      })
+      .then(function(d){
+        if (req !== MO.read) return;
+        if (!d || !d.ok || !d.month || d.month.month !== ym || !Array.isArray(d.month.days)) throw new Error('bad month');
+        MO.data = d.month;
+        renderMonth();
+      })
+      .catch(function(e){
+        if (req !== MO.read || (e && e.message === 'auth')) return;
+        MO.err = true;
+        renderMonth();
+        try { console.warn('[month] load failed:', e); } catch (_) {}
+      });
+  }
+  function moItemHtml(it){
+    var cls = it.status === 'holiday' ? ' hol' : (it.class_state === 'postponed' ? ' pp'
+      : (it.kind !== 'class' ? ' dim' : (it.is_level_test ? ' lt' : '')));
+    var who = it.kind !== 'class' ? T('(slot taken)', '(점유 슬롯)') : stuLabelText(it, T('(name not set)', '(이름 미등록)'));
+    var note = it.status === 'holiday' ? ' · ' + T('Holiday — no class', '공휴일 휴강')
+      : (it.class_state === 'postponed' ? ' · ' + T('Postponed', '연기됨') : (it.is_level_test ? ' · ' + T('Level test', '레벨테스트') : ''));
+    return '<span class="mo-i' + cls + '" title="' + esc(MangoiClassDisplay.range(it) + ' · ' + who + note) + '">'
+      + '<b>' + esc(MangoiClassDisplay.time(it.start_time)) + '</b> <span class="mo-who">' + esc(who) + '</span></span>';
+  }
+  function renderMonth(){
+    var box = document.getElementById('month');
+    if (!box) return;
+    var ym = MO.month || moThisMonth();
+    var lbl = document.getElementById('mo-label');
+    if (lbl) lbl.textContent = moLabel(ym);
+    var th = document.getElementById('mo-this');
+    if (th) { if (ym === moThisMonth()) th.classList.add('on'); else th.classList.remove('on'); }
+    var er = document.getElementById('mo-error');
+    if (er) er.hidden = !MO.err;
+    var d = (MO.data && MO.data.month === ym) ? MO.data : null;
+    if (!d) { box.innerHTML = MO.err ? '' : '<div class="empty">' + esc(T('Loading…', '불러오는 중…')) + '</div>'; return; }
+    var DOW = EN() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
+    var MAX = 4, h = '<div class="mo-grid">', cells = 0;
+    DOW.forEach(function(n, i){ h += '<div class="mo-h' + (i === 0 ? ' sun' : (i === 6 ? ' sat' : '')) + '">' + esc(n) + '</div>'; });
+    var lead = d.days.length ? d.days[0].dow : 0;
+    for (var b = 0; b < lead; b++, cells++) h += '<div class="mo-c mo-blank" aria-hidden="true"></div>';
+    d.days.forEach(function(day){
+      var items = day.items || [], real = 0, hol = '';
+      items.forEach(function(it){ if (it.kind === 'class') real++; if (!hol && it.holiday_name) hol = it.holiday_name; });
+      var cls = 'mo-c' + (day.is_today ? ' today' : '') + (day.dow === 0 ? ' sun' : (day.dow === 6 ? ' sat' : '')) + (hol ? ' hol' : '');
+      h += '<button type="button" class="' + cls + '" data-mo-day="' + esc(day.date) + '" aria-label="'
+        + esc(clsDayLabel(day.date, clsToday()) + ' · ' + T(real + ' class(es)', '수업 ' + real + '건')) + '">'
+        + '<span class="mo-d">' + (+day.date.slice(8)) + (real ? '<span class="mo-n">' + real + '</span>' : '') + '</span>'
+        + (hol ? '<span class="mo-hol">' + esc(hol) + '</span>' : '')
+        + items.slice(0, MAX).map(moItemHtml).join('')
+        + (items.length > MAX ? '<span class="mo-more">+' + (items.length - MAX) + '</span>' : '')
+        + '</button>';
+      cells++;
+    });
+    for (; cells % 7; cells++) h += '<div class="mo-c mo-blank" aria-hidden="true"></div>';
+    box.innerHTML = h + '</div>';
+  }
+  (function bindMonthView(){
+    var card = document.getElementById('c-week'), box = document.getElementById('month');
+    if (!card || !box) return;
+    try { if (localStorage.getItem(MO_VIEW_KEY) === 'month') setScheduleView('month'); } catch (e) { /* 기본은 주간 */ }
+    document.getElementById('wk-mode-week').addEventListener('click', function(){ setScheduleView('week', true); });
+    document.getElementById('wk-mode-month').addEventListener('click', function(){ setScheduleView('month', true); });
+    document.getElementById('mo-prev').addEventListener('click', function(){ loadMonth(moShift(MO.month || moThisMonth(), -1)); });
+    document.getElementById('mo-next').addEventListener('click', function(){ loadMonth(moShift(MO.month || moThisMonth(), 1)); });
+    document.getElementById('mo-this').addEventListener('click', function(){ loadMonth(moThisMonth()); });
+    // 접이칸을 «열 때» 처음 부른다(첫 화면 API 1회 계약) — 이미 받은 달이면 다시 안 부른다.
+    card.addEventListener('toggle', function(){
+      if (card.open && MO.view === 'month' && !(MO.data && MO.data.month === (MO.month || moThisMonth()))) loadMonth(MO.month || moThisMonth());
+    });
+    // 칸을 누르면 그 날을 위 목록으로 — 입장·피드백·연락처가 있는 «바로 그» 목록(새 화면을 만들지 않는다)
+    box.addEventListener('click', function(e){
+      var c = e.target.closest && e.target.closest('[data-mo-day]');
+      if (!c) return;
+      pickClsDay(c.getAttribute('data-mo-day'));
+      var top = document.getElementById('c-classes');
+      if (top && top.scrollIntoView) top.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+    // 날짜 옆 «📅 월 달력» — 접이칸을 열고 월간으로 바로
+    var open = document.getElementById('cls-month-open');
+    if (open) open.addEventListener('click', function(){
+      card.hidden = false;
+      setScheduleView('month', true);
+      if (!card.open) card.open = true;   // toggle 이벤트가 불러온다
+      else loadMonth(MO.month || moThisMonth());
+      if (card.scrollIntoView) card.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+    // 언어·시간 표시(12/24)·새로고침이 바뀌면 월 달력도 다시 — 동적으로 그린 칸은 applyLang 이 못 고친다.
+    var lang = document.getElementById('lang');
+    if (lang) lang.addEventListener('click', function(){ if (MO.view === 'month') renderMonth(); });
+    window.addEventListener('class-time-format', function(){ if (MO.view === 'month') renderMonth(); });
+    var rl = document.getElementById('reload');
+    if (rl) rl.addEventListener('click', function(){ if (MO.view === 'month' && moOpen()) loadMonth(MO.month || moThisMonth()); });
+  })();
+
   /* 📋 (2026-09-23 매니저 제안 «teacher.html 에도 같은 칸») 날짜·결제유형·일정·강사 입장·학생 출결·지난/오늘 평가.
      값은 서버 정본(src/class-today-extras.ts)이 판정해 내려준다 — 화면은 «고르기만» 한다.
      ⛔ 모르면 «—» · 지어내지 않는다. 옛 캐시 응답엔 칸이 없으니 그때는 아무것도 안 그린다.
@@ -2186,6 +2393,24 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       if(y===null) return -1;
       return direction * (x-y);
     });
+  }
+  /* ☎ (2026-10-27 강사 제안 «일부 학생 연락처가 여전히 안 보인다») 번호가 «왜» 비었는지 한 줄로 — 매니저 화면
+     (admin.html·manager.html 「오늘 수업」)과 같은 말. 번호는 서버 정본 loadContactPhones(notify-contacts.ts)가
+     ① 직원이 학생 상세에 넣은 번호 ② 학생 명부 ③ 이탈 위험(만료·휴면) 명단 순으로 찾는다 — 명부에는 번호가 거의 없다.
+     ⚠️ 서버가 «조회를 마쳤다»(contacts_checked)고 할 때만 말한다 — 캐시를 그린 순간엔 번호를 일부러 비워 두므로
+        그때 «번호 없음» 이라고 하면 거짓이다. ⚠️ 폰에는 hover 가 없어 title 이 아니라 보이는 줄로. */
+  function contactNoteHtml(list){
+    if (!DATA || !DATA.contacts_checked) return '';
+    var real = 0, missing = 0;
+    for (var i = 0; i < list.length; i++){
+      var c = list[i];
+      if (c.kind && c.kind !== 'class' || !stuUid(c)) continue;
+      real++; if (!c.student_phone) missing++;
+    }
+    if (!missing) return '';
+    return '<div class="cls-cnote">' + esc(T(
+      '☎ ' + missing + ' of ' + real + ' have no number — the student roster stores none; only at-risk (expiring/inactive) students or numbers saved by staff in the student profile show here.',
+      '☎ 연락처 ' + missing + '/' + real + '건이 «—» 입니다 — 학생 명부에는 번호가 없고, «관리 대상»(만료·휴면) 학생이나 직원이 학생 상세에 넣은 번호만 보입니다.')) + '</div>';
   }
   /* asParts=true 면 표 보기(classTableHtml)용 칸별 조각 {academy, contact, history} — 판정은 여기 한 곳. */
   function portalContact(c, asParts){
@@ -2538,12 +2763,15 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
               '오늘 망고아이 수업은 없습니다. 아래는 참고용 표시입니다.')) + '</div>';
     }
     h += clsChipsHtml(list, t);
+    h += contactNoteHtml(list);
 
     // ⚡ 60초마다 도는 tick 이 매번 innerHTML 을 통째로 갈아엎으면, 바뀐 게 없어도
     //   저사양 폰에서 DOM 재생성 + 리플로우가 일어나 화면이 한 번씩 '움찔'한다.
     //   실제로 바뀌는 건 (수업 상태 · 남은 분) 뿐이므로 그것만 지문으로 만들어 비교하고,
     //   같으면 아무것도 하지 않는다. 대부분의 tick 은 여기서 끝난다.
     var sig = LANG + '|';
+    // ☎ (2026-10-27) 연락처 «조회 완료» 도 지문에 — 캐시(번호를 일부러 비움)를 먼저 그린 뒤 서버 응답이 와도 안내 줄이 뜨게
+    sig += ((typeof DATA !== 'undefined' && DATA && DATA.contacts_checked) ? 'C' : '') + '|';
     for (var s=0;s<list.length;s++){
       var sc = list[s];
       var st = (t > sc.close_at_ts) ? 'done'

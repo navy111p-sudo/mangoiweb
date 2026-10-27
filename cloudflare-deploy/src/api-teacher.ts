@@ -38,6 +38,7 @@ import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인�
 import { loadActiveGoals, setStudentGoal, goalByKey, GOALS } from './student-goal';   // 🗓 4주 목표(2026-10-10)
 import { loadParentRequests, markParentRequestDone } from './parent-request';   // 👪 학부모 요청 반영(2026-10-10)
 import { loadTeacherStudentHistory, validHistoryDate } from './teacher-student-history';
+import { loadContactPhones } from './notify-contacts';   // ☎ 화면용 연락처 정본(2026-10-27) — 받아 둔 번호 → 명부 → 이탈위험 스냅샷
 
 interface TeacherEnv {
   DB: D1Database;
@@ -102,6 +103,14 @@ const resolveStudentName = (s: any): string | null => {
   return s.student_name || null;
 };
 
+/* 🎌 달력 줄(주간·월간)에 공휴일 휴강을 입힌다 — 판정 정본은 holiday-closure.ts, 여기는 «입히기» 한 곳.
+   연기된 회차는 이미 «안 열림» 이라 건드리지 않는다. 중국어 수업(예외 강사)은 isHolidayClosedFor 가 거른다. */
+function applyHolidayToItems(items: any[], holiday: any): void {
+  for (const it of items) if (it.class_state !== 'postponed' && isHolidayClosedFor(holiday, it.teacher_id)) {
+    it.status = 'holiday'; it.holiday_name = holiday.name;
+  }
+}
+
 export async function handleTeacherApi(
   request: Request,
   url: URL,
@@ -129,7 +138,16 @@ export async function handleTeacherApi(
    *  [건너뛰는 것] 공지·자료·평점 조회(D1 3회) · 매니저 블록(D1 2회, 오늘 전체 수업 스캔)
    *       · 학생 읽기밴드(KV). 즉 D1 왕복이 5회 줄고 본문이 수십 KB → 수백 B 가 된다.
    */
-  const onlyNext = url.searchParams.get('only') === 'next' || url.searchParams.get('part') === 'student_history';
+  /* 📅 `?part=month&month=YYYY-MM` — «월간 보기» 전용 경량 응답 (2026-10-27 강사 제안 «관리자 화면처럼 월 보기»).
+   *  ?only=next 와 같은 이유로 같은 경로에 얹는다 — 신원 판정(계정→강사원부)이 한 벌이어야 «남의 수업» 이 안 섞인다.
+   *  주간 스케줄과 «같은 행·같은 판정»(아래 hitsOn·calendarItemOf)으로 한 달을 펼칠 뿐, 오늘 목록의 무거운
+   *  보강(출결·평가·연락처·인수인계)은 하지 않는다(월 달력은 «언제 무슨 수업이 있나» 만 그린다). */
+  const monthParam = url.searchParams.get('part') === 'month' ? String(url.searchParams.get('month') || '').trim() : '';
+  const monthMode = url.searchParams.get('part') === 'month';
+  if (monthMode && !(/^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam) && Number(monthParam.slice(0, 4)) >= 2000)) {
+    return json({ ok: false, error: 'bad_month' }, 400);
+  }
+  const onlyNext = url.searchParams.get('only') === 'next' || url.searchParams.get('part') === 'student_history' || monthMode;
 
   // ── 신원: 쿠키 세션에서만 (클라이언트가 보내는 값은 일절 신뢰하지 않는다) ──
   const actor = await getAdminActor(request, env as any);
@@ -428,6 +446,16 @@ export async function handleTeacherApi(
     weekDow.push(d.getUTCDay());
   }
   const weekDays: any[] = weekDates.map((date, i) => ({ date, dow: weekDow[i], is_today: date === todayStr, items: [] as any[] }));
+  // 📅 월간 보기(?part=month) — 그 달의 날짜 칸. 월 보기가 아니면 비어 있어 아래 루프가 아무것도 안 한다.
+  const monthDays: any[] = [];
+  if (monthMode) {
+    const my = Number(monthParam.slice(0, 4)), mm0 = Number(monthParam.slice(5, 7)) - 1;
+    const last = new Date(Date.UTC(my, mm0 + 1, 0)).getUTCDate();
+    for (let d = 1; d <= last; d++) {
+      const date = `${monthParam}-${pad(d)}`;
+      monthDays.push({ date, dow: new Date(Date.UTC(my, mm0, d)).getUTCDay(), is_today: date === todayStr, items: [] as any[] });
+    }
+  }
   if (conds.length) {
     /* 🗓 (2026-08-19 Melca 8/19 제보 ①) 취소된 수업도 **받아는 온다.**
        예전엔 여기서 통째로 뺐다. 그런데 강사 입장에서는 «내 수업이 그냥 없어진» 것으로 보인다 —
@@ -520,6 +548,36 @@ export async function handleTeacherApi(
     };
 
 
+    /* 🗓 «이 수업이 그 날 열리나» · «달력 한 줄» — 주간 스케줄과 월간 보기가 **같은 함수**를 쓴다.
+       ⛔ 둘 중 한쪽에 판정을 다시 적지 말 것 — 화면마다 다른 답이 나온다. */
+    const hitsOn = (s: any, date: string, dow: number): boolean => s.scheduled_date
+      ? (String(s.scheduled_date).slice(0, 10) === date)
+      : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, dow) && recurStartedOn(s, date));
+    const calendarItemOf = (s: any, date: string, postponed: boolean): any => {
+      const [wh, wm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
+      return {
+        id: s.id,
+        schedule_id: s.id,
+        teacher_id: s.teacher_id,
+        date,
+        class_date: date,
+        room_id: 'class-' + s.id + '-' + date.replace(/-/g, ''),
+        start_ts: Date.parse(date + 'T' + pad(wh || 0) + ':' + pad(wm || 0) + ':00+09:00'),
+        class_state: postponed ? 'postponed' : undefined,
+        status: postponed ? 'postponed' : (date > todayStr ? 'early' : 'done'),
+        start_time: `${pad(wh || 0)}:${pad(wm || 0)}`,
+        duration_min: Number(s.duration_min) || 30,
+        level: s.level || null,
+        student_uid: studentUidOf(s),
+        student_name: s.student_name || s.student_en || null,
+        student_name_en: s.student_en || null,
+        kind: String(s.user_id || '').toLowerCase() === 'lms' ? 'lms'
+            : (String(s.user_id || '').toLowerCase() === 'type_seed' ? 'sample' : 'class'),
+        class_kind: classKindOf(s),
+        is_level_test: classKindOf(s) === 'level_test',
+      };
+    };
+
     const seen = new Set<number>();
     for (const s of (rows.results || [])) {
       /* 🗓 주간 스케줄 — 오늘/앞으로 판정과 «별개» 로 먼저 채운다.
@@ -529,34 +587,9 @@ export async function handleTeacherApi(
       const _cancelled = String(s.sched_status || '') === 'cancelled';
       /* Postponed occurrences remain visible in the weekly calendar, without join actions. */
       const _postponed = isPostponedOccurrence(s);
-      if (_cancelled) { /* cancelled schedules stay out of the timetable */ } else
-      for (let wi = 0; wi < 7; wi++) {
-        const hit = s.scheduled_date
-          ? (String(s.scheduled_date).slice(0, 10) === weekDays[wi].date)
-          : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, weekDays[wi].dow) && recurStartedOn(s, weekDays[wi].date));
-        if (!hit) continue;
-        const [wh, wm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
-        weekDays[wi].items.push({
-          id: s.id,
-          schedule_id: s.id,
-          teacher_id: s.teacher_id,
-          date: weekDays[wi].date,
-          class_date: weekDays[wi].date,
-          room_id: 'class-' + s.id + '-' + weekDays[wi].date.replace(/-/g, ''),
-          start_ts: Date.parse(weekDays[wi].date + 'T' + pad(wh || 0) + ':' + pad(wm || 0) + ':00+09:00'),
-          class_state: _postponed ? 'postponed' : undefined,
-          status: _postponed ? 'postponed' : (weekDays[wi].date > todayStr ? 'early' : 'done'),
-          start_time: `${pad(wh || 0)}:${pad(wm || 0)}`,
-          duration_min: Number(s.duration_min) || 30,
-          level: s.level || null,
-          student_uid: studentUidOf(s),
-          student_name: s.student_name || s.student_en || null,
-          student_name_en: s.student_en || null,
-          kind: String(s.user_id || '').toLowerCase() === 'lms' ? 'lms'
-              : (String(s.user_id || '').toLowerCase() === 'type_seed' ? 'sample' : 'class'),
-          class_kind: classKindOf(s),
-          is_level_test: classKindOf(s) === 'level_test',
-        });
+      if (!_cancelled) {   // cancelled schedules stay out of the timetable
+        for (const day of weekDays) if (hitsOn(s, day.date, day.dow)) day.items.push(calendarItemOf(s, day.date, _postponed));
+        for (const day of monthDays) if (hitsOn(s, day.date, day.dow)) day.items.push(calendarItemOf(s, day.date, _postponed));
       }
 
       if (seen.has(s.id)) continue;
@@ -962,10 +995,7 @@ export async function handleTeacherApi(
     for (const day of weekDays) {
       const real = day.items.filter((it: any) => it.kind === 'class');
       if (!real.length) continue;
-      const holiday = day.is_today ? _holiday : await loadHolidayClosure(env.DB, day.date);
-      for (const it of real) if (it.class_state !== 'postponed' && isHolidayClosedFor(holiday, it.teacher_id)) {
-        it.status = 'holiday'; it.holiday_name = holiday.name;
-      }
+      applyHolidayToItems(real, day.is_today ? _holiday : await loadHolidayClosure(env.DB, day.date));
       // Today's authoritative room and attendance fields win over the schedule projection.
       for (const it of real) {
         const today = day.is_today && classes.find((c: any) => String(c.schedule_id) === String(it.schedule_id));
@@ -1015,6 +1045,7 @@ export async function handleTeacherApi(
   } catch { /* 노쇼 표시가 없어도 목록은 정상 */ }
 
   // Enrich only rows already authorized by the teacher schedule query. Never accept a client student ID.
+  let contactsChecked = false;
   if (!onlyNext) try {
     const visible = [...classes, ...weekDays.flatMap((d: any) => d.items)];
     const uids = [...new Set(visible.filter((c: any) => c.kind === 'class' && c.student_uid).map((c: any) => String(c.student_uid)))];
@@ -1022,13 +1053,18 @@ export async function handleTeacherApi(
       const records = await selectInChunks<any>(env.DB, uids,
         (ph) => `SELECT * FROM students_erp WHERE user_id IN (${ph})`, { swallowErrors: true });
       const byUid = new Map(records.map((r: any) => [String(r.user_id), r]));
+      /* ☎ (2026-10-27 강사 제안 «일부 학생 연락처가 여전히 안 보인다») 번호는 정본 loadContactPhones 한 곳에서.
+         예전엔 명부(students_erp)의 phone·parent_phone 만 읽었는데 그 칸은 사실상 비어 있어 — 매니저 화면에 뜨는
+         번호(student_retention)도 여기선 늘 «—» 였다. ⛔ 번호 판정을 이 파일에 다시 적지 말 것. */
+      const phones = await loadContactPhones(env, uids);
       for (const c of visible as any[]) {
-        const r: any = byUid.get(String(c.student_uid || ''));
-        if (!r) continue;
-        c.academy = String(r.shop_name || '').trim() || null;
-        c.student_phone = String(r.phone || r.parent_phone || '').trim() || null;
+        const uid = String(c.student_uid || '');
+        const r: any = byUid.get(uid);
+        if (r) c.academy = String(r.shop_name || '').trim() || null;
+        c.student_phone = phones.get(uid) || null;
       }
     }
+    contactsChecked = true;   // ☎ 화면이 «번호가 왜 없는지» 를 말해도 되는 근거 — 조회가 끝났을 때만 참
   } catch { /* Missing contact details must never prevent class entry. */ }
 
   /* ✍ 일지 배지 + 학생별 «지난 수업» (2026-08-27 마이마이 8/26 ①②)
@@ -1158,6 +1194,21 @@ export async function handleTeacherApi(
    *       띄울지 말지는 화면이 정한다 — 그래야 설정을 바꿀 때 서버를 안 건드린다.
    *  🌐 라벨은 한/영 두 벌. 학생 이름은 번역하지 않고 원부의 영문명을 쓴다(위 주석과 같은 이유).
    */
+  if (monthMode) {
+    /* 🎌 공휴일 휴강 — 주간 스케줄과 같은 정본(applyHolidayToItems). 날짜당 한 번(+isolate 캐시), 던지지 않는다. */
+    await Promise.all(monthDays.map(async (day: any) => {
+      const real = day.items.filter((it: any) => it.kind === 'class');
+      if (real.length) applyHolidayToItems(real, day.is_today ? _holiday : await loadHolidayClosure(env.DB, day.date));
+    }));
+    return json({
+      ok: true, now, today: todayStr,
+      me: { identity_unlinked: identityUnlinked, identity_ambiguous: identityAmbiguous, is_manager: isManager },
+      month: {
+        month: monthParam,
+        days: monthDays.map(d => ({ ...d, items: d.items.sort((a: any, b: any) => a.start_time.localeCompare(b.start_time)) })),
+      },
+    });
+  }
   if (onlyNext) {
     const GRACE_AFTER_END = 30 * 60 * 1000;   // 끝나고도 30분은 «진행 중» 으로 본다(연장·마무리)
     const cand = classes
@@ -1321,6 +1372,9 @@ export async function handleTeacherApi(
       also_account: otherAccountOf(actor.username || ''),
     },
     classes,
+    /* ☎ (2026-10-27) true = 연락처 조회를 마쳤다 → «—» 는 «번호가 없다» 는 뜻이다(조회 실패·캐시가 아니다).
+       화면은 이 값이 참일 때만 «왜 비었는지» 한 줄을 그린다. 캐시에는 안 남긴다(teacher.html saveCache). */
+    contacts_checked: contactsChecked,
     // 📅 앞으로 7일 안의 «일회성» 수업(레벨테스트 포함). 오늘 목록과 별개로 미리 준비하라고 알린다.
     upcoming: upcoming.sort((a, b) => a.start_ts - b.start_ts),
     // 🗓 내 주간 스케줄 — ?week=YYYY-MM-DD 로 주 이동(그 주의 월요일로 맞춰진다)

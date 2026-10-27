@@ -153,12 +153,15 @@ console.log('\n[ ⑥-3 강사도 «내 주간 스케줄» 을 본다 ]');
 check('서버가 week 를 내려준다', /week: \{\s*\n\s*start: weekDates\[0\], end: weekDates\[6\]/.test(tapi));
 check('?week= 로 주를 옮길 수 있다', /url\.searchParams\.get\('week'\)/.test(tapi));
 check('어느 날짜를 주든 그 주 «월요일» 로 맞춘다', /const mondayOf = \(ms: number\)/.test(tapi));
-check('반복 수업도 넣는다 (여기는 «내 시간표» 다)', /dowMatches\(s\.day_of_week, weekDays\[wi\]\.dow\)/.test(tapi));
-check('일회성 수업도 넣는다', /String\(s\.scheduled_date\)\.slice\(0, 10\) === weekDays\[wi\]\.date/.test(tapi));
+// 2026-10-27 월간 보기 추가 — 주간·월간이 «같은 판정»(hitsOn)·«같은 줄 모양»(calendarItemOf)을 쓰도록 함수로 뺐다.
+check('반복 수업도 넣는다 (여기는 «내 시간표» 다)', /dowMatches\(s\.day_of_week, dow\) && recurStartedOn\(s, date\)/.test(tapi));
+check('일회성 수업도 넣는다', /String\(s\.scheduled_date\)\.slice\(0, 10\) === date/.test(tapi));
+check('주간이 그 판정·줄 모양을 실제로 쓴다',
+  /for \(const day of weekDays\) if \(hitsOn\(s, day\.date, day\.dow\)\) day\.items\.push\(calendarItemOf\(s, day\.date, _postponed\)\)/.test(tapi));
 check('🔑 D1 을 다시 조회하지 않는다 (같은 rows 를 펼치기만)',
   /같은 rows 를 요일로 펼치기만/.test(tapi));
-const weekPushStart = tapi.indexOf('weekDays[wi].items.push({');
-const weekPush = tapi.slice(weekPushStart, tapi.indexOf('\n        });', weekPushStart));
+const weekPushStart = tapi.indexOf('const calendarItemOf = ');
+const weekPush = weekPushStart < 0 ? '' : tapi.slice(weekPushStart, tapi.indexOf('\n    };', weekPushStart));
 check('레벨테스트 표시가 주간에도 실린다', /is_level_test:/.test(weekPush));
 check('오늘 칸을 표시한다', /is_today: date === todayStr/.test(tapi));
 check('화면에 «내 주간 스케줄» 카드가 있다', /id="c-week"/.test(thtml));

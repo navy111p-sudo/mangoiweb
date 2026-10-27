@@ -53,7 +53,8 @@
  */
 
 import { findTeacherContact } from './absent-sweep';   // 강사 연락처 판정 정본(복제 금지)
-import { getOverridePhones } from './student-override'; // 📞 우리 화면에서 받아 둔 번호(동기화가 못 덮는 자리)
+import { getOverridePhones, loadOverridePhones } from './student-override'; // 📞 우리 화면에서 받아 둔 번호(동기화가 못 덮는 자리)
+import { selectInChunks } from './d1-chunk';             // IN 목록은 손으로 자르지 않는다(D1 바인드 100개)
 
 /** 한 사람에게 보낼 번호 묶음. 못 찾은 자리는 빈 문자열이다(= 그 역할은 발송 안 함). */
 export interface NotifyPhones {
@@ -107,6 +108,60 @@ export async function phonesForStudent(env: any, uid: string): Promise<{ student
        「번호를 넣었는데 안 나간다」가 된다. */
     return { student: ovStudent, parent: ovParent };
   }
+}
+
+/**
+ * ☎ 화면에 «연락처 한 개» 를 보여줄 때 — 여러 학생을 한 번에 (2026-10-27 강사 제안 «일부 학생 연락처가 여전히 안 보인다»).
+ *
+ * [왜] 강사 화면(api-teacher.ts)은 `students_erp.phone·parent_phone` 만 읽었는데 그 칸은 사실상 비어 있다
+ *   (위 머리말 — 29,512행 중 4행). 그래서 매니저 화면에는 번호가 뜨는 학생도 강사 화면에서는 늘 «—» 였다.
+ *   매니저 화면(api-admin.ts classes/today)은 `student_retention.phone` 을 읽는다 — 카페24가 «이탈 위험»
+ *   (만료·휴면) 학생에 한해 복호화해 넣는 표라, 실번호가 있는 거의 유일한 자리다.
+ * [순서] ① 우리 화면에서 받아 둔 번호(`student_erp_override` — 학생 → 학부모)
+ *        ② 명부(`students_erp` — student_phone → phone → parent_phone)
+ *        ③ 이탈 위험 스냅샷(`student_retention.phone`)
+ *   ①·② 의 학생/학부모 우선순위는 `phonesForStudent` 와 같은 자리(받아 둔 값이 명부를 이긴다)를 따른다.
+ * ⚠️ «표시용» 이다 — 발송 번호는 여전히 `phonesForStudent`(학생·학부모를 갈라서 준다)를 쓸 것.
+ * ⚠️ ③ 은 «전체 명부» 가 아니다 — 잘 다니는 학생은 원리상 없다. 그래서 «없음» 이 정상이고,
+ *    화면은 그 이유를 말해야 한다(빈칸은 «고장» 으로 읽힌다).
+ * ⛔ 없는 번호를 다른 칸으로 «그럴듯하게» 채우지 않는다. 숫자 9자리 미만은 번호로 안 본다(normPhone).
+ * ⚠️ 정확일치(user_id) — 여러 명을 한꺼번에 볼 때 대소문자 후보를 섞으면 누구의 번호인지 흐려진다.
+ * ⚠️ fail-open — 어느 표가 없거나 조회가 실패해도 던지지 않는다(그 원천만 빠진다). 연락처 때문에
+ *    수업 목록이 안 뜨면 안 된다.
+ * @returns uid → 화면에 그릴 번호(저장된 표기 그대로, 앞뒤 공백만 걷음). 없는 uid 는 맵에 없다.
+ */
+export async function loadContactPhones(env: any, uids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const want = Array.from(new Set((uids || []).map(u => String(u || '').trim()).filter(Boolean)));
+  if (!want.length || !env?.DB) return out;
+  const firstValid = (...vals: any[]): string => {
+    for (const v of vals) { const s = String(v ?? '').trim(); if (normPhone(s)) return s; }
+    return '';
+  };
+  const fill = (uid: any, phone: string) => {
+    const u = String(uid || '').trim();
+    if (u && phone && !out.has(u)) out.set(u, phone);
+  };
+  try {
+    const ov = await loadOverridePhones(env, want);
+    for (const [u, p] of ov) fill(u, firstValid(p.student, p.parent));
+  } catch { /* fail-open — 다음 원천으로 */ }
+  const rest = () => want.filter(u => !out.has(u));
+  if (rest().length) {
+    // `SELECT *` — 명부는 스키마 드리프트가 있는 표다(student_phone·phone 중 한 칸이 없는 DB 가 있다).
+    //   칸 이름을 적으면 없는 칸 하나에 조회 전체가 죽고 swallowErrors 가 그것을 삼켜 «번호 없음» 이 된다.
+    const erp = await selectInChunks<any>(env.DB, rest(),
+      (ph) => `SELECT * FROM students_erp WHERE user_id IN (${ph})`,
+      { swallowErrors: true });
+    for (const r of erp) fill(r && r.user_id, firstValid(r && r.student_phone, r && r.phone, r && r.parent_phone));
+  }
+  if (rest().length) {
+    const ret = await selectInChunks<any>(env.DB, rest(),
+      (ph) => `SELECT user_id, phone FROM student_retention WHERE user_id IN (${ph})`,
+      { swallowErrors: true });
+    for (const r of ret) fill(r && r.user_id, firstValid(r && r.phone));
+  }
+  return out;
 }
 
 /**
