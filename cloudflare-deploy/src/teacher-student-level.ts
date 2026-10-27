@@ -1,0 +1,123 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   🎚 강사가 수업 일지에서 학생 레벨을 직접 정한다
+      (2026-10-27 사장님 「강사가 일지에서 레벨을 직접 입력하게 해줘」)
+      Teachers set a student's level from the Class Log.
+
+   [왜] students_erp.level 이 거의 비어 있다 — [잰 것 — 2026-10-27 D1] 29,570명 중 9명,
+        예약이 살아 있는 학생 536명 중 8명. 레벨은 레벨테스트 배치(student-placement.ts)와
+        관리자 교재 일괄배정만 써 왔고, 매주 학생을 보는 강사는 쓸 길이 없었다.
+
+   [어디에 쓰나] students_erp.level 한 칸. 이미 여러 화면이 읽는 정본이다 —
+        판단력 훈련 읽기 밴드(사람이 정한 값 1순위) · 오늘의 학습 레벨 심기 · 복습퀴즈 · 관리자 화면.
+        ⚠️ 퍼지는 시점이 화면마다 다르다 — 판단력 훈련·복습퀴즈는 학생이 «다음에 열 때» 서버에서 읽고,
+           오늘의 학습(today-page.js seedLevel)은 기기 저장값이 «비어 있을 때만» 심는다
+           (웜업·AI 친구 레벨을 이미 고른 기기에는 안 간다 — 학생이 고른 값을 덮지 않는 설계).
+        ⚠️ 판단력 훈련은 사람 레벨이 바뀌면 밴드 상태를 새로 만든다(resolveReadingBand) — 그 학생이 고른
+           모드·나이대·자동 조절 이력이 기본값으로 돌아간다. 레벨을 자주 바꾸면 그만큼 자주 초기화된다.
+
+   [밤 동기화] 카페24 UPSERT 의 SET 목록에 level 이 없고, DELETE 보존 조건에 level 이 있다
+        (cafe24-sync.ts) — 강사가 넣은 레벨은 매일 밤 03:00 동기화에 지워지지 않는다.
+   [레벨테스트] applyPlacementLevel 은 «비어 있을 때만» 쓴다 — 강사가 정한 값을
+        나중 레벨테스트가 덮지 않는다(«사람 손이 이긴다»).
+
+   ⛔ 화면이 보낸 아무 글자나 받지 않는다 — 'Lv 1'~'Lv 34'(BAND_SPECS 의 교재 Lv 범위) 정수만.
+   ⛔ «지우기» 는 없다 — 잘못 고르면 다른 레벨로 바꾼다. 지우는 길을 열면 레벨테스트가 정한 값까지
+      한 번에 사라질 수 있다.
+   ✅ 바꿀 때마다 student_level_log 에 «누가·언제·무엇에서 무엇으로» 를 남긴다(되돌릴 근거).
+   ⚠️ 학생 행은 user_id «정확일치» — Kim/kim 은 다른 계정이다(CLAUDE.md 2장).
+   ⚠️ 누가 정할 수 있는지(«이 강사의 학생인가») 는 여기서 판정하지 않는다 —
+      부르는 쪽(api-teacher.ts 의 POST ?part=level)이 세션으로 확인한 뒤에 부른다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+import { BAND_SPECS } from './judgment-level';
+import { normalizeStudentLevel } from './eval-attendance';
+
+/** 강사가 고를 수 있는 교재 Lv 범위 — BAND_SPECS 에서 읽는다(숫자를 여기 다시 적지 않는다). */
+export const TEACHER_LEVEL_MIN = BAND_SPECS[0].lvFrom;
+export const TEACHER_LEVEL_MAX = BAND_SPECS[BAND_SPECS.length - 1].lvTo;
+
+/**
+ * 강사가 고른 레벨 → 저장할 표기 'Lv N'. 범위 밖·소수·글자·빈 값은 null.
+ *   받아 주는 모양: 'Lv 12' · 'lv12' · 'Lv.12' · '12' · 12.
+ *   ⚠️ 숫자만 뽑아 쓰지 않는다 — 'Lv 5 (Basic)' 처럼 뒤에 글자가 붙은 값은 «고른 것» 이 아니다.
+ */
+export function normalizeTeacherLevelChoice(raw: unknown): string | null {
+  if (raw == null || typeof raw === 'boolean') return null;
+  const s = String(raw).trim();
+  const m = s.match(/^(?:lv\.?\s*)?(\d{1,3})$/i);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  if (!(n >= TEACHER_LEVEL_MIN && n <= TEACHER_LEVEL_MAX)) return null;
+  return 'Lv ' + n;
+}
+
+/** 화면(teacher.html 일지 창)이 고르기 목록을 그릴 때 쓰는 표 — 서버가 단일 출처. */
+export function levelScaleForPortal(): Array<{ band: number; from: number; to: number; ko: string; en: string }> {
+  return BAND_SPECS.map((s) => ({ band: s.band, from: s.lvFrom, to: s.lvTo, ko: s.nameKo, en: s.nameEn }));
+}
+
+export interface SetStudentLevelInput {
+  uid: string;
+  level: unknown;
+  by: string;
+  byName: string;
+  nowMs: number;
+  source?: string;
+}
+
+/** 하나의 모양 — tsconfig 가 strictNullChecks:false 라 판별 유니온 좁히기가 안 된다(CLAUDE.md 2장). */
+export interface SetStudentLevelResult {
+  ok: boolean;
+  error?: string;
+  level?: string;
+  previous?: string | null;
+  unchanged?: boolean;
+}
+
+/** students_erp 의 level·updated_at 칸과 변경 기록 표 — 멱등. 없는 칸을 UPDATE 하다 죽지 않게 먼저 둔다. */
+async function ensureLevelSchema(db: D1Database): Promise<void> {
+  try { await db.prepare(`ALTER TABLE students_erp ADD COLUMN level TEXT`).run(); } catch { /* 이미 있음 */ }
+  try { await db.prepare(`ALTER TABLE students_erp ADD COLUMN updated_at INTEGER`).run(); } catch { /* 이미 있음 */ }
+  await db.prepare(
+    `CREATE TABLE IF NOT EXISTS student_level_log (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       user_id TEXT NOT NULL,
+       old_level TEXT,
+       new_level TEXT NOT NULL,
+       changed_by TEXT,
+       changed_by_name TEXT,
+       source TEXT,
+       created_at INTEGER NOT NULL
+     )`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_student_level_log_uid ON student_level_log(user_id, created_at)`).run();
+}
+
+/**
+ * 학생 레벨을 정한다. 같은 값이면 아무것도 안 쓴다(unchanged).
+ *   레벨 UPDATE 와 변경 기록 INSERT 는 한 batch — 한쪽만 남지 않는다.
+ *   DB 예외는 그대로 던진다(부르는 쪽이 db_error 로 말한다 — «저장했다» 고 거짓말하지 않기).
+ */
+export async function setStudentLevelByTeacher(db: D1Database, input: SetStudentLevelInput): Promise<SetStudentLevelResult> {
+  const uid = String((input && input.uid) || '').trim();
+  if (!uid) return { ok: false, error: 'student_uid_required' };
+  const level = normalizeTeacherLevelChoice(input.level);
+  if (!level) return { ok: false, error: 'bad_level' };
+
+  await ensureLevelSchema(db);
+  const row = await db.prepare(`SELECT level FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first<any>();
+  if (!row) return { ok: false, error: 'not_found' };
+
+  const previous = normalizeStudentLevel(row.level);
+  if (previous === level) return { ok: true, level, previous, unchanged: true };
+
+  const now = Number(input.nowMs) || Date.now();
+  await db.batch([
+    db.prepare(`UPDATE students_erp SET level = ?, updated_at = ? WHERE user_id = ?`).bind(level, now, uid),
+    db.prepare(
+      `INSERT INTO student_level_log (user_id, old_level, new_level, changed_by, changed_by_name, source, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .bind(uid, previous, level, String(input.by || '') || null, String(input.byName || '') || null,
+            String(input.source || 'teacher_log'), now),
+  ]);
+  return { ok: true, level, previous };
+}

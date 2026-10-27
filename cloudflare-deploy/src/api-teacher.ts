@@ -38,6 +38,7 @@ import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인�
 import { loadActiveGoals, setStudentGoal, goalByKey, GOALS } from './student-goal';   // 🗓 4주 목표(2026-10-10)
 import { loadParentRequests, markParentRequestDone } from './parent-request';   // 👪 학부모 요청 반영(2026-10-10)
 import { loadTeacherStudentHistory, validHistoryDate } from './teacher-student-history';
+import { normalizeTeacherLevelChoice, setStudentLevelByTeacher, levelScaleForPortal } from './teacher-student-level';   // 🎚 일지에서 학생 레벨 정하기(2026-10-27)
 import { loadContactPhones } from './notify-contacts';   // ☎ 화면용 연락처 정본(2026-10-27) — 받아 둔 번호 → 명부 → 이탈위험 스냅샷
 
 interface TeacherEnv {
@@ -124,7 +125,8 @@ export async function handleTeacherApi(
    *  ⚠️ 권한 = «이 강사의 오늘 수업 학생» — 아래에서 classes 를 다 만든 뒤에 확인한다. */
   const isGoalPost = method === 'POST' && url.searchParams.get('part') === 'goal';
   const isPreqPost = method === 'POST' && url.searchParams.get('part') === 'preq';   // 👪 학부모 요청 «반영함»
-  if (path !== '/api/teacher/portal' || (method !== 'GET' && !isGoalPost && !isPreqPost)) return null;
+  const isLevelPost = method === 'POST' && url.searchParams.get('part') === 'level';  // 🎚 일지에서 학생 레벨 정하기
+  if (path !== '/api/teacher/portal' || (method !== 'GET' && !isGoalPost && !isPreqPost && !isLevelPost)) return null;
 
   /* 🔔 `?only=next` — «다음 수업 하나» 만 돌려주는 초경량 모드 (2026-08-09)
    *
@@ -1171,6 +1173,31 @@ export async function handleTeacherApi(
     }
   }
 
+  /* 🎚 학생 레벨 정하기 — 일지 창에서 고르면 곧바로 저장(2026-10-27 사장님 「강사가 일지에서 레벨을 직접 입력하게 해줘」).
+   *  정본은 src/teacher-student-level.ts(값 판정·저장·변경 기록). 여기는 «이 강사의 학생인가» 만 판정한다.
+   *  권한 범위 = 오늘 목록(대타·옛 LMS 포함) ∪ 이 강사의 예약표 행(cafe24DedupeSchedules).
+   *    ⚠️ 오늘 목록만 보면 안 된다 — 주간 보기의 «지난 수업» 일지도 같은 창(openEval)을 쓴다.
+   *  ⛔ 클라이언트가 보낸 uid 를 그대로 믿지 않는다 — 위 두 목록에 «정확일치» 로 있어야 한다(Kim/kim 은 다른 계정). */
+  if (isLevelPost) {
+    let b: any = {};
+    try { b = await request.json(); } catch { b = {}; }
+    const uid = String((b && b.student_uid) || '').trim();
+    if (!uid) return json({ ok: false, error: 'student_uid_required' }, 400);
+    const level = normalizeTeacherLevelChoice(b && b.level);
+    if (!level) return json({ ok: false, error: 'bad_level' }, 400);
+    const mine = classes.some((c: any) => c.kind === 'class' && String(c.student_uid || '') === uid)
+      || cafe24DedupeSchedules.some((r: any) => studentUidOf(r) === uid);
+    if (!mine) return json({ ok: false, error: 'not_your_student' }, 403);
+    try {
+      const r = await setStudentLevelByTeacher(env.DB, { uid, level, by: String(actor.username || ''), byName: String(actor.name || actor.username || ''), nowMs: now });
+      if (!r.ok) return json({ ok: false, error: r.error }, r.error === 'not_found' ? 404 : 400);
+      return json({ ok: true, level: r.level, previous: r.previous == null ? null : r.previous, unchanged: !!r.unchanged });
+    } catch (e) {
+      console.warn('[teacher-portal] level save:', (e as any)?.message);
+      return json({ ok: false, error: 'db_error' }, 500);
+    }
+  }
+
   /* 🗓 목표 정하기·지우기 — «오늘 이 강사 수업의 학생» 만(classes 가 곧 권한 범위).
    *  ⛔ 클라이언트가 보낸 uid 를 그대로 믿지 않는다 — 목록에 있는지 «정확일치» 로 확인한다(Kim/kim 은 다른 계정). */
   if (isGoalPost) {
@@ -1367,6 +1394,8 @@ export async function handleTeacherApi(
     now, today: todayStr,
     // 🗓 4주 목표 보기 — 화면이 목록을 따로 들고 있지 않게 서버 정본(student-goal.ts GOALS)을 그대로 내려준다.
     goal_options: GOALS.map((g) => ({ key: g.key, ko: g.ko, en: g.en })),
+    // 🎚 일지 창의 «학생 레벨» 고르기 목록 — 화면이 숫자를 따로 들고 있지 않게 서버 정본을 내려준다.
+    level_scale: levelScaleForPortal(),
     me: {
       username: actor.username, name: actor.name, role: actor.role,
       is_teacher: !isManager, is_manager: isManager, lang,
