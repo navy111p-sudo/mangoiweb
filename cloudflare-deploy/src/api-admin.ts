@@ -46,7 +46,7 @@ import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap,
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { ensureScheduleChangeRequestTable } from './student-schedule-request';
 import { enqueueNotification, sendPushToUser } from './api-notify';
-import { phonesForStudent } from './notify-contacts';   // 📣 (2026-10-07) 수업 안내 문자 — 받아 둔 번호 먼저
+import { phonesForStudent, loadContactPhones } from './notify-contacts';   // 📣 (2026-10-07) 수업 안내 문자 — 받아 둔 번호 먼저 · ☎ (2026-10-27) 화면용 연락처 정본
 import { scopeFragments, studentScopeWhere, getScope, franchiseList, scopeStudentCond, scopeFranchiseCond, scopeCenterCond, canEditOrg } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(학부모봇과 공유)
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
@@ -3626,7 +3626,8 @@ export async function handleAdminApi(
       } catch (e: any) { console.warn('[classes/today] substitution overlay:', e?.message); }
 
       /* ☎️ (2026-09-07 매니저 요청 «Please include student Name, ID, contact number, Academy»)
-         연락처 — D1 에서 학생 번호가 실제로 남아 있는 표는 `student_retention` 하나뿐이다.
+         연락처 — D1 에서 학생 번호가 실제로 남아 있는 표는 `student_retention` 하나뿐이다
+         (+ 2026-09-10 부터 직원이 받아 둔 번호 `student_erp_override` — 정본 notify-contacts.ts loadContactPhones).
          📊 [재본 — 2026-09-07 운영 D1] `students_erp` 29,484행의 phone·parent_phone·student_phone 은
             **세 칸 전부 0건**이다(카페24 원본에 값이 없다 — CLAUDE.md 2장
             「학생 전화번호로 문자를 보내려는데 아무에게도 안 감」). 그래서 그 칸을 읽어 봐야
@@ -3638,9 +3639,9 @@ export async function handleAdminApi(
             ⇒ «없음» 이 정상이다. 화면은 그 이유를 말해야 한다(빈칸은 «고장» 으로 읽힌다).
          ⛔ 없는 번호를 다른 칸으로 «그럴듯하게» 채우지 않는다(CLAUDE.md 2장
             「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」).
-         🔒 이 맵은 전체를 받지만 **이미 스코프로 잘린 줄에만** 붙인다(아래 sessions.push) —
-            지사·대리점은 자기 범위 학생만 보므로 범위 밖 번호는 응답에 실리지 않는다.
-         ⚠️ 이 조회가 실패해도 목록은 그대로 띄어야 한다 — 연락처 칸만 비운다. */
+         🔒 번호는 **이미 스코프로 잘린 그날 목록의 학생만** 묻는다(아래 «목록 완성 뒤» 자리) —
+            범위 밖 번호가 응답에 실릴 길이 없다. (2026-10-27 전에는 이탈위험 2,000행 맵을 통째로 읽었다)
+         ⚠️ 이 조회가 실패해도 목록은 그대로 띄어야 한다 — 연락처 칸만 비우고 «확인 못 함» 이라고 말한다. */
       /* 🔒 연락처는 «본사·내부직원» 에게만 싣는다 — 이 API 는 `isAgencyAllowedApi` 에 올라 있어
          지사·대리점(manager.html)도 부른다. 지금까지 그 번호를 내주던 유일한 경로
          `/api/admin/retention` 은 **지사·대리점에게 403** 이었다. 즉 그냥 실으면
@@ -3649,25 +3650,11 @@ export async function handleAdminApi(
          ✅ 열려면 이 한 줄만 바꾸면 된다(범위 격리는 그대로라 자기 학생만 보인다).
          ℹ️ 학원(academy)·아이디는 그 청중이 이미 `/api/admin/students/erp-list` 로 보던 값이라 그대로 싣는다. */
       const _ctSeeContact = _ctScope.type === 'hq' || _ctScope.type === 'none';
-      const phoneMap = new Map<string, string>();
-      if (_ctSeeContact) {
-        try {
-          /* ⚠️ ORDER BY 없이 LIMIT 만 걸면 «어느 2000» 인지 정해지지 않고, 넘친 학생은
-             에러 없이 조용히 «—» 가 된다. 순서를 못 박고, 잘리면 로그로 말한다. */
-          const CONTACT_CAP = 2000;
-          const pr: any = await env.DB.prepare(
-            `SELECT user_id, phone FROM student_retention
-              WHERE phone IS NOT NULL AND TRIM(phone) <> ''
-              ORDER BY user_id LIMIT ?`
-          ).bind(CONTACT_CAP).all();
-          const got = (pr?.results as any[]) || [];
-          for (const r of got) {
-            const u = String(r.user_id || '').trim();
-            if (u) phoneMap.set(u, String(r.phone || '').trim());
-          }
-          if (got.length >= CONTACT_CAP) console.warn('[classes/today] contact map truncated at', CONTACT_CAP);
-        } catch (e: any) { console.warn('[classes/today] contact map:', e?.message); }
-      }
+      /* ☎ (2026-10-27 사장님 「매니저 화면도 직원이 넣은 번호 보이게 맞춰줘」) 번호는 정본 loadContactPhones
+         (notify-contacts.ts — 직원이 받아 둔 번호 → 명부 → 이탈위험 스냅샷)로, 강사 화면과 «같은 답» 을 준다.
+         예전엔 여기서 student_retention 2,000행을 통째로 읽어 맵을 만들었다 — 직원이 학생 상세·수강신청에서 넣은
+         번호(student_erp_override)는 강사 화면에만 보이고 이 화면엔 안 보였다.
+         ⚠️ 조회는 목록이 «다 만들어진 뒤» 아래에서 한다 — 스코프로 이미 잘린 그날 학생만 묻는다(범위 밖 번호가 응답에 실릴 길이 없다). */
 
       /* 🎌 (2026-10-09 사장님 「매니저 오늘 수업도 휴강 반영」) 그날이 공휴일 휴강이면 수업 줄을 «지우지 않고»
          상태를 'holiday' 로 바꾸고 입장을 닫는다 — 매니저는 «오늘 무엇이 쉬는지» 를 봐야 한다(지우면 «수업이 없어졌다» 로 읽힌다).
@@ -3719,9 +3706,9 @@ export async function handleAdminApi(
           student_name: s.student_name || s.se_name || null,
           /* 🏫☎️ (2026-09-07 매니저 요청) 학원(Academy)·연락처 — 수업에 안 들어오는 학생을
              그 자리에서 찾기 위해. 학원은 students_erp.shop_name(실측 29,079/29,484 = 98.6%),
-             연락처는 위 phoneMap. 모르면 null — 화면이 «—» 와 이유를 그린다. */
+             연락처는 아래 «목록이 다 만들어진 뒤» 정본으로 채운다. 모르면 null — 화면이 «—» 와 이유를 그린다. */
           academy: s.se_shop || null,
-          contact_phone: phoneMap.get(String(s.user_id || '')) || null,
+          contact_phone: null,
           /* 📚 (2026-08-25 보고서 ①) LMS 한 줄에 있던 「TEXTBOOK 배정 없음」 배지의 우리 쪽 대응.
              정본은 students_erp.textbook — 화상수업의 «배정 교재 자동 로드» 가 읽는 그 칸이다.
              비어 있으면 수업 전에 사람이 손써야 한다는 뜻이라, 강사·매니저가 먼저 봐야 한다. */
@@ -3832,7 +3819,7 @@ export async function handleAdminApi(
             student_uid: r.user_id || null,
             student_name: r.stu_ko || r.username || r.stu_en || null,
             academy: r.se_shop || null,
-            contact_phone: phoneMap.get(String(r.user_id || '')) || null,
+            contact_phone: null,   // ☎ 아래에서 정본으로 채운다(망고아이 줄과 같은 자리)
             /* 🕓 (2026-10-27) 끝 시각을 «안다» 는 표시 — 위 end_ts 는 left_at 이 없으면 «시작+30분» 으로 지어낸 값이다.
                화면(adm-today-classes.js kstRange)은 false 면 시작만 그린다(지어낸 끝을 사실처럼 그리지 않게). */
             end_known: !!Number(r.left_at),
@@ -3857,6 +3844,18 @@ export async function handleAdminApi(
       // Join/observe and room-linked enrichment must use the student/teacher room for this date.
       await applyRoomOverrides(env.DB, sessions.filter(s => s.source === 'mangoi'), ymd);
 
+      /* ☎ 연락처 — 본사·내부직원(_ctSeeContact)일 때만, 이미 스코프로 잘린 이 목록(두 갈래 모두)에만 붙인다.
+         정본이 «다 물어봤나»(complete)를 함께 주므로, 조회가 실패하면 화면이 «번호가 없다» 가 아니라
+         «확인하지 못했다» 고 말한다(contact_source='failed'). ⛔ 던지지 않는다 — 연락처 때문에 목록이 죽으면 안 된다. */
+      let _ctContactsOk = true;
+      if (_ctSeeContact && sessions.length) {
+        try {
+          const _cp = await loadContactPhones(env, sessions.map(x => x.student_uid));
+          _ctContactsOk = _cp.complete;
+          for (const x of sessions) x.contact_phone = _cp.phones.get(String(x.student_uid || '')) || null;
+        } catch (e: any) { _ctContactsOk = false; console.warn('[classes/today] contacts:', e?.message); }
+      }
+
       /* 📋 (2026-09-23 매니저 요청) 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결 — 정본 class-today-extras.ts.
          절대 던지지 않는다(실패하면 그 칸만 null → 화면 «—»). */
       /* 🔒 (2026-09-23 사장님 지시) 평가 내용은 본사·내부직원에게만 — 지사·대리점(manager.html)에는 안 싣는다.
@@ -3866,9 +3865,10 @@ export async function handleAdminApi(
       const c24Count = sessions.filter(x => x.source === 'cafe24').length;
       /* ☎️ 화면이 «왜 번호가 대부분 비어 있는지» 를 사람에게 말할 수 있도록 근거를 함께 준다.
          ⛔ 화면이 스스로 판정하게 두지 말 것 — 화면은 자기 역할도, 그 표의 성격도 모른다.
-           'retention' = 「이탈 위험(만료·휴면) 명단에 있는 학생만 번호가 있다」
+           'lookup'     = 「번호 원천(받아 둔 번호·명부·이탈위험 명단)에 다 물어봤다 — 없으면 정말 없다」(2026-10-27, 옛 'retention')
+           'failed'     = 「조회가 실패해 모른다」 — «없다» 와 같은 글자로 말하지 않게
            'restricted' = 「이 계정에는 연락처를 주지 않는다」(지사·대리점)  */
-      const contactSource = _ctSeeContact ? 'retention' : 'restricted';
+      const contactSource = !_ctSeeContact ? 'restricted' : (_ctContactsOk ? 'lookup' : 'failed');
       const res = json({
         ok: true,
         contact_source: contactSource,

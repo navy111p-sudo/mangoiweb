@@ -3323,9 +3323,14 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var cnote = '';
     if (noMobile && j.contact_source === 'restricted') {
       cnote = T('Contact numbers are visible to HQ accounts only.', '☎ 연락처는 본사 계정에서만 보입니다.');
-    } else if (noMobile && j.contact_source === 'retention') {
-      cnote = T('☎ ' + noMobile + ' of ' + rows.length + ' have no number — the roster stores none; only at-risk students have one.',
-                '☎ 연락처 ' + noMobile + '/' + rows.length + '건이 «—» 입니다 — 명부에는 번호가 없고 «관리 대상» 학생만 있습니다.');
+    } else if (noMobile && j.contact_source === 'failed') {
+      // ☎ (2026-10-27) 조회 실패는 «없다» 가 아니라 «확인 못 함» — 같은 글자로 말하지 않는다
+      cnote = T('☎ Could not check contact numbers right now — please refresh in a moment.',
+                '☎ 지금 연락처를 확인하지 못했습니다 — 잠시 뒤 새로고침해 주세요.');
+    } else if (noMobile && j.contact_source === 'lookup') {
+      // ☎ (2026-10-27) 번호 원천 = 정본 loadContactPhones(직원이 넣은 번호 → 명부 → 관리 대상 명단) — 강사·관리자 화면과 같은 말
+      cnote = T('☎ ' + noMobile + ' of ' + rows.length + ' have no number — the roster has almost none; mostly only at-risk students or numbers saved by staff in the student profile show here.',
+                '☎ 연락처 ' + noMobile + '/' + rows.length + '건이 «—» 입니다 — 명부에는 번호가 거의 없어, 주로 «관리 대상» 학생이나 직원이 학생 상세에 넣은 번호만 보입니다.');
     }
     /* 🏫 거르는 중이면 숫자도 «눈앞의 줄» 로 센다 — 서버 합계(c.*)를 그대로 쓰면 「3건 보이는데 카페24 40건」이 된다 */
     var picking = !!(acSel || teSel);
