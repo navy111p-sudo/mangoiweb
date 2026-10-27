@@ -96,6 +96,21 @@ try {
   ok('started: first book question reply shown', /Reply 1/.test(await p.locator('#log').innerText()));
   await c.close();
 
+  // ③-2b 📗 20문항을 다 끝낸 뒤 — 마지막 문항(19)을 되풀이해 보내지 않고 «다 했어요»(20)를 보낸다
+  //      (2026-10-27 「great job 만 하고 질문을 더 안 해요」 — 19 를 다시 보내면 서버가 매 턴 마무리 인사만 했다)
+  ({ c, p, log } = await open({ token: 'tok-ed' }));
+  await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+  await p.click('#eleaderL1 .l1-go'); await p.waitForTimeout(800);
+  for (let k = 0; k < 20; k++) await send(p, 'Answer number ' + (k + 1));
+  ok('done: 20th answer was question 19', log.l1.at(-1).b.eleader_q === 19, JSON.stringify(log.l1.at(-1)?.b));
+  ok('done: bar says all done', /다 했어요/.test(await p.locator('#eleaderL1Bar').innerText()));
+  await send(p, 'Do you have more questions?');
+  ok('done: next turn sends 20 (book done), not 19', log.l1.at(-1).b.eleader_q === 20, JSON.stringify(log.l1.at(-1)?.b));
+  await send(p, 'I like dogs');
+  ok('done: stays 20 on later turns', log.l1.at(-1).b.eleader_q === 20 && log.l1.at(-1).b.eleader_book === 'books-v1-b01');
+  ok('done: still l1 route, not free warmup', log.warm.length === 0);
+  await c.close();
+
   // ③-3 서버가 200 이어도 ok:true 가 아니면 안 그린다
   ({ c, p } = await open({ token: 'tok-ed', booksBody: { ok: false, books: BOOKS } }));
   await p.waitForTimeout(600);
