@@ -131,8 +131,9 @@ export async function phonesForStudent(env: any, uid: string): Promise<{ student
  * ⚠️ 대신 «못 물어봤다» 를 `complete:false` 로 돌려준다 — 화면이 «번호가 없다» 와 «못 물어봤다» 를
  *    같은 글자로 말하지 않게(2026-10-27 함정 대조: D1 이 죽어도 «명부에 번호가 없다» 고 말하던 것).
  *    명부·이탈위험 조회는 swallowErrors 를 쓰지 않고 여기서 잡아 그 사실을 남긴다.
- *    ℹ️ 받아 둔 번호(loadOverridePhones)는 자기 안에서 실패를 삼키므로 여기서 알 수 없다 — 그 표는
- *       드물게만 채워져 있어, 그 하나가 빠져도 «없다» 는 말이 크게 틀리지 않는다.
+ *    받아 둔 번호(loadOverridePhones)도 `report` 로 «다 물어봤나» 를 받는다. ⚠️ 2026-10-27 엔 «그 표는 드물게만
+ *    채워져 있어 빠져도 크게 안 틀린다» 며 일부러 안 봤는데 2026-10-28 무작위 반복 검사 뒤 뒤집었다 — 그 표는
+ *    직원이 손으로 넣은 번호라, 빠지면 바로 그 학생이 «명부에 번호가 없다» 는 거짓 안내를 받는다.
  * @returns phones = uid → 화면에 그릴 번호(명부·스냅샷은 저장된 표기 그대로, 받아 둔 번호는 숫자만 —
  *          normPhone 을 거쳐 저장된다). 없는 uid 는 맵에 없다. complete = 모든 원천에 물어봤는가.
  */
@@ -151,9 +152,12 @@ export async function loadContactPhones(env: any, uids: string[]): Promise<{ pho
     if (u && phone && !out.has(u)) out.set(u, phone);
   };
   try {
-    const ov = await loadOverridePhones(env, want);
+    // report — 이 표를 다 못 읽었으면 «다 물어봤다» 가 거짓이다(2026-10-28 무작위 반복 검사). 받은 번호는 쓰고 나머지는 다음 원천에서.
+    const st = { complete: true };
+    const ov = await loadOverridePhones(env, want, { report: st });
     for (const [u, p] of ov) fill(u, firstValid(p.student, p.parent));
-  } catch { /* fail-open — 다음 원천으로 */ }
+    if (!st.complete) { complete = false; console.warn('[notify-contacts] 받아 둔 번호 일부를 못 물어봤다'); }
+  } catch (e: any) { complete = false; console.warn('[notify-contacts] 받아 둔 번호 조회 실패:', e?.message); }
   const rest = () => want.filter(u => !out.has(u));
   if (rest().length) {
     // `SELECT *` — 명부는 스키마 드리프트가 있는 표다(student_phone·phone 중 한 칸이 없는 DB 가 있다).

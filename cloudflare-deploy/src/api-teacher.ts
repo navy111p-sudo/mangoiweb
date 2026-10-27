@@ -1068,7 +1068,7 @@ export async function handleTeacherApi(
         const uid = String(c.student_uid || '');
         const r: any = byUid.get(uid);
         if (r) c.academy = String(r.shop_name || '').trim() || null;
-        c.student_phone = phones.get(uid) || null;
+        c.student_phone = phones.get(uid.trim()) || null;   // 정본의 키는 trim 된 아이디(카페24 행에 뒤 공백이 붙은 아이디가 실재한다)
       }
     }
     // ☎ 화면이 «번호가 왜 없는지» 를 말해도 되는 근거 — 모든 원천에 «실제로» 물어봤을 때만 참.
