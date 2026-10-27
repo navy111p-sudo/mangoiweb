@@ -294,6 +294,27 @@
     } catch (e) { return '-'; }
   }
 
+  /* 🕓 (2026-10-27 매니저 제안 «시작·끝을 한국 시간으로, 24시간제 말고») 시간 칸 = 「4:00pm – 4:20pm」.
+     ⚠️ 표 «시간 칸» 전용이다 — 강사 입장·출결 시각(위 hhmm)은 그대로 둔다(다른 칸이라 바꿔 달라는 요청이 없었다).
+     ⚠️ 벽시계는 toLocaleTimeString 을 다시 파싱하지 않고 «+9시간 뒤 UTC 시·분» 으로 곧장 센다
+        (아래 LATE_FROM_HOUR 주석과 같은 이유 — 로케일 문자열은 판정·조립의 근거가 못 된다).
+     ⚠️ 모양은 강사·매니저 화면의 MangoiClassDisplay.time(12시간제)과 같다 — 같은 수업이 화면마다 다르게 읽히지 않게.
+     끝 시각이 없거나 시작보다 앞이면 시작만 그린다(지어내지 않는다). 날을 넘기면 « (+1d)». */
+  function kst12(ts) {
+    var d = new Date(Number(ts) + 9 * 3600 * 1000);
+    if (isNaN(d.getTime())) return '';
+    var h = d.getUTCHours(), m = d.getUTCMinutes();
+    return (h % 12 || 12) + ':' + ('0' + m).slice(-2) + (h < 12 ? 'am' : 'pm');
+  }
+  function kstRange(s) {
+    var a = kst12(s && s.start_ts);
+    if (!a) return '-';
+    if (!(s.end_ts > s.start_ts)) return a;
+    var dayA = Math.floor((Number(s.start_ts) + 9 * 3600 * 1000) / 86400000);
+    var dayB = Math.floor((Number(s.end_ts) + 9 * 3600 * 1000) / 86400000);
+    return a + ' – ' + kst12(s.end_ts) + (dayB > dayA ? ' (+1d)' : '');
+  }
+
   /* 🌙 (2026-09-08 사장님 요청) 「23시 이후」 거르기 — 늦은 밤 수업만 따로 본다.
      [무엇을 재나] 그 수업의 **시작 시각(KST)** 하나다. 시(hour)는 화면에 그린 벽시계 문자열
        (hhmm 의 toLocaleTimeString)을 **다시 파싱하지 말고** «+9시간 뒤 UTC 시» 로 곧장 센다
@@ -1043,7 +1064,7 @@
       + '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse">'
       + '<thead><tr>'
       +   tcTh('date', '날짜', 'Date')
-      +   tcTh('time', '시간', 'Time')
+      +   tcTh('time', '시간 (한국)', 'Time (KST)')
       +   tcTh('status', '상태', 'Status')
       +   tcTh('student', '학생 / 액션', 'Student / Action')
       /* (2026-09-29 매니저 요청 «move teacher's names near the student's name») 강사 칸을 학생 바로 옆으로.
@@ -1225,7 +1246,7 @@
           }
           return '<tr>'
             + '<td style="white-space:nowrap;font-size:11.5px">' + esc(s.class_date || '') + '</td>'
-            + '<td style="white-space:nowrap">' + hhmm(s.start_ts) + '</td>'
+            + '<td style="white-space:nowrap" title="KST">' + esc(kstRange(s)) + '</td>'
             + '<td>' + badge(s.status) + '</td>'
             + '<td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>' + esc(s.student_name || s.student_uid || '-') + '</b>' + kindTag + act + '</div>'
               /* 🆔 아이디 — 이름이 같은 학생이 실재해서(동명이인) 매니저가 확정하려면 필요하다.
