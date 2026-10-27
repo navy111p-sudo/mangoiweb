@@ -272,6 +272,8 @@ function makeSelect(html) {
   const sel = {
     disabled: false, onchange: null, opts, groups,
     get value() { return idx >= 0 && opts[idx] ? opts[idx].value : ''; },
+    // 실제 select 처럼 «아무것도 안 골라짐»(-1)과 «값이 빈 줄(미등록·지금 값)이 골라짐» 을 가른다 — value 만 보면 둘 다 ''.
+    get selectedIndex() { return idx; },
     set value(v) { idx = opts.findIndex((o) => o.value === String(v)); },
     querySelector(s) {
       if (s !== 'option[value=""]') return null;
@@ -390,8 +392,8 @@ try {
   ok(confirms.length === 1, '고르면 저장 전에 확인창을 한 번 띄운다');
   ok(confirms[0] && /Change this student's level\?/.test(confirms[0]) && /\nKim\n/.test(confirms[0]) && /Lv 5 {2}→ {2}Lv 12/.test(confirms[0]),
      '  묻는 글자: 누구의(Kim) · 무엇에서 무엇으로(Lv 5 → Lv 12)');
-  ok(confirms[0] && /Judgment training will restart from this level/.test(confirms[0]) && /mode and age settings go back to default/.test(confirms[0]),
-     '  판단력 훈련이 다시 시작된다(모드·나이대 기본값)는 사실을 함께 말한다');
+  ok(confirms[0] && /Next time the student opens Judgment training, it restarts at this level/.test(confirms[0]) && /mode and age group, e\.g\. adult, go back to default/.test(confirms[0]),
+     '  판단력 훈련이 «다음에 열 때» 다시 시작된다(모드·나이대 기본값)는 사실을 함께 말한다');
   ok(calls.some((x) => x.url === '/api/teacher/portal?part=level'), '  «확인» 이면 저장 요청이 나간다');
   // 취소 — 요청 0 · 칸 되돌림 · 안내 줄 그대로 · 화면 값 그대로
   c = fresh(); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
@@ -411,6 +413,17 @@ try {
   sel.pick('Lv 3'); await tick();
   ok(confirms[0] && /Not set {2}→ {2}Lv 3/.test(confirms[0]), '미등록이면 «Not set → Lv 3» 으로 묻는다');
   ok(sel.value === '' && sel.opts[0].value === '' && !calls.some((x) => x.url === '/api/teacher/portal?part=level'), '  취소하면 «미등록» 줄로 돌아가고 요청 0');
+  // 목록에 없는 지금 값(옛 표기 'Lv 40') — 취소·실패하면 «Lv 40 (current)» 줄로 돌아가야 한다(빈 칸이 되면 안 된다).
+  //   value 만 보면 빈 칸(-1)도 '' 라서 못 가른다 — selectedIndex 로 «그 줄이 골라졌나» 를 본다.
+  c = fresh({ level: 'Lv 40' }); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
+  ok(sel && sel.selectedIndex === 0 && sel.opts[0].value === '' && /^Lv 40 \(current\)$/.test(sel.opts[0].text), '전제: 옛 표기 Lv 40 은 «Lv 40 (current)» 줄이 골라져 있다');
+  confirmAnswer = false;
+  sel.pick('Lv 7'); await tick();
+  ok(confirms[0] && /Lv 40 {2}→ {2}Lv 7/.test(confirms[0]), '  옛 표기에서도 «Lv 40 → Lv 7» 로 묻는다');
+  ok(sel.selectedIndex === 0 && !calls.some((x) => x.url === '/api/teacher/portal?part=level'), '  취소하면 «Lv 40 (current)» 줄로 돌아간다(빈 칸 아님) · 요청 0');
+  confirmAnswer = true; levelResp = { ok: false, error: 'db_error' };
+  sel.pick('Lv 7'); await tick();
+  ok(sel.selectedIndex === 0 && /lv-err/.test(msg().className), '  저장이 실패해도 «Lv 40 (current)» 줄로 돌아간다(빈 칸 아님)');
   // 고르는 값이 아닌 줄·저장 중에는 묻지도 않는다
   c = fresh({ level: null }); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
   sel.pick(''); await tick();
@@ -467,7 +480,7 @@ try {
   ok(/학생 레벨 — 고르면 한 번 묻고 저장해요/.test(mask.innerHTML) && sel && /첫걸음 \(Lv 1–4\)/.test(sel.groups[0]), '한국어 화면: 라벨·묶음 이름(첫걸음)');
   levelResp = { ok: true, level: 'Lv 12', previous: 'Lv 5' }; sel.pick('Lv 12'); await tick();
   ok(/✅ 저장했어요: Lv 12 \(전: Lv 5\)/.test(msg().textContent), '한국어 화면: «✅ 저장했어요: Lv 12 (전: Lv 5)»');
-  ok(confirms[0] && /이 학생의 레벨을 바꿀까요\?/.test(confirms[0]) && /Lv 5 {2}→ {2}Lv 12/.test(confirms[0]) && /판단력 훈련은 이 레벨부터 다시 시작해요/.test(confirms[0]),
+  ok(confirms[0] && /이 학생의 레벨을 바꿀까요\?/.test(confirms[0]) && /Lv 5 {2}→ {2}Lv 12/.test(confirms[0]) && /학생이 다음에 판단력 훈련을 열 때 이 레벨부터 다시 시작해요/.test(confirms[0]),
      '한국어 화면: 확인창 «이 학생의 레벨을 바꿀까요?» · Lv 5 → Lv 12 · 판단력 훈련 안내');
   c = fresh({ level: null }); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
   ok(sel && /미등록 — 레벨을 골라 주세요/.test(sel.opts[0].text), '한국어 화면: «미등록 — 레벨을 골라 주세요»');

@@ -95,9 +95,9 @@ try {
     await sel.waitFor({ timeout: 8000 }).catch(() => {});   // 없으면 «시간 초과 크래시» 가 아니라 아래 줄이 깔끔하게 FAIL
     check(tag + ' 레벨 고르기 칸이 그려짐', (await sel.count()) === 1);
     const L = lang === 'ko' ? { label: '학생 레벨 — 고르면 한 번 묻고 저장해요', g1: '첫걸음 (Lv 1–4)', saved: '저장했어요: Lv 12', was: '(전: Lv 5)', deny: '내 수업 학생이 아니라', wait: '레벨을 저장하는 중',
-        ask: '이 학생의 레벨을 바꿀까요?', jt: '판단력 훈련은 이 레벨부터 다시 시작해요', who: '지승연' }
+        ask: '이 학생의 레벨을 바꿀까요?', jt: '학생이 다음에 판단력 훈련을 열 때 이 레벨부터 다시 시작해요', who: '지승연' }
       : { label: 'Student level — pick to change (asks before saving)', g1: 'Starter (Lv 1–4)', saved: 'Saved: Lv 12', was: '(was Lv 5)', deny: 'not in your class list', wait: 'still saving',
-        ask: "Change this student's level?", jt: 'Judgment training will restart from this level', who: 'Ji Seungyeon' };
+        ask: "Change this student's level?", jt: 'Next time the student opens Judgment training, it restarts at this level', who: 'Ji Seungyeon' };
     const modal = page.locator('.modal');
     check(tag + ' 라벨', (await modal.locator('label[for="ev-lv"]').innerText()).includes(L.label));
     check(tag + ' 지금 값 Lv 5 가 골라져 있음', (await sel.inputValue()) === 'Lv 5');
