@@ -85,13 +85,13 @@ def main():
         offsets.append(round(t, 2))
         parts.append(clip); t += len(clip) / SR
     parts.append(np.zeros(int(OUTRO * SR), np.float32)); t += OUTRO
+    if duration(bgm_path) < t:   # 임시 파일을 쓰기 «전» 에 — 실패해도 큰 wav 가 남지 않게 / check before writing the temp wav
+        sys.exit(f'배경음악이 목소리({t:.2f}초)보다 짧다 — make_bgm.py {int(t) + 1} 로 다시 만드세요 / bgm shorter than voice')
     voice = np.concatenate(parts)
     tmp = Path(out).with_suffix('.voice.wav')
     with wave.open(str(tmp), 'wb') as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR)
         w.writeframes((np.clip(voice, -1, 1) * 32767).astype(np.int16).tobytes())
-    if duration(bgm_path) < t:
-        sys.exit(f'배경음악이 목소리({t:.2f}초)보다 짧다 — make_bgm.py {int(t) + 1} 로 다시 만드세요 / bgm shorter than voice')
     # 목소리 loudnorm(→ 44.1kHz 로 되돌림: 끝 잘림 방지) → 배경음악을 아래로 깔고 말할 때 더 줄이며, 끝에서 잦아든다
     # loudnorm (back to 44.1 kHz so its tail is not dropped) → duck music under speech, fade it out at the end
     fc = (f'[0:a]loudnorm=I=-17:TP=-1.5,aresample={SR},asplit=2[v][key];'
