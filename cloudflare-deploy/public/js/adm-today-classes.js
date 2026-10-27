@@ -299,7 +299,8 @@
      ⚠️ 벽시계는 toLocaleTimeString 을 다시 파싱하지 않고 «+9시간 뒤 UTC 시·분» 으로 곧장 센다
         (아래 LATE_FROM_HOUR 주석과 같은 이유 — 로케일 문자열은 판정·조립의 근거가 못 된다).
      ⚠️ 모양은 강사·매니저 화면의 MangoiClassDisplay.time(12시간제)과 같다 — 같은 수업이 화면마다 다르게 읽히지 않게.
-     끝 시각이 없거나 시작보다 앞이면 시작만 그린다(지어내지 않는다). 날을 넘기면 « (+1d)». */
+     끝 시각이 없거나 시작보다 앞이면 시작만 그린다(지어내지 않는다). 날을 넘기면 « (+1d)».
+     ⚠️ 카페24 줄은 서버가 left_at 이 없을 때 끝을 «시작+30분» 으로 채운다 → end_known === false 면 시작만. */
   function kst12(ts) {
     var d = new Date(Number(ts) + 9 * 3600 * 1000);
     if (isNaN(d.getTime())) return '';
@@ -309,7 +310,7 @@
   function kstRange(s) {
     var a = kst12(s && s.start_ts);
     if (!a) return '-';
-    if (!(s.end_ts > s.start_ts)) return a;
+    if (!(s.end_ts > s.start_ts) || s.end_known === false) return a;
     var dayA = Math.floor((Number(s.start_ts) + 9 * 3600 * 1000) / 86400000);
     var dayB = Math.floor((Number(s.end_ts) + 9 * 3600 * 1000) / 86400000);
     return a + ' – ' + kst12(s.end_ts) + (dayB > dayA ? ' (+1d)' : '');

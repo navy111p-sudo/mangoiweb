@@ -128,12 +128,20 @@ export async function phonesForStudent(env: any, uid: string): Promise<{ student
  * ⚠️ 정확일치(user_id) — 여러 명을 한꺼번에 볼 때 대소문자 후보를 섞으면 누구의 번호인지 흐려진다.
  * ⚠️ fail-open — 어느 표가 없거나 조회가 실패해도 던지지 않는다(그 원천만 빠진다). 연락처 때문에
  *    수업 목록이 안 뜨면 안 된다.
- * @returns uid → 화면에 그릴 번호(저장된 표기 그대로, 앞뒤 공백만 걷음). 없는 uid 는 맵에 없다.
+ * ⚠️ 대신 «못 물어봤다» 를 `complete:false` 로 돌려준다 — 화면이 «번호가 없다» 와 «못 물어봤다» 를
+ *    같은 글자로 말하지 않게(2026-10-27 함정 대조: D1 이 죽어도 «명부에 번호가 없다» 고 말하던 것).
+ *    명부·이탈위험 조회는 swallowErrors 를 쓰지 않고 여기서 잡아 그 사실을 남긴다.
+ *    ℹ️ 받아 둔 번호(loadOverridePhones)는 자기 안에서 실패를 삼키므로 여기서 알 수 없다 — 그 표는
+ *       드물게만 채워져 있어, 그 하나가 빠져도 «없다» 는 말이 크게 틀리지 않는다.
+ * @returns phones = uid → 화면에 그릴 번호(명부·스냅샷은 저장된 표기 그대로, 받아 둔 번호는 숫자만 —
+ *          normPhone 을 거쳐 저장된다). 없는 uid 는 맵에 없다. complete = 모든 원천에 물어봤는가.
  */
-export async function loadContactPhones(env: any, uids: string[]): Promise<Map<string, string>> {
+export async function loadContactPhones(env: any, uids: string[]): Promise<{ phones: Map<string, string>; complete: boolean }> {
   const out = new Map<string, string>();
+  let complete = true;
   const want = Array.from(new Set((uids || []).map(u => String(u || '').trim()).filter(Boolean)));
-  if (!want.length || !env?.DB) return out;
+  if (!want.length) return { phones: out, complete };
+  if (!env?.DB) return { phones: out, complete: false };
   const firstValid = (...vals: any[]): string => {
     for (const v of vals) { const s = String(v ?? '').trim(); if (normPhone(s)) return s; }
     return '';
@@ -149,19 +157,21 @@ export async function loadContactPhones(env: any, uids: string[]): Promise<Map<s
   const rest = () => want.filter(u => !out.has(u));
   if (rest().length) {
     // `SELECT *` — 명부는 스키마 드리프트가 있는 표다(student_phone·phone 중 한 칸이 없는 DB 가 있다).
-    //   칸 이름을 적으면 없는 칸 하나에 조회 전체가 죽고 swallowErrors 가 그것을 삼켜 «번호 없음» 이 된다.
-    const erp = await selectInChunks<any>(env.DB, rest(),
-      (ph) => `SELECT * FROM students_erp WHERE user_id IN (${ph})`,
-      { swallowErrors: true });
-    for (const r of erp) fill(r && r.user_id, firstValid(r && r.student_phone, r && r.phone, r && r.parent_phone));
+    //   칸 이름을 적으면 없는 칸 하나에 조회 전체가 죽는다.
+    try {
+      const erp = await selectInChunks<any>(env.DB, rest(),
+        (ph) => `SELECT * FROM students_erp WHERE user_id IN (${ph})`);
+      for (const r of erp) fill(r && r.user_id, firstValid(r && r.student_phone, r && r.phone, r && r.parent_phone));
+    } catch (e: any) { complete = false; console.warn('[notify-contacts] 명부 번호 조회 실패:', e?.message); }
   }
   if (rest().length) {
-    const ret = await selectInChunks<any>(env.DB, rest(),
-      (ph) => `SELECT user_id, phone FROM student_retention WHERE user_id IN (${ph})`,
-      { swallowErrors: true });
-    for (const r of ret) fill(r && r.user_id, firstValid(r && r.phone));
+    try {
+      const ret = await selectInChunks<any>(env.DB, rest(),
+        (ph) => `SELECT user_id, phone FROM student_retention WHERE user_id IN (${ph})`);
+      for (const r of ret) fill(r && r.user_id, firstValid(r && r.phone));
+    } catch (e: any) { complete = false; console.warn('[notify-contacts] 이탈위험 번호 조회 실패:', e?.message); }
   }
-  return out;
+  return { phones: out, complete };
 }
 
 /**

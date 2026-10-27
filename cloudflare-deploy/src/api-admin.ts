@@ -3833,6 +3833,9 @@ export async function handleAdminApi(
             student_name: r.stu_ko || r.username || r.stu_en || null,
             academy: r.se_shop || null,
             contact_phone: phoneMap.get(String(r.user_id || '')) || null,
+            /* 🕓 (2026-10-27) 끝 시각을 «안다» 는 표시 — 위 end_ts 는 left_at 이 없으면 «시작+30분» 으로 지어낸 값이다.
+               화면(adm-today-classes.js kstRange)은 false 면 시작만 그린다(지어낸 끝을 사실처럼 그리지 않게). */
+            end_known: !!Number(r.left_at),
             level: r.se_level || null,
             textbook: r.se_textbook || null,
             textbook_assigned: !!String(r.se_textbook || '').trim(),
