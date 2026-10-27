@@ -81,7 +81,9 @@ function freshDb({ erp = true, ret = true } = {}) {
     ['ov1', { student: '01012121212', parent: '01034343434' }],
     ['ov2', { student: '', parent: '01056565656' }],
   ]);
-  const m = await NC.loadContactPhones({ DB: d1(db) }, ['ov1', 'ov2', 'e_stu', 'e_ph', 'e_par', 'short', 'ret1', 'none', 'ghost', '', null, 'ov1']);
+  const res = await NC.loadContactPhones({ DB: d1(db) }, ['ov1', 'ov2', 'e_stu', 'e_ph', 'e_par', 'short', 'ret1', 'none', 'ghost', '', null, 'ov1']);
+  const m = res.phones;
+  ok(res.complete === true, '모든 원천에 물어봤으면 complete = true');
   ok(m.get('ov1') === '01012121212', '받아 둔 학생 번호가 명부보다 먼저다', m.get('ov1'));
   ok(m.get('ov2') === '01056565656', '받아 둔 번호가 학부모 것뿐이면 그것', m.get('ov2'));
   ok(m.get('e_stu') === '01033334444', '명부: student_phone 이 학부모 번호보다 먼저', m.get('e_stu'));
@@ -97,17 +99,27 @@ function freshDb({ erp = true, ret = true } = {}) {
   const db = freshDb({ erp: false });
   db.exec(`INSERT INTO student_retention VALUES ('a','01011110000','inactive')`);
   globalThis.__CM.overrides = new Map(); globalThis.__CM.overrideThrows = true;
-  let m = null, threw = false;
-  try { m = await NC.loadContactPhones({ DB: d1(db) }, ['a', 'b']); } catch { threw = true; }
-  ok(!threw && m && m.get('a') === '01011110000', 'fail-open: 받아 둔 번호 조회·명부 표가 죽어도 남은 원천으로 찾고 던지지 않는다', m && [...m]);
+  let res = null, threw = false;
+  try { res = await NC.loadContactPhones({ DB: d1(db) }, ['a', 'b']); } catch { threw = true; }
+  ok(!threw && res && res.phones.get('a') === '01011110000', 'fail-open: 받아 둔 번호 조회·명부 표가 죽어도 남은 원천으로 찾고 던지지 않는다', res && [...res.phones]);
+  ok(res && res.complete === false, '🔑 (짝) 그때는 complete = false — «못 물어봤다» 를 «없다» 로 말하지 않게', res && res.complete);
   globalThis.__CM.overrideThrows = false;
+}
+{
+  // 2026-10-27 함정 대조: D1 이 통째로 죽어도 던지지 않고 «빈 맵» 이라 «번호 없음» 안내가 떴다
+  const dead = { prepare() { throw new Error('D1 down'); }, exec() { throw new Error('D1 down'); } };
+  let res = null, threw = false;
+  try { res = await NC.loadContactPhones({ DB: dead }, ['a', 'b']); } catch { threw = true; }
+  ok(!threw && res && res.phones.size === 0 && res.complete === false, 'D1 이 통째로 죽으면: 던지지 않고, 번호 0, complete = false', res && { size: res.phones.size, complete: res.complete });
+  const none = await NC.loadContactPhones({ DB: dead }, []);
+  ok(none.complete === true && none.phones.size === 0, '(짝) 물어볼 학생이 없으면 묻지 않고 complete = true(«없다» 가 사실)');
 }
 {
   const db = freshDb();
   const ins = db.prepare(`INSERT INTO student_retention VALUES (?,?,?)`);
   const uids = [];
   for (let i = 0; i < 230; i++) { const u = 'bulk' + i; uids.push(u); ins.run(u, '0105555' + String(1000 + i), 'inactive'); }
-  const m = await NC.loadContactPhones({ DB: d1(db) }, uids);
+  const m = (await NC.loadContactPhones({ DB: d1(db) }, uids)).phones;
   ok(m.size === 230, 'D1 바인드 100개 한도를 넘는 230명도 전부 찾는다(공용 청크)', m.size);
 }
 
@@ -116,11 +128,29 @@ const tapi = rd(resolve(SRC, 'api-teacher.ts'));
 const enrichAt = tapi.indexOf('// Enrich only rows already authorized by the teacher schedule query.');
 const enrichTry = braceBody(tapi, tapi.indexOf('if (!onlyNext) try {', enrichAt));
 ok(enrichTry.length > 200, '전제: 연락처 보강 블록을 잘라 냈다');
-ok(/const phones = await loadContactPhones\(env, uids\)/.test(enrichTry), '보강 블록이 정본 loadContactPhones 를 부른다');
-ok(/c\.student_phone = phones\.get\(uid\) \|\| null/.test(enrichTry), '그 결과를 student_phone 으로 싣는다');
+ok(/const contacts = await loadContactPhones\(env, uids\)/.test(enrichTry), '보강 블록이 정본 loadContactPhones 를 부른다');
 ok(!/student_phone\s*=\s*String\(r\.phone/.test(enrichTry), '⛔ 명부 칸을 직접 읽어 번호를 정하던 옛 식이 없다(판정 복제 금지)');
-ok(/contactsChecked = true;/.test(enrichTry) && enrichTry.indexOf('contactsChecked = true;') > enrichTry.indexOf('phones.get(uid)'),
-  '«조회 완료» 표시는 번호를 다 실은 «뒤» try 안에서만 참이 된다(실패면 거짓)');
+{
+  // 보강 블록을 «실제로 돌린다» — «try 를 끝까지 왔다» 가 아니라 «다 물어봤다» 일 때만 contacts_checked 가 참인가
+  const declAt = tapi.indexOf('let contactsChecked = false');
+  const block = tapi.slice(declAt, tapi.indexOf('\n', declAt)) + '\n' + enrichTry + '\ncatch (e) { }';
+  const tail = tapi.slice(tapi.indexOf('if (!onlyNext) try {', enrichAt) + enrichTry.length, tapi.indexOf('\n', tapi.indexOf('if (!onlyNext) try {', enrichAt) + enrichTry.length));
+  const run = async (lcp) => {
+    const code = stripTypeScriptTypes('async function __t(env, classes, weekDays, onlyNext, selectInChunks, loadContactPhones) {\n'
+      + tapi.slice(declAt, tapi.indexOf('if (!onlyNext) try {', enrichAt)) + enrichTry + tail + '\nreturn { contactsChecked, classes };\n}');
+    const ctx = vm.createContext({});
+    vm.runInContext(code, ctx);
+    const classes = [{ kind: 'class', student_uid: 'kid1' }, { kind: 'class', student_uid: 'kid2' }];
+    return ctx.__t({ DB: {} }, classes, [], false, async () => [{ user_id: 'kid1', shop_name: 'A' }], lcp);
+  };
+  const okRun = await run(async () => ({ phones: new Map([['kid1', '01011112222']]), complete: true }));
+  ok(okRun.contactsChecked === true && okRun.classes[0].student_phone === '01011112222' && okRun.classes[1].student_phone === null && okRun.classes[0].academy === 'A',
+    '다 물어봤으면 번호를 싣고 contacts_checked = true', okRun);
+  const failRun = await run(async () => ({ phones: new Map(), complete: false }));
+  ok(failRun.contactsChecked === false, '🔑 조회가 실패했으면(complete=false) contacts_checked = false — 화면이 «없다» 고 말하지 않는다', failRun.contactsChecked);
+  const throwRun = await run(async () => { throw new Error('boom'); });
+  ok(throwRun.contactsChecked === false, '(짝) 정본이 던져도 false', throwRun.contactsChecked);
+}
 ok(/contacts_checked: contactsChecked/.test(tapi), '응답에 contacts_checked 를 싣는다');
 ok(/import \{ loadContactPhones \} from '\.\/notify-contacts'/.test(tapi), 'import 가 있다');
 
@@ -169,6 +199,11 @@ const tc = rd(resolve(PUB, 'js/adm-today-classes.js'));
   ok(ctx.kstRange(S('2026-10-27T14:50:00Z', '2026-10-27T15:10:00Z')) === '11:50pm – 12:10am (+1d)', '날을 넘기면 (+1d)');
   ok(ctx.kstRange(S('2026-10-27T07:05:00Z')) === '4:05pm', '(짝) 끝 시각이 없으면 시작만 — 지어내지 않는다');
   ok(ctx.kstRange({ start_ts: NaN }) === '-', '(짝) 시작을 모르면 «-»');
+  ok(ctx.kstRange({ ...S('2026-10-27T07:00:00Z', '2026-10-27T07:30:00Z'), end_known: false }) === '4:00pm',
+    '카페24 줄의 끝을 서버가 지어냈으면(end_known=false) 시작만 그린다');
+  const aapi = rd(resolve(SRC, 'api-admin.ts'));
+  ok(/end_known: !!Number\(r\.left_at\)/.test(aapi) && /const end_ts = Number\(r\.left_at\) \|\| \(start_ts \+ 30 \* 60000\);/.test(aapi),
+    '서버가 카페24 줄에 «끝을 아는가» 를 싣는다(left_at 이 없으면 끝은 지어낸 값)');
   ok(!/\d{2}:\d{2}/.test(ctx.kstRange(S('2026-10-27T11:00:00Z', '2026-10-27T11:25:00Z'))), '24시간제(20:00) 글자가 안 나온다');
   ok(/'<td style="white-space:nowrap" title="KST">' \+ esc\(kstRange\(s\)\) \+ '<\/td>'/.test(tc), '표의 시간 칸이 그 함수를 실제로 부른다');
   ok(!/<td style="white-space:nowrap">' \+ hhmm\(s\.start_ts\)/.test(tc), '⛔ 시간 칸에 24시간제 hhmm(start_ts) 가 남아 있지 않다');
@@ -220,7 +255,34 @@ console.log('\n[ ③ 월 보기 — 서버 ?part=month ]');
   ok(!!re && re.test('2026-10') && !re.test('2026-13') && !re.test('2026-1') && !re.test("2026-10' OR 1=1"), '잘못된 month 는 400(형식 검사)');
   ok(/const onlyNext = [^\n]*\|\| monthMode;/.test(tapi), '월 보기는 «가벼운 경로» — 오늘 목록의 무거운 보강을 건너뛴다');
   const mret = braceBody(tapi, tapi.indexOf('  if (monthMode) {\n    /* 🎌'));
-  ok(/applyHolidayToItems\(real,/.test(mret) && /month: \{\s*\n\s*month: monthParam/.test(mret) && /return json\(/.test(mret), '월 응답: 공휴일 휴강을 같은 정본으로 입히고 달력만 돌려준다');
+  ok(/month: \{\s*\n\s*month: monthParam/.test(mret) && /return json\(/.test(mret), '월 응답: 달력만 돌려준다');
+  {
+    // 공휴일 휴강을 «실제로 돌린다» — 날짜마다 «그 날» 의 판정을 묻는가, 수업 없는 날은 안 묻는가, 차례로 묻는가
+    const loopSrc = mret.slice(mret.indexOf('for (const day of monthDays)'), mret.indexOf('return json('));
+    const applySrc = braceBody(tapi, tapi.indexOf('function applyHolidayToItems('));
+    const asked = [];
+    let inflight = 0, maxInflight = 0;
+    const c3 = vm.createContext({ asked,
+      isHolidayClosedFor: (h, tid) => !!(h && h.closed) && String(tid) !== '29',
+      loadHolidayClosure: async (db, date) => { asked.push(date); inflight++; maxInflight = Math.max(maxInflight, inflight); await new Promise(r => setTimeout(r, 1)); inflight--; return date === '2026-10-09' ? { closed: true, name: 'Hangeul Day' } : { closed: false, name: null }; },
+      _holiday: { closed: false, name: 'TODAY' }, env: { DB: {} } });
+    vm.runInContext(stripTypeScriptTypes(applySrc) + '\nasync function __m(monthDays){\n' + stripTypeScriptTypes(loopSrc) + '\nreturn monthDays;}', c3);
+    const md = [
+      { date: '2026-10-08', is_today: false, items: [] },
+      { date: '2026-10-09', is_today: false, items: [{ kind: 'class', teacher_id: '5' }, { kind: 'class', teacher_id: '29' }, { kind: 'class', teacher_id: '5', class_state: 'postponed' }, { kind: 'lms', teacher_id: '5' }] },
+      { date: '2026-10-10', is_today: false, items: [{ kind: 'class', teacher_id: '5' }] },
+      { date: '2026-10-27', is_today: true, items: [{ kind: 'class', teacher_id: '5' }] },
+    ];
+    const outDays = await c3.__m(md);
+    ok(JSON.stringify(asked) === '["2026-10-09","2026-10-10"]', '그 날의 휴강 판정을 묻는다 — 수업 없는 날·오늘(이미 읽음)은 안 묻는다', asked);
+    ok(maxInflight === 1, '🔑 하루씩 차례로 묻는다(31일을 한꺼번에 D1 에 몰지 않는다)', maxInflight);
+    const d9 = outDays[1].items;
+    ok(d9[0].status === 'holiday' && d9[0].holiday_name === 'Hangeul Day' && d9[1].status !== 'holiday' && d9[2].status !== 'holiday' && d9[3].status !== 'holiday',
+      '휴강일: 수업은 «휴강», 중국어 예외 강사·연기된 회차·LMS 점유는 그대로', d9);
+    ok(outDays[2].items[0].status !== 'holiday', '(짝) 평일은 휴강 아님');
+  }
+  ok(tapi.indexOf("error: 'bad_month'") > tapi.indexOf("error: 'not_a_teacher'") && tapi.indexOf("error: 'bad_month'") > tapi.indexOf('const actor = await getAdminActor('),
+    'month 형식 검사는 로그인 확인 «뒤» — 미인증은 400 이 아니라 401(무해 프로브가 오독하지 않게)');
   ok(mret && tapi.indexOf('  if (monthMode) {\n    /* 🎌') < tapi.indexOf('  if (onlyNext) {\n    const GRACE_AFTER_END'), '월 응답이 «다음 수업» 응답보다 먼저 갈린다');
   ok(!/student_phone|contact/.test(mret), '(짝) 월 응답에는 연락처가 안 실린다(그 날 목록에서만)');
 }
@@ -274,7 +336,9 @@ console.log('\n[ ③ 월 보기 — teacher.html 달력을 실제로 그린다 ]
   const leadBlanks = (h.slice(0, h.indexOf('data-mo-day=')).match(/mo-blank/g) || []).length;
   ok(cells % 7 === 0 && leadBlanks === 4, '칸 수가 7의 배수, 10/1(목) 앞에 빈칸 4개(요일 칸이 맞는다)', { cells, leadBlanks });
   ok((h.match(/data-mo-day="/g) || []).length === 31, '날짜 칸 31개(누를 수 있는 버튼)');
-  ok(/data-mo-day="2026-10-27"[^>]*>.*?<span class="mo-n">4<\/span>/.test(h), '오늘 칸: 진짜 수업 수만 센다(LMS 점유 제외 = 4)');
+  ok(/data-mo-day="2026-10-27"[^>]*>.*?<span class="mo-n">3<\/span>/.test(h), '오늘 칸 배지: «열리는» 수업만 센다(LMS 점유·연기 제외 = 3)');
+  const cell9 = h.slice(h.indexOf('data-mo-day="2026-10-09"'), h.indexOf('</button>', h.indexOf('data-mo-day="2026-10-09"')));
+  ok(cell9.length > 20 && !/class="mo-n"/.test(cell9) && /Hangeul Day/.test(cell9), '(짝) 공휴일 휴강 수업만 있는 날은 배지가 없다(줄과 이름은 보인다)', cell9);
   ok(/mo-c today/.test(h), '오늘 칸 강조');
   ok(/T12:30<\/b> <span class="mo-who">지승연/.test(h), '시각은 MangoiClassDisplay.time(12/24 선택을 따른다)·학생 이름');
   ok(/mo-i lt/.test(h) && /mo-i pp/.test(h) && /mo-i dim/.test(h), '레벨테스트·연기·점유 슬롯을 구분해 그린다');
@@ -282,14 +346,51 @@ console.log('\n[ ③ 월 보기 — teacher.html 달력을 실제로 그린다 ]
   ok(/mo-c hol/.test(h) && /Hangeul Day/.test(h) && /mo-i hol/.test(h), '공휴일 휴강 칸·이름');
   ok(el('mo-label').textContent === 'October 2026' && el('mo-this').classList.contains('on'), '머리에 달 이름, «이번 달» 표시');
   ctx.LANG = 'ko'; ctx.renderMonth();
-  ok(el('mo-label').textContent === '2026년 10월' && /수업 4건/.test(el('month').innerHTML), '한국어로 다시 그린다');
+  ok(el('mo-label').textContent === '2026년 10월' && /수업 3건/.test(el('month').innerHTML), '한국어로 다시 그린다');
+  ctx.MO.me = { identity_unlinked: true, is_manager: false }; ctx.renderMonth();
+  ok(/강사 명부의 한 사람과 맞춰지지 않아/.test(el('month').innerHTML) && !/data-mo-day/.test(el('month').innerHTML), '계정이 강사 명부와 안 이어졌으면 빈 달력 대신 그 사실을 말한다');
+  ctx.MO.me = { identity_unlinked: true, is_manager: true }; ctx.renderMonth();
+  ok(/data-mo-day/.test(el('month').innerHTML), '(짝) 매니저는 그 안내 없이 달력(커버 수업)을 본다');
+  ctx.MO.me = null;
   ctx.MO.err = true; ctx.MO.data = null; ctx.renderMonth();
   ok(el('mo-error').hidden === false && el('month').innerHTML === '', '(짝) 못 불러오면 «불러오는 중» 이 아니라 실패 안내');
   // 배선
   const bindSrc = thtml.slice(thtml.indexOf('(function bindMonthView(){'), thtml.indexOf('})();', thtml.indexOf('(function bindMonthView(){')));
-  ok(/pickClsDay\(c\.getAttribute\('data-mo-day'\)\)/.test(bindSrc), '칸을 누르면 그 날을 위 목록(pickClsDay)으로 연다 — 새 화면을 만들지 않는다');
-  ok(/card\.addEventListener\('toggle'/.test(bindSrc) && /getElementById\('cls-month-open'\)/.test(bindSrc), '접이칸을 열 때 불러오고, 날짜 옆 «📅 Month view» 가 바로 연다');
-  ok(/addEventListener\('class-time-format'/.test(bindSrc) && /getElementById\('lang'\)/.test(bindSrc), '언어·12/24 표시가 바뀌면 다시 그린다');
+  {
+    // 배선을 «실제로 눌러 본다» — 글자만 보면 리스너 안을 비워도 통과한다(2026-10-27 함정 대조 실측)
+    const E = new Map(), winL = {}, picked = [], f2 = [];
+    const mk = (id) => { if (!E.has(id)) { const L = {}, cls = new Set(); E.set(id, { id, L, hidden: false, open: false, innerHTML: '', textContent: '', attrs: {},
+      classList: { add: c => cls.add(c), remove: c => cls.delete(c), contains: c => cls.has(c) }, setAttribute(k, v) { this.attrs[k] = v; },
+      addEventListener(k, fn) { (L[k] ||= []).push(fn); }, scrollIntoView() {}, fire(k, ev) { for (const fn of L[k] || []) fn.call(this, ev || {}); } }); } return E.get(id); };
+    const c4 = vm.createContext({ LANG: 'en', EN: () => c4.LANG !== 'ko', T: (en, ko) => c4.LANG === 'ko' ? ko : en, esc: x => String(x ?? ''),
+      document: { getElementById: mk }, window: { addEventListener: (k, fn) => (winL[k] ||= []).push(fn) },
+      localStorage: { getItem: () => null, setItem() {} }, console: { warn() {} }, IS_MGR: false,
+      clsToday: () => '2026-10-27', clsDayLabel: d => d, stuLabelText: c => c.student_name || '',
+      MangoiClassDisplay: { time: t => 'T' + t, range: c => c.start_time }, pickClsDay: d => picked.push(d),
+      fetch: (url) => { f2.push(url); return new Promise(() => {}); } });
+    vm.runInContext(code + '\n' + bindSrc + '})();', c4);
+    const card = mk('c-week');
+    c4.setScheduleView('month', false);
+    card.open = true; card.fire('toggle');
+    ok(f2.length === 1 && /part=month&month=2026-10/.test(f2[0]), '접이칸을 «열면» 이번 달을 실제로 부른다(toggle)', f2);
+    card.open = false; f2.length = 0; c4.setScheduleView('week', false);
+    mk('cls-month-open').fire('click');
+    ok(card.open === true && card.hidden === false && c4.MO.view === 'month' && mk('mo-pane').hidden === false, '«📅 Month view» 를 누르면 접이칸이 열리고 월간이 된다');
+    card.fire('toggle');
+    ok(f2.length >= 1 && f2.every(u => /part=month/.test(u)), '…그리고 그 달을 부른다', f2);
+    c4.MO.data = { month: '2026-10', days: [{ date: '2026-10-01', dow: 4, items: [{ kind: 'class', start_time: '16:00', student_name: 'Kim' }] }] };
+    c4.MO.month = '2026-10'; c4.renderMonth();
+    c4.LANG = 'ko'; mk('lang').fire('click');
+    ok(mk('mo-label').textContent === '2026년 10월', '언어 버튼을 누르면 월 달력도 다시 그린다', mk('mo-label').textContent);
+    c4.MangoiClassDisplay.time = t => 'H' + t;
+    for (const fn of winL['class-time-format'] || []) fn();
+    ok(/H16:00/.test(mk('month').innerHTML), '12/24 시간 표시를 바꾸면 월 달력도 다시 그린다');
+    const target = { closest: () => ({ getAttribute: () => '2026-10-01' }) };
+    mk('month').fire('click', { target });
+    ok(JSON.stringify(picked) === '["2026-10-01"]', '칸을 누르면 그 날을 위 목록(pickClsDay)으로 연다 — 새 화면을 만들지 않는다', picked);
+    mk('month').fire('click', { target: { closest: () => null } });
+    ok(picked.length === 1, '(짝) 날짜 칸이 아닌 곳을 누르면 아무 일도 안 한다');
+  }
   ok(/id="wk-mode-month"/.test(thtml) && /id="mo-pane" hidden/.test(thtml) && /id="cls-month-open"/.test(thtml), '화면에 주간/월간 버튼·월 칸·바로가기가 있다');
 }
 

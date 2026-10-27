@@ -144,9 +144,6 @@ export async function handleTeacherApi(
    *  보강(출결·평가·연락처·인수인계)은 하지 않는다(월 달력은 «언제 무슨 수업이 있나» 만 그린다). */
   const monthParam = url.searchParams.get('part') === 'month' ? String(url.searchParams.get('month') || '').trim() : '';
   const monthMode = url.searchParams.get('part') === 'month';
-  if (monthMode && !(/^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam) && Number(monthParam.slice(0, 4)) >= 2000)) {
-    return json({ ok: false, error: 'bad_month' }, 400);
-  }
   const onlyNext = url.searchParams.get('only') === 'next' || url.searchParams.get('part') === 'student_history' || monthMode;
 
   // ── 신원: 쿠키 세션에서만 (클라이언트가 보내는 값은 일절 신뢰하지 않는다) ──
@@ -166,6 +163,12 @@ export async function handleTeacherApi(
       message: '강사 또는 본사 계정만 사용할 수 있는 화면입니다.',
       message_en: 'This page is for teacher or head-office accounts only.',
     }, 403);
+  }
+  /* 📅 월 보기의 month 형식 검사 — 로그인 확인 «뒤» 에 둔다(student_history 와 같은 자리).
+     앞에 두면 미인증 요청이 401 이 아니라 400 을 받아, «401 이냐 핸들러 검증 오류냐» 로 게이트를 가르는
+     무해 프로브(규칙서 2장)가 이 경로를 «게이트 없음» 으로 오독한다. */
+  if (monthMode && !(/^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam) && Number(monthParam.slice(0, 4)) >= 2000)) {
+    return json({ ok: false, error: 'bad_month' }, 400);
   }
 
   /* ✍ `?part=my_evals` — «내가 쓴 일지» 카드 전용 경량 응답 (2026-08-27 마이마이 8/26 ①)
@@ -386,10 +389,10 @@ export async function handleTeacherApi(
    *  enroll-ops.ts (m-2)/(m-3) 참고). 그래서 위의 `conds`(teacher_id 매칭)만으로는:
    *    · 원래 강사 쪽엔 "오늘도 내 수업" 으로 여전히 뜬다 → 대체가 있는 날은 숨겨야 한다.
    *    · 대체강사 쪽엔 애초에 안 뜬다(teacher_id 가 자기가 아니므로) → 따로 끼워 넣어야 한다.
-   *  ⚠️ **오늘 하루만** 처리한다 — 주간표(weekDays)·앞으로 7일(upcoming)은 day_of_week 로
+   *  ⚠️ **오늘 하루만** 처리한다 — 주간표(weekDays)·월 달력(monthDays, 2026-10-27)·앞으로 7일(upcoming)은 day_of_week 로
    *     매주 반복 매칭하므로, 그 특정 날짜만 겹치는 오버레이를 거기에 정확히 끼워 넣으려면
    *     날짜별로 훨씬 더 손볼 곳이 많다(이 파일은 이미 사고 이력이 많은 파일이라 최소침습 우선).
-   *     그래서 대체 회차는 오늘 목록에서만 정확하고, 주간표에는 아직 안 보인다(알려진 한계). */
+   *     그래서 대체 회차는 오늘 목록에서만 정확하고, 주간표·월 달력에는 아직 안 보인다(알려진 한계). */
   const hiddenToday = new Set<number>();
   const subToday: any[] = [];
   try {
@@ -1045,7 +1048,7 @@ export async function handleTeacherApi(
   } catch { /* 노쇼 표시가 없어도 목록은 정상 */ }
 
   // Enrich only rows already authorized by the teacher schedule query. Never accept a client student ID.
-  let contactsChecked = false;
+  let contactsChecked = false, contactsComplete = true;
   if (!onlyNext) try {
     const visible = [...classes, ...weekDays.flatMap((d: any) => d.items)];
     const uids = [...new Set(visible.filter((c: any) => c.kind === 'class' && c.student_uid).map((c: any) => String(c.student_uid)))];
@@ -1056,7 +1059,9 @@ export async function handleTeacherApi(
       /* ☎ (2026-10-27 강사 제안 «일부 학생 연락처가 여전히 안 보인다») 번호는 정본 loadContactPhones 한 곳에서.
          예전엔 명부(students_erp)의 phone·parent_phone 만 읽었는데 그 칸은 사실상 비어 있어 — 매니저 화면에 뜨는
          번호(student_retention)도 여기선 늘 «—» 였다. ⛔ 번호 판정을 이 파일에 다시 적지 말 것. */
-      const phones = await loadContactPhones(env, uids);
+      const contacts = await loadContactPhones(env, uids);
+      const phones = contacts.phones;
+      contactsComplete = contacts.complete;
       for (const c of visible as any[]) {
         const uid = String(c.student_uid || '');
         const r: any = byUid.get(uid);
@@ -1064,7 +1069,9 @@ export async function handleTeacherApi(
         c.student_phone = phones.get(uid) || null;
       }
     }
-    contactsChecked = true;   // ☎ 화면이 «번호가 왜 없는지» 를 말해도 되는 근거 — 조회가 끝났을 때만 참
+    // ☎ 화면이 «번호가 왜 없는지» 를 말해도 되는 근거 — 모든 원천에 «실제로» 물어봤을 때만 참.
+    //   ⚠️ loadContactPhones 는 던지지 않으므로 «try 를 끝까지 왔다» 만으로는 부족하다(D1 이 죽어도 여기까지 온다).
+    contactsChecked = contactsComplete;
   } catch { /* Missing contact details must never prevent class entry. */ }
 
   /* ✍ 일지 배지 + 학생별 «지난 수업» (2026-08-27 마이마이 8/26 ①②)
@@ -1185,21 +1192,15 @@ export async function handleTeacherApi(
     }
   }
 
-  /* 🔔 `?only=next` — 여기서 끝낸다. 아래 매니저 블록·주간 스케줄·반환문은 타지 않는다.
-   *
-   *  고르는 규칙: «아직 안 끝난 것 중 가장 이른 하나». 끝난 수업은 배너로 부를 이유가 없다.
-   *    ⚠️ `lms`(옛 LMS 점유 슬롯)·`sample`(시연 시드)은 **뺀다** — 들어갈 방이 없는 행이라
-   *       배너가 「수업이 있어요」 하고 부르면 아무도 없는 방으로 보내게 된다.
-   *    ⚠️ «몇 분 전부터 띄울지» 는 여기서 정하지 않는다. 서버는 사실(시각)만 주고
-   *       띄울지 말지는 화면이 정한다 — 그래야 설정을 바꿀 때 서버를 안 건드린다.
-   *  🌐 라벨은 한/영 두 벌. 학생 이름은 번역하지 않고 원부의 영문명을 쓴다(위 주석과 같은 이유).
-   */
+  /* 📅 `?part=month` — 여기서 끝낸다(달력만). 아래 «다음 수업»·매니저 블록·주간 반환문은 타지 않는다. */
   if (monthMode) {
-    /* 🎌 공휴일 휴강 — 주간 스케줄과 같은 정본(applyHolidayToItems). 날짜당 한 번(+isolate 캐시), 던지지 않는다. */
-    await Promise.all(monthDays.map(async (day: any) => {
+    /* 🎌 공휴일 휴강 — 주간 스케줄과 같은 정본(applyHolidayToItems)·같은 방식(하루씩 차례로, isolate 캐시 5분).
+       ⚠️ Promise.all 로 31일을 한꺼번에 묻지 않는다 — 찬 캐시면 날짜당 D1 문장 3~4개라 한 번에 100개 남짓이
+          몰린다(2026-10-27 함정 대조). 수업이 있는 날만 묻는다. 던지지 않는다(정본이 fail-open). */
+    for (const day of monthDays) {
       const real = day.items.filter((it: any) => it.kind === 'class');
       if (real.length) applyHolidayToItems(real, day.is_today ? _holiday : await loadHolidayClosure(env.DB, day.date));
-    }));
+    }
     return json({
       ok: true, now, today: todayStr,
       me: { identity_unlinked: identityUnlinked, identity_ambiguous: identityAmbiguous, is_manager: isManager },
@@ -1209,6 +1210,16 @@ export async function handleTeacherApi(
       },
     });
   }
+
+  /* 🔔 `?only=next` — 여기서 끝낸다. 아래 매니저 블록·주간 스케줄·반환문은 타지 않는다.
+   *
+   *  고르는 규칙: «아직 안 끝난 것 중 가장 이른 하나». 끝난 수업은 배너로 부를 이유가 없다.
+   *    ⚠️ `lms`(옛 LMS 점유 슬롯)·`sample`(시연 시드)은 **뺀다** — 들어갈 방이 없는 행이라
+   *       배너가 「수업이 있어요」 하고 부르면 아무도 없는 방으로 보내게 된다.
+   *    ⚠️ «몇 분 전부터 띄울지» 는 여기서 정하지 않는다. 서버는 사실(시각)만 주고
+   *       띄울지 말지는 화면이 정한다 — 그래야 설정을 바꿀 때 서버를 안 건드린다.
+   *  🌐 라벨은 한/영 두 벌. 학생 이름은 번역하지 않고 원부의 영문명을 쓴다(위 주석과 같은 이유).
+   */
   if (onlyNext) {
     const GRACE_AFTER_END = 30 * 60 * 1000;   // 끝나고도 30분은 «진행 중» 으로 본다(연장·마무리)
     const cand = classes
