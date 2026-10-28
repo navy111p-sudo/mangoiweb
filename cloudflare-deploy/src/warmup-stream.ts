@@ -130,7 +130,7 @@ const squash = (s: string) => String(s == null ? '' : s).replace(/\s+/g, ' ').tr
 
 export function createWarmupLive(
   send: (o: any) => void,
-  o: { lang: string; cap: number; friend: string; studentInput: string; fragQ?: boolean },
+  o: { lang: string; cap: number; friend: string; studentInput: string; fragQ?: boolean; repeatOf?: (sentence: string) => boolean },
 ): WarmupLive {
   let text = '';
   let n = 0;
@@ -155,6 +155,11 @@ export function createWarmupLive(
          학생이 조각을 먼저 듣는다. 걸리면 여기서 멈추고 정본을 done 으로 받는다. 정본·이유는 src/reply-questions.ts. */
       if (!why && o.fragQ) {
         try { if (fragmentQuestions(s).length) why = 'fragment'; } catch { why = 'gate_error'; }
+      }
+      /* 🔁 이 대화에서 이미 물은 질문(말만 바꾼 것·반대말 포함) — 최종본은 다시 뽑히므로(index.ts) 미리보기에서 소리를 내면
+         학생이 같은 질문을 먼저 듣는다. 걸리면 여기서 멈추고 정본을 done 으로 받는다. 판정 정본은 src/question-memory.ts. */
+      if (!why && o.repeatOf) {
+        try { if (o.repeatOf(s)) why = 'repeat'; } catch { why = 'gate_error'; }
       }
       if (why) { halt = why; return false; }
       text = cand; n++;

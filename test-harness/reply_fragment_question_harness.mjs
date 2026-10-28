@@ -23,7 +23,7 @@ let M, full = true;
 if (build) {
   const out = tmpdir() + '/reply-frag-' + process.pid + '.mjs';
   await build({
-    stdin: { contents: "export * from './src/reply-questions'; export { createWarmupLive } from './src/warmup-stream'; export { replyRejectReason } from './src/reply-sanity'; export * from './src/eleader-l1'; export { ELEADER_BOOK_UNITS } from './src/eleader-book-pack';", resolveDir: SRC },
+    stdin: { contents: "export * from './src/reply-questions'; export { createWarmupLive } from './src/warmup-stream'; export { replyRejectReason } from './src/reply-sanity'; export * from './src/eleader-l1'; export { ELEADER_BOOK_UNITS } from './src/eleader-book-pack'; export { repeatedQuestions, repeatQuestionHint, questionMemory, retryRepeatedQuestion } from './src/question-memory';", resolveDir: SRC },
     bundle: true, platform: 'node', format: 'esm', outfile: out, logLevel: 'silent',
   });
   M = await import(pathToFileURL(out));
@@ -32,6 +32,9 @@ if (build) {
   const { stripTypeScriptTypes } = await import('node:module');
   const js = stripTypeScriptTypes(readFileSync(SRC + '/src/reply-questions.ts', 'utf8'));
   M = await import('data:text/javascript,' + encodeURIComponent(js));
+  /* 🔁 같은 질문 판정(question-memory.ts)도 import 가 없어 같은 방법으로 돌린다 — 반복 재시도 블록(6-3)이 그것을 부른다. */
+  const qm = await import('data:text/javascript,' + encodeURIComponent(stripTypeScriptTypes(readFileSync(SRC + '/src/question-memory.ts', 'utf8'))));
+  M = { ...M, repeatedQuestions: qm.repeatedQuestions, repeatQuestionHint: qm.repeatQuestionHint, questionMemory: qm.questionMemory, retryRepeatedQuestion: qm.retryRepeatedQuestion };
   console.log('⏭ esbuild 없음 — reply-questions.ts 만 타입을 벗겨 돌립니다(④ 미리듣기 · ⑦ 엘리더잼 · 교재 문장 검사는 건너뜀)');
 }
 const idx = readFileSync(SRC + '/src/index.ts', 'utf8');
@@ -218,29 +221,40 @@ const untype = (t) => t.replace(/:\s*any\b/g, '');
   ok('fragQ·미리듣기 자리를 오려 냈다(전제)', !!region);
   let liveOf = null;
   try { liveOf = new Function('ctxLang', 'WARMUP_WORD_CAP', 'ctxDifficulty', 'checksFragmentQuestions', 'sseSend', 'createWarmupLive',
-    'ctxFriend', 'studentInput', untype(region) + '\nreturn { fragQ, live };'); }
+    'ctxFriend', 'studentInput', 'qmem', 'repeatedQuestions', untype(region) + '\nreturn { fragQ, live };'); }
   catch (e) { ok('fragQ·미리듣기 자리가 실행된다', false, String(e)); }
   if (liveOf) {
-    const run = (lang, d) => { let got = null; try { const r = liveOf(lang, { 1: 5, 2: 7, 3: 9, 5: 15 }, d, M.checksFragmentQuestions, () => {},
-      (send, o) => { got = o; return { o }; }, 'Lily', 'I like stars.'); return { ...r, got }; } catch (e) { return { crash: String(e), got }; } };
+    /* 🔁 (2026-10-28) 미리듣기에 «이미 물은 질문» 판정(repeatOf)도 넘긴다 — 기억(qmem)이 있을 때만. */
+    const mem = M.questionMemory([{ role: 'assistant', content: 'Is your dog big?' }], 'small');
+    const run = (lang, d, qm = null) => { let got = null; try { const r = liveOf(lang, { 1: 5, 2: 7, 3: 9, 5: 15 }, d, M.checksFragmentQuestions, () => {},
+      (send, o) => { got = o; return { o }; }, 'Lily', 'I like stars.', qm, M.repeatedQuestions); return { ...r, got }; } catch (e) { return { crash: String(e), got }; } };
     const r1 = run('en', 1), r5 = run('en', 5), rz = run('zh', 1);
     ok('1단계: fragQ 가 켜지고 미리듣기에 true 가 간다', r1.fragQ === true && r1.got && r1.got.fragQ === true, r1);
     ok('5단계·중국어: 꺼지고 미리듣기에도 false 가 간다(짝)', r5.fragQ === false && r5.got && r5.got.fragQ === false && rz.got && rz.got.fragQ === false, { r5, rz });
+    const rm = run('en', 3, mem);
+    ok('기억이 있으면 미리듣기가 «이미 물은 질문» 에서 멈춘다(repeatOf)', !!(rm.got && typeof rm.got.repeatOf === 'function'
+      && rm.got.repeatOf('Is your dog small?') === true && rm.got.repeatOf('Can your dog swim?') === false), rm.crash);
+    ok('기억이 없으면 repeatOf 를 안 넘긴다(짝 — 예전 그대로)', !!(r1.got && r1.got.repeatOf === undefined));
   }
 }
-// 6-3 반복 재시도가 조각 질문을 되살리지 않는다 — 그 if 블록을 통째로 돌린다
+// 6-3 반복 재시도가 조각 질문을 되살리지 않는다 — 엔진이 정본(retryRepeatedQuestion)을 부르는 자리를 통째로 돌린다
+// 🔁 (2026-10-28) 반복 재시도가 «말만 바꾼 같은 질문» 도 보게 되며 순서가 src/question-memory.ts 로 옮겨졌다.
+//    같은 질문 판정·순서 자체의 검사는 test-harness/warmup_no_repeat_question_harness.mjs 에 있다.
 {
-  const i = idx.indexOf('      if (aiText && warmupIsRepeat(aiText, history)) {');
-  const block = i > 0 ? braceBlock(idx, i) : '';
+  const i = idx.indexOf('      const rr = await retryRepeatedQuestion({');
+  const e = i < 0 ? -1 : idx.indexOf('      aiText = rr.text;', i);
+  const block = i > 0 && e > i ? idx.slice(i, e + '      aiText = rr.text;'.length) : '';
   ok('반복 재시도 블록을 오려 냈다(전제)', !!block);
   let repOf = null;
   try { repOf = new AsyncFn('aiText', 'warmupIsRepeat', 'history', 'runWarmup', 'messages', 'takeWarmupReply', 'fragQ', 'fragmentQuestions',
-    'commitFix', untype(block) + '\nreturn aiText;'); }
-  catch (e) { ok('반복 재시도 블록이 실행된다', false, String(e)); }
+    'commitFix', 'repeatedQuestions', 'qmem', 'latT0', 'FRAG_RETRY_BUDGET_MS', 'ctxDifficulty', 'retryRepeatedQuestion', 'replyRejectReason',
+    'sanityCap', 'wrongSelfName', 'ctxFriend', 'askedOwnName', 'studentInput', 'console', untype(block) + '\nreturn aiText;'); }
+  catch (e2) { ok('반복 재시도 블록이 실행된다', false, String(e2)); }
   if (repOf) {
     const first = 'Do you like stars?';
     const run = async (fragQ, retry) => { try { return await repOf(first, (t) => t === first, [], async () => ({ response: retry }), [],
-      (r) => r.response, fragQ, M.fragmentQuestions, () => {}); } catch (e) { return 'CRASH ' + e; } };
+      (r) => r.response, fragQ, M.fragmentQuestions, () => {}, M.repeatedQuestions, null, Date.now(), 9000, 1, M.retryRepeatedQuestion,
+      () => '', 5, () => '', 'Lily', () => false, 'I like stars.', quiet); } catch (e3) { return 'CRASH ' + e3; } };
     ok('반복 재시도: 조각을 더 만들면 안 받는다', (await run(true, 'Like space?')) === first);
     ok('반복 재시도: 완전한 질문이면 받는다(짝)', (await run(true, 'Do you like space?')) === 'Do you like space?');
     ok('반복 재시도: 검사를 안 켠 단계면 예전 그대로', (await run(false, 'Like space?')) === 'Like space?');
