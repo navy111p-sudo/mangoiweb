@@ -1,6 +1,6 @@
 /* 📵 adm-phone-gaps.js — «번호 없는 학생» 목록과 그 자리 입력 (2026-10-28)
  *
- * [무엇] 다음 N일 수업이 있는데 «수업 30분 전 안내 문자» 가 갈 번호가 없는 학생을 보여 주고,
+ * [무엇] 다음 N일 «아직 안내 문자가 나갈» 수업이 있는데 «수업 30분 전 안내 문자» 가 갈 번호가 없는 학생을 보여 주고,
  *        그 줄에서 바로 학부모·학생 번호를 넣게 한다.
  *   · 목록 = GET /api/admin/student/phone-gaps (판정 정본 src/phone-gaps.ts — 리마인더와 같은 규칙·같은 번호 판정)
  *   · 저장 = 기존 PATCH /api/admin/student/:uid/contact (→ student_erp_override — 야간 동기화가 못 덮는 자리)
@@ -20,13 +20,16 @@
     try { return (localStorage.getItem('mangoi_lang') || '') === 'en'; } catch (e) { return false; }
   }
   function T(ko, en) { return isEn() ? en : ko; }
+  /* 줄 안내는 두 말을 함께 들고 그릴 때 고른다 — 저장 «그때» 의 언어로 굳히면 🌐 를 눌러도 그 줄만 옛 말로 남는다. */
+  function pair(ko, en) { return { ko: ko, en: en }; }
+  function txt(m) { return !m ? '' : (typeof m === 'string' ? m : (isEn() ? m.en : m.ko)); }
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
 
-  var MIN_DIGITS = 10;   // 국내 문자 문턱(서버 SMS_MIN_DIGITS 와 같다 — solapi-client.ts 의 `phone.length < 10`)
+  var MIN_DIGITS = 10;   // 리마인더 문자 문턱(서버 SMS_MIN_DIGITS 와 같다 — deliverLessonReminder 의 `normalized.length < 10`)
   var DOW_KO = ['일', '월', '화', '수', '목', '금', '토'];
   var DOW_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -73,8 +76,8 @@
     var out = [];
     var gaps = (r && r.gaps) || [];
     out.push(T(
-      '다음 ' + r.days + '일(' + r.from + ' ~ ' + r.to + ') 수업이 있는 학생 ' + r.students + '명 중 문자가 갈 학생 ' + r.reachable + '명 · 번호가 없는 학생 ' + gaps.length + '명',
-      'Next ' + r.days + ' days (' + r.from + ' – ' + r.to + '): ' + r.students + ' students with classes · ' + r.reachable + ' will get a text · ' + gaps.length + ' have no usable number'));
+      '다음 ' + r.days + '일(' + r.from + ' ~ ' + r.to + ') 아직 안내 문자가 나갈 수업이 있는 학생 ' + r.students + '명 중 문자가 갈 학생 ' + r.reachable + '명 · 번호가 없는 학생 ' + gaps.length + '명',
+      'Next ' + r.days + ' days (' + r.from + ' – ' + r.to + '): ' + r.students + ' students with upcoming classes · ' + r.reachable + ' will get a text · ' + gaps.length + ' have no usable number'));
     if (r.complete === false) out.push(T(
       '⚠️ 번호 조회를 일부 못 했습니다 — 이 목록에 «이미 번호가 있는» 학생이 섞여 있을 수 있습니다. 잠시 뒤 다시 불러오세요.',
       '⚠️ Some numbers could not be checked — this list may include students who already have one. Reload in a moment.'));
@@ -90,17 +93,56 @@
     return out;
   }
 
+  function said(ok, ko, en) { return { ok: ok, text: T(ko, en), ko: ko, en: en }; }
   /** 저장 응답 → 사람에게 할 말. ok=true 면 목록을 다시 불러 확인한다. */
   function saveMsg(st, d) {
-    if (st === 401) return { ok: false, text: T('로그인이 풀렸습니다. 다시 로그인해 주세요.', 'Session expired. Please log in again.') };
+    if (st === 401) return said(false, '로그인이 풀렸습니다. 다시 로그인해 주세요.', 'Session expired. Please log in again.');
     if (!d || d.ok !== true) {
       var m = d && (d.message || d.who_line || d.error);
-      return { ok: false, text: T('❌ 저장 못 함', '❌ Not saved') + (m ? ' — ' + m : '') };
+      return said(false, '❌ 저장 못 함' + (m ? ' — ' + m : ''), '❌ Not saved' + (m ? ' — ' + m : ''));
     }
-    if (d.phone_kept === false) return { ok: false, text: T(
-      '⚠️ 명부에는 적었지만 «야간 동기화가 못 덮는 칸» 에는 못 적었습니다 — 오늘 밤 지워질 수 있습니다. 학생 상세에서 한 번 더 저장해 주세요.',
-      '⚠️ Saved to the roster, but not to the protected field — it may be wiped tonight. Please save again from the student page.') };
-    return { ok: true, text: T('✅ 저장했습니다 — 확인 중…', '✅ Saved — checking…') };
+    /* ⚠️ phone_kept:false 는 «직원 입력 칸»(student_erp_override)에 못 적었다는 뜻이다. 이유가 둘이라(① 그 칸 쓰기 실패
+       ② 이 아이디로 명부 행을 정확일치로 못 찾음 — 그때는 명부에도 안 적혔다) 서버가 함께 주는
+       roster_updated(명부 행이 실제로 바뀌었나 · 모르면 null)로 가른다. 모르면 단정하지 않는다. */
+    if (d.phone_kept === false) {
+      var mk;
+      if (d.roster_updated === false) {
+        mk = said(false, '❌ 저장되지 않았습니다 — 이 아이디로 명부를 찾지 못했습니다(수업 예약 아이디와 명부 아이디의 대소문자가 다르거나 명부에 없는 아이디). 이 아이디를 본사 개발 담당에게 알려 주세요.',
+          '❌ Not saved — no roster record was found for this ID (the booking ID may differ in upper/lower case, or the ID is not in the roster). Please send this ID to the HQ developer.');
+      } else if (d.roster_updated === true) {
+        mk = said(true, '⚠️ 명부에는 적었지만 «직원 입력 칸» 에는 못 적었습니다 — 확인 중…', '⚠️ Saved to the roster but not to the staff field — checking…');
+      } else {
+        mk = said(true, '⚠️ 일부만 저장됐을 수 있습니다 — 확인 중…', '⚠️ May be only partly saved — checking…');
+      }
+      mk.kept = false; mk.roster = (d.roster_updated === true || d.roster_updated === false) ? d.roster_updated : null;
+      return mk;
+    }
+    var okm = said(true, '✅ 저장했습니다 — 확인 중…', '✅ Saved — checking…'); okm.kept = true; return okm;
+  }
+
+  /** 다시 불러온 뒤 그 학생에 대해 할 말 — { row: 줄에 남길 말 | null, flash: 띄울 말 | null }.
+   *  ⚠️ «목록에서 빠졌다» 를 «이제 문자가 간다» 로 읽지 않는다 — 수업 시각이 지나도 빠진다.
+   *     «이 번호로 간다» 는 직원 입력 칸에 «적힌 것이 확인된»(kept === true) 때만 말한다. */
+  function afterReload(m, d, uid) {
+    if (!d || d.ok !== true) return { row: null, flash: pair(
+      '⚠️ ' + uid + ' — 저장 요청은 처리됐지만 목록을 다시 불러오지 못해 확인하지 못했습니다. 잠시 뒤 «다시 불러오기» 를 눌러 확인해 주세요.',
+      '⚠️ ' + uid + ' — the save went through, but the list could not be reloaded to check it. Press «Reload» in a moment.') };
+    var still = (d.gaps || []).some(function (g) { return String(g.uid) === uid; });
+    var off = (d.sms_mode && d.sms_mode !== 'real') || d.reminder_enabled === false;
+    var offKo = off ? ' (다만 지금은 문자 발송이 꺼져 있어 실제로는 안 갑니다.)' : '';
+    var offEn = off ? ' (But texting is off right now, so nothing is actually sent.)' : '';
+    if (still && m.kept === false && m.roster !== true) return { row: pair(
+      '❌ 문자가 갈 번호로 확인되지 않았습니다 — 명부에서 이 아이디를 못 찾았을 수 있습니다(수업 예약 아이디와 명부 아이디의 대소문자가 다르거나 명부에 없는 아이디). 이 아이디를 본사 개발 담당에게 알려 주세요.',
+      '❌ Not confirmed as reachable — the roster may not have this ID (upper/lower case differs from the booking, or it is not in the roster). Please send this ID to the HQ developer.'), flash: null };
+    if (still) return { row: pair('⚠️ 저장했는데 아직 문자가 안 갈 번호로 보입니다 — 번호를 다시 확인해 주세요.', '⚠️ Saved, but it still looks unreachable — please check the number.'), flash: null };
+    if (m.kept === false) return { row: null, flash: m.roster === true ? pair(
+      '⚠️ ' + uid + ' — 명부에는 적었지만 «직원 입력 칸» 에는 못 적었습니다. 카페24 가 다른 번호를 주면 그 번호로 바뀝니다 — 한 번 더 저장해 주세요.' + offKo,
+      '⚠️ ' + uid + ' — saved to the roster but not to the staff field; if cafe24 sends another number it will replace this one — please save once more.' + offEn) : pair(
+      '⚠️ ' + uid + ' — 목록에서는 빠졌지만 «직원 입력 칸» 에는 못 적었습니다. 카페24 가 다른 번호를 주면 그 번호로 바뀝니다 — 한 번 더 저장해 주세요.' + offKo,
+      '⚠️ ' + uid + ' — it left the list, but it could not be written to the staff field; if cafe24 sends another number it will replace this one — please save once more.' + offEn) };
+    return { row: null, flash: pair(
+      '✅ ' + uid + ' — 저장했습니다. 앞으로 수업 30분 전 안내 문자는 이 번호로 갑니다.' + offKo,
+      '✅ ' + uid + ' — saved. Upcoming class reminders (30 min before) go to this number.' + offEn) };
   }
 
   /** 이 목록은 본사·내부직원 전용 — 서버도 403 으로 막는다. 역할을 «모르면» 보여 준다(서버가 최종 판정). */
@@ -109,7 +151,7 @@
     return r === 'teacher' || r === 'branch' || r === 'agency' || r === 'franchise';
   }
 
-  var state = { data: null, busy: false, loadedOnce: false, msgs: {}, keepTyped: null };
+  var state = { data: null, busy: null, again: null, loadedOnce: false, msgs: {}, keepTyped: null };
 
   /* 한 학생 = 한 줄 상자. 표(table)로 그리면 칸 7개가 1,081px 를 요구해 PC(1440 창 · 실제 칸 624px)에서
      [💾 저장]이 상자 «오른쪽 밖» 으로 밀린다(2026-10-28 브라우저 실측) — 그래서 «학생 정보» 와 «번호 넣기» 두 덩이를
@@ -120,7 +162,7 @@
       ? '<div class="pg-hint" style="font-size:11px;margin-top:3px">ℹ️ ' + esc(T('참고: ', 'Ref: ')) + '<b>' + esc(g.hint_phone) + '</b> — ' +
         esc(T('카페24 이탈위험 표의 번호(학생/학부모 구분 없음). 확인한 뒤 넣으세요.', 'from the cafe24 retention table (student/parent not recorded). Confirm before entering.')) + '</div>'
       : '';
-    var msg = state.msgs[uid] || '';
+    var msg = txt(state.msgs[uid]);
     return '<div class="pg-row" data-uid="' + esc(uid) + '" style="display:flex;flex-wrap:wrap;gap:6px 14px;align-items:flex-start;padding:8px 4px;border-top:1px solid rgba(148,163,184,0.35)">' +
       '<div class="pg-info" style="flex:1 1 230px;min-width:0;font-size:12.5px;line-height:1.5">' +
         '<a href="/admin/student.html?uid=' + encodeURIComponent(uid) + '" target="_blank" rel="noopener"><b>' + esc(g.name || uid) + '</b></a>' +
@@ -176,8 +218,9 @@
     for (var k in nowT) if (Object.prototype.hasOwnProperty.call(nowT, k)) typed[k] = nowT[k];
     state.keepTyped = null;
     if (r.ok !== true) {
-      body.innerHTML = '<div class="empty">' + esc(r.__err || T('목록을 못 불러왔습니다 — 잠시 뒤 다시 불러오세요.', 'Could not load the list — try again shortly.')) + '</div>';
+      body.innerHTML = '<div class="empty">' + esc(txt(r.__err) || T('목록을 못 불러왔습니다 — 잠시 뒤 다시 불러오세요.', 'Could not load the list — try again shortly.')) + '</div>';
       if (cnt) cnt.textContent = '';
+      state.keepTyped = typed;   // 목록이 다시 그려질 때 적던 번호를 되살린다(오류 화면이 입력칸을 지운다)
       return;
     }
     var gaps = r.gaps || [];
@@ -186,8 +229,8 @@
     if (!gaps.length) {
       body.innerHTML = '<div style="font-size:12px;line-height:1.6;margin-bottom:6px">' + lines + '</div>' +
         '<div class="empty">' + esc(r.students
-          ? T('🎉 수업이 있는 학생 모두 문자를 받을 번호가 있습니다.', '🎉 Every student with a class has a number for the reminder.')
-          : T('이 기간에 수업이 있는 학생이 없습니다.', 'No students have classes in this period.')) + '</div>';
+          ? T('🎉 다가올 수업이 있는 학생 모두 문자를 받을 번호가 있습니다.', '🎉 Every student with an upcoming class has a number for the reminder.')
+          : T('이 기간에 안내 문자가 나갈 수업이 있는 학생이 없습니다(이미 지난 수업은 세지 않습니다).', 'No students have upcoming classes in this period (past classes are not counted).')) + '</div>';
       return;
     }
     body.innerHTML = '<div style="font-size:12px;line-height:1.6;margin-bottom:6px">' + lines + '</div>' +
@@ -196,18 +239,24 @@
   }
 
   function load() {
-    if (state.busy) return;
+    /* 이미 불러오는 중이면 «그다음 한 번» 을 예약하고 그 결과를 돌려준다 — 저장이 겹쳐도(줄 A 를 다시 불러오는 사이
+       줄 B 가 끝남) B 의 «목록에서 빠졌나» 확인이 조용히 죽지 않게(load() 가 undefined 를 주면 .then 이 던진다). */
+    if (state.busy) {
+      if (!state.again) state.again = state.busy.then(function () { state.again = null; return load(); });
+      return state.again;
+    }
     var sel = $('pg-days');
     var days = sel ? (Number(sel.value) || 7) : 7;
-    state.busy = true;
     var btn = $('pg-load'); if (btn) btn.disabled = true;
     var body = $('pg-body');
     if (body && !state.data) { state.keepTyped = typedNow(); body.innerHTML = '<div class="empty">' + esc(T('불러오는 중…', 'Loading…')) + '</div>'; }
-    return fetch('/api/admin/student/phone-gaps?days=' + days, { credentials: 'include', cache: 'no-store' })
+    var p = fetch('/api/admin/student/phone-gaps?days=' + days, { credentials: 'include', cache: 'no-store' })
       .then(function (res) {
         return res.json().catch(function () { return null; }).then(function (d) {
           if (res.status === 403) {
-            state.data = { ok: false, __err: (d && d.who_line) || T('본사 계정에서만 볼 수 있습니다.', 'Only HQ accounts can see this list.') };
+            state.data = { ok: false, __err: (d && d.who_line ? pair(d.who_line, d.who_line_en || d.who_line) : null)
+              || (d && d.error === 'scope_unknown' ? pair('권한을 확인하지 못했습니다 — 잠시 뒤 다시 불러오세요.', 'Could not check your permission — try again shortly.') : null)
+              || pair('본사 계정에서만 볼 수 있습니다.', 'Only HQ accounts can see this list.') };
           } else if (!res.ok || !d || d.ok !== true || !Array.isArray(d.gaps)) {
             state.data = { ok: false };
           } else {
@@ -219,7 +268,9 @@
         });
       })
       .catch(function () { state.data = { ok: false }; render(); return state.data; })
-      .then(function (d) { state.busy = false; if (btn) btn.disabled = false; return d; });
+      .then(function (d) { state.busy = null; if (btn) btn.disabled = false; return d; });
+    state.busy = p;
+    return p;
   }
 
   function save(tr) {
@@ -227,35 +278,31 @@
     var pIn = tr.querySelector('.pg-in[data-role="parent"]');
     var sIn = tr.querySelector('.pg-in[data-role="student"]');
     var msgEl = tr.querySelector('.pg-msg');
-    var say = function (t) { state.msgs[uid] = t; if (msgEl) msgEl.textContent = t; };
+    var say = function (m) { state.msgs[uid] = m; if (msgEl) msgEl.textContent = txt(m); };
     var pv = pIn ? pIn.value : '', sv = sIn ? sIn.value : '';
     var cp = checkPhone(pv), cs = checkPhone(sv);
-    if (cp === 'bad' || cs === 'bad') return say(T('숫자와 하이픈(-)만 넣어 주세요.', 'Use digits and hyphens only.'));
-    if (cp === 'short' || cs === 'short') return say(T('번호가 ' + MIN_DIGITS + '자리보다 짧으면 문자가 안 갑니다.', 'Numbers shorter than ' + MIN_DIGITS + ' digits cannot get a text.'));
+    if (cp === 'bad' || cs === 'bad') return say(pair('숫자와 하이픈(-)만 넣어 주세요.', 'Use digits and hyphens only.'));
+    if (cp === 'short' || cs === 'short') return say(pair('번호가 ' + MIN_DIGITS + '자리보다 짧으면 문자가 안 갑니다.', 'Numbers shorter than ' + MIN_DIGITS + ' digits cannot get a text.'));
     var b = buildBody(pv, sv);
-    if (!b) return say(T('학부모나 학생 번호 중 하나를 넣어 주세요.', 'Enter a parent or student number.'));
+    if (!b) return say(pair('학부모나 학생 번호 중 하나를 넣어 주세요.', 'Enter a parent or student number.'));
     var btn = tr.querySelector('.pg-save'); if (btn) btn.disabled = true;
-    say(T('저장 중…', 'Saving…'));
+    say(pair('저장 중…', 'Saving…'));
     return fetch('/api/admin/student/' + encodeURIComponent(uid) + '/contact', {
       method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b),
     }).then(function (res) {
       return res.json().catch(function () { return null; }).then(function (d) { return saveMsg(res.status, d); });
     }).catch(function () {
-      return { ok: false, text: T('❌ 연결이 끊겨 저장 못 함 — 다시 눌러 주세요.', '❌ Connection lost — not saved. Try again.') };
+      return said(false, '❌ 연결이 끊겨 저장 못 함 — 다시 눌러 주세요.', '❌ Connection lost — not saved. Try again.');
     }).then(function (m) {
-      say(m.text);
+      say(m.ko != null ? pair(m.ko, m.en) : m.text);
       if (btn) btn.disabled = false;
       if (!m.ok) return m;
       /* 저장 → 다시 불러 «그 학생이 목록에서 빠졌나» 로 확인한다(발송 정본으로 다시 잰 값). */
       delete state.msgs[uid];
       return load().then(function (d) {
-        var still = d && d.ok === true && (d.gaps || []).some(function (g) { return String(g.uid) === uid; });
-        if (still) {
-          state.msgs[uid] = T('⚠️ 저장했는데 아직 문자가 안 갈 번호로 보입니다 — 번호를 다시 확인해 주세요.', '⚠️ Saved, but it still looks unreachable — please check the number.');
-          render();
-        } else if (d && d.ok === true) {
-          flash(T('✅ ' + uid + ' — 저장했습니다. 다음 수업 30분 전 문자부터 이 번호로 갑니다.', '✅ ' + uid + ' — saved. The next class reminder goes to this number.'));
-        }
+        var a = afterReload(m, d, uid);
+        if (a.row) { state.msgs[uid] = a.row; render(); }
+        if (a.flash) flash(txt(a.flash));
         return m;
       });
     });
@@ -316,7 +363,7 @@
 
   window.__pg = {
     __loaded: true, checkPhone: checkPhone, buildBody: buildBody, fmtNext: fmtNext, statusText: statusText,
-    summaryLines: summaryLines, saveMsg: saveMsg, hideFor: hideFor, digits: digits, load: load, save: save,
+    summaryLines: summaryLines, saveMsg: saveMsg, afterReload: afterReload, hideFor: hideFor, digits: digits, load: load, save: save,
     render: render, _state: state, MIN_DIGITS: MIN_DIGITS,
   };
 })();

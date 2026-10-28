@@ -13,6 +13,9 @@
  *    (누구 번호인지 모르는 번호로 학부모에게 문자가 가면 빈칸보다 나쁘다).
  * ⛔ «어느 날 수업이 열리나» 를 따로 정하지 않는다 — 리마인더(runLessonReminderSweep)와 같은 규칙이어야 한다.
  *    `occursLikeReminder` 는 그 블록과 한 글자씩 같은 판정이고, 하니스가 그 블록을 오려 내 무작위로 대조한다.
+ *    «알림 창»(시작 45~15분 전 · 15분 눈금)도 `reminderCanStillSend` 로 맞춘다 — 하니스가 리마인더의 창 계산을
+ *    오려 내 «15분마다 돌려 보기» 로 대조한다. 그래서 이미 지난 수업·자정 직후 수업은 세지 않는다.
+ *    ⚠️ 그래도 «복제» 다(리마인더가 이 함수를 부르지 않는다) — lesson-reminder.ts 를 고치면 하니스 B절이 어긋남을 잡는다.
  * ⚠️ fail-open — 번호 조회가 다 안 됐으면 `complete:false` 로 «일부만 확인» 이라고 말한다(«번호 없음» 으로 단정 금지).
  */
 
@@ -25,7 +28,7 @@ import { getSolapiMode } from './solapi-client';
 
 export const PHONE_GAP_DAYS_DEFAULT = 7;
 export const PHONE_GAP_DAYS_MAX = 14;
-/** 국내 문자는 숫자 10자리부터 나간다(solapi-client.ts sendPlainSms 의 `phone.length < 10` 거절과 같은 문턱). */
+/** 리마인더 문자는 숫자 10자리부터 나간다 — 첫 관문 lesson-reminder-delivery.ts `deliverLessonReminder` 의 `normalized.length < 10`(국내 발송). */
 export const SMS_MIN_DIGITS = 10;
 /** 옛 LMS·시드 자리표시 — 진짜 학생이 아니다(schedule-conflict.ts 의 NOT_PLACEHOLDER 와 같은 두 값). */
 const PLACEHOLDER_UIDS = new Set(['lms', 'type_seed']);
@@ -42,6 +45,32 @@ export function kstDays(now: number, days: number): { ymd: string; dow: number }
     out.push({ ymd: `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`, dow: d.getUTCDay() });
   }
   return out;
+}
+
+/** 리마인더 «알림 창» — 시작 45~15분 전. lesson-reminder.ts 의 같은 이름 상수와 같은 값(하니스 B절이 소스에서 읽어 대조). */
+export const REMIND_MIN_MS = 15 * 60 * 1000;
+export const REMIND_MAX_MS = 45 * 60 * 1000;
+const SWEEP_TICK_MS = 15 * 60 * 1000;   // 리마인더는 15분 감시견 cron(*/15, UTC·KST 같은 15분 눈금)에서 돈다
+
+/** 지금(now) 이후 리마인더가 그 수업에 «아직» 문자를 보낼 수 있는가.
+ *  리마인더는 15분마다 «오늘(KST) 수업» 만 보고 시작까지 15~45분 남은 것에 보낸다(lesson-reminder.ts).
+ *  ⟹ 그 창 안에 «그날의» 15분 눈금이 now 뒤로 하나라도 있어야 한다. 이미 지난 수업·15분도 안 남은 수업,
+ *     자정 직후(00:00~00:15) 수업, 시각이 비어 «00:00» 으로 읽히는 수업은 번호가 있어도 문자가 안 간다.
+ *  ⚠️ 리마인더의 `now` 는 눈금 «정각» 이 아니다 — 15분 cron 안에서 감시견·녹화 마무리 등이 먼저 돌아 몇 초 늦다(δ>0).
+ *     그래서 «정확히 15분 전» 눈금은 `until = 15분 − δ < 15분` 이라 «한 번도» 안 걸린다(그 뒤엔 받을 눈금도 없다).
+ *     ⟹ 위쪽 끝은 «미포함»(`- 1`). 아래쪽 «정확히 45분 전» 은 `45분 − δ` 라 걸린다(포함). δ 가 1분보다 작다고 본다
+ *     — 수업 시각은 분 단위라 그보다 작으면 답이 같다(하니스가 δ=1초·59초 둘 다로 리마인더를 돌려 대조). */
+export function reminderCanStillSend(startTime: any, ymd: string, now: number): boolean {
+  const [hh, mm] = String(startTime || '00:00').split(':').map((x: string) => Number(x));
+  if (!Number.isFinite(hh)) return false;
+  const [y, mo, d] = String(ymd).split('-').map((x: string) => Number(x));
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return false;
+  const KST = 9 * 3600 * 1000;
+  const dayStart = Date.UTC(y, mo - 1, d) - KST;
+  const start = Date.UTC(y, mo - 1, d, hh, mm || 0, 0) - KST;   // 리마인더와 같은 식(`mm || 0`)
+  const lo = Math.max(now, start - REMIND_MAX_MS, dayStart);
+  const hi = Math.min(start - REMIND_MIN_MS - 1, dayStart + 86400000 - 1);   // «정확히 15분 전» 은 미포함(위 주석)
+  return Math.ceil(lo / SWEEP_TICK_MS) * SWEEP_TICK_MS <= hi;
 }
 
 /** 그날 리마인더가 이 수업을 «열리는 수업» 으로 보는가 — runLessonReminderSweep 의 판정과 같다(공휴일은 따로). */
@@ -128,11 +157,11 @@ export async function buildPhoneGaps(env: any, opts: { days?: number; now?: numb
   for (const s of rows) {
     const uid = String(s.user_id || '').trim();
     if (!uid || PLACEHOLDER_UIDS.has(uid.toLowerCase())) continue;
-    // 리마인더는 시각을 못 읽는 수업엔 안 보낸다(`Number.isFinite(hh)`) — 그 수업은 번호가 있어도 문자가 없다.
-    if (!Number.isFinite(Number(String(s.start_time || '00:00').split(':')[0]))) continue;
     for (const d of dl) {
       if (!occursLikeReminder(s, d.ymd, d.dow)) continue;
       if (isHolidayClosedFor(hol.get(d.ymd), s.teacher_id)) continue;   // 🎌 휴강일엔 리마인더도 안 나간다
+      // ⏱ 리마인더가 «아직» 보낼 수 있는 수업만 센다 — 이미 지난 수업·곧 시작·시각을 못 읽는 수업은 번호가 있어도 문자가 없다.
+      if (!reminderCanStillSend(s.start_time, d.ymd, now)) continue;
       const t = String(s.start_time || '');
       const a = by.get(uid) || { uid, name: '', classes: 0, next_date: '', next_time: '' };
       a.classes++;

@@ -44,8 +44,9 @@ function freshServer() {
       G('test_b', '나학생', '2026-10-29', '17:20'),
       G('test_c', '다학생', '2026-10-30', '15:00', { status: 'short', short_len: 9 }),
       G('test_d', '라학생', '2026-10-31', '18:00'),
+      G('test_e', '마학생', '2026-11-01', '10:00'),
     ],
-    patches: [], gets: [], role: 'hq', gap403: false, keepOnSave: new Set(), notKept: new Set(),
+    patches: [], gets: [], role: 'hq', gap403: false, keepOnSave: new Set(), notKept: new Set(), notKeptGone: new Set(),
   };
 }
 
@@ -73,7 +74,12 @@ async function setup(page, S) {
     const uid = decodeURIComponent(new URL(req.url()).pathname.split('/')[4]);
     let body = null; try { body = JSON.parse(req.postData() || 'null'); } catch (e) {}
     S.patches.push({ method: req.method(), uid, body });
-    if (S.notKept.has(uid)) return J(route, { ok: true, phone_kept: false });
+    // phone_kept:false — notKept 는 «명부에도 못 찾아 그대로 남음»(roster_updated:false), notKeptGone 은 «명부엔 들어가 목록에서 빠짐»(roster_updated:true)
+    if (S.notKept.has(uid)) {
+      const gone = S.notKeptGone.has(uid);
+      if (gone) S.gaps = S.gaps.filter(g => g.uid !== uid);
+      return J(route, { ok: true, phone_kept: false, roster_updated: gone });
+    }
     if (!S.keepOnSave.has(uid)) S.gaps = S.gaps.filter(g => g.uid !== uid);
     return J(route, { ok: true, phone_kept: true });
   });
@@ -110,11 +116,11 @@ try {
     await setup(page, S);
     await openSection(page);
     console.log('\n[ ① 펼치면 불러와 그린다 ]');
-    const ok1 = await waitRows(page, () => document.querySelectorAll('#pg-body div.pg-row[data-uid]').length === 4);
-    check('펼치면 4줄이 그려진다', ok1, await rows(page));
+    const ok1 = await waitRows(page, () => document.querySelectorAll('#pg-body div.pg-row[data-uid]').length === 5);
+    check('펼치면 5줄이 그려진다', ok1, await rows(page));
     check('펼칠 때 한 번만 불러온다(days=7)', S.gets.length === 1 && S.gets[0] === '7', S.gets);
     const cnt = await page.textContent('#pg-count');
-    check('개수 칸 = 4명', /4/.test(cnt || ''), cnt);
+    check('개수 칸 = 5명', /5/.test(cnt || ''), cnt);
     const hint = await page.$eval('#pg-body div.pg-row[data-uid="test_a"]', tr => ({ text: tr.textContent, vals: Array.from(tr.querySelectorAll('.pg-in')).map(i => i.value) }));
     check('참고 번호는 글자로 보인다', hint.text.includes('010-9999-0001'), hint.text.slice(0, 120));
     check('참고 번호를 입력칸에 자동으로 넣지 않는다', hint.vals.every(v => v === ''), hint.vals);
@@ -189,11 +195,20 @@ try {
     const m3 = await page.textContent('#pg-body div.pg-row[data-uid="test_c"] .pg-msg');
     check('10자리 미만이면 보내지 않고 이유를 말한다', S.patches.length === 1 && /10자리/.test(m3 || ''), { m3, n: S.patches.length });
     S.notKept.add('test_d');
+    const g4 = S.gets.length;
     await page.fill('#pg-body div.pg-row[data-uid="test_d"] .pg-in[data-role="parent"]', '01022223333');
     await page.click('#pg-body div.pg-row[data-uid="test_d"] .pg-save');
-    await page.waitForFunction(() => /야간 동기화/.test((document.querySelector('#pg-body div.pg-row[data-uid="test_d"] .pg-msg') || {}).textContent || ''), null, { timeout: 5000 }).catch(() => {});
+    await page.waitForFunction(() => /저장되지 않았습니다/.test((document.querySelector('#pg-body div.pg-row[data-uid="test_d"] .pg-msg') || {}).textContent || ''), null, { timeout: 5000 }).catch(() => {});
     const m4 = await page.textContent('#pg-body div.pg-row[data-uid="test_d"] .pg-msg').catch(() => '');
-    check('phone_kept:false 면 성공이라 하지 않고 이유를 말한다', /야간 동기화/.test(m4 || '') && (await rows(page)).includes('test_d'), m4);
+    check('phone_kept:false · roster_updated:false 면 «저장되지 않았습니다» + 이유(대소문자) · ✅ 없음 · 줄은 남는다', /저장되지 않았습니다/.test(m4 || '') && /대소문자/.test(m4 || '') && !/✅/.test(m4 || '') && (await rows(page)).includes('test_d'), m4);
+    check('명부도 못 찾았으면 다시 불러오지 않는다(바뀐 것이 없다)', S.gets.length === g4, { before: g4, after: S.gets.length });
+    // 짝 — phone_kept:false 인데 목록에서 빠졌으면(명부엔 들어감) «지금은 가지만 직원 칸엔 못 적음» 을 말한다(✅ 아님)
+    S.notKept.add('test_e'); S.notKeptGone.add('test_e');
+    await page.fill('#pg-body div.pg-row[data-uid="test_e"] .pg-in[data-role="parent"]', '01044445555');
+    await page.click('#pg-body div.pg-row[data-uid="test_e"] .pg-save');
+    await page.waitForFunction(() => /직원 입력 칸/.test((document.getElementById('pg-flash') || {}).textContent || ''), null, { timeout: 5000 }).catch(() => {});
+    const fl5 = await page.$eval('#pg-flash', el => ({ shown: getComputedStyle(el).display !== 'none', t: el.textContent }));
+    check('명부엔 적고 직원 칸만 못 적었으면(roster_updated:true) «한 번 더 저장» 으로 말한다(✅·«지금 간다» 아님)', fl5.shown && /명부에는 적었지만/.test(fl5.t) && /직원 입력 칸/.test(fl5.t) && !/✅/.test(fl5.t) && !/지금은 문자가 갑니다/.test(fl5.t) && !(await rows(page)).includes('test_e'), fl5);
     S.keepOnSave.add('test_b');
     await page.click('#pg-body div.pg-row[data-uid="test_b"] .pg-save');
     await page.waitForFunction(() => /아직 문자가 안 갈/.test((document.querySelector('#pg-body div.pg-row[data-uid="test_b"] .pg-msg') || {}).textContent || ''), null, { timeout: 5000 }).catch(() => {});
@@ -205,7 +220,9 @@ try {
     await page.fill('#pg-body div.pg-row[data-uid="test_c"] .pg-in[data-role="student"]', '010-7777');
     await page.evaluate(() => { window.adminLang = 'en'; document.dispatchEvent(new CustomEvent('mangoi:lang-changed')); });
     const en = await page.$eval('#pg-body', b => ({ t: b.textContent, ph: (b.querySelector('.pg-in[data-role="parent"]') || {}).placeholder, btn: (b.querySelector('.pg-save') || {}).textContent }));
-    check('영어로 바꾸면 안내·칸·버튼이 영어', /students with classes/.test(en.t) && /Thu/.test(en.t) && en.ph === 'Parent no.' && /Save/.test(en.btn || ''), en);
+    check('영어로 바꾸면 안내·칸·버튼이 영어', /students with upcoming classes/.test(en.t) && /Thu/.test(en.t) && en.ph === 'Parent no.' && /Save/.test(en.btn || ''), en);
+    const enMsgs = await page.$$eval('#pg-body .pg-msg', els => els.map(e => e.textContent).filter(Boolean));
+    check('영어로 바꾸면 이미 떠 있던 줄 안내도 영어로 바뀐다(저장 «그때» 의 말로 굳지 않는다)', enMsgs.length >= 2 && enMsgs.every(t => !/[가-힣]/.test(t)), enMsgs);
     const keptEn = await page.inputValue('#pg-body div.pg-row[data-uid="test_c"] .pg-in[data-role="student"]').catch(() => null);
     check('언어를 바꿔도 쓰다 만 번호가 남는다', keptEn === '010-7777', keptEn);
     await page.evaluate(() => { window.adminLang = 'ko'; document.dispatchEvent(new CustomEvent('mangoi:lang-changed')); });

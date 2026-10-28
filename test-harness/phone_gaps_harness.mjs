@@ -228,6 +228,35 @@ try {
   const body = block.replace(/\bseen\.add\(s\.id\);/g, '').replace(/\bcontinue;/g, 'return false;') + '\nreturn true;';
   reminderOccurs = new Function('s', 'todayStr', 'kDow', 'recurStartedOn', 'isPostponedOccurrence', body);
 } catch (e) { ok(false, '전제: 오려 낸 블록이 함수로 만들어진다', e && e.message); }
+// ⏱ 리마인더의 «알림 창» 계산도 오려 낸다 — 시각 파싱 ~ `continue;   // 알림 창 밖` (candidates.push 바로 앞)
+const wStart = sweepBody.indexOf('const [hh, mm] = String(s.start_time');
+const wEnd = sweepBody.indexOf('candidates.push(', wStart);
+const wSeg = (wStart >= 0 && wEnd > wStart) ? sweepBody.slice(wStart, wEnd) : '';
+ok(!!wSeg && /REMIND_MIN_MS/.test(wSeg) && /REMIND_MAX_MS/.test(wSeg), '전제: 리마인더의 «알림 창» 계산을 오려 냈다', wSeg.slice(0, 120));
+const constOf = (src, name) => { const m = src.match(new RegExp('const ' + name + '\\s*=\\s*([^;]+);')); try { return m ? Number(new Function('return (' + m[1] + ')')()) : NaN; } catch { return NaN; } };
+const LR_MIN = constOf(lrSrc, 'REMIND_MIN_MS'), LR_MAX = constOf(lrSrc, 'REMIND_MAX_MS');
+ok(Number.isFinite(LR_MIN) && LR_MIN === PG.REMIND_MIN_MS && LR_MAX === PG.REMIND_MAX_MS, 'B 알림 창 상수(15·45분)가 리마인더와 같다', { LR_MIN, LR_MAX, pg: [PG.REMIND_MIN_MS, PG.REMIND_MAX_MS] });
+let reminderWindow = null;
+try {
+  reminderWindow = new Function('s', 'now', 'kY', 'kMo', 'kD', 'KST', 'REMIND_MIN_MS', 'REMIND_MAX_MS',
+    stripTypeScriptTypes('function __w(){' + wSeg.replace(/\bcontinue;/g, 'return false;') + '}').replace(/^function __w\(\)\{/, '').replace(/\}\s*$/, '') + '\nreturn true;');
+} catch (e) { ok(false, '전제: 오려 낸 알림 창 계산이 함수로 만들어진다', e && e.message); }
+/** 15분마다(UTC·KST 같은 눈금) 리마인더를 «실제로 돌려 보는» 시뮬레이션 — now 이후 그날 안에 한 번이라도 창에 들면 true.
+ *  ⚠️ 리마인더의 now 는 눈금 «정각» 이 아니다 — 같은 cron 안에서 감시견 등이 먼저 돌아 δ 만큼 늦다(그래서 «정확히 15분 전» 은 안 걸린다).
+ *     δ=0 으로 돌리면 그 경계를 «걸린다» 로 착각한다(2026-10-28 함정 대조가 잡음). 기본 δ=5초, 1초·59초로도 같은 답이어야 한다. */
+const TICK = 15 * 60 * 1000, KSTMS = 9 * 3600 * 1000;
+function simReach(s, ymd, now, delta = 5000) {
+  if (!reminderWindow) return null;
+  const [y, mo, d] = ymd.split('-').map(Number);
+  const dayStart = Date.UTC(y, mo - 1, d) - KSTMS;
+  for (let T = Math.ceil(Math.max(now, dayStart) / TICK) * TICK; T < dayStart + 86400000; T += TICK) {
+    const at = T + delta, k = new Date(at + KSTMS);
+    if (k.getUTCDate() !== new Date(T + KSTMS).getUTCDate()) continue;   // δ 로 날짜가 넘어가는 일은 없다(1분 미만)
+    if (reminderWindow(s, at, k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate(), KSTMS, LR_MIN, LR_MAX)) return true;
+  }
+  return false;
+}
+const START_POOL = ['16:00', '09:30', '', null, '7:05', 'ab:cd', '23:59', '00:00', '00:10', '00:14', '00:15', '00:30', '00:44', '00:45', '16:20', '12:5', ' 9:00', '24:30', '23:50'];
 function genRow(r, i, ymdPool) {
   const dated = r() < 0.7;
   return {
@@ -237,7 +266,7 @@ function genRow(r, i, ymdPool) {
     status: pick(r, ['active', 'active', 'active', 'postponed', 'completed']),
     starts_on: r() < 0.3 ? pick(r, ymdPool) : null,
     skip_dates: r() < 0.25 ? [pick(r, ymdPool), pick(r, ymdPool)].join(',') : null,
-    start_time: pick(r, ['16:00', '09:30', '', null, '7:05', 'ab:cd', '23:59']),
+    start_time: pick(r, START_POOL),
     teacher_id: pick(r, ['7', '29', '22', null, '']),
   };
 }
@@ -259,6 +288,44 @@ function genRow(r, i, ymdPool) {
       }
     }
   }
+  // ⏱ reminderCanStillSend = 리마인더를 15분마다 실제로 돌려 본 결과
+  let nw = 0, nwTrue = 0;
+  if (reminderWindow) {
+    for (let k = 0; k < N; k++) {
+      const r = rng(SEED0 * 13 + k);
+      const now = Date.UTC(2026, int(r, 0, 11), int(r, 1, 28), int(r, 0, 23), int(r, 0, 59), int(r, 0, 59));
+      const ymds = PG.kstDays(now - 86400000, 3).map(d => d.ymd);
+      for (let i = 0; i < 30; i++) {
+        const st = r() < 0.6 ? pick(r, START_POOL) : (String(int(r, 0, 23)).padStart(2, '0') + ':' + String(int(r, 0, 59)).padStart(2, '0'));
+        // «지금» 을 그 수업 시작 바로 앞뒤로도 놓아 본다(경계 15·45분)
+        const ymd = pick(r, ymds);
+        let nowX = now;
+        const [hh, mm] = String(st || '00:00').split(':').map(Number);
+        if (Number.isFinite(hh) && r() < 0.5) {
+          const [y, mo, d] = ymd.split('-').map(Number);
+          nowX = Date.UTC(y, mo - 1, d, hh, mm || 0) - KSTMS - pick(r, [0, 1, 14, 15, 16, 29, 30, 31, 44, 45, 46, 60]) * 60000 + pick(r, [0, 0, 1000, -1000]);
+        }
+        const want = simReach({ start_time: st }, ymd, nowX);
+        const got = PG.reminderCanStillSend(st, ymd, nowX);
+        if (k % 7 === 0) ok(simReach({ start_time: st }, ymd, nowX, 1000) === want && simReach({ start_time: st }, ymd, nowX, 59000) === want, '전제: 리마인더가 1초 늦게 돌든 59초 늦게 돌든 답이 같다(분 단위 시각)', { st, ymd });
+        nw++; if (want) nwTrue++;
+        ok(got === want, 'B «아직 문자가 나갈 수 있나» = 리마인더를 15분마다 돌려 본 결과', { st, ymd, nowX: new Date(nowX).toISOString(), want, got });
+      }
+    }
+  }
+  console.log(`  · 알림 창 대조 ${nw}건(그중 «나간다» ${nwTrue})`);
+  ok(nw === 0 || (nwTrue > 50 && nw - nwTrue > 50), '전제: «나간다·안 나간다» 를 둘 다 실제로 만들었다', { nw, nwTrue });
+  // 고정 — 이미 지난 수업·곧 시작·자정 직후는 안 나간다, 20분 뒤는 나간다
+  const n0 = Date.UTC(2026, 9, 28, 7, 0) ;   // 10/28 16:00 KST 정각
+  ok(PG.reminderCanStillSend('15:00', '2026-10-28', n0) === false, 'B 고정: 이미 지난 오늘 수업엔 안 나간다');
+  ok(PG.reminderCanStillSend('16:10', '2026-10-28', n0) === false, 'B 고정: 15분도 안 남은 수업엔 안 나간다');
+  ok(PG.reminderCanStillSend('16:20', '2026-10-28', n0) === true, 'B 고정: 20분 남은 수업엔 (16:00 눈금에) 나간다');
+  ok(PG.reminderCanStillSend('16:15', '2026-10-28', n0 - 60000) === false, 'B 고정: «정확히 15분 전» 눈금만 남은 수업엔 안 나간다(리마인더 now 가 눈금보다 몇 초 늦어 15분 미만)');
+  ok(PG.reminderCanStillSend('16:45', '2026-10-28', n0 - 60000) === true, 'B 고정: «정확히 45분 전» 눈금은 걸린다(45분 − δ)');
+  ok(PG.reminderCanStillSend('00:15', '2026-10-29', n0) === false, 'B 고정: 00:15 수업은 그날 눈금이 00:00 하나뿐이고 그것이 «정확히 15분 전» 이라 원리상 못 보낸다');
+  ok(PG.reminderCanStillSend('00:10', '2026-10-29', n0) === false && PG.reminderCanStillSend('00:30', '2026-10-29', n0) === true, 'B 고정: 자정 직후(00:00~00:15) 수업은 리마인더가 못 보낸다(창이 «전날» 눈금이거나 «정확히 15분 전» 하나뿐)');
+  ok(PG.reminderCanStillSend('', '2026-10-29', n0) === false && PG.reminderCanStillSend(null, '2026-10-29', n0) === false, 'B 고정: 시각이 비면 «00:00» 으로 읽혀 안 나간다');
+  ok(PG.reminderCanStillSend('ab:cd', '2026-10-29', n0) === false, 'B 고정: 시각을 못 읽으면 안 나간다');
   // kstDays — KST 자정 경계·요일
   const kd = PG.kstDays(Date.UTC(2026, 9, 28, 14, 59), 3);   // 10/28 23:59 KST
   ok(kd[0].ymd === '2026-10-28' && kd[0].dow === 3 && kd[2].ymd === '2026-10-30', 'B kstDays: KST 23:59 은 그날, 요일 수=3', kd);
@@ -288,10 +355,10 @@ function oracleGaps(raw, env, now, days, holidays) {
     for (const s of rows) {
       const uid = String(s.user_id || '').trim();
       if (!uid || ['lms', 'type_seed'].includes(uid.toLowerCase())) continue;
-      if (!Number.isFinite(Number(String(s.start_time || '00:00').split(':')[0]))) continue;
       for (const d of dl) {
         if (!reminderOccurs(s, d.ymd, d.dow, CSD.recurStartedOn, CP.isPostponedOccurrence)) continue;
         if (holidays.has(d.ymd) && String(s.teacher_id || '') !== '29') continue;
+        if (!simReach(s, d.ymd, now)) continue;   // ⏱ 리마인더가 «아직» 보낼 수 있는 수업만(15분마다 돌려 본 결과)
         const a = by.get(uid) || { uid, classes: 0, keys: [], name: '' };
         a.classes++; a.keys.push(d.ymd + ' ' + String(s.start_time || ''));
         if (!a.name && s.student_name) a.name = s.student_name;
@@ -392,6 +459,20 @@ function oracleGaps(raw, env, now, days, holidays) {
     raw.prepare("INSERT INTO student_erp_override (user_id, parent_phone, created_at) VALUES ('a','010-1234-5678',1)").run();
     const r6 = await PG.buildPhoneGaps(env, { days: 7, now });
     ok(r6.gaps.length === 0 && r6.reachable === 1, 'C 고정: 받아 둔 번호를 넣으면 그 학생이 목록에서 빠진다(저장 뒤 다시 불러 확인하는 근거)', r6);
+    // ⏱ 오늘 이미 지난 수업·곧 시작하는 수업은 «다음 수업» 이 될 수 없다
+    const rawT = buildWorld(rng(2), 0);
+    const nowT = Date.UTC(2026, 9, 28, 7, 0);   // 10/28 16:00 KST
+    const insT = rawT.prepare('INSERT INTO class_schedules (id,user_id,student_name,day_of_week,scheduled_date,start_time,status,teacher_id,created_at) VALUES (?,?,?,?,?,?,?,?,1)');
+    insT.run(1, 'past', '지남', null, '2026-10-28', '15:00', 'active', '7');
+    insT.run(2, 'soon', '곧', null, '2026-10-28', '16:05', 'active', '7');
+    insT.run(3, 'later', '나중', null, '2026-10-28', '18:00', 'active', '7');
+    insT.run(4, 'later', '나중', null, '2026-10-28', '15:30', 'active', '7');
+    insT.run(5, 'midnight', '자정', null, '2026-10-29', '00:05', 'active', '7');
+    const rT = await PG.buildPhoneGaps({ DB: d1(rawT, {}) }, { days: 2, now: nowT });
+    const gT = new Map(rT.gaps.map(g => [g.uid, g]));
+    ok(!gT.has('past') && !gT.has('soon') && !gT.has('midnight'), 'C 고정: 이미 지난·15분도 안 남은·자정 직후 수업만 있는 학생은 목록에 없다(번호가 있어도 문자가 안 감)', rT.gaps);
+    ok(gT.has('later') && gT.get('later').next_time === '18:00' && gT.get('later').classes === 1, 'C 고정: «다음 수업» 은 아직 문자가 나갈 수업(이미 지난 15:30 이 아니라 18:00)', gT.get('later'));
+    ok(rT.students === 1, 'C 고정: 학생 수도 아직 문자가 나갈 수업이 있는 학생만', rT.students);
   }
   console.log(`  · 무작위 ${worlds}벌 · 목록 줄 ${gapsSeen}건(짧은 번호 ${shortSeen} · 참고 번호 ${hintSeen})`);
   ok(gapsSeen > 50 && shortSeen > 0 && hintSeen > 0, '전제: 무작위 표가 «번호 없음·짧은 번호·참고 번호» 를 실제로 만들었다', { gapsSeen, shortSeen, hintSeen });
@@ -413,18 +494,37 @@ console.log('\n[ D. 경로 — 누가 볼 수 있나 ]');
   const FT = await importData(stripTypeScriptTypes(ftSrc));
   const aa = srcOf('auth-admin.ts');
   const isOrg = new Function('return ' + stripTypeScriptTypes(braceBody(aa, aa.indexOf('export function isOrgScopedRole')).replace(/^export /, '')).replace(/^function isOrgScopedRole/, 'function'))();
+  // 🔒 지사·대리점 정본 게이트(org-scope-guard.ts)를 «소스에서» 오려 내 그대로 쓴다 — 근거를 다시 읽고 못 읽으면 막는다
+  const og = srcOf('org-scope-guard.ts');
+  const ogFn = (name) => stripTypeScriptTypes(braceBody(og, og.indexOf('export ' + (name === 'readScopeType' ? 'async ' : '') + 'function ' + name)).replace(/^export /, ''));
+  let OG = null;
+  try {
+    OG = new Function('isOrgScopedRole', ogFn('orgScopeVerdict') + '\n' + ogFn('readScopeType') + '\n' + ogFn('orgScopeDenyResponse') +
+      '\nreturn { orgScopeVerdict, readScopeType, orgScopeDenyResponse };')(isOrg);
+  } catch (e) { ok(false, 'D 전제: org-scope-guard 정본을 오려 냈다', e && e.message); }
+  ok(!!OG, '전제: 지사·대리점 정본 게이트를 오려 냈다');
+  // 근거를 «한 번» 읽어 강사 확인·정본 게이트에 같이 쓴다(이름은 소스에서 읽는다 — 하니스에 못 박지 않는다)
+  const _scVar = (blk.match(/const (\w+) = await readScopeType\(env, actor\.username\);/) || [])[1];
+  ok(!!_scVar && new RegExp('orgScopeDenyResponse\\(orgScopeVerdict\\(' + _scVar + ', actor\\.role\\)\\)').test(blk),
+    'D 이 경로가 «근거를 다시 읽는» 정본 게이트를 부른다(읽은 그 값을 넘긴다)', { _scVar });
   let fn = null;
   try {
     // 경로 블록에 `return` 이 있어 그대로는 모듈로 못 벗긴다 — 함수로 감싼 «뒤» 에 타입을 벗긴다
     const routeJs = stripTypeScriptTypes('async function __route(method, path, url, request, env) {' + blk + '\n return null; }');
     fn = new Function('getAdminActor', 'forbiddenTeacherBody', 'isOrgScopedRole', 'buildPhoneGaps', 'json',
+      'orgScopeVerdict', 'readScopeType', 'orgScopeDenyResponse',
       routeJs + '\nreturn __route;')
       (async (req) => req.__actor, FT.forbiddenTeacherBody, isOrg, async (env, o) => { env.__called = o; return env.__result || { ok: true, gaps: [] }; },
-        (body, status = 200) => ({ body, status }));
+        (body, status = 200) => ({ body, status }), OG && OG.orgScopeVerdict, OG && OG.readScopeType, OG && OG.orgScopeDenyResponse);
   } catch (e) { ok(false, 'D 전제: 경로 블록을 실행할 수 있다', e && e.message); }
   if (fn) {
-    const run = async (actor, q = '', result) => {
-      const env = { __result: result };
+    // scope: admin_scope.scope_type 값 · 'NOROW' = 행 없음 · 'THROW' = 조회 실패
+    const run = async (actor, q = '', result, scope = 'hq') => {
+      const env = { __result: result, DB: { prepare: (sql) => ({ bind: (u) => ({ first: async () => {
+        if (!/FROM admin_scope/.test(sql)) throw new Error('unexpected sql');
+        if (scope === 'THROW') throw new Error('D1 흔들림');
+        return scope === 'NOROW' ? null : { scope_type: scope };
+      } }) }) } };
       const out = await fn('GET', '/api/admin/student/phone-gaps', new URL('https://x/api/admin/student/phone-gaps' + q), { __actor: actor }, env);
       return { out, called: env.__called };
     };
@@ -436,11 +536,28 @@ console.log('\n[ D. 경로 — 누가 볼 수 있나 ]');
       x = await run({ ok: true, isTeacher: false, role });
       ok(x.out && x.out.status === 403 && x.out.body.error === 'forbidden_scope' && !x.called, 'D 지사·대리점·지사본사는 403 이고 목록을 만들지 않는다', { role, out: x.out });
     }
-    for (const role of ['hq', 'staff', '']) {
-      x = await run({ ok: true, isTeacher: false, role }, '?days=14');
-      ok(x.out && x.out.status === 200 && x.called && x.called.days === 14, 'D 본사·내부직원은 200 이고 기간(days)을 그대로 넘긴다', { role, out: x.out, called: x.called });
+    for (const [role, scope] of [['hq', 'hq'], ['staff', 'none'], ['', 'hq'], ['staff', 'staff']]) {
+      x = await run({ ok: true, isTeacher: false, role, username: 'mgr_a' }, '?days=14', undefined, scope);
+      ok(x.out && x.out.status === 200 && x.called && x.called.days === 14, 'D 본사·내부직원은 200 이고 기간(days)을 그대로 넘긴다', { role, scope, out: x.out, called: x.called });
     }
-    x = await run({ ok: true, isTeacher: false, role: 'hq' }, '', { ok: false, error: 'class_schedules_unavailable' });
+    // 🔴 actor.role 은 스코프 조회가 흔들리면 'staff' 로 떨어진다 — 근거(admin_scope)를 다시 읽어 막는가
+    for (const scope of ['branch', 'agency', 'franchise']) {
+      x = await run({ ok: true, isTeacher: false, role: 'staff', username: 'branch_x' }, '', undefined, scope);
+      ok(x.out && x.out.status === 403 && !x.called, 'D actor.role 이 staff 로 떨어져도 근거가 지사·대리점이면 403 · 목록 안 만듦', { scope, out: x.out && x.out.status });
+    }
+    for (const scope of ['THROW', 'NOROW', '', null]) {
+      x = await run({ ok: true, isTeacher: false, role: 'staff', username: 'who' }, '', undefined, scope);
+      const st = x.out && (x.out.status || (x.out instanceof Response ? x.out.status : 0));
+      ok(st === 403 && !x.called, 'D 근거를 못 읽으면(조회 실패·행 없음) 막는다 — fail-closed', { scope, st });
+    }
+    // 🔴 정본 판정은 강사 스코프('teacher')를 hq 로 통과시킨다 — isTeacher 가 이름·스코프를 못 읽어 false 로 떨어져도
+    //    다시 읽은 근거가 teacher 면 막는가(짝: 근거가 hq·none 이면 위에서 200)
+    for (const role of ['staff', '', 'hq']) {
+      x = await run({ ok: true, isTeacher: false, role, username: 'hq_t_x' }, '', undefined, 'teacher');
+      ok(x.out && x.out.status === 403 && x.out.body && x.out.body.error === 'forbidden_teacher' && !x.called,
+        'D isTeacher 가 false 로 떨어져도 근거가 teacher 면 403(forbidden_teacher) · 목록 안 만듦', { role, out: x.out && x.out.status });
+    }
+    x = await run({ ok: true, isTeacher: false, role: 'hq', username: 'admin' }, '', { ok: false, error: 'class_schedules_unavailable' });
     ok(x.out && x.out.status === 503, 'D 목록을 못 만들면 503(«번호 없는 학생 0명» 으로 보이지 않게)', x.out);
   }
   report('경로 게이트', b);
@@ -485,7 +602,41 @@ console.log('\n[ E. 화면 — 무엇을 보내고 무엇을 말하나 ]');
     ok(bodies > 10, '전제: 보내는 경우를 실제로 만들었다', bodies);
     // 저장 응답
     ok(P.saveMsg(200, { ok: true, phone_kept: true }).ok === true, 'E 저장 성공 → 다시 불러 확인');
-    ok(P.saveMsg(200, { ok: true, phone_kept: false }).ok === false, 'E «야간 동기화가 못 덮는 칸» 에 못 적었으면 성공이라 하지 않는다');
+    const mk = P.saveMsg(200, { ok: true, phone_kept: false });
+    ok(mk.ok === true && mk.kept === false && mk.roster === null && !/✅/.test(mk.text), 'E «직원 입력 칸» 에 못 적었고 명부를 «모르면» 성공이라 하지 않고, 다시 불러 사실을 확인한다', mk);
+    ok(P.saveMsg(200, { ok: true, phone_kept: true }).kept === true, 'E 다 적었으면 kept=true(짝)');
+    // 📋 roster_updated — phone_kept:false 의 두 원인을 서버가 가른다
+    const mkNo = P.saveMsg(200, { ok: true, phone_kept: false, roster_updated: false });
+    ok(mkNo.ok === false && /명부를 찾지 못했습니다/.test(mkNo.ko) && /roster/.test(mkNo.en) && mkNo.kept === false, 'E 명부 행도 안 바뀌었으면(roster_updated:false) «저장 안 됨» — 다시 불러 확인할 것도 없다', mkNo);
+    const mkYes = P.saveMsg(200, { ok: true, phone_kept: false, roster_updated: true });
+    ok(mkYes.ok === true && mkYes.roster === true && /명부에는 적었지만/.test(mkYes.ko) && !/✅/.test(mkYes.ko), 'E 명부는 바뀌고 직원 칸만 못 적었으면 «일부» 라고 말한다', mkYes);
+    // ⏳ 다시 불러온 뒤 할 말 — «목록에서 빠졌다» 를 «이제 간다» 로 읽지 않는다(수업이 지나도 빠진다)
+    const gd = (uids, extra) => Object.assign({ ok: true, gaps: uids.map((u) => ({ uid: u })), sms_mode: 'real', reminder_enabled: true }, extra || {});
+    // 변이가 던지면 «하니스 크래시» 가 아니라 깔끔한 FAIL 로 — 던진 값은 빈 답으로 돌려 아래 검사들이 실패하게 한다
+    const ar = (m, d) => { try { return P.afterReload(m, d, 'kim1') || {}; } catch (e) { return { row: null, flash: null, threw: e && e.message }; } };
+    const kOk = { ok: true, kept: true }, kNoUnknown = { ok: true, kept: false, roster: null }, kNoRoster = { ok: true, kept: false, roster: true };
+    let a = ar(kOk, gd([]));
+    ok(!a.row && a.flash && /✅/.test(a.flash.ko) && /이 번호로 갑니다/.test(a.flash.ko) && !/꺼져/.test(a.flash.ko), 'E 다 적었고 목록에서 빠졌으면 ✅ «이 번호로 갑니다»', a);
+    a = ar(kOk, gd([], { sms_mode: 'mock' }));
+    ok(a.flash && /✅/.test(a.flash.ko) && /꺼져 있어 실제로는 안 갑니다/.test(a.flash.ko) && /texting is off/i.test(a.flash.en), 'E 문자가 꺼져 있으면 성공 안내에 «실제로는 안 갑니다» 를 붙인다', a);
+    a = ar(kOk, gd([], { reminder_enabled: false }));
+    ok(a.flash && /꺼져 있어 실제로는 안 갑니다/.test(a.flash.ko), 'E 리마인더 스위치가 꺼져 있어도 붙인다', a);
+    a = ar(kOk, gd([], { reminder_enabled: null }));
+    ok(a.flash && !/꺼져/.test(a.flash.ko), 'E 스위치를 «모르면» 꺼졌다고 하지 않는다(짝)', a);
+    a = ar(kOk, gd(['kim1']));
+    ok(a.row && /아직 문자가 안 갈 번호/.test(a.row.ko) && !a.flash, 'E 다 적었는데 아직 목록에 있으면 «번호를 다시 확인» 을 줄에 남긴다', a);
+    a = ar(kNoUnknown, gd(['kim1']));
+    ok(a.row && /❌/.test(a.row.ko) && /대소문자/.test(a.row.ko) && !a.flash, 'E 직원 칸 실패 + 명부 모름 + 아직 목록 → ❌ «명부에서 못 찾았을 수 있다»', a);
+    a = ar(kNoRoster, gd(['kim1']));
+    ok(a.row && /아직 문자가 안 갈 번호/.test(a.row.ko) && !/❌/.test(a.row.ko), 'E 명부엔 적었는데 아직 목록 → «명부를 못 찾았다» 고 하지 않는다(짝)', a);
+    a = ar(kNoRoster, gd([]));
+    ok(!a.row && a.flash && /명부에는 적었지만/.test(a.flash.ko) && !/✅/.test(a.flash.ko) && !/지금은 문자가 갑니다/.test(a.flash.ko), 'E 명부만 적고 목록에서 빠졌으면 «한 번 더 저장» — «지금 간다» 라고 단정하지 않는다', a);
+    a = ar(kNoUnknown, gd([]));
+    ok(!a.row && a.flash && /목록에서는 빠졌지만/.test(a.flash.ko) && !/명부에는 적었지만/.test(a.flash.ko), 'E 명부를 «모르면» «명부에 적었다» 고 하지 않는다', a);
+    for (const d of [null, { ok: false }, { ok: false, __err: 'x' }]) {
+      a = ar(kOk, d);
+      ok(!a.row && a.flash && /다시 불러오지 못해 확인하지 못했습니다/.test(a.flash.ko) && !/✅/.test(a.flash.ko), 'E 다시 불러오기가 실패하면 «확인 못 함» — 아무 말 없이 끝내지 않는다', { d, a });
+    }
     ok(P.saveMsg(403, { ok: false, error: 'forbidden_teacher', who_line: '지금 로그인: x' }).ok === false, 'E 403 은 실패');
     ok(P.saveMsg(401, null).ok === false && /로그인/.test(P.saveMsg(401, null).text), 'E 401 은 «다시 로그인»');
     ok(P.saveMsg(200, null).ok === false, 'E 본문이 없으면(=JSON 아님) 실패로 본다');
@@ -505,10 +656,91 @@ console.log('\n[ E. 화면 — 무엇을 보내고 무엇을 말하나 ]');
     ok(/9자리/.test(P.statusText({ status: 'short', short_len: 9 })) && /없음/.test(P.statusText({ status: 'none' })), 'E 상태 글자(짧은 번호·번호 없음)');
     // EN
     ctx.window.adminLang = 'en';
-    ok(/students with classes/.test(P.summaryLines(base)[0]) && /Thu/.test(P.fmtNext({ next_date: '2026-10-29', next_time: '16:00', classes: 1 }, 7)), 'E 영어 화면이면 영어로 말한다');
+    ok(/students with upcoming classes/.test(P.summaryLines(base)[0]) && /Thu/.test(P.fmtNext({ next_date: '2026-10-29', next_time: '16:00', classes: 1 }, 7)), 'E 영어 화면이면 영어로 말한다');
     ctx.window.adminLang = 'ko';
     ok(listeners.includes('mangoi:lang-changed') && listeners.includes('w:mangoi:lang-changed'), 'E 언어 바뀜을 document·window 양쪽에서 듣는다(관리자 화면은 document 에서 쏜다)');
     ok(listeners.includes('mangoi:identity'), 'E 신원이 늦게 와도 다시 숨김을 판정한다(mangoi:identity)');
+  }
+  // ⏳ 불러오는 중에 또 부르면 «그다음 한 번» 을 예약하고 그 결과를 돌려준다(undefined 를 주면 저장 확인이 죽는다)
+  if (P) {
+    const calls = [];
+    let release = [];
+    ctx.fetch = (u) => { calls.push(u); return new Promise((res) => release.push(() => res({ ok: true, status: 200, json: async () => ({ ok: true, gaps: [{ uid: 'n' + calls.length }], days: 7, from: 'a', to: 'b', students: 1, reachable: 0 }) }))); };
+    const p1 = P.load();
+    const p2 = P.load();
+    const p3 = P.load();
+    ok(p1 && typeof p1.then === 'function' && p2 && typeof p2.then === 'function', 'E 불러오는 중에 또 불러도 promise 를 돌려준다(저장 확인이 «.then» 에서 던지지 않게)', { p1: typeof p1, p2: typeof p2 });
+    ok(p2 === p3, 'E 겹친 요청은 «다음 한 번» 으로 합친다(요청을 쌓지 않는다)');
+    ok(calls.length === 1, 'E 첫 요청이 끝나기 전엔 두 번째 요청을 안 보낸다', calls.length);
+    // 변이로 promise 가 영영 안 풀려도 하니스가 «멈추지» 않게(top-level await 미해결 = exit 13 · 결과줄 없음) 1초에 끊는다
+    const within = (pr) => Promise.race([pr, new Promise((r) => setTimeout(() => r(null), 1000))]);
+    (release.shift() || (() => {}))();
+    const d1r = await within(p1);
+    for (let i = 0; i < 20 && calls.length < 2; i++) await new Promise((r) => setTimeout(r, 1));
+    ok(calls.length === 2, 'E 첫 요청이 끝나면 예약한 한 번을 보낸다(그 사이 저장된 번호를 반영)', calls.length);
+    (release.shift() || (() => {}))();
+    const d2r = await within(p2);
+    ok(d1r && d1r.gaps[0].uid === 'n1' && d2r && d2r.gaps[0].uid === 'n2', 'E 겹친 쪽은 «새로 불러온» 결과를 받는다(옛 결과로 확인하지 않는다)', { d1r: d1r && d1r.gaps, d2r: d2r && d2r.gaps });
+    delete ctx.fetch;
+  }
+  // 💾 save() 를 «실제로» 눌러 본다 — 가짜 줄·가짜 서버. 갈래마다 «무엇을 보냈고 무엇을 말했나» 를 본다.
+  //    (saveMsg·afterReload 가 옳아도 save 가 그 답을 안 쓰면 소용없다 — 그 배선을 여기서 잰다)
+  if (P) {
+    const mkEl = (attrs) => ({ value: '', textContent: '', disabled: false, getAttribute: (k) => attrs[k] ?? null });
+    const mkRow = (uid, par, stu) => {
+      const els = { par: mkEl({ 'data-role': 'parent' }), stu: mkEl({ 'data-role': 'student' }), msg: mkEl({}), btn: mkEl({}) };
+      els.par.value = par; els.stu.value = stu;
+      return { els, tr: { getAttribute: (k) => (k === 'data-uid' ? uid : null), querySelector: (q) => (
+        q === '.pg-in[data-role="parent"]' ? els.par : q === '.pg-in[data-role="student"]' ? els.stu : q === '.pg-msg' ? els.msg : q === '.pg-save' ? els.btn : null) } };
+    };
+    const flashEl = { textContent: '', style: { display: 'none' } };
+    const bodyEl = { innerHTML: '', querySelectorAll: () => [] };
+    ctx.document.getElementById = (id) => (id === 'pg-flash' ? flashEl : id === 'pg-body' ? bodyEl : null);
+    const runSave = async (patchRes, listRes, par = '010-1234-5678', stu = '') => {
+      const sent = [];
+      flashEl.textContent = ''; bodyEl.innerHTML = '';
+      ctx.fetch = async (u, o) => {
+        sent.push({ u, method: (o && o.method) || 'GET', body: o && o.body });
+        if (o && o.method === 'PATCH') {
+          if (patchRes === 'NET') throw new Error('net');
+          return { ok: patchRes.status === 200, status: patchRes.status, json: async () => patchRes.body };
+        }
+        if (listRes === 'NET') throw new Error('net');
+        return { ok: true, status: 200, json: async () => listRes };
+      };
+      const row = mkRow('kim1', par, stu);
+      let err = null;
+      // 변이로 저장이 영영 안 끝나도 멈추지 않게 2초에 끊는다(끊기면 err 로 남아 아래 검사가 FAIL)
+      try {
+        const done = await Promise.race([P.save(row.tr).then(() => 'done'), new Promise((r) => setTimeout(() => r('timeout'), 2000))]);
+        if (done === 'timeout') err = new Error('save timeout');
+      } catch (e) { err = e; }
+      delete ctx.fetch;
+      return { sent, row: row.els, flash: flashEl.textContent, err };
+    };
+    const L = (uids, extra) => Object.assign({ ok: true, days: 7, from: 'a', to: 'b', students: 3, reachable: 1, complete: true, sms_mode: 'real', reminder_enabled: true,
+      gaps: uids.map((u) => ({ uid: u, name: 'x', status: 'none', next_date: '2026-10-29', next_time: '16:00', classes: 1 })) }, extra || {});
+    let r = await runSave({ status: 200, body: { ok: true, phone_kept: true, roster_updated: true } }, L([]));
+    const patch = r.sent.find((x) => x.method === 'PATCH');
+    ok(!r.err && patch && /\/api\/admin\/student\/kim1\/contact$/.test(patch.u) && JSON.parse(patch.body).parent_phone === '010-1234-5678' && !('student_phone' in JSON.parse(patch.body)),
+      'E save: 그 학생 contact PATCH 로 «넣은 칸만» 보낸다(빈 학생 칸은 안 보낸다)', patch);
+    ok(r.sent.filter((x) => x.method === 'GET').length === 1 && /✅/.test(r.flash) && /이 번호로 갑니다/.test(r.flash), 'E save: 성공 → 다시 불러 → 빠졌으면 ✅ 안내', { flash: r.flash, sent: r.sent.length });
+    r = await runSave({ status: 200, body: { ok: true, phone_kept: false, roster_updated: false } }, L(['kim1']));
+    ok(!r.err && r.sent.filter((x) => x.method === 'GET').length === 0 && /❌/.test(r.row.msg.textContent) && /명부를 찾지 못했습니다/.test(r.row.msg.textContent) && !/✅/.test(r.flash),
+      'E save: 명부도 안 바뀌었으면 다시 불러오지 않고 그 줄에 «저장 안 됨» 을 남긴다', { msg: r.row.msg.textContent, flash: r.flash, gets: r.sent.length });
+    r = await runSave({ status: 200, body: { ok: true, phone_kept: false, roster_updated: true } }, L([]));
+    ok(!r.err && /명부에는 적었지만/.test(r.flash) && !/✅/.test(r.flash), 'E save: 명부만 적힘 → 빠져도 ✅ 가 아니라 «한 번 더 저장»', r.flash);
+    r = await runSave({ status: 200, body: { ok: true, phone_kept: true, roster_updated: true } }, 'NET');
+    ok(!r.err && /확인하지 못했습니다/.test(r.flash) && !/✅/.test(r.flash), 'E save: 다시 불러오기가 끊기면 «확인 못 함» 을 띄운다(조용히 끝내지 않는다)', r.flash);
+    r = await runSave({ status: 200, body: { ok: true, phone_kept: true, roster_updated: true } }, L([], { sms_mode: 'mock' }));
+    ok(/✅/.test(r.flash) && /실제로는 안 갑니다/.test(r.flash), 'E save: 문자가 꺼져 있으면 성공 안내에 그 사실을 붙인다', r.flash);
+    r = await runSave('NET', L([]));
+    ok(!r.err && /연결이 끊겨/.test(r.row.msg.textContent) && !r.flash && r.sent.filter((x) => x.method === 'GET').length === 0, 'E save: 저장 요청이 끊기면 그 줄에 «저장 못 함» · 다시 불러오지 않는다', r.row.msg.textContent);
+    r = await runSave({ status: 200, body: { ok: true } }, L([]), '', '');
+    ok(r.sent.length === 0 && /하나를 넣어/.test(r.row.msg.textContent), 'E save: 둘 다 비었으면 아무것도 안 보낸다', r);
+    r = await runSave({ status: 200, body: { ok: true } }, L([]), '010-123', '');
+    ok(r.sent.length === 0 && /짧으면/.test(r.row.msg.textContent), 'E save: 짧은 번호는 안 보낸다', r.row.msg.textContent);
+    ctx.document.getElementById = () => null;
   }
   // 정적 — 화면이 판정·자동 채우기를 하지 않는가
   const noCmt = js.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
