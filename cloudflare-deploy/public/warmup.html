@@ -965,6 +965,7 @@
 </dialog>
 <script src="/js/warmup-guide.js?v=8"></script>
 <script src="/js/speech-preferences.js?v=3"></script>
+<script src="/js/speech-rate-request.js?v=1"></script>
 <script>
 /* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
 var Q = new URLSearchParams(location.search);
@@ -1565,14 +1566,13 @@ function setRate(lv, persist){
 }
 setRate(_rateLevel, false);   // Restore this account’s selected speed without writing the default.
 /* 🐢 (2026-07-23) "천천히 말해줘" 라고 말하거나 쓰면 듣기 속도를 실제로 한 칸 낮춘다.
-   그동안은 슬라이더로만 바뀌어서, 부탁해도 같은 속도로 계속 읽어줬다. */
+   그동안은 슬라이더로만 바뀌어서, 부탁해도 같은 속도로 계속 읽어줬다.
+   🐇 (2026-10-28) «부탁» 인지는 공용 판정(js/speech-rate-request.js)이 정한다 — 낱말 하나로 보면 「A snail is slow.」·
+   「빠르게 달려요」(대답)에도 슬라이더가 움직였다. 그 파일을 못 읽었으면 속도를 그대로 둔다. */
 function maybeAdjustRate(text){
-  var t = String(text||'');
-  var slower = /(천천히|느리게|너무\s*빠르|못\s*알아|알아듣기)/.test(t)
-            || /\b(slow(ly| down)?|too fast|more slowly|speak slower)\b/i.test(t);
-  var faster = /(빠르게|더\s*빨리)/.test(t) || /\b(faster|speed up)\b/i.test(t);
-  if(slower) setRate(Math.max(1, _rateLevel - 1));
-  else if(faster) setRate(Math.min(5, _rateLevel + 1));
+  var want = window.MangoiRateRequest ? window.MangoiRateRequest.judge(String(text||'')) : '';
+  if(want === 'slower') setRate(Math.max(1, _rateLevel - 1));
+  else if(want === 'faster') setRate(Math.min(5, _rateLevel + 1));
 }
 
 /* 📊 대화 난이도: 1(기초) ~ 8(최고) → 서버로 difficulty 전달, AI가 눈높이 맞춤 */

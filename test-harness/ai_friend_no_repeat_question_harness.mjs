@@ -510,7 +510,9 @@ for (const [ans, blocked] of [['Can you say that again slowly?', false], ['No, h
     "I don't really understand.", "Don't understand, sorry.", 'Not understand.', "I don't understand what that means.", 'Too hard, easier please.', 'Can you use easy words?',
     'Use simple words.', 'Please speak English slowly.', 'Huh? Slow down.', 'Speak slowly, please.', 'Can you repeat that?', 'I don’t understand.', 'I can’t hear you', 'Sorry, louder.',
     'Sorry, what?', 'Excuse me, what?', 'Can you talk slowly?', "I didn't understand.", 'ok say it again', 'oh say it again', 'Please slower', 'Sorry, say it again.',
-    'Too fast, slow please', 'What? Too fast!', 'Speak slower.', 'Say again.'];
+    'Too fast, slow please', 'What? Too fast!', 'Speak slower.', 'Say again.',
+    // 화면 말 빠르기 수리(2026-10-28)가 찾은 빈틈 — 앞말이 둘(「좀 더」·「조금만 더」)이면 못 알아들었다
+    '좀 더 천천히요', '조금만 더 천천히', '좀 더 천천히 해 주세요', '좀 더 쉽게요', '더 더 천천히'];
   const SAMPLES = ['Can you say that again slowly?', 'slow down please', 'too fast!', 'say it again', 'again please', 'Repeat please.', "I don't understand.", 'I dont understand',
     'simpler please', 'easier', 'shorter please', '천천히 말해줘', '느리게', '너무 빠르다', '다시 말해줘', '다시 해줘', '못 알아들었어', '모르겠어요', '쉽게 말해줘', '짧게',
     "I don't know.", 'Yes.', 'No, small.', 'I like it a lot.', 'Because it is fun.', 'Every day!', '작아요', 'My dog is white.', ...ECHOES, ...REQUESTS, ...ANSWERS];
