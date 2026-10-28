@@ -995,6 +995,11 @@ export async function handleTeacherApi(
     // 📅 이번 주 7칸(2026-09-23) — 관리자와 같은 규칙의 요일 파서를 넘긴다(평가는 안 넘김 = 그대로 숨김)
     try { await enrichClassesToday(env as any, classes, todayStr, now, { dowMatches }); } catch (e: any) { console.warn('[teacher-portal] extras:', e?.message); }
   }
+  /* 📅 (2026-10-28 강사 제안 «시간이 빠른 순으로 안 나온다») 지난 14일 카페24 수업(source='lms')은 «그 수업 날» 을 싣는다.
+     enrichClassesToday 가 모든 줄의 class_date 를 오늘로 덮어 10-14 수업이 «2026-10-28» 로 찍혔고, start_ts(실제 날짜)
+     순서와 «오늘 날짜 + 시각» 이 어긋나 표가 뒤죽박죽으로 보였다. 일지(lesson_date)·수업 요약 날짜도 이 값을 쓴다.
+     ⛔ 공용 enrichClassesToday 는 안 고친다 — 관리자 「오늘 수업」이 같은 함수를 쓴다. */
+  for (const c of classes) if (c.source === 'lms' && c.start_ts) c.class_date = new Date(c.start_ts + KST).toISOString().slice(0, 10);
 
   if (!onlyNext) {
     for (const day of weekDays) {
