@@ -97,9 +97,13 @@ test('twin: kept when names are unknown, differ, or ids/time/state do not line u
     { username: '가나라 MANGOAI' },                                                            // 이름이 다름
     { joined_at: tStart + 1 }, { joined_at: tStart + 86400000 },                              // 시각이 다름
     { user_id: 'mangoai_kidab' }, { user_id: 'xkidaa' }, { user_id: 'mangoai_' },             // 쌍둥이가 아님
+    { user_id: 'mangoai_Kidaa' }, { user_id: 'Mangoai_kidaa' }, { user_id: 'MANGOAI_KIDAA' },  // 아이디는 대소문자 그대로(Kim/kim 실계정)
   ]) assert.equal(drop([{ ...twinLms, ...patch }], [twinSched], [], dow).hidden, 0, JSON.stringify(patch));
   for (const student_name of ['kidaa', 'KIDAA', '', null, '가나라'])                          // 예약 이름 모름·다름
     assert.equal(drop([twinLms], [{ ...twinSched, student_name }], [], dow).hidden, 0, String(student_name));
+  for (const user_id of ['Kidaa', 'KIDAA'])                                                      // 예약 아이디 대소문자 다름
+    assert.equal(drop([twinLms], [{ ...twinSched, user_id }], [], dow).hidden, 0, user_id);
+  assert.equal(drop([twinLms], [], [{ ...twinToday, student_uid: 'Kidaa' }], dow).hidden, 0, 'today Kidaa');
   // 양쪽 이름이 «둘 다» 모름이어도 잇지 않는다 — «모름 == 모름» 을 같은 이름으로 세면 안 된다.
   for (const [username, student_name] of [['', 'kidaa'], [null, ''], ['mangoai_kidaa', 'kidaa'], ['MANGOAI', null]])
     assert.equal(drop([{ ...twinLms, username }], [{ ...twinSched, student_name }], [], dow).hidden, 0, 'both unknown ' + username);
@@ -114,6 +118,8 @@ test('twin: kept when names are unknown, differ, or ids/time/state do not line u
 test('twin: names compare exactly (case kept) and id-shaped names are unknown', () => {
   assert.equal(confirmedTwinName('가나다 MANGOAI', 'mangoai_kidaa'), '가나다');
   assert.equal(confirmedTwinName('kidaa', 'kidaa'), '');
+  assert.equal(confirmedTwinName('kidaa', 'mangoai_kidaa'), '');           // 쌍둥이 아이디 그대로도 «모름»
+  assert.equal(confirmedTwinName('mangoai_kidaa', 'kidaa'), '');
   assert.equal(confirmedTwinName('Mangoai_Kidaa', 'kidaa'), '');
   assert.equal(confirmedTwinName('  ', 'kidaa'), '');
   assert.equal(confirmedTwinName('Sarang', 'kidaa'), 'Sarang');
