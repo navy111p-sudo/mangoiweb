@@ -72,7 +72,10 @@ for (const k of ['same', 'new', 'contrast']) {
   }
 }
 ok('갈래끼리 접속사가 겹치지 않는다', new Set([...L.same, ...L.new, ...L.contrast]).size === L.same.length + L.new.length + L.contrast.length);
-ok('사장님 목록 단어가 다 들어 있다', ['And', 'So', 'But', 'Also', 'By the way', 'One more thing', 'Of course', 'Moreover'].every(w => kindOf(w)));
+// 🔗 2026-10-28 사장님 「however·therefore·moreover 는 일상 회화 기본 말투로 과도하게 쓰지 마」 — 10-26 목록에서 Moreover·Of course 를 뺐다.
+//    (짝) 남은 일상어는 그대로 있고, 뺀 둘은 어느 갈래에도 없다 — 앞만 보면 «목록을 통째로 비우기» 도 통과한다.
+ok('사장님 목록 단어가 다 들어 있다', ['And', 'So', 'But', 'Also', 'By the way', 'One more thing', 'Oh, and', 'Still'].every(w => kindOf(w)));
+ok('(짝) 격식어 Moreover·Of course 는 회전 목록에 없다(2026-10-28)', !['Moreover', 'Of course', 'However', 'Therefore', 'Furthermore'].some(w => kindOf(w)));
 
 // ③ 실제 핸들러로 전 문항 × 여러 대답 — 지시에 정본 접속사가 실린다
 const ANSWERS = ['I like dogs.', 'I like small dogs!', 'dog', 'cat', 'yes', 'no', "I don't know", '몰라요', '강아지 좋아해요',
