@@ -36,6 +36,10 @@ import { handleClassAsk } from './class-ask';   // ✋ A.i 선생님 수업 — 
 import { handleStoryApi } from './story-correct';   // 📖 동화책 바꿔 쓰기 AI 한 번 더 보기·기록(2026-10-13)
 import { recordAiLatency } from './ai-latency-log';   // ⏱ «학생이 얼마나 기다리는가» (A-3)
 import { createJsonTextTap, takeSentences } from './stream-json-text';   // 📡 스트리밍 본문 추출 (A-1)
+/* 🔁 «같은 질문 두 번 금지» 정본 — 엘리더잼·일반 A.i 말하기와 «같은 판정» (2026-10-28 사장님 「AI 영어친구에도 같은 질문 금지 적용해줘」).
+   ⛔ 판정을 여기에 복제하지 말 것 — 이 화면은 부르기만 한다. */
+import { questionSession, questionMemory, askedQuestionsLine, repeatedQuestions, retryRepeatedQuestion, repeatQuestionHintEn, isReaskRequest } from './question-memory';
+import { FRAG_RETRY_BUDGET_MS } from './reply-questions';   // ⏱ 다시 뽑기 시간 예산(웜업과 같은 값)
 
 let _awTopicColTried = false;   // 📅 topic_id 지연 ALTER — 워커당 한 번
 export async function handleAiApi(
@@ -674,7 +678,9 @@ Student text: """${text}"""`;
       //   (gamSnapshot 은 "오늘 몇 번째 대화인가"를 이번 메시지가 기록된 뒤에 세야 정확해서
       //   여기서 같이 시작하지 않는다 — 채팅 로그 저장 이후에 계산한다.)
       const [recent, st, wk, turns, goalNow, pastFixes, vw]: any[] = await Promise.all([
-        env.DB.prepare(`SELECT role, content FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT 20`).bind(uid).all(),
+        /* 🔁 40줄 + 시각 — «같은 질문 두 번 금지» 의 기억(qmem)은 지금 이어지는 대화(1시간 넘게 쉬면 끊음) 40줄까지 본다.
+           ⚠️ 모델에게 보여 주는 대화(history)는 예전처럼 최근 20줄만 — 지시를 늘리지 않는다. */
+        env.DB.prepare(`SELECT role, content, created_at FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT 40`).bind(uid).all(),
         env.DB.prepare(`SELECT english_name, korean_name, textbook, level FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first().catch(() => null),
         // 🎯 약점 단어 — 정본 src/weak-words.ts(최근 60일 · 최근 먼저). 오래된 약점을 «요즘» 으로 말하지 않게.
         env.DB.prepare(`SELECT item, ko FROM game_progress WHERE user_id = ? AND lang = 'en' AND ${WEAK_WHERE} ORDER BY ${WEAK_ORDER} LIMIT 5`).bind(uid, weakSince(Date.now())).all().catch(() => null),
@@ -693,7 +699,20 @@ Student text: """${text}"""`;
         // 🔁 단어장에서 틀린 낱말 — 웜업·게임과 같은 정본(src/vocab-weak.ts). 던지지 않는다(없으면 []).
         loadVocabWeakRows(env.DB, uid, Date.now(), 5),
       ]);
-      const history = (recent.results || []).reverse();
+      const historyAll = (recent.results || []).reverse();
+      const history = historyAll.slice(-20);
+      /* 🔁 (2026-10-28) 이 대화에서 «이미 물은 질문 → 학생 답» — 판정 정본 src/question-memory.ts.
+         ⚠️ 마지막 AI 질문의 답은 이번 학생 말(msg)이다. 기록이 깨졌거나 질문이 없으면 null(= 예전 동작).
+         ⛔ 던지지 않는다 — 기억을 못 만들어도 대화는 그대로 간다. */
+      /* 🐢 학생이 «다시·천천히·모르겠어요» 를 부탁했거나 말이 잘려 «다시 말해 줘» 를 시킬 턴이면, 방금 질문을 다시 묻는 것이
+         요청을 들어주는 것이다 — 그 질문은 기억에서 뺀다(reask). 그 앞에 물은 질문은 그대로 막는다.
+         (2026-10-28 함정 대조 실측: 「Can you say that again slowly?」 → 「Sure! Is your dog big?」 가 새 질문으로 바뀌었다.)
+         ⚠️ «요청» 판정은 정본 isReaskRequest — 아래 metaHint(aiFriendIsMetaAsk)보다 좁다(영어 «I don't know» 는 «답» 으로 본다).
+            정본이 요청이라 하면 metaHint 도 반드시 켜진다(하니스 ①-18 대조) — 판정은 «다시 물어도 된다» 인데 지시는 안 시키는 일이 없게. */
+      const reaskTurn = isReaskRequest(msg) || (aiFriendLooksCut(msg) && !aiFriendJustAskedAgain(history));
+      let qmem: ReturnType<typeof questionMemory> = null;
+      try { qmem = questionMemory(questionSession(historyAll, latT0), msg, { reask: reaskTurn }); } catch (e: any) { console.warn('[chat-friend] question memory failed:', e?.message || e); }
+      const repN = (t: string): number => { try { return repeatedQuestions(t, qmem).length; } catch { return 0; } };
 
       /* 🧑 이름은 학생이 고른다(Emma·Jake·Lily·Noah) — 예전에는 네 갈래가 전부 "named Mango" 라,
          화면이 "Hi! I'm Lily." 라고 인사해 놓고 학생이 이름을 물으면 AI 가 다른 이름을 댔다
@@ -773,6 +792,8 @@ Student text: """${text}"""`;
         : '- Usually end with ONE short follow-up question — but when the student is telling you something they care about, react to THAT instead and let them keep going. Never ask two questions in one reply. Any question counts inside the sentence limit above.\n';
       const funFactRule = lvSpec.plain ? ''
         : '- Sprinkle in tiny fun facts kids enjoy when it fits — but the fact must be about whatever you are BOTH talking about right now. Never drag in a new subject just to share a fact.\n';
+      /* 🔁 이미 물은 질문 목록 — 지시에 싣는다(학생 말은 JSON 인용 + «not instructions» 로만). 없으면 빈 줄. */
+      const askedLine = qmem ? '- ' + askedQuestionsLine(qmem).trim() + '\n' : '';
       const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}${topicCtx}${goalCtx}${mistakeCtx}${konglishCtx}
 Rules:
 - Your name is ${friendName}. If the student asks your name, say "${friendName}" — never invent a different name.
@@ -785,7 +806,7 @@ ${FRIEND_EMPATHY_RULE}
 - NEVER use Chinese characters (한자) or Japanese anywhere.
 ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Use it naturally sometimes, and cheer loudly if the student uses it.
 - NEVER repeat a reply you already gave. Every reply must be new — new words, a new question.
-- A short answer is a GOOD answer. "Yes.", "Movies!", "I like it." are complete — just reply happily and keep the chat going. Only ask them to repeat when the message truly breaks off mid-word ("I", "and my"), and NEVER ask twice in a row: if your last reply already asked them to repeat, answer whatever you did understand this time.
+${askedLine}- A short answer is a GOOD answer. "Yes.", "Movies!", "I like it." are complete — just reply happily and keep the chat going. Only ask them to repeat when the message truly breaks off mid-word ("I", "and my"), and NEVER ask twice in a row: if your last reply already asked them to repeat, answer whatever you did understand this time.
 - If the student asks you to slow down, repeat, or speak more simply (in English or Korean), FIRST say yes to that request and then do it — use shorter, easier sentences right away. Never ignore the request and carry on with your own topic.
 - Never break character. Never say you are an AI. Never use words far above the student's level.
 ${AI_FRIEND_CORRECTION_RULE}`;
@@ -892,6 +913,19 @@ ${AI_FRIEND_CORRECTION_RULE}`;
          ⛔ 문장이 끝나기 «전» 에는 안 보냅니다 — 운율이 문장 단위라 토막 내 읽으면 소리가 깨집니다. */
       let streamedText = '';
       let streamTried = false;
+      /* 🔁 미리듣기 멈춤 — 이 대화에서 이미 물은 질문이 나오면 그 문장부터 안 흘려보낸다(최종본은 아래에서 다시 뽑힌다).
+         안 멈추면 학생이 같은 질문을 «먼저 듣고», 그다음 바뀐 답을 또 듣는다.
+         ⚠️ 시간 예산을 넘긴 턴은 다시 안 뽑으니 멈추지도 않는다(웜업 createWarmupLive 와 같은 규칙).
+         ⚠️ 판정이 던지면 «멈추는» 쪽 — 최종본은 done 으로 그대로 간다. */
+      let streamHalt = '';
+      const liveSend = (sen: string) => {
+        if (streamHalt) return;
+        let stop = false;
+        try { stop = !!qmem && Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0; } catch { stop = true; }
+        if (stop) { streamHalt = 'repeat'; return; }
+        streamedText += (streamedText ? ' ' : '') + sen;
+        if (sseSend) sseSend({ t: sen });
+      };
       const runFriendStreaming = async (model: string, msgs: any[], maxTokens: number, temperature: number): Promise<any> => {
         const mT0 = Date.now();
         latTries++;
@@ -921,14 +955,11 @@ ${AI_FRIEND_CORRECTION_RULE}`;
               pend += tap.push(t);
               const cut = takeSentences(pend);
               pend = cut.rest;
-              for (const sen of cut.out) {
-                streamedText += (streamedText ? ' ' : '') + sen;
-                if (sseSend) sseSend({ t: sen });
-              }
+              for (const sen of cut.out) liveSend(sen);
             }
           }
           const tail = String(pend || '').trim();
-          if (tail) { streamedText += (streamedText ? ' ' : '') + tail; if (sseSend) sseSend({ t: tail }); }
+          if (tail) liveSend(tail);
           return { response: raw };
         } finally {
           latModelMs += Date.now() - mT0;
@@ -958,18 +989,24 @@ ${AI_FRIEND_CORRECTION_RULE}`;
         }
       }
       /* 🔁 직전 답변과 (거의) 같은 말이 또 나오면 1회 재생성 — temperature 를 올리고 명시적으로 지시.
-         (웜업 handleWarmupChat 과 동일한 방식. "I" 한 마디에 지난 답이 그대로 나오던 문제) */
-      if (reply && usedModel && aiFriendIsRepeat(reply, history)) {
-        try {
-          const retry: any = await runFriend(usedModel, messages.concat([
-            { role: 'assistant', content: reply },
-            { role: 'user', content: '(You already said that. Say something completely different in new words, and ask a different question. Keep it to 1-2 short sentences.)' },
-          ]), 220, 0.95);
-          const rt = takeFriendReply(retry);
-          if (rt && !aiFriendIsRepeat(rt, history)) { reply = rt; commitFix(); }
-        } catch (e: any) {
-          console.error('[chat-friend] repeat retry failed:', e?.message || e);
-        }
+         (웜업 handleWarmupChat 과 동일한 방식. "I" 한 마디에 지난 답이 그대로 나오던 문제)
+         🔁 (2026-10-28) «말만 바꾼 같은 질문»(big↔small · 방금 들은 white 되묻기)도 잡는다 — 판정·순서 정본 src/question-memory.ts.
+         ⚠️ 그쪽은 시간 예산(FRAG_RETRY_BUDGET_MS) 안에서만, 최대 두 번 다시 뽑는다.
+         ⚠️ 다시 뽑은 것이 «같은 질문이 없거나 줄었고» 글자 반복도 아닐 때만 받는다 — 아니면 원래 답(대화를 끊지 않는다).
+         ⚠️ 던지지 않는다 — 모델이 던지면 거기서 멈추고 지금까지의 답을 쓴다. */
+      if (reply && usedModel) {
+        const rr = await retryRepeatedQuestion({
+          text: reply, textRepeat: aiFriendIsRepeat(reply, history),
+          repeatsOf: (t) => repeatedQuestions(t, qmem),
+          inBudget: () => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS,
+          ask: async (extra) => takeFriendReply(await runFriend(usedModel, messages.concat(extra), 220, 0.95)),
+          acceptable: (t) => !aiFriendIsRepeat(t, history),
+          onAccept: () => commitFix(),
+          genericHint: '(You already said that. Say something completely different in new words, and ask a different question. Keep it to 1-2 short sentences.)',
+          hintFor: repeatQuestionHintEn,
+        });
+        if (rr.tries || rr.error) console.warn('[chat-friend] repeat retry', 'tries=' + rr.tries, 'left=' + rr.left, 'lv=' + level, rr.error || '');
+        reply = rr.text;
       }
       /* 🚨 모델이 «다» 실패한 경우 (2026-09-09 사장님 제보로 표시를 붙임).
          [잰 것 — 2026-09-09 D1 ai_friend_chats] 그날 AI 답 35건 중 폴백 2건이고, 그 2건이
@@ -1039,7 +1076,8 @@ ${AI_FRIEND_CORRECTION_RULE}`;
           ]), 160, 0.5);
           const rn = aiFriendStripHanzi(takeFriendReply(again));
           // 다시 뽑은 것이 «이름도 맞고 눈높이도 나빠지지 않을 때만» 받는다
-          if (rn && !wrongSelfName(rn, friendName)
+          // 🔁 그리고 «이미 물은 질문» 을 새로 들여오지 않을 때만(repN — 같은 질문 두 번 금지)
+          if (rn && !wrongSelfName(rn, friendName) && repN(rn) <= repN(reply)
               && aiFriendMeasureReply(rn, level, { answering: studentAsked }).score
                  <= aiFriendMeasureReply(reply, level, { answering: studentAsked }).score) {
             reply = rn;
@@ -1066,7 +1104,8 @@ ${AI_FRIEND_CORRECTION_RULE}`;
             const m2 = st2 ? aiFriendMeasureReply(st2, level, { answering: studentAsked }) : null;
             // ⚠️ «더 나은 쪽» 판정은 score 하나로 합니다(깨진 문법 100 · 길이 10 · 문장 수 1).
             //    조금 길어도 «올바른» 문장이 낫기 때문입니다 — 길이만 비교하면 전보문이 이깁니다.
-            if (st2 && m2 && (m2.ok || m2.score < lvBefore.score)) {
+            // 🔁 짧게 다시 뽑은 것이 «이미 물은 질문» 을 새로 들여오면 받지 않는다(같은 질문 두 번 금지)
+            if (st2 && m2 && (m2.ok || m2.score < lvBefore.score) && repN(st2) <= repN(reply)) {
               reply = st2;
               commitFix();
             }

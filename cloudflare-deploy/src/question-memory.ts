@@ -13,7 +13,10 @@
  *  글자 그대로 같은 질문. 이유(why)·방법(how do…)을 묻는 질문은 @why·@how 를 달아 «예/아니오 질문» 과 가른다
  *  (「Do you like dogs?」 다음 「Why do you like dogs?」 는 새 질문이다).
  *
- *  ⛔ 판정은 여기 한 곳 — 엘리더잼(eleader-l1.ts)·엔진(index.ts)·하니스가 이것을 그대로 쓴다. 다른 파일에 복제하지 말 것.
+ *  같은 날 「AI 영어친구에도 같은 질문 금지 적용해줘」 로 AI 영어친구(api-ai.ts chat-friend)도 이 판정을 쓴다 —
+ *  그쪽은 세션 번호가 없어 questionSession 이 «1시간 넘게 쉬면 새 대화» 로 끊고, 다시 뽑을 때 영어 힌트(repeatQuestionHintEn)를 준다.
+ *
+ *  ⛔ 판정은 여기 한 곳 — 엘리더잼(eleader-l1.ts)·엔진(index.ts)·AI 영어친구(api-ai.ts)·하니스가 이것을 그대로 쓴다. 다른 파일에 복제하지 말 것.
  *  ⛔ 영어만 본다(낱말을 [a-z] 로 뽑는다). 중국어 대화는 부르는 쪽이 끈다.
  *  ⚠️ 이 모듈의 함수는 던지지 않는다 — 기록이 깨졌으면 null·빈 배열(= 예전 동작)로 떨어진다. 대화는 막지 않는다. */
 
@@ -106,17 +109,64 @@ export function questionsIn(text: unknown): string[] {
   return (String(typeof text === 'string' ? text : '').match(/[^.!?\n]*\?/g) || []).map(q => clip(q, 100)).filter(q => /[a-z]{2}/i.test(q));
 }
 
+/** AI 영어친구 — 기록이 학생 하나에 계속 쌓여 «세션» 이 없다. 메시지 사이가 gapMs(기본 1시간) 넘게 비면 거기서 끊는다.
+ *  (일주일 전에 물은 질문을 오늘 다시 묻는 것은 반복이 아니다 — 지금 이어지는 대화만 본다.)
+ *  rows 는 오래된 것 → 최근 것 순이고 created_at(ms) 을 가진다. 시각을 못 읽는 행에서 끊는다(모르면 그 앞을 안 본다 = 예전 동작).
+ *  [잰 것 — 2026-10-28 운영 D1 ai_friend_chats 전체, 같은 학생의 이웃 메시지 간격 1,026개] 1분 이하 991 · 1~5분 22 ·
+ *  5~30분 7 · 30~60분 1 · 1~3시간 0 · 3시간 넘게 5(같은 날 다시 잼 — 학생 137명 · 1,163줄이라 대부분 한 번 들어와 짧게 대화하고
+ *  끝나서 «긴 쉼» 자체가 드물다). ⟹ 1시간에서 «쉬는 중» 과 «다른 날» 이 갈린다. */
+export const QM_SESSION_GAP_MS = 3600000;
+export function questionSession(rows: unknown, nowMs: number, gapMs = QM_SESSION_GAP_MS): { role: string; content: string }[] {
+  if (!Array.isArray(rows)) return [];
+  const out: { role: string; content: string }[] = [];
+  let after = Number(nowMs);
+  for (let k = rows.length - 1; k >= 0; k--) {
+    const r: any = rows[k];
+    const t = Number(r && r.created_at);
+    if (!r || !Number.isFinite(t) || t <= 0 || !Number.isFinite(after) || after - t > gapMs) break;
+    out.push({ role: String(r.role), content: typeof r.content === 'string' ? r.content : '' });
+    after = t;
+  }
+  return out.reverse();
+}
+
+/** 학생이 «다시·천천히·모르겠어요» 를 부탁한 말인가 — 그 말은 질문에 대한 «답» 이 아니다.
+ *  (2026-10-28 함정 대조 실측: AI 영어친구에서 「Can you say that again slowly?」 → 규칙대로 「Sure! Is your dog big?」 로
+ *   방금 질문을 다시 물었는데, 이 판정이 그것을 «같은 질문» 으로 잡아 엉뚱한 새 질문으로 바꿔 버렸다.)
+ *  ⚠️ 영어 «I don't know» 는 요청이 아니라 «답» 으로 본다 — 질문은 알아들었고 답을 모르는 것이라, 같은 질문을 또 물으면
+ *     학생에게는 반복이다(샌드박스 정답 표도 그렇게 본다). «I don't understand»·「모르겠어요」(영어 질문을 못 알아들음)는 요청이다.
+ *  ⚠️ api-ai.ts 의 aiFriendIsMetaAsk(지시 metaHint 를 켜는 판정 — 하니스가 vm 으로 떼어 돌려 import 를 못 쓴다)는 이것보다 «넓다».
+ *     이것이 «요청» 이라 하면 그쪽도 반드시 요청이어야 한다(그래야 지시도 «다시 물어라» 를 준다) —
+ *     ai_friend_no_repeat_question_harness ①-18 이 두 곳을 대조한다. 한쪽만 고치지 말 것. */
+export const QM_REASK_KO = /(천천히|느리게|빠르|다시\s*(말|얘기|해)|못\s*알아|모르겠|쉽게|짧게)/;
+export const QM_REASK_EN = /\b(slow(ly| down)?|too fast|say (it|that) again|again please|repeat|i don'?t understand|simpler|easier|shorter)\b/i;
+export function isReaskRequest(s: unknown): boolean {
+  const t = typeof s === 'string' ? s : '';
+  return !!t && (QM_REASK_KO.test(t) || QM_REASK_EN.test(t));
+}
+/** AI 가 «다시 말해 줄래?» 라고 되묻는 질문인가 — 내용이 없는 되묻기라 두 번 해도 반복이 아니다(맞장구와 같은 취급).
+ *  ⚠️ «두 번 연속 되묻기 금지» 는 부르는 쪽 규칙(aiFriendJustAskedAgain·웜업 지시)이 맡는다 — 여기서 막지 않는다. */
+export const QM_ASK_AGAIN = /(\bsay\b[^?]{0,30}\bagain\b|\bone more time\b|\bdidn'?t catch\b|\bonly caught\b|\bcan you repeat\b|\brepeat (it|that)\b|다시 말)/i;
+export function isAskAgainQuestion(q: unknown): boolean {
+  return QM_ASK_AGAIN.test(typeof q === 'string' ? q : '');
+}
+
 /** 웜업 기록에서 «이미 물은 질문 → 학생 답» 을 뽑는다.
- *  마지막 AI 질문의 답은 이번 턴 학생 말(said)이다. 기록이 아니거나 질문이 없으면 null(= 예전 동작). */
-export function questionMemory(history: unknown, said?: unknown): QuestionMemory | null {
+ *  마지막 AI 질문의 답은 이번 턴 학생 말(said)이다. 기록이 아니거나 질문이 없으면 null(= 예전 동작).
+ *  ⚠️ 학생이 그 질문에 «다시·천천히·모르겠어요» 로 답했으면(isReaskRequest — 이번 말은 opts.reask 로 덮어쓸 수 있다)
+ *     그 질문은 «아직 안 다룬 것» 으로 둔다 — AI 가 요청대로 다시 물어도 반복이 아니다. 그 앞에 물은 질문은 그대로 기억한다.
+ *  ⚠️ AI 의 «다시 말해 줄래?»(isAskAgainQuestion)는 기억하지 않는다. */
+export function questionMemory(history: unknown, said?: unknown, opts?: { reask?: boolean }): QuestionMemory | null {
   if (!Array.isArray(history)) return null;
   const msgs = history.filter((m: any) => m && (m.role === 'assistant' || m.role === 'user') && typeof m.content === 'string').slice(-40);
   const asked: { q: string; a: string }[] = [], done: Set<string>[] = [], texts = new Set<string>(), items: QuestionMemoryItem[] = [];
   for (let k = 0; k < msgs.length; k++) {
     if (msgs[k].role !== 'assistant') continue;
-    const qs = questionsIn(msgs[k].content);
+    const qs = questionsIn(msgs[k].content).filter(q => !isAskAgainQuestion(q));
     if (!qs.length) continue;
     const nx = msgs[k + 1];
+    const reask = nx ? (nx.role === 'user' && isReaskRequest(nx.content)) : (opts && typeof opts.reask === 'boolean' ? opts.reask : isReaskRequest(said));
+    if (reask) continue;   // 학생이 «다시·천천히» 를 부탁한 질문 — 아직 답하지 않았다
     const a = nx ? (nx.role === 'user' ? clip(nx.content, 60) : '') : clip(said, 60);
     const traits = [...questionSlot(a)].filter(x => ANSWER_TRAITS.has(x));   // 학생 답에서 나온 성질(「작아요 7kg」 → @size)
     const slots = qs.map(q => questionSlot(q));
@@ -179,6 +229,14 @@ export function repeatQuestionHint(rep: readonly RepeatedQuestion[]): string {
     `아직 안 물은 새 질문 하나로 바꿔서 다시 말해 줘. 학생 말에 대한 반응은 그대로 둬도 돼.)`;
 }
 
+/** 같은 힌트의 영어판 — AI 영어친구는 지시 전체가 영어라 한국어 힌트를 섞지 않는다. 인용은 JSON 문자열로만. */
+export function repeatQuestionHintEn(rep: readonly RepeatedQuestion[]): string {
+  const list = rep.slice(0, 3).map(r => `${JSON.stringify(r.q)} (earlier you asked ${JSON.stringify(r.prev)} and the student said ${r.a ? JSON.stringify(r.a) : '(no answer)'})`).join(', ');
+  return `(Your question ${list} was already asked in this chat, or the student already told you that. ` +
+    `Do not ask it again, not with other words and not with the opposite word. Keep your reaction to the student, ` +
+    `but end with ONE new question you have not asked yet. Keep it short.)`;
+}
+
 export type RetryTurn = { role: 'assistant' | 'user'; content: string };
 /** 같은 질문이 나온 답장을 «다시 뽑게» 하는 순서 — 엔진(index.ts)은 이것을 부르기만 한다.
  *  ① 글자 그대로 반복(옛 검사 textRepeat)은 예전처럼 한 번, 시간 예산과 무관하게 다시 뽑는다.
@@ -186,6 +244,9 @@ export type RetryTurn = { role: 'assistant' | 'user'; content: string };
  *     «그 답장과 그 질문» 을 보여 주고 한 번 더 묻는다(모델이 힌트를 한 번 어겨도 두 번째에 대개 따른다).
  *  받는 조건 — 같은 질문이 «없거나 줄었고» 다른 검사(acceptable: 무너짐·이름·조각·글자 반복)도 통과할 때만.
  *  아니면 원래 답(대화를 끊지 않는다). 받으면 그 자리에서 onAccept(교정 카드를 «그 답장» 것으로 확정).
+ *  ③ 다시 뽑은 것이 새 질문인데 acceptable 에서만 떨어졌으면(예: 앞 답장과 첫머리가 거의 같음) 남은 횟수 안에서
+ *     genericHint 로 한 번 더 묻는다 — 그 자리에서 멈추면 «같은 질문이 든 처음 답» 이 그대로 나간다
+ *     (2026-10-28 AI 영어친구 샌드박스 실측: 그렇게 남은 것이 대화 320회 중 모드마다 2건).
  *  ⚠️ 던지지 않는다 — ask 가 던지면 거기서 멈추고 지금까지의 답을 돌려준다(예전엔 그 예외로 턴 전체가 502).
  *  ⛔ 학생 발화·답장을 로그에 싣지 않는다 — 부르는 쪽은 tries·left·error(이유 문자열)만 남긴다. */
 export async function retryRepeatedQuestion(o: {
@@ -197,6 +258,8 @@ export async function retryRepeatedQuestion(o: {
   acceptable: (t: string) => boolean;
   onAccept: (t: string) => void;
   genericHint: string;
+  /** 같은 질문일 때 줄 힌트 — 없으면 한국어(repeatQuestionHint). AI 영어친구는 repeatQuestionHintEn 을 넘긴다. */
+  hintFor?: (rep: readonly RepeatedQuestion[]) => string;
   maxTries?: number;
 }): Promise<{ text: string; tries: number; left: number; error: string }> {
   const repsOf = (t: string): RepeatedQuestion[] => { try { return t ? o.repeatsOf(t) || [] : []; } catch { return []; } };
@@ -204,21 +267,25 @@ export async function retryRepeatedQuestion(o: {
   const budget = (): boolean => { try { return !!o.inBudget(); } catch { return false; } };
   let text = String(o.text || ''), reps = repsOf(text), tries = 0, error = '';
   const extra: RetryTurn[] = [];
-  let lastTry = text, lastRep = reps;
+  let lastTry = text, lastRep = reps, lastBad = false;
   const max = Math.max(1, Math.floor(Number(o.maxTries) || 2));
   for (let k = 0; k < max; k++) {
-    const go = k === 0 ? (o.textRepeat || (reps.length > 0 && budget())) : (lastRep.length > 0 && budget());
+    const go = k === 0 ? (o.textRepeat || (reps.length > 0 && budget())) : ((lastRep.length > 0 || lastBad) && budget());
     if (!go || !lastTry) break;
-    extra.push({ role: 'assistant', content: lastTry }, { role: 'user', content: lastRep.length ? repeatQuestionHint(lastRep) : o.genericHint });
+    let hint = o.genericHint;
+    if (lastRep.length) { try { hint = (o.hintFor || repeatQuestionHint)(lastRep) || repeatQuestionHint(lastRep); } catch { hint = repeatQuestionHint(lastRep); } }
+    extra.push({ role: 'assistant', content: lastTry }, { role: 'user', content: hint });
     let got = '';
     try { got = String((await o.ask(extra.slice())) || ''); } catch (e: any) { error = String(e?.message || e).slice(0, 120); break; }
     tries++;
     const gotRep = repsOf(got);
-    if (got && (gotRep.length === 0 || gotRep.length < reps.length) && okay(got)) {
+    const take = !!got && (gotRep.length === 0 || gotRep.length < reps.length) && okay(got);
+    if (take) {
       text = got; reps = gotRep;
       try { o.onAccept(got); } catch {}
     }
     lastTry = got; lastRep = gotRep;
+    lastBad = !!got && !take && gotRep.length === 0 && reps.length > 0;   // ③ 새 질문인데 다른 검사에서만 떨어짐 — 아직 같은 질문이 남았을 때만
   }
   return { text, tries, left: reps.length, error };
 }

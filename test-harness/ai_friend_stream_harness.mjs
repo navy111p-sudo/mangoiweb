@@ -67,6 +67,15 @@ const fnJs = fnSrc
   .replace(/const st: any/g, 'const st').replace(/let nl: number/g, 'let nl')
   .replace(/const ev: any/g, 'const ev');
 
+/* 🔁 미리듣기 «멈춤» 문(liveSend) — runFriendStreaming 이 문장을 내보낼 때 반드시 지나는 자리입니다
+   (2026-10-28 «같은 질문 두 번 금지»). 함수만 오려 내면 그 이름이 안 보여 죽으므로 «정본 그대로» 함께 오려 냅니다.
+   ⛔ 사본을 따로 쓰지 마세요 — 정본이 바뀌어도 모릅니다. */
+const gi = SRV.indexOf("let streamHalt = '';");
+const ge = gi >= 0 ? SRV.indexOf('const runFriendStreaming', gi) : -1;
+const gateSrc = gi >= 0 && ge > gi ? SRV.slice(gi, ge) : '';
+ok('미리듣기 멈춤 문(liveSend)을 오려 냈다 (전제)', /const liveSend = \(sen/.test(gateSrc), String(gateSrc.length));
+const gateJs = gateSrc.replace(/\(sen: string\)/, '(sen)');
+
 /** 가짜 모델 스트림 — 조각을 «아주 잘게» 쪼개 넣습니다(경계 처리를 실제로 시험). */
 function fakeAiStream(chunks) {
   let i = 0;
@@ -80,19 +89,24 @@ function sseLines(raw, size = 7) {
   return outs;
 }
 
-async function runStream(modelRaw) {
+async function runStream(modelRaw, gate = {}) {
   const sent = [];
   const body = `
     let latTries = 0, latModelMs = 0, streamedText = '';
     const sseSend = (o) => sent.push(o);
     const friendAIOpts = () => ({});
     const env = { AI: { run: async () => stream } };
+    const qmem = gate.qmem === undefined ? null : gate.qmem;
+    const latT0 = gate.t0 === undefined ? Date.now() : gate.t0;
+    const FRAG_RETRY_BUDGET_MS = 9000;
+    const repeatedQuestions = gate.rep || (() => []);
+    ${gateJs}
     ${fnJs}
     return (async () => { const r = await runFriendStreaming('m', [], 300, 0.8);
-      return { resp: r, streamedText, latTries, latModelMs }; })();
+      return { resp: r, streamedText, latTries, latModelMs, halt: streamHalt }; })();
   `;
-  const f = new Function('sent', 'stream', 'createJsonTextTap', 'takeSentences', 'TextDecoder', body);
-  const out = await f(sent, fakeAiStream(sseLines(modelRaw)), TAPMOD.createJsonTextTap, TAPMOD.takeSentences, TextDecoder);
+  const f = new Function('sent', 'stream', 'gate', 'createJsonTextTap', 'takeSentences', 'TextDecoder', body);
+  const out = await f(sent, fakeAiStream(sseLines(modelRaw)), gate, TAPMOD.createJsonTextTap, TAPMOD.takeSentences, TextDecoder);
   return { sent, ...out };
 }
 
@@ -113,6 +127,24 @@ ok('모델 호출 횟수를 센다', r1.latTries === 1, String(r1.latTries));
 const r2 = await runStream('Just plain text, no JSON here at all.');
 ok('평문이면 한 문장도 안 보낸다', r2.sent.filter(e => e.t).length === 0, JSON.stringify(r2.sent));
 ok('그래도 원문은 돌려준다 (옛 경로가 처리)', r2.resp.response === 'Just plain text, no JSON here at all.');
+
+/* 🔁 이미 물은 질문이 나오면 그 문장부터 안 흘려보낸다 — 앞 문장은 그대로, 뒤는 한 문장도 안 나간다. */
+const repQ = (t) => (/How are you today\?/.test(t) ? [{ q: t }] : []);
+const r3 = await runStream(modelJson, { qmem: {}, rep: repQ });
+const t3 = r3.sent.filter(e => e.t).map(e => e.t);
+ok('이미 물은 질문 앞에서 미리듣기를 멈춘다', t3.length === 1 && t3[0] === 'Hello there.', JSON.stringify(t3));
+ok('멈춘 뒤로는 한 문장도 안 나간다 (뒤 문장 포함)', !t3.some(x => /happy/.test(x)), JSON.stringify(t3));
+ok('멈춘 이유를 남긴다 (repeat)', r3.halt === 'repeat', String(r3.halt));
+ok('멈춰도 원문 전체는 돌려준다 (최종본은 다시 뽑힘)', r3.resp && r3.resp.response === modelJson);
+ok('streamedText 에 멈춘 문장이 안 들어간다 (replaced 판정)', !/How are you/.test(r3.streamedText || ''), r3.streamedText);
+/* 짝 — 기억이 없거나(첫 턴·옛 기록) 시간 예산을 넘긴 턴은 예전처럼 다 흘려보낸다. */
+const r4 = await runStream(modelJson, { qmem: null, rep: repQ });
+ok('기억이 없으면 예전처럼 다 흘려보낸다', r4.sent.filter(e => e.t).length === 3, JSON.stringify(r4.sent));
+const r5 = await runStream(modelJson, { qmem: {}, rep: repQ, t0: Date.now() - 20000 });
+ok('시간 예산을 넘긴 턴은 멈추지 않는다 (다시 안 뽑으니)', r5.sent.filter(e => e.t).length === 3, JSON.stringify(r5.sent));
+/* 판정이 던지면 «멈추는» 쪽 — 최종본은 done 으로 그대로 간다. */
+const r6 = await runStream(modelJson, { qmem: {}, rep: () => { throw new Error('boom'); } });
+ok('판정이 던지면 멈춘다 (흘려보내지 않는 쪽)', r6.sent.filter(e => e.t).length === 0 && r6.resp.response === modelJson, JSON.stringify(r6.sent));
 
 console.log('\n② 서버 — 옛 화면은 «한 글자도» 안 바뀐다');
 const S = strip(SRV);
