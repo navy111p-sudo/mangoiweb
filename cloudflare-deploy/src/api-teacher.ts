@@ -38,7 +38,7 @@ import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인�
 import { loadActiveGoals, setStudentGoal, goalByKey, GOALS } from './student-goal';   // 🗓 4주 목표(2026-10-10)
 import { loadParentRequests, markParentRequestDone } from './parent-request';   // 👪 학부모 요청 반영(2026-10-10)
 import { loadTeacherStudentHistory, validHistoryDate } from './teacher-student-history';
-import { normalizeTeacherLevelChoice, setStudentLevelByTeacher, levelScaleForPortal } from './teacher-student-level';   // 🎚 일지에서 학생 레벨 정하기(2026-10-27)
+import { normalizeTeacherLevelChoice, setStudentLevelByTeacher, levelScaleForPortal, teacherLevelScope, TEACHER_LEVEL_PAST_DAYS } from './teacher-student-level';   // 🎚 일지에서 학생 레벨 정하기(2026-10-27)
 import { loadContactPhones } from './notify-contacts';   // ☎ 화면용 연락처 정본(2026-10-27) — 받아 둔 번호 → 명부 → 이탈위험 스냅샷
 
 interface TeacherEnv {
@@ -1173,11 +1173,12 @@ export async function handleTeacherApi(
     }
   }
 
-  /* 🎚 학생 레벨 정하기 — 일지 창에서 고르면 곧바로 저장(2026-10-27 사장님 「강사가 일지에서 레벨을 직접 입력하게 해줘」).
-   *  정본은 src/teacher-student-level.ts(값 판정·저장·변경 기록). 여기는 «이 강사의 학생인가» 만 판정한다.
-   *  권한 범위 = 오늘 목록(대타·옛 LMS 포함) ∪ 이 강사의 예약표 행(cafe24DedupeSchedules).
-   *    ⚠️ 오늘 목록만 보면 안 된다 — 주간 보기의 «지난 수업» 일지도 같은 창(openEval)을 쓴다.
-   *  ⛔ 클라이언트가 보낸 uid 를 그대로 믿지 않는다 — 위 두 목록에 «정확일치» 로 있어야 한다(Kim/kim 은 다른 계정). */
+  /* 🎚 학생 레벨 정하기 — 일지 창에서 고르고 확인창에서 «예» 를 누르면 저장(2026-10-27 사장님 「강사가 일지에서 레벨을 직접 입력하게 해줘」).
+   *  정본은 src/teacher-student-level.ts — 값 판정·저장·변경 기록, 그리고 «이 강사의 학생인가» 판정(teacherLevelScope).
+   *  여기는 포털이 이미 만든 두 목록(오늘 목록 · 이 강사의 예약표 행)을 넘겨 묻기만 한다.
+   *  🔐 (2026-10-28 사장님 「3번 권한 범위 좁혀줘」) 예약표 행 «전부» 가 아니라 최근 14일·지금 매주 수업만 —
+   *     그 판정 범위는 teacherLevelScope 머리말. 범위 밖인데 수업 기록은 있으면 level_window_closed(+past_days)로 갈라 말한다.
+   *  ⛔ 클라이언트가 보낸 uid 를 그대로 믿지 않는다 — 목록에 «정확일치» 로 있어야 한다(Kim/kim 은 다른 계정). */
   if (isLevelPost) {
     let b: any = {};
     try { b = await request.json(); } catch { b = {}; }
@@ -1185,9 +1186,9 @@ export async function handleTeacherApi(
     if (!uid) return json({ ok: false, error: 'student_uid_required' }, 400);
     const level = normalizeTeacherLevelChoice(b && b.level);
     if (!level) return json({ ok: false, error: 'bad_level' }, 400);
-    const mine = classes.some((c: any) => c.kind === 'class' && String(c.student_uid || '') === uid)
-      || cafe24DedupeSchedules.some((r: any) => studentUidOf(r) === uid);
-    if (!mine) return json({ ok: false, error: 'not_your_student' }, 403);
+    const scope = teacherLevelScope({ uid, todayClasses: classes, schedules: cafe24DedupeSchedules, todayStr, uidOf: studentUidOf });
+    if (scope === 'out_of_window') return json({ ok: false, error: 'level_window_closed', past_days: TEACHER_LEVEL_PAST_DAYS }, 403);
+    if (scope !== 'ok') return json({ ok: false, error: 'not_your_student' }, 403);
     try {
       const r = await setStudentLevelByTeacher(env.DB, { uid, level, by: String(actor.username || ''), byName: String(actor.name || actor.username || ''), nowMs: now });
       if (!r.ok) return json({ ok: false, error: r.error }, r.error === 'not_found' ? 404 : 400);

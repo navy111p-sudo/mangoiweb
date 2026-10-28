@@ -26,12 +26,13 @@
       한 번에 사라질 수 있다.
    ✅ 바꿀 때마다 student_level_log 에 «누가·언제·무엇에서 무엇으로» 를 남긴다(되돌릴 근거).
    ⚠️ 학생 행은 user_id «정확일치» — Kim/kim 은 다른 계정이다(CLAUDE.md 2장).
-   ⚠️ 누가 정할 수 있는지(«이 강사의 학생인가») 는 여기서 판정하지 않는다 —
-      부르는 쪽(api-teacher.ts 의 POST ?part=level)이 세션으로 확인한 뒤에 부른다.
+   ⚠️ 누가 정할 수 있는지(«이 강사의 학생인가») 의 판정은 아래 teacherLevelScope 하나다(2026-10-28 좁힘) —
+      부르는 쪽(api-teacher.ts 의 POST ?part=level)이 세션을 확인한 뒤 그 함수에 묻고, 그다음에 저장을 부른다.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 import { BAND_SPECS } from './judgment-level';
 import { normalizeStudentLevel } from './eval-attendance';
+import { normStartsOn } from './class-start-date';
 
 /** 강사가 고를 수 있는 교재 Lv 범위 — BAND_SPECS 에서 읽는다(숫자를 여기 다시 적지 않는다). */
 export const TEACHER_LEVEL_MIN = BAND_SPECS[0].lvFrom;
@@ -55,6 +56,73 @@ export function normalizeTeacherLevelChoice(raw: unknown): string | null {
 /** 화면(teacher.html 일지 창)이 고르기 목록을 그릴 때 쓰는 표 — 서버가 단일 출처. */
 export function levelScaleForPortal(): Array<{ band: number; from: number; to: number; ko: string; en: string }> {
   return BAND_SPECS.map((s) => ({ band: s.band, from: s.lvFrom, to: s.lvTo, ko: s.nameKo, en: s.nameEn }));
+}
+
+/* 🔐 «이 강사가 이 학생의 레벨을 정할 수 있나» — 판정 정본(순수 함수).
+      (2026-10-28 사장님 「3번 권한 범위 좁혀줘」) Who may set a student's level.
+
+   [전에는] 오늘 목록 ∪ 이 강사의 예약표 행 «전부». 그 예약표 조회(api-teacher.ts)는 날짜 제한이 없어
+        몇 달 전에 끝난 일회성 수업·연기 자리표시 행까지 «내 학생» 으로 셌다.
+        [잰 것 — 2026-10-28 D1, 예약표 행만 teacher_id 로 묶은 근사(오늘 목록 ① 은 안 셈) «전 → 지금»]
+        72→61 · 58→50 · 55→46 … 40→1(번호 22 — 남은 행이 9/2~9/30 카페24 미러 수업이었다).
+   [지금] 아래 셋 중 하나일 때만:
+     ① 오늘 목록의 수업 학생(취소된 줄 제외) — 포털이 만든 그대로(대타 · 그리고 카페24 수업 블록이 붙었다면 그 줄도).
+        ⚠️ 카페24 블록은 계정 표시이름이 강사 프로필과 «완전일치» 할 때만 붙는다(api-teacher.ts) —
+           [잰 것 — 2026-10-28] 계정이 연결된 활성 강사 21명 중 15명은 일치 0건이라 그 강사들에게는 그 블록이 비어 있다
+           (번호 22 포함 — 이번 변경 «전부터» 의 현상, 별건).
+     ② 최근 TEACHER_LEVEL_PAST_DAYS 일 ~ 오늘 사이에 날짜가 잡힌 이 강사의 수업 — 주간 보기의 «지난 수업» 일지가 같은 창을 쓴다.
+     ③ 지금 걸려 있는 매주 반복 수업(시작일이 오늘보다 뒤가 아님).
+   ⛔ 앞으로 잡힌 수업만 있는 학생은 안 된다 — 일지 창은 수업이 «시작한 뒤» 에만 열린다.
+   ⛔ 예약표 상태는 «허용 목록»(active·비어 있음·postponed)으로 본다 — 모르는 상태는 근거가 못 된다(막는 쪽으로 실패).
+      연기(postponed)는 수업이 «옮겨진» 것이지 끝난 것이 아니라 근거가 된다. 취소(cancelled)는 안 된다.
+   그 학생과 수업 기록은 있는데 위 셋에 안 들면 'out_of_window' — 화면이 «내 학생이 아니다» 가 아니라
+   «최근 N일» 이라고 사실대로 말하게 갈라 돌려준다.
+   ⚠️ 14일 = api-teacher.ts 의 카페24 수업 되돌아보기(LOOKBACK_DAYS)와 같은 근거 — 「일지는 기억이 남아 있을 때 쓴다」.
+      ① 의 카페24 줄은 날짜를 안 보므로 그 상수를 바꾸면 레벨 창도 함께 바뀐다 → 두 값이 같은지 하니스가 대조한다.
+      [잰 것 — 2026-10-28] 최근 120일 강사 일지 30건 전부 수업 «당일» 에 썼다.
+   ⚠️ 학생 아이디는 «정확일치»(Kim/kim 은 다른 계정). 예약표 행의 아이디는 부르는 쪽의 uidOf 로 읽는다
+      (api-teacher.ts 의 studentUidOf — 자리표시 lms·type_seed 를 걸러 낸다).
+   ⚠️ «모르면» 의 방향이 축마다 다르다 — 상태·날짜가 이상하면 막고(위), 매주 반복 행의 시작일(starts_on)이
+      깨져 있으면 «시작일 없음» 과 같이 연다(recurStartedOn 과 같은 설계 — 실측 반복 행 6~9개뿐).
+      상태 비교는 대소문자·공백을 그대로 본다('Active' 는 막힘 — 막는 쪽이라 안전).
+   ⚠️ 세션 확인(로그인·조직 계정 거절)은 여기서 하지 않는다 — 부르는 쪽이 먼저 한다. */
+export const TEACHER_LEVEL_PAST_DAYS = 14;
+export type TeacherLevelScope = 'ok' | 'out_of_window' | 'not_your_student';
+
+const LEVEL_YMD = /^\d{4}-\d{2}-\d{2}$/;
+const LEVEL_SCOPE_STATUSES = ['active', 'postponed'];
+
+export function teacherLevelScope(input: {
+  uid: string;
+  todayClasses: ReadonlyArray<any>;
+  schedules: ReadonlyArray<any>;
+  todayStr: string;
+  uidOf: (row: any) => string | null;
+}): TeacherLevelScope {
+  const uid = String((input && input.uid) || '');
+  const today = String((input && input.todayStr) || '');
+  if (!uid || !LEVEL_YMD.test(today)) return 'not_your_student';
+  const from = new Date(Date.parse(today + 'T00:00:00Z') - TEACHER_LEVEL_PAST_DAYS * 86400000).toISOString().slice(0, 10);
+  let known = false;
+  for (const c of input.todayClasses || []) {
+    if (!c || c.kind !== 'class' || String(c.student_uid || '') !== uid) continue;
+    known = true;
+    if (c.class_state !== 'cancelled') return 'ok';
+  }
+  for (const r of input.schedules || []) {
+    if (!r || input.uidOf(r) !== uid) continue;
+    known = true;
+    if (!LEVEL_SCOPE_STATUSES.includes(String(r.sched_status || 'active'))) continue;
+    const d = String(r.scheduled_date || '').trim().slice(0, 10);
+    if (d) {
+      if (LEVEL_YMD.test(d) && d >= from && d <= today) return 'ok';
+      continue;
+    }
+    if (r.day_of_week == null || String(r.day_of_week).trim() === '') continue;
+    const so = normStartsOn(r.starts_on);
+    if (!so || so <= today) return 'ok';
+  }
+  return known ? 'out_of_window' : 'not_your_student';
 }
 
 export interface SetStudentLevelInput {
