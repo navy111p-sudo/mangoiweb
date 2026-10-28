@@ -20,10 +20,10 @@ await build({ stdin: { contents: "export * from './src/eleader-l1'; export { ele
   bundle: true, platform: 'node', format: 'esm', outfile: out, logLevel: 'silent' });
 const M = await import(pathToFileURL(out));
 
-function makeDB(broken = false, { noAlter = false } = {}) {
+function makeDB(broken = false, { noAlter = false, failSql = null } = {}) {
   const db = new DatabaseSync(':memory:');
   const DB = {
-    prepare(sql) { if (broken) throw Error('d1 down'); if (noAlter && /^\s*ALTER/i.test(sql)) throw Error('alter blocked'); let v = []; const s = {
+    prepare(sql) { if (broken) throw Error('d1 down'); if (noAlter && /^\s*ALTER/i.test(sql)) throw Error('alter blocked'); if (failSql && failSql.test(sql)) throw Error('D1_ERROR: network connection lost'); let v = []; const s = {
       bind(...x) { v = x; return s; },
       async first() { return db.prepare(sql).get(...v) || null; },
       async all() { return { results: db.prepare(sql).all(...v) }; },
@@ -234,6 +234,13 @@ const CAP = M.ELEADER_L1_DAILY_CAP;
   r = await call(req('chat', { token: await M.signUidToken('kid', e7), method: 'POST', body: turn() }), e7, w, d);
   ok('cap col: ALTER fails → chat still counts and works', r.status === 200 && n === 1 && r.headers.get('x-eleader-used') === '1');
   db7.close();
+  // 칸이 «있는데» 읽기가 다른 이유로 실패하면 기본값(200)으로 열지 않고 막는다 — 낮게 정한 계정의 상한이 새지 않게(비용 상한: 모르면 막는 쪽)
+  const { DB: D8, db: db8 } = makeDB(false, { failSql: /SELECT daily_cap/ }); const e8 = base(D8);
+  db8.exec('CREATE TABLE eleader_l1_students (uid TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, note TEXT, created_at INTEGER, daily_cap INTEGER)');
+  db8.exec("INSERT INTO eleader_l1_students (uid, daily_cap) VALUES ('low', 3)");
+  r = await call(req('books', { token: await M.signUidToken('low', e8) }), e8);
+  ok('cap col: read error (not missing column) → closed 403, not default', r.status === 403);
+  db8.close();
 }
 
 // ⑤-4 ↩️ 답을 못 준 턴은 돌려준다(JSON 상태 · SSE done) — 단, 하루 REFUND_MAX 번까지

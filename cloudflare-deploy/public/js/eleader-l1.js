@@ -193,7 +193,7 @@
     p.then(function (r) {
       if (r && r.ok && answering >= 0 && state === mine) state.q = Math.max(state.q, Math.min(answering + 1, state.n));
       if (r && r.ok && state === mine) { var w = r.headers.get('X-Eleader-Topic') || ''; state.wish = /^[a-z]{2,20}( [a-z]{2,20}){0,2}$/.test(w) ? w : ''; }
-      if (r) takeQuota(r);
+      if (r && state === mine) takeQuota(r);   // 그 사이 로그인·책이 바뀌었으면 옛 계정의 횟수를 그리지 않는다
       /* 사유를 여기서 말했으면 표시를 남긴다 — warmup.html 이 «답변을 받아오지 못했어요» 를 겹쳐 쓰지 않게
          (2026-10-28 원장님 화면: 두 줄이 함께 떠 «고장» 으로 읽혔다). 이 콜백은 화면의 await 보다 먼저 돈다(같은 프로미스에 먼저 건 반응). */
       if (r && (r.status === 429 || r.status === 401 || r.status === 403)) { try { r.__eleaderNoted = true; } catch (e) {} note(r.status); }

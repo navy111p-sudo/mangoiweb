@@ -25,7 +25,8 @@ export const ELEADER_L1_STUDENTS: ReadonlySet<string> = new Set(['ed']);
       비밀번호가 없는 학생은 아이디만으로 로그인됩니다.
    추가: INSERT INTO eleader_l1_students (uid, note, created_at) VALUES ('<students_erp.user_id 표기 그대로>', '…', <ms>)
    끄기: UPDATE eleader_l1_students SET enabled = 0 WHERE uid = ?
-   상한: UPDATE eleader_l1_students SET daily_cap = 300 WHERE uid = ?   (NULL = 기본값, 천장 ELEADER_L1_CAP_MAX) */
+   상한: UPDATE eleader_l1_students SET daily_cap = 300 WHERE uid = ?   (NULL = 기본값, 천장 ELEADER_L1_CAP_MAX)
+   ⚠️ daily_cap = 0·음수는 «차단» 이 아니라 기본값입니다 — 막으려면 위의 enabled = 0 을 쓰세요. */
 /** 학생 한 명의 하루 기본 상한(2026-10-28 사장님 「학생 200개」 — 그 전 120). */
 export const ELEADER_L1_DAILY_CAP = 200;
 /** 계정별 상한의 천장 — 칸에 잘못 큰 값이 들어가도 하루 비용이 이 이상 안 나간다. */
@@ -64,7 +65,9 @@ export async function eleaderL1Access(DB: D1Database, uid: string): Promise<{ ca
     await ensureStudents(DB);
     const q = (cols: string) => DB.prepare(`SELECT ${cols} FROM eleader_l1_students WHERE uid = ? AND enabled = 1`).bind(uid).first<{ daily_cap?: unknown }>();
     let r: { daily_cap?: unknown } | null;
-    try { r = await q('daily_cap'); } catch { r = await q('1 AS ok'); }
+    // 칸이 «없을 때만» 칸 없이 다시 묻는다. 다른 오류는 던져 아래 catch 가 막게 한다(비용 상한 — 모르면 막는 쪽).
+    try { r = await q('daily_cap'); }
+    catch (e) { if (!/no such column/i.test(String((e as any)?.message || e))) throw e; r = await q('1 AS ok'); }
     return r ? { cap: eleaderL1Cap(r.daily_cap) } : null;
   } catch { return null; }
 }
