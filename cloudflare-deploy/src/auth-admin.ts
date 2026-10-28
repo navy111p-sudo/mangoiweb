@@ -1546,7 +1546,8 @@ export async function handleAdminAuthApi(
   }
 }
 
-async function recordLogin(
+// (2026-10-28) export — 대리점 계정 비밀번호 바꾸기(api-admin.ts applyAgencyLogin)도 같은 감사 기록을 남긴다.
+export async function recordLogin(
   env: AuthEnv, username: string, ip: string, ua: string, success: boolean, reason: string | null
 ): Promise<void> {
   try {
