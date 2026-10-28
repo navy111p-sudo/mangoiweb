@@ -134,7 +134,12 @@ function l1LinkLine(link: { kind: L1LinkKind; word: string }, w: string): string
   return `Connect your reaction and the next question with a linking word, so it sounds like one connected thought` +
     (w ? '. ' : `, e.g. "You said you like cats. By the way, do you like dogs as well?" or "Small dogs are cute! So, what is your dog's name?". `) +
     `This turn, start the question part with ${JSON.stringify(link.word)} because ${L1_LINK_WHY[link.kind]}. ` +
-    `Other good linking words: and, so, but, also, by the way, one more thing, of course, moreover. Do not use the same linking word as your last turn. `;
+    `Other good linking words: and, so, but, also, by the way, one more thing, of course, moreover. Do not use the same linking word as your last turn. ` +
+    /* 🧩 (2026-10-28 사장님 「like space? 이런 식으로 나오지 말게」) 접속사 + 1단계 «3~5단어» 가 겹치면 모델이
+       do you 를 떼어 「By the way, like space?」 를 만든다 — 접속사는 단어 수에 안 세고 질문은 완전한 문장으로.
+       실제로 막는 것은 웜업 엔진의 결정론 검사(src/reply-questions.ts)이고, 이 줄은 그 빈도를 줄인다. */
+    `The linking word does not count toward your short-sentence word limit: after it, the question must still be a full question, ` +
+    `e.g. "By the way, do you like space?" — never "By the way, like space?" or "So, like space?". `;
 }
 
 /* 🐶 학생이 «다른 이야기를 하자» 고 할 때(2026-10-27 엘리더잼 원장님 제보 「dog 얘기하자고 하는데 계속 고양이를 얘기해요」).
