@@ -6471,7 +6471,8 @@ window.hqDelete = hqDelete;
 //   🐢 예전엔 921행을 한 번에 받아(약 130KB) 카드가 닫혀 있어도 DOM 에 다 그렸다.
 //      → 서버 페이징 50건 + 서버 검색. 검색은 '이 페이지 50행'이 아니라 921건 전체 대상.
 //   💳 pt = 결제유형 필터('' | 'B2B' | 'B2C' | 'NONE'). counts 는 서버가 준 유형별 건수.
-var _ctState = { q: '', offset: 0, limit: 50, total: 0, pt: '', fid: '', counts: null };
+//   ↕ sort/dir = 머리글 정렬(2026-10-28). 서버가 «실제로 적용한» 값으로 덮는다(모르는 열쇠는 '').
+var _ctState = { q: '', offset: 0, limit: 50, total: 0, pt: '', fid: '', counts: null, sort: '', dir: '' };
 /* 💰 수강료 상수 — 표 안 칸(_tuCell)과 수정 폼(ct-tuition)이 «같은 값» 을 써야 해서
    함수 밖으로 올렸다(2026-09-11). ⚠️ 18,000 은 서버 HQ_UNIT_KRW 와 짝이다
    (org-settlement.ts) — 한쪽만 고치면 화면이 통과시킨 값을 서버가 거절한다. */
@@ -6488,6 +6489,7 @@ async function loadCenters(opts) {
   if (opts.q !== undefined) { _ctState.q = String(opts.q || '').trim(); _ctState.offset = 0; }
   if (opts.pt !== undefined) { _ctState.pt = String(opts.pt || ''); _ctState.offset = 0; }
   if (opts.fid !== undefined) { _ctState.fid = String(opts.fid || ''); _ctState.offset = 0; }
+  if (opts.sort !== undefined) { _ctState.sort = String(opts.sort || ''); _ctState.dir = String(opts.dir || ''); _ctState.offset = 0; }
   if (opts.offset !== undefined) _ctState.offset = Math.max(0, opts.offset);
   const tb = document.getElementById('centers-table');
   if (!tb) return;
@@ -6495,7 +6497,8 @@ async function loadCenters(opts) {
   const qs = '?limit=' + _ctState.limit + '&offset=' + _ctState.offset
            + (_ctState.q ? '&q=' + encodeURIComponent(_ctState.q) : '')
            + (_ctState.pt ? '&payment_type=' + encodeURIComponent(_ctState.pt) : '')
-           + (_ctState.fid ? '&franchise_id=' + encodeURIComponent(_ctState.fid) : '');
+           + (_ctState.fid ? '&franchise_id=' + encodeURIComponent(_ctState.fid) : '')
+           + (_ctState.sort ? '&sort=' + encodeURIComponent(_ctState.sort) + '&dir=' + (_ctState.dir === 'desc' ? 'desc' : 'asc') : '');
   let d = {}, _ctHttp = 0;
   try {
     const r = await fetch('/api/admin/centers' + qs, { cache:'no-store', credentials:'include' });
@@ -6519,6 +6522,9 @@ async function loadCenters(opts) {
   _ctState.total = Number(d.total || 0);
   if (d && d.counts) _ctState.counts = d.counts;
   if (d && typeof d.can_edit === 'boolean') _ctCanEdit = d.can_edit;
+  _ctState.sort = d.sort ? String(d.sort.key || '') : '';
+  _ctState.dir = d.sort ? String(d.sort.dir || '') : '';
+  _ctSyncSortHead();
   _ctRenderPtFilter();
   // 유형을 바꿔 목록이 줄면 지금 페이지가 범위를 벗어날 수 있다 → 마지막 페이지로 당긴다.
   // (total 0 이면 offset 0 이 되고, 그때는 이 조건이 거짓이라 무한 반복이 없다)
@@ -6713,6 +6719,25 @@ function _ctRenderPager() {
     + btn(hasPrev, en?'‹ Prev':'‹ 이전', 'ctPrevPage()')
     + btn(hasNext, en?'Next ›':'다음 ›', 'ctNextPage()');
 }
+/* ↕ (2026-10-28 사장님 「필터 올림·내림」) 머리글 정렬 — ▲ 올림 → ▼ 내림 → 원래 순서(강사 명부 tpSortBy 와 같은 순환).
+   ⚠️ 50건씩 넘겨 보는 표라 «이 페이지만» 섞으면 921건 전체 순서가 아니다 → 서버에 sort/dir 로 묻고
+      첫 페이지부터 다시 받는다. 화살표는 서버가 돌려준 d.sort 로 그린다(_ctSyncSortHead).
+   ⚠️ 화살표는 data-ar 속성 + CSS ::after(i18n 이 [data-ko] 의 textContent 를 갈아끼운다). */
+function ctSortBy(key) {
+  let sort = key, dir = 'asc';
+  if (_ctState.sort === key && _ctState.dir === 'asc') dir = 'desc';
+  else if (_ctState.sort === key && _ctState.dir === 'desc') { sort = ''; dir = ''; }
+  loadCenters({ sort: sort, dir: dir });
+}
+window.ctSortBy = ctSortBy;
+function _ctSyncSortHead() {
+  const ths = document.querySelectorAll('#ct-list-table th.ct-sort-th');
+  for (let i = 0; i < ths.length; i++) {
+    const th = ths[i], on = !!_ctState.sort && th.getAttribute('data-sk') === _ctState.sort;
+    th.setAttribute('data-ar', on ? (_ctState.dir === 'desc' ? '▼' : '▲') : '⇅');
+    if (on !== th.classList.contains('ct-sort-on')) th.classList.toggle('ct-sort-on', on);
+  }
+}
 function ctPrevPage() { loadCenters({ offset: Math.max(0, _ctState.offset - _ctState.limit) }); }
 function ctNextPage() { loadCenters({ offset: _ctState.offset + _ctState.limit }); }
 var _ctSearchTimer = null;
@@ -6733,6 +6758,24 @@ function _ctSetBtnLabel(btn, ko, en) {
   btn.setAttribute('data-en', en);
   btn.textContent = (typeof adminLang !== 'undefined' && adminLang === 'en') ? en : ko;
 }
+/* 🔑 로그인 칸 안내 문구 — 등록/수정이 규칙이 달라 문구도 둘이다.
+   등록: 아이디·비밀번호 «둘 다» 넣으면 계정을 만든다. 수정: «비밀번호를 넣었을 때만» 만들거나(새 아이디)
+   비밀번호를 바꾼다(이 대리점 아이디) — 서버 checkAgencyLogin(api-admin.ts)과 같은 규칙.
+   🪤 textContent 만 바꾸면 🌐 를 눌렀을 때 옛 문구로 돌아간다 — data-ko/en 도 함께 바꾼다(_ctSetBtnLabel 과 같은 이유). */
+var _CT_LOGIN_HINT = {
+  add:  ['※ 로그인 아이디·비밀번호를 둘 다 입력하면 이 대리점 전용 로그인 계정을 함께 만듭니다. 비워 두면 계정 없이 목록에만 등록됩니다.',
+         '※ Fill in both the login ID and password to also create a login account for this agency. Leave both blank to register without an account.'],
+  edit: ['※ 비밀번호를 넣고 저장하면 — 새 아이디면 이 대리점 로그인 계정을 만들고, 이미 이 대리점 아이디면 비밀번호를 바꿉니다. 비밀번호를 비워 두면 계정은 그대로입니다.',
+         '※ Enter a password and save — a new ID creates a login account for this agency; this agency\'s existing ID gets a new password. Leave the password blank to keep the account as is.'],
+};
+function _ctSetLoginHint(editing) {
+  const h = document.getElementById('ct-login-hint');
+  if (!h) return;
+  const t = _CT_LOGIN_HINT[editing ? 'edit' : 'add'];
+  h.setAttribute('data-ko', t[0]);
+  h.setAttribute('data-en', t[1]);
+  h.textContent = (typeof adminLang !== 'undefined' && adminLang === 'en') ? t[1] : t[0];
+}
 function ctResetForm() {
   _ctEditId = 0;
   const e = id => document.getElementById(id);
@@ -6740,17 +6783,17 @@ function ctResetForm() {
   _ctTuitionPrev = '';
   if (e('ct-franchise')) e('ct-franchise').value = '';
   if (e('ct-paytype')) e('ct-paytype').value = '';
-  const loginWrap = e('ct-login-wrap'); if (loginWrap) loginWrap.style.display = '';
-  const loginHint = e('ct-login-hint'); if (loginHint) loginHint.style.display = '';
+  _ctSetLoginHint(false);
   _ctSetBtnLabel(e('ct-add-btn'), '+ 등록', '+ Register');
   const c = e('ct-cancel-btn'); if (c) c.style.display = 'none';
 }
 window.ctResetForm = ctResetForm;
 
 /* ✏️ (2026-09-11 신설 — 사장님 제보 「대리점을 수정할 수 있는 메뉴가 없다」)
-   표 ✏️ 수정 버튼 → 등록 폼을 그대로 열어 값을 채운다. 로그인 계정 만들기 칸은 숨긴다 —
-   계정을 «새로 붙이는» 일은 대리점 정보 수정과는 다른 작업이고, 이미 로그인 계정이 있는
-   대리점에서 이 칸을 다시 채워 저장하면 «이미 있는 아이디» 로 걸려 헷갈리기만 한다. */
+   표 ✏️ 수정 버튼 → 등록 폼을 그대로 열어 값을 채운다.
+   (2026-10-28) 로그인 칸도 연다 — 처음엔 숨겼지만(«이미 있는 아이디» 로 걸려 헷갈린다는 이유) 그러면
+   카페24 대리점 921곳에 계정을 붙일 길이 없었다. 지금은 서버가 «이 대리점 아이디» 를 알아보고
+   비밀번호만 바꾸므로 그 혼란이 없다(checkAgencyLogin 의 reset). */
 function ctEdit(id) {
   const c = _ctRows.filter(x => String(x.id) === String(id))[0];
   if (!c) return;
@@ -6766,10 +6809,14 @@ function ctEdit(id) {
   // 💰 안 정한 곳은 빈 칸 그대로 둔다 — 30,000 을 채워 넣으면 «사람이 정한 값» 처럼 보인다.
   _ctTuitionPrev = (c.tuition_krw == null || c.tuition_krw === '') ? '' : String(Number(c.tuition_krw));
   if (e('ct-tuition')) e('ct-tuition').value = _ctTuitionPrev;
-  if (e('ct-login-id')) e('ct-login-id').value = '';
+  /* 🔑 (2026-10-28) 로그인 칸을 수정 화면에서도 연다 — 카페24에서 온 대리점은 등록 폼을 안 거쳐
+     계정을 붙일 자리가 없었다(목록이 전부 «계정 없음»). 이미 계정이 «딱 하나» 면 그 아이디를 미리
+     채운다 → 비밀번호만 넣으면 비밀번호 바꾸기. 여럿이면 어느 것인지 모르니 비워 둔다(추측 금지).
+     비밀번호는 절대 채우지 않는다 — 비워 두는 것 자체가 «바꾸지 않음» 의 신호다. */
+  const ids = Array.isArray(c.login_ids) ? c.login_ids : [];
+  if (e('ct-login-id')) e('ct-login-id').value = ids.length === 1 ? String(ids[0]) : '';
   if (e('ct-login-pw')) e('ct-login-pw').value = '';
-  const loginWrap = e('ct-login-wrap'); if (loginWrap) loginWrap.style.display = 'none';
-  const loginHint = e('ct-login-hint'); if (loginHint) loginHint.style.display = 'none';
+  _ctSetLoginHint(true);
   const wrap = e('ct-form-wrap'); if (wrap) wrap.open = true;
   _ctSetBtnLabel(e('ct-add-btn'), '💾 수정 저장', '💾 Save');
   const cancel = e('ct-cancel-btn'); if (cancel) cancel.style.display = '';
@@ -6783,7 +6830,14 @@ async function saveCenter() {
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
   // 💰 ctResetForm() 이 칸을 비우므로 «비우기 전에» 읽어 둔다.
   const tuitionNow = e('ct-tuition') ? String(e('ct-tuition').value || '').trim() : '';
+  // 🔑 로그인 아이디·비밀번호 — 등록·수정 공용(규칙은 _CT_LOGIN_HINT 참고). 역시 비우기 전에 읽는다.
+  const loginId = (e('ct-login-id') && e('ct-login-id').value || '').trim();
+  const loginPw = (e('ct-login-pw') && e('ct-login-pw').value || '');
   if (_ctEditId) {
+    if (loginPw && !loginId) {
+      alert(adminLang==='en' ? 'Enter the login ID to set a password.' : '비밀번호를 설정하려면 로그인 아이디를 입력하세요.');
+      return;
+    }
     // ✏️ 수정 저장 — 로그인 계정 필드는 수정 화면에서 숨겨 뒀으니 여기서는 안 보낸다.
     let d;
     try {
@@ -6797,6 +6851,8 @@ async function saveCenter() {
           phone: e('ct-phone') ? (e('ct-phone').value || null) : null,
           address: e('ct-address').value || null,
           payment_type: (e('ct-paytype') && e('ct-paytype').value) || null,
+          // 🔑 비밀번호가 비어 있으면 서버가 계정에 손대지 않는다(아이디만 미리 채워져 있어도).
+          login_username: loginId || null, login_password: loginPw || null,
         })
       });
       d = await r.json().catch(() => ({}));
@@ -6833,12 +6889,18 @@ async function saveCenter() {
         : ('참고: 이 대리점의 로그인 계정 "' + d.login_account_note.username + '" 은(는) 여전히 옛 이름("'
             + d.login_account_note.old_name + '") 기준으로 학생을 찾습니다. 필요하면 그 계정을 사람이 직접 확인해 주세요.'));
     }
+    // 🔑 (2026-10-28) 계정을 만들었는지 / 비밀번호를 바꿨는지 사람에게 말한다(지사 _frPasswordAlert 와 같은 자리).
+    if (d && d.login_result === 'created') {
+      alert(adminLang==='en' ? ('Agency login account created: ' + loginId + ' — this ID can now sign in.')
+                              : ('대리점 로그인 계정을 만들었습니다: ' + loginId + ' — 이제 이 아이디로 로그인됩니다.'));
+    } else if (d && d.login_result === 'reset') {
+      alert(adminLang==='en' ? ('Password changed for agency account: ' + loginId)
+                              : ('이 대리점 계정(' + loginId + ')의 비밀번호를 바꿨습니다.'));
+    }
     return;
   }
-  // 🔑 (2026-08-19) 로그인 아이디·비밀번호 — 둘 다 채워야 계정을 만든다. 하나만 채우면
+  // 🔑 (2026-08-19) 등록은 둘 다 채워야 계정을 만든다. 하나만 채우면
   //    서버 왕복 없이 여기서 먼저 막는다(centers 는 만들어지지 않았는데 계정만 실패하는 걸 방지).
-  const loginId = (e('ct-login-id') && e('ct-login-id').value || '').trim();
-  const loginPw = (e('ct-login-pw') && e('ct-login-pw').value || '');
   if ((loginId && !loginPw) || (!loginId && loginPw)) {
     alert(adminLang==='en' ? 'Fill in both login ID and password, or leave both blank.'
                             : '로그인 아이디와 비밀번호를 둘 다 입력하거나, 둘 다 비워 두세요.');
