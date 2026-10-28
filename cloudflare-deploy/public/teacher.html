@@ -2576,14 +2576,14 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     lastSig = null;
     if (DATA) { renderClasses(DATA.classes || []); if(DATA.week) renderWeek(DATA.week); }
   });
-  /* 📋 (2026-10-26) 보기 — 표(매니저 화면처럼) / 카드. 고른 값은 이 기기에 기억한다.
-     처음엔 폰·PC 모두 표(2026-10-26 사장님 지시). 폰에서는 표가 자기 상자 안에서만 옆으로 밀리고 페이지는 안 밀린다. */
+  /* 📋 (2026-10-26) 보기 — 표(매니저 화면처럼) / 카드. 폰에서는 표가 자기 상자 안에서만 옆으로 밀리고 페이지는 안 밀린다.
+     (2026-10-28 사장님 지시 «표가 기본») 열 때마다 표로 시작한다 — 카드는 그 화면에서만 쓰고, 새로 열면 다시 표.
+     예전엔 고른 값을 기기에 기억해서, 한 번 카드를 고른 기기는 계속 카드로 열렸다(기본값이 표인데도). 옛 저장값은 지운다. */
   var classViewSelect = document.getElementById('class-view');
   var classView = 'table';
-  try { var savedView = localStorage.getItem('mangoi_teacher_class_view'); if (savedView === 'table' || savedView === 'cards') classView = savedView; } catch (e) {}
+  try { localStorage.removeItem('mangoi_teacher_class_view'); } catch (e) {}
   classViewSelect.value = classView;
   classViewSelect.addEventListener('change', function () {
-    try { localStorage.setItem('mangoi_teacher_class_view', this.value === 'cards' ? 'cards' : 'table'); } catch (e) {}
     lastSig = null;   // 지문에는 보기 모드가 없다 — 바꿀 때 직접 지워 다시 그리게 한다
     if (DATA) renderClasses(DATA.classes || []);
     renderClsDay();
