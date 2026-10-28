@@ -1914,6 +1914,12 @@
                     title="학생을 골라 «상세 › 연락처·정보» 를 바로 엽니다"
                     style="padding:5px 12px;font-size:12px;border:1px solid rgba(14,165,233,0.5);border-radius:8px;background:rgba(14,165,233,0.12);color:#0369a1;font-weight:800;cursor:pointer;white-space:nowrap"
                     data-ko="✏️ 정보 수정" data-en="✏️ Edit Info">✏️ 정보 수정</button>
+            <!-- 📥 (2026-10-28 사장님 요청) 학생 단체 등록 — 양식(CSV)·엑셀(.xlsx)·붙여넣기로 여러 명을 한 번에.
+                 한 명 등록과 같은 POST /api/admin/students/create 를 한 줄씩 부른다(js/adm-student-bulk.js). -->
+            <button id="sm-bulk-student" type="button" onclick="window.smOpenBulkRegister && window.smOpenBulkRegister()"
+                    title="양식·엑셀로 여러 학생을 한 번에 등록합니다" data-ko-title="양식·엑셀로 여러 학생을 한 번에 등록합니다" data-en-title="Register many students at once from a template or Excel"
+                    style="padding:5px 12px;font-size:12px;border:1px solid rgba(59,130,246,0.5);border-radius:8px;background:rgba(59,130,246,0.12);color:#1d4ed8;font-weight:800;cursor:pointer;white-space:nowrap"
+                    data-ko="📥 단체 등록" data-en="📥 Bulk Add">📥 단체 등록</button>
             <!-- 🙈 (2026-09-24) 숨긴 학생 보기 — 숨긴 학생은 평소 명부에서 빠진다. 되살리기는 그 학생 «상세» 에서.
                  숨기기 자체도 학생 상세 왼쪽 카드의 「🙈 명부에서 숨기기」(본사 전용 — 지우지 않음). -->
             <button id="sm-show-hidden" type="button" onclick="window.smToggleHidden && window.smToggleHidden()"
@@ -10796,6 +10802,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      옛 파일이 immutable 캐시에 남아 있으면 EN 스태프 화면이 그대로 한국어로 뜬다. -->
 <script src="/js/adm-bulkbook.js?v=11" defer></script>
 <script src="/js/adm-enroll-guide.js?v=1" defer></script><!-- 📋 수강신청 4단계 안내 + 🔊 설명 듣기(누를 때만·브라우저 음성) + 🔇 음소거 (2026-09-24) --><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
+<script src="/js/adm-student-bulk.js?v=1" defer></script><!-- 📥 학생 단체 등록 (2026-10-28) -->
 <script src="/js/class-move-modal.js?v=9" defer></script><script src="/js/adm-today-classes.js?v=54" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-today-tabs.js?v=2" defer></script><!-- v=2: 초대 카드를 「화상방 접속」의 짝으로 (2026-09-01) --><!-- 📌 (2026-09-01 A안) 「오늘 수업」 한 항목 안에서 전체 / 🔴 진행 중 / 🎥 화상방 접속 탭 -->
 <script src="/js/adm-quick-access.js?v=18" defer></script><!-- v=18: 「수업 관제탑」 칸을 결재함 다음에 고정(pin) + 영어 이름 Class Monitor (2026-10-21) --><!-- v=17: 「수강 종료 · 종료 후보」 칸 + 화상방 종료 칸 이름 밝힘 (2026-10-07) --><!-- v=16: 결재함 칸을 지사·대리점에게 감춤 (2026-09-24) --><!-- v=15: 「오늘 수업」으로 이름 통일 + 같은 카드를 가리키는 항목이 둘일 때 «주인» 을 고른다 (2026-09-01) --><!-- v=14: 「수업 관제탑」 칸 추가 (2026-08-30) --><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
