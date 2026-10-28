@@ -6484,6 +6484,16 @@ var _CT_STD_TUITION = 30000, _CT_HQ_UNIT = 18000;
 //    사람이 방금 본 것과 폼에 채워진 값이 어긋나지 않는다.
 var _ctRows = [];
 var _ctCanEdit = true;   // GET 이 알려 준 can_edit — 강사·지사·대리점 계정에겐 ✏️ 수정 버튼을 안 그린다
+/* 🔒 (2026-10-28 사장님 「본사 계정만 만들 수 있게 좁혀줘」) GET 이 알려 준 can_login — 로그인 아이디·비밀번호
+   칸을 보여 줄지. 서버 저장도 같은 판정(agency-login-gate.ts)으로 막으므로 이건 «눌러도 403 나는 칸» 을 안 보이게 하는 것뿐.
+   ⚠️ 모르면(옛 서버·응답에 칸 없음) 보여 둔다 — 최종 판정은 서버다. */
+var _ctCanLogin = true;
+function _ctSyncLoginFields() {
+  var w = document.getElementById('ct-login-wrap'), h = document.getElementById('ct-login-hint');
+  // ⚠️ wrap 은 인라인 style 이 display:inline-flex 라 '' 로 지우면 칸 사이 간격(gap)까지 사라진다 — 값을 명시한다.
+  if (w) w.style.display = _ctCanLogin ? 'inline-flex' : 'none';
+  if (h) h.style.display = _ctCanLogin ? '' : 'none';
+}
 async function loadCenters(opts) {
   opts = opts || {};
   if (opts.q !== undefined) { _ctState.q = String(opts.q || '').trim(); _ctState.offset = 0; }
@@ -6522,6 +6532,8 @@ async function loadCenters(opts) {
   _ctState.total = Number(d.total || 0);
   if (d && d.counts) _ctState.counts = d.counts;
   if (d && typeof d.can_edit === 'boolean') _ctCanEdit = d.can_edit;
+  if (d && typeof d.can_login === 'boolean') _ctCanLogin = d.can_login;
+  _ctSyncLoginFields();
   _ctState.sort = d.sort ? String(d.sort.key || '') : '';
   _ctState.dir = d.sort ? String(d.sort.dir || '') : '';
   _ctSyncSortHead();
