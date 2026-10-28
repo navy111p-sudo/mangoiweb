@@ -111,22 +111,28 @@ assert.equal(cancelled.data.items.find(i=>i.room_id==='class-72-20261007').state
 assert.ok(!cancelled.data.items.some(i=>i.room_id==='class-72-20261014'));
 // Old-LMS (cafe24) rows have no reservation id (2026-10-28 "Could not load class history"): open them by room + student,
 // authorized only by this teacher's cafe24 number. cafe24 #1 is someone else even though Teacher A is teachers.id 1.
+// The LMS permission window (14 days, same as the class list) is relative to "now" — pin it so the fixture never ages out.
+const realNow=Date.now;Date.now=()=>Date.parse('2026-10-28T03:00:00Z');
 db.exec(`ALTER TABLE attendance ADD COLUMN teacher_uid TEXT;
 ALTER TABLE attendance ADD COLUMN left_at INTEGER;
 CREATE TABLE teacher_profiles(korean_name TEXT,english_name TEXT);
-INSERT INTO teacher_profiles VALUES('티처A','Teacher A');
+INSERT INTO teacher_profiles VALUES('티처A','Teacher A'),(NULL,'Teacher Z');
 CREATE TABLE teacher_payroll_auto(teacher_id INTEGER,teacher_name TEXT);
-INSERT INTO teacher_payroll_auto VALUES(184,'Teacher A'),(184,'Teacher A'),(1,'Someone Else'),(77,'Teacher X'),(77,'Teacher Y');
+INSERT INTO teacher_payroll_auto VALUES(184,'Teacher A'),(184,'Teacher A'),(1,'Someone Else'),(77,'Teacher X'),(77,'Teacher Y'),(185,'Teacher Z');
 INSERT INTO attendance(room_id,role,joined_at,account_uid,user_id,date,status,teacher_uid,left_at) VALUES
 ('c24-900','student',1793073600000,NULL,'mangoai_lms','2026-10-27','present','184',1793074800000),
+('c24-900','student',1793073660000,NULL,'mangoai_lms','2026-10-27','present','184',NULL),
 ('c24-899','student',1792468800000,NULL,'mangoai_lms','2026-10-20','present','77',NULL),
 ('c24-800','student',1790654400000,NULL,'mangoai_lms','2026-09-29','present','184',1790655600000),
-('c24-901','student',1793077200000,NULL,'lms_other','2026-10-27','present','1',1793078400000);
+('c24-901','student',1793077200000,NULL,'lms_other','2026-10-27','present','1',1793078400000),
+('c24-950','student',1793160000000,NULL,'mangoai_lms','2026-10-28','scheduled','184',NULL),
+('c24-960','student',1793077200000,NULL,'lms_z','2026-10-27','present','185',NULL);
 INSERT INTO student_evaluations VALUES(30,'mangoai_lms',NULL,'c24-899','2026-10-28','Teacher Y','teacher_y',1792558800000,'LMS lesson feedback',NULL,NULL,NULL);`);
 const lms=p=>request({schedule_id:'',room_id:'c24-900',student_uid:'mangoai_lms',date:'2026-10-28',...p});
 let lmsResult=await lms();assert.equal(lmsResult.status,200,'old-LMS row opens without a schedule id');
 assert.equal(lmsResult.data.before,'2026-10-27','the LMS lesson date is the reference, not the client date');
 assert.deepEqual(lmsResult.data.warnings,[]);
+assert.equal(lmsResult.data.items.filter(i=>i.room_id==='c24-900').length,1,'a rejoin (two attendance rows, one room) is one lesson');
 const lmsLesson=lmsResult.data.items.find(i=>i.room_id==='c24-900');
 assert.equal(lmsLesson.teacher_name,'Teacher A');assert.equal(lmsLesson.teacher_source,'lms');
 assert.equal(lmsLesson.start,'13:00');assert.equal(lmsLesson.duration_min,20);assert.equal(lmsLesson.state,'done');
@@ -143,13 +149,47 @@ assert.equal((await lms({room_id:'c24-901',student_uid:'lms_other'})).status,403
 assert.equal((await lms({student_uid:''})).status,403);
 assert.equal((await lms({room_id:'c24-abc'})).status,400);
 assert.equal((await lms({room_id:'class-1-20261023'})).status,400);
+assert.equal((await lms({room_id:'c24-950',date:'2026-10-28'})).status,403,'a seeded (not attended) LMS row never authorizes');
+assert.equal((await lms({room_id:'c24-800'})).status,403,'outside the 14-day class-list window the old room no longer opens history');
+// «Previous class» is the later of reservation and LMS — compared as HH:MM, so '9:00' is earlier than '13:00'.
+db.exec(`INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_time,duration_min,source,created_at) VALUES
+(82,'mangoai_lms','1','active','2026-10-20','9:00',20,'manual',1);`);
+assert.equal((await lms()).data.previous.room_id,'c24-899','same day: the 13:00 LMS lesson is later than the 9:00 reservation');
+db.exec(`INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_time,duration_min,source,created_at) VALUES
+(81,'mangoai_lms','1','active','2026-10-22','9:00',20,'manual',1);`);
+assert.equal((await lms()).data.previous.date,'2026-10-22','a later reservation wins over an earlier LMS lesson');
+assert.notEqual((await lms()).data.previous.teacher_source,'lms');
+// Same slot: the reservation hides the LMS row only when it itself says «done». The ledger never counts c24 attendance,
+// so an unattended reservation must not replace «Attended (old LMS)» with «no record» — then both rows stay.
 db.exec(`INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_time,duration_min,source,created_at) VALUES
 (80,'mangoai_lms','1','active','2026-10-27','13:00',20,'c24-mirror',1);`);
-const lmsDeduped=(await lms()).data.items.filter(i=>i.date==='2026-10-27');
-assert.deepEqual(lmsDeduped.map(i=>i.room_id),['class-80-20261027'],'a Mangoi reservation at the exact LMS slot is shown once');
+let slot=(await lms()).data.items.filter(i=>i.date==='2026-10-27');
+assert.deepEqual(slot.map(i=>i.room_id).sort(),['c24-900','class-80-20261027'],'unattended reservation: the LMS evidence stays visible');
+assert.notEqual(slot.find(i=>i.room_id==='class-80-20261027').state,'done');
+db.exec(`INSERT INTO attendance(room_id,role,joined_at,account_uid,user_id,date,status) VALUES
+('class-80-20261027','student',1793073600000,'mangoai_lms','mangoai_lms','2026-10-27','attended');`);
+slot=(await lms()).data.items.filter(i=>i.date==='2026-10-27');
+assert.deepEqual(slot.map(i=>i.room_id),['class-80-20261027'],'attended reservation at the exact LMS slot: shown once');
+assert.equal(slot[0].state,'done');
 globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_c',name:'Teacher C',role:'teacher'};
 assert.equal((await lms()).status,403,'a teacher without a cafe24 number cannot open LMS rooms');
+// The LMS list needs only the cafe24 number (not a D1 roster link), so the history behind it must not ask for more.
+globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_z',name:'Teacher Z',role:'teacher'};
+assert.equal((await lms({room_id:'c24-960',student_uid:'lms_z'})).status,200,'cafe24-only teacher opens their own LMS row');
+assert.equal((await request()).status,403,'…but the reservation path still needs the D1 roster link');
+// Unread records are warnings, never an empty month / «not recorded».
+globalThis.__historyActor={ok:true,isTeacher:false,username:'mgr',name:'Manager',role:'hq'};
+db.exec('ALTER TABLE teacher_payroll_auto RENAME TO payroll_off');
+const unnamed=await lms();assert.equal(unnamed.status,200);
+assert.ok(unnamed.data.warnings.includes('lms_teacher_names'),'payroll unreadable → warning');
+assert.equal(unnamed.data.items.find(i=>i.room_id==='c24-899').teacher_name,'Teacher Y','(report name still wins)');
+db.exec('ALTER TABLE payroll_off RENAME TO teacher_payroll_auto');
 globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_a',name:'Teacher A',role:'teacher'};
+db.exec('ALTER TABLE attendance RENAME TO attendance_off');
+const lmsDown=await request();assert.equal(lmsDown.status,200);
+assert.ok(lmsDown.data.warnings.includes('lms_attendance'),'LMS attendance unreadable → warning, not a silent empty month');
+db.exec('ALTER TABLE attendance_off RENAME TO attendance');
+Date.now=realNow;
 assert.ok(executed.every(sql=>/^\s*(SELECT\b|PRAGMA table_info\b)/.test(sql)),'LMS history only reads data and schema');
 // Read-only compatibility: fresh canonical schema, then legacy schema with eval_at in another month.
 db.exec(`ALTER TABLE student_evaluations RENAME TO full_evaluations;
@@ -166,5 +206,58 @@ assert.equal(legacy.data.items.find(i=>i.feedback?.id===101).teacher_name,'Teach
 assert.ok(!(await request()).data.items.some(i=>i.feedback?.id===101));
 db.exec('DROP TABLE student_evaluations');
 assert.equal((await request()).status,503,'database failure is an error, never an empty successful history');
+// Client wiring (the 2026-10-28 bug was a client sending an empty schedule id): run the real button builder, click handler
+// and dialog script — an old-LMS row must ask by room + student, a reservation row by schedule id.
+{
+  const vm = await import('node:vm');
+  const page = readFileSync(new URL('../cloudflare-deploy/public/teacher.html', import.meta.url), 'utf8');
+  const block = (start) => { const a = page.indexOf(start); assert.ok(a >= 0, 'missing ' + start);
+    let d = 0, i = page.indexOf('{', a); for (; i < page.length; i++) { if (page[i] === '{') d++; else if (page[i] === '}' && --d === 0) break; }
+    return page.slice(a, i + 1); };
+  const attr = (h, n) => (new RegExp(n + '="([^"]*)"').exec(h) || [])[1];
+  const ctx = vm.createContext({ esc: x => String(x ?? ''), T: en => en, stuUid: c => c.student_uid || '', stuLabelText: c => c.student_name || '', todayKST: () => '2026-10-28' });
+  vm.runInContext(block('  function portalContact('), ctx);
+  const lmsBtn = ctx.portalContact({ kind: 'class', source: 'lms', schedule_id: null, room_id: 'c24-900', student_uid: 'mangoai_lms', start_ts: 1792468800000, class_date: '2026-10-28' });
+  assert.equal(attr(lmsBtn, 'data-history-schedule'), '');assert.equal(attr(lmsBtn, 'data-history-room'), 'c24-900');
+  assert.equal(attr(lmsBtn, 'data-history-uid'), 'mangoai_lms');assert.equal(attr(lmsBtn, 'data-history-date'), '2026-10-20', 'LMS row: its own lesson date (KST), not today');
+  const resBtn = ctx.portalContact({ kind: 'class', schedule_id: 5, room_id: 'class-5-20261027', student_uid: 'student_one', class_date: '2026-10-27' });
+  assert.equal(attr(resBtn, 'data-history-schedule'), '5');assert.equal(attr(resBtn, 'data-history-room'), undefined);
+  // click handler → context
+  let listener, opened;
+  const cctx = vm.createContext({ document: { addEventListener: (k, fn) => { if (k === 'click') listener = fn; } }, T: en => en,
+    window: { MangoiTeacherHistory: { open: c => { opened = c; } } } });
+  vm.runInContext(block("  document.addEventListener('click',function(e){\n    // History opens") + ');', cctx);
+  const attrs = { 'data-history-schedule': '', 'data-history-room': 'c24-900', 'data-history-uid': 'mangoai_lms', 'data-history-date': '2026-10-20', 'data-history-name': 'S' };
+  listener({ target: { closest: () => ({ getAttribute: k => attrs[k] ?? null }) } });
+  assert.equal(opened.roomId, 'c24-900');assert.equal(opened.studentUid, 'mangoai_lms');
+  // dialog script → request URL and rendering
+  class El { constructor(t) { this.tagName = t; this.children = []; this.attrs = {}; this._t = ''; this.open = false; this.isConnected = true; }
+    set textContent(v) { this._t = String(v); this.children = []; } get textContent() { return this._t + this.children.map(c => c.textContent).join(' '); }
+    setAttribute(k, v) { this.attrs[k] = v; } appendChild(c) { this.children.push(c); return c; } append(...c) { this.children.push(...c); }
+    replaceChildren(...c) { this._t = ''; this.children = c; } addEventListener() {} showModal() { this.open = true; } close() { this.open = false; } focus() {}
+    get lastChild() { return this.children[this.children.length - 1]; }
+    all(tag) { return this.children.flatMap(c => [...(c.tagName === tag ? [c] : []), ...c.all(tag)]); }
+    querySelectorAll(sel) { const [a, b] = sel.split(' '); return b ? this.all(a).flatMap(x => x.all(b)) : this.all(a); }
+    querySelector(sel) { return this.querySelectorAll(sel)[0] || null; } }
+  const urls = []; let reply;
+  const dctx = vm.createContext({ AbortController, URLSearchParams, console, Promise, Array,
+    document: { documentElement: { lang: 'en' }, head: new El('head'), body: new El('body'), createElement: t => new El(t), activeElement: null, querySelectorAll: () => [], addEventListener() {} },
+    window: { addEventListener() {} }, fetch: async (u) => { urls.push(u); return { ok: true, json: async () => reply }; } });
+  dctx.window = Object.assign(dctx.window, dctx);
+  vm.runInContext(readFileSync(new URL('../cloudflare-deploy/public/js/teacher-student-history.js', import.meta.url), 'utf8').replace("if (window.MangoiTeacherHistory) return;", ''), dctx);
+  const api = dctx.window.MangoiTeacherHistory || dctx.MangoiTeacherHistory;
+  reply = { ok: true, before: '2026-10-20', warnings: [], items: [{ date: '2026-10-20', start: '13:00', teacher_name: 'Teacher A', teacher_source: 'lms', label_en: 'Attended (old LMS)', label_ko: '출석 (옛 LMS)' }],
+    previous: { date: '2026-10-13', teacher_name: 'Teacher A', teacher_source: 'lms' } };
+  api.open({ scheduleId: '', roomId: 'c24-900', studentUid: 'mangoai_lms', date: '2026-10-28', name: 'S' });
+  for (let i = 0; i < 5; i++) await new Promise(r => setTimeout(r, 0));
+  const q = new URLSearchParams(urls.at(-1).split('?')[1]);
+  assert.equal(q.get('room_id'), 'c24-900');assert.equal(q.get('student_uid'), 'mangoai_lms');assert.equal(q.get('schedule_id'), null, 'no empty schedule id is sent');
+  const shown = dctx.document.body.children[0].textContent;
+  assert.ok(/Old LMS record/.test(shown) && /Before 2026-10-20/.test(shown) && !/Could not load/.test(shown), 'renders the LMS rows with the server-confirmed date');
+  api.open({ scheduleId: '5', roomId: '', studentUid: '', date: '2026-10-27', name: 'S' });
+  for (let i = 0; i < 5; i++) await new Promise(r => setTimeout(r, 0));
+  const q2 = new URLSearchParams(urls.at(-1).split('?')[1]);
+  assert.equal(q2.get('schedule_id'), '5');assert.equal(q2.get('room_id'), null);
+}
 console.log(`PASS: ${matrix} distinct matrix scenarios plus integration cases: real SQLite history, cross-teacher records, report-free previous teacher, substitutes, leap dates, month boundaries, orphan/legacy reports, authorization, read failures and SELECT-only reads.`);
 db.close();

@@ -132,6 +132,11 @@ function applyHolidayToItems(items: any[], holiday: any): void {
    ⚠️ 후보가 2개 이상이면 **아무것도 붙이지 않는다**. 모르는 것보다 틀린 게 나쁘다.
    ⚠️ 못 찾으면 빈 배열 — 부르는 쪽은 «안 보여주는» 쪽으로 실패한다(안전한 실패).
    ⛔ linkedTeacherIds 로 되돌리지 말 것. 번호가 겹치는 자리에서 조용히 남의 수업을 준다. */
+/* 옛 LMS 수업 목록이 거슬러 보는 날 수 — 일지는 기억이 남아 있을 때 쓴다(2주면 충분).
+   그 줄의 「수업 요약 / 캘린더」 권한도 같은 창을 쓴다(목록에 없는 옛 방으로 이력을 무기한 열지 않게). */
+const LMS_LOOKBACK_DAYS = 14;
+const lmsSinceDate = (nowMs: number) => new Date(nowMs + 9 * 3600 * 1000 - LMS_LOOKBACK_DAYS * 86400000).toISOString().slice(0, 10);
+
 async function resolveCafe24TeacherIds(db: D1Database, actorName: unknown): Promise<string[]> {
   const name = String(actorName || '').trim();
   if (!name) return [];
@@ -413,16 +418,17 @@ export async function handleTeacherApi(
         || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || Number(month.slice(0,4)) < 2000) {
       return json({ ok: false, error: 'bad_history_request' }, 400);
     }
-    if (!isManager && (identityUnlinked || identityAmbiguous)) return json({ ok: false, error: 'history_forbidden' }, 403);
     if (isLmsHistory) {
+      /* 권한 = 목록에 그 줄을 그린 판정과 같다: 카페24 강사번호(D1 강사원부 연결과 무관 — 목록도 그것을 안 본다)
+         + 목록과 같은 날 창(LMS_LOOKBACK_DAYS). 그 창 밖의 옛 방으로는 열지 않는다(예약 경로가 «지금 담당» 만 여는 것과 같은 뜻). */
       try {
         const studentUid = String(url.searchParams.get('student_uid') || '').trim();
-        const tids = isManager ? [] : await resolveCafe24TeacherIds(env.DB, actor.name);
-        if (!studentUid || (!isManager && !tids.length)) return json({ ok: false, error: 'history_forbidden' }, 403);
-        const own = isManager ? '' : ` AND teacher_uid IN (${tids.map(() => '?').join(',')})`;
+        // 판정은 번호를 0~1개만 돌려준다(후보가 둘이면 아무것도 안 붙인다) — 그래서 IN 목록이 아니라 한 칸.
+        const tid = isManager ? '' : ((await resolveCafe24TeacherIds(env.DB, actor.name))[0] || '');
+        if (!studentUid || (!isManager && !tid)) return json({ ok: false, error: 'history_forbidden' }, 403);
         const row = await env.DB.prepare(`SELECT user_id, date FROM attendance
-            WHERE room_id = ? AND user_id = ? COLLATE BINARY AND status = 'present'${own} LIMIT 1`)
-          .bind(lmsRoom, studentUid, ...tids).first<any>();
+            WHERE room_id = ? AND user_id = ? COLLATE BINARY AND status = 'present' AND date >= ?${isManager ? '' : ' AND teacher_uid = ?'} LIMIT 1`)
+          .bind(lmsRoom, studentUid, lmsSinceDate(now), ...(isManager ? [] : [tid])).first<any>();
         const uid = row && studentUidOf(row);
         const lessonDate = row ? String(row.date || '').slice(0, 10) : '';
         if (!uid || !validHistoryDate(lessonDate)) return json({ ok: false, error: 'history_forbidden' }, 403);
@@ -433,6 +439,7 @@ export async function handleTeacherApi(
         return json({ ok: false, error: 'history_unavailable' }, 503);
       }
     }
+    if (!isManager && (identityUnlinked || identityAmbiguous)) return json({ ok: false, error: 'history_forbidden' }, 403);
     try {
       const schedule = await env.DB.prepare(`SELECT id, user_id, teacher_id, status FROM class_schedules WHERE id=? LIMIT 1`)
         .bind(scheduleId).first<any>();
@@ -894,9 +901,9 @@ export async function handleTeacherApi(
    *  [무엇] 끝난 LMS 수업을 «완료된 수업» 으로 함께 실어 준다. 화면은 이미 status='done'
    *       인 수업에 [일지 쓰기] 를 그리므로 화면 쪽 수정 없이 버튼이 살아난다.
    *
-   *  ⚠️ 담당 판정은 **teacher_uid(=teachers.id)** 로만 한다. 위 예약 조회와 같은
-   *     resolvedRows 를 쓴다 — 신원 판정을 두 벌 두면 반드시 어긋난다(이 파일 위쪽
-   *     'Anna → HANNAH' 사고가 그 이야기다). 이름 문자열로는 절대 붙이지 않는다.
+   *  ⚠️ 담당 판정은 **attendance.teacher_uid = 카페24 강사번호** 로만 한다(teachers.id 가 아니다 —
+   *     번호 체계가 달라 겹치는 자리에서 남의 수업이 걸린다. 판정·사고 기록은 resolveCafe24TeacherIds).
+   *     이름 문자열로는 절대 붙이지 않는다.
    *  ⚠️ 입장 창을 과거로 둔다 — 끝난 LMS 수업에 [입장] 을 주면 아무도 없는 방이 열린다.
    *     화면은 enter_from/until 로 판정하므로 [완료] + [일지 쓰기] 만 남는다.
    *  ⚠️ 카페24가 아직 강사 속성을 안 주면 teacher_uid 가 전부 NULL 이라 이 블록은
@@ -909,8 +916,7 @@ export async function handleTeacherApi(
       if (!cafe24Tids.length) throw new Error('no_cafe24_teacher_id');
 
       const tConds = cafe24Tids.map(() => 'a.teacher_uid = ?').join(' OR ');
-      const LOOKBACK_DAYS = 14;                     // 일지는 기억이 남아 있을 때 쓴다. 2주면 충분.
-      const sinceDate = new Date(now + KST - LOOKBACK_DAYS * 86400000).toISOString().slice(0, 10);
+      const sinceDate = lmsSinceDate(now);
       // eval_band 컬럼은 /api/eval/create 가 처음 불릴 때 생긴다(ensureEvalTable) — 배포
       // 직후처럼 아직 없는 순간에 컬럼 하나 때문에 오늘 카페24 수업 목록이 통째로 사라지면
       // 안 되므로, 그 컬럼 없이도 조회되는 쿼리로 폴백한다(위 sqlJoin/sqlPlain과 같은 패턴).

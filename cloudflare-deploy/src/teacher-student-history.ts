@@ -86,6 +86,11 @@ export function previousScheduled(rows: any[], before: string): any | null {
 
 const LMS_ROW = `room_id LIKE 'c24-%' AND status = 'present'`;
 const hhmm = (ms: number) => new Date(ms + KST).toISOString().slice(11, 16);
+/** 'H:MM' · 'HH:MM' · 'HH:MM:SS' → 'HH:MM' (string order = time order), anything else → ''. */
+export const hhmmKey = (s: unknown) => {
+  const m = /^(\d{1,2}):(\d{2})/.exec(String(s ?? ''));
+  return m && Number(m[1]) < 24 && Number(m[2]) < 60 ? m[1].padStart(2, '0') + ':' + m[2] : '';
+};
 
 /** Old-LMS (cafe24) lessons have no reservation row: the mirrored attendance row is the record.
  *  Teacher names come from the cafe24 payroll table (cafe24 numbers ≠ D1 teachers.id — never mix them).
@@ -104,6 +109,7 @@ export async function historyLmsLessons(db: D1Database, uid: string, from: strin
   }
   const numbers = [...new Set([...rows, ...(last ? [last] : [])].map(r => String(r.teacher_uid || '').trim()).filter(Boolean))];
   const names = new Map<string, Set<string>>();
+  let namesUnread = false;   // «못 읽었다» 를 «기록 없음» 으로 위장하지 않는다 — 경고로 알린다
   try {
     for (const p of await selectInChunks<any>(db, numbers, ph =>
       `SELECT DISTINCT teacher_id, teacher_name FROM teacher_payroll_auto WHERE teacher_id IN (${ph})`)) {
@@ -111,7 +117,7 @@ export async function historyLmsLessons(db: D1Database, uid: string, from: strin
       if (!names.has(key)) names.set(key, new Set());
       if (p.teacher_name) names.get(key)!.add(String(p.teacher_name));
     }
-  } catch { console.warn('[teacher-history] lms teacher names unavailable'); }
+  } catch { namesUnread = true; console.warn('[teacher-history] lms teacher names unavailable'); }
   const nameOf = (n: any) => { const s = names.get(String(n || '').trim()); return s && s.size === 1 ? [...s][0] : null; };
   const lesson = (r: any) => {
     const start = Number(r.joined_at) || 0, endMs = Number(r.left_at) || 0;
@@ -122,7 +128,7 @@ export async function historyLmsLessons(db: D1Database, uid: string, from: strin
   };
   // joined_at stays beside the lesson: slot de-duplication compares exact timestamps, never rounded times.
   return { items: rows.map(r => ({ joined_at: Number(r.joined_at) || 0, lesson: lesson(r) })),
-    previous: last && evaluationKstDate(last.date) ? lesson(last) : null };
+    previous: last && evaluationKstDate(last.date) ? lesson(last) : null, namesUnread };
 }
 
 /** Read only. Student identity must come from an authorized schedule, never the query string. */
@@ -150,9 +156,10 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
   if (observationWarning) ledger.warnings.push('historical_attendance');
   // An unread old-LMS record is a warning, never an empty month.
   if (!lms) ledger.warnings.push('lms_attendance');
+  else if (lms.namesUnread) ledger.warnings.push('lms_teacher_names');
   const lmsPrevious = lms && lms.previous;
   // The later lesson is the previous one; on an exact tie the Mangoi reservation stays (it carries the schedule id).
-  if (lmsPrevious && (!previous || lmsPrevious.date + (lmsPrevious.start || '') > previous.date + previous.start)) previous = lmsPrevious;
+  if (lmsPrevious && (!previous || lmsPrevious.date + hhmmKey(lmsPrevious.start) > previous.date + hhmmKey(previous.start))) previous = lmsPrevious;
   const reportDate = (r: any) => r.lesson_date;
   const reports = allReports.filter((r: any) => r.lesson_date >= from && r.lesson_date < end);
   const prior = allReports.find((r: any) => r.lesson_date < before);
@@ -165,8 +172,11 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
   for (const it of items) it.student_uid = uid;
   await attachCalendarRecords(env, items);
   // Old-LMS lessons, minus the ones a Mangoi reservation already shows at the exact same slot (same rule as the class list).
-  const slots = items.filter((it: any) => it.start).map((it: any) => ({ source: 'mangoi', student_uid: uid,
-    start_ts: Date.parse(`${it.date}T${String(it.start).padStart(5, '0')}:00+09:00`), status: it.state }));
+  // Only a reservation that itself says «done» may hide one: the ledger never counts c24 attendance, so a same-slot
+  // reservation without it reads «unknown»/«absent» — hiding the attended LMS row there would replace evidence with
+  // «no record». In that case both rows stay (each source says what it knows).
+  const slots = items.filter((it: any) => it.state === 'done' && hhmmKey(it.start)).map((it: any) => ({ source: 'mangoi',
+    student_uid: uid, start_ts: Date.parse(`${it.date}T${hhmmKey(it.start)}:00+09:00`), status: it.state }));
   const lmsRows: { user_id: string; joined_at: number; lesson: any }[] =
     (lms?.items || []).map((x: any) => ({ user_id: uid, joined_at: x.joined_at, lesson: x.lesson }));
   for (const x of dropCafe24SlotDuplicates(lmsRows, slots).kept) items.push({ ...x.lesson, student_uid: uid });
