@@ -4,6 +4,7 @@
 //   A  정본 src/teacher-student-level.ts — 값 판정(Lv 1~34)·목록·진짜 SQLite 저장(변경 기록·한 batch·정확일치)
 //   B  밤 동기화·레벨테스트가 강사 값을 안 지우는가 — cafe24-sync 의 SQL 을 진짜 SQLite 에 · applyPlacementLevel 실행
 //   C  api-teacher.ts — 경로 게이트 식 평가 · POST ?part=level 블록을 오려 내 «이 강사의 학생인가» 판정을 실행
+//      + 권한 범위 정본 teacherLevelScope(2026-10-28 좁힘) 경계 — 최근 14일·매주 수업·취소·앞으로·모르는 상태
 //   D  teacher.html openEval — vm 에서 창을 그리고 레벨을 골라 저장·실패 되돌림·«보내기» 기다림을 본다
 // ⚠️ «된다» 옆에 «안 된다» 를 짝으로 둔다 — 짝이 없으면 «전부 허용»·«전부 막기» 가 통과한다.
 // 변이시험용: LEVEL_SRC_ROOT=<cloudflare-deploy 사본> 으로 읽을 소스를 바꿀 수 있다(typescript 는 저장소 것을 쓴다).
@@ -197,27 +198,65 @@ try {
   ok(dedupe > 0 && posBlock > dedupe && posBlock > lastPush && lastPush > 0, '  블록은 오늘 목록·예약표를 «다 만든 뒤» 에 있다(위치)');
   const uA = T.indexOf('const studentUidOf = (s: any)');
   const studentUidOfSrc = braceBlock(T, uA) + ';';
+  const studentUidOf = new Function(tsToJs(studentUidOfSrc) + '\nreturn studentUidOf;')();
+
+  // C-2a 권한 범위 정본(teacherLevelScope) — 경계를 실제로 넣어 본다(2026-10-28 「3번 권한 범위 좁혀줘」)
+  //   오늘 = 2026-10-27(NOW). 창 = 오늘 − 14일(10-13) ~ 오늘. 「된다」 옆에 「안 된다」를 짝으로.
+  ok(L.TEACHER_LEVEL_PAST_DAYS === 14, '전제: 지난 수업 창은 14일(카페24 되돌아보기와 같은 근거)');
+  const scope = (todayClasses, schedules, uid = 'u1', todayStr = '2026-10-27') =>
+    L.teacherLevelScope({ uid, todayClasses, schedules, todayStr, uidOf: studentUidOf });
+  const sc = (row) => scope([], [Object.assign({ user_id: 'u1' }, row)]);
+  ok(scope([{ kind: 'class', student_uid: 'u1', class_state: 'done' }], []) === 'ok', '① 오늘 목록의 수업 학생 → ok');
+  ok(scope([{ kind: 'class', student_uid: 'u1', class_state: 'postponed' }], []) === 'ok', '  오늘 수업이 «연기» 여도 ok(옮겨진 것이지 끝난 게 아님)');
+  ok(scope([{ kind: 'class', student_uid: 'u1', class_state: 'cancelled' }], []) === 'out_of_window', '  (짝) 오늘 수업이 «취소» 뿐이면 out_of_window');
+  ok(scope([{ kind: 'lms', student_uid: 'u1' }], []) === 'not_your_student', '  (짝) 수업이 아닌 줄(kind≠class)은 근거가 아니다 → not_your_student');
+  ok(sc({ scheduled_date: '2026-10-27' }) === 'ok' && sc({ scheduled_date: '2026-10-13' }) === 'ok', '② 날짜 잡힌 수업: 오늘·14일 전(10-13) → ok');
+  ok(sc({ scheduled_date: '2026-10-12' }) === 'out_of_window', '  (짝) 15일 전(10-12) → out_of_window');
+  ok(sc({ scheduled_date: '2026-10-28' }) === 'out_of_window' && sc({ scheduled_date: '2027-03-04' }) === 'out_of_window', '  (짝) 앞으로 잡힌 수업만 → out_of_window(일지 창은 수업 시작 뒤에만 열린다)');
+  ok(sc({ scheduled_date: '2026-10-20 19:00' }) === 'ok', '  날짜 뒤에 시각이 붙어 있어도 앞 10글자로 본다');
+  ok(sc({ scheduled_date: '2026-10-20', sched_status: 'cancelled' }) === 'out_of_window', '  (짝) 창 안이어도 «취소» 는 근거가 아니다');
+  ok(sc({ scheduled_date: '2026-10-20', sched_status: 'postponed' }) === 'ok' && sc({ scheduled_date: '2026-10-20', sched_status: null }) === 'ok', '  «연기»·상태 비어 있음 → ok');
+  ok(sc({ scheduled_date: '2026-10-20', sched_status: 'deleted' }) === 'out_of_window', '  (짝) 모르는 상태는 근거가 못 된다(막는 쪽으로 실패)');
+  ok(sc({ scheduled_date: 'abc', day_of_week: '2' }) === 'out_of_window', '  깨진 날짜를 «매주 수업» 으로 넘겨짚지 않는다');
+  ok(sc({ day_of_week: '2' }) === 'ok' && sc({ day_of_week: 'Mon,Wed', starts_on: '2026-10-27' }) === 'ok', '③ 매주 수업(시작일 없음·오늘 시작) → ok');
+  ok(sc({ day_of_week: '2', starts_on: '2026-11-03' }) === 'out_of_window', '  (짝) 다음 주에 시작하는 매주 수업 → out_of_window');
+  ok(sc({ day_of_week: '2', skip_dates: '2026-10-27' }) === 'ok', '  오늘이 «그 주만 빠지는 날» 이어도 매주 수업 학생이다');
+  ok(sc({ day_of_week: '', scheduled_date: '' }) === 'out_of_window' && sc({ day_of_week: '2', sched_status: 'cancelled' }) === 'out_of_window', '  (짝) 요일도 날짜도 없는 줄 · 취소된 매주 수업 → out_of_window');
+  ok(scope([], [{ user_id: 'u1', scheduled_date: '2026-09-01' }, { user_id: 'u1', scheduled_date: '2026-10-22' }]) === 'ok'
+     && scope([], [{ user_id: 'u1', scheduled_date: '2026-10-22' }, { user_id: 'u1', scheduled_date: '2026-09-01' }]) === 'ok', '  옛 줄과 최근 줄이 함께 있으면 순서와 무관하게 ok');
+  ok(scope([], [{ user_id: 'U1', scheduled_date: '2026-10-22' }]) === 'not_your_student', '  (짝) 대소문자만 다른 아이디(U1) → not_your_student(정확일치)');
+  ok(scope([], [{ user_id: 'lms', scheduled_date: '2026-10-22' }], 'lms') === 'not_your_student', '  옛 LMS 자리표시(lms)는 학생이 아니다');
+  ok(scope([], [{ user_id: 'zz', scheduled_date: '2026-10-22' }]) === 'not_your_student', '  목록 어디에도 없으면 not_your_student');
+  ok(scope([{ kind: 'class', student_uid: '' }], [], '') === 'not_your_student' && sc({ scheduled_date: '2026-10-27' }) === 'ok'
+     && scope([], [{ user_id: 'u1', scheduled_date: '2026-10-27' }], 'u1', 'bad') === 'not_your_student', '  아이디·오늘 날짜가 비거나 깨지면 not_your_student(막는 쪽)');
+  ok(L.teacherLevelScope({ uid: 'u1', todayClasses: [], schedules: [{ user_id: 'u1', scheduled_date: '2026-02-15' }], todayStr: '2026-03-01', uidOf: studentUidOf }) === 'ok'
+     && L.teacherLevelScope({ uid: 'u1', todayClasses: [], schedules: [{ user_id: 'u1', scheduled_date: '2026-02-14' }], todayStr: '2026-03-01', uidOf: studentUidOf }) === 'out_of_window',
+     '  달이 바뀌어도 14일을 정확히 센다(03-01 → 02-15 ok · 02-14 안 됨)');
+
   const runner = new Function('ctx', tsToJs(
-    'const { classes, cafe24DedupeSchedules, normalizeTeacherLevelChoice, setStudentLevelByTeacher, json, env, actor, now, request } = ctx;\n'
+    'const { classes, cafe24DedupeSchedules, normalizeTeacherLevelChoice, setStudentLevelByTeacher, teacherLevelScope, TEACHER_LEVEL_PAST_DAYS, json, env, actor, now, todayStr, request } = ctx;\n'
     + 'const isLevelPost = true;\n'
     + studentUidOfSrc + '\n'
     + 'return (async () => {\n' + block + '\nreturn "fell-through";\n})();'));
   const json = (body, status = 200) => ({ status, body });
   const raw = new DatabaseSync(':memory:');
   raw.exec(`CREATE TABLE students_erp (user_id TEXT PRIMARY KEY, level TEXT, updated_at INTEGER)`);
-  raw.exec(`INSERT INTO students_erp (user_id, level) VALUES ('kim01','Lv 5'),('week1',NULL),('stranger',NULL),('lms',NULL),('nobody_in_erp_x',NULL)`);
+  raw.exec(`INSERT INTO students_erp (user_id, level) VALUES ('kim01','Lv 5'),('week1',NULL),('stranger',NULL),('lms',NULL),('old1','Lv 4'),('cancel1','Lv 6'),('nobody_in_erp_x',NULL)`);
   raw.exec(`DELETE FROM students_erp WHERE user_id='nobody_in_erp_x'`);
   const DB = d1(raw);
   const classes = [
     { kind: 'class', student_uid: 'kim01' },
     { kind: 'lms_slot', student_uid: 'stranger' },        // 수업이 아닌 줄의 아이디는 권한이 아니다
     { kind: 'class', student_uid: 'ghost01' },            // 오늘 수업은 있는데 명부에 없는 학생
+    { kind: 'class', student_uid: 'cancel1', class_state: 'cancelled' },   // 오늘 수업이 취소된 학생(다른 근거 없음)
   ];
-  const sched = [{ user_id: 'week1' }, { user_id: 'lms' }];   // 주간 보기의 지난 수업 · 옛 LMS 자리표시
+  // 주간 보기의 지난 수업(창 안) · 옛 LMS 자리표시 · 9월에 끝난 수업(창 밖)
+  const sched = [{ user_id: 'week1', scheduled_date: '2026-10-20' }, { user_id: 'lms', scheduled_date: '2026-10-20' }, { user_id: 'old1', scheduled_date: '2026-09-10' }];
   const call = async (bodyObj, extra = {}) => {
     const req = new Request('https://x.invalid/api/teacher/portal?part=level', { method: 'POST', body: typeof bodyObj === 'string' ? bodyObj : JSON.stringify(bodyObj) });
     return runner({ classes, cafe24DedupeSchedules: sched, normalizeTeacherLevelChoice: L.normalizeTeacherLevelChoice,
-      setStudentLevelByTeacher: L.setStudentLevelByTeacher, json, env: { DB }, actor: { username: 'teacher1', name: 'Teacher One' }, now: NOW, request: req, ...extra });
+      setStudentLevelByTeacher: L.setStudentLevelByTeacher, teacherLevelScope: L.teacherLevelScope, TEACHER_LEVEL_PAST_DAYS: L.TEACHER_LEVEL_PAST_DAYS,
+      json, env: { DB }, actor: { username: 'teacher1', name: 'Teacher One' }, now: NOW, todayStr: '2026-10-27', request: req, ...extra });
   };
   const lv = (u) => (raw.prepare('SELECT level FROM students_erp WHERE user_id = ?').get(u) || {}).level;
   const a1 = await call({ student_uid: 'kim01', level: 'Lv 13' });
@@ -244,6 +283,15 @@ try {
   ok(a11.status === 500 && a11.body.error === 'db_error', 'DB 가 던지면 500 db_error — «저장했다» 고 말하지 않음');
   const a12 = await call({ student_uid: 'kim01', level: 'Lv 13' });
   ok(a12.status === 200 && a12.body.unchanged === true, '같은 값이면 200 unchanged');
+  const a13 = await call({ student_uid: 'old1', level: 'Lv 9' });
+  ok(a13.status === 403 && a13.body.error === 'level_window_closed' && a13.body.past_days === L.TEACHER_LEVEL_PAST_DAYS && lv('old1') === 'Lv 4',
+     '9월에 끝난 수업만 있는 학생: 403 level_window_closed · past_days 를 실어 보냄 · 안 씀');
+  const a14 = await call({ student_uid: 'cancel1', level: 'Lv 9' });
+  ok(a14.status === 403 && a14.body.error === 'level_window_closed' && lv('cancel1') === 'Lv 6', '오늘 수업이 취소뿐인 학생: 403 level_window_closed · 안 씀');
+  const a15 = await call({ student_uid: 'week1', level: 'Lv 11' }, { todayStr: '2026-11-10' });
+  ok(a15.status === 403 && a15.body.error === 'level_window_closed' && lv('week1') === 'Lv 9', '  (짝) 블록이 포털의 todayStr 을 넘긴다 — 11-10 기준 10-20 은 창 밖(10-27 기준이면 됐을 것)');
+  const a16 = await call({ student_uid: 'week1', level: 'Lv 12' }, { todayStr: '2026-11-10', cafe24DedupeSchedules: [], classes: [{ kind: 'class', student_uid: 'week1' }] });
+  ok(a16.status === 200 && lv('week1') === 'Lv 12', '  (짝) 블록이 포털의 오늘 목록(classes)을 넘긴다');
 
   // C-3 포털 응답이 고르기 목록을 싣는다(가벼운 응답이 아니라 본 응답에)
   const rA = T.indexOf('  return json({\n    ok: true,\n    now, today: todayStr,');
@@ -444,6 +492,17 @@ try {
        && /lv-err/.test(msg().className) && re.test(msg().textContent) && sel.disabled === false,
        `서버 거절(${code}) → 칸을 Lv 5 로 되돌리고 빨간 안내 · 화면 값 안 바뀜`);
   }
+  // 범위 밖(2026-10-28) — «며칠» 은 서버 값만 쓰고, 이상한 값이면 숫자 없이 말한다
+  for (const [resp, re, title] of [
+    [{ ok: false, error: 'level_window_closed', past_days: 14 }, /taught in the last 14 days, or who have a weekly class/, '범위 밖(past_days 14) → «last 14 days … weekly class»'],
+    [{ ok: false, error: 'level_window_closed' }, /taught recently, or who have a weekly class/, '  past_days 가 없으면 숫자 없이 «recently»'],
+    [{ ok: false, error: 'level_window_closed', past_days: '14<b>' }, /taught recently/, '  past_days 가 이상하면(글자 섞임) 숫자를 안 그린다'],
+    [{ ok: false, error: 'level_window_closed', past_days: 99999 }, /taught recently/, '  past_days 가 터무니없으면(99999) 숫자를 안 그린다'],
+  ]) {
+    c = fresh(); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
+    levelResp = resp; sel.pick('Lv 20'); await tick();
+    ok(sel.value === 'Lv 5' && /lv-err/.test(msg().className) && re.test(msg().textContent) && !/not in your class list/.test(msg().textContent), title);
+  }
   c = fresh(); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
   levelMode = 'reject'; sel.pick('Lv 20'); await tick();
   ok(sel.value === 'Lv 5' && /check your connection/.test(msg().textContent) && sel.disabled === false, '연결이 끊기면 되돌리고 «다시 골라 주세요»');
@@ -486,6 +545,9 @@ try {
   ok(sel && /미등록 — 레벨을 골라 주세요/.test(sel.opts[0].text), '한국어 화면: «미등록 — 레벨을 골라 주세요»');
   levelResp = { ok: false, error: 'not_your_student' }; sel.pick('Lv 2'); await tick();
   ok(/내 수업 학생이 아니라/.test(msg().textContent), '한국어 화면: 거절 안내');
+  c = fresh(); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
+  levelResp = { ok: false, error: 'level_window_closed', past_days: 14 }; sel.pick('Lv 2'); await tick();
+  ok(/최근 14일 안에 수업했거나 지금 매주 수업 중인 학생만/.test(msg().textContent), '한국어 화면: 범위 밖 안내 «최근 14일 … 매주 수업 중인 학생만»');
   lang = 'en';
 } catch (e) {
   ok(false, 'D 절 실행 중 예외: ' + (e && e.stack || e));

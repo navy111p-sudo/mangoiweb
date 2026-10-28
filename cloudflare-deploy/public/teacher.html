@@ -4771,8 +4771,17 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       m.className = 'mini' + (err ? ' lv-err' : '');
       m.textContent = txt;
     }
-    function lvErrText(code){
+    function lvErrText(code, pastDays){
       if (code === 'not_your_student') return T('This student is not in your class list — please ask the office.', '내 수업 학생이 아니라 바꿀 수 없어요 — 본사에 알려 주세요.');
+      /* 🔐 (2026-10-28 권한 좁힘) 수업 기록은 있는데 범위 밖 — «며칠» 은 서버가 준 값만 쓴다(여기에 숫자를 다시 적지 않는다). */
+      if (code === 'level_window_closed'){
+        var nd = Number(pastDays), dd = (nd > 0 && nd < 400 && Math.floor(nd) === nd) ? nd : null;
+        return dd
+          ? T('You can change the level only for students you taught in the last ' + dd + ' days, or who have a weekly class with you — please ask the office.',
+              '최근 ' + dd + '일 안에 수업했거나 지금 매주 수업 중인 학생만 바꿀 수 있어요 — 본사에 알려 주세요.')
+          : T('You can change the level only for students you taught recently, or who have a weekly class with you — please ask the office.',
+              '최근에 수업했거나 지금 매주 수업 중인 학생만 바꿀 수 있어요 — 본사에 알려 주세요.');
+      }
       if (code === 'not_found') return T('This student is not in the student list — please ask the office.', '학생 명부에 없어 저장하지 못했어요 — 본사에 알려 주세요.');
       if (code === 'bad_level') return T('That level cannot be chosen.', '고를 수 없는 레벨이에요.');
       if (code === 'auth_required') return T('Please log in again.', '다시 로그인해 주세요.');
@@ -4818,7 +4827,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
           // 저장이 안 됐으면 칸도 옛 값으로 되돌린다 — «바뀐 것처럼» 보이면 안 된다.
           lvSel.value = before;
           if (lvSel.value !== before) lvSel.value = '';
-          lvSay(true, '⚠️ ' + lvErrText(e && e.error));
+          lvSay(true, '⚠️ ' + lvErrText(e && e.error, e && e.past_days));
         })
         .then(function(){ lvSaving = false; lvSel.disabled = false; });
     };

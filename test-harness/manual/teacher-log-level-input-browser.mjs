@@ -79,6 +79,7 @@ try {
       if (u.pathname === '/api/teacher/portal' && u.searchParams.get('part') === 'level') {
         const b = JSON.parse(route.request().postData()); levelBodies.push(b);
         if (levelMode === 'deny') return ff({ ok: false, error: 'not_your_student' }, 403);
+        if (levelMode === 'window') return ff({ ok: false, error: 'level_window_closed', past_days: 14 }, 403);   // 2026-10-28 권한 좁힘
         if (levelMode === 'hold') await new Promise((r) => { releaseLevel = r; });
         return ff({ ok: true, level: b.level, previous: levelBodies.length === 1 ? 'Lv 5' : 'Lv 12' });
       }
@@ -94,9 +95,9 @@ try {
     await page.locator('.modal').waitFor();
     await sel.waitFor({ timeout: 8000 }).catch(() => {});   // 없으면 «시간 초과 크래시» 가 아니라 아래 줄이 깔끔하게 FAIL
     check(tag + ' 레벨 고르기 칸이 그려짐', (await sel.count()) === 1);
-    const L = lang === 'ko' ? { label: '학생 레벨 — 고르면 한 번 묻고 저장해요', g1: '첫걸음 (Lv 1–4)', saved: '저장했어요: Lv 12', was: '(전: Lv 5)', deny: '내 수업 학생이 아니라', wait: '레벨을 저장하는 중',
+    const L = lang === 'ko' ? { label: '학생 레벨 — 고르면 한 번 묻고 저장해요', g1: '첫걸음 (Lv 1–4)', saved: '저장했어요: Lv 12', was: '(전: Lv 5)', deny: '내 수업 학생이 아니라', win: '최근 14일 안에 수업했거나 지금 매주 수업 중인 학생만', wait: '레벨을 저장하는 중',
         ask: '이 학생의 레벨을 바꿀까요?', jt: '학생이 다음에 판단력 훈련을 열 때 이 레벨부터 다시 시작해요', who: '지승연' }
-      : { label: 'Student level — pick to change (asks before saving)', g1: 'Starter (Lv 1–4)', saved: 'Saved: Lv 12', was: '(was Lv 5)', deny: 'not in your class list', wait: 'still saving',
+      : { label: 'Student level — pick to change (asks before saving)', g1: 'Starter (Lv 1–4)', saved: 'Saved: Lv 12', was: '(was Lv 5)', deny: 'not in your class list', win: 'taught in the last 14 days, or who have a weekly class', wait: 'still saving',
         ask: "Change this student's level?", jt: 'Next time the student opens Judgment training, it restarts at this level', who: 'Ji Seungyeon' };
     const modal = page.locator('.modal');
     check(tag + ' 라벨', (await modal.locator('label[for="ev-lv"]').innerText()).includes(L.label));
@@ -145,6 +146,22 @@ try {
     const cr = await page.evaluate(CONTRAST);
     check(tag + ` 빨간 안내 대비 ${cr.toFixed(2)} ≥ 4.5`, cr >= 4.5);
     await modal.screenshot({ path: resolve(OUT, `level-deny-${width}-${lang}-${theme}.png`) });
+
+    // 범위 밖(최근 14일·매주 수업이 아님) — 긴 안내가 좁은 폭에서도 칸 안에서 줄바꿈되는가
+    levelMode = 'window';
+    await page.evaluate(() => { const m = document.querySelector('#ev-lv-msg'); if (m) { m.textContent = ''; m.className = ''; } });
+    await sel.selectOption('Lv 21');
+    await page.waitForFunction(() => /lv-err/.test((document.querySelector('#ev-lv-msg') || {}).className || ''));
+    check(tag + ' 범위 밖 거절도 Lv 12 로 되돌아감', (await sel.inputValue()) === 'Lv 12');
+    const winTxt = await page.locator('#ev-lv-msg').innerText();
+    check(tag + ' 범위 밖 안내 «최근 14일 … 매주 수업»(내 학생 아님 문구가 아님)', winTxt.includes(L.win) && !winTxt.includes(L.deny));
+    const fit = await page.evaluate(() => {
+      const m = document.querySelector('#ev-lv-msg'), box = document.querySelector('.modal');
+      const a = m.getBoundingClientRect(), b = box.getBoundingClientRect();
+      return { inside: a.left >= b.left - 0.5 && a.right <= b.right + 0.5, noScroll: m.scrollWidth <= m.clientWidth + 1, docOk: document.documentElement.scrollWidth <= innerWidth };
+    });
+    check(tag + ' 범위 밖 안내가 창 안에서 줄바꿈(가로 넘침 없음)', fit.inside && fit.noScroll && fit.docOk);
+    await modal.screenshot({ path: resolve(OUT, `level-window-${width}-${lang}-${theme}.png`) });
 
     // 저장 중 «보내기» 는 기다린다
     levelMode = 'hold';
