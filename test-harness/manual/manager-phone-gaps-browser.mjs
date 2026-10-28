@@ -47,7 +47,7 @@ function freshServer(scope = 'hq') {
       G('test_b', 'Student B', '2026-10-29', '17:20'),
       G('test_c', 'Student C', '2026-10-30', '15:00', { status: 'short', short_len: 9 }),
     ],
-    gets: [], patches: [], jsReqs: 0, failJs: false,
+    gets: [], patches: [], jsReqs: 0, failJs: false, failGet: 0,
   };
 }
 
@@ -67,6 +67,7 @@ async function setup(page, S, { lang = null, dark = false } = {}) {
   await page.route('**/api/admin/student/phone-gaps**', (route) => {
     const u = new URL(route.request().url());
     S.gets.push(u.searchParams.get('days'));
+    if (S.failGet > 0) { S.failGet--; return route.abort(); }
     const days = Number(u.searchParams.get('days')) || 7;
     return J(route, { ok: true, days, from: '2026-10-28', to: '2026-11-03', students: 12, reachable: 12 - S.gaps.length, gaps: S.gaps,
       complete: true, hint_complete: true, sms_mode: 'real', reminder_enabled: true, measured_at: Date.now() });
@@ -272,6 +273,29 @@ try {
     await page.evaluate(() => { const d = document.getElementById('sm-phone-gaps'); d.open = true; });
     const ok7 = await waitFor(page, () => document.querySelectorAll('#pg-body div.pg-row[data-uid]').length === 3);
     check('접었다 다시 펼치면 다시 받아 목록을 그린다', ok7 && S.jsReqs === 2, { rows: await rowsOf(page), js: S.jsReqs });
+    await ctx.close();
+  }
+
+  /* ── ⑦-2 첫 목록 요청이 끊기면 — 다시 펼칠 때 요청은 «한 번» 만 ── */
+  {
+    const S = freshServer('hq');
+    S.failGet = 1;
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const page = await ctx.newPage();
+    await setup(page, S, { lang: 'ko' });
+    await boot(page);
+    console.log('\n[ ⑦-2 첫 목록 요청이 끊긴 뒤 다시 펼치면 요청은 한 번 ]');
+    await openViaSide(page);
+    const failed = await waitFor(page, () => /목록을 못 불러왔습니다/.test(document.getElementById('pg-body').textContent));
+    check('(전제) 첫 요청이 끊기면 «못 불러왔다» 고 말한다', failed && S.gets.length === 1, { gets: S.gets, body: await page.textContent('#pg-body') });
+    await page.evaluate(() => { const d = document.getElementById('sm-phone-gaps'); d.open = false; });
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { const d = document.getElementById('sm-phone-gaps'); d.open = true; });
+    const ok72 = await waitFor(page, () => document.querySelectorAll('#pg-body div.pg-row[data-uid]').length === 3);
+    await page.waitForTimeout(500);
+    check('다시 펼치면 목록이 그려진다', ok72, await rowsOf(page));
+    check('다시 펼칠 때 목록 요청은 한 번만(로더와 스크립트가 둘 다 부르지 않는다)', S.gets.length === 2, S.gets);
+    check('스크립트는 다시 받지 않는다', S.jsReqs === 1, S.jsReqs);
     await ctx.close();
   }
 

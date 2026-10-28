@@ -9,7 +9,8 @@
  * ⛔ 빈 칸은 보내지 않는다 — 그 PATCH 는 빈 문자열을 «지우겠다» 로 읽는다(남은 번호가 지워진다).
  * ⚠️ 저장한 뒤 목록을 «다시 불러» 그 학생이 빠졌는지로 확인한다 — 「저장했다」와 「문자가 간다」는 다르다.
  * 📍 쓰는 화면 둘 — admin.html(defer 로 처음부터) · manager.html(카드를 «처음 펼칠 때만» 받는다 — 그 화면의
- *    «외부 리소스 0개» 계약). 두 화면의 ?v= 는 같은 번호여야 한다(asset_version_harness).
+ *    «외부 리소스 0개» 계약). 두 화면의 ?v= 는 같은 번호여야 한다 — 지키는 검사는 phone_gaps_harness F절
+ *    (asset_version_harness 는 속성 src="…" 만 봐서 매니저의 JS 문자열 주소는 못 본다).
  */
 (function () {
   'use strict';
@@ -17,8 +18,9 @@
 
   function $(id) { return document.getElementById(id); }
   /* 🌐 정본은 window.adminLang (adm-today-classes.js 와 같은 판정). ⛔ 죽은 키 'adminLang' 을 읽지 말 것.
-     그다음은 <html lang> — 매니저 화면(manager.html)은 adminLang 이 없고 기본이 영어라(저장값이 없으면 'en'),
-     mangoi_lang 만 보면 저장값이 없는 매니저에게 한국어로 그린다(2026-10-28). 그 화면의 applyLang() 이 lang 을 맞춘다. */
+     그다음은 <html lang> — 매니저 화면(manager.html)은 adminLang 이 없고, 저장값이 없으면 브라우저 언어(ko 면 한국어,
+     아니면 영어)로 정한다. mangoi_lang 만 보면 저장값이 없는 영어 매니저에게 한국어로 그린다(2026-10-28).
+     그 화면의 applyLang() 이 <html lang> 을 그 값으로 맞춘다. */
   function isEn() {
     if (window.adminLang === 'en' || window.adminLang === 'ko') return window.adminLang === 'en';
     var hl = String((document.documentElement && document.documentElement.lang) || '').slice(0, 2).toLowerCase();

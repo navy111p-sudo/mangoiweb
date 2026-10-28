@@ -784,6 +784,7 @@ console.log('\n[ E. 화면 — 무엇을 보내고 무엇을 말하나 ]');
 /* ── F. 매니저 화면(manager.html) — 같은 스크립트를 «카드를 펼칠 때만» 받는가 (2026-10-28) ──────────────
    왜: 매니저 화면은 «첫 화면 외부 리소스 0개» 계약이라 admin.html 처럼 defer 로 실을 수 없다. 그렇다고 판정·저장을
        복제하면 「화면마다 답이 다른」 사고가 시작된다 → 같은 파일을 펼칠 때 한 번 받는다. 그 로더를 «실제로 돌려» 본다. */
+console.log('\n[ F. 매니저 화면 — 같은 스크립트를 펼칠 때만 받는가 ]');
 {
   const b = mark();
   const mh = rd(process.env.PG_SRC_MANAGER_HTML || resolve(PUB, 'manager.html'));
@@ -800,6 +801,18 @@ console.log('\n[ E. 화면 — 무엇을 보내고 무엇을 말하나 ]');
   const cOpen = cAt >= 0 ? mh.slice(cAt, mh.indexOf('>', cAt) + 1) : '';
   const card = cAt >= 0 ? mh.slice(cAt, mh.indexOf('</details>', cAt)) : '';
   ok(/\shidden[\s>]/.test(cOpen) && /ontoggle="if\(this\.open\)loadPhoneGaps\(\)"/.test(cOpen), 'F 카드는 처음엔 감춰져 있고(본사만 푼다) 펼칠 때 로더를 부른다', cOpen);
+  /* 계약 1번 «화면을 열 때 이 파일을 받지 않는다» — <script src> 금지만으로는 안 지켜진다: 화면 코드가 로더를
+     직접 부르면 열자마자 받는다(함정 대조 실측: IS_HQ 줄에 한 줄 더해도 PASS 였다). «살아 있는 호출은 ontoggle 하나» 로 묻는다. */
+  {
+    const calls = [];
+    for (let i = mh.indexOf('loadPhoneGaps('); i >= 0; i = mh.indexOf('loadPhoneGaps(', i + 1)) {
+      const inHtmlCmt = mh.lastIndexOf('<!--', i) > mh.lastIndexOf('-->', i);
+      const sAt = mh.lastIndexOf('<script', i), sEnd = mh.lastIndexOf('</script>', i);
+      const inJsCmt = sAt > sEnd ? deadAt(mh, i, sAt) !== '' : false;
+      if (!inHtmlCmt && !inJsCmt) calls.push(mh.slice(Math.max(0, i - 40), i + 16).replace(/\s+/g, ' '));
+    }
+    ok(calls.length === 1 && calls[0].includes('ontoggle="if(this.open)loadPhoneGaps()'), 'F 로더를 부르는 살아 있는 자리는 카드의 ontoggle 하나뿐(화면을 열 때 받지 않는다)', calls);
+  }
   const usedIds = [...new Set([...jsNoCmt.matchAll(/\$\('([a-z0-9-]+)'\)/g)].map(m => m[1]))];
   ok(usedIds.length >= 5, 'F (전제) 스크립트가 찾는 id 목록을 소스에서 읽었다', usedIds);
   for (const id of usedIds) ok(id === 'sm-phone-gaps' ? cAt >= 0 : card.includes('id="' + id + '"'), 'F 매니저 카드 안에 스크립트가 찾는 요소가 있다', id);
@@ -889,15 +902,24 @@ console.log('\n[ E. 화면 — 무엇을 보내고 무엇을 말하나 ]');
     ok(w.scripts.length === 2, 'F 못 받은 뒤 다시 펼치면 다시 받는다(한 번 실패로 영영 막히지 않는다)', w.scripts.length);
   }
   for (const [st, open, want, why] of [
-    [{ loadedOnce: true, busy: null }, true, 0, '이미 불러왔으면 다시 안 부른다(펼칠 때마다 목록 요청이 나가지 않게)'],
+    [{ loadedOnce: true, busy: null }, true, 0, '이미 불러왔으면 다시 안 부른다'],
     [{ loadedOnce: false, busy: {} }, true, 0, '불러오는 중이면 겹쳐 부르지 않는다'],
-    [{ loadedOnce: false, busy: null }, true, 1, '받아 둔 뒤 아직 안 불렀으면 부른다'],
+    [{ loadedOnce: false, busy: null }, true, 1, '열려 있고 아직 안 불렀으면 부른다'],
     [{ loadedOnce: false, busy: null }, false, 0, '닫혀 있으면 부르지 않는다'],
   ]) {
     const w = world(true);
-    w.win.__pg = w.stub(st); w.sec.open = open;
+    w.run(); w.sec.open = open;
+    w.win.__pg = w.stub(st);
+    try { w.scripts[0].onload(); } catch (e) { ok(false, 'F onload 가 던지지 않는다', String(e)); }
+    ok(w.win.__pg.n === want, 'F 도착했을 때: ' + why, { st, open, n: w.win.__pg.n });
+  }
+  /* 이미 받아 둔 뒤에는 로더가 목록을 부르지 않는다 — 그 스크립트가 카드의 toggle 을 직접 듣는다.
+     둘 다 부르면 첫 요청이 실패한 뒤 다시 펼칠 때 목록 요청이 두 번 나간다(함정 대조 지적 → 브라우저 ⑦-2 가 실제로 센다). */
+  for (const st of [{ loadedOnce: false, busy: null }, { loadedOnce: true, busy: null }]) {
+    const w = world(true);
+    w.win.__pg = w.stub(st); w.sec.open = true;
     w.run();
-    ok(w.scripts.length === 0 && w.win.__pg.n === want, 'F 이미 받아 둔 뒤: ' + why, { st, open, n: w.win.__pg.n, scripts: w.scripts.length });
+    ok(w.scripts.length === 0 && w.win.__pg.n === 0, 'F 이미 받아 둔 뒤에는 다시 받지도 부르지도 않는다(그 스크립트의 toggle 이 부른다)', { st, n: w.win.__pg.n, scripts: w.scripts.length });
   }
 
   // 실행 — 언어 판정: 매니저 화면은 adminLang 이 없고 기본이 영어(<html lang>) — 저장값이 없어도 영어로 그린다

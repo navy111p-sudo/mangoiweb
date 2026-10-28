@@ -4003,7 +4003,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 
   /* ⛔ 이 함수를 화면 로드 시점에 부르지 말 것 — 그 순간 계약 1번(외부 리소스 0개)이 깨진다.
      ⚠️ `?v=` 는 admin.html 의 것과 **같은 번호** 여야 한다 — 다르면 두 화면이 서로 다른 사본을
-        쓰게 되고, asset_version_harness 가 그 어긋남을 FAIL 로 잡는다. */
+        쓰게 된다. ⚠️ 이 일치를 지키는 자동 검사는 아직 없다(asset_version_harness 는 속성 src="…" 만 봐서
+        이 JS 문자열 주소를 못 본다) — 번호를 올릴 때 두 화면을 눈으로 맞출 것. */
   var _bulkbookLoading = null;
   function loadBulkbook(cb){
     if (typeof window.mangoiOpenBulkTextbook === 'function') return cb(true);
@@ -4022,8 +4023,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 
   /* 📵 (2026-10-28) 번호 없는 학생 카드 — admin.html 과 «같은» js/adm-phone-gaps.js 를 카드를 처음 펼칠 때만 받는다.
      ⛔ 화면 로드 시점에 부르지 말 것(계약 1번). ⛔ 판정·저장을 이 화면에 복제하지 말 것(「화면마다 답이 다른」 사고).
-     ⚠️ `?v=` 는 admin.html 의 것과 **같은 번호** 여야 한다(asset_version_harness).
-     ⚠️ 스크립트가 늦게 도착하면 카드의 toggle 이벤트는 이미 지나갔다 — 도착한 뒤 «열려 있고 아직 안 불렀으면» 직접 부른다. */
+     ⚠️ `?v=` 는 admin.html 의 것과 **같은 번호** 여야 한다 — phone_gaps_harness F절이 대조한다
+        (asset_version_harness 는 속성 src="…" 만 봐서 이 JS 문자열 주소는 못 본다).
+     ⚠️ 스크립트가 늦게 도착하면 카드의 toggle 이벤트는 이미 지나갔다 — 도착한 뒤 «열려 있고 아직 안 불렀으면» 직접 부른다.
+     ⚠️ 이미 받아 둔 뒤에는 여기서 부르지 않는다 — 그 스크립트가 카드의 toggle 을 직접 듣는다(둘 다 부르면 목록 요청이 두 번). */
   var _pgLoading = false;
   window.loadPhoneGaps = function(){
     var sec = document.getElementById('sm-phone-gaps');
@@ -4032,13 +4035,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       if (!pg || !sec || !sec.open) return;
       if (!(pg._state && pg._state.loadedOnce) && !(pg._state && pg._state.busy)) pg.load();
     };
-    if (window.__pg && window.__pg.__loaded) return kick();
+    if (window.__pg && window.__pg.__loaded) return;
     if (_pgLoading) return;
     _pgLoading = true;
     var body = document.getElementById('pg-body');
     if (body) body.innerHTML = '<div class="empty"><span data-en="Loading…" data-ko="불러오는 중…">' + (EN() ? 'Loading…' : '불러오는 중…') + '</span></div>';
     var sc = document.createElement('script');
-    sc.src = '/js/adm-phone-gaps.js?v=3';
+    sc.src = '/js/adm-phone-gaps.js?v=4';
     sc.onload = function(){ _pgLoading = false; kick(); };
     sc.onerror = function(){
       _pgLoading = false;
