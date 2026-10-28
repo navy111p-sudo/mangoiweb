@@ -410,7 +410,7 @@ export async function handleTeacherApi(
   /* 📵 «번호 없는 학생» — 강사판 (2026-10-28 사장님 「강사 화면에도 똑같이 넣어줘」)
    *  GET  ?part=phone_gaps&days=7   — «내 수업» 이 있는데 수업 전 안내 문자가 갈 번호가 없는 학생(정본 src/phone-gaps.ts)
    *  POST ?part=phone_save          — {student_uid, parent_phone?, student_phone?} 그 학생에게 번호를 «넣기만» 한다
-   *  🔐 범위 = 포털의 예약 조건과 «같은 열쇠»(로그인 아이디 + 확정된 원부 번호) — 남의 수업 학생은 목록에도 저장에도 안 닿는다.
+   *  🔐 범위 = 포털의 예약 조건과 «같은 열쇠»(로그인 아이디 + 확정된 원부 번호) — 남의 수업 학생은 목록에도 저장에도 안 닿는다(저장 키는 대소문자까지 정확일치). ⚠️ 다만 읽는 쪽 getOverridePhones 는 NOCASE 로 찾으므로, 대소문자만 다른 다른 계정(Kim/kim)이 자기 받은 번호가 없으면 이 번호를 집는다 — 관리자 PATCH 와 같은 성질(새로 생긴 것 아님).
    *  ⛔ 관리자 PATCH /api/admin/student/:uid/contact 를 강사에게 열지 않는다 — 그 경로는 지우기·명부 수정까지 한다.
    *     강사는 «번호가 없는 학생에게 새 번호 넣기» 만: 지우기 없음 · 이미 번호가 있는 학생 손댈 수 없음 · 명부(students_erp) 안 건드림
    *     (받는 자리는 student_erp_override 하나 — 발송 정본이 «먼저» 읽고 야간 동기화가 못 덮는 자리).
