@@ -781,6 +781,146 @@ console.log('\n[ E. 화면 — 무엇을 보내고 무엇을 말하나 ]');
   report('화면', b);
 }
 
+/* ── F. 매니저 화면(manager.html) — 같은 스크립트를 «카드를 펼칠 때만» 받는가 (2026-10-28) ──────────────
+   왜: 매니저 화면은 «첫 화면 외부 리소스 0개» 계약이라 admin.html 처럼 defer 로 실을 수 없다. 그렇다고 판정·저장을
+       복제하면 「화면마다 답이 다른」 사고가 시작된다 → 같은 파일을 펼칠 때 한 번 받는다. 그 로더를 «실제로 돌려» 본다. */
+{
+  const b = mark();
+  const mh = rd(process.env.PG_SRC_MANAGER_HTML || resolve(PUB, 'manager.html'));
+  const ah = rd(resolve(PUB, 'admin.html'));
+  const js = rd(process.env.PG_SRC_ADM_JS || resolve(PUB, 'js/adm-phone-gaps.js'));
+  const jsNoCmt = js.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const { deadAt, commentsBalanced } = await import('./helpers/live-code.mjs');
+  // 정적 — 첫 화면에 안 싣는다 · 같은 번호 · 카드·id
+  ok(!/<script[^>]*src="\/js\/adm-phone-gaps\.js/.test(mh), 'F 매니저 화면은 adm-phone-gaps.js 를 <script src> 로 싣지 않는다(계약 1번 — 첫 화면 외부 리소스 0개)');
+  const av = (ah.match(/\/js\/adm-phone-gaps\.js\?v=(\d+)/) || [])[1];
+  const mv = [...mh.matchAll(/\/js\/adm-phone-gaps\.js\?v=(\d+)/g)].map(m => m[1]);
+  ok(av && mv.length === 1 && mv[0] === av, 'F 매니저 로더의 ?v= 가 admin.html 과 같은 번호(다르면 두 화면이 다른 사본을 쓴다)', { admin: av, manager: mv });
+  const cAt = mh.indexOf('<details class="card" id="sm-phone-gaps"');
+  const cOpen = cAt >= 0 ? mh.slice(cAt, mh.indexOf('>', cAt) + 1) : '';
+  const card = cAt >= 0 ? mh.slice(cAt, mh.indexOf('</details>', cAt)) : '';
+  ok(/\shidden[\s>]/.test(cOpen) && /ontoggle="if\(this\.open\)loadPhoneGaps\(\)"/.test(cOpen), 'F 카드는 처음엔 감춰져 있고(본사만 푼다) 펼칠 때 로더를 부른다', cOpen);
+  const usedIds = [...new Set([...jsNoCmt.matchAll(/\$\('([a-z0-9-]+)'\)/g)].map(m => m[1]))];
+  ok(usedIds.length >= 5, 'F (전제) 스크립트가 찾는 id 목록을 소스에서 읽었다', usedIds);
+  for (const id of usedIds) ok(id === 'sm-phone-gaps' ? cAt >= 0 : card.includes('id="' + id + '"'), 'F 매니저 카드 안에 스크립트가 찾는 요소가 있다', id);
+  for (const id of ['pg-body', 'pg-count', 'pg-flash']) {
+    const tag = (card.match(new RegExp('<[^>]*id="' + id + '"[^>]*>')) || [''])[0];
+    ok(tag && !/data-(en|ko)=/.test(tag), 'F 그려 넣는 그릇에는 data-en/data-ko 를 달지 않는다(applyLang 이 textContent 를 통째로 갈아끼운다)', { id, tag });
+  }
+  const side = (mh.match(/<button[^>]*id="sidePhoneGaps"[^>]*>/) || [''])[0];
+  ok(/\shidden[\s>]/.test(side) && /onclick="sideGo\('sm-phone-gaps'\)"/.test(side), 'F 왼쪽 메뉴 단추도 처음엔 감춰져 있고 그 카드로 간다', side);
+  ok(/html\.dark #pg-flash\{color:[^}]*!important\}/.test(mh) && /html\.dark #pg-flash\[data-warn="1"\]\{color:[^}]*!important\}/.test(mh), 'F 어두운 화면에서 알림 글자색을 덮는다(스크립트가 밝은 화면용 진한 색을 인라인으로 쓴다)');
+  { const ci = mh.indexOf('이 파일의 설계 계약'); ok(ci > 0 && /adm-phone-gaps\.js/.test(mh.slice(ci, mh.indexOf('-->', ci))), 'F 머리말 설계 계약에 예외를 적었다'); }
+
+  // 실행 — 본사만 카드·메뉴를 푼다 (IS_HQ 자리를 오려 내 돌린다)
+  const hqAt = mh.indexOf("['sm-phone-gaps', 'sidePhoneGaps'].forEach");
+  const hqEnd = hqAt >= 0 ? mh.indexOf('\n', mh.indexOf('\n', hqAt) + 1) : -1;
+  const hqCut = hqAt >= 0 ? mh.slice(hqAt, hqEnd) : '';
+  const scrFrom = mh.lastIndexOf('<script>', hqAt);
+  ok(hqAt > 0 && deadAt(mh, hqAt, scrFrom) === '' && commentsBalanced(hqCut), 'F (전제) 본사 판정 자리를 오려 냈고 주석 밖에 살아 있다', hqCut.slice(0, 160));
+  for (const IS_HQ of [true, false]) {
+    const els = { 'sm-phone-gaps': { hidden: true, classList: { contains: () => true } }, sidePhoneGaps: { hidden: true } };
+    let paneNull = 0;
+    try {
+      new Function('document', 'IS_HQ', 'setPane', hqCut)({ getElementById: (id) => els[id] || null }, IS_HQ, (v) => { if (v === null) paneNull++; });
+    } catch (e) { ok(false, 'F 본사 판정 자리가 돌아간다', String(e)); }
+    ok(els['sm-phone-gaps'].hidden === !IS_HQ && els.sidePhoneGaps.hidden === !IS_HQ, 'F 본사면 카드·메뉴가 보이고, 아니면 감춘다(서버 403 짝)', { IS_HQ, card: els['sm-phone-gaps'].hidden, side: els.sidePhoneGaps.hidden });
+    ok(IS_HQ ? paneNull === 0 : paneNull === 1, 'F 본사가 아니게 되면 그 카드를 펼쳐 둔 판(pane)도 닫는다', { IS_HQ, paneNull });
+  }
+
+  // 실행 — 언어를 바꾸면 다시 그린다(이 화면은 mangoi:lang-changed 를 안 쏜다 → repaintAll 이 부른다)
+  const rpAt = mh.indexOf('function repaintAll(');
+  const rpBody = braceBody(mh, rpAt);
+  const rIdx = rpBody.indexOf('window.__pg.render()');
+  ok(rIdx > 0 && deadAt(rpBody, rIdx, 0) === '', 'F repaintAll 이 (불러온 목록이 있으면) 그 스크립트의 render 를 부른다');
+  {
+    const line = rpBody.split('\n').find(l => l.includes('window.__pg.render()')) || '';
+    for (const [pg, want] of [[undefined, 0], [{ _state: { data: null }, render() { this.n++; }, n: 0 }, 0], [{ _state: { data: { ok: true } }, render() { this.n++; }, n: 0 }, 1]]) {
+      const win = { __pg: pg };
+      try { new Function('window', line)(win); } catch (e) { ok(false, 'F repaintAll 의 그 줄이 던지지 않는다', String(e)); }
+      ok((pg ? pg.n : 0) === want, 'F 목록을 불러온 «뒤» 에만 다시 그린다(안 불렀으면 손대지 않는다)', { has: !!pg, data: pg && pg._state.data, n: pg && pg.n });
+    }
+  }
+
+  // 실행 — 로더: 한 번만 받는다 · 도착하면 «열려 있고 아직 안 불렀을 때» 만 부른다 · 실패하면 다시 펼칠 때 다시 받는다
+  const ldAt = mh.indexOf('window.loadPhoneGaps = function');
+  const ldFn = braceBody(mh, ldAt);
+  ok(ldAt > 0 && /var _pgLoading = false;/.test(mh.slice(Math.max(0, ldAt - 200), ldAt)) && deadAt(mh, ldAt, mh.lastIndexOf('<script>', ldAt)) === '', 'F (전제) 로더를 오려 냈고 살아 있다');
+  const seen = (h) => String(h).replace(/<[^>]*>/g, '');
+  function world(en) {
+    const scripts = [];
+    const body = { innerHTML: '' };
+    const sec = { open: true };
+    const doc = {
+      getElementById: (id) => (id === 'pg-body' ? body : id === 'sm-phone-gaps' ? sec : null),
+      createElement: () => ({ src: '', onload: null, onerror: null, parentNode: { removeChild() {} } }),
+      head: { appendChild: (s) => scripts.push(s) },
+    };
+    const win = {};
+    let run;
+    try { new Function('window', 'document', 'EN', 'var _pgLoading = false;\n' + ldFn + ';')(win, doc, () => en); run = win.loadPhoneGaps; }
+    catch (e) { ok(false, 'F 로더가 돌아간다', String(e)); run = () => {}; }
+    const stub = (st) => ({ __loaded: true, _state: st, n: 0, load() { this.n++; } });
+    return { run, scripts, body, sec, win, stub };
+  }
+  for (const en of [true, false]) {
+    const w = world(en);
+    w.run(); w.run();
+    ok(w.scripts.length === 1 && w.scripts[0].src === '/js/adm-phone-gaps.js?v=' + av, 'F 연타해도 한 번만 받고, admin 과 같은 주소를 받는다', w.scripts.map(s => s.src));
+    // ⚠️ 태그를 벗긴 «보이는 글자» 로 본다 — data-ko/data-en 속성 안의 글자가 걸려 «한국어로 말한다» 가 거짓으로 통과했다(변이 실측)
+    ok(seen(w.body.innerHTML).includes(en ? 'Loading' : '불러오는 중') && !seen(w.body.innerHTML).includes(en ? '불러오는 중' : 'Loading'), 'F 받는 동안 «불러오는 중» 을 그 화면 언어로 말한다', { en, html: w.body.innerHTML });
+    w.win.__pg = w.stub({ loadedOnce: false, busy: null });
+    try { w.scripts[0].onload(); } catch (e) { ok(false, 'F onload 가 던지지 않는다', String(e)); }
+    ok(w.win.__pg.n === 1, 'F 도착했을 때 카드가 열려 있으면 목록을 부른다(toggle 이벤트는 이미 지나갔다)', w.win.__pg.n);
+  }
+  {
+    const w = world(true);
+    w.run(); w.sec.open = false;
+    w.win.__pg = w.stub({ loadedOnce: false, busy: null });
+    w.scripts[0].onload();
+    ok(w.win.__pg.n === 0, 'F 도착했을 때 카드가 닫혀 있으면 부르지 않는다', w.win.__pg.n);
+  }
+  for (const en of [true, false]) {
+    const w = world(en);
+    w.run();
+    try { w.scripts[0].onerror(); } catch (e) { ok(false, 'F onerror 가 던지지 않는다', String(e)); }
+    ok(seen(w.body.innerHTML).includes(en ? 'Could not load this panel' : '이 칸을 불러오지 못했습니다') && !seen(w.body.innerHTML).includes(en ? '이 칸을' : 'Could not'), 'F 못 받으면 그 사실을 그 화면 언어로 말한다', { en, html: w.body.innerHTML });
+    w.run();
+    ok(w.scripts.length === 2, 'F 못 받은 뒤 다시 펼치면 다시 받는다(한 번 실패로 영영 막히지 않는다)', w.scripts.length);
+  }
+  for (const [st, open, want, why] of [
+    [{ loadedOnce: true, busy: null }, true, 0, '이미 불러왔으면 다시 안 부른다(펼칠 때마다 목록 요청이 나가지 않게)'],
+    [{ loadedOnce: false, busy: {} }, true, 0, '불러오는 중이면 겹쳐 부르지 않는다'],
+    [{ loadedOnce: false, busy: null }, true, 1, '받아 둔 뒤 아직 안 불렀으면 부른다'],
+    [{ loadedOnce: false, busy: null }, false, 0, '닫혀 있으면 부르지 않는다'],
+  ]) {
+    const w = world(true);
+    w.win.__pg = w.stub(st); w.sec.open = open;
+    w.run();
+    ok(w.scripts.length === 0 && w.win.__pg.n === want, 'F 이미 받아 둔 뒤: ' + why, { st, open, n: w.win.__pg.n, scripts: w.scripts.length });
+  }
+
+  // 실행 — 언어 판정: 매니저 화면은 adminLang 이 없고 기본이 영어(<html lang>) — 저장값이 없어도 영어로 그린다
+  const ie = braceBody(jsNoCmt, jsNoCmt.indexOf('function isEn()'));
+  const isEnRun = (adminLang, htmlLang, stored) => {
+    try {
+      return new Function('window', 'document', 'localStorage', ie + '\nreturn isEn();')(
+        { adminLang }, { documentElement: { lang: htmlLang } }, { getItem: () => stored });
+    } catch (e) { return 'THROW ' + e; }
+  };
+  for (const [a, h, st, want, why] of [
+    [undefined, 'en', null, true, '매니저 기본(영어) — 저장값이 없어도 영어'],
+    [undefined, 'en', 'ko', true, '<html lang> 이 저장값보다 먼저(화면이 이미 정한 언어)'],
+    [undefined, 'ko', 'en', false, '매니저에서 한국어로 바꾸면 한국어'],
+    [undefined, 'ko-KR', null, false, '지역 꼬리가 붙어도(ko-KR) 읽는다'],
+    ['ko', 'en', 'en', false, '관리자 화면은 adminLang 이 이긴다(예전 그대로)'],
+    ['en', 'ko', 'ko', true, '관리자 화면은 adminLang 이 이긴다(예전 그대로)'],
+    [undefined, '', 'en', true, '<html lang> 이 비면 예전처럼 mangoi_lang'],
+    [undefined, '', null, false, '아무것도 모르면 한국어(예전 그대로)'],
+  ]) ok(isEnRun(a, h, st) === want, 'F 언어 판정: ' + why, { a, h, st, got: isEnRun(a, h, st) });
+  report('매니저 화면', b);
+}
+
 console.warn = _warn;
 console.log('\n' + '─'.repeat(60));
 if (fails.size) {
