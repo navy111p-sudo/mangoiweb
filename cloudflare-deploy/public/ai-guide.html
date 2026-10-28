@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A.i학습 사용설명서 — 망고아이</title>
+<meta name="description" content="망고아이 A.i 학습 11가지를 무엇을 · 언제 · 어떻게 쓰는지 한눈에 정리한 원장님·선생님용 안내서">
+<link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0f1d3a">
+<!--
+  📖 A.i학습 사용설명서 — 원장님·선생님용 (2026-10-28 사장님 지시)
+
+  [왜 있나]
+    처음 망고아이 A.i 학습을 접하는 학원이 생겼는데, 11가지 도구를 «어떻게 쓰는지» 한 곳에 모은
+    안내가 없었다. 원장님께 이 주소(https://mangoi.ai/ai-guide.html) 하나만 보내 드리면 되게 만든다.
+    홈 「AI와 친구하기」 목록 제목 아래 «📖 A.i학습 사용설명서» 단추가 여기로 온다(js/idx-allmenu.js).
+
+  [어떻게 만들었나]
+    · 문구는 전부 맨 아래 인라인 스크립트의 데이터(TXT · GROUPS · TOOLS · WEEK · FAQ) 한 곳에 KO/EN 짝으로 있다.
+      화면은 그 데이터를 그리기만 한다 → 문구를 고칠 때는 데이터만 고친다.
+    · 화면 사진은 /img/ai-guide/*.webp (로컬 서버 + 크로미움으로 찍은 실제 화면, 2026-10-28).
+      그 화면이 크게 바뀌면 사진도 다시 찍을 것.
+    · 수업일·주간 순서(WEEK)는 서버 정본 src/today-plan.ts 의 CLASS_DAY · HOME_WEEK 를 옮겨 적은 것이다.
+      ⚠️ 그 표가 바뀌면 여기도 함께.
+
+  [규칙]
+    · data-ko/data-en 을 쓰지 않는다 — 공용 i18n 엔진이 textContent 를 통째로 갈아 끼워 굵은 글씨·아이콘이
+      사라진다(CLAUDE.md 2장). 대신 «mangoi:lang-changed» 를 듣고 이 화면이 직접 다시 그린다.
+    · 이모지는 Unicode 13 미만만(Win10 두부 방지 — CLAUDE.md 1-4).
+    · 서버를 부르지 않는다(로그인 불필요 · 누구나 열람). 원장님이 카톡으로 받아 바로 열 수 있어야 한다.
+-->
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<script src="/js/mango-i18n.js" defer></script>
+<script defer src="/js/back-nav.js"></script>
+<style>
+  :root{
+    --bg:#fbf7ee; --paper:#ffffff; --ink:#1b2437; --ink2:#465166; --muted:#77819a; --line:#ebe2cf;
+    --navy:#0f1d3a; --navy2:#1c3264; --gold:#fbbf24; --gold2:#f59e0b; --goldink:#8a5800; --goldbg:#fff4d6;
+    --learn:#2563eb; --learnbg:#eaf1ff; --speak:#e2580c; --speakbg:#fff0e5;
+    --write:#0a8a60; --writebg:#e3f5ec; --play:#7c3aed; --playbg:#f1eaff;
+    --shadow:0 12px 30px -18px rgba(15,29,58,.45);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0b1428; --paper:#121e38; --ink:#eef2fb; --ink2:#c4cde0; --muted:#94a0ba; --line:#26355a;
+      --goldink:#fcd34d; --goldbg:rgba(251,191,36,.13);
+      --learn:#86adff; --learnbg:rgba(37,99,235,.2); --speak:#ff9a5c; --speakbg:rgba(226,88,12,.18);
+      --write:#45d6a0; --writebg:rgba(10,138,96,.2); --play:#bd9cff; --playbg:rgba(124,58,237,.22);
+      --shadow:0 12px 30px -18px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b1428; --paper:#121e38; --ink:#eef2fb; --ink2:#c4cde0; --muted:#94a0ba; --line:#26355a;
+    --goldink:#fcd34d; --goldbg:rgba(251,191,36,.13);
+    --learn:#86adff; --learnbg:rgba(37,99,235,.2); --speak:#ff9a5c; --speakbg:rgba(226,88,12,.18);
+    --write:#45d6a0; --writebg:rgba(10,138,96,.2); --play:#bd9cff; --playbg:rgba(124,58,237,.22);
+    --shadow:0 12px 30px -18px rgba(0,0,0,.7);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);line-height:1.6;word-break:keep-all;overflow-wrap:anywhere;
+    font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard','Noto Sans KR','Malgun Gothic',sans-serif;
+    -webkit-text-size-adjust:100%}
+  a{color:inherit}
+  img{max-width:100%}
+  .wrap{max-width:960px;margin:0 auto;padding:0 16px}
+
+  /* ── 머리 ── */
+  .hero{background:radial-gradient(120% 90% at 85% 0%,#2a4789 0%,var(--navy2) 38%,var(--navy) 78%);color:#fdf6e3;
+    padding:64px 0 72px;position:relative;overflow:hidden}
+  .hero:after{content:"";position:absolute;inset:auto -10% -58px -10%;height:90px;background:var(--bg);border-radius:50% 50% 0 0}
+  .hero .wrap{position:relative;z-index:1;display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center}
+  .hero-char{width:118px;height:auto;filter:drop-shadow(0 10px 22px rgba(245,158,11,.4))}
+  .eyebrow{display:inline-block;padding:4px 12px;border-radius:99px;background:rgba(251,191,36,.16);border:1px solid rgba(251,191,36,.5);
+    color:#fde68a;font-size:13px;font-weight:800;letter-spacing:.02em}
+  .hero h1{margin:10px 0 8px;font-size:40px;line-height:1.15;font-weight:900;letter-spacing:-.03em}
+  .hero h1 b{color:var(--gold)}
+  .hero .lead{margin:0;max-width:600px;font-size:16.5px;color:#e6dcc0}
+  .hero-chips{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0}
+  .hero-chips span{padding:6px 12px;border-radius:99px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);font-size:13.5px;font-weight:700;color:#f4ecd6}
+  .hero-btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:14px;font:inherit;font-size:15.5px;font-weight:900;
+    text-decoration:none;cursor:pointer;border:0}
+  .btn-gold{background:linear-gradient(135deg,#fde68a,var(--gold) 55%,var(--gold2));color:#1a1a1a;box-shadow:0 10px 22px -10px rgba(245,158,11,.8)}
+  .btn-gold:hover{background:#fde68a}
+  .btn-ghost{background:rgba(255,255,255,.1);color:#fdf6e3;border:1px solid rgba(255,255,255,.25)}
+  .btn-ghost:hover{background:rgba(255,255,255,.18)}
+
+  /* ── 공통 구역 ── */
+  section{margin:34px 0}
+  .sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:0 0 14px}
+  .sec-head h2{margin:0;font-size:25px;font-weight:900;letter-spacing:-.02em}
+  .sec-head h2 .n{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;margin-right:8px;border-radius:11px;
+    background:var(--navy);color:var(--gold);font-size:17px;vertical-align:3px}
+  .sec-head p{margin:0;color:var(--muted);font-size:14px}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}
+
+  /* ── 한눈에 보기 ── */
+  .glance{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .gbox{padding:16px 14px 12px;border-radius:20px;background:var(--paper);border:1px solid var(--line);border-top:5px solid var(--gc);box-shadow:var(--shadow);min-width:0}
+  .gbox h3{margin:0;font-size:17px;font-weight:900;color:var(--gc)}
+  .gbox p{margin:4px 0 10px;font-size:13px;color:var(--ink2);line-height:1.45}
+  .gtile{display:flex;align-items:center;gap:10px;padding:8px 8px;margin:0 -4px;border-radius:12px;text-decoration:none;font-size:14.5px;font-weight:800}
+  .gtile:hover{background:var(--gbg)}
+  .gtile .ic{flex:0 0 auto;width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:var(--gbg);color:var(--gc)}
+  .gtile .ic svg{width:21px;height:21px}
+  .gtile .ic img{width:27px;height:27px;object-fit:contain}
+  .g-learn{--gc:var(--learn);--gbg:var(--learnbg)} .g-speak{--gc:var(--speak);--gbg:var(--speakbg)}
+  .g-write{--gc:var(--write);--gbg:var(--writebg)} .g-play{--gc:var(--play);--gbg:var(--playbg)}
+
+  /* ── 시작 3단계 ── */
+  .steps3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;counter-reset:s}
+  .s3{position:relative;padding:20px 18px 18px;min-width:0}
+  .s3 .big{display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;
+    background:linear-gradient(135deg,#fde68a,var(--gold) 60%,var(--gold2));color:#1a1a1a;font-size:22px;font-weight:900;margin-bottom:10px}
+  .s3 h3{margin:0 0 4px;font-size:18px;font-weight:900}
+  .s3 p{margin:0;font-size:14.5px;color:var(--ink2)}
+  .s3 p b{color:var(--ink)}
+  .s3:not(:last-child):after{content:"";position:absolute;right:-12px;top:42px;width:12px;height:2px;background:var(--gold2)}
+  .need{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+  .need div{padding:14px 12px;border-radius:16px;background:var(--goldbg);border:1px dashed rgba(245,158,11,.55);min-width:0}
+  .need .e{font-size:26px;line-height:1}
+  .need b{display:block;margin:6px 0 2px;font-size:15px}
+  .need span{display:block;font-size:13px;color:var(--ink2);line-height:1.45}
+  .callout{display:flex;gap:10px;align-items:flex-start;margin-top:12px;padding:12px 14px;border-radius:14px;background:var(--learnbg);color:var(--ink);font-size:14.5px}
+  .callout .e{font-size:20px;line-height:1.3}
+
+  /* ── 도구 카드 ── */
+  .group-title{display:flex;align-items:center;gap:10px;margin:28px 0 12px}
+  .group-title .pill{padding:6px 14px;border-radius:99px;background:var(--gc);color:#fff;font-size:15px;font-weight:900}
+  .group-title p{margin:0;color:var(--ink2);font-size:14.5px}
+  .tool{padding:20px;margin-bottom:14px;border-left:6px solid var(--gc);scroll-margin-top:16px}
+  .tool-top{display:flex;align-items:flex-start;gap:14px}
+  .tool-top .ic{flex:0 0 auto;width:58px;height:58px;border-radius:17px;display:flex;align-items:center;justify-content:center;background:var(--gbg);color:var(--gc)}
+  .tool-top .ic svg{width:31px;height:31px}
+  .tool-top .ic img{width:44px;height:44px;object-fit:contain}
+  .tool-top h3{margin:0;font-size:21px;font-weight:900;letter-spacing:-.02em;line-height:1.3}
+  .tool-top h3 .no{color:var(--gc);margin-right:6px}
+  .tool-top .one{margin:3px 0 0;color:var(--ink2);font-size:15px}
+  .badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .badges span{padding:3px 10px;border-radius:99px;background:var(--gbg);color:var(--gc);font-size:12.5px;font-weight:800;white-space:nowrap}
+  .badges span.new{background:linear-gradient(135deg,#fde68a,var(--gold));color:#1a1a1a}
+  .tool-body{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:20px;margin-top:16px;align-items:start}
+  .how h4,.extra h4{margin:0 0 8px;font-size:15px;font-weight:900;color:var(--gc)}
+  .how ol{list-style:none;margin:0;padding:0;counter-reset:st}
+  .how li{position:relative;padding:0 0 12px 40px;font-size:15.5px;counter-increment:st;min-height:30px}
+  .how li:before{content:counter(st);position:absolute;left:0;top:-1px;width:28px;height:28px;border-radius:50%;background:var(--gc);color:#fff;
+    font-size:14.5px;font-weight:900;display:flex;align-items:center;justify-content:center}
+  .how li:not(:last-child):after{content:"";position:absolute;left:13px;top:29px;bottom:2px;width:2px;background:var(--gbg)}
+  .how li b{color:var(--ink);background:var(--gbg);padding:0 4px;border-radius:5px}
+  .extra{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+  .extra div{padding:11px 13px;border-radius:14px;background:var(--bg);border:1px solid var(--line);font-size:14px;color:var(--ink2);min-width:0}
+  .extra .lbl{display:block;color:var(--ink);font-size:14px;font-weight:900;margin-bottom:2px}
+  .extra div b{color:var(--ink)}
+  .phone{margin:0;text-align:center}
+  .phone .frame{display:block;padding:7px;border-radius:30px;background:#0b1020;box-shadow:0 18px 32px -16px rgba(0,0,0,.55);border:1px solid #2b3550}
+  .phone img{display:block;width:100%;height:auto;aspect-ratio:390/700;object-fit:cover;object-position:top;border-radius:23px;background:#16213d}
+  .phone figcaption{margin-top:7px;font-size:12.5px;color:var(--muted)}
+  .go{display:inline-flex;align-items:center;gap:6px;margin-top:4px;padding:8px 14px;border-radius:11px;background:var(--gbg);color:var(--gc);
+    font-size:14px;font-weight:900;text-decoration:none}
+  .go:hover{filter:brightness(.97)}
+
+  /* ── 학원 활용 ── */
+  .day{padding:20px}
+  .day h3{margin:0 0 4px;font-size:19px;font-weight:900}
+  .day > p{margin:0 0 14px;color:var(--ink2);font-size:14.5px}
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:nowrap}
+  .fstop{flex:1 1 0;min-width:0;padding:14px 12px;border-radius:16px;background:var(--bg);border:1px solid var(--line);text-align:center}
+  .fstop.main{background:var(--navy);border-color:var(--navy);color:#fdf6e3}
+  .fstop .when{font-size:12.5px;font-weight:900;color:var(--goldink);letter-spacing:.02em}
+  .fstop.main .when{color:var(--gold)}
+  .fstop .what{display:block;margin-top:4px;font-size:15px;font-weight:900}
+  .fstop .min{display:block;margin-top:2px;font-size:12.5px;color:var(--muted)}
+  .fstop.main .min{color:#cbd5e1}
+  .farrow{flex:0 0 22px;display:flex;align-items:center;justify-content:center;color:var(--gold2);font-weight:900}
+  .week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+  .wd{padding:10px 6px;border-radius:14px;background:var(--bg);border:1px solid var(--line);text-align:center;min-width:0}
+  .wd .d{display:block;font-weight:900;font-size:15px;margin-bottom:6px}
+  .wd.sun .d{color:#dc2626} .wd.sat .d{color:var(--learn)}
+  .wd span.t{display:block;margin:4px 0;padding:4px 2px;border-radius:9px;font-size:12px;font-weight:800;line-height:1.3}
+  .ideas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+  .idea{padding:16px;min-width:0}
+  .idea .e{font-size:26px;line-height:1}
+  .idea h4{margin:8px 0 4px;font-size:16px;font-weight:900}
+  .idea p{margin:0;font-size:14px;color:var(--ink2)}
+
+  /* ── 자주 묻는 질문 ── */
+  .faq details{background:var(--paper);border:1px solid var(--line);border-radius:16px;margin-bottom:8px;box-shadow:var(--shadow)}
+  .faq summary{list-style:none;cursor:pointer;padding:15px 46px 15px 16px;font-size:16px;font-weight:900;position:relative}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary:after{content:"+";position:absolute;right:16px;top:50%;transform:translateY(-50%);width:26px;height:26px;border-radius:50%;
+    background:var(--goldbg);color:var(--goldink);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900}
+  .faq details[open] summary:after{content:"\2212"}
+  .faq .a{padding:0 16px 16px;font-size:15px;color:var(--ink2)}
+  .faq .a b{color:var(--ink)}
+
+  .foot{margin:40px 0 0;padding:28px 0 60px;background:var(--navy);color:#e6dcc0;text-align:center}
+  .foot h2{margin:0 0 6px;color:#fdf6e3;font-size:21px}
+  .foot p{margin:4px 0;font-size:14px}
+  .foot .btn{margin-top:12px}
+  .foot small{display:block;margin-top:18px;color:#94a3b8;font-size:12.5px}
+
+  @media (max-width:860px){
+    .glance{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .need{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .ideas{grid-template-columns:1fr}
+  }
+  @media (max-width:680px){
+    .hero{padding:58px 0 62px}
+    .gbox{padding:14px 10px 10px}
+    .gtile{font-size:13.5px;gap:8px;padding:7px 6px}
+    .gtile .ic{width:32px;height:32px}
+    .hero .wrap{grid-template-columns:1fr;text-align:center;justify-items:center}
+    .hero-char{width:96px}
+    .hero h1{font-size:31px}
+    .hero .lead{font-size:15.5px}
+    .hero-chips,.hero-btns{justify-content:center}
+    .sec-head{display:block}
+    .sec-head p{margin-top:4px}
+    .sec-head h2{font-size:22px}
+    .steps3{grid-template-columns:1fr}
+    .s3:not(:last-child):after{right:auto;left:40px;top:auto;bottom:-12px;width:2px;height:12px}
+    .tool{padding:16px}
+    .tool-top h3{font-size:19px}
+    .tool-body{grid-template-columns:1fr}
+    .phone{max-width:200px;margin:0 auto}
+    .extra{grid-template-columns:1fr}
+    .flow{flex-direction:column}
+    .farrow{flex-basis:20px;transform:rotate(90deg)}
+    .week{grid-template-columns:repeat(4,minmax(0,1fr))}
+  }
+  @media (max-width:380px){
+    .glance{grid-template-columns:1fr}
+    .need{grid-template-columns:1fr}
+  }
+
+  /* ── 인쇄(A4) — 밝은 색으로, 단추·떠 있는 막대는 빼고 ── */
+  @page{size:A4;margin:12mm}
+  @media print{
+    :root{--bg:#fff;--paper:#fff;--ink:#111827;--ink2:#374151;--muted:#6b7280;--line:#e5e7eb;--shadow:none;
+      --goldink:#8a5800;--goldbg:#fff4d6;--learn:#2563eb;--learnbg:#eaf1ff;--speak:#e2580c;--speakbg:#fff0e5;
+      --write:#0a8a60;--writebg:#e3f5ec;--play:#7c3aed;--playbg:#f1eaff}
+    body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #mangoi-global-bar,#mangoi-back-btn,.mangoi-back-btn,.no-print,.hero-btns,.go{display:none!important}
+    .hero{padding:24px 0 26px}
+    .hero:after{display:none}
+    .tool,.gbox,.s3,.day,.idea,.faq details{break-inside:avoid}
+    .group-title,.sec-head{break-after:avoid}
+    .faq details .a{display:block}
+    /* 카드 한 장이 반 쪽을 넘으면 쪽마다 1장씩 남고 빈칸이 생긴다 — 인쇄에서는 작게 */
+    section{margin:20px 0}
+    .glance{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .group-title{margin:14px 0 8px}
+    .tool{padding:12px 14px;margin-bottom:8px}
+    .tool-top{gap:10px}
+    .tool-top .ic{width:42px;height:42px;border-radius:13px}
+    .tool-top .ic svg{width:24px;height:24px}
+    .tool-top .ic img{width:32px;height:32px}
+    .tool-top h3{font-size:17px}
+    .tool-top .one{font-size:12.5px}
+    .badges{margin-top:5px}
+    .badges span{font-size:10.5px;padding:1px 8px}
+    .tool-body{grid-template-columns:minmax(0,1fr) 108px;gap:14px;margin-top:8px}
+    .phone{max-width:108px}
+    .phone .frame{padding:4px;border-radius:18px}
+    .phone img{border-radius:14px}
+    .phone figcaption{display:none}
+    .how h4{font-size:12.5px;margin-bottom:5px}
+    .how li{font-size:12.5px;padding:0 0 6px 32px;min-height:22px}
+    .how li:before{width:22px;height:22px;font-size:12px}
+    .how li:not(:last-child):after{left:10px;top:23px}
+    .extra{gap:8px;margin-top:2px}
+    .extra div{font-size:11.5px;padding:7px 10px;line-height:1.45}
+    .extra .lbl{font-size:11.5px}
+    .foot{background:#fff;color:#374151;border-top:2px solid #e5e7eb}
+    .foot h2{color:#111827}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <img class="hero-char" src="/img/mango-char.png" alt="" width="320" height="259" decoding="async">
+    <div>
+      <span class="eyebrow" id="h-eyebrow"></span>
+      <h1 id="h-title"></h1>
+      <p class="lead" id="h-lead"></p>
+      <div class="hero-chips" id="h-chips"></div>
+      <div class="hero-btns">
+        <a class="btn btn-gold" href="/?menu=aitools" id="h-try"></a>
+        <button type="button" class="btn btn-ghost" id="h-print"></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="glance">
+    <div class="sec-head"><h2 id="s1-t"></h2><p id="s1-p"></p></div>
+    <div class="glance" id="glance-grid"></div>
+  </section>
+
+  <section id="start">
+    <div class="sec-head"><h2 id="s2-t"></h2><p id="s2-p"></p></div>
+    <div class="steps3" id="start-steps"></div>
+    <div class="need" id="start-need"></div>
+    <div class="callout" id="start-callout"></div>
+  </section>
+
+  <section id="tools">
+    <div class="sec-head"><h2 id="s3-t"></h2><p id="s3-p"></p></div>
+    <div id="tool-list"></div>
+  </section>
+
+  <section id="use">
+    <div class="sec-head"><h2 id="s4-t"></h2><p id="s4-p"></p></div>
+    <div class="card day" id="use-class"></div>
+    <div class="card day" id="use-home" style="margin-top:12px"></div>
+    <div class="ideas" id="use-ideas"></div>
+  </section>
+
+  <section id="faq" class="faq">
+    <div class="sec-head"><h2 id="s5-t"></h2><p id="s5-p"></p></div>
+    <div id="faq-list"></div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <h2 id="f-t"></h2>
+    <p id="f-p"></p>
+    <a class="btn btn-gold no-print" id="f-kakao" href="https://pf.kakao.com/_xlqnSxd" target="_blank" rel="noopener"></a>
+    <small id="f-date"></small>
+  </div>
+</footer>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ── 아이콘 (홈 「AI와 친구하기」 목록과 같은 선 아이콘 — 색은 묶음 색을 따른다) ── */
+  function svg(inner){
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
+  }
+  var IC = {
+    teacher: svg('<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/><line x1="22" y1="10" x2="22" y2="15"/>'),
+    book:    svg('<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>'),
+    movie:   svg('<path d="M4 11v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8H4z"/><path d="m4 11-.9-4.1a2 2 0 0 1 1.5-2.4L17 1.8a2 2 0 0 1 2.4 1.5l.7 3.1L4 11z"/><path d="m6.6 5.6 3.1 3.9"/><path d="m12.9 4.2 3.1 3.9"/>'),
+    talk:    svg('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><circle cx="8.5" cy="11.5" r=".9" fill="currentColor" stroke="none"/><circle cx="12.5" cy="11.5" r=".9" fill="currentColor" stroke="none"/><circle cx="16.5" cy="11.5" r=".9" fill="currentColor" stroke="none"/>'),
+    mic:     svg('<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="8.5" y1="21" x2="15.5" y2="21"/>'),
+    friend:  '<img src="/img/mango-char.png" alt="" loading="lazy" decoding="async">',
+    pen:     svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>'),
+    word:    svg('<polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>'),
+    review:  svg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 5.36A9 9 0 0 0 20.49 15"/>'),
+    idea:    svg('<path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.5 1 2.5h6c0-1 .4-1.9 1-2.5A6 6 0 0 0 12 3z"/><path d="M9.5 19h5"/><path d="M10.5 22h3"/>'),
+    game:    svg('<rect x="2" y="6" width="20" height="13" rx="3"/><line x1="6" y1="12.5" x2="10" y2="12.5"/><line x1="8" y1="10.5" x2="8" y2="14.5"/><circle cx="16" cy="11.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="18.5" cy="14" r="1.1" fill="currentColor" stroke="none"/>')
+  };
+
+  /* ── 고정 문구 ── */
+  var TXT = {
+    ko: {
+      docTitle: 'A.i학습 사용설명서 — 망고아이',
+      eyebrow: '원장님 · 선생님용 안내서',
+      title: '<b>A.i학습</b> 사용설명서',
+      lead: '학생이 혼자서도 영어로 말하고, 읽고, 쓰는 A.i 학습 11가지. 무엇을 · 언제 · 어떻게 하는지 한 장에 쉽게 정리했어요.',
+      chips: ['📱 휴대폰 · 태블릿 · PC', '✅ 따로 설치할 것 없음', '🌐 mangoi.ai'],
+      tryBtn: '▶ 지금 바로 써 보기', printBtn: '🖨 인쇄 · PDF로 저장',
+      s1t: '<span class="n">1</span>한눈에 보기', s1p: '11가지를 네 묶음으로 나눴어요. 누르면 설명으로 가요.',
+      s2t: '<span class="n">2</span>시작하기 — 딱 3단계', s2p: '처음 한 번만 따라 하면 그다음부터는 학생 혼자 할 수 있어요.',
+      s3t: '<span class="n">3</span>11가지 사용법', s3p: '각 카드의 순서대로 누르면 돼요. 오른쪽(휴대폰은 아래)은 실제 첫 화면이에요.',
+      s4t: '<span class="n">4</span>학원에서 이렇게 쓰세요', s4p: '망고아이가 추천하는 하루 순서예요.',
+      s5t: '<span class="n">5</span>이럴 땐 이렇게', s5p: '자주 받는 질문을 모았어요.',
+      how: '이렇게 해요', good: '👍 이런 학생에게', tip: '💡 원장님 팁', shot: '실제 화면', open: '바로 열기 →',
+      min: '분', rec: '권장 ', micNeed: '🎤 마이크 필요', micOpt: '🎤 마이크 있으면 좋아요', noMic: '🖐 마이크 없이 OK', sound: '🔊 소리 켜기',
+      pts: '⭐ 포인트 적립', coin: '💰 게임 코인', newB: '🆕 새로 나왔어요',
+      ftitle: '궁금한 점은 언제든 물어봐 주세요',
+      fp: '망고아이 카카오톡 채널에서 바로 답해 드려요.',
+      kakao: '💬 카카오톡으로 문의하기',
+      fdate: '망고아이 A.i학습 사용설명서 · 2026년 10월 기준 · 화면은 계속 좋아지고 있어요. 설명서와 다른 점이 보이면 알려 주세요.'
+    },
+    en: {
+      docTitle: 'A.i Learning Guide — Mangoi',
+      eyebrow: 'A guide for academy directors & teachers',
+      title: '<b>A.i Learning</b> Guide',
+      lead: '11 A.i activities that let students speak, read and write English on their own. What each one is, when to use it and how — all on one page.',
+      chips: ['📱 Phone · tablet · PC', '✅ Nothing to install', '🌐 mangoi.ai'],
+      tryBtn: '▶ Try it now', printBtn: '🖨 Print · Save as PDF',
+      s1t: '<span class="n">1</span>At a glance', s1p: 'The 11 activities in four groups. Tap one to jump to its guide.',
+      s2t: '<span class="n">2</span>Getting started — 3 steps', s2p: 'Do it together once — after that, students can do it on their own.',
+      s3t: '<span class="n">3</span>How to use all 11', s3p: 'Follow the numbers on each card. The picture is the real first screen.',
+      s4t: '<span class="n">4</span>How to use it at your academy', s4p: 'The daily order Mangoi recommends.',
+      s5t: '<span class="n">5</span>Quick help', s5p: 'Answers to the questions we hear most.',
+      how: 'How to use', good: '👍 Great for', tip: '💡 Tip for directors', shot: 'Real screen', open: 'Open →',
+      min: ' min', rec: 'about ', micNeed: '🎤 Needs a mic', micOpt: '🎤 Mic recommended', noMic: '🖐 No mic needed', sound: '🔊 Sound on',
+      pts: '⭐ Earns points', coin: '💰 Game coins', newB: '🆕 New',
+      ftitle: 'Questions? Just ask us anytime',
+      fp: 'We answer quickly on the Mangoi KakaoTalk channel.',
+      kakao: '💬 Ask on KakaoTalk',
+      fdate: 'Mangoi A.i Learning Guide · as of October 2026 · Screens keep getting better — if something looks different, please let us know.'
+    }
+  };
+
+  /* ── 시작하기 · 준비물 ── */
+  var START = {
+    ko: {
+      steps: [
+        ['mangoi.ai 열기', '<b>크롬 · 사파리</b> 같은 인터넷 앱에서 열어요. 카톡 안에서 열면 마이크가 잘 안 될 수 있어요.'],
+        ['학생 아이디로 로그인', '로그인해야 <b>학생 레벨에 맞는 문제</b>가 나오고, 기록과 포인트가 쌓여요.'],
+        ['AI와 친구하기에서 고르기', '홈 화면의 <b>혼자서 · 아무 때나 11종 A.i 학습</b>을 누르면 <b>AI와 친구하기</b> 창이 열려요. 하고 싶은 카드를 누르면 끝! (<b>☰ 메뉴 › AI 학습 도구</b>에도 있어요)']
+      ],
+      need: [
+        ['🎧', '이어폰 + 마이크', '말하기 활동에 필요해요. 이어폰을 끼면 더 잘 알아들어요.'],
+        ['🔊', '소리 켜기', '무음 모드를 꺼 주세요. 원어민 목소리를 들어요.'],
+        ['🌐', '크롬 · 사파리', '카톡 안 말고 인터넷 앱으로 열어 주세요.'],
+        ['📶', '와이파이', '영상과 목소리가 있어서 와이파이가 좋아요.']
+      ],
+      callout: '처음 마이크를 쓰면 <b>“마이크를 사용할까요?”</b> 창이 떠요. 꼭 <b>허용</b>을 눌러 주세요.'
+    },
+    en: {
+      steps: [
+        ['Open mangoi.ai', 'Use a web browser like <b>Chrome or Safari</b>. Inside KakaoTalk the mic may not work well.'],
+        ['Log in with the student ID', 'Logging in gives <b>questions at the student\'s level</b> and saves records and points.'],
+        ['Pick from “Play with AI”', 'On the home screen, tap <b>On your own · anytime — 11 A.i tools</b> to open <b>Play with AI</b>, then tap any card. Done! (Also in <b>☰ Menu › AI learning tools</b>)']
+      ],
+      need: [
+        ['🎧', 'Earphones + mic', 'Needed for speaking. With earphones the AI hears more clearly.'],
+        ['🔊', 'Sound on', 'Turn off silent mode to hear the native voices.'],
+        ['🌐', 'Chrome · Safari', 'Open it in a web browser, not inside KakaoTalk.'],
+        ['📶', 'Wi-Fi', 'There is video and voice, so Wi-Fi works best.']
+      ],
+      callout: 'The first time you use the mic, a <b>“Use your microphone?”</b> box appears. Please tap <b>Allow</b>.'
+    }
+  };
+
+  /* ── 묶음 ── */
+  var GROUPS = [
+    { id: 'learn', ko: { name: '📚 배우고 읽기', desc: 'A.i 선생님과 교재 수업, 그림책 읽기' },
+                   en: { name: '📚 Learn & Read', desc: 'Textbook class with an A.i teacher, picture books' } },
+    { id: 'speak', ko: { name: '🗣️ 말하기', desc: 'AI와 영어로 대화하고 발음 고치기' },
+                   en: { name: '🗣️ Speaking', desc: 'Talk with AI in English and fix pronunciation' } },
+    { id: 'write', ko: { name: '✍️ 쓰기 · 단어', desc: '글쓰기 첨삭과 단어 익히기' },
+                   en: { name: '✍️ Writing & Words', desc: 'Writing feedback and vocabulary' } },
+    { id: 'play',  ko: { name: '🧠 복습 · 생각 · 게임', desc: '배운 것 다시 보기, 생각하는 힘, 게임' },
+                   en: { name: '🧠 Review · Think · Play', desc: 'Review lessons, build thinking, play games' } }
+  ];
+
+  /* ── 11가지 도구 ──
+     mic: 'need'(꼭 필요) · 'opt'(있으면 좋음, 없어도 됨) · 'no'(필요 없음)
+     ⚠️ 단계 문구는 그 화면의 실제 단추 이름과 맞출 것 — 화면이 바뀌면 여기도. */
+  var TOOLS = [
+    /* ── 📚 배우고 읽기 ── */
+    { id: 'ai-class', g: 'learn', icon: 'teacher', url: '/ai-class.html', img: 'ai-class', mic: 'opt', sound: true, isNew: true,
+      ko: { name: 'A.i 선생님 수업', one: 'A.i 선생님 Emma가 교재를 한 쪽씩 읽어 주고, 학생은 따라 말하며 1:1 수업을 해요.',
+            steps: ['위쪽 목록에서 <b>레슨</b>을 골라요 (교재 · 단계별로 나뉘어 있어요)',
+                    '선생님이 불러 줄 <b>이름</b>을 적고 <b>▶ 수업 시작</b>',
+                    'Emma 선생님이 읽어 주면 <b>🎤 말하기</b>를 누르고 따라 말해요',
+                    '끝나면 받은 <b>별 ⭐</b>과 <b>다시 연습할 문장</b>을 확인해요'],
+            good: '교재 복습이 필요한 학생, 집에서 영어로 말할 기회가 적은 학생',
+            tip: '모르는 건 <b>✋ 선생님께 질문</b> (한국어로 물어봐도 돼요). 카메라가 켜져도 내 화면에만 보이고 저장되지 않아요.' },
+      en: { name: 'A.i Teacher Class', one: 'A.i teacher Emma reads the textbook page by page, and the student repeats after her — a 1:1 class.',
+            steps: ['Pick a <b>lesson</b> from the list at the top (sorted by book and level)',
+                    'Type the <b>name</b> the teacher should call you, then tap <b>▶ Start class</b>',
+                    'When Emma reads, tap <b>🎤 Speak</b> and say it after her',
+                    'At the end, check your <b>stars ⭐</b> and the <b>sentences to practice again</b>'],
+            good: 'Students who need textbook review, or rarely get to speak English at home',
+            tip: 'Stuck? Tap <b>✋ Ask the teacher</b> (Korean is OK). The camera only shows on your own screen and is never saved.' } },
+    { id: 'stories', g: 'learn', icon: 'book', url: '/stories.html', img: 'stories', mic: 'no', sound: true, isNew: true, pt: true,
+      ko: { name: 'A.i 독서', one: '쉬운 이야기부터 지식 글까지 4단계 — 이야기 180편과 그림 동화책으로 영어 읽기를 해요.',
+            steps: ['<b>단계</b>(1~4)를 고르고 읽을 글을 골라 <b>읽기 시작</b>',
+                    '글을 읽어요. <b>🔊 듣기</b>를 누르면 원어민이 읽어 줘요',
+                    '<b>① 핵심 문장 찾기</b> → <b>② 중심 내용 고르기</b> → <b>③ 영어 한 문장 쓰기</b>',
+                    '끝나면 <b>다음 글 ▶</b> — 잘하면 다음 단계로 올라가는 버튼이 나와요'],
+            good: '읽기 실력을 차근차근 올리고 싶은 학생 (1단계 초1~3 ~ 4단계 중3~고1)',
+            tip: '진도는 <b>그 기기에</b> 저장돼요. 같은 휴대폰 · 태블릿으로 이어서 하게 해 주세요.' },
+      en: { name: 'A.i Reading', one: 'Four levels, from easy stories to non-fiction — 180 stories plus picture books for English reading.',
+            steps: ['Choose a <b>level</b> (1–4), pick a story and tap <b>Start reading</b>',
+                    'Read the story. Tap <b>🔊 Listen</b> to hear a native speaker read it',
+                    '<b>① Find the key sentence</b> → <b>② Pick the main idea</b> → <b>③ Write one English sentence</b>',
+                    'Then <b>Next story ▶</b> — do well and a “move up a level” button appears'],
+            good: 'Students who want to build reading step by step (Level 1 = grades 1–3 … Level 4 = grades 9–10)',
+            tip: 'Progress is saved <b>on that device</b>. Please keep using the same phone or tablet.' } },
+
+    /* ── 🗣️ 말하기 ── */
+    { id: 'warmup', g: 'speak', icon: 'talk', url: '/warmup.html', img: 'warmup', min: 10, mic: 'need', sound: true,
+      ko: { name: 'A.i 말하기 연습', one: 'AI가 먼저 말을 걸어 줘요. 오늘 배울 교재나 자유 주제로 짧게 대화하며 입을 풀어요.',
+            steps: ['말할 언어(<b>영어</b> · 중국어)와 <b>교재로 연습</b> / <b>자유 대화</b>를 골라요',
+                    '나이대와 <b>대화 수준</b>을 골라요 — 모르면 <b>🎯 내 수준 찾아줄까요?</b> (30초)',
+                    '<b>🚀 이 설정으로 말하기 연습 시작하기</b> → AI가 먼저 인사해요',
+                    '<b>🎤</b> 누르고 대답, 다 말하면 <b>⏹</b>. 막히면 <b>대답할 때 도움이 필요해요</b>',
+                    '<b>끝내고 요약 보기</b>로 오늘 한 말을 확인해요'],
+            good: '수업 바로 전, 영어로 말하는 게 아직 어색한 학생',
+            tip: '수업 시작 <b>10분 전</b>에 하면 딱 좋아요. 요약을 복사해 선생님께 보여 줄 수 있어요.' },
+      en: { name: 'A.i Speaking Practice', one: 'The AI talks first. A short chat about today\'s textbook or a free topic to warm up before class.',
+            steps: ['Choose the language (<b>English</b> · Chinese) and <b>Practice with textbook</b> / <b>Free talk</b>',
+                    'Choose the age group and <b>conversation level</b> — not sure? Tap <b>🎯 Find my level</b> (30 sec)',
+                    'Tap <b>🚀 Start speaking with these settings</b> → the AI says hello first',
+                    'Tap <b>🎤</b> and answer, then <b>⏹</b> when done. Stuck? Tap <b>I need help answering</b>',
+                    'Tap <b>End and see summary</b> to review what you said'],
+            good: 'Right before class, or students who still feel shy speaking English',
+            tip: 'Best done <b>10 minutes before class</b>. The summary can be copied and shown to the teacher.' } },
+    { id: 'ai-friend', g: 'speak', icon: 'friend', url: '/ai-friend.html', img: 'ai-friend', min: 7, mic: 'opt', sound: true, pt: true,
+      ko: { name: 'AI 친구 (망고아이)', sh: 'AI 친구', one: '좋아하는 주제(동물 · 음식 · 게임 …)를 골라 AI 친구와 영어로 수다를 떨어요.',
+            steps: ['친구(Emma · Jake · Lily · Noah)를 고르고 <b>🗺 주제 고르기</b>에서 주제를 골라요',
+                    '<b>🎤</b>를 누르고 말하거나, 칸에 영어로 써서 <b>전송</b>',
+                    'AI가 소리와 글로 대답해요. 틀린 문장은 <b>✨ 이렇게 말하면 더 좋아요</b> 카드로 고쳐 줘요',
+                    '막히면 <b>💡</b>, 뜻이 궁금하면 말풍선의 <b>뜻</b>을 눌러요'],
+            good: '수업 없는 날, 좋아하는 이야기로 자유롭게 말하고 싶은 학생',
+            tip: '레벨은 <b>1~8단계</b>에서 고를 수 있어요. 말이 끝나야 글자가 떠요 — 대신 발음을 더 정확히 알아들어요.' },
+      en: { name: 'AI Friend (Mangoi)', sh: 'AI Friend', one: 'Pick a favorite topic (animals, food, games…) and chat in English with an AI friend.',
+            steps: ['Pick a friend (Emma · Jake · Lily · Noah) and a topic in <b>🗺 Choose a topic</b>',
+                    'Tap <b>🎤</b> and speak, or type in English and tap <b>Send</b>',
+                    'The AI answers in voice and text. Mistakes get a <b>✨ Better way to say it</b> card',
+                    'Stuck? Tap <b>💡</b>. Want the meaning? Tap <b>Meaning</b> on the bubble'],
+            good: 'Days without class — students who want to chat freely about things they like',
+            tip: 'Choose from <b>levels 1–8</b>. Text appears after you finish speaking — but it hears pronunciation more accurately.' } },
+    { id: 'speech-coach', g: 'speak', icon: 'mic', url: '/speech-coach.html', img: 'speech-coach', min: 7, mic: 'need', sound: true, pt: true,
+      ko: { name: 'AI 음성코치', one: '원어민 발음을 듣고 따라 말하면, AI가 점수를 매기고 고칠 점을 알려 줘요.',
+            steps: ['<b>🎯 레벨 선택</b>에서 코스(파닉스 · BTS · SIU)와 <b>유닛</b>을 골라요',
+                    '<b>🔊 원어민 발음 듣기</b> — 듣기 속도도 바꿀 수 있어요',
+                    '<b>🎙 마이크</b>를 누르고 또박또박 말한 뒤, 한 번 더 눌러 끝내요',
+                    '점수와 <b>💡 피드백</b>을 보고 <b>다시 녹음</b> 또는 <b>다음 단계 ▶</b>'],
+            good: '발음을 또렷하게 고치고 싶은 학생, 파닉스를 배우는 저학년',
+            tip: '아무것도 안 고르면 <b>기본 5문장</b>으로 바로 시작해요. 한 번에 15초까지 녹음돼요.' },
+      en: { name: 'AI Voice Coach', one: 'Listen to a native speaker, say it back, and the AI scores you and shows what to fix.',
+            steps: ['In <b>🎯 Choose level</b>, pick a course (Phonics · BTS · SIU) and a <b>unit</b>',
+                    'Tap <b>🔊 Listen to native pronunciation</b> — you can change the speed',
+                    'Tap the <b>🎙 mic</b>, speak clearly, then tap again to finish',
+                    'See your score and <b>💡 feedback</b>, then <b>Record again</b> or <b>Next ▶</b>'],
+            good: 'Students who want clearer pronunciation, and young learners doing phonics',
+            tip: 'Pick nothing and it starts with <b>5 basic sentences</b>. Each recording is up to 15 seconds.' } },
+    { id: 'ai-dubbing', g: 'speak', icon: 'movie', url: '/ai-dubbing.html', img: 'ai-dubbing', mic: 'need', sound: true, isNew: true,
+      ko: { name: 'A.i 영화더빙', one: '애니메이션 속 캐릭터가 되어 영어 대사를 내 목소리로 녹음하고, 나만의 영화를 만들어요.',
+            steps: ['<b>짧은 더빙 시작</b> 또는 이야기를 고르고, 장면의 <b>👀 보기</b>로 먼저 감상해요',
+                    '장면의 <b>더빙</b>을 누르고 내 역할(캐릭터)을 골라요 — 처음엔 <b>자막 보며 연습</b>',
+                    '<b>내 목소리로 녹음 시작</b> → 내 차례에 말하고 <b>✅ 말하기 완료</b>',
+                    '<b>⭐ AI 발음 평가</b> → <b>▶ 완성 영상 보기</b> · <b>⬇ 파일 내려받기</b>'],
+            good: '말하기를 부끄러워하는 학생, 친구와 함께하는 활동을 좋아하는 학생',
+            tip: '한 컴퓨터로 <b>1~5명</b>이 역할을 나눠 모둠 더빙도 돼요. 화면을 닫기 전에 꼭 저장하세요.' },
+      en: { name: 'A.i Movie Dubbing', one: 'Become a cartoon character, record the English lines in your own voice, and make your own movie.',
+            steps: ['Tap <b>Start a short dub</b> or pick a story, and watch the scene first with <b>👀 Watch</b>',
+                    'Tap <b>Dub</b> on a scene and choose your role — start with <b>Practice with subtitles</b>',
+                    'Tap <b>Start recording my voice</b> → speak on your turn and tap <b>✅ Done</b>',
+                    '<b>⭐ AI pronunciation check</b> → <b>▶ Watch my movie</b> · <b>⬇ Download</b>'],
+            good: 'Shy speakers, and students who love doing things with friends',
+            tip: '<b>1–5 students</b> can share one computer and split the roles. Save before closing the screen.' } },
+
+    /* ── ✍️ 쓰기 · 단어 ── */
+    { id: 'ai-write', g: 'write', icon: 'pen', url: '/ai-write.html', img: 'ai-write', min: 15, mic: 'no', sound: false, pt: true,
+      ko: { name: 'AI 영작', one: '그림이나 주제를 보고 영어로 글을 쓰면, AI가 고쳐 주고 점수와 이유를 알려 줘요.',
+            steps: ['난이도(<b>1단계 쉬움</b> ~ <b>4단계 고1</b>)와 <b>🎬 장면 · 글감</b>을 골라요',
+                    '<b>브레인스토밍</b> 질문(누가 · 어디서 · 무엇을 …)에 짧게 답해요 — 건너뛰어도 돼요',
+                    '<b>STEP 3 · 내 영작</b> 칸에 영어로 쓰고 <b>✨ AI 첨삭 받기</b>',
+                    '고친 문장을 보고 <b>✏️ 내 글 고쳐서 다시 첨삭</b> · <b>🖨 한 장으로 출력</b>'],
+            good: '영어 문장을 스스로 만들어 보고 싶은 학생, 글쓰기 숙제',
+            tip: '초안 · 첨삭 · 완성본을 <b>한 장으로 출력</b>할 수 있어 숙제 확인에 좋아요. 첨삭은 5~15초 걸려요.' },
+      en: { name: 'AI Writing', one: 'Look at a picture or topic and write in English — the AI corrects it and explains the score.',
+            steps: ['Choose a level (<b>Level 1 Easy</b> to <b>Level 4 High school</b>) and a <b>🎬 scene or topic</b>',
+                    'Answer the short <b>brainstorming</b> questions (who · where · what…) — or skip them',
+                    'Write in the <b>STEP 3 · My writing</b> box and tap <b>✨ Get AI feedback</b>',
+                    'Check the corrections, then <b>✏️ Revise and check again</b> · <b>🖨 Print on one page</b>'],
+            good: 'Students who want to build their own English sentences — great for writing homework',
+            tip: 'Draft, feedback and final version <b>print on one page</b> — handy for checking homework. Feedback takes 5–15 sec.' } },
+    { id: 'micro-quiz', g: 'write', icon: 'word', url: '/micro-quiz.html', img: 'micro-quiz', min: 5, mic: 'opt', sound: true, pt: true,
+      ko: { name: 'AI 단어 퀴즈', one: '내 단어장이나 내 레벨 단어에서 5문제! 1분이면 끝나는 단어 퀴즈예요.',
+            steps: ['출제 범위를 골라요: <b>📖 내 단어장</b> 또는 <b>📚 내 레벨 단어은행</b>',
+                    '<b>🚀 퀴즈 시작</b> — 뜻 맞히기 · 듣고 맞히기 · 따라 말하기 5문제',
+                    '단어장이 비어 있으면 <b>🤖 AI가 단어 10개 만들어주기</b>를 눌러요',
+                    '끝나면 <b>🎯 틀린 단어만 다시 풀기</b>'],
+            good: '단어를 자꾸 잊는 학생, 짧게라도 매일 복습하고 싶은 학생',
+            tip: '자주 틀린 단어가 먼저 나와요. 집에 가기 전 5분이나 숙제로 좋아요.' },
+      en: { name: 'AI Vocab Quiz', one: 'Five questions from your word list or your level\'s word bank — done in about a minute.',
+            steps: ['Choose the source: <b>📖 My word list</b> or <b>📚 My level word bank</b>',
+                    'Tap <b>🚀 Start quiz</b> — meaning, listening and repeat-after-me, 5 questions',
+                    'Word list empty? Tap <b>🤖 Let AI make 10 words</b>',
+                    'At the end, tap <b>🎯 Retry only the wrong words</b>'],
+            good: 'Students who keep forgetting words, or want a quick daily review',
+            tip: 'Words you often miss come first. Great as a 5-minute end-of-class or homework task.' } },
+
+    /* ── 🧠 복습 · 생각 · 게임 ── */
+    { id: 'review-quiz', g: 'play', icon: 'review', url: '/review-quiz.html', img: 'review-quiz', min: 10, mic: 'opt', sound: true, pt: true,
+      ko: { name: 'BTS/SIU 퀴즈', one: '교재(BTS · SIU) 복습 퀴즈를 풀고, 바로 정답과 해설을 봐요.', cap: '실제 화면 (퀴즈 이름은 예시)',
+            steps: ['퀴즈 목록에서 오늘 배운 퀴즈의 <b>풀기 ▶</b>를 눌러요',
+                    '객관식 · 듣기 · 쓰기 · 말하기 문제를 풀어요',
+                    '답하면 바로 <b>💡 해설</b>이 떠요 → <b>다음 →</b>',
+                    '<b>🏁 결과 보기</b> → <b>🎯 틀린 문제만 다시</b>'],
+            good: '수업이 끝난 직후, 배운 내용을 바로 다지고 싶은 학생',
+            tip: '수업 끝나고 <b>10분 안에</b> 풀면 오래 기억해요. 말하기 문제는 마이크가 없으면 건너뛸 수 있어요.' },
+      en: { name: 'BTS/SIU Quiz', one: 'Review quizzes for the BTS · SIU textbooks, with answers and explanations right away.', cap: 'Real screen (quiz names are examples)',
+            steps: ['In the quiz list, tap <b>Start ▶</b> on today\'s quiz',
+                    'Answer multiple-choice, listening, writing and speaking questions',
+                    'Each answer shows a <b>💡 explanation</b> → <b>Next →</b>',
+                    '<b>🏁 See results</b> → <b>🎯 Retry only the wrong ones</b>'],
+            good: 'Right after class — students who want to lock in what they just learned',
+            tip: 'Doing it <b>within 10 minutes</b> after class helps memory. Speaking questions can be skipped without a mic.' } },
+    { id: 'judgment', g: 'play', icon: 'idea', url: '/judgment.html', img: 'judgment', min: 5, mic: 'no', sound: false,
+      ko: { name: '판단력 훈련', one: '영어 상황을 읽고 가장 알맞은 표현을 고른 뒤, 왜 골랐는지 이유를 써요.',
+            steps: ['처음 한 번만: <b>학생 / 성인</b>과 난이도(<b>🤖 AI가 맞춰줄게요</b> 추천)를 골라요',
+                    '<b>🗣️ 이런 상황이에요</b>를 읽고 A~D 중 가장 알맞은 표현을 골라요',
+                    '<b>🤔 왜 그 표현을 골랐어요?</b>에 이유를 써요 (한국어 OK) → <b>제출하기 🚀</b>',
+                    '점수와 피드백을 보고 <b>다음 문제 →</b> · <b>🌱 내 성장 보기</b>'],
+            good: '상황에 맞는 표현을 고르는 힘, 이유를 말하는 힘을 키우고 싶은 학생',
+            tip: '이유를 자세히 쓸수록 점수가 올라가요. 로그인하지 않으면 <b>맛보기로 하루 12문제</b>까지 돼요.' },
+      en: { name: 'Decision Training', one: 'Read an English situation, choose the best expression, then explain why you chose it.',
+            steps: ['First time only: choose <b>Student / Adult</b> and the difficulty (<b>🤖 Let AI adjust</b> recommended)',
+                    'Read <b>🗣️ Here\'s the situation</b> and choose the best expression from A–D',
+                    'Write your reason in <b>🤔 Why did you choose it?</b> (Korean is OK) → <b>Submit 🚀</b>',
+                    'Check the score and feedback → <b>Next question →</b> · <b>🌱 See my growth</b>'],
+            good: 'Students building the skill to pick the right words — and explain why',
+            tip: 'The better the reason, the higher the score. Without logging in, it\'s a <b>12-question daily sample</b>.' } },
+    { id: 'student-games', g: 'play', icon: 'game', url: '/student-games.html', img: 'student-games', min: 10, mic: 'opt', sound: true, coin: true,
+      ko: { name: '학생게임', one: '오늘 배운 단어 · 문장을 게임으로 예습 · 복습해요. 22가지 게임이 있어요.',
+            steps: ['게임 언어(<b>영어</b> · 중국어)와 속도를 골라요',
+                    '하고 싶은 <b>게임 카드</b>를 누르면 바로 시작!',
+                    '게임을 하나 깰 때마다 <b>새 게임이 열려요</b> (처음엔 2개)',
+                    '모은 <b>💰 코인</b>으로 룰렛 · 상점 · 랭킹을 즐겨요'],
+            good: '공부를 지루해하는 학생, 학습 뒤 보상이 필요한 학생',
+            tip: '학습을 마친 뒤 <b>보상</b>으로 쓰면 좋아요. 말하기 게임만 마이크가 필요해요.' },
+      en: { name: 'Student Games', one: 'Preview and review today\'s words and sentences through games — 22 games in all.',
+            steps: ['Choose the game language (<b>English</b> · Chinese) and speed',
+                    'Tap any <b>game card</b> to start right away',
+                    'Each game you clear <b>unlocks a new one</b> (2 open at first)',
+                    'Spend your <b>💰 coins</b> on the wheel, shop and ranking'],
+            good: 'Students who find studying boring, or need a reward after learning',
+            tip: 'Works great as a <b>reward</b> after studying. Only the speaking games need a mic.' } }
+  ];
+
+  /* ── 수업일 순서 · 수업 없는 날 (src/today-plan.ts CLASS_DAY · HOME_WEEK 를 옮겨 적음 — 그 표가 바뀌면 함께) ── */
+  var USE = {
+    ko: {
+      classT: '🏫 수업이 있는 날 — 수업 앞뒤로 10분씩',
+      classP: '수업 전에 입을 풀고, 수업 후에 바로 복습하면 훨씬 오래 기억해요.',
+      flow: [
+        { when: '수업 전', what: 'A.i 말하기 연습', min: '10분 · 오늘 교재로 입 풀기' },
+        { when: '수업', what: '정규 수업', min: '선생님과 함께', main: true },
+        { when: '수업 후', what: 'BTS/SIU 퀴즈', min: '10분 · 배운 것 바로 복습' },
+        { when: '집에서', what: 'AI 단어 퀴즈', min: '5분 · 단어 다지기' }
+      ],
+      homeT: '🏠 수업이 없는 날 — 하루 15분이면 충분해요',
+      homeP: '말하기 하나 + 복습 하나 + 요일별 특별 활동. 학생 화면의 <b>오늘의 A.i 학습</b>이 매일 이 순서를 알려 줘요.',
+      days: ['일', '월', '화', '수', '목', '금', '토'],
+      ideas: [
+        ['🎬', '모둠 활동으로', 'A.i 영화더빙은 한 컴퓨터로 1~5명이 역할을 나눠 녹음할 수 있어요. 완성 영상을 다 같이 보면 반응이 좋아요.'],
+        ['📖', '읽기 숙제로', 'A.i 독서는 단계별로 하루 한 편씩. 핵심 문장 찾기부터 한 문장 쓰기까지 하면 읽기 숙제 끝!'],
+        ['📝', '자습 · 보강 시간에', 'A.i 선생님 수업으로 교재 한 레슨을 혼자 복습해요. Emma 선생님이 읽어 주고 질문도 받아 줘요.']
+      ]
+    },
+    en: {
+      classT: '🏫 Class days — 10 minutes before and after class',
+      classP: 'Warm up before class and review right after — students remember much longer.',
+      flow: [
+        { when: 'Before class', what: 'A.i Speaking Practice', min: '10 min · warm up with today\'s book' },
+        { when: 'Class', what: 'Regular class', min: 'with the teacher', main: true },
+        { when: 'After class', what: 'BTS/SIU Quiz', min: '10 min · review right away' },
+        { when: 'At home', what: 'AI Vocab Quiz', min: '5 min · lock in the words' }
+      ],
+      homeT: '🏠 Days without class — 15 minutes is enough',
+      homeP: 'One speaking + one review + a special activity for the day. <b>Today\'s AI Plan</b> on the student\'s screen shows this order every day.',
+      days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+      ideas: [
+        ['🎬', 'As a group activity', 'In A.i Movie Dubbing, 1–5 students can share one computer and split the roles. Watching the finished movie together is a hit.'],
+        ['📖', 'As reading homework', 'One A.i Reading story a day, level by level. From finding the key sentence to writing one sentence — homework done!'],
+        ['📝', 'For self-study or make-up time', 'Review one textbook lesson alone with A.i Teacher Class. Emma reads it aloud and answers questions.']
+      ]
+    }
+  };
+  /* 월 → 일 순서로 보여 준다 (d: 0=일 … 6=토) */
+  var WEEK = [
+    { d: 1, tools: ['ai-friend', 'micro-quiz', 'judgment'] },
+    { d: 2, tools: ['speech-coach', 'review-quiz', 'micro-quiz'] },
+    { d: 3, tools: ['ai-friend', 'micro-quiz', 'judgment'] },
+    { d: 4, tools: ['speech-coach', 'review-quiz', 'micro-quiz'] },
+    { d: 5, tools: ['speech-coach', 'ai-write'] },
+    { d: 6, tools: ['speech-coach', 'student-games'] },
+    { d: 0, tools: ['ai-friend', 'student-games'] }
+  ];
+
+  var FAQ = {
+    ko: [
+      ['로그인을 안 해도 되나요?', '대부분 로그인 없이도 해 볼 수 있어요. 하지만 <b>로그인해야</b> 학생 레벨에 맞는 문제가 나오고, 기록과 <b>포인트</b>가 쌓여요. (판단력 훈련은 로그인하지 않으면 하루 12문제 맛보기만 돼요.)'],
+      ['마이크가 안 돼요', '① 처음 뜨는 창에서 <b>허용</b>을 눌렀는지 확인해요.<br>② 이미 막았다면 주소창 왼쪽 <b>🔒 자물쇠 → 마이크 → 허용</b>.<br>③ 카톡 안에서 열었다면 <b>크롬 · 사파리</b>로 다시 열어요.<br>④ 통화 · 녹음 앱이 마이크를 쓰고 있지 않은지 봐요.'],
+      ['소리가 안 들려요', '휴대폰 <b>무음 모드</b>와 볼륨을 확인해요. 아이폰은 옆쪽 무음 스위치도 확인! 화면 안의 <b>🔊</b> 버튼이 꺼져 있지 않은지도 봐 주세요.'],
+      ['너무 쉬워요 / 너무 어려워요', 'A.i 말하기 연습 · AI 친구 · AI 영작 · AI 음성코치 · A.i 독서는 <b>화면에서 단계를 직접</b> 고를 수 있어요. 판단력 훈련은 AI가 알아서 맞춰 주고, 문제 아래 <b>너무 쉬워요 / 너무 어려워요</b> 버튼도 있어요. 학생 레벨 자체를 바꾸려면 망고아이에 말씀해 주세요.'],
+      ['포인트는 어디에 쓰나요?', '로그인한 학생이 퀴즈 · 영작 · AI 친구 등을 하면 포인트가 쌓여요. <b>1포인트 = 1원</b>이고, <b>3,000P</b>부터 홈 화면의 <b>🎁 포인트상점</b>에서 기프티콘으로 바꿀 수 있어요. 하루에 쌓을 수 있는 양은 정해져 있어요. (학생게임은 포인트 대신 게임 안에서 쓰는 코인을 모아요.)'],
+      ['휴대폰으로도 되나요?', '네! 모든 화면이 휴대폰 · 태블릿 · PC에서 돼요. 말하기 활동은 이어폰을 끼면 더 잘 알아들어요. A.i 독서처럼 진도가 기기에 저장되는 활동은 같은 기기로 이어서 해 주세요.'],
+      ['중국어도 되나요?', 'A.i 말하기 연습 · AI 음성코치 · 학생게임은 <b>중국어</b>도 고를 수 있어요. 중국어를 배우는 학생에게는 <b>중국어퀴즈</b> 카드가 하나 더 보여요.'],
+      ['우리 학원 학생들이 얼마나 했는지 볼 수 있나요?', '로그인한 상태로 한 활동은 학생 계정에 기록돼요. 학원별 사용 현황이 궁금하시면 망고아이에 요청해 주세요. 본사에서 확인해 드려요.']
+    ],
+    en: [
+      ['Do students need to log in?', 'Most activities can be tried without logging in. But <b>logging in</b> gives questions at the student\'s level and saves records and <b>points</b>. (Without login, Decision Training is a 12-question daily sample.)'],
+      ['The mic doesn\'t work', '① Make sure you tapped <b>Allow</b> on the first pop-up.<br>② If you blocked it, tap the <b>🔒 lock</b> left of the address bar <b>→ Microphone → Allow</b>.<br>③ If you opened it inside KakaoTalk, reopen it in <b>Chrome or Safari</b>.<br>④ Check that no call or recording app is using the mic.'],
+      ['I can\'t hear anything', 'Check <b>silent mode</b> and the volume. On iPhone, check the side silent switch too. Also make sure the <b>🔊</b> button on the screen isn\'t turned off.'],
+      ['It\'s too easy / too hard', 'In A.i Speaking Practice, AI Friend, AI Writing, AI Voice Coach and A.i Reading you can <b>pick the level on screen</b>. Decision Training adjusts itself, and has <b>Too easy / Too hard</b> buttons under each question. To change a student\'s level itself, please contact Mangoi.'],
+      ['What are points for?', 'Logged-in students earn points from quizzes, writing, AI Friend and more. <b>1 point = 1 won</b>, and from <b>3,000P</b> they can swap points for gift cards in the <b>🎁 Point Shop</b> on the home screen. There is a daily limit. (Student Games collect in-game coins instead of points.)'],
+      ['Does it work on phones?', 'Yes! Every screen works on phones, tablets and PCs. For speaking, earphones help the AI hear better. For activities that save progress on the device (like A.i Reading), keep using the same device.'],
+      ['Is Chinese available?', 'A.i Speaking Practice, AI Voice Coach and Student Games also offer <b>Chinese</b>. Students learning Chinese see one more card: <b>Chinese Quiz</b>.'],
+      ['Can we see how much our students used it?', 'Activities done while logged in are saved to the student\'s account. If you\'d like usage numbers for your academy, just ask Mangoi — head office will check for you.']
+    ]
+  };
+
+  function lang(){
+    var l = 'ko';
+    try {
+      if (typeof window.getLang === 'function') l = window.getLang();
+      else l = localStorage.getItem('mangoi_lang') || 'ko';
+    } catch (e) {}
+    return l === 'en' ? 'en' : 'ko';
+  }
+  function $(id){ return document.getElementById(id); }
+  function groupOf(id){ for (var i = 0; i < GROUPS.length; i++) if (GROUPS[i].id === id) return GROUPS[i]; return null; }
+
+  function renderHero(t){
+    $('h-eyebrow').textContent = t.eyebrow;
+    $('h-title').innerHTML = t.title;
+    $('h-lead').textContent = t.lead;
+    $('h-chips').innerHTML = t.chips.map(function(c){ return '<span>' + c + '</span>'; }).join('');
+    $('h-try').textContent = t.tryBtn;
+    $('h-print').textContent = t.printBtn;
+  }
+
+  function renderGlance(L){
+    $('glance-grid').innerHTML = GROUPS.map(function(g){
+      var tiles = TOOLS.filter(function(x){ return x.g === g.id; }).map(function(x){
+        return '<a class="gtile" href="#t-' + x.id + '"><span class="ic">' + IC[x.icon] + '</span><span>' + x[L].name + '</span></a>';
+      }).join('');
+      return '<div class="gbox g-' + g.id + '"><h3>' + g[L].name + '</h3><p>' + g[L].desc + '</p>' + tiles + '</div>';
+    }).join('');
+  }
+
+  function renderStart(L){
+    var s = START[L];
+    $('start-steps').innerHTML = s.steps.map(function(x, i){
+      return '<div class="card s3"><span class="big">' + (i + 1) + '</span><h3>' + x[0] + '</h3><p>' + x[1] + '</p></div>';
+    }).join('');
+    $('start-need').innerHTML = s.need.map(function(x){
+      return '<div><span class="e" aria-hidden="true">' + x[0] + '</span><b>' + x[1] + '</b><span>' + x[2] + '</span></div>';
+    }).join('');
+    $('start-callout').innerHTML = '<span class="e" aria-hidden="true">🎤</span><span>' + s.callout + '</span>';
+  }
+
+  function renderTools(L, t){
+    var n = 0;
+    $('tool-list').innerHTML = GROUPS.map(function(g){
+      var cards = TOOLS.filter(function(x){ return x.g === g.id; }).map(function(x){
+        n++;
+        var c = x[L];
+        var badges = [];
+        if (x.isNew) badges.push('<span class="new">' + t.newB + '</span>');
+        if (x.min) badges.push('<span>⏱ ' + t.rec + x.min + t.min + '</span>');
+        badges.push('<span>' + (x.mic === 'need' ? t.micNeed : (x.mic === 'opt' ? t.micOpt : t.noMic)) + '</span>');
+        if (x.sound) badges.push('<span>' + t.sound + '</span>');
+        if (x.pt) badges.push('<span>' + t.pts + '</span>');
+        if (x.coin) badges.push('<span>' + t.coin + '</span>');
+        return '<article class="card tool g-' + g.id + '" id="t-' + x.id + '">'
+          + '<div class="tool-top"><span class="ic">' + IC[x.icon] + '</span><div>'
+          +   '<h3><span class="no">' + (n < 10 ? '0' + n : n) + '</span>' + c.name + '</h3>'
+          +   '<p class="one">' + c.one + '</p>'
+          +   '<div class="badges">' + badges.join('') + '</div>'
+          + '</div></div>'
+          + '<div class="tool-body"><div>'
+          +   '<div class="how"><h4>' + t.how + '</h4><ol>' + c.steps.map(function(s){ return '<li>' + s + '</li>'; }).join('') + '</ol></div>'
+          +   '<div class="extra"><div><span class="lbl">' + t.good + '</span>' + c.good + '</div><div><span class="lbl">' + t.tip + '</span>' + c.tip + '</div></div>'
+          +   '<a class="go" href="' + x.url + '">' + t.open + '</a>'
+          + '</div>'
+          + '<figure class="phone"><span class="frame"><img src="/img/ai-guide/' + x.img + '.webp" alt="' + c.name + ' — ' + t.shot + '" loading="lazy" decoding="async" width="390" height="700"></span>'
+          + '<figcaption>' + (c.cap || t.shot) + '</figcaption></figure>'
+          + '</div></article>';
+      }).join('');
+      return '<div class="group-title g-' + g.id + '"><span class="pill">' + g[L].name + '</span><p>' + g[L].desc + '</p></div>' + cards;
+    }).join('');
+  }
+
+  /* 주간표 칸은 좁아서 짧은 이름(sh)이 있으면 그것을 쓴다 */
+  function toolName(id, L){
+    for (var i = 0; i < TOOLS.length; i++) if (TOOLS[i].id === id) return TOOLS[i][L].sh || TOOLS[i][L].name;
+    return id;
+  }
+
+  function renderUse(L){
+    var u = USE[L];
+    if (!u) return;
+    $('use-class').innerHTML = '<h3>' + u.classT + '</h3><p>' + u.classP + '</p><div class="flow">'
+      + u.flow.map(function(f, i){
+          return (i ? '<span class="farrow" aria-hidden="true">▶</span>' : '')
+            + '<div class="fstop' + (f.main ? ' main' : '') + '"><span class="when">' + f.when + '</span><span class="what">' + f.what + '</span><span class="min">' + f.min + '</span></div>';
+        }).join('') + '</div>';
+    $('use-home').innerHTML = '<h3>' + u.homeT + '</h3><p>' + u.homeP + '</p><div class="week">'
+      + WEEK.map(function(w){
+          var cls = w.d === 0 ? ' sun' : (w.d === 6 ? ' sat' : '');
+          return '<div class="wd' + cls + '"><span class="d">' + u.days[w.d] + '</span>'
+            + w.tools.map(function(k){
+                var x = null; for (var i = 0; i < TOOLS.length; i++) if (TOOLS[i].id === k) x = TOOLS[i];
+                var g = x ? x.g : 'play';
+                return '<span class="t g-' + g + '" style="background:var(--gbg);color:var(--gc)">' + toolName(k, L) + '</span>';
+              }).join('') + '</div>';
+        }).join('') + '</div>';
+    $('use-ideas').innerHTML = u.ideas.map(function(x){
+      return '<div class="card idea"><span class="e" aria-hidden="true">' + x[0] + '</span><h4>' + x[1] + '</h4><p>' + x[2] + '</p></div>';
+    }).join('');
+  }
+
+  function renderFaq(L){
+    $('faq-list').innerHTML = FAQ[L].map(function(q){
+      return '<details><summary>' + q[0] + '</summary><div class="a">' + q[1] + '</div></details>';
+    }).join('');
+  }
+
+  function render(){
+    var L = lang(), t = TXT[L];
+    document.documentElement.lang = L;
+    document.title = t.docTitle;
+    renderHero(t);
+    $('s1-t').innerHTML = t.s1t; $('s1-p').textContent = t.s1p;
+    $('s2-t').innerHTML = t.s2t; $('s2-p').textContent = t.s2p;
+    $('s3-t').innerHTML = t.s3t; $('s3-p').textContent = t.s3p;
+    $('s4-t').innerHTML = t.s4t; $('s4-p').textContent = t.s4p;
+    $('s5-t').innerHTML = t.s5t; $('s5-p').textContent = t.s5p;
+    renderGlance(L);
+    renderStart(L);
+    renderTools(L, t);
+    renderUse(L);
+    renderFaq(L);
+    $('f-t').textContent = t.ftitle;
+    $('f-p').textContent = t.fp;
+    $('f-kakao').textContent = t.kakao;
+    $('f-date').textContent = t.fdate;
+  }
+
+  /* 인쇄할 때는 «자주 묻는 질문» 을 모두 펼친다 */
+  window.addEventListener('beforeprint', function(){
+    var d = document.querySelectorAll('#faq details');
+    for (var i = 0; i < d.length; i++) d[i].open = true;
+  });
+  $('h-print').addEventListener('click', function(){ window.print(); });
+  /* 🌐 공용 바(js/mango-i18n.js)에서 언어를 바꾸면 이 화면이 직접 다시 그린다 */
+  window.addEventListener('mangoi:lang-changed', render);
+  render();
+})();
+</script>
+</body>
+</html>
