@@ -15,7 +15,8 @@ const ctx={document:{getElementById:id=>elements[id],addEventListener(){},queryS
 vm.createContext(ctx);
 vm.runInContext(html.match(/<script>\s*\/\* Class display:[\s\S]*?<\/script>/)[0].replace(/^<script>|<\/script>$/g,''),ctx);
 ctx.MangoiClassDisplay=ctx.window.MangoiClassDisplay;
-vm.runInContext([fn('portalRows'),fn('sortClassesByTime'),fn('previousLessonHtml'),fn('extrasHtml')].join('\n'),ctx);
+ctx.clsToday=()=>'2026-10-28';
+vm.runInContext([fn('portalRows'),fn('clsDayLabel'),fn('clsPastDate'),fn('clsDaySepHtml'),fn('sortClassesByTime'),fn('previousLessonHtml'),fn('extrasHtml')].join('\n'),ctx);
 for(let n=0;n<1440;n++){
   const h=Math.floor(n/60),m=n%60,start=`${h}:${String(m).padStart(2,'0')}`;
   const want=`${h%12||12}:${String(m).padStart(2,'0')}${h<12?'am':'pm'}`;
@@ -38,6 +39,28 @@ for(let seed=0;seed<320;seed++){
   const mixed=rows.map((r,i)=>({...r,start_ts:r.n!==null && i%2 ? Date.parse('2026-10-24T00:00:00+09:00')+r.n*60000 : undefined}));
   check(ctx.sortClassesByTime(mixed,'asc').map(x=>x.student_uid).join()===rows.filter(x=>x.n!==null).sort((a,b)=>a.n-b.n).concat(rows.at(-1)).map(x=>x.student_uid).join(),'mixed timestamp and wall-time ordering '+seed);
 }
+// 📅 (2026-10-28 강사 제안 «시간이 빠른 순으로 안 나온다») 오늘 목록에는 일지용 지난 14일 카페24 줄이 섞여 온다.
+//   오늘 줄 먼저(고른 시간 순) → 지난 줄은 날짜+시각 순, 날짜가 바뀌는 지난 줄 앞에만 구분줄 하나.
+const at=(d,t)=>({student_uid:d+' '+t,class_date:d,start_time:t,start_ts:Date.parse(`${d}T${t}:00+09:00`)});
+const days=[at('2026-10-15','21:30'),at('2026-10-28','20:00'),at('2026-10-14','18:30'),at('2026-10-28','09:30'),at('2026-10-15','14:00'),at('2026-10-27','12:30')];
+const daysAsc=ctx.sortClassesByTime(days,'asc'), daysDesc=ctx.sortClassesByTime(days,'desc');
+check(daysAsc.map(x=>x.student_uid).join()==='2026-10-28 09:30,2026-10-28 20:00,2026-10-14 18:30,2026-10-15 14:00,2026-10-15 21:30,2026-10-27 12:30','today first, then earlier days by date+time (asc)');
+check(daysDesc.map(x=>x.student_uid).join()==='2026-10-28 20:00,2026-10-28 09:30,2026-10-27 12:30,2026-10-15 21:30,2026-10-15 14:00,2026-10-14 18:30','today first, then earlier days by date+time (desc)');
+const seps=daysAsc.map((_,i)=>ctx.clsDaySepHtml(daysAsc,i,true));
+check(seps.slice(0,2).every(s=>s===''),'no divider before today rows');
+check(seps[2].includes('10-14 (Wed)')&&seps[2].startsWith('<tr class="cls-day-sep"><td colspan="7">'),'divider before first earlier day');
+check(seps[3].includes('10-15')&&seps[4]===''&&seps[5].includes('10-27'),'one divider per earlier date');
+check(ctx.clsDaySepHtml(daysAsc,2,false).startsWith('<div class="cls-day-sep">'),'card divider');
+check(ctx.clsPastDate({})===''&&ctx.clsPastDate({class_date:'2026-10-28'})==='','old cache rows and today rows stay in today group');
+// 서버: 지난 카페24 줄(source='lms')은 «그 수업 날» 을 싣는다 — 공용 enrichClassesToday 가 오늘로 덮은 «뒤» 에.
+const api=readFileSync(new URL('../cloudflare-deploy/src/api-teacher.ts', import.meta.url), 'utf8');
+const keepLine=api.match(/\n  for \(const c of classes\) if \(c\.source === 'lms'[^\n]*\n/)?.[0]||'';
+check(keepLine && api.indexOf(keepLine) > api.indexOf('await enrichClassesToday(env as any, classes, todayStr'),'lesson date kept after shared enrich');
+// 아침 8시 KST = 전날 23시 UTC — KST 보정을 빠뜨리면 하루 앞 날짜가 된다(그래서 저녁이 아니라 아침으로 잰다).
+const kept=[{source:'lms',start_ts:Date.parse('2026-10-14T08:00:00+09:00'),class_date:'2026-10-28'},{kind:'class',start_ts:Date.parse('2026-10-28T09:00:00+09:00'),class_date:'2026-10-28'}];
+new Function('classes','KST',keepLine)(kept,9*3600*1000);
+check(kept[0].class_date==='2026-10-14','LMS row keeps its own KST date (early morning)');
+check(kept[1].class_date==='2026-10-28','today rows untouched');
 ctx.hhmm=()=>'';
 const feedback=ctx.extrasHtml({class_date:'2026-10-24',level:'<B2>',attendance:{state:'not_yet'}},-1);
 check(feedback.includes('feedback-level')&&feedback.includes('&lt;B2&gt;'),'feedback level escaped');
