@@ -72,5 +72,17 @@ await sqlCtx.attachTeacherPreviousLessons({prepare(){throw new Error('offline');
 const missing=[{kind:'class',student_uid:'not-authorized-by-any-other-row',class_date:'2026-10-24'}];
 await sqlCtx.attachTeacherPreviousLessons(adapter,missing,now);
 check(missing[0].prev_lesson===null && missing[0].previous_lesson_loaded,'no cross-student history');
+// ➕ (2026-10-28) 「➕ 지난 피드백 추가」 — 지난 수업 방(class-<예약>-<날짜>)에 «오늘» 쓴 일지도 지난 일지다(짝 포함)
+insert.run(90001,'late','', 'Late Teacher','2026-10-23',null,'Backdated','늦게 쓴 일지',null,null,'class-55-20261023',now);
+insert.run(90002,'late2','','Same Day','2026-10-24',null,'Today room','오늘 방',null,null,'class-56-20261024',now);
+insert.run(90003,'late2','','Future','2026-10-25',null,'Future room','다음 방',null,null,'class-56-20261025',now);
+insert.run(90004,'late3','','Odd room','2026-10-23',null,'Not deterministic','이상한 방',null,null,'class-x-20261023',now);
+const late=[{kind:'class',student_uid:'late',class_date:'2026-10-24'},{kind:'class',student_uid:'late',class_date:'2026-10-23'},
+  {kind:'class',student_uid:'late2',class_date:'2026-10-24'},{kind:'class',student_uid:'late3',class_date:'2026-10-24'}];
+await sqlCtx.attachTeacherPreviousLessons(adapter,late,now);
+check(late[0].prev_lesson?.eval_id===90001 && late[0].prev_lesson?.date==='2026-10-23','backdated report for an earlier room is the previous lesson');
+check(late[1].prev_lesson===null,'a report for the same day is not that day\'s previous lesson (pair)');
+check(late[2].prev_lesson===null,'same-day and future rooms written today are not previous lessons (pair)');
+check(late[3].prev_lesson===null,'only deterministic class rooms are read as dates (pair)');
 db.close();
 console.log(`PASS ${checks} checks: all KST minutes, midnight, 320 schedule permutations, 1470 student/date SQL scenarios, chunks, escaping, absent history`);

@@ -3738,7 +3738,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         if (e && e.id) return ' <span class="evq-act" role="button" tabindex="0" data-evq-fix="' + esc(e.id) + '">' + esc(T('✏️ Edit', '✏️ 고치기')) + '</span>';
         if (e || !String(r.student_uid || '').trim()) return '';
         if (which === 'today' && !(r.status === 'live' || r.status === 'ended')) return '';
-        if (which === 'last' && !/^class-\d+-\d{8}$/.test(String(r.room_id || ''))) return '';
+        if (which === 'last' && !(Array.isArray(r.prev_classes) && r.prev_classes.length)) return '';
         return ' <span class="evq-act evq-add" role="button" tabindex="0" data-evq-new="' + which + '" data-room="' + esc(r.room_id) + '" data-uid="' + esc(r.student_uid) + '">'
           + esc(which === 'last' ? T('➕ Add last', '➕ 지난 피드백 추가') : T('➕ Add today', '➕ 오늘 피드백 추가')) + '</span>';
       };
@@ -4774,7 +4774,7 @@ var s=document.createElement('script');s.defer=true;s.src='/js/absence-hold-pane
       window.mgEvalQuick.create({
         which: el.getAttribute('data-evq-new') === 'last' ? 'last' : 'today',
         student_uid: r.student_uid, student_name: r.student_name, teacher_name: r.teacher_name,
-        room_id: r.room_id, class_date: r.class_date || hook.date(), week_days: r.week_days, week_dates: r.week_dates
+        room_id: r.room_id, class_date: r.class_date || hook.date(), prev_classes: r.prev_classes
       }, { en: en(), onSaved: saved });
     });
   }

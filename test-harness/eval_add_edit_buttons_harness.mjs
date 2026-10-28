@@ -9,7 +9,7 @@
      A. 세 화면(admin.html = js/adm-today-classes.js xEvalAct · manager.html evAct · teacher.html extrasHtml)의
         버튼 조건을 **오려 내 같은 입력으로 실제로 돌려** 답이 같은지 본다. manager·teacher 는 «외부 리소스 0개»
         계약이라 판정이 두 벌·세 벌일 수밖에 없다 — 한쪽만 고쳐지면 여기서 빨간불.
-     B. 공용 창(js/eval-quick-view.js) — 쓰기 화면 renderCreate · 바로 전 수업일 짐작 · 그날 방 번호.
+     B. 공용 창(js/eval-quick-view.js) — 쓰기 화면 renderCreate · «지난 회차» 고르기(서버 prev_classes 그대로, 짐작 없음).
      C. 배선 — 버튼 속성 이름이 창 안 버튼(data-evq-edit)과 안 겹친다 · 세 화면이 같은 ?v= · 바로 고치기(opts.edit).
    ⚠️ 판정마다 «준다» 와 «안 준다» 를 짝으로 둔다 — 한쪽만 두면 «늘 준다/늘 안 준다» 가 통과한다.
    브라우저로 실제로 눌러 보는 검사는 test-harness/manual/eval-add-edit-browser.mjs (게이트 밖).
@@ -70,10 +70,11 @@ let admAct = null, mgrAct = null, tchExtras = null;
 }
 const has = (h, re) => re.test(String(h || ''));
 const ADD_LAST = /data-evq-new="last"/, ADD_TODAY = /data-evq-new="today"/, FIX = /data-evq-fix="(\d+)"/;
+const PREV = [{ date: '2026-10-26', room_id: 'class-6640-20261026', time: '15:20' }, { date: '2026-10-23', room_id: 'class-6642-20261023', time: null }];
 const BASE = {
   student_uid: 'stu01', student_name: 'Mina', teacher_name: 'Kaye', room_id: 'class-6648-20261028',
   class_date: '2026-10-28', status: 'ended', source: 'mangoi', eval_hidden: false,
-  last_eval: null, today_eval: null, attendance: { state: 'attended' },
+  last_eval: null, today_eval: null, attendance: { state: 'attended' }, prev_classes: PREV,
 };
 const CASES = [
   // [이름, 줄, 지난(add|fix|none), 오늘(add|fix|none)]
@@ -88,8 +89,9 @@ const CASES = [
   ['본사 전용(지사·대리점) → 아무것도 안 준다', { eval_hidden: true, last_eval: { id: 41 } }, 'none', 'none'],
   ['카페24 줄 → 아무것도 안 준다', { source: 'cafe24', room_id: 'c24-991', last_eval: { id: 41 } }, 'none', 'none'],
   ['학생 아이디가 없다 → 추가 안 줌', { student_uid: '' }, 'none', 'none'],
-  ['결정론 방 번호가 아니다 → 지난 추가 안 줌', { room_id: 'demo-1' }, 'none', 'add'],
-  ['따옴표가 든 방 번호 → 지난 추가 안 줌(탈출 이전에 거른다)', { room_id: 'class-1-20261028"x' }, 'none', 'add'],
+  ['지난 회차 목록이 없다(옛 응답·요일 칸 없음) → 지난 추가 안 줌(짐작해 지어내지 않는다)', { prev_classes: undefined }, 'none', 'add'],
+  ['지난 회차 목록이 비었다 → 지난 추가 안 줌', { prev_classes: [] }, 'none', 'add'],
+  ['방 번호가 결정론이 아니어도 지난 회차가 있으면 지난 추가는 준다(방은 회차의 것)', { room_id: 'demo-1' }, 'add', 'add'],
 ];
 const verdict = (h, which) => {
   const re = which === 'last' ? ADD_LAST : ADD_TODAY;
@@ -137,33 +139,30 @@ console.log('\n[B] 공용 창 — 쓰기 화면 · 날짜 짐작 · 방 번호')
 const win = {};
 vm.runInNewContext(VIEW, { window: win, document: { getElementById: () => null, head: { appendChild() {} } }, fetch: () => new Promise(() => {}), console });
 const Q = win.mgEvalQuick || {};
-ok('B-0 전제: create · _renderCreate · _prevClassDate · _roomFor 가 있다',
-  typeof Q.create === 'function' && typeof Q._renderCreate === 'function' && typeof Q._prevClassDate === 'function' && typeof Q._roomFor === 'function');
-if (typeof Q._prevClassDate === 'function') {
-  const W = ['2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01'];
-  const P = (d, wd) => Q._prevClassDate({ class_date: d, week_days: wd, week_dates: W });
-  ok('B-1 월수금 · 수요일 → 이번 주 월요일', P('2026-10-28', [1, 0, 1, 0, 1, 0, 0].map(Boolean)) === '2026-10-26');
-  ok('B-2 월수금 · 월요일 → 지난주 금요일', P('2026-10-26', [1, 0, 1, 0, 1, 0, 0].map(Boolean)) === '2026-10-23');
-  ok('B-3 수요일만 → 지난주 수요일', P('2026-10-28', [0, 0, 1, 0, 0, 0, 0].map(Boolean)) === '2026-10-21');
-  ok('B-4 요일 칸이 없으면 일주일 전', Q._prevClassDate({ class_date: '2026-10-28' }) === '2026-10-21');
-  ok('B-5 날짜가 이상하면 빈 값(지어내지 않는다)', Q._prevClassDate({ class_date: 'oops' }) === '');
-  ok('B-6 해를 넘긴다', Q._prevClassDate({ class_date: '2026-01-02' }) === '2025-12-26');
-}
-if (typeof Q._roomFor === 'function') {
-  ok('B-7 그날 방 번호 = 같은 예약 번호 + 그 날짜', Q._roomFor('class-6648-20261028', '2026-10-26') === 'class-6648-20261026');
-  ok('B-8 결정론 방 번호가 아니면 빈 값(짝)', Q._roomFor('c24-1', '2026-10-26') === '' && Q._roomFor('class-1-20261028', 'x') === '');
+ok('B-0 전제: create · _renderCreate · _pickable 가 있다',
+  typeof Q.create === 'function' && typeof Q._renderCreate === 'function' && typeof Q._pickable === 'function');
+if (typeof Q._pickable === 'function') {
+  const P = (list) => Q._pickable({ class_date: '2026-10-28', prev_classes: list });
+  ok('B-1 서버 목록을 그대로 고를 수 있다', P(PREV).length === 2 && P(PREV)[0].room_id === 'class-6640-20261026');
+  ok('B-2 이 수업 날짜·이후 회차는 거른다(짝)', P([{ date: '2026-10-28', room_id: 'class-1-20261028' }, { date: '2026-10-29', room_id: 'class-1-20261029' }]).length === 0);
+  ok('B-3 모양이 틀린 방 번호는 거른다(지어낸 값·주입)', P([{ date: '2026-10-26', room_id: 'class-1-20261026"x' }, { date: '2026-10-26', room_id: 'c24-1' }, { date: 'x', room_id: 'class-1-20261026' }]).length === 0);
+  ok('B-4 목록이 없으면 빈 목록(짐작해 만들지 않는다)', P(undefined).length === 0 && P(null).length === 0);
 }
 if (typeof Q._renderCreate === 'function') {
-  const last = Q._renderCreate({ which: 'last', student_name: '<img src=x>', class_date: '2026-10-28', room_id: 'class-1-20261028' }, true);
-  const today = Q._renderCreate({ which: 'today', student_name: 'Mina', class_date: '2026-10-28', room_id: 'class-1-20261028' }, false);
-  ok('B-9 지난: 날짜 칸이 있고 이 수업 «전날» 까지만 고른다', /data-evq-date/.test(last) && /max="2026-10-27"/.test(last));
-  ok('B-10 오늘: 날짜 칸이 없다(짝)', !/data-evq-date/.test(today));
-  ok('B-11 지난: 학부모 문자 칸이 없다(문자 본문이 «오늘 수업 일지» 라 거짓이 된다)', !/data-evq-sms/.test(last));
-  ok('B-12 오늘: 학부모 문자 칸이 있고 기본은 꺼져 있다(짝)', /<input type="checkbox" data-evq-sms>/.test(today) && !/data-evq-sms[^>]*checked/.test(today));
-  ok('B-13 글 두 칸 + 한국어로 만들기', /data-evq-f="note_en"/.test(today) && /data-evq-f="note_ko"/.test(today) && /data-evq-tr/.test(today));
-  ok('B-14 점수 칸이 없다(별점은 강사 일지 창의 몫)', !/score/.test(last + today));
-  ok('B-15 이름을 탈출한다(XSS)', !/<img/.test(last));
-  ok('B-16 한/영 — 한국어 화면은 한국어', /오늘 피드백 추가/.test(today) && /Add last class feedback/.test(last));
+  const last = Q._renderCreate({ which: 'last', student_name: '<img src=x>', class_date: '2026-10-28', room_id: 'class-1-20261028', prev_classes: PREV }, true);
+  const lastKo = Q._renderCreate({ which: 'last', student_name: 'Mina', class_date: '2026-10-28', prev_classes: PREV }, false);
+  const today = Q._renderCreate({ which: 'today', student_name: 'Mina', class_date: '2026-10-28', room_id: 'class-1-20261028', prev_classes: PREV }, false);
+  ok('B-5 지난: 회차 고르기 칸 — 서버 회차가 날짜(요일)·시각으로 보인다', /data-evq-pick/.test(last) && /2026-10-26 \(Mon\) 15:20/.test(last) && /2026-10-23 \(Fri\)/.test(last), last.match(/<option[^>]*>[^<]*/g));
+  ok('B-6 지난: 한국어 화면은 한국어 요일', /2026-10-26 \(월\) 15:20/.test(lastKo));
+  ok('B-7 지난: 맨 위(가장 최근)가 기본으로 골라진다', /<select class="evq-in" data-evq-pick><option value="0">2026-10-26/.test(last));
+  ok('B-8 오늘: 고르기 칸이 없다(짝)', !/data-evq-pick/.test(today));
+  ok('B-9 날짜를 짐작하는 칸(type=date)이 없다', !/type="date"/.test(last + today));
+  ok('B-10 지난: 학부모 문자 칸이 없다(문자 본문이 «오늘 수업 일지» 라 거짓이 된다)', !/data-evq-sms/.test(last));
+  ok('B-11 오늘: 학부모 문자 칸이 있고 기본은 꺼져 있다(짝)', /<input type="checkbox" data-evq-sms>/.test(today) && !/data-evq-sms[^>]*checked/.test(today));
+  ok('B-12 글 두 칸 + 한국어로 만들기', /data-evq-f="note_en"/.test(today) && /data-evq-f="note_ko"/.test(today) && /data-evq-tr/.test(today));
+  ok('B-13 점수 칸이 없다(별점은 강사 일지 창의 몫)', !/score/.test(last + today));
+  ok('B-14 이름을 탈출한다(XSS)', !/<img/.test(last));
+  ok('B-15 한/영 — 한국어 화면은 한국어', /오늘 피드백 추가/.test(today) && /Add last class feedback/.test(last));
 }
 {
   const i = VIEW.indexOf('function showCreate(ctx, en, opts)');
@@ -171,14 +170,15 @@ if (typeof Q._renderCreate === 'function') {
   ok('C-0 전제: showCreate 를 오려 냈다', src.length > 500);
   ok('C-1 저장은 강사 일지와 같은 길(/api/eval/manual-create)', /fetch\('\/api\/eval\/manual-create'/.test(src));
   ok('C-2 문자는 «오늘 + 고른 경우» 에만 notify_parent', /var sms = !last && !!\(smsBox && smsBox\.checked\)/.test(src) && /notify_parent: sms/.test(src));
-  ok('C-3 지난: 이 수업보다 앞선 날짜만 받는다', /date < String\(ctx\.class_date/.test(src));
-  ok('C-4 지난: 방 번호를 그날로 만든다(roomFor)', /roomFor\(ctx\.room_id, date\)/.test(src));
+  ok('C-3 지난: 고른 회차의 날짜·방을 그대로 쓴다(화면에서 방을 지어내지 않는다)', /var date = last \? pick\.date/.test(src) && /var room = last \? pick\.room_id/.test(src) && !/replace\(\/-\/g/.test(src));
+  ok('C-4 지난: 고른 회차가 없으면 저장하지 않는다', /if \(last && !pick\)/.test(src));
   ok('C-5 teacher_uid 는 부르는 쪽이 넘긴 «쓰는 사람» 만(수업 강사로 채우지 않는다)', /teacher_uid: ctx\.teacher_uid \|\| null/.test(src));
   ok('C-6 저장 성공은 «ok === true + id» 로 가른다', /x\.st === 200 && x\.d && x\.d\.ok === true && x\.d\.id/.test(src));
   ok('C-7 두 번 눌러도 두 번 저장하지 않는다', /if \(saving\) return;/.test(src) && /saving = true/.test(src));
   ok('C-8 문자 결과를 서버 응답 그대로 말한다(밤 미룸·보냄·실패·번호 없음)', /notifyLine\(sms, x\.d\.notify, en\)/.test(src));
 }
 {
+  ok('C-9b 고를 회차가 없으면 «지난» 창을 열지 않는다', /if \(ctx\.which === 'last' && !pickableClasses\(ctx\)\.length\) return;/.test(VIEW));
   ok('C-9 바로 고치기(opts.edit)는 서버가 허락할 때만, 아니면 보기 화면', /if \(opts && opts\.edit === true && ev\.__canEdit\) showEdit\(ev, en, opts\);\s*else showView/.test(VIEW));
 }
 
@@ -198,6 +198,8 @@ ok('D-7 매니저: 끝 스크립트가 IIFE 안 목록을 taEvalHook 으로 찾�
 ok('D-8 강사: 위임 → teacher-feedback-new → 공용 창 create', /dispatchEvent\(new CustomEvent\('teacher-feedback-new'/.test(TCH)
   && /addEventListener\('teacher-feedback-new'[\s\S]{0,400}mgEvalQuick\.create\(ctx/.test(TCH));
 ok('D-9 강사: 쓰는 사람 = 이 강사(teacher_uid = 내 아이디)', /teacher_uid:DATA\.me && DATA\.me\.username/.test(TCH));
+ok('D-9b 세 화면 모두 서버 회차(prev_classes)를 창에 넘긴다', /prev_classes: s\.prev_classes/.test(ADM) && /prev_classes: r\.prev_classes/.test(MGR) && /prev_classes:c\.prev_classes/.test(TCH));
+ok('D-9c 강사: 다시그리기 지문에 지난 회차 목록이 있다(캐시 뒤 서버 응답에서 버튼이 뜨게)', /sc\.prev_classes\.length/.test(TCH));
 ok('D-10 manager·teacher 는 공용 창을 정적 <script src> 로 싣지 않는다(외부 리소스 0개)',
   !/<script[^>]+src="\/js\/eval-quick-view/.test(MGR) && !/<script[^>]+src="\/js\/eval-quick-view/.test(TCH));
 ok('D-11 관리자 CSS: 버튼 색은 조상 id 로(인라인은 카드 규칙에 눌린다)', /admin-inline-c\.css\?v=85/.test(ADMIN_HTML)

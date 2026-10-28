@@ -10,7 +10,7 @@
 //        API 는 가로채서 가짜 줄을 준다(학생 데이터에 손대지 않는다).
 //     B. 「➕ 오늘 피드백 추가」 → 공용 창 → 빈 칸 저장 막힘 → 문자 + 한국어 없음 막힘 → 한국어로 만들기 → 저장
 //        → 나간 본문(방 번호·날짜·notify_parent·teacher_uid) · 표를 다시 불러옴.
-//     C. 「➕ 지난 피드백 추가」 → 날짜 짐작 · 오늘 날짜 막힘 · 그날 방 번호로 저장 · 문자 칸 없음.
+//     C. 「➕ 지난 피드백 추가」 → 서버 «지난 회차» 목록에서 고르기 · 고른 회차의 «자기 예약 번호» 방으로 저장 · 문자 칸 없음.
 //     D. 「✏️ 고치기」 → 보기를 건너뛰고 곧장 고치기 화면 → PATCH 본문. 허락이 없으면 보기 + 이유(짝).
 //     E. 저장을 두 번 눌러도 한 번만 나간다.
 //
@@ -68,6 +68,8 @@ const row = (o) => Object.assign({
   status: 'ended', source: 'mangoi', teacher_name: 'Kaye', academy: 'A학원', eval_hidden: false,
   attendance: { state: 'attended' }, teacher_entry: { state: 'on_time', at: now - 41 * 60000 },
   week_days: [true, false, true, false, true, false, false], week_dates: WEEK, last_eval: null, today_eval: null,
+  // 서버(recentClassesFor)가 주는 «지난 회차» — 월·금은 요일마다 예약 번호가 다르다(요일당 1행)
+  prev_classes: [{ date: '2026-10-26', room_id: 'class-6640-20261026', time: '15:20' }, { date: '2026-10-23', room_id: 'class-6642-20261023', time: '15:20' }],
 }, o);
 const ROWS = [
   row({ student_uid: 'stu_nofb', student_name: 'Mina', room_id: 'class-6648-20261028', schedule_id: 6648 }),
@@ -75,6 +77,7 @@ const ROWS = [
         last_eval: { id: 41, date: '2026-10-26', text: 'Read well' }, today_eval: { id: 42, date: TODAY, text: 'Good' } }),
   row({ student_uid: 'stu_early', student_name: 'Ara', room_id: 'class-8000-20261028', schedule_id: 8000, status: 'early',
         start_ts: now + 3600000, end_ts: now + 4800000 }),
+  row({ student_uid: 'stu_noprev', student_name: 'Bo', room_id: 'class-8100-20261028', schedule_id: 8100, prev_classes: [] }),
 ];
 
 const { chromium, exe } = requireBrowser();
@@ -116,6 +119,9 @@ check('A-1 글이 없는 줄: 「➕ Add today」·「➕ Add last」 둘 다 �
 check('A-2 글이 있는 줄: 「✏️ Edit」 두 개(41·42), 추가 버튼 없음(짝)',
   await page.locator('[data-evq-fix="41"]').isVisible() && await page.locator('[data-evq-fix="42"]').isVisible()
   && (await page.locator('[data-evq-new][data-uid="stu_hasfb"]').count()) === 0);
+check('A-3b 지난 회차 목록이 빈 줄: 지난 추가 없음 · 오늘 추가는 있음(짝)',
+  (await page.locator('[data-evq-new="last"][data-uid="stu_noprev"]').count()) === 0
+  && (await page.locator('[data-evq-new="today"][data-uid="stu_noprev"]').count()) === 1);
 check('A-3 아직 시작 안 한 줄: 오늘 추가 없음 · 지난 추가는 있음(짝)',
   (await page.locator('[data-evq-new="today"][data-uid="stu_early"]').count()) === 0
   && (await page.locator('[data-evq-new="last"][data-uid="stu_early"]').count()) === 1);
@@ -161,22 +167,34 @@ await page.click('#mg-evq [data-evq-close]');
 
 console.log('\n[C] 「➕ 지난 피드백 추가」');
 await page.locator('[data-evq-new="last"][data-uid="stu_nofb"]').click();
-await page.waitForSelector('#mg-evq [data-evq-date]');
-check('C-1 날짜 짐작 = 이번 주 앞 수업일(월요일)', (await page.inputValue('#mg-evq [data-evq-date]')) === '2026-10-26');
-check('C-2 문자 칸이 없다', (await page.locator('#mg-evq [data-evq-sms]').count()) === 0);
+await page.waitForSelector('#mg-evq [data-evq-pick]');
+const opts = await page.$$eval('#mg-evq [data-evq-pick] option', (os) => os.map((o) => o.textContent));
+check('C-1 서버가 준 지난 회차가 날짜(요일)·시각으로 보이고, 가장 최근이 골라져 있다',
+  opts.join('|') === '2026-10-26 (Mon) 15:20|2026-10-23 (Fri) 15:20' && (await page.inputValue('#mg-evq [data-evq-pick]')) === '0', opts);
+check('C-2 문자 칸·날짜 짐작 칸이 없다', (await page.locator('#mg-evq [data-evq-sms]').count()) === 0 && (await page.locator('#mg-evq input[type="date"]').count()) === 0);
 await page.fill('#mg-evq [data-evq-f="note_en"]', 'Practised vowels');
-await page.fill('#mg-evq [data-evq-date]', TODAY);
-await page.click('#mg-evq [data-evq-save]');
-check('C-3 오늘 날짜를 고르면 막는다', /before this class/.test(await page.locator('#mg-evq [data-evq-msg]').innerText()) && posts.length === 1);
-await page.fill('#mg-evq [data-evq-date]', '2026-10-23');
 if (SHOT_DIR) await page.locator('#mg-evq .evq-box').screenshot({ path: join(SHOT_DIR, 'create-last.png') });
 await page.click('#mg-evq [data-evq-save]');
 await page.waitForSelector('#mg-evq [data-evq-open]');
 const p2 = posts[1] || {};
-check('C-4 그날 방 번호(같은 예약 + 고른 날짜)로 저장', p2.room_id === 'class-6648-20261023' && p2.lesson_date === '2026-10-23', p2);
-check('C-5 문자는 안 보낸다', p2.notify_parent === false);
-check('C-6 문자를 안 골랐으면 문자 결과 줄이 없다(짝)', !/Text sent|No parent phone/.test(await page.locator('#mg-evq').innerText()));
+check('C-3 고른 회차(월요일)의 «자기 예약 번호» 방으로 저장 — 오늘 방 번호를 빌리지 않는다',
+  p2.room_id === 'class-6640-20261026' && p2.lesson_date === '2026-10-26', p2);
+check('C-4 문자는 안 보낸다', p2.notify_parent === false);
+check('C-5 문자를 안 골랐으면 문자 결과 줄이 없다(짝)', !/Text sent|No parent phone/.test(await page.locator('#mg-evq').innerText()));
 await page.click('#mg-evq [data-evq-close]');
+// 다른 회차를 고르면 그 회차의 방으로
+await page.locator('[data-evq-new="last"][data-uid="stu_nofb"]').click();
+await page.waitForSelector('#mg-evq [data-evq-pick]');
+await page.selectOption('#mg-evq [data-evq-pick]', '1');
+await page.fill('#mg-evq [data-evq-f="note_en"]', 'Friday class');
+await page.click('#mg-evq [data-evq-save]');
+await page.waitForSelector('#mg-evq [data-evq-open]');
+const p3 = posts[2] || {};
+check('C-6 금요일을 고르면 금요일 예약 번호 방(class-6642)', p3.room_id === 'class-6642-20261023' && p3.lesson_date === '2026-10-23', p3);
+await page.click('#mg-evq [data-evq-close]');
+// 짝: 회차 목록이 없으면 창 자체가 안 열린다
+await page.evaluate(() => window.mgEvalQuick.create({ which: 'last', student_uid: 'x', class_date: '2026-10-28', room_id: 'class-1-20261028', prev_classes: [] }, { en: true }));
+check('C-7 고를 회차가 없으면 «지난» 창을 안 연다(짝)', (await page.locator('#mg-evq').count()) === 0);
 
 console.log('\n[D] 「✏️ 고치기」');
 await page.locator('[data-evq-fix="42"]').click();

@@ -1951,7 +1951,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     document.dispatchEvent(new CustomEvent('teacher-feedback-new',{ detail:{
       which:'last', student_uid:stuUid(c), student_name:c.student_name,
       teacher_uid:DATA.me && DATA.me.username, teacher_name:DATA.me && DATA.me.name,
-      room_id:c.room_id, class_date:c.class_date || c.date || DATA.today, week_days:c.week_days, week_dates:c.week_dates
+      room_id:c.room_id, class_date:c.class_date || c.date || DATA.today, prev_classes:c.prev_classes
     }}));
   });
   /* 하루치 목록 — 주간 카드와 합친 카드의 «다른 날» 보기가 같은 줄 모양을 쓴다(한 곳에서만 고친다). */
@@ -2354,11 +2354,11 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var writeBtn = (!c.today_eval && !c.eval_written && c.class_state !== 'postponed' && c.class_state !== 'cancelled' && typeof wi === 'number' && wi >= 0)
           ? ' <button type="button" class="evq-open evq-write" data-eval="' + wi + '">' + esc(T('✍ Write Feedback', '✍ 피드백 작성')) + '</button>' : '';
     /* ➕ (2026-10-28 매니저·강사 제안 «지난 피드백도 추가») 지난 피드백이 없으면 「➕ 지난 피드백 추가」 —
-       공용 쓰기 창(js/eval-quick-view.js create)이 날짜를 고르게 하고 «그날 방 번호» 로 저장한다.
+       공용 쓰기 창(js/eval-quick-view.js create)이 서버가 준 «지난 회차»(prev_classes — 예약 행마다의 방 번호)에서 고르게 한다.
        조건은 admin.html·manager.html 「지난」 칸과 같다(eval_add_edit_buttons_harness 가 셋을 실제로 돌려 맞춰 본다).
-       ⛔ 옛 LMS·카페24 줄·학생 아이디 없는 줄·결정론 방 번호가 아닌 줄에는 주지 않는다. 배선은 data-evq-new 위임 리스너. */
+       ⛔ 옛 LMS·카페24 줄·학생 아이디 없는 줄·지난 회차 목록이 없는 줄(다른 날 보기)에는 주지 않는다. 배선은 data-evq-new 위임 리스너. */
     var addLast = (!lastFeedback && (!c.kind || c.kind === 'class') && c.source !== 'cafe24' && c.source !== 'lms'
-          && String(c.student_uid || '').trim() && /^class-\d+-\d{8}$/.test(String(c.room_id || '')))
+          && String(c.student_uid || '').trim() && Array.isArray(c.prev_classes) && c.prev_classes.length)
           ? ' <button type="button" class="evq-write evq-new" data-evq-new="last" data-room="' + esc(c.room_id) + '">'
             + esc(T('➕ Add last feedback', '➕ 지난 피드백 추가')) + '</button>' : '';
     if (asParts) return {
@@ -2844,6 +2844,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
            + ':' + (sc.today_eval ? sc.today_eval.id : '') + ':' + (sc.last_eval ? sc.last_eval.id : '')
            + ':' + (sc.pay_type || '') + ':' + (sc.sched_label_en || '')
            + ':' + (Array.isArray(sc.week_days) ? sc.week_days.map(function (x) { return x ? 1 : 0; }).join('') : '')
+           // ➕ (2026-10-28) 지난 회차 목록도 — 안 넣으면 캐시(목록 없음)를 그린 뒤 서버 응답이 와도 「➕ 지난 피드백 추가」가 안 뜬다.
+           + ':' + (Array.isArray(sc.prev_classes) ? sc.prev_classes.length : '')
            // 🚪 (2026-09-29) 방 번호·길이도 넣는다 — 안 넣으면 「오늘은 다른 방으로」·일정 이동으로
            //    room_id 가 바뀌어도 «바뀐 게 없다» 로 보고 다시 안 그려, [수업 입장] 이 옛 방으로 간다.
            + ':' + (sc.room_id || '') + ':' + (sc.duration_min || '') + ':' + (sc.close_at_ts || '')

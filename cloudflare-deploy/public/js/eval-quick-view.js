@@ -223,42 +223,26 @@
 
   /* ➕ (2026-10-28 매니저·강사 제안 «오늘·지난 피드백 칸에 고치기·추가 버튼») 빈 칸에서 바로 쓰기.
      ctx = { which:'today'|'last', student_uid, student_name, teacher_uid, teacher_name,
-             room_id, class_date, week_days, week_dates } — 「오늘 수업」 줄의 값 그대로.
+             room_id, class_date, prev_classes } — 「오늘 수업」 줄의 값 그대로.
      · 오늘 = 그 수업의 방 번호·날짜 그대로.
-     · 지난 = 날짜를 고르게 한다(기본값 = prevClassDate 의 짐작). 방 번호는 «오늘 방의 예약 번호 + 그 날짜»
-       — 서버의 결정론 방 번호(class-<예약>-<YYYYMMDD>)라 그날 수업의 «일지 씀» 판정과도 맞물린다.
-       ⚠️ 그 날짜가 이 수업 날짜보다 앞이어야 서버(class-today-extras.ts pickEvals)가 «지난» 칸에 놓는다.
+     · 지난 = 서버가 예약표로 계산한 «지난 회차» 목록(prev_classes = [{date, room_id, time}],
+       src/class-today-extras.ts recentClassesFor)에서 «고른다». 방 번호는 그 회차의 것을 그대로 쓴다.
+       ⛔ 화면에서 «오늘 방의 예약 번호 + 날짜» 로 지어내지 않는다 — 반복 수업은 요일당 1행이라 월·수·금 학생의
+          월요일 방이 틀린다(2026-10-28 Codex 리뷰 지적으로 짐작 방식을 버렸다). 목록이 없으면 부르는 쪽이 버튼을 안 준다.
+       ⚠️ 고른 날짜가 이 수업 날짜보다 앞이어야 서버(pickEvals)가 «지난» 칸에 놓는다.
      · 학부모 문자는 «오늘» 에서 «고른 사람만» — 기본은 안 보낸다(관리자 화면이 저장할 때마다 문자가
        나가지 않게 — api-lessons.ts create 의 notify_parent 주석과 같은 이유). 문자 본문이
        「오늘 수업 일지가 도착했어요」라서 «지난» 에는 아예 주지 않는다(거짓 문자가 된다).
      ⛔ 점수는 받지 않는다 — 별점은 강사 일지 창(teacher.html openEval)의 몫이다.
      ⛔ teacher_uid 를 수업 강사 아이디로 채우지 않는다 — «누가 썼나» 가 거짓이 된다. 부르는 쪽이
         «쓰는 사람» 을 넘긴다(강사 화면 = 자기 아이디, 관리자·매니저 화면 = 없음 → 본사만 고칠 수 있음). */
-  function ymdAdd(ymd, days) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ''));
-    if (!m) return '';
-    return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + days * 86400000).toISOString().slice(0, 10);
-  }
-  /** 바로 전 수업일 짐작 — 이번 주 7칸(week_days)에서 오늘 앞의 수업일, 없으면 지난주의 마지막 수업 요일.
-   *  칸이 없으면 일주일 전. 짐작일 뿐이라 화면이 날짜를 고치게 둔다. 하니스가 오려 내 돌린다. */
-  function prevClassDate(ctx) {
+  /** 고를 수 있는 지난 회차 — 서버 목록 중 «모양이 맞고 이 수업보다 앞선» 것만(지어내지 않는다). */
+  function pickableClasses(ctx) {
     var d = String((ctx && ctx.class_date) || '').slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return '';
-    var wd = ctx.week_days, wds = ctx.week_dates;
-    if (Array.isArray(wd) && wd.length === 7 && Array.isArray(wds) && wds.length === 7) {
-      var ti = wds.indexOf(d);
-      if (ti >= 0) {
-        for (var i = ti - 1; i >= 0; i--) if (wd[i]) return wds[i];
-        for (var j = 6; j >= 0; j--) if (wd[j]) return ymdAdd(wds[j], -7);
-      }
-    }
-    return ymdAdd(d, -7);
-  }
-  /** 그 날짜의 방 번호 — 오늘 방이 결정론 번호가 아니면 '' (부르는 쪽이 «지난» 버튼을 안 준다). */
-  function roomFor(roomId, ymd) {
-    var m = /^class-(\d+)-\d{8}$/.exec(String(roomId || '').trim());
-    var y = /^\d{4}-\d{2}-\d{2}$/.test(String(ymd || '')) ? String(ymd).replace(/-/g, '') : '';
-    return m && y ? 'class-' + m[1] + '-' + y : '';
+    return (Array.isArray(ctx && ctx.prev_classes) ? ctx.prev_classes : []).filter(function (p) {
+      return p && /^\d{4}-\d{2}-\d{2}$/.test(String(p.date || '')) && String(p.date) < d
+        && /^class-\d+-\d{8}$/.test(String(p.room_id || ''));
+    });
   }
 
   /** ➕ 쓰기 화면 — 하니스가 오려 내 돌린다. */
@@ -276,10 +260,16 @@
       + '<button type="button" class="evq-x" data-evq-close aria-label="' + esc(T('Close', '닫기')) + '">✕</button></div>'
       + '<div class="evq-bd">'
       + (last
-          ? '<div class="evq-sec"><div class="evq-lb">' + esc(T('Date of the last class', '지난 수업 날짜')) + '</div>'
-            + '<input type="date" class="evq-in" data-evq-date value="' + esc(prevClassDate(ctx)) + '" max="' + esc(ymdAdd(ctx.class_date, -1)) + '">'
-            + '<div class="evq-sub">' + esc(T('Guessed from the weekly schedule — change it if it is wrong.',
-                '주간 수업 요일로 짐작한 날짜입니다 — 틀리면 바꿔 주세요.')) + '</div></div>'
+          ? '<div class="evq-sec"><div class="evq-lb">' + esc(T('Which class?', '어느 수업인가요?')) + '</div>'
+            + '<select class="evq-in" data-evq-pick>'
+            + pickableClasses(ctx).map(function (p, i) {
+                var wd = new Date(p.date + 'T00:00:00Z').getUTCDay();
+                var day = en ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][wd] : ['일', '월', '화', '수', '목', '금', '토'][wd];
+                return '<option value="' + i + '">' + esc(p.date + ' (' + day + ')' + (p.time ? ' ' + p.time : '')) + '</option>';
+              }).join('')
+            + '</select>'
+            + '<div class="evq-sub">' + esc(T('From the student\'s schedule — the most recent class is selected. Pick another if it was moved or a holiday.',
+                '학생 예약표의 지난 수업입니다 — 가장 최근 수업이 골라져 있습니다. 연기·휴강이었으면 다른 날을 고르세요.')) + '</div></div>'
           : '')
       + ta('note_en', T('Teacher note (English)', '강사 메모 (영어)'),
           T('What happened in class — a few lines in English.', '수업에서 있었던 일 — 영어로 몇 줄.'))
@@ -340,12 +330,11 @@
       var smsBox = box.querySelector('[data-evq-sms]');
       var sms = !last && !!(smsBox && smsBox.checked);
       if (!noteEn && !noteKo) { say('#b45309', T('Write the feedback first.', '피드백을 먼저 적어 주세요.')); return; }
-      var date = last ? String((box.querySelector('[data-evq-date]') || {}).value || '') : String(ctx.class_date || '');
-      if (last && !(date && date < String(ctx.class_date || ''))) {
-        say('#b42318', T('Pick a date before this class.', '이 수업보다 앞선 날짜를 골라 주세요.')); return;
-      }
-      var room = last ? roomFor(ctx.room_id, date) : String(ctx.room_id || '');
-      if (last && !room) { say('#b42318', T('This class has no room number to attach the feedback to.', '이 수업은 피드백을 붙일 방 번호가 없습니다.')); return; }
+      /* 지난 = 고른 회차의 날짜·방 그대로(서버 목록) · 오늘 = 이 수업의 날짜·방 */
+      var pick = last ? pickableClasses(ctx)[Number((box.querySelector('[data-evq-pick]') || {}).value)] : null;
+      if (last && !pick) { say('#b42318', T('Pick which class this feedback is for.', '어느 수업의 피드백인지 골라 주세요.')); return; }
+      var date = last ? pick.date : String(ctx.class_date || '');
+      var room = last ? pick.room_id : String(ctx.room_id || '');
       if (sms) {   /* 서버도 같은 검사를 한다(정본) — 여기선 왕복 전에 미리 말해 줄 뿐 */
         var hangul = (noteKo.match(/[가-힣]/g) || []).length;
         if (!noteKo || hangul < noteKo.length * 0.3) {
@@ -421,12 +410,12 @@
   /** ➕ 빈 칸에서 쓰기 — ctx 는 위 renderCreate 머리말. 학생 아이디가 없으면 열지 않는다(누구 것인지 모르면 안 쓴다). */
   window.mgEvalQuick.create = function (ctx, opts) {
     if (!ctx || !String(ctx.student_uid || '').trim()) return;
+    if (ctx.which === 'last' && !pickableClasses(ctx).length) return;   /* 고를 회차가 없으면 열지 않는다(짐작해 쓰지 않는다) */
     seq++;   // 불러오던 보기 창이 있으면 그 응답이 이 창을 덮지 않게
     showCreate(ctx, !!(opts && opts.en), opts || {});
   };
   window.mgEvalQuick._render = renderEval;   // 하니스용
   window.mgEvalQuick._renderEdit = renderEdit;
   window.mgEvalQuick._renderCreate = renderCreate;
-  window.mgEvalQuick._prevClassDate = prevClassDate;
-  window.mgEvalQuick._roomFor = roomFor;
+  window.mgEvalQuick._pickable = pickableClasses;
 })();

@@ -204,6 +204,39 @@ export function weekDaysFor(rows: any[], weekDates: string[],
   return out;
 }
 
+/** ➕ 지난 수업 회차 — 이 수업 날짜 «앞» days 일 안에서 그 학생 예약표가 수업을 두는 날과 «그날 방 번호».
+ *  「➕ 지난 피드백 추가」(js/eval-quick-view.js create)가 이 목록에서 고르게 한다(2026-10-28).
+ *  ⚠️ 방 번호는 «그날 걸린 예약 행» 의 id 로 만든다 — 반복 수업은 «요일당 1행»(api-admin.ts 등록부)이라
+ *     오늘 방의 예약 번호를 빌려 쓰면 월·수·금 학생의 월요일 방이 «수요일 예약 번호 + 월요일 날짜» 로 틀린다
+ *     (Codex 리뷰 지적 — 그러면 그날 실제 방의 «일지 씀» 이 안 바뀌고 중복 일지를 부른다).
+ *  규칙은 week_days(weekDaysFor)와 같다: 날짜 지정 행은 그 날짜, 아니면 요일. 가장 최근부터 최대 max 개.
+ *  ⚠️ 휴강·연기는 모른다(예약표만 본다) — 그래서 «고르게» 하고 짐작해 저장하지 않는다. 하니스가 그대로 돌린다. */
+export function recentClassesFor(rows: any[], dateStr: string,
+  dowMatches: (raw: any, target: number) => boolean, days = 14, max = 6)
+  : { date: string; room_id: string; time: string | null }[] {
+  const out: { date: string; room_id: string; time: string | null }[] = [];
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || ''));
+  if (!m) return out;
+  const base = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  for (let k = 1; k <= days && out.length < max; k++) {
+    const t = base - k * 86400000;
+    const ymd = new Date(t).toISOString().slice(0, 10);
+    const dow = new Date(t).getUTCDay();   // 0=일 — weekDaysFor 와 같은 기준
+    const hits: { date: string; room_id: string; time: string | null }[] = [];
+    for (const r of rows || []) {
+      const id = Number(r?.id);
+      if (!Number.isInteger(id) || id <= 0) continue;
+      const d = String(r?.scheduled_date || '').slice(0, 10);
+      const raw = r?.day_of_week;
+      const hit = d ? d === ymd : (raw != null && raw !== '' && dowMatches(raw, dow));
+      if (hit) hits.push({ date: ymd, room_id: `class-${id}-${ymd.replace(/-/g, '')}`, time: r?.start_time ? String(r.start_time).slice(0, 5) : null });
+    }
+    hits.sort((a, b) => String(b.time || '').localeCompare(String(a.time || '')));   // 같은 날 두 수업이면 늦은 것부터
+    for (const h of hits) if (out.length < max) out.push(h);
+  }
+  return out;
+}
+
 /** 망고아이 방이 없는 줄인가 — 관리자 목록은 source='cafe24', 강사 포털은 source='lms'(방 번호 c24-…). */
 export function isNoRoomRow(s: any): boolean {
   const src = String(s?.source || '');
@@ -333,7 +366,7 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
   if (wd && opts.dowMatches && uids.length) {
     try {
       const rows = await selectInChunks<any>(db, uids, (ph) =>
-        `SELECT user_id, schedule_kind, scheduled_date, day_of_week FROM class_schedules
+        `SELECT id, user_id, schedule_kind, scheduled_date, day_of_week, start_time FROM class_schedules
           WHERE ${SCHED_SUMMARY_WHERE} AND user_id IN (${ph})`);
       const byUid = new Map<string, any[]>();
       for (const r of rows) {
@@ -345,6 +378,7 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
         const u = String(s.student_uid || '').trim(); if (!u) continue;
         s.week_days = weekDaysFor(byUid.get(u) || [], wd, opts.dowMatches);
         s.week_dates = wd;
+        s.prev_classes = recentClassesFor(byUid.get(u) || [], dateStr, opts.dowMatches);   // ➕ 지난 피드백 추가용
       }
     } catch (e: any) { console.warn('[classes/today] week days:', e?.message); }
   }

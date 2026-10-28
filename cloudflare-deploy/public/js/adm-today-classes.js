@@ -255,7 +255,8 @@
   /* ✏️➕ (2026-10-28 매니저·강사 제안 «오늘·지난 피드백 칸에 고치기·추가 버튼») 칸 아래 버튼 하나.
      · 글이 있으면 「✏️ 고치기」 — 보기를 건너뛰고 곧장 고치기 창(허락은 서버 evalEditAllowed, 안 되면 보기 + 이유).
      · 없으면 「➕ 추가」 — 공용 쓰기 창(js/eval-quick-view.js create). 오늘 칸은 수업이 «시작된 뒤» 에만
-       (teacher.html 「✍ 피드백 작성」과 같은 이유 — 수업 전에 쓴 일지는 거짓이 된다). 지난 칸은 날짜를 고르게 한다.
+       (teacher.html 「✍ 피드백 작성」과 같은 이유 — 수업 전에 쓴 일지는 거짓이 된다). 지난 칸은 서버가 준
+       «지난 회차» 목록(prev_classes)에서 고르게 한다 — 목록이 없으면 버튼도 없다.
      ⛔ 카페24 줄·학생 아이디 없는 줄·본사 전용(지사·대리점)에는 주지 않는다 — 붙일 방이 없거나, 누구 것인지
         모르거나, 볼 권한부터 없다.
      ⚠️ xEval 과 따로 둔다 — xEval 은 정렬값(tcSortVal)에도 쓰여, 버튼 글자가 섞이면 «빈 칸은 맨 뒤» 정렬이 깨진다.
@@ -271,7 +272,8 @@
     if (e) return '';   /* 글은 있는데 번호가 없다(옛 응답) — 두 번째 글이 생기지 않게 «추가» 를 주지 않는다 */
     if (!String(s.student_uid || '').trim()) return '';
     if (which === 'today' && !(s.status === 'live' || s.status === 'ended')) return '';
-    if (which === 'last' && !/^class-\d+-\d{8}$/.test(String(s.room_id || ''))) return '';
+    /* 지난 = 서버가 예약표로 계산한 «지난 회차»(prev_classes)가 있을 때만 — 방 번호를 화면에서 지어내지 않는다 */
+    if (which === 'last' && !(Array.isArray(s.prev_classes) && s.prev_classes.length)) return '';
     return '<span class="tc-evq-act tc-evq-add" role="button" tabindex="0" data-evq-new="' + which + '"'
       + ' data-room="' + esc(s.room_id) + '" data-uid="' + esc(s.student_uid) + '">'
       + esc(which === 'last' ? T('➕ 지난 피드백 추가', '➕ Add last') : T('➕ 오늘 피드백 추가', '➕ Add today')) + '</span>';
@@ -305,7 +307,7 @@
       window.mgEvalQuick.create({
         which: el.getAttribute('data-evq-new') === 'last' ? 'last' : 'today',
         student_uid: s.student_uid, student_name: s.student_name, teacher_name: s.teacher_name,
-        room_id: s.room_id, class_date: s.class_date, week_days: s.week_days, week_dates: s.week_dates
+        room_id: s.room_id, class_date: s.class_date, prev_classes: s.prev_classes
       }, { en: isEn(), onSaved: evqSaved });
     });
   }
