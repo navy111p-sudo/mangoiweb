@@ -13,6 +13,10 @@
 //   C. buildPhoneGaps 끝에서 끝 — 독립 오라클(B 의 오려 낸 블록 + 한 명씩 phonesForStudent)과 대조.
 //   D. api-mango.ts 경로 — 로그인 없음 401 · 강사·지사·대리점 403 (목록을 «만들기 전에» 막는가) · 위치.
 //   E. adm-phone-gaps.js 순수 함수 — 빈 칸을 절대 안 보내는가 · 10자리 문턱 · 안내 문구 · 역할 숨김.
+//   F. 매니저 화면(manager.html) — 같은 스크립트를 «카드를 펼칠 때만» 받는가.
+//   G. 강사 화면(teacher.html, 2026-10-28) — «내 수업» 학생만 세는가(오라클 대조) · 참고 번호를 안 읽는가 ·
+//      저장 경로(api-teacher.ts ?part=phone_save)를 «진짜 정본» 으로 돌려 남의 학생·이미 번호 있는 학생에게 못 넣는가 ·
+//      화면이 강사 모드에서 관리자 경로를 안 부르는가 · 펼칠 때만 받는가.
 //
 // 실행: node test-harness/phone_gaps_harness.mjs   (FUZZ_N=1000 FUZZ_SEED=7 로 늘릴 수 있다)
 import { readFileSync } from 'node:fs';
@@ -346,11 +350,11 @@ function buildWorld(r, k) {
   raw.exec('CREATE TABLE holidays (country TEXT, date TEXT, name TEXT)');
   return raw;
 }
-function oracleGaps(raw, env, now, days, holidays) {
+function oracleGaps(raw, env, now, days, holidays, rowOk = () => true) {
   // 정본을 베끼지 않는다 — 리마인더 블록(B)으로 «열리는가», 한 명씩 phonesForStudent 로 «번호가 있나» 를 잰다
   return (async () => {
     const dl = PG.kstDays(now, days);
-    const rows = raw.prepare("SELECT * FROM class_schedules WHERE status != 'cancelled'").all();
+    const rows = raw.prepare("SELECT * FROM class_schedules WHERE status != 'cancelled'").all().filter(rowOk);   // G: 강사판은 «그 강사 수업» 만
     const by = new Map();
     for (const s of rows) {
       const uid = String(s.user_id || '').trim();
@@ -941,6 +945,411 @@ console.log('\n[ F. 매니저 화면 — 같은 스크립트를 펼칠 때만 �
     [undefined, '', null, false, '아무것도 모르면 한국어(예전 그대로)'],
   ]) ok(isEnRun(a, h, st) === want, 'F 언어 판정: ' + why, { a, h, st, got: isEnRun(a, h, st) });
   report('매니저 화면', b);
+}
+
+/* ── G. 강사 화면(teacher.html) — «내 수업» 학생만 · 번호 «넣기» 만 (2026-10-28) ──────────────────────────
+   왜: 강사에게 남의 수업 학생이 보이거나 저장되면 되돌릴 수 없다(남의 학생 이름·번호). 그래서 범위(teacherKeys)와
+       저장 게이트(api-teacher.ts 의 phoneMode 블록)를 «소스에서 오려 내» 진짜 정본(buildPhoneGaps·setOverridePhones)으로 돌린다. */
+console.log('\n[ G. 강사 화면 — 내 수업 학생만 · 번호 넣기만 ]');
+{
+  const b = mark();
+  // G-1 강사 열쇠 목록
+  ok(typeof PG.teacherKeyList === 'function', '전제: teacherKeyList 를 내보냈다');
+  if (typeof PG.teacherKeyList === 'function') {
+    for (const [inp, want] of [[[], ''], [undefined, ''], [null, ''], ['22', ''], [['22'], ',22,'], [['22', '22', ' 22 '], ',22,'],
+      [[22, '7'], ',22,7,'], [['a,b', '7'], ',7,'], [['', '  ', null, undefined], '']]) {
+      const got = PG.teacherKeyList(inp);
+      ok(got === want, 'G 강사 열쇠 목록(빈 값·콤마 든 값·중복을 버린다 · 배열이 아니면 빈 목록)', { inp, got, want });
+    }
+  }
+  // G-2 무작위 — «그 강사 수업» 만 센 오라클과 대조 · 참고 번호를 «읽지도» 않는가 · 열쇠가 없으면 «전부» 로 떨어지지 않는가
+  const TID_POOL = ['7', '29', '22', 'mangoi_018', 'Mangoi_018', ' 22', '22,7', null, ''];
+  const KEY_POOL = ['7', '22', 'mangoi_018', '22,7', ' 29 ', '', null, 'nobody'];
+  let worldsT = 0, gapsT = 0, emptyKeys = 0, otherSkipped = 0;
+  for (let k = 0; k < N; k++) {
+    HC.clearHolidayClosureCache();
+    const r = rng(SEED0 * 17 + k);
+    const now = Date.UTC(2026, int(r, 0, 11), int(r, 1, 28), int(r, 0, 23), int(r, 0, 59));
+    const days = pick(r, [7, 14, 3]);
+    const raw = buildWorld(r, k);
+    const pool = PG.kstDays(now, 16).map(d => d.ymd);
+    const ins = raw.prepare('INSERT INTO class_schedules (id,user_id,student_name,day_of_week,scheduled_date,start_time,status,teacher_id,created_at) VALUES (?,?,?,?,?,?,?,?,1)');
+    let id = 1;
+    for (const u of Array.from({ length: int(r, 0, 25) }, (_, i) => 't' + k + '_' + i)) {
+      for (let j = int(r, 1, 4); j > 0; j--) {
+        const s = genRow(r, id, pool);
+        ins.run(id++, u, '학생' + u, s.day_of_week == null ? null : String(s.day_of_week), s.scheduled_date, s.start_time,
+          pick(r, ['active', 'active', 'active', 'cancelled', 'postponed']), pick(r, TID_POOL));
+      }
+      if (r() < 0.6) raw.prepare('INSERT OR IGNORE INTO students_erp VALUES (?,?,?,?)').run(u, r() < 0.4 ? genPhone(r) : null, null, r() < 0.4 ? genPhone(r) : null);
+      if (r() < 0.4) raw.prepare('INSERT OR IGNORE INTO student_retention VALUES (?,?)').run(u, '010-' + digitsN(r, 4) + '-' + digitsN(r, 4));
+    }
+    const keys = Array.from({ length: int(r, 0, 3) }, () => pick(r, KEY_POOL));
+    const clean = new Set(keys.map(x => String(x == null ? '' : x).trim()).filter(x => x && !x.includes(',')));
+    if (!clean.size) emptyKeys++;
+    const log = [];
+    const env = { DB: d1(raw, {}, log), SOLAPI_API_KEY: 'k', SOLAPI_API_SECRET: 's' };
+    let res;
+    try { res = await PG.buildPhoneGaps(env, { days, now, teacherKeys: keys }); } catch (e) { ok(false, 'G buildPhoneGaps(강사판)가 던지지 않는다', e && e.message); continue; }
+    worldsT++;
+    const logT = log.slice();
+    // 정본을 베끼지 않는다 — 포털 예약 조건(cs.teacher_id = ?)과 같은 «정확일치» 를 오라클에서 따로 건다
+    const o = await oracleGaps(raw, env, now, days, new Set(), (s) => s.teacher_id != null && clean.has(String(s.teacher_id)));
+    ok(res.ok === true && res.scope === 'teacher', 'G 강사판은 scope=teacher', { ok: res.ok, scope: res.scope });
+    ok(res.students === o.students && res.reachable === o.reachable, 'G 강사판 학생 수·문자 갈 학생 수 = «그 강사 수업» 만 센 오라클', { got: [res.students, res.reachable], want: [o.students, o.reachable], keys });
+    const og = new Map(o.gaps.map(g => [g.uid, g]));
+    ok(res.gaps.length === o.gaps.length && res.gaps.every(g => og.has(g.uid)), 'G 강사판 «번호 없는 학생» = 오라클', { got: res.gaps.map(g => g.uid), want: o.gaps.map(g => g.uid), keys });
+    for (const g of res.gaps) {
+      gapsT++;
+      const w = og.get(g.uid); if (!w) continue;
+      ok(g.classes === w.classes && (g.next_date + ' ' + g.next_time) === w.next, 'G 강사판 수업 수·가장 가까운 수업도 «내 수업» 기준', { g, w });
+      ok(g.hint_phone === '', 'G 강사판은 참고 번호를 싣지 않는다', g);
+    }
+    ok(!logT.some(x => x.k === 'ret'), 'G 강사판은 이탈위험 표를 «읽지도» 않는다', logT.filter(x => x.k === 'ret').length);
+    if (!clean.size) ok(!logT.some(x => x.k === 'cs') && res.students === 0 && res.gaps.length === 0, 'G 열쇠가 없으면 수업 표를 읽지도 않고 0명(«전부» 로 떨어지지 않는다)', { keys, students: res.students });
+    // 짝 — 같은 세계에서 열쇠를 안 넘기면 scope=all 이고, 강사판 줄은 그 안에 든다
+    const all = await PG.buildPhoneGaps({ DB: d1(raw, {}), SOLAPI_API_KEY: 'k', SOLAPI_API_SECRET: 's' }, { days, now });
+    const allU = new Set(all.gaps.map(g => g.uid));
+    ok(all.scope === 'all' && res.gaps.every(g => allU.has(g.uid)), 'G 짝: 열쇠를 안 넘기면 scope=all · 강사판 줄은 그 안에 든다', { scope: all.scope });
+    if (all.gaps.length > res.gaps.length) otherSkipped++;
+  }
+  console.log(`  · 강사판 무작위 ${worldsT}벌 · 줄 ${gapsT}건 · 열쇠 없음 ${emptyKeys}벌 · 남의 수업 학생이 빠진 세계 ${otherSkipped}벌`);
+  ok(gapsT > 30 && emptyKeys > 0 && otherSkipped > 20, '전제: 무작위가 «내 학생 줄·열쇠 없음·남의 학생 빠짐» 을 실제로 만들었다', { gapsT, emptyKeys, otherSkipped });
+
+  // G-2b 고정 세계 — 무작위로는 드물게만 나오는 «열쇠 모양» 함정을 일부러 만든다
+  {
+    HC.clearHolidayClosureCache();
+    const raw = buildWorld(rng(9), 0);
+    const nowF = Date.UTC(2026, 9, 28, 3, 0);   // 10/28 12:00 KST
+    const ins = raw.prepare('INSERT INTO class_schedules (id,user_id,student_name,day_of_week,scheduled_date,start_time,status,teacher_id,created_at) VALUES (?,?,?,?,?,?,?,?,1)');
+    ins.run(1, 'comma1', '콤마', null, '2026-10-29', '16:00', 'active', '22,7');       // 열쇠 22·7 이 «나란히» 있어도 이 줄은 남의 것
+    ins.run(2, 'space1', '공백', null, '2026-10-29', '16:00', 'active', ' 22');        // 포털은 정확일치 — 앞 공백이면 안 걸린다
+    ins.run(3, 'case1', '대문자', null, '2026-10-29', '16:00', 'active', 'Mangoi_018'); // 대소문자도 정확일치
+    ins.run(4, 'pre1', '앞토막', null, '2026-10-29', '16:00', 'active', '2');           // 22 의 앞토막
+    ins.run(5, 'own1', '내학생', null, '2026-10-29', '16:00', 'active', '22');
+    ins.run(6, 'own2', '내학생2', null, '2026-10-29', '17:00', 'active', 'mangoi_018');
+    const envF = { DB: d1(raw, {}), SOLAPI_API_KEY: 'k', SOLAPI_API_SECRET: 's' };
+    for (const keys of [['22', '7', 'mangoi_018'], ['mangoi_018', '22', '7'], ['7', '22', 'mangoi_018', ' 22 ']]) {
+      const r = await PG.buildPhoneGaps(envF, { days: 7, now: nowF, teacherKeys: keys });
+      const us = (r.gaps || []).map(g => g.uid).sort();
+      ok(r.ok && JSON.stringify(us) === JSON.stringify(['own1', 'own2']), 'G 고정: 콤마 든 번호·앞 공백·대소문자·앞토막은 «내 수업» 이 아니다(포털과 같은 정확일치)', { keys, us });
+    }
+    const r2 = await PG.buildPhoneGaps(envF, { days: 7, now: nowF, teacherKeys: ['22,7'] });
+    ok(r2.ok && r2.students === 0 && r2.gaps.length === 0, 'G 고정: 콤마 든 열쇠 하나만이면 아무도 안 센다', r2.gaps);
+  }
+  // G-3 api-teacher.ts — 관문·위치·블록 실행
+  const at = srcOf('api-teacher.ts');
+  const { deadAt } = await import('./helpers/live-code.mjs');
+  const gStart = at.indexOf('const isGoalPost = ');
+  const gIf = at.indexOf("if (path !== '/api/teacher/portal'", gStart);
+  const gEnd = gIf >= 0 ? at.indexOf('return null;', gIf) : -1;
+  const gateSeg = (gStart >= 0 && gEnd > gIf) ? at.slice(gStart, gEnd + 'return null;'.length) : '';
+  let gate = null;
+  try {
+    gate = new Function(stripTypeScriptTypes('function __g(method, path, url) {\n' + gateSeg + "\nreturn 'pass'; }") + '\nreturn __g;')();
+  } catch (e) { ok(false, 'G 전제: 포털 경로 관문을 오려 냈다', e && e.message); }
+  ok(!!gate && /isPhoneSavePost/.test(gateSeg), '전제: 포털 경로 관문을 오려 냈다(저장 POST 를 받는 줄 포함)');
+  if (gate) {
+    const U = (q) => new URL('https://x/api/teacher/portal?' + q);
+    for (const [m, p, q, want] of [['POST', '/api/teacher/portal', 'part=phone_save', 'pass'], ['GET', '/api/teacher/portal', 'part=phone_gaps', 'pass'],
+      ['POST', '/api/teacher/portal', 'part=phone_gaps', null], ['POST', '/api/teacher/portal', 'part=nope', null],
+      ['DELETE', '/api/teacher/portal', 'part=phone_save', null], ['POST', '/api/teacher/other', 'part=phone_save', null]]) {
+      ok(gate(m, p, U(q)) === want, 'G 관문: 저장은 POST ?part=phone_save 만 받는다(다른 POST·다른 메서드는 그대로 거절)', { m, p, q, got: gate(m, p, U(q)) });
+    }
+  }
+  const pmLine = (at.match(/const phoneMode = [^;]+;/) || [''])[0];
+  const onLine = (at.match(/const onlyNext = [^;]+;/) || [''])[0];
+  let modes = null;
+  try { modes = new Function('method', 'url', 'isPhoneSavePost', 'monthMode', pmLine + '\n' + onLine + '\nreturn { phoneMode, onlyNext };'); } catch (e) { ok(false, 'G 전제: phoneMode·onlyNext 줄을 오려 냈다', e && e.message); }
+  if (modes) {
+    const U = (q) => new URL('https://x/api/teacher/portal?' + q);
+    let m = modes('GET', U('part=phone_gaps'), false, false);
+    ok(m.phoneMode === true && m.onlyNext === true, 'G 목록 요청은 «가벼운 모드»(공지·자료·평점을 안 읽는다)', m);
+    m = modes('POST', U('part=phone_save'), true, false);
+    ok(m.phoneMode === true && m.onlyNext === true, 'G 저장 요청도 «가벼운 모드»', m);
+    m = modes('POST', U('part=phone_gaps'), false, false);
+    ok(m.phoneMode === false, 'G POST ?part=phone_gaps 는 목록 모드가 아니다(저장만 POST)', m);
+    m = modes('GET', U(''), false, false);
+    ok(m.phoneMode === false && m.onlyNext === false, 'G 짝: 평소 포털 요청은 그대로(가벼운 모드 아님)', m);
+  }
+  const pmAt = at.indexOf('  if (phoneMode) {');
+  const pmBlk = pmAt >= 0 ? braceBody(at, pmAt) : '';
+  const iAuth = at.indexOf("if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);");
+  const iNotT = at.indexOf("error: 'not_a_teacher'");
+  const iAmb = at.indexOf('const identityAmbiguous =');
+  const iHist = at.indexOf("if (url.searchParams.get('part') === 'student_history')");
+  ok(!!pmBlk && /setOverridePhones\(/.test(pmBlk) && deadAt(at, pmAt, 0) === '', '전제: 강사판 블록을 오려 냈고 주석 밖에 살아 있다');
+  ok(iAuth > 0 && iNotT > iAuth && iAmb > iNotT && pmAt > iAmb && iHist > pmAt, 'G 강사판 블록은 로그인(401)·«강사/본사 아님»(403)·신원 확정 «뒤», 다른 part 보다 «앞»', { iAuth, iNotT, iAmb, pmAt, iHist });
+  ok(!/\/api\/admin\//.test(pmBlk.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')), 'G 강사판 블록은 관리자 경로를 부르지 않는다');
+  let mkPm = null;
+  try {
+    const js = stripTypeScriptTypes('async function __pm(url, request, env, actor, linkedTeacherIds, identityUnlinked, identityAmbiguous, isPhoneSavePost, phoneMode) {\n' + pmBlk + '\n return null; }');
+    mkPm = (deps) => new Function('buildPhoneGaps', 'PHONE_GAP_DAYS_MAX', 'SMS_MIN_DIGITS', 'setOverridePhones', 'json', js + '\nreturn __pm;')(
+      deps.build, PG.PHONE_GAP_DAYS_MAX, PG.SMS_MIN_DIGITS, deps.save, (body, status = 200) => ({ body, status }));
+    mkPm({ build: async () => ({}), save: async () => ({}) });
+  } catch (e) { mkPm = null; ok(false, 'G 전제: 강사판 블록을 함수로 만들었다', e && e.message); }
+  ok(!!mkPm && PG.PHONE_GAP_DAYS_MAX === 14 && PG.SMS_MIN_DIGITS === 10, '전제: 강사판 블록을 실행할 수 있고 상수(14일·10자리)를 정본에서 받았다');
+  if (mkPm) {
+    const call = async (o) => {
+      const log = [];
+      const build = async (env, opts) => { log.push(['build', opts]); return o.result || { ok: true, complete: true, gaps: [] }; };
+      const save = async (env, uid, put, by) => { log.push(['save', uid, put, by]); return o.saveRes || { ok: true }; };
+      let out;
+      try {
+        out = await mkPm({ build, save })(new URL('https://x/api/teacher/portal?' + (o.q || '')),
+          { json: async () => { if (o.body === 'BAD') throw new Error('bad json'); return o.body; } }, {}, o.actor || { username: 'mangoi_018' },
+          o.tids || ['22'], !!o.unlinked, !!o.amb, !!o.post, true);
+      } catch (e) { out = { status: -1, body: { threw: e && e.message } }; }
+      return { out: out || { status: 0, body: {} }, log };
+    };
+    let x = await call({ q: 'part=phone_gaps&days=14', tids: ['22', 7], amb: true, result: { ok: true, complete: true, gaps: [{ uid: 'a' }] } });
+    ok(x.out.status === 200 && x.log.length === 1 && x.log[0][1].days === 14 && JSON.stringify(x.log[0][1].teacherKeys) === JSON.stringify(['mangoi_018', '22', '7']),
+      'G 목록: 로그인 아이디 + 확정 원부 번호를 열쇠로 넘긴다(포털 예약 조건과 같은 열쇠) · 기간 그대로', x.log);
+    ok(x.out.body.identity_ambiguous === true && x.out.body.identity_unlinked === false && x.out.body.gaps.length === 1, 'G 목록: 신원 상태(연결 안 됨·헷갈림)를 함께 싣는다', x.out.body);
+    x = await call({ q: 'part=phone_gaps', result: { ok: false, error: 'class_schedules_unavailable' } });
+    ok(x.out.status === 503, 'G 목록: 못 만들면 503(«번호 없는 학생 0명» 으로 보이지 않게)', x.out);
+    x = await call({ q: 'part=phone_gaps', actor: { username: '  ' }, tids: [] });
+    ok(x.log[0] && Array.isArray(x.log[0][1].teacherKeys) && x.log[0][1].teacherKeys.length === 0, 'G 목록: 아이디도 원부 번호도 없으면 빈 열쇠(정본이 0명으로 끝낸다)', x.log[0]);
+    const GAPS = { ok: true, complete: true, gaps: [{ uid: 'kim1' }, { uid: 'Lee' }] };
+    const post = (body, extra) => call(Object.assign({ post: true, q: 'part=phone_save', body, result: GAPS }, extra || {}));
+    x = await post({ student_uid: 'kim1', parent_phone: '010-1234-5678' });
+    let sv = x.log.find(l => l[0] === 'save');
+    ok(x.out.status === 200 && x.out.body.ok === true && x.out.body.phone_kept === true && sv && sv[1] === 'kim1' && JSON.stringify(sv[2]) === JSON.stringify({ parent: '010-1234-5678' }) && sv[3] === 'teacher:mangoi_018',
+      'G 저장: 넣은 칸만 · 누가 넣었는지(teacher:아이디) 함께 · 성공 모양(phone_kept)', x);
+    ok(x.log[0] && x.log[0][0] === 'build' && x.log[0][1].days === PG.PHONE_GAP_DAYS_MAX && JSON.stringify(x.log[0][1].teacherKeys) === JSON.stringify(['mangoi_018', '22']) && x.log.indexOf(sv) > 0,
+      'G 저장: 저장 «전에» 같은 열쇠·가장 긴 기간(14일)으로 목록을 다시 잰다', x.log);
+    x = await post({ student_uid: ' kim1 ', student_phone: '+63 917 123 4567' });
+    sv = x.log.find(l => l[0] === 'save');
+    ok(x.out.status === 200 && sv && sv[1] === 'kim1' && JSON.stringify(sv[2]) === JSON.stringify({ student: '+63 917 123 4567' }), 'G 저장: 학생 번호만 넣어도 된다 · 아이디 앞뒤 공백은 뗀다', x.log);
+    x = await post({ student_uid: 'kim1', parent_phone: '010-1111-2222', student_phone: '010-3333-4444' });
+    sv = x.log.find(l => l[0] === 'save');
+    ok(x.out.status === 200 && sv && JSON.stringify(sv[2]) === JSON.stringify({ parent: '010-1111-2222', student: '010-3333-4444' }), 'G 저장: 둘 다 넣으면 둘 다', x.log);
+    for (const [bd, err, st, built] of [
+      [{ parent_phone: '010-1234-5678' }, 'student_uid_required', 400, false],
+      [{ student_uid: '   ', parent_phone: '010-1234-5678' }, 'student_uid_required', 400, false],
+      [{ student_uid: 'x'.repeat(81), parent_phone: '010-1234-5678' }, 'student_uid_required', 400, false],
+      ['BAD', 'student_uid_required', 400, false],
+      [{ student_uid: 'kim1' }, 'no_phone', 400, false],
+      [{ student_uid: 'kim1', parent_phone: '', student_phone: '  ' }, 'no_phone', 400, false],
+      [{ student_uid: 'kim1', parent_phone: '010-123-456' }, 'bad_phone', 400, false],
+      [{ student_uid: 'kim1', parent_phone: '123456789' }, 'bad_phone', 400, false],
+      [{ student_uid: 'kim1', parent_phone: '0101234567890123' }, 'bad_phone', 400, false],
+      [{ student_uid: 'kim1', parent_phone: 'abc010-1234-5678' }, 'bad_phone', 400, false],
+      [{ student_uid: 'kim1', parent_phone: '010 ' + '-'.repeat(26) + '12345678' }, 'bad_phone', 400, false],
+      [{ student_uid: 'kim1', parent_phone: '010-1234-5678', student_phone: 'x' }, 'bad_phone', 400, false],
+      [{ student_uid: 'nobody', parent_phone: '010-1234-5678' }, 'not_in_your_list', 403, true],
+      [{ student_uid: 'lee', parent_phone: '010-1234-5678' }, 'not_in_your_list', 403, true],
+      [{ student_uid: 'KIM1', parent_phone: '010-1234-5678' }, 'not_in_your_list', 403, true],
+    ]) {
+      x = await post(bd);
+      ok(x.out.status === st && x.out.body.error === err && !x.log.some(l => l[0] === 'save'), 'G 저장 거절(' + err + ') — 저장을 부르지 않는다(아이디는 대소문자까지 정확일치)', { bd, out: x.out });
+      ok(x.log.some(l => l[0] === 'build') === built, 'G 저장 거절: 입력이 틀리면 목록도 안 만든다 · 목록 밖이면 목록을 보고 거절', { bd, built, log: x.log.map(l => l[0]) });
+      if (x.out.body && x.out.body.message) ok(!!x.out.body.message_en, 'G 거절 문구는 한/영 둘 다(강사 화면 기본은 영어)', x.out.body);
+    }
+    x = await post({ student_uid: 'kim1', parent_phone: '010-1234-5678' }, { result: { ok: false, error: 'class_schedules_unavailable' } });
+    ok(x.out.status === 503 && x.out.body.error === 'phone_check_unavailable' && !x.log.some(l => l[0] === 'save'), 'G 저장: 목록을 못 만들면 저장하지 않는다(503)', x.out);
+    x = await post({ student_uid: 'kim1', parent_phone: '010-1234-5678' }, { result: { ok: true, complete: false, gaps: [{ uid: 'kim1' }] } });
+    ok(x.out.status === 503 && x.out.body.error === 'phone_check_incomplete' && !x.log.some(l => l[0] === 'save'), 'G 저장: 번호 조회가 다 안 됐으면 막는다(이미 번호가 있는 학생을 덮을 수 있다)', x.out);
+    x = await post({ student_uid: 'kim1', parent_phone: '010-1234-5678' }, { saveRes: { ok: false, reason: 'x' } });
+    ok(x.out.status === 500 && x.out.body.error === 'save_failed' && x.out.body.ok === false, 'G 저장: 쓰기가 실패하면 실패라고 말한다(500)', x.out);
+
+    // G-4 진짜 정본으로 끝에서 끝 — 남의 학생·이미 번호 있는 학생에게 못 넣고, 넣은 학생은 목록에서 빠진다
+    HC.clearHolidayClosureCache();
+    const raw = buildWorld(rng(5), 0);
+    const nowI = Date.UTC(2026, 9, 28, 3, 0);   // 10/28 12:00 KST
+    const insI = raw.prepare('INSERT INTO class_schedules (id,user_id,student_name,day_of_week,scheduled_date,start_time,status,teacher_id,created_at) VALUES (?,?,?,?,?,?,?,?,1)');
+    insI.run(1, 'mine1', '내학생', null, '2026-10-29', '16:00', 'active', '22');
+    insI.run(2, 'other1', '남의학생', null, '2026-10-29', '16:00', 'active', '7');
+    insI.run(3, 'mine2', '번호있음', null, '2026-10-29', '17:00', 'active', 'mangoi_018');
+    insI.run(4, 'mine3', '짧은번호', null, '2026-10-30', '16:00', 'active', '22');
+    raw.prepare('INSERT INTO students_erp VALUES (?,?,?,?)').run('mine2', null, null, '010-5555-6666');
+    raw.prepare('INSERT INTO students_erp VALUES (?,?,?,?)').run('mine3', '010123456', null, null);
+    raw.prepare('INSERT INTO student_retention VALUES (?,?)').run('mine1', '010-7777-8888');
+    const envI = { DB: d1(raw, {}), SOLAPI_API_KEY: 'k', SOLAPI_API_SECRET: 's' };
+    const fI = mkPm({ build: (env, o) => PG.buildPhoneGaps(env, Object.assign({ now: nowI }, o)), save: SO.setOverridePhones });
+    const ov = (u) => raw.prepare('SELECT parent_phone, student_phone, phone_by FROM student_erp_override WHERE user_id = ?').get(u) || null;
+    const runI = async (q, body) => {
+      try { return await fI(new URL('https://x/api/teacher/portal?' + q), { json: async () => body }, envI, { username: 'mangoi_018' }, ['22'], false, false, q.includes('phone_save'), true); }
+      catch (e) { return { status: -1, body: { threw: e && e.message } }; }
+    };
+    const dg = (v) => String(v || '').replace(/[^0-9]/g, '');
+    let y = await runI('part=phone_gaps&days=7');
+    const u0 = ((y.body && y.body.gaps) || []).map(g => g.uid).sort();
+    ok(y.status === 200 && JSON.stringify(u0) === JSON.stringify(['mine1', 'mine3']), 'G 끝에서 끝: 목록에는 «내 수업» 의 번호 없는·짧은 학생만(남의 학생·번호 있는 학생은 없다)', u0);
+    ok(((y.body && y.body.gaps) || []).every(g => g.hint_phone === '') && y.body.scope === 'teacher', 'G 끝에서 끝: 이탈위험 표에 번호가 있어도 강사에게는 참고 번호를 안 보인다', y.body && y.body.gaps);
+    y = await runI('part=phone_save', { student_uid: 'other1', parent_phone: '010-1234-5678' });
+    ok(y.status === 403 && ov('other1') === null, 'G 끝에서 끝: 남의 수업 학생에게는 못 넣는다(아무것도 안 적힘)', y);
+    y = await runI('part=phone_save', { student_uid: 'mine2', student_phone: '010-1234-5678' });
+    ok(y.status === 403 && ov('mine2') === null, 'G 끝에서 끝: 이미 문자가 갈 번호가 있는 학생에게는 못 넣는다', y);
+    y = await runI('part=phone_save', { student_uid: 'mine1', parent_phone: '010-2222-3333' });
+    const o1 = ov('mine1');
+    ok(y.status === 200 && o1 && dg(o1.parent_phone) === '01022223333' && o1.student_phone == null && o1.phone_by === 'teacher:mangoi_018', 'G 끝에서 끝: 내 학생에게는 들어간다(받는 자리=student_erp_override · 넣은 칸만 · 누가)', { y, o1 });
+    ok(raw.prepare("SELECT COUNT(*) AS n FROM students_erp WHERE user_id = 'mine1'").get().n === 0, 'G 끝에서 끝: 명부(students_erp)는 건드리지 않는다');
+    ok(dg((await NC.phonesForStudent(envI, 'mine1')).parent) === '01022223333', 'G 끝에서 끝: 발송 정본이 넣은 번호를 쓴다');
+    y = await runI('part=phone_gaps&days=7');
+    ok(y.status === 200 && !y.body.gaps.some(g => g.uid === 'mine1'), 'G 끝에서 끝: 다시 불러오면 그 학생이 목록에서 빠진다', y.body && y.body.gaps);
+    y = await runI('part=phone_save', { student_uid: 'mine1', parent_phone: '010-9999-0000' });
+    ok(y.status === 403 && dg((ov('mine1') || {}).parent_phone) === '01022223333', 'G 끝에서 끝: 한 번 넣은 뒤에는 강사가 그 번호를 바꾸지 못한다(목록에서 빠졌으므로)', y);
+    y = await runI('part=phone_save', { student_uid: 'mine3', student_phone: '010-1234-5678' });
+    ok(y.status === 200 && dg((await NC.phonesForStudent(envI, 'mine3')).student) === '01012345678', 'G 끝에서 끝: 짧은 번호(9자리) 학생에게는 쓸 수 있는 번호를 넣을 수 있다', y);
+  }
+
+  // G-5 공용 스크립트 — 강사 모드(data-pg-mode="teacher")에서 무엇을 부르고 무엇을 그리나
+  {
+    const js = rd(process.env.PG_SRC_ADM_JS || resolve(PUB, 'js/adm-phone-gaps.js'));
+    const mk = (modeAttr, role) => {
+      const sec = { open: false, getAttribute: (k) => (k === 'data-pg-mode' ? modeAttr : null), addEventListener() {}, toggled: [], classList: { toggle: (c, v) => sec.toggled.push([c, v]) } };
+      const flashEl = { textContent: '', style: { display: 'none' }, attrs: {}, setAttribute(k, v) { this.attrs[k] = String(v); } };
+      const bodyEl = { innerHTML: '', querySelectorAll: () => [] };
+      const doc = { readyState: 'complete', documentElement: { lang: 'ko' }, addEventListener() {},
+        getElementById: (id) => (id === 'sm-phone-gaps' ? sec : id === 'pg-body' ? bodyEl : id === 'pg-flash' ? flashEl : null) };
+      const win = { addEventListener() {}, __ADM_ME: role ? { role } : undefined };
+      const ctx = vm.createContext({ window: win, document: doc, localStorage: { getItem: () => null, setItem() {} }, setTimeout, clearTimeout, console });
+      try { vm.runInContext(js, ctx); } catch (e) { ok(false, 'G 화면 스크립트가 실행된다', e && e.message); }
+      return { ctx, P: ctx.window.__pg, sec, bodyEl, flashEl };
+    };
+    const T1 = mk('teacher', 'teacher'), A1 = mk(null, 'teacher');
+    ok(!!(T1.P && T1.P.mode && T1.P.listUrl), '전제: 화면 스크립트가 mode·listUrl 을 내보냈다');
+    if (T1.P && A1.P) {
+      ok(T1.P.mode() === 'teacher' && A1.P.mode() === 'admin', 'G 모드는 카드의 data-pg-mode 로만 정한다(역할을 짐작하지 않는다)', [T1.P.mode(), A1.P.mode()]);
+      ok(T1.P.listUrl(7) === '/api/teacher/portal?part=phone_gaps&days=7' && A1.P.listUrl(14) === '/api/admin/student/phone-gaps?days=14', 'G 목록 주소: 강사=포털 · 관리자=예전 그대로(짝)', [T1.P.listUrl(7), A1.P.listUrl(14)]);
+      ok(T1.sec.toggled.length === 0 && A1.sec.toggled.some(([c, v]) => c === 'rbac-hide' && v === true), 'G 강사 카드는 역할로 감추지 않는다 · 관리자 화면 카드는 강사에게 감춘다(짝)', [T1.sec.toggled, A1.sec.toggled]);
+      // 그리기 — 강사 모드는 학생 상세 링크를 안 그린다(강사가 못 여는 화면)
+      const data = { ok: true, scope: 'teacher', days: 7, from: '2026-10-28', to: '2026-11-03', students: 2, reachable: 1, complete: true, sms_mode: 'real', reminder_enabled: true, hint_complete: true,
+        gaps: [{ uid: 'kim1', name: '김', status: 'none', short_len: 0, next_date: '2026-10-29', next_time: '16:00', classes: 1, hint_phone: '' }] };
+      for (const W of [T1, A1]) { W.P._state.data = data; try { W.P.render(); } catch (e) { ok(false, 'G render 가 던지지 않는다', e && e.message); } }
+      ok(T1.bodyEl.innerHTML.includes('kim1') && !/\/admin\/student\.html/.test(T1.bodyEl.innerHTML), 'G 강사 모드 줄에는 학생 상세(관리자 화면) 링크가 없다', T1.bodyEl.innerHTML.slice(0, 300));
+      ok(/\/admin\/student\.html\?uid=kim1/.test(A1.bodyEl.innerHTML), 'G 짝: 관리자 모드 줄에는 학생 상세 링크가 그대로 있다', A1.bodyEl.innerHTML.slice(0, 300));
+      ok(/«내» 수업/.test(T1.P.summaryLines(data)[0]) && !/«내»/.test(T1.P.summaryLines(Object.assign({}, data, { scope: 'all' }))[0]), 'G 요약: 강사판은 «내» 수업이라고 말한다(전체판은 그대로 — 짝)');
+      const warn = (d) => T1.P.summaryLines(d).some(t => /강사 명부와 확실히 연결/.test(t));
+      ok(warn(Object.assign({}, data, { identity_unlinked: true })) && warn(Object.assign({}, data, { identity_ambiguous: true })), 'G 요약: 계정이 강사 명부와 안 이어졌으면 «다 못 찾았을 수 있다» 고 말한다(0명이 «다 됐다» 가 아니다)');
+      ok(!warn(data) && !warn(Object.assign({}, data, { scope: 'all', identity_unlinked: true })), 'G 요약: 이어져 있으면·전체판이면 그 경고가 없다(짝)');
+      const emptyD = Object.assign({}, data, { students: 0, reachable: 0, gaps: [] });
+      T1.P._state.data = emptyD; T1.P.render();
+      ok(/«내» 수업이 없습니다/.test(T1.bodyEl.innerHTML), 'G 빈 목록: «내 수업이 없다» 고 말한다', T1.bodyEl.innerHTML.slice(0, 200));
+      const red = T1.P.afterReload({ ok: true, kept: false, roster: null }, { ok: true, gaps: [] }, 'kim1');
+      ok(red && red.flash && /본사/.test(red.flash.ko) && !/학생 상세/.test(red.flash.ko) && /head office/i.test(red.flash.en), 'G 강사 모드는 «학생 상세에서 한 번 더» 대신 «본사에 알리기» 로 말한다(강사가 못 여는 화면으로 보내지 않는다)', red);
+      // 403 — 두 말을 다 준 거절만 서버 문구를 그린다(한국어만 온 문구를 영어 화면에 그리지 않는다)
+      const load403 = async (W, body) => {
+        W.P._state.data = null; W.P._state.loadedOnce = false;
+        W.ctx.fetch = async () => ({ ok: false, status: 403, json: async () => body });
+        try { await W.P.load(); } catch (e) { /* 아래 검사가 실패한다 */ }
+        delete W.ctx.fetch;
+        return (W.P._state.data && W.P._state.data.__err) || null;
+      };
+      let er = await load403(T1, { ok: false, error: 'not_a_teacher', message: '강사 또는 본사 계정만…', message_en: 'This page is for teacher or head-office accounts only.' });
+      ok(er && /teacher or head-office/.test(er.en) && /강사 또는 본사/.test(er.ko), 'G 403: 서버가 두 말을 다 주면 그 문구를 그린다', er);
+      er = await load403(T1, { ok: false, error: 'forbidden_scope', message: '지사 계정은 …' });
+      ok(er && !/지사 계정/.test(er.en) && /This account cannot see this list/.test(er.en), 'G 403: 한국어만 온 문구는 영어 화면에 그리지 않는다(강사 모드 기본 문구)', er);
+      er = await load403(A1, { ok: false, error: 'forbidden_scope', message: '지사 계정은 …' });
+      ok(er && /Only HQ accounts/.test(er.en), 'G 짝: 관리자 모드 기본 문구는 예전 그대로', er);
+      // 저장 — 강사 모드는 포털 POST, 관리자 PATCH 를 부르지 않는다
+      const sent = [];
+      T1.ctx.fetch = async (u, o) => { sent.push({ u, method: (o && o.method) || 'GET', body: o && o.body }); return { ok: true, status: 200, json: async () => (o && o.method === 'POST' ? { ok: true, phone_kept: true, roster_updated: null } : Object.assign({}, data, { gaps: [] })) }; };
+      const els = { par: { value: '010-1234-5678' }, stu: { value: '' }, msg: { textContent: '' }, btn: { disabled: false } };
+      const tr = { getAttribute: (k) => (k === 'data-uid' ? 'kim1' : null), querySelector: (q) => (
+        q === '.pg-in[data-role="parent"]' ? els.par : q === '.pg-in[data-role="student"]' ? els.stu : q === '.pg-msg' ? els.msg : q === '.pg-save' ? els.btn : null) };
+      try { await Promise.race([T1.P.save(tr), new Promise((r) => setTimeout(r, 2000))]); } catch (e) { ok(false, 'G 저장이 던지지 않는다', e && e.message); }
+      delete T1.ctx.fetch;
+      const ps = sent.find(s => s.method === 'POST');
+      ok(ps && ps.u === '/api/teacher/portal?part=phone_save' && JSON.stringify(JSON.parse(ps.body)) === JSON.stringify({ student_uid: 'kim1', parent_phone: '010-1234-5678' }), 'G 저장: 강사 모드는 포털 POST 로 «아이디 + 넣은 칸만» 보낸다', sent);
+      ok(!sent.some(s => /\/api\/admin\//.test(s.u) || s.method === 'PATCH'), 'G 저장: 강사 모드는 관리자 경로·PATCH 를 부르지 않는다', sent);
+      ok(sent.some(s => s.method === 'GET' && /part=phone_gaps/.test(s.u)) && /✅/.test(T1.flashEl.textContent), 'G 저장 뒤 강사 목록을 다시 불러 확인하고 ✅ 를 띄운다', { sent, flash: T1.flashEl.textContent });
+    }
+  }
+
+  // G-6 teacher.html — 펼칠 때만 받는다 · 같은 번호 · 카드·id · 언어
+  {
+    const th = rd(process.env.PG_SRC_TEACHER_HTML || resolve(PUB, 'teacher.html'));
+    const ah = rd(resolve(PUB, 'admin.html'));
+    const mh = rd(resolve(PUB, 'manager.html'));
+    const js = rd(process.env.PG_SRC_ADM_JS || resolve(PUB, 'js/adm-phone-gaps.js'));
+    const jsNoCmt = js.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const { deadAt, commentsBalanced } = await import('./helpers/live-code.mjs');
+    ok(!/<script[^>]*\ssrc=/.test(th), 'G teacher.html 에는 <script src> 가 하나도 없다(계약 1번 — 첫 화면 외부 리소스 0개)');
+    const av = (ah.match(/\/js\/adm-phone-gaps\.js\?v=(\d+)/) || [])[1];
+    const tv = [...th.matchAll(/\/js\/adm-phone-gaps\.js\?v=(\d+)/g)].map(m => m[1]);
+    const mv = [...mh.matchAll(/\/js\/adm-phone-gaps\.js\?v=(\d+)/g)].map(m => m[1]);
+    ok(av && tv.length === 1 && tv[0] === av && mv[0] === av, 'G 강사 로더의 ?v= 가 admin.html·manager.html 과 같은 번호', { admin: av, teacher: tv, manager: mv });
+    const cAt = th.indexOf('<details class="card mycard" id="sm-phone-gaps"');
+    const cOpen = cAt >= 0 ? th.slice(cAt, th.indexOf('>', cAt) + 1) : '';
+    const card = cAt >= 0 ? th.slice(cAt, th.indexOf('</details>', cAt)) : '';
+    ok(/data-pg-mode="teacher"/.test(cOpen) && /ontoggle="if\(this\.open\)loadPhoneGaps\(\)"/.test(cOpen), 'G 카드는 강사 모드 표시를 달고 펼칠 때 로더를 부른다', cOpen);
+    const calls = [];
+    for (let i = th.indexOf('loadPhoneGaps('); i >= 0; i = th.indexOf('loadPhoneGaps(', i + 1)) {
+      const inHtmlCmt = th.lastIndexOf('<!--', i) > th.lastIndexOf('-->', i);
+      const sAt = th.lastIndexOf('<script', i), sEnd = th.lastIndexOf('</script>', i);
+      const inJsCmt = sAt > sEnd ? deadAt(th, i, sAt) !== '' : false;
+      if (!inHtmlCmt && !inJsCmt) calls.push(th.slice(Math.max(0, i - 40), i + 16).replace(/\s+/g, ' '));
+    }
+    ok(calls.length === 1 && calls[0].includes('ontoggle="if(this.open)loadPhoneGaps()'), 'G 로더를 부르는 살아 있는 자리는 카드의 ontoggle 하나뿐(화면을 열 때 받지 않는다)', calls);
+    const qb = (th.match(/<button[^>]*onclick="openCard\('sm-phone-gaps'\)"[^>]*>/) || [''])[0];
+    ok(!!qb && /data-ko="📵 번호 없는 학생"/.test(qb), 'G 위쪽 바로가기 단추가 그 카드를 연다', qb);
+    const usedIds = [...new Set([...jsNoCmt.matchAll(/\$\('([a-z0-9-]+)'\)/g)].map(m => m[1]))];
+    ok(usedIds.length >= 5, 'G (전제) 스크립트가 찾는 id 목록을 소스에서 읽었다', usedIds);
+    for (const id of usedIds) ok(id === 'sm-phone-gaps' ? cAt >= 0 : card.includes('id="' + id + '"'), 'G 강사 카드 안에 스크립트가 찾는 요소가 있다', id);
+    for (const id of ['pg-body', 'pg-count', 'pg-flash']) {
+      const tag = (card.match(new RegExp('<[^>]*id="' + id + '"[^>]*>')) || [''])[0];
+      ok(tag && !/data-(en|ko)=/.test(tag), 'G 그려 넣는 그릇에는 data-en/data-ko 를 달지 않는다(applyLang 이 textContent 를 통째로 갈아끼운다)', { id, tag });
+    }
+    ok(/html\[data-t="dark"\] #pg-flash\{color:[^}]*!important\}/.test(th) && /html\[data-t="dark"\] #pg-flash\[data-warn="1"\]\{color:[^}]*!important\}/.test(th), 'G 어두운 화면에서 알림 글자색을 덮는다');
+    // applyLang 이 (불러온 목록이 있으면) 다시 그린다 — 이 화면은 mangoi:lang-changed 를 안 쏜다
+    const alBody = braceBody(th, th.indexOf('function applyLang(){'));
+    const rIdx = alBody.indexOf('window.__pg.render()');
+    ok(rIdx > 0 && deadAt(alBody, rIdx, 0) === '', 'G applyLang 이 공용 스크립트의 render 를 부른다(언어를 바꾸면 줄도 바뀐다)');
+    // 로더 실행 — 그 <script> 를 통째로 오려 가짜 window·document 로 돌린다
+    const ldAt = th.indexOf('window.loadPhoneGaps = function');
+    const sOpen = th.lastIndexOf('<script>', ldAt), sClose = th.indexOf('</script>', ldAt);
+    const ldSrc = (ldAt > 0 && sOpen > 0 && sClose > ldAt) ? th.slice(sOpen + '<script>'.length, sClose) : '';
+    ok(!!ldSrc && commentsBalanced(ldSrc) && deadAt(th, ldAt, sOpen) === '', 'G (전제) 강사 로더를 오려 냈고 살아 있다');
+    const seen = (h) => String(h).replace(/<[^>]*>/g, '');
+    const world = (lang) => {
+      const scripts = [], body = { innerHTML: '' }, sec = { open: true };
+      const doc = { documentElement: { lang }, getElementById: (id) => (id === 'pg-body' ? body : id === 'sm-phone-gaps' ? sec : null),
+        createElement: () => ({ src: '', onload: null, onerror: null, parentNode: { removeChild() {} } }), head: { appendChild: (s) => scripts.push(s) } };
+      const win = {};
+      try { new Function('window', 'document', ldSrc)(win, doc); } catch (e) { ok(false, 'G 강사 로더가 돌아간다', String(e)); }
+      const stub = (st) => ({ __loaded: true, _state: st, n: 0, load() { this.n++; } });
+      return { run: () => { try { win.loadPhoneGaps(); } catch (e) { ok(false, 'G 로더 호출이 던지지 않는다', String(e)); } }, scripts, body, sec, win, stub };
+    };
+    for (const lang of ['en', 'ko']) {
+      const w = world(lang);
+      w.run(); w.run();
+      ok(w.scripts.length === 1 && w.scripts[0].src === '/js/adm-phone-gaps.js?v=' + av, 'G 연타해도 한 번만 받고, admin 과 같은 주소를 받는다', w.scripts.map(s => s.src));
+      const en = lang === 'en';
+      ok(seen(w.body.innerHTML).includes(en ? 'Loading' : '불러오는 중') && !seen(w.body.innerHTML).includes(en ? '불러오는 중' : 'Loading'), 'G 받는 동안 «불러오는 중» 을 그 화면 언어(<html lang>)로 말한다', { lang, html: w.body.innerHTML });
+      w.win.__pg = w.stub({ loadedOnce: false, busy: null });
+      try { w.scripts[0] && w.scripts[0].onload(); } catch (e) { ok(false, 'G onload 가 던지지 않는다', String(e)); }
+      ok(w.win.__pg.n === 1, 'G 도착했을 때 카드가 열려 있으면 목록을 부른다', w.win.__pg.n);
+    }
+    for (const lang of ['en', 'ko']) {
+      const w = world(lang);
+      w.run();
+      try { w.scripts[0] && w.scripts[0].onerror(); } catch (e) { ok(false, 'G onerror 가 던지지 않는다', String(e)); }
+      const en = lang === 'en';
+      ok(seen(w.body.innerHTML).includes(en ? 'Could not load this panel' : '이 칸을 불러오지 못했습니다'), 'G 못 받으면 그 사실을 그 화면 언어로 말한다', { lang, html: w.body.innerHTML });
+      w.run();
+      ok(w.scripts.length === 2, 'G 못 받은 뒤 다시 펼치면 다시 받는다', w.scripts.length);
+    }
+    for (const [st, open, want, why] of [
+      [{ loadedOnce: true, busy: null }, true, 0, '이미 불러왔으면 다시 안 부른다'],
+      [{ loadedOnce: false, busy: {} }, true, 0, '불러오는 중이면 겹쳐 부르지 않는다'],
+      [{ loadedOnce: false, busy: null }, false, 0, '닫혀 있으면 부르지 않는다'],
+    ]) {
+      const w = world('en');
+      w.run(); w.sec.open = open;
+      w.win.__pg = w.stub(st);
+      try { w.scripts[0] && w.scripts[0].onload(); } catch (e) { ok(false, 'G onload 가 던지지 않는다', String(e)); }
+      ok(w.win.__pg.n === want, 'G 도착했을 때: ' + why, { st, open, n: w.win.__pg.n });
+    }
+    {
+      const w = world('en');
+      w.win.__pg = w.stub({ loadedOnce: false, busy: null });
+      w.run();
+      ok(w.scripts.length === 0 && w.win.__pg.n === 0, 'G 이미 받아 둔 뒤에는 다시 받지도 부르지도 않는다(그 스크립트의 toggle 이 부른다)', { n: w.win.__pg.n, scripts: w.scripts.length });
+    }
+  }
+  report('강사 화면', b);
 }
 
 console.warn = _warn;

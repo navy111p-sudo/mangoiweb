@@ -8,9 +8,13 @@
  * ⛔ «참고 번호»(카페24 이탈위험 표)를 칸에 자동으로 넣지 않는다 — 누구 번호인지(학생/학부모) 모른다.
  * ⛔ 빈 칸은 보내지 않는다 — 그 PATCH 는 빈 문자열을 «지우겠다» 로 읽는다(남은 번호가 지워진다).
  * ⚠️ 저장한 뒤 목록을 «다시 불러» 그 학생이 빠졌는지로 확인한다 — 「저장했다」와 「문자가 간다」는 다르다.
- * 📍 쓰는 화면 둘 — admin.html(defer 로 처음부터) · manager.html(카드를 «처음 펼칠 때만» 받는다 — 그 화면의
- *    «외부 리소스 0개» 계약). 두 화면의 ?v= 는 같은 번호여야 한다 — 지키는 검사는 phone_gaps_harness F절
- *    (asset_version_harness 는 속성 src="…" 만 봐서 매니저의 JS 문자열 주소는 못 본다).
+ * 📍 쓰는 화면 셋 — admin.html(defer 로 처음부터) · manager.html · teacher.html(둘 다 카드를 «처음 펼칠 때만» 받는다 —
+ *    그 화면들의 «외부 리소스 0개» 계약). 세 화면의 ?v= 는 같은 번호여야 한다 — 지키는 검사는 phone_gaps_harness F·G절
+ *    (asset_version_harness 는 속성 src="…" 만 봐서 JS 문자열 주소는 못 본다).
+ * 👨‍🏫 강사 모드(2026-10-28) — 카드에 data-pg-mode="teacher" 가 있으면 목록·저장을 강사 포털 경로로 보낸다:
+ *    GET /api/teacher/portal?part=phone_gaps(«내 수업» 학생만) · POST ?part=phone_save(번호 «넣기» 만 — 지우기 없음).
+ *    ⛔ 강사 모드에서 관리자 PATCH(/api/admin/student/:uid/contact)를 부르지 않는다 — 서버가 강사를 막고, 그 경로는 지우기까지 한다.
+ *    학생 상세 링크(/admin/student.html)도 안 그린다(강사가 못 여는 화면).
  */
 (function () {
   'use strict';
@@ -28,6 +32,14 @@
     try { return (localStorage.getItem('mangoi_lang') || '') === 'en'; } catch (e) { return false; }
   }
   function T(ko, en) { return isEn() ? en : ko; }
+  /** 'teacher' = 강사 화면(teacher.html) — 카드의 data-pg-mode 로만 정한다(역할을 짐작하지 않는다). */
+  function mode() {
+    var sec = document.getElementById('sm-phone-gaps');
+    return sec && sec.getAttribute('data-pg-mode') === 'teacher' ? 'teacher' : 'admin';
+  }
+  function listUrl(days) {
+    return mode() === 'teacher' ? '/api/teacher/portal?part=phone_gaps&days=' + days : '/api/admin/student/phone-gaps?days=' + days;
+  }
   /* 줄 안내는 두 말을 함께 들고 그릴 때 고른다 — 저장 «그때» 의 언어로 굳히면 🌐 를 눌러도 그 줄만 옛 말로 남는다. */
   function pair(ko, en) { return { ko: ko, en: en }; }
   function txt(m) { return !m ? '' : (typeof m === 'string' ? m : (isEn() ? m.en : m.ko)); }
@@ -83,9 +95,14 @@
   function summaryLines(r) {
     var out = [];
     var gaps = (r && r.gaps) || [];
+    var mine = r && r.scope === 'teacher';
     out.push(T(
-      '다음 ' + r.days + '일(' + r.from + ' ~ ' + r.to + ') 아직 안내 문자가 나갈 수업이 있는 학생 ' + r.students + '명 중 문자가 갈 학생 ' + r.reachable + '명 · 번호가 없는 학생 ' + gaps.length + '명',
-      'Next ' + r.days + ' days (' + r.from + ' – ' + r.to + '): ' + r.students + ' students with upcoming classes · ' + r.reachable + ' will get a text · ' + gaps.length + ' have no usable number'));
+      '다음 ' + r.days + '일(' + r.from + ' ~ ' + r.to + ') 아직 안내 문자가 나갈 ' + (mine ? '«내» 수업' : '수업') + '이 있는 학생 ' + r.students + '명 중 문자가 갈 학생 ' + r.reachable + '명 · 번호가 없는 학생 ' + gaps.length + '명',
+      'Next ' + r.days + ' days (' + r.from + ' – ' + r.to + '): ' + r.students + ' students with upcoming ' + (mine ? 'classes of yours' : 'classes') + ' · ' + r.reachable + ' will get a text · ' + gaps.length + ' have no usable number'));
+    /* 강사 모드 — 이 계정이 강사 명부와 안 이어져 있으면 «내 수업» 을 못 찾는다(0명이 «다 됐다» 가 아니다). */
+    if (mine && (r.identity_unlinked || r.identity_ambiguous)) out.push(T(
+      '⚠️ 이 계정이 강사 명부와 확실히 연결돼 있지 않아 «내 수업» 을 다 찾지 못했을 수 있습니다 — 본사에 알려 주세요.',
+      '⚠️ This account is not clearly linked to the teacher roster, so some of your classes may be missing — please tell head office.'));
     if (r.complete === false) out.push(T(
       '⚠️ 번호 조회를 일부 못 했습니다 — 이 목록에 «이미 번호가 있는» 학생이 섞여 있을 수 있습니다. 잠시 뒤 다시 불러오세요.',
       '⚠️ Some numbers could not be checked — this list may include students who already have one. Reload in a moment.'));
@@ -134,8 +151,11 @@
    *     «이 번호로 간다» 는 직원 입력 칸에 «적힌 것이 확인된»(kept === true) 때만 말한다. */
   function afterReload(m, d, uid) {
     /* ⚠️ 줄이 다시 그려져 사라질 수 있으므로 «한 번 더 저장» 할 곳은 이 화면이 아니라 «학생 상세» 다(같은 저장 API).
-       경고(warn)는 초록 성공 상자가 아니라 주황으로, 저절로 안 사라지게 그린다(flash). */
-    var redo = pair(' 학생 상세 화면(이 아이디)에서 연락처를 한 번 더 저장해 주세요.', ' Please save the contact once more on the student detail page (this ID).');
+       경고(warn)는 초록 성공 상자가 아니라 주황으로, 저절로 안 사라지게 그린다(flash).
+       강사는 학생 상세를 못 연다 — 강사 모드는 «본사에 알리기» 로 말한다. */
+    var redo = mode() === 'teacher'
+      ? pair(' 이 아이디를 본사에 알려 주세요.', ' Please send this ID to head office.')
+      : pair(' 학생 상세 화면(이 아이디)에서 연락처를 한 번 더 저장해 주세요.', ' Please save the contact once more on the student detail page (this ID).');
     if (!d || d.ok !== true) return { warn: true, row: null, flash: pair(
       '⚠️ ' + uid + ' — 저장 요청은 처리됐지만 목록을 다시 불러오지 못해 확인하지 못했습니다.' +
         (m.kept === false ? ' 다만 «직원 입력 칸» 에는 못 적었습니다 —' + redo.ko : ' 잠시 뒤 [🔄 불러오기]를 눌러 확인해 주세요.'),
@@ -177,9 +197,13 @@
         esc(T('카페24 이탈위험 표의 번호(학생/학부모 구분 없음). 확인한 뒤 넣으세요.', 'from the cafe24 retention table (student/parent not recorded). Confirm before entering.')) + '</div>'
       : '';
     var msg = txt(state.msgs[uid]);
+    /* 강사 모드는 학생 상세 링크를 안 그린다(강사가 못 여는 관리자 화면). */
+    var nameHtml = mode() === 'teacher'
+      ? '<b>' + esc(g.name || uid) + '</b>'
+      : '<a href="/admin/student.html?uid=' + encodeURIComponent(uid) + '" target="_blank" rel="noopener"><b>' + esc(g.name || uid) + '</b></a>';
     return '<div class="pg-row" data-uid="' + esc(uid) + '" style="display:flex;flex-wrap:wrap;gap:6px 14px;align-items:flex-start;padding:8px 4px;border-top:1px solid rgba(148,163,184,0.35)">' +
       '<div class="pg-info" style="flex:1 1 230px;min-width:0;font-size:12.5px;line-height:1.5">' +
-        '<a href="/admin/student.html?uid=' + encodeURIComponent(uid) + '" target="_blank" rel="noopener"><b>' + esc(g.name || uid) + '</b></a>' +
+        nameHtml +
         ' <span style="font-size:11px">(' + esc(uid) + ')</span>' +
         '<div style="font-size:12px">📅 ' + esc(fmtNext(g, days)) + '</div>' +
         '<div style="font-size:12px">' + esc(statusText(g)) + '</div>' + hint +
@@ -244,7 +268,9 @@
       body.innerHTML = '<div style="font-size:12px;line-height:1.6;margin-bottom:6px">' + lines + '</div>' +
         '<div class="empty">' + esc(r.students
           ? T('🎉 다가올 수업이 있는 학생 모두 문자를 받을 번호가 있습니다.', '🎉 Every student with an upcoming class has a number for the reminder.')
-          : T('이 기간에 안내 문자가 나갈 수업이 있는 학생이 없습니다(이미 지난 수업은 세지 않습니다).', 'No students have upcoming classes in this period (past classes are not counted).')) + '</div>';
+          : (r.scope === 'teacher'
+            ? T('이 기간에 안내 문자가 나갈 «내» 수업이 없습니다(이미 지난 수업은 세지 않습니다).', 'You have no upcoming classes in this period (past classes are not counted).')
+            : T('이 기간에 안내 문자가 나갈 수업이 있는 학생이 없습니다(이미 지난 수업은 세지 않습니다).', 'No students have upcoming classes in this period (past classes are not counted).'))) + '</div>';
       return;
     }
     body.innerHTML = '<div style="font-size:12px;line-height:1.6;margin-bottom:6px">' + lines + '</div>' +
@@ -264,13 +290,16 @@
     var btn = $('pg-load'); if (btn) btn.disabled = true;
     var body = $('pg-body');
     if (body && !state.data) { state.keepTyped = typedNow(); body.innerHTML = '<div class="empty">' + esc(T('불러오는 중…', 'Loading…')) + '</div>'; }
-    var p = fetch('/api/admin/student/phone-gaps?days=' + days, { credentials: 'include', cache: 'no-store' })
+    var p = fetch(listUrl(days), { credentials: 'include', cache: 'no-store' })
       .then(function (res) {
         return res.json().catch(function () { return null; }).then(function (d) {
-          if (res.status === 403) {
+          if (res.status === 401) {
+            state.data = { ok: false, __err: pair('로그인이 풀렸습니다. 다시 로그인해 주세요.', 'Session expired. Please log in again.') };
+          } else if (res.status === 403) {
             state.data = { ok: false, __err: (d && d.who_line ? pair(d.who_line, d.who_line_en || d.who_line) : null)
               || (d && d.error === 'scope_unknown' ? pair('권한을 확인하지 못했습니다 — 잠시 뒤 다시 불러오세요.', 'Could not check your permission — try again shortly.') : null)
-              || pair('본사 계정에서만 볼 수 있습니다.', 'Only HQ accounts can see this list.') };
+              || (d && d.message && d.message_en ? pair(d.message, d.message_en) : null)   // 두 말을 다 준 거절만(한국어만 온 문구를 영어 화면에 그리지 않는다)
+              || (mode() === 'teacher' ? pair('이 계정으로는 볼 수 없습니다.', 'This account cannot see this list.') : pair('본사 계정에서만 볼 수 있습니다.', 'Only HQ accounts can see this list.')) };
           } else if (!res.ok || !d || d.ok !== true || !Array.isArray(d.gaps)) {
             state.data = { ok: false };
           } else {
@@ -301,9 +330,15 @@
     if (!b) return say(pair('학부모나 학생 번호 중 하나를 넣어 주세요.', 'Enter a parent or student number.'));
     var btn = tr.querySelector('.pg-save'); if (btn) btn.disabled = true;
     say(pair('저장 중…', 'Saving…'));
-    return fetch('/api/admin/student/' + encodeURIComponent(uid) + '/contact', {
-      method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b),
-    }).then(function (res) {
+    var req = mode() === 'teacher'
+      ? fetch('/api/teacher/portal?part=phone_save', {
+          method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({ student_uid: uid }, b)),
+        })
+      : fetch('/api/admin/student/' + encodeURIComponent(uid) + '/contact', {
+          method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b),
+        });
+    return req.then(function (res) {
       return res.json().catch(function () { return null; }).then(function (d) { return saveMsg(res.status, d); });
     }).catch(function () {
       return said(false, '❌ 연결이 끊겨 저장 못 함 — 다시 눌러 주세요.', '❌ Connection lost — not saved. Try again.');
@@ -339,7 +374,7 @@
 
   function applyRole() {
     var sec = $('sm-phone-gaps');
-    if (!sec) return;
+    if (!sec || mode() === 'teacher') return;   // 강사 화면 카드는 역할로 감추지 않는다(서버가 «내 수업» 으로 자른다)
     var me = window.__ADM_ME;
     /* ⚠️ 인라인 display 로 감추지 말 것 — PC(≥1024px)에서 #legacy-cards details{display:block!important} 가 이긴다
        (2026-10-28 브라우저 실측: 인라인 none · 계산값 block). 그 복구 규칙을 이기는 .rbac-hide 로 감춘다(CLAUDE.md 2장). */
@@ -384,6 +419,6 @@
   window.__pg = {
     __loaded: true, checkPhone: checkPhone, buildBody: buildBody, fmtNext: fmtNext, statusText: statusText,
     summaryLines: summaryLines, saveMsg: saveMsg, afterReload: afterReload, hideFor: hideFor, digits: digits, load: load, save: save,
-    render: render, _state: state, MIN_DIGITS: MIN_DIGITS,
+    render: render, _state: state, MIN_DIGITS: MIN_DIGITS, mode: mode, listUrl: listUrl,
   };
 })();

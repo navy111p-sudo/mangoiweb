@@ -39,6 +39,8 @@ import { loadActiveGoals, setStudentGoal, goalByKey, GOALS } from './student-goa
 import { loadParentRequests, markParentRequestDone } from './parent-request';   // 👪 학부모 요청 반영(2026-10-10)
 import { loadTeacherStudentHistory, validHistoryDate } from './teacher-student-history';
 import { normalizeTeacherLevelChoice, setStudentLevelByTeacher, levelScaleForPortal, teacherLevelScope, attachLevelScope, TEACHER_LEVEL_PAST_DAYS } from './teacher-student-level';   // 🎚 일지에서 학생 레벨 정하기(2026-10-27)
+import { buildPhoneGaps, PHONE_GAP_DAYS_MAX, SMS_MIN_DIGITS } from './phone-gaps';   // 📵 번호 없는 학생 — 강사판(2026-10-28)
+import { setOverridePhones } from './student-override';
 import { loadContactPhones } from './notify-contacts';   // ☎ 화면용 연락처 정본(2026-10-27) — 받아 둔 번호 → 명부 → 이탈위험 스냅샷
 
 interface TeacherEnv {
@@ -173,7 +175,8 @@ export async function handleTeacherApi(
   const isGoalPost = method === 'POST' && url.searchParams.get('part') === 'goal';
   const isPreqPost = method === 'POST' && url.searchParams.get('part') === 'preq';   // 👪 학부모 요청 «반영함»
   const isLevelPost = method === 'POST' && url.searchParams.get('part') === 'level';  // 🎚 일지에서 학생 레벨 정하기
-  if (path !== '/api/teacher/portal' || (method !== 'GET' && !isGoalPost && !isPreqPost && !isLevelPost)) return null;
+  const isPhoneSavePost = method === 'POST' && url.searchParams.get('part') === 'phone_save';   // 📵 번호 없는 학생에게 번호 넣기
+  if (path !== '/api/teacher/portal' || (method !== 'GET' && !isGoalPost && !isPreqPost && !isLevelPost && !isPhoneSavePost)) return null;
 
   /* 🔔 `?only=next` — «다음 수업 하나» 만 돌려주는 초경량 모드 (2026-08-09)
    *
@@ -193,7 +196,8 @@ export async function handleTeacherApi(
    *  보강(출결·평가·연락처·인수인계)은 하지 않는다(월 달력은 «언제 무슨 수업이 있나» 만 그린다). */
   const monthParam = url.searchParams.get('part') === 'month' ? String(url.searchParams.get('month') || '').trim() : '';
   const monthMode = url.searchParams.get('part') === 'month';
-  const onlyNext = url.searchParams.get('only') === 'next' || url.searchParams.get('part') === 'student_history' || monthMode;
+  const phoneMode = (method === 'GET' && url.searchParams.get('part') === 'phone_gaps') || isPhoneSavePost;   // 📵 신원만 쓰고 공지·자료·평점은 안 읽는다
+  const onlyNext = url.searchParams.get('only') === 'next' || url.searchParams.get('part') === 'student_history' || monthMode || phoneMode;
 
   // ── 신원: 쿠키 세션에서만 (클라이언트가 보내는 값은 일절 신뢰하지 않는다) ──
   const actor = await getAdminActor(request, env as any);
@@ -402,6 +406,62 @@ export async function handleTeacherApi(
   // 🔀 '연결 안 됨'과 '누구인지 헷갈림'은 본사가 할 일이 다르다.
   //    전자는 이름을 채워 넣는 일, 후자는 둘 중 누구인지 고르는 일이다. 문구도 갈라 준다.
   const identityAmbiguous = !isManager && ambiguousNames.length > 0;
+
+  /* 📵 «번호 없는 학생» — 강사판 (2026-10-28 사장님 「강사 화면에도 똑같이 넣어줘」)
+   *  GET  ?part=phone_gaps&days=7   — «내 수업» 이 있는데 수업 전 안내 문자가 갈 번호가 없는 학생(정본 src/phone-gaps.ts)
+   *  POST ?part=phone_save          — {student_uid, parent_phone?, student_phone?} 그 학생에게 번호를 «넣기만» 한다
+   *  🔐 범위 = 포털의 예약 조건과 «같은 열쇠»(로그인 아이디 + 확정된 원부 번호) — 남의 수업 학생은 목록에도 저장에도 안 닿는다(저장 키는 대소문자까지 정확일치). ⚠️ 다만 읽는 쪽 getOverridePhones 는 NOCASE 로 찾으므로, 대소문자만 다른 다른 계정(Kim/kim)이 자기 받은 번호가 없으면 이 번호를 집는다 — 관리자 PATCH 와 같은 성질(새로 생긴 것 아님).
+   *  ⛔ 관리자 PATCH /api/admin/student/:uid/contact 를 강사에게 열지 않는다 — 그 경로는 지우기·명부 수정까지 한다.
+   *     강사는 «번호가 없는 학생에게 새 번호 넣기» 만: 지우기 없음 · 이미 번호가 있는 학생 손댈 수 없음 · 명부(students_erp) 안 건드림
+   *     (받는 자리는 student_erp_override 하나 — 발송 정본이 «먼저» 읽고 야간 동기화가 못 덮는 자리).
+   *  ⛔ 화면이 보낸 uid 를 믿지 않는다 — 저장 «그 순간» 같은 판정으로 목록을 다시 만들어 그 안에 «정확일치» 로 있어야 한다.
+   *     번호 조회가 다 안 됐으면(complete:false) 막는다 — «이미 번호가 있는 학생» 을 덮을 수 있어서다(되돌리기 어려움).
+   *  ℹ️ 참고 번호(카페24 이탈위험 표)는 강사에게 안 보낸다(scope='teacher' 면 읽지도 않는다). */
+  if (phoneMode) {
+    const keys = [String(actor.username || '').trim(), ...linkedTeacherIds.map((x: any) => String(x))].filter(Boolean);
+    const who = { identity_unlinked: identityUnlinked, identity_ambiguous: identityAmbiguous };
+    if (!isPhoneSavePost) {
+      const r = await buildPhoneGaps(env as any, { days: Number(url.searchParams.get('days')), teacherKeys: keys });
+      return json({ ...r, ...who }, r.ok ? 200 : 503);
+    }
+    let b: any = {};
+    try { b = await request.json(); } catch { b = {}; }
+    const uid = String((b && b.student_uid) || '').trim();
+    if (!uid || uid.length > 80) return json({ ok: false, error: 'student_uid_required' }, 400);
+    /* 한 칸 판정 — '' = 안 보냄 · null = 잘못된 값. 화면(adm-phone-gaps.js checkPhone)과 같은 규칙에 «15자리 이하» 하나를 더한다. */
+    const pick = (v: any): string | null => {
+      const raw = String(v == null ? '' : v).trim();
+      if (!raw) return '';
+      if (raw.length > 30 || /[^0-9+\-\s().]/.test(raw)) return null;
+      const n = raw.replace(/[^0-9]/g, '').length;
+      return n >= SMS_MIN_DIGITS && n <= 15 ? raw : null;
+    };
+    const pp = pick(b && b.parent_phone), ps = pick(b && b.student_phone);
+    if (pp === null || ps === null) return json({ ok: false, error: 'bad_phone',
+      message: '번호는 숫자와 하이픈(-)으로 ' + SMS_MIN_DIGITS + '~15자리를 넣어 주세요.',
+      message_en: 'Enter ' + SMS_MIN_DIGITS + '–15 digits (hyphens are fine).' }, 400);
+    if (!pp && !ps) return json({ ok: false, error: 'no_phone',
+      message: '학부모나 학생 번호 중 하나를 넣어 주세요.', message_en: 'Enter a parent or student number.' }, 400);
+    // 저장 «그 순간» 의 목록 — 화면이 고를 수 있는 가장 긴 기간(14일)으로 다시 잰다(화면 목록은 언제나 그 안에 든다).
+    const r = await buildPhoneGaps(env as any, { days: PHONE_GAP_DAYS_MAX, teacherKeys: keys });
+    if (!r.ok) return json({ ok: false, error: 'phone_check_unavailable',
+      message: '지금 확인할 수 없어 저장하지 않았습니다 — 잠시 뒤 다시 눌러 주세요.',
+      message_en: 'Could not check right now, so nothing was saved — please try again shortly.' }, 503);
+    if (!r.complete) return json({ ok: false, error: 'phone_check_incomplete',
+      message: '이 학생에게 이미 번호가 있는지 다 확인하지 못해 저장하지 않았습니다 — 잠시 뒤 다시 눌러 주세요.',
+      message_en: 'Could not fully check whether this student already has a number, so nothing was saved — please try again shortly.' }, 503);
+    if (!r.gaps.some((g) => g.uid === uid)) return json({ ok: false, error: 'not_in_your_list',
+      message: '내 수업 학생 중 «번호가 없는» 학생에게만 넣을 수 있습니다 — 그사이 번호가 들어왔거나 수업이 지났을 수 있습니다. [🔄 불러오기]로 다시 확인해 주세요.',
+      message_en: 'You can only add a number for your own students who have none — one may have been added meanwhile, or the class has passed. Press [🔄 Load] to check again.' }, 403);
+    const put: { parent?: string; student?: string } = {};
+    if (pp) put.parent = pp;
+    if (ps) put.student = ps;
+    const w = await setOverridePhones(env as any, uid, put, ('teacher:' + String(actor.username || '')).slice(0, 80));
+    if (!w.ok) return json({ ok: false, error: 'save_failed',
+      message: '저장하지 못했습니다 — 잠시 뒤 다시 눌러 주세요.', message_en: 'Could not save — please try again shortly.' }, 500);
+    // 화면(saveMsg)이 읽는 모양 — 받는 자리(override)에 적혔다 · 명부는 «안 건드렸다»(null = 묻지 않음).
+    return json({ ok: true, phone_kept: true, roster_updated: null });
+  }
 
   // Student history is lazy-loaded and read-only. Resolve the student from an owned schedule.
   if (url.searchParams.get('part') === 'student_history') {

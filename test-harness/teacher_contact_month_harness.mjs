@@ -253,7 +253,7 @@ console.log('\n[ ③ 월 보기 — 서버 ?part=month ]');
   const guard = tapi.match(/if \(monthMode && !\((\/\^[^/]+\/)\.test\(monthParam\)/);
   const re = guard ? eval(guard[1]) : null;
   ok(!!re && re.test('2026-10') && !re.test('2026-13') && !re.test('2026-1') && !re.test("2026-10' OR 1=1"), '잘못된 month 는 400(형식 검사)');
-  ok(/const onlyNext = [^\n]*\|\| monthMode;/.test(tapi), '월 보기는 «가벼운 경로» — 오늘 목록의 무거운 보강을 건너뛴다');
+  ok(/const onlyNext = [^;\n]*\|\|\s*monthMode\b[^;\n]*;/.test(tapi), '월 보기는 «가벼운 경로» — 오늘 목록의 무거운 보강을 건너뛴다'); // ⚠️ «줄 끝» 으로 못 박지 않는다 — 다른 가벼운 경로(phoneMode 등)가 뒤에 붙어도 뜻은 그대로
   const mret = braceBody(tapi, tapi.indexOf('  if (monthMode) {\n    /* 🎌'));
   ok(/month: \{\s*\n\s*month: monthParam/.test(mret) && /return json\(/.test(mret), '월 응답: 달력만 돌려준다');
   {
