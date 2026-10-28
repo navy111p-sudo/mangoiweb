@@ -57,6 +57,10 @@
   window.mgIsTap = function (e) {
     if (!e || String(e.type).indexOf('touch') !== 0) return true;   // 마우스·키보드는 판정 대상 아님
     if (!g) return false;
+    // 지난 제스처의 기록이면 탭이 아니다 — 앞선 캡처 핸들러가 이번 touchstart 를 삼키면 g 가 그대로 남는다.
+    // 같은 touchend 를 여러 핸들러가 물어도 이벤트 객체가 같아 답이 같다.
+    if (g.end && g.end !== e) return false;
+    g.end = e;
     var c = e.changedTouches && e.changedTouches[0];
     if (c) note(c.clientX, c.clientY);   // touchmove 를 건너뛴 기기 대비 — 뗀 자리로 한 번 더
     return !g.moved;
@@ -75,11 +79,13 @@
     var btn = pressed;
     pressed = null;
     if (!btn || !window.mgIsTap(e)) return;
+    // click 도착은 window 캡처에서 본다 — 버튼에 단 리스너는 다른 캡처 핸들러가
+    // stopImmediatePropagation 하면(ph73 「연기/변경」) 못 봐서 한 번 더 눌렀다.
     var clicked = false;
-    var mark = function () { clicked = true; };
-    btn.addEventListener('click', mark, { once: true });
+    var mark = function (ev) { if (ev.target && btn.contains(ev.target)) clicked = true; };
+    window.addEventListener('click', mark, true);
     setTimeout(function () {
-      btn.removeEventListener('click', mark);
+      window.removeEventListener('click', mark, true);
       if (!clicked) { try { btn.click(); } catch (_) {} }
     }, 300);
   }, { passive: true });
