@@ -73,7 +73,7 @@
   };
 
   /* 💰 (2026-09-24) 청구액은 «A.i반 인원 구간 공급가» 로 서버(ai-billing-price.ts)가 계산한다.
-     ⛔ 이 화면에서 인원 × 단가를 다시 계산하지 말 것 — 구간·최소 20명분·경계 보정이 있어
+     ⛔ 이 화면에서 인원 × 단가를 다시 계산하지 말 것 — 구간·경계 보정이 있어(최소 청구는 2026-10-26 폐지)
         화면 계산은 반드시 틀린다(2026-09-10 판의 aibRecalc 를 그래서 지웠다).
         입력칸은 «학원 예외 단가» 이고, 저장하면 서버 값으로 다시 그린다. */
   function isEn(){ try { return window.adminLang === 'en' || (!window.adminLang && localStorage.getItem('mangoi_lang') === 'en'); } catch(_) { return false; } }
