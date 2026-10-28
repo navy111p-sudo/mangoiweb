@@ -140,6 +140,8 @@ export function questionSession(rows: unknown, nowMs: number, gapMs = QM_SESSION
  *  ⚠️ api-ai.ts 의 aiFriendIsMetaAsk(지시 metaHint 를 켜는 판정 — 하니스가 vm 으로 떼어 돌려 import 를 못 쓴다)는 이 세 줄에
  *     «I don't know» 하나만 더 받는다. 이것이 «요청» 이라 하면 그쪽도 반드시 요청이어야 한다(그래야 지시도 «다시 물어라» 를 준다) —
  *     ai_friend_no_repeat_question_harness ①-18 이 두 곳의 정규식 원문을 직접 견준다. 한쪽만 고치지 말 것.
+ *  ⚠️ 화면 쪽 말 빠르기 판정(public/js/speech-rate-request.js — ai-friend.html·warmup.html)도 이 세 줄을 «글자 그대로» 갖고 있다
+ *     (브라우저라 import 를 못 쓴다). speech_rate_request_harness 가 원문을 대조한다 — 여기를 고치면 그 파일도 함께, ?v= 도 함께.
  *  세 줄로 나눈다(2026-10-28 사장님 「what?·huh? 같은 되묻기도」 → 「원래부터 있던 오판도 고쳐줘」 · 함정 대조 세 번 반영).
  *   · QM_REASK_KO — 문장 어디서나, 단 «부탁 어미» 가 있을 때만: 「천천히/느리게/쉽게/짧게/간단히/또박또박/크게/다시 + (말/말씀/얘기/읽어/설명)해 +
  *     줘·주세요·주실래·줄래·주시겠어요·줄 수 있어요」·「천천히 해 줘」·「쉬운 말로 해 주세요」·「못 알아들었어 / 못 알아듣겠어」·「알아듣기 힘들어요」·
