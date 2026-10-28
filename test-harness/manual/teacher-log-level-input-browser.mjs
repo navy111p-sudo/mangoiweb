@@ -6,7 +6,8 @@
 //   고르면 저장 «전» 에 확인창을 띄우고(누구·무엇에서 무엇으로·판단력 훈련 안내), «취소» 면 요청 0 · 칸 되돌림인가 /
 //   골라서 저장하면 서버로 그 값이 가고 수업 줄의 레벨도 바뀌는가 /
 //   거절되면 칸이 되돌아가고 빨간 안내가 «읽히는가»(대비) /
-//   저장 중에 «보내기» 를 누르면 일지가 안 나가고, 끝나면 나가는가.
+//   저장 중에 «보내기» 를 누르면 일지가 안 나가고, 끝나면 나가는가 /
+//   (2026-10-28) 서버가 «범위 밖» 이라고 미리 실어 보낸 학생은 고르기 칸 대신 🔒 이유 한 줄만 보이고 확인창·요청이 0 인가.
 import { readFileSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { resolve, dirname } from 'node:path';
@@ -33,14 +34,15 @@ const SCALE = [
   { band: 5, from: 18, to: 21, ko: '중급', en: 'Intermediate' }, { band: 6, from: 22, to: 25, ko: '중고급', en: 'Upper-Intermediate' },
   { band: 7, from: 26, to: 30, ko: '고급', en: 'Advanced' }, { band: 8, from: 31, to: 34, ko: '최상급', en: 'Fluent' },
 ];
-function data(lang) {
+function data(lang, scope) {
   return { ok: true, now: ts, today, me: { name: 'Fixture Teacher', username: 'fixture-teacher', lang },
     classes: [{ kind: 'class', schedule_id: 1, room_id: 'class-1-' + today.replace(/-/g, ''), student_uid: 'fixture-1',
       student_name: '지승연', student_name_en: 'Ji Seungyeon', start_time: '12:30', start_ts: start, end_ts: start + 20 * 60000,
       open_at_ts: start - 600000, close_at_ts: start + 35 * 60000, enter_from_ts: ts - 86400000, enter_until_ts: ts + 86400000,
       date: today, class_date: today, duration_min: 20, level: 'Lv 5', class_state: 'done', status: 'done',
-      attendance: { state: 'attended', at: start, late_min: 0 }, teacher_entry: { state: 'on_time', at: start, late_min: 0 } }],
-    upcoming: [], notices: [], resources: [], rating: {}, goal_options: [], level_scale: SCALE,
+      attendance: { state: 'attended', at: start, late_min: 0 }, teacher_entry: { state: 'on_time', at: start, late_min: 0 },
+      ...(scope ? { level_scope: scope } : {}) }],
+    upcoming: [], notices: [], resources: [], rating: {}, goal_options: [], level_scale: SCALE, level_past_days: 14,
     week: weekOf(today) };
 }
 function weekOf(date) {
@@ -49,11 +51,11 @@ function weekOf(date) {
   return { start: s, end: day(6), days: Array.from({ length: 7 }, (_, i) => ({ date: day(i), items: [] })) };
 }
 // WCAG 대비 — 반투명 배경은 불투명한 층을 만날 때까지 모아 합성한다.
-const CONTRAST = () => {
+const CONTRAST = (sel = '#ev-lv-msg') => {
   const rgba = (s) => { const m = s.match(/rgba?\(([^)]+)\)/); if (!m) return [0, 0, 0, 0]; const p = m[1].split(',').map(Number); return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1]; };
   const lin = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
   const L = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
-  const el = document.querySelector('#ev-lv-msg');
+  const el = document.querySelector(sel);
   const fg = rgba(getComputedStyle(el).color);
   const layers = [];
   for (let x = el; x; x = x.parentElement) { const b = rgba(getComputedStyle(x).backgroundColor); if (b[3] > 0) { layers.push(b); if (b[3] >= 1) break; } }
@@ -176,6 +178,55 @@ try {
     await page.waitForFunction(() => document.querySelector('#ev-lv').disabled === false);
     await page.locator('#ev-ok').click(); await page.locator('#ev-ok').waitFor({ state: 'detached' });
     check(tag + ' 저장이 끝난 뒤엔 일지가 나감(레벨은 본문에 안 실음)', sentLog && sentLog.student_uid === 'fixture-1' && !('level' in sentLog));
+    check(tag + ' 페이지 오류 0', errors.length === 0);
+    await ctx.close();
+  }
+
+  // ── (2026-10-28 「1번 확인창 전에 범위 밖이면 막아줘」) 서버가 범위 밖이라고 미리 실어 보낸 학생 ─────────────
+  for (const scope of ['out_of_window', 'not_your_student'])
+  for (const width of [1280, 390, 320]) for (const lang of ['ko', 'en']) for (const theme of ['light', 'dark']) {
+    const tag = `${width}px/${lang}/${theme}/${scope}`;
+    const ctx = await browser.newContext({ viewport: { width, height: 1000 } });
+    await ctx.addInitScript((t) => localStorage.setItem('mangoi_teacher_theme', t), theme);
+    const page = await ctx.newPage();
+    const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+    const dialogs = []; page.on('dialog', async (d) => { dialogs.push(d.message()); await d.dismiss(); });
+    let sentLog = null; const levelBodies = [];
+    await page.route('**/api/**', async (route) => {
+      const u = new URL(route.request().url());
+      const ff = (o, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(o) });
+      if (u.pathname === '/api/teacher/portal' && u.searchParams.get('part') === 'level') { levelBodies.push(route.request().postData()); return ff({ ok: false, error: 'not_your_student' }, 403); }
+      if (u.pathname === '/api/teacher/portal' && !u.searchParams.get('part')) return ff(data(lang, scope));
+      if (u.pathname === '/api/translate') return ff({ ok: true, en: 'Spoke well today.', ko: '오늘 잘 말했습니다.' });
+      if (u.pathname === '/api/eval/manual-create') { sentLog = JSON.parse(route.request().postData()); return ff({ ok: true, id: 9 }); }
+      return ff({ ok: true, items: [], rows: [], reports: [], drafts: [], active: [], requests: [], lessons: [] });
+    });
+    await page.goto(BASE + '/teacher.html');
+    await page.locator('#boot').waitFor({ state: 'hidden' });
+    await page.locator('#classes [data-eval]').first().click();
+    const modal = page.locator('.modal'); await modal.waitFor();
+    const lock = modal.locator('.lv-lock');
+    await lock.waitFor({ timeout: 8000 }).catch(() => {});
+    const WANT = scope === 'out_of_window'
+      ? (lang === 'ko' ? '🔒 최근 14일 안에 수업했거나 지금 매주 수업 중인 학생만 바꿀 수 있어요 — 본사에 알려 주세요.'
+                       : '🔒 You can change the level only for students you taught in the last 14 days, or who have a weekly class with you — please ask the office.')
+      : (lang === 'ko' ? '🔒 내 수업 학생이 아니라 바꿀 수 없어요 — 본사에 알려 주세요.' : '🔒 This student is not in your class list — please ask the office.');
+    check(tag + ' 고르기 칸(select) 없음', (await page.locator('#ev-lv').count()) === 0);
+    check(tag + ' 지금 값 Lv 5 는 글자로 보임', (await modal.locator('.feedback-level').first().innerText()).includes('Lv 5'));
+    check(tag + ' 🔒 이유 한 줄(서버가 준 14일)', (await lock.count()) === 1 && (await lock.innerText()).trim() === WANT);
+    const fit = await lock.evaluate((el) => { el.scrollIntoView({ block: 'center' }); const a = el.getBoundingClientRect(), b = el.closest('.modal').getBoundingClientRect();
+      const cs = getComputedStyle(el); return { inside: a.left >= b.left - 0.5 && a.right <= b.right + 0.5, noScroll: el.scrollWidth <= el.clientWidth + 1, docOk: document.documentElement.scrollWidth <= innerWidth,
+        shown: a.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden' && Number(cs.opacity) > 0.5 }; });
+    check(tag + ' 🔒 줄이 보이고 창 안에서 줄바꿈(가로 넘침 없음)', fit.shown && fit.inside && fit.noScroll && fit.docOk);
+    const cr = await page.evaluate(CONTRAST, '.lv-lock');
+    check(tag + ` 🔒 줄 대비 ${cr.toFixed(2)} ≥ 4.5`, cr >= 4.5);
+    await modal.screenshot({ path: resolve(OUT, `level-lock-${scope}-${width}-${lang}-${theme}.png`) });
+    // 일지는 그대로 쓰고 보낸다 — 막는 것은 «레벨 바꾸기» 하나뿐
+    await page.locator('#ev-raw').fill('Spoke well today.');
+    await page.locator('#ev-tr').click(); await page.locator('#ev-out').waitFor({ state: 'visible' });
+    await page.locator('#ev-ok').click(); await page.locator('#ev-ok').waitFor({ state: 'detached' });
+    check(tag + ' 일지는 그대로 나감', !!sentLog && sentLog.student_uid === 'fixture-1' && !('level' in sentLog));
+    check(tag + ' 확인창 0 · 레벨 요청 0', dialogs.length === 0 && levelBodies.length === 0);
     check(tag + ' 페이지 오류 0', errors.length === 0);
     await ctx.close();
   }

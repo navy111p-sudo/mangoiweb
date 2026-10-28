@@ -4662,7 +4662,11 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
        목록은 서버가 내려준 DATA.level_scale 로만 그린다 — 없으면(옛 응답) 예전처럼 글자만 보여 준다. */
     var lvScale = (DATA && Array.isArray(DATA.level_scale)) ? DATA.level_scale : [];
     var lvCur = String(c.level || '').trim();
-    var lvEditable = lvScale.length > 0 && !!c.student_uid;
+    /* 🔐 (2026-10-28 사장님 「1번 확인창 전에 범위 밖이면 막아줘」) 서버가 이 학생을 «바꿀 수 없음» 으로 미리 실어 보냈으면
+       (c.level_scope — 정본 src/teacher-student-level.ts attachLevelScope, POST 와 같은 판정) 고르기 칸 대신 지금 값과 이유만 보여 준다
+       → 확인창이 아예 안 뜬다. 값이 없거나 모르는 값이면 예전처럼 고르게 두고 최종 판정은 서버 POST 가 한다(여기서 판정하지 않는다). */
+    var lvBlocked = (c.level_scope === 'out_of_window' || c.level_scope === 'not_your_student') ? c.level_scope : '';
+    var lvEditable = lvScale.length > 0 && !!c.student_uid && !lvBlocked;
     function levelPicker(){
       var known = false, groups = '', i, n, v, sc;
       for (i = 0; i < lvScale.length; i++){
@@ -4689,7 +4693,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       + (lvEditable
           ? '<div class="fld feedback-level"><label for="ev-lv">' + esc(T('Student level — pick to change (asks before saving)','학생 레벨 — 고르면 한 번 묻고 저장해요')) + '</label>'
             + levelPicker() + '<div class="mini" id="ev-lv-msg" aria-live="polite"></div></div>'
-          : '<p class="sub feedback-level"><b>' + esc(T('Student level','학생 레벨')) + '</b>: ' + esc(c.level || T('Not set','미등록')) + '</p>')
+          : '<p class="sub feedback-level"><b>' + esc(T('Student level','학생 레벨')) + '</b>: ' + esc(c.level || T('Not set','미등록')) + '</p>'
+            + (lvBlocked ? '<div class="mini lv-lock" role="note">🔒 ' + esc(lvErrText(lvBlocked === 'out_of_window' ? 'level_window_closed' : lvBlocked, DATA && DATA.level_past_days)) + '</div>' : ''))
       + '<div class="fld"><label>' + esc(T('Class status — tap to confirm or change','수업 출결 — 눌러서 확인하거나 바꿔요')) + '</label><div id="ev-att">'
       +   attChip('attended', '✅', T('Attended','출석'))
       +   attChip('late',     '⏰', T('Late','지각'))

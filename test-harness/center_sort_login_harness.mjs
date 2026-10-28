@@ -5,6 +5,8 @@
 //   ③ PATCH·POST 블록을 오려 «실제로» 돌린다 — 검사에 걸리면 저장 0건인가, 남의 계정을 못 건드리는가
 //   ④ 화면: 정렬 순환(▲→▼→원래)·화살표, 수정 창 아이디 미리 채우기·안내 문구
 //   ⑤ 머리글 data-sk 가 서버가 아는 열쇠인지(오타면 눌러도 «원래 순서» 로 조용히 돌아간다)
+//   ⑥ 🔒 (2026-10-28 사장님 「본사 계정만 만들 수 있게 좁혀줘」) 계정 만들기·바꾸기 = 본사(hq) scope 만 —
+//      판정 정본 agency-login-gate.ts 를 실제로 돌린다(못 읽으면 막는다 · 직원 'none' 은 막는다 · 본사는 통과 — 짝)
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { stripTypeScriptTypes } from 'node:module';
@@ -17,6 +19,14 @@ const html = readFileSync(new URL('../cloudflare-deploy/public/admin.html', impo
 // ── 공용: 스키마는 «정본 소스의 DDL» 을 읽어 만든다(하니스에 베껴 적지 않는다) ─────────
 const authSrc = readFileSync(new URL('../cloudflare-deploy/src/auth-admin.ts', import.meta.url), 'utf8');
 const syncSrc = readFileSync(new URL('../cloudflare-deploy/src/cafe24-sync.ts', import.meta.url), 'utf8');
+// 🔒 본사 전용 판정 정본 + 강사 거절 문구 정본 — 둘 다 import 없는 모듈이라 타입만 벗겨 «그대로» 돌린다(베껴 적지 않는다)
+const gateSrc = readFileSync(new URL('../cloudflare-deploy/src/agency-login-gate.ts', import.meta.url), 'utf8');
+const ftSrc = readFileSync(new URL('../cloudflare-deploy/src/forbidden-teacher.ts', import.meta.url), 'utf8');
+let LIB = { agencyLoginGate: null, forbiddenTeacherBody: null };
+try {
+  LIB = new Function(stripTypeScriptTypes(gateSrc).replace(/^export /gm, '') + '\n'
+    + stripTypeScriptTypes(ftSrc).replace(/^export /gm, '') + '\nreturn { agencyLoginGate, forbiddenTeacherBody };')();
+} catch (e) { console.log('  LIB ' + e.message); }
 const ddlOf = (src, re) => { const m = src.match(re); return m ? m[1] : ''; };
 const DDL = {
   centers: ddlOf(api, /(CREATE TABLE IF NOT EXISTS centers \([^`]*?\);)/),
@@ -60,6 +70,9 @@ const addAccount = (d, u, scopeValue, hash = 'H(orig)') => {
   if (scopeValue != null) d.prepare(`INSERT INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES (?, 'agency', ?, ?)`).run(u, scopeValue, T0);
 };
 
+// 계정 작업을 하는 «사람» 의 범위 행 — 본사면 'hq', 내부 직원이면 'none' 등
+const addActorScope = (d, u, type) => d.prepare(`INSERT INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES (?, ?, NULL, ?)`).run(u, type, T0);
+
 // ── ① 서버 정렬 ─────────────────────────────────────────────
 console.log('① 서버 정렬(ORDER BY 를 진짜 SQLite 에)');
 const s0 = api.indexOf('const _txt = (col: string) =>');
@@ -79,6 +92,7 @@ addCenter(db, 13, '가람영어', { fid: 1, country: 'PH', manager: '박', addre
 db.exec(`INSERT INTO settlement_rate_override VALUES ('agency','banana영어',40000),('agency','가람영어',30000)`);
 addAccount(db, 'zeta', '가람영어'); addAccount(db, 'alpha', '다솜학원');
 db.prepare(`INSERT INTO admin_scope (username, scope_type, scope_value) VALUES ('gone','agency','banana영어')`).run();   // 계정이 지워진 범위 행
+addActorScope(db, 'boss', 'hq');   // 계정 작업 주체(본사). ⚠️ 정렬 검사는 계정이 «있는 범위 행» 만 세므로 영향 없음(계정 행이 없다)
 const orderSqlOf = (o) => `SELECT c.id FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${o.sortJoin || ''} ORDER BY ${o.orderSql}`;
 const order = (q, hq = true) => {
   if (!mkOrder) return { ids: [], o: {} };
@@ -130,9 +144,12 @@ const recordLoginJs = rl0 > 0 ? stripTypeScriptTypes(braceBlock(authSrc, rl0).re
 ok('전제: 정본 recordLogin 을 오려 냈다', /INSERT INTO admin_login_history/.test(recordLoginJs));
 const RESERVED = new Set(['admin', 'jeong']);
 const fakeHash = async p => 'H(' + p + ')';
-const mkHelpers = (d, actor) => new Function('env', 'FULL_ACCESS_ACCOUNTS', 'hashPassword', 'getAdminActor', 'request',
+const fakeJson = (data, status = 200) => ({ status, data });
+const mkHelpers = (d, actor, envOverride) => new Function('env', 'FULL_ACCESS_ACCOUNTS', 'hashPassword', 'getAdminActor', 'request',
+  'json', 'agencyLoginGate', 'forbiddenTeacherBody',
   recordLoginJs + '\n' + helperJs + '\nreturn { checkAgencyLogin, applyAgencyLogin, agencyLoginActor };')(
-  mkEnv(d), RESERVED, fakeHash, async () => actor, { headers: { get: () => '1.2.3.4' } });
+  envOverride || mkEnv(d), RESERVED, fakeHash, async () => actor, { headers: { get: () => '1.2.3.4' } },
+  fakeJson, LIB.agencyLoginGate, LIB.forbiddenTeacherBody);
 let H = null;
 try { H = mkHelpers(db, { ok: true, username: 'boss', isTeacher: false }); } catch (e) { console.log('  ' + e.message); }
 const chk = async (...a) => { try { return await H.checkAgencyLogin(...a); } catch (e) { return { ok: false, error: 'THREW ' + e.message }; } };
@@ -202,14 +219,15 @@ ok('전제: PATCH·POST 핸들러 코드를 실행 가능한 함수로 만들었
 const runRoute = async (d, method, body, actor = { ok: true, username: 'boss', isTeacher: false }) => {
   try {
     const f = new Function('env', 'FULL_ACCESS_ACCOUNTS', 'hashPassword', 'getAdminActor', 'request', 'method',
-      'parseJsonBody', 'invalidBody', 'json', '_normPayType', 'ensureCenterOverrideTables',
+      'parseJsonBody', 'invalidBody', 'json', '_normPayType', 'ensureCenterOverrideTables', 'agencyLoginGate', 'forbiddenTeacherBody',
       recordLoginJs + '\nreturn (' + handlerJs + ')();');
     return await f(mkEnv(d), RESERVED, fakeHash, async () => actor, { body, headers: { get: () => '' } }, method,
       async (req) => req.body,
       (fields) => ({ status: 400, data: { ok: false, error: 'invalid_body', fields } }),
       (data, status = 200) => ({ status, data }),
       (v) => { const x = String(v || '').trim().toUpperCase(); return x === 'B2B' || x === 'B2C' ? x : null; },
-      async (env) => { for (const q of DDL.overrides) await env.DB.exec(q); });
+      async (env) => { for (const q of DDL.overrides) await env.DB.exec(q); },
+      LIB.agencyLoginGate, LIB.forbiddenTeacherBody);
   } catch (e) { return { status: 'THREW', data: { error: e.message } }; }
 };
 const fx = () => {
@@ -218,6 +236,7 @@ const fx = () => {
   addCenter(d, 23, '같은이름'); addCenter(d, 24, '같은이름');
   addAccount(d, 'b_acc', 'B학원'); addAccount(d, 'c_acc', 'C학원'); addAccount(d, 'dup_acc', '같은이름');
   d.prepare(`INSERT INTO admin_sessions (token, username, created_at, expires_at, last_seen_at) VALUES ('s1','c_acc',0,9e15,0)`).run();
+  addActorScope(d, 'boss', 'hq'); addActorScope(d, 'staff1', 'none');
   return d;
 };
 const hashOf = (d, u) => (d.prepare(`SELECT password_hash h FROM admin_account WHERE username = ?`).get(u) || {}).h;
@@ -346,6 +365,88 @@ const block = api.slice(s0, s1);
 const known = new Set([...block.matchAll(/^\s+(\w+):\s*\{ expr:/gm)].map(m => m[1]).concat(/CT_SORT\.login = /.test(block) ? ['login'] : []));
 ok('머리글 열쇠가 전부 서버가 아는 열쇠', sks.length > 0 && sks.every(m => known.has(m[1])), sks.map(m => m[1]).filter(k => !known.has(k)).join());
 ok('화살표 CSS 는 data-ar + ::after(i18n 이 글자를 갈아끼워도 산다)', /#ct-list-table th\.ct-sort-th::after\{content:attr\(data-ar\)/.test(html));
+
+// ── ⑥ 🔒 계정 만들기·바꾸기 = 본사(hq) 만 ─────────────────────────────
+console.log('⑥ 본사 전용(agency-login-gate.ts 를 실제로)');
+const G = LIB.agencyLoginGate;
+ok('전제: 판정 정본을 불러왔다', typeof G === 'function' && typeof LIB.forbiddenTeacherBody === 'function');
+let ran6 = 0;
+if (typeof G === 'function') {
+  const FA = new Set(['admin', 'cfo', 'ops_lead']);
+  const A = (u, t = false, okk = true) => ({ ok: okk, isTeacher: t, username: u });
+  ok('본사(hq) → 통과', G(A('mgr_x'), { scope_type: 'hq' }, FA).ok === true);
+  ok('앞뒤 공백이 있어도 hq 는 hq', G(A('mgr_x'), { scope_type: ' hq ' }, FA).ok === true);
+  ok('🔴 내부 직원(none) → 막는다(본사 전용)', G(A('staff1'), { scope_type: 'none' }, FA).error === 'forbidden_scope');
+  ok('지사·대리점·지사본사 → 막는다', ['branch', 'agency', 'franchise'].every(t => G(A('x'), { scope_type: t }, FA).error === 'forbidden_scope'));
+  ok('강사 범위(teacher) → 강사 거절', G(A('x'), { scope_type: 'teacher' }, FA).error === 'forbidden_teacher');
+  ok('강사 세션 → 강사 거절(범위가 hq 여도)', G(A('x', true), { scope_type: 'hq' }, FA).error === 'forbidden_teacher');
+  ok('로그인 안 됨 → 401', G(A('', false, false), { scope_type: 'hq' }, FA).status === 401);
+  ok('🔴 범위 조회 실패(모름) → 막는다(fail-closed)', G(A('mgr_x'), undefined, FA).error === 'scope_unknown');
+  ok('범위 행 없음 + 시스템 전체권한 계정 → 통과(ops_lead 처럼 행이 없는 본사)', G(A('ops_lead'), null, FA).ok === true && G(A('Admin'), null, FA).ok === true);
+  ok('범위 행 없음 + 그 밖 → 막는다', G(A('agency_sc002'), null, FA).error === 'forbidden_scope');
+  ok('범위 칸이 비어 있으면 → 막는다', G(A('x'), { scope_type: null }, FA).error === 'forbidden_scope' && G(A('x'), {}, FA).error === 'forbidden_scope');
+  ok('거절 문구는 한/영 둘 다', /본사/.test(G(A('s'), { scope_type: 'none' }, FA).message) && /HQ/.test(G(A('s'), { scope_type: 'none' }, FA).message));
+
+  // 실제 agencyLoginActor(admin_scope 를 «삼키지 않고» 다시 읽는다)
+  const d6 = fx();
+  const act = async (actor, envO) => { try { return await mkHelpers(d6, actor, envO).agencyLoginActor(); } catch (e) { return { ok: 'THREW ' + e.message }; } };
+  const boss = await act({ ok: true, username: 'boss', isTeacher: false });
+  ok('actor: 본사 boss → 통과(deny 없음)', boss.ok === true && boss.deny === null, JSON.stringify(boss));
+  const stf = await act({ ok: true, username: 'staff1', isTeacher: false });
+  ok('actor: 직원 staff1(none) → 403 forbidden_scope', stf.ok === false && stf.deny && stf.deny.status === 403 && stf.deny.data.error === 'forbidden_scope', JSON.stringify(stf));
+  const tch = await act({ ok: true, username: 't1', name: '강사', isTeacher: true });
+  ok('actor: 강사 → 403 + 강사 문구 정본(forbiddenTeacherBody)', tch.ok === false && tch.deny && tch.deny.status === 403 && tch.deny.data.error === 'forbidden_teacher', JSON.stringify(tch));
+  const noRow = await act({ ok: true, username: 'admin', isTeacher: false });
+  ok('actor: 범위 행이 없는 전체권한 계정(admin) → 통과', noRow.ok === true, JSON.stringify(noRow));
+  const ghost = await act({ ok: true, username: 'ghost1', isTeacher: false });
+  ok('actor: 범위 행이 없는 일반 계정 → 막는다', ghost.ok === false && ghost.deny.data.error === 'forbidden_scope', JSON.stringify(ghost));
+  // D1 이 admin_scope 조회에서 던지는 세계 — getScope 처럼 삼키면 «본사 동급» 이 되는 바로 그 경우
+  const base = mkEnv(d6);
+  const throwy = { DB: { ...base.DB, prepare(sql) { if (/FROM admin_scope/.test(sql)) throw new Error('D1 flake'); return base.DB.prepare(sql); } } };
+  const flk = await act({ ok: true, username: 'boss', isTeacher: false }, throwy);
+  ok('🔴 actor: 범위 조회가 던지면 본사여도 막는다(scope_unknown)', flk.ok === false && flk.deny && flk.deny.data.error === 'scope_unknown', JSON.stringify(flk));
+
+  // PATCH·POST 를 직원으로 실제로 돌린다 — 막히면 아무것도 안 바뀌어야 한다
+  if (handlerJs) {
+    const STAFF = { ok: true, username: 'staff1', isTeacher: false };
+    let d = fx(), r = await runRoute(d, 'PATCH', { id: 22, name: 'C학원 새이름', login_username: 'c_acc', login_password: 'newpass1' }, STAFF);
+    ok('🔴 PATCH: 직원이 비밀번호를 바꾸려 하면 403 · 비밀번호·이름 그대로',
+      r.status === 403 && r.data.error === 'forbidden_scope' && hashOf(d, 'c_acc') === 'H(orig)' && nameOf(d, 22) === 'C학원'
+      && !!d.prepare(`SELECT 1 FROM admin_sessions WHERE username='c_acc'`).get(), JSON.stringify(r));
+    d = fx(); r = await runRoute(d, 'PATCH', { id: 20, login_username: 'a_new', login_password: 'secret1' }, STAFF);
+    ok('PATCH: 직원은 새 계정도 못 만든다', r.status === 403 && !hashOf(d, 'a_new'), JSON.stringify(r));
+    d = fx(); r = await runRoute(d, 'PATCH', { id: 22, phone: '010-7' }, STAFF);
+    ok('PATCH: 직원도 «계정 말고» 다른 칸은 예전처럼 고칠 수 있다(짝)', r.status === 200 && d.prepare(`SELECT phone FROM centers WHERE id=22`).get().phone === '010-7', JSON.stringify(r));
+    d = fx(); r = await runRoute(d, 'POST', { name: 'H학원', login_username: 'h_acc', login_password: 'secret1' }, STAFF);
+    ok('🔴 POST: 직원이 계정과 함께 등록하면 403 · 대리점도 안 만든다',
+      r.status === 403 && !hashOf(d, 'h_acc') && d.prepare(`SELECT COUNT(*) n FROM centers WHERE name='H학원'`).get().n === 0, JSON.stringify(r));
+    d = fx(); r = await runRoute(d, 'POST', { name: 'I학원' }, STAFF);
+    ok('POST: 직원도 계정 칸을 비우면 등록은 된다(짝)', r.status === 200 && d.prepare(`SELECT COUNT(*) n FROM centers WHERE name='I학원'`).get().n === 1, JSON.stringify(r));
+    d = fx(); r = await runRoute(d, 'PATCH', { id: 22, login_username: 'c_acc', login_password: 'newpass1' });
+    ok('PATCH: 본사는 그대로 비밀번호를 바꾼다(짝)', r.status === 200 && r.data.login_result === 'reset', JSON.stringify(r));
+    ran6 = 1;
+  }
+}
+ok('전제: ⑥ 실행 검사가 실제로 돌았다', ran6 === 1);
+ok('PATCH·POST 가 거절 응답을 판정 정본에서 받는다(문구 복제 없음)',
+  (patchBlock.match(/if \(!loginActor\.ok\) return loginActor\.deny;/g) || []).length === 1
+  && (postBlock.match(/if \(!loginActor\.ok\) return loginActor\.deny;/g) || []).length === 1
+  && !/본사만 만들거나 바꿀 수 있습니다/.test(patchBlock + postBlock));
+ok('GET 이 같은 판정으로 can_login 을 싣는다', /can_login: canEditOrg\(_cSc\) \? \(await agencyLoginActor\(\)\)\.ok : false/.test(api));
+// 화면: can_login 이 false 면 로그인 칸·안내를 감추고, true 면 되돌린다(짝)
+const z0 = core.indexOf('var _ctCanLogin = true;');
+const z1 = core.indexOf('async function loadCenters(', z0);
+ok('전제: 화면 감춤 함수를 찾았다', z0 > 0 && z1 > z0);
+if (z0 > 0 && z1 > z0) {
+  const el = { 'ct-login-wrap': { style: { display: 'inline-flex' } }, 'ct-login-hint': { style: { display: '' } } };
+  const UI = new Function('document', core.slice(z0, z1) + '\nreturn { set: v => { _ctCanLogin = v; }, sync: _ctSyncLoginFields };')(
+    { getElementById: id => el[id] || null });
+  UI.set(false); UI.sync();
+  ok('화면: can_login=false → 로그인 칸·안내 감춤', el['ct-login-wrap'].style.display === 'none' && el['ct-login-hint'].style.display === 'none');
+  UI.set(true); UI.sync();
+  ok('화면: can_login=true → 다시 보임(wrap 은 inline-flex 로 — 간격 유지)', el['ct-login-wrap'].style.display === 'inline-flex' && el['ct-login-hint'].style.display === '');
+}
+ok('화면: 응답의 can_login 을 읽고 칸을 맞춘다(모르면 보여 둔다)', /typeof d\.can_login === 'boolean'\) _ctCanLogin = d\.can_login;\s*_ctSyncLoginFields\(\);/.test(lc));
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
