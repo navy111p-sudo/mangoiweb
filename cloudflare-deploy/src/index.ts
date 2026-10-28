@@ -67,6 +67,7 @@ import { warmupAnswerChips } from './warmup-answers';                    // 💬
 import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
 import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
 import { fragmentQuestions, fragmentQuestionHint, checksFragmentQuestions, fullQuestionRule, FRAG_RETRY_BUDGET_MS } from './reply-questions';   // 🧩 기초 단계 «조각 질문»(like space?) 막기
+import { questionMemory, askedQuestionsLine, ASKED_LINE_HEAD, repeatedQuestions, retryRepeatedQuestion } from './question-memory';   // 🔁 같은 질문 두 번 금지(말만 바꾼 것·반대말 포함)
 import { normalizeWarmupLang, warmupZhSystem, WARMUP_ZH_LEVELS, zhWarmupSentences, zhStudentByTeacher,
          warmupZhAnswerChips, WARMUP_ZH_FALLBACK_QUESTIONS, WARMUP_ZH_QUESTION_LANG } from './warmup-zh';  // 🀄 중국어 대화 정본(2026-09-13) — 영어 규칙은 한 글자도 안 건드린다
 import { applyEmpathyGuard, WARMUP_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
@@ -4272,6 +4273,9 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
       const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(hkey) : null;
       if (raw) history = JSON.parse(raw);
     } catch {}
+    /* 🔁 (2026-10-28 사장님 「일반 A.i 말하기에도 같은 질문 금지 적용해줘」) 이 대화에서 «이미 물은 질문 → 학생 답».
+       정본 src/question-memory.ts(엘리더잼과 같은 판정). 영어만 — 중국어는 낱말을 못 뽑아 null 이고 예전 그대로다. */
+    const qmem = ctxLang === 'zh' ? null : questionMemory(history, studentInput);
 
     // 📊 웜업 기록(src/warmup-log.ts) — 세션당 INSERT 1 + 조건부 UPDATE 최대 2. 발화마다 쓰지 않는다.
     //   ① 첫 턴의 INSERT 는 «안전망» 이다. 로그인 학생은 /api/warmup/context 에서 이미 잡히고,
@@ -4376,6 +4380,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     }
     // 🔁 반복 방지: 직전에 했던 질문/문장을 그대로 다시 묻는 문제(한 문장 반복) 차단
     sys += ' [중요] 이전 대화에서 이미 했던 질문이나 문장을 그대로 반복하지 마. 매번 새로운 표현과 다른 각도의 질문으로 대화를 이어가.';
+    // 🔁 이미 물은 질문 목록 — 엘리더잼은 lesson_topic 에 같은 머리말로 이미 실어 보내므로 두 번 싣지 않는다.
+    if (qmem && !lessonTopic.includes(ASKED_LINE_HEAD)) sys += ' ' + askedQuestionsLine(qmem);
     /* ✏️ 교정 카드 (2026-09-08) — 답장과 «같은 한 번의 호출» 에서 JSON 으로 함께 받는다.
        따로 부르면 왕복이 하나 더 붙어 한 턴이 두 배가 된다. 판정 정본은 src/warmup-correction.ts.
        ⚠️ 이 절이 출력 형식을 평문 → JSON 으로 바꾸므로, 아래 모든 추출 자리는 반드시
@@ -4512,8 +4518,10 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     const sanityCap = ctxLang === 'zh' ? 0 : (WARMUP_WORD_CAP[ctxDifficulty] || 0);
     const fragQ = checksFragmentQuestions(ctxDifficulty, ctxLang);   // 🧩 기초 단계(영어 1~3)만 «조각 질문» 을 본다
     /* 📡 P2 — 흘려보낼 문장을 «내보내기 직전» 에 같은 정본 판정(replyRejectReason·wrongSelfName)에 건다.
-       걸리면 그 자리에서 미리보기를 멈춘다. 정본·이유는 src/warmup-stream.ts 머리말. */
-    const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ }) : null;
+       걸리면 그 자리에서 미리보기를 멈춘다. 정본·이유는 src/warmup-stream.ts 머리말.
+       🔁 이미 물은 질문(repeatOf)도 멈추되, 시간 예산을 넘긴 턴은 다시 안 뽑으니 멈추지도 않는다. */
+    const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ,
+      repeatOf: qmem ? (sen) => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0 : undefined }) : null;
     try {
       const result: any = await runWarmup(messages, 0.7, live);
       aiText = takeWarmupReply(result); commitFix();
@@ -4597,15 +4605,23 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         } catch {}
       }
       // 🔁 그래도 직전 AI 발화와 (거의) 같은 문장이 나오면 1회 재생성 — temperature 를 올리고 명시적으로 지시
-      if (aiText && warmupIsRepeat(aiText, history)) {
-        const retry: any = await runWarmup(messages.concat([
-          { role: 'assistant', content: aiText },
-          { role: 'user', content: '(방금 질문은 이미 했던 거야. 완전히 다른 새로운 질문 하나로 다시 물어봐 줘!)' },
-        ]), 0.95);
-        const retryText = takeWarmupReply(retry);
-        if (retryText && !warmupIsRepeat(retryText, history)
-            && (!fragQ || fragmentQuestions(retryText).length <= fragmentQuestions(aiText).length)) { aiText = retryText; commitFix(); }   // 🧩 조각 질문을 되살리지 않게
-      }
+      /* 🔁 (2026-10-28) «말만 바꾼 같은 질문»(big↔small · 방금 들은 white 되묻기)도 잡는다 — 판정·순서 정본 src/question-memory.ts.
+         ⚠️ 그쪽은 시간 예산(FRAG_RETRY_BUDGET_MS) 안에서만, 최대 두 번 다시 뽑는다(한 턴에 호출이 여럿 이어질 수 있다).
+         ⚠️ 다시 뽑은 것이 «같은 질문이 없거나 줄었고» 다른 검사도 통과할 때만 받는다 — 아니면 원래 답(대화를 끊지 않는다).
+         ⚠️ 던지지 않는다 — 예전엔 여기서 던지면 멀쩡한 턴이 통째로 502 였다. */
+      const rr = await retryRepeatedQuestion({
+        text: aiText, textRepeat: !!aiText && warmupIsRepeat(aiText, history),
+        repeatsOf: (t) => repeatedQuestions(t, qmem),
+        inBudget: () => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS,
+        ask: async (extra) => takeWarmupReply(await runWarmup(messages.concat(extra), 0.95)),
+        acceptable: (t) => !warmupIsRepeat(t, history) && !replyRejectReason(t, sanityCap)
+          && !wrongSelfName(t, ctxFriend, { askedName: askedOwnName(studentInput) })
+          && (!fragQ || fragmentQuestions(t).length <= fragmentQuestions(aiText).length),   // 🧩 조각 질문을 되살리지 않게
+        onAccept: () => commitFix(),
+        genericHint: '(방금 질문은 이미 했던 거야. 완전히 다른 새로운 질문 하나로 다시 물어봐 줘!)',
+      });
+      if (rr.tries) console.warn('[warmup] repeat retry', 'tries=' + rr.tries, 'left=' + rr.left, 'lv=' + ctxDifficulty, rr.error || '');
+      aiText = rr.text;
     } catch (e: any) {
       await logWarmupLatency('', 0);   // ⏱ 실패한 턴의 지연도 «사실» 이라 남긴다(ok=0)
       return new Response(JSON.stringify({ detail: 'AI 응답 생성 실패: ' + String(e?.message || e) }), { status: 502, headers: _MS_JSON });
@@ -4813,6 +4829,12 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     if (qkey && env.SESSION_STATE) {
       try { const raw = await env.SESSION_STATE.get(qkey); if (raw) recentQs = JSON.parse(raw) || []; } catch {}
     }
+    /* 🔁 (2026-10-28) 「질문 골라 보기」 도 대화에서 이미 물은 질문(말만 바꾼 것·반대말 포함)은 내놓지 않는다 —
+       고른 질문은 곧바로 AI 발화가 되기 때문이다. 정본 src/question-memory.ts. 영어만, 기록을 못 읽으면 예전 그대로. */
+    let qmem: ReturnType<typeof questionMemory> = null;
+    if (sessionId && qLang !== 'zh' && env.SESSION_STATE) {
+      try { const raw = await env.SESSION_STATE.get('warmup:' + sessionId); if (raw) qmem = questionMemory(JSON.parse(raw)); } catch {}
+    }
 
     // ── 프롬프트 (전문 화상영어 AI 조교 — 사장님 사양 이식) ──
     const levelDesc = difficulty ? (qLang === 'zh' ? WARMUP_ZH_LEVELS[difficulty] : WARMUP_LEVELS[difficulty])
@@ -4826,6 +4848,7 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     if (topic) prompt += `- 오늘의 주제: '${topic}'\n`;
     if (lc.sentences.length) prompt += `- 오늘 배울 핵심 문장: ${lc.sentences.slice(0, 6).map((s) => `"${s}"`).join(' / ')}\n`;
     if (recentQs.length) prompt += `- 이미 사용한 질문(절대 반복 금지): ${recentQs.slice(-12).map((q) => `"${q}"`).join(' / ')}\n`;
+    if (qmem) prompt += `- ${askedQuestionsLine(qmem)}\n`;
     // 🕸️ 개인화(Neo4j): 이 학생이 복습퀴즈에서 자주 틀린 문장 → 그 표현·문형을 다시 쓰게 만드는 질문 우선.
     //    채팅(handleWarmupChat)과 동일하게 세션당 1회 조회 + KV 30분 캐시, 장애 시 조용히 생략.
     if (userId && env.NEO4J_QUERY_URL) {
@@ -4902,14 +4925,16 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
 
     // 반복 제거(기존 사용분과 정규화 비교) + 개수 보정
     const seen = new Set(recentQs.map(warmupNormSent));
-    questions = questions.filter((q) => !seen.has(warmupNormSent(q))).slice(0, count);
+    questions = questions.filter((q) => !seen.has(warmupNormSent(q)) && !repeatedQuestions(q, qmem).length).slice(0, count);
     if (!questions.length) {
       // AI 실패/전부 중복 → 레벨대별 준비 질문에서 미사용분 채움 (화면이 비지 않게)
       const band = difficulty >= 6 ? 'high' : difficulty >= 4 ? 'mid' : 'low';
       /* ⚠️ 안전망도 «고른 말» 로 준다 — 영어 목록을 그대로 쓰면 중국어 대화에 영어 질문이
             세 개 뜬다. 모델이 실패했을 때만 오는 갈래라 조용히 새기 쉽다. */
       const bank = qLang === 'zh' ? WARMUP_ZH_FALLBACK_QUESTIONS : WARMUP_FALLBACK_QUESTIONS;
-      questions = bank[band].filter((q) => !seen.has(warmupNormSent(q))).slice(0, count);
+      questions = bank[band].filter((q) => !seen.has(warmupNormSent(q)) && !repeatedQuestions(q, qmem).length).slice(0, count);
+      // 🔁 다 걸러졌으면 «보여 줬던» 질문이라도 다시 준다 — 단 이미 물은 질문(qmem)은 끝까지 뺀다(빈 칩이 반복 질문보다 낫다)
+      if (!questions.length) questions = bank[band].filter((q) => !repeatedQuestions(q, qmem).length).slice(0, count);
     }
 
     // 사용 질문 목록 갱신 (최근 30개, 6시간)
