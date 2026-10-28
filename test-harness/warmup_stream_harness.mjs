@@ -202,7 +202,7 @@ ok('전제: live 를 만드는 식을 찾았다', !!lm);
 if (lm) {
   // 🔁 (2026-10-28) 미리듣기에 «이미 물은 질문» 판정도 넘긴다 — 기억(qmem)이 없으면 undefined(예전 그대로). 검사는 reply_fragment_question 6-2.
   const ev = (sseSend) => attempt('live 식', () => new Function('sseSend', 'createWarmupLive', 'ctxLang', 'sanityCap', 'ctxFriend', 'studentInput', 'fragQ',
-    'qmem', 'repeatedQuestions', 'return ' + lm[1])(sseSend, () => 'LIVE', 'en', 0, 'Emma', 'hi', false, null, () => []));
+    'qmem', 'repeatedQuestions', 'latT0', 'FRAG_RETRY_BUDGET_MS', 'return ' + lm[1])(sseSend, () => 'LIVE', 'en', 0, 'Emma', 'hi', false, null, () => [], Date.now(), 9000));
   ok('스트림을 원하면 live 를 만든다', ev(() => {}) === 'LIVE');
   ok('(짝) 원하지 않으면 live 는 null — 예전 경로 그대로', ev(null) === null);
 }

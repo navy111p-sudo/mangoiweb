@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
+import { deadAt, commentsBalanced, hasLineCommentedCode } from './helpers/live-code.mjs';
 const root = resolve(import.meta.dirname, '..');
 const require = createRequire(root + '/cloudflare-deploy/package.json');
 let build = null;
@@ -221,13 +222,13 @@ const untype = (t) => t.replace(/:\s*any\b/g, '');
   ok('fragQ·미리듣기 자리를 오려 냈다(전제)', !!region);
   let liveOf = null;
   try { liveOf = new Function('ctxLang', 'WARMUP_WORD_CAP', 'ctxDifficulty', 'checksFragmentQuestions', 'sseSend', 'createWarmupLive',
-    'ctxFriend', 'studentInput', 'qmem', 'repeatedQuestions', untype(region) + '\nreturn { fragQ, live };'); }
+    'ctxFriend', 'studentInput', 'qmem', 'repeatedQuestions', 'latT0', 'FRAG_RETRY_BUDGET_MS', untype(region) + '\nreturn { fragQ, live };'); }
   catch (e) { ok('fragQ·미리듣기 자리가 실행된다', false, String(e)); }
   if (liveOf) {
     /* 🔁 (2026-10-28) 미리듣기에 «이미 물은 질문» 판정(repeatOf)도 넘긴다 — 기억(qmem)이 있을 때만. */
     const mem = M.questionMemory([{ role: 'assistant', content: 'Is your dog big?' }], 'small');
     const run = (lang, d, qm = null) => { let got = null; try { const r = liveOf(lang, { 1: 5, 2: 7, 3: 9, 5: 15 }, d, M.checksFragmentQuestions, () => {},
-      (send, o) => { got = o; return { o }; }, 'Lily', 'I like stars.', qm, M.repeatedQuestions); return { ...r, got }; } catch (e) { return { crash: String(e), got }; } };
+      (send, o) => { got = o; return { o }; }, 'Lily', 'I like stars.', qm, M.repeatedQuestions, Date.now(), 9000); return { ...r, got }; } catch (e) { return { crash: String(e), got }; } };
     const r1 = run('en', 1), r5 = run('en', 5), rz = run('zh', 1);
     ok('1단계: fragQ 가 켜지고 미리듣기에 true 가 간다', r1.fragQ === true && r1.got && r1.got.fragQ === true, r1);
     ok('5단계·중국어: 꺼지고 미리듣기에도 false 가 간다(짝)', r5.fragQ === false && r5.got && r5.got.fragQ === false && rz.got && rz.got.fragQ === false, { r5, rz });
@@ -245,6 +246,12 @@ const untype = (t) => t.replace(/:\s*any\b/g, '');
   const e = i < 0 ? -1 : idx.indexOf('      aiText = rr.text;', i);
   const block = i > 0 && e > i ? idx.slice(i, e + '      aiText = rr.text;'.length) : '';
   ok('반복 재시도 블록을 오려 냈다(전제)', !!block);
+  {
+    // 주석 안에 갇힌 블록을 돌려 놓고 «통과» 로 읽지 않는다(2026-10-28 함정 대조 실측) — 정본 helpers/live-code.mjs
+    const from = idx.lastIndexOf('async function handleWarmupChat', i);
+    const why = i < 0 || from < 0 ? 'missing' : deadAt(idx, i, from);
+    ok('반복 재시도 블록이 주석 밖에 살아 있다', !why && commentsBalanced(block) && !hasLineCommentedCode(block), why);
+  }
   let repOf = null;
   try { repOf = new AsyncFn('aiText', 'warmupIsRepeat', 'history', 'runWarmup', 'messages', 'takeWarmupReply', 'fragQ', 'fragmentQuestions',
     'commitFix', 'repeatedQuestions', 'qmem', 'latT0', 'FRAG_RETRY_BUDGET_MS', 'ctxDifficulty', 'retryRepeatedQuestion', 'replyRejectReason',

@@ -4518,9 +4518,10 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     const sanityCap = ctxLang === 'zh' ? 0 : (WARMUP_WORD_CAP[ctxDifficulty] || 0);
     const fragQ = checksFragmentQuestions(ctxDifficulty, ctxLang);   // 🧩 기초 단계(영어 1~3)만 «조각 질문» 을 본다
     /* 📡 P2 — 흘려보낼 문장을 «내보내기 직전» 에 같은 정본 판정(replyRejectReason·wrongSelfName)에 건다.
-       걸리면 그 자리에서 미리보기를 멈춘다. 정본·이유는 src/warmup-stream.ts 머리말. */
+       걸리면 그 자리에서 미리보기를 멈춘다. 정본·이유는 src/warmup-stream.ts 머리말.
+       🔁 이미 물은 질문(repeatOf)도 멈추되, 시간 예산을 넘긴 턴은 다시 안 뽑으니 멈추지도 않는다. */
     const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ,
-      repeatOf: qmem ? (sen) => repeatedQuestions(sen, qmem).length > 0 : undefined }) : null;
+      repeatOf: qmem ? (sen) => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0 : undefined }) : null;
     try {
       const result: any = await runWarmup(messages, 0.7, live);
       aiText = takeWarmupReply(result); commitFix();
@@ -4932,6 +4933,8 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
             세 개 뜬다. 모델이 실패했을 때만 오는 갈래라 조용히 새기 쉽다. */
       const bank = qLang === 'zh' ? WARMUP_ZH_FALLBACK_QUESTIONS : WARMUP_FALLBACK_QUESTIONS;
       questions = bank[band].filter((q) => !seen.has(warmupNormSent(q)) && !repeatedQuestions(q, qmem).length).slice(0, count);
+      // 🔁 다 걸러졌으면 «보여 줬던» 질문이라도 다시 준다 — 단 이미 물은 질문(qmem)은 끝까지 뺀다(빈 칩이 반복 질문보다 낫다)
+      if (!questions.length) questions = bank[band].filter((q) => !repeatedQuestions(q, qmem).length).slice(0, count);
     }
 
     // 사용 질문 목록 갱신 (최근 30개, 6시간)

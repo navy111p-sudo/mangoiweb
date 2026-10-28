@@ -27,7 +27,8 @@ const DROP = new Set(['still', 'also', 'moreover', 'course', 'way', 'thing', 'on
   'maybe', 'then', 'just', 'any', 'some', 'about', 'tell', 'think', 'know', 'lot', 'much', 'him', 'them', 'these', 'those', 'here',
   'from', 'let', 'lets', 'said', 'wow', 'yeah', 'yep', 'sure', 'hmm', 'please', 'today', 'should', 'could',
   'doesnt', 'isnt', 'arent', 'didnt', 'cant', 'wont', 'aint',
-  'right', 'true']);   // 「Is that right?」·「Is it true?」 — 확인용 맞장구라 내용이 없다
+  'right', 'true',   // 「Is that right?」·「Is it true?」 — 확인용 맞장구라 내용이 없다
+  'happen', 'happened', 'happens', 'else', 'mean', 'means']);   // 「What happened?」·「What else?」·「What do you mean?」 — 맞장구
 /** 같은 성질을 묻는 말 — 「big?」 과 「small?」 은 같은 질문이다(크기). */
 const TRAIT: Record<string, string> = {
   big: 'size', bigger: 'size', small: 'size', smaller: 'size', little: 'size', tiny: 'size', large: 'size', huge: 'size',
@@ -68,10 +69,18 @@ export function questionSlot(s: unknown): Set<string> {
   if (wh && ![...out].some(x => ANSWER_TRAITS.has(x))) out.add('@' + wh[1]);
   return out;
 }
+/** 질문의 «무게» — 내용 낱말과 성질(@size·@color·@name·@age)만 센다. 모양 표시(@why·@how·@what…)는 안 센다.
+ *  ⚠️ 모양 표시까지 세면 「What do you like to do?」({like, @what})가 2가 되어 「What do you like to eat?」 «안» 에
+ *  든 같은 질문으로 잡힌다(2026-10-28 함정 대조 실측 — 엘리더잼 b01 「What can you do for a pet?」 거짓 건너뛰기도 같은 뿌리). */
+export function questionWeight(slot: ReadonlySet<string>): number {
+  let n = 0;
+  for (const x of slot) if (x[0] !== '@' || ANSWER_TRAITS.has(x)) n++;
+  return n;
+}
 /** 이미 다룬 질문인가 — 질문의 내용이 이미 물은(또는 답이 나온) 것 «안에» 다 들어 있으면 같은 질문이다.
  *  내용이 하나뿐인 질문(「Are you hungry?」)은 내용으로 판정하지 않는다(거짓 경보 방지) — 글자 비교만. */
 export function questionCovered(slot: ReadonlySet<string>, done: readonly ReadonlySet<string>[]): boolean {
-  if (slot.size < 2) return false;
+  if (questionWeight(slot) < 2) return false;
   return done.some(d => { for (const x of slot) if (!d.has(x)) return false; return true; });
 }
 /** 글자 그대로 같은 질문인가를 볼 때 쓰는 모양 — 앞의 접속사·감탄과 문장부호를 떼고 소문자로. */
@@ -110,9 +119,14 @@ export function questionMemory(history: unknown, said?: unknown): QuestionMemory
     const nx = msgs[k + 1];
     const a = nx ? (nx.role === 'user' ? clip(nx.content, 60) : '') : clip(said, 60);
     const traits = [...questionSlot(a)].filter(x => ANSWER_TRAITS.has(x));   // 학생 답에서 나온 성질(「작아요 7kg」 → @size)
-    for (const q of qs) {
-      const s = questionSlot(q);
-      for (const t of traits) s.add(t);
+    const slots = qs.map(q => questionSlot(q));
+    const askedT = new Set(traits.filter(t => slots.some(x => x.has(t))));   // 붙이기 «전» 에 센다(붙이면서 세면 앞 질문에 붙인 것이 섞인다)
+    for (let j = 0; j < qs.length; j++) {
+      const q = qs[j], s = slots[j];
+      /* 답에서 나온 성질은 «그 성질을 물은 질문» 에만 붙인다 — 「Do you like dogs? What is your favorite color?」 → 「Yes, blue.」
+         의 «blue» 를 개 질문에 붙이면 나중의 「What color is your dog?」 가 반복으로 잡힌다(함정 대조 실측).
+         그 성질을 물은 질문이 하나도 없으면(「Do you have a dog?」 → 「작고 하얀 개」) 예전처럼 다 붙인다. */
+      for (const t of traits) if (!askedT.has(t)) s.add(t);   // 그 성질을 물은 질문은 이미 갖고 있다
       const norm = questionNorm(q);
       done.push(s);
       texts.add(norm);
@@ -139,14 +153,18 @@ export function askedQuestionsLine(mem: QuestionMemory | null | undefined): stri
 
 export type RepeatedQuestion = { q: string; prev: string; a: string };
 /** 답장 속 질문 중 이 대화에서 이미 다룬 것 — 엔진의 «사후 검사». 없으면 빈 배열.
- *  내용 낱말이 하나도 없는 질문(「How about you?」·「Really?」)은 안 본다 — 맞장구라 두 번 해도 반복이 아니다.
+ *  내용 낱말이 하나도 없는 질문(「How about you?」·「What about you?」·「Why?」)과 앞 말을 가리키는 짧은 질문(「Do you like it?」)은
+ *  안 본다 — 맞장구라 두 번 해도 반복이 아니다.
  *  내용이 하나뿐인 질문은 글자 그대로 같을 때만(questionCovered 와 같은 규칙). */
 export function repeatedQuestions(text: unknown, memory: QuestionMemory | null | undefined): RepeatedQuestion[] {
   if (!memory || !memory.items.length) return [];
   const out: RepeatedQuestion[] = [];
   for (const q of questionsIn(text)) {
     const slot = questionSlot(q);
-    if (!slot.size) continue;
+    const w = questionWeight(slot);
+    /* 맞장구는 안 본다 — 내용이 없는 질문(「What about you?」·「Why?」·「Which one?」)과
+       앞 말을 가리키는 짧은 질문(「Do you like it?」·「Is it fun?」)은 두 번 해도 «다른 것» 을 묻는다(함정 대조 실측). */
+    if (!w || (w === 1 && /\b(it|that|this|them|they|those|these|one)\b/i.test(q))) continue;
     const norm = questionNorm(q);
     const hit = memory.items.find(it => (norm && it.norm === norm) || questionCovered(slot, [it.slot]));
     if (hit) out.push({ q, prev: hit.q, a: hit.a });

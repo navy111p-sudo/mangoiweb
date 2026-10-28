@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
+import { deadAt, commentsBalanced, hasLineCommentedCode } from './helpers/live-code.mjs';
 const root = resolve(import.meta.dirname, '..');
 const require = createRequire(root + '/cloudflare-deploy/package.json');
 let build = null;
@@ -78,6 +79,8 @@ const SAME = [
   ['tall ↔ short', H([['Is your dad tall?', 'yes']]), 'Is your dad short?'],
   ['내용 낱말 하나뿐인 질문은 글자가 같을 때만 — 같으면 잡는다', H([['Can you swim?', 'yes']]), 'Can you swim?'],
   ['이유 질문을 이미 했으면 「좋아해?」는 다시 묻는 것', H([['Why do you like cats?', 'they are cute']]), 'Do you like cats?'],
+  ['내용 낱말 하나뿐 + 글자 그대로 같으면 잡는다(How was your day?)', H([['How was your day?', 'good']]), 'Oh, how was your day?'],
+  ['답에서 나온 성질 — 그 성질을 물은 질문이 없으면 함께 물은 질문 전부에 붙인다', H([['Do you have a dog? Is it cute?', 'yes, a small white one']]), 'What color is your dog?'],
 ];
 for (const [name, hist, q, said] of SAME) ok('같다: ' + name, isRep(q, hist, said), { q, rep: M.repeatedQuestions(q, M.questionMemory(hist, said)) });
 // 새 질문 — 이유·방법·무엇을 묻는 질문, 다른 동사, 다른 대상, 맞장구
@@ -96,6 +99,22 @@ const DIFF = [
   ['즐겨 먹는 것 ↔ 즐겨 하는 계절', H([['What is your favorite food?', 'pizza']]), 'What is your favorite season?'],
   ['학생 답의 «이유·무엇» 은 질문에 안 붙인다', H([['Do you like school?', 'yes because what I like is art']]), 'Why do you like school?'],
   ['중국어 대화는 판정하지 않는다', H([['你喜欢狗吗？', '喜欢']]), '你喜欢狗吗？'],
+  // 맞장구 — 내용이 없는 질문과 앞 말을 가리키는 짧은 질문은 두 번 해도 «다른 것» 을 묻는다(2026-10-28 함정 대조 실측)
+  ['맞장구 What about you? 두 번', H([['I like pizza. What about you?', 'me too']]), 'Nice! What about you?'],
+  ['맞장구 What do you think? 두 번', H([['Dogs are fun. What do you think?', 'yes']]), 'Cats are cute. What do you think?'],
+  ['맞장구 What is it? 두 번', H([['You have a toy. What is it?', 'a car']]), 'And your snack, what is it?'],
+  ['맞장구 What happened? 두 번', H([['Oh no! What happened?', 'I fell']]), 'Oh dear. What happened?'],
+  ['맞장구 What else? 두 번', H([['Cool! What else?', 'I like cake']]), 'Yum! What else?'],
+  ['맞장구 Why? 두 번', H([['You like rain? Why?', 'it is cool']]), 'You like snow too? Why?'],
+  ['맞장구 Which one? 두 번', H([['You have two cats. Which one?', 'the black one']]), 'You have two dogs. Which one?'],
+  ['앞 말 가리키기 Do you like it? 두 번', H([['I have a new game. Do you like it?', 'yes']]), 'This is my cake. Do you like it?'],
+  ['앞 말 가리키기 Is it fun? 두 번', H([['We play tag. Is it fun?', 'yes']]), 'We sing songs. Is it fun?'],
+  // 의문사(@what·@how…)는 «무게» 로 안 센다 — 세면 「무엇을 먹니」 안에 「무엇을 하니」 가 든 것으로 잡힌다
+  ['무엇을 먹기 좋아해? 다음 무엇을 하기 좋아해?', H([['What do you like to eat?', 'pizza']]), 'What do you like to do?'],
+  ['점심에 뭐 먹었어? 다음 오늘 뭐 먹었어?', H([['What did you eat for lunch?', 'rice']]), 'What did you eat today?'],
+  ['엘리더잼 b01 — 원하는 반려동물 다음 반려동물에게 해 줄 일', H([['What pet do you want?', 'a dog']]), 'What can you do for a pet?'],
+  // 답에서 나온 성질은 «그 성질을 물은 질문» 에만 — 함께 물은 다른 질문에 붙이지 않는다
+  ['한 번에 두 질문 — 좋아하는 색 답이 개 질문에 안 붙는다', H([['Do you like dogs? What is your favorite color?', 'Yes, blue.']]), 'What color is your dog?'],
 ];
 for (const [name, hist, q, said] of DIFF) ok('다르다: ' + name, !isRep(q, hist, said), { q, rep: M.repeatedQuestions(q, M.questionMemory(hist, said)) });
 ok('기억이 없으면(null) 아무것도 안 잡는다', M.repeatedQuestions('Is your dog small?', null).length === 0);
@@ -118,12 +137,21 @@ ok('기록이 배열이 아니면 null(= 예전 동작)', M.questionMemory('x') 
 const chatAt = idx.indexOf('async function handleWarmupChat');
 const qsAt = idx.indexOf('async function handleWarmupQuestions');
 ok('웜업 핸들러 두 개를 찾았다(전제)', chatAt > 0 && qsAt > chatAt);
+/* «살아 있는가» — 오려 낸 자리가 주석 안에 갇혀 있으면 조각은 멀쩡히 돌아 검사가 초록이 된다(2026-10-28 함정 대조 실측:
+   블록주석으로 감싼 배선을 이 하니스가 못 봤다). 시작 자리가 주석 밖인지 + 조각 안의 주석 기호 짝을 함께 본다. */
+const alive = (name, needle, from, cut) => {
+  const p = idx.indexOf(needle, from);
+  const why = p < 0 ? 'missing' : deadAt(idx, p, from);
+  ok(name + ' — 주석 밖에 살아 있다', !why, why);
+  if (cut !== undefined) ok(name + ' — 조각 안 주석 기호 짝이 맞고 막힌 코드 줄이 없다', commentsBalanced(cut) && !hasLineCommentedCode(cut));
+};
 // ③-a 기억(qmem) — 영어면 만들고 중국어면 끈다
 let qmemOf = null;
 {
   const ln = lineAt(idx, 'const qmem = ', chatAt);
   const m = /const qmem = (.+);\s*$/.exec(ln);
   ok('기억(qmem) 자리를 오려 냈다(전제)', !!m, ln);
+  alive('기억(qmem) 자리', 'const qmem = ', chatAt);
   try { if (m) qmemOf = new Function('ctxLang', 'questionMemory', 'history', 'studentInput', 'return ' + untype(m[1]) + ';'); } catch (e) { ok('기억 자리가 실행된다', false, String(e)); }
   if (qmemOf) {
     const hist = H([['Is your dog big?']]);
@@ -137,6 +165,7 @@ let sysOf = null;
 {
   const ln = lineAt(idx, 'askedQuestionsLine(qmem)', chatAt);
   ok('지시 줄 자리를 오려 냈다(전제)', !!ln && idx.indexOf(ln) < qsAt, ln);
+  alive('지시 줄 자리', 'askedQuestionsLine(qmem)', chatAt);
   try { if (ln) sysOf = new Function('qmem', 'lessonTopic', 'ASKED_LINE_HEAD', 'askedQuestionsLine', "let sys = 'SYS';\n" + untype(ln) + '\nreturn sys;'); } catch (e) { ok('지시 줄 자리가 실행된다', false, String(e)); }
   if (sysOf) {
     const mem = M.questionMemory(H([['Is your dog big?', 'small']]));
@@ -154,10 +183,13 @@ let sysOf = null;
   const k = i < 0 ? -1 : idx.indexOf(';\n', i);
   const region = i > 0 && k > i ? idx.slice(i, k + 1) : '';
   ok('미리듣기 자리를 오려 냈다(전제)', !!region);
+  alive('미리듣기 자리', '    const live = sseSend ? createWarmupLive(', chatAt, region);
   if (region && full) {
-    let liveOf = null;
-    try { liveOf = new Function('sseSend', 'createWarmupLive', 'ctxLang', 'sanityCap', 'ctxFriend', 'studentInput', 'fragQ', 'qmem', 'repeatedQuestions',
-      untype(region) + '\nreturn live;'); } catch (e) { ok('미리듣기 자리가 실행된다', false, String(e)); }
+    let liveOf0 = null;
+    try { liveOf0 = new Function('sseSend', 'createWarmupLive', 'ctxLang', 'sanityCap', 'ctxFriend', 'studentInput', 'fragQ', 'qmem', 'repeatedQuestions',
+      'latT0', 'FRAG_RETRY_BUDGET_MS', untype(region) + '\nreturn live;'); } catch (e) { ok('미리듣기 자리가 실행된다', false, String(e)); }
+    // 기본은 «방금 시작한 턴»(예산 안). waited 를 주면 그만큼 지난 턴.
+    const liveOf = liveOf0 && ((a, b, c, d, e, f, g, h, i, waited = 0) => liveOf0(a, b, c, d, e, f, g, h, i, Date.now() - waited, M.FRAG_RETRY_BUDGET_MS));
     if (liveOf) {
       const mem = M.questionMemory(H([['Is your dog black?']]), 'no he is the white');
       const sent = [];
@@ -170,6 +202,14 @@ let sysOf = null;
       ok('미리듣기: 새 질문은 그대로 내보낸다(짝)', d && e && !live2.halted() && sent2.length === 2, { h: live2.halted() });
       const live3 = liveOf(() => {}, M.createWarmupLive, 'en', 0, 'Lily', 'x', false, null, M.repeatedQuestions);
       ok('미리듣기: 기억이 없으면 예전 그대로(멈추지 않음)', live3.push('Is your dog white?') === true && !live3.halted());
+      // 예산을 넘긴 턴은 다시 안 뽑으니 미리듣기도 멈추지 않는다 — 멈추면 학생은 첫 문장만 듣고 기다리다 같은 답을 받는다
+      const sent4 = [];
+      const live4 = liveOf((o) => sent4.push(o), M.createWarmupLive, 'en', 0, 'Lily', 'no he is the white', false, mem, M.repeatedQuestions, M.FRAG_RETRY_BUDGET_MS + 2000);
+      const f = live4.push('White dogs are nice!'), g = live4.push('And, is your dog white?');
+      ok('미리듣기: 시간 예산을 넘긴 턴은 이미 물은 질문이어도 멈추지 않는다', f && g && !live4.halted() && sent4.length === 2, { f, g, h: live4.halted() });
+      const live5 = liveOf(() => {}, M.createWarmupLive, 'en', 0, 'Lily', 'no he is the white', false, mem, M.repeatedQuestions, M.FRAG_RETRY_BUDGET_MS - 3000);
+      live5.push('White dogs are nice!'); live5.push('And, is your dog white?');
+      ok('미리듣기: 예산 안이면 멈춘다(짝)', live5.halted() === 'repeat', live5.halted());
     }
   } else if (region) console.log('⏭ ③-c 미리듣기 실물 검사 건너뜀(esbuild 없음)');
 }
@@ -180,6 +220,8 @@ let repOf = null;
   const e = i < 0 ? -1 : idx.indexOf('      aiText = rr.text;', i);
   const block = i > 0 && e > i ? idx.slice(i, e + '      aiText = rr.text;'.length) : '';
   ok('다시 뽑기 자리를 오려 냈다(전제)', !!block && i < qsAt);
+  alive('다시 뽑기 자리', '      const rr = await retryRepeatedQuestion({', chatAt, block);
+  alive('다시 뽑기 결과를 쓰는 줄', '      aiText = rr.text;', chatAt);
   try { repOf = new AsyncFn('aiText', 'warmupIsRepeat', 'history', 'runWarmup', 'messages', 'takeWarmupReply', 'fragQ', 'fragmentQuestions',
     'commitFix', 'repeatedQuestions', 'qmem', 'latT0', 'FRAG_RETRY_BUDGET_MS', 'ctxDifficulty', 'retryRepeatedQuestion', 'replyRejectReason',
     'sanityCap', 'wrongSelfName', 'ctxFriend', 'askedOwnName', 'studentInput', 'console', untype(block) + '\nreturn aiText;'); }
@@ -315,6 +357,7 @@ if (repOf && warmupIsRepeat) {
   const j = i < 0 ? -1 : idx.indexOf('    if (sessionId && qLang', i);
   const load = i > 0 && j > i ? idx.slice(i, j) + braceBlock(idx, j) : '';
   ok('질문 골라 보기: 기억 읽는 자리를 오려 냈다(전제)', !!load);
+  alive('질문 골라 보기: 기억 읽는 자리', '    let qmem: ReturnType<typeof questionMemory> = null;', qsAt, load);
   let loadOf = null;
   try { if (load) loadOf = new AsyncFn('sessionId', 'qLang', 'env', 'questionMemory', load.replace('let qmem: ReturnType<typeof questionMemory> = null;', 'let qmem = null;') + '\nreturn qmem;'); }
   catch (e) { ok('질문 골라 보기: 기억 읽는 자리가 실행된다', false, String(e)); }
@@ -332,6 +375,7 @@ if (repOf && warmupIsRepeat) {
   let promptOf = null;
   try { if (pl) promptOf = new Function('qmem', 'askedQuestionsLine', "let prompt = 'P\\n';\n" + pl + '\nreturn prompt;'); } catch (e) { ok('질문 골라 보기: 지시 자리가 실행된다', false, String(e)); }
   ok('질문 골라 보기: 지시 자리를 오려 냈다(전제)', !!promptOf);
+  alive('질문 골라 보기: 지시 자리', 'if (qmem) prompt +=', qsAt);
   if (promptOf) {
     const mem = M.questionMemory(H([['Is your dog big?', 'small']]));
     const p = promptOf(mem, M.askedQuestionsLine);
@@ -340,7 +384,11 @@ if (repOf && warmupIsRepeat) {
   }
   const fl = lineAt(idx, 'questions = questions.filter((q) => !seen.has(warmupNormSent(q))', qsAt);
   const bl = lineAt(idx, 'questions = bank[band].filter(', qsAt);
-  ok('질문 골라 보기: 거르는 두 줄을 오려 냈다(전제)', !!fl && !!bl);
+  const fb = lineAt(idx, 'if (!questions.length) questions = bank[band].filter(', qsAt);
+  ok('질문 골라 보기: 거르는 세 줄을 오려 냈다(전제)', !!fl && !!bl && !!fb);
+  alive('질문 골라 보기: AI 질문 거르는 줄', 'questions = questions.filter((q) => !seen.has(warmupNormSent(q))', qsAt);
+  alive('질문 골라 보기: 준비 질문 거르는 줄', 'questions = bank[band].filter(', qsAt);
+  alive('질문 골라 보기: 다 걸러졌을 때 다시 채우는 줄', 'if (!questions.length) questions = bank[band].filter(', qsAt);
   const mk = (ln, src) => { try { return new Function('questions', 'bank', 'band', 'seen', 'warmupNormSent', 'repeatedQuestions', 'qmem', 'count',
     (src === 'bank' ? 'let questions2 = questions;\n' : '') + ln.trim() + '\nreturn questions;'); } catch (e) { ok('질문 골라 보기: 거르는 줄이 실행된다 ' + src, false, String(e)); return null; } };
   const f1 = fl ? mk(fl, 'ai') : null, f2 = bl ? mk(bl, 'bank') : null;
@@ -356,6 +404,20 @@ if (repOf && warmupIsRepeat) {
   if (f2) {
     const out = f2([], { low: ['What is your favorite color?', 'Do you have a pet?', 'Is your dog small?'] }, 'low', new Set(), norm, M.repeatedQuestions, mem, 5);
     ok('질문 골라 보기: 준비 질문(안전망)에서도 이미 물은 것은 뺀다', JSON.stringify(out) === JSON.stringify(['What is your favorite color?', 'Do you have a pet?']), out);
+  }
+  // 다 걸러졌을 때 — «보여 줬던» 질문이라도 다시 주되 이미 물은 질문은 끝까지 뺀다(두 줄을 차례로 실제로 돌린다)
+  let f3 = null;
+  try { if (bl && fb) f3 = new Function('questions', 'bank', 'band', 'seen', 'warmupNormSent', 'repeatedQuestions', 'qmem', 'count',
+    bl.trim() + '\n' + fb.trim() + '\nreturn questions;'); } catch (e) { ok('질문 골라 보기: 다시 채우는 줄이 실행된다', false, String(e)); }
+  if (f3) {
+    const bank = { low: ['What is your favorite color?', 'Do you have a pet?', 'Is your dog small?'] };
+    const allSeen = new Set(bank.low.map(norm));
+    const out = f3([], bank, 'low', allSeen, norm, M.repeatedQuestions, mem, 5);
+    ok('질문 골라 보기: 전부 «보여 줬던» 것이면 다시 주되 이미 물은 것(크기)은 뺀다', JSON.stringify(out) === JSON.stringify(['What is your favorite color?', 'Do you have a pet?']), out);
+    const onlyRep = f3([], { low: ['Is your dog small?', 'Is your dog big or small?'] }, 'low', new Set(), norm, M.repeatedQuestions, mem, 5);
+    ok('질문 골라 보기: 남는 것이 전부 이미 물은 질문이면 비운다(빈 칩이 반복 질문보다 낫다)', onlyRep.length === 0, onlyRep);
+    const fresh = f3([], bank, 'low', new Set(), norm, M.repeatedQuestions, null, 2);
+    ok('질문 골라 보기: 보여 준 것이 없으면 첫 줄 그대로(짝 — 다시 채우는 줄은 안 돈다)', JSON.stringify(fresh) === JSON.stringify(bank.low.slice(0, 2)), fresh);
   }
 }
 
