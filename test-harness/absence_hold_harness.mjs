@@ -255,6 +255,10 @@ const tp = strip(rd(resolve(SRC, 'api-teacher.ts')));
   const iKeep = tp.indexOf("for (const c of classes) if (c.source === 'lms' && c.start_ts) c.class_date");
   const iLoad = tp.indexOf('const _holds = await loadHoldRanges(env as any);');
   ok(iKeep > 0 && iLoad > iKeep, '강사 포털: 보류 판정은 «지난 수업 날짜» 복원 «뒤» 에 돈다(그 전엔 지난 줄도 오늘 날짜)');
+  // ⚠️ 루프만 오려 돌리면 «그 블록이 실제로 도는가» 는 못 본다 — 복원 줄과 보류 블록 사이에 조건(if …)이 끼면 화면에서 보류가 통째로 사라진다.
+  const iKeepEnd = iKeep > 0 ? tp.indexOf('\n', iKeep) : -1;
+  ok(iKeepEnd > 0 && iLoad > iKeepEnd && tp.slice(iKeepEnd, iLoad).replace(/\s+/g, ' ').trim() === 'try {',
+    '강사 포털: 보류 블록은 조건 없이 늘 돈다(복원 줄과 보류 블록 사이엔 «try {» 뿐)');
   const iLoop = iLoad > 0 ? tp.indexOf('if (_holds.size) for (const c of classes) {', iLoad) : -1;
   let loop = '';
   if (iLoop > 0) {
@@ -269,10 +273,11 @@ const tp = strip(rd(resolve(SRC, 'api-teacher.ts')));
   const R = (o) => ({ kind: 'class', student_uid: 'Stu', ...o });
   const rows = {
     today: R({ class_date: '2026-10-28' }),
+    todayDone: R({ class_date: '2026-10-28', status: 'done', class_state: 'done' }),
     noDate: R({}),
     pastBefore: R({ class_date: '2026-10-15' }),
-    pastInside: R({ class_date: '2026-10-22' }),
-    lmsInside: R({ source: 'lms', class_date: '2026-10-22' }),
+    pastInside: R({ class_date: '2026-10-22', status: 'done', class_state: 'done' }),
+    lmsInside: R({ source: 'lms', class_date: '2026-10-22', status: 'done', class_state: 'done' }),
     other: R({ student_uid: 'someone', class_date: '2026-10-28' }),
     breakRow: R({ kind: 'break', class_date: '2026-10-28' }),
   };
@@ -281,6 +286,7 @@ const tp = strip(rd(resolve(SRC, 'api-teacher.ts')));
   catch (e) { console.log('  (판정 루프 실행 실패) ' + e.message); }
   ok(ran, '전제: 판정 루프를 실제로 돌렸다');
   ok(rows.today.absence_hold?.id === 7, '강사 포털: 오늘 수업에 보류 표시를 싣는다');
+  ok(rows.todayDone.absence_hold?.id === 7, '(짝) 오늘 이미 끝난 수업도 보류는 그대로 — 거르는 기준은 «카페24 출석 줄» 뿐(상태 done 이 아님)');
   ok(rows.noDate.absence_hold?.id === 7, '(짝) 날짜가 없는 줄은 오늘로 본다');
   ok(!rows.pastBefore.absence_hold, '지난 줄은 «그 수업 날짜» 로 판정 — 보류 «전» 수업에는 안 붙는다');
   ok(rows.pastInside.absence_hold?.id === 7, '(짝) 보류 기간 안의 지난 줄(카페24 출석 아님)에는 붙는다');
