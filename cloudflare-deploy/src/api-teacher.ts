@@ -38,7 +38,7 @@ import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인�
 import { loadActiveGoals, setStudentGoal, goalByKey, GOALS } from './student-goal';   // 🗓 4주 목표(2026-10-10)
 import { loadParentRequests, markParentRequestDone } from './parent-request';   // 👪 학부모 요청 반영(2026-10-10)
 import { loadTeacherStudentHistory, validHistoryDate } from './teacher-student-history';
-import { normalizeTeacherLevelChoice, setStudentLevelByTeacher, levelScaleForPortal, teacherLevelScope, TEACHER_LEVEL_PAST_DAYS } from './teacher-student-level';   // 🎚 일지에서 학생 레벨 정하기(2026-10-27)
+import { normalizeTeacherLevelChoice, setStudentLevelByTeacher, levelScaleForPortal, teacherLevelScope, attachLevelScope, TEACHER_LEVEL_PAST_DAYS } from './teacher-student-level';   // 🎚 일지에서 학생 레벨 정하기(2026-10-27)
 import { loadContactPhones } from './notify-contacts';   // ☎ 화면용 연락처 정본(2026-10-27) — 받아 둔 번호 → 명부 → 이탈위험 스냅샷
 
 interface TeacherEnv {
@@ -1390,6 +1390,12 @@ export async function handleTeacherApi(
         || /중국어/.test(tname))
         ? 'ko' : 'en');
 
+  /* 🎚 (2026-10-28 사장님 「1번 확인창 전에 범위 밖이면 막아줘」) 일지 창이 확인창 «전에» 막을 수 있게,
+   *  POST ?part=level 과 «같은» 판정을 오늘 목록·요청한 주(?week=)의 항목마다 level_scope 로 실어 보낸다.
+   *  넘기는 네 값은 위 POST 블록과 반드시 같아야 한다(오늘 목록 · 예약표 행 · 오늘 날짜 · studentUidOf).
+   *  ⚠️ 목록을 «다 만든 뒤» 여기서 붙인다 — 화면은 읽기만 하고, 최종 판정은 그대로 POST 다. */
+  attachLevelScope([...classes, ...weekDays.flatMap((d: any) => d.items)], { todayClasses: classes, schedules: cafe24DedupeSchedules, todayStr, uidOf: studentUidOf });
+
   return json({
     ok: true,
     now, today: todayStr,
@@ -1397,6 +1403,8 @@ export async function handleTeacherApi(
     goal_options: GOALS.map((g) => ({ key: g.key, ko: g.ko, en: g.en })),
     // 🎚 일지 창의 «학생 레벨» 고르기 목록 — 화면이 숫자를 따로 들고 있지 않게 서버 정본을 내려준다.
     level_scale: levelScaleForPortal(),
+    // 🔐 그 범위의 «최근 N일» — 화면이 막을 때 이 숫자만 말한다(화면에 숫자를 따로 적지 않는다).
+    level_past_days: TEACHER_LEVEL_PAST_DAYS,
     me: {
       username: actor.username, name: actor.name, role: actor.role,
       is_teacher: !isManager, is_manager: isManager, lang,

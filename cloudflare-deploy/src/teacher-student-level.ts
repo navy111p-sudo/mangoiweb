@@ -125,6 +125,31 @@ export function teacherLevelScope(input: {
   return known ? 'out_of_window' : 'not_your_student';
 }
 
+/* 🎚 (2026-10-28 사장님 「1번 확인창 전에 범위 밖이면 막아줘」) 일지 창이 «확인창을 띄우기 전에» 막을 수 있게,
+      POST ?part=level 이 물을 것과 «같은» 판정을 학생마다 미리 실어 보낸다 — 수업 항목에 level_scope.
+   ⛔ 화면에 판정을 복제하지 않는다 — 화면은 이 값을 «읽기만» 하고, 최종 판정은 그대로 서버 POST 다.
+   ⚠️ 학생 수업 항목(kind 'class' · 아이디 있음)에만 붙인다. 같은 학생이 여러 번 나와도 판정은 한 번.
+   ⚠️ 부르는 쪽은 POST 와 «같은» 네 값(오늘 목록 · 예약표 행 · 오늘 날짜 · 아이디 읽는 법)을 넘겨야 한다. */
+export function attachLevelScope(items: ReadonlyArray<any>, input: {
+  todayClasses: ReadonlyArray<any>;
+  schedules: ReadonlyArray<any>;
+  todayStr: string;
+  uidOf: (row: any) => string | null;
+}): void {
+  const memo = new Map<string, TeacherLevelScope>();
+  for (const it of items || []) {
+    if (!it || it.kind !== 'class') continue;
+    const uid = String(it.student_uid || '');
+    if (!uid) continue;
+    let v = memo.get(uid);
+    if (!v) {
+      v = teacherLevelScope({ uid, todayClasses: input.todayClasses, schedules: input.schedules, todayStr: input.todayStr, uidOf: input.uidOf });
+      memo.set(uid, v);
+    }
+    it.level_scope = v;
+  }
+}
+
 export interface SetStudentLevelInput {
   uid: string;
   level: unknown;

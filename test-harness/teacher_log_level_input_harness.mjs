@@ -303,6 +303,90 @@ try {
   ok(rA > 0, '전제: 포털 본 응답을 찾았다');
   const ret = braceBlock(T, rA);
   ok(/\blevel_scale:\s*levelScaleForPortal\(\)/.test(ret), '본 응답에 level_scale: levelScaleForPortal() 이 실린다');
+  ok(/\blevel_past_days:\s*TEACHER_LEVEL_PAST_DAYS\b/.test(ret), '본 응답에 level_past_days: TEACHER_LEVEL_PAST_DAYS 가 실린다(화면이 «며칠» 을 따로 안 든다)');
+
+  // C-4 attachLevelScope — 확인창 «전에» 막도록 학생 줄마다 판정을 미리 싣는다(2026-10-28 「1번 확인창 전에 범위 밖이면 막아줘」)
+  //   정본을 실제로 돌리고, 「붙인다」 옆에 「안 붙인다(kind≠class·아이디 없음)」를 짝으로 둔다.
+  ok(typeof L.attachLevelScope === 'function', '전제: attachLevelScope 를 내보낸다');
+  {
+    let uidCalls = 0;
+    const countUid = (r) => { uidCalls++; return studentUidOf(r); };
+    const inp = { todayClasses: classes, schedules: sched, todayStr: '2026-10-27', uidOf: countUid };
+    const items = [
+      { kind: 'class', student_uid: 'kim01' }, { kind: 'class', student_uid: 'old1' }, { kind: 'class', student_uid: 'outsider' },
+      { kind: 'lms_slot', student_uid: 'kim01' }, { kind: 'class', student_uid: '' }, { kind: 'class' }, null,
+    ];
+    L.attachLevelScope(items, inp);
+    ok(items[0].level_scope === 'ok' && items[1].level_scope === 'out_of_window' && items[2].level_scope === 'not_your_student',
+       '학생 수업 줄마다 정본 판정을 싣는다(ok · out_of_window · not_your_student)');
+    ok(!('level_scope' in items[3]) && !('level_scope' in items[4]) && !('level_scope' in items[5]),
+       '  (짝) 수업이 아닌 줄·아이디 없는 줄에는 안 붙인다(화면이 예전처럼 둔다)');
+    for (const it of items.slice(0, 3)) {
+      ok(it.level_scope === L.teacherLevelScope({ uid: it.student_uid, ...inp, uidOf: studentUidOf }), `  ${it.student_uid}: 싣는 값 == teacherLevelScope 를 직접 부른 값`);
+    }
+    uidCalls = 0; L.attachLevelScope([{ kind: 'class', student_uid: 'old1' }], inp); const once = uidCalls;
+    uidCalls = 0; L.attachLevelScope([{ kind: 'class', student_uid: 'old1' }, { kind: 'class', student_uid: 'old1' }, { kind: 'class', student_uid: 'old1' }], inp);
+    ok(once > 0 && uidCalls === once, `  같은 학생이 세 줄이어도 판정은 한 번(아이디 읽기 ${once}회 == ${uidCalls}회)`);
+    let threw = false; try { L.attachLevelScope(null, inp); L.attachLevelScope(undefined, inp); } catch (e) { threw = true; }
+    ok(!threw, '  목록이 비어 있어도(null·undefined) 던지지 않는다 — 포털 응답이 통째로 죽지 않게');
+  }
+
+  // C-5 배선 — 포털에서 그 한 줄을 오려 내 실제로 돌리고, 같은 학생에 대해 POST 블록이 내는 답과 «짝» 이 맞는지 본다.
+  //   (화면은 이 값으로 확인창을 띄울지 정하고, 최종 판정은 POST 다 — 둘이 어긋나면 «막았는데 저장되는» 또는 «열었는데 거절» 이 된다.)
+  const atA = T.indexOf('  attachLevelScope(');
+  ok(atA > 0, '전제: 포털에서 attachLevelScope( 한 줄을 찾았다');
+  const atEnd = T.indexOf(');\n', atA);
+  const atStmt = T.slice(atA, atEnd + 2);
+  ok(atA > T.lastIndexOf('classes.push(', rA) && atA > T.lastIndexOf('day.items.push(', rA) && atA < rA && T.slice(atEnd + 2, rA).trim() === '',
+     '  그 줄은 오늘 목록·주간 항목을 «다 만든 뒤», 본 응답 «바로 앞» 에 있다(위치)');
+  ok(T.indexOf('attachLevelScope(', atEnd) < 0 || T.indexOf('attachLevelScope(', atEnd) > rA, '  포털 안에서 한 번만 붙인다');
+  {
+    // «조건 없이» 도는가 — 위 검사들은 그 한 줄만 오려 돌리므로, 앞에 `if (조건)` 이나 `조건 &&` 가 붙어도(=실제로는 안 돎) 통과한다.
+    // 그 줄 바로 앞(빈 줄·주석을 건너뛴 자리)이 «앞 문장의 끝»(; 또는 }) 이어야 한다.
+    let pre = T.slice(0, atA);
+    for (let guard = 0; guard < 50; guard++) {
+      const t = pre.replace(/\s+$/, '');
+      if (t.endsWith('*/')) { const b = t.lastIndexOf('/*'); if (b < 0) break; pre = t.slice(0, b); continue; }
+      const nl = t.lastIndexOf('\n');
+      const lastLine = t.slice(nl + 1).trim();
+      if (lastLine.startsWith('//')) { pre = t.slice(0, nl + 1); continue; }
+      pre = t; break;
+    }
+    const lastCh = pre.slice(-1);
+    ok(lastCh === ';' || lastCh === '}', `  그 줄은 조건 없이 돈다 — 바로 앞(주석 건너뜀)이 앞 문장의 끝(; 또는 })이다 (지금: ${JSON.stringify(pre.slice(-24))})`);
+  }
+  const attachRun = new Function('ctx', 'const { classes, weekDays, cafe24DedupeSchedules, todayStr, studentUidOf, attachLevelScope } = ctx;\n' + tsToJs(atStmt));
+  const verdictOf = async (uid, extra) => {
+    const r = await call({ student_uid: uid, level: 'Lv 7' }, { setStudentLevelByTeacher: async () => ({ ok: true, level: 'Lv 7', previous: null, unchanged: true }), ...extra });
+    return r.status === 200 ? 'ok' : r.body.error === 'level_window_closed' ? 'out_of_window' : r.body.error === 'not_your_student' ? 'not_your_student' : 'other:' + r.status;
+  };
+  // 예약표에 «뒤 공백이 붙은 아이디»(카페24 행에 실재 — api-teacher.ts 의 phones.get(uid.trim()) 주석)와 옛 LMS 자리표시를 함께 둔다.
+  //   그래야 포털이 넘기는 uidOf 가 POST 와 다르면(trim 안 함 · lms 를 안 거름) 그 차이가 «답» 으로 드러난다.
+  const sched5 = [...sched, { user_id: 'trail1 ', scheduled_date: '2026-10-20' }];
+  for (const today of ['2026-10-27', '2026-11-10']) {
+    const cl = classes.map((x) => ({ ...x }));
+    const wd = [
+      { items: [{ kind: 'class', student_uid: 'week1' }, { kind: 'class', student_uid: 'old1' }, { kind: 'class', student_uid: 'kim01' }] },
+      { items: [{ kind: 'class', student_uid: 'stranger' }, { kind: 'class', student_uid: 'outsider' }, { kind: 'class', student_uid: 'cancel1' }, { kind: 'lms_slot', student_uid: 'week1' }] },
+      { items: [{ kind: 'class', student_uid: 'trail1' }, { kind: 'class', student_uid: 'lms' }] },
+    ];
+    attachRun({ classes: cl, weekDays: wd, cafe24DedupeSchedules: sched5, todayStr: today, studentUidOf, attachLevelScope: L.attachLevelScope });
+    const flagged = [...cl, ...wd.flatMap((d) => d.items)].filter((it) => it.kind === 'class' && it.student_uid);
+    ok(flagged.every((it) => typeof it.level_scope === 'string'), `${today}: 오늘 목록과 주간 항목의 학생 수업 줄 ${flagged.length}개에 모두 실린다`);
+    ok(!('level_scope' in cl[1]) && !('level_scope' in wd[1].items[3]), `  (짝) ${today}: 수업이 아닌 줄에는 안 실린다`);
+    for (const it of flagged) {
+      const v = await verdictOf(it.student_uid, { todayStr: today, cafe24DedupeSchedules: sched5 });
+      ok(it.level_scope === v, `  ${today} ${it.student_uid}: 미리 실은 값(${it.level_scope}) == POST 가 실제로 내는 답(${v})`);
+    }
+    if (today === '2026-10-27') {
+      ok(wd[0].items[0].level_scope === 'ok' && wd[0].items[2].level_scope === 'ok' && wd[0].items[1].level_scope === 'out_of_window' && wd[1].items[0].level_scope === 'not_your_student',
+         '  10-27: week1·kim01 ok · old1 out_of_window · stranger not_your_student(예약표·오늘 목록을 둘 다 넘긴다)');
+      ok(wd[2].items[0].level_scope === 'ok' && wd[2].items[1].level_scope === 'not_your_student',
+         '  10-27: 뒤 공백 아이디(trail1 ) 는 ok · lms 자리표시는 not_your_student — POST 와 같은 studentUidOf(trim·lms 거름)를 넘긴다');
+    } else {
+      ok(wd[0].items[0].level_scope === 'out_of_window' && wd[0].items[2].level_scope === 'ok', '  11-10: week1(10-20 수업) 은 창 밖 · kim01(오늘 목록) 은 그대로 ok — 포털의 todayStr 을 넘긴다');
+    }
+  }
 } catch (e) {
   ok(false, 'C 절 실행 중 예외: ' + (e && e.stack || e));
 }
@@ -554,6 +638,43 @@ try {
   levelResp = { ok: false, error: 'level_window_closed', past_days: 14 }; sel.pick('Lv 2'); await tick();
   ok(/최근 14일 안에 수업했거나 지금 매주 수업 중인 학생만/.test(msg().textContent), '한국어 화면: 범위 밖 안내 «최근 14일 … 매주 수업 중인 학생만»');
   lang = 'en';
+
+  // D-6 범위 밖이면 «확인창 전에» 막는다(2026-10-28 「1번 확인창 전에 범위 밖이면 막아줘」)
+  //   서버가 미리 실은 c.level_scope 만 읽는다 — 「막는다(고르기 칸 없음·확인창 0·요청 0)」 옆에
+  //   「ok·없음·모르는 값이면 예전처럼 고른다」를 짝으로 둔다(짝이 없으면 «언제나 막기» 가 통과한다).
+  c = fresh({ level_scope: 'out_of_window' }); ctx.DATA.level_past_days = 14; ctx.openEval(c);
+  ok(!mask.querySelector('#ev-lv') && /Student level<\/b>: Lv 5/.test(mask.innerHTML), 'out_of_window: 고르기 칸 대신 지금 값(Lv 5)만 보인다');
+  const lockOf = () => { const m = mask.innerHTML.match(/<div class="mini lv-lock" role="note">([^<]*)<\/div>/); return m ? decode(m[1]) : null; };
+  ok(lockOf() && /^🔒 You can change the level only for students you taught in the last 14 days, or who have a weekly class with you — please ask the office\.$/.test(lockOf()),
+     '  🔒 이유 한 줄: «… taught in the last 14 days, or who have a weekly class …» (서버가 준 일수)');
+  ok(confirms.length === 0 && !calls.some((x) => x.url === '/api/teacher/portal?part=level'), '  확인창 0 · 저장 요청 0 — 고를 칸이 없으니 묻지도 않는다');
+  ok(!/id="ev-lv-msg"/.test(mask.innerHTML), '  저장 결과 줄(ev-lv-msg)도 안 그린다(저장할 일이 없다)');
+  ok(/id="ev-att"/.test(mask.innerHTML) && /id="ev-ok"|ev-ok/.test(mask.innerHTML), '  (짝) 출결·일지 칸은 그대로 — 막는 것은 «레벨 바꾸기» 하나뿐');
+  mask.querySelector('#ev-ko').value = '잘 했어요.'; mask.querySelector('#ev-en').value = 'Well done.';
+  await sendLog();
+  ok(calls.some((x) => x.url === '/api/eval/manual-create') && !calls.some((x) => x.url === '/api/teacher/portal?part=level'), '  막힌 학생도 일지는 그대로 보낸다(레벨 요청은 0)');
+  c = fresh({ level_scope: 'out_of_window' }); delete ctx.DATA.level_past_days; ctx.openEval(c);
+  ok(lockOf() && /taught recently, or who have a weekly class/.test(lockOf()) && !/\d+ days/.test(lockOf()), '  일수를 못 받았으면 숫자 없이 «recently» — 숫자를 지어내지 않는다');
+  c = fresh({ level_scope: 'not_your_student' }); ctx.DATA.level_past_days = 14; ctx.openEval(c);
+  ok(!mask.querySelector('#ev-lv') && lockOf() === '🔒 This student is not in your class list — please ask the office.', 'not_your_student: 고르기 칸 없음 · «not in your class list»');
+  c = fresh({ level_scope: 'out_of_window', level: null }); ctx.DATA.level_past_days = 14; ctx.openEval(c);
+  ok(/Student level<\/b>: Not set/.test(mask.innerHTML) && lockOf(), '  레벨이 없는 학생이 막혀도 «Not set» 과 이유를 함께 보여 준다');
+  c = fresh({ level_scope: 'out_of_window', level: '<img src=x>' }); ctx.DATA.level_past_days = 14; ctx.openEval(c);
+  ok(!/<img src=x>/.test(mask.innerHTML) && /&lt;img src=x&gt;/.test(mask.innerHTML), '  막힌 화면의 지금 값도 이스케이프한다');
+  lang = 'ko';
+  c = fresh({ level_scope: 'out_of_window' }); ctx.DATA.level_past_days = 14; ctx.openEval(c);
+  ok(lockOf() === '🔒 최근 14일 안에 수업했거나 지금 매주 수업 중인 학생만 바꿀 수 있어요 — 본사에 알려 주세요.', '한국어: «🔒 최근 14일 안에 수업했거나 지금 매주 수업 중인 학생만 …»');
+  c = fresh({ level_scope: 'not_your_student' }); ctx.openEval(c);
+  ok(lockOf() === '🔒 내 수업 학생이 아니라 바꿀 수 없어요 — 본사에 알려 주세요.', '한국어: «🔒 내 수업 학생이 아니라 바꿀 수 없어요 …»');
+  lang = 'en';
+  for (const v of ['ok', undefined, null, '', 'weird', 'level_window_closed']) {
+    c = fresh(v === undefined ? {} : { level_scope: v }); ctx.DATA.level_past_days = 14; ctx.openEval(c); sel = mask.querySelector('#ev-lv');
+    ok(!!sel && lockOf() === null, `(짝) level_scope=${JSON.stringify(v)} → 예전처럼 고르기 칸 · 🔒 줄 없음(모르는 값은 막지 않고 서버 POST 가 판정)`);
+  }
+  c = fresh({ level_scope: 'ok' }); ctx.openEval(c); sel = mask.querySelector('#ev-lv');
+  levelResp = { ok: false, error: 'level_window_closed', past_days: 14 }; sel.pick('Lv 9'); await tick();
+  ok(confirms.length === 1 && calls.some((x) => x.url === '/api/teacher/portal?part=level') && /in the last 14 days/.test(msg().textContent),
+     '  (짝) 미리 실은 값이 ok 여도 최종 판정은 POST — 거절되면 예전처럼 빨간 안내');
 } catch (e) {
   ok(false, 'D 절 실행 중 예외: ' + (e && e.stack || e));
 }
@@ -571,6 +692,12 @@ try {
   const lightBg = (HTML.match(/\n\.modal\{background:(#[0-9a-f]{6}|#[0-9a-f]{3})[;}]/i) || [])[1];
   ok(light && lightBg && cr(light, lightBg) >= 4.5, `라이트: ${light} on ${lightBg} = ${light && lightBg ? cr(light, lightBg).toFixed(2) : '?'} (≥4.5)`);
   ok(dark && darkBg && cr(dark, darkBg) >= 4.5, `다크: ${dark} on ${darkBg} = ${dark && darkBg ? cr(dark, darkBg).toFixed(2) : '?'} (≥4.5)`);
+  // 🔒 막힘 이유 줄(.mini lv-lock)은 회색 .mini 그대로 — 라이트·다크 모두 읽히는가(2026-10-28)
+  const miniL = (HTML.match(/\n\.mini\{[^}]*color:(#[0-9a-f]{6})/i) || [])[1];
+  const miniD = (HTML.match(/html\[data-t="dark"\] \.mini,[\s\S]{0,120}?\{color:(#[0-9a-f]{6})\}/i) || [])[1];
+  ok(!/\.lv-lock\s*\{/.test(HTML), '전제: .lv-lock 에 따로 색을 주지 않는다(.mini 색을 그대로 쓴다 — 아래 대비가 그 색이다)');
+  ok(miniL && lightBg && cr(miniL, lightBg) >= 4.5, `🔒 줄 라이트: ${miniL} on ${lightBg} = ${miniL && lightBg ? cr(miniL, lightBg).toFixed(2) : '?'} (≥4.5)`);
+  ok(miniD && darkBg && cr(miniD, darkBg) >= 4.5, `🔒 줄 다크: ${miniD} on ${darkBg} = ${miniD && darkBg ? cr(miniD, darkBg).toFixed(2) : '?'} (≥4.5)`);
 } catch (e) {
   ok(false, 'E 절 실행 중 예외: ' + (e && e.stack || e));
 }
