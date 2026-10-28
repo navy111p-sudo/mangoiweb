@@ -137,12 +137,19 @@ export function questionSession(rows: unknown, nowMs: number, gapMs = QM_SESSION
  *     학생에게는 반복이다(샌드박스 정답 표도 그렇게 본다). «I don't understand»·「모르겠어요」(영어 질문을 못 알아들음)는 요청이다.
  *  ⚠️ api-ai.ts 의 aiFriendIsMetaAsk(지시 metaHint 를 켜는 판정 — 하니스가 vm 으로 떼어 돌려 import 를 못 쓴다)는 이것보다 «넓다».
  *     이것이 «요청» 이라 하면 그쪽도 반드시 요청이어야 한다(그래야 지시도 «다시 물어라» 를 준다) —
- *     ai_friend_no_repeat_question_harness ①-18 이 두 곳을 대조한다. 한쪽만 고치지 말 것. */
-export const QM_REASK_KO = /(천천히|느리게|빠르|다시\s*(말|얘기|해)|못\s*알아|모르겠|쉽게|짧게)/;
-export const QM_REASK_EN = /\b(slow(ly| down)?|too fast|say (it|that) again|again please|repeat|i don'?t understand|simpler|easier|shorter)\b/i;
+ *     ai_friend_no_repeat_question_harness ①-18 이 두 곳을 대조한다. 한쪽만 고치지 말 것.
+ *  (2026-10-28 사장님 「what?·huh? 같은 되묻기도 요청으로 처리해줘」) 되묻는 말은 두 갈래로 본다.
+ *   · 문장 속 어디에 있어도 되묻기인 말(QM_REASK_KO·EN) — 「안 들려요」·「pardon」·「What did you say?」·「I can't hear you」
+ *   · «그 말만» 했을 때만 되묻기인 말(QM_REASK_ECHO) — 「What?」·「Huh?」·「Sorry?」·「뭐라고?」·「네?」.
+ *     ⛔ 문장 속 what 으로 넓히지 말 것 — 「What about you?」·「What is that?」 는 되묻기가 아니라 대화다.
+ *     ⛔ 「네」·「응」·「예」는 물음표가 있을 때만 — 물음표가 없으면 «네(=yes)» 라는 답이다(음성인식은 물음표를 자주 뺀다).
+ *     ⛔ 「영어로 뭐라고 해요?」 는 낱말을 묻는 질문이라 되묻기가 아니다(그래서 «뭐라고» 도 그 말만 했을 때만). */
+export const QM_REASK_KO = /(천천히|느리게|빠르|다시\s*(말|얘기|해)|못\s*알아|모르겠|쉽게|짧게|안\s*들(려|렸)|못\s*들었)/;
+export const QM_REASK_EN = /\b(slow(ly| down)?|too fast|say (it |that )?again|again please|repeat|i don'?t understand|simpler|easier|shorter|pardon|one more time|what (did|do) you (say|mean)|(didn'?t|can'?t|couldn'?t|did not|cannot|could not) (hear|catch) (you|that|it)\b)\b/i;
+export const QM_REASK_ECHO = /^[\s.,!?~…]*(?:(?:oh|um+|uh+|wait|sorry|excuse me)[\s.,!?~…]+)?(?:what|huh|eh|sorry|excuse me|come again|say what|what was that|뭐|머|뭐라고|뭐라구|뭐라고요|뭐라구요|뭐요|뭐라고\s*(?:하셨어요|했어요?)|(?:네|응|예|에|엥)\s*[?？])[\s.,!?？~…]*$/i;
 export function isReaskRequest(s: unknown): boolean {
   const t = typeof s === 'string' ? s : '';
-  return !!t && (QM_REASK_KO.test(t) || QM_REASK_EN.test(t));
+  return !!t && (QM_REASK_KO.test(t) || QM_REASK_EN.test(t) || QM_REASK_ECHO.test(t));
 }
 /** AI 가 «다시 말해 줄래?» 라고 되묻는 질문인가 — 내용이 없는 되묻기라 두 번 해도 반복이 아니다(맞장구와 같은 취급).
  *  ⚠️ «두 번 연속 되묻기 금지» 는 부르는 쪽 규칙(aiFriendJustAskedAgain·웜업 지시)이 맡는다 — 여기서 막지 않는다. */
