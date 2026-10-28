@@ -1065,18 +1065,6 @@ export async function handleTeacherApi(
      ⚠️ 던지지 않는다(fail-open). 배너(?only=next)는 건너뛴다. 정본 src/teacher-student-elsewhere.ts */
   if (!onlyNext) await applyStudentElsewhere(env.DB, classes, now);
 
-  /* ⏸ (2026-09-25 사장님 결정) 연속 결석으로 «보류» 된 학생의 수업 — 강사는 방에서 기다리지 않고
-     필리핀 매니저에게 계속 다니는지 확인한다(보류 기간 강사비 0%). 정본 src/absence-hold.ts.
-     ⚠️ 표가 없거나 못 읽으면 아무것도 안 붙는다(예전 화면 그대로). */
-  try {
-    const _holds = await loadHoldRanges(env as any);
-    if (_holds.size) for (const c of classes) {
-      if (c.kind !== 'class') continue;
-      const h = heldOnFor(_holds, c.student_uid, todayStr);
-      if (h) c.absence_hold = { id: h.id, held_after: h.held_after, state: h.state };
-    }
-  } catch { /* 보류 표시 실패가 오늘 수업 표시를 막지 않는다 */ }
-
   /* 📋 (2026-09-23) 관리자·매니저 「오늘 수업」과 같은 일곱 칸 — 정본 class-today-extras.ts.
      ⚠️ 방 번호를 갈아 끼운 «뒤» 여야 한다(출석을 room_id 로 찾는다).
      강사 입장은 원부 이름으로 대조한다(계정 표시이름은 «교사 …» 가 붙어 있을 수 있다) —
@@ -1095,6 +1083,22 @@ export async function handleTeacherApi(
      순서와 «오늘 날짜 + 시각» 이 어긋나 표가 뒤죽박죽으로 보였다. 일지(lesson_date)·수업 요약 날짜도 이 값을 쓴다.
      ⛔ 공용 enrichClassesToday 는 안 고친다 — 관리자 「오늘 수업」이 같은 함수를 쓴다. */
   for (const c of classes) if (c.source === 'lms' && c.start_ts) c.class_date = new Date(c.start_ts + KST).toISOString().slice(0, 10);
+
+  /* ⏸ (2026-09-25 사장님 결정) 연속 결석으로 «보류» 된 학생의 수업 — 강사는 방에서 기다리지 않고
+     필리핀 매니저에게 계속 다니는지 확인한다(보류 기간 강사비 0%). 정본 src/absence-hold.ts.
+     📅 (2026-10-28 사장님 결정) «오늘» 이 아니라 **그 줄의 수업 날짜(class_date)** 로 판정한다 — 급여·장부와 같은 기준.
+     ⚠️ 바로 위 «지난 수업 날짜» 복원 «뒤» 여야 한다 — 그 전엔 지난 줄도 오늘 날짜다.
+     ⚠️ 지난 카페24 줄(source='lms')은 출석(status='present')으로만 만든 줄 = 학생이 실제로 들어온 회차 →
+        보류가 아니다(정본 attendedStudentRooms 와 같은 원칙). 화면 표시만이다 — 급여·D1 은 안 건드린다.
+     ⚠️ 표가 없거나 못 읽으면 아무것도 안 붙는다(예전 화면 그대로). */
+  try {
+    const _holds = await loadHoldRanges(env as any);
+    if (_holds.size) for (const c of classes) {
+      if (c.kind !== 'class' || c.source === 'lms') continue;
+      const h = heldOnFor(_holds, c.student_uid, String(c.class_date || todayStr).slice(0, 10));
+      if (h) c.absence_hold = { id: h.id, held_after: h.held_after, state: h.state };
+    }
+  } catch { /* 보류 표시 실패가 오늘 수업 표시를 막지 않는다 */ }
 
   if (!onlyNext) {
     for (const day of weekDays) {
