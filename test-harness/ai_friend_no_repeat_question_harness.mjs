@@ -53,6 +53,13 @@ const live = (needle, label) => {
 live('questionMemory(questionSession(historyAll, latT0), msg, { reask: reaskTurn })', '기억은 «지금 이어지는 대화» 로 만든다(요청 턴이면 방금 질문은 뺀다)');
 live('const reaskTurn = isReaskRequest(msg) || (aiFriendLooksCut(msg) && !aiFriendJustAskedAgain(history))', '«요청 턴» 판정은 정본 + cutHint 와 같은 조건이다');
 live('${askedLine}', '지시에 «이미 물은 질문» 줄을 싣는다');
+{
+  // 웜업(index.ts)·엘리더잼(eleader-l1.ts)도 «이번 학생 말» 을 넘겨 같은 정본 판정(isReaskRequest)을 탄다 — 그 두 하니스에는 되묻기 표본이 없다.
+  const idx = fs.readFileSync(path.join(SRC_DIR, 'index.ts'), 'utf8'), el = fs.readFileSync(path.join(SRC_DIR, 'eleader-l1.ts'), 'utf8');
+  const a0 = idx.indexOf("const hkey = 'warmup:' + sessionId;"), a1 = idx.indexOf('questionMemory(history, studentInput)', a0);
+  const b1 = el.indexOf('export const eleaderL1Memory = questionMemory;'), b2 = el.indexOf('eleaderL1Memory(JSON.parse(raw), said)');
+  ok('⓪ 웜업·엘리더잼도 이번 학생 말을 넘겨 같은 정본을 부른다 — 주석 밖에 살아 있다', a0 > 0 && deadAt(idx, a1, a0) === '' && deadAt(el, b1) === '' && deadAt(el, b2, b1) === '', { a0, a1, b1, b2 });
+}
 live('hintFor: repeatQuestionHintEn', '다시 뽑을 때 영어 힌트를 쓴다');
 live('repN(rn) <= repN(reply)', '이름 다시 뽑기가 같은 질문을 새로 들여오지 않는다');
 live('repN(st2) <= repN(reply)', '짧게 다시 뽑기가 같은 질문을 새로 들여오지 않는다');
@@ -356,7 +363,9 @@ console.log('① 장면 — 실제 핸들러');
 }
 
 // ── 🐢 «다시·천천히·모르겠어요» — 그때 방금 질문을 다시 묻는 것은 반복이 아니라 요청을 들어주는 것(2026-10-28 함정 대조 실측) ──
-for (const [say, reply] of [['Can you say that again slowly?', 'Sure! Is your dog big?'], ['천천히 말해줘', 'Okay! Is your dog big?'], ["I don't understand.", 'Sorry! Is your dog big?']]) {
+// (2026-10-28 사장님 「what?·huh? 같은 되묻기도 요청으로 처리해줘」) «그 말만» 한 되묻기(What?·Huh?·뭐라고?)도 같은 요청이다.
+for (const [say, reply] of [['Can you say that again slowly?', 'Sure! Is your dog big?'], ['천천히 말해줘', 'Okay! Is your dog big?'], ["I don't understand.", 'Sorry! Is your dog big?'],
+  ['What?', 'Sure! Is your dog big?'], ['huh', 'Okay! Is your dog big?'], ['뭐라고?', 'Sorry! Is your dog big?']]) {
   const g = await guest();
   seedRows(g.uid, DOG());
   script = seq([reply, 'Okay! What color is your dog?']);
@@ -364,6 +373,16 @@ for (const [say, reply] of [['Can you say that again slowly?', 'Sure! Is your do
   const sys = String(res.calls[0]?.o?.messages?.[0]?.content || '');
   ok(`①-15 «${say}» 에 방금 질문을 다시 물으면 그대로 둔다(새 질문으로 안 바꾼다)`, res.calls.length === 1 && res.reply === reply, { n: res.calls.length, reply: res.reply, kinds: kinds(res) });
   ok(`①-15 «${say}» 턴의 지시 줄에는 방금 질문이 없고 그 앞 질문은 있다`, sys.includes(M.ASKED_LINE_HEAD) && !sys.includes('"Nice! Is your dog big?"') && !sys.includes('"Is your dog big?"') && sys.includes('Do you have a dog?'), sys.slice(-500));
+  const msgs = res.calls[0]?.o?.messages || [];
+  ok(`①-15 «${say}» 턴에는 «다시·천천히 해 달라» 지시(metaHint)도 실린다(판정과 지시가 안 갈린다)`, String(msgs[msgs.length - 1]?.content || '').includes('[The student is asking you to slow down'), String(msgs[msgs.length - 1]?.content || '').slice(-200));
+}
+for (const say of ['What about you?', '네', 'What is that?', "No, he can't catch it.", '그 노래 못 들었어요', "Let's play one more time!"]) {
+  // 짝: 문장 속 what·물음표 없는 «네(=yes)» 는 되묻기가 아니라 답이다 — 방금 질문을 또 물으면 막는다.
+  const g = await guest();
+  seedRows(g.uid, DOG());
+  script = seq(['Me too! Is your dog big?', 'Okay! What color is your dog?']);
+  const res = await chat(g, say);
+  ok(`①-15f «${say}» 는 답이다 — 방금 질문을 또 물으면 막는다(짝)`, res.calls.length === 2 && res.reply === 'Okay! What color is your dog?', { n: res.calls.length, reply: res.reply });
 }
 {
   // 짝 — 요청 턴이어도 «그 앞에» 물어 답을 들은 질문을 다시 물으면 막는다(전부 풀어 주기 금지).
@@ -431,11 +450,36 @@ for (const [ans, blocked] of [['Can you say that again slowly?', false], ['No, h
   const body = at > 0 ? src.slice(at, src.indexOf('\n    /*', at)) : '';
   const lits = [...body.matchAll(/\/(.+?)\/([a-z]*)\.test\(/g)].map((m) => new RegExp(m[1], m[2]));
   const meta = (t) => lits.some((re) => re.test(t));
+  const ECHOES = ['What?', 'what', 'Huh?', 'huh', 'Eh?', 'Sorry?', 'Excuse me?', 'Pardon?', 'Pardon me?', 'Come again?', 'Say what?', 'Wait, what?', 'Um, what?', 'What was that?', 'WHAT?!',
+    'What did you say?', 'What do you mean?', "I didn't hear you.", "I can't hear you", "Sorry, I didn't catch that.", 'Can you say again?', 'One more time, please.',
+    '뭐라고?', '뭐라고요?', '뭐?', '뭐요?', '네?', '응?', '예?', '뭐라고 하셨어요?', '잘 안 들려요', '못 들었어요',
+    // 함정 대조(2026-10-28)가 놓친다고 짚은 되묻기
+    'Again?', 'Again, please.', 'Once more?', 'Tell me again.', 'What? What?', 'Huh? What?', 'Huh, what?', 'What did you said?', 'What you say?', 'What did you ask?',
+    'What was the question?', 'What does that mean?', 'Slower please.', 'Speak slower.', 'Louder please.', 'Speak up please.', "I can't hear.", "I can't hear well.",
+    "Sorry, I didn't hear.", "I don't hear you.", 'I do not understand.', "Don't understand.", "I can't understand you.", 'What? 😅', 'Whaaat?',
+    '어?', '에?', '엥?', '다시요?', '다시 한번요', '한 번 더요', '네? 뭐라고요?', '응? 뭐?', '뭐라고 하셨죠?', '뭐라고 했니?', '무슨 말이에요?', '무슨 뜻이에요?',
+    '이해가 안 돼요', '이해 못 했어요', '소리가 작아요', '안 들려요', '소리가 안 들려요'];
+  const ANSWERS = ['What about you?', 'What is that?', 'What is your name?', "I don't know what to say.", 'What a big dog!', 'Sorry, I mean small.', 'I like what you said.', 'What I like is pizza.',
+    '네', '응', '예', '영어로 뭐라고 해요?', '개 이름을 뭐라고 해요?', "I didn't hear about it.", "I'm sorry.", 'Guess what?', 'I like it, huh.',   // 끝에만 그 말이 오는 답(앞 ^ 를 풀면 걸린다)
+    // 함정 대조(2026-10-28)가 실제 정본으로 재현한 «진짜 답» — 듣기·잡기·한 번 더를 문장 어디서나 받으면 걸린다(그 질문이 기억에서 빠진다)
+    "No, I can't catch it.", "My dog can't catch it.", "I didn't catch it.", "No, I didn't catch that fish.", "He couldn't catch it.", "I can't catch you!",
+    "No, I didn't hear it.", "I couldn't hear it, it was quiet.", "No, I didn't hear that song.", "I can't hear it.", 'One more time!', "Let's play one more time!",
+    'I want to try one more time.', 'I watched it one more time.', 'Yes! One more time please!', 'What do you say to your mom?', 'I know what do you mean.', 'Pardon is a nice word.',
+    '아니요, 안 들려요', '새 소리가 안 들려요', '아니요 못 들었어요', '그 노래 못 들었어요', '잘 안 들렸어요 그래서 다시 물어봤어요',
+    'What color?', '네.', '에', '어', 'eh', '뭐든지 좋아요', 'Uh...', 'Um, pizza.', 'Wait.', 'Oh!', 'Hmm, blue.'];
   const SAMPLES = ['Can you say that again slowly?', 'slow down please', 'too fast!', 'say it again', 'again please', 'Repeat please.', "I don't understand.", 'I dont understand',
     'simpler please', 'easier', 'shorter please', '천천히 말해줘', '느리게', '너무 빠르다', '다시 말해줘', '다시 해줘', '못 알아들었어', '모르겠어요', '쉽게 말해줘', '짧게',
-    "I don't know.", 'Yes.', 'No, small.', 'I like it a lot.', 'Because it is fun.', 'Every day!', '작아요', 'My dog is white.'];
+    "I don't know.", 'Yes.', 'No, small.', 'I like it a lot.', 'Because it is fun.', 'Every day!', '작아요', 'My dog is white.', ...ECHOES, ...ANSWERS];
   const bad = SAMPLES.filter((t) => M.isReaskRequest(t) && !meta(t));
-  ok('①-18 정본이 «요청» 이라 하면 aiFriendIsMetaAsk 도 요청이다(지시와 판정이 안 갈린다)', lits.length === 2 && bad.length === 0, { n: lits.length, bad });
+  ok('①-18 정본이 «요청» 이라 하면 aiFriendIsMetaAsk 도 요청이다(지시와 판정이 안 갈린다)', lits.length === 3 && bad.length === 0, { n: lits.length, bad });
+  /* 표본 대조만으로는 표본에 없는 낱말로 두 곳이 갈라져도 초록이다(함정 대조 변이 실측: 정본에만 louder·again 을 더해도 통과).
+     그래서 정규식 «원문» 을 직접 견준다 — 한국어·«그 말만» 줄은 글자 그대로 같고, 영어 줄은 «I don't know» 하나만 더 받는다. */
+  const same = (a, b) => !!a && !!b && a.source === b.source && a.flags === b.flags;
+  const enMeta = lits[1] ? new RegExp(lits[1].source.replace("i don'?t (know|understand)", "i don'?t understand"), lits[1].flags) : null;
+  ok('①-18 두 곳의 정규식 원문이 같다(한국어·그 말만 = 그대로 · 영어 = «I don\'t know» 만 더)', same(lits[0], M.QM_REASK_KO) && same(enMeta, M.QM_REASK_EN) && same(lits[2], M.QM_REASK_ECHO)
+    && lits[1].source !== enMeta.source, { ko: same(lits[0], M.QM_REASK_KO), en: same(enMeta, M.QM_REASK_EN), echo: same(lits[2], M.QM_REASK_ECHO) });
+  const missed = ECHOES.filter((t) => !M.isReaskRequest(t)), wrong = ANSWERS.filter((t) => M.isReaskRequest(t) || (meta(t) && !/i don'?t know/i.test(t)));   // 지시 쪽은 «I don't know» 만 더 받는다
+  ok('①-18 «What?·Huh?·뭐라고?·네?» 같은 되묻기는 요청이고 · 문장 속 what·물음표 없는 «네»·«영어로 뭐라고 해요?» 는 답이다(짝)', missed.length === 0 && wrong.length === 0, { missed, wrong });
   ok('①-18 «I don\'t know»·평범한 답은 요청이 아니고 · «I don\'t understand»·「모르겠어요」·「천천히」는 요청이다(짝)',
     !M.isReaskRequest("I don't know.") && !M.isReaskRequest('No, small.') && !M.isReaskRequest('My dog is white.')
     && M.isReaskRequest("I don't understand.") && M.isReaskRequest('모르겠어요') && M.isReaskRequest('천천히 말해줘'), '');

@@ -137,12 +137,27 @@ export function questionSession(rows: unknown, nowMs: number, gapMs = QM_SESSION
  *     학생에게는 반복이다(샌드박스 정답 표도 그렇게 본다). «I don't understand»·「모르겠어요」(영어 질문을 못 알아들음)는 요청이다.
  *  ⚠️ api-ai.ts 의 aiFriendIsMetaAsk(지시 metaHint 를 켜는 판정 — 하니스가 vm 으로 떼어 돌려 import 를 못 쓴다)는 이것보다 «넓다».
  *     이것이 «요청» 이라 하면 그쪽도 반드시 요청이어야 한다(그래야 지시도 «다시 물어라» 를 준다) —
- *     ai_friend_no_repeat_question_harness ①-18 이 두 곳을 대조한다. 한쪽만 고치지 말 것. */
-export const QM_REASK_KO = /(천천히|느리게|빠르|다시\s*(말|얘기|해)|못\s*알아|모르겠|쉽게|짧게)/;
-export const QM_REASK_EN = /\b(slow(ly| down)?|too fast|say (it|that) again|again please|repeat|i don'?t understand|simpler|easier|shorter)\b/i;
+ *     ai_friend_no_repeat_question_harness ①-18 이 두 곳을 대조한다. 한쪽만 고치지 말 것.
+ *  (2026-10-28 사장님 「what?·huh? 같은 되묻기도 요청으로 처리해줘」) 되묻는 말은 두 갈래로 본다.
+ *   · 문장 속 어디에 있어도 되묻기인 말(QM_REASK_KO·EN) — 「tell me again」·「I can't hear you」·「speak up」·「don't understand」
+ *   · «그 말만» 했을 때만 되묻기인 말(QM_REASK_ECHO) — 「What?」·「Huh? What?」·「Sorry?」·「Pardon?」·「뭐라고?」·「네?」·
+ *     「안 들려요」·「못 들었어요」·「무슨 뜻이에요?」. 앞에 「oh·um·wait·sorry·네?·어?」 가 두 개까지 붙어도 된다.
+ *     ⛔ 문장 속 what 으로 넓히지 말 것 — 「What about you?」·「What is that?」 는 되묻기가 아니라 대화다.
+ *     ⛔ 「네」·「응」·「예」·「어」·「eh」 는 물음표가 있을 때만 — 물음표가 없으면 «네(=yes)» 라는 답이다(음성인식은 물음표를 자주 뺀다).
+ *     ⛔ 「영어로 뭐라고 해요?」 는 낱말을 묻는 질문이라 되묻기가 아니다(그래서 «뭐라고» 도 그 말만 했을 때만).
+ *     ⛔ 듣기·잡기·한 번 더를 문장 어디서나 받지 말 것 — 「No, he can't catch it.」(Can your dog catch a ball?)·
+ *        「No, I didn't hear that song.」·「그 노래 못 들었어요」·「아니요, 안 들려요」·「Let's play one more time!」 는 «답» 이다
+ *        (같은 날 함정 대조가 실제 정본을 돌려 재현 — 그 질문이 기억에서 빠져 나중에 같은 질문이 다시 나갔다).
+ *        그래서 「안 들려요」·「못 들었어요」·「one more time, please」·「I can't hear」 는 그 말만 했을 때만, 「hear you」 만 어디서나.
+ *     ⚠️ 「Sorry.」·「What!」·「Huh!」 는 사과·놀람일 수도 있지만 되묻기로 본다 — 그때 AI 가 방금 질문을 다시 물어도 해가 없다.
+ *     ⚠️ 앞에 붙는 말을 {0,2} 로 묶은 것은 «짧은 되묻기» 만 받으려는 것이다(「Oh, sorry, what?」 까지).
+ *        (속도 문제는 아니다 — * 로 풀어 「what? 」×30+「x」 를 넣어도 3ms 안이었다. 2026-10-28 node 22 실측) */
+export const QM_REASK_KO = /(천천히|느리게|빠르|다시\s*(말|얘기|해)|못\s*알아|모르겠|쉽게|짧게|한\s*번\s*(더|만)\s*(말|얘기))/;
+export const QM_REASK_EN = /\b(slow(ly| down)?|too fast|say (it |that )?again|tell me again|again please|repeat|i don'?t understand|simpler|easier|shorter|(don'?t|do not|can'?t|cannot|not) understand|(didn'?t|can'?t|couldn'?t|did not|cannot|could not|don'?t) hear you|speak (up|slower|louder|more slowly)|what (was|is) the question)\b/i;
+export const QM_REASK_ECHO = /^[^\p{L}\p{N}]*(?:(?:oh|um+|uh+|wait|아|음|(?:eh|네|응|예|에|엥|어)\s*[?？]|wha+t?|huh|sorry|excuse me|뭐|뭐라고요?)[^\p{L}\p{N}]+){0,2}(?:wha+t?|huh|sorry|excuse me|pardon(?: me)?|i beg your pardon|come again|say what|what was that|what (?:did|do) you (?:say|said|mean|ask)|what did you just say|what you (?:say|said)|what does (?:it|that) mean|again\s*[?？]|again,? please|(?:one more time|once more)(?:\s*[?？]|,? please)|(?:slower|louder)(?:,? please)?|i (?:can'?t|cannot|couldn'?t) hear(?: you)?(?: well)?|sorry,? i (?:didn'?t|did not|couldn'?t) (?:hear|catch)(?: (?:that|it|you|what you said))?|뭐|머|뭐라고|뭐라구|뭐라고요|뭐라구요|뭐요|뭐라고\s*(?:하셨어요|하셨죠|하셨나요|했어요?|했니|했지)|다시요?|(?:다시\s*)?한\s*번(?:\s*더)?\s*요|(?:잘\s*)?(?:안|못)\s*(?:들려요?|들렸어요?|들었어요?)|소리가?\s*(?:잘\s*)?(?:안\s*들려요?|작아요?)|무슨\s*(?:말|뜻|말씀)이(?:에요|야|예요|세요)?|이해(?:가|를)?\s*(?:안\s*(?:돼|되)|못\s*(?:했|해))[^\s\p{P}]*|(?:eh|네|응|예|에|엥|어)\s*[?？])[^\p{L}\p{N}]*$/iu;
 export function isReaskRequest(s: unknown): boolean {
   const t = typeof s === 'string' ? s : '';
-  return !!t && (QM_REASK_KO.test(t) || QM_REASK_EN.test(t));
+  return !!t && (QM_REASK_KO.test(t) || QM_REASK_EN.test(t) || QM_REASK_ECHO.test(t));
 }
 /** AI 가 «다시 말해 줄래?» 라고 되묻는 질문인가 — 내용이 없는 되묻기라 두 번 해도 반복이 아니다(맞장구와 같은 취급).
  *  ⚠️ «두 번 연속 되묻기 금지» 는 부르는 쪽 규칙(aiFriendJustAskedAgain·웜업 지시)이 맡는다 — 여기서 막지 않는다. */

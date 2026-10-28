@@ -615,10 +615,13 @@ Student text: """${text}"""`;
       return /(say (it|that|the whole sentence) again|one more time|didn'?t catch|only caught|다시 말)/i
         .test(String(last.content || ''));
     };
-    /* 🐢 "천천히 말해줘 / 다시 말해줘" 같은 부탁인가 — 무시하고 제 얘기만 하면 안 된다 */
+    /* 🐢 "천천히 말해줘 / 다시 말해줘 / What? / 뭐라고?" 같은 부탁인가 — 무시하고 제 얘기만 하면 안 된다
+       ⚠️ 세 줄은 정본 QM_REASK_KO·EN·ECHO(src/question-memory.ts)와 같은 말이고, 영어 줄만 «I don't know» 를 더 받는다.
+          하니스가 이 블록을 vm 으로 떼어 돌려 import 를 못 쓴다 — 한쪽만 고치지 말 것(ai_friend_no_repeat_question_harness ①-18 대조). */
     const aiFriendIsMetaAsk = (s: string) =>
-      /(천천히|느리게|빠르|다시\s*(말|얘기|해)|못\s*알아|모르겠|쉽게|짧게)/.test(String(s || '')) ||
-      /\b(slow(ly| down)?|too fast|say (it|that) again|again please|repeat|i don'?t (know|understand)|simpler|easier|shorter)\b/i.test(String(s || ''));
+      /(천천히|느리게|빠르|다시\s*(말|얘기|해)|못\s*알아|모르겠|쉽게|짧게|한\s*번\s*(더|만)\s*(말|얘기))/.test(String(s || '')) ||
+      /\b(slow(ly| down)?|too fast|say (it |that )?again|tell me again|again please|repeat|i don'?t (know|understand)|simpler|easier|shorter|(don'?t|do not|can'?t|cannot|not) understand|(didn'?t|can'?t|couldn'?t|did not|cannot|could not|don'?t) hear you|speak (up|slower|louder|more slowly)|what (was|is) the question)\b/i.test(String(s || '')) ||
+      /^[^\p{L}\p{N}]*(?:(?:oh|um+|uh+|wait|아|음|(?:eh|네|응|예|에|엥|어)\s*[?？]|wha+t?|huh|sorry|excuse me|뭐|뭐라고요?)[^\p{L}\p{N}]+){0,2}(?:wha+t?|huh|sorry|excuse me|pardon(?: me)?|i beg your pardon|come again|say what|what was that|what (?:did|do) you (?:say|said|mean|ask)|what did you just say|what you (?:say|said)|what does (?:it|that) mean|again\s*[?？]|again,? please|(?:one more time|once more)(?:\s*[?？]|,? please)|(?:slower|louder)(?:,? please)?|i (?:can'?t|cannot|couldn'?t) hear(?: you)?(?: well)?|sorry,? i (?:didn'?t|did not|couldn'?t) (?:hear|catch)(?: (?:that|it|you|what you said))?|뭐|머|뭐라고|뭐라구|뭐라고요|뭐라구요|뭐요|뭐라고\s*(?:하셨어요|하셨죠|하셨나요|했어요?|했니|했지)|다시요?|(?:다시\s*)?한\s*번(?:\s*더)?\s*요|(?:잘\s*)?(?:안|못)\s*(?:들려요?|들렸어요?|들었어요?)|소리가?\s*(?:잘\s*)?(?:안\s*들려요?|작아요?)|무슨\s*(?:말|뜻|말씀)이(?:에요|야|예요|세요)?|이해(?:가|를)?\s*(?:안\s*(?:돼|되)|못\s*(?:했|해))[^\s\p{P}]*|(?:eh|네|응|예|에|엥|어)\s*[?？])[^\p{L}\p{N}]*$/iu.test(String(s || ''));
     /* 🈚 (2026-07-27 사장님 신고) Llama 가 한국어 팁을 쓰다 중국어 단어를 섞는다
        ("💡猴子들은 바나나와 많은 과일들을 좋아해요"). 영어친구챗 답변에 한자가 정당하게
        나올 일은 없다 — 한자가 섞인 💡팁은 통째로 떼고(팁은 선택 요소·반쪽 문장을 남기지
