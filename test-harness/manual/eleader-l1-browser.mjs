@@ -19,13 +19,13 @@ const browser = await chromium.launch({ headless: true });
 async function open({ token, booksStatus = 200, lang, booksBody, warmLang } = {}) {
   const c = await browser.newContext({ serviceWorkers: 'block' });
   await c.addInitScript(([t, l, w]) => { if (t) localStorage.setItem('mango_token', t); if (l) localStorage.setItem('mangoi_lang', l); if (w) localStorage.setItem('mangoi_warmup_lang', w); }, [token, lang, warmLang]);
-  const log = { l1: [], warm: [], books: 0, failNext: 0, nextQ: null };
+  const log = { l1: [], warm: [], books: 0, failNext: 0, capNext: 0, nextQ: null, used: (booksBody && booksBody.used_today) || 0 };
   await c.route('**/*', async r => {
     const u = new URL(r.request().url());
     if (u.origin !== ORIGIN) return r.abort();
     if (!u.pathname.startsWith('/api/')) return r.continue();
-    if (u.pathname === '/api/ai/eleader/l1/books') { log.books++; return booksStatus === 200 ? r.fulfill({ json: booksBody || { ok: true, books: BOOKS, daily_cap: 120, used_today: 0 } }) : r.fulfill({ status: booksStatus, json: { error: 'l1_not_enrolled' } }); }
-    if (u.pathname === '/api/ai/eleader/l1/chat') { const b = JSON.parse(r.request().postData() || '{}'); log.l1.push({ b, auth: r.request().headers()['authorization'] }); if (log.failNext) { log.failNext--; return r.fulfill({ status: 503, json: { error: 'limit_unavailable' } }); } const nq = log.nextQ; log.nextQ = null; return r.fulfill({ json: { ai_response: 'Reply ' + log.l1.length, answer_chips: [] }, headers: nq == null ? {} : { 'X-Eleader-Q': String(nq) } }); }
+    if (u.pathname === '/api/ai/eleader/l1/books') { log.books++; return booksStatus === 200 ? r.fulfill({ json: booksBody || { ok: true, books: BOOKS, daily_cap: 200, used_today: 0 } }) : r.fulfill({ status: booksStatus, json: { error: 'l1_not_enrolled' } }); }
+    if (u.pathname === '/api/ai/eleader/l1/chat') { const b = JSON.parse(r.request().postData() || '{}'); log.l1.push({ b, auth: r.request().headers()['authorization'] }); if (log.failNext) { log.failNext--; return r.fulfill({ status: 503, json: { error: 'limit_unavailable' } }); } if (log.capNext) { log.capNext--; return r.fulfill({ status: 429, headers: { 'X-Eleader-Used': '200', 'X-Eleader-Cap': '200' }, json: { error: 'daily_cap_reached', cap: 200 } }); } const nq = log.nextQ; log.nextQ = null; const hd = { 'X-Eleader-Used': String(++log.used), 'X-Eleader-Cap': '200' }; if (nq != null) hd['X-Eleader-Q'] = String(nq); return r.fulfill({ headers: hd, json: { ai_response: 'Reply ' + log.l1.length, answer_chips: [] } }); }
     if (u.pathname === '/api/warmup/chat') { log.warm.push(JSON.parse(r.request().postData() || '{}')); return r.fulfill({ json: { ai_response: 'free reply', answer_chips: [] } }); }
     return r.fulfill({ status: 404, json: { error: 'test_only' } });
   });
@@ -45,6 +45,7 @@ try {
   ok('ed: panel title', /엘리더잼 Level 1 기본과정/.test(await p.locator('#eleaderL1').innerText()));
   ok('ed: 2 books in select', await p.locator('#eleaderL1Book option').count() === 2);
   ok('ed: books request carries token', log.books === 1);
+  ok('quota: panel says daily max and today count', /하루 최대 200번 대화할 수 있어요 · 오늘 0번 했어요/.test(await p.locator('#eleaderL1').innerText()), await p.locator('#eleaderL1').innerText());
   await p.selectOption('#eleaderL1Book', 'books-v1-b02');
   await p.click('#eleaderL1 .l1-go');
   await p.waitForFunction(() => document.getElementById('wuSetup').hidden || getComputedStyle(document.getElementById('wuSetup')).display === 'none', null, { timeout: 5000 }).catch(() => {});
@@ -56,11 +57,13 @@ try {
   ok('start: no free warmup chat call', log.warm.length === 0);
   ok('start: AI reply shown', /Reply 1/.test(await p.locator('#log').innerText()));
   ok('start: bar shows question 1/20', /질문 1 \/ 20/.test(await p.locator('#eleaderL1Bar').innerText()));
+  ok('quota: bar shows today 1 / 200 (from server header)', /오늘 1 \/ 200/.test(await p.locator('#eleaderL1Bar').innerText()), await p.locator('#eleaderL1Bar').innerText());
   ok('start: level set to 1', await p.evaluate(() => window._warmLevel) === 1);
   // ② 답할 때마다 «답하는 문항» 번호가 따라간다
   await send(p, 'I have a dog');
   ok('turn1: answering q0', log.l1.at(-1).b.eleader_q === 0 && !log.l1.at(-1).b.kickoff);
   ok('turn1: bar 2/20', /질문 2 \/ 20/.test(await p.locator('#eleaderL1Bar').innerText()));
+  ok('quota: bar follows server count 2 / 200', /오늘 2 \/ 200/.test(await p.locator('#eleaderL1Bar').innerText()));
   await send(p, 'Yes');
   ok('turn2: answering q1', log.l1.at(-1).b.eleader_q === 1);
   // ②-2 같은 말을 연달아 답해도(「Yes」) 다음 문항으로 간다 — 재시도로 오인하지 않는다
@@ -71,6 +74,7 @@ try {
   await send(p, 'I like cats');
   ok('fail: was answering q3', log.l1.at(-1).b.eleader_q === 3);
   ok('fail: bar stays 4/20', /질문 4 \/ 20/.test(await p.locator('#eleaderL1Bar').innerText()));
+  ok('fail 503: generic «no reply» line still shown (pair)', ((await p.locator('#log').innerText()).match(/답변을 받아오지 못했어요/g) || []).length === 1);
   await send(p, 'I like cats a lot');
   ok('after fail: answers the same q3 again', log.l1.at(-1).b.eleader_q === 3);
   ok('after fail: bar 5/20', /질문 5 \/ 20/.test(await p.locator('#eleaderL1Bar').innerText()));
@@ -82,6 +86,31 @@ try {
   ok('leave: free talk uses normal warmup chat', log.warm.length === 1 && log.l1.length === 6);
   ok('leave: bar removed', await p.locator('#eleaderL1Bar').count() === 0);
   ok('ed: no page errors', errors.length === 0, errors.join(' | '));
+  await c.close();
+
+  // ③-1b 📏 하루 상한(429) — «200번을 다 썼어요» 한 줄만. «답변을 받아오지 못했어요» 를 겹쳐 쓰지 않는다(2026-10-28 원장님 화면)
+  ({ c, p, log, errors } = await open({ token: 'tok-ed' }));
+  await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+  await p.click('#eleaderL1 .l1-go'); await p.waitForTimeout(800);
+  log.capNext = 1;
+  await send(p, 'Yes, I am happy.');
+  { const t = await p.locator('#log').innerText();
+    ok('cap 429: says 200 turns used up', /오늘 엘리더잼 대화 200번을 다 썼어요/.test(t), t.slice(-200));
+    ok('cap 429: no duplicate «no reply» line', !/답변을 받아오지 못했어요/.test(t), t.slice(-200)); }
+  ok('cap 429: bar shows 200 / 200', /오늘 200 \/ 200/.test(await p.locator('#eleaderL1Bar').innerText()));
+  ok('cap 429: bar count marked low', await p.locator('#eleaderL1Bar .l1-quota.l1-low').count() === 1);
+  ok('cap 429: question not advanced', /질문 2 \/ 20/.test(await p.locator('#eleaderL1Bar').innerText()) || /질문 1 \/ 20/.test(await p.locator('#eleaderL1Bar').innerText()));
+  ok('cap 429: no page errors', errors.length === 0, errors.join(' | '));
+  await c.close();
+
+  // ③-1c 남은 횟수가 10번 이하면 책 고르는 칸의 문구도 주황(l1-low) — 넉넉하면 아니다(짝)
+  ({ c, p } = await open({ token: 'tok-ed', booksBody: { ok: true, books: BOOKS, daily_cap: 200, used_today: 195 } }));
+  await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+  ok('quota low: panel shows 195 used and is marked low', /오늘 195번 했어요/.test(await p.locator('#eleaderL1').innerText()) && await p.locator('#eleaderL1 .l1-quota.l1-low').count() === 1);
+  await c.close();
+  ({ c, p } = await open({ token: 'tok-ed', booksBody: { ok: true, books: BOOKS, daily_cap: 300, used_today: 12 } }));
+  await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+  ok('quota: per-account cap (300) shown as given by server', /하루 최대 300번 대화할 수 있어요 · 오늘 12번 했어요/.test(await p.locator('#eleaderL1').innerText()) && await p.locator('#eleaderL1 .l1-quota.l1-low').count() === 0);
   await c.close();
 
   // ③-2 이미 자유 대화 중에 책을 고르면 첫 질문을 직접 부른다(첫 인사가 다시 안 돌기 때문)
@@ -153,6 +182,7 @@ try {
   ({ c, p } = await open({ token: 'tok-ed', lang: 'en' }));
   await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
   ok('en: panel in English', /Eleader Jam Level 1 Basic Course/.test(await p.locator('#eleaderL1').innerText()));
+  ok('en: daily limit in English', /You can talk up to 200 times a day · 0 used today/.test(await p.locator('#eleaderL1').innerText()));
   await c.close();
 
   // ⑤ 다른 학생(403)·비로그인 — 아무것도 안 보이고 예전 화면 그대로

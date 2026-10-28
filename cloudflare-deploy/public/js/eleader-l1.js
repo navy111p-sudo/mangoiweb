@@ -23,6 +23,9 @@
   var data = null;       // 서버가 준 책 목록
   var state = null;      // { book, title, n, q, sid, last, tok, wish }
   var bar = null;
+  /* 📏 하루 대화 횟수(2026-10-28 사장님 「대화가 최대 몇 건인지 페이지에 표시」) — 서버가 센 값만 그린다.
+     책 목록(daily_cap·used_today)으로 시작하고, 대화마다 응답 헤더(X-Eleader-Used·X-Eleader-Cap)로 바꾼다. */
+  var quota = { used: null, cap: null };
 
   function css() {
     if (document.getElementById('eleaderL1Css')) return;
@@ -33,12 +36,38 @@
       + '#eleaderL1 .l1-go{width:100%;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:16px;font-weight:700;cursor:pointer}'
       + '#eleaderL1Bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 8px;padding:8px 12px;border-radius:12px;background:#f0fdf4;border:1px solid #86efac;color:#14532d;font-size:14px}'
       + '#eleaderL1Bar b{font-weight:700}#eleaderL1Bar button{border:1px solid #86efac;background:#fff;color:#14532d;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer}'
-      + '#eleaderL1Bar .l1-hint{flex-basis:100%;color:#166534}#eleaderL1Bar .l1-hint[hidden]{display:none}';
+      + '#eleaderL1Bar .l1-hint{flex-basis:100%;color:#166534}#eleaderL1Bar .l1-hint[hidden]{display:none}'
+      + '#eleaderL1 .l1-quota{margin:-4px 0 10px;font-size:13px;font-weight:700;color:#166534}'
+      + '#eleaderL1Bar .l1-quota{font-size:13px;color:#166534}.l1-quota.l1-low{color:#b45309 !important}';
     document.head.appendChild(s);
   }
 
+  /* 📏 «하루 최대 N번» 문구. full=책 고르는 칸(긴 설명), 아니면 진행 막대(짧게). 상한을 모르면 빈 문자열. */
+  function quotaText(full) {
+    var cap = quota.cap, used = quota.used;
+    if (!(cap > 0)) return '';
+    var u = used == null ? null : Math.min(used, cap);
+    if (!full) return u == null ? T('💬 하루 ' + cap + '번', '💬 ' + cap + ' a day') : T('💬 오늘 ' + u + ' / ' + cap, '💬 Today ' + u + ' / ' + cap);
+    return T('💬 하루 최대 ' + cap + '번 대화할 수 있어요', '💬 You can talk up to ' + cap + ' times a day')
+      + (u == null ? '' : T(' · 오늘 ' + u + '번 했어요', ' · ' + u + ' used today'));
+  }
+  function quotaEl(full) {
+    var q = document.createElement(full ? 'p' : 'span');
+    q.className = 'l1-quota' + (quota.cap > 0 && quota.used != null && quota.cap - quota.used <= 10 ? ' l1-low' : '');
+    q.textContent = quotaText(full);
+    return q;
+  }
+  /* 응답 헤더로 받은 횟수를 반영한다. 숫자가 아니면 손대지 않는다(옛 서버·다른 응답). */
+  function takeQuota(r) {
+    try {
+      var u = parseInt(r.headers.get('X-Eleader-Used'), 10), c = parseInt(r.headers.get('X-Eleader-Cap'), 10);
+      if (c > 0) quota.cap = c;
+      if (u >= 0) quota.used = u;
+    } catch (e) {}
+  }
+
   function render() {
-    if (!data) { box.hidden = true; box.replaceChildren(); return; }
+    if (!data) { box.hidden = true; box.replaceChildren(); panelQuota = null; return; }
     css();
     var h = document.createElement('h3'); h.textContent = '📗 ' + T('엘리더잼 Level 1 기본과정', 'Eleader Jam Level 1 Basic Course');
     var p = document.createElement('p');
@@ -51,8 +80,15 @@
     var go = document.createElement('button'); go.type = 'button'; go.className = 'l1-go';
     go.textContent = T('🎤 이 책으로 말하기 시작', '🎤 Start talking with this book');
     go.onclick = function () { start(sel.value); };
-    box.replaceChildren(h, p, sel, go);
+    panelQuota = quotaEl(true);
+    box.replaceChildren(h, p, panelQuota, sel, go);
     box.hidden = false;
+  }
+  var panelQuota = null;
+  /* 횟수가 바뀌면 책 고르는 칸의 문구와 진행 막대를 함께 고친다(칸은 통째로 다시 그리지 않는다 — 고르던 책이 풀리지 않게). */
+  function paintQuota() {
+    if (panelQuota) { var q = quotaEl(true); panelQuota.replaceWith(q); panelQuota = q; }
+    drawBar();
   }
 
   function current() { return state ? (data.books.filter(function (b) { return b.id === state.book; })[0] || null) : null; }
@@ -78,7 +114,7 @@
     hb.onclick = function () { hint.hidden = !hint.hidden; };
     var out = document.createElement('button'); out.type = 'button'; out.textContent = T('책 그만하기', 'Leave book');
     out.onclick = function () { stop(); try { window.addMsg(T('📗 엘리더잼 책 연습을 마쳤어요. 이제 자유 대화예요.', '📗 Book practice ended. Free talk now.'), 'sys'); } catch (e) {} };
-    bar.replaceChildren(t, hb, out, hint);
+    bar.replaceChildren(t, quotaEl(false), hb, out, hint);
   }
 
   function stop() {
@@ -117,7 +153,9 @@
   }
 
   function note(status) {
-    var msg = status === 429 ? T('오늘 엘리더잼 대화 횟수를 다 썼어요. 내일 다시 해요.', "You've used today's Eleader Jam turns. Try again tomorrow.")
+    var c = quota.cap > 0 ? quota.cap : 0;
+    var msg = status === 429 ? T('오늘 엘리더잼 대화 ' + (c ? c + '번을' : '횟수를') + ' 다 썼어요. 내일 다시 해요.',
+        "You've used " + (c ? 'all ' + c + ' of ' : '') + "today's Eleader Jam turns. Try again tomorrow.")
       : status === 403 || status === 401 ? T('로그인이 바뀌었어요. 다시 로그인해 주세요.', 'Your login changed. Please log in again.')
       : T('답을 받지 못했어요. 잠시 후 다시 해 주세요.', 'No reply yet. Please try again shortly.');
     try { window.addMsg(msg, 'sys'); } catch (e) {}
@@ -161,8 +199,11 @@
         else if (answering >= 0) state.q = Math.max(state.q, Math.min(answering + 1, state.n));
       }
       if (r && r.ok && state === mine) { var w = r.headers.get('X-Eleader-Topic') || ''; state.wish = /^[a-z]{2,20}( [a-z]{2,20}){0,2}$/.test(w) ? w : ''; }
-      if (r && (r.status === 429 || r.status === 401 || r.status === 403)) note(r.status);
-      drawBar();
+      if (r && state === mine) takeQuota(r);   // 그 사이 로그인·책이 바뀌었으면 옛 계정의 횟수를 그리지 않는다
+      /* 사유를 여기서 말했으면 표시를 남긴다 — warmup.html 이 «답변을 받아오지 못했어요» 를 겹쳐 쓰지 않게
+         (2026-10-28 원장님 화면: 두 줄이 함께 떠 «고장» 으로 읽혔다). 이 콜백은 화면의 await 보다 먼저 돈다(같은 프로미스에 먼저 건 반응). */
+      if (r && (r.status === 429 || r.status === 401 || r.status === 403)) { try { r.__eleaderNoted = true; } catch (e) {} note(r.status); }
+      paintQuota();
     }, function () {});
     return p;
   };
@@ -170,14 +211,15 @@
   var epoch = 0;
   async function load() {
     var mine = ++epoch, tk = token();
-    data = null; render();
+    data = null; quota = { used: null, cap: null }; render();
     if (!tk) return;
     try {
       var r = await fetch('/api/ai/eleader/l1/books', { headers: { Authorization: 'Bearer ' + tk }, cache: 'no-store', credentials: 'omit' });
       if (mine !== epoch || token() !== tk || !r.ok) return;
       var d = await r.json();
       if (!d || d.ok !== true || !Array.isArray(d.books) || !d.books.length) return;
-      data = d; render();
+      quota = { used: typeof d.used_today === 'number' ? d.used_today : null, cap: d.daily_cap > 0 ? d.daily_cap : null };
+      data = d; render(); drawBar();
     } catch (e) { /* 다른 학생은 예전 화면 그대로 */ }
   }
   window.addEventListener('storage', function (e) { if (e.key === 'mango_token' || e.key === null) { if (state && token() !== state.tok) stop(); load(); } });
