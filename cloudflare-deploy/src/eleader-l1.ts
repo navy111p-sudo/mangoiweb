@@ -101,8 +101,12 @@ function l1Words(s: string): Set<string> {
   }
   return out;
 }
+/* 🔗 (2026-10-28 사장님 「however·therefore·moreover 는 일상 회화 기본 말투로 과도하게 쓰지 마」 · 「매 답변 앞에 붙이지 마」)
+ *  6~9세 기초 아이와의 대화라 'Moreover'·'Of course' 를 회전 목록에서 뺐다(10-26 목록에서 바뀐 것은 이 둘뿐).
+ *  «이어지는 말»(same) 턴은 접속사를 «권하기만» 하고, 화제가 바뀌거나(new) 아니라고 한(contrast) 턴만 붙이게 한다 — l1LinkLine.
+ *  규칙의 정본은 src/conversation-connectors.ts(세 화면 공용). ⛔ 여기 목록에 격식어를 다시 넣지 마세요. */
 export const L1_LINKS = {
-  same: ['So', 'And', 'Also', 'Moreover', 'Of course'],
+  same: ['So', 'And', 'Also'],
   new: ['By the way', 'One more thing', 'Oh, and', 'Now'],
   contrast: ['But', 'Still'],
   end: ['So'],
@@ -130,10 +134,17 @@ const L1_LINK_WHY: Record<L1LinkKind, string> = {
 /** 접속사 지시 한 줄(책 문항 턴·책을 끝낸 뒤 턴이 함께 쓴다). w = 학생이 고른 주제(있으면 책 주제 예문을 안 싣는다). */
 function l1LinkLine(link: { kind: L1LinkKind; word: string }, w: string): string {
   if (link.kind === 'end') return `Start your closing words with ${JSON.stringify(link.word + ',')} (e.g. "So, you did a great job today!"). `;
-  return `Connect your reaction and the next question with a linking word, so it sounds like one connected thought` +
+  // 화제가 바뀌거나(new) 아이가 «아니» 라고 했을 때(contrast)는 이어 주는 말이 뜻을 만든다 — 붙인다. 같은 이야기를 이어 갈 때(same)는 권하기만.
+  const must = link.kind !== 'same';
+  return (must
+    ? `Connect your reaction and the next question with a linking word, so it sounds like one connected thought`
+    : `If it sounds natural, connect your reaction and the next question with a linking word`) +
     (w ? '. ' : `, e.g. "You said you like cats. By the way, do you like dogs as well?" or "Small dogs are cute! So, what is your dog's name?". `) +
-    `This turn, start the question part with ${JSON.stringify(link.word)} because ${L1_LINK_WHY[link.kind]}. ` +
-    `Other good linking words: and, so, but, also, by the way, one more thing, of course, moreover. Do not use the same linking word as your last turn. ` +
+    (must ? 'This turn, start' : 'If you use one this turn, start') +
+    ` the question part with ${JSON.stringify(link.word)} because ${L1_LINK_WHY[link.kind]}. ` +
+    (must ? '' : 'It is also fine to use no linking word when your reaction already leads into the question. ') +
+    `Other everyday linking words: and, so, but, also, too, by the way, oh, and. Do not use the same linking word as your last turn, ` +
+    `and do not use formal words like "moreover" or "however" with this young learner. ` +
     /* 🧩 (2026-10-28 사장님 「like space? 이런 식으로 나오지 말게」) 접속사 + 1단계 «3~5단어» 가 겹치면 모델이
        do you 를 떼어 「By the way, like space?」 를 만든다 — 접속사는 단어 수에 안 세고 질문은 완전한 문장으로.
        실제로 막는 것은 웜업 엔진의 결정론 검사(src/reply-questions.ts)이고, 이 줄은 그 빈도를 줄인다. */

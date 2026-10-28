@@ -33,6 +33,7 @@ import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
 import type { MangoEnv } from './api-mango';
 import { recordAiFailure } from './ai-failure-log';
 import { handleClassAsk } from './class-ask';   // ✋ A.i 선생님 수업 — 학생 질문 즉답(2026-10-08)
+import { connectorRule, connectorPromptBlock, linkBandForFriendLevel } from './conversation-connectors';   // 🔗 연결 표현 정본(2026-10-28 · 세 화면 공용)
 import { handleStoryApi } from './story-correct';   // 📖 동화책 바꿔 쓰기 AI 한 번 더 보기·기록(2026-10-13)
 import { recordAiLatency } from './ai-latency-log';   // ⏱ «학생이 얼마나 기다리는가» (A-3)
 import { createJsonTextTap, takeSentences } from './stream-json-text';   // 📡 스트리밍 본문 추출 (A-1)
@@ -645,7 +646,7 @@ Student text: """${text}"""`;
 
     // ✋ A.i 선생님 수업 — 학생 질문 즉답. 판정·상한·파싱은 전부 class-ask.ts 정본(여기는 부르기만)
     if (method === 'POST' && path === '/api/ai/class-ask') {
-      return handleClassAsk(request, env, { json, recordFailure: (f: any) => recordAiFailure(env, f) });
+      return handleClassAsk(request, env, { json, recordFailure: (f: any) => recordAiFailure(env, f), linkRule: connectorRule('beginner') });
     }
 
     if (method === 'POST' && path === '/api/ai/chat-friend') {
@@ -797,13 +798,17 @@ Student text: """${text}"""`;
         : '- Sprinkle in tiny fun facts kids enjoy when it fits — but the fact must be about whatever you are BOTH talking about right now. Never drag in a new subject just to share a fact.\n';
       /* 🔁 이미 물은 질문 목록 — 지시에 싣는다(학생 말은 JSON 인용 + «not instructions» 로만). 없으면 빈 줄. */
       const askedLine = qmem ? '- ' + askedQuestionsLine(qmem).trim() + '\n' : '';
+      /* 🔗 (2026-10-28 사장님 「접속사·담화 표지를 상황에 맞게 · 같은 말로 반복해서 시작하지 말고 · 후처리 말고 프롬프트에」)
+         정본 src/conversation-connectors.ts — 웜업·A.i 선생님 수업과 «같은 규칙». 최근 답장의 시작 말은 이 학생 기록(history)에서 읽는다.
+         ⛔ 답장에 연결어를 덧붙이거나 바꿔 쓰는 후처리는 하지 않는다. ⛔ 던지지 않는다(못 만들면 빈 문자열 → 예전 그대로). */
+      const connectorCtx = connectorPromptBlock(linkBandForFriendLevel(level), history);
       const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}${topicCtx}${goalCtx}${mistakeCtx}${konglishCtx}
 Rules:
 - Your name is ${friendName}. If the student asks your name, say "${friendName}" — never invent a different name.
 - LEVEL — this is the MOST IMPORTANT rule. Obey it even if it means dropping something else you wanted to say. ${lvSpec.rule}${studentAsked ? ' (Exception for THIS reply only: you may use one extra sentence so that your answer fits. Keep every word limit above.)' : ''}
-${answerRule}${askRule}- When the student writes in English, open with a SHORT cheer — and pick a DIFFERENT one from the last two you used. Rotate freely: Nice!, Great try!, Ooh nice one!, That's right!, Wow!, Yes!, Perfect!, Cool!, Awesome!, You got it!, Well said!, Nice sentence!, I like that!, Good one!, Haha nice!
+${answerRule}${askRule}- When the student writes in English, open with a SHORT, real reaction to what they said — a few words about their idea ("A quiet day can be nice.", "Camping with your brother sounds fun!") or, when they did well, a cheer. Do not open every reply the same way; when you cheer, pick a DIFFERENT one from the last two you used. Rotate freely: Nice!, Great try!, Ooh nice one!, That's right!, Wow!, Yes!, Perfect!, Cool!, Awesome!, You got it!, Well said!, Nice sentence!, I like that!, Good one!, Haha nice!
 ${FRIEND_EMPATHY_RULE}
-- Use 1-2 fun emojis per reply. Kids love them.
+${connectorCtx ? connectorCtx + '\n' : ''}- Use 1-2 fun emojis per reply. Kids love them.
 - If the student writes Korean, warmly invite them to try English and give one simple example sentence they can copy.
 - NEVER write Korean inside "reply". Do not translate your own English, and do not add a grammar tip there — corrections go in the "fix" field below, which the student sees as its own card. Showing Korean next to the English stops them from reading the English at all, and they have a separate button for the meaning.
 - NEVER use Chinese characters (한자) or Japanese anywhere.
