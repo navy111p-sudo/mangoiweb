@@ -283,6 +283,8 @@ html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
     border:1px solid #94a3b8;border-radius:8px;overflow:hidden;margin-bottom:12px}
   .cls-tbl td{display:block;min-width:0;border:0;border-bottom:1px solid #cbd5e1}
   .cls-tbl tbody tr:nth-child(even):not(.cls-postponed)>td{background:none}
+  .cls-tbl tr.cls-day-sep{display:block;border:0;border-radius:8px;margin:4px 0 8px}
+  .cls-tbl tr.cls-day-sep>td{border:0;border-radius:8px}
   .cls-tbl td.c-time{grid-area:time;background:#eef2f7!important;border-bottom:2px solid #94a3b8}
   .cls-tbl td.c-st{grid-area:st;background:#eef2f7!important;border-bottom:2px solid #94a3b8;text-align:right}
   .cls-tbl td.c-stu{grid-area:stu;min-width:0}
@@ -303,6 +305,9 @@ html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
 .cls-tbl tr.cls-cancel td{opacity:.55}
 .cls-tbl tbody tr.cls-postponed>td{background:#fff4e0}
 .cls-tbl tr.cls-away-row td:first-child{box-shadow:inset 4px 0 0 #dc2626}
+/* 📅 (2026-10-28) 지난 날 수업 앞 날짜 구분줄 — 표(tr)·카드(div) 공통. 표 줄무늬(폰은 background:none)에 안 덮이게 !important */
+.cls-day-sep{margin:14px 0 6px;padding:6px 10px;border-radius:8px;background:#e0e7ff;color:#1e3a8a;font-weight:800;font-size:13px}
+.cls-tbl tbody tr.cls-day-sep>td{background:#e0e7ff!important;color:#1e3a8a;font-weight:800;font-size:12.5px;padding:6px 8px}
 html[data-t="dark"] .cls-tbl-wrap,html[data-t="dark"] .cls-tbl tr{border-color:#4a5a6e}
 html[data-t="dark"] .cls-tbl th{background:#1b2330;color:#c9d4e0;border-color:#3a4859}
 html[data-t="dark"] .cls-tbl td{border-color:#3a4859}
@@ -314,6 +319,8 @@ html[data-t="dark"] .cls-tbl .cls-sub,html[data-t="dark"] .cls-tbl .cls-kv>span{
 }
 html[data-t="dark"] .cls-tbl a{color:#93c5fd}
 html[data-t="dark"] .cls-tbl tbody tr.cls-postponed>td{background:#3a2a10}
+html[data-t="dark"] .cls-day-sep{background:#1e2a44;color:#c7d2fe}
+html[data-t="dark"] .cls-tbl tbody tr.cls-day-sep>td{background:#1e2a44!important;color:#c7d2fe}
 .cls-prev summary{cursor:pointer;color:#3b5bd6;font-weight:600;user-select:none}
 .cls-prev-body{margin-top:3px;padding:6px 10px;background:#f4f6fa;border-radius:6px;color:#3d4a58;line-height:1.5}
 .cls-prev-score{color:#8a6d1a;font-weight:700}
@@ -2533,7 +2540,18 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     syncClsLite();
   });
   syncClsLite();
+  /* 📅 (2026-10-28 강사 제안 «시간이 빠른 순으로 안 나온다») 오늘 목록에는 일지용 «지난 14일 카페24 수업» 도 온다
+     (api-teacher.ts LOOKBACK_DAYS). 그 줄의 날짜 — 오늘 줄·날짜 없는 옛 캐시는 ''. */
+  function clsPastDate(c){ var d = String(c && c.class_date || '').slice(0, 10); return d && d < clsToday() ? d : ''; }
+  // 날짜가 바뀌는 지난 줄 앞에만 한 번 — asRow=true 면 표의 <tr>, 아니면 카드 사이 <div>.
+  function clsDaySepHtml(list, i, asRow){
+    var d = clsPastDate(list[i]);
+    if (!d || (i > 0 && clsPastDate(list[i - 1]) === d)) return '';
+    var label = esc('📅 ' + clsDayLabel(d, '') + T(' · earlier class', ' · 지난 수업'));
+    return asRow ? '<tr class="cls-day-sep"><td colspan="7">' + label + '</td></tr>' : '<div class="cls-day-sep">' + label + '</div>';
+  }
   // Sort a copy; row actions retain the same class objects, regardless of status.
+  // Today's classes come first in the chosen time order; earlier days follow (same order, by date + time).
   function sortClassesByTime(list, direction){
     var day = '1970-01-01';
     for (var i=0;i<list.length;i++) {
@@ -2547,6 +2565,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
         return m && +m[1]<24 && +m[2]<60
           ? Date.parse((c.class_date || c.date || day) + 'T' + ('0'+m[1]).slice(-2) + ':' + m[2] + ':00+09:00') : NaN;
       }
+      var pa = clsPastDate(a.c) ? 1 : 0, pb = clsPastDate(b.c) ? 1 : 0;
+      if (pa !== pb) return pa - pb;
       var x = stamp(a.c), y = stamp(b.c);
       var ax = isFinite(x);
       var by = isFinite(y);
@@ -2703,6 +2723,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       var rowCls = 'cls-tr' + (c.class_state === 'cancelled' ? ' cls-cancel' : c.class_state === 'postponed' ? ' cls-postponed' : '')
         + (c.student_elsewhere ? ' cls-away-row' : '') + (info ? ' cls-info' : '');
       var lvl = esc([c.level, c.textbook].filter(Boolean).join(' · ') || D);
+      if (opt.daySep) h += clsDaySepHtml(list, i, true);
       h += '<tr class="' + rowCls + '">'
         + td(0, '<b class="nw">' + esc(MangoiClassDisplay.range(c)) + '</b><div class="cls-sub nw">' + (x ? x.date : esc(c.class_date || '')) + '</div>')
         + td(1, c.absence_hold ? '<span class="pill p-hold">' + esc(T('ON HOLD','보류')) + '</span>' : (opt.status ? opt.status(c) : ''))
@@ -2824,7 +2845,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       // 🏷 class_state 도 지문에 넣는다 — 안 넣으면 서버가 «취소됨/노쇼» 를 새로 알려 줘도
       //    시간·상태가 같아서 «바뀐 게 없다» 로 보고 화면이 옛 라벨을 그대로 둔다.
       sig += sc.schedule_id + ':' + (sc.kind || 'class') + ':' + st + ':' + (sc.class_state || '')
-           + ':' + (sc.no_show_role || '') + ':' + sc.start_time + ':' + sc.duration_min + ':' + sc.end_ts + ':' + stuName(sc) + ':' + stuUid(sc)
+           + ':' + (sc.no_show_role || '') + ':' + (sc.class_date || '') + ':' + sc.start_time + ':' + sc.duration_min + ':' + sc.end_ts + ':' + stuName(sc) + ':' + stuUid(sc)
            + ':' + (sc.level || '') + ':' + (sc.textbook || '')
            + ':' + (sc.student_phone || '') + ':' + (sc.academy || '') + ':' + JSON.stringify(sc.prev_lesson || null) + ':' + sc.previous_lesson_loaded
            // ✍ 일지 배지·지난수업 도착도 지문에 넣는다 — 안 넣으면 캐시를 먼저 그린 뒤
@@ -2859,6 +2880,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     /* 📋 (2026-10-26) 표 보기 — 카드와 같은 버튼 함수(classActHtml)·같은 배선(bindClassRows)을 쓴다. */
     if (classViewIsTable()){
       box.innerHTML = h + classTableHtml(list, {
+        daySep: true,
         status: function(c){
           return stPill(c, t >= c.start_ts && t <= c.close_at_ts, t > c.close_at_ts, t >= c.open_at_ts && t <= c.close_at_ts);
         },
@@ -2886,6 +2908,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
           언어가 바뀌면 이 함수가 처음부터 다시 그린다(renderClasses 가 다시 돈다). */
     for (var i=0;i<list.length;i++){
       var c = list[i];
+      h += clsDaySepHtml(list, i, false);
       // 서버가 준 시간창을 단말 시계(보정됨)로 다시 판정 — 페이지를 열어 둔 채 시간이
       // 흘러도 버튼이 저절로 열리고 닫힌다(아래 tick 이 60초마다 다시 그린다).
       var open = (t >= c.open_at_ts && t <= c.close_at_ts);
