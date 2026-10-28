@@ -483,7 +483,14 @@ for (const [ans, blocked] of [['Can you say that again slowly?', false], ['No, h
     'I speak slowly.', 'I say it slowly.', 'I read it slowly.', 'I talk more slowly to babies.', '선생님이 천천히 말했어요', '아빠는 천천히 말해요', '다시 말했어요',
     '친구랑 다시 얘기했어요', 'I repeat it every day.', 'My sister is talking too fast.', "No, he can't understand.", "My dog can't understand.",
     'My baby brother does not understand.', 'Cars slow down at school.', '말이 빠르게 달려요', '천천히 말을 타요', '다시 말을 탔어요', '한 번만 말을 타 봤어요',
-    '쉽게 해 줄 수 있어요', '엄마 얼굴 못 알아봤어요'];
+    '쉽게 해 줄 수 있어요', '엄마 얼굴 못 알아봤어요',
+    // 함정 대조 3회차 — 엘리더잼 책 질문에 아이가 할 법한 답(주어 없는 명령형 포함)·칭찬·진술(«말해요·줘야·줘서»)·뒤에 이야기가 이어지는 말
+    'Slow down and look.', 'Yes. Slow down and look.', 'No, slow down.', 'Talk slowly.', 'Talk slowly and quietly.', 'Speak slowly to babies.', 'Yes, say it slowly!', 'Yes! Say it again!',
+    'Repeat the words.', 'Repeat, repeat!', 'Make it easier!', 'Make it short.', 'I can make it easier.', 'You are so fast!', "You're so fast!", "I didn't understand it, but it was fun.",
+    "I don't understand it but it is fun.", 'Excuse me, please.', 'I say excuse me.', 'Sorry, sorry!', 'Excuse me, excuse me.', 'Sorry, I mean slow.', 'Slow!', 'So slow!', 'Very slow.',
+    "It's slow.", 'Slow, slow.', 'Short.', 'I am short.', 'Short!', 'Yes, easy games.', 'Easy games, please.', 'Yes, slowly.', 'Yes, slowly and quietly.', 'Please help me.', 'Help me, fast!',
+    '느려요', '천천히 가요', '네, 천천히요', '아니요 천천히', '네, 너무 빨라요', '아기한테는 천천히 말해 줘야 돼요', '할머니한테 크게 말해 줘야 해요', '형은 빠르게 말해요', '아빠는 빠르게 말해요',
+    '빠르게 말하면 재밌어요', '우리 강아지는 제 말을 못 알아들어요', '할머니가 영어를 못 알아들어요', '몰라요', '다시 해 볼게요', '다시 해요', '다시 써요', '한 번 더 말해요', '또박또박 말해요', 'I speak up in class.', 'My dad can speak louder than me.', 'We repeat it every day.'];
   // «요청이다» 를 단언하는 목록 — 이것이 없으면 요청 모양을 통째로 지워도 초록이다(함정 대조 2회차 변이 실측 12종 통과).
   const REQUESTS = ['Can you say that again slowly?', 'slow down please', 'Can you slow down?', 'too fast!', 'say it again', 'again please', 'Repeat please.', "I don't understand.",
     'I dont understand', 'simpler please', 'shorter please', '천천히 말해줘', '느리게', '너무 빠르다', '다시 말해줘', '다시 해줘', '못 알아들었어', '모르겠어요', '쉽게 말해줘', '짧게',
@@ -493,7 +500,17 @@ for (const [ans, blocked] of [['Can you say that again slowly?', false], ['No, h
     'Repeat the sentence', 'Once again please', "You're too fast", 'You are too fast.', 'Too fast, slow please', 'Your voice is too fast', 'More slowly', 'Can you make it easier?',
     'um say it again', 'sorry say it again', '천천히 해', '천천히 읽어 줘', '천천히 다시', '다시 천천히', '다시 천천히요', '느리게 해', '쉽게 설명해 줘', '쉽게 설명해 주세요',
     '너무 빨라요 천천히요', 'A little slower please', 'You talk so fast', 'Simple words please', 'Explain it simply', '간단히', '한 번 더 말해 주세요', '빠르게 말해서 못 알아들었어요',
-    'Please speak slowly.', 'Speak up please.', "I didn't hear you."];
+    'Please speak slowly.', 'Speak up please.', "I didn't hear you.",
+    // 함정 대조 3회차 — 반말·말씀·듣·줄 수·주시겠어요·빨리·a bit more slowly 등 새로 놓치던 요청, 그리고 지워도 초록이던 요청 모양
+    '천천히 말해', '다시 말해', '다시 말해 봐', '다시 말해봐요', '천천히 말씀해 주세요', '다시 말씀해 주세요', '다시 한 번 말씀해 주세요', '못 알아듣겠어요', '잘 못 알아듣겠어',
+    '못 알아 듣겠어요', '알아듣기 힘들어요', '못 알아들어요', '천천히 말해 줄 수 있어요?', '다시 말해 줄 수 있어요?', '천천히 말해 주실 수 있어요?', '다시 말해 주시겠어요?',
+    '너무 빨리 말해요', '이해가 안 가요', '쉬운 말로 해 주세요', '다시 말해 줄래?', '천천히 말해줘요', '다시 한 번 말해 주세요', '또박또박 말해 주세요', '간단히 말해 주세요',
+    'Can you speak a little slower?', 'Can you speak a bit more slowly?', 'Could you talk a little slower?', 'Can you go slower?', 'Go slower, please.', 'Can you say it a little slower?',
+    'Too fast for me!', 'Too fast, teacher!', 'Talking too fast.', 'You speak very fast.', 'You talk really fast.', 'Can you say that one more time?', "I don't understand anything.",
+    "I don't really understand.", "Don't understand, sorry.", 'Not understand.', "I don't understand what that means.", 'Too hard, easier please.', 'Can you use easy words?',
+    'Use simple words.', 'Please speak English slowly.', 'Huh? Slow down.', 'Speak slowly, please.', 'Can you repeat that?', 'I don’t understand.', 'I can’t hear you', 'Sorry, louder.',
+    'Sorry, what?', 'Excuse me, what?', 'Can you talk slowly?', "I didn't understand.", 'ok say it again', 'oh say it again', 'Please slower', 'Sorry, say it again.',
+    'Too fast, slow please', 'What? Too fast!', 'Speak slower.', 'Say again.'];
   const SAMPLES = ['Can you say that again slowly?', 'slow down please', 'too fast!', 'say it again', 'again please', 'Repeat please.', "I don't understand.", 'I dont understand',
     'simpler please', 'easier', 'shorter please', '천천히 말해줘', '느리게', '너무 빠르다', '다시 말해줘', '다시 해줘', '못 알아들었어', '모르겠어요', '쉽게 말해줘', '짧게',
     "I don't know.", 'Yes.', 'No, small.', 'I like it a lot.', 'Because it is fun.', 'Every day!', '작아요', 'My dog is white.', ...ECHOES, ...REQUESTS, ...ANSWERS];
@@ -502,7 +519,7 @@ for (const [ans, blocked] of [['Can you say that again slowly?', false], ['No, h
   /* 표본 대조만으로는 표본에 없는 낱말로 두 곳이 갈라져도 초록이다(함정 대조 변이 실측: 정본에만 louder·again 을 더해도 통과).
      그래서 정규식 «원문» 을 직접 견준다 — 한국어·«그 말만» 줄은 글자 그대로 같고, 영어 줄은 «I don't know» 하나만 더 받는다. */
   const same = (a, b) => !!a && !!b && a.source === b.source && a.flags === b.flags;
-  const enMeta = lits[1] ? new RegExp(lits[1].source.replace("\\bi don'?t know\\b|", ''), lits[1].flags) : null;   // 지시 쪽 영어 줄 = «I don't know» + 정본
+  const enMeta = lits[1] ? new RegExp(lits[1].source.replace("\\bi don['’]?t know\\b|", ''), lits[1].flags) : null;   // 지시 쪽 영어 줄 = «I don't know» + 정본
   ok('①-18 두 곳의 정규식 원문이 같다(한국어·그 말만 = 그대로 · 영어 = «I don\'t know» 만 더)', same(lits[0], M.QM_REASK_KO) && same(enMeta, M.QM_REASK_EN) && same(lits[2], M.QM_REASK_ECHO)
     && lits[1].source !== enMeta.source, { ko: same(lits[0], M.QM_REASK_KO), en: same(enMeta, M.QM_REASK_EN), echo: same(lits[2], M.QM_REASK_ECHO) });
   const missed = [...ECHOES, ...REQUESTS].filter((t) => !M.isReaskRequest(t)), wrong = ANSWERS.filter((t) => M.isReaskRequest(t) || (meta(t) && !/i don'?t know/i.test(t)));   // 지시 쪽은 «I don't know» 만 더 받는다
@@ -510,6 +527,19 @@ for (const [ans, blocked] of [['Can you say that again slowly?', false], ['No, h
   ok('①-18 «I don\'t know»·평범한 답은 요청이 아니고 · «I don\'t understand»·「모르겠어요」·「천천히」는 요청이다(짝)',
     !M.isReaskRequest("I don't know.") && !M.isReaskRequest('No, small.') && !M.isReaskRequest('My dog is white.')
     && M.isReaskRequest("I don't understand.") && M.isReaskRequest('모르겠어요') && M.isReaskRequest('천천히 말해줘'), '');
+  /* 속도 — 정규식은 길이에 비례해야 한다(함정 대조 3회차 실측: 「(말)\s*해?\s*(줘)」 꼴이 «천천히 말» + 공백 14만 자에 8초).
+     isReaskRequest 는 1,000자에서 자르므로 «정규식 자체» 를 정본·지시 쪽 모두 직접 잰다. 선형이면 5만 자에 수십 ms, 제곱이면 1초가 넘는다. */
+  const KEYS = ['천천히 말', '천천히 말해', '천천히', '다시', '못 알아', '너무', '한 번', '쉬운 말로', 'you', 'please', 'sorry', 'too fast', 'what', '네?', "i don't understand", 'say it', 'speak'];
+  const RES = [M.QM_REASK_KO, M.QM_REASK_EN, M.QM_REASK_ECHO, ...lits];
+  let worst = 0, worstAt = '';
+  for (const k of KEYS) for (const sep of [' ', ', ', '?']) {
+    const t = k + sep.repeat(50000) + 'x', t0 = performance.now();
+    for (const re of RES) re.test(t);
+    const d = performance.now() - t0;
+    if (d > worst) { worst = d; worstAt = JSON.stringify(k) + ' + ' + JSON.stringify(sep) + ' × 50000'; }
+  }
+  ok('①-18 되묻기 정규식이 긴 입력에서도 빠르다(키워드 × 공백 5만 자 — 정본·지시 쪽 모두 1초 안)', worst < 1000, { ms: Math.round(worst), at: worstAt });
+  ok('①-18 1,000자가 넘는 말은 되묻기로 안 본다 · 그 안이면 본다(짝)', M.isReaskRequest('천천히 말해 줘' + ' '.repeat(990)) && !M.isReaskRequest('천천히 말해 줘' + ' '.repeat(1000)) && M.QM_REASK_MAX_LEN === 1000, '');
 }
 
 // ─── ② 샌드박스 ──────────────────────────────────────────────────────────────
