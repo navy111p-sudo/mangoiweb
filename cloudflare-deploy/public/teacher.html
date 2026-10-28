@@ -131,6 +131,22 @@ html[data-t="dark"] details.mycard > summary{color:#c9d4e0}
   font-size:15px;font-family:inherit;color:#16202c;background:#fff}
 html[data-t="dark"] .pwform input{background:#1b2330;border-color:#2c3949;color:#c9d4e0}
 
+/* 📵 번호 없는 학생 (2026-10-28) — 줄은 공용 js/adm-phone-gaps.js 가 그린다(매니저·관리자와 같은 판정·같은 저장 문구).
+   여기는 그 줄의 겉모양만. 손가락으로 누르므로 버튼·입력칸은 44px. transition 없음(계약 3번).
+   ⚠️ #pg-flash 의 글자색은 스크립트가 «밝은 화면용» 진한 색을 인라인으로 쓴다 — 어두운 화면에서는 !important 로 덮는다. */
+#sm-phone-gaps .pgt-note{font-size:13px;color:#5d6b7a;line-height:1.55;margin:0 0 8px}
+#sm-phone-gaps .pgt-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 8px;font-size:13.5px;color:#5d6b7a}
+#sm-phone-gaps button.primary{border:0;border-radius:8px;background:#2563eb;color:#fff;font-weight:700;font-family:inherit;cursor:pointer;min-height:44px;padding:8px 14px;font-size:14px}
+#sm-phone-gaps button.primary:disabled{opacity:.55;cursor:default}
+#sm-phone-gaps input[type="tel"],#sm-phone-gaps select{box-sizing:border-box;min-height:44px;padding:6px 10px;border:1px solid #d7dee6;border-radius:8px;font-size:15px;font-family:inherit;color:#16202c;background:#fff}
+#sm-phone-gaps .pg-row{color:#2c3a48}
+#pg-flash{font-size:13px;line-height:1.5;border:1px solid transparent;border-radius:8px;padding:8px 10px;margin:0 0 8px}
+html[data-t="dark"] #sm-phone-gaps .pgt-note,html[data-t="dark"] #sm-phone-gaps .pgt-bar{color:#9dabb9}
+html[data-t="dark"] #sm-phone-gaps .pg-row{color:#c9d4e0}
+html[data-t="dark"] #sm-phone-gaps input[type="tel"],html[data-t="dark"] #sm-phone-gaps select{background:#1b2330;border-color:#2c3949;color:#c9d4e0;color-scheme:dark}
+html[data-t="dark"] #pg-flash{color:#a7f3d0 !important}
+html[data-t="dark"] #pg-flash[data-warn="1"]{color:#fcd34d !important}
+
 /* ── 오늘 수업 리스트 ── */
 .cls{border-top:1px solid #eaeef2;padding:12px 0;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
 .cls:first-of-type{border-top:0}
@@ -733,6 +749,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     <button class="tbtn" type="button" onclick="openCard('c-myevals')" data-en="My logs" data-ko="내가 쓴 일지">My logs</button>
     <!-- 📖 (2026-08-27 마이마이 8/26 ②) 수업 입장 안내 — 매뉴얼(teacher-training.html)은
          전부터 있었는데 이 화면 어디에서도 링크되지 않아 «안내가 없다» 가 됐다. 새 문서 대신 연결만. -->
+    <!-- 📵 (2026-10-28) 번호 없는 학생 — 아래 #sm-phone-gaps 를 펼친다(펼칠 때만 불러온다). -->
+    <button class="tbtn" type="button" onclick="openCard('sm-phone-gaps')" data-en="📵 No phone" data-ko="📵 번호 없는 학생">📵 No phone</button>
     <a class="tbtn" href="/teacher-training.html" data-en="📖 Manual" data-ko="📖 수업 매뉴얼">📖 Manual</a>
   </nav>
 
@@ -1021,6 +1039,28 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     <div id="ltBody" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
+  <!-- 📵 (2026-10-28 사장님 「강사 화면에도 똑같이 넣어줘」) 번호 없는 학생 — «내 수업» 이 있는데 수업 30분 전
+       안내 문자를 받을 번호가 없는 학생. 매니저·관리자 화면과 «같은 스크립트»(js/adm-phone-gaps.js, data-pg-mode="teacher").
+       서버는 같은 포털 경로의 ?part=phone_gaps / ?part=phone_save — 내 수업 학생만 · 번호 «넣기» 만(지우기 없음 · 문자가 갈 번호가 이미 있는 학생에게는 못 넣음).
+       ⚠️ 스크립트는 «처음 펼칠 때만» 받는다(계약 1번 외부 리소스 0개 · 4번 첫 화면 API 1회).
+       ⚠️ data-en 은 «글자만 든 span» 에만 단다 — #pg-body 는 스크립트가 통째로 그리는 칸이라 달면 applyLang 이 지운다. -->
+  <details class="card mycard" id="sm-phone-gaps" data-pg-mode="teacher" ontoggle="if(this.open)loadPhoneGaps()">
+    <summary><span data-en="📵 My students without a phone (no class reminder)" data-ko="📵 번호 없는 내 학생 (수업 전 문자 못 받음)">📵 My students without a phone (no class reminder)</span></summary>
+    <div class="pgt-note"><span data-en="💡 These students have your classes but no number for the 30-minute reminder text. If you have the parent's or student's number, enter it on the row and press [💾 Save] — while texting is on, reminders go to that number from the next class. You can only add a number for your own students who have none (nothing is deleted)." data-ko="💡 내 수업이 있는데 «수업 30분 전 안내 문자» 를 받을 번호가 없는 학생입니다. 학부모나 학생 번호를 알고 있으면 그 줄에 넣고 [💾 저장]을 누르세요 — 문자 발송이 켜져 있는 동안 다음 수업부터 그 번호로 안내 문자가 갑니다. 내 수업 학생 중 번호가 없는 학생에게만 넣을 수 있습니다(지우는 기능은 없습니다).">💡 These students have your classes but no number for the 30-minute reminder text. If you have the parent's or student's number, enter it on the row and press [💾 Save] — while texting is on, reminders go to that number from the next class. You can only add a number for your own students who have none (nothing is deleted).</span></div>
+    <div class="pgt-bar">
+      <button type="button" id="pg-load" class="primary" data-en="🔄 Load" data-ko="🔄 불러오기">🔄 Load</button>
+      <label><span data-en="Period" data-ko="기간">Period</span>
+        <select id="pg-days">
+          <option value="7" data-en="Next 7 days" data-ko="다음 7일">Next 7 days</option>
+          <option value="14" data-en="Next 14 days" data-ko="다음 14일">Next 14 days</option>
+        </select>
+      </label>
+      <span id="pg-count"></span>
+    </div>
+    <div id="pg-flash" role="status" style="display:none"></div>
+    <div id="pg-body"><div class="empty"><span data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</span></div></div>
+  </details>
+
   <!-- 📇 (2026-08-17) 복구 연락처 — 비밀번호를 잊었을 때 본인이 풀 수 있는 유일한 근거.
        왜 강사 포털에 넣나: 관리자 계정 대부분이 강사(mangoi_*)인데 2026-08-17 기준 연락처가
        등록된 계정이 47개 중 2개뿐이었다. 강사가 스스로 채울 자리가 아예 없었던 것이 원인이다.
@@ -1144,6 +1184,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     if (typeof window.__repaintMy === 'function') window.__repaintMy();
     if (typeof window.__repaintDrafts === 'function') window.__repaintDrafts();
     if (typeof paintOutbox === 'function') paintOutbox();
+    // 📵 번호 없는 학생 — 공용 스크립트가 그린 줄(이 화면은 mangoi:lang-changed 를 안 쏜다). 받은 목록이 없으면 그 함수가 그냥 돌아간다.
+    if (window.__pg && typeof window.__pg.render === 'function') window.__pg.render();
   }
   // ── ⭐ 자주 쓰는 기능 바로가기 ──────────────────────────
   window.openCard = function(id){
@@ -5424,6 +5466,37 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     ev.preventDefault();
     open(a.getAttribute('data-evq'));
   });
+})();
+</script>
+<script>
+/* 📵 (2026-10-28) 번호 없는 학생 — 공용 js/adm-phone-gaps.js 를 «처음 펼칠 때만» 받는다(계약 1번 외부 리소스 0개).
+   manager.html 의 loadPhoneGaps 와 같은 모양. ?v= 는 admin.html·manager.html 과 같은 번호여야 한다(phone_gaps_harness G절).
+   스크립트가 실리면 자기 리스너(toggle·불러오기·저장)를 달고, 이미 펼쳐져 있으면 여기서 한 번 불러 준다. */
+(function(){
+  var loading = false;
+  function en(){ return document.documentElement.lang !== 'ko'; }   /* applyLang() 이 정하는 값 — 이 화면 언어 정본 */
+  window.loadPhoneGaps = function(){
+    var sec = document.getElementById('sm-phone-gaps');
+    var kick = function(){
+      var pg = window.__pg;
+      if (!pg || !sec || !sec.open) return;
+      if (!(pg._state && pg._state.loadedOnce) && !(pg._state && pg._state.busy)) pg.load();
+    };
+    if (window.__pg && window.__pg.__loaded) return;   /* 실린 뒤에는 스크립트의 toggle 리스너가 맡는다(두 번 부르지 않게) */
+    if (loading) return;
+    loading = true;
+    var body = document.getElementById('pg-body');
+    if (body) body.innerHTML = '<div class="empty">' + (en() ? 'Loading…' : '불러오는 중…') + '</div>';
+    var sc = document.createElement('script');
+    sc.src = '/js/adm-phone-gaps.js?v=5';
+    sc.onload = function(){ loading = false; kick(); };
+    sc.onerror = function(){
+      loading = false;
+      if (sc.parentNode) sc.parentNode.removeChild(sc);
+      if (body) body.innerHTML = '<div class="empty">' + (en() ? 'Could not load this panel — close it and open it again.' : '이 칸을 불러오지 못했습니다 — 닫았다가 다시 펼쳐 주세요.') + '</div>';
+    };
+    document.head.appendChild(sc);
+  };
 })();
 </script>
 </body>

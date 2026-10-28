@@ -9,6 +9,8 @@
  *   ℹ️ 리마인더의 «login_id 로 한 번 더» 폴백은 같은 날 실측으로 늘어나는 학생이 0명이었다(그 폴백은 셈에 넣지 않는다).
  * [무엇] 매니저·관리자가 그 학생들을 한 화면에서 보고 그 자리에서 번호를 넣게 한다.
  *   저장은 이미 있는 `PATCH /api/admin/student/:uid/contact`(→ `student_erp_override`, 야간 동기화가 못 덮는 자리).
+ *   👨‍🏫 강사판(2026-10-28) — `teacherKeys` 를 넘기면 «그 강사의 수업» 만 센다(api-teacher.ts `?part=phone_gaps`).
+ *      이때는 참고 번호(이탈위험 표)를 «읽지도 않는다» — 누구 번호인지 모르는 번호를 강사에게 새로 보여 줄 이유가 없다.
  * ⛔ 이탈위험 표의 번호는 «참고» 로만 보여 준다 — 자동으로 칸에 넣거나 저장하지 않는다
  *    (누구 번호인지 모르는 번호로 학부모에게 문자가 가면 빈칸보다 나쁘다).
  * ⛔ «어느 날 수업이 열리나» 를 따로 정하지 않는다 — 리마인더(runLessonReminderSweep)와 같은 규칙이어야 한다.
@@ -115,25 +117,38 @@ export interface PhoneGapResult {
   gaps: PhoneGap[];
   complete: boolean;               // false = 번호 조회를 다 못 했다(«번호 없음» 으로 단정하지 말 것)
   hint_complete: boolean;          // false = 참고 번호 조회가 실패했다
+  scope: 'all' | 'teacher';        // teacher = teacherKeys 로 «그 강사의 수업» 만 셌다(참고 번호는 안 읽음)
   sms_mode: string;                // real | mock | disabled
   reminder_enabled: boolean | null;// 수업 전 안내 문자 스위치(null = 모름)
   measured_at: number;
 }
 
-export async function buildPhoneGaps(env: any, opts: { days?: number; now?: number } = {}): Promise<PhoneGapResult> {
+/** 강사 열쇠 → SQL 한 개 바인드(콤마 문자열). ⛔ `IN (?,?,…)` 로 펴지 않는다(D1 바인드 한도 규칙 — d1_bind_limit_harness).
+ *  열쇠는 포털의 예약 조건(`cs.teacher_id = ?` — 로그인 아이디 + 확정된 원부 번호)과 «같은 값» 이고 정확일치다.
+ *  콤마가 든 값·빈 값은 버린다(구분자와 부딪혀 엉뚱한 수업이 걸리지 않게). 남는 것이 없으면 '' — 부르는 쪽은 0명으로 끝낸다. */
+export function teacherKeyList(keys: any): string {
+  const ks = Array.isArray(keys) ? keys : [];
+  const out = [...new Set(ks.map((k: any) => String(k == null ? '' : k).trim()).filter((k: string) => k && k.indexOf(',') < 0))];
+  return out.length ? ',' + out.join(',') + ',' : '';
+}
+
+export async function buildPhoneGaps(env: any, opts: { days?: number; now?: number; teacherKeys?: string[] } = {}): Promise<PhoneGapResult> {
   const now = Number.isFinite(opts.now as number) ? Number(opts.now) : Date.now();
   const dRaw = Math.floor(Number(opts.days));
   const days = Number.isFinite(dRaw) && dRaw >= 1 ? Math.min(PHONE_GAP_DAYS_MAX, dRaw) : PHONE_GAP_DAYS_DEFAULT;
   const dl = kstDays(now, days);
   const res: PhoneGapResult = {
     ok: true, days, from: dl[0].ymd, to: dl[dl.length - 1].ymd, students: 0, reachable: 0, gaps: [],
-    complete: true, hint_complete: true, sms_mode: getSolapiMode(env || {}), reminder_enabled: null, measured_at: now,
+    complete: true, hint_complete: true, scope: opts.teacherKeys !== undefined ? 'teacher' : 'all',
+    sms_mode: getSolapiMode(env || {}), reminder_enabled: null, measured_at: now,
   };
+  const tKeys = res.scope === 'teacher' ? teacherKeyList(opts.teacherKeys) : '';
   try {
     const v = await env?.SESSION_STATE?.get('lesson_reminder_send');
     res.reminder_enabled = v !== 'off';
   } catch { res.reminder_enabled = null; }
   if (!env?.DB) return { ...res, ok: false, error: 'no_db' };
+  if (res.scope === 'teacher' && !tKeys) return res;   // 누구 수업인지 모르면 아무도 안 센다(«전부» 로 떨어지지 않는다)
 
   let rows: any[] = [];
   try {
@@ -142,7 +157,8 @@ export async function buildPhoneGaps(env: any, opts: { days?: number; now?: numb
          FROM class_schedules
         WHERE status != 'cancelled'
           AND (scheduled_date IS NULL OR scheduled_date = '' OR (scheduled_date >= ? AND scheduled_date <= ?))`
-    ).bind(res.from, res.to).all();
+        + (tKeys ? ` AND instr(CAST(teacher_id AS TEXT), ',') = 0 AND instr(?, ',' || CAST(teacher_id AS TEXT) || ',') > 0` : '')
+    ).bind(...(tKeys ? [res.from, res.to, tKeys] : [res.from, res.to])).all();
     rows = (rs && rs.results) || [];
   } catch (e: any) {
     console.warn('[phone-gaps] 수업 조회 실패:', e?.message);
@@ -183,7 +199,7 @@ export async function buildPhoneGaps(env: any, opts: { days?: number; now?: numb
     gaps.push({ uid: a.uid, name: a.name || a.uid, classes: a.classes, next_date: a.next_date, next_time: a.next_time,
       status: st.short ? 'short' : 'none', short_len: st.short, hint_phone: '' });
   }
-  if (gaps.length) {
+  if (gaps.length && res.scope !== 'teacher') {
     try {
       const ret = await selectInChunks<any>(env.DB, gaps.map(g => g.uid),
         (ph) => `SELECT user_id, phone FROM student_retention WHERE user_id IN (${ph})`);
