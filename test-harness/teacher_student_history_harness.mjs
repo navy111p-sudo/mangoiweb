@@ -109,6 +109,48 @@ assert.equal(cancelled.data.items.find(i=>i.room_id==='class-71-20261012').state
 assert.ok(!cancelled.data.items.some(i=>i.schedule_id===71&&i.date>='2026-10-19'));
 assert.equal(cancelled.data.items.find(i=>i.room_id==='class-72-20261007').state,'done');
 assert.ok(!cancelled.data.items.some(i=>i.room_id==='class-72-20261014'));
+// Old-LMS (cafe24) rows have no reservation id (2026-10-28 "Could not load class history"): open them by room + student,
+// authorized only by this teacher's cafe24 number. cafe24 #1 is someone else even though Teacher A is teachers.id 1.
+db.exec(`ALTER TABLE attendance ADD COLUMN teacher_uid TEXT;
+ALTER TABLE attendance ADD COLUMN left_at INTEGER;
+CREATE TABLE teacher_profiles(korean_name TEXT,english_name TEXT);
+INSERT INTO teacher_profiles VALUES('티처A','Teacher A');
+CREATE TABLE teacher_payroll_auto(teacher_id INTEGER,teacher_name TEXT);
+INSERT INTO teacher_payroll_auto VALUES(184,'Teacher A'),(184,'Teacher A'),(1,'Someone Else'),(77,'Teacher X'),(77,'Teacher Y');
+INSERT INTO attendance(room_id,role,joined_at,account_uid,user_id,date,status,teacher_uid,left_at) VALUES
+('c24-900','student',1793073600000,NULL,'mangoai_lms','2026-10-27','present','184',1793074800000),
+('c24-899','student',1792468800000,NULL,'mangoai_lms','2026-10-20','present','77',NULL),
+('c24-800','student',1790654400000,NULL,'mangoai_lms','2026-09-29','present','184',1790655600000),
+('c24-901','student',1793077200000,NULL,'lms_other','2026-10-27','present','1',1793078400000);
+INSERT INTO student_evaluations VALUES(30,'mangoai_lms',NULL,'c24-899','2026-10-28','Teacher Y','teacher_y',1792558800000,'LMS lesson feedback',NULL,NULL,NULL);`);
+const lms=p=>request({schedule_id:'',room_id:'c24-900',student_uid:'mangoai_lms',date:'2026-10-28',...p});
+let lmsResult=await lms();assert.equal(lmsResult.status,200,'old-LMS row opens without a schedule id');
+assert.equal(lmsResult.data.before,'2026-10-27','the LMS lesson date is the reference, not the client date');
+assert.deepEqual(lmsResult.data.warnings,[]);
+const lmsLesson=lmsResult.data.items.find(i=>i.room_id==='c24-900');
+assert.equal(lmsLesson.teacher_name,'Teacher A');assert.equal(lmsLesson.teacher_source,'lms');
+assert.equal(lmsLesson.start,'13:00');assert.equal(lmsLesson.duration_min,20);assert.equal(lmsLesson.state,'done');
+assert.equal(lmsLesson.start_ts,undefined,'internal timestamps stay on the server');
+const lmsReported=lmsResult.data.items.find(i=>i.room_id==='c24-899');
+assert.equal(lmsReported.feedback.note_en,'LMS lesson feedback','a c24 room report matches its lesson even when dated another day');
+assert.equal(lmsResult.data.items.filter(i=>i.feedback?.id===30).length,1,'the matched report is not repeated as its own row');
+assert.equal(lmsResult.data.previous.date,'2026-10-20');assert.equal(lmsResult.data.previous.teacher_source,'lms');
+assert.equal(lmsResult.data.previous.teacher_name,null,'a cafe24 number with two names stays unknown');
+assert.ok(!JSON.stringify(lmsResult).includes('lms_other'),'another student in the LMS is never shown');
+assert.deepEqual((await lms({month:'2026-09'})).data.items.map(i=>i.room_id),['c24-800']);
+assert.equal((await lms({student_uid:'lms_other'})).status,403,'the student must be the one in that room');
+assert.equal((await lms({room_id:'c24-901',student_uid:'lms_other'})).status,403,'teachers.id 1 never authorizes cafe24 #1');
+assert.equal((await lms({student_uid:''})).status,403);
+assert.equal((await lms({room_id:'c24-abc'})).status,400);
+assert.equal((await lms({room_id:'class-1-20261023'})).status,400);
+db.exec(`INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_time,duration_min,source,created_at) VALUES
+(80,'mangoai_lms','1','active','2026-10-27','13:00',20,'c24-mirror',1);`);
+const lmsDeduped=(await lms()).data.items.filter(i=>i.date==='2026-10-27');
+assert.deepEqual(lmsDeduped.map(i=>i.room_id),['class-80-20261027'],'a Mangoi reservation at the exact LMS slot is shown once');
+globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_c',name:'Teacher C',role:'teacher'};
+assert.equal((await lms()).status,403,'a teacher without a cafe24 number cannot open LMS rooms');
+globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_a',name:'Teacher A',role:'teacher'};
+assert.ok(executed.every(sql=>/^\s*(SELECT\b|PRAGMA table_info\b)/.test(sql)),'LMS history only reads data and schema');
 // Read-only compatibility: fresh canonical schema, then legacy schema with eval_at in another month.
 db.exec(`ALTER TABLE student_evaluations RENAME TO full_evaluations;
 CREATE TABLE student_evaluations(id INTEGER,student_uid TEXT,teacher_name TEXT,teacher_comment TEXT,lesson_date TEXT,created_at INTEGER);

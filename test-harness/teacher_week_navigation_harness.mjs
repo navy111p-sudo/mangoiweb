@@ -58,7 +58,9 @@ function environment(instant = '2026-10-04T15:05:00Z', cache = null) {
   };
   vm.createContext(ui);
   vm.runInContext([fn('now'), fn('todayKST'), fn('paintCached'), fn('saveCache'), fn('load'), fn('setStale'), fn('render'),
-    fn('portalRows'), fn('portalContact'), fn('portalAcademies'), weekCode, fn('classKeys'), fn('autoRefreshTick'), languageCode, visibilityCode].join('\n'), ui);
+    fn('portalRows'), fn('portalContact'), fn('portalAcademies'), weekCode, fn('classKeys'), fn('autoRefreshTick'), languageCode, visibilityCode,
+    // 2026-10-28: 날짜 목록의 «월» 선택이 월 달력의 달 이름·달 이동(moLabel·moShift)을 같이 쓴다 — 실제 페이지에서는 같은 스코프에 있다.
+    fn('moShift'), fn('moLabel')].join('\n'), ui);
   return { ui, element, requests, cacheStore, listeners, setClock: iso => clock = Date.parse(iso) };
 }
 function week(start, label = start) {

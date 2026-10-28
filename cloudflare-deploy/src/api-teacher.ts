@@ -112,6 +112,48 @@ function applyHolidayToItems(items: any[], holiday: any): void {
   }
 }
 
+/* 🔢 로그인 계정 → **카페24 강사번호**(attendance.teacher_uid). 옛 LMS 수업 목록과 그 수업의 이력 권한이
+   같은 판정을 써야 해서 함수 하나로 둔다(2026-10-28 — 이력 창이 따로 판정하면 반드시 어긋난다).
+   🔴 (2026-08-19) 여기가 «남의 수업이 보일 뻔한» 자리다. 반드시 읽고 고칠 것.
+      첫 판에서는 linkedTeacherIds(= D1 `teachers.id`, 지역 일련번호 1~29)를
+      attendance.teacher_uid 와 곧바로 맞췄다. 그런데 teacher_uid 는
+      **카페24 강사번호**(실측 9~196)다 — 완전히 다른 번호 체계다.
+      번호가 우연히 겹치는 자리에서 정확히 «다른 사람» 이 걸렸다(실측):
+        · HANNAH 계정(teachers.id=24) ↔ 카페24 24 = Teacher Mariane 의 수업 127건
+        · MELCA  계정(teachers.id=26) ↔ 카페24 26 = Teacher Rica 의 수업 11건
+      학생 이름이 함께 보이므로 «남의 수업이 보이는» 사고 그대로였다.
+      (이 파일 위쪽 'Anna → HANNAH' 기록과 같은 종류의 사고다. 번호라서 더 안 보였다.)
+   → 로그인 계정을 **카페24 강사번호로 따로 해석**한다. 경로는 하나뿐이다:
+        teacher_profiles.korean_name/english_name
+          ── 완전일치 ──▶ teacher_payroll_auto.teacher_name → teacher_id(카페24 번호)
+      teacher_payroll_auto 는 카페24 서버가 «번호와 이름을 함께» 밀어넣은 표라
+      그 안에서는 번호↔이름이 어긋나지 않는다.
+   ⚠️ 완전일치만 쓴다. 부분일치는 절대 금지 — 'Anna' 가 'H-ANNA-H' 에 붙던 그 사고다.
+   ⚠️ 후보가 2개 이상이면 **아무것도 붙이지 않는다**. 모르는 것보다 틀린 게 나쁘다.
+   ⚠️ 못 찾으면 빈 배열 — 부르는 쪽은 «안 보여주는» 쪽으로 실패한다(안전한 실패).
+   ⛔ linkedTeacherIds 로 되돌리지 말 것. 번호가 겹치는 자리에서 조용히 남의 수업을 준다. */
+async function resolveCafe24TeacherIds(db: D1Database, actorName: unknown): Promise<string[]> {
+  const name = String(actorName || '').trim();
+  if (!name) return [];
+  const prof = await db.prepare(
+    `SELECT korean_name, english_name FROM teacher_profiles
+      WHERE korean_name = ? COLLATE NOCASE OR english_name = ? COLLATE NOCASE LIMIT 2`
+  ).bind(name, name).all<any>().catch(() => ({ results: [] as any[] }));
+  const rows = prof.results || [];
+  // 프로필이 둘 이상 걸리면 누구인지 모르는 것이다 → 붙이지 않는다.
+  if (rows.length === 1) {
+    for (const nm of [rows[0].korean_name, rows[0].english_name].filter(Boolean)) {
+      const pay = await db.prepare(
+        `SELECT DISTINCT teacher_id FROM teacher_payroll_auto
+          WHERE teacher_name = ? COLLATE NOCASE LIMIT 2`
+      ).bind(nm).all<any>().catch(() => ({ results: [] as any[] }));
+      const pr = pay.results || [];
+      if (pr.length === 1) return [String(pr[0].teacher_id)];
+    }
+  }
+  return [];
+}
+
 export async function handleTeacherApi(
   request: Request,
   url: URL,
@@ -359,13 +401,38 @@ export async function handleTeacherApi(
   // Student history is lazy-loaded and read-only. Resolve the student from an owned schedule.
   if (url.searchParams.get('part') === 'student_history') {
     const scheduleId = Number(url.searchParams.get('schedule_id'));
+    /* 🗂 (2026-10-28 강사 화면 «Could not load class history») 옛 LMS 수업 줄(source 'lms')은 예약표 행이 없어
+       schedule_id 가 null 이다 — 그 줄의 [수업 요약 / 캘린더] 는 빈 번호를 보내 400 이 났다.
+       그 줄은 방 번호(c24-…)와 학생 아이디로 연다. 학생은 쿼리가 아니라 «이 강사(카페24 강사번호)가 가르친
+       그 방의 출석 행» 에서 확인한다 — 목록(아래 LMS 블록)과 같은 판정(resolveCafe24TeacherIds). */
+    const lmsRoom = String(url.searchParams.get('room_id') || '').trim();
+    const isLmsHistory = !(scheduleId > 0) && /^c24-\d{1,12}$/.test(lmsRoom);
     const date = String(url.searchParams.get('date') || todayStr);
     const month = String(url.searchParams.get('month') || date.slice(0, 7));
-    if (!Number.isSafeInteger(scheduleId) || scheduleId <= 0 || !validHistoryDate(date)
+    if ((!isLmsHistory && (!Number.isSafeInteger(scheduleId) || scheduleId <= 0)) || !validHistoryDate(date)
         || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || Number(month.slice(0,4)) < 2000) {
       return json({ ok: false, error: 'bad_history_request' }, 400);
     }
     if (!isManager && (identityUnlinked || identityAmbiguous)) return json({ ok: false, error: 'history_forbidden' }, 403);
+    if (isLmsHistory) {
+      try {
+        const studentUid = String(url.searchParams.get('student_uid') || '').trim();
+        const tids = isManager ? [] : await resolveCafe24TeacherIds(env.DB, actor.name);
+        if (!studentUid || (!isManager && !tids.length)) return json({ ok: false, error: 'history_forbidden' }, 403);
+        const own = isManager ? '' : ` AND teacher_uid IN (${tids.map(() => '?').join(',')})`;
+        const row = await env.DB.prepare(`SELECT user_id, date FROM attendance
+            WHERE room_id = ? AND user_id = ? COLLATE BINARY AND status = 'present'${own} LIMIT 1`)
+          .bind(lmsRoom, studentUid, ...tids).first<any>();
+        const uid = row && studentUidOf(row);
+        const lessonDate = row ? String(row.date || '').slice(0, 10) : '';
+        if (!uid || !validHistoryDate(lessonDate)) return json({ ok: false, error: 'history_forbidden' }, 403);
+        // 기준일은 그 LMS 수업 날 — 화면이 보낸 날짜(오늘 목록의 class_date)가 아니다.
+        return json(await loadTeacherStudentHistory(env, uid, month, lessonDate));
+      } catch (e) {
+        console.warn('[teacher-history] lms read failed');
+        return json({ ok: false, error: 'history_unavailable' }, 503);
+      }
+    }
     try {
       const schedule = await env.DB.prepare(`SELECT id, user_id, teacher_id, status FROM class_schedules WHERE id=? LIMIT 1`)
         .bind(scheduleId).first<any>();
@@ -837,46 +904,8 @@ export async function handleTeacherApi(
    */
   if (!onlyNext) {
     try {
-      /* 🔴 (2026-08-19) 여기가 «남의 수업이 보일 뻔한» 자리다. 반드시 읽고 고칠 것.
-         첫 판에서는 linkedTeacherIds(= D1 `teachers.id`, 지역 일련번호 1~29)를
-         attendance.teacher_uid 와 곧바로 맞췄다. 그런데 teacher_uid 는
-         **카페24 강사번호**(실측 9~196)다 — 완전히 다른 번호 체계다.
-         번호가 우연히 겹치는 자리에서 정확히 «다른 사람» 이 걸렸다(실측):
-           · HANNAH 계정(teachers.id=24) ↔ 카페24 24 = Teacher Mariane 의 수업 127건
-           · MELCA  계정(teachers.id=26) ↔ 카페24 26 = Teacher Rica 의 수업 11건
-         학생 이름이 함께 보이므로 «남의 수업이 보이는» 사고 그대로였다.
-         (이 파일 위쪽 'Anna → HANNAH' 기록과 같은 종류의 사고다. 번호라서 더 안 보였다.)
-
-         → 로그인 계정을 **카페24 강사번호로 따로 해석**한다. 경로는 하나뿐이다:
-              teacher_profiles.korean_name/english_name
-                ── 완전일치 ──▶ teacher_payroll_auto.teacher_name → teacher_id(카페24 번호)
-            teacher_payroll_auto 는 카페24 서버가 «번호와 이름을 함께» 밀어넣은 표라
-            그 안에서는 번호↔이름이 어긋나지 않는다.
-         ⚠️ 완전일치만 쓴다. 부분일치는 절대 금지 — 'Anna' 가 'H-ANNA-H' 에 붙던 그 사고다.
-         ⚠️ 후보가 2개 이상이면 **아무것도 붙이지 않는다**. 모르는 것보다 틀린 게 나쁘다.
-         ⚠️ 못 찾으면 이 블록은 조용히 0건이 된다(화면은 예전 그대로). 안전한 실패다.
-         ⛔ linkedTeacherIds 로 되돌리지 말 것. 번호가 겹치는 자리에서 조용히 남의 수업을 준다. */
-      const cafe24Tids: string[] = [];
-      const nameKeys = [String(actor.name || '').trim()].filter(Boolean);
-      if (nameKeys.length) {
-        const prof = await env.DB.prepare(
-          `SELECT korean_name, english_name FROM teacher_profiles
-            WHERE korean_name = ? COLLATE NOCASE OR english_name = ? COLLATE NOCASE LIMIT 2`
-        ).bind(nameKeys[0], nameKeys[0]).all<any>().catch(() => ({ results: [] as any[] }));
-        const rows = prof.results || [];
-        // 프로필이 둘 이상 걸리면 누구인지 모르는 것이다 → 붙이지 않는다.
-        if (rows.length === 1) {
-          const cand = [rows[0].korean_name, rows[0].english_name].filter(Boolean);
-          for (const nm of cand) {
-            const pay = await env.DB.prepare(
-              `SELECT DISTINCT teacher_id FROM teacher_payroll_auto
-                WHERE teacher_name = ? COLLATE NOCASE LIMIT 2`
-            ).bind(nm).all<any>().catch(() => ({ results: [] as any[] }));
-            const pr = pay.results || [];
-            if (pr.length === 1) { cafe24Tids.push(String(pr[0].teacher_id)); break; }
-          }
-        }
-      }
+      /* 🔴 담당 판정은 카페24 강사번호로만 — 판정과 그 사고 기록은 resolveCafe24TeacherIds(이 파일 위쪽). */
+      const cafe24Tids = await resolveCafe24TeacherIds(env.DB, actor.name);
       if (!cafe24Tids.length) throw new Error('no_cafe24_teacher_id');
 
       const tConds = cafe24Tids.map(() => 'a.teacher_uid = ?').join(' OR ');

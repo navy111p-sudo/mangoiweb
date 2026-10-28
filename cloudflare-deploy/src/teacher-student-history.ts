@@ -5,6 +5,8 @@ import { recurStartedOn, normSkipDates } from './class-start-date';
 import { loadTeacherNameOf } from './student-schedule-summary';
 import { splitPastDay, splitOriginsFromNotes } from './schedule-split';
 import { evaluationColumns, evaluationKstDate } from './evaluation-records';
+import { dropCafe24SlotDuplicates } from './cafe24-slot-duplicates';
+import { selectInChunks } from './d1-chunk';
 
 const KST = 9 * 3600000;
 const day = (ms: number) => new Date(ms + KST).toISOString().slice(0, 10);
@@ -82,6 +84,47 @@ export function previousScheduled(rows: any[], before: string): any | null {
   return candidates[0] || null;
 }
 
+const LMS_ROW = `room_id LIKE 'c24-%' AND status = 'present'`;
+const hhmm = (ms: number) => new Date(ms + KST).toISOString().slice(11, 16);
+
+/** Old-LMS (cafe24) lessons have no reservation row: the mirrored attendance row is the record.
+ *  Teacher names come from the cafe24 payroll table (cafe24 numbers ≠ D1 teachers.id — never mix them).
+ *  A name is used only when that number maps to exactly one name. Read only. */
+export async function historyLmsLessons(db: D1Database, uid: string, from: string, end: string, before: string) {
+  const month = await db.prepare(`SELECT room_id, date, joined_at, left_at, teacher_uid FROM attendance
+    WHERE user_id = ? COLLATE BINARY AND ${LMS_ROW} AND date >= ? AND date < ? ORDER BY joined_at LIMIT 1000`)
+    .bind(uid, from, end).all<any>();
+  const last = await db.prepare(`SELECT room_id, date, joined_at, teacher_uid FROM attendance
+    WHERE user_id = ? COLLATE BINARY AND ${LMS_ROW} AND date < ? ORDER BY date DESC, joined_at DESC LIMIT 1`)
+    .bind(uid, before).first<any>();
+  const seen = new Set<string>(), rows: any[] = [];
+  for (const r of month.results || []) {
+    const room = String(r.room_id || '');
+    if (!seen.has(room) && evaluationKstDate(r.date)) { seen.add(room); rows.push(r); }
+  }
+  const numbers = [...new Set([...rows, ...(last ? [last] : [])].map(r => String(r.teacher_uid || '').trim()).filter(Boolean))];
+  const names = new Map<string, Set<string>>();
+  try {
+    for (const p of await selectInChunks<any>(db, numbers, ph =>
+      `SELECT DISTINCT teacher_id, teacher_name FROM teacher_payroll_auto WHERE teacher_id IN (${ph})`)) {
+      const key = String(p.teacher_id);
+      if (!names.has(key)) names.set(key, new Set());
+      if (p.teacher_name) names.get(key)!.add(String(p.teacher_name));
+    }
+  } catch { console.warn('[teacher-history] lms teacher names unavailable'); }
+  const nameOf = (n: any) => { const s = names.get(String(n || '').trim()); return s && s.size === 1 ? [...s][0] : null; };
+  const lesson = (r: any) => {
+    const start = Number(r.joined_at) || 0, endMs = Number(r.left_at) || 0;
+    return { date: evaluationKstDate(r.date)!, start: start > 0 ? hhmm(start) : null,
+      duration_min: start > 0 && endMs > start ? Math.max(1, Math.round((endMs - start) / 60000)) : null,
+      schedule_id: null, room_id: String(r.room_id), teacher_name: nameOf(r.teacher_uid),
+      teacher_source: 'lms', teacher_changed: false, state: 'done', label_en: 'Attended (old LMS)', label_ko: '출석 (옛 LMS)' };
+  };
+  // joined_at stays beside the lesson: slot de-duplication compares exact timestamps, never rounded times.
+  return { items: rows.map(r => ({ joined_at: Number(r.joined_at) || 0, lesson: lesson(r) })),
+    previous: last && evaluationKstDate(last.date) ? lesson(last) : null };
+}
+
 /** Read only. Student identity must come from an authorized schedule, never the query string. */
 export async function loadTeacherStudentHistory(env: any, uid: string, month: string, before: string) {
   const rows = await env.DB.prepare(`SELECT * FROM class_schedules WHERE user_id = ?`).bind(uid).all();
@@ -98,12 +141,18 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
     } catch { observationWarning = true; }
   }
   const projected = historyScheduleProjection(rows.results || [], observedRooms);
-  const previous = previousScheduled(projected, before);
-  const [ledger, allReports]: any[] = await Promise.all([
+  let previous: any = previousScheduled(projected, before);
+  const [ledger, allReports, lms]: any[] = await Promise.all([
     buildStudentLedger(env, uid, month, Date.now(), true, projected), historyFeedback(env.DB, uid),
+    historyLmsLessons(env.DB, uid, from, end, before).catch(() => null),
   ]);
   if (!ledger.ok) throw new Error('history_schedule_unavailable');
   if (observationWarning) ledger.warnings.push('historical_attendance');
+  // An unread old-LMS record is a warning, never an empty month.
+  if (!lms) ledger.warnings.push('lms_attendance');
+  const lmsPrevious = lms && lms.previous;
+  // The later lesson is the previous one; on an exact tie the Mangoi reservation stays (it carries the schedule id).
+  if (lmsPrevious && (!previous || lmsPrevious.date + (lmsPrevious.start || '') > previous.date + previous.start)) previous = lmsPrevious;
   const reportDate = (r: any) => r.lesson_date;
   const reports = allReports.filter((r: any) => r.lesson_date >= from && r.lesson_date < end);
   const prior = allReports.find((r: any) => r.lesson_date < before);
@@ -115,16 +164,24 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
   });
   for (const it of items) it.student_uid = uid;
   await attachCalendarRecords(env, items);
+  // Old-LMS lessons, minus the ones a Mangoi reservation already shows at the exact same slot (same rule as the class list).
+  const slots = items.filter((it: any) => it.start).map((it: any) => ({ source: 'mangoi', student_uid: uid,
+    start_ts: Date.parse(`${it.date}T${String(it.start).padStart(5, '0')}:00+09:00`), status: it.state }));
+  const lmsRows: { user_id: string; joined_at: number; lesson: any }[] =
+    (lms?.items || []).map((x: any) => ({ user_id: uid, joined_at: x.joined_at, lesson: x.lesson }));
+  for (const x of dropCafe24SlotDuplicates(lmsRows, slots).kept) items.push({ ...x.lesson, student_uid: uid });
   const used = new Set<number>();
   for (const it of items) {
-    const report = reports.find((r: any) => reportDate(r) === it.date && r.room_id === it.room_id)
+    // A c24 room is one lesson, so its report matches by room even if the report was dated on another day.
+    const report = (it.teacher_source === 'lms' ? allReports.find((r: any) => r.room_id === it.room_id) : null)
+      || reports.find((r: any) => reportDate(r) === it.date && r.room_id === it.room_id)
       || (items.filter(x => x.date === it.date).length === 1
         ? reports.find((r: any) => reportDate(r) === it.date && !r.room_id) : null);
     if (report) {
       used.add(Number(report.id));
       it.feedback = report; it.teacher_name = report.teacher_name || it.teacher_name;
       it.teacher_source = 'feedback';
-    } else it.teacher_source = 'schedule';
+    } else if (it.teacher_source !== 'lms') it.teacher_source = 'schedule';
   }
   for (const report of reports) {
     if (used.has(Number(report.id))) continue;
@@ -176,5 +233,5 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
     if (sub) { it.teacher_name = sub.teacher_name || nameOf(sub.substitute_teacher_id) || null; it.teacher_changed = true; }
   }
   items.sort((a, b) => (a.date + (a.start || '')).localeCompare(b.date + (b.start || '')));
-  return { ok: true, month, items, previous: summary, warnings: ledger.warnings || [] };
+  return { ok: true, month, before, items, previous: summary, warnings: ledger.warnings || [] };
 }
