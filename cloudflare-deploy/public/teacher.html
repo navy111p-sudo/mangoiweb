@@ -2574,7 +2574,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   });
   syncClsLite();
   /* 📅 (2026-10-28 강사 제안 «시간이 빠른 순으로 안 나온다») 오늘 목록에는 일지용 «지난 14일 카페24 수업» 도 온다
-     (api-teacher.ts LOOKBACK_DAYS). 그 줄의 날짜 — 오늘 줄·날짜 없는 옛 캐시는 ''. */
+     (api-teacher.ts LMS_LOOKBACK_DAYS). 그 줄의 날짜 — 오늘 줄·날짜 없는 옛 캐시는 ''. */
   function clsPastDate(c){ var d = String(c && c.class_date || '').slice(0, 10); return d && d < clsToday() ? d : ''; }
   // 날짜가 바뀌는 지난 줄 앞에만 한 번 — asRow=true 면 표의 <tr>, 아니면 카드 사이 <div>.
   function clsDaySepHtml(list, i, asRow){
