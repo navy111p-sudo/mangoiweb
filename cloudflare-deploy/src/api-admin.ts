@@ -70,7 +70,7 @@ import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결�
 import { teacherIdsWithPush } from './teacher-push';              // 🔔 강사 웹푸시 구독 여부(연락처 연결 화면용, 2026-09-14)
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
-import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole } from './auth-admin';
+import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole, recordLogin } from './auth-admin';
 import { groupDirectClasses } from './enroll-direct';
 import { mergeDirectByIds, mergeDirectRows, UNMERGED_DIRECT_SQL } from './enroll-direct-merge';   // 🔀 직접 배정 → 신청서 (2026-09-30)   // 📅 수강신청 목록의 «직접 배정» 줄 (2026-09-29)
 import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
@@ -11387,16 +11387,20 @@ LIMIT $limit`;
 
       /* 🔑 (2026-10-28 사장님 「대리점 아이디와 정보를 넣어 달라」) 대리점 로그인 계정 — 등록(POST)·
          ✏️ 수정(PATCH) 공용. 카페24에서 온 921곳은 등록 폼을 거치지 않아 계정을 붙일 자리가 없었다
-         (목록이 전부 «계정 없음»). 지사 판 createOrResetBranchLogin 과 같은 규칙·같은 반환 모양이다.
+         (목록이 전부 «계정 없음»). 지사 판 createOrResetBranchLogin 을 본뜬 «대리점 판» 이다.
          ⚠️ «검사(check)» 와 «쓰기(apply)» 를 나눈다 — 검사는 대리점 저장 «전» 에 해야
             계정이 거절됐는데 대리점만 저장되는 반쪽 상태가 안 생긴다.
          ⚠️ scope_value 는 centers.name 그대로(scopeCenterCond 가 이름 정확일치로 가른다).
          ⛔ 같은 이름 대리점이 또 있으면 «새로 만들기» 는 막는다 — 그 계정이 남의 자료까지 본다.
-            이미 이 대리점 계정인 아이디(ownNames 정확일치)면 비밀번호만 바꾼다(reset, 수정 화면만).
+         🔑 «비밀번호 바꾸기(reset)» 는 그 아이디가 **이 대리점의 «저장 전» 이름(curName)** 에 붙어 있고
+            그 이름을 쓰는 대리점이 **이것 하나뿐** 일 때만. ⛔ «바꾸려는 새 이름» 으로 주인을 판정하면
+            A 를 B 의 이름으로 바꾸면서 B 의 아이디를 넣는 저장 한 번에 B 계정 비밀번호가 바뀐다
+            (2026-10-28 함정 대조가 재현 — 그래서 새 이름은 주인 판정에 안 쓴다).
+            이름이 겹치면 «어느 대리점 계정인지» 확정할 수 없어 바꾸지 않는다(지사 판과 같은 판단).
          ⚠️ 반환은 단순 객체(판별 유니온 금지 — strictNullChecks:false 라 좁혀지지 않는다). */
       type AgencyLoginCheck = { ok: boolean; mode?: 'create' | 'reset'; username?: string; error?: string; message?: string; status?: number };
       const checkAgencyLogin = async (username: string, password: string, centerName: string,
-                                      selfId: number, ownNames: string[]): Promise<AgencyLoginCheck> => {
+                                      selfId: number, curName: string): Promise<AgencyLoginCheck> => {
         const u = username.trim();
         if (!/^[a-zA-Z0-9_]{3,32}$/.test(u)) {
           return { ok: false, error: 'bad_username', message: '아이디는 영문·숫자·밑줄(_)로 3~32자여야 합니다.', status: 400 };
@@ -11414,9 +11418,15 @@ LIMIT $limit`;
         if (existing) {
           const sc = await env.DB.prepare(`SELECT scope_type, scope_value FROM admin_scope WHERE username = ? LIMIT 1`)
             .bind(existing.username).first<{ scope_type: string; scope_value: string | null }>();
-          const isOwn = selfId > 0 && !!sc && sc.scope_type === 'agency' && ownNames.indexOf(String(sc.scope_value || '')) >= 0;
+          const isOwn = selfId > 0 && !!curName && !!sc && sc.scope_type === 'agency' && String(sc.scope_value || '') === curName;
           if (!isOwn) {
             return { ok: false, error: 'already_exists', message: '이미 있는 아이디입니다. 다른 아이디를 쓰세요.', status: 409 };
+          }
+          const shared = await env.DB.prepare(`SELECT COUNT(*) AS n FROM centers WHERE name = ?`).bind(curName).first<{ n: number }>();
+          if (Number(shared?.n || 0) !== 1) {
+            return { ok: false, error: 'shared_center_name',
+              message: `같은 이름("${curName}")의 대리점이 여러 곳이라 이 계정이 어느 대리점 것인지 확정할 수 없어 비밀번호를 바꾸지 않았습니다. ` +
+                       '대리점 이름을 구분되게 바꾼 뒤 다시 하거나 본사에 문의하세요.', status: 409 };
           }
           return { ok: true, mode: 'reset', username: existing.username };
         }
@@ -11432,22 +11442,38 @@ LIMIT $limit`;
         }
         return { ok: true, mode: 'create', username: u };
       };
-      const applyAgencyLogin = async (chk: AgencyLoginCheck, password: string, centerName: string): Promise<'created' | 'reset'> => {
+      /* 쓰기. ⚠️ 만들기는 계정·범위 두 줄을 **batch(한 묶음)** 로 — 계정만 남고 범위가 빠지면 다음 요청에서
+         autoSeedOne 이 이름으로 범위를 짐작해 «none»(=직원) 이 될 수 있다(CLAUDE.md 「관리자 계정을 지웠는데
+         권한은 오히려 올라감」과 같은 모양). 바꾸기는 기존 «남의 비밀번호 재설정»(auth-admin.ts) 과 같이
+         그 계정의 세션을 전부 끊고 «누가 바꿨는지» 를 로그인 이력에 남긴다. */
+      const applyAgencyLogin = async (chk: AgencyLoginCheck, password: string, centerName: string,
+                                      audit: { by: string; ip: string; ua: string }): Promise<'created' | 'reset'> => {
         const now = Date.now();
         const hash = await hashPassword(password);
         if (chk.mode === 'reset') {
           await env.DB.prepare(`UPDATE admin_account SET password_hash = ?, updated_at = ? WHERE username = ?`)
             .bind(hash, now, chk.username).run();
+          await env.DB.prepare(`DELETE FROM admin_sessions WHERE username = ?`).bind(chk.username).run().catch(() => {});
+          await recordLogin(env as any, chk.username, audit.ip, audit.ua, true, 'password_reset_by:' + audit.by).catch(() => {});
           return 'reset';
         }
-        await env.DB.prepare(
-          `INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
-        ).bind(chk.username, hash, centerName, now, now).run();
-        await env.DB.prepare(
-          `INSERT INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES (?, 'agency', ?, ?)
-           ON CONFLICT(username) DO UPDATE SET scope_type = excluded.scope_type, scope_value = excluded.scope_value, updated_at = excluded.updated_at`
-        ).bind(chk.username, centerName, now).run();
+        await env.DB.batch([
+          env.DB.prepare(
+            `INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
+          ).bind(chk.username, hash, centerName, now, now),
+          env.DB.prepare(
+            `INSERT INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES (?, 'agency', ?, ?)
+             ON CONFLICT(username) DO UPDATE SET scope_type = excluded.scope_type, scope_value = excluded.scope_value, updated_at = excluded.updated_at`
+          ).bind(chk.username, centerName, now),
+        ]);
         return 'created';
+      };
+      /* 계정을 건드리는 요청이면 «누가» 를 먼저 확인한다 — 감사 기록에 쓰고, 강사는 여기서도 막는다
+         (index.ts 의 강사 차단 목록 한 곳에만 기대지 않는다 — CLAUDE.md 2장 쓰기 경로 가드 권고). */
+      const agencyLoginActor = async (): Promise<{ ok: boolean; by: string; ip: string; ua: string }> => {
+        const a = await getAdminActor(request, env as any);
+        return { ok: !!a.ok && !a.isTeacher, by: a.username || '', ip: request.headers.get('cf-connecting-ip') || '',
+                 ua: request.headers.get('user-agent') || '' };
       };
 
       if (method === 'PATCH') {
@@ -11503,16 +11529,20 @@ LIMIT $limit`;
         const loginId = String(b?.login_username || '').trim();
         let loginChk: AgencyLoginCheck | null = null;
         let loginName = '';
+        let loginActor: { ok: boolean; by: string; ip: string; ua: string } | null = null;
         if (loginPw) {
           if (!loginId) {
             return json({ ok: false, error: 'login_username_required',
               message: '비밀번호를 설정하려면 로그인 아이디를 먼저 입력하세요.' }, 400);
           }
+          loginActor = await agencyLoginActor();
+          if (!loginActor.ok) return json({ ok: false, error: 'forbidden_scope', message: '대리점 로그인 계정은 본사만 만들거나 바꿀 수 있습니다.' }, 403);
           const cur = before || await env.DB.prepare(`SELECT name FROM centers WHERE id = ?`).bind(cid).first<{ name: string }>();
           if (!cur) return json({ ok: false, error: 'not_found', message: '대리점을 찾을 수 없습니다.' }, 404);
+          // 새 계정은 «저장 뒤» 이름으로 묶고(scope_value = centers.name), 비밀번호 바꾸기의 주인 판정은
+          // «저장 전» 이름으로만 한다(checkAgencyLogin 주석 — 새 이름으로 판정하면 남의 계정이 걸린다).
           loginName = newName !== undefined ? newName : String(cur.name || '');
-          // 이름을 바꾸는 중이어도 «옛 이름» 에 붙은 계정은 이 대리점 것이다(scope_value 를 안 옮기므로).
-          loginChk = await checkAgencyLogin(loginId, loginPw, loginName, cid, [loginName, String(cur.name || '')]);
+          loginChk = await checkAgencyLogin(loginId, loginPw, loginName, cid, String(cur.name || ''));
           if (!loginChk.ok) return json({ ok: false, error: loginChk.error, message: loginChk.message }, loginChk.status as any);
         }
         if (!sets.length && !loginChk) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
@@ -11604,7 +11634,7 @@ LIMIT $limit`;
         }
 
         // 🔑 대리점 정보가 저장된 «뒤» 에 계정을 쓴다(검사는 위에서 이미 통과).
-        const loginResult = loginChk ? await applyAgencyLogin(loginChk, loginPw, loginName) : undefined;
+        const loginResult = loginChk ? await applyAgencyLogin(loginChk, loginPw, loginName, loginActor) : undefined;
 
         return json({
           ok: true, id: cid, payment_type: ptOut, login_result: loginResult,
@@ -11736,7 +11766,7 @@ LIMIT $limit`;
            빈 값(NULL·'')은 방향과 무관하게 언제나 맨 아래(강사 명부 정렬과 같은 규칙), 같으면 id 순.
            🔒 로그인 아이디 정렬은 본사만 — 아이디 칸 자체가 본사에게만 실린다(아래 login_ids). */
         const _txt = (col: string) => `NULLIF(TRIM(${col}), '')`;
-        const CT_SORT: Record<string, { expr: string; text: boolean }> = {
+        const CT_SORT: Record<string, { expr: string; text: boolean; join?: string }> = {
           id:       { expr: 'c.id', text: false },
           franchise:{ expr: _txt('f.name'), text: true },
           name:     { expr: _txt('c.name'), text: true },
@@ -11748,8 +11778,13 @@ LIMIT $limit`;
           address:  { expr: _txt('c.address'), text: true },
         };
         if (canEditOrg(_cSc)) {
-          CT_SORT.login = { expr: `(SELECT MIN(s.username) FROM admin_scope s JOIN admin_account a ON a.username = s.username
-                                     WHERE s.scope_type = 'agency' AND s.scope_value = c.name)`, text: true };
+          // ⚠️ 줄마다 도는 상관 서브쿼리로 쓰면 대리점 921줄 × admin_scope 전수 × 2번(IS NULL·값) 이라
+          //    계정이 늘수록 느려진다(2026-10-28 함정 대조 실측: scope 3,000행에 약 0.57초). 이름별로 «한 번»
+          //    묶은 표를 이 정렬일 때만 LEFT JOIN 한다(다른 정렬·건수 쿼리에는 안 붙는다).
+          CT_SORT.login = { expr: 'ct_login.login_min', text: true,
+            join: ` LEFT JOIN (SELECT s.scope_value AS shop, MIN(s.username) AS login_min FROM admin_scope s
+                                 JOIN admin_account a ON a.username = s.username
+                                WHERE s.scope_type = 'agency' GROUP BY s.scope_value) ct_login ON ct_login.shop = c.name` };
         }
         const _sortKey = String(url.searchParams.get('sort') || '');
         const sortDef = Object.prototype.hasOwnProperty.call(CT_SORT, _sortKey) ? CT_SORT[_sortKey] : null;
@@ -11757,10 +11792,11 @@ LIMIT $limit`;
         const orderSql = sortDef
           ? `(${sortDef.expr}) IS NULL, ${sortDef.expr}${sortDef.text ? ' COLLATE NOCASE' : ''} ${sortDir}, c.id ASC`
           : `c.active DESC, c.name ASC`;
+        const sortJoin = (sortDef && sortDef.join) || '';
         const pageSql = limit === 0 ? '' : ` LIMIT ? OFFSET ?`;
         const pageBinds = limit === 0 ? listBinds : [...listBinds, limit, offset];
         const rs = await env.DB.prepare(
-          `SELECT ${cols} FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${listWhereSql} ORDER BY ${orderSql}${pageSql}`
+          `SELECT ${cols} FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${sortJoin}${listWhereSql} ORDER BY ${orderSql}${pageSql}`
         ).bind(...pageBinds).all();
         const _ctItems: any[] = (rs.results || []) as any[];
         /* 🪪 (2026-10-26 사장님 「대리점 아이디가 안 나온다」) 대리점 로그인 계정은 centers 에
@@ -11817,6 +11853,7 @@ LIMIT $limit`;
       const loginUsername = String(b.login_username || '').trim();
       const loginPassword = String(b.login_password || '');
       let loginChk: AgencyLoginCheck | null = null;
+      let loginActor: { ok: boolean; by: string; ip: string; ua: string } | null = null;
       if (loginUsername || loginPassword) {
         if (!loginUsername || !loginPassword) {
           return json({ ok: false, error: 'login_fields_incomplete',
@@ -11825,7 +11862,9 @@ LIMIT $limit`;
         // 🔑 검사 정본은 위 checkAgencyLogin(수정 화면과 공용). selfId=0 → 새 대리점이라
         //    «이미 있는 아이디» 는 비밀번호 바꾸기 없이 그대로 거절, 같은 이름 대리점이 하나라도 있으면 거절.
         //    거절되면 대리점도 만들지 않는다(예전과 같다 — 계정 없이 등록하려면 두 칸을 비우면 된다).
-        loginChk = await checkAgencyLogin(loginUsername, loginPassword, String(b.name), 0, []);
+        loginActor = await agencyLoginActor();
+        if (!loginActor.ok) return json({ ok: false, error: 'forbidden_scope', message: '대리점 로그인 계정은 본사만 만들거나 바꿀 수 있습니다.' }, 403);
+        loginChk = await checkAgencyLogin(loginUsername, loginPassword, String(b.name), 0, '');
         if (!loginChk.ok) return json({ ok: false, error: loginChk.error, message: loginChk.message }, loginChk.status as any);
       }
 
@@ -11833,7 +11872,7 @@ LIMIT $limit`;
         `INSERT INTO centers (franchise_id, name, country, address, manager, payment_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(b.franchise_id || null, b.name, b.country || null, b.address || null, b.manager || null, _normPayType(b.payment_type), now, now).run();
 
-      const loginCreated = loginChk ? (await applyAgencyLogin(loginChk, loginPassword, String(b.name))) === 'created' : false;
+      const loginCreated = loginChk ? (await applyAgencyLogin(loginChk, loginPassword, String(b.name), loginActor)) === 'created' : false;
 
       return json({ ok: true, id: r.meta.last_row_id, login_created: loginCreated });
     }

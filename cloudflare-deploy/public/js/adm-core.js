@@ -6838,7 +6838,7 @@ async function saveCenter() {
       alert(adminLang==='en' ? 'Enter the login ID to set a password.' : '비밀번호를 설정하려면 로그인 아이디를 입력하세요.');
       return;
     }
-    // ✏️ 수정 저장 — 로그인 계정 필드는 수정 화면에서 숨겨 뒀으니 여기서는 안 보낸다.
+    // ✏️ 수정 저장 — (2026-10-28) 로그인 아이디·비밀번호도 함께 보낸다. 비밀번호가 비어 있으면 서버가 계정에 손대지 않는다.
     let d;
     try {
       const r = await fetch('/api/admin/centers', {
