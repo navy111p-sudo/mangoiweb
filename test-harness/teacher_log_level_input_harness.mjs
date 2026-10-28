@@ -203,6 +203,11 @@ try {
   // C-2a 권한 범위 정본(teacherLevelScope) — 경계를 실제로 넣어 본다(2026-10-28 「3번 권한 범위 좁혀줘」)
   //   오늘 = 2026-10-27(NOW). 창 = 오늘 − 14일(10-13) ~ 오늘. 「된다」 옆에 「안 된다」를 짝으로.
   ok(L.TEACHER_LEVEL_PAST_DAYS === 14, '전제: 지난 수업 창은 14일(카페24 되돌아보기와 같은 근거)');
+  // 같은 «14일» 이 api-teacher.ts 의 카페24 되돌아보기(LOOKBACK_DAYS)에도 있다 — ① 의 카페24 줄은 날짜를 안 보므로
+  //   그쪽을 늘리면 레벨 창도 조용히 늘어나는데 화면은 계속 «최근 14일» 이라고 말한다 → 두 값이 같은지 소스에서 읽어 대조한다.
+  const lbm = T.match(/const LOOKBACK_DAYS\s*=\s*(\d+)\s*;/);
+  ok(!!lbm, '전제: api-teacher.ts 의 카페24 되돌아보기 상수(LOOKBACK_DAYS)를 읽었다');
+  ok(!!lbm && Number(lbm[1]) === L.TEACHER_LEVEL_PAST_DAYS, '  카페24 되돌아보기 일수 == 레벨 창 일수(어긋나면 화면의 «최근 N일» 이 거짓이 된다)');
   const scope = (todayClasses, schedules, uid = 'u1', todayStr = '2026-10-27') =>
     L.teacherLevelScope({ uid, todayClasses, schedules, todayStr, uidOf: studentUidOf });
   const sc = (row) => scope([], [Object.assign({ user_id: 'u1' }, row)]);
