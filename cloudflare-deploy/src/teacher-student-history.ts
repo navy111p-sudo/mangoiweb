@@ -140,8 +140,11 @@ export async function historyLmsLessons(db: D1Database, uid: string, from: strin
         예약·일지가 빠진 «반쪽 이력» 이었다(강사 목록의 중복 줄은 #1869 에서 한 줄로 정리됨).
    [규칙] 두 계정을 합쳐 읽는 것은 «같은 학생» 이 확인될 때만 — 강사 목록(teacher-cafe24-duplicates)과 같은 근거:
      ① 아이디가 정확히 `X` ↔ `mangoai_X` (twinCandidate — 양방향, 대소문자 그대로)
-     ② 두 계정 각각에서 «확인된 이름»(예약표 student_name · 옛 LMS 출석 username · 명부 korean_name/username 에서
+     ② 두 계정 각각에서 «확인된 이름»(예약표 student_name · 옛 LMS 출석 username · 명부 korean_name «과» username 에서
         MANGOAI 표식·공백을 지우고, 아이디 그대로인 이름은 «모름» 으로 버림)이 **정확히 하나**이고 서로 같다.
+        · 출석 이름은 카페24 동기화가 만든 행(teacher_uid 있음)만 — /api/attendance/join 은 로그인 없이도 c24 방·이름을
+          적을 수 있어(teacher_uid 는 못 적음) «같은 학생» 의 근거가 되면 안 된다.
+        · 명부는 두 칸을 «따로» 본다 — COALESCE 면 korean_name 이 '' 일 때 username 의 다른 이름을 못 본다(더 느슨해짐).
      ⛔ 한쪽이라도 이름이 없거나(전부 아이디 모양) 둘 이상이면 잇지 않는다 — 남의 기록이 섞이는 것이 반쪽보다 나쁘다.
      ⛔ 명부(students_erp) 이름만 보지 않는다 — 실측 9명 중 7명은 `X` 쪽 명부 이름이 아이디 그대로라 «모름» 이 된다.
      ⛔ 자리표시 계정(`lms`·`type_seed`)은 쌍둥이가 아니다 — `mangoai_lms` 의 짝이 `lms`(옛 LMS 점유 자리표시)가 된다.
@@ -154,9 +157,10 @@ export async function historyTwinOf(db: D1Database, uid: string): Promise<{ twin
   let rows: any[];
   try {
     const rs = await db.prepare(`SELECT user_id, student_name AS n FROM class_schedules WHERE user_id = ? COLLATE BINARY OR user_id = ? COLLATE BINARY
-      UNION SELECT user_id, username FROM attendance WHERE (user_id = ? COLLATE BINARY OR user_id = ? COLLATE BINARY) AND ${LMS_ROW}
-      UNION SELECT user_id, COALESCE(korean_name, username) FROM students_erp WHERE user_id = ? COLLATE BINARY OR user_id = ? COLLATE BINARY
-      LIMIT 1001`).bind(uid, twin, uid, twin, uid, twin).all<any>();
+      UNION SELECT user_id, username FROM attendance WHERE (user_id = ? COLLATE BINARY OR user_id = ? COLLATE BINARY) AND ${LMS_ROW} AND teacher_uid IS NOT NULL
+      UNION SELECT user_id, korean_name FROM students_erp WHERE user_id = ? COLLATE BINARY OR user_id = ? COLLATE BINARY
+      UNION SELECT user_id, username FROM students_erp WHERE user_id = ? COLLATE BINARY OR user_id = ? COLLATE BINARY
+      LIMIT 1001`).bind(uid, twin, uid, twin, uid, twin, uid, twin).all<any>();
     if ((rs as any).success === false || !Array.isArray(rs.results) || rs.results.length > 1000) throw new Error('history_twin_names');
     rows = rs.results;
   } catch { console.warn('[teacher-history] twin names unavailable'); return { twin: null, unread: true }; }
