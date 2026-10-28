@@ -189,6 +189,112 @@ db.exec('ALTER TABLE attendance RENAME TO attendance_off');
 const lmsDown=await request();assert.equal(lmsDown.status,200);
 assert.ok(lmsDown.data.warnings.includes('lms_attendance'),'LMS attendance unreadable → warning, not a silent empty month');
 db.exec('ALTER TABLE attendance_off RENAME TO attendance');
+// 👥 Twin accounts (2026-10-28 «쌍둥이 수업 요약·캘린더 이력도 고쳐줘»): one student as `X` (reservations) and `mangoai_X`
+// (old-LMS attendance). Either row must open the same, whole history — but only when both ids carry the same confirmed name.
+// Names below are made up. Reservation rows here are judged by their own account's ledger (its own public-room login).
+{
+  const kst = (d, t) => Date.parse(`${d}T${t}:00+09:00`);
+  db.exec(`ALTER TABLE class_schedules ADD COLUMN student_name TEXT;
+ALTER TABLE attendance ADD COLUMN username TEXT;
+CREATE TABLE students_erp(user_id TEXT PRIMARY KEY, korean_name TEXT, username TEXT);
+INSERT INTO students_erp VALUES('kidaa',NULL,'kidaa'),('mangoai_kidaa',NULL,'가나다 MANGOAI');
+INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_time,duration_min,source,created_at,student_name) VALUES
+(200,'kidaa','1','active','2026-10-26','19:00',20,'adm-enroll:1',1,'가나다'),
+(201,'kidaa','1','active','2026-10-20','19:00',20,'adm-enroll:1',1,'kidaa'),
+(202,'mangoai_kidaa','2','active','2026-10-22','16:00',20,'c24-mirror',1,'가나다 MANGOAI'),
+(203,'mangoai_kidaa','2','active','2026-10-21','16:00',20,'c24-mirror',1,'가나다 MANGOAI');
+INSERT INTO attendance(room_id,role,joined_at,account_uid,user_id,date,status,teacher_uid,left_at,username) VALUES
+('c24-910','student',${kst('2026-10-27','19:00')},NULL,'mangoai_kidaa','2026-10-27','present','184',${kst('2026-10-27','19:20')},'가나다 MANGOAI'),
+('c24-911','student',${kst('2026-10-13','19:00')},NULL,'mangoai_kidaa','2026-10-13','present','184',NULL,'가나다 MANGOAI'),
+('c24-912','student',${kst('2026-10-20','19:00')},NULL,'mangoai_kidaa','2026-10-20','present','184',NULL,'가나다 MANGOAI'),
+('mangoi-class','student',${kst('2026-10-22','16:01')},'mangoai_kidaa','u_device','2026-10-22','attended',NULL,NULL,NULL);
+INSERT INTO student_evaluations VALUES
+(300,'mangoai_kidaa',NULL,'c24-911','2026-10-13','Teacher A','teacher_a',${kst('2026-10-13','20:00')},'Twin LMS lesson feedback',NULL,NULL,NULL),
+(301,'kidaa',NULL,'class-200-20261026','2026-10-26','Teacher A','teacher_a',${kst('2026-10-26','20:00')},'Reservation feedback',NULL,NULL,NULL);
+INSERT INTO class_substitutions VALUES(202,'2026-10-22','3','2','active');
+INSERT INTO class_audit_log VALUES(203,'teacher_change',NULL,'2026-10-24','{"from_teacher_id":"3","to_teacher_id":"2"}',${kst('2026-10-24','09:00')});`);
+  globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_a',name:'Teacher A',role:'teacher'};
+  const fromRes = p => request({schedule_id:'200',date:'2026-10-28',...p});
+  const fromLms = p => request({schedule_id:'',room_id:'c24-910',student_uid:'mangoai_kidaa',date:'2026-10-28',...p});
+  const rooms = r => r.data.items.map(i=>i.room_id).sort();
+  const WHOLE = ['c24-910','c24-911','c24-912','class-200-20261026','class-201-20261020','class-202-20261022','class-203-20261021'];
+  let a = await fromRes(), b = await fromLms();
+  assert.equal(a.status,200);assert.equal(b.status,200);
+  assert.deepEqual(a.data.warnings,[]);assert.deepEqual(b.data.warnings,[]);
+  assert.deepEqual(rooms(a),WHOLE,'reservation row: the twin old-LMS lessons are in the history too');
+  assert.deepEqual(rooms(b),WHOLE,'old-LMS row: the twin reservations are in the history too (same whole history)');
+  const at = (r, room) => r.data.items.find(i=>i.room_id===room);
+  for (const r of [a,b]) {
+    assert.equal(at(r,'c24-911').feedback.note_en,'Twin LMS lesson feedback','the twin account report stays on its lesson');
+    assert.equal(at(r,'class-200-20261026').feedback.note_en,'Reservation feedback');
+    assert.equal(at(r,'c24-911').student_uid,'mangoai_kidaa','an LMS lesson keeps the account it was recorded under');
+    assert.equal(at(r,'class-200-20261026').student_uid,'kidaa');
+    assert.equal(at(r,'class-202-20261022').student_uid,'mangoai_kidaa');
+    assert.equal(at(r,'class-202-20261022').state,'done','a twin reservation is judged by the twin account own login (own ledger)');
+    assert.equal(at(r,'class-202-20261022').teacher_name,'Teacher C','a substitute on a twin reservation still applies');
+    assert.equal(at(r,'class-203-20261021').teacher_name,'Teacher C','a teacher change on a twin reservation is still undone before its day');
+    assert.equal(r.data.items.filter(i=>i.feedback?.id===300).length,1,'a twin report is not repeated as its own row');
+  }
+  assert.equal(a.data.previous.room_id,'c24-910','previous class: the later twin LMS lesson beats the earlier reservation');
+  assert.equal(a.data.previous.teacher_source,'lms');
+  assert.equal(b.data.before,'2026-10-27');
+  assert.equal(b.data.previous.room_id,'class-200-20261026','opened from LMS: the later twin reservation is the previous class');
+  assert.equal(b.data.previous.feedback.note_en,'Reservation feedback');
+  // One c24 room recorded under both ids is still one lesson (and its report shows once).
+  db.exec(`INSERT INTO attendance(room_id,role,joined_at,account_uid,user_id,date,status,teacher_uid,username) VALUES
+('c24-911','student',${kst('2026-10-13','19:00')},NULL,'kidaa','2026-10-13','present','184','가나다');`);
+  for (const r of [await fromRes(), await fromLms()]) {
+    assert.deepEqual(rooms(r),WHOLE,'a c24 room under both twin ids is shown once');
+    assert.equal(r.data.items.filter(i=>i.feedback?.id===300).length,1);
+  }
+  db.exec(`DELETE FROM attendance WHERE room_id='c24-911' AND user_id='kidaa'`);
+  // Same exact slot across the twins: the LMS row is hidden only once the reservation itself says «done».
+  db.exec(`INSERT INTO attendance(room_id,role,joined_at,account_uid,user_id,date,status) VALUES
+('class-201-20261020','student',${kst('2026-10-20','19:01')},'kidaa','u_device','2026-10-20','attended');`);
+  for (const r of [await fromRes(), await fromLms()]) {
+    assert.deepEqual(rooms(r),WHOLE.filter(x=>x!=='c24-912'),'attended twin reservation at the exact LMS slot: shown once');
+    assert.equal(at(r,'class-201-20261020').state,'done');
+  }
+  // Not the same student (or not provably): the other id's records never join.
+  db.exec(`INSERT INTO students_erp VALUES('kidab','가나라',NULL),('mangoai_kidab',NULL,'라마바 MANGOAI');
+INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_time,duration_min,source,created_at,student_name) VALUES
+(210,'kidab','1','active','2026-10-26','18:00',20,'adm-enroll:2',1,'가나라'),
+(211,'kidac','1','active','2026-10-26','18:20',20,'adm-enroll:3',1,'kidac'),
+(212,'kidad','1','active','2026-10-26','18:40',20,'adm-enroll:4',1,'가가가'),
+(213,'kidad','1','cancelled','2026-10-05','18:40',20,'adm-enroll:4',1,'나나나'),
+(214,'Kidae','1','active','2026-10-26','17:40',20,'adm-enroll:5',1,'바바바'),
+(215,'kidaf','1','active','2026-10-26','17:20',20,'adm-enroll:6',1,'MANGOAI');
+INSERT INTO attendance(room_id,role,joined_at,account_uid,user_id,date,status,teacher_uid,username) VALUES
+('c24-920','student',${kst('2026-10-27','18:00')},NULL,'mangoai_kidab','2026-10-27','present','184','라마바 MANGOAI'),
+('c24-921','student',${kst('2026-10-27','18:20')},NULL,'mangoai_kidac','2026-10-27','present','184','가나바 MANGOAI'),
+('c24-922','student',${kst('2026-10-27','18:40')},NULL,'mangoai_kidad','2026-10-27','present','184','가가가 MANGOAI'),
+('c24-923','student',${kst('2026-10-27','17:40')},NULL,'mangoai_kidae','2026-10-27','present','184','바바바 MANGOAI'),
+('c24-924','student',${kst('2026-10-27','17:20')},NULL,'mangoai_kidaf','2026-10-27','present','184','MANGOAI');`);
+  for (const [id, room, why] of [['210','c24-920','different names'],['211','c24-921','one side has no confirmed name (id-shaped only)'],
+    ['212','c24-922','one side has two names'],['214','c24-923','ids differ by case (Kidae vs mangoai_kidae)'],
+    ['215','c24-924','a name that is only the MANGOAI mark is no name']]) {
+    const r = await request({schedule_id:id,date:'2026-10-28'});
+    assert.equal(r.status,200);assert.ok(!r.data.items.some(i=>i.room_id===room),'not linked: '+why);
+    assert.deepEqual(r.data.warnings,[],'not linked is a decision, not a read failure: '+why);
+  }
+  // The placeholder account `lms` (old-LMS occupancy rows) is never the twin of `mangoai_lms`, even with a matching name.
+  db.exec(`UPDATE attendance SET username='가가나 MANGOAI' WHERE user_id='mangoai_lms';
+UPDATE class_schedules SET student_name='가가나 MANGOAI' WHERE user_id='mangoai_lms';
+INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_time,duration_min,source,created_at,student_name) VALUES
+(220,'lms','1','active','2026-10-25','10:00',20,'lms_import_w26',1,'가가나');`);
+  const placeholder = await request({schedule_id:'',room_id:'c24-900',student_uid:'mangoai_lms',date:'2026-10-28'});
+  assert.equal(placeholder.status,200);assert.ok(!placeholder.data.items.some(i=>i.schedule_id===220),'placeholder `lms` rows never join');
+  // An unread name check is a warning — and the student's own half still shows (never a silently shorter history).
+  db.exec('ALTER TABLE students_erp RENAME TO students_erp_off');
+  const unread = await fromRes();assert.equal(unread.status,200);
+  assert.ok(unread.data.warnings.includes('twin_account'),'twin names unreadable → warning');
+  assert.deepEqual(rooms(unread),['class-200-20261026','class-201-20261020'],'…and only the confirmed account is shown');
+  db.exec('ALTER TABLE students_erp_off RENAME TO students_erp');
+  assert.deepEqual((await fromRes()).data.warnings,[]);
+  globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_c',name:'Teacher C',role:'teacher'};
+  assert.equal((await fromRes()).status,403,'merging twins never widens who may open the history');
+  globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_a',name:'Teacher A',role:'teacher'};
+}
 Date.now=realNow;
 assert.ok(executed.every(sql=>/^\s*(SELECT\b|PRAGMA table_info\b)/.test(sql)),'LMS history only reads data and schema');
 // Read-only compatibility: fresh canonical schema, then legacy schema with eval_at in another month.

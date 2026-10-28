@@ -7,6 +7,8 @@ import { splitPastDay, splitOriginsFromNotes } from './schedule-split';
 import { evaluationColumns, evaluationKstDate } from './evaluation-records';
 import { dropCafe24SlotDuplicates } from './cafe24-slot-duplicates';
 import { selectInChunks } from './d1-chunk';
+import { twinCandidate } from './student-alias';
+import { confirmedTwinName } from './teacher-cafe24-duplicates';
 
 const KST = 9 * 3600000;
 const day = (ms: number) => new Date(ms + KST).toISOString().slice(0, 10);
@@ -51,9 +53,10 @@ export async function historyFeedback(db: D1Database, uid: string): Promise<any[
     lesson_date:evaluationKstDate(r.lesson_date) || evaluationKstDate(r.eval_at) || evaluationKstDate(r.created_at),
     teacher_name:r.teacher_name || r.evaluator || null,created_at:r.created_at,
     note_en:String(r.note_en || r.teacher_comment || r.strengths || r.comment || '').slice(0,1500),
-    note_ko:String(r.note_ko || '').slice(0,1500) })).filter(r => r.lesson_date)
-    .sort((a,b) => b.lesson_date.localeCompare(a.lesson_date) || (Number(b.created_at)||0)-(Number(a.created_at)||0));
+    note_ko:String(r.note_ko || '').slice(0,1500) })).filter(r => r.lesson_date).sort(newestReportFirst);
 }
+const newestReportFirst = (a: any, b: any) =>
+  b.lesson_date.localeCompare(a.lesson_date) || (Number(b.created_at) || 0) - (Number(a.created_at) || 0);
 export function validHistoryDate(value: string): boolean {
   const ms = Date.parse(value + 'T00:00:00Z');
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(ms)
@@ -131,33 +134,82 @@ export async function historyLmsLessons(db: D1Database, uid: string, from: strin
     previous: last && evaluationKstDate(last.date) ? lesson(last) : null, namesUnread };
 }
 
+/* 👥 쌍둥이 계정 이력 (2026-10-28 사장님 「쌍둥이 수업 요약·캘린더 이력도 고쳐줘」)
+   [왜] 카페24에 같은 학생이 `X` 와 `mangoai_X` 두 계정으로 있고(운영 D1 실측 9명), 예약표는 `X`, 옛 LMS 출석은
+        `mangoai_X` 로 갈려 있다. 이력은 계정 하나로만 읽어서, 예약 줄로 열면 옛 LMS 수업·일지가, LMS 줄로 열면
+        예약·일지가 빠진 «반쪽 이력» 이었다(강사 목록의 중복 줄은 #1869 에서 한 줄로 정리됨).
+   [규칙] 두 계정을 합쳐 읽는 것은 «같은 학생» 이 확인될 때만 — 강사 목록(teacher-cafe24-duplicates)과 같은 근거:
+     ① 아이디가 정확히 `X` ↔ `mangoai_X` (twinCandidate — 양방향, 대소문자 그대로)
+     ② 두 계정 각각에서 «확인된 이름»(예약표 student_name · 옛 LMS 출석 username · 명부 korean_name/username 에서
+        MANGOAI 표식·공백을 지우고, 아이디 그대로인 이름은 «모름» 으로 버림)이 **정확히 하나**이고 서로 같다.
+     ⛔ 한쪽이라도 이름이 없거나(전부 아이디 모양) 둘 이상이면 잇지 않는다 — 남의 기록이 섞이는 것이 반쪽보다 나쁘다.
+     ⛔ 명부(students_erp) 이름만 보지 않는다 — 실측 9명 중 7명은 `X` 쪽 명부 이름이 아이디 그대로라 «모름» 이 된다.
+     ⛔ 자리표시 계정(`lms`·`type_seed`)은 쌍둥이가 아니다 — `mangoai_lms` 의 짝이 `lms`(옛 LMS 점유 자리표시)가 된다.
+   [실패] 이름을 못 읽으면 잇지 않고(= 예전 동작) 경고(twin_account)로 알린다 — «못 읽음» 을 «쌍둥이 없음» 으로 위장하지 않는다.
+   읽기 전용. 감시: test-harness/teacher_student_history_harness.mjs (쌍둥이 절) */
+export async function historyTwinOf(db: D1Database, uid: string): Promise<{ twin: string | null; unread: boolean }> {
+  const twin = twinCandidate(uid);
+  const lo = String(twin || '').toLowerCase();
+  if (!twin || lo === 'lms' || lo === 'type_seed') return { twin: null, unread: false };
+  let rows: any[];
+  try {
+    const rs = await db.prepare(`SELECT user_id, student_name AS n FROM class_schedules WHERE user_id = ? COLLATE BINARY OR user_id = ? COLLATE BINARY
+      UNION SELECT user_id, username FROM attendance WHERE (user_id = ? COLLATE BINARY OR user_id = ? COLLATE BINARY) AND ${LMS_ROW}
+      UNION SELECT user_id, COALESCE(korean_name, username) FROM students_erp WHERE user_id = ? COLLATE BINARY OR user_id = ? COLLATE BINARY
+      LIMIT 1001`).bind(uid, twin, uid, twin, uid, twin).all<any>();
+    if ((rs as any).success === false || !Array.isArray(rs.results) || rs.results.length > 1000) throw new Error('history_twin_names');
+    rows = rs.results;
+  } catch { console.warn('[teacher-history] twin names unavailable'); return { twin: null, unread: true }; }
+  const names = (account: string) => new Set(rows.filter(r => String(r.user_id ?? '') === account)
+    .map(r => confirmedTwinName(r.n, account)).filter(Boolean));
+  const mine = names(uid), theirs = names(twin);
+  return { twin: mine.size === 1 && theirs.size === 1 && [...mine][0] === [...theirs][0] ? twin : null, unread: false };
+}
+
 /** Read only. Student identity must come from an authorized schedule, never the query string. */
 export async function loadTeacherStudentHistory(env: any, uid: string, month: string, before: string) {
-  const rows = await env.DB.prepare(`SELECT * FROM class_schedules WHERE user_id = ?`).bind(uid).all();
+  // A confirmed twin account is the same student (historyTwinOf). Without one, `other` = uid binds the same account twice.
+  const twinInfo = await historyTwinOf(env.DB, uid);
+  const twin = twinInfo.twin, other = twin || uid;
+  const rows = await env.DB.prepare(`SELECT * FROM class_schedules WHERE user_id = ? OR user_id = ?`).bind(uid, other).all();
   const from = month + '-01';
   const end = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 1)).toISOString().slice(0, 10);
   let observedRooms: string[] = [], observationWarning = false;
   if ((rows.results || []).some((r: any) => r.status === 'cancelled' && !r.scheduled_date && !evaluationKstDate(r.updated_at))) {
     try {
       const attendance = await env.DB.prepare(`SELECT DISTINCT a.room_id FROM attendance a JOIN class_schedules cs
-        ON a.room_id GLOB ('class-' || cs.id || '-[0-9]*') WHERE cs.user_id=? AND a.role='student' LIMIT 10001`)
-        .bind(uid).all();
+        ON a.room_id GLOB ('class-' || cs.id || '-[0-9]*') WHERE (cs.user_id=? OR cs.user_id=?) AND a.role='student' LIMIT 10001`)
+        .bind(uid, other).all();
       if ((attendance.results || []).length > 10000) throw new Error('history_attendance_limit');
       observedRooms = (attendance.results || []).map((r: any) => String(r.room_id));
     } catch { observationWarning = true; }
   }
   const projected = historyScheduleProjection(rows.results || [], observedRooms);
   let previous: any = previousScheduled(projected, before);
-  const [ledger, allReports, lms]: any[] = await Promise.all([
-    buildStudentLedger(env, uid, month, Date.now(), true, projected), historyFeedback(env.DB, uid),
+  // Each account's reservations are judged by that account's own ledger (attendance, leaves, holds) — the same answer
+  // as opening the history from that account's own row.
+  const twinRows = twin ? projected.filter((r: any) => String(r.user_id ?? '') === twin) : [];
+  const ownRows = twin ? projected.filter((r: any) => String(r.user_id ?? '') !== twin) : projected;
+  const noLms = { items: [], previous: null, namesUnread: false };
+  const [ledger, twinLedger, ownReports, twinReports, lms, twinLms]: any[] = await Promise.all([
+    buildStudentLedger(env, uid, month, Date.now(), true, ownRows),
+    twin && twinRows.length ? buildStudentLedger(env, twin, month, Date.now(), true, twinRows).catch(() => ({ ok: false })) : null,
+    historyFeedback(env.DB, uid),
+    twin ? historyFeedback(env.DB, twin).catch(() => null) : [],
     historyLmsLessons(env.DB, uid, from, end, before).catch(() => null),
+    twin ? historyLmsLessons(env.DB, twin, from, end, before).catch(() => null) : noLms,
   ]);
   if (!ledger.ok) throw new Error('history_schedule_unavailable');
+  // The twin half failing is a warning (the student's own half still shows), never a silently shorter history.
+  if (twinInfo.unread || (twinLedger && !twinLedger.ok) || !twinReports) ledger.warnings.push('twin_account');
+  for (const w of (twinLedger && twinLedger.ok && twinLedger.warnings) || []) if (!ledger.warnings.includes(w)) ledger.warnings.push(w);
   if (observationWarning) ledger.warnings.push('historical_attendance');
   // An unread old-LMS record is a warning, never an empty month.
-  if (!lms) ledger.warnings.push('lms_attendance');
-  else if (lms.namesUnread) ledger.warnings.push('lms_teacher_names');
-  const lmsPrevious = lms && lms.previous;
+  if (!lms || !twinLms) ledger.warnings.push('lms_attendance');
+  if ((lms && lms.namesUnread) || (twinLms && twinLms.namesUnread)) ledger.warnings.push('lms_teacher_names');
+  const allReports: any[] = twinReports && twinReports.length ? [...ownReports, ...twinReports].sort(newestReportFirst) : ownReports;
+  const lmsLater = (a: any, b: any) => !a ? b || null : !b ? a : (b.date + hhmmKey(b.start) > a.date + hhmmKey(a.start) ? b : a);
+  const lmsPrevious = lmsLater(lms && lms.previous, twinLms && twinLms.previous);
   // The later lesson is the previous one; on an exact tie the Mangoi reservation stays (it carries the schedule id).
   if (lmsPrevious && (!previous || lmsPrevious.date + hhmmKey(lmsPrevious.start) > previous.date + hhmmKey(previous.start))) previous = lmsPrevious;
   const reportDate = (r: any) => r.lesson_date;
@@ -165,11 +217,13 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
   const prior = allReports.find((r: any) => r.lesson_date < before);
   const previousFeedback = previous && allReports.find((r: any) => r.room_id === previous.room_id && r.lesson_date < before);
   const schedules = new Map<number, any>(projected.map((r: any) => [Number(r.id), r]));
-  const items: any[] = ledger.items.filter((it: any) => {
+  // student_uid = the account that owns the record (attachCalendarRecords finds that account's own reports).
+  const owned = (part: any, owner: string | null) =>
+    (owner && part && part.ok ? part.items : []).map((it: any) => ({ ...it, student_uid: owner }));
+  const items: any[] = [...owned(ledger, uid), ...owned(twinLedger, twin)].filter((it: any) => {
     const row = schedules.get(it.schedule_id);
     return row && (row.scheduled_date || recurStartedOn(row, it.date, { createdFallback: true }));
   });
-  for (const it of items) it.student_uid = uid;
   await attachCalendarRecords(env, items);
   // Old-LMS lessons, minus the ones a Mangoi reservation already shows at the exact same slot (same rule as the class list).
   // Only a reservation that itself says «done» may hide one: the ledger never counts c24 attendance, so a same-slot
@@ -177,9 +231,16 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
   // «no record». In that case both rows stay (each source says what it knows).
   const slots = items.filter((it: any) => it.state === 'done' && hhmmKey(it.start)).map((it: any) => ({ source: 'mangoi',
     student_uid: uid, start_ts: Date.parse(`${it.date}T${hhmmKey(it.start)}:00+09:00`), status: it.state }));
-  const lmsRows: { user_id: string; joined_at: number; lesson: any }[] =
-    (lms?.items || []).map((x: any) => ({ user_id: uid, joined_at: x.joined_at, lesson: x.lesson }));
-  for (const x of dropCafe24SlotDuplicates(lmsRows, slots).kept) items.push({ ...x.lesson, student_uid: uid });
+  // Both accounts are one student here, so the slot key is that student (uid) for every row; the owner stays on the item.
+  const lmsRows: { user_id: string; joined_at: number; lesson: any; owner: string }[] = [];
+  for (const [part, owner] of [[lms, uid], [twinLms, twin]] as [any, string | null][]) {
+    if (owner) for (const x of part?.items || []) lmsRows.push({ user_id: uid, joined_at: x.joined_at, lesson: x.lesson, owner });
+  }
+  const lmsRooms = new Set<string>();
+  for (const x of dropCafe24SlotDuplicates(lmsRows, slots).kept) {
+    if (lmsRooms.has(x.lesson.room_id)) continue;   // one c24 room is one lesson, whichever account it was recorded under
+    lmsRooms.add(x.lesson.room_id); items.push({ ...x.lesson, student_uid: x.owner });
+  }
   const used = new Set<number>();
   for (const it of items) {
     // A c24 room is one lesson, so its report matches by room even if the report was dated on another day.
@@ -217,8 +278,8 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
   // Old text-only audits cannot prove a teacher identity: leave that value explicitly unknown.
   const audits = await env.DB.prepare(`SELECT a.schedule_id,a.action,a.lesson_date,a.detail,a.created_at
     FROM class_audit_log a JOIN class_schedules cs ON cs.id=a.schedule_id
-    WHERE cs.user_id=? AND a.action IN ('teacher_change','reschedule') ORDER BY a.created_at DESC`)
-    .bind(uid).all();
+    WHERE (cs.user_id=? OR cs.user_id=?) AND a.action IN ('teacher_change','reschedule') ORDER BY a.created_at DESC`)
+    .bind(uid, other).all();
   for (const it of [...items, ...(summary ? [summary] : [])]) {
     if (it.teacher_source === 'feedback') continue;
     for (const audit of audits.results || []) {
@@ -235,8 +296,8 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
   const subs = await env.DB.prepare(`SELECT s.schedule_id, s.sub_date, s.substitute_teacher_id, t.name AS teacher_name
     FROM class_substitutions s JOIN class_schedules cs ON cs.id=s.schedule_id
     LEFT JOIN teachers t ON CAST(t.id AS TEXT)=CAST(s.substitute_teacher_id AS TEXT)
-    WHERE cs.user_id=? AND s.status='active' AND (s.sub_date BETWEEN ? AND ? OR s.sub_date=?)`)
-    .bind(uid, from, end, summary?.date || '').all();
+    WHERE (cs.user_id=? OR cs.user_id=?) AND s.status='active' AND (s.sub_date BETWEEN ? AND ? OR s.sub_date=?)`)
+    .bind(uid, other, from, end, summary?.date || '').all();
   for (const it of [...items, ...(summary ? [summary] : [])]) {
     if (it.teacher_source === 'feedback') continue;
     const sub = (subs.results || []).find((s: any) => Number(s.schedule_id) === it.schedule_id && s.sub_date === it.date);
