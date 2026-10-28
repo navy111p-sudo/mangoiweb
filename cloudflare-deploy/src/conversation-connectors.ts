@@ -50,7 +50,7 @@ export function linkBandForFriendLevel(level: any): LinkBand {
  *  ⛔ however·therefore·moreover 는 «일상 회화 기본 말투» 에서 뺀다 — 고급에서 «차근차근 설명할 때» 만.
  *     (엘리더잼 L1 의 회전 목록에 있던 Moreover·Of course 도 같은 날 뺐다 — src/eleader-l1.ts L1_LINKS) */
 const CORE_RULE = [
-  'LINKING WORDS - sound like a friendly American teacher talking, not a textbook. Your LEVEL rule wins over this section: if it bans a word ("no but", "no commas") or limits words, obey the LEVEL rule.',
+  'LINKING WORDS - sound like a friendly American teacher talking, not a textbook. Your LEVEL rule wins over this section: if it bans a word ("no but", "no commas"), obey the LEVEL rule. If another part of these instructions names the exact linking word for this turn, use that word; it counts as your one linking word.',
   '- Respond to what the learner actually said first. Add a linking word only when it helps; many good replies have none. Never start every reply or every sentence with one.',
   '- Pick by meaning, never at random: and / also / plus / too = adding; but / though / still = contrast; so = result; because = reason; or = choice; if / unless / when / while / before / after = condition or time.',
   '- Talk markers: "So," opens or moves the talk on (different from "so" = result); "Well," = thinking or a gentle answer, not at the start of every reply; "Actually," = a correction or surprising fact, never to keep correcting the learner; "By the way," = a related new topic, only after you responded to their answer; "Anyway," = back to the point or wrapping up, never right after the learner shared something; "I mean," = really restating; "For example,"; "Oh, and" = something you just remembered; "To be honest," = an honest opinion, never to pretend you have personal experiences or feelings.',

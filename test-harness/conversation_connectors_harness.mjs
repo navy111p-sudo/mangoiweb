@@ -51,6 +51,9 @@ console.log('② 규칙 문장(공통 + 수준별)');
 const R = { beginner: C.connectorRule('beginner'), intermediate: C.connectorRule('intermediate'), advanced: C.connectorRule('advanced') };
 for (const [b, t] of Object.entries(R)) {
   ok(/LEVEL rule wins over this section/.test(t), `${b}: «수준 규칙이 이긴다» 를 맨 앞에 말한다`);
+  // 🧭 (2026-10-28 함정 대조) 엘리더잼 L1 처럼 «이번 턴은 이 말로» 를 따로 정하는 지시와 부딪히지 않게 — 그 말이 «하나뿐인 연결어» 다
+  ok(/names the exact linking word for this turn, use that word; it counts as your one linking word/.test(t), `${b}: 턴별로 정한 연결어가 있으면 그것을 쓴다(지시끼리 충돌 없음)`);
+  ok(!/or limits words, obey/.test(t), `${b}: «단어 수 제한도 이긴다» 와 «연결어는 단어 수에 안 센다» 가 서로 부딪히지 않는다`);
   ok(/Respond to what the learner actually said first/.test(t) && /many good replies have none/.test(t) && /Never start every reply or every sentence/.test(t), `${b}: 반응 먼저 · 연결어 생략 허용 · 매 답 앞 금지`);
   ok(/Pick by meaning, never at random/.test(t), `${b}: 뜻(원인·결과·대조·추가·전환)으로 고른다`);
   ok(/"Actually," = a correction or surprising fact, never to keep correcting/.test(t) && /"Anyway," = back to the point or wrapping up, never right after the learner shared/.test(t)
@@ -211,6 +214,17 @@ const bodyOf = (text, head, opener = '{') => { const a = text.indexOf(head); if 
   ok(/do not use formal words like "moreover" or "however"/.test(fn) && !/of course, moreover/.test(fn), '엘리더잼 L1: «Other … linking words» 에서 격식어를 뺐다');
 }
 ok(/one short reaction or cheer and ONE short question/.test(lvSrc) && /Keep the opening reaction \(or cheer\) and the question/.test(lvSrc), 'AI 친구 A1 규격·다시 뽑기 힌트도 «반응 또는 칭찬»');
+{ // 🧩 (2026-10-28 함정 대조) AI 친구 «반응» 예문도 모델이 그대로 따라 한다 — 기초 문법 검사·조각 질문 판정을 지나야 한다
+  //    (처음 판의 "Camping with your brother? Fun!" 이 두 판정에 다 걸렸다: 기초 레벨에서 매번 다시 뽑기가 돌고, 그 힌트가 «반응을 지켜라» 라 깨진 문장이 남는다)
+  const m = ai.match(/open with a SHORT, real reaction[^\n]*?\(("[^)]*")\)/);
+  const ex = m ? [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]) : [];
+  ok(ex.length >= 2, 'AI 친구 반응 예문을 소스에서 읽었다(전제)', ex);
+  if (RQ) {
+    for (const e of ex) ok(RQ.fragmentQuestions(e).length === 0, 'AI 친구 반응 예문은 조각 질문이 아니다: ' + e, RQ.fragmentQuestions(e));
+    ok(RQ.fragmentQuestions('Camping with your brother? Fun!').length === 1, '(짝) 처음 판의 예문은 실제로 조각 질문이다 — 판정이 헛돌지 않는다');
+  }
+  if (LV) for (const e of ex) for (const lv of ['S1', 'S2', 'S3']) ok(LV.aiFriendBrokenQuestions(e, lv).length === 0, `AI 친구 ${lv} 문법 검사도 반응 예문을 깨졌다고 안 본다: ${e}`);
+}
 ok(!/export function (connectorIssues|replyOpener)[\s\S]{0,0}/.test(ai + idx) && !/connectorIssues\(/.test(ai + idx + ca + el), '측정기(connectorIssues)는 대화 경로에서 부르지 않는다 — 후처리·다시 뽑기 없음');
 
 // ── ⑥ 진짜 워커로 세 화면 요청 → «모델이 받는 지시» ───────────────────────────────

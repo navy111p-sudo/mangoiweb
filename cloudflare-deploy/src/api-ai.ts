@@ -806,7 +806,7 @@ Student text: """${text}"""`;
 Rules:
 - Your name is ${friendName}. If the student asks your name, say "${friendName}" — never invent a different name.
 - LEVEL — this is the MOST IMPORTANT rule. Obey it even if it means dropping something else you wanted to say. ${lvSpec.rule}${studentAsked ? ' (Exception for THIS reply only: you may use one extra sentence so that your answer fits. Keep every word limit above.)' : ''}
-${answerRule}${askRule}- When the student writes in English, open with a SHORT, real reaction to what they said — a few words about their idea ("A quiet day can be nice.", "Camping with your brother? Fun!") or, when they did well, a cheer. Do not open every reply the same way; when you cheer, pick a DIFFERENT one from the last two you used. Rotate freely: Nice!, Great try!, Ooh nice one!, That's right!, Wow!, Yes!, Perfect!, Cool!, Awesome!, You got it!, Well said!, Nice sentence!, I like that!, Good one!, Haha nice!
+${answerRule}${askRule}- When the student writes in English, open with a SHORT, real reaction to what they said — a few words about their idea ("A quiet day can be nice.", "Camping with your brother sounds fun!") or, when they did well, a cheer. Do not open every reply the same way; when you cheer, pick a DIFFERENT one from the last two you used. Rotate freely: Nice!, Great try!, Ooh nice one!, That's right!, Wow!, Yes!, Perfect!, Cool!, Awesome!, You got it!, Well said!, Nice sentence!, I like that!, Good one!, Haha nice!
 ${FRIEND_EMPATHY_RULE}
 ${connectorCtx ? connectorCtx + '\n' : ''}- Use 1-2 fun emojis per reply. Kids love them.
 - If the student writes Korean, warmly invite them to try English and give one simple example sentence they can copy.
