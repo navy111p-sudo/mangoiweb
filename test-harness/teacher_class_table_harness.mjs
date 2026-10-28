@@ -80,13 +80,48 @@ if (api) {
   const esc = api.classTableHtml([{ ...row, student_name: '<b>x', academy: '<img>' }], {});
   ok('이스케이프(학원 이름)', !/<img>/.test(esc));
 }
-// ⑦ 처음 보기는 폰·PC 모두 표(2026-10-26) — 기기 저장값이 있으면 그것이 이긴다(짝)
+// ⑦ 열 때마다 표로 시작(2026-10-28 사장님 «표가 기본») — 예전엔 «카드» 저장값이 이겨서 그 기기는 계속 카드로 열렸다.
+//    보기 블록을 오려 내 가짜 select·localStorage 로 «실제로 돌려» 본다(문자열 검사는 «저장값을 읽는 줄» 을 되살려도 모른다).
 {
-  const m = html.match(/var classView = ([^;]+);/);
-  let v = null;
-  try { v = m && new Function('window', 'return ' + m[1])({ innerWidth: 390 }); } catch (e) {}
-  ok('⑦ 폰(390px) 첫 보기 = 표', v === 'table', m && m[1]);
-  ok('⑦ 저장값(cards/table)이 있으면 그것을 쓴다(짝)', /localStorage\.getItem\('mangoi_teacher_class_view'\)[^\n]*classView = savedView/.test(html));
+  const a = html.indexOf("  var classViewSelect = document.getElementById('class-view');");
+  const b = a < 0 ? -1 : html.indexOf('  /* 🙈 (2026-10-26) 상세 숨기기', a);
+  const block = a < 0 || b < 0 ? '' : html.slice(a, b);
+  ok('⑦ 전제: 보기 블록을 오려 냈다', /addEventListener\('change'/.test(block), block.length);
+  const KEY = 'mangoi_teacher_class_view';
+  function mkStore(init, broken) {
+    const m = new Map(Object.entries(init || {})), sets = [];
+    const boom = () => { throw new Error('blocked'); };
+    return { m, sets, getItem: broken ? boom : k => (m.has(k) ? m.get(k) : null), setItem: broken ? boom : (k, v) => { sets.push(k); m.set(k, String(v)); }, removeItem: broken ? boom : k => { m.delete(k); } };
+  }
+  function open(store) {
+    const sel = { value: '', on: null, addEventListener(t, f) { if (t === 'change') this.on = f; } };
+    const calls = [];
+    try {
+      new Function('document', 'localStorage', 'renderClasses', 'renderClsDay', 'syncClsLite', 'DATA', 'lastSig', block)(
+        { getElementById: id => (id === 'class-view' ? sel : null) }, store,
+        () => calls.push('classes'), () => calls.push('day'), () => calls.push('lite'), { classes: [] }, 'sig');
+    } catch (e) { return { err: e.message, sel, calls }; }
+    return { sel, calls };
+  }
+  for (const saved of ['cards', 'table', 'junk']) {
+    const st = mkStore({ [KEY]: saved });
+    const r = open(st);
+    ok('⑦ 저장값 «' + saved + '» 이 있어도 첫 보기 = 표', !r.err && r.sel.value === 'table', r.err || r.sel.value);
+    ok('⑦ 옛 저장값을 지운다(' + saved + ')', !st.m.has(KEY), [...st.m.keys()]);
+  }
+  const none = open(mkStore({}));
+  ok('⑦ 저장값이 없을 때도 표', !none.err && none.sel.value === 'table', none.err || none.sel.value);
+  const broken = open(mkStore({}, true));
+  ok('⑦ 저장소가 막힌 기기(사생활 모드 등)도 표로 시작 · 던지지 않음', !broken.err && broken.sel.value === 'table', broken.err || broken.sel.value);
+  // 짝: 카드로 바꾸기는 그대로 된다(그 화면에서 다시 그림) — 단 기억하지 않아 새로 열면 다시 표.
+  const st = mkStore({});
+  const r1 = open(st);
+  r1.sel.value = 'cards';
+  try { r1.sel.on.call(r1.sel); } catch (e) { r1.err = e.message; }
+  ok('⑦ 카드로 바꾸면 그 자리에서 다시 그린다(짝)', !r1.err && r1.calls.join(',') === 'classes,day,lite', r1.err || r1.calls);
+  ok('⑦ 바꾼 값을 기기에 저장하지 않는다', !st.sets.includes(KEY), st.sets);
+  const r2 = open(st);
+  ok('⑦ 카드로 바꾼 뒤 새로 열면 다시 표', !r2.err && r2.sel.value === 'table', r2.err || r2.sel.value);
 }
 // ⑨ 실선(가로·세로) + 폰(<900px)은 같은 DOM 을 수업당 격자 상자로(D안) — CSS 를 실제로 읽어 본다
 {
