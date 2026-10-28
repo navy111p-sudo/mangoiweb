@@ -340,28 +340,49 @@ try {
   ok(atA > T.lastIndexOf('classes.push(', rA) && atA > T.lastIndexOf('day.items.push(', rA) && atA < rA && T.slice(atEnd + 2, rA).trim() === '',
      '  그 줄은 오늘 목록·주간 항목을 «다 만든 뒤», 본 응답 «바로 앞» 에 있다(위치)');
   ok(T.indexOf('attachLevelScope(', atEnd) < 0 || T.indexOf('attachLevelScope(', atEnd) > rA, '  포털 안에서 한 번만 붙인다');
+  {
+    // «조건 없이» 도는가 — 위 검사들은 그 한 줄만 오려 돌리므로, 앞에 `if (조건)` 이나 `조건 &&` 가 붙어도(=실제로는 안 돎) 통과한다.
+    // 그 줄 바로 앞(빈 줄·주석을 건너뛴 자리)이 «앞 문장의 끝»(; 또는 }) 이어야 한다.
+    let pre = T.slice(0, atA);
+    for (let guard = 0; guard < 50; guard++) {
+      const t = pre.replace(/\s+$/, '');
+      if (t.endsWith('*/')) { const b = t.lastIndexOf('/*'); if (b < 0) break; pre = t.slice(0, b); continue; }
+      const nl = t.lastIndexOf('\n');
+      const lastLine = t.slice(nl + 1).trim();
+      if (lastLine.startsWith('//')) { pre = t.slice(0, nl + 1); continue; }
+      pre = t; break;
+    }
+    const lastCh = pre.slice(-1);
+    ok(lastCh === ';' || lastCh === '}', `  그 줄은 조건 없이 돈다 — 바로 앞(주석 건너뜀)이 앞 문장의 끝(; 또는 })이다 (지금: ${JSON.stringify(pre.slice(-24))})`);
+  }
   const attachRun = new Function('ctx', 'const { classes, weekDays, cafe24DedupeSchedules, todayStr, studentUidOf, attachLevelScope } = ctx;\n' + tsToJs(atStmt));
   const verdictOf = async (uid, extra) => {
     const r = await call({ student_uid: uid, level: 'Lv 7' }, { setStudentLevelByTeacher: async () => ({ ok: true, level: 'Lv 7', previous: null, unchanged: true }), ...extra });
     return r.status === 200 ? 'ok' : r.body.error === 'level_window_closed' ? 'out_of_window' : r.body.error === 'not_your_student' ? 'not_your_student' : 'other:' + r.status;
   };
+  // 예약표에 «뒤 공백이 붙은 아이디»(카페24 행에 실재 — api-teacher.ts 의 phones.get(uid.trim()) 주석)와 옛 LMS 자리표시를 함께 둔다.
+  //   그래야 포털이 넘기는 uidOf 가 POST 와 다르면(trim 안 함 · lms 를 안 거름) 그 차이가 «답» 으로 드러난다.
+  const sched5 = [...sched, { user_id: 'trail1 ', scheduled_date: '2026-10-20' }];
   for (const today of ['2026-10-27', '2026-11-10']) {
     const cl = classes.map((x) => ({ ...x }));
     const wd = [
       { items: [{ kind: 'class', student_uid: 'week1' }, { kind: 'class', student_uid: 'old1' }, { kind: 'class', student_uid: 'kim01' }] },
       { items: [{ kind: 'class', student_uid: 'stranger' }, { kind: 'class', student_uid: 'outsider' }, { kind: 'class', student_uid: 'cancel1' }, { kind: 'lms_slot', student_uid: 'week1' }] },
+      { items: [{ kind: 'class', student_uid: 'trail1' }, { kind: 'class', student_uid: 'lms' }] },
     ];
-    attachRun({ classes: cl, weekDays: wd, cafe24DedupeSchedules: sched, todayStr: today, studentUidOf, attachLevelScope: L.attachLevelScope });
+    attachRun({ classes: cl, weekDays: wd, cafe24DedupeSchedules: sched5, todayStr: today, studentUidOf, attachLevelScope: L.attachLevelScope });
     const flagged = [...cl, ...wd.flatMap((d) => d.items)].filter((it) => it.kind === 'class' && it.student_uid);
     ok(flagged.every((it) => typeof it.level_scope === 'string'), `${today}: 오늘 목록과 주간 항목의 학생 수업 줄 ${flagged.length}개에 모두 실린다`);
     ok(!('level_scope' in cl[1]) && !('level_scope' in wd[1].items[3]), `  (짝) ${today}: 수업이 아닌 줄에는 안 실린다`);
     for (const it of flagged) {
-      const v = await verdictOf(it.student_uid, { todayStr: today });
+      const v = await verdictOf(it.student_uid, { todayStr: today, cafe24DedupeSchedules: sched5 });
       ok(it.level_scope === v, `  ${today} ${it.student_uid}: 미리 실은 값(${it.level_scope}) == POST 가 실제로 내는 답(${v})`);
     }
     if (today === '2026-10-27') {
       ok(wd[0].items[0].level_scope === 'ok' && wd[0].items[2].level_scope === 'ok' && wd[0].items[1].level_scope === 'out_of_window' && wd[1].items[0].level_scope === 'not_your_student',
          '  10-27: week1·kim01 ok · old1 out_of_window · stranger not_your_student(예약표·오늘 목록을 둘 다 넘긴다)');
+      ok(wd[2].items[0].level_scope === 'ok' && wd[2].items[1].level_scope === 'not_your_student',
+         '  10-27: 뒤 공백 아이디(trail1 ) 는 ok · lms 자리표시는 not_your_student — POST 와 같은 studentUidOf(trim·lms 거름)를 넘긴다');
     } else {
       ok(wd[0].items[0].level_scope === 'out_of_window' && wd[0].items[2].level_scope === 'ok', '  11-10: week1(10-20 수업) 은 창 밖 · kim01(오늘 목록) 은 그대로 ok — 포털의 todayStr 을 넘긴다');
     }

@@ -1391,7 +1391,7 @@ export async function handleTeacherApi(
         ? 'ko' : 'en');
 
   /* 🎚 (2026-10-28 사장님 「1번 확인창 전에 범위 밖이면 막아줘」) 일지 창이 확인창 «전에» 막을 수 있게,
-   *  POST ?part=level 과 «같은» 판정을 오늘 목록·이번 주 항목마다 level_scope 로 실어 보낸다.
+   *  POST ?part=level 과 «같은» 판정을 오늘 목록·요청한 주(?week=)의 항목마다 level_scope 로 실어 보낸다.
    *  넘기는 네 값은 위 POST 블록과 반드시 같아야 한다(오늘 목록 · 예약표 행 · 오늘 날짜 · studentUidOf).
    *  ⚠️ 목록을 «다 만든 뒤» 여기서 붙인다 — 화면은 읽기만 하고, 최종 판정은 그대로 POST 다. */
   attachLevelScope([...classes, ...weekDays.flatMap((d: any) => d.items)], { todayClasses: classes, schedules: cafe24DedupeSchedules, todayStr, uidOf: studentUidOf });
