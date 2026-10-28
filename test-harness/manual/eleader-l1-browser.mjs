@@ -19,13 +19,13 @@ const browser = await chromium.launch({ headless: true });
 async function open({ token, booksStatus = 200, lang, booksBody, warmLang } = {}) {
   const c = await browser.newContext({ serviceWorkers: 'block' });
   await c.addInitScript(([t, l, w]) => { if (t) localStorage.setItem('mango_token', t); if (l) localStorage.setItem('mangoi_lang', l); if (w) localStorage.setItem('mangoi_warmup_lang', w); }, [token, lang, warmLang]);
-  const log = { l1: [], warm: [], books: 0, failNext: 0 };
+  const log = { l1: [], warm: [], books: 0, failNext: 0, nextQ: null };
   await c.route('**/*', async r => {
     const u = new URL(r.request().url());
     if (u.origin !== ORIGIN) return r.abort();
     if (!u.pathname.startsWith('/api/')) return r.continue();
     if (u.pathname === '/api/ai/eleader/l1/books') { log.books++; return booksStatus === 200 ? r.fulfill({ json: booksBody || { ok: true, books: BOOKS, daily_cap: 120, used_today: 0 } }) : r.fulfill({ status: booksStatus, json: { error: 'l1_not_enrolled' } }); }
-    if (u.pathname === '/api/ai/eleader/l1/chat') { const b = JSON.parse(r.request().postData() || '{}'); log.l1.push({ b, auth: r.request().headers()['authorization'] }); if (log.failNext) { log.failNext--; return r.fulfill({ status: 503, json: { error: 'limit_unavailable' } }); } return r.fulfill({ json: { ai_response: 'Reply ' + log.l1.length, answer_chips: [] } }); }
+    if (u.pathname === '/api/ai/eleader/l1/chat') { const b = JSON.parse(r.request().postData() || '{}'); log.l1.push({ b, auth: r.request().headers()['authorization'] }); if (log.failNext) { log.failNext--; return r.fulfill({ status: 503, json: { error: 'limit_unavailable' } }); } const nq = log.nextQ; log.nextQ = null; return r.fulfill({ json: { ai_response: 'Reply ' + log.l1.length, answer_chips: [] }, headers: nq == null ? {} : { 'X-Eleader-Q': String(nq) } }); }
     if (u.pathname === '/api/warmup/chat') { log.warm.push(JSON.parse(r.request().postData() || '{}')); return r.fulfill({ json: { ai_response: 'free reply', answer_chips: [] } }); }
     return r.fulfill({ status: 404, json: { error: 'test_only' } });
   });
@@ -109,6 +109,29 @@ try {
   await send(p, 'I like dogs');
   ok('done: stays 20 on later turns', log.l1.at(-1).b.eleader_q === 20 && log.l1.at(-1).b.eleader_book === 'books-v1-b01');
   ok('done: still l1 route, not free warmup', log.warm.length === 0);
+  await c.close();
+
+  // ③-2c 🔁 같은 질문 두 번 금지(2026-10-28) — 서버가 «이미 다룬 문항» 을 건너뛰면(X-Eleader-Q) 진행 번호·힌트·다음 요청이 그 문항을 따라간다
+  ({ c, p, log, errors } = await open({ token: 'tok-ed' }));
+  await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+  log.nextQ = 2;   // 첫 인사에서 1·2번이 이미 다룬 것이라 3번(0부터 2)을 물었다
+  await p.click('#eleaderL1 .l1-go'); await p.waitForTimeout(800);
+  ok('skip: kickoff header → bar 3/20', /질문 3 \/ 20/.test(await p.locator('#eleaderL1Bar').innerText()), await p.locator('#eleaderL1Bar').innerText());
+  await send(p, 'Yes');
+  ok('skip: next answer is for q2', log.l1.at(-1).b.eleader_q === 2, JSON.stringify(log.l1.at(-1)?.b));
+  ok('skip: no header → one step (4/20)', /질문 4 \/ 20/.test(await p.locator('#eleaderL1Bar').innerText()));
+  log.nextQ = 6;   // 4번(0부터 3)에 답하는 턴 — 5·6번은 이미 다뤄 7번(0부터 6)을 물었다
+  await send(p, 'It is small');
+  ok('skip: was answering q3', log.l1.at(-1).b.eleader_q === 3);
+  ok('skip: header → bar 7/20', /질문 7 \/ 20/.test(await p.locator('#eleaderL1Bar').innerText()), await p.locator('#eleaderL1Bar').innerText());
+  await p.click('#eleaderL1Bar button:has-text("힌트")');
+  ok('skip: hint follows the asked question (힌트 7)', /힌트 7/.test(await p.locator('#eleaderL1Bar').innerText()));
+  await send(p, 'White');
+  ok('skip: next answer is for q6', log.l1.at(-1).b.eleader_q === 6, JSON.stringify(log.l1.at(-1)?.b));
+  log.nextQ = 1;   // 거꾸로 가는 헤더는 무시한다
+  await send(p, 'Yes');
+  ok('skip: backward header ignored (answering q7 → bar 9/20)', log.l1.at(-1).b.eleader_q === 7 && /질문 9 \/ 20/.test(await p.locator('#eleaderL1Bar').innerText()), await p.locator('#eleaderL1Bar').innerText());
+  ok('skip: no page errors', errors.length === 0, errors.join(' | '));
   await c.close();
 
   // ③-3 서버가 200 이어도 ok:true 가 아니면 안 그린다
