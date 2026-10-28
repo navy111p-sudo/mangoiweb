@@ -14,6 +14,7 @@ import { counselingRecipient, sendCounselingSms } from './counseling-send';
 // ═══════════════════════════════════════════════════════════════════════
 import { loadHoldRanges, heldOnFor, attendedStudentRooms } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25)
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
+import { agencyLoginGate } from './agency-login-gate';        // 🔒 대리점 로그인 계정 만들기·바꾸기 = 본사 전용 판정 정본
 import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { praiseCountForRoom } from './point-policy';   // ⭐ 칭찬 횟수 정본(복제 금지)
 import { loadRevenue, loadCare, saveCare } from './forecast-dashboard';
@@ -11469,11 +11470,28 @@ LIMIT $limit`;
         return 'created';
       };
       /* 계정을 건드리는 요청이면 «누가» 를 먼저 확인한다 — 감사 기록에 쓰고, 강사는 여기서도 막는다
-         (index.ts 의 강사 차단 목록 한 곳에만 기대지 않는다 — CLAUDE.md 2장 쓰기 경로 가드 권고). */
-      const agencyLoginActor = async (): Promise<{ ok: boolean; by: string; ip: string; ua: string }> => {
+         (index.ts 의 강사 차단 목록 한 곳에만 기대지 않는다 — CLAUDE.md 2장 쓰기 경로 가드 권고).
+         🔒 (2026-10-28 사장님 「본사 계정만 만들 수 있게 좁혀줘」) 판정 정본은 agency-login-gate.ts —
+            admin_scope 를 «삼키지 않고» 한 번 더 읽어 'hq' 일 때만(못 읽으면 막는다). 거절 응답(deny)도 여기서 만든다. */
+      type AgencyLoginActor = { ok: boolean; by: string; ip: string; ua: string; deny: Response | null };
+      const agencyLoginActor = async (): Promise<AgencyLoginActor> => {
         const a = await getAdminActor(request, env as any);
-        return { ok: !!a.ok && !a.isTeacher, by: a.username || '', ip: request.headers.get('cf-connecting-ip') || '',
-                 ua: request.headers.get('user-agent') || '' };
+        let row: { scope_type: string } | null | undefined = undefined;
+        if (a.ok && !a.isTeacher && a.username) {
+          try {
+            row = (await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`)
+              .bind(a.username).first<{ scope_type: string }>()) || null;
+          } catch (e) {
+            console.warn('[centers] agency login scope lookup failed', (e as any)?.message || e);
+            row = undefined;
+          }
+        }
+        const g = agencyLoginGate({ ok: !!a.ok, isTeacher: !!a.isTeacher, username: a.username || '' }, row, FULL_ACCESS_ACCOUNTS);
+        const deny = g.ok ? null
+          : g.error === 'forbidden_teacher' ? json(forbiddenTeacherBody(a, g.message), 403)
+          : json({ ok: false, error: g.error, message: g.message }, g.status as any);
+        return { ok: g.ok, by: a.username || '', ip: request.headers.get('cf-connecting-ip') || '',
+                 ua: request.headers.get('user-agent') || '', deny };
       };
 
       if (method === 'PATCH') {
@@ -11529,14 +11547,14 @@ LIMIT $limit`;
         const loginId = String(b?.login_username || '').trim();
         let loginChk: AgencyLoginCheck | null = null;
         let loginName = '';
-        let loginActor: { ok: boolean; by: string; ip: string; ua: string } | null = null;
+        let loginActor: AgencyLoginActor | null = null;
         if (loginPw) {
           if (!loginId) {
             return json({ ok: false, error: 'login_username_required',
               message: '비밀번호를 설정하려면 로그인 아이디를 먼저 입력하세요.' }, 400);
           }
           loginActor = await agencyLoginActor();
-          if (!loginActor.ok) return json({ ok: false, error: 'forbidden_scope', message: '대리점 로그인 계정은 본사만 만들거나 바꿀 수 있습니다.' }, 403);
+          if (!loginActor.ok) return loginActor.deny;
           const cur = before || await env.DB.prepare(`SELECT name FROM centers WHERE id = ?`).bind(cid).first<{ name: string }>();
           if (!cur) return json({ ok: false, error: 'not_found', message: '대리점을 찾을 수 없습니다.' }, 404);
           // 새 계정은 «저장 뒤» 이름으로 묶고(scope_value = centers.name), 비밀번호 바꾸기의 주인 판정은
@@ -11837,7 +11855,9 @@ LIMIT $limit`;
         return json({ ok: true, items: _ctItems, total: pt ? counts[pt] : counts.all, counts, limit, offset,
                       // ↕ 서버가 «실제로 적용한» 정렬 — 모르는 열쇠는 버렸으니 화면은 이 값으로 화살표를 그린다.
                       sort: sortDef ? { key: _sortKey, dir: sortDir === 'DESC' ? 'desc' : 'asc' } : null,
-                      scope: { type: _cSc.type, label: _cSc.label }, can_edit: canEditOrg(_cSc) });
+                      scope: { type: _cSc.type, label: _cSc.label }, can_edit: canEditOrg(_cSc),
+                      // 🔒 로그인 계정 칸을 보여 줄지 — 저장 때와 «같은 판정»(본사만). 화면은 false 일 때만 감춘다.
+                      can_login: canEditOrg(_cSc) ? (await agencyLoginActor()).ok : false });
       }
       const b = await parseJsonBody(request);
       if (!b || !b.name) return invalidBody(['name']);
@@ -11853,7 +11873,7 @@ LIMIT $limit`;
       const loginUsername = String(b.login_username || '').trim();
       const loginPassword = String(b.login_password || '');
       let loginChk: AgencyLoginCheck | null = null;
-      let loginActor: { ok: boolean; by: string; ip: string; ua: string } | null = null;
+      let loginActor: AgencyLoginActor | null = null;
       if (loginUsername || loginPassword) {
         if (!loginUsername || !loginPassword) {
           return json({ ok: false, error: 'login_fields_incomplete',
@@ -11863,7 +11883,7 @@ LIMIT $limit`;
         //    «이미 있는 아이디» 는 비밀번호 바꾸기 없이 그대로 거절, 같은 이름 대리점이 하나라도 있으면 거절.
         //    거절되면 대리점도 만들지 않는다(예전과 같다 — 계정 없이 등록하려면 두 칸을 비우면 된다).
         loginActor = await agencyLoginActor();
-        if (!loginActor.ok) return json({ ok: false, error: 'forbidden_scope', message: '대리점 로그인 계정은 본사만 만들거나 바꿀 수 있습니다.' }, 403);
+        if (!loginActor.ok) return loginActor.deny;
         loginChk = await checkAgencyLogin(loginUsername, loginPassword, String(b.name), 0, '');
         if (!loginChk.ok) return json({ ok: false, error: loginChk.error, message: loginChk.message }, loginChk.status as any);
       }

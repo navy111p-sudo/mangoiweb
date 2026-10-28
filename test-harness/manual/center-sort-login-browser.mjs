@@ -7,6 +7,7 @@
    · 🌐 영어로 바꿔도 화살표가 산다(i18n 이 [data-ko] 의 글자를 갈아끼운다)
    · ✏️ 수정 창: 로그인 칸이 보이고, 계정이 하나면 아이디가 미리 채워지고, 비밀번호를 넣어 저장하면
      PATCH 에 실리고 결과(바꿈)를 알린다. 비밀번호를 비우면 아무것도 안 실린다(짝).
+   · 🔒 (2026-10-28 「본사 계정만」) 서버가 can_login:false 를 주면 로그인 칸·안내가 «화면에서» 사라지고, true 면 돌아온다(짝)
 
    ⚠️ manual/ — 게이트가 물어 가지 않습니다. 사람이 부를 것:
         mkdir -p /tmp/pw && cd /tmp/pw && npm install playwright-core
@@ -39,6 +40,7 @@ const ALL = [C(11, '나학원', '박', []), C(12, '가학원', '', ['zeta']), C(
   await new Promise(r => setTimeout(r, 900));
   const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbox'] });
   const seen = [], patches = [], dialogs = [];
+  let canLogin;   // undefined = 옛 서버(칸 없음) → 화면은 보여 둔다
   try {
     const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
     await ctx.route('**/api/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"items":[]}' }));
@@ -64,7 +66,8 @@ const ALL = [C(11, '나학원', '박', []), C(12, '가학원', '', ['zeta']), C(
       }
       r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, can_edit: true,
         total: items.length, limit: 50, offset: 0, counts: { all: 3, B2B: 3, B2C: 0, NONE: 0 }, items,
-        sort: sort ? { key: sort, dir: dir === 'desc' ? 'desc' : 'asc' } : null }) });
+        sort: sort ? { key: sort, dir: dir === 'desc' ? 'desc' : 'asc' } : null,
+        ...(canLogin === undefined ? {} : { can_login: canLogin }) }) });
     });
 
     const page = await ctx.newPage();
@@ -134,6 +137,23 @@ const ALL = [C(11, '나학원', '박', []), C(12, '가학원', '', ['zeta']), C(
     check('⑩ 저장 뒤 비밀번호 칸을 비우고 안내를 «등록» 판으로', after.pw === '' && /둘 다 입력하면/.test(after.hint), JSON.stringify(after));
     await page.evaluate(() => window.ctEdit(13)); await page.waitForTimeout(200);
     check('⑪ 계정이 여럿이면 아이디를 비워 둔다(추측 금지)', (await page.inputValue('#ct-login-id')) === '');
+
+    // ── 🔒 본사 전용 — 서버가 «이 계정은 못 만든다» 고 하면 칸이 정말로 안 보이는가
+    const vis = () => page.evaluate(() => {
+      const w = document.getElementById('ct-login-wrap'), h = document.getElementById('ct-login-hint');
+      return { wrap: getComputedStyle(w).display, wrapShown: !!w.offsetParent, hint: !!h.offsetParent,
+               gap: getComputedStyle(w).columnGap };
+    });
+    check('⑫-0 옛 서버(can_login 없음) → 칸은 보여 둔다(모르면 막지 않는다)', (await vis()).wrapShown, JSON.stringify(await vis()));
+    canLogin = false;
+    await page.evaluate(() => window.loadCenters()); await page.waitForTimeout(600);
+    const off = await vis();
+    check('⑫ can_login=false → 로그인 칸·안내가 화면에서 사라진다', off.wrap === 'none' && !off.wrapShown && !off.hint, JSON.stringify(off));
+    canLogin = true;
+    await page.evaluate(() => window.loadCenters()); await page.waitForTimeout(600);
+    const on = await vis();
+    // ⚠️ 부모가 flex 라 inline-flex 는 계산값이 'flex' 로 «승격» 된다(표준) — 물을 것은 «간격(gap)이 살아 있는가».
+    check('⑫-1 can_login=true → 다시 보이고 칸 사이 간격(6px)도 그대로', on.wrapShown && on.hint && on.gap === '6px' && on.wrap !== 'none', JSON.stringify(on));
   } catch (e) {
     FAIL++; console.log('  FAIL 예외 — ' + e.message);
   } finally {
