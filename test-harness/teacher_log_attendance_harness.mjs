@@ -248,6 +248,14 @@ try {
   lang = 'en';
   const en = await openAndSend({ ...base });
   ok(/Class status/.test(en.html) && /Attended/.test(en.html) && /Late/.test(en.html) && /Absent/.test(en.html), '영어 화면: Class status·Attended·Late·Absent');
+  // C-6 괄호 짝 — 창에 보이는 글자 조각마다 «(» 와 «)» 수가 같다(2026-10-28 「수준 그룹 (눌러서 정하거나 바꿔요」 닫는 괄호 누락).
+  //   조각을 못 뽑으면 아래 검사가 빈손으로 통과하므로, 그 라벨을 실제로 읽었는지를 짝으로 본다.
+  for (const [lg, h, want] of [['한국어', ko.html, /수준 그룹/], ['영어', en.html, /Level group/]]) {
+    const texts = [...h.matchAll(/>([^<]+)</g)].map((m) => decode(m[1]).trim()).filter(Boolean);
+    const bad = texts.filter((t) => (t.match(/\(/g) || []).length !== (t.match(/\)/g) || []).length);
+    ok(texts.some((t) => want.test(t)), lg + ' 화면: 글자 조각을 실제로 읽었다(수준 그룹 라벨 포함)');
+    ok(bad.length === 0, lg + ' 화면: 모든 글자의 괄호 짝이 맞다' + (bad.length ? ' — ' + bad.join(' | ') : ''));
+  }
 } catch (e) {
   ok(false, 'C 절 실행 중 예외: ' + (e && e.stack || e));
 }
