@@ -237,7 +237,8 @@ const body = js.slice(js.indexOf('{', at) + 1, end);
 const run = (st, answering, hdr, okResp = true) => {
   const state = { ...st }; const mine = state;
   const r = { ok: okResp, status: okResp ? 200 : 500, headers: { get: (k) => k.toLowerCase() === 'x-eleader-q' ? hdr : (k === 'X-Eleader-Topic' ? '' : null) } };
-  new Function('r', 'state', 'mine', 'answering', 'note', 'drawBar', body)(r, state, mine, answering, () => {}, () => {});
+  // takeQuota·paintQuota = 남은 대화 횟수 표시(2026-10-28 하루 상한) — 진행 번호(state.q)는 안 건드리므로 대역으로 둔다
+  new Function('r', 'state', 'mine', 'answering', 'note', 'drawBar', 'takeQuota', 'paintQuota', body)(r, state, mine, answering, () => {}, () => {}, () => {}, () => {});
   return state.q;
 };
 const base = { q: 6, n: 20, wish: '' };
