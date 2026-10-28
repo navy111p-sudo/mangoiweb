@@ -1046,6 +1046,9 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   <details class="card mycard" id="c-pw">
     <summary data-en="Change my password" data-ko="비밀번호 변경">Change my password</summary>
     <div class="pwform">
+      <!-- 🔑 (2026-10-28) 비밀번호 칸의 «아이디 짝» 을 브라우저에 알려 준다. 이게 없으면 비밀번호 관리자가 아이디를 넣을 칸을
+           스스로 고르는데, 그 후보가 «학생 이름 / ID» 검색칸(#portal-search)이 될 수 있다(2026-10-28 강선생님 건 — 추정). 값은 render() 가 채운다. -->
+      <input type="text" id="pw-user" autocomplete="username" hidden readonly tabindex="-1" aria-hidden="true">
       <div class="fld"><label data-en="Current password" data-ko="현재 비밀번호">Current password</label>
         <input type="password" id="pw-cur" autocomplete="current-password"></div>
       <div class="fld"><label data-en="New password (6+ characters)" data-ko="새 비밀번호 (6자 이상)">New password (6+ characters)</label>
@@ -1721,6 +1724,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     var nm = d.me && (d.me.name || d.me.username) || 'Teacher';
     document.getElementById('hi').firstChild.nodeValue = T('Hello, ', '안녕하세요, ') + nm;
     document.getElementById('today').textContent = d.today + ' (KST)';
+    var pwUser = document.getElementById('pw-user');
+    if (pwUser) pwUser.value = (d.me && d.me.username) || '';
 
     // 🧑‍💼 매니저인가 — 수업 목록의 뜻이 통째로 달라진다(내 수업 → 내 커버 수업).
     IS_MGR = !!(d.me && d.me.is_manager);
@@ -1969,8 +1974,10 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   /* 하루치 목록 — 주간 카드와 합친 카드의 «다른 날» 보기가 같은 줄 모양을 쓴다(한 곳에서만 고친다). */
   function weekDayBodyHtml(d){
     var visibleItems = portalRows(d.items || []);
-    return visibleItems.length
-      ? visibleItems.map(weekItemHtml).join('')
+    if (visibleItems.length) return visibleItems.map(weekItemHtml).join('');
+    // 수업은 있는데 필터가 다 숨겼으면 «수업 없음» 이라고 하지 않는다(그 말이 «수업이 사라졌다» 로 읽혔다).
+    return (d.items || []).length
+      ? '<div class="wk-none">' + esc(T('Hidden by filter','필터로 숨겨짐')) + '</div>'
       : '<div class="wk-none">' + T('No classes','수업 없음') + '</div>';
   }
   function weekItemHtml(it){
@@ -2456,7 +2463,13 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   }
 
   function portalRows(rows){
-    var query = String((document.getElementById('portal-search') || {}).value || '').trim().toLowerCase();
+    var searchBox = document.getElementById('portal-search') || {};
+    var query = String(searchBox.value || '').trim().toLowerCase();
+    /* 🔑 (2026-10-28 «중국어 강선생님 수업이 있는데 없다고 나온다») 이 칸에 강사 «자기 로그인 아이디» 가 들어가
+       오늘 수업 2건이 «검색 결과가 없습니다», 주간 목록이 전부 «수업 없음» 으로 숨었다(브라우저 자동완성으로 보임 — 미확인).
+       로그인 아이디는 학생 이름·ID 와 맞을 일이 없으므로 검색어로 쓰지 않고 칸을 비운다. 정확일치만(부분일치 금지). */
+    var ownId = String((typeof DATA !== 'undefined' && DATA && DATA.me && DATA.me.username) || '').trim().toLowerCase();
+    if (query && ownId && query === ownId){ searchBox.value = ''; query = ''; }
     var academy = String((document.getElementById('portal-academy') || {}).value || '');
     var direction = (document.getElementById('class-time-sort') || {}).value === 'desc' ? -1 : 1;
     return (rows || []).filter(function(c){
@@ -2469,6 +2482,14 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
       if(y===null) return -1;
       return direction * (x-y);
     });
+  }
+  /* 🔍 검색어·학원 필터가 «있는 수업을 전부 숨겼을 때» 의 안내 — «수업 없음» 과 구별하고, 한 번에 푸는 버튼을 준다.
+     (2026-10-28 강선생님 건: 숨겨졌는데 주간 목록이 «수업 없음» 이라 «수업이 사라졌다» 로 읽혔다) */
+  function portalFilteredHtml(){
+    var q = String((document.getElementById('portal-search') || {}).value || '').trim();
+    return '<div class="empty">' + esc(T('No classes match ' + (q ? '«' + q + '»' : 'the selected filter') + ' — classes are hidden, not missing.',
+                                         (q ? '«' + q + '» 검색' : '선택한 필터') + '에 맞는 수업이 없습니다 — 수업이 없는 게 아니라 숨겨진 것입니다.'))
+      + ' <button type="button" class="tbtn" data-portal-clear>' + esc(T('Clear filters', '필터 지우기')) + '</button></div>';
   }
   /* ☎ (2026-10-27 강사 제안 «일부 학생 연락처가 여전히 안 보인다») 번호가 «왜» 비었는지 한 줄로 — 매니저 화면
      (admin.html·manager.html 「오늘 수업」)과 같은 말. 번호는 서버 정본 loadContactPhones(notify-contacts.ts)가
@@ -2526,6 +2547,15 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   }
   ['portal-search','portal-academy'].forEach(function(id){
     document.getElementById(id).addEventListener(id === 'portal-search' ? 'input' : 'change',portalRefresh);
+  });
+  document.addEventListener('click', function(e){
+    var clearBtn = e.target.closest && e.target.closest('[data-portal-clear]');
+    if (!clearBtn) return;
+    // 버튼이 #classes 안에서 포커스를 쥐고 있으면 renderClasses 가 «조작 중» 으로 보고 다시 그리기를 미룬다 — 먼저 놓는다.
+    if (clearBtn.blur) clearBtn.blur();
+    document.getElementById('portal-search').value = '';
+    document.getElementById('portal-academy').value = '';
+    portalRefresh();
   });
   function portalAcademies(week){
     var el=document.getElementById('portal-academy'), selected=el.value, names={};
@@ -2785,7 +2815,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     portalAcademies();
     var unfiltered = list;
     list = sortClassesByTime(portalRows(list), classTimeSort);
-    if(unfiltered.length && !list.length){document.getElementById('c-classes').hidden=false;document.getElementById('classes').innerHTML='<div class="empty">'+esc(T('No matching classes','검색 결과가 없습니다'))+'</div>';renderNextUp(unfiltered);lastSig=null;return;}
+    if(unfiltered.length && !list.length){document.getElementById('c-classes').hidden=false;document.getElementById('classes').innerHTML=portalFilteredHtml();renderNextUp(unfiltered);lastSig=null;return;}
 
     var box = document.getElementById('classes');
     document.getElementById('c-classes').hidden = false;
