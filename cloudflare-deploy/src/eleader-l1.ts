@@ -8,6 +8,11 @@
  *  ⛔ 화면이 보낸 lesson_topic·textbook·level·difficulty 는 버린다(본문 값을 믿지 않기).
  *  ⛔ 하루 상한(ELEADER_L1_DAILY_CAP)은 «대화 턴» 을 센다. 음성합성·받아쓰기는 웜업의 기존 경로(/api/voice/*)를 그대로 쓴다.
  *     상한을 못 세면(D1 장애) 막는 쪽으로 실패한다 — 비용 상한이기 때문.
+ *  📏 상한은 계정마다 정할 수 있다(2026-10-28 사장님 「원장 300개, 학생 200개」) — `eleader_l1_students.daily_cap`,
+ *     비어 있으면 기본값(ELEADER_L1_DAILY_CAP). 화면이 «오늘 N / 상한» 을 그리도록 응답 헤더로 알려 준다.
+ *  ↩️ 답을 못 준 턴(엔진 오류·스트림이 빈손으로 끊김)은 한 칸 돌려준다 — 화면이 같은 말을 다시 보내면
+ *     두 번 세던 것(2026-10-28 원장님 「첫마디 외에 반응이 없어요」 — 상한 120 에 걸려 있었다).
+ *     돌려주기도 하루 ELEADER_L1_REFUND_MAX 번까지 — 엔진이 계속 실패해도 비용이 끝없이 나가지 않게.
  */
 import { verifyUidToken } from './auth-token';
 import { ELEADER_BOOK_UNITS } from './eleader-book-pack';
@@ -19,21 +24,54 @@ export const ELEADER_L1_STUDENTS: ReadonlySet<string> = new Set(['ed']);
    ⛔ 학생 아이디·이름을 이 파일에 적지 마세요 — 저장소가 공개라 누구나 읽고,
       비밀번호가 없는 학생은 아이디만으로 로그인됩니다.
    추가: INSERT INTO eleader_l1_students (uid, note, created_at) VALUES ('<students_erp.user_id 표기 그대로>', '…', <ms>)
-   끄기: UPDATE eleader_l1_students SET enabled = 0 WHERE uid = ? */
+   끄기: UPDATE eleader_l1_students SET enabled = 0 WHERE uid = ?
+   상한: UPDATE eleader_l1_students SET daily_cap = 300 WHERE uid = ?   (NULL = 기본값, 천장 ELEADER_L1_CAP_MAX) */
+/** 학생 한 명의 하루 기본 상한(2026-10-28 사장님 「학생 200개」 — 그 전 120). */
+export const ELEADER_L1_DAILY_CAP = 200;
+/** 계정별 상한의 천장 — 칸에 잘못 큰 값이 들어가도 하루 비용이 이 이상 안 나간다. */
+export const ELEADER_L1_CAP_MAX = 500;
+/** 하루에 돌려줄 수 있는 «답을 못 준 턴» 수 — 하루 엔진 호출은 많아야 상한 + 이 값이다. */
+export const ELEADER_L1_REFUND_MAX = 20;
+export const ELEADER_L1_PREFIX = '/api/ai/eleader/l1/';
+
+/** 나중에 붙인 칸을 «이 DB 에서 한 번만» 붙인다. 이미 있으면(duplicate column) 붙은 것으로 본다.
+ *  ⛔ CREATE 에 칸을 더하지 않는다 — 이미 만들어진 운영 표는 CREATE 를 다시 안 본다(CLAUDE.md 2장 attendance.host).
+ *  ⚠️ 다른 이유로 실패하면 다음 요청에 다시 시도한다 — 그 칸을 읽는 쪽은 칸이 없어도 동작해야 한다. */
+const addedCols = new WeakMap<object, Set<string>>();
+async function addColumnOnce(DB: D1Database, table: string, col: string, ddl: string) {
+  const done = addedCols.get(DB) || new Set<string>();
+  addedCols.set(DB, done);
+  const key = table + '.' + col;
+  if (done.has(key)) return;
+  try { await DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`).run(); done.add(key); }
+  catch (e) { if (/duplicate column/i.test(String((e as any)?.message || e))) done.add(key); }
+}
+
 async function ensureStudents(DB: D1Database) {
   await DB.exec('CREATE TABLE IF NOT EXISTS eleader_l1_students (uid TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, note TEXT, created_at INTEGER)');
+  await addColumnOnce(DB, 'eleader_l1_students', 'daily_cap', 'INTEGER');
 }
-/** 허용 학생인가. D1 을 못 읽으면 «아니오»(막는 쪽) — 비용이 드는 통로라서. */
-export async function eleaderL1Enrolled(DB: D1Database, uid: string): Promise<boolean> {
-  if (ELEADER_L1_STUDENTS.has(uid)) return true;
+/** 칸에 적힌 상한 → 실제 상한. 비었거나 이상한 값이면 기본값, 너무 크면 천장으로 자른다. */
+export function eleaderL1Cap(v: unknown): number {
+  const n = Number(v);
+  return v != null && v !== '' && Number.isInteger(n) && n >= 1 ? Math.min(n, ELEADER_L1_CAP_MAX) : ELEADER_L1_DAILY_CAP;
+}
+/** 허용 학생이면 그 학생의 하루 상한, 아니면 null. D1 을 못 읽으면 null(막는 쪽) — 비용이 드는 통로라서.
+ *  ⚠️ `daily_cap` 칸이 아직 없으면(ALTER 실패) 그 칸 없이 다시 묻고 기본값을 쓴다 — 칸 하나 때문에 허용 학생 전원이 403 이 되면 안 된다. */
+export async function eleaderL1Access(DB: D1Database, uid: string): Promise<{ cap: number } | null> {
+  if (ELEADER_L1_STUDENTS.has(uid)) return { cap: ELEADER_L1_DAILY_CAP };
   try {
     await ensureStudents(DB);
-    const r = await DB.prepare('SELECT 1 AS ok FROM eleader_l1_students WHERE uid = ? AND enabled = 1').bind(uid).first();
-    return !!r;
-  } catch { return false; }
+    const q = (cols: string) => DB.prepare(`SELECT ${cols} FROM eleader_l1_students WHERE uid = ? AND enabled = 1`).bind(uid).first<{ daily_cap?: unknown }>();
+    let r: { daily_cap?: unknown } | null;
+    try { r = await q('daily_cap'); } catch { r = await q('1 AS ok'); }
+    return r ? { cap: eleaderL1Cap(r.daily_cap) } : null;
+  } catch { return null; }
 }
-export const ELEADER_L1_DAILY_CAP = 120;
-export const ELEADER_L1_PREFIX = '/api/ai/eleader/l1/';
+/** 허용 학생인가(예전 이름 — 상한이 필요 없는 곳용). */
+export async function eleaderL1Enrolled(DB: D1Database, uid: string): Promise<boolean> {
+  return !!(await eleaderL1Access(DB, uid));
+}
 
 type L1Env = { DB: D1Database; [key: string]: any };
 export type WarmEngine = (request: Request) => Promise<Response>;
@@ -265,19 +303,51 @@ async function readJson(request: Request, limit: number): Promise<any> {
 
 async function ensureUsage(DB: D1Database) {
   await DB.exec('CREATE TABLE IF NOT EXISTS eleader_l1_usage (uid TEXT NOT NULL, day TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, day))');
+  await addColumnOnce(DB, 'eleader_l1_usage', 'refunds', 'INTEGER NOT NULL DEFAULT 0');
 }
 async function usedToday(DB: D1Database, uid: string, day: string): Promise<number> {
   await ensureUsage(DB);
   const r = await DB.prepare('SELECT n FROM eleader_l1_usage WHERE uid=? AND day=?').bind(uid, day).first<{ n: number }>();
   return Number(r?.n) || 0;
 }
-/** 상한 안이면 한 칸 선점하고 true. 한 문장이라 동시 요청이 서로를 넘지 못한다. */
-async function reserveTurn(DB: D1Database, uid: string, day: string, cap: number): Promise<boolean> {
+/** 상한 안이면 한 칸 선점하고 «선점 뒤 오늘 쓴 수», 상한이면 null. 한 문장이라 동시 요청이 서로를 넘지 못한다. */
+async function reserveTurn(DB: D1Database, uid: string, day: string, cap: number): Promise<number | null> {
   await ensureUsage(DB);
   const r = await DB.prepare(
-    'INSERT INTO eleader_l1_usage (uid, day, n) VALUES (?, ?, 1) ON CONFLICT(uid, day) DO UPDATE SET n = n + 1 WHERE n < ?'
-  ).bind(uid, day, cap).run();
-  return Number(r?.meta?.changes) === 1;
+    'INSERT INTO eleader_l1_usage (uid, day, n) VALUES (?, ?, 1) ON CONFLICT(uid, day) DO UPDATE SET n = n + 1 WHERE n < ? RETURNING n'
+  ).bind(uid, day, cap).first<{ n: number }>();
+  return r ? Number(r.n) : null;
+}
+/** 답을 못 준 턴 한 칸을 돌려준다(하루 ELEADER_L1_REFUND_MAX 번까지).
+ *  ⚠️ 실패해도 던지지 않는다 — 돌려주지 못하면 «센 채로» 남을 뿐이고, 그쪽이 비용 상한에 안전한 방향이다. */
+async function refundTurn(DB: D1Database, uid: string, day: string): Promise<boolean> {
+  try {
+    await ensureUsage(DB);
+    const r = await DB.prepare('UPDATE eleader_l1_usage SET n = n - 1, refunds = refunds + 1 WHERE uid = ? AND day = ? AND n > 0 AND refunds < ?')
+      .bind(uid, day, ELEADER_L1_REFUND_MAX).run();
+    return Number(r?.meta?.changes) === 1;
+  } catch (e) { console.warn('[eleader-l1 refund]', (e as any)?.message); return false; }
+}
+/** SSE 를 그대로 흘려보내면서 마지막 `done` 이벤트가 성공(ok:true)인지 본다. 성공 done 없이 끝나면 onFail.
+ *  (웜업 SSE 는 HTTP 상태가 늘 200 이라 — 실패는 done 의 ok·status 로만 알 수 있다. src/warmup-stream.ts) */
+export function watchSseDone(body: ReadableStream, onFail: () => Promise<unknown>): ReadableStream {
+  const dec = new TextDecoder();
+  let rest = '', okDone = false;
+  const scan = (text: string) => {
+    for (const line of text.split('\n')) {
+      if (!line.startsWith('data: ')) continue;
+      try { const ev = JSON.parse(line.slice(6)); if (ev && ev.done === 1) okDone = ev.ok === true; } catch { /* 문장 조각 */ }
+    }
+  };
+  return body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, c) {
+      c.enqueue(chunk);
+      rest += dec.decode(chunk, { stream: true });
+      const cut = rest.lastIndexOf('\n');
+      if (cut >= 0) { scan(rest.slice(0, cut)); rest = rest.slice(cut + 1); }
+    },
+    async flush() { scan(rest + dec.decode()); if (!okDone) await onFail(); },
+  }));
 }
 
 /** 이번 턴의 «학생이 고른 주제». 이번 말에 요청이 있으면 그것을 기억하고(''=책으로 돌아가기 → 지움), 없으면 기억한 값.
@@ -306,7 +376,9 @@ export async function handleEleaderL1(request: Request, url: URL, env: L1Env, wa
   let uid = '';
   try { uid = (await verifyUidToken(auth.slice(7), env as any)) || ''; } catch { uid = ''; }
   if (!uid) return reply({ error: 'login_required' }, 401);
-  if (!(await eleaderL1Enrolled(env.DB, uid))) return reply({ error: 'l1_not_enrolled' }, 403);
+  const access = await eleaderL1Access(env.DB, uid);
+  if (!access) return reply({ error: 'l1_not_enrolled' }, 403);
+  const cap = access.cap;
   const day = kstDay(now());
 
   if (action === 'books') {
@@ -315,7 +387,7 @@ export async function handleEleaderL1(request: Request, url: URL, env: L1Env, wa
     try { used = await usedToday(env.DB, uid, day); } catch { used = null; }
     return reply({
       ok: true, subject: uid, course: { ko: 'Level 1 기본과정', en: 'Level 1 Basic Course' },
-      daily_cap: ELEADER_L1_DAILY_CAP, used_today: used,
+      daily_cap: cap, used_today: used,
       books: ELEADER_BOOK_UNITS.map(b => ({
         id: b.id, title: b.title, book: b.book,
         questions: b.questions.map(q => ({ question: q.question, hint: q.hint, model: q.model })),
@@ -336,9 +408,13 @@ export async function handleEleaderL1(request: Request, url: URL, env: L1Env, wa
   if (!input || !session) return reply({ error: 'invalid_turn' }, 400);
   const wish = await learnerWish(env, `eleaderl1wish:${uid}:${session}:${b.eleader_book}`, said);
   const topic = eleaderL1Topic(b.eleader_book, b.eleader_q, kickoff, said, wish) as string;
-  let ok = false;
-  try { ok = await reserveTurn(env.DB, uid, day, ELEADER_L1_DAILY_CAP); } catch { return reply({ error: 'limit_unavailable' }, 503); }
-  if (!ok) return reply({ error: 'daily_cap_reached', cap: ELEADER_L1_DAILY_CAP }, 429);
+  let used: number | null;
+  try { used = await reserveTurn(env.DB, uid, day, cap); } catch { return reply({ error: 'limit_unavailable' }, 503); }
+  if (used === null) {
+    const r429 = reply({ error: 'daily_cap_reached', cap }, 429);
+    r429.headers.set('X-Eleader-Used', String(cap)); r429.headers.set('X-Eleader-Cap', String(cap));
+    return r429;
+  }
 
   const inner: Record<string, unknown> = {
     session_id: session, student_input: input, user_id: uid,
@@ -347,11 +423,22 @@ export async function handleEleaderL1(request: Request, url: URL, env: L1Env, wa
   if (kickoff) inner.kickoff = 1;
   if (b.stream === 1) inner.stream = 1;
   if (typeof b.friend === 'string' && /^[a-z]{1,16}$/.test(b.friend)) inner.friend = b.friend;
-  const res = await warm(new Request(new URL('/api/warmup/chat', url), {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: auth }, body: JSON.stringify(inner), signal: request.signal,
-  }));
+  const refund = () => refundTurn(env.DB, uid, day);
+  let res: Response;
+  try {
+    res = await warm(new Request(new URL('/api/warmup/chat', url), {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: auth }, body: JSON.stringify(inner), signal: request.signal,
+    }));
+  } catch (e) { await refund(); throw e; }
+  // ↩️ 답을 못 준 턴은 돌려준다 — JSON 은 상태로, SSE(늘 200)는 마지막 done 으로 판정한다.
+  const sse = (res.headers.get('Content-Type') || '').startsWith('text/event-stream');
+  let body: ReadableStream | null = res.body;
+  if (res.status !== 200) { if (await refund()) used = Math.max(0, used - 1); }
+  else if (sse && body) body = watchSseDone(body, refund);
   const headers = new Headers(res.headers);
   headers.set('Cache-Control', 'no-store');
   if (wish) headers.set('X-Eleader-Topic', wish);   // 화면 진행 막대에 «지금 주제» 를 띄운다(영어 소문자만 — L1_WISH_OK)
-  return new Response(res.body, { status: res.status, headers });
+  headers.set('X-Eleader-Used', String(used));      // 📏 화면이 «오늘 N / 상한» 을 그린다(서버가 센 값 그대로)
+  headers.set('X-Eleader-Cap', String(cap));
+  return new Response(body, { status: res.status, headers });
 }

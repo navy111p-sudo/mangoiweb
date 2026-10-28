@@ -638,7 +638,7 @@
 <script src="/js/mango-avatar.js?v=41" defer></script>
 <script src="/js/game-track.js?v=4" defer></script>
 <script src="/js/eleader-entry.js?v=2" defer></script>
-<script src="/js/eleader-l1.js?v=4" defer></script>
+<script src="/js/eleader-l1.js?v=5" defer></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
 <body>
@@ -4376,7 +4376,9 @@ async function sendMsg(){
     if(!r.ok){
       var errTxt = '';
       try{ var ej = await r.json(); errTxt = ej.detail || ''; }catch(e){}
-      addMsg('답변을 받아오지 못했어요. 잠시 후 다시 시도해 주세요.', 'sys');
+      /* 📗 엘리더잼 통로(js/eleader-l1.js)가 사유(하루 횟수·로그인)를 이미 말했으면 겹쳐 쓰지 않는다
+         (2026-10-28 원장님 화면: «횟수를 다 썼어요» 와 이 줄이 함께 떠 «고장» 으로 읽혔다). */
+      if(!r.__eleaderNoted) addMsg(wuT('답변을 받아오지 못했어요. 잠시 후 다시 시도해 주세요.', 'No reply yet. Please try again shortly.'), 'sys');
     } else {
       var d = await r.json();
       if(_warmPaused || epoch!==_warmEpoch)return;
