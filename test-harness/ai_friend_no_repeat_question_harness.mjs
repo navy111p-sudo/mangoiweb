@@ -50,7 +50,8 @@ const live = (needle, label) => {
   const why = at < 0 ? 'missing' : deadAt(src, at, hStart);
   ok(`⓪ ${label} — 주석 밖에 살아 있다`, why === '', { needle, why });
 };
-live('questionMemory(questionSession(historyAll, latT0), msg)', '기억은 «지금 이어지는 대화» 로 만든다');
+live('questionMemory(questionSession(historyAll, latT0), msg, { reask: reaskTurn })', '기억은 «지금 이어지는 대화» 로 만든다(요청 턴이면 방금 질문은 뺀다)');
+live('const reaskTurn = isReaskRequest(msg) || (aiFriendLooksCut(msg) && !aiFriendJustAskedAgain(history))', '«요청 턴» 판정은 정본 + cutHint 와 같은 조건이다');
 live('${askedLine}', '지시에 «이미 물은 질문» 줄을 싣는다');
 live('hintFor: repeatQuestionHintEn', '다시 뽑을 때 영어 힌트를 쓴다');
 live('repN(rn) <= repN(reply)', '이름 다시 뽑기가 같은 질문을 새로 들여오지 않는다');
@@ -267,6 +268,8 @@ console.log('① 장면 — 실제 핸들러');
   script = seq(['Great! Is your dog little?', 'Cool! What color is your dog?']);
   const res = await chat(g, 'Yes.');
   ok('①-6 최근 20줄 밖(같은 대화 40줄 안)에서 물은 질문도 기억한다', res.calls.length === 2 && res.reply === 'Cool! What color is your dog?', { n: res.calls.length, reply: res.reply, rows: rows.length });
+  const sent = res.calls[0]?.o?.messages || [];
+  ok('①-6b 그래도 모델에게 보여 주는 대화는 최근 20줄 그대로다(지시 1 + 대화 20 + 이번 말 1)', sent.length === 22 && sent.filter((m) => m.role === 'system').length === 1, { n: sent.length });
 }
 {
   const { res } = await dogTalk(['Wow! Is your dog small?', 'Cool! What color is your dog?'], { stream: 1 });
@@ -323,6 +326,119 @@ console.log('① 장면 — 실제 핸들러');
   script = seq(['Wow! Is your dog small?', 'That sounds really fun! Do you like apples?', 'Cool! What color is your dog?']);
   const res = await chat(g, SAID);
   ok('①-13 새 질문인데 첫머리가 앞 답장과 같아 떨어지면 «You already said that» 으로 한 번 더 묻고 받는다', res.reply === 'Cool! What color is your dog?' && kinds(res).join() === 'first,repeat,generic', { reply: res.reply, kinds: kinds(res) });
+}
+
+{
+  // 글자 반복만 있던 턴에서 다시 뽑은 것도 글자 반복이면 «한 번만» — 같은 질문이 없으면 ③(한 번 더)는 안 돈다.
+  const g = await guest();
+  seedRows(g.uid, [['user', 'I like games.', 2 * MIN], ['assistant', 'That sounds so fun, I love playing games with my friends too!', 1.9 * MIN]]);
+  const same = 'That sounds so fun, I love playing games with my friends too!';
+  script = seq([same, same, 'Cool! What game do you play?']);
+  const res = await chat(g, 'Me too.');
+  ok('①-12b 글자 반복만 있던 턴은 다시 뽑기가 또 반복이어도 한 번에서 멈춘다(③은 같은 질문이 있을 때만)', res.calls.length === 2 && kinds(res).join() === 'first,generic', { kinds: kinds(res), reply: res.reply });
+}
+{
+  // 처음 답에 같은 질문이 둘, 다시 뽑은 것에는 하나 → «줄었으니» 받는다(받는 조건 «없거나 줄었고»).
+  const { res } = await dogTalk(['Wow! Do you have a dog? Is your dog small?', 'Cool! Is your dog small?', 'Okay! Is your dog little?']);
+  ok('①-14 같은 질문이 줄면 받는다(둘 → 하나) — 그다음 재시도가 안 줄면 앞의 것을 둔다', res.reply === 'Cool! Is your dog small?' && res.calls.length === 3, { reply: res.reply, kinds: kinds(res) });
+}
+{
+  // 처음엔 1시간 넘게 이어진 대화 — 이웃 메시지 간격은 모두 1시간 안이라 «같은 대화» 다.
+  const g = await guest();
+  seedRows(g.uid, [
+    ['user', 'Hi!', 100 * MIN], ['assistant', 'Hi! Is your dog big?', 99.5 * MIN], ['user', 'No, he is small.', 99 * MIN],
+    ['assistant', 'Cute! Do you like pizza?', 60 * MIN], ['user', 'Yes.', 59.5 * MIN],
+    ['assistant', 'Yum! Do you play soccer?', 25 * MIN],
+  ]);
+  script = seq(['Great! Is your dog little?', 'Cool! What color is your dog?']);
+  const res = await chat(g, 'Yes.');
+  ok('①-5d 간격마다 1시간 안이면 처음부터 같은 대화 — 99분 전에 물은 질문도 기억한다', res.calls.length === 2 && res.reply === 'Cool! What color is your dog?', { n: res.calls.length, reply: res.reply });
+}
+
+// ── 🐢 «다시·천천히·모르겠어요» — 그때 방금 질문을 다시 묻는 것은 반복이 아니라 요청을 들어주는 것(2026-10-28 함정 대조 실측) ──
+for (const [say, reply] of [['Can you say that again slowly?', 'Sure! Is your dog big?'], ['천천히 말해줘', 'Okay! Is your dog big?'], ["I don't understand.", 'Sorry! Is your dog big?']]) {
+  const g = await guest();
+  seedRows(g.uid, DOG());
+  script = seq([reply, 'Okay! What color is your dog?']);
+  const res = await chat(g, say);
+  const sys = String(res.calls[0]?.o?.messages?.[0]?.content || '');
+  ok(`①-15 «${say}» 에 방금 질문을 다시 물으면 그대로 둔다(새 질문으로 안 바꾼다)`, res.calls.length === 1 && res.reply === reply, { n: res.calls.length, reply: res.reply, kinds: kinds(res) });
+  ok(`①-15 «${say}» 턴의 지시 줄에는 방금 질문이 없고 그 앞 질문은 있다`, sys.includes(M.ASKED_LINE_HEAD) && !sys.includes('"Nice! Is your dog big?"') && !sys.includes('"Is your dog big?"') && sys.includes('Do you have a dog?'), sys.slice(-500));
+}
+{
+  // 짝 — 요청 턴이어도 «그 앞에» 물어 답을 들은 질문을 다시 물으면 막는다(전부 풀어 주기 금지).
+  const g = await guest();
+  seedRows(g.uid, DOG());
+  script = seq(['Sure! Do you have a dog?', 'Okay! What color is your dog?']);
+  const res = await chat(g, 'Can you say that again slowly?');
+  ok('①-15b 요청 턴이어도 그 앞에 물은 질문(Do you have a dog?)은 그대로 막는다(짝)', res.calls.length === 2 && res.reply === 'Okay! What color is your dog?', { n: res.calls.length, reply: res.reply });
+}
+{
+  const g = await guest();
+  seedRows(g.uid, DOG());
+  script = seq(['Sure! Is your dog big?', 'Okay! What color is your dog?']);
+  const res = await chat(g, 'Can you say that again slowly?', { stream: 1 });
+  ok('①-15c 요청 턴의 미리듣기는 방금 질문까지 끝까지 나간다(멈추지 않음)', res.sent.join(' ') === 'Sure! Is your dog big?' && res.replaced === 0 && res.calls.length === 1, { sent: res.sent, replaced: res.replaced });
+}
+{
+  // 요청 «뒤» 에 학생이 답했으면 그 질문은 다시 «다룬 것» — 다음 턴에 또 물으면 막는다.
+  const g = await guest();
+  seedRows(g.uid, [...DOG(2 * MIN), ['user', 'Can you say that again slowly?', 2.5 * MIN], ['assistant', 'Sure! Is your dog big?', 2.4 * MIN]]);
+  script = seq(['Wow! Is your dog small?', 'Cool! What color is your dog?']);
+  const res = await chat(g, SAID);
+  ok('①-15d 다시 물은 질문에 학생이 답한 뒤에는 그 질문을 또 막는다', res.calls.length === 2 && res.reply === 'Cool! What color is your dog?', { n: res.calls.length, reply: res.reply });
+}
+for (const [ans, blocked] of [['Can you say that again slowly?', false], ['No, he is small.', true]]) {
+  // 크기를 물었고 학생이 그때 «다시·천천히» 만 부탁하고 AI 가 다른 이야기로 넘어갔다 → 크기 질문은 아직 답을 안 들었다.
+  const g = await guest();
+  seedRows(g.uid, [['user', 'Hi!', 8 * MIN], ['assistant', 'Hi! Is your dog big?', 7.9 * MIN], ['user', ans, 7.5 * MIN], ['assistant', 'Sure! Do you like pizza?', 7.4 * MIN]]);
+  script = seq(['Yum! Is your dog big?', 'Cool! What color is your dog?']);
+  const res = await chat(g, 'Yes.');
+  ok(blocked ? '①-15e 그때 학생이 답했으면(No, he is small.) 나중에 다시 물어도 막는다(짝)' : '①-15e 그때 학생이 «다시·천천히» 만 했으면 그 질문은 아직 안 다룬 것 — 나중에 물어도 막지 않는다',
+    blocked ? (res.calls.length === 2 && res.reply === 'Cool! What color is your dog?') : (res.calls.length === 1 && res.reply === 'Yum! Is your dog big?'), { n: res.calls.length, reply: res.reply });
+}
+{
+  // 잘린 말 — «다시 말해 줄래?» 는 내용 없는 되묻기라 앞서 한 번 했어도 반복이 아니다.
+  const g = await guest();
+  seedRows(g.uid, [
+    ['user', 'Hi!', 8 * MIN], ['assistant', 'Hi! Do you have a dog?', 7.9 * MIN], ['user', 'I', 7.5 * MIN],
+    ['assistant', 'Oops! Can you say the whole sentence again?', 7.4 * MIN], ['user', 'I have a dog.', 7 * MIN],
+    ['assistant', 'Nice! Is your dog big?', 6.9 * MIN],
+  ]);
+  script = seq(['Sorry, can you say the whole sentence again?', 'Okay! What color is your dog?']);
+  const res = await chat(g, 'and my');
+  ok('①-16 잘린 말에 «다시 말해 줄래?» 를 또 묻는 것은 그대로 둔다(앞서 한 번 했어도)', res.calls.length === 1 && res.reply === 'Sorry, can you say the whole sentence again?', { n: res.calls.length, reply: res.reply, kinds: kinds(res) });
+}
+{
+  const g = await guest();
+  seedRows(g.uid, DOG());
+  script = seq(['Sorry! Is your dog big?', 'Okay! What color is your dog?']);
+  const res = await chat(g, 'and my');
+  ok('①-16b 잘린 말 턴에 방금 질문을 다시 물으면 그대로 둔다', res.calls.length === 1 && res.reply === 'Sorry! Is your dog big?', { n: res.calls.length, reply: res.reply });
+}
+{
+  // 정본 판정의 짝: 요청이 아닌 평범한 답이면 예전처럼 기억한다.
+  const mem = M.questionMemory([{ role: 'assistant', content: 'Is your dog big?' }], 'No, small.');
+  const memR = M.questionMemory([{ role: 'assistant', content: 'Is your dog big?' }], 'Say it again please.');
+  const memO = M.questionMemory([{ role: 'assistant', content: 'Is your dog big?' }], 'No, small.', { reask: true });
+  ok('①-17 정본: 평범한 답이면 기억하고 · 요청이면 빼고 · opts.reask 가 이번 말 판정을 덮어쓴다', !!mem && mem.items.length === 1 && memR === null && memO === null, { mem: mem && mem.items.length, memR, memO });
+  ok('①-17 정본: «다시 말해 줄래?» 류는 기억도 판정도 안 한다', M.questionMemory([{ role: 'assistant', content: 'Oops! Can you say it again?' }], 'I have a dog.') === null
+    && M.repeatedQuestions('Sorry, can you say that again?', mem).length === 0 && M.isAskAgainQuestion("Sorry, I didn't catch that — can you say it again?") === true, '');
+}
+{
+  // 두 곳(정본 isReaskRequest · api-ai.ts aiFriendIsMetaAsk)이 어긋나지 않는가 — 정본이 «요청» 이면 지시(metaHint)도 반드시 켜져야 한다.
+  const at = src.indexOf('const aiFriendIsMetaAsk');
+  const body = at > 0 ? src.slice(at, src.indexOf('\n    /*', at)) : '';
+  const lits = [...body.matchAll(/\/(.+?)\/([a-z]*)\.test\(/g)].map((m) => new RegExp(m[1], m[2]));
+  const meta = (t) => lits.some((re) => re.test(t));
+  const SAMPLES = ['Can you say that again slowly?', 'slow down please', 'too fast!', 'say it again', 'again please', 'Repeat please.', "I don't understand.", 'I dont understand',
+    'simpler please', 'easier', 'shorter please', '천천히 말해줘', '느리게', '너무 빠르다', '다시 말해줘', '다시 해줘', '못 알아들었어', '모르겠어요', '쉽게 말해줘', '짧게',
+    "I don't know.", 'Yes.', 'No, small.', 'I like it a lot.', 'Because it is fun.', 'Every day!', '작아요', 'My dog is white.'];
+  const bad = SAMPLES.filter((t) => M.isReaskRequest(t) && !meta(t));
+  ok('①-18 정본이 «요청» 이라 하면 aiFriendIsMetaAsk 도 요청이다(지시와 판정이 안 갈린다)', lits.length === 2 && bad.length === 0, { n: lits.length, bad });
+  ok('①-18 «I don\'t know»·평범한 답은 요청이 아니고 · «I don\'t understand»·「모르겠어요」·「천천히」는 요청이다(짝)',
+    !M.isReaskRequest("I don't know.") && !M.isReaskRequest('No, small.') && !M.isReaskRequest('My dog is white.')
+    && M.isReaskRequest("I don't understand.") && M.isReaskRequest('모르겠어요') && M.isReaskRequest('천천히 말해줘'), '');
 }
 
 // ─── ② 샌드박스 ──────────────────────────────────────────────────────────────

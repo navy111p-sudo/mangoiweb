@@ -38,7 +38,7 @@ import { recordAiLatency } from './ai-latency-log';   // ⏱ «학생이 얼마�
 import { createJsonTextTap, takeSentences } from './stream-json-text';   // 📡 스트리밍 본문 추출 (A-1)
 /* 🔁 «같은 질문 두 번 금지» 정본 — 엘리더잼·일반 A.i 말하기와 «같은 판정» (2026-10-28 사장님 「AI 영어친구에도 같은 질문 금지 적용해줘」).
    ⛔ 판정을 여기에 복제하지 말 것 — 이 화면은 부르기만 한다. */
-import { questionSession, questionMemory, askedQuestionsLine, repeatedQuestions, retryRepeatedQuestion, repeatQuestionHintEn } from './question-memory';
+import { questionSession, questionMemory, askedQuestionsLine, repeatedQuestions, retryRepeatedQuestion, repeatQuestionHintEn, isReaskRequest } from './question-memory';
 import { FRAG_RETRY_BUDGET_MS } from './reply-questions';   // ⏱ 다시 뽑기 시간 예산(웜업과 같은 값)
 
 let _awTopicColTried = false;   // 📅 topic_id 지연 ALTER — 워커당 한 번
@@ -704,8 +704,14 @@ Student text: """${text}"""`;
       /* 🔁 (2026-10-28) 이 대화에서 «이미 물은 질문 → 학생 답» — 판정 정본 src/question-memory.ts.
          ⚠️ 마지막 AI 질문의 답은 이번 학생 말(msg)이다. 기록이 깨졌거나 질문이 없으면 null(= 예전 동작).
          ⛔ 던지지 않는다 — 기억을 못 만들어도 대화는 그대로 간다. */
+      /* 🐢 학생이 «다시·천천히·모르겠어요» 를 부탁했거나 말이 잘려 «다시 말해 줘» 를 시킬 턴이면, 방금 질문을 다시 묻는 것이
+         요청을 들어주는 것이다 — 그 질문은 기억에서 뺀다(reask). 그 앞에 물은 질문은 그대로 막는다.
+         (2026-10-28 함정 대조 실측: 「Can you say that again slowly?」 → 「Sure! Is your dog big?」 가 새 질문으로 바뀌었다.)
+         ⚠️ «요청» 판정은 정본 isReaskRequest — 아래 metaHint(aiFriendIsMetaAsk)보다 좁다(영어 «I don't know» 는 «답» 으로 본다).
+            정본이 요청이라 하면 metaHint 도 반드시 켜진다(하니스 ①-18 대조) — 판정은 «다시 물어도 된다» 인데 지시는 안 시키는 일이 없게. */
+      const reaskTurn = isReaskRequest(msg) || (aiFriendLooksCut(msg) && !aiFriendJustAskedAgain(history));
       let qmem: ReturnType<typeof questionMemory> = null;
-      try { qmem = questionMemory(questionSession(historyAll, latT0), msg); } catch (e: any) { console.warn('[chat-friend] question memory failed:', e?.message || e); }
+      try { qmem = questionMemory(questionSession(historyAll, latT0), msg, { reask: reaskTurn }); } catch (e: any) { console.warn('[chat-friend] question memory failed:', e?.message || e); }
       const repN = (t: string): number => { try { return repeatedQuestions(t, qmem).length; } catch { return 0; } };
 
       /* 🧑 이름은 학생이 고른다(Emma·Jake·Lily·Noah) — 예전에는 네 갈래가 전부 "named Mango" 라,
@@ -999,7 +1005,7 @@ ${AI_FRIEND_CORRECTION_RULE}`;
           genericHint: '(You already said that. Say something completely different in new words, and ask a different question. Keep it to 1-2 short sentences.)',
           hintFor: repeatQuestionHintEn,
         });
-        if (rr.tries) console.warn('[chat-friend] repeat retry', 'tries=' + rr.tries, 'left=' + rr.left, 'lv=' + level, rr.error || '');
+        if (rr.tries || rr.error) console.warn('[chat-friend] repeat retry', 'tries=' + rr.tries, 'left=' + rr.left, 'lv=' + level, rr.error || '');
         reply = rr.text;
       }
       /* 🚨 모델이 «다» 실패한 경우 (2026-09-09 사장님 제보로 표시를 붙임).

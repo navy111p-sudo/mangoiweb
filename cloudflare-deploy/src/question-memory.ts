@@ -113,7 +113,8 @@ export function questionsIn(text: unknown): string[] {
  *  (일주일 전에 물은 질문을 오늘 다시 묻는 것은 반복이 아니다 — 지금 이어지는 대화만 본다.)
  *  rows 는 오래된 것 → 최근 것 순이고 created_at(ms) 을 가진다. 시각을 못 읽는 행에서 끊는다(모르면 그 앞을 안 본다 = 예전 동작).
  *  [잰 것 — 2026-10-28 운영 D1 ai_friend_chats 전체, 같은 학생의 이웃 메시지 간격 1,026개] 1분 이하 991 · 1~5분 22 ·
- *  5~30분 7 · 30~60분 1 · 1~3시간 0 · 3시간 넘게 5. ⟹ 1시간에서 «쉬는 중» 과 «다른 날» 이 갈린다. */
+ *  5~30분 7 · 30~60분 1 · 1~3시간 0 · 3시간 넘게 5(같은 날 다시 잼 — 학생 137명 · 1,163줄이라 대부분 한 번 들어와 짧게 대화하고
+ *  끝나서 «긴 쉼» 자체가 드물다). ⟹ 1시간에서 «쉬는 중» 과 «다른 날» 이 갈린다. */
 export const QM_SESSION_GAP_MS = 3600000;
 export function questionSession(rows: unknown, nowMs: number, gapMs = QM_SESSION_GAP_MS): { role: string; content: string }[] {
   if (!Array.isArray(rows)) return [];
@@ -129,17 +130,43 @@ export function questionSession(rows: unknown, nowMs: number, gapMs = QM_SESSION
   return out.reverse();
 }
 
+/** 학생이 «다시·천천히·모르겠어요» 를 부탁한 말인가 — 그 말은 질문에 대한 «답» 이 아니다.
+ *  (2026-10-28 함정 대조 실측: AI 영어친구에서 「Can you say that again slowly?」 → 규칙대로 「Sure! Is your dog big?」 로
+ *   방금 질문을 다시 물었는데, 이 판정이 그것을 «같은 질문» 으로 잡아 엉뚱한 새 질문으로 바꿔 버렸다.)
+ *  ⚠️ 영어 «I don't know» 는 요청이 아니라 «답» 으로 본다 — 질문은 알아들었고 답을 모르는 것이라, 같은 질문을 또 물으면
+ *     학생에게는 반복이다(샌드박스 정답 표도 그렇게 본다). «I don't understand»·「모르겠어요」(영어 질문을 못 알아들음)는 요청이다.
+ *  ⚠️ api-ai.ts 의 aiFriendIsMetaAsk(지시 metaHint 를 켜는 판정 — 하니스가 vm 으로 떼어 돌려 import 를 못 쓴다)는 이것보다 «넓다».
+ *     이것이 «요청» 이라 하면 그쪽도 반드시 요청이어야 한다(그래야 지시도 «다시 물어라» 를 준다) —
+ *     ai_friend_no_repeat_question_harness ①-18 이 두 곳을 대조한다. 한쪽만 고치지 말 것. */
+export const QM_REASK_KO = /(천천히|느리게|빠르|다시\s*(말|얘기|해)|못\s*알아|모르겠|쉽게|짧게)/;
+export const QM_REASK_EN = /\b(slow(ly| down)?|too fast|say (it|that) again|again please|repeat|i don'?t understand|simpler|easier|shorter)\b/i;
+export function isReaskRequest(s: unknown): boolean {
+  const t = typeof s === 'string' ? s : '';
+  return !!t && (QM_REASK_KO.test(t) || QM_REASK_EN.test(t));
+}
+/** AI 가 «다시 말해 줄래?» 라고 되묻는 질문인가 — 내용이 없는 되묻기라 두 번 해도 반복이 아니다(맞장구와 같은 취급).
+ *  ⚠️ «두 번 연속 되묻기 금지» 는 부르는 쪽 규칙(aiFriendJustAskedAgain·웜업 지시)이 맡는다 — 여기서 막지 않는다. */
+export const QM_ASK_AGAIN = /(\bsay\b[^?]{0,30}\bagain\b|\bone more time\b|\bdidn'?t catch\b|\bonly caught\b|\bcan you repeat\b|\brepeat (it|that)\b|다시 말)/i;
+export function isAskAgainQuestion(q: unknown): boolean {
+  return QM_ASK_AGAIN.test(typeof q === 'string' ? q : '');
+}
+
 /** 웜업 기록에서 «이미 물은 질문 → 학생 답» 을 뽑는다.
- *  마지막 AI 질문의 답은 이번 턴 학생 말(said)이다. 기록이 아니거나 질문이 없으면 null(= 예전 동작). */
-export function questionMemory(history: unknown, said?: unknown): QuestionMemory | null {
+ *  마지막 AI 질문의 답은 이번 턴 학생 말(said)이다. 기록이 아니거나 질문이 없으면 null(= 예전 동작).
+ *  ⚠️ 학생이 그 질문에 «다시·천천히·모르겠어요» 로 답했으면(isReaskRequest — 이번 말은 opts.reask 로 덮어쓸 수 있다)
+ *     그 질문은 «아직 안 다룬 것» 으로 둔다 — AI 가 요청대로 다시 물어도 반복이 아니다. 그 앞에 물은 질문은 그대로 기억한다.
+ *  ⚠️ AI 의 «다시 말해 줄래?»(isAskAgainQuestion)는 기억하지 않는다. */
+export function questionMemory(history: unknown, said?: unknown, opts?: { reask?: boolean }): QuestionMemory | null {
   if (!Array.isArray(history)) return null;
   const msgs = history.filter((m: any) => m && (m.role === 'assistant' || m.role === 'user') && typeof m.content === 'string').slice(-40);
   const asked: { q: string; a: string }[] = [], done: Set<string>[] = [], texts = new Set<string>(), items: QuestionMemoryItem[] = [];
   for (let k = 0; k < msgs.length; k++) {
     if (msgs[k].role !== 'assistant') continue;
-    const qs = questionsIn(msgs[k].content);
+    const qs = questionsIn(msgs[k].content).filter(q => !isAskAgainQuestion(q));
     if (!qs.length) continue;
     const nx = msgs[k + 1];
+    const reask = nx ? (nx.role === 'user' && isReaskRequest(nx.content)) : (opts && typeof opts.reask === 'boolean' ? opts.reask : isReaskRequest(said));
+    if (reask) continue;   // 학생이 «다시·천천히» 를 부탁한 질문 — 아직 답하지 않았다
     const a = nx ? (nx.role === 'user' ? clip(nx.content, 60) : '') : clip(said, 60);
     const traits = [...questionSlot(a)].filter(x => ANSWER_TRAITS.has(x));   // 학생 답에서 나온 성질(「작아요 7kg」 → @size)
     const slots = qs.map(q => questionSlot(q));
