@@ -140,8 +140,19 @@ export function briefEval(r: any): EvalBrief {
   };
 }
 
+/** 방 번호가 말하는 수업 날짜 — 결정론 방 번호(class-<예약>-<YYYYMMDD>)일 때만, 아니면 ''. */
+export function roomYmd(roomId: any): string {
+  const m = /^class-\d+-(\d{4})(\d{2})(\d{2})$/.exec(String(roomId || '').trim());
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+}
+
 /** 한 수업의 «오늘 평가» 와 «지난 평가» 를 고른다.
- *  오늘 = 같은 방 번호, 없으면 그 날짜(KST)에 쓴 것 · 지난 = 이 수업 시작 전에 쓴 것 중 가장 최근. */
+ *  오늘 = 같은 방 번호, 없으면 그 날짜(KST)에 쓴 것 · 지난 = 수업일이 이 날짜보다 앞인 것 중 가장 최근(아래).
+ *  (dayStartTs 는 옛 호출부와 맞추려고 남긴 인자다 — 판정은 날짜 문자열로 한다.)
+ *  ➕ (2026-10-28) «지난 수업» 방 번호로 «나중에» 쓴 것(오늘 수업 표의 「➕ 지난 피드백 추가」 —
+ *     js/eval-quick-view.js create)도 지난 평가다 — 쓴 시각이 오늘이어도 방 날짜가 이 수업보다 앞이면.
+ *     ⚠️ 이 규칙이 없으면 그 글은 «오늘» 도 «지난» 도 아니라 어느 칸에도 안 보인다(방 번호가 있어 오늘의
+ *        «방 없는 글» 규칙에도 안 걸린다). 수업 다음 날 쓴 강사 일지도 같은 이유로 안 보이던 것이 함께 풀린다. */
 export function pickEvals(evals: any[], roomId: string, dateStr: string, dayStartTs: number)
   : { today: any | null; last: any | null } {
   let today: any = null;
@@ -150,11 +161,16 @@ export function pickEvals(evals: any[], roomId: string, dateStr: string, dayStar
     const c = Number(e?.created_at) || 0;
     if (c && kstYmd(c) === dateStr && !String(e?.room_id || '').trim()) { today = e; break; }
   }
-  let last: any = null;
-  for (const e of evals) {   // evals 는 created_at 내림차순
+  // 지난 = «수업일» 이 이 수업 날짜보다 앞인 것 중 가장 늦은 수업일. 수업일 = 방 번호의 날짜, 없으면 쓴 날(KST).
+  //   방이 없는 글은 예전 규칙(이 날짜 전에 쓴 것)과 똑같다 — kstYmd(c) < dateStr ⟺ c < dayStartTs.
+  //   같은 수업일이면 나중에 쓴 것(evals 는 created_at 내림차순이라 먼저 만난 것).
+  let last: any = null, lastDay = '';
+  for (const e of evals) {
     if (e === today) continue;
     const c = Number(e?.created_at) || 0;
-    if (c && c < dayStartTs) { last = e; break; }   // 이 수업 «날짜 전» 에 쓴 것 중 가장 최근
+    if (!c) continue;
+    const d = roomYmd(e?.room_id) || kstYmd(c);
+    if (d < dateStr && (!last || d > lastDay)) { last = e; lastDay = d; }
   }
   return { today, last };
 }

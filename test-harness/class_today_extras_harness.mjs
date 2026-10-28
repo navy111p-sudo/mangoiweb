@@ -71,6 +71,22 @@ out.e_today = pk.today && pk.today.id; out.e_last = pk.last && pk.last.id;
 const pk2 = X.pickEvals(evs, 'class-5-20260923', '2026-09-23', day);
 out.e_other_today = pk2.today; out.e_other_last = pk2.last && pk2.last.id;
 out.brief = X.briefEval(evs[1]);
+// ➕ (2026-10-28) 「지난 피드백 추가」 — 지난 수업 방 번호로 «오늘» 쓴 글은 지난 평가다(오늘 평가가 아니다)
+{
+  const late = { id: 7, room_id: 'class-9-20260921', created_at: S + 30*M, note_en: 'added later' };
+  const pk3 = X.pickEvals([late, ...evs], 'class-9-20260923', '2026-09-23', day);
+  out.e_late_last = pk3.last && pk3.last.id; out.e_late_today = pk3.today && pk3.today.id;
+  // 짝: 방 날짜가 오늘이거나 뒤면 지난 평가가 아니다
+  const same = { id: 8, room_id: 'class-4-20260923', created_at: S + 30*M };
+  const fut = { id: 9, room_id: 'class-9-20260925', created_at: S + 30*M };
+  const pk4 = X.pickEvals([same, fut, ...evs], 'class-9-20260923', '2026-09-23', day);
+  out.e_nolate_last = pk4.last && pk4.last.id;
+  // 수업일이 더 늦은 것이 먼저 — 더 옛 수업(9/19)의 글을 나중에 써도 9/21 의 글을 밀어내지 않는다
+  const older = { id: 10, room_id: 'class-9-20260919', created_at: S + 40*M };
+  const pk5 = X.pickEvals([older, late, ...evs], 'class-9-20260923', '2026-09-23', day);
+  out.e_order_last = pk5.last && pk5.last.id;
+  out.room_ymd = [X.roomYmd('class-9-20260921'), X.roomYmd('c24-77'), X.roomYmd('class-9-2026092'), X.roomYmd(null)];
+}
 // 로더 — 가짜 DB (질의문을 보고 답한다)
 const SQLS = [];
 const mkDb = (boom) => ({
@@ -179,6 +195,10 @@ if (o) {
   ok('평가: 같은 방 번호 = 오늘 평가', o.e_today === 3);
   ok('평가: 지난 평가 = 그 날짜 전 가장 최근', o.e_last === 2);
   ok('평가: 같은 날 «다른 방» 평가는 오늘 평가로 안 붙임(짝)', o.e_other_today === null && o.e_other_last === 2);
+  ok('평가: 지난 수업 방으로 «오늘» 쓴 글은 지난 평가(2026-10-28 지난 피드백 추가)', o.e_late_last === 7 && o.e_late_today === 3, [o.e_late_last, o.e_late_today]);
+  ok('평가: 방 날짜가 오늘·이후인 글은 지난 평가가 아니다(짝)', o.e_nolate_last === 2, o.e_nolate_last);
+  ok('평가: 더 옛 수업의 글을 나중에 써도 «가장 최근 수업일» 이 지난 평가', o.e_order_last === 7, o.e_order_last);
+  ok('평가: roomYmd 는 결정론 방 번호만 날짜로 읽는다', JSON.stringify(o.room_ymd) === JSON.stringify(['2026-09-21', '', '', '']), o.room_ymd);
   ok('평가: 100점 만점 값은 max=100', o.brief.max === 100 && o.brief.score === 88);
   ok('지사·대리점(evals:false): 평가 내용이 응답에 없다', o.hid.today === null && o.hid.last === null, o.hid);
   ok('지사·대리점(evals:false): 평가 표를 «조회조차» 안 한다', o.hid.queried === false, o.hid);
