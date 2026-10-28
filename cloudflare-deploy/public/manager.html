@@ -549,6 +549,31 @@ html.dark .sgrp a:active,html.dark .sgrp button:active{background:#242d37}
 html.dark .grouphead{color:#fbbf24}
 .evq-open{color:#1d4ed8;font-weight:700;white-space:nowrap}
 html.dark .evq-open{color:#93c5fd}
+
+/* 📖 (2026-10-28 사장님 「결제 페이지를 열면 안내서가 먼저 보이게 · 끄기 · 다시 보지 않기」) AI 컨텐츠 결제 안내서 창.
+   ⛔ 그림은 이 창이 «열릴 때» 만 받는다(계약 1번 — 첫 화면 요청 0개). transition·animation 없음(계약 3번). */
+.aib-guide-link{margin:2px 0 8px;text-align:right}
+#aibGuide{position:fixed;inset:0;z-index:999990;background:rgba(15,23,42,.62);display:flex;align-items:flex-start;justify-content:center;padding:14px 10px;overflow-y:auto}
+#aibGuide .ag-box{background:#fff;color:#1f2937;width:100%;max-width:760px;border-radius:14px;margin:auto 0;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+#aibGuide .ag-head{border-radius:14px 14px 0 0;background:#fff7e6;border-bottom:1px solid #fcd9a8;padding:14px 18px}
+#aibGuide .ag-head h2{margin:0;font-size:20px;font-weight:800;color:#111827}
+#aibGuide .ag-head p{margin:4px 0 0;font-size:14px;color:#92400e;font-weight:700}
+#aibGuide .ag-body{padding:6px 18px 10px;font-size:15px;line-height:1.55}
+#aibGuide .ag-step{margin:16px 0 4px}
+#aibGuide .ag-step h3{margin:0 0 6px;font-size:16.5px;font-weight:800;display:flex;align-items:center;gap:8px}
+#aibGuide .ag-n{flex:none;width:28px;height:28px;border-radius:50%;background:#f59e0b;color:#fff;font-size:15px;display:inline-flex;align-items:center;justify-content:center}
+#aibGuide img{display:block;width:100%;height:auto;border:1px solid #d1d5db;border-radius:10px}
+#aibGuide .ag-cap{margin:6px 2px 0}
+#aibGuide .ag-tip{background:#ecfdf3;border:1px solid #a7e3bf;border-radius:10px;padding:8px 12px;margin:8px 0;font-size:14px}
+#aibGuide .ag-sum{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 0}
+#aibGuide .ag-sum div{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:8px 10px;font-size:14px}
+#aibGuide .ag-sum b{display:block;font-size:12.5px;color:#6b7280}
+#aibGuide .ag-note{color:#6b7280;font-size:12.5px;margin:12px 0 2px}
+#aibGuide .ag-foot{position:sticky;bottom:0;border-radius:0 0 14px 14px;background:#fff;border-top:1px solid #e5e7eb;padding:10px 18px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+#aibGuide .ag-foot button{font:inherit;font-size:15px;font-weight:800;border-radius:10px;padding:10px 18px;cursor:pointer;min-height:44px}
+#aibGuide .ag-never{background:#fff;color:#374151;border:1px solid #cbd5e1}
+#aibGuide .ag-close{background:#f59e0b;color:#1f2937;border:1px solid #f59e0b}
+@media (max-width:560px){#aibGuide .ag-sum div{font-size:13px}#aibGuide .ag-foot button{flex:1}}
 </style>
 <script src="/js/admin-daily-manual.js?v=2" defer></script>
 <script>
@@ -1445,8 +1470,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <!-- 🤖 (2026-10-20 사장님 「'AI 컨텐츠 결제' 메뉴를 만들고 대리점이 소속 학생을 일괄 결제」) 옛 «AI 사용료 청구서» 를
        같은 서버(ai-billing.ts)·같은 청구서 위에서 다시 꾸민 것이다 — 새 결제 흐름을 따로 만들지 않았다(두 벌이면 화면마다 답이 달라진다).
        이번 달 말일까지 다음 달 이용분을 학생별로 골라 한 번에 낸다. -->
-  <details class="card" id="c-aibill" ontoggle="if(this.open)loadAiBill()" hidden>
+  <details class="card" id="c-aibill" ontoggle="if(this.open){loadAiBill();aibGuideAuto();}" hidden>
       <summary><span data-en="A.i content payment" data-ko="AI 컨텐츠 결제">A.i content payment</span></summary>
+      <div class="aib-guide-link"><button type="button" class="btn btn-gray" onclick="aibGuideOpen()"><span data-en="📖 How to pay" data-ko="📖 결제 방법 보기">📖 How to pay</span></button></div>
       <div id="aibillBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
@@ -2497,6 +2523,66 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       get('/api/admin/ai-billing/history'),
     ]).then(function(r){ D.aibill = r[0]; D.aibillHist = r[1]; paintAiBill(); })
       .catch(function(e){ failBox(el, e); });
+  };
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 📖 (2026-10-28 사장님) AI 컨텐츠 결제 안내서 — 카드를 펼치면 «먼저» 뜬다(PC·모바일 같음).
+  //   「끄기」= 이번 화면에서만 닫음(새로 열면 다시 뜸) · 「다시 보지 않기」= 이 기기에서 더 안 띄움.
+  //   다시 보고 싶으면 카드 맨 위 「📖 결제 방법 보기」.
+  //   ⛔ 금액(단가표)은 일부러 안 적는다 — 정본은 서버(ai-billing-price.ts)이고 카드가 그 값을 그린다.
+  //      여기 적으면 단가가 바뀌는 날 안내서만 거짓말을 한다.
+  //   ⚠️ 사진은 시연 화면(가짜 학생)이다 — 창 안에 그렇게 적는다.
+  // ══════════════════════════════════════════════════════════════════════════
+  var AIB_GUIDE_KEY = 'mangoi_aibill_guide_off', aibGuideShown = false;
+  window.aibGuideAuto = function(){
+    if (aibGuideShown) return;
+    try { if (localStorage.getItem(AIB_GUIDE_KEY) === '1') return; } catch (e) {}
+    window.aibGuideOpen();
+  };
+  window.aibGuideOpen = function(){
+    aibGuideShown = true;
+    if (document.getElementById('aibGuide')) return;
+    var IMG = '/img/aibill-guide/';
+    function step(n, title, img, w, h, cap, tip){
+      return '<div class="ag-step"><h3><span class="ag-n">' + n + '</span>' + title + '</h3>' +
+        '<img src="' + IMG + img + '" width="' + w + '" height="' + h + '" alt="" loading="lazy">' +
+        '<div class="ag-cap">' + cap + '</div>' + (tip ? '<div class="ag-tip">💡 ' + tip + '</div>' : '') + '</div>';
+    }
+    var o = document.createElement('div');
+    o.id = 'aibGuide';
+    o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', 'AI 컨텐츠 결제 안내서');
+    o.innerHTML = '<div class="ag-box">' +
+      '<div class="ag-head"><h2>🤖 AI 컨텐츠 결제 안내서</h2><p>학생 고르기 → 금액 확인 → 카드 결제, 3분이면 끝납니다.</p></div>' +
+      '<div class="ag-body">' +
+        '<div class="ag-sum">' +
+          '<div><b>누구 몫인가요?</b>화상영어를 <u>안 듣고</u> A.i 만 쓰는 학생</div>' +
+          '<div><b>언제 내나요?</b>매달 <u>말일까지</u> 다음 달 이용분</div>' +
+          '<div><b>얼마인가요?</b>고른 학생 수 × 1명 단가 (화면에 계산돼 나옵니다)</div>' +
+          '<div><b>어떻게 내나요?</b>이 화면에서 카드로 결제</div>' +
+        '</div>' +
+        step(1, '메뉴 열기', '2_menu.webp', 1226, 276, '다음부터는 왼쪽 메뉴 「정산통계관리」의 <b>🤖 AI 컨텐츠 결제</b>로 들어오시면 됩니다.') +
+        step(2, '학생 명단 불러오기', '3_card.webp', 1400, 481, '오른쪽 위에서 <b>결제 마감일</b>을 확인하고 <b>📋 우리 학원 학생 불러와서 고르기</b>를 누릅니다.', '이 버튼은 명단만 불러옵니다. <b>아직 아무것도 결제되지 않아요.</b>') +
+        step(3, '다음 달에 쓸 학생 체크하기', '4_check.webp', 1400, 469, '다음 달 A.i 를 쓸 학생은 <b>체크</b>, 그만둔 학생은 <b>체크를 풀어</b> 주세요.') +
+        '<div class="ag-step"><img src="' + IMG + '5_notyet.webp" width="1400" height="365" alt="" loading="lazy"><div class="ag-cap">「아직 신청 안 한 학생」 중에 쓸 학생이 있으면 여기서도 체크합니다.</div>' +
+        '<div class="ag-tip">💡 「📹 화상영어」 학생은 수업료에 A.i 가 포함돼 있어 <b>고를 필요가 없습니다.</b> 이름·아이디로 찾을 수도 있어요.</div></div>' +
+        step(4, '금액 확인하고 결제하기', '6_pay.webp', 1400, 342, '합계 인원과 금액을 확인하고 <b>💳 OOO원 결제하기</b> → 카드 결제창에서 결제합니다.', '「결제가 완료됐습니다」가 나오면 끝입니다.') +
+        step(5, '결제 확인하기', '7_history.webp', 1400, 244, '「지난 결제」에 <b>✅</b> 가 있으면 결제 완료입니다. 나중에 학생을 더 넣으면 늘어난 학생 몫만 추가 결제됩니다.') +
+        '<div class="ag-note">※ 사진 속 학생 이름·아이디·금액은 설명용 예시입니다. 실제 화면에는 우리 학원 학생이 나옵니다. 문의: 망고아이 카카오톡 채널 pf.kakao.com/_xlqnSxd</div>' +
+      '</div>' +
+      '<div class="ag-foot"><button type="button" class="ag-never" data-act="never">다시 보지 않기</button>' +
+      '<button type="button" class="ag-close" data-act="close">끄기</button></div>' +
+    '</div>';
+    function close(){ document.removeEventListener('keydown', onKey); if (o.parentNode) o.parentNode.removeChild(o); }
+    function onKey(e){ if (e.key === 'Escape') close(); }
+    o.addEventListener('click', function(e){
+      var b = e.target.closest && e.target.closest('[data-act]');
+      if (b && b.getAttribute('data-act') === 'never') { try { localStorage.setItem(AIB_GUIDE_KEY, '1'); } catch (x) {} close(); }
+      else if (b) close();
+      else if (e.target === o) close();
+    });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(o);
+    var c = o.querySelector('.ag-close'); if (c) try { c.focus({ preventScroll: true }); } catch (e) {}
   };
   window.aiBillShowMonth = function(ym){ D.aibMonthSel = ym || null; D.aibMsg = null; window.loadAiBill(); };
   window.aiBillGenerate = function(btn){
