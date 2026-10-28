@@ -574,6 +574,45 @@ html.dark .evq-open{color:#93c5fd}
 #aibGuide .ag-never{background:#fff;color:#374151;border:1px solid #cbd5e1}
 #aibGuide .ag-close{background:#f59e0b;color:#1f2937;border:1px solid #f59e0b}
 @media (max-width:560px){#aibGuide .ag-sum div{font-size:13px}#aibGuide .ag-foot button{flex:1}}
+
+/* 📘 (2026-10-28 사장님) 결제 안내 매뉴얼 — 대리점 전용. 「화상영어 수업료 결제」 카드를 처음 펼칠 때 먼저 뜨고 아래에 [끄기]·[다시 보지 않기].
+   AI 컨텐츠 결제 카드는 위 #aibGuide(그림 안내서)가 맡는다. 카드 안 «결제 방법 보기» 버튼은 그 .aib-guide-link 모양을 같이 쓴다.
+   설계 계약 준수: 외부 리소스 0 · 애니메이션/transition 0 · 한영은 data-ko/en. 동작은 아래 pay-guide 스크립트 한 곳. */
+.qbar button.qpg{background:#fff7e6;border-color:#f3c46b;color:#8a4b00}
+html.dark .qbar button.qpg{background:#2e2512;border-color:#7a5a1c;color:#f6c76b}
+#payGuide{position:fixed;top:0;bottom:0;left:0;right:0;margin:auto;z-index:70;border:0;padding:0;border-radius:14px;
+  width:min(720px,calc(100% - 24px));max-width:none;height:fit-content;
+  max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);
+  color:#16202c;background:#fff;box-shadow:0 18px 60px rgba(0,0,0,.35)}
+#payGuide[open]{display:flex;flex-direction:column}
+#payGuide::backdrop{background:rgba(16,24,40,.55)}
+.pg-head{padding:16px 18px 10px;border-bottom:1px solid #e3e8ee;flex:none}
+.pg-head h2{margin:0;font-size:19px}
+#pgTitle:focus,#payGuide:focus,#payGuide:focus-visible{outline:none}
+.pg-head p{margin:4px 0 0;color:#5d6b7a;font-size:13.5px}
+.pg-body{padding:6px 18px 14px;overflow:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:0}
+.pg-body h3{font-size:16px;margin:14px 0 6px}
+.pg-body ol,.pg-body ul{margin:0;padding-left:22px}
+.pg-body li{margin:5px 0}
+.pg-tip{background:#f4f6f8;border-radius:8px;padding:8px 10px;margin:8px 0 0;font-size:13.5px;color:#3c4a58}
+.pg-foot{display:flex;gap:8px;padding:12px 18px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #e3e8ee;flex:none}
+.pg-foot button{flex:1 1 0;min-height:48px;border-radius:10px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.pg-pdf{margin:8px 0 0;font-size:14px}
+.pg-pdf a{color:#1d4ed8;font-weight:700}
+html.dark .pg-pdf a{color:#93c5fd}
+.pg-close{background:#f59e0b;border:1px solid #f59e0b;color:#1f1300}
+.pg-never{background:#fff;border:1px solid #c9d2dc;color:#2c3a48}
+html.dark #payGuide{color:#dbe3ea;background:#1a2129}
+html.dark .pg-head,html.dark .pg-foot{border-color:#2b343e}
+html.dark .pg-head p{color:#95a2b0}
+html.dark .pg-tip{background:#222b35;color:#c3ccd6}
+html.dark .pg-never{background:#1d2530;border-color:#39434f;color:#d3dbe4}
+@media (max-width:600px){
+  #payGuide{width:calc(100% - 16px);max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);border-radius:12px}
+  .pg-head{padding:14px 14px 8px}
+  .pg-body{padding:4px 14px 12px}
+  .pg-foot{padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+}
 </style>
 <script src="/js/admin-daily-manual.js?v=2" defer></script>
 <script>
@@ -993,6 +1032,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <button type="button" id="sideSettle" onclick="sideGo('c-settle')"><span class="ic">💰</span><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></button>
     <button type="button" id="sideTuition" onclick="sideGo('c-tuition')" hidden><span class="ic">💳</span><span data-en="Video class tuition" data-ko="화상영어 수업료 결제">Video class tuition</span></button>
     <button type="button" id="sideAibill" onclick="sideGo('c-aibill')" hidden><span class="ic">🤖</span><span data-en="A.i content payment" data-ko="AI 컨텐츠 결제">A.i content payment</span></button>
+    <button type="button" id="sidePayGuide" onclick="closeSide();openPayGuide()" hidden><span class="ic">📘</span><span data-en="Payment guide" data-ko="결제 안내 매뉴얼">Payment guide</span></button>
   </div>
   <div class="sgrp-h" data-en="Operations" data-ko="운영관리">Operations</div>
   <div class="sgrp">
@@ -1237,6 +1277,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="qbar">
     <!-- 🗼 (2026-10-21) 맨 앞 — «관리자들이 잘 찾게». 새 탭으로 연다(이 화면의 할 일은 그대로 둔다). -->
     <a id="toMonitor" class="qlink qmon" href="/admin/monitor-wall.html" target="_blank" rel="noopener" hidden>🗼 <span data-en="Class Monitor (all live classes)" data-ko="수업 관제탑 (전체 현황)">Class Monitor (all live classes)</span></a>
+    <!-- 📘 (2026-10-28) 결제 안내 매뉴얼 — 대리점만(paintMonth 가 결제 카드와 같은 판정으로 hidden 을 푼다). -->
+    <button type="button" id="qPayGuide" class="qpg" onclick="openPayGuide()" hidden>📘 <span data-en="Payment guide" data-ko="결제 안내 매뉴얼">Payment guide</span></button>
     <button type="button" onclick="openCard('c-search')"><span data-en="Search" data-ko="통합 검색">Search</span></button>
     <button type="button" id="qWait" onclick="openCard('c-wait')"><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
     <button type="button" onclick="openCard('c-students')"><span data-en="My students" data-ko="학생 명부">My students</span></button>
@@ -1462,8 +1504,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        본사가 문자로 보내는 링크(/b2b-pay.html)와 같은 청구서를 «로그인한 채로» 보고 낸다.
        서버(b2b-tuition-load.ts)가 학원을 로그인 스코프로 고정하므로 남의 청구서를 볼·낼 방법이 없다.
        ⛔ 이 화면은 금액을 계산하지 않는다 — 서버가 준 숫자·문장만 그린다. -->
-  <details class="card" id="c-tuition" ontoggle="if(this.open)loadTuition()" hidden>
+  <details class="card" id="c-tuition" ontoggle="if(this.open){loadTuition();payGuideAuto();}" hidden>
       <summary><span data-en="Video class tuition" data-ko="화상영어 수업료 결제">Video class tuition</span></summary>
+      <div class="aib-guide-link"><button type="button" class="btn btn-gray" onclick="openPayGuide()"><span data-en="📖 How to pay" data-ko="📖 결제 방법 보기">📖 How to pay</span></button></div>
       <div id="tuiBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
@@ -1559,6 +1602,94 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   </div>
 
 </div>
+
+<!-- 📘 결제 안내 매뉴얼 (2026-10-28 사장님 「대리점 관리자페이지에 결제 안내 매뉴얼 버튼 · 결제 페이지를 열면 먼저 보이게 ·
+     아래에 끄기와 다시 보지 않기」). 대리점(agency) 계정만 — 버튼은 paintMonth() 가, 자동 표시는 «화상영어 수업료 결제» 카드가 연다.
+     AI 컨텐츠 결제 카드는 #1853 의 그림 안내서(#aibGuide · aibGuideAuto)가 맡는다 — 이 창은 거기서 안 뜨고 AI 칸에서 그 안내서를 연다.
+     ⚠️ 문구는 수업료 카드(paintTuition)가 실제로 그리는 버튼·안내와 같은 말을 쓴다.
+        금액·단가 같은 숫자는 적지 않는다 — 서버가 정하고 화면이 그대로 보여 준다(여기 적으면 언젠가 거짓이 된다).
+        카드의 버튼 이름이 바뀌면 여기도 함께 고칠 것. -->
+<dialog id="payGuide" aria-labelledby="pgTitle">
+  <div class="pg-head">
+    <h2 id="pgTitle" tabindex="-1">📘 <span data-en="Payment guide" data-ko="결제 안내 매뉴얼">Payment guide</span></h2>
+    <p data-en="There are two kinds of payment. Nothing is paid until you press the pay button." data-ko="결제는 두 가지입니다. 「결제하기」를 누르기 전에는 아무것도 결제되지 않습니다.">There are two kinds of payment. Nothing is paid until you press the pay button.</p>
+  </div>
+  <div class="pg-body">
+    <h3>💳 <span data-en="Video class tuition (credit)" data-ko="화상영어 수업료 결제 (충전금)">Video class tuition (credit)</span></h3>
+    <ol>
+      <li data-en="Open ☰ Menu → Settlement &amp; stats → Video class tuition." data-ko="☰ 메뉴 → 정산통계관리 → 「화상영어 수업료 결제」를 엽니다.">Open ☰ Menu → Settlement &amp; stats → Video class tuition.</li>
+      <li data-en="Check «Credit balance now» and «Classes left this month»." data-ko="「지금 충전금 잔액」과 「이번 달 남은 수업 금액」을 확인합니다.">Check «Credit balance now» and «Classes left this month».</li>
+      <li data-en="Under «Amount due», press «Why this amount?» to see the breakdown by student." data-ko="「낼 금액」 청구서에서 「왜 이 금액인가요?」를 누르면 학생별 계산 내역이 보입니다.">Under «Amount due», press «Why this amount?» to see the breakdown by student.</li>
+      <li data-en="Press «Pay ○○» — the card payment window opens." data-ko="「○○원 결제하기」를 누르면 카드 결제창이 열립니다.">Press «Pay ○○» — the card payment window opens.</li>
+      <li data-en="When payment is done you come back here and it shows ✅ under «Paid»." data-ko="결제가 끝나면 이 화면으로 돌아오고 「지난 결제」에 ✅ 로 표시됩니다.">When payment is done you come back here and it shows ✅ under «Paid».</li>
+    </ol>
+    <p class="pg-tip" data-en="Credit is deducted per class held. Next month’s invoice is fixed on the 20th. If your credit is below the next 2 weeks of classes, «Low credit» appears." data-ko="충전금은 수업한 만큼 자동으로 빠집니다. 다음 달 청구액은 매월 20일에 확정되고, 잔액이 앞으로 2주 수업보다 적으면 「충전금 부족」이 뜹니다.">Credit is deducted per class held. Next month’s invoice is fixed on the 20th. If your credit is below the next 2 weeks of classes, «Low credit» appears.</p>
+
+    <h3>🤖 <span data-en="A.i content payment" data-ko="AI 컨텐츠 결제">A.i content payment</span></h3>
+    <p data-en="Pay for next month’s A.i content by the end of this month, choosing students one by one. The step-by-step picture guide opens first when you open that card." data-ko="다음 달에 쓸 A.i 컨텐츠는 이번 달 말일까지 학생을 골라 미리 결제합니다. 그 카드를 열면 사진으로 된 단계별 안내서가 먼저 뜹니다.">Pay for next month’s A.i content by the end of this month, choosing students one by one. The step-by-step picture guide opens first when you open that card.</p>
+    <p><button type="button" class="btn btn-gray" onclick="closePayGuide();aibGuideOpen()"><span data-en="🤖 Open the A.i payment picture guide" data-ko="🤖 AI 컨텐츠 결제 그림 안내서 열기">🤖 Open the A.i payment picture guide</span></button></p>
+    <!-- 인쇄용 안내서(A4 4쪽) — 자료실과 같은 파일(admin.html 대리점 자료실 «A.i 컨텐츠 결제 안내서»). 파일을 옮기면 여기도 함께. -->
+    <p class="pg-pdf">📄 <span data-en="Printable guide (PDF):" data-ko="인쇄용 안내서(PDF):">Printable guide (PDF):</span> <a href="/library/agency/ai-pay-guide-kr.pdf" target="_blank" rel="noopener">한국어</a> · <a href="/library/agency/ai-pay-guide-en.pdf" target="_blank" rel="noopener">English</a></p>
+
+    <h3>❓ <span data-en="If payment does not work" data-ko="결제가 안 될 때">If payment does not work</span></h3>
+    <ul>
+      <li data-en="If the payment window does not open, press «Refresh» at the top and try again." data-ko="결제창이 안 열리면 위의 「새로고침」을 누른 뒤 다시 시도해 주세요.">If the payment window does not open, press «Refresh» at the top and try again.</li>
+      <li data-en="«This invoice is already paid» means it is done — check «Paid»." data-ko="「이미 결제된 청구서입니다」는 결제가 끝났다는 뜻입니다. 「지난 결제」를 확인하세요.">«This invoice is already paid» means it is done — check «Paid».</li>
+      <li data-en="«Not turned on» / «not opened yet» means head office has to set it up. Please contact head office." data-ko="「켜지 않았습니다」·「아직 열지 않았습니다」는 본사 설정이 필요한 상태입니다. 본사로 문의해 주세요.">«Not turned on» / «not opened yet» means head office has to set it up. Please contact head office.</li>
+    </ul>
+  </div>
+  <div class="pg-foot">
+    <button type="button" class="pg-close" onclick="closePayGuide()" data-en="Close" data-ko="끄기">Close</button>
+    <button type="button" class="pg-never" onclick="payGuideNever()" data-en="Don't show again" data-ko="다시 보지 않기">Don't show again</button>
+  </div>
+</dialog>
+<script>
+/* 📘 결제 안내 매뉴얼 — 열기 · 끄기 · 다시 보지 않기 (2026-10-28)
+   · 「화상영어 수업료 결제」 카드(c-tuition)를 펼치면 «이 화면에서 처음 한 번» 먼저 띄운다 — PC·휴대폰 같다.
+     (AI 컨텐츠 결제 카드는 그림 안내서 aibGuideAuto 가 따로 띄운다 — 두 창을 한 카드에 겹쳐 띄우지 않는다.)
+   · [끄기] = 이번만 닫는다(화면을 새로 열면 다시 뜬다). [다시 보지 않기] = 이 기기에서는 자동으로 안 띄운다.
+     어느 쪽이든 카드 위 「📖 결제 방법 보기」 · 자주 쓰는 기능 · ☰ 메뉴로 언제든 다시 연다.
+   · 토스 결제에서 막 돌아온 화면(?tui_paid · tui_fail · aib_paid · aib_fail)에서는 자동으로 안 띄운다 —
+     카드가 저절로 열려 결과 문구를 보여 주는 순간이라 매뉴얼이 그 결과를 가리면 안 된다.
+     (아래 메인 스크립트가 그 주소를 지우기 «전» 에 읽어야 하므로 이 블록이 메인 스크립트보다 위에 있다.)
+   · 내용이 크게 바뀌면 HIDE_KEY 의 _v1 을 올린다 → «다시 보지 않기» 를 누른 사람에게도 한 번 더 뜬다.
+   ⛔ 서버를 부르지 않는다(첫 화면 API 2회 계약 그대로). 권한 판정도 안 한다 — 버튼·카드의 보임은 paintMonth() 가 정한다. */
+(function(){
+  'use strict';
+  var HIDE_KEY = 'mangoi_payguide_hide_v1';
+  var shown = false;   // 이 화면에서 한 번이라도 열었나 — 저장소가 막힌 기기도 이것으로 «같은 화면 재표시» 를 막는다
+  var fromPay = /[?&](tui_paid|tui_fail|aib_paid|aib_fail)=1/.test(location.search);
+  function dlg(){ return document.getElementById('payGuide'); }
+  function hiddenForever(){
+    try { return localStorage.getItem(HIDE_KEY) === '1'; } catch (e) { return false; }
+  }
+  window.openPayGuide = function(){
+    var d = dlg(); if (!d) return;
+    shown = true;
+    if (d.open) return;
+    if (typeof d.showModal === 'function') { try { d.showModal(); } catch (e) { d.setAttribute('open', ''); } }
+    else d.setAttribute('open', '');
+    var b = d.querySelector('.pg-body'); if (b) b.scrollTop = 0;
+    var t = document.getElementById('pgTitle'); if (t) { try { t.focus({ preventScroll: true }); } catch (e) {} }
+  };
+  window.closePayGuide = function(){
+    var d = dlg(); if (!d) return;
+    if (typeof d.close === 'function' && d.open) d.close(); else d.removeAttribute('open');
+  };
+  window.payGuideNever = function(){
+    try { localStorage.setItem(HIDE_KEY, '1'); } catch (e) {}   // 막힌 기기(사생활 모드)는 저장이 안 돼 다음 화면에서 다시 뜬다
+    window.closePayGuide();
+  };
+  // 결제 카드의 ontoggle 이 부른다 — 이 화면에서 처음 한 번만, «다시 보지 않기» 가 아니면.
+  window.payGuideAuto = function(){
+    if (shown || fromPay || hiddenForever()) return;
+    window.openPayGuide();
+  };
+  // 어두운 바깥(backdrop)을 눌러도 닫힌다 — 안쪽 상자는 dialog 를 꽉 채우므로 바깥 클릭만 dialog 자신에 닿는다.
+  var d0 = dlg();
+  if (d0) d0.addEventListener('click', function(e){ if (e.target === d0) window.closePayGuide(); });
+})();
+</script>
 
 <!-- ⭐ 아래쪽 고정 바 — 엄지가 닿는 자리 (2026-08-17 사장님 ⑤)
      왜 — 이 화면은 카드가 9장이라 아래로 길다. 지금은 «할 일 보기 · 검색 · 결재함 ·
@@ -1893,6 +2024,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (_tui) _tui.hidden = (sc.type !== 'agency');
     var _sTui = document.getElementById('sideTuition');
     if (_sTui) _sTui.hidden = (sc.type !== 'agency');
+    // 📘 (2026-10-28) 결제 안내 매뉴얼 버튼도 결제 카드와 같은 판정(대리점만).
+    ['qPayGuide', 'sidePayGuide'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = (sc.type !== 'agency'); });
     // 💰 (2026-10-08 사장님) 지사 · 대리점별 정산은 대리점 계정에는 필요 없다 → 카드·사이드바 둘 다 감춘다.
     var _stl = document.getElementById('c-settle');
     if (_stl) _stl.hidden = (sc.type === 'agency');
