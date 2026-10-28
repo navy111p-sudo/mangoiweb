@@ -376,7 +376,7 @@ for (const [say, reply] of [['Can you say that again slowly?', 'Sure! Is your do
   const msgs = res.calls[0]?.o?.messages || [];
   ok(`①-15 «${say}» 턴에는 «다시·천천히 해 달라» 지시(metaHint)도 실린다(판정과 지시가 안 갈린다)`, String(msgs[msgs.length - 1]?.content || '').includes('[The student is asking you to slow down'), String(msgs[msgs.length - 1]?.content || '').slice(-200));
 }
-for (const say of ['What about you?', '네', 'What is that?', "No, he can't catch it.", '그 노래 못 들었어요', "Let's play one more time!"]) {
+for (const say of ['What about you?', '네', 'What is that?', "No, he can't catch it.", '그 노래 못 들었어요', "Let's play one more time!", 'A snail is slow.', '천천히 걸어요']) {
   // 짝: 문장 속 what·물음표 없는 «네(=yes)» 는 되묻기가 아니라 답이다 — 방금 질문을 또 물으면 막는다.
   const g = await guest();
   seedRows(g.uid, DOG());
@@ -458,7 +458,10 @@ for (const [ans, blocked] of [['Can you say that again slowly?', false], ['No, h
     'What was the question?', 'What does that mean?', 'Slower please.', 'Speak slower.', 'Louder please.', 'Speak up please.', "I can't hear.", "I can't hear well.",
     "Sorry, I didn't hear.", "I don't hear you.", 'I do not understand.', "Don't understand.", "I can't understand you.", 'What? 😅', 'Whaaat?',
     '어?', '에?', '엥?', '다시요?', '다시 한번요', '한 번 더요', '네? 뭐라고요?', '응? 뭐?', '뭐라고 하셨죠?', '뭐라고 했니?', '무슨 말이에요?', '무슨 뜻이에요?',
-    '이해가 안 돼요', '이해 못 했어요', '소리가 작아요', '안 들려요', '소리가 안 들려요'];
+    '이해가 안 돼요', '이해 못 했어요', '소리가 작아요', '안 들려요', '소리가 안 들려요',
+    // «요청하는 모양» 으로 좁힌 뒤에도 잡혀야 하는 것(2026-10-28 원래부터 있던 오판 수리)
+    '천천히', '천천히요', '느리게', '짧게', '천천히 해 주세요', '너무 빠르게 말해요', '너무 빨라요', '말이 너무 빨라요', '크게 말해줘', '짧게 말해 주세요',
+    'Repeat.', 'Can you repeat?', 'Please repeat that.', 'Sorry, say it again.', 'Speak more slowly please', 'Easier please', 'Use easy words, please', "I can't understand you 😅"];
   const ANSWERS = ['What about you?', 'What is that?', 'What is your name?', "I don't know what to say.", 'What a big dog!', 'Sorry, I mean small.', 'I like what you said.', 'What I like is pizza.',
     '네', '응', '예', '영어로 뭐라고 해요?', '개 이름을 뭐라고 해요?', "I didn't hear about it.", "I'm sorry.", 'Guess what?', 'I like it, huh.',   // 끝에만 그 말이 오는 답(앞 ^ 를 풀면 걸린다)
     // 함정 대조(2026-10-28)가 실제 정본으로 재현한 «진짜 답» — 듣기·잡기·한 번 더를 문장 어디서나 받으면 걸린다(그 질문이 기억에서 빠진다)
@@ -466,7 +469,11 @@ for (const [ans, blocked] of [['Can you say that again slowly?', false], ['No, h
     "No, I didn't hear it.", "I couldn't hear it, it was quiet.", "No, I didn't hear that song.", "I can't hear it.", 'One more time!', "Let's play one more time!",
     'I want to try one more time.', 'I watched it one more time.', 'Yes! One more time please!', 'What do you say to your mom?', 'I know what do you mean.', 'Pardon is a nice word.',
     '아니요, 안 들려요', '새 소리가 안 들려요', '아니요 못 들었어요', '그 노래 못 들었어요', '잘 안 들렸어요 그래서 다시 물어봤어요',
-    'What color?', '네.', '에', '어', 'eh', '뭐든지 좋아요', 'Uh...', 'Um, pizza.', 'Wait.', 'Oh!', 'Hmm, blue.'];
+    'What color?', '네.', '에', '어', 'eh', '뭐든지 좋아요', 'Uh...', 'Um, pizza.', 'Wait.', 'Oh!', 'Hmm, blue.',
+    // 원래부터(#1871 이전) 되묻기로 잘못 걸리던 진짜 답 — slow·천천히·빠르·easier·다시 해·say it again 을 낱말 하나로 받으면 걸린다
+    'A snail is slow.', "No, it's slow.", 'My turtle walks slowly.', '천천히 걸어요', '빠르게 달려요', '네 다시 해요', 'Math is easier.', 'My hair is shorter.', '쉽게 했어요',
+    'My bird can say it again.', "No, I don't understand math.", 'Slow.', 'Slowly.', 'Easier.', 'My dog runs too fast.', 'My mom talks too fast.', 'Cars go slow in the snow.',
+    'Can we play again, please?', '천천히 해요', 'He reads slowly.', 'I repeat the words every day.', 'Shorter is better.'];
   const SAMPLES = ['Can you say that again slowly?', 'slow down please', 'too fast!', 'say it again', 'again please', 'Repeat please.', "I don't understand.", 'I dont understand',
     'simpler please', 'easier', 'shorter please', '천천히 말해줘', '느리게', '너무 빠르다', '다시 말해줘', '다시 해줘', '못 알아들었어', '모르겠어요', '쉽게 말해줘', '짧게',
     "I don't know.", 'Yes.', 'No, small.', 'I like it a lot.', 'Because it is fun.', 'Every day!', '작아요', 'My dog is white.', ...ECHOES, ...ANSWERS];
@@ -475,7 +482,7 @@ for (const [ans, blocked] of [['Can you say that again slowly?', false], ['No, h
   /* 표본 대조만으로는 표본에 없는 낱말로 두 곳이 갈라져도 초록이다(함정 대조 변이 실측: 정본에만 louder·again 을 더해도 통과).
      그래서 정규식 «원문» 을 직접 견준다 — 한국어·«그 말만» 줄은 글자 그대로 같고, 영어 줄은 «I don't know» 하나만 더 받는다. */
   const same = (a, b) => !!a && !!b && a.source === b.source && a.flags === b.flags;
-  const enMeta = lits[1] ? new RegExp(lits[1].source.replace("i don'?t (know|understand)", "i don'?t understand"), lits[1].flags) : null;
+  const enMeta = lits[1] ? new RegExp(lits[1].source.replace("\\bi don'?t know\\b|", ''), lits[1].flags) : null;   // 지시 쪽 영어 줄 = «I don't know» + 정본
   ok('①-18 두 곳의 정규식 원문이 같다(한국어·그 말만 = 그대로 · 영어 = «I don\'t know» 만 더)', same(lits[0], M.QM_REASK_KO) && same(enMeta, M.QM_REASK_EN) && same(lits[2], M.QM_REASK_ECHO)
     && lits[1].source !== enMeta.source, { ko: same(lits[0], M.QM_REASK_KO), en: same(enMeta, M.QM_REASK_EN), echo: same(lits[2], M.QM_REASK_ECHO) });
   const missed = ECHOES.filter((t) => !M.isReaskRequest(t)), wrong = ANSWERS.filter((t) => M.isReaskRequest(t) || (meta(t) && !/i don'?t know/i.test(t)));   // 지시 쪽은 «I don't know» 만 더 받는다
