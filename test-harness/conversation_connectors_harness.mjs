@@ -351,13 +351,20 @@ console.log('⑦ 무작위 대화 샌드박스');
   }
   // A.i 선생님 수업
   AI.run = async (model, o) => { seen.push(o); return { response: 'EN: ' + pick(REPLIES).replace(/[가-힣]/g, '') + '\nKO: 좋아요.' }; };
+  // ⚠️ 이 수업 즉답은 «한 IP 하루 200회» 상한이 있습니다(class-ask.ts) — 샌드박스는 같은 IP 로 수백 번 보내므로
+  //    상한 칸을 비워 가며 돕니다(그 상한 자체의 검사는 class_ask_harness 몫). 처음엔 이걸 빼먹어 201번째부터 429 가 «실패» 로 잡혔습니다.
+  const capKeys = () => [...kv.keys()].filter((k) => k.startsWith('classaskcap:'));
   for (let c = 0; c < SEEDS * 6; c++) {
+    capKeys().forEach((k) => kv.delete(k));
     const r = await post('/api/ai/class-ask', { q: pick(SAYS), title: pick(['Animals', 'Feelings', '']), lines: [pick(SAYS)] });
     turns++; maxSys = Math.max(maxSys, r.sys.length);
     if (r.status !== 200) { fail('수업 status', { c, s: r.status }); continue; }
     const got = bandIn(r.sys);
     if (got.length !== 1 || got[0] !== 'beginner' || avoidIn(r.sys)) fail('수업 규칙', { c, got });
   }
+  // (짝) 칸을 비우지 않으면 상한이 실제로 막는다 — 위에서 비운 것이 «상한을 꺼 버린» 것이 아님을 확인
+  { let last = 0; for (let i = 0; i < 205; i++) { const r = await post('/api/ai/class-ask', { q: 'what is cat?' }); last = r.status; }
+    ok(last === 429, '(짝) 칸을 비우지 않으면 수업 즉답 하루 상한이 그대로 막는다(429)', last); capKeys().forEach((k) => kv.delete(k)); }
   console.log(`     · ${turns}턴 (CONN_SEEDS=${SEEDS}) · 가장 긴 지시 ${maxSys}자`);
   ok(bad.length === 0, `무작위 ${turns}턴 — 수준 규칙 하나 · 시작 말 줄이 기록과 일치 · 중국어 제외 · 200 응답`, bad);
   ok(turns >= SEEDS * 20, '전제: 샌드박스가 실제로 돌았다(턴 수)', turns);
