@@ -1,15 +1,17 @@
-// 📘 관리자용 사용설명서 — 글 정본 (2026-10-09 새로 씀)
+// 📘 관리자용 사용설명서 — 글 정본 (2026-10-09 새로 씀 · 2026-10-28 10장 «AI 컨텐츠 결제» 추가)
 //   ⛔ 화면 이름·순서·규칙을 바꾸면 이 글도 함께 고칠 것 — 사실과 다른 안내서는 없는 것보다 나쁘다.
 //   문구의 근거(코드 정본):
 //     메뉴 7묶음 js/adm-ia6.js GROUPS · 학생 목록 js/adm-core.js _smRowHtml · 학생 등록 smSubmitRegisterStudent
 //     수업 예약 등록 admin/student.html ns-* · 연기·변경·취소 창 js/class-move-modal.js
 //     오늘 수업 js/adm-today-classes.js · 주간 스케줄 admin/weekly-schedule.html (잠금 3분·되돌리기 15초)
 //     수강신청 취소 → 남은 수업 종료 src/enroll-cancel-cascade.ts · 급여 js/adm-q3.js · 공제 규칙 /api/admin/payroll/deduction-rules
-//   img 이름은 capture.mjs 의 shot 이름과 짝입니다(파일은 <lang>-<img>.jpg).
-export const DATE = '2026-10-09';
+//     (2026-10-28 추가) 10장 AI 컨텐츠 결제 — 대리점 화면 manager.html #c-aibill(paintAiBill) · 단가 src/ai-billing-price.ts ·
+//       본사 쪽 js/adm-ai-billing.js(자동 청구 켜기/끄기 · 예외 단가). 글·그림은 docs/자료실_원본/AI컨텐츠_결제안내/ 와 같다.
+//   img 이름은 capture.mjs 의 shot 이름과 짝입니다(파일은 <lang>-<img>.jpg). 10장 그림(p2-menu …)은 AI컨텐츠_결제안내/capture.mjs 가 찍는다.
+export const DATE = '2026-10-28';
 export const T = {
   ko: {
-    htmlLang: 'ko', date: '2026-10-09 기준 · 최신 화면',
+    htmlLang: 'ko', date: '2026-10-28 판 · 화면: 1~9장 2026-10-09 · 10장 2026-10-28',
     title: '관리자용 사용설명서', sub: '본사·사무실 직원용 · 관리자 페이지 mangoi.ai/admin',
     files: { pdf: 'admin-kr.pdf', pptx: 'admin-kr.pptx', xlsx: 'admin-kr.xlsx' },
     tocTitle: '차례', beforeTitle: '시작하기 전에',
@@ -17,8 +19,8 @@ export const T = {
       '주소는 <b>https://mangoi.ai/admin</b> 입니다. (예전 주소 mangoi.co.kr 은 옛 서버라 이 기능이 없습니다)',
       '수업 시각은 모두 <b>한국 시간(KST)</b> 입니다. 필리핀은 1시간 늦습니다 — KST 19:30 = PH 18:30.',
       '계정마다 할 수 있는 일이 다릅니다. <b>수업 취소·매주 수업 나누기·학생 등록·급여</b>는 본사 계정만 됩니다. 강사·지사·대리점 계정은 서버가 막습니다.',
-      '캡처 속 학생·강사(Emma Kim, Teacher Anna …)와 숫자는 <b>설명용 가짜 데이터</b>입니다. 실제 화면에는 실제 이름과 숫자가 나옵니다.',
-      '빨간 상자 = 누를 곳입니다.'
+      '캡처 속 학생·강사·학원(Emma Kim, Teacher Anna, 샘플영어학원, demo001 …)과 숫자는 <b>설명용 가짜 데이터</b>입니다. 실제 화면에는 실제 이름과 숫자가 나옵니다.',
+      '빨간 상자 = 누를 곳입니다. 10장 그림의 번호(④⑤…)는 설명 글의 번호와 짝입니다.'
     ],
     chapters: [
       { title: '들어가기 · 화면 둘러보기', intro: '로그인하고, 왼쪽 메뉴와 검색으로 원하는 화면을 찾는 법.',
@@ -86,6 +88,15 @@ export const T = {
         steps: [
           { h: '결재함', img: 'c9-approval', p: ['왼쪽 메뉴 맨 위 <b>결재함</b>(숫자 = 내가 결재할 건수).', '<b>내가 결재할 것</b>: 내용·금액·첨부를 보고 <b>승인 / 반려</b>. 점검을 통과한 건은 <b>한 번에 승인</b>할 수 있습니다.', '₱5,000 이상 물품·지출은 결재권자 → 대표 2단계입니다. 그 미만은 결재권자가 결재하고 대표는 «확인» 만 합니다.', 'AI 영수증 판독이 엉터리로 보이면(날짜가 너무 옛날 등) 자동 반려하지 않고 노란 표시만 합니다.'] },
           { h: '매일보고', img: 'c9-handover', p: ['<b>/daily-handover</b> (관리자 첫 화면 배너에서도 들어갑니다).', '<b>내 보고 작성</b>: 오늘 한 일 · 문제 · 후속 조치 → 받는 사람 → <b>확인 후 전달</b>. 녹음해서 입력도 됩니다.', '받은 보고는 «한국어로 번역» 버튼으로 읽을 수 있습니다.', '결재가 필요한 줄은 AI 가 알려 주고 <b>결재로 옮기기</b>로 바로 결재를 올립니다.', '근무일에 안 쓰면 다음 날 아침 본인과 대표에게 알림이 갑니다(공휴일 제외).'] }
+        ] },
+      { title: 'AI 컨텐츠 결제 (대리점)', intro: '대리점(학원)이 다음 달에 A.i 를 쓸 학생을 골라 이번 달 말일까지 카드로 미리 냅니다. 결제는 대리점 계정만 합니다 — 본사 직원은 문의를 받을 때 이 흐름을 알아 두세요. 대리점에 보낼 4쪽 안내서는 자료실 «🤖 A.i 컨텐츠 결제 안내서» 입니다.',
+        steps: [
+          { h: '대리점 로그인 · 메뉴 열기', img: 'p2-menu', p: ['대리점 아이디로 <b>mangoi.ai/admin/login</b> 에 로그인하면 대리점 화면이 열립니다.', '④ 왼쪽 메뉴 <b>정산통계관리 › 🤖 AI 컨텐츠 결제</b>. 이 메뉴는 <b>대리점 계정에만</b> 보입니다(본사·지사 계정에는 없습니다).', '본사는 <b>정산·매출 › 🏢 AI 사용료</b>(A.i 학습 사용료 관리)에서 학원별 인원·예상 청구액을 보고, 예외 단가를 정하고, <b>자동 청구 켜기/끄기</b>를 합니다. 결제 버튼은 거기에 없습니다.'] },
+          { h: '학생 명단 불러오기', img: 'p3-load', p: ['위의 <b>결제 마감</b>(이번 달 말일 · D-남은 날)을 확인합니다. 결제하는 것은 <b>다음 달 이용분</b>입니다.', '숫자 칸: <b>A.i 이용 신청</b>(결제 대상) · <b>아직 신청 안 함</b> · <b>화상영어(포함)</b> — 화상영어 학생은 수업료에 A.i 가 포함돼 여기서 결제하지 않습니다.', '⑤ <b>우리 학원 학생 불러와서 고르기</b>는 명단만 불러옵니다. 이때는 아무것도 결제되지 않습니다.', '본사가 자동 청구를 아직 켜지 않았으면 «본사가 아직 A.i 컨텐츠 결제를 열지 않았습니다(테스트 기간)» 만 보입니다 — 고장이 아닙니다.'] },
+          { h: '다음 달에 쓸 학생 고르기', img: 'p4-check', p: ['⑥ <b>결제 대상</b>에 체크된 학생만 결제됩니다. 그만둔 학생은 체크를 풀면 결제 전에 빠집니다.', '이름·아이디로 찾을 수 있고, <b>보이는 학생 모두 빼기 / 모두 선택</b>으로 한 번에 바꿉니다(몇 명이 바뀌는지 먼저 묻습니다).', '체크를 바꿀 때마다 금액은 서버가 다시 계산합니다.'] },
+          { h: '아직 신청 안 한 학생 · 화상영어 학생', img: 'p4-notyet', p: ['⑦ <b>아직 신청 안 한 학생</b> 중 다음 달에 쓸 학생을 체크하면 결제 대상에 들어갑니다.', '<b>📹 화상영어 수업 학생</b>은 접혀 있습니다. A.i 가 수업료에 포함돼 고르지 않습니다 — 판정이 틀린 학생만 체크합니다.', '학원이 직접 바꾼 학생에는 «✔ 학원 확인» 표시가 붙고, 그 뒤로는 자동 분류가 바꾸지 않습니다.'] },
+          { h: '금액 확인 · 카드 결제', img: 'p5-pay', p: ['⑧ 합계 인원·금액을 확인하고 ⑨ <b>OOO원 결제하기</b> → 확인창 → 토스 카드 결제창에서 결제합니다.', '1명 단가(한 달): <b>20명 이하 7,500원 · 21~50명 6,500원 · 51~70명 5,500원 · 71명 이상 4,500원</b>. 최소 청구는 없습니다(2026-10-26부터).', '인원이 늘어도 총액은 줄지 않게 계산됩니다(예: 21~23명은 150,000원). 금액은 결제하는 순간 서버가 다시 계산합니다 — 화면 숫자는 표시용입니다. 본사가 «예외 단가»를 정한 학원은 그 단가 × 인원입니다.', '시연 계정(testagency)은 결제창이 열리지 않습니다(예시 데이터).'] },
+          { h: '결제 확인 · 추가 결제', img: 'p6-done', p: ['⑩ <b>지난 결제</b>에 ✅ 가 있으면 결제 완료입니다. 결제가 끝나면 «결제가 완료됐습니다» 가 뜨고 낸 학생은 위에 고정됩니다.', '같은 달에 학생을 더 넣으면 아래에서 체크하고 <b>추가 결제</b> — 늘어난 학생 몫만 냅니다.', '이미 결제한 학생은 화면에서 빼거나 바꿀 수 없습니다. 환불은 본사가 처리합니다.', '아직 안 낸 지난 달이 있으면 맨 위에 «⚠️ 아직 결제하지 않은 달이 있습니다» 버튼이 나옵니다.'] }
         ] }
     ],
     faq: [
@@ -96,13 +107,16 @@ export const T = {
       ['수강신청을 취소했는데 매주 수업이 남아 있어요', '날짜 없는 매주 반복 줄은 급여 계산 때문에 그대로 둡니다. 학생 › 📅 스케줄에서 정리하세요.'],
       ['시간표에서 끌었는데 안 바뀌어요', '🔒 잠김 상태입니다. 눌러서 편집을 켜세요(3분 뒤 다시 잠김).'],
       ['급여에 연기 수업이 어떻게 들어가나요?', '공제 규칙의 «연기 수업 지급률»(기본 100%)과 «사전 연기 지급률»(30분보다 이전, 기본 0%)을 따릅니다.'],
-      ['카페24 수업은 왜 입장이 안 되나요?', '카페24 수업은 망고아이 화상방을 쓰지 않습니다. 시간 변경도 카페24에서 하세요.']
+      ['카페24 수업은 왜 입장이 안 되나요?', '카페24 수업은 망고아이 화상방을 쓰지 않습니다. 시간 변경도 카페24에서 하세요.'],
+      ['대리점이 «AI 컨텐츠 결제» 메뉴가 없대요', '대리점 아이디로 로그인했는지 확인하세요. 그 메뉴는 대리점 계정에만 보입니다(지사·본사 계정에는 없음).'],
+      ['대리점 화면에 «본사가 아직 A.i 컨텐츠 결제를 열지 않았습니다» 가 떠요', '고장이 아닙니다. 본사가 정산·매출 › 🏢 AI 사용료에서 «자동 청구 켜기»를 하기 전(테스트 기간)에 나오는 안내입니다.'],
+      ['대리점이 이미 결제한 학생을 빼 달래요', '대리점 화면에서는 뺄 수 없습니다. 환불은 본사가 처리합니다.']
     ],
     xlsx: { sheet1: '사용설명서', header: ['장', '장 제목', '번호', '단계', '설명', '그림'], picSheet: '화면그림', faqSheet: '자주 묻는 질문', faqHeader: ['질문', '답'] },
-    foot: '망고아이 관리자 자료실 · 관리자용 사용설명서 · 2026-10-09'
+    foot: '망고아이 관리자 자료실 · 관리자용 사용설명서 · 2026-10-28'
   },
   en: {
-    htmlLang: 'en', date: 'As of 2026-10-09 · current screens',
+    htmlLang: 'en', date: '2026-10-28 edition · screens: ch. 1–9 2026-10-09 · ch. 10 2026-10-28',
     title: 'Admin User Guide', sub: 'For HQ / office staff · Admin page mangoi.ai/admin',
     files: { pdf: 'admin-en.pdf', pptx: 'admin-en.pptx', xlsx: 'admin-en.xlsx' },
     tocTitle: 'Contents', beforeTitle: 'Before you start',
@@ -110,8 +124,8 @@ export const T = {
       'The address is <b>https://mangoi.ai/admin</b>. (The old mangoi.co.kr site is a different server and does not have these features.)',
       'All class times are <b>Korea time (KST)</b>. The Philippines is 1 hour earlier — KST 19:30 = PH 18:30.',
       'What you can do depends on your account. <b>Cancelling classes, splitting weekly classes, registering students and payroll</b> need an HQ account. Teacher, branch and agency accounts are refused by the server.',
-      'The students, teachers (Emma Kim, Teacher Anna …) and numbers in the screenshots are <b>sample data</b>. Your screen shows real ones.',
-      'Red box = the place to press.'
+      'The students, teachers and academies (Emma Kim, Teacher Anna, Sample English Academy, demo001 …) and numbers in the screenshots are <b>sample data</b>. Your screen shows real ones.',
+      'Red box = the place to press. In chapter 10 the numbers on the pictures (④⑤ …) match the numbers in the text.'
     ],
     chapters: [
       { title: 'Getting in · Finding your way', intro: 'Log in, and find any screen with the left menu or search.',
@@ -179,6 +193,15 @@ export const T = {
         steps: [
           { h: 'Approvals', img: 'c9-approval', p: ['<b>Approvals</b> at the top of the left menu (number = items waiting for you).', '<b>For me to approve</b>: check the content, amount and attachments, then <b>Approve / Reject</b>. Items that passed every check can be approved together.', 'Supplies/expenses of ₱5,000 or more need the approver and then the CEO. Below that the approver decides and the CEO only “acknowledges”.', 'If the AI receipt reading looks wrong (e.g. a date far in the past) it is not auto-rejected — it is only marked yellow.'] },
           { h: 'Daily handover', img: 'c9-handover', p: ['<b>/daily-handover</b> (also from the banner on the admin home).', '<b>Write my report</b>: work done · issues · follow-up → recipient → <b>Confirm & send</b>. You can also record your voice.', 'Received reports can be read with “Translate to Korean”.', 'AI flags lines that need approval; <b>Move to approval</b> starts one directly.', 'If you skip a workday, you and the CEO get a reminder next morning (holidays excluded).'] }
+        ] },
+      { title: 'A.i content payment (agencies)', intro: 'Agencies (academies) choose the students who will use A.i next month and pay by card by the last day of this month. Only agency accounts pay — HQ staff should know this flow to answer questions. The 4-page guide to send to agencies is «🤖 A.i Content Payment Guide» in the library.',
+        steps: [
+          { h: 'Agency login · open the menu', img: 'p2-menu', p: ['An agency logs in at <b>mangoi.ai/admin/login</b> with its agency ID and gets the agency screen.', '④ Left menu <b>Settlement &amp; stats › 🤖 A.i content payment</b>. This menu appears <b>only for agency accounts</b> (not for HQ or branch accounts).', 'HQ uses <b>Finance › 🏢 AI Usage Fee</b> (A.i Learning Fee Management) to see each academy’s headcount and estimated invoice, set custom rates, and <b>turn auto-billing on or off</b>. There is no pay button there.'] },
+          { h: 'Load the student list', img: 'p3-load', p: ['Check the <b>due date</b> at the top (last day of this month · D-days left). The payment is for <b>next month</b>.', 'Counters: <b>Signed up for A.i</b> (to be paid) · <b>Not signed up</b> · <b>Video class (included)</b> — video-class students get A.i with their tuition and are not paid here.', '⑤ <b>Load my students and choose</b> only loads the list. Nothing is paid at this point.', 'If HQ has not turned on auto-billing yet, the agency only sees «Head office has not opened A.i content payment yet (test period)» — it is not broken.'] },
+          { h: 'Choose next month’s students', img: 'p4-check', p: ['⑥ Only students checked under <b>Paying for A.i content</b> are paid. Unchecking a student who left removes them before payment.', 'Search by name or ID; <b>Unselect all shown / Select all shown</b> changes many at once (it asks how many first).', 'The server recalculates the amount every time a check changes.'] },
+          { h: 'Not signed up · video-class students', img: 'p4-notyet', p: ['⑦ Checking a student under <b>Not signed up</b> adds them to the payment.', '<b>📹 Video-class students</b> are folded away. A.i is included in their tuition, so they are not chosen — check one only if the classification is wrong.', 'Students the academy changed get a «✔ confirmed by academy» tag, and automatic classification no longer changes them.'] },
+          { h: 'Check the amount · pay by card', img: 'p5-pay', p: ['⑧ Check the number of students and the total, then ⑨ <b>Pay OOO KRW</b> → confirm → pay in the Toss card window.', 'Price per student per month: <b>20 or fewer 7,500 · 21–50 6,500 · 51–70 5,500 · 71 or more 4,500 KRW</b>. No minimum charge (since 2026-10-26).', 'The total never goes down as students are added (e.g. 21–23 students = 150,000 KRW). The server recalculates the amount at the moment of payment — the screen number is for display. Academies with an HQ custom rate pay that rate × students.', 'The demo account (testagency) does not open the payment window (sample data).'] },
+          { h: 'Check the payment · extra payment', img: 'p6-done', p: ['⑩ A ✅ under <b>Past payments</b> means paid. After paying, «Paid» appears and paid students are pinned at the top.', 'To add students in the same month, check them below and press <b>Pay extra</b> — only the added students are charged.', 'Students already paid for cannot be removed or changed on the screen. HQ handles refunds.', 'If an earlier month is unpaid, a «⚠️ Unpaid A.i content invoice(s)» button appears at the top.'] }
         ] }
     ],
     faq: [
@@ -189,9 +212,12 @@ export const T = {
       ['I cancelled the enrollment but weekly classes remain', 'Weekly repeat rows without dates are kept for payroll. Tidy them in Student › 📅 Schedule.'],
       ['Dragging in the timetable does nothing', 'It is 🔒 locked. Press it to edit (locks again after 3 minutes).'],
       ['How do postponed classes count in payroll?', 'By “Postponed class pay %” (default 100%) and “Early postpone pay %” (30+ min before, default 0%) in the deduction rules.'],
-      ['Why can’t I join a Cafe24 class?', 'Cafe24 classes do not use the Mangoi video room. Change their times in Cafe24 too.']
+      ['Why can’t I join a Cafe24 class?', 'Cafe24 classes do not use the Mangoi video room. Change their times in Cafe24 too.'],
+      ['An agency says it has no «A.i content payment» menu', 'Check that they logged in with the agency ID. The menu appears only for agency accounts (not branch or HQ).'],
+      ['An agency sees «Head office has not opened A.i content payment yet»', 'It is not broken. It shows until HQ presses «Turn ON» for auto-billing in Finance › 🏢 AI Usage Fee (test period).'],
+      ['An agency wants to remove a student they already paid for', 'It cannot be done on the agency screen. HQ handles refunds.']
     ],
     xlsx: { sheet1: 'Guide', header: ['Ch', 'Chapter', 'No.', 'Step', 'Explanation', 'Picture'], picSheet: 'Screens', faqSheet: 'FAQ', faqHeader: ['Question', 'Answer'] },
-    foot: 'Mangoi Admin Library · Admin User Guide · 2026-10-09'
+    foot: 'Mangoi Admin Library · Admin User Guide · 2026-10-28'
   }
 };
