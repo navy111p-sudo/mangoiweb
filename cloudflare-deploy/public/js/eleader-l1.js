@@ -191,7 +191,13 @@
     /* 문항은 «답을 받았을 때만» 넘긴다 — 실패(상한·장애·끊김)면 같은 문항을 다시 답하게 둔다. */
     var mine = state;
     p.then(function (r) {
-      if (r && r.ok && answering >= 0 && state === mine) state.q = Math.max(state.q, Math.min(answering + 1, state.n));
+      if (r && r.ok && state === mine) {
+        /* 🔁 서버가 «이미 다룬 책 문항» 을 건너뛰고 뒷 문항을 물었으면(X-Eleader-Q) 진행 번호·힌트를 그 문항으로 맞춘다
+           (2026-10-28 「같은 질문 두 번 금지」). 헤더가 없으면 예전처럼 한 칸만 넘긴다. 뒤로는 절대 안 간다. */
+        var hq = r.headers.get('X-Eleader-Q') || '', nq = /^\d{1,3}$/.test(hq) ? Number(hq) : -1;
+        if (nq >= 0 && nq < state.n && (answering >= 0 ? nq > answering : nq >= state.q)) state.q = Math.max(state.q, nq);
+        else if (answering >= 0) state.q = Math.max(state.q, Math.min(answering + 1, state.n));
+      }
       if (r && r.ok && state === mine) { var w = r.headers.get('X-Eleader-Topic') || ''; state.wish = /^[a-z]{2,20}( [a-z]{2,20}){0,2}$/.test(w) ? w : ''; }
       if (r && state === mine) takeQuota(r);   // 그 사이 로그인·책이 바뀌었으면 옛 계정의 횟수를 그리지 않는다
       /* 사유를 여기서 말했으면 표시를 남긴다 — warmup.html 이 «답변을 받아오지 못했어요» 를 겹쳐 쓰지 않게
