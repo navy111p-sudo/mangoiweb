@@ -549,6 +549,11 @@ html.dark .sgrp a:active,html.dark .sgrp button:active{background:#242d37}
 html.dark .grouphead{color:#fbbf24}
 .evq-open{color:#1d4ed8;font-weight:700;white-space:nowrap}
 html.dark .evq-open{color:#93c5fd}
+/* ✏️➕ (2026-10-28) 지난/오늘 피드백 칸의 「✏️ 고치기」·「➕ 추가」 — hover 는 색만(크기·위치 고정) */
+.evq-act{cursor:pointer;display:inline-block;white-space:nowrap;margin-left:4px;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:800;background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd}
+.evq-act.evq-add{background:#ecfdf3;color:#047857;border-color:#6ce9a6}
+html.dark .evq-act{background:#1e293b;color:#93c5fd;border-color:#3b82f6}
+html.dark .evq-act.evq-add{background:#12261d;color:#6ee7b7;border-color:#059669}
 
 /* 📖 (2026-10-28 사장님 「결제 페이지를 열면 안내서가 먼저 보이게 · 끄기 · 다시 보지 않기」) AI 컨텐츠 결제 안내서 창.
    ⛔ 그림은 이 창이 «열릴 때» 만 받는다(계약 1번 — 첫 화면 요청 0개). transition·animation 없음(계약 3번). */
@@ -3467,6 +3472,19 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       })
       .catch(function(e){ failBox(el, e); });
   };
+  /* ✏️➕ (2026-10-28) 파일 끝 «평가 창» 스크립트용 — 그 스크립트에서는 이 IIFE 의 D 가 안 보인다.
+     row = 눌린 줄의 값(방 번호 + 학생 아이디로 찾는다) · saved = 쓰거나 고친 뒤 목록을 다시 받는다(_stale). */
+  window.taEvalHook = {
+    row: function(room, uid){
+      var rows = (D.todayAll && D.todayAll.sessions) || [];
+      for (var i = 0; i < rows.length; i++) {
+        if (String(rows[i].room_id || '') === room && String(rows[i].student_uid || '') === uid) return rows[i];
+      }
+      return null;
+    },
+    date: function(){ return (D.todayAll && D.todayAll.date) || ''; },
+    saved: function(){ if (D.todayAll) D.todayAll._stale = true; window.loadTodayAll(); }
+  };
 
   /* 🏫 (2026-09-23) 학원·강사 고르기 — admin.html(js/adm-today-classes.js)과 **같은 판정**. 한쪽만 고치지 말 것. */
   var PICK_NONE = '__none__';
@@ -3711,9 +3729,22 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var ev = function (e) { if (r.eval_hidden) return esc(T('HQ only', '본사 전용')); return e ? esc((e.date || '') + (e.score != null ? ' ⭐' + e.score + '/' + (e.max || '') : '') + (e.text ? ' · ' + e.text : ''))
         /* 📝 (2026-09-30) 눌러서 전문 보기 — 공용 창(js/eval-quick-view.js)은 «누를 때만» 불러온다(외부 리소스 0개 계약 유지). */
         + (e.id ? ' <a href="/eval.html?id=' + encodeURIComponent(e.id) + '" data-evq="' + esc(e.id) + '" target="_blank" rel="noopener" class="evq-open">' + esc(T('📄 Open', '📄 전문 보기')) + '</a>' : '') : '—'; };
+      /* ✏️➕ (2026-10-28 매니저·강사 제안) 칸마다 「✏️ 고치기」·「➕ 추가」 — admin.html(js/adm-today-classes.js xEvalAct)과
+         **같은 조건**(이 화면은 외부 스크립트 0개 계약이라 두 벌이다 — 같은지는 eval_add_edit_buttons_harness 가 셋을 실제로 돌려 본다).
+         창은 공용(js/eval-quick-view.js)을 «누를 때만» 받는다. 배선은 파일 끝 위임 리스너(data-evq-fix / data-evq-new). */
+      var evAct = function (which) {
+        if (r.eval_hidden || r.source === 'cafe24') return '';
+        var e = which === 'last' ? r.last_eval : r.today_eval;
+        if (e && e.id) return ' <span class="evq-act" role="button" tabindex="0" data-evq-fix="' + esc(e.id) + '">' + esc(T('✏️ Edit', '✏️ 고치기')) + '</span>';
+        if (e || !String(r.student_uid || '').trim()) return '';
+        if (which === 'today' && !(r.status === 'live' || r.status === 'ended')) return '';
+        if (which === 'last' && !(Array.isArray(r.prev_classes) && r.prev_classes.length)) return '';
+        return ' <span class="evq-act evq-add" role="button" tabindex="0" data-evq-new="' + which + '" data-room="' + esc(r.room_id) + '" data-uid="' + esc(r.student_uid) + '">'
+          + esc(which === 'last' ? T('➕ Add last', '➕ 지난 피드백 추가') : T('➕ Add today', '➕ 오늘 피드백 추가')) + '</span>';
+      };
       var exLine = '<span class="muted" style="display:block;font-size:11px;line-height:1.55">' + ex.join(' · ')
-        + '<br>' + esc(T('Last feedback: ', '지난 평가: ')) + ev(r.last_eval)
-        + '<br>' + esc(T("Today's feedback: ", '오늘 평가: ')) + ev(r.today_eval) + '</span>';
+        + '<br>' + esc(T('Last feedback: ', '지난 평가: ')) + ev(r.last_eval) + evAct('last')
+        + '<br>' + esc(T("Today's feedback: ", '오늘 평가: ')) + ev(r.today_eval) + evAct('today') + '</span>';
       /* 📅 (2026-09-23 사장님 «매니저 화면에도 똑같이») 이번 주 7칸 + 「📅 캘린더」 → 학생 상세 스케줄 탭 창.
          admin.html 과 **같은 서버 값**(week_days·week_dates — src/class-today-extras.ts)이고 창도 같은 화면을 띄운다.
          ⛔ 카페24 줄은 망고아이 예약표에 없어 빈칸 대신 사실을 적는다. ⛔ 칸을 못 받으면 지어내지 않는다(버튼만). */
@@ -4716,21 +4747,56 @@ var s=document.createElement('script');s.defer=true;s.src='/js/absence-hold-pane
    admin.html(js/adm-today-classes.js)·teacher.html 과 같은 창을 쓴다. 판정을 여기 복제하지 말 것. */
 (function(){
   function en(){ return document.documentElement.lang !== 'ko'; }   /* applyLang() 이 정하는 값 — 이 화면 언어 정본 */
-  function open(id){
-    var go = function(){ if (window.mgEvalQuick) window.mgEvalQuick(id, { en: en() }); };
+  function load(go){
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
-    sc.src = '/js/eval-quick-view.js?v=2';
+    sc.src = '/js/eval-quick-view.js?v=3';
     sc.onload = go;
     sc.onerror = function(){ alert(en() ? 'Could not load the viewer — please tap again.' : '전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.'); };
     document.head.appendChild(sc);
   }
+  /* ✏️➕ (2026-10-28) 고치거나 쓴 뒤에는 목록을 다시 받아 칸이 바로 바뀌게 한다(창은 body 에 따로 떠 있어 안 닫힌다). */
+  function saved(){
+    try { window.taEvalHook.saved(); } catch (e) {}
+  }
+  function open(id, edit){
+    load(function(){ if (window.mgEvalQuick) window.mgEvalQuick(id, { en: en(), edit: !!edit, onSaved: saved }); });
+  }
+  function add(el){
+    var hook = window.taEvalHook;
+    var r = hook ? hook.row(el.getAttribute('data-room') || '', el.getAttribute('data-uid') || '') : null;
+    if (!r) return;
+    load(function(){
+      if (!window.mgEvalQuick || typeof window.mgEvalQuick.create !== 'function') {
+        alert(en() ? 'The writing window is out of date — please refresh and tap again.' : '쓰기 창이 옛 판입니다 — 새로고침 후 다시 눌러 주세요.');
+        return;
+      }
+      window.mgEvalQuick.create({
+        which: el.getAttribute('data-evq-new') === 'last' ? 'last' : 'today',
+        student_uid: r.student_uid, student_name: r.student_name, teacher_name: r.teacher_name,
+        room_id: r.room_id, class_date: r.class_date || hook.date(), prev_classes: r.prev_classes
+      }, { en: en(), onSaved: saved });
+    });
+  }
+  /* ⚠️ data-evq-fix / data-evq-new — 공용 창 안의 버튼(data-evq-edit)과 이름이 겹치지 않게 한다. */
+  function act(ev){
+    var t = ev.target && ev.target.closest ? ev.target : null;
+    if (!t) return false;
+    var fx = t.closest('[data-evq-fix]');
+    if (fx) { ev.preventDefault(); open(fx.getAttribute('data-evq-fix'), true); return true; }
+    var nw = t.closest('[data-evq-new]');
+    if (nw) { ev.preventDefault(); add(nw); return true; }
+    return false;
+  }
   document.addEventListener('click', function(ev){
+    if (act(ev)) return;
     var a = ev.target && ev.target.closest ? ev.target.closest('[data-evq]') : null;
     if (!a) return;
     ev.preventDefault();
     open(a.getAttribute('data-evq'));
   });
+  /* role="button" 이라 키보드(Enter·Space)도 받는다 */
+  document.addEventListener('keydown', function(ev){ if (ev.key === 'Enter' || ev.key === ' ') act(ev); });
 })();
 </script>
 </body>

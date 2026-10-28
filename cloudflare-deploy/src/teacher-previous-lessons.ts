@@ -29,9 +29,12 @@ export async function attachTeacherPreviousLessons(db: any, items: any[], now: n
                  ) AS rn
           FROM student_evaluations
           WHERE COALESCE(NULLIF(student_uid, ''), user_id) IN (${ph})
-            AND created_at < ? AND (lesson_date IS NULL OR lesson_date = '' OR lesson_date < ?)
+            AND ((created_at < ? AND (lesson_date IS NULL OR lesson_date = '' OR lesson_date < ?))
+                 -- ➕ (2026-10-28) 이 날짜 «전 수업의 방» 에 나중에 쓴 일지(「➕ 지난 피드백 추가」·다음 날 쓴 일지)도 지난 일지다.
+                 --    방 번호 날짜(class-<예약>-<YYYYMMDD>)로 본다 — class-today-extras.ts pickEvals 와 같은 규칙.
+                 OR (room_id GLOB 'class-[0-9]*-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' AND substr(room_id, -8) < ?))
             AND (note_en IS NOT NULL OR note_ko IS NOT NULL OR room_id IS NOT NULL)
-        ) WHERE rn = 1`, { tail: [boundary, date] });
+        ) WHERE rn = 1`, { tail: [boundary, date, date.replace(/-/g, '')] });
       const byUid = new Map(rows.map(r => [String(r.suid), r]));
       for (const it of group) {
         const r = byUid.get(String(it.student_uid));
