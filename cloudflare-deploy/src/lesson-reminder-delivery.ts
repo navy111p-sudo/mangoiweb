@@ -9,8 +9,8 @@ const RETRY_DELAY_MS = 60_000;
 const MAX_ATTEMPTS = 3;
 
 /* ⚠️ (2026-10-28) prepare().run() 이다 — D1 의 exec() 는 입력을 «줄마다» 따로 실행해서,
-   여러 줄로 쓴 CREATE 는 첫 줄에서 «incomplete input» 으로 죽는다. 그래서 이 표가 운영에
-   한 번도 안 생겼고(9/20 #1044 이후), 발송 직전에 이 함수가 던져 리마인더가 전부 멈춰 있었다.
+   여러 줄로 쓴 CREATE 는 첫 줄에서 «incomplete input» 으로 죽는다. 2026-10-28 운영 D1 에 이 표가
+   없었다 — 발송 직전에 이 함수가 던져, 9/20(#1044) 뒤로는 번호가 있어도 리마인더를 못 보냈다(판단).
    ⛔ exec 로 되돌리지 말 것 — 감시 d1_exec_multiline_harness. */
 export async function ensureLessonReminderDeliveryTable(env: any): Promise<void> {
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS lesson_reminder_delivery (

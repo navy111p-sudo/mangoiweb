@@ -12,7 +12,7 @@ export async function ensureTeacherRoomPresence(db: any): Promise<void> {
   if (!task) {
     task = (async () => {
       // D1 exec() runs each line as its own statement, so a multi-line CREATE never ran
-      // (the table was absent in production until 2026-10-28). One prepare() per statement.
+      // (the table was still absent in production as of 2026-10-28). One prepare() per statement.
       await db.prepare(`CREATE TABLE IF NOT EXISTS teacher_room_presence (
         id INTEGER PRIMARY KEY AUTOINCREMENT, account_uid TEXT NOT NULL,
         peer_id TEXT NOT NULL, room_id TEXT NOT NULL, host TEXT NOT NULL,

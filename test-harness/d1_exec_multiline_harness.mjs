@@ -5,13 +5,20 @@
 //   그래서 `env.DB.exec(\`CREATE TABLE … (\n  …\n)\`)` 처럼 여러 줄로 쓴 CREATE 는 첫 줄에서
 //   «incomplete input» 으로 죽는다. [잰 것 — 2026-10-28 운영 D1 SELECT] 그 방법으로만 만드는 표 6개
 //   (lesson_reminder_delivery · teacher_room_presence · homework · intervention_logs ·
-//    space_monster_hits · space_monster_results) 가 «전부» 없었다. 리마인더 문자는 발송 직전 이 표를
-//   만들다 던져 9/20(#1044) 부터 한 건도 안 나갔고, 교사 접속 확인(#1733)은 기록이 0건이었다.
+//    space_monster_hits · space_monster_results) 가 «전부» 없었다.
+//   [판단] 리마인더 sweep 은 후보가 있으면 발송 직전 이 장부를 만드는데, 표가 없다는 것은 그 호출이 한 번도
+//   성공하지 못했다는 뜻이다 → #1044(9/20) 뒤로는 번호가 있는 학생이 있어도 한 건도 못 보냈다.
+//   (그 전에도 실제 발송은 8건뿐이었다 — 8/7~9/18. 번호 있는 학생이 적었기 때문. «멈췄다» 고 부풀리지 말 것)
+//   교사 접속 확인(#1733)은 표가 없어 «⚠ 접속 조회 실패» 로만 보였다.
 //   기존 하니스는 가짜 DB 가 node:sqlite exec 를 그대로 써서 여러 줄을 받아 줘 «원리상» 못 잡았다.
 //
 //   A. 정적 전수 — src/*.ts 에서 «여러 줄 문자열을 exec 에 넘기는» 자리를 주석·문자열 밖에서만 센다
 //   B. 운영처럼 줄마다 실행하는 가짜(helpers/d1-exec-faithful.mjs)로 실제 함수를 돌린다
 //   C. 고친 자리의 SQL 이 prepare() 로 넘어가고, 그 SQL 이 실제로 표를 만든다
+//
+// ⚠️ 한계 — A 는 «exec 에 리터럴을 직접 넘긴» 자리만 본다(괄호 안의 템플릿·문자열, 이어붙이기·\n 이스케이프 포함).
+//   변수에 담아 넘긴 것(`const S = \`…\`; exec(S)`), `DB['exec'](…)`, `)` 바로 뒤 정규식 리터럴 뒤의 호출은 못 본다.
+//   2026-10-28 현재 src 의 `exec(변수)` 자리는 전부 한 줄이거나 `.join(' ')` 이다. 새로 쓰면 이 한계를 기억할 것.
 //
 // 📜 이 이름의 하니스는 2026-10-04(#1373, 일정 이동·연기 승인 503)에 처음 생겼는데 «두 파일만» FAIL 이고
 //   나머지 자리는 «ℹ️ 사람 확인 대기» 로 이름만 찍었다 — 그 목록에 리마인더 장부가 있었는데 3주 넘게 아무도
@@ -71,16 +78,30 @@ export function findMultilineExec(src) {
       i = j + 1; while (i < n && /[a-z]/i.test(src[i])) i++; prevSig = 'x'; continue;
     }
     if (c === '.' && src.startsWith('.exec(', i)) {
-      let j = i + 6; while (j < n && /\s/.test(src[j])) j++;
-      if (src[j] === '`') {
-        const [e, body] = readTemplate(j);
-        if (body.includes('\n')) {
-          const line = src.slice(0, i).split('\n').length;
-          const tables = [...body.matchAll(/CREATE\s+(?:UNIQUE\s+)?(?:TABLE|INDEX)\s+IF\s+NOT\s+EXISTS\s+([A-Za-z_][A-Za-z0-9_]*)/gi)].map(m => m[1]);
-          hits.push({ line, tables, body });
+      // 인자 «전체» 를 괄호 짝으로 훑어 그 안의 문자열·템플릿 리터럴을 모은다(주석은 건너뜀).
+      //   줄바꿈이 «실제로» 들어간 템플릿, 또는 \n 이스케이프가 든 리터럴이 하나라도 있으면 여러 줄이다.
+      //   ⚠️ 변수에 담아 넘긴 것(`exec(SQL)`)과 `DB['exec'](…)` 는 못 본다 — 머리말 «한계» 참고.
+      let j = i + 6, depth = 0; const lits = [];
+      while (j < n) {
+        const d = src[j];
+        if (d === '/' && src[j + 1] === '/') { const e = src.indexOf('\n', j); j = e < 0 ? n : e; continue; }
+        if (d === '/' && src[j + 1] === '*') { const e = src.indexOf('*/', j + 2); j = e < 0 ? n : e + 2; continue; }
+        if (d === '`') { const [e, body] = readTemplate(j); lits.push(body); j = e + 1; continue; }
+        if (d === '\'' || d === '"') {
+          let k = j + 1; while (k < n && src[k] !== d && src[k] !== '\n') { if (src[k] === '\\') k++; k++; }
+          lits.push(src.slice(j + 1, k)); j = k + 1; continue;
         }
-        i = e + 1; prevSig = 'x'; continue;
+        if (d === '(' || d === '[' || d === '{') depth++;
+        else if (d === ')' || d === ']' || d === '}') { if (depth === 0) break; depth--; }
+        j++;
       }
+      const all = lits.join(' ');
+      if (lits.some(b => b.includes('\n') || /(^|[^\\])(\\\\)*\\n/.test(b))) {
+        const line = src.slice(0, i).split('\n').length;
+        const tables = [...all.matchAll(/CREATE\s+(?:UNIQUE\s+)?(?:TABLE|INDEX)\s+IF\s+NOT\s+EXISTS\s+([A-Za-z_][A-Za-z0-9_]*)/gi)].map(m => m[1]);
+        hits.push({ line, tables, body: all });
+      }
+      i = j + 1; prevSig = 'x'; continue;
     }
     if (!/\s/.test(c)) {
       if (/[A-Za-z0-9_$]/.test(c)) { let j = i; while (j < n && /[A-Za-z0-9_$]/.test(src[j])) j++; prevSig = src.slice(i, j); i = j; continue; }
@@ -103,16 +124,20 @@ console.log('\n══ A. 정적 전수 — 여러 줄 문자열을 exec 에 넘�
   // A-0 (전제) 스캐너가 «코드» 와 «주석·문자열» 을 실제로 가르는가 — 합성 입력으로
   const probe = [
     'await env.DB.exec(`CREATE TABLE IF NOT EXISTS t1 (\n a INTEGER\n)`);',          // 잡아야 함
-    '// await env.DB.exec(`CREATE TABLE IF NOT EXISTS t2 (\n a\n)`);',               // 줄주석 — 첫 줄만 주석이라 다음 줄은 코드처럼 보이지만 백틱이 주석 안에서 열렸다
-    '/* await env.DB.exec(`CREATE TABLE IF NOT EXISTS t3 (\n a\n)`); */',          // 블록주석
-    "const s = 'x.exec(`';",                                                        // 문자열 안
+    '// await env.DB.exec(`CREATE TABLE IF NOT EXISTS t2 (a INTEGER)`) — 줄주석',       // 주석 — 안 잡음
+    '// 닫히지 않은 백틱 ` 하나만 있는 주석 — 뒤 코드를 템플릿으로 오인하면 안 됨',
+    '/* await env.DB.exec(`CREATE TABLE IF NOT EXISTS t3 (\n a\n)`); */',          // 블록주석 — 안 잡음
+    "const s = 'x.exec(`';",                                                        // 문자열 안 — 안 잡음
     'await env.DB.exec(`CREATE TABLE IF NOT EXISTS t4 (a INTEGER)`);',             // 한 줄 — 안 잡음
-    "await env.DB.exec(\n  'CREATE TABLE IF NOT EXISTS t5 (' +\n  'a INTEGER)');",   // + 이어붙이기 — 한 줄 결과
-    'const re = /`/; await env.DB.exec(`CREATE TABLE IF NOT EXISTS t6 (\n b\n)`);', // 정규식 안 백틱 뒤의 진짜 호출
-    'await db.prepare(`CREATE TABLE IF NOT EXISTS t7 (\n a\n)`).run();',            // prepare — 정상
+    "await env.DB.exec(\n  'CREATE TABLE IF NOT EXISTS t5 (' +\n  'a INTEGER)');",   // 한 줄 리터럴 이어붙이기 — 안 잡음
+    'const re = /`/; await env.DB.exec(`CREATE TABLE IF NOT EXISTS t6 (\n b\n)`);', // 정규식 안 백틱 뒤의 진짜 호출 — 잡음
+    'await db.prepare(`CREATE TABLE IF NOT EXISTS t7 (\n a\n)`).run();',            // prepare — 안 잡음
+    "await env.DB.exec('CREATE TABLE IF NOT EXISTS t8 (\\n a INTEGER)');",         // \n 이스케이프 — 잡음
+    'await env.DB.exec(/* 설명 */ `CREATE TABLE IF NOT EXISTS t9 (\n a\n)`);',      // 괄호와 백틱 사이 주석 — 잡음
+    "await env.DB.exec('CREATE TABLE IF NOT EXISTS t10 (' + `\n a INTEGER)`);",     // 이어붙인 뒤쪽이 여러 줄 — 잡음
   ].join('\n');
   const got = findMultilineExec(probe).flatMap(h => h.tables).sort().join(',');
-  ok('A-0 (전제) 스캐너가 코드 속 여러 줄 exec 만 잡는다 (t1·t6 / 주석·문자열·한 줄·이어붙이기·prepare 는 안 잡음)', got === 't1,t6', '잡은 것: ' + got);
+  ok('A-0 (전제) 스캐너가 코드 속 여러 줄 exec 만 잡는다 (t1·t6·t8·t9·t10 / 주석·문자열·한 줄·이어붙이기·prepare 는 안 잡음)', got === 't1,t10,t6,t8,t9', '잡은 것: ' + got);
 
   const files = readdirSync(SRC).filter(f => f.endsWith('.ts')).sort();
   ok('A-1 (전제) src 의 .ts 를 읽었다', files.length > 100, 'files=' + files.length);
@@ -148,8 +173,12 @@ console.log('\n══ A. 정적 전수 — 여러 줄 문자열을 exec 에 넘�
     const s = readFileSync(resolve(SRC, f), 'utf8');
     const at = s.search(new RegExp('CREATE\\s+(?:UNIQUE\\s+)?(?:TABLE|INDEX)\\s+IF\\s+NOT\\s+EXISTS\\s+' + t + '\\b'));
     const tick = at < 0 ? -1 : s.lastIndexOf('`', at);
+    const close = at < 0 ? -1 : s.indexOf('`', at);
     const before = tick < 0 ? '' : s.slice(Math.max(0, tick - 40), tick);
+    const after = close < 0 ? '' : s.slice(close + 1, close + 40);
     ok(`A-4 ${f} 의 «${t}» 는 prepare() 로 만든다`, at >= 0 && /\.prepare\(\s*$/.test(before), at < 0 ? '그 CREATE 를 못 찾음' : '앞: …' + before.replace(/\s+/g, ' '));
+    // (옛 #1373 판의 보장 — `.run()` 이 빠지면 prepare 만 하고 실행은 안 해서 표가 그대로 안 생긴다)
+    ok(`A-4 ${f} 의 «${t}» 는 닫는 괄호 뒤에 .run() 까지 붙어 있다`, at >= 0 && /^\s*\)\s*\.run\(\)/.test(after), '뒤: ' + after.replace(/\s+/g, ' ') + '…');
   }
 }
 
