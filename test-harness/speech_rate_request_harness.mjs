@@ -10,10 +10,11 @@
 //   ① 공용 파일을 실제로 실행해 판정 함수를 얻는다(전제)
 //   ② 느리게 쪽의 세 줄이 서버 정본(src/question-memory.ts 의 QM_REASK_KO·EN·ECHO)과 «원문이 같다» · 길이 상한도 같다
 //   ③ 부탁은 바뀌고 · 대답은 안 바뀐다(짝) — 느리게·빠르게 양쪽
-//   ④ «느려진다» 면 반드시 서버 정본도 «부탁» 이라 한다(부분집합 — 화면과 서버가 서로 다른 말을 하지 않게)
+//   ④ 서버 정본이 «빠르기 부탁» 이라 하면 화면도 느려진다 · 정본 밖에서 느려지는 것은 화면 전용 보강 줄(SLOW_EXTRA)에서만 온다
 //   ⑤ 정규식이 긴 입력에서도 빠르다(키워드 × 공백 10만 자)
 //   ⑥ 두 화면의 maybeAdjustRate 를 오려 내 «가짜 속도 조절기» 로 실제로 돌린다 — 부탁이면 한 칸, 대답이면 그대로,
-//      공용 파일이 없으면 그대로(짝) · 두 화면이 그 파일을 싣는다 · 보내는 자리에서 «주석 밖에서» 부른다
+//      공용 파일이 없으면 그대로(짝) · 첫 칸·끝 칸 경계 · 두 화면이 그 파일을 싣는다 ·
+//      보내기(sendMsg)를 «그 호출까지» 오려 가짜 화면으로 실제로 돌려 학생 말이 그 함수에 «정말» 닿는지(`if (false)` 로 막아도 잡힌다)
 //   ⑦ 대조 — 예전 판정이었다면 이 대답들에 반응했다(이 목록이 헛돌지 않는다는 증거)
 //
 // 변이시험: RATE_PUB_DIR / RATE_SRC_DIR 로 고친 사본을 가리키면 그 사본을 잰다(저장소 파일을 고쳤다 되돌리지 말 것).
@@ -78,12 +79,21 @@ const SLOWER = ['천천히 말해 줘', '천천히 말해 주세요', '천천히
   'Slow down', 'Slow down please', 'Please slow down', 'Can you slow down?', 'Huh? Slow down.', 'Please speak slowly', 'Speak slowly please', 'Can you speak slowly?',
   'Could you speak more slowly?', 'Speak more slowly', 'Speak slower.', 'Talk slower', 'Slower please', 'Slower', 'More slowly please', 'A little slower please',
   'Can you say it a little slower?', 'Can you say that again slowly?', 'You speak too fast', 'You are too fast', "You're too fast", 'You talk so fast', 'Your voice is too fast',
-  'Too fast', 'Too fast!', 'Too fast, teacher', 'Too fast for me!', 'What? Too fast!', 'Slow please', 'Slow, please.'];
+  'Too fast', 'Too fast!', 'Too fast, teacher', 'Too fast for me!', 'What? Too fast!', 'Slow please', 'Slow, please.',
+  // 화면 전용 보강(SLOW_EXTRA) — 2026-10-28 함정 대조가 «진짜 부탁인데 놓친다» 로 찾은 것들
+  "It's too fast", "That's too fast", 'That was too fast', 'It is too fast for me', 'Way too fast', 'Teacher too fast', 'Okay, too fast', 'Hmm, too fast',
+  'Hold on, too fast', 'Ah too fast', 'Too quick', 'Slow down teacher', "I don't understand, slow down.", "I didn't understand, too fast.", "I can't hear, slow down",
+  'pls slow down', 'plz slow down', 'slow down pls', 'Speak slowly pls', 'Slowly pls', 'Say it slowly', 'Read that slowly', 'Go slowly', 'Go slow please', 'Please, slowly.',
+  'Can you read slowly?', 'Could you talk slower?', '좀만 천천히', '살짝 천천히', '천천히 부탁해요', '천천히 부탁드려요', '천천히 말하세요', '천천히 말씀하세요',
+  '천천히 말해주라', '천천히 천천히', '천천히 해 봐', '천천히 읽어', '천천히 말해 달라고요', '선생님 천천히 말하세요', '선생님 너무 빨라요', '너무 빨라요 선생님',
+  '선생님, 너무 빨라요', '목소리가 너무 빨라요', '속도가 너무 빨라요', '말씀이 너무 빨라요', '속도 좀 줄여 주세요', '속도를 늦춰 주세요'];
 const FASTER = ['빠르게 말해 줘', '빨리 말해 주세요', '좀 빨리 말해 줄래?', '더 빨리 말해 줘', '조금 더 빠르게 말해 주세요', '빠르게 읽어 주세요', '빨리 말씀해 주세요',
-  '빨리요', '더 빨리요', '좀 더 빠르게', '빠르게', '빨리 말해 봐', '너무 느려요', '너무 느리다', '너무 느리게 말해요', '선생님 너무 느리게 말해요',
+  '더 빨리요', '좀 빨리', '좀 더 빠르게', '빠르게요', '빠르게', '빨리 말해 봐', '너무 느려요', '너무 느리다', '너무 느리게 말해요', '선생님 너무 느리게 말해요',
   'Faster', 'Faster please', 'Faster, please!', 'Speak faster', 'Can you speak faster?', 'Please speak faster', 'Could you talk a little faster?', 'A little faster please',
   'Speed up', 'Speed up please', 'Can you speed up?', 'Please speed up.', 'You speak too slowly', 'You are too slow', "You're too slow", 'Your voice is too slow', 'Too slow', 'Too slow!',
-  'Go faster', 'Can you go faster?', 'Read it faster please', 'Please faster', 'More quickly please', 'Um, faster please'];
+  'Go faster', 'Can you go faster?', 'Read it faster please', 'Please faster', 'More quickly please', 'Um, faster please',
+  'Faster faster!', 'Again faster', 'What? faster', 'Read faster', 'Quicker, please', 'A bit quicker', '너무 느려요, 더 빨리요', 'Too slow, faster please',
+  '속도 좀 올려 주세요', '속도를 높여 줘'];
 // 대답 · 진술 · 다른 부탁 — 속도를 바꾸면 안 된다
 const NONE = ['A snail is slow.', '천천히 걸어요', '빠르게 달려요', 'My turtle walks slowly.', "No, it's slow.", 'Cheetahs run faster.', 'My car is faster than yours.',
   'I can run faster now.', 'My dog runs faster than me.', 'Faster than a dog!', 'Run faster!', 'Swim faster!', 'I said it faster.', 'Yes, faster.', '네, 빨리요',
@@ -92,6 +102,10 @@ const NONE = ['A snail is slow.', '천천히 걸어요', '빠르게 달려요', 
   '빨리 달리는 게 좋아요', '빨리 먹었어요', '빨리 와 주세요', '숙제를 빨리 해 주세요', '천천히 해요', '느려요', '네, 천천히요', '아빠는 천천히 말해요', '선생님이 천천히 말했어요',
   'Speak slowly to babies.', 'Talk slowly.', 'I speak slowly.', 'He reads slowly.', 'Slow.', 'Slowly.', 'Cars go slow in the snow.', 'My mom talks too fast.', 'My dog runs too fast.',
   'They slow down and look.', 'No, slow down.', 'Slow down and look.',
+  // 2026-10-28 함정 대조 — 새 판정이 «다른 쪽으로» 틀리던 이야기·대답(이제 안 바뀐다)
+  '거북이는 너무 느리게 말해요', "You're too slow at running.", 'You are too slow, I win!', '빨리', '빨리요', '빨리 해 주세요', '빨리 해', '빨라요',
+  'Speak slowly', "No, it's too fast.", 'The train is too fast.', 'The car was too fast for me.', '할머니는 천천히 말하세요', '살짝 천천히 걸어요', '좀만 기다려 주세요',
+  'Not so fast', 'Please speed up the car? No.', '속도가 빨라요', '그 차는 속도가 너무 빨라요',
   // 되묻기이지만 «빠르기» 이야기가 아닌 것 — 다시 듣기·쉽게·모름은 속도와 무관하다(예전과 같다)
   '다시 말해 줘', '다시 한 번 말해 주세요', '쉽게 말해 줘', '모르겠어요', 'What?', 'Huh?', '뭐라고요?', 'Say it again', 'Louder please', "I don't understand.", 'Repeat please.',
   'Use simple words.', '이해가 안 가요', "I don't know.", '', '   '];
@@ -114,28 +128,44 @@ ok(`③ 대답·진술·다른 부탁 ${NONE.length}개는 속도를 안 바꾼�
 ok('③ 1,000자가 넘는 말은 안 본다 · 그 안이면 본다(짝)', J('천천히 말해 줘' + ' '.repeat(990)) === 'slower' && J('천천히 말해 줘' + ' '.repeat(1000)) === ''
   && J('빨리 말해 줘' + ' '.repeat(990)) === 'faster' && J('빨리 말해 줘' + ' '.repeat(1000)) === '', '');
 
-// ─── ④ «느려진다» ⊆ 서버 정본 «부탁» ───────────────────────────────────────────
+// ─── ④ 서버 정본과의 관계 ─────────────────────────────────────────────────────
 const ALL = [...SLOWER, ...FASTER, ...NONE];
-const notCanon = ALL.filter((t) => J(t) === 'slower' && !isReask(t));
-ok('④ 화면이 «느리게» 라 하면 서버 정본도 «부탁» 이라 한다(부분집합)', notCanon.length === 0, notCanon);
+const SW = libLits.SLOW_WORD, SX = libLits.SLOW_EXTRA;
+ok('④ 화면 전용 보강 줄(SLOW_EXTRA)·빠르기 낱말(SLOW_WORD)을 읽었다(전제)', !!SW && !!SX);
+// 정본이 «다시 말해 달라» 라 하고 그 말이 «빠르기» 이야기면 화면도 반드시 느려진다 — 정본이 받는 것은 놓치지 않는다
+const canonMiss = ALL.filter((t) => isReask(t) && SW && SW.test(t) && J(t) !== 'slower');
+ok('④ 정본이 «빠르기 부탁» 이라 하면 화면도 느려진다(놓치지 않는다)', canonMiss.length === 0, canonMiss);
+// 정본 밖에서 느려지는 것은 화면 전용 보강 줄 하나에서만 온다(어디서 왔는지 모르는 «느리게» 가 없다)
+const pre = (t) => t.replace(/\bpl[sz]\b/gi, 'please').replace(/좀만/g, '조금만').replace(/살짝/g, '조금');
+const stray = ALL.filter((t) => J(t) === 'slower' && !(isReask(pre(t)) && SW.test(pre(t))) && !(SX && SX.test(pre(t))));
+ok('④ 정본 밖에서 느려지는 말은 전부 화면 전용 보강 줄에서 온다', stray.length === 0, stray);
+if (!QUIET) console.log(`  ℹ️ 정본 밖(화면 전용 보강)으로 느려지는 부탁: ${ALL.filter((t) => J(t) === 'slower' && !isReask(t)).length}개`);
 const canonFast = FASTER.filter((t) => isReask(t) && J(t) !== 'faster');
 ok('④ 빠르게 부탁이 «느리게» 로 뒤집히지 않는다', canonFast.length === 0, canonFast);
 
 // ─── ⑤ 속도 ───────────────────────────────────────────────────────────────────
 const RES = Object.values(libLits).filter(Boolean);
-ok('⑤ 공용 파일의 정규식을 모두 읽었다(전제 — 7개)', RES.length === 7, Object.keys(libLits));
+const litLines = (lib.match(/^\s*var \w+ = \//gm) || []).length;
+ok('⑤ 공용 파일의 정규식을 모두 읽었다(전제 — 한 줄짜리 var 정규식 전부)', RES.length === litLines && litLines >= 8, { read: RES.length, lines: litLines });
 const KEYS = ['천천히 말', '천천히 말해', '천천히', '빠르게 말', '빠르게 말해', '빨리', '빨리 말', '너무', '너무 느리게', '좀', '더', '못 알아', 'you', 'please', 'too slow', 'too fast',
-  'speak', 'faster', 'a little', 'speed', 'go', 'oh', "i don't understand"];
+  'speak', 'faster', 'a little', 'speed', 'go', 'oh', "i don't understand", '속도', '속도 좀', '선생님', '선생님 너무', '천천히 천천히', "it's too", 'hold on',
+  'can you', 'say it', 'please,', '천천히 부탁', '너무 빨라요'];
 let worst = 0, worstAt = '';
 // 10만 자 — 5만 자에서는 «\s* 두 개 사이 선택 낱말» 꼴이 1초 언저리라 문턱에 걸렸다 말았다 한다(변이 실측 984ms). 10만 자면 4초 대 0ms 로 갈린다.
+// ⏱ vm 시간 제한(1.5초)으로 돌린다 — 제곱 정규식은 10만 자에서 «몇 시간» 이라, 그냥 돌리면 이 하니스가 FAIL 이 아니라 «멈춤» 이 된다
+//    (2026-10-28 실제로 밟음: `(?:천천히\s*){2,3}요?[^\p{L}\p{N}]*$` 한 줄에 2분 넘게 멈췄다). 끊기면 그 입력을 «가장 느림» 으로 적는다.
+const speedBox = vm.createContext({ RES, t: '' });
 for (const k of KEYS) for (const sep of [' ', ', ', '?', ' 좀 ', '\t']) {
-  const t = k + sep.repeat(100000) + 'x', t0 = performance.now();
-  for (const re of RES) re.test(t);
-  const d = performance.now() - t0;
-  if (d > worst) { worst = d; worstAt = JSON.stringify(k) + ' + ' + JSON.stringify(sep) + ' × 100000'; }
+  speedBox.t = k + sep.repeat(100000) + 'x';
+  const t0 = performance.now();
+  let d;
+  try { vm.runInContext('for (const re of RES) re.test(t);', speedBox, { timeout: 1500 }); d = performance.now() - t0; }
+  catch (e) { d = Infinity; }
+  if (d > worst) { worst = d; worstAt = JSON.stringify(k) + ' + ' + JSON.stringify(sep) + ' × 100000' + (d === Infinity ? ' (1.5초에 끊음)' : ''); }
+  if (worst === Infinity) break;
 }
-ok('⑤ 정규식이 긴 입력에서도 빠르다(키워드 × 공백 10만 자 — 1초 안)', worst < 1000, { ms: Math.round(worst), at: worstAt });
-if (!QUIET) console.log(`  ℹ️ 가장 느린 경우 ${Math.round(worst)}ms — ${worstAt}`);
+ok('⑤ 정규식이 긴 입력에서도 빠르다(키워드 × 공백 10만 자 — 1초 안)', worst < 1000, { ms: worst === Infinity ? 'over 1500' : Math.round(worst), at: worstAt });
+if (!QUIET) console.log(`  ℹ️ 가장 느린 경우 ${worst === Infinity ? '1.5초 넘음' : Math.round(worst) + 'ms'} — ${worstAt}`);
 
 // ─── ⑥ 두 화면의 배선 ──────────────────────────────────────────────────────────
 const fnBody = (text, head) => {
@@ -149,13 +179,53 @@ const fnBody = (text, head) => {
   }
   return { at, code: '' };
 };
+// sendMsg 를 «그 호출까지» 오려 낸 뒤 열린 괄호를 닫아 실제로 돌릴 수 있게 만든다.
+//   글자·주석·문자열은 건너뛰고 { } 만 센다 — `try {` 가 열려 있으면 `} catch (__e) { throw __e; }` 로 닫는다.
+const closeOpen = (src) => {
+  const stack = [];
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i], d = src[i + 1];
+    if (c === '/' && d === '/') { const j = src.indexOf('\n', i); i = j < 0 ? src.length : j; continue; }
+    if (c === '/' && d === '*') { const j = src.indexOf('*/', i + 2); i = j < 0 ? src.length : j + 1; continue; }
+    if (c === '"' || c === "'" || c === '`') {
+      for (i++; i < src.length && src[i] !== c; i++) if (src[i] === '\\') i++;
+      continue;
+    }
+    if (c === '{') stack.push(/\btry\s*$/.test(src.slice(Math.max(0, i - 12), i)));
+    else if (c === '}') stack.pop();
+  }
+  return '\n' + stack.reverse().map((isTry) => (isTry ? '} catch (__e) { throw __e; }' : '}')).join('\n');
+};
+// 진짜 전역(Date·Promise …)만 바깥 것을 쓰고, 나머지 이름은 전부 가짜 화면(scope)에서 찾는다 — 모르는 이름은 undefined.
+const PASS_GLOBALS = new Set(['Date', 'Math', 'String', 'Number', 'Boolean', 'Object', 'Array', 'JSON', 'Promise', 'Error', 'TypeError',
+  'parseInt', 'parseFloat', 'isNaN', 'Symbol', 'undefined', 'NaN', 'Infinity', 'console', 'setTimeout', 'clearTimeout']);
+const runPrefix = async (prefix, scope) => {
+  const proxy = new Proxy(scope, {
+    has: (t, k) => typeof k === 'string' && !PASS_GLOBALS.has(k),
+    get: (t, k) => (k === Symbol.unscopables ? undefined : t[k]),
+    set: (t, k, v) => { t[k] = v; return true; },
+  });
+  const fn = vm.runInNewContext('(function(){ with (__scope) { return (' + prefix + closeOpen(prefix) + '\n); } })()', { __scope: proxy }, { timeout: 2000 });
+  await fn(undefined);
+};
+const stepsOf = (html, isAF) => {
+  if (isAF) {
+    const m = html.match(/const RATE_STEPS_AF = (\[[^\]]*\]);/), d = html.match(/const RATE_DEFAULT_AF = ([\d.]+);/);
+    try { return { steps: JSON.parse(m[1]), def: Number(d[1]) }; } catch { return null; }
+  }
+  const m = html.match(/var RATE_STEPS = \{([^}]*)\};/);
+  if (!m) return null;
+  const keys = [...m[1].matchAll(/(\d+)\s*:/g)].map((x) => Number(x[1])).sort((x, y) => x - y);
+  return keys.length ? { min: keys[0], max: keys[keys.length - 1] } : null;
+};
 const PAGES = [
   { file: 'ai-friend.html', head: 'function maybeAdjustRate(text) {', send: 'async function sendMsg(e) {', call: 'maybeAdjustRate(msg);' },
   { file: 'warmup.html', head: 'function maybeAdjustRate(text){', send: 'async function sendMsg(){', call: 'maybeAdjustRate(text);' },
 ];
 for (const pg of PAGES) {
   const html = read(path.join(PUB, pg.file));
-  const tags = [...html.matchAll(/<script src="\/js\/speech-rate-request\.js\?v=\d+"><\/script>/g)];
+  const isAF = pg.file === 'ai-friend.html';
+  const tags = [...html.matchAll(/<script\b[^>]*\bsrc="\/js\/speech-rate-request\.js\?v=\d+"[^>]*><\/script>/g)];
   ok(`⑥ ${pg.file} 가 공용 판정 파일을 «한 번» 싣는다(?v= 포함)`, tags.length === 1, tags.length);
   const tagAt = tags.length ? tags[0].index : -1;
   const { at, code } = fnBody(html, pg.head);
@@ -165,28 +235,67 @@ for (const pg of PAGES) {
     /MangoiRateRequest\.judge\(/.test(code) && !/\/\(천천히|slow\(ly|faster\|speed up|빠르게\|더/.test(code), code.slice(0, 300));
   const s0 = html.indexOf(pg.send), c0 = s0 < 0 ? -1 : html.indexOf(pg.call, s0);
   ok(`⑥ ${pg.file} 의 보내기(sendMsg)가 그 함수를 «주석 밖에서» 부른다`, s0 > 0 && c0 > s0 && deadAt(html, c0, s0) === '', { s0, c0, why: c0 > 0 ? deadAt(html, c0, s0) : 'missing' });
-  // 가짜 속도 조절기로 실제로 돌린다
-  const run = (text, withLib) => {
+
+  // 보내기를 «그 호출까지» 실제로 돌린다 — 학생이 친 말이 그대로 그 함수에 닿는가(`if (false)` 로 막으면 0번)
+  const said = [];
+  const typed = '천천히 말해 줘';
+  const scope = isAF
+    ? { document: { getElementById: (id) => (id === 'msgInput' ? { value: '  ' + typed + ' ' } : { disabled: false }) }, window: {},
+        maybeAdjustRate: (t) => said.push(t) }
+    : { warmupRatePreference: { ready: Promise.resolve() }, document: { getElementById: () => ({ value: '  ' + typed + ' ' }) },
+        _stopSpeak() {}, MangoiVoice: { cancel() {} }, setMicState() {}, maybeAdjustRate: (t) => said.push(t) };
+  let wireErr = '';
+  if (c0 > s0 && s0 > 0) {
+    try { await runPrefix(html.slice(s0, c0 + pg.call.length), scope); } catch (e) { wireErr = String(e && e.message); }
+  } else wireErr = 'cut-missing';
+  ok(`⑥ ${pg.file}: 보내기를 실제로 돌리면 학생이 친 말(앞뒤 공백 뺀 것)이 그 함수에 «정확히 한 번» 닿는다`,
+    !wireErr && said.length === 1 && said[0] === typed, { said, wireErr });
+
+  // 가짜 속도 조절기로 실제로 돌린다 — 단계표는 화면에서 읽는다(손으로 베끼지 않는다)
+  const st = stepsOf(html, isAF);
+  ok(`⑥ ${pg.file}: 속도 단계표를 화면에서 읽었다(전제)`,
+    !!st && (isAF ? Array.isArray(st.steps) && st.steps.length >= 3 && st.steps.includes(st.def) : st.max - st.min >= 2), st);
+  if (!st) continue;
+  const run = (text, withLib, start) => {
     const calls = [];
     const ctx = {
       window: withLib ? { MangoiRateRequest: { judge } } : {},
-      RATE_STEPS_AF: [0.5, 0.65, 0.8, 1, 1.25], RATE_DEFAULT_AF: 0.8, currentRate: 0.8,
+      RATE_STEPS_AF: isAF ? st.steps : [], RATE_DEFAULT_AF: isAF ? st.def : 0, currentRate: isAF ? (start === undefined ? st.def : start) : 0,
       applyRate(v) { calls.push(v); ctx.currentRate = v; },
-      _rateLevel: 3, setRate(v) { calls.push(v); },
+      _rateLevel: isAF ? 0 : (start === undefined ? 3 : start), setRate(v) { calls.push(v); },
       Math, String,
     };
     try { vm.runInNewContext(code + '\nmaybeAdjustRate(__t);', Object.assign(ctx, { __t: text }), { timeout: 2000 }); }
     catch (e) { return 'THREW:' + (e && e.message); }
     return calls;
   };
-  const isAF = pg.file === 'ai-friend.html';
-  const down = isAF ? 0.65 : 2, up = isAF ? 1 : 4;
-  const rs = run('천천히 말해 줘', true), rf = run('빨리 말해 주세요', true);
-  ok(`⑥ ${pg.file}: 「천천히 말해 줘」 → 한 칸 느리게 · 「빨리 말해 주세요」 → 한 칸 빠르게`,
-    Array.isArray(rs) && rs.length === 1 && rs[0] === down && Array.isArray(rf) && rf.length === 1 && rf[0] === up, { rs, rf });
+  const same = (r, want) => Array.isArray(r) && r.length === want.length && r.every((v, i) => v === want[i]);
+  const SLOW = '천천히 말해 줘', FAST = '빨리 말해 주세요';
+  if (isAF) {
+    const S = st.steps, di = S.indexOf(st.def), n = S.length;
+    const rs = run(SLOW, true), rf = run(FAST, true);
+    ok(`⑥ ${pg.file}: 「천천히 말해 줘」 → 한 칸 느리게 · 「빨리 말해 주세요」 → 한 칸 빠르게`, same(rs, [S[di - 1]]) && same(rf, [S[di + 1]]), { rs, rf });
+    const edge = {
+      second_slower: run(SLOW, true, S[1]), first_slower: run(SLOW, true, S[0]),
+      penult_faster: run(FAST, true, S[n - 2]), last_faster: run(FAST, true, S[n - 1]),
+      unknown_slower: run(SLOW, true, 0.9),
+    };
+    ok(`⑥ ${pg.file}: 경계 — 둘째 칸에서 느리게 → 첫 칸 · 첫 칸에서 더 느리게 → 그대로 · 끝 앞에서 빠르게 → 끝 칸 · 끝 칸에서 더 빠르게 → 그대로 · 모르는 값이면 «보통» 기준`,
+      same(edge.second_slower, [S[0]]) && same(edge.first_slower, []) && same(edge.penult_faster, [S[n - 1]]) && same(edge.last_faster, []) && same(edge.unknown_slower, [S[di - 1]]), edge);
+  } else {
+    const rs = run(SLOW, true), rf = run(FAST, true);
+    ok(`⑥ ${pg.file}: 「천천히 말해 줘」 → 한 칸 느리게 · 「빨리 말해 주세요」 → 한 칸 빠르게`, same(rs, [2]) && same(rf, [4]), { rs, rf });
+    const edge = {
+      second_slower: run(SLOW, true, st.min + 1), first_slower: run(SLOW, true, st.min),
+      penult_faster: run(FAST, true, st.max - 1), last_faster: run(FAST, true, st.max),
+    };
+    const inRange = (r) => Array.isArray(r) && r.every((v) => v >= st.min && v <= st.max);
+    ok(`⑥ ${pg.file}: 경계 — ${st.min + 1}단계에서 느리게 → ${st.min} · ${st.min}단계에서 더 느리게 → ${st.min} 아래로 안 감 · ${st.max - 1}단계에서 빠르게 → ${st.max} · ${st.max}단계에서 더 빠르게 → ${st.max} 위로 안 감`,
+      same(edge.second_slower, [st.min]) && inRange(edge.first_slower) && same(edge.penult_faster, [st.max]) && inRange(edge.last_faster), edge);
+  }
   const quiet = ['A snail is slow.', '빠르게 달려요', '천천히 걸어요', 'Cheetahs run faster.', '다시 말해 줘'].map((t) => [t, run(t, true)]).filter(([, r]) => !Array.isArray(r) || r.length);
   ok(`⑥ ${pg.file}: 대답(「A snail is slow.」·「빠르게 달려요」…)에는 속도를 안 건드린다(짝)`, quiet.length === 0, quiet);
-  const noLib = run('천천히 말해 줘', false);
+  const noLib = run(SLOW, false);
   ok(`⑥ ${pg.file}: 판정 파일을 못 읽었으면 속도를 그대로 둔다(던지지 않는다)`, Array.isArray(noLib) && noLib.length === 0, noLib);
 }
 
