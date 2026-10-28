@@ -1199,11 +1199,12 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
        ⚠️ api-pay.ts 를 import 하지 않는다 — activateB2bAiInvoicePayment() 를 그쪽이 다시
        import 해야 해서 순환 참조가 생긴다(이 파일 → api-pay.ts → 이 파일). */
     await safe(async () => {
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS payment_orders (
+      // prepare().run() — D1 exec() 는 줄마다 따로 실행해 여러 줄 CREATE 가 죽는다(2026-10-28).
+      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS payment_orders (
          order_id TEXT PRIMARY KEY, uid TEXT, program TEXT, amount INTEGER NOT NULL,
          status TEXT NOT NULL DEFAULT 'pending', payment_key TEXT, method TEXT,
          payer_name TEXT, student_name TEXT, created_at INTEGER NOT NULL, paid_at INTEGER,
-         fail_reason TEXT, raw TEXT)`);
+         fail_reason TEXT, raw TEXT)`).run();
       return true;
     }, false);
     // 이미 있는 표라면 이 ALTER 들은 전부 "이미 있음" 오류로 조용히 끝난다(멱등).

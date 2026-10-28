@@ -27,8 +27,9 @@ export async function handleLessonsApi(
     //   대상 지정: 전체(all) / 특정 학원(academy) / 특정 학생들(students)
     //   학원 선택 후 그 학원 소속 학생을 다중 선택해 출제할 수 있음.
     // ═══════════════════════════════════════════════════════════════
+    // ⚠️ (2026-10-28) prepare().run() — D1 exec() 는 줄마다 따로 실행해 여러 줄 CREATE 가 죽는다(이 표가 운영에 없던 이유).
     const ensureHomeworkTables = async () => {
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS homework (
+      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS homework (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
         description TEXT,
@@ -43,8 +44,8 @@ export async function handleLessonsApi(
         active INTEGER DEFAULT 1,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
-      );`);
-      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_homework_created ON homework(created_at DESC);`); } catch {}
+      )`).run();
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_homework_created ON homework(created_at DESC);`); } catch (e) { console.warn('[homework] index', (e as any)?.message); }
     };
 
     // ── POST /api/admin/homework/save — 관리자: 숙제 출제(생성/수정) ──
