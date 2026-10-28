@@ -57,7 +57,9 @@
     } else previous.appendChild(element('p', t('No earlier class record found.', '이전 수업 기록이 없습니다.')));
     content.appendChild(previous);
     content.appendChild(element('p', t('All teachers for this student. Past teacher names follow saved feedback, schedule or old-LMS records; missing records are shown as unknown.', '이 학생의 전체 교사 수업 이력입니다. 과거 담당 교사는 저장된 피드백·예약·옛 LMS 기록을 기준으로 표시하며, 없는 기록은 미확인으로 표시합니다.')));
-    if (data.warnings && data.warnings.length) { var warning = element('p', t('Some records (attendance or teacher names) could not be loaded. Refresh to retry.', '일부 기록(출결 또는 교사 이름)을 불러오지 못했습니다. 새로고침해 주세요.')); warning.className = 'history-alert'; content.appendChild(warning); }
+    if (data.warnings && data.warnings.length) { var warning = element('p', t('Some records (attendance or teacher names) could not be loaded. Refresh to retry.', '일부 기록(출결 또는 교사 이름)을 불러오지 못했습니다. 새로고침해 주세요.')); warning.className = 'history-alert'; content.appendChild(warning);
+      // twin_account: the same student's other cafe24 account (X / mangoai_X) could not be checked — only this account is shown.
+      if (data.warnings.indexOf('twin_account') >= 0) { var twin = element('p', t("This student's other account (old-LMS / reservations) could not be checked, so only this account's records are shown.", '같은 학생의 다른 계정(옛 LMS·예약) 기록을 확인하지 못해 이 계정 기록만 보여 드립니다.')); twin.className = 'history-alert'; content.appendChild(twin); } }
     var lastDate, section;
     (data.items || []).forEach(function (row) {
       if (row.date !== lastDate) { section = element('section'); section.className = 'history-day'; section.appendChild(element('h3', row.date)); content.appendChild(section); lastDate = row.date; }

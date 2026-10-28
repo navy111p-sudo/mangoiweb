@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { build } from '../cloudflare-deploy/node_modules/esbuild/lib/main.js';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
-const output = await build({stdin:{contents:`export {handleTeacherApi} from './cloudflare-deploy/src/api-teacher'; export {previousScheduled,validHistoryDate} from './cloudflare-deploy/src/teacher-student-history';`,resolveDir:root},bundle:true,write:false,platform:'node',format:'esm',plugins:[{name:'session-fixture',setup(b){b.onLoad({filter:/[\\/]auth-admin\.ts$/},async a=>({loader:'ts',contents:readFileSync(a.path,'utf8').replace('export async function getAdminActor(', 'async function originalGetAdminActor(')+'\nexport async function getAdminActor(){return globalThis.__historyActor;}'}));}}]});
+const output = await build({stdin:{contents:`export {handleTeacherApi} from './cloudflare-deploy/src/api-teacher'; export {previousScheduled,validHistoryDate} from './cloudflare-deploy/src/teacher-student-history';`,resolveDir:root},bundle:true,write:false,platform:'node',format:'esm',plugins:[{name:'session-fixture',setup(b){b.onLoad({filter:/[\\/]auth-admin\.ts$/},async a=>({loader:'ts',contents:readFileSync(a.path,'utf8').replace('export async function getAdminActor(', 'async function originalGetAdminActor(')+'\nexport async function getAdminActor(){return globalThis.__historyActor;}'}));b.onLoad({filter:/[\\/]session-ledger-load\.ts$/},async a=>({loader:'ts',contents:readFileSync(a.path,'utf8').replace('export async function buildStudentLedger(', 'async function originalBuildStudentLedger(')+'\nexport async function buildStudentLedger(env:any, uid:string, ...rest:any[]){if(globalThis.__ledgerThrow===uid)throw new Error("injected ledger failure");return (originalBuildStudentLedger as any)(env, uid, ...rest);}'}));}}]});
 const { handleTeacherApi, previousScheduled, validHistoryDate } = await import('data:text/javascript;base64,'+Buffer.from(output.outputFiles[0].text).toString('base64'));
 const db = new DatabaseSync(':memory:');
 db.exec(`
@@ -36,7 +36,7 @@ CREATE TABLE class_absence_hold(id INTEGER,student_uid TEXT,held_after TEXT,resu
 CREATE TABLE enroll_holidays(day TEXT);
 `);
 const executed=[];
-const env={DB:{prepare(sql){let args=[];return {bind(...a){args=a;return this;},async all(){executed.push(sql);return {results:db.prepare(sql).all(...args)};},async first(){executed.push(sql);return db.prepare(sql).get(...args)||null;}};},async exec(){throw new Error('History must never mutate schema/data');}}};
+const env={DB:{prepare(sql){let args=[];return {bind(...a){args=a;return this;},async all(){executed.push(sql);if(globalThis.__historyFail?.(sql,args))throw new Error('injected read failure');return {results:db.prepare(sql).all(...args)};},async first(){executed.push(sql);if(globalThis.__historyFail?.(sql,args))throw new Error('injected read failure');return db.prepare(sql).get(...args)||null;}};},async exec(){throw new Error('History must never mutate schema/data');}}};
 globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_a',name:'Teacher A',role:'teacher'};
 async function request(params={}){const url=new URL('https://example.test/api/teacher/portal');url.search=new URLSearchParams({part:'student_history',schedule_id:'1',date:'2026-10-23',month:'2026-10',...params});const response=await handleTeacherApi(new Request(url),url,env);return {status:response.status,data:await response.json()};}
 let result=await request();assert.equal(result.status,200);
@@ -189,6 +189,181 @@ db.exec('ALTER TABLE attendance RENAME TO attendance_off');
 const lmsDown=await request();assert.equal(lmsDown.status,200);
 assert.ok(lmsDown.data.warnings.includes('lms_attendance'),'LMS attendance unreadable → warning, not a silent empty month');
 db.exec('ALTER TABLE attendance_off RENAME TO attendance');
+// 👥 Twin accounts (2026-10-28 «쌍둥이 수업 요약·캘린더 이력도 고쳐줘»): one student as `X` (reservations) and `mangoai_X`
+// (old-LMS attendance). Either row must open the same, whole history — but only when both ids carry the same confirmed name.
+// Names below are made up. Reservation rows here are judged by their own account's ledger (its own public-room login).
+{
+  const kst = (d, t) => Date.parse(`${d}T${t}:00+09:00`);
+  db.exec(`ALTER TABLE class_schedules ADD COLUMN student_name TEXT;
+ALTER TABLE attendance ADD COLUMN username TEXT;
+CREATE TABLE students_erp(user_id TEXT PRIMARY KEY, korean_name TEXT, username TEXT);
+INSERT INTO students_erp VALUES('kidaa',NULL,'kidaa'),('mangoai_kidaa',NULL,'가나다 MANGOAI');
+INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_time,duration_min,source,created_at,student_name) VALUES
+(200,'kidaa','1','active','2026-10-26','19:00',20,'adm-enroll:1',1,'가나다'),
+(201,'kidaa','1','active','2026-10-20','19:00',20,'adm-enroll:1',1,'kidaa'),
+(202,'mangoai_kidaa','2','active','2026-10-22','16:00',20,'c24-mirror',1,'가나다 MANGOAI'),
+(203,'mangoai_kidaa','2','active','2026-10-21','16:00',20,'c24-mirror',1,'가나다 MANGOAI');
+INSERT INTO attendance(room_id,role,joined_at,account_uid,user_id,date,status,teacher_uid,left_at,username) VALUES
+('c24-910','student',${kst('2026-10-27','19:00')},NULL,'mangoai_kidaa','2026-10-27','present','184',${kst('2026-10-27','19:20')},'가나다 MANGOAI'),
+('c24-911','student',${kst('2026-10-13','19:00')},NULL,'mangoai_kidaa','2026-10-13','present','184',NULL,'가나다 MANGOAI'),
+('c24-912','student',${kst('2026-10-20','19:00')},NULL,'mangoai_kidaa','2026-10-20','present','184',NULL,'가나다 MANGOAI'),
+('mangoi-class','student',${kst('2026-10-22','16:01')},'mangoai_kidaa','u_device','2026-10-22','attended',NULL,NULL,NULL);
+INSERT INTO student_evaluations VALUES
+(300,'mangoai_kidaa',NULL,'c24-911','2026-10-13','Teacher A','teacher_a',${kst('2026-10-13','20:00')},'Twin LMS lesson feedback',NULL,NULL,NULL),
+(301,'kidaa',NULL,'class-200-20261026','2026-10-26','Teacher A','teacher_a',${kst('2026-10-26','20:00')},'Reservation feedback',NULL,NULL,NULL);
+INSERT INTO class_substitutions VALUES(202,'2026-10-22','3','2','active');
+INSERT INTO class_audit_log VALUES(203,'teacher_change',NULL,'2026-10-24','{"from_teacher_id":"3","to_teacher_id":"2"}',${kst('2026-10-24','09:00')});`);
+  globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_a',name:'Teacher A',role:'teacher'};
+  const fromRes = p => request({schedule_id:'200',date:'2026-10-28',...p});
+  const fromLms = p => request({schedule_id:'',room_id:'c24-910',student_uid:'mangoai_kidaa',date:'2026-10-28',...p});
+  const rooms = r => r.data.items.map(i=>i.room_id).sort();
+  const WHOLE = ['c24-910','c24-911','c24-912','class-200-20261026','class-201-20261020','class-202-20261022','class-203-20261021'];
+  let a = await fromRes(), b = await fromLms();
+  assert.equal(a.status,200);assert.equal(b.status,200);
+  assert.deepEqual(a.data.warnings,[]);assert.deepEqual(b.data.warnings,[]);
+  assert.deepEqual(rooms(a),WHOLE,'reservation row: the twin old-LMS lessons are in the history too');
+  assert.deepEqual(rooms(b),WHOLE,'old-LMS row: the twin reservations are in the history too (same whole history)');
+  const at = (r, room) => r.data.items.find(i=>i.room_id===room);
+  for (const r of [a,b]) {
+    assert.equal(at(r,'c24-911').feedback.note_en,'Twin LMS lesson feedback','the twin account report stays on its lesson');
+    assert.equal(at(r,'class-200-20261026').feedback.note_en,'Reservation feedback');
+    assert.equal(at(r,'c24-911').student_uid,'mangoai_kidaa','an LMS lesson keeps the account it was recorded under');
+    assert.equal(at(r,'class-200-20261026').student_uid,'kidaa');
+    assert.equal(at(r,'class-202-20261022').student_uid,'mangoai_kidaa');
+    assert.equal(at(r,'class-202-20261022').state,'done','a twin reservation is judged by the twin account own login (own ledger)');
+    assert.equal(at(r,'class-202-20261022').teacher_name,'Teacher C','a substitute on a twin reservation still applies');
+    assert.equal(at(r,'class-203-20261021').teacher_name,'Teacher C','a teacher change on a twin reservation is still undone before its day');
+    assert.equal(r.data.items.filter(i=>i.feedback?.id===300).length,1,'a twin report is not repeated as its own row');
+  }
+  assert.equal(a.data.previous.room_id,'c24-910','previous class: the later twin LMS lesson beats the earlier reservation');
+  assert.equal(a.data.previous.teacher_source,'lms');
+  assert.equal(b.data.before,'2026-10-27');
+  assert.equal(b.data.previous.room_id,'class-200-20261026','opened from LMS: the later twin reservation is the previous class');
+  assert.equal(b.data.previous.feedback.note_en,'Reservation feedback');
+  // One c24 room recorded under both ids is still one lesson (and its report shows once).
+  db.exec(`INSERT INTO attendance(room_id,role,joined_at,account_uid,user_id,date,status,teacher_uid,username) VALUES
+('c24-911','student',${kst('2026-10-13','19:00')},NULL,'kidaa','2026-10-13','present','184','가나다');`);
+  for (const r of [await fromRes(), await fromLms()]) {
+    assert.deepEqual(rooms(r),WHOLE,'a c24 room under both twin ids is shown once');
+    assert.equal(r.data.items.filter(i=>i.feedback?.id===300).length,1);
+  }
+  db.exec(`DELETE FROM attendance WHERE room_id='c24-911' AND user_id='kidaa'`);
+  // The twin half failing to read is a warning — the opened account's own half still shows, never a silently shorter history.
+  const failing = async (hook, why, check) => {
+    if (typeof hook === 'function') globalThis.__historyFail = hook; else globalThis.__ledgerThrow = hook;
+    try { const r = await fromRes(); assert.equal(r.status,200,why); assert.ok(rooms(r).includes('class-200-20261026'),why+': own reservation still shown'); check(r); }
+    finally { globalThis.__historyFail = undefined; globalThis.__ledgerThrow = undefined; }
+  };
+  await failing((sql,a)=>/FROM student_evaluations/.test(sql)&&a[0]==='mangoai_kidaa','twin reports unreadable',r=>{
+    assert.ok(r.data.warnings.includes('twin_account'),'twin reports unreadable → twin_account warning');
+    assert.equal(at(r,'class-200-20261026').feedback.note_en,'Reservation feedback');
+    assert.notEqual(at(r,'c24-911').feedback?.id,300);
+  });
+  await failing('mangoai_kidaa','twin ledger throws',r=>{
+    assert.ok(r.data.warnings.includes('twin_account'),'twin ledger failed → twin_account warning');
+    assert.ok(!rooms(r).includes('class-202-20261022'),'an unjudged twin reservation is not shown as if known');
+    assert.ok(rooms(r).includes('c24-910'),'the twin old-LMS half still shows');
+  });
+  await failing((sql,a)=>/account_uid = \? OR user_id = \?/.test(sql)&&a[0]==='mangoai_kidaa','twin day attendance unreadable',r=>{
+    assert.ok(r.data.warnings.includes('attendance_day'),'a twin ledger warning reaches the screen');
+  });
+  await failing((sql,a)=>/WHERE user_id = \? COLLATE BINARY AND room_id LIKE/.test(sql)&&a[0]==='mangoai_kidaa','twin LMS unreadable',r=>{
+    assert.ok(r.data.warnings.includes('lms_attendance'),'twin LMS unreadable → lms_attendance warning');
+    assert.ok(!rooms(r).includes('c24-910'));
+  });
+  assert.deepEqual((await fromRes()).data.warnings,[],'hooks cleared');
+  // Same exact slot across the twins: the LMS row is hidden only once the reservation itself says «done».
+  db.exec(`INSERT INTO attendance(room_id,role,joined_at,account_uid,user_id,date,status) VALUES
+('class-201-20261020','student',${kst('2026-10-20','19:01')},'kidaa','u_device','2026-10-20','attended');`);
+  for (const r of [await fromRes(), await fromLms()]) {
+    assert.deepEqual(rooms(r),WHOLE.filter(x=>x!=='c24-912'),'attended twin reservation at the exact LMS slot: shown once');
+    assert.equal(at(r,'class-201-20261020').state,'done');
+  }
+  // Not the same student (or not provably): the other id's records never join.
+  db.exec(`INSERT INTO students_erp VALUES('kidab','가나라',NULL),('mangoai_kidab',NULL,'라마바 MANGOAI');
+INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_time,duration_min,source,created_at,student_name) VALUES
+(210,'kidab','1','active','2026-10-26','18:00',20,'adm-enroll:2',1,'가나라'),
+(211,'kidac','1','active','2026-10-26','18:20',20,'adm-enroll:3',1,'kidac'),
+(212,'kidad','1','active','2026-10-26','18:40',20,'adm-enroll:4',1,'가가가'),
+(213,'kidad','1','cancelled','2026-10-05','18:40',20,'adm-enroll:4',1,'나나나'),
+(214,'Kidae','1','active','2026-10-26','17:40',20,'adm-enroll:5',1,'바바바'),
+(215,'kidaf','1','active','2026-10-26','17:20',20,'adm-enroll:6',1,'MANGOAI');
+INSERT INTO attendance(room_id,role,joined_at,account_uid,user_id,date,status,teacher_uid,username) VALUES
+('c24-920','student',${kst('2026-10-27','18:00')},NULL,'mangoai_kidab','2026-10-27','present','184','라마바 MANGOAI'),
+('c24-921','student',${kst('2026-10-27','18:20')},NULL,'mangoai_kidac','2026-10-27','present','184','가나바 MANGOAI'),
+('c24-922','student',${kst('2026-10-27','18:40')},NULL,'mangoai_kidad','2026-10-27','present','184','가가가 MANGOAI'),
+('c24-923','student',${kst('2026-10-27','17:40')},NULL,'mangoai_kidae','2026-10-27','present','184','바바바 MANGOAI'),
+('c24-924','student',${kst('2026-10-27','17:20')},NULL,'mangoai_kidaf','2026-10-27','present','184','MANGOAI');`);
+  for (const [id, room, why] of [['210','c24-920','different names'],['211','c24-921','one side has no confirmed name (id-shaped only)'],
+    ['212','c24-922','one side has two names'],['214','c24-923','ids differ by case (Kidae vs mangoai_kidae)'],
+    ['215','c24-924','a name that is only the MANGOAI mark is no name']]) {
+    const r = await request({schedule_id:id,date:'2026-10-28'});
+    assert.equal(r.status,200);assert.ok(!r.data.items.some(i=>i.room_id===room),'not linked: '+why);
+    assert.deepEqual(r.data.warnings,[],'not linked is a decision, not a read failure: '+why);
+  }
+  // Every name source counts: a second name in the roster or in the cafe24-synced LMS rows blocks the link.
+  // Only cafe24-synced LMS rows (teacher_uid set) and c24 present rows count — /api/attendance/join can write a c24 room and a
+  // name without logging in (it cannot write teacher_uid), and a public-room login is not an LMS record.
+  db.exec(`INSERT INTO students_erp VALUES('kidag','','호호호'),('mangoai_kidah',NULL,'파파파 MANGOAI');
+INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_time,duration_min,source,created_at,student_name) VALUES
+(230,'kidag','1','active','2026-10-26','16:00',20,'adm-enroll:7',1,'하하하'),
+(231,'kidah','1','active','2026-10-26','16:20',20,'adm-enroll:8',1,'파파파'),
+(232,'kidai','1','active','2026-10-26','16:40',20,'adm-enroll:9',1,'카카카'),
+(233,'kidaz','1','active','2026-10-26','15:40',20,'adm-enroll:10',1,'자자자');
+INSERT INTO attendance(room_id,role,joined_at,account_uid,user_id,date,status,teacher_uid,username) VALUES
+('c24-930','student',${kst('2026-10-27','16:00')},NULL,'mangoai_kidag','2026-10-27','present','184','하하하 MANGOAI'),
+('c24-940','student',${kst('2026-10-27','16:20')},NULL,'mangoai_kidah','2026-10-27','present','184','파파파 MANGOAI'),
+('c24-941','student',${kst('2026-10-26','16:20')},NULL,'mangoai_kidah','2026-10-26','present','184','타타타 MANGOAI'),
+('c24-950','student',${kst('2026-10-27','16:40')},NULL,'mangoai_kidai','2026-10-27','present','184','카카카 MANGOAI'),
+('c24-951','student',${kst('2026-10-25','16:40')},NULL,'mangoai_kidai','2026-10-25','present',NULL,'거거거'),
+('mangoi-class','student',${kst('2026-10-24','16:40')},'mangoai_kidai','mangoai_kidai','2026-10-24','attended',NULL,'너너너'),
+('c24-952','student',${kst('2026-11-02','16:40')},NULL,'mangoai_kidai','2026-11-02','scheduled','184','더더더');`);
+  for (const [id, room, why] of [['230','c24-930','the roster username names someone else (korean_name is only an empty string)'],
+    ['231','c24-940','a cafe24-synced LMS row carries a second name']]) {
+    const r = await request({schedule_id:id,date:'2026-10-28'});
+    assert.equal(r.status,200);assert.ok(!r.data.items.some(i=>i.room_id===room),'not linked: '+why);
+    assert.deepEqual(r.data.warnings,[],'not linked: '+why);
+  }
+  const linked = await request({schedule_id:'232',date:'2026-10-28'});
+  assert.ok(linked.data.items.some(i=>i.room_id==='c24-950'),'a name in an anonymous c24 row, a public-room login or a cafe24 «scheduled» seed never blocks (or makes) a link');
+  // The roster korean_name is a real name source on its own: here the reservation and the roster username only carry the id.
+  db.exec(`INSERT INTO students_erp VALUES('kidak','라라라','kidak');
+INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_time,duration_min,source,created_at,student_name) VALUES
+(235,'kidak','1','active','2026-10-26','15:00',20,'adm-enroll:12',1,'kidak');
+INSERT INTO attendance(room_id,role,joined_at,account_uid,user_id,date,status,teacher_uid,username) VALUES
+('c24-960','student',${kst('2026-10-27','15:00')},NULL,'mangoai_kidak','2026-10-27','present','184','라라라 MANGOAI');`);
+  assert.ok((await request({schedule_id:'235',date:'2026-10-28'})).data.items.some(i=>i.room_id==='c24-960'),'linked through the roster korean_name');
+  const alone = await request({schedule_id:'233',date:'2026-10-28'});
+  assert.deepEqual(alone.data.warnings,[],'a student without a twin account: no warning');
+  assert.deepEqual(alone.data.items.map(i=>i.room_id),['class-233-20261026']);
+  // More than 1000 name rows: the check is not trusted (warning), never a link.
+  db.exec(`INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_time,duration_min,source,created_at,student_name)
+WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM c WHERE n<1001) SELECT 5000+n,'kidaj','9','cancelled','2025-01-01','10:00',20,'x',1,'이름'||n FROM c;
+INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_time,duration_min,source,created_at,student_name) VALUES
+(234,'kidaj','1','active','2026-10-26','15:20',20,'adm-enroll:11',1,'이름1');`);
+  assert.ok((await request({schedule_id:'234',date:'2026-10-28'})).data.warnings.includes('twin_account'),'name rows over the limit → warning');
+  db.exec(`DELETE FROM class_schedules WHERE user_id='kidaj'`);
+  // With the production-like schema, the opening privacy check still holds.
+  const own = await request();
+  assert.ok(!JSON.stringify(own).includes('PRIVATE_OTHER_STUDENT'));assert.ok(!own.data.warnings.includes('twin_account'));
+  // The placeholder account `lms` (old-LMS occupancy rows) is never the twin of `mangoai_lms`, even with a matching name.
+  db.exec(`UPDATE attendance SET username='가가나 MANGOAI' WHERE user_id='mangoai_lms';
+UPDATE class_schedules SET student_name='가가나 MANGOAI' WHERE user_id='mangoai_lms';
+INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_time,duration_min,source,created_at,student_name) VALUES
+(220,'lms','1','active','2026-10-25','10:00',20,'lms_import_w26',1,'가가나');`);
+  const placeholder = await request({schedule_id:'',room_id:'c24-900',student_uid:'mangoai_lms',date:'2026-10-28'});
+  assert.equal(placeholder.status,200);assert.ok(!placeholder.data.items.some(i=>i.schedule_id===220),'placeholder `lms` rows never join');
+  // An unread name check is a warning — and the student's own half still shows (never a silently shorter history).
+  db.exec('ALTER TABLE students_erp RENAME TO students_erp_off');
+  const unread = await fromRes();assert.equal(unread.status,200);
+  assert.ok(unread.data.warnings.includes('twin_account'),'twin names unreadable → warning');
+  assert.deepEqual(rooms(unread),['class-200-20261026','class-201-20261020'],'…and only the confirmed account is shown');
+  db.exec('ALTER TABLE students_erp_off RENAME TO students_erp');
+  assert.deepEqual((await fromRes()).data.warnings,[]);
+  globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_c',name:'Teacher C',role:'teacher'};
+  assert.equal((await fromRes()).status,403,'merging twins never widens who may open the history');
+  globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_a',name:'Teacher A',role:'teacher'};
+}
 Date.now=realNow;
 assert.ok(executed.every(sql=>/^\s*(SELECT\b|PRAGMA table_info\b)/.test(sql)),'LMS history only reads data and schema');
 // Read-only compatibility: fresh canonical schema, then legacy schema with eval_at in another month.
@@ -258,6 +433,17 @@ assert.equal((await request()).status,503,'database failure is an error, never a
   for (let i = 0; i < 5; i++) await new Promise(r => setTimeout(r, 0));
   const q2 = new URLSearchParams(urls.at(-1).split('?')[1]);
   assert.equal(q2.get('schedule_id'), '5');assert.equal(q2.get('room_id'), null);
+  // twin_account says what is missing (the student's other account); other warnings do not claim it.
+  const screenFor = async warnings => {
+    reply = { ...reply, warnings };
+    api.open({ scheduleId: '5', roomId: '', studentUid: '', date: '2026-10-27', name: 'S' });
+    for (let i = 0; i < 5; i++) await new Promise(r => setTimeout(r, 0));
+    return dctx.document.body.children.at(-1).textContent;
+  };
+  const twinShown = await screenFor(['twin_account']);
+  assert.ok(/other account/.test(twinShown) && /Some records/.test(twinShown), 'twin_account: generic + other-account line');
+  const lmsShown = await screenFor(['lms_attendance']);
+  assert.ok(/Some records/.test(lmsShown) && !/other account/.test(lmsShown), 'other warnings do not mention the other account');
 }
 console.log(`PASS: ${matrix} distinct matrix scenarios plus integration cases: real SQLite history, cross-teacher records, report-free previous teacher, substitutes, leap dates, month boundaries, orphan/legacy reports, authorization, read failures and SELECT-only reads.`);
 db.close();
