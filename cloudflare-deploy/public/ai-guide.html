@@ -20,8 +20,10 @@
       화면은 그 데이터를 그리기만 한다 → 문구를 고칠 때는 데이터만 고친다.
     · 화면 사진은 /img/ai-guide/*.webp (로컬 서버 + 크로미움으로 찍은 실제 화면, 2026-10-28).
       그 화면이 크게 바뀌면 사진도 다시 찍을 것.
-    · 수업일·주간 순서(WEEK)는 서버 정본 src/today-plan.ts 의 CLASS_DAY · HOME_WEEK 를 옮겨 적은 것이다.
+    · 수업일·주간 순서(USE · WEEK)는 서버 정본 src/today-plan.ts 의 CLASS_DAY · HOME_WEEK 를 옮겨 적은 것이다
+      (CLASS_DAY.home 의 scene = «교재 낱말 쓰기», 금요일 write 가 낮은 밴드에서 AI 친구로 바뀌는 규칙은 문장으로 적음).
       ⚠️ 그 표가 바뀌면 여기도 함께.
+    · 판단력 맛보기 상한 숫자는 적지 않는다 — src/judgment-sample-gate.ts 가 «화면에 복제하지 말 것» 이라 못 박았다.
 
   [규칙]
     · data-ko/data-en 을 쓰지 않는다 — 공용 i18n 엔진이 textContent 를 통째로 갈아 끼워 굵은 글씨·아이콘이
@@ -129,7 +131,8 @@
   .group-title{display:flex;align-items:center;gap:10px;margin:28px 0 12px}
   .group-title .pill{padding:6px 14px;border-radius:99px;background:var(--gc);color:#fff;font-size:15px;font-weight:900}
   .group-title p{margin:0;color:var(--ink2);font-size:14.5px}
-  .tool{padding:20px;margin-bottom:14px;border-left:6px solid var(--gc);scroll-margin-top:16px}
+  /* 바로가기로 왔을 때 위쪽 고정 단추(← · 홈 · EN)에 카드 제목이 가리지 않게 */
+  .tool{padding:20px;margin-bottom:14px;border-left:6px solid var(--gc);scroll-margin-top:60px}
   .tool-top{display:flex;align-items:flex-start;gap:14px}
   .tool-top .ic{flex:0 0 auto;width:58px;height:58px;border-radius:17px;display:flex;align-items:center;justify-content:center;background:var(--gbg);color:var(--gc)}
   .tool-top .ic svg{width:31px;height:31px}
@@ -482,12 +485,12 @@
             tip: 'Progress is saved <b>on that device</b>. Please keep using the same phone or tablet.' } },
 
     /* ── 🗣️ 말하기 ── */
-    { id: 'warmup', g: 'speak', icon: 'talk', url: '/warmup.html', img: 'warmup', min: 10, mic: 'need', sound: true,
+    { id: 'warmup', g: 'speak', icon: 'talk', url: '/warmup.html', img: 'warmup', min: 10, mic: 'opt', sound: true,
       ko: { name: 'A.i 말하기 연습', one: 'AI가 먼저 말을 걸어 줘요. 오늘 배울 교재나 자유 주제로 짧게 대화하며 입을 풀어요.',
             steps: ['말할 언어(<b>영어</b> · 중국어)와 <b>교재로 연습</b> / <b>자유 대화</b>를 골라요',
                     '나이대와 <b>대화 수준</b>을 골라요 — 모르면 <b>🎯 내 수준 찾아줄까요?</b> (30초)',
                     '<b>🚀 이 설정으로 말하기 연습 시작하기</b> → AI가 먼저 인사해요',
-                    '<b>🎤</b> 누르고 대답, 다 말하면 <b>⏹</b>. 막히면 <b>대답할 때 도움이 필요해요</b>',
+                    '<b>🎤</b> 누르고 대답, 다 말하면 <b>⏹</b> (글로 써서 <b>보내기</b>도 돼요). 막히면 <b>대답할 때 도움이 필요해요</b>',
                     '<b>끝내고 요약 보기</b>로 오늘 한 말을 확인해요'],
             good: '수업 바로 전, 영어로 말하는 게 아직 어색한 학생',
             tip: '수업 시작 <b>10분 전</b>에 하면 딱 좋아요. 요약을 복사해 선생님께 보여 줄 수 있어요.' },
@@ -495,7 +498,7 @@
             steps: ['Choose the language (<b>English</b> · Chinese) and <b>Practice with textbook</b> / <b>Free talk</b>',
                     'Choose the age group and <b>conversation level</b> — not sure? Tap <b>🎯 Find my level</b> (30 sec)',
                     'Tap <b>🚀 Start speaking with these settings</b> → the AI says hello first',
-                    'Tap <b>🎤</b> and answer, then <b>⏹</b> when done. Stuck? Tap <b>I need help answering</b>',
+                    'Tap <b>🎤</b> and answer, then <b>⏹</b> when done (or type and tap <b>Send</b>). Stuck? Tap <b>I need help answering</b>',
                     'Tap <b>End and see summary</b> to review what you said'],
             good: 'Right before class, or students who still feel shy speaking English',
             tip: 'Best done <b>10 minutes before class</b>. The summary can be copied and shown to the teacher.' } },
@@ -510,7 +513,7 @@
       en: { name: 'AI Friend (Mangoi)', sh: 'AI Friend', one: 'Pick a favorite topic (animals, food, games…) and chat in English with an AI friend.',
             steps: ['Pick a friend (Emma · Jake · Lily · Noah) and a topic in <b>🗺 Choose a topic</b>',
                     'Tap <b>🎤</b> and speak, or type in English and tap <b>Send</b>',
-                    'The AI answers in voice and text. Mistakes get a <b>✨ Better way to say it</b> card',
+                    'The AI answers in voice and text. Mistakes get an <b>✨ Even better like this</b> card',
                     'Stuck? Tap <b>💡</b>. Want the meaning? Tap <b>Meaning</b> on the bubble'],
             good: 'Days without class — students who want to chat freely about things they like',
             tip: 'Choose from <b>levels 1–8</b>. Text appears after you finish speaking — but it hears pronunciation more accurately.' } },
@@ -600,14 +603,14 @@
                     '<b>🤔 왜 그 표현을 골랐어요?</b>에 이유를 써요 (한국어 OK) → <b>제출하기 🚀</b>',
                     '점수와 피드백을 보고 <b>다음 문제 →</b> · <b>🌱 내 성장 보기</b>'],
             good: '상황에 맞는 표현을 고르는 힘, 이유를 말하는 힘을 키우고 싶은 학생',
-            tip: '이유를 자세히 쓸수록 점수가 올라가요. 로그인하지 않으면 <b>맛보기로 하루 12문제</b>까지 돼요.' },
+            tip: '이유를 자세히 쓸수록 점수가 올라가요. 로그인하지 않으면 <b>하루 몇 문제만 맛보기</b>로 풀 수 있어요.' },
       en: { name: 'Decision Training', one: 'Read an English situation, choose the best expression, then explain why you chose it.',
             steps: ['First time only: choose <b>Student / Adult</b> and the difficulty (<b>🤖 Let AI adjust</b> recommended)',
                     'Read <b>🗣️ Here\'s the situation</b> and choose the best expression from A–D',
                     'Write your reason in <b>🤔 Why did you choose it?</b> (Korean is OK) → <b>Submit 🚀</b>',
                     'Check the score and feedback → <b>Next question →</b> · <b>🌱 See my growth</b>'],
             good: 'Students building the skill to pick the right words — and explain why',
-            tip: 'The better the reason, the higher the score. Without logging in, it\'s a <b>12-question daily sample</b>.' } },
+            tip: 'The better the reason, the higher the score. Without logging in, it\'s a <b>short daily sample</b>.' } },
     { id: 'student-games', g: 'play', icon: 'game', url: '/student-games.html', img: 'student-games', min: 10, mic: 'opt', sound: true, coin: true,
       ko: { name: '학생게임', one: '오늘 배운 단어 · 문장을 게임으로 예습 · 복습해요. 22가지 게임이 있어요.',
             steps: ['게임 언어(<b>영어</b> · 중국어)와 속도를 골라요',
@@ -625,7 +628,8 @@
             tip: 'Works great as a <b>reward</b> after studying. Only the speaking games need a mic.' } }
   ];
 
-  /* ── 수업일 순서 · 수업 없는 날 (src/today-plan.ts CLASS_DAY · HOME_WEEK 를 옮겨 적음 — 그 표가 바뀌면 함께) ── */
+  /* ── 수업일 순서 · 수업 없는 날 (src/today-plan.ts CLASS_DAY · HOME_WEEK 를 옮겨 적음 — 그 표가 바뀌면 함께)
+        CLASS_DAY.home = ['scene','micro'] → «AI 단어 퀴즈 + 교재 낱말 쓰기», 금요일 write 밴드 규칙은 homeP 문장 ── */
   var USE = {
     ko: {
       classT: '🏫 수업이 있는 날 — 수업 앞뒤로 10분씩',
@@ -634,10 +638,10 @@
         { when: '수업 전', what: 'A.i 말하기 연습', min: '10분 · 오늘 교재로 입 풀기' },
         { when: '수업', what: '정규 수업', min: '선생님과 함께', main: true },
         { when: '수업 후', what: 'BTS/SIU 퀴즈', min: '10분 · 배운 것 바로 복습' },
-        { when: '집에서', what: 'AI 단어 퀴즈', min: '5분 · 단어 다지기' }
+        { when: '집에서', what: 'AI 단어 퀴즈 + 교재 낱말 쓰기', min: '5분 + 10분 · 단어 다지기' }
       ],
       homeT: '🏠 수업이 없는 날 — 하루 15분이면 충분해요',
-      homeP: '말하기 하나 + 복습 하나 + 요일별 특별 활동. 학생 화면의 <b>오늘의 A.i 학습</b>이 매일 이 순서를 알려 줘요.',
+      homeP: '말하기 하나 + 복습 하나 + 요일별 특별 활동. 학생 화면의 <b>오늘의 A.i 학습</b>이 매일 이 순서를 알려 줘요. (금요일 AI 영작은 아직 문장 쓰기가 어려운 학생에게는 AI 친구로 바뀌어요.)',
       days: ['일', '월', '화', '수', '목', '금', '토'],
       ideas: [
         ['🎬', '모둠 활동으로', 'A.i 영화더빙은 한 컴퓨터로 1~5명이 역할을 나눠 녹음할 수 있어요. 완성 영상을 다 같이 보면 반응이 좋아요.'],
@@ -652,10 +656,10 @@
         { when: 'Before class', what: 'A.i Speaking Practice', min: '10 min · warm up with today\'s book' },
         { when: 'Class', what: 'Regular class', min: 'with the teacher', main: true },
         { when: 'After class', what: 'BTS/SIU Quiz', min: '10 min · review right away' },
-        { when: 'At home', what: 'AI Vocab Quiz', min: '5 min · lock in the words' }
+        { when: 'At home', what: 'AI Vocab Quiz + textbook word writing', min: '5 + 10 min · lock in the words' }
       ],
       homeT: '🏠 Days without class — 15 minutes is enough',
-      homeP: 'One speaking + one review + a special activity for the day. <b>Today\'s AI Plan</b> on the student\'s screen shows this order every day.',
+      homeP: 'One speaking + one review + a special activity for the day. <b>Today\'s AI Plan</b> on the student\'s screen shows this order every day. (Friday\'s AI Writing switches to AI Friend for students not yet ready to write sentences.)',
       days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
       ideas: [
         ['🎬', 'As a group activity', 'In A.i Movie Dubbing, 1–5 students can share one computer and split the roles. Watching the finished movie together is a hit.'],
@@ -677,20 +681,20 @@
 
   var FAQ = {
     ko: [
-      ['로그인을 안 해도 되나요?', '대부분 로그인 없이도 해 볼 수 있어요. 하지만 <b>로그인해야</b> 학생 레벨에 맞는 문제가 나오고, 기록과 <b>포인트</b>가 쌓여요. (판단력 훈련은 로그인하지 않으면 하루 12문제 맛보기만 돼요.)'],
+      ['로그인을 안 해도 되나요?', '대부분 로그인 없이도 해 볼 수 있어요. 하지만 <b>로그인해야</b> 학생 레벨에 맞는 문제가 나오고 기록이 남아요. <b>포인트</b>도 대부분 로그인한 학생에게 쌓이고, 기프티콘 교환은 로그인한 학생만 돼요. (판단력 훈련은 로그인하지 않으면 하루 몇 문제만 맛보기로 풀 수 있어요.)'],
       ['마이크가 안 돼요', '① 처음 뜨는 창에서 <b>허용</b>을 눌렀는지 확인해요.<br>② 이미 막았다면 주소창 왼쪽 <b>🔒 자물쇠 → 마이크 → 허용</b>.<br>③ 카톡 안에서 열었다면 <b>크롬 · 사파리</b>로 다시 열어요.<br>④ 통화 · 녹음 앱이 마이크를 쓰고 있지 않은지 봐요.'],
       ['소리가 안 들려요', '휴대폰 <b>무음 모드</b>와 볼륨을 확인해요. 아이폰은 옆쪽 무음 스위치도 확인! 화면 안의 <b>🔊</b> 버튼이 꺼져 있지 않은지도 봐 주세요.'],
-      ['너무 쉬워요 / 너무 어려워요', 'A.i 말하기 연습 · AI 친구 · AI 영작 · AI 음성코치 · A.i 독서는 <b>화면에서 단계를 직접</b> 고를 수 있어요. 판단력 훈련은 AI가 알아서 맞춰 주고, 문제 아래 <b>너무 쉬워요 / 너무 어려워요</b> 버튼도 있어요. 학생 레벨 자체를 바꾸려면 망고아이에 말씀해 주세요.'],
+      ['너무 쉬워요 / 너무 어려워요', 'A.i 말하기 연습 · AI 친구 · AI 영작 · AI 음성코치 · A.i 독서는 <b>화면에서 단계를 직접</b> 고를 수 있어요. 판단력 훈련은 AI가 알아서 맞춰 주고, 문제 아래 <b>문장이 너무 어려워요 / 너무 쉬워요</b> 버튼도 있어요. 학생 레벨 자체를 바꾸려면 망고아이에 말씀해 주세요.'],
       ['포인트는 어디에 쓰나요?', '로그인한 학생이 퀴즈 · 영작 · AI 친구 등을 하면 포인트가 쌓여요. <b>1포인트 = 1원</b>이고, <b>3,000P</b>부터 홈 화면의 <b>🎁 포인트상점</b>에서 기프티콘으로 바꿀 수 있어요. 하루에 쌓을 수 있는 양은 정해져 있어요. (학생게임은 포인트 대신 게임 안에서 쓰는 코인을 모아요.)'],
       ['휴대폰으로도 되나요?', '네! 모든 화면이 휴대폰 · 태블릿 · PC에서 돼요. 말하기 활동은 이어폰을 끼면 더 잘 알아들어요. A.i 독서처럼 진도가 기기에 저장되는 활동은 같은 기기로 이어서 해 주세요.'],
       ['중국어도 되나요?', 'A.i 말하기 연습 · AI 음성코치 · 학생게임은 <b>중국어</b>도 고를 수 있어요. 중국어를 배우는 학생에게는 <b>중국어퀴즈</b> 카드가 하나 더 보여요.'],
       ['우리 학원 학생들이 얼마나 했는지 볼 수 있나요?', '로그인한 상태로 한 활동은 학생 계정에 기록돼요. 학원별 사용 현황이 궁금하시면 망고아이에 요청해 주세요. 본사에서 확인해 드려요.']
     ],
     en: [
-      ['Do students need to log in?', 'Most activities can be tried without logging in. But <b>logging in</b> gives questions at the student\'s level and saves records and <b>points</b>. (Without login, Decision Training is a 12-question daily sample.)'],
+      ['Do students need to log in?', 'Most activities can be tried without logging in. But <b>logging in</b> gives questions at the student\'s level and saves records. Most <b>points</b> also go to logged-in students, and only logged-in students can swap points for gift cards. (Without login, Decision Training is a short daily sample.)'],
       ['The mic doesn\'t work', '① Make sure you tapped <b>Allow</b> on the first pop-up.<br>② If you blocked it, tap the <b>🔒 lock</b> left of the address bar <b>→ Microphone → Allow</b>.<br>③ If you opened it inside KakaoTalk, reopen it in <b>Chrome or Safari</b>.<br>④ Check that no call or recording app is using the mic.'],
       ['I can\'t hear anything', 'Check <b>silent mode</b> and the volume. On iPhone, check the side silent switch too. Also make sure the <b>🔊</b> button on the screen isn\'t turned off.'],
-      ['It\'s too easy / too hard', 'In A.i Speaking Practice, AI Friend, AI Writing, AI Voice Coach and A.i Reading you can <b>pick the level on screen</b>. Decision Training adjusts itself, and has <b>Too easy / Too hard</b> buttons under each question. To change a student\'s level itself, please contact Mangoi.'],
+      ['It\'s too easy / too hard', 'In A.i Speaking Practice, AI Friend, AI Writing, AI Voice Coach and A.i Reading you can <b>pick the level on screen</b>. Decision Training adjusts itself, and has <b>Sentences are too hard / Too easy</b> buttons under each question. To change a student\'s level itself, please contact Mangoi.'],
       ['What are points for?', 'Logged-in students earn points from quizzes, writing, AI Friend and more. <b>1 point = 1 won</b>, and from <b>3,000P</b> they can swap points for gift cards in the <b>🎁 Point Shop</b> on the home screen. There is a daily limit. (Student Games collect in-game coins instead of points.)'],
       ['Does it work on phones?', 'Yes! Every screen works on phones, tablets and PCs. For speaking, earphones help the AI hear better. For activities that save progress on the device (like A.i Reading), keep using the same device.'],
       ['Is Chinese available?', 'A.i Speaking Practice, AI Voice Coach and Student Games also offer <b>Chinese</b>. Students learning Chinese see one more card: <b>Chinese Quiz</b>.'],
@@ -835,6 +839,8 @@
   /* 🌐 공용 바(js/mango-i18n.js)에서 언어를 바꾸면 이 화면이 직접 다시 그린다 */
   window.addEventListener('mangoi:lang-changed', render);
   render();
+  /* 공용 엔진(defer)이 실린 뒤 그 엔진의 판정(getLang)으로 한 번 더 — 지금은 같은 키를 읽지만 갈라질 때를 대비 */
+  document.addEventListener('DOMContentLoaded', render);
 })();
 </script>
 </body>
