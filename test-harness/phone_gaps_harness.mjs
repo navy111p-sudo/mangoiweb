@@ -637,6 +637,21 @@ console.log('\n[ E. 화면 — 무엇을 보내고 무엇을 말하나 ]');
       a = ar(kOk, d);
       ok(!a.row && a.flash && /다시 불러오지 못해 확인하지 못했습니다/.test(a.flash.ko) && !/✅/.test(a.flash.ko), 'E 다시 불러오기가 실패하면 «확인 못 함» — 아무 말 없이 끝내지 않는다', { d, a });
     }
+    // 🟡→수리(2026-10-28 함정 대조): 줄이 사라지는 경우 «한 번 더 저장» 할 «실재하는» 곳(학생 상세)을 말하고,
+    //    다시 불러오기가 실패해도 «직원 칸에 못 적음» 을 잃지 않으며, 할 일이 남은 말은 경고(warn)로 그린다.
+    a = ar(kNoRoster, gd([]));
+    ok(a.warn === true && /학생 상세/.test(a.flash.ko) && /student detail/i.test(a.flash.en), 'E 명부만 적고 빠졌으면 «학생 상세에서 한 번 더» — 갈 곳을 말한다 · 경고', a);
+    a = ar(kNoUnknown, gd([]));
+    ok(a.warn === true && /학생 상세/.test(a.flash.ko), 'E 명부 모름 + 빠짐 → 갈 곳(학생 상세)을 말한다 · 경고', a);
+    a = ar(kNoUnknown, null);
+    ok(a.warn === true && /직원 입력 칸/.test(a.flash.ko) && /학생 상세/.test(a.flash.ko) && /staff field/i.test(a.flash.en), 'E 다시 불러오기 실패 + 직원 칸 못 적음 → 그 사실을 잃지 않는다', a);
+    a = ar(kOk, null);
+    ok(a.warn === true && /\[🔄 불러오기\]/.test(a.flash.ko) && /\[🔄 Load\]/.test(a.flash.en) && !/직원 입력 칸/.test(a.flash.ko), 'E 다시 불러오기 실패(직원 칸은 적힘) → 실제 버튼 이름 «🔄 불러오기» 로 안내 · 직원 칸 얘기는 안 함(짝)', a);
+    a = ar(kOk, gd([]));
+    ok(!a.warn, 'E 성공 안내는 경고가 아니다(초록·저절로 사라짐 — 짝)', a);
+    ok(!/«다시 불러오기»/.test(js) && !/«Reload»/.test(js), 'E 화면에 없는 버튼 이름(«다시 불러오기»·«Reload»)으로 안내하지 않는다');
+    const m403 = P.saveMsg(403, { ok: false, error: 'forbidden_teacher', message: '강사 권한으로는 …', message_en: 'Teachers cannot …', who_line: '지금 로그인: x', who_line_en: 'Logged in: x' });
+    ok(/Teachers cannot/.test(m403.en) && !/강사 권한/.test(m403.en) && /강사 권한/.test(m403.ko), 'E EN 화면에는 서버의 영어 문구를 쓴다(KO 는 그대로 — 짝)', m403);
     ok(P.saveMsg(403, { ok: false, error: 'forbidden_teacher', who_line: '지금 로그인: x' }).ok === false, 'E 403 은 실패');
     ok(P.saveMsg(401, null).ok === false && /로그인/.test(P.saveMsg(401, null).text), 'E 401 은 «다시 로그인»');
     ok(P.saveMsg(200, null).ok === false, 'E 본문이 없으면(=JSON 아님) 실패로 본다');
@@ -693,12 +708,12 @@ console.log('\n[ E. 화면 — 무엇을 보내고 무엇을 말하나 ]');
       return { els, tr: { getAttribute: (k) => (k === 'data-uid' ? uid : null), querySelector: (q) => (
         q === '.pg-in[data-role="parent"]' ? els.par : q === '.pg-in[data-role="student"]' ? els.stu : q === '.pg-msg' ? els.msg : q === '.pg-save' ? els.btn : null) } };
     };
-    const flashEl = { textContent: '', style: { display: 'none' } };
+    const flashEl = { textContent: '', style: { display: 'none' }, attrs: {}, setAttribute(k, v) { this.attrs[k] = String(v); } };
     const bodyEl = { innerHTML: '', querySelectorAll: () => [] };
     ctx.document.getElementById = (id) => (id === 'pg-flash' ? flashEl : id === 'pg-body' ? bodyEl : null);
     const runSave = async (patchRes, listRes, par = '010-1234-5678', stu = '') => {
       const sent = [];
-      flashEl.textContent = ''; bodyEl.innerHTML = '';
+      flashEl.textContent = ''; flashEl.attrs = {}; bodyEl.innerHTML = '';
       ctx.fetch = async (u, o) => {
         sent.push({ u, method: (o && o.method) || 'GET', body: o && o.body });
         if (o && o.method === 'PATCH') {
@@ -716,7 +731,7 @@ console.log('\n[ E. 화면 — 무엇을 보내고 무엇을 말하나 ]');
         if (done === 'timeout') err = new Error('save timeout');
       } catch (e) { err = e; }
       delete ctx.fetch;
-      return { sent, row: row.els, flash: flashEl.textContent, err };
+      return { sent, row: row.els, flash: flashEl.textContent, warn: flashEl.attrs['data-warn'] === '1', err };
     };
     const L = (uids, extra) => Object.assign({ ok: true, days: 7, from: 'a', to: 'b', students: 3, reachable: 1, complete: true, sms_mode: 'real', reminder_enabled: true,
       gaps: uids.map((u) => ({ uid: u, name: 'x', status: 'none', next_date: '2026-10-29', next_time: '16:00', classes: 1 })) }, extra || {});
@@ -725,11 +740,13 @@ console.log('\n[ E. 화면 — 무엇을 보내고 무엇을 말하나 ]');
     ok(!r.err && patch && /\/api\/admin\/student\/kim1\/contact$/.test(patch.u) && JSON.parse(patch.body).parent_phone === '010-1234-5678' && !('student_phone' in JSON.parse(patch.body)),
       'E save: 그 학생 contact PATCH 로 «넣은 칸만» 보낸다(빈 학생 칸은 안 보낸다)', patch);
     ok(r.sent.filter((x) => x.method === 'GET').length === 1 && /✅/.test(r.flash) && /이 번호로 갑니다/.test(r.flash), 'E save: 성공 → 다시 불러 → 빠졌으면 ✅ 안내', { flash: r.flash, sent: r.sent.length });
+    ok(r.warn === false, 'E save: 성공 안내는 경고 모양이 아니다(짝)', r.warn);
     r = await runSave({ status: 200, body: { ok: true, phone_kept: false, roster_updated: false } }, L(['kim1']));
     ok(!r.err && r.sent.filter((x) => x.method === 'GET').length === 0 && /❌/.test(r.row.msg.textContent) && /명부를 찾지 못했습니다/.test(r.row.msg.textContent) && !/✅/.test(r.flash),
       'E save: 명부도 안 바뀌었으면 다시 불러오지 않고 그 줄에 «저장 안 됨» 을 남긴다', { msg: r.row.msg.textContent, flash: r.flash, gets: r.sent.length });
     r = await runSave({ status: 200, body: { ok: true, phone_kept: false, roster_updated: true } }, L([]));
     ok(!r.err && /명부에는 적었지만/.test(r.flash) && !/✅/.test(r.flash), 'E save: 명부만 적힘 → 빠져도 ✅ 가 아니라 «한 번 더 저장»', r.flash);
+    ok(!r.err && r.warn === true && /학생 상세/.test(r.flash), 'E save: 그 말은 경고 모양(주황·저절로 안 사라짐)으로, 갈 곳(학생 상세)과 함께', { flash: r.flash, warn: r.warn });
     r = await runSave({ status: 200, body: { ok: true, phone_kept: true, roster_updated: true } }, 'NET');
     ok(!r.err && /확인하지 못했습니다/.test(r.flash) && !/✅/.test(r.flash), 'E save: 다시 불러오기가 끊기면 «확인 못 함» 을 띄운다(조용히 끝내지 않는다)', r.flash);
     r = await runSave({ status: 200, body: { ok: true, phone_kept: true, roster_updated: true } }, L([], { sms_mode: 'mock' }));

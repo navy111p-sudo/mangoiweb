@@ -99,7 +99,8 @@
     if (st === 401) return said(false, '로그인이 풀렸습니다. 다시 로그인해 주세요.', 'Session expired. Please log in again.');
     if (!d || d.ok !== true) {
       var m = d && (d.message || d.who_line || d.error);
-      return said(false, '❌ 저장 못 함' + (m ? ' — ' + m : ''), '❌ Not saved' + (m ? ' — ' + m : ''));
+      var mEn = d && (d.message_en || d.who_line_en || m);
+      return said(false, '❌ 저장 못 함' + (m ? ' — ' + m : ''), '❌ Not saved' + (mEn ? ' — ' + mEn : ''));
     }
     /* ⚠️ phone_kept:false 는 «직원 입력 칸»(student_erp_override)에 못 적었다는 뜻이다. 이유가 둘이라(① 그 칸 쓰기 실패
        ② 이 아이디로 명부 행을 정확일치로 못 찾음 — 그때는 명부에도 안 적혔다) 서버가 함께 주는
@@ -124,9 +125,14 @@
    *  ⚠️ «목록에서 빠졌다» 를 «이제 문자가 간다» 로 읽지 않는다 — 수업 시각이 지나도 빠진다.
    *     «이 번호로 간다» 는 직원 입력 칸에 «적힌 것이 확인된»(kept === true) 때만 말한다. */
   function afterReload(m, d, uid) {
-    if (!d || d.ok !== true) return { row: null, flash: pair(
-      '⚠️ ' + uid + ' — 저장 요청은 처리됐지만 목록을 다시 불러오지 못해 확인하지 못했습니다. 잠시 뒤 «다시 불러오기» 를 눌러 확인해 주세요.',
-      '⚠️ ' + uid + ' — the save went through, but the list could not be reloaded to check it. Press «Reload» in a moment.') };
+    /* ⚠️ 줄이 다시 그려져 사라질 수 있으므로 «한 번 더 저장» 할 곳은 이 화면이 아니라 «학생 상세» 다(같은 저장 API).
+       경고(warn)는 초록 성공 상자가 아니라 주황으로, 저절로 안 사라지게 그린다(flash). */
+    var redo = pair(' 학생 상세 화면(이 아이디)에서 연락처를 한 번 더 저장해 주세요.', ' Please save the contact once more on the student detail page (this ID).');
+    if (!d || d.ok !== true) return { warn: true, row: null, flash: pair(
+      '⚠️ ' + uid + ' — 저장 요청은 처리됐지만 목록을 다시 불러오지 못해 확인하지 못했습니다.' +
+        (m.kept === false ? ' 다만 «직원 입력 칸» 에는 못 적었습니다 —' + redo.ko : ' 잠시 뒤 [🔄 불러오기]를 눌러 확인해 주세요.'),
+      '⚠️ ' + uid + ' — the save went through, but the list could not be reloaded to check it.' +
+        (m.kept === false ? ' It was not written to the staff field, though —' + redo.en : ' Press [🔄 Load] in a moment to check.')) };
     var still = (d.gaps || []).some(function (g) { return String(g.uid) === uid; });
     var off = (d.sms_mode && d.sms_mode !== 'real') || d.reminder_enabled === false;
     var offKo = off ? ' (다만 지금은 문자 발송이 꺼져 있어 실제로는 안 갑니다.)' : '';
@@ -135,11 +141,11 @@
       '❌ 문자가 갈 번호로 확인되지 않았습니다 — 명부에서 이 아이디를 못 찾았을 수 있습니다(수업 예약 아이디와 명부 아이디의 대소문자가 다르거나 명부에 없는 아이디). 이 아이디를 본사 개발 담당에게 알려 주세요.',
       '❌ Not confirmed as reachable — the roster may not have this ID (upper/lower case differs from the booking, or it is not in the roster). Please send this ID to the HQ developer.'), flash: null };
     if (still) return { row: pair('⚠️ 저장했는데 아직 문자가 안 갈 번호로 보입니다 — 번호를 다시 확인해 주세요.', '⚠️ Saved, but it still looks unreachable — please check the number.'), flash: null };
-    if (m.kept === false) return { row: null, flash: m.roster === true ? pair(
-      '⚠️ ' + uid + ' — 명부에는 적었지만 «직원 입력 칸» 에는 못 적었습니다. 카페24 가 다른 번호를 주면 그 번호로 바뀝니다 — 한 번 더 저장해 주세요.' + offKo,
-      '⚠️ ' + uid + ' — saved to the roster but not to the staff field; if cafe24 sends another number it will replace this one — please save once more.' + offEn) : pair(
-      '⚠️ ' + uid + ' — 목록에서는 빠졌지만 «직원 입력 칸» 에는 못 적었습니다. 카페24 가 다른 번호를 주면 그 번호로 바뀝니다 — 한 번 더 저장해 주세요.' + offKo,
-      '⚠️ ' + uid + ' — it left the list, but it could not be written to the staff field; if cafe24 sends another number it will replace this one — please save once more.' + offEn) };
+    if (m.kept === false) return { warn: true, row: null, flash: m.roster === true ? pair(
+      '⚠️ ' + uid + ' — 명부에는 적었지만 «직원 입력 칸» 에는 못 적었습니다. 카페24 가 다른 번호를 주면 그 번호로 바뀝니다 —' + redo.ko + offKo,
+      '⚠️ ' + uid + ' — saved to the roster but not to the staff field; if cafe24 sends another number it will replace this one —' + redo.en + offEn) : pair(
+      '⚠️ ' + uid + ' — 목록에서는 빠졌지만 «직원 입력 칸» 에는 못 적었습니다. 카페24 가 다른 번호를 주면 그 번호로 바뀝니다 —' + redo.ko + offKo,
+      '⚠️ ' + uid + ' — it left the list, but it could not be written to the staff field; if cafe24 sends another number it will replace this one —' + redo.en + offEn) };
     return { row: null, flash: pair(
       '✅ ' + uid + ' — 저장했습니다. 앞으로 수업 30분 전 안내 문자는 이 번호로 갑니다.' + offKo,
       '✅ ' + uid + ' — saved. Upcoming class reminders (30 min before) go to this number.' + offEn) };
@@ -302,19 +308,25 @@
       return load().then(function (d) {
         var a = afterReload(m, d, uid);
         if (a.row) { state.msgs[uid] = a.row; render(); }
-        if (a.flash) flash(txt(a.flash));
+        if (a.flash) flash(txt(a.flash), a.warn);
         return m;
       });
     });
   }
 
-  function flash(t) {
+  /* 성공은 초록·8초 뒤 사라짐 · 경고(warn)는 주황·사람이 다시 저장하거나 불러올 때까지 남김(할 일이 남은 말이라서).
+     색은 background-color 로 쓴다 — background: 인라인은 관리자 옛 다크 규칙에 걸릴 수 있다(CLAUDE.md 2장). */
+  function flash(t, warn) {
     var el = $('pg-flash');
     if (!el) return;
     el.textContent = t;
     el.style.display = '';
+    el.style.color = warn ? '#92400e' : '#065f46';
+    el.style.backgroundColor = warn ? 'rgba(245,158,11,0.14)' : 'rgba(16,185,129,0.12)';
+    el.style.borderColor = warn ? 'rgba(245,158,11,0.45)' : 'rgba(16,185,129,0.35)';
+    el.setAttribute('data-warn', warn ? '1' : '0');
     clearTimeout(flash._t);
-    flash._t = setTimeout(function () { el.style.display = 'none'; }, 8000);
+    if (!warn) flash._t = setTimeout(function () { el.style.display = 'none'; }, 8000);
   }
 
   function applyRole() {

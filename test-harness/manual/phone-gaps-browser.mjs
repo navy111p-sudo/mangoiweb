@@ -187,6 +187,8 @@ try {
     check('다른 줄에 쓰다 만 번호가 다시 그린 뒤에도 남는다', kept === '010-5555-6666', kept);
     const fl = await page.$eval('#pg-flash', el => ({ shown: getComputedStyle(el).display !== 'none', t: el.textContent }));
     check('저장 성공 안내가 보인다(그 아이디와 함께)', fl.shown && fl.t.includes('test_a'), fl);
+    const flw = await page.$eval('#pg-flash', el => el.getAttribute('data-warn'));
+    check('성공 안내는 경고 모양이 아니다(초록 — 짝)', flw === '0', flw);
 
     console.log('\n[ ④ 안 보내기 · 성공이라 안 하기 · 남으면 경고 ]');
     await page.fill('#pg-body div.pg-row[data-uid="test_c"] .pg-in[data-role="parent"]', '010-123-456');
@@ -209,6 +211,14 @@ try {
     await page.waitForFunction(() => /직원 입력 칸/.test((document.getElementById('pg-flash') || {}).textContent || ''), null, { timeout: 5000 }).catch(() => {});
     const fl5 = await page.$eval('#pg-flash', el => ({ shown: getComputedStyle(el).display !== 'none', t: el.textContent }));
     check('명부엔 적고 직원 칸만 못 적었으면(roster_updated:true) «한 번 더 저장» 으로 말한다(✅·«지금 간다» 아님)', fl5.shown && /명부에는 적었지만/.test(fl5.t) && /직원 입력 칸/.test(fl5.t) && !/✅/.test(fl5.t) && !/지금은 문자가 갑니다/.test(fl5.t) && !(await rows(page)).includes('test_e'), fl5);
+    // 🟡→수리(2026-10-28 함정 대조): 줄이 사라졌으니 «한 번 더 저장» 할 실재하는 곳(학생 상세)을 말하고, 주황 경고로 8초 뒤에도 남긴다
+    check('그 경고는 «학생 상세에서» 다시 저장하라고 갈 곳을 말한다', /학생 상세/.test(fl5.t), fl5.t);
+    const w5 = await page.$eval('#pg-flash', el => ({ warn: el.getAttribute('data-warn'), bg: getComputedStyle(el).backgroundColor }));
+    const bgm = /rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)/.exec(w5.bg) || [];
+    check('경고는 주황 상자다(초록 성공 상자가 아니다)', w5.warn === '1' && +bgm[1] > +bgm[2] && +bgm[2] > +bgm[3], w5);
+    await page.waitForTimeout(8600);
+    const st5 = await page.$eval('#pg-flash', el => getComputedStyle(el).display !== 'none' && /학생 상세/.test(el.textContent));
+    check('경고는 8초 뒤에도 사라지지 않는다(할 일이 남은 말)', st5, st5);
     S.keepOnSave.add('test_b');
     await page.click('#pg-body div.pg-row[data-uid="test_b"] .pg-save');
     await page.waitForFunction(() => /아직 문자가 안 갈/.test((document.querySelector('#pg-body div.pg-row[data-uid="test_b"] .pg-msg') || {}).textContent || ''), null, { timeout: 5000 }).catch(() => {});
