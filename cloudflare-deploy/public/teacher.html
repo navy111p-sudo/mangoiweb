@@ -247,8 +247,11 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 .cls-extra{margin-top:3px;font-size:12px;line-height:1.55;color:#475467}
 .cls-extra b{font-weight:700;color:#344054}
 .cls-extra .evq-open{color:#1d4ed8;font-weight:700;white-space:nowrap}
-.cls-extra .evq-write{background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;padding:1px 7px;font:inherit;font-weight:700;cursor:pointer}
-html[data-t="dark"] .cls-extra .evq-write{background:#1e293b;border-color:#3b82f6}
+.cls-extra .evq-write,.cls-tbl .evq-write{background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;border-radius:6px;padding:1px 7px;font:inherit;font-weight:700;cursor:pointer}
+html[data-t="dark"] .cls-extra .evq-write,html[data-t="dark"] .cls-tbl .evq-write{background:#1e293b;color:#93c5fd;border-color:#3b82f6}
+/* ➕ (2026-10-28) 「➕ 지난 피드백 추가」 — 쓰기 버튼과 같은 모양, 색만 초록(«새로 쓰기») */
+.cls-extra .evq-new,.cls-tbl .evq-new{background:#ecfdf3;color:#047857;border-color:#6ce9a6}
+html[data-t="dark"] .cls-extra .evq-new,html[data-t="dark"] .cls-tbl .evq-new{background:#12261d;color:#6ee7b7;border-color:#059669}
 html[data-t="dark"] .cls-extra .evq-open{color:#93c5fd}
 .cls-extra .cal7,.cls-tbl .cal7{display:inline-flex;gap:2px;vertical-align:middle}
 .cls-extra .cal7 i,.cls-tbl .cal7 i{display:inline-block;width:17px;height:17px;line-height:17px;text-align:center;font-size:9.5px;font-weight:800;font-style:normal;border-radius:4px;background:#e4e7ec;color:#475467}
@@ -1939,6 +1942,23 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     }).join('');
     renderClsDay();
   }
+  /* ➕ (2026-10-28) 「➕ 지난 피드백 추가」 — 줄 값은 여기서 찾는다(DATA·WK_DATA 는 이 IIFE 안).
+     창은 파일 끝 «평가 창» 스크립트가 공용 js/eval-quick-view.js 를 «누를 때만» 받아 연다(첫 화면 외부 리소스 0개).
+     쓰는 사람 = 이 강사(teacher_uid = 내 아이디) — 그래서 나중에 이 강사가 직접 고칠 수 있다(evalEditAllowed). */
+  document.addEventListener('click',function(e){
+    var b=e.target && e.target.closest && e.target.closest('[data-evq-new]');
+    if(!b || !DATA) return;
+    e.preventDefault();
+    var room=b.getAttribute('data-room') || '', c=null;
+    (DATA.classes || []).forEach(function(x){ if(!c && x && x.room_id===room) c=x; });
+    if(!c && WK_DATA) (WK_DATA.days || []).forEach(function(d){ (d.items || []).forEach(function(x){ if(!c && x && x.room_id===room) c=x; }); });
+    if(!c) return;
+    document.dispatchEvent(new CustomEvent('teacher-feedback-new',{ detail:{
+      which:'last', student_uid:stuUid(c), student_name:c.student_name,
+      teacher_uid:DATA.me && DATA.me.username, teacher_name:DATA.me && DATA.me.name,
+      room_id:c.room_id, class_date:c.class_date || c.date || DATA.today, prev_classes:c.prev_classes
+    }}));
+  });
   /* 하루치 목록 — 주간 카드와 합친 카드의 «다른 날» 보기가 같은 줄 모양을 쓴다(한 곳에서만 고친다). */
   function weekDayBodyHtml(d){
     var visibleItems = portalRows(d.items || []);
@@ -2360,12 +2380,20 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     }
     var writeBtn = (!c.today_eval && !c.eval_written && c.class_state !== 'postponed' && c.class_state !== 'cancelled' && typeof wi === 'number' && wi >= 0)
           ? ' <button type="button" class="evq-open evq-write" data-eval="' + wi + '">' + esc(T('✍ Write Feedback', '✍ 피드백 작성')) + '</button>' : '';
+    /* ➕ (2026-10-28 매니저·강사 제안 «지난 피드백도 추가») 지난 피드백이 없으면 「➕ 지난 피드백 추가」 —
+       공용 쓰기 창(js/eval-quick-view.js create)이 서버가 준 «지난 회차»(prev_classes — 예약 행마다의 방 번호)에서 고르게 한다.
+       조건은 admin.html·manager.html 「지난」 칸과 같다(eval_add_edit_buttons_harness 가 셋을 실제로 돌려 맞춰 본다).
+       ⛔ 옛 LMS·카페24 줄·학생 아이디 없는 줄·지난 회차 목록이 없는 줄(다른 날 보기)에는 주지 않는다. 배선은 data-evq-new 위임 리스너. */
+    var addLast = (!lastFeedback && (!c.kind || c.kind === 'class') && c.source !== 'cafe24' && c.source !== 'lms'
+          && String(c.student_uid || '').trim() && Array.isArray(c.prev_classes) && c.prev_classes.length)
+          ? ' <button type="button" class="evq-write evq-new" data-evq-new="last" data-room="' + esc(c.room_id) + '">'
+            + esc(T('➕ Add last feedback', '➕ 지난 피드백 추가')) + '</button>' : '';
     if (asParts) return {
       date: esc(c.class_date || ''), sched: esc(sl || D), te: esc(teTxt), at: esc(atTxt), week: wkStrip,
-      last: esc(ev(lastFeedback)) + evOpen(lastFeedback), today: esc(ev(todayFeedback)) + evOpen(todayFeedback) + writeBtn
+      last: esc(ev(lastFeedback)) + evOpen(lastFeedback) + addLast, today: esc(ev(todayFeedback)) + evOpen(todayFeedback) + writeBtn
     };
     return '<div class="cls-extra">' + row1.join(' &middot; ') + wkLine
-      + '<br><b>' + esc(T('Last class feedback', '지난 수업 피드백')) + '</b> ' + esc(ev(lastFeedback)) + evOpen(lastFeedback)
+      + '<br><b>' + esc(T('Last class feedback', '지난 수업 피드백')) + '</b> ' + esc(ev(lastFeedback)) + evOpen(lastFeedback) + addLast
       + '<br><b>' + esc(T("Today's feedback", '오늘 피드백')) + '</b> <span class="feedback-level">' + esc(T('Student level','학생 레벨')) + ': ' + esc(c.level || T('Not set','미등록')) + '</span> · ' + esc(ev(todayFeedback)) + evOpen(todayFeedback)
       + writeBtn
       + '</div>';
@@ -2849,6 +2877,8 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
            + ':' + (sc.today_eval ? sc.today_eval.id : '') + ':' + (sc.last_eval ? sc.last_eval.id : '')
            + ':' + (sc.pay_type || '') + ':' + (sc.sched_label_en || '')
            + ':' + (Array.isArray(sc.week_days) ? sc.week_days.map(function (x) { return x ? 1 : 0; }).join('') : '')
+           // ➕ (2026-10-28) 지난 회차 목록도 — 안 넣으면 캐시(목록 없음)를 그린 뒤 서버 응답이 와도 「➕ 지난 피드백 추가」가 안 뜬다.
+           + ':' + (Array.isArray(sc.prev_classes) ? sc.prev_classes.length : '')
            // 🚪 (2026-09-29) 방 번호·길이도 넣는다 — 안 넣으면 「오늘은 다른 방으로」·일정 이동으로
            //    room_id 가 바뀌어도 «바뀐 게 없다» 로 보고 다시 안 그려, [수업 입장] 이 옛 방으로 간다.
            + ':' + (sc.room_id || '') + ':' + (sc.duration_min || '') + ':' + (sc.close_at_ts || '')
@@ -5341,17 +5371,30 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
    admin.html(js/adm-today-classes.js)·manager.html 과 같은 창을 쓴다. 판정을 여기 복제하지 말 것. */
 (function(){
   function en(){ return document.documentElement.lang !== 'ko'; }   /* applyLang() 이 정하는 값 — 이 화면 언어 정본 */
-  function open(id){
-    var go = function(){ if (window.mgEvalQuick) window.mgEvalQuick(id, { en: en(), onSaved: function(){
-      document.dispatchEvent(new Event('teacher-feedback-saved'));
-    } }); };
+  function saved(){ document.dispatchEvent(new Event('teacher-feedback-saved')); }
+  function load(go){
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
-    sc.src = '/js/eval-quick-view.js?v=2';
+    sc.src = '/js/eval-quick-view.js?v=3';
     sc.onload = go;
     sc.onerror = function(){ alert(en() ? 'Could not load the viewer — please tap again.' : '전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.'); };
     document.head.appendChild(sc);
   }
+  function open(id){
+    load(function(){ if (window.mgEvalQuick) window.mgEvalQuick(id, { en: en(), onSaved: saved }); });
+  }
+  /* ➕ (2026-10-28) 「➕ 지난 피드백 추가」 — 위 IIFE 가 줄 값을 찾아 보낸 것을 공용 쓰기 창으로 연다. */
+  document.addEventListener('teacher-feedback-new', function(ev){
+    var ctx = ev && ev.detail;
+    if (!ctx) return;
+    load(function(){
+      if (!window.mgEvalQuick || typeof window.mgEvalQuick.create !== 'function') {
+        alert(en() ? 'The writing window is out of date — please refresh and tap again.' : '쓰기 창이 옛 판입니다 — 새로고침 후 다시 눌러 주세요.');
+        return;
+      }
+      window.mgEvalQuick.create(ctx, { en: en(), onSaved: saved });
+    });
+  });
   document.addEventListener('click', function(ev){
     var a = ev.target && ev.target.closest ? ev.target.closest('[data-evq]') : null;
     if (!a) return;
