@@ -20,6 +20,7 @@ import { hasForeignGloss, KOREAN_GLOSS_RULE } from './korean-vocab';
 // ※ ai-command / cafe24-sync 라우트는 다른 모듈로 옮겨졌다. 여기 남아 있던 import 는
 //   실제로 한 번도 쓰이지 않는 껍데기라 제거했다(런타임 동작 변화 없음).
 import { forbiddenTeacherBody } from './forbidden-teacher';
+import { buildPhoneGaps } from './phone-gaps';   // 📵 번호 없는 학생 목록(2026-10-28)
 import { pickCurrentSession } from './class-current-pick';
 import { runCypher } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
 import { studentScopeWhere, getScope } from './scope';
@@ -589,6 +590,31 @@ export async function handleMangoApi(
       } catch (e: any) {
         return json({ ok: false, error: e?.message }, 500);
       }
+    }
+
+    // 📵 번호 없는 학생 — 다음 N일 수업이 있는데 «수업 전 안내 문자» 가 갈 번호가 없는 학생 (2026-10-28)
+    //   GET /api/admin/student/phone-gaps?days=7  (본사·내부직원 전용 — 학생 연락처 목록이라 강사·지사·대리점은 막는다)
+    //   판정·이유는 src/phone-gaps.ts. 저장은 기존 PATCH /api/admin/student/:uid/contact 를 그대로 쓴다.
+    //   ⚠️ 이 줄은 아래 «/api/admin/student/:uid» GET 정규식보다 «앞» 이어야 한다(뒤면 uid='phone-gaps' 로 잡힌다).
+    if (method === 'GET' && path === '/api/admin/student/phone-gaps') {
+      const actor = await getAdminActor(request, env as any);
+      if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+      if (actor.isTeacher) return json(forbiddenTeacherBody(actor,
+        '강사 권한으로는 학생 연락처 목록을 볼 수 없습니다.',
+        'Teachers cannot view the student contact list.'), 403);
+      // 🔒 지사·대리점 차단은 «근거를 다시 읽고, 못 읽으면 막는» 정본 게이트로 — actor.role 은 스코프 조회가
+      //    흔들리면 'staff' 로 떨어져 통과한다(CLAUDE.md 2장). 이 목록은 학생 아이디(=사실상 비밀번호)·이름 목록이다.
+      if (isOrgScopedRole(actor.role)) return json({ ok: false, error: 'forbidden_scope' }, 403);
+      //    ⚠️ 정본 판정은 강사 스코프('teacher')를 «hq» 로 통과시킨다(그 파일 범위 밖) — 위 isTeacher 가
+      //       이름·스코프를 못 읽은 날에도 막히게 다시 읽은 근거로 한 번 더 본다.
+      const _pgScope = await readScopeType(env, actor.username);
+      if (_pgScope === 'teacher') return json(forbiddenTeacherBody(actor,
+        '강사 권한으로는 학생 연락처 목록을 볼 수 없습니다.',
+        'Teachers cannot view the student contact list.'), 403);
+      const _pgDeny = orgScopeDenyResponse(orgScopeVerdict(_pgScope, actor.role));
+      if (_pgDeny) return _pgDeny;
+      const r = await buildPhoneGaps(env as any, { days: Number(url.searchParams.get('days')) });
+      return json(r, r.ok ? 200 : 503);
     }
 
     // ===== 👨‍🏫 공개 강사 목록 (학생 홈페이지 강사진 미리보기용) =====
@@ -4543,9 +4569,13 @@ ${numbered}`;
         ).bind(...erpUidBinds(uid)).first<{ user_id: string }>().catch(() => null) : null;
         // 매칭 조건은 ERP_BY_UID 정본 하나 (user_id 를 빠뜨려 수동 등록 학생이 0행 갱신되던 사고 — 2026-09-14)
         vals.push(...erpUidBinds(uid));
-        await env.DB.prepare(
+        const _upd: any = await env.DB.prepare(
           `UPDATE students_erp SET ${sets.join(', ')} WHERE ${ERP_BY_UID}`
         ).bind(...vals).run();
+        /* 📋 (2026-10-28) 명부 행이 «실제로» 바뀌었나 — 화면이 phone_kept:false 의 두 원인
+           (직원 입력 칸 쓰기 실패 · 이 아이디로 명부 행을 못 찾음 = 아무것도 안 적힘)을 가르려고 싣는다.
+           모르면(meta 없음) null — «안 적혔다» 로 지어내지 않는다. */
+        const rosterUpdated: boolean | null = (_upd && _upd.meta && typeof _upd.meta.changes === 'number') ? _upd.meta.changes > 0 : null;
         // 🧹 이름을 바꿨으면 student_erp_override 에도 적어 둔다 — 안 그러면 카페24 야간
         //   동기화(03:00 KST)가 하룻밤 만에 원래 이름으로 되돌린다(CLAUDE.md 2장 「학생 이름·
         //   계정을 D1 에서 고치거나 지웠는데 다음날 원복됨」). 실제 매칭 키는 user_id 라
@@ -4652,7 +4682,7 @@ ${numbered}`;
             orgKept = false;
           }
         }
-        return json({ ok: true, updated_fields: sets.length - 1 - (nameChanged ? 1 : 0), skipped_masked: skippedMasked, password_changed: passwordChanged, name_changed: nameChanged, phone_kept: phoneKept, org_kept: orgKept });
+        return json({ ok: true, updated_fields: sets.length - 1 - (nameChanged ? 1 : 0), skipped_masked: skippedMasked, password_changed: passwordChanged, name_changed: nameChanged, phone_kept: phoneKept, org_kept: orgKept, roster_updated: rosterUpdated });
       }
     }
 

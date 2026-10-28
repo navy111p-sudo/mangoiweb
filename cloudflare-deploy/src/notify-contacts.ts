@@ -53,7 +53,7 @@
  */
 
 import { findTeacherContact } from './absent-sweep';   // 강사 연락처 판정 정본(복제 금지)
-import { getOverridePhones, loadOverridePhones } from './student-override'; // 📞 우리 화면에서 받아 둔 번호(동기화가 못 덮는 자리)
+import { getOverridePhones, loadOverridePhones, ensureStudentOverrideTable } from './student-override'; // 📞 우리 화면에서 받아 둔 번호(동기화가 못 덮는 자리)
 import { selectInChunks } from './d1-chunk';             // IN 목록은 손으로 자르지 않는다(D1 바인드 100개)
 
 /** 한 사람에게 보낼 번호 묶음. 못 찾은 자리는 빈 문자열이다(= 그 역할은 발송 안 함). */
@@ -108,6 +108,93 @@ export async function phonesForStudent(env: any, uid: string): Promise<{ student
        「번호를 넣었는데 안 나간다」가 된다. */
     return { student: ovStudent, parent: ovParent };
   }
+}
+
+/** SQLite 의 COLLATE NOCASE 는 ASCII A-Z 만 접는다 — JS toLowerCase 는 유니코드까지 접어 «다른 답» 이 된다. */
+function nocaseKey(s: string): string {
+  return s.replace(/[A-Z]/g, c => String.fromCharCode(c.charCodeAt(0) + 32));
+}
+const _utf8 = new TextEncoder();
+/** SQLite 의 BINARY 정렬(= UTF-8 바이트 순) — `ORDER BY user_id ASC` 와 같은 답을 내려고. */
+function binaryLess(a: string, b: string): boolean {
+  const x = _utf8.encode(a), y = _utf8.encode(b);
+  const n = Math.min(x.length, y.length);
+  for (let i = 0; i < n; i++) if (x[i] !== y[i]) return x[i] < y[i];
+  return x.length < y.length;
+}
+/** `WHERE user_id = ? COLLATE NOCASE ORDER BY (user_id = ?) DESC, user_id ASC LIMIT 1` 을 메모리에서 — 정확일치 우선, 없으면 BINARY 로 가장 앞. */
+function pickNocase<T extends { user_id?: any }>(rows: T[], u: string): T | null {
+  const k = nocaseKey(u);
+  let best: T | null = null;
+  for (const r of rows) {
+    const id = String(r && r.user_id != null ? r.user_id : '');
+    if (nocaseKey(id) !== k) continue;
+    if (id === u) return r;
+    if (!best || binaryLess(id, String(best.user_id))) best = r;
+  }
+  return best;
+}
+
+/**
+ * 📤 여러 학생에게 «실제로 문자가 갈 번호» 를 한 번에 (2026-10-28 — 번호 없는 학생 목록).
+ *
+ * [왜] «번호가 있다» 를 표시용 정본(`loadContactPhones`)으로 세면 이탈위험 스냅샷까지 섞여 **부풀어 보인다**
+ *   — 2026-10-28 실측: 다음 7일 수업 학생 252명 중 표시 정본으로는 61명, **발송 정본으로는 12명**이었다.
+ *   리마인더가 읽는 것은 `phonesForStudent` 하나라, «못 받는 학생» 은 반드시 그 답으로 세야 한다.
+ * [무엇] `phonesForStudent` 를 학생마다 부르는 것과 **같은 답**을 낸다(하니스가 무작위 표로 둘을 대조한다).
+ *   ① 받아 둔 번호(`student_erp_override`) — 대소문자 무시, 정확일치 우선(빈 칸인 정확일치 행도 그대로 이긴다)
+ *   ② 명부(`students_erp`) — 정확일치를 먼저 한 번에 찾고, 못 찾은 계정만 대소문자 무시로 다시 묻는다
+ *      (그 질문은 BINARY 인덱스를 못 타서 전체를 훑는다 — 대부분 0건이라 건너뛴다)
+ *   학생 = ①학생 → ②student_phone → ②phone · 학부모 = ①학부모 → ②parent_phone (phonesForStudent 와 같은 자리)
+ * ⚠️ `complete:false` = «못 물어봤다» — 화면이 «번호 없음» 으로 단정하지 않게. 던지지는 않는다(fail-open).
+ * ⛔ 같은 판정을 다른 곳에 또 적지 말 것 — 발송은 `phonesForStudent`, 여러 명은 이 함수.
+ * @returns phones = 넘긴 계정(앞뒤 공백 제거) → 번호. 넘긴 계정은 «빈 값이어도» 전부 맵에 있다.
+ */
+export async function loadSendPhones(env: any, uids: string[]): Promise<{ phones: Map<string, { student: string; parent: string }>; complete: boolean }> {
+  const out = new Map<string, { student: string; parent: string }>();
+  const want = Array.from(new Set((uids || []).map(u => String(u || '').trim()).filter(Boolean)));
+  for (const u of want) out.set(u, { student: '', parent: '' });
+  if (!want.length) return { phones: out, complete: true };
+  if (!env?.DB) return { phones: out, complete: false };
+  let complete = true;
+  const miss = () => { complete = false; };
+
+  let ovRows: any[] = [];
+  try {
+    if (await ensureStudentOverrideTable(env)) {
+      ovRows = await selectInChunks<any>(env.DB, want,
+        (ph) => `SELECT user_id, parent_phone, student_phone FROM student_erp_override WHERE user_id COLLATE NOCASE IN (${ph})`,
+        { swallowErrors: true, onChunkError: miss });
+    } else miss();
+  } catch { miss(); }
+
+  let erpRows: any[] = [];
+  let erpOk = true;
+  try {
+    erpRows = await selectInChunks<any>(env.DB, want,
+      (ph) => `SELECT user_id, phone, student_phone, parent_phone FROM students_erp WHERE user_id IN (${ph})`);
+    const exact = new Set(erpRows.map(r => String(r && r.user_id)));
+    const rest = want.filter(u => !exact.has(u));
+    if (rest.length) {
+      const more = await selectInChunks<any>(env.DB, rest,
+        (ph) => `SELECT user_id, phone, student_phone, parent_phone FROM students_erp WHERE user_id COLLATE NOCASE IN (${ph})`);
+      erpRows = erpRows.concat(more);
+    }
+  } catch (e: any) {
+    erpOk = false; miss();
+    console.warn('[notify-contacts] 발송 번호(명부) 일괄 조회 실패:', e?.message);
+  }
+
+  for (const u of want) {
+    const ov = pickNocase(ovRows, u);
+    const ovParent = ov ? normPhone(ov.parent_phone) : '';
+    const ovStudent = ov ? normPhone(ov.student_phone) : '';
+    const row = erpOk ? pickNocase(erpRows, u) : null;
+    out.set(u, row
+      ? { student: ovStudent || normPhone(row.student_phone) || normPhone(row.phone), parent: ovParent || normPhone(row.parent_phone) }
+      : { student: ovStudent, parent: ovParent });
+  }
+  return { phones: out, complete };
 }
 
 /**
