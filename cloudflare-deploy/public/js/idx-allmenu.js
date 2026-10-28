@@ -530,13 +530,55 @@
       tx.appendChild(chip);
     }
   }
+  /* 📖 「A.i학습 사용설명서」 입구 (2026-10-28 사장님 지시)
+     [왜] 처음 망고아이 AI 도구를 접하는 학원(원장님·선생님)이 11가지를 «어떻게 쓰는지» 볼 곳이 없었다.
+     [어디] 목록 제목 아래(.aif-head)에 여는 단추 하나만 단다. 카드(<button>) 밖이라 진짜 <a> 로 둔다.
+     ⛔ 설명서 문구를 여기 복사하지 말 것 — 본문은 /ai-guide.html 한 곳만 고친다.
+     ⛔ data-ko/data-en 은 «글자만 든» span 에만 — 아이콘 span 이 함께 지워진다(CLAUDE.md 2장). */
+  var GUIDE_URL = '/ai-guide.html';
+  var GUIDE_LABEL = { ko: 'A.i학습 사용설명서', en: 'A.i Learning Guide' };
+  function guideStyle(){
+    if (document.getElementById('aif-guide-style')) return;
+    var st = document.createElement('style'); st.id = 'aif-guide-style';
+    st.textContent =
+      '#ai-friends-ov .aif-guide{display:inline-flex;align-items:center;gap:7px;margin-top:16px;padding:10px 20px;border-radius:99px;'
+     +'background:linear-gradient(135deg,#fde68a,#fbbf24 55%,#f59e0b);color:#1a1a1a;font-size:15.5px;font-weight:900;line-height:1.2;'
+     +'text-decoration:none;box-shadow:0 8px 20px -8px rgba(245,158,11,.75)}'
+     +'#ai-friends-ov .aif-guide:hover,#ai-friends-ov .aif-guide:focus-visible{background:#fde68a;outline:none}'
+     +'@media(max-width:560px){#ai-friends-ov .aif-guide{font-size:14px;padding:9px 16px;margin-top:12px}}';
+    document.head.appendChild(st);
+  }
+  function guideDecorate(ov){
+    var head = ov && ov.querySelector('.aif-head');
+    if (!head || head.querySelector('.aif-guide')) return;
+    guideStyle();
+    var a = document.createElement('a');
+    a.className = 'aif-guide';
+    a.href = GUIDE_URL;
+    var ic = document.createElement('span');
+    ic.setAttribute('aria-hidden', 'true');
+    ic.textContent = '📖';
+    var tx = document.createElement('span');
+    tx.setAttribute('data-ko', GUIDE_LABEL.ko);
+    tx.setAttribute('data-en', GUIDE_LABEL.en);
+    tx.textContent = allmenuIsEn() ? GUIDE_LABEL.en : GUIDE_LABEL.ko;
+    a.appendChild(ic);
+    a.appendChild(tx);
+    head.appendChild(a);
+  }
+
+  /* 목록이 body 에 «붙는 순간» 한 번에 꾸민다 — 감시자는 하나만(class 감시 금지, CLAUDE.md 2장) */
+  function aifDecorate(ov){
+    aidiffDecorate(ov);
+    guideDecorate(ov);
+  }
   var _adNow = document.getElementById('ai-friends-ov');
-  if (_adNow) aidiffDecorate(_adNow);
+  if (_adNow) aifDecorate(_adNow);
   else {
     try {
       var _adMo = new MutationObserver(function(){
         var ov = document.getElementById('ai-friends-ov');
-        if (ov) { aidiffDecorate(ov); _adMo.disconnect(); }
+        if (ov) { aifDecorate(ov); _adMo.disconnect(); }
       });
       _adMo.observe(document.body, { childList: true });
     } catch(e){}
