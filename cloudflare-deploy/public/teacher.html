@@ -2511,7 +2511,11 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
        오늘 수업 2건이 «검색 결과가 없습니다», 주간 목록이 전부 «수업 없음» 으로 숨었다(브라우저 자동완성으로 보임 — 미확인).
        로그인 아이디는 학생 이름·ID 와 맞을 일이 없으므로 검색어로 쓰지 않고 칸을 비운다. 정확일치만(부분일치 금지). */
     var ownId = String((typeof DATA !== 'undefined' && DATA && DATA.me && DATA.me.username) || '').trim().toLowerCase();
-    if (query && ownId && query === ownId){ searchBox.value = ''; query = ''; }
+    /* 덧붙임(2026-10-28 사장님 스크린샷 «정렬을 바꾸니 검색 결과가 없습니다») 자동완성 표시가 붙은 값도 같다 —
+       저장된 «다른» 계정 아이디가 채워지면 위 정확일치로는 못 잡는다. 사람이 고치면 표시가 사라져 그때부터는 검색어다. */
+    var autofilled = false;
+    [':autofill', ':-webkit-autofill'].forEach(function(p){ try { autofilled = autofilled || searchBox.matches(p); } catch (e) {} });
+    if (query && (autofilled || (ownId && query === ownId))){ searchBox.value = ''; query = ''; }
     var academy = String((document.getElementById('portal-academy') || {}).value || '');
     var direction = (document.getElementById('class-time-sort') || {}).value === 'desc' ? -1 : 1;
     return (rows || []).filter(function(c){
@@ -2583,6 +2587,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     script.onerror=function(){button.disabled=false;script.remove();alert(T('Could not load class history. Please try again.','수업 이력을 불러오지 못했습니다. 다시 시도해 주세요.'));};
     document.head.appendChild(script);
   });
+  // 검색·학원·시간 정렬·필터 지우기가 함께 쓰는 «다시 그리기» 한 곳 — 오늘 목록 + 주간(+다른 날 보기)
   function portalRefresh(){
     lastSig = null;
     if(DATA){ renderClasses(DATA.classes || []); if(DATA.week) renderWeek(DATA.week); }
@@ -2615,8 +2620,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   classTimeSortSelect.addEventListener('change', function () {
     classTimeSort = this.value === 'desc' ? 'desc' : 'asc';
     try { localStorage.setItem('mangoi_teacher_time_sort', classTimeSort); } catch (e) {}
-    lastSig = null;
-    if (DATA) { renderClasses(DATA.classes || []); if(DATA.week) renderWeek(DATA.week); }
+    portalRefresh();
   });
   /* 📋 (2026-10-26) 보기 — 표(매니저 화면처럼) / 카드. 고른 값은 이 기기에 기억한다.
      처음엔 폰·PC 모두 표(2026-10-26 사장님 지시). 폰에서는 표가 자기 상자 안에서만 옆으로 밀리고 페이지는 안 밀린다. */
