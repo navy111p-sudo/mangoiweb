@@ -615,10 +615,13 @@ Student text: """${text}"""`;
       return /(say (it|that|the whole sentence) again|one more time|didn'?t catch|only caught|다시 말)/i
         .test(String(last.content || ''));
     };
-    /* 🐢 "천천히 말해줘 / 다시 말해줘" 같은 부탁인가 — 무시하고 제 얘기만 하면 안 된다 */
+    /* 🐢 "천천히 말해줘 / 다시 말해줘 / What? / 뭐라고?" 같은 부탁인가 — 무시하고 제 얘기만 하면 안 된다
+       ⚠️ 세 줄은 정본 QM_REASK_KO·EN·ECHO(src/question-memory.ts)와 같은 말이고, 영어 줄만 «I don't know» 를 더 받는다.
+          하니스가 이 블록을 vm 으로 떼어 돌려 import 를 못 쓴다 — 한쪽만 고치지 말 것(ai_friend_no_repeat_question_harness ①-18 대조). */
     const aiFriendIsMetaAsk = (s: string) =>
-      /(천천히|느리게|빠르|다시\s*(말|얘기|해)|못\s*알아|모르겠|쉽게|짧게)/.test(String(s || '')) ||
-      /\b(slow(ly| down)?|too fast|say (it|that) again|again please|repeat|i don'?t (know|understand)|simpler|easier|shorter)\b/i.test(String(s || ''));
+      /(천천히|느리게|빠르|다시\s*(말|얘기|해)|못\s*알아|모르겠|쉽게|짧게|안\s*들(려|렸)|못\s*들었)/.test(String(s || '')) ||
+      /\b(slow(ly| down)?|too fast|say (it |that )?again|again please|repeat|i don'?t (know|understand)|simpler|easier|shorter|pardon|one more time|what (did|do) you (say|mean)|(didn'?t|can'?t|couldn'?t|did not|cannot|could not) (hear|catch) (you|that|it)\b)\b/i.test(String(s || '')) ||
+      /^[\s.,!?~…]*(?:(?:oh|um+|uh+|wait|sorry|excuse me)[\s.,!?~…]+)?(?:what|huh|eh|sorry|excuse me|come again|say what|what was that|뭐|머|뭐라고|뭐라구|뭐라고요|뭐라구요|뭐요|뭐라고\s*(?:하셨어요|했어요?)|(?:네|응|예|에|엥)\s*[?？])[\s.,!?？~…]*$/i.test(String(s || ''));
     /* 🈚 (2026-07-27 사장님 신고) Llama 가 한국어 팁을 쓰다 중국어 단어를 섞는다
        ("💡猴子들은 바나나와 많은 과일들을 좋아해요"). 영어친구챗 답변에 한자가 정당하게
        나올 일은 없다 — 한자가 섞인 💡팁은 통째로 떼고(팁은 선택 요소·반쪽 문장을 남기지

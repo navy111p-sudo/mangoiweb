@@ -356,7 +356,9 @@ console.log('① 장면 — 실제 핸들러');
 }
 
 // ── 🐢 «다시·천천히·모르겠어요» — 그때 방금 질문을 다시 묻는 것은 반복이 아니라 요청을 들어주는 것(2026-10-28 함정 대조 실측) ──
-for (const [say, reply] of [['Can you say that again slowly?', 'Sure! Is your dog big?'], ['천천히 말해줘', 'Okay! Is your dog big?'], ["I don't understand.", 'Sorry! Is your dog big?']]) {
+// (2026-10-28 사장님 「what?·huh? 같은 되묻기도 요청으로 처리해줘」) «그 말만» 한 되묻기(What?·Huh?·뭐라고?)도 같은 요청이다.
+for (const [say, reply] of [['Can you say that again slowly?', 'Sure! Is your dog big?'], ['천천히 말해줘', 'Okay! Is your dog big?'], ["I don't understand.", 'Sorry! Is your dog big?'],
+  ['What?', 'Sure! Is your dog big?'], ['huh', 'Okay! Is your dog big?'], ['뭐라고?', 'Sorry! Is your dog big?']]) {
   const g = await guest();
   seedRows(g.uid, DOG());
   script = seq([reply, 'Okay! What color is your dog?']);
@@ -364,6 +366,16 @@ for (const [say, reply] of [['Can you say that again slowly?', 'Sure! Is your do
   const sys = String(res.calls[0]?.o?.messages?.[0]?.content || '');
   ok(`①-15 «${say}» 에 방금 질문을 다시 물으면 그대로 둔다(새 질문으로 안 바꾼다)`, res.calls.length === 1 && res.reply === reply, { n: res.calls.length, reply: res.reply, kinds: kinds(res) });
   ok(`①-15 «${say}» 턴의 지시 줄에는 방금 질문이 없고 그 앞 질문은 있다`, sys.includes(M.ASKED_LINE_HEAD) && !sys.includes('"Nice! Is your dog big?"') && !sys.includes('"Is your dog big?"') && sys.includes('Do you have a dog?'), sys.slice(-500));
+  const msgs = res.calls[0]?.o?.messages || [];
+  ok(`①-15 «${say}» 턴에는 «다시·천천히 해 달라» 지시(metaHint)도 실린다(판정과 지시가 안 갈린다)`, String(msgs[msgs.length - 1]?.content || '').includes('[The student is asking you to slow down'), String(msgs[msgs.length - 1]?.content || '').slice(-200));
+}
+for (const say of ['What about you?', '네', 'What is that?']) {
+  // 짝: 문장 속 what·물음표 없는 «네(=yes)» 는 되묻기가 아니라 답이다 — 방금 질문을 또 물으면 막는다.
+  const g = await guest();
+  seedRows(g.uid, DOG());
+  script = seq(['Me too! Is your dog big?', 'Okay! What color is your dog?']);
+  const res = await chat(g, say);
+  ok(`①-15f «${say}» 는 답이다 — 방금 질문을 또 물으면 막는다(짝)`, res.calls.length === 2 && res.reply === 'Okay! What color is your dog?', { n: res.calls.length, reply: res.reply });
 }
 {
   // 짝 — 요청 턴이어도 «그 앞에» 물어 답을 들은 질문을 다시 물으면 막는다(전부 풀어 주기 금지).
@@ -431,11 +443,18 @@ for (const [ans, blocked] of [['Can you say that again slowly?', false], ['No, h
   const body = at > 0 ? src.slice(at, src.indexOf('\n    /*', at)) : '';
   const lits = [...body.matchAll(/\/(.+?)\/([a-z]*)\.test\(/g)].map((m) => new RegExp(m[1], m[2]));
   const meta = (t) => lits.some((re) => re.test(t));
+  const ECHOES = ['What?', 'what', 'Huh?', 'huh', 'Eh?', 'Sorry?', 'Excuse me?', 'Pardon?', 'Pardon me?', 'Come again?', 'Say what?', 'Wait, what?', 'Um, what?', 'What was that?', 'WHAT?!',
+    'What did you say?', 'What do you mean?', "I didn't hear you.", "I can't hear you", "Sorry, I didn't catch that.", 'Can you say again?', 'One more time, please.',
+    '뭐라고?', '뭐라고요?', '뭐?', '뭐요?', '네?', '응?', '예?', '뭐라고 하셨어요?', '잘 안 들려요', '못 들었어요'];
+  const ANSWERS = ['What about you?', 'What is that?', 'What is your name?', "I don't know what to say.", 'What a big dog!', 'Sorry, I mean small.', 'I like what you said.', 'What I like is pizza.',
+    '네', '응', '예', '영어로 뭐라고 해요?', '개 이름을 뭐라고 해요?', "I didn't hear about it.", "I'm sorry.", 'Guess what?', 'I like it, huh.'];   // 끝에만 그 말이 오는 답(앞 ^ 를 풀면 걸린다)
   const SAMPLES = ['Can you say that again slowly?', 'slow down please', 'too fast!', 'say it again', 'again please', 'Repeat please.', "I don't understand.", 'I dont understand',
     'simpler please', 'easier', 'shorter please', '천천히 말해줘', '느리게', '너무 빠르다', '다시 말해줘', '다시 해줘', '못 알아들었어', '모르겠어요', '쉽게 말해줘', '짧게',
-    "I don't know.", 'Yes.', 'No, small.', 'I like it a lot.', 'Because it is fun.', 'Every day!', '작아요', 'My dog is white.'];
+    "I don't know.", 'Yes.', 'No, small.', 'I like it a lot.', 'Because it is fun.', 'Every day!', '작아요', 'My dog is white.', ...ECHOES, ...ANSWERS];
   const bad = SAMPLES.filter((t) => M.isReaskRequest(t) && !meta(t));
-  ok('①-18 정본이 «요청» 이라 하면 aiFriendIsMetaAsk 도 요청이다(지시와 판정이 안 갈린다)', lits.length === 2 && bad.length === 0, { n: lits.length, bad });
+  ok('①-18 정본이 «요청» 이라 하면 aiFriendIsMetaAsk 도 요청이다(지시와 판정이 안 갈린다)', lits.length === 3 && bad.length === 0, { n: lits.length, bad });
+  const missed = ECHOES.filter((t) => !M.isReaskRequest(t)), wrong = ANSWERS.filter((t) => M.isReaskRequest(t) || (meta(t) && !/i don'?t know/i.test(t)));   // 지시 쪽은 «I don't know» 만 더 받는다
+  ok('①-18 «What?·Huh?·뭐라고?·네?» 같은 되묻기는 요청이고 · 문장 속 what·물음표 없는 «네»·«영어로 뭐라고 해요?» 는 답이다(짝)', missed.length === 0 && wrong.length === 0, { missed, wrong });
   ok('①-18 «I don\'t know»·평범한 답은 요청이 아니고 · «I don\'t understand»·「모르겠어요」·「천천히」는 요청이다(짝)',
     !M.isReaskRequest("I don't know.") && !M.isReaskRequest('No, small.') && !M.isReaskRequest('My dog is white.')
     && M.isReaskRequest("I don't understand.") && M.isReaskRequest('모르겠어요') && M.isReaskRequest('천천히 말해줘'), '');

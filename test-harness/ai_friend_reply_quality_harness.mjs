@@ -118,6 +118,9 @@ check('"다시 말해줘"', aiFriendIsMetaAsk('다시 말해줘') === true);
 check('"Can you speak slowly?"', aiFriendIsMetaAsk('Can you speak slowly?') === true);
 check('"You talk too fast"', aiFriendIsMetaAsk('You talk too fast') === true);
 check('"Say that again please"', aiFriendIsMetaAsk('Say that again please') === true);
+check('"What?" (그 말만 한 되묻기)', aiFriendIsMetaAsk('What?') === true);
+check('"huh" / "뭐라고?" / "네?"', aiFriendIsMetaAsk('huh') === true && aiFriendIsMetaAsk('뭐라고?') === true && aiFriendIsMetaAsk('네?') === true);
+check('문장 속 what·물음표 없는 «네» 는 오탐 없음', aiFriendIsMetaAsk('What about you?') === false && aiFriendIsMetaAsk('What is your name?') === false && aiFriendIsMetaAsk('네') === false);
 check('일반 대화는 오탐 없음(1)', aiFriendIsMetaAsk('I like blue cars') === false);
 check('일반 대화는 오탐 없음(2)', aiFriendIsMetaAsk('My dog is very cute') === false);
 
