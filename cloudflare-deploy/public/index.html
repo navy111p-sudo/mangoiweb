@@ -12302,6 +12302,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
       card.onclick = handler;  // 직접 onclick 할당
       card.addEventListener('click', handler);
       card.addEventListener('touchend', function(e){
+        if (!(window.mgIsTap && mgIsTap(e))) return;  // 스크롤이면 무시(idx-tap-guard.js)
         e.preventDefault();
         handler(e);
       });
@@ -12920,7 +12921,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
   }
 </style>
 
-<script src="/js/idx-x5.js?v=2"></script><!-- 분할추출:idx-x5 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x5.js?v=3"></script><!-- 분할추출:idx-x5 (원복: 이 위치에 인라인) -->
 
 <!-- Phase 72 (2026-05-23) — 연기/변경 모달 톤 테마B (네이비+에메랄드) 적용 -->
 <style id="ph72-theme-b">
@@ -14996,7 +14997,7 @@ document.addEventListener('keydown', function(e){
 </script>
 
 <!-- fix v22 (2026-05-27) — 전체메뉴 버튼 capture-phase 핸들러 (다른 핸들러 우회) -->
-<script defer src="/js/idx-allmenu.js?v=21"></script>
+<script defer src="/js/idx-allmenu.js?v=22"></script>
 <!-- 📱 (2026-08-30 v4 제안서 05) 모바일은 다크 고정 + 상단 테마 칩 숨김. 사연은 그 파일 머리말에. -->
 <script defer src="/js/idx-theme-mobile.js?v=4"></script>
 
@@ -15653,36 +15654,11 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       // (다만 페이지 이동이 시작되면 다음 핸들러는 자동 무시됨)
     }
   }, false);
-
-  // ── touch 이벤트 지원 (iOS Safari 일부 환경에서 click 안 잡힐 때) ─────
-  var touchStartTarget = null;
-  document.addEventListener('touchstart', function(e){
-    var btn = e.target.closest('.ai-quick-btn, .cta-pay, .cta-enter');
-    touchStartTarget = btn || null;
-  }, { passive: true });
-  document.addEventListener('touchend', function(e){
-    if (!touchStartTarget) return;
-    var btn = e.target.closest('.ai-quick-btn, .cta-pay, .cta-enter');
-    if (btn === touchStartTarget) {
-      // touchend 후 50ms 안에 click 이 안 오면 강제 click 발생
-      var tgt = btn;
-      setTimeout(function(){
-        if (!tgt._ph166Clicked) {
-          try { tgt.click(); } catch(e){}
-        }
-      }, 50);
-      tgt._ph166Clicked = false;
-      tgt.addEventListener('click', function once(){
-        tgt._ph166Clicked = true;
-        tgt.removeEventListener('click', once);
-      }, { once: true });
-    }
-    touchStartTarget = null;
-  }, { passive: true });
-
-  console.log('[ph166] quick-btn rescue active — capture handler + z-index force + touch fallback');
+  // 터치 보충은 «탭일 때만» js/idx-tap-guard.js 로 옮김(2026-10-28 스크롤 오작동)
+  console.log('[ph166] quick-btn rescue active — capture handler + z-index force');
 })();
 </script>
+<script defer src="/js/idx-tap-guard.js?v=1"></script>
 
 <!-- ============================================================
      Phase 167 (2026-05-29) - Mobile student home design cleanup
