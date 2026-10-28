@@ -793,7 +793,12 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   <div class="card" id="c-classes" hidden>
     <h2><span id="cls-title" data-en="Today's Classes" data-ko="오늘의 수업">Today's Classes</span> <small id="cls-count"></small><span id="cls-new"></span></h2>
     <div class="portal-filters" id="portal-tools">
+      <!-- 📅 (2026-10-28 강사 제안 «매니저 화면처럼 스케줄에 월 선택») 날짜 목록이 오늘 −7~+14일뿐이라 다른 달로 갈 수 없었다.
+           매니저 화면(연·월·일 선택)처럼 «월» 을 고르면 그 달의 모든 날이 «날짜» 목록에 뜬다. «오늘» 은 한 번에 돌아오는 길. -->
+      <label style="min-width:200px"><span data-en="Month" data-ko="월">Month</span><select id="cls-month"></select></label>
       <label><span data-en="Date" data-ko="날짜">Date</span><select id="cls-day"></select></label>
+      <button type="button" class="tbtn" id="cls-day-today" style="align-self:flex-end;min-height:44px"
+              data-en="Today" data-ko="오늘">Today</button>
       <!-- 📅 (2026-10-27 강사 제안 «관리자 화면처럼 월 보기») 아래 «전체 일정» 접이칸을 월 달력으로 바로 연다. -->
       <button type="button" class="tbtn" id="cls-month-open" style="align-self:flex-end;min-height:44px"
               data-en="📅 Month view" data-ko="📅 월 달력">📅 Month view</button>
@@ -2059,41 +2064,63 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
      ⚠️ 불러오기는 «고를 때» 한 번만 한다 — renderClsDay 안에서 부르면
         loadWeek → renderWeek → renderClsDay 로 다시 들어와 요청이 끝없이 이어진다. */
   var CLS_DAY = null;       // null = 오늘(자정이 지나면 저절로 따라감), 그 외에는 고른 날짜
-  var CLS_DAY_KEY = null;   // 드롭다운을 만든 기준(오늘·언어). 바뀌면 다시 만든다
-  var CLS_DAY_BACK = 7, CLS_DAY_AHEAD = 14;
+  var CLS_DAY_KEY = null;   // 드롭다운을 만든 기준(오늘·언어·고른 달). 바뀌면 다시 만든다
+  /* 📅 (2026-10-28 강사 제안 «매니저 화면처럼 스케줄에 월 선택») «월» 목록 = 지난 12달 ~ 앞으로 6달(고른 날이 밖이면 그 달도),
+     «날짜» 목록 = 고른 달의 모든 날. 예전 «오늘 −7~+14일» 고정 목록은 다른 달로 갈 수 없었다.
+     달 이름·달 이동은 월 달력의 moLabel·moShift 를 그대로 쓴다(두 벌로 두지 않는다). */
+  var CLS_MONTH_BACK = 12, CLS_MONTH_AHEAD = 6;
   function clsToday(){ return new Date(now() + 9*3600*1000).toISOString().slice(0,10); }
-  function clsDayAdd(dateStr, n){
-    var d = new Date(dateStr + 'T00:00:00Z');
-    d.setUTCDate(d.getUTCDate() + n);
-    return d.toISOString().slice(0,10);
-  }
   function clsDayLabel(dateStr, today, en){
     if (en === undefined) en = EN();
     var DOW = en ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
     return dateStr.slice(5) + ' (' + DOW[new Date(dateStr + 'T00:00:00Z').getUTCDay()] + ')'
       + (dateStr === today ? (en ? ' · Today' : ' · 오늘') : '');
   }
+  function clsDaysIn(ym){ return new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 0)).getUTCDate(); }
   function buildClsDayMenu(today){
-    var sel = document.getElementById('cls-day');
+    var sel = document.getElementById('cls-day'), msel = document.getElementById('cls-month');
     if (!sel) return;
-    var first = clsDayAdd(today, -CLS_DAY_BACK), last = clsDayAdd(today, CLS_DAY_AHEAD);
-    // «주간 전체 보기» 로 먼 날을 고르면 범위 밖이다 — 버리지 않고 그 날짜를 한 줄 더 넣는다
-    var extra = (CLS_DAY && (CLS_DAY < first || CLS_DAY > last)) ? CLS_DAY : '';
-    var key = today + '|' + (EN() ? 'en' : 'ko') + '|' + extra;
+    var day = CLS_DAY || today, ym = day.slice(0, 7), thisYm = today.slice(0, 7);
+    var key = today + '|' + (EN() ? 'en' : 'ko') + '|' + ym;
     if (CLS_DAY_KEY !== key){
       var days = [];
-      for (var i = -CLS_DAY_BACK; i <= CLS_DAY_AHEAD; i++) days.push(clsDayAdd(today, i));
-      if (extra) days.push(extra);
-      sel.innerHTML = days.sort().map(function(ds){
+      for (var d = 1; d <= clsDaysIn(ym); d++) days.push(ym + '-' + (d < 10 ? '0' : '') + d);
+      sel.innerHTML = days.map(function(ds){
         return '<option value="' + ds + '">' + esc(clsDayLabel(ds, today)) + '</option>';
       }).join('');
+      if (msel){
+        var months = [];
+        for (var i = -CLS_MONTH_BACK; i <= CLS_MONTH_AHEAD; i++) months.push(moShift(thisYm, i));
+        if (months.indexOf(ym) < 0) months.push(ym);   // «전체 일정» 에서 먼 날을 골랐을 때 — 버리지 않는다
+        msel.innerHTML = months.sort().map(function(m){
+          return '<option value="' + m + '">' + esc(moLabel(m) + (m === thisYm ? T(' · This month', ' · 이번 달') : '')) + '</option>';
+        }).join('');
+      }
       CLS_DAY_KEY = key;
     }
-    sel.value = CLS_DAY || today;
+    sel.value = day;
+    if (msel) msel.value = ym;
     if (!sel._clsBound){
       sel._clsBound = true;
       sel.addEventListener('change', function(){ pickClsDay(this.value); });
     }
+    if (msel && !msel._clsBound){
+      msel._clsBound = true;
+      msel.addEventListener('change', function(){ pickClsMonth(this.value); });
+    }
+    var todayBtn = document.getElementById('cls-day-today');
+    if (todayBtn && !todayBtn._clsBound){
+      todayBtn._clsBound = true;
+      todayBtn.addEventListener('click', function(){ pickClsDay(clsToday()); });
+    }
+  }
+  /* 달을 바꾸면 매니저 화면과 같은 규칙 — «같은 일» 로, 그 달에 없으면 말일로. 이번 달이면 오늘.
+     월 달력을 펼쳐 보고 있으면 같은 달로 맞춘다(둘이 다른 달을 보이면 «지금 어느 달인가» 가 헷갈린다). */
+  function pickClsMonth(ym){
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(ym || ''))) return;
+    var today = clsToday(), d = Math.min(+(CLS_DAY || today).slice(8, 10), clsDaysIn(ym));
+    pickClsDay(ym === today.slice(0, 7) ? today : ym + '-' + (d < 10 ? '0' : '') + d);
+    if (MO.view === 'month' && moOpen() && MO.month !== ym) loadMonth(ym);
   }
   function pickClsDay(dateStr){
     if (!weekOfDate(dateStr)) return;
@@ -2464,7 +2491,13 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   /* asParts=true 면 표 보기(classTableHtml)용 칸별 조각 {academy, contact, history} — 판정은 여기 한 곳. */
   function portalContact(c, asParts){
     if (!c || c.kind && c.kind !== 'class' || !stuUid(c)) return asParts ? null : '';
-    var history = '<button type="button" class="tbtn" data-teacher-history data-history-schedule="'+esc(c.schedule_id || c.id || '')+'" data-history-date="'+esc(c.class_date || c.date || todayKST())+'" data-history-name="'+esc(stuLabelText(c))+'">'+esc(T('Summary / Calendar','수업 요약 / 캘린더'))+'</button>';
+    /* 🗂 (2026-10-28) 옛 LMS 줄(source 'lms')은 예약 번호가 없다 — 방 번호(c24-…)·학생 아이디로 열고, 날짜는 그 수업 날(start_ts).
+       (class_date 는 «오늘 목록» 의 날이라 지난 LMS 수업에는 맞지 않는다) */
+    var sid = c.schedule_id || c.id || '', lmsRoom = !sid && /^c24-\d+$/.test(String(c.room_id || '')) ? c.room_id : '';
+    var hDate = lmsRoom && c.start_ts > 0 ? new Date(c.start_ts + 9*3600*1000).toISOString().slice(0,10) : (c.class_date || c.date || todayKST());
+    var history = '<button type="button" class="tbtn" data-teacher-history data-history-schedule="'+esc(sid)+'"'
+      + (lmsRoom ? ' data-history-room="'+esc(lmsRoom)+'" data-history-uid="'+esc(stuUid(c))+'"' : '')
+      + ' data-history-date="'+esc(hDate)+'" data-history-name="'+esc(stuLabelText(c))+'">'+esc(T('Summary / Calendar','수업 요약 / 캘린더'))+'</button>';
     if (asParts) return {
       academy: esc(c.academy || '—'),
       // ☎ 폰에서 바로 걸 수 있게 tel: 링크(매니저 화면과 같은 모양). 번호가 없으면 «—».
@@ -2478,11 +2511,11 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   document.addEventListener('click',function(e){
     // History opens a read-only dialog. Keep its action separate from legacy student-filter controls.
     var button=e.target.closest && e.target.closest('[data-teacher-history]');if(!button)return;
-    var context={scheduleId:button.getAttribute('data-history-schedule'),date:button.getAttribute('data-history-date'),name:button.getAttribute('data-history-name'),opener:button};
+    var context={scheduleId:button.getAttribute('data-history-schedule'),roomId:button.getAttribute('data-history-room')||'',studentUid:button.getAttribute('data-history-uid')||'',date:button.getAttribute('data-history-date'),name:button.getAttribute('data-history-name'),opener:button};
     function show(){window.MangoiTeacherHistory.open(context);}
     if(window.MangoiTeacherHistory){show();return;}
     if(button.disabled)return;button.disabled=true;
-    var script=document.createElement('script');script.src='/js/teacher-student-history.js?v=1';
+    var script=document.createElement('script');script.src='/js/teacher-student-history.js?v=2';
     script.onload=function(){button.disabled=false;show();};
     script.onerror=function(){button.disabled=false;script.remove();alert(T('Could not load class history. Please try again.','수업 이력을 불러오지 못했습니다. 다시 시도해 주세요.'));};
     document.head.appendChild(script);
@@ -2541,7 +2574,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   });
   syncClsLite();
   /* 📅 (2026-10-28 강사 제안 «시간이 빠른 순으로 안 나온다») 오늘 목록에는 일지용 «지난 14일 카페24 수업» 도 온다
-     (api-teacher.ts LOOKBACK_DAYS). 그 줄의 날짜 — 오늘 줄·날짜 없는 옛 캐시는 ''. */
+     (api-teacher.ts LMS_LOOKBACK_DAYS). 그 줄의 날짜 — 오늘 줄·날짜 없는 옛 캐시는 ''. */
   function clsPastDate(c){ var d = String(c && c.class_date || '').slice(0, 10); return d && d < clsToday() ? d : ''; }
   // 날짜가 바뀌는 지난 줄 앞에만 한 번 — asRow=true 면 표의 <tr>, 아니면 카드 사이 <div>.
   function clsDaySepHtml(list, i, asRow){
