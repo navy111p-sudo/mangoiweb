@@ -19,6 +19,8 @@
  *    「Is space big?」(관사 없는 셀 수 없는 명사)를 «깨졌다» 고 본다. 웜업은 그때마다 모델을
  *    한 번 더 부르므로(학생이 기다림) 거짓 경보의 값이 크다. 그래서 «앞부분이 빠졌는가» 하나만 본다.
  * ⚠️ 상급(4~8단계)에는 걸지 않는다 — 「So you like dogs?」 같은 구어체가 정상이다(AI 친구와 같은 판단).
+ * ⚠️ 1·2단계 지시는 «wh- 질문을 하지 마» 다(index.ts WARMUP_LEVELS) — 그래서 지시·힌트의 예문도 단계에 맞춰
+ *    Do/Is/Can 만 보인다(의문사 예문은 3단계부터). 예문이 그 지시와 어긋나면 열린 질문이 늘고 대답 칩이 사라진다.
  * ⛔ 이 파일은 import 가 없다 — 하니스가 그대로 번들해 «실제로 돌려서» 검증한다.
  */
 
@@ -29,18 +31,20 @@ const AUX = new Set(['do', 'does', 'did', 'is', 'are', 'am', 'was', 'were', 'can
   "won't", "wouldn't", "shouldn't", "haven't", "hasn't", "hadn't", "ain't"]);
 /** 의문사 — 「What's」·「Where'd」 같은 축약형도 받는다. */
 const WH = /^(?:who|what|when|where|why|how|which|whose|whom)(?:'s|'re|'ll|'d|'ve|'m)?$/;
-/** 혼자 와도 자연스러운 되묻기 — 「Really?」·「Right?」·「And you?」(and 는 앞머리로 떼어진다). */
+/** 혼자 와도 자연스러운 되묻기·확인 — 「Really?」·「And you?」(and 는 앞머리로 떼어진다)·「Ready?」·「Got it?」.
+ *  ⚠️ «정확히 이 말뿐» 일 때만이다 — 「Ready to start?」·「Want to try?」 는 do you 가 빠진 조각이라 그대로 잡는다. */
 const TAG_OK = new Set(['really', 'right', 'ok', 'okay', 'yes', 'no', 'yeah', 'sure', 'huh', 'pardon', 'sorry',
-  'you', 'me', 'you too', 'me too', 'yes or no']);
+  'you', 'me', 'you too', 'me too', 'yes or no', 'ready', 'got it', 'sounds good', 'hello', 'hi']);
 /** 질문 앞에 붙는 말(접속사·감탄·칭찬). 떼고 나서 남은 것으로 판정한다. */
 const LEAD = /^(?:(?:oh|ok|okay|so|well|hey|wow|hmm|and|but|or|also|plus|still|now|then|moreover|great|nice|cool|good|yes|yeah|yay|sure|by the way|one more thing|of course|good job|great job|nice job|well done)\b[\s,.!-]*)+/;
 
-/** 문장 나누기 — 괄호(한국어 도움말)는 먼저 걷어 낸다. 영어 낱말이 없는 조각은 버린다. */
+/** 문장 나누기 — 괄호(한국어 도움말)는 먼저 걷어 낸다. 영어 낱말이 없는 조각은 버린다.
+ *  닫는 따옴표 뒤에서도 나눈다 — 「Say 'Ready?' Do you like it?」 의 따옴표 문장이 뒤 문장과 붙지 않게. */
 function sentences(text: string): string[] {
   return String(text == null ? '' : text)
     .replace(/\([^)]*\)/g, ' ')
     .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
-    .split(/(?<=[.!?])\s+/)
+    .split(/(?<=[.!?]["']?)\s+/)
     .map((s) => s.trim())
     .filter((s) => /[A-Za-z]/.test(s));
 }
@@ -67,8 +71,13 @@ export function fragmentQuestions(text: string): string[] {
     if (sent.indexOf('?') < 0) continue;
     // 한글이 섞인 문장은 «영어 질문» 이 아니다(교재 한국어 문항 「sun이라고 말할 수 있나요?」 등) — 판정하지 않는다.
     if (/[\u3131-\u318e\uac00-\ud7a3]/.test(sent)) continue;
-    // 따옴표 안 문장은 «따라 말해 볼 문장» 이라 질문 판정에서 뺀다 — 「Can you say "I like space"?」
-    const body = sent.replace(/"[^"]*"/g, ' X ').replace(/\?.*$/, '');
+    /* 따옴표 안 문장은 «따라 말해 볼 문장» 이라 판정에서 뺀다. 물음표가 따옴표 «안» 에만 있으면
+       («You can ask, "Do you like cats?"» · «Say 'Ready?'») 그 문장은 아예 안 본다.
+       물음표가 «밖» 에 있으면(「Can you say "I like space"?」) 따옴표 부분만 X 로 두고 판정한다. */
+    const outside = sent.replace(/"[^"]*"/g, ' X ');
+    const qAt = outside.search(/\?(?!["'])/);
+    if (qAt < 0) continue;
+    const body = outside.slice(0, qAt);
     const parts = body.split(/[,;:]/);
     let sawJudged = false, okAny = false;
     for (const p of parts) {
@@ -87,16 +96,29 @@ export function checksFragmentQuestions(difficulty: number, lang: string): boole
   return lang !== 'zh' && difficulty >= 1 && difficulty <= 3;
 }
 
-/** 시스템 지시에 붙일 한 줄(기초 단계). 단어 수보다 문법이 먼저라는 것을 «예문으로» 못 박는다. */
-export const FULL_QUESTION_RULE =
-  "[완전한 질문] 문법이 단어 수보다 먼저야 — 질문은 언제나 'Do you like space?' 'Is it big?' 'What is your favorite color?' 처럼 " +
-  "Do / Does / Is / Are / Can 이나 의문사로 시작하는 완전한 문장으로 말해. 'Like space?' 'By the way, like space?' 'Cats or dogs?' 처럼 " +
-  "앞부분을 떼거나 낱말만 던지지 마. 접속사(So, By the way 등)를 붙여도 그 뒤 질문은 완전한 문장이어야 해.";
+/** 이 단계에서 의문사(What·Where …) 질문을 «예문으로» 보여도 되는가 — 1·2단계는 Yes/No·양자택일만이라 안 된다. */
+function allowsWh(difficulty: number): boolean { return difficulty >= 3; }
 
-/** 다시 뽑을 때 모델에게 줄 지시 — 무엇이 틀렸는지 그대로 보여 준다(모르면 같은 것을 또 만든다). */
-export function fragmentQuestionHint(bad: string[]): string {
+/** 시스템 지시에 붙일 한 줄(기초 단계). 단어 수보다 문법이 먼저라는 것을 «예문으로» 못 박는다.
+ *  ⚠️ 예문은 단계 지시와 같은 말을 해야 한다 — 1·2단계에 의문사 예문을 보이면 «wh- 질문 금지» 와 어긋난다. */
+export function fullQuestionRule(difficulty: number): string {
+  const ex = allowsWh(difficulty)
+    ? "'Do you like space?' 'Is it big?' 'What is your favorite color?' 처럼 Do / Does / Is / Are / Can 이나 의문사로"
+    : "'Do you like space?' 'Is it big?' 'Can you swim?' 처럼 Do / Does / Is / Are / Can 으로";
+  return '[완전한 질문] 문법이 단어 수보다 먼저야 — 질문은 언제나 ' + ex + ' 시작하는 완전한 문장으로 말해. ' +
+    "'Like space?' 'By the way, like space?' 'Cats or dogs?' 처럼 앞부분을 떼거나 낱말만 던지지 마. " +
+    '접속사(So, By the way 등)를 붙여도 그 뒤 질문은 완전한 문장이어야 해.';
+}
+
+/** 다시 뽑을 때 모델에게 줄 지시 — 무엇이 틀렸는지 그대로 보여 준다(모르면 같은 것을 또 만든다). 예문은 단계를 따른다. */
+export function fragmentQuestionHint(bad: string[], difficulty: number): string {
   const shown = bad.slice(0, 3).map((s) => '"' + String(s).slice(0, 80) + '"').join(' ');
+  const starts = allowsWh(difficulty) ? 'Do / Does / Is / Are / Can or a question word' : 'Do / Does / Is / Are / Can';
   return '(Your question ' + shown + ' is not a full sentence. Say your reply again with the same meaning, ' +
-    'and make every question a full question that starts with Do / Does / Is / Are / Can or a question word, ' +
+    'and make every question a full question that starts with ' + starts + ', ' +
     'e.g. "Do you like space?". Keep it short and keep the same JSON format.)';
 }
+
+/** 조각 질문 재시도는 이 턴이 이미 이만큼 걸렸으면 하지 않는다(ms) — 한 번에 받는 경로는 화면이 20초에 끊는다
+ *  (warmup.html). 그 턴은 앞에서 빈 응답·무너짐·이름 재시도가 이미 돌았을 수 있다. 넘으면 원래 답을 그대로 둔다. */
+export const FRAG_RETRY_BUDGET_MS = 9000;
