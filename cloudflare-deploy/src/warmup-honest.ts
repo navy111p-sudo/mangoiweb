@@ -79,12 +79,12 @@ export async function resolveWarmupHonest(
         row = await env.DB.prepare('SELECT shop_name FROM students_erp WHERE user_id = ? COLLATE NOCASE ORDER BY user_id LIMIT 1').bind(userId).first();
       }
       shop = String((row && row.shop_name) || '');
-      try { if (kv) await kv.put(ckey, shop, { expirationTtl: 1800 }); } catch {}
+      try { if (kv) await kv.put(ckey, shop, { expirationTtl: 1800 }); } catch (e: any) { console.warn('[warmup-honest] cache put failed:', e?.message || e); }
     }
     const mode = pilotModeFor(shop);
     return mode ? { mode } : null;
   } catch (e: any) {
-    try { console.warn('[warmup-honest] resolve skipped:', e?.message || e); } catch {}
+    console.warn('[warmup-honest] resolve skipped:', e?.message || e);
     return null;
   }
 }
