@@ -222,7 +222,7 @@ const untype = (t) => t.replace(/:\s*any\b/g, '');
   ok('fragQ·미리듣기 자리를 오려 냈다(전제)', !!region);
   let liveOf = null;
   try { liveOf = new Function('ctxLang', 'WARMUP_WORD_CAP', 'ctxDifficulty', 'checksFragmentQuestions', 'sseSend', 'createWarmupLive',
-    'ctxFriend', 'studentInput', 'qmem', 'repeatedQuestions', 'latT0', 'FRAG_RETRY_BUDGET_MS', untype(region) + '\nreturn { fragQ, live };'); }
+    'ctxFriend', 'studentInput', 'qmem', 'repeatedQuestions', 'latT0', 'FRAG_RETRY_BUDGET_MS', 'honest', untype(region) + '\nreturn { fragQ, live };'); }
   catch (e) { ok('fragQ·미리듣기 자리가 실행된다', false, String(e)); }
   if (liveOf) {
     /* 🔁 (2026-10-28) 미리듣기에 «이미 물은 질문» 판정(repeatOf)도 넘긴다 — 기억(qmem)이 있을 때만. */
