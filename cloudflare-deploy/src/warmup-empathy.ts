@@ -100,6 +100,8 @@ export const CHEER_LEADS: readonly string[] = [
   'excellent', 'fantastic', 'wonderful', 'super', 'brilliant', 'terrific',
   'good answer', 'great answer', 'nice answer', 'good sentence',
   'you did it', 'high five', 'sweet', 'nice going', 'keep it up',
+  // 🎯 (2026-10-29) 강남캐피 원장님이 실제로 들은 말 — 「It's great!」(정직한 칭찬 시범, src/warmup-honest.ts)
+  "it's great", "it's good", "it's perfect", "it's awesome", "it's amazing",
 ];
 
 /* 긴 것부터 맞춰야 「good job」 이 「good」 으로 잘리지 않는다 */
