@@ -5928,17 +5928,25 @@ function _frBulkParseRows(raw) {
   const idx = name => header.indexOf(name);
   const iName = idx('지사명') >= 0 ? idx('지사명') : idx('지사');
   const iLogin = idx('아이디');
-  const iOwner = idx('관리자') >= 0 ? idx('관리자') : idx('대표');
-  const iPhone = idx('전화번호') >= 0 ? idx('전화번호') : idx('휴대폰');
+  /* 🪪 (2026-10-29) 사장님이 주신 «활동 지사장» 표는 머리글이 「대표명」·「연락처」·「비밀번호」 라
+     그 이름도 받는다(「대표지사명」 과 헷갈리지 않게 정확일치로만 찾는다). */
+  const pick = (...names) => { for (const n of names) { const k = idx(n); if (k >= 0) return k; } return -1; };
+  const iOwner = pick('관리자', '대표명', '대표');
+  const iPhone = pick('전화번호', '휴대폰', '연락처');
+  const iPw = pick('비밀번호');
   const iMaster = idx('대표지사명') >= 0 ? idx('대표지사명') : idx('대표지사');
   if (iName < 0) return { error: adminLang === 'en' ? '"지사명" column not found.' : '「지사명」 칸을 못 찾았습니다.' };
   const rows = [];
   for (let i = headerIdx + 1; i < lines.length; i++) {
     const cells = lines[i];
     const name = String(cells[iName] == null ? '' : cells[iName]).trim();
-    if (!name) continue;
+    const cell = k => k >= 0 ? String(cells[k] == null ? '' : cells[k]).trim() : '';
+    /* 🪪 (2026-10-29) 지사명이 비어 있어도 대표명·연락처가 있으면 남긴다 — 그 줄은 미리보기에서
+       «연락처 → 대표명» 순으로 찾는다(그 표에서 지사명이 빈 지사장이 6명). */
+    if (!name && !cell(iOwner) && !cell(iPhone)) continue;
     rows.push({
       name,
+      pw: cell(iPw),
       login: iLogin >= 0 ? String(cells[iLogin] == null ? '' : cells[iLogin]).trim() : '',
       owner: iOwner >= 0 ? String(cells[iOwner] == null ? '' : cells[iOwner]).trim() : '',
       phone: iPhone >= 0 ? String(cells[iPhone] == null ? '' : cells[iPhone]).trim() : '',
@@ -5947,6 +5955,68 @@ function _frBulkParseRows(raw) {
   }
   if (!rows.length) return { error: adminLang === 'en' ? 'No data rows under the header.' : '머리글 아래에 데이터 줄이 없습니다.' };
   return { rows };
+}
+
+/* 🪪 (2026-10-29 — 사장님 「활동 지사장들 아이디만이라도 복구해야 해」) 표의 지사명이 시스템
+   이름과 다르거나비어 있는 줄이 많아, 지사명 정확일치만으로는
+   거의 안 붙는다. 그래서 찾는 근거를 셋으로 늘린다 — ① 지사명 정확일치 ② 연락처(숫자만 비교)
+   ③ 대표명 정확일치. 앞에서 못 찾을 때만 다음으로 간다.
+   ⛔ 어느 근거든 «시스템에서 후보가 정확히 하나» 이고 «표 안에서도 그 값이 한 줄뿐» 일 때만
+   붙인다(같은 대표명이 표에 두 줄인 경우가 실제로 있다). 서로 다른 두 줄이 같은 지사로 가면 둘 다 보류한다 —
+   남의 지사에 아이디가 붙는 것이 빈칸보다 나쁘다. 부분일치는 쓰지 않는다. */
+function _frBulkDigits(s) { return String(s == null ? '' : s).replace(/\D/g, ''); }
+function _frBulkOwnerKey(s) { return String(s == null ? '' : s).replace(/\s+/g, ''); }
+function _frBulkMatch(rows, frRows) {
+  const by = (keyFn) => { const m = {}; for (const f of frRows) { const k = keyFn(f); if (k) (m[k] = m[k] || []).push(f); } return m; };
+  const byName = by(f => _frBulkNorm(f.name));
+  const byPhone = by(f => { const d = _frBulkDigits(f.phone); return d.length >= 9 ? d : ''; });
+  const byOwner = by(f => _frBulkOwnerKey(f.owner_name));
+  const cnt = (keyFn) => { const m = {}; for (const r of rows) { const k = keyFn(r); if (k) m[k] = (m[k] || 0) + 1; } return m; };
+  const rowPhone = r => { const d = _frBulkDigits(r.phone); return d.length >= 9 ? d : ''; };
+  const sheetPhone = cnt(rowPhone), sheetOwner = cnt(r => _frBulkOwnerKey(r.owner));
+  const out = rows.map(row => {
+    const nk = _frBulkNorm(row.name);
+    if (nk) {
+      const c = byName[nk] || [];
+      if (c.length === 1) return { row, f: c[0], by: 'name' };
+      if (c.length > 1) return { row, f: null, why: 'name_dup:' + c.length };
+    }
+    const pk = rowPhone(row);
+    if (pk) {
+      const c = byPhone[pk] || [];
+      if (c.length === 1 && sheetPhone[pk] === 1) return { row, f: c[0], by: 'phone' };
+      if (c.length > 1 || sheetPhone[pk] > 1) return { row, f: null, why: 'phone_dup' };
+    }
+    const ok = _frBulkOwnerKey(row.owner);
+    if (ok) {
+      const c = byOwner[ok] || [];
+      if (c.length === 1 && sheetOwner[ok] === 1) return { row, f: c[0], by: 'owner' };
+      if (c.length > 1 || sheetOwner[ok] > 1) return { row, f: null, why: 'owner_dup' };
+    }
+    return { row, f: null, why: 'not_found' };
+  });
+  const hit = {};
+  for (const m of out) if (m.f) hit[m.f.id] = (hit[m.f.id] || 0) + 1;
+  for (const m of out) if (m.f && hit[m.f.id] > 1) { m.why = 'same_branch'; m.f = null; m.by = undefined; }
+  return out;
+}
+function _frBulkRowLabel(r) {
+  return [r.name, r.owner].filter(Boolean).join(' · ') || r.phone || '?';
+}
+function _frBulkReason(why) {
+  const en = adminLang === 'en';
+  if (why && why.indexOf('name_dup:') === 0) { const n = why.slice(9); return en ? `ambiguous — ${n} branches share this name` : `같은 이름의 지사가 ${n}곳 있어 판단 보류`; }
+  if (why === 'phone_dup') return en ? 'same phone on several branches/rows — skipped' : '같은 연락처가 여러 지사(또는 여러 줄)에 있어 판단 보류';
+  if (why === 'owner_dup') return en ? 'same owner name on several branches/rows — skipped' : '같은 대표명이 여러 지사(또는 여러 줄)에 있어 판단 보류';
+  if (why === 'same_branch') return en ? 'two rows point to the same branch — both skipped' : '두 줄이 같은 지사로 이어져 둘 다 보류';
+  return en ? 'not found by branch name, phone or owner name' : '지사명·연락처·대표명 어느 것으로도 시스템에서 못 찾음';
+}
+function _frBulkByLabel(by) {
+  const en = adminLang === 'en';
+  if (by === 'name') return en ? 'branch name' : '지사명';
+  if (by === 'phone') return en ? 'phone' : '연락처';
+  if (by === 'owner') return en ? 'owner name' : '대표명';
+  return '—';
 }
 
 async function frBulkPreview() {
@@ -5972,15 +6042,19 @@ async function frBulkPreview() {
   const updates = [];
   const skipped = [];
   let noChange = 0;
-  for (const row of parsed.rows) {
-    const key = _frBulkNorm(row.name);
-    const cands = byName[key] || [];
-    if (cands.length === 0) { skipped.push({ name: row.name, reason: adminLang === 'en' ? 'not found in system' : '시스템에 없는 지사명' }); continue; }
-    if (cands.length > 1) { skipped.push({ name: row.name, reason: adminLang === 'en' ? `ambiguous — ${cands.length} branches share this name` : `같은 이름의 지사가 ${cands.length}곳 있어 판단 보류` }); continue; }
-    const f = cands[0];
-    const change = { id: f.id, name: f.name };
+  const matches = _frBulkMatch(parsed.rows, _frRows);
+  for (const m of matches) {
+    const row = m.row;
+    const label = _frBulkRowLabel(row);
+    if (!m.f) { skipped.push({ name: label, reason: _frBulkReason(m.why) }); continue; }
+    const f = m.f;
+    const change = { id: f.id, name: f.name, by: m.by };
     let anything = false;
     if (row.login && row.login !== (f.login_username || '')) { change.login = row.login; anything = true; }
+    /* 🔑 (2026-10-29) 「비밀번호」 칸이 있으면 그 아이디로 실제 로그인 계정을 만든다(이미 이
+       지사 계정이면 비밀번호만 재설정) — 서버 PATCH 의 createOrResetBranchLogin 그대로.
+       아이디가 없는 줄은 비밀번호만으로는 아무것도 안 한다. */
+    if (row.pw && (row.login || f.login_username)) { change.pw = row.pw; change.login = change.login || row.login || ''; anything = true; }
     if (wantOwnerPhone) {
       if (row.owner && row.owner !== (f.owner_name || '')) { change.owner = row.owner; anything = true; }
       if (row.phone && row.phone !== (f.phone || '')) { change.phone = row.phone; anything = true; }
@@ -5999,20 +6073,24 @@ async function frBulkPreview() {
     else noChange++;
   }
   _frBulkPlan = { updates, wantOwnerPhone, wantMaster };
-  const nUpdate = updates.filter(u => u.login || u.owner || u.phone || u.masterId).length;
+  const nUpdate = updates.filter(u => u.login || u.owner || u.phone || u.masterId || u.pw).length;
+  const nPw = updates.filter(u => u.pw).length;
   let html = '<div style="font-weight:600;margin-bottom:4px">'
     + (adminLang === 'en'
         ? `Preview: ${parsed.rows.length} rows read · ${nUpdate} branch(es) will be updated · ${noChange} already up to date · ${skipped.length} skipped`
         : `미리보기: 총 ${parsed.rows.length}행 읽음 · ${nUpdate}곳 갱신 예정 · ${noChange}곳 이미 최신 · ${skipped.length}곳 건너뜀`)
     + '</div>';
+  if (nPw) html += '<div style="color:#b45309;margin-bottom:4px">' + (adminLang === 'en'
+      ? `🔑 ${nPw} branch(es) will get a real login account with the password in the sheet (existing account of that branch: password reset).`
+      : `🔑 ${nPw}곳은 표의 비밀번호로 «실제로 로그인되는» 계정을 만듭니다(이미 그 지사 계정이면 비밀번호만 바꿉니다).`) + '</div>';
   if (updates.length) {
     html += '<table style="margin-top:6px"><thead><tr>'
       + '<th data-ko="지사" data-en="Branch">지사</th><th data-ko="아이디" data-en="Login ID">아이디</th>'
       + '<th data-ko="관리자" data-en="Manager">관리자</th><th data-ko="전화" data-en="Phone">전화</th>'
-      + '<th data-ko="대표지사" data-en="Master Branch">대표지사</th></tr></thead><tbody>'
-      + updates.slice(0, 60).map(u => `<tr><td>${_esc(u.name)}</td><td>${u.login ? _esc(u.login) : '—'}</td>`
+      + '<th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="찾은 근거" data-en="Matched by">찾은 근거</th></tr></thead><tbody>'
+      + updates.slice(0, 60).map(u => `<tr><td>${_esc(u.name)}</td><td>${u.login ? _esc(u.login) : '—'}${u.pw ? ' 🔑' : ''}</td>`
         + `<td>${u.owner ? _esc(u.owner) : '—'}</td><td>${u.phone ? _esc(u.phone) : '—'}</td>`
-        + `<td>${u.masterId ? _esc(u.masterName) : (u.masterMissing ? ('⚠ ' + _esc(u.masterMissing) + (adminLang === 'en' ? ' (not found)' : ' 없음')) : '—')}</td></tr>`).join('')
+        + `<td>${u.masterId ? _esc(u.masterName) : (u.masterMissing ? ('⚠ ' + _esc(u.masterMissing) + (adminLang === 'en' ? ' (not found)' : ' 없음')) : '—')}</td><td>${_esc(_frBulkByLabel(u.by))}</td></tr>`).join('')
       + '</tbody></table>';
     if (updates.length > 60) html += `<div style="color:#6b7280;margin-top:4px">${adminLang === 'en' ? `…and ${updates.length - 60} more` : `…외 ${updates.length - 60}건 더`}</div>`;
   }
@@ -6045,14 +6123,15 @@ async function frBulkRun() {
     // 눈에 띄라고» 넣어 둔 정보성 줄이다 — 아무 요청도 안 보내면서 «성공」으로 세면 실행
     // 결과가 부풀려진다(직접 돌려서 잡은 실제 결함 — run_test.mjs). 실제로 할 일이 있는
     // 행만 센다.
-    if (!(u.login || u.owner || u.phone || u.masterId)) continue;
+    if (!(u.login || u.owner || u.phone || u.masterId || u.pw)) continue;
     let rowOk = true;
-    if (u.login || u.owner || u.phone) {
+    if (u.login || u.owner || u.phone || u.pw) {
       try {
         const body = { id: u.id };
         if (u.login) body.login_username = u.login;
         if (u.owner) body.owner_name = u.owner;
         if (u.phone) body.phone = u.phone;
+        if (u.pw) body.login_password = u.pw;
         const r = await fetch('/api/admin/franchises', {
           method: 'PATCH', credentials: 'include',
           headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
