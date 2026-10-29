@@ -188,7 +188,7 @@ let sysOf = null;
   if (region && full) {
     let liveOf0 = null;
     try { liveOf0 = new Function('sseSend', 'createWarmupLive', 'ctxLang', 'sanityCap', 'ctxFriend', 'studentInput', 'fragQ', 'qmem', 'repeatedQuestions',
-      'latT0', 'FRAG_RETRY_BUDGET_MS', untype(region) + '\nreturn live;'); } catch (e) { ok('미리듣기 자리가 실행된다', false, String(e)); }
+      'latT0', 'FRAG_RETRY_BUDGET_MS', 'honest', untype(region) + '\nreturn live;'); } catch (e) { ok('미리듣기 자리가 실행된다', false, String(e)); }
     // 기본은 «방금 시작한 턴»(예산 안). waited 를 주면 그만큼 지난 턴.
     const liveOf = liveOf0 && ((a, b, c, d, e, f, g, h, i, waited = 0) => liveOf0(a, b, c, d, e, f, g, h, i, Date.now() - waited, M.FRAG_RETRY_BUDGET_MS));
     if (liveOf) {
