@@ -7662,6 +7662,12 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
            아래 지난 날짜·중복 확인을 그대로 탄다(연기 사이에 그 자리에 다른 수업이 들어왔을 수 있다). */
         const fromSt = String(row.status || '');
         if (fromSt !== 'cancelled' && fromSt !== 'postponed') return json({ ok: false, error: 'not_cancelled', status: row.status || null }, 409);
+        if (fromSt === 'postponed') {
+          // Use the same conflict snapshots and atomic audit as an ordinary move.
+          // A stale/double restore must never revive a subsequently changed class.
+          const result = await moveSchedulesAtomically(env, actor, { ids: [id], patch: {} }, [row], { restorePostponed: true });
+          return json(result.ok ? { ...result, id, status: 'active', from: fromSt } : result, result.status);
+        }
         const sd = String(row.scheduled_date || '').slice(0, 10);
         const todayKst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
         if (/^\d{4}-\d{2}-\d{2}$/.test(sd) && sd < todayKst) return json({ ok: false, error: 'past_date' }, 409);
@@ -7684,7 +7690,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           teacher_name: row.teacher_name || null, student_name: row.student_name || null,
           lesson_date: sd || null, lesson_time: row.start_time || null,
           actor: actor.name || actor.username || '관리자', actor_role: 'admin', source: 'ui',
-          reason: body.reason ? String(body.reason).slice(0, 300) : (fromSt === 'postponed' ? '연기 취소' : '수업 종료 되돌리기'),
+          reason: body.reason ? String(body.reason).slice(0, 300) : '수업 종료 되돌리기',
         });
         return json({ ok: true, id, status: 'active', from: fromSt });
       }

@@ -80,6 +80,15 @@
       var w = (j && (isEn() ? j.who_line_en : j.who_line)) || '';
       return T('강사 계정은 처리할 수 없습니다.', 'Teachers cannot do this.') + (w ? ' ' + w : '');
     }
+    if (e === 'past_date') return T('이미 시작했거나 지난 수업은 복원할 수 없습니다. 새 날짜로 재예약해 주세요.', 'A class that has already started cannot be restored. Rebook it to a new date.');
+    if (e === 'not_cancelled' || e === 'schedule_changed') return T('수업 상태가 바뀌었습니다. 창을 닫고 목록을 새로고침해 주세요.', 'The class changed. Close this window and refresh the list.');
+    if (e === 'conflict' || e === 'slot_taken') return T('그 시각에 다른 수업이 있습니다. 새 날짜나 시각으로 재예약해 주세요.', 'Another class uses that time. Rebook to a different date or time.');
+    if (e === 'teacher_unavailable') return T('강사가 그 시각에 수업할 수 없습니다. 다른 날짜나 시각으로 재예약해 주세요.', 'The teacher is unavailable then. Rebook to another date or time.');
+    if (e === 'class_already_attended') return T('출석 기록이 있는 수업입니다. 본사에서 수업 이력을 먼저 확인해 주세요.', 'This class has attendance records. Ask head office to check its history first.');
+    if (e === 'availability_unknown' || e === 'move_failed') return T('가능 시간을 확인하지 못했습니다. 목록을 새로고침하고 다시 시도해 주세요.', 'Availability could not be verified. Refresh the list and try again.');
+    if (e === 'schedule_postponed' || e === 'schedule_not_movable') {
+      return esc(j && (isEn() ? j.message_en : j.message) || T('최신 시간표에서 열린 수업을 선택해 주세요.', 'Refresh the timetable and select an open class.'));
+    }
     if (st === 403 || e === 'forbidden_scope') return T('권한 밖의 수업입니다.', 'Not in your scope.');
     if (st === 409 || e === 'already_decided') return T('이미 처리된 요청입니다.', 'Already handled.');
     if (st === 404) return T('수업을 찾을 수 없습니다.', 'Class not found.');
@@ -218,12 +227,29 @@
           + ((r.can_move === true || mvWeekly(r))
               ? T('수업 «취소» 는 본사 계정에서 합니다.', 'Cancelling a class is done by an HQ account.')
               : T('«취소» 는 날짜가 정해진 수업에서만 됩니다.', 'Cancel is offered only for a date-fixed class.')) + '</div>')
+      + (r.postponed === true && _opt.canCancel === true ? '<button type="button" id="tc-mv-restore" style="padding:6px 10px;background:#fff7ed;color:#b45309;border:1px solid #fcd9a8;border-radius:8px;cursor:pointer">' + T('↩ 연기 취소 (원래 날짜·시각)', '↩ Restore original date/time') + '</button>' : '')
       + '<div id="tc-mv-msg" style="font-size:12.5px;font-weight:700;margin-top:10px;min-height:1em"></div>'
       + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">'
       +   '<button type="button" id="tc-mv-close" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:#f9fafb;color:#111827;cursor:pointer">' + T('닫기', 'Close') + '</button>'
       +   '<button type="button" id="tc-mv-go" style="padding:8px 16px;border:0;border-radius:8px;background:#065f46;color:#fff;font-weight:800;cursor:pointer">' + T('실행', 'Apply') + '</button>'
       + '</div></div>';
     document.body.appendChild(box);
+    var restore = $('tc-mv-restore');
+    if (restore) restore.addEventListener('click', function () {
+      if (restore.disabled) return;
+      if (!window.confirm(T('원래 날짜·시각으로 연기를 취소할까요? 영구 시간 변경은 복원 후 별도로 선택해 주세요.', 'Restore the original date and time? To change the permanent time, restore first, then choose Change from now on.'))) return;
+      restore.disabled = true;
+      $('tc-mv-go').disabled = true;
+      mvReq('POST', '/api/admin/class-schedules/' + encodeURIComponent(r.schedule_id), { action: 'restore' }).then(function (res) {
+        if (res.j && res.j.ok === true) { _mvChanged = true; tcMoveModalClose(); return; }
+        restore.disabled = false;
+        $('tc-mv-go').disabled = false;
+        $('tc-mv-msg').textContent = mvErrOf(res.st, res.j);
+      }).catch(function () {
+        _mvChanged = true;
+        $('tc-mv-msg').textContent = T('결과를 확인하지 못했습니다. 창을 닫고 목록을 새로고침해 주세요.', 'Result unknown. Close this window and refresh the list before trying again.');
+      });
+    });
     box.addEventListener('click', function (e) {
       if (e.target === box) { tcMoveModalClose(); return; }
       var pk = e.target.closest && e.target.closest('[data-mv-pick]');
