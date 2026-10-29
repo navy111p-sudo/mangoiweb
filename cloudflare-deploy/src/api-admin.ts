@@ -7657,7 +7657,11 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         const actor = await getAdminActor(request, env as any);
         const row: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
         if (!row) return json({ ok: false, error: 'not_found' }, 404);
-        if (String(row.status || '') !== 'cancelled') return json({ ok: false, error: 'not_cancelled', status: row.status || null }, 409);
+        /* ⏸ (2026-10-29 매니저 «how to undo the postponement») 연기된 회차도 같은 길로 되돌린다 —
+           「⏸ 연기됨 — 새 날짜 미정」 줄의 「↩ 연기 취소」 버튼. 원래 날짜·시각 그대로 active 로.
+           아래 지난 날짜·중복 확인을 그대로 탄다(연기 사이에 그 자리에 다른 수업이 들어왔을 수 있다). */
+        const fromSt = String(row.status || '');
+        if (fromSt !== 'cancelled' && fromSt !== 'postponed') return json({ ok: false, error: 'not_cancelled', status: row.status || null }, 409);
         const sd = String(row.scheduled_date || '').slice(0, 10);
         const todayKst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
         if (/^\d{4}-\d{2}-\d{2}$/.test(sd) && sd < todayKst) return json({ ok: false, error: 'past_date' }, 409);
@@ -7673,16 +7677,16 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           ).bind(id, sd, String(row.start_time || ''), row.user_id, String(row.teacher_id || ''), String(row.teacher_id || '')).first();
         } catch (e: any) { return json({ ok: false, error: 'lookup_failed' }, 409); }
         if (dup) return json({ ok: false, error: 'slot_taken', other_id: dup.id }, 409);
-        const upd: any = await env.DB.prepare(`UPDATE class_schedules SET status='active', updated_at=? WHERE id=? AND status='cancelled'`).bind(Date.now(), id).run();
+        const upd: any = await env.DB.prepare(`UPDATE class_schedules SET status='active', updated_at=? WHERE id=? AND status=?`).bind(Date.now(), id, fromSt).run();
         if (!(upd && upd.meta && upd.meta.changes > 0)) return json({ ok: false, error: 'not_cancelled' }, 409);
         await writeClassAudit(env, {
           action: 'restore', schedule_id: id,
           teacher_name: row.teacher_name || null, student_name: row.student_name || null,
           lesson_date: sd || null, lesson_time: row.start_time || null,
           actor: actor.name || actor.username || '관리자', actor_role: 'admin', source: 'ui',
-          reason: body.reason ? String(body.reason).slice(0, 300) : '수업 종료 되돌리기',
+          reason: body.reason ? String(body.reason).slice(0, 300) : (fromSt === 'postponed' ? '연기 취소' : '수업 종료 되돌리기'),
         });
-        return json({ ok: true, id, status: 'active' });
+        return json({ ok: true, id, status: 'active', from: fromSt });
       }
       if (!body || body.action !== 'split') return json({ ok: false, error: 'unknown_action' }, 400);
       const dry = body.dry_run !== false;
