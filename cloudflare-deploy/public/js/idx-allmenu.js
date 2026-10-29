@@ -171,6 +171,9 @@
     var els = (root||document).querySelectorAll('[data-go="review-quiz-cn"], button[onclick*="review-quiz-cn"]');
     for(var i=0;i<els.length;i++) els[i].style.display='none';
   }
+  // 스크롤·스와이프의 touchend 로는 아무것도 실행하지 않는다 — 판정 정본은 js/idx-tap-guard.js 의 mgIsTap.
+  // 그 파일이 없는 페이지에서는 touchend 를 건너뛰고 브라우저의 click 이 처리한다.
+  function _isTap(e){ return !!(window.mgIsTap && window.mgIsTap(e)); }
   function _allmenuEsc(ev){ if (ev.key === 'Escape' || ev.keyCode === 27) closeAllMenuOverlay(); }
   function closeAllMenuOverlay(){
     var ov = document.getElementById('mangoi-allmenu');
@@ -387,9 +390,10 @@
 
     function _closeFromEvent(ev){ ev.preventDefault(); ev.stopPropagation(); closeAllMenuOverlay(); }
     var x = document.getElementById('mangoi-allmenu-x');
-    if (x) { x.addEventListener('click', _closeFromEvent); x.addEventListener('touchend', _closeFromEvent); }
+    if (x) { x.addEventListener('click', _closeFromEvent); x.addEventListener('touchend', function(ev){ if (_isTap(ev)) _closeFromEvent(ev); }); }
     ov.addEventListener('click', function(ev){ if (ev.target === ov) closeAllMenuOverlay(); });
-    ov.addEventListener('touchend', function(ev){ if (ev.target === ov) { ev.preventDefault(); closeAllMenuOverlay(); } });
+    // 메뉴를 스크롤하다 빈 곳에서 손을 떼도 닫히지 않게 — «탭» 일 때만 닫는다
+    ov.addEventListener('touchend', function(ev){ if (ev.target === ov && _isTap(ev)) { ev.preventDefault(); closeAllMenuOverlay(); } });
     document.addEventListener('keydown', _allmenuEsc);
     console.log('[allmenu] 열림(overlay v4 우주글래스) — ' + ALLMENU_ITEMS.length + '개');
   }
@@ -398,6 +402,8 @@
   // === capture-phase 트리거 (click + touchend) + 디바운스 ===
   //   fix (2026-06-01 v3) — 휴대폰에서 한 번 탭 시 터치+클릭 이벤트가 2번 발생해
   //   토글이 열림→닫힘으로 즉시 닫히던 문제: 600ms 디바운스로 1회만 동작.
+  //   fix (2026-10-28) — touchend 는 «탭» 일 때만 받는다(_isTap). 버튼 위에서 스크롤만 해도
+  //   메뉴가 열리던 문제(터치 target 은 손가락이 움직여도 처음 닿은 버튼 그대로).
   var _allmenuLastTrigger = 0;
   function allmenuTrigger(e){
     if (!e || !e.target || typeof e.target.closest !== 'function') return;
@@ -407,6 +413,7 @@
       if (clicked && clicked.textContent.indexOf('전체메뉴') >= 0) btn = clicked;
     }
     if (!btn) return;
+    if (e.type === 'touchend' && !_isTap(e)) return;
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();

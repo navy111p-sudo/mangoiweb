@@ -253,7 +253,7 @@ console.log('\n[ ③ 월 보기 — 서버 ?part=month ]');
   const guard = tapi.match(/if \(monthMode && !\((\/\^[^/]+\/)\.test\(monthParam\)/);
   const re = guard ? eval(guard[1]) : null;
   ok(!!re && re.test('2026-10') && !re.test('2026-13') && !re.test('2026-1') && !re.test("2026-10' OR 1=1"), '잘못된 month 는 400(형식 검사)');
-  ok(/const onlyNext = [^\n]*\|\| monthMode;/.test(tapi), '월 보기는 «가벼운 경로» — 오늘 목록의 무거운 보강을 건너뛴다');
+  ok(/const onlyNext = [^;\n]*\|\|\s*monthMode\b[^;\n]*;/.test(tapi), '월 보기는 «가벼운 경로» — 오늘 목록의 무거운 보강을 건너뛴다'); // ⚠️ «줄 끝» 으로 못 박지 않는다 — 다른 가벼운 경로(phoneMode 등)가 뒤에 붙어도 뜻은 그대로
   const mret = braceBody(tapi, tapi.indexOf('  if (monthMode) {\n    /* 🎌'));
   ok(/month: \{\s*\n\s*month: monthParam/.test(mret) && /return json\(/.test(mret), '월 응답: 달력만 돌려준다');
   {
@@ -392,6 +392,52 @@ console.log('\n[ ③ 월 보기 — teacher.html 달력을 실제로 그린다 ]
     ok(picked.length === 1, '(짝) 날짜 칸이 아닌 곳을 누르면 아무 일도 안 한다');
   }
   ok(/id="wk-mode-month"/.test(thtml) && /id="mo-pane" hidden/.test(thtml) && /id="cls-month-open"/.test(thtml), '화면에 주간/월간 버튼·월 칸·바로가기가 있다');
+}
+
+/* ── ④ 날짜 목록의 «월» 선택 — 2026-10-28 강사 제안 «매니저 화면처럼 스케줄에 월 선택» ─────────
+   예전 «날짜» 목록은 오늘 −7~+14일 고정이라 다른 달로 갈 수 없었다. 실제 함수를 오려 내 «눌러 본다». */
+console.log('\n[ ④ 날짜 목록의 «월» 선택 — 매니저 화면처럼 ]');
+{
+  const E = new Map(), picked = [], loaded = [];
+  const mk = (id) => { if (!E.has(id)) { const L = {}; E.set(id, { id, L, innerHTML: '', value: '',
+    addEventListener(k, fn) { (L[k] ||= []).push(fn); }, fire(k) { for (const fn of L[k] || []) fn.call(this, {}); } }); } return E.get(id); };
+  const opts = (id) => [...mk(id).innerHTML.matchAll(/<option value="([^"]+)">([^<]*)</g)].map(m => [m[1], m[2]]);
+  const c5 = vm.createContext({ LANG: 'en', EN: () => c5.LANG !== 'ko', T: (en, ko) => c5.LANG === 'ko' ? ko : en, esc: x => String(x ?? ''),
+    document: { getElementById: mk }, clsToday: () => '2026-10-27', clsDayLabel: d => d,
+    pickClsDay: d => { picked.push(d); c5.CLS_DAY = d === '2026-10-27' ? null : d; },
+    moOpen: () => c5.MOOPEN, loadMonth: ym => loaded.push(ym) });
+  const names = ['moShift', 'moLabel', 'clsDaysIn', 'buildClsDayMenu', 'pickClsMonth'];
+  ok(names.every(n => fnSrc(thtml, n)), '전제: 월 선택 함수 5개를 오려 냈다');
+  vm.runInContext('var CLS_DAY = null, CLS_DAY_KEY = null, CLS_MONTH_BACK = 12, CLS_MONTH_AHEAD = 6, MOOPEN = false;'
+    + ' var MO = { view: "week", month: "2026-10" };\n' + names.map(n => fnSrc(thtml, n)).join('\n'), c5);
+  c5.buildClsDayMenu('2026-10-27');
+  const months = opts('cls-month');
+  ok(months.length === 19 && months[0][0] === '2025-10' && months[18][0] === '2027-04', '«월» 목록 = 지난 12달 ~ 앞으로 6달', months.map(m => m[0]));
+  ok(mk('cls-month').value === '2026-10' && months.find(m => m[0] === '2026-10')[1] === 'October 2026 · This month', '이번 달이 골라져 있고 «This month» 표시');
+  ok(opts('cls-day').length === 31 && opts('cls-day')[0][0] === '2026-10-01' && mk('cls-day').value === '2026-10-27', '«날짜» 목록 = 그 달의 모든 날, 오늘이 골라져 있다');
+  mk('cls-month').value = '2027-02'; mk('cls-month').fire('change');
+  ok(picked.at(-1) === '2027-02-27', '다른 달을 고르면 «같은 일» 로 간다(매니저 화면 규칙)', picked);
+  c5.buildClsDayMenu('2026-10-27');
+  ok(opts('cls-day').length === 28 && mk('cls-day').value === '2027-02-27' && mk('cls-month').value === '2027-02', '…그리고 «날짜» 목록이 그 달(2월 28일)로 바뀐다');
+  c5.CLS_DAY = '2026-12-31'; c5.pickClsMonth('2027-02');
+  ok(picked.at(-1) === '2027-02-28', '그 달에 없는 날이면 말일로');
+  c5.pickClsMonth('2026-10');
+  ok(picked.at(-1) === '2026-10-27', '이번 달로 돌아오면 오늘로');
+  const before = picked.length; c5.pickClsMonth('2026-13'); c5.pickClsMonth('');
+  ok(picked.length === before, '(짝) 잘못된 달은 무시한다');
+  c5.MO.view = 'month'; c5.MOOPEN = true; c5.pickClsMonth('2026-12');
+  ok(JSON.stringify(loaded) === '["2026-12"]', '월 달력을 펼쳐 보고 있으면 같은 달로 맞춘다', loaded);
+  c5.MOOPEN = false; c5.pickClsMonth('2027-01');
+  ok(loaded.length === 1, '(짝) 월 달력이 닫혀 있으면 부르지 않는다(첫 화면 API 1회 계약)');
+  c5.CLS_DAY = '2028-01-05'; c5.buildClsDayMenu('2026-10-27');
+  ok(opts('cls-month').some(m => m[0] === '2028-01') && mk('cls-month').value === '2028-01', '«전체 일정» 에서 먼 날을 골라도 그 달을 버리지 않는다');
+  c5.CLS_DAY = null; c5.buildClsDayMenu('2026-10-27');
+  mk('cls-day-today').fire('click');
+  ok(picked.at(-1) === '2026-10-27', '«오늘» 을 누르면 오늘로 돌아온다');
+  c5.LANG = 'ko'; c5.buildClsDayMenu('2026-10-27');
+  ok(opts('cls-month').find(m => m[0] === '2026-10')[1] === '2026년 10월 · 이번 달', '한국어 달 이름(언어를 바꾸면 다시 만든다)');
+  ok(/<label[^>]*><span data-en="Month" data-ko="월">Month<\/span><select id="cls-month"><\/select><\/label>/.test(thtml)
+    && /id="cls-day-today"[^>]*\n?\s*data-en="Today" data-ko="오늘"/.test(thtml), '화면에 «월» 목록과 «오늘» 버튼이 EN/KO 로 있다');
 }
 
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);

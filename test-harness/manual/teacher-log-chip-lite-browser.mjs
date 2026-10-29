@@ -122,12 +122,15 @@ async function openScenario(o) {
   await page.evaluate((o) => {
     localStorage.clear();
     localStorage.setItem('mangoi_lang', o.lang);
-    localStorage.setItem('mangoi_teacher_class_view', o.view);
+    localStorage.setItem('mangoi_teacher_class_view', o.view);   // (2026-10-28) 옛 저장값 — 이제 무시되고 지워져야 한다
     localStorage.setItem('mangoi_teacher_cls_lite', o.lite ? '1' : '0');
     if (o.dark) localStorage.setItem('mangoi_teacher_theme', 'dark');
   }, o);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => { const b = document.getElementById('classes'); return b && (b.querySelector('.cls,.cls-tr') || b.querySelector('.empty')); }, null, { timeout: 15000 });
+  // (2026-10-28 «표가 기본») 열 때마다 표 — 옛 «cards» 저장값이 있어도. 카드 시나리오는 열고 나서 사람처럼 고른다.
+  o.first = await page.evaluate(() => [document.getElementById('class-view').value, localStorage.getItem('mangoi_teacher_class_view')]);
+  if (o.view === 'cards') await setView('cards');
 }
 const setView = (v) => page.evaluate((v) => { const s = document.getElementById('class-view'); s.value = v; s.dispatchEvent(new Event('change')); }, v);
 
@@ -148,8 +151,9 @@ for (let run = 1; run <= RUNS; run++) {
     const want = o.classes.filter(c => c.kind === 'class' && c.class_state !== 'cancelled' && c.class_state !== 'postponed'
       && !c.absence_hold && now > c.close_at_ts && !c.eval_written).length;
     ok(tag + ' 줄 수 = 수업 수', r.rows === n, r.rows + ' vs ' + n);
-    ok(tag + ' 보기·상세 저장값 복원', r.viewVal === o.view && r.liteChecked === o.lite);
-    ok(tag + ' 보기 = 저장값(표/카드)', n === 0 || r.table === (o.view === 'table'));
+    ok(tag + ' 첫 보기 = 표(옛 저장값 무시) · 옛 저장값 지움', o.first[0] === 'table' && o.first[1] === null, o.first.join(','));
+    ok(tag + ' 보기 = 고른 값 · 상세 저장값 복원', r.viewVal === o.view && r.liteChecked === o.lite);
+    ok(tag + ' 보기 = 고른 값(표/카드)', n === 0 || r.table === (o.view === 'table'));
     ok(tag + ' 칩 수 = 픽스처 기대값', r.nologN === want, r.nologN + ' vs ' + want);
     ok(tag + ' 칩 수 = 화면의 [일지 쓰기] 버튼 수', r.nologN === r.evals, r.nologN + ' vs ' + r.evals);
     ok(tag + ' 칩 라벨 언어', !r.nologN || (o.lang === 'ko' ? /일지 미작성/.test(r.nologTxt) : /Log not written/.test(r.nologTxt)), r.nologTxt);
@@ -173,7 +177,7 @@ for (let run = 1; run <= RUNS; run++) {
     if (!r.table) ok(tag + ' 전환 후 카드 상세', !o.lite ? r.liteVisible === 0 : r.liteVisible === r.liteTotal, r.liteVisible + '/' + r.liteTotal);
     ok(tag + ' 전환 후 가로 넘침 없음', !r.over);
     const stored = await page.evaluate(() => [localStorage.getItem('mangoi_teacher_class_view'), localStorage.getItem('mangoi_teacher_cls_lite')]);
-    ok(tag + ' 전환값 저장', stored[0] === (o.view === 'table' ? 'cards' : 'table') && stored[1] === (o.lite ? '0' : '1'), stored.join(','));
+    ok(tag + ' 보기는 저장 안 함 · 상세는 저장', stored[0] === null && stored[1] === (o.lite ? '0' : '1'), stored.join(','));
 
     // 재그리기(60초 tick 과 같은 경로) 뒤에도 상세 숨김·칩이 유지
     await page.evaluate(() => window.__tt.rerender());

@@ -249,7 +249,50 @@ const iAtt = sw.indexOf('SELECT 1 FROM attendance WHERE room_id = ?');
 ok(iSkip > 0 && iSkip < iAtt, '결석 감지: 보류 중인 학생은 알림·기록을 만들지 않는다');
 ok(/await maybeHoldStudent\(env, \{ user_id: c\.user_id/.test(sw), '결석 감지: 새 결석이 기록되면 보류를 판정한다');
 const tp = strip(rd(resolve(SRC, 'api-teacher.ts')));
-ok(/c\.absence_hold = \{/.test(tp) && /heldOnFor\(_holds, c\.student_uid, todayStr\)/.test(tp), '강사 포털: 오늘 수업에 보류 표시를 싣는다');
+{
+  // 📅 (2026-10-28 사장님 결정) 강사 포털 보류는 «그 줄의 수업 날짜» 로 판정하고, 지난 카페24 출석 줄(source='lms')은 보류가 아니다.
+  // ⚠️ 글자로 묻지 않는다 — 판정 루프를 중괄호 짝으로 오려 내 정본 heldOnFor 로 «실제로» 돌린다.
+  const iKeep = tp.indexOf("for (const c of classes) if (c.source === 'lms' && c.start_ts) c.class_date");
+  const iLoad = tp.indexOf('const _holds = await loadHoldRanges(env as any);');
+  ok(iKeep > 0 && iLoad > iKeep, '강사 포털: 보류 판정은 «지난 수업 날짜» 복원 «뒤» 에 돈다(그 전엔 지난 줄도 오늘 날짜)');
+  // ⚠️ 루프만 오려 돌리면 «그 블록이 실제로 도는가» 는 못 본다 — 복원 줄과 보류 블록 사이에 조건(if …)이 끼면 화면에서 보류가 통째로 사라진다.
+  const iKeepEnd = iKeep > 0 ? tp.indexOf('\n', iKeep) : -1;
+  ok(iKeepEnd > 0 && iLoad > iKeepEnd && tp.slice(iKeepEnd, iLoad).replace(/\s+/g, ' ').trim() === 'try {',
+    '강사 포털: 보류 블록은 조건 없이 늘 돈다(복원 줄과 보류 블록 사이엔 «try {» 뿐)');
+  const iLoop = iLoad > 0 ? tp.indexOf('if (_holds.size) for (const c of classes) {', iLoad) : -1;
+  let loop = '';
+  if (iLoop > 0) {
+    let d = 0;
+    for (let i = tp.indexOf('{', iLoop); i < tp.length; i++) {
+      if (tp[i] === '{') d++;
+      else if (tp[i] === '}' && --d === 0) { loop = tp.slice(iLoop, i + 1); break; }
+    }
+  }
+  ok(loop.length > 0, '전제: 강사 포털 보류 판정 루프를 오려 냈다');
+  const holdsMap = new Map([['stu', [{ id: 7, held_after: '2026-10-20', resumed_on: null, state: 'held' }]]]);
+  const R = (o) => ({ kind: 'class', student_uid: 'Stu', ...o });
+  const rows = {
+    today: R({ class_date: '2026-10-28' }),
+    todayDone: R({ class_date: '2026-10-28', status: 'done', class_state: 'done' }),
+    noDate: R({}),
+    pastBefore: R({ class_date: '2026-10-15' }),
+    pastInside: R({ class_date: '2026-10-22', status: 'done', class_state: 'done' }),
+    lmsInside: R({ source: 'lms', class_date: '2026-10-22', status: 'done', class_state: 'done' }),
+    other: R({ student_uid: 'someone', class_date: '2026-10-28' }),
+    breakRow: R({ kind: 'break', class_date: '2026-10-28' }),
+  };
+  let ran = false;
+  try { new Function('_holds', 'classes', 'heldOnFor', 'todayStr', loop)(holdsMap, Object.values(rows), M.heldOnFor, '2026-10-28'); ran = !!loop; }
+  catch (e) { console.log('  (판정 루프 실행 실패) ' + e.message); }
+  ok(ran, '전제: 판정 루프를 실제로 돌렸다');
+  ok(rows.today.absence_hold?.id === 7, '강사 포털: 오늘 수업에 보류 표시를 싣는다');
+  ok(rows.todayDone.absence_hold?.id === 7, '(짝) 오늘 이미 끝난 수업도 보류는 그대로 — 거르는 기준은 «카페24 출석 줄» 뿐(상태 done 이 아님)');
+  ok(rows.noDate.absence_hold?.id === 7, '(짝) 날짜가 없는 줄은 오늘로 본다');
+  ok(!rows.pastBefore.absence_hold, '지난 줄은 «그 수업 날짜» 로 판정 — 보류 «전» 수업에는 안 붙는다');
+  ok(rows.pastInside.absence_hold?.id === 7, '(짝) 보류 기간 안의 지난 줄(카페24 출석 아님)에는 붙는다');
+  ok(!rows.lmsInside.absence_hold, '지난 카페24 출석 줄(source=lms)은 학생이 들어온 회차 → 보류 아님');
+  ok(!rows.other.absence_hold && !rows.breakRow.absence_hold, '(짝) 다른 학생·수업 아닌 줄에는 안 붙는다');
+}
 const th = rd(resolve(PUB, 'teacher.html'));
 const iHoldCard = th.indexOf('if (c.absence_hold){');
 const holdCard = iHoldCard > 0 ? th.slice(iHoldCard, th.indexOf('continue;', iHoldCard)) : '';

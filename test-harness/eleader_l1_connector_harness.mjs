@@ -72,7 +72,10 @@ for (const k of ['same', 'new', 'contrast']) {
   }
 }
 ok('갈래끼리 접속사가 겹치지 않는다', new Set([...L.same, ...L.new, ...L.contrast]).size === L.same.length + L.new.length + L.contrast.length);
-ok('사장님 목록 단어가 다 들어 있다', ['And', 'So', 'But', 'Also', 'By the way', 'One more thing', 'Of course', 'Moreover'].every(w => kindOf(w)));
+// 🔗 2026-10-28 사장님 「however·therefore·moreover 는 일상 회화 기본 말투로 과도하게 쓰지 마」 — 10-26 목록에서 Moreover·Of course 를 뺐다.
+//    (짝) 남은 일상어는 그대로 있고, 뺀 둘은 어느 갈래에도 없다 — 앞만 보면 «목록을 통째로 비우기» 도 통과한다.
+ok('사장님 10-26 목록 중 남긴 일상어가 다 들어 있다(Moreover·Of course 는 10-28 에 뺌)', ['And', 'So', 'But', 'Also', 'By the way', 'One more thing', 'Oh, and', 'Still'].every(w => kindOf(w)));
+ok('(짝) 격식어 Moreover·Of course 는 회전 목록에 없다(2026-10-28)', !['Moreover', 'Of course', 'However', 'Therefore', 'Furthermore'].some(w => kindOf(w)));
 
 // ③ 실제 핸들러로 전 문항 × 여러 대답 — 지시에 정본 접속사가 실린다
 const ANSWERS = ['I like dogs.', 'I like small dogs!', 'dog', 'cat', 'yes', 'no', "I don't know", '몰라요', '강아지 좋아해요',
@@ -81,6 +84,7 @@ const ANSWERS = ['I like dogs.', 'I like small dogs!', 'dog', 'cat', 'yes', 'no'
   'I can run fast.', 'My mom cooks.', 'I like my school.', 'Yes, I do!', 'Never.'];
 const ROUNDS = Number(process.env.LINK_ROUNDS || 2);
 let turns = 0;
+const kindSeen = {};
 for (let round = 0; round < ROUNDS; round++) {
   for (const b of M.ELEADER_BOOK_UNITS) {
     const n = b.questions.length;
@@ -101,6 +105,12 @@ for (let round = 0; round < ROUNDS; round++) {
       ok(`${b.id}#${q} sentence cap under 12`, /under 12 words each/.test(t));
       if (nextQ) {
         ok(`${b.id}#${q} link word in prompt`, t.includes(`start the question part with ${JSON.stringify(want.word)} because`));
+        // 🔀 (2026-10-28 함정 대조) «강제 / 권하기» 분기를 실제 지시로 확인 — 글자만 보면 must 를 뒤집어도 통과했다
+        const forced = t.includes('This turn, start the question part with'), soft = t.includes('If you use one this turn, start the question part with');
+        const optOut = t.includes('It is also fine to use no linking word');
+        if (want.kind === 'same') ok(`${b.id}#${q} same → 권하기만`, soft && optOut && !forced && /If it sounds natural, connect/.test(t));
+        else ok(`${b.id}#${q} ${want.kind} → 붙인다`, forced && !optOut && !soft && /Connect your reaction and the next question with a linking word/.test(t));
+        kindSeen[want.kind] = (kindSeen[want.kind] || 0) + 1;
         ok(`${b.id}#${q} owner example in prompt`, t.includes('By the way, do you like dogs as well?'));
         ok(`${b.id}#${q} vary words`, /Do not use the same linking word as your last turn/.test(t));
         ok(`${b.id}#${q} link before next q kept`, t.includes(JSON.stringify(nextQ)));
@@ -132,5 +142,7 @@ for (const s of ['You said you like cats. By the way, do you like dogs as well?'
   ok('예문 통과: ' + s, M.replyRejectReason(s, CAP1) === '');
 ok('전제: 턴을 충분히 돌렸다', turns >= 22 * 20 * ROUNDS);
 
+// (전제) 세 갈래가 실제로 다 지나갔다 — 하나라도 0번이면 위 «강제/권하기» 검사가 그 갈래에서 헛돈다
+for (const k of ['same', 'new', 'contrast']) ok(`branch ${k} exercised (${kindSeen[k] || 0} turns)`, (kindSeen[k] || 0) >= 1);
 console.log(`eleader_l1_connector_harness — turns ${turns} · PASS ${pass} / FAIL ${fail}`);
 if (fail) { for (const f of fails) console.log('❌ FAIL', f); process.exit(1); }

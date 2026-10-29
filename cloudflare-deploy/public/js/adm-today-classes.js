@@ -252,21 +252,84 @@
     return '<div style="font-size:11px;color:#475569;min-width:130px;max-width:220px;line-height:1.45">' + inner + '</div>';
   }
 
+  /* ✏️➕ (2026-10-28 매니저·강사 제안 «오늘·지난 피드백 칸에 고치기·추가 버튼») 칸 아래 버튼 하나.
+     · 글이 있으면 「✏️ 고치기」 — 보기를 건너뛰고 곧장 고치기 창(허락은 서버 evalEditAllowed, 안 되면 보기 + 이유).
+     · 없으면 「➕ 추가」 — 공용 쓰기 창(js/eval-quick-view.js create). 오늘 칸은 수업이 «시작된 뒤» 에만
+       (teacher.html 「✍ 피드백 작성」과 같은 이유 — 수업 전에 쓴 일지는 거짓이 된다). 지난 칸은 서버가 준
+       «지난 회차» 목록(prev_classes)에서 고르게 한다 — 목록이 없으면 버튼도 없다.
+     ⛔ 카페24 줄·학생 아이디 없는 줄·본사 전용(지사·대리점)에는 주지 않는다 — 붙일 방이 없거나, 누구 것인지
+        모르거나, 볼 권한부터 없다.
+     ⚠️ xEval 과 따로 둔다 — xEval 은 정렬값(tcSortVal)에도 쓰여, 버튼 글자가 섞이면 «빈 칸은 맨 뒤» 정렬이 깨진다.
+     ⚠️ <button> 금지(전역 인디고 알약) · 색은 클래스로(css/admin-inline-c.css 맨 끝 #sm-today-classes span.tc-evq-act).
+     ⚠️ 속성 이름은 data-evq-fix / data-evq-new — 공용 창 안의 버튼이 data-evq-edit 를 쓴다(겹치면 위임 클릭이 그것까지 잡는다). */
+  function xEvalAct(s, which) {
+    if (!s || s.eval_hidden || s.source === 'cafe24') return '';
+    var e = which === 'last' ? s.last_eval : s.today_eval;
+    if (e && e.id) {
+      return '<span class="tc-evq-act" role="button" tabindex="0" data-evq-fix="' + esc(e.id) + '">'
+        + esc(T('✏️ 고치기', '✏️ Edit')) + '</span>';
+    }
+    if (e) return '';   /* 글은 있는데 번호가 없다(옛 응답) — 두 번째 글이 생기지 않게 «추가» 를 주지 않는다 */
+    if (!String(s.student_uid || '').trim()) return '';
+    if (which === 'today' && !(s.status === 'live' || s.status === 'ended')) return '';
+    /* 지난 = 서버가 예약표로 계산한 «지난 회차»(prev_classes)가 있을 때만 — 방 번호를 화면에서 지어내지 않는다 */
+    if (which === 'last' && !(Array.isArray(s.prev_classes) && s.prev_classes.length)) return '';
+    return '<span class="tc-evq-act tc-evq-add" role="button" tabindex="0" data-evq-new="' + which + '"'
+      + ' data-room="' + esc(s.room_id) + '" data-uid="' + esc(s.student_uid) + '">'
+      + esc(which === 'last' ? T('➕ 지난 피드백 추가', '➕ Add last') : T('➕ 오늘 피드백 추가', '➕ Add today')) + '</span>';
+  }
+
   /* 📝 평가 전문 보기 — 공용 창(js/eval-quick-view.js)을 «처음 누를 때» 만 불러온다. */
-  function evqOpen(id) {
-    var go = function () { if (window.mgEvalQuick) window.mgEvalQuick(id, { en: isEn() }); };
+  function evqLoad(go) {
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
-    sc.src = '/js/eval-quick-view.js?v=2';
+    sc.src = '/js/eval-quick-view.js?v=3';
     sc.onload = go;
     sc.onerror = function () { alert(T('전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.', 'Could not load the viewer — please tap again.')); };
     document.head.appendChild(sc);
   }
+  /* 고치거나 쓴 뒤에는 표를 다시 불러 칸이 바로 바뀌게 한다(창은 body 에 따로 떠 있어 다시 그려도 안 닫힌다). */
+  function evqSaved() { try { window.tcLoadToday(); } catch (e) {} }
+  function evqOpen(id, edit) {
+    evqLoad(function () { if (window.mgEvalQuick) window.mgEvalQuick(id, { en: isEn(), edit: !!edit, onSaved: evqSaved }); });
+  }
+  function evqNew(el) {
+    var room = el.getAttribute('data-room') || '', uid = el.getAttribute('data-uid') || '', s = null;
+    for (var i = 0; i < _rows.length; i++) {
+      if (String(_rows[i].room_id || '') === room && String(_rows[i].student_uid || '') === uid) { s = _rows[i]; break; }
+    }
+    if (!s) return;
+    evqLoad(function () {
+      if (!window.mgEvalQuick || typeof window.mgEvalQuick.create !== 'function') {
+        alert(T('쓰기 창이 옛 판입니다 — 새로고침 후 다시 눌러 주세요.', 'The writing window is out of date — please refresh and tap again.'));
+        return;
+      }
+      window.mgEvalQuick.create({
+        which: el.getAttribute('data-evq-new') === 'last' ? 'last' : 'today',
+        student_uid: s.student_uid, student_name: s.student_name, teacher_name: s.teacher_name,
+        room_id: s.room_id, class_date: s.class_date, prev_classes: s.prev_classes
+      }, { en: isEn(), onSaved: evqSaved });
+    });
+  }
+  function evqAct(ev) {
+    var t = ev.target && ev.target.closest ? ev.target : null;
+    if (!t) return false;
+    var fx = t.closest('[data-evq-fix]');
+    if (fx) { ev.preventDefault(); evqOpen(fx.getAttribute('data-evq-fix'), true); return true; }
+    var nw = t.closest('[data-evq-new]');
+    if (nw) { ev.preventDefault(); evqNew(nw); return true; }
+    return false;
+  }
   document.addEventListener('click', function (ev) {
+    if (evqAct(ev)) return;
     var a = ev.target && ev.target.closest ? ev.target.closest('[data-evq]') : null;
     if (!a) return;
     ev.preventDefault();
     evqOpen(a.getAttribute('data-evq'));
+  });
+  /* role="button" 이라 키보드도 받는다(Enter·Space) — 안 그러면 마우스 전용이 된다. */
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' || ev.key === ' ') evqAct(ev);
   });
 
   function badge(status) {
@@ -1271,8 +1334,8 @@
             + '<td>' + xSched(s) + '</td>'
             + '<td>' + xTeacherConnection(s) + '</td>'
             + '<td>' + xAttendance(s.attendance) + '</td>'
-            + '<td>' + xEval(s.last_eval, s.eval_hidden) + '</td>'
-            + '<td>' + xEval(s.today_eval, s.eval_hidden) + '</td>'
+            + '<td>' + xEval(s.last_eval, s.eval_hidden) + xEvalAct(s, 'last') + '</td>'
+            + '<td>' + xEval(s.today_eval, s.eval_hidden) + xEvalAct(s, 'today') + '</td>'
             + '<td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + levelTag + bookTag + '</div></td>'
             + '<td><code style="font-size:11px;color:#6b7280">' + esc(s.room_id) + '</code>'
             +   (isC24 ? ' <span style="font-size:10px;color:#92400e;font-weight:800">LMS</span>' : '') + '</td>'

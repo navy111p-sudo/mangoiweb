@@ -38,7 +38,9 @@ import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인�
 import { loadActiveGoals, setStudentGoal, goalByKey, GOALS } from './student-goal';   // 🗓 4주 목표(2026-10-10)
 import { loadParentRequests, markParentRequestDone } from './parent-request';   // 👪 학부모 요청 반영(2026-10-10)
 import { loadTeacherStudentHistory, validHistoryDate } from './teacher-student-history';
-import { normalizeTeacherLevelChoice, setStudentLevelByTeacher, levelScaleForPortal, teacherLevelScope, TEACHER_LEVEL_PAST_DAYS } from './teacher-student-level';   // 🎚 일지에서 학생 레벨 정하기(2026-10-27)
+import { normalizeTeacherLevelChoice, setStudentLevelByTeacher, levelScaleForPortal, teacherLevelScope, attachLevelScope, TEACHER_LEVEL_PAST_DAYS } from './teacher-student-level';   // 🎚 일지에서 학생 레벨 정하기(2026-10-27)
+import { buildPhoneGaps, PHONE_GAP_DAYS_MAX, SMS_MIN_DIGITS } from './phone-gaps';   // 📵 번호 없는 학생 — 강사판(2026-10-28)
+import { setOverridePhones } from './student-override';
 import { loadContactPhones } from './notify-contacts';   // ☎ 화면용 연락처 정본(2026-10-27) — 받아 둔 번호 → 명부 → 이탈위험 스냅샷
 
 interface TeacherEnv {
@@ -112,6 +114,53 @@ function applyHolidayToItems(items: any[], holiday: any): void {
   }
 }
 
+/* 🔢 로그인 계정 → **카페24 강사번호**(attendance.teacher_uid). 옛 LMS 수업 목록과 그 수업의 이력 권한이
+   같은 판정을 써야 해서 함수 하나로 둔다(2026-10-28 — 이력 창이 따로 판정하면 반드시 어긋난다).
+   🔴 (2026-08-19) 여기가 «남의 수업이 보일 뻔한» 자리다. 반드시 읽고 고칠 것.
+      첫 판에서는 linkedTeacherIds(= D1 `teachers.id`, 지역 일련번호 1~29)를
+      attendance.teacher_uid 와 곧바로 맞췄다. 그런데 teacher_uid 는
+      **카페24 강사번호**(실측 9~196)다 — 완전히 다른 번호 체계다.
+      번호가 우연히 겹치는 자리에서 정확히 «다른 사람» 이 걸렸다(실측):
+        · HANNAH 계정(teachers.id=24) ↔ 카페24 24 = Teacher Mariane 의 수업 127건
+        · MELCA  계정(teachers.id=26) ↔ 카페24 26 = Teacher Rica 의 수업 11건
+      학생 이름이 함께 보이므로 «남의 수업이 보이는» 사고 그대로였다.
+      (이 파일 위쪽 'Anna → HANNAH' 기록과 같은 종류의 사고다. 번호라서 더 안 보였다.)
+   → 로그인 계정을 **카페24 강사번호로 따로 해석**한다. 경로는 하나뿐이다:
+        teacher_profiles.korean_name/english_name
+          ── 완전일치 ──▶ teacher_payroll_auto.teacher_name → teacher_id(카페24 번호)
+      teacher_payroll_auto 는 카페24 서버가 «번호와 이름을 함께» 밀어넣은 표라
+      그 안에서는 번호↔이름이 어긋나지 않는다.
+   ⚠️ 완전일치만 쓴다. 부분일치는 절대 금지 — 'Anna' 가 'H-ANNA-H' 에 붙던 그 사고다.
+   ⚠️ 후보가 2개 이상이면 **아무것도 붙이지 않는다**. 모르는 것보다 틀린 게 나쁘다.
+   ⚠️ 못 찾으면 빈 배열 — 부르는 쪽은 «안 보여주는» 쪽으로 실패한다(안전한 실패).
+   ⛔ linkedTeacherIds 로 되돌리지 말 것. 번호가 겹치는 자리에서 조용히 남의 수업을 준다. */
+/* 옛 LMS 수업 목록이 거슬러 보는 날 수 — 일지는 기억이 남아 있을 때 쓴다(2주면 충분).
+   그 줄의 「수업 요약 / 캘린더」 권한도 같은 창을 쓴다(목록에 없는 옛 방으로 이력을 무기한 열지 않게). */
+const LMS_LOOKBACK_DAYS = 14;
+const lmsSinceDate = (nowMs: number) => new Date(nowMs + 9 * 3600 * 1000 - LMS_LOOKBACK_DAYS * 86400000).toISOString().slice(0, 10);
+
+async function resolveCafe24TeacherIds(db: D1Database, actorName: unknown): Promise<string[]> {
+  const name = String(actorName || '').trim();
+  if (!name) return [];
+  const prof = await db.prepare(
+    `SELECT korean_name, english_name FROM teacher_profiles
+      WHERE korean_name = ? COLLATE NOCASE OR english_name = ? COLLATE NOCASE LIMIT 2`
+  ).bind(name, name).all<any>().catch(() => ({ results: [] as any[] }));
+  const rows = prof.results || [];
+  // 프로필이 둘 이상 걸리면 누구인지 모르는 것이다 → 붙이지 않는다.
+  if (rows.length === 1) {
+    for (const nm of [rows[0].korean_name, rows[0].english_name].filter(Boolean)) {
+      const pay = await db.prepare(
+        `SELECT DISTINCT teacher_id FROM teacher_payroll_auto
+          WHERE teacher_name = ? COLLATE NOCASE LIMIT 2`
+      ).bind(nm).all<any>().catch(() => ({ results: [] as any[] }));
+      const pr = pay.results || [];
+      if (pr.length === 1) return [String(pr[0].teacher_id)];
+    }
+  }
+  return [];
+}
+
 export async function handleTeacherApi(
   request: Request,
   url: URL,
@@ -126,7 +175,8 @@ export async function handleTeacherApi(
   const isGoalPost = method === 'POST' && url.searchParams.get('part') === 'goal';
   const isPreqPost = method === 'POST' && url.searchParams.get('part') === 'preq';   // 👪 학부모 요청 «반영함»
   const isLevelPost = method === 'POST' && url.searchParams.get('part') === 'level';  // 🎚 일지에서 학생 레벨 정하기
-  if (path !== '/api/teacher/portal' || (method !== 'GET' && !isGoalPost && !isPreqPost && !isLevelPost)) return null;
+  const isPhoneSavePost = method === 'POST' && url.searchParams.get('part') === 'phone_save';   // 📵 번호 없는 학생에게 번호 넣기
+  if (path !== '/api/teacher/portal' || (method !== 'GET' && !isGoalPost && !isPreqPost && !isLevelPost && !isPhoneSavePost)) return null;
 
   /* 🔔 `?only=next` — «다음 수업 하나» 만 돌려주는 초경량 모드 (2026-08-09)
    *
@@ -146,7 +196,8 @@ export async function handleTeacherApi(
    *  보강(출결·평가·연락처·인수인계)은 하지 않는다(월 달력은 «언제 무슨 수업이 있나» 만 그린다). */
   const monthParam = url.searchParams.get('part') === 'month' ? String(url.searchParams.get('month') || '').trim() : '';
   const monthMode = url.searchParams.get('part') === 'month';
-  const onlyNext = url.searchParams.get('only') === 'next' || url.searchParams.get('part') === 'student_history' || monthMode;
+  const phoneMode = (method === 'GET' && url.searchParams.get('part') === 'phone_gaps') || isPhoneSavePost;   // 📵 신원만 쓰고 공지·자료·평점은 안 읽는다
+  const onlyNext = url.searchParams.get('only') === 'next' || url.searchParams.get('part') === 'student_history' || monthMode || phoneMode;
 
   // ── 신원: 쿠키 세션에서만 (클라이언트가 보내는 값은 일절 신뢰하지 않는다) ──
   const actor = await getAdminActor(request, env as any);
@@ -356,14 +407,97 @@ export async function handleTeacherApi(
   //    전자는 이름을 채워 넣는 일, 후자는 둘 중 누구인지 고르는 일이다. 문구도 갈라 준다.
   const identityAmbiguous = !isManager && ambiguousNames.length > 0;
 
+  /* 📵 «번호 없는 학생» — 강사판 (2026-10-28 사장님 「강사 화면에도 똑같이 넣어줘」)
+   *  GET  ?part=phone_gaps&days=7   — «내 수업» 이 있는데 수업 전 안내 문자가 갈 번호가 없는 학생(정본 src/phone-gaps.ts)
+   *  POST ?part=phone_save          — {student_uid, parent_phone?, student_phone?} 그 학생에게 번호를 «넣기만» 한다
+   *  🔐 범위 = 포털의 예약 조건과 «같은 열쇠»(로그인 아이디 + 확정된 원부 번호) — 남의 수업 학생은 목록에도 저장에도 안 닿는다(저장 키는 대소문자까지 정확일치). ⚠️ 다만 읽는 쪽 getOverridePhones 는 NOCASE 로 찾으므로, 대소문자만 다른 다른 계정(Kim/kim)이 자기 받은 번호가 없으면 이 번호를 집는다 — 관리자 PATCH 와 같은 성질(새로 생긴 것 아님).
+   *  ⛔ 관리자 PATCH /api/admin/student/:uid/contact 를 강사에게 열지 않는다 — 그 경로는 지우기·명부 수정까지 한다.
+   *     강사는 «번호가 없는 학생에게 새 번호 넣기» 만: 지우기 없음 · 이미 번호가 있는 학생 손댈 수 없음 · 명부(students_erp) 안 건드림
+   *     (받는 자리는 student_erp_override 하나 — 발송 정본이 «먼저» 읽고 야간 동기화가 못 덮는 자리).
+   *  ⛔ 화면이 보낸 uid 를 믿지 않는다 — 저장 «그 순간» 같은 판정으로 목록을 다시 만들어 그 안에 «정확일치» 로 있어야 한다.
+   *     번호 조회가 다 안 됐으면(complete:false) 막는다 — «이미 번호가 있는 학생» 을 덮을 수 있어서다(되돌리기 어려움).
+   *  ℹ️ 참고 번호(카페24 이탈위험 표)는 강사에게 안 보낸다(scope='teacher' 면 읽지도 않는다). */
+  if (phoneMode) {
+    const keys = [String(actor.username || '').trim(), ...linkedTeacherIds.map((x: any) => String(x))].filter(Boolean);
+    const who = { identity_unlinked: identityUnlinked, identity_ambiguous: identityAmbiguous };
+    if (!isPhoneSavePost) {
+      const r = await buildPhoneGaps(env as any, { days: Number(url.searchParams.get('days')), teacherKeys: keys });
+      return json({ ...r, ...who }, r.ok ? 200 : 503);
+    }
+    let b: any = {};
+    try { b = await request.json(); } catch { b = {}; }
+    const uid = String((b && b.student_uid) || '').trim();
+    if (!uid || uid.length > 80) return json({ ok: false, error: 'student_uid_required' }, 400);
+    /* 한 칸 판정 — '' = 안 보냄 · null = 잘못된 값. 화면(adm-phone-gaps.js checkPhone)과 같은 규칙에 «15자리 이하» 하나를 더한다. */
+    const pick = (v: any): string | null => {
+      const raw = String(v == null ? '' : v).trim();
+      if (!raw) return '';
+      if (raw.length > 30 || /[^0-9+\-\s().]/.test(raw)) return null;
+      const n = raw.replace(/[^0-9]/g, '').length;
+      return n >= SMS_MIN_DIGITS && n <= 15 ? raw : null;
+    };
+    const pp = pick(b && b.parent_phone), ps = pick(b && b.student_phone);
+    if (pp === null || ps === null) return json({ ok: false, error: 'bad_phone',
+      message: '번호는 숫자와 하이픈(-)으로 ' + SMS_MIN_DIGITS + '~15자리를 넣어 주세요.',
+      message_en: 'Enter ' + SMS_MIN_DIGITS + '–15 digits (hyphens are fine).' }, 400);
+    if (!pp && !ps) return json({ ok: false, error: 'no_phone',
+      message: '학부모나 학생 번호 중 하나를 넣어 주세요.', message_en: 'Enter a parent or student number.' }, 400);
+    // 저장 «그 순간» 의 목록 — 화면이 고를 수 있는 가장 긴 기간(14일)으로 다시 잰다(화면 목록은 언제나 그 안에 든다).
+    const r = await buildPhoneGaps(env as any, { days: PHONE_GAP_DAYS_MAX, teacherKeys: keys });
+    if (!r.ok) return json({ ok: false, error: 'phone_check_unavailable',
+      message: '지금 확인할 수 없어 저장하지 않았습니다 — 잠시 뒤 다시 눌러 주세요.',
+      message_en: 'Could not check right now, so nothing was saved — please try again shortly.' }, 503);
+    if (!r.complete) return json({ ok: false, error: 'phone_check_incomplete',
+      message: '이 학생에게 이미 번호가 있는지 다 확인하지 못해 저장하지 않았습니다 — 잠시 뒤 다시 눌러 주세요.',
+      message_en: 'Could not fully check whether this student already has a number, so nothing was saved — please try again shortly.' }, 503);
+    if (!r.gaps.some((g) => g.uid === uid)) return json({ ok: false, error: 'not_in_your_list',
+      message: '내 수업 학생 중 «번호가 없는» 학생에게만 넣을 수 있습니다 — 그사이 번호가 들어왔거나 수업이 지났을 수 있습니다. [🔄 불러오기]로 다시 확인해 주세요.',
+      message_en: 'You can only add a number for your own students who have none — one may have been added meanwhile, or the class has passed. Press [🔄 Load] to check again.' }, 403);
+    const put: { parent?: string; student?: string } = {};
+    if (pp) put.parent = pp;
+    if (ps) put.student = ps;
+    const w = await setOverridePhones(env as any, uid, put, ('teacher:' + String(actor.username || '')).slice(0, 80));
+    if (!w.ok) return json({ ok: false, error: 'save_failed',
+      message: '저장하지 못했습니다 — 잠시 뒤 다시 눌러 주세요.', message_en: 'Could not save — please try again shortly.' }, 500);
+    // 화면(saveMsg)이 읽는 모양 — 받는 자리(override)에 적혔다 · 명부는 «안 건드렸다»(null = 묻지 않음).
+    return json({ ok: true, phone_kept: true, roster_updated: null });
+  }
+
   // Student history is lazy-loaded and read-only. Resolve the student from an owned schedule.
   if (url.searchParams.get('part') === 'student_history') {
     const scheduleId = Number(url.searchParams.get('schedule_id'));
+    /* 🗂 (2026-10-28 강사 화면 «Could not load class history») 옛 LMS 수업 줄(source 'lms')은 예약표 행이 없어
+       schedule_id 가 null 이다 — 그 줄의 [수업 요약 / 캘린더] 는 빈 번호를 보내 400 이 났다.
+       그 줄은 방 번호(c24-…)와 학생 아이디로 연다. 학생은 쿼리가 아니라 «이 강사(카페24 강사번호)가 가르친
+       그 방의 출석 행» 에서 확인한다 — 목록(아래 LMS 블록)과 같은 판정(resolveCafe24TeacherIds). */
+    const lmsRoom = String(url.searchParams.get('room_id') || '').trim();
+    const isLmsHistory = !(scheduleId > 0) && /^c24-\d{1,12}$/.test(lmsRoom);
     const date = String(url.searchParams.get('date') || todayStr);
     const month = String(url.searchParams.get('month') || date.slice(0, 7));
-    if (!Number.isSafeInteger(scheduleId) || scheduleId <= 0 || !validHistoryDate(date)
+    if ((!isLmsHistory && (!Number.isSafeInteger(scheduleId) || scheduleId <= 0)) || !validHistoryDate(date)
         || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || Number(month.slice(0,4)) < 2000) {
       return json({ ok: false, error: 'bad_history_request' }, 400);
+    }
+    if (isLmsHistory) {
+      /* 권한 = 목록에 그 줄을 그린 판정과 같다: 카페24 강사번호(D1 강사원부 연결과 무관 — 목록도 그것을 안 본다)
+         + 목록과 같은 날 창(LMS_LOOKBACK_DAYS). 그 창 밖의 옛 방으로는 열지 않는다(예약 경로가 «지금 담당» 만 여는 것과 같은 뜻). */
+      try {
+        const studentUid = String(url.searchParams.get('student_uid') || '').trim();
+        // 판정은 번호를 0~1개만 돌려준다(후보가 둘이면 아무것도 안 붙인다) — 그래서 IN 목록이 아니라 한 칸.
+        const tid = isManager ? '' : ((await resolveCafe24TeacherIds(env.DB, actor.name))[0] || '');
+        if (!studentUid || (!isManager && !tid)) return json({ ok: false, error: 'history_forbidden' }, 403);
+        const row = await env.DB.prepare(`SELECT user_id, date FROM attendance
+            WHERE room_id = ? AND user_id = ? COLLATE BINARY AND status = 'present' AND date >= ?${isManager ? '' : ' AND teacher_uid = ?'} LIMIT 1`)
+          .bind(lmsRoom, studentUid, lmsSinceDate(now), ...(isManager ? [] : [tid])).first<any>();
+        const uid = row && studentUidOf(row);
+        const lessonDate = row ? String(row.date || '').slice(0, 10) : '';
+        if (!uid || !validHistoryDate(lessonDate)) return json({ ok: false, error: 'history_forbidden' }, 403);
+        // 기준일은 그 LMS 수업 날 — 화면이 보낸 날짜(오늘 목록의 class_date)가 아니다.
+        return json(await loadTeacherStudentHistory(env, uid, month, lessonDate));
+      } catch (e) {
+        console.warn('[teacher-history] lms read failed');
+        return json({ ok: false, error: 'history_unavailable' }, 503);
+      }
     }
     if (!isManager && (identityUnlinked || identityAmbiguous)) return json({ ok: false, error: 'history_forbidden' }, 403);
     try {
@@ -827,9 +961,9 @@ export async function handleTeacherApi(
    *  [무엇] 끝난 LMS 수업을 «완료된 수업» 으로 함께 실어 준다. 화면은 이미 status='done'
    *       인 수업에 [일지 쓰기] 를 그리므로 화면 쪽 수정 없이 버튼이 살아난다.
    *
-   *  ⚠️ 담당 판정은 **teacher_uid(=teachers.id)** 로만 한다. 위 예약 조회와 같은
-   *     resolvedRows 를 쓴다 — 신원 판정을 두 벌 두면 반드시 어긋난다(이 파일 위쪽
-   *     'Anna → HANNAH' 사고가 그 이야기다). 이름 문자열로는 절대 붙이지 않는다.
+   *  ⚠️ 담당 판정은 **attendance.teacher_uid = 카페24 강사번호** 로만 한다(teachers.id 가 아니다 —
+   *     번호 체계가 달라 겹치는 자리에서 남의 수업이 걸린다. 판정·사고 기록은 resolveCafe24TeacherIds).
+   *     이름 문자열로는 절대 붙이지 않는다.
    *  ⚠️ 입장 창을 과거로 둔다 — 끝난 LMS 수업에 [입장] 을 주면 아무도 없는 방이 열린다.
    *     화면은 enter_from/until 로 판정하므로 [완료] + [일지 쓰기] 만 남는다.
    *  ⚠️ 카페24가 아직 강사 속성을 안 주면 teacher_uid 가 전부 NULL 이라 이 블록은
@@ -837,51 +971,12 @@ export async function handleTeacherApi(
    */
   if (!onlyNext) {
     try {
-      /* 🔴 (2026-08-19) 여기가 «남의 수업이 보일 뻔한» 자리다. 반드시 읽고 고칠 것.
-         첫 판에서는 linkedTeacherIds(= D1 `teachers.id`, 지역 일련번호 1~29)를
-         attendance.teacher_uid 와 곧바로 맞췄다. 그런데 teacher_uid 는
-         **카페24 강사번호**(실측 9~196)다 — 완전히 다른 번호 체계다.
-         번호가 우연히 겹치는 자리에서 정확히 «다른 사람» 이 걸렸다(실측):
-           · HANNAH 계정(teachers.id=24) ↔ 카페24 24 = Teacher Mariane 의 수업 127건
-           · MELCA  계정(teachers.id=26) ↔ 카페24 26 = Teacher Rica 의 수업 11건
-         학생 이름이 함께 보이므로 «남의 수업이 보이는» 사고 그대로였다.
-         (이 파일 위쪽 'Anna → HANNAH' 기록과 같은 종류의 사고다. 번호라서 더 안 보였다.)
-
-         → 로그인 계정을 **카페24 강사번호로 따로 해석**한다. 경로는 하나뿐이다:
-              teacher_profiles.korean_name/english_name
-                ── 완전일치 ──▶ teacher_payroll_auto.teacher_name → teacher_id(카페24 번호)
-            teacher_payroll_auto 는 카페24 서버가 «번호와 이름을 함께» 밀어넣은 표라
-            그 안에서는 번호↔이름이 어긋나지 않는다.
-         ⚠️ 완전일치만 쓴다. 부분일치는 절대 금지 — 'Anna' 가 'H-ANNA-H' 에 붙던 그 사고다.
-         ⚠️ 후보가 2개 이상이면 **아무것도 붙이지 않는다**. 모르는 것보다 틀린 게 나쁘다.
-         ⚠️ 못 찾으면 이 블록은 조용히 0건이 된다(화면은 예전 그대로). 안전한 실패다.
-         ⛔ linkedTeacherIds 로 되돌리지 말 것. 번호가 겹치는 자리에서 조용히 남의 수업을 준다. */
-      const cafe24Tids: string[] = [];
-      const nameKeys = [String(actor.name || '').trim()].filter(Boolean);
-      if (nameKeys.length) {
-        const prof = await env.DB.prepare(
-          `SELECT korean_name, english_name FROM teacher_profiles
-            WHERE korean_name = ? COLLATE NOCASE OR english_name = ? COLLATE NOCASE LIMIT 2`
-        ).bind(nameKeys[0], nameKeys[0]).all<any>().catch(() => ({ results: [] as any[] }));
-        const rows = prof.results || [];
-        // 프로필이 둘 이상 걸리면 누구인지 모르는 것이다 → 붙이지 않는다.
-        if (rows.length === 1) {
-          const cand = [rows[0].korean_name, rows[0].english_name].filter(Boolean);
-          for (const nm of cand) {
-            const pay = await env.DB.prepare(
-              `SELECT DISTINCT teacher_id FROM teacher_payroll_auto
-                WHERE teacher_name = ? COLLATE NOCASE LIMIT 2`
-            ).bind(nm).all<any>().catch(() => ({ results: [] as any[] }));
-            const pr = pay.results || [];
-            if (pr.length === 1) { cafe24Tids.push(String(pr[0].teacher_id)); break; }
-          }
-        }
-      }
+      /* 🔴 담당 판정은 카페24 강사번호로만 — 판정과 그 사고 기록은 resolveCafe24TeacherIds(이 파일 위쪽). */
+      const cafe24Tids = await resolveCafe24TeacherIds(env.DB, actor.name);
       if (!cafe24Tids.length) throw new Error('no_cafe24_teacher_id');
 
       const tConds = cafe24Tids.map(() => 'a.teacher_uid = ?').join(' OR ');
-      const LOOKBACK_DAYS = 14;                     // 일지는 기억이 남아 있을 때 쓴다. 2주면 충분.
-      const sinceDate = new Date(now + KST - LOOKBACK_DAYS * 86400000).toISOString().slice(0, 10);
+      const sinceDate = lmsSinceDate(now);
       // eval_band 컬럼은 /api/eval/create 가 처음 불릴 때 생긴다(ensureEvalTable) — 배포
       // 직후처럼 아직 없는 순간에 컬럼 하나 때문에 오늘 카페24 수업 목록이 통째로 사라지면
       // 안 되므로, 그 컬럼 없이도 조회되는 쿼리로 폴백한다(위 sqlJoin/sqlPlain과 같은 패턴).
@@ -970,18 +1065,6 @@ export async function handleTeacherApi(
      ⚠️ 던지지 않는다(fail-open). 배너(?only=next)는 건너뛴다. 정본 src/teacher-student-elsewhere.ts */
   if (!onlyNext) await applyStudentElsewhere(env.DB, classes, now);
 
-  /* ⏸ (2026-09-25 사장님 결정) 연속 결석으로 «보류» 된 학생의 수업 — 강사는 방에서 기다리지 않고
-     필리핀 매니저에게 계속 다니는지 확인한다(보류 기간 강사비 0%). 정본 src/absence-hold.ts.
-     ⚠️ 표가 없거나 못 읽으면 아무것도 안 붙는다(예전 화면 그대로). */
-  try {
-    const _holds = await loadHoldRanges(env as any);
-    if (_holds.size) for (const c of classes) {
-      if (c.kind !== 'class') continue;
-      const h = heldOnFor(_holds, c.student_uid, todayStr);
-      if (h) c.absence_hold = { id: h.id, held_after: h.held_after, state: h.state };
-    }
-  } catch { /* 보류 표시 실패가 오늘 수업 표시를 막지 않는다 */ }
-
   /* 📋 (2026-09-23) 관리자·매니저 「오늘 수업」과 같은 일곱 칸 — 정본 class-today-extras.ts.
      ⚠️ 방 번호를 갈아 끼운 «뒤» 여야 한다(출석을 room_id 로 찾는다).
      강사 입장은 원부 이름으로 대조한다(계정 표시이름은 «교사 …» 가 붙어 있을 수 있다) —
@@ -995,6 +1078,27 @@ export async function handleTeacherApi(
     // 📅 이번 주 7칸(2026-09-23) — 관리자와 같은 규칙의 요일 파서를 넘긴다(평가는 안 넘김 = 그대로 숨김)
     try { await enrichClassesToday(env as any, classes, todayStr, now, { dowMatches }); } catch (e: any) { console.warn('[teacher-portal] extras:', e?.message); }
   }
+  /* 📅 (2026-10-28 강사 제안 «시간이 빠른 순으로 안 나온다») 지난 14일 카페24 수업(source='lms')은 «그 수업 날» 을 싣는다.
+     enrichClassesToday 가 모든 줄의 class_date 를 오늘로 덮어 10-14 수업이 «2026-10-28» 로 찍혔고, start_ts(실제 날짜)
+     순서와 «오늘 날짜 + 시각» 이 어긋나 표가 뒤죽박죽으로 보였다. 일지(lesson_date)·수업 요약 날짜도 이 값을 쓴다.
+     ⛔ 공용 enrichClassesToday 는 안 고친다 — 관리자 「오늘 수업」이 같은 함수를 쓴다. */
+  for (const c of classes) if (c.source === 'lms' && c.start_ts) c.class_date = new Date(c.start_ts + KST).toISOString().slice(0, 10);
+
+  /* ⏸ (2026-09-25 사장님 결정) 연속 결석으로 «보류» 된 학생의 수업 — 강사는 방에서 기다리지 않고
+     필리핀 매니저에게 계속 다니는지 확인한다(보류 기간 강사비 0%). 정본 src/absence-hold.ts.
+     📅 (2026-10-28 사장님 결정) «오늘» 이 아니라 **그 줄의 수업 날짜(class_date)** 로 판정한다 — 급여·장부와 같은 기준.
+     ⚠️ 바로 위 «지난 수업 날짜» 복원 «뒤» 여야 한다 — 그 전엔 지난 줄도 오늘 날짜다.
+     ⚠️ 지난 카페24 줄(source='lms')은 출석(status='present')으로만 만든 줄 = 학생이 실제로 들어온 회차 →
+        보류가 아니다(정본 attendedStudentRooms 와 같은 원칙). 화면 표시만이다 — 급여·D1 은 안 건드린다.
+     ⚠️ 표가 없거나 못 읽으면 아무것도 안 붙는다(예전 화면 그대로). */
+  try {
+    const _holds = await loadHoldRanges(env as any);
+    if (_holds.size) for (const c of classes) {
+      if (c.kind !== 'class' || c.source === 'lms') continue;
+      const h = heldOnFor(_holds, c.student_uid, String(c.class_date || todayStr).slice(0, 10));
+      if (h) c.absence_hold = { id: h.id, held_after: h.held_after, state: h.state };
+    }
+  } catch { /* 보류 표시 실패가 오늘 수업 표시를 막지 않는다 */ }
 
   if (!onlyNext) {
     for (const day of weekDays) {
@@ -1390,6 +1494,12 @@ export async function handleTeacherApi(
         || /중국어/.test(tname))
         ? 'ko' : 'en');
 
+  /* 🎚 (2026-10-28 사장님 「1번 확인창 전에 범위 밖이면 막아줘」) 일지 창이 확인창 «전에» 막을 수 있게,
+   *  POST ?part=level 과 «같은» 판정을 오늘 목록·요청한 주(?week=)의 항목마다 level_scope 로 실어 보낸다.
+   *  넘기는 네 값은 위 POST 블록과 반드시 같아야 한다(오늘 목록 · 예약표 행 · 오늘 날짜 · studentUidOf).
+   *  ⚠️ 목록을 «다 만든 뒤» 여기서 붙인다 — 화면은 읽기만 하고, 최종 판정은 그대로 POST 다. */
+  attachLevelScope([...classes, ...weekDays.flatMap((d: any) => d.items)], { todayClasses: classes, schedules: cafe24DedupeSchedules, todayStr, uidOf: studentUidOf });
+
   return json({
     ok: true,
     now, today: todayStr,
@@ -1397,6 +1507,8 @@ export async function handleTeacherApi(
     goal_options: GOALS.map((g) => ({ key: g.key, ko: g.ko, en: g.en })),
     // 🎚 일지 창의 «학생 레벨» 고르기 목록 — 화면이 숫자를 따로 들고 있지 않게 서버 정본을 내려준다.
     level_scale: levelScaleForPortal(),
+    // 🔐 그 범위의 «최근 N일» — 화면이 막을 때 이 숫자만 말한다(화면에 숫자를 따로 적지 않는다).
+    level_past_days: TEACHER_LEVEL_PAST_DAYS,
     me: {
       username: actor.username, name: actor.name, role: actor.role,
       is_teacher: !isManager, is_manager: isManager, lang,
