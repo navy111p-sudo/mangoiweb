@@ -1195,6 +1195,18 @@
                 + 'background:#eaf0fb;color:#1d4ed8;border:1px solid #bfd3f5">'
                 + T('📅 새 날짜로', '📅 Rebook') + '</span>';
             }
+            /* ↩ (2026-10-29 매니저 «how to undo the postponement… add a restore button») 연기를 없던 일로 —
+               원래 날짜·시각 그대로 다시 «열린 수업». 서버 정본은 POST /api/admin/class-schedules/:id
+               { action:'restore' }(본사 전용 · 지난 날짜·같은 자리 다른 수업이 있으면 거절하고 그 사유를 말한다).
+               ⛔ <button> 대신 span[role=button] — 카드 안 전역 button 규칙이 파란 알약으로 덮는다. */
+            if (s.schedule_id) {
+              act += '<span class="tc-restore-pin" role="button" tabindex="0" data-sid="' + esc(s.schedule_id) + '" '
+                + 'data-name="' + esc(s.student_name || s.student_uid || '') + '" data-when="' + esc(Number(s.start_ts) > 0 ? new Date(Number(s.start_ts) + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ') : (s.start_time || '')) + '" '
+                + 'title="' + T('연기를 취소하고 원래 날짜·시각으로 되돌립니다', 'Undo the postponement — back to the original date and time') + '" '
+                + 'style="cursor:pointer;display:inline-block;white-space:nowrap;margin-left:4px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+                + 'background:#fff7ed;color:#b45309;border:1px solid #fcd9a8">'
+                + T('↩ 연기 취소', '↩ Restore') + '</span>';
+            }
           } else {
             act = s.join_open
               /* 🚪 학생에게 «보이는» 입장이라 참관(보라)과 색을 갈라 둔다 — 주황 + (보임) 표시 */
@@ -1421,6 +1433,16 @@
         });
       })(mss[si2]);
     }
+    var rss = box.querySelectorAll('.tc-restore-pin');
+    for (var ri = 0; ri < rss.length; ri++) {
+      (function (el) {
+        var go = function (ev) { if (ev) ev.preventDefault(); tcRestorePostponed(el); };
+        el.addEventListener('click', go);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') go(ev);
+        });
+      })(rss[ri]);
+    }
     var mvs = box.querySelectorAll('.tc-move-pin');
     for (var mi = 0; mi < mvs.length; mi++) {
       (function (el) {
@@ -1454,6 +1476,43 @@
       });
     }
     announceCounts(rows.length);
+  }
+
+  /* ↩ 연기 취소 — 서버가 «왜 안 되는지» 를 말하면 그 사유를 사람 말로 보여 준다(조용히 실패하지 않는다). */
+  async function tcRestorePostponed(el) {
+    if (!el || el._busy) return;
+    var sid = el.getAttribute('data-sid');
+    var who = el.getAttribute('data-name') || '';
+    var when = el.getAttribute('data-when') || '';
+    if (!confirm(T('연기를 취소할까요?\n\n' + who + ' · ' + when + '\n\n· 원래 날짜·시각 그대로 다시 열린 수업이 됩니다.',
+                   'Undo this postponement?\n\n' + who + ' · ' + when + '\n\n· The class goes back to its original date and time.'))) return;
+    el._busy = true;
+    var old = el.textContent;
+    el.textContent = T('되돌리는 중…', 'Restoring…');
+    var j = null, httpOk = false;
+    try {
+      var r = await fetch('/api/admin/class-schedules/' + encodeURIComponent(sid), {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restore', reason: '연기 취소 (오늘 수업 화면)' })
+      });
+      httpOk = r.ok;
+      j = await r.json().catch(function () { return null; });
+    } catch (e) { j = null; }
+    el._busy = false;
+    if (httpOk && j && j.ok === true) {
+      try { window.tcLoadToday(); } catch (e) {}
+      return;
+    }
+    el.textContent = old;
+    var err = j && j.error;
+    var why = err === 'slot_taken' ? T('그 시각에 이미 다른 수업이 잡혀 있습니다. 「📅 새 날짜로」로 다른 시각을 고르세요.', 'Another class already uses that time slot. Use «📅 Rebook» to pick another time.')
+      : err === 'past_date' ? T('지난 날짜의 수업은 되돌릴 수 없습니다.', 'Past classes cannot be restored.')
+      : err === 'weekly_row' ? T('매주 반복 수업은 시간표에서 고쳐 주세요.', 'Weekly classes must be fixed in the timetable.')
+      : err === 'not_cancelled' ? T('이미 연기 상태가 아닙니다. 목록을 새로고침합니다.', 'This class is no longer postponed. Refreshing the list.')
+      : (j && (j.message || j.error)) ? String(j.message || j.error)
+      : T('되돌리지 못했습니다. 잠시 후 다시 시도해 주세요.', 'Could not restore. Please try again shortly.');
+    alert('↩ ' + why);
+    if (err === 'not_cancelled') { try { window.tcLoadToday(); } catch (e) {} }
   }
 
   window.tcLoadToday = async function () {
