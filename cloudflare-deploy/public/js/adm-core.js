@@ -11092,6 +11092,40 @@ async function _bulkRegisterEnrollments(records) {
   loadEnrollments();
 }
 
+// .xlsx → CSV 텍스트(그 뒤는 _parseCsvEnrollments 가 그대로 읽는다 — 「항목,값」·머리글 두 모양 모두).
+//   zip·시트 읽기는 학생 단체 등록(js/adm-student-bulk.js)의 parseXlsx 를 빌린다 — 같은 읽기를 두 벌 두지 않는다.
+//   엑셀은 날짜·시각을 «숫자»로 저장한다(2026-11-03 → 46329, 19:00 → 0.791666…) — 그 칸만 글자로 되돌린다.
+function _enXlsxCell(label, v) {
+  const t = String(v == null ? '' : v).trim();
+  const lb = String(label || '');
+  if (/시작|개강|start/i.test(lb) && /^\d{5}(\.\d+)?$/.test(t)) {
+    const n = Math.floor(Number(t));
+    if (n > 20000 && n < 80000) return new Date(Date.UTC(1899, 11, 30) + n * 86400000).toISOString().slice(0, 10);
+  }
+  if (/시간|time/i.test(lb) && /^0?\.\d+$/.test(t)) {
+    const m = Math.round(Number(t) * 1440) % 1440;
+    return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  }
+  return t;
+}
+function _enRowsToCsv(rows) {
+  rows = (rows || []).filter(r => r && r.some(c => String(c == null ? '' : c).trim()));
+  if (!rows.length) return '';
+  const header = rows[0].map(h => String(h == null ? '' : h).trim());
+  const pairForm = /^항목$/.test(header[0] || '') && /^값$/.test(header[1] || '');
+  const q = (c) => { const s = String(c == null ? '' : c); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  return rows.map((r, ri) => r.map((c, ci) => {
+    if (ri === 0) return q(c);
+    const label = pairForm ? (ci === 1 ? r[0] : '') : header[ci];
+    return q(_enXlsxCell(label, c));
+  }).join(',')).join('\n');
+}
+async function _enXlsxToCsv(buf) {
+  const B = window.__smBulk;
+  if (!B || typeof B.parseXlsx !== 'function') throw new Error('엑셀 읽기 도구가 아직 안 불러졌습니다(새로고침 후 다시)');
+  return _enRowsToCsv(await B.parseXlsx(buf));
+}
+
 async function importEnrollmentFromFile() {
   const fi = document.getElementById('en-import-file');
   if (!fi || !fi.files || fi.files.length === 0) {
@@ -11101,6 +11135,21 @@ async function importEnrollmentFromFile() {
   const file = fi.files[0];
   const ext = (file.name.split('.').pop() || '').toLowerCase();
   let text = '';
+  // 2026-10-29: 진짜 엑셀(.xlsx)은 zip 이라 file.text() 로 읽으면 깨진 글자 → 0건이었다.
+  //   첫 바이트로 가른다(확장자보다 정확 — 이름만 .xls 인 .xlsx 도 있다).
+  let head = null;
+  try { head = new Uint8Array(await file.slice(0, 8).arrayBuffer()); } catch (e) { head = null; }
+  if (head && head[0] === 0x50 && head[1] === 0x4B) {
+    if (/^docx?$/.test(ext)) { alert('워드(.docx) 파일은 읽지 못합니다. 엑셀(.xlsx)·CSV 로 올려 주세요.\nWord (.docx) files cannot be read. Please upload .xlsx or CSV.'); return; }
+    try { text = await _enXlsxToCsv(await file.arrayBuffer()); }
+    catch (e) { alert('엑셀 파일을 읽지 못했습니다: ' + (e && e.message || e) + '\n「CSV UTF-8」로 저장해 올려 주세요.\nCould not read the Excel file — please save as CSV UTF-8.'); return; }
+    _renderImportPreview(_parseCsvEnrollments(text), file.name);
+    return;
+  }
+  if (head && head[0] === 0xD0 && head[1] === 0xCF && head[2] === 0x11 && head[3] === 0xE0) {
+    alert('옛 엑셀(.xls 97-2003) 형식은 읽지 못합니다. 엑셀에서 「다른 이름으로 저장 → Excel 통합 문서(.xlsx)」 또는 「CSV UTF-8」로 저장해 올려 주세요.\nOld .xls (97-2003) is not supported — save as .xlsx or CSV UTF-8.');
+    return;
+  }
   try { text = await file.text(); }
   catch (e) { alert('파일 읽기 실패: ' + e.message); return; }
   let records = [];
