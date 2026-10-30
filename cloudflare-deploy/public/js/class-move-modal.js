@@ -211,6 +211,8 @@
        (enroll-ops.ts schedule_postponed — CLAUDE.md «Postponed restore vs permanent time change»).
        ⛔ 그래서 그 둘을 «눌러 보면 거절되는 버튼» 으로 두지 않는다 — 한 번 더 «연기» 하는 버튼도 감춘다(요청만 하나 더 쌓인다). */
     var pp = (r.postponed === true);
+    /* ↩ (2026-10-30) 원래 시각이 이미 시작했으면 서버가 «연기 취소» 를 언제나 past_date 로 거절한다 — 버튼·안내에서 뺀다(모르면 예전처럼). */
+    var canRestore = pp && _opt.canCancel === true && !(Number(r.start_ts) > 0 && Number(r.start_ts) <= Date.now());
     _mvData = null; _mvPick = ''; _mvSer = null; _mvEnd = null;
     var who = String(r.student_name || r.student_uid || '');
     var inp = 'padding:6px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;color:#101828;box-sizing:border-box';
@@ -227,9 +229,9 @@
           + '</div>' : '')
       + (pp ? '<div id="tc-mv-pp" style="font-size:12px;line-height:1.55;color:#101828;background:#fff4e0;border:1px solid #f5c77a;border-radius:8px;padding:8px 10px;margin-bottom:10px">'
           + T('⏸ <b>이미 연기된 수업</b>입니다. 아래에서 <b>새 날짜·시각</b>을 고르고 «실행» 하면 그 시각에 다시 열린 수업이 됩니다(이 회만). <b>앞으로 계속</b> 바꾸기는 그다음 — 다시 잡은 수업이나 다음 회차에서 «🔄 변경» 을 쓰세요.'
-                + (_opt.canCancel === true ? ' 원래 날짜·시각 그대로 되돌리려면 아래 «↩ 연기 취소».' : ''),
+                + (canRestore ? ' 원래 날짜·시각 그대로 되돌리려면 아래 «↩ 연기 취소».' : (_opt.canCancel === true ? ' 원래 시각이 이미 지나 «연기 취소» 는 할 수 없습니다.' : '')),
               '⏸ This class is <b>already postponed</b>. Pick a <b>new date & time</b> below and press «Apply» — it opens again at that time (this class only). To change <b>from now on</b>, do it next, on the rebooked class or the next class, with «🔄 Change».'
-                + (_opt.canCancel === true ? ' To go back to the original date and time, use «↩ Restore» below.' : ''))
+                + (canRestore ? ' To go back to the original date and time, use «↩ Restore» below.' : (_opt.canCancel === true ? ' The original time has passed, so it cannot be restored.' : '')))
           + '</div>' : '')
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
       +   mvBtn('postpone', pp ? T('📅 새 날짜로 <small style="font-weight:500">이번 한 번</small>', '📅 Rebook <small style="font-weight:500">this class</small>')
@@ -268,7 +270,7 @@
           + ((r.can_move === true || mvWeekly(r))
               ? T('수업 «취소» 는 본사 계정에서 합니다.', 'Cancelling a class is done by an HQ account.')
               : T('«취소» 는 날짜가 정해진 수업에서만 됩니다.', 'Cancel is offered only for a date-fixed class.')) + '</div>')
-      + (r.postponed === true && _opt.canCancel === true ? '<button type="button" id="tc-mv-restore" style="padding:6px 10px;background:#fff7ed;color:#b45309;border:1px solid #fcd9a8;border-radius:8px;cursor:pointer">' + T('↩ 연기 취소 (원래 날짜·시각)', '↩ Restore original date/time') + '</button>' : '')
+      + (canRestore ? '<button type="button" id="tc-mv-restore" style="padding:6px 10px;background:#fff7ed;color:#b45309;border:1px solid #fcd9a8;border-radius:8px;cursor:pointer">' + T('↩ 연기 취소 (원래 날짜·시각)', '↩ Restore original date/time') + '</button>' : '')
       + '<div id="tc-mv-msg" style="font-size:12.5px;font-weight:700;margin-top:10px;min-height:1em"></div>'
       + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">'
       +   '<button type="button" id="tc-mv-close" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:#f9fafb;color:#111827;cursor:pointer">' + T('닫기', 'Close') + '</button>'
