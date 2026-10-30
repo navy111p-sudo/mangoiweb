@@ -11974,7 +11974,7 @@ async function pdfLoad(url, kind) {
             disableStream: false
         }).promise;
     }
-    if (generation !== pdfLoadGeneration) return;
+    if (generation !== pdfLoadGeneration) return false;
     pdfDoc = nextDoc;
     window._vcCurrentPdfUrl = url;
     window._vcCurrentPdfKind = kind || '';
