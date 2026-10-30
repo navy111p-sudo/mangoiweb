@@ -41,7 +41,8 @@ import { loadTeacherStudentHistory, validHistoryDate } from './teacher-student-h
 import { normalizeTeacherLevelChoice, setStudentLevelByTeacher, levelScaleForPortal, teacherLevelScope, attachLevelScope, TEACHER_LEVEL_PAST_DAYS } from './teacher-student-level';   // 🎚 일지에서 학생 레벨 정하기(2026-10-27)
 import { buildPhoneGaps, PHONE_GAP_DAYS_MAX, SMS_MIN_DIGITS } from './phone-gaps';   // 📵 번호 없는 학생 — 강사판(2026-10-28)
 import { setOverridePhones } from './student-override';
-import { loadContactPhones } from './notify-contacts';   // ☎ 화면용 연락처 정본(2026-10-27) — 받아 둔 번호 → 명부 → 이탈위험 스냅샷
+import { loadContactPhones } from './notify-contacts';
+import { loadMyLoginDays } from './teacher-login-times';   // 🔐 내 로그인·접속 시각(2026-10-30)   // ☎ 화면용 연락처 정본(2026-10-27) — 받아 둔 번호 → 명부 → 이탈위험 스냅샷
 
 interface TeacherEnv {
   DB: D1Database;
@@ -268,6 +269,19 @@ export async function handleTeacherApi(
     // DB 실패를 «일지 없음» 으로 위장하지 않는다 — 화면의 실패 문구가 뜨게 한다.
     if (!rs) return json({ ok: false, error: 'db_error' }, 500);
     return json({ ok: true, items: rs.results || [] });
+  }
+
+  /* 🔐 `?part=my_login` — «내 로그인·접속 시각» 카드 (2026-10-30 매니저 제안 «add teacher's log in time»)
+   *  [왜 여기] my_evals 와 같은 이유 — 새 경로를 만들면 index.ts 게이트에 또 등록해야 하고 신원도 두 벌이 된다.
+   *  [누구 것] 로그인한 «자기» 계정만(actor.username). 클라이언트 값은 하나도 안 받는다.
+   *  [카드는 펼칠 때만 부른다] — 첫 화면 API 1회 계약. 정본 teacher-login-times.ts. */
+  if (url.searchParams.get('part') === 'my_login') {
+    try {
+      return json(await loadMyLoginDays(env, actor.username, Date.now()));
+    } catch (e: any) {
+      console.warn('[teacher-portal] my_login:', e?.message);
+      return json({ ok: false, error: 'db_error' }, 500);
+    }
   }
 
   const now = Date.now();

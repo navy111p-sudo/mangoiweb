@@ -667,6 +667,21 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
  .cls-name,.row b{font-size:19px}.cls-time{font-size:25px}
  .btn,.btn-sm{font-size:18px}.kpi b{font-size:32px}
 }
+/* 🔐 내 로그인·접속 시각 (2026-10-30) — 표는 «내용만큼» 넓히고 상자 안에서만 옆으로 민다.
+   ⛔ min-width 를 숫자로 박지 말 것 — 좁은 폭에서 글자가 낱글자로 쪼개진다(CLAUDE.md 2장). */
+.ml-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.ml-tbl{border-collapse:collapse;width:max-content;min-width:100%;font-size:13px}
+.ml-tbl th,.ml-tbl td{text-align:left;padding:6px 8px;border-top:1px solid #eaeef2;white-space:nowrap;vertical-align:top}
+.ml-tbl th{font-size:12px;color:#5d6b7a;font-weight:700;border-top:0}
+.ml-tbl tr.ml-today td{background:#f3f8ff}
+.ml-sub{display:block;font-size:12px;color:#5d6b7a}
+.ml-on{color:#15803d;font-weight:700}
+.ml-bad{color:#b45309;font-weight:700}
+html[data-t="dark"] .ml-tbl th,html[data-t="dark"] .ml-tbl td{border-color:#3a4859}
+html[data-t="dark"] .ml-tbl th,html[data-t="dark"] .ml-sub{color:#9dabb9}
+html[data-t="dark"] .ml-tbl tr.ml-today td{background:#1b2330}
+html[data-t="dark"] .ml-on{color:#86efac}
+html[data-t="dark"] .ml-bad{color:#fcd34d}
 </style>
 <!-- 🌙 저장된 테마를 **첫 페인트 전에** 적용한다. 본문 스크립트(문서 끝)에서 하면
      흰 화면이 한 번 번쩍인 뒤 어두워진다 — 새벽 근무 강사에게는 그 한 번이 눈부시다.
@@ -1019,6 +1034,14 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   <details class="card mycard" id="c-myevals" ontoggle="if(this.open)loadMyEvals()">
     <summary data-en="My class logs (what I wrote)" data-ko="내가 쓴 일지">My class logs (what I wrote)</summary>
     <div id="myevalBody" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
+  <!-- 🔐 (2026-10-30 매니저 제안 «add teacher's log in time») 내 로그인·접속 시각 — 최근 14일(한국 시간).
+       ⚠️ 펼칠 때만 부른다(첫 화면 API 1회 계약). 서버는 같은 포털 경로의 ?part=my_login(자기 계정만).
+       정본 src/teacher-login-times.ts — 매니저 화면 «강사 로그인 시각» 과 같은 판정. -->
+  <details class="card mycard" id="c-mylogin" ontoggle="if(this.open)loadMyLogin()">
+    <summary data-en="My login times (last 14 days)" data-ko="내 로그인·접속 시각 (최근 14일)">My login times (last 14 days)</summary>
+    <div id="myloginBody" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
   <!-- ⚠️ 여기 «Lesson reports» 는 강사가 쓴 일지가 아니다 — 수업 녹음으로 사무실이 만든
@@ -4223,7 +4246,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
   //      순간 방금 그린 표가 "펼치면 불러옵니다." 로 되돌아간다(이 화면의 알려진 함정).
   //      대신 언어가 바뀌면 repaintMy() 가 캐시로 다시 그린다.
   // ══════════════════════════════════════════════════════════════════════════
-  var MY = { pay:null, rate:null, insight:null, report:null, lt:null, myev:null };
+  var MY = { pay:null, rate:null, insight:null, report:null, lt:null, myev:null, mylogin:null };
   var myBusy = Object.create(null);
 
   function fill(id, html){
@@ -4503,6 +4526,60 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     fill('myevalBody', h);
   }
 
+  // ── 🔐 내 로그인·접속 시각 (2026-10-30) ─────────────────────────────────
+  //   서버(?part=my_login)가 «자기 계정» 의 최근 14일을 날짜별로 준다 — 판정은 서버 정본(teacher-login-times.ts).
+  //   «첫 접속» 은 로그인한 채로 다음 날 처음 쓴 시각도 포함한다(세션이 30일이라 매일 로그인하지 않는다).
+  window.loadMyLogin = function(){
+    if (MY.mylogin) { paintMyLogin(); return; }
+    loading('myloginBody');
+    myGet('mylogin', '/api/teacher/portal?part=my_login')
+      .then(function(j){ MY.mylogin = j; paintMyLogin(); }).catch(function(){ failed('myloginBody'); });
+  };
+  /* 한국 시간 HH:MM (필리핀 시간은 1시간 빠름) */
+  function mlTime(ms){
+    if (ms == null || !isFinite(Number(ms))) return '';
+    var k = new Date(Number(ms) + 9 * 3600000).toISOString().slice(11, 16);
+    var p = new Date(Number(ms) + 8 * 3600000).toISOString().slice(11, 16);
+    return k + ' (PH ' + p + ')';
+  }
+  function paintMyLogin(){
+    var j = MY.mylogin; if (!j) return;
+    var days = Array.isArray(j.days) ? j.days : [];
+    if (!days.length){ fill('myloginBody', '<div class="mini">' + esc(T('No records.','기록이 없습니다.')) + '</div>'); return; }
+    var wd = EN() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
+    var todayYmd = days[0].date;
+    var rows = days.map(function(d){
+      var w = wd[new Date(d.date + 'T00:00:00Z').getUTCDay()] || '';
+      var first = (d.state === 'login' || d.state === 'active') ? esc(mlTime(d.first_active_at))
+        : d.state === 'carried' ? esc(T('On since midnight','자정 넘어 계속 접속')) + '<span class="ml-sub">' + esc(mlTime(d.carried_at)) + '</span>'
+        : d.state === 'seen' ? esc(T('Used (start not recorded)','접속함 (시작 기록 없음)'))
+        : '—';
+      var login = d.login_count > 0
+        ? esc(mlTime(d.first_login_at)) + (d.login_count > 1 ? '<span class="ml-sub">' + esc(T(d.login_count + ' times', d.login_count + '회')) + '</span>' : '')
+        : '—';
+      var last = d.last_active_at != null
+        ? (d.online ? '<span class="ml-on">' + esc(T('🟢 Now','🟢 지금 접속 중')) + '</span>' : esc(mlTime(d.last_active_at)))
+        : '—';
+      var bad = d.failed_count > 0 ? '<span class="ml-bad">' + esc(T('⚠ ' + d.failed_count + ' failed', '⚠ 실패 ' + d.failed_count + '회')) + '</span>' : '';
+      return '<tr' + (d.date === todayYmd ? ' class="ml-today"' : '') + '><td><b>' + esc(d.date.slice(5)) + '</b> ' + esc(w) + '</td>'
+        + '<td>' + first + '</td><td>' + login + '</td><td>' + last + '</td><td>' + bad + '</td></tr>';
+    }).join('');
+    var h = '<div class="mini">' + esc(T('Korea time (KST); Philippine time in brackets. «First on» = the first time you used the site that day, including when you were still logged in. «Login» = real sign-ins only.',
+                                       '한국 시간(KST), 괄호는 필리핀 시간입니다. «첫 접속» = 그날 처음 사이트를 쓴 시각(로그인된 상태로 연 경우 포함). «로그인» = 실제로 아이디·비밀번호로 들어온 것만.')) + '</div>';
+    if (Array.isArray(j.partial) && j.partial.length) {
+      h += '<div class="mini ml-bad">' + esc(T('Some records could not be read — empty cells may be wrong. Please reopen later.',
+                                               '일부 기록을 읽지 못했습니다 — 빈 칸이 틀릴 수 있습니다. 잠시 뒤 다시 열어 주세요.')) + '</div>';
+    }
+    if (!j.first_seen_since || days[days.length - 1].date < j.first_seen_since) {
+      h += '<div class="mini">' + esc(T('«First on» is recorded from ' + (j.first_seen_since || 'today') + '. Earlier days show real logins only.',
+                                        '«첫 접속» 은 ' + (j.first_seen_since || '오늘') + ' 부터 기록됩니다. 그 전 날짜는 실제 로그인만 보입니다.')) + '</div>';
+    }
+    h += '<div class="ml-wrap"><table class="ml-tbl"><thead><tr><th>' + esc(T('Date','날짜')) + '</th><th>' + esc(T('First on','첫 접속'))
+      + '</th><th>' + esc(T('Login','로그인')) + '</th><th>' + esc(T('Last activity','마지막 활동')) + '</th><th></th></tr></thead><tbody>'
+      + rows + '</tbody></table></div>';
+    fill('myloginBody', h);
+  }
+
   // ── 🌟 성적표 승인 ────────────────────────────────────────────────────────
   //   ⚠️ 「승인」과 「학부모 발송」은 서버에서 **다른 단계**다(approve / send).
   //      여기서는 승인만 한다. 발송은 관리자가 한다 — 강사 손끝에서 학부모에게
@@ -4684,6 +4761,7 @@ html[data-t="dark"] .wk-none,html[data-t="dark"] .empty{color:#b9c7d5}
     if (MY.insight) paintInsight();
     if (MY.report) paintReports();
     if (MY.lt) paintLevelTests();
+    if (MY.mylogin) paintMyLogin();
   }
   window.__repaintMy = repaintMy;
 
