@@ -1583,9 +1583,9 @@ export async function handleAdminAuthApi(
       return json({ ok: true, enabled: false });
     }
 
-    // ── 🔐 강사 로그인·접속 시각 (2026-10-30 매니저 제안) — 본사 전용. 정본 teacher-login-times.ts ──
+    // ── 🔐 강사 로그인·접속 시각 (2026-10-30 매니저 제안) — 본사 전용. 판정 정본 teacher-login-times.ts · 게이트 teacher-login-list.ts ──
     //    ⚠️ 새 경로를 만들지 않고 이미 등록된 이 경로의 쿼리로 얹는다(src/index.ts 게이트 3곳 회피).
-    //    강사는 index.ts TEACHER_BLOCKED_PREFIXES 가 막고, 지사·대리점은 핸들러 안에서 다시 읽어 막는다.
+    //    강사는 index.ts TEACHER_BLOCKED_PREFIXES 가 막고, 핸들러 안에서 admin_scope 를 다시 읽어 강사·지사·대리점을 한 번 더 막는다.
     if (path === '/api/admin/login-history' && method === 'GET' && url.searchParams.get('scope') === 'teachers') {
       return await handleTeacherLoginList(request, url, env, {
         actorOf: getAdminActor,

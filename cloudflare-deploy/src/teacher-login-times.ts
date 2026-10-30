@@ -30,7 +30,7 @@
 
    [누가 볼 수 있나]
      · 강사 목록 — 본사만(GET /api/admin/login-history?scope=teachers). 강사는 index.ts 가 그 경로를 막고,
-       지사·대리점은 여기서 admin_scope 를 «다시 읽어» 막는다(못 읽으면 막는다 — org-scope-guard).
+       지사·대리점(그리고 actor 가 흔들린 날의 강사)은 teacher-login-list.ts 가 admin_scope 를 «다시 읽어» 막는다(못 읽으면 막는다).
      · 자기 기록 — 강사 포털 GET /api/teacher/portal?part=my_login (자기 계정만, 클라이언트 값 안 믿음).
      ⛔ IP·기기 정보는 싣지 않는다 — 출근 시각을 보려는 화면이지 보안 감사 화면이 아니다.
 
