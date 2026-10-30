@@ -364,6 +364,7 @@
   "/js/adm-core.js?v=2610282-cthq": "7eb409e36f328b5a",
   "/js/adm-core.js?v=2610290-enxlsx": "0c58a44dd00fdac1",
   "/js/adm-core.js?v=2610291-frbulk": "ff2632af38090b53",
+  "/js/adm-core.js?v=2610300-cp949": "2fc909d2d74ceb76",
   "/js/adm-core.js?v=27": "3eec451a1bbe8dc3",
   "/js/adm-core.js?v=28": "adcd6574b9fdc093",
   "/js/adm-core.js?v=29": "7fe213ff2b5b9627",
@@ -847,6 +848,7 @@
   "/js/adm-scope-guard.js?v=1": "4f7eb7bc6281f984",
   "/js/adm-scope-guard.js?v=2": "3d648ba2bb7c4c7e",
   "/js/adm-student-bulk.js?v=1": "eb5e45298f46a58a",
+  "/js/adm-student-bulk.js?v=2": "a5d7718a2fa77a3c",
   "/js/adm-student-track.js?v=1": "b12d222bf3c4295e",
   "/js/adm-student-track.js?v=2": "9467a26cf694e957",
   "/js/adm-tcontact.js?v=1": "9355dfc1da0f3c48",
@@ -993,6 +995,7 @@
   "/js/avatar-visemes.js?v=5": "e24d11a71e2f610b",
   "/js/class-entry-domain.js?v=1": "3de9e8b3f4d8c622",
   "/js/class-move-modal.js?v=1": "d1c4899dc35bb523",
+  "/js/class-move-modal.js?v=10": "f594eb14f29633ad",
   "/js/class-move-modal.js?v=2": "87217eb2cbcab815",
   "/js/class-move-modal.js?v=3": "ccf65723044a9825",
   "/js/class-move-modal.js?v=4": "361a7a3dbc8169c0",
@@ -1763,6 +1766,5 @@
   "/video-call/js/recorder.js?v=3": "57388328ad0b58f7",
   "/video-call/js/webrtc.js?v=20260805c": "7cadf5632b7bc206",
   "/video-call/js/webrtc.js?v=20260805d": "8ab78fa3a1291105",
-  "/video-call/js/whiteboard.js?v=20260805c": "97c63a2d61546afd",
-  "/js/class-move-modal.js?v=10": "f594eb14f29633ad"
+  "/video-call/js/whiteboard.js?v=20260805c": "97c63a2d61546afd"
 }

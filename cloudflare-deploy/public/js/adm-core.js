@@ -11229,7 +11229,11 @@ async function importEnrollmentFromFile() {
     alert('옛 엑셀(.xls 97-2003) 형식은 읽지 못합니다. 엑셀에서 「다른 이름으로 저장 → Excel 통합 문서(.xlsx)」 또는 「CSV UTF-8」로 저장해 올려 주세요.\nOld .xls (97-2003) is not supported — save as .xlsx or CSV UTF-8.');
     return;
   }
-  try { text = await file.text(); }
+  // 2026-10-30: 엑셀이 «CSV(쉼표로 분리)» 로 저장하면 CP949 라 file.text() 로 한글이 깨진다 — 학생 단체 등록의 decodeText(UTF-8 엄격 → euc-kr)를 빌린다
+  try {
+    const B = window.__smBulk;
+    text = (B && typeof B.decodeText === 'function') ? B.decodeText(await file.arrayBuffer()) : await file.text();
+  }
   catch (e) { alert('파일 읽기 실패: ' + e.message); return; }
   let records = [];
   // 자동 감지 우선 — HTML 태그가 있으면 어떤 확장자든 표 파서로 처리
