@@ -154,6 +154,10 @@ console.log('⑥-2 집중교정 음성 순서 — 교정 문장이 답장보다 
   ok('"Let\'s say it this way" 가 교정 문장 뒤·답장 앞', out.indexOf("Let's say it this way") > fixAt && out.indexOf("Let's say it this way") < replyAt);
   const repeats = out.split('"I went to the park yesterday"').length - 1;
   ok('교정 문장은 모두 4번 (앞 1 + 반복 3)', repeats === 1 + H.FOCUSED_FIX_REPEATS && H.FOCUSED_FIX_REPEATS === 3, repeats);
+  // 정확히 3번: "Let's say it this way" 뒤 ~ "Can you say it with me?" 사이에 교정 문장이 정확히 3번
+  const seg = out.slice(out.indexOf("Let's say it this way"), out.indexOf('Can you say it with me?'));
+  const inSeg = seg.split('"I went to the park yesterday"').length - 1;
+  ok('"Let\'s say it this way" 뒤 반복 구간에 교정 문장이 정확히 3번', inSeg === 3, inSeg);
   ok('답장에 이미 교정이 있어도 순서는 같다', H.ensureFocusedFixSpoken('Good. I went to the park yesterday. Where?', 'focused', 'partial', FIX).startsWith('"I went to the park yesterday"'));
   ok('완벽이면 건드리지 않는다', H.ensureFocusedFixSpoken(REPLY, 'focused', 'perfect', FIX) === REPLY);
   ok('자유대화·균형이면 건드리지 않는다', H.ensureFocusedFixSpoken(REPLY, 'free_talk', 'partial', FIX) === REPLY && H.ensureFocusedFixSpoken(REPLY, 'balanced', 'partial', FIX) === REPLY);
