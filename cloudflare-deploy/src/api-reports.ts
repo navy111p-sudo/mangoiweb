@@ -10,13 +10,16 @@ import { computeGrowthForStudent } from './api-judgment';  // 🧠 판단력 성
 import type { MangoEnv } from './api-mango';
 
 import { ATTENDANCE_BY_UID, attUidBinds } from './attendance-uid';
+import { SITE_ORIGIN } from './site-url';   // 🔗 사람에게 나가는 링크는 한 곳에서 (CLAUDE.md 0장)
 import { warmupCountsBetween } from './warmup-parent';   // 👪 웜업 횟수(2026-10-02 P4)
 // ═══════════════════════════════════════════════════════════════════════
 // 📊 월간 AI 레포트 — 공용 헬퍼 (생성 + AI + 카카오 발송 + 월간 배치)
 //   엔드포인트: /api/admin/monthly-report/{generate,send,list}, /api/report/monthly-view
 //   Cron(scheduled)에서 runMonthlyReports() 호출.
 // ═══════════════════════════════════════════════════════════════════════
-const MONTHLY_SITE_ORIGIN = 'https://webrtc-unified-platform.navy111p.workers.dev';
+// ⛔ 여기에 워커 주소(*.workers.dev)를 다시 박지 마세요 — 학부모에게 나가는 링크라
+//    갈린 워커 주소를 주면 그 사람의 로그인(쿠키·localStorage)이 통째로 다른 오리진이 됩니다.
+const MONTHLY_SITE_ORIGIN = SITE_ORIGIN;
 
 function _monthlyToken(): string {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Date.now().toString(36);

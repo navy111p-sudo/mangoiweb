@@ -18,6 +18,7 @@ import { sendKakaoAlimtalk } from './solapi-client';
 import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 import { franchiseInClause } from './d1-chunk';   // 🔒 지사 목록 IN 조각 (D1 바인드 한도 처리 포함)
 import { type Scope, getScope, franchiseList } from './scope';   // 🔒 스코프 판정은 scope.ts 한 곳에서만
+import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 
 interface Env {
   DB: D1Database;
@@ -312,7 +313,7 @@ async function sendBriefing(env: Env): Promise<Response> {
     '#{어제매출}': fmtMan(d.revYday), '#{어제비용}': fmtMan(d.costYday), '#{어제순익}': fmtMan(d.netYday),
     '#{월매출}': fmtMan(d.revMonth), '#{월비용}': fmtMan(d.costMonth), '#{월순익}': fmtMan(d.netMonth),
   };
-  const smsText = `[망고아이 경영브리핑] ${dateLabel}\n재원생 ${d.active}명(월신규+${d.newMonth})\n어제 매출 ${fmtMan(d.revYday)}/비용 ${fmtMan(d.costYday)}/순익 ${fmtMan(d.netYday)}\n이달 매출 ${fmtMan(d.revMonth)}/순익 ${fmtMan(d.netMonth)}\n대시보드 https://webrtc-unified-platform.navy111p.workers.dev/admin/exec`;
+  const smsText = `[망고아이 경영브리핑] ${dateLabel}\n재원생 ${d.active}명(월신규+${d.newMonth})\n어제 매출 ${fmtMan(d.revYday)}/비용 ${fmtMan(d.costYday)}/순익 ${fmtMan(d.netYday)}\n이달 매출 ${fmtMan(d.revMonth)}/순익 ${fmtMan(d.netMonth)}\n대시보드 ${siteUrl('/admin/exec')}`;   // ⛔ 워커 주소(*.workers.dev)를 다시 박지 마세요 — 받는 사람 로그인이 갈립니다
   const templateCode = (env as any).SOLAPI_TEMPLATE_EXEC_BRIEFING || '';
   const results: any[] = [];
   for (const r of recips) {

@@ -244,6 +244,74 @@ for (const [file, label] of DOCS) {
     !/운영 주소[^\n]*mango-i\.com/.test(md));
 }
 
+// ── ⑥ 갈린 워커 주소를 손으로 적어 두던 세 자리 (2026-10-30) ──────────
+/* 2026-08-25 class-895 사고(학생·강사가 같은 방 번호인데 서로 못 봄)를 조사하다 찾았다.
+   그 사고의 뿌리는 «워커가 두 벌이라 DO 가 갈린다» 인데, 그 갈린 워커 주소
+   `webrtc-unified-platform.navy111p.workers.dev` 를 **사람에게 그대로 건네주는 자리가
+   셋** 남아 있었다. 거기로 들어가면 오리진이 달라 로그인(교사 쿠키는 호스트 전용,
+   학생 mangoi_logged_user·mango_token 은 localStorage)이 통째로 갈리고, 수업이면
+   «같은 방 번호인데 다른 교실» 이 그대로 재현된다.
+
+   ②절은 «문자를 보내는 모듈» 만 보고 있어서 이 셋을 한 번도 안 봤다. 그래서 따로 둔다.
+
+   ⛔ 이 절을 «src/public 전체에 workers.dev 가 없다» 로 넓히지 마세요 —
+      CSP frame-ancestors·open-redirect 허용목록·아바타 TTS 처럼 **일부러** 워커 주소를
+      쓰는 자리가 실재합니다(src/index.ts·eleader-trial-site.ts). 넓히면 멀쩡한 코드가
+      빨간불이 됩니다. 여기서 묻는 것은 «사람에게 건네주는 그 세 자리» 뿐입니다. */
+console.log('\n[ ⑥ 월간 리포트·경영 브리핑·학생 상세가 갈린 워커 주소를 건네지 않는다 ]');
+
+const SPLIT_WORKER = /webrtc-unified-platform(?:-prod)?\.navy111p\.workers\.dev/;
+
+/* ⑥-1 월간 AI 레포트 → 학부모 (api-reports.ts) */
+{
+  const code = codeOnly(SRC('api-reports.ts'));
+  check('월간 AI 레포트 (api-reports.ts) — site-url 을 가져온다',
+    /from '\.\/site-url'/.test(code), '가져오는 줄이 없다');
+  check('월간 AI 레포트 — 기본 주소가 SITE_ORIGIN 이다',
+    /MONTHLY_SITE_ORIGIN\s*=\s*SITE_ORIGIN\s*;/.test(code),
+    '손으로 적은 주소가 남아 있다');
+  /* 짝 — 상수만 바꾸고 쓰는 곳을 지우면 링크가 통째로 사라진다. */
+  check('월간 AI 레포트 — 그 기본 주소를 실제로 쓴다 (origin 이 없을 때의 폴백)',
+    /origin\s*\|\|\s*MONTHLY_SITE_ORIGIN/.test(code));
+  check('월간 AI 레포트 — ⛔ 갈린 워커 주소가 코드에 없다',
+    !SPLIT_WORKER.test(code));
+}
+
+/* ⑥-2 경영 브리핑 문자 → 경영진 (exec-summary.ts) */
+{
+  const code = codeOnly(SRC('exec-summary.ts'));
+  check('경영 브리핑 (exec-summary.ts) — site-url 을 가져온다',
+    /from '\.\/site-url'/.test(code), '가져오는 줄이 없다');
+  check('경영 브리핑 — 대시보드 링크를 siteUrl() 로 만든다',
+    /대시보드 \$\{siteUrl\('\/admin\/exec'\)\}/.test(code),
+    '손으로 적은 주소가 남아 있다');
+  /* 짝 — 링크를 통째로 빼도 «워커 주소가 없다» 는 통과한다. 링크 자체가 살아 있어야 한다. */
+  check('경영 브리핑 — 문자에 대시보드 링크가 그대로 들어 있다',
+    /smsText\s*=[\s\S]{0,600}?대시보드 /.test(code));
+  check('경영 브리핑 — ⛔ 갈린 워커 주소가 코드에 없다',
+    !SPLIT_WORKER.test(code));
+}
+
+/* ⑥-3 관리자 › 학생 상세 머리글 링크 (public/admin/student.html)
+   정적 HTML 이라 site-url.ts 를 가져올 수 없다. 그리고 이건 «남에게 보내는 링크» 가 아니라
+   «지금 이 화면에서 옮겨 가는 주소» 다 — CLAUDE.md 가 그런 자리는 **상대경로**로 두라고
+   못 박았다(절대 주소를 박으면 지금 보고 있는 사람의 로그인이 갈린다). */
+{
+  let html = '';
+  try { html = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin/student.html'), 'utf8'); }
+  catch {}
+  const htmlCode = html.replace(/<!--[\s\S]*?-->/g, '');   // 주석에 적어 둔 ⛔ 설명이 걸리면 안 된다
+  check('학생 상세 (admin/student.html) — 읽을 수 있다', html.length > 0);
+
+  const tag = htmlCode.match(/<a\s[^>]*class="brand"[^>]*>/);
+  check('학생 상세 — 머리글 망고아이 링크가 그대로 있다', !!tag);
+  const href = tag ? (tag[0].match(/href="([^"]*)"/) || [])[1] : null;
+  check('학생 상세 — 그 링크가 상대경로다 (오리진을 안 바꾼다)',
+    href === '/', '실제 href: ' + String(href));
+  check('학생 상세 — ⛔ 갈린 워커 주소가 화면에 없다',
+    !SPLIT_WORKER.test(htmlCode));
+}
+
 console.log('\n────────────────────────────────');
 console.log(`총 ${PASS + FAIL}건 중 ✅ ${PASS} 통과 / ❌ ${FAIL} 실패`);
 if (FAIL) { console.log('실패:'); FAILS.forEach((f) => console.log('  - ' + f)); }
