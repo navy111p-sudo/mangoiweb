@@ -34,13 +34,12 @@
      · 자기 기록 — 강사 포털 GET /api/teacher/portal?part=my_login (자기 계정만, 클라이언트 값 안 믿음).
      ⛔ IP·기기 정보는 싣지 않는다 — 출근 시각을 보려는 화면이지 보안 감사 화면이 아니다.
 
-   ⚠️ 이 파일은 auth-admin.ts 를 «직접» import 하지 않는다 — 역할 판정·세션 확인은 부르는 쪽이 함수로 넘겨준다.
-      다만 org-scope-guard 가 auth-admin 의 isOrgScopedRole 을 import 하므로 간접 고리는 있다
-      (auth-admin → 이 파일 → org-scope-guard → auth-admin). 그 함수는 모듈을 불러올 때 호출되지 않아 동작상 무해하다.
+   ⚠️ 이 파일은 d1-chunk 말고는 아무것도 import 하지 않는다 — 역할 판정은 부르는 쪽이 함수로 넘겨준다.
+      강사 포털(api-teacher.ts)이 이 파일을 부르므로, 관리자 게이트(org-scope-guard → auth-admin)를 여기서 끌어오면
+      강사 포털이 그 고리까지 짊어진다(실제로 auth-admin 을 스텁하는 하니스의 번들이 깨졌다 — 2026-10-30 CI).
+      본사 목록 «경로 처리»(게이트 포함)는 teacher-login-list.ts 에 따로 둔다.
    ═══════════════════════════════════════════════════════════════════════════ */
 import { selectInChunks } from './d1-chunk';
-import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
-import { forbiddenTeacherBody } from './forbidden-teacher';
 
 const KST = 9 * 3600 * 1000;
 const DAY = 86400000;
@@ -196,7 +195,7 @@ export function loginDayOrder(a: any, b: any): number {
 
 /* ── 로더 ──────────────────────────────────────────────────────────────── */
 
-type RoleOf = (scopeType: string, username: string, name: string) => string;
+export type RoleOf = (scopeType: string, username: string, name: string) => string;
 
 /** 강사 계정 목록 — 역할 판정은 부르는 쪽이 넘긴 정본(resolveRole)으로만 한다. */
 async function teacherAccounts(db: any, roleOf: RoleOf): Promise<{ username: string; name: string }[]> {
@@ -341,40 +340,4 @@ export async function loadMyLoginDays(env: any, username: string, now: number, d
     out.push(summarizeLoginDay(ds, now, g.logins.get(u) || [], seen.get(kstYmd(ds)) || null, g.lastSeen.get(u) ?? null));
   }
   return { ok: true, username: u, now, days: out, partial: g.partial, first_seen_since: await firstSeenRecordedSince(db) };
-}
-
-/* ── 본사용 목록 API (auth-admin.ts 가 GET /api/admin/login-history?scope=teachers 에서 부른다) ── */
-
-type ActorOf = (request: Request, env: any) => Promise<{ ok: boolean; username: string; name: string; role: string; isTeacher: boolean }>;
-
-const noStore = (body: any, status = 200): Response => new Response(JSON.stringify(body), {
-  status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-});
-
-export async function handleTeacherLoginList(request: Request, url: URL, env: any,
-  deps: { actorOf: ActorOf; roleOf: RoleOf; now?: number }): Promise<Response> {
-  const actor = await deps.actorOf(request, env);
-  if (!actor.ok) return noStore({ ok: false, error: 'auth_required' }, 401);
-  // index.ts 가 강사에게 이 경로를 이미 막지만(TEACHER_BLOCKED_PREFIXES) 한 겹 더.
-  if (actor.isTeacher) return noStore(forbiddenTeacherBody({ username: actor.username, name: actor.name },
-    '강사 계정으로는 다른 강사의 로그인 기록을 볼 수 없습니다.', 'Teacher accounts cannot see other teachers\' login times.'), 403);
-  // 근거(admin_scope)를 «삼키지 않고» 다시 읽는다 — actor 는 스코프 조회가 흔들리면 'staff' 로 떨어진다.
-  const scope = await readScopeType(env, actor.username);
-  // ⚠️ 정본 판정은 강사 스코프('teacher')를 «hq» 로 통과시킨다 → 다시 읽은 근거로 강사를 한 번 더 막는다
-  //    (위 isTeacher 와 index.ts 차단이 둘 다 actor 에 기대므로, actor 가 흔들린 날에도 막히게).
-  if (scope === 'teacher') return noStore(forbiddenTeacherBody({ username: actor.username, name: actor.name },
-    '강사 계정으로는 다른 강사의 로그인 기록을 볼 수 없습니다.', 'Teacher accounts cannot see other teachers\' login times.'), 403);
-  // 지사·대리점(조직) — 못 읽으면 막는다(org-scope-guard).
-  const denied = orgScopeDenyResponse(orgScopeVerdict(scope, actor.role));
-  if (denied) return denied;
-  const now = deps.now ?? Date.now();
-  const ymd = String(url.searchParams.get('date') || '').trim() || kstYmd(now);
-  try {
-    const r = await loadTeacherLoginDay(env, ymd, now, deps.roleOf);
-    if (!r) return noStore({ ok: false, error: 'bad_date' }, 400);
-    return noStore(r);
-  } catch (e: any) {
-    console.warn('[teacher-login] list:', e?.message);
-    return noStore({ ok: false, error: 'load_failed' }, 500);
-  }
 }

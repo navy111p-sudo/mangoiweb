@@ -22,7 +22,8 @@ import { sendPlainSms } from './solapi-client';
 import { sendEmail, getEmailMode, emailLayout } from './email';
 import { authUidFromRequest } from './auth-token';   // 🔐 소유자 검증(단방향 의존: auth-admin → auth-token)
 import { legacyLoginEnabled, verifyLegacyLmsLogin, lookupTeacherByLoginId, provisionTeacherAccount, legacyProvisionGate } from './legacy-teacher-auth';
-import { dailySeenPlan, noteDailySeen, handleTeacherLoginList } from './teacher-login-times';   // 🔐 강사 첫 접속·로그인 시각(2026-10-30)
+import { dailySeenPlan, noteDailySeen } from './teacher-login-times';
+import { handleTeacherLoginList } from './teacher-login-list';   // 🔐 강사 첫 접속·로그인 시각(2026-10-30)
 
 export interface AuthEnv {
   DB: D1Database;

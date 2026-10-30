@@ -109,7 +109,9 @@ emit('teacher-login-times', read(path.join(SRC, 'teacher-login-times.ts')));
 emit('d1-chunk', read(path.join(SRC, 'd1-chunk.ts')));
 emit('org-scope-guard', read(path.join(SRC, 'org-scope-guard.ts')), { 'auth-admin': 'auth-stub' });
 emit('forbidden-teacher', read(path.join(SRC, 'forbidden-teacher.ts')));
+emit('teacher-login-list', read(path.join(SRC, 'teacher-login-list.ts')));
 const M = await import(pathToFileURL(path.join(tmp, 'teacher-login-times.mjs')).href);
+const L = await import(pathToFileURL(path.join(tmp, 'teacher-login-list.mjs')).href);
 const resolveRole = new Function(strip(resolveRoleFn.text) + '\nreturn resolveRole;')();
 
 /* ── D1 모양의 진짜 SQLite ── */
@@ -172,8 +174,17 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 /* ═════════════════════════════════════════════════════════════════════════ */
 sec('⓪ 전제 — 오려 내기가 됐는가');
 ok('auth-admin 에서 isOrgScopedRole·resolveRole 을 오려 냈다', !!isOrgFn && !!resolveRoleFn);
-ok('정본 모듈을 불러왔다(필요한 함수가 다 있다)', ['dailySeenPlan', 'noteDailySeen', 'summarizeLoginDay', 'loadTeacherLoginDay', 'loadMyLoginDays', 'handleTeacherLoginList', 'ymdStart', 'kstDayStart']
-  .every(k => typeof M[k] === 'function'));
+ok('정본 모듈을 불러왔다(필요한 함수가 다 있다)', ['dailySeenPlan', 'noteDailySeen', 'summarizeLoginDay', 'loadTeacherLoginDay', 'loadMyLoginDays', 'ymdStart', 'kstDayStart']
+  .every(k => typeof M[k] === 'function') && typeof L.handleTeacherLoginList === 'function');
+{
+  // 강사 포털(api-teacher.ts)이 정본을 부르므로, 정본은 관리자 게이트 고리(org-scope-guard → auth-admin)를 끌어오면 안 된다.
+  // (2026-10-30 CI — auth-admin 을 스텁하는 teacher_page_problem_260807_runtime 하니스의 번들이 그 고리 때문에 깨졌다)
+  const T = read(path.join(SRC, 'teacher-login-times.ts'));
+  const live = T.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  const froms = [...live.matchAll(/^\s*import\b[^;]*?from\s+'([^']+)'/gm)].map(m => m[1]);
+  ok('정본 teacher-login-times.ts 는 d1-chunk 만 import 한다(강사 포털이 관리자 게이트를 짊어지지 않게)', froms.length === 1 && froms[0] === './d1-chunk', froms);
+  ok('(전제) 정본 파일을 읽었고 주석을 벗긴 사본이 비지 않았다', T.length > 5000 && live.length > T.length * 0.4, { T: T.length, live: live.length });
+}
 ok('resolveRole 이 강사·본사·지사를 가른다(이 하니스가 쓰는 판정이 정본 그대로)',
   resolveRole('teacher', 'x', '').role === 'teacher' && resolveRole('hq', 'boss', '대표').role === 'hq' && resolveRole('branch', 'b', '').role === 'branch');
 
@@ -469,7 +480,7 @@ function oTeacherList(db, ymd, now) {
   const db = freshDb(); seedAccounts(db); const env = { DB: d1(db) };
   const url = new URL('https://x/api/admin/login-history?scope=teachers&date=2026-10-30');
   const roleOf = (st, u, n) => resolveRole(st, u, n).role;
-  const call = (actor, u = url) => M.handleTeacherLoginList(new Request(u), u, env, { actorOf: async () => actor, roleOf, now: kst('2026-10-30', '12:00') });
+  const call = (actor, u = url) => L.handleTeacherLoginList(new Request(u), u, env, { actorOf: async () => actor, roleOf, now: kst('2026-10-30', '12:00') });
   const r401 = await call({ ok: false, username: '', name: '', role: 'none', isTeacher: false });
   ok('로그인 안 함 → 401', r401.status === 401);
   const rT = await call({ ok: true, username: 'mangoi_167', name: 'Teacher Kaye', role: 'teacher', isTeacher: true });
@@ -499,7 +510,7 @@ function oTeacherList(db, ymd, now) {
   const bN = await (await call({ ok: true, username: 'mgr_karl', name: 'Karl', role: 'hq', isTeacher: false }, noDate)).json();
   ok('날짜 없으면 오늘(KST)', bN.date === '2026-10-30');
   const throwEnv = { DB: { prepare() { throw new Error('d1 down'); } } };
-  const rX = await M.handleTeacherLoginList(new Request(url), url, throwEnv, { actorOf: async () => ({ ok: true, username: 'mgr_karl', name: 'Karl', role: 'hq', isTeacher: false }), roleOf });
+  const rX = await L.handleTeacherLoginList(new Request(url), url, throwEnv, { actorOf: async () => ({ ok: true, username: 'mgr_karl', name: 'Karl', role: 'hq', isTeacher: false }), roleOf });
   ok('DB 가 죽으면 «0명» 이 아니라 막거나 실패로 말한다', rX.status === 403 || rX.status === 500);
   // 부분 실패 — 로그인 기록만 못 읽으면 partial 에 이름이 실린다(빈 칸을 «없음» 으로 위장하지 않음)
   const partEnv = { DB: { prepare(sql) { if (/admin_login_history/.test(sql)) throw new Error('x'); return d1(db).prepare(sql); } } };
@@ -654,9 +665,10 @@ if (process.env.TLT_MUTATE === '1' && !process.env.TLT_IN_MUTATION) {
     ['src', 'teacher-login-times.ts', 'const carried = now - prevSeen <= CARRY_GAP_MS;', 'const carried = now - prevSeen > CARRY_GAP_MS;', '이어짐 판정 뒤집기'],
     ['src', 'teacher-login-times.ts', 'first_seen_at = COALESCE(MIN(admin_daily_seen.first_seen_at, excluded.first_seen_at), admin_daily_seen.first_seen_at, excluded.first_seen_at)', 'first_seen_at = excluded.first_seen_at', '두 번째 세션이 더 늦은 시각으로 덮어씀'],
     ['src', 'teacher-login-times.ts', "if (roleOf(String(r?.scope_type || 'none'), u, String(r?.name || '')) !== 'teacher') continue;", '', '본사·지사·직원까지 목록에 나옴'],
-    ['src', 'teacher-login-times.ts', "  const denied = orgScopeDenyResponse(orgScopeVerdict(scope, actor.role));\n  if (denied) return denied;", '', '지사·대리점 게이트 제거'],
-    ['src', 'teacher-login-times.ts', "  if (scope === 'teacher') return", "  if (false && scope === 'teacher') return", '강사 스코프 재확인 무력화(actor 가 staff 로 떨어진 날 강사가 통과)'],
-    ['src', 'teacher-login-times.ts', '  if (actor.isTeacher) return', '  if (false && actor.isTeacher) return', '강사 게이트 무력화'],
+    ['src', 'teacher-login-list.ts', "  const denied = orgScopeDenyResponse(orgScopeVerdict(scope, actor.role));\n  if (denied) return denied;", '', '지사·대리점 게이트 제거'],
+    ['src', 'teacher-login-list.ts', "  if (scope === 'teacher') return", "  if (false && scope === 'teacher') return", '강사 스코프 재확인 무력화(actor 가 staff 로 떨어진 날 강사가 통과)'],
+    ['src', 'teacher-login-list.ts', '  if (actor.isTeacher) return', '  if (false && actor.isTeacher) return', '강사 게이트 무력화'],
+    ['src', 'teacher-login-times.ts', "import { selectInChunks } from './d1-chunk';\n", "import { selectInChunks } from './d1-chunk';\nimport { readScopeType } from './org-scope-guard';\n", '정본이 관리자 게이트 고리를 다시 끌어옴'],
     ['src', 'teacher-login-times.ts', 'now - lastActive <= ONLINE_MS', 'now - lastActive <= 60 * ONLINE_MS', '«지금 접속 중» 창을 3시간으로'],
     ['src', 'teacher-login-times.ts', "    const d = summarizeLoginDay(dayStart, now, g.logins.get(a.username) || [],", "    const d = summarizeLoginDay(dayStart, now, g.logins.get(users[0]) || [],", '남의 로그인 기록을 붙임'],
     ['src', 'teacher-login-times.ts', 'last_login_before: d.login_count > 0 ? null : before,', 'last_login_before: before,', '오늘 로그인이 있어도 «마지막 로그인» 을 겹쳐 실음'],
@@ -675,7 +687,7 @@ if (process.env.TLT_MUTATE === '1' && !process.env.TLT_IN_MUTATION) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tltm-'));
     const srcCopy = path.join(dir, 'src'), pubCopy = path.join(dir, 'public');
     fs.mkdirSync(srcCopy); fs.mkdirSync(pubCopy);
-    for (const f of ['teacher-login-times.ts', 'd1-chunk.ts', 'org-scope-guard.ts', 'forbidden-teacher.ts', 'auth-admin.ts', 'api-teacher.ts']) fs.copyFileSync(path.join(SRC, f), path.join(srcCopy, f));
+    for (const f of ['teacher-login-times.ts', 'teacher-login-list.ts', 'd1-chunk.ts', 'org-scope-guard.ts', 'forbidden-teacher.ts', 'auth-admin.ts', 'api-teacher.ts']) fs.copyFileSync(path.join(SRC, f), path.join(srcCopy, f));
     for (const f of ['manager.html', 'teacher.html']) fs.copyFileSync(path.join(PUB, f), path.join(pubCopy, f));
     const target = path.join(kind === 'src' ? srcCopy : pubCopy, file);
     const text = fs.readFileSync(target, 'utf8');
