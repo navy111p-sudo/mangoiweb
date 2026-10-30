@@ -1,3 +1,4 @@
+import {tmpdir as handoffTmp} from 'node:os';import {resolve as handoffResolve} from 'node:path';import {pathToFileURL as handoffURL,fileURLToPath as handoffFile} from 'node:url';
 // Internal engine integration only: release guard replaced in this mock build. staged.test.mjs tests the unmodified production entry.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -6,7 +7,7 @@ import {pathToFileURL} from 'node:url';
 import {fixture} from './fixture.mjs';
 const f=await fixture();
 const require=createRequire(f.root+'/cloudflare-deploy/package.json');
-const out='/tmp/eleader-worker-'+process.pid+'.mjs';
+const out=(handoffTmp()+'/eleader-worker-')+process.pid+'.mjs';
 await require('esbuild').build({entryPoints:[f.root+'/cloudflare-deploy/src/index.ts'],bundle:true,platform:'node',format:'esm',outfile:out,logLevel:'silent',plugins:[{name:'local-pilot-activation-only',setup(b){b.onResolve({filter:/^\.\/eleader-release$/},()=>({path:'local-release',namespace:'fixture'}));b.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export function eleaderStagedResponse(){return null}'}));}}]});
 const {default:worker}=await import(pathToFileURL(out));
 test('full existing Worker routes pilot to authenticated handler without external calls',async()=>{

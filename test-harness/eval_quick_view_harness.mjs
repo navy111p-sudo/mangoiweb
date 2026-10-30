@@ -214,14 +214,20 @@ const BRIEF = { id: 55, date: '2026-09-22', score: 5, max: 5, text: 'The student
 /* ── D. 클릭 위임 ──────────────────────────────────────────── */
 console.log('\n[D] 세 화면의 클릭 위임에 실제로 클릭을 쏜다');
 function delegSrc(src, label) {
-  // «[data-evq]» 를 찾는 위임 리스너를 품은 IIFE/함수 묶음 — evqOpen·open 정의 + addEventListener
+  // «[data-evq]» 를 찾는 위임 리스너를 품은 코드 묶음 — 불러오기·열기 정의 + addEventListener
   const k = src.indexOf("closest('[data-evq]')");
   if (k < 0) return '';
-  // 그 앞의 가장 가까운 «(function(» 또는 «function evqOpen(» 부터
-  let s = src.lastIndexOf('function evqOpen(', k);
-  if (s < 0) s = src.lastIndexOf('(function(){', k);
-  const end = src.indexOf('});', k);
-  return s >= 0 && end > k ? src.slice(s, end + 3) : '';
+  if (label === '관리자') {
+    // (2026-10-28) 불러오기가 evqLoad 로 갈라졌다 — 그것부터 오린다(옛 판은 evqOpen 부터)
+    let s = src.lastIndexOf('function evqLoad(', k);
+    if (s < 0) s = src.lastIndexOf('function evqOpen(', k);
+    const end = src.indexOf('});', k);
+    return s >= 0 && end > k ? src.slice(s, end + 3) : '';
+  }
+  // 매니저·강사: 그 리스너를 품은 <script> 블록(IIFE) 통째 — 안쪽 «load(function(){» 에 속지 않게
+  //   (2026-10-28 고치기·추가 배선이 IIFE 안에 «(function(){» 를 하나 더 만들었다)
+  const s = src.lastIndexOf('<script>', k), e = src.indexOf('</script>', k);
+  return s >= 0 && e > k ? src.slice(s + '<script>'.length, e) : '';
 }
 const VER = {};
 for (const [label, src, isAdm] of [['관리자', ADM, true], ['매니저', MGR, false], ['강사', TCH, false]]) {
@@ -234,8 +240,7 @@ for (const [label, src, isAdm] of [['관리자', ADM, true], ['매니저', MGR, 
   const win = {};
   const ctx = { window: win, document: d.document, alert: () => {}, console, localStorage: { getItem: () => null } };
   let code = body;
-  if (isAdm) code = 'function isEn(){ return true; } function T(ko,en){ return en; }\n' + body;
-  else code = body.replace(/^\(function\(\)\{/, '').replace(/\}\)\(\);?\s*$/, '');
+  if (isAdm) code = 'function isEn(){ return true; } function T(ko,en){ return en; } var _rows = [];\n' + body;
   try { vm.runInNewContext(code, ctx); } catch (e) { ok('D-0b ' + label + ' 위임 코드를 실행할 수 있다', false, e.message); continue; }
   const click = d.listeners.find((x) => x.t === 'click');
   ok('D-1 ' + label + ': document 에 click 위임이 걸린다', !!click);

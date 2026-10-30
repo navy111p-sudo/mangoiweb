@@ -356,7 +356,7 @@ if (process.env.B2B_CHILD === '1') {
   ok('S20 승인 중엔 여러 명 체크도 409', e20b.status === 409 && inc191() === 0, JSON.stringify(e20b));
   // 경합: 화면 확인(앞 검사)은 통과했는데 UPDATE 직전에 선점이 생기면 — DB 조건이 막는다
   sq.prepare(`UPDATE ai_billing_invoices SET confirming_order=NULL, confirming_at=NULL WHERE id=191`).run();
-  sqlHook = (sql) => { if (/SELECT student_user_id FROM ai_billing_invoice_items WHERE invoice_id/.test(sql)) { sq.prepare(`UPDATE ai_billing_invoices SET confirming_order='MGB-191-RACE-b', confirming_at=? WHERE id=191`).run(fresh()); sqlHook = null; } };
+  sqlHook = (sql) => { if (/SELECT student_user_id(, paid_order_id)? FROM ai_billing_invoice_items WHERE invoice_id/.test(sql)) { sq.prepare(`UPDATE ai_billing_invoices SET confirming_order='MGB-191-RACE-b', confirming_at=? WHERE id=191`).run(fresh()); sqlHook = null; } };
   const e20c = await admin('invoice/item', 'POST', { invoice_id: 191, student_user_id: '학원U_x', included: 1 });
   sqlHook = null;
   ok('S20 앞 검사 «뒤» 선점이 생겨도 UPDATE 가 막는다', e20c.status === 409 && inc191() === 0, JSON.stringify(e20c) + ' inc=' + inc191());
@@ -404,6 +404,74 @@ if (process.env.B2B_CHILD === '1') {
   /* ── 배선: 학원 화면이 «안 낸 달» 띠를 그린다 ── */
   const mh = readFileSync(join(REAL_SRC, '../public/manager.html'), 'utf8');
   ok('배선: manager.html 이 안 낸 달 목록을 그리고 고른 달을 보낸다', /function aibUnpaidBand\(/.test(mh) && /aibUnpaidBand\(j,/.test(mh) && /month=/.test(mh.slice(mh.indexOf('window.loadAiBill = function'), mh.indexOf('window.aiBillShowMonth'))));
+
+  /* ── S23 ➕ (2026-10-26 «1명 결제했다고 끝이 아니라 나머지도 이어서 결제») 낸 청구서에 «추가 결제» ──
+     첫 결제 → 낸 학생 표시 → 새 학생 체크 → 그 몫만 결제 → 이용권은 새 학생만 · 낸 학생은 못 뺌 · 더 낼 게 없으면 막힘 ·
+     추가분만 환불하면 그 학생만 되돌림 · 결제 점검은 정상 추가 결제를 이중결제로 안 잡음(짝: 붙지 않은 주문은 잡음) */
+  const paidMark = (inv, uid) => row(`SELECT paid_order_id FROM ai_billing_invoice_items WHERE invoice_id=? AND student_user_id=?`, inv, uid)?.paid_order_id ?? null;
+  const addKid = (inv, uid) => sq.prepare(`INSERT INTO ai_billing_invoice_items (invoice_id, student_user_id, student_name, included, created_at) VALUES (?, ?, ?, 0, ?)`).run(inv, uid, uid, NOW);
+  mgbInv(230, '학원Z', 1);
+  const z1 = newOrder('MGB', 230, 5000);
+  const rz1 = await confirm(z1, 5000);
+  ok('S23 첫 결제(1명) 성공 · 그 학생에 «낸 주문» 표시', rz1.body.ok === true && paidMark(230, '학원Z_s0') === z1, JSON.stringify(rz1.body) + ' mark=' + paidMark(230, '학원Z_s0'));
+  const gz = await admin('invoice?shop_name=' + encodeURIComponent('학원Z') + '&month=2026-11');
+  ok('S23 화면: 결제 완료 1명 · 낸 금액 5,000 (실제 낸 금액) · 추가 결제 열림', gz.body.invoice?.paid_count === 1 && gz.body.invoice?.paid_total_krw === 5000 && gz.body.invoice?.topup_open === true && gz.body.invoice?.owed_krw === 0, JSON.stringify(gz.body.invoice));
+  const zNone = newOrder('MGB', 230, 5000);
+  const rzN = await confirm(zNone, 5000);
+  ok('S23 짝: 새로 체크한 학생이 없으면 같은 청구서 재결제는 막힌다(이중결제 방지)', rzN.status === 409 && String(rzN.body.error || '').startsWith('invoice_already_paid') && chargesOf('MGB-230-') === 1, JSON.stringify(rzN.body));
+  addKid(230, '학원Z_new'); addKid(230, '학원Z_new2');
+  const az = await admin('invoice/items', 'POST', { invoice_id: 230, student_user_ids: ['학원Z_new', '학원Z_new2'], included: 1 });
+  ok('S23 낸 청구서에도 새 학생을 체크할 수 있다', az.status === 200 && az.body.ok === true && az.body.changed === 2, JSON.stringify(az));
+  const lz = await admin('invoice/item', 'POST', { invoice_id: 230, student_user_id: '학원Z_s0', included: 0 });
+  ok('S23 이미 낸 학생은 뺄 수 없다(409 student_already_paid) · 그대로 포함', lz.status === 409 && String(lz.body.error || '').startsWith('student_already_paid') && row(`SELECT included FROM ai_billing_invoice_items WHERE invoice_id=230 AND student_user_id='학원Z_s0'`)?.included === 1, JSON.stringify(lz));
+  const gz2 = await admin('invoice?shop_name=' + encodeURIComponent('학원Z') + '&month=2026-11');
+  ok('S23 화면: 추가로 낼 2명 · 더 낼 돈 10,000', gz2.body.invoice?.unpaid_count === 2 && gz2.body.invoice?.owed_krw === 10000, JSON.stringify(gz2.body.invoice));
+  const ck = await admin('invoice/checkout', 'POST', { invoice_id: 230 });
+  ok('S23 추가 결제 주문은 «늘어난 학생 몫» 만(10,000 · 추가 2명)', ck.body.ok === true && ck.body.amount === 10000 && /추가 2명/.test(ck.body.order_name || ''), JSON.stringify(ck.body));
+  const zOld = newOrder('MGB', 230, 5000);
+  const rzOld = await confirm(zOld, 5000);
+  ok('S23 금액이 다른 옛 주문은 막힌다(invoice_amount_changed)', rzOld.status === 409 && String(rzOld.body.error || '').startsWith('invoice_amount_changed'), JSON.stringify(rzOld.body));
+  const rz2 = await confirm(ck.body.order_id, 10000);
+  ok('S23 추가 결제 성공 · 이용권은 새 학생 2명만(낸 학생에게 또 안 만듦)', rz2.body.ok === true && enrolled(ck.body.order_id) === 2 && enrolled(z1) === 1 && cnt(`SELECT COUNT(*) FROM enrollments WHERE instr(notes,'MGB-230-')>0`) === 3, JSON.stringify(rz2.body) + ' n=' + enrolled(ck.body.order_id));
+  ok('S23 새 학생 줄에 추가 주문이 붙는다 · 첫 학생은 첫 주문 그대로', paidMark(230, '학원Z_new') === ck.body.order_id && paidMark(230, '학원Z_s0') === z1);
+  const gz3 = await admin('invoice?shop_name=' + encodeURIComponent('학원Z') + '&month=2026-11');
+  ok('S23 화면: 결제 완료 3명 · 낸 금액 합 15,000 · 더 낼 돈 0', gz3.body.invoice?.paid_count === 3 && gz3.body.invoice?.paid_total_krw === 15000 && gz3.body.invoice?.owed_krw === 0, JSON.stringify(gz3.body.invoice));
+  const hz = await admin('history?shop_name=' + encodeURIComponent('학원Z'));
+  ok('S23 지난 결제 이력도 낸 학생 3명 · 15,000', (hz.body.rows || []).some((r) => r.id === 230 && r.included_count === 3 && r.total_krw === 15000), JSON.stringify(hz.body.rows));
+  const au23 = await runPaymentAudit(env, {});
+  ok('S23 결제 점검: 학생에 붙은 추가 결제는 이중결제가 아니다', !(au23.b2bDup || []).some((x) => x.invoice_id === 230), JSON.stringify(au23.b2bDup));
+  cancelToss(ck.body.order_id, [[10000, 'tx-z2']]);
+  await webhook(ck.body.order_id);
+  ok('S23 추가분만 전액 환불 → 그 2명만 미결제로 · 청구서는 결제됨 그대로', row(`SELECT status, order_id FROM ai_billing_invoices WHERE id=230`)?.status === 'paid' && paidMark(230, '학원Z_new') == null && paidMark(230, '학원Z_s0') === z1, JSON.stringify(row(`SELECT status, order_id FROM ai_billing_invoices WHERE id=230`)));
+  ok('S23 환불한 추가분 이용권만 꺼진다 · 첫 결제 이용권은 그대로', enrolled(ck.body.order_id) === 0 && enrolled(z1) === 1);
+  cancelToss(z1, [[5000, 'tx-z1']]);
+  await webhook(z1);
+  ok('S23 남은 첫 결제까지 환불하면 청구서가 미결제로 돌아간다', row(`SELECT status, order_id FROM ai_billing_invoices WHERE id=230`)?.status === 'draft' && paidMark(230, '학원Z_s0') == null, JSON.stringify(row(`SELECT status, order_id FROM ai_billing_invoices WHERE id=230`)));
+  /* 옛 결제분(표시 전) — 처음 손대는 순간 «체크된 학생 = 그 주문이 낸 학생» 으로 채운다 */
+  mgbInv(231, '학원Z2', 2);
+  sq.prepare(`UPDATE ai_billing_invoices SET status='paid', paid_at=?, order_id='MGB-231-OLD-a' WHERE id=231`).run(NOW);
+  sq.prepare(`INSERT INTO payment_orders (order_id, program, amount, status, created_at, paid_at) VALUES ('MGB-231-OLD-a', 'b2b_ai_monthly', 10000, 'paid', ?, ?)`).run(NOW, NOW);
+  addKid(231, '학원Z2_new');
+  const ao = await admin('invoice/item', 'POST', { invoice_id: 231, student_user_id: '학원Z2_new', included: 1 });
+  ok('S23 옛 결제분: 새 학생 체크 전에 옛 학생 2명을 «낸 학생» 으로 채운다 · 새 학생은 안 냄', ao.body.ok === true && paidMark(231, '학원Z2_s0') === 'MGB-231-OLD-a' && paidMark(231, '학원Z2_s1') === 'MGB-231-OLD-a' && paidMark(231, '학원Z2_new') == null, JSON.stringify(ao));
+  const zo = newOrder('MGB', 231, 5000);
+  const rzo = await confirm(zo, 5000);
+  ok('S23 옛 결제분 청구서도 1명 몫(5,000)만 추가 결제 · 이용권 1명', rzo.body.ok === true && enrolled(zo) === 1, JSON.stringify(rzo.body));
+  /* 짝: 승인됐는데 어느 학생에게도 안 붙은 주문이 있으면(활성화 실패) 추가 결제를 막는다 · 점검이 잡는다 */
+  mgbInv(232, '학원Z3', 1);
+  const z3a = newOrder('MGB', 232, 5000);
+  await confirm(z3a, 5000);
+  sq.prepare(`INSERT INTO payment_orders (order_id, program, amount, status, created_at, paid_at) VALUES ('MGB-232-ORPH-b', 'b2b_ai_monthly', 5000, 'paid', ?, ?)`).run(NOW, NOW);
+  addKid(232, '학원Z3_new');
+  await admin('invoice/item', 'POST', { invoice_id: 232, student_user_id: '학원Z3_new', included: 1 });
+  const z3b = newOrder('MGB', 232, 5000);
+  const rz3 = await confirm(z3b, 5000);
+  ok('S23 짝: 학생에 안 붙은 승인 주문이 있으면 추가 결제를 막는다(invoice_check_failed)', rz3.status === 409 && String(rz3.body.error || '').startsWith('invoice_check_failed'), JSON.stringify(rz3.body));
+  const au23b = await runPaymentAudit(env, {});
+  ok('S23 짝: 결제 점검이 학생에 안 붙은 주문을 잡는다', (au23b.b2bDup || []).some((x) => x.invoice_id === 232), JSON.stringify(au23b.b2bDup));
+  /* 배선: 학원 화면이 낸 학생을 고정하고 나머지를 «추가 결제» 로 그린다 */
+  const pa = mh.slice(mh.indexOf('function paintAiBill'), mh.indexOf('function paintAiBill') + 12000);
+  ok('배선: manager.html 이 낸 학생(paid_order_id)·추가 결제 금액(owed_krw)을 그린다', /it\.paid_order_id/.test(pa) && /inv\.owed_krw/.test(pa) && /inv\.topup_open === true/.test(pa) && /inv\.paid_total_krw/.test(pa));
 
   /* ── S14 개인 결제(대리점 아님)는 문지기와 무관 ── */
   ok('S14 개인 주문번호는 대리점 주문이 아니다', guard.parseB2bOrder('MGD-ABC-123') === null && guard.parseB2bOrder('MGB-12-X')?.invoiceId === 12);

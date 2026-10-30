@@ -2152,7 +2152,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     }).catch(function(){ alert(T('Network error.', '네트워크 오류가 발생했습니다.')); if (btn) btn.disabled = false; });
   };
   /* 💰 (2026-09-24) 적용 단가·최소 청구·경계 보정 설명은 서버(ai-billing-price.ts)가 만든 글자를 그대로 그린다.
-     ⛔ 이 화면에서 인원 × 단가를 계산하지 말 것(구간·최소 20명분이 있어 반드시 틀린다).
+     ⛔ 이 화면에서 인원 × 단가를 계산하지 말 것(구간·경계 보정이 있어 반드시 틀린다 — 최소 청구는 2026-10-26 폐지).
      ⛔ 지사 커미션(branch_commission_krw)은 이 카드(학원 계정 전용)에 그리지 않는다 — 본사·지사 사이 금액이다. */
   function aiBillPriceRows(o){
     var note = T(o.price_note_en || '', o.price_note_ko || '');
@@ -2689,7 +2689,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       for (var i = 0; i < qs.length; i++) qs[i](got);
     };
     var sc = document.createElement('script');
-    sc.src = '/js/class-move-modal.js?v=9';
+    sc.src = '/js/class-move-modal.js?v=11';
     sc.onload = function(){ done(true); };
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);

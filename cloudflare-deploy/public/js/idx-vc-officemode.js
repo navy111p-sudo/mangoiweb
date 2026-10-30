@@ -305,9 +305,11 @@
   }
 
   function micConstraints(officeOn, id) {
+    var noise = true;
+    try { noise = localStorage.getItem('mangoi_vc_noise') !== '0'; } catch (_) {}
     var a = {
       echoCancellation: true,
-      noiseSuppression: true,
+      noiseSuppression: noise,
       /* ① 사무실 모드에서는 자동 게인을 끈다 — 말을 쉴 때 옆자리 소리를 키우는 주범이다. */
       autoGainControl: !officeOn,
       channelCount: 1
@@ -568,7 +570,9 @@
     if (typeof orig !== 'function' || orig.__officeWrapped) return;
     var wrapped = async function () {
       var wasOn = on;
-      if (wasOn) { teardown(); on = false; }   // 우리 체인을 먼저 접는다(그쪽이 옛 트랙을 stop 한다)
+      // Restore the actual input before the device/noise handler reads its settings.
+      // A WebAudio output has no physical deviceId (including a selected Krisp mic).
+      if (wasOn) await disable(true);
       var r;
       try { r = await orig.apply(this, arguments); }
       finally { if (wasOn) { try { await enable(false); } catch (e) {} } }   // 이어 가는 것 — 저장값을 새로 쓰지 않는다

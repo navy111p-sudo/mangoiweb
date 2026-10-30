@@ -4,6 +4,7 @@ import { verifyUidToken } from './auth-token';
 import { getAdminActor } from './auth-admin';
 import type { MangoEnv } from './api-mango';
 import { ELEADER_UNITS } from './eleader-pack';
+import { handleEleaderL1, ELEADER_L1_PREFIX } from './eleader-l1';
 
 type PilotEnv = MangoEnv & { ELEADER_PILOT?: string };
 const prefix = '/api/ai/eleader/';
@@ -30,11 +31,14 @@ async function body(request: Request): Promise<Record<string, unknown>> {
 /** Default off. No AI, speech upload, recording, schema creation or membership provisioning. */
 export async function handleEleaderApi(request: Request, url: URL, env: PilotEnv, engines?: EleaderEngines): Promise<Response | null> {
   if (!url.pathname.startsWith(prefix)) return null;
+  // Level 1 기본과정은 시범판 스위치(ELEADER_PILOT)와 별개 — 허용 학생 목록으로 막는다(eleader-l1.ts).
+  if (url.pathname.startsWith(ELEADER_L1_PREFIX)) return handleEleaderL1(request, url, env as any, engines?.warm ? r => engines.warm!(r) : undefined);
   if (env.ELEADER_PILOT !== 'on') return reply({ error: 'pilot_disabled' }, 404);
   if (!['GET', 'POST'].includes(request.method)) return reply({ error: 'method_not_allowed' }, 405);
   if (request.method === 'POST' && request.headers.get('Origin') !== url.origin) return reply({ error: 'same_origin_required' }, 403);
   const academy = url.searchParams.get('academy') || '';
-  if (!/^[a-z0-9-]{1,64}$/.test(academy)) return reply({ error: 'invalid_academy' }, 400);
+  const action = url.pathname.slice(prefix.length);
+  if (action !== 'entry' && !/^[a-z0-9-]{1,64}$/.test(academy)) return reply({ error: 'invalid_academy' }, 400);
   try {
     // A supplied student identity never falls back to an administrator cookie.
     const authorization = request.headers.get('Authorization');
@@ -49,11 +53,17 @@ export async function handleEleaderApi(request: Request, url: URL, env: PilotEnv
     }
     if (!subject) return reply({ error: 'login_required' }, 401);
     if (request.headers.has('X-Eleader-Subject') && request.headers.get('X-Eleader-Subject') !== subject) return reply({ error: 'identity_changed' }, 409);
+    // Discover only explicitly provisioned memberships. Never infer tenant from a
+    // client display name, URL academy, username prefix or an ERP label match.
+    if (action === 'entry') {
+      if (request.method !== 'GET') return reply({error:'method_not_allowed'},405);
+      const rows = await env.DB.prepare(`SELECT a.id, a.name FROM eleader_members m JOIN eleader_academies a ON a.id=m.academy_id WHERE m.kind=? AND m.subject=? AND m.role=? AND a.enabled=1 ORDER BY a.id`).bind(kind,subject,kind==='student'?'student':'director').all<{id:string;name:string}>();
+      return reply({subject,entries:rows.results.filter(a=>/^[a-z0-9-]{1,64}$/.test(a.id)).map(a=>({academy:a.id,name:a.name,role:kind==='student'?'student':'director',href:'/eleader-pilot.html?academy='+encodeURIComponent(a.id)+(kind==='admin'?'&view=director':'')}))});
+    }
     const member = await env.DB.prepare(`SELECT m.role, a.name, a.enabled FROM eleader_members m JOIN eleader_academies a ON a.id=m.academy_id WHERE m.academy_id=? AND m.kind=? AND m.subject=?`).bind(academy, kind, subject).first<{role: string; name: string; enabled: number}>();
     if (!member || (kind === 'student' ? member.role !== 'student' : member.role !== 'director')) return reply({ error: 'academy_access_denied' }, 403);
     const director = kind === 'admin';
     if (!director && !member.enabled) return reply({ error: 'academy_paused' }, 403);
-    const action = url.pathname.slice(prefix.length);
     if (request.method === 'GET' && action === 'state') {
       const assignments = await env.DB.prepare(`SELECT student_uid, unit_id FROM eleader_assignments WHERE academy_id=? AND (?=1 OR student_uid=?) ORDER BY student_uid,unit_id`).bind(academy, director ? 1 : 0, subject).all();
       const progress = await env.DB.prepare(`SELECT student_uid, unit_id, question_id, completed_at FROM eleader_progress WHERE academy_id=? AND (?=1 OR student_uid=?) ORDER BY student_uid,unit_id,question_id`).bind(academy, director ? 1 : 0, subject).all();

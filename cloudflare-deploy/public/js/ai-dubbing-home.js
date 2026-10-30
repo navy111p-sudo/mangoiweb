@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   var L = window.MangoiDubLibrary, adapter, view = 'movies', generation = 0, urls = [], catalogue = null, bulkJob = null, downloadPauses = [], uploadJob = null;
-  var reconnectTask = null, reconnectEpoch = 0;
+  var reconnectTask = null, reconnectEpoch = 0, syncNoticeState = null;
   if (!L) return;
   var $ = function (id) { return document.getElementById(id); };
   function en() { try { return window.getLang && window.getLang() === 'en'; } catch (_) { return false; } }
@@ -643,31 +643,49 @@
     }
     return record;
   }
-  function connectionNotification() {
+  function updateSyncNotice(record, ack, state, retryable) {
+    if (!record || !owned(record.owner) || !record.connections) return;
     var notice = $('dub-sync-notification'); if (!notice) return;
-    $('dub-sync-notification-text').textContent = t('✓ 남은 기록의 계정 동기화를 완료했어요.', '✓ Remaining records have synced to your account.');
+    var pending = connectionPending({ connectionAckHistory: ack }, record.connections), total = record.connections.rows.length + record.connections.removed.length, remaining = pending.rows.length + pending.removed.length;
+    syncNoticeState = { owner: record.owner, epoch: reconnectEpoch, jobId: record.id, record: record, ack: ack, state: state, retryable: retryable !== false };
+    $('dub-sync-notification-text').textContent = state === 'complete' ? t('✓ 남은 기록의 계정 동기화를 완료했어요.', '✓ Remaining records have synced to your account.') : state === 'failed' ? retryable === false ? t('계정의 기록이 바뀌었어요. 보관함을 새로고침해 주세요.', 'Account history changed. Refresh the library.') : t('계정 동기화에 실패했어요. 남은 기록만 다시 동기화할 수 있어요.', 'Account sync failed. Retry only the remaining records.') : state === 'checking' ? t('계정의 동기화 진행 상황을 확인하고 있어요…', 'Checking account sync progress…') : t('남은 기록을 계정에 자동 동기화하고 있어요…', 'Automatically syncing remaining records to your account…');
+    var counts = $('dub-sync-notification-counts'), meter = $('dub-sync-notification-progress'), retry = $('dub-sync-notification-retry');
+    counts.hidden = state === 'checking'; counts.textContent = t('계정 동기화: ', 'Account sync: ') + (total - remaining) + ' / ' + total + t('개 완료 · 남은 기록 ', ' complete · Remaining ') + remaining + t('개', '') + (record.connections.removed.length ? t(' (교체 기록 포함)', ' (including replaced records)') : '');
+    meter.hidden = false; meter.max = Math.max(1, total); if (state === 'checking') meter.removeAttribute('value'); else meter.value = total - remaining;
+    retry.hidden = state !== 'failed' || retryable === false; retry.disabled = state !== 'failed' || retryable === false;
     notice.hidden = false;
+  }
+  function retrySyncNotice() {
+    var saved = syncNoticeState;
+    if (!saved || saved.state !== 'failed' || !saved.retryable || !owned(saved.owner) || saved.epoch !== reconnectEpoch) return;
+    try { var record = backgroundConnectionRecord(saved.owner); if (!record || record.id !== saved.jobId || catalogue && view === 'movies' && catalogue.upload && catalogue.upload.record && catalogue.upload.record.id !== saved.jobId) { $('dub-sync-notification').hidden = true; return; } }
+    catch (_) { return; }
+    return reconnectAccountConnections(saved.jobId);
   }
   async function syncClosedConnections(owner, epoch) {
     function current() { return owned(owner) && epoch === reconnectEpoch && L.hasAccount() && !(catalogue && view === 'movies'); }
     if (!current() || !L.listUploads || !L.saveUpload) return;
     var record = backgroundConnectionRecord(owner); if (!record || !record.connections) return;
-    var jobId = record.id, response = await L.listUploads();
+    var jobId = record.id, wasFailed = syncNoticeState && syncNoticeState.jobId === record.id && syncNoticeState.state === 'failed';
+    updateSyncNotice(record, syncNoticeState && syncNoticeState.jobId === jobId ? syncNoticeState.ack : null, 'checking');
+    var response = await L.listUploads();
     if (!current()) return;
     if (!response || !Array.isArray(response.uploads) || !Array.isArray(response.removed) || response.uploads.some(function (r) { return !validUpload(r, owner); })) throw new Error('invalid_upload');
-    if (response.removed.indexOf(jobId) >= 0) return;
+    if (response.removed.indexOf(jobId) >= 0) { updateSyncNotice(record, null, 'failed', false); return; }
     var remote = response.uploads.find(function (r) { return r.id === jobId; }), ack = remote && remote.connections, sent = false;
     while (current()) {
       record = backgroundConnectionRecord(owner); if (!record || record.id !== jobId) return;
       if (remote) record = mergeUpload(record, remote);
       var pending = connectionPending({ connectionAckHistory: ack }, record.connections), count = pending.rows.length + pending.removed.length;
-      if (!count) { if (sent) connectionNotification(); return; }
+      if (!count) { if (sent || wasFailed) updateSyncNotice(record, ack, 'complete'); else if (syncNoticeState && syncNoticeState.jobId === jobId) { syncNoticeState = null; $('dub-sync-notification').hidden = true; } return; }
+      updateSyncNotice(record, ack, 'running');
       var snapshot = JSON.parse(JSON.stringify(record));
       snapshot.connections = { version: 1, rows: pending.rows.slice(0, 25), removed: pending.removed.slice(0, Math.max(0, 25 - Math.min(25, pending.rows.length))) };
       var result = await L.saveUpload(snapshot, owner);
       if (!current()) return;
       if (!result || !validUpload(result.upload, owner) || result.upload.id !== jobId || !result.upload.connections) throw new Error('invalid_upload');
       remote = result.upload; ack = mergeCloudConnections(ack, remote.connections); sent = true;
+      updateSyncNotice(mergeUpload(record, remote), ack, 'running');
       var latest = backgroundConnectionRecord(owner); if (!latest || latest.id !== jobId) return;
       var json = JSON.stringify(mergeUpload(latest, remote)); if (json.length > 1024 * 1024) throw new Error('upload_history_too_large');
       localStorage.setItem(uploadKey(owner), json);
@@ -677,20 +695,23 @@
     if (window.navigator && window.navigator.onLine === false) return;
     return reconnectAccountConnections();
   }
-  function reconnectAccountConnections() {
+  function reconnectAccountConnections(expectedJobId) {
     if (!L.hasAccount()) return;
     if (reconnectTask) return reconnectTask.promise;
+    if (expectedJobId) { try { var expected = backgroundConnectionRecord(L.identity()); if (!expected || expected.id !== expectedJobId) return; } catch (_) { return; } }
     var task = { owner: L.identity(), epoch: reconnectEpoch }; reconnectTask = task;
     task.promise = (async function () {
       try {
         var c = catalogue, u = c && c.upload;
         if (u && uploadCurrent(c, u)) {
           var pending = connectionPending(u, connectionWire(u)), hadPending = pending.rows.length || pending.removed.length;
+          if (hadPending) updateSyncNotice(u.record, u.connectionAckHistory, 'checking');
           await reconnectConnections();
-          if (hadPending && owned(task.owner) && task.epoch === reconnectEpoch && u.connectionAutoSync === 'complete') connectionNotification();
+          if (hadPending && owned(task.owner) && task.epoch === reconnectEpoch && u.connectionAutoSync === 'complete') updateSyncNotice(u.record, u.connectionAckHistory, 'complete');
+          else if (hadPending && uploadCurrent(c, u) && u.connectionAutoSync === 'failed') updateSyncNotice(u.record, u.connectionAckHistory, 'failed', !u.historyChanged);
         }
         if (owned(task.owner) && task.epoch === reconnectEpoch) await syncClosedConnections(task.owner, task.epoch);
-      } catch (_) { /* Keep the local outbox for the next reconnect or manual retry. */ }
+      } catch (error) { if (owned(task.owner) && task.epoch === reconnectEpoch && syncNoticeState && syncNoticeState.owner === task.owner) { var n = syncNoticeState; updateSyncNotice(n.record, n.ack, 'failed', error.status !== 410 && ['connections_changed', 'upload_changed', 'upload_expired'].indexOf(error.code) < 0); } }
       finally { if (reconnectTask === task) reconnectTask = null; }
     })(); return task.promise;
   }
@@ -741,7 +762,7 @@
         while (uploadCurrent(c, u) && u.record && u.record.id === jobId) {
           var wire = connectionWire(u), pending = connectionPending(u, wire); if (!pending.rows.length && !pending.removed.length) { u.connectionCloudSaved = true; break; }
           u.record.connections = wire; drawCatalogue(); await syncUpload(c, u);
-          if (uploadCurrent(c, u)) drawCatalogue();
+          if (uploadCurrent(c, u)) { drawCatalogue(); if (reconnectTask && reconnectTask.owner === c.owner && reconnectTask.epoch === reconnectEpoch) updateSyncNotice(u.record, u.connectionAckHistory, u.cloudSaved ? 'running' : 'failed', !u.historyChanged); }
           if (!uploadCurrent(c, u) || u.historyChanged || !u.cloudSaved) break;
         }
       } catch (_) { u.connectionCloudError = true; u.connectionCloudSaved = false; }
@@ -1330,12 +1351,13 @@
     if ($('dub-library-layout')) $('dub-library-layout').addEventListener('change', drawCatalogue);
     if ($('dub-library-close')) $('dub-library-close').addEventListener('click', function () { $('dub-library').hidden = true; ++generation; catalogue = null; clearItems(); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-library-view]'), function (b) { b.addEventListener('click', function () { openLibrary(b.getAttribute('data-library-view')); }); });
-    L.onAccountChange(function () { ++reconnectEpoch; reconnectTask = null; if ($('dub-sync-notification')) $('dub-sync-notification').hidden = true; ++generation; catalogue = null; clearItems(); if ($('dub-library-search')) $('dub-library-search').value = ''; status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
+    L.onAccountChange(function () { ++reconnectEpoch; reconnectTask = null; syncNoticeState = null; if ($('dub-sync-notification')) $('dub-sync-notification').hidden = true; ++generation; catalogue = null; clearItems(); if ($('dub-library-search')) $('dub-library-search').value = ''; status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
     window.addEventListener('mangoi:lang-changed', function () { render(); if ($('dub-library') && !$('dub-library').hidden) refresh(); });
+    if ($('dub-sync-notification-retry')) $('dub-sync-notification-retry').addEventListener('click', retrySyncNotice);
     if ($('dub-sync-notification-close')) $('dub-sync-notification-close').addEventListener('click', function () { $('dub-sync-notification').hidden = true; });
     window.addEventListener('online', syncConnectionsWhenOnline);
     window.addEventListener('pageshow', function (event) { if (event.persisted) return syncConnectionsWhenOnline(); });
-    window.addEventListener('pagehide', function () { ++reconnectEpoch; reconnectTask = null; if (catalogue && catalogue.upload && catalogue.upload.connecting) { var u = catalogue.upload; saveConnections(catalogue, u); u.connectionEpoch++; u.stopped = true; u.busy = false; u.connecting = false; } if (uploadJob) { uploadJob.state.stopped = true; rememberUpload(uploadJob.catalogue, uploadJob.state); } downloadPauses.slice().forEach(function (pause) { pause(); }); releaseUrls(); });
+    window.addEventListener('pagehide', function () { ++reconnectEpoch; reconnectTask = null; syncNoticeState = null; if ($('dub-sync-notification')) $('dub-sync-notification').hidden = true; if (catalogue && catalogue.upload && catalogue.upload.connecting) { var u = catalogue.upload; saveConnections(catalogue, u); u.connectionEpoch++; u.stopped = true; u.busy = false; u.connecting = false; } if (uploadJob) { uploadJob.state.stopped = true; rememberUpload(uploadJob.catalogue, uploadJob.state); } downloadPauses.slice().forEach(function (pause) { pause(); }); releaseUrls(); });
     render();
     syncConnectionsWhenOnline();
   }

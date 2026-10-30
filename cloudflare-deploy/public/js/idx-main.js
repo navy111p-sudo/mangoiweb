@@ -157,6 +157,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
             //   (정상 경로는 room-joined 가 즉시 도착해 이 폴백 전에 __vcWasReconnect 를 false 로 만든다.)
             if (isReconnect) {
                 setTimeout(function(){
+                    if (sock !== ws || intentionalClose || terminated) return;
                     if (window.__vcWasReconnect && typeof vcCleanupAllPeers === 'function') {
                         window.__vcWasReconnect = false;
                         console.log('[vc] 재연결 폴백 정리(room-joined 미수신)');
@@ -279,7 +280,8 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
 
         send(data) {
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify(data));
+                try { ws.send(JSON.stringify(data)); return true; }
+                catch (_) { return false; }
             } else if (data && QUEUEABLE_TYPES[data.type]) {
                 sendQueue = sendQueue.filter(d => d.type !== data.type);   // 같은 타입은 최신만
                 if (sendQueue.length < 20) sendQueue.push(data);
@@ -287,6 +289,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
             } else {
                 console.warn('[WebSocket] 전송 실패: 연결 끊김 상태');
             }
+            return false;
         },
 
         /** 🔴 앱 복귀 시 반드시 호출 — 탭이 얼어 있는 동안 '답 기다리는 중' 상태가 그대로
@@ -303,7 +306,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
             if (ws && (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING)) {
                 console.log('[WebSocket] reconnectNow: 즉시 재연결 시도');
                 clearTimeout(reconnectTimer);
-                reconnectAttempts = 0;
+                reconnectAttempts = Math.max(1, reconnectAttempts);
                 intentionalClose = false;
                 connect();
             } else if (!ws || ws.readyState === WebSocket.CONNECTING) {
@@ -1382,12 +1385,33 @@ async function vcManualReconnect() {
 }
 window.vcManualReconnect = vcManualReconnect;
 
+const __vcPeerEpoch = {};
+function vcAccountSnapshot() {
+    try { return localStorage.getItem('mangoi_logged_user') || ''; } catch (_) { return ''; }
+}
+function vcPeerAttemptScope(userId) {
+    const room = vcRoomId, self = vcUserId, conn = vcConn, sock = conn && conn.ws, peers = vcPeerConnections;
+    const epoch = __vcPeerEpoch[userId] || 0;
+    const account = vcAccountSnapshot();
+    return () => document.body.classList.contains('vc-in-call') && vcRoomId === room && vcUserId === self
+        && vcConn === conn && conn && conn.ws === sock && sock && sock.readyState === 1 && vcPeerConnections === peers
+        && (__vcPeerEpoch[userId] || 0) === epoch && vcAccountSnapshot() === account;
+}
+
 function vcReconnectPeer(userId) {
     if (!userId) return;
     if (!document.body.classList.contains('vc-in-call')) return;   // 수업 중일 때만
+    // Keep received audio alive while signaling reconnects; no offer can be delivered yet.
+    if (!vcConn || !vcConn.ws || vcConn.ws.readyState !== 1) {
+        vcShowReconnecting();
+        try { if (vcConn && vcConn.reconnectNow) vcConn.reconnectNow(); } catch (_) {}
+        return;
+    }
     const now = Date.now();
     if (__vcReconnectAt[userId] && now - __vcReconnectAt[userId] < 8000) return;  // 8초 쿨다운
     __vcReconnectAt[userId] = now;
+    __vcPeerEpoch[userId] = (__vcPeerEpoch[userId] || 0) + 1;
+    const current = vcPeerAttemptScope(userId);
     vcShowReconnecting();   // "재연결 중…" 배너 노출
 
     const old = vcPeerConnections[userId];
@@ -1408,12 +1432,13 @@ function vcReconnectPeer(userId) {
     const iAmOfferer = (vcUserId && userId) ? (String(vcUserId) < String(userId)) : true;
     if (iAmOfferer) {
         _iceReady.then(() => {
+            if (!current() || vcPeerConnections[userId]) return;
             try { vcCreatePeerAndOffer(userId, username); } catch(e) { console.warn('[vc-recover] offer 실패:', e); }
         });
     } else {
         // 상대(작은 ID)가 offer 를 보낼 것 → 4초 대기, 그래도 복구 안 되면 내가 백업 offer
         setTimeout(() => {
-            if (!vcPeerConnections[userId] && document.body.classList.contains('vc-in-call')) {
+            if (current() && !vcPeerConnections[userId]) {
                 console.warn('[vc-recover] 상대 offer 미수신 → 백업 offer:', userId);
                 try { vcCreatePeerAndOffer(userId, username); } catch(_) {}
             }
@@ -4131,7 +4156,8 @@ function vcHandleMessage(msg) {
                     return;
                 }
                 // 각 사용자에 대해 약간의 지연을 주어 동시 offer 폭주 방지
-                setTimeout(() => vcCreatePeerAndOffer(user.userId, user.username), idx * 300);
+                const current = vcPeerAttemptScope(user.userId);
+                setTimeout(() => { if (current()) vcCreatePeerAndOffer(user.userId, user.username); }, idx * 300);
             });
             try { window.vcApplySpotlight && window.vcApplySpotlight(); } catch(e){}
             // PDF/이미지 공유 동기화 (늦게 입장한 학생도 현재 교재가 보이게)
@@ -4204,8 +4230,9 @@ function vcHandleMessage(msg) {
             // 새 사용자가 offer를 보내오면 vcHandleOffer에서 PC 생성됨
             // 하지만 안전장치로 5초 후 PC가 없으면 직접 offer 시도
             if (msg.data.userId && !vcPeerConnections[msg.data.userId]) {
+                const current = vcPeerAttemptScope(msg.data.userId);
                 setTimeout(() => {
-                    if (!vcPeerConnections[msg.data.userId]) {
+                    if (current() && !vcPeerConnections[msg.data.userId]) {
                         console.log('[vc] 안전장치: offer 미수신 → 직접 연결 시도:', msg.data.userId);
                         vcCreatePeerAndOffer(msg.data.userId, msg.data.username);
                     }
@@ -4727,6 +4754,8 @@ function vcHandleMessage(msg) {
 /** 특정 사용자에 대한 P2P 연결을 생성하고 Offer를 보냅니다. */
 async function vcCreatePeerAndOffer(userId, username) {
     try {
+        const current = vcPeerAttemptScope(userId);
+        if (!current()) return;
         // 이미 연결이 있으면 건너뜀 (중복 방지)
         if (vcPeerConnections[userId]) {
             console.log('[vc-webrtc] createPeerAndOffer: 이미 PC 존재 →', userId, '건너뜀');
@@ -4734,10 +4763,13 @@ async function vcCreatePeerAndOffer(userId, username) {
         }
         console.log('[vc-webrtc] createPeerAndOffer →', userId, username);
         try { await vcEnsureIceServers(); } catch(_) {}   // TURN 자격증명 보장(없으면 3초 내 포기)
+        if (!current() || vcPeerConnections[userId]) return;
         const pc = vcCreatePeer(userId, username);
         const offer = await pc.createOffer();
+        if (!current() || vcPeerConnections[userId] !== pc || pc.signalingState !== 'stable') return;
         offer.sdp = vcTuneAudioSdp(offer.sdp);            // 🔊 Opus FEC — 패킷 손실에도 소리 유지
         await pc.setLocalDescription(offer);
+        if (!current() || vcPeerConnections[userId] !== pc) return;
         console.log('[vc-webrtc] offer 전송 →', userId, 'SDP type:', offer.type);
         vcConn.send({ type: 'offer', data: { targetUserId: userId, sdp: pc.localDescription } });
     } catch (e) {
@@ -5330,6 +5362,7 @@ function vcCreatePeer(userId, username) {
     };
 
     pc.oniceconnectionstatechange = () => {
+        if (vcPeerConnections[userId] !== pc) return;
         const st = pc.iceConnectionState;
         console.log('[vc-webrtc] ICE(' + userId + '):', st);
         // 화면에 ICE 상태 표시
@@ -5364,6 +5397,7 @@ function vcCreatePeer(userId, username) {
     };
 
     pc.onconnectionstatechange = () => {
+        if (vcPeerConnections[userId] !== pc) return;
         console.log('[vc-webrtc] conn(' + userId + '):', pc.connectionState);
         if (pc.connectionState === 'connected') {
             console.log('[vc-webrtc] ✅ P2P 연결 완료!', userId);
@@ -6994,6 +7028,7 @@ function vcSweepGhostTiles() {
 window.vcSweepGhostTiles = vcSweepGhostTiles;
 
 function vcRemovePeer(userId, reason) {
+    __vcPeerEpoch[userId] = (__vcPeerEpoch[userId] || 0) + 1;
     const pc = vcPeerConnections[userId];
     if (pc) { pc.close(); delete vcPeerConnections[userId]; }
     try { delete vcPendingCandidates[userId]; } catch(_){}  // fix (2026-07-05) 버퍼된 ICE 후보 정리
@@ -8217,6 +8252,8 @@ function vcOnSegResults(results){
 //     ⚠ busy 플래그 + currentTime 체크 - WASM "memory access out of bounds" 방지
 async function vcBgRenderLoop(){
   if (!vcBg.isProcessing) return;
+  // Keep the display clock running while inference is pending; sending prevents overlap.
+  vcBg.rafId = requestAnimationFrame(vcBgRenderLoop);
   const v = vcBg.hiddenVideo;
   // Phase 7m: 모델이 무거워진 만큼 3 프레임마다 1번 처리 (CPU 66% 절약 → 멈춤 방지)
   //   ↳ 화상통화에선 20fps 정도면 충분히 자연스러움
@@ -8234,6 +8271,9 @@ async function vcBgRenderLoop(){
   const shouldProcess = (vcBg.frameTick % _everyN === 0);
   if (shouldProcess && v && v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0
       && vcBg.segmenter && !vcBg.sending) {
+    // A 15fps camera can be displayed at 60Hz; do not infer the same frame again.
+    if (typeof v.currentTime === 'number' && vcBg._lastFrameTime === v.currentTime) return;
+    vcBg._lastFrameTime = v.currentTime;
     vcBg.sending = true;
     const _t0 = window.vcPerf ? vcPerf.begin() : 0;   // ⏱ 모델 추론 + 합성(onResults) 시간 측정
     try {
@@ -8247,7 +8287,6 @@ async function vcBgRenderLoop(){
       vcBg.sending = false;
     }
   }
-  vcBg.rafId = requestAnimationFrame(vcBgRenderLoop);
 }
 
 // --- 5-b) 숨겨진 카메라 비디오 준비 (원본 스트림 → segmenter 입력) ---
@@ -8732,12 +8771,12 @@ window.vcSetBackground = async function(mode){
 
   // 처리 시작
   vcBg.isProcessing = true;
-  if (!vcBg.rafId) vcBgRenderLoop();
 
   // 첫 프레임 즉시 한 번 그려서 검정 화면 방지 (RAF 첫 콜백 전 대기 시간 동안)
   try {
     await vcBg.segmenter.send({ image: vcBg.hiddenVideo });
   } catch(e) { console.warn('[vc-bg] 초기 프레임 송신 실패:', e); }
+  if (vcBg.isProcessing && !vcBg.rafId) vcBgRenderLoop();
 
   // 캔버스 스트림 생성 → 로컬 비디오에 연결 + sender 교체
   if (!vcBg.processedStream) {
@@ -11501,6 +11540,8 @@ let pdfDoc = null, pdfPageNum = 1, pdfCurrentId = null, pdfPagesPerView = 1;
 let pdfZoom = 1;                          // 사용자 줌 배율
 let pdfDrawTool = 'none';                 // 'none' | 'pen' | 'eraser'
 let pdfAnnotations = {};                  // { [pageNum]: [strokes] }
+const pdfAnnotationsByDoc = new Map(); // Session only: keep each image/PDF's own notes.
+let pdfLoadGeneration = 0;
                                           // stroke = { tool, color, size, points: [[nx,ny], ...] (정규화 0~1) }
 
 // 파일 확장자/MIME으로 이미지 여부 판별
@@ -11894,8 +11935,10 @@ async function pdfUpload(input) {
 })();
 
 async function pdfLoad(url, kind) {
-    // fix (2026-06-01) — 현재 교재 URL 기억 (다운로드 버튼용)
-    try { window._vcCurrentPdfUrl = url; window._vcCurrentPdfKind = kind || ''; } catch(_){}
+    const generation = ++pdfLoadGeneration;
+    const pendingText = document.getElementById('ph265-textinput');
+    if (pendingText) pendingText.blur();
+    let nextDoc;
     // kind가 지정되지 않았으면 URL/MIME으로 추정 (레거시 호출 호환)
     if (!kind) {
         // HEAD 시도: Content-Type을 보고 판단
@@ -11910,7 +11953,7 @@ async function pdfLoad(url, kind) {
     }
 
     if (kind === 'image') {
-        pdfDoc = await pdfBuildImageDoc(url);
+        nextDoc = await pdfBuildImageDoc(url);
     } else {
         /* 📕 PDF.js 는 여기서 «처음» 받는다(2026-08-09 지연 로딩). 홈 첫 화면에선 안 받는다.
            ensurePdfJs() 가 workerSrc 까지 세팅해 주고, 이미 받아 뒀으면 즉시 돌아온다. */
@@ -11924,22 +11967,24 @@ async function pdfLoad(url, kind) {
            ⚠️ 서버가 Range 를 못 받아 주면 pdf.js 가 알아서 통짜 다운로드로 되돌아간다 — 안전한 변경이다.
            ⚠️ disableAutoFetch 를 켜면 «뒤 페이지로 훌쩍 뛸 때» 그 조각을 그때 받는다.
               그래서 아래 pdfRender 에서 **다음 페이지를 미리 받아 둔다**(체감 지연 제거). */
-        pdfDoc = await pdfjsLib.getDocument({
+        nextDoc = await pdfjsLib.getDocument({
             url: url,
             rangeChunkSize: 131072,     // 128KB — 조각이 너무 작으면 왕복이 늘어 오히려 느리다
             disableAutoFetch: true,
             disableStream: false
         }).promise;
     }
-    /* 📝 (2026-07-21) 새 교재를 열면 이전 교재의 필기를 비운다 — 교사 피드백
-       원인: pdfAnnotations 는 {페이지번호: 획들} 로만 저장된다. 교재가 '이미지 여러 장'
-             (라이브러리 시퀀스)이면 파일이 바뀌어도 페이지 번호가 똑같이 1 이라
-             이전 장에 그린 필기가 다음 장에 그대로 다시 그려졌다.
-       같은 파일을 다시 여는 경우(재공유·재렌더)는 지우지 않는다. */
+    if (generation !== pdfLoadGeneration) return false;
+    pdfDoc = nextDoc;
+    window._vcCurrentPdfUrl = url;
+    window._vcCurrentPdfKind = kind || '';
+    // Switching image pages must isolate notes, while returning restores them.
     try {
-        if (window._pdfAnnoDocKey !== url) {
-            window._pdfAnnoDocKey = url;
-            pdfAnnotations = {};
+        const docKey = (typeof vcRoomId === 'undefined' ? '' : vcRoomId || '') + '|' + new URL(url, location.origin).href;
+        if (window._pdfAnnoDocKey !== docKey) {
+            if (window._pdfAnnoDocKey) pdfAnnotationsByDoc.set(window._pdfAnnoDocKey, pdfAnnotations);
+            window._pdfAnnoDocKey = docKey;
+            pdfAnnotations = pdfAnnotationsByDoc.get(docKey) || {};
             ['pdf-anno', 'pdf-anno-2'].forEach(function (id) {
                 var a = document.getElementById(id);
                 if (a) { try { a.getContext('2d').clearRect(0, 0, a.width, a.height); } catch (e) {} }
@@ -12271,6 +12316,8 @@ function pdfBindAnnoEvents(annoId) {
             const px = (e.clientX - rect.left) / rect.width;
             const py = (e.clientY - rect.top) / rect.height;
             function commit(){
+                if (inp._committed) return;
+                inp._committed = true;
                 const txt = inp.value.trim();
                 inp.remove();
                 if (!txt) return;
@@ -13933,15 +13980,27 @@ window.vcChatAutoOpen = vcChatAutoOpen;
 function vcSendChat() {
     const input = document.getElementById('vc-chat-input');
     const text = input.value.trim();
-    if (!text || !vcConn) return;
+    if (!text) return;
+    const target = (window.vcChatTarget && window.vcChatTarget.userId) || null;
+    const draft = input.__vcUnsentScope;
+    if (draft && draft.text === text && (draft.room !== vcRoomId || draft.self !== vcUserId || draft.account !== vcAccountSnapshot() || draft.target !== target)) {
+        vcAddChatSystem('수업 또는 받는 사람이 바뀌었어요. 보낼 내용을 확인하고 다시 입력해 주세요.');
+        return;
+    }
+    const data = { message: text };
+    if (target) data.toUserId = target;
+    if (!vcConn || !vcConn.ws || vcConn.ws.readyState !== 1 || vcConn.send({ type: 'chat-message', data }) !== true) {
+        input.__vcUnsentScope = { room: vcRoomId, self: vcUserId, account: vcAccountSnapshot(), target, text };
+        vcAddChatSystem('메시지가 전송되지 않았어요. 입력 내용은 남겨 두었어요. 연결된 뒤 다시 보내 주세요.');
+        return;
+    }
+    delete input.__vcUnsentScope;
     // 🔒 개별(1:1) 채팅 — 대상이 지정돼 있으면 그 사람에게만 전송.
     //   D1 영속 저장·@멘션 알림은 생략(개인 대화가 전체 기록/알림에 노출되지 않게).
-    if (window.vcChatTarget && window.vcChatTarget.userId) {
-        vcConn.send({ type: 'chat-message', data: { message: text, toUserId: window.vcChatTarget.userId } });
+    if (target) {
         input.value = '';
         return;
     }
-    vcConn.send({ type: 'chat-message', data: { message: text } });
     // 🆕 Phase K1: D1에 영속 저장 (실시간 표시는 vcReceiveChat 에코로)
     try {
         fetch('/api/chat/messages', {

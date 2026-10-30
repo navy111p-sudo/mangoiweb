@@ -11,13 +11,15 @@ export async function ensureTeacherRoomPresence(db: any): Promise<void> {
   let task = ready.get(db);
   if (!task) {
     task = (async () => {
-      await db.exec(`CREATE TABLE IF NOT EXISTS teacher_room_presence (
+      // D1 exec() runs each line as its own statement, so a multi-line CREATE never ran
+      // (the table was still absent in production as of 2026-10-28). One prepare() per statement.
+      await db.prepare(`CREATE TABLE IF NOT EXISTS teacher_room_presence (
         id INTEGER PRIMARY KEY AUTOINCREMENT, account_uid TEXT NOT NULL,
         peer_id TEXT NOT NULL, room_id TEXT NOT NULL, host TEXT NOT NULL,
         joined_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL, left_at INTEGER,
-        entry_kind TEXT NOT NULL DEFAULT 'join');
-        CREATE INDEX IF NOT EXISTS idx_teacher_room_presence_account_seen
-        ON teacher_room_presence(account_uid, last_seen_at);`);
+        entry_kind TEXT NOT NULL DEFAULT 'join')`).run();
+      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_teacher_room_presence_account_seen
+        ON teacher_room_presence(account_uid, last_seen_at)`).run();
     })();
     ready.set(db, task);
     task.catch(() => { ready.delete(db); });

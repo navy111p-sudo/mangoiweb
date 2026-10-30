@@ -161,3 +161,5 @@ body .top{padding-right:158px}
 .dub-sync-notification[hidden]{display:none}
 .dub-sync-notification span{flex:1;min-width:0}
 .dub-sync-notification button{flex:none}
+
+.dub-sync-notification-content{flex:1;min-width:0}.dub-sync-notification-content>span{display:block}.dub-sync-notification-content p{margin:6px 0;font-size:13px}.dub-sync-notification-content progress{display:block;width:100%;height:10px;accent-color:#39c79b;margin:10px 0}.dub-sync-notification-content progress[hidden],.dub-sync-notification-content button[hidden]{display:none}.dub-sync-notification-content button{white-space:normal;text-align:center;min-height:44px;max-width:100%}

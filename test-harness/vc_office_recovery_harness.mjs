@@ -24,7 +24,7 @@ function fixture({ muted = false, pref = '1', borrowed = true } = {}) {
       this.settings = { deviceId: device, autoGainControl: agc }; this.listeners = new Map(); tracks.push(this);
     }
     getSettings() { return { ...this.settings }; }
-    async applyConstraints(c) { if (borrowed) this.settings.autoGainControl = c.autoGainControl; }
+    async applyConstraints(c) { if (borrowed) { this.settings.autoGainControl = c.autoGainControl; this.settings.noiseSuppression = c.noiseSuppression; } }
     stop() { this.readyState = 'ended'; }
     addEventListener(type, fn) { this.listeners.set(type, fn); }
   }
@@ -72,9 +72,12 @@ function fixture({ muted = false, pref = '1', borrowed = true } = {}) {
       return new Stream([new Track(c.audio?.deviceId?.exact || 'default-mic', c.audio?.autoGainControl ?? true)]);
     } } },
     vcLocalStream: local, vcPeerConnections: Object.fromEntries(senders.map((sender, i) => [i, { getSenders: () => [sender] }])),
-    vcIsStaffNow: () => true, showView() {},
+    vcIsStaffNow: () => true, showView() {}, vcSavedMicId: () => 'saved-other-mic',
   };
   world.window = world;
+  const main = readFileSync(new URL('../cloudflare-deploy/public/js/idx-main.js', import.meta.url), 'utf8');
+  const start = main.indexOf('window.vcSetNoiseSuppression = async function(on)');
+  vm.runInNewContext(main.slice(start, main.indexOf('/** 🌫', start)), world);
   vm.runInNewContext(source, world, { filename: 'idx-vc-officemode.js' });
   return {
     world, local, senders, storage, requests, contexts, original, timers, tracks,
@@ -163,6 +166,20 @@ await check('disable and explicit re-enable do not carry an unfinished stall int
   await f.world.vcSetOfficeMode(false); await f.enable(); old.change('closed');
   f.context().change('suspended'); await f.advance(200); assert.equal(f.world.vcOfficeModeOn(), true);
   await f.advance(800); restored(f, false);
+});
+await check('noise switch while office mode is on preserves selected input, mute and noise preference', async () => {
+  const f = fixture({ muted: true }); await f.enable();
+  await f.world.vcSetNoiseSuppression(false); await drain();
+  assert.equal(f.world.vcOfficeModeOn(), true);
+  assert.equal(f.storage.get('mangoi_vc_noise'), '0');
+  const sourceTracks = f.tracks.filter(t => t.readyState === 'live' && t.getSettings().deviceId === 'chosen-usb-mic');
+  assert.equal(sourceTracks.length, 1);
+  assert.equal(sourceTracks[0].getSettings().noiseSuppression, false);
+  assert.equal(f.local.getAudioTracks()[0].enabled, false);
+  assert(f.senders.every(s => s.track.readyState === 'live'));
+  await f.world.vcSetOfficeMode(false);
+  assert.equal(f.local.getAudioTracks()[0].getSettings().deviceId, 'chosen-usb-mic');
+  assert.equal(f.local.getAudioTracks()[0].getSettings().noiseSuppression, false);
 });
 // Give Node an event-loop turn: a missing catch on a rejected resume must fail this process.
 await new Promise(resolve => setImmediate(resolve));

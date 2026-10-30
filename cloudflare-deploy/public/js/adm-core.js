@@ -5928,17 +5928,25 @@ function _frBulkParseRows(raw) {
   const idx = name => header.indexOf(name);
   const iName = idx('지사명') >= 0 ? idx('지사명') : idx('지사');
   const iLogin = idx('아이디');
-  const iOwner = idx('관리자') >= 0 ? idx('관리자') : idx('대표');
-  const iPhone = idx('전화번호') >= 0 ? idx('전화번호') : idx('휴대폰');
+  /* 🪪 (2026-10-29) 사장님이 주신 «활동 지사장» 표는 머리글이 「대표명」·「연락처」·「비밀번호」 라
+     그 이름도 받는다(「대표지사명」 과 헷갈리지 않게 정확일치로만 찾는다). */
+  const pick = (...names) => { for (const n of names) { const k = idx(n); if (k >= 0) return k; } return -1; };
+  const iOwner = pick('관리자', '대표명', '대표');
+  const iPhone = pick('전화번호', '휴대폰', '연락처');
+  const iPw = pick('비밀번호');
   const iMaster = idx('대표지사명') >= 0 ? idx('대표지사명') : idx('대표지사');
   if (iName < 0) return { error: adminLang === 'en' ? '"지사명" column not found.' : '「지사명」 칸을 못 찾았습니다.' };
   const rows = [];
   for (let i = headerIdx + 1; i < lines.length; i++) {
     const cells = lines[i];
     const name = String(cells[iName] == null ? '' : cells[iName]).trim();
-    if (!name) continue;
+    const cell = k => k >= 0 ? String(cells[k] == null ? '' : cells[k]).trim() : '';
+    /* 🪪 (2026-10-29) 지사명이 비어 있어도 대표명·연락처가 있으면 남긴다 — 그 줄은 미리보기에서
+       «연락처 → 대표명» 순으로 찾는다(그 표에서 지사명이 빈 지사장이 6명). */
+    if (!name && !cell(iOwner) && !cell(iPhone)) continue;
     rows.push({
       name,
+      pw: cell(iPw),
       login: iLogin >= 0 ? String(cells[iLogin] == null ? '' : cells[iLogin]).trim() : '',
       owner: iOwner >= 0 ? String(cells[iOwner] == null ? '' : cells[iOwner]).trim() : '',
       phone: iPhone >= 0 ? String(cells[iPhone] == null ? '' : cells[iPhone]).trim() : '',
@@ -5947,6 +5955,68 @@ function _frBulkParseRows(raw) {
   }
   if (!rows.length) return { error: adminLang === 'en' ? 'No data rows under the header.' : '머리글 아래에 데이터 줄이 없습니다.' };
   return { rows };
+}
+
+/* 🪪 (2026-10-29 — 사장님 「활동 지사장들 아이디만이라도 복구해야 해」) 표의 지사명이 시스템
+   이름과 다르거나비어 있는 줄이 많아, 지사명 정확일치만으로는
+   거의 안 붙는다. 그래서 찾는 근거를 셋으로 늘린다 — ① 지사명 정확일치 ② 연락처(숫자만 비교)
+   ③ 대표명 정확일치. 앞에서 못 찾을 때만 다음으로 간다.
+   ⛔ 어느 근거든 «시스템에서 후보가 정확히 하나» 이고 «표 안에서도 그 값이 한 줄뿐» 일 때만
+   붙인다(같은 대표명이 표에 두 줄인 경우가 실제로 있다). 서로 다른 두 줄이 같은 지사로 가면 둘 다 보류한다 —
+   남의 지사에 아이디가 붙는 것이 빈칸보다 나쁘다. 부분일치는 쓰지 않는다. */
+function _frBulkDigits(s) { return String(s == null ? '' : s).replace(/\D/g, ''); }
+function _frBulkOwnerKey(s) { return String(s == null ? '' : s).replace(/\s+/g, ''); }
+function _frBulkMatch(rows, frRows) {
+  const by = (keyFn) => { const m = {}; for (const f of frRows) { const k = keyFn(f); if (k) (m[k] = m[k] || []).push(f); } return m; };
+  const byName = by(f => _frBulkNorm(f.name));
+  const byPhone = by(f => { const d = _frBulkDigits(f.phone); return d.length >= 9 ? d : ''; });
+  const byOwner = by(f => _frBulkOwnerKey(f.owner_name));
+  const cnt = (keyFn) => { const m = {}; for (const r of rows) { const k = keyFn(r); if (k) m[k] = (m[k] || 0) + 1; } return m; };
+  const rowPhone = r => { const d = _frBulkDigits(r.phone); return d.length >= 9 ? d : ''; };
+  const sheetPhone = cnt(rowPhone), sheetOwner = cnt(r => _frBulkOwnerKey(r.owner));
+  const out = rows.map(row => {
+    const nk = _frBulkNorm(row.name);
+    if (nk) {
+      const c = byName[nk] || [];
+      if (c.length === 1) return { row, f: c[0], by: 'name' };
+      if (c.length > 1) return { row, f: null, why: 'name_dup:' + c.length };
+    }
+    const pk = rowPhone(row);
+    if (pk) {
+      const c = byPhone[pk] || [];
+      if (c.length === 1 && sheetPhone[pk] === 1) return { row, f: c[0], by: 'phone' };
+      if (c.length > 1 || sheetPhone[pk] > 1) return { row, f: null, why: 'phone_dup' };
+    }
+    const ok = _frBulkOwnerKey(row.owner);
+    if (ok) {
+      const c = byOwner[ok] || [];
+      if (c.length === 1 && sheetOwner[ok] === 1) return { row, f: c[0], by: 'owner' };
+      if (c.length > 1 || sheetOwner[ok] > 1) return { row, f: null, why: 'owner_dup' };
+    }
+    return { row, f: null, why: 'not_found' };
+  });
+  const hit = {};
+  for (const m of out) if (m.f) hit[m.f.id] = (hit[m.f.id] || 0) + 1;
+  for (const m of out) if (m.f && hit[m.f.id] > 1) { m.why = 'same_branch'; m.f = null; m.by = undefined; }
+  return out;
+}
+function _frBulkRowLabel(r) {
+  return [r.name, r.owner].filter(Boolean).join(' · ') || r.phone || '?';
+}
+function _frBulkReason(why) {
+  const en = adminLang === 'en';
+  if (why && why.indexOf('name_dup:') === 0) { const n = why.slice(9); return en ? `ambiguous — ${n} branches share this name` : `같은 이름의 지사가 ${n}곳 있어 판단 보류`; }
+  if (why === 'phone_dup') return en ? 'same phone on several branches/rows — skipped' : '같은 연락처가 여러 지사(또는 여러 줄)에 있어 판단 보류';
+  if (why === 'owner_dup') return en ? 'same owner name on several branches/rows — skipped' : '같은 대표명이 여러 지사(또는 여러 줄)에 있어 판단 보류';
+  if (why === 'same_branch') return en ? 'two rows point to the same branch — both skipped' : '두 줄이 같은 지사로 이어져 둘 다 보류';
+  return en ? 'not found by branch name, phone or owner name' : '지사명·연락처·대표명 어느 것으로도 시스템에서 못 찾음';
+}
+function _frBulkByLabel(by) {
+  const en = adminLang === 'en';
+  if (by === 'name') return en ? 'branch name' : '지사명';
+  if (by === 'phone') return en ? 'phone' : '연락처';
+  if (by === 'owner') return en ? 'owner name' : '대표명';
+  return '—';
 }
 
 async function frBulkPreview() {
@@ -5972,15 +6042,19 @@ async function frBulkPreview() {
   const updates = [];
   const skipped = [];
   let noChange = 0;
-  for (const row of parsed.rows) {
-    const key = _frBulkNorm(row.name);
-    const cands = byName[key] || [];
-    if (cands.length === 0) { skipped.push({ name: row.name, reason: adminLang === 'en' ? 'not found in system' : '시스템에 없는 지사명' }); continue; }
-    if (cands.length > 1) { skipped.push({ name: row.name, reason: adminLang === 'en' ? `ambiguous — ${cands.length} branches share this name` : `같은 이름의 지사가 ${cands.length}곳 있어 판단 보류` }); continue; }
-    const f = cands[0];
-    const change = { id: f.id, name: f.name };
+  const matches = _frBulkMatch(parsed.rows, _frRows);
+  for (const m of matches) {
+    const row = m.row;
+    const label = _frBulkRowLabel(row);
+    if (!m.f) { skipped.push({ name: label, reason: _frBulkReason(m.why) }); continue; }
+    const f = m.f;
+    const change = { id: f.id, name: f.name, by: m.by };
     let anything = false;
     if (row.login && row.login !== (f.login_username || '')) { change.login = row.login; anything = true; }
+    /* 🔑 (2026-10-29) 「비밀번호」 칸이 있으면 그 아이디로 실제 로그인 계정을 만든다(이미 이
+       지사 계정이면 비밀번호만 재설정) — 서버 PATCH 의 createOrResetBranchLogin 그대로.
+       아이디가 없는 줄은 비밀번호만으로는 아무것도 안 한다. */
+    if (row.pw && (row.login || f.login_username)) { change.pw = row.pw; change.login = change.login || row.login || ''; anything = true; }
     if (wantOwnerPhone) {
       if (row.owner && row.owner !== (f.owner_name || '')) { change.owner = row.owner; anything = true; }
       if (row.phone && row.phone !== (f.phone || '')) { change.phone = row.phone; anything = true; }
@@ -5999,20 +6073,24 @@ async function frBulkPreview() {
     else noChange++;
   }
   _frBulkPlan = { updates, wantOwnerPhone, wantMaster };
-  const nUpdate = updates.filter(u => u.login || u.owner || u.phone || u.masterId).length;
+  const nUpdate = updates.filter(u => u.login || u.owner || u.phone || u.masterId || u.pw).length;
+  const nPw = updates.filter(u => u.pw).length;
   let html = '<div style="font-weight:600;margin-bottom:4px">'
     + (adminLang === 'en'
         ? `Preview: ${parsed.rows.length} rows read · ${nUpdate} branch(es) will be updated · ${noChange} already up to date · ${skipped.length} skipped`
         : `미리보기: 총 ${parsed.rows.length}행 읽음 · ${nUpdate}곳 갱신 예정 · ${noChange}곳 이미 최신 · ${skipped.length}곳 건너뜀`)
     + '</div>';
+  if (nPw) html += '<div style="color:#b45309;margin-bottom:4px">' + (adminLang === 'en'
+      ? `🔑 ${nPw} branch(es) will get a real login account with the password in the sheet (existing account of that branch: password reset).`
+      : `🔑 ${nPw}곳은 표의 비밀번호로 «실제로 로그인되는» 계정을 만듭니다(이미 그 지사 계정이면 비밀번호만 바꿉니다).`) + '</div>';
   if (updates.length) {
     html += '<table style="margin-top:6px"><thead><tr>'
       + '<th data-ko="지사" data-en="Branch">지사</th><th data-ko="아이디" data-en="Login ID">아이디</th>'
       + '<th data-ko="관리자" data-en="Manager">관리자</th><th data-ko="전화" data-en="Phone">전화</th>'
-      + '<th data-ko="대표지사" data-en="Master Branch">대표지사</th></tr></thead><tbody>'
-      + updates.slice(0, 60).map(u => `<tr><td>${_esc(u.name)}</td><td>${u.login ? _esc(u.login) : '—'}</td>`
+      + '<th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="찾은 근거" data-en="Matched by">찾은 근거</th></tr></thead><tbody>'
+      + updates.slice(0, 60).map(u => `<tr><td>${_esc(u.name)}</td><td>${u.login ? _esc(u.login) : '—'}${u.pw ? ' 🔑' : ''}</td>`
         + `<td>${u.owner ? _esc(u.owner) : '—'}</td><td>${u.phone ? _esc(u.phone) : '—'}</td>`
-        + `<td>${u.masterId ? _esc(u.masterName) : (u.masterMissing ? ('⚠ ' + _esc(u.masterMissing) + (adminLang === 'en' ? ' (not found)' : ' 없음')) : '—')}</td></tr>`).join('')
+        + `<td>${u.masterId ? _esc(u.masterName) : (u.masterMissing ? ('⚠ ' + _esc(u.masterMissing) + (adminLang === 'en' ? ' (not found)' : ' 없음')) : '—')}</td><td>${_esc(_frBulkByLabel(u.by))}</td></tr>`).join('')
       + '</tbody></table>';
     if (updates.length > 60) html += `<div style="color:#6b7280;margin-top:4px">${adminLang === 'en' ? `…and ${updates.length - 60} more` : `…외 ${updates.length - 60}건 더`}</div>`;
   }
@@ -6045,14 +6123,15 @@ async function frBulkRun() {
     // 눈에 띄라고» 넣어 둔 정보성 줄이다 — 아무 요청도 안 보내면서 «성공」으로 세면 실행
     // 결과가 부풀려진다(직접 돌려서 잡은 실제 결함 — run_test.mjs). 실제로 할 일이 있는
     // 행만 센다.
-    if (!(u.login || u.owner || u.phone || u.masterId)) continue;
+    if (!(u.login || u.owner || u.phone || u.masterId || u.pw)) continue;
     let rowOk = true;
-    if (u.login || u.owner || u.phone) {
+    if (u.login || u.owner || u.phone || u.pw) {
       try {
         const body = { id: u.id };
         if (u.login) body.login_username = u.login;
         if (u.owner) body.owner_name = u.owner;
         if (u.phone) body.phone = u.phone;
+        if (u.pw) body.login_password = u.pw;
         const r = await fetch('/api/admin/franchises', {
           method: 'PATCH', credentials: 'include',
           headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
@@ -6471,7 +6550,8 @@ window.hqDelete = hqDelete;
 //   🐢 예전엔 921행을 한 번에 받아(약 130KB) 카드가 닫혀 있어도 DOM 에 다 그렸다.
 //      → 서버 페이징 50건 + 서버 검색. 검색은 '이 페이지 50행'이 아니라 921건 전체 대상.
 //   💳 pt = 결제유형 필터('' | 'B2B' | 'B2C' | 'NONE'). counts 는 서버가 준 유형별 건수.
-var _ctState = { q: '', offset: 0, limit: 50, total: 0, pt: '', fid: '', counts: null };
+//   ↕ sort/dir = 머리글 정렬(2026-10-28). 서버가 «실제로 적용한» 값으로 덮는다(모르는 열쇠는 '').
+var _ctState = { q: '', offset: 0, limit: 50, total: 0, pt: '', fid: '', counts: null, sort: '', dir: '' };
 /* 💰 수강료 상수 — 표 안 칸(_tuCell)과 수정 폼(ct-tuition)이 «같은 값» 을 써야 해서
    함수 밖으로 올렸다(2026-09-11). ⚠️ 18,000 은 서버 HQ_UNIT_KRW 와 짝이다
    (org-settlement.ts) — 한쪽만 고치면 화면이 통과시킨 값을 서버가 거절한다. */
@@ -6483,11 +6563,22 @@ var _CT_STD_TUITION = 30000, _CT_HQ_UNIT = 18000;
 //    사람이 방금 본 것과 폼에 채워진 값이 어긋나지 않는다.
 var _ctRows = [];
 var _ctCanEdit = true;   // GET 이 알려 준 can_edit — 강사·지사·대리점 계정에겐 ✏️ 수정 버튼을 안 그린다
+/* 🔒 (2026-10-28 사장님 「본사 계정만 만들 수 있게 좁혀줘」) GET 이 알려 준 can_login — 로그인 아이디·비밀번호
+   칸을 보여 줄지. 서버 저장도 같은 판정(agency-login-gate.ts)으로 막으므로 이건 «눌러도 403 나는 칸» 을 안 보이게 하는 것뿐.
+   ⚠️ 모르면(옛 서버·응답에 칸 없음) 보여 둔다 — 최종 판정은 서버다. */
+var _ctCanLogin = true;
+function _ctSyncLoginFields() {
+  var w = document.getElementById('ct-login-wrap'), h = document.getElementById('ct-login-hint');
+  // ⚠️ wrap 은 인라인 style 이 display:inline-flex 라 '' 로 지우면 칸 사이 간격(gap)까지 사라진다 — 값을 명시한다.
+  if (w) w.style.display = _ctCanLogin ? 'inline-flex' : 'none';
+  if (h) h.style.display = _ctCanLogin ? '' : 'none';
+}
 async function loadCenters(opts) {
   opts = opts || {};
   if (opts.q !== undefined) { _ctState.q = String(opts.q || '').trim(); _ctState.offset = 0; }
   if (opts.pt !== undefined) { _ctState.pt = String(opts.pt || ''); _ctState.offset = 0; }
   if (opts.fid !== undefined) { _ctState.fid = String(opts.fid || ''); _ctState.offset = 0; }
+  if (opts.sort !== undefined) { _ctState.sort = String(opts.sort || ''); _ctState.dir = String(opts.dir || ''); _ctState.offset = 0; }
   if (opts.offset !== undefined) _ctState.offset = Math.max(0, opts.offset);
   const tb = document.getElementById('centers-table');
   if (!tb) return;
@@ -6495,7 +6586,8 @@ async function loadCenters(opts) {
   const qs = '?limit=' + _ctState.limit + '&offset=' + _ctState.offset
            + (_ctState.q ? '&q=' + encodeURIComponent(_ctState.q) : '')
            + (_ctState.pt ? '&payment_type=' + encodeURIComponent(_ctState.pt) : '')
-           + (_ctState.fid ? '&franchise_id=' + encodeURIComponent(_ctState.fid) : '');
+           + (_ctState.fid ? '&franchise_id=' + encodeURIComponent(_ctState.fid) : '')
+           + (_ctState.sort ? '&sort=' + encodeURIComponent(_ctState.sort) + '&dir=' + (_ctState.dir === 'desc' ? 'desc' : 'asc') : '');
   let d = {}, _ctHttp = 0;
   try {
     const r = await fetch('/api/admin/centers' + qs, { cache:'no-store', credentials:'include' });
@@ -6509,7 +6601,7 @@ async function loadCenters(opts) {
     _ctRows = [];
     const en = adminLang === 'en';
     const why = (d && (d.message || d.error)) || (_ctHttp ? ('HTTP ' + _ctHttp) : (en ? 'network error' : '연결 실패'));
-    tb.innerHTML = '<tr><td colspan="10" class="empty" style="color:#b91c1c">⚠ '
+    tb.innerHTML = '<tr><td colspan="11" class="empty" style="color:#b91c1c">⚠ '
       + (en ? 'Could not load the agency list: ' : '대리점 목록을 불러오지 못했습니다: ') + _esc(String(why))
       + (_ctHttp ? ' (HTTP ' + _ctHttp + ')' : '') + '</td></tr>';
     const pg = document.getElementById('ct-pager'); if (pg) pg.innerHTML = '';
@@ -6519,6 +6611,11 @@ async function loadCenters(opts) {
   _ctState.total = Number(d.total || 0);
   if (d && d.counts) _ctState.counts = d.counts;
   if (d && typeof d.can_edit === 'boolean') _ctCanEdit = d.can_edit;
+  if (d && typeof d.can_login === 'boolean') _ctCanLogin = d.can_login;
+  _ctSyncLoginFields();
+  _ctState.sort = d.sort ? String(d.sort.key || '') : '';
+  _ctState.dir = d.sort ? String(d.sort.dir || '') : '';
+  _ctSyncSortHead();
   _ctRenderPtFilter();
   // 유형을 바꿔 목록이 줄면 지금 페이지가 범위를 벗어날 수 있다 → 마지막 페이지로 당긴다.
   // (total 0 이면 offset 0 이 되고, 그때는 이 조건이 거짓이라 무한 반복이 없다)
@@ -6527,7 +6624,7 @@ async function loadCenters(opts) {
   }
   if (!d.ok || !Array.isArray(d.items) || d.items.length === 0) {
     _ctRows = [];
-    tb.innerHTML = '<tr><td colspan="10" class="empty">'
+    tb.innerHTML = '<tr><td colspan="11" class="empty">'
       + ((_ctState.q || _ctState.pt || _ctState.fid) ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
     _ctRenderPager();
     return;
@@ -6566,8 +6663,22 @@ async function loadCenters(opts) {
     ? `<button type="button" onclick="ctEdit(${Number(c.id)})" class="org-rowact" data-ko="✏️ 수정" data-en="✏️ Edit"
         style="padding:2px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">${adminLang==='en'?'✏️ Edit':'✏️ 수정'}</button>`
     : '';
+  /* 🪪 (2026-10-26) 로그인 아이디 — 서버가 admin_scope(이름 정확일치)로 찾아 준 값.
+     login_ids 가 «없으면» 못 물어본 것(본사 아님·조회 실패) → «?», 빈 배열이면 «계정 없음». */
+  const _ctLoginCell = c => {
+    const en = adminLang === 'en';
+    if (!Array.isArray(c.login_ids)) return '<span style="color:#9ca3af" title="' + (en ? 'Unknown' : '확인하지 못했습니다') + '">?</span>';
+    if (!c.login_ids.length) return '<span style="color:#9ca3af" title="' + (en ? 'No login account is linked to this exact agency name' : '이 대리점 이름과 정확히 이어진 로그인 계정이 없습니다') + '">' + (en ? 'No account' : '계정 없음') + '</span>';
+    return c.login_ids.map(u => {
+      const safe = String(u).replace(/['\\]/g, '');
+      return `<span style="font-family:MangoiHanSC,ui-monospace,monospace;font-size:12px">${_esc(u)}</span>`
+        + `<button type="button" onclick="ltCopyTicket(this,'${safe}')" title="${en?'Copy login ID':'아이디 복사'}"
+            style="margin-left:4px;padding:1px 6px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">📋</button>`;
+    }).join('<br>')
+      + (c.login_shared ? '<div style="font-size:10.5px;color:#b45309">' + (en ? '⚠ shared by agencies with the same name' : '⚠ 같은 이름 대리점과 함께 씀') + '</div>' : '');
+  };
   tb.innerHTML = d.items.map(c =>
-    `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td>${_ptCell(c)}</td><td style="white-space:nowrap">${_tuCell(c)}</td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.phone)||'—'}</td><td>${_esc(c.address)||'—'}</td><td style="white-space:nowrap">${_actCell(c)}</td></tr>`
+    `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td style="white-space:nowrap">${_ctLoginCell(c)}</td><td>${_ptCell(c)}</td><td style="white-space:nowrap">${_tuCell(c)}</td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.phone)||'—'}</td><td>${_esc(c.address)||'—'}</td><td style="white-space:nowrap">${_actCell(c)}</td></tr>`
   ).join('');
   _ctRenderPager();
 }
@@ -6699,6 +6810,25 @@ function _ctRenderPager() {
     + btn(hasPrev, en?'‹ Prev':'‹ 이전', 'ctPrevPage()')
     + btn(hasNext, en?'Next ›':'다음 ›', 'ctNextPage()');
 }
+/* ↕ (2026-10-28 사장님 「필터 올림·내림」) 머리글 정렬 — ▲ 올림 → ▼ 내림 → 원래 순서(강사 명부 tpSortBy 와 같은 순환).
+   ⚠️ 50건씩 넘겨 보는 표라 «이 페이지만» 섞으면 921건 전체 순서가 아니다 → 서버에 sort/dir 로 묻고
+      첫 페이지부터 다시 받는다. 화살표는 서버가 돌려준 d.sort 로 그린다(_ctSyncSortHead).
+   ⚠️ 화살표는 data-ar 속성 + CSS ::after(i18n 이 [data-ko] 의 textContent 를 갈아끼운다). */
+function ctSortBy(key) {
+  let sort = key, dir = 'asc';
+  if (_ctState.sort === key && _ctState.dir === 'asc') dir = 'desc';
+  else if (_ctState.sort === key && _ctState.dir === 'desc') { sort = ''; dir = ''; }
+  loadCenters({ sort: sort, dir: dir });
+}
+window.ctSortBy = ctSortBy;
+function _ctSyncSortHead() {
+  const ths = document.querySelectorAll('#ct-list-table th.ct-sort-th');
+  for (let i = 0; i < ths.length; i++) {
+    const th = ths[i], on = !!_ctState.sort && th.getAttribute('data-sk') === _ctState.sort;
+    th.setAttribute('data-ar', on ? (_ctState.dir === 'desc' ? '▼' : '▲') : '⇅');
+    if (on !== th.classList.contains('ct-sort-on')) th.classList.toggle('ct-sort-on', on);
+  }
+}
 function ctPrevPage() { loadCenters({ offset: Math.max(0, _ctState.offset - _ctState.limit) }); }
 function ctNextPage() { loadCenters({ offset: _ctState.offset + _ctState.limit }); }
 var _ctSearchTimer = null;
@@ -6719,6 +6849,24 @@ function _ctSetBtnLabel(btn, ko, en) {
   btn.setAttribute('data-en', en);
   btn.textContent = (typeof adminLang !== 'undefined' && adminLang === 'en') ? en : ko;
 }
+/* 🔑 로그인 칸 안내 문구 — 등록/수정이 규칙이 달라 문구도 둘이다.
+   등록: 아이디·비밀번호 «둘 다» 넣으면 계정을 만든다. 수정: «비밀번호를 넣었을 때만» 만들거나(새 아이디)
+   비밀번호를 바꾼다(이 대리점 아이디) — 서버 checkAgencyLogin(api-admin.ts)과 같은 규칙.
+   🪤 textContent 만 바꾸면 🌐 를 눌렀을 때 옛 문구로 돌아간다 — data-ko/en 도 함께 바꾼다(_ctSetBtnLabel 과 같은 이유). */
+var _CT_LOGIN_HINT = {
+  add:  ['※ 로그인 아이디·비밀번호를 둘 다 입력하면 이 대리점 전용 로그인 계정을 함께 만듭니다. 비워 두면 계정 없이 목록에만 등록됩니다.',
+         '※ Fill in both the login ID and password to also create a login account for this agency. Leave both blank to register without an account.'],
+  edit: ['※ 비밀번호를 넣고 저장하면 — 새 아이디면 이 대리점 로그인 계정을 만들고, 이미 이 대리점 아이디면 비밀번호를 바꿉니다. 비밀번호를 비워 두면 계정은 그대로입니다.',
+         '※ Enter a password and save — a new ID creates a login account for this agency; this agency\'s existing ID gets a new password. Leave the password blank to keep the account as is.'],
+};
+function _ctSetLoginHint(editing) {
+  const h = document.getElementById('ct-login-hint');
+  if (!h) return;
+  const t = _CT_LOGIN_HINT[editing ? 'edit' : 'add'];
+  h.setAttribute('data-ko', t[0]);
+  h.setAttribute('data-en', t[1]);
+  h.textContent = (typeof adminLang !== 'undefined' && adminLang === 'en') ? t[1] : t[0];
+}
 function ctResetForm() {
   _ctEditId = 0;
   const e = id => document.getElementById(id);
@@ -6726,17 +6874,17 @@ function ctResetForm() {
   _ctTuitionPrev = '';
   if (e('ct-franchise')) e('ct-franchise').value = '';
   if (e('ct-paytype')) e('ct-paytype').value = '';
-  const loginWrap = e('ct-login-wrap'); if (loginWrap) loginWrap.style.display = '';
-  const loginHint = e('ct-login-hint'); if (loginHint) loginHint.style.display = '';
+  _ctSetLoginHint(false);
   _ctSetBtnLabel(e('ct-add-btn'), '+ 등록', '+ Register');
   const c = e('ct-cancel-btn'); if (c) c.style.display = 'none';
 }
 window.ctResetForm = ctResetForm;
 
 /* ✏️ (2026-09-11 신설 — 사장님 제보 「대리점을 수정할 수 있는 메뉴가 없다」)
-   표 ✏️ 수정 버튼 → 등록 폼을 그대로 열어 값을 채운다. 로그인 계정 만들기 칸은 숨긴다 —
-   계정을 «새로 붙이는» 일은 대리점 정보 수정과는 다른 작업이고, 이미 로그인 계정이 있는
-   대리점에서 이 칸을 다시 채워 저장하면 «이미 있는 아이디» 로 걸려 헷갈리기만 한다. */
+   표 ✏️ 수정 버튼 → 등록 폼을 그대로 열어 값을 채운다.
+   (2026-10-28) 로그인 칸도 연다 — 처음엔 숨겼지만(«이미 있는 아이디» 로 걸려 헷갈린다는 이유) 그러면
+   카페24 대리점 921곳에 계정을 붙일 길이 없었다. 지금은 서버가 «이 대리점 아이디» 를 알아보고
+   비밀번호만 바꾸므로 그 혼란이 없다(checkAgencyLogin 의 reset). */
 function ctEdit(id) {
   const c = _ctRows.filter(x => String(x.id) === String(id))[0];
   if (!c) return;
@@ -6752,10 +6900,14 @@ function ctEdit(id) {
   // 💰 안 정한 곳은 빈 칸 그대로 둔다 — 30,000 을 채워 넣으면 «사람이 정한 값» 처럼 보인다.
   _ctTuitionPrev = (c.tuition_krw == null || c.tuition_krw === '') ? '' : String(Number(c.tuition_krw));
   if (e('ct-tuition')) e('ct-tuition').value = _ctTuitionPrev;
-  if (e('ct-login-id')) e('ct-login-id').value = '';
+  /* 🔑 (2026-10-28) 로그인 칸을 수정 화면에서도 연다 — 카페24에서 온 대리점은 등록 폼을 안 거쳐
+     계정을 붙일 자리가 없었다(목록이 전부 «계정 없음»). 이미 계정이 «딱 하나» 면 그 아이디를 미리
+     채운다 → 비밀번호만 넣으면 비밀번호 바꾸기. 여럿이면 어느 것인지 모르니 비워 둔다(추측 금지).
+     비밀번호는 절대 채우지 않는다 — 비워 두는 것 자체가 «바꾸지 않음» 의 신호다. */
+  const ids = Array.isArray(c.login_ids) ? c.login_ids : [];
+  if (e('ct-login-id')) e('ct-login-id').value = ids.length === 1 ? String(ids[0]) : '';
   if (e('ct-login-pw')) e('ct-login-pw').value = '';
-  const loginWrap = e('ct-login-wrap'); if (loginWrap) loginWrap.style.display = 'none';
-  const loginHint = e('ct-login-hint'); if (loginHint) loginHint.style.display = 'none';
+  _ctSetLoginHint(true);
   const wrap = e('ct-form-wrap'); if (wrap) wrap.open = true;
   _ctSetBtnLabel(e('ct-add-btn'), '💾 수정 저장', '💾 Save');
   const cancel = e('ct-cancel-btn'); if (cancel) cancel.style.display = '';
@@ -6769,8 +6921,15 @@ async function saveCenter() {
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
   // 💰 ctResetForm() 이 칸을 비우므로 «비우기 전에» 읽어 둔다.
   const tuitionNow = e('ct-tuition') ? String(e('ct-tuition').value || '').trim() : '';
+  // 🔑 로그인 아이디·비밀번호 — 등록·수정 공용(규칙은 _CT_LOGIN_HINT 참고). 역시 비우기 전에 읽는다.
+  const loginId = (e('ct-login-id') && e('ct-login-id').value || '').trim();
+  const loginPw = (e('ct-login-pw') && e('ct-login-pw').value || '');
   if (_ctEditId) {
-    // ✏️ 수정 저장 — 로그인 계정 필드는 수정 화면에서 숨겨 뒀으니 여기서는 안 보낸다.
+    if (loginPw && !loginId) {
+      alert(adminLang==='en' ? 'Enter the login ID to set a password.' : '비밀번호를 설정하려면 로그인 아이디를 입력하세요.');
+      return;
+    }
+    // ✏️ 수정 저장 — (2026-10-28) 로그인 아이디·비밀번호도 함께 보낸다. 비밀번호가 비어 있으면 서버가 계정에 손대지 않는다.
     let d;
     try {
       const r = await fetch('/api/admin/centers', {
@@ -6783,6 +6942,8 @@ async function saveCenter() {
           phone: e('ct-phone') ? (e('ct-phone').value || null) : null,
           address: e('ct-address').value || null,
           payment_type: (e('ct-paytype') && e('ct-paytype').value) || null,
+          // 🔑 비밀번호가 비어 있으면 서버가 계정에 손대지 않는다(아이디만 미리 채워져 있어도).
+          login_username: loginId || null, login_password: loginPw || null,
         })
       });
       d = await r.json().catch(() => ({}));
@@ -6819,12 +6980,18 @@ async function saveCenter() {
         : ('참고: 이 대리점의 로그인 계정 "' + d.login_account_note.username + '" 은(는) 여전히 옛 이름("'
             + d.login_account_note.old_name + '") 기준으로 학생을 찾습니다. 필요하면 그 계정을 사람이 직접 확인해 주세요.'));
     }
+    // 🔑 (2026-10-28) 계정을 만들었는지 / 비밀번호를 바꿨는지 사람에게 말한다(지사 _frPasswordAlert 와 같은 자리).
+    if (d && d.login_result === 'created') {
+      alert(adminLang==='en' ? ('Agency login account created: ' + loginId + ' — this ID can now sign in.')
+                              : ('대리점 로그인 계정을 만들었습니다: ' + loginId + ' — 이제 이 아이디로 로그인됩니다.'));
+    } else if (d && d.login_result === 'reset') {
+      alert(adminLang==='en' ? ('Password changed for agency account: ' + loginId)
+                              : ('이 대리점 계정(' + loginId + ')의 비밀번호를 바꿨습니다.'));
+    }
     return;
   }
-  // 🔑 (2026-08-19) 로그인 아이디·비밀번호 — 둘 다 채워야 계정을 만든다. 하나만 채우면
+  // 🔑 (2026-08-19) 등록은 둘 다 채워야 계정을 만든다. 하나만 채우면
   //    서버 왕복 없이 여기서 먼저 막는다(centers 는 만들어지지 않았는데 계정만 실패하는 걸 방지).
-  const loginId = (e('ct-login-id') && e('ct-login-id').value || '').trim();
-  const loginPw = (e('ct-login-pw') && e('ct-login-pw').value || '');
   if ((loginId && !loginPw) || (!loginId && loginPw)) {
     alert(adminLang==='en' ? 'Fill in both login ID and password, or leave both blank.'
                             : '로그인 아이디와 비밀번호를 둘 다 입력하거나, 둘 다 비워 두세요.');
@@ -8851,6 +9018,10 @@ function _addEnrollmentRow(prefill) {
       '<button type="button" class="en-row-time-builder" title="요일별 시간 다르게 설정" ' +
         'style="width:24px;height:24px;padding:0;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;cursor:pointer;font-size:12px">⏰</button>' +
       '</div>' +
+      /* 🕐 (2026-10-30) 오전/오후 미리보기 — «7:40» 이 오전인지 사람이 저장 전에 본다(_enPaintTimeHint).
+         ⛔ 클래스 이름에 «-row» 를 넣지 말 것 — admin-inline-c.css 의 옛 규칙 [id^="card-"] [class*="-row"] 가 !important 로
+            바탕을 덮고 adm-s13 페인터가 흰색으로 다시 칠해 노란 경고가 사라진다(실제 admin.html 렌더로 확인). */
+      '<div class="en-time-hint" aria-live="polite" style="display:none;white-space:normal;font-size:10.5px;line-height:1.35;margin-top:3px;padding:2px 5px;border-radius:4px;max-width:260px"></div>' +
     '</td>' +
     '<td class="en-c en-c-classmin" data-label="' + (_enrIsEn ? 'Class length' : '수업 시간') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
       '<select class="en-row-classmin" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + classMinOpts + '</select></td>' +
@@ -8922,6 +9093,8 @@ function _addEnrollmentRow(prefill) {
     btn.disabled = true; btn.textContent = '…';
     try { await _openTimeBuilder(tr); } finally { btn.disabled = false; btn.textContent = orig; }
   });
+  // 🕐 (2026-10-30) 시간 칸 오전/오후 미리보기 — 칠 때마다 다시 그린다
+  { const _tIn = tr.querySelector('.en-row-time'); if (_tIn) { _tIn.addEventListener('input', () => _enPaintTimeHint(tr)); _enPaintTimeHint(tr); } }
   // 🔀 (2026-09-15) 여러 강사로 나눠 배정 — 모달 열기
   tr.querySelector('.en-row-multi-teacher-btn').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
@@ -9421,7 +9594,7 @@ async function _openTimeBuilder(tr) {
   const checkedDays = Array.from(tr.querySelectorAll('.en-row-day:checked')).map(c => c.value);
   // 현재 시간 입력값 파싱
   const currentTime = (tr.querySelector('.en-row-time')?.value || '').trim();
-  const parsed = _parseScheduleText(currentTime);
+  const parsed = _parseScheduleText(_enNormTimeText(currentTime));
   // 🕐 (2026-08-25) 「강사 우선」 + 특정 강사를 골랐을 때만 그 강사의 예약된 시간을 걸러 보여준다.
   //   「요일·시간 우선」이거나 강사가 「자동 배정」(빈값)이면 예전처럼 전부 선택 가능하다 —
   //   아직 누구에게 배정될지 모르는데 특정 강사 기준으로 막으면 안 된다.
@@ -9541,6 +9714,7 @@ async function _openTimeBuilder(tr) {
         }
       }
     }
+    _enPaintTimeHint(tr);
     close();
   });
 }
@@ -9568,7 +9742,7 @@ async function _openMultiTeacherBuilder(tr) {
     // 처음 여는 것이면 이미 채워 둔 단일 강사/요일/시간을 첫 조합으로 미리 채워 준다(편의)
     const curTeacher = (tr.querySelector('.en-row-teacher')?.value || '').trim();
     const curDays = Array.from(tr.querySelectorAll('.en-row-day:checked')).map(c => c.value);
-    const curTimeRaw = (tr.querySelector('.en-row-time')?.value || '').trim();
+    const curTimeRaw = _enNormTimeText((tr.querySelector('.en-row-time')?.value || '').trim()).trim();
     const curTime = /^\d{1,2}\s*:\s*\d{2}$/.test(curTimeRaw) ? curTimeRaw : '';
     existing = [{ teacher: curTeacher, days: curDays, time: curTime }];
   }
@@ -9685,7 +9859,7 @@ async function _openMultiTeacherBuilder(tr) {
 function _mtbClassifyCombo(teacher, days, timeRaw) {
   teacher = (teacher || '').trim();
   days = Array.isArray(days) ? days : [];
-  timeRaw = (timeRaw || '').trim();
+  timeRaw = _enNormTimeText((timeRaw || '').trim()).trim();   // 🕐 '7:40 PM' → '19:40'
   const time = /^\d{1,2}\s*:\s*\d{2}$/.test(timeRaw) ? _tbTimeToParts(timeRaw).join(':') : '';
   if (!teacher && days.length === 0 && !timeRaw) return { kind: 'empty' };
   if (!teacher || days.length === 0 || !time) return { kind: 'partial', teacher: teacher || '(강사 미선택)' };
@@ -9716,6 +9890,104 @@ function _enRenderMultiTeacherSummary(tr) {
   const dayKo = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
   box.textContent = '🔀 ' + plan.length + '건 나눠 배정: ' +
     plan.map(c => c.teacher + '(' + (Array.isArray(c.days) ? c.days : []).map(d => dayKo[d] || d).join('') + ' ' + c.time + ')').join(' · ');
+}
+
+/* 🕐 (2026-10-30) 시간 칸 글자 → «24시 · 한글 요일» 정본 모양. 서버 normalizeTimeText(src/enroll-activate.ts)와 «같은 규칙».
+     '7:40 PM'·'7:40pm'·'오후 7:40'·'PM 7:40' → '19:40' · '12:10 AM' → '00:10' · '7pm' → '19:00' · 'Mon 7:30, Wed 8:00' → '월 7:30, 수 8:00'
+   [왜] 2026-10-29 매니저(영어 화면)가 저녁 7:40 수업을 등록했는데 20회가 오전 07:40 으로 만들어졌다 —
+        서버 파서가 'PM' 을 버리고, 'Mon 7:30' 의 영어 요일도 무시했다(에러 없음).
+   ⚠️ 표시가 없는 '7:40' 은 그대로 07:40(추측하지 않는다) — 대신 칸 아래 미리보기가 «오전» 이라고 말한다.
+   ⛔ 뒤돌아보기 정규식((?<!…))을 새로 늘리지 않는다 — 그것을 모르는 옛 iOS 사파리(16.4 미만)에서는 리터럴 하나가
+      파일 전체를 문법 오류로 죽인다(이 파일엔 예전부터 한 곳 있다 — 별건). 앞 글자를 잡아 되돌려 쓰는 방식으로 같은 뜻을 낸다.
+   ⚠️ 서버와 어긋나면 미리보기와 실제 시간표가 달라진다 — enroll_time_ampm_harness 가 같은 입력 수백 개로 대조한다. */
+function _enNormTimeText(raw) {
+  let s = String(raw == null ? '' : raw);
+  if (!s.trim()) return s;
+  const LABEL = ['일','월','화','수','목','금','토'];
+  const EN = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
+  const DAY_RE = /(^|[^a-z])(sun(?:day)?|mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r(?:s(?:day)?)?)?|fri(?:day)?|sat(?:urday)?)(?![a-z])\.?/gi;
+  s = s.replace(DAY_RE, (m, pre, d, off, all) =>
+    pre + LABEL[EN[d.slice(0, 3).toLowerCase()]] + (/\s/.test(all.charAt(off + m.length)) ? '' : ' '));
+  const isPm = (k) => /^(p|오후)/i.test(k);
+  const to24 = (h, mi, k) => {
+    if (!(h >= 0 && h <= 23) || Number(mi) > 59) return null;
+    let hh = h;
+    if (isPm(k)) { if (h >= 1 && h <= 11) hh = h + 12; }
+    else if (h === 12) hh = 0;
+    return String(hh).padStart(2, '0') + ':' + mi;
+  };
+  const MK = '(오전|오후|[ap]\\.?\\s?m\\.?)(?![a-z])';
+  // ⚠️ 더 안 바뀔 때까지 되풀이(서버와 같은 이유 — 한 판만 돌면 «두 번 다듬은 값» 이 달라진다). 바뀔 때마다 표시가 줄어 끝난다.
+  for (let pass = 0; pass < 20; pass++) {
+    const before = s;
+    // ⚠️ 순서: «뒤 표시» 를 먼저 — 앞 표시를 먼저 보면 '7:30 PM 8:00 PM' 의 첫 PM 이 뒤 시각에 붙는다.
+    s = s.replace(new RegExp('(\\d{1,2})\\s*:\\s*(\\d{2})\\s*' + MK, 'gi'),
+      (m, h, mi, k) => { const v = to24(Number(h), mi, k); return v === null ? m : v; });
+    s = s.replace(new RegExp('(^|[^a-z])' + MK + '\\s*(\\d{1,2})\\s*:\\s*(\\d{2})', 'gi'),
+      (m, pre, k, h, mi) => { const v = to24(Number(h), mi, k); return v === null ? m : pre + v; });
+    s = s.replace(new RegExp('(^|[^\\d:])(\\d{1,2})\\s*' + MK, 'gi'),
+      (m, pre, h, k) => { const n = Number(h); const v = n >= 1 && n <= 12 ? to24(n, '00', k) : null; return v === null ? m : pre + v; });
+    if (s === before) break;
+  }
+  return s;
+}
+
+/* 🕐 시간 칸 아래 미리보기 — «서버가 실제로 만들 시각» 을 오전/오후로 말한다(같은 정규화 → 같은 해석).
+   반환 { slots:[{day, hm, h}], bad, morning } · 빈 칸이면 null.
+   morning = 오전 1~11시 시각이 있는데 사람이 «오전/AM» 을 직접 적지 않았다 → 저녁을 뜻했을 수 있다(이번 사고 모양). */
+function _enTimeHint(raw) {
+  const txt = String(raw == null ? '' : raw);
+  if (!txt.trim()) return null;
+  const norm = _enNormTimeText(txt);
+  const slots = [];
+  const re = /([일월화수목금토])\s*:?\s*(\d{1,2}):(\d{2})/g;
+  let m;
+  while ((m = re.exec(norm)) !== null) slots.push({ day: m[1], h: Number(m[2]), mi: m[3] });
+  if (!slots.length) {
+    const one = /(\d{1,2}):(\d{2})/.exec(norm);
+    if (one) slots.push({ day: '', h: Number(one[1]), mi: one[2] });
+  }
+  const bad = !slots.length || slots.some(x => !(x.h >= 0 && x.h <= 23) || Number(x.mi) > 59);
+  slots.forEach(x => { x.hm = String(x.h).padStart(2, '0') + ':' + x.mi; });
+  const amTyped = /오전|(^|[^a-z])a\.?\s?m\.?(?![a-z])/i.test(txt);
+  const morning = !bad && !amTyped && slots.some(x => x.h >= 1 && x.h <= 11);
+  return { slots, bad, morning };
+}
+
+/* 시간 칸 아래 한 줄을 그린다. ⚠️ 색은 «background-color» 로 — admin-inline-c.css 가 카드 안 글자색을 #101828 로 덮는다. */
+function _enPaintTimeHint(tr) {
+  if (!tr) return;
+  const input = tr.querySelector('.en-row-time');
+  const box = tr.querySelector('.en-time-hint');
+  if (!input || !box) return;
+  const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
+  const DAY_EN = { '일':'Sun','월':'Mon','화':'Tue','수':'Wed','목':'Thu','금':'Fri','토':'Sat' };
+  const hint = _enTimeHint(input.value);
+  const paint = (text, bg, bd) => {
+    box.textContent = text;
+    box.style.display = text ? 'block' : 'none';
+    box.style.backgroundColor = bg || 'transparent';
+    box.style.border = bd ? ('1px solid ' + bd) : '0';
+  };
+  if (!hint) { paint('', '', ''); return; }
+  if (hint.bad) {
+    paint(en ? '⚠ Cannot read this time — e.g. 19:40 or 7:40 PM' : '⚠ 시간을 읽지 못했습니다 — 예: 19:40 또는 오후 7:40', '#fee2e2', '#fca5a5');
+    return;
+  }
+  const ap = (x) => {
+    const h12 = (x.h % 12) || 12;
+    return en ? (h12 + ':' + x.mi + ' ' + (x.h < 12 ? 'AM' : 'PM')) : ((x.h < 12 ? '오전 ' : '오후 ') + h12 + ':' + x.mi);
+  };
+  let line = '→ ' + hint.slots.map(x => (x.day ? (en ? DAY_EN[x.day] : x.day) + ' ' : '') + ap(x) + ' (' + x.hm + ')').join(' · ');
+  if (hint.morning) {
+    const am = hint.slots.find(x => x.h >= 1 && x.h <= 11);
+    const pmHm = String(am.h + 12) + ':' + am.mi;
+    line += en ? ('  ⚠ MORNING class. For evening type ' + pmHm + ' or ' + am.h + ':' + am.mi + ' PM')
+               : ('  ⚠ 오전 수업입니다. 저녁이면 «' + pmHm + '» 또는 «오후 ' + am.h + ':' + am.mi + '» 처럼 적으세요');
+    paint(line, '#fef3c7', '#f59e0b');
+  } else {
+    paint(line, '#ecfdf5', '#a7f3d0');
+  }
 }
 
 // 시간 텍스트 파싱 — "10:30" 또는 "월 7:30, 수 8:00" 형식
@@ -9760,7 +10032,8 @@ function _readEnrollmentRows() {
     const pkg = (tr.querySelector('.en-row-package')?.value || '').trim();
     const fee = tr.querySelector('.en-row-fee')?.value || '';
     const start = tr.querySelector('.en-row-start')?.value || '';
-    const time = tr.querySelector('.en-row-time')?.value || '';
+    // 🕐 (2026-10-30) 보내기 전에 정본 모양으로 — '7:40 PM'·'Mon 7:30' 이 서버에서 오전·요일 무시로 바뀌지 않게
+    const time = _enNormTimeText(tr.querySelector('.en-row-time')?.value || '').trim();
     const classSize = tr.querySelector('.en-row-size')?.value || '';
     // ⏱ (2026-08-26) 수업 시간(분) — 안 고르거나 이상한 값이면 20분(class-policy.ts DEFAULT_CLASS_MINUTES).
     //   select 옵션이 20/30/40 뿐이라 정상 사용에서는 항상 그중 하나지만, 값 자체를 방어적으로 다시 검사한다.
@@ -11004,6 +11277,40 @@ async function _bulkRegisterEnrollments(records) {
   loadEnrollments();
 }
 
+// .xlsx → CSV 텍스트(그 뒤는 _parseCsvEnrollments 가 그대로 읽는다 — 「항목,값」·머리글 두 모양 모두).
+//   zip·시트 읽기는 학생 단체 등록(js/adm-student-bulk.js)의 parseXlsx 를 빌린다 — 같은 읽기를 두 벌 두지 않는다.
+//   엑셀은 날짜·시각을 «숫자»로 저장한다(2026-11-03 → 46329, 19:00 → 0.791666…) — 그 칸만 글자로 되돌린다.
+function _enXlsxCell(label, v) {
+  const t = String(v == null ? '' : v).trim();
+  const lb = String(label || '');
+  if (/시작|개강|start/i.test(lb) && /^\d{5}(\.\d+)?$/.test(t)) {
+    const n = Math.floor(Number(t));
+    if (n > 20000 && n < 80000) return new Date(Date.UTC(1899, 11, 30) + n * 86400000).toISOString().slice(0, 10);
+  }
+  if (/시간|time/i.test(lb) && /^0?\.\d+$/.test(t)) {
+    const m = Math.round(Number(t) * 1440) % 1440;
+    return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  }
+  return t;
+}
+function _enRowsToCsv(rows) {
+  rows = (rows || []).filter(r => r && r.some(c => String(c == null ? '' : c).trim()));
+  if (!rows.length) return '';
+  const header = rows[0].map(h => String(h == null ? '' : h).trim());
+  const pairForm = /^항목$/.test(header[0] || '') && /^값$/.test(header[1] || '');
+  const q = (c) => { const s = String(c == null ? '' : c); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  return rows.map((r, ri) => r.map((c, ci) => {
+    if (ri === 0) return q(c);
+    const label = pairForm ? (ci === 1 ? r[0] : '') : header[ci];
+    return q(_enXlsxCell(label, c));
+  }).join(',')).join('\n');
+}
+async function _enXlsxToCsv(buf) {
+  const B = window.__smBulk;
+  if (!B || typeof B.parseXlsx !== 'function') throw new Error('엑셀 읽기 도구가 아직 안 불러졌습니다(새로고침 후 다시)');
+  return _enRowsToCsv(await B.parseXlsx(buf));
+}
+
 async function importEnrollmentFromFile() {
   const fi = document.getElementById('en-import-file');
   if (!fi || !fi.files || fi.files.length === 0) {
@@ -11013,7 +11320,26 @@ async function importEnrollmentFromFile() {
   const file = fi.files[0];
   const ext = (file.name.split('.').pop() || '').toLowerCase();
   let text = '';
-  try { text = await file.text(); }
+  // 2026-10-29: 진짜 엑셀(.xlsx)은 zip 이라 file.text() 로 읽으면 깨진 글자 → 0건이었다.
+  //   첫 바이트로 가른다(확장자보다 정확 — 이름만 .xls 인 .xlsx 도 있다).
+  let head = null;
+  try { head = new Uint8Array(await file.slice(0, 8).arrayBuffer()); } catch (e) { head = null; }
+  if (head && head[0] === 0x50 && head[1] === 0x4B) {
+    if (/^docx?$/.test(ext)) { alert('워드(.docx) 파일은 읽지 못합니다. 엑셀(.xlsx)·CSV 로 올려 주세요.\nWord (.docx) files cannot be read. Please upload .xlsx or CSV.'); return; }
+    try { text = await _enXlsxToCsv(await file.arrayBuffer()); }
+    catch (e) { alert('엑셀 파일을 읽지 못했습니다: ' + (e && e.message || e) + '\n「CSV UTF-8」로 저장해 올려 주세요.\nCould not read the Excel file — please save as CSV UTF-8.'); return; }
+    _renderImportPreview(_parseCsvEnrollments(text), file.name);
+    return;
+  }
+  if (head && head[0] === 0xD0 && head[1] === 0xCF && head[2] === 0x11 && head[3] === 0xE0) {
+    alert('옛 엑셀(.xls 97-2003) 형식은 읽지 못합니다. 엑셀에서 「다른 이름으로 저장 → Excel 통합 문서(.xlsx)」 또는 「CSV UTF-8」로 저장해 올려 주세요.\nOld .xls (97-2003) is not supported — save as .xlsx or CSV UTF-8.');
+    return;
+  }
+  // 2026-10-30: 엑셀이 «CSV(쉼표로 분리)» 로 저장하면 CP949 라 file.text() 로 한글이 깨진다 — 학생 단체 등록의 decodeText(UTF-8 엄격 → euc-kr)를 빌린다
+  try {
+    const B = window.__smBulk;
+    text = (B && typeof B.decodeText === 'function') ? B.decodeText(await file.arrayBuffer()) : await file.text();
+  }
   catch (e) { alert('파일 읽기 실패: ' + e.message); return; }
   let records = [];
   // 자동 감지 우선 — HTML 태그가 있으면 어떤 확장자든 표 파서로 처리
