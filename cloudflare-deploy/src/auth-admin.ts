@@ -22,6 +22,8 @@ import { sendPlainSms } from './solapi-client';
 import { sendEmail, getEmailMode, emailLayout } from './email';
 import { authUidFromRequest } from './auth-token';   // 🔐 소유자 검증(단방향 의존: auth-admin → auth-token)
 import { legacyLoginEnabled, verifyLegacyLmsLogin, lookupTeacherByLoginId, provisionTeacherAccount, legacyProvisionGate } from './legacy-teacher-auth';
+import { dailySeenPlan, noteDailySeen } from './teacher-login-times';
+import { handleTeacherLoginList } from './teacher-login-list';   // 🔐 강사 첫 접속·로그인 시각(2026-10-30)
 
 export interface AuthEnv {
   DB: D1Database;
@@ -516,14 +518,20 @@ export async function checkAdminSession(request: Request, env: AuthEnv): Promise
   try {
     await ensureAuthSchema(env);
     const row = await env.DB.prepare(
-      `SELECT username, expires_at FROM admin_sessions WHERE token = ? LIMIT 1`
-    ).bind(token).first<{ username: string; expires_at: number }>();
+      `SELECT username, expires_at, last_seen_at FROM admin_sessions WHERE token = ? LIMIT 1`
+    ).bind(token).first<{ username: string; expires_at: number; last_seen_at: number }>();
     if (!row) return { ok: false };
-    if (row.expires_at < Date.now()) return { ok: false };
+    const now = Date.now();
+    if (row.expires_at < now) return { ok: false };
     // 마지막 활동 시각 갱신 (실패해도 무시)
-    env.DB.prepare(
+    // 🔐 (2026-10-30) 이 세션이 «오늘(KST) 처음» 쓰이는 순간이면 그 시각을 먼저 적는다 — 강사 «첫 접속» 시각.
+    //    적기를 «먼저» 하는 이유: 갱신이 먼저 끝나고 적기가 잘리면 다음 요청은 이미 «오늘» 이라 영영 못 적는다.
+    //    noteDailySeen 은 던지지 않는다. 정본 teacher-login-times.ts.
+    const touch = () => env.DB.prepare(
       `UPDATE admin_sessions SET last_seen_at = ? WHERE token = ?`
-    ).bind(Date.now(), token).run().catch(() => {});
+    ).bind(now, token).run();
+    const seenPlan = dailySeenPlan(Number(row.last_seen_at), now);
+    (seenPlan ? noteDailySeen(env.DB, row.username, seenPlan).then(touch) : touch()).catch(() => {});
     return { ok: true, username: row.username, token, expiresAt: row.expires_at };
   } catch (e) {
     console.warn('[auth-admin] checkAdminSession err:', (e as any)?.message);
@@ -1573,6 +1581,16 @@ export async function handleAdminAuthApi(
       }
       await env.DB.prepare(`DELETE FROM admin_2fa WHERE username = ?`).bind(me).run();
       return json({ ok: true, enabled: false });
+    }
+
+    // ── 🔐 강사 로그인·접속 시각 (2026-10-30 매니저 제안) — 본사 전용. 판정 정본 teacher-login-times.ts · 게이트 teacher-login-list.ts ──
+    //    ⚠️ 새 경로를 만들지 않고 이미 등록된 이 경로의 쿼리로 얹는다(src/index.ts 게이트 3곳 회피).
+    //    강사는 index.ts TEACHER_BLOCKED_PREFIXES 가 막고, 핸들러 안에서 admin_scope 를 다시 읽어 강사·지사·대리점을 한 번 더 막는다.
+    if (path === '/api/admin/login-history' && method === 'GET' && url.searchParams.get('scope') === 'teachers') {
+      return await handleTeacherLoginList(request, url, env, {
+        actorOf: getAdminActor,
+        roleOf: (st, u, n) => resolveRole(st, u, n).role,
+      });
     }
 
     // ── 로그인 이력 (최근 10건) ──

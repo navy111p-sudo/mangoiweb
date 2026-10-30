@@ -257,6 +257,27 @@ html.dark #sm-phone-gaps input[type="tel"],html.dark #sm-phone-gaps select{backg
 html.dark #sm-phone-gaps a{color:#93c5fd}
 html.dark #pg-flash{color:#a7f3d0 !important}
 html.dark #pg-flash[data-warn="1"]{color:#fcd34d !important}
+/* 🔐 강사 로그인 시각 (2026-10-30) — 표는 «내용만큼» 넓히고 상자 안에서만 옆으로 민다(페이지는 안 밀림).
+   ⛔ min-width 를 숫자로 박지 말 것 — 좁은 폭에서 글자가 낱글자로 쪼개진다(CLAUDE.md 2장). */
+.tl-bar{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;margin:0 0 8px}
+.tl-bar label{font-size:13px;color:#4a5866;display:inline-flex;align-items:center;gap:6px}
+.tl-note{font-size:12.5px;line-height:1.55;color:#4a5866;margin:0 0 8px}
+.tl-warn{font-size:13px;line-height:1.55;color:#7c3d06;background:#fff4dc;border:1px solid #f5d79a;border-radius:8px;padding:7px 10px;margin:0 0 8px}
+.tl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tl-tbl{border-collapse:collapse;width:max-content;min-width:100%;font-size:13.5px}
+.tl-tbl th,.tl-tbl td{text-align:left;padding:7px 10px;border-top:1px solid #eaeef2;white-space:nowrap;vertical-align:top}
+.tl-tbl th{font-size:12px;color:#5b6876;font-weight:700;border-top:0}
+.tl-tbl td .tl-sub{display:block;font-size:12px;color:#5b6876}
+.tl-on{color:#15803d;font-weight:700}
+.tl-bad{color:#b45309;font-weight:700}
+.tl-more{margin-top:8px}
+.tl-more summary{cursor:pointer;font-size:13px;color:#4a5866}
+html.dark .tl-bar label,html.dark .tl-note{color:#aeb9c5}
+html.dark .tl-warn{background:#33270f;border-color:#6b5320;color:#f3d79b}
+html.dark .tl-tbl th,html.dark .tl-tbl td{border-color:#2f3944}
+html.dark .tl-tbl th,html.dark .tl-tbl td .tl-sub,html.dark .tl-more summary{color:#aeb9c5}
+html.dark .tl-on{color:#86efac}
+html.dark .tl-bad{color:#fcd34d}
 
 /* 오프라인 띠 — 흰 화면 대신 «마지막으로 본 것» 임을 알린다 */
 #off{display:none;background:#fff4e5;border:1px solid #f0c893;color:#7a4a06;border-radius:8px;
@@ -1053,6 +1074,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <button type="button" id="sideUtil" onclick="sideGo('c-util')"><span class="ic">📈</span><span data-en="Teacher utilisation" data-ko="강사 가동률">Teacher utilisation</span></button>
     <button type="button" id="sideFree" onclick="sideGo('c-free')" hidden><span class="ic">👥</span><span data-en="Find free teachers" data-ko="빈 강사 찾기">Find free teachers</span></button>
     <button type="button" id="sidePhoneGaps" onclick="sideGo('sm-phone-gaps')" hidden><span class="ic">📵</span><span data-en="Students without a phone" data-ko="번호 없는 학생">Students without a phone</span></button>
+    <button type="button" id="sideLogins" onclick="sideGo('c-logins')" hidden><span class="ic">🔐</span><span data-en="Teacher login times" data-ko="강사 로그인 시각">Teacher login times</span></button>
   </div>
   <div class="sgrp-h" data-en="Settlement &amp; stats" data-ko="정산통계관리">Settlement &amp; stats</div>
   <div class="sgrp">
@@ -1519,6 +1541,21 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     </div>
     <div id="pg-flash" role="status" style="display:none"></div>
     <div id="pg-body"><div class="empty"><span data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</span></div></div>
+  </details>
+
+  <!-- 🔐 (2026-10-30 매니저 제안 «add teacher's log in time») 강사 로그인 시각 — 그날(KST) 강사마다
+       첫 접속 · 로그인 · 마지막 활동. 서버 GET /api/admin/login-history?scope=teachers&date= (정본 src/teacher-login-times.ts).
+       ⚠️ 본사 전용 — 그 경로는 강사(index.ts)·지사·대리점(핸들러)에 403. IS_HQ 일 때만 hidden 을 푼다(서버 403 + 화면 숨김 짝).
+       ⚠️ data-en/data-ko 는 안쪽 span 에만 — 그릇(#tlBody·#tlCount)에 달면 🌐 가 목록을 지웁니다. -->
+  <details class="card" id="c-logins" ontoggle="if(this.open)loadLogins()" hidden>
+    <summary><span data-en="🔐 Teacher login times" data-ko="🔐 강사 로그인 시각">🔐 Teacher login times</span></summary>
+    <div class="tl-bar">
+      <label><span data-en="Date" data-ko="날짜">Date</span><input type="date" id="tlDate" class="fq-in" onchange="loadLogins(true)"></label>
+      <button type="button" class="btn" onclick="loadLogins(true)"><span data-en="🔄 Load" data-ko="🔄 불러오기">🔄 Load</span></button>
+      <span id="tlCount" class="muted"></span>
+    </div>
+    <div class="tl-note"><span data-en="Korea time (KST) — Philippine time is 1 hour earlier. «First on» = the first time the teacher used the site that day, including when they were still logged in from an earlier day. «Login» counts real sign-ins only." data-ko="한국 시간(KST) 기준 — 필리핀 시간은 1시간 빠릅니다. «첫 접속» = 그날 처음 사이트를 쓴 시각(전날부터 로그인돼 있던 경우 포함). «로그인» 은 실제로 아이디·비밀번호로 들어온 것만 셉니다.">Korea time (KST) — Philippine time is 1 hour earlier. «First on» = the first time the teacher used the site that day, including when they were still logged in from an earlier day. «Login» counts real sign-ins only.</span></div>
+    <div id="tlBody" class="empty"><span data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</span></div>
   </details>
 
   <!-- ⚔️ (2026-09-30 필리핀 매니저 요청 · 사장님 A안) 같은 강사·같은 시간에 LMS(카페24) 수업과
@@ -2090,6 +2127,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     ['c-free', 'sideFree'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = !IS_HQ; });   // 👥 본사 전용(API 가 강사·지사·대리점에 403)
     ['sm-phone-gaps', 'sidePhoneGaps'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = !IS_HQ; });   // 📵 본사 전용(API 가 강사·지사·대리점에 403)
     if (!IS_HQ) { var _cpg = document.getElementById('sm-phone-gaps'); if (_cpg && _cpg.classList.contains('pane-active')) setPane(null); }
+    ['c-logins', 'sideLogins'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = !IS_HQ; });   // 🔐 본사 전용(API 가 강사·지사·대리점에 403)
+    if (!IS_HQ) { var _clg = document.getElementById('c-logins'); if (_clg && _clg.classList.contains('pane-active')) setPane(null); }
     /* 🔐 (2026-09-24) 결재함은 본사·강사 전용이다(서버 api-approval.ts 가 지사·대리점을 403).
        지사·대리점에게 결재함 버튼이 보이면 «누를 수는 있는데 들어갈 수 없는» 버튼이 된다.
        범위를 모를 때(sc.type 없음)는 감추지 않는다 — 눌러도 결재 화면이 «본사 전용» 이라고 말한다. */
@@ -2301,6 +2340,99 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       return '<div class="row"><b>' + esc(t.teacher_name || t.name || t.teacher || '-') + '</b>'
            + '<span class="num">' + pct.toFixed(0) + '%</span></div>';
     }).join('');
+  }
+
+  // ── 🔐 강사 로그인 시각 (2026-10-30) ─────────────────────────────────────
+  //    ⛔ 판정·시각 계산은 서버(src/teacher-login-times.ts)가 한다 — 여기서는 그리기만.
+  //    ⚠️ get() 에 캐시 키를 주지 않는다 — 실패했을 때 «지난번 목록» 을 오늘 것처럼 보여 주면 안 된다.
+  var TL_SEQ = 0;
+  window.loadLogins = function(force){
+    var dEl = document.getElementById('tlDate');
+    if (dEl && !dEl.value) dEl.value = kstToday();
+    var date = (dEl && /^\d{4}-\d{2}-\d{2}$/.test(dEl.value || '')) ? dEl.value : kstToday();
+    if (!force && D.logins && D.logins.date === date) { paintLogins(); return; }
+    var el = document.getElementById('tlBody');
+    var seq = ++TL_SEQ;
+    el.className = 'empty';
+    el.textContent = T('Loading...', '불러오는 중...');
+    get('/api/admin/login-history?scope=teachers&date=' + encodeURIComponent(date), null)
+      .then(function(j){ if (seq !== TL_SEQ) return; D.logins = j; paintLogins(); })
+      .catch(function(e){ if (seq !== TL_SEQ) return; D.logins = null; document.getElementById('tlCount').textContent = ''; failBox(el, e); });
+  };
+  /* 시각 — 한국 시간 HH:MM 과 필리핀 시간(1시간 빠름). 그 날(day)이 아니거나 day 를 안 주면 MM-DD 를 앞에 붙인다. */
+  function tlTime(ms, day){
+    if (ms == null || !isFinite(Number(ms))) return '';
+    var k = new Date(Number(ms) + 9 * 3600000).toISOString();
+    var p = new Date(Number(ms) + 8 * 3600000).toISOString();
+    var head = (!day || k.slice(0, 10) !== day) ? k.slice(5, 10) + ' ' : '';
+    return head + k.slice(11, 16) + ' (PH ' + p.slice(11, 16) + ')';
+  }
+  /* 한 줄의 다섯 칸 — 상태(state)는 서버가 정한 그대로 말한다(모르면 «기록 없음», 지어내지 않음). */
+  function tlCells(it, day, isToday){
+    var first;
+    if (it.state === 'login' || it.state === 'active') {
+      first = esc(tlTime(it.first_active_at, day))
+        + (it.state === 'active' ? '<span class="tl-sub">' + esc(T('still logged in from before', '전에 로그인한 상태로 접속')) + '</span>' : '');
+    } else if (it.state === 'carried') {
+      first = esc(T('On since midnight', '자정 넘어 계속 접속')) + '<span class="tl-sub">' + esc(tlTime(it.carried_at, day)) + '</span>';
+    } else if (it.state === 'seen') {
+      first = esc(T('Used the site (start time not recorded)', '접속함 (시작 시각 기록 없음)'));
+    } else {
+      first = '—';
+    }
+    var login = it.login_count > 0
+      ? esc(tlTime(it.first_login_at, day))
+        + (it.login_count > 1 ? '<span class="tl-sub">' + esc(T('last ', '마지막 ') + tlTime(it.last_login_at, day) + ' · ' + it.login_count + T(' times', '회')) + '</span>' : '')
+      : '—';
+    var last = it.last_active_at != null
+      ? (it.online ? '<span class="tl-on">' + esc(T('🟢 Online now', '🟢 지금 접속 중')) + '</span><span class="tl-sub">' + esc(tlTime(it.last_active_at, day)) + '</span>'
+                   : esc(tlTime(it.last_active_at, day)))
+      : '—';
+    var notes = [];
+    if (it.failed_count > 0) notes.push('<span class="tl-bad">' + esc(T('⚠ ' + it.failed_count + ' failed login(s)', '⚠ 로그인 실패 ' + it.failed_count + '회')) + '</span>');
+    if (!(it.login_count > 0)) {
+      notes.push(esc(it.last_login_before != null
+        ? T('Last login: ', '마지막 로그인: ') + tlTime(it.last_login_before, null)
+        : T('No login on record', '로그인 기록 없음')));
+    }
+    return '<td><b>' + esc(it.display_name || it.username) + '</b><span class="tl-sub">' + esc(it.username) + '</span></td>'
+      + '<td>' + first + '</td><td>' + login + '</td><td>' + last + '</td><td>' + (notes.join('<br>') || '') + '</td>';
+  }
+  function paintLogins(){
+    var j = D.logins; if (!j) return;
+    var el = document.getElementById('tlBody');
+    var items = Array.isArray(j.items) ? j.items : [];
+    var cnt = j.counts || {};
+    document.getElementById('tlCount').textContent = items.length
+      ? T('Used the site: ' + (cnt.active || 0) + ' / ' + (cnt.total || items.length), '접속한 강사: ' + (cnt.active || 0) + ' / ' + (cnt.total || items.length) + '명')
+        + (j.is_today ? T(' · online now: ' + (cnt.online || 0), ' · 지금 접속 중: ' + (cnt.online || 0) + '명') : '')
+      : '';
+    var head = '';
+    if (Array.isArray(j.partial) && j.partial.length) {   // ⛔ 못 읽은 것을 «없음» 으로 그리지 않는다
+      head += '<div class="tl-warn">' + esc(T('Some records could not be read (' + j.partial.join(', ') + '). Empty cells may be wrong — press Load again.',
+        '일부 기록을 읽지 못했습니다(' + j.partial.join(', ') + '). 빈 칸이 틀릴 수 있습니다 — 다시 불러와 주세요.')) + '</div>';
+    }
+    if (!j.first_seen_since || j.date < j.first_seen_since) {
+      head += '<div class="tl-note">' + esc(T('«First on» for teachers who stayed logged in is recorded from '
+        + (j.first_seen_since || T('today', '오늘')) + '. Before that, only real logins are shown.',
+        '전에 로그인한 채로 들어온 강사의 «첫 접속» 은 ' + (j.first_seen_since || '오늘') + ' 부터 기록됩니다. 그 전 날짜는 실제 로그인만 보입니다.')) + '</div>';
+    }
+    if (!items.length) { el.className = 'empty'; el.innerHTML = head + esc(T('No teacher accounts found.', '강사 계정이 없습니다.')); return; }
+    var on = items.filter(function(it){ return it.state !== 'none'; });
+    var off = items.filter(function(it){ return it.state === 'none'; });
+    var th = '<tr><th>' + esc(T('Teacher', '강사')) + '</th><th>' + esc(T('First on', '첫 접속')) + '</th><th>' + esc(T('Login', '로그인'))
+      + '</th><th>' + esc(T('Last activity', '마지막 활동')) + '</th><th>' + esc(T('Note', '참고')) + '</th></tr>';
+    var table = function(rows){
+      return '<div class="tl-wrap"><table class="tl-tbl"><thead>' + th + '</thead><tbody>'
+        + rows.map(function(it){ return '<tr>' + tlCells(it, j.date, j.is_today) + '</tr>'; }).join('') + '</tbody></table></div>';
+    };
+    var h = head;
+    h += on.length ? table(on) : '<div class="empty">' + esc(T('No teacher used the site on this day.', '이날 접속한 강사가 없습니다.')) + '</div>';
+    if (off.length) {
+      h += '<details class="tl-more"><summary>' + esc(T('No record this day: ' + off.length + ' teacher(s)', '이날 기록 없음: ' + off.length + '명')) + '</summary>' + table(off) + '</details>';
+    }
+    el.className = '';
+    el.innerHTML = h;
   }
 
   // ── 👥 빈 강사 찾기 (2026-10-13) ──────────────────────────────────────────
@@ -4275,6 +4407,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (D.flow) paintFlow();
     if (D.students) window.paintStudents();
     if (D.util) paintUtil();
+    if (D.logins) paintLogins();   // 🔐 #tlBody 는 그릇이라 data-en 이 없다 — 표는 여기서 다시 그린다
     if (D.clash) paintClash();
     if (D.free) paintFree();
     freeHint();
@@ -4313,6 +4446,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     D.series = D.flow = D.students = D.util = D.wait = D.me = null;
     D.payroll = D.leave = D.reqs = D.live = D.outage = D.bugs = D.todayAll = null;
     D.org = D.attn = D.settle = D.aiusage = null;
+    D.logins = null;
     boot();
     // 펼쳐져 있는 카드는 새 값으로 다시 채운다
     if (document.getElementById('c-trend').open) window.loadTrend();
@@ -4323,7 +4457,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (document.getElementById('c-wait').open) window.loadWait();
     if (document.getElementById('c-me').open) window.loadMe();
     ['c-payroll:loadPayroll','c-leave:loadLeave','c-req:loadReqs','c-today:loadTodayAll','c-live:loadLive','c-outage:loadOutage','c-bugs:loadBugs',
-     'c-org:loadOrg','c-attn:loadAttn','c-settle:loadSettle','c-aiusage:loadAiUsage']
+     'c-org:loadOrg','c-attn:loadAttn','c-settle:loadSettle','c-aiusage:loadAiUsage','c-logins:loadLogins']
       .forEach(function(pair){ var q = pair.split(':'); var el = document.getElementById(q[0]);
         if (el && el.open && typeof window[q[1]] === 'function') window[q[1]](); });
   };
