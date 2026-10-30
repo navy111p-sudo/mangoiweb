@@ -8252,6 +8252,8 @@ function vcOnSegResults(results){
 //     ⚠ busy 플래그 + currentTime 체크 - WASM "memory access out of bounds" 방지
 async function vcBgRenderLoop(){
   if (!vcBg.isProcessing) return;
+  // Keep the display clock running while inference is pending; sending prevents overlap.
+  vcBg.rafId = requestAnimationFrame(vcBgRenderLoop);
   const v = vcBg.hiddenVideo;
   // Phase 7m: 모델이 무거워진 만큼 3 프레임마다 1번 처리 (CPU 66% 절약 → 멈춤 방지)
   //   ↳ 화상통화에선 20fps 정도면 충분히 자연스러움
@@ -8269,6 +8271,9 @@ async function vcBgRenderLoop(){
   const shouldProcess = (vcBg.frameTick % _everyN === 0);
   if (shouldProcess && v && v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0
       && vcBg.segmenter && !vcBg.sending) {
+    // A 15fps camera can be displayed at 60Hz; do not infer the same frame again.
+    if (typeof v.currentTime === 'number' && vcBg._lastFrameTime === v.currentTime) return;
+    vcBg._lastFrameTime = v.currentTime;
     vcBg.sending = true;
     const _t0 = window.vcPerf ? vcPerf.begin() : 0;   // ⏱ 모델 추론 + 합성(onResults) 시간 측정
     try {
@@ -8282,7 +8287,6 @@ async function vcBgRenderLoop(){
       vcBg.sending = false;
     }
   }
-  vcBg.rafId = requestAnimationFrame(vcBgRenderLoop);
 }
 
 // --- 5-b) 숨겨진 카메라 비디오 준비 (원본 스트림 → segmenter 입력) ---
@@ -8767,12 +8771,12 @@ window.vcSetBackground = async function(mode){
 
   // 처리 시작
   vcBg.isProcessing = true;
-  if (!vcBg.rafId) vcBgRenderLoop();
 
   // 첫 프레임 즉시 한 번 그려서 검정 화면 방지 (RAF 첫 콜백 전 대기 시간 동안)
   try {
     await vcBg.segmenter.send({ image: vcBg.hiddenVideo });
   } catch(e) { console.warn('[vc-bg] 초기 프레임 송신 실패:', e); }
+  if (vcBg.isProcessing && !vcBg.rafId) vcBgRenderLoop();
 
   // 캔버스 스트림 생성 → 로컬 비디오에 연결 + sender 교체
   if (!vcBg.processedStream) {
@@ -11536,6 +11540,8 @@ let pdfDoc = null, pdfPageNum = 1, pdfCurrentId = null, pdfPagesPerView = 1;
 let pdfZoom = 1;                          // 사용자 줌 배율
 let pdfDrawTool = 'none';                 // 'none' | 'pen' | 'eraser'
 let pdfAnnotations = {};                  // { [pageNum]: [strokes] }
+const pdfAnnotationsByDoc = new Map(); // Session only: keep each image/PDF's own notes.
+let pdfLoadGeneration = 0;
                                           // stroke = { tool, color, size, points: [[nx,ny], ...] (정규화 0~1) }
 
 // 파일 확장자/MIME으로 이미지 여부 판별
@@ -11929,8 +11935,10 @@ async function pdfUpload(input) {
 })();
 
 async function pdfLoad(url, kind) {
-    // fix (2026-06-01) — 현재 교재 URL 기억 (다운로드 버튼용)
-    try { window._vcCurrentPdfUrl = url; window._vcCurrentPdfKind = kind || ''; } catch(_){}
+    const generation = ++pdfLoadGeneration;
+    const pendingText = document.getElementById('ph265-textinput');
+    if (pendingText) pendingText.blur();
+    let nextDoc;
     // kind가 지정되지 않았으면 URL/MIME으로 추정 (레거시 호출 호환)
     if (!kind) {
         // HEAD 시도: Content-Type을 보고 판단
@@ -11945,7 +11953,7 @@ async function pdfLoad(url, kind) {
     }
 
     if (kind === 'image') {
-        pdfDoc = await pdfBuildImageDoc(url);
+        nextDoc = await pdfBuildImageDoc(url);
     } else {
         /* 📕 PDF.js 는 여기서 «처음» 받는다(2026-08-09 지연 로딩). 홈 첫 화면에선 안 받는다.
            ensurePdfJs() 가 workerSrc 까지 세팅해 주고, 이미 받아 뒀으면 즉시 돌아온다. */
@@ -11959,22 +11967,24 @@ async function pdfLoad(url, kind) {
            ⚠️ 서버가 Range 를 못 받아 주면 pdf.js 가 알아서 통짜 다운로드로 되돌아간다 — 안전한 변경이다.
            ⚠️ disableAutoFetch 를 켜면 «뒤 페이지로 훌쩍 뛸 때» 그 조각을 그때 받는다.
               그래서 아래 pdfRender 에서 **다음 페이지를 미리 받아 둔다**(체감 지연 제거). */
-        pdfDoc = await pdfjsLib.getDocument({
+        nextDoc = await pdfjsLib.getDocument({
             url: url,
             rangeChunkSize: 131072,     // 128KB — 조각이 너무 작으면 왕복이 늘어 오히려 느리다
             disableAutoFetch: true,
             disableStream: false
         }).promise;
     }
-    /* 📝 (2026-07-21) 새 교재를 열면 이전 교재의 필기를 비운다 — 교사 피드백
-       원인: pdfAnnotations 는 {페이지번호: 획들} 로만 저장된다. 교재가 '이미지 여러 장'
-             (라이브러리 시퀀스)이면 파일이 바뀌어도 페이지 번호가 똑같이 1 이라
-             이전 장에 그린 필기가 다음 장에 그대로 다시 그려졌다.
-       같은 파일을 다시 여는 경우(재공유·재렌더)는 지우지 않는다. */
+    if (generation !== pdfLoadGeneration) return;
+    pdfDoc = nextDoc;
+    window._vcCurrentPdfUrl = url;
+    window._vcCurrentPdfKind = kind || '';
+    // Switching image pages must isolate notes, while returning restores them.
     try {
-        if (window._pdfAnnoDocKey !== url) {
-            window._pdfAnnoDocKey = url;
-            pdfAnnotations = {};
+        const docKey = (typeof vcRoomId === 'undefined' ? '' : vcRoomId || '') + '|' + new URL(url, location.origin).href;
+        if (window._pdfAnnoDocKey !== docKey) {
+            if (window._pdfAnnoDocKey) pdfAnnotationsByDoc.set(window._pdfAnnoDocKey, pdfAnnotations);
+            window._pdfAnnoDocKey = docKey;
+            pdfAnnotations = pdfAnnotationsByDoc.get(docKey) || {};
             ['pdf-anno', 'pdf-anno-2'].forEach(function (id) {
                 var a = document.getElementById(id);
                 if (a) { try { a.getContext('2d').clearRect(0, 0, a.width, a.height); } catch (e) {} }
@@ -12306,6 +12316,8 @@ function pdfBindAnnoEvents(annoId) {
             const px = (e.clientX - rect.left) / rect.width;
             const py = (e.clientY - rect.top) / rect.height;
             function commit(){
+                if (inp._committed) return;
+                inp._committed = true;
                 const txt = inp.value.trim();
                 inp.remove();
                 if (!txt) return;
