@@ -28,6 +28,7 @@
  */
 
 import { stripCheerLead } from './warmup-empathy';
+import type { WarmupFix } from './warmup-correction';
 
 export type WarmupMode = 'free_talk' | 'balanced' | 'focused';
 export type WarmupGrade = 'perfect' | 'partial' | 'incomplete';
@@ -184,4 +185,24 @@ export function gateFixForMode(
     if (mode === 'focused') return verifiedFix ? { show: verifiedFix, repeat: true } : { show: null, repeat: false };
     return { show: decidedShow || null, repeat: !!decidedRepeat };
   } catch { return { show: decidedShow || null, repeat: !!decidedRepeat }; }
+}
+
+/**
+ * 집중교정 — 검증된 교정이 있으면 아바타가 «고친 문장을 소리 내어» 말하게 한다.
+ *   · 모델이 답장에 고친 문장(fix.now)을 빼먹었을 때만 답장 앞에 붙인다. 이미 들어 있으면 그대로.
+ *   · 문장을 새로 지어내지 않는다 — 서버가 검증을 통과시킨 fix.now 만 쓴다.
+ *   · 완벽(perfect)이면 고칠 것이 없으니 건드리지 않는다.
+ * [왜] 화면은 교정 카드와 「따라 말해 보기」 버튼만 그리고, 아바타 음성은 답장 텍스트만 읽는다.
+ *   모델이 교정 문장을 답장에 넣지 않으면 학생은 고친 문장을 듣지 못한다(원장님 제보: 교정 뒤 대화가 그냥 이어짐).
+ */
+export function ensureFocusedFixSpoken(
+  reply: string, mode: WarmupMode, grade: WarmupGrade | null, fix: WarmupFix | null,
+): string {
+  try {
+    if (mode !== 'focused' || !fix || grade === 'perfect') return reply;
+    const now = String(fix.now == null ? '' : fix.now).trim();
+    if (!now) return reply;
+    if (reply.toLowerCase().includes(now.toLowerCase())) return reply;
+    return `Let's say it this way: "${now}" Can you say it with me? ${reply}`;
+  } catch { return reply; }
 }
