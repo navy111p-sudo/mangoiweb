@@ -18,6 +18,7 @@
 //
 //   실행: node test-harness/enroll_activate_harness.mjs
 import { readFileSync } from 'fs';
+import { stripTypeScriptTypes } from 'node:module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -59,10 +60,14 @@ function extractFn(name) {
 
 const consts = stripTypes(/const DOW_KO[\s\S]*?const DOW_LABEL = \[[^\]]*\];/.exec(actSrc)[0]);
 
+// 🕐 (2026-10-30) parseTimesByDow 가 맨 앞에서 normalizeTimeText('7:40 PM' → '19:40')를 부른다 — 함께 오려 넣는다.
+//   ⚠️ 그 함수는 정규식에 '(?:day)' 같은 글자가 있어 위 간이 stripTypes 가 «타입» 으로 오인해 지운다 →
+//      그 함수만 node 의 진짜 타입 지우개로 벗긴다(다른 함수는 예전 방식 그대로).
+const normTimeSrc = stripTypeScriptTypes((/export function normalizeTimeText\b[\s\S]*?\n\}/m.exec(actSrc) || [''])[0].replace(/^export /, ''));
 const fns = ['parseDowList', 'dowLabel', 'parseTimesByDow', 'parseSessions', 'parseClassSize', 'maskPhone', 'nextBillingDay', 'kstDay']
   .map(extractFn).join('\n');
 
-const P = new Function(consts + '\n' + fns + '\nreturn {parseDowList,dowLabel,parseTimesByDow,parseSessions,parseClassSize,maskPhone,nextBillingDay,kstDay};')();
+const P = new Function(consts + '\n' + normTimeSrc + '\n' + fns + '\nreturn {parseDowList,dowLabel,normalizeTimeText,parseTimesByDow,parseSessions,parseClassSize,maskPhone,nextBillingDay,kstDay};')();
 
 // ① 요일
 check("'월수금' → [1,3,5]", JSON.stringify(P.parseDowList('월수금')) === '[1,3,5]', P.parseDowList('월수금'));

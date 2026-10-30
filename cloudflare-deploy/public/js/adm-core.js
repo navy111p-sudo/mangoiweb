@@ -9018,6 +9018,10 @@ function _addEnrollmentRow(prefill) {
       '<button type="button" class="en-row-time-builder" title="요일별 시간 다르게 설정" ' +
         'style="width:24px;height:24px;padding:0;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;cursor:pointer;font-size:12px">⏰</button>' +
       '</div>' +
+      /* 🕐 (2026-10-30) 오전/오후 미리보기 — «7:40» 이 오전인지 사람이 저장 전에 본다(_enPaintTimeHint).
+         ⛔ 클래스 이름에 «-row» 를 넣지 말 것 — admin-inline-c.css 의 옛 규칙 [id^="card-"] [class*="-row"] 가 !important 로
+            바탕을 덮고 adm-s13 페인터가 흰색으로 다시 칠해 노란 경고가 사라진다(실제 admin.html 렌더로 확인). */
+      '<div class="en-time-hint" aria-live="polite" style="display:none;white-space:normal;font-size:10.5px;line-height:1.35;margin-top:3px;padding:2px 5px;border-radius:4px;max-width:260px"></div>' +
     '</td>' +
     '<td class="en-c en-c-classmin" data-label="' + (_enrIsEn ? 'Class length' : '수업 시간') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
       '<select class="en-row-classmin" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + classMinOpts + '</select></td>' +
@@ -9089,6 +9093,8 @@ function _addEnrollmentRow(prefill) {
     btn.disabled = true; btn.textContent = '…';
     try { await _openTimeBuilder(tr); } finally { btn.disabled = false; btn.textContent = orig; }
   });
+  // 🕐 (2026-10-30) 시간 칸 오전/오후 미리보기 — 칠 때마다 다시 그린다
+  { const _tIn = tr.querySelector('.en-row-time'); if (_tIn) { _tIn.addEventListener('input', () => _enPaintTimeHint(tr)); _enPaintTimeHint(tr); } }
   // 🔀 (2026-09-15) 여러 강사로 나눠 배정 — 모달 열기
   tr.querySelector('.en-row-multi-teacher-btn').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
@@ -9588,7 +9594,7 @@ async function _openTimeBuilder(tr) {
   const checkedDays = Array.from(tr.querySelectorAll('.en-row-day:checked')).map(c => c.value);
   // 현재 시간 입력값 파싱
   const currentTime = (tr.querySelector('.en-row-time')?.value || '').trim();
-  const parsed = _parseScheduleText(currentTime);
+  const parsed = _parseScheduleText(_enNormTimeText(currentTime));
   // 🕐 (2026-08-25) 「강사 우선」 + 특정 강사를 골랐을 때만 그 강사의 예약된 시간을 걸러 보여준다.
   //   「요일·시간 우선」이거나 강사가 「자동 배정」(빈값)이면 예전처럼 전부 선택 가능하다 —
   //   아직 누구에게 배정될지 모르는데 특정 강사 기준으로 막으면 안 된다.
@@ -9708,6 +9714,7 @@ async function _openTimeBuilder(tr) {
         }
       }
     }
+    _enPaintTimeHint(tr);
     close();
   });
 }
@@ -9735,7 +9742,7 @@ async function _openMultiTeacherBuilder(tr) {
     // 처음 여는 것이면 이미 채워 둔 단일 강사/요일/시간을 첫 조합으로 미리 채워 준다(편의)
     const curTeacher = (tr.querySelector('.en-row-teacher')?.value || '').trim();
     const curDays = Array.from(tr.querySelectorAll('.en-row-day:checked')).map(c => c.value);
-    const curTimeRaw = (tr.querySelector('.en-row-time')?.value || '').trim();
+    const curTimeRaw = _enNormTimeText((tr.querySelector('.en-row-time')?.value || '').trim()).trim();
     const curTime = /^\d{1,2}\s*:\s*\d{2}$/.test(curTimeRaw) ? curTimeRaw : '';
     existing = [{ teacher: curTeacher, days: curDays, time: curTime }];
   }
@@ -9852,7 +9859,7 @@ async function _openMultiTeacherBuilder(tr) {
 function _mtbClassifyCombo(teacher, days, timeRaw) {
   teacher = (teacher || '').trim();
   days = Array.isArray(days) ? days : [];
-  timeRaw = (timeRaw || '').trim();
+  timeRaw = _enNormTimeText((timeRaw || '').trim()).trim();   // 🕐 '7:40 PM' → '19:40'
   const time = /^\d{1,2}\s*:\s*\d{2}$/.test(timeRaw) ? _tbTimeToParts(timeRaw).join(':') : '';
   if (!teacher && days.length === 0 && !timeRaw) return { kind: 'empty' };
   if (!teacher || days.length === 0 || !time) return { kind: 'partial', teacher: teacher || '(강사 미선택)' };
@@ -9883,6 +9890,104 @@ function _enRenderMultiTeacherSummary(tr) {
   const dayKo = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
   box.textContent = '🔀 ' + plan.length + '건 나눠 배정: ' +
     plan.map(c => c.teacher + '(' + (Array.isArray(c.days) ? c.days : []).map(d => dayKo[d] || d).join('') + ' ' + c.time + ')').join(' · ');
+}
+
+/* 🕐 (2026-10-30) 시간 칸 글자 → «24시 · 한글 요일» 정본 모양. 서버 normalizeTimeText(src/enroll-activate.ts)와 «같은 규칙».
+     '7:40 PM'·'7:40pm'·'오후 7:40'·'PM 7:40' → '19:40' · '12:10 AM' → '00:10' · '7pm' → '19:00' · 'Mon 7:30, Wed 8:00' → '월 7:30, 수 8:00'
+   [왜] 2026-10-29 매니저(영어 화면)가 저녁 7:40 수업을 등록했는데 20회가 오전 07:40 으로 만들어졌다 —
+        서버 파서가 'PM' 을 버리고, 'Mon 7:30' 의 영어 요일도 무시했다(에러 없음).
+   ⚠️ 표시가 없는 '7:40' 은 그대로 07:40(추측하지 않는다) — 대신 칸 아래 미리보기가 «오전» 이라고 말한다.
+   ⛔ 뒤돌아보기 정규식((?<!…))을 새로 늘리지 않는다 — 그것을 모르는 옛 iOS 사파리(16.4 미만)에서는 리터럴 하나가
+      파일 전체를 문법 오류로 죽인다(이 파일엔 예전부터 한 곳 있다 — 별건). 앞 글자를 잡아 되돌려 쓰는 방식으로 같은 뜻을 낸다.
+   ⚠️ 서버와 어긋나면 미리보기와 실제 시간표가 달라진다 — enroll_time_ampm_harness 가 같은 입력 수백 개로 대조한다. */
+function _enNormTimeText(raw) {
+  let s = String(raw == null ? '' : raw);
+  if (!s.trim()) return s;
+  const LABEL = ['일','월','화','수','목','금','토'];
+  const EN = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
+  const DAY_RE = /(^|[^a-z])(sun(?:day)?|mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r(?:s(?:day)?)?)?|fri(?:day)?|sat(?:urday)?)(?![a-z])\.?/gi;
+  s = s.replace(DAY_RE, (m, pre, d, off, all) =>
+    pre + LABEL[EN[d.slice(0, 3).toLowerCase()]] + (/\s/.test(all.charAt(off + m.length)) ? '' : ' '));
+  const isPm = (k) => /^(p|오후)/i.test(k);
+  const to24 = (h, mi, k) => {
+    if (!(h >= 0 && h <= 23) || Number(mi) > 59) return null;
+    let hh = h;
+    if (isPm(k)) { if (h >= 1 && h <= 11) hh = h + 12; }
+    else if (h === 12) hh = 0;
+    return String(hh).padStart(2, '0') + ':' + mi;
+  };
+  const MK = '(오전|오후|[ap]\\.?\\s?m\\.?)(?![a-z])';
+  // ⚠️ 더 안 바뀔 때까지 되풀이(서버와 같은 이유 — 한 판만 돌면 «두 번 다듬은 값» 이 달라진다). 바뀔 때마다 표시가 줄어 끝난다.
+  for (let pass = 0; pass < 20; pass++) {
+    const before = s;
+    // ⚠️ 순서: «뒤 표시» 를 먼저 — 앞 표시를 먼저 보면 '7:30 PM 8:00 PM' 의 첫 PM 이 뒤 시각에 붙는다.
+    s = s.replace(new RegExp('(\\d{1,2})\\s*:\\s*(\\d{2})\\s*' + MK, 'gi'),
+      (m, h, mi, k) => { const v = to24(Number(h), mi, k); return v === null ? m : v; });
+    s = s.replace(new RegExp('(^|[^a-z])' + MK + '\\s*(\\d{1,2})\\s*:\\s*(\\d{2})', 'gi'),
+      (m, pre, k, h, mi) => { const v = to24(Number(h), mi, k); return v === null ? m : pre + v; });
+    s = s.replace(new RegExp('(^|[^\\d:])(\\d{1,2})\\s*' + MK, 'gi'),
+      (m, pre, h, k) => { const n = Number(h); const v = n >= 1 && n <= 12 ? to24(n, '00', k) : null; return v === null ? m : pre + v; });
+    if (s === before) break;
+  }
+  return s;
+}
+
+/* 🕐 시간 칸 아래 미리보기 — «서버가 실제로 만들 시각» 을 오전/오후로 말한다(같은 정규화 → 같은 해석).
+   반환 { slots:[{day, hm, h}], bad, morning } · 빈 칸이면 null.
+   morning = 오전 1~11시 시각이 있는데 사람이 «오전/AM» 을 직접 적지 않았다 → 저녁을 뜻했을 수 있다(이번 사고 모양). */
+function _enTimeHint(raw) {
+  const txt = String(raw == null ? '' : raw);
+  if (!txt.trim()) return null;
+  const norm = _enNormTimeText(txt);
+  const slots = [];
+  const re = /([일월화수목금토])\s*:?\s*(\d{1,2}):(\d{2})/g;
+  let m;
+  while ((m = re.exec(norm)) !== null) slots.push({ day: m[1], h: Number(m[2]), mi: m[3] });
+  if (!slots.length) {
+    const one = /(\d{1,2}):(\d{2})/.exec(norm);
+    if (one) slots.push({ day: '', h: Number(one[1]), mi: one[2] });
+  }
+  const bad = !slots.length || slots.some(x => !(x.h >= 0 && x.h <= 23) || Number(x.mi) > 59);
+  slots.forEach(x => { x.hm = String(x.h).padStart(2, '0') + ':' + x.mi; });
+  const amTyped = /오전|(^|[^a-z])a\.?\s?m\.?(?![a-z])/i.test(txt);
+  const morning = !bad && !amTyped && slots.some(x => x.h >= 1 && x.h <= 11);
+  return { slots, bad, morning };
+}
+
+/* 시간 칸 아래 한 줄을 그린다. ⚠️ 색은 «background-color» 로 — admin-inline-c.css 가 카드 안 글자색을 #101828 로 덮는다. */
+function _enPaintTimeHint(tr) {
+  if (!tr) return;
+  const input = tr.querySelector('.en-row-time');
+  const box = tr.querySelector('.en-time-hint');
+  if (!input || !box) return;
+  const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
+  const DAY_EN = { '일':'Sun','월':'Mon','화':'Tue','수':'Wed','목':'Thu','금':'Fri','토':'Sat' };
+  const hint = _enTimeHint(input.value);
+  const paint = (text, bg, bd) => {
+    box.textContent = text;
+    box.style.display = text ? 'block' : 'none';
+    box.style.backgroundColor = bg || 'transparent';
+    box.style.border = bd ? ('1px solid ' + bd) : '0';
+  };
+  if (!hint) { paint('', '', ''); return; }
+  if (hint.bad) {
+    paint(en ? '⚠ Cannot read this time — e.g. 19:40 or 7:40 PM' : '⚠ 시간을 읽지 못했습니다 — 예: 19:40 또는 오후 7:40', '#fee2e2', '#fca5a5');
+    return;
+  }
+  const ap = (x) => {
+    const h12 = (x.h % 12) || 12;
+    return en ? (h12 + ':' + x.mi + ' ' + (x.h < 12 ? 'AM' : 'PM')) : ((x.h < 12 ? '오전 ' : '오후 ') + h12 + ':' + x.mi);
+  };
+  let line = '→ ' + hint.slots.map(x => (x.day ? (en ? DAY_EN[x.day] : x.day) + ' ' : '') + ap(x) + ' (' + x.hm + ')').join(' · ');
+  if (hint.morning) {
+    const am = hint.slots.find(x => x.h >= 1 && x.h <= 11);
+    const pmHm = String(am.h + 12) + ':' + am.mi;
+    line += en ? ('  ⚠ MORNING class. For evening type ' + pmHm + ' or ' + am.h + ':' + am.mi + ' PM')
+               : ('  ⚠ 오전 수업입니다. 저녁이면 «' + pmHm + '» 또는 «오후 ' + am.h + ':' + am.mi + '» 처럼 적으세요');
+    paint(line, '#fef3c7', '#f59e0b');
+  } else {
+    paint(line, '#ecfdf5', '#a7f3d0');
+  }
 }
 
 // 시간 텍스트 파싱 — "10:30" 또는 "월 7:30, 수 8:00" 형식
@@ -9927,7 +10032,8 @@ function _readEnrollmentRows() {
     const pkg = (tr.querySelector('.en-row-package')?.value || '').trim();
     const fee = tr.querySelector('.en-row-fee')?.value || '';
     const start = tr.querySelector('.en-row-start')?.value || '';
-    const time = tr.querySelector('.en-row-time')?.value || '';
+    // 🕐 (2026-10-30) 보내기 전에 정본 모양으로 — '7:40 PM'·'Mon 7:30' 이 서버에서 오전·요일 무시로 바뀌지 않게
+    const time = _enNormTimeText(tr.querySelector('.en-row-time')?.value || '').trim();
     const classSize = tr.querySelector('.en-row-size')?.value || '';
     // ⏱ (2026-08-26) 수업 시간(분) — 안 고르거나 이상한 값이면 20분(class-policy.ts DEFAULT_CLASS_MINUTES).
     //   select 옵션이 20/30/40 뿐이라 정상 사용에서는 항상 그중 하나지만, 값 자체를 방어적으로 다시 검사한다.
