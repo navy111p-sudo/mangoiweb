@@ -62,6 +62,24 @@ if (B) {
   ok('파일 안 대소문자만 다른 중복 막음', by['대소문자중복'] && by['대소문자중복'].length > 0);
 }
 
+// ④-2 2026-10-30 실사고: 엑셀이 «CSV(쉼표로 분리)» 로 저장하면 CP949 — UTF-8 로 읽어 한글이 전부 깨졌다
+{
+  ok('전제: decodeText 노출', B && typeof B.decodeText === 'function');
+  // 「아이디(필수),이름(필수)\nysys02,박온유」 를 CP949 바이트로(파이썬 cp949 로 만든 값)
+  const cp949 = Buffer.from('BEC6C0CCB5F028C7CABCF6292CC0CCB8A728C7CABCF6290A7973797330322CB9DABFC2C0AF', 'hex');
+  const t = B && B.decodeText ? B.decodeText(cp949.buffer.slice(cp949.byteOffset, cp949.byteOffset + cp949.length)) : '';
+  ok('CP949 CSV 를 한글로 읽음', t.indexOf('박온유') >= 0 && t.indexOf('아이디') === 0, t);
+  const r = B && B.decodeText ? B.checkRecords(B.rowsToRecords(B.parseDelimited(t))) : [];
+  ok('CP949 머리글 인식 → 1명·이름 정상', r.length === 1 && r[0].user_id === 'ysys02' && r[0].name === '박온유', r);
+  const u8 = Buffer.from('\uFEFF아이디(필수),이름(필수)\nkim01,김하나', 'utf8');
+  const tu = B && B.decodeText ? B.decodeText(u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.length)) : '';
+  ok('UTF-8(양식 그대로)은 예전처럼(짝)', tu.indexOf('김하나') >= 0, tu);
+  const ex = B.rowsToRecords(B.parseDelimited('아이디(필수),이름(필수),비밀번호,학생전화,학부모전화,소속학원,메모\nysys02,박온유,1221,,,,예시 — 이 줄은 지우고 쓰세요\nysys03,김하나,,,,,진짜 메모'));
+  ok('양식 예시 메모는 저장 안 함', ex[0] && ex[0].notes === '', ex[0] && ex[0].notes);
+  ok('진짜 메모는 그대로(짝)', ex[1] && ex[1].notes === '진짜 메모', ex[1] && ex[1].notes);
+  ok('파일 읽기가 decodeText 를 지남', /parseDelimited\(decodeText\(await f\.arrayBuffer\(\)\)\)/.test(code));
+}
+
 // ⑤ 서버는 «한 명 등록» 과 같은 경로 — 새 경로를 만들지 않는다(src/index.ts 공동 금지구역)
 ok('한 명 등록 경로를 그대로 부름', /fetch\('\/api\/admin\/students\/create'/.test(code));
 ok('possible_duplicate 는 force 없이 넘기지 않음', /error === 'possible_duplicate'/.test(code) && /if \(force\) body\.force = true/.test(code));

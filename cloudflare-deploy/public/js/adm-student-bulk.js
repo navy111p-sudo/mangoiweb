@@ -60,6 +60,19 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
 
+  // ── 파일 글자 풀기: UTF-8 이 아니면 한국어 윈도우 기본(CP949/EUC-KR) ─────
+  //   2026-10-30 실사고: 양식(UTF-8)을 엑셀에서 고쳐 «CSV(쉼표로 분리)» 로 저장하면 엑셀이
+  //   CP949 로 바꿔 저장한다 → file.text()(UTF-8)로 읽어 이름·머리글이 전부 «���» 가 됐다.
+  //   UTF-8 로 엄격하게(fatal) 풀어 보고 실패하면 euc-kr 로 푼다.
+  function decodeText(buf) {
+    var u8 = new Uint8Array(buf);
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(u8); }
+    catch (e) {
+      try { return new TextDecoder('euc-kr').decode(u8); }
+      catch (e2) { return new TextDecoder('utf-8').decode(u8); }
+    }
+  }
+
   // ── 표 읽기: CSV / TSV(엑셀에서 복사) ─────────────────────────────────
   function parseDelimited(text) {
     text = String(text || '').replace(/^﻿/, '');
@@ -195,6 +208,8 @@
       FIELDS.forEach(function (f) { rec[f.key] = map[f.key] == null ? '' : String(r[map[f.key]] == null ? '' : r[map[f.key]]).trim(); });
       rec.student_phone = fixPhone(rec.student_phone);
       rec.parent_phone = fixPhone(rec.parent_phone);
+      // 양식 예시 줄을 고쳐 쓰고 메모만 남긴 경우 — 그 안내문이 학생 메모로 저장되지 않게(2026-10-30)
+      if (/^예시\s*[—-]\s*이 줄은 지우고/.test(rec.notes)) rec.notes = '';
       return rec;
     });
   }
@@ -321,7 +336,7 @@
       } else if (ext === 'xls') {
         setStatus(L('옛 .xls 형식은 못 읽습니다 — 엑셀에서 «다른 이름으로 저장 → CSV UTF-8» 로 저장해 올려 주세요.', 'Old .xls is not supported — save as "CSV UTF-8" in Excel and upload that.'), '#b91c1c');
       } else {
-        load(parseDelimited(await f.text()));
+        load(parseDelimited(decodeText(await f.arrayBuffer())));
       }
     } catch (err) {
       console.warn('[student-bulk] file read failed', err);
@@ -446,5 +461,5 @@
 
   window.smOpenBulkRegister = open;
   // 하니스용(순수 함수만)
-  window.__smBulk = { parseDelimited: parseDelimited, rowsToRecords: rowsToRecords, checkRecords: checkRecords, fixPhone: fixPhone, parseXlsx: parseXlsx };
+  window.__smBulk = { parseDelimited: parseDelimited, rowsToRecords: rowsToRecords, checkRecords: checkRecords, fixPhone: fixPhone, parseXlsx: parseXlsx, decodeText: decodeText };
 })();
