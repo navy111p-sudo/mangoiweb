@@ -142,6 +142,29 @@ ok('집중교정: 따라 말하자고 함', /집중교정/.test(rule) && /say it
 ok('자유대화: 따라 말하라고 시키지 말라', /따라 말하라고 시키지 마/.test(H.warmupHonestRule('free_talk')));
 ok('모르는 모드 → 균형', /교정 모드: 균형/.test(H.warmupHonestRule('weird')));
 
+console.log('⑥-2 집중교정 음성 순서 — 교정 문장이 답장보다 먼저(ensureFocusedFixSpoken)');
+{
+  const FIX = { now: 'I went to the park yesterday', was: 'I go park yesterday' };
+  const REPLY = 'Where did you play after that?';
+  const out = H.ensureFocusedFixSpoken(REPLY, 'focused', 'partial', FIX);
+  const fixAt = out.indexOf('"I went to the park yesterday"');
+  const replyAt = out.indexOf(REPLY);
+  ok('교정 문장이 맨 앞', fixAt === 0);
+  ok('교정 문장이 답장보다 앞', fixAt >= 0 && replyAt > fixAt);
+  ok('"Let\'s say it this way" 가 교정 문장 뒤·답장 앞', out.indexOf("Let's say it this way") > fixAt && out.indexOf("Let's say it this way") < replyAt);
+  const repeats = out.split('"I went to the park yesterday"').length - 1;
+  ok('교정 문장은 모두 4번 (앞 1 + 반복 3)', repeats === 1 + H.FOCUSED_FIX_REPEATS && H.FOCUSED_FIX_REPEATS === 3, repeats);
+  // 정확히 3번: "Let's say it this way" 뒤 ~ "Can you say it with me?" 사이에 교정 문장이 정확히 3번
+  const seg = out.slice(out.indexOf("Let's say it this way"), out.indexOf('Can you say it with me?'));
+  const inSeg = seg.split('"I went to the park yesterday"').length - 1;
+  ok('"Let\'s say it this way" 뒤 반복 구간에 교정 문장이 정확히 3번', inSeg === 3, inSeg);
+  ok('답장에 이미 교정이 있어도 순서는 같다', H.ensureFocusedFixSpoken('Good. I went to the park yesterday. Where?', 'focused', 'partial', FIX).startsWith('"I went to the park yesterday"'));
+  ok('완벽이면 건드리지 않는다', H.ensureFocusedFixSpoken(REPLY, 'focused', 'perfect', FIX) === REPLY);
+  ok('자유대화·균형이면 건드리지 않는다', H.ensureFocusedFixSpoken(REPLY, 'free_talk', 'partial', FIX) === REPLY && H.ensureFocusedFixSpoken(REPLY, 'balanced', 'partial', FIX) === REPLY);
+  ok('교정이 없으면 건드리지 않는다', H.ensureFocusedFixSpoken(REPLY, 'focused', 'partial', null) === REPLY);
+  ok('빈 교정 문장이면 건드리지 않는다', H.ensureFocusedFixSpoken(REPLY, 'focused', 'partial', { now: '  ' }) === REPLY);
+}
+
 console.log('⑦ 배선 — src/index.ts (공동 금지구역 · «부르는 줄» 만)');
 const idx = fs.readFileSync(path.join(SRC, 'index.ts'), 'utf8');
 const body = idx.slice(idx.indexOf('async function handleWarmupChat('), idx.indexOf('function warmupNormSent('));
