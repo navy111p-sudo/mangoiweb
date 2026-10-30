@@ -188,13 +188,16 @@ export function gateFixForMode(
 }
 
 /**
- * 집중교정 — 검증된 교정이 있으면 아바타가 «고친 문장을 소리 내어» 말하게 한다.
- *   · 모델이 답장에 고친 문장(fix.now)을 빼먹었을 때만 답장 앞에 붙인다. 이미 들어 있으면 그대로.
+ * 집중교정 — 검증된 교정이 있으면 아바타가 «고친 문장을 먼저» 말하게 한다.
+ *   순서: 고친 문장 → "Let's say it this way" → 고친 문장 3번 반복 → 따라 말하자 → 답장.
+ *   · 답장에 고친 문장이 이미 들어 있어도 이 순서는 항상 지킨다(답장이 먼저 나오면 교정이 뒤로 밀린다).
  *   · 문장을 새로 지어내지 않는다 — 서버가 검증을 통과시킨 fix.now 만 쓴다.
  *   · 완벽(perfect)이면 고칠 것이 없으니 건드리지 않는다.
  * [왜] 화면은 교정 카드와 「따라 말해 보기」 버튼만 그리고, 아바타 음성은 답장 텍스트만 읽는다.
- *   모델이 교정 문장을 답장에 넣지 않으면 학생은 고친 문장을 듣지 못한다(원장님 제보: 교정 뒤 대화가 그냥 이어짐).
+ *   답장을 먼저 읽으면 학생은 교정을 듣기 전에 대화가 넘어간 것으로 듣는다(원장님 제보).
  */
+export const FOCUSED_FIX_REPEATS = 3;
+
 export function ensureFocusedFixSpoken(
   reply: string, mode: WarmupMode, grade: WarmupGrade | null, fix: WarmupFix | null,
 ): string {
@@ -202,7 +205,7 @@ export function ensureFocusedFixSpoken(
     if (mode !== 'focused' || !fix || grade === 'perfect') return reply;
     const now = String(fix.now == null ? '' : fix.now).trim();
     if (!now) return reply;
-    if (reply.toLowerCase().includes(now.toLowerCase())) return reply;
-    return `Let's say it this way: "${now}" Can you say it with me? ${reply}`;
+    const repeated = Array.from({ length: FOCUSED_FIX_REPEATS }, () => `"${now}"`).join(' ');
+    return `"${now}" Let's say it this way: ${repeated} Can you say it with me? ${reply}`;
   } catch { return reply; }
 }
