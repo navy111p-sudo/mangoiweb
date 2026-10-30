@@ -41,8 +41,8 @@ import { loadTeacherStudentHistory, validHistoryDate } from './teacher-student-h
 import { normalizeTeacherLevelChoice, setStudentLevelByTeacher, levelScaleForPortal, teacherLevelScope, attachLevelScope, TEACHER_LEVEL_PAST_DAYS } from './teacher-student-level';   // 🎚 일지에서 학생 레벨 정하기(2026-10-27)
 import { buildPhoneGaps, PHONE_GAP_DAYS_MAX, SMS_MIN_DIGITS } from './phone-gaps';   // 📵 번호 없는 학생 — 강사판(2026-10-28)
 import { setOverridePhones } from './student-override';
-import { loadContactPhones } from './notify-contacts';
-import { loadMyLoginDays } from './teacher-login-times';   // 🔐 내 로그인·접속 시각(2026-10-30)   // ☎ 화면용 연락처 정본(2026-10-27) — 받아 둔 번호 → 명부 → 이탈위험 스냅샷
+import { loadContactPhones } from './notify-contacts';   // ☎ 화면용 연락처 정본(2026-10-27) — 받아 둔 번호 → 명부 → 이탈위험 스냅샷
+import { loadMyLoginDays } from './teacher-login-times';   // 🔐 내 로그인·접속 시각(2026-10-30)
 
 interface TeacherEnv {
   DB: D1Database;

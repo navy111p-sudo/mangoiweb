@@ -479,6 +479,15 @@ function oTeacherList(db, ymd, now) {
   ok('지사 → 403 forbidden_scope', rB.status === 403 && (await rB.json()).error === 'forbidden_scope');
   const rA = await call({ ok: true, username: 'agency_x', name: '대리점', role: 'staff', isTeacher: false });
   ok('getAdminActor 가 «staff» 로 떨어져도 admin_scope 를 다시 읽어 대리점이면 막는다', rA.status === 403);
+  // 강사도 같다 — isTeacher·index.ts 차단은 둘 다 actor 에 기대므로, actor 가 «staff» 로 떨어진 날에도 막혀야 한다.
+  const rTs = await call({ ok: true, username: 'mangoi_167', name: '', role: 'staff', isTeacher: false });
+  const bTs = await rTs.json();
+  ok('getAdminActor 가 «staff» 로 떨어져도 admin_scope 가 teacher 면 막는다(forbidden_teacher)', rTs.status === 403 && bTs.error === 'forbidden_teacher', bTs);
+  // 짝 — 스코프는 'none' 인데 이름으로 강사로 판정된 계정(옛 LMS 자동생성 등)은 첫 겹(isTeacher)이 막는다.
+  //    (두 겹이 같은 계정만 막으면 한 겹을 지워도 검사가 못 봄 — 변이시험이 실제로 그 상태를 잡았다)
+  const rTn = await call({ ok: true, username: 'teacherless', name: 'Teacher Old', role: 'teacher', isTeacher: true });
+  const bTn = await rTn.json();
+  ok('스코프가 none 이어도 강사로 판정된 계정 → 403 forbidden_teacher', rTn.status === 403 && bTn.error === 'forbidden_teacher', bTn);
   const rU = await call({ ok: true, username: 'ghost_hq', name: '', role: 'hq', isTeacher: false });
   ok('admin_scope 를 못 읽으면(행 없음) «모름» → 막는다(fail-closed)', rU.status === 403 && (await rU.json()).error === 'scope_unknown');
   const rH = await call({ ok: true, username: 'mgr_karl', name: 'Karl', role: 'hq', isTeacher: false });
@@ -645,7 +654,8 @@ if (process.env.TLT_MUTATE === '1' && !process.env.TLT_IN_MUTATION) {
     ['src', 'teacher-login-times.ts', 'const carried = now - prevSeen <= CARRY_GAP_MS;', 'const carried = now - prevSeen > CARRY_GAP_MS;', '이어짐 판정 뒤집기'],
     ['src', 'teacher-login-times.ts', 'first_seen_at = COALESCE(MIN(admin_daily_seen.first_seen_at, excluded.first_seen_at), admin_daily_seen.first_seen_at, excluded.first_seen_at)', 'first_seen_at = excluded.first_seen_at', '두 번째 세션이 더 늦은 시각으로 덮어씀'],
     ['src', 'teacher-login-times.ts', "if (roleOf(String(r?.scope_type || 'none'), u, String(r?.name || '')) !== 'teacher') continue;", '', '본사·지사·직원까지 목록에 나옴'],
-    ['src', 'teacher-login-times.ts', "  const denied = orgScopeDenyResponse(orgScopeVerdict(await readScopeType(env, actor.username), actor.role));\n  if (denied) return denied;", '', '지사·대리점 게이트 제거'],
+    ['src', 'teacher-login-times.ts', "  const denied = orgScopeDenyResponse(orgScopeVerdict(scope, actor.role));\n  if (denied) return denied;", '', '지사·대리점 게이트 제거'],
+    ['src', 'teacher-login-times.ts', "  if (scope === 'teacher') return", "  if (false && scope === 'teacher') return", '강사 스코프 재확인 무력화(actor 가 staff 로 떨어진 날 강사가 통과)'],
     ['src', 'teacher-login-times.ts', '  if (actor.isTeacher) return', '  if (false && actor.isTeacher) return', '강사 게이트 무력화'],
     ['src', 'teacher-login-times.ts', 'now - lastActive <= ONLINE_MS', 'now - lastActive <= 60 * ONLINE_MS', '«지금 접속 중» 창을 3시간으로'],
     ['src', 'teacher-login-times.ts', "    const d = summarizeLoginDay(dayStart, now, g.logins.get(a.username) || [],", "    const d = summarizeLoginDay(dayStart, now, g.logins.get(users[0]) || [],", '남의 로그인 기록을 붙임'],

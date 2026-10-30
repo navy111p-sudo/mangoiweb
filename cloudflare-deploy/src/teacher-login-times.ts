@@ -34,8 +34,9 @@
      · 자기 기록 — 강사 포털 GET /api/teacher/portal?part=my_login (자기 계정만, 클라이언트 값 안 믿음).
      ⛔ IP·기기 정보는 싣지 않는다 — 출근 시각을 보려는 화면이지 보안 감사 화면이 아니다.
 
-   ⚠️ 이 파일은 auth-admin.ts 를 import 하지 않는다(auth-admin 이 이 파일을 부르므로 순환을 피한다).
-      역할 판정·세션 확인은 부르는 쪽이 함수로 넘겨준다.
+   ⚠️ 이 파일은 auth-admin.ts 를 «직접» import 하지 않는다 — 역할 판정·세션 확인은 부르는 쪽이 함수로 넘겨준다.
+      다만 org-scope-guard 가 auth-admin 의 isOrgScopedRole 을 import 하므로 간접 고리는 있다
+      (auth-admin → 이 파일 → org-scope-guard → auth-admin). 그 함수는 모듈을 불러올 때 호출되지 않아 동작상 무해하다.
    ═══════════════════════════════════════════════════════════════════════════ */
 import { selectInChunks } from './d1-chunk';
 import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
@@ -357,8 +358,14 @@ export async function handleTeacherLoginList(request: Request, url: URL, env: an
   // index.ts 가 강사에게 이 경로를 이미 막지만(TEACHER_BLOCKED_PREFIXES) 한 겹 더.
   if (actor.isTeacher) return noStore(forbiddenTeacherBody({ username: actor.username, name: actor.name },
     '강사 계정으로는 다른 강사의 로그인 기록을 볼 수 없습니다.', 'Teacher accounts cannot see other teachers\' login times.'), 403);
-  // 지사·대리점(조직) — 근거를 «삼키지 않고» 다시 읽는다. 못 읽으면 막는다.
-  const denied = orgScopeDenyResponse(orgScopeVerdict(await readScopeType(env, actor.username), actor.role));
+  // 근거(admin_scope)를 «삼키지 않고» 다시 읽는다 — actor 는 스코프 조회가 흔들리면 'staff' 로 떨어진다.
+  const scope = await readScopeType(env, actor.username);
+  // ⚠️ 정본 판정은 강사 스코프('teacher')를 «hq» 로 통과시킨다 → 다시 읽은 근거로 강사를 한 번 더 막는다
+  //    (위 isTeacher 와 index.ts 차단이 둘 다 actor 에 기대므로, actor 가 흔들린 날에도 막히게).
+  if (scope === 'teacher') return noStore(forbiddenTeacherBody({ username: actor.username, name: actor.name },
+    '강사 계정으로는 다른 강사의 로그인 기록을 볼 수 없습니다.', 'Teacher accounts cannot see other teachers\' login times.'), 403);
+  // 지사·대리점(조직) — 못 읽으면 막는다(org-scope-guard).
+  const denied = orgScopeDenyResponse(orgScopeVerdict(scope, actor.role));
   if (denied) return denied;
   const now = deps.now ?? Date.now();
   const ymd = String(url.searchParams.get('date') || '').trim() || kstYmd(now);
