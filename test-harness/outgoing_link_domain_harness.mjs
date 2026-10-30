@@ -248,11 +248,20 @@ for (const [file, label] of DOCS) {
 /* 2026-08-25 class-895 사고(학생·강사가 같은 방 번호인데 서로 못 봄)를 조사하다 찾았다.
    그 사고의 뿌리는 «워커가 두 벌이라 DO 가 갈린다» 인데, 그 갈린 워커 주소
    `webrtc-unified-platform.navy111p.workers.dev` 를 **사람에게 그대로 건네주는 자리가
-   셋** 남아 있었다. 거기로 들어가면 오리진이 달라 로그인(교사 쿠키는 호스트 전용,
-   학생 mangoi_logged_user·mango_token 은 localStorage)이 통째로 갈리고, 수업이면
-   «같은 방 번호인데 다른 교실» 이 그대로 재현된다.
+   세 군데** 있었다(아래 ⑥-1~⑥-3). 거기로 들어가면 오리진이 달라 로그인(교사 쿠키는
+   호스트 전용, 학생 mangoi_logged_user·mango_token 은 localStorage)이 통째로 갈리고,
+   수업이면 «같은 방 번호인데 다른 교실» 이 그대로 재현된다.
 
    ②절은 «문자를 보내는 모듈» 만 보고 있어서 이 셋을 한 번도 안 봤다. 그래서 따로 둔다.
+
+   ⚠️ 「그 주소가 이제 저장소에 없다」는 뜻이 아니다 — 여기서 보는 것은 «사람에게 건네는»
+      자리 셋뿐이다. 같은 비-prod 주소가 `public/js/idx-main.js` 에 2곳 더 있는데
+      (파일 공유·교재 업로드 안내), 둘 다 `if (location.protocol === 'file:')` 안이라
+      https://mangoi.ai 에서는 **원리상 안 닿아** 일부러 안 고쳤다. idx-main.js 는
+      blocking 이고 고치면 index.html 의 `?v=` 까지 걸리는 별건이다.
+      그리고 `-prod` 워커 주소를 쓰는 자리가 네 곳 더 있다(solapi-client.ts 3·
+      api-notify.ts 1 — DO 는 안 갈리지만 로그인은 갈린다). 작업기록 6장 참고.
+      ⛔ 「전수로 다 고쳤다」로 읽지 마세요.
 
    ⛔ 이 절을 «src/public 전체에 workers.dev 가 없다» 로 넓히지 마세요 —
       CSP frame-ancestors·open-redirect 허용목록·아바타 TTS 처럼 **일부러** 워커 주소를
@@ -260,6 +269,12 @@ for (const [file, label] of DOCS) {
       빨간불이 됩니다. 여기서 묻는 것은 «사람에게 건네주는 그 세 자리» 뿐입니다. */
 console.log('\n[ ⑥ 월간 리포트·경영 브리핑·학생 상세가 갈린 워커 주소를 건네지 않는다 ]');
 
+/* 🪤 아래 세 검사는 «식 모양» 을 글자로 못 박고 있다. 뜻이 더 센 수정이 와도 빨간불이 난다 —
+      그때는 «검사가 헛돈 것» 이 아니라 «그 검사가 지키던 전제를 사람이 바꾼 것» 이니
+      느슨하게 풀지 말고 **새 경계로 옮겨 적어라**(CLAUDE.md 2장).
+      특히 알고 둘 것: `SITE_ORIGIN` → **`siteBase(env)`**(PUBLIC_BASE_URL 로 스테이징
+      링크를 돌리는 길)로 바꾸면 ⑥-1·⑥-2 가 깨진다. 지금 이 두 경로는 PUBLIC_BASE_URL 을
+      무시하는데, 그건 고치기 «전» 에도 그랬으므로 회귀가 아니다. */
 const SPLIT_WORKER = /webrtc-unified-platform(?:-prod)?\.navy111p\.workers\.dev/;
 
 /* ⑥-1 월간 AI 레포트 → 학부모 (api-reports.ts) */
@@ -270,8 +285,10 @@ const SPLIT_WORKER = /webrtc-unified-platform(?:-prod)?\.navy111p\.workers\.dev/
   check('월간 AI 레포트 — 기본 주소가 SITE_ORIGIN 이다',
     /MONTHLY_SITE_ORIGIN\s*=\s*SITE_ORIGIN\s*;/.test(code),
     '손으로 적은 주소가 남아 있다');
-  /* 짝 — 상수만 바꾸고 쓰는 곳을 지우면 링크가 통째로 사라진다. */
-  check('월간 AI 레포트 — 그 기본 주소를 실제로 쓴다 (origin 이 없을 때의 폴백)',
+  /* 짝 — 상수만 바꾸고 쓰는 곳을 지우면 링크가 통째로 사라진다.
+     ⚠️ 이름을 «폴백» 이라 부르지 않는다. 부르는 곳이 둘인데 src/index.ts:3005(매월 1일
+        자동 발송 크론)이 origin 을 안 넘기므로, 이 값이 **학부모에게 나가는 주 경로**다. */
+  check('월간 AI 레포트 — 크론이 쓰는 그 기본 주소를 실제로 쓴다',
     /origin\s*\|\|\s*MONTHLY_SITE_ORIGIN/.test(code));
   check('월간 AI 레포트 — ⛔ 갈린 워커 주소가 코드에 없다',
     !SPLIT_WORKER.test(code));
