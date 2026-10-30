@@ -1221,6 +1221,30 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     if (!el.open) el.open = true;   // ontoggle → 기존 loadXxx() 가 부른다
     try { el.scrollIntoView({ block: 'start' }); } catch (e) { el.scrollIntoView(); }
   };
+  /* 🔁 (2026-10-30 매니저 제안 «새로고침하면 처음 화면으로 돌아간다») 마지막으로 연 카드를 이 탭(sessionStorage)에
+     적어 두고 새로고침하면 다시 연다. 접으면 지운다. 탭을 닫으면 사라진다(새 탭은 처음 화면).
+     ⛔ 숨은 카드는 강제로 꺼내지 않는다 — 몇 번만 다시 보고 그대로면 손을 뗀다(상주 타이머 없음). */
+  (function(){
+    var KEY = 'tch_view_v1';
+    function put(id){ try { if (id) sessionStorage.setItem(KEY, id); else sessionStorage.removeItem(KEY); } catch (e) {} }
+    document.addEventListener('toggle', function(e){
+      var el = e.target;
+      if (!el || el.tagName !== 'DETAILS' || !el.id) return;
+      if (!el.classList.contains('card') && el.id !== 'c-week') return;
+      if (el.open) put(el.id);
+      else { var cur = null; try { cur = sessionStorage.getItem(KEY); } catch (x) {} if (cur === el.id) put(''); }
+    }, true);
+    function restore(tries){
+      var id = null;
+      try { id = sessionStorage.getItem(KEY); } catch (e) {}
+      if (!id) return;
+      var el = document.getElementById(id);
+      if (!el || el.tagName !== 'DETAILS') return;
+      if (el.hidden) { if (tries > 0) setTimeout(function(){ restore(tries - 1); }, 1500); return; }
+      window.openCard(id);
+    }
+    setTimeout(function(){ restore(4); }, 0);
+  })();
   document.getElementById('lang').onclick = function(){
     LANG = EN() ? 'ko' : 'en';
     langPickedByUser = true;

@@ -1915,6 +1915,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   window.openCard = function(id){
     var el = document.getElementById(id);
     if (!el) return;
+    try { if (window.__mgrViewPut && el.tagName === 'DETAILS') window.__mgrViewPut({ card: id }); } catch (e) {}
     if (pcPane() && el.tagName === 'DETAILS' && !el.hidden) {
       setPane(id);
       if (!el.open) el.open = true;   // ontoggle → 기존 loadXxx() 가 알아서 부른다
@@ -1936,7 +1937,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   };
   window.sideGo = function(id){
     closeSide();
-    if (id === 'top') { setPane(null); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } return; }
+    if (id === 'top') { try { if (window.__mgrViewPut) window.__mgrViewPut({ card: '' }); } catch (e) {} setPane(null); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } return; }
     window.openCard(id);
   };
 
@@ -3632,6 +3633,40 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     taDatePick();
   })();
 
+  /* 🔁 (2026-10-30 매니저 제안 «새로고침하면 처음 화면으로 돌아간다») 마지막으로 연 카드와
+     「오늘 전체 수업」의 날짜·학원·강사를 이 탭(sessionStorage)에 적어 두고, 새로고침하면 그대로 다시 연다.
+     ⚠️ 탭을 닫으면 사라진다(새 탭은 처음 화면) — 다른 사람·다른 날까지 끌고 가지 않게.
+     ⚠️ 날짜는 «오늘이 아닌 날» 만 적는다 — 내일 새로고침해도 «어제» 에 갇히지 않게.
+     ⛔ 상주 타이머·MutationObserver 없음 — 숨은 카드(권한 확인 전)는 정해진 몇 번만 다시 본다. */
+  var VIEW_KEY = 'mgr_view_v1';
+  function viewGet(){ try { return JSON.parse(sessionStorage.getItem(VIEW_KEY) || 'null') || {}; } catch (e) { return {}; } }
+  function viewPut(patch){
+    try { var v = viewGet(); for (var k in patch) v[k] = patch[k]; sessionStorage.setItem(VIEW_KEY, JSON.stringify(v)); } catch (e) {}
+  }
+  window.__mgrViewPut = viewPut;
+  var _taRestore = null;   // 첫 paintTodayAll 에서 한 번만 입힌다(그 전에는 고를 목록이 없다)
+  window.__mgrTaRestore = function(){ var r = _taRestore; _taRestore = null; return r; };
+  document.addEventListener('toggle', function(e){
+    var el = e.target;
+    if (!el || el.tagName !== 'DETAILS' || !el.id || !el.classList.contains('card')) return;
+    if (el.open) viewPut({ card: el.id });
+    else if (viewGet().card === el.id && !pcPane()) viewPut({ card: '' });
+  }, true);
+  function viewRestore(tries){
+    var v = viewGet();
+    if (!v.card) return;
+    var el = document.getElementById(v.card);
+    if (!el || el.tagName !== 'DETAILS') return;
+    if (el.hidden) { if (tries > 0) setTimeout(function(){ viewRestore(tries - 1); }, 1500); return; }
+    if (v.card === 'c-today') {
+      var inp = document.getElementById('taDate');
+      if (inp && /^\d{4}-\d{2}-\d{2}$/.test(v.taDate || '') && v.taDate !== taKstToday()) { inp.value = v.taDate; taDatePick(); }
+      if (v.taAcademy || v.taTeacher) _taRestore = { a: v.taAcademy || '', t: v.taTeacher || '' };
+    }
+    window.openCard(v.card);
+  }
+  setTimeout(function(){ viewRestore(4); }, 0);
+
   /* ③-2 오늘 전체 수업 — 서버가 망고아이 예약과 카페24 예약을 합쳐 준다.
      카페24 줄은 join_open:false (우리 방이 없어 들어갈 데가 없다).
      ⛔ 자동갱신 금지 — [Refresh]·날짜 변경 때만. 🔒 범위 격리는 서버(scopeStudentCond). */
@@ -3688,6 +3723,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       return a.localeCompare(b, 'ko', { numeric: true, sensitivity: 'base' });
     }).map(function (k) { return { value: k, n: m[k] }; });
   }
+  /* 🔁 아직 목록이 없을 때 «고른 값» 을 미리 앉혀 둔다 — fillPick 이 그 값을 읽고, 새 목록에 없으면 «전체» 로 돌린다 */
+  function taPreset(id, v){
+    var el = document.getElementById(id);
+    if (!el || !v) return;
+    el.innerHTML = '<option value=""></option><option value="' + esc(v) + '"></option>';
+    el.value = v;
+  }
   /* 고른 값이 새 목록에 없으면(날짜를 바꿈 등) «전체» 로 돌린다 — 안 돌리면 이유 없이 0건이 된다 */
   function fillPick(id, opts, allLabel, noneLabel) {
     var el = document.getElementById(id);
@@ -3720,6 +3762,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var all = (j.sessions || []).slice();
     /* 학원·강사 목록은 서로를 따라 좁힌다(학원을 고르면 강사는 그 학원 강사만). «그날 전체» 에서 센다. */
     var noAc = T('(no academy)', '(학원 미지정)'), noTe = T('(unassigned)', '(강사 미배정)');
+    var rst = window.__mgrTaRestore ? window.__mgrTaRestore() : null;   // 🔁 새로고침 전에 고른 학원·강사
+    if (rst) { taPreset('taAcademy', rst.a); taPreset('taTeacher', rst.t); }
     var ac0 = (document.getElementById('taAcademy') || {}).value || '';
     var te0 = (document.getElementById('taTeacher') || {}).value || '';
     var acSel = fillPick('taAcademy', pickOptions(all.filter(function (s) { return pickMatch(s, 'teacher_name', te0); }), 'academy'), T('All', '전체'), noAc);
@@ -3728,6 +3772,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       acSel = fillPick('taAcademy', pickOptions(all.filter(function (s) { return pickMatch(s, 'teacher_name', teSel); }), 'academy'), T('All', '전체'), noAc);
     }
     var rows = all.filter(function (s) { return pickMatch(s, 'academy', acSel) && pickMatch(s, 'teacher_name', teSel); });
+    try { if (window.__mgrViewPut) window.__mgrViewPut({ taAcademy: acSel, taTeacher: teSel, taDate: (j.date && j.date !== taKstToday()) ? j.date : '' }); } catch (e) {}
     // 들어갈 수 있는 줄을 맨 위로 — 급할 때 위만 보면 되게
     rows.sort(function(a, b){
       if (!!a.join_open !== !!b.join_open) return a.join_open ? -1 : 1;
