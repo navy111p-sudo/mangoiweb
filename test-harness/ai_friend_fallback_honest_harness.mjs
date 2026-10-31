@@ -131,7 +131,7 @@ ok('전제: 그 분기 블록을 잘라 냈다', uiBlock.length > 40);
 ok('그 분기가 안내 문구를 그린다', /답을 만들지 못했어요/.test(uiBlock));
 // ⛔ 이 셋이 핵심 — 폴백을 «답» 으로 다루면 안 됩니다.
 ok('그 분기는 교정 카드를 안 붙인다', !/showFixCard/.test(uiBlock));
-ok('그 분기는 소리로 읽지 않는다', !/speakText/.test(uiBlock));
+ok('그 분기는 소리로 읽지 않는다', !/speakText|stmSpeak/.test(uiBlock));
 ok('그 분기는 고정 문구(d.reply)를 안 그린다', !/appendMsg\([^)]*d\.reply/.test(uiBlock));
 
 /* 🚨 안내를 «말풍선»(appendMsg)으로 그리면 안 됩니다 — 본문이 .ai-text 안에 들어가
@@ -152,7 +152,7 @@ const normIdx = UI.search(/\}\s*else\s+if\s*\([^)]*\breply\b[^)]*\)\s*\{/);
 ok('짝: 정상 답 경로가 살아 있다', normIdx > uiIdx);
 const normBlock = normIdx > 0 ? blockAt(UI, UI.indexOf('{', normIdx)) : '';
 ok('짝: 정상 답은 교정 카드를 붙인다', /showFixCard/.test(normBlock));
-ok('짝: 정상 답은 소리로 읽는다', /speakText/.test(normBlock));
+ok('짝: 정상 답은 소리로 읽는다', (/speakText/.test(normBlock) || (/stmSpeak/.test(normBlock) && /function stmSpeak[\s\S]*?speakText\(sen/.test(UI))));
 
 // ⚠️ 맨이름 getLang 은 없을 때 ReferenceError (CLAUDE.md 2장).
 ok('언어 판정을 맨이름 getLang 으로 하지 않는다',
