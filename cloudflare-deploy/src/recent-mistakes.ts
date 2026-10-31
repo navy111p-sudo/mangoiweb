@@ -141,7 +141,7 @@ export async function loadRecentMistakes(db: any, uid: any, nowMs: number, max: 
    날마다 첫 번째로 세어져 거의 안 고쳐졌다. 최근 14일 기록에서 그 종류를 «이미 한 번 고쳐 준 것» 으로
    이어 받아, 새 대화의 첫 실수부터 바로 고친다.
    ⛔ 이 목록에 word_choice·other 를 넣지 마세요 — 범위가 넓어 «매번 교정» 이 됩니다.
-   ⛔ 연달아 고치지 않는 간격(WARMUP_FIX_GAP_TURNS)은 그대로 걸립니다 — «세는 것» 만 이어 받습니다. */
+   (2026-10-31 사장님 결정: 사소한 실수도 매 턴 고치므로 연달아 고치는 간격 규칙은 없습니다. 이 목록은 «이미 고쳐 준 종류» 를 이어 받는 용도만 남습니다.) */
 export const KOREAN_REPEAT_TAGS = ['article', 'plural', 'preposition'] as const;
 
 /** 최근 RECENT_MISTAKE_DAYS 안에 «보여 준» 교정 종류별 횟수. 던지지 않는다(못 읽으면 {}). */

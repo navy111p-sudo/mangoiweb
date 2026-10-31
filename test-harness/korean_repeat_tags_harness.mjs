@@ -49,12 +49,12 @@ check('전치사도(AI 친구 기록에서 이어 받음)', !!first('preposition
 /* 2026-10-30 — 작은 실수는 이제 기록이 없어도 «첫 번째» 에 고친다(warmup-correction.ts). 이어 받기는 word_choice 를 «여전히» 안 연다. */
 check('2026-10-30: 기록이 없어도 첫 관사 실수를 고친다', !!first('article', {}) && !!first('article', null));
 check('짝: 14일 밖(복수)은 이어 받지 않는다 — 메모에 안 얹는다', !(M.carryRepeatTags(null, hist).tags || {}).plural);
-check('짝: word_choice 는 기록이 있어도 이어 받지 않는다(매번 교정 방지)', !first('word_choice', hist));
+check('짝: word_choice 도 기록과 무관하게 매 턴 고친다(2026-10-31 사장님 결정)', !!first('word_choice', hist));
 check('목록은 관사·복수·전치사 셋', JSON.stringify([...M.KOREAN_REPEAT_TAGS]) === '["article","plural","preposition"]');
 
-// 간격 규칙은 그대로 — 방금(턴 3) 고쳐 줬으면 턴 4 의 관사는 안 띄운다
+// 2026-10-31: 간격 규칙 폐지 — 방금(턴 3) 고쳐 줬어도 턴 4 의 관사도 고친다
 const m2 = M.carryRepeatTags({ tags: { article: 2 }, lastShownTurn: 3, shown: 1 }, hist);
-check('짝: 연달아 고치지 않는 간격은 그대로 걸린다', !G.decideWarmupFixShow(fix('article'), m2, 4).show && !!G.decideWarmupFixShow(fix('article'), m2, 5).show);
+check('짝: 사소한 실수도 연달아 고친다(2026-10-31 사장님 결정 — 간격 규칙 폐지)', !!G.decideWarmupFixShow(fix('article'), m2, 4).show && !!G.decideWarmupFixShow(fix('article'), m2, 5).show);
 const orig = { tags: { article: 0 }, lastShownTurn: 7 };
 const c = M.carryRepeatTags(orig, hist);
 check('원본 메모를 바꾸지 않는다', orig.tags.article === 0 && c.tags.article === 1 && c.lastShownTurn === 7);

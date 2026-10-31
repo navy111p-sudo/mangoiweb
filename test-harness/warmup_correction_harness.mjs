@@ -210,8 +210,8 @@ console.log('\nA2. 정밀 교정 규칙 (두 화면이 같은 정본을 쓴다)'
      답장에서는 지적하지 않되 fix 칸은 언제나 적으라고 «갈라서» 말해야 한다(웜업 규칙). */
   check('A2-4b 🔴 웜업 규칙이 «사소해도 fix 칸에는 반드시 적어» 라고 말한다',
         /사소해도 반드시 "fix" 에 적어/.test(wRule));
-  check('A2-4 짝: 그 넷이 아닌 사소한 것은 매번 잡지 말라고도 말한다',
-        /사소한 것/.test(wRule) && /"fix": null/.test(aRule) && /smaller than those four/i.test(aRule));
+  check('A2-4 짝: 사소한 것도 고친다고 말한다 (2026-10-31 사장님 결정 — 예전의 fix null 지시를 되살리지 않는다)',
+        /사소한 것/.test(wRule) && /STILL correct it/.test(aRule) && !/set "fix": null and just keep/.test(aRule));
 
   /* 🔴 severity 를 모델에게 맡기지 않는 목록 — 여기에 article·plural·word_choice 가 들어가면
      그 순간 매 턴 교정이 되어 위 짝 규칙이 무너진다. */
@@ -274,7 +274,7 @@ console.log('\nB. 정본 실행 (node 타입 제거 — 컴파일 없이 진짜�
   writeFileSync(join(tmp, 'warmup-correction.ts'), fixImp(readFileSync(join(SRC, 'warmup-correction.ts'), 'utf8')));
   writeFileSync(join(tmp, 'english-only.ts'), fixImp(readFileSync(join(SRC, 'english-only.ts'), 'utf8')));
   const runner = `
-import { parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn } from './warmup-correction.ts';
+import { parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn, isIrregularChange } from './warmup-correction.ts';
 const out = [];
 const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String(extra)]);
 
@@ -410,7 +410,7 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   const c = decideWarmupFixShow(F('minor', 'article'), b.memo, 7);
   t('B-21 간격(2턴)을 띄운 작은 실수도 보여 준다', !!c.show && c.memo.tags.article === 2);
   const b2 = decideWarmupFixShow(F('minor', 'article'), b.memo, 6);
-  t('B-21b 짝: 방금 고쳐 준 바로 다음 턴의 작은 실수는 안 보여 준다 (말문 막힘 방지)', b2.show === null);
+  t('B-21b 🟢 (2026-10-31 사장님 「사소한 실수도 교정」) 방금 고쳐 준 바로 다음 턴의 작은 실수도 고친다', b2.show !== null);
 
   /* 🔴 2026-09-09 사장님 「더 정밀하게 문법을 잘 체크해 줄 수 있어?」 —
      뜻이 달라지는 오류는 연달아 틀려도 «매번» 고쳐 준다. 옛 코드는 major 도 2턴을 띄워서,
@@ -421,7 +421,7 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   /* ⚠️ 짝 검사 — 이 예외를 minor 까지 넓히면 관사 하나까지 매 턴 잡혀 말문이 막힌다.
      앞 검사만 두면 «전부 매 턴 고치기» 도 통과한다. */
   const e2 = decideWarmupFixShow(F('minor', 'article'), c.memo, 8);
-  t('B-22b 🔴 작은 실수는 여전히 «연달아» 고치지 않는다 (예외를 minor 로 넓히지 말 것)', e2.show === null);
+  t('B-22b 🟢 작은 실수도 연달아 고친다 — 사장님 결정(간격 규칙 폐지)', e2.show !== null);
 
   const e3 = decideWarmupFixShow(F('minor', 'article'), c.memo, 9);
   t('B-23 작은 실수도 한 턴 띄우면 다시 고쳐 준다', !!e3.show);
@@ -440,7 +440,7 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
     const m1 = decideWarmupFixShow(F('minor', 'article'), null, 1);
     const m2 = decideWarmupFixShow(F('minor', 'article'), m1.memo, 1);
     t('B-23d 턴 수가 1 에 고정되면 첫 작은 실수는 고치고 «같은 턴 번호» 의 두 번째는 간격이 막는다',
-      !!m1.show && m2.show === null, JSON.stringify([!!m1.show, !!m2.show]));
+      !!m1.show && !!m2.show, JSON.stringify([!!m1.show, !!m2.show]));
   }
 
   const z = decideWarmupFixShow(null, c.memo, 20);
@@ -452,7 +452,7 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   const F = { was: 'x', now: 'y', why_ko: '이유', tag: 'past_tense', severity: 'major' };
   const memo = { tags: {}, lastShownTurn: 0, lastRepeatTurn: 0, shown: 0 };
   t('B-25 첫 교정에는 따라 말하기를 붙인다', warmupShouldOfferRepeat(F, memo, 4) === true);
-  t('B-26 바로 다음 교정에는 안 붙인다 (3턴에 한 번)', warmupShouldOfferRepeat(F, memo, 5) === false);
+  t('B-26 🟢 바로 다음 교정에도 따라 말하기를 붙인다 (교정 턴마다 — 사장님 C-2)', warmupShouldOfferRepeat(F, memo, 5) === true);
   t('B-27 세 턴 지나면 다시 붙는다', warmupShouldOfferRepeat(F, memo, 7) === true);
   t('B-28 교정이 없으면 따라 말하기도 없다', warmupShouldOfferRepeat(null, memo, 30) === false);
   /* 🔴 같은 뿌리 — 한 번도 안 권했으면 «연달아» 가 성립하지 않는다. 옛 코드는 lastRepeatTurn
@@ -492,7 +492,7 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
     shown2.push(!!d.show);
   }
   /* 2026-10-30: 첫 실수부터 보여 주므로 [true,false,true,false] — «매 턴이 아니다» 는 그대로다. */
-  t('B-31 🔴 짝: 관사(article)는 첫 실수는 고치되 여전히 매 턴이 아니다', JSON.stringify(shown2) === '[true,false,true,false]', JSON.stringify(shown2));
+  t('B-31 🟢 관사(article)도 매 턴 고친다 (사장님 「사소한 실수도」)', JSON.stringify(shown2) === '[true,true,true,true]', JSON.stringify(shown2));
 
   /* 🔴 severity 를 «우리가» 확정한다 — 모델이 minor 라 해도 그 넷은 major. */
   const up = verifyWarmupFix({ was: 'I go', now: 'I went', why_ko: '과거형이에요', tag: 'past_tense', severity: 'minor' }, 'I go to school yesterday');
@@ -519,6 +519,34 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   const zhF = { was: '我去学校昨天', now: '我昨天去了学校', why_ko: '시간 말은 앞에 와요', tag: 'word_order', severity: 'major' };
   const zhOut = correctionLeadIn('哦，你昨天去学校了！在那儿做什么了？', zhF, 'zh');
   t('B-37 중국어도 고친 문장이 질문보다 먼저 나온다', zhOut.indexOf('我昨天去了学校') >= 0 && zhOut.indexOf('我昨天去了学校') < zhOut.indexOf('？'), zhOut);
+}
+
+// ── ⑥ 2026-10-31 사장님 결정 — 불규칙 형태 교정(제안 A) · 사소한 실수도 매 턴(C-1) · 교정 뒤 따라 말하기(C-2) ──
+{
+  const fx = (was, now, said, tag = 'past_tense') => verifyWarmupFix({ was, now, why_ko: '과거형을 써요', tag, severity: 'minor' }, said);
+  t('B-40 🟢 I go to school yesterday → went 교정이 통과한다 (사장님 화면의 문장)', !!fx('go', 'went', 'I go to school yesterday'));
+  t('B-40b 🟢 I win yesterday → won 교정이 통과한다', !!fx('win', 'won', 'I win yesterday'));
+  t('B-40c 🟢 I see a movie yesterday → saw 교정이 통과한다', !!fx('see', 'saw', 'I see a movie yesterday'));
+  t('B-40d 🟢 불규칙 과거분사 형태도 통과한다 (take → taken)', !!fx('take', 'taken', 'I have take a bus'));
+  t('B-41 🔴 짝: 학생이 말하지 않은 낱말은 불규칙 표가 있어도 지어낸 교정이라 버린다', fx('win', 'won', 'I like dogs') === null);
+  t('B-41b 짝: 같은 동사 가족이 아니면 버린다 (go → run)', fx('go', 'run', 'I go to school') === null);
+  t('B-41c 짝: 같은 낱말 형태 변화여도 표에 없으면 기존 규칙(겹침)을 그대로 따른다', fx('dog', 'dragons', 'I see a dog') === null);
+  t('B-42 🟢 isIrregularChange: win ↔ won 은 같은 가족, go ↔ going 도 같은 가족', isIrregularChange('win', 'won') && isIrregularChange('go', 'went'));
+  t('B-42b 짝: 같은 낱말끼리·빈 값은 가족이 아니다', !isIrregularChange('win', 'win') && !isIrregularChange('', 'won'));
+
+  const F = { was: 'go', now: 'went', why_ko: '과거형을 써요', tag: 'past_tense', severity: 'major' };
+  let memo = null; const shownAll = [];
+  for (let i = 1; i <= 4; i++) { const d = decideWarmupFixShow(F, memo, i); memo = d.memo; shownAll.push(!!d.show); }
+  t('B-43 🟢 교정이 있는 턴은 매 턴 보여 준다 (간격 규칙 폐지)', JSON.stringify(shownAll) === '[true,true,true,true]', JSON.stringify(shownAll));
+  t('B-44 🟢 교정을 보여 준 턴마다 따라 말하기를 붙인다', warmupShouldOfferRepeat(F, memo, 5) === true && warmupShouldOfferRepeat(F, memo, 6) === true);
+
+  const vf = verifyWarmupFix({ was: 'go', now: 'went', why_ko: '과거형을 써요', tag: 'past_tense', severity: 'major' }, 'I go to school yesterday');
+  const lead = correctionLeadIn('Oh, you went to school yesterday! What did you do there?', vf, 'en');
+  t('B-45 🟢 학생 문장을 고친 완성 문장을 말하고 따라 말하게 한 뒤 질문이 온다', /Say it with me: "I went to school yesterday\./.test(lead) && lead.indexOf('Say it with me') < lead.indexOf('?'), lead);
+  t('B-45d 🟢 교정 낱말 조각(went)만 문장처럼 말하지 않는다', !/"went"/.test(lead), lead);
+  t('B-45b 짝: 교정이 없으면 따라 말하기 문장도 없다', correctionLeadIn('What did you do?', null, 'en') === 'What did you do?');
+  const zh = correctionLeadIn('哦，你昨天去学校了！在那儿做什么了？', { was: '我去学校昨天', now: '我昨天去了学校', why_ko: '시간 말은 앞에 와요', tag: 'word_order', severity: 'major' }, 'zh');
+  t('B-45c 🟢 중국어도 교정 문장을 따라 말하게 한다', /跟我一起说/.test(zh) && zh.indexOf('跟我一起说') < zh.indexOf('？'), zh);
 }
 
 process.stdout.write('@@JSON@@' + JSON.stringify(out));

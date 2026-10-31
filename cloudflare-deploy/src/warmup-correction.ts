@@ -56,6 +56,8 @@ export type WarmupFix = {
   why_ko: string;
   tag: string;
   severity: 'major' | 'minor';
+  /** 학생 문장에서 틀린 부분만 고친 «완성 문장» (2026-10-31 — 따라 말하기용). 없으면 now 를 쓴다. */
+  sentence?: string;
 };
 
 /** 세션 동안 «무엇을 몇 번 틀렸나 · 마지막으로 언제 고쳐 줬나» — KV 에 6시간 보관한다. */
@@ -93,8 +95,8 @@ export const WARMUP_CORRECTION_RULE = [
   '예: 학생 "I go to school yesterday" → "Oh, you went to school yesterday! What did you do there?"',
   '⛔ 교정(fix)이 있으면 답장은 «반드시» 고친 문장을 따옴표로 먼저 말하고, 그 다음에 질문을 해. 질문을 먼저 하거나 고친 문장 없이 질문으로 넘어가면 안 돼. (서버도 같은 순서를 한 번 더 보장한다 — correctionLeadIn)',
   '한 번에 한 가지만 고쳐. 다만 «시제·동사꼴·주어동사 수일치·의문문 어순» 은 뜻이 통해도 «반드시» 고쳐 줘 — 그 넷은 그대로 두면 학생이 틀린 채로 굳는다(예: "I eat pizza yesterday" → "I ate pizza yesterday").',
-  '⛔ 그 넷이 아닌 사소한 것(관사 하나, 낱말 고르기)은 답장(reply)에서 따로 지적하지 말고 바른 말로 되말하기만 해 — 매번 지적받으면 학생이 말문이 막힌다.',
-  '✅ 하지만 "fix" 칸은 달라 — 학생 문장에 영어 오류가 «하나라도» 있으면 사소해도 반드시 "fix" 에 적어. 화면에 언제 보여 줄지는 서버가 정한다(연달아 띄우지 않는다). 오류가 있는데 "fix": null 로 두면 학생은 틀린 줄도 모른다.',
+  '🟢 사소한 것(관사 하나, 복수, 낱말 고르기)도 고친다 — 2026-10-31 사장님 결정. fix 에 적고, 답장(reply)에서는 고친 문장을 먼저 말하고 학생이 따라 말하게 한 뒤 질문한다.',
+  '✅ 학생 문장에 영어 오류가 «하나라도» 있으면 사소해도 반드시 "fix" 에 적어. 오류가 있는데 "fix": null 로 두면 학생은 틀린 줄도 모른다.',
   '[출력형식] ⚠️ 이 규칙이 위 [형식] 보다 «우선» 한다 — 말하기 프롬프트의 [형식] 은 「평문으로만 써」 라고 말하지만, 그것은 아래 JSON 안의 "reply" 글에만 적용되는 규칙이야. 너는 반드시 아래 JSON 하나만 출력해. 설명·인사·코드펜스 없이 { 로 시작해 } 로 끝나야 해.',
   fixJsonLine('<학생에게 할 영어 말 — 위 [길이]·[언어]·[형식] 규칙 그대로>'),
   ...FIX_COMMON_RULES,
@@ -144,7 +146,7 @@ export const AI_FRIEND_CORRECTION_RULE = [
   '⛔ NEVER put a Korean grammar tip inside "reply". The correction goes in "fix" only — the student sees it as its own card next to your message.',
   '"why_ko" must be Hangul only (no 한자, no Japanese): one short warm sentence a 10-year-old understands.',
   'Fix at most ONE thing per turn. ALWAYS fix these four even when the meaning is perfectly clear — wrong tense, wrong verb form, subject-verb agreement, question word order. Example: "I eat pizza yesterday" MUST be fixed to "I ate pizza yesterday". Leaving them uncorrected is how a child learns the mistake by heart.',
-  'For anything smaller than those four (one missing article, a word choice you would phrase differently), set "fix": null and just keep chatting happily — being nagged every turn makes a child stop talking.',
+  'For anything smaller than those four too (a missing article, a plural, a word choice), STILL correct it: set "fix" to the correction (the student must hear the right form every time). Do not hide small errors.',
   ...FIX_COMMON_RULES,
 ].join('\n');
 
@@ -298,6 +300,62 @@ function wordOverlap(a: string, b: string,
   return hit / Math.min(new Set(A).size, setB.size);
 }
 
+/* ─────────────────────────────────────────────────────────────
+   불규칙 동사 형태표 (2026-10-31 사장님 「사소한 실수도 고쳐 줘」 — 제안 A)
+   "I go to school yesterday" → "went" 처럼 낱말 하나가 형태만 바뀌면 글자 겹침 검사가
+   원리상 못 통과시킨다(win/won 은 겹침 0). 그래서 「같은 낱말의 형태」 를 표로 확인한다.
+   ⚠️ 지어낸 교정 방지는 그대로다 — 학생 문장에 원래 낱말이 실제로 있어야 한다는 검사는 따로 돈다.
+   ⚠️ 표는 초급 학습자가 자주 틀리는 불규칙 동사 위주다. 빠진 동사는 기존 규칙(겹침)으로 본다.
+   ───────────────────────────────────────────────────────────── */
+const IRREGULAR_VERBS: readonly string[] = [
+  'go went gone', 'come came come', 'see saw seen', 'win won won', 'buy bought bought',
+  'make made made', 'take took taken', 'eat ate eaten', 'write wrote written', 'read read read',
+  'have had had', 'do did done', 'get got gotten', 'give gave given', 'know knew known',
+  'think thought thought', 'say said said', 'tell told told', 'run ran run', 'sit sat sat',
+  'find found found', 'feel felt felt', 'leave left left', 'meet met met', 'pay paid paid',
+  'send sent sent', 'spend spent spent', 'teach taught taught', 'catch caught caught',
+  'bring brought brought', 'sleep slept slept', 'drink drank drunk', 'drive drove driven',
+  'fly flew flown', 'grow grew grown', 'hold held held', 'keep kept kept', 'lose lost lost',
+  'build built built', 'choose chose chosen', 'forget forgot forgotten', 'understand understood understood',
+  'wear wore worn', 'draw drew drawn', 'speak spoke spoken', 'break broke broken', 'begin began begun',
+  'swim swam swum', 'ride rode ridden', 'throw threw thrown', 'fall fell fallen', 'hear heard heard',
+  'lend lent lent', 'hit hit hit', 'put put put', 'cut cut cut', 'let let let', 'set set set',
+  'hurt hurt hurt', 'cost cost cost', 'shut shut shut', 'stand stood stood', 'lie lay lain',
+  'lose lost lost', 'mean meant meant', 'wake woke woken', 'win won won', 'sell sold sold',
+  'show showed shown', 'bite bit bitten', 'hide hid hidden', 'feed fed fed', 'steal stole stolen',
+  'shake shook shaken', 'ring rang rung', 'sing sang sung', 'dig dug dug', 'seek sought sought',
+];
+const IRREGULAR_FAMILY: Map<string, Set<string>> = (() => {
+  const m = new Map<string, Set<string>>();
+  for (const line of IRREGULAR_VERBS) {
+    const forms = line.split(' ');
+    const fam = new Set(forms);
+    for (const f of forms) {
+      const cur = m.get(f);
+      if (cur) forms.forEach((x) => cur.add(x)); else m.set(f, new Set(fam));
+    }
+  }
+  return m;
+})();
+/** 두 낱말이 같은 불규칙 동사의 형태(원형·과거·과거분사·현재)인가. */
+export function isIrregularChange(a: string, b: string): boolean {
+  if (!a || !b || a === b || /\s/.test(a) || /\s/.test(b)) return false;
+  const fam = IRREGULAR_FAMILY.get(a);
+  return !!fam && fam.has(b);
+}
+
+/** 학생 문장에서 틀린 부분(was)만 고친(now) 완성 문장을 만든다 — 낱말 경계로 첫 번째만 바꾼다.
+ *  ⛔ 못 만들면 빈 값 — 호출부가 now 로 떨어지지 않게 한다(조각을 문장처럼 말하지 않는다). */
+function correctedSentence(said: string, was: string, now: string, zhMode: boolean): string {
+  if (zhMode) {
+    const i = said.indexOf(was);
+    return i >= 0 ? (said.slice(0, i) + now + said.slice(i + was.length)).trim() : '';
+  }
+  const re = new RegExp('(^|[^A-Za-z])(' + was.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')(?![A-Za-z])', 'i');
+  if (!re.test(said)) return '';
+  return said.replace(re, (_m, pre) => pre + now).trim();
+}
+
 /**
  * 모델이 준 fix 를 결정론으로 검증한다. 하나라도 어긋나면 **null**(= 교정 없음).
  * ⛔ 여기서 문장을 «고쳐 쓰지» 않는다 — 통과시키거나 버리기만 한다.
@@ -361,9 +419,10 @@ export function verifyWarmupFix(
   if (now.length > Math.max(60, said.length * 2.5)) return null;
   /* ⛔ 낱말 겹침만으로 자르지 않는다 — "I don't went" → "I didn't go" 처럼 «형태가 바뀌는»
      흔한 교정이 0.33 으로 묻힌다(함정 대조가 실측으로 잡았다). 둘 중 하나면 통과. */
-  if (zhMode
+  const formOk = !zhMode && isIrregularChange(nWas, nNow);   // 불규칙 형태 변화(go→went) 는 겹침 검사 대신 형태표로 본다
+  if (!formOk && (zhMode
         ? (wordOverlap(nWas, nNow, normZh, splitZh) < 0.5 && charDice(nWas, nNow, normZh) < 0.35)
-        : (wordOverlap(nWas, nNow) < 0.5 && charDice(nWas, nNow) < 0.35)) return null;
+        : (wordOverlap(nWas, nNow) < 0.5 && charDice(nWas, nNow) < 0.35))) return null;
 
   const tag = (WARMUP_FIX_TAGS as readonly string[]).includes(String(fixRaw.tag)) ? String(fixRaw.tag) : 'other';
   /* 🔴 severity 를 모델에게 맡기지 않는다 (2026-09-09 사장님 「I ate pizza yesterday 인데
@@ -383,7 +442,7 @@ export function verifyWarmupFix(
     (majorTags as readonly string[]).includes(tag) ? 'major'
       : (String(fixRaw.severity) === 'major' ? 'major' : 'minor');
 
-  return { was, now, why_ko: whyKo, tag, severity };
+  return { was, now, why_ko: whyKo, tag, severity, sentence: correctedSentence(said, was, now, zhMode) };
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -393,16 +452,12 @@ export function verifyWarmupFix(
    교정도 같다. 매 턴 고치면 말문이 막힌다.
    ───────────────────────────────────────────────────────────── */
 
-/** 교정을 연달아 하지 않는다 — 최소 이만큼 턴을 띄운다.
- *  ⚠️ 2026-09-09 부터 이 간격은 «작은 실수(minor)» 에만 걸린다. 뜻이 달라지는 오류는
- *     간격을 안 본다(decideWarmupFixShow 주석). 이 줄만 읽고 major 도 띄운다고 보지 말 것. */
-export const WARMUP_FIX_GAP_TURNS = 2;
-/** 작은 실수 중 «두 번째부터» 보여 줄 종류 — «틀림» 보다 «더 나은 말» 인 경우가 많은 것만.
- *  ⛔ article·plural·other 등을 넣지 마세요 — 2026-10-30 「틀린 말을 안 고쳐 준다」 제보가 그 규칙이었습니다. */
-export const SECOND_TIME_TAGS: readonly string[] = ['word_choice'];
-/** 「따라 말해 볼까?」 는 이만큼 턴을 띄운다(제안서의 «3턴에 한 번»). */
-export const WARMUP_REPEAT_GAP_TURNS = 3;
-
+/* 🟢 (2026-10-31 사장님 「사소한 실수고 교정해줘」 — 제안 C-1)
+   검증을 통과한 교정은 «매 턴» 보여 준다. 예전의 「작은 실수는 두 턴 간격·두 번째부터」 규칙은
+   사장님 결정으로 없앴다. 다만 교정 문장을 쓸지는 여전히 검증(verifyWarmupFix)이 정한다 —
+   지어낸 교정을 막는 장치이고, 이것을 빼면 「안 고쳐 주는 것보다 나쁜」 교정이 나온다.
+   ⛔ 간격 규칙을 되살리지 마세요 — 사장님이 「사소한 실수도」라고 정하셨습니다.
+   ⛔ 이 함수는 «틀린 것을 세는» 일만 한다(memo.tags) — 통계·따라 말하기 판정이 쓴다. */
 export function decideWarmupFixShow(
   fix: WarmupFix | null,
   memoIn: WarmupFixMemo | null | undefined,
@@ -415,56 +470,15 @@ export function decideWarmupFixShow(
     shown: (memoIn && memoIn.shown) || 0,
   };
   if (!fix) return { show: null, memo };
-
-  /* 보여 주든 말든 «틀린 것» 자체는 센다 — 두 번째부터 보여 주는 판정의 근거가 된다.
-     ⚠️ 세는 것과 보여 주는 것은 다른 축이다. 이 줄을 아래 게이트 뒤로 옮기면
-        minor 는 영영 두 번째가 되지 않아 «한 번도 안 뜨는 기능» 이 된다. */
-  const seen = (memo.tags![fix.tag] || 0) + 1;
-  memo.tags![fix.tag] = seen;
-
-  /* 🔴 (2026-10-30 사장님 「아직도 학생이 틀린말 했는데 교정을 해주지 않아」) 작은 실수도
-     «첫 번째» 에 보여 준다. 옛 코드는 「같은 실수가 두 번째일 때만」이라, 모델이 minor·other 로
-     준 실수(예: "I didn't anything yesterday" — 동사 빠짐)는 처음 한 번은 «원리상» 조용히
-     지나갔다(정본을 돌려 재현). 학생 화면에는 「틀렸는데 안 고쳐 줬다」로 보였다.
-     ✅ «매 턴 잡히면 말문이 막힌다» 는 그대로 지킨다 — 작은 실수는 아래 간격(2턴)이 막는다.
-        즉 작은 실수는 «연달아» 만 안 고치고, 첫 실수는 고친다.
-     ⛔ `seen >= 2` 조건을 되살리지 마세요 — 그게 이 제보였습니다. 세는 것(memo.tags)은
-        「따라 말하기」·통계가 쓰므로 그대로 둡니다.
-     ⚠️ 예외 하나 — word_choice(낱말 고르기)는 «틀림» 이 아니라 «더 나은 말» 인 경우가 많아
-        예전대로 «두 번째부터» 입니다(recent-mistakes.ts 가 같은 이유로 그 종류를 안 이어 받습니다). */
-  if (fix.severity !== 'major' && SECOND_TIME_TAGS.includes(fix.tag) && seen < 2) return { show: null, memo };
-
-  /* 🔴 간격 규칙은 «작은 실수» 에만 건다 (2026-09-09 사장님 「더 정밀하게 문법을 잘 체크해 줄 수 있어?」).
-     옛 코드는 major 도 2턴을 띄웠다. 그래서 과거형 실수를 세 번 연달아 해도 한 번만 고쳐 줬고,
-     학생 화면에서는 「어떤 건 고쳐 주고 어떤 건 안 고쳐 준다」로 보였다(실측으로 재현).
-     뜻이 달라지는 오류는 그 자리에서 바로잡아야 틀린 채로 굳지 않는다.
-     ⛔ 이 예외를 minor 까지 넓히지 마세요 — 관사 하나까지 매 턴 잡히면 학생이 말문이 막힙니다.
-     ⚖️ [맞바꿈 — 사람이 정할 일] 지금 major 에는 상한이 «아예 없습니다»(정본을 돌려 잰 것:
-        past_tense 를 10턴 연속 넣으면 10/10 표시). 사장님 「더욱 더 정밀하게」에 맞춘 값입니다.
-        너무 잦다는 제보가 오면 **이 조건 한 줄만** 바꾸면 됩니다 —
-        `fix.severity !== 'major'` → `turnCount - (memo.lastShownTurn || 0) < 1` 같은 «major 전용
-        1턴 간격». ⛔ 옛 코드(간격 2턴)로 통째로 되돌리지는 마세요 — 그게 이 사고였습니다.
-        ℹ️ 카드는 쌓이지 않습니다(화면이 그릴 때 `fixCardClear()` 로 이전 카드를 지웁니다).
-     ⚠️ 그리고 `tag` 는 여전히 «모델이 정하는 값» 입니다 — 모델이 관사 교정을 past_tense 로
-        태깅하면 major 가 됩니다(방향은 «더 고쳐 줌» 이라 안전).
-
-     🔴 그리고 «아직 한 번도 안 보여줬으면» 간격이 성립하지 않는다.
-        옛 코드는 lastShownTurn 이 0 이라 turnCount 1 에서 1-0=1 < 2 로 «첫 교정» 이 원리상
-        막혔다(정본을 돌려 실측). 학생의 맨 첫 마디는 절대 못 고쳐 주고 있었다. */
-  const shownBefore = (memo.lastShownTurn || 0) > 0;
-  if (fix.severity !== 'major' && shownBefore
-      && turnCount - (memo.lastShownTurn || 0) < WARMUP_FIX_GAP_TURNS) {
-    return { show: null, memo };
-  }
-
+  memo.tags![fix.tag] = (memo.tags![fix.tag] || 0) + 1;
   memo.lastShownTurn = turnCount;
   memo.shown = (memo.shown || 0) + 1;
   return { show: fix, memo };
 }
 
 /**
- * 「한 번 따라 해 볼까?」 를 붙일지. 되말해 주기만 하면 아이는 흘려 듣는다 —
- * 이 한 바퀴가 «웜업» 을 «수업» 으로 바꾼다.
+ * 교정을 보여 준 턴에는 «교정 문장을 따라 말하기» 를 붙인다(사장님 제안 C-2 — 교정한 문장을 반복하게 한 뒤 질문).
+ * ⚠️ 예전에는 3턴에 한 번만 붙였다. 교정 턴마다 붙어야 「고친 문장 → 따라 말하기 → 질문」 순서가 성립한다.
  * ⚠️ memo 를 그 자리에서 고친다(부르는 쪽이 그대로 저장한다).
  */
 export function warmupShouldOfferRepeat(
@@ -473,11 +487,6 @@ export function warmupShouldOfferRepeat(
   turnCount: number,
 ): boolean {
   if (!show) return false;
-  /* 위와 같은 이유 — 한 번도 안 권했으면 «연달아» 가 성립하지 않는다.
-     [잰 것] WARMUP_REPEAT_GAP_TURNS=3 · 옛 조건 `turnCount - 0 < 3` → turn 1·2 막힘 · turn 3 부터 뜸.
-     즉 막혔던 것은 «첫 두 턴» 이다(세 턴이 아니다 — 함정 대조가 실측으로 정정). */
-  if ((memo.lastRepeatTurn || 0) > 0
-      && turnCount - (memo.lastRepeatTurn || 0) < WARMUP_REPEAT_GAP_TURNS) return false;
   memo.lastRepeatTurn = turnCount;
   return true;
 }
@@ -500,15 +509,20 @@ export function correctionLeadIn(reply: string, fix: WarmupFix | null, lang: 'en
   if (!fix || !r) return r;
   const zhMode = lang === 'zh';
   const norm = zhMode ? normZh : normEn;
-  const nNow = norm(fix.now);
+  /* 말할 문장: 학생 문장을 고친 «완성 문장» 이 있으면 그것, 없으면 고친 낱말(now) — 낱말 조각을 문장처럼 말하지 않으려고 완성 문장을 우선한다. */
+  const target = String(fix.sentence || fix.now || '').trim();
+  const nNow = norm(target);
   if (!nNow) return r;
 
   const q = r.search(/[?？]/);
   const head = q >= 0 ? r.slice(0, q) : r;
   if (norm(head).includes(nNow)) return r;   // 이미 질문보다 먼저 고친 문장이 있다
 
-  const now = String(fix.now).trim();
+  const now = target;
   const said = /[.!?。！？]$/.test(now) ? now : now + (zhMode ? '。' : '.');   // 문장부호는 따옴표 «안» 에
-  const lead = zhMode ? `我们可以这样说："${said}"` : `Let's say it like this: "${said}"`;
-  return `${lead} ${r}`;
+  /* 🟢 (2026-10-31 사장님 C-2) 고친 문장을 말하고 → 따라 말하게 한 뒤 → 질문(r) 이 온다. */
+  const lead = zhMode
+    ? `我们可以这样说："${said}" 跟我一起说："${said}" `
+    : `Let's say it like this: "${said}" Say it with me: "${said}" `;
+  return `${lead}${r}`;
 }

@@ -405,7 +405,7 @@ const t = (n, ok, x) => out.push([n, !!ok, x == null ? '' : String(x)]);
   const d2 = decideWarmupFixShow(minor, null, 5);
   /* 2026-10-30 — 작은 실수도 «첫 번째» 에 보여 준다(사장님 「틀린 말을 안 고쳐 준다」). 매 턴은 간격(F-11b)이 막는다. */
   t('F-9 🔴 작은 실수도 첫 번째에 보여 준다 (2026-10-30)', !!d2.show);
-  t('F-9b 짝: 낱말 고르기(word_choice)는 예전대로 두 번째부터', decideWarmupFixShow({ ...minor, tag: 'word_choice' }, null, 5).show === null);
+  t('F-9b 🟢 낱말 고르기(word_choice)도 첫 번째부터 고친다 (사장님 「사소한 실수도」)', decideWarmupFixShow({ ...minor, tag: 'word_choice' }, null, 5).show !== null);
   const d3 = decideWarmupFixShow(minor, d2.memo, 9);
   t('F-10 간격을 띄운 같은 실수도 보여 준다', !!d3.show);
   const d4 = decideWarmupFixShow(major, d1.memo, 6);
@@ -414,11 +414,11 @@ const t = (n, ok, x) => out.push([n, !!ok, x == null ? '' : String(x)]);
   t('F-11 🔴 뜻이 달라지는 오류는 바로 앞 턴에 고쳐 줬어도 또 고쳐 준다', !!d4.show);
   /* ⚠️ 짝 — 그 예외를 minor 까지 넓히면 관사 하나까지 매 턴 잡혀 말문이 막힌다. */
   const d4b = decideWarmupFixShow(minor, d3.memo, 10);
-  t('F-11b 🔴 짝: 작은 실수는 여전히 연달아 고치지 않는다', d4b.show === null);
+  t('F-11b 🟢 작은 실수도 연달아 고친다 (간격 규칙 폐지)', d4b.show !== null);
   /* 🔴 턴 수가 «상한에 붙어» 더 안 늘면 «작은 실수» 교정이 멎는다 — 그래서 서버가 COUNT 로 센다.
      ⚠️ major 는 이제 간격을 안 보므로 이 재현에 쓸 수 없다(쓰면 검사가 헛돈다). */
   const stuck = decideWarmupFixShow(minor, { ...d3.memo, lastShownTurn: 21 }, 21);
-  t('F-12 🔴 턴 수가 안 늘면 작은 실수 교정이 멎는다 (COUNT 로 세는 이유)', stuck.show === null);
+  t('F-12 🟢 턴 수와 무관하게 교정이 계속 나온다 (간격 규칙이 없으니 멎을 일도 없다)', stuck.show !== null);
   /* 🔴 2026-09-09 까지는 turnNo=1 이 «막혔다» — lastShownTurn 이 0 이라 1-0=1 < 2 로 걸려
      학생의 맨 첫 마디는 원리상 못 고쳐 줬다. 지금은 «한 번도 안 보여줬으면 간격 없음» 이다. */
   t('F-13 🔴 turnNo=1 — 학생의 첫 마디도 고쳐 준다',
