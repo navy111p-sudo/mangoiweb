@@ -62,7 +62,7 @@
       "mood": "wonder",
       "durationSec": 61,
       "playbackStartSec": 2,
-      "video": "/media/dubbing/dub-007/scene-1.mp4?v=2",
+      "video": "/media/dubbing/dub-007/scene-1.mp4?v=3",
       "poster": "/media/dubbing/dub-007/scene-1.jpg?v=2",
       "videoAudio": "mute",
       "voices": {
@@ -149,7 +149,7 @@
       "mood": "tense",
       "durationSec": 61,
       "playbackStartSec": 2,
-      "video": "/media/dubbing/dub-007/scene-2.mp4?v=2",
+      "video": "/media/dubbing/dub-007/scene-2.mp4?v=3",
       "poster": "/media/dubbing/dub-007/scene-2.jpg?v=2",
       "videoAudio": "mute",
       "voices": {
@@ -236,7 +236,7 @@
       "mood": "tense",
       "durationSec": 61,
       "playbackStartSec": 2,
-      "video": "/media/dubbing/dub-007/scene-3.mp4?v=3",
+      "video": "/media/dubbing/dub-007/scene-3.mp4?v=4",
       "poster": "/media/dubbing/dub-007/scene-3.jpg?v=2",
       "videoAudio": "mute",
       "voices": {
@@ -323,8 +323,8 @@
       "mood": "mystery",
       "durationSec": 61,
       "playbackStartSec": 2,
-      "video": "/media/dubbing/dub-007/scene-4.mp4?v=4",
-      "poster": "/media/dubbing/dub-007/scene-4.jpg?v=2",
+      "video": "/media/dubbing/dub-007/scene-4.mp4?v=5",
+      "poster": "/media/dubbing/dub-007/scene-4.jpg?v=3",
       "videoAudio": "mute",
       "voices": {
         "luna": "/media/dubbing/dub-007/scene-4-luna.mp3?v=2",
@@ -662,7 +662,22 @@
         "EP6 46.75-53s and 56.5-61s: medium reunion shots exclude the unrelated cone-shaped lander; greeting close-up 53-56.5s preserved."
       ],
       "timing": "All 61-second silent masters, original action order, dialogue offsets and role/BGM stems retained.",
-      "limitations": "Editorial correction, not a complete visual regeneration. Earlier cyan UFO/cockpit design and EP6 gold-rimmed enlarged saucer remain visibly different; early red-striped hull and EP6 unstriped hull are not fully matched. No new video generation was used in this editorial pass."
+      "limitations": "At that editorial pass, the early cyan UFO/cockpit and red-striped wide hull still differed from EP6. The subsequent existingFootageShipMatch pass below replaces conflicting wide shots and reframes interiors without generating footage."
+    },
+    "existingFootageShipMatch": {
+      "date": "2026-10-25",
+      "sourceCommit": "8dccc88",
+      "method": "Existing moving footage only: exact-frame cuts, reframing and motion interpolation for retiming. No generative image/video calls or added characters.",
+      "referenceCraft": "EP6 silver horizontal human spacecraft with blue engines; silver saucer with gold rim and transparent dome, distinct purple pilot in blue.",
+      "edits": [
+        "EP1 35-50s: Zio close-up conceals conflicting wide cockpit/window geometry. 50-54.5s: reuse EP6 38-40s, establishing the same two craft and purple pilot early. 54.5-61s: reuse EP2 8-14.5s as the red-alert reaction leading into EP2.",
+        "EP2 17-32s: Zio/part close-up excludes the different cylindrical ship outside and the miniature Luna hologram.",
+        "EP3 2-8s: repair close-up excludes the early cyan saucer. 35-50s: Zio close-up reduces cockpit geometry changes. 50-54.791667s: Luna reaction excludes the morphing cyan craft. 54.791667-57.458333s: reuse EP6 39.125-40s cropped to gold-rimmed saucer. 57.458333-61s: reuse EP6 23.5-26.083333s purple-pilot close-up.",
+        "EP4 2-9.416667s: reuse EP3 28.25-34.75s damaged-component inspection, tightly framed with a gentle camera push. This removes both the different rounded whole-ship silhouette and its prominent red hull stripes. Poster now uses Zio greeting.",
+        "EP5 and EP6 retained, including physical boarding, shared cabin, same-ship landing/disembarkation, mother greeting and both hugs."
+      ],
+      "timing": "Each silent master remains exactly 1464 frames / 61 seconds, 1280x720 at 24fps. All original role/BGM files, 36 line timings and SFX offsets unchanged.",
+      "scope": "Maximizes continuity using existing footage; small surface markings and cockpit lighting still vary between original angles. Those views are close-framed; exact 3D-model uniformity is not claimed."
     }
   }
 }

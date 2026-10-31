@@ -446,6 +446,8 @@ async function teacherFixture(name, opts = {}) {
   }, { ...opts, teacherIdentity: true });
   await state.page.goto(BASE + '/teacher.html', { waitUntil: 'domcontentloaded' });
   await shown(state.page, monday(instant));
+  // 2026-10-26: 주간 보기는 «오늘의 수업» 카드 안 접이칸이다 — 주 이동 버튼을 누르기 전에 편다.
+  await state.page.locator('#c-week > summary').click();
   check(name + ': browser online emulation permits polling inside isolated OS network', await state.page.evaluate(() => navigator.onLine === true));
   return Object.assign(state, { queue, requests });
 }

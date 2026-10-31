@@ -1,6 +1,7 @@
+import {tmpdir as handoffTmp} from 'node:os';import {resolve as handoffResolve} from 'node:path';import {pathToFileURL as handoffURL,fileURLToPath as handoffFile} from 'node:url';
 import test from 'node:test';import assert from 'node:assert/strict';import {createRequire} from 'node:module';import {readFileSync} from 'node:fs';
-const root=new URL('../../',import.meta.url).pathname;const require=createRequire(root+'cloudflare-deploy/package.json');const out='/tmp/eleader-expansion-'+process.pid+'.mjs';
-await require('esbuild').build({entryPoints:[root+'cloudflare-deploy/src/eleader-expansion.ts'],bundle:true,platform:'node',format:'esm',outfile:out});const {isEleaderExpansion,ELEADER_EXPANSION_RULE,markEleaderExpansion,hasEleaderExpansion}=await import(out);
+const root=handoffFile(new URL('../../',import.meta.url));const require=createRequire(root+'cloudflare-deploy/package.json');const out=(handoffTmp()+'/eleader-expansion-')+process.pid+'.mjs';
+await require('esbuild').build({entryPoints:[root+'cloudflare-deploy/src/eleader-expansion.ts'],bundle:true,platform:'node',format:'esm',outfile:out});const {isEleaderExpansion,ELEADER_EXPANSION_RULE,markEleaderExpansion,hasEleaderExpansion}=await import(handoffURL(out));
 for(const text of ['You could say: "I like cats." Do you like cats?','You could say: "I do not like cats." Do you like dogs?','You could say: "I eat rice." Do you like rice?','You could say: "I get up at seven." Is seven right?'])test('explicit possible example: '+text,()=>assert.equal(isEleaderExpansion(text),true));
 for(const text of ['Do you have a cat at home?','I like cats. Do you like dogs?','You own a cat. You could say: "I like cats." Do you like cats?','You could say: "I like cats." Do you like cats? You have a cat.','You could say: "I like cats." Do you like cats? Do you like dogs?','You could say: "I like cats." Why do you like cats?','You could say: "<script>alert(1)</script>." Do you like cats?','You could say: "I like cats.\n" Do you like cats?'])test('reject incomplete/assertive/unsafe contract: '+text,()=>assert.equal(isEleaderExpansion(text),false));
 test('semantic instructions preserve negation, uncertainty and current question',()=>{for(const term of ['Preserve explicit yes/no','ambiguous','unprovided ownership','current unit/question','untrusted data'])assert.ok(ELEADER_EXPANSION_RULE.includes(term));});
@@ -8,8 +9,8 @@ test('only marked server request identity enables pilot contract',()=>{const r=n
 
 test('pilot audience is explicit without changing shared audience defaults',()=>{assert.match(ELEADER_EXPANSION_RULE,/lower-primary children aged 6-9/);assert.match(ELEADER_EXPANSION_RULE,/beginner pre-A1\/A1/);const s=readFileSync(root+'cloudflare-deploy/src/eleader-live.ts','utf8');assert.match(s,/difficulty:1,age_group:'kid'/);const shared=readFileSync(root+'cloudflare-deploy/src/warmup-audience.ts','utf8');assert.match(shared,/DEFAULT_WARMUP_AGE: WarmupAge = 'child'/);assert.match(shared,/10~15세/);});
 
-const {normalizeEleaderExpansion,normalizeEleaderReply}=await import(out);
-const {ELEADER_UNITS}=await (async()=>{const p='/tmp/eleader-pack-'+process.pid+'.mjs';await require('esbuild').build({entryPoints:[root+'cloudflare-deploy/src/eleader-pack.ts'],bundle:true,platform:'node',format:'esm',outfile:p});return import(p);})();
+const {normalizeEleaderExpansion,normalizeEleaderReply}=await import(handoffURL(out));
+const {ELEADER_UNITS}=await (async()=>{const p=(handoffTmp()+'/eleader-pack-')+process.pid+'.mjs';await require('esbuild').build({entryPoints:[root+'cloudflare-deploy/src/eleader-pack.ts'],bundle:true,platform:'node',format:'esm',outfile:p});return import(p);})();
 const context={question:'Do you like cats?',answer:'cats',vocabulary:ELEADER_UNITS[0].questions.map(q=>q.question+' '+q.model).join(' ')};
 const reported=JSON.parse(readFileSync(new URL('./fixtures/pc-v4-reported-response.json',import.meta.url)));
 test('replay exact parent-reported PC reply without inventing missing help contents',()=>{

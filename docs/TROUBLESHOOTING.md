@@ -44,8 +44,8 @@ npx wrangler@latest deployments list --env production
 ## 음성(TTS)이 무음
 
 1. Workers AI가 429(한도 초과)를 뱉으면 그 에러 응답이 오디오로 흘러가 무음이 됨 — 가드가 있으니, 재발 시 `/api/voice/tts` 쪽 ok+audio 검증 로직 확인
-2. 사이드바 안내/AI비서 목소리(`/api/ops-tts`)는 Typecast — 크레딧 소진 시 Google TTS 폴백으로 넘어가는지 확인
-3. Typecast 시크릿은 `mangoi-ai-avatar-cf` 워커에 있음
+2. 사이드바 안내/AI비서 목소리(`/api/ops-tts`)는 **Azure Speech**(2026-10-26 Typecast 에서 전환) — 실패 시 Google TTS 폴백으로 넘어가는지 확인. 응답 헤더 `X-TTS-Provider` 가 `azure`(새로 만듦)·`r2-cache`(저장본) 중 하나여야 정상
+3. Azure 시크릿(`AZURE_SPEECH_KEY`·`AZURE_SPEECH_REGION`)은 `mangoi-ai-avatar-cf` 워커에 있어야 함 — 없으면 `/api/tts` 가 503 `no_tts_key`(→ 구글 음성으로 떨어짐). 이번 달 사용량: `https://mangoi-ai-avatar-cf.navy111p.workers.dev/api/tts/usage`
 
 ## admin 페이지 문제
 

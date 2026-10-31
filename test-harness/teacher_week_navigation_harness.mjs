@@ -19,7 +19,7 @@ function fn(name) {
   if (a < 0 || b < 0) throw new Error('Missing function: ' + name);
   return source.slice(a, b);
 }
-const weekCode = between('  var WK_OFFSET = 0;', '\n  /* 📅 다가오는 수업');
+const weekCode = between('  var WK_OFFSET = 0;', '\n  /* 📅 (2026-10-26 강사 제안) «다가오는 수업');
 const languageCode = between("  document.getElementById('lang').onclick =", '\n  // 새로고침을 직접');
 const visibilityCode = between("  document.addEventListener('visibilitychange'", "\n  window.addEventListener('online'", source.indexOf("  function scheduleAutoRefresh("));
 function environment(instant = '2026-10-04T15:05:00Z', cache = null) {
@@ -52,11 +52,15 @@ function environment(instant = '2026-10-04T15:05:00Z', cache = null) {
     renderAlsoAccount() {}, renderClasses() {}, renderUpcoming() {}, renderNotices() {}, renderResources() {}, renderManager() {}, paintClassCount() {}, paintNewBadge() {},
     scheduleAutoRefresh(ms) { ui.nextRefresh = ms; },
     EN: () => ui.LANG !== 'ko', T: (en,ko) => ui.LANG === 'ko' ? ko : en, esc: x => String(x ?? ''),
-    stuLabelHtml: it => it.student_name, stuLabelText: it => it.student_name, stuName: it => it.student_name || '', stuUid: it => it.student_uid || '', kindPill: () => ''
+    stuLabelHtml: it => it.student_name, stuLabelText: it => it.student_name, stuName: it => it.student_name || '', stuUid: it => it.student_uid || '', kindPill: () => '',
+    // 2026-10-26: 첫 보기가 표가 되어 날짜 보기가 classTableHtml 을 부른다 — 실제 페이지에는 전역으로 있다. 학생 이름만 그려 아래 label 검사가 그대로 뜻을 갖게 한다.
+    classTableHtml: list => '<table>' + list.map(c => '<tr>' + (c.student_name || '') + '</tr>').join('') + '</table>', stPill: () => '', weekRecordHtml: () => ''
   };
   vm.createContext(ui);
   vm.runInContext([fn('now'), fn('todayKST'), fn('paintCached'), fn('saveCache'), fn('load'), fn('setStale'), fn('render'),
-    fn('portalRows'), fn('portalContact'), fn('portalAcademies'), weekCode, fn('classKeys'), fn('autoRefreshTick'), languageCode, visibilityCode].join('\n'), ui);
+    fn('portalRows'), fn('portalContact'), fn('portalAcademies'), weekCode, fn('classKeys'), fn('autoRefreshTick'), languageCode, visibilityCode,
+    // 2026-10-28: 날짜 목록의 «월» 선택이 월 달력의 달 이름·달 이동(moLabel·moShift)을 같이 쓴다 — 실제 페이지에서는 같은 스코프에 있다.
+    fn('moShift'), fn('moLabel')].join('\n'), ui);
   return { ui, element, requests, cacheStore, listeners, setClock: iso => clock = Date.parse(iso) };
 }
 function week(start, label = start) {

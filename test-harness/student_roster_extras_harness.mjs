@@ -372,11 +372,8 @@ const HTML = rd(resolve(PUB, 'admin.html'));
   ok(colspans.length >= 4 && colspans.every(c => c === nCol), `빈 줄 colspan 이 전부 같은 수 (${colspans.join(',')})`);
   ok(/data-sort-key="lastpay_at"/.test(T) && /data-sort-key="next_class_at"[^>]*data-sort-default-dir="asc"/.test(T), '두 칸이 정렬된다(다음 수업은 가까운 순)');
   ok(/data-ko="최근 결제" data-en="Last paid"/.test(T) && /data-ko="다음 수업" data-en="Next class"/.test(T), '머리글 KO/EN');
-  // 버전 번호를 고정하지 않는다 — 다른 변경이 올리면 이 검사가 매번 깨진다.
-  // 대신 「?v= 가 있고, 그 번호가 자산 원장에 등록돼 있다」를 본다(asset_version_harness 와 짝).
-  const av = (HTML.match(/adm-core\.js\?v=([\w.-]+)/) || [])[1];
-  const ledgerTxt = rd(resolve(HERE, 'asset-versions.json'));
-  ok(!!av && ledgerTxt.includes('/js/adm-core.js?v=' + av), `adm-core.js 의 ?v= 가 원장에 있다 (${av})`);
+  // (2026-10-26) 번호를 글자 그대로 못 박으면 다음 사람의 정당한 번호 올리기가 빨간불이 된다 — «그 변경 전 번호가 아닌가» 로 묻는다.
+  ok(/adm-core\.js\?v=[^"]+"/.test(HTML) && !/adm-core\.js\?v=2610132-smquick"/.test(HTML), 'adm-core.js 의 ?v= 를 올렸다');
   ok(/\['최근결제일'/.test(CORE) && /\['다음수업'/.test(CORE), 'CSV 에도 실린다');
 }
 

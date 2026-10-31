@@ -79,7 +79,8 @@ check('서버가 class_kind 를 내려준다', /class_kind: _kind/.test(tapi));
 check('오늘·앞으로·주간 세 목록이 모두 class_kind 를 싣는다',
   (tapi.match(/class_kind:/g) || []).length >= 3);
 check('화면 배지도 한 함수에서 나온다', /function kindPill\(c\)/.test(thtml));
-check('세 목록이 모두 그 함수를 쓴다', (thtml.match(/kindPill\(/g) || []).length >= 4);
+// 2026-10-26 «다가오는 수업 (7일)» 카드를 화면에서 뺐다(강사 제안) → 화면 목록은 오늘·주간 둘 + 정의 1 = 3
+check('화면 목록(오늘·주간)이 모두 그 함수를 쓴다', (thtml.match(/kindPill\(/g) || []).length >= 3);
 check('배지 색이 정의돼 있다', /\.pill\.p-trial\{/.test(thtml) && /\.pill\.p-makeup\{/.test(thtml));
 check('정규수업엔 배지를 안 붙인다 (전부 붙이면 특별한 수업이 묻힌다)',
   /return '';\s*\/\/ 정규수업/.test(thtml));

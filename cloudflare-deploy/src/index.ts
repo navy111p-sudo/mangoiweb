@@ -65,7 +65,11 @@ import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // �
 import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply } from './warmup-log';  // 📊 웜업 «몇 단계로 쓰는가» 기록
 import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
 import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
+import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmupGrade, applyHonestPraise, gateFixForMode, ensureFocusedFixSpoken } from './warmup-honest';  // 🎯 정직한 칭찬 + 교정 모드(2026-10-29 시범 — 정본 그 파일)
 import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
+import { fragmentQuestions, fragmentQuestionHint, checksFragmentQuestions, fullQuestionRule, FRAG_RETRY_BUDGET_MS } from './reply-questions';   // 🧩 기초 단계 «조각 질문»(like space?) 막기
+import { questionMemory, askedQuestionsLine, ASKED_LINE_HEAD, repeatedQuestions, retryRepeatedQuestion } from './question-memory';   // 🔁 같은 질문 두 번 금지(말만 바꾼 것·반대말 포함)
+import { connectorPromptBlock, linkBandForStep } from './conversation-connectors';   // 🔗 연결 표현(2026-10-28 · 세 화면 공용 정본)
 import { normalizeWarmupLang, warmupZhSystem, WARMUP_ZH_LEVELS, zhWarmupSentences, zhStudentByTeacher,
          warmupZhAnswerChips, WARMUP_ZH_FALLBACK_QUESTIONS, WARMUP_ZH_QUESTION_LANG } from './warmup-zh';  // 🀄 중국어 대화 정본(2026-09-13) — 영어 규칙은 한 글자도 안 건드린다
 import { applyEmpathyGuard, WARMUP_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
@@ -1832,6 +1836,7 @@ const worker = {
           const pilotRes = await handleMangoApi(request, url, env, ctx, {
             chat: r => handleWarmupChat(markEleaderExpansion(r), ephemeralEleaderEnv(env)),
             voice: r => handleGamesApi(r, new URL(r.url), ephemeralEleaderEnv(env)),
+            warm: r => warmupChatEntry(r, (req, send) => handleWarmupChat(req, env, send)),
           });
           if (pilotRes) return pilotRes;
         }
@@ -4270,6 +4275,9 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
       const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(hkey) : null;
       if (raw) history = JSON.parse(raw);
     } catch {}
+    /* 🔁 (2026-10-28 사장님 「일반 A.i 말하기에도 같은 질문 금지 적용해줘」) 이 대화에서 «이미 물은 질문 → 학생 답».
+       정본 src/question-memory.ts(엘리더잼과 같은 판정). 영어만 — 중국어는 낱말을 못 뽑아 null 이고 예전 그대로다. */
+    const qmem = ctxLang === 'zh' ? null : questionMemory(history, studentInput);
 
     // 📊 웜업 기록(src/warmup-log.ts) — 세션당 INSERT 1 + 조건부 UPDATE 최대 2. 발화마다 쓰지 않는다.
     //   ① 첫 턴의 INSERT 는 «안전망» 이다. 로그인 학생은 /api/warmup/context 에서 이미 잡히고,
@@ -4288,6 +4296,9 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     let sys = ctxLang === 'zh' ? warmupZhSystem(ctxFriend) : warmupSystem(ctxFriend);
     sys += ' ' + warmupAgeLine(ctxAge);
     if (ctxDifficulty) sys += ` [난이도] ${(ctxLang === 'zh' ? WARMUP_ZH_LEVELS : WARMUP_LEVELS)[ctxDifficulty]}`;
+    /* 🧩 (2026-10-28 사장님 「like space? 이런 식으로 나오지 말게」) 기초 단계는 «단어 수» 지시 때문에 모델이
+       질문의 앞부분(do you)을 떼어 낸다 — 문법이 먼저라고 예문으로 못 박는다. 정본·이유는 src/reply-questions.ts. */
+    if (checksFragmentQuestions(ctxDifficulty, ctxLang)) sys += ' ' + fullQuestionRule(ctxDifficulty);
     if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;
     // 🗓️ 오늘 배울 교재 연동: 학생 배정 교재(students_erp) + 그 교재의 실제 문장(review_quizzes)으로 워밍업 질문
     if (ctxUserId || ctxTextbook || ctxLevel) {
@@ -4371,12 +4382,21 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     }
     // 🔁 반복 방지: 직전에 했던 질문/문장을 그대로 다시 묻는 문제(한 문장 반복) 차단
     sys += ' [중요] 이전 대화에서 이미 했던 질문이나 문장을 그대로 반복하지 마. 매번 새로운 표현과 다른 각도의 질문으로 대화를 이어가.';
+    // 🔁 이미 물은 질문 목록 — 엘리더잼은 lesson_topic 에 같은 머리말로 이미 실어 보내므로 두 번 싣지 않는다.
+    if (qmem && !lessonTopic.includes(ASKED_LINE_HEAD)) sys += ' ' + askedQuestionsLine(qmem);
+    /* 🔗 (2026-10-28 사장님 지시) 연결 표현 규칙 + 최근 답장과 다른 말로 시작하기 — 정본 src/conversation-connectors.ts(부르기만).
+       ⛔ 중국어 대화·엘리더잼 예시형 계약(형식 고정 «You could say: …»)에는 싣지 않는다. 던지지 않는다(못 만들면 빈 문자열). */
+    if (ctxLang !== 'zh' && !hasEleaderExpansion(request)) sys += '\n[연결 표현]\n' + connectorPromptBlock(linkBandForStep(ctxDifficulty), history);
     /* ✏️ 교정 카드 (2026-09-08) — 답장과 «같은 한 번의 호출» 에서 JSON 으로 함께 받는다.
        따로 부르면 왕복이 하나 더 붙어 한 턴이 두 배가 된다. 판정 정본은 src/warmup-correction.ts.
        ⚠️ 이 절이 출력 형식을 평문 → JSON 으로 바꾸므로, 아래 모든 추출 자리는 반드시
           takeWarmupReply() 를 지나야 한다. 안 지나면 무너진출력·이름·반복 게이트가
           중괄호 덩어리를 보고 «무너졌다» 로 판정해 대화가 통째로 안전문구로 떨어진다. */
     sys += '\n' + (ctxLang === 'zh' ? WARMUP_ZH_CORRECTION_RULE : WARMUP_CORRECTION_RULE);
+    /* 🎯 (2026-10-29 사장님 «제안서대로») 학생이 고른 교정 모드, 없으면 시범 학원만 «평가 등급 + 정직한 칭찬 + 교정 모드». 정본 src/warmup-honest.ts.
+       ⛔ null 이면 아래 어디에서도 동작이 바뀌지 않는다(예전과 같음). 던지지 않는다. */
+    const honest = await resolveWarmupHonest(env, sessionId, ctxUserId, { lang: ctxLang, eleader: hasEleaderExpansion(request), chosen: body && body.correction_mode });
+    if (honest) sys += '\n' + warmupHonestRule(honest.mode);
     sys += '\n' + warmupGuidanceRule(body, ctxLang);
     if (hasEleaderExpansion(request)) sys += ELEADER_EXPANSION_RULE;
     /* 🏷️ 첫 턴에는 «화면 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
@@ -4404,6 +4424,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     let rawFix: any = null;
     let stagedFix: any = null;
     let rawHelp: any = null, stagedHelp: any = null;
+    let rawGrade: any = null, stagedGrade: any = null;   // 🎯 시범 학원만 쓴다(warmup-honest.ts)
     /* ⚠️ 이 파일은 공동 금지구역이다(CLAUDE.md 4-2) — 2026-09-08 사장님
        「테스트 했는데 이전과 달라진게 없는데」(교정 카드 미표시) 제보를 고치는 회귀 수리라
        범위를 이 핸들러 안으로 한정했다. 다른 두 WARMUP_MODEL 호출(3662·4456행)은 안 건드린다
@@ -4471,6 +4492,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
          `r?.response ?? r?.result?.response` 로 읽는다(2026-09-08 실사고로 맞춤). */
       const parsed = parseWarmupOutput(r?.response ?? r?.result?.response ?? '');
       stagedFix = parsed.fix;
+      stagedGrade = parseWarmupGrade(r?.response ?? r?.result?.response ?? '');
       stagedHelp = body.guided === 1 ? parseSpeakingHelp(r?.response ?? r?.result?.response ?? '', ctxLang) : null;
       /* ⚠️ «빈 응답» 과 «평문이 왔다» 는 다른 사실이다 — 한 숫자로 뭉치면 그 로그를
          보러 온 사람이 「프롬프트가 안 먹는다」로 읽고 엉뚱한 곳을 고친다.
@@ -4482,7 +4504,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* ⚠️ 교정은 «그 답장을 실제로 채택했을 때만» 확정한다.
        재시도 답장은 거절될 수 있는데(이름·반복 검사), 파싱하자마자 rawFix 를 덮으면
        화면의 답장은 옛것인데 교정 카드만 새 답장의 것이 되어 서로 어긋난다. */
-    const commitFix = () => { rawFix = stagedFix; rawHelp = stagedHelp; };
+    const commitFix = () => { rawFix = stagedFix; rawHelp = stagedHelp; rawGrade = stagedGrade; };
     /* ⏱ 지연 기록 — ⛔ 학생 발화·답변은 한 글자도 싣지 않는다(길이만). ⛔ 기록이 대화를 막으면 안 된다
        (통째로 try/catch). level 은 AI 친구와 같은 눈금(1단계 = S1 — CLAUDE.md «레벨은 한 눈금»). */
     const logWarmupLatency = async (replyText: string, ok: number): Promise<void> => {
@@ -4505,9 +4527,12 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* ⚠️ 중국어는 0(끔) — 아래 «무너진 출력 차단» 주석 참고. 📡 P2 의 «먼저 막는 문» 도 같은 값을 써야
        해서 첫 호출 «앞» 으로 끌어올렸다(값·식은 그대로다). */
     const sanityCap = ctxLang === 'zh' ? 0 : (WARMUP_WORD_CAP[ctxDifficulty] || 0);
+    const fragQ = checksFragmentQuestions(ctxDifficulty, ctxLang);   // 🧩 기초 단계(영어 1~3)만 «조각 질문» 을 본다
     /* 📡 P2 — 흘려보낼 문장을 «내보내기 직전» 에 같은 정본 판정(replyRejectReason·wrongSelfName)에 건다.
-       걸리면 그 자리에서 미리보기를 멈춘다. 정본·이유는 src/warmup-stream.ts 머리말. */
-    const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput }) : null;
+       걸리면 그 자리에서 미리보기를 멈춘다. 정본·이유는 src/warmup-stream.ts 머리말.
+       🔁 이미 물은 질문(repeatOf)도 멈추되, 시간 예산을 넘긴 턴은 다시 안 뽑으니 멈추지도 않는다. */
+    const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ, honest: !!honest,
+      repeatOf: qmem ? (sen) => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0 : undefined }) : null;
     try {
       const result: any = await runWarmup(messages, 0.7, live);
       aiText = takeWarmupReply(result); commitFix();
@@ -4568,15 +4593,46 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
           }
         } catch {}
       }
-      // 🔁 그래도 직전 AI 발화와 (거의) 같은 문장이 나오면 1회 재생성 — temperature 를 올리고 명시적으로 지시
-      if (aiText && warmupIsRepeat(aiText, history)) {
-        const retry: any = await runWarmup(messages.concat([
-          { role: 'assistant', content: aiText },
-          { role: 'user', content: '(방금 질문은 이미 했던 거야. 완전히 다른 새로운 질문 하나로 다시 물어봐 줘!)' },
-        ]), 0.95);
-        const retryText = takeWarmupReply(retry);
-        if (retryText && !warmupIsRepeat(retryText, history)) { aiText = retryText; commitFix(); }
+      /* 🧩 «조각 질문» 이면 한 번 다시 뽑는다 (2026-10-28 사장님 「like space? 이런 식으로 나오지 말게」).
+         1단계 «3~5단어» 와 접속사 지시가 겹치면 모델이 do you 를 떼어 「By the way, like space?」 를 만든다.
+         ⛔ 문장을 고쳐 쓰지 않는다 — 다시 뽑게만 한다(아이가 따라 읽을 문장을 코드가 지어내면 안 된다).
+         ⚠️ 다시 뽑은 것이 «조각이 더 적고» 다른 검사도 통과할 때만 받는다 — 아니면 원래 답을 그대로 둔다
+            (조각 하나보다 대화가 끊기는 것이 더 나쁘다). 판정 정본은 src/reply-questions.ts. */
+      const frag = fragQ && aiText ? fragmentQuestions(aiText) : [];
+      if (frag.length && Date.now() - latT0 > FRAG_RETRY_BUDGET_MS) {
+        console.warn('[warmup] fragment question kept (time budget)', 'lv=' + ctxDifficulty);   // ⏱ 이미 오래 기다렸다 — 원래 답을 둔다
+      } else if (frag.length) {
+        console.warn('[warmup] fragment question x' + frag.length, 'lv=' + ctxDifficulty);
+        try {
+          const whole: any = await runWarmup(messages.concat([
+            { role: 'assistant', content: aiText },
+            { role: 'user', content: fragmentQuestionHint(frag, ctxDifficulty) },
+          ]), 0.7);
+          const wholeText = takeWarmupReply(whole);
+          if (wholeText && fragmentQuestions(wholeText).length < frag.length && !replyRejectReason(wholeText, sanityCap)
+              && !wrongSelfName(wholeText, ctxFriend, { askedName: askedOwnName(studentInput) })) {
+            aiText = wholeText; commitFix();
+          }
+        } catch {}
       }
+      // 🔁 그래도 직전 AI 발화와 (거의) 같은 문장이 나오면 1회 재생성 — temperature 를 올리고 명시적으로 지시
+      /* 🔁 (2026-10-28) «말만 바꾼 같은 질문»(big↔small · 방금 들은 white 되묻기)도 잡는다 — 판정·순서 정본 src/question-memory.ts.
+         ⚠️ 그쪽은 시간 예산(FRAG_RETRY_BUDGET_MS) 안에서만, 최대 두 번 다시 뽑는다(한 턴에 호출이 여럿 이어질 수 있다).
+         ⚠️ 다시 뽑은 것이 «같은 질문이 없거나 줄었고» 다른 검사도 통과할 때만 받는다 — 아니면 원래 답(대화를 끊지 않는다).
+         ⚠️ 던지지 않는다 — 예전엔 여기서 던지면 멀쩡한 턴이 통째로 502 였다. */
+      const rr = await retryRepeatedQuestion({
+        text: aiText, textRepeat: !!aiText && warmupIsRepeat(aiText, history),
+        repeatsOf: (t) => repeatedQuestions(t, qmem),
+        inBudget: () => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS,
+        ask: async (extra) => takeWarmupReply(await runWarmup(messages.concat(extra), 0.95)),
+        acceptable: (t) => !warmupIsRepeat(t, history) && !replyRejectReason(t, sanityCap)
+          && !wrongSelfName(t, ctxFriend, { askedName: askedOwnName(studentInput) })
+          && (!fragQ || fragmentQuestions(t).length <= fragmentQuestions(aiText).length),   // 🧩 조각 질문을 되살리지 않게
+        onAccept: () => commitFix(),
+        genericHint: '(방금 질문은 이미 했던 거야. 완전히 다른 새로운 질문 하나로 다시 물어봐 줘!)',
+      });
+      if (rr.tries) console.warn('[warmup] repeat retry', 'tries=' + rr.tries, 'left=' + rr.left, 'lv=' + ctxDifficulty, rr.error || '');
+      aiText = rr.text;
     } catch (e: any) {
       await logWarmupLatency('', 0);   // ⏱ 실패한 턴의 지연도 «사실» 이라 남긴다(ok=0)
       return new Response(JSON.stringify({ detail: 'AI 응답 생성 실패: ' + String(e?.message || e) }), { status: 502, headers: _MS_JSON });
@@ -4595,7 +4651,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
       aiText = "Oops, I got a little confused there! Can you tell me one more time? 😊";
       /* ⚠️ 답장을 버렸으면 그 출력에서 뽑은 교정도 함께 버린다 — 안 그러면 AI 가
          「못 알아들었어」라고 말하는 바로 밑에 「내가 말한 것 → 이렇게」 카드가 붙는다. */
-      rawFix = null; rawHelp = null;
+      rawFix = null; rawHelp = null; rawGrade = null;
     }
 
     /* 💛 (2026-09-09) 학생이 「학교 싫어」라고 한 턴에는 답장 앞머리의 칭찬 상투구를 떼어 낸다.
@@ -4604,6 +4660,18 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
        ⛔ 말을 지어내지 않는다 — 떼기만 하고, 뗄 것이 없거나 다 떼면 원문 그대로다.
        ⚠️ 판정에 넣는 것은 «학생 발화»(studentInput)다. AI 답장을 넣으면 정반대가 된다. */
     aiText = applyEmpathyGuard(studentInput, aiText) || aiText;   // 빈 값이 오면 «고치기 전» 그대로
+    /* 🎯 시범 학원 — 모델 등급을 믿지 않고 확인한 뒤, 완벽이 아니면 칭찬 말머리를 뗀다(히스토리 저장 «전»).
+       ⚠️ 교정 검증은 아래 카드 게이트와 «같은 함수» 다 — 카드와 음성이 같은 판정에서 나온다. */
+    let honestGrade: any = null;
+    if (honest) {
+      try {
+        const vfix = verifyWarmupFix(rawFix, studentInput, undefined);
+        honestGrade = finalizeWarmupGrade(modelOk ? rawGrade : null, vfix, studentInput);
+        aiText = applyHonestPraise(aiText, honestGrade) || aiText;
+        // 🎯 집중교정 — 고친 문장을 아바타가 소리 내어 말하게 한다(검증된 교정만, 히스토리 저장 전)
+        aiText = ensureFocusedFixSpoken(aiText, honest.mode, honestGrade, vfix);
+      } catch (e: any) { honestGrade = 'partial'; console.warn('[warmup-honest] grade skipped:', e?.message || e); }
+    }
 
     // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
     try {
@@ -4667,6 +4735,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
           } catch (e: any) { console.warn('[warmup-fix-log]', e?.message || e); }
         }
         offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnCount);
+        if (honest) { const g = gateFixForMode(honest.mode, verified, showFix, offerRepeat); showFix = g.show; offerRepeat = g.repeat; }   // 🎯 교정 모드
         // 히스토리와 같은 6시간 — 세션이 끝나면 함께 사라진다(발화를 저장하는 것이 아니다)
         try {
           if (env.SESSION_STATE) await env.SESSION_STATE.put(mkey, JSON.stringify(decided.memo), { expirationTtl: 6 * 3600 });
@@ -4691,6 +4760,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
             중국어를 고른 학생에게 영어 보기가 그대로 뜬다(src/warmup-zh.ts 의 주석 참고). */
       answer_chips: ctxLang === 'zh' ? warmupZhAnswerChips(aiText, ctxDifficulty) : warmupAnswerChips(aiText, ctxDifficulty),
       fix: showFix, repeat: offerRepeat, speaking_help: rawHelp,
+      ...(honest ? { grade: honestGrade || 'partial', correction_mode: honest.mode } : {}),   // 🎯 시범 학원만 — 화면이 팡파레를 이 값으로 정한다
       /* 📡 P2 — 스트리밍 요청일 때만 싣는다(옛 응답 모양은 그대로). 흘려보낸 것과 최종본이 다르면
          replaced:1 → 화면이 읽던 것을 멈추고 정본을 처음부터 읽는다. halted 는 «이유 코드» 뿐이다. */
       ...(live ? { replaced: live.replacedBy(aiText), streamed: live.sent(), ...(live.halted() ? { halted: live.halted() } : {}) } : {}),
@@ -4784,6 +4854,12 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     if (qkey && env.SESSION_STATE) {
       try { const raw = await env.SESSION_STATE.get(qkey); if (raw) recentQs = JSON.parse(raw) || []; } catch {}
     }
+    /* 🔁 (2026-10-28) 「질문 골라 보기」 도 대화에서 이미 물은 질문(말만 바꾼 것·반대말 포함)은 내놓지 않는다 —
+       고른 질문은 곧바로 AI 발화가 되기 때문이다. 정본 src/question-memory.ts. 영어만, 기록을 못 읽으면 예전 그대로. */
+    let qmem: ReturnType<typeof questionMemory> = null;
+    if (sessionId && qLang !== 'zh' && env.SESSION_STATE) {
+      try { const raw = await env.SESSION_STATE.get('warmup:' + sessionId); if (raw) qmem = questionMemory(JSON.parse(raw)); } catch {}
+    }
 
     // ── 프롬프트 (전문 화상영어 AI 조교 — 사장님 사양 이식) ──
     const levelDesc = difficulty ? (qLang === 'zh' ? WARMUP_ZH_LEVELS[difficulty] : WARMUP_LEVELS[difficulty])
@@ -4797,6 +4873,7 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     if (topic) prompt += `- 오늘의 주제: '${topic}'\n`;
     if (lc.sentences.length) prompt += `- 오늘 배울 핵심 문장: ${lc.sentences.slice(0, 6).map((s) => `"${s}"`).join(' / ')}\n`;
     if (recentQs.length) prompt += `- 이미 사용한 질문(절대 반복 금지): ${recentQs.slice(-12).map((q) => `"${q}"`).join(' / ')}\n`;
+    if (qmem) prompt += `- ${askedQuestionsLine(qmem)}\n`;
     // 🕸️ 개인화(Neo4j): 이 학생이 복습퀴즈에서 자주 틀린 문장 → 그 표현·문형을 다시 쓰게 만드는 질문 우선.
     //    채팅(handleWarmupChat)과 동일하게 세션당 1회 조회 + KV 30분 캐시, 장애 시 조용히 생략.
     if (userId && env.NEO4J_QUERY_URL) {
@@ -4873,14 +4950,16 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
 
     // 반복 제거(기존 사용분과 정규화 비교) + 개수 보정
     const seen = new Set(recentQs.map(warmupNormSent));
-    questions = questions.filter((q) => !seen.has(warmupNormSent(q))).slice(0, count);
+    questions = questions.filter((q) => !seen.has(warmupNormSent(q)) && !repeatedQuestions(q, qmem).length).slice(0, count);
     if (!questions.length) {
       // AI 실패/전부 중복 → 레벨대별 준비 질문에서 미사용분 채움 (화면이 비지 않게)
       const band = difficulty >= 6 ? 'high' : difficulty >= 4 ? 'mid' : 'low';
       /* ⚠️ 안전망도 «고른 말» 로 준다 — 영어 목록을 그대로 쓰면 중국어 대화에 영어 질문이
             세 개 뜬다. 모델이 실패했을 때만 오는 갈래라 조용히 새기 쉽다. */
       const bank = qLang === 'zh' ? WARMUP_ZH_FALLBACK_QUESTIONS : WARMUP_FALLBACK_QUESTIONS;
-      questions = bank[band].filter((q) => !seen.has(warmupNormSent(q))).slice(0, count);
+      questions = bank[band].filter((q) => !seen.has(warmupNormSent(q)) && !repeatedQuestions(q, qmem).length).slice(0, count);
+      // 🔁 다 걸러졌으면 «보여 줬던» 질문이라도 다시 준다 — 단 이미 물은 질문(qmem)은 끝까지 뺀다(빈 칩이 반복 질문보다 낫다)
+      if (!questions.length) questions = bank[band].filter((q) => !repeatedQuestions(q, qmem).length).slice(0, count);
     }
 
     // 사용 질문 목록 갱신 (최근 30개, 6시간)

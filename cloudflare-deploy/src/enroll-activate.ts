@@ -70,14 +70,64 @@ export function dowLabel(days: number[]): string {
 }
 
 /**
+ * 🕐 (2026-10-30) 사람이 적은 시간 글자 → «24시 · 한글 요일» 정본 모양. 오전·오후·영어 요일만 바꾸고 나머지 글자는 그대로 둔다.
+ *   '7:40 PM' · '7:40pm' · '7:40 p.m.' · 'PM 7:40' · '오후 7:40' → '19:40'
+ *   '12:10 AM' → '00:10' · '12:10 PM' → '12:10' · '7pm' → '19:00'
+ *   'Mon 7:30, Wed 8:00' · 'Monday 7:30' → '월 7:30, 수 8:00'
+ * [왜] 2026-10-29 매니저(영어 화면)가 저녁 7:40 수업을 등록했는데 수강 #93 의 20회가 오전 07:40 으로 만들어졌다.
+ *      이 함수가 없을 때 아래 파서는 'PM' 을 버리고 07:40 으로, 영어 요일은 무시하고 첫 시각을 모든 요일에 썼다(에러 없음).
+ * ⚠️ 오전·오후 표시가 없는 '7:40' 은 예전처럼 07:40 이다 — 추측하지 않는다(화면이 «오전» 이라고 미리 보여 준다).
+ * ⚠️ 등록 화면(js/adm-core.js `_enNormTimeText`)이 같은 규칙으로 바꿔 보낸다 — 두 곳이 어긋나지 않게
+ *    test-harness/enroll_time_ampm_harness.mjs 가 같은 입력 수백 개로 두 함수의 답을 대조한다.
+ */
+export function normalizeTimeText(raw: string): string {
+  let s = String(raw ?? '');
+  if (!s.trim()) return s;
+  // ⛔ 뒤돌아보기 정규식((?<!…))을 쓰지 않는다 — 화면 쪽 같은 함수(adm-core.js)는 그것을 모르는 옛 iOS 사파리에서
+  //    파일 전체를 문법 오류로 죽일 수 있다. 두 곳이 같은 규칙이어야 해서 이쪽도 «앞 글자를 잡아 되돌려 쓰는» 방식으로 쓴다.
+  const DAY_RE = /(^|[^a-z])(sun(?:day)?|mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r(?:s(?:day)?)?)?|fri(?:day)?|sat(?:urday)?)(?![a-z])\.?/gi;
+  s = s.replace(DAY_RE, (m: string, pre: string, d: string, off: number, all: string) =>
+    pre + DOW_LABEL[DOW_EN[d.slice(0, 3).toLowerCase()]] + (/\s/.test(all.charAt(off + m.length)) ? '' : ' '));
+  const isPm = (k: string) => /^(p|오후)/i.test(k);
+  // 반환 타입은 적지 않는다(string | null 로 추론) — enroll_activate_harness 의 간이 타입 지우개가 «): A | B =>» 를 못 지운다
+  const to24 = (h: number, mi: string, k: string) => {
+    if (!(h >= 0 && h <= 23) || Number(mi) > 59) return null;
+    let hh = h;
+    if (isPm(k)) { if (h >= 1 && h <= 11) hh = h + 12; }
+    else if (h === 12) hh = 0;
+    return String(hh).padStart(2, '0') + ':' + mi;
+  };
+  const MK = '(오전|오후|[ap]\\.?\\s?m\\.?)(?![a-z])';
+  // ⚠️ 같은 판을 «더 안 바뀔 때까지» 되풀이한다 — 한 판에서 '12 p.m.' 이 '12:00' 이 되면 그 앞에 남은 'AM' 이
+  //    다음 판에 붙는다. 한 판만 돌면 «두 번 다듬은 값 ≠ 한 번 다듬은 값» 이 되어 화면이 다듬어 보낸 글자를
+  //    서버가 또 다듬을 때 시간표가 달라진다(하니스 퍼즈가 실제로 잡음). 바뀔 때마다 표시가 하나 이상 사라지므로 끝난다.
+  for (let pass = 0; pass < 20; pass++) {
+    const before = s;
+    // ⚠️ 순서: «뒤 표시» 를 먼저 — 앞 표시를 먼저 보면 '7:30 PM 8:00 PM' 의 첫 PM 이 뒤 시각에 붙는다.
+    // 표시가 뒤: '7:40 PM' · '7:40pm' · '7:40 오후'
+    s = s.replace(new RegExp('(\\d{1,2})\\s*:\\s*(\\d{2})\\s*' + MK, 'gi'),
+      (m: string, h: string, mi: string, k: string) => { const v = to24(Number(h), mi, k); return v === null ? m : v; });
+    // 표시가 앞: '오후 7:40' · 'PM 7:40'
+    s = s.replace(new RegExp('(^|[^a-z])' + MK + '\\s*(\\d{1,2})\\s*:\\s*(\\d{2})', 'gi'),
+      (m: string, pre: string, k: string, h: string, mi: string) => { const v = to24(Number(h), mi, k); return v === null ? m : pre + v; });
+    // 분 없이: '7pm' · '7 PM' (1~12시만)
+    s = s.replace(new RegExp('(^|[^\\d:])(\\d{1,2})\\s*' + MK, 'gi'),
+      (m: string, pre: string, h: string, k: string) => { const n = Number(h); const v = n >= 1 && n <= 12 ? to24(n, '00', k) : null; return v === null ? m : pre + v; });
+    if (s === before) break;
+  }
+  return s;
+}
+
+/**
  * 시간 문자열 → 요일별 'HH:MM' 맵.
  *   '19:20'                → 모든 요일 같은 시각
  *   '월 07:30, 수 08:00'   → 요일별 다른 시각 (enroll-ops 의 ej.times 와 같은 모양)
  *   '7:30'                 → '07:30' 으로 보정 (사람이 앞의 0 을 안 적는다)
+ *   '7:40 PM' · 'Mon 7:30' → normalizeTimeText 가 먼저 '19:40' · '월 7:30' 으로 바꾼다
  * 요일별 표기가 하나라도 있으면 그쪽을 쓰고, 빠진 요일은 첫 시각으로 메운다.
  */
 export function parseTimesByDow(timeRaw: string, days: number[]): Record<string, string> {
-  const t = String(timeRaw || '').trim();
+  const t = normalizeTimeText(String(timeRaw || '')).trim();
   const pad = (h: string, m: string) => String(Number(h)).padStart(2, '0') + ':' + m;
   const out: Record<string, string> = {};
   if (!t || days.length === 0) return out;

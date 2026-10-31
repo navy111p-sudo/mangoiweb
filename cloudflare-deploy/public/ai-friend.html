@@ -513,6 +513,7 @@
   </div>
 
   <script src="/js/speech-preferences.js?v=3"></script>
+  <script src="/js/speech-rate-request.js?v=1"></script>
   <script>
     // 전체 사이트 로그인된 사용자(mango_user) + 서명 토큰 자동 사용
     // 서버가 uid 를 그대로 믿지 않으므로(타인 대화 열람/삭제 방지 = IDOR 차단)
@@ -886,15 +887,14 @@
         x.classList.toggle('active', parseFloat(x.dataset.rate) === currentRate);
       });
     }
+    /* 🐢🐇 «부탁» 인지는 공용 판정(js/speech-rate-request.js)이 정한다 — 낱말 하나로 보면 「A snail is slow.」(대답)에도
+       느려졌다(2026-10-28 수리). 그 파일을 못 읽었으면 속도를 그대로 둔다(버튼으로는 계속 바꿀 수 있다). */
     function maybeAdjustRate(text) {
-      const t = String(text || '');
-      const slower = /(천천히|느리게|너무\s*빠르|못\s*알아|알아듣기)/.test(t)
-                  || /\b(slow(ly| down)?|too fast|more slowly|speak slower)\b/i.test(t);
-      const faster = /(빠르게|더\s*빨리)/.test(t) || /\b(faster|speed up)\b/i.test(t);
-      if (!slower && !faster) return;
+      const want = window.MangoiRateRequest ? window.MangoiRateRequest.judge(String(text || '')) : '';
+      if (want !== 'slower' && want !== 'faster') return;
       const i = RATE_STEPS_AF.indexOf(currentRate);
       const cur = i < 0 ? RATE_STEPS_AF.indexOf(RATE_DEFAULT_AF) : i;   // 모르면 «보통» 칸에서 한 칸 옮긴다
-      const next = slower ? Math.max(0, cur - 1) : Math.min(RATE_STEPS_AF.length - 1, cur + 1);
+      const next = want === 'slower' ? Math.max(0, cur - 1) : Math.min(RATE_STEPS_AF.length - 1, cur + 1);
       if (RATE_STEPS_AF[next] !== currentRate) applyRate(RATE_STEPS_AF[next]);
     }
     function escapeHtml(s) {

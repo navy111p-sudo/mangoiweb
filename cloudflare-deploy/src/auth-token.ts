@@ -176,6 +176,34 @@ export async function verifyRecDlSig(recId: number, sig: string, env: any): Prom
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// 🖼 «내 주제»·초안 글감 그림 서명 (2026-10-26) — 비공개 그림이 로그인 없이 열리던 구멍 수리
+//   학생은 쿠키가 아니라 토큰(Bearer)이라 <img> 가 인증을 못 싣는다 → 목록 API 가 «본인에게만»
+//   그 그림 한 장(글감 id + 판) 전용 단기 서명을 붙여 준다. recdl 과 같은 «단일 자원 HMAC» 패턴.
+//   ⛔ 공개(published) 그림에는 안 붙인다(공개 캐시 그대로).
+// ═══════════════════════════════════════════════════════════════════════
+
+const WT_IMG_TTL_MS = 6 * 3600 * 1000;
+
+/** 글감 그림 1장 전용 서명 — "만료ms.서명(b64url)" */
+export async function signWtImgSig(topicId: number, ver: number, env: any, ttlMs = WT_IMG_TTL_MS): Promise<string> {
+  const exp = Date.now() + ttlMs;
+  const key = await recDlKey(env, 'sign');
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('wtimg:' + topicId + ':' + ver + ':' + exp));
+  return exp + '.' + b64uFromBytes(new Uint8Array(mac));
+}
+
+/** 글감 그림 서명 검증 — id·판 불일치·만료·위조·빈 값 모두 false(막는 쪽으로 실패) */
+export async function verifyWtImgSig(topicId: number, ver: number, sig: string, env: any): Promise<boolean> {
+  try {
+    const [expStr, mac] = String(sig || '').split('.');
+    const exp = parseInt(expStr, 10);
+    if (!Number.isFinite(exp) || exp < Date.now() || !mac) return false;
+    const key = await recDlKey(env, 'verify');
+    return await crypto.subtle.verify('HMAC', key, b64uToBytes(mac) as any, new TextEncoder().encode('wtimg:' + topicId + ':' + ver + ':' + exp));
+  } catch { return false; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // 👁 고스트 참관 서명 (2026-09-23) — «/?observe=roomId 에 인증이 전혀 없다」구멍 수리
 //
 //   왜 필요한가 — video-call-room.ts 의 handleJoinObserve 는 WebSocket join-observe

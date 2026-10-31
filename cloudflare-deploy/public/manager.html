@@ -36,6 +36,9 @@
           ⛔ 그렇다고 화면 로드 시점으로 옮기지 말 것(그 순간 계약 1번이 깨진다).
           ⛔ 대신 이 화면에 배정 창을 «복제» 하지도 말 것 — 배정 판정이 두 벌이 되면
              「화면마다 답이 다른」 사고가 시작된다(admin.html 과 같은 창을 쓴다).
+        ※ (2026-10-28) 같은 방식의 예외 하나 더 — 본사 매니저가 「📵 번호 없는 학생」 카드를 **처음 펼칠 때만**
+          `/js/adm-phone-gaps.js`(admin.html 과 같은 파일·같은 ?v=)를 한 번 받는다(아래 loadPhoneGaps).
+          그 파일도 자기 완결적이다. ⛔ 화면 로드 시점으로 옮기지 말 것 · ⛔ 판정·저장을 여기에 복제하지 말 것.
      2. 차트 라이브러리 금지. 추이는 인라인 SVG 선 하나로 그린다(약 20줄).
      3. 애니메이션·transition 금지. 저사양 기기에서 렉이고, 백그라운드 탭에서 멈춰
         요소가 영영 안 보이는 사고가 난다(과거 실사고).
@@ -235,6 +238,46 @@ input[type="search"],input[type="text"]{
 .fq-short{border-color:#f2c1c1;background:#fdecec;color:#b91c1c}
 .fq-hol{border-color:#f5d79a;background:#fff4dc;color:#b45309}
 .btn-wide{display:block;width:100%}
+/* 📵 번호 없는 학생 (2026-10-28) — 목록·입력칸은 js/adm-phone-gaps.js 가 그린다(카드를 펼칠 때만 받음).
+   그 스크립트는 admin.html 용이라 버튼에 class="primary", 칸에 type="tel" 을 쓴다 — 이 화면엔 그 규칙이 없어서 여기서 입힌다.
+   ⚠️ #pg-flash 의 글자색은 스크립트가 «밝은 화면용» 진한 색을 인라인으로 쓴다 — 어두운 화면에서는 !important 로 밝은 색을 덮는다. */
+.pgm-note{font-size:13px;line-height:1.6;color:#7c3d06;background:#fff4dc;border:1px solid #f5d79a;border-radius:8px;padding:8px 12px;margin:0 0 8px}
+.pgm-ref{font-size:13px;line-height:1.6;color:#3c4a58;background:#f4f6f8;border:1px solid #dde3ea;border-radius:8px;padding:8px 12px;margin:0 0 8px}
+.pgm-bar{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;margin:0 0 8px}
+.pgm-bar label{font-size:13px;color:#4a5866;display:inline-flex;align-items:center;gap:6px}
+#sm-phone-gaps button.primary{border:0;border-radius:8px;background:#2563eb;color:#fff;font-weight:700;font-family:inherit;cursor:pointer;min-height:40px;padding:8px 14px;font-size:14px}
+#sm-phone-gaps button.primary:disabled{opacity:.55;cursor:default}
+#sm-phone-gaps input[type="tel"],#sm-phone-gaps select{box-sizing:border-box;min-height:40px;padding:6px 10px;border:1px solid #d7dee6;border-radius:8px;font-size:15px;font-family:inherit;color:#16202c;background:#fff}
+#sm-phone-gaps a{color:#1d4ed8}
+#pg-flash{font-size:13px;line-height:1.5;border:1px solid transparent;border-radius:8px;padding:8px 10px;margin:0 0 8px}
+html.dark .pgm-note{background:#33270f;border-color:#6b5320;color:#f3d79b}
+html.dark .pgm-ref{background:#222b35;border-color:#2f3944;color:#c3ccd6}
+html.dark .pgm-bar label{color:#aeb9c5}
+html.dark #sm-phone-gaps input[type="tel"],html.dark #sm-phone-gaps select{background:#20272f;border-color:#39434f;color:#dbe3ea;color-scheme:dark}
+html.dark #sm-phone-gaps a{color:#93c5fd}
+html.dark #pg-flash{color:#a7f3d0 !important}
+html.dark #pg-flash[data-warn="1"]{color:#fcd34d !important}
+/* 🔐 강사 로그인 시각 (2026-10-30) — 표는 «내용만큼» 넓히고 상자 안에서만 옆으로 민다(페이지는 안 밀림).
+   ⛔ min-width 를 숫자로 박지 말 것 — 좁은 폭에서 글자가 낱글자로 쪼개진다(CLAUDE.md 2장). */
+.tl-bar{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;margin:0 0 8px}
+.tl-bar label{font-size:13px;color:#4a5866;display:inline-flex;align-items:center;gap:6px}
+.tl-note{font-size:12.5px;line-height:1.55;color:#4a5866;margin:0 0 8px}
+.tl-warn{font-size:13px;line-height:1.55;color:#7c3d06;background:#fff4dc;border:1px solid #f5d79a;border-radius:8px;padding:7px 10px;margin:0 0 8px}
+.tl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tl-tbl{border-collapse:collapse;width:max-content;min-width:100%;font-size:13.5px}
+.tl-tbl th,.tl-tbl td{text-align:left;padding:7px 10px;border-top:1px solid #eaeef2;white-space:nowrap;vertical-align:top}
+.tl-tbl th{font-size:12px;color:#5b6876;font-weight:700;border-top:0}
+.tl-tbl td .tl-sub{display:block;font-size:12px;color:#5b6876}
+.tl-on{color:#15803d;font-weight:700}
+.tl-bad{color:#b45309;font-weight:700}
+.tl-more{margin-top:8px}
+.tl-more summary{cursor:pointer;font-size:13px;color:#4a5866}
+html.dark .tl-bar label,html.dark .tl-note{color:#aeb9c5}
+html.dark .tl-warn{background:#33270f;border-color:#6b5320;color:#f3d79b}
+html.dark .tl-tbl th,html.dark .tl-tbl td{border-color:#2f3944}
+html.dark .tl-tbl th,html.dark .tl-tbl td .tl-sub,html.dark .tl-more summary{color:#aeb9c5}
+html.dark .tl-on{color:#86efac}
+html.dark .tl-bad{color:#fcd34d}
 
 /* 오프라인 띠 — 흰 화면 대신 «마지막으로 본 것» 임을 알린다 */
 #off{display:none;background:#fff4e5;border:1px solid #f0c893;color:#7a4a06;border-radius:8px;
@@ -549,6 +592,75 @@ html.dark .sgrp a:active,html.dark .sgrp button:active{background:#242d37}
 html.dark .grouphead{color:#fbbf24}
 .evq-open{color:#1d4ed8;font-weight:700;white-space:nowrap}
 html.dark .evq-open{color:#93c5fd}
+/* ✏️➕ (2026-10-28) 지난/오늘 피드백 칸의 「✏️ 고치기」·「➕ 추가」 — hover 는 색만(크기·위치 고정) */
+.evq-act{cursor:pointer;display:inline-block;white-space:nowrap;margin-left:4px;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:800;background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd}
+.evq-act.evq-add{background:#ecfdf3;color:#047857;border-color:#6ce9a6}
+html.dark .evq-act{background:#1e293b;color:#93c5fd;border-color:#3b82f6}
+html.dark .evq-act.evq-add{background:#12261d;color:#6ee7b7;border-color:#059669}
+
+/* 📖 (2026-10-28 사장님 「결제 페이지를 열면 안내서가 먼저 보이게 · 끄기 · 다시 보지 않기」) AI 컨텐츠 결제 안내서 창.
+   ⛔ 그림은 이 창이 «열릴 때» 만 받는다(계약 1번 — 첫 화면 요청 0개). transition·animation 없음(계약 3번). */
+.aib-guide-link{margin:2px 0 8px;text-align:right}
+#aibGuide{position:fixed;inset:0;z-index:999990;background:rgba(15,23,42,.62);display:flex;align-items:flex-start;justify-content:center;padding:14px 10px;overflow-y:auto}
+#aibGuide .ag-box{background:#fff;color:#1f2937;width:100%;max-width:760px;border-radius:14px;margin:auto 0;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+#aibGuide .ag-head{border-radius:14px 14px 0 0;background:#fff7e6;border-bottom:1px solid #fcd9a8;padding:14px 18px}
+#aibGuide .ag-head h2{margin:0;font-size:20px;font-weight:800;color:#111827}
+#aibGuide .ag-head p{margin:4px 0 0;font-size:14px;color:#92400e;font-weight:700}
+#aibGuide .ag-body{padding:6px 18px 10px;font-size:15px;line-height:1.55}
+#aibGuide .ag-step{margin:16px 0 4px}
+#aibGuide .ag-step h3{margin:0 0 6px;font-size:16.5px;font-weight:800;display:flex;align-items:center;gap:8px}
+#aibGuide .ag-n{flex:none;width:28px;height:28px;border-radius:50%;background:#f59e0b;color:#fff;font-size:15px;display:inline-flex;align-items:center;justify-content:center}
+#aibGuide img{display:block;width:100%;height:auto;border:1px solid #d1d5db;border-radius:10px}
+#aibGuide .ag-cap{margin:6px 2px 0}
+#aibGuide .ag-tip{background:#ecfdf3;border:1px solid #a7e3bf;border-radius:10px;padding:8px 12px;margin:8px 0;font-size:14px}
+#aibGuide .ag-sum{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 0}
+#aibGuide .ag-sum div{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:8px 10px;font-size:14px}
+#aibGuide .ag-sum b{display:block;font-size:12.5px;color:#6b7280}
+#aibGuide .ag-note{color:#6b7280;font-size:12.5px;margin:12px 0 2px}
+#aibGuide .ag-foot{position:sticky;bottom:0;border-radius:0 0 14px 14px;background:#fff;border-top:1px solid #e5e7eb;padding:10px 18px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+#aibGuide .ag-foot button{font:inherit;font-size:15px;font-weight:800;border-radius:10px;padding:10px 18px;cursor:pointer;min-height:44px}
+#aibGuide .ag-never{background:#fff;color:#374151;border:1px solid #cbd5e1}
+#aibGuide .ag-close{background:#f59e0b;color:#1f2937;border:1px solid #f59e0b}
+@media (max-width:560px){#aibGuide .ag-sum div{font-size:13px}#aibGuide .ag-foot button{flex:1}}
+
+/* 📘 (2026-10-28 사장님) 결제 안내 매뉴얼 — 대리점 전용. 「화상영어 수업료 결제」 카드를 처음 펼칠 때 먼저 뜨고 아래에 [끄기]·[다시 보지 않기].
+   AI 컨텐츠 결제 카드는 위 #aibGuide(그림 안내서)가 맡는다. 카드 안 «결제 방법 보기» 버튼은 그 .aib-guide-link 모양을 같이 쓴다.
+   설계 계약 준수: 외부 리소스 0 · 애니메이션/transition 0 · 한영은 data-ko/en. 동작은 아래 pay-guide 스크립트 한 곳. */
+.qbar button.qpg{background:#fff7e6;border-color:#f3c46b;color:#8a4b00}
+html.dark .qbar button.qpg{background:#2e2512;border-color:#7a5a1c;color:#f6c76b}
+#payGuide{position:fixed;top:0;bottom:0;left:0;right:0;margin:auto;z-index:70;border:0;padding:0;border-radius:14px;
+  width:min(720px,calc(100% - 24px));max-width:none;height:fit-content;
+  max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);
+  color:#16202c;background:#fff;box-shadow:0 18px 60px rgba(0,0,0,.35)}
+#payGuide[open]{display:flex;flex-direction:column}
+#payGuide::backdrop{background:rgba(16,24,40,.55)}
+.pg-head{padding:16px 18px 10px;border-bottom:1px solid #e3e8ee;flex:none}
+.pg-head h2{margin:0;font-size:19px}
+#pgTitle:focus,#payGuide:focus,#payGuide:focus-visible{outline:none}
+.pg-head p{margin:4px 0 0;color:#5d6b7a;font-size:13.5px}
+.pg-body{padding:6px 18px 14px;overflow:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:0}
+.pg-body h3{font-size:16px;margin:14px 0 6px}
+.pg-body ol,.pg-body ul{margin:0;padding-left:22px}
+.pg-body li{margin:5px 0}
+.pg-tip{background:#f4f6f8;border-radius:8px;padding:8px 10px;margin:8px 0 0;font-size:13.5px;color:#3c4a58}
+.pg-foot{display:flex;gap:8px;padding:12px 18px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #e3e8ee;flex:none}
+.pg-foot button{flex:1 1 0;min-height:48px;border-radius:10px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.pg-pdf{margin:8px 0 0;font-size:14px}
+.pg-pdf a{color:#1d4ed8;font-weight:700}
+html.dark .pg-pdf a{color:#93c5fd}
+.pg-close{background:#f59e0b;border:1px solid #f59e0b;color:#1f1300}
+.pg-never{background:#fff;border:1px solid #c9d2dc;color:#2c3a48}
+html.dark #payGuide{color:#dbe3ea;background:#1a2129}
+html.dark .pg-head,html.dark .pg-foot{border-color:#2b343e}
+html.dark .pg-head p{color:#95a2b0}
+html.dark .pg-tip{background:#222b35;color:#c3ccd6}
+html.dark .pg-never{background:#1d2530;border-color:#39434f;color:#d3dbe4}
+@media (max-width:600px){
+  #payGuide{width:calc(100% - 16px);max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);border-radius:12px}
+  .pg-head{padding:14px 14px 8px}
+  .pg-body{padding:4px 14px 12px}
+  .pg-foot{padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+}
 </style>
 <script src="/js/admin-daily-manual.js?v=2" defer></script>
 <script>
@@ -746,7 +858,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     return { due_date: new Date(due).toISOString().slice(0, 10), days_left: Math.round((due - today) / 86400000) };
   }
   function aibPrice(n){
-    var rate = n > 70 ? 4500 : n > 50 ? 5500 : n > 20 ? 6500 : 7500, bill = Math.max(n, 20), min = n < 20;
+    var rate = n > 70 ? 4500 : n > 50 ? 5500 : n > 20 ? 6500 : 7500, bill = n, min = false;   // 최소 청구 2026-10-26 폐지
     return { total: n > 0 ? rate * bill : 0, f: { applied_rate_krw: rate, billable_count: bill, min_applied: min && n > 0,
       price_note_ko: '(예시) ' + n + '명 → ' + (n > 20 ? '구간 단가 ' : '20명 이하 단가 ') + rate.toLocaleString() + '원/명' + (min && n > 0 ? ' · 최소 20명분 청구' : ''),
       price_note_en: '(sample) ' + n + ' students → ' + rate.toLocaleString() + ' KRW each' + (min && n > 0 ? ' · minimum 20 billed' : '') } };
@@ -859,7 +971,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
           next_preview: { due_krw: 1200000, explain_ko: ['다음 달 예정 수업 80회 × 15,000원'], explain_en: ['Next month: 80 classes × 15,000'], lines: [] },
           autopay: null };
       };
-      // 🤖 (2026-10-20) AI 컨텐츠 결제 — 다음 달 이용분 예시. 단가 설명은 서버 공급가 표(20명 이하 7,500원 · 최소 20명분)를 흉내 낸 «예시» 다.
+      // 🤖 (2026-10-20) AI 컨텐츠 결제 — 다음 달 이용분 예시. 단가 설명은 서버 공급가 표(20명 이하 7,500원 · 최소 청구 없음)를 흉내 낸 «예시» 다.
       case '/api/admin/ai-billing/invoice': return function(){
         var due = aibDue();
         if (!AIB.made) {
@@ -876,7 +988,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       };
       case '/api/admin/ai-billing/history': return function(){
         var pm = (function(m){ var y = +m.slice(0, 4), mo = +m.slice(5, 7) - 1; if (mo < 1) { mo = 12; y--; } return y + '-' + (mo < 10 ? '0' : '') + mo; })(AIB.month);
-        return { ok: true, shop_name: SHOPS[0].name, rows: [{ id: 8801, billing_month: pm, status: 'paid', included_count: 6, rate_krw: 7500, total_krw: 150000 }] };
+        return { ok: true, shop_name: SHOPS[0].name, rows: [{ id: 8801, billing_month: pm, status: 'paid', included_count: 6, rate_krw: 7500, total_krw: 45000 }] };
       };
       case '/api/admin/omnisearch': return function(){
         var m = /q=([^&]*)/.exec(qs), w = m ? decodeURIComponent(m[1]).trim() : '';
@@ -961,6 +1073,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <button type="button" onclick="sideGo('c-today')"><span class="ic">🏫</span><span data-en="All classes today" data-ko="오늘 전체 수업">All classes today</span></button>
     <button type="button" id="sideUtil" onclick="sideGo('c-util')"><span class="ic">📈</span><span data-en="Teacher utilisation" data-ko="강사 가동률">Teacher utilisation</span></button>
     <button type="button" id="sideFree" onclick="sideGo('c-free')" hidden><span class="ic">👥</span><span data-en="Find free teachers" data-ko="빈 강사 찾기">Find free teachers</span></button>
+    <button type="button" id="sidePhoneGaps" onclick="sideGo('sm-phone-gaps')" hidden><span class="ic">📵</span><span data-en="Students without a phone" data-ko="번호 없는 학생">Students without a phone</span></button>
+    <button type="button" id="sideLogins" onclick="sideGo('c-logins')" hidden><span class="ic">🔐</span><span data-en="Teacher login times" data-ko="강사 로그인 시각">Teacher login times</span></button>
   </div>
   <div class="sgrp-h" data-en="Settlement &amp; stats" data-ko="정산통계관리">Settlement &amp; stats</div>
   <div class="sgrp">
@@ -968,6 +1082,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <button type="button" id="sideSettle" onclick="sideGo('c-settle')"><span class="ic">💰</span><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></button>
     <button type="button" id="sideTuition" onclick="sideGo('c-tuition')" hidden><span class="ic">💳</span><span data-en="Video class tuition" data-ko="화상영어 수업료 결제">Video class tuition</span></button>
     <button type="button" id="sideAibill" onclick="sideGo('c-aibill')" hidden><span class="ic">🤖</span><span data-en="A.i content payment" data-ko="AI 컨텐츠 결제">A.i content payment</span></button>
+    <button type="button" id="sidePayGuide" onclick="closeSide();openPayGuide()" hidden><span class="ic">📘</span><span data-en="Payment guide" data-ko="결제 안내 매뉴얼">Payment guide</span></button>
   </div>
   <div class="sgrp-h" data-en="Operations" data-ko="운영관리">Operations</div>
   <div class="sgrp">
@@ -1212,6 +1327,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="qbar">
     <!-- 🗼 (2026-10-21) 맨 앞 — «관리자들이 잘 찾게». 새 탭으로 연다(이 화면의 할 일은 그대로 둔다). -->
     <a id="toMonitor" class="qlink qmon" href="/admin/monitor-wall.html" target="_blank" rel="noopener" hidden>🗼 <span data-en="Class Monitor (all live classes)" data-ko="수업 관제탑 (전체 현황)">Class Monitor (all live classes)</span></a>
+    <!-- 📘 (2026-10-28) 결제 안내 매뉴얼 — 대리점만(paintMonth 가 결제 카드와 같은 판정으로 hidden 을 푼다). -->
+    <button type="button" id="qPayGuide" class="qpg" onclick="openPayGuide()" hidden>📘 <span data-en="Payment guide" data-ko="결제 안내 매뉴얼">Payment guide</span></button>
     <button type="button" onclick="openCard('c-search')"><span data-en="Search" data-ko="통합 검색">Search</span></button>
     <button type="button" id="qWait" onclick="openCard('c-wait')"><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
     <button type="button" onclick="openCard('c-students')"><span data-en="My students" data-ko="학생 명부">My students</span></button>
@@ -1402,6 +1519,45 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <div id="freeBody" class="empty"><span data-en="Pick a date and time, then press Check." data-ko="날짜와 시간을 고르고 «확인» 을 누르세요.">Pick a date and time, then press Check.</span></div>
   </details>
 
+  <!-- 📵 (2026-10-28 사장님 「매니저 화면에도 똑같이」) 번호 없는 학생 — 다음 N일 수업이 있는데 «수업 30분 전 안내 문자» 가
+       갈 번호가 없는 학생. admin.html 의 #sm-phone-gaps 와 «같은 스크립트»(js/adm-phone-gaps.js)를 쓴다 — 판정·저장 문구가 두 벌이 되지 않게.
+       ⚠️ 그 스크립트는 이 카드를 «처음 펼칠 때만» 받는다(아래 loadPhoneGaps — 계약 1번 «첫 화면 외부 리소스 0개» 를 지킨다).
+       ⚠️ 본사 전용 — 그 API 는 강사·지사·대리점에 403. IS_HQ 일 때만 hidden 을 푼다(서버 403 + 화면 숨김 짝).
+       ⚠️ id(pg-load·pg-days·pg-count·pg-flash·pg-body)는 그 스크립트가 찾는 이름이다 — 바꾸면 조용히 아무 일도 안 일어난다.
+       ⚠️ data-en/data-ko 는 안쪽 span·div 에만 — 그릇(#pg-body·#pg-count·#pg-flash)에 달면 🌐 가 목록을 지웁니다. -->
+  <details class="card" id="sm-phone-gaps" ontoggle="if(this.open)loadPhoneGaps()" hidden>
+    <summary><span data-en="📵 Students without a phone (no class reminder)" data-ko="📵 번호 없는 학생 (수업 전 문자 못 받음)">📵 Students without a phone (no class reminder)</span></summary>
+    <div class="pgm-note" data-en="💡 These students have classes but no number for the 30-minute reminder text. Enter a parent or student number on the row and press [💾 Save] — while texting is on, reminders go to that number from the next class (the result is shown right there). Saved numbers survive the nightly cafe24 sync." data-ko="💡 수업은 잡혀 있는데 «수업 30분 전 안내 문자» 를 받을 번호가 없는 학생입니다. 그 줄에서 학부모·학생 번호를 넣고 [💾 저장]을 누르면, 문자 발송이 켜져 있는 동안 다음 수업부터 그 번호로 안내 문자가 갑니다(저장 결과는 그 자리에서 알려 드립니다). 저장한 번호는 밤사이 카페24 동기화로 지워지지 않습니다.">💡 These students have classes but no number for the 30-minute reminder text. Enter a parent or student number on the row and press [💾 Save] — while texting is on, reminders go to that number from the next class (the result is shown right there). Saved numbers survive the nightly cafe24 sync.</div>
+    <div class="pgm-ref" data-en="ℹ️ «Reference» numbers come from the cafe24 retention table. It does not say whether a number is the student's or the parent's, so nothing is filled in automatically — confirm and enter it in the right box." data-ko="ℹ️ 「참고 번호」는 카페24 이탈위험 표에 있는 번호입니다. 학생 번호인지 학부모 번호인지 적혀 있지 않아 자동으로 넣지 않습니다 — 확인한 뒤 맞는 칸에 넣어 주세요.">ℹ️ «Reference» numbers come from the cafe24 retention table. It does not say whether a number is the student's or the parent's, so nothing is filled in automatically — confirm and enter it in the right box.</div>
+    <div class="pgm-bar">
+      <button type="button" id="pg-load" class="primary" data-en="🔄 Load" data-ko="🔄 불러오기">🔄 Load</button>
+      <label><span data-en="Period" data-ko="기간">Period</span>
+        <select id="pg-days">
+          <option value="7" data-en="Next 7 days" data-ko="다음 7일">Next 7 days</option>
+          <option value="14" data-en="Next 14 days" data-ko="다음 14일">Next 14 days</option>
+        </select>
+      </label>
+      <span id="pg-count" class="muted"></span>
+    </div>
+    <div id="pg-flash" role="status" style="display:none"></div>
+    <div id="pg-body"><div class="empty"><span data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</span></div></div>
+  </details>
+
+  <!-- 🔐 (2026-10-30 매니저 제안 «add teacher's log in time») 강사 로그인 시각 — 그날(KST) 강사마다
+       첫 접속 · 로그인 · 마지막 활동. 서버 GET /api/admin/login-history?scope=teachers&date= (정본 src/teacher-login-times.ts).
+       ⚠️ 본사 전용 — 그 경로는 강사(index.ts)·지사·대리점(핸들러)에 403. IS_HQ 일 때만 hidden 을 푼다(서버 403 + 화면 숨김 짝).
+       ⚠️ data-en/data-ko 는 안쪽 span 에만 — 그릇(#tlBody·#tlCount)에 달면 🌐 가 목록을 지웁니다. -->
+  <details class="card" id="c-logins" ontoggle="if(this.open)loadLogins()" hidden>
+    <summary><span data-en="🔐 Teacher login times" data-ko="🔐 강사 로그인 시각">🔐 Teacher login times</span></summary>
+    <div class="tl-bar">
+      <label><span data-en="Date" data-ko="날짜">Date</span><input type="date" id="tlDate" class="fq-in" onchange="loadLogins(true)"></label>
+      <button type="button" class="btn" onclick="loadLogins(true)"><span data-en="🔄 Load" data-ko="🔄 불러오기">🔄 Load</span></button>
+      <span id="tlCount" class="muted"></span>
+    </div>
+    <div class="tl-note"><span data-en="Korea time (KST) — Philippine time is 1 hour earlier. «First on» = the first time the teacher used the site that day, including when they were still logged in from an earlier day. «Login» counts real sign-ins only." data-ko="한국 시간(KST) 기준 — 필리핀 시간은 1시간 빠릅니다. «첫 접속» = 그날 처음 사이트를 쓴 시각(전날부터 로그인돼 있던 경우 포함). «로그인» 은 실제로 아이디·비밀번호로 들어온 것만 셉니다.">Korea time (KST) — Philippine time is 1 hour earlier. «First on» = the first time the teacher used the site that day, including when they were still logged in from an earlier day. «Login» counts real sign-ins only.</span></div>
+    <div id="tlBody" class="empty"><span data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</span></div>
+  </details>
+
   <!-- ⚔️ (2026-09-30 필리핀 매니저 요청 · 사장님 A안) 같은 강사·같은 시간에 LMS(카페24) 수업과
        망고아이 수업이 둘 다 있는 자리. 카페24 LMS 에는 망고아이 수업을 써 넣을 수 없어서 여기서 대조한다.
        서버: GET /api/admin/reports/c24-mirror 의 clashes (판정 정본 src/teacher-clash.ts).
@@ -1437,16 +1593,18 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        본사가 문자로 보내는 링크(/b2b-pay.html)와 같은 청구서를 «로그인한 채로» 보고 낸다.
        서버(b2b-tuition-load.ts)가 학원을 로그인 스코프로 고정하므로 남의 청구서를 볼·낼 방법이 없다.
        ⛔ 이 화면은 금액을 계산하지 않는다 — 서버가 준 숫자·문장만 그린다. -->
-  <details class="card" id="c-tuition" ontoggle="if(this.open)loadTuition()" hidden>
+  <details class="card" id="c-tuition" ontoggle="if(this.open){loadTuition();payGuideAuto();}" hidden>
       <summary><span data-en="Video class tuition" data-ko="화상영어 수업료 결제">Video class tuition</span></summary>
+      <div class="aib-guide-link"><button type="button" class="btn btn-gray" onclick="openPayGuide()"><span data-en="📖 How to pay" data-ko="📖 결제 방법 보기">📖 How to pay</span></button></div>
       <div id="tuiBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
   <!-- 🤖 (2026-10-20 사장님 「'AI 컨텐츠 결제' 메뉴를 만들고 대리점이 소속 학생을 일괄 결제」) 옛 «AI 사용료 청구서» 를
        같은 서버(ai-billing.ts)·같은 청구서 위에서 다시 꾸민 것이다 — 새 결제 흐름을 따로 만들지 않았다(두 벌이면 화면마다 답이 달라진다).
        이번 달 말일까지 다음 달 이용분을 학생별로 골라 한 번에 낸다. -->
-  <details class="card" id="c-aibill" ontoggle="if(this.open)loadAiBill()" hidden>
+  <details class="card" id="c-aibill" ontoggle="if(this.open){loadAiBill();aibGuideAuto();}" hidden>
       <summary><span data-en="A.i content payment" data-ko="AI 컨텐츠 결제">A.i content payment</span></summary>
+      <div class="aib-guide-link"><button type="button" class="btn btn-gray" onclick="aibGuideOpen()"><span data-en="📖 How to pay" data-ko="📖 결제 방법 보기">📖 How to pay</span></button></div>
       <div id="aibillBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
@@ -1533,6 +1691,94 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   </div>
 
 </div>
+
+<!-- 📘 결제 안내 매뉴얼 (2026-10-28 사장님 「대리점 관리자페이지에 결제 안내 매뉴얼 버튼 · 결제 페이지를 열면 먼저 보이게 ·
+     아래에 끄기와 다시 보지 않기」). 대리점(agency) 계정만 — 버튼은 paintMonth() 가, 자동 표시는 «화상영어 수업료 결제» 카드가 연다.
+     AI 컨텐츠 결제 카드는 #1853 의 그림 안내서(#aibGuide · aibGuideAuto)가 맡는다 — 이 창은 거기서 안 뜨고 AI 칸에서 그 안내서를 연다.
+     ⚠️ 문구는 수업료 카드(paintTuition)가 실제로 그리는 버튼·안내와 같은 말을 쓴다.
+        금액·단가 같은 숫자는 적지 않는다 — 서버가 정하고 화면이 그대로 보여 준다(여기 적으면 언젠가 거짓이 된다).
+        카드의 버튼 이름이 바뀌면 여기도 함께 고칠 것. -->
+<dialog id="payGuide" aria-labelledby="pgTitle">
+  <div class="pg-head">
+    <h2 id="pgTitle" tabindex="-1">📘 <span data-en="Payment guide" data-ko="결제 안내 매뉴얼">Payment guide</span></h2>
+    <p data-en="There are two kinds of payment. Nothing is paid until you press the pay button." data-ko="결제는 두 가지입니다. 「결제하기」를 누르기 전에는 아무것도 결제되지 않습니다.">There are two kinds of payment. Nothing is paid until you press the pay button.</p>
+  </div>
+  <div class="pg-body">
+    <h3>💳 <span data-en="Video class tuition (credit)" data-ko="화상영어 수업료 결제 (충전금)">Video class tuition (credit)</span></h3>
+    <ol>
+      <li data-en="Open ☰ Menu → Settlement &amp; stats → Video class tuition." data-ko="☰ 메뉴 → 정산통계관리 → 「화상영어 수업료 결제」를 엽니다.">Open ☰ Menu → Settlement &amp; stats → Video class tuition.</li>
+      <li data-en="Check «Credit balance now» and «Classes left this month»." data-ko="「지금 충전금 잔액」과 「이번 달 남은 수업 금액」을 확인합니다.">Check «Credit balance now» and «Classes left this month».</li>
+      <li data-en="Under «Amount due», press «Why this amount?» to see the breakdown by student." data-ko="「낼 금액」 청구서에서 「왜 이 금액인가요?」를 누르면 학생별 계산 내역이 보입니다.">Under «Amount due», press «Why this amount?» to see the breakdown by student.</li>
+      <li data-en="Press «Pay ○○» — the card payment window opens." data-ko="「○○원 결제하기」를 누르면 카드 결제창이 열립니다.">Press «Pay ○○» — the card payment window opens.</li>
+      <li data-en="When payment is done you come back here and it shows ✅ under «Paid»." data-ko="결제가 끝나면 이 화면으로 돌아오고 「지난 결제」에 ✅ 로 표시됩니다.">When payment is done you come back here and it shows ✅ under «Paid».</li>
+    </ol>
+    <p class="pg-tip" data-en="Credit is deducted per class held. Next month’s invoice is fixed on the 20th. If your credit is below the next 2 weeks of classes, «Low credit» appears." data-ko="충전금은 수업한 만큼 자동으로 빠집니다. 다음 달 청구액은 매월 20일에 확정되고, 잔액이 앞으로 2주 수업보다 적으면 「충전금 부족」이 뜹니다.">Credit is deducted per class held. Next month’s invoice is fixed on the 20th. If your credit is below the next 2 weeks of classes, «Low credit» appears.</p>
+
+    <h3>🤖 <span data-en="A.i content payment" data-ko="AI 컨텐츠 결제">A.i content payment</span></h3>
+    <p data-en="Pay for next month’s A.i content by the end of this month, choosing students one by one. The step-by-step picture guide opens first when you open that card." data-ko="다음 달에 쓸 A.i 컨텐츠는 이번 달 말일까지 학생을 골라 미리 결제합니다. 그 카드를 열면 사진으로 된 단계별 안내서가 먼저 뜹니다.">Pay for next month’s A.i content by the end of this month, choosing students one by one. The step-by-step picture guide opens first when you open that card.</p>
+    <p><button type="button" class="btn btn-gray" onclick="closePayGuide();aibGuideOpen()"><span data-en="🤖 Open the A.i payment picture guide" data-ko="🤖 AI 컨텐츠 결제 그림 안내서 열기">🤖 Open the A.i payment picture guide</span></button></p>
+    <!-- 인쇄용 안내서(A4 4쪽) — 자료실과 같은 파일(admin.html 대리점 자료실 «A.i 컨텐츠 결제 안내서»). 파일을 옮기면 여기도 함께. -->
+    <p class="pg-pdf">📄 <span data-en="Printable guide (PDF):" data-ko="인쇄용 안내서(PDF):">Printable guide (PDF):</span> <a href="/library/agency/ai-pay-guide-kr.pdf" target="_blank" rel="noopener">한국어</a> · <a href="/library/agency/ai-pay-guide-en.pdf" target="_blank" rel="noopener">English</a></p>
+
+    <h3>❓ <span data-en="If payment does not work" data-ko="결제가 안 될 때">If payment does not work</span></h3>
+    <ul>
+      <li data-en="If the payment window does not open, press «Refresh» at the top and try again." data-ko="결제창이 안 열리면 위의 「새로고침」을 누른 뒤 다시 시도해 주세요.">If the payment window does not open, press «Refresh» at the top and try again.</li>
+      <li data-en="«This invoice is already paid» means it is done — check «Paid»." data-ko="「이미 결제된 청구서입니다」는 결제가 끝났다는 뜻입니다. 「지난 결제」를 확인하세요.">«This invoice is already paid» means it is done — check «Paid».</li>
+      <li data-en="«Not turned on» / «not opened yet» means head office has to set it up. Please contact head office." data-ko="「켜지 않았습니다」·「아직 열지 않았습니다」는 본사 설정이 필요한 상태입니다. 본사로 문의해 주세요.">«Not turned on» / «not opened yet» means head office has to set it up. Please contact head office.</li>
+    </ul>
+  </div>
+  <div class="pg-foot">
+    <button type="button" class="pg-close" onclick="closePayGuide()" data-en="Close" data-ko="끄기">Close</button>
+    <button type="button" class="pg-never" onclick="payGuideNever()" data-en="Don't show again" data-ko="다시 보지 않기">Don't show again</button>
+  </div>
+</dialog>
+<script>
+/* 📘 결제 안내 매뉴얼 — 열기 · 끄기 · 다시 보지 않기 (2026-10-28)
+   · 「화상영어 수업료 결제」 카드(c-tuition)를 펼치면 «이 화면에서 처음 한 번» 먼저 띄운다 — PC·휴대폰 같다.
+     (AI 컨텐츠 결제 카드는 그림 안내서 aibGuideAuto 가 따로 띄운다 — 두 창을 한 카드에 겹쳐 띄우지 않는다.)
+   · [끄기] = 이번만 닫는다(화면을 새로 열면 다시 뜬다). [다시 보지 않기] = 이 기기에서는 자동으로 안 띄운다.
+     어느 쪽이든 카드 위 「📖 결제 방법 보기」 · 자주 쓰는 기능 · ☰ 메뉴로 언제든 다시 연다.
+   · 토스 결제에서 막 돌아온 화면(?tui_paid · tui_fail · aib_paid · aib_fail)에서는 자동으로 안 띄운다 —
+     카드가 저절로 열려 결과 문구를 보여 주는 순간이라 매뉴얼이 그 결과를 가리면 안 된다.
+     (아래 메인 스크립트가 그 주소를 지우기 «전» 에 읽어야 하므로 이 블록이 메인 스크립트보다 위에 있다.)
+   · 내용이 크게 바뀌면 HIDE_KEY 의 _v1 을 올린다 → «다시 보지 않기» 를 누른 사람에게도 한 번 더 뜬다.
+   ⛔ 서버를 부르지 않는다(첫 화면 API 2회 계약 그대로). 권한 판정도 안 한다 — 버튼·카드의 보임은 paintMonth() 가 정한다. */
+(function(){
+  'use strict';
+  var HIDE_KEY = 'mangoi_payguide_hide_v1';
+  var shown = false;   // 이 화면에서 한 번이라도 열었나 — 저장소가 막힌 기기도 이것으로 «같은 화면 재표시» 를 막는다
+  var fromPay = /[?&](tui_paid|tui_fail|aib_paid|aib_fail)=1/.test(location.search);
+  function dlg(){ return document.getElementById('payGuide'); }
+  function hiddenForever(){
+    try { return localStorage.getItem(HIDE_KEY) === '1'; } catch (e) { return false; }
+  }
+  window.openPayGuide = function(){
+    var d = dlg(); if (!d) return;
+    shown = true;
+    if (d.open) return;
+    if (typeof d.showModal === 'function') { try { d.showModal(); } catch (e) { d.setAttribute('open', ''); } }
+    else d.setAttribute('open', '');
+    var b = d.querySelector('.pg-body'); if (b) b.scrollTop = 0;
+    var t = document.getElementById('pgTitle'); if (t) { try { t.focus({ preventScroll: true }); } catch (e) {} }
+  };
+  window.closePayGuide = function(){
+    var d = dlg(); if (!d) return;
+    if (typeof d.close === 'function' && d.open) d.close(); else d.removeAttribute('open');
+  };
+  window.payGuideNever = function(){
+    try { localStorage.setItem(HIDE_KEY, '1'); } catch (e) {}   // 막힌 기기(사생활 모드)는 저장이 안 돼 다음 화면에서 다시 뜬다
+    window.closePayGuide();
+  };
+  // 결제 카드의 ontoggle 이 부른다 — 이 화면에서 처음 한 번만, «다시 보지 않기» 가 아니면.
+  window.payGuideAuto = function(){
+    if (shown || fromPay || hiddenForever()) return;
+    window.openPayGuide();
+  };
+  // 어두운 바깥(backdrop)을 눌러도 닫힌다 — 안쪽 상자는 dialog 를 꽉 채우므로 바깥 클릭만 dialog 자신에 닿는다.
+  var d0 = dlg();
+  if (d0) d0.addEventListener('click', function(e){ if (e.target === d0) window.closePayGuide(); });
+})();
+</script>
 
 <!-- ⭐ 아래쪽 고정 바 — 엄지가 닿는 자리 (2026-08-17 사장님 ⑤)
      왜 — 이 화면은 카드가 9장이라 아래로 길다. 지금은 «할 일 보기 · 검색 · 결재함 ·
@@ -1669,6 +1915,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   window.openCard = function(id){
     var el = document.getElementById(id);
     if (!el) return;
+    try { if (window.__mgrViewPut && el.tagName === 'DETAILS') window.__mgrViewPut({ card: id }); } catch (e) {}
     if (pcPane() && el.tagName === 'DETAILS' && !el.hidden) {
       setPane(id);
       if (!el.open) el.open = true;   // ontoggle → 기존 loadXxx() 가 알아서 부른다
@@ -1690,7 +1937,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   };
   window.sideGo = function(id){
     closeSide();
-    if (id === 'top') { setPane(null); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } return; }
+    if (id === 'top') { try { if (window.__mgrViewPut) window.__mgrViewPut({ card: '' }); } catch (e) {} setPane(null); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } return; }
     window.openCard(id);
   };
 
@@ -1867,6 +2114,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (_tui) _tui.hidden = (sc.type !== 'agency');
     var _sTui = document.getElementById('sideTuition');
     if (_sTui) _sTui.hidden = (sc.type !== 'agency');
+    // 📘 (2026-10-28) 결제 안내 매뉴얼 버튼도 결제 카드와 같은 판정(대리점만).
+    ['qPayGuide', 'sidePayGuide'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = (sc.type !== 'agency'); });
     // 💰 (2026-10-08 사장님) 지사 · 대리점별 정산은 대리점 계정에는 필요 없다 → 카드·사이드바 둘 다 감춘다.
     var _stl = document.getElementById('c-settle');
     if (_stl) _stl.hidden = (sc.type === 'agency');
@@ -1877,6 +2126,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     IS_HQ = (sc.type === 'hq');
     var _clash = document.getElementById('c-clash'); if (_clash) _clash.hidden = !IS_HQ;   // ⚔️ 본사 전용(API 가 지사·대리점에 403)
     ['c-free', 'sideFree'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = !IS_HQ; });   // 👥 본사 전용(API 가 강사·지사·대리점에 403)
+    ['sm-phone-gaps', 'sidePhoneGaps'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = !IS_HQ; });   // 📵 본사 전용(API 가 강사·지사·대리점에 403)
+    if (!IS_HQ) { var _cpg = document.getElementById('sm-phone-gaps'); if (_cpg && _cpg.classList.contains('pane-active')) setPane(null); }
+    ['c-logins', 'sideLogins'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = !IS_HQ; });   // 🔐 본사 전용(API 가 강사·지사·대리점에 403)
+    if (!IS_HQ) { var _clg = document.getElementById('c-logins'); if (_clg && _clg.classList.contains('pane-active')) setPane(null); }
     /* 🔐 (2026-09-24) 결재함은 본사·강사 전용이다(서버 api-approval.ts 가 지사·대리점을 403).
        지사·대리점에게 결재함 버튼이 보이면 «누를 수는 있는데 들어갈 수 없는» 버튼이 된다.
        범위를 모를 때(sc.type 없음)는 감추지 않는다 — 눌러도 결재 화면이 «본사 전용» 이라고 말한다. */
@@ -2088,6 +2341,99 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       return '<div class="row"><b>' + esc(t.teacher_name || t.name || t.teacher || '-') + '</b>'
            + '<span class="num">' + pct.toFixed(0) + '%</span></div>';
     }).join('');
+  }
+
+  // ── 🔐 강사 로그인 시각 (2026-10-30) ─────────────────────────────────────
+  //    ⛔ 판정·시각 계산은 서버(src/teacher-login-times.ts)가 한다 — 여기서는 그리기만.
+  //    ⚠️ get() 에 캐시 키를 주지 않는다 — 실패했을 때 «지난번 목록» 을 오늘 것처럼 보여 주면 안 된다.
+  var TL_SEQ = 0;
+  window.loadLogins = function(force){
+    var dEl = document.getElementById('tlDate');
+    if (dEl && !dEl.value) dEl.value = kstToday();
+    var date = (dEl && /^\d{4}-\d{2}-\d{2}$/.test(dEl.value || '')) ? dEl.value : kstToday();
+    if (!force && D.logins && D.logins.date === date) { paintLogins(); return; }
+    var el = document.getElementById('tlBody');
+    var seq = ++TL_SEQ;
+    el.className = 'empty';
+    el.textContent = T('Loading...', '불러오는 중...');
+    get('/api/admin/login-history?scope=teachers&date=' + encodeURIComponent(date), null)
+      .then(function(j){ if (seq !== TL_SEQ) return; D.logins = j; paintLogins(); })
+      .catch(function(e){ if (seq !== TL_SEQ) return; D.logins = null; document.getElementById('tlCount').textContent = ''; failBox(el, e); });
+  };
+  /* 시각 — 한국 시간 HH:MM 과 필리핀 시간(1시간 빠름). 그 날(day)이 아니거나 day 를 안 주면 MM-DD 를 앞에 붙인다. */
+  function tlTime(ms, day){
+    if (ms == null || !isFinite(Number(ms))) return '';
+    var k = new Date(Number(ms) + 9 * 3600000).toISOString();
+    var p = new Date(Number(ms) + 8 * 3600000).toISOString();
+    var head = (!day || k.slice(0, 10) !== day) ? k.slice(5, 10) + ' ' : '';
+    return head + k.slice(11, 16) + ' (PH ' + p.slice(11, 16) + ')';
+  }
+  /* 한 줄의 다섯 칸 — 상태(state)는 서버가 정한 그대로 말한다(모르면 «기록 없음», 지어내지 않음). */
+  function tlCells(it, day, isToday){
+    var first;
+    if (it.state === 'login' || it.state === 'active') {
+      first = esc(tlTime(it.first_active_at, day))
+        + (it.state === 'active' ? '<span class="tl-sub">' + esc(T('still logged in from before', '전에 로그인한 상태로 접속')) + '</span>' : '');
+    } else if (it.state === 'carried') {
+      first = esc(T('On since midnight', '자정 넘어 계속 접속')) + '<span class="tl-sub">' + esc(tlTime(it.carried_at, day)) + '</span>';
+    } else if (it.state === 'seen') {
+      first = esc(T('Used the site (start time not recorded)', '접속함 (시작 시각 기록 없음)'));
+    } else {
+      first = '—';
+    }
+    var login = it.login_count > 0
+      ? esc(tlTime(it.first_login_at, day))
+        + (it.login_count > 1 ? '<span class="tl-sub">' + esc(T('last ', '마지막 ') + tlTime(it.last_login_at, day) + ' · ' + it.login_count + T(' times', '회')) + '</span>' : '')
+      : '—';
+    var last = it.last_active_at != null
+      ? (it.online ? '<span class="tl-on">' + esc(T('🟢 Online now', '🟢 지금 접속 중')) + '</span><span class="tl-sub">' + esc(tlTime(it.last_active_at, day)) + '</span>'
+                   : esc(tlTime(it.last_active_at, day)))
+      : '—';
+    var notes = [];
+    if (it.failed_count > 0) notes.push('<span class="tl-bad">' + esc(T('⚠ ' + it.failed_count + ' failed login(s)', '⚠ 로그인 실패 ' + it.failed_count + '회')) + '</span>');
+    if (!(it.login_count > 0)) {
+      notes.push(esc(it.last_login_before != null
+        ? T('Last login: ', '마지막 로그인: ') + tlTime(it.last_login_before, null)
+        : T('No login on record', '로그인 기록 없음')));
+    }
+    return '<td><b>' + esc(it.display_name || it.username) + '</b><span class="tl-sub">' + esc(it.username) + '</span></td>'
+      + '<td>' + first + '</td><td>' + login + '</td><td>' + last + '</td><td>' + (notes.join('<br>') || '') + '</td>';
+  }
+  function paintLogins(){
+    var j = D.logins; if (!j) return;
+    var el = document.getElementById('tlBody');
+    var items = Array.isArray(j.items) ? j.items : [];
+    var cnt = j.counts || {};
+    document.getElementById('tlCount').textContent = items.length
+      ? T('Used the site: ' + (cnt.active || 0) + ' / ' + (cnt.total || items.length), '접속한 강사: ' + (cnt.active || 0) + ' / ' + (cnt.total || items.length) + '명')
+        + (j.is_today ? T(' · online now: ' + (cnt.online || 0), ' · 지금 접속 중: ' + (cnt.online || 0) + '명') : '')
+      : '';
+    var head = '';
+    if (Array.isArray(j.partial) && j.partial.length) {   // ⛔ 못 읽은 것을 «없음» 으로 그리지 않는다
+      head += '<div class="tl-warn">' + esc(T('Some records could not be read (' + j.partial.join(', ') + '). Empty cells may be wrong — press Load again.',
+        '일부 기록을 읽지 못했습니다(' + j.partial.join(', ') + '). 빈 칸이 틀릴 수 있습니다 — 다시 불러와 주세요.')) + '</div>';
+    }
+    if (!j.first_seen_since || j.date < j.first_seen_since) {
+      head += '<div class="tl-note">' + esc(T('«First on» for teachers who stayed logged in is recorded from '
+        + (j.first_seen_since || T('today', '오늘')) + '. Before that, only real logins are shown.',
+        '전에 로그인한 채로 들어온 강사의 «첫 접속» 은 ' + (j.first_seen_since || '오늘') + ' 부터 기록됩니다. 그 전 날짜는 실제 로그인만 보입니다.')) + '</div>';
+    }
+    if (!items.length) { el.className = 'empty'; el.innerHTML = head + esc(T('No teacher accounts found.', '강사 계정이 없습니다.')); return; }
+    var on = items.filter(function(it){ return it.state !== 'none'; });
+    var off = items.filter(function(it){ return it.state === 'none'; });
+    var th = '<tr><th>' + esc(T('Teacher', '강사')) + '</th><th>' + esc(T('First on', '첫 접속')) + '</th><th>' + esc(T('Login', '로그인'))
+      + '</th><th>' + esc(T('Last activity', '마지막 활동')) + '</th><th>' + esc(T('Note', '참고')) + '</th></tr>';
+    var table = function(rows){
+      return '<div class="tl-wrap"><table class="tl-tbl"><thead>' + th + '</thead><tbody>'
+        + rows.map(function(it){ return '<tr>' + tlCells(it, j.date, j.is_today) + '</tr>'; }).join('') + '</tbody></table></div>';
+    };
+    var h = head;
+    h += on.length ? table(on) : '<div class="empty">' + esc(T('No teacher used the site on this day.', '이날 접속한 강사가 없습니다.')) + '</div>';
+    if (off.length) {
+      h += '<details class="tl-more"><summary>' + esc(T('No record this day: ' + off.length + ' teacher(s)', '이날 기록 없음: ' + off.length + '명')) + '</summary>' + table(off) + '</details>';
+    }
+    el.className = '';
+    el.innerHTML = h;
   }
 
   // ── 👥 빈 강사 찾기 (2026-10-13) ──────────────────────────────────────────
@@ -2498,6 +2844,66 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     ]).then(function(r){ D.aibill = r[0]; D.aibillHist = r[1]; paintAiBill(); })
       .catch(function(e){ failBox(el, e); });
   };
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 📖 (2026-10-28 사장님) AI 컨텐츠 결제 안내서 — 카드를 펼치면 «먼저» 뜬다(PC·모바일 같음).
+  //   「끄기」= 이번 화면에서만 닫음(새로 열면 다시 뜸) · 「다시 보지 않기」= 이 기기에서 더 안 띄움.
+  //   다시 보고 싶으면 카드 맨 위 「📖 결제 방법 보기」.
+  //   ⛔ 금액(단가표)은 일부러 안 적는다 — 정본은 서버(ai-billing-price.ts)이고 카드가 그 값을 그린다.
+  //      여기 적으면 단가가 바뀌는 날 안내서만 거짓말을 한다.
+  //   ⚠️ 사진은 시연 화면(가짜 학생)이다 — 창 안에 그렇게 적는다.
+  // ══════════════════════════════════════════════════════════════════════════
+  var AIB_GUIDE_KEY = 'mangoi_aibill_guide_off', aibGuideShown = false;
+  window.aibGuideAuto = function(){
+    if (aibGuideShown) return;
+    try { if (localStorage.getItem(AIB_GUIDE_KEY) === '1') return; } catch (e) {}
+    window.aibGuideOpen();
+  };
+  window.aibGuideOpen = function(){
+    aibGuideShown = true;
+    if (document.getElementById('aibGuide')) return;
+    var IMG = '/img/aibill-guide/';
+    function step(n, title, img, w, h, cap, tip){
+      return '<div class="ag-step"><h3><span class="ag-n">' + n + '</span>' + title + '</h3>' +
+        '<img src="' + IMG + img + '" width="' + w + '" height="' + h + '" alt="" loading="lazy">' +
+        '<div class="ag-cap">' + cap + '</div>' + (tip ? '<div class="ag-tip">💡 ' + tip + '</div>' : '') + '</div>';
+    }
+    var o = document.createElement('div');
+    o.id = 'aibGuide';
+    o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', 'AI 컨텐츠 결제 안내서');
+    o.innerHTML = '<div class="ag-box">' +
+      '<div class="ag-head"><h2>🤖 AI 컨텐츠 결제 안내서</h2><p>학생 고르기 → 금액 확인 → 카드 결제, 3분이면 끝납니다.</p></div>' +
+      '<div class="ag-body">' +
+        '<div class="ag-sum">' +
+          '<div><b>누구 몫인가요?</b>화상영어를 <u>안 듣고</u> A.i 만 쓰는 학생</div>' +
+          '<div><b>언제 내나요?</b>매달 <u>말일까지</u> 다음 달 이용분</div>' +
+          '<div><b>얼마인가요?</b>고른 학생 수 × 1명 단가 (화면에 계산돼 나옵니다)</div>' +
+          '<div><b>어떻게 내나요?</b>이 화면에서 카드로 결제</div>' +
+        '</div>' +
+        step(1, '메뉴 열기', '2_menu.webp', 1226, 276, '다음부터는 왼쪽 메뉴 「정산통계관리」의 <b>🤖 AI 컨텐츠 결제</b>로 들어오시면 됩니다.') +
+        step(2, '학생 명단 불러오기', '3_card.webp', 1400, 481, '오른쪽 위에서 <b>결제 마감일</b>을 확인하고 <b>📋 우리 학원 학생 불러와서 고르기</b>를 누릅니다.', '이 버튼은 명단만 불러옵니다. <b>아직 아무것도 결제되지 않아요.</b>') +
+        step(3, '다음 달에 쓸 학생 체크하기', '4_check.webp', 1400, 469, '다음 달 A.i 를 쓸 학생은 <b>체크</b>, 그만둔 학생은 <b>체크를 풀어</b> 주세요.') +
+        '<div class="ag-step"><img src="' + IMG + '5_notyet.webp" width="1400" height="365" alt="" loading="lazy"><div class="ag-cap">「아직 신청 안 한 학생」 중에 쓸 학생이 있으면 여기서도 체크합니다.</div>' +
+        '<div class="ag-tip">💡 「📹 화상영어」 학생은 수업료에 A.i 가 포함돼 있어 <b>고를 필요가 없습니다.</b> 이름·아이디로 찾을 수도 있어요.</div></div>' +
+        step(4, '금액 확인하고 결제하기', '6_pay.webp', 1400, 342, '합계 인원과 금액을 확인하고 <b>💳 OOO원 결제하기</b> → 카드 결제창에서 결제합니다.', '「결제가 완료됐습니다」가 나오면 끝입니다.') +
+        step(5, '결제 확인하기', '7_history.webp', 1400, 244, '「지난 결제」에 <b>✅</b> 가 있으면 결제 완료입니다. 나중에 학생을 더 넣으면 늘어난 학생 몫만 추가 결제됩니다.') +
+        '<div class="ag-note">※ 사진 속 학생 이름·아이디·금액은 설명용 예시입니다. 실제 화면에는 우리 학원 학생이 나옵니다. 문의: 망고아이 카카오톡 채널 pf.kakao.com/_xlqnSxd</div>' +
+      '</div>' +
+      '<div class="ag-foot"><button type="button" class="ag-never" data-act="never">다시 보지 않기</button>' +
+      '<button type="button" class="ag-close" data-act="close">끄기</button></div>' +
+    '</div>';
+    function close(){ document.removeEventListener('keydown', onKey); if (o.parentNode) o.parentNode.removeChild(o); }
+    function onKey(e){ if (e.key === 'Escape') close(); }
+    o.addEventListener('click', function(e){
+      var b = e.target.closest && e.target.closest('[data-act]');
+      if (b && b.getAttribute('data-act') === 'never') { try { localStorage.setItem(AIB_GUIDE_KEY, '1'); } catch (x) {} close(); }
+      else if (b) close();
+      else if (e.target === o) close();
+    });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(o);
+    var c = o.querySelector('.ag-close'); if (c) try { c.focus({ preventScroll: true }); } catch (e) {}
+  };
   window.aiBillShowMonth = function(ym){ D.aibMonthSel = ym || null; D.aibMsg = null; window.loadAiBill(); };
   window.aiBillGenerate = function(btn){
     if (btn) { btn.disabled = true; }
@@ -2514,6 +2920,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var e = String((j && j.error) || '');
     if (e.indexOf('invoice_confirm_in_progress') === 0) return T('A payment is in progress for this bill, so it cannot be changed now. Try again after the payment finishes (or in a few minutes).', '이 청구서의 결제가 진행 중이라 지금은 바꿀 수 없습니다. 결제가 끝난 뒤(또는 몇 분 뒤) 다시 해 주세요.');
     if (e.indexOf('claim_check_failed') === 0) return T('Could not check the payment status. Please try again shortly.', '결제 진행 상태를 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+    if (e.indexOf('student_already_paid') === 0) return T('This student is already paid for and cannot be removed. For a refund, please contact head office.', '이미 결제한 학생은 빼거나 바꿀 수 없습니다. 환불이 필요하면 본사에 문의해 주세요.');
+    if (e.indexOf('topup_unavailable') === 0) return T('Could not check the paid students. Please try again shortly.', '결제한 학생을 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
     return base + (e ? ' (' + e + ')' : '');
   }
   window.aiBillToggleItem = function(cb, invoiceId, uid){
@@ -2571,8 +2979,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var j = D.aibill;
     if (!j || !j.exists || !j.invoice) return;
     var inv = j.invoice;
-    if (!window.confirm(T('Pay ' + won(inv.total_krw) + ' for ' + n0(inv.included_count) + ' student(s) — A.i content for ' + aibMonth(inv.billing_month) + '?',
-                          aibMonth(inv.billing_month) + ' 이용분 ' + n0(inv.included_count) + '명 · ' + won(inv.total_krw) + '원을 결제할까요?'))) return;
+    var tp = inv.status === 'paid', cN = tp ? inv.unpaid_count : inv.included_count, cA = tp ? inv.owed_krw : inv.total_krw;
+    if (!window.confirm(T((tp ? 'Pay an extra ' : 'Pay ') + won(cA) + ' for ' + n0(cN) + (tp ? ' more' : '') + ' student(s) — A.i content for ' + aibMonth(inv.billing_month) + '?',
+                          aibMonth(inv.billing_month) + ' 이용분 ' + (tp ? '추가 ' : '') + n0(cN) + '명 · ' + won(cA) + '원을 결제할까요?'))) return;
     if (btn) btn.disabled = true;
     fetch('/api/admin/ai-billing/invoice/checkout', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
@@ -2642,7 +3051,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       .catch(function(){ clean(); show(false, T('Network error while confirming the payment. If your card was charged, it will be cancelled automatically.', '네트워크 오류로 결제 확인에 실패했습니다. 카드에서 빠져나갔다면 자동 취소됩니다.')); });
   })();
   /* 💰 (2026-09-24) 적용 단가·최소 청구·경계 보정 설명은 서버(ai-billing-price.ts)가 만든 글자를 그대로 그린다.
-     ⛔ 이 화면에서 인원 × 단가를 계산하지 말 것(구간·최소 20명분이 있어 반드시 틀린다).
+     ⛔ 이 화면에서 인원 × 단가를 계산하지 말 것(구간·경계 보정이 있어 반드시 틀린다).
      ⛔ 지사 커미션은 이 카드(학원 계정 전용)에 그리지 않는다 — 본사·지사 사이 금액이다. */
   function aiBillPriceRows(o, noRate){
     var note = T(o.price_note_en || '', o.price_note_ko || '');
@@ -2716,14 +3125,25 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var inv = j.invoice, items = j.items || [];
       var paid = inv.status === 'paid';
       html += aibDueBar(j, inv.billing_month, paid);
+      /* ➕ (2026-10-26) 결제는 여러 번에 나눠 낼 수 있다 — 낸 학생(paid_order_id)은 위에 고정해 보여 주고,
+         나머지 학생은 아래에서 계속 체크해 «추가 결제» 한다. 금액·인원은 서버가 준 숫자(paid_count·paid_total_krw·
+         unpaid_count·owed_krw)를 그대로 그린다. 옛 서버(topup_open 없음)면 예전처럼 «결제 완료» 만. */
+      var topup = paid && inv.topup_open === true;
+      var paidList = items.filter(function(it){ return it.paid_order_id || (paid && !topup && Number(it.included) === 1); });
       if (paid) {
-        var inc = items.filter(function(it){ return Number(it.included) === 1; });
-        html += '<div class="aib-paid">✅ ' + esc(T('Paid — ' + n0(inc.length) + ' student(s) · ' + won(inv.total_krw) + ' KRW', '결제 완료 — ' + n0(inc.length) + '명 · ' + won(inv.total_krw) + '원'))
-          + (inv.paid_at ? '<div class="muted" style="font-size:12px;margin-top:2px">' + esc(T('Paid on ', '결제일 ')) + esc(new Date(Number(inv.paid_at) + 9 * 3600e3).toISOString().slice(0, 10)) + '</div>' : '') + '</div>'
-          + aiBillPriceRows(inv)
-          + '<div class="aib-chips">' + inc.map(function(it){ return '<span class="aib-chip">' + esc(it.student_name || it.student_user_id) + '</span>'; }).join('') + '</div>'
+        var pCnt = topup ? n0(inv.paid_count) : n0(paidList.length), pTot = topup ? inv.paid_total_krw : inv.total_krw;
+        html += '<div class="aib-paid">✅ ' + esc(T('Paid — ' + pCnt + ' student(s) · ' + won(pTot) + ' KRW', '결제 완료 — ' + pCnt + '명 · ' + won(pTot) + '원'))
+          + (inv.paid_at ? '<div class="muted" style="font-size:12px;margin-top:2px">' + esc(T('First paid on ', '처음 결제일 ')) + esc(new Date(Number(inv.paid_at) + 9 * 3600e3).toISOString().slice(0, 10)) + '</div>' : '') + '</div>'
+          + '<div class="aib-chips">' + paidList.map(function(it){ return '<span class="aib-chip">✅ ' + esc(it.student_name || it.student_user_id) + '</span>'; }).join('') + '</div>';
+        if (!topup) html += aiBillPriceRows(inv)
           + '<p class="muted" style="font-size:12px">' + T('The list is fixed once paid. To add a student, please contact head office.', '결제한 명단은 바뀌지 않습니다. 학생을 더 넣어야 하면 본사로 문의해 주세요.') + '</p>';
-      } else {
+        else html += '<p class="muted" style="font-size:12px;margin:0 0 6px">' + T('Paid students stay as they are. To add more students this month, check them below and pay for the extra students only.',
+          '결제한 학생은 그대로 이용합니다. 이번 달에 학생을 더 넣으려면 아래에서 체크하고 «추가 결제» 하세요 — 늘어난 학생 몫만 결제됩니다.') + '</p>';
+      }
+      if (!paid || topup) {
+        items = items.filter(function(it){ return !it.paid_order_id; });   // 아래 목록은 «아직 안 낸» 학생만
+        var payCnt = topup ? Number(inv.unpaid_count || 0) : Number(inv.included_count || 0);
+        var payAmt = topup ? Number(inv.owed_krw || 0) : Number(inv.total_krw || 0);
         /* 🎯 (2026-09-24 «자동 분류 + 학원 확인» · 2026-10-20 화면 재구성) 세 무리로 나눠 그린다 — 판정은 서버가 준 track·included 그대로.
              a = 결제 대상(체크됨) · b = 아직 신청 안 함(체크 안 됨, 화상반 아님) · c = 화상반(A.i 포함 · 체크 안 됨)
            ⛔ 이 화면은 판정하지 않는다. 화상반이 틀렸으면 학원이 체크해 결제 대상에 넣는다(user_set — 그 뒤 자동이 안 건드림). */
@@ -2749,21 +3169,22 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
             + (grp[g].length && btnLbl ? '<button type="button" class="aib-btn aib-btn-sm" onclick="aiBillBulk(this,\'' + g + '\',' + (inc ? 1 : 0) + ')">' + btnLbl + '</button>' : '') + '</div>';
         };
         html += '<div class="aib-kpis">'
-          + '<div class="aib-kpi aib-kpi-on"><span>' + T('Students to pay for', '결제할 학생') + '</span><b>' + n0(inv.included_count) + T('', '명') + '</b></div>'
+          + '<div class="aib-kpi aib-kpi-on"><span>' + (topup ? T('Extra students to pay for', '추가로 결제할 학생') : T('Students to pay for', '결제할 학생')) + '</span><b>' + n0(payCnt) + T('', '명') + '</b></div>'
           + '<div class="aib-kpi"><span>' + T('Price per student', '1인 단가') + '</span><b>' + won(inv.applied_rate_krw != null ? inv.applied_rate_krw : inv.rate_krw) + T('', '원') + '</b></div>'
-          + '<div class="aib-kpi aib-kpi-on"><span>' + T('Amount to pay', '결제 금액') + '</span><b>' + won(inv.total_krw) + T('', '원') + '</b></div>'
+          + '<div class="aib-kpi aib-kpi-on"><span>' + (topup ? T('Extra amount to pay', '추가 결제 금액') : T('Amount to pay', '결제 금액')) + '</span><b>' + won(payAmt) + T('', '원') + '</b></div>'
           + '</div>'
-          + aiBillPriceRows(inv, true)   // 1인 단가는 바로 위 칸에 있다 — 두 번 쓰지 않는다
+          + (topup ? '' : aiBillPriceRows(inv, true))   // 1인 단가는 바로 위 칸에 있다 — 두 번 쓰지 않는다
           + '<input type="search" class="aib-q" placeholder="' + esc(T('Find by name or ID', '이름 · 아이디로 찾기')) + '" value="' + esc(D.aibQ || '') + '" oninput="aiBillFilter(this.value)">'
-          + '<div class="aib-grp">' + grpHead('a', '✅ ' + T('Paying for A.i content', '결제 대상 (A.i 컨텐츠 이용)'), '', T('Unselect all shown', '보이는 학생 모두 빼기'), false)
+          + '<div class="aib-grp">' + grpHead('a', '✅ ' + (topup ? T('Extra students to pay for', '추가 결제 대상') : T('Paying for A.i content', '결제 대상 (A.i 컨텐츠 이용)')), '', T('Unselect all shown', '보이는 학생 모두 빼기'), false)
           + (aiIt.length ? aiIt.map(itemRow).join('') : '<p class="muted aib-sub">' + T('No student selected yet. Check students below.', '아직 고른 학생이 없습니다. 아래에서 체크해 주세요.') + '</p>') + '</div>'
           + (noIt.length ? '<div class="aib-grp">' + grpHead('b', '✋ ' + T('Not signed up', '아직 신청 안 한 학생'), T('Not paid. Check a student who will use A.i content next month.', '결제하지 않습니다. 다음 달 A.i 컨텐츠를 쓸 학생만 체크해 주세요.'), T('Select all shown', '보이는 학생 모두 선택'), true)
             + noIt.map(itemRow).join('') + '</div>' : '')
           + (lvIt.length ? '<details class="aib-grp"' + (D.aibQ ? ' open' : '') + '><summary>' + grpHead('c', '📹 ' + T('Video-class students', '화상영어 수업 학생'), T('A.i is included in their tuition — not paid here. Check only if this is wrong.', 'A.i 가 수업료에 포함돼 여기서 결제하지 않습니다. 판정이 틀린 학생만 체크해 주세요.'), '', true) + '</summary>'
             + lvIt.map(itemRow).join('') + '</details>' : '')
-          + '<div class="aib-paybar"><div class="aib-paysum"><span class="muted">' + T('Total', '합계') + ' · ' + n0(inv.included_count) + T(' student(s)', '명') + '</span><b>' + won(inv.total_krw) + T(' KRW', '원') + '</b></div>'
+          + '<div class="aib-paybar"><div class="aib-paysum"><span class="muted">' + (topup ? T('Extra', '추가') : T('Total', '합계')) + ' · ' + n0(payCnt) + T(' student(s)', '명') + '</span><b>' + won(payAmt) + T(' KRW', '원') + '</b></div>'
           + '<button type="button" class="aib-btn aib-btn-ghost" onclick="aiBillGenerate(this)" title="' + esc(T('Add students who joined after the list was made', '명단을 만든 뒤 들어온 학생을 더합니다')) + '">🔄 ' + T('Refresh list', '명단 다시 확인') + '</button>'
-          + '<button type="button" class="aib-btn aib-btn-main" onclick="aiBillPay(this)"' + (inv.included_count > 0 ? '' : ' disabled') + '>💳 ' + T('Pay ' + won(inv.total_krw) + ' KRW', won(inv.total_krw) + '원 결제하기') + '</button></div>'
+          + '<button type="button" class="aib-btn aib-btn-main" onclick="aiBillPay(this)"' + (payCnt > 0 && payAmt > 0 ? '' : ' disabled') + '>💳 ' + (topup ? T('Pay extra ' + won(payAmt) + ' KRW', won(payAmt) + '원 추가 결제') : T('Pay ' + won(payAmt) + ' KRW', won(payAmt) + '원 결제하기')) + '</button></div>'
+          + (topup && payCnt > 0 && !(payAmt > 0) ? '<p class="muted" style="font-size:12px;margin-top:6px">' + T('These extra students fall in the same price band, so the extra amount is 0 KRW. Please contact head office.', '추가한 학생이 같은 금액 구간 안이라 더 낼 금액이 0원입니다. 본사에 문의해 주세요.') + '</p>' : '')
           + '<p class="muted" style="font-size:12px;margin-top:6px">' + T('Uncheck students who have left the academy — they are removed before payment.', '학원을 그만둔 학생은 체크를 풀어 주세요 — 결제 전에 명단에서 빠집니다.') + '</p>';
       }
     }
@@ -3212,6 +3633,40 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     taDatePick();
   })();
 
+  /* 🔁 (2026-10-30 매니저 제안 «새로고침하면 처음 화면으로 돌아간다») 마지막으로 연 카드와
+     「오늘 전체 수업」의 날짜·학원·강사를 이 탭(sessionStorage)에 적어 두고, 새로고침하면 그대로 다시 연다.
+     ⚠️ 탭을 닫으면 사라진다(새 탭은 처음 화면) — 다른 사람·다른 날까지 끌고 가지 않게.
+     ⚠️ 날짜는 «오늘이 아닌 날» 만 적는다 — 내일 새로고침해도 «어제» 에 갇히지 않게.
+     ⛔ 상주 타이머·MutationObserver 없음 — 숨은 카드(권한 확인 전)는 정해진 몇 번만 다시 본다. */
+  var VIEW_KEY = 'mgr_view_v1';
+  function viewGet(){ try { return JSON.parse(sessionStorage.getItem(VIEW_KEY) || 'null') || {}; } catch (e) { return {}; } }
+  function viewPut(patch){
+    try { var v = viewGet(); for (var k in patch) v[k] = patch[k]; sessionStorage.setItem(VIEW_KEY, JSON.stringify(v)); } catch (e) {}
+  }
+  window.__mgrViewPut = viewPut;
+  var _taRestore = null;   // 첫 paintTodayAll 에서 한 번만 입힌다(그 전에는 고를 목록이 없다)
+  window.__mgrTaRestore = function(){ var r = _taRestore; _taRestore = null; return r; };
+  document.addEventListener('toggle', function(e){
+    var el = e.target;
+    if (!el || el.tagName !== 'DETAILS' || !el.id || !el.classList.contains('card')) return;
+    if (el.open) viewPut({ card: el.id });
+    else if (viewGet().card === el.id && !pcPane()) viewPut({ card: '' });
+  }, true);
+  function viewRestore(tries){
+    var v = viewGet();
+    if (!v.card) return;
+    var el = document.getElementById(v.card);
+    if (!el || el.tagName !== 'DETAILS') return;
+    if (el.hidden) { if (tries > 0) setTimeout(function(){ viewRestore(tries - 1); }, 1500); return; }
+    if (v.card === 'c-today') {
+      var inp = document.getElementById('taDate');
+      if (inp && /^\d{4}-\d{2}-\d{2}$/.test(v.taDate || '') && v.taDate !== taKstToday()) { inp.value = v.taDate; taDatePick(); }
+      if (v.taAcademy || v.taTeacher) _taRestore = { a: v.taAcademy || '', t: v.taTeacher || '' };
+    }
+    window.openCard(v.card);
+  }
+  setTimeout(function(){ viewRestore(4); }, 0);
+
   /* ③-2 오늘 전체 수업 — 서버가 망고아이 예약과 카페24 예약을 합쳐 준다.
      카페24 줄은 join_open:false (우리 방이 없어 들어갈 데가 없다).
      ⛔ 자동갱신 금지 — [Refresh]·날짜 변경 때만. 🔒 범위 격리는 서버(scopeStudentCond). */
@@ -3232,6 +3687,19 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         j._qs = qs; D.todayAll = j; paintTodayAll();
       })
       .catch(function(e){ failBox(el, e); });
+  };
+  /* ✏️➕ (2026-10-28) 파일 끝 «평가 창» 스크립트용 — 그 스크립트에서는 이 IIFE 의 D 가 안 보인다.
+     row = 눌린 줄의 값(방 번호 + 학생 아이디로 찾는다) · saved = 쓰거나 고친 뒤 목록을 다시 받는다(_stale). */
+  window.taEvalHook = {
+    row: function(room, uid){
+      var rows = (D.todayAll && D.todayAll.sessions) || [];
+      for (var i = 0; i < rows.length; i++) {
+        if (String(rows[i].room_id || '') === room && String(rows[i].student_uid || '') === uid) return rows[i];
+      }
+      return null;
+    },
+    date: function(){ return (D.todayAll && D.todayAll.date) || ''; },
+    saved: function(){ if (D.todayAll) D.todayAll._stale = true; window.loadTodayAll(); }
   };
 
   /* 🏫 (2026-09-23) 학원·강사 고르기 — admin.html(js/adm-today-classes.js)과 **같은 판정**. 한쪽만 고치지 말 것. */
@@ -3254,6 +3722,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       if (b === PICK_NONE) return -1;
       return a.localeCompare(b, 'ko', { numeric: true, sensitivity: 'base' });
     }).map(function (k) { return { value: k, n: m[k] }; });
+  }
+  /* 🔁 아직 목록이 없을 때 «고른 값» 을 미리 앉혀 둔다 — fillPick 이 그 값을 읽고, 새 목록에 없으면 «전체» 로 돌린다 */
+  function taPreset(id, v){
+    var el = document.getElementById(id);
+    if (!el || !v) return;
+    el.innerHTML = '<option value=""></option><option value="' + esc(v) + '"></option>';
+    el.value = v;
   }
   /* 고른 값이 새 목록에 없으면(날짜를 바꿈 등) «전체» 로 돌린다 — 안 돌리면 이유 없이 0건이 된다 */
   function fillPick(id, opts, allLabel, noneLabel) {
@@ -3287,6 +3762,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var all = (j.sessions || []).slice();
     /* 학원·강사 목록은 서로를 따라 좁힌다(학원을 고르면 강사는 그 학원 강사만). «그날 전체» 에서 센다. */
     var noAc = T('(no academy)', '(학원 미지정)'), noTe = T('(unassigned)', '(강사 미배정)');
+    var rst = window.__mgrTaRestore ? window.__mgrTaRestore() : null;   // 🔁 새로고침 전에 고른 학원·강사
+    if (rst) { taPreset('taAcademy', rst.a); taPreset('taTeacher', rst.t); }
     var ac0 = (document.getElementById('taAcademy') || {}).value || '';
     var te0 = (document.getElementById('taTeacher') || {}).value || '';
     var acSel = fillPick('taAcademy', pickOptions(all.filter(function (s) { return pickMatch(s, 'teacher_name', te0); }), 'academy'), T('All', '전체'), noAc);
@@ -3295,6 +3772,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       acSel = fillPick('taAcademy', pickOptions(all.filter(function (s) { return pickMatch(s, 'teacher_name', teSel); }), 'academy'), T('All', '전체'), noAc);
     }
     var rows = all.filter(function (s) { return pickMatch(s, 'academy', acSel) && pickMatch(s, 'teacher_name', teSel); });
+    try { if (window.__mgrViewPut) window.__mgrViewPut({ taAcademy: acSel, taTeacher: teSel, taDate: (j.date && j.date !== taKstToday()) ? j.date : '' }); } catch (e) {}
     // 들어갈 수 있는 줄을 맨 위로 — 급할 때 위만 보면 되게
     rows.sort(function(a, b){
       if (!!a.join_open !== !!b.join_open) return a.join_open ? -1 : 1;
@@ -3308,9 +3786,14 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var cnote = '';
     if (noMobile && j.contact_source === 'restricted') {
       cnote = T('Contact numbers are visible to HQ accounts only.', '☎ 연락처는 본사 계정에서만 보입니다.');
-    } else if (noMobile && j.contact_source === 'retention') {
-      cnote = T('☎ ' + noMobile + ' of ' + rows.length + ' have no number — the roster stores none; only at-risk students have one.',
-                '☎ 연락처 ' + noMobile + '/' + rows.length + '건이 «—» 입니다 — 명부에는 번호가 없고 «관리 대상» 학생만 있습니다.');
+    } else if (noMobile && j.contact_source === 'failed') {
+      // ☎ (2026-10-27) 조회 실패는 «없다» 가 아니라 «확인 못 함» — 같은 글자로 말하지 않는다
+      cnote = T('☎ Could not check contact numbers right now — please refresh in a moment.',
+                '☎ 지금 연락처를 확인하지 못했습니다 — 잠시 뒤 새로고침해 주세요.');
+    } else if (noMobile && j.contact_source === 'lookup') {
+      // ☎ (2026-10-27) 번호 원천 = 정본 loadContactPhones(직원이 넣은 번호 → 명부 → 관리 대상 명단) — 강사·관리자 화면과 같은 말
+      cnote = T('☎ ' + noMobile + ' of ' + rows.length + ' have no number — the roster has almost none; mostly only at-risk students or numbers saved by staff in the student profile show here.',
+                '☎ 연락처 ' + noMobile + '/' + rows.length + '건이 «—» 입니다 — 명부에는 번호가 거의 없어, 주로 «관리 대상» 학생이나 직원이 학생 상세에 넣은 번호만 보입니다.');
     }
     /* 🏫 거르는 중이면 숫자도 «눈앞의 줄» 로 센다 — 서버 합계(c.*)를 그대로 쓰면 「3건 보이는데 카페24 40건」이 된다 */
     var picking = !!(acSel || teSel);
@@ -3472,9 +3955,22 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var ev = function (e) { if (r.eval_hidden) return esc(T('HQ only', '본사 전용')); return e ? esc((e.date || '') + (e.score != null ? ' ⭐' + e.score + '/' + (e.max || '') : '') + (e.text ? ' · ' + e.text : ''))
         /* 📝 (2026-09-30) 눌러서 전문 보기 — 공용 창(js/eval-quick-view.js)은 «누를 때만» 불러온다(외부 리소스 0개 계약 유지). */
         + (e.id ? ' <a href="/eval.html?id=' + encodeURIComponent(e.id) + '" data-evq="' + esc(e.id) + '" target="_blank" rel="noopener" class="evq-open">' + esc(T('📄 Open', '📄 전문 보기')) + '</a>' : '') : '—'; };
+      /* ✏️➕ (2026-10-28 매니저·강사 제안) 칸마다 「✏️ 고치기」·「➕ 추가」 — admin.html(js/adm-today-classes.js xEvalAct)과
+         **같은 조건**(이 화면은 외부 스크립트 0개 계약이라 두 벌이다 — 같은지는 eval_add_edit_buttons_harness 가 셋을 실제로 돌려 본다).
+         창은 공용(js/eval-quick-view.js)을 «누를 때만» 받는다. 배선은 파일 끝 위임 리스너(data-evq-fix / data-evq-new). */
+      var evAct = function (which) {
+        if (r.eval_hidden || r.source === 'cafe24') return '';
+        var e = which === 'last' ? r.last_eval : r.today_eval;
+        if (e && e.id) return ' <span class="evq-act" role="button" tabindex="0" data-evq-fix="' + esc(e.id) + '">' + esc(T('✏️ Edit', '✏️ 고치기')) + '</span>';
+        if (e || !String(r.student_uid || '').trim()) return '';
+        if (which === 'today' && !(r.status === 'live' || r.status === 'ended')) return '';
+        if (which === 'last' && !(Array.isArray(r.prev_classes) && r.prev_classes.length)) return '';
+        return ' <span class="evq-act evq-add" role="button" tabindex="0" data-evq-new="' + which + '" data-room="' + esc(r.room_id) + '" data-uid="' + esc(r.student_uid) + '">'
+          + esc(which === 'last' ? T('➕ Add last', '➕ 지난 피드백 추가') : T('➕ Add today', '➕ 오늘 피드백 추가')) + '</span>';
+      };
       var exLine = '<span class="muted" style="display:block;font-size:11px;line-height:1.55">' + ex.join(' · ')
-        + '<br>' + esc(T('Last feedback: ', '지난 평가: ')) + ev(r.last_eval)
-        + '<br>' + esc(T("Today's feedback: ", '오늘 평가: ')) + ev(r.today_eval) + '</span>';
+        + '<br>' + esc(T('Last feedback: ', '지난 평가: ')) + ev(r.last_eval) + evAct('last')
+        + '<br>' + esc(T("Today's feedback: ", '오늘 평가: ')) + ev(r.today_eval) + evAct('today') + '</span>';
       /* 📅 (2026-09-23 사장님 «매니저 화면에도 똑같이») 이번 주 7칸 + 「📅 캘린더」 → 학생 상세 스케줄 탭 창.
          admin.html 과 **같은 서버 값**(week_days·week_dates — src/class-today-extras.ts)이고 창도 같은 화면을 띄운다.
          ⛔ 카페24 줄은 망고아이 예약표에 없어 빈칸 대신 사실을 적는다. ⛔ 칸을 못 받으면 지어내지 않는다(버튼만). */
@@ -3595,7 +4091,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       for (var i = 0; i < qs.length; i++) qs[i](got);
     };
     var sc = document.createElement('script');
-    sc.src = '/js/class-move-modal.js?v=9';
+    sc.src = '/js/class-move-modal.js?v=12';
     sc.onload = function(){ done(true); };
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);
@@ -3715,7 +4211,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 
   /* ⛔ 이 함수를 화면 로드 시점에 부르지 말 것 — 그 순간 계약 1번(외부 리소스 0개)이 깨진다.
      ⚠️ `?v=` 는 admin.html 의 것과 **같은 번호** 여야 한다 — 다르면 두 화면이 서로 다른 사본을
-        쓰게 되고, asset_version_harness 가 그 어긋남을 FAIL 로 잡는다. */
+        쓰게 된다. ⚠️ 이 일치를 지키는 자동 검사는 아직 없다(asset_version_harness 는 속성 src="…" 만 봐서
+        이 JS 문자열 주소를 못 본다) — 번호를 올릴 때 두 화면을 눈으로 맞출 것. */
   var _bulkbookLoading = null;
   function loadBulkbook(cb){
     if (typeof window.mangoiOpenBulkTextbook === 'function') return cb(true);
@@ -3731,6 +4228,37 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);
   }
+
+  /* 📵 (2026-10-28) 번호 없는 학생 카드 — admin.html 과 «같은» js/adm-phone-gaps.js 를 카드를 처음 펼칠 때만 받는다.
+     ⛔ 화면 로드 시점에 부르지 말 것(계약 1번). ⛔ 판정·저장을 이 화면에 복제하지 말 것(「화면마다 답이 다른」 사고).
+     ⚠️ `?v=` 는 admin.html 의 것과 **같은 번호** 여야 한다 — phone_gaps_harness F절이 대조한다
+        (asset_version_harness 는 속성 src="…" 만 봐서 이 JS 문자열 주소는 못 본다).
+     ⚠️ 스크립트가 늦게 도착하면 카드의 toggle 이벤트는 이미 지나갔다 — 도착한 뒤 «열려 있고 아직 안 불렀으면» 직접 부른다.
+     ⚠️ 이미 받아 둔 뒤에는 여기서 부르지 않는다 — 그 스크립트가 카드의 toggle 을 직접 듣는다(둘 다 부르면 목록 요청이 두 번). */
+  var _pgLoading = false;
+  window.loadPhoneGaps = function(){
+    var sec = document.getElementById('sm-phone-gaps');
+    var kick = function(){
+      var pg = window.__pg;
+      if (!pg || !sec || !sec.open) return;
+      if (!(pg._state && pg._state.loadedOnce) && !(pg._state && pg._state.busy)) pg.load();
+    };
+    if (window.__pg && window.__pg.__loaded) return;
+    if (_pgLoading) return;
+    _pgLoading = true;
+    var body = document.getElementById('pg-body');
+    if (body) body.innerHTML = '<div class="empty"><span data-en="Loading…" data-ko="불러오는 중…">' + (EN() ? 'Loading…' : '불러오는 중…') + '</span></div>';
+    var sc = document.createElement('script');
+    sc.src = '/js/adm-phone-gaps.js?v=5';
+    sc.onload = function(){ _pgLoading = false; kick(); };
+    sc.onerror = function(){
+      _pgLoading = false;
+      try { sc.parentNode.removeChild(sc); } catch (e) {}
+      if (body) body.innerHTML = '<div class="empty"><span data-en="Could not load this panel — check the connection, then close and open it again." data-ko="이 칸을 불러오지 못했습니다 — 연결을 확인하고 접었다가 다시 펼쳐 주세요.">' +
+        (EN() ? 'Could not load this panel — check the connection, then close and open it again.' : '이 칸을 불러오지 못했습니다 — 연결을 확인하고 접었다가 다시 펼쳐 주세요.') + '</span></div>';
+    };
+    document.head.appendChild(sc);
+  };
 
   /* 실제 참가자로 입장 — 카메라는 꺼진 채로 시작(js/vc-observe-guard.js 가 &vc_cam=off 를 처리).
      ⚠️ 카톡·문자앱 인앱 브라우저는 window.open 이 **예외 없이 null** 만 돌려준다 →
@@ -3924,6 +4452,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (D.flow) paintFlow();
     if (D.students) window.paintStudents();
     if (D.util) paintUtil();
+    if (D.logins) paintLogins();   // 🔐 #tlBody 는 그릇이라 data-en 이 없다 — 표는 여기서 다시 그린다
     if (D.clash) paintClash();
     if (D.free) paintFree();
     freeHint();
@@ -3947,6 +4476,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     //    그린 내용이 통째로 사라짐」).
     if (D.aibill) paintAiBill();
     if (D.tuition) paintTuition();   // 💳 #tuiBody 도 data-ko/data-en «그릇» — 같은 이유로 다시 그린다
+    // 📵 번호 없는 학생 — 목록 글자는 그 스크립트가 그린다(이 화면은 mangoi:lang-changed 를 안 쏘므로 여기서 부른다).
+    try { if (window.__pg && window.__pg._state && window.__pg._state.data) window.__pg.render(); } catch (e) {}
     // 🗒 새로 붙은 두 구역도 언어를 따라간다 — 빠뜨리면 KO/EN 토글 뒤에도
     //    「오늘 봐야 할 것」·「오늘 전체 수업」 만 옛 언어로 남는다(JS로 그린 라벨 함정).
     try { paintTodo(); } catch (e) {}
@@ -3960,6 +4491,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     D.series = D.flow = D.students = D.util = D.wait = D.me = null;
     D.payroll = D.leave = D.reqs = D.live = D.outage = D.bugs = D.todayAll = null;
     D.org = D.attn = D.settle = D.aiusage = null;
+    D.logins = null;
     boot();
     // 펼쳐져 있는 카드는 새 값으로 다시 채운다
     if (document.getElementById('c-trend').open) window.loadTrend();
@@ -3970,7 +4502,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (document.getElementById('c-wait').open) window.loadWait();
     if (document.getElementById('c-me').open) window.loadMe();
     ['c-payroll:loadPayroll','c-leave:loadLeave','c-req:loadReqs','c-today:loadTodayAll','c-live:loadLive','c-outage:loadOutage','c-bugs:loadBugs',
-     'c-org:loadOrg','c-attn:loadAttn','c-settle:loadSettle','c-aiusage:loadAiUsage']
+     'c-org:loadOrg','c-attn:loadAttn','c-settle:loadSettle','c-aiusage:loadAiUsage','c-logins:loadLogins']
       .forEach(function(pair){ var q = pair.split(':'); var el = document.getElementById(q[0]);
         if (el && el.open && typeof window[q[1]] === 'function') window[q[1]](); });
   };
@@ -4477,21 +5009,56 @@ var s=document.createElement('script');s.defer=true;s.src='/js/absence-hold-pane
    admin.html(js/adm-today-classes.js)·teacher.html 과 같은 창을 쓴다. 판정을 여기 복제하지 말 것. */
 (function(){
   function en(){ return document.documentElement.lang !== 'ko'; }   /* applyLang() 이 정하는 값 — 이 화면 언어 정본 */
-  function open(id){
-    var go = function(){ if (window.mgEvalQuick) window.mgEvalQuick(id, { en: en() }); };
+  function load(go){
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
-    sc.src = '/js/eval-quick-view.js?v=2';
+    sc.src = '/js/eval-quick-view.js?v=3';
     sc.onload = go;
     sc.onerror = function(){ alert(en() ? 'Could not load the viewer — please tap again.' : '전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.'); };
     document.head.appendChild(sc);
   }
+  /* ✏️➕ (2026-10-28) 고치거나 쓴 뒤에는 목록을 다시 받아 칸이 바로 바뀌게 한다(창은 body 에 따로 떠 있어 안 닫힌다). */
+  function saved(){
+    try { window.taEvalHook.saved(); } catch (e) {}
+  }
+  function open(id, edit){
+    load(function(){ if (window.mgEvalQuick) window.mgEvalQuick(id, { en: en(), edit: !!edit, onSaved: saved }); });
+  }
+  function add(el){
+    var hook = window.taEvalHook;
+    var r = hook ? hook.row(el.getAttribute('data-room') || '', el.getAttribute('data-uid') || '') : null;
+    if (!r) return;
+    load(function(){
+      if (!window.mgEvalQuick || typeof window.mgEvalQuick.create !== 'function') {
+        alert(en() ? 'The writing window is out of date — please refresh and tap again.' : '쓰기 창이 옛 판입니다 — 새로고침 후 다시 눌러 주세요.');
+        return;
+      }
+      window.mgEvalQuick.create({
+        which: el.getAttribute('data-evq-new') === 'last' ? 'last' : 'today',
+        student_uid: r.student_uid, student_name: r.student_name, teacher_name: r.teacher_name,
+        room_id: r.room_id, class_date: r.class_date || hook.date(), prev_classes: r.prev_classes
+      }, { en: en(), onSaved: saved });
+    });
+  }
+  /* ⚠️ data-evq-fix / data-evq-new — 공용 창 안의 버튼(data-evq-edit)과 이름이 겹치지 않게 한다. */
+  function act(ev){
+    var t = ev.target && ev.target.closest ? ev.target : null;
+    if (!t) return false;
+    var fx = t.closest('[data-evq-fix]');
+    if (fx) { ev.preventDefault(); open(fx.getAttribute('data-evq-fix'), true); return true; }
+    var nw = t.closest('[data-evq-new]');
+    if (nw) { ev.preventDefault(); add(nw); return true; }
+    return false;
+  }
   document.addEventListener('click', function(ev){
+    if (act(ev)) return;
     var a = ev.target && ev.target.closest ? ev.target.closest('[data-evq]') : null;
     if (!a) return;
     ev.preventDefault();
     open(a.getAttribute('data-evq'));
   });
+  /* role="button" 이라 키보드(Enter·Space)도 받는다 */
+  document.addEventListener('keydown', function(ev){ if (ev.key === 'Enter' || ev.key === ' ') act(ev); });
 })();
 </script>
 </body>
