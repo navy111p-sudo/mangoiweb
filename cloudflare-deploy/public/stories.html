@@ -167,6 +167,16 @@ a.rl-item:hover .rl-tt b{text-decoration:underline}
 .rl-ghost:hover:not(:disabled){border-color:var(--line2)}
 .rl-ghost:disabled{opacity:.45;cursor:default}
 .rl-garr{display:none;font-size:20px;line-height:1}
+/* 한 줄 맞추기(js fitRows · 2026-10-19) — 도구 줄·버튼 줄이 «실제로 넘칠 때만» js 가 붙이는 이름표. 평소엔 아무것도 안 바뀐다.
+   rl-nocount·rl-nostair: «N / 12편»·계단 그림을 감춘다(둘 다 목록·«단계» 드롭다운과 같은 정보)
+   rl-short: 긴 이름(.rl-full)을 화면에서만 감추고(낭독기 이름엔 남김) 짧은 이름(.rl-abbr)을 보인다 · 그림책은 🖼 만
+   rl-tiny(마지막): 단계 이름(.rl-full2 → .rl-abbr2) — rl-short 뒤에만 붙으므로 rl-short 규칙이 함께 걸려 있다 */
+.rl-abbr,.rl-abbr2{display:none}
+.rl-tb.rl-nocount>.rl-count,.rl-tb.rl-nostair>.rl-stair{display:none}
+.rl-short .rl-abbr,.rl-tiny .rl-abbr2{display:inline}
+.rl-short .rl-tb-btn,.rl-short .rl-dd-btn,.rl-short .rl-ghost{position:relative}
+.rl-short .rl-full,.rl-tiny .rl-full2{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.rl-acts.rl-short a.rl-ghost{width:40px;padding:0;justify-content:center}
 .rl-cta{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 22px;border:0;border-radius:99px;background:var(--sc-strong);color:#fff;font:inherit;font-size:14px;font-weight:800;white-space:nowrap;cursor:pointer}
 .rl-cta:hover{filter:brightness(1.08)}
 .rl-cta svg{width:12px;height:12px}
@@ -193,6 +203,22 @@ a.rl-item:hover .rl-tt b{text-decoration:underline}
       (2026-10-19 실측: 줄 최소 38px 이면 목록이 512px 필요한데 그 창들은 437~487px) */
 @media (min-width:821px) and (min-height:561px){
   .rl-foot{position:sticky;bottom:-14px;margin:auto -14px -14px;padding:8px 20px 12px;background:var(--page);border-top:1px solid var(--line);z-index:1}
+  /* ③ 머리줄은 한 줄 — 영어에서 진도 숫자가 두 자리가 되면(«12 / 48») 머리줄이 접혀 목록이 넘쳤다
+     (2026-10-19 진짜 구글 글꼴로 실측: 821~841·1181~1244 창에서 접힘 · 821×600 목록 23px 넘침).
+     줄어드는 것은 부제(태그) 하나뿐 — 남는 자리만큼 보이고 끝을 «…» 로 줄인다. 넓은 창은 자리가 있어 그대로다.
+     제목(h1): 176편이 되며 진도가 «N / 176» 세 자리라 영어 1181~1186 창은 제목이 칸보다 길어 아래 fitTitle 이 실제로 감추고,
+     1187 에서 «읽는 순서» 가 처음 보일 때 제목 칸 여유가 0.25px 뿐이다(2026-10-19 실측 — 48편 때는 1181 에서 1.75px).
+     그래서 제목이 «실제로» 칸보다 길어지면(기기마다 글꼴 폭이 조금 다르다) reading-ladder.js(fitTitle)가 .top 에
+     rl-noflow 를 붙여 «읽는 순서 1-2-3» 칸을 감춘다(1180 이하 창과 같은 모습) — 제목이 온전히 보인다.
+     «…» 는 그래도 모자랄 때의 마지막 안전장치: 옆 «읽는 순서» 위로 넘쳐 겹치는 대신 줄인다
+     (overflow-x:clip — 세로는 그대로라 글자 아랫부분이 안 잘린다). */
+  html.rl-browse .top{flex-wrap:nowrap}
+  html.rl-browse .brand{flex:0 1 auto}
+  html.rl-browse .brand>div{min-width:0}
+  html.rl-browse .brand h1{white-space:nowrap;overflow-x:clip;text-overflow:ellipsis}
+  html.rl-browse .tag{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  html.rl-browse .top.rl-noflow .flow{display:none}
+  html.rl-browse .top.rl-noflow .brand{margin-right:auto}
 }
 @media (min-width:821px) and (min-height:561px) and (max-height:719px){
   .rl-list{grid-template-rows:repeat(12,minmax(50px,1fr));gap:2px;padding:4px}
@@ -200,7 +226,7 @@ a.rl-item:hover .rl-tt b{text-decoration:underline}
   .rl-tt b{line-height:1.15}
   .rl-tt span{font-size:11.5px;line-height:1.2}
   .rl-detail{gap:6px}
-  .rl-hero{padding:14px 18px;gap:6px}
+  .rl-hero{padding:12px 18px;gap:6px}
   .rl-hero h2{font-size:clamp(20px,2.1vw,28px)}
   .rl-how{gap:5px}
   .rl-how li{padding:8px 10px;gap:3px}
@@ -219,8 +245,10 @@ a.rl-item:hover .rl-tt b{text-decoration:underline}
   .rl-pn .rl-garr{display:inline}
   .rl-pn .rl-gtx{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 }
-/* 좁고 낮은 창(예: 900~1100 × 600~719)에서는 3칸의 설명 줄을 접는다 — 단계 이름은 남고, 읽기 화면이 단계마다 다시 설명한다 */
+/* 좁고 낮은 창(예: 900~1100 × 600~719)에서는 3칸의 설명 줄을 접는다 — 단계 이름은 남고, 읽기 화면이 단계마다 다시 설명한다
+   · 3칸의 안쪽 여백도 조인다 — 821~840×600 한국어 2·4단계에서 상세 칸이 7px 넘쳤다(2026-10-19 진짜 글꼴 실측 · 1101×640 영어 4단계 2px 는 위 «낮은 창» 의 hero 여백으로) */
 @media (min-width:821px) and (max-width:1100px) and (min-height:561px) and (max-height:719px){
+  .rl-how li{padding:6px 8px}
   .rl-how p{display:none}
   .rl-hero-bg{-webkit-line-clamp:1}
 }
@@ -416,6 +444,6 @@ a.rl-item:hover .rl-tt b{text-decoration:underline}
 <script src="/js/reading-ladder-data.js?v=7"></script>
 <script src="/js/reading-ladder-art.js?v=1"></script>
 <script src="/js/story-audio.js?v=1"></script>
-<script src="/js/reading-ladder.js?v=17"></script>
+<script src="/js/reading-ladder.js?v=18"></script>
 </body>
 </html>
