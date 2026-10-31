@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "papercut",
     "cover": "Tom, a boy with curly brown hair, a straw hat and blue overalls, and Grandma, a woman with gray hair in a bun and a green apron, stand together in a big vegetable garden with tomato plants, carrots and bean vines.",
     "scenes": {
       "1": "In the morning garden, Tom, a boy with curly brown hair, a straw hat and blue overalls, waters plants with a watering can while Grandma, a woman with gray hair in a bun and a green apron, picks red tomatoes into a basket; orange carrots and long green beans grow nearby.",
       "2": "At night in a warm kitchen, Grandma, a woman with gray hair in a bun and a green apron, serves bowls of vegetable soup, and Tom, a boy with curly brown hair and blue overalls, eats a spoonful with a happy face."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

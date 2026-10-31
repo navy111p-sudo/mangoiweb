@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what they can do. (e.g. so that we can stay safe)"
   },
   "img": {
+    "style": "anime",
     "cover": "In a dark, tilted ship hallway, an eleven-year-old Korean girl with two short black pigtails, a mint-green raincoat and white sneakers points toward a small glowing green light above a door with no writing on it, followed by her dad, a tall man with short black hair, a gray sweater and a small backpack, and then a line of people in orange life jackets.",
     "scenes": {
       "1": "Inside a ferry cabin with a little water on the floor, an eleven-year-old Korean girl with two short black pigtails, a mint-green raincoat and white sneakers kneels by the seats and helps a small boy put on an orange life jacket, while her dad, a tall man with short black hair, a gray sweater and a small backpack calmly holds out more life jackets and other passengers rush past behind them.",
       "3": "On the ship's deck under a cloudy sky, an eleven-year-old Korean girl with two short black pigtails, a mint-green raincoat and white sneakers and her dad, a tall man with short black hair, a gray sweater and a small backpack wave at orange rescue boats coming near, and the small boy in an orange life jacket holds her hand and smiles."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

@@ -57,8 +57,11 @@ export function cleanAsk(b: any): { q: string; title: string; lines: string[]; n
   return { q, title: one(b && b.title, 80), lines, name };
 }
 
-/** 모델에게 보낼 메시지. 출력 계약은 «EN: …» 한 줄 + «KO: …» 한 줄. */
-export function buildClassAskMessages(a: { q: string; title: string; lines: string[]; name: string }): Array<{ role: string; content: string }> {
+/** 모델에게 보낼 메시지. 출력 계약은 «EN: …» 한 줄 + «KO: …» 한 줄.
+ *  🔗 linkRule — 연결 표현 규칙(정본 src/conversation-connectors.ts 의 connectorRule('beginner')).
+ *     이 파일은 import 가 없어야 하니스가 그대로 돌리므로 «부르는 쪽(api-ai.ts)» 이 넘깁니다. 없으면 예전 그대로.
+ *     ⚠️ 출력 형식(EN/KO 두 줄) 규칙보다 «앞» 에 둡니다 — 형식이 마지막 지시여야 모델이 지킵니다. */
+export function buildClassAskMessages(a: { q: string; title: string; lines: string[]; name: string }, linkRule?: string): Array<{ role: string; content: string }> {
   const page = a.lines.length ? a.lines.map((l) => '- ' + l).join('\n') : '(no text on this page)';
   const sys = [
     'You are Emma, a warm, patient English teacher in a one-to-one video lesson with a Korean child.',
@@ -72,6 +75,7 @@ export function buildClassAskMessages(a: { q: string; title: string; lines: stri
     '3. The child may ask in Korean. Still answer in English, and the Korean line gives the meaning.',
     '4. If the question has nothing to do with English or the lesson, answer kindly in one sentence and invite the child back to the page.',
     '5. Never ask for or mention personal information (address, phone, school name). Never discuss anything unsafe for children.',
+    ...(linkRule ? [linkRule] : []),
     '6. Reply in EXACTLY this format, two lines, nothing else:',
     'EN: <your English answer>',
     'KO: <natural Korean translation of your English answer, using polite friendly 해요체>',
@@ -126,6 +130,7 @@ export const CLASS_ASK_MODELS = [
 export async function handleClassAsk(request: Request, env: any, deps: {
   json: (o: any, s?: number) => Response;
   recordFailure?: (f: any) => Promise<void>;
+  linkRule?: string;   // 🔗 연결 표현 규칙 — buildClassAskMessages 머리말
 }): Promise<Response> {
   const { json } = deps;
   const b: any = await request.json().catch(() => ({}));
@@ -140,7 +145,7 @@ export async function handleClassAsk(request: Request, env: any, deps: {
   if (!classAskAllowed(used)) return json({ ok: false, error: 'daily_cap' }, 429);
   try { await env.SESSION_STATE?.put?.(capKey, String((Number(used) || 0) + 1), { expirationTtl: 172800 }); } catch { /* KV 장애로 막지 않음 */ }
 
-  const msgs = buildClassAskMessages(a);
+  const msgs = buildClassAskMessages(a, deps.linkRule);
   let lastErr: any = null, plain = 0;
   for (const m of CLASS_ASK_MODELS) {
     try {

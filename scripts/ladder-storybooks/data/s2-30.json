@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he helps people)"
   },
   "img": {
+    "style": "webtoon",
     "cover": "On a snowy mountain at night, a big fluffy Saint Bernard dog with brown and white fur and a red rescue vest digs eagerly in deep snow and uncovers the entrance of a small cave where a family in warm winter coats looks out with relieved smiles, while a mountain rescue officer in a bright orange snow jacket, a black wool hat and snow goggles hurries up behind him holding a bright lantern.",
     "scenes": {
       "2": "In a swirling snowstorm at night on a mountain, a big fluffy Saint Bernard dog with brown and white fur and a red rescue vest lifts his nose high to sniff the wind, while a mountain rescue officer in a bright orange snow jacket, a black wool hat and snow goggles holds a lantern and follows close behind through deep snow.",
       "3": "Inside a small snowy cave, a big fluffy Saint Bernard dog with brown and white fur and a red rescue vest lies down next to a little boy wrapped in a blanket to keep him warm, while the boy's parents smile and hug each other nearby."
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
     }
   },
   "alt": {

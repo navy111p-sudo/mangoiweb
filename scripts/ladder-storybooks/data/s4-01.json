@@ -292,10 +292,16 @@
     "moreEn": "One more step: after «we can», write a verb + what, and add a time or number. (e.g. focus on reading for an hour)"
   },
   "img": {
+    "style": "editorial",
     "cover": "A teenager studying at a wooden desk with open paper books, glancing at a smartphone that is lighting up beside the notebook, its screen a plain blank glow",
     "scenes": {
       "1": "A student at a desk turning away from a half-finished page of handwritten math work to pick up a buzzing smartphone, pencil still in hand",
       "3": "A smartphone resting face-down in a basket on a hallway shelf, while in the next room a student reads a paper book alone at a quiet desk"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

@@ -292,10 +292,16 @@
     "moreEn": "One more step: after «If», write a way to remove or change a cue. (e.g. If we turn off game alerts, we can sleep earlier)"
   },
   "img": {
+    "style": "comic",
     "cover": "A teenager sitting at a study desk late at night under a warm desk lamp, an open textbook and notebook in front of them, thumb scrolling on a glowing smartphone, the dark room behind them",
     "scenes": {
       "1": "A close-up of a smartphone lighting up with a notification glow on a wooden desk while a hand holding a pencil reaches toward it, an open notebook beside it",
       "3": "A smartphone resting face-down in a basket on a hallway shelf, while in the next room a student stands beside a desk stretching both arms above their head"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

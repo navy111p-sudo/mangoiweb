@@ -291,15 +291,21 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because everyone can be safe)"
   },
   "img": {
-    "cover": "The ruins of the ancient stadium at Olympia in Greece, with a long dirt running track, grassy banks on both sides, and a stone starting line",
+    "style": "comic",
+    "cover": "Ancient Greek runners sprinting barefoot down the long dirt track of the stadium at Olympia, crowds cheering from the grassy banks on both sides, a stone starting line behind them",
     "scenes": {
       "1": "An ancient Greek clay vase in a museum case, painted with black figures of men running a race",
       "2": "A crown made of fresh green olive leaves resting on an old stone block in the sunlight"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {
     "1": "An ancient vase showing runners",
     "2": "A crown of olive leaves",
-    "cover": "The ancient stadium at Olympia"
+    "cover": "Runners racing in the ancient stadium at Olympia"
   }
 }

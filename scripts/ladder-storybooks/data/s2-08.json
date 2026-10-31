@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because she tells funny stories)"
   },
   "img": {
+    "style": "vintage",
     "cover": "A girl with a long black ponytail and a yellow sweater sits on the floor beside an old man with gray hair, round glasses and a brown cardigan, looking together at an open photo album, with an old film camera next to them.",
     "scenes": {
       "1": "In a cozy room, the old man with gray hair, round glasses and a brown cardigan lifts a heavy box full of old photo albums, while the girl with a long black ponytail and a yellow sweater looks inside with wide eyes.",
       "2": "The girl with a long black ponytail and a yellow sweater holds an old film camera to her eye and takes a picture of her family eating dinner together at a table, with the old man with gray hair and round glasses smiling at the table."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

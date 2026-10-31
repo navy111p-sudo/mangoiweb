@@ -56,12 +56,24 @@ bulk('문장마다 영어·우리말이 다 있다', P, (p) => p.sentences.every
 bulk('영어 칸은 ASCII 만(한글·둥근따옴표 없음)', P, (p) => [p.title.en, p.bg.en, p.summary.en, ...p.sentences.map((s) => s.en), ...p.main.options.map((o) => o.en), ...p.words.map((w) => w.en)].every((x) => ASCII.test(x)) || 'non-ascii');
 bulk('오늘의 낱말 3개가 본문에 글자 그대로 있다', P, (p) => p.words.every((w) => hasWord(p.sentences.map((s) => s.en).join(' '), w.en)) || p.words.map((w) => w.en).join(','));
 bulk('핵심어 3개가 모범 문장에 들어 있다', P, (p) => p.summary.keywords.every((k) => hasWord(p.summary.en, k)) || p.summary.keywords.join(','));
+bulk('영작은 핵심문장에서 한 표현만 교체한다', P, (p) => {
+  const c = p.summary.change, src = p.sentences[p.key];
+  if (!c || !c.from || !c.to || c.from === c.to || !c.koFrom || !c.koTo || c.koFrom === c.koTo) return '교체 정보 없음';
+  if (src.en.split(c.from).length !== 2 || !src.ko.includes(c.koFrom)) return '원문에 교체 표현이 없거나 여러 번 있음';
+  if (p.summary.en !== src.en.replace(c.from, c.to)) return '다른 구조·표현도 바뀜';
+  if (p.summary.ko !== src.ko.split(c.koFrom).join(c.koTo)) return '우리말 문제 불일치';
+  return hasWord(p.summary.en, c.to) && p.summary.keywords.includes(c.to) || '바꿀 표현이 힌트에서 빠짐';
+});
+ok(JS_SRC.includes('핵심문장 응용해서 쓰기') && JS_SRC.includes('Keep the sentence structure and tense.') && JS_SRC.includes('p.summary.change.from') && JS_SRC.includes('p.summary.change.to'), '영작 안내는 구조·시제 유지와 바꿀 표현을 한국어·영어로 보여 준다');
 bulk('보기 4개가 서로 다르다', P, (p) => new Set(p.main.options.map((o) => o.en.toLowerCase())).size === 4 || 'dup');
 const avg = (n) => { const l = P.filter((p) => p.stage === n); return l.reduce((a, p) => a + wc(p), 0) / (l.length || 1); };
 const A = [1, 2, 3, 4].map(avg);
 console.log('     평균 단어 수: ' + A.map((x, i) => (i + 1) + '단계 ' + Math.round(x)).join(' · '));
 ok(A[0] < A[1] && A[1] <= A[2] + 15 && A[2] < A[3], '단계가 올라갈수록 글이 길어진다');
-ok(P.filter((p) => p.stage <= 2).every((p) => p.genre === 'story') && P.filter((p) => p.stage >= 3).every((p) => p.genre === 'info'), '1·2단계는 이야기, 3·4단계는 지식 글');
+// 2026-10-20 사장님 지시 — 3단계에 소설 시리즈 «마법학교»(s3-39~42)만 이야기로 둔다. 예외는 이 목록 하나뿐(넓히지 말 것).
+const STORY_IN_UPPER = new Set(['s3-39', 's3-40', 's3-41', 's3-42']);
+ok(P.filter((p) => p.stage <= 2).every((p) => p.genre === 'story') && P.filter((p) => p.stage >= 3).every((p) => p.genre === (STORY_IN_UPPER.has(p.id) ? 'story' : 'info')), '1·2단계는 이야기, 3·4단계는 지식 글(예외: 3단계 소설 시리즈 마법학교 4편)');
+ok([...STORY_IN_UPPER].every((id) => P.some((p) => p.id === id && p.stage === 3)), '(짝) 예외 목록의 글이 실제로 3단계에 있다');
 const s4mid = P.filter((p) => p.stage === 4 && p.key > 0).length;
 ok(s4mid >= 4, `4단계는 핵심 문장이 첫 문장이 아닌 글이 4편 이상 (${s4mid}편 — 수능형 대의파악)`);
 
@@ -88,9 +100,17 @@ if (C) {
   const PASS = (v) => v === 'great' || v === 'good';
   bulk('본문 핵심 문장을 그대로 옮기면 «copy»(통과 아님)', P, (p) => C.checkSummary(p.sentences[p.key].en, p.summary.keywords, SRC(p)).verdict === 'copy' || 'passed');
   bulk('본문 어느 문장을 옮겨도 통과하지 않는다', P, (p) => p.sentences.every((s) => !PASS(C.checkSummary(s.en, p.summary.keywords, SRC(p)).verdict)) || 'leak');
-  bulk('첫 낱말만 바꾼 옮겨쓰기도 통과하지 않는다', P, (p) => { const w = p.sentences[p.key].en.split(' '); w[0] = 'One'; return !PASS(C.checkSummary(w.join(' '), p.summary.keywords, SRC(p)).verdict) || 'passed'; });
+  // ③ 은 «핵심문장 응용해서 쓰기»(2026-10-22) — 표시된 낱말만 바꾼 답은 통과, 안 바꾸고 그대로 옮긴 답은 막힌다(짝으로).
+  //    ⚠️ 모범 문장(summary.en)을 쓰지 않고 핵심 문장에서 직접 바꿔 만든다 — 모범 문장이 틀어져도 이 검사는 따로 선다.
+  bulk('표시된 낱말만 바꾸면 통과 · 그대로 옮기면 «copy»(짝)', P, (p) => {
+    const key = p.sentences[p.key].en, c = p.summary.change || {};
+    if (!c.from || key.split(c.from).length !== 2) return '교체 표현 없음';
+    const swapped = C.checkSummary(key.replace(c.from, c.to), p.summary.keywords, SRC(p)).verdict;
+    const copied = C.checkSummary(key, p.summary.keywords, SRC(p)).verdict;
+    return (PASS(swapped) && copied === 'copy') || ('바꾼 답 ' + swapped + ' · 옮긴 답 ' + copied);
+  });
   bulk('(짝) 본문을 함께 넘겨도 모범 문장은 «great»', P, (p) => C.checkSummary(p.summary.en, p.summary.keywords, SRC(p)).verdict === 'great' || C.checkSummary(p.summary.en, p.summary.keywords, SRC(p)).verdict);
-  bulk('(짝) 모범 문장을 조금 고친 내 말은 안 막힌다(첫 낱말 바꾸기·관사 빼기·끝에 덧붙이기)', P, (p) => {
+  bulk('(짝) 모범 문장을 조금 고친 답은 안 막힌다(첫 낱말 바꾸기·관사 빼기·끝에 덧붙이기)', P, (p) => {
     const m = p.summary.en.replace(/\.$/, '').split(' ');
     return [['My'].concat(m.slice(1)).join(' ') + '.', m.filter((w) => !/^(a|an|the)$/i.test(w)).join(' ') + '.', p.summary.en.replace(/\.$/, '') + ' in the end.']
       .every((t) => PASS(C.checkSummary(t, p.summary.keywords, SRC(p)).verdict)) || 'blocked';
@@ -111,7 +131,8 @@ if (C) {
     ok(!!arg && Array.isArray(arg.sentences) && arg.sentences.length === P[0].sentences.length && arg.sentences[P[0].key] === P[0].sentences[P[0].key].en && arg.model === P[0].summary.en,
       '확인하기가 본문 문장 전부와 모범 문장을 넘긴다');
   }
-  ok(/\bcopy: T\('[^']*내 말로[^']*', '[^']*own words/.test(JS_SRC) && /\blist: T\('[^']*문장으로[^']*', '[^']*sentence/.test(JS_SRC), '«copy»·«list» 안내 문구가 한/영 모두 있다');
+  ok(JS_SRC.includes("copy: T('핵심 문장을 그대로 옮겼어요 — 표시된 낱말을 바꿔서 써 봐요', 'You copied the key sentence as-is — change the marked word.')") && /\blist: T\('[^']*문장으로[^']*', '[^']*sentence/.test(JS_SRC), '«copy»·«list» 안내 문구가 한/영 모두 있다(copy = «표시된 낱말을 바꿔서»)');
+  ok(!/내 말로|own words/i.test(JS_SRC), '③ 은 «응용해서 쓰기» 라 «내 말로 / own words» 안내가 남아 있지 않다(모범 답이 핵심 문장과 거의 같다)');
   const o1 = C.seededOrder(4, 's1-01'), o2 = C.seededOrder(4, 's1-01');
   ok(JSON.stringify(o1) === JSON.stringify(o2) && [...o1].sort().join() === '0,1,2,3', '섞기: 같은 글은 같은 순서 · 0~3 하나씩');
   const firstPos = new Set(P.map((p) => C.seededOrder(4, p.id).indexOf(p.main.answer)));
@@ -184,7 +205,7 @@ if (C) {
 }
 
 console.log('\n③ 배선');
-ok(/<script src="\/js\/reading-ladder-data\.js\?v=\d+"><\/script>\s*<script src="\/js\/reading-ladder\.js\?v=\d+"><\/script>/.test(HTML), 'stories.html 이 데이터 → 엔진 순서로 싣는다');
+ok(/<script src="\/js\/reading-ladder-data\.js\?v=\d+"><\/script>\s*<script src="\/js\/reading-ladder-art\.js\?v=\d+"><\/script>\s*<script src="\/js\/story-audio\.js\?v=\d+"><\/script>\s*<script src="\/js\/reading-ladder\.js\?v=\d+"><\/script>/.test(HTML), 'stories.html 이 데이터 → 화풍 → 서버 음성 → 엔진 순서로 싣는다');
 ok(/window\.__storyLang\s*=/.test(HTML) && /window\.__storyBooksHtml\s*=/.test(HTML), 'stories.html 이 언어·그림 동화책 목록을 넘겨 준다');
 ok(/dispatchEvent\(new Event\('story:lang'\)\)/.test(HTML) && /addEventListener\('story:lang'/.test(JS_SRC), '언어를 바꾸면 사다리도 다시 그린다');
 ok((JS_SRC.match(/data-act="stage" data-stage="/g) || []).length >= 3 && /if \(act === 'stage'\)/.test(JS_SRC), '단계 계단·단계 드롭다운·«올라가기» 가 모두 data-act="stage" 로 눌린다(빠지면 무동작)');
@@ -363,6 +384,10 @@ if (C && P.length) {
   // ── 읽기 ↔ 목록 ──
   e2.click({ 'data-act': 'open', 'data-id': s1[6] });
   ok(!e2.htmlClass.has('rl-browse') && !/class="rl-split"/.test(e2.html()) && /data-act="key" data-i="/.test(e2.html()), '«읽기 시작» → 읽기 화면(한 장 배치를 풀고 핵심 문장 고르기가 나온다)');
+  const exercise = P.find((p) => p.id === s1[6]);
+  e2.click({ 'data-act': 'key', 'data-i': String(exercise.key) });
+  e2.click({ 'data-act': 'main', 'data-o': String(exercise.main.answer) });
+  ok(e2.html().includes('핵심문장 응용해서 쓰기') && e2.html().includes(exercise.summary.change.from + ' → ' + exercise.summary.change.to) && e2.html().includes(exercise.summary.ko), '핵심·중심내용을 고르면 한 요소 바꾸기 영작과 우리말 문제가 실제로 그려진다');
   e2.click({ 'data-act': 'list' });
   ok(e2.htmlClass.has('rl-browse') && e2.detail() === titleOf(s1[6]), '목록으로 돌아오면 읽던 글이 그대로 골라져 있다');
 
@@ -426,6 +451,14 @@ console.log('\n⑤ 큰 PC 화면 zoom 단계(2026-10-19 「글자가 너무 작�
   okd(lessB === 0, '고르기 화면: 단계가 작은 것부터 적혀 «맞는 것 중 가장 큰 단계» 가 이긴다', lessB);
   okd(badR.length === 0, '읽기 화면: 980px 칸 × zoom 이 창 폭의 80% 안이다(양옆 여백이 남고 가로 스크롤이 없다)', badR.slice(0, 3).join(' | '));
   okd(eff(B, 1920, 920) >= 1.25 && eff(B, 1366, 640) === 1 && eff(B, 1440, 860) === 1, '(짝) 1920×920 창은 커지고 · 노트북 창은 그대로', [eff(B, 1920, 920), eff(B, 1366, 640), eff(B, 1440, 860)].join(','));
+}
+
+// 🇰🇷 중심 내용 보기에는 우리말 해석을 붙이지 않는다(2026-10-21 사장님 — 아이들이 영어 대신 해석만 읽음).
+//    2026-10-22: 본문 해석 토글도 제거한다.
+{
+  const code = JS_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  ok(!/esc\(o\.ko\)/.test(code), '중심 내용 보기(본 읽기·반복 연습)에 우리말 해석(o.ko)을 그리지 않는다');
+  ok(!/showKo|data-act="ko"|esc\(s\.ko\)/.test(code), '본문 읽기와 반복 연습에 해석 버튼·본문 해석이 없다');
 }
 
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);

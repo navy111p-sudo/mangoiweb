@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», use a fact from the text to make your reason clear. (e.g. because people accept it)"
   },
   "img": {
+    "style": "flat",
     "cover": "A busy open-air market long ago, where a farmer holds out a live brown chicken toward a seller behind a table of bread and fruit, while other people swap baskets of grain and clay pots",
     "scenes": {
       "2": "A pile of small glossy white cowrie shells beside old round metal coins and folded antique paper money on a dark wooden table",
       "3": "A hand holding a smartphone close to a small card reader on a shop counter to pay without cash, the phone screen glowing plain blue"
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
     }
   },
   "alt": {

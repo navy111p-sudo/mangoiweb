@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «before», write what + what happens to make the time clear. (e.g. before the flowers close)"
   },
   "img": {
+    "style": "vintage",
     "cover": "A bright orange-and-black butterfly resting on a purple flower beside a green-striped caterpillar munching a leaf, with a pale green chrysalis hanging from a nearby stem",
     "scenes": {
       "1": "Tiny round pale eggs on the underside of a green leaf, next to a small striped caterpillar that has just hatched",
       "2": "A jade-green chrysalis with tiny gold dots hanging from a twig, and beside it a butterfly slowly climbing out with crumpled, folded wings"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

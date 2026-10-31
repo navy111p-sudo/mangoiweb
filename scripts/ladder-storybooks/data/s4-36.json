@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «If», write who + what; after «we can», start with a base verb. (e.g. If we visit a planetarium, we can learn the names of stars)"
   },
   "img": {
+    "style": "photo",
     "cover": "A giant cluster of glowing yellow and white galaxies against a black sky, with faint stretched arcs of bluish light curving around its center",
     "scenes": {
       "1": "A huge spiral galaxy seen face-on, its bright yellow core surrounded by sweeping blue arms dotted with pink glowing clouds, stars thinning out toward its faint outer edge",
       "3": "Deep underground inside a vast rock cavern, a giant cylindrical tank lined on the inside with hundreds of round golden light sensors, an engineer in a hard hat standing small beside it"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

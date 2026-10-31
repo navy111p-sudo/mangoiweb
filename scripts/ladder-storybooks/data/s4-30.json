@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «If», write who + what; after «we can», start with a base verb. (e.g. If we use a telescope, we can see craters on the Moon)"
   },
   "img": {
+    "style": "photo",
     "cover": "The rusty red surface of Mars stretching to the horizon under a hazy butterscotch sky, scattered dark rocks in the foreground and a six-wheeled robotic rover with a tall camera mast leaving fresh wheel tracks in the dust",
     "scenes": {
       "2": "Seen from above, the dry floor of a huge Martian crater with a fan-shaped pattern of ancient riverbeds spreading out where a river once flowed into a lake, layered pale rock and dark sand dunes all around",
       "3": "A rover's robotic arm drilling a neat round core out of a pale rock on Mars, while a few slim, sealed metal sample tubes lie in a row on the red ground nearby"
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
     }
   },
   "alt": {

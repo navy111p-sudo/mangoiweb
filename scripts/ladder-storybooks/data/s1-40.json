@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)"
   },
   "img": {
+    "style": "papercut",
     "cover": "In bright blue water full of sunbeams, Captain Yuri, a woman with a short black bob, a bright yellow diving suit and round blue goggles, floats with open arms as a small gray baby whale with a white belly, free from an old green fishing net drifting away below, swims happily around her, and a huge gray mother whale swims close.",
     "scenes": {
       "1": "Under the water, a small gray baby whale with a white belly is caught in an old green fishing net with sad eyes, and Captain Yuri, a woman with a short black bob, a bright yellow diving suit and round blue goggles, swims up holding a pair of rescue scissors and begins to snip the net piece by piece.",
       "2": "On the sunny sea, a huge gray mother whale and a small gray baby whale with a white belly leap out of the water side by side with a big splash, as Captain Yuri, a woman with a short black bob, a bright yellow diving suit and round blue goggles, waves happily from a small white boat."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

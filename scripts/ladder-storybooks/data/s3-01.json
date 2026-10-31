@@ -291,10 +291,16 @@
     ]
   },
   "img": {
+    "style": "photo",
     "cover": "A forest path in autumn lined with maple and oak trees with bright red, orange, and yellow leaves, some leaves lying on the ground",
     "scenes": {
       "1": "Close view of bright green summer leaves on a tree branch with sunlight shining through them",
       "3": "A red maple tree in late autumn with dry brown and red leaves falling onto the grass below"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

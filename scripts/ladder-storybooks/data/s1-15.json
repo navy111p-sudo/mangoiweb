@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "clay",
     "cover": "At night in a cozy bedroom, a boy with short curly black hair in a yellow T-shirt and blue shorts kneels by a soft blanket with wide happy eyes as a big spotted egg cracks open, and a friendly green dinosaur with orange spots on its back and a round nose, still a tiny baby, pokes its head out of the shell.",
     "scenes": {
       "1": "In a living room with an empty broccoli bowl tipped over on the floor, a friendly green dinosaur with orange spots on its back and a round nose, now very tall, bumps its head on the ceiling and blinks in surprise, while a boy with short curly black hair in a yellow T-shirt and blue shorts covers his mouth and laughs.",
       "2": "In a big sunny dinosaur park with tall trees and a blue pond, a boy with short curly black hair in a yellow T-shirt and blue shorts hugs the leg of a friendly green dinosaur with orange spots on its back and a round nose, now huge, and the dinosaur bends its long neck down to smile at him."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

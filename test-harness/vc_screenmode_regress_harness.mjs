@@ -1,5 +1,6 @@
 import puppeteer from 'puppeteer-core';
-const INDEX = 'C:/Users/Admin/Desktop/mangoi_develop2-main/cloudflare-deploy/public/index.html';
+import { fileURLToPath } from 'node:url';
+const INDEX = fileURLToPath(new URL('../cloudflare-deploy/public/index.html', import.meta.url)).replace(/\\/g, '/');
 const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless:'new', args:['--no-sandbox'] });
 const swMock = () => { try { const m={register:()=>Promise.resolve({update(){},unregister(){return Promise.resolve(true)}}),getRegistrations:()=>Promise.resolve([]),getRegistration:()=>Promise.resolve(),ready:Promise.resolve({}),addEventListener(){},controller:null}; Object.defineProperty(navigator,'serviceWorker',{get:()=>m,configurable:true}); } catch(_){}
   window.WebSocket = class{constructor(){this.readyState=0;setTimeout(()=>{this.readyState=1;this.onopen&&this.onopen()},0)}send(){}close(){}addEventListener(){}};

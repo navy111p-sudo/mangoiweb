@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)"
   },
   "img": {
+    "style": "comic",
     "cover": "From a small white sailboat on the blue sea, Ari, a girl with a short black bob, a yellow life jacket over a white T-shirt and red sneakers, and Dad, a tall man with a short beard, a blue cap and a green backpack, look back with wide eyes at a green island where a mountain sends up gray smoke and bright orange lava flows slowly down its side.",
     "scenes": {
       "1": "On a rocky mountain path with a view of the sea, Ari, a girl with a short black bob, a yellow life jacket over a white T-shirt and red sneakers, holds on to Dad, a tall man with a short beard, a blue cap and a green backpack, as small stones bounce on the shaking ground and thick gray smoke rises from the mountain top above them, and Dad points up and shouts.",
       "2": "Ari, a girl with a short black bob, a yellow life jacket over a white T-shirt and red sneakers, and Dad, a tall man with a short beard, a blue cap and a green backpack, run hand in hand down a grassy hill toward a small white sailboat waiting on the beach, with gray smoke filling the sky behind them."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

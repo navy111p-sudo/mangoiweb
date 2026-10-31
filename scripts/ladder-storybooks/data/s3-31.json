@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + can + what to make the result clear. (e.g. so that we can run faster)"
   },
   "img": {
+    "style": "photo",
     "cover": "An astronaut in a white spacesuit with a gold visor floating outside a space station, with the curve of the blue Earth and white clouds far below",
     "scenes": {
       "1": "Inside a space station cabin, a sleeping bag strapped upright to the wall, with silver drink pouches with straws and a round, wobbly ball of water floating in the air",
       "2": "An astronaut in a T-shirt and shorts running on a treadmill inside a space station, held down by elastic straps over the shoulders, seen from the side"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

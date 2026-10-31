@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "flat",
     "cover": "At night in a grassy backyard under a starry sky, a boy with messy brown hair in blue striped pajamas and red slippers waves a small orange toy wrench, while a little green alien with three big round eyes and two short antennae waves back from the round window of a tiny silver spaceship that glows and zooms up toward the stars.",
     "scenes": {
       "1": "In a dark grassy backyard lit by a flashlight beam, a little green alien with three big round eyes and two short antennae steps out of the open door of a tiny silver spaceship with a puff of gray smoke coming from its side, crying big tears, while a boy with messy brown hair in blue striped pajamas and red slippers kneels down and stares in surprise with the flashlight in his hand.",
       "2": "In a grassy backyard at night, a boy with messy brown hair in blue striped pajamas and red slippers hands a small orange toy wrench to a little green alien with three big round eyes and two short antennae, and the tiny silver spaceship next to them crackles with blue sparks as its lights blink back on."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

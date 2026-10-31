@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «If», write who + what they do. After «we can», start with a verb. (e.g. we can save the sea animals)"
   },
   "img": {
+    "style": "minhwa",
     "cover": "Under a bright full moon, a huge old dragon with shiny blue scales, a long white beard and gentle golden eyes rises out of the sparkling waves and flies over Jeju Island, while a ten-year-old Korean boy with short wavy black hair, a blue-and-white striped T-shirt, yellow shorts and sandals and many smiling townspeople cheer and wave on a clean, empty beach.",
     "scenes": {
       "1": "Inside a dark sea cave, a huge old dragon with shiny blue scales, a long white beard and gentle golden eyes lies weakly on the rocks, tangled in plastic bottles, bags and old ropes, while a ten-year-old Korean boy with short wavy black hair, a blue-and-white striped T-shirt, yellow shorts and sandals kneels beside its big head with a worried face.",
       "3": "On the beach at night, a ten-year-old Korean boy with short wavy black hair, a blue-and-white striped T-shirt, yellow shorts and sandals and the whole town, from grandmas to little kids, pick up plastic bottles and old fishing nets and fill big bags, while an almost-full moon shines over the sea."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

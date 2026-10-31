@@ -2,7 +2,7 @@
    📚 영어 독서 사다리 — 4단계 · 핵심 찾기 반복 (2026-10-18 사장님 지시)
    «적은 단계 + 충분한 글 + 핵심찾기 반복»
      1단계 쉬운 이야기(초1~3·A1) → 2단계 조금 긴 이야기(초4~6·A2)
-     → 3단계 쉬운 지식 글(초6~중2·A2+/B1) → 4단계 고1 지식 글(중3~고1·B1+/B2)
+     → 3단계 쉬운 지식 글(초6~중2·A2+/B1) → 4단계 비문학(중3~고1·B1+/B2)
    글은 /js/reading-ladder-data.js 의 window.READING_LADDER 한 곳이 정본.
    한 편마다: 읽기(듣기·해석) → ① 핵심 문장 찾기 → ② 중심 내용 고르기 → ③ 핵심 한 줄 영작.
    «🔁 핵심 찾기 반복» 은 같은 단계 글 5편의 중심 내용만 빠르게 다시 묻는다.
@@ -16,6 +16,11 @@
    ═══════════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
+  function artBadge(p) {
+    var catalog = window.READING_LADDER_ART;
+    var style = catalog && catalog.styles[catalog.books[p.id]];
+    return style ? '<span class="rl-art">' + esc(style.emoji + ' ' + L(style)) + '</span>' : '';
+  }
 
   /* RL-CORE-START — DOM 없음. 하니스가 이 블록만 오려 내 실행한다. */
   var RLCore = {
@@ -44,10 +49,12 @@
       if (w.length > 3 && /s$/.test(w) && !/ss$/.test(w)) return w.slice(0, -1);
       return w;
     },
-    // ③ 은 «우리말 요약을 보고 내 말로» 쓰는 응용 단계다(2026-10-20 사장님 「베껴쓰기 아닌가요?」).
-    // 핵심어만 세던 시절에는 위 글 문장을 그대로 붙여도 176편 중 94편이 통과했다 → 두 가지를 통과로 안 본다:
+    // ③ 은 «핵심문장 응용해서 쓰기» — 핵심 문장의 구조·시제는 두고 표시된 낱말 하나만 바꾼다(2026-10-22 main).
+    // 그래서 모범 문장은 «핵심 문장에서 그 낱말만 바꾼 것» 이고, 본문과 많이 겹치는 것 자체는 정상이다.
+    // 막는 것은 두 가지뿐(2026-10-20 사장님 「베껴쓰기 아닌가요?」):
     //   'copy' — 본문 한 문장과 낱말이 COPY_RATIO 이상 겹치고, 모범 문장보다 그 본문 문장에 더 가까울 때
-    //            (s4-11 처럼 모범 문장 자체가 본문과 0.9 겹치는 글이 있어 «모범 문장보다 가까운가» 를 함께 본다)
+    //            (= 표시된 낱말을 안 바꾸고 그대로 옮김. 모범 문장과 똑같이 가까우면(동점) 막지 않는다 —
+    //             다른 낱말로 바꾼 것도 «바꾼 것» 이다)
     //   'list' — 힌트 낱말(+관사)만 늘어놓았을 때(«puppy smell home» 도 예전엔 만점이었다)
     // ⛔ 통과 문턱을 올리지 않는다(1단계에 «핵심어 3개 전부» 를 강제하면 못 쓰는 학생이 갇힌다) — 막힌 학생은 «모범 문장 보기» 로 나간다.
     COPY_RATIO: 0.8,
@@ -214,29 +221,31 @@
   }
   // 2026-10-19 부터 176편 모두 그림책이 있다. 그림책이 없는 글(데이터에 book:false)이 생기면 그림책 표시·버튼을 그리지 않는다(없는 페이지로 보내지 않게).
   function hasBook(p) { return !!p && p.book !== false; }
+  // Reuse the first picture on the storybook page; lazy-load offscreen rows.
+  function bookThumbnail(p) {
+    return '<span class="rl-thumb" aria-hidden="true">📖' + (hasBook(p) ?
+      '<img src="/img/story/' + esc(p.id) + '-cover.webp?v=2" alt="" width="1024" height="688" loading="lazy" decoding="async">' : '') + '</span>';
+  }
+  // A missing picture leaves a book placeholder without changing the row size.
+  root.addEventListener('error', function (e) {
+    if (e.target && e.target.tagName === 'IMG' && e.target.parentNode && e.target.parentNode.classList.contains('rl-thumb')) e.target.hidden = true;
+  }, true);
   function bookTag(p) {
     if (!hasBook(p)) return '';
     var n = bookStamps(p.id);
     return '<span class="rl-pic">🖼 ' + esc(n >= 6 ? T('그림책 완주', 'Book done') : n > 0 ? T('그림책 ', 'Book ') + n + '/6' : T('그림책', 'Picture book')) + '</span>';
   }
 
-  /* ── 🔊 듣기 — 기기 목소리(없으면 버튼을 안 그린다) ── */
-  var canSpeak = !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
-  function stopSpeak() { try { if (canSpeak) window.speechSynthesis.cancel(); } catch (e) {} }
+  /* ── English server audio, including devices without speechSynthesis ── */
+  var canSpeak = !!window.StoryAudio;
+  function stopSpeak() { if (window.StoryAudio) window.StoryAudio.stop(); }
   function speak(text, stage) {
-    if (!canSpeak) return;
-    stopSpeak();
-    try {
-      var u = new SpeechSynthesisUtterance(text);
-      u.lang = 'en-US';
-      u.rate = stage <= 1 ? 0.8 : stage === 2 ? 0.88 : 0.95;
-      window.speechSynthesis.speak(u);
-    } catch (e) {}
+    if (window.StoryAudio) window.StoryAudio.speak(text, stage <= 1 ? 0.8 : stage === 2 ? 0.88 : 0.95);
   }
 
   /* ── 화면 상태 ── */
   // view = 읽기·반복 연습의 그때그때 상태 · filt = 고르기 화면의 고른 글·거르기(글을 읽고 돌아와도 남는다)
-  var view = { mode: 'list', id: null, drill: null, showKo: false, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
+  var view = { mode: 'list', id: null, drill: null, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
   var filt = { topic: '', status: '', sort: 'no', sel: null };
   var FILTER_VALUES = { status: RLCore.STATUSES, sort: RLCore.SORTS };
 
@@ -362,12 +371,13 @@
   }
 
   function itemHtml(p, no, on) {
-    var s = RLCore.statusOf(state.prog[p.id]);
-    return '<button type="button" class="rl-item ' + s + (on ? ' sel' : '') + '" data-act="sel" data-id="' + esc(p.id) + '" aria-pressed="' + on + '">' +
-      '<span class="rl-no">' + pad2(no) + '</span>' +
+    var s = RLCore.statusOf(state.prog[p.id]), book = hasBook(p), tag = book ? 'a' : 'button';
+    return '<' + tag + ' class="rl-item ' + s + (on ? ' sel' : '') + '" data-act="sel" data-id="' + esc(p.id) + '"' +
+      (book ? ' href="/story-' + esc(p.id) + '.html"' + (on ? ' aria-current="true"' : '') : ' type="button" aria-pressed="' + on + '"') + '>' +
+      '<span class="rl-no">' + pad2(no) + '</span>' + bookThumbnail(p) +
       '<span class="rl-tt"><b lang="en">' + esc(p.title.en) + '</b>' + (lang() === 'en' ? '' : '<span>' + esc(p.title.ko) + '</span>') + '</span>' +
       '<span class="rl-topic">' + esc(L(p.topic)) + '</span>' +
-      '<span class="rl-wc">' + RLCore.wordCount(p) + esc(T('단어', 'w')) + '</span>' + statusIcon(s) + '</button>';
+      '<span class="rl-wc">' + RLCore.wordCount(p) + esc(T('단어', 'w')) + '</span>' + statusIcon(s) + '</' + tag + '>';
   }
 
   // 이전·다음 글 — 넓은 창은 글자, 좁은 창(stories.html CSS)은 화살표만 보인다. 글자는 화면에서만 감추고
@@ -385,7 +395,7 @@
     var steps = [
       [r.k, T('핵심 문장 찾기', 'Find the key sentence'), T('글에서 가장 중요한 한 문장을 눌러요.', 'Tap the one sentence that matters most.')],
       [r.m, T('중심 내용 고르기', 'Choose the main idea'), T('글이 말하려는 것을 보기 4개에서 골라요.', 'Pick what the text is mainly about.')],
-      [r.s, T('영어 한 문장으로', 'One English sentence'), T('핵심을 베끼지 말고 내 말로, 영어 한 문장에 써요.', 'Write the main idea in your own words, in one English sentence.')]
+      [r.s, T('영어 한 문장으로', 'One English sentence'), T('핵심을 영어 한 문장으로 써요.', 'Write the main idea in one English sentence.')]
     ];
     var cta = s === 'done' ? T('다시 읽기', 'Read again') : s === 'doing' ? T('이어서 하기', 'Continue') : T('읽기 시작', 'Start reading');
     return '<article class="rl-detail" id="rlDetail" aria-live="polite">' +
@@ -393,7 +403,7 @@
         '<div class="rl-hero-top"><span class="rl-eyebrow">' + esc(stageName(meta) + T(' · ' + (i + 1) + '번', ' · No. ' + (i + 1))) + '</span>' + statusChip(s) + '</div>' +
         '<h2 lang="en">' + esc(p.title.en) + '</h2>' + (lang() === 'en' ? '' : '<p class="rl-hero-ko">' + esc(p.title.ko) + '</p>') +
         '<div class="rl-facts"><span>' + esc(L(p.topic)) + '</span><span>' + RLCore.wordCount(p) + esc(T('단어', ' words')) + '</span><span>' + esc(meta.cefr) +
-          '</span><span>' + esc(L(meta.grade)) + '</span><span>' + esc(p.genre === 'story' ? T('이야기', 'Story') : T('지식 글', 'Non-fiction')) + '</span>' + bookTag(p) + '</div>' +
+          '</span><span>' + esc(L(meta.grade)) + '</span><span>' + esc(p.genre === 'story' ? T('이야기', 'Story') : T('지식 글', 'Non-fiction')) + '</span>' + bookTag(p) + artBadge(p) + '</div>' +
         '<p class="rl-hero-bg">🧠 ' + esc(L(p.bg)) + '</p></div>' +
       '<div class="rl-how"><h3>' + esc(T('이렇게 읽어요', 'How it works')) + '</h3><ol>' + steps.map(function (x, n) {
         return '<li class="' + (x[0] ? 'done' : '') + '"><span class="rl-hn">' + (x[0] ? ICON.check : n + 1) + '</span><b>' + esc(x[1]) + '</b><p>' + esc(x[2]) + '</p></li>';
@@ -442,7 +452,7 @@
       var cls = 'rl-s';
       if (view.keyPicked === i) cls += (i === p.key ? ' ok' : ' no');
       if ((r.k && i === p.key) || (view.keyPicked === i && i === p.key)) cls += ' ok';
-      var inner = '<span class="rl-en">' + esc(s.en) + '</span>' + (view.showKo ? '<span class="rl-ko">' + esc(s.ko) + '</span>' : '');
+      var inner = '<span class="rl-en">' + esc(s.en) + '</span>';
       return pickable ? '<button type="button" class="' + cls + '" data-act="key" data-i="' + i + '">' + inner + '</button> '
                       : '<span class="' + cls + '">' + inner + '</span> ';
     }).join('') + '</div>';
@@ -483,7 +493,7 @@
           if (mainDone && oi === p.main.answer) cls += ' ok';
           else if (view.mainPicked === oi) cls += ' no';
           return '<button type="button" class="' + cls + '" data-act="main" data-o="' + oi + '"' + (mainDone ? ' disabled' : '') + '>' +
-            '<span class="rl-en">' + esc(o.en) + '</span>' + (view.showKo || p.stage <= 2 ? '<span class="rl-ko">' + esc(o.ko) + '</span>' : '') + '</button>';
+            '<span class="rl-en">' + esc(o.en) + '</span></button>'; // 보기엔 우리말 해석을 붙이지 않는다(2026-10-21 — 아이들이 영어 대신 해석만 읽음)
         }).join('') + '</div>';
       if (!mainDone && view.mainPicked != null) s2 += '<p class="rl-fb no">' + esc(T('아쉬워요. 그 보기는 글의 «일부» 이거나 글과 달라요. 다시 골라 봐요.', 'Not quite. That choice is only a detail or does not match. Try again.')) + '</p>';
       if (!mainDone && view.mainWrong >= RLCore.WRONG_BEFORE_REVEAL) s2 += '<button type="button" class="rl-btn" data-act="mainreveal">' + esc(T('정답 보기', 'Show the answer')) + '</button>';
@@ -502,14 +512,17 @@
           good: T('좋아요! 핵심어 ' + res.hit.length + '개가 들어갔어요. 빠진 말: ', 'Good! ' + res.hit.length + ' key words are in. Missing: ') + res.miss.join(', '),
           try: T('핵심어가 조금 부족해요. 아래 힌트 낱말을 넣어 다시 써 볼까요?', 'A few key words are missing. Try again with the hint words.'),
           short: T('세 낱말 이상 영어로 써 주세요.', 'Please write at least three English words.'),
-          korean: T('영어로만 써 주세요. (우리말은 위 해석에서 볼 수 있어요)', 'Please write in English only.'),
-          copy: T('위 글의 문장을 거의 그대로 옮겨 썼어요. 우리말 뜻을 보고 내 말로 바꿔 써 볼까요? (어려우면 «모범 문장 보기»)', 'This is almost the same as a sentence in the text. Try saying it in your own words. (Stuck? Tap “Show model sentence”.)'),
+          korean: T('영어로만 써 주세요.', 'Please write in English only.'),
+          copy: T('핵심 문장을 그대로 옮겼어요 — 표시된 낱말을 바꿔서 써 봐요', 'You copied the key sentence as-is — change the marked word.'),
           list: T('힌트 낱말만 늘어놓았어요. 낱말을 이어서 문장으로 써 주세요. (누가 + 무엇을 했다)', 'You only listed the hint words. Please join them into a sentence.')
         }[res.verdict];
         fb = '<p class="rl-fb ' + (res.verdict === 'great' || res.verdict === 'good' ? 'ok' : 'no') + '">' + esc(msg) + '</p>';
       }
-      s3 = '<section class="rl-step' + (sumDone ? ' fin' : ' cur') + '"><h3>③ ' + esc(T('핵심을 영어 한 문장으로', 'Write the main idea in one sentence')) + (sumDone ? ' ✅' : '') + '</h3>' +
-        '<p class="rl-q">' + esc(T('위 문장을 베끼지 말고, 이 우리말을 내 말로 영어로 써 보세요: ', 'Do not copy from the text. Write this in your own English words: ')) + '<b>' + esc(p.summary.ko) + '</b></p>' +
+      s3 = '<section class="rl-step' + (sumDone ? ' fin' : ' cur') + '"><h3>③ ' + esc(T('핵심문장 응용해서 쓰기', 'Adapt the key sentence')) + (sumDone ? ' ✅' : '') + '</h3>' +
+        '<p class="rl-q">' + esc(T('핵심문장의 구조와 시제는 그대로 두고, 표시된 요소 하나만 바꿔 써 보세요.', 'Keep the sentence structure and tense. Change only the indicated element.')) + '</p>' +
+        '<p class="rl-q">' + esc(T('핵심문장: ', 'Key sentence: ')) + '<span class="rl-en">' + esc(p.sentences[p.key].en) + '</span></p>' +
+        '<p class="rl-q">' + esc(T('바꿀 표현: ', 'Change: ')) + '<b>' + esc(p.summary.change.from) + ' → ' + esc(p.summary.change.to) + '</b></p>' +
+        '<p class="rl-q">' + esc(T('이 우리말을 영어로 써 보세요: ', 'Write this in English: ')) + '<b>' + esc(p.summary.ko) + '</b></p>' +
         '<div class="rl-chips"><span class="rl-chiplab">' + esc(T('힌트 낱말', 'Hint words')) + '</span>' +
         p.summary.keywords.map(function (k) { return '<span class="rl-chip">' + esc(k) + '</span>'; }).join('') + '</div>' +
         '<label class="rl-sr" for="rlSum">' + esc(T('내 영어 문장', 'My sentence')) + '</label>' +
@@ -538,7 +551,7 @@
         '<div class="rl-bg">🧠 <b>' + esc(T('배경지식', 'Background')) + '</b> ' + esc(L(p.bg)) + '</div>' +
         '<div class="rl-row">' + (canSpeak ? '<button type="button" class="rl-btn" data-act="speak">🔊 ' + esc(T('듣기', 'Listen')) + '</button>' : '') +
           (hasBook(p) ? '<a class="rl-btn rl-primary" href="/story-' + esc(p.id) + '.html">🖼 ' + esc(T('그림 동화책으로 읽기 (도장 6개 +10P · 하루 2권까지)', 'Read as a picture book (6 stamps = +10P · up to 2 books a day)')) + '</a>' : '') +
-          '<button type="button" class="rl-btn" data-act="ko" aria-pressed="' + view.showKo + '">🇰🇷 ' + esc(view.showKo ? T('해석 숨기기', 'Hide Korean') : T('해석 보기', 'Show Korean')) + '</button></div>' +
+          '</div>' +
         passageHtml(p, !keyDone) + words +
       '</article>' + s1 + s2 + s3 + end;
   }
@@ -563,7 +576,7 @@
         '<span class="rl-pos">' + (d.i + 1) + ' / ' + d.list.length + '</span></div>' +
       '<article class="rl-read"><h2>' + esc(p.title.en) + '</h2>' +
         '<div class="rl-row">' + (canSpeak ? '<button type="button" class="rl-btn" data-act="speak">🔊 ' + esc(T('듣기', 'Listen')) + '</button>' : '') +
-        '<button type="button" class="rl-btn" data-act="ko" aria-pressed="' + view.showKo + '">🇰🇷 ' + esc(view.showKo ? T('해석 숨기기', 'Hide Korean') : T('해석 보기', 'Show Korean')) + '</button></div>' +
+          '</div>' +
         passageHtml(p, false) + '</article>' +
       '<section class="rl-step cur"><h3>' + esc(T('중심 내용은?', 'Main idea?')) + '</h3><div class="rl-opts">' +
         order.map(function (oi) {
@@ -571,7 +584,7 @@
           if (answered && oi === p.main.answer) cls += ' ok';
           else if (d.picked === oi && oi !== p.main.answer) cls += ' no';
           return '<button type="button" class="' + cls + '" data-act="dmain" data-o="' + oi + '"' + (answered ? ' disabled' : '') + '><span class="rl-en">' + esc(o.en) + '</span>' +
-            (view.showKo || p.stage <= 2 ? '<span class="rl-ko">' + esc(o.ko) + '</span>' : '') + '</button>';
+            '</button>'; // 보기엔 해석 없음(위와 같음)
         }).join('') + '</div>' +
         (answered ? '<p class="rl-fb ok">' + esc(L(p.main.why)) + '</p><p class="rl-fb">🔑 ' + esc(T('핵심 문장: ', 'Key sentence: ')) + esc(p.sentences[p.key].en) + '</p>' +
           '<button type="button" class="rl-btn rl-primary" data-act="dnext">' + esc(T('다음 ▶', 'Next ▶')) + '</button>' :
@@ -585,7 +598,7 @@
     var op = byId(id);
     // 읽고 돌아오면 그 글이 고른 글로 남는다(목록 위치를 잃지 않게)
     if (op) { state.stage = op.stage; filt.sel = id; save(); }
-    view = { mode: 'read', id: id, drill: null, showKo: view.showKo, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
+    view = { mode: 'read', id: id, drill: null, keyWrong: 0, mainWrong: 0, keyPicked: null, mainPicked: null, sumResult: null };
     render();
     try { root.scrollIntoView({ block: 'start' }); } catch (e) {}
   }
@@ -607,6 +620,8 @@
       render(); return;
     }
     if (act === 'sel') {
+      // Native links open the picture book from both its thumbnail and title.
+      if (t.getAttribute('href')) return;
       filt.sel = t.getAttribute('data-id'); render();
       // 폰에서는 상세가 목록 아래라, 고르면 상세로 옮겨 준다
       var det = document.getElementById('rlDetail');
@@ -621,7 +636,6 @@
     }
     if (act === 'open') { openPassage(t.getAttribute('data-id')); return; }
     if (act === 'list') { view.mode = 'list'; view.id = null; render(); return; }
-    if (act === 'ko') { view.showKo = !view.showKo; render(); return; }
     if (act === 'speak') {
       var sp = view.mode === 'drill' ? view.drill.list[view.drill.i] : p;
       if (sp) speak(sp.sentences.map(function (s) { return s.en; }).join(' '), sp.stage);
@@ -629,7 +643,7 @@
     }
     if (act === 'drill') {
       var seed = new Date().toISOString().slice(0, 10) + ':' + state.stage + ':' + Math.floor(Date.now() / 60000);
-      view = { mode: 'drill', id: null, showKo: false, drill: { list: RLCore.pickDrill(PASSAGES, state.stage, state.prog, seed), i: 0, picked: null, wrong: 0, revealed: false, first: 0 } };
+      view = { mode: 'drill', id: null, drill: { list: RLCore.pickDrill(PASSAGES, state.stage, state.prog, seed), i: 0, picked: null, wrong: 0, revealed: false, first: 0 } };
       render(); return;
     }
     if (act === 'key' && p) {

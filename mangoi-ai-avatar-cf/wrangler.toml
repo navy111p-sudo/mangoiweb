@@ -13,5 +13,21 @@ binding = "AI"
 directory = "./public"
 binding = "ASSETS"
 
-# 시크릿(대시보드/CLI로 이미 등록되어 배포 간 유지됨 — 여기에 값 넣지 말 것):
-#   TYPECAST_API_KEY, TYPECAST_VOICE_ID, TYPECAST_VOICE_ID_STUDENT
+# 🔁 음성 캐시(R2) — /api/tts 가 같은 문장은 한 번만 Azure 로 만들고 이후엔 무료로 재생합니다.
+#    월별 Azure 사용량(usage/YYYY-MM.json)도 여기 둡니다(/api/tts/usage).
+#    버킷은 2026-10-26 생성됨(Cloudflare 계정, ENAM). 없으면 배포가 실패합니다.
+[[r2_buckets]]
+binding = "TTS_CACHE"
+bucket_name = "mangoi-avatar-tts-cache"
+
+# 일반 변수 — ⛔ 대시보드에서 «변수»(비밀 아님)로 넣으면 다음 자동 배포(main push)가
+#    이 파일 내용으로 덮어써 사라집니다(2026-10-26 실측: 대시보드 노란 경고). 그래서 여기 적습니다.
+#    지역은 비밀이 아닙니다. Azure 포털 › mangoi-speech › 키 및 엔드포인트 › 위치/지역 과 같아야 합니다.
+[vars]
+AZURE_SPEECH_REGION = "koreacentral"
+
+# 시크릿(대시보드/CLI로 «비밀» 로 등록 — 배포 간 유지됨, 여기에 값 넣지 말 것):
+#   AZURE_SPEECH_KEY                        ← /api/tts(운영비서 한국어 음성). Azure Speech «키 1»
+#   (선택) AZURE_VOICE_KO, AZURE_VOICE_KO_OPS, AZURE_VOICE_EN
+#   TTS_RELAY_URL, TTS_RELAY_KEY            ← /api/tts-free 한국어 구글 음성 KR 릴레이
+#   ⛔ TYPECAST_* 는 2026-10-26 부터 안 씁니다(비용 5배 · 403 차단). 대시보드에 남아 있어도 무해.

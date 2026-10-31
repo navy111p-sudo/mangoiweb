@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "webtoon",
     "cover": "Jun, a boy with short black hair and a blue backpack, and Mina, a girl with two braids and a red shirt, sit together at a school lunch table, smiling and talking.",
     "scenes": {
       "1": "Jun, a boy with short black hair and a blue backpack, sits alone at a long lunch table, and Mina, a girl with two braids and a red shirt, walks up to him holding her lunch tray.",
       "2": "Jun, a boy with short black hair and a blue backpack, smiles widely at the lunch table while Mina, a girl with two braids and a red shirt, sits next to him and smiles back."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

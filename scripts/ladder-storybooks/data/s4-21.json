@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write what the brain does during sleep. (e.g. because the brain replays what we learned)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "A teenager sound asleep in bed in a dim bedroom lit by soft moonlight, a closed textbook and notebook stacked neatly on the nightstand beside a glass of water",
     "scenes": {
       "1": "A detailed anatomical model of the human brain on a desk, opened to show the curved, seahorse-shaped hippocampus deep inside, under soft lamp light",
       "2": "A sleep research lab at night where a volunteer sleeps in a bed wearing small sensor wires on the head, while a researcher watches wavy brain-wave lines on a monitor"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

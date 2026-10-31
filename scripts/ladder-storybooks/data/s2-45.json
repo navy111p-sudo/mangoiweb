@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because the footprints are small)"
   },
   "img": {
+    "style": "comic",
     "cover": "In a quiet museum hall, a boy with neat black hair in a brown checked coat and a red scarf, holding a magnifying glass opens a metal air vent low on the wall, and inside a fluffy gray cat with long fur lies on a pile of keys, coins, and a big sparkling blue diamond, while a guard in a blue uniform and a bald director in a gray suit stare with their mouths open.",
     "scenes": {
       "1": "On the shiny museum floor, a boy with neat black hair in a brown checked coat and a red scarf, holding a magnifying glass kneels beside small wet footprints, a long gray hair, and a tiny piece of fish, while a guard in a blue uniform points at a bald director in a gray suit whose face turns red.",
       "2": "In the bright museum hall, a boy with neat black hair in a brown checked coat and a red scarf, holding a magnifying glass, happily follows a line of small wet paw prints across the shiny floor to a metal air vent low on the wall, where the fluffy gray tail of a cat peeks out."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

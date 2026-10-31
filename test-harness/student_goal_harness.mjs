@@ -239,7 +239,7 @@ console.log('⑤ 학생 «오늘의 A.i 학습» · 학부모 대시보드');
   ok('학부모 대시보드: 비밀번호 게이트 «뒤» 에서 목표를 읽는다', pd > 0 && pw > pd && pg > pw);
   { const rj = st.indexOf('return json({', st.indexOf('const parentRequest', pd) > 0 ? st.indexOf('const parentRequest', pd) : pg);
     const rb = rj > 0 ? bodyFrom(st, rj) : '';
-    ok('학부모 응답에 goal 칸', /\n\s+goal,\n/.test(rb) && /generated_at: Date\.now\(\)/.test(rb), rb.slice(0, 60)); }
+    ok('학부모 응답에 goal 칸', /\r?\n\s+goal,\r?\n/.test(rb) && /generated_at: Date\.now\(\)/.test(rb), rb.slice(0, 60)); }
 }
 
 /* ── ⑥ 화면 ── */

@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "webtoon",
     "cover": "In a cozy kitchen, a boy with short black hair in a red hoodie and blue jeans finishes a glass of strange glowing blue juice, and with a big puff of blue sparkles his body starts to turn see-through from his feet up.",
     "scenes": {
       "1": "On a sunny school playground, a group of friends play ball together, while a faint, see-through outline of a boy with short black hair in a red hoodie and blue jeans stands alone at the side holding a cookie and looking sad.",
       "2": "In a bright home in the morning, a boy with short black hair in a red hoodie and blue jeans can be seen clearly again, and Mom gives him a big warm hug while two of his friends wave happily at the door."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

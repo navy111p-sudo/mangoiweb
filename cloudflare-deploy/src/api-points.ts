@@ -10,6 +10,7 @@ import { checkAdminSession, getAdminActor, resolveOwnerScope } from './auth-admi
 import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook } from './giftishow-client';
 import type { MangoEnv } from './api-mango';
+import { isPrivateDubbingKey } from './api-dubbing';
 // 🪙 포인트 정책 정본(2026-08-07 사장님 승인 7가지) — 금액·상한·유효기간·교환최소는 여기 한 곳에서만 정한다
 import { POINT_POLICY, checkEarnAllowed, syncApprovedRuleAmounts, praiseCountForRoom } from './point-policy';
 /* 🍯 맛보기 상한 판정 정본 — 라우트는 «부르기만» 한다(하니스가 그 함수를 실제로 돌린다) */
@@ -606,7 +607,7 @@ export async function handlePointsApi(
         try {
           const ai0 = (env as any).AI;
           let audioBuf: ArrayBuffer | null = null;
-          if (b.recording_id && (env as any).RECORDINGS) {
+          if (b.recording_id && !isPrivateDubbingKey(String(b.recording_id)) && (env as any).RECORDINGS) {
             const obj: any = await (env as any).RECORDINGS.get(String(b.recording_id));
             if (obj) audioBuf = await obj.arrayBuffer();
           } else if (b.recording_url) {

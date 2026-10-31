@@ -292,10 +292,16 @@
     "moreEn": "One more step: after «because», use a fact from the text to make your reason clear. (e.g. because many stars have planets)"
   },
   "img": {
+    "style": "photo",
     "cover": "A child lying on the grass on a clear night, seen from behind, looking up at a sky full of stars with the bright, cloudy band of the Milky Way stretching overhead",
     "scenes": {
       "1": "A rocky planet with blue oceans, green land and white swirling clouds circling close to a glowing orange star, with many distant stars scattered across black space",
       "2": "A row of giant white radio telescope dishes standing in a wide desert at dusk, all tilted up toward the same part of the purple sky"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "vintage",
     "cover": "In a dusty attic full of old wooden trunks, a girl with a long brown braid in a red cap, a yellow jacket and green boots holds up a crinkly old paper map with a big red mark and shouts happily, as warm sunlight shines through a small round window.",
     "scenes": {
       "1": "Near an old twisty tree and a little wooden bridge over a stream, a girl with a long brown braid in a red cap, a yellow jacket and green boots digs with a small shovel under a big gray rock, and the corner of an old wooden box peeks out of the dirt.",
       "2": "Sitting on the grass beside a big gray rock, a girl with a long brown braid in a red cap, a yellow jacket and green boots smiles warmly as she holds old family photos from an open wooden box, with a folded paper note on her lap."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

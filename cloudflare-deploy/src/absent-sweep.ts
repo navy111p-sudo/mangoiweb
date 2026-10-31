@@ -28,6 +28,7 @@ import { sendEmail, emailLayout } from './email';
 import { pushToTeacher } from './teacher-push';   // 🔔 강사 웹푸시(정본) — 카카오는 필리핀 번호에 안 닿는다(2026-09-14)
 import { applyRoomOverrides } from './class-room-override';   // 🚪 지정된 회의방의 출석을 봐야 급여가 0원이 되지 않는다
 import { loadHoldRanges, heldOnFor, maybeHoldStudent, autoResumeReturning, maybeSendHoldDigest } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25)
+import { runTeacherMissingAlerts } from './teacher-missing-alert';   // 🧑‍🏫 학생은 왔는데 강사가 없다 → 강사 먼저, 안 닿으면 운영자(2026-10-28)
 
 /** 이메일 본문에 학생·강사 이름이 그대로 들어간다 — 태그로 읽히지 않게 막는다. */
 function escapeHtmlAbs(s: any): string {
@@ -47,6 +48,7 @@ export interface AbsentSweepResult {
   owner_mode?: boolean;        // 운영자 요약 문자 모드였는지 (기본 OFF)
   owner_sms?: any;             // 운영자 요약 문자 결과
   hold_digest?: any;           // ⏸ 아침 보류 요약 결과(창 밖이면 why=outside_window)
+  teacher_missing?: any;       // 🧑‍🏫 학생은 왔는데 강사가 없는 수업 처리 결과(teacher-missing-alert.ts)
   details: any[];
   dry?: boolean;
 }
@@ -208,6 +210,7 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
   const holdRanges = await loadHoldRanges(env);
 
   const newlyAbsent: any[] = [];
+  const studentJoined: any[] = [];   // 🧑‍🏫 학생은 들어온 수업 — 아래에서 «강사가 있나» 를 본다
   for (const c of candidates) {
     if (heldOnFor(holdRanges, c.user_id, todayStr)) { result.details.push({ room_id: c.room_id, status: 'absence_hold' }); continue; }
     // ① 학생이 이미 입장했으면 정상 — attendance 는 /api/attendance/join 이 기록
@@ -215,7 +218,7 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
       const att = await env.DB.prepare(
         `SELECT 1 FROM attendance WHERE room_id = ? AND (user_id = ? OR role = 'student') LIMIT 1`
       ).bind(c.room_id, c.user_id || '').first();
-      if (att) { result.details.push({ room_id: c.room_id, status: 'joined' }); continue; }
+      if (att) { result.details.push({ room_id: c.room_id, status: 'joined' }); studentJoined.push(c); continue; }
     } catch { continue; } // attendance 조회 실패 시 오탐 알림 금지 — 스킵
     // ② 이미 기록/알림된 세션이면 스킵 (room_id 에 날짜 포함 = 세션당 1회 보장)
     try {
@@ -226,6 +229,14 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
     } catch {}
     newlyAbsent.push(c);
   }
+
+  /* 🧑‍🏫 (2026-10-28 사장님 지시) 학생은 들어왔는데 강사가 없는 수업 — 강사에게 먼저 알리고,
+     아무 데도 안 닿으면 운영자에게 문자 1통. 정본·근거는 src/teacher-missing-alert.ts 머리말.
+     ⚠️ 아래 «결석 없음» 조기 반환보다 «앞» 이어야 한다 — 학생이 다 들어온 날에만 도는 일이라
+        뒤에 두면 한 번도 안 돈다. ⚠️ 던지지 않는다(그 함수가 안에서 다 받는다). */
+  try {
+    result.teacher_missing = await runTeacherMissingAlerts(env, studentJoined, now, { dry, findContact: findTeacherContact });
+  } catch (e: any) { result.teacher_missing = { error: String(e?.message || e).slice(0, 120) }; }
 
   if (!newlyAbsent.length) return result;
 

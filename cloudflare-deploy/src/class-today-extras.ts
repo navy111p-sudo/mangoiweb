@@ -1,3 +1,4 @@
+import { enrichTeacherRoomPresence } from './teacher-room-presence';
 /* ═══════════════════════════════════════════════════════════════════════════
    📋 «오늘 수업» 줄에 붙이는 일곱 칸 — 날짜 · 강사 입장 시각 · 결제 유형 · 일정 ·
       지난 수업 평가 · 오늘 평가 · 학생 출결          (2026-09-23 매니저 요청)
@@ -139,8 +140,19 @@ export function briefEval(r: any): EvalBrief {
   };
 }
 
+/** 방 번호가 말하는 수업 날짜 — 결정론 방 번호(class-<예약>-<YYYYMMDD>)일 때만, 아니면 ''. */
+export function roomYmd(roomId: any): string {
+  const m = /^class-\d+-(\d{4})(\d{2})(\d{2})$/.exec(String(roomId || '').trim());
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+}
+
 /** 한 수업의 «오늘 평가» 와 «지난 평가» 를 고른다.
- *  오늘 = 같은 방 번호, 없으면 그 날짜(KST)에 쓴 것 · 지난 = 이 수업 시작 전에 쓴 것 중 가장 최근. */
+ *  오늘 = 같은 방 번호, 없으면 그 날짜(KST)에 쓴 것 · 지난 = 수업일이 이 날짜보다 앞인 것 중 가장 최근(아래).
+ *  (dayStartTs 는 옛 호출부와 맞추려고 남긴 인자다 — 판정은 날짜 문자열로 한다.)
+ *  ➕ (2026-10-28) «지난 수업» 방 번호로 «나중에» 쓴 것(오늘 수업 표의 「➕ 지난 피드백 추가」 —
+ *     js/eval-quick-view.js create)도 지난 평가다 — 쓴 시각이 오늘이어도 방 날짜가 이 수업보다 앞이면.
+ *     ⚠️ 이 규칙이 없으면 그 글은 «오늘» 도 «지난» 도 아니라 어느 칸에도 안 보인다(방 번호가 있어 오늘의
+ *        «방 없는 글» 규칙에도 안 걸린다). 수업 다음 날 쓴 강사 일지도 같은 이유로 안 보이던 것이 함께 풀린다. */
 export function pickEvals(evals: any[], roomId: string, dateStr: string, dayStartTs: number)
   : { today: any | null; last: any | null } {
   let today: any = null;
@@ -149,11 +161,16 @@ export function pickEvals(evals: any[], roomId: string, dateStr: string, dayStar
     const c = Number(e?.created_at) || 0;
     if (c && kstYmd(c) === dateStr && !String(e?.room_id || '').trim()) { today = e; break; }
   }
-  let last: any = null;
-  for (const e of evals) {   // evals 는 created_at 내림차순
+  // 지난 = «수업일» 이 이 수업 날짜보다 앞인 것 중 가장 늦은 수업일. 수업일 = 방 번호의 날짜, 없으면 쓴 날(KST).
+  //   방이 없는 글은 예전 규칙(이 날짜 전에 쓴 것)과 똑같다 — kstYmd(c) < dateStr ⟺ c < dayStartTs.
+  //   같은 수업일이면 나중에 쓴 것(evals 는 created_at 내림차순이라 먼저 만난 것).
+  let last: any = null, lastDay = '';
+  for (const e of evals) {
     if (e === today) continue;
     const c = Number(e?.created_at) || 0;
-    if (c && c < dayStartTs) { last = e; break; }   // 이 수업 «날짜 전» 에 쓴 것 중 가장 최근
+    if (!c) continue;
+    const d = roomYmd(e?.room_id) || kstYmd(c);
+    if (d < dateStr && (!last || d > lastDay)) { last = e; lastDay = d; }
   }
   return { today, last };
 }
@@ -187,6 +204,39 @@ export function weekDaysFor(rows: any[], weekDates: string[],
   return out;
 }
 
+/** ➕ 지난 수업 회차 — 이 수업 날짜 «앞» days 일 안에서 그 학생 예약표가 수업을 두는 날과 «그날 방 번호».
+ *  「➕ 지난 피드백 추가」(js/eval-quick-view.js create)가 이 목록에서 고르게 한다(2026-10-28).
+ *  ⚠️ 방 번호는 «그날 걸린 예약 행» 의 id 로 만든다 — 반복 수업은 «요일당 1행»(api-admin.ts 등록부)이라
+ *     오늘 방의 예약 번호를 빌려 쓰면 월·수·금 학생의 월요일 방이 «수요일 예약 번호 + 월요일 날짜» 로 틀린다
+ *     (Codex 리뷰 지적 — 그러면 그날 실제 방의 «일지 씀» 이 안 바뀌고 중복 일지를 부른다).
+ *  규칙은 week_days(weekDaysFor)와 같다: 날짜 지정 행은 그 날짜, 아니면 요일. 가장 최근부터 최대 max 개.
+ *  ⚠️ 휴강·연기는 모른다(예약표만 본다) — 그래서 «고르게» 하고 짐작해 저장하지 않는다. 하니스가 그대로 돌린다. */
+export function recentClassesFor(rows: any[], dateStr: string,
+  dowMatches: (raw: any, target: number) => boolean, days = 14, max = 6)
+  : { date: string; room_id: string; time: string | null }[] {
+  const out: { date: string; room_id: string; time: string | null }[] = [];
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || ''));
+  if (!m) return out;
+  const base = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  for (let k = 1; k <= days && out.length < max; k++) {
+    const t = base - k * 86400000;
+    const ymd = new Date(t).toISOString().slice(0, 10);
+    const dow = new Date(t).getUTCDay();   // 0=일 — weekDaysFor 와 같은 기준
+    const hits: { date: string; room_id: string; time: string | null }[] = [];
+    for (const r of rows || []) {
+      const id = Number(r?.id);
+      if (!Number.isInteger(id) || id <= 0) continue;
+      const d = String(r?.scheduled_date || '').slice(0, 10);
+      const raw = r?.day_of_week;
+      const hit = d ? d === ymd : (raw != null && raw !== '' && dowMatches(raw, dow));
+      if (hit) hits.push({ date: ymd, room_id: `class-${id}-${ymd.replace(/-/g, '')}`, time: r?.start_time ? String(r.start_time).slice(0, 5) : null });
+    }
+    hits.sort((a, b) => String(b.time || '').localeCompare(String(a.time || '')));   // 같은 날 두 수업이면 늦은 것부터
+    for (const h of hits) if (out.length < max) out.push(h);
+  }
+  return out;
+}
+
 /** 망고아이 방이 없는 줄인가 — 관리자 목록은 source='cafe24', 강사 포털은 source='lms'(방 번호 c24-…). */
 export function isNoRoomRow(s: any): boolean {
   const src = String(s?.source || '');
@@ -198,7 +248,7 @@ export function isNoRoomRow(s: any): boolean {
 /** opts.evals=false — 평가 내용을 싣지 않는다(지사·대리점. 2026-09-23 사장님 지시).
  *  ⚠️ 기본값은 true(강사 포털·본사). 부르는 쪽이 «숨길 사람» 을 정한다. */
 export async function enrichClassesToday(env: any, sessions: any[], dateStr: string, nowMs: number,
-  opts: { evals?: boolean; dowMatches?: (raw: any, target: number) => boolean } = {}): Promise<void> {
+  opts: { evals?: boolean; attendanceOnly?: boolean; dowMatches?: (raw: any, target: number) => boolean } = {}): Promise<void> {
   const withEvals = opts.evals !== false;
   for (const s of sessions) {
     s.class_date = dateStr;
@@ -271,6 +321,9 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
     s.attendance = judgeStudentAttendance('mangoi', Number(s.start_ts) || 0, String(s.status || ''), first, unidentified);
   }
 
+  if (opts.attendanceOnly) return;
+  // Cross-room account details are HQ-only; teachers omit evals and organizations pass false.
+  if (opts.evals === true) await enrichTeacherRoomPresence(env, sessions, dateStr, nowMs);
   // ③ 결제 유형
   try {
     const centerTypes = new Map<string, string | null>();
@@ -313,7 +366,7 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
   if (wd && opts.dowMatches && uids.length) {
     try {
       const rows = await selectInChunks<any>(db, uids, (ph) =>
-        `SELECT user_id, schedule_kind, scheduled_date, day_of_week FROM class_schedules
+        `SELECT id, user_id, schedule_kind, scheduled_date, day_of_week, start_time FROM class_schedules
           WHERE ${SCHED_SUMMARY_WHERE} AND user_id IN (${ph})`);
       const byUid = new Map<string, any[]>();
       for (const r of rows) {
@@ -325,6 +378,7 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
         const u = String(s.student_uid || '').trim(); if (!u) continue;
         s.week_days = weekDaysFor(byUid.get(u) || [], wd, opts.dowMatches);
         s.week_dates = wd;
+        s.prev_classes = recentClassesFor(byUid.get(u) || [], dateStr, opts.dowMatches);   // ➕ 지난 피드백 추가용
       }
     } catch (e: any) { console.warn('[classes/today] week days:', e?.message); }
   }
@@ -350,3 +404,4 @@ export async function enrichClassesToday(env: any, sessions: any[], dateStr: str
     } catch (e: any) { console.warn('[classes/today] evaluations:', e?.message); }
   }
 }
+

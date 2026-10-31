@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «I want to», write a verb (share, draw, read). After «because», write who + what."
   },
   "img": {
+    "style": "fairytale",
     "cover": "In a moonlit bedroom, a girl with short black hair and bangs in yellow pajamas with blue stars kneels on her bed and holds out a crayon drawing of a blue sea with jumping whales to a small round gray creature with big shiny eyes and long fuzzy ears, whose ears begin to glow with rainbow colors, while an empty glass jar lies on the blanket.",
     "scenes": {
       "1": "At midnight in a dark bedroom, a girl with short black hair and bangs in yellow pajamas with blue stars peeks out from under her blanket, while a small round gray creature with big shiny eyes and long fuzzy ears climbs in through the open window carrying an empty glass jar.",
       "2": "In the moonlit bedroom, a girl with short black hair and bangs in yellow pajamas with blue stars holds the empty glass jar with both hands, while a small round gray creature with big shiny eyes and long fuzzy ears sits on the floor and cries big shiny tears."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

@@ -305,9 +305,11 @@
   }
 
   function micConstraints(officeOn, id) {
+    var noise = true;
+    try { noise = localStorage.getItem('mangoi_vc_noise') !== '0'; } catch (_) {}
     var a = {
       echoCancellation: true,
-      noiseSuppression: true,
+      noiseSuppression: noise,
       /* ① 사무실 모드에서는 자동 게인을 끈다 — 말을 쉴 때 옆자리 소리를 키우는 주범이다. */
       autoGainControl: !officeOn,
       channelCount: 1
@@ -545,8 +547,14 @@
     busy = false;
   }
 
+  var audioChanges = Promise.resolve();
+  function queueAudioChange(change) {
+    var next = audioChanges.then(change, change);
+    audioChanges = next.catch(function () {}); // One failed request must not block later controls.
+    return next;
+  }
   window.vcSetOfficeMode = function (want) {
-    return want ? enable(true) : disable();   // 이 경로는 «사람이 눌렀다» 뿐이다(스위치·원격)
+    return queueAudioChange(function () { return want ? enable(true) : disable(); });
   };
   window.vcOfficeModeOn = function () { return on; };
   /* 📊 1분 요약용 — 부를 때마다 비운다. 꺼져 있으면 on:false 만(«모름» 을 0% 로 적지 않게).
@@ -566,13 +574,17 @@
   function rewrap(name) {
     var orig = window[name];
     if (typeof orig !== 'function' || orig.__officeWrapped) return;
-    var wrapped = async function () {
-      var wasOn = on;
-      if (wasOn) { teardown(); on = false; }   // 우리 체인을 먼저 접는다(그쪽이 옛 트랙을 stop 한다)
-      var r;
-      try { r = await orig.apply(this, arguments); }
-      finally { if (wasOn) { try { await enable(false); } catch (e) {} } }   // 이어 가는 것 — 저장값을 새로 쓰지 않는다
-      return r;
+    var wrapped = function () {
+      var self = this, args = arguments;
+      return queueAudioChange(async function () {
+        var wasOn = on;
+        // Restore the physical input before reading deviceId or changing constraints.
+        if (wasOn) await disable(true);
+        var r;
+        try { r = await orig.apply(self, args); }
+        finally { if (wasOn) { try { await enable(false); } catch (e) {} } }
+        return r;
+      });
     };
     wrapped.__officeWrapped = true;
     window[name] = wrapped;
@@ -580,7 +592,8 @@
 
   function bootWraps() {
     rewrap('vcSetNoiseSuppression');
-    rewrap('vcSetMicDevice');
+    // vcSetMicDevice delegates to the global vcSwitchMic. Queue that operation once;
+    // wrapping both would make an outer request wait for its own queued inner call.
     /* 🔴 vcSwitchMic 은 «직접» 불리는 경로가 둘이라 반드시 감싸야 한다 —
           index.html 의 <select id="vc-mic-select" onchange="vcSwitchMic(...)"> 와
           idx-main.js 의 강사→학생 「장치 도우미」 원격 전환.

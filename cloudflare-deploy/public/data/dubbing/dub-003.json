@@ -1,5 +1,5 @@
 {
-  "_comment": "A.i영화더빙 dub-003 (3편). 연동 규격: docs/A.i영화더빙_화면연동_설명서.md. 등장인물 = 민호(한국 남자아이)·자라(흑인 여자아이)·코코(원숭이), 재규어 자야는 대사 없음 — 편마다 다양한 인종의 아이들(2026-10-19 사장님). 영상 = 장면 그림 12장(장면당 2장)을 천천히 당기고 미는 움직임으로 구워 장면마다 40초로 이어 붙임(우리 서버 /media/dubbing/dub-003/, 소리 없음). 움직이는 AI 영상으로 바꿀 때는 같은 이름의 mp4 를 갈아 끼우되 ?v= 를 붙이세요(미디어 7일 캐시). 대사 36줄 = 장면 6 × 캐릭터 3 × 2줄, 3~8단어. 입 모양 시각은 없음 → timing=provisional(차례 모드). 원어민 음성 파일은 아직 없어 캐릭터별 AI 목소리(TTS)로 낸다.",
+  "_comment": "A.i영화더빙 dub-003 (3편). 연동 규격: docs/A.i영화더빙_화면연동_설명서.md. 등장인물 = 민호(한국 남자아이)·자라(흑인 여자아이)·코코(원숭이), 재규어 자야는 대사 없음 — 편마다 다양한 인종의 아이들(2026-10-19 사장님). 영상 = 장면 그림 12장(장면당 2장)을 시작·끝 프레임으로 Kling 3.0 이 움직인 클립 18개(장면마다 10초+15초+15초, 끊김 없이 이어지게 끝 프레임=다음 시작 프레임)를 이어 붙여 장면마다 약 40초(우리 서버 /media/dubbing/dub-003/, 소리 없음, 2026-10-20 ?v=2 로 교체 — 출처는 content/dubbing/dub-003/video-sources.json). 다시 갈아 끼우면 ?v= 번호를 반드시 올리세요(?v= 붙은 주소는 1년 immutable). 대사 36줄 = 장면 6 × 캐릭터 3 × 2줄, 3~8단어. 입 모양 시각은 없음 → timing=provisional(차례 모드). 원어민 음성 파일은 아직 없어 캐릭터별 AI 목소리(TTS)로 낸다.",
   "id": "dub-003",
   "title": {
     "en": "Adventure with Friends! — Jaya the Jungle Jaguar",
@@ -8,9 +8,10 @@
   "level": 1,
   "status": "preview",
   "timing": "provisional",
+  "palette": "jungle",
   "note": {
-    "ko": "원어민 목소리는 임시 AI 음성이에요 · 영상은 장면 그림이 천천히 움직이는 미리보기예요 · 대사는 장면 순서대로 차례차례 나와요",
-    "en": "Native voices are temporary AI voices · the video is a preview made from moving scene pictures · lines come one by one in scene order"
+    "ko": "원어민 목소리는 임시 AI 음성이에요 · 대사는 장면 순서대로 차례차례 나와요",
+    "en": "Native voices are temporary AI voices · lines come one by one in scene order"
   },
   "characters": {
     "minho": {
@@ -54,7 +55,33 @@
         "en": "Into the Jungle"
       },
       "arc": "ki",
-      "video": "/media/dubbing/dub-003/scene-1.mp4",
+      "mood": "bright",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "birds"
+        },
+        {
+          "line": 2,
+          "when": "after",
+          "name": "birds"
+        },
+        {
+          "line": 3,
+          "name": "squeak"
+        },
+        {
+          "line": 5,
+          "when": "after",
+          "name": "rustle"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "whoosh"
+        }
+      ],
+      "video": "/media/dubbing/dub-003/scene-1.mp4?v=2",
       "poster": "/media/dubbing/dub-003/scene-1.jpg",
       "durationSec": 40,
       "videoAudio": "mute",
@@ -118,7 +145,28 @@
         "en": "Swinging on Vines"
       },
       "arc": "seung",
-      "video": "/media/dubbing/dub-003/scene-2.mp4",
+      "mood": "bright",
+      "sfx": [
+        {
+          "line": 1,
+          "name": "rustle"
+        },
+        {
+          "line": 4,
+          "when": "after",
+          "name": "swing"
+        },
+        {
+          "line": 5,
+          "name": "whoosh"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "clap"
+        }
+      ],
+      "video": "/media/dubbing/dub-003/scene-2.mp4?v=2",
       "poster": "/media/dubbing/dub-003/scene-2.jpg",
       "durationSec": 40,
       "videoAudio": "mute",
@@ -182,7 +230,31 @@
         "en": "The Big Jaguar"
       },
       "arc": "seung",
-      "video": "/media/dubbing/dub-003/scene-3.mp4",
+      "mood": "mystery",
+      "sfx": [
+        {
+          "line": 1,
+          "name": "rustle"
+        },
+        {
+          "line": 2,
+          "name": "roar"
+        },
+        {
+          "line": 2,
+          "mood": "tense"
+        },
+        {
+          "line": 3,
+          "mood": "sad"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "chime"
+        }
+      ],
+      "video": "/media/dubbing/dub-003/scene-3.mp4?v=2",
       "poster": "/media/dubbing/dub-003/scene-3.jpg",
       "durationSec": 40,
       "videoAudio": "mute",
@@ -246,7 +318,29 @@
         "en": "Helping Jaya"
       },
       "arc": "jeon",
-      "video": "/media/dubbing/dub-003/scene-4.mp4",
+      "mood": "calm",
+      "sfx": [
+        {
+          "line": 3,
+          "name": "drumroll",
+          "gain": 0.7
+        },
+        {
+          "line": 3,
+          "when": "after",
+          "name": "pop"
+        },
+        {
+          "line": 4,
+          "when": "after",
+          "name": "clap"
+        },
+        {
+          "line": 5,
+          "name": "purr"
+        }
+      ],
+      "video": "/media/dubbing/dub-003/scene-4.mp4?v=2",
       "poster": "/media/dubbing/dub-003/scene-4.jpg",
       "durationSec": 40,
       "videoAudio": "mute",
@@ -310,7 +404,39 @@
         "en": "The Broken Bridge"
       },
       "arc": "jeon",
-      "video": "/media/dubbing/dub-003/scene-5.mp4",
+      "mood": "tense",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "creak"
+        },
+        {
+          "line": 1,
+          "name": "crash"
+        },
+        {
+          "line": 2,
+          "name": "waves",
+          "gain": 0.7
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "whoosh"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "roar",
+          "gain": 0.6
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "mood": "triumph"
+        }
+      ],
+      "video": "/media/dubbing/dub-003/scene-5.mp4?v=2",
       "poster": "/media/dubbing/dub-003/scene-5.jpg",
       "durationSec": 40,
       "videoAudio": "mute",
@@ -374,7 +500,32 @@
         "en": "Friends Forever"
       },
       "arc": "gyeol",
-      "video": "/media/dubbing/dub-003/scene-6.mp4",
+      "mood": "triumph",
+      "sfx": [
+        {
+          "line": 1,
+          "name": "sparkle"
+        },
+        {
+          "line": 2,
+          "name": "pop"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "clap"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "cheer"
+        },
+        {
+          "at": "end",
+          "name": "fanfare"
+        }
+      ],
+      "video": "/media/dubbing/dub-003/scene-6.mp4?v=2",
       "poster": "/media/dubbing/dub-003/scene-6.jpg",
       "durationSec": 40,
       "videoAudio": "mute",

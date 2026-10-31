@@ -126,6 +126,10 @@ try {
       b.click();
       return true;
     });
+    // Consent is a real UI step introduced after this harness. Decline using the
+    // rendered button; fetch is already stubbed so no consent is written in production.
+    await new Promise(r => setTimeout(r, 300));
+    await page.evaluate(() => document.getElementById('mgc-no')?.click());
     await new Promise(r => setTimeout(r, 1200));
 
     return { clicked, ...(await page.evaluate(() => ({
@@ -181,15 +185,10 @@ try {
   await page.evaluate(() => { document.body.classList.remove('vc-in-call'); });
   r = await run({ reply: { ok: true, sessions: [], current: null, student_gate: 'off' }, role: 'student', name: '테스트학생' });
   check('⑥ 게이트 OFF — 예약 없는 학생은 예전대로 공용방(동작 무변경)', r.roomId === 'mangoi-class', `vcRoomId="${r.roomId}"`);
-  check('⑥ 게이트 OFF — 막는 안내를 띄우지 않는다', r.alerts.length === 0, r.alerts[0] || '');
+  check('⑥ 게이트 OFF — 연습방임을 안내하고 입장 유지', r.inCall && r.alerts.some(a => /공용 연습방|practice room/i.test(a)), r.alerts[0] || '');
 
-  /* ── 페이지 자체가 깨지지 않았는지 ──
-     한 페이지에서 입장을 5번 반복하는 하니스 특성상, 오디오 컨텍스트를 두 번 닫는 등
-     «실사용에서는 안 나는» 정리 잡음이 섞인다. 배선이 끊겼을 때 나오는 오류
-     (ReferenceError / is not a function)만 실패로 본다 — 그게 이 하니스가 잡아야 할 회귀다. */
-  const realErrors = pageErrors.filter(e => /ReferenceError|is not a function|is not defined/.test(e));
-  check('배선 오류 없음(ReferenceError / not a function)', realErrors.length === 0, realErrors[0] || '');
-  if (pageErrors.length) console.log(`  (참고: 무해한 정리 잡음 ${pageErrors.length}건 — ${pageErrors[0].slice(0, 80)})`);
+  // Repeated joins are a supported lifecycle; cleanup exceptions are failures too.
+  check('모든 페이지 런타임 오류 0건', pageErrors.length === 0, pageErrors.join(' | '));
 
 } finally {
   await browser.close();

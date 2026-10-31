@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write a result that keeps the good and lowers the risk. (e.g. so that new medicine is safe for everyone)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "A scientist in blue gloves using a fine pipette to place a tiny drop into a small tube in a modern genetics lab, a glowing twisted DNA double-helix model standing on the bench beside them",
     "scenes": {
       "1": "Rows of healthy young green crop plants growing in a bright research greenhouse, a researcher in a lab coat seen from behind checking the leaves",
       "3": "A group of scientists and doctors seen from behind sitting around a long meeting table in a quiet conference room, discussing seriously with closed folders in front of them"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

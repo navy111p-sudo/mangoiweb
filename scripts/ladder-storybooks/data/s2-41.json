@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «but I can», write a verb + when. (e.g. but I can try again tomorrow)"
   },
   "img": {
+    "style": "anime",
     "cover": "In a dim wooden kitchen lit by a round paper lantern, a small boy with a short black topknot in a dark blue ninja suit with a white belt kneels on the floor and smiles at a fat raccoon curled up asleep on a golden scroll, while a trail of tiny white floury footprints leads to it and two tall students peek in through the doorway.",
     "scenes": {
       "1": "On a moonlit night at a mountain ninja school, tall students in black ninja suits run toward a dark forest holding paper lanterns, while a small boy with a short black topknot in a dark blue ninja suit with a white belt stays in the doorway and stares at an empty wooden stand.",
       "3": "In a sunny wooden hall, an old master with a long gray mustache in a brown robe gently pats the head of a small boy with a short black topknot in a dark blue ninja suit with a white belt, who holds the golden scroll with both hands, while the other students bow and a fat raccoon peeks out from behind a pillar."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

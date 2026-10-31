@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «but I can», add where or how to make your action clear. (e.g. but I can see mummies at a museum)"
   },
   "img": {
+    "style": "vintage",
     "cover": "A shining golden ancient Egyptian coffin with blue and gold stripes and arms crossed over the chest, resting in a dim stone tomb chamber filled with golden chests, statues and furniture, lit by warm candlelight",
     "scenes": {
       "2": "A wooden table in a dim ancient workshop holding a heap of white natron salt crystals, rolls of pale linen cloth strips, and clay jars",
       "3": "A mummy fully wrapped in brown linen strips lying on the bed of a large round hospital CT scanner, with a scientist in a lab coat seen from the side watching a screen that shows the bones inside"
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
     }
   },
   "alt": {

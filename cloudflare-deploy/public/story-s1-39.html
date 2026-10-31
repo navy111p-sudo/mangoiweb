@@ -106,6 +106,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
   <header>
     <h1>The Giant&#39;s Shoe</h1>
     <div class="meta">
+      <span class="art-style" data-style="fairytale" data-ko="🏰 고전 동화 애니메이션" data-en="🏰 Classic fairy-tale animation">🏰 고전 동화 애니메이션</span>
       <span>Step 1 · No. 39</span>
       <span data-ko="약 78단어" data-en="about 78 words">약 78단어</span>
       <span data-ko="5~10분" data-en="5–10 min">5~10분</span>
@@ -115,16 +116,17 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
 
   <div class="stampboard" id="stampBoard" aria-live="polite"></div>
 
-  <figure class="pic cover"><img src="img/story/s1-39-cover.webp" alt="The happy giant gives two kids a ride on his shoulders." width="1024" height="688"></figure>
+  <figure class="pic cover"><img src="img/story/s1-39-cover.webp?v=2" alt="The happy giant gives two kids a ride on his shoulders." width="1024" height="688"></figure>
 
   <section class="page story" id="story">
     <h2><span data-ko="① 읽고 듣기" data-en="① Read &amp; listen">① 읽고 듣기</span> <small id="ttsNote"></small></h2>
-    <p class="howto" data-ko="문장을 누르면 원어민 목소리로 읽어 줍니다. 다음 단계에서는 문장을 «골라» 칠합니다." data-en="Tap a sentence to hear it. In step ② you will tap sentences to highlight them.">문장을 누르면 원어민 목소리로 읽어 줍니다. 다음 단계에서는 문장을 «골라» 칠합니다.</p>
+    <p class="howto" data-ko="문장을 누르거나 «처음부터 듣기» 를 누르면 원어민 목소리로 읽어 줍니다. 모든 문장을 끝까지 들으면 «읽고 듣기» 도장을 받아요." data-en="Tap a sentence or “Listen from the start” to hear it. Hear every sentence to the end to get the Read &amp; listen stamp.">문장을 누르거나 «처음부터 듣기» 를 누르면 원어민 목소리로 읽어 줍니다. 모든 문장을 끝까지 들으면 «읽고 듣기» 도장을 받아요.</p>
     <div class="btns" style="margin-bottom:14px">
       <button class="b" type="button" id="readAll" data-ko="▶ 처음부터 듣기" data-en="▶ Listen from the start">▶ 처음부터 듣기</button>
       <button class="b ghost" type="button" id="stopAll" data-ko="■ 멈추기" data-en="■ Stop">■ 멈추기</button>
     </div>
     <div class="speed" role="group" aria-label="말 속도"><span class="speed-l" data-ko="말 속도" data-en="Speed">말 속도</span><button type="button" class="sp" data-rate="0.65" data-ko="🐢 천천히" data-en="🐢 Slow">🐢 천천히</button><button type="button" class="sp" data-rate="0.88" data-ko="보통" data-en="Normal">보통</button><button type="button" class="sp" data-rate="1.05" data-ko="🐇 빠르게" data-en="🐇 Fast">🐇 빠르게</button></div>
+    <p class="readprog" id="readProg" aria-live="polite"></p>
     <div id="text"></div>
   </section>
 
@@ -174,11 +176,6 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
       <div class="pat-k" data-ko="틀" data-en="Pattern">틀</div>
       <p class="pat-frame">I can’t <span class="slot" data-ko="할 수 없는 일" data-en="what I can’t do">할 수 없는 일</span>, but I can <span class="slot" data-ko="대신 할 수 있는 일" data-en="what I can do">대신 할 수 있는 일</span>.</p>
     </div>
-    <div class="ex-row"><span class="ex-l" data-ko="예시 넣어 보기" data-en="Try an example">예시 넣어 보기</span>
-      <button type="button" class="chip" data-a="carry the big table" data-b="help Mom with the chairs">table</button>
-      <button type="button" class="chip" data-a="reach the top shelf" data-b="stand on a step">shelf</button>
-      <button type="button" class="chip" data-a="play the piano" data-b="sing a song">music</button>
-    </div>
     <div class="wline">
       <span class="wfix">I can’t</span>
       <input id="wa" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="carry the big table" aria-label="what you can’t do">
@@ -209,7 +206,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
   </section>
 
   <p class="note rev" data-ko="이 이야기는 망고아이 «영어 독서» 1단계 쉬운 이야기 글입니다. 영어 독서 목록의 같은 글과 본문이 같고, 여기서는 그림책처럼 6가지 활동(읽고 듣기·핵심 문장·요점정리·낱말 게임·근거 찾기·바꿔 쓰기)으로 공부합니다." data-en="This story is from Mangoi English Reading, Step 1 Easy stories. The text is the same as in the reading list; here you study it with 6 storybook activities.">이 이야기는 망고아이 «영어 독서» 1단계 쉬운 이야기 글입니다. 영어 독서 목록의 같은 글과 본문이 같고, 여기서는 그림책처럼 6가지 활동(읽고 듣기·핵심 문장·요점정리·낱말 게임·근거 찾기·바꿔 쓰기)으로 공부합니다.</p>
-  <p class="note" data-ko="삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그렸습니다." data-en="The illustrations were newly made for this story with Higgsfield AI.">삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그렸습니다.</p>
+  <p class="note" data-ko="삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그린 고전 동화 애니메이션 화풍입니다." data-en="The illustrations were newly made for this story with Higgsfield AI in the Classic fairy-tale animation style.">삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그린 고전 동화 애니메이션 화풍입니다.</p>
 </div>
 
 <style>
@@ -240,6 +237,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
 .wfix-why{margin:0;padding-left:18px;font-family:var(--ko);font-size:14px;display:grid;gap:3px}
 .wfix-note{font-family:var(--ko);font-size:13px;color:var(--soft)}
 </style>
+<script src="/js/story-audio.js?v=1"></script>
 <script src="/js/story-kit.js?v=2"></script>
 <script defer src="/js/story-dict.js?v=1"></script>
 <script>
@@ -390,7 +388,7 @@ var StoryCore = (function(){
     document.documentElement.lang = lang;
     document.querySelectorAll('[data-ko]').forEach(function(el){ el.innerHTML = el.getAttribute(lang === 'en' ? 'data-en' : 'data-ko'); });
     var langBtn0 = document.getElementById('lang'); if (langBtn0) langBtn0.textContent = lang === 'en' ? '한국어' : 'EN';
-    renderQs(); renderWords(); renderWQ(); renderEnds(); paintWrite();
+    renderQs(); renderWords(); renderWQ(); renderEnds(); paintWrite(); paintReadProg();
   }
   (document.getElementById('lang') || document.createElement('i')).addEventListener('click', function(){
     lang = lang === 'en' ? 'ko' : 'en';
@@ -398,28 +396,14 @@ var StoryCore = (function(){
     applyLang();
   });
 
-  // ---- speech ----
-  var synth = window.speechSynthesis || null, voice = null;
-  function pickVoice(){
-    if (!synth) return;
-    var v = synth.getVoices().filter(function(x){ return /^en(-|_)/i.test(x.lang); });
-    voice = v.find(function(x){ return /en-US/i.test(x.lang); }) || v[0] || null;
-  }
-  if (synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
-  else document.getElementById('ttsNote').textContent = '(이 브라우저는 소리 읽기를 지원하지 않아요)';
+  // ---- speech: server MP3 works without installed English voices ----
   function say(text, onend){
-    if (!synth) { if (onend) onend(); return; }
-    try {
-      var u = new SpeechSynthesisUtterance(text.replace(/[“”"]/g,''));
-      u.lang = 'en-US'; u.rate = (window.__ttsRate || 0.88); if (voice) u.voice = voice;
-      u.onend = function(){ if (onend) onend(); };
-      synth.speak(u);
-    } catch(e){ if (onend) onend(); }
+    window.StoryAudio.speak(text, window.__ttsRate || 0.88, onend);
   }
-  function stop(){ try { if (synth) synth.cancel(); } catch(e){} playing = false; sumSeq = (sumSeq || 0) + 1; try { spans.forEach(function(s){ s.classList.remove('reading'); }); } catch(e){} }
+  function stop(){ playing = false; sumSeq = (sumSeq || 0) + 1; if (RT) RT.cancel(); window.StoryAudio.stop(); try { spans.forEach(function(s){ s.classList.remove('reading'); }); } catch(e){} }
 
   // ---- story ----
-  var SCENES = {"1":["img/story/s1-39-s1.webp","A sad giant hops on one foot next to his huge shoe."],"2":["img/story/s1-39-s2.webp","The kids push the giant shoe to the giant."]};
+  var SCENES = {"1":["img/story/s1-39-s1.webp?v=2","A sad giant hops on one foot next to his huge shoe."],"2":["img/story/s1-39-s2.webp?v=2","The kids push the giant shoe to the giant."]};
   var box = document.getElementById('text'), spans = [], picking = false, playing = false;
   STORY.forEach(function(par, pi){
     if (SCENES[pi]) { var f = document.createElement('figure'); f.className = 'scene'; f.innerHTML = '<img loading="lazy" width="1024" height="688" alt="' + SCENES[pi][1] + '" src="' + SCENES[pi][0] + '">'; box.appendChild(f); }
@@ -441,17 +425,51 @@ var StoryCore = (function(){
       else flash(t('두 문장까지만 고를 수 있어요. 하나를 다시 눌러 지운 뒤 고르세요.','You can pick only 2. Tap one again to remove it.'), false);
       return;
     }
-    stop(); say(sp.textContent);
-    heard[spans.indexOf(sp)] = 1;
-    if (Object.keys(heard).length >= 5) storyDone('read');   // 문장 5개를 눌러 들어도 «읽고 듣기» 도장
+    stop();
+    var g = RT.begin(), at = spans.indexOf(sp);
+    say(sp.textContent, function(){ RT.heardTo(at, g); });   // 끝까지 들은 문장만 셈 — 중간에 멈추거나 다른 문장을 누르면 안 셈
   }
-  var heard = {};
+  // ---- «읽고 듣기» 도장: 모든 문장을 «끝까지» 들어야 받습니다(2026-10-20 사장님 «끝까지 읽으면 되게»).
+  //      예전에는 문장 5개만 눌러 들어도 도장이었는데, 1단계 짧은 글은 그게 절반이라 «중간까지만 들어도 완료» 가 됐습니다.
+  //      «처음부터 듣기» 와 문장 누르기를 합쳐 셉니다(앞 절반을 듣다 멈추고 나머지를 눌러 들어도 됨).
+  //      판정 정본은 아래 STORY-READ 블록 — 하니스(story_read_all_harness)가 오려 내 실제로 돌립니다.
+  /* STORY-READ-START */
+  function makeReadTracker(total, onChange, onAll){
+    var heard = {}, n = 0, gen = 0;
+    return {
+      total: total,
+      count: function(){ return n; },
+      begin: function(){ return ++gen; },             // 소리를 새로 시작할 때 받는 번호
+      cancel: function(){ gen++; },                   // 멈추면 그 전 번호로 끝난 소리는 안 셈(크롬은 멈출 때도 onend 를 보냄)
+      heardTo: function(i, g){                        // i 번 문장을 «끝까지» 들음 — 번호가 지금 것일 때만
+        if (g !== gen || !(i >= 0 && i < total)) return false;
+        if (!heard[i]) { heard[i] = 1; n++; onChange(); }
+        if (n >= total) onAll();
+        return true;
+      },
+      reset: function(){ heard = {}; n = 0; gen++; onChange(); }
+    };
+  }
+  /* STORY-READ-END */
+  var RT = makeReadTracker(spans.length, paintReadProg, function(){ storyDone('read'); });
+  function paintReadProg(){
+    var el = document.getElementById('readProg'); if (!el || !RT) return;
+    var n = RT.count(), m = RT.total, on = false;
+    try { on = !!(window.StoryFun && window.StoryFun.state().read); } catch(e){}
+    el.classList.toggle('done', n >= m || (on && n === 0));
+    el.innerHTML = n >= m ? t('✅ 모든 문장을 끝까지 들었어요!','✅ You heard every sentence to the end!')
+      : (on && n === 0) ? t('✅ «읽고 듣기» 도장은 이미 받았어요. 다시 들어도 좋아요.','✅ You already have the Read &amp; listen stamp. Listen again any time.')
+      : t('들은 문장 <b>' + n + ' / ' + m + '</b> · 모든 문장을 끝까지 들으면 도장을 받아요','Heard <b>' + n + ' / ' + m + '</b> · Hear every sentence to the end to get the stamp');
+  }
+  window.__storyReadReset = function(){ RT.reset(); };   // «처음부터 다시»(도장 초기화)가 들은 문장도 처음으로
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paintReadProg);   // 도장판(StoryFun)이 실린 뒤 한 번 더 — «이미 받음» 표시
   document.getElementById('readAll').addEventListener('click', function(){
-    stop(); playing = true; var i = 0;
+    stop(); playing = true; var i = 0, g = RT.begin();
     (function next(){
       spans.forEach(function(s){ s.classList.remove('reading'); });
       if (!playing) return;
-      if (i >= spans.length) { playing = false; storyDone('read'); return; }
+      if (i > 0) RT.heardTo(i - 1, g);   // 바로 앞 문장을 끝까지 읽어 줌
+      if (i >= spans.length) { playing = false; return; }
       var cur = spans[i++]; cur.classList.add('reading');
       if (cur.getBoundingClientRect) { var r = cur.getBoundingClientRect(); if (r.top < 60 || r.bottom > innerHeight - 40) cur.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
       say(cur.textContent, next);
@@ -666,14 +684,14 @@ var StoryCore = (function(){
     try { localStorage.setItem(WKEY + 'a', wa.value); localStorage.setItem(WKEY + 'b', wb.value); } catch(e){}
   }
   [wa, wb].forEach(function(el){ el.addEventListener('input', function(){ wfb.innerHTML = ''; WSEQ++; paintWrite(); }); });
-  document.querySelectorAll('#mywrite .chip').forEach(function(c){
-    c.addEventListener('click', function(){ wa.value = c.dataset.a; wb.value = c.dataset.b; wfb.innerHTML = ''; WSEQ++; paintWrite(); });
-  });
+  // 2026-10-20 사장님: «예시 넣어 보기» 버튼을 뺐습니다 — 예시를 눌러 넣고 그대로 «완성하기» 를 누르면 스스로 생각해 쓰지 않습니다.
+  //   (틀린 문장은 규칙 점검·AI 선생님이 고쳐 줍니다.) 예시 문장은 화면에 안 그리고, 철자 점검의 «아는 낱말» 목록에만 씁니다.
+  var WRITE_EX = [["carry the big table","help Mom with the chairs"],["reach the top shelf","stand on a step"],["play the piano","sing a song"]];
   // ---- ⑥ 바꿔 쓰기 «규칙 점검» (원장님 의견 1 · 2026-10-13) — 판정 정본은 /js/story-kit.js 의 StoryKit.review
   //      문법이 틀리면 도장 없이 «고친 문장» 을 보여 주고, 학생이 «직접» 고쳐 다시 «완성하기» 를 통과하면 도장.
   //      (2026-10-16 사장님: 자동 «고친 문장으로 바꾸기» 버튼은 정답을 그대로 넣어 줘서 뺐다 — 스스로 고치게.)
   //      ⛔ StoryKit 이 없으면(불러오기 실패) 예전처럼 그대로 완성 — 점검 때문에 못 끝내는 아이가 없게.
-  var KIT_WORDS = (function(){ var a = []; STORY.forEach(function(p){ p.forEach(function(s){ a.push(s[0]); }); }); WORDS.forEach(function(x){ a.push(x[0], x[2].replace(/<[^>]+>/g, '')); }); document.querySelectorAll('#mywrite .chip').forEach(function(c){ a.push(c.dataset.a, c.dataset.b); }); return a; })();
+  var KIT_WORDS = (function(){ var a = []; STORY.forEach(function(p){ p.forEach(function(s){ a.push(s[0]); }); }); WORDS.forEach(function(x){ a.push(x[0], x[2].replace(/<[^>]+>/g, '')); }); WRITE_EX.forEach(function(x){ a.push(x[0], x[1]); }); return a; })();
   var WSEQ = 0, WLOG = null, WKEEP = null, WBUSY = false;   // WSEQ: 고치면 기다리던 AI 답을 버림 · WLOG: 강사용 기록 재료
   function storyReview(){
     if (!window.StoryKit || !StoryKit.review) return null;
@@ -713,7 +731,7 @@ var StoryCore = (function(){
     var cw = StoryCore.checkWrite(wa.value, wb.value);
     if (cw.why === 'empty') { wfb.innerHTML = '<div class="fb no"><p>' + t('빈칸 두 곳을 모두 채워 주세요.','Fill both blanks.') + '</p></div>'; return; }
     if (cw.why === 'too_long') { wfb.innerHTML = '<div class="fb no"><p>' + t('조금 짧게 써 보세요 (두 칸 합쳐 120자까지).','Make it a little shorter (120 letters in total).') + '</p></div>'; return; }
-    if (cw.why === 'hangul') { wfb.innerHTML = '<div class="fb no"><p>' + t('영어로 써 보세요. 모르는 낱말은 선생님께 물어보거나 예시를 눌러 보세요.','Write it in English. Ask your teacher or try an example.') + '</p></div>'; return; }
+    if (cw.why === 'hangul') { wfb.innerHTML = '<div class="fb no"><p>' + t('영어로 써 보세요. 모르는 낱말은 선생님께 물어보거나 위의 틀을 참고해 보세요.','Write it in English. Ask your teacher, or look at the pattern above.') + '</p></div>'; return; }
     var kitR = storyReview();
     var mine0 = sentence();
     if (kitR && kitR.grammar > 0) { WLOG = { original: WLOG ? WLOG.original : mine0, fixes: kitR.issues.length, ai: WLOG ? WLOG.ai : 'none' }; showFix(kitR, false); return; }   // 문법이 틀리면 도장 없이 고친 문장부터
@@ -836,7 +854,7 @@ var StoryCore = (function(){
   var beatAcc = 0;  // 멜로디 진행(박 단위)
   function schedule(){
     if (!ctx) return;
-    var talk = false; try { talk = !!(window.speechSynthesis && speechSynthesis.speaking); } catch(e){}
+    var talk = false; try { talk = window.StoryAudio.isSpeaking(); } catch(e){}
     master.gain.setTargetAtTime(on ? (talk ? DUCK : VOL) : 0, ctx.currentTime, 0.25);
     while (nextT < ctx.currentTime + 0.4) {
       // 반주: 한 박마다
@@ -950,9 +968,9 @@ var StoryCore = (function(){
 .pat-src,.pat-frame{margin:0 0 6px;font-size:17px}
 .pat-src u{text-decoration-color:var(--umbrella);text-decoration-thickness:2px;text-underline-offset:3px}
 .slot{display:inline-block;border-bottom:2px solid var(--umbrella);padding:0 6px;font-family:var(--ko);font-size:13px;color:var(--soft)}
-.ex-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px}
-.ex-l{font-family:var(--ko);font-size:13px;font-weight:700;color:var(--soft);margin-right:2px}
-.chip{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:999px;padding:5px 12px;font-weight:700;font-size:14px}
+.readprog{font-family:var(--ko);font-size:13px;font-weight:700;color:var(--soft);margin:-6px 0 12px}
+.readprog b{color:var(--ink)}
+.readprog.done{color:var(--ink)}
 .wline{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:18px;font-weight:800}
 .wline input{flex:1 1 180px;min-width:0;font:inherit;font-weight:700;font-size:16px;color:var(--ink);background:var(--page);border:1px solid var(--line);border-bottom:2px solid var(--umbrella);border-radius:10px;padding:8px 10px}
 .wprev{margin:12px 0 4px;font-size:18px;font-weight:700;min-height:1.6em}
@@ -1118,7 +1136,7 @@ var StoryCore = (function(){
   }
   function reset(){ st = {}; save(); paint(); if (fin) fin.innerHTML = ''; }
   var rb = document.getElementById('stampReset');
-  if (rb) rb.addEventListener('click', function(){ reset(); try { if (window.__storyPickOff) window.__storyPickOff(); if (window.__storyWordsReset) window.__storyWordsReset(); } catch(e){} var el = document.getElementById('story'); if (el) el.scrollIntoView({ behavior: 'smooth' }); });
+  if (rb) rb.addEventListener('click', function(){ reset(); try { if (window.__storyPickOff) window.__storyPickOff(); if (window.__storyWordsReset) window.__storyWordsReset(); if (window.__storyReadReset) window.__storyReadReset(); } catch(e){} var el = document.getElementById('story'); if (el) el.scrollIntoView({ behavior: 'smooth' }); });
   (document.getElementById('lang') || document.createElement('i')).addEventListener('click', function(){ setTimeout(function(){ paint(); if (window.__storyLastEarn) finishMsg(window.__storyLastEarn); }, 0); });
   window.StoryFun = { done: done, state: function(){ return st; }, reset: reset, earn: earn };
   paint();

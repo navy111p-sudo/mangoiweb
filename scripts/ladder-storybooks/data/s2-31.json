@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «It is important to», write a verb (listen, check, look). After «because», write who + what."
   },
   "img": {
+    "style": "cg3d",
     "cover": "Inside a glass greenhouse on the Moon, an eleven-year-old girl with a short black ponytail in a white space suit with orange stripes kneels behind rows of red tomato plants and presses a round gray patch over a tiny hole in the metal wall, while the tomato leaves bend toward the hole and the gray Moon ground and the blue Earth shine through the glass roof.",
     "scenes": {
       "1": "In a round metal hallway of the Moon base, an eleven-year-old girl with a short black ponytail in a white space suit with orange stripes walks on tiptoe with one hand cupped behind her ear, while busy adults in blue uniforms look at blinking control panels behind her.",
       "3": "In the bright main room of the Moon base, a smiling commander with gray hair in a blue uniform sticks a shiny gold star on the chest of an eleven-year-old girl with a short black ponytail in a white space suit with orange stripes, while other base workers clap and the blue Earth glows in a big round window."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

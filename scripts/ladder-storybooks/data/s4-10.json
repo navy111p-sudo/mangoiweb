@@ -1,305 +1,311 @@
 {
- "id": "s4-10",
- "breaks": [
-  3,
-  3,
-  3,
-  3
- ],
- "key": {
-  "P": 0,
-  "S": 3
- },
- "roleNames": {
-  "P": {
-   "ko": "잘못된 생각",
-   "en": "common belief"
+  "id": "s4-10",
+  "breaks": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 0,
+    "S": 3
   },
-  "S": {
-   "ko": "주장",
-   "en": "claim"
+  "roleNames": {
+    "P": {
+      "ko": "잘못된 생각",
+      "en": "common belief"
+    },
+    "S": {
+      "ko": "주장",
+      "en": "claim"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «실패를 똑똑하지 않다는 증거로 보는 생각(잘못된 생각)» 과 «실수는 더 나아지는 데 꼭 필요하다(주장)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the common belief (failure proves you are not smart) and the claim (mistakes are a necessary part of getting better). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Belief",
+      "qko": "많은 학생은 실패를 어떻게 보나요?",
+      "qen": "How do many students see failure?",
+      "a": "As proof that they are not smart enough"
+    },
+    {
+      "k": "Claim",
+      "qko": "연구는 무엇을 말하나요?",
+      "qen": "What does research suggest?",
+      "a": "Mistakes are a necessary part of getting better"
+    },
+    {
+      "k": "Growth mindset",
+      "qko": "성장 마인드셋을 가진 사람은 어떻게 하나요?",
+      "qen": "What do people with a growth mindset do?",
+      "a": "They treat mistakes as useful information"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Many students see failure as proof that they are not ",
+      "ans": "smart",
+      "opts": [
+        "smart",
+        "kind",
+        "busy"
+      ]
+    },
+    {
+      "pre": ", so they avoid ",
+      "ans": "challenges",
+      "opts": [
+        "challenges",
+        "friends",
+        "meals"
+      ]
+    },
+    {
+      "pre": ". But research suggests that mistakes are a necessary part of ",
+      "ans": "learning",
+      "opts": [
+        "learning",
+        "sleeping",
+        "winning"
+      ]
+    },
+    {
+      "pre": ". People with a growth mindset believe intelligence can develop through ",
+      "ans": "effort",
+      "opts": [
+        "effort",
+        "luck",
+        "money"
+      ]
+    },
+    {
+      "pre": ". They see a mistake as useful ",
+      "ans": "information",
+      "opts": [
+        "information",
+        "punishment",
+        "ending"
+      ]
+    },
+    {
+      "pre": ", and this leads to deeper learning over time.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "mindset",
+      "사고방식, 마음가짐",
+      "People with a fixed <b>mindset</b> believe intelligence cannot change much",
+      "a way of thinking about things"
+    ],
+    [
+      "intelligence",
+      "지능",
+      "believe <b>intelligence</b> cannot change much",
+      "the ability to learn and understand"
+    ],
+    [
+      "strategies",
+      "전략",
+      "it can develop through effort and good <b>strategies</b>",
+      "plans or methods for doing something well"
+    ],
+    [
+      "judgment",
+      "판단, 평가",
+      "as useful information rather than a final <b>judgment</b>",
+      "a decision about how good or bad something is"
+    ],
+    [
+      "feedback",
+      "피드백, 의견",
+      "learners also need <b>feedback</b> and new methods",
+      "comments that tell you how well you did"
+    ],
+    [
+      "willing",
+      "기꺼이 하는",
+      "makes people more <b>willing</b> to take on challenges",
+      "happy and ready to do something"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why do some students avoid challenges?",
+      "qko": "왜 어떤 학생들은 어려운 일을 피할까요?",
+      "opts": [
+        "because trying something hard risks another failure",
+        "because challenges are boring to them",
+        "because teachers do not allow them"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "They ask what went wrong and how they could approach the problem differently next time.",
+        "This belief can make them avoid challenges, because trying something hard risks another failure.",
+        "Of course, effort alone is not enough; learners also need feedback and new methods.",
+        "Over time, this willingness leads to deeper and longer-lasting learning."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "어려운 일에 도전하면 또 실패할 위험이 있다고 믿기 때문이라고 했어요.",
+        "The text says trying something hard risks another failure, so they avoid it."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does \"a final judgment\" mean?",
+      "qko": "글에서 «a final judgment(최종 판정)» 는 무슨 뜻인가요?",
+      "opts": [
+        "a decision that proves your ability is fixed",
+        "a test given at the end of the year",
+        "a piece of advice about a new strategy"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Many students see failure as proof that they are not smart enough.",
+        "In fact, struggling with a difficult problem often helps people remember the solution better later.",
+        "Psychologist Carol Dweck describes two ways of thinking about ability.",
+        "Over time, this willingness leads to deeper and longer-lasting learning."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "많은 학생이 실패를 «똑똑하지 않다는 증거» 로 본다고 했어요. 최종 판정은 바로 이런 생각, 즉 내 능력이 정해져 있다는 결론이에요.",
+        "Many students see failure as proof that they are not smart enough. A final judgment is that kind of fixed conclusion about ability."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "What happens over time when people treat failure as a step in the process?",
+      "qko": "실패를 과정의 한 단계로 여기면 시간이 지나 어떤 일이 생기나요?",
+      "opts": [
+        "They learn more deeply and remember longer.",
+        "They need less feedback from teachers.",
+        "They start to avoid hard problems."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Still, treating failure as a step in the process makes people more willing to take on challenges.",
+        "However, research on learning suggests that mistakes are a necessary part of getting better.",
+        "Over time, this willingness leads to deeper and longer-lasting learning.",
+        "When they get a low test score, they may decide that they are simply bad at math or science."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "실패를 과정으로 보면 도전에 더 적극적이 되고, 그 적극성이 시간이 지나 더 깊고 오래가는 배움으로 이어져요.",
+        "Treating failure as a step makes people more willing to take on challenges, and over time this leads to deeper, longer-lasting learning."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Find out how famous inventors learned from their failed experiments.",
+      "유명한 발명가들이 실패한 실험에서 어떻게 배웠는지 알아봐요.",
+      "Inventors Who Failed First"
+    ],
+    [
+      "B",
+      "Learn study strategies that turn mistakes into progress.",
+      "실수를 발전으로 바꾸는 공부 전략을 알아봐요.",
+      "Smart Ways to Study"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "slotKo": [
+      "조건",
+      "할 수 있는 일"
+    ],
+    "slotEn": [
+      "the condition",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «조건 + 그때 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write a condition and what we can do then.",
+    "aria": [
+      "the condition",
+      "what we can do"
+    ],
+    "moreKo": "한 걸음 더: «If» 뒤에는 «누가 + 무엇을 하면» 을, «we can» 뒤에는 동사원형을 넣어 보세요. (예: If we sleep early, we can focus in class)",
+    "moreEn": "One more step: after «If», write who + what; after «we can», start with a base verb. (e.g. If we sleep early, we can focus in class)",
+    "src": "“If <u>we treat a mistake as useful information</u>, we can <u>try a different strategy next time</u>.”",
+    "chips": [
+      {
+        "a": "we check what went wrong",
+        "b": "fix it on the next test",
+        "label": "test"
+      },
+      {
+        "a": "we practice a little every day",
+        "b": "play the song without mistakes",
+        "label": "practice"
+      },
+      {
+        "a": "we ask our teacher for feedback",
+        "b": "find a better method",
+        "label": "feedback"
+      }
+    ]
+  },
+  "img": {
+    "style": "webtoon",
+    "cover": "A high school student at a desk carefully erasing and rewriting work in a notebook, with eraser crumbs and pencils nearby.",
+    "scenes": {
+      "1": "A student sitting at a library table with a pencil in hand and chin resting on the other hand, thinking hard about a problem.",
+      "3": "A teacher leaning over a student desk and pointing at the student notebook, giving helpful advice."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "A student thinking hard at a library table",
+    "3": "A teacher giving advice at a student desk",
+    "cover": "A student erasing and rewriting work in a notebook"
   }
- },
- "keyWhy": {
-  "ko": "핵심은 «실패를 똑똑하지 않다는 증거로 보는 생각(잘못된 생각)» 과 «실수는 더 나아지는 데 꼭 필요하다(주장)» 입니다. 초록색 문장이 정답이에요.",
-  "en": "The key ideas are the common belief (failure proves you are not smart) and the claim (mistakes are a necessary part of getting better). The green sentences are the answers."
- },
- "boxes": [
-  {
-   "k": "Belief",
-   "qko": "많은 학생은 실패를 어떻게 보나요?",
-   "qen": "How do many students see failure?",
-   "a": "As proof that they are not smart enough"
-  },
-  {
-   "k": "Claim",
-   "qko": "연구는 무엇을 말하나요?",
-   "qen": "What does research suggest?",
-   "a": "Mistakes are a necessary part of getting better"
-  },
-  {
-   "k": "Growth mindset",
-   "qko": "성장 마인드셋을 가진 사람은 어떻게 하나요?",
-   "qen": "What do people with a growth mindset do?",
-   "a": "They treat mistakes as useful information"
-  }
- ],
- "sumHowto": {
-  "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
-  "en": "Look at the three boxes, then choose the right word for each blank."
- },
- "sum": [
-  {
-   "pre": "Many students see failure as proof that they are not ",
-   "ans": "smart",
-   "opts": [
-    "smart",
-    "kind",
-    "busy"
-   ]
-  },
-  {
-   "pre": ", so they avoid ",
-   "ans": "challenges",
-   "opts": [
-    "challenges",
-    "friends",
-    "meals"
-   ]
-  },
-  {
-   "pre": ". But research suggests that mistakes are a necessary part of ",
-   "ans": "learning",
-   "opts": [
-    "learning",
-    "sleeping",
-    "winning"
-   ]
-  },
-  {
-   "pre": ". People with a growth mindset believe intelligence can develop through ",
-   "ans": "effort",
-   "opts": [
-    "effort",
-    "luck",
-    "money"
-   ]
-  },
-  {
-   "pre": ". They see a mistake as useful ",
-   "ans": "information",
-   "opts": [
-    "information",
-    "punishment",
-    "ending"
-   ]
-  },
-  {
-   "pre": ", and this leads to deeper learning over time.",
-   "ans": null
-  }
- ],
- "words": [
-  [
-   "mindset",
-   "사고방식, 마음가짐",
-   "People with a fixed <b>mindset</b> believe intelligence cannot change much",
-   "a way of thinking about things"
-  ],
-  [
-   "intelligence",
-   "지능",
-   "believe <b>intelligence</b> cannot change much",
-   "the ability to learn and understand"
-  ],
-  [
-   "strategies",
-   "전략",
-   "it can develop through effort and good <b>strategies</b>",
-   "plans or methods for doing something well"
-  ],
-  [
-   "judgment",
-   "판단, 평가",
-   "as useful information rather than a final <b>judgment</b>",
-   "a decision about how good or bad something is"
-  ],
-  [
-   "feedback",
-   "피드백, 의견",
-   "learners also need <b>feedback</b> and new methods",
-   "comments that tell you how well you did"
-  ],
-  [
-   "willing",
-   "기꺼이 하는",
-   "makes people more <b>willing</b> to take on challenges",
-   "happy and ready to do something"
-  ]
- ],
- "qs": [
-  {
-   "type": [
-    "원인·결과",
-    "Cause & effect"
-   ],
-   "q": "Why do some students avoid challenges?",
-   "qko": "왜 어떤 학생들은 어려운 일을 피할까요?",
-   "opts": [
-    "because trying something hard risks another failure",
-    "because challenges are boring to them",
-    "because teachers do not allow them"
-   ],
-   "ans": 0,
-   "evq": [
-    "근거 문장 1개를 고르세요.",
-    "Choose 1 evidence sentence."
-   ],
-   "evs": [
-    "They ask what went wrong and how they could approach the problem differently next time.",
-    "This belief can make them avoid challenges, because trying something hard risks another failure.",
-    "Of course, effort alone is not enough; learners also need feedback and new methods.",
-    "Over time, this willingness leads to deeper and longer-lasting learning."
-   ],
-   "ev": [
-    1
-   ],
-   "why": [
-    "어려운 일에 도전하면 또 실패할 위험이 있다고 믿기 때문이라고 했어요.",
-    "The text says trying something hard risks another failure, so they avoid it."
-   ]
-  },
-  {
-   "type": [
-    "문맥상 의미",
-    "Meaning in context"
-   ],
-   "q": "In the text, what does \"a final judgment\" mean?",
-   "qko": "글에서 «a final judgment(최종 판정)» 는 무슨 뜻인가요?",
-   "opts": [
-    "a decision that proves your ability is fixed",
-    "a test given at the end of the year",
-    "a piece of advice about a new strategy"
-   ],
-   "ans": 0,
-   "evq": [
-    "근거 문장 1개를 고르세요.",
-    "Choose 1 evidence sentence."
-   ],
-   "evs": [
-    "Many students see failure as proof that they are not smart enough.",
-    "In fact, struggling with a difficult problem often helps people remember the solution better later.",
-    "Psychologist Carol Dweck describes two ways of thinking about ability.",
-    "Over time, this willingness leads to deeper and longer-lasting learning."
-   ],
-   "ev": [
-    0
-   ],
-   "why": [
-    "많은 학생이 실패를 «똑똑하지 않다는 증거» 로 본다고 했어요. 최종 판정은 바로 이런 생각, 즉 내 능력이 정해져 있다는 결론이에요.",
-    "Many students see failure as proof that they are not smart enough. A final judgment is that kind of fixed conclusion about ability."
-   ]
-  },
-  {
-   "type": [
-    "단서 연결",
-    "Connecting clues"
-   ],
-   "q": "What happens over time when people treat failure as a step in the process?",
-   "qko": "실패를 과정의 한 단계로 여기면 시간이 지나 어떤 일이 생기나요?",
-   "opts": [
-    "They learn more deeply and remember longer.",
-    "They need less feedback from teachers.",
-    "They start to avoid hard problems."
-   ],
-   "ans": 0,
-   "evq": [
-    "근거 문장 2개를 고르세요.",
-    "Choose 2 evidence sentences."
-   ],
-   "evs": [
-    "Still, treating failure as a step in the process makes people more willing to take on challenges.",
-    "However, research on learning suggests that mistakes are a necessary part of getting better.",
-    "Over time, this willingness leads to deeper and longer-lasting learning.",
-    "When they get a low test score, they may decide that they are simply bad at math or science."
-   ],
-   "ev": [
-    0,
-    2
-   ],
-   "why": [
-    "실패를 과정으로 보면 도전에 더 적극적이 되고, 그 적극성이 시간이 지나 더 깊고 오래가는 배움으로 이어져요.",
-    "Treating failure as a step makes people more willing to take on challenges, and over time this leads to deeper, longer-lasting learning."
-   ]
-  }
- ],
- "ends": [
-  [
-   "A",
-   "Find out how famous inventors learned from their failed experiments.",
-   "유명한 발명가들이 실패한 실험에서 어떻게 배웠는지 알아봐요.",
-   "Inventors Who Failed First"
-  ],
-  [
-   "B",
-   "Learn study strategies that turn mistakes into progress.",
-   "실수를 발전으로 바꾸는 공부 전략을 알아봐요.",
-   "Smart Ways to Study"
-  ]
- ],
- "write": {
-  "pre": "If",
-  "mid": "we can",
-  "sep": ", ",
-  "slots": [
-   "cl",
-   "vp"
-  ],
-  "slotKo": [
-   "조건",
-   "할 수 있는 일"
-  ],
-  "slotEn": [
-   "the condition",
-   "what we can do"
-  ],
-  "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «조건 + 그때 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
-  "howtoEn": "Use the example as a pattern. Write a condition and what we can do then.",
-  "aria": [
-   "the condition",
-   "what we can do"
-  ],
-  "moreKo": "한 걸음 더: «If» 뒤에는 «누가 + 무엇을 하면» 을, «we can» 뒤에는 동사원형을 넣어 보세요. (예: If we sleep early, we can focus in class)",
-  "moreEn": "One more step: after «If», write who + what; after «we can», start with a base verb. (e.g. If we sleep early, we can focus in class)",
-  "src": "“If <u>we treat a mistake as useful information</u>, we can <u>try a different strategy next time</u>.”",
-  "chips": [
-   {
-    "a": "we check what went wrong",
-    "b": "fix it on the next test",
-    "label": "test"
-   },
-   {
-    "a": "we practice a little every day",
-    "b": "play the song without mistakes",
-    "label": "practice"
-   },
-   {
-    "a": "we ask our teacher for feedback",
-    "b": "find a better method",
-    "label": "feedback"
-   }
-  ]
- },
- "img": {
-  "cover": "A high school student at a desk carefully erasing and rewriting work in a notebook, with eraser crumbs and pencils nearby.",
-  "scenes": {
-   "1": "A student sitting at a library table with a pencil in hand and chin resting on the other hand, thinking hard about a problem.",
-   "3": "A teacher leaning over a student desk and pointing at the student notebook, giving helpful advice."
-  }
- },
- "alt": {
-  "1": "A student thinking hard at a library table",
-  "3": "A teacher giving advice at a student desk",
-  "cover": "A student erasing and rewriting work in a notebook"
- }
 }
