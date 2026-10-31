@@ -1,0 +1,310 @@
+{
+  "id": "s1-17",
+  "breaks": [
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 3,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "하는 일",
+      "en": "action"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «노라가 지도를 따라간다(하는 일)» 와 «진짜 보물은 가족이다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the action (Nora follows the map) and the lesson (the real treasure is family). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Nora and Grandpa"
+    },
+    {
+      "k": "Action",
+      "qko": "노라는 무엇을 하나요?",
+      "qen": "What does Nora do?",
+      "a": "She follows the map and digs under a big rock."
+    },
+    {
+      "k": "Lesson",
+      "qko": "쪽지는 무엇을 알려 주나요?",
+      "qen": "What does the note say?",
+      "a": "The real treasure is family."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Nora finds an old ",
+      "ans": "map",
+      "opts": [
+        "map",
+        "cake",
+        "kite"
+      ]
+    },
+    {
+      "pre": " in Grandpa’s attic. She follows it and digs under a big ",
+      "ans": "rock",
+      "opts": [
+        "rock",
+        "bed",
+        "car"
+      ]
+    },
+    {
+      "pre": ". She finds a ",
+      "ans": "box",
+      "opts": [
+        "box",
+        "dog",
+        "shoe"
+      ]
+    },
+    {
+      "pre": ". Inside, there are old family ",
+      "ans": "photos",
+      "opts": [
+        "photos",
+        "toys",
+        "coins"
+      ]
+    },
+    {
+      "pre": " and a ",
+      "ans": "note",
+      "opts": [
+        "note",
+        "cookie",
+        "key"
+      ]
+    },
+    {
+      "pre": ". It says the real treasure is family.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "attic",
+      "다락방",
+      "Nora finds an old map in Grandpa's <b>attic</b>.",
+      "a room under the roof of a house"
+    ],
+    [
+      "map",
+      "지도",
+      "Nora finds an old <b>map</b> in Grandpa's attic.",
+      "a picture that shows where places are"
+    ],
+    [
+      "treasure",
+      "보물",
+      "\"<b>Treasure</b>!\" she shouts.",
+      "gold or something very special"
+    ],
+    [
+      "bridge",
+      "다리",
+      "She follows the map past the old tree and over the little <b>bridge</b>.",
+      "a road that goes over water"
+    ],
+    [
+      "dig",
+      "파다",
+      "She <b>digs</b> and digs under a big rock.",
+      "to make a hole in the ground"
+    ],
+    [
+      "note",
+      "쪽지",
+      "Inside, there are old family photos and a <b>note</b>.",
+      "a short letter"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Nora shout \"Treasure!\"?",
+      "qko": "노라는 왜 «Treasure!» 라고 외치나요?",
+      "opts": [
+        "She sees a big red X on the map.",
+        "She finds gold in the attic.",
+        "Grandpa tells her a secret."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "There is a big red X on it.",
+        "She follows the map past the old tree and over the little bridge.",
+        "Nora opens it slowly.",
+        "Inside, there are old family photos and a note."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«There is a big red X on it.» 지도의 빨간 X 표시는 보물이 있는 곳이에요. 그래서 «보물이다!» 하고 외쳐요.",
+        "There is a big red X on the map. An X on a map shows where treasure is."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Clunk! It is a box!\" What is \"Clunk\"?",
+      "qko": "«Clunk! It is a box!» 에서 «Clunk» 는 무엇일까요?",
+      "opts": [
+        "the sound of hitting something hard",
+        "the name of the box",
+        "a kind of tree"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "She digs and digs under a big rock.",
+        "\"Treasure!\" she shouts.",
+        "Nora opens it slowly.",
+        "The note says, \"The real treasure is family. Love, Grandpa.\""
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«She digs and digs under a big rock.» 땅을 파다가 단단한 상자에 «쿵» 하고 부딪힌 소리예요.",
+        "Nora digs and hits something hard. \"Clunk\" is that sound."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "What does Grandpa want Nora to learn?",
+      "qko": "할아버지는 노라에게 무엇을 알려 주고 싶었나요?",
+      "opts": [
+        "Family is the real treasure.",
+        "Gold is better than photos.",
+        "Maps are always wrong."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Inside, there are old family photos and a note.",
+        "The note says, \"The real treasure is family. Love, Grandpa.\"",
+        "There is a big red X on it.",
+        "Clunk! It is a box!"
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "상자 안에는 가족사진과 쪽지가 있고(«Inside, there are old family photos and a note.»), 쪽지에 «진짜 보물은 가족»이라고 적혀 있어요(«The note says, ...»). 두 문장을 이어야 할아버지의 마음을 알 수 있어요.",
+        "The box has family photos and a note, and the note says the real treasure is family. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Nora and Grandpa look at the old family photos together.",
+      "노라와 할아버지가 오래된 가족사진을 함께 본다.",
+      "Our Family Photos"
+    ],
+    [
+      "B",
+      "Nora makes a treasure map for her little brother.",
+      "노라가 남동생을 위해 보물 지도를 만든다.",
+      "Nora’s New Map"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)",
+    "src": "“I think <u>Grandpa loves Nora</u> because <u>he leaves her a note</u>.”",
+    "chips": [
+      {
+        "a": "my family is my treasure",
+        "b": "we have fun together",
+        "label": "family"
+      },
+      {
+        "a": "my sister is kind",
+        "b": "she shares her toys",
+        "label": "sister"
+      },
+      {
+        "a": "this book is special",
+        "b": "Grandma gave it to me",
+        "label": "book"
+      }
+    ]
+  },
+  "img": {
+    "style": "vintage",
+    "cover": "In a dusty attic full of old wooden trunks, a girl with a long brown braid in a red cap, a yellow jacket and green boots holds up a crinkly old paper map with a big red mark and shouts happily, as warm sunlight shines through a small round window.",
+    "scenes": {
+      "1": "Near an old twisty tree and a little wooden bridge over a stream, a girl with a long brown braid in a red cap, a yellow jacket and green boots digs with a small shovel under a big gray rock, and the corner of an old wooden box peeks out of the dirt.",
+      "2": "Sitting on the grass beside a big gray rock, a girl with a long brown braid in a red cap, a yellow jacket and green boots smiles warmly as she holds old family photos from an open wooden box, with a folded paper note on her lap."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Nora digs under a big rock and finds a box.",
+    "2": "Nora smiles at old family photos and a note.",
+    "cover": "Nora holds up an old treasure map in the attic."
+  }
+}

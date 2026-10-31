@@ -32,8 +32,9 @@
  */
 import { createJsonTextTap, takeSentences } from './stream-json-text';
 import { replyRejectReason } from './reply-sanity';
+import { fragmentQuestions } from './reply-questions';
 import { wrongSelfName, askedOwnName } from './ai-friends';
-import { studentSoundsNegative } from './warmup-empathy';
+import { studentSoundsNegative, stripCheerLead } from './warmup-empathy';
 
 /** 화면이 스트리밍을 원하는가 — A.i 친구하기(api-ai.ts)와 «같은 값» 만 받습니다. */
 export function wantsWarmupStream(body: any): boolean {
@@ -129,7 +130,7 @@ const squash = (s: string) => String(s == null ? '' : s).replace(/\s+/g, ' ').tr
 
 export function createWarmupLive(
   send: (o: any) => void,
-  o: { lang: string; cap: number; friend: string; studentInput: string },
+  o: { lang: string; cap: number; friend: string; studentInput: string; fragQ?: boolean; repeatOf?: (sentence: string) => boolean; honest?: boolean },
 ): WarmupLive {
   let text = '';
   let n = 0;
@@ -144,11 +145,26 @@ export function createWarmupLive(
       const s = String(sen == null ? '' : sen).trim();
       if (!s || halt) return false;
       if (negative) { halt = 'empathy'; return false; }
+      /* 🎯 (2026-10-29) 정직한 칭찬 시범(src/warmup-honest.ts) — 등급은 답이 «다 끝나야» 정해지므로, 첫 문장이 칭찬 말머리로
+         시작하면 미리 읽지 않는다(틀린 문장에 「Great!」 를 먼저 들려주는 것이 바로 고치려는 사고다). 최종본은 done 으로 간다. */
+      if (o.honest && !n) {
+        try { const probe = s + ' Ok'; if (stripCheerLead(probe) !== probe) { halt = 'praise'; return false; } } catch { halt = 'gate_error'; return false; }
+      }
       const cand = text ? text + ' ' + s : s;
       let why = '';
       try { why = replyRejectReason(cand, o.cap); } catch { why = 'gate_error'; }
       if (!why) {
         try { if (wrongSelfName(cand, o.friend, { askedName })) why = 'name'; } catch { why = 'gate_error'; }
+      }
+      /* 🧩 기초 단계의 «조각 질문»(「like space?」) — 최종본은 다시 뽑히므로(index.ts) 미리보기에서 소리를 내면
+         학생이 조각을 먼저 듣는다. 걸리면 여기서 멈추고 정본을 done 으로 받는다. 정본·이유는 src/reply-questions.ts. */
+      if (!why && o.fragQ) {
+        try { if (fragmentQuestions(s).length) why = 'fragment'; } catch { why = 'gate_error'; }
+      }
+      /* 🔁 이 대화에서 이미 물은 질문(말만 바꾼 것·반대말 포함) — 최종본은 다시 뽑히므로(index.ts) 미리보기에서 소리를 내면
+         학생이 같은 질문을 먼저 듣는다. 걸리면 여기서 멈추고 정본을 done 으로 받는다. 판정 정본은 src/question-memory.ts. */
+      if (!why && o.repeatOf) {
+        try { if (o.repeatOf(s)) why = 'repeat'; } catch { why = 'gate_error'; }
       }
       if (why) { halt = why; return false; }
       text = cand; n++;

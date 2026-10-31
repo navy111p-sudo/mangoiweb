@@ -20,7 +20,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PUB = join(ROOT, 'cloudflare-deploy', 'public');
 const DATA_SRC = readFileSync(process.env.RL_DATA_SRC || join(PUB, 'js', 'reading-ladder-data.js'), 'utf8');
 const JS_SRC = readFileSync(process.env.RL_JS_SRC || join(PUB, 'js', 'reading-ladder.js'), 'utf8');
-const HTML = readFileSync(join(PUB, 'stories.html'), 'utf8');
+const HTML = readFileSync(process.env.RL_HTML_SRC || join(PUB, 'stories.html'), 'utf8');
 
 let PASS = 0, FAIL = 0;
 const ok = (c, m) => { if (c) { PASS++; console.log('  ✅ ' + m); } else { FAIL++; console.log('  ❌ ' + m); } };
@@ -56,12 +56,24 @@ bulk('문장마다 영어·우리말이 다 있다', P, (p) => p.sentences.every
 bulk('영어 칸은 ASCII 만(한글·둥근따옴표 없음)', P, (p) => [p.title.en, p.bg.en, p.summary.en, ...p.sentences.map((s) => s.en), ...p.main.options.map((o) => o.en), ...p.words.map((w) => w.en)].every((x) => ASCII.test(x)) || 'non-ascii');
 bulk('오늘의 낱말 3개가 본문에 글자 그대로 있다', P, (p) => p.words.every((w) => hasWord(p.sentences.map((s) => s.en).join(' '), w.en)) || p.words.map((w) => w.en).join(','));
 bulk('핵심어 3개가 모범 문장에 들어 있다', P, (p) => p.summary.keywords.every((k) => hasWord(p.summary.en, k)) || p.summary.keywords.join(','));
+bulk('영작은 핵심문장에서 한 표현만 교체한다', P, (p) => {
+  const c = p.summary.change, src = p.sentences[p.key];
+  if (!c || !c.from || !c.to || c.from === c.to || !c.koFrom || !c.koTo || c.koFrom === c.koTo) return '교체 정보 없음';
+  if (src.en.split(c.from).length !== 2 || !src.ko.includes(c.koFrom)) return '원문에 교체 표현이 없거나 여러 번 있음';
+  if (p.summary.en !== src.en.replace(c.from, c.to)) return '다른 구조·표현도 바뀜';
+  if (p.summary.ko !== src.ko.split(c.koFrom).join(c.koTo)) return '우리말 문제 불일치';
+  return hasWord(p.summary.en, c.to) && p.summary.keywords.includes(c.to) || '바꿀 표현이 힌트에서 빠짐';
+});
+ok(JS_SRC.includes('핵심문장 응용해서 쓰기') && JS_SRC.includes('Keep the sentence structure and tense.') && JS_SRC.includes('p.summary.change.from') && JS_SRC.includes('p.summary.change.to'), '영작 안내는 구조·시제 유지와 바꿀 표현을 한국어·영어로 보여 준다');
 bulk('보기 4개가 서로 다르다', P, (p) => new Set(p.main.options.map((o) => o.en.toLowerCase())).size === 4 || 'dup');
 const avg = (n) => { const l = P.filter((p) => p.stage === n); return l.reduce((a, p) => a + wc(p), 0) / (l.length || 1); };
 const A = [1, 2, 3, 4].map(avg);
 console.log('     평균 단어 수: ' + A.map((x, i) => (i + 1) + '단계 ' + Math.round(x)).join(' · '));
 ok(A[0] < A[1] && A[1] <= A[2] + 15 && A[2] < A[3], '단계가 올라갈수록 글이 길어진다');
-ok(P.filter((p) => p.stage <= 2).every((p) => p.genre === 'story') && P.filter((p) => p.stage >= 3).every((p) => p.genre === 'info'), '1·2단계는 이야기, 3·4단계는 지식 글');
+// 2026-10-20 사장님 지시 — 3단계에 소설 시리즈 «마법학교»(s3-39~42)만 이야기로 둔다. 예외는 이 목록 하나뿐(넓히지 말 것).
+const STORY_IN_UPPER = new Set(['s3-39', 's3-40', 's3-41', 's3-42']);
+ok(P.filter((p) => p.stage <= 2).every((p) => p.genre === 'story') && P.filter((p) => p.stage >= 3).every((p) => p.genre === (STORY_IN_UPPER.has(p.id) ? 'story' : 'info')), '1·2단계는 이야기, 3·4단계는 지식 글(예외: 3단계 소설 시리즈 마법학교 4편)');
+ok([...STORY_IN_UPPER].every((id) => P.some((p) => p.id === id && p.stage === 3)), '(짝) 예외 목록의 글이 실제로 3단계에 있다');
 const s4mid = P.filter((p) => p.stage === 4 && p.key > 0).length;
 ok(s4mid >= 4, `4단계는 핵심 문장이 첫 문장이 아닌 글이 4편 이상 (${s4mid}편 — 수능형 대의파악)`);
 
@@ -155,7 +167,7 @@ if (C) {
 }
 
 console.log('\n③ 배선');
-ok(/<script src="\/js\/reading-ladder-data\.js\?v=\d+"><\/script>\s*<script src="\/js\/reading-ladder\.js\?v=\d+"><\/script>/.test(HTML), 'stories.html 이 데이터 → 엔진 순서로 싣는다');
+ok(/<script src="\/js\/reading-ladder-data\.js\?v=\d+"><\/script>\s*<script src="\/js\/reading-ladder-art\.js\?v=\d+"><\/script>\s*<script src="\/js\/story-audio\.js\?v=\d+"><\/script>\s*<script src="\/js\/reading-ladder\.js\?v=\d+"><\/script>/.test(HTML), 'stories.html 이 데이터 → 화풍 → 서버 음성 → 엔진 순서로 싣는다');
 ok(/window\.__storyLang\s*=/.test(HTML) && /window\.__storyBooksHtml\s*=/.test(HTML), 'stories.html 이 언어·그림 동화책 목록을 넘겨 준다');
 ok(/dispatchEvent\(new Event\('story:lang'\)\)/.test(HTML) && /addEventListener\('story:lang'/.test(JS_SRC), '언어를 바꾸면 사다리도 다시 그린다');
 ok((JS_SRC.match(/data-act="stage" data-stage="/g) || []).length >= 3 && /if \(act === 'stage'\)/.test(JS_SRC), '단계 계단·단계 드롭다운·«올라가기» 가 모두 data-act="stage" 로 눌린다(빠지면 무동작)');
@@ -253,7 +265,8 @@ if (C && P.length) {
   ok(/class="rl-app"/.test(e.html()) && /class="rl-split"/.test(e.html()) && /class="rl-tb"/.test(e.html()), '툴바 + 목록/상세 두 칸을 그린다');
   ok(sameIds(e.items().map((x) => x.id), idsOf(1)), `1단계 글 ${idsOf(1).length}편이 번호순으로 목록에 있다`);
   ok(e.detail() === titleOf(idsOf(1)[0]) && e.items().filter((x) => x.sel).length === 1 && e.items()[0].sel, '기록이 없으면 첫 글이 상세에 뜨고 목록에서 한 줄만 «고름»');
-  ok(/전체 진도<\/span><b>0 \/ 48<\/b>/.test(e.overall.innerHTML), '머리글에 전체 진도 0 / 48');
+  // 📌 2026-10-19 글을 늘리며(단계당 12편 → 1·2단계 48편 등) 총 편수를 데이터에서 센다 — «48» 로 못 박지 않는다.
+  ok(new RegExp('전체 진도</span><b>0 / ' + P.length + '</b>').test(e.overall.innerHTML), `머리글에 전체 진도 0 / ${P.length}`);
   ok([1, 2, 3, 4].every((n) => (e.html().match(new RegExp('data-act="stage" data-stage="' + n + '"', 'g')) || []).length >= 2), '단계 1~4 를 계단과 드롭다운 두 곳에서 고를 수 있다');
   ok((e.html().match(/aria-pressed="true"[^>]*title="1단계/g) || []).length === 1 && !/aria-pressed="true"[^>]*title="[234]단계/.test(e.html()), '계단은 지금 단계 하나만 눌림 표시');
   ok(!/rl-dd-item/.test(e.html()), '1단계에는 그림 동화책 드롭다운이 없다(짝)');
@@ -282,7 +295,7 @@ if (C && P.length) {
   const e2 = makeEnv({ store: { [RL_KEY]: JSON.stringify({ stage: 1, prog: { [s1[0]]: FULL, [s1[1]]: { k: 'ok' } } }) } });
   ok(e2.detail() === titleOf(s1[1]), '기록이 있으면 «하는 중» 글이 먼저 상세에 뜬다');
   ok(/data-act="open" data-id="[^"]+"[^>]*>[\s\S]{0,400}?이어서 하기/.test(e2.html()) && /<li class="done"><span class="rl-hn">/.test(e2.html()), '하는 중이면 «이어서 하기» · 끝낸 단계엔 ✓');
-  ok(/전체 진도<\/span><b>1 \/ 48<\/b>/.test(e2.overall.innerHTML), '전체 진도가 끝낸 글 수를 센다(1 / 48)');
+  ok(new RegExp('전체 진도</span><b>1 / ' + P.length + '</b>').test(e2.overall.innerHTML), `전체 진도가 끝낸 글 수를 센다(1 / ${P.length})`);
   e2.click({ 'data-act': 'filter', 'data-key': 'status', 'data-v': 'done' });
   ok(sameIds(e2.items().map((x) => x.id), [s1[0]]) && e2.items()[0].status === 'done', '상태 «완료» → 끝낸 글만');
   e2.click({ 'data-act': 'filter', 'data-key': 'status', 'data-v': 'new' });
@@ -311,9 +324,32 @@ if (C && P.length) {
   e2.click({ 'data-act': 'step', 'data-v': -1 });
   ok(e2.detail() === titleOf(s1[0]) && /data-act="step" data-v="-1" disabled/.test(e2.html()), '첫 글에서는 «이전 글» 이 꺼져 있고 눌러도 그대로');
 
+  // ── 그림책이 없는 글(book:false) — 그림책 표시·버튼을 그리지 않는다 · 있는 글은 그대로(짝) ──
+  const noBook = P.find((p) => p.stage === 1 && p.book === false);
+  if (noBook) {
+    e2.click({ 'data-act': 'sel', 'data-id': noBook.id });
+    ok(e2.detail() === noBook.title.en && !new RegExp('href="/story-' + noBook.id + '\\.html"').test(e2.html()) && !/class="rl-pic"/.test(e2.html()), `그림책 없는 글(${noBook.id})은 상세에 🖼 표시·버튼이 없다`);
+    e2.click({ 'data-act': 'open', 'data-id': noBook.id });
+    ok(/data-act="key" data-i="/.test(e2.html()) && !/href="\/story-/.test(e2.html()), '그 글의 읽기 화면에도 그림 동화책 버튼이 없다');
+    e2.click({ 'data-act': 'list' });
+  }
+  e2.click({ 'data-act': 'sel', 'data-id': s1[0] });
+  ok(new RegExp('href="/story-' + s1[0] + '\\.html"').test(e2.html()) && /class="rl-pic"/.test(e2.html()), '그림책 있는 글은 상세에 🖼 버튼이 그대로 있다(짝)');
+  ok(P.filter((p) => p.book !== false).length >= 48 && P.filter((p) => p.book === false).every((p) => !/^s[1-4]-(0\d|1[0-2])$/.test(p.id)), '처음 48편(그림책 있는 글)은 그대로 · book:false 는 새로 더한 글에만');
+  // 12편이 넘는 단계는 목록 줄을 내용 높이로 쌓는다(12줄 배치를 그대로 쓰면 줄이 짓눌린다) · 12편 이하 상황은 그대로(짝)
+  ok((idsOf(1).length > 12) === /class="rl-list rl-long"/.test(e2.html()), '12편이 넘는 단계면 목록에 rl-long 이 붙는다');
+  e2.click({ 'data-act': 'filter', 'data-key': 'status', 'data-v': 'done' });
+  ok(/class="rl-list"/.test(e2.html()) && !/rl-long/.test(e2.html()), '거른 결과가 12편 이하면 rl-long 이 없다(짝)');
+  e2.click({ 'data-act': 'filter', 'data-key': 'status', 'data-v': '' });
+  ok(/\.rl-list\.rl-long\{grid-template-rows:none;grid-auto-rows:/.test(HTML), 'stories.html 에 rl-long 배치 규칙이 있다');
+
   // ── 읽기 ↔ 목록 ──
   e2.click({ 'data-act': 'open', 'data-id': s1[6] });
   ok(!e2.htmlClass.has('rl-browse') && !/class="rl-split"/.test(e2.html()) && /data-act="key" data-i="/.test(e2.html()), '«읽기 시작» → 읽기 화면(한 장 배치를 풀고 핵심 문장 고르기가 나온다)');
+  const exercise = P.find((p) => p.id === s1[6]);
+  e2.click({ 'data-act': 'key', 'data-i': String(exercise.key) });
+  e2.click({ 'data-act': 'main', 'data-o': String(exercise.main.answer) });
+  ok(e2.html().includes('핵심문장 응용해서 쓰기') && e2.html().includes(exercise.summary.change.from + ' → ' + exercise.summary.change.to) && e2.html().includes(exercise.summary.ko), '핵심·중심내용을 고르면 한 요소 바꾸기 영작과 우리말 문제가 실제로 그려진다');
   e2.click({ 'data-act': 'list' });
   ok(e2.htmlClass.has('rl-browse') && e2.detail() === titleOf(s1[6]), '목록으로 돌아오면 읽던 글이 그대로 골라져 있다');
 
@@ -348,6 +384,43 @@ if (C && P.length) {
   e.lang = 'en'; e.fire('win', 'story:lang');
   ok(/Step 2/.test(e.html()) && !/<span>[^<]*[가-힣][^<]*<\/span><\/span><span class="rl-topic">/.test(e.html()), '🌐 를 누르면 그 자리에서 영어로 다시 그린다');
   ok(e.errors.length === 0 && e2.errors.length === 0 && e3.errors.length === 0, '모든 조작에서 오류가 없었다' + ([].concat(e.errors, e2.errors, e3.errors)[0] ? ' — ' + [].concat(e.errors, e2.errors, e3.errors)[0] : ''));
+}
+
+console.log('\n⑤ 큰 PC 화면 zoom 단계(2026-10-19 「글자가 너무 작아」)');
+{
+  const okd = (c, m, d) => ok(c, c || !d ? m : m + ' — ' + d);
+  // 단계를 CSS 에서 읽어 «실제 창 × 그 단계» 를 칸 크기로 바꿔 본다 — 숫자를 하니스에 베끼지 않는다.
+  const css = HTML.replace(/\/\*[\s\S]*?\*\//g, '');
+  const tiers = (re) => [...css.matchAll(re)].map((m) => ({ w: +m[1], h: m[2] ? +m[2] : 0, z: +m[3] }));
+  const B = tiers(/@media \(min-width:(\d+)px\) and \(min-height:(\d+)px\)\{html\.rl-browse \.wrap\{zoom:([\d.]+)\}\}/g);
+  const R = tiers(/@media \(min-width:(\d+)px\)()\{html:not\(\.rl-browse\) \.wrap\{zoom:([\d.]+)\}\}/g);
+  okd(B.length >= 3 && R.length >= 3, `전제: 고르기 ${B.length}단계 · 읽기 ${R.length}단계를 읽었다`);
+  const zoomSel = [...css.matchAll(/([^{}]*)\{[^{}]*\bzoom:/g)].map((m) => m[1].trim());
+  okd(zoomSel.length === B.length + R.length && zoomSel.every((s) => s === 'html.rl-browse .wrap' || s === 'html:not(.rl-browse) .wrap'),
+    'zoom 은 위 두 갈래에만 있다(읽기 단계가 한 장 고정 화면에 새면 높이를 안 봐 목록이 넘친다)', zoomSel.filter((s) => s !== 'html.rl-browse .wrap' && s !== 'html:not(.rl-browse) .wrap').join(' | '));
+  okd(B.every((t) => t.w >= 1600) && R.every((t) => t.w >= 1400), '노트북(1366·1440 폭)에는 안 걸린다 — 노트북 맞춤을 그대로 둔다');
+  // 같은 특이도라 «뒤에 적힌 것» 이 이긴다 — 실제 창마다 이기는 단계를 골라 남는 칸을 잰다
+  const eff = (list, W, H) => { let z = 1; for (const t of list) if (W >= t.w && H >= t.h) z = t.z; return z; };
+  let badB = [], badR = [], lessB = 0;
+  for (let W = 1200; W <= 4000; W += 20) for (let H = 560; H <= 2400; H += 20) {
+    const z = eff(B, W, H);
+    if (z > 1 && (W / z < 1260 || H / z < 700)) badB.push(`${W}x${H} z${z}`);
+    const best = Math.max(1, ...B.filter((t) => W >= t.w && H >= t.h).map((t) => t.z));
+    if (z < best) lessB++;
+  }
+  for (let W = 1200; W <= 4000; W += 20) { const z = eff(R, W, 0); if (z > 1 && 980 * z > W * 0.8) badR.push(`${W} z${z}`); }
+  okd(badB.length === 0, '고르기 화면: 어느 창에서든 zoom 뒤 남는 칸이 1260×700 이상(48편이 안쪽 스크롤 없이 들어가는 크기 — 2026-10-19 실측)', badB.slice(0, 3).join(' | '));
+  okd(lessB === 0, '고르기 화면: 단계가 작은 것부터 적혀 «맞는 것 중 가장 큰 단계» 가 이긴다', lessB);
+  okd(badR.length === 0, '읽기 화면: 980px 칸 × zoom 이 창 폭의 80% 안이다(양옆 여백이 남고 가로 스크롤이 없다)', badR.slice(0, 3).join(' | '));
+  okd(eff(B, 1920, 920) >= 1.25 && eff(B, 1366, 640) === 1 && eff(B, 1440, 860) === 1, '(짝) 1920×920 창은 커지고 · 노트북 창은 그대로', [eff(B, 1920, 920), eff(B, 1366, 640), eff(B, 1440, 860)].join(','));
+}
+
+// 🇰🇷 중심 내용 보기에는 우리말 해석을 붙이지 않는다(2026-10-21 사장님 — 아이들이 영어 대신 해석만 읽음).
+//    2026-10-22: 본문 해석 토글도 제거한다.
+{
+  const code = JS_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  ok(!/esc\(o\.ko\)/.test(code), '중심 내용 보기(본 읽기·반복 연습)에 우리말 해석(o.ko)을 그리지 않는다');
+  ok(!/showKo|data-act="ko"|esc\(s\.ko\)/.test(code), '본문 읽기와 반복 연습에 해석 버튼·본문 해석이 없다');
 }
 
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);

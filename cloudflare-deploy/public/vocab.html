@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <title>나의 단어장 — 망고아이</title>
 <link rel="icon" type="image/png" href="/img/icon-192.png">
-<script src="/js/mangoi-voice-input.js?v=5"></script><!-- 🎤 녹음+Whisper 전사(말 끝날 때까지 듣기) -->
+<script src="/js/mangoi-voice-input.js?v=6"></script><!-- 🎤 녹음+Whisper 전사(말 끝날 때까지 듣기) -->
 <script src="/js/mango-i18n.js" defer></script>
 <script src="/js/session-guard.js" defer></script>
 <script src="/js/game-vocab.js" defer></script><!-- 🔮 예습: 교재/레벨 맞춤 문장(학생게임과 공용 로더) -->
@@ -694,6 +694,8 @@ const ONB_STEPS = [
 ];
 let _obStep = 0;
 function _isEn(){ return (document.documentElement.lang==='en') || (localStorage.getItem('mango_lang')==='en'); }
+/* 서버 안내 문구를 지금 언어로 — 단어장 쓰기 본인 확인(2026-10-19)이 message·message_en 을 함께 준다 */
+function _vocMsg(d){ return d ? ((_isEn() && d.message_en) || d.message || '') : ''; }
 function renderObStep(){
   const s = ONB_STEPS[_obStep];
   const en = _isEn();
@@ -767,7 +769,7 @@ async function addPreviewWord(btn){
     const r = await fetch('/api/vocab/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: UID, token: __mgTok(), word, korean: '' }) });
     const d = await r.json();
     if (d.ok) { btn.classList.add('active'); btn.textContent = '✅ 담음'; sndCorrect(); loadDueCount(); loadStats(); }
-    else { btn.disabled = false; btn.textContent = '+ '+word; }
+    else { btn.disabled = false; btn.textContent = '+ '+word; if (d.error === 'auth_required') alert(_vocMsg(d) || (_isEn() ? 'Your login has expired. Please log in again.' : '로그인 정보가 만료됐어요. 다시 로그인해 주세요.')); }
   } catch(e){ btn.disabled = false; btn.textContent = '+ '+word; }
 }
 
@@ -813,7 +815,7 @@ async function addWord(){
   try {
     const r = await fetch('/api/vocab/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: UID, token: __mgTok(), word, korean: ko }) });
     const d = await r.json();
-    if (!d.ok) throw new Error(d.error);
+    if (!d.ok) throw new Error(_vocMsg(d) || d.error);
     fb.innerHTML = `✅ <b style="color:#34d399">${esc(d.word)}</b> — <span style="color:#fbbf24">${esc(d.korean)}</span><br><span style="color:#a3b3d1;font-style:italic;font-size:14px">💬 ${esc(d.example)}</span>`;
     _recentAdded.unshift({ word: d.word, korean: d.korean });
     renderRecentAdded();
@@ -965,7 +967,7 @@ async function doBulkAdd(){
       st.innerHTML = '<span style="color:#8b9bbd">⏳ 추가 중… '+Math.min(i+chunk.length, sel.length)+'/'+sel.length+' <span style="font-size:12.5px">(빈 뜻은 AI 가 생성해서 조금 걸려요)</span></span>';
       const r = await fetch('/api/vocab/bulk-add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: UID, token: __mgTok(), items: chunk }) });
       const d = await r.json();
-      if (!d.ok) throw new Error(d.error || '추가 실패');
+      if (!d.ok) throw new Error(_vocMsg(d) || d.error || '추가 실패');
       added += d.added || 0; dup += d.skipped_dup || 0;
       (d.items||[]).slice(0,6).forEach(w => _recentAdded.unshift({ word: w.word, korean: w.korean }));
       bar.querySelector('i').style.width = Math.round((i+chunk.length)/sel.length*100)+'%';

@@ -1,0 +1,272 @@
+{
+  "episode": "dub-002",
+  "status": "3D_RETAKE_REVIEW_CANDIDATE_NOT_YET_DEPLOYED",
+  "speech_segment_splits": [
+    {
+      "scene": 1,
+      "speaker": "maya",
+      "raw_duration": 4.62,
+      "split_at": 2.27,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.996,
+        2.055
+      ]
+    },
+    {
+      "scene": 1,
+      "speaker": "kai",
+      "raw_duration": 3.96,
+      "split_at": 2.1,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.704,
+        1.259
+      ]
+    },
+    {
+      "scene": 1,
+      "speaker": "emma",
+      "raw_duration": 3.88,
+      "split_at": 2.29,
+      "silence_gap_detected": true,
+      "utterances": [
+        2.098,
+        1.205
+      ]
+    },
+    {
+      "scene": 1,
+      "speaker": "pip",
+      "raw_duration": 4.76,
+      "split_at": 2.825,
+      "silence_gap_detected": true,
+      "utterances": [
+        2.67,
+        1.778
+      ]
+    },
+    {
+      "scene": 2,
+      "speaker": "maya",
+      "raw_duration": 5.02,
+      "split_at": 3.385,
+      "silence_gap_detected": true,
+      "utterances": [
+        2.893,
+        1.071
+      ]
+    },
+    {
+      "scene": 2,
+      "speaker": "kai",
+      "raw_duration": 3.82,
+      "split_at": 1.44,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.307,
+        2.058
+      ]
+    },
+    {
+      "scene": 2,
+      "speaker": "emma",
+      "raw_duration": 3.54,
+      "split_at": 1.895,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.669,
+        1.337
+      ]
+    },
+    {
+      "scene": 2,
+      "speaker": "pip",
+      "raw_duration": 3.62,
+      "split_at": 1.5,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.41,
+        1.77
+      ]
+    },
+    {
+      "scene": 3,
+      "speaker": "maya",
+      "raw_duration": 3.82,
+      "split_at": 1.985,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.48,
+        1.563
+      ]
+    },
+    {
+      "scene": 3,
+      "speaker": "kai",
+      "raw_duration": 3.4,
+      "split_at": 1.67,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.489,
+        1.346
+      ]
+    },
+    {
+      "scene": 3,
+      "speaker": "emma",
+      "raw_duration": 3.54,
+      "split_at": 1.86,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.736,
+        1.354
+      ]
+    },
+    {
+      "scene": 3,
+      "speaker": "pip",
+      "raw_duration": 3.98,
+      "split_at": 2.17,
+      "silence_gap_detected": true,
+      "utterances": [
+        2.033,
+        1.506
+      ]
+    },
+    {
+      "scene": 4,
+      "speaker": "maya",
+      "raw_duration": 4.46,
+      "split_at": 2.305,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.882,
+        1.836
+      ]
+    },
+    {
+      "scene": 4,
+      "speaker": "kai",
+      "raw_duration": 4.04,
+      "split_at": 2.47,
+      "silence_gap_detected": true,
+      "utterances": [
+        2.361,
+        1.398
+      ]
+    },
+    {
+      "scene": 4,
+      "speaker": "emma",
+      "raw_duration": 3.22,
+      "split_at": 1.495,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.265,
+        1.237
+      ]
+    },
+    {
+      "scene": 4,
+      "speaker": "pip",
+      "raw_duration": 4.18,
+      "split_at": 2.07,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.955,
+        1.897
+      ]
+    },
+    {
+      "scene": 5,
+      "speaker": "maya",
+      "raw_duration": 4.1,
+      "split_at": 2.105,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.475,
+        1.686
+      ]
+    },
+    {
+      "scene": 5,
+      "speaker": "kai",
+      "raw_duration": 3.42,
+      "split_at": 1.855,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.703,
+        1.355
+      ]
+    },
+    {
+      "scene": 5,
+      "speaker": "emma",
+      "raw_duration": 3.58,
+      "split_at": 2.235,
+      "silence_gap_detected": true,
+      "utterances": [
+        2.164,
+        0.94
+      ]
+    },
+    {
+      "scene": 5,
+      "speaker": "pip",
+      "raw_duration": 3.46,
+      "split_at": 1.605,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.522,
+        1.719
+      ]
+    },
+    {
+      "scene": 6,
+      "speaker": "maya",
+      "raw_duration": 4.22,
+      "split_at": 2.015,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.698,
+        1.928
+      ]
+    },
+    {
+      "scene": 6,
+      "speaker": "kai",
+      "raw_duration": 3.82,
+      "split_at": 1.91,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.808,
+        1.77
+      ]
+    },
+    {
+      "scene": 6,
+      "speaker": "emma",
+      "raw_duration": 3.8,
+      "split_at": 2.375,
+      "silence_gap_detected": true,
+      "utterances": [
+        2.234,
+        0.996
+      ]
+    },
+    {
+      "scene": 6,
+      "speaker": "pip",
+      "raw_duration": 3.76,
+      "split_at": 1.36,
+      "silence_gap_detected": true,
+      "utterances": [
+        1.255,
+        2.33
+      ]
+    }
+  ],
+  "missing_speech_sources": [],
+  "video_original_cast_warning": "All 16 new source clips are reference-frame-locked, pure stylized 3D cartoon with approved Emma. Sampled frames at 0,7,14 seconds were visually reviewed; full frame and speech viseme QA remain required."
+}

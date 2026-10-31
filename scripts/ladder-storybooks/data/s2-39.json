@@ -1,0 +1,311 @@
+{
+  "id": "s2-39",
+  "breaks": [
+    4,
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 4,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "메시지",
+      "en": "message"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «유나가 편지를 보냈지만 답장이 오지 않았다(문제)» 와 «작은 병 하나가 바다 건너 큰 우정을 실어 날랐다(메시지)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (Yuna wrote to Leo, but no answer came) and the message (a small bottle carried a big friendship across the sea). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Yuna, Leo"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Yuna wrote to Leo, but no answer came for a long time."
+    },
+    {
+      "k": "Result",
+      "qko": "결과는 어떻게 되었나요?",
+      "qen": "What is the result?",
+      "a": "Yuna and Leo became friends and talk every week in English."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Yuna found a green ",
+      "ans": "bottle",
+      "opts": [
+        "bottle",
+        "box",
+        "shell"
+      ]
+    },
+    {
+      "pre": " on a beach. Inside was a letter from Leo, who lived on a small ",
+      "ans": "island",
+      "opts": [
+        "island",
+        "mountain",
+        "ship"
+      ]
+    },
+    {
+      "pre": " in the Philippines. Yuna wrote back, but no answer came for a ",
+      "ans": "month",
+      "opts": [
+        "month",
+        "minute",
+        "year"
+      ]
+    },
+    {
+      "pre": ". Then Leo wrote! A ",
+      "ans": "typhoon",
+      "opts": [
+        "typhoon",
+        "monster",
+        "teacher"
+      ]
+    },
+    {
+      "pre": " had hit his island. Now they talk every week in ",
+      "ans": "English",
+      "opts": [
+        "English",
+        "Korean",
+        "French"
+      ]
+    },
+    {
+      "pre": ", and a small bottle gave them a big friendship.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "island",
+      "섬",
+      "I live on a small <b>island</b> in the Philippines.",
+      "land with water all around it"
+    ],
+    [
+      "address",
+      "주소",
+      "There was an email <b>address</b> at the bottom.",
+      "the place where you send letters or emails"
+    ],
+    [
+      "silly",
+      "바보같이 느껴지는",
+      "Yuna felt <b>silly</b>.",
+      "a little foolish"
+    ],
+    [
+      "beeped",
+      "삐 소리를 냈다",
+      "her computer <b>beeped</b>.",
+      "made a short, high sound"
+    ],
+    [
+      "typhoon",
+      "태풍",
+      "A big <b>typhoon</b> hit my island",
+      "a very strong storm with wind and rain"
+    ],
+    [
+      "friendship",
+      "우정",
+      "A small bottle carried a big <b>friendship</b> across the sea.",
+      "being friends with someone"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why didn't Leo answer Yuna for a long time?",
+      "qko": "레오는 왜 오랫동안 유나에게 답장하지 않았나요?",
+      "opts": [
+        "A big typhoon hit his island, and there was no electricity.",
+        "Leo did not want to be friends.",
+        "Yuna wrote to the wrong address."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "A week passed, and then a month.",
+        "One summer morning, Yuna found a green bottle on a beach in Busan.",
+        "\"Sorry! A big typhoon hit my island, and we had no electricity for weeks.\"",
+        "There was an email address at the bottom."
+      ],
+      "ev": [
+        2
+      ],
+      "why": [
+        "레오는 큰 태풍이 섬을 덮쳐서 몇 주 동안 전기가 없었다고 했어요. 그래서 답장을 못 보냈어요. 친구가 되기 싫었다는 말은 없어요.",
+        "Leo said a big typhoon hit his island, and they had no electricity for weeks. That is why he could not answer. He did want to be friends."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Yuna felt silly.\" What does \"silly\" mean here?",
+      "qko": "\"Yuna felt silly.\"라고 나와요. 여기서 \"silly\"는 무슨 뜻인가요?",
+      "opts": [
+        "a little foolish for waiting",
+        "very happy and excited",
+        "angry at the sea"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Yuna wrote to Leo that night, but no answer came.",
+        "Yuna sent him photos of her school, and Leo sent pictures of turtles on his beach.",
+        "Now they talk every week in English.",
+        "Inside was a letter in English."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "유나는 편지를 보냈지만 답장이 오지 않았어요. 오래 기다려도 소식이 없으니, 괜히 기다린 것 같아 «바보같이» 느껴진 거예요.",
+        "Yuna wrote to Leo, but no answer came. After waiting so long, she felt a little foolish, or «silly»."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did Yuna know where to send her message to Leo?",
+      "qko": "유나는 레오에게 어디로 소식을 보내야 하는지 어떻게 알았나요?",
+      "opts": [
+        "Leo's letter had an email address, so she wrote to him.",
+        "Her teacher gave her Leo's phone number.",
+        "She threw a new bottle into the sea."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "There was an email address at the bottom.",
+        "Then one evening, her computer beeped.",
+        "Yuna wrote to Leo that night, but no answer came.",
+        "A small bottle carried a big friendship across the sea."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "편지 맨 아래에 이메일 주소가 있었고, 유나는 그날 밤 레오에게 글을 썼어요. 그래서 컴퓨터로 소식을 주고받게 되었어요.",
+        "There was an email address at the bottom of the letter, and Yuna wrote to Leo that night. That is how they started writing to each other."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Yuna and Leo meet for the first time in Busan.",
+      "유나와 레오가 부산에서 처음으로 만나요.",
+      "Hello, Leo!"
+    ],
+    [
+      "B",
+      "Yuna's class sends books to help Leo's island after the typhoon.",
+      "유나네 반이 태풍을 겪은 레오의 섬에 책을 보내 도와요.",
+      "Books for the Island"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "src": "“If <u>we write in English</u>, we can <u>make friends around the world</u>.”",
+    "slotKo": [
+      "만약 ~하면(상황)",
+      "할 수 있는 일"
+    ],
+    "slotEn": [
+      "a situation",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «어떤 상황 + 그때 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write a situation and what we can do then in English.",
+    "chips": [
+      {
+        "a": "we learn a new language",
+        "b": "talk to more people",
+        "label": "language"
+      },
+      {
+        "a": "it is sunny tomorrow",
+        "b": "go to the beach",
+        "label": "beach"
+      },
+      {
+        "a": "we send a letter",
+        "b": "say thank you to Grandma",
+        "label": "letter"
+      }
+    ],
+    "aria": [
+      "if what happens",
+      "what we can do"
+    ],
+    "moreKo": "한 걸음 더: «If» 뒤에는 «누가 + 무엇을» 을, «we can» 뒤에는 동사를 바로 쓰세요. (예: If we work hard, we can win the game)",
+    "moreEn": "One more step: after «If», write who + what. After «we can», write a verb. (e.g. If we work hard, we can win the game)"
+  },
+  "img": {
+    "style": "crayon",
+    "cover": "On a sunny beach in Busan, a girl with long black hair in two low pigtails and a yellow star hairpin in a sky-blue summer dress lifts a green bottle with a rolled-up paper inside out of the foamy waves, while far across the shining blue sea, a boy with short wavy brown hair in an orange T-shirt waves from a tiny island with palm trees.",
+    "scenes": {
+      "1": "In a small bedroom at night, a girl with long black hair in two low pigtails and a yellow star hairpin in a sky-blue summer dress sits at her desk with her chin in her hands and stares at a quiet computer, with a green bottle and a rolled-up paper next to the keyboard and the moon outside the window.",
+      "3": "In a bright bedroom, a girl with long black hair in two low pigtails and a yellow star hairpin in a sky-blue summer dress laughs at her computer, where a boy with short wavy brown hair in an orange T-shirt waves on the screen and holds up a photo of two sea turtles on a sandy beach."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "Yuna waits at her quiet computer at night.",
+    "3": "Yuna and Leo talk on the computer.",
+    "cover": "Yuna finds a bottle while Leo waves from a faraway island."
+  }
+}

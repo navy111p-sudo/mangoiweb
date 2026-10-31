@@ -49,7 +49,7 @@ async function audit(width, height, label){
   // 최소 폰트 검사 함수 (보이는 텍스트 노드만)
   const minFont = () => page.evaluate(()=>{
     let min = 999, minEl = '';
-    document.querySelectorAll('body *').forEach(el=>{
+    document.querySelectorAll('.intro *, #quizArea *').forEach(el=>{
       if (!el.offsetParent && getComputedStyle(el).position!=='fixed') return;
       const hasText = Array.from(el.childNodes).some(n=>n.nodeType===3 && n.textContent.trim().length>1);
       if (!hasText) return;

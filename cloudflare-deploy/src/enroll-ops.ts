@@ -13,6 +13,7 @@
  *  ⚠️ 이 모듈은 다른 도메인을 import 하지 않는다(단방향). api-pay.ts 가 여기로 위임한다.
  *  ⚠️ 돈·수업 데이터를 다루므로: 모든 생성은 멱등, 이중 예약은 3중 차단, 실패는 격리.
  */
+import { tossClientKey } from './toss-keys';   // 🔑 키 판정 정본 — 의존성 없는 파일이라 «다른 도메인 import 안 함» 원칙의 예외가 아님
 import { json, parseJsonBody } from './api-util';
 import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
@@ -1842,8 +1843,14 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
          FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
         WHERE cs.id = ? LIMIT 1`
     ).bind(scheduleId).first();
-    if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
+    if (!row) return json({ ok: false, error: 'schedule_not_found' }, 404);
     { const d = await subScopeDenied(env, request, actor.role, row.user_id); if (d) return d; }
+    if (row.status === 'postponed') return json({ ok: false, error: 'schedule_postponed',
+      message: '연기된 수업입니다. 먼저 연기 취소 또는 새 날짜로 재예약한 뒤 앞으로 계속 변경해 주세요.',
+      message_en: 'This class is postponed. Restore it or rebook it to a new date first, then choose Change from now on.' }, 409);
+    if (row.status !== 'active') return json({ ok: false, error: 'schedule_not_movable',
+      message: '취소되거나 종료된 수업은 변경할 수 없습니다. 최신 시간표에서 열린 수업을 선택해 주세요.',
+      message_en: 'Cancelled or completed classes cannot be moved. Refresh the timetable and select an open class.' }, 409);
     return json(await moveCandidatesFor(env, row, date, time, { dayCount: true }));
   }
 
@@ -1887,9 +1894,15 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
          FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
         WHERE cs.id = ? LIMIT 1`
     ).bind(scheduleId).first();
-    if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
+    if (!row) return json({ ok: false, error: 'schedule_not_found' }, 404);
     if (['lms', 'type_seed'].includes(String(row.user_id || '').toLowerCase())) return json({ ok: false, error: 'placeholder_row' }, 400);
     { const d = await subScopeDenied(env, request, actor.role, row.user_id); if (d) return d; }
+    if (row.status === 'postponed') return json({ ok: false, error: 'schedule_postponed',
+      message: '연기된 수업입니다. 먼저 연기 취소 또는 새 날짜로 재예약한 뒤 앞으로 계속 변경해 주세요.',
+      message_en: 'This class is postponed. Restore it or rebook it to a new date first, then choose Change from now on.' }, 409);
+    if (row.status !== 'active') return json({ ok: false, error: 'schedule_not_movable',
+      message: '취소되거나 종료된 수업은 변경할 수 없습니다. 최신 시간표에서 열린 수업을 선택해 주세요.',
+      message_en: 'Cancelled or completed classes cannot be moved. Refresh the timetable and select an open class.' }, 409);
 
     /* 담당 강사 변경 — 같은 강사면 «안 바꿈». 바꾸면 본사 전용 + 실재하는 강사만. */
     const curTid = row.teacher_id != null ? String(row.teacher_id) : '';
@@ -2165,7 +2178,7 @@ export async function createEnrollOrder(env: any, uid: string, p: any, kind: 'ne
   }
   return json({
     ok: true, kind, orderId, amount: q.amount, orderName,
-    clientKey: env.TOSS_CLIENT_KEY || 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq',
+    clientKey: tossClientKey(env).key,   // 🔑 (2026-10-21) /api/pay/config 와 같은 판정 — 금고에 «키가 아닌 값»이 들어가도 깨진 키로 결제창을 열지 않음
     summary: {
       teacher: tName, days: p.days, times: p.times, minutes: p.minutes, sessions: q.sessions,
       first_date: dates[0], last_date: dates[dates.length - 1], discount: q.discountRate,

@@ -1,0 +1,310 @@
+{
+  "id": "s1-13",
+  "breaks": [
+    3,
+    3,
+    4
+  ],
+  "key": {
+    "P": 5,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «외계인의 우주선이 고장 났다(문제)» 와 «내가 외계인이 집에 가도록 도왔다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the alien’s ship is broken) and the solution (I help the alien go home). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Me and a little green alien with three eyes"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The alien’s ship is broken, and he is crying."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "I give him my toy wrench, and the ship works again."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Something falls into my backyard at night. It is a tiny ",
+      "ans": "spaceship",
+      "opts": [
+        "spaceship",
+        "bicycle",
+        "house"
+      ]
+    },
+    {
+      "pre": ". A little green ",
+      "ans": "alien",
+      "opts": [
+        "alien",
+        "frog",
+        "dog"
+      ]
+    },
+    {
+      "pre": " comes out, and he is ",
+      "ans": "crying",
+      "opts": [
+        "crying",
+        "laughing",
+        "sleeping"
+      ]
+    },
+    {
+      "pre": ". His ship is ",
+      "ans": "broken",
+      "opts": [
+        "broken",
+        "new",
+        "clean"
+      ]
+    },
+    {
+      "pre": ". I give him my toy ",
+      "ans": "wrench",
+      "opts": [
+        "wrench",
+        "car",
+        "ball"
+      ]
+    },
+    {
+      "pre": ". The ship works again, and he flies home to the stars.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "backyard",
+      "뒷마당",
+      "Bang! Something falls into my <b>backyard</b> at night.",
+      "the yard behind a house"
+    ],
+    [
+      "flashlight",
+      "손전등",
+      "I run outside with a <b>flashlight</b>.",
+      "a small light you hold in your hand"
+    ],
+    [
+      "spaceship",
+      "우주선",
+      "It is a tiny <b>spaceship</b>!",
+      "a ship that flies in space"
+    ],
+    [
+      "alien",
+      "외계인",
+      "The door opens, and a little green <b>alien</b> comes out.",
+      "a living thing from another planet"
+    ],
+    [
+      "broken",
+      "고장 난",
+      "\"My ship is <b>broken</b>,\" he says.",
+      "not working"
+    ],
+    [
+      "wrench",
+      "스패너",
+      "I give him my toy <b>wrench</b>.",
+      "a tool for turning and fixing things"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why is the alien crying?",
+      "qko": "외계인은 왜 울고 있나요?",
+      "opts": [
+        "His ship is broken.",
+        "He is hungry.",
+        "He is afraid of my flashlight."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "\"My ship is broken,\" he says.",
+        "It is a tiny spaceship!",
+        "Zap! The ship works again.",
+        "I run outside with a flashlight."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "외계인이 «My ship is broken» 이라고 말해요. 우주선이 고장 나서 울고 있어요.",
+        "The alien says, \"My ship is broken.\" That is why he is crying."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"My ship is broken,\" he says. What does \"broken\" mean here?",
+      "qko": "«My ship is broken» 에서 «broken» 은 무슨 뜻일까요?",
+      "opts": [
+        "not working",
+        "very clean",
+        "brand new"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Zap! The ship works again.",
+        "Bang! Something falls into my backyard at night.",
+        "The door opens, and a little green alien comes out.",
+        "I helped an alien go home!"
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«Zap! The ship works again.» 스패너를 주자 우주선이 «다시» 움직여요. 그러니 «broken» 은 움직이지 않는다는 뜻이에요.",
+        "After I give him the wrench, the ship works again. So \"broken\" means not working."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does the alien get home?",
+      "qko": "외계인은 어떻게 집에 가나요?",
+      "opts": [
+        "I give him my toy wrench, and his ship works again.",
+        "He walks home through the woods.",
+        "My dad drives him home in a car."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "I give him my toy wrench.",
+        "Zap! The ship works again.",
+        "He has three eyes, and he is crying.",
+        "I run outside with a flashlight."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "내가 장난감 스패너를 주었고(«I give him my toy wrench.»), 우주선이 다시 움직였어요(«Zap! The ship works again.»). 두 문장을 이어야 알 수 있어요.",
+        "I give him my toy wrench, and then the ship works again, so he can fly home. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "The alien comes back to visit me with his family.",
+      "외계인이 가족과 함께 다시 나를 만나러 온다.",
+      "The Alien Comes Back"
+    ],
+    [
+      "B",
+      "I fly to the alien’s planet in his tiny spaceship.",
+      "나는 외계인의 조그만 우주선을 타고 외계인 행성에 간다.",
+      "My Trip to Space"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)",
+    "src": "“I think <u>the alien is happy</u> because <u>his ship works again</u>.”",
+    "chips": [
+      {
+        "a": "my friend is happy",
+        "b": "she is laughing",
+        "label": "friend"
+      },
+      {
+        "a": "my toy car is broken",
+        "b": "it does not move",
+        "label": "toy"
+      },
+      {
+        "a": "I am a good helper",
+        "b": "I help my mom",
+        "label": "helper"
+      }
+    ]
+  },
+  "img": {
+    "style": "flat",
+    "cover": "At night in a grassy backyard under a starry sky, a boy with messy brown hair in blue striped pajamas and red slippers waves a small orange toy wrench, while a little green alien with three big round eyes and two short antennae waves back from the round window of a tiny silver spaceship that glows and zooms up toward the stars.",
+    "scenes": {
+      "1": "In a dark grassy backyard lit by a flashlight beam, a little green alien with three big round eyes and two short antennae steps out of the open door of a tiny silver spaceship with a puff of gray smoke coming from its side, crying big tears, while a boy with messy brown hair in blue striped pajamas and red slippers kneels down and stares in surprise with the flashlight in his hand.",
+      "2": "In a grassy backyard at night, a boy with messy brown hair in blue striped pajamas and red slippers hands a small orange toy wrench to a little green alien with three big round eyes and two short antennae, and the tiny silver spaceship next to them crackles with blue sparks as its lights blink back on."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "A crying alien comes out of a tiny spaceship.",
+    "2": "The boy gives the alien a toy wrench.",
+    "cover": "The alien waves goodbye from his tiny spaceship."
+  }
+}

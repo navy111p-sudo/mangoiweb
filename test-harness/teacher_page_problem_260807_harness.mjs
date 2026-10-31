@@ -18,7 +18,7 @@ const rd = (p) => { try {
   // 분해 대응: public/*.html 은 «그 페이지가 로드하는 스크립트까지» 읽는다
   const m = /public\/([\w.-]+\.html)$/.exec(p);
   if (m) return readPageSource(m[1]);
-  return readFileSync(resolve(__dir, p), 'utf8');
+  return readFileSync(resolve(__dir, p), 'utf8').replace(/\r\n/g, '\n');
 } catch { return ''; } };
 
 const tapi   = rd('../cloudflare-deploy/src/api-teacher.ts');

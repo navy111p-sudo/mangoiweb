@@ -446,13 +446,15 @@ async function teacherFixture(name, opts = {}) {
   }, { ...opts, teacherIdentity: true });
   await state.page.goto(BASE + '/teacher.html', { waitUntil: 'domcontentloaded' });
   await shown(state.page, monday(instant));
+  // 2026-10-26: 주간 보기는 «오늘의 수업» 카드 안 접이칸이다 — 주 이동 버튼을 누르기 전에 편다.
+  await state.page.locator('#c-week > summary').click();
   check(name + ': browser online emulation permits polling inside isolated OS network', await state.page.evaluate(() => navigator.onLine === true));
   return Object.assign(state, { queue, requests });
 }
-async function shown(page, start, label) {
+async function shown(page, start, label, pickedDate = start) {
   await eventually('teacher displays ' + start + (label ? '/' + label : ''), async () =>
     (await page.locator('#wk-range').textContent()).startsWith('(' + start + ' ~ ')
-    && await page.locator('#wk-date').inputValue() === start
+    && await page.locator('#wk-date').inputValue() === pickedDate
     && (!label || (await page.locator('#week').textContent()).includes('Fixture ' + label)));
 }
 async function teacher() {
@@ -469,27 +471,27 @@ async function teacher() {
   queue.push({ label: 'picked' });
   await page.locator('#wk-date').fill('2026-11-18');
   await page.locator('#wk-date').press('Tab');
-  await shown(page, '2026-11-16', 'picked');
+  await shown(page, '2026-11-16', 'picked', '2026-11-18');
   check('teacher: real date input requests exact KST Monday', requests.at(-1).start === '2026-11-16');
-  await page.locator('#lang').click(); await shown(page, '2026-11-16', 'picked');
-  check('teacher: language redraw preserves selected week', await page.locator('#wk-date').inputValue() === '2026-11-16');
+  await page.locator('#lang').click(); await shown(page, '2026-11-16', 'picked', '2026-11-18');
+  check('teacher: language redraw preserves picked day', await page.locator('#wk-date').inputValue() === '2026-11-18');
   queue.push({ label: 'full-refresh' });
-  await page.locator('#reload').click(); await shown(page, '2026-11-16', 'full-refresh');
+  await page.locator('#reload').click(); await shown(page, '2026-11-16', 'full-refresh', '2026-11-18');
   check('teacher: full Refresh requests selected week', requests.at(-1).start === '2026-11-16');
   queue.push({ fail: true });
   await page.locator('#reload').click();
   await eventually('full refresh error visible', () => page.locator('#wk-error').isVisible());
-  check('teacher: failed full refresh retains last valid range/content', await page.locator('#wk-date').inputValue() === '2026-11-16'
+  check('teacher: failed full refresh retains last valid range/content', await page.locator('#wk-date').inputValue() === '2026-11-18'
     && (await page.locator('#week').textContent()).includes('Fixture full-refresh') && await page.locator('#stale').isVisible());
   queue.push({ label: 'auto-refresh' });
   const count = requests.length;
   await advanceClock(page, 46000, 'teacher selected-week auto refresh');
-  await shown(page, '2026-11-16', 'auto-refresh');
+  await shown(page, '2026-11-16', 'auto-refresh', '2026-11-18');
   check('teacher: real automatic timer requests selected week once', requests.length === count + 1 && requests.at(-1).start === '2026-11-16');
   queue.push({ fail: true });
   await page.locator('#wk-next').click();
   await eventually('week error visible', () => page.locator('#wk-error').isVisible());
-  check('teacher: failed navigation retains last valid range/date/content', await page.locator('#wk-date').inputValue() === '2026-11-16'
+  check('teacher: failed navigation retains last valid range/date/content', await page.locator('#wk-date').inputValue() === '2026-11-18'
     && (await page.locator('#wk-range').textContent()).includes('2026-11-16') && (await page.locator('#week').textContent()).includes('Fixture auto-refresh'));
   // Full refresh pending before newer week navigation must not redraw stale data.
   const oldFull = hold(); queue.push({ hold: oldFull, label: 'stale-full' }, { label: 'new-selection' });
@@ -536,7 +538,7 @@ async function teacherBoundary(timezoneId, instant, expected) {
   await state.page.locator('#wk-date').fill('2026-10-04');
   await state.page.locator('#wk-date').press('Tab');
   await eventually('explicit Sunday-picker request', () => state.requests.length === initialCount + 2);
-  await shown(state.page, '2026-09-28', 'boundary-sunday-pick');
+  await shown(state.page, '2026-09-28', 'boundary-sunday-pick', '2026-10-04');
   check(name + ': Sunday date input stays in preceding calendar week', state.requests.at(-1).rawWeek === '2026-09-28');
   await finish(state);
 }

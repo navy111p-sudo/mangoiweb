@@ -169,6 +169,15 @@ console.log('⑦ 관제탑 — monitor-wall.js renderUrgent (가짜 DOM 으로 �
     const b1 = go(st);
     ok('경고 줄을 상자 맨 위에 그린다', !b1.hidden && /서로 다른 방/.test(b1.innerHTML) && /class-4379-20261006/.test(b1.innerHTML));
     ok('참관 버튼은 «선생님이 기다리는 방» 으로', /data-act="observe" data-room="class-4397-20261006"/.test(b1.innerHTML));
+    /* (2026-10-20) 학생이 앉아 있는 방에도 참관·입장 버튼 — 선생님 방 버튼과 «짝» 으로 본다 */
+    ok('학생 방 참관 버튼도 그린다', /data-act="observe" data-room="class-4379-20261006"/.test(b1.innerHTML));
+    ok('학생 방 직접 입장 버튼도 그린다', /data-act="enter" data-room="class-4379-20261006"/.test(b1.innerHTML));
+    ok('선생님 방에는 입장 버튼을 안 단다(참관만)', !/data-act="enter" data-room="class-4397-20261006"/.test(b1.innerHTML));
+    ok('줄마다 div 가 한 번씩 닫힌다', (b1.innerHTML.match(/<div class="u">/g) || []).length === (b1.innerHTML.match(/<\/div>/g) || []).length);
+    const bs = go({ ...st, mism: [{ ...r[0], student_room: '' }] });
+    ok('짝: 학생 방을 모르면 학생 방 버튼을 안 그린다', !/학생 방/.test(bs.innerHTML) && /data-room="class-4397-20261006"/.test(bs.innerHTML));
+    const b6 = go({ ...st, mism: [{ ...r[0], student_room: 'x"><img src=x>' }] });
+    ok('학생 방 번호도 이스케이프한다', !/<img/.test(b6.innerHTML));
     const b2 = go({ ...st, rooms: [{ roomId: 'class-4397-20261006', observerCount: 4 }] });
     ok('짝: 참관 정원이 차면 그 버튼도 막는다', / disabled>/.test(b2.innerHTML));
     const b3 = go({ ...st, mism: [] });

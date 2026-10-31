@@ -8,10 +8,7 @@
   var $ = function(id){ return document.getElementById(id); };
   var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
-  /* 언어: 저장 정본은 localStorage «mangoi_lang» (adm-core.js 가 저장하는 공통 키).
-     ⛔ 'adminLang' 키를 읽거나 쓰지 말 것 — 그 키는 아무도 저장하지 않는 죽은 키인데
-        읽는 코드가 10곳 잠들어 있어, 한 번이라도 쓰면 그 10곳만 깨어나 반쪽 언어가 된다
-        (2026-08-27 trap-check 실측). 이 화면의 토글은 «화면 안에서만» 바꾸고 저장하지 않는다. */
+  /* 언어 정본 = localStorage «mangoi_lang». ⛔ 'adminLang' 금지 · 토글은 저장 안 함 (경위: docs/작업기록/261020_관제탑_학생방_참관입장.md) */
   var EN = false;
   try { EN = localStorage.getItem('mangoi_lang') === 'en'; } catch(e){}
   var L = function(ko, en){ return EN ? en : ko; };
@@ -194,12 +191,13 @@
     var box = $('urgent');
     if (!box) return;
     /* 참관 정원은 표(rowHtml)와 같은 규칙 — 차면 disabled, 2명 이상이면 🎧 소리만 */
-    function ob(rid, obs){
+    function ob(rid, obs, lb){
       var full = obs >= OBS_MAX, busy = obs >= OBS_BUSY;
-      return (obs ? ' <span class="badge ' + (busy ? 'alone' : 'obs') + '">' + L('관찰 ', 'obs ') + obs + '/' + OBS_MAX + (full ? L(' 정원 참', ' full') : '') + '</span>' : '')
+      return (lb ? ' ' + lb : '') + (obs ? ' <span class="badge ' + (busy ? 'alone' : 'obs') + '">' + L('관찰 ', 'obs ') + obs + '/' + OBS_MAX + (full ? L(' 정원 참', ' full') : '') + '</span>' : '')
         + '<button type="button" class="go" data-act="' + (busy ? 'observe-audio' : 'observe') + '" data-room="' + esc(rid) + '"'
-        + (full ? ' disabled' : '') + '>' + (busy ? L('🎧 소리만', '🎧 Audio') : L('👁 참관', '👁 Observe')) + '</button></div>';
+        + (full ? ' disabled' : '') + '>' + (busy ? L('🎧 소리만', '🎧 Audio') : L('👁 참관', '👁 Observe')) + '</button>';
     }
+    function cnt(rid){ var r = state.rooms.filter(function(x){ return String(x.roomId) === rid; })[0]; return (r && r.observerCount) || 0; }
     var list = state.forbidden ? [] : visibleRooms().filter(function(rm){ return severity(rm) > 0; });
     /* 🚨 학생·선생님이 서로 다른 방(판정은 서버 src/room-mismatch.ts) — 맨 위에 */
     var mm = state.forbidden ? [] : (state.mism || []), n = list.length + mm.length;
@@ -207,23 +205,26 @@
     if (!n) { box.innerHTML = ''; return; }
     box.innerHTML = '<h3>🚨 ' + L('지금 손봐야 할 방 ' + n, n + ' rooms need attention') + '</h3>'
       + mm.map(function(m){
-        var r = state.rooms.filter(function(x){ return String(x.roomId) === m.expected_room; })[0];
+        var sr = String(m.student_room || '');
         return '<div class="u"><span class="t">' + esc(m.start_kst || '—') + '</span><b>' + esc([m.teacher_name, m.student_name].filter(Boolean).join(' · ')) + '</b>'
           + '<span class="why">🔀 ' + L('서로 다른 방 — 학생 ', 'different rooms — student ') + esc(m.student_room) + L(' · 선생님 ', ' · teacher ') + esc(m.expected_room) + '</span>'
-          + ob(m.expected_room, (r && r.observerCount) || 0);
+          + ob(m.expected_room, cnt(m.expected_room), L('선생님 방', 'Teacher room'))
+          /* 학생이 있는 방도 참관·입장 (2026-10-20) */
+          + (sr ? ob(sr, cnt(sr), L('학생 방', 'Student room')) + '<button type="button" class="enter" data-act="enter" data-room="' + esc(sr) + '">'
+            + L('🚪 입장(보임)', '🚪 Enter (visible)') + '</button>' : '') + '</div>';
       }).join('')
       + list.map(function(rm){
         var rid = String(rm.roomId), sc = state.names[rid] || {};
         return '<div class="u"><span class="t">' + esc(sc.start_time || '—') + '</span><b>' + esc([sc.teacher_name, sc.student_name].filter(Boolean).join(' · ') || rid) + '</b>'
-          + reasonHtml(rm) + ob(rid, rm.observerCount || 0);
+          + reasonHtml(rm) + ob(rid, rm.observerCount || 0) + '</div>';
       }).join('');
   }
 
   function render(){
     if (hoverGrid) { pendingRender = true; return; }   /* 다음 틱에 그린다 */
     pendingRender = false;
-    document.title = L('수업 관제탑 — 망고아이', 'Class Control Tower — Mangoi');
-    $('hd-title').textContent = L('🗼 수업 관제탑', '🗼 Class Control Tower');
+    document.title = L('수업 관제탑 — 망고아이', 'Class Monitor — Mangoi');
+    $('hd-title').textContent = L('🗼 수업 관제탑', '🗼 Class Monitor');
     $('hd-note').textContent = pollMs()
       ? L('자동 갱신 · 탭을 내려놓으면 일시정지', 'Auto refresh · pauses when tab is hidden')
       : L('자동 갱신 꺼짐 — 🔄 로 새로고침', 'Auto refresh off - use 🔄');

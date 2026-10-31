@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
   },
   "img": {
+    "style": "felt",
     "cover": "A boy with short brown hair in a blue winter coat kneels in the snow next to a snowman and holds up a small red mitten with a big smile.",
     "scenes": {
       "1": "On a snowy morning, a boy with short brown hair in a blue winter coat, wearing only one red mitten, looks for something under snowy trees near a snowman.",
       "2": "A boy with short brown hair in a blue winter coat smiles and picks up a red mitten from the white snow."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

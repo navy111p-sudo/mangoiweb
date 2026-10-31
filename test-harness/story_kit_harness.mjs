@@ -62,11 +62,11 @@ bulk('문법 실수는 «grammar» 로 센다 (도장 막기 근거)', WRONG.fil
 bulk('철자만 틀리면 grammar 0 (도장은 주고 확인만 권함)', WRONG.filter((x) => /finsh|socer/.test(x[0])), ([a, b, s]) => (R(a, b, s).grammar === 0 && R(a, b, s).issues.length > 0) || 'bad');
 bulk('고친 문장을 다시 점검하면 고칠 곳이 없다', WRONG, ([a, b, s]) => { const r = R(a, b, s); const r2 = R(r.a, r.b, s); return (!r2.changed && r2.issues.length === 0) || r2.issues; });
 
-// (짝) 맞는 문장은 안 건드린다 — 4편의 예시 칩 + 본문 틀 문장의 밑줄 부분 + 손으로 고른 흔한 문장
+// (짝) 맞는 문장은 안 건드린다 — 4편의 예시 문장(WRITE_EX) + 본문 틀 문장의 밑줄 부분 + 손으로 고른 흔한 문장
 const RIGHT = [];
 for (const B of BOOKS) {
   const html = readFileSync(join(PUB, B.file), 'utf8');
-  for (const m of html.matchAll(/class="chip" data-a="([^"]+)" data-b="([^"]+)"/g)) RIGHT.push([m[1], m[2], B.slots, B.id]);
+  for (const [a, b] of JSON.parse((html.match(/var WRITE_EX = (\[.*?\]);\n/) || [0, '[]'])[1])) RIGHT.push([a, b, B.slots, B.id]);   // 예시 문장(2026-10-20 버튼 줄 제거 뒤 WRITE_EX 에만)
   const src = html.match(/class="pat-src">[^<]*<u>([^<]+)<\/u>[^<]*<u>([^<]+)<\/u>/);
   if (src) RIGHT.push([src[1], src[2], B.slots, B.id]);
 }
