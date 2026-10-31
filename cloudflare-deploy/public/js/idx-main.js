@@ -7371,8 +7371,10 @@ async function vcPopulateMicSelect() {
 async function vcSwitchMic(deviceId) {
     if (!deviceId) return;
     try {
+        let noise = true;
+        try { noise = localStorage.getItem('mangoi_vc_noise') !== '0'; } catch (_) {}
         const stream = await navigator.mediaDevices.getUserMedia({
-            audio: { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+            audio: { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: noise, autoGainControl: true }
         });
         const newTrack = stream.getAudioTracks()[0];
         if (!newTrack) throw new Error('오디오 트랙 없음');
@@ -11936,6 +11938,7 @@ async function pdfUpload(input) {
 
 async function pdfLoad(url, kind) {
     const generation = ++pdfLoadGeneration;
+    const roomAtStart = typeof vcRoomId === 'undefined' ? '' : vcRoomId || '';
     const pendingText = document.getElementById('ph265-textinput');
     if (pendingText) pendingText.blur();
     let nextDoc;
@@ -11974,7 +11977,8 @@ async function pdfLoad(url, kind) {
             disableStream: false
         }).promise;
     }
-    if (generation !== pdfLoadGeneration) return false;
+    if (generation !== pdfLoadGeneration
+        || roomAtStart !== (typeof vcRoomId === 'undefined' ? '' : vcRoomId || '')) return false;
     pdfDoc = nextDoc;
     window._vcCurrentPdfUrl = url;
     window._vcCurrentPdfKind = kind || '';
