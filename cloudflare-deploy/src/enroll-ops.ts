@@ -1955,19 +1955,31 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     if (conflicts.length) return json({ ok: false, error: 'conflict', conflicts, ...summary }, 409);
     if (!apply) return json({ ok: true, dry_run: true, ...summary });
 
-    /* 적용 — 한 번의 batch. 행마다 «옛 날짜·시각 그대로인가» 를 WHERE 로 다시 본다(그 사이 누가 바꿨으면 0행). */
+    /* 적용 — 한 번의 batch. 행마다 «옛 날짜·시각 그대로인가» 를 WHERE 로 다시 본다(그 사이 누가 바꿨으면 0행).
+       🔁 (2026-10-14) UPDATE 순서 — 미는 방향의 «먼 쪽부터» 비운다(weekly-postpone.ts 와 같은 이유).
+          planSeries 는 날짜 오름차순이라 +7일 이동이면 첫 회가 «아직 안 비운 둘째 회 자리» 로 들어가
+          uq_sched_teacher_slot(teacher_id, scheduled_date, start_time) 에 걸려 batch 전체가 롤백됐다
+          (10/14·21·28 → +7일 재현: UNIQUE constraint failed). 앞당기는(delta<0) 경우는 반대로 이른 쪽부터.
+       🕘 (2026-10-14) 시각 비교는 «DB 에 적힌 그대로» — planSeries 는 normTime('9:00')='09:00' 으로 골라 오는데
+          옛 WHERE 의 substr(start_time,1,5)='09:00' 은 '9:00' 행과 영영 안 맞아 그 회차가 조용히 0행이었다. */
+    const rawTimeById = new Map<string, string>();
+    for (const r of ((rs?.results as any[]) || [])) rawTimeById.set(String(r.id), String(r.start_time ?? ''));
+    const ordered = plan.items.slice().sort((a, b) =>
+      plan.delta_days >= 0 ? (a.from_date < b.from_date ? 1 : -1) : (a.from_date < b.from_date ? -1 : 1));
     const now = Date.now();
-    const stmts = plan.items.map((it) => env.DB.prepare(
+    const stmts = ordered.map((it) => env.DB.prepare(
       swap
         ? `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, teacher_id = ?, updated_at = ?
-            WHERE id = ? AND status = 'active' AND substr(replace(scheduled_date,'/','-'),1,10) = ? AND substr(start_time,1,5) = ?`
+            WHERE id = ? AND status = 'active' AND substr(replace(scheduled_date,'/','-'),1,10) = ? AND start_time = ?`
         : `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ?
-            WHERE id = ? AND status = 'active' AND substr(replace(scheduled_date,'/','-'),1,10) = ? AND substr(start_time,1,5) = ?`
+            WHERE id = ? AND status = 'active' AND substr(replace(scheduled_date,'/','-'),1,10) = ? AND start_time = ?`
     ).bind(...(swap
-      ? [it.to_date, it.to_time, newTid, now, it.id, it.from_date, it.from_time]
-      : [it.to_date, it.to_time, now, it.id, it.from_date, it.from_time])));
+      ? [it.to_date, it.to_time, newTid, now, it.id, it.from_date, rawTimeById.get(String(it.id)) || it.from_time]
+      : [it.to_date, it.to_time, now, it.id, it.from_date, rawTimeById.get(String(it.id)) || it.from_time])));
     const res: any[] = await env.DB.batch(stmts);
     const moved = res.reduce((n, r) => n + (Number(r?.meta?.changes) || 0), 0);
+    /* 못 옮긴 회차를 «어느 것인지» 함께 돌려준다 — 화면이 「N회 중 M회만」 다음에 날짜를 말할 수 있게. */
+    const unmoved = ordered.filter((_, i) => !(Number(res[i]?.meta?.changes) > 0)).map((it) => it.from_date);
     const actorName = String(actor.name || actor.username || '관리자');
     for (const it of plan.items) {
       await writeClassAudit(env, {
@@ -1979,7 +1991,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
         detail: `→ ${it.to_date} ${it.to_time}` + (swap ? ` · 강사 ${row.teacher_name || curTid} → ${newTeacherName || newTid}` : '') + ` (변경·앞으로 계속 ${plan.items.length}회)`,
       });
     }
-    return json({ ok: true, applied: true, moved, ...summary });
+    return json({ ok: true, applied: true, moved, unmoved, ...summary });
   }
 
   /* ── (m-3) 1회성 대체강사 배정 — 등록/취소 (관리자) ──
