@@ -210,7 +210,10 @@ console.log('\n[E] 매니저 화면 — 버튼이 없는 줄에 이유');
 {
   const i = MGR.indexOf("      var resch = '';");
   const j = MGR.indexOf("/* 📋 (2026-09-23 매니저 요청)", i);
-  const src = i > 0 && j > i ? MGR.slice(i, j) : '';
+  /* 📅 (2026-10-20) 버튼 판정은 taMovePill 한 곳으로 모였다 — 함께 오려 넣는다. */
+  const pk = MGR.indexOf('  function taMovePill(r){');
+  const pill = pk > 0 ? MGR.slice(pk, MGR.indexOf('\n  }\n', pk) + 4) : '';
+  const src = i > 0 && j > i ? pill + MGR.slice(i, j) : '';
   ok('E-0 전제: resch 블록을 오려 냈다', src.length > 100);
   let g = null;
   try { g = new Function('r', 'esc', 'T', 'var act="";' + src + ' return resch;'); } catch (e) { ok('E-0b 만들 수 있다', false, e.message); }
