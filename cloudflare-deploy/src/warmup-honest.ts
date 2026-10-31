@@ -17,7 +17,8 @@
  * [시범 운영] 기능 플래그 = WARMUP_MODE_PILOT(학원 이름 → 모드). 여기 없는 학원·학생은
  *   resolveWarmupHonest 가 null 을 돌려주고, 부르는 쪽은 «고치기 전과 한 글자도 다르지 않게» 돈다.
  *   제안서 6단계 «시범 운영: 강남캐피 지점 집중교정 → 피드백» 그대로다.
- *   ⚠️ 학원·반별로 고르는 관리 화면(제안서 6-③)은 아직 없다 — 다음 단계. 그때까지는 이 표 한 곳을 고친다.
+ *   ✅ 2026-10-31 — 원장님이 관리 화면(manager.html «A.i 말하기 교정 방식»)에서 학원별로 정한다(warmup-shop-mode.ts).
+ *      판정 순서: 학생이 고른 모드 → 원장님 설정 → 이 시범 표 → 없음.
  *   ⚠️ 웜업에는 «반» 개념이 없다(학생 단위로 돈다). 단위는 학원(students_erp.shop_name)이다.
  *
  * ⛔ 이 모듈의 함수는 어떤 입력에도 던지지 않는다 — 웜업 대화 한가운데서 불린다.
@@ -29,6 +30,7 @@
 
 import { stripCheerLead } from './warmup-empathy';
 import type { WarmupFix } from './warmup-correction';
+import { getShopMode } from './warmup-shop-mode';   // 🎚️ 원장님이 관리 화면에서 정한 학원별 모드(2026-10-31)
 
 export type WarmupMode = 'free_talk' | 'balanced' | 'focused';
 export type WarmupGrade = 'perfect' | 'partial' | 'incomplete';
@@ -54,7 +56,7 @@ export function pilotModeFor(shopName: unknown): WarmupMode | null {
  * 이 학생에게 «정직한 칭찬 + 교정 모드» 를 켤지. 켜면 { mode }, 아니면 null.
  * ⚠️ user_id 는 화면이 보내는 값이지만, 남의 아이디를 보내 봐야 «그 학원 모드로 자기 대화가 돈다» 뿐이라
  *    본인 확인은 걸지 않는다(남의 데이터를 읽거나 쓰지 않는다).
- * ⚠️ 학원 조회는 세션당 한 번(KV 30분 캐시). 실패하면 null — 예전 동작으로 떨어진다(fail-open).
+ * ⚠️ 학원·학원 설정 조회는 세션당 5분에 한 번(KV 캐시). 실패하면 null — 예전 동작으로 떨어진다(fail-open).
  */
 export async function resolveWarmupHonest(
   env: any, sessionId: string, userId: string, opts: { lang?: string; eleader?: boolean; chosen?: unknown } = {},
@@ -67,22 +69,30 @@ export async function resolveWarmupHonest(
     const c = typeof opts.chosen === 'string' ? opts.chosen.trim() : '';
     if (c && (WARMUP_MODES as readonly string[]).includes(c)) return { mode: c as WarmupMode };
     if (!userId) return null;
-    if (!Object.keys(WARMUP_MODE_PILOT).length) return null;
+    /* 🎚️ 학원 → (원장님 설정 ‖ 시범 표). 세션당 KV 5분 캐시 — 원장님이 바꾸면 길어야 5분 뒤 반영된다.
+       ⚠️ 캐시 값은 {s: 학원, m: 모드|''} JSON. 옛 키(학원 이름만)와 섞이지 않게 접두사를 바꿨다. */
     const kv = env && env.SESSION_STATE;
-    const ckey = 'warmuphonest:' + sessionId + ':' + userId;
-    let shop: string | null = null;
-    try { if (kv) { const v = await kv.get(ckey); if (v != null) shop = String(v); } } catch {}
-    if (shop == null) {
-      if (!env || !env.DB) return null;
-      /* 정확일치 먼저 — 대소문자만 다른 계정(Kim/kim)이 실재한다(CLAUDE.md 2장). */
-      let row: any = await env.DB.prepare('SELECT shop_name FROM students_erp WHERE user_id = ? LIMIT 1').bind(userId).first();
-      if (!row) {
-        row = await env.DB.prepare('SELECT shop_name FROM students_erp WHERE user_id = ? COLLATE NOCASE ORDER BY user_id LIMIT 1').bind(userId).first();
+    const ckey = 'warmuphonest2:' + sessionId + ':' + userId;
+    try {
+      if (kv) {
+        const v = await kv.get(ckey);
+        if (v != null) {
+          const c2 = JSON.parse(String(v));
+          const m2 = c2 && c2.m;
+          return (WARMUP_MODES as readonly string[]).includes(m2) ? { mode: m2 as WarmupMode } : null;
+        }
       }
-      shop = String((row && row.shop_name) || '');
-      try { if (kv) await kv.put(ckey, shop, { expirationTtl: 1800 }); } catch (e: any) { console.warn('[warmup-honest] cache put failed:', e?.message || e); }
+    } catch {}
+    if (!env || !env.DB) return null;
+    /* 정확일치 먼저 — 대소문자만 다른 계정(Kim/kim)이 실재한다(CLAUDE.md 2장). */
+    let row: any = await env.DB.prepare('SELECT shop_name FROM students_erp WHERE user_id = ? LIMIT 1').bind(userId).first();
+    if (!row) {
+      row = await env.DB.prepare('SELECT shop_name FROM students_erp WHERE user_id = ? COLLATE NOCASE ORDER BY user_id LIMIT 1').bind(userId).first();
     }
-    const mode = pilotModeFor(shop);
+    const shop = String((row && row.shop_name) || '');
+    const set = shop ? await getShopMode(env, shop) : null;   // 던지지 않음 — 못 읽으면 null(시범 표로)
+    const mode: WarmupMode | null = (set && (WARMUP_MODES as readonly string[]).includes(set)) ? (set as WarmupMode) : pilotModeFor(shop);
+    try { if (kv) await kv.put(ckey, JSON.stringify({ s: shop, m: mode || '' }), { expirationTtl: 300 }); } catch (e: any) { console.warn('[warmup-honest] cache put failed:', e?.message || e); }
     return mode ? { mode } : null;
   } catch (e: any) {
     console.warn('[warmup-honest] resolve skipped:', e?.message || e);

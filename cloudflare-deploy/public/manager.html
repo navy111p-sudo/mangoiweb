@@ -1082,6 +1082,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <button type="button" id="sideSettle" onclick="sideGo('c-settle')"><span class="ic">💰</span><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></button>
     <button type="button" id="sideTuition" onclick="sideGo('c-tuition')" hidden><span class="ic">💳</span><span data-en="Video class tuition" data-ko="화상영어 수업료 결제">Video class tuition</span></button>
     <button type="button" id="sideAibill" onclick="sideGo('c-aibill')" hidden><span class="ic">🤖</span><span data-en="A.i content payment" data-ko="AI 컨텐츠 결제">A.i content payment</span></button>
+    <button type="button" id="sideCmode" onclick="sideGo('c-cmode')"><span class="ic">🎚️</span><span data-en="A.i speaking correction" data-ko="A.i 말하기 교정 방식">A.i speaking correction</span></button>
     <button type="button" id="sidePayGuide" onclick="closeSide();openPayGuide()" hidden><span class="ic">📘</span><span data-en="Payment guide" data-ko="결제 안내 매뉴얼">Payment guide</span></button>
   </div>
   <div class="sgrp-h" data-en="Operations" data-ko="운영관리">Operations</div>
@@ -1606,6 +1607,14 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       <summary><span data-en="A.i content payment" data-ko="AI 컨텐츠 결제">A.i content payment</span></summary>
       <div class="aib-guide-link"><button type="button" class="btn btn-gray" onclick="aibGuideOpen()"><span data-en="📖 How to pay" data-ko="📖 결제 방법 보기">📖 How to pay</span></button></div>
       <div id="aibillBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
+  <!-- 🎚️ (2026-10-31 사장님 「원장님 관리 화면에서 학원별 교정 방식 지정」) A.i 말하기 연습(웜업)에서 틀린 말을 어떻게 고쳐 줄지.
+       학생이 첫 화면에서 직접 고르면 그것이 이기고, 안 고른 학생에게 이 학원 설정이 적용된다(정본 src/warmup-honest.ts resolveWarmupHonest).
+       ⚠️ #cmodeBody 는 «그릇» 이라 data-en/data-ko 를 달지 않는다 — 🌐 를 누르면 그린 내용이 지워진다(repaintAll 에서 다시 그림). -->
+  <details class="card" id="c-cmode" ontoggle="if(this.open)loadCmode()">
+      <summary><span data-en="A.i speaking correction" data-ko="A.i 말하기 교정 방식">A.i speaking correction</span></summary>
+      <div id="cmodeBody" class="empty">…</div>
   </details>
 
   <div class="grouphead" data-en="Operations" data-ko="운영관리">Operations</div>
@@ -2697,6 +2706,86 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     for (var i = 0; i < AIU_TOOLS.length; i++) { if (AIU_TOOLS[i].key === key) return T(AIU_TOOLS[i].en, AIU_TOOLS[i].ko); }
     return key;
   }
+  /* 🎚️ A.i 말하기 교정 방식 (2026-10-31) — 서버 /api/admin/ai-billing/correction-mode(정본 src/warmup-shop-mode-api.ts).
+     ⛔ 화면이 «바꿀 수 있는가» 를 판정하지 않는다 — 서버가 줄마다 editable 을 준다(대리점=자기 학원·본사=전부·지사=보기만). */
+  var CMODES = [
+    { k: 'free_talk', en: 'Free talk', ko: '자유대화', den: 'Keeps the chat flowing; repeats the right sentence naturally, no repeat-after-me.', dko: '대화 흐름 우선 — 바른 문장을 자연스럽게 다시 말해 주고 따라 말하기는 시키지 않아요.' },
+    { k: 'balanced', en: 'Balanced', ko: '균형', den: 'Corrects important mistakes; small ones now and then.', dko: '중요한 실수는 바로, 작은 실수는 가끔 고쳐 줘요.' },
+    { k: 'focused', en: 'Focused correction', ko: '집중교정', den: 'Corrects every mistake it finds and asks the student to say it again.', dko: '찾은 실수마다 고쳐 주고 바른 문장을 따라 말하게 해요.' }
+  ];
+  function cmodeName(k){ for (var i = 0; i < CMODES.length; i++) { if (CMODES[i].k === k) return T(CMODES[i].en, CMODES[i].ko); } return ''; }
+  var CMODE_Q = '';
+  window.loadCmode = function(){
+    var el = document.getElementById('cmodeBody');
+    if (!el) return;
+    el.className = 'empty'; el.textContent = T('Loading...', '불러오는 중...');
+    var qs = CMODE_Q ? ('?q=' + encodeURIComponent(CMODE_Q)) : '';
+    fetch('/api/admin/ai-billing/correction-mode' + qs, { credentials: 'include', headers: { 'Accept': 'application/json' } })
+      .then(function(r){ if (r.status === 403) throw new Error('forbidden'); return r.json().catch(function(){ return null; }); })
+      .then(function(j){
+        if (!j || j.ok !== true || !Array.isArray(j.rows)) { failBox(el, new Error((j && j.error) || 'load_failed')); return; }
+        D.cmode = j; paintCmode();
+      })
+      .catch(function(e){ failBox(el, e); });
+  };
+  function cmodeRow(r){
+    var eff = r.mode || r.pilot_mode || '';
+    var how = r.mode ? T('set by the academy', '학원 설정') : r.pilot_mode ? T('pilot default', '시범 기본값') : T('not set — the usual way (balanced)', '정하지 않음 — 평소대로(균형)');
+    var h = '<div class="cm-row" style="border:1px solid #e3e8ef;border-radius:10px;padding:10px 12px;margin:8px 0;background:#fff">'
+          + '<div style="font-weight:700;color:#16202c">' + esc(r.shop_name) + '</div>'
+          + '<div style="font-size:13px;color:#475467;margin:2px 0 8px">' + T('Now: ', '지금: ') + '<b>' + esc(eff ? cmodeName(eff) : T('Balanced', '균형')) + '</b> · ' + esc(how) + '</div>';
+    if (r.editable) {
+      h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+      CMODES.forEach(function(m){
+        var on = (r.mode === m.k);
+        h += '<button type="button" class="btn ' + (on ? '' : 'btn-gray') + '" data-cm-shop="' + esc(r.shop_name) + '" data-cm-mode="' + m.k + '" aria-pressed="' + (on ? 'true' : 'false') + '">' + esc(T(m.en, m.ko)) + '</button>';
+      });
+      if (r.mode) h += '<button type="button" class="btn btn-gray" data-cm-shop="' + esc(r.shop_name) + '" data-cm-mode="">' + esc(T('Back to default', '기본으로')) + '</button>';
+      h += '</div>';
+    } else {
+      h += '<div style="font-size:12px;color:#667085">' + esc(T('View only — the academy or head office sets this.', '보기만 — 학원(원장님) 또는 본사가 정합니다.')) + '</div>';
+    }
+    return h + '</div>';
+  }
+  function paintCmode(){
+    var el = document.getElementById('cmodeBody'), j = D.cmode;
+    if (!el || !j) return;
+    el.className = '';
+    var h = '<div style="font-size:13px;color:#475467;line-height:1.6;margin-bottom:6px">'
+          + esc(T('How the A.i speaking practice corrects mistakes for students of this academy. A student who picks a mode on the first screen uses that instead. Changes apply within about 5 minutes.',
+                  'A.i 말하기 연습에서 이 학원 학생의 틀린 말을 어떻게 고쳐 줄지 정합니다. 학생이 첫 화면에서 직접 고르면 그것이 먼저입니다. 바꾸면 5분 안에 적용돼요.')) + '</div>';
+    h += '<ul style="margin:0 0 8px 18px;padding:0;font-size:13px;color:#475467">';
+    CMODES.forEach(function(m){ h += '<li><b>' + esc(T(m.en, m.ko)) + '</b> — ' + esc(T(m.den, m.dko)) + '</li>'; });
+    h += '</ul>';
+    if (j.scope === 'hq') {
+      h += '<div style="display:flex;gap:6px;margin:6px 0"><input id="cmodeQ" type="search" value="' + esc(CMODE_Q) + '" placeholder="' + esc(T('Find an academy', '학원 이름으로 찾기')) + '" style="flex:1;min-height:40px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;background:#fff;color:#101828">'
+         + '<button type="button" class="btn" id="cmodeQBtn">' + esc(T('Search', '찾기')) + '</button></div>';
+      if (CMODE_Q) {
+        var f = j.found || [];
+        h += f.length ? f.map(cmodeRow).join('') : '<div class="empty">' + esc(T('No academy found.', '찾은 학원이 없습니다.')) + '</div>';
+      }
+      h += '<div style="font-weight:700;margin-top:10px;color:#16202c">' + esc(T('Academies with a setting', '정해 둔 학원')) + '</div>';
+    }
+    h += j.rows.length ? j.rows.map(cmodeRow).join('') : '<div class="empty">' + esc(T('None yet.', '아직 없습니다.')) + '</div>';
+    el.innerHTML = h;
+  }
+  document.addEventListener('click', function(e){
+    var t = e.target && e.target.closest ? e.target : null;
+    if (!t) return;
+    if (t.closest('#cmodeQBtn')) { var q = document.getElementById('cmodeQ'); CMODE_Q = q ? q.value.trim() : ''; window.loadCmode(); return; }
+    var b = t.closest('[data-cm-shop]');
+    if (!b) return;
+    var shop = b.getAttribute('data-cm-shop'), mode = b.getAttribute('data-cm-mode') || '';
+    b.disabled = true;
+    fetch('/api/admin/ai-billing/correction-mode', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shop_name: shop, mode: mode }) })
+      .then(function(r){ return r.json().catch(function(){ return null; }); })
+      .then(function(j){
+        if (!j || j.ok !== true) { b.disabled = false; alert(T('Could not save: ', '저장하지 못했습니다: ') + ((j && j.error) || 'error')); return; }
+        window.loadCmode();
+      })
+      .catch(function(){ b.disabled = false; alert(T('Could not save. Check your connection.', '저장하지 못했습니다. 연결을 확인해 주세요.')); });
+  });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Enter' && e.target && e.target.id === 'cmodeQ') { CMODE_Q = e.target.value.trim(); window.loadCmode(); } });
   window.loadAiUsage = function(){
     var el = document.getElementById('aiuBody');
     var qs = '?tool=' + encodeURIComponent(val('aiuTool', 'all')) + '&days=' + encodeURIComponent(val('aiuDays', '30'));
@@ -4476,6 +4565,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     //    그린 내용이 통째로 사라짐」).
     if (D.aibill) paintAiBill();
     if (D.tuition) paintTuition();   // 💳 #tuiBody 도 data-ko/data-en «그릇» — 같은 이유로 다시 그린다
+    if (D.cmode) paintCmode();   // 🎚️ 교정 방식 카드도 JS 로 그린 글자 — 🌐 뒤 다시 그린다
     // 📵 번호 없는 학생 — 목록 글자는 그 스크립트가 그린다(이 화면은 mangoi:lang-changed 를 안 쏘므로 여기서 부른다).
     try { if (window.__pg && window.__pg._state && window.__pg._state.data) window.__pg.render(); } catch (e) {}
     // 🗒 새로 붙은 두 구역도 언어를 따라간다 — 빠뜨리면 KO/EN 토글 뒤에도
