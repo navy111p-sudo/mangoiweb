@@ -61,6 +61,9 @@ export type WarmupFix = {
 /** 세션 동안 «무엇을 몇 번 틀렸나 · 마지막으로 언제 고쳐 줬나» — KV 에 6시간 보관한다. */
 export type WarmupFixMemo = {
   tags?: Record<string, number>;
+  /* 🔁 발음 교정 — 낱말(was)별로 세션에 몇 번 고쳐 줬나. 같은 낱말은 PRON_WORD_CAP 번까지만. */
+  pron?: Record<string, number>;
+  lastPronTurn?: number;
   lastShownTurn?: number;
   lastRepeatTurn?: number;
   shown?: number;
@@ -74,10 +77,10 @@ export type WarmupFixMemo = {
 /** JSON 계약 — "reply" 설명만 화면마다 다르고 **"fix" 는 완전히 같다**.
     ⛔ 화면마다 스키마를 따로 적지 말 것 — 그 순간 한쪽만 조용히 어긋나고,
        parseWarmupOutput·verifyWarmupFix 한 벌이 두 화면을 다 받는다는 전제가 깨진다. */
-function fixJsonLine(replyDesc: string, nowDesc = '<고친 영어>'): string {
+function fixJsonLine(replyDesc: string, nowDesc = '<고친 영어>', withPron = true): string {
   return '{"reply":"' + replyDesc + '","fix":{"was":"<학생이 실제로 쓴 틀린 부분 그대로>",'
     + '"now":"' + nowDesc + '","why_ko":"<왜 고쳤는지 한국어 한 문장, 다정한 반말>",'
-    + '"tag":"past_tense|verb_form|article|plural|preposition|word_order|subject_verb|word_choice|question_form|pronunciation|other",'
+    + '"tag":"past_tense|verb_form|article|plural|preposition|word_order|subject_verb|word_choice|question_form|' + (withPron ? 'pronunciation|' : '') + 'other",'
     + '"severity":"major|minor"}}';
 }
 
@@ -112,7 +115,7 @@ export const WARMUP_ZH_CORRECTION_RULE = [
   '한 번에 한 가지만 고쳐. 다만 «어순(시간을 나타내는 말의 자리)·완료의 了 와 경험의 过·양사» 는 뜻이 통해도 «반드시» 고쳐 줘 — 그 셋은 그대로 두면 학생이 틀린 채로 굳는다(예: "一个书" → "一本书").',
   '⛔ 성조 표기나 발음은 지적하지 마 — 그건 다른 시간에 배운다. 학생이 한국어로만 말했으면 교정을 넣지 마.',
   '[출력형식] ⚠️ 이 규칙이 위 [형식] 보다 «우선» 한다 — 말하기 프롬프트의 [형식] 은 「평문으로만 써」 라고 말하지만, 그것은 아래 JSON 안의 "reply" 글에만 적용되는 규칙이야. 너는 반드시 아래 JSON 하나만 출력해. 설명·인사·코드펜스 없이 { 로 시작해 } 로 끝나야 해.',
-  fixJsonLine('<학생에게 할 중국어 말 — 위 [길이]·[언어]·[형식] 규칙 그대로>', '<고친 중국어(간체자)>'),
+  fixJsonLine('<학생에게 할 중국어 말 — 위 [길이]·[언어]·[형식] 규칙 그대로>', '<고친 중국어(간체자)>', false),
   ...FIX_COMMON_RULES,
 ].join('\n');
 
@@ -140,7 +143,7 @@ export const WARMUP_ZH_CORRECTION_RULE = [
 export const AI_FRIEND_CORRECTION_RULE = [
   'OUTPUT FORMAT — this rule OVERRIDES every rule above about how to lay out your message.',
   'Reply with ONE JSON object and nothing else: no greeting, no explanation, no code fence. Start with { and end with }.',
-  fixJsonLine('<your English message to the student — obey EVERY rule above: level, sentence limit, cheer, emojis, one question>'),
+  fixJsonLine('<your English message to the student — obey EVERY rule above: level, sentence limit, cheer, emojis, one question>', '<고친 영어>', false),
   'Everything the student reads is inside "reply". All the rules above apply to that text and to nothing else.',
   '⛔ NEVER put a Korean grammar tip inside "reply". The correction goes in "fix" only — the student sees it as its own card next to your message.',
   '"why_ko" must be Hangul only (no 한자, no Japanese): one short warm sentence a 10-year-old understands.',
@@ -364,11 +367,16 @@ export function verifyWarmupFix(
   if (now.length > Math.max(60, said.length * 2.5)) return null;
   /* ⛔ 낱말 겹침만으로 자르지 않는다 — "I don't went" → "I didn't go" 처럼 «형태가 바뀌는»
      흔한 교정이 0.33 으로 묻힌다(함정 대조가 실측으로 잡았다). 둘 중 하나면 통과. */
-  if (zhMode
+  /* 🔁 발음 교정은 면제 — «pok → bug» 처럼 철자가 거의 없는 쌍이 정상이다(발음이 틀렸을 때의 모양).
+     was 가 학생 원문에 낱말 단위로 있는지는 위에서 이미 확인했다. */
+  const isPronFix = !zhMode && String(fixRaw.tag) === 'pronunciation';
+  if (!isPronFix && (zhMode
         ? (wordOverlap(nWas, nNow, normZh, splitZh) < 0.5 && charDice(nWas, nNow, normZh) < 0.35)
-        : (wordOverlap(nWas, nNow) < 0.5 && charDice(nWas, nNow) < 0.35)) return null;
+        : (wordOverlap(nWas, nNow) < 0.5 && charDice(nWas, nNow) < 0.35))) return null;
 
-  const tag = (WARMUP_FIX_TAGS as readonly string[]).includes(String(fixRaw.tag)) ? String(fixRaw.tag) : 'other';
+  /* 🔁 발음(pronunciation)은 영어 웜업 전용이다 — 중국어에서 나오면 모르는 태그로 취급한다. */
+  let tag = (WARMUP_FIX_TAGS as readonly string[]).includes(String(fixRaw.tag)) ? String(fixRaw.tag) : 'other';
+  if (zhMode && tag === 'pronunciation') tag = 'other';
   /* 🔴 severity 를 모델에게 맡기지 않는다 (2026-09-09 사장님 「I ate pizza yesterday 인데
      I eat pizza yesterday 라고 말했는데 아바타가 수정해주지 않았어」).
      ⚠️ [추론 — 잰 것이 아님] 모델이 준 severity 는 D1·KV·로그 어디에도 안 남아 이 저장소에서
@@ -382,8 +390,9 @@ export function verifyWarmupFix(
   /* ⚠️ 어느 표를 «뜻이 달라지는 축» 으로 볼지는 언어마다 다르다. 안 넘기면 영어 표 —
         기존 호출부(영어 웜업·AI 영어친구)는 한 글자도 안 바뀐다. */
   const majorTags = (opts && opts.majorTags) || (MEANING_CHANGING_TAGS as readonly string[]);
+  /* 🔁 발음 교정은 서버가 major 로 고정한다 — 모델 판단에 맡기면 minor 가 나와 간격 게이트에 걸린다. */
   const severity: 'major' | 'minor' =
-    (majorTags as readonly string[]).includes(tag) ? 'major'
+    (majorTags as readonly string[]).includes(tag) || tag === 'pronunciation' ? 'major'
       : (String(fixRaw.severity) === 'major' ? 'major' : 'minor');
 
   return { was, now, why_ko: whyKo, tag, severity };
@@ -405,6 +414,10 @@ export const WARMUP_FIX_GAP_TURNS = 2;
 export const SECOND_TIME_TAGS: readonly string[] = ['word_choice'];
 /** 「따라 말해 볼까?」 는 이만큼 턴을 띄운다(제안서의 «3턴에 한 번»). */
 export const WARMUP_REPEAT_GAP_TURNS = 3;
+/** 🔁 발음 교정: 같은 낱말은 세션에 이만큼까지만 고쳐 준다(사장님 추천 2번 — 「매 턴 뜨면 말문이 막힌다」). */
+export const PRON_WORD_CAP = 2;
+/** 🔁 발음 교정은 이만큼 턴 간격을 둔다(집중교정에서는 간격 없이, 낱말 상한만 적용). */
+export const PRON_GAP_TURNS = 2;
 
 export function decideWarmupFixShow(
   fix: WarmupFix | null,
@@ -418,11 +431,24 @@ export function decideWarmupFixShow(
   const immediate = !!(opts && opts.immediate);
   const memo: WarmupFixMemo = {
     tags: { ...((memoIn && memoIn.tags) || {}) },
+    pron: { ...((memoIn && memoIn.pron) || {}) },
+    lastPronTurn: (memoIn && memoIn.lastPronTurn) || 0,
     lastShownTurn: (memoIn && memoIn.lastShownTurn) || 0,
     lastRepeatTurn: (memoIn && memoIn.lastRepeatTurn) || 0,
     shown: (memoIn && memoIn.shown) || 0,
   };
   if (!fix) return { show: null, memo };
+
+  /* 🔁 발음 교정 한도 — 같은 낱말은 세션에 PRON_WORD_CAP 번까지만(모든 모드에 적용).
+     ⚠️ 집중교정(immediate)도 이 상한은 건다. 「매 턴 뜨면 말문이 막힌다」는 이 저장소의 1원칙이다. */
+  const pronKey = fix.tag === 'pronunciation' ? fix.was.toLowerCase() : '';
+  if (pronKey) {
+    if ((memo.pron![pronKey] || 0) >= PRON_WORD_CAP) return { show: null, memo };
+    /* 발음끼리는 간격을 둔다 — 집중교정(immediate)에서는 간격 없이 매번(낱말 상한만 적용) */
+    if (!immediate && (memo.lastPronTurn || 0) > 0 && turnCount - (memo.lastPronTurn || 0) < PRON_GAP_TURNS) {
+      return { show: null, memo };
+    }
+  }
 
   /* 보여 주든 말든 «틀린 것» 자체는 센다 — 두 번째부터 보여 주는 판정의 근거가 된다.
      ⚠️ 세는 것과 보여 주는 것은 다른 축이다. 이 줄을 아래 게이트 뒤로 옮기면
@@ -465,6 +491,10 @@ export function decideWarmupFixShow(
     return { show: null, memo };
   }
 
+  if (pronKey) {
+    memo.pron![pronKey] = (memo.pron![pronKey] || 0) + 1;   // 실제로 보여 준 뒤에만 센다
+    memo.lastPronTurn = turnCount;
+  }
   memo.lastShownTurn = turnCount;
   memo.shown = (memo.shown || 0) + 1;
   return { show: fix, memo };

@@ -526,6 +526,28 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   t('B-37 중국어도 고친 문장이 질문보다 먼저 나온다', zhOut.indexOf('我昨天去了学校') >= 0 && zhOut.indexOf('我昨天去了学校') < zhOut.indexOf('？'), zhOut);
 }
 
+// ── 🔁 발음 교정(pronunciation): 서버가 major 고정 · 낱말 2번 상한 · 발음끼리 2턴 간격 · 집중교정은 간격 없음 ──
+{
+  const pf = (was, now) => ({ was, now, why_ko: '낱말이 잘못 들렸어요', tag: 'pronunciation', severity: 'minor' });
+  const v = verifyWarmupFix(pf('pok', 'bug'), 'I do not like pok', { lang: 'en' });
+  t('P-1 발음 교정은 모델이 minor 라도 major 로 고정', v && v.severity === 'major', v && v.severity);
+  t('P-1b 짝: 발음 태그는 중국어 검증에서 other 로 떨어진다', (verifyWarmupFix(pf('猫', '狗'), '我喜欢猫', { lang: 'zh' }) || {}).tag !== 'pronunciation', '');
+  let m = null, shown = 0;
+  for (let i = 1; i <= 6; i++) { const r = decideWarmupFixShow(v, m, i, { immediate: true }); m = r.memo; if (r.show) shown++; }
+  t('P-2 집중교정: 같은 낱말은 2번까지만 (상한)', shown === 2, 'shown=' + shown);
+  let m2 = null, shown2 = 0;
+  for (let i = 1; i <= 6; i++) { const r = decideWarmupFixShow(v, m2, i, { immediate: false }); m2 = r.memo; if (r.show) shown2++; }
+  t('P-3 자동 모드: 발음은 2턴 간격 + 낱말 2번 상한', shown2 >= 1 && shown2 <= 2, 'shown=' + shown2);
+  let m3 = null; const a = decideWarmupFixShow(v, m3, 1, { immediate: false }); m3 = a.memo;
+  const b = decideWarmupFixShow(pf('bugs', 'bugs'), m3, 2, { immediate: false });
+  t('P-4 자동 모드: 간격 안이면 다른 낱말도 발음 교정이 안 뜬다', !!a.show && !b.show, '');
+  const c = decideWarmupFixShow(v, a.memo, 3, { immediate: false });
+  t('P-4b 짝: 간격이 지나면 다시 뜬다', !!c.show, '');
+  let m5 = null; const n = [];
+  for (let i = 1; i <= 2; i++) { const r = decideWarmupFixShow(v, m5, i, { immediate: true }); m5 = r.memo; n.push(!!r.show); }
+  t('P-5 집중교정은 간격 없이 매번 뜬다(상한 안에서)', n[0] && n[1], JSON.stringify(n));
+}
+
 process.stdout.write('@@JSON@@' + JSON.stringify(out));
 `;
   writeFileSync(join(tmp, 'run.mjs'), runner);

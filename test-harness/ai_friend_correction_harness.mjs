@@ -215,8 +215,11 @@ let RULES = null;
       return i < 0 ? '' : s.slice(i, s.indexOf('\n', i) < 0 ? undefined : s.indexOf('\n', i));
     };
     const fw = fixPart(RULES.W), fa = fixPart(RULES.A);
-    check('C-1 🔴 fix 스키마가 두 화면에서 «완전히 같다»', fw.length > 40 && fw === fa,
-          fw === fa ? String(fw.length) + '자' : '\n    웜업: ' + fw + '\n    친구: ' + fa);
+    /* 🔁 발음(pronunciation) 태그는 영어 웜업에만 있다(2026-10-31 사장님 추천 3번) — 그 한 단어만 다르다.
+       나머지 스키마는 글자까지 같아야 한다. */
+    const fwCmp = fw.replace('|pronunciation|', '|');
+    check('C-1 🔴 fix 스키마가 두 화면에서 «완전히 같다» (발음 태그 제외 — 웜업에만 있다)', fw.length > 40 && fwCmp === fa && fw.includes('pronunciation') && !fa.includes('pronunciation'),
+          fwCmp === fa ? String(fw.length) + '자' : '\n    웜업: ' + fw + '\n    친구: ' + fa);
     /* ⚠️ 이 검사의 옛 이름은 「AI 친구 규칙은 영어로 쓴다」였는데 재는 것은 «OUTPUT FORMAT 이
        있는가» 뿐이었다 — 실제로는 10줄 중 5줄이 한국어다(함정 대조가 세어 잡았다).
        이름이 보장보다 넓으면 다음 사람이 그 이름을 믿는다. 재는 것을 그대로 이름에 쓴다. */
