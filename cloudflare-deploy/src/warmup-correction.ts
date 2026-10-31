@@ -316,6 +316,10 @@ export function verifyWarmupFix(
 
   if (!was || !now || !whyKo || !said) return null;
   if (was.length > 200 || now.length > 200 || whyKo.length > 200) return null;
+  /* 🈚 설명(why_ko)에 한자·가나가 섞이면 교정 전체를 버린다 (2026-10-31 사장님 「한글에 한자가 나오지 않게」).
+     예: 「가족이現在还有 있다는 뜻으로現在형을…」 — 프롬프트 지시만으로는 모델이 가끔 어긴다.
+     글자를 지워 살리면 문장이 깨지므로(「있다는 뜻으로형을」), 깨진 설명을 보이느니 교정을 건너뛴다. */
+  if (/[㐀-䶿一-鿿぀-ヿ]/.test(whyKo)) return null;
 
   /* 🀄 언어 축 (2026-09-13). 아래 모든 판정이 여기서 갈린다.
      🔴 이 축이 없던 동안 **중국어 교정은 한 건도 통과하지 못했습니다** —
