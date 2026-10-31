@@ -258,4 +258,10 @@ try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {}
 console.log('┌────────────────────────────────────────────────');
 console.log('│ 🎯 warmup_honest_mode_harness — PASS ' + pass + ' / FAIL ' + fail);
 console.log('└────────────────────────────────────────────────');
+// 배선 (2026-10-31): 3번 반복(vfix)과 교정 카드가 «같은» 교정을 본다 — 과거형 규칙을 빼면 카드만 뜨고 반복이 안 된다
+{
+  const IDX = fs.readFileSync(path.join(SRC, 'index.ts'), 'utf8');
+  const m = IDX.match(/const vfix = verifyWarmupFix\(([^;]+),\s*studentInput/);
+  ok('3번 반복 교정(vfix)이 과거형 규칙까지 본다 — 카드와 같은 교정', !!m && /backfillPastTenseFix\(studentInput\)/.test(m[1]), m && m[1]);
+}
 process.exit(fail ? 1 : 0);

@@ -4666,7 +4666,9 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     let honestGrade: any = null;
     if (honest) {
       try {
-        const vfix = verifyWarmupFix(rawFix, studentInput, undefined);
+        /* ⚠️ 카드(아래 verified)와 «같은» 교정을 말해야 한다 — 카드는 모델 교정이 없으면 과거형 규칙을 쓰는데
+           여기서 모델 교정만 보면 카드는 뜨고 3번 반복은 안 되는 엇갈림이 생긴다(2026-10-31 사장님 화면). */
+        const vfix = verifyWarmupFix(rawFix || backfillPastTenseFix(studentInput), studentInput, undefined);
         honestGrade = finalizeWarmupGrade(modelOk ? rawGrade : null, vfix, studentInput);
         aiText = applyHonestPraise(aiText, honestGrade) || aiText;
         // 🎯 집중교정 — 고친 문장을 아바타가 소리 내어 말하게 한다(검증된 교정만, 히스토리 저장 전)

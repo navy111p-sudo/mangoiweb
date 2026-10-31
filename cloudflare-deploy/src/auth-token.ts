@@ -74,6 +74,27 @@ export async function signUidToken(uid: string, env: any, ttlMs = 30 * 86400 * 1
   return payload + '.' + b64uFromBytes(new Uint8Array(sig));
 }
 
+type UidClaims = { uid: string; exp: number; sid?: string };
+
+/** Authentication and session diagnostics share signature and claim validation. */
+async function readUidClaims(token: string, env: any): Promise<UidClaims | null> {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 2) return null;
+  const [payload, sig] = parts;
+  if (!payload || !sig) return null;
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(uidTokenSecret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+  const ok = await crypto.subtle.verify('HMAC', key, b64uToBytes(sig) as any, enc.encode(payload));
+  if (!ok) return null;
+  const p = JSON.parse(new TextDecoder().decode(b64uToBytes(payload)));
+  // Every issued uid token has a string uid and a finite millisecond expiry.
+  // Legacy tokens lack sid only; they still contain uid and exp.
+  if (!p || typeof p.uid !== 'string' || !p.uid.trim() ||
+      typeof p.exp !== 'number' || !Number.isFinite(p.exp) || p.exp <= 0 ||
+      (p.sid !== undefined && typeof p.sid !== 'string')) return null;
+  return p;
+}
+
 /**
  * 서명 토큰을 검증해 uid 반환(위조·만료 시 null).
  * 🔒 SINGLE_SESSION='on' 이고 토큰에 sid 가 있으면 **KV 의 최신 sid 와 대조**해,
@@ -81,15 +102,8 @@ export async function signUidToken(uid: string, env: any, ttlMs = 30 * 86400 * 1
  */
 export async function verifyUidToken(token: string, env: any): Promise<string | null> {
   try {
-    const [payload, sig] = String(token || '').split('.');
-    if (!payload || !sig) return null;
-    const enc = new TextEncoder();
-    const key = await crypto.subtle.importKey('raw', enc.encode(uidTokenSecret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
-    const ok = await crypto.subtle.verify('HMAC', key, b64uToBytes(sig) as any, enc.encode(payload));
-    if (!ok) return null;
-    const p = JSON.parse(new TextDecoder().decode(b64uToBytes(payload)));
-    if (!p.uid || (p.exp && p.exp < Date.now())) return null;
-
+    const p = await readUidClaims(token, env);
+    if (!p || p.exp <= Date.now()) return null;
     // ── 동시접속 1세션 대조 ──
     //   p.sid 가 없으면 = 이 기능 이전에 발급된 토큰 → 건드리지 않는다(하위호환).
     //   KV 에 기록이 없으면(만료·미기록) 통과 — 인프라 사고로 전원이 튕기는 쪽이 훨씬 나쁘다.
@@ -113,16 +127,10 @@ export async function verifyUidToken(token: string, env: any): Promise<string | 
  */
 export async function inspectSession(token: string, env: any): Promise<{ state: string; uid: string | null }> {
   try {
-    const [payload, sig] = String(token || '').split('.');
-    if (!payload || !sig) return { state: 'invalid', uid: null };
-    const enc = new TextEncoder();
-    const key = await crypto.subtle.importKey('raw', enc.encode(uidTokenSecret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
-    const ok = await crypto.subtle.verify('HMAC', key, b64uToBytes(sig) as any, enc.encode(payload));
-    if (!ok) return { state: 'invalid', uid: null };
-    const p = JSON.parse(new TextDecoder().decode(b64uToBytes(payload)));
-    if (!p.uid) return { state: 'invalid', uid: null };
-    const uid = String(p.uid);
-    if (p.exp && p.exp < Date.now()) return { state: 'expired', uid };
+    const p = await readUidClaims(token, env);
+    if (!p) return { state: 'invalid', uid: null };
+    const uid = p.uid;
+    if (p.exp <= Date.now()) return { state: 'expired', uid };
     if (!p.sid) return { state: 'legacy', uid };
     if (!singleSessionOn(env)) return { state: 'off', uid };
     if (!env?.SESSION_STATE) return { state: 'active', uid };   // fail-open 과 같은 판단
