@@ -1869,14 +1869,16 @@
                 답이 바뀌었으면(replaced) 읽던 것을 멈추고 정본을 읽습니다. */
           /* 🎯 집중교정 — 답장을 다 읽은 «뒤에» 고친 문장을 아바타가 3번 말한다.
              ⛔ 답장과 겹치면 MangoiTTS 가 앞 문장을 끊으므로 반드시 뒤에 붙인다. */
-          const fixGen = _stmGen;
+          let fixGen = _stmGen;
           const fixAfterReply = function(){ speakFocusedFix(d.fix, fixGen); };
           if (_stmSpoke && !d.replaced) {
             /* 이미 읽었습니다 — 스트리밍 큐가 다 끝난 뒤에 교정을 붙인다. */
             _stmChain = _stmChain.then(fixAfterReply);
           }
           else if (isSoundOn()) {
-            if (_stmSpoke) { stmReset(); try { window.MangoiTTS && MangoiTTS.stop(); } catch(e){} }
+            /* ⚠️ stmReset() 이 _stmGen 을 올리므로 세대 번호는 리셋 «뒤에» 다시 잡는다 —
+               안 그러면 답이 바뀐 턴(replaced)에서 교정 3번이 통째로 건너뛰어진다. */
+            if (_stmSpoke) { stmReset(); try { window.MangoiTTS && MangoiTTS.stop(); } catch(e){} fixGen = _stmGen; }
             const rows = document.querySelectorAll('.ai-row');
             const lastRow = rows.length ? rows[rows.length - 1] : null;
             const btns = document.querySelectorAll('.replay-btn');
