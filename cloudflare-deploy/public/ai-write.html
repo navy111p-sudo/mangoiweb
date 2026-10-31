@@ -920,16 +920,17 @@
   <script>
   (function () {
     var STEPS = [
-      { img: 1, ko: ['① 그림을 봐요', '맨 위 «🎬 장면·글감 선택» 에서 그림이나 글감을 하나 골라요. 다른 그림이 보고 싶으면 «🔀 다른 그림» 을 눌러요.'],
-                en: ['① Look at the picture', 'Pick a picture or topic in «🎬 Pick a scene or topic» at the top. Tap «🔀 Another picture» to see a different one.'] },
-      { img: 2, ko: ['② 그림 속 단어를 찾아요', '보라색 단어 3개가 그림 안에 숨어 있어요. 3개를 모두 넣어서 쓰면 ⭐ +15P!'],
-                en: ['② Find the picture words', 'The 3 purple words are hiding in the picture. Use all 3 to get ⭐ +15P!'] },
-      { img: 3, ko: ['③ 영어로 써요', '그림 속 사람이 무엇을 하는지 영어로 써요. 짧아도 괜찮아요! «🎤 말로 쓰기» 버튼이 보이면 말로도 쓸 수 있어요.'],
-                en: ['③ Write in English', 'Write what the people in the picture are doing. Short is OK! If you see «🎤 Speak to write», you can write by speaking.'] },
-      { img: 4, ko: ['④ «AI 첨삭 받기» 를 눌러요', '망고 선생님이 틀린 곳을 고쳐 주고 점수를 알려 줘요. 고친 문장을 보고 따라 써 보면 포인트를 더 받아요.'],
-                en: ['④ Tap «Get AI Correction»', 'Coach Mango fixes mistakes and gives you a score. Copy the fixed sentence to earn more points.'] },
-      { img: 5, ko: ['⑤ 막히면 그림 밑 질문에 답해요', '무엇을 쓸지 모르겠으면 그림 바로 밑 «🧠 브레인스토밍» 6하원칙 질문에 짧게 답해 봐요. 답하면 글의 뼈대를 만들어 줘요.'],
-                en: ['⑤ Stuck? Answer the questions below the picture', 'Not sure what to write? Answer the 5W1H questions in «🧠 Brainstorming» right below the picture. You get an outline.'] }
+      // 화면의 STEP 1·2·3 과 같은 이름·같은 순서(위에서 아래). 사진은 scripts/shoot-aiwrite-guide.mjs 가 찍는다 — 순서를 바꾸면 그쪽 SHOTS 도.
+      { img: 1, ko: ['STEP 1 · 그림을 봐요', '맨 위 «🎬 장면·글감 선택» 에서 그림이나 글감을 하나 골라요. 다른 그림이 보고 싶으면 «🔀 다른 그림» 을 눌러요.'],
+                en: ['STEP 1 · Look at the picture', 'Pick a picture or topic in «🎬 Pick a scene or topic» at the top. Tap «🔀 Another picture» to see a different one.'] },
+      { img: 2, ko: ['STEP 1 · 그림 속 단어를 찾아요', '보라색 단어 3개가 그림 안에 숨어 있어요. 3개를 모두 넣어서 쓰면 ⭐ +15P!'],
+                en: ['STEP 1 · Find the picture words', 'The 3 purple words are hiding in the picture. Use all 3 to get ⭐ +15P!'] },
+      { img: 3, ko: ['STEP 2 · 막히면 그림 밑 질문에 답해요', '무엇을 쓸지 모르겠으면 그림 바로 밑 «🧠 브레인스토밍» 6하원칙 질문에 짧게 답해 봐요(안 해도 돼요). 답하면 글의 뼈대를 만들어 줘요.'],
+                en: ['STEP 2 · Stuck? Answer the questions below the picture', 'Not sure what to write? Answer the 5W1H questions in «🧠 Brainstorming» right below the picture (optional). You get an outline.'] },
+      { img: 4, ko: ['STEP 3 · 영어로 써요', '그림 속 사람이 무엇을 하는지 영어로 써요. 짧아도 괜찮아요! «🎤 말로 쓰기» 버튼이 보이면 말로도 쓸 수 있어요.'],
+                en: ['STEP 3 · Write in English', 'Write what the people in the picture are doing. Short is OK! If you see «🎤 Speak to write», you can write by speaking.'] },
+      { img: 5, ko: ['STEP 3 · «AI 첨삭 받기» 를 눌러요', '망고 선생님이 틀린 곳을 고쳐 주고 점수를 알려 줘요. 고친 문장을 보고 따라 써 보면 포인트를 더 받아요.'],
+                en: ['STEP 3 · Tap «Get AI Correction»', 'Coach Mango fixes mistakes and gives you a score. Copy the fixed sentence to earn more points.'] }
     ];
     var cur = 0;
     function en() { try { return window.getLang && window.getLang() === 'en'; } catch (e) { return false; } }
@@ -938,7 +939,7 @@
       var st = STEPS[cur], L = en() ? st.en : st.ko;
       document.getElementById('awHowStep').innerHTML =
         '<h3>' + esc(L[0]) + '</h3>' +
-        '<img src="/img/aiwrite-guide/step' + st.img + '.webp?v=1" width="780" height="880" alt="' + esc(L[0]) + '" loading="lazy">' +
+        '<img src="/img/aiwrite-guide/step' + st.img + '.webp?v=2" width="780" height="880" alt="' + esc(L[0]) + '" loading="lazy">' +
         '<p>' + esc(L[1]) + '</p>';
       document.getElementById('awHowDots').innerHTML = STEPS.map(function (_, i) { return '<span' + (i === cur ? ' class="on"' : '') + '></span>'; }).join('');
       document.getElementById('awHowPrev').disabled = cur === 0;
